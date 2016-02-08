@@ -830,13 +830,14 @@ int prepare_loginuid(unsigned int value, unsigned int loglevel)
 	return ret;
 }
 
-unsigned int parse_pid_loginuid(pid_t pid, int *err)
+unsigned int parse_pid_loginuid(pid_t pid, int *err, bool ignore_noent)
 {
 	int fd;
 	ssize_t num;
 
 	*err = 0;
-	fd = open_proc(pid, "loginuid");
+	fd = __open_proc(pid, (ignore_noent) ? ENOENT : 0,
+			O_RDONLY, "loginuid");
 	if (fd < 0)
 		goto out;
 

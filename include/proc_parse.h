@@ -125,7 +125,7 @@ struct vm_area_list;
 extern bool add_skip_mount(const char *mountpoint);
 extern struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump);
 extern int parse_pid_stat(pid_t pid, struct proc_pid_stat *s);
-extern unsigned int parse_pid_loginuid(pid_t pid, int *err);
+extern unsigned int parse_pid_loginuid(pid_t pid, int *err, bool ignore_noent);
 extern int parse_pid_oom_score_adj(pid_t pid, int *err);
 extern int prepare_loginuid(unsigned int value, unsigned int loglevel);
 extern int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list);

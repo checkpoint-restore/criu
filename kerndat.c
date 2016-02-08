@@ -465,8 +465,8 @@ int kerndat_loginuid(bool only_dump)
 
 	kdat.has_loginuid = false;
 
-	/* No such file, or perm fault: CONFIG_AUDITSYSCALL disabled */
-	saved_loginuid = parse_pid_loginuid(getpid(), &ret);
+	/* No such file: CONFIG_AUDITSYSCALL disabled */
+	saved_loginuid = parse_pid_loginuid(getpid(), &ret, true);
 	if (ret < 0)
 		return 0;
 

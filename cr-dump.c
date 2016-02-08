@@ -329,7 +329,7 @@ static int dump_pid_misc(pid_t pid, TaskCoreEntry *tc)
 		pr_info("dumping /proc/%d/loginuid\n", pid);
 
 		tc->has_loginuid = true;
-		tc->loginuid = parse_pid_loginuid(pid, &ret);
+		tc->loginuid = parse_pid_loginuid(pid, &ret, false);
 		tc->loginuid = userns_uid(tc->loginuid);
 		/*
 		 * loginuid dumping is critical, as if not correctly

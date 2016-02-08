@@ -1866,7 +1866,7 @@ static int prepare_userns_hook(void)
 	 * inside container due to permissions.
 	 * But you still can set this value if it was unset.
 	 */
-	saved_loginuid = parse_pid_loginuid(getpid(), &ret);
+	saved_loginuid = parse_pid_loginuid(getpid(), &ret, false);
 	if (ret < 0)
 		return -1;
 
