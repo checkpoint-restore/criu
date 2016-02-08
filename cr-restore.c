@@ -2830,12 +2830,13 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 		if (validate_lsm(profile) < 0)
 			return ERR_PTR(-EINVAL);
 
-		if (profile) {
+		if (profile && render_lsm_profile(profile, &rendered)) {
+			return ERR_PTR(-EINVAL);
+		}
+
+		if (rendered) {
 			size_t lsm_profile_len;
 			char *lsm_profile;
-
-			if (render_lsm_profile(profile, &rendered))
-				return ERR_PTR(-EINVAL);
 
 			args->mem_lsm_profile_pos = rst_mem_cpos(RM_PRIVATE);
 			lsm_profile_len = strlen(rendered);
