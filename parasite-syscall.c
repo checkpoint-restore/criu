@@ -21,6 +21,7 @@
 #include "crtools.h"
 #include "namespaces.h"
 #include "kerndat.h"
+#include "config.h"
 #include "pstree.h"
 #include "posix-timer.h"
 #include "net.h"
@@ -1181,6 +1182,7 @@ static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
 	return 0;
 }
 
+#ifdef CONFIG_HAS_MEMFD
 static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 {
 	void *where = (void *)ctl->syscall_ip + BUILTIN_SYSCALL_SIZE;
@@ -1254,6 +1256,12 @@ err_cure:
 	syscall_seized(ctl, __NR_close, &sret, fd, 0, 0, 0, 0, 0);
 	return -1;
 }
+#else
+static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
+{
+	return 1;
+}
+#endif
 
 int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 {

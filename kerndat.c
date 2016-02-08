@@ -20,6 +20,7 @@
 #include "util.h"
 #include "lsm.h"
 #include "proc_parse.h"
+#include "config.h"
 
 struct kerndat_s kdat = {
 	/*
@@ -381,6 +382,7 @@ static int get_last_cap(void)
 	return sysctl_op(req, ARRAY_SIZE(req), CTL_READ, 0);
 }
 
+#ifdef CONFIG_HAS_MEMFD
 static bool kerndat_has_memfd_create(void)
 {
 	int ret;
@@ -398,6 +400,12 @@ static bool kerndat_has_memfd_create(void)
 
 	return 0;
 }
+#else
+static bool kerndat_has_memfd_create(void)
+{
+	kdat.has_memfd = false;
+}
+#endif
 
 static int get_task_size(void)
 {

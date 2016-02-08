@@ -12,6 +12,7 @@
 #include "page-xfer.h"
 #include "rst-malloc.h"
 #include "vma.h"
+#include "config.h"
 
 #include "protobuf.h"
 #include "protobuf/pagemap.pb-c.h"
@@ -215,6 +216,7 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 		return dup(si->fd);
 
 	flags = MAP_SHARED;
+#ifdef CONFIG_HAS_MEMFD
 	if (kdat.has_memfd) {
 		f = syscall(SYS_memfd_create, "", 0);
 		if (f < 0) {
@@ -228,6 +230,7 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 		}
 		flags |= MAP_FILE;
 	} else
+#endif
 		flags |= MAP_ANONYMOUS;
 
 	/*
