@@ -344,15 +344,20 @@ static int restore_signals(siginfo_t *ptr, int nr, bool group)
 	return 0;
 }
 
-static void restore_seccomp(struct task_restore_args *args)
+static int restore_seccomp(struct task_restore_args *args)
 {
+	int ret;
+
 	switch (args->seccomp_mode) {
 	case SECCOMP_MODE_DISABLED:
-		return;
+		return 0;
 	case SECCOMP_MODE_STRICT:
-		if (sys_prctl(PR_SET_SECCOMP, SECCOMP_MODE_STRICT, 0, 0, 0))
+		ret = sys_prctl(PR_SET_SECCOMP, SECCOMP_MODE_STRICT, 0, 0, 0);
+		if (ret < 0) {
+			pr_err("prctl(PR_SET_SECCOMP, SECCOMP_MODE_STRICT) returned %d\n", ret);
 			goto die;
-		return;
+		}
+		return 0;
 	case SECCOMP_MODE_FILTER: {
 		int i;
 		void *filter_data;
@@ -369,27 +374,24 @@ static void restore_seccomp(struct task_restore_args *args)
 			 * don't have to restore_seccomp() in threads, and that
 			 * future TSYNC behavior will be correct.
 			 */
-			if (sys_seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC, (char *) fprog) < 0)
+			ret = sys_seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC, (char *) fprog);
+			if (ret < 0) {
+				pr_err("sys_seccomp() returned %d\n", ret);
 				goto die;
+			}
 
 			filter_data += fprog->len * sizeof(struct sock_filter);
 		}
 
-		return;
+		return 0;
 	}
 	default:
 		goto die;
 	}
 
+	return 0;
 die:
-	/*
-	 * If preparing any seccomp state failed, we should make sure this
-	 * process doesn't continue so that it can't do things outside the
-	 * sandbox. Unfortunately, the rest of the restore has to continue
-	 * since we're too late in the process to stop it and have unlocked the
-	 * network.
-	 */
-	sys_exit_group(1);
+	return -1;
 }
 
 static int restore_thread_common(struct rt_sigframe *sigframe,
@@ -1268,7 +1270,8 @@ long __export_restore_task(struct task_restore_args *args)
 	 * ns, so we must do this before restore_creds.
 	 */
 	pr_info("restoring seccomp mode %d for %ld\n", args->seccomp_mode, sys_getpid());
-	restore_seccomp(args);
+	if (restore_seccomp(args))
+		goto core_restore_end;
 
 	/*
 	 * Writing to last-pid is CAP_SYS_ADMIN protected,
