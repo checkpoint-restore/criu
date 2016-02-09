@@ -128,7 +128,7 @@ unsigned long rst_mem_cpos(int type)
 {
 	struct rst_mem_type_s *t = &rst_mems[type];
 	BUG_ON(!t->remapable || !t->enabled);
-	return t->free_mem - t->buf;
+	return ((void*) round_up((unsigned long)t->free_mem, sizeof(void *))) - t->buf;
 }
 
 void *rst_mem_remap_ptr(unsigned long pos, int type)
