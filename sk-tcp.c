@@ -678,7 +678,7 @@ int rst_tcp_socks_prep(void)
 {
 	struct inet_sk_info *ii;
 
-	rst_tcp_socks_cpos = rst_mem_cpos(RM_PRIVATE);
+	rst_tcp_socks_cpos = rst_mem_align_cpos(RM_PRIVATE);
 	list_for_each_entry(ii, &rst_tcp_repair_sockets, rlist) {
 		struct rst_tcp_sock *rs;
 
@@ -689,7 +689,7 @@ int rst_tcp_socks_prep(void)
 		if (ii->sk_fd == -1)
 			continue;
 
-		rs = rst_mem_alloc_cont(sizeof(*rs), RM_PRIVATE);
+		rs = rst_mem_alloc(sizeof(*rs), RM_PRIVATE);
 		if (!rs)
 			return -1;
 

@@ -124,11 +124,14 @@ void rst_mem_switch_to_private(void)
 	rst_mems[RM_PRIVATE].enabled = true;
 }
 
-unsigned long rst_mem_cpos(int type)
+unsigned long rst_mem_align_cpos(int type)
 {
 	struct rst_mem_type_s *t = &rst_mems[type];
 	BUG_ON(!t->remapable || !t->enabled);
-	return ((void*) round_up((unsigned long)t->free_mem, sizeof(void *))) - t->buf;
+
+	t->free_mem = (void *) round_up((unsigned long)t->free_mem, sizeof(void *));
+
+	return t->free_mem - t->buf;
 }
 
 void *rst_mem_remap_ptr(unsigned long pos, int type)
@@ -138,7 +141,7 @@ void *rst_mem_remap_ptr(unsigned long pos, int type)
 	return t->buf + pos;
 }
 
-static void *__rst_mem_alloc(unsigned long size, int type)
+void *rst_mem_alloc(unsigned long size, int type)
 {
 	struct rst_mem_type_s *t = &rst_mems[type];
 	void *ret;
@@ -156,24 +159,6 @@ static void *__rst_mem_alloc(unsigned long size, int type)
 	t->last = size;
 
 	return ret;
-}
-
-void *rst_mem_alloc(unsigned long size, int type)
-{
-	struct rst_mem_type_s *t = &rst_mems[type];
-
-	t->free_mem = (void *) round_up((unsigned long)t->free_mem, sizeof(void *));
-
-	return __rst_mem_alloc(size, type);
-}
-
-/* Allocate memory without gaps with a previous slice */
-void *rst_mem_alloc_cont(unsigned long size, int type)
-{
-	struct rst_mem_type_s *t = &rst_mems[type];
-	BUG_ON(!t->remapable);
-
-	return __rst_mem_alloc(size, type);
 }
 
 void rst_mem_free_last(int type)

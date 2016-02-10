@@ -47,10 +47,10 @@ enum {
 extern void rst_mem_switch_to_private(void);
 /*
  * Reports a cookie of a current shared buffer position, that
- * can later be used in rst_mem_cpos() to find out the object
- * pointer.
+ * can later be used in rst_mem_remap_ptr() to find out the object
+ * pointer in the restorer blob.
  */
-extern unsigned long rst_mem_cpos(int type);
+extern unsigned long rst_mem_align_cpos(int type);
 extern void *rst_mem_remap_ptr(unsigned long pos, int type);
 /*
  * Allocate and free objects. We don't need to free arbitrary
@@ -58,8 +58,13 @@ extern void *rst_mem_remap_ptr(unsigned long pos, int type);
  * last object can be freed (pop-ed from buffer).
  */
 extern void *rst_mem_alloc(unsigned long size, int type);
-extern void *rst_mem_alloc_cont(unsigned long size, int type);
 extern void rst_mem_free_last(int type);
+
+/* Word-align the current freelist pointer for the next allocation. If we don't
+ * align pointers, some futex and atomic operations can fail.
+ */
+extern void rst_mem_align(int type);
+
 /*
  * Routines to remap SHREMAP and PRIVATE into restorer address space
  */

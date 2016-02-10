@@ -230,7 +230,7 @@ int seccomp_filters_get_rst_pos(CoreEntry *core, int *count, unsigned long *pos)
 	}
 
 	*count = 0;
-	*pos = rst_mem_cpos(RM_PRIVATE);
+	*pos = rst_mem_align_cpos(RM_PRIVATE);
 
 	BUG_ON(core->tc->seccomp_filter > se->n_seccomp_filters);
 	sf = se->seccomp_filters[core->tc->seccomp_filter];

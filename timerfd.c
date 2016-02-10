@@ -115,11 +115,11 @@ int rst_timerfd_prep(void)
 	struct timerfd_info *ti;
 	struct restore_timerfd *t;
 
-	rst_timerfd_cpos = rst_mem_cpos(RM_PRIVATE);
+	rst_timerfd_cpos = rst_mem_align_cpos(RM_PRIVATE);
 	list_for_each_entry(ti, &rst_timerfds, rlist) {
 		TimerfdEntry *tfe = ti->tfe;
 
-		t = rst_mem_alloc_cont(sizeof(*t), RM_PRIVATE);
+		t = rst_mem_alloc(sizeof(*t), RM_PRIVATE);
 		if (!t)
 			return -1;
 

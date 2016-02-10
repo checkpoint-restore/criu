@@ -775,7 +775,7 @@ static int collect_child_pids(int state, int *n)
 		if (pi->state != state)
 			continue;
 
-		child = rst_mem_alloc_cont(sizeof(*child), RM_PRIVATE);
+		child = rst_mem_alloc(sizeof(*child), RM_PRIVATE);
 		if (!child)
 			return -1;
 
@@ -788,13 +788,13 @@ static int collect_child_pids(int state, int *n)
 
 static int collect_helper_pids()
 {
-	helpers_pos = rst_mem_cpos(RM_PRIVATE);
+	helpers_pos = rst_mem_align_cpos(RM_PRIVATE);
 	return collect_child_pids(TASK_HELPER, &n_helpers);
 }
 
 static int collect_zombie_pids()
 {
-	zombies_pos = rst_mem_cpos(RM_PRIVATE);
+	zombies_pos = rst_mem_align_cpos(RM_PRIVATE);
 	return collect_child_pids(TASK_DEAD, &n_zombies);
 }
 
@@ -2133,7 +2133,7 @@ out:
 
 static int prepare_task_entries(void)
 {
-	task_entries_pos = rst_mem_cpos(RM_SHREMAP);
+	task_entries_pos = rst_mem_align_cpos(RM_SHREMAP);
 	task_entries = rst_mem_alloc(sizeof(*task_entries), RM_SHREMAP);
 	if (!task_entries) {
 		pr_perror("Can't map shmem");
@@ -2432,7 +2432,7 @@ static int prepare_posix_timers_from_fd(int pid)
 		if (ret <= 0)
 			break;
 
-		t = rst_mem_alloc_cont(sizeof(struct restore_posix_timer), RM_PRIVATE);
+		t = rst_mem_alloc(sizeof(struct restore_posix_timer), RM_PRIVATE);
 		if (!t)
 			break;
 
@@ -2457,14 +2457,14 @@ static int prepare_posix_timers(int pid, CoreEntry *core)
 	TaskTimersEntry *tte = core->tc->timers;
 	struct restore_posix_timer *t;
 
-	posix_timers_cpos = rst_mem_cpos(RM_PRIVATE);
+	posix_timers_cpos = rst_mem_align_cpos(RM_PRIVATE);
 
 	if (!tte)
 		return prepare_posix_timers_from_fd(pid);
 
 	posix_timers_nr = tte->n_posix;
 	for (i = 0; i < posix_timers_nr; i++) {
-		t = rst_mem_alloc_cont(sizeof(struct restore_posix_timer), RM_PRIVATE);
+		t = rst_mem_alloc(sizeof(struct restore_posix_timer), RM_PRIVATE);
 		if (!t)
 			goto out;
 
@@ -2623,7 +2623,7 @@ static int prepare_rlimits_from_fd(int pid)
 		if (ret <= 0)
 			break;
 
-		r = rst_mem_alloc_cont(sizeof(*r), RM_PRIVATE);
+		r = rst_mem_alloc(sizeof(*r), RM_PRIVATE);
 		if (!r) {
 			pr_err("Can't allocate memory for resource %d\n",
 			       rlims_nr);
@@ -2654,13 +2654,13 @@ static int prepare_rlimits(int pid, CoreEntry *core)
 	TaskRlimitsEntry *rls = core->tc->rlimits;
 	struct rlimit *r;
 
-	rlims_cpos = rst_mem_cpos(RM_PRIVATE);
+	rlims_cpos = rst_mem_align_cpos(RM_PRIVATE);
 
 	if (!rls)
 		return prepare_rlimits_from_fd(pid);
 
 	for (i = 0; i < rls->n_rlimits; i++) {
-		r = rst_mem_alloc_cont(sizeof(*r), RM_PRIVATE);
+		r = rst_mem_alloc(sizeof(*r), RM_PRIVATE);
 		if (!r) {
 			pr_err("Can't allocate memory for resource %d\n", i);
 			return -1;
@@ -2684,7 +2684,7 @@ static int signal_to_mem(SiginfoEntry *sie)
 	siginfo_t *info, *t;
 
 	info = (siginfo_t *) sie->siginfo.data;
-	t = rst_mem_alloc_cont(sizeof(siginfo_t), RM_PRIVATE);
+	t = rst_mem_alloc(sizeof(siginfo_t), RM_PRIVATE);
 	if (!t)
 		return -1;
 
@@ -2749,7 +2749,7 @@ static int prepare_signals(int pid, CoreEntry *leader_core)
 {
 	int ret = -1, i;
 
-	siginfo_cpos = rst_mem_cpos(RM_PRIVATE);
+	siginfo_cpos = rst_mem_align_cpos(RM_PRIVATE);
 	siginfo_priv_nr = xmalloc(sizeof(int) * current->nr_threads);
 	if (siginfo_priv_nr == NULL)
 		goto out;
@@ -2802,7 +2802,7 @@ static void rst_reloc_creds(struct thread_restore_args *thread_args,
 static struct thread_creds_args *
 rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 {
-	unsigned long this_pos = rst_mem_cpos(RM_PRIVATE);
+	unsigned long this_pos;
 	struct thread_creds_args *args;
 
 	if (!verify_cap_size(ce)) {
@@ -2812,8 +2812,9 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 		return ERR_PTR(-EINVAL);
 	}
 
+	this_pos = rst_mem_align_cpos(RM_PRIVATE);
 
-	args = rst_mem_alloc_cont(sizeof(*args), RM_PRIVATE);
+	args = rst_mem_alloc(sizeof(*args), RM_PRIVATE);
 	if (!args)
 		return ERR_PTR(-ENOMEM);
 
@@ -2838,7 +2839,7 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 			size_t lsm_profile_len;
 			char *lsm_profile;
 
-			args->mem_lsm_profile_pos = rst_mem_cpos(RM_PRIVATE);
+			args->mem_lsm_profile_pos = rst_mem_align_cpos(RM_PRIVATE);
 			lsm_profile_len = strlen(rendered);
 			lsm_profile = rst_mem_alloc(lsm_profile_len + 1, RM_PRIVATE);
 			if (!lsm_profile) {
@@ -2874,7 +2875,7 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 	if (ce->n_groups) {
 		unsigned int *groups;
 
-		args->mem_groups_pos = rst_mem_cpos(RM_PRIVATE);
+		args->mem_groups_pos = rst_mem_align_cpos(RM_PRIVATE);
 		groups = rst_mem_alloc(ce->n_groups * sizeof(u32), RM_PRIVATE);
 		if (!groups)
 			return ERR_PTR(-ENOMEM);
@@ -2944,7 +2945,7 @@ static int rst_prep_creds(pid_t pid, CoreEntry *core, unsigned long *creds_pos)
 		return 0;
 	}
 
-	*creds_pos = rst_mem_cpos(RM_PRIVATE);
+	*creds_pos = rst_mem_align_cpos(RM_PRIVATE);
 
 	/*
 	 * Old format: one Creds per task carried in own image file.
@@ -3016,11 +3017,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * walk them and m(un|re)map.
 	 */
 
-	tgt_vmas = rst_mem_cpos(RM_PRIVATE);
+	tgt_vmas = rst_mem_align_cpos(RM_PRIVATE);
 	list_for_each_entry(vma, &vmas->h, list) {
 		VmaEntry *vme;
 
-		vme = rst_mem_alloc_cont(sizeof(*vme), RM_PRIVATE);
+		vme = rst_mem_alloc(sizeof(*vme), RM_PRIVATE);
 		if (!vme)
 			goto err_nv;
 
@@ -3034,11 +3035,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * Put info about AIO rings, they will get remapped
 	 */
 
-	aio_rings = rst_mem_cpos(RM_PRIVATE);
+	aio_rings = rst_mem_align_cpos(RM_PRIVATE);
 	for (i = 0; i < mm->n_aios; i++) {
 		struct rst_aio_ring *raio;
 
-		raio = rst_mem_alloc_cont(sizeof(*raio), RM_PRIVATE);
+		raio = rst_mem_alloc(sizeof(*raio), RM_PRIVATE);
 		if (!raio)
 			goto err_nv;
 
