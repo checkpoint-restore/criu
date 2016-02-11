@@ -278,7 +278,8 @@ clean: clean-built
 	$(Q) $(RM) ./*.img
 	$(Q) $(RM) ./*.out
 	$(Q) $(RM) ./*.bin
-	$(Q) $(RM) ./*.{gcda,gcno,gcov} ./test/`pwd`/*.{gcda,gcno,gcov} ./pie/*.{gcda,gcno,gcov}
+	$(Q) $(RM) ./*.{gcda,gcno,gcov} ./test/`pwd`/*.{gcda,gcno,gcov}
+	$(Q) $(RM) ./pie/*.{gcda,gcno,gcov} ./pie/piegen/*.{gcda,gcno,gcov}
 	$(Q) $(RM) -r ./gcov
 	$(Q) $(RM) protobuf-desc-gen.h
 	$(Q) $(MAKE) -C test $@
