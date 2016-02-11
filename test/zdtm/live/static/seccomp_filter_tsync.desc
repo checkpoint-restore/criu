@@ -1,1 +1,1 @@
-{'flags': 'suid', 'feature': 'seccomp_filters'}
+{'flags': 'suid noauto', 'feature': 'seccomp_filters'}
