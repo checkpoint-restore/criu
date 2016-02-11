@@ -79,7 +79,7 @@ endif
 
 ifeq ($(GCOV),1)
 	LDFLAGS += -lgcov
-	DEBUG = 1	# disable optimization if we want to measure code coverage
+	DEBUG := 1	# disable optimization if we want to measure code coverage
 %.o $(PROGRAM): override CFLAGS += --coverage -fno-exceptions -fno-inline
 endif
 
@@ -165,7 +165,7 @@ endif
 
 ifeq ($(GMON),1)
 	CFLAGS	+= -pg
-	GMONLDOPT = -pg
+	GMONLDOPT := -pg
 endif
 
 CFLAGS		+= $(WARNINGS) $(DEFINES)
