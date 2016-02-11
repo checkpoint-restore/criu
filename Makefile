@@ -97,14 +97,13 @@ ifeq ($(shell echo $(ARCH) | sed -e 's/arm.*/arm/'),arm)
 	ifeq ($(ARMV),7)
 		USERCFLAGS += -march=armv7-a
 	endif
-endif
-ifeq ($(ARCH),aarch64)
-	VDSO         := y
-endif
 
-ifeq ($(SRCARCH),arm)
 	PROTOUFIX    := y
 	export PROTOUFIX
+endif
+
+ifeq ($(ARCH),aarch64)
+	VDSO         := y
 endif
 
 #
