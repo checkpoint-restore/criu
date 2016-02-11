@@ -15,15 +15,6 @@
 #include <pthread.h>
 #include "zdtmtst.h"
 
-#undef __NR_seccomp
-
-#ifdef __NR_seccomp
-#define HAVE_SECCOMP 1
-#else
-#define HAVE_SECCOMP 0
-#define __NR_seccomp -1
-#endif
-
 #ifndef SECCOMP_SET_MODE_FILTER
 #define SECCOMP_SET_MODE_FILTER 1
 #endif
@@ -105,11 +96,6 @@ int main(int argc, char ** argv)
 	char c = 'K';
 
 	test_init(argc, argv);
-
-	if (!HAVE_SECCOMP) {
-		skip("no seccomp present in this kernel\n");
-		return 0;
-	}
 
 	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, sk_pair)) {
 		pr_perror("socketpair");
