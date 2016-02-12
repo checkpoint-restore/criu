@@ -13,6 +13,7 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <arpa/inet.h>
+#include <sched.h>
 
 #include "crtools.h"
 #include "cr_options.h"
@@ -458,6 +459,12 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	if (req->has_ghost_limit)
 		opts.ghost_limit = req->ghost_limit;
+
+	if (req->has_empty_ns) {
+		opts.empty_ns = req->empty_ns;
+		if (req->empty_ns & ~(CLONE_NEWNET))
+			goto err;
+	}
 
 	if (req->n_irmap_scan_paths) {
 		for (i = 0; i < req->n_irmap_scan_paths; i++) {

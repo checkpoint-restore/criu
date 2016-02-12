@@ -67,6 +67,7 @@ void init_opts(void)
 	opts.ps_socket = -1;
 	opts.ghost_limit = DEFAULT_GHOST_LIMIT;
 	opts.timeout = DEFAULT_TIMEOUT;
+	opts.empty_ns = 0;
 }
 
 static int parse_ns_string(const char *ptr)
@@ -272,6 +273,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "lsm-profile",		required_argument,	0, 1071 },
 		{ "timeout",			required_argument,	0, 1072 },
 		{ "external",			required_argument,	0, 1073	},
+		{ "empty-ns",			required_argument,	0, 1074	},
 		{ },
 	};
 
@@ -543,6 +545,14 @@ int main(int argc, char *argv[], char *envp[])
 			if (add_external(optarg))
 				return 1;
 			break;
+		case 1074:
+			if (!strcmp("net", optarg))
+				opts.empty_ns |= CLONE_NEWNET;
+			else {
+				pr_err("Unsupported empty namespace: %s", optarg);
+				return 1;
+			}
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -792,6 +802,9 @@ usage:
 "                            tty[rdev:dev]\n"
 "                            pipe[inode]\n"
 "                            socket[inode]\n"
+"  --empty-ns {net}\n"
+"			Create a namespace, but don't restore its properies.\n"
+"			An user will retore them from action scripts.\n"
 "\n"
 "* Logging:\n"
 "  -o|--log-file FILE    log file name\n"

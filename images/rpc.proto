@@ -89,6 +89,7 @@ message criu_opts {
 	optional uint32			ghost_limit	= 35 [default = 0x100000];
 	repeated string			irmap_scan_paths = 36;
 	repeated string			external	= 37;
+	optional uint32			empty_ns	= 38;
 }
 
 message criu_dump_resp {
