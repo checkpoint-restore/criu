@@ -2118,7 +2118,7 @@ static int propagate_siblings(struct mount_info *mi)
 	 * to inherite shared group or master id
 	 */
 	list_for_each_entry(t, &mi->mnt_share, mnt_share) {
-		if (t->mounted)
+		if (t->mounted || t->bind)
 			continue;
 		pr_debug("\t\tBind share %s\n", t->mountpoint);
 		t->bind = mi;
@@ -2126,7 +2126,7 @@ static int propagate_siblings(struct mount_info *mi)
 	}
 
 	list_for_each_entry(t, &mi->mnt_slave_list, mnt_slave) {
-		if (t->mounted)
+		if (t->mounted || t->bind)
 			continue;
 		pr_debug("\t\tBind slave %s\n", t->mountpoint);
 		t->bind = mi;
