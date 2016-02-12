@@ -229,6 +229,7 @@ generate_test_list()
 		ns/static/mntns_shared_bind
 		ns/static/mntns_shared_bind02
 		ns/static/mntns_root_bind
+		ns/static/mntns_root_bind02
 		ns/static/mntns_deleted
 		ns/static/inotify01
 		ns/static/mntns_rw_ro_rw
@@ -368,6 +369,7 @@ mntns_link_ghost
 mntns_shared_bind
 mntns_shared_bind02
 mntns_root_bind
+mntns_root_bind02
 mntns_rw_ro_rw
 mntns_deleted
 mount_paths

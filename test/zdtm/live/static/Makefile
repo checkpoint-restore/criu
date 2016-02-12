@@ -222,6 +222,7 @@ TST_DIR		=				\
 		mntns_shared_bind		\
 		mntns_shared_bind02		\
 		mntns_root_bind			\
+		mntns_root_bind02		\
 		mnt_ext_auto			\
 		mnt_ext_master			\
 		mntns_deleted			\
@@ -366,6 +367,7 @@ sigpending:		override LDLIBS += -lrt
 vdso01:			override LDLIBS += -lrt
 mntns_link_remap:	override CFLAGS += -DZDTM_LINK_REMAP
 mntns_shared_bind02:		override CFLAGS += -DSHARED_BIND02
+mntns_root_bind02:	override CFLAGS += -DROOT_BIND02
 maps02:		get_smaps_bits.o
 mlock_setuid:		get_smaps_bits.o
 inotify01:		override CFLAGS += -DINOTIFY01

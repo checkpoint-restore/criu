@@ -27,7 +27,8 @@ TEST_OPTION(dirname, string, "directory name", 1);
 
 int main(int argc, char **argv)
 {
-	char path[PATH_MAX], bpath[PATH_MAX], spath[PATH_MAX], bspath[PATH_MAX];
+	char subdir1[PATH_MAX], path[PATH_MAX], bpath[PATH_MAX], spath[PATH_MAX], bspath[PATH_MAX];
+	char subdir2[PATH_MAX], bsubdir2[PATH_MAX];
 	pid_t pid;
 	int status;
 	task_waiter_t t;
@@ -38,12 +39,19 @@ int main(int argc, char **argv)
 
 	mount(NULL, "/", NULL, MS_SHARED, NULL);
 
-	snprintf(path, sizeof(path), "%s/test", dirname);
-	snprintf(bpath, sizeof(bpath), "%s/test.bind", dirname);
-	snprintf(spath, sizeof(spath), "%s/test/sub", dirname);
-	snprintf(bspath, sizeof(bspath), "%s/test.bind/sub", dirname);
+	snprintf(subdir1, sizeof(subdir1), "%s/subdir1", dirname);
+	snprintf(path, sizeof(path), "%s/test", subdir1);
+	snprintf(bpath, sizeof(bpath), "%s/test.bind", subdir1);
+	snprintf(spath, sizeof(spath), "%s/test/sub", subdir1);
+	snprintf(bspath, sizeof(bspath), "%s/test.bind/sub", subdir1);
+
+	snprintf(subdir2, sizeof(subdir2), "%s/subdir2", dirname);
+	snprintf(bsubdir2, sizeof(bsubdir2), "%s/bsubdir2", dirname);
 
 	if (mkdir(dirname, 0700) ||
+	    mkdir(subdir1, 0777) ||
+	    mkdir(subdir2, 0777) ||
+	    mkdir(bsubdir2, 0777) ||
 	    mkdir(path, 0700) ||
 	    mkdir(spath, 0700) ||
 	    mkdir(bpath, 0700)) {
@@ -86,6 +94,13 @@ int main(int argc, char **argv)
 		pr_perror("mount");
 		return 1;
 	}
+
+#ifdef ROOT_BIND02
+	if (mount(subdir2, bsubdir2, NULL, MS_BIND, NULL)) {
+		pr_perror("Unable to mount %s to %s", subdir2, bsubdir2);
+		return 1;
+	}
+#endif
 
 	test_daemon();
 	test_waitsig();
