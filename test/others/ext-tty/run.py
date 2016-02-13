@@ -1,6 +1,6 @@
+#!/usr/bin/env python
 import subprocess
-import pty
-import os, sys, time
+import os, sys, time, signal, pty
 
 master, slave = pty.openpty()
 
@@ -29,7 +29,7 @@ os.waitpid(-1, os.WNOHANG) # is the process alive
 
 os.close(new_master)
 _, status = os.wait()
-if not os.WIFSIGNALED(status) or not os.WTERMSIG(status):
+if not os.WIFSIGNALED(status) or os.WTERMSIG(status) != signal.SIGHUP:
 	print status
 	sys.exit(1)
 
