@@ -1074,6 +1074,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	struct fd_link _link, *link;
 	struct ns_id *nsid;
 	struct cr_img *rimg;
+	char ext_id[64];
 
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 
@@ -1083,6 +1084,17 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 		link = &_link;
 	} else
 		link = p->link;
+
+
+
+	snprintf(ext_id, sizeof(ext_id), "file[%x:%"PRIx64"]", p->mnt_id, p->stat.st_ino);
+	if (external_lookup_id(ext_id)) {
+		/* the first symbol will be cut on restore to get an relative path*/
+		rfe.name = xstrdup(ext_id);
+		rfe.ext = true;
+		rfe.has_ext = true;
+		goto ext;
+	}
 
 	nsid = lookup_nsid_by_mnt_id(p->mnt_id);
 	if (nsid == NULL) {
@@ -1109,12 +1121,12 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 
 	if (check_path_remap(link, p, lfd, id, nsid))
 		return -1;
-
+	rfe.name	= &link->name[1];
+ext:
 	rfe.id		= id;
 	rfe.flags	= p->flags;
 	rfe.pos		= p->pos;
 	rfe.fown	= (FownEntry *)&p->fown;
-	rfe.name	= &link->name[1];
 
 	if (S_ISREG(p->stat.st_mode) && should_check_size(rfe.flags)) {
 		rfe.has_size = true;
@@ -1350,11 +1362,24 @@ int open_path(struct file_desc *d,
 	int tmp, mntns_root, level;
 	struct reg_file_info *rfi;
 	char *orig_path = NULL;
+	char path[PATH_MAX];
 
 	if (inherited_fd(d, &tmp))
 		return tmp;
 
 	rfi = container_of(d, struct reg_file_info, d);
+
+	if (rfi->rfe->ext) {
+		tmp = inherit_fd_lookup_id(rfi->rfe->name);
+		if (tmp >= 0) {
+			mntns_root = open_pid_proc(PROC_SELF);
+			snprintf(path, sizeof(path), "fd/%d", tmp);
+			orig_path = rfi->path;
+			rfi->path = path;
+			goto ext;
+		}
+	}
+
 	if (rfi->remap) {
 		mutex_lock(ghost_file_mutex);
 		if (rfi->remap->is_dir) {
@@ -1396,6 +1421,7 @@ int open_path(struct file_desc *d,
 	}
 
 	mntns_root = mntns_get_root_by_mnt_id(rfi->rfe->mnt_id);
+ext:
 	tmp = open_cb(mntns_root, rfi, arg);
 	if (tmp < 0) {
 		pr_perror("Can't open file %s", rfi->path);
@@ -1438,10 +1464,10 @@ int open_path(struct file_desc *d,
 			unlinkat(mntns_root, rfi->remap->rpath, rfi->remap->is_dir ? AT_REMOVEDIR : 0);
 		}
 
-		if (orig_path)
-			rfi->path = orig_path;
 		mutex_unlock(ghost_file_mutex);
 	}
+	if (orig_path)
+		rfi->path = orig_path;
 
 	if (restore_fown(tmp, rfi->rfe->fown))
 		return -1;
