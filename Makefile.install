@@ -24,7 +24,7 @@ install-criu: all $(CRIU-LIB) install-crit
 install-man:
 	$(Q) $(MAKE) -C Documentation install
 
-install-crit: crit
+install-crit: crit/crit
 	$(E) "  INSTALL crit"
 	$(Q) python scripts/crit-setup.py install --root=$(DESTDIR) --prefix=$(PREFIX)
 
