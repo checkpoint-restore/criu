@@ -1,0 +1,22 @@
+FROM ppc64le/ubuntu
+
+COPY scripts/build/qemu-user-static/usr/bin/qemu-ppc64le-static /usr/bin/qemu-ppc64le-static
+
+RUN apt-get update
+
+RUN apt-get update && apt-get install -y \
+                build-essential \
+                protobuf-c-compiler \
+                libprotobuf-c0-dev \
+                libprotobuf-dev \
+                bsdmainutils \
+                protobuf-compiler \
+                python-minimal \
+                libaio-dev \
+                iptables \
+                libnl-3-dev
+
+COPY . /criu
+WORKDIR /criu
+
+RUN make clean && make -j $(nproc)

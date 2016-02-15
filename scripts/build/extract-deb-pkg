@@ -1,0 +1,11 @@
+#'http://mirror.yandex.ru/debian/pool/main/q/qemu/qemu-user-static_2.5%2Bdfsg-5_amd64.deb'
+set -e
+test -d $1 && exit
+mkdir $1
+cd $1
+curl http://mirror.yandex.ru/debian/dists/jessie/main/binary-amd64/Packages.gz | zcat | grep "Filename.*$1" | awk '{ print $2 }'
+pkg=`curl http://mirror.yandex.ru/debian/dists/jessie/main/binary-amd64/Packages.gz | zcat | grep "Filename.*$1" | awk '{ print $2 }'`
+wget "http://mirror.yandex.ru/debian/$pkg"
+pkg=`basename $pkg`
+ar vx $pkg
+tar -xJvf data.tar.xz
