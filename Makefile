@@ -127,6 +127,7 @@ clean-built:
 	$(Q) $(MAKE) $(build)=images clean
 	$(Q) $(MAKE) -C criu clean
 	$(Q) $(MAKE) -C lib clean
+	$(Q) $(MAKE) -C Documentation clean
 PHONY += clean-built
 
 clean: clean-built
