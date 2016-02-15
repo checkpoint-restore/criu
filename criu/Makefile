@@ -124,7 +124,7 @@ endif
 
 #
 # PIE library code.
-pie/lib.a: $(ARCH-LIB)
+pie/lib.a: $(ARCH-LIB) $(SYSCALL-LIB)
 	$(Q) $(MAKE) $(call build-as,Makefile.library,pie) all
 
 #
@@ -142,7 +142,7 @@ PROGRAM-BUILTINS	+= $(SYSCALL-LIB)
 
 LIBS			+= arch/$(ARCH)/crtools.built-in.o
 
-built-in.o: pie/lib.a
+built-in.o: pie
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,.) all
 
 criu: $(PROGRAM-BUILTINS) built-in.o
