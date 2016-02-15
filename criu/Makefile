@@ -164,6 +164,7 @@ clean:
 	$(Q) $(RM) -r ./gcov
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(RM) $(CONFIG_HEADER)
+	$(Q) $(RM) criu
 
 #
 # Final @all target.
