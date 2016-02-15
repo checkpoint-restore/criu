@@ -26,7 +26,7 @@
 #include "rst-malloc.h"
 
 #include "protobuf.h"
-#include "protobuf/tcp-stream.pb-c.h"
+#include "images/tcp-stream.pb-c.h"
 
 #ifndef SIOCOUTQNSD
 /* MAO - Define SIOCOUTQNSD ioctl if we don't have it */

@@ -30,8 +30,8 @@
 #include "pstree.h"
 
 #include "protobuf.h"
-#include "protobuf/regfile.pb-c.h"
-#include "protobuf/remap-file-path.pb-c.h"
+#include "images/regfile.pb-c.h"
+#include "images/remap-file-path.pb-c.h"
 
 #include "files-reg.h"
 #include "plugin.h"

@@ -8,7 +8,7 @@
 #include "servicefd.h"
 
 #include "protobuf.h"
-#include "protobuf/inventory.pb-c.h"
+#include "images/inventory.pb-c.h"
 
 #define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
 

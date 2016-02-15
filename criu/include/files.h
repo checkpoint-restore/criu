@@ -10,9 +10,9 @@
 #include "pid.h"
 #include "rst_info.h"
 
-#include "protobuf/fdinfo.pb-c.h"
-#include "protobuf/fown.pb-c.h"
-#include "protobuf/vma.pb-c.h"
+#include "images/fdinfo.pb-c.h"
+#include "images/fown.pb-c.h"
+#include "images/vma.pb-c.h"
 
 struct pstree_item;
 struct file_desc;
@@ -80,7 +80,7 @@ static inline int fdinfo_rst_prio(struct fdinfo_list_entry *fd_a, struct fdinfo_
 }
 
 struct file_desc_ops {
-	/* fd_types from protobuf/fdinfo.proto */
+	/* fd_types from images/fdinfo.proto */
 	unsigned int		type;
 	/*
 	 * Opens a file by whatever syscall is required for that.

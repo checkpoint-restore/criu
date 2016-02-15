@@ -14,7 +14,7 @@
 #include "asm/dump.h"
 
 #include "protobuf.h"
-#include "protobuf/pstree.pb-c.h"
+#include "images/pstree.pb-c.h"
 
 struct pstree_item *root_item;
 

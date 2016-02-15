@@ -6,7 +6,7 @@
 #define __CR_SIGFRAME_H__
 
 #include "asm/types.h"
-#include "protobuf/core.pb-c.h"
+#include "images/core.pb-c.h"
 
 struct rt_sigframe;
 

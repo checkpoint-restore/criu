@@ -15,7 +15,7 @@
 #include "page-pipe.h"
 #include "util.h"
 #include "protobuf.h"
-#include "protobuf/pagemap.pb-c.h"
+#include "images/pagemap.pb-c.h"
 
 struct page_server_iov {
 	u32	cmd;

@@ -5,7 +5,7 @@
 #include <sys/ucontext.h>
 
 #include "asm/types.h"
-#include "protobuf/core.pb-c.h"
+#include "images/core.pb-c.h"
 
 /* Copied from the kernel header arch/arm64/include/uapi/asm/sigcontext.h */
 

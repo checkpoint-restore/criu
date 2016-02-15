@@ -30,7 +30,7 @@
 #include "namespaces.h"
 
 #include "protobuf.h"
-#include "protobuf/tty.pb-c.h"
+#include "images/tty.pb-c.h"
 
 #include "parasite-syscall.h"
 #include "parasite.h"

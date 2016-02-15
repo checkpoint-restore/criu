@@ -10,7 +10,7 @@
 #include "uts_ns.h"
 
 #include "protobuf.h"
-#include "protobuf/utsns.pb-c.h"
+#include "images/utsns.pb-c.h"
 
 int dump_uts_ns(int ns_id)
 {

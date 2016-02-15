@@ -32,8 +32,8 @@
 #include "aio.h"
 #include "seccomp.h"
 
-#include "protobuf/creds.pb-c.h"
-#include "protobuf/mm.pb-c.h"
+#include "images/creds.pb-c.h"
+#include "images/mm.pb-c.h"
 
 #include "asm/restorer.h"
 

@@ -2,7 +2,7 @@
 #define __CR_SHMEM_H__
 
 #include "lock.h"
-#include "protobuf/vma.pb-c.h"
+#include "images/vma.pb-c.h"
 
 struct _VmaEntry;
 extern int collect_shmem(int pid, struct _VmaEntry *vi);

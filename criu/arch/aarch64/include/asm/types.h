@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <asm/ptrace.h>
-#include "protobuf/core.pb-c.h"
+#include "images/core.pb-c.h"
 
 #include "asm/page.h"
 #include "asm/bitops.h"

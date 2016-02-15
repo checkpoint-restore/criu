@@ -4,7 +4,7 @@
 #include "asm/restore.h"
 #include "asm/restorer.h"
 
-#include "protobuf/core.pb-c.h"
+#include "images/core.pb-c.h"
 
 int construct_sigframe(struct rt_sigframe *sigframe,
 				     struct rt_sigframe *rsigframe,

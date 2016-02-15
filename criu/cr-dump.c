@@ -23,14 +23,14 @@
 #include <sys/resource.h>
 
 #include "protobuf.h"
-#include "protobuf/fdinfo.pb-c.h"
-#include "protobuf/fs.pb-c.h"
-#include "protobuf/mm.pb-c.h"
-#include "protobuf/creds.pb-c.h"
-#include "protobuf/core.pb-c.h"
-#include "protobuf/file-lock.pb-c.h"
-#include "protobuf/rlimit.pb-c.h"
-#include "protobuf/siginfo.pb-c.h"
+#include "images/fdinfo.pb-c.h"
+#include "images/fs.pb-c.h"
+#include "images/mm.pb-c.h"
+#include "images/creds.pb-c.h"
+#include "images/core.pb-c.h"
+#include "images/file-lock.pb-c.h"
+#include "images/rlimit.pb-c.h"
+#include "images/siginfo.pb-c.h"
 
 #include "asm/types.h"
 #include "list.h"

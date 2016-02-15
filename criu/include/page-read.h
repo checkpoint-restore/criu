@@ -1,7 +1,7 @@
 #ifndef __CR_PAGE_READ_H__
 #define __CR_PAGE_READ_H__
 
-#include "protobuf/pagemap.pb-c.h"
+#include "images/pagemap.pb-c.h"
 
 /*
  * page_read -- engine, that reads pages from image file(s)

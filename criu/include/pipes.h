@@ -1,8 +1,8 @@
 #ifndef __CR_PIPES_H__
 #define __CR_PIPES_H__
 
-#include "protobuf/pipe-data.pb-c.h"
-#include "protobuf/pipe.pb-c.h"
+#include "images/pipe-data.pb-c.h"
+#include "images/pipe.pb-c.h"
 
 extern struct collect_image_info pipe_cinfo;
 extern int collect_pipes(void);

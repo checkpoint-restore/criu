@@ -15,7 +15,7 @@
 #include "rst-malloc.h"
 
 #include "protobuf.h"
-#include "protobuf/seccomp.pb-c.h"
+#include "images/seccomp.pb-c.h"
 
 /* populated on dump during collect_seccomp_filters() */
 static int next_filter_id = 0;

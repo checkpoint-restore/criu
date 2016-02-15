@@ -29,7 +29,7 @@
 #include "pstree.h"
 
 #include "protobuf.h"
-#include "protobuf/sk-unix.pb-c.h"
+#include "images/sk-unix.pb-c.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "sk unix: "

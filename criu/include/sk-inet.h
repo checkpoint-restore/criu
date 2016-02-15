@@ -7,7 +7,7 @@
 #include "files.h"
 #include "list.h"
 #include "protobuf.h"
-#include "protobuf/sk-inet.pb-c.h"
+#include "images/sk-inet.pb-c.h"
 
 #define INET_ADDR_LEN		40
 #ifndef TCP_REPAIR

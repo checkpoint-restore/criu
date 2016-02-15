@@ -33,8 +33,8 @@
 #include "files-reg.h"
 
 #include "protobuf.h"
-#include "protobuf/fdinfo.pb-c.h"
-#include "protobuf/mnt.pb-c.h"
+#include "images/fdinfo.pb-c.h"
+#include "images/mnt.pb-c.h"
 
 #include <stdlib.h>
 

@@ -6,7 +6,7 @@
 #include <sys/ioctl.h>
 
 #include "protobuf.h"
-#include "protobuf/timerfd.pb-c.h"
+#include "images/timerfd.pb-c.h"
 
 #include "proc_parse.h"
 #include "rst-malloc.h"

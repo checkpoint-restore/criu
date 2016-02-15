@@ -10,8 +10,8 @@
 #include "cgroup.h"
 #include "lsm.h"
 #include "protobuf.h"
-#include "protobuf/inventory.pb-c.h"
-#include "protobuf/pagemap.pb-c.h"
+#include "images/inventory.pb-c.h"
+#include "images/pagemap.pb-c.h"
 
 bool fdinfo_per_id = false;
 bool ns_per_id = false;

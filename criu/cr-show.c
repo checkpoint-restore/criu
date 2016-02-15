@@ -28,9 +28,9 @@
 #include "crtools.h"
 
 #include "protobuf.h"
-#include "protobuf/pstree.pb-c.h"
-#include "protobuf/pipe-data.pb-c.h"
-#include "protobuf/siginfo.pb-c.h"
+#include "images/pstree.pb-c.h"
+#include "images/pipe-data.pb-c.h"
+#include "images/siginfo.pb-c.h"
 
 #define DEF_PAGES_PER_LINE	6
 

@@ -22,7 +22,7 @@
 #include "pagemap-cache.h"
 
 #include "protobuf.h"
-#include "protobuf/pagemap.pb-c.h"
+#include "images/pagemap.pb-c.h"
 
 static int task_reset_dirty_track(int pid)
 {

@@ -13,7 +13,7 @@
 #include "files.h"
 
 #include "protobuf.h"
-#include "protobuf/signalfd.pb-c.h"
+#include "images/signalfd.pb-c.h"
 
 struct signalfd_info {
 	SignalfdEntry		*sfe;

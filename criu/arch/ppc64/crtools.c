@@ -18,8 +18,8 @@
 #include "errno.h"
 
 #include "protobuf.h"
-#include "protobuf/core.pb-c.h"
-#include "protobuf/creds.pb-c.h"
+#include "images/core.pb-c.h"
+#include "images/creds.pb-c.h"
 
 #define MSR_VEC (1<<25)
 #define MSR_VSX (1<<23)

@@ -42,8 +42,8 @@
 #include "pstree.h"
 
 #include "protobuf.h"
-#include "protobuf/fsnotify.pb-c.h"
-#include "protobuf/mnt.pb-c.h"
+#include "images/fsnotify.pb-c.h"
+#include "images/mnt.pb-c.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "fsnotify: "

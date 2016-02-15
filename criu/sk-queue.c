@@ -23,7 +23,7 @@
 #include "sk-queue.h"
 
 #include "protobuf.h"
-#include "protobuf/sk-packet.pb-c.h"
+#include "images/sk-packet.pb-c.h"
 
 struct sk_packet {
 	struct list_head	list;

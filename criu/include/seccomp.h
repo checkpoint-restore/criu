@@ -4,7 +4,7 @@
 #include <linux/seccomp.h>
 #include <linux/filter.h>
 
-#include "protobuf/core.pb-c.h"
+#include "images/core.pb-c.h"
 
 #ifndef SECCOMP_MODE_DISABLED
 #define SECCOMP_MODE_DISABLED 0

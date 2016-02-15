@@ -20,8 +20,8 @@
 #include "errno.h"
 
 #include "protobuf.h"
-#include "protobuf/core.pb-c.h"
-#include "protobuf/creds.pb-c.h"
+#include "images/core.pb-c.h"
+#include "images/creds.pb-c.h"
 
 /*
  * Injected syscall instruction

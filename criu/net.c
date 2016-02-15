@@ -31,7 +31,7 @@
 #include "kerndat.h"
 
 #include "protobuf.h"
-#include "protobuf/netdev.pb-c.h"
+#include "images/netdev.pb-c.h"
 
 static int ns_sysfs_fd = -1;
 
@@ -692,7 +692,7 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 
 	switch (nde->type) {
 	case ND_TYPE__LOOPBACK: /* fallthrough */
-	case ND_TYPE__EXTLINK:  /* see comment in protobuf/netdev.proto */
+	case ND_TYPE__EXTLINK:  /* see comment in images/netdev.proto */
 		return restore_link_parms(nde, nlsk);
 	case ND_TYPE__VENET:
 		return restore_one_link(nde, nlsk, venet_link_info);

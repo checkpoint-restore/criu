@@ -5,7 +5,7 @@
 #include "pid.h"
 #include "image.h"
 #include "rst_info.h"
-#include "protobuf/core.pb-c.h"
+#include "images/core.pb-c.h"
 
 /*
  * That's the init process which usually inherit

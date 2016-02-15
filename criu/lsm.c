@@ -10,8 +10,8 @@
 #include "cr_options.h"
 
 #include "protobuf.h"
-#include "protobuf/inventory.pb-c.h"
-#include "protobuf/creds.pb-c.h"
+#include "images/inventory.pb-c.h"
+#include "images/creds.pb-c.h"
 
 #undef CONFIG_HAS_SELINUX
 

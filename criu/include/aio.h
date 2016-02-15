@@ -1,6 +1,6 @@
 #ifndef __CR_AIO_H__
 #define __CR_AIO_H__
-#include "protobuf/mm.pb-c.h"
+#include "images/mm.pb-c.h"
 int dump_aio_ring(MmEntry *mme, struct vma_area *vma);
 void free_aios(MmEntry *mme);
 struct parasite_ctl;

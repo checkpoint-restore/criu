@@ -1,7 +1,7 @@
 #ifndef __CR_SERVICE_H__
 #define __CR_SERVICE_H__
 
-#include "protobuf/rpc.pb-c.h"
+#include "images/rpc.pb-c.h"
 
 extern int cr_service(bool deamon_mode);
 int cr_service_work(int sk);

@@ -5,7 +5,7 @@
 #include "image.h"
 #include "list.h"
 
-#include "protobuf/vma.pb-c.h"
+#include "images/vma.pb-c.h"
 
 struct vm_area_list {
 	struct list_head	h;

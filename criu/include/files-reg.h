@@ -5,8 +5,8 @@
 #include "files.h"
 #include "image.h"
 
-#include "protobuf/regfile.pb-c.h"
-#include "protobuf/ghost-file.pb-c.h"
+#include "images/regfile.pb-c.h"
+#include "images/ghost-file.pb-c.h"
 
 struct cr_imgset;
 struct fd_parms;

@@ -8,7 +8,7 @@
 #include "util.h"
 
 #include "protobuf.h"
-#include "protobuf/sk-netlink.pb-c.h"
+#include "images/sk-netlink.pb-c.h"
 #include "netlink_diag.h"
 #include "libnetlink.h"
 

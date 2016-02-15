@@ -7,7 +7,7 @@
 #include "plugin.h"
 
 #include "protobuf.h"
-#include "protobuf/ext-file.pb-c.h"
+#include "images/ext-file.pb-c.h"
 
 static int dump_one_ext_file(int lfd, u32 id, const struct fd_parms *p)
 {

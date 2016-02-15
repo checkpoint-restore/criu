@@ -19,8 +19,8 @@
 #include "namespaces.h"
 #include "seize.h"
 #include "protobuf.h"
-#include "protobuf/core.pb-c.h"
-#include "protobuf/cgroup.pb-c.h"
+#include "images/core.pb-c.h"
+#include "images/cgroup.pb-c.h"
 
 /*
  * These string arrays have the names of all the properties that will be

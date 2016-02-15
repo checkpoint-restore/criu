@@ -16,10 +16,10 @@
 #include "ipc_ns.h"
 
 #include "protobuf.h"
-#include "protobuf/ipc-var.pb-c.h"
-#include "protobuf/ipc-shm.pb-c.h"
-#include "protobuf/ipc-sem.pb-c.h"
-#include "protobuf/ipc-msg.pb-c.h"
+#include "images/ipc-var.pb-c.h"
+#include "images/ipc-shm.pb-c.h"
+#include "images/ipc-sem.pb-c.h"
+#include "images/ipc-msg.pb-c.h"
 
 #if defined (__GLIBC__) && __GLIBC__ >= 2
 #define KEY __key

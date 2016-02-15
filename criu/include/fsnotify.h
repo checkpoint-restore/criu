@@ -5,7 +5,7 @@
 #include "files.h"
 
 #include "protobuf.h"
-#include "protobuf/fsnotify.pb-c.h"
+#include "images/fsnotify.pb-c.h"
 
 #define KERNEL_FS_EVENT_ON_CHILD 0x08000000
 

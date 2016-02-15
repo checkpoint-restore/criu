@@ -6,7 +6,7 @@
 #ifdef CONFIG_VDSO
 
 #include "util-vdso.h"
-#include "protobuf/vma.pb-c.h"
+#include "images/vma.pb-c.h"
 
 struct parasite_ctl;
 struct vm_area_list;

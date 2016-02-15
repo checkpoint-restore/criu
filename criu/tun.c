@@ -19,7 +19,7 @@
 #include "net.h"
 #include "namespaces.h"
 
-#include "protobuf/tun.pb-c.h"
+#include "images/tun.pb-c.h"
 
 #ifndef IFF_PERSIST
 #define IFF_PERSIST 0x0800

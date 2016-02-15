@@ -22,7 +22,7 @@
 #include "log.h"
 
 #include "protobuf.h"
-#include "protobuf/eventfd.pb-c.h"
+#include "images/eventfd.pb-c.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "eventfd: "

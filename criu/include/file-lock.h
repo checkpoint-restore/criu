@@ -4,7 +4,7 @@
 #include "list.h"
 
 #include "protobuf.h"
-#include "protobuf/file-lock.pb-c.h"
+#include "images/file-lock.pb-c.h"
 
 #define FL_UNKNOWN	-1
 #define FL_POSIX	1

@@ -1,8 +1,8 @@
 #ifndef __CR_LSM_H__
 #define __CR_LSM_H__
 
-#include "protobuf/inventory.pb-c.h"
-#include "protobuf/creds.pb-c.h"
+#include "images/inventory.pb-c.h"
+#include "images/creds.pb-c.h"
 
 /*
  * Get the Lsmtype for the current host.

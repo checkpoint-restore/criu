@@ -3,7 +3,7 @@
 
 #include "asm/restorer.h"
 
-#include "protobuf/core.pb-c.h"
+#include "images/core.pb-c.h"
 
 /*
  * Set R2 to blob + 8000 which is the default value

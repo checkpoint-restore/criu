@@ -6,7 +6,7 @@
 #include "aio.h"
 #include "parasite.h"
 #include "parasite-syscall.h"
-#include "protobuf/mm.pb-c.h"
+#include "images/mm.pb-c.h"
 
 int dump_aio_ring(MmEntry *mme, struct vma_area *vma)
 {

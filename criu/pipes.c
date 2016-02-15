@@ -12,8 +12,8 @@
 #include "util-pie.h"
 
 #include "protobuf.h"
-#include "protobuf/pipe.pb-c.h"
-#include "protobuf/pipe-data.pb-c.h"
+#include "images/pipe.pb-c.h"
+#include "images/pipe-data.pb-c.h"
 
 static LIST_HEAD(pipes);
 

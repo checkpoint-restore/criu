@@ -21,7 +21,7 @@
 #include "cpu.h"
 
 #include "protobuf.h"
-#include "protobuf/cpuinfo.pb-c.h"
+#include "images/cpuinfo.pb-c.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "cpu: "

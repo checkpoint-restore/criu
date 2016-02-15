@@ -15,7 +15,7 @@
 #include "cpu.h"
 
 #include "protobuf.h"
-#include "protobuf/cpuinfo.pb-c.h"
+#include "images/cpuinfo.pb-c.h"
 
 static uint64_t hwcap[2];
 

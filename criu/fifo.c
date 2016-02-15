@@ -13,8 +13,8 @@
 #include "fifo.h"
 
 #include "protobuf.h"
-#include "protobuf/regfile.pb-c.h"
-#include "protobuf/fifo.pb-c.h"
+#include "images/regfile.pb-c.h"
+#include "images/fifo.pb-c.h"
 
 /*
  * FIFO checkpoint and restore is done in a bit unusual manner.

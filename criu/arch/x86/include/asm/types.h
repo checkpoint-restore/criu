@@ -9,7 +9,7 @@
 #include "asm/int.h"
 #include "asm/prlimit.h"
 
-#include "protobuf/core.pb-c.h"
+#include "images/core.pb-c.h"
 
 #define SIGMAX			64
 #define SIGMAX_OLD		31

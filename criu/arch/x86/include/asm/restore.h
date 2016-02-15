@@ -3,7 +3,7 @@
 
 #include "asm/restorer.h"
 
-#include "protobuf/core.pb-c.h"
+#include "images/core.pb-c.h"
 
 #ifdef CONFIG_X86_64
 #define JUMP_TO_RESTORER_BLOB(new_sp, restore_task_exec_start,		\

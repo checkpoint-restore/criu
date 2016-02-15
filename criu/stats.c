@@ -5,7 +5,7 @@
 #include "protobuf.h"
 #include "stats.h"
 #include "image.h"
-#include "protobuf/stats.pb-c.h"
+#include "images/stats.pb-c.h"
 
 struct timing {
 	struct timeval start;

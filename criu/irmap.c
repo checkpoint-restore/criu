@@ -27,8 +27,8 @@
 #include "cr_options.h"
 
 #include "protobuf.h"
-#include "protobuf/fsnotify.pb-c.h"
-#include "protobuf/fh.pb-c.h"
+#include "images/fsnotify.pb-c.h"
+#include "images/fh.pb-c.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "irmap: "

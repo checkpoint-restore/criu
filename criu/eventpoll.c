@@ -23,7 +23,7 @@
 #include "log.h"
 
 #include "protobuf.h"
-#include "protobuf/eventpoll.pb-c.h"
+#include "images/eventpoll.pb-c.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "epoll: "

@@ -6,11 +6,11 @@
 #include <sys/mman.h>
 
 #include "protobuf.h"
-#include "protobuf/sa.pb-c.h"
-#include "protobuf/timer.pb-c.h"
-#include "protobuf/creds.pb-c.h"
-#include "protobuf/core.pb-c.h"
-#include "protobuf/pagemap.pb-c.h"
+#include "images/sa.pb-c.h"
+#include "images/timer.pb-c.h"
+#include "images/creds.pb-c.h"
+#include "images/core.pb-c.h"
+#include "images/pagemap.pb-c.h"
 
 #include "imgset.h"
 #include "ptrace.h"

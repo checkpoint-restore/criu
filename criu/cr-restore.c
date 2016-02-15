@@ -79,12 +79,12 @@
 #include "parasite-syscall.h"
 
 #include "protobuf.h"
-#include "protobuf/sa.pb-c.h"
-#include "protobuf/timer.pb-c.h"
-#include "protobuf/vma.pb-c.h"
-#include "protobuf/rlimit.pb-c.h"
-#include "protobuf/pagemap.pb-c.h"
-#include "protobuf/siginfo.pb-c.h"
+#include "images/sa.pb-c.h"
+#include "images/timer.pb-c.h"
+#include "images/vma.pb-c.h"
+#include "images/rlimit.pb-c.h"
+#include "images/pagemap.pb-c.h"
+#include "images/siginfo.pb-c.h"
 
 #include "asm/restore.h"
 #include "asm/atomic.h"

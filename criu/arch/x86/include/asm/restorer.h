@@ -3,7 +3,7 @@
 
 #include "asm/types.h"
 #include "asm/fpu.h"
-#include "protobuf/core.pb-c.h"
+#include "images/core.pb-c.h"
 
 struct pt_regs {
 	unsigned long	r15;

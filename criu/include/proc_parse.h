@@ -8,12 +8,12 @@
 #include "cgroup.h"
 #include "mount.h"
 
-#include "protobuf/eventfd.pb-c.h"
-#include "protobuf/eventpoll.pb-c.h"
-#include "protobuf/signalfd.pb-c.h"
-#include "protobuf/fsnotify.pb-c.h"
-#include "protobuf/timerfd.pb-c.h"
-#include "protobuf/seccomp.pb-c.h"
+#include "images/eventfd.pb-c.h"
+#include "images/eventpoll.pb-c.h"
+#include "images/signalfd.pb-c.h"
+#include "images/fsnotify.pb-c.h"
+#include "images/timerfd.pb-c.h"
+#include "images/seccomp.pb-c.h"
 
 #define PROC_TASK_COMM_LEN	32
 #define PROC_TASK_COMM_LEN_FMT	"(%31s"
