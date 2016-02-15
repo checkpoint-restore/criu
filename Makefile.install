@@ -17,9 +17,9 @@ install-criu: all $(CRIU-LIB) install-crit
 	$(Q) sed -e 's,@version@,$(CRTOOLSVERSION),' \
 		-e 's,@libdir@,$(LIBDIR),' \
 		-e 's,@includedir@,$(dir $(INCLUDEDIR)),' \
-		lib/criu.pc.in > criu.pc
+		lib/criu.pc.in > lib/c/criu.pc
 	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)/pkgconfig
-	$(Q) install -m 644 criu.pc $(DESTDIR)$(LIBDIR)/pkgconfig
+	$(Q) install -m 644 lib/c/criu.pc $(DESTDIR)$(LIBDIR)/pkgconfig
 
 install-man:
 	$(Q) $(MAKE) -C Documentation install
