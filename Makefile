@@ -162,7 +162,7 @@ CFLAGS		+= $(WARNINGS) $(DEFINES)
 SYSCALL-LIB	:= $(ARCH_DIR)/syscalls.built-in.o
 ARCH-LIB	:= $(ARCH_DIR)/crtools.built-in.o
 CRIU-SO		:= libcriu
-CRIU-LIB	:= lib/$(CRIU-SO).so
+CRIU-LIB	:= lib/c/$(CRIU-SO).so
 CRIU-INC	:= lib/criu.h include/criu-plugin.h include/criu-log.h protobuf/rpc.proto
 ifeq ($(piegen-y),y)
 piegen		:= pie/piegen/piegen
@@ -225,9 +225,15 @@ built-in.o: $(VERSION_HEADER) pie
 	$(Q) $(MAKE) $(build-old-crtools)=. $@
 
 lib/%:: $(VERSION_HEADER) config built-in.o
-	$(Q) $(MAKE) $(build-old)=lib $@
+	$(Q) $(MAKE) -C lib $@
 lib: $(VERSION_HEADER) config built-in.o
-	$(Q) $(MAKE) $(build-old)=lib all
+	$(Q) $(MAKE) -C lib all
+
+$(CRIU-LIB): lib
+	@true
+crit: lib
+	@true
+
 
 PROGRAM-BUILTINS	+= protobuf/built-in.o
 PROGRAM-BUILTINS	+= built-in.o
@@ -237,9 +243,6 @@ $(SYSCALL-LIB) $(ARCH-LIB) $(PROGRAM-BUILTINS): config
 $(PROGRAM): $(ARCH-LIB) $(PROGRAM-BUILTINS)
 	$(E) "  LINK    " $@
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) $(GMONLDOPT) -rdynamic -o $@
-
-crit:
-	$(Q) $(MAKE) -C pycriu all
 
 zdtm: all
 	$(Q) $(MAKE) -C test/zdtm all
@@ -253,7 +256,7 @@ clean-built:
 	$(Q) $(MAKE) $(build-old)=protobuf clean
 	$(Q) $(MAKE) $(build-old)=pie/piegen clean
 	$(Q) $(MAKE) $(build-old)=pie clean
-	$(Q) $(MAKE) $(build-old)=lib clean
+	$(Q) $(MAKE) -C lib clean
 	$(Q) $(MAKE) $(build-old-crtools)=. clean
 	$(Q) $(MAKE) -C Documentation clean
 	$(Q) $(RM) ./include/config.h
@@ -273,7 +276,6 @@ clean: clean-built
 	$(Q) $(RM) -r ./gcov
 	$(Q) $(RM) protobuf-desc-gen.h
 	$(Q) $(MAKE) -C test $@
-	$(Q) $(MAKE) -C pycriu $@
 	$(Q) $(RM) ./*.pyc
 	$(Q) $(RM) -r build
 	$(Q) $(RM) -r usr
