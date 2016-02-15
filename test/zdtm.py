@@ -582,7 +582,7 @@ test_classes = { 'zdtm': zdtm_test, 'inhfd': inhfd_test, 'groups': groups_test }
 # CRIU when launched using CLI
 #
 
-criu_bin = "../criu"
+criu_bin = "../criu/criu"
 class criu_cli:
 	def __init__(self, opts):
 		self.__test = None

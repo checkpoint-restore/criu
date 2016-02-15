@@ -2,7 +2,7 @@
 
 set -eu
 
-CRIU=../../../criu
+CRIU=../../../criu/criu
 
 setup() {
 	setup_mount

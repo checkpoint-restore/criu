@@ -9,7 +9,7 @@ function fail {
 
 make || fail "Can't compile library or ns init"
 
-criu="../../../criu"
+criu="../../../criu/criu"
 
 # New root for namespace
 NSROOT="nsroot"

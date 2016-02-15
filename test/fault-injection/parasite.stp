@@ -1,6 +1,6 @@
 global i, n, fini_cmd = -1, last_cmd
 
-probe process("../../criu").begin
+probe process("../../criu/criu").begin
 {
 	i = 0;
 	/* randint() returns numbers multiple of 5 */
@@ -8,7 +8,7 @@ probe process("../../criu").begin
 	printf("The %d command will be replaced on -1\n", n);
 }
 
-probe process("../../criu").function("__parasite_execute_daemon")
+probe process("../../criu/criu").function("__parasite_execute_daemon")
 {
 	printf("%s\n", $$parms);
 	last_cmd = $cmd;
@@ -18,12 +18,12 @@ probe process("../../criu").function("__parasite_execute_daemon")
 	}
 }
 
-probe process("../../criu").function("__parasite_execute_daemon").return
+probe process("../../criu/criu").function("__parasite_execute_daemon").return
 {
 	printf("%d\n", $return);
 }
 
-probe process("../../criu").function("main").return
+probe process("../../criu/criu").function("main").return
 {
 	printf("CRIU exits with code %d\n", $return);
 	if  ( i > n) {

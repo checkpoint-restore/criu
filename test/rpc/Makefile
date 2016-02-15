@@ -9,8 +9,8 @@ run: all
 	chmod a+rwx build
 	sudo -g '#1000' -u '#1000' ./run.sh
 
-criu: ../../criu
-	cp ../../criu $@
+criu: ../../criu/criu
+	cp ../../criu/criu $@
 	chmod u+s $@
 
 test-c: rpc.pb-c.o test-c.o

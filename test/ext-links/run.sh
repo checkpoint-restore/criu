@@ -5,7 +5,7 @@ mvln="mv0"
 finf="finish"
 outf="ns_output"
 pidf="ns_pid"
-criu="../../criu"
+criu="../../criu/criu"
 
 export ip
 export mvln
