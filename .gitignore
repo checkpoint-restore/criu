@@ -1,5 +1,6 @@
 *.o
 *.d
+*.a
 *.img
 *.bin
 *.elf
@@ -18,3 +19,15 @@ images/*.h
 images/google/protobuf/*.c
 images/google/protobuf/*.h
 .gitid
+criu/criu
+criu/arch/*/sys-exec-tbl.c
+criu/arch/*/syscalls.S
+criu/include/config.h
+criu/include/syscall-codes.h
+criu/include/syscall.h
+criu/include/version.h
+criu/pie/restorer-blob.h
+criu/pie/parasite-blob.h
+criu/pie/piegen/piegen
+criu/pie/pie.lds.S
+criu/protobuf-desc-gen.h
