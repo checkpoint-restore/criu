@@ -32,37 +32,39 @@ static int sem_test(int id,
 	return 0;
 }
 
-static int check_sem_by_key(int key)
+#define NSEMS 10
+
+static int check_sem_by_key(int key, int num)
 {
 	int id;
 	struct sembuf lock[2] = {
 		{
-		.sem_num = 0,
+		.sem_num = num,
 		.sem_op = 0,
 		.sem_flg = 0,
 		},
 		{
-		.sem_num = 0,
+		.sem_num = num,
 		.sem_op = 1,
 		.sem_flg = 0,
 		},
 	};
 	struct sembuf unlock[1] = {
 		{
-		.sem_num = 0,
+		.sem_num = num,
 		.sem_op = -1,
 		.sem_flg = 0,
 		}
 	};
 	int val;
 
-	id = semget(key, 1, 0777);
+	id = semget(key, NSEMS, 0777);
 	if (id  == -1) {
 		fail("Can't get sem");
 		return -errno;
 	}
 
-	val = semctl(id, 0, GETVAL);
+	val = semctl(id, num, GETVAL);
 	if (val < 0) {
 		fail("Failed to get sem value");
 		return -errno;
@@ -73,25 +75,25 @@ static int check_sem_by_key(int key)
 			sizeof(unlock)/sizeof(struct sembuf));
 }
 
-static int check_sem_by_id(int id, int val)
+static int check_sem_by_id(int id, int num, int val)
 {
 	int curr;
 	struct sembuf lock[] = {
 		{
-		.sem_num = 0,
+		.sem_num = num,
 		.sem_op = val,
 		.sem_flg = 0,
 		},
 	};
 	struct sembuf unlock[] = {
 		{
-		.sem_num = 0,
+		.sem_num = num,
 		.sem_op = - val * 2,
 		.sem_flg = 0,
 		}
 	};
 
-	curr = semctl(id, 0, GETVAL);
+	curr = semctl(id, num, GETVAL);
 	if (curr < 0) {
 		fail("Failed to get sem value");
 		return -errno;
@@ -107,7 +109,9 @@ static int check_sem_by_id(int id, int val)
 
 int main(int argc, char **argv)
 {
-	int id, key, val;
+	int id, key;
+	int i;
+	int val[NSEMS];
 	int ret, fail_count = 0;
 
 	test_init(argc, argv);
@@ -118,51 +122,56 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	val = lrand48() & 0x7;
-
-	id = semget(key, 1, 0777 | IPC_CREAT | IPC_EXCL);
+	id = semget(key, NSEMS, 0777 | IPC_CREAT | IPC_EXCL);
 	if (id  == -1) {
 		fail_count++;
-		pr_perror("Can't get sem");
+		pr_perror("Can't get sem array");
 		goto out;
 	}
-	if (semctl(id, 0, SETVAL, val) == -1) {
-		fail_count++;
-		pr_perror("Can't init sem");
-		goto out_destroy;
+
+	for (i = 0; i < NSEMS; i++) {
+		val[i] = lrand48() & 0x7;
+
+		if (semctl(id, i, SETVAL, val[i]) == -1) {
+			fail_count++;
+			pr_perror("Can't init sem %d", i);
+			goto out_destroy;
+		}
 	}
 
 	test_daemon();
 	test_waitsig();
 
-	ret = check_sem_by_id(id, val);
-	if (ret < 0) {
-		fail_count++;
-		fail("Check sem by id failed");
-		goto out_destroy;
-	}
+	for (i = 0; i < NSEMS; i++) {
+		ret = check_sem_by_id(id, i, val[i]);
+		if (ret < 0) {
+			fail_count++;
+			fail("Check sem %d by id failed", i);
+			goto out_destroy;
+		}
 
-	if (check_sem_by_key(key) < 0) {
-		fail("Check sem by key failed");
-		fail_count++;
-		goto out_destroy;
-	}
+		if (check_sem_by_key(key, i) < 0) {
+			fail("Check sem %d by key failed", i);
+			fail_count++;
+			goto out_destroy;
+		}
 
-	val = semctl(id, 0, GETVAL);
-	if (val < 0) {
-		fail("Failed to get sem value");
-		fail_count++;
-		goto out_destroy;
-	}
-	if (val != 0) {
-		fail("Non-zero sem value: %d", val);
-		fail_count++;
+		val[i] = semctl(id, 0, GETVAL);
+		if (val[i] < 0) {
+			fail("Failed to get sem %d value", i);
+			fail_count++;
+			goto out_destroy;
+		}
+		if (val[i] != 0) {
+			fail("Non-zero sem %d value: %d", val);
+			fail_count++;
+		}
 	}
 
 out_destroy:
-	ret = semctl(id, 1, IPC_RMID);
+	ret = semctl(id, 0, IPC_RMID);
 	if (ret < 0) {
-		fail("Destroy sem failed");
+		fail("Destroy sem array failed");
 		fail_count++;
 	}
 out:
