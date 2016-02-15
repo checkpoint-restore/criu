@@ -1,7 +1,7 @@
 CFLAGS += -iquote pie/piegen
 
 obj-y += main.o
-ifneq ($(filter i386 ia32 x86_64, $(ARCH)),)
+ifneq ($(filter ia32 x86, $(ARCH)),)
 obj-y += elf-x86-32.o
 obj-y += elf-x86-64.o
 endif

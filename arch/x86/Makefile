@@ -8,7 +8,7 @@ crtools-obj-y	+= crtools.o
 crtools-obj-y	+= cpu.o
 crtools-obj-y	+= prlimit.o
 
-ifeq ($(ARCH),x86_64)
+ifeq ($(ARCH),x86)
 SYS-DEF		:= syscall_64.tbl
 SYS-ASM-COMMON	:= syscall-common-x86-64.S
 else
@@ -22,14 +22,14 @@ SYS-PROTO	:= ../../include/syscall.h
 
 SYS-EXEC-TBL	:= sys-exec-tbl.c
 
-ifeq ($(ARCH),x86_64)
+ifeq ($(ARCH),x86)
 syscalls-asm-y-asmflags	:= -fpie -Wstrict-prototypes -Wa,--noexecstack
 else
 syscalls-asm-y-asmflags	:= -fno-pic -Wstrict-prototypes -Wa,--noexecstack
 endif
 syscalls-asm-y-asmflags += -nostdlib -fomit-frame-pointer -I$(obj)
 
-ifneq ($(ARCH),x86_64)
+ifneq ($(ARCH),x86)
 syscalls-obj-y += syscalls/syscall32.o
 $(obj)/syscalls/syscall32.o: $(obj)/$(SYS-CODES) $(obj)/$(SYS-PROTO)
 endif
@@ -57,7 +57,7 @@ $(obj)/$(SYS-PROTO): $(obj)/syscalls/$(SYS-DEF)
 	$(Q) echo "#endif"										>> $@
 	$(Q) echo "#include \"syscall-codes.h\""							>> $@
 	$(Q) echo "#include \"syscall-types.h\""							>> $@
-ifneq ($(ARCH),x86_64)
+ifneq ($(ARCH),x86)
 	$(Q) echo "#include \"asm/syscall32.h\""							>> $@
 endif
 	$(Q) cat $< | awk  '/^__NR/{print "extern long", $$3, substr($$0, index($$0,$$4)), ";"}'	>> $@

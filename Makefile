@@ -1,3 +1,9 @@
+# Import the build engine first
+__nmk_dir=$(CURDIR)/scripts/nmk/scripts/
+export __nmk_dir
+
+include $(__nmk_dir)/include.mk
+
 VERSION_MAJOR		:= 1
 VERSION_MINOR		:= 8
 VERSION_SUBLEVEL	:=
@@ -42,25 +48,7 @@ export HOSTCC
 export HOSTLD
 export HOSTCFLAGS
 
-#
-# Fetch ARCH from the uname if not yet set
-#
-ARCH ?= $(shell uname -m | sed		\
-		-e s/i.86/i386/		\
-		-e s/sun4u/sparc64/	\
-		-e s/s390x/s390/	\
-		-e s/parisc64/parisc/	\
-		-e s/mips.*/mips/	\
-		-e s/sh[234].*/sh/)
-
-ifeq ($(ARCH),i386)
-	SRCARCH      := x86-32
-	DEFINES      := -DCONFIG_X86_32
-	VDSO         := y
-	PROTOUFIX    := y
-	export PROTOUFIX
-endif
-ifeq ($(ARCH),x86_64)
+ifeq ($(ARCH),x86)
 	SRCARCH      := x86
 	DEFINES      := -DCONFIG_X86_64
 	LDARCH       := i386:x86-64
@@ -120,20 +108,17 @@ ifeq ($(shell echo $(ARCH) | sed -e 's/ppc64.*/ppc64/'),ppc64)
 	VDSO	:= y
 endif
 
-SRCARCH		?= $(ARCH)
 LDARCH		?= $(SRCARCH)
 
 SRC_DIR		?= $(CURDIR)
 ARCH_DIR	:= arch/$(SRCARCH)
-
-export ARCH SRCARCH
 
 $(if $(wildcard $(ARCH_DIR)),,$(error "The architecture $(ARCH) isn't supported"))
 
 #
 # piegen might be disabled by hands. Don't use it  until
 # you know what you're doing.
-ifneq ($(filter i386 ia32 x86_64 ppc64le, $(ARCH)),)
+ifneq ($(filter ia32 x86 ppc64le, $(ARCH)),)
 ifneq ($(PIEGEN),no)
 	piegen-y := y
 	export piegen-y
@@ -193,8 +178,8 @@ include scripts/Makefile.rules
 
 #
 # shorthand
-build := -r -R -f scripts/Makefile.build makefile=Makefile obj
-build-crtools := -r -R -f scripts/Makefile.build makefile=Makefile.crtools obj
+build-old := -r -R -f scripts/Makefile.build makefile=Makefile obj
+build-old-crtools := -r -R -f scripts/Makefile.build makefile=Makefile.crtools obj
 
 PROGRAM		:= criu
 
@@ -206,20 +191,20 @@ all: config pie $(VERSION_HEADER) $(CRIU-LIB)
 	$(Q) $(MAKE) crit
 
 protobuf/%::
-	$(Q) $(MAKE) $(build)=protobuf $@
+	$(Q) $(MAKE) $(build-old)=protobuf $@
 protobuf:
-	$(Q) $(MAKE) $(build)=protobuf all
+	$(Q) $(MAKE) $(build-old)=protobuf all
 
 $(ARCH_DIR)/%:: protobuf config
-	$(Q) $(MAKE) $(build)=$(ARCH_DIR) $@
+	$(Q) $(MAKE) $(build-old)=$(ARCH_DIR) $@
 $(ARCH_DIR): protobuf config
-	$(Q) $(MAKE) $(build)=$(ARCH_DIR) all
+	$(Q) $(MAKE) $(build-old)=$(ARCH_DIR) all
 
 ifeq ($(piegen-y),y)
 pie/piegen/%: config
-	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(HOSTCFLAGS)" $(MAKE) $(build)=pie/piegen $@
+	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(HOSTCFLAGS)" $(MAKE) $(build-old)=pie/piegen $@
 pie/piegen: config
-	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(HOSTCFLAGS)" $(MAKE) $(build)=pie/piegen all
+	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(HOSTCFLAGS)" $(MAKE) $(build-old)=pie/piegen all
 $(piegen): pie/piegen/built-in.o
 	$(E) "  LINK    " $@
 	$(Q) $(HOSTCC) $(HOSTCFLAGS) $^ $(LDFLAGS) -o $@
@@ -227,17 +212,17 @@ $(piegen): pie/piegen/built-in.o
 endif
 
 pie: $(ARCH_DIR) $(piegen)
-	$(Q) $(MAKE) $(build)=pie all
+	$(Q) $(MAKE) $(build-old)=pie all
 
 %.o %.i %.s %.d: $(VERSION_HEADER) pie
-	$(Q) $(MAKE) $(build-crtools)=. $@
+	$(Q) $(MAKE) $(build-old-crtools)=. $@
 built-in.o: $(VERSION_HEADER) pie
-	$(Q) $(MAKE) $(build-crtools)=. $@
+	$(Q) $(MAKE) $(build-old-crtools)=. $@
 
 lib/%:: $(VERSION_HEADER) config built-in.o
-	$(Q) $(MAKE) $(build)=lib $@
+	$(Q) $(MAKE) $(build-old)=lib $@
 lib: $(VERSION_HEADER) config built-in.o
-	$(Q) $(MAKE) $(build)=lib all
+	$(Q) $(MAKE) $(build-old)=lib all
 
 PROGRAM-BUILTINS	+= protobuf/built-in.o
 PROGRAM-BUILTINS	+= built-in.o
@@ -259,12 +244,12 @@ test: zdtm
 
 clean-built:
 	$(Q) $(RM) $(VERSION_HEADER)
-	$(Q) $(MAKE) $(build)=$(ARCH_DIR) clean
-	$(Q) $(MAKE) $(build)=protobuf clean
-	$(Q) $(MAKE) $(build)=pie/piegen clean
-	$(Q) $(MAKE) $(build)=pie clean
-	$(Q) $(MAKE) $(build)=lib clean
-	$(Q) $(MAKE) $(build-crtools)=. clean
+	$(Q) $(MAKE) $(build-old)=$(ARCH_DIR) clean
+	$(Q) $(MAKE) $(build-old)=protobuf clean
+	$(Q) $(MAKE) $(build-old)=pie/piegen clean
+	$(Q) $(MAKE) $(build-old)=pie clean
+	$(Q) $(MAKE) $(build-old)=lib clean
+	$(Q) $(MAKE) $(build-old-crtools)=. clean
 	$(Q) $(MAKE) -C Documentation clean
 	$(Q) $(RM) ./include/config.h
 	$(Q) $(RM) ./$(PROGRAM)

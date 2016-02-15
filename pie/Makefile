@@ -70,7 +70,7 @@ $(obj)/$(PIELDS): $(obj)/pie-reloc.lds.S.in
 	$(Q) echo "OUTPUT_ARCH($(LDARCH))"              >  $(obj)/$(PIELDS)
 	$(Q) cat $<					>> $(obj)/$(PIELDS)
 else
-ifeq ($(ARCH),x86_64)
+ifeq ($(ARCH),x86)
 $(obj)/$(PIELDS): $(obj)/pie-reloc.lds.S.in
 	$(E) "  GEN     " $@
 	$(Q) echo "OUTPUT_ARCH(i386:x86-64)"		>  $(obj)/$(PIELDS)
