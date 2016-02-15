@@ -145,7 +145,7 @@ LIBS			+= arch/$(ARCH)/crtools.built-in.o
 built-in.o: pie
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,.) all
 
-criu: $(PROGRAM-BUILTINS) built-in.o
+criu: $(PROGRAM-BUILTINS)
 	$(call msg-link, $@)
 	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(LDFLAGS) $(GMONLDOPT) -rdynamic -o $@
 PHONY += criu
