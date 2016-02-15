@@ -48,6 +48,11 @@ export HOSTCC
 export HOSTLD
 export HOSTCFLAGS
 
+
+ifeq ($(ARCH),x86_64)
+	ARCH         := x86
+endif
+
 ifeq ($(ARCH),x86)
 	SRCARCH      := x86
 	DEFINES      := -DCONFIG_X86_64
