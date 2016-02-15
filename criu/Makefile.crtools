@@ -1,4 +1,5 @@
 ccflags-y		+= -iquote $(ARCH)
+ccflags-y		+= $(DEFINES)
 obj-y			+= action-scripts.o
 obj-y			+= aio.o
 obj-y			+= bfd.o
