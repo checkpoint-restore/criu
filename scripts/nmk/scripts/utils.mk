@@ -1,0 +1,28 @@
+ifndef ____nmk_defined__utils
+
+#
+# Usage: option = $(call try-cc,source-to-build,cc-options,cc-defines)
+try-cc = $(shell sh -c                                                          \
+                'TMP="$(OUTPUT)$(TMPOUT).$$$$";                                 \
+                 echo "$(1)" |                                                  \
+                 $(CC) $(3) -x c - $(2) -o "$$TMP" > /dev/null 2>&1 && echo y;  \
+                 rm -f "$$TMP"')
+
+# pkg-config-check
+# Usage: ifeq ($(call pkg-config-check, library),y)
+pkg-config-check = $(shell sh -c 'pkg-config $(1) && echo y')
+
+#
+# Remove duplicates.
+uniq = $(strip $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),$1))))
+
+#
+# Add $(obj)/ for paths that are not relative
+objectify       = $(foreach o,$(sort $(call uniq,$(1))),$(if $(filter /% ./% ../%,$(o)),$(o),$(obj)/$(o)))
+
+#
+# Footer.
+$(__nmk_dir)scripts/utils.mk:
+	@true
+____nmk_defined__utils = y
+endif

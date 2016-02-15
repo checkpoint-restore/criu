@@ -1,0 +1,70 @@
+nmk(8)
+======
+
+NAME
+----
+nmk - a framework to minimize Makefile code needed for simple projects
+
+
+SYNOPSIS
+--------
+*make* -f main.mk makefile=Makefile obj=<dir>
+
+
+OVERVIEW
+--------
+Most of projects have similar source code structure:
+
+ * Toplevel 'Makefile'
+ * Source code itself in directory '<src>'
+ * Headers are gathered into directory '<include>'
+
+so that building procedure is invoking *make* to read toplevel 'Makefile',
+compile sources and link a final executable program. Taking this into account
+*nmk* is trying to minimize efforts needed to write 'Makefile'.
+
+
+USAGE
+-----
+First of all the *nmk* scripts are to be placed into some known place so the
+*make* would be able to read them from a command line. Internally *nmk* uses
+*__nmk_dir* variable to find own sources. Thus one can export
+
+----------
+    export __nmk_dir=<directory>/
+----------
+
+in a makefile or do it via environment variables. Note the ending slash is mandatory.
+
+As been mentioned earlier source code tree should include toplevel 'Makefile'
+and source code in '<src>' directory. Source code '<src>' should provide own
+'Makefile' (secondlevel) where files to be compiled are enumerated.
+
+A typical source code tree will look like
+
+----------
+    Makefile        # toplevel Makefile
+    <scripts>       # directory with nmk scripts
+    <src>           # source code directory
+        Makefile    # secondlevel Makefile
+        src1.c      # source code
+        src2.c
+        ...
+----------
+
+In toplevel 'Makefile' we should plug in *nmk* itself
+
+----------
+    export __nmk_dir=scripts/
+    include $(__nmk_dir)include.mk
+----------
+
+In secondlevel 'Makefile' we should enumerate files to be compiled.
+
+----------
+    obj-y   += src1.o
+    obj-y   += src2.o
+    ...
+----------
+
+That is basically all one need to build a program.
