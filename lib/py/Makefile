@@ -8,7 +8,7 @@ images:
 # rpc_pb2.py doesn't depend on any other file, so
 # it is safe to rename it, dropping ugly _pb2 suffix.
 rpc.py:
-	$(Q) protoc -I=$(SRC_DIR)/protobuf/ --python_out=./ $(SRC_DIR)/protobuf/$(@:.py=.proto)
+	$(Q) protoc -I=$(SRC_DIR)/images/ --python_out=./ $(SRC_DIR)/images/$(@:.py=.proto)
 	$(Q) mv $(@:.py=_pb2.py) $@
 
 clean:

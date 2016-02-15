@@ -59,7 +59,7 @@ proto-obj-y	+= seccomp.o
 proto-obj-y	+= binfmt-misc.o
 proto-obj-y	+= time.o
 
-CFLAGS		+= -I$(obj)/
+CFLAGS		+= -iquote $(obj)/
 
 #
 # Generates a set of names from protobuf "import" directive.
@@ -101,8 +101,6 @@ $(obj)/built-in.o: $(addprefix $(obj)/,$(proto-obj-y))
 	$(E) "  LINK    " $@
 	$(Q) $(LD) $(ldflags-y) -r -o $@ $^
 
-_all += $(obj)/built-in.o
-
 ifneq ($(MAKECMDGOALS),clean)
 -include $(addprefix $(obj)/,$(proto-obj-y:.o=.pb-c.d))
 endif
@@ -112,4 +110,3 @@ cleanup-y += $(obj)/google/protobuf/*.d
 cleanup-y += $(obj)/google/protobuf/*.h
 cleanup-y += $(obj)/google/protobuf/*.c
 cleanup-y += $(obj)/google/protobuf/*.o
-cleanup-y += $(obj)/*.d $(obj)/*.i $(obj)/*.s $(obj)/*.o

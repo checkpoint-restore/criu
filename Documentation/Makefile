@@ -1,4 +1,5 @@
--include ../Makefile.inc
+include $(__nmk_dir)/include.mk
+include $(__nmk_dir)/macro.mk
 
 ASCIIDOC	:= asciidoc
 A2X		:= a2x
@@ -9,10 +10,9 @@ XMLS		:= $(patsubst %.txt,%.xml,$(SRC))
 MANS		:= $(patsubst %.txt,%.8,$(SRC))
 MAN8DIR		:= $(MANDIR)/man8
 
-GROFF=groff
-PAPER=$(shell paperconf 2>/dev/null || echo letter)
-GROFF_OPTS	:= -Tps -t -dpaper=$(PAPER) -P-p$(PAPER) \
-		   -man -msafer -rC1 -rD1 -rS11
+GROFF		:=groff
+PAPER		:=$(shell paperconf 2>/dev/null || echo letter)
+GROFF_OPTS	:= -Tps -t -dpaper=$(PAPER) -P-p$(PAPER) -man -msafer -rC1 -rD1 -rS11
 PSS		:= $(MANS:%.8=%.ps)
 PDFS		:= $(MANS:%.8=%.pdf)
 
@@ -27,20 +27,20 @@ check:
 	done
 
 %.8: %.txt
-	$(E) "  GEN     " $@
+	$(call msg-gen, $@)
 	$(Q) $(ASCIIDOC) -b docbook -d manpage -o $(patsubst %.8,%.xml,$@) $<
 	$(Q) $(XMLTO) man --skip-validation $(patsubst %.8,%.xml,$@) 2>/dev/null
 
 %.ps: %.8
-	$(E) "  GEN     " $@
+	$(call msg-gen, $@)
 	$(Q) $(GROFF) $(GROFF_OPTS) $^ > $@
 
 %.pdf: %.ps
-	$(E) "  GEN     " $@
+	$(call msg-gen, $@)
 	$(Q) ps2pdf $< $@
 
 clean:
-	$(E) "  CLEAN   "
+	$(call msg-clean, "Documentation")
 	$(Q) rm -f $(XMLS) $(MANS) $(PSS) $(PDFS)
 
 install: $(MANS)

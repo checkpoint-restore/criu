@@ -15,11 +15,11 @@ c/built-in.o:
 	$(call msg-gen, $@)
 	$(Q) $(MAKE) $(build)=c all
 
-ccflags-so		+= $(CFLAGS) -rdynamic -Wl,-soname,$(lib-so).so.$(VERSION_SO_MAJOR)
+cflags-so		+= $(CFLAGS) -rdynamic -Wl,-soname,$(lib-so).so.$(VERSION_SO_MAJOR)
 ldflags-so		+= -lprotobuf-c
 c/$(CRIU_SO): c/built-in.o
 	$(call msg-link, $@)
-	$(Q) $(CC) -shared $(ccflags-so) -o $@ $^ $(ldflags-so) $(LDFLAGS)
+	$(Q) $(CC) -shared $(cflags-so) -o $@ $^ $(ldflags-so) $(LDFLAGS)
 lib-c: c/$(CRIU_SO)
 PHONY += lib-c
 
@@ -40,3 +40,5 @@ clean:
 all: $(PHONY)
 	@true
 PHONY += all
+
+.PHONY: $(PHONY) clean

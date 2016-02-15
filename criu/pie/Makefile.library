@@ -1,0 +1,43 @@
+lib-y			+= log-simple.o
+lib-y			+= util-fd.o
+lib-y			+= util.o
+
+ifeq ($(VDSO),y)
+        lib-y		+= util-vdso.o
+        lib-y		+= parasite-vdso.o
+        lib-y		+= ./$(ARCH_DIR)/vdso-pie.o
+
+        ifeq ($(SRCARCH),aarch64)
+                lib-y	+= ./$(ARCH_DIR)/intraprocedure.o
+        endif
+
+        ifeq ($(SRCARCH),ppc64)
+                lib-y	+= ./$(ARCH_DIR)/vdso-trampoline.o
+        endif
+endif
+
+ifeq ($(SRCARCH),ppc64)
+        lib-y		+= ./$(ARCH_DIR)/memcpy_power7.o
+        lib-y		+= ./$(ARCH_DIR)/memcmp_64.o
+        lib-y		+= ./$(ARCH_DIR)/misc.o
+endif
+
+#
+# We can't provide proper mount implementation
+# in parasite code -- it requires run-time rellocation
+# applications, which is not the target of the
+# project.
+#
+iquotes			:= -iquote pie/piegen -iquote arch/$(ARCH)/include -iquote $(SRC_DIR) -iquote $(SRC_DIR)/criu/include
+ccflags-y		:= $(filter-out -pg,$(CFLAGS)) $(iquotes)
+asflags-y		:= -D__ASSEMBLY__ $(iquotes)
+
+ifeq ($(SRCARCH),arm)
+	ccflags-y	+= -marm
+endif
+
+ifneq ($(filter-out ia32,$(ARCH)),)
+        ccflags-y	+= -DCR_NOGLIBC -fpie -Wa,--noexecstack -fno-stack-protector
+else
+        ccflags-y	+= -DCR_NOGLIBC -fno-pic -Wa,--noexecstack -fno-stack-protector
+endif

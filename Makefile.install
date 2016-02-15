@@ -1,0 +1,31 @@
+install: install-criu install-man
+
+install-criu: all $(CRIU-LIB) install-crit
+	$(E) "  INSTALL " $(PROGRAM)
+	$(Q) mkdir -p $(DESTDIR)$(SBINDIR)
+	$(Q) install -m 755 $(PROGRAM) $(DESTDIR)$(SBINDIR)
+	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)
+	$(Q) install -m 755 $(CRIU-LIB) \
+		$(DESTDIR)$(LIBDIR)/$(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR)
+	$(Q) ln -fns $(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR) \
+		$(DESTDIR)$(LIBDIR)/$(CRIU-SO).so.$(VERSION_SO_MAJOR)
+	$(Q) ln -fns $(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR) \
+		$(DESTDIR)$(LIBDIR)/$(CRIU-SO).so
+	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)
+	$(Q) install -m 644 $(CRIU-INC) $(DESTDIR)$(INCLUDEDIR)
+	$(Q) mkdir -p $(DESTDIR)$(SYSTEMDUNITDIR)
+	$(Q) sed -e 's,@version@,$(CRTOOLSVERSION),' \
+		-e 's,@libdir@,$(LIBDIR),' \
+		-e 's,@includedir@,$(dir $(INCLUDEDIR)),' \
+		lib/criu.pc.in > criu.pc
+	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)/pkgconfig
+	$(Q) install -m 644 criu.pc $(DESTDIR)$(LIBDIR)/pkgconfig
+
+install-man:
+	$(Q) $(MAKE) -C Documentation install
+
+install-crit: crit
+	$(E) "  INSTALL crit"
+	$(Q) python scripts/crit-setup.py install --root=$(DESTDIR) --prefix=$(PREFIX)
+
+.PHONY: install install-man install-crit install-criu
