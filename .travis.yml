@@ -1,7 +1,7 @@
 language: c
 env:
   - ARCH=arm
-  - ARCH=x86_64
+  - ARCH=x86
 compiler:
   - gcc
 before_install:
