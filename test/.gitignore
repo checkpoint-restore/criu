@@ -5,6 +5,7 @@
 /dev
 /dump
 /tmp
+/usr
 /.constructed
 /*.log
 /zdtm_ct

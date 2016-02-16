@@ -2,6 +2,7 @@
 /live/static/apparmor
 /live/static/arm-neon00
 /live/static/bind-mount
+/live/static/binfmt_misc
 /live/static/bridge
 /live/static/busyloop00
 /live/static/caps00
@@ -51,11 +52,13 @@
 /live/static/grow_map03
 /live/static/inotify00
 /live/static/inotify01
+/live/static/inotify02
 /live/static/inotify_irmap
 /live/static/inotify_system
 /live/static/inotify_system_nodel
 /live/static/ipc_namespace
 /live/static/link10
+/live/static/loginuid
 /live/static/maps00
 /live/static/maps01
 /live/static/maps02
@@ -87,6 +90,7 @@
 /live/static/overmount_fifo
 /live/static/overmount_file
 /live/static/overmount_sock
+/live/static/oom_score_adj
 /live/static/packet_sock
 /live/static/pdeath_sig
 /live/static/pid00
@@ -137,6 +141,7 @@
 /live/static/socket-closed-tcp
 /live/static/socket-ext
 /live/static/socket-tcp
+/live/static/socket-tcp-nfconntrack
 /live/static/socket-tcp6
 /live/static/socket-tcpbuf
 /live/static/socket-tcpbuf-local
@@ -175,14 +180,17 @@
 /live/static/unlink_fifo_wronly
 /live/static/unlink_fstat00
 /live/static/unlink_fstat01
+/live/static/unlink_fstat01+
 /live/static/unlink_fstat02
 /live/static/unlink_fstat03
 /live/static/unlink_largefile
 /live/static/unlink_mmap00
 /live/static/unlink_mmap01
 /live/static/unlink_mmap02
+/live/static/unlink_regular00
 /live/static/uptime_grow
 /live/static/utsname
+/live/static/vfork00
 /live/static/vdso00
 /live/static/vdso01
 /live/static/wait00
