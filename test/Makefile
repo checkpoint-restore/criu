@@ -52,6 +52,10 @@ clean_root:
 	$(Q) $(RM) -r ./etc
 	$(Q) $(RM) -r ./dev
 	$(Q) $(RM) -r ./bin
+	$(Q) $(RM) -r ./sbin
+	$(Q) $(RM) -r ./proc
+	$(Q) $(RM) -r ./usr
+	$(Q) $(RM) -r ./.constructed
 
 clean: clean_root
 	$(RM) zdtm_ct zdtm-tst-list
