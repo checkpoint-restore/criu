@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <signal.h>
 #include <sched.h>
+#include <sys/capability.h>
 
 #include "util.h"
 #include "imgset.h"
@@ -509,6 +510,34 @@ static int userns_id(int id, UidGidExtent **map, int n)
 	return -1;
 }
 
+static unsigned int host_id(unsigned int id, UidGidExtent **map, int n)
+{
+	int i;
+
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return id;
+
+	for (i = 0; i < n; i++) {
+		if (map[i]->first <= id &&
+		    map[i]->first + map[i]->count > id)
+			return map[i]->lower_first + (id - map[i]->first);
+	}
+
+	return INVALID_ID;
+}
+
+static uid_t host_uid(uid_t uid)
+{
+	UsernsEntry *e = &userns_entry;
+	return host_id(uid, e->uid_map, e->n_uid_map);
+}
+
+static gid_t host_gid(gid_t gid)
+{
+	UsernsEntry *e = &userns_entry;
+	return host_id(gid, e->gid_map, e->n_gid_map);
+}
+
 int userns_uid(int uid)
 {
 	UsernsEntry *e = &userns_entry;
@@ -621,6 +650,52 @@ static int check_user_ns(int pid)
 	}
 
 	if (chld == 0) {
+		struct __user_cap_data_struct data[_LINUX_CAPABILITY_U32S_3];
+		struct __user_cap_header_struct hdr;
+		uid_t uid;
+		gid_t gid;
+
+		uid = host_uid(0);
+		gid = host_gid(0);
+		if (uid == INVALID_ID || gid == INVALID_ID) {
+			pr_err("Unable to convert uid or gid\n");
+			return -1;
+		}
+
+		if (prctl(PR_SET_KEEPCAPS, 1)) {
+			pr_perror("Unable to set PR_SET_KEEPCAPS");
+			return -1;
+		}
+
+		if (setresgid(gid, gid, gid)) {
+			pr_perror("Unable to set group ID");
+			return -1;
+		}
+
+		if (setgroups(0, NULL) < 0) {
+			pr_perror("Unable to drop supplementary groups\n");
+			return -1;
+		}
+
+		if (setresuid(uid, uid, uid)) {
+			pr_perror("Unable to set user ID");
+			return -1;
+		}
+
+		hdr.version = _LINUX_CAPABILITY_VERSION_3;
+		hdr.pid = 0;
+
+		if (capget(&hdr, data) < 0) {
+			pr_perror("capget");
+			return -1;
+		}
+		data[0].effective = data[0].permitted;
+		data[1].effective = data[1].permitted;
+		if (capset(&hdr, data) < 0) {
+			pr_perror("capset");
+			return -1;
+		}
+
 		/*
 		 * Check that we are able to enter into other namespaces
 		 * from the target userns namespace. This signs that these
@@ -664,9 +739,6 @@ int dump_user_ns(pid_t pid, int ns_id)
 	UsernsEntry *e = &userns_entry;
 	struct cr_img *img;
 
-	if (check_user_ns(pid))
-		return -1;
-
 	ret = parse_id_map(pid, "uid_map", &e->uid_map);
 	if (ret < 0)
 		goto err;
@@ -676,6 +748,9 @@ int dump_user_ns(pid_t pid, int ns_id)
 	if (ret < 0)
 		goto err;
 	e->n_gid_map = ret;
+
+	if (check_user_ns(pid))
+		return -1;
 
 	img = open_image(CR_FD_USERNS, O_DUMP, ns_id);
 	if (!img)
