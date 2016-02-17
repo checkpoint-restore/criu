@@ -205,6 +205,11 @@ In other words, do not use it until really needed.
     information into image file. If the option is omitted or set to *none*
     then image will not be written. By default *criu* do not write this image.
 
+*--no-seccomp*::
+    Disable the dumping of seccomp state; this is useful for c/r of tasks using
+    seccomp running on old kernels which do not have support for dump and
+    restore of seccomp state.
+
 *restore*
 ~~~~~~~~~
 Restores previously checkpointed processes.

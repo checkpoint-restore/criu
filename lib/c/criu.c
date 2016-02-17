@@ -700,6 +700,12 @@ err:
 	return -ENOMEM;
 }
 
+void criu_local_set_no_seccomp(criu_opts *opts, bool val)
+{
+	opts->rpc->has_no_seccomp = true;
+	opts->rpc->no_seccomp = val;
+}
+
 int criu_add_skip_mnt(char *mnt)
 {
 	return criu_local_add_skip_mnt(global_opts, mnt);
@@ -719,6 +725,11 @@ void criu_set_ghost_limit(unsigned int limit)
 int criu_add_irmap_path(char *path)
 {
 	return criu_local_add_irmap_path(global_opts, path);
+}
+
+void criu_set_no_seccomp(bool val)
+{
+	return criu_local_set_no_seccomp(global_opts, val);
 }
 
 static CriuResp *recv_resp(int socket_fd)

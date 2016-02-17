@@ -1004,6 +1004,11 @@ int parse_pid_status(pid_t pid, struct proc_status_creds *cr)
 				goto err_parse;
 			}
 
+			if (opts.no_seccomp && cr->seccomp_mode != SECCOMP_MODE_DISABLED) {
+				pr_warn("task %d has seccomp, not disabling, dump may fail\n", pid);
+				cr->seccomp_mode = SECCOMP_MODE_DISABLED;
+			}
+
 			parsed_seccomp = true;
 			done++;
 			continue;
