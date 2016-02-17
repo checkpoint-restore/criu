@@ -110,16 +110,13 @@ PHONY += $(ARCH-LIB)
 #
 # piegen tool needed for PIE code.
 ifeq ($(piegen-y),y)
-piegen			:= pie/piegen/piegen
+piegen-bin		:= pie/piegen/piegen
 
 pie/piegen/%: config
 	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(HOSTCFLAGS) $(WARNINGS) $(DEFINES)" $(MAKE) $(build)=pie/piegen $@
-pie/piegen: config
-	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(HOSTCFLAGS) $(WARNINGS) $(DEFINES)" $(MAKE) $(build)=pie/piegen all
-$(piegen): pie/piegen/built-in.o
+$(piegen-bin): pie/piegen/built-in.o
 	$(call msg-link, $@)
 	$(Q) $(HOSTCC) $(HOSTCFLAGS) $^ $(LDFLAGS) -o $@
-PHONY += pie/piegen
 endif
 
 #
@@ -129,7 +126,7 @@ pie/lib.a: $(ARCH-LIB) $(SYSCALL-LIB)
 
 #
 # PIE code blobs themseves.
-pie: $(ARCH_DIR) $(piegen) pie/lib.a
+pie: $(piegen-bin) pie/lib.a
 	$(Q) $(MAKE) $(build)=pie all
 PHONY += pie
 
