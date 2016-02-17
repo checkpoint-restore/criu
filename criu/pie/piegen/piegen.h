@@ -30,6 +30,6 @@ extern int handle_elf_ppc64(void *mem, size_t size);
 #define pr_debug(fmt, ...)	printf("%s: "fmt, opts.stream_name, ##__VA_ARGS__)
 
 #define pr_err(fmt, ...)	fprintf(stderr, "%s: Error (%s:%d): "fmt, opts.stream_name, __FILE__, __LINE__, ##__VA_ARGS__)
-#define pr_perror(fmt, ...)	fprintf(stderr, "%s: Error (%s:%d): "fmt "%m\n", opts.stream_name, __FILE__, __LINE__, ##__VA_ARGS__)
+#define pr_perror(fmt, ...)	fprintf(stderr, "%s: Error (%s:%d): "fmt ": %m\n", opts.stream_name, __FILE__, __LINE__, ##__VA_ARGS__)
 
 #endif /* __ELFTIL_H__ */
