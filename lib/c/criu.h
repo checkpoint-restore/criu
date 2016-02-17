@@ -192,7 +192,7 @@ int criu_local_add_enable_fs(criu_opts *opts, char *fs);
 int criu_local_add_skip_mnt(criu_opts *opts, char *mnt);
 void criu_local_set_ghost_limit(criu_opts *opts, unsigned int limit);
 int criu_local_add_irmap_path(criu_opts *opts, char *path);
-void criu_local_set_no_seccomp(criu_opots *opts, bool val);
+void criu_local_set_no_seccomp(criu_opts *opts, bool val);
 
 void criu_local_set_notify_cb(criu_opts *opts, int (*cb)(char *action, criu_notify_arg_t na));
 
