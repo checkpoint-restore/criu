@@ -18,7 +18,7 @@
 #include "piegen.h"
 
 piegen_opt_t opts = {
-	.input_filename		= "file.o",
+	.input_filename		= NULL,
 	.stream_name		= "stream",
 	.prefix_name		= "__",
 	.var_name		= "elf_relocs",
@@ -115,6 +115,9 @@ int main(int argc, char *argv[])
 			goto usage;
 		}
 	}
+
+	if (!opts.input_filename)
+		goto usage;
 
 	fd = open(opts.input_filename, O_RDONLY);
 	if (fd < 0) {
