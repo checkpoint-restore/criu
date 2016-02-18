@@ -1,0 +1,3 @@
+FROM armv7/armhf-ubuntu
+
+COPY scripts/build/qemu-user-static/usr/bin/qemu-arm-static /usr/bin/qemu-arm-static

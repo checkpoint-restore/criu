@@ -1,0 +1,3 @@
+FROM aarch64/ubuntu:trusty
+
+COPY scripts/build/qemu-user-static/usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
