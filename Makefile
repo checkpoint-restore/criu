@@ -155,11 +155,14 @@ test: zdtm
 	$(Q) $(MAKE) -C test
 PHONY += test
 
-dist: tar
-tar: criu-$(CRTOOLSVERSION).tar.bz2
-criu-$(CRTOOLSVERSION).tar.bz2:
-	git archive --format tar --prefix 'criu-$(CRTOOLSVERSION)/' \
-		v$(CRTOOLSVERSION) | bzip2 > $@
+tar-name := $(shell git tag -l v$(CRIU_VERSION))
+ifeq ($(tar-name),)
+        tar-name := $(shell git describe)
+endif
+criu-$(tar-name).tar.bz2:
+	git archive --format tar --prefix 'criu-$(tar-name)/' $(tar-name) | bzip2 > $@
+dist tar: criu-$(tar-name).tar.bz2
+	@true
 .PHONY: dist tar
 
 tags:
