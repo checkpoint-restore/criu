@@ -1,3 +1,4 @@
+include $(__nmk_dir)msg.mk
 all: pb.py images magic.py
 
 .PHONY: all images clean pb.py

@@ -84,6 +84,9 @@ ifneq ($(filter ia32 x86 ppc64,$(ARCH)),)
         endif
 endif
 
+# msg-* printing
+include $(__nmk_dir)/msg.mk
+
 #
 # Version header file.
 include Makefile.version
