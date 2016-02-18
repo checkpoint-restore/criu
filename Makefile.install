@@ -1,31 +1,48 @@
-install: install-criu install-man
+#
+# Installation paths.
+DESTDIR		?=
+PREFIX		?= /usr/local
+SBINDIR		?= $(PREFIX)/sbin
+MANDIR		?= $(PREFIX)/share/man
+SYSTEMDUNITDIR	?= $(PREFIX)/lib/systemd/system/
+LOGROTATEDIR	?= $(PREFIX)/etc/logrotate.d/
+LIBDIR		?= $(PREFIX)/lib
+INCLUDEDIR	?= $(PREFIX)/include/criu
 
-install-criu: all $(CRIU-LIB) install-crit
-	$(E) "  INSTALL " $(PROGRAM)
-	$(Q) mkdir -p $(DESTDIR)$(SBINDIR)
-	$(Q) install -m 755 $(PROGRAM) $(DESTDIR)$(SBINDIR)
-	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)
-	$(Q) install -m 755 $(CRIU-LIB) \
-		$(DESTDIR)$(LIBDIR)/$(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR)
-	$(Q) ln -fns $(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR) \
-		$(DESTDIR)$(LIBDIR)/$(CRIU-SO).so.$(VERSION_SO_MAJOR)
-	$(Q) ln -fns $(CRIU-SO).so.$(VERSION_SO_MAJOR).$(VERSION_SO_MINOR) \
-		$(DESTDIR)$(LIBDIR)/$(CRIU-SO).so
-	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)
-	$(Q) install -m 644 $(CRIU-INC) $(DESTDIR)$(INCLUDEDIR)
+#
+# For recent Debian/Ubuntu with multiarch support.
+DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null)
+ifneq "$(DEB_HOST_MULTIARCH)" ""
+        LIBDIR			?= $(PREFIX)/lib/$(DEB_HOST_MULTIARCH)
+else
+        #
+        # For most other systems
+        ifeq "$(shell uname -m)" "x86_64"
+                LIBDIR		?= $(PREFIX)/lib64
+        endif
+endif
+
+export SBINDIR MANDIR SYSTEMDUNITDIR LOGROTATEDIR
+export INCLUDEDIR LIBDIR DESTDIR PREFIX
+
+install-tree:
 	$(Q) mkdir -p $(DESTDIR)$(SYSTEMDUNITDIR)
-	$(Q) sed -e 's,@version@,$(CRTOOLSVERSION),' \
-		-e 's,@libdir@,$(LIBDIR),' \
-		-e 's,@includedir@,$(dir $(INCLUDEDIR)),' \
-		lib/criu.pc.in > lib/c/criu.pc
-	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)/pkgconfig
-	$(Q) install -m 644 lib/c/criu.pc $(DESTDIR)$(LIBDIR)/pkgconfig
+	$(Q) mkdir -p $(DESTDIR)$(LOGROTATEDIR)
+	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)
+.PHONY: install-tree
 
 install-man:
 	$(Q) $(MAKE) -C Documentation install
+.PHONY: install-man
 
-install-crit: crit/crit
-	$(E) "  INSTALL crit"
-	$(Q) python scripts/crit-setup.py install --root=$(DESTDIR) --prefix=$(PREFIX)
+install-lib: lib
+	$(Q) $(MAKE) -C lib install
+.PHONY: install-lib
 
-.PHONY: install install-man install-crit install-criu
+install-criu: criu
+	$(Q) $(MAKE) -C criu install
+.PHONY: install-criu
+
+install: install-man install-lib install-criu
+	@true
+.PHONY: install

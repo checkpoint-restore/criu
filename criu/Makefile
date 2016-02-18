@@ -155,9 +155,18 @@ clean:
 	$(Q) $(RM) $(CONFIG_HEADER)
 	$(Q) $(RM) criu
 
+UAPI_HEADERS := include/criu-plugin.h include/criu-log.h
+
+install: criu
+	$(E) "  INSTALL " criu
+	$(Q) mkdir -p $(DESTDIR)$(SBINDIR)
+	$(Q) install -m 755 criu $(DESTDIR)$(SBINDIR)
+	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)
+	$(Q) install -m 644 $(UAPI_HEADERS) $(DESTDIR)$(INCLUDEDIR)
+
 #
 # Final @all target.
 all: $(PHONY)
 	@true
 
-.PHONY: $(PHONY) clean
+.PHONY: $(PHONY) clean install

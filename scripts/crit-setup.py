@@ -6,7 +6,6 @@ setup(name = "crit",
       author = "CRIU team",
       author_email = "criu@openvz.org",
       url = "https://github.com/xemul/criu",
-      package_dir = {'': "lib"},
       packages = ["pycriu", "pycriu.images"],
-      scripts = ["crit/crit"]
+      scripts = ["../crit/crit"]
       )
