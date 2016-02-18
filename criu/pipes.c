@@ -21,7 +21,7 @@ static void show_saved_pipe_fds(struct pipe_info *pi)
 {
 	struct fdinfo_list_entry *fle;
 
-	pr_info("  `- ID %p %#xpn", pi, pi->pe->id);
+	pr_info("  `- ID %p %#x\n", pi, pi->pe->id);
 	list_for_each_entry(fle, &pi->d.fd_info_head, desc_list)
 		pr_info("   `- FD %d pid %d\n", fle->fe->fd, fle->pid);
 }
