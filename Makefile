@@ -7,6 +7,11 @@ include $(__nmk_dir)/include.mk
 include $(__nmk_dir)/macro.mk
 
 #
+# Import tools versions early
+# so subsequents may refer them.
+include Makefile.versions
+
+#
 # To build host helpers.
 HOSTCC		?= gcc
 HOSTLD		?= ld

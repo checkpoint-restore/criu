@@ -1,9 +1,6 @@
 include $(__nmk_dir)/include.mk
 include $(__nmk_dir)/macro.mk
 
-VERSION_SO_MAJOR	:= 1
-VERSION_SO_MINOR	:= 0
-
 CRIU_SO			:= libcriu.so
 
 #
@@ -15,7 +12,7 @@ c/built-in.o:
 	$(call msg-gen, $@)
 	$(Q) $(MAKE) $(build)=c all
 
-cflags-so		+= $(CFLAGS) -rdynamic -Wl,-soname,$(lib-so).so.$(VERSION_SO_MAJOR)
+cflags-so		+= $(CFLAGS) -rdynamic -Wl,-soname,$(lib-so).so.$(CRIU_SO_VERSION_MAJOR)
 ldflags-so		+= -lprotobuf-c
 c/$(CRIU_SO): c/built-in.o
 	$(call msg-link, $@)

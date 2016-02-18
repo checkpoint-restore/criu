@@ -1,15 +1,4 @@
 #
-# CRIU version.
-VERSION_MAJOR		:= 2
-VERSION_MINOR		:= 0
-VERSION_SUBLEVEL	:=
-VERSION_EXTRA		:=
-VERSION_NAME		:=
-
-export VERSION_MAJOR VERSION_MINOR
-export VERSION_SUBLEVEL VERSION_EXTRA VERSION_NAME
-
-#
 # HOST part is needed to build helper
 # tools such as piegen.
 HOSTCC			?= gcc
