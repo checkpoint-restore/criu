@@ -5,14 +5,11 @@ CRIU_SO			:= libcriu.so
 
 #
 # C language bindings.
-c/%:
+c/%: ../Makefile.versions
 	$(call msg-gen, $@)
 	$(Q) $(MAKE) $(build)=c $@
-c/built-in.o:
-	$(call msg-gen, $@)
-	$(Q) $(MAKE) $(build)=c all
 
-cflags-so		+= $(CFLAGS) -rdynamic -Wl,-soname,$(lib-so).so.$(CRIU_SO_VERSION_MAJOR)
+cflags-so		+= $(CFLAGS) -rdynamic -Wl,-soname,$(CRIU_SO).$(CRIU_SO_VERSION_MAJOR)
 ldflags-so		+= -lprotobuf-c
 c/$(CRIU_SO): c/built-in.o
 	$(call msg-link, $@)
