@@ -511,7 +511,7 @@ static int __parasite_daemon_reply_ack(unsigned int cmd, int err)
 	m = ctl_msg_ack(cmd, err);
 	ret = sys_sendto(tsock, &m, sizeof(m), 0, NULL, 0);
 	if (ret != sizeof(m)) {
-		pr_err("Sent only %d bytes while %zd expected\n", ret, sizeof(m));
+		pr_err("Sent only %d bytes while %lu expected\n", ret, sizeof(m));
 		return -1;
 	}
 
