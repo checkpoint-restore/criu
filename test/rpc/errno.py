@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # Test criu errno
 
 import socket, os, imp, sys, errno
