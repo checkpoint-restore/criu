@@ -1,6 +1,6 @@
-include ../../Makefile.inc
+include ../Makefile.inc
 
-LIBDIR	= ../../lib
+LIBDIR	= ../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
 override CPPFLAGS += -I$(LIBDIR)
 CFLAGS	= -g -O2 -Wall -Werror -fno-strict-aliasing

@@ -418,7 +418,7 @@ class zdtm_test:
 			print " <<< " + "=" * 32
 
 	def static(self):
-		return self.__name.split('/')[2] == 'static'
+		return self.__name.split('/')[1] == 'static'
 
 	def ns(self):
 		return self.__flavor.ns
