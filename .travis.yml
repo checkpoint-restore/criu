@@ -9,3 +9,5 @@ before_install:
   - sudo apt-get install -qq protobuf-c-compiler libprotobuf-c0-dev libaio-dev libprotobuf-dev protobuf-compiler python-ipaddr libcap-dev libnl-3-dev
 script:
   - "bash -ex scripts/travis-ci.sh"
+sudo: required
+dist: trusty
