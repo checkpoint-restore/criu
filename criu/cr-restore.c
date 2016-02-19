@@ -2822,7 +2822,7 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 	memcpy(&args->creds, ce, sizeof(args->creds));
 
 	if (ce->lsm_profile || opts.lsm_supplied) {
-		char *rendered, *profile;
+		char *rendered = NULL, *profile;
 
 		profile = ce->lsm_profile;
 		if (opts.lsm_supplied)
