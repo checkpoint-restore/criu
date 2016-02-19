@@ -3,7 +3,7 @@ include ../../Makefile.inc
 LIBDIR	= ../../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
 override CPPFLAGS += -I$(LIBDIR)
-CFLAGS	= -g -O2 -Wall -Werror
+CFLAGS	= -g -O2 -Wall -Werror -fno-strict-aliasing
 CFLAGS	+= $(USERCFLAGS)
 
 TST_NOFILE	=	\
@@ -14,9 +14,21 @@ TST_NOFILE	=	\
 		fork2		\
 		thread-bomb	\
 		maps007		\
+		pipe_loop00     \
+		pipe_shared00   \
+		socket_loop00   \
+		netlink00       \
+		file_aio        \
+		socket-tcp      \
+		socket-tcp6     \
+
 
 TST_FILE	=	\
 		file_read	\
+		unix_sock       \
+		fifo_dyn        \
+		fifo_loop       \
+
 
 TST	= $(TST_NOFILE) $(TST_FILE)
 SRC	= $(TST:%=%.c)
@@ -61,11 +73,14 @@ wait_stop:
 
 $(TST):	$(LIB)
 
+file_aio:	override LDLIBS += -lrt -pthread
+socket-tcp:	override CFLAGS += -D STREAM
+socket-tcp6:	override CFLAGS += -D ZDTM_IPV6 -D STREAM
 ptrace.o:	override CFLAGS += -pthread
 ptrace:		override LDFLAGS += -pthread
 fork2:		override CFLAGS += -D FORK2
-thread-bomb.o:		override CFLAGS += -pthread
-thread-bomb:		override LDFLAGS += -pthread
+thread-bomb.o:	override CFLAGS += -pthread
+thread-bomb:	override LDFLAGS += -pthread
 
 %: %.sh
 	cp $< $@

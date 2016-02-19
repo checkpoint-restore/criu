@@ -1,4 +1,4 @@
-SUBDIRS	=	streaming transition static
+SUBDIRS	= transition static
 
 default:	all
 .PHONY: default
