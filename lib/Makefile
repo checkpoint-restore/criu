@@ -22,7 +22,7 @@ PHONY += lib-c
 # Python bindings.
 lib-py:
 	$(call msg-gen, $@)
-	$(Q) $(MAKE) -C py/images all
+	$(Q) $(MAKE) -C py all
 PHONY += lib-py
 
 clean:
@@ -31,7 +31,7 @@ clean:
 	$(Q) $(RM) c/$(CRIU_SO)
 	$(Q) $(RM) c/criu.pc
 	$(call msg-clean, lib-py)
-	$(Q) $(MAKE) -C py/images $@
+	$(Q) $(MAKE) -C py $@
 
 all: $(PHONY)
 	@true
