@@ -514,10 +514,6 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 		mtype = find_dir(ncd->path, &current_controller->heads, &match);
 
 		switch (mtype) {
-		/* ignore co-mounted cgroups */
-		case EXACT_MATCH:
-			exit_code = 0;
-			goto out;
 		case PARENT_MATCH:
 			list_add_tail(&ncd->siblings, &match->children);
 			match->n_children++;
@@ -526,6 +522,8 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 			list_add_tail(&ncd->siblings, &current_controller->heads);
 			current_controller->n_heads++;
 			break;
+		/* the same hierarchy won't be walked twice for a single process */
+		case EXACT_MATCH:
 		default:
 			BUG();
 		}
