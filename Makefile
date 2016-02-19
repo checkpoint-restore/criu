@@ -81,6 +81,12 @@ CFLAGS			+= $(USERCFLAGS)
 
 WARNINGS		:= -Wall
 
+ifeq ($(GCOV),1)
+        LDFLAGS         += -lgcov
+        DEBUG           := 1
+        CFLAGS          += --coverage -fno-exceptions -fno-inline
+endif
+
 ifneq ($(WERROR),0)
         WARNINGS	+= -Werror
 endif
