@@ -46,16 +46,7 @@ fault-injection: .FORCE
 override CFLAGS += -D_GNU_SOURCE
 
 clean_root:
-	$(Q) $(RM) -r ./lib/
-	$(Q) $(RM) -r ./lib64/
-	$(Q) $(RM) -r ./tmp
-	$(Q) $(RM) -r ./etc
-	$(Q) $(RM) -r ./dev
-	$(Q) $(RM) -r ./bin
-	$(Q) $(RM) -r ./sbin
-	$(Q) $(RM) -r ./proc
-	$(Q) $(RM) -r ./usr
-	$(Q) $(RM) -r ./.constructed
+	$(Q) ./zdtm.py clean nsroot
 
 clean: clean_root
 	$(RM) zdtm_ct zdtm-tst-list
