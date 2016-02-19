@@ -415,6 +415,8 @@ static int restore_nf_ct(int pid, int type)
 	struct cr_img *img;
 
 	img = open_image(type, O_RSTR, pid);
+	if (img == NULL)
+		return -1;
 	if (empty_image(img)) {
 		close_image(img);
 		return 0;
