@@ -996,33 +996,6 @@ long __export_restore_task(struct task_restore_args *args)
 	}
 
 	/*
-	 * Finally restore madivse() bits
-	 */
-	for (i = 0; i < args->vmas_n; i++) {
-		unsigned long m;
-
-		vma_entry = args->vmas + i;
-		if (!vma_entry->has_madv || !vma_entry->madv)
-			continue;
-
-		for (m = 0; m < sizeof(vma_entry->madv) * 8; m++) {
-			if (vma_entry->madv & (1ul << m)) {
-				ret = sys_madvise(vma_entry->start,
-						  vma_entry_len(vma_entry),
-						  m);
-				if (ret) {
-					pr_err("madvise(%"PRIx64", %"PRIu64", %ld) "
-					       "failed with %ld\n",
-						vma_entry->start,
-						vma_entry_len(vma_entry),
-						m, ret);
-					goto core_restore_end;
-				}
-			}
-		}
-	}
-
-	/*
 	 * Now when all VMAs are in their places time to set
 	 * up AIO rings.
 	 */
@@ -1073,6 +1046,33 @@ long __export_restore_task(struct task_restore_args *args)
 				pr_err("AIO context screwed up\n");
 
 			goto core_restore_end;
+		}
+	}
+
+	/*
+	 * Finally restore madivse() bits
+	 */
+	for (i = 0; i < args->vmas_n; i++) {
+		unsigned long m;
+
+		vma_entry = args->vmas + i;
+		if (!vma_entry->has_madv || !vma_entry->madv)
+			continue;
+
+		for (m = 0; m < sizeof(vma_entry->madv) * 8; m++) {
+			if (vma_entry->madv & (1ul << m)) {
+				ret = sys_madvise(vma_entry->start,
+						  vma_entry_len(vma_entry),
+						  m);
+				if (ret) {
+					pr_err("madvise(%"PRIx64", %"PRIu64", %ld) "
+					       "failed with %ld\n",
+						vma_entry->start,
+						vma_entry_len(vma_entry),
+						m, ret);
+					goto core_restore_end;
+				}
+			}
 		}
 	}
 
