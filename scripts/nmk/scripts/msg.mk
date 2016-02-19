@@ -42,6 +42,17 @@ define msg-build
         $(E) "  BUILD   " $(1)
 endef
 
+define newline
+
+
+endef
+
+# map funciton:
+# $1 - func to call
+# $2 - list over which map the $1 func
+# result is divided with newlines
+map = $(foreach x,$2,$(call $1,$x)$(newline))
+
 #
 # Footer.
 $(__nmk_dir)scripts/msg.mk:
