@@ -94,8 +94,10 @@ extern struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd);
 extern int collect_user_namespaces(bool for_dump);
 extern int prepare_userns(struct pstree_item *item);
 extern int stop_usernsd(void);
-extern int userns_uid(int uid);
-extern int userns_gid(int gid);
+
+extern uid_t userns_uid(uid_t uid);
+extern gid_t userns_gid(gid_t gid);
+
 extern int dump_user_ns(pid_t pid, int ns_id);
 extern void free_userns_maps(void);
 

@@ -507,8 +507,9 @@ int dump_task_ns_ids(struct pstree_item *item)
 }
 
 static UsernsEntry userns_entry = USERNS_ENTRY__INIT;
+#define INVALID_ID (~0U)
 
-static int userns_id(int id, UidGidExtent **map, int n)
+static unsigned int userns_id(unsigned int id, UidGidExtent **map, int n)
 {
 	int i;
 
@@ -521,7 +522,7 @@ static int userns_id(int id, UidGidExtent **map, int n)
 			return map[i]->first + (id - map[i]->lower_first);
 	}
 
-	return -1;
+	return INVALID_ID;
 }
 
 static unsigned int host_id(unsigned int id, UidGidExtent **map, int n)
@@ -537,7 +538,7 @@ static unsigned int host_id(unsigned int id, UidGidExtent **map, int n)
 			return map[i]->lower_first + (id - map[i]->first);
 	}
 
-	return -1;
+	return INVALID_ID;
 }
 
 static uid_t host_uid(uid_t uid)
@@ -552,13 +553,13 @@ static gid_t host_gid(gid_t gid)
 	return host_id(gid, e->gid_map, e->n_gid_map);
 }
 
-int userns_uid(int uid)
+uid_t userns_uid(uid_t uid)
 {
 	UsernsEntry *e = &userns_entry;
 	return userns_id(uid, e->uid_map, e->n_uid_map);
 }
 
-int userns_gid(int gid)
+gid_t userns_gid(gid_t gid)
 {
 	UsernsEntry *e = &userns_entry;
 	return userns_id(gid, e->gid_map, e->n_gid_map);
@@ -672,7 +673,7 @@ static int check_user_ns(int pid)
 
 		uid = host_uid(0);
 		gid = host_gid(0);
-		if (uid == -1 || gid == -1) {
+		if (uid == INVALID_ID || gid == INVALID_ID) {
 			pr_err("Unable to convert uid or gid\n");
 			return -1;
 		}
