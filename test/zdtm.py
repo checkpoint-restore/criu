@@ -689,6 +689,8 @@ class criu_cli:
 		if self.__dedup:
 			a_opts += [ "--auto-dedup" ]
 
+		a_opts += [ "--timeout", "10" ]
+
 		self.__criu_act(action, opts = a_opts + opts)
 
 		if self.__page_server:
