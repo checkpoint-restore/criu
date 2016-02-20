@@ -84,7 +84,7 @@ typedef unsigned long ulong;
 
 #define MAX_FORKS	3	/* child, checkpoint, restore */
 
-#define CRIU_BINARY		"../../criu"
+#define CRIU_BINARY		"../../../criu/criu"
 #define IMG_DIR			"images"
 #define DUMP_LOG_FILE		"dump.log"
 #define RESTORE_LOG_FILE	"restore.log"

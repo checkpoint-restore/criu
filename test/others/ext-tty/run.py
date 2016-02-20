@@ -11,7 +11,7 @@ ttyid = "tty[%x:%x]" % (st.st_rdev, st.st_dev)
 os.close(slave)
 time.sleep(1)
 
-ret = subprocess.Popen(["../../criu/criu", "dump", "-t", str(p.pid), "-v4", "--external", ttyid]).wait()
+ret = subprocess.Popen(["../../../criu/criu", "dump", "-t", str(p.pid), "-v4", "--external", ttyid]).wait()
 if ret:
 	sys.exit(ret)
 p.wait()
@@ -21,7 +21,7 @@ os.close(master)
 
 ttyid = "fd[%d]:tty[%x:%x]" % (slave, st.st_rdev, st.st_dev)
 
-ret = subprocess.Popen(["../../criu/criu", "restore", "-v4", "--inherit-fd", ttyid, "--restore-sibling", "--restore-detach"]).wait()
+ret = subprocess.Popen(["../../../criu/criu", "restore", "-v4", "--inherit-fd", ttyid, "--restore-sibling", "--restore-detach"]).wait()
 if ret:
 	sys.exit(ret)
 os.close(slave)

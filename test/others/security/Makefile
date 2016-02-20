@@ -13,10 +13,10 @@ export DIR LOOP PIDFILE IMGS CRIU ROOT USR1 USR2
 run: testdir users
 	./run.sh
 
-testdir: ../../criu/criu
+testdir: ../../../criu/criu
 	mkdir -p $(DIR)
 	mkdir -p $(IMGS)
-	cp ../../criu/criu $(CRIU)
+	cp ../../../criu/criu $(CRIU)
 	chmod u+s $(CRIU)
 	cp loop.sh $(LOOP)
 	chmod 777 $(DIR)

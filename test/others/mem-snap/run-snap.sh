@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ../env.sh || exit 1
+source ../../env.sh || exit 1
 
 USEPS=0
 
@@ -26,7 +26,7 @@ rm -rf "$IMGDIR"
 mkdir "$IMGDIR"
 
 echo "Launching test"
-cd ../zdtm/live/static/
+cd ../../zdtm/live/static/
 make cleanout
 make mem-touch
 make mem-touch.pid || fail "Can't start test"
@@ -44,14 +44,14 @@ for SNAP in $(seq 1 $NRSNAP); do
 		args="--track-mem -R"
 	elif [ $SNAP -eq $NRSNAP ]; then
 		# Last snapshot -- has parent, kill afterwards
-		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem --auto-dedup"
+		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem"
 	else
 		# Other snapshots -- have parent, keep running
-		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem -R --auto-dedup"
+		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem -R"
 	fi
 
 	if [ $USEPS -eq 1 ]; then
-		${CRIU} page-server -D "${IMGDIR}/$SNAP/" -o ps.log --auto-dedup --port ${PORT} -v4 &
+		${CRIU} page-server -D "${IMGDIR}/$SNAP/" -o ps.log --port ${PORT} -v4 &
 		PS_PID=$!
 		ps_args="--page-server --address 127.0.0.1 --port=${PORT}"
 	else
@@ -65,23 +65,10 @@ for SNAP in $(seq 1 $NRSNAP); do
 done
 
 echo "Restoring"
-${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log --auto-dedup -d -v4 || fail "Fail to restore server"
+${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log -d -v4 || fail "Fail to restore server"
 
-size_last3=$(du -sh -BK dump/3/pages-*.img | grep -Eo '[0-9]+' | head -1)
-size_last2=$(du -sh -BK dump/2/pages-*.img | grep -Eo '[0-9]+' | head -1)
-size_last1=$(du -sh -BK dump/1/pages-*.img | grep -Eo '[0-9]+' | head -1)
-
-restore_dedup_ok=0
-if [[ $size_last1 -ne 0 || $size_last2 -ne 0 || $size_last3 -ne 0 ]]; then
-	restore_dedup_ok=1
-fi
-
-cd ../zdtm/live/static/
+cd ../../zdtm/live/static/
 make mem-touch.stop
 cat mem-touch.out | fgrep PASS || fail "Test failed"
-
-if [ $restore_dedup_ok -ne 0 ]; then
-	fail "Dedup test failed"
-fi
 
 echo "Test PASSED"

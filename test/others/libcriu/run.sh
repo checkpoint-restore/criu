@@ -1,6 +1,7 @@
 #!/bin/bash
 
-source ../env.sh || exit 1
+set -x
+source ../../env.sh || exit 1
 
 echo "== Clean"
 make clean
@@ -11,7 +12,7 @@ echo "== Prepare"
 mkdir -p wdir/i/
 
 echo "== Run tests"
-ln -s ../../lib/libcriu.so libcriu.so.1
+ln -s ../../../../criu/lib/c/libcriu.so libcriu.so.1
 export LD_LIBRARY_PATH=.
 export PATH="`dirname ${BASH_SOURCE[0]}`/../../:$PATH"
 

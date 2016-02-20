@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ../env.sh || exit 1
+source ../../env.sh || exit 1
 
 USEPS=0
 
@@ -31,10 +31,10 @@ fi
 rm -rf "$IMGDIR/*"
 
 echo "Launching test"
-make -C ../zdtm/live/static/ cleanout
-make -C ../zdtm/live/static/ maps04
-make -C ../zdtm/live/static/ maps04.pid || fail "Can't start test"
-PID=$(cat ../zdtm/live/static/maps04.pid)
+make -C ../../zdtm//live/static/ cleanout
+make -C ../../zdtm//live/static/ maps04
+make -C ../../zdtm//live/static/ maps04.pid || fail "Can't start test"
+PID=$(cat ../../zdtm//live/static/maps04.pid)
 kill -0 $PID || fail "Test haven't started"
 
 mkdir "$IMGDIR/$NRSNAP/"
@@ -55,7 +55,7 @@ fi
 echo "Restoring"
 ${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log --auto-dedup -d -v4 || fail "Fail to restore"
 
-make -C ../zdtm/live/static/ maps04.stop
+make -C ../../zdtm//live/static/ maps04.stop
 sleep 1
 
 cat "../zdtm/live/static/maps04.out" | fgrep PASS || fail "Test failed"

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ../env.sh || exit 1
+source ../../env.sh || exit 1
 
 USEPS=0
 
@@ -26,7 +26,7 @@ rm -rf "$IMGDIR"
 mkdir "$IMGDIR"
 
 echo "Launching test"
-cd ../zdtm/live/static/
+cd ../../zdtm//live/static/
 make cleanout
 make mem-touch
 make mem-touch.pid || fail "Can't start test"
@@ -34,19 +34,22 @@ PID=$(cat mem-touch.pid)
 kill -0 $PID || fail "Test didn't start"
 cd -
 
-echo "Making $NRSNAP snapshots"
+echo "Making $NRSNAP pre-dumps"
 
 for SNAP in $(seq 1 $NRSNAP); do
 	sleep $SPAUSE
 	mkdir "$IMGDIR/$SNAP/"
 	if [ $SNAP -eq 1 ] ; then
-		# First snapshot -- no parent, keep running
+		# First pre-dump
+		cmd="pre-dump"
 		args="--track-mem -R"
 	elif [ $SNAP -eq $NRSNAP ]; then
-		# Last snapshot -- has parent, kill afterwards
+		# Last dump
+		cmd="dump"
 		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem"
 	else
-		# Other snapshots -- have parent, keep running
+		# Other pre-dumps
+		cmd="pre-dump"
 		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem -R"
 	fi
 
@@ -58,7 +61,7 @@ for SNAP in $(seq 1 $NRSNAP); do
 		ps_args=""
 	fi
 
-	${CRIU} dump -D "${IMGDIR}/$SNAP/" -o dump.log -t ${PID} -v4 $args $ps_args || fail "Fail to dump"
+	${CRIU} $cmd -D "${IMGDIR}/$SNAP/" -o dump.log -t ${PID} -v4 $args $ps_args || fail "Fail to dump"
 	if [ $USEPS -eq 1 ]; then
 		wait $PS_PID
 	fi
@@ -67,7 +70,7 @@ done
 echo "Restoring"
 ${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log -d -v4 || fail "Fail to restore server"
 
-cd ../zdtm/live/static/
+cd ../../zdtm//live/static/
 make mem-touch.stop
 cat mem-touch.out | fgrep PASS || fail "Test failed"
 

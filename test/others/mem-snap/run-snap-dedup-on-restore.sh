@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ../env.sh || exit 1
+source ../../env.sh || exit 1
 
 USEPS=0
 
@@ -26,7 +26,7 @@ rm -rf "$IMGDIR"
 mkdir "$IMGDIR"
 
 echo "Launching test"
-cd ../zdtm/live/static/
+cd ../../zdtm//live/static/
 make cleanout
 make mem-touch
 make mem-touch.pid || fail "Can't start test"
@@ -44,14 +44,14 @@ for SNAP in $(seq 1 $NRSNAP); do
 		args="--track-mem -R"
 	elif [ $SNAP -eq $NRSNAP ]; then
 		# Last snapshot -- has parent, kill afterwards
-		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem"
+		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem --auto-dedup"
 	else
 		# Other snapshots -- have parent, keep running
-		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem -R"
+		args="--prev-images-dir=../$((SNAP - 1))/ --track-mem -R --auto-dedup"
 	fi
 
 	if [ $USEPS -eq 1 ]; then
-		${CRIU} page-server -D "${IMGDIR}/$SNAP/" -o ps.log --port ${PORT} -v4 &
+		${CRIU} page-server -D "${IMGDIR}/$SNAP/" -o ps.log --auto-dedup --port ${PORT} -v4 &
 		PS_PID=$!
 		ps_args="--page-server --address 127.0.0.1 --port=${PORT}"
 	else
@@ -64,35 +64,23 @@ for SNAP in $(seq 1 $NRSNAP); do
 	fi
 done
 
-echo "Dedup test"
-
-size_first_2=$(du -sh -BK  dump/2/pages-*.img | grep -Eo '[0-9]+' | head -1)
-size_first_1=$(du -sh -BK  dump/1/pages-*.img | grep -Eo '[0-9]+' | head -1)
-
-${CRIU} dedup -D "${IMGDIR}/$NRSNAP/"
-
-size_last_2=$(du -sh -BK dump/2/pages-*.img | grep -Eo '[0-9]+' | head -1)
-size_last_1=$(du -sh -BK dump/1/pages-*.img | grep -Eo '[0-9]+' | head -1)
-
-dedup_ok_2=1
-dedup_ok_1=1
-
-if [ $size_first_2 -gt $size_last_2 ]; then
-	dedup_ok_2=0
-fi
-
-if [ $size_first_1 -gt $size_last_1 ]; then
-	dedup_ok_1=0
-fi
-
 echo "Restoring"
-${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log -d -v4 || fail "Fail to restore server"
+${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log --auto-dedup -d -v4 || fail "Fail to restore server"
 
-cd ../zdtm/live/static/
+size_last3=$(du -sh -BK dump/3/pages-*.img | grep -Eo '[0-9]+' | head -1)
+size_last2=$(du -sh -BK dump/2/pages-*.img | grep -Eo '[0-9]+' | head -1)
+size_last1=$(du -sh -BK dump/1/pages-*.img | grep -Eo '[0-9]+' | head -1)
+
+restore_dedup_ok=0
+if [[ $size_last1 -ne 0 || $size_last2 -ne 0 || $size_last3 -ne 0 ]]; then
+	restore_dedup_ok=1
+fi
+
+cd ../../zdtm//live/static/
 make mem-touch.stop
 cat mem-touch.out | fgrep PASS || fail "Test failed"
 
-if [[ $dedup_ok_2 -ne 0 || $dedup_ok_1 -ne 0 ]]; then
+if [ $restore_dedup_ok -ne 0 ]; then
 	fail "Dedup test failed"
 fi
 
