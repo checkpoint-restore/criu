@@ -473,9 +473,6 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		}
 	}
 
-	if (req->has_no_seccomp)
-		opts.no_seccomp = req->no_seccomp;
-
 	return 0;
 
 err:

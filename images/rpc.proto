@@ -90,7 +90,6 @@ message criu_opts {
 	repeated string			irmap_scan_paths = 36;
 	repeated string			external	= 37;
 	optional uint32			empty_ns	= 38;
-	optional bool			no_seccomp	= 39;
 }
 
 message criu_dump_resp {

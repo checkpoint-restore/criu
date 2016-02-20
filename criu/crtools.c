@@ -274,7 +274,6 @@ int main(int argc, char *argv[], char *envp[])
 		{ "timeout",			required_argument,	0, 1072 },
 		{ "external",			required_argument,	0, 1073	},
 		{ "empty-ns",			required_argument,	0, 1074	},
-		{ "no-seccomp",			no_argument,		0, 1075 },
 		{ },
 	};
 
@@ -554,9 +553,6 @@ int main(int argc, char *argv[], char *envp[])
 				return 1;
 			}
 			break;
-		case 1075:
-			opts.no_seccomp = true;
-			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -811,10 +807,6 @@ usage:
 "  --empty-ns {net}\n"
 "			Create a namespace, but don't restore its properies.\n"
 "			An user will retore them from action scripts.\n"
-"  --no-seccomp          Disable the dumping of seccomp state; this is useful\n"
-"                        for c/r of tasks using seccomp running on old kernels\n"
-"                        which do not have support for dump and restore\n"
-"                        of seccomp state.\n"
 "\n"
 "* Logging:\n"
 "  -o|--log-file FILE    log file name\n"
