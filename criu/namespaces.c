@@ -523,7 +523,7 @@ static unsigned int host_id(unsigned int id, UidGidExtent **map, int n)
 			return map[i]->lower_first + (id - map[i]->first);
 	}
 
-	return INVALID_ID;
+	return -1;
 }
 
 static uid_t host_uid(uid_t uid)
@@ -658,7 +658,7 @@ static int check_user_ns(int pid)
 
 		uid = host_uid(0);
 		gid = host_gid(0);
-		if (uid == INVALID_ID || gid == INVALID_ID) {
+		if (uid == -1 || gid == -1) {
 			pr_err("Unable to convert uid or gid\n");
 			return -1;
 		}
