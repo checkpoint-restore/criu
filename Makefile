@@ -201,7 +201,7 @@ docker-build:
 PHONY += docker-build
 
 docker-test:
-	docker run --rm -it --privileged criu-x86_64 ./test/zdtm.sh -C -x tcp6 -x tcpbuf6 -x static/rtc -x cgroup -x mountpoint
+	docker run --rm -it --privileged criu-x86_64 ./test/zdtm.py run -a -x tcp6 -x tcpbuf6 -x static/rtc -x cgroup
 PHONY += docker-test
 
 help:
