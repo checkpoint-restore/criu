@@ -152,11 +152,11 @@ docs:
 PHONY += docs
 
 zdtm: all
-	$(Q) $(MAKE) -C test/zdtm all
+	$(Q) MAKEFLAGS= $(MAKE) -C test/zdtm all
 PHONY += zdtm
 
 test: zdtm
-	$(Q) $(MAKE) -C test
+	$(Q) MAKEFLAGS= $(MAKE) -C test
 PHONY += test
 
 tar-name := $(shell git tag -l v$(CRIU_VERSION))
