@@ -25,17 +25,17 @@ zdtm: .FORCE
 	./zdtm.py run -a --parallel 2
 
 zdtm-pre-dump:
-	./zdtm.py run --pre 2:1 -t zdtm/live/transition/fork -f uns
+	./zdtm.py run --pre 2:1 -t zdtm/transition/fork -f uns
 
 zdtm-snapshot:
-	./zdtm.py run --pre 2:1 --snap -t zdtm/live/transition/fork -f uns
+	./zdtm.py run --pre 2:1 --snap -t zdtm/transition/fork -f uns
 
 zdtm-iter:
-	./zdtm.py run --iters 3:1 -t zdtm/live/transition/fork -f uns
+	./zdtm.py run --iters 3:1 -t zdtm/transition/fork -f uns
 
 zdtm-freezer:
-	./zdtm.py run --test zdtm/live/transition/thread-bomb --pre 3 --freezecg zdtm:t
-	./zdtm.py run --test zdtm/live/transition/thread-bomb --pre 3 --freezecg zdtm:f
+	./zdtm.py run --test zdtm/transition/thread-bomb --pre 3 --freezecg zdtm:t
+	./zdtm.py run --test zdtm/transition/thread-bomb --pre 3 --freezecg zdtm:f
 
 .PHONY: zdtm
 

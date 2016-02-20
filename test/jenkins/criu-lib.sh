@@ -8,7 +8,7 @@ function prep()
 	export CFLAGS=-g
 	git clean -dfx &&
 	make -j 4 &&
-	make -j 4 -C test/zdtm/live &&
+	make -j 4 -C test/zdtm/ &&
 	make -C test zdtm_ct &&
 	mkdir -p test/report &&
 	true
