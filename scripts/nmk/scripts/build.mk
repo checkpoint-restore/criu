@@ -105,7 +105,7 @@ define gen-custom-target-rule
         ifneq ($($(1)-obj-y),)
                 $(eval $(call gen-ld-target-rule,                       \
                                 $(obj)/$(1).built-in.o,                 \
-                                $(ld_flags) $($(1)-ldflags-y),          \
+                                $(ld_flags) $(LDFLAGS_$(1)),            \
                                 $(call objectify,$($(1)-obj-y)),        \
                                 $(call objectify,$($(1)-obj-y))         \
                                 $(call objectify,$($(1)-obj-e))))
