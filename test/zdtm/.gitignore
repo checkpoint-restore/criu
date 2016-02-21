@@ -10,6 +10,7 @@
 /static/cgroup01
 /static/cgroup02
 /static/cgroup03
+/static/cgroupns
 /static/child_opened_proc
 /static/chroot
 /static/chroot-file
