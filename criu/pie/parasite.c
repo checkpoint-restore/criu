@@ -294,9 +294,9 @@ static int dump_thread(struct parasite_dump_thread *args)
 }
 
 static char proc_mountpoint[] = "proc.crtools";
-static int parasite_get_proc_fd()
+static int get_proc_fd(void)
 {
-	int ret, fd = -1;
+	int ret;
 	char buf[2];
 
 	ret = sys_readlinkat(AT_FDCWD, "/proc/self", buf, sizeof(buf));
@@ -307,8 +307,7 @@ static int parasite_get_proc_fd()
 
 	/* Fast path -- if /proc belongs to this pidns */
 	if (ret == 1 && buf[0] == '1') {
-		fd = sys_open("/proc", O_RDONLY, 0);
-		goto out_send_fd;
+		return sys_open("/proc", O_RDONLY, 0);
 	}
 
 	ret = sys_mkdir(proc_mountpoint, 0700);
@@ -324,10 +323,19 @@ static int parasite_get_proc_fd()
 		return -1;
 	}
 
-	fd = open_detach_mount(proc_mountpoint);
-out_send_fd:
-	if (fd < 0)
-		return fd;
+	return open_detach_mount(proc_mountpoint);
+}
+
+static int parasite_get_proc_fd()
+{
+	int fd, ret;
+
+	fd = get_proc_fd();
+	if (fd < 0) {
+		pr_err("Can't get /proc fd\n");
+		return -1;
+	}
+
 	ret = send_fd(tsock, NULL, 0, fd);
 	sys_close(fd);
 	return ret;
@@ -513,6 +521,41 @@ static inline int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 }
 #endif
 
+static int parasite_dump_cgroup(struct parasite_dump_cgroup_args *args)
+{
+	int proc, cgroup, len;
+
+	proc = get_proc_fd();
+	if (proc < 0) {
+		pr_err("can't get /proc fd\n");
+		return -1;
+	}
+
+	cgroup = sys_openat(proc, "self/cgroup", O_RDONLY, 0);
+	sys_close(proc);
+	if (cgroup < 0) {
+		pr_err("can't get /proc/self/cgroup fd\n");
+		sys_close(cgroup);
+		return -1;
+	}
+
+	len = sys_read(cgroup, args->contents, sizeof(args->contents));
+	sys_close(cgroup);
+	if (len < 0) {
+		pr_err("can't read /proc/self/cgroup %d\n", len);
+		return -1;
+	}
+
+	if (len == sizeof(*args)) {
+		pr_warn("/proc/self/cgroup was bigger than the page size\n");
+		return -1;
+	}
+
+	/* null terminate */
+	args->contents[len] = 0;
+	return 0;
+}
+
 static int __parasite_daemon_reply_ack(unsigned int cmd, int err)
 {
 	struct ctl_msg m;
@@ -642,6 +685,9 @@ static noinline __used int noinline parasite_daemon(void *args)
 			break;
 		case PARASITE_CMD_CHECK_VDSO_MARK:
 			ret = parasite_check_vdso_mark(args);
+			break;
+		case PARASITE_CMD_DUMP_CGROUP:
+			ret = parasite_dump_cgroup(args);
 			break;
 		default:
 			pr_err("Unknown command in parasite daemon thread leader: %d\n", m.cmd);

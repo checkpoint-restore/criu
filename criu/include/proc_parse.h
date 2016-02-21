@@ -195,13 +195,14 @@ struct cg_ctl {
 	struct list_head l;
 	char *name;
 	char *path;
+	u32 cgns_prefix;
 };
 
 /*
  * Returns the list of cg_ctl-s sorted by name
  */
 
-extern int parse_task_cgroup(int pid, struct list_head *l, unsigned int *n);
+extern int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct list_head *l, unsigned int *n);
 extern void put_ctls(struct list_head *);
 
 int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups);

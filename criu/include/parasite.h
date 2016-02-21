@@ -48,6 +48,7 @@ enum {
 	PARASITE_CMD_DUMP_TTY,
 	PARASITE_CMD_CHECK_VDSO_MARK,
 	PARASITE_CMD_CHECK_AIOS,
+	PARASITE_CMD_DUMP_CGROUP,
 
 	PARASITE_CMD_MAX,
 };
@@ -243,6 +244,16 @@ struct parasite_tty_args {
 	int	st_pckt;
 	int	st_lock;
 	int	st_excl;
+};
+
+struct parasite_dump_cgroup_args {
+	/* We choose PAGE_SIZE here since that's how big parasite messages are,
+	 * although this is probably longer than any /proc/pid/cgroup file will
+	 * ever be on most systems (4k).
+	 *
+	 * The string is null terminated.
+	 */
+	char contents[PAGE_SIZE];
 };
 
 /* the parasite prefix is added by gen_offsets.sh */

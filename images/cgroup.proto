@@ -23,8 +23,9 @@ message cg_controller_entry {
 }
 
 message cg_member_entry {
-	required string name	= 1;
-	required string path	= 2;
+	required string name		= 1;
+	required string path		= 2;
+	optional uint32 cgns_prefix	= 3;
 }
 
 message cg_set_entry {

@@ -19,6 +19,7 @@
 #include "pstree.h"
 #include "namespaces.h"
 #include "net.h"
+#include "cgroup.h"
 
 #include "protobuf.h"
 #include "images/ns.pb-c.h"
@@ -31,6 +32,7 @@ static struct ns_desc *ns_desc_array[] = {
 	&pid_ns_desc,
 	&user_ns_desc,
 	&mnt_ns_desc,
+	&cgroup_ns_desc,
 };
 
 static unsigned int parse_ns_link(char *link, size_t len, struct ns_desc *d)
@@ -272,7 +274,7 @@ found:
 	return nsid->id;
 }
 
-static unsigned int __get_ns_id(int pid, struct ns_desc *nd, struct ns_id **ns)
+static unsigned int __get_ns_id(int pid, struct ns_desc *nd, protobuf_c_boolean *supported, struct ns_id **ns)
 {
 	int proc_dir, ret;
 	unsigned int kid;
@@ -299,12 +301,14 @@ static unsigned int __get_ns_id(int pid, struct ns_desc *nd, struct ns_id **ns)
 	BUG_ON(!kid);
 
 out:
+	if (supported)
+		*supported = kid != 0;
 	return generate_ns_id(pid, kid, nd, ns);
 }
 
-static unsigned int get_ns_id(int pid, struct ns_desc *nd)
+static unsigned int get_ns_id(int pid, struct ns_desc *nd, protobuf_c_boolean *supported)
 {
-	return __get_ns_id(pid, nd, NULL);
+	return __get_ns_id(pid, nd, supported, NULL);
 }
 
 int dump_one_ns_file(int lfd, u32 id, const struct fd_parms *p)
@@ -374,6 +378,10 @@ static int open_ns_fd(struct file_desc *d)
 			item = t;
 			nd = &mnt_ns_desc;
 			break;
+		} else if (ids->cgroup_ns_id == nfi->nfe->ns_id) {
+			item = t;
+			nd = &cgroup_ns_desc;
+			break;
 		}
 	}
 
@@ -433,10 +441,10 @@ int predump_task_ns_ids(struct pstree_item *item)
 {
 	int pid = item->pid.real;
 
-	if (!__get_ns_id(pid, &net_ns_desc, &dmpi(item)->netns))
+	if (!__get_ns_id(pid, &net_ns_desc, NULL, &dmpi(item)->netns))
 		return -1;
 
-	if (!get_ns_id(pid, &mnt_ns_desc))
+	if (!get_ns_id(pid, &mnt_ns_desc, NULL))
 		return -1;
 
 	return 0;
@@ -448,44 +456,50 @@ int dump_task_ns_ids(struct pstree_item *item)
 	TaskKobjIdsEntry *ids = item->ids;
 
 	ids->has_pid_ns_id = true;
-	ids->pid_ns_id = get_ns_id(pid, &pid_ns_desc);
+	ids->pid_ns_id = get_ns_id(pid, &pid_ns_desc, NULL);
 	if (!ids->pid_ns_id) {
 		pr_err("Can't make pidns id\n");
 		return -1;
 	}
 
 	ids->has_net_ns_id = true;
-	ids->net_ns_id = __get_ns_id(pid, &net_ns_desc, &dmpi(item)->netns);
+	ids->net_ns_id = __get_ns_id(pid, &net_ns_desc, NULL, &dmpi(item)->netns);
 	if (!ids->net_ns_id) {
 		pr_err("Can't make netns id\n");
 		return -1;
 	}
 
 	ids->has_ipc_ns_id = true;
-	ids->ipc_ns_id = get_ns_id(pid, &ipc_ns_desc);
+	ids->ipc_ns_id = get_ns_id(pid, &ipc_ns_desc, NULL);
 	if (!ids->ipc_ns_id) {
 		pr_err("Can't make ipcns id\n");
 		return -1;
 	}
 
 	ids->has_uts_ns_id = true;
-	ids->uts_ns_id = get_ns_id(pid, &uts_ns_desc);
+	ids->uts_ns_id = get_ns_id(pid, &uts_ns_desc, NULL);
 	if (!ids->uts_ns_id) {
 		pr_err("Can't make utsns id\n");
 		return -1;
 	}
 
 	ids->has_mnt_ns_id = true;
-	ids->mnt_ns_id = get_ns_id(pid, &mnt_ns_desc);
+	ids->mnt_ns_id = get_ns_id(pid, &mnt_ns_desc, NULL);
 	if (!ids->mnt_ns_id) {
 		pr_err("Can't make mntns id\n");
 		return -1;
 	}
 
 	ids->has_user_ns_id = true;
-	ids->user_ns_id = get_ns_id(pid, &user_ns_desc);
+	ids->user_ns_id = get_ns_id(pid, &user_ns_desc, NULL);
 	if (!ids->user_ns_id) {
 		pr_err("Can't make userns id\n");
+		return -1;
+	}
+
+	ids->cgroup_ns_id = get_ns_id(pid, &cgroup_ns_desc, &ids->has_cgroup_ns_id);
+	if (!ids->cgroup_ns_id) {
+		pr_err("Can't make cgroup id\n");
 		return -1;
 	}
 
@@ -813,6 +827,11 @@ static int do_dump_namespaces(struct ns_id *ns)
 		pr_info("Dump NET namespace info %d via %d\n",
 				ns->id, ns->ns_pid);
 		ret = dump_net_ns(ns->id);
+		break;
+	case CLONE_NEWCGROUP:
+		pr_info("Dump CGROUP namespace info %d via %d\n",
+				ns->id, ns->ns_pid);
+		/* handled separately in cgroup dumping code */
 		break;
 	default:
 		pr_err("Unknown namespace flag %x\n", ns->nd->cflag);

@@ -689,6 +689,7 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 	pid_t pid = item->pid.real;
 	int ret = -1;
 	struct proc_status_creds *creds;
+	struct parasite_dump_cgroup_args cgroup_args, *info = NULL;
 
 	pr_info("\n");
 	pr_info("Dumping core (pid: %d)\n", pid);
@@ -727,8 +728,22 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 	if (ret)
 		goto err;
 
+	/* If this is the root task and it has a cgroup ns id, it could be in
+	 * a cgroup namespace and we should try to figure out the prefix. Or,
+	 * if the task is not the parent task and its cgroup namespace differs
+	 * from its parent's, this is a nested cgns and we should compute the
+	 * prefix.
+	 */
+	if (item->ids->has_cgroup_ns_id && (!item->parent ||
+			(item->ids->cgroup_ns_id != item->parent->ids->cgroup_ns_id))) {
+		info = &cgroup_args;
+		ret = parasite_dump_cgroup(ctl, &cgroup_args);
+		if (ret)
+			goto err;
+	}
+
 	core->tc->has_cg_set = true;
-	ret = dump_task_cgroup(item, &core->tc->cg_set);
+	ret = dump_task_cgroup(item, &core->tc->cg_set, info);
 	if (ret)
 		goto err;
 

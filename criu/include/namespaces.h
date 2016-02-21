@@ -4,8 +4,14 @@
 #include "compiler.h"
 #include "files.h"
 
+/* including syscall-types.h gives another weird error; do we really need to
+ * define this twice? */
+#ifndef CLONE_NEWCGROUP
+#define CLONE_NEWCGROUP	0x02000000
+#endif
+
 /* Nested namespaces are supported only for these types */
-#define CLONE_SUBNS	(CLONE_NEWNS)
+#define CLONE_SUBNS	(CLONE_NEWNS | CLONE_NEWCGROUP)
 
 struct ns_desc {
 	unsigned int	cflag;

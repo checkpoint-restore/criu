@@ -19,6 +19,7 @@ struct list_head;
 struct cr_imgset;
 struct fd_opts;
 struct pid;
+struct parasite_dump_cgroup_args;
 
 struct thread_ctx {
 	k_rtsigset_t		sigmask;
@@ -104,6 +105,8 @@ extern void parasite_ensure_args_size(unsigned long sz);
 extern struct parasite_ctl *parasite_prep_ctl(pid_t pid,
 					      struct vm_area_list *vma_area_list);
 extern int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size);
+
+extern int parasite_dump_cgroup(struct parasite_ctl *ctl, struct parasite_dump_cgroup_args *cgroup);
 
 extern struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd, int type);
 

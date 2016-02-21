@@ -18,6 +18,7 @@
 #include "util-pie.h"
 #include "namespaces.h"
 #include "seize.h"
+#include "syscall-types.h"
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"
@@ -150,6 +151,10 @@ static bool cg_set_compare(struct cg_set *set, struct list_head *ctls, int what)
 
 		switch (what) {
 		case CGCMP_MATCH:
+			/* must have the same cgns prefix to be considered equal */
+			if (c1->cgns_prefix != c2->cgns_prefix)
+				return false;
+
 			if (strcmp(c1->path, c2->path))
 				return false;
 
@@ -191,7 +196,7 @@ static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls)
 			struct cg_ctl *ctl;
 
 			list_for_each_entry(ctl, &cs->ctls, l)
-				pr_debug("    `- [%s] -> [%s]\n", ctl->name, ctl->path);
+				pr_debug("    `- [%s] -> [%s] [%u]\n", ctl->name, ctl->path, ctl->cgns_prefix);
 		}
 	}
 
@@ -658,7 +663,7 @@ static int collect_cgroups(struct list_head *ctls)
 	return 0;
 }
 
-int dump_task_cgroup(struct pstree_item *item, u32 *cg_id)
+int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_cgroup_args *args)
 {
 	int pid;
 	LIST_HEAD(ctls);
@@ -671,7 +676,7 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id)
 		pid = getpid();
 
 	pr_info("Dumping cgroups for %d\n", pid);
-	if (parse_task_cgroup(pid, &ctls, &n_ctls))
+	if (parse_task_cgroup(pid, args, &ctls, &n_ctls))
 		return -1;
 
 	cs = get_cg_set(&ctls, n_ctls);
@@ -889,6 +894,10 @@ static int dump_sets(CgroupEntry *cg)
 			cg_member_entry__init(ce);
 			ce->name = ctl->name;
 			ce->path = ctl->path;
+			if (ctl->cgns_prefix > 0) {
+				ce->has_cgns_prefix = true;
+				ce->cgns_prefix = ctl->cgns_prefix;
+			}
 			se->ctls[c++] = ce++;
 		}
 
@@ -1021,6 +1030,45 @@ static int move_in_cgroup(CgSetEntry *se)
 
 		aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
 
+		/* We need to do an unshare() here as unshare() pins the root
+		 * of the cgroup namespace to whatever the current cgroups are.
+		 * For example, consider a task in a cgroup (according to the
+		 * host):
+		 *
+		 * /unsprefix/insidecontainer
+		 *
+		 * If the task first moved itself into /unsprefix, then did unshare(),
+		 * when the task examines its own /proc/self/cgroup file it will see /,
+		 * but to the host it is really in /unsprefix. Then if it further enters
+		 * /insidecontainer here, the full host path will be
+		 * /unsprefix/insidecontianer. There is no way to say "set the cgroup
+		 * namespace boundary at /unsprefix" without first entering that, doing
+		 * the unshare, and then entering the rest of the path.
+		 */
+		if (ce->has_cgns_prefix) {
+			char tmp = ce->path[ce->cgns_prefix];
+			ce->path[ce->cgns_prefix] = '\0';
+
+			pr_info("setting cgns prefix to %s\n", ce->path);
+			snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/tasks", ce->path);
+			ce->path[ce->cgns_prefix] = tmp;
+			if (userns_call(userns_move, UNS_ASYNC, aux, strlen(aux) + 1, -1) < 0) {
+				pr_perror("couldn't set cgns prefix %s", aux);
+				return -1;
+			}
+
+			if (unshare(CLONE_NEWCGROUP) < 0) {
+				pr_perror("couldn't unshare cgns");
+				return -1;
+			}
+		}
+
+		/* Note that unshare(CLONE_NEWCGROUP) doesn't change the view
+		 * of previously mounted cgroupfses; since we're restoring via
+		 * a dirfd pointing to the cg yard set up by when criu was in
+		 * the root cgns, we still want to use the full path here when
+		 * we move into the cgroup.
+		 */
 		snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/tasks", ce->path);
 		pr_debug("  `-> %s\n", aux);
 		err = userns_call(userns_move, UNS_ASYNC, aux, strlen(aux) + 1, -1);
@@ -1567,3 +1615,5 @@ int new_cg_root_add(char *controller, char *newroot)
 	list_add(&o->node, &opts.new_cgroup_roots);
 	return 0;
 }
+
+struct ns_desc cgroup_ns_desc = NS_DESC_ENTRY(CLONE_NEWCGROUP, "cgroup");

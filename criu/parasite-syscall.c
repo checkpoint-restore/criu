@@ -1275,6 +1275,22 @@ int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 	return ret;
 }
 
+int parasite_dump_cgroup(struct parasite_ctl *ctl, struct parasite_dump_cgroup_args *cgroup)
+{
+	int ret;
+	struct parasite_dump_cgroup_args *ca;
+
+	ca = parasite_args(ctl, struct parasite_dump_cgroup_args);
+	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_CGROUP, ctl);
+	if (ret) {
+		pr_err("Parasite failed to dump /proc/self/cgroup\n");
+		return ret;
+	}
+
+	*cgroup = *ca;
+	return 0;
+}
+
 static unsigned long parasite_args_size = PARASITE_ARG_SIZE_MIN;
 void parasite_ensure_args_size(unsigned long sz)
 {

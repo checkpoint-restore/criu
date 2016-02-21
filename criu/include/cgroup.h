@@ -1,9 +1,15 @@
 #ifndef __CR_CGROUP_H__
 #define __CR_CGROUP_H__
+
 #include "asm/int.h"
+
+#include "parasite.h"
+
+#include "images/core.pb-c.h"
+
 struct pstree_item;
 extern u32 root_cg_set;
-int dump_task_cgroup(struct pstree_item *, u32 *);
+int dump_task_cgroup(struct pstree_item *, u32 *, struct parasite_dump_cgroup_args *args);
 int dump_cgroups(void);
 int prepare_task_cgroup(struct pstree_item *);
 int prepare_cgroup(void);
@@ -62,4 +68,6 @@ struct cg_controller *new_controller(const char *name);
 /* parse all global cgroup information into structures */
 int parse_cg_info(void);
 int new_cg_root_add(char *controller, char *newroot);
+
+extern struct ns_desc cgroup_ns_desc;
 #endif /* __CR_CGROUP_H__ */
