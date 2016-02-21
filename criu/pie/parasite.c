@@ -294,21 +294,35 @@ static int dump_thread(struct parasite_dump_thread *args)
 }
 
 static char proc_mountpoint[] = "proc.crtools";
-static int get_proc_fd(void)
+
+static int pie_atoi(char *str)
+{
+	int ret = 0;
+
+	while (*str) {
+		ret *= 10;
+		ret += *str - '0';
+		str++;
+	}
+
+	return ret;
+}
+
+static int get_proc_fd()
 {
 	int ret;
-	char buf[2];
+	char buf[10];
 
 	ret = sys_readlinkat(AT_FDCWD, "/proc/self", buf, sizeof(buf));
 	if (ret < 0 && ret != -ENOENT) {
 		pr_err("Can't readlink /proc/self (%d)\n", ret);
 		return ret;
 	}
+	buf[ret] = 0;
 
 	/* Fast path -- if /proc belongs to this pidns */
-	if (ret == 1 && buf[0] == '1') {
+	if (pie_atoi(buf) == sys_getpid())
 		return sys_open("/proc", O_RDONLY, 0);
-	}
 
 	ret = sys_mkdir(proc_mountpoint, 0700);
 	if (ret) {
@@ -318,7 +332,10 @@ static int get_proc_fd(void)
 
 	ret = sys_mount("proc", proc_mountpoint, "proc", MS_MGC_VAL, NULL);
 	if (ret) {
-		pr_err("mount failed (%d)\n", ret);
+		if (ret == -EPERM)
+			pr_err("can't dump unpriviliged task whose /proc doesn't belong to it\n");
+		else
+			pr_err("mount failed (%d)\n", ret);
 		sys_rmdir(proc_mountpoint);
 		return -1;
 	}
