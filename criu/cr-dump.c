@@ -1381,13 +1381,30 @@ err_cure_imgset:
 	goto err;
 }
 
-typedef void (*sa_handler_t)(int);
+static int alarm_attempts = 0;
 
-static int setup_alarm_handler(sa_handler_t handler)
+bool alarm_timeouted() {
+	return alarm_attempts > 0;
+}
+
+static void alarm_handler(int signo)
+{
+
+	pr_err("Timeout reached. Try to interrupt: %d\n", alarm_attempts);
+	if (alarm_attempts++ < 5) {
+		alarm(1);
+		/* A curren syscall will be exited with EINTR */
+		return;
+	}
+	pr_err("FATAL: Unable to interrupt the current operation\n");
+	BUG();
+}
+
+static int setup_alarm_handler()
 {
 	struct sigaction sa = {
-		.sa_handler	= handler,
-		.sa_flags	= 0,
+		.sa_handler	= alarm_handler,
+		.sa_flags	= 0, /* Don't restart syscalls */
 	};
 
 	sigemptyset(&sa.sa_mask);
@@ -1452,15 +1469,6 @@ static int cr_pre_dump_finish(struct list_head *ctls, int ret)
 	return ret;
 }
 
-void pre_dump_alarm_handler(int signum)
-{
-	LIST_HEAD(empty_list);
-
-	pr_err("Timeout reached\n");
-	cr_pre_dump_finish(&empty_list, -1);
-	exit(-1);
-}
-
 int cr_pre_dump_tasks(pid_t pid)
 {
 	struct pstree_item *item;
@@ -1498,7 +1506,7 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (connect_to_page_server())
 		goto err;
 
-	if (setup_alarm_handler(pre_dump_alarm_handler))
+	if (setup_alarm_handler())
 		goto err;
 
 	if (collect_pstree(pid))
@@ -1600,13 +1608,6 @@ static int cr_dump_finish(int ret)
 	return post_dump_ret ? : (ret != 0);
 }
 
-void dump_alarm_handler(int signum)
-{
-	pr_err("Timeout reached\n");
-	cr_dump_finish(-1);
-	exit(-1);
-}
-
 int cr_dump_tasks(pid_t pid)
 {
 	InventoryEntry he = INVENTORY_ENTRY__INIT;
@@ -1655,7 +1656,7 @@ int cr_dump_tasks(pid_t pid)
 	if (connect_to_page_server())
 		goto err;
 
-	if (setup_alarm_handler(dump_alarm_handler))
+	if (setup_alarm_handler())
 		goto err;
 
 	/*

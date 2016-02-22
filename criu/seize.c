@@ -297,6 +297,9 @@ static int freeze_processes(void)
 			continue;
 		}
 
+		if (alarm_timeouted())
+			goto err;
+
 		timeout = 100000000 * (i + 1); /* 100 msec */
 		req.tv_nsec = timeout % 1000000000;
 		req.tv_sec = timeout / 1000000000;
@@ -356,6 +359,11 @@ static int collect_children(struct pstree_item *item)
 			continue;
 
 		nr_inprogress++;
+
+		if (alarm_timeouted()) {
+			ret = -1;
+			goto free;
+		}
 
 		pr_info("Seized task %d, state %d\n", pid, ret);
 
@@ -642,6 +650,13 @@ int collect_pstree(pid_t pid)
 
 	timing_start(TIME_FREEZING);
 
+	/*
+	 * wait4() may hang for some reason. Enable timer and fire SIGALRM
+	 * if timeout reached. SIGALRM handler will do  the necessary
+	 * cleanups and terminate current process.
+	 */
+	alarm(opts.timeout);
+
 	if (opts.freeze_cgroup && freeze_processes())
 		goto err;
 
@@ -655,13 +670,6 @@ int collect_pstree(pid_t pid)
 		set_cr_errno(ESRCH);
 		goto err;
 	}
-
-	/*
-	 * wait4() may hang for some reason. Enable timer and fire SIGALRM
-	 * if timeout reached. SIGALRM handler will do  the necessary
-	 * cleanups and terminate current process.
-	 */
-	alarm(opts.timeout);
 
 	ret = seize_wait_task(pid, -1, &dmpi(root_item)->pi_creds);
 	if (ret < 0)
