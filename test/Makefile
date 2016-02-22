@@ -21,6 +21,8 @@ other: .FORCE
 		setsid $(MAKE) -C $$t run || exit 1;	\
 	done						\
 
+zdtm_ct: zdtm_ct.c
+
 zdtm: .FORCE
 	./zdtm.py run -a --parallel 2
 
