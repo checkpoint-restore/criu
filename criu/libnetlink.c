@@ -2,24 +2,12 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <libnl3/netlink/attr.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "libnetlink.h"
 #include "util.h"
-
-int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
-{
-	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
-	while (RTA_OK(rta, len)) {
-		if ((rta->rta_type <= max) && (!tb[rta->rta_type]))
-			tb[rta->rta_type] = rta;
-		rta = RTA_NEXT(rta, len);
-	}
-	if (len)
-		pr_warn("Trimmed RTA: len %d, rta_len %d\n", len, rta->rta_len);
-	return 0;
-}
 
 static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *), 
 		int (*err_cb)(int, void *), void *arg)
@@ -143,7 +131,7 @@ err:
 int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
 		int alen)
 {
-	int len = RTA_LENGTH(alen);
+	int len = nla_attr_size(alen);
 	struct rtattr *rta;
 
 	if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len) > maxlen) {

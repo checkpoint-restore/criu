@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <libnl3/netlink/msg.h>
 #include <net/if.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -404,11 +405,10 @@ int inet_collect_one(struct nlmsghdr *h, int family, int type)
 {
 	struct inet_sk_desc *d;
 	struct inet_diag_msg *m = NLMSG_DATA(h);
-	struct rtattr *tb[INET_DIAG_MAX+1];
+	struct nlattr *tb[INET_DIAG_MAX+1];
 	int ret;
 
-	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr *)(m + 1),
-		     h->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
+	nlmsg_parse(h, sizeof(struct inet_diag_msg), tb, INET_DIAG_MAX, NULL);
 
 	d = xzalloc(sizeof(*d));
 	if (!d)
@@ -424,7 +424,7 @@ int inet_collect_one(struct nlmsghdr *h, int family, int type)
 	memcpy(d->dst_addr, m->id.idiag_dst, sizeof(u32) * 4);
 
 	if (tb[INET_DIAG_SHUTDOWN])
-		d->shutdown = *(u8 *)RTA_DATA(tb[INET_DIAG_SHUTDOWN]);
+		d->shutdown = nla_get_u8(tb[INET_DIAG_SHUTDOWN]);
 	else
 		pr_err_once("Can't check shutdown state of inet socket\n");
 

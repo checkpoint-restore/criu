@@ -1,6 +1,7 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <libnl3/netlink/msg.h>
 #include <unistd.h>
 #include <netinet/tcp.h>
 #include <sys/stat.h>
@@ -474,17 +475,17 @@ const struct fdtype_ops unix_dump_ops = {
 /*
  * Returns: < 0 on error, 0 if OK, 1 to skip the socket
  */
-static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg *m, struct rtattr **tb)
+static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg *m, struct nlattr **tb)
 {
 	int len, ret;
 	char *name;
 
-	len = RTA_PAYLOAD(tb[UNIX_DIAG_NAME]);
+	len = nla_len(tb[UNIX_DIAG_NAME]);
 	name = xmalloc(len + 1);
 	if (!name)
 		return -ENOMEM;
 
-	memcpy(name, RTA_DATA(tb[UNIX_DIAG_NAME]), len);
+	memcpy(name, nla_data(tb[UNIX_DIAG_NAME]), len);
 	name[len] = '\0';
 
 	if (name[0] != '\0') {
@@ -580,7 +581,7 @@ skip:
 }
 
 static int unix_collect_one(const struct unix_diag_msg *m,
-			    struct rtattr **tb)
+			    struct nlattr **tb)
 {
 	struct unix_sk_desc *d;
 	int ret = 0;
@@ -598,12 +599,12 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 	d->fd = -1;
 
 	if (tb[UNIX_DIAG_SHUTDOWN])
-		d->shutdown = *(u8 *)RTA_DATA(tb[UNIX_DIAG_SHUTDOWN]);
+		d->shutdown = nla_get_u8(tb[UNIX_DIAG_SHUTDOWN]);
 	else
 		pr_err_once("No socket shutdown info\n");
 
 	if (tb[UNIX_DIAG_PEER])
-		d->peer_ino = *(int *)RTA_DATA(tb[UNIX_DIAG_PEER]);
+		d->peer_ino = nla_get_u32(tb[UNIX_DIAG_PEER]);
 
 	if (tb[UNIX_DIAG_NAME]) {
 		ret = unix_process_name(d, m, tb);
@@ -615,14 +616,14 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 	}
 
 	if (tb[UNIX_DIAG_ICONS]) {
-		int len = RTA_PAYLOAD(tb[UNIX_DIAG_ICONS]);
+		int len = nla_len(tb[UNIX_DIAG_ICONS]);
 		int i;
 
 		d->icons = xmalloc(len);
 		if (!d->icons)
 			goto err;
 
-		memcpy(d->icons, RTA_DATA(tb[UNIX_DIAG_ICONS]), len);
+		memcpy(d->icons, nla_data(tb[UNIX_DIAG_ICONS]), len);
 		d->nr_icons = len / sizeof(u32);
 
 		/*
@@ -673,10 +674,9 @@ skip:
 int unix_receive_one(struct nlmsghdr *h, void *arg)
 {
 	struct unix_diag_msg *m = NLMSG_DATA(h);
-	struct rtattr *tb[UNIX_DIAG_MAX+1];
+	struct nlattr *tb[UNIX_DIAG_MAX+1];
 
-	parse_rtattr(tb, UNIX_DIAG_MAX, (struct rtattr *)(m + 1),
-		     h->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
+	nlmsg_parse(h, sizeof(struct unix_diag_msg), tb, UNIX_DIAG_MAX, NULL);
 
 	return unix_collect_one(m, tb);
 }

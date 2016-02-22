@@ -152,7 +152,7 @@ int write_netdev_img(NetDeviceEntry *nde, struct cr_imgset *fds)
 }
 
 static int dump_one_netdev(int type, struct ifinfomsg *ifi,
-		struct rtattr **tb, struct cr_imgset *fds,
+		struct nlattr **tb, struct cr_imgset *fds,
 		int (*dump)(NetDeviceEntry *, struct cr_imgset *))
 {
 	int ret;
@@ -171,8 +171,8 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 
 	if (tb[IFLA_ADDRESS] && (type != ND_TYPE__LOOPBACK)) {
 		netdev.has_address = true;
-		netdev.address.data = RTA_DATA(tb[IFLA_ADDRESS]);
-		netdev.address.len = RTA_PAYLOAD(tb[IFLA_ADDRESS]);
+		netdev.address.data = nla_data(tb[IFLA_ADDRESS]);
+		netdev.address.len = nla_len(tb[IFLA_ADDRESS]);
 		pr_info("Found ll addr (%02x:../%d) for %s\n",
 				(int)netdev.address.data[0],
 				(int)netdev.address.len, netdev.name);
@@ -196,26 +196,26 @@ err_free:
 	return ret;
 }
 
-static char *link_kind(struct ifinfomsg *ifi, struct rtattr **tb)
+static char *link_kind(struct ifinfomsg *ifi, struct nlattr **tb)
 {
-	struct rtattr *linkinfo[IFLA_INFO_MAX + 1];
+	struct nlattr *linkinfo[IFLA_INFO_MAX + 1];
 
 	if (!tb[IFLA_LINKINFO]) {
 		pr_err("No linkinfo for eth link %d\n", ifi->ifi_index);
 		return NULL;
 	}
 
-	parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
+	nla_parse_nested(linkinfo, IFLA_INFO_MAX, tb[IFLA_LINKINFO], NULL);
 	if (!linkinfo[IFLA_INFO_KIND]) {
 		pr_err("No kind for eth link %d\n", ifi->ifi_index);
 		return NULL;
 	}
 
-	return RTA_DATA(linkinfo[IFLA_INFO_KIND]);
+	return nla_data(linkinfo[IFLA_INFO_KIND]);
 }
 
 static int dump_unknown_device(struct ifinfomsg *ifi, char *kind,
-		struct rtattr **tb, struct cr_imgset *fds)
+		struct nlattr **tb, struct cr_imgset *fds)
 {
 	int ret;
 
@@ -265,7 +265,7 @@ static int dump_bridge(NetDeviceEntry *nde, struct cr_imgset *imgset)
 }
 
 static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
-		struct rtattr **tb, struct cr_imgset *fds)
+		struct nlattr **tb, struct cr_imgset *fds)
 {
 	if (!strcmp(kind, "veth"))
 		/*
@@ -286,7 +286,7 @@ static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
 }
 
 static int dump_one_gendev(struct ifinfomsg *ifi, char *kind,
-		struct rtattr **tb, struct cr_imgset *fds)
+		struct nlattr **tb, struct cr_imgset *fds)
 {
 	if (!strcmp(kind, "tun"))
 		return dump_one_netdev(ND_TYPE__TUN, ifi, tb, fds, dump_tun_link);
@@ -295,7 +295,7 @@ static int dump_one_gendev(struct ifinfomsg *ifi, char *kind,
 }
 
 static int dump_one_voiddev(struct ifinfomsg *ifi, char *kind,
-		struct rtattr **tb, struct cr_imgset *fds)
+		struct nlattr **tb, struct cr_imgset *fds)
 {
 	if (!strcmp(kind, "venet"))
 		return dump_one_netdev(ND_TYPE__VENET, ifi, tb, fds, NULL);
@@ -308,7 +308,7 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 	struct cr_imgset *fds = arg;
 	struct ifinfomsg *ifi;
 	int ret = 0, len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
-	struct rtattr *tb[IFLA_MAX + 1];
+	struct nlattr *tb[IFLA_MAX + 1];
 	char *kind;
 
 	ifi = NLMSG_DATA(hdr);
@@ -318,7 +318,7 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 		return -1;
 	}
 
-	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
+	nlmsg_parse(hdr, sizeof(struct ifinfomsg), tb, IFLA_MAX, NULL);
 	pr_info("\tLD: Got link %d, type %d\n", ifi->ifi_index, ifi->ifi_type);
 
 	if (ifi->ifi_type == ARPHRD_LOOPBACK) 

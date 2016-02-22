@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <libnl3/netlink/msg.h>
 
 #include "imgset.h"
 #include "files.h"
@@ -25,7 +26,7 @@ struct netlink_sk_desc {
 
 int netlink_receive_one(struct nlmsghdr *hdr, void *arg)
 {
-	struct rtattr *tb[NETLINK_DIAG_MAX+1];
+	struct nlattr *tb[NETLINK_DIAG_MAX+1];
 	struct netlink_diag_msg *m;
 	struct netlink_sk_desc *sd;
 	unsigned long *groups;
@@ -43,12 +44,11 @@ int netlink_receive_one(struct nlmsghdr *hdr, void *arg)
 	sd->dst_group = m->ndiag_dst_group;
 	sd->state = m->ndiag_state;
 
-	parse_rtattr(tb, NETLINK_DIAG_MAX, (struct rtattr *)(m + 1),
-		     hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
+	nlmsg_parse(hdr, sizeof(struct netlink_diag_msg), tb, NETLINK_DIAG_MAX, NULL);
 
 	if (tb[NETLINK_DIAG_GROUPS]) {
-		sd->gsize = RTA_PAYLOAD(tb[NETLINK_DIAG_GROUPS]);
-		groups = RTA_DATA(tb[NETLINK_DIAG_GROUPS]);
+		sd->gsize = nla_len(tb[NETLINK_DIAG_GROUPS]);
+		groups = nla_data(tb[NETLINK_DIAG_GROUPS]);
 
 		sd->groups = xmalloc(sd->gsize);
 		if (!sd->groups) {

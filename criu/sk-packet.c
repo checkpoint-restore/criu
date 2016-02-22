@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <libnl3/netlink/msg.h>
 #include <unistd.h>
 #include <string.h>
 #include "asm/types.h"
@@ -227,27 +228,27 @@ int dump_socket_map(struct vma_area *vma)
 	return 0;
 }
 
-static int packet_save_mreqs(struct packet_sock_desc *sd, struct rtattr *mc)
+static int packet_save_mreqs(struct packet_sock_desc *sd, struct nlattr *mc)
 {
-	sd->mreq_n = RTA_PAYLOAD(mc) / sizeof(struct packet_diag_mclist);
+	sd->mreq_n = nla_len(mc) / sizeof(struct packet_diag_mclist);
 	pr_debug("\tGot %d mreqs\n", sd->mreq_n);
-	sd->mreqs = xmalloc(RTA_PAYLOAD(mc));
+	sd->mreqs = xmalloc(nla_len(mc));
 	if (!sd->mreqs)
 		return -1;
 
-	memcpy(sd->mreqs, RTA_DATA(mc), RTA_PAYLOAD(mc));
+	memcpy(sd->mreqs, nla_data(mc), nla_len(mc));
 	return 0;
 }
 
 int packet_receive_one(struct nlmsghdr *hdr, void *arg)
 {
 	struct packet_diag_msg *m;
-	struct rtattr *tb[PACKET_DIAG_MAX + 1];
+	struct nlattr *tb[PACKET_DIAG_MAX + 1];
 	struct packet_sock_desc *sd;
 
 	m = NLMSG_DATA(hdr);
-	parse_rtattr(tb, PACKET_DIAG_MAX, (struct rtattr *)(m + 1),
-			hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
+	nlmsg_parse(hdr, sizeof(struct packet_diag_msg),
+			tb, PACKET_DIAG_MAX, NULL);
 	pr_info("Collect packet sock %u %u\n", m->pdiag_ino, (unsigned int)m->pdiag_num);
 
 	if (!tb[PACKET_DIAG_INFO]) {
@@ -269,7 +270,7 @@ int packet_receive_one(struct nlmsghdr *hdr, void *arg)
 	sd->proto = htons(m->pdiag_num);
 	sd->rx = NULL;
 	sd->tx = NULL;
-	memcpy(&sd->nli, RTA_DATA(tb[PACKET_DIAG_INFO]), sizeof(sd->nli));
+	memcpy(&sd->nli, nla_data(tb[PACKET_DIAG_INFO]), sizeof(sd->nli));
 
 	if (packet_save_mreqs(sd, tb[PACKET_DIAG_MCLIST]))
 		goto err;
