@@ -225,6 +225,9 @@ void sbuf_printf(struct simple_buf *b, const char *format, va_list args)
 			s++;
 			if (*s == 'l')
 				s++;
+		} else if (*s == 'z') {
+			along = (sizeof(size_t) > sizeof(int));
+			s++;
 		}
 
 		switch (*s) {
