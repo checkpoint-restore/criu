@@ -31,7 +31,7 @@
 #define PTRACE_PEEKSIGINFO_SHARED       (1 << 0)
 #endif
 
-#ifndef CONFIG_HAS_PEEKSIGINFO_ARGS
+#ifndef CONFIG_HAS_PTRACE_PEEKSIGINFO
 struct ptrace_peeksiginfo_args {
         __u64 off;	/* from which siginfo to start */
         __u32 flags;
