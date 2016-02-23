@@ -9,3 +9,4 @@ env:
   - TR_ARCH=aarch64
 script:
   - sudo make -C scripts/build $TR_ARCH
+  - sudo ./scripts/travis-tests $TR_ARCH
