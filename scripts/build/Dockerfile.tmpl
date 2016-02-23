@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y \
                 libaio-dev \
                 libcap-dev \
                 iptables \
-                libnl-3-dev
+                libnl-3-dev \
+                libcap-dev
 
 COPY . /criu
 WORKDIR /criu
