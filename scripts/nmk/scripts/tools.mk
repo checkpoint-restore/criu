@@ -21,9 +21,12 @@ FIND		:= find
 SH		:= $(shell if [ -x "$$BASH" ]; then echo $$BASH;        \
                         else if [ -x /bin/bash ]; then echo /bin/bash;  \
                         else echo sh; fi ; fi)
+CSCOPE		:= cscope
+ETAGS		:= etags
+CTAGS		:= ctags
 
 export RM LD CC CPP AS AR STRIP OBJCOPY OBJDUMP
-export NM SH MAKE MKDIR AWK PERL PYTHON SH
+export NM SH MAKE MKDIR AWK PERL PYTHON SH CSCOPE
 
 #
 # Footer.
