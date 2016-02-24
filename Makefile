@@ -116,20 +116,21 @@ PHONY += images
 # the nmk so we can reuse it there.
 criu/%: images/built-in.o
 	$(Q) $(MAKE) -C criu $@
-criu/criu: images/built-in.o
-	$(Q) $(MAKE) -C criu criu
+criu: images/built-in.o
+	$(Q) $(MAKE) -C criu all
+.PHONY: criu
 
 #
 # Libraries next once criu it ready
 # (we might generate headers and such
 # when building criu itself).
-lib/%: criu/criu
+lib/%: criu
 	$(Q) $(MAKE) -C lib $@
-lib: criu/criu
+lib: criu
 	$(Q) $(MAKE) -C lib all
 PHONY += lib
 
-all: criu/criu lib
+all: criu lib
 PHONY += all
 
 clean-built:
