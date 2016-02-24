@@ -142,6 +142,8 @@ PHONY += clean-built
 
 clean: clean-built
 	$(call msg-clean, criu)
+	$(Q) $(RM) cscope.*
+	$(Q) $(RM) tags TAGS
 PHONY += clean
 
 #
@@ -173,7 +175,8 @@ dist tar: criu-$(tar-name).tar.bz2
 tags:
 	$(call msg-gen, $@)
 	$(Q) $(RM) tags
-	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' ! -path './test/*' -print | xargs ctags -a
+	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' ! -path './test/*' -print | xargs $(CTAGS) -a
+	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' ! -path './test/*' -print | xargs $(ETAGS) -a
 PHONY += tags
 
 cscope:
