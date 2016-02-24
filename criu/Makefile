@@ -99,14 +99,16 @@ config: $(VERSION_HEADER)
 #
 # System calls library.
 SYSCALL-LIB		:= $(ARCH_DIR)/syscalls.built-in.o
-$(SYSCALL-LIB): config
+syscalls_lib: config
 	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) all
+.PHONY: syscalls_lib
 
 #
 # Architecture dependant part.
 ARCH-LIB		:= $(ARCH_DIR)/crtools.built-in.o
-$(ARCH-LIB): config $(SYSCALL-LIB)
-	$(Q) $(MAKE) $(call build-as,Makefile,$(ARCH_DIR)) $@
+arch_lib: config syscalls_lib
+	$(Q) $(MAKE) $(call build-as,Makefile,$(ARCH_DIR)) all
+.PHONY: arch_lib
 
 #
 # piegen tool needed for PIE code.
@@ -122,7 +124,7 @@ endif
 
 #
 # PIE library code.
-pie/lib.a: $(ARCH-LIB) $(SYSCALL-LIB)
+pie/lib.a: arch_lib syscalls_lib
 	$(Q) $(MAKE) $(call build-as,Makefile.library,pie) all
 
 #
@@ -137,8 +139,7 @@ PROGRAM-BUILTINS	+= ../images/built-in.o
 PROGRAM-BUILTINS	+= built-in.o
 PROGRAM-BUILTINS	+= pie/lib.a
 PROGRAM-BUILTINS	+= $(SYSCALL-LIB)
-
-LIBS			+= arch/$(ARCH)/crtools.built-in.o
+PROGRAM-BUILTINS	+= $(ARCH-LIB)
 
 built-in.o: pie
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,.) all
