@@ -24,8 +24,7 @@ ifeq ($(ARCH),arm64)
         VDSO		:= y
 endif
 
-ifeq ($(ARCH),powerpc)
-        ARCH		:= ppc64
+ifeq ($(ARCH),ppc64)
         SRCARCH		:= ppc64
         LDARCH		:= powerpc:common64
         VDSO		:= y

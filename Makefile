@@ -62,7 +62,7 @@ endif
 # The PowerPC 64 bits architecture could be big or little endian.
 # They are handled in the same way.
 #
-ifeq ($(ARCH),powerpc)
+ifeq ($(ARCH),ppc64)
         ifeq ($(UNAME-M),ppc64)
                 error := $(error ppc64 big endian not yet supported)
         endif
