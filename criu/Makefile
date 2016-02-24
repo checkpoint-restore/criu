@@ -56,7 +56,19 @@ ccflags-y		+= -I/usr/include/libnl3
 export ccflags-y
 
 LIBS			:= -lrt -lpthread -lprotobuf-c -ldl -lnl-3
+REQ-LIBS-NAMES          := libpthread libprotobuf-c libnl-3
 
+#
+# Make sure all required libs are installed
+ifneq ($(MAKECMDGOALS),clean)
+        ifneq ($(shell sh -c                                                            \
+                        'TMP="$(OUTPUT)$(TMPOUT).$$$$";                                 \
+                        echo "int main(int argc, char *argv[]) { return 0; }" |         \
+                        "$(CC)" -x c - $(LIBS) -o "$$TMP" > /dev/null 2>&1 && echo y;   \
+                        rm -f "$$TMP"'),y)
+                $(error "Make sure '$(REQ-LIBS-NAMES)' libraries are installed")
+        endif
+endif
 ifeq ($(GMON),1)
 	CFLAGS		+= -pg
 	GMONLDOPT	:= -pg
