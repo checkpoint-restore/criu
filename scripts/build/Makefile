@@ -1,16 +1,15 @@
 ARCHES ?= armv7hf aarch64 ppc64le # x86_64
 all: $(ARCHES)
 
-.FORCE:
-
 Dockerfile.%: Dockerfile.%.hdr Dockerfile.tmpl
 	cat $^ > $@
 
 qemu-user-static:
 	./extract-deb-pkg qemu-user-static
 
-binfmt_misc: .FORCE
+binfmt_misc:
 	./binfmt_misc
+.PHONY: binfmt_misc
 
 %: Dockerfile.% qemu-user-static binfmt_misc
 	docker build  -t criu-$@ -f $< ../..
