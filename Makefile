@@ -176,8 +176,14 @@ tags:
 	$(call msg-gen, $@)
 	$(Q) $(RM) tags
 	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' ! -path './test/*' -print | xargs $(CTAGS) -a
-	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' ! -path './test/*' -print | xargs $(ETAGS) -a
 PHONY += tags
+
+etags:
+	$(call msg-gen, $@)
+	$(Q) $(RM) TAGS
+	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' ! -path './test/*' -print | xargs $(ETAGS) -a
+PHONY += etags
+
 
 cscope:
 	$(call msg-gen, $@)
@@ -218,6 +224,7 @@ help:
 	@echo '      dist            - Create a source tarball'
 	@echo '      clean           - Clean everything'
 	@echo '      tags            - Generate tags file (ctags)'
+	@echo '      etags           - Generate TAGS file (etags)'
 	@echo '      cscope          - Generate cscope database'
 	@echo '      rebuild         - Force-rebuild of [*] targets'
 	@echo '      test            - Run zdtm test-suite'
