@@ -247,13 +247,12 @@ struct parasite_tty_args {
 };
 
 struct parasite_dump_cgroup_args {
-	/* We choose PAGE_SIZE here since that's how big parasite messages are,
-	 * although this is probably longer than any /proc/pid/cgroup file will
-	 * ever be on most systems (4k).
+	/*
+	 * 4K should be enough for most cases.
 	 *
 	 * The string is null terminated.
 	 */
-	char contents[PAGE_SIZE];
+	char contents[PARASITE_ARG_SIZE_MIN];
 };
 
 /* the parasite prefix is added by gen_offsets.sh */
