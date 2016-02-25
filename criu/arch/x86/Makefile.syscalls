@@ -1,6 +1,8 @@
 include $(__nmk_dir)msg.mk
 builtin-name		:= syscalls.built-in.o
 
+CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS))
+
 SYS-TYPES		:= ../../include/syscall-types.h
 SYS-CODES		:= ../../include/syscall-codes.h
 SYS-PROTO		:= ../../include/syscall.h

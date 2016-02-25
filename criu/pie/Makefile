@@ -15,7 +15,7 @@ restorer-obj-e		+= ./$(ARCH_DIR)/syscalls.built-in.o
 # applications, which is not the target of the
 # project.
 #
-CFLAGS			:= $(filter-out -pg,$(CFLAGS)) -iquote pie/piegen -iquote arch/$(ARCH)/include -iquote $(SRC_DIR) -iquote $(SRC_DIR)/criu/include
+CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) -iquote pie/piegen -iquote arch/$(ARCH)/include -iquote $(SRC_DIR) -iquote $(SRC_DIR)/criu/include
 
 ifneq ($(filter-out ia32,$(ARCH)),)
         ccflags-y	+= -DCR_NOGLIBC -fpie -Wa,--noexecstack -fno-stack-protector

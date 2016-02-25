@@ -81,10 +81,13 @@ CFLAGS			+= $(USERCFLAGS)
 
 WARNINGS		:= -Wall
 
+CFLAGS-GCOV		:= --coverage -fno-exceptions -fno-inline
+export CFLAGS-GCOV
+
 ifeq ($(GCOV),1)
         LDFLAGS         += -lgcov
         DEBUG           := 1
-        CFLAGS          += --coverage -fno-exceptions -fno-inline
+        CFLAGS          += $(CFLAGS-GCOV)
 endif
 
 ifneq ($(WERROR),0)

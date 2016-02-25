@@ -29,7 +29,7 @@ endif
 # project.
 #
 iquotes			:= -iquote pie/piegen -iquote arch/$(ARCH)/include -iquote $(SRC_DIR) -iquote $(SRC_DIR)/criu/include
-ccflags-y		:= $(filter-out -pg,$(CFLAGS)) $(iquotes)
+CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) $(iquotes)
 asflags-y		:= -D__ASSEMBLY__ $(iquotes)
 
 ifeq ($(SRCARCH),arm)
