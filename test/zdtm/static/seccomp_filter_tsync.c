@@ -4,15 +4,19 @@
 #include <stddef.h>
 #include <sys/prctl.h>
 #include <sys/ptrace.h>
-#include <linux/seccomp.h>
-#include <linux/filter.h>
-#include <linux/limits.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <sys/syscall.h>
-#include <pthread.h>
+
+#ifdef __NR_seccomp
+# include <linux/seccomp.h>
+# include <linux/filter.h>
+# include <linux/limits.h>
+# include <pthread.h>
+#endif
+
 #include "zdtmtst.h"
 
 #ifndef SECCOMP_SET_MODE_FILTER
@@ -25,6 +29,8 @@
 
 const char *test_doc	= "Check that SECCOMP_FILTER_FLAG_TSYNC works correctly after restore";
 const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+
+#ifdef __NR_seccomp
 
 pthread_mutex_t getpid_wait;
 
@@ -200,3 +206,9 @@ err:
 	kill(pid, SIGKILL);
 	return 1;
 }
+
+#else /* __NR_seccomp */
+
+#include "skip-me.c"
+
+#endif /* __NR_seccomp */
