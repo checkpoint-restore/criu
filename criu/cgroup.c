@@ -690,20 +690,19 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_
 		BUG_ON(criu_cgset);
 		criu_cgset = cs;
 		pr_info("Set %d is criu one\n", cs->id);
-	} else if (item == root_item) {
-		BUG_ON(root_cgset);
-		root_cgset = cs;
-		pr_info("Set %d is root one\n", cs->id);
+	} else {
+		if (item == root_item) {
+			BUG_ON(root_cgset);
+			root_cgset = cs;
+			pr_info("Set %d is root one\n", cs->id);
+		} else
+			pr_info("Set %d is a stray\n", cs->id);
 
 		/*
 		 * The on-stack ctls is moved into cs inside
 		 * the get_cg_set routine.
 		 */
 		if (cs != criu_cgset && collect_cgroups(&cs->ctls))
-			return -1;
-	} else {
-		pr_info("Set %d is a stray\n", cs->id);
-		if (collect_cgroups(&cs->ctls))
 			return -1;
 	}
 
