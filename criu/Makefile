@@ -116,7 +116,7 @@ ifeq ($(piegen-y),y)
 piegen-bin		:= pie/piegen/piegen
 
 pie/piegen/%: config
-	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(HOSTCFLAGS) $(WARNINGS) $(DEFINES)" $(MAKE) $(build)=pie/piegen $@
+	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(ccflags-y) $(HOSTCFLAGS) $(WARNINGS) $(DEFINES)" $(MAKE) $(build)=pie/piegen $@
 $(piegen-bin): pie/piegen/built-in.o
 	$(call msg-link, $@)
 	$(Q) $(HOSTCC) $(HOSTCFLAGS) $^ $(LDFLAGS) -o $@
