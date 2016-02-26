@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -x
-source ../../env.sh || exit 1
+source ../env.sh || exit 1
 
 echo "== Clean"
 make clean

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ../../env.sh || exit 1
+source ../env.sh || exit 1
 
 USEPS=0
 
