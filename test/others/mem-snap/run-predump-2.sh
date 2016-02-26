@@ -15,7 +15,7 @@ mkdir "$IMGDIR"
 
 function launch_test {
 	echo "Launching test"
-	cd ../../zdtm/live/static/
+	cd ../../zdtm/static/
 	make cleanout
 	make maps04
 	make maps04.pid || fail "Can't start test"
@@ -26,7 +26,7 @@ function launch_test {
 
 function stop_test {
 	wtime=1
-	cd ../../zdtm/live/static/
+	cd ../../zdtm/static/
 	make maps04.stop
 	cat maps04.out | fgrep PASS || fail "Test failed"
 	echo "OK"

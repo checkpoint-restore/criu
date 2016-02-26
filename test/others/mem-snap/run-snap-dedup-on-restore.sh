@@ -26,7 +26,7 @@ rm -rf "$IMGDIR"
 mkdir "$IMGDIR"
 
 echo "Launching test"
-cd ../../zdtm//live/static/
+cd ../../zdtm/static/
 make cleanout
 make mem-touch
 make mem-touch.pid || fail "Can't start test"
@@ -76,7 +76,7 @@ if [[ $size_last1 -ne 0 || $size_last2 -ne 0 || $size_last3 -ne 0 ]]; then
 	restore_dedup_ok=1
 fi
 
-cd ../../zdtm//live/static/
+cd ../../zdtm/static/
 make mem-touch.stop
 cat mem-touch.out | fgrep PASS || fail "Test failed"
 

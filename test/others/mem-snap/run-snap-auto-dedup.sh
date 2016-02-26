@@ -26,7 +26,7 @@ rm -rf "$IMGDIR"
 mkdir "$IMGDIR"
 
 echo "Launching test"
-cd ../../zdtm//live/static/
+cd ../../zdtm/static/
 make cleanout
 make mem-touch
 make mem-touch.pid || fail "Can't start test"
@@ -82,7 +82,7 @@ fi
 echo "Restoring"
 ${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log -d -v4 || fail "Fail to restore server"
 
-cd ../../zdtm//live/static/
+cd ../../zdtm/static/
 make mem-touch.stop
 cat mem-touch.out | fgrep PASS || fail "Test failed"
 
