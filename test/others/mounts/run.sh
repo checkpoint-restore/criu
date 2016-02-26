@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CRIU=../../../criu
+CRIU=../../../criu/criu
 set -x
 
 mkdir -p dump

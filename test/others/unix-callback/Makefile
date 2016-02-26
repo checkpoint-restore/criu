@@ -7,10 +7,10 @@ unix.pb-c.c: unix.proto
 	protoc-c --proto_path=. --c_out=. unix.proto
 
 unix-lib.so: unix-lib.c unix.pb-c.c
-	gcc -g -Werror -Wall -shared -nostartfiles unix-lib.c unix.pb-c.c -o unix-lib.so -iquote ../../include -fPIC
+	gcc -g -Werror -Wall -shared -nostartfiles unix-lib.c unix.pb-c.c -o unix-lib.so -iquote ../../../criu/include -fPIC
 
 syslog-lib.so: syslog-lib.c
-	gcc -g -Werror -Wall -shared -nostartfiles syslog-lib.c -o syslog-lib.so -iquote ../../include -fPIC
+	gcc -g -Werror -Wall -shared -nostartfiles syslog-lib.c -o syslog-lib.so -iquote ../../../criu/include -fPIC
 
 unix-server: unix-server.c
 	gcc -Werror -Wall -o unix-server unix-server.c

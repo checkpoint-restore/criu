@@ -15,7 +15,7 @@ TESTS = unix-callback mem-snap rpc libcriu mounts/ext security pipes crit socket
 
 other:
 	for t in $(TESTS); do				\
-		setsid $(MAKE) -C $$t run || exit 1;	\
+		setsid $(MAKE) -C others/$$t run || exit 1;	\
 	done
 .PHONY: other
 
