@@ -37,9 +37,9 @@ int main(int argc, char ** argv)
 		/* wait for signal in _both_ branches */
 		test_waitsig();
 
-		/* vforked guy shouldn't return, hence we exec() */
+		/* vforked guy shouldn't return, hence we _exit() */
 		if (pid == 0)
-			execlp("/bin/true", "true", NULL);
+			_exit(0);
 
 		if (wait(&ret2) != pid)
 			ret = errno;
