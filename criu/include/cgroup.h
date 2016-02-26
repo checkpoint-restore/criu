@@ -3,11 +3,10 @@
 
 #include "asm/int.h"
 
-#include "parasite.h"
-
 #include "images/core.pb-c.h"
 
 struct pstree_item;
+struct parasite_dump_cgroup_args;
 extern u32 root_cg_set;
 int dump_task_cgroup(struct pstree_item *, u32 *, struct parasite_dump_cgroup_args *args);
 int dump_cgroups(void);

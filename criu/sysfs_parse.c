@@ -16,6 +16,7 @@
 #include "util.h"
 #include "sysfs_parse.h"
 #include "namespaces.h"
+#include "mount.h"
 
 /*
  * Currently, there are two kernel problems dealing with AUFS

@@ -5,8 +5,6 @@
 #include "asm/types.h"
 #include "image.h"
 #include "list.h"
-#include "cgroup.h"
-#include "mount.h"
 
 #include "images/eventfd.pb-c.h"
 #include "images/eventpoll.pb-c.h"
@@ -106,6 +104,7 @@ struct proc_status_creds {
 bool proc_status_creds_dumpable(struct proc_status_creds *parent,
 				struct proc_status_creds *child);
 
+struct mount_info;
 typedef int (*mount_fn_t)(struct mount_info *mi, const char *src, const
 			  char *fstype, unsigned long mountflags);
 
@@ -123,6 +122,7 @@ struct vm_area_list;
 #define INVALID_UID ((uid_t)-1)
 
 extern bool add_skip_mount(const char *mountpoint);
+struct ns_id;
 extern struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump);
 extern int parse_pid_stat(pid_t pid, struct proc_pid_stat *s);
 extern unsigned int parse_pid_loginuid(pid_t pid, int *err, bool ignore_noent);
@@ -201,7 +201,8 @@ struct cg_ctl {
 /*
  * Returns the list of cg_ctl-s sorted by name
  */
-
+struct list_head;
+struct parasite_dump_cgroup_args;
 extern int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct list_head *l, unsigned int *n);
 extern void put_ctls(struct list_head *);
 

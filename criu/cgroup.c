@@ -19,6 +19,7 @@
 #include "namespaces.h"
 #include "seize.h"
 #include "syscall-types.h"
+#include "parasite.h"
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"

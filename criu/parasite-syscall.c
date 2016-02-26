@@ -24,7 +24,6 @@
 #include "config.h"
 #include "pstree.h"
 #include "posix-timer.h"
-#include "net.h"
 #include "mem.h"
 #include "vma.h"
 #include "proc_parse.h"

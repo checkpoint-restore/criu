@@ -4,7 +4,6 @@
 #include "list.h"
 #include "pid.h"
 #include "image.h"
-#include "rst_info.h"
 #include "images/core.pb-c.h"
 
 /*
@@ -30,6 +29,7 @@ struct pstree_item {
 	TaskKobjIdsEntry	*ids;
 };
 
+struct rst_info;
 /* See alloc_pstree_item() for details */
 static inline struct rst_info *rsti(struct pstree_item *i)
 {
