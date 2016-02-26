@@ -556,30 +556,33 @@ out:
 
 static int add_freezer_state(struct cg_controller *controller)
 {
-	struct cgroup_dir *root_dir;
-	struct cgroup_prop *prop;
+	struct cgroup_dir *it;
 
-	/*
-	 * Here we rely on --freeze-cgroup option assumption that all tasks are in a
-	 * specified freezer cgroup hierarchy, so we need to dump only one root freezer cgroup.
-	 */
-	if (!list_is_singular(&controller->heads)) {
-		pr_err("Should be only one root freezer cgroup");
-		return -1;
+	 /* There is one more case, that cgroup namespaces might
+	  * generate "multiple" heads if nothing is actually in the
+	  * root freezer cgroup, e.g. --freeze-cgroup=/lxc/foo and all
+	  * tasks in either /lxc/foo/a or /lxc/foo/b.
+	  *
+	  * In this case
+	  */
+	list_for_each_entry(it, &controller->heads, siblings) {
+		struct cgroup_dir *cg_head;
+		struct cgroup_prop *prop;
+
+		cg_head = list_first_entry(&controller->heads, struct cgroup_dir, siblings);
+
+		prop = create_cgroup_prop("freezer.state");
+		if (!prop)
+			return -1;
+		prop->value = xstrdup(get_real_freezer_state());
+		if (!prop->value) {
+			free_cgroup_prop(prop);
+			return -1;
+		}
+
+		list_add_tail(&prop->list, &cg_head->properties);
+		cg_head->n_properties++;
 	}
-	root_dir = list_first_entry(&controller->heads, struct cgroup_dir, siblings);
-
-	prop = create_cgroup_prop("freezer.state");
-	if (!prop)
-		return -1;
-	prop->value = xstrdup(get_real_freezer_state());
-	if (!prop->value) {
-		free_cgroup_prop(prop);
-		return -1;
-	}
-
-	list_add_tail(&prop->list, &root_dir->properties);
-	root_dir->n_properties++;
 
 	return 0;
 }
