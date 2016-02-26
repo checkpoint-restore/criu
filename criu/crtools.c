@@ -28,6 +28,7 @@
 #include "files.h"
 #include "sk-inet.h"
 #include "net.h"
+#include "netfilter.h"
 #include "version.h"
 #include "page-xfer.h"
 #include "tty.h"
@@ -643,6 +644,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (!strcmp(argv[optind], "dump")) {
 		preload_socket_modules();
+		preload_netfilter_modules();
 
 		if (!tree_id)
 			goto opt_pid_missing;

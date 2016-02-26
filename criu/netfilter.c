@@ -26,6 +26,25 @@ static const char *nf_conn_cmd = "%s -t filter %s %s --protocol tcp "
 static char iptable_cmd_ipv4[] = "iptables";
 static char iptable_cmd_ipv6[] = "ip6tables";
 
+void preload_netfilter_modules(void)
+{
+	int fd = -1;
+
+	/* same as socket modules, ip_tables and ip6_tables will be loaded by
+	 * CRIU, so we should try and preload these as well.
+	 */
+	fd = open("/dev/null", O_RDWR);
+	if (fd < 0) {
+		fd = -1;
+		pr_perror("failed to open /dev/null, using log fd for net module preload");
+	}
+	cr_system(fd, fd, fd, iptable_cmd_ipv4,
+		(char *[]) { iptable_cmd_ipv4, "-L", NULL}, 0);
+	cr_system(fd, fd, fd, iptable_cmd_ipv6,
+		(char *[]) { iptable_cmd_ipv6, "-L", NULL}, 0);
+	close_safe(&fd);
+}
+
 static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port,
 						u32 *dst_addr, u16 dst_port,
 						bool input, bool lock)
