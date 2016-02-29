@@ -659,6 +659,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	if (!strcmp(argv[optind], "restore")) {
+		preload_netfilter_modules();
 		if (tree_id)
 			pr_warn("Using -t with criu restore is obsoleted\n");
 
