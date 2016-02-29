@@ -2215,7 +2215,7 @@ int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct li
 	FILE *f;
 	int ret;
 	LIST_HEAD(internal);
-	unsigned int n_internal;
+	unsigned int n_internal = 0;
 	struct cg_ctl *intern, *ext;
 
 	f = fopen_proc(pid, "cgroup");
