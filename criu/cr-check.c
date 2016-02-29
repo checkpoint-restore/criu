@@ -830,7 +830,7 @@ static int check_cgroupns(void)
 
 	ret = access("/proc/self/ns/cgroup", F_OK);
 	if (ret < 0) {
-		pr_err("cgroupns not supported. This is not fatal.");
+		pr_err("cgroupns not supported. This is not fatal.\n");
 		return -1;
 	}
 
