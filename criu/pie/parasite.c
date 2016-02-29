@@ -311,18 +311,20 @@ static int pie_atoi(char *str)
 static int get_proc_fd()
 {
 	int ret;
-	char buf[10];
+	char buf[11];
 
-	ret = sys_readlinkat(AT_FDCWD, "/proc/self", buf, sizeof(buf));
+	ret = sys_readlinkat(AT_FDCWD, "/proc/self", buf, sizeof(buf) - 1);
 	if (ret < 0 && ret != -ENOENT) {
 		pr_err("Can't readlink /proc/self (%d)\n", ret);
 		return ret;
 	}
-	buf[ret] = 0;
+	if (ret > 0) {
+		buf[ret] = 0;
 
-	/* Fast path -- if /proc belongs to this pidns */
-	if (pie_atoi(buf) == sys_getpid())
-		return sys_open("/proc", O_RDONLY, 0);
+		/* Fast path -- if /proc belongs to this pidns */
+		if (pie_atoi(buf) == sys_getpid())
+			return sys_open("/proc", O_RDONLY, 0);
+	}
 
 	ret = sys_mkdir(proc_mountpoint, 0700);
 	if (ret) {
