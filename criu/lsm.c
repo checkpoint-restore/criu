@@ -192,6 +192,7 @@ int render_lsm_profile(char *profile, char **val)
 	switch (lsmtype) {
 	case LSMTYPE__APPARMOR:
 		if (strcmp(profile, "unconfined") != 0 && asprintf(val, "changeprofile %s", profile) < 0) {
+			pr_err("allocating lsm profile failed");
 			*val = NULL;
 			return -1;
 		}
@@ -203,6 +204,7 @@ int render_lsm_profile(char *profile, char **val)
 		}
 		break;
 	default:
+		pr_err("can't render profile %s for lsmtype %d\n", profile, LSMTYPE__NO_LSM);
 		return -1;
 	}
 
