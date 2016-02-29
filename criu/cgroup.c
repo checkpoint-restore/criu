@@ -1138,8 +1138,7 @@ static int restore_perms(int fd, const char *path, CgroupPerms *perms)
 static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 			       char *path, int off)
 {
-	FILE *f;
-	int cg, fd;
+	int cg, fd, len, ret = -1;;
 	CgroupPerms *perms = cg_prop_entry_p->perms;
 
 	if (!cg_prop_entry_p->value) {
@@ -1155,42 +1154,32 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 	pr_info("Restoring cgroup property value [%s] to [%s]\n", cg_prop_entry_p->value, path);
 
 	cg = get_service_fd(CGROUP_YARD);
-	f = fopenat(cg, path, "w+");
-	if (!f) {
-		pr_perror("Failed opening %s for writing", path);
-		return -1;
-	}
-
-	fd = fileno(f);
+	fd = openat(cg, path, O_WRONLY);
 	if (fd < 0) {
-		fclose(f);
 		pr_err("bad file stream?");
 		return -1;
 	}
 
-	if (restore_perms(fd, path, perms) < 0) {
-		fclose(f);
-		return -1;
-	}
+	if (restore_perms(fd, path, perms) < 0)
+		goto out;
 
 	/* skip these two since restoring their values doesn't make sense */
-	if (!strcmp(cg_prop_entry_p->name, "cgroup.procs") || !strcmp(cg_prop_entry_p->name, "tasks")) {
-		fclose(f);
-		return 0;
-	}
+	if (!strcmp(cg_prop_entry_p->name, "cgroup.procs") || !strcmp(cg_prop_entry_p->name, "tasks"))
+		goto out;
 
-	if (fprintf(f, "%s", cg_prop_entry_p->value) < 0) {
-		fclose(f);
+	len = strlen(cg_prop_entry_p->value);
+	if (write(fd, cg_prop_entry_p->value, len) != len) {
 		pr_err("Failed writing %s to %s\n", cg_prop_entry_p->value, path);
-		return -1;
+		goto out;
 	}
 
-	if (fclose(f) != 0) {
+out:
+	if (close(fd) != 0)
 		pr_perror("Failed closing %s", path);
-		return -1;
-	}
+	else
+		ret = 0;
 
-	return 0;
+	return ret;
 }
 
 static CgroupPropEntry *freezer_state_entry;
