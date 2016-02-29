@@ -75,13 +75,14 @@ int main(int argc, char *argv[])
 	void *mem;
 	int fd;
 
-	static const char short_opts[] = "f:o:s:p:v:h";
+	static const char short_opts[] = "f:o:s:p:v:r:h";
 	static struct option long_opts[] = {
 		{ "file",	required_argument,	0, 'f' },
 		{ "output",	required_argument,	0, 'o' },
 		{ "stream",	required_argument,	0, 's' },
 		{ "sym-prefix",	required_argument,	0, 'p' },
 		{ "variable",	required_argument,	0, 'v' },
+		{ "pcrelocs",	required_argument,	0, 'r' },
 		{ "help",	required_argument,	0, 'h' },
 		{ },
 	};
@@ -109,6 +110,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'v':
 			opts.var_name = optarg;
+			break;
+		case 'r':
+			opts.nrgotpcrel_name = optarg;
 			break;
 		case 'h':
 		default:
