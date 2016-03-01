@@ -1393,7 +1393,7 @@ int open_path(struct file_desc *d,
 			static char tmp_path[PATH_MAX];
 
 			if (errno != EEXIST) {
-				pr_err("Can't link %s -> %s", rfi->path,
+				pr_perror("Can't link %s -> %s", rfi->path,
 						rfi->remap->rpath);
 				return -1;
 			}
