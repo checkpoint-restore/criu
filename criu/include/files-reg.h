@@ -24,6 +24,7 @@ struct reg_file_info {
 	RegFileEntry		*rfe;
 	struct file_remap	*remap;
 	bool			size_checked;
+	bool			is_dir;
 	char			*path;
 };
 

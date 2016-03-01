@@ -132,6 +132,8 @@ static int mkreg_ghost(char *path, u32 mode, struct ghost_file *gf, struct cr_im
 		return -1;
 
 	ret = copy_file(img_raw_fd(img), gfd, 0);
+	if (ret < 0)
+		unlink(path);
 	close(gfd);
 
 	return ret;
@@ -295,6 +297,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	gf->remap.owner = gfe->uid;
 	list_add_tail(&gf->list, &ghost_files);
 gf_found:
+	rfi->is_dir = gf->remap.is_dir;
 	rfi->remap = &gf->remap;
 	return 0;
 
@@ -494,19 +497,15 @@ static void try_clean_ghost(struct remap_info *ri)
 	if (ret < 0)
 		return;
 
-	ghost_path(path + ret, sizeof(path) - 1, ri->rfi, ri->rfe);
-	if (!unlink(path)) {
-		pr_info(" `- X [%s] ghost\n", path);
+	if (ri->rfi->remap == NULL)
 		return;
-	}
-
-	/*
-	 * We can also find out the ghost type by stat()-ing
-	 * it or by reading the ghost image, but this way
-	 * is the fastest one.
-	 */
-
-	if ((errno == EISDIR)) {
+	if (!ri->rfi->is_dir) {
+		ghost_path(path + ret, sizeof(path) - 1, ri->rfi, ri->rfe);
+		if (!unlink(path)) {
+			pr_info(" `- X [%s] ghost\n", path);
+			return;
+		}
+	} else {
 		strncpy(path + ret, ri->rfi->path, sizeof(path) - 1);
 		if (!rmdir(path)) {
 			pr_info(" `- Xd [%s] ghost\n", path);
@@ -1645,6 +1644,7 @@ static struct collect_image_info reg_file_cinfo = {
 	.pb_type = PB_REG_FILE,
 	.priv_size = sizeof(struct reg_file_info),
 	.collect = collect_one_regfile,
+	.flags = COLLECT_SHARED,
 };
 
 int prepare_shared_reg_files(void)
