@@ -415,6 +415,10 @@ int open_image_dir(char *dir)
 			pr_perror("Can't link parent snapshot");
 			goto err;
 		}
+
+		if (opts.img_parent[0] == '/')
+			pr_warn("Absolute paths for parent links "
+					"may not work on restore!\n");
 	}
 
 	return 0;
