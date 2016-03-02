@@ -701,8 +701,30 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_
 			BUG_ON(root_cgset);
 			root_cgset = cs;
 			pr_info("Set %d is root one\n", cs->id);
-		} else
+		} else {
+			struct cg_ctl *root, *stray;
+
+			BUG_ON(!root_cgset);
 			pr_info("Set %d is a stray\n", cs->id);
+
+			/* Copy the cgns prefix from the root cgset for each
+			 * controller. This is ok because we know that there is
+			 * only one cgroup namespace.
+			 */
+			list_for_each_entry(root, &root_cgset->ctls, l) {
+				list_for_each_entry(stray, &cs->ctls, l) {
+					if (strcmp(root->name, stray->name))
+						continue;
+
+					if (strlen(stray->path) < root->cgns_prefix) {
+						pr_err("cg %s shorter than path prefix %d?\n", stray->path, root->cgns_prefix);
+						return -1;
+					}
+
+					stray->cgns_prefix = root->cgns_prefix;
+				}
+			}
+		}
 
 		/*
 		 * The on-stack ctls is moved into cs inside

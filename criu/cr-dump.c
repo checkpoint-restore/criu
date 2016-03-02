@@ -728,14 +728,11 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 	if (ret)
 		goto err;
 
-	/* If this is the root task and it has a cgroup ns id, it could be in
-	 * a cgroup namespace and we should try to figure out the prefix. Or,
-	 * if the task is not the parent task and its cgroup namespace differs
-	 * from its parent's, this is a nested cgns and we should compute the
-	 * prefix.
+	/* For now, we only need to dump the root task's cgroup ns, because we
+	 * know all the tasks are in the same cgroup namespace because we don't
+	 * allow nesting.
 	 */
-	if (item->ids->has_cgroup_ns_id && (!item->parent ||
-			(item->ids->cgroup_ns_id != item->parent->ids->cgroup_ns_id))) {
+	if (item->ids->has_cgroup_ns_id && !item->parent) {
 		info = &cgroup_args;
 		ret = parasite_dump_cgroup(ctl, &cgroup_args);
 		if (ret)
