@@ -1198,8 +1198,26 @@ int restore_freezer_state(void)
 
 static void add_freezer_state_for_restore(CgroupPropEntry *entry, char *path, size_t path_len)
 {
-	BUG_ON(freezer_state_entry);
 	BUG_ON(path_len >= sizeof(freezer_path));
+
+	if (freezer_state_entry) {
+		int max_len, i;
+
+		max_len = strlen(freezer_path);
+		if (max_len > path_len)
+			max_len = path_len;
+
+		/* If there are multiple freezer.state properties, that means they had
+		 * one common path prefix with no tasks in it. Let's find that common
+		 * prefix.
+		 */
+		for (i = 0; i < max_len; i++) {
+			if (freezer_path[i] != path[i]) {
+				freezer_path[i] = 0;
+				return;
+			}
+		}
+	}
 
 	freezer_state_entry = entry;
 	/* Path is not null terminated at path_len */
