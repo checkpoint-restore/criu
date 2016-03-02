@@ -1015,7 +1015,7 @@ static int userns_move(void *arg, int fd, pid_t pid)
 	return 0;
 }
 
-static int move_in_cgroup(CgSetEntry *se)
+static int move_in_cgroup(CgSetEntry *se, bool setup_cgns)
 {
 	int i;
 
@@ -1056,7 +1056,7 @@ static int move_in_cgroup(CgSetEntry *se)
 		 * namespace boundary at /unsprefix" without first entering that, doing
 		 * the unshare, and then entering the rest of the path.
 		 */
-		if (ce->has_cgns_prefix) {
+		if (setup_cgns && ce->has_cgns_prefix) {
 			char tmp = ce->path[ce->cgns_prefix];
 			ce->path[ce->cgns_prefix] = '\0';
 
@@ -1096,6 +1096,7 @@ int prepare_task_cgroup(struct pstree_item *me)
 {
 	CgSetEntry *se;
 	u32 current_cgset;
+	bool needs_cgns_setup = false;
 
 	if (!rsti(me)->cg_set)
 		return 0;
@@ -1116,7 +1117,14 @@ int prepare_task_cgroup(struct pstree_item *me)
 		return -1;
 	}
 
-	return move_in_cgroup(se);
+	/* Since don't support nesting of cgroup namespaces, let's only set up
+	 * the cgns (if it exists) in the init task. In the future, we should
+	 * just check that the cgns prefix string matches for all the entries
+	 * in the cgset, and only unshare if that's true.
+	 */
+	needs_cgns_setup = !me->parent;
+
+	return move_in_cgroup(se, needs_cgns_setup);
 }
 
 void fini_cgroup(void)
