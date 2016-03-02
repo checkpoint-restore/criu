@@ -408,16 +408,8 @@ void ns_create(int argc, char **argv)
 		exit(1);
 	}
 
-	fd = open(pidfile, O_CREAT | O_EXCL | O_WRONLY, 0666);
-	if (fd == -1) {
-		fprintf(stderr, "Can't create the file %s: %m\n", pidfile);
+	if (write_pidfile(pid))
 		exit(1);
-	}
-	if (dprintf(fd, "%d", pid) == -1) {
-		fprintf(stderr, "Can't write in the file %s: %m\n", pidfile);
-		exit(1);
-	}
-	close(fd);
 
 	exit(0);
 }

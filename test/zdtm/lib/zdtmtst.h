@@ -92,6 +92,8 @@ extern int parse_opt_ulong(char *param, void *arg);
 extern int parse_opt_string(char *param, void *arg);
 #define param_check_string(name, p) __param_check(name, p, char *)
 
+extern int write_pidfile(int pid);
+
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>

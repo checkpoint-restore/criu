@@ -91,10 +91,28 @@ void test_ext_init(int argc, char **argv)
 		exit(1);
 }
 
+int write_pidfile(int pid)
+{
+	int fd;
+
+	fd = open(pidfile, O_CREAT | O_EXCL | O_WRONLY, 0666);
+	if (fd == -1) {
+		fprintf(stderr, "Can't create the file %s: %m\n", pidfile);
+		return -1;
+	}
+	if (dprintf(fd, "%d", pid) == -1) {
+		fprintf(stderr, "Can't write in the file %s: %m\n", pidfile);
+		return -1;
+	}
+
+	close(fd);
+
+	return 0;
+}
+
 void test_init(int argc, char **argv)
 {
 	pid_t pid;
-	static FILE *pidf;
 	char *val;
 	struct sigaction sa = {
 		.sa_handler	= sig_hand,
@@ -166,12 +184,6 @@ void test_init(int argc, char **argv)
 	setup_outfile();
 	redir_stdfds();
 
-	pidf = fopen(pidfile, "wx");
-	if (!pidf) {
-		pr_perror("Can't create pid file %s", pidfile);
-		exit(1);
-	}
-
 	pid = fork();
 	if (pid < 0) {
 		pr_perror("Daemonizing failed");
@@ -198,12 +210,11 @@ void test_init(int argc, char **argv)
 			}
 		}
 
-		fprintf(pidf, "%d\n", pid);
-		fclose(pidf);
+		if (write_pidfile(pid))
+			exit(1);
+
 		_exit(0);
 	}
-
-	fclose(pidf);
 
 	if (setsid() < 0) {
 		pr_perror("Can't become session group leader");
