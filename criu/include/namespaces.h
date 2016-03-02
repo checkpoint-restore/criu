@@ -11,7 +11,7 @@
 #endif
 
 /* Nested namespaces are supported only for these types */
-#define CLONE_SUBNS	(CLONE_NEWNS | CLONE_NEWCGROUP)
+#define CLONE_SUBNS	(CLONE_NEWNS)
 
 struct ns_desc {
 	unsigned int	cflag;
