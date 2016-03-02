@@ -656,10 +656,26 @@ class criu_cli:
 
 		preexec = self.__user and self.set_user_id or None
 
+		__ddir = self.__ddir()
+
 		ret = self.__criu(action, s_args, self.__fault, strace, preexec)
-		grep_errors(os.path.join(self.__ddir(), log))
+		grep_errors(os.path.join(__ddir, log))
 		if ret != 0:
-			if self.__fault or self.__test.blocking() or (self.__sat and action == 'restore'):
+			if self.__fault:
+				try_run_hook(self.__test, ["--fault", action])
+				if action == "dump":
+					# create a clean directory for images
+					os.rename(__ddir, __ddir + ".fail")
+					os.mkdir(__ddir)
+					os.chmod(__ddir, 0777)
+				else:
+					# on restore we move only a log file, because we need images
+					os.rename(os.path.join(__ddir, log), os.path.join(__ddir, log + ".fail"))
+				# try again without faults
+				ret = self.__criu(action, s_args, False, strace, preexec)
+				if ret == 0:
+					return
+			if self.__test.blocking() or (self.__sat and action == 'restore'):
 				raise test_fail_expected_exc(action)
 			else:
 				raise test_fail_exc("CRIU %s" % action)
@@ -819,7 +835,7 @@ def get_visible_state(test):
 		mounts[pid] = set(cmounts)
 	return files, maps, mounts
 
-def check_visible_state(test, state):
+def check_visible_state(test, state, opts):
 	new = get_visible_state(test)
 
 	for pid in state[0].keys():
@@ -835,8 +851,8 @@ def check_visible_state(test, state):
 		if old_maps != new_maps:
 			print "%s: Old maps lost: %s" % (pid, old_maps - new_maps)
 			print "%s: New maps appeared: %s" % (pid, new_maps - old_maps)
-
-			raise test_fail_exc("maps compare")
+			if not opts['fault']: # skip parasite blob
+				raise test_fail_exc("maps compare")
 
 		old_mounts = state[2][pid]
 		new_mounts = new[2][pid]
@@ -935,9 +951,8 @@ def do_run_test(tname, tdesc, flavs, opts):
 			except test_fail_expected_exc as e:
 				if e.cr_action == "dump":
 					t.stop()
-				try_run_hook(t, ["--fault", e.cr_action])
 			else:
-				check_visible_state(t, s)
+				check_visible_state(t, s, opts)
 				t.stop()
 				try_run_hook(t, ["--clean"])
 		except test_fail_exc as e:
