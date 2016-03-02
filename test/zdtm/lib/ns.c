@@ -339,11 +339,9 @@ int ns_init(int argc, char **argv)
 void ns_create(int argc, char **argv)
 {
 	pid_t pid;
-	char pname[PATH_MAX];
 	int ret, status;
 	struct ns_exec_args args;
-	int fd, flags;
-	char *val;
+	int flags;
 
 	args.argc = argc;
 	args.argv = argv;
@@ -357,8 +355,7 @@ void ns_create(int argc, char **argv)
 	flags = CLONE_NEWPID | CLONE_NEWNS | CLONE_NEWUTS |
 		CLONE_NEWNET | CLONE_NEWIPC | SIGCHLD;
 
-	val = getenv("ZDTM_USERNS");
-	if (val)
+	if (getenv("ZDTM_USERNS"))
 		flags |= CLONE_NEWUSER;
 
 	pid = clone(ns_exec, args.stack_ptr, flags, &args);
@@ -370,6 +367,9 @@ void ns_create(int argc, char **argv)
 	close(args.status_pipe[1]);
 
 	if (flags & CLONE_NEWUSER) {
+		char pname[PATH_MAX];
+		int fd;
+
 		snprintf(pname, sizeof(pname), "/proc/%d/uid_map", pid);
 		fd = open(pname, O_WRONLY);
 		if (fd < 0) {
