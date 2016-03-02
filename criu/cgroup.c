@@ -1491,26 +1491,63 @@ err:
 }
 
 static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controllers,
-			  char *from, char *to)
+			  char **from, char *to)
 {
 	int i, j;
+	bool set_from = false;
+
 	for (i = 0; i < cge->n_sets; i++) {
 		CgSetEntry *set = cge->sets[i];
 		for (j = 0; j < set->n_ctls; j++) {
 			CgMemberEntry *cg = set->ctls[j];
-			if (cgroup_contains(controllers, n_controllers, cg->name) &&
+			char *tmp = cg->path, *tmp2 = NULL;
+
+			if (!(cgroup_contains(controllers, n_controllers, cg->name) &&
 					/* +1 to get rid of leading / */
-					strstartswith(cg->path + 1, from)) {
+					strstartswith(cg->path + 1, *from)))
+				continue;
 
-				char *tmp = cg->path;
+			/* If this cgset has a cgns prefix, let's use
+			 * that as the start of the root replacement.
+			 */
+			if (cg->has_cgns_prefix && cg->cgns_prefix) {
+				/* Rewrite the group dir to match the
+				 * prefix. We can do this exactly once
+				 * since we know all the tasks are in
+				 * the same cgroup ns (and thus have
+				 * the same per-controller prefix path)
+				 * since we don't support nesting.
+				 */
+				if (!set_from) {
+					set_from = true;
+					/* -2 because cgns_prefix includes leading and trailing /'s */
+					*from = xsprintf("%s%s", to, (*from) + cg->cgns_prefix - 2);
+				}
 
-				/* +1 to get rid of leading /, again */
 				cg->path = xsprintf("%s%s", to, cg->path +
-							strlen(from) + 1);
-				if (!cg->path)
-					return -1;
-				free(tmp);
+							cg->cgns_prefix - 1);
+				cg->cgns_prefix = strlen(to);
+			} else {
+				/* otherwise, use the old rewriting strategy */
+				cg->path = xsprintf("%s%s", to, cg->path +
+							strlen(*from) + 1);
+				if (!set_from) {
+					set_from = true;
+					*from = xstrdup(to);
+				}
 			}
+
+			if (tmp2) {
+				if (!*from)
+					return -1;
+
+				xfree(tmp2);
+			}
+
+			if (!cg->path)
+				return -1;
+
+			free(tmp);
 		}
 
 	}
@@ -1538,18 +1575,10 @@ static int rewrite_cgroup_roots(CgroupEntry *cge)
 		if (newroot) {
 			for (j = 0; j < ctrl->n_dirs; j++) {
 				CgroupDirEntry *cgde = ctrl->dirs[j];
-				char *m;
 
 				pr_info("rewriting %s to %s\n", cgde->dir_name, newroot);
-				if (rewrite_cgsets(cge, ctrl->cnames, ctrl->n_cnames, cgde->dir_name, newroot))
+				if (rewrite_cgsets(cge, ctrl->cnames, ctrl->n_cnames, &cgde->dir_name, newroot))
 					return -1;
-
-				m = xstrdup(newroot);
-				if (!m)
-					return -1;
-
-				free(cgde->dir_name);
-				cgde->dir_name = m;
 			}
 		}
 	}
