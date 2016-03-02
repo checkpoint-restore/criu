@@ -22,7 +22,6 @@ int main(int argc, char **argv)
 		unsetenv("ZDTM_UID");
 		unsetenv("ZDTM_GID");
 		unsetenv("ZDTM_ROOT");
-		unsetenv("ZDTM_PIDFILE");
 
 		test_msg("List: [%s]\n", env);
 		sprintf(sh, "sh /%s.start", env);

@@ -312,10 +312,7 @@ class zdtm_test:
 			self.__freezer.freeze()
 
 	def __pidfile(self):
-		if self.__flavor.ns:
-			return self.__name + '.init.pid'
-		else:
-			return self.__name + '.pid'
+		return self.__name + '.pid'
 
 	def __wait_task_die(self):
 		wait_pid_die(int(self.__pid), self.__name)
@@ -346,7 +343,6 @@ class zdtm_test:
 
 		if self.__flavor.ns:
 			env['ZDTM_NEWNS'] = "1"
-			env['ZDTM_PIDFILE'] = os.path.realpath(self.__name + '.init.pid')
 			env['ZDTM_ROOT'] = self.__flavor.root
 
 			if self.__flavor.uns:
@@ -408,7 +404,7 @@ class zdtm_test:
 
 		self.__wait_task_die()
 		self.__pid = 0
-		if force or self.__flavor.ns:
+		if force:
 			os.unlink(self.__pidfile())
 
 	def print_output(self):

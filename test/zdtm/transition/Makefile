@@ -96,7 +96,7 @@ cleandep:	clean
 	$(RM) -f $(DEP)
 
 %.cleanout: %
-	$(Q) $(RM) -f -r $<.pid $<.init.pid $<.out* $<.test chew_$<.test*
+	$(Q) $(RM) -f -r $<.pid* $<.out* $<.test chew_$<.test*
 
 cleanout:
 	$(RM) -f *.pid *.out* *.test chew*

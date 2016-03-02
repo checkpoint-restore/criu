@@ -239,7 +239,7 @@ int ns_init(int argc, char **argv)
 		.sa_flags	= SA_RESTART,
 	};
 	int ret, fd, status_pipe = STATUS_FD;
-	char buf[128];
+	char buf[128], *x;
 	pid_t pid;
 
 	ret = fcntl(status_pipe, F_SETFD, FD_CLOEXEC);
@@ -256,6 +256,10 @@ int ns_init(int argc, char **argv)
 		fprintf(stderr, "Can't set SIGTERM handler: %m\n");
 		exit(1);
 	}
+
+	x = malloc(strlen(pidfile) + 3);
+	sprintf(x, "%sns", pidfile);
+	pidfile = x;
 
 	/* Start test */
 	pid = fork();
@@ -404,11 +408,6 @@ void ns_create(int argc, char **argv)
 		exit(1);
 	}
 
-	pidfile = getenv("ZDTM_PIDFILE");
-	if (pidfile == NULL) {
-		fprintf(stderr, "ZDTM_PIDFILE isn't defined");
-		exit(1);
-	}
 	fd = open(pidfile, O_CREAT | O_EXCL | O_WRONLY, 0666);
 	if (fd == -1) {
 		fprintf(stderr, "Can't create the file %s: %m\n", pidfile);
