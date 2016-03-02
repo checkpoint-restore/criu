@@ -1015,14 +1015,13 @@ static int userns_move(void *arg, int fd, pid_t pid)
 	return 0;
 }
 
-static int move_in_cgroup(CgSetEntry *se, bool setup_cgns)
+static int prepare_cgns(CgSetEntry *se)
 {
 	int i;
 
-	pr_info("Move into %d\n", se->id);
 	for (i = 0; i < se->n_ctls; i++) {
 		char aux[PATH_MAX];
-		int fd = -1, err, j, aux_off;
+		int j, aux_off;
 		CgMemberEntry *ce = se->ctls[i];
 		CgControllerEntry *ctrl = NULL;
 
@@ -1056,7 +1055,7 @@ static int move_in_cgroup(CgSetEntry *se, bool setup_cgns)
 		 * namespace boundary at /unsprefix" without first entering that, doing
 		 * the unshare, and then entering the rest of the path.
 		 */
-		if (setup_cgns && ce->has_cgns_prefix) {
+		if (ce->has_cgns_prefix) {
 			char tmp = ce->path[ce->cgns_prefix];
 			ce->path[ce->cgns_prefix] = '\0';
 
@@ -1068,11 +1067,49 @@ static int move_in_cgroup(CgSetEntry *se, bool setup_cgns)
 				return -1;
 			}
 
-			if (unshare(CLONE_NEWCGROUP) < 0) {
-				pr_perror("couldn't unshare cgns");
-				return -1;
+		}
+
+	}
+
+	if (unshare(CLONE_NEWCGROUP) < 0) {
+		pr_perror("couldn't unshare cgns");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int move_in_cgroup(CgSetEntry *se, bool setup_cgns)
+{
+	int i;
+
+	pr_info("Move into %d\n", se->id);
+
+	if (setup_cgns && prepare_cgns(se) < 0) {
+		pr_err("failed preparing cgns");
+		return -1;
+	}
+
+	for (i = 0; i < se->n_ctls; i++) {
+		char aux[PATH_MAX];
+		int fd = -1, err, j, aux_off;
+		CgMemberEntry *ce = se->ctls[i];
+		CgControllerEntry *ctrl = NULL;
+
+		for (j = 0; j < n_controllers; j++) {
+			CgControllerEntry *cur = controllers[j];
+			if (cgroup_contains(cur->cnames, cur->n_cnames, ce->name)) {
+				ctrl = cur;
+				break;
 			}
 		}
+
+		if (!ctrl) {
+			pr_err("No cg_controller_entry found for %s/%s\n", ce->name, ce->path);
+			return -1;
+		}
+
+		aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
 
 		/* Note that unshare(CLONE_NEWCGROUP) doesn't change the view
 		 * of previously mounted cgroupfses; since we're restoring via
