@@ -1041,7 +1041,7 @@ static int move_in_cgroup(CgSetEntry *se)
 			pr_info("setting cgns prefix to %s\n", ce->path);
 			snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/tasks", ce->path);
 			ce->path[ce->cgns_prefix] = tmp;
-			if (userns_call(userns_move, UNS_ASYNC, aux, strlen(aux) + 1, -1) < 0) {
+			if (userns_call(userns_move, 0, aux, strlen(aux) + 1, -1) < 0) {
 				pr_perror("couldn't set cgns prefix %s", aux);
 				return -1;
 			}
@@ -1060,7 +1060,7 @@ static int move_in_cgroup(CgSetEntry *se)
 		 */
 		snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/tasks", ce->path);
 		pr_debug("  `-> %s\n", aux);
-		err = userns_call(userns_move, UNS_ASYNC, aux, strlen(aux) + 1, -1);
+		err = userns_call(userns_move, 0, aux, strlen(aux) + 1, -1);
 		if (err < 0) {
 			pr_perror("Can't move into %s (%d/%d)", aux, err, fd);
 			return -1;
