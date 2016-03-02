@@ -147,6 +147,7 @@ TST_NOFILE	=				\
 		vfork00				\
 		oom_score_adj			\
 		loginuid			\
+		cgroupns			\
 #		jobctl00			\
 
 TST_FILE	=				\
@@ -216,7 +217,6 @@ TST_DIR		=				\
 		cgroup01			\
 		cgroup02			\
 		cgroup03			\
-		cgroupns			\
 		cgroup_stray		\
 		mntns_open			\
 		mntns_link_remap		\

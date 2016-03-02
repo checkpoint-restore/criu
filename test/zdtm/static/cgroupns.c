@@ -21,8 +21,8 @@
 const char *test_doc	= "Check that cgroup NS is correctly handled.";
 const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
 
-char *dirname;
-TEST_OPTION(dirname, string, "cgroup directory name", 1);
+/* we need dirname before test_init() here */
+char *dirname = "cgroupns.test";
 static const char *cgname = "zdtmtst";
 
 int mount_and_add(const char *controller, const char *path)
@@ -128,107 +128,81 @@ out:
 	return ret;
 }
 
-static int unshare_cgns_and_wait(void *arg)
-{
-	int sk = *((int*)arg), ret = -1;
-	char c;
-	char buf[20];
-
-	if (unshare(CLONE_NEWCGROUP) < 0) {
-		pr_perror("unshare");
-		goto out;
-	}
-
-	if (write(sk, &c, 1) != 1) {
-		pr_perror("write");
-		goto out;
-	}
-
-
-	if (read(sk, &c, 1) != 1) {
-		pr_perror("read %d", ret);
-		goto out;
-	}
-
-	sprintf(buf, "name=%s", cgname);
-
-	if (!pid_in_cgroup(getpid(), buf, "/")) {
-		pr_err("subtask not in right cg!\n");
-		goto out;
-	}
-
-	ret = 0;
-out:
-	close(sk);
-	return ret;
-}
-
 int main(int argc, char **argv)
 {
-	int ret = -1, sk_pair[2], sk, status;
-	char path[PATH_MAX], c;
+	int ret = -1, fd, status;
+	char path[PATH_MAX];
 	pid_t pid;
 
+	if (!getenv("ZDTM_NEWNS")) {
+		if (mount_and_add(cgname, "test") < 0)
+			return -1;
+
+		if (unshare(CLONE_NEWCGROUP) < 0) {
+			pr_perror("unshare");
+			goto out;
+		}
+	}
+
 	test_init(argc, argv);
-
-	if (mount_and_add(cgname, "test") < 0)
-		return -1;
-
-	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, sk_pair)) {
-		pr_perror("socketpair");
-		goto out;
-	}
-
-	pid = fork();
-	if (pid < 0) {
-		pr_perror("fork failed");
-		goto out;
-	}
-
-	if (pid == 0) {
-		close(sk_pair[0]);
-		if (unshare_cgns_and_wait(sk_pair+1))
-			exit(1);
-		exit(0);
-	}
-
-	close(sk_pair[1]);
-	sk = sk_pair[0];
-
-	if ((ret = read(sk, &c, 1)) != 1) {
-		pr_perror("read %d", ret);
-		goto out;
-	}
 
 	test_daemon();
 	test_waitsig();
 
 	sprintf(path, "name=%s", cgname);
 
-	/* first check that the task is in zdtmtst:/test */
-	if (!pid_in_cgroup(pid, path, "/test")) {
-		fail("pid not in cgroup /test");
+	/* first check that the task is in zdtmtst:/ */
+	if (!pid_in_cgroup(getpid(), path, "/")) {
+		fail("pid not in cgroup /");
 		goto out;
 	}
 
-	/* now have the task check that it is in / */
-	if (write(sk, &c, 1) != 1) {
-		pr_perror("write");
+	/* now check that the task is in the right place in a ns by setnsing to
+	 * someone else's ns and looking there.
+	 */
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("fork");
 		goto out;
+	}
+
+	if (pid == 0) {
+		sprintf(path, "/proc/%d/ns/cgroup", 1);
+		fd = open(path, O_RDONLY);
+		if (fd < 0) {
+			pr_perror("open");
+			exit(1);
+		}
+
+		ret = setns(fd, CLONE_NEWCGROUP);
+		close(fd);
+		if (ret < 0) {
+			pr_perror("setns");
+			exit(1);
+		}
+
+		sprintf(path, "name=%s", cgname);
+		if (!pid_in_cgroup(getppid(), path, "/test")) {
+			fail("pid not in cgroup %s", path);
+			exit(1);
+		}
+
+		exit(0);
 	}
 
 	if (pid != waitpid(pid, &status, 0)) {
-		pr_perror("waitpid");
+		pr_err("wrong pid");
 		goto out;
 	}
 
 	if (!WIFEXITED(status) || WEXITSTATUS(status)) {
-		fail("exit status %s\n", status);
+		pr_err("got bad exit status %d\n", status);
 		goto out;
 	}
 
-	pass();
 	ret = 0;
+	pass();
+
 out:
 	sprintf(path, "%s/%s/test", dirname, cgname);
 	rmdir(path);
