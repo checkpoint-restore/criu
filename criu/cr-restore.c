@@ -1208,6 +1208,10 @@ static inline int fork_with_pid(struct pstree_item *item)
 	 *
 	 * Here is an idea -- unhare net namespace in callee instead.
 	 */
+	/*
+	 * The cgroup namespace is also unshared explicitly in the
+	 * move_in_cgroup(), so drop this flag here as well.
+	 */
 	ret = clone(restore_task_with_children, ca.stack_ptr,
 		    (ca.clone_flags & (~CLONE_NEWNET | ~CLONE_NEWCGROUP)) | SIGCHLD, &ca);
 
