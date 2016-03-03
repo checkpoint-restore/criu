@@ -935,6 +935,8 @@ def do_run_test(tname, tdesc, flavs, opts):
 	for f in flavs:
 		print
 		print_sep("Run %s in %s" % (tname, f))
+		if opts['dry_run']:
+			continue
 		flav = flavors[f](opts)
 		t = tclass(tname, tdesc, flav, fcg)
 		cr_api = criu_cli(opts)
@@ -1002,7 +1004,7 @@ class launcher:
 
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', \
 				'fault', 'keep_img', 'report', 'snaps', 'sat', \
-				'dedup', 'sbs', 'freezecg', 'user')
+				'dedup', 'sbs', 'freezecg', 'user', 'dry_run')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 
 		if self.__use_log:
@@ -1383,6 +1385,7 @@ rp.add_argument("--user", help = "Run CRIU as regular user", action = 'store_tru
 
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
 rp.add_argument("-p", "--parallel", help = "Run test in parallel")
+rp.add_argument("--dry-run", help="Don't run tests, just pretend to", action='store_true')
 
 rp.add_argument("-k", "--keep-img", help = "Whether or not to keep images after test",
 		choices = [ 'always', 'never', 'failed' ], default = 'failed')
