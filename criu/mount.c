@@ -2155,6 +2155,14 @@ static int propagate_mount(struct mount_info *mi)
 		list_for_each_entry(c, &t->children, siblings) {
 			if (mounts_equal(mi, c)) {
 				pr_debug("\t\tPropagate %s\n", c->mountpoint);
+
+				/*
+				 * When a mount is propagated, the result mount
+				 * is always shared. If we want to get a private
+				 * mount, we need to convert it.
+				 */
+				restore_shared_options(c, !c->shared_id, 0, 0);
+
 				c->mounted = true;
 				propagate_siblings(c);
 				umount_from_slaves(c);
