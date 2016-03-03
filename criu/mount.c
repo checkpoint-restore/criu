@@ -2283,10 +2283,51 @@ static int restore_ext_mount(struct mount_info *mi)
 	return ret;
 }
 
+static char mnt_clean_path[] = "/tmp/cr-tmpfs.XXXXXX";
+
+static int mount_clean_path()
+{
+	/*
+	 * To make a bind mount, we need to have access to a source directory,
+	 * which can be over-mounted. The idea is to mount a source mount in
+	 * an intermediate place without MS_REC and then create a target mounts.
+	 * This intermediate place should be a private mount to not affect
+	 * properties of the source mount.
+	 */
+	if (mkdtemp(mnt_clean_path) == NULL) {
+		pr_perror("Unable to create a temporary directory");
+		return -1;
+	}
+
+	if (mount(mnt_clean_path, mnt_clean_path, NULL, MS_BIND, NULL)) {
+		pr_perror("Unable to mount tmpfs into %s", mnt_clean_path);
+		return -1;
+	}
+
+	if (mount(NULL, mnt_clean_path, NULL, MS_PRIVATE, NULL)) {
+		pr_perror("Unable to mark %s as private", mnt_clean_path);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int umount_clean_path()
+{
+	if (umount2(mnt_clean_path, MNT_DETACH)) {
+		pr_perror("Unable to umount %s\n", mnt_clean_path);
+		return -1;
+	}
+
+	if (rmdir(mnt_clean_path)) {
+		pr_perror("Unable to remove %s", mnt_clean_path);
+	}
+
+	return 0;
+}
+
 static int do_bind_mount(struct mount_info *mi)
 {
-	char mnt_path_tmp[] = "/tmp/cr-tmpfs.XXXXXX";
-	char mnt_path_root[] = "/cr-tmpfs.XXXXXX";
 	char *root, *cut_root, rpath[PATH_MAX];
 	unsigned long mflags;
 	int exit_code = -1;
@@ -2323,7 +2364,12 @@ static int do_bind_mount(struct mount_info *mi)
 	if (list_empty(&mi->bind->children))
 		mnt_path = mi->bind->mountpoint;
 	else {
-		mnt_path = get_clean_mnt(mi->bind, mnt_path_tmp, mnt_path_root);
+		/* mi->bind->mountpoint may be overmounted */
+		if (mount(mi->bind->mountpoint, mnt_clean_path, NULL, MS_BIND, NULL)) {
+			pr_perror("Unable to bind-mount %s to %s",
+					mi->bind->mountpoint, mnt_clean_path);
+		}
+		mnt_path = mnt_clean_path;
 		umount_mnt_path = true;
 	}
 	if (mnt_path == NULL)
@@ -2410,10 +2456,6 @@ err:
 		}
 		if (umount2(mnt_path, MNT_DETACH)) {
 			pr_perror("Unable to umount %s", mnt_path);
-			return -1;
-		}
-		if (rmdir(mnt_path)) {
-			pr_perror("Unable to remove %s", mnt_path);
 			return -1;
 		}
 	}
@@ -3028,6 +3070,7 @@ static int populate_mnt_ns(void)
 	struct mount_info *pms;
 	struct ns_id *nsid;
 	struct mount_info *roots_mp = NULL;
+	int ret;
 
 	if (mnt_roots) {
 		/* mnt_roots is a tmpfs mount and it's private */
@@ -3072,7 +3115,14 @@ static int populate_mnt_ns(void)
 	if (populate_roots_yard())
 		return -1;
 
-	return mnt_tree_for_each(pms, do_mount_one);
+	if (mount_clean_path())
+		return -1;
+
+	ret = mnt_tree_for_each(pms, do_mount_one);
+
+	if (umount_clean_path())
+		return -1;
+	return ret;
 }
 
 int depopulate_roots_yard(void)
