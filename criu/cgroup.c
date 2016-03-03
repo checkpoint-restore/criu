@@ -1018,6 +1018,7 @@ static int userns_move(void *arg, int fd, pid_t pid)
 static int prepare_cgns(CgSetEntry *se)
 {
 	int i;
+	bool do_unshare = false;
 
 	for (i = 0; i < se->n_ctls; i++) {
 		char aux[PATH_MAX];
@@ -1067,11 +1068,12 @@ static int prepare_cgns(CgSetEntry *se)
 				return -1;
 			}
 
+			do_unshare = true;
 		}
 
 	}
 
-	if (unshare(CLONE_NEWCGROUP) < 0) {
+	if (do_unshare && unshare(CLONE_NEWCGROUP) < 0) {
 		pr_perror("couldn't unshare cgns");
 		return -1;
 	}
@@ -1133,7 +1135,6 @@ int prepare_task_cgroup(struct pstree_item *me)
 {
 	CgSetEntry *se;
 	u32 current_cgset;
-	bool needs_cgns_setup = false;
 
 	if (!rsti(me)->cg_set)
 		return 0;
@@ -1159,9 +1160,8 @@ int prepare_task_cgroup(struct pstree_item *me)
 	 * just check that the cgns prefix string matches for all the entries
 	 * in the cgset, and only unshare if that's true.
 	 */
-	needs_cgns_setup = !me->parent;
 
-	return move_in_cgroup(se, needs_cgns_setup);
+	return move_in_cgroup(se, !me->parent);
 }
 
 void fini_cgroup(void)
