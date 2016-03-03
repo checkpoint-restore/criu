@@ -172,15 +172,15 @@ static bool cg_set_compare(struct cg_set *set, struct list_head *ctls, int what)
 	}
 }
 
-static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls, bool *existed)
+static int collect_cgroups(struct list_head *ctls);
+
+static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls, bool collect)
 {
 	struct cg_set *cs;
-	*existed = false;
 
 	list_for_each_entry(cs, &cg_sets, l)
 		if (cg_set_compare(cs, ctls, CGCMP_MATCH)) {
 			pr_debug(" `- Existing css %d found\n", cs->id);
-			*existed = true;
 			put_ctls(ctls);
 			return cs;
 		}
@@ -200,6 +200,12 @@ static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls, bo
 
 			list_for_each_entry(ctl, &cs->ctls, l)
 				pr_debug("    `- [%s] -> [%s] [%u]\n", ctl->name, ctl->path, ctl->cgns_prefix);
+		}
+
+		if (collect && collect_cgroups(&cs->ctls)) {
+			put_ctls(ctls);
+			xfree(cs);
+			return NULL;
 		}
 	}
 
@@ -677,7 +683,6 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_
 	LIST_HEAD(ctls);
 	unsigned int n_ctls = 0;
 	struct cg_set *cs;
-	bool existed = false;
 
 	if (item)
 		pid = item->pid.real;
@@ -688,7 +693,7 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_
 	if (parse_task_cgroup(pid, args, &ctls, &n_ctls))
 		return -1;
 
-	cs = get_cg_set(&ctls, n_ctls, &existed);
+	cs = get_cg_set(&ctls, n_ctls, item);
 	if (!cs)
 		return -1;
 
@@ -725,13 +730,6 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_
 				}
 			}
 		}
-
-		/*
-		 * The on-stack ctls is moved into cs inside
-		 * the get_cg_set routine.
-		 */
-		if (cs != criu_cgset && !existed && collect_cgroups(&cs->ctls))
-			return -1;
 	}
 
 	*cg_id = cs->id;
