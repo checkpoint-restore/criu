@@ -2124,6 +2124,10 @@ out_kill:
 				kill(pi->pid.virt, SIGKILL);
 	}
 
+	if (opts.pidfile) {
+		if (unlink(opts.pidfile))
+			pr_perror("Unable to remove %s", opts.pidfile);
+	}
 out:
 	fini_cgroup();
 	if (clean_remaps)
