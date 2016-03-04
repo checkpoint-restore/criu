@@ -1308,10 +1308,29 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 		off2 += sprintf(path + off, "/%s", e->dir_name);
 		if (e->n_properties > 0) {
 			for (j = 0; j < e->n_properties; ++j) {
+				int k;
+				bool special = false;
+
 				if (!strcmp(e->properties[j]->name, "freezer.state")) {
 					add_freezer_state_for_restore(e->properties[j], path, off2);
 					continue; /* skip restore now */
 				}
+
+				/* Skip restoring special cpuset props now.
+				 * They were restored earlier, and can cause
+				 * the restore to fail if some other task has
+				 * entered the cgroup.
+				 */
+				for (k = 0; special_cpuset_props[k]; k++) {
+					if (!strcmp(e->properties[j]->name, special_cpuset_props[k])) {
+						special = true;
+						break;
+					}
+				}
+
+				if (special)
+					continue;
+
 				if (restore_cgroup_prop(e->properties[j], path, off2) < 0)
 					return -1;
 			}
