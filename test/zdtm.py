@@ -348,6 +348,12 @@ class zdtm_test:
 			if self.__flavor.uns:
 				env['ZDTM_USERNS'] = "1"
 				self.__add_wperms()
+			if os.getenv("GCOV"):
+				criu_dir = os.path.dirname(os.getcwd())
+				criu_dir_r = "%s%s" % (self.__flavor.root, criu_dir)
+
+				env['ZDTM_CRIU'] = os.path.dirname(os.getcwd());
+				subprocess.check_call(["mkdir", "-p", criu_dir_r])
 
 		self.__make_action('pid', env, self.__flavor.root)
 
@@ -703,6 +709,11 @@ class criu_cli:
 
 		a_opts += [ "--timeout", "10" ]
 
+		criu_dir = os.path.dirname(os.getcwd())
+		if os.getenv("GCOV"):
+			a_opts.append("--ext-mount-map")
+			a_opts.append("%s:zdtm" % criu_dir)
+
 		self.__criu_act(action, opts = a_opts + opts)
 
 		if self.__page_server:
@@ -716,6 +727,10 @@ class criu_cli:
 		r_opts += self.__test.getropts()
 
 		self.__prev_dump_iter = None
+		criu_dir = os.path.dirname(os.getcwd())
+		if os.getenv("GCOV"):
+			r_opts.append("--ext-mount-map")
+			r_opts.append("zdtm:%s" % criu_dir)
 		self.__criu_act("restore", opts = r_opts + ["--restore-detached"])
 
 	@staticmethod

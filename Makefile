@@ -202,13 +202,8 @@ PHONY += cscope
 gcov:
 	$(E) " GCOV"
 	$(Q) test -d gcov || mkdir gcov && \
-	cp criu/*.{gcno,c,h} test/`pwd`/criu/   && \
-	geninfo --output-filename gcov/crtools.h.info --no-recursion criu/ && \
-	geninfo --output-filename gcov/crtools.ns.info --no-recursion test/`pwd`/criu/ && \
-	sed -i "s#/test`pwd`##" gcov/crtools.ns.info && \
+	geninfo --output-filename gcov/criu.info --no-recursion criu/ && \
 	cd gcov && \
-	lcov --rc lcov_branch_coverage=1 --add-tracefile crtools.h.info \
-	--add-tracefile crtools.ns.info --output-file criu.info && \
 	genhtml --rc lcov_branch_coverage=1 --output-directory html criu.info
 	@echo "Code coverage report is in `pwd`/gcov/html/ directory."
 PHONY += gcov
