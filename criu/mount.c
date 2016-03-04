@@ -2416,7 +2416,7 @@ static bool can_mount_now(struct mount_info *mi)
 		return true;
 
 	if (mi->external)
-		return true;
+		goto shared;
 
 	/*
 	 * We're the slave peer:
@@ -2439,6 +2439,7 @@ static bool can_mount_now(struct mount_info *mi)
 	if (!fsroot_mounted(mi) && (mi->bind == NULL && !mi->need_plugin && !mi->external))
 		return false;
 
+shared:
 	if (mi->parent->shared_id) {
 		struct mount_info *p = mi->parent, *n;
 
