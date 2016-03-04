@@ -2283,6 +2283,8 @@ int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct li
 			}
 
 			ext->cgns_prefix = pos - ext->path;
+			if (ext->path[ext->cgns_prefix-1] == '/')
+				ext->cgns_prefix--;
 		}
 	}
 
