@@ -17,8 +17,6 @@ const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
 
 #define MPTS_ROOT	"/zdtm_mpts/"
 
-static char buf[1024];
-
 #define NS_STACK_SIZE	4096
 /* All arguments should be above stack, because it grows down */
 struct ns_exec_args {
@@ -76,9 +74,7 @@ int ns_child(void *_arg)
 
 int main(int argc, char **argv)
 {
-	FILE *f;
 	int fd, tmpfs_fd, have_bfmtm = 0;
-	unsigned fs_cnt, fs_cnt_last = 0;
 	struct ns_exec_args args;
 	pid_t pid = -1;
 
@@ -86,54 +82,6 @@ int main(int argc, char **argv)
 
 	task_waiter_init(&t);
 
-again:
-	fs_cnt = 0;
-	f = fopen("/proc/self/mountinfo", "r");
-	if (!f) {
-		fail("Can't open mountinfo");
-		return -1;
-	}
-
-	if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL)) {
-		pr_perror("Can't remount / with MS_PRIVATE");
-		return -1;
-	}
-
-	while (fgets(buf, sizeof(buf), f) != NULL) {
-		char *mp = buf, *end;
-
-		mp = strchr(mp, ' ') + 1;
-		mp = strchr(mp, ' ') + 1;
-		mp = strchr(mp, ' ') + 1;
-		mp = strchr(mp, ' ') + 1;
-		end = strchr(mp, ' ');
-		*end = '\0';
-
-		if (!strcmp(mp, "/"))
-			continue;
-		if (!strcmp(mp, "/proc"))
-			continue;
-
-		if (umount(mp))
-			test_msg("umount(`%s') failed: %m\n", mp);
-
-		fs_cnt++;
-	}
-
-	fclose(f);
-
-	if (fs_cnt == 0)
-		goto done;
-
-	if (fs_cnt != fs_cnt_last) {
-		fs_cnt_last = fs_cnt;
-		goto again;
-	}
-
-	fail("Can't umount all the filesystems");
-	return -1;
-
-done:
 	rmdir(MPTS_ROOT);
 	if (mkdir(MPTS_ROOT, 0600) < 0) {
 		fail("Can't make zdtm_sys");
