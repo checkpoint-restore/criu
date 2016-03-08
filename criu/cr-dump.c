@@ -1423,6 +1423,9 @@ static int cr_pre_dump_finish(struct list_head *ctls, int ret)
 
 	timing_stop(TIME_FROZEN);
 
+	if (ret < 0)
+		goto err;
+
 	pr_info("Pre-dumping tasks' memory\n");
 	list_for_each_entry_safe(ctl, n, ctls, pre_list) {
 		struct page_xfer xfer;
@@ -1431,14 +1434,14 @@ static int cr_pre_dump_finish(struct list_head *ctls, int ret)
 		timing_start(TIME_MEMWRITE);
 		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
 		if (ret < 0)
-			break;
+			goto err;
 
 		ret = page_xfer_dump_pages(&xfer, ctl->mem_pp, 0);
 
 		xfer.close(&xfer);
 
 		if (ret)
-			break;
+			goto err;
 
 		timing_stop(TIME_MEMWRITE);
 
@@ -1447,9 +1450,12 @@ static int cr_pre_dump_finish(struct list_head *ctls, int ret)
 		parasite_cure_local(ctl);
 	}
 
-	if (irmap_predump_run())
+	if (irmap_predump_run()) {
 		ret = -1;
+		goto err;
+	}
 
+err:
 	if (disconnect_from_page_server())
 		ret = -1;
 
