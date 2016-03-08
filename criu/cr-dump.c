@@ -1418,8 +1418,7 @@ static int cr_pre_dump_finish(struct list_head *ctls, int ret)
 {
 	struct parasite_ctl *ctl, *n;
 
-	pstree_switch_state(root_item,
-			ret ? TASK_ALIVE : opts.final_state);
+	pstree_switch_state(root_item, TASK_ALIVE);
 	free_pstree(root_item);
 
 	timing_stop(TIME_FROZEN);
