@@ -165,12 +165,17 @@ test: zdtm
 	$(Q) MAKEFLAGS= $(MAKE) -C test
 PHONY += test
 
-tar-name := $(shell git tag -l v$(CRIU_VERSION))
-ifeq ($(tar-name),)
-        tar-name := $(shell git describe)
+#
+# Generating tar requires tag matched CRIU_VERSION.
+# If not found then simply use GIT's describe with
+# "v" prefix stripped.
+head-name := $(shell git tag -l v$(CRIU_VERSION))
+ifeq ($(head-name),)
+        head-name := $(shell git describe)
 endif
+tar-name := $(shell echo $(head-name) | sed -e 's/^v//g')
 criu-$(tar-name).tar.bz2:
-	git archive --format tar --prefix 'criu-$(tar-name)/' $(tar-name) | bzip2 > $@
+	git archive --format tar --prefix 'criu-$(tar-name)/' $(head-name) | bzip2 > $@
 dist tar: criu-$(tar-name).tar.bz2
 	@true
 .PHONY: dist tar
