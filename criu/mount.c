@@ -191,7 +191,7 @@ struct mount_info *lookup_overlayfs(char *rpath, unsigned int st_dev,
 
 	/* If the mnt_id and device number match for some entry, no fixup is needed */
 	for (m = mntinfo; m != NULL; m = m->next)
-		if (st_dev == m->s_dev && mnt_id == m->mnt_id)
+		if (st_dev == kdev_to_odev(m->s_dev) && mnt_id == m->mnt_id)
 			return NULL;
 
 	return __lookup_overlayfs(mntinfo, rpath, st_dev, st_ino, mnt_id);
@@ -1583,7 +1583,8 @@ static int fusectl_dump(struct mount_info *pm)
 		}
 
 		for (it = mntinfo; it; it = it->next) {
-			if (it->fstype->code == FSTYPE__FUSE && id == minor(it->s_dev) && !it->external) {
+			if (it->fstype->code == FSTYPE__FUSE &&
+					id == kdev_minor(it->s_dev) && !it->external) {
 				pr_err("%s is a fuse mount but not external\n", it->mountpoint);
 				goto out;
 			}
