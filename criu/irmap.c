@@ -243,10 +243,12 @@ char *irmap_lookup(unsigned int s_dev, unsigned long i_ino)
 	timing_start(TIME_IRMAP_RESOLVE);
 
 	hv = irmap_hashfn(s_dev, i_ino);
-	for (p = &cache[hv]; *p; p = &(*p)->next) {
+	for (p = &cache[hv]; *p; ) {
 		c = *p;
-		if (!(c->dev == s_dev && c->ino == i_ino))
+		if (!(c->dev == s_dev && c->ino == i_ino)) {
+			p = &(*p)->next;
 			continue;
+		}
 
 		if (c->revalidate && irmap_revalidate(c, p))
 			continue;
