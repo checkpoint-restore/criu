@@ -16,14 +16,18 @@ c/$(CRIU_SO): c/built-in.o
 	$(call msg-link, $@)
 	$(Q) $(CC) -shared $(cflags-so) -o $@ $^ $(ldflags-so) $(LDFLAGS)
 lib-c: c/$(CRIU_SO)
-PHONY += lib-c
+.PHONY: lib-c
 
 #
 # Python bindings.
 lib-py:
 	$(call msg-gen, $@)
 	$(Q) $(MAKE) -C py all
-PHONY += lib-py
+.PHONY: lib-py
+
+all: lib-c lib-py
+	@true
+.PHONY: all
 
 clean:
 	$(call msg-clean, lib-c)
@@ -32,10 +36,7 @@ clean:
 	$(Q) $(RM) c/criu.pc
 	$(call msg-clean, lib-py)
 	$(Q) $(MAKE) -C py $@
-
-all: $(PHONY)
-	@true
-PHONY += all
+.PHONY: clean
 
 install: lib-c lib-py ../crit/crit c/criu.pc.in
 	$(E) "  INSTALL " $(CRIU_SO)
@@ -52,5 +53,3 @@ install: lib-c lib-py ../crit/crit c/criu.pc.in
 	$(E) "  INSTALL " crit
 	$(Q) python ../scripts/crit-setup.py install --root=$(DESTDIR) --prefix=$(PREFIX)
 .PHONY: install
-
-.PHONY: $(PHONY) clean

@@ -107,7 +107,7 @@ CFLAGS			+= $(WARNINGS) $(DEFINES)
 # Protobuf images first, they are not depending
 # on anything else.
 $(eval $(call gen-built-in,images))
-PHONY += images
+.PHONY: images
 
 #
 # CRIU building done in own directory
@@ -131,23 +131,23 @@ lib/%: criu
 	$(Q) $(MAKE) -C lib $@
 lib: criu
 	$(Q) $(MAKE) -C lib all
-PHONY += lib
+.PHONY: lib
 
 all: criu lib
-PHONY += all
+.PHONY: all
 
 clean-built:
 	$(Q) $(MAKE) $(build)=images clean
 	$(Q) $(MAKE) -C criu clean
 	$(Q) $(MAKE) -C lib clean
 	$(Q) $(MAKE) -C Documentation clean
-PHONY += clean-built
+.PHONY: clean-built
 
 clean: clean-built
 	$(call msg-clean, criu)
 	$(Q) $(RM) cscope.*
 	$(Q) $(RM) tags TAGS
-PHONY += clean
+.PHONY: clean
 
 #
 # Non-CRIU stuff.
@@ -155,15 +155,15 @@ PHONY += clean
 
 docs:
 	$(Q) $(MAKE) -s -C Documentation all
-PHONY += docs
+.PHONY: docs
 
 zdtm: all
 	$(Q) MAKEFLAGS= $(MAKE) -C test/zdtm all
-PHONY += zdtm
+.PHONY: zdtm
 
 test: zdtm
 	$(Q) MAKEFLAGS= $(MAKE) -C test
-PHONY += test
+.PHONY: test
 
 #
 # Generating tar requires tag matched CRIU_VERSION.
@@ -184,20 +184,20 @@ tags:
 	$(call msg-gen, $@)
 	$(Q) $(RM) tags
 	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' ! -path './test/*' -print | xargs $(CTAGS) -a
-PHONY += tags
+.PHONY: tags
 
 etags:
 	$(call msg-gen, $@)
 	$(Q) $(RM) TAGS
 	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' ! -path './test/*' -print | xargs $(ETAGS) -a
-PHONY += etags
+.PHONY: etags
 
 
 cscope:
 	$(call msg-gen, $@)
 	$(Q) $(FIND) . -name '*.[hcS]' ! -path './.*' ! -path './test/*' ! -type l -print > cscope.files
 	$(Q) $(CSCOPE) -bkqu
-PHONY += cscope
+.PHONY: cscope
 
 gcov:
 	$(E) " GCOV"
@@ -206,16 +206,15 @@ gcov:
 	cd gcov && \
 	genhtml --rc lcov_branch_coverage=1 --output-directory html criu.info
 	@echo "Code coverage report is in `pwd`/gcov/html/ directory."
-PHONY += gcov
+.PHONY: gcov
 
 docker-build:
 	$(MAKE) -C scripts/build/ x86_64 
-
-PHONY += docker-build
+.PHONY: docker-build
 
 docker-test:
 	docker run --rm -it --privileged criu-x86_64 ./test/zdtm.py run -a -x tcp6 -x tcpbuf6 -x static/rtc -x cgroup
-PHONY += docker-test
+.PHONY: docker-test
 
 help:
 	@echo '    Targets:'
@@ -232,11 +231,9 @@ help:
 	@echo '      rebuild         - Force-rebuild of [*] targets'
 	@echo '      test            - Run zdtm test-suite'
 	@echo '      gcov            - Make code coverage report'
-PHONY += help
+.PHONY: help
 
 include Makefile.install
-
-.PHONY: $(PHONY)
 
 .DEFAULT_GOAL := all
 
