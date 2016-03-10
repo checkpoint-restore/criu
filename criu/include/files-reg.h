@@ -56,5 +56,6 @@ extern void try_clean_remaps(int ns_fd);
 extern int strip_deleted(struct fd_link *link);
 
 extern int prepare_procfs_remaps(void);
+extern int dead_pid_conflict(void);
 
 #endif /* __CR_FILES_REG_H__ */

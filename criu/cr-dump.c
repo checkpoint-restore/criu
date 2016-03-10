@@ -1694,6 +1694,15 @@ int cr_dump_tasks(pid_t pid)
 			goto err;
 	}
 
+	/*
+	 * It may happen that a process has completed but its files in
+	 * /proc/PID/ are still open by another process. If the PID has been
+	 * given to some newer thread since then, we may be unable to dump
+	 * all this.
+	 */
+	if (dead_pid_conflict())
+		goto err;
+
 	/* MNT namespaces are dumped after files to save remapped links */
 	if (dump_mnt_namespaces() < 0)
 		goto err;
