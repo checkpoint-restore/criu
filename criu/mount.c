@@ -2259,9 +2259,12 @@ static int do_new_mount(struct mount_info *mi)
 		return -1;
 	}
 
-	if (restore_shared_options(mi, !mi->shared_id && !mi->master_id,
-					mi->shared_id,
-					mi->master_id))
+	/*
+	 * A slave should be mounted from do_bind_mount().
+	 * Look at can_mount_now() for details.
+	 */
+	BUG_ON(mi->master_id);
+	if (restore_shared_options(mi, !mi->shared_id, mi->shared_id, 0))
 		return -1;
 
 	mi->mounted = true;
