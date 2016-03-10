@@ -1604,6 +1604,7 @@ static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controller
 				 */
 				if (!set_from) {
 					set_from = true;
+					tmp2 = *from;
 					/* -1 because cgns_prefix includes leading / */
 					*from = xsprintf("%s%s", to, (*from) + cg->cgns_prefix - 1);
 				}
@@ -1617,15 +1618,15 @@ static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controller
 							strlen(*from) + 1);
 				if (!set_from) {
 					set_from = true;
+					tmp2 = *from;
 					*from = xstrdup(to);
 				}
 			}
 
 			if (tmp2) {
+				xfree(tmp2);
 				if (!*from)
 					return -1;
-
-				xfree(tmp2);
 			}
 
 			if (!cg->path)
