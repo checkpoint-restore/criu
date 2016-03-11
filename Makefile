@@ -147,6 +147,7 @@ clean: clean-built
 	$(call msg-clean, criu)
 	$(Q) $(RM) cscope.*
 	$(Q) $(RM) tags TAGS
+	$(Q) $(RM) .gitid
 .PHONY: clean
 
 #

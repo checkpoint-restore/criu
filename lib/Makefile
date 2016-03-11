@@ -36,6 +36,7 @@ clean:
 	$(Q) $(RM) c/criu.pc
 	$(call msg-clean, lib-py)
 	$(Q) $(MAKE) -C py $@
+	$(Q) $(RM) -r build usr
 .PHONY: clean
 
 install: lib-c lib-py ../crit/crit c/criu.pc.in
