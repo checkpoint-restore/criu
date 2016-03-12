@@ -1280,6 +1280,24 @@ class group:
 	def size(self):
 		return len(self.__tests)
 
+	# common method to write a "meta" auxiliary script (hook/checkskip)
+	# which will call all tests' scripts in turn
+	def __dump_meta(self, fname, ext):
+		scripts = filter(lambda names: os.access(names[1], os.X_OK),
+		                 map(lambda test: (test, test + ext),
+		                     self.__tests))
+		if scripts:
+			f = open(fname + ext, "w")
+			f.write("#!/bin/sh -e\n")
+
+			for test, script in scripts:
+				f.write("echo 'Running %s for %s'\n" % (ext, test))
+				f.write('%s "$@"\n' % script)
+
+			f.write("echo 'All %s scripts OK'\n" % ext)
+			f.close()
+			os.chmod(fname + ext, 0700)
+
 	def dump(self, fname):
 		f = open(fname, "w")
 		for t in self.__tests:
@@ -1294,6 +1312,9 @@ class group:
 			f.write(repr(self.__desc))
 			f.close()
 
+		# write "meta" .checkskip and .hook scripts
+		self.__dump_meta(fname, '.checkskip')
+		self.__dump_meta(fname, '.hook')
 
 def group_tests(opts):
 	excl = None
