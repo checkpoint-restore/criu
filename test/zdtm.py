@@ -344,6 +344,7 @@ class zdtm_test:
 		if self.__flavor.ns:
 			env['ZDTM_NEWNS'] = "1"
 			env['ZDTM_ROOT'] = self.__flavor.root
+			env['PATH'] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 			if self.__flavor.uns:
 				env['ZDTM_USERNS'] = "1"
