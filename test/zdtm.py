@@ -1332,7 +1332,7 @@ def group_tests(opts):
 	suf = opts['name'] or 'group'
 
 	for g in groups:
-		if g.size() == 1: # Not much point in group test for this
+		if maxs > 1 and g.size() == 1: # Not much point in group test for this
 			continue
 
 		fn = os.path.join("groups", "%s.%d" % (suf, nr))
