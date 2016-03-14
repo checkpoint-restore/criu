@@ -168,9 +168,8 @@ static int dump_sched_info(int pid, ThreadCoreEntry *tc)
 	 * in kernel. Thus we have to take it with us in the image.
 	 */
 
-	errno = 0;
 	ret = getpriority(PRIO_PROCESS, pid);
-	if (errno) {
+	if (ret < 0) {
 		pr_perror("Can't get nice for %d", pid);
 		return -1;
 	}
@@ -522,7 +521,7 @@ static int get_task_futex_robust_list(pid_t pid, ThreadCoreEntry *info)
 	int ret;
 
 	ret = syscall(SYS_get_robust_list, pid, &head, &len);
-	if (ret == -ENOSYS) {
+	if (ret < 0 && errno == ENOSYS) {
 		/*
 		 * If the kernel says get_robust_list is not implemented, then
 		 * check whether set_robust_list is also not implemented, in
@@ -534,7 +533,8 @@ static int get_task_futex_robust_list(pid_t pid, ThreadCoreEntry *info)
 		 * implemented, in which case it will return -EINVAL because
 		 * len should be greater than zero.
 		 */
-		if (syscall(SYS_set_robust_list, NULL, 0) != -ENOSYS)
+		ret = syscall(SYS_set_robust_list, NULL, 0);
+		if (ret == 0 || (ret < 0 && errno != ENOSYS))
 			goto err;
 
 		head = NULL;

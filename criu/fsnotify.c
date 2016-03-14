@@ -209,7 +209,6 @@ static int open_handle(unsigned int s_dev, unsigned long i_ino,
 
 	fd = userns_call(open_by_handle, UNS_FDOUT, &handle, sizeof(handle), mntfd);
 	if (fd < 0) {
-		errno = -fd;
 		pr_perror("Can't open file handle for 0x%08x:0x%016lx",
 				s_dev, i_ino);
 	}
@@ -718,7 +717,6 @@ static int open_fanotify_fd(struct file_desc *d)
 
 	ret = fanotify_init(flags, info->ffe->evflags);
 	if (ret < 0) {
-		errno = -ret;
 		pr_perror("Can't init fanotify mark (%d)", ret);
 		return -1;
 	}

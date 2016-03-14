@@ -747,7 +747,6 @@ static int prepare_sigactions(void)
 		 */
 		ret = syscall(SYS_rt_sigaction, sig, &act, NULL, sizeof(k_rtsigset_t));
 		if (ret < 0) {
-			errno = -ret;
 			pr_perror("Can't restore sigaction");
 			goto err;
 		}

@@ -161,12 +161,12 @@ static int check_kcmp(void)
 {
 	int ret = syscall(SYS_kcmp, getpid(), -1, -1, -1, -1);
 
-	if (ret != -ENOSYS)
-		return 0;
+	if (ret < 0 && errno != ENOSYS) {
+		pr_perror("System call kcmp is not supported");
+		return -1;
+	}
 
-	errno = -ret;
-	pr_perror("System call kcmp is not supported");
-	return -1;
+	return 0;
 }
 
 static int check_prctl(void)
@@ -177,8 +177,8 @@ static int check_prctl(void)
 	int ret;
 
 	ret = prctl(PR_GET_TID_ADDRESS, (unsigned long)&tid_addr, 0, 0, 0);
-	if (ret) {
-		pr_msg("prctl: PR_GET_TID_ADDRESS is not supported");
+	if (ret < 0) {
+		pr_msg("prctl: PR_GET_TID_ADDRESS is not supported: %m");
 		return -1;
 	}
 
@@ -186,32 +186,32 @@ static int check_prctl(void)
 	 * Either new or old interface must be supported in the kernel.
 	 */
 	ret = prctl(PR_SET_MM, PR_SET_MM_MAP_SIZE, (unsigned long)&size, 0, 0);
-	if (ret) {
+	if (ret < 0) {
 		if (!opts.check_ms_kernel) {
 			pr_msg("prctl: PR_SET_MM_MAP is not supported, which "
-			       "is required for restoring user namespaces\n");
+			       "is required for restoring user namespaces: %m\n");
 			return -1;
 		} else
-			pr_warn("Skipping unssuported PR_SET_MM_MAP\n");
+			pr_warn("Skipping unssuported PR_SET_MM_MAP: %m\n");
 
 		ret = prctl(PR_SET_MM, PR_SET_MM_BRK, brk(0), 0, 0);
-		if (ret) {
-			if (ret == -EPERM)
+		if (ret < 0) {
+			if (errno == EPERM)
 				pr_msg("prctl: One needs CAP_SYS_RESOURCE capability to perform testing\n");
 			else
-				pr_msg("prctl: PR_SET_MM is not supported\n");
+				pr_msg("prctl: PR_SET_MM is not supported: %m\n");
 			return -1;
 		}
 
 		ret = prctl(PR_SET_MM, PR_SET_MM_EXE_FILE, -1, 0, 0);
-		if (ret != -EBADF) {
-			pr_msg("prctl: PR_SET_MM_EXE_FILE is not supported (%d)\n", ret);
+		if (ret < 0 && errno != EBADF) {
+			pr_msg("prctl: PR_SET_MM_EXE_FILE is not supported: %m\n");
 			return -1;
 		}
 
 		ret = prctl(PR_SET_MM, PR_SET_MM_AUXV, (long)&user_auxv, sizeof(user_auxv), 0);
-		if (ret) {
-			pr_msg("prctl: PR_SET_MM_AUXV is not supported\n");
+		if (ret < 0) {
+			pr_msg("prctl: PR_SET_MM_AUXV is not supported: %m\n");
 			return -1;
 		}
 	}
@@ -523,7 +523,7 @@ static int check_sigqueuinfo()
 
 	signal(SIGUSR1, SIG_IGN);
 
-	if (syscall(SYS_rt_sigqueueinfo, getpid(), SIGUSR1, &info)) {
+	if (syscall(SYS_rt_sigqueueinfo, getpid(), SIGUSR1, &info) < 0) {
 		pr_perror("Unable to send siginfo with positive si_code to itself");
 		return -1;
 	}
@@ -744,7 +744,7 @@ static int check_aio_remap(void)
 	int r;
 
 	if (syscall(SYS_io_setup, 16, &ctx) < 0) {
-		pr_err("No AIO syscall\n");
+		pr_err("No AIO syscall: %m\n");
 		return -1;
 	}
 
@@ -767,10 +767,10 @@ static int check_aio_remap(void)
 	r = syscall(SYS_io_getevents, ctx, 0, 1, NULL, NULL);
 	if (r < 0) {
 		if (!opts.check_ms_kernel) {
-			pr_err("AIO remap doesn't work properly\n");
+			pr_err("AIO remap doesn't work properly: %m\n");
 			return -1;
 		} else
-			pr_warn("Skipping unsupported AIO remap\n");
+			pr_warn("Skipping unsupported AIO remap: %m\n");
 	}
 
 	return 0;
@@ -925,8 +925,7 @@ static int check_userns(void)
 	}
 
 	ret = prctl(PR_SET_MM, PR_SET_MM_MAP_SIZE, (unsigned long)&size, 0, 0);
-	if (ret) {
-		errno = -ret;
+	if (ret < 0) {
 		pr_perror("No new prctl API");
 		return -1;
 	}
