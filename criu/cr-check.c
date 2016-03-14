@@ -194,7 +194,7 @@ static int check_prctl(void)
 		} else
 			pr_warn("Skipping unssuported PR_SET_MM_MAP: %m\n");
 
-		ret = prctl(PR_SET_MM, PR_SET_MM_BRK, brk(0), 0, 0);
+		ret = prctl(PR_SET_MM, PR_SET_MM_BRK, (unsigned long)sbrk(0), 0, 0);
 		if (ret < 0) {
 			if (errno == EPERM)
 				pr_msg("prctl: One needs CAP_SYS_RESOURCE capability to perform testing\n");
