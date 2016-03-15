@@ -217,16 +217,20 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 	return item;
 }
 
+void init_pstree_helper(struct pstree_item *ret)
+{
+	ret->pid.state = TASK_HELPER;
+	rsti(ret)->clone_flags = CLONE_FILES | CLONE_FS;
+	task_entries->nr_helpers++;
+}
+
 struct pstree_item *alloc_pstree_helper(void)
 {
 	struct pstree_item *ret;
 
 	ret = alloc_pstree_item_with_rst();
-	if (ret) {
-		ret->pid.state = TASK_HELPER;
-		rsti(ret)->clone_flags = CLONE_FILES | CLONE_FS;
-		task_entries->nr_helpers++;
-	}
+	if (ret)
+		init_pstree_helper(ret);
 
 	return ret;
 }
