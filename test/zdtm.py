@@ -18,6 +18,7 @@ import imp
 import socket
 import fcntl
 import errno
+import datetime
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -1003,16 +1004,33 @@ class launcher:
 	def __init__(self, opts, nr_tests):
 		self.__opts = opts
 		self.__total = nr_tests
+		self.__runtest = 0
 		self.__nr = 0
 		self.__max = int(opts['parallel'] or 1)
 		self.__subs = {}
 		self.__fail = False
+		self.__file_report = None
 		if self.__max > 1 and self.__total > 1:
 			self.__use_log = True
 		elif opts['report']:
 			self.__use_log = True
 		else:
 			self.__use_log = False
+
+		if opts['report'] and opts['keep_going']:
+			now = datetime.datetime.now()
+			att = 0
+			reportname = os.path.join(report_dir, "criu-testreport.tap")
+			while os.access(reportname, os.F_OK):
+				reportname = os.path.join(report_dir, "criu-testreport" + ".%d.tap" % att)
+				att += 1
+
+			self.__file_report = open(reportname, 'a')
+			print >> self.__file_report, "# Hardware architecture: " + arch
+			print >> self.__file_report, "# Timestamp: " + now.strftime("%Y-%m-%d %H:%M") + " (GMT+1)"
+			print >> self.__file_report, "# "
+			print >> self.__file_report, "TAP version 13"
+			print >> self.__file_report, "1.." + str(nr_tests)
 
 	def __show_progress(self):
 		perc = self.__nr * 16 / self.__total
@@ -1021,6 +1039,10 @@ class launcher:
 	def skip(self, name, reason):
 		print "Skipping %s (%s)" % (name, reason)
 		self.__nr += 1
+		self.__runtest += 1
+		if self.__file_report:
+			testline = "ok %d - %s # SKIP %s" % (self.__runtest, name.split('/')[-1:][0], reason)
+			print >> self.__file_report, testline
 
 	def run_test(self, name, desc, flavor):
 
@@ -1055,14 +1077,22 @@ class launcher:
 
 	def __wait_one(self, flags):
 		pid, status = os.waitpid(0, flags)
+		self.__runtest += 1
 		if pid != 0:
 			sub = self.__subs.pop(pid)
 			if status != 0:
+				failed_flavor = decode_flav(os.WEXITSTATUS(status))
+				if self.__file_report:
+					testline = "not ok %d - %s # flavor %s" % (self.__runtest, sub['name'].split('/')[-1:][0], failed_flavor)
+					print >> self.__file_report, testline
 				if not opts['keep_going']:
 					self.__fail = True
 				if sub['log']:
-					failed_flavor = decode_flav(os.WEXITSTATUS(status))
 					add_to_report(sub['log'], sub['name'].replace('/', '_') + "_" + failed_flavor + "/output")
+			else:
+				if self.__file_report:
+					testline = "ok %d - %s" % (self.__runtest, sub['name'].split('/')[-1:][0])
+					print >> self.__file_report, testline
 
 			if sub['log']:
 				print open(sub['log']).read()
@@ -1091,6 +1121,8 @@ class launcher:
 
 	def finish(self):
 		self.__wait_all()
+		if self.__file_report:
+			self.__file_report.close()
 		if self.__fail:
 			print_sep("FAIL", "#")
 			sys.exit(1)
