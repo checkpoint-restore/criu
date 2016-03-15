@@ -19,8 +19,6 @@
 struct pstree_item *root_item;
 static struct rb_root pid_root_rb;
 
-#define alloc_pstree_item_with_rst() __alloc_pstree_item(true)
-
 void core_entry_free(CoreEntry *core)
 {
 	if (core->tc && core->tc->timers)
@@ -227,17 +225,6 @@ void init_pstree_helper(struct pstree_item *ret)
 	task_entries->nr_helpers++;
 }
 
-static struct pstree_item *alloc_pstree_helper(void)
-{
-	struct pstree_item *ret;
-
-	ret = alloc_pstree_item_with_rst();
-	if (ret)
-		init_pstree_helper(ret);
-
-	return ret;
-}
-
 /* Deep first search on children */
 struct pstree_item *pstree_item_next(struct pstree_item *item)
 {
@@ -416,7 +403,7 @@ static struct pid *lookup_create_pid(pid_t pid, struct pid *pid_node)
 	if (!pid_node) {
 		struct pstree_item *item;
 
-		item = alloc_pstree_item_with_rst();
+		item = __alloc_pstree_item(true);
 		if (item == NULL)
 			return NULL;
 
@@ -437,6 +424,23 @@ struct pstree_item *lookup_create_item(pid_t pid)
 	BUG_ON(node->state == TASK_THREAD);
 
 	return container_of(node, struct pstree_item, pid);
+}
+
+static struct pid *pstree_pid_by_virt(pid_t pid)
+{
+	struct rb_node *node = pid_root_rb.rb_node;
+
+	while (node) {
+		struct pid *this = rb_entry(node, struct pid, node);
+
+		if (pid < this->virt)
+			node = node->rb_left;
+		else if (pid > this->virt)
+			node = node->rb_right;
+		else
+			return this;
+	}
+	return NULL;
 }
 
 static int read_pstree_ids(struct pstree_item *pi)
@@ -595,6 +599,7 @@ static int prepare_pstree_ids(void)
 	 * reparented to init.
 	 */
 	list_for_each_entry(item, &root_item->children, sibling) {
+		struct pstree_item *leader;
 
 		/*
 		 * If a child belongs to the root task's session or it's
@@ -604,15 +609,32 @@ static int prepare_pstree_ids(void)
 		if (item->sid == root_item->sid || item->sid == item->pid.virt)
 			continue;
 
-		helper = alloc_pstree_helper();
-		if (helper == NULL)
-			return -1;
-		helper->sid = item->sid;
-		helper->pgid = item->sid;
-		helper->pid.virt = item->sid;
-		helper->parent = root_item;
-		helper->ids = root_item->ids;
-		list_add_tail(&helper->sibling, &helpers);
+		leader = pstree_item_by_virt(item->sid);
+		BUG_ON(leader == NULL);
+		if (leader->pid.state != TASK_UNDEF) {
+			helper = lookup_create_item(++max_pid);
+			if (helper == NULL)
+				return -1;
+
+			pr_info("Session leader %d\n", item->sid);
+
+			helper->sid = item->sid;
+			helper->pgid = leader->pgid;
+			helper->ids = leader->ids;
+			helper->parent = leader;
+			list_add(&helper->sibling, &leader->children);
+
+			pr_info("Attach %d to the task %d\n",
+					helper->pid.virt, leader->pid.virt);
+		} else {
+			helper = leader;
+			helper->sid = item->sid;
+			helper->pgid = item->sid;
+			helper->parent = root_item;
+			helper->ids = root_item->ids;
+			list_add_tail(&helper->sibling, &helpers);
+		}
+		init_pstree_helper(helper);
 
 		pr_info("Add a helper %d for restoring SID %d\n",
 				helper->pid.virt, helper->sid);
@@ -672,27 +694,6 @@ static int prepare_pstree_ids(void)
 
 			continue;
 		}
-
-		pr_info("Session leader %d\n", item->sid);
-
-		/* Try to find helpers, who should be connected to the leader */
-		list_for_each_entry(child, &helpers, sibling) {
-			if (child->pid.state != TASK_HELPER)
-				continue;
-
-			if (child->sid != item->sid)
-				continue;
-
-			child->pgid = item->pgid;
-			child->pid.virt = ++max_pid;
-			child->parent = item;
-			list_move(&child->sibling, &item->children);
-
-			pr_info("Attach %d to the task %d\n",
-					child->pid.virt, item->pid.virt);
-
-			break;
-		}
 	}
 
 	/* All other helpers are session leaders for own sessions */
@@ -700,18 +701,15 @@ static int prepare_pstree_ids(void)
 
 	/* Add a process group leader if it is absent  */
 	for_each_pstree_item(item) {
-		struct pstree_item *gleader;
+		struct pid *pid;
 
 		if (!item->pgid || item->pid.virt == item->pgid)
 			continue;
 
-		for_each_pstree_item(gleader) {
-			if (gleader->pid.virt == item->pgid)
-				break;
-		}
-
-		if (gleader) {
-			rsti(item)->pgrp_leader = gleader;
+		pid = pstree_pid_by_virt(item->pgid);
+		if (pid->state != TASK_UNDEF) {
+			BUG_ON(pid->state == TASK_THREAD);
+			rsti(item)->pgrp_leader = container_of(pid, struct pstree_item, pid);
 			continue;
 		}
 
@@ -723,9 +721,9 @@ static int prepare_pstree_ids(void)
 		if (current_pgid == item->pgid)
 			continue;
 
-		helper = alloc_pstree_helper();
-		if (helper == NULL)
-			return -1;
+		helper = container_of(pid, struct pstree_item, pid);
+		init_pstree_helper(helper);
+
 		helper->sid = item->sid;
 		helper->pgid = item->pgid;
 		helper->pid.virt = item->pgid;
@@ -897,13 +895,14 @@ bool restore_before_setsid(struct pstree_item *child)
 
 struct pstree_item *pstree_item_by_virt(pid_t virt)
 {
-	struct pstree_item *item;
+	struct pid *pid;
 
-	for_each_pstree_item(item) {
-		if (item->pid.virt == virt)
-			return item;
-	}
-	return NULL;
+	pid = pstree_pid_by_virt(virt);
+	if (pid == NULL)
+		return NULL;
+	BUG_ON(pid->state == TASK_THREAD);
+
+	return container_of(pid, struct pstree_item, pid);
 }
 
 struct pstree_item *pstree_item_by_real(pid_t real)
