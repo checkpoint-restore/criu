@@ -123,3 +123,18 @@ ENTRY(main)
         nop
 END(main)
 endef
+
+define FEATURE_TEST_UFFD
+
+#include <syscall.h>
+#include <linux/userfaultfd.h>
+
+int main(void)
+{
+#ifndef __NR_userfaultfd
+#error "missing __NR_userfaultfd definition"
+#endif
+	return 0;
+}
+
+endef
