@@ -1927,7 +1927,7 @@ out:
 	return -1;
 }
 
-static int prepare_task_entries(void)
+int prepare_task_entries(void)
 {
 	task_entries_pos = rst_mem_align_cpos(RM_SHREMAP);
 	task_entries = rst_mem_alloc(sizeof(*task_entries), RM_SHREMAP);
