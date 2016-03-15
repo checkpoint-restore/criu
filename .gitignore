@@ -32,3 +32,4 @@ criu/pie/parasite-blob.h
 criu/pie/piegen/piegen
 criu/pie/pie.lds.S
 criu/protobuf-desc-gen.h
+scripts/build/qemu-user-static/*
