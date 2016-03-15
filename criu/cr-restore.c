@@ -48,6 +48,7 @@
 #include "proc_parse.h"
 #include "restorer-blob.h"
 #include "crtools.h"
+#include "uffd.h"
 #include "namespaces.h"
 #include "mem.h"
 #include "mount.h"
@@ -2963,6 +2964,11 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
 
+	if (!opts.lazy_pages)
+		task_args->uffd = -1;
+	else
+		if (setup_uffd(task_args, pid) != 0)
+			goto err;
 
 	/*
 	 * Fill up per-thread data.

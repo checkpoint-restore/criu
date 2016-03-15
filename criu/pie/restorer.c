@@ -30,6 +30,7 @@
 #include "image.h"
 #include "sk-inet.h"
 #include "vma.h"
+#include "uffd.h"
 
 #include "common/lock.h"
 #include "restorer.h"
@@ -717,8 +718,50 @@ static void rst_tcp_socks_all(struct task_restore_args *ta)
 		rst_tcp_repair_off(&ta->tcp_socks[i]);
 }
 
-static int vma_remap(unsigned long src, unsigned long dst, unsigned long len)
+
+
+
+static int enable_uffd(int uffd, unsigned long addr, unsigned long len)
 {
+	/*
+	 * If uffd == -1, this means that userfaultfd is not enabled
+	 * or it is not available.
+	 */
+	if (uffd == -1)
+		return 0;
+#ifdef CONFIG_HAS_UFFD
+	int rc;
+	struct uffdio_register uffdio_register;
+	unsigned long expected_ioctls;
+
+	uffdio_register.range.start = addr;
+	uffdio_register.range.len = len;
+	uffdio_register.mode = UFFDIO_REGISTER_MODE_MISSING;
+	pr_info("lazy-pages: uffdio_register.range.start 0x%lx\n", (unsigned long) uffdio_register.range.start);
+	pr_info("lazy-pages: uffdio_register.len 0x%llx\n", uffdio_register.range.len);
+	rc = sys_ioctl(uffd, UFFDIO_REGISTER, &uffdio_register);
+	pr_info("lazy-pages: ioctl UFFDIO_REGISTER rc %d\n", rc);
+	pr_info("lazy-pages: uffdio_register.range.start 0x%lx\n", (unsigned long) uffdio_register.range.start);
+	pr_info("lazy-pages: uffdio_register.len 0x%llx\n", uffdio_register.range.len);
+	if (rc != 0)
+		return -1;
+
+	expected_ioctls = (1 << _UFFDIO_WAKE) | (1 << _UFFDIO_COPY) | (1 << _UFFDIO_ZEROPAGE);
+
+	if ((uffdio_register.ioctls & expected_ioctls) != expected_ioctls) {
+		pr_err("lazy-pages: unexpected missing uffd ioctl for anon memory\n");
+	}
+
+#endif
+	return 0;
+}
+
+
+static int vma_remap(VmaEntry *vma_entry, int uffd)
+{
+	unsigned long src = vma_premmaped_start(vma_entry);
+	unsigned long dst = vma_entry->start;
+	unsigned long len = vma_entry_len(vma_entry);
 	unsigned long guard = 0, tmp;
 
 	pr_info("Remap %lx->%lx len %lx\n", src, dst, len);
@@ -789,6 +832,18 @@ static int vma_remap(unsigned long src, unsigned long dst, unsigned long len)
 		pr_err("Unable to remap %lx -> %lx\n", src, dst);
 		return -1;
 	}
+
+	/*
+	 * If running in userfaultfd/lazy-pages mode pages with
+	 * MAP_ANONYMOUS and MAP_PRIVATE are remapped but without the
+	 * real content.
+	 * The function enable_uffd() marks the page(s) as userfaultfd
+	 * pages, so that the processes will hang until the memory is
+	 * injected via userfaultfd.
+	 */
+	if (vma_entry_can_be_lazy(vma_entry))
+		if (enable_uffd(uffd, dst, len) != 0)
+			return -1;
 
 	return 0;
 }
@@ -1065,6 +1120,10 @@ long __export_restore_task(struct task_restore_args *args)
 
 	pr_info("Switched to the restorer %d\n", my_pid);
 
+	if (args->uffd > -1) {
+		pr_debug("lazy-pages: uffd %d\n", args->uffd);
+	}
+
 	if (vdso_do_park(&args->vdso_sym_rt, args->vdso_rt_parked_at, vdso_rt_size))
 		goto core_restore_end;
 
@@ -1085,8 +1144,7 @@ long __export_restore_task(struct task_restore_args *args)
 		if (vma_entry->start > vma_entry->shmid)
 			break;
 
-		if (vma_remap(vma_premmaped_start(vma_entry),
-				vma_entry->start, vma_entry_len(vma_entry)))
+		if (vma_remap(vma_entry, args->uffd))
 			goto core_restore_end;
 	}
 
@@ -1103,9 +1161,18 @@ long __export_restore_task(struct task_restore_args *args)
 		if (vma_entry->start < vma_entry->shmid)
 			break;
 
-		if (vma_remap(vma_premmaped_start(vma_entry),
-				vma_entry->start, vma_entry_len(vma_entry)))
+		if (vma_remap(vma_entry, args->uffd))
 			goto core_restore_end;
+	}
+
+	if (args->uffd > -1) {
+		pr_debug("lazy-pages: closing uffd %d\n", args->uffd);
+		/*
+		 * All userfaultfd configuration has finished at this point.
+		 * Let's close the UFFD file descriptor, so that the restored
+		 * process does not have an opened UFFD FD for ever.
+		 */
+		sys_close(args->uffd);
 	}
 
 	/*

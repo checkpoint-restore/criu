@@ -110,6 +110,8 @@ struct task_restore_args {
 	unsigned int			loglevel;
 	struct timeval			logstart;
 
+	int				uffd;
+
 	/* threads restoration */
 	int				nr_threads;		/* number of threads */
 	thread_restore_fcall_t		clone_restore_fn;	/* helper address for clone() call */
