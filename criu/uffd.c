@@ -32,6 +32,90 @@
 #undef  LOG_PREFIX
 #define LOG_PREFIX "lazy-pages: "
 
+static int send_uffd(int sendfd, int pid)
+{
+	int fd;
+	int len;
+	int ret = -1;
+	struct sockaddr_un sun;
+
+	if (!opts.addr) {
+		pr_info("Please specify a file name for the unix domain socket\n");
+		pr_info("used to communicate between the lazy-pages server\n");
+		pr_info("and the restore process. Use the --address option like\n");
+		pr_info("criu restore --lazy-pages --address /tmp/userfault.socket\n");
+		return -1;
+	}
+
+	if (sendfd < 0)
+		return -1;
+
+	if (strlen(opts.addr) >= sizeof(sun.sun_path)) {
+		return -1;
+	}
+
+	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
+		return -1;
+
+	memset(&sun, 0, sizeof(sun));
+	sun.sun_family = AF_UNIX;
+	strcpy(sun.sun_path, opts.addr);
+	len = offsetof(struct sockaddr_un, sun_path) + strlen(opts.addr);
+	if (connect(fd, (struct sockaddr *) &sun, len) < 0) {
+		pr_perror("connect to %s failed", opts.addr);
+		goto out;
+	}
+
+	/* The "transfer protocol" is first the pid as int and then
+	 * the FD for UFFD */
+	pr_debug("Sending PID %d\n", pid);
+	if (send(fd, &pid, sizeof(pid), 0) < 0) {
+		pr_perror("PID sending error:");
+		goto out;
+	}
+
+	if (send_fd(fd, NULL, 0, sendfd) < 0) {
+		pr_perror("send_fd error:");
+		goto out;
+	}
+	ret = 0;
+out:
+	close(fd);
+	return ret;
+}
+
+/* This function is used by 'criu restore --lazy-pages' */
+int setup_uffd(struct task_restore_args *task_args, int pid)
+{
+	struct uffdio_api uffdio_api;
+	/*
+	 * Open userfaulfd FD which is passed to the restorer blob and
+	 * to a second process handling the userfaultfd page faults.
+	 */
+	task_args->uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
+
+	/*
+	 * Check if the UFFD_API is the one which is expected
+	 */
+	uffdio_api.api = UFFD_API;
+	uffdio_api.features = 0;
+	if (ioctl(task_args->uffd, UFFDIO_API, &uffdio_api)) {
+		pr_err("Checking for UFFDIO_API failed.\n");
+		return -1;
+	}
+	if (uffdio_api.api != UFFD_API) {
+		pr_err("Result of looking up UFFDIO_API does not match: %Lu\n", uffdio_api.api);
+		return -1;
+	}
+
+	if (send_uffd(task_args->uffd, pid) < 0) {
+		close(task_args->uffd);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int server_listen(struct sockaddr_un *saddr)
 {
 	int fd;
@@ -234,9 +318,7 @@ static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list,
 			 * in the VMA list.
 			 */
 			if (base >= vma->e->start && base < vma->e->end) {
-				if ((vma->e->flags & MAP_ANONYMOUS) &&
-				    (vma->e->flags & MAP_PRIVATE) &&
-				    !(vma_area_is(vma, VMA_AREA_VSYSCALL))) {
+				if (vma_entry_can_be_lazy(vma->e)) {
 					uffd_page = true;
 					if (vma_area_is(vma, VMA_AREA_VDSO))
 						uffd_vdso = true;

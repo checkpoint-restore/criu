@@ -6,6 +6,8 @@
 
 #include "images/vma.pb-c.h"
 
+#include <sys/mman.h>
+
 struct vm_area_list {
 	struct list_head	h;
 	unsigned		nr;
@@ -121,6 +123,13 @@ static inline bool vma_area_is_private(struct vma_area *vma,
 static inline struct vma_area *vma_next(struct vma_area *vma)
 {
 	return list_entry(vma->list.next, struct vma_area, list);
+}
+
+static inline bool vma_entry_can_be_lazy(VmaEntry *e)
+{
+	return ((e->flags & MAP_ANONYMOUS) &&
+		(e->flags & MAP_PRIVATE) &&
+		!(vma_entry_is(e, VMA_AREA_VSYSCALL)));
 }
 
 #endif /* __CR_VMA_H__ */

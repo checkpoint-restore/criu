@@ -279,6 +279,9 @@ int main(int argc, char *argv[], char *envp[])
 		{ "timeout",			required_argument,	0, 1072 },
 		{ "external",			required_argument,	0, 1073	},
 		{ "empty-ns",			required_argument,	0, 1074	},
+#ifdef CONFIG_HAS_UFFD
+		{ "lazy-pages",			no_argument,		0, 1076 },
+#endif
 		BOOL_OPT("extra", &opts.check_extra_features),
 		BOOL_OPT("experimental", &opts.check_experimental_features),
 		{ "all",			no_argument,		0, 1079	},
@@ -519,6 +522,11 @@ int main(int argc, char *argv[], char *envp[])
 		case 1072:
 			opts.timeout = atoi(optarg);
 			break;
+#ifdef CONFIG_HAS_UFFD
+		case 1076:
+			opts.lazy_pages = true;
+			break;
+#endif
 		case 'M':
 			{
 				char *aux;
@@ -815,6 +823,12 @@ usage:
 "                        restore making it the parent of the restored process\n"
 "  --freeze-cgroup       use cgroup freezer to collect processes\n"
 "  --weak-sysctls        skip restoring sysctls that are not available\n"
+#ifdef CONFIG_HAS_UFFD
+"  --lazy-pages          restore pages on demand\n"
+"                        this requires running a second instance of criu\n"
+"                        in lazy-pages mode: 'criu lazy-pages -D DIR'\n"
+"                        --lazy-pages and lazy-pages mode require userfaultfd\n"
+#endif
 "\n"
 "* External resources support:\n"
 "  --external RES        dump objects from this list as external resources:\n"

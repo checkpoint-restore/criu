@@ -107,6 +107,7 @@ struct cr_options {
 	unsigned int		timeout;
 	unsigned int		empty_ns;
 	int			tcp_skip_in_flight;
+	bool			lazy_pages;
 	char			*work_dir;
 
 	/*
