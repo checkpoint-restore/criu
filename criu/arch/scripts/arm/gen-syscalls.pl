@@ -59,13 +59,16 @@ for (<IN>) {
 	}
 
 	my $code_macro;
+	my $sys_macro;
 	my $sys_name;
 
 	if (/(?<name>\S+)\s+(?<alias>\S+)\s+(?<code64>\d+|\!)\s+(?<code32>(?:\d+|\!))\s+\((?<args>.+)\)/) {
 		$code_macro = "__NR_$+{name}";
+		$sys_macro  = "SYS_$+{name}";
 		$sys_name   = "sys_$+{alias}";
 	} elsif (/(?<name>\S+)\s+(?<code64>\d+|\!)\s+(?<code32>(?:\d+|\!))\s+\((?<args>.+)\)/) {
 		$code_macro = "__NR_$+{name}";
+		$sys_macro  = "SYS_$+{name}";
 		$sys_name   = "sys_$+{name}";
 	} else {
 		unlink $codesout;
@@ -76,7 +79,8 @@ for (<IN>) {
 	}
 
 	if ($+{$code} ne "!") {
-		print CODESOUT "#define $code_macro $+{$code}\n";
+		print CODESOUT "#ifndef $code_macro\n#define $code_macro $+{$code}\n#endif\n";
+		print CODESOUT "#ifndef $sys_macro\n#define $sys_macro $code_macro\n#endif\n";
 		print ASMOUT "syscall $sys_name, $code_macro\n";
 
 	} else {
