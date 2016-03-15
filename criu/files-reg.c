@@ -360,17 +360,16 @@ static int open_remap_dead_process(struct reg_file_info *rfi,
 {
 	struct pstree_item *helper;
 
-	for_each_pstree_item(helper) {
-		/* don't need to add multiple tasks */
-		if (helper->pid.virt == rfe->remap_id) {
-			pr_info("Skipping helper for restoring /proc/%d; pid exists\n", rfe->remap_id);
-			return 0;
-		}
-	}
-
-	helper = alloc_pstree_helper();
+	helper = lookup_create_item(rfe->remap_id);
 	if (!helper)
 		return -1;
+
+	if (helper->pid.state != TASK_UNDEF) {
+		pr_info("Skipping helper for restoring /proc/%d; pid exists\n", rfe->remap_id);
+		return 0;
+	}
+
+	init_pstree_helper(helper);
 
 	helper->sid = root_item->sid;
 	helper->pgid = root_item->pgid;

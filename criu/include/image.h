@@ -112,10 +112,12 @@
 
 #define TASK_COMM_LEN 16
 
+#define TASK_UNDEF		0x0
 #define TASK_ALIVE		0x1
 #define TASK_DEAD		0x2
 #define TASK_STOPPED		0x3
 #define TASK_HELPER		0x4
+#define TASK_THREAD		0x5
 
 #define CR_PARENT_LINK "parent"
 

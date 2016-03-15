@@ -64,9 +64,9 @@ static inline bool task_alive(struct pstree_item *i)
 extern void free_pstree(struct pstree_item *root_item);
 extern struct pstree_item *__alloc_pstree_item(bool rst);
 #define alloc_pstree_item() __alloc_pstree_item(false)
-#define alloc_pstree_item_with_rst() __alloc_pstree_item(true)
-extern struct pstree_item *alloc_pstree_helper(void);
 extern void init_pstree_helper(struct pstree_item *ret);
+
+extern struct pstree_item *lookup_create_item(pid_t pid);
 
 extern struct pstree_item *root_item;
 extern struct pstree_item *pstree_item_next(struct pstree_item *item);
