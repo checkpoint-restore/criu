@@ -86,6 +86,10 @@ obj-y			+= pie-util-vdso.o
 obj-y			+= vdso.o
 endif
 
+ifeq ($(UFFD),1)
+obj-y	+= uffd.o
+endif
+
 PROTOBUF_GEN := $(SRC_DIR)/scripts/protobuf-gen.sh
 
 $(obj)/protobuf-desc.d: $(obj)/protobuf-desc-gen.h

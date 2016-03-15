@@ -761,6 +761,9 @@ int main(int argc, char *argv[], char *envp[])
 		return -1;
 	}
 
+	if (!strcmp(argv[optind], "lazy-pages"))
+		return uffd_listen() != 0;
+
 	if (!strcmp(argv[optind], "check"))
 		return cr_check() != 0;
 
@@ -803,6 +806,9 @@ usage:
 "  criu page-server\n"
 "  criu service [<options>]\n"
 "  criu dedup\n"
+#ifdef CONFIG_HAS_UFFD
+"  criu lazy-pages -D DIR [<options>]\n"
+#endif
 "\n"
 "Commands:\n"
 "  dump           checkpoint a process/tree identified by pid\n"
