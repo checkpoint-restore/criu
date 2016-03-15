@@ -76,6 +76,8 @@ def add_to_report(path, tgt_name):
 		if os.path.isdir(path):
 			shutil.copytree(path, tgt_path)
 		else:
+			if not os.path.exists(os.path.dirname(tgt_path)):
+				os.mkdir(os.path.dirname(tgt_path))
 			shutil.copy2(path, tgt_path)
 
 
@@ -236,6 +238,12 @@ flavors = { 'h': host_flavor, 'ns': ns_flavor, 'uns': userns_flavor }
 #
 # Helpers
 #
+
+def encode_flav(f):
+	return (flavors.keys().index(f) + 128)
+
+def decode_flav(i):
+	return flavors.keys()[i - 128]
 
 def tail(path):
 	p = subprocess.Popen(['tail', '-n1', path],
@@ -978,12 +986,14 @@ def do_run_test(tname, tdesc, flavs, opts):
 			print_sep("Test %s FAIL at %s" % (tname, e.step), '#')
 			t.print_output()
 			t.kill()
-			add_to_report(cr_api.logs(), "cr_logs")
+			if cr_api.logs():
+				add_to_report(cr_api.logs(), tname.replace('/', '_') + "_" + f + "/images")
 			if opts['keep_img'] == 'never':
 				cr_api.cleanup()
-			# This exit does two things -- exits from subprocess and
-			# aborts the main script execution on the 1st error met
-			sys.exit(1)
+			# When option --keep-going not specified this exit
+			# does two things: exits from subprocess and aborts the
+			# main script execution on the 1st error met
+			sys.exit(encode_flav(f))
 		else:
 			if opts['keep_img'] != 'always':
 				cr_api.cleanup()
@@ -1038,7 +1048,7 @@ class launcher:
 		sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"], \
 				env = dict(os.environ, CR_CT_TEST_INFO = arg ), \
 				stdout = log, stderr = subprocess.STDOUT)
-		self.__subs[sub.pid] = { 'sub': sub, 'log': logf }
+		self.__subs[sub.pid] = { 'sub': sub, 'log': logf, 'name': name }
 
 		if test_flag(desc, 'excl'):
 			self.wait()
@@ -1048,9 +1058,11 @@ class launcher:
 		if pid != 0:
 			sub = self.__subs.pop(pid)
 			if status != 0:
-				self.__fail = True
+				if not opts['keep_going']:
+					self.__fail = True
 				if sub['log']:
-					add_to_report(sub['log'], "output")
+					failed_flavor = decode_flav(os.WEXITSTATUS(status))
+					add_to_report(sub['log'], sub['name'].replace('/', '_') + "_" + failed_flavor + "/output")
 
 			if sub['log']:
 				print open(sub['log']).read()
@@ -1392,7 +1404,9 @@ if os.environ.has_key('CR_CT_TEST_INFO'):
 		while True:
 			wpid, status = os.wait()
 			if wpid == pid:
-				if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
+				if os.WIFEXITED(status):
+					status = os.WEXITSTATUS(status)
+				else:
 					status = 1
 				break;
 
@@ -1432,6 +1446,7 @@ rp.add_argument("--dry-run", help="Don't run tests, just pretend to", action='st
 rp.add_argument("-k", "--keep-img", help = "Whether or not to keep images after test",
 		choices = [ 'always', 'never', 'failed' ], default = 'failed')
 rp.add_argument("--report", help = "Generate summary report in directory")
+rp.add_argument("--keep-going", help = "Keep running tests in spite of failures", action = 'store_true')
 
 lp = sp.add_parser("list", help = "List tests")
 lp.set_defaults(action = list_tests)
