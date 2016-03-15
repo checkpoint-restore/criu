@@ -100,10 +100,10 @@ define FEATURE_TEST_MEMFD
 
 int main(void)
 {
-#ifdef SYS_memfd_create
+#ifdef __NR_memfd_create
 	return 0;
 #else
-#error No memfd support
+# error No memfd support
 #endif
 }
 

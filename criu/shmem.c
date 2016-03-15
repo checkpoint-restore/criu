@@ -13,6 +13,7 @@
 #include "rst-malloc.h"
 #include "vma.h"
 #include "config.h"
+#include "syscall-codes.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
