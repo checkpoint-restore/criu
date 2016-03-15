@@ -111,7 +111,7 @@ int prepare_inventory(InventoryEntry *he)
 	he->has_ns_per_id = true;
 	he->lsmtype = host_lsm_type();
 
-	crt.i.state = TASK_ALIVE;
+	crt.i.pid.state = TASK_ALIVE;
 	crt.i.pid.real = getpid();
 	if (get_task_ids(&crt.i))
 		return -1;

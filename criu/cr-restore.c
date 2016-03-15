@@ -247,7 +247,7 @@ static int root_prepare_shared(void)
 		return -1;
 
 	for_each_pstree_item(pi) {
-		if (pi->state == TASK_HELPER)
+		if (pi->pid.state == TASK_HELPER)
 			continue;
 
 		ret = prepare_mm_pid(pi);
@@ -804,7 +804,7 @@ static int collect_child_pids(int state, int *n)
 	list_for_each_entry(pi, &current->children, sibling) {
 		pid_t *child;
 
-		if (pi->state != state)
+		if (pi->pid.state != state)
 			continue;
 
 		child = rst_mem_alloc(sizeof(*child), RM_PRIVATE);
@@ -1021,7 +1021,7 @@ static int wait_on_helpers_zombies(void)
 		pid_t pid = pi->pid.virt;
 		int status;
 
-		switch (pi->state) {
+		switch (pi->pid.state) {
 		case TASK_DEAD:
 			if (waitid(P_PID, pid, NULL, WNOWAIT | WEXITED) < 0) {
 				pr_perror("Wait on %d zombie failed", pid);
@@ -1126,9 +1126,9 @@ static int restore_one_task(int pid, CoreEntry *core)
 
 	if (task_alive(current))
 		ret = restore_one_alive_task(pid, core);
-	else if (current->state == TASK_DEAD)
+	else if (current->pid.state == TASK_DEAD)
 		ret = restore_one_zombie(core);
-	else if (current->state == TASK_HELPER) {
+	else if (current->pid.state == TASK_HELPER) {
 		restore_finish_stage(CR_STATE_RESTORE);
 		if (wait_on_helpers_zombies()) {
 			pr_err("failed to wait on helpers and zombies\n");
@@ -1204,7 +1204,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	int ret = -1;
 	pid_t pid = item->pid.virt;
 
-	if (item->state != TASK_HELPER) {
+	if (item->pid.state != TASK_HELPER) {
 		struct cr_img *img;
 
 		img = open_image(CR_FD_CORE, O_RSTR, pid);
@@ -1220,15 +1220,15 @@ static inline int fork_with_pid(struct pstree_item *item)
 		if (check_core(ca.core, item))
 			return -1;
 
-		item->state = ca.core->tc->task_state;
+		item->pid.state = ca.core->tc->task_state;
 		rsti(item)->cg_set = ca.core->tc->cg_set;
 
 		rsti(item)->has_seccomp = ca.core->tc->seccomp_mode != SECCOMP_MODE_DISABLED;
 
-		if (item->state == TASK_DEAD)
+		if (item->pid.state == TASK_DEAD)
 			rsti(item->parent)->nr_zombies++;
 		else if (!task_alive(item)) {
-			pr_err("Unknown task state %d\n", item->state);
+			pr_err("Unknown task state %d\n", item->pid.state);
 			return -1;
 		}
 
@@ -1375,7 +1375,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 				break;
 
 		BUG_ON(&pi->sibling == &current->children);
-		if (pi->state != TASK_HELPER)
+		if (pi->pid.state != TASK_HELPER)
 			break;
 	}
 
@@ -1612,7 +1612,7 @@ static int restore_task_with_children(void *_arg)
 	if ( !(ca->clone_flags & CLONE_FILES))
 		close_safe(&ca->fd);
 
-	if (current->state != TASK_HELPER) {
+	if (current->pid.state != TASK_HELPER) {
 		ret = clone_service_fd(rsti(current)->service_fd_id);
 		if (ret)
 			goto err;
@@ -1902,7 +1902,7 @@ static void finalize_restore(void)
 
 		xfree(ctl);
 
-		if (item->state == TASK_STOPPED)
+		if (item->pid.state == TASK_STOPPED)
 			kill(item->pid.real, SIGSTOP);
 	}
 }

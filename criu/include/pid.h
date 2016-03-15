@@ -17,6 +17,8 @@ struct pid {
 	 * dumpee context, because the dumpee might have own pid namespace.
 	 */
 	pid_t virt;
+
+	int state;	/* TASK_XXX constants */
 };
 
 /*

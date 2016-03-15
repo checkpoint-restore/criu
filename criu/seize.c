@@ -394,7 +394,7 @@ static int collect_children(struct pstree_item *item)
 
 		c->pid.real = pid;
 		c->parent = item;
-		c->state = ret;
+		c->pid.state = ret;
 		list_add_tail(&c->sibling, &item->children);
 
 		/* Here is a recursive call (Depth-first search) */
@@ -411,7 +411,7 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 {
 	int i;
 
-	if (item->state == TASK_DEAD)
+	if (item->pid.state == TASK_DEAD)
 		return;
 
 	/*
@@ -419,7 +419,7 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 	 * the item->state is the state task was in when we seized one.
 	 */
 
-	unseize_task(item->pid.real, item->state, st);
+	unseize_task(item->pid.real, item->pid.state, st);
 
 	if (st == TASK_DEAD)
 		return;
@@ -436,7 +436,7 @@ static void pstree_wait(struct pstree_item *root_item)
 
 	for_each_pstree_item(item) {
 
-		if (item->state == TASK_DEAD)
+		if (item->pid.state == TASK_DEAD)
 			continue;
 
 		for (i = 0; i < item->nr_threads; i++) {
@@ -516,7 +516,7 @@ static int collect_threads(struct pstree_item *item)
 	if (ret < 0)
 		goto err;
 
-	if ((item->state == TASK_DEAD) && (nr_threads > 1)) {
+	if ((item->pid.state == TASK_DEAD) && (nr_threads > 1)) {
 		pr_err("Zombies with threads are not supported\n");
 		goto err;
 	}
@@ -633,7 +633,7 @@ static int collect_task(struct pstree_item *item)
 	if (ret < 0)
 		goto err_close;
 
-	if ((item->state == TASK_DEAD) && !list_empty(&item->children)) {
+	if ((item->pid.state == TASK_DEAD) && !list_empty(&item->children)) {
 		pr_err("Zombie with children?! O_o Run, run, run!\n");
 		goto err_close;
 	}
@@ -641,7 +641,7 @@ static int collect_task(struct pstree_item *item)
 	if (pstree_alloc_cores(item))
 		goto err_close;
 
-	pr_info("Collected %d in %d state\n", item->pid.real, item->state);
+	pr_info("Collected %d in %d state\n", item->pid.real, item->pid.state);
 	return 0;
 
 err_close:
@@ -680,7 +680,7 @@ int collect_pstree(pid_t pid)
 	if (ret < 0)
 		goto err;
 	pr_info("Seized task %d, state %d\n", pid, ret);
-	root_item->state = ret;
+	root_item->pid.state = ret;
 
 	ret = collect_task(root_item);
 	if (ret < 0)

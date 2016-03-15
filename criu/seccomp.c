@@ -48,7 +48,7 @@ static int collect_filter_for_pstree(struct pstree_item *item)
 	struct sock_filter buf[BPF_MAXINSNS];
 	void *m;
 
-	if (item->state == TASK_DEAD ||
+	if (item->pid.state == TASK_DEAD ||
 	    dmpi(item)->pi_creds->seccomp_mode != SECCOMP_MODE_FILTER)
 		return 0;
 

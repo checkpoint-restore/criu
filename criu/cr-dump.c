@@ -640,7 +640,7 @@ int get_task_ids(struct pstree_item *item)
 
 	task_kobj_ids_entry__init(item->ids);
 
-	if (item->state != TASK_DEAD) {
+	if (item->pid.state != TASK_DEAD) {
 		ret = dump_task_kobj_ids(item);
 		if (ret)
 			goto err_free;
@@ -722,7 +722,7 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 
 	strlcpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
 	core->tc->flags = stat->flags;
-	core->tc->task_state = item->state;
+	core->tc->task_state = item->pid.state;
 	core->tc->exit_code = 0;
 
 	ret = parasite_dump_thread_leader_seized(ctl, pid, core);
@@ -777,14 +777,14 @@ static int collect_pstree_ids_predump(void)
 	 * write_img_inventory().
 	 */
 
-	crt.i.state = TASK_ALIVE;
+	crt.i.pid.state = TASK_ALIVE;
 	crt.i.pid.real = getpid();
 
 	if (predump_task_ns_ids(&crt.i))
 		return -1;
 
 	for_each_pstree_item(item) {
-		if (item->state == TASK_DEAD)
+		if (item->pid.state == TASK_DEAD)
 			continue;
 
 		if (predump_task_ns_ids(item))
@@ -1069,7 +1069,7 @@ static int dump_zombies(void)
 	 */
 
 	for_each_pstree_item(item) {
-		if (item->state != TASK_DEAD)
+		if (item->pid.state != TASK_DEAD)
 			continue;
 
 		if (item->pid.virt < 0) {
@@ -1117,12 +1117,12 @@ static int pre_dump_one_task(struct pstree_item *item, struct list_head *ctls)
 	pr_info("Pre-dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
-	if (item->state == TASK_STOPPED) {
+	if (item->pid.state == TASK_STOPPED) {
 		pr_warn("Stopped tasks are not supported\n");
 		return 0;
 	}
 
-	if (item->state == TASK_DEAD)
+	if (item->pid.state == TASK_DEAD)
 		return 0;
 
 	ret = collect_mappings(pid, &vmas);
@@ -1194,7 +1194,7 @@ static int dump_one_task(struct pstree_item *item)
 	pr_info("Dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
-	if (item->state == TASK_DEAD)
+	if (item->pid.state == TASK_DEAD)
 		/*
 		 * zombies are dumped separately in dump_zombies()
 		 */
