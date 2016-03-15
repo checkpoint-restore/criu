@@ -318,8 +318,6 @@ err:
 	return ret;
 }
 
-static int max_pid = 0;
-
 static int prepare_pstree_for_shell_job(void)
 {
 	pid_t current_sid = getsid(getpid());
@@ -365,9 +363,6 @@ static int prepare_pstree_for_shell_job(void)
 		if (pi->sid == old_sid)
 			pi->sid = current_sid;
 	}
-
-	max_pid = max((int)current_sid, max_pid);
-	max_pid = max((int)current_gid, max_pid);
 
 	if (lookup_create_item(current_sid) == NULL)
 		return -1;
@@ -503,11 +498,8 @@ static int read_pstree_image(void)
 			break;
 
 		pi->pid.virt = e->pid;
-		max_pid = max((int)e->pid, max_pid);
 		pi->pgid = e->pgid;
-		max_pid = max((int)e->pgid, max_pid);
 		pi->sid = e->sid;
-		max_pid = max((int)e->sid, max_pid);
 		pi->pid.state = TASK_ALIVE;
 
 		if (e->ppid == 0) {
@@ -580,9 +572,32 @@ static int read_pstree_image(void)
 		if (ret < 0)
 			goto err;
 	}
+
 err:
 	close_image(img);
 	return ret;
+}
+
+#define RESERVED_PIDS           300
+static int get_free_pid()
+{
+	static struct pstree_item *prev, *next;
+
+	if (prev == NULL)
+		prev = rb_entry(rb_first(&pid_root_rb), struct pstree_item, pid.node);
+
+	while (1) {
+		pid_t pid;
+		pid = prev->pid.virt + 1;
+		pid = pid < RESERVED_PIDS ? RESERVED_PIDS + 1 : pid;
+
+		next = rb_entry(rb_next(&prev->pid.node), struct pstree_item, pid.node);
+		if (&next->pid.node == NULL || next->pid.virt > pid)
+			return pid;
+		prev = next;
+	}
+
+	return -1;
 }
 
 static int prepare_pstree_ids(void)
@@ -612,7 +627,12 @@ static int prepare_pstree_ids(void)
 		leader = pstree_item_by_virt(item->sid);
 		BUG_ON(leader == NULL);
 		if (leader->pid.state != TASK_UNDEF) {
-			helper = lookup_create_item(++max_pid);
+			pid_t pid;
+
+			pid = get_free_pid();
+			if (pid < 0)
+				break;
+			helper = lookup_create_item(pid);
 			if (helper == NULL)
 				return -1;
 
