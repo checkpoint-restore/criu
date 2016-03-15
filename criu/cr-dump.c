@@ -168,9 +168,10 @@ static int dump_sched_info(int pid, ThreadCoreEntry *tc)
 	 * in kernel. Thus we have to take it with us in the image.
 	 */
 
+	errno = 0;
 	ret = getpriority(PRIO_PROCESS, pid);
-	if (ret < 0) {
-		pr_perror("Can't get nice for %d", pid);
+	if (ret == -1 && errno) {
+		pr_perror("Can't get nice for %d ret %d", pid, ret);
 		return -1;
 	}
 
