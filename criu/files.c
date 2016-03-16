@@ -661,6 +661,35 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 	return 0;
 }
 
+FdinfoEntry *dup_fdinfo(FdinfoEntry *old, int fd, unsigned flags)
+{
+	FdinfoEntry *e;
+
+	e = shmalloc(sizeof(*e));
+	if (!e)
+		return NULL;
+
+	fdinfo_entry__init(e);
+
+	e->id		= old->id;
+	e->type		= old->type;
+	e->fd		= fd;
+	e->flags	= flags;
+	return e;
+}
+
+int dup_fle(struct pstree_item *task, struct fdinfo_list_entry *ple,
+		   int fd, unsigned flags)
+{
+	FdinfoEntry *e;
+
+	e = dup_fdinfo(ple->fe, fd, flags);
+	if (!e)
+		return -1;
+
+	return collect_fd(task->pid.virt, e, rsti(task));
+}
+
 int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id)
 {
 	FdinfoEntry *e;
