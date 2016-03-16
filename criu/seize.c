@@ -463,6 +463,9 @@ void pstree_switch_state(struct pstree_item *root_item, int st)
 {
 	struct pstree_item *item = root_item;
 
+	if (!root_item)
+		return;
+
 	if (st != TASK_DEAD)
 		freezer_restore_state();
 
