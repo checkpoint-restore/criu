@@ -1,0 +1,18 @@
+#!/bin/sh
+
+umask 0000
+
+[ "$1" == "--pre-restore" ] && {
+	# emulate rsync
+	rm -rf etc/zdtm-test
+	touch etc/zdtm-test
+}
+
+[ "$1" == "--post-pre-dump" ] && {
+	echo 'invalidate the irmap cache'
+	mv etc/zdtm-test etc/zdtm-test2
+	mv etc/zdtm-test1 etc/zdtm-test
+	mv etc/zdtm-test2 etc/zdtm-test1
+}
+
+exit 0

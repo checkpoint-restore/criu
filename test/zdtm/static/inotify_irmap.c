@@ -19,51 +19,59 @@ const char *test_doc	= "Check for irmap";
 const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
 
 #define TDIR	"/etc"
-#define TFIL	TDIR"/zdtm-test"
+char test_files[2][128] = {TDIR"/zdtm-test", TDIR"/zdtm-test1"};
 
 #define BUFF_SIZE ((sizeof(struct inotify_event) + PATH_MAX))
 
 int main (int argc, char *argv[])
 {
 	char buf[BUFF_SIZE];
-	int fd, wd;
+	int fd, wd, i;
 
 	test_init(argc, argv);
 
-	unlink(TFIL);
-	if (creat(TFIL, 0600) < 0) {
-		pr_perror("Can't make test file");
-		exit(1);
+	for (i = 0; i < 2; i++) {
+		unlink(test_files[i]);
+		if (creat(test_files[i], 0600) < 0) {
+			pr_perror("Can't make test file");
+			exit(1);
+		}
 	}
 
 	fd = inotify_init1(IN_NONBLOCK);
 	if (fd < 0) {
-		fail("inotify_init failed");
-		unlink(TFIL);
-		exit(1);
+		pr_perror("inotify_init failed");
+		goto err;
 	}
 
-	wd = inotify_add_watch(fd, TFIL, IN_OPEN);
-	if (wd < 0) {
-		fail("inotify_add_watch failed");
-		unlink(TFIL);
-		exit(1);
+	for (i = 0; i < 2; i++) {
+		wd = inotify_add_watch(fd, test_files[i], IN_OPEN);
+		if (wd < 0) {
+			pr_perror("inotify_add_watch failed");
+			goto err;
+		}
 	}
 
 	test_daemon();
 	test_waitsig();
 
-	memset(buf, 0, sizeof(buf));
-	wd = open(TFIL, O_RDONLY);
-	if (read(fd, buf, sizeof(buf)) <= 0) {
-		unlink(TFIL);
-		fail("No events in queue");
-		exit(1);
+	for (i = 0; i < 2; i++) {
+		memset(buf, 0, sizeof(buf));
+		wd = open(test_files[i], O_RDONLY);
+		if (read(fd, buf, sizeof(buf)) <= 0) {
+			fail("No events in queue");
+			goto err;
+		}
 	}
 
 	close(wd);
 	close(fd);
-	unlink(TFIL);
+	for (i = 0; i < 2; i++)
+		unlink(test_files[i]);
 	pass();
 	return 0;
+err:
+	for (i = 0; i < 2; i++)
+		unlink(test_files[i]);
+	return 1;
 }
