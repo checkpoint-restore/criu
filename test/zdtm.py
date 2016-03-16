@@ -806,6 +806,7 @@ def cr(cr_api, test, opts):
 				cr_api.dump("dump", opts = ["--leave-running"])
 			else:
 				cr_api.dump("pre-dump")
+				try_run_hook(test, ["--post-pre-dump"])
 			time.sleep(pres[1])
 
 		sbs('pre-dump')
