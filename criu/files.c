@@ -39,6 +39,7 @@
 #include "fs-magic.h"
 #include "proc_parse.h"
 #include "cr_options.h"
+#include "autofs.h"
 
 #include "parasite.h"
 #include "parasite-syscall.h"
@@ -321,6 +322,8 @@ static const struct fdtype_ops *get_misc_dev_ops(int minor)
 	switch (minor) {
 	case TUN_MINOR:
 		return &tunfile_dump_ops;
+	case AUTOFS_MINOR:
+		return &regfile_dump_ops;
 	};
 
 	return NULL;
