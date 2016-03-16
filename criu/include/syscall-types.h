@@ -71,8 +71,6 @@ struct itimerspec;
 
 #define CLONE_ALLNS	(CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER | CLONE_NEWCGROUP)
 
-#define setns	sys_setns
-
 struct rlimit;
 struct rlimit64;
 
