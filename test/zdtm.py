@@ -1041,7 +1041,7 @@ class launcher:
 		self.__nr += 1
 		self.__runtest += 1
 		if self.__file_report:
-			testline = "ok %d - %s # SKIP %s" % (self.__runtest, name.split('/')[-1:][0], reason)
+			testline = "ok %d - %s # SKIP %s" % (self.__runtest, name, reason)
 			print >> self.__file_report, testline
 
 	def run_test(self, name, desc, flavor):
@@ -1083,7 +1083,7 @@ class launcher:
 			if status != 0:
 				failed_flavor = decode_flav(os.WEXITSTATUS(status))
 				if self.__file_report:
-					testline = "not ok %d - %s # flavor %s" % (self.__runtest, sub['name'].split('/')[-1:][0], failed_flavor)
+					testline = "not ok %d - %s # flavor %s" % (self.__runtest, sub['name'], failed_flavor)
 					print >> self.__file_report, testline
 				if not opts['keep_going']:
 					self.__fail = True
@@ -1091,7 +1091,7 @@ class launcher:
 					add_to_report(sub['log'], sub['name'].replace('/', '_') + "_" + failed_flavor + "/output")
 			else:
 				if self.__file_report:
-					testline = "ok %d - %s" % (self.__runtest, sub['name'].split('/')[-1:][0])
+					testline = "ok %d - %s" % (self.__runtest, sub['name'])
 					print >> self.__file_report, testline
 
 			if sub['log']:
