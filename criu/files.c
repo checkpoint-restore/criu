@@ -653,6 +653,8 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 	else
 		collect_gen_fd(new_le, rst_info);
 
+	collect_used_fd(new_le, rst_info);
+
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 	new_le->desc = fdesc;
 
@@ -693,6 +695,7 @@ int prepare_fd_pid(struct pstree_item *item)
 	pid_t pid = item->pid.virt;
 	struct rst_info *rst_info = rsti(item);
 
+	INIT_LIST_HEAD(&rst_info->used);
 	INIT_LIST_HEAD(&rst_info->fds);
 	INIT_LIST_HEAD(&rst_info->eventpoll);
 	INIT_LIST_HEAD(&rst_info->tty_slaves);

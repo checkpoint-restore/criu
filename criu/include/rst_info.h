@@ -27,6 +27,7 @@ struct fdt {
 struct _MmEntry;
 
 struct rst_info {
+	struct list_head	used;
 	struct list_head	fds;
 	struct list_head	eventpoll;
 	struct list_head	tty_slaves;
