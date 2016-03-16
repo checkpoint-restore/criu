@@ -56,7 +56,8 @@ struct cr_options {
 	int			final_state;
 	char			*show_dump_file;
 	char			*show_fmt;
-	bool			check_ms_kernel;
+	bool			check_extra_features;
+	bool			check_experimental_features;
 	bool			show_pages_content;
 	union {
 		bool		restore_detach;

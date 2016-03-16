@@ -311,15 +311,51 @@ relaxing capability with *--cpu-cap*=*none* parameter.
 
 *check*
 ~~~~~~~
-Tests whether the kernel support is up to date.
+Checks whether the kernel supports the features that *criu* needs to
+successfully dump and restore a process tree.
 
-*--ms*::
-    Do not check not yet merged features.
+There are three categories of kernel support as described below.  *criu
+check* always checks Category 1 features unless *--feature* is specified
+which only checks the specified feature.
+
+- *Category 1*.	Absolutely required. These are features like
+		'/proc/<pid>/map_files', 'NETLINK_SOCK_DIAG' socket
+		monitoring, '/proc/sys/kernel/ns_last_pid', etc.
+
+- *Category 2*.	Required only for specific cases. These are features
+		like aio remap, '/dev/net/tun', etc. that are
+		required if the process being dumped or restored
+		is using them.
+
+- *Category 3*.	Experimental. These are features like task-diag that
+		are used for experimental purposes (mostly
+		during development).
+
+If there are no errors or warnings, *criu* prints "Looks good." and its
+exit code will be 0.
+
+A missing Category 1 feature causes *criu* to print "Does not look good."
+and its exit code will be non-zero.
+
+Missing Category 2 and 3 features cause *criu* to print "Looks good but
+some kernel features are missing which, depending on your process tree,
+may cause dump or restore failure." and its exit code will be non-zero.
+
+Without an argument, *criu check* checks Category 1 features. This
+behavior can change with the following options:
+
+*--extra*::
+    Check kernel support for Category 2 features.
+
+*--experimental*::
+    Check kernel support for Category 3 features.
+
+*--all*::
+    Check kernel support for Category 1, 2, and 3 features.
 
 *--feature* '<name>'::
-    Check a particular feature. Instead of checking everything one may specify
-    which exactly feature is to be tested. The '<name>' may be: *mnt_id*,
-    *aio_remap*, *timerfd*, *tun*, *userns*.
+    Check a specific feature.  If '<name>' is 'list', a list of valid
+    kernel feature names that can be checked will be printed.
 
 *page-server*
 ~~~~~~~~~~~~~

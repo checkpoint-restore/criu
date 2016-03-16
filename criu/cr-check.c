@@ -41,6 +41,8 @@
 #include "pstree.h"
 #include "cr_options.h"
 
+static char *feature_name(int (*func)());
+
 static int check_tty(void)
 {
 	int master = -1, slave = -1;
@@ -169,7 +171,7 @@ static int check_kcmp(void)
 	return 0;
 }
 
-static int check_prctl(void)
+static int check_prctl_cat1(void)
 {
 	unsigned long user_auxv = 0;
 	unsigned int *tid_addr;
@@ -183,23 +185,18 @@ static int check_prctl(void)
 	}
 
 	/*
-	 * Either new or old interface must be supported in the kernel.
+	 * It's OK if the new interface is not supported because it's
+	 * a Category 2 feature, but the old interface has to be supported.
 	 */
 	ret = prctl(PR_SET_MM, PR_SET_MM_MAP_SIZE, (unsigned long)&size, 0, 0);
 	if (ret < 0) {
-		if (!opts.check_ms_kernel) {
-			pr_msg("prctl: PR_SET_MM_MAP is not supported, which "
-			       "is required for restoring user namespaces: %m\n");
-			return -1;
-		} else
-			pr_warn("Skipping unssuported PR_SET_MM_MAP: %m\n");
-
+		pr_msg("Info  prctl: PR_SET_MM_MAP_SIZE is not supported\n");
 		ret = prctl(PR_SET_MM, PR_SET_MM_BRK, (unsigned long)sbrk(0), 0, 0);
 		if (ret < 0) {
 			if (errno == EPERM)
 				pr_msg("prctl: One needs CAP_SYS_RESOURCE capability to perform testing\n");
 			else
-				pr_msg("prctl: PR_SET_MM is not supported: %m\n");
+				pr_msg("prctl: PR_SET_MM_BRK is not supported: %m\n");
 			return -1;
 		}
 
@@ -216,6 +213,19 @@ static int check_prctl(void)
 		}
 	}
 
+	return 0;
+}
+
+static int check_prctl_cat2(void)
+{
+	unsigned int size = 0;
+	int ret;
+
+	ret = prctl(PR_SET_MM, PR_SET_MM_MAP_SIZE, (unsigned long)&size, 0, 0);
+	if (ret) {
+		pr_warn("prctl: PR_SET_MM_MAP_SIZE is not supported\n");
+		return -1;
+	}
 	return 0;
 }
 
@@ -766,11 +776,8 @@ static int check_aio_remap(void)
 	ctx = (aio_context_t)naddr;
 	r = syscall(SYS_io_getevents, ctx, 0, 1, NULL, NULL);
 	if (r < 0) {
-		if (!opts.check_ms_kernel) {
-			pr_err("AIO remap doesn't work properly: %m\n");
-			return -1;
-		} else
-			pr_warn("Skipping unsupported AIO remap: %m\n");
+		pr_err("AIO remap doesn't work properly: %m\n");
+		return -1;
 	}
 
 	return 0;
@@ -782,12 +789,8 @@ static int check_fdinfo_lock(void)
 		return -1;
 
 	if (!kdat.has_fdinfo_lock) {
-		if (!opts.check_ms_kernel) {
-			pr_err("fdinfo doesn't contain the lock field\n");
-			return -1;
-		} else {
-			pr_warn("fdinfo doesn't contain the lock field\n");
-		}
+		pr_err("fdinfo doesn't contain the lock field\n");
+		return -1;
 	}
 
 	return 0;
@@ -823,10 +826,6 @@ static int check_clone_parent_vs_pid()
 static int check_cgroupns(void)
 {
 	int ret;
-	if (opts.check_ms_kernel) {
-		pr_warn("Skipping cgroup namespaces check\n");
-		return 0;
-	}
 
 	ret = access("/proc/self/ns/cgroup", F_OK);
 	if (ret < 0) {
@@ -839,6 +838,29 @@ static int check_cgroupns(void)
 
 static int (*chk_feature)(void);
 
+/*
+ * There are three categories of kernel features:
+ *
+ * 1. Absolutely required (/proc/pid/map_files, ptrace PEEKSIGINFO, etc.).
+ * 2. Required only for specific cases (aio remap, tun, etc.).
+ *    Checked when --extra or --all is specified.
+ * 3. Experimental (task-diag).
+ *    Checked when --experimental or --all is specified.
+ *
+ * We fail if any feature in category 1 is missing but tolerate failures
+ * in the other categories.  Currently, there is nothing in category 3.
+ */
+#define CHECK_GOOD	"Looks good."
+#define CHECK_BAD	"Does not look good."
+#define CHECK_MAYBE	"Looks good but some kernel features are missing\n" \
+			"which, depending on your process tree, may cause\n" \
+			"dump or restore failure."
+#define CHECK_CAT1(fn)	do { \
+				if ((ret = fn) != 0) { \
+					print_on_level(DEFAULT_LOGLEVEL, "%s\n", CHECK_BAD); \
+					return ret; \
+				} \
+			} while (0)
 int cr_check(void)
 {
 	struct ns_id ns = { .type = NS_CRIU, .ns_pid = PROC_SELF, .nd = &mnt_ns_desc };
@@ -863,44 +885,71 @@ int cr_check(void)
 		return -1;
 
 	if (chk_feature) {
-		ret = chk_feature();
-		goto out;
+		if (chk_feature())
+			return -1;
+		print_on_level(DEFAULT_LOGLEVEL, "%s is supported\n",
+			feature_name(chk_feature));
+		return 0;
 	}
 
-	ret |= check_map_files();
-	ret |= check_sock_diag();
-	ret |= check_ns_last_pid();
-	ret |= check_sock_peek_off();
-	ret |= check_kcmp();
-	ret |= check_prctl();
-	ret |= check_fcntl();
-	ret |= check_proc_stat();
-	ret |= check_tcp();
-	ret |= check_fdinfo_ext();
-	ret |= check_unaligned_vmsplice();
-	ret |= check_tty();
-	ret |= check_so_gets();
-	ret |= check_ipc();
-	ret |= check_sigqueuinfo();
-	ret |= check_ptrace_peeksiginfo();
-	ret |= check_ptrace_suspend_seccomp();
-	ret |= check_ptrace_dump_seccomp_filters();
-	ret |= check_mem_dirty_track();
-	ret |= check_posix_timers();
-	ret |= check_tun_cr(0);
-	ret |= check_timerfd();
-	ret |= check_mnt_id();
-	ret |= check_aio_remap();
-	ret |= check_fdinfo_lock();
-	ret |= check_clone_parent_vs_pid();
-	ret |= check_cgroupns();
+	/*
+	 * Category 1 - absolutely required.
+	 * So that the user can see clearly what's missing, we exit with
+	 * non-zero status on the first failure because it gets very
+	 * confusing when there are many warnings and error messages.
+	 */
+	CHECK_CAT1(check_map_files());
+	CHECK_CAT1(check_sock_diag());
+	CHECK_CAT1(check_ns_last_pid());
+	CHECK_CAT1(check_sock_peek_off());
+	CHECK_CAT1(check_kcmp());
+	CHECK_CAT1(check_prctl_cat1());
+	CHECK_CAT1(check_fcntl());
+	CHECK_CAT1(check_proc_stat());
+	CHECK_CAT1(check_tcp());
+	CHECK_CAT1(check_fdinfo_ext());
+	CHECK_CAT1(check_unaligned_vmsplice());
+	CHECK_CAT1(check_tty());
+	CHECK_CAT1(check_so_gets());
+	CHECK_CAT1(check_ipc());
+	CHECK_CAT1(check_sigqueuinfo());
+	CHECK_CAT1(check_ptrace_peeksiginfo());
 
-out:
-	if (!ret)
-		print_on_level(DEFAULT_LOGLEVEL, "Looks good.\n");
+	/*
+	 * Category 2 - required for specific cases.
+	 * Unlike Category 1 features, we don't exit with non-zero status
+	 * on a failure because CRIU may still work.
+	 */
+	if (opts.check_extra_features) {
+		ret |= check_prctl_cat2();
+		ret |= check_ptrace_suspend_seccomp();
+		ret |= check_ptrace_dump_seccomp_filters();
+		ret |= check_mem_dirty_track();
+		ret |= check_posix_timers();
+		ret |= check_tun_cr(0);
+		ret |= check_timerfd();
+		ret |= check_mnt_id();
+		ret |= check_aio_remap();
+		ret |= check_fdinfo_lock();
+		ret |= check_clone_parent_vs_pid();
+		ret |= check_cgroupns();
+	}
 
+	/*
+	 * Category 3 - experimental.
+	 */
+	if (opts.check_experimental_features) {
+		/* Empty for now */
+		;
+	}
+
+	print_on_level(DEFAULT_LOGLEVEL, "%s\n", ret ? CHECK_MAYBE : CHECK_GOOD);
 	return ret;
 }
+#undef CHECK_GOOD
+#undef CHECK_BAD
+#undef CHECK_MAYBE
+#undef CHECK_CAT1
 
 static int check_tun(void)
 {
@@ -926,7 +975,7 @@ static int check_userns(void)
 
 	ret = prctl(PR_SET_MM, PR_SET_MM_MAP_SIZE, (unsigned long)&size, 0, 0);
 	if (ret < 0) {
-		pr_perror("No new prctl API");
+		pr_perror("prctl: PR_SET_MM_MAP_SIZE is not supported");
 		return -1;
 	}
 
@@ -946,32 +995,53 @@ static int check_loginuid(void)
 	return 0;
 }
 
+struct feature_list {
+	char *name;
+	int (*func)();
+};
+
+static struct feature_list feature_list[] = {
+	{ "mnt_id", check_mnt_id },
+	{ "aio_remap", check_aio_remap },
+	{ "timerfd", check_timerfd },
+	{ "tun", check_tun },
+	{ "userns", check_userns },
+	{ "fdinfo_lock", check_fdinfo_lock },
+	{ "seccomp_suspend", check_ptrace_suspend_seccomp },
+	{ "seccomp_filters", check_ptrace_dump_seccomp_filters },
+	{ "loginuid", check_loginuid },
+	{ "cgroupns", check_cgroupns },
+	{ NULL, NULL },
+};
+
 int check_add_feature(char *feat)
 {
-	if (!strcmp(feat, "mnt_id"))
-		chk_feature = check_mnt_id;
-	else if (!strcmp(feat, "aio_remap"))
-		chk_feature = check_aio_remap;
-	else if (!strcmp(feat, "timerfd"))
-		chk_feature = check_timerfd;
-	else if (!strcmp(feat, "tun"))
-		chk_feature = check_tun;
-	else if (!strcmp(feat, "userns"))
-		chk_feature = check_userns;
-	else if (!strcmp(feat, "fdinfo_lock"))
-		chk_feature = check_fdinfo_lock;
-	else if (!strcmp(feat, "seccomp_suspend"))
-		chk_feature = check_ptrace_suspend_seccomp;
-	else if (!strcmp(feat, "seccomp_filters"))
-		chk_feature = check_ptrace_dump_seccomp_filters;
-	else if (!strcmp(feat, "loginuid"))
-		chk_feature = check_loginuid;
-	else if (!strcmp(feat, "cgroupns"))
-		chk_feature = check_cgroupns;
-	else {
-		pr_err("Unknown feature %s\n", feat);
-		return -1;
+	struct feature_list *fl;
+
+	if (!strcmp(feat, "list")) {
+		for (fl = feature_list; fl->name; fl++)
+			pr_msg("%s ", fl->name);
+		pr_msg("\n");
+		return 1;
 	}
 
-	return 0;
+	for (fl = feature_list; fl->name; fl++) {
+		if (!strcmp(feat, fl->name)) {
+			chk_feature = fl->func;
+			return 0;
+		}
+	}
+	pr_err("Unknown feature %s\n", feat);
+	return -1;
+}
+
+static char *feature_name(int (*func)())
+{
+	struct feature_list *fl;
+
+	for (fl = feature_list; fl->func; fl++) {
+		if (fl->func == func)
+			return fl->name;
+	}
+	return NULL;
 }
