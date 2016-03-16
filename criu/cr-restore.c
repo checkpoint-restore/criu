@@ -180,6 +180,39 @@ static struct collect_image_info *cinfos[] = {
 	&file_locks_cinfo,
 };
 
+struct post_prepare_cb {
+	struct list_head list;
+	int (*actor)(void *data);
+	void *data;
+};
+
+struct list_head post_prepare_cbs = LIST_HEAD_INIT(post_prepare_cbs);
+
+int add_post_prepare_cb(int (*actor)(void *data), void *data)
+{
+	struct post_prepare_cb *cb;
+
+	cb = xmalloc(sizeof(*cb));
+	if (!cb)
+		return -1;
+
+	cb->actor = actor;
+	cb->data = data;
+	list_add(&cb->list, &post_prepare_cbs);
+	return 0;
+}
+
+static int run_post_prepare(void)
+{
+	struct post_prepare_cb *o;
+
+	list_for_each_entry(o, &post_prepare_cbs, list) {
+		if (o->actor(o->data))
+			return -1;
+	}
+	return 0;
+}
+
 static int root_prepare_shared(void)
 {
 	int ret = 0, i;
@@ -246,6 +279,10 @@ static int root_prepare_shared(void)
 		goto err;
 
 	ret = prepare_restorer_blob();
+	if (ret)
+		goto err;
+
+	ret = run_post_prepare();
 	if (ret)
 		goto err;
 
