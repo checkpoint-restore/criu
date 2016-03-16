@@ -196,6 +196,7 @@ class ns_flavor:
 		self.__mknod("null", os.makedev(1, 3))
 		self.__mknod("net/tun")
 		self.__mknod("rtc")
+		self.__mknod("autofs", os.makedev(10, 235));
 
 	def __copy_deps(self, deps):
 		for d in deps.split('|'):
