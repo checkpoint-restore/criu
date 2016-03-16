@@ -63,6 +63,7 @@
 #include "images/userns.pb-c.h"
 #include "images/seccomp.pb-c.h"
 #include "images/binfmt-misc.pb-c.h"
+#include "images/autofs.pb-c.h"
 
 struct cr_pb_message_desc cr_pb_descs[PB_MAX];
 
