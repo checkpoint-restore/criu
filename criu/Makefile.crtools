@@ -77,6 +77,7 @@ obj-y			+= tun.o
 obj-y			+= util.o
 obj-y			+= uts_ns.o
 obj-y			+= path.o
+obj-y			+= autofs.o
 
 ifeq ($(VDSO),y)
 obj-y			+= pie-util-vdso.o

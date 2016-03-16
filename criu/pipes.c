@@ -11,6 +11,7 @@
 #include "files.h"
 #include "pipes.h"
 #include "util-pie.h"
+#include "autofs.h"
 
 #include "protobuf.h"
 #include "images/pipe.pb-c.h"
@@ -490,14 +491,14 @@ static int dump_one_pipe(int lfd, u32 id, const struct fd_parms *p)
 	pr_info("Dumping pipe %d with id %#x pipe_id %#x\n",
 			lfd, id, pipe_id(p));
 
-	if (p->flags & O_DIRECT) {
+	if ((p->flags & O_DIRECT) && !is_autofs_pipe(pipe_id(p))) {
 		pr_err("The packetized mode for pipes is not supported yet\n");
 		return -1;
 	}
 
 	pe.id		= id;
 	pe.pipe_id	= pipe_id(p);
-	pe.flags	= p->flags;
+	pe.flags	= p->flags & ~O_DIRECT;
 	pe.fown		= (FownEntry *)&p->fown;
 
 	if (pb_write_one(img_from_set(glob_imgset, CR_FD_PIPES), &pe, PB_PIPE))
