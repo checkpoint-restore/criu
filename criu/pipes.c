@@ -351,7 +351,7 @@ static struct file_desc_ops pipe_desc_ops = {
 	.name		= pipe_d_name,
 };
 
-static int collect_one_pipe(void *o, ProtobufCMessage *base, struct cr_img *i)
+int collect_one_pipe_ops(void *o, ProtobufCMessage *base, struct file_desc_ops *ops)
 {
 	struct pipe_info *pi = o, *tmp;
 
@@ -362,7 +362,7 @@ static int collect_one_pipe(void *o, ProtobufCMessage *base, struct cr_img *i)
 	pr_info("Collected pipe entry ID %#x PIPE ID %#x\n",
 			pi->pe->id, pi->pe->pipe_id);
 
-	if (file_desc_add(&pi->d, pi->pe->id, &pipe_desc_ops))
+	if (file_desc_add(&pi->d, pi->pe->id, ops))
 		return -1;
 
 	INIT_LIST_HEAD(&pi->pipe_list);
@@ -382,6 +382,11 @@ static int collect_one_pipe(void *o, ProtobufCMessage *base, struct cr_img *i)
 	list_add_tail(&pi->list, &pipes);
 
 	return 0;
+}
+
+static int collect_one_pipe(void *o, ProtobufCMessage *base, struct cr_img *i)
+{
+	return collect_one_pipe_ops(o, base, &pipe_desc_ops);
 }
 
 struct collect_image_info pipe_cinfo = {

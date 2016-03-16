@@ -44,6 +44,8 @@ extern int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst
  * A pipe doesn't have own properties, so it has no object.
  */
 
+#include "images/pipe.pb-c.h"
+
 struct pipe_info {
 	PipeEntry		*pe;
 	struct list_head	pipe_list;	/* All pipe_info with the same pipe_id
@@ -53,5 +55,8 @@ struct pipe_info {
 	unsigned int		create : 1,
 				reopen : 1;
 };
+
+extern int collect_one_pipe_ops(void *o, ProtobufCMessage *base,
+				struct file_desc_ops *ops);
 
 #endif /* __CR_PIPES_H__ */
