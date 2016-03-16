@@ -161,7 +161,7 @@ static int check_kcmp(void)
 {
 	int ret = syscall(SYS_kcmp, getpid(), -1, -1, -1, -1);
 
-	if (ret < 0 && errno != ENOSYS) {
+	if (ret < 0 && errno == ENOSYS) {
 		pr_perror("System call kcmp is not supported");
 		return -1;
 	}
