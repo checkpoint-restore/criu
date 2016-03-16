@@ -3,6 +3,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <libnl3/netlink/attr.h>
+#include <libnl3/netlink/msg.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -145,4 +146,75 @@ int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
 	memcpy(RTA_DATA(rta), data, alen);
 	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len);
 	return 0;
+}
+
+/*
+ * Here is a workaround for a bug in libnl-3:
+ * 6a8d90f5fec4 "attr: Allow attribute type 0
+ */
+
+/**
+ * Create attribute index based on a stream of attributes.
+ * @arg tb		Index array to be filled (maxtype+1 elements).
+ * @arg maxtype		Maximum attribute type expected and accepted.
+ * @arg head		Head of attribute stream.
+ * @arg len		Length of attribute stream.
+ * @arg policy		Attribute validation policy.
+ *
+ * Iterates over the stream of attributes and stores a pointer to each
+ * attribute in the index array using the attribute type as index to
+ * the array. Attribute with a type greater than the maximum type
+ * specified will be silently ignored in order to maintain backwards
+ * compatibility. If \a policy is not NULL, the attribute will be
+ * validated using the specified policy.
+ *
+ * @see nla_validate
+ * @return 0 on success or a negative error code.
+ */
+int __wrap_nla_parse(struct nlattr *tb[], int maxtype, struct nlattr *head, int len,
+	      struct nla_policy *policy)
+{
+	struct nlattr *nla;
+	int rem;
+
+	memset(tb, 0, sizeof(struct nlattr *) * (maxtype + 1));
+
+	nla_for_each_attr(nla, head, len, rem) {
+		int type = nla_type(nla);
+
+		if (type > maxtype)
+			continue;
+
+		if (tb[type])
+			pr_warn("Attribute of type %#x found multiple times in message, "
+				  "previous attribute is being ignored.\n", type);
+
+		tb[type] = nla;
+	}
+
+	if (rem > 0)
+		pr_warn("netlink: %d bytes leftover after parsing "
+		       "attributes.\n", rem);
+
+	return 0;
+}
+
+/**
+ * parse attributes of a netlink message
+ * @arg nlh		netlink message header
+ * @arg hdrlen		length of family specific header
+ * @arg tb		destination array with maxtype+1 elements
+ * @arg maxtype		maximum attribute type to be expected
+ * @arg policy		validation policy
+ *
+ * See nla_parse()
+ */
+int __wrap_nlmsg_parse(struct nlmsghdr *nlh, int hdrlen, struct nlattr *tb[],
+		int maxtype, struct nla_policy *policy)
+{
+	if (!nlmsg_valid_hdr(nlh, hdrlen))
+		return -NLE_MSG_TOOSHORT;
+
+	return nla_parse(tb, maxtype, nlmsg_attrdata(nlh, hdrlen),
+			 nlmsg_attrlen(nlh, hdrlen), policy);
 }
