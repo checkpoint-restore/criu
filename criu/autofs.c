@@ -511,6 +511,49 @@ static int autofs_mnt_open(const char *mnt_path, dev_t devid)
 	return fd;
 }
 
+static int autofs_create_dentries(const struct mount_info *mi, char *mnt_path)
+{
+	struct mount_info *c;
+
+	list_for_each_entry(c, &mi->children, siblings) {
+		char *path, *basename;
+
+		basename = strrchr(c->mountpoint, '/');
+		if (!basename) {
+			pr_info("%s: mount path \"%s\" doesn't have '/'\n",
+					__func__, c->mountpoint);
+			return -1;
+		}
+		path = xsprintf("%s%s", mnt_path, basename);
+		if (!path)
+			return -1;
+		if (mkdir(path, 0555) < 0) {
+			pr_perror("Failed to create autofs dentry %s", path);
+			return -1;
+		}
+		free(path);
+	}
+	return 0;
+}
+
+static int autofs_populate_mount(const struct mount_info *mi,
+				 const AutofsEntry *entry)
+{
+	struct mount_info *b;
+
+	if (entry->mode != AUTOFS_MODE_INDIRECT)
+		return 0;
+
+	if (autofs_create_dentries(mi, mi->mountpoint) < 0)
+		return -1;
+
+	list_for_each_entry(b, &mi->mnt_bind, mnt_bind) {
+		if (autofs_create_dentries(b, mi->mountpoint) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 static int autofs_post_mount(const char *mnt_path, dev_t mnt_dev,
 			     time_t timeout)
 {
@@ -835,6 +878,11 @@ int autofs_mount(struct mount_info *mi, const char *source, const
 		goto umount;
 	}
 	info->mnt_dev = buf.st_dev;
+
+	/* We need to create dentries for nested mounts */
+	ret = autofs_populate_mount(mi, entry);
+	if (ret < 0)
+		goto umount;
 
 	/* In case of catatonic mounts all we need as the function call below */
 	ret = autofs_post_mount(mi->mountpoint, buf.st_dev, entry->timeout);
