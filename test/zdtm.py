@@ -363,6 +363,11 @@ class zdtm_test:
 		except:
 			raise test_fail_exc("start")
 
+		if not self.static():
+			# Wait less than a second to give the test chance to
+			# move into some semi-random state
+			time.sleep(random.random())
+
 	def kill(self, sig = signal.SIGKILL):
 		self.__freezer.thaw()
 		if self.__pid:
