@@ -1,13 +1,16 @@
 #include <unistd.h>
 #include <sys/stat.h>
+#include <stdarg.h>
+#include <sys/mount.h>
 
 #include "proc_parse.h"
 #include "autofs.h"
-#include "util.h"
+#include "rst-malloc.h"
 #include "mount.h"
 #include "pstree.h"
 #include "namespaces.h"
 #include "protobuf.h"
+#include "pipes.h"
 
 #include "images/autofs.pb-c.h"
 
@@ -18,6 +21,8 @@
 #define AUTOFS_MODE_OFFSET	2
 
 #define AUTOFS_CATATONIC_FD	-1
+
+extern int add_post_prepare_cb(int (*actor)(void *data), void *data);
 
 struct autofs_pipe_s {
 	struct list_head list;
@@ -344,3 +349,515 @@ int autofs_dump(struct mount_info *pm)
 
 	return autofs_dump_entry(pm, entry);
 }
+
+typedef struct autofs_info_s {
+	struct pipe_info pi;
+	AutofsEntry *entry;
+	char *mnt_path;
+	dev_t mnt_dev;
+} autofs_info_t;
+
+static int dup_pipe_info(struct pipe_info *pi, int flags,
+			 struct file_desc_ops *ops)
+{
+	struct pipe_info *new;
+	PipeEntry *pe;
+
+	new = shmalloc(sizeof(*new));
+	if (!new)
+		return -1;
+
+	pe = shmalloc(sizeof(*pe));
+	if (!pe)
+		return -1;
+
+	pe->id = pi->pe->id;
+	pe->pipe_id = pi->pe->pipe_id;
+	pe->fown = pi->pe->fown;
+	pe->flags = flags;
+
+	if (collect_one_pipe_ops(new, &pe->base, ops) < 0) {
+		pr_err("Failed to add pipe info for write end\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int autofs_dup_pipe(struct pstree_item *task,
+			   struct fdinfo_list_entry *ple,
+			   int new_fd)
+{
+	struct pipe_info *pi = container_of(ple->desc, struct pipe_info, d);
+	unsigned flags = O_WRONLY;
+
+	new_fd = find_unused_fd(&rsti(task)->used, new_fd);
+
+	if (dup_pipe_info(pi, flags, pi->d.ops) < 0) {
+		pr_err("Failed to dup pipe entry ID %#x PIPE_ID %#x\n",
+				pi->pe->id, pi->pe->pipe_id);
+		return -1;
+	}
+
+	if (dup_fle(task, ple, new_fd, flags) < 0) {
+		pr_err("Failed to add fd %d to process %d\n",
+				new_fd, task->pid.virt);
+		return -1;
+	}
+
+	pr_info("autofs: added pipe fd %d, flags %#x to %d\n",
+			new_fd, flags, task->pid.virt);
+	return new_fd;
+}
+
+
+static int autofs_ioctl(const char *path, int fd, int cmd, const void *param)
+{
+	int err;
+
+	err = ioctl(fd, cmd, param);
+	if (err)
+		pr_perror("%s ioctl failed", path);
+
+	return err;
+}
+
+static int autofs_dev_ioctl(int cmd, struct autofs_dev_ioctl *param)
+{
+	char *path = "/dev/"AUTOFS_DEVICE_NAME;
+	int fd, err;
+
+	fd = open(path, O_RDONLY);
+	if (fd == -1) {
+		pr_perror("failed to open %s", path);
+		return -1;
+	}
+
+	err = autofs_ioctl(path, fd, cmd, param);
+
+	close(fd);
+	return err;
+}
+
+static int autofs_mnt_make_catatonic(const char *mnt_path, int mnt_fd)
+{
+	pr_info("%s: set %s catatonic\n", __func__, mnt_path);
+	return autofs_ioctl(mnt_path, mnt_fd, AUTOFS_IOC_CATATONIC, NULL);
+}
+
+static int autofs_mnt_set_timeout(time_t timeout,
+				  const char *mnt_path, int mnt_fd)
+{
+	pr_info("%s: set timeout %ld for %s\n", __func__, timeout, mnt_path);
+	return autofs_ioctl(mnt_path, mnt_fd, AUTOFS_IOC_SETTIMEOUT, &timeout);
+}
+
+static int autofs_mnt_set_pipefd(const autofs_info_t *i, int mnt_fd)
+{
+	struct autofs_dev_ioctl param;
+
+	/* Restore pipe and pgrp only for non-cataonic mounts */
+	if (i->entry->fd == AUTOFS_CATATONIC_FD)
+		return 0;
+
+	pr_info("%s: set pipe fd %d (pgrp %d) for mount %s\n", __func__,
+			i->entry->fd, getpgrp(), i->mnt_path);
+
+	init_autofs_dev_ioctl(&param);
+	param.ioctlfd = mnt_fd;
+	param.setpipefd.pipefd = i->entry->fd;
+
+	return autofs_dev_ioctl(AUTOFS_DEV_IOCTL_SETPIPEFD, &param);
+}
+
+static int autofs_mnt_close(const char *mnt_path, int mnt_fd)
+{
+	struct autofs_dev_ioctl param;
+
+	pr_info("%s: closing fd %d for mount %s\n", __func__, mnt_fd,
+			mnt_path);
+
+	init_autofs_dev_ioctl(&param);
+	param.ioctlfd = mnt_fd;
+
+	return autofs_dev_ioctl(AUTOFS_DEV_IOCTL_CLOSEMOUNT, &param);
+}
+
+static int autofs_mnt_open(const char *mnt_path, dev_t devid)
+{
+	struct autofs_dev_ioctl *param;
+	int err;
+	size_t size, fd;
+
+	pr_info("%s: open mount %s\n", __func__, mnt_path);
+
+	size = sizeof(*param) + strlen(mnt_path) + 1;
+	param = xmalloc(size);
+	if (!param)
+		return -1;
+
+	init_autofs_dev_ioctl(param);
+	param->size = size;
+	strcpy(param->path, mnt_path);
+	param->openmount.devid = devid;
+
+	err = autofs_dev_ioctl(AUTOFS_DEV_IOCTL_OPENMOUNT, param);
+	fd = param->ioctlfd;
+	free(param);
+	if (err < 0) {
+		pr_err("Failed to get %s fd (devid: %ld)\n", mnt_path, devid);
+		return -1;
+	}
+	return fd;
+}
+
+static int autofs_post_mount(const char *mnt_path, dev_t mnt_dev,
+			     time_t timeout)
+{
+	int mnt_fd;
+
+	pr_info("%s: set timeout for %s and make it catatonic\n",
+			__func__, mnt_path);
+
+	mnt_fd = autofs_mnt_open(mnt_path, mnt_dev);
+	if (mnt_fd < 0) {
+		pr_err("Failed to open %s\n", mnt_path);
+		return -1;
+	}
+
+	if (autofs_mnt_set_timeout(timeout, mnt_path, mnt_fd)) {
+		pr_err("Failed to set timeout %ld for %s\n",
+				timeout, mnt_path);
+		return -1;
+	}
+
+	if (autofs_mnt_make_catatonic(mnt_path, mnt_fd)) {
+		pr_err("Failed to set %s catatonic\n", mnt_path);
+		return -1;
+	}
+
+	if (autofs_mnt_close(mnt_path, mnt_fd) < 0) {
+		pr_err("Failed to close %s\n", mnt_path);
+		return -1;
+	}
+
+	return 0;
+}
+
+/* Here to fixup Autofs mount */
+static int autofs_post_open(struct file_desc *d, int fd)
+{
+	struct pipe_info *pi = container_of(d, struct pipe_info, d);
+	autofs_info_t *i = container_of(pi, autofs_info_t, pi);
+	int mnt_fd;
+
+	pr_info("%s: restoring %s\n", __func__, i->mnt_path);
+
+	mnt_fd = autofs_mnt_open(i->mnt_path, i->mnt_dev);
+	if (mnt_fd < 0) {
+		pr_err("Failed to open %s\n", i->mnt_path);
+		return -1;
+	}
+
+	if (autofs_mnt_set_pipefd(i, mnt_fd)) {
+		pr_err("Failed to set %s owner\n", i->mnt_path);
+		return -1;
+	}
+
+	if (autofs_mnt_close(i->mnt_path, mnt_fd) < 0) {
+		pr_err("Failed to close %s\n", i->mnt_path);
+		return -1;
+	}
+
+	pr_info("autofs mount %s owner restored: pgrp=%d, fd=%d\n",
+			i->mnt_path, getpgrp(), i->entry->fd);
+
+	if (i->entry->has_read_fd) {
+		pr_info("%s: pid %d, closing write end %d\n", __func__,
+				getpid(), i->entry->fd);
+		close(i->entry->fd);
+	}
+
+	pr_info("%s: pid %d, closing artificial pipe end %d\n", __func__,
+					getpid(), fd);
+	close(fd);
+	return 0;
+}
+
+static autofs_info_t *autofs_create_info(const struct mount_info *mi,
+					 const struct file_desc *desc,
+					 const autofs_info_t *info)
+{
+	autofs_info_t *i;
+
+	i = shmalloc(sizeof(*i));
+	if (!i)
+		return NULL;
+
+	i->mnt_path = shmalloc(strlen(mi->ns_mountpoint) + 1);
+	if (!i->mnt_path)
+		return NULL;
+
+	/* Here we copy autofs dev_id and entry from private data to shared.
+	 * See autofs_mount().
+	 */
+	i->entry = shmalloc(sizeof(*info->entry));
+	if (!i->entry)
+		return NULL;
+	memcpy(i->entry, info->entry, sizeof(*info->entry));
+	i->mnt_dev = info->mnt_dev;
+
+	/* We need mountpoint to be able to opne mount in autofs_post_open()
+	 * callback. And this have to be internal path, because process cwd
+	 * will be changed already. That's why ns_mountpoint is used. */
+	strcpy(i->mnt_path, mi->ns_mountpoint);
+
+	return i;
+}
+
+static struct fdinfo_list_entry *find_fle_by_fd(struct list_head *head, int fd)
+{
+	struct fdinfo_list_entry *fle;
+
+	list_for_each_entry(fle, head, ps_list) {
+		if (fle->fe->fd == fd)
+			return fle;
+	}
+	return NULL;
+}
+
+static struct fdinfo_list_entry *autofs_pipe_le(struct pstree_item *master,
+						AutofsEntry *entry)
+{
+	struct fdinfo_list_entry *ple;
+	int pipe_fd = entry->fd;
+
+	if (entry->has_read_fd)
+		pipe_fd = entry->read_fd;
+
+	ple = find_fle_by_fd(&rsti(master)->fds, pipe_fd);
+	if (!ple) {
+		pr_err("Failed to find pipe fd %d in process %d\n",
+				pipe_fd, master->pid.virt);
+		return NULL;
+	}
+	if (ple->fe->type != FD_TYPES__PIPE) {
+		pr_err("Fd %d in process %d is not a pipe: %d\n", pipe_fd,
+				master->pid.virt, ple->fe->type);
+		return NULL;
+	}
+	return ple;
+}
+
+static int autofs_create_fle(struct pstree_item *task, FdinfoEntry *fe,
+			     struct file_desc *desc)
+{
+	struct fdinfo_list_entry *le;
+
+	le = shmalloc(sizeof(*le) + sizeof(int));
+	if (!le)
+		return -1;
+	le = (void *)ALIGN((long)le, sizeof(int));
+
+	futex_init(&le->real_pid);
+	le->pid = task->pid.virt;
+	le->fe = fe;
+
+	collect_gen_fd(le, rsti(task));
+
+	list_add_tail(&le->desc_list, &desc->fd_info_head);
+	le->desc = desc;
+
+	pr_info("autofs: added pipe fd %d, flags %#x to %d (with post_open)\n",
+			le->fe->fd, le->fe->flags, le->pid);
+	return 0;
+}
+
+static int autofs_create_pipe(struct pstree_item *task, autofs_info_t *i,
+			      struct fdinfo_list_entry *ple)
+{
+	struct pipe_info *pi = container_of(ple->desc, struct pipe_info, d);
+	int fd = -1;
+	FdinfoEntry *fe;
+	unsigned flags = O_RDONLY;
+	struct file_desc_ops *ops;
+	PipeEntry *pe;
+
+	fd = find_unused_fd(&rsti(task)->used, fd);
+
+	ops = shmalloc(sizeof(*ops));
+	if (!ops)
+		return -1;
+	memcpy(ops, pi->d.ops, sizeof(*ops));
+	ops->post_open = autofs_post_open;
+
+	pe = shmalloc(sizeof(*pe));
+	if (!pe)
+		return -1;
+
+	pe->id = pi->pe->id;
+	pe->pipe_id = pi->pe->pipe_id;
+	pe->fown = pi->pe->fown;
+	pe->flags = flags;
+
+	if (collect_one_pipe_ops(&i->pi, &pe->base, ops) < 0) {
+		pr_err("Failed to add pipe info for write end\n");
+		return -1;
+	}
+
+	fe = dup_fdinfo(ple->fe, fd, flags);
+	if (!fe)
+		return -1;
+
+	return autofs_create_fle(task, fe, &i->pi.d);
+}
+
+static int autofs_add_mount_info(void *data)
+{
+	struct mount_info *mi = data;
+	autofs_info_t *info = mi->private;
+	AutofsEntry *entry = info->entry;
+	autofs_info_t *i;
+	struct pstree_item *master;
+	struct fdinfo_list_entry *ple;
+
+	if (entry->fd == -1)
+		/* Catatonic mounts have no owner. Keep them with init. */
+		master = pstree_item_by_virt(getpid());
+	else
+		master = pstree_item_by_virt(entry->pgrp);
+	BUG_ON(!master);
+
+	ple = autofs_pipe_le(master, entry);
+	if (!ple)
+		return -1;
+
+	if (entry->has_read_fd) {
+		/* Original pipe write end was closed.
+		 * We need create one to be able to fixup AutoFS mount. */
+
+		entry->fd = autofs_dup_pipe(master, ple, entry->fd);
+		if (entry->fd < 0) {
+			pr_err("Failed to find free fd in process %d\n",
+					master->pid.virt);
+			return -1;
+		}
+	}
+
+	i = autofs_create_info(mi, ple->desc, info);
+	if (!i)
+		return -1;
+
+	/* Another pipe descriptor is needed to call post_open callback */
+	if (autofs_create_pipe(master, i, ple))
+		return -1;
+
+	mi->private = i;
+
+	return 0;
+}
+
+static int autofs_restore_entry(struct mount_info *mi, AutofsEntry **entry)
+{
+	struct cr_img *img;
+
+	img = open_image(CR_FD_AUTOFS, O_RSTR, mi->s_dev);
+	if (!img)
+		return -1;
+	if (empty_image(img)) {
+		close_image(img);
+		return -1;
+	}
+
+	if (pb_read_one_eof(img, entry, PB_AUTOFS) < 0)
+		return -1;
+
+	close_image(img);
+	return 0;
+}
+
+int autofs_mount(struct mount_info *mi, const char *source, const
+		 char *filesystemtype, unsigned long mountflags)
+{
+	AutofsEntry *entry;
+	autofs_info_t *info;
+	char *opts, *mode;
+	int control_pipe[2], ret = -1;
+	struct stat buf;
+
+	if (autofs_restore_entry(mi, &entry) < 0)
+		return -1;
+
+	if (pipe(control_pipe) < 0) {
+		pr_perror("Can't create pipe");
+		return -1;
+	}
+
+	mode = "direct";
+	if (entry->mode == AUTOFS_MODE_INDIRECT)
+		mode = "indirect";
+	if (entry->mode == AUTOFS_MODE_OFFSET)
+		mode = "offset";
+
+	opts = xsprintf("fd=%d,pgrp=%d,minproto=%d,maxproto=%d,%s",
+			control_pipe[1], getpgrp(), entry->minproto,
+			entry->maxproto, mode);
+	if (opts && entry->has_uid)
+		opts = xstrcat(opts, ",uid=%d", entry->uid);
+	if (opts && entry->has_gid)
+		opts = xstrcat(opts, ",gid=%d", entry->gid);
+	if (!opts) {
+		pr_err("Failed to create options string\n");
+		goto close_pipe;
+	}
+
+	pr_info("autofs: mounting to %s with options: \"%s\"\n",
+			mi->mountpoint, opts);
+
+	if (mount(source, mi->mountpoint, filesystemtype, mountflags, opts) < 0) {
+		pr_perror("Failed to mount autofs to %s", mi->mountpoint);
+		goto close_pipe;
+	}
+
+	info = xmalloc(sizeof(*info));
+	if (!info)
+		goto umount;
+	info->entry = entry;
+
+	/* We need autofs dev_id to be able to open direct mount point.
+	 * But we can't call stat in autofs_add_mount_info(), because autofs
+	 * mount can be overmounted. Thus we have to call it here. But shared
+	 * data is not ready yet. So, let's put in on mi->private and copy to
+	 * shared data in autofs_add_mount_info().
+	 */
+	if (stat(mi->mountpoint, &buf) < 0) {
+		pr_perror("Failed to stat %s", mi->mountpoint);
+		goto umount;
+	}
+	info->mnt_dev = buf.st_dev;
+
+	/* In case of catatonic mounts all we need as the function call below */
+	ret = autofs_post_mount(mi->mountpoint, buf.st_dev, entry->timeout);
+	if (ret < 0)
+		goto umount;
+
+	/* Otherwise we have to add shared object creation callback */
+	if (entry->fd != AUTOFS_CATATONIC_FD) {
+		ret = add_post_prepare_cb(autofs_add_mount_info, mi);
+		if (ret < 0)
+			goto umount;
+	}
+
+	mi->private = info;
+
+close_pipe:
+	close(control_pipe[1]);
+	close(control_pipe[0]);
+	return ret;
+
+umount:
+	if (umount(mi->mountpoint) < 0)
+		pr_perror("Failed to umount %s", mi->mountpoint);
+	goto close_pipe;
+}
+
