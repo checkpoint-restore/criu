@@ -678,7 +678,7 @@ class criu_cli:
 		ret = self.__criu(action, s_args, self.__fault, strace, preexec)
 		grep_errors(os.path.join(__ddir, log))
 		if ret != 0:
-			if self.__fault:
+			if self.__fault and int(self.__fault) < 128:
 				try_run_hook(self.__test, ["--fault", action])
 				if action == "dump":
 					# create a clean directory for images

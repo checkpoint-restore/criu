@@ -40,6 +40,7 @@
 #include "cr_options.h"
 #include "namespaces.h"
 #include "pstree.h"
+#include "fault-injection.h"
 
 #include "protobuf.h"
 #include "images/fsnotify.pb-c.h"
@@ -224,7 +225,13 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 	int fd = -1;
 	char *path;
 
+	if (fault_injected(FI_CHECK_OPEN_HANDLE)) {
+		fd = -1;
+		goto fault;
+	}
+
 	fd = open_handle(s_dev, i_ino, f_handle);
+fault:
 	if (fd >= 0) {
 		struct mount_info *mi;
 
