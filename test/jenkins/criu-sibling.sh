@@ -3,4 +3,4 @@ set -e
 source `dirname $0`/criu-lib.sh
 prep
 mount_tmpfs_to_dump
-./test/zdtm.py run --all --report report --sibling --parallel 4 -x 'maps04' || fail
+./test/zdtm.py run --all --keep-going --report report --sibling --parallel 4 -x 'maps04' || fail

@@ -2,4 +2,4 @@
 set -e
 source `dirname $0`/criu-lib.sh
 prep
-./test/zdtm.py run --all --report report --parallel 4 || fail
+./test/zdtm.py run --all --keep-going --report report --parallel 4 || fail
