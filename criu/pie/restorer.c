@@ -394,8 +394,7 @@ die:
 	return -1;
 }
 
-static int restore_thread_common(struct rt_sigframe *sigframe,
-		struct thread_restore_args *args)
+static int restore_thread_common(struct thread_restore_args *args)
 {
 	sys_set_tid_address((int *)decode_pointer(args->clear_tid_addr));
 
@@ -452,7 +451,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 
 	rt_sigframe = (void *)args->mem_zone.rt_sigframe;
 
-	if (restore_thread_common(rt_sigframe, args))
+	if (restore_thread_common(args))
 		goto core_restore_end;
 
 	ret = restore_creds(args->creds_args, args->ta->proc_fd);
@@ -1142,7 +1141,7 @@ long __export_restore_task(struct task_restore_args *args)
 	 */
 	rt_sigframe = (void *)args->t->mem_zone.rt_sigframe;
 
-	if (restore_thread_common(rt_sigframe, args->t))
+	if (restore_thread_common(args->t))
 		goto core_restore_end;
 
 	/*
