@@ -5,6 +5,7 @@ ASCIIDOC	:= asciidoc
 A2X		:= a2x
 XMLTO		:= xmlto
 
+FOOTER		:= footer.txt
 SRC		+= criu.txt
 XMLS		:= $(patsubst %.txt,%.xml,$(SRC))
 MANS		:= $(patsubst %.txt,%.8,$(SRC))
@@ -26,6 +27,16 @@ check:
 		$$B --version > /dev/null || exit 1;	\
 	done
 
+$(FOOTER): ../Makefile.versions
+	$(call msg-gen, $@)
+	$(Q) echo ":doctype:       manpage"		>  $@
+	$(Q) echo ":man source:    criu"		>> $@
+	$(Q) echo ":man version:   $(CRIU_VERSION)"	>> $@
+	$(Q) echo ":man manual:    CRIU Manual"		>> $@
+
+$(SRC): $(FOOTER)
+	@true
+
 %.8: %.txt
 	$(call msg-gen, $@)
 	$(Q) $(ASCIIDOC) -b docbook -d manpage -o $(patsubst %.8,%.xml,$@) $<
@@ -41,7 +52,7 @@ check:
 
 clean:
 	$(call msg-clean, "Documentation")
-	$(Q) rm -f $(XMLS) $(MANS) $(PSS) $(PDFS)
+	$(Q) rm -f $(XMLS) $(MANS) $(PSS) $(PDFS) $(FOOTER)
 
 install: $(MANS)
 	$(E) "  INSTALL " $(MANS)

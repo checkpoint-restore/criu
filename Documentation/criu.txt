@@ -1,9 +1,6 @@
 CRIU(8)
 =======
-:doctype:       manpage
-:man source:    criu
-:man version:   0.0.3
-:man manual:    CRIU Manual
+include::footer.txt[]
 
 NAME
 ----
