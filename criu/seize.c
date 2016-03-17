@@ -203,6 +203,7 @@ static int freezer_wait_processes()
 		if (pid < 0) {
 			pr_perror("Unable to wait processes");
 			xfree(processes_to_wait_pids);
+			processes_to_wait_pids = NULL;
 			return -1;
 		}
 		pr_warn("Unexpected process %d in the freezer cgroup (status 0x%x)\n", pid, status);
@@ -220,7 +221,7 @@ static int freezer_detach(void)
 	if (!opts.freeze_cgroup)
 		return 0;
 
-	for (i = 0; i < processes_to_wait; i++) {
+	for (i = 0; i < processes_to_wait && processes_to_wait_pids; i++) {
 		pid_t pid = processes_to_wait_pids[i];
 		int status, save_errno;
 
