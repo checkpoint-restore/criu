@@ -739,7 +739,7 @@ static int enable_uffd(int uffd, unsigned long addr, unsigned long len)
 	uffdio_register.mode = UFFDIO_REGISTER_MODE_MISSING;
 	pr_info("lazy-pages: uffdio_register.range.start 0x%lx\n", (unsigned long) uffdio_register.range.start);
 	pr_info("lazy-pages: uffdio_register.len 0x%llx\n", uffdio_register.range.len);
-	rc = sys_ioctl(uffd, UFFDIO_REGISTER, &uffdio_register);
+	rc = sys_ioctl(uffd, UFFDIO_REGISTER, (unsigned long) &uffdio_register);
 	pr_info("lazy-pages: ioctl UFFDIO_REGISTER rc %d\n", rc);
 	pr_info("lazy-pages: uffdio_register.range.start 0x%lx\n", (unsigned long) uffdio_register.range.start);
 	pr_info("lazy-pages: uffdio_register.len 0x%llx\n", uffdio_register.range.len);
