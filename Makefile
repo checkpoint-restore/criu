@@ -107,7 +107,6 @@ CFLAGS			+= $(WARNINGS) $(DEFINES)
 # Protobuf images first, they are not depending
 # on anything else.
 $(eval $(call gen-built-in,images))
-.PHONY: images
 
 #
 # CRIU building done in own directory
