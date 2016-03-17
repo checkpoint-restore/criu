@@ -1082,12 +1082,11 @@ class launcher:
 		if pid != 0:
 			sub = self.__subs.pop(pid)
 			if status != 0:
+				self.__fail = True
 				failed_flavor = decode_flav(os.WEXITSTATUS(status))
 				if self.__file_report:
 					testline = "not ok %d - %s # flavor %s" % (self.__runtest, sub['name'], failed_flavor)
 					print >> self.__file_report, testline
-				if not opts['keep_going']:
-					self.__fail = True
 				if sub['log']:
 					add_to_report(sub['log'], sub['name'].replace('/', '_') + "_" + failed_flavor + "/output")
 			else:
@@ -1112,12 +1111,12 @@ class launcher:
 		while self.__subs:
 			if not self.__wait_one(os.WNOHANG):
 				break
-		if self.__fail:
+		if self.__fail and not opts['keep_going']:
 			raise test_fail_exc('')
 
 	def wait_all(self):
 		self.__wait_all()
-		if self.__fail:
+		if self.__fail and not opts['keep_going']:
 			raise test_fail_exc('')
 
 	def finish(self):
