@@ -101,7 +101,7 @@ struct rt_sigframe {
 		  "r"(&thread_args[i])		/* %6 */		\
 		: "memory","0","3","4","5","6","7","14","15")
 
-#define RT_SIGFRAME_UC(rt_sigframe) rt_sigframe->uc
+#define RT_SIGFRAME_UC(rt_sigframe) (&rt_sigframe->uc)
 #define RT_SIGFRAME_REGIP(rt_sigframe) ((long unsigned int)(rt_sigframe)->uc.uc_mcontext.gp_regs[PT_NIP])
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe) (1)
 #define RT_SIGFRAME_FPU(rt_sigframe) ((rt_sigframe)->uc.uc_mcontext)

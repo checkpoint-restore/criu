@@ -133,7 +133,7 @@ struct rt_sigframe {
 		     : "memory")
 #endif /* CONFIG_X86_64 */
 
-#define RT_SIGFRAME_UC(rt_sigframe) rt_sigframe->uc
+#define RT_SIGFRAME_UC(rt_sigframe) (&rt_sigframe->uc)
 #define RT_SIGFRAME_REGIP(rt_sigframe) (rt_sigframe)->uc.uc_mcontext.rip
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe) (rt_sigframe)->fpu_state.has_fpu
 #define RT_SIGFRAME_FPU(rt_sigframe) (rt_sigframe)->fpu_state

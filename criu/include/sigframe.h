@@ -49,18 +49,4 @@ extern int construct_sigframe(struct rt_sigframe *sigframe,
 			      struct rt_sigframe *rsigframe,
 			      CoreEntry *core);
 
-/*
- * FIXME Convert it to inline helper, which requires
- *	 to unweave types mess we've generated for
- *	 run-time data.
- */
-#define setup_sas(sigframe, sas)											\
-do {															\
-	if ((sas)) {													\
-		RT_SIGFRAME_UC((sigframe)).uc_stack.ss_sp	= (void *)decode_pointer((sas)->ss_sp);			\
-		RT_SIGFRAME_UC((sigframe)).uc_stack.ss_flags	= (int)(sas)->ss_flags;					\
-		RT_SIGFRAME_UC((sigframe)).uc_stack.ss_size	= (size_t)(sas)->ss_size;				\
-	}														\
-} while (0)
-
 #endif /* __CR_SIGFRAME_H__ */

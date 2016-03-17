@@ -90,7 +90,7 @@ struct rt_sigframe {
 			: "sp", "x0", "memory")
 
 
-#define RT_SIGFRAME_UC(rt_sigframe) rt_sigframe->uc
+#define RT_SIGFRAME_UC(rt_sigframe) (&rt_sigframe->uc)
 #define RT_SIGFRAME_REGIP(rt_sigframe) ((long unsigned int)(rt_sigframe)->uc.uc_mcontext.pc)
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe) (1)
 #define RT_SIGFRAME_FPU(rt_sigframe) ((struct aux_context*)&(rt_sigframe)->uc.uc_mcontext.__reserved)->fpsimd
