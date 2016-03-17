@@ -71,8 +71,8 @@ int autofs_parse(struct mount_info *pm)
 	free(opts);
 
 	if (pipe_ino == AUTOFS_OPT_UNKNOWN) {
-		pr_err("Failed to find pipe_ino option (old kernel?)\n");
-		return -1;
+		pr_warn("Failed to find pipe_ino option (old kernel?)\n");
+		return 0;
 	}
 
 	return autofs_gather_pipe(pipe_ino);
