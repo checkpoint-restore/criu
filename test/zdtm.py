@@ -19,6 +19,7 @@ import socket
 import fcntl
 import errno
 import datetime
+import yaml
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -1086,7 +1087,9 @@ class launcher:
 				failed_flavor = decode_flav(os.WEXITSTATUS(status))
 				if self.__file_report:
 					testline = "not ok %d - %s # flavor %s" % (self.__runtest, sub['name'], failed_flavor)
+					details = { 'output': open(sub['log']).read() }
 					print >> self.__file_report, testline
+					print >> self.__file_report, yaml.dump(details, explicit_start=True, explicit_end=True, default_style='|')
 				if sub['log']:
 					add_to_report(sub['log'], sub['name'].replace('/', '_') + "_" + failed_flavor + "/output")
 			else:
