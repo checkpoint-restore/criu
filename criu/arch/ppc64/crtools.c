@@ -32,8 +32,6 @@ const u32 code_syscall[] = {
 	0x0fe00000		/* twi 31,0,0	*/
 };
 
-const int code_syscall_size = sizeof(code_syscall);
-
 static inline void __check_code_syscall(void)
 {
 	BUILD_BUG_ON(sizeof(code_syscall) != BUILTIN_SYSCALL_SIZE);
@@ -80,7 +78,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	regs.gpr[7] = arg5;
 	regs.gpr[8] = arg6;
 
-	err = __parasite_execute_syscall(ctl, &regs);
+	err = __parasite_execute_syscall(ctl, &regs, code_syscall);
 
 	*ret = regs.gpr[3];
 	return err;

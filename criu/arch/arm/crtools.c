@@ -28,11 +28,12 @@ const char code_syscall[] = {
 	0xf0, 0x01, 0xf0, 0xe7          /* UDF #32 */
 };
 
-const int code_syscall_size = round_up(sizeof(code_syscall), sizeof(long));
+static const int
+code_syscall_aligned = round_up(sizeof(code_syscall), sizeof(long));
 
 static inline __always_unused void __check_code_syscall(void)
 {
-	BUILD_BUG_ON(sizeof(code_syscall) != BUILTIN_SYSCALL_SIZE);
+	BUILD_BUG_ON(code_syscall_aligned != BUILTIN_SYSCALL_SIZE);
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 }
 
@@ -73,7 +74,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	regs.ARM_r4 = arg5;
 	regs.ARM_r5 = arg6;
 
-	err = __parasite_execute_syscall(ctl, &regs);
+	err = __parasite_execute_syscall(ctl, &regs, code_syscall);
 
 	*ret = regs.ARM_r0;
 	return err;

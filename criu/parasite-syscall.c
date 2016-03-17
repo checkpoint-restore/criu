@@ -44,7 +44,7 @@
 static int can_run_syscall(unsigned long ip, unsigned long start,
 			   unsigned long end, unsigned long pad)
 {
-	return ip >= start && ip < (end - code_syscall_size - pad);
+	return ip >= start && ip < (end - BUILTIN_SYSCALL_SIZE - pad);
 }
 
 static int syscall_fits_vma_area(struct vma_area *vma_area, unsigned long pad)
@@ -210,7 +210,8 @@ err:
 	return ret;
 }
 
-int __parasite_execute_syscall(struct parasite_ctl *ctl, user_regs_struct_t *regs)
+int __parasite_execute_syscall(struct parasite_ctl *ctl,
+		user_regs_struct_t *regs, const char *code_syscall)
 {
 	pid_t pid = ctl->pid.real;
 	int err;
