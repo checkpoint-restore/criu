@@ -13,5 +13,7 @@ cleanup-y += $(obj)/piegen
 cleanup-y += $(obj)/*.o
 
 ifneq ($(MAKECMDGOALS),clean)
+ifneq ($(MAKECMDGOALS),mrproper)
 incdeps := y
+endif
 endif

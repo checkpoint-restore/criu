@@ -85,6 +85,7 @@ REQ-DEV-PKG-TEST-NAMES  += libcap-dev
 #
 # Make sure all required libs are installed
 ifneq ($(MAKECMDGOALS),clean)
+ifneq ($(MAKECMDGOALS),mrproper)
         ifneq ($(shell sh -c                                                            \
                         'TMP="$(OUTPUT)$(TMPOUT).$$$$";                                 \
                         echo "int main(int argc, char *argv[]) { return 0; }" |         \
@@ -99,6 +100,7 @@ ifneq ($(MAKECMDGOALS),clean)
                 $(warning "DEB based distros: $(REQ-DEB-PKG-TEST-NAMES)")
                 $(error "Compilation aborted")
         endif
+endif
 endif
 ifeq ($(GMON),1)
 	CFLAGS		+= -pg
@@ -177,22 +179,36 @@ criu: $(PROGRAM-BUILTINS)
 	$(call msg-link, $@)
 	$(Q) $(CC) $(CFLAGS) $^ $(ARCH-LIB) $(LIBS) $(LDFLAGS) $(GMONLDOPT) -rdynamic -o $@
 
+
+subclean:
+	$(Q) $(RM) ./*.{gcda,gcno,gcov}
+	$(Q) $(RM) ./pie/*.{gcda,gcno,gcov}
+	$(Q) $(RM) ./pie/piegen/*.{gcda,gcno,gcov}
+	$(Q) $(RM) -r ./gcov
+	$(Q) $(RM) criu
+.PHONY: subclean
+
 #
-# Cleanup everything.
-clean:
+# Clean the most, except generated c files
+clean: subclean
 	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) $@
 	$(Q) $(MAKE) $(call build-as,Makefile.library,pie) $@
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,.) $@
 	$(Q) $(MAKE) $(build)=pie/piegen $@
 	$(Q) $(MAKE) $(build)=pie $@
-	$(Q) $(RM) ./*.{gcda,gcno,gcov}
-	$(Q) $(RM) ./pie/*.{gcda,gcno,gcov}
-	$(Q) $(RM) ./pie/piegen/*.{gcda,gcno,gcov}
-	$(Q) $(RM) -r ./gcov
+.PHONY: clean
+
+#
+# Delete all generated files
+mrproper: subclean
+	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) $@
+	$(Q) $(MAKE) $(call build-as,Makefile.library,pie) $@
+	$(Q) $(MAKE) $(call build-as,Makefile.crtools,.) $@
+	$(Q) $(MAKE) $(build)=pie/piegen $@
+	$(Q) $(MAKE) $(build)=pie $@
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(RM) $(CONFIG_HEADER)
-	$(Q) $(RM) criu
-.PHONY: clean
+.PHONY: mrproper
 
 UAPI_HEADERS := include/criu-plugin.h include/criu-log.h
 

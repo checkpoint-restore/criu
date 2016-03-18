@@ -96,8 +96,10 @@ endif
 $(BLOBS): $(obj)/$(PIELDS)
 all-y += $(BLOBS)
 
+# blobs and pields are in cleanup, rather than in mrproper because
+# we want them to be re-generated after `make clean && make`
+cleanup-y += $(BLOBS)
 cleanup-y += $(obj)/$(PIELDS)
 cleanup-y += $(obj)/*.bin
-cleanup-y += $(BLOBS)
 cleanup-y += $(obj)/*.built-in.bin.o
 cleanup-y += $(obj)/*.built-in.bin

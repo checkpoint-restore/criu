@@ -89,4 +89,4 @@ protobuf-desc-gen.h: $(PROTOBUF_GEN) include/protobuf-desc.h
 	$(call msg-gen, $@)
 	$(Q) $(SH) $(PROTOBUF_GEN) > $@
 
-cleanup-y += protobuf-desc-gen.h
+mrproper-y += protobuf-desc-gen.h

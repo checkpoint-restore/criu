@@ -102,10 +102,13 @@ $(obj)/built-in.o: $(addprefix $(obj)/,$(proto-obj-y))
 	$(Q) $(LD) $(ldflags-y) -r -o $@ $^
 
 ifneq ($(MAKECMDGOALS),clean)
+ifneq ($(MAKECMDGOALS),mrproper)
 -include $(addprefix $(obj)/,$(proto-obj-y:.o=.pb-c.d))
 endif
+endif
 
-cleanup-y += $(obj)/*.c.d $(obj)/*.pb-c.c $(obj)/*.pb-c.h
+mrproper-y += $(obj)/*.pb-c.c $(obj)/*.pb-c.h
+cleanup-y += $(obj)/*.c.d
 cleanup-y += $(obj)/google/protobuf/*.d
 cleanup-y += $(obj)/google/protobuf/*.h
 cleanup-y += $(obj)/google/protobuf/*.c

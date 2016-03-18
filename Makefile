@@ -135,19 +135,25 @@ lib: criu
 all: criu lib
 .PHONY: all
 
-clean-built:
-	$(Q) $(MAKE) $(build)=images clean
-	$(Q) $(MAKE) -C criu clean
+subclean:
+	$(call msg-clean, criu)
 	$(Q) $(MAKE) -C lib clean
 	$(Q) $(MAKE) -C Documentation clean
-.PHONY: clean-built
+	$(Q) $(RM) .gitid
+.PHONY: subclean
 
-clean: clean-built
-	$(call msg-clean, criu)
+clean: subclean
+	$(Q) $(MAKE) $(build)=images $@
+	$(Q) $(MAKE) -C criu $@
+.PHONY: clean
+
+# mrproper depends on clean in nmk
+mrproper: subclean
+	$(Q) $(MAKE) $(build)=images $@
+	$(Q) $(MAKE) -C criu $@
 	$(Q) $(RM) cscope.*
 	$(Q) $(RM) tags TAGS
-	$(Q) $(RM) .gitid
-.PHONY: clean
+.PHONY: mrproper
 
 #
 # Non-CRIU stuff.
@@ -224,7 +230,8 @@ help:
 	@echo '      docs            - Build documentation'
 	@echo '      install         - Install binary and man page'
 	@echo '      dist            - Create a source tarball'
-	@echo '      clean           - Clean everything'
+	@echo '      clean           - Clean most, but leave enough to navigate'
+	@echo '      mrproper        - Delete all compiled/generated files'
 	@echo '      tags            - Generate tags file (ctags)'
 	@echo '      etags           - Generate TAGS file (etags)'
 	@echo '      cscope          - Generate cscope database'

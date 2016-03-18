@@ -47,6 +47,6 @@ $(obj)/$(SYS-EXEC-TBL): $(obj)/$(SYS-GEN-TBL) $(obj)/syscalls/$(SYS-DEF)
 
 all-y += $(obj)/$(SYS-EXEC-TBL)
 
-cleanup-y += $(obj)/$(SYS-EXEC-TBL) $(obj)/$(SYS-ASM)
-cleanup-y += $(obj)/$(SYS-CODES)
-cleanup-y += $(obj)/$(SYS-PROTO)
+mrproper-y += $(obj)/$(SYS-EXEC-TBL) $(obj)/$(SYS-ASM)
+mrproper-y += $(obj)/$(SYS-CODES)
+mrproper-y += $(obj)/$(SYS-PROTO)
