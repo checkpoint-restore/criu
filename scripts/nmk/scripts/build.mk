@@ -13,6 +13,7 @@ builtin-name	:=
 lib-name	:=
 ld_flags	:=
 cleanup-y	:=
+mrproper-y	:=
 
 MAKECMDGOALS := $(call uniq,$(MAKECMDGOALS))
 
@@ -170,11 +171,17 @@ objlist:
 .PHONY: objlist
 
 #
-# Clean everything up.
+# Clean most files, but leave enough to navigate with tags (generated files)
 clean:
 	$(call msg-clean, $(obj))
 	$(Q) $(RM) $(obj)/*.o $(obj)/*.d $(obj)/*.i $(obj)/*.s $(cleanup-y)
 .PHONY: clean
+
+#
+# Delete all generated files
+mrproper: clean
+	$(Q) $(RM) $(mrproper-y)
+.PHONY: mrproper
 
 #
 # Footer.
