@@ -20,6 +20,7 @@
 #include "include/criu-plugin.h"
 #include "include/pagemap.h"
 #include "include/files-reg.h"
+#include "include/kerndat.h"
 #include "include/mem.h"
 #include "include/uffd.h"
 #include "include/util-pie.h"
@@ -427,18 +428,69 @@ static int handle_vdso_pages(int uffd, struct list_head *uffd_list, unsigned lon
 }
 
 /*
- *  Setting up criu infrastructure to easily
- *  access the dump results.
+ *  Setting up criu infrastructure and scan for VMAs.
  */
-static void criu_init()
+static int find_vmas()
 {
-	/* TODO: return code checking */
-	check_img_inventory();
-	prepare_task_entries();
-	prepare_pstree();
-	collect_remaps_and_regfiles();
-	prepare_shared_reg_files();
-	prepare_mm_pid(root_item);
+	struct cr_img *img;
+	int ret;
+	struct vm_area_list vmas;
+	int vn = 0;
+	struct rst_info *ri;
+
+	LIST_HEAD(uffd_list);
+
+	if (check_img_inventory() == -1)
+		return -1;
+
+	vm_area_list_init(&vmas);
+
+	/* Allocate memory for task_entries */
+	if (prepare_task_entries() == -1)
+		return -1;
+
+	if (prepare_pstree() == -1)
+		return -1;
+
+	ri = rsti(root_item);
+	if (!ri)
+		return -1;
+
+	img = open_image(CR_FD_MM, O_RSTR, pid);
+	if (!img)
+		return -1;
+
+	ret = pb_read_one_eof(img, &ri->mm, PB_MM);
+	close_image(img);
+	if (ret == -1)
+		return -1;
+
+	pr_debug("Found %zd VMAs in image\n", ri->mm->n_vmas);
+
+	while (vn < ri->mm->n_vmas) {
+		struct vma_area *vma;
+
+		ret = -1;
+		vma = alloc_vma_area();
+		if (!vma)
+			break;
+
+		ret = 0;
+		ri->vmas.nr++;
+		vma->e = ri->mm->vmas[vn++];
+
+		list_add_tail(&vma->list, &ri->vmas.h);
+
+		if (vma_area_is_private(vma, kdat.task_size)) {
+			vmas.priv_size += vma_area_len(vma);
+			if (vma->e->flags & MAP_GROWSDOWN)
+				vmas.priv_size += PAGE_SIZE;
+		}
+
+		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vma->e->start, vma->e->end);
+	}
+
+	return ret;
 }
 
 int uffd_listen()
@@ -478,8 +530,12 @@ int uffd_listen()
 	uffd_flags = fcntl(uffd, F_GETFD, NULL);
 	pr_debug("uffd_flags are 0x%x\n", uffd_flags);
 
-	/* Setting up criu infrastructure to easily access the dump results */
-	criu_init();
+	/*
+	 * Find the memory pages belonging to the restored process
+	 * so that it is trackable when all pages have been transferred.
+	 */
+	if (find_vmas() == -1)
+		return -1;
 
 	/* Initialize FD sets for read() with timeouts (using select()) */
 	FD_ZERO(&set);
