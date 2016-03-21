@@ -15,6 +15,7 @@
 extern int check_img_inventory(void);
 extern int write_img_inventory(InventoryEntry *he);
 extern int prepare_inventory(InventoryEntry *he);
+extern int add_post_prepare_cb(int (*actor)(void *data), void *data);
 
 #define LAST_PID_PATH		"sys/kernel/ns_last_pid"
 
