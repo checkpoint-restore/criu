@@ -11,6 +11,7 @@
 #include "namespaces.h"
 #include "protobuf.h"
 #include "pipes.h"
+#include "crtools.h"
 
 #include "images/autofs.pb-c.h"
 
