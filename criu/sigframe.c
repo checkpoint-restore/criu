@@ -9,11 +9,12 @@
 static inline void setup_sas(struct rt_sigframe* sigframe, ThreadSasEntry *sas)
 {
 	if (sas) {
-		struct rt_ucontext *uc	= RT_SIGFRAME_UC(sigframe);
+#define UC	RT_SIGFRAME_UC(sigframe)
 
-		uc->uc_stack.ss_sp	= (void *)decode_pointer((sas)->ss_sp);
-		uc->uc_stack.ss_flags	= (int)(sas)->ss_flags;
-		uc->uc_stack.ss_size	= (size_t)(sas)->ss_size;
+		UC->uc_stack.ss_sp	= (void *)decode_pointer((sas)->ss_sp);
+		UC->uc_stack.ss_flags	= (int)(sas)->ss_flags;
+		UC->uc_stack.ss_size	= (size_t)(sas)->ss_size;
+#undef UC
 	}
 }
 
@@ -21,7 +22,7 @@ int construct_sigframe(struct rt_sigframe *sigframe,
 				     struct rt_sigframe *rsigframe,
 				     CoreEntry *core)
 {
-	k_rtsigset_t *blk_sigset = &RT_SIGFRAME_UC(sigframe)->uc_sigmask;
+	k_rtsigset_t *blk_sigset = (k_rtsigset_t*)&RT_SIGFRAME_UC(sigframe)->uc_sigmask;
 
 	if (core->tc)
 		memcpy(blk_sigset, &core->tc->blk_sigset, sizeof(k_rtsigset_t));
