@@ -285,28 +285,11 @@ static int page_server_serve(int sk)
 	return ret;
 }
 
-static int get_sockaddr_in(struct sockaddr_in *addr)
-{
-	memset(addr, 0, sizeof(*addr));
-	addr->sin_family = AF_INET;
-
-	if (!opts.addr)
-		addr->sin_addr.s_addr = INADDR_ANY;
-	else if (!inet_aton(opts.addr, &addr->sin_addr)) {
-		pr_perror("Bad page server address");
-		return -1;
-	}
-
-	addr->sin_port = opts.port;
-	return 0;
-}
-
 int cr_page_server(bool daemon_mode, int cfd)
 {
-	int sk = -1, ask = -1, ret;
-	struct sockaddr_in saddr, caddr;
-	socklen_t slen = sizeof(saddr);
-	socklen_t clen = sizeof(caddr);
+	int ask = -1;
+	int sk = -1;
+	int ret;
 
 	up_page_ids_base();
 
@@ -317,70 +300,13 @@ int cr_page_server(bool daemon_mode, int cfd)
 		goto no_server;
 	}
 
-	pr_info("Starting page server on port %u\n", (int)ntohs(opts.port));
-
-	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (sk < 0) {
-		pr_perror("Can't init page server");
+	sk = setup_tcp_server("page");
+	if (sk == -1)
 		return -1;
-	}
-
-	if (get_sockaddr_in(&saddr))
-		goto out;
-
-	if (bind(sk, (struct sockaddr *)&saddr, slen)) {
-		pr_perror("Can't bind page server");
-		goto out;
-	}
-
-	if (listen(sk, 1)) {
-		pr_perror("Can't listen on page server socket");
-		goto out;
-	}
-
-	/* Get socket port in case of autobind */
-	if (opts.port == 0) {
-		if (getsockname(sk, (struct sockaddr *)&saddr, &slen)) {
-			pr_perror("Can't get page server name");
-			goto out;
-		}
-
-		opts.port = ntohs(saddr.sin_port);
-		pr_info("Using %u port\n", opts.port);
-	}
-
 no_server:
-	if (daemon_mode) {
-		ret = cr_daemon(1, 0, &ask, cfd);
-		if (ret == -1) {
-			pr_err("Can't run in the background\n");
-			goto out;
-		}
-		if (ret > 0) { /* parent task, daemon started */
-			close_safe(&sk);
-			if (opts.pidfile) {
-				if (write_pidfile(ret) == -1) {
-					pr_perror("Can't write pidfile");
-					kill(ret, SIGKILL);
-					waitpid(ret, NULL, 0);
-					return -1;
-				}
-			}
-
-			return ret;
-		}
-	}
-
-	if (sk >= 0) {
-		ret = ask = accept(sk, (struct sockaddr *)&caddr, &clen);
-		if (ask < 0)
-			pr_perror("Can't accept connection to server");
-		else
-			pr_info("Accepted connection from %s:%u\n",
-					inet_ntoa(caddr.sin_addr),
-					(int)ntohs(caddr.sin_port));
-		close(sk);
-	}
+	ret = run_tcp_server(daemon_mode, &ask, cfd, sk);
+	if (ret != 0)
+		return ret;
 
 	if (ask >= 0)
 		ret = page_server_serve(ask);
@@ -390,17 +316,12 @@ no_server:
 
 	return ret;
 
-out:
-	close(sk);
-	return -1;
 }
 
 static int page_server_sk = -1;
 
 int connect_to_page_server(void)
 {
-	struct sockaddr_in saddr;
-
 	if (!opts.use_page_server)
 		return 0;
 
@@ -410,23 +331,9 @@ int connect_to_page_server(void)
 		goto out;
 	}
 
-	pr_info("Connecting to server %s:%u\n",
-			opts.addr, (int)ntohs(opts.port));
-
-	page_server_sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (page_server_sk < 0) {
-		pr_perror("Can't create socket");
+	page_server_sk = setup_tcp_client(opts.addr);
+	if (page_server_sk == -1)
 		return -1;
-	}
-
-	if (get_sockaddr_in(&saddr))
-		return -1;
-
-	if (connect(page_server_sk, (struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
-		pr_perror("Can't connect to server");
-		return -1;
-	}
-
 out:
 	/*
 	 * CORK the socket at the very beginning. As per ANK

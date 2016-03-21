@@ -14,6 +14,7 @@
 #include <sys/sendfile.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <arpa/inet.h>
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/types.h>
@@ -1074,4 +1075,132 @@ void print_data(unsigned long addr, unsigned char *data, size_t size)
 
 		pr_msg("|\n");
 	}
+}
+
+static int get_sockaddr_in(struct sockaddr_in *addr, char *host)
+{
+	memset(addr, 0, sizeof(*addr));
+	addr->sin_family = AF_INET;
+
+	if (!host)
+		addr->sin_addr.s_addr = INADDR_ANY;
+	else if (!inet_aton(host, &addr->sin_addr)) {
+		pr_perror("Bad server address");
+		return -1;
+	}
+
+	addr->sin_port = opts.port;
+	return 0;
+}
+
+int setup_tcp_server(char *type)
+{
+	int sk = -1;
+	struct sockaddr_in saddr;
+	socklen_t slen = sizeof(saddr);
+
+	pr_info("Starting %s server on port %u\n", type, (int)ntohs(opts.port));
+
+	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sk < 0) {
+		pr_perror("Can't init %s server", type);
+		return -1;
+	}
+
+	if (get_sockaddr_in(&saddr, opts.addr))
+		goto out;
+
+	if (bind(sk, (struct sockaddr *)&saddr, slen)) {
+		pr_perror("Can't bind %s server", type);
+		goto out;
+	}
+
+	if (listen(sk, 1)) {
+		pr_perror("Can't listen on %s server socket", type);
+		goto out;
+	}
+
+	/* Get socket port in case of autobind */
+	if (opts.port == 0) {
+		if (getsockname(sk, (struct sockaddr *)&saddr, &slen)) {
+			pr_perror("Can't get %s server name", type);
+			goto out;
+		}
+
+		opts.port = ntohs(saddr.sin_port);
+		pr_info("Using %u port\n", opts.port);
+	}
+
+	return sk;
+out:
+	close(sk);
+	return -1;
+}
+
+int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
+{
+	int ret;
+	struct sockaddr_in caddr;
+	socklen_t clen = sizeof(caddr);
+
+	if (daemon_mode) {
+		ret = cr_daemon(1, 0, ask, cfd);
+		if (ret == -1) {
+			pr_err("Can't run in the background\n");
+			goto out;
+		}
+		if (ret > 0) { /* parent task, daemon started */
+			close_safe(&sk);
+			if (opts.pidfile) {
+				if (write_pidfile(ret) == -1) {
+					pr_perror("Can't write pidfile");
+					kill(ret, SIGKILL);
+					waitpid(ret, NULL, 0);
+					return -1;
+				}
+			}
+
+			return ret;
+		}
+	}
+
+	if (sk >= 0) {
+		ret = *ask = accept(sk, (struct sockaddr *)&caddr, &clen);
+		if (*ask < 0)
+			pr_perror("Can't accept connection to server");
+		else
+			pr_info("Accepted connection from %s:%u\n",
+					inet_ntoa(caddr.sin_addr),
+					(int)ntohs(caddr.sin_port));
+		close(sk);
+	}
+
+	return 0;
+out:
+	close(sk);
+	return -1;
+}
+
+int setup_tcp_client(char *addr)
+{
+	struct sockaddr_in saddr;
+	int sk;
+
+	pr_info("Connecting to server %s:%u\n", addr, (int)ntohs(opts.port));
+
+	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sk < 0) {
+		pr_perror("Can't create socket");
+		return -1;
+	}
+
+	if (get_sockaddr_in(&saddr, addr))
+		return -1;
+
+	if (connect(sk, (struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
+		pr_perror("Can't connect to server");
+		return -1;
+	}
+
+	return sk;
 }

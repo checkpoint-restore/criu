@@ -283,4 +283,8 @@ char *xsprintf(const char *fmt, ...)
 
 void print_data(unsigned long addr, unsigned char *data, size_t size);
 
+int setup_tcp_server(char *type);
+int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk);
+int setup_tcp_client(char *addr);
+
 #endif /* __CR_UTIL_H__ */
