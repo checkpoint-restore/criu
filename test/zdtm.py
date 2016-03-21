@@ -1071,7 +1071,7 @@ class launcher:
 
 		sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"], \
 				env = dict(os.environ, CR_CT_TEST_INFO = arg ), \
-				stdout = log, stderr = subprocess.STDOUT)
+				stdout = log, stderr = subprocess.STDOUT, close_fds = True)
 		self.__subs[sub.pid] = { 'sub': sub, 'log': logf, 'name': name }
 
 		if test_flag(desc, 'excl'):
