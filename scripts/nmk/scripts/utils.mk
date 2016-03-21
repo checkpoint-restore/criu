@@ -20,6 +20,9 @@ uniq = $(strip $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),
 # Add $(obj)/ for paths that are not relative
 objectify = $(foreach o,$(sort $(call uniq,$(1))),$(if $(filter /% ./% ../%,$(o)),$(o),$(obj)/$(o)))
 
+# To cleanup entries.
+cleanify = $(foreach o,$(sort $(call uniq,$(1))),$(o) $(o:.o=.d) $(o:.o=.i) $(o:.o=.s))
+
 #
 # Footer.
 $(__nmk_dir)scripts/utils.mk:
