@@ -181,4 +181,6 @@ extern int __userns_call(const char *func_name, uns_call_t call, int flags,
 	__userns_call(__stringify(__call), __call, __flags,	\
 		      __arg, __arg_size, __fd)
 
+extern int add_ns_shared_cb(int (*actor)(void *data), void *data);
+
 #endif /* __CR_NS_H__ */

@@ -22,8 +22,6 @@
 
 #define AUTOFS_CATATONIC_FD	-1
 
-extern int add_post_prepare_cb(int (*actor)(void *data), void *data);
-
 struct autofs_pipe_s {
 	struct list_head list;
 	unsigned long inode;
