@@ -3,11 +3,11 @@ ifndef ____nmk_defined__rules
 #
 # Accumulate common flags.
 define nmk-ccflags
-        $(CFLAGS) $(ccflags-y)
+        $(CFLAGS) $(ccflags-y) $(CFLAGS_$(@F))
 endef
 
 define nmk-asflags
-        $(CFLAGS) $(ASFLAGS) $(asflags-y)
+        $(CFLAGS) $(ASFLAGS) $(asflags-y) $(AFLAGS_$(@F))
 endef
 
 #
