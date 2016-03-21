@@ -18,7 +18,7 @@ uniq = $(strip $(if $1,$(firstword $1) $(call uniq,$(filter-out $(firstword $1),
 
 #
 # Add $(obj)/ for paths that are not relative
-objectify       = $(foreach o,$(sort $(call uniq,$(1))),$(if $(filter /% ./% ../%,$(o)),$(o),$(obj)/$(o)))
+objectify = $(foreach o,$(sort $(call uniq,$(1))),$(if $(filter /% ./% ../%,$(o)),$(o),$(obj)/$(o)))
 
 #
 # Footer.
