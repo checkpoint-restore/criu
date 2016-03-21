@@ -80,7 +80,7 @@ endef
 
 define gen-ar-target-rule
 $(1): $(3)
-	$$(call msg-link, $$@)
+	$$(call msg-ar, $$@)
 	$$(Q) $$(AR) -rcs$(2) $$@ $(4)
 endef
 
