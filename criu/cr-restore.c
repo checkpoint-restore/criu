@@ -1008,6 +1008,45 @@ static inline int sig_fatal(int sig)
 struct task_entries *task_entries;
 static unsigned long task_entries_pos;
 
+static int wait_on_helpers_zombies(void)
+{
+	struct pstree_item *pi;
+	sigset_t blockmask, oldmask;
+
+	sigemptyset(&blockmask);
+	sigaddset(&blockmask, SIGCHLD);
+
+	if (sigprocmask(SIG_BLOCK, &blockmask, &oldmask) == -1) {
+		pr_perror("Can not set mask of blocked signals");
+		return -1;
+	}
+
+	list_for_each_entry(pi, &current->children, sibling) {
+		pid_t pid = pi->pid.virt;
+		int status;
+
+		switch (pi->state) {
+		case TASK_DEAD:
+			if (waitid(P_PID, pid, NULL, WNOWAIT | WEXITED) < 0) {
+				pr_perror("Wait on %d zombie failed\n", pid);
+				return -1;
+			}
+		case TASK_HELPER:
+			if (waitpid(pid, &status, 0) != pid) {
+				pr_perror("waitpid for helper %d failed", pid);
+				return -1;
+			}
+		}
+	}
+
+	if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
+		pr_perror("Can not unset mask of blocked signals");
+		BUG();
+	}
+
+	return 0;
+}
+
 static int restore_one_zombie(CoreEntry *core)
 {
 	int exit_code = core->tc->exit_code;
@@ -1093,7 +1132,12 @@ static int restore_one_task(int pid, CoreEntry *core)
 		ret = restore_one_zombie(core);
 	else if (current->state == TASK_HELPER) {
 		restore_finish_stage(CR_STATE_RESTORE);
-		ret = 0;
+		if (wait_on_helpers_zombies()) {
+			pr_err("failed to wait on helpers and zombies\n");
+			ret = -1;
+		} else {
+			ret = 0;
+		}
 	} else {
 		pr_err("Unknown state in code %d\n", (int)core->tc->task_state);
 		ret = -1;
