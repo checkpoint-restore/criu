@@ -135,9 +135,9 @@ define gen-custom-target-rule
                                 $(obj)/$(1).lib.a,                      \
                                 $(ARFLAGS) $($(1)-arflags-y),           \
                                 $(call objectify,$($(1)-lib-y))         \
-                                $(call objectify,$($(1)-lib-e))         \
                                 $(src-makefile),                        \
-                                $(call objectify,$($(1)-lib-y))))
+                                $(call objectify,$($(1)-lib-y)))        \
+                                $(call objectify,$($(1)-lib-e)))
                 all-y += $(obj)/$(1).lib.a
                 cleanup-y += $(call cleanify,$(call objectify,$($(1)-lib-y)))
                 cleanup-y += $(obj)/$(1).lib.a
