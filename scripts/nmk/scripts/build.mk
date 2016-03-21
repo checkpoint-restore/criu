@@ -21,7 +21,8 @@ ifndef obj
         $(error obj is undefined)
 endif
 
-include $(call objectify,$(makefile))
+src-makefile	:= $(call objectify,$(makefile))
+include $(src-makefile)
 
 ifneq ($(strip $(target)),)
 	target := $(sort $(call uniq,$(target)))
@@ -45,6 +46,16 @@ builtin-name	:= $(strip $(builtin-name))
 #
 # Link flags.
 ld_flags	:= $(strip $(LDFLAGS) $(ldflags-y))
+
+#
+# $(obj) related rules.
+$(eval $(call gen-rule-o-from-c-by-name,$(obj)/%,$(obj)/%,$(src-makefile)))
+$(eval $(call gen-rule-i-from-c-by-name,$(obj)/%,$(obj)/%,$(src-makefile)))
+$(eval $(call gen-rule-s-from-c-by-name,$(obj)/%,$(obj)/%,$(src-makefile)))
+$(eval $(call gen-rule-o-from-S-by-name,$(obj)/%,$(obj)/%,$(src-makefile)))
+$(eval $(call gen-rule-d-from-c-by-name,$(obj)/%,$(obj)/%,$(src-makefile)))
+$(eval $(call gen-rule-d-from-S-by-name,$(obj)/%,$(obj)/%,$(src-makefile)))
+$(eval $(call gen-rule-i-from-S-by-name,$(obj)/%,$(obj)/%,$(src-makefile)))
 
 #
 # Prepare targets.
@@ -92,14 +103,16 @@ ifdef builtin-target
         $(eval $(call gen-ld-target-rule,                               \
                         $(builtin-target),                              \
                         $(ld_flags),                                    \
-                        $(obj-y),$(obj-y) $(call objectify,$(obj-e))))
+                        $(obj-y) $(src-makefile),                       \
+                        $(obj-y) $(call objectify,$(obj-e))))
 endif
 
 ifdef lib-target
         $(eval $(call gen-ar-target-rule,                               \
                         $(lib-target),                                  \
                         $(ARFLAGS) $(arflags-y),                        \
-                        $(lib-y),$(lib-y) $(call objectify,$(lib-e))))
+                        $(lib-y) $(src-makefile),                       \
+                        $(lib-y) $(call objectify,$(lib-e))))
 endif
 
 #
@@ -109,7 +122,8 @@ define gen-custom-target-rule
                 $(eval $(call gen-ld-target-rule,                       \
                                 $(obj)/$(1).built-in.o,                 \
                                 $(ld_flags) $(LDFLAGS_$(1)),            \
-                                $(call objectify,$($(1)-obj-y)),        \
+                                $(call objectify,$($(1)-obj-y))         \
+                                $(src-makefile),                        \
                                 $(call objectify,$($(1)-obj-y))         \
                                 $(call objectify,$($(1)-obj-e))))
                 all-y += $(obj)/$(1).built-in.o
@@ -121,7 +135,8 @@ define gen-custom-target-rule
                                 $(obj)/$(1).lib.a,                      \
                                 $(ARFLAGS) $($(1)-arflags-y),           \
                                 $(call objectify,$($(1)-lib-y))         \
-                                $(call objectify,$($(1)-lib-e)),        \
+                                $(call objectify,$($(1)-lib-e))         \
+                                $(src-makefile),                        \
                                 $(call objectify,$($(1)-lib-y))))
                 all-y += $(obj)/$(1).lib.a
                 cleanup-y += $(call cleanify,$(call objectify,$($(1)-lib-y)))
