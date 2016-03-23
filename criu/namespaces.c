@@ -259,7 +259,7 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 	} else
 		type = NS_CRIU;
 
-	nsid = xmalloc(sizeof(*nsid));
+	nsid = xzalloc(sizeof(*nsid));
 	if (!nsid)
 		return 0;
 
