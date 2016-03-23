@@ -504,7 +504,7 @@ static int autofs_mnt_open(const char *mnt_path, dev_t devid)
 	fd = param->ioctlfd;
 	free(param);
 	if (err < 0) {
-		pr_err("Failed to get %s fd (devid: %ld)\n", mnt_path, devid);
+		pr_err("Failed to get %s fd (devid: %lu)\n", mnt_path, devid);
 		return -1;
 	}
 	return fd;
