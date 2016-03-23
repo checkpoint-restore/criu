@@ -239,7 +239,6 @@ static int get_page(unsigned long addr, void *dest)
 }
 
 #define UFFD_FLAG_SENT	0x1
-#define UFFD_FLAG_VDSO	0x2
 
 struct uffd_pages_struct {
 	struct list_head list;
@@ -306,7 +305,6 @@ static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list,
 
 	for (i = 0; i < nr_pages; i++) {
 		bool uffd_page = false;
-		bool uffd_vdso = false;
 		base = (unsigned long) iov.iov_base + (i * ps);
 		/*
 		 * Only pages which are MAP_ANONYMOUS and MAP_PRIVATE
@@ -321,8 +319,6 @@ static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list,
 			if (base >= vma->e->start && base < vma->e->end) {
 				if (vma_entry_can_be_lazy(vma->e)) {
 					uffd_page = true;
-					if (vma_area_is(vma, VMA_AREA_VDSO))
-						uffd_vdso = true;
 					break;
 				}
 			}
@@ -339,8 +335,6 @@ static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list,
 		if (!uffd_pages)
 			return -1;
 		uffd_pages->addr = base;
-		if (uffd_vdso)
-			uffd_pages->flags |= UFFD_FLAG_VDSO;
 		list_add(&uffd_pages->list, uffd_list);
 	}
 
@@ -403,28 +397,6 @@ static int handle_regular_pages(int uffd, struct list_head *uffd_list, unsigned 
 
 
 	return 1;
-}
-
-static int handle_vdso_pages(int uffd, struct list_head *uffd_list, unsigned long *vma_size,
-			     void *dest)
-{
-	int rc;
-	struct uffd_pages_struct *uffd_pages;
-	int uffd_copied_pages = 0;
-
-	list_for_each_entry(uffd_pages, uffd_list, list) {
-		if (!(uffd_pages->flags & UFFD_FLAG_VDSO))
-			continue;
-		rc = uffd_copy_page(uffd, uffd_pages->addr, dest);
-		if (rc < 0) {
-			pr_err("Error during UFFD copy\n");
-			return -1;
-		}
-		*vma_size -= rc;
-		uffd_copied_pages++;
-		uffd_pages->flags |= UFFD_FLAG_SENT;
-	}
-	return uffd_copied_pages;
 }
 
 /*
@@ -509,7 +481,6 @@ int uffd_listen()
 	unsigned long total_pages = 0;
 	int uffd_flags;
 	struct uffd_pages_struct *uffd_pages;
-	bool vdso_sent = false;
 	unsigned long vma_size = 0;
 
 	LIST_HEAD(uffd_list);
@@ -610,22 +581,6 @@ int uffd_listen()
 		/* Align requested address to the next page boundary */
 		address = msg.arg.pagefault.address & ~(ps - 1);
 		pr_debug("msg.arg.pagefault.address 0x%llx\n", address);
-
-		/*
-		 * At this point the process on the other side waits for the first page.
-		 * In the first step we will force the vdso pages into the new process.
-		 */
-		if (!vdso_sent) {
-			pr_debug("Pushing VDSO pages once\n");
-			rc = handle_vdso_pages(uffd, &uffd_list, &vma_size, dest);
-			if (rc < 0) {
-				pr_err("Error during VDSO handling\n");
-				rc = 1;
-				goto out;
-			}
-			uffd_copied_pages += rc;
-			vdso_sent = true;
-		}
 
 		/* Make sure to not transfer a page twice */
 		list_for_each_entry(uffd_pages, &uffd_list, list) {
