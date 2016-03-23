@@ -110,6 +110,7 @@ static inline bool vma_entry_can_be_lazy(VmaEntry *e)
 {
 	return ((e->flags & MAP_ANONYMOUS) &&
 		(e->flags & MAP_PRIVATE) &&
+		!(vma_entry_is(e, VMA_AREA_VDSO)) &&
 		!(vma_entry_is(e, VMA_AREA_VSYSCALL)));
 }
 
