@@ -1304,7 +1304,8 @@ err:
 	if (exit)
 		pr_err("%d exited, status=%d\n", pid, status);
 	else
-		pr_err("%d killed by signal %d\n", pid, status);
+		pr_err("%d killed by signal %d: %s\n",
+			pid, status, strsignal(status));
 
 	futex_abort_and_wake(&task_entries->nr_in_progress);
 }

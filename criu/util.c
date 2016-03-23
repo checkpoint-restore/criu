@@ -670,7 +670,8 @@ out_chld:
 				pr_err("exited, status=%d\n", WEXITSTATUS(status));
 			break;
 		} else if (WIFSIGNALED(status)) {
-			pr_err("killed by signal %d\n", WTERMSIG(status));
+			pr_err("killed by signal %d: %s\n", WTERMSIG(status),
+				strsignal(WTERMSIG(status)));
 			break;
 		} else if (WIFSTOPPED(status)) {
 			pr_err("stopped by signal %d\n", WSTOPSIG(status));

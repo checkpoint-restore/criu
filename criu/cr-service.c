@@ -955,8 +955,8 @@ static void reap_worker(int signo)
 			pr_info("Worker(pid %d) exited with %d\n",
 				pid, WEXITSTATUS(status));
 		else if (WIFSIGNALED(status))
-			pr_info("Worker(pid %d) was killed by %d\n",
-				pid, WTERMSIG(status));
+			pr_info("Worker(pid %d) was killed by %d: %s\n", pid,
+				WTERMSIG(status), strsignal(WTERMSIG(status)));
 	}
 }
 

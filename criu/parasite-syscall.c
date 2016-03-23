@@ -401,7 +401,8 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	if (WIFEXITED(status))
 		pr_err("%d exited with %d unexpectedly\n", pid, WEXITSTATUS(status));
 	else if (WIFSIGNALED(status))
-		pr_err("%d was killed by %d unexpectedly\n", pid, WTERMSIG(status));
+		pr_err("%d was killed by %d unexpectedly: %s\n",
+			pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
 	else if (WIFSTOPPED(status))
 		pr_err("%d was stopped by %d unexpectedly\n", pid, WSTOPSIG(status));
 

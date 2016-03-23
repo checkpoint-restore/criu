@@ -446,7 +446,8 @@ static void pstree_wait(struct pstree_item *root_item)
 				break;
 			} else {
 				if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGKILL) {
-					pr_err("Unexpected exit code %d of %d\n", status, pid);
+					pr_err("Unexpected exit code %d of %d: %s\n",
+						status, pid, strsignal(status));
 					BUG();
 				}
 			}
