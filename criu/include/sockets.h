@@ -40,7 +40,6 @@ extern int collect_inet_sockets(void);
 extern struct collect_image_info unix_sk_cinfo;
 extern int collect_unix_sockets(void);
 extern int fix_external_unix_sockets(void);
-extern int resolve_unix_peers(void);
 
 extern struct collect_image_info netlink_sk_cinfo;
 

@@ -28,6 +28,7 @@
 #include "plugin.h"
 #include "namespaces.h"
 #include "pstree.h"
+#include "crtools.h"
 
 #include "protobuf.h"
 #include "images/sk-unix.pb-c.h"
@@ -1281,12 +1282,21 @@ static void unlink_stale(struct unix_sk_info *ui)
 	revert_unix_sk_cwd(&cwd_fd);
 }
 
+static int resolve_unix_peers(void *unused);
+
 static int collect_one_unixsk(void *o, ProtobufCMessage *base)
 {
 	struct unix_sk_info *ui = o;
+	static bool post_queued = false;
 
 	ui->ue = pb_msg(base, UnixSkEntry);
 	ui->name_dir = (void *)ui->ue->name_dir;
+
+	if (ui->ue->peer && !post_queued) {
+		post_queued = true;
+		if (add_post_prepare_cb(resolve_unix_peers, NULL))
+			return -1;
+	}
 
 	if (ui->ue->name.len) {
 		if (ui->ue->name.len > UNIX_PATH_MAX) {
@@ -1325,7 +1335,7 @@ int collect_unix_sockets(void)
 	return read_sk_queues();
 }
 
-int resolve_unix_peers(void)
+static int resolve_unix_peers(void *unused)
 {
 	struct unix_sk_info *ui, *peer;
 	struct fdinfo_list_entry *fle, *fle_peer;

@@ -274,10 +274,6 @@ static int root_prepare_shared(void)
 	if (ret)
 		goto err;
 
-	ret = resolve_unix_peers();
-	if (ret)
-		goto err;
-
 	ret = prepare_restorer_blob();
 	if (ret)
 		goto err;
