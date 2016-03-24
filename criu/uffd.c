@@ -486,37 +486,19 @@ out:
 	return ret;
 }
 
-int uffd_listen()
+static int handle_requests(int fd)
 {
-	__u64 address;
-	void *dest;
-	__u64 flags;
-	struct uffd_msg msg;
-	unsigned long ps;
-	int rc;
 	fd_set set;
+	int ret = -1;
+	struct uffd_msg msg;
+	__u64 flags;
+	__u64 address;
+	unsigned long ps;
 	struct timeval timeout;
-	int uffd;
-	int uffd_flags;
 	struct uffd_pages_struct *uffd_pages;
+	void *dest;
 
 	LIST_HEAD(uffd_list);
-
-	if (!opts.addr) {
-		pr_info("Please specify a file name for the unix domain socket\n");
-		pr_info("used to communicate between the lazy-pages server\n");
-		pr_info("and the restore process. Use the --address option like\n");
-		pr_info("criu --lazy-pages --address /tmp/userfault.socket\n");
-		return -1;
-	}
-
-	pr_debug("Waiting for incoming connections on %s\n", opts.addr);
-	if ((uffd = ud_open()) < 0)
-		exit(0);
-
-	pr_debug("uffd is 0x%d\n", uffd);
-	uffd_flags = fcntl(uffd, F_GETFD, NULL);
-	pr_debug("uffd_flags are 0x%x\n", uffd_flags);
 
 	/*
 	 * Find the memory pages belonging to the restored process
@@ -527,13 +509,13 @@ int uffd_listen()
 
 	/* Initialize FD sets for read() with timeouts (using select()) */
 	FD_ZERO(&set);
-	FD_SET(uffd, &set);
+	FD_SET(fd, &set);
 
 	/* All operations will be done on page size */
 	ps = page_size();
 	dest = xmalloc(ps);
 	if (!dest)
-		goto out;
+		return ret;
 
 	while (1) {
 		bool page_sent = false;
@@ -548,24 +530,25 @@ int uffd_listen()
 		 */
 		timeout.tv_sec = 5;
 		timeout.tv_usec = 0;
-		rc = select(uffd + 1, &set, NULL, NULL, &timeout);
-		pr_debug("select() rc: 0x%x\n", rc);
-		if (rc == 0) {
+		ret = select(fd + 1, &set, NULL, NULL, &timeout);
+		pr_debug("select() rc: 0x%x\n", ret);
+		if (ret == 0) {
 			pr_debug("read timeout\n");
 			pr_debug("switching from request to copy mode\n");
 			break;
 		}
-		rc = read(uffd, &msg, sizeof(msg));
-		pr_debug("read() rc: 0x%x\n", rc);
+		ret = read(fd, &msg, sizeof(msg));
+		pr_debug("read() ret: 0x%x\n", ret);
+		if (!ret)
+			break;
 
-		if (rc != sizeof(msg)) {
-			if (rc < 0)
-				pr_perror("read error");
-			else
-				pr_debug("short read\n");
-			continue;
+		if (ret != sizeof(msg)) {
+			pr_perror("Can't read userfaultfd message from socket");
+			ret = -1;
+			break;
 		}
 
+		ret = 0;
 		/* Align requested address to the next page boundary */
 		address = msg.arg.pagefault.address & ~(ps - 1);
 		pr_debug("msg.arg.pagefault.address 0x%llx\n", address);
@@ -588,37 +571,63 @@ int uffd_listen()
 
 		if (msg.event != UFFD_EVENT_PAGEFAULT) {
 			pr_err("unexpected msg event %u\n", msg.event);
-			rc = 1;
+			ret = -1;
 			goto out;
 		}
 
-		rc = handle_regular_pages(uffd, &uffd_list, dest, address);
-		if (rc < 0) {
+		ret = handle_regular_pages(fd, &uffd_list, dest, address);
+		if (ret < 0) {
 			pr_err("Error during regular page copy\n");
-			rc = 1;
+			ret = -1;
 			goto out;
 		}
 	}
 	pr_debug("Handle remaining pages\n");
-	rc = handle_remaining_pages(uffd, &uffd_list, dest);
-	if (rc < 0) {
+	ret = handle_remaining_pages(fd, &uffd_list, dest);
+	if (ret < 0) {
 		pr_err("Error during remaining page copy\n");
-		rc = 1;
+		ret = 1;
 		goto out;
 	}
 
 	pr_debug("With UFFD transferred pages: (%ld/%ld)\n", uffd_copied_pages, total_pages);
-	if (uffd_copied_pages != total_pages) {
+	if ((uffd_copied_pages != total_pages) && (total_pages > 0)) {
 		pr_warn("Only %ld of %ld pages transferred via UFFD\n", uffd_copied_pages,
 			total_pages);
 		pr_warn("Something probably went wrong.\n");
-		rc = 1;
+		ret = 1;
 		goto out;
 	}
-	rc = 0;
+	ret = 0;
 
 out:
 	free(dest);
-	close(uffd);
-	return rc;
+	close(fd);
+	return ret;
+
+}
+int uffd_listen()
+{
+	int uffd;
+	int uffd_flags;
+
+	LIST_HEAD(uffd_list);
+
+	if (!opts.addr) {
+		pr_info("Please specify a file name for the unix domain socket\n");
+		pr_info("used to communicate between the lazy-pages server\n");
+		pr_info("and the restore process. Use the --address option like\n");
+		pr_info("criu --lazy-pages --address /tmp/userfault.socket\n");
+		return -1;
+	}
+
+	pr_debug("Waiting for incoming connections on %s\n", opts.addr);
+	if ((uffd = ud_open()) < 0)
+		exit(0);
+
+	pr_debug("uffd is 0x%d\n", uffd);
+	uffd_flags = fcntl(uffd, F_GETFD, NULL);
+	pr_debug("uffd_flags are 0x%x\n", uffd_flags);
+
+	return handle_requests(uffd);
 }
