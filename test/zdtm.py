@@ -1019,7 +1019,7 @@ class launcher:
 		else:
 			self.__use_log = False
 
-		if opts['report'] and opts['keep_going']:
+		if opts['report'] and (opts['keep_going'] or self.__total == 1):
 			now = datetime.datetime.now()
 			att = 0
 			reportname = os.path.join(report_dir, "criu-testreport.tap")
@@ -1188,15 +1188,20 @@ def run_tests(opts):
 	excl = None
 	features = {}
 
+	if opts['keep_going'] and (not opts['all']):
+		print "[WARNING] Option --keep-going is more useful with option --all."
+
 	if opts['all']:
 		torun = all_tests(opts)
 		run_all = True
 	elif opts['tests']:
 		r = re.compile(opts['tests'])
 		torun = filter(lambda x: r.match(x), all_tests(opts))
+		opts['keep_going'] = False
 		run_all = True
 	elif opts['test']:
 		torun = opts['test']
+		opts['keep_going'] = False
 		run_all = False
 	elif opts['from']:
 		if not os.access(opts['from'], os.R_OK):
@@ -1204,6 +1209,7 @@ def run_tests(opts):
 			return
 
 		torun = map(lambda x: x.strip(), open(opts['from']))
+		opts['keep_going'] = False
 		run_all = True
 	else:
 		print "Specify test with -t <name> or -a"
