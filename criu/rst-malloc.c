@@ -128,8 +128,11 @@ unsigned long rst_mem_align_cpos(int type)
 {
 	struct rst_mem_type_s *t = &rst_mems[type];
 	BUG_ON(!t->remapable || !t->enabled);
+	void *ptr;
 
-	t->free_mem = (void *) round_up((unsigned long)t->free_mem, sizeof(void *));
+	ptr = (void *) round_up((unsigned long)t->free_mem, sizeof(void *));
+	t->free_bytes -= (ptr - t->free_mem);
+	t->free_mem = ptr;
 
 	return t->free_mem - t->buf;
 }
