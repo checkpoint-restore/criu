@@ -394,15 +394,16 @@ static int handle_regular_pages(int uffd, struct list_head *uffd_list, void *des
 /*
  *  Setting up criu infrastructure and scan for VMAs.
  */
-static int find_vmas()
+static int find_vmas(struct list_head *uffd_list)
 {
 	struct cr_img *img;
 	int ret;
 	struct vm_area_list vmas;
 	int vn = 0;
 	struct rst_info *ri;
+	struct page_read pr;
+	struct uffd_pages_struct *uffd_pages;
 
-	LIST_HEAD(uffd_list);
 
 	if (check_img_inventory() == -1)
 		return -1;
@@ -437,7 +438,7 @@ static int find_vmas()
 		ret = -1;
 		vma = alloc_vma_area();
 		if (!vma)
-			break;
+			goto out;
 
 		ret = 0;
 		ri->vmas.nr++;
@@ -454,6 +455,34 @@ static int find_vmas()
 		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vma->e->start, vma->e->end);
 	}
 
+	ret = open_page_read(pid, &pr, PR_TASK);
+	if (ret <= 0) {
+		ret = -1;
+		goto out;
+	}
+	/*
+	 * This puts all pages which should be handled by userfaultfd
+	 * in the list uffd_list. This list is later used to detect if
+	 * a page has already been transferred or if it needs to be
+	 * pushed into the process using userfaultfd.
+	 */
+	do {
+		ret = collect_uffd_pages(&pr, uffd_list);
+		if (ret == -1) {
+			goto out;
+		}
+	} while (ret);
+
+	if (pr.close)
+		pr.close(&pr);
+
+	/* Count detected pages */
+	list_for_each_entry(uffd_pages, uffd_list, list)
+	    ret++;
+
+	pr_debug("Found %d pages to be handled by UFFD\n", ret);
+
+out:
 	return ret;
 }
 
@@ -463,7 +492,6 @@ int uffd_listen()
 	void *dest;
 	__u64 flags;
 	struct uffd_msg msg;
-	struct page_read pr;
 	unsigned long ps;
 	int rc;
 	fd_set set;
@@ -496,7 +524,7 @@ int uffd_listen()
 	 * Find the memory pages belonging to the restored process
 	 * so that it is trackable when all pages have been transferred.
 	 */
-	if (find_vmas() == -1)
+	if ((total_pages = find_vmas(&uffd_list)) == -1)
 		return -1;
 
 	/* Initialize FD sets for read() with timeouts (using select()) */
@@ -508,35 +536,6 @@ int uffd_listen()
 	dest = xmalloc(ps);
 	if (!dest)
 		goto out;
-
-	rc = open_page_read(pid, &pr, PR_TASK);
-	if (rc <= 0) {
-		rc = 1;
-		goto out;
-	}
-	/*
-	 * This puts all pages which should be handled by userfaultfd
-	 * in the list uffd_list. This list is later used to detect if
-	 * a page has already been transferred or if it needs to be
-	 * pushed into the process using userfaultfd.
-	 */
-	do {
-		rc = collect_uffd_pages(&pr, &uffd_list);
-		if (rc == -1) {
-			rc = 1;
-			goto out;
-		}
-	} while (rc);
-
-	if (pr.close)
-		pr.close(&pr);
-
-
-	/* Count detected pages */
-	list_for_each_entry(uffd_pages, &uffd_list, list)
-	    total_pages++;
-
-	pr_debug("Found %ld pages to be handled by UFFD\n", total_pages);
 
 	while (1) {
 		bool page_sent = false;
