@@ -338,16 +338,22 @@ static int autofs_dump_entry(struct mount_info *pm, AutofsEntry *entry)
 int autofs_dump(struct mount_info *pm)
 {
 	AutofsEntry *entry;
+	int err;
 
 	entry = xmalloc(sizeof(*entry));
 	if (!entry)
 		return -1;
 	autofs_entry__init(entry);
 
-	if (autofs_create_entry(pm, entry))
-		return -1;
+	err = autofs_create_entry(pm, entry);
+	if (err)
+		goto free_entry;
 
-	return autofs_dump_entry(pm, entry);
+	err = autofs_dump_entry(pm, entry);
+
+free_entry:
+	free(entry);
+	return err < 0 ? err : 0;
 }
 
 typedef struct autofs_info_s {
