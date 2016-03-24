@@ -327,9 +327,10 @@ static int autofs_dump_entry(struct mount_info *pm, AutofsEntry *entry)
 	int ret = -1;
 
 	img = open_image(CR_FD_AUTOFS, O_DUMP, pm->s_dev);
-	if (img)
+	if (img) {
 		ret = pb_write_one(img, entry, PB_AUTOFS);
-	close_image(img);
+		close_image(img);
+	}
 	return ret;
 }
 
