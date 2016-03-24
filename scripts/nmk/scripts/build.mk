@@ -197,7 +197,7 @@ define collect-deps
         ifneq ($(filter all $(all-y) $(target),$(1)),)
                 deps-y += $(obj-y:.o=.d)
                 deps-y += $(lib-y:.o=.d)
-                deps-y += $(foreach t,$(target),$($(t)-lib-y:.o=.d) $($(t)-obj-y:.o=.d))
+                deps-y += $(foreach t,$(target),$(call objectify,$($(t)-lib-y:.o=.d)) $(call objectify,$($(t)-obj-y:.o=.d)))
         endif
 endef
 
