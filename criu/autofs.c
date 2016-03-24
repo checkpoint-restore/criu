@@ -882,25 +882,25 @@ int autofs_mount(struct mount_info *mi, const char *source, const
 	 */
 	if (stat(mi->mountpoint, &buf) < 0) {
 		pr_perror("Failed to stat %s", mi->mountpoint);
-		goto umount;
+		goto free_info;
 	}
 	info->mnt_dev = buf.st_dev;
 
 	/* We need to create dentries for nested mounts */
 	ret = autofs_populate_mount(mi, entry);
 	if (ret < 0)
-		goto umount;
+		goto free_info;
 
 	/* In case of catatonic mounts all we need as the function call below */
 	ret = autofs_post_mount(mi->mountpoint, buf.st_dev, entry->timeout);
 	if (ret < 0)
-		goto umount;
+		goto free_info;
 
 	/* Otherwise we have to add shared object creation callback */
 	if (entry->fd != AUTOFS_CATATONIC_FD) {
 		ret = add_post_prepare_cb(autofs_add_mount_info, mi);
 		if (ret < 0)
-			goto umount;
+			goto free_info;
 	}
 
 	mi->private = info;
@@ -910,6 +910,8 @@ close_pipe:
 	close(control_pipe[0]);
 	return ret;
 
+free_info:
+	free(info);
 umount:
 	if (umount(mi->mountpoint) < 0)
 		pr_perror("Failed to umount %s", mi->mountpoint);
