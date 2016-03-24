@@ -210,7 +210,7 @@ int collect_image(struct collect_image_info *cinfo)
 			break;
 		}
 
-		ret = cinfo->collect(obj, msg);
+		ret = cinfo->collect(obj, msg, img);
 		if (ret < 0) {
 			o_free(obj);
 			cr_pb_descs[cinfo->pb_type].free(msg, NULL);

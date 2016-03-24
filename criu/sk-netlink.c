@@ -217,7 +217,7 @@ static struct file_desc_ops netlink_sock_desc_ops = {
 	.open = open_netlink_sk,
 };
 
-static int collect_one_netlink_sk(void *o, ProtobufCMessage *base)
+static int collect_one_netlink_sk(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
 	struct netlink_sock_info *si = o;
 

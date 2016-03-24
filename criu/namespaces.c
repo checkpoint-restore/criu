@@ -412,7 +412,7 @@ static struct file_desc_ops ns_desc_ops = {
 	.open = open_ns_fd,
 };
 
-static int collect_one_nsfile(void *o, ProtobufCMessage *base)
+static int collect_one_nsfile(void *o, ProtobufCMessage *base, struct cr_img *img)
 {
 	struct ns_file_info *nfi = o;
 

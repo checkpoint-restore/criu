@@ -449,7 +449,7 @@ static inline int tcp_connection(InetSkEntry *ie)
 	return (ie->proto == IPPROTO_TCP) && (ie->state == TCP_ESTABLISHED);
 }
 
-static int collect_one_inetsk(void *o, ProtobufCMessage *base)
+static int collect_one_inetsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
 	struct inet_sk_info *ii = o;
 

@@ -130,7 +130,7 @@ static struct file_desc_ops fifo_desc_ops = {
 	.collect_fd	= collect_fifo_fd,
 };
 
-static int collect_one_fifo(void *o, ProtobufCMessage *base)
+static int collect_one_fifo(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
 	struct fifo_info *info = o, *f;
 

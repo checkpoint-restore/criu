@@ -489,7 +489,7 @@ static struct file_desc_ops packet_sock_desc_ops = {
 	.open = open_packet_sk,
 };
 
-static int collect_one_packet_sk(void *o, ProtobufCMessage *base)
+static int collect_one_packet_sk(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
 	struct packet_sock_info *si = o;
 

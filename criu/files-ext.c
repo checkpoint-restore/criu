@@ -61,7 +61,7 @@ static struct file_desc_ops ext_desc_ops = {
 	.open = open_fd,
 };
 
-static int collect_one_ext(void *o, ProtobufCMessage *base)
+static int collect_one_ext(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
 	struct ext_file_info *xfi = o;
 

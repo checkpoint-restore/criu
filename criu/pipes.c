@@ -372,7 +372,7 @@ static struct file_desc_ops pipe_desc_ops = {
 	.name		= pipe_d_name,
 };
 
-static int collect_one_pipe(void *o, ProtobufCMessage *base)
+static int collect_one_pipe(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
 	struct pipe_info *pi = o, *tmp;
 

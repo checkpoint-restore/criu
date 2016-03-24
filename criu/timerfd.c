@@ -188,7 +188,7 @@ static int verify_timerfd(TimerfdEntry *tfe)
 	return 0;
 }
 
-static int collect_one_timerfd(void *o, ProtobufCMessage *msg)
+static int collect_one_timerfd(void *o, ProtobufCMessage *msg, struct cr_img *i)
 {
 	struct timerfd_info *info = o;
 

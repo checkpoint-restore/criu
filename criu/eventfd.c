@@ -112,7 +112,7 @@ static struct file_desc_ops eventfd_desc_ops = {
 	.open = eventfd_open,
 };
 
-static int collect_one_efd(void *obj, ProtobufCMessage *msg)
+static int collect_one_efd(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 {
 	struct eventfd_file_info *info = obj;
 

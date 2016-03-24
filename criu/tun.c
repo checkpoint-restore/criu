@@ -378,7 +378,7 @@ static struct file_desc_ops tunfile_desc_ops = {
 	.open = tunfile_open,
 };
 
-static int collect_one_tunfile(void *o, ProtobufCMessage *base)
+static int collect_one_tunfile(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
 	struct tunfile_info *ti = o;
 

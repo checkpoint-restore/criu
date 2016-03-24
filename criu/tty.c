@@ -1352,7 +1352,7 @@ static TtyInfoEntry *lookup_tty_info_entry(u32 id)
 	return NULL;
 }
 
-static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg)
+static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 {
 	struct tty_info_entry *info = obj;
 
@@ -1395,7 +1395,7 @@ struct collect_image_info tty_info_cinfo = {
 	.collect	= collect_one_tty_info_entry,
 };
 
-static int collect_one_tty(void *obj, ProtobufCMessage *msg)
+static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 {
 	struct tty_info *info = obj;
 

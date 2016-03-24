@@ -31,7 +31,7 @@ struct collect_image_info {
 	int fd_type;
 	int pb_type;
 	unsigned int priv_size;
-	int (*collect)(void *, ProtobufCMessage *);
+	int (*collect)(void *, ProtobufCMessage *, struct cr_img *);
 	unsigned flags;
 };
 

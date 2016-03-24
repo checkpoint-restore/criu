@@ -194,7 +194,7 @@ static struct file_desc_ops desc_ops = {
 	.collect_fd = eventpoll_collect_fd,
 };
 
-static int collect_one_epoll_tfd(void *o, ProtobufCMessage *msg)
+static int collect_one_epoll_tfd(void *o, ProtobufCMessage *msg, struct cr_img *i)
 {
 	struct eventpoll_tfd_file_info *info = o;
 
@@ -212,7 +212,7 @@ struct collect_image_info epoll_tfd_cinfo = {
 	.collect = collect_one_epoll_tfd,
 };
 
-static int collect_one_epoll(void *o, ProtobufCMessage *msg)
+static int collect_one_epoll(void *o, ProtobufCMessage *msg, struct cr_img *i)
 {
 	struct eventpoll_file_info *info = o;
 

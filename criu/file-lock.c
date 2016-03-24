@@ -26,7 +26,7 @@ struct file_lock_rst {
 
 struct list_head file_lock_list = LIST_HEAD_INIT(file_lock_list);
 
-static int collect_one_file_lock(void *o, ProtobufCMessage *m)
+static int collect_one_file_lock(void *o, ProtobufCMessage *m, struct cr_img *i)
 {
 	struct file_lock_rst *lr = o;
 

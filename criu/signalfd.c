@@ -107,7 +107,7 @@ static struct file_desc_ops signalfd_desc_ops = {
 	.open = signalfd_open,
 };
 
-static int collect_one_sigfd(void *o, ProtobufCMessage *msg)
+static int collect_one_sigfd(void *o, ProtobufCMessage *msg, struct cr_img *i)
 {
 	struct signalfd_info *info = o;
 

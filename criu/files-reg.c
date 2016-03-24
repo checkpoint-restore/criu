@@ -389,7 +389,7 @@ struct remap_info {
 	struct reg_file_info *rfi;
 };
 
-static int collect_one_remap(void *obj, ProtobufCMessage *msg)
+static int collect_one_remap(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 {
 	struct remap_info *ri = obj;
 	RemapFilePathEntry *rfe;
@@ -1657,7 +1657,7 @@ struct file_desc *try_collect_special_file(u32 id, int optional)
 	return fdesc;
 }
 
-static int collect_one_regfile(void *o, ProtobufCMessage *base)
+static int collect_one_regfile(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
 	struct reg_file_info *rfi = o;
 	static char dot[] = ".";
