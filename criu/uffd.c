@@ -281,8 +281,7 @@ static int uffd_copy_page(int uffd, __u64 address, void *dest)
 
 }
 
-static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list,
-			      unsigned long *vma_size)
+static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list)
 {
 	unsigned long base;
 	int i;
@@ -330,7 +329,6 @@ static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list,
 
 		pr_debug("Adding 0x%lx to our list\n", base);
 
-		*vma_size += ps;
 		uffd_pages = xzalloc(sizeof(struct uffd_pages_struct));
 		if (!uffd_pages)
 			return -1;
@@ -341,14 +339,12 @@ static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list,
 	return 1;
 }
 
-static int handle_remaining_pages(int uffd, struct list_head *uffd_list, unsigned long *vma_size,
-				  void *dest)
+static int handle_remaining_pages(int uffd, struct list_head *uffd_list, void *dest)
 {
 	unsigned long uffd_copied_pages = 0;
 	struct uffd_pages_struct *uffd_pages;
 	int rc;
 
-	pr_debug("remaining vma_size: 0x%lx\n", *vma_size);
 	pr_debug("uffd_copied_pages:    %ld\n", uffd_copied_pages);
 
 	list_for_each_entry(uffd_pages, uffd_list, list) {
@@ -362,9 +358,7 @@ static int handle_remaining_pages(int uffd, struct list_head *uffd_list, unsigne
 			pr_err("Error during UFFD copy\n");
 			return -1;
 		}
-		*vma_size -= rc;
 
-		pr_debug("remaining vma_size: 0x%lx\n", *vma_size);
 		uffd_copied_pages++;
 		uffd_pages->flags |= UFFD_FLAG_SENT;
 	}
@@ -373,8 +367,7 @@ static int handle_remaining_pages(int uffd, struct list_head *uffd_list, unsigne
 }
 
 
-static int handle_regular_pages(int uffd, struct list_head *uffd_list, unsigned long *vma_size,
-				void *dest, __u64 address)
+static int handle_regular_pages(int uffd, struct list_head *uffd_list, void *dest, __u64 address)
 {
 	int rc;
 	struct uffd_pages_struct *uffd_pages;
@@ -384,7 +377,6 @@ static int handle_regular_pages(int uffd, struct list_head *uffd_list, unsigned 
 		pr_err("Error during UFFD copy\n");
 		return -1;
 	}
-	*vma_size -= rc;
 
 	/*
 	 * Mark this page as having been already transferred, so
@@ -481,7 +473,6 @@ int uffd_listen()
 	unsigned long total_pages = 0;
 	int uffd_flags;
 	struct uffd_pages_struct *uffd_pages;
-	unsigned long vma_size = 0;
 
 	LIST_HEAD(uffd_list);
 
@@ -530,7 +521,7 @@ int uffd_listen()
 	 * pushed into the process using userfaultfd.
 	 */
 	do {
-		rc = collect_uffd_pages(&pr, &uffd_list, &vma_size);
+		rc = collect_uffd_pages(&pr, &uffd_list);
 		if (rc == -1) {
 			rc = 1;
 			goto out;
@@ -604,7 +595,7 @@ int uffd_listen()
 			goto out;
 		}
 
-		rc = handle_regular_pages(uffd, &uffd_list, &vma_size, dest, address);
+		rc = handle_regular_pages(uffd, &uffd_list, dest, address);
 		if (rc < 0) {
 			pr_err("Error during regular page copy\n");
 			rc = 1;
@@ -615,7 +606,7 @@ int uffd_listen()
 
 	}
 	pr_debug("Handle remaining pages\n");
-	rc = handle_remaining_pages(uffd, &uffd_list, &vma_size, dest);
+	rc = handle_remaining_pages(uffd, &uffd_list, dest);
 	if (rc < 0) {
 		pr_err("Error during remaining page copy\n");
 		rc = 1;
