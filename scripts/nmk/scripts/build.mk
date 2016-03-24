@@ -14,6 +14,7 @@ lib-name	:=
 ld_flags	:=
 cleanup-y	:=
 mrproper-y	:=
+objdirs		:=
 
 MAKECMDGOALS := $(call uniq,$(MAKECMDGOALS))
 
@@ -57,10 +58,6 @@ $(1).d: $(2).S $(3)
 	$$(Q) $$(CC) -M -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(strip $$(nmk-asflags)) $(5) $$< -o $$@
 endef
 
-#
-# Expand early which matched all implicits.
-$(eval $(call gen-cc-rules,%,%))
-
 src-makefile	:= $(call objectify,$(makefile))
 include $(src-makefile)
 
@@ -103,6 +100,7 @@ ifneq ($(lib-y),)
         cleanup-y += $(call cleanify,$(lib-y))
         cleanup-y += $(lib-target)
         all-y += $(lib-target)
+        objdirs += $(dir $(lib-y))
 endif
 
 ifneq ($(obj-y),)
@@ -115,6 +113,7 @@ ifneq ($(obj-y),)
         cleanup-y += $(call cleanify,$(obj-y))
         cleanup-y += $(builtin-target)
         all-y += $(builtin-target)
+        objdirs += $(dir $(obj-y))
 endif
 
 #
@@ -163,6 +162,7 @@ define gen-custom-target-rule
                 all-y += $(obj)/$(1).built-in.o
                 cleanup-y += $(call cleanify,$(call objectify,$($(1)-obj-y)))
                 cleanup-y += $(obj)/$(1).built-in.o
+                objdirs += $(dir $(call objectify,$($(1)-obj-y)))
         endif
         ifneq ($($(1)-lib-y),)
                 $(eval $(call gen-ar-target-rule,                       \
@@ -175,10 +175,16 @@ define gen-custom-target-rule
                 all-y += $(obj)/$(1).lib.a
                 cleanup-y += $(call cleanify,$(call objectify,$($(1)-lib-y)))
                 cleanup-y += $(obj)/$(1).lib.a
+                objdirs += $(dir $(call objectify,$($(1)-lib-y)))
         endif
 endef
 
 $(foreach t,$(target),$(eval $(call gen-custom-target-rule,$(t))))
+
+#
+# Prepare rules for dirs other than (obj)/.
+objdirs := $(patsubst %/,%,$(filter-out $(obj)/,$(call uniq,$(objdirs))))
+$(foreach t,$(objdirs),$(eval $(call gen-cc-rules,$(t)/%,$(t)/%,$(src-makefile))))
 
 #
 # Figure out if the target we're building needs deps to include.
