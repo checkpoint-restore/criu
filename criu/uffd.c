@@ -246,6 +246,9 @@ struct uffd_pages_struct {
 	int flags;
 };
 
+static unsigned long total_pages;
+static unsigned long uffd_copied_pages;
+
 static int uffd_copy_page(int uffd, __u64 address, void *dest)
 {
 	struct uffdio_copy uffdio_copy;
@@ -341,11 +344,8 @@ static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list)
 
 static int handle_remaining_pages(int uffd, struct list_head *uffd_list, void *dest)
 {
-	unsigned long uffd_copied_pages = 0;
 	struct uffd_pages_struct *uffd_pages;
 	int rc;
-
-	pr_debug("uffd_copied_pages:    %ld\n", uffd_copied_pages);
 
 	list_for_each_entry(uffd_pages, uffd_list, list) {
 		pr_debug("Checking remaining pages 0x%lx (flags 0x%x)\n",
@@ -363,7 +363,7 @@ static int handle_remaining_pages(int uffd, struct list_head *uffd_list, void *d
 		uffd_pages->flags |= UFFD_FLAG_SENT;
 	}
 
-	return uffd_copied_pages;
+	return 0;
 }
 
 
@@ -378,6 +378,7 @@ static int handle_regular_pages(int uffd, struct list_head *uffd_list, void *des
 		return -1;
 	}
 
+	uffd_copied_pages++;
 	/*
 	 * Mark this page as having been already transferred, so
 	 * that it has not to be copied again later.
@@ -387,8 +388,7 @@ static int handle_regular_pages(int uffd, struct list_head *uffd_list, void *des
 			uffd_pages->flags |= UFFD_FLAG_SENT;
 	}
 
-
-	return 1;
+	return 0;
 }
 
 /*
@@ -497,8 +497,6 @@ int uffd_listen()
 	fd_set set;
 	struct timeval timeout;
 	int uffd;
-	unsigned long uffd_copied_pages = 0;
-	unsigned long total_pages = 0;
 	int uffd_flags;
 	struct uffd_pages_struct *uffd_pages;
 
@@ -600,9 +598,6 @@ int uffd_listen()
 			rc = 1;
 			goto out;
 		}
-
-		uffd_copied_pages += rc;
-
 	}
 	pr_debug("Handle remaining pages\n");
 	rc = handle_remaining_pages(uffd, &uffd_list, dest);
@@ -612,7 +607,6 @@ int uffd_listen()
 		goto out;
 	}
 
-	uffd_copied_pages += rc;
 	pr_debug("With UFFD transferred pages: (%ld/%ld)\n", uffd_copied_pages, total_pages);
 	if (uffd_copied_pages != total_pages) {
 		pr_warn("Only %ld of %ld pages transferred via UFFD\n", uffd_copied_pages,
