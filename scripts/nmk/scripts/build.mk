@@ -16,6 +16,7 @@ ld_flags	:=
 cleanup-y	:=
 mrproper-y	:=
 objdirs		:=
+libso-y	        :=
 
 MAKECMDGOALS := $(call uniq,$(MAKECMDGOALS))
 
@@ -218,6 +219,17 @@ all-y += $(obj)/$(1)
 cleanup-y += $(obj)/$(1)
 endef
 $(foreach t,$(hostprogs-y),$(eval $(call gen-host-rules,$(t))))
+
+#
+# Dynamic library linking.
+define gen-so-link-rules
+$(call objectify,$(1)).so:  $(call objectify,$($(1)-objs)) $(src-makefile)
+	$$(call msg-link, $$@)
+	$$(Q) $$(CC) -shared $$(ldflags-so) $$(LDFLAGS) $$(LDFLAGS_$$(@F)) -o $$@ $(call objectify,$($(1)-objs))
+all-y += $(call objectify,$(1)).so
+cleanup-y += $(call objectify,$(1)).so
+endef
+$(foreach t,$(libso-y),$(eval $(call gen-so-link-rules,$(t))))
 
 #
 # Figure out if the target we're building needs deps to include.
