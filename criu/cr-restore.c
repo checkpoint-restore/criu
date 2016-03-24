@@ -186,7 +186,7 @@ struct post_prepare_cb {
 	void *data;
 };
 
-struct list_head post_prepare_cbs = LIST_HEAD_INIT(post_prepare_cbs);
+static struct list_head post_prepare_cbs = LIST_HEAD_INIT(post_prepare_cbs);
 
 int add_post_prepare_cb(int (*actor)(void *data), void *data)
 {
