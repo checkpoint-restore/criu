@@ -7,7 +7,7 @@ define nmk-ccflags
 endef
 
 define nmk-asflags
-        $(CFLAGS) $(ASFLAGS) $(asflags-y) $(AFLAGS_$(@F))
+        $(CFLAGS) $(AFLAGS) $(asflags-y) $(AFLAGS_$(@F))
 endef
 
 #
