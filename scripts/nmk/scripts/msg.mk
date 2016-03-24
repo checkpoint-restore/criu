@@ -42,6 +42,18 @@ define msg-build
         $(E) "  BUILD   " $(1)
 endef
 
+define msg-host-cc
+        $(E) "  HOSTCC  " $(1)
+endef
+
+define msg-host-dep
+        $(E) "  HOSTDEP " $(1)
+endef
+
+define msg-host-link
+        $(E) "  HOSTLINK" $(1)
+endef
+
 define newline
 
 
