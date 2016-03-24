@@ -866,7 +866,7 @@ int autofs_mount(struct mount_info *mi, const char *source, const
 
 	if (mount(source, mi->mountpoint, filesystemtype, mountflags, opts) < 0) {
 		pr_perror("Failed to mount autofs to %s", mi->mountpoint);
-		goto close_pipe;
+		goto free_opts;
 	}
 
 	info = xmalloc(sizeof(*info));
@@ -905,6 +905,8 @@ int autofs_mount(struct mount_info *mi, const char *source, const
 
 	mi->private = info;
 
+free_opts:
+	free(opts);
 close_pipe:
 	close(control_pipe[1]);
 	close(control_pipe[0]);
