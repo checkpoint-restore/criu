@@ -33,42 +33,28 @@ struct sk_packet {
 
 static LIST_HEAD(packets_list);
 
-int read_sk_queues(void)
+static int collect_one_packet(void *obj, ProtobufCMessage *msg, struct cr_img *img)
 {
-	struct sk_packet *pkt;
-	int ret;
-	struct cr_img *img;
+	struct sk_packet *pkt = obj;
 
-	pr_info("Trying to read socket queues image\n");
+	pkt->entry = pb_msg(msg, SkPacketEntry);
+	pkt->img_off = lseek(img_raw_fd(img), 0, SEEK_CUR);
+	/*
+	 * NOTE: packet must be added to the tail. Otherwise sequence
+	 * will be broken.
+	 */
+	list_add_tail(&pkt->list, &packets_list);
+	lseek(img_raw_fd(img), pkt->entry->length, SEEK_CUR);
 
-	img = open_image(CR_FD_SK_QUEUES, O_RSTR);
-	if (!img)
-		return -1;
-
-	while (1) {
-		ret = -1;
-		pkt = xmalloc(sizeof(*pkt));
-		if (!pkt) {
-			pr_err("Failed to allocate packet header\n");
-			break;
-		}
-		ret = pb_read_one_eof(img, &pkt->entry, PB_SK_QUEUES);
-		if (ret <= 0)
-			break;
-
-		pkt->img_off = lseek(img_raw_fd(img), 0, SEEK_CUR);
-		/*
-		 * NOTE: packet must be added to the tail. Otherwise sequence
-		 * will be broken.
-		 */
-		list_add_tail(&pkt->list, &packets_list);
-		lseek(img_raw_fd(img), pkt->entry->length, SEEK_CUR);
-	}
-	close_image(img);
-	xfree(pkt);
-
-	return ret;
+	return 0;
 }
+
+struct collect_image_info sk_queues_cinfo = {
+	.fd_type = CR_FD_SK_QUEUES,
+	.pb_type = PB_SK_QUEUES,
+	.priv_size = sizeof(struct sk_packet),
+	.collect = collect_one_packet,
+};
 
 int dump_sk_queue(int sock_fd, int sock_id)
 {

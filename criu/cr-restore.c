@@ -76,6 +76,8 @@
 #include "seccomp.h"
 #include "bitmap.h"
 #include "fault-injection.h"
+#include "sk-queue.h"
+
 #include "parasite-syscall.h"
 
 #include "protobuf.h"
@@ -178,6 +180,7 @@ static struct collect_image_info *cinfos[] = {
 	&ext_file_cinfo,
 	&timerfd_cinfo,
 	&file_locks_cinfo,
+	&sk_queues_cinfo,
 };
 
 struct post_prepare_cb {
@@ -241,8 +244,6 @@ static int root_prepare_shared(void)
 	if (collect_pipes())
 		return -1;
 	if (collect_fifo())
-		return -1;
-	if (collect_unix_sockets())
 		return -1;
 
 	if (tty_verify_active_pairs())

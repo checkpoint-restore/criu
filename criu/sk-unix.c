@@ -1330,11 +1330,6 @@ struct collect_image_info unix_sk_cinfo = {
 	.flags = COLLECT_SHARED,
 };
 
-int collect_unix_sockets(void)
-{
-	return read_sk_queues();
-}
-
 static int resolve_unix_peers(void *unused)
 {
 	struct unix_sk_info *ui, *peer;
