@@ -33,6 +33,9 @@ define nmk-asflags
         $(CFLAGS) $(AFLAGS) $(asflags-y) $(AFLAGS_$(@F))
 endef
 
+define nmk-host-ccflags
+        $(HOSTCFLAGS) $(host-ccflags-y) $(HOSTCFLAGS_$(@F))
+endef
 
 #
 # General rules.
@@ -188,6 +191,35 @@ objdirs := $(patsubst %/,%,$(filter-out $(obj)/,$(call uniq,$(objdirs))))
 $(foreach t,$(objdirs),$(eval $(call gen-cc-rules,$(t)/%,$(t)/%)))
 
 #
+# Host programs.
+define gen-host-cc-rules
+$(addprefix $(obj)/,$(1)): $(obj)/%.o: $(obj)/%.c $(src-makefile)
+	$$(call msg-host-cc, $$@)
+	$$(Q) $$(HOSTCC) -c $$(strip $$(nmk-host-ccflags)) $$< -o $$@
+$(patsubst %.o,%.i,$(addprefix $(obj)/,$(1))): $(obj)/%.i: $(obj)/%.c $(src-makefile)
+	$$(call msg-host-cc, $$@)
+	$$(Q) $$(HOSTCC) -E $$(strip $$(nmk-host-ccflags)) $$< -o $$@
+$(patsubst %.o,%.s,$(addprefix $(obj)/,$(1))): $(obj)/%.s: $(obj)/%.c $(src-makefile)
+	$$(call msg-host-cc, $$@)
+	$$(Q) $$(HOSTCC) -S -fverbose-asm $$(strip $$(nmk-host-ccflags)) $$< -o $$@
+$(patsubst %.o,%.d,$(addprefix $(obj)/,$(1))): $(obj)/%.d: $(obj)/%.c $(src-makefile)
+	$$(call msg-host-dep, $$@)
+	$$(Q) $$(HOSTCC) -M -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(strip $$(nmk-host-ccflags)) $$< -o $$@
+endef
+
+define gen-host-rules
+        $(eval $(call gen-host-cc-rules,$($(1)-objs)))
+        all-y += $(addprefix $(obj)/,$($(1)-objs))
+        cleanup-y += $(call cleanify,$(addprefix $(obj)/,$($(1)-objs)))
+$(obj)/$(1): $(addprefix $(obj)/,$($(1)-objs)) $(src-makefile)
+	$$(call msg-host-link, $$@)
+	$$(Q) $$(HOSTCC) $$(HOSTCFLAGS) $(addprefix $(obj)/,$($(1)-objs)) $$(HOSTLDFLAGS) $$(HOSTLDFLAGS_$$(@F))-o $$@
+all-y += $(obj)/$(1)
+cleanup-y += $(obj)/$(1)
+endef
+$(foreach t,$(hostprogs-y),$(eval $(call gen-host-rules,$(t))))
+
+#
 # Figure out if the target we're building needs deps to include.
 define collect-deps
         ifneq ($(filter-out %.d,$(1)),)
@@ -201,10 +233,11 @@ define collect-deps
         ifeq ($(lib-target),$(1))
                 deps-y += $(lib-y:.o=.d)
         endif
-        ifneq ($(filter all $(all-y) $(target),$(1)),)
+        ifneq ($(filter all $(all-y) $(hostprogs-y),$(1)),)
                 deps-y += $(obj-y:.o=.d)
                 deps-y += $(lib-y:.o=.d)
                 deps-y += $(foreach t,$(target),$(call objectify,$($(t)-lib-y:.o=.d)) $(call objectify,$($(t)-obj-y:.o=.d)))
+                deps-y += $(foreach t,$(hostprogs-y),$(addprefix $(obj)/,$($(t)-objs:.o=.d)))
         endif
 endef
 
