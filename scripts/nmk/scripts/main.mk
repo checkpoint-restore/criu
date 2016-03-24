@@ -20,7 +20,6 @@ endif
 
 $(eval $(call include-once,tools.mk))
 $(eval $(call include-once,utils.mk))
-$(eval $(call include-once,rules.mk))
 $(eval $(call include-once,build.mk))
 
 #
