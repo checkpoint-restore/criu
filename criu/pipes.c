@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 
+#include "crtools.h"
 #include "imgset.h"
 #include "image.h"
 #include "files.h"
@@ -93,7 +94,7 @@ int collect_pipe_data(int img_type, struct pipe_data_rst **hash)
 }
 
 /* Choose who will restore a pipe. */
-void mark_pipe_master(void)
+static int mark_pipe_master(void *unused)
 {
 	LIST_HEAD(head);
 
@@ -156,6 +157,7 @@ void mark_pipe_master(void)
 	}
 
 	list_splice(&head, &pipes);
+	return 0;
 }
 
 static struct pipe_data_rst *pd_hash_pipes[PIPE_DATA_HASH_SIZE];
@@ -393,6 +395,10 @@ static int collect_one_pipe(void *o, ProtobufCMessage *base)
 		if (&tmp->list != &pipes)
 			list_add(&pi->pipe_list, &tmp->pipe_list);
 	}
+
+	if (list_empty(&pipes))
+		if (add_post_prepare_cb(mark_pipe_master, NULL))
+			return -1;
 
 	list_add_tail(&pi->list, &pipes);
 

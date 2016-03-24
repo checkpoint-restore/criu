@@ -6,7 +6,6 @@
 
 extern struct collect_image_info pipe_cinfo;
 extern int collect_pipes(void);
-extern void mark_pipe_master(void);
 extern const struct fdtype_ops pipe_dump_ops;
 
 static inline u32 pipe_id(const struct fd_parms *p)
