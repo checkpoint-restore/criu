@@ -108,7 +108,7 @@ endif
 endif
 
 mrproper-y += $(obj)/*.pb-c.c $(obj)/*.pb-c.h
-cleanup-y += $(obj)/*.c.d
+cleanup-y += $(obj)/*.o $(obj)/*.d $(obj)/*.s $(obj)/*.i
 cleanup-y += $(obj)/google/protobuf/*.d
 cleanup-y += $(obj)/google/protobuf/*.h
 cleanup-y += $(obj)/google/protobuf/*.c
