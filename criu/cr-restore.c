@@ -268,10 +268,6 @@ static int root_prepare_shared(void)
 	if (ret < 0)
 		goto err;
 
-	ret = tty_setup_slavery();
-	if (ret)
-		goto err;
-
 	ret = prepare_restorer_blob();
 	if (ret)
 		goto err;

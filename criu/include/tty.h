@@ -22,7 +22,6 @@ extern int dump_verify_tty_sids(void);
 extern struct collect_image_info tty_info_cinfo;
 extern struct collect_image_info tty_cinfo;
 extern int prepare_shared_tty(void);
-extern int tty_setup_slavery(void);
 
 extern int tty_verify_active_pairs(void);
 

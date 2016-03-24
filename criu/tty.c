@@ -15,6 +15,7 @@
 #include "compiler.h"
 #include "asm/types.h"
 
+#include "crtools.h"
 #include "files.h"
 #include "cr_options.h"
 #include "imgset.h"
@@ -1221,7 +1222,7 @@ static int tty_setup_orphan_slavery(void)
 	return 0;
 }
 
-int tty_setup_slavery(void)
+static int tty_setup_slavery(void * unused)
 {
 	struct tty_info *info, *peer, *m;
 
@@ -1451,6 +1452,15 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg)
 		tty_test_and_set(info->tfe->tty_info_id, tty_active_pairs);
 
 	pr_info("Collected tty ID %#x (%s)\n", info->tfe->id, info->driver->name);
+
+	if (list_empty(&all_ttys))
+		/*
+		 * XXX -- not every tty requires this.
+		 * Check that we have such here and queue
+		 * post-cb only if required.
+		 */
+		if (add_post_prepare_cb(tty_setup_slavery, NULL))
+			return -1;
 
 	list_add(&info->list, &all_ttys);
 	return file_desc_add(&info->d, info->tfe->id, &tty_desc_ops);
