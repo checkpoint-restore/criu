@@ -1198,6 +1198,13 @@ def run_tests(opts):
 	elif opts['test']:
 		torun = opts['test']
 		run_all = False
+	elif opts['from']:
+		if not os.access(opts['from'], os.R_OK):
+			print "No such file"
+			return
+
+		torun = map(lambda x: x.strip(), open(opts['from']))
+		run_all = True
 	else:
 		print "Specify test with -t <name> or -a"
 		return
@@ -1458,6 +1465,7 @@ rp.set_defaults(action = run_tests)
 rp.add_argument("-a", "--all", action = 'store_true')
 rp.add_argument("-t", "--test", help = "Test name", action = 'append')
 rp.add_argument("-T", "--tests", help = "Regexp")
+rp.add_argument("-F", "--from", help = "From file")
 rp.add_argument("-f", "--flavor", help = "Flavor to run")
 rp.add_argument("-x", "--exclude", help = "Exclude tests from --all run", action = 'append')
 
