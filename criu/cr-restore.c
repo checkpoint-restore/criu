@@ -180,6 +180,8 @@ static struct collect_image_info *cinfos[] = {
 	&ext_file_cinfo,
 	&timerfd_cinfo,
 	&file_locks_cinfo,
+	&pipe_data_cinfo,
+	&fifo_data_cinfo,
 	&sk_queues_cinfo,
 };
 
@@ -240,11 +242,6 @@ static int root_prepare_shared(void)
 		if (ret)
 			return -1;
 	}
-
-	if (collect_pipes())
-		return -1;
-	if (collect_fifo())
-		return -1;
 
 	if (tty_verify_active_pairs())
 		return -1;

@@ -6,6 +6,6 @@ struct cr_imgset;
 
 extern const struct fdtype_ops fifo_dump_ops;
 extern struct collect_image_info fifo_cinfo;
-extern int collect_fifo(void);
+extern struct collect_image_info fifo_data_cinfo;
 
 #endif /* __CR_FIFO_H__ */

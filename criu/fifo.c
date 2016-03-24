@@ -162,7 +162,14 @@ struct collect_image_info fifo_cinfo = {
 	.collect = collect_one_fifo,
 };
 
-int collect_fifo(void)
+static int collect_fifo_data(void *obj, ProtobufCMessage *msg, struct cr_img *img)
 {
-	return collect_pipe_data(CR_FD_FIFO_DATA, pd_hash_fifo);
+	return do_collect_pipe_data(obj, msg, img, pd_hash_fifo);
 }
+
+struct collect_image_info fifo_data_cinfo = {
+	.fd_type = CR_FD_FIFO_DATA,
+	.pb_type = PB_PIPE_DATA,
+	.priv_size = sizeof(struct pipe_data_rst),
+	.collect = collect_fifo_data,
+};

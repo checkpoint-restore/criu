@@ -5,7 +5,7 @@
 #include "images/pipe.pb-c.h"
 
 extern struct collect_image_info pipe_cinfo;
-extern int collect_pipes(void);
+extern struct collect_image_info pipe_data_cinfo;
 extern const struct fdtype_ops pipe_dump_ops;
 
 static inline u32 pipe_id(const struct fd_parms *p)
@@ -33,7 +33,8 @@ struct pipe_data_rst {
 #define PIPE_DATA_HASH_SIZE	(1 << PIPE_DATA_HASH_BITS)
 #define PIPE_DATA_HASH_MASK	(PIPE_DATA_HASH_SIZE - 1)
 
-extern int collect_pipe_data(int img_type, struct pipe_data_rst **hash);
+extern int do_collect_pipe_data(struct pipe_data_rst *,
+		ProtobufCMessage *, struct cr_img *, struct pipe_data_rst **hash);
 extern int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash);
 
 /*
