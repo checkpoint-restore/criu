@@ -4,6 +4,7 @@ ifndef ____nmk_defined__build
 # General helpers for simplified Makefiles.
 #
 src		:= $(obj)
+src-makefile	:= $(call objectify,$(makefile))
 obj-y		:=
 lib-y		:=
 target          :=
@@ -32,33 +33,33 @@ define nmk-asflags
         $(CFLAGS) $(AFLAGS) $(asflags-y) $(AFLAGS_$(@F))
 endef
 
+
 #
 # General rules.
 define gen-cc-rules
-$(1).o: $(2).c $(3)
+$(1).o: $(2).c $(src-makefile)
 	$$(call msg-cc, $$@)
-	$$(Q) $$(CC) -c $$(strip $$(nmk-ccflags)) $(4) $$< -o $$@
-$(1).i: $(2).c $(3)
+	$$(Q) $$(CC) -c $$(strip $$(nmk-ccflags)) $$< -o $$@
+$(1).i: $(2).c $(src-makefile)
 	$$(call msg-cc, $$@)
-	$$(Q) $$(CC) -E $$(strip $$(nmk-ccflags)) $(4) $$< -o $$@
-$(1).s: $(2).c $(3)
+	$$(Q) $$(CC) -E $$(strip $$(nmk-ccflags)) $$< -o $$@
+$(1).s: $(2).c $(src-makefile)
 	$$(call msg-cc, $$@)
-	$$(Q) $$(CC) -S -fverbose-asm $$(strip $$(nmk-ccflags)) $(4) $$< -o $$@
-$(1).d: $(2).c $(3)
+	$$(Q) $$(CC) -S -fverbose-asm $$(strip $$(nmk-ccflags)) $$< -o $$@
+$(1).d: $(2).c $(src-makefile)
 	$$(call msg-dep, $$@)
-	$$(Q) $$(CC) -M -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(strip $$(nmk-ccflags)) $(4) $$< -o $$@
-$(1).o: $(2).S $(3)
+	$$(Q) $$(CC) -M -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(strip $$(nmk-ccflags)) $$< -o $$@
+$(1).o: $(2).S $(src-makefile)
 	$$(call msg-cc, $$@)
-	$$(Q) $$(CC) -c $$(strip $$(nmk-asflags)) $(5) $$< -o $$@
-$(1).i: $(2).S $(3)
+	$$(Q) $$(CC) -c $$(strip $$(nmk-asflags)) $$< -o $$@
+$(1).i: $(2).S $(src-makefile)
 	$$(call msg-cc, $$@)
-	$$(Q) $$(CC) -E $$(strip $$(nmk-asflags)) $(5) $$< -o $$@
-$(1).d: $(2).S $(3)
+	$$(Q) $$(CC) -E $$(strip $$(nmk-asflags)) $$< -o $$@
+$(1).d: $(2).S $(src-makefile)
 	$$(call msg-dep, $$@)
-	$$(Q) $$(CC) -M -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(strip $$(nmk-asflags)) $(5) $$< -o $$@
+	$$(Q) $$(CC) -M -MT $$@ -MT $$(patsubst %.d,%.o,$$@) $$(strip $$(nmk-asflags)) $$< -o $$@
 endef
 
-src-makefile	:= $(call objectify,$(makefile))
 include $(src-makefile)
 
 ifneq ($(strip $(target)),)
@@ -86,7 +87,7 @@ ld_flags	:= $(strip $(LDFLAGS) $(ldflags-y))
 
 #
 # $(obj) related rules.
-$(eval $(call gen-cc-rules,$(obj)/%,$(obj)/%,$(src-makefile)))
+$(eval $(call gen-cc-rules,$(obj)/%,$(obj)/%))
 
 #
 # Prepare targets.
@@ -184,7 +185,7 @@ $(foreach t,$(target),$(eval $(call gen-custom-target-rule,$(t))))
 #
 # Prepare rules for dirs other than (obj)/.
 objdirs := $(patsubst %/,%,$(filter-out $(obj)/,$(call uniq,$(objdirs))))
-$(foreach t,$(objdirs),$(eval $(call gen-cc-rules,$(t)/%,$(t)/%,$(src-makefile))))
+$(foreach t,$(objdirs),$(eval $(call gen-cc-rules,$(t)/%,$(t)/%)))
 
 #
 # Figure out if the target we're building needs deps to include.
