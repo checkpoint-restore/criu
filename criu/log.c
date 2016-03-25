@@ -79,7 +79,13 @@ int log_init(const char *output)
 	gettimeofday(&start, NULL);
 	reset_buf_off();
 
-	if (output) {
+	if (output && !strncmp(output, "-", 2)) {
+		new_logfd = dup(STDOUT_FILENO);
+		if (new_logfd < 0) {
+			pr_perror("Cant't dup stdout stream");
+			return -1;
+		}
+	} else if (output) {
 		new_logfd = open(output, O_CREAT|O_TRUNC|O_WRONLY|O_APPEND, 0600);
 		if (new_logfd < 0) {
 			pr_perror("Can't create log file %s", output);
