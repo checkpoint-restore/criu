@@ -1263,7 +1263,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure_imgset;
 	}
 
-	ret = parasite_check_aios(parasite_ctl, &vmas); /* FIXME -- merge with above */
+	ret = parasite_collect_aios(parasite_ctl, &vmas); /* FIXME -- merge with above */
 	if (ret) {
 		pr_err("Failed to check aio rings (pid: %d)\n", pid);
 		goto err_cure_imgset;
