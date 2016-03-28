@@ -190,6 +190,12 @@ static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl
 	list_for_each_entry(vma, &vma_area_list->h, list) {
 		if (!vma_area_is_private(vma, kdat.task_size))
 			continue;
+		/*
+		 * Kernel write to aio ring is not soft-dirty tracked,
+		 * so we ignore them at pre-dump.
+		 */
+		if (vma_entry_is(vma->e, VMA_AREA_AIORING) && pp_ret)
+			continue;
 		if (vma->e->prot & PROT_READ)
 			continue;
 
@@ -302,6 +308,8 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		u64 *map;
 
 		if (!vma_area_is_private(vma_area, kdat.task_size))
+			continue;
+		if (vma_entry_is(vma_area->e, VMA_AREA_AIORING) && pp_ret)
 			continue;
 
 		map = pmc_get_map(&pmc, vma_area);

@@ -341,6 +341,7 @@ static int map_private_vma(struct vma_area *vma, void **tgt_addr,
 
 	size = vma_entry_len(vma->e);
 	if (paddr == NULL) {
+		int flag = 0;
 		/*
 		 * The respective memory area was NOT found in the parent.
 		 * Map a new one.
@@ -348,9 +349,16 @@ static int map_private_vma(struct vma_area *vma, void **tgt_addr,
 		pr_info("Map 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
 			vma->e->start, vma->e->end, vma->e->pgoff);
 
+		/*
+		 * Restore AIO ring buffer content to temporary anonymous area.
+		 * This will be placed in io_setup'ed AIO in restore_aio_ring().
+		 */
+		if (vma_entry_is(vma->e, VMA_AREA_AIORING))
+			flag |= MAP_ANONYMOUS;
+
 		addr = mmap(*tgt_addr, size,
 				vma->e->prot | PROT_WRITE,
-				vma->e->flags | MAP_FIXED,
+				vma->e->flags | MAP_FIXED | flag,
 				vma->e->fd, vma->e->pgoff);
 
 		if (addr == MAP_FAILED) {

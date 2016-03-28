@@ -102,4 +102,5 @@ __NR_seccomp		358		sys_seccomp		(unsigned int op, unsigned int flags, const char
 __NR_memfd_create	360		sys_memfd_create	(const char *name, unsigned int flags)
 __NR_io_setup		227		sys_io_setup		(unsigned nr_events, aio_context_t *ctx_idp)
 __NR_io_getevents	229		sys_io_getevents	(aio_context_t ctx_id, long min_nr, long nr, struct io_event *events, struct timespec *timeout)
+__NR_io_submit		230		sys_io_submit		(aio_context_t ctx_id, long nr, struct iocb **iocbpp)
 __NR_ipc		117		sys_ipc			(unsigned int call, int first, unsigned long second, unsigned long third, const void *ptr, long fifth)

@@ -3,6 +3,7 @@
 
 #include <linux/securebits.h>
 #include <linux/capability.h>
+#include <linux/aio_abi.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -16,6 +17,7 @@
 #include <signal.h>
 
 #include "compiler.h"
+#include "asm/string.h"
 #include "asm/types.h"
 #include "syscall.h"
 #include "config.h"
@@ -545,10 +547,23 @@ static unsigned long restore_mapping(const VmaEntry *vma_entry)
 	return addr;
 }
 
+/*
+ * This restores aio ring header, content, head and in-kernel position
+ * of tail. To set tail, we write to /dev/null and use the fact this
+ * operation is synchronious for the device. Also, we unmap temporary
+ * anonymous area, used to store content of ring buffer during restore
+ * and mapped in map_private_vma().
+ */
 static int restore_aio_ring(struct rst_aio_ring *raio)
 {
+	struct aio_ring *ring = (void *)raio->addr;
+	int i, maxr, count, fd, ret;
+	unsigned head = ring->head;
+	unsigned tail = ring->tail;
+	struct iocb *iocb, **iocbp;
 	unsigned long ctx = 0;
-	int ret;
+	unsigned size;
+	char buf[1];
 
 	ret = sys_io_setup(raio->nr_req, &ctx);
 	if (ret < 0) {
@@ -556,8 +571,80 @@ static int restore_aio_ring(struct rst_aio_ring *raio)
 		return -1;
 	}
 
-	if (ctx == raio->addr) /* Lucky bastards we are! */
-		return 0;
+	if (tail == 0 && head == 0)
+		goto populate;
+
+	fd = sys_open("/dev/null", O_WRONLY, 0);
+	if (fd < 0) {
+		pr_err("Can't open /dev/null for aio\n");
+		return -1;
+	}
+
+	/*
+	 * If tail < head, we have to do full turn and then submit
+	 * tail more request, i.e. ring->nr + tail.
+	 * If we do not do full turn, in-kernel completed_events
+	 * will initialize wrong.
+	 *
+	 * Maximum number reqs to submit at once are ring->nr-1,
+	 * so we won't allocate more.
+	 */
+	if (tail < head)
+		count = ring->nr + tail;
+	else
+		count = tail;
+	maxr = min_t(unsigned, count, ring->nr-1);
+
+	/*
+	 * Since we only interested in moving the tail, the requests
+	 * may be any. We submit count identical requests.
+	 */
+	size = sizeof(struct iocb) + maxr * sizeof(struct iocb *);
+	iocb = (void *)sys_mmap(NULL, size, PROT_READ|PROT_WRITE,
+				MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	iocbp = (void *)iocb + sizeof(struct iocb);
+
+	if (iocb == MAP_FAILED) {
+		pr_err("Can't mmap aio tmp buffer\n");
+		return -1;
+	}
+
+	iocb->aio_fildes = fd;
+	iocb->aio_buf = (unsigned long)buf;
+	iocb->aio_nbytes = 1;
+	iocb->aio_lio_opcode = IOCB_CMD_PWRITE; /* Write is nop, read populates buf */
+
+	for (i = 0; i < maxr; i++)
+		iocbp[i] = iocb;
+
+	i = 0;
+	do {
+		ret = sys_io_submit(ctx, count - i, iocbp);
+		if (ret < 0) {
+			pr_err("Can't submit aio iocbs: ret=%d\n", ret);
+			return -1;
+		}
+		i += ret;
+
+		 /*
+		  * We may submit less than requested, because of too big
+		  * count OR behaviour of get_reqs_available(), which
+		  * takes available requests only if their number is
+		  * aliquot to kioctx::req_batch. Free part of buffer
+		  * for next iteration.
+		  *
+		  * Direct set of head is equal to sys_io_getevents() call,
+		  * and faster. See kernel for the details.
+		  */
+		((struct aio_ring *)ctx)->head = i < head ? i : head;
+	} while (i < count);
+
+	sys_munmap(iocb, size);
+	sys_close(fd);
+
+populate:
+	i = offsetof(struct aio_ring, io_events);
+	builtin_memcpy((void *)ctx + i, (void *)ring + i, raio->len - i);
 
 	/*
 	 * If we failed to get the proper nr_req right and
@@ -567,6 +654,8 @@ static int restore_aio_ring(struct rst_aio_ring *raio)
 	 *
 	 * This is not great, but anyway better than putting
 	 * a ring of wrong size into correct place.
+	 *
+	 * Also, this unmaps temporary anonymous area on raio->addr.
 	 */
 
 	ctx = sys_mremap(ctx, raio->len, raio->len,
@@ -576,23 +665,6 @@ static int restore_aio_ring(struct rst_aio_ring *raio)
 		pr_err("Ring remap failed with %ld\n", ctx);
 		return -1;
 	}
-
-	/*
-	 * Now check that kernel not just remapped the
-	 * ring into new place, but updated the internal
-	 * context state respectively.
-	 */
-
-	ret = sys_io_getevents(ctx, 0, 1, NULL, NULL);
-	if (ret != 0) {
-		if (ret < 0)
-			pr_err("Kernel doesn't remap AIO rings\n");
-		else
-			pr_err("AIO context screwed up\n");
-
-		return -1;
-	}
-
 	return 0;
 }
 

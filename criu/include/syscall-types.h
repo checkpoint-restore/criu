@@ -31,6 +31,7 @@ struct rusage;
 struct file_handle;
 struct robust_list_head;
 struct io_event;
+struct iocb;
 struct timespec;
 
 typedef unsigned long aio_context_t;

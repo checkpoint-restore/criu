@@ -410,14 +410,7 @@ static int parasite_check_aios(struct parasite_check_aios_args *args)
 			return -1;
 		}
 
-		/*
-		 * XXX what else can we do if there are requests
-		 * in the ring?
-		 */
-		if (ring->head != ring->tail) {
-			pr_err("Pending AIO requests in ring #%d\n", i);
-			return -1;
-		}
+		/* XXX: wait aio completion */
 
 		args->ring[i].max_reqs = ring->nr;
 	}
