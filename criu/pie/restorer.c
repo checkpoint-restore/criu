@@ -545,6 +545,57 @@ static unsigned long restore_mapping(const VmaEntry *vma_entry)
 	return addr;
 }
 
+static int restore_aio_ring(struct rst_aio_ring *raio)
+{
+	unsigned long ctx = 0;
+	int ret;
+
+	ret = sys_io_setup(raio->nr_req, &ctx);
+	if (ret < 0) {
+		pr_err("Ring setup failed with %d\n", ret);
+		return -1;
+	}
+
+	if (ctx == raio->addr) /* Lucky bastards we are! */
+		return 0;
+
+	/*
+	 * If we failed to get the proper nr_req right and
+	 * created smaller or larger ring, then this remap
+	 * will (should) fail, since AIO rings has immutable
+	 * size.
+	 *
+	 * This is not great, but anyway better than putting
+	 * a ring of wrong size into correct place.
+	 */
+
+	ctx = sys_mremap(ctx, raio->len, raio->len,
+				MREMAP_FIXED | MREMAP_MAYMOVE,
+				raio->addr);
+	if (ctx != raio->addr) {
+		pr_err("Ring remap failed with %ld\n", ctx);
+		return -1;
+	}
+
+	/*
+	 * Now check that kernel not just remapped the
+	 * ring into new place, but updated the internal
+	 * context state respectively.
+	 */
+
+	ret = sys_io_getevents(ctx, 0, 1, NULL, NULL);
+	if (ret != 0) {
+		if (ret < 0)
+			pr_err("Kernel doesn't remap AIO rings\n");
+		else
+			pr_err("AIO context screwed up\n");
+
+		return -1;
+	}
+
+	return 0;
+}
+
 static void rst_tcp_repair_off(struct rst_tcp_sock *rts)
 {
 	int aux, ret;
@@ -999,54 +1050,9 @@ long __export_restore_task(struct task_restore_args *args)
 	 * up AIO rings.
 	 */
 
-	for (i = 0; i < args->rings_n; i++) {
-		struct rst_aio_ring *raio = &args->rings[i];
-		unsigned long ctx = 0;
-		int ret;
-
-		ret = sys_io_setup(raio->nr_req, &ctx);
-		if (ret < 0) {
-			pr_err("Ring setup failed with %d\n", ret);
+	for (i = 0; i < args->rings_n; i++)
+		if (restore_aio_ring(&args->rings[i]) < 0)
 			goto core_restore_end;
-		}
-
-		if (ctx == raio->addr) /* Lucky bastards we are! */
-			continue;
-
-		/*
-		 * If we failed to get the proper nr_req right and
-		 * created smaller or larger ring, then this remap
-		 * will (should) fail, since AIO rings has immutable
-		 * size.
-		 *
-		 * This is not great, but anyway better than putting
-		 * a ring of wrong size into correct place.
-		 */
-
-		ctx = sys_mremap(ctx, raio->len, raio->len,
-					MREMAP_FIXED | MREMAP_MAYMOVE,
-					raio->addr);
-		if (ctx != raio->addr) {
-			pr_err("Ring remap failed with %ld\n", ctx);
-			goto core_restore_end;
-		}
-
-		/*
-		 * Now check that kernel not just remapped the
-		 * ring into new place, but updated the internal
-		 * context state respectively.
-		 */
-
-		ret = sys_io_getevents(ctx, 0, 1, NULL, NULL);
-		if (ret != 0) {
-			if (ret < 0)
-				pr_err("Kernel doesn't remap AIO rings\n");
-			else
-				pr_err("AIO context screwed up\n");
-
-			goto core_restore_end;
-		}
-	}
 
 	/*
 	 * Finally restore madivse() bits
