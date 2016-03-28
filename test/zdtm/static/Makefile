@@ -135,6 +135,7 @@ TST_NOFILE	=				\
 		remap_dead_pid			\
 		remap_dead_pid_root			\
 		aio00				\
+		aio01				\
 		fd				\
 		apparmor				\
 		seccomp_strict			\
