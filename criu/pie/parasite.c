@@ -385,12 +385,18 @@ static inline int tty_ioctl(int fd, int cmd, int *arg)
 #define AIO_RING_COMPAT_FEATURES	1
 #define AIO_RING_INCOMPAT_FEATURES	0
 
-static int sane_ring(struct aio_ring *ring)
+static int sane_ring(struct parasite_aio *aio)
 {
+	struct aio_ring *ring = (struct aio_ring *)aio->ctx;
+	unsigned nr;
+
+	nr = (aio->size - sizeof(struct aio_ring)) / sizeof(struct io_event);
+
 	return ring->magic == AIO_RING_MAGIC &&
 		ring->compat_features == AIO_RING_COMPAT_FEATURES &&
 		ring->incompat_features == AIO_RING_INCOMPAT_FEATURES &&
-		ring->header_length == sizeof(struct aio_ring);
+		ring->header_length == sizeof(struct aio_ring) &&
+		ring->nr == nr;
 }
 
 static int parasite_check_aios(struct parasite_check_aios_args *args)
@@ -401,12 +407,13 @@ static int parasite_check_aios(struct parasite_check_aios_args *args)
 		struct aio_ring *ring;
 
 		ring = (struct aio_ring *)args->ring[i].ctx;
-		if (!sane_ring(ring)) {
+		if (!sane_ring(&args->ring[i])) {
 			pr_err("Not valid ring #%d\n", i);
 			pr_info(" `- magic %x\n", ring->magic);
 			pr_info(" `- cf    %d\n", ring->compat_features);
 			pr_info(" `- if    %d\n", ring->incompat_features);
-			pr_info(" `- size  %d (%zd)\n", ring->header_length, sizeof(struct aio_ring));
+			pr_info(" `- header size  %d (%zd)\n", ring->header_length, sizeof(struct aio_ring));
+			pr_info(" `- nr    %d\n", ring->nr);
 			return -1;
 		}
 

@@ -556,7 +556,7 @@ static unsigned long restore_mapping(const VmaEntry *vma_entry)
  */
 static int restore_aio_ring(struct rst_aio_ring *raio)
 {
-	struct aio_ring *ring = (void *)raio->addr;
+	struct aio_ring *ring = (void *)raio->addr, *new;
 	int i, maxr, count, fd, ret;
 	unsigned head = ring->head;
 	unsigned tail = ring->tail;
@@ -568,6 +568,15 @@ static int restore_aio_ring(struct rst_aio_ring *raio)
 	ret = sys_io_setup(raio->nr_req, &ctx);
 	if (ret < 0) {
 		pr_err("Ring setup failed with %d\n", ret);
+		return -1;
+	}
+
+	new = (struct aio_ring *)ctx;
+	i = (raio->len - sizeof(struct aio_ring)) / sizeof(struct io_event);
+	if (tail >= ring->nr || head >= ring->nr || ring->nr != i ||
+	    new->nr != ring->nr) {
+		pr_err("wrong aio parametrs: tail=%x head=%x nr=%x len=%lx\n",
+			tail, head, raio->nr_req, raio->len);
 		return -1;
 	}
 
