@@ -176,7 +176,7 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 }
 
 static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl *ctl,
-		struct vm_area_list *vma_area_list)
+		struct vm_area_list *vma_area_list, struct page_pipe **pp_ret)
 {
 	struct parasite_dump_pages_args *args;
 	struct parasite_vma_entry *p_vma;
@@ -354,7 +354,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	int ret;
 	struct parasite_dump_pages_args *pargs;
 
-	pargs = prep_dump_pages_args(ctl, vma_area_list);
+	pargs = prep_dump_pages_args(ctl, vma_area_list, pp);
 
 	/*
 	 * Add PROT_READ protection for all VMAs we're about to
