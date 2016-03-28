@@ -1564,6 +1564,15 @@ static int restore_task_with_children(void *_arg)
 			goto err;
 	}
 
+	/*
+	 * Call this _before_ forking to optimize cgroups
+	 * restore -- if all tasks live in one set of cgroups
+	 * we will only move the root one there, others will
+	 * just have it inherited.
+	 */
+	if (prepare_task_cgroup(current) < 0)
+		goto err;
+
 	/* Restore root task */
 	if (current->parent == NULL) {
 		if (restore_finish_stage(CR_STATE_RESTORE_NS) < 0)
@@ -1594,15 +1603,6 @@ static int restore_task_with_children(void *_arg)
 		goto err;
 
 	if (prepare_mappings())
-		goto err;
-
-	/*
-	 * Call this _before_ forking to optimize cgroups
-	 * restore -- if all tasks live in one set of cgroups
-	 * we will only move the root one there, others will
-	 * just have it inherited.
-	 */
-	if (prepare_task_cgroup(current) < 0)
 		goto err;
 
 	if (prepare_sigactions() < 0)
