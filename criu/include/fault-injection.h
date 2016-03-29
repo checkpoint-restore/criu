@@ -8,6 +8,7 @@ enum faults {
 	FI_RESTORE_ROOT_ONLY,
 	/* not fatal */
 	FI_CHECK_OPEN_HANDLE = 128,
+	FI_NO_MEMFD = 129,
 	FI_MAX,
 };
 

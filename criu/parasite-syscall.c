@@ -28,6 +28,7 @@
 #include "vma.h"
 #include "proc_parse.h"
 #include "aio.h"
+#include "fault-injection.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -1191,6 +1192,9 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 	pid_t pid = ctl->pid.real;
 	unsigned long sret = -ENOSYS;
 	int ret, fd, lfd;
+
+	if (fault_injected(FI_NO_MEMFD))
+		return 1;
 
 	BUILD_BUG_ON(sizeof(orig_code) < sizeof(long));
 
