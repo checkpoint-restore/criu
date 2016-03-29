@@ -20,6 +20,7 @@
 #include "restorer.h"
 #include "files-reg.h"
 #include "pagemap-cache.h"
+#include "fault-injection.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -370,9 +371,18 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		return ret;
 	}
 
+	if (fault_injected(FI_DUMP_PAGES)) {
+		pr_err("fault: Dump VMA pages failure!\n");
+		return -1;
+	}
+
 	ret = __parasite_dump_pages_seized(ctl, pargs, vma_area_list, pp);
-	if (ret)
+
+	if (ret) {
 		pr_err("Can't dump page with parasite\n");
+		/* Parasite will unprotect VMAs after fail in fini() */
+		return ret;
+	}
 
 	pargs->add_prot = 0;
 	if (parasite_execute_daemon(PARASITE_CMD_MPROTECT_VMAS, ctl)) {
