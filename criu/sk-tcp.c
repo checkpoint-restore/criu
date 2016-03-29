@@ -145,11 +145,6 @@ static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 		goto err3;
 
 	list_add_tail(&sk->rlist, &cpt_tcp_repair_sockets);
-
-	ret = refresh_inet_sk(sk);
-	if (ret < 0)
-		goto err1;
-
 	return 0;
 
 err3:
@@ -322,6 +317,10 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	TcpStreamEntry tse = TCP_STREAM_ENTRY__INIT;
 	char *in_buf, *out_buf;
 
+	ret = refresh_inet_sk(sk);
+	if (ret < 0)
+		goto err_r;
+
 	/*
 	 * Read queue
 	 */
@@ -408,6 +407,7 @@ err_opt:
 err_out:
 	xfree(in_buf);
 err_in:
+err_r:
 	return ret;
 }
 
