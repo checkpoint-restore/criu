@@ -1273,22 +1273,10 @@ def run_tests(opts):
 			else:
 				run_flavs = set([test_flavs.pop()])
 			if not criu_cli.check("userns"):
-				try:
-					run_flavs.remove("uns")
-				except KeyError:
-					# don't worry if uns isn't in run_flavs
-					pass
-
+				run_flavs -= set(['uns'])
 			if opts['user']:
 				# FIXME -- probably uns will make sense
-				try:
-					run_flavs.remove("ns")
-				except KeyError:
-					pass
-				try:
-					run_flavs.remove("uns")
-				except KeyError:
-					pass
+				run_flavs -= set(['ns', 'uns'])
 
 			if run_flavs:
 				l.run_test(t, tdesc, run_flavs)
