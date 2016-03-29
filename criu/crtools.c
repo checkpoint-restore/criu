@@ -71,34 +71,6 @@ void init_opts(void)
 	opts.empty_ns = 0;
 }
 
-static int parse_ns_string(const char *ptr)
-{
-	const char *end = ptr + strlen(ptr);
-
-	do {
-		if (ptr[3] != ',' && ptr[3] != '\0')
-			goto bad_ns;
-		if (!strncmp(ptr, "uts", 3))
-			opts.rst_namespaces_flags |= CLONE_NEWUTS;
-		else if (!strncmp(ptr, "ipc", 3))
-			opts.rst_namespaces_flags |= CLONE_NEWIPC;
-		else if (!strncmp(ptr, "mnt", 3))
-			opts.rst_namespaces_flags |= CLONE_NEWNS;
-		else if (!strncmp(ptr, "pid", 3))
-			opts.rst_namespaces_flags |= CLONE_NEWPID;
-		else if (!strncmp(ptr, "net", 3))
-			opts.rst_namespaces_flags |= CLONE_NEWNET;
-		else
-			goto bad_ns;
-		ptr += 4;
-	} while (ptr < end);
-	return 0;
-
-bad_ns:
-	pr_msg("Error: unknown namespace: %s\n", ptr);
-	return -1;
-}
-
 static int parse_cpu_cap(struct cr_options *opts, const char *optarg)
 {
 	bool inverse = false;
@@ -366,8 +338,7 @@ int main(int argc, char *argv[], char *envp[])
 			opts.output = optarg;
 			break;
 		case 'n':
-			if (parse_ns_string(optarg))
-				goto bad_arg;
+			pr_warn("The -n|--namespaces option has no effect and will soon be removed.\n");
 			break;
 		case 'v':
 			if (log_level == LOG_UNSET)
