@@ -235,7 +235,6 @@ help:
 	@echo '      tags            - Generate tags file (ctags)'
 	@echo '      etags           - Generate TAGS file (etags)'
 	@echo '      cscope          - Generate cscope database'
-	@echo '      rebuild         - Force-rebuild of [*] targets'
 	@echo '      test            - Run zdtm test-suite'
 	@echo '      gcov            - Make code coverage report'
 .PHONY: help
