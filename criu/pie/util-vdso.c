@@ -50,6 +50,33 @@ static unsigned long elf_hash(const unsigned char *name)
 	return h;
 }
 
+static int has_elf_identity(Ehdr_t *ehdr)
+{
+	/*
+	 * See Elf specification for this magic values.
+	 */
+#if defined(CONFIG_X86_32)
+	static const char elf_ident[] = {
+		0x7f, 0x45, 0x4c, 0x46, 0x01, 0x01, 0x01, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	};
+#else
+	static const char elf_ident[] = {
+		0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	};
+#endif
+
+	BUILD_BUG_ON(sizeof(elf_ident) != sizeof(ehdr->e_ident));
+
+	if (builtin_memcmp(ehdr->e_ident, elf_ident, sizeof(elf_ident))) {
+		pr_err("Elf header magic mismatch\n");
+		return false;
+	}
+
+	return true;
+}
+
 int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 {
 	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
@@ -72,35 +99,16 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 
 	uintptr_t addr;
 
-	/*
-	 * See Elf specification for this magic values.
-	 */
-#if defined(CONFIG_X86_32)
-	static const char elf_ident[] = {
-		0x7f, 0x45, 0x4c, 0x46, 0x01, 0x01, 0x01, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	};
-#else
-	static const char elf_ident[] = {
-		0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	};
-#endif
-
 	char *dynsymbol_names;
 	unsigned int i, j, k;
-
-	BUILD_BUG_ON(sizeof(elf_ident) != sizeof(ehdr->e_ident));
 
 	pr_debug("Parsing at %lx %lx\n", (long)mem, (long)mem + (long)size);
 
 	/*
 	 * Make sure it's a file we support.
 	 */
-	if (builtin_memcmp(ehdr->e_ident, elf_ident, sizeof(elf_ident))) {
-		pr_err("Elf header magic mismatch\n");
+	if (!has_elf_identity(ehdr))
 		return -EINVAL;
-	}
 
 	/*
 	 * We need PT_LOAD and PT_DYNAMIC here. Each once.
