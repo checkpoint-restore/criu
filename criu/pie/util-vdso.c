@@ -91,32 +91,13 @@ static int has_elf_identity(Ehdr_t *ehdr)
 	return true;
 }
 
-int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
+static int parse_elf_phdr(uintptr_t mem, size_t size,
+		Phdr_t **dynamic, Phdr_t **load)
 {
-	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
-		ARCH_VDSO_SYMBOLS
-	};
-
-	Phdr_t *dynamic = NULL, *load = NULL;
 	Ehdr_t *ehdr = (void *)mem;
-	Dyn_t *dyn_strtab = NULL;
-	Dyn_t *dyn_symtab = NULL;
-	Dyn_t *dyn_strsz = NULL;
-	Dyn_t *dyn_syment = NULL;
-	Dyn_t *dyn_hash = NULL;
-	Word_t *hash = NULL;
-	Phdr_t *phdr;
-	Dyn_t *d;
-
-	Word_t *bucket, *chain;
-	Word_t nbucket, nchain;
-
 	uintptr_t addr;
-
-	char *dynsymbol_names;
-	unsigned int i, j, k;
-
-	pr_debug("Parsing at %lx %lx\n", (long)mem, (long)mem + (long)size);
+	Phdr_t *phdr;
+	int i;
 
 	if (__ptr_struct_end_oob(mem, sizeof(Ehdr_t), mem, size))
 		goto err_oob;
@@ -126,9 +107,6 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 	if (!has_elf_identity(ehdr))
 		return -EINVAL;
 
-	/*
-	 * We need PT_LOAD and PT_DYNAMIC here. Each once.
-	 */
 	addr = mem + ehdr->e_phoff;
 	if (__ptr_oob(addr, mem, size))
 		goto err_oob;
@@ -140,22 +118,60 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 		phdr = (void *)addr;
 		switch (phdr->p_type) {
 		case PT_DYNAMIC:
-			if (dynamic) {
+			if (*dynamic) {
 				pr_err("Second PT_DYNAMIC header\n");
 				return -EINVAL;
 			}
-			dynamic = phdr;
+			*dynamic = phdr;
 			break;
 		case PT_LOAD:
-			if (load) {
+			if (*load) {
 				pr_err("Second PT_LOAD header\n");
 				return -EINVAL;
 			}
-			load = phdr;
+			*load = phdr;
 			break;
 		}
 	}
+	return 0;
 
+err_oob:
+	pr_err("Corrupted Elf phdr\n");
+	return -EFAULT;
+}
+
+int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
+{
+	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
+		ARCH_VDSO_SYMBOLS
+	};
+
+	Phdr_t *dynamic = NULL, *load = NULL;
+	Dyn_t *dyn_strtab = NULL;
+	Dyn_t *dyn_symtab = NULL;
+	Dyn_t *dyn_strsz = NULL;
+	Dyn_t *dyn_syment = NULL;
+	Dyn_t *dyn_hash = NULL;
+	Word_t *hash = NULL;
+	Dyn_t *d;
+
+	Word_t *bucket, *chain;
+	Word_t nbucket, nchain;
+
+	uintptr_t addr;
+	int ret;
+
+	char *dynsymbol_names;
+	unsigned int i, j, k;
+
+	pr_debug("Parsing at %lx %lx\n", (long)mem, (long)mem + (long)size);
+
+	/*
+	 * We need PT_LOAD and PT_DYNAMIC here. Each once.
+	 */
+	ret = parse_elf_phdr(mem, size, &dynamic, &load);
+	if (ret < 0)
+		return ret;
 	if (!load || !dynamic) {
 		pr_err("One of obligated program headers is missed\n");
 		return -EINVAL;
