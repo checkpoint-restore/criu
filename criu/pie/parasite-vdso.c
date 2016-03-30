@@ -105,7 +105,8 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 	/*
 	 * Find symbols in vDSO zone read from image.
 	 */
-	if (vdso_fill_symtable((void *)vma_vdso->start, vma_entry_len(vma_vdso), &s))
+	if (vdso_fill_symtable((uintptr_t)vma_vdso->start,
+				vma_entry_len(vma_vdso), &s))
 		return -1;
 
 	/*

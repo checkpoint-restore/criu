@@ -523,7 +523,7 @@ static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 		if (args->try_fill_symtable) {
 			struct vdso_symtable t;
 
-			if (vdso_fill_symtable((void *)args->start, args->len, &t))
+			if (vdso_fill_symtable(args->start, args->len, &t))
 				args->is_vdso = false;
 			else
 				args->is_vdso = true;

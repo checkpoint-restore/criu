@@ -25,9 +25,8 @@
 #define LOG_PREFIX "vdso: "
 
 /* Check if pointer is out-of-bound */
-static bool __ptr_oob(uintptr_t ptr, void *mem, size_t size)
+static bool __ptr_oob(uintptr_t ptr, uintptr_t start, size_t size)
 {
-	uintptr_t start = (uintptr_t)mem;
 	uintptr_t end = start + size;
 
 	return ptr > end || ptr < start;
@@ -77,7 +76,7 @@ static int has_elf_identity(Ehdr_t *ehdr)
 	return true;
 }
 
-int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
+int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 {
 	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
 		ARCH_VDSO_SYMBOLS
@@ -113,7 +112,7 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	/*
 	 * We need PT_LOAD and PT_DYNAMIC here. Each once.
 	 */
-	addr = (uintptr_t)mem + ehdr->e_phoff;
+	addr = mem + ehdr->e_phoff;
 	for (i = 0; i < ehdr->e_phnum; i++, addr += sizeof(Phdr_t)) {
 		if (__ptr_oob(addr, mem, size))
 			goto err_oob;
@@ -147,7 +146,7 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	 * Dynamic section tags should provide us the rest of information
 	 * needed. Note that we're interested in a small set of tags.
 	 */
-	addr = (uintptr_t)mem + dynamic->p_offset;
+	addr = mem + dynamic->p_offset;
 	for (i = 0; i < dynamic->p_filesz / sizeof(*d);
 			i++, addr += sizeof(Dyn_t)) {
 		if (__ptr_oob(addr, mem, size))
@@ -179,12 +178,12 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 		return -EINVAL;
 	}
 
-	addr = (uintptr_t)mem + dyn_strtab->d_un.d_val - load->p_vaddr;
+	addr = mem + dyn_strtab->d_un.d_val - load->p_vaddr;
 	if (__ptr_oob(addr, mem, size))
 		goto err_oob;
 	dynsymbol_names = (void *)addr;
 
-	addr = (uintptr_t)mem + dyn_hash->d_un.d_ptr - load->p_vaddr;
+	addr = mem + dyn_hash->d_un.d_ptr - load->p_vaddr;
 	if (__ptr_oob(addr, mem, size))
 		goto err_oob;
 	hash = (void *)addr;
@@ -202,7 +201,7 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 		k = elf_hash((const unsigned char *)symbol);
 
 		for (j = bucket[k % nbucket]; j < nchain && chain[j] != STN_UNDEF; j = chain[j]) {
-			addr = (uintptr_t)mem + dyn_symtab->d_un.d_ptr - load->p_vaddr;
+			addr = mem + dyn_symtab->d_un.d_ptr - load->p_vaddr;
 			Sym_t *sym;
 			char *name;
 
