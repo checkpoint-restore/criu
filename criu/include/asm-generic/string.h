@@ -31,17 +31,15 @@ static always_inline int builtin_memcmp(const void *cs, const void *ct, size_t c
 }
 #endif
 
-#ifndef HAS_BUILTIN_STRCMP
-static always_inline int builtin_strcmp(const char *cs, const char *ct)
+#ifndef HAS_BUILTIN_STRNCMP
+static always_inline int builtin_strncmp(const char *cs, const char *ct, size_t count)
 {
-	unsigned char c1, c2;
+	size_t i;
 
-	while (1) {
-		c1 = *cs++;
-		c2 = *ct++;
-		if (c1 != c2)
-			return c1 < c2 ? -1 : 1;
-		if (!c1)
+	for (i = 0; i < count; i++) {
+		if (cs[i] != ct[i])
+			return cs[i] < ct[i] ? -1 : 1;
+		if (!cs[i])
 			break;
 	}
 	return 0;

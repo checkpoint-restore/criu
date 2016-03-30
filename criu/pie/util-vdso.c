@@ -239,20 +239,14 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 				continue;
 
 			addr = (uintptr_t)dynsymbol_names + sym->st_name;
-			if (__ptr_struct_oob(addr, sizeof(t->symbols[i].name),
-						mem, size))
+			if (__ptr_struct_oob(addr, VDSO_SYMBOL_MAX, mem, size))
 				continue;
 			name = (void *)addr;
 
-			/*
-			 * XXX: Hope will not go out of mem+size.
-			 * (i.e. with broken elf or malicious pointer in header)
-			 * Otherwise, we need builtin_strncmp.
-			 */
-			if (builtin_strcmp(name, symbol))
+			if (builtin_strncmp(name, symbol, VDSO_SYMBOL_MAX))
 				continue;
 
-			builtin_memcpy(t->symbols[i].name, name, sizeof(t->symbols[i].name));
+			builtin_memcpy(t->symbols[i].name, name, VDSO_SYMBOL_MAX);
 			t->symbols[i].offset = (unsigned long)sym->st_value - load->p_vaddr;
 			break;
 		}
