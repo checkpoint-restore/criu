@@ -140,6 +140,64 @@ err_oob:
 	return -EFAULT;
 }
 
+/*
+ * Parse dynamic program header.
+ * Output parameters are:
+ *   @dyn_strtab - address of the symbol table
+ *   @dyn_symtab - address of the string table section
+ *   @dyn_hash   - address of the symbol hash table
+ */
+static int parse_elf_dynamic(uintptr_t mem, size_t size, Phdr_t *dynamic,
+		Dyn_t **dyn_strtab, Dyn_t **dyn_symtab, Dyn_t **dyn_hash)
+{
+	Dyn_t *dyn_syment = NULL;
+	Dyn_t *dyn_strsz = NULL;
+	uintptr_t addr;
+	Dyn_t *d;
+	int i;
+
+	addr = mem + dynamic->p_offset;
+	if (__ptr_oob(addr, mem, size))
+		goto err_oob;
+
+	for (i = 0; i < dynamic->p_filesz / sizeof(*d);
+			i++, addr += sizeof(Dyn_t)) {
+		if (__ptr_struct_end_oob(addr, sizeof(Dyn_t), mem, size))
+			goto err_oob;
+		d = (void *)addr;
+
+		if (d->d_tag == DT_NULL) {
+			break;
+		} else if (d->d_tag == DT_STRTAB) {
+			*dyn_strtab = d;
+			pr_debug("DT_STRTAB: %lx\n", (unsigned long)d->d_un.d_ptr);
+		} else if (d->d_tag == DT_SYMTAB) {
+			*dyn_symtab = d;
+			pr_debug("DT_SYMTAB: %lx\n", (unsigned long)d->d_un.d_ptr);
+		} else if (d->d_tag == DT_STRSZ) {
+			dyn_strsz = d;
+			pr_debug("DT_STRSZ: %lx\n", (unsigned long)d->d_un.d_val);
+		} else if (d->d_tag == DT_SYMENT) {
+			dyn_syment = d;
+			pr_debug("DT_SYMENT: %lx\n", (unsigned long)d->d_un.d_val);
+		} else if (d->d_tag == DT_HASH) {
+			*dyn_hash = d;
+			pr_debug("DT_HASH: %lx\n", (unsigned long)d->d_un.d_ptr);
+		}
+	}
+
+	if (!*dyn_strtab || !*dyn_symtab || !dyn_strsz || !dyn_syment || !*dyn_hash) {
+		pr_err("Not all dynamic entries are present\n");
+		return -EINVAL;
+	}
+
+	return 0;
+
+err_oob:
+	pr_err("Corrupted Elf dynamic section\n");
+	return -EFAULT;
+}
+
 int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 {
 	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
@@ -149,11 +207,8 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 	Phdr_t *dynamic = NULL, *load = NULL;
 	Dyn_t *dyn_strtab = NULL;
 	Dyn_t *dyn_symtab = NULL;
-	Dyn_t *dyn_strsz = NULL;
-	Dyn_t *dyn_syment = NULL;
 	Dyn_t *dyn_hash = NULL;
 	Word_t *hash = NULL;
-	Dyn_t *d;
 
 	Word_t *bucket, *chain;
 	Word_t nbucket, nchain;
@@ -183,40 +238,11 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 	 * Dynamic section tags should provide us the rest of information
 	 * needed. Note that we're interested in a small set of tags.
 	 */
-	addr = mem + dynamic->p_offset;
-	if (__ptr_oob(addr, mem, size))
-		goto err_oob;
 
-	for (i = 0; i < dynamic->p_filesz / sizeof(*d);
-			i++, addr += sizeof(Dyn_t)) {
-		if (__ptr_struct_end_oob(addr, sizeof(Dyn_t), mem, size))
-			goto err_oob;
-		d = (void *)addr;
-
-		if (d->d_tag == DT_NULL) {
-			break;
-		} else if (d->d_tag == DT_STRTAB) {
-			dyn_strtab = d;
-			pr_debug("DT_STRTAB: %lx\n", (unsigned long)d->d_un.d_ptr);
-		} else if (d->d_tag == DT_SYMTAB) {
-			dyn_symtab = d;
-			pr_debug("DT_SYMTAB: %lx\n", (unsigned long)d->d_un.d_ptr);
-		} else if (d->d_tag == DT_STRSZ) {
-			dyn_strsz = d;
-			pr_debug("DT_STRSZ: %lx\n", (unsigned long)d->d_un.d_val);
-		} else if (d->d_tag == DT_SYMENT) {
-			dyn_syment = d;
-			pr_debug("DT_SYMENT: %lx\n", (unsigned long)d->d_un.d_val);
-		} else if (d->d_tag == DT_HASH) {
-			dyn_hash = d;
-			pr_debug("DT_HASH: %lx\n", (unsigned long)d->d_un.d_ptr);
-		}
-	}
-
-	if (!dyn_strtab || !dyn_symtab || !dyn_strsz || !dyn_syment || !dyn_hash) {
-		pr_err("Not all dynamic entries are present\n");
-		return -EINVAL;
-	}
+	ret = parse_elf_dynamic(mem, size, dynamic,
+			&dyn_strtab, &dyn_symtab, &dyn_hash);
+	if (ret < 0)
+		return ret;
 
 	addr = mem + dyn_strtab->d_un.d_val - load->p_vaddr;
 	if (__ptr_oob(addr, mem, size))
