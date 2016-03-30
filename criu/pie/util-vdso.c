@@ -53,27 +53,34 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 		ARCH_VDSO_SYMBOLS
 	};
 
-	Elf64_Phdr *dynamic = NULL, *load = NULL;
-	Elf64_Ehdr *ehdr = (void *)mem;
-	Elf64_Dyn *dyn_strtab = NULL;
-	Elf64_Dyn *dyn_symtab = NULL;
-	Elf64_Dyn *dyn_strsz = NULL;
-	Elf64_Dyn *dyn_syment = NULL;
-	Elf64_Dyn *dyn_hash = NULL;
-	Elf64_Word *hash = NULL;
-	Elf64_Phdr *phdr;
-	Elf64_Dyn *d;
+	Phdr_t *dynamic = NULL, *load = NULL;
+	Ehdr_t *ehdr = (void *)mem;
+	Dyn_t *dyn_strtab = NULL;
+	Dyn_t *dyn_symtab = NULL;
+	Dyn_t *dyn_strsz = NULL;
+	Dyn_t *dyn_syment = NULL;
+	Dyn_t *dyn_hash = NULL;
+	Word_t *hash = NULL;
+	Phdr_t *phdr;
+	Dyn_t *d;
 
-	Elf64_Word *bucket, *chain;
-	Elf64_Word nbucket, nchain;
+	Word_t *bucket, *chain;
+	Word_t nbucket, nchain;
 
 	/*
 	 * See Elf specification for this magic values.
 	 */
+#if defined(CONFIG_X86_32)
+	static const char elf_ident[] = {
+		0x7f, 0x45, 0x4c, 0x46, 0x01, 0x01, 0x01, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	};
+#else
 	static const char elf_ident[] = {
 		0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	};
+#endif
 
 	char *dynsymbol_names;
 	unsigned int i, j, k;
@@ -177,15 +184,15 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 		k = elf_hash((const unsigned char *)symbol);
 
 		for (j = bucket[k % nbucket]; j < nchain && chain[j] != STN_UNDEF; j = chain[j]) {
-			Elf64_Sym *sym = (void *)&mem[dyn_symtab->d_un.d_ptr - load->p_vaddr];
+			Sym_t *sym = (void *)&mem[dyn_symtab->d_un.d_ptr - load->p_vaddr];
 			char *name;
 
 			sym = &sym[j];
 			if (__ptr_oob(sym, mem, size))
 				continue;
 
-			if (ELF64_ST_TYPE(sym->st_info) != STT_FUNC &&
-			    ELF64_ST_BIND(sym->st_info) != STB_GLOBAL)
+			if (ELF_ST_TYPE(sym->st_info) != STT_FUNC &&
+			    ELF_ST_BIND(sym->st_info) != STB_GLOBAL)
 				continue;
 
 			name = &dynsymbol_names[sym->st_name];
