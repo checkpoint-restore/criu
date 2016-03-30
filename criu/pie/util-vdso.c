@@ -198,26 +198,72 @@ err_oob:
 	return -EFAULT;
 }
 
-int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
+static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
+		struct vdso_symtable *t, uintptr_t dynsymbol_names,
+		Word_t *hash, Dyn_t *dyn_symtab)
 {
 	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
 		ARCH_VDSO_SYMBOLS
 	};
 
+	Word_t nbucket, nchain;
+	Word_t *bucket, *chain;
+
+	unsigned int i, j, k;
+	uintptr_t addr;
+
+	nbucket = hash[0];
+	nchain = hash[1];
+	bucket = &hash[2];
+	chain = &hash[nbucket + 2];
+
+	pr_debug("nbucket %lx nchain %lx bucket %lx chain %lx\n",
+		 (long)nbucket, (long)nchain, (unsigned long)bucket, (unsigned long)chain);
+
+	for (i = 0; i < VDSO_SYMBOL_MAX; i++) {
+		const char * symbol = vdso_symbols[i];
+		k = elf_hash((const unsigned char *)symbol);
+
+		for (j = bucket[k % nbucket]; j < nchain && chain[j] != STN_UNDEF; j = chain[j]) {
+			addr = mem + dyn_symtab->d_un.d_ptr - load->p_vaddr;
+			Sym_t *sym;
+			char *name;
+
+			addr += sizeof(Sym_t)*j;
+			if (__ptr_struct_oob(addr, sizeof(Sym_t), mem, size))
+				continue;
+			sym = (void *)addr;
+
+			if (ELF_ST_TYPE(sym->st_info) != STT_FUNC &&
+			    ELF_ST_BIND(sym->st_info) != STB_GLOBAL)
+				continue;
+
+			addr = dynsymbol_names + sym->st_name;
+			if (__ptr_struct_oob(addr, VDSO_SYMBOL_MAX, mem, size))
+				continue;
+			name = (void *)addr;
+
+			if (builtin_strncmp(name, symbol, VDSO_SYMBOL_MAX))
+				continue;
+
+			builtin_memcpy(t->symbols[i].name, name, VDSO_SYMBOL_MAX);
+			t->symbols[i].offset = (unsigned long)sym->st_value - load->p_vaddr;
+			break;
+		}
+	}
+}
+
+int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
+{
 	Phdr_t *dynamic = NULL, *load = NULL;
 	Dyn_t *dyn_strtab = NULL;
 	Dyn_t *dyn_symtab = NULL;
 	Dyn_t *dyn_hash = NULL;
 	Word_t *hash = NULL;
 
-	Word_t *bucket, *chain;
-	Word_t nbucket, nchain;
-
+	uintptr_t dynsymbol_names;
 	uintptr_t addr;
 	int ret;
-
-	char *dynsymbol_names;
-	unsigned int i, j, k;
 
 	pr_debug("Parsing at %lx %lx\n", (long)mem, (long)mem + (long)size);
 
@@ -247,57 +293,19 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 	addr = mem + dyn_strtab->d_un.d_val - load->p_vaddr;
 	if (__ptr_oob(addr, mem, size))
 		goto err_oob;
-	dynsymbol_names = (void *)addr;
+	dynsymbol_names = addr;
 
 	addr = mem + dyn_hash->d_un.d_ptr - load->p_vaddr;
 	if (__ptr_struct_oob(addr, sizeof(Word_t), mem, size))
 		goto err_oob;
 	hash = (void *)addr;
 
-	nbucket = hash[0];
-	nchain = hash[1];
-	bucket = &hash[2];
-	chain = &hash[nbucket + 2];
-
-	pr_debug("nbucket %lx nchain %lx bucket %lx chain %lx\n",
-		 (long)nbucket, (long)nchain, (unsigned long)bucket, (unsigned long)chain);
-
-	for (i = 0; i < VDSO_SYMBOL_MAX; i++) {
-		const char * symbol = vdso_symbols[i];
-		k = elf_hash((const unsigned char *)symbol);
-
-		for (j = bucket[k % nbucket]; j < nchain && chain[j] != STN_UNDEF; j = chain[j]) {
-			addr = mem + dyn_symtab->d_un.d_ptr - load->p_vaddr;
-			Sym_t *sym;
-			char *name;
-
-			addr += sizeof(Sym_t)*j;
-			if (__ptr_struct_oob(addr, sizeof(Sym_t), mem, size))
-				continue;
-			sym = (void *)addr;
-
-			if (ELF_ST_TYPE(sym->st_info) != STT_FUNC &&
-			    ELF_ST_BIND(sym->st_info) != STB_GLOBAL)
-				continue;
-
-			addr = (uintptr_t)dynsymbol_names + sym->st_name;
-			if (__ptr_struct_oob(addr, VDSO_SYMBOL_MAX, mem, size))
-				continue;
-			name = (void *)addr;
-
-			if (builtin_strncmp(name, symbol, VDSO_SYMBOL_MAX))
-				continue;
-
-			builtin_memcpy(t->symbols[i].name, name, VDSO_SYMBOL_MAX);
-			t->symbols[i].offset = (unsigned long)sym->st_value - load->p_vaddr;
-			break;
-		}
-	}
+	parse_elf_symbols(mem, size, load, t, dynsymbol_names, hash, dyn_symtab);
 
 	return 0;
 
 err_oob:
-	pr_err("Corrupted Elf data\n");
+	pr_err("Corrupted Elf symbols/hash\n");
 	return -EFAULT;
 }
 
