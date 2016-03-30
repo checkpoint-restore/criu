@@ -29,7 +29,22 @@ static bool __ptr_oob(uintptr_t ptr, uintptr_t start, size_t size)
 {
 	uintptr_t end = start + size;
 
-	return ptr > end || ptr < start;
+	return ptr >= end || ptr < start;
+}
+
+/* Check if pointed structure's end is out-of-bound */
+static bool __ptr_struct_end_oob(uintptr_t ptr, size_t struct_size,
+				uintptr_t start, size_t size)
+{
+	return __ptr_oob(ptr + struct_size - 1, start, size);
+}
+
+/* Check if pointed structure is out-of-bound */
+static bool __ptr_struct_oob(uintptr_t ptr, size_t struct_size,
+				uintptr_t start, size_t size)
+{
+	return __ptr_oob(ptr, start, size) ||
+		__ptr_struct_end_oob(ptr, struct_size, start, size);
 }
 
 /*
@@ -103,6 +118,8 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 
 	pr_debug("Parsing at %lx %lx\n", (long)mem, (long)mem + (long)size);
 
+	if (__ptr_struct_end_oob(mem, sizeof(Ehdr_t), mem, size))
+		goto err_oob;
 	/*
 	 * Make sure it's a file we support.
 	 */
@@ -113,9 +130,13 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 	 * We need PT_LOAD and PT_DYNAMIC here. Each once.
 	 */
 	addr = mem + ehdr->e_phoff;
+	if (__ptr_oob(addr, mem, size))
+		goto err_oob;
+
 	for (i = 0; i < ehdr->e_phnum; i++, addr += sizeof(Phdr_t)) {
-		if (__ptr_oob(addr, mem, size))
+		if (__ptr_struct_end_oob(addr, sizeof(Phdr_t), mem, size))
 			goto err_oob;
+
 		phdr = (void *)addr;
 		switch (phdr->p_type) {
 		case PT_DYNAMIC:
@@ -147,9 +168,12 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 	 * needed. Note that we're interested in a small set of tags.
 	 */
 	addr = mem + dynamic->p_offset;
+	if (__ptr_oob(addr, mem, size))
+		goto err_oob;
+
 	for (i = 0; i < dynamic->p_filesz / sizeof(*d);
 			i++, addr += sizeof(Dyn_t)) {
-		if (__ptr_oob(addr, mem, size))
+		if (__ptr_struct_end_oob(addr, sizeof(Dyn_t), mem, size))
 			goto err_oob;
 		d = (void *)addr;
 
@@ -184,7 +208,7 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 	dynsymbol_names = (void *)addr;
 
 	addr = mem + dyn_hash->d_un.d_ptr - load->p_vaddr;
-	if (__ptr_oob(addr, mem, size))
+	if (__ptr_struct_oob(addr, sizeof(Word_t), mem, size))
 		goto err_oob;
 	hash = (void *)addr;
 
@@ -206,7 +230,7 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 			char *name;
 
 			addr += sizeof(Sym_t)*j;
-			if (__ptr_oob(addr, mem, size))
+			if (__ptr_struct_oob(addr, sizeof(Sym_t), mem, size))
 				continue;
 			sym = (void *)addr;
 
@@ -215,10 +239,16 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 				continue;
 
 			addr = (uintptr_t)dynsymbol_names + sym->st_name;
-			if (__ptr_oob(addr, mem, size))
+			if (__ptr_struct_oob(addr, sizeof(t->symbols[i].name),
+						mem, size))
 				continue;
 			name = (void *)addr;
 
+			/*
+			 * XXX: Hope will not go out of mem+size.
+			 * (i.e. with broken elf or malicious pointer in header)
+			 * Otherwise, we need builtin_strncmp.
+			 */
 			if (builtin_strcmp(name, symbol))
 				continue;
 
