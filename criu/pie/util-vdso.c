@@ -4,6 +4,7 @@
 #include <elf.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <stdint.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -24,9 +25,11 @@
 #define LOG_PREFIX "vdso: "
 
 /* Check if pointer is out-of-bound */
-static bool __ptr_oob(void *ptr, void *start, size_t size)
+static bool __ptr_oob(uintptr_t ptr, void *mem, size_t size)
 {
-	void *end = (void *)((unsigned long)start + size);
+	uintptr_t start = (uintptr_t)mem;
+	uintptr_t end = start + size;
+
 	return ptr > end || ptr < start;
 }
 
@@ -67,6 +70,8 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	Word_t *bucket, *chain;
 	Word_t nbucket, nchain;
 
+	uintptr_t addr;
+
 	/*
 	 * See Elf specification for this magic values.
 	 */
@@ -100,10 +105,11 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	/*
 	 * We need PT_LOAD and PT_DYNAMIC here. Each once.
 	 */
-	phdr = (void *)&mem[ehdr->e_phoff];
-	for (i = 0; i < ehdr->e_phnum; i++, phdr++) {
-		if (__ptr_oob(phdr, mem, size))
+	addr = (uintptr_t)mem + ehdr->e_phoff;
+	for (i = 0; i < ehdr->e_phnum; i++, addr += sizeof(Phdr_t)) {
+		if (__ptr_oob(addr, mem, size))
 			goto err_oob;
+		phdr = (void *)addr;
 		switch (phdr->p_type) {
 		case PT_DYNAMIC:
 			if (dynamic) {
@@ -133,10 +139,12 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	 * Dynamic section tags should provide us the rest of information
 	 * needed. Note that we're interested in a small set of tags.
 	 */
-	d = (void *)&mem[dynamic->p_offset];
-	for (i = 0; i < dynamic->p_filesz / sizeof(*d); i++, d++) {
-		if (__ptr_oob(d, mem, size))
+	addr = (uintptr_t)mem + dynamic->p_offset;
+	for (i = 0; i < dynamic->p_filesz / sizeof(*d);
+			i++, addr += sizeof(Dyn_t)) {
+		if (__ptr_oob(addr, mem, size))
 			goto err_oob;
+		d = (void *)addr;
 
 		if (d->d_tag == DT_NULL) {
 			break;
@@ -163,13 +171,15 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 		return -EINVAL;
 	}
 
-	dynsymbol_names = &mem[dyn_strtab->d_un.d_val - load->p_vaddr];
-	if (__ptr_oob(dynsymbol_names, mem, size))
+	addr = (uintptr_t)mem + dyn_strtab->d_un.d_val - load->p_vaddr;
+	if (__ptr_oob(addr, mem, size))
 		goto err_oob;
+	dynsymbol_names = (void *)addr;
 
-	hash = (void *)&mem[(unsigned long)dyn_hash->d_un.d_ptr - (unsigned long)load->p_vaddr];
-	if (__ptr_oob(hash, mem, size))
+	addr = (uintptr_t)mem + dyn_hash->d_un.d_ptr - load->p_vaddr;
+	if (__ptr_oob(addr, mem, size))
 		goto err_oob;
+	hash = (void *)addr;
 
 	nbucket = hash[0];
 	nchain = hash[1];
@@ -184,20 +194,23 @@ int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 		k = elf_hash((const unsigned char *)symbol);
 
 		for (j = bucket[k % nbucket]; j < nchain && chain[j] != STN_UNDEF; j = chain[j]) {
-			Sym_t *sym = (void *)&mem[dyn_symtab->d_un.d_ptr - load->p_vaddr];
+			addr = (uintptr_t)mem + dyn_symtab->d_un.d_ptr - load->p_vaddr;
+			Sym_t *sym;
 			char *name;
 
-			sym = &sym[j];
-			if (__ptr_oob(sym, mem, size))
+			addr += sizeof(Sym_t)*j;
+			if (__ptr_oob(addr, mem, size))
 				continue;
+			sym = (void *)addr;
 
 			if (ELF_ST_TYPE(sym->st_info) != STT_FUNC &&
 			    ELF_ST_BIND(sym->st_info) != STB_GLOBAL)
 				continue;
 
-			name = &dynsymbol_names[sym->st_name];
-			if (__ptr_oob(name, mem, size))
+			addr = (uintptr_t)dynsymbol_names + sym->st_name;
+			if (__ptr_oob(addr, mem, size))
 				continue;
+			name = (void *)addr;
 
 			if (builtin_strcmp(name, symbol))
 				continue;
