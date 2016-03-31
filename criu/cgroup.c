@@ -190,7 +190,7 @@ static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls, bo
 	if (cs) {
 		cs->id = cg_set_ids++;
 		INIT_LIST_HEAD(&cs->ctls);
-		list_splice(ctls, &cs->ctls);
+		list_splice_init(ctls, &cs->ctls);
 		cs->n_ctls = n_ctls;
 		list_add_tail(&cs->l, &cg_sets);
 		n_sets++;
@@ -203,7 +203,9 @@ static struct cg_set *get_cg_set(struct list_head *ctls, unsigned int n_ctls, bo
 		}
 
 		if (collect && collect_cgroups(&cs->ctls)) {
-			put_ctls(ctls);
+			list_del(&cs->l);
+			n_sets--;
+			put_ctls(&cs->ctls);
 			xfree(cs);
 			return NULL;
 		}
