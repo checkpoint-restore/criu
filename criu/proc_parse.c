@@ -2302,6 +2302,7 @@ void put_ctls(struct list_head *l)
 		xfree(c->path);
 		xfree(c);
 	}
+	INIT_LIST_HEAD(l);
 }
 
 /* Parse and create all the real controllers. This does not include things with
