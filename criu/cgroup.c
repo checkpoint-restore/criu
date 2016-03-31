@@ -549,8 +549,14 @@ static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
 
 		INIT_LIST_HEAD(&ncd->properties);
 		ncd->n_properties = 0;
-		if (add_cgroup_properties(fpath, ncd, current_controller) < 0)
+		if (add_cgroup_properties(fpath, ncd, current_controller) < 0) {
+			list_del(&ncd->siblings);
+			if (mtype == PARENT_MATCH)
+				match->n_children--;
+			else if (mtype == NO_MATCH)
+				current_controller->n_heads--;
 			goto out;
+		}
 	}
 
 	return 0;
