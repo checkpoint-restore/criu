@@ -285,6 +285,11 @@ static int uffd_copy_page(int uffd, __u64 address, void *dest)
 
 }
 
+static int uffd_handle_page(int uffd, __u64 address, void *dest)
+{
+	return uffd_copy_page(uffd, address, dest);
+}
+
 static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list)
 {
 	unsigned long base;
@@ -354,7 +359,7 @@ static int handle_remaining_pages(int uffd, struct list_head *uffd_list, void *d
 		if (uffd_pages->flags & UFFD_FLAG_SENT)
 			continue;
 
-		rc = uffd_copy_page(uffd, uffd_pages->addr, dest);
+		rc = uffd_handle_page(uffd, uffd_pages->addr, dest);
 		if (rc < 0) {
 			pr_err("Error during UFFD copy\n");
 			return -1;
@@ -372,7 +377,7 @@ static int handle_regular_pages(int uffd, struct list_head *uffd_list, void *des
 	int rc;
 	struct uffd_pages_struct *uffd_pages;
 
-	rc = uffd_copy_page(uffd, address, dest);
+	rc = uffd_handle_page(uffd, address, dest);
 	if (rc < 0) {
 		pr_err("Error during UFFD copy\n");
 		return -1;
