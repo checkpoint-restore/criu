@@ -279,6 +279,7 @@ static int uffd_copy_page(int uffd, __u64 address, void *dest)
 		return -1;
 	}
 
+	uffd_copied_pages++;
 
 	return uffdio_copy.copy;
 
@@ -359,7 +360,6 @@ static int handle_remaining_pages(int uffd, struct list_head *uffd_list, void *d
 			return -1;
 		}
 
-		uffd_copied_pages++;
 		uffd_pages->flags |= UFFD_FLAG_SENT;
 	}
 
@@ -378,7 +378,6 @@ static int handle_regular_pages(int uffd, struct list_head *uffd_list, void *des
 		return -1;
 	}
 
-	uffd_copied_pages++;
 	/*
 	 * Mark this page as having been already transferred, so
 	 * that it has not to be copied again later.
