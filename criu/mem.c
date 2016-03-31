@@ -304,19 +304,23 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	 */
 	args->off = 0;
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
+		bool has_parent = !!xfer.parent;
 		u64 off = 0;
 		u64 *map;
 
 		if (!vma_area_is_private(vma_area, kdat.task_size))
 			continue;
-		if (vma_entry_is(vma_area->e, VMA_AREA_AIORING) && pp_ret)
-			continue;
+		if (vma_entry_is(vma_area->e, VMA_AREA_AIORING)) {
+			if (pp_ret)
+				continue;
+			has_parent = false;
+		}
 
 		map = pmc_get_map(&pmc, vma_area);
 		if (!map)
 			goto out_xfer;
 again:
-		ret = generate_iovs(vma_area, pp, map, &off, xfer.parent);
+		ret = generate_iovs(vma_area, pp, map, &off, has_parent);
 		if (ret == -EAGAIN) {
 			BUG_ON(pp_ret);
 
