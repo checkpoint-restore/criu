@@ -256,7 +256,7 @@ static int uffd_copy_page(int uffd, __u64 address, void *dest)
 
 	rc = get_page(address, dest);
 	if (rc <= 0)
-		return -1;
+		return rc;
 
 	uffdio_copy.dst = address;
 	uffdio_copy.src = (unsigned long) dest;
@@ -285,9 +285,37 @@ static int uffd_copy_page(int uffd, __u64 address, void *dest)
 
 }
 
+static int uffd_zero_page(int uffd, __u64 address)
+{
+	struct uffdio_zeropage uffdio_zeropage;
+	unsigned long ps = page_size();
+	int rc;
+
+	uffdio_zeropage.range.start = address;
+	uffdio_zeropage.range.len = ps;
+	uffdio_zeropage.mode = 0;
+
+	pr_debug("uffdio_zeropage.range.start 0x%llx\n", uffdio_zeropage.range.start);
+	rc = ioctl(uffd, UFFDIO_ZEROPAGE, &uffdio_zeropage);
+	pr_debug("ioctl UFFDIO_ZEROPAGE rc 0x%x\n", rc);
+	pr_debug("uffdio_zeropage.zeropage 0x%llx\n", uffdio_zeropage.zeropage);
+	if (rc) {
+		pr_err("UFFDIO_ZEROPAGE error %d\n", rc);
+		return -1;
+	}
+
+	return ps;
+}
+
 static int uffd_handle_page(int uffd, __u64 address, void *dest)
 {
-	return uffd_copy_page(uffd, address, dest);
+	int rc;
+
+	rc = uffd_copy_page(uffd, address, dest);
+	if (rc == 0)
+		rc = uffd_zero_page(uffd, address);
+
+	return rc;
 }
 
 static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list)
