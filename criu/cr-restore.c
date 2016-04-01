@@ -1019,11 +1019,13 @@ static int wait_on_helpers_zombies(void)
 				pr_perror("Wait on %d zombie failed\n", pid);
 				return -1;
 			}
+			break;
 		case TASK_HELPER:
 			if (waitpid(pid, &status, 0) != pid) {
 				pr_perror("waitpid for helper %d failed", pid);
 				return -1;
 			}
+			break;
 		}
 	}
 
