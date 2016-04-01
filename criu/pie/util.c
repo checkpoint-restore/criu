@@ -18,23 +18,29 @@
 # define __sys(foo)     foo
 #endif
 
+#ifdef CR_NOGLIBC
+#define __pr_perror(fmt, ...) pr_err(fmt "\n", ##__VA_ARGS__)
+#else
+#define __pr_perror(fmt, ...) pr_perror(fmt, ##__VA_ARGS__)
+#endif
+
 int open_detach_mount(char *dir)
 {
 	int fd, ret;
 
 	fd = __sys(open)(dir, O_RDONLY | O_DIRECTORY, 0);
 	if (fd < 0)
-		pr_err("Can't open directory %s: %d\n", dir, fd);
+		__pr_perror("Can't open directory %s: %d", dir, fd);
 
 	ret = __sys(umount2)(dir, MNT_DETACH);
 	if (ret) {
-		pr_err("Can't detach mount %s: %d\n", dir, ret);
+		__pr_perror("Can't detach mount %s: %d", dir, ret);
 		goto err_close;
 	}
 
 	ret = __sys(rmdir)(dir);
 	if (ret) {
-		pr_err("Can't remove tmp dir %s: %d\n", dir, ret);
+		__pr_perror("Can't remove tmp dir %s: %d", dir, ret);
 		goto err_close;
 	}
 
