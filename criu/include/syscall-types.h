@@ -72,9 +72,6 @@ struct itimerspec;
 
 #define CLONE_ALLNS	(CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER | CLONE_NEWCGROUP)
 
-struct rlimit;
-struct rlimit64;
-
 struct krlimit {
 	unsigned long rlim_cur;
 	unsigned long rlim_max;

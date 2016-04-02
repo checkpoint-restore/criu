@@ -151,7 +151,7 @@ struct task_restore_args {
 	struct rst_aio_ring		*rings;
 	unsigned int			rings_n;
 
-	struct rlimit			*rlims;
+	struct rlimit64			*rlims;
 	unsigned int			rlims_n;
 
 	pid_t				*helpers /* the TASK_HELPERS to wait on at the end of restore */;

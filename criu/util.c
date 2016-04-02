@@ -386,14 +386,14 @@ static int service_fd_id = 0;
 
 int init_service_fd(void)
 {
-	struct rlimit rlimit;
+	struct rlimit64 rlimit;
 
 	/*
 	 * Service FDs are those that most likely won't
 	 * conflict with any 'real-life' ones
 	 */
 
-	if (getrlimit(RLIMIT_NOFILE, &rlimit)) {
+	if (syscall(__NR_prlimit64, getpid(), RLIMIT_NOFILE, NULL, &rlimit)) {
 		pr_perror("Can't get rlimit");
 		return -1;
 	}

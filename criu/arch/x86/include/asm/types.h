@@ -7,7 +7,6 @@
 #include "asm/page.h"
 #include "asm/bitops.h"
 #include "asm/int.h"
-#include "asm/prlimit.h"
 
 #include "images/core.pb-c.h"
 

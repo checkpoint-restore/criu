@@ -2739,7 +2739,7 @@ static int prepare_rlimits(int pid, CoreEntry *core)
 {
 	int i;
 	TaskRlimitsEntry *rls = core->tc->rlimits;
-	struct rlimit *r;
+	struct rlimit64 *r;
 
 	rlims_cpos = rst_mem_align_cpos(RM_PRIVATE);
 

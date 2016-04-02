@@ -307,9 +307,9 @@ static int dump_task_rlimits(int pid, TaskRlimitsEntry *rls)
 	int res;
 
 	for (res = 0; res <rls->n_rlimits ; res++) {
-		struct rlimit lim;
+		struct rlimit64 lim;
 
-		if (prlimit(pid, res, NULL, &lim)) {
+		if (syscall(__NR_prlimit64, pid, res, NULL, &lim)) {
 			pr_perror("Can't get rlimit %d", res);
 			return -1;
 		}
