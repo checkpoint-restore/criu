@@ -974,7 +974,7 @@ int parasite_stop_on_syscall(int tasks, const int sys_nr, enum trace_flags trace
 			return -1;
 		}
 
-		pr_debug("%d is going to execute the syscall %lx\n", pid, REG_SYSCALL_NR(regs));
+		pr_debug("%d is going to execute the syscall %lu\n", pid, REG_SYSCALL_NR(regs));
 		if (REG_SYSCALL_NR(regs) == sys_nr) {
 			/*
 			 * The process is going to execute the required syscall,
