@@ -696,8 +696,9 @@ static int prepare_pstree_kobj_ids(void)
 
 		if (!item->ids) {
 			if (item == root_item) {
-				cflags = opts.rst_namespaces_flags;
-				goto set_mask;
+				pr_err("No IDS for root task.\n");
+				pr_err("Images currupted or too old criu was used for dump.\n");
+				return -1;
 			}
 
 			continue;
@@ -737,7 +738,6 @@ static int prepare_pstree_kobj_ids(void)
 				return ret;
 		}
 
-set_mask:
 		rsti(item)->clone_flags = cflags;
 		if (parent)
 			/*
