@@ -192,6 +192,7 @@ subclean:
 # Clean the most, except generated c files
 clean: subclean
 	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) $@
+	$(Q) $(MAKE) $(call build-as,Makefile,$(ARCH_DIR)) $@
 	$(Q) $(MAKE) $(call build-as,Makefile.library,pie) $@
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,.) $@
 	$(Q) $(MAKE) $(build)=pie/piegen $@
@@ -202,6 +203,7 @@ clean: subclean
 # Delete all generated files
 mrproper: subclean
 	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) $@
+	$(Q) $(MAKE) $(call build-as,Makefile,$(ARCH_DIR)) $@
 	$(Q) $(MAKE) $(call build-as,Makefile.library,pie) $@
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,.) $@
 	$(Q) $(MAKE) $(build)=pie/piegen $@
