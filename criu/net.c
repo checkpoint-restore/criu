@@ -281,6 +281,21 @@ static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
 		return dump_one_netdev(ND_TYPE__TUN, ifi, tb, fds, dump_tun_link);
 	if (!strcmp(kind, "bridge"))
 		return dump_one_netdev(ND_TYPE__BRIDGE, ifi, tb, fds, dump_bridge);
+	if (!strcmp(kind, "gretap")) {
+		char *name = (char *)RTA_DATA(tb[IFLA_IFNAME]);
+
+		if (!name) {
+			pr_err("gretap %d has no name\n", ifi->ifi_index);
+			return -1;
+		}
+
+		if (!strcmp(name, "gretap0")) {
+			pr_info("found %s, ignoring\n", name);
+			return 0;
+		}
+
+		pr_warn("GRE tap device %s not supported natively\n", name);
+	}
 
 	return dump_unknown_device(ifi, kind, tb, fds);
 }
@@ -299,6 +314,27 @@ static int dump_one_voiddev(struct ifinfomsg *ifi, char *kind,
 {
 	if (!strcmp(kind, "venet"))
 		return dump_one_netdev(ND_TYPE__VENET, ifi, tb, fds, NULL);
+
+	return dump_unknown_device(ifi, kind, tb, fds);
+}
+
+static int dump_one_gre(struct ifinfomsg *ifi, char *kind,
+		struct nlattr **tb, struct cr_imgset *fds)
+{
+	if (!strcmp(kind, "gre")) {
+		char *name = (char *)RTA_DATA(tb[IFLA_IFNAME]);
+		if (!name) {
+			pr_err("gre device %d has no name\n", ifi->ifi_index);
+			return -1;
+		}
+
+		if (!strcmp(name, "gre0")) {
+			pr_info("found %s, ignoring\n", name);
+			return 0;
+		}
+
+		pr_warn("GRE tunnel device %s not supported natively\n", name);
+	}
 
 	return dump_unknown_device(ifi, kind, tb, fds);
 }
@@ -337,6 +373,9 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 		break;
 	case ARPHRD_VOID:
 		ret = dump_one_voiddev(ifi, kind, tb, fds);
+		break;
+	case ARPHRD_IPGRE:
+		ret = dump_one_gre(ifi, kind, tb, fds);
 		break;
 	default:
 unk:
