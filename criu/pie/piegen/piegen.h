@@ -7,6 +7,7 @@
 typedef struct {
 	char		*input_filename;
 	char		*output_filename;
+	char		*uapi_dir;
 	char		*stream_name;
 	char		*prefix_name;
 	char		*var_name;
