@@ -70,16 +70,52 @@ static int handle_elf(void *mem, size_t size)
 	return -1;
 }
 
-/*
- * That;s the tool to generate patches object files.
- */
+static int piegen(void)
+{
+	struct stat st;
+	void *mem;
+	int fd;
+
+	fd = open(opts.input_filename, O_RDONLY);
+	if (fd < 0) {
+		pr_perror("Can't open file %s", opts.input_filename);
+		goto err;
+	}
+
+	if (fstat(fd, &st)) {
+		pr_perror("Can't stat file %s", opts.input_filename);
+		goto err;
+	}
+
+	fout = fopen(opts.output_filename, "w");
+	if (fout == NULL) {
+		pr_perror("Can't open %s", opts.output_filename);
+		goto err;
+	}
+
+	mem = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FILE, fd, 0);
+	if (mem == MAP_FAILED) {
+		pr_perror("Can't mmap file %s", opts.input_filename);
+		goto err;
+	}
+
+	if (handle_elf(mem, st.st_size)) {
+		fclose(fout);
+		unlink(opts.output_filename);
+		goto err;
+	}
+
+err:
+	fclose(fout);
+	printf("%s generated successfully.\n", opts.output_filename);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	const char *current_cflags = NULL;
-	struct stat st;
 	int opt, idx, i;
-	void *mem;
-	int fd;
+	char *action;
 
 	typedef struct {
 		const char	*arch;
@@ -161,47 +197,39 @@ int main(int argc, char *argv[])
 			opts.nrgotpcrel_name = optarg;
 			break;
 		case 'h':
-		default:
 			goto usage;
+		default:
+			break;
 		}
 	}
 
-	if (!opts.input_filename)
+	if (optind >= argc)
 		goto usage;
 
-	fd = open(opts.input_filename, O_RDONLY);
-	if (fd < 0) {
-		pr_perror("Can't open file %s", opts.input_filename);
-		goto err;
+	action = argv[optind++];
+
+	if (!strcmp(action, "cflags")) {
+		if (!current_cflags)
+			goto usage;
+		printf("%s", current_cflags);
+		return 0;
 	}
 
-	if (fstat(fd, &st)) {
-		pr_perror("Can't stat file %s", opts.input_filename);
-		goto err;
+	if (!strcmp(action, "ldflags")) {
+		printf("%s", compel_ldflags);
+		return 0;
 	}
 
-	fout = fopen(opts.output_filename, "w");
-	if (fout == NULL) {
-		pr_perror("Can't open %s", opts.output_filename);
-		goto err;
+	if (!strcmp(action, "piegen")) {
+		if (!opts.input_filename)
+			goto usage;
+		return piegen();
 	}
 
-	mem = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FILE, fd, 0);
-	if (mem == MAP_FAILED) {
-		pr_perror("Can't mmap file %s", opts.input_filename);
-		goto err;
-	}
-
-	if (handle_elf(mem, st.st_size)) {
-		fclose(fout);
-		unlink(opts.output_filename);
-		goto err;
-	}
-	fclose(fout);
-	printf("%s generated successfully.\n", opts.output_filename);
-	return 0;
 usage:
-	fprintf(stderr, "Usage: %s -f filename\n", argv[0]);
-err:
+	printf("Usage:\n");
+	printf("  compel --arch=(x86|ia32|aarch64|arm|ppc64) cflags\n");
+	printf("  compel --arch=(x86|ia32|aarch64|arm|ppc64) ldflags\n");
+	printf("  compel -f filename piegen\n");
 	return 1;
 }
