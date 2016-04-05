@@ -17,6 +17,10 @@
 #include "config.h"
 #include "piegen.h"
 
+static const char compel_cflags_pie[] = "-fpie -Wa,--noexecstack -fno-stack-protector";
+static const char compel_cflags_nopic[] = "-fno-pic -Wa,--noexecstack -fno-stack-protector";
+static const char compel_ldflags[] = "-r";
+
 piegen_opt_t opts = {
 	.input_filename		= NULL,
 	.uapi_dir		= "piegen/uapi",
@@ -71,13 +75,39 @@ static int handle_elf(void *mem, size_t size)
  */
 int main(int argc, char *argv[])
 {
+	const char *current_cflags = NULL;
 	struct stat st;
-	int opt, idx;
+	int opt, idx, i;
 	void *mem;
 	int fd;
 
-	static const char short_opts[] = "f:o:s:p:v:r:u:h";
+	typedef struct {
+		const char	*arch;
+		const char	*cflags;
+	} compel_cflags_t;
+
+	static const compel_cflags_t compel_cflags[] = {
+		{
+			.arch	= "x86",
+			.cflags	= compel_cflags_pie,
+		}, {
+			.arch	= "ia32",
+			.cflags	= compel_cflags_nopic,
+		}, {
+			.arch	= "aarch64",
+			.cflags	= compel_cflags_pie,
+		}, {
+			.arch	= "arm",
+			.cflags	= compel_cflags_pie,
+		}, {
+			.arch	= "ppc64",
+			.cflags	= compel_cflags_pie,
+		},
+	};
+
+	static const char short_opts[] = "a:f:o:s:p:v:r:u:h";
 	static struct option long_opts[] = {
+		{ "arch",	required_argument,	0, 'a' },
 		{ "file",	required_argument,	0, 'f' },
 		{ "output",	required_argument,	0, 'o' },
 		{ "stream",	required_argument,	0, 's' },
@@ -98,6 +128,17 @@ int main(int argc, char *argv[])
 		if (opt == -1)
 			break;
 		switch (opt) {
+		case 'a':
+			for (i = 0; i < ARRAY_SIZE(compel_cflags); i++) {
+				if (!strcmp(optarg, compel_cflags[i].arch)) {
+					current_cflags = compel_cflags[i].cflags;
+					break;
+				}
+			}
+
+			if (!current_cflags)
+				goto usage;
+			break;
 		case 'f':
 			opts.input_filename = optarg;
 			break;
