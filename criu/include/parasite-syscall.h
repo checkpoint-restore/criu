@@ -91,7 +91,7 @@ extern int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 extern int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread *dt);
 
 extern int parasite_drain_fds_seized(struct parasite_ctl *ctl,
-					struct parasite_drain_fd *dfds,
+					struct parasite_drain_fd *dfds, int nr_fds, int off,
 					int *lfds, struct fd_opts *flags);
 extern int parasite_get_proc_fd_seized(struct parasite_ctl *ctl);
 

@@ -811,14 +811,16 @@ struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd, in
 }
 
 int parasite_drain_fds_seized(struct parasite_ctl *ctl,
-		struct parasite_drain_fd *dfds, int *lfds, struct fd_opts *opts)
+		struct parasite_drain_fd *dfds, int nr_fds, int off,
+		int *lfds, struct fd_opts *opts)
 {
 	int ret = -1, size;
 	struct parasite_drain_fd *args;
 
 	size = drain_fds_size(dfds);
 	args = parasite_args_s(ctl, size);
-	memcpy(args, dfds, size);
+	args->nr_fds = nr_fds;
+	memcpy(&args->fds, dfds->fds + off, sizeof(int) * nr_fds);
 
 	ret = __parasite_execute_daemon(PARASITE_CMD_DRAIN_FDS, ctl);
 	if (ret) {
@@ -826,7 +828,7 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 		goto err;
 	}
 
-	ret = recv_fds(ctl->tsock, lfds, dfds->nr_fds, opts);
+	ret = recv_fds(ctl->tsock, lfds, nr_fds, opts);
 	if (ret)
 		pr_err("Can't retrieve FDs from socket\n");
 

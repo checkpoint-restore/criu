@@ -204,9 +204,6 @@ static int collect_fds(pid_t pid, struct parasite_drain_fd **dfds)
 		if (dir_dots(de))
 			continue;
 
-		if (n > PARASITE_MAX_FDS - 1)
-			return -ENOMEM;
-
 		if (sizeof(struct parasite_drain_fd) + sizeof(int) * (n + 1) > size) {
 			struct parasite_drain_fd *t;
 

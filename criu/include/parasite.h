@@ -231,7 +231,8 @@ struct parasite_drain_fd {
 
 static inline int drain_fds_size(struct parasite_drain_fd *dfds)
 {
-	return sizeof(dfds->nr_fds) + dfds->nr_fds * sizeof(dfds->fds[0]);
+	int nr_fds = min((int)PARASITE_MAX_FDS, dfds->nr_fds);
+	return sizeof(*dfds) + nr_fds * sizeof(dfds->fds[0]);
 }
 
 struct parasite_tty_args {

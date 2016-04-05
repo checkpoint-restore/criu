@@ -459,46 +459,52 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 		struct parasite_drain_fd *dfds)
 {
-	int *lfds;
-	struct cr_img *img;
-	struct fd_opts *opts;
+	int *lfds = NULL;
+	struct cr_img *img = NULL;
+	struct fd_opts *opts = NULL;
 	int i, ret = -1;
+	int off, nr_fds = min((int) PARASITE_MAX_FDS, dfds->nr_fds);
 
 	pr_info("\n");
 	pr_info("Dumping opened files (pid: %d)\n", ctl->pid.real);
 	pr_info("----------------------------------------\n");
 
-	lfds = xmalloc(dfds->nr_fds * sizeof(int));
+	lfds = xmalloc(nr_fds * sizeof(int));
 	if (!lfds)
 		goto err;
 
-	opts = xmalloc(dfds->nr_fds * sizeof(struct fd_opts));
+	opts = xmalloc(nr_fds * sizeof(struct fd_opts));
 	if (!opts)
-		goto err1;
-
-	ret = parasite_drain_fds_seized(ctl, dfds, lfds, opts);
-	if (ret)
-		goto err2;
+		goto err;
 
 	img = open_image(CR_FD_FDINFO, O_DUMP, item->ids->files_id);
 	if (!img)
-		goto err2;
+		goto err;
 
-	for (i = 0; i < dfds->nr_fds; i++) {
-		ret = dump_one_file(ctl, dfds->fds[i], lfds[i], opts + i, img);
-		close(lfds[i]);
+	for (off = 0; off < dfds->nr_fds; off += nr_fds) {
+		if (nr_fds + off > dfds->nr_fds)
+			nr_fds = dfds->nr_fds - off;
+
+		ret = parasite_drain_fds_seized(ctl, dfds, nr_fds,
+							off, lfds, opts);
 		if (ret)
-			break;
+			goto err;
+
+		for (i = 0; i < nr_fds; i++) {
+			ret = dump_one_file(ctl, dfds->fds[i + off],
+						lfds[i], opts + i, img);
+			close(lfds[i]);
+			if (ret)
+				break;
+		}
 	}
 
-	close_image(img);
-
 	pr_info("----------------------------------------\n");
-err2:
-	xfree(opts);
-err1:
-	xfree(lfds);
 err:
+	if (img)
+		close_image(img);
+	xfree(opts);
+	xfree(lfds);
 	return ret;
 }
 
