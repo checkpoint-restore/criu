@@ -184,10 +184,11 @@ static int dump_sched_info(int pid, ThreadCoreEntry *tc)
 
 struct cr_imgset *glob_imgset;
 
-static int collect_fds(pid_t pid, struct parasite_drain_fd *dfds)
+static int collect_fds(pid_t pid, struct parasite_drain_fd **dfds)
 {
 	struct dirent *de;
 	DIR *fd_dir;
+	int size = 0;
 	int n;
 
 	pr_info("\n");
@@ -206,10 +207,20 @@ static int collect_fds(pid_t pid, struct parasite_drain_fd *dfds)
 		if (n > PARASITE_MAX_FDS - 1)
 			return -ENOMEM;
 
-		dfds->fds[n++] = atoi(de->d_name);
+		if (sizeof(struct parasite_drain_fd) + sizeof(int) * (n + 1) > size) {
+			struct parasite_drain_fd *t;
+
+			size += PAGE_SIZE;
+			t = xrealloc(*dfds, size);
+			if (!t)
+				return -1;
+			*dfds = t;
+		}
+
+		(*dfds)->fds[n++] = atoi(de->d_name);
 	}
 
-	dfds->nr_fds = n;
+	(*dfds)->nr_fds = n;
 	pr_info("Found %d file descriptors\n", n);
 	pr_info("----------------------------------------\n");
 
@@ -1208,7 +1219,7 @@ static int dump_one_task(struct pstree_item *item)
 		if (!dfds)
 			goto err;
 
-		ret = collect_fds(pid, dfds);
+		ret = collect_fds(pid, &dfds);
 		if (ret) {
 			pr_err("Collect fds (pid: %d) failed with %d\n", pid, ret);
 			goto err;
