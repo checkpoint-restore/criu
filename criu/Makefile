@@ -46,25 +46,13 @@ $(ARCH-LIB): syscalls_lib
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) all
 
 #
-# piegen tool needed for PIE code.
-ifeq ($(piegen-y),y)
-piegen-bin		:= criu/pie/piegen/piegen
-
-criu/pie/piegen/%: $(CONFIG_HEADER)
-	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(ccflags-y) $(HOSTCFLAGS) $(WARNINGS) $(DEFINES)" $(MAKE) $(build)=criu/pie/piegen $@
-$(piegen-bin): criu/pie/piegen/built-in.o
-	$(call msg-link, $@)
-	$(Q) $(HOSTCC) $(HOSTCFLAGS) $^ $(LDFLAGS) -o $@
-endif
-
-#
 # PIE library code.
 criu/pie/lib.a: $(ARCH-LIB)
 	$(Q) $(MAKE) $(call build-as,Makefile.library,criu/pie) all
 
 #
 # PIE code blobs themseves.
-pie: $(piegen-bin) criu/pie/lib.a
+pie: criu/pie/lib.a
 	$(Q) $(MAKE) $(build)=criu/pie all
 .PHONY: pie
 
@@ -98,14 +86,12 @@ $(obj)/criu: $(PROGRAM-BUILTINS)
 subclean:
 	$(Q) $(RM) $(obj)/*.{gcda,gcno,gcov}
 	$(Q) $(RM) $(obj)/pie/*.{gcda,gcno,gcov}
-	$(Q) $(RM) $(obj)/pie/piegen/*.{gcda,gcno,gcov}
 	$(Q) $(RM) -r $(obj)/gcov
 	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) clean
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) clean
 	$(Q) $(MAKE) $(call build-as,Makefile.library,$(PIE_DIR)) clean
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) clean
 	$(Q) $(MAKE) $(build)=$(PIE_DIR) clean
-	$(Q) $(MAKE) $(build)=$(PIE_DIR)/piegen clean
 .PHONY: subclean
 cleanup-y      += $(obj)/criu
 clean: subclean
@@ -118,7 +104,6 @@ subproper:
 	$(Q) $(MAKE) $(call build-as,Makefile.library,$(PIE_DIR)) mrproper
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) mrproper
 	$(Q) $(MAKE) $(build)=$(PIE_DIR) mrproper
-	$(Q) $(MAKE) $(build)=$(PIE_DIR)/piegen mrproper
 .PHONY: subproper
 mrproper: subproper
 
