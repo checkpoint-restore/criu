@@ -78,7 +78,7 @@ int switch_ns(int pid, struct ns_desc *nd, int *rst)
 
 	nsfd = open_proc(pid, "ns/%s", nd->str);
 	if (nsfd < 0) {
-		pr_perror("Can't open ipcns file");
+		pr_perror("Can't open ns file");
 		goto err_ns;
 	}
 
