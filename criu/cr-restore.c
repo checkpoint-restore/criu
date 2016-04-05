@@ -1220,6 +1220,11 @@ static int restore_task_with_children(void *_arg)
 
 	/* Restore root task */
 	if (current->parent == NULL) {
+		if (join_namespaces()) {
+			pr_perror("Join namespaces failed");
+			goto err;
+		}
+
 		pr_info("Calling restore_sid() for init\n");
 		restore_sid();
 

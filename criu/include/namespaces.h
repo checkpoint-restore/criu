@@ -146,6 +146,7 @@ extern int dump_user_ns(pid_t pid, int ns_id);
 extern void free_userns_maps(void);
 extern int join_ns_add(const char *type, char *ns_file, char *extra_opts);
 extern int check_namespace_opts(void);
+extern int join_namespaces(void);
 
 typedef int (*uns_call_t)(void *arg, int fd, pid_t pid);
 /*
