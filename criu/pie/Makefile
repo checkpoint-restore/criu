@@ -16,7 +16,7 @@ restorer-obj-e		+= ./$(ARCH_DIR)/syscalls.built-in.o
 # project.
 #
 CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS))
-CFLAGS			+= -iquote $(SRC_DIR)/criu/pie/piegen
+CFLAGS			+= -iquote $(SRC_DIR)/compel/include
 CFLAGS			+= -iquote $(SRC_DIR)/criu/arch/$(ARCH)/include
 CFLAGS			+= -iquote $(SRC_DIR)/criu/include
 CFLAGS			+= -iquote $(SRC_DIR)/include
@@ -25,10 +25,9 @@ CFLAGS			+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 CFLAGS			+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
 
 
-ifneq ($(filter-out ia32,$(ARCH)),)
-        ccflags-y	+= -DCR_NOGLIBC -fpie -Wa,--noexecstack -fno-stack-protector
-else
-        ccflags-y	+= -DCR_NOGLIBC -fno-pic -Wa,--noexecstack -fno-stack-protector
+ccflags-y		+= -DCR_NOGLIBC
+ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
+	ccflags-y	+= $(shell $(SRC_DIR)/compel/compel --arch=$(ARCH) cflags)
 endif
 
 ifeq ($(SRCARCH),arm)
@@ -76,9 +75,9 @@ $(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/lib.a $(obj)/$(PIELDS)
 	$(call msg-gen, $@)
 	$(Q) $(LD) -r -T $(obj)/$(PIELDS) -o $@ $< $(obj)/lib.a
 
-$(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(obj)/$(PIELDS) criu/pie/piegen
+$(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(obj)/$(PIELDS) compel/compel
 	$(call msg-gen, $@)
-	$(Q) criu/pie/piegen/piegen piegen -f $< -v $(call target-name,$@)_relocs -p $(call target-name,$@)_blob_offset__ -s $(call target-name,$@)_blob -o $@ $(piegen_stdout)
+	$(Q) compel/compel piegen -f $< -v $(call target-name,$@)_relocs -p $(call target-name,$@)_blob_offset__ -s $(call target-name,$@)_blob -o $@ $(piegen_stdout)
 
 else
 

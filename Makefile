@@ -127,7 +127,7 @@ endif
 CFLAGS			+= $(WARNINGS) $(DEFINES) -iquote include/
 
 # Default target
-all: criu lib
+all: compel criu lib
 .PHONY: all
 
 #
@@ -201,6 +201,9 @@ $(eval $(call gen-built-in,images))
 
 .PHONY: .FORCE
 
+# Compel get used by CRIU, build it earlier
+$(eval $(call gen-built-in,compel))
+
 #
 # Next the socket CR library
 #
@@ -222,9 +225,9 @@ $(SOCCR_A): |soccr/built-in.o
 #
 # But note that we're already included
 # the nmk so we can reuse it there.
-criu/%: images/built-in.o $(VERSION_HEADER) $(CONFIG_HEADER) .FORCE
+criu/%: images/built-in.o compel/compel $(VERSION_HEADER) $(CONFIG_HEADER) .FORCE
 	$(Q) $(MAKE) $(build)=criu $@
-criu: images/built-in.o $(SOCCR_A) $(VERSION_HEADER) $(CONFIG_HEADER)
+criu: images/built-in.o compel/compel $(SOCCR_A) $(VERSION_HEADER) $(CONFIG_HEADER)
 	$(Q) $(MAKE) $(build)=criu all
 .PHONY: criu
 
@@ -248,6 +251,7 @@ clean: subclean
 	$(Q) $(MAKE) $(build)=criu $@
 	$(Q) $(MAKE) $(build)=soccr $@
 	$(Q) $(MAKE) $(build)=lib $@
+	$(Q) $(MAKE) $(build)=compel $@
 .PHONY: clean
 
 # mrproper depends on clean in nmk
@@ -256,6 +260,7 @@ mrproper: subclean
 	$(Q) $(MAKE) $(build)=criu $@
 	$(Q) $(MAKE) $(build)=soccr $@
 	$(Q) $(MAKE) $(build)=lib $@
+	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(RM) $(CONFIG_HEADER)
 	$(Q) $(RM) $(SOCCR_CONFIG)
 	$(Q) $(RM) $(VERSION_HEADER)
