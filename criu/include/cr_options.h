@@ -81,6 +81,7 @@ struct cr_options {
 	struct list_head	ext_mounts;
 	struct list_head	inherit_fds;
 	struct list_head	external;
+	struct list_head	join_ns;
 	char			*libdir;
 	bool			use_page_server;
 	unsigned short		port;

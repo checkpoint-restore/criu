@@ -3,6 +3,7 @@
 
 #include "compiler.h"
 #include "files.h"
+#include "list.h"
 
 #ifndef CLONE_NEWNS
 #define CLONE_NEWNS	0x00020000
@@ -36,11 +37,30 @@
 
 /* Nested namespaces are supported only for these types */
 #define CLONE_SUBNS	(CLONE_NEWNS)
+#define EXTRA_SIZE	20
 
 struct ns_desc {
 	unsigned int	cflag;
 	char		*str;
 	size_t		len;
+};
+
+struct user_ns_extra {
+	char	*uid;
+	char	*gid;
+};
+
+/* struct join_ns is used for storing parameters specified by --join-ns */
+struct join_ns {
+	struct list_head	list;
+	char			*ns_file;
+	struct ns_desc		*nd;	/* namespace descriptor */
+	int			ns_fd;
+	/* extra options of --join-ns, like uid&gid in user namespace */
+	union {
+		struct user_ns_extra	user_extra;
+		char			*common_extra;
+	} extra_opts;
 };
 
 enum ns_type {
@@ -124,6 +144,8 @@ extern gid_t userns_gid(gid_t gid);
 
 extern int dump_user_ns(pid_t pid, int ns_id);
 extern void free_userns_maps(void);
+extern int join_ns_add(const char *type, char *ns_file, char *extra_opts);
+extern int check_namespace_opts(void);
 
 typedef int (*uns_call_t)(void *arg, int fd, pid_t pid);
 /*

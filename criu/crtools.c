@@ -36,6 +36,7 @@
 #include "cr-service.h"
 #include "plugin.h"
 #include "mount.h"
+#include "namespaces.h"
 #include "cgroup.h"
 #include "cpu.h"
 #include "action-scripts.h"
@@ -58,6 +59,7 @@ void init_opts(void)
 	INIT_LIST_HEAD(&opts.ext_unixsk_ids);
 	INIT_LIST_HEAD(&opts.veth_pairs);
 	INIT_LIST_HEAD(&opts.ext_mounts);
+	INIT_LIST_HEAD(&opts.join_ns);
 	INIT_LIST_HEAD(&opts.inherit_fds);
 	INIT_LIST_HEAD(&opts.external);
 	INIT_LIST_HEAD(&opts.new_cgroup_roots);
@@ -69,6 +71,29 @@ void init_opts(void)
 	opts.ghost_limit = DEFAULT_GHOST_LIMIT;
 	opts.timeout = DEFAULT_TIMEOUT;
 	opts.empty_ns = 0;
+}
+
+static int parse_join_ns(const char *ptr)
+{
+	char *aux, *ns_file, *extra_opts = NULL;
+
+	aux = strchr(ptr, ':');
+	if (aux == NULL)
+		return -1;
+	*aux = '\0';
+
+	ns_file = aux + 1;
+	aux = strchr(ns_file, ',');
+	if (aux != NULL) {
+		*aux = '\0';
+		extra_opts = aux + 1;
+	} else {
+		extra_opts = NULL;
+	}
+	if (join_ns_add(ptr, ns_file, extra_opts))
+		return -1;
+
+	return 0;
 }
 
 static int parse_cpu_cap(struct cr_options *opts, const char *optarg)
@@ -190,7 +215,7 @@ int main(int argc, char *argv[], char *envp[])
 	int log_level = LOG_UNSET;
 	char *imgs_dir = ".";
 	char *work_dir = NULL;
-	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:v::x::Vr:jlW:L:M:";
+	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:v::x::Vr:jJ:lW:L:M:";
 	static struct option long_opts[] = {
 		{ "tree",			required_argument,	0, 't'	},
 		{ "pid",			required_argument,	0, 'p'	},
@@ -205,6 +230,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "images-dir",			required_argument,	0, 'D'	},
 		{ "work-dir",			required_argument,	0, 'W'	},
 		{ "log-file",			required_argument,	0, 'o'	},
+		{ "join-ns",			required_argument,	0, 'J'	},
 		{ "root",			required_argument,	0, 'r'	},
 		{ USK_EXT_PARAM,		optional_argument,	0, 'x'	},
 		{ "help",			no_argument,		0, 'h'	},
@@ -337,6 +363,10 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 'o':
 			opts.output = optarg;
+			break;
+		case 'J':
+			if (parse_join_ns(optarg))
+				goto bad_arg;
 			break;
 		case 'v':
 			if (log_level == LOG_UNSET)
@@ -550,6 +580,11 @@ int main(int argc, char *argv[], char *envp[])
 		default:
 			goto usage;
 		}
+	}
+
+	if (check_namespace_opts()) {
+		pr_msg("Error: namespace flags confict\n");
+		return 1;
 	}
 
 	if (!opts.restore_detach && opts.restore_sibling) {
@@ -793,6 +828,12 @@ usage:
 "  --empty-ns {net}\n"
 "                        Create a namespace, but don't restore its properies.\n"
 "                        An user will retore them from action scripts.\n"
+"  -J|--join-ns NS:PID|NS_FILE[,EXTRA_OPTS]\n"
+"			Join exist namespace and restore process in it.\n"
+"			Namespace can be specified in pid or file path format.\n"
+"			    --join-ns net:12345 or --join-ns net:/foo/bar.\n"
+"			Extra_opts is optional, for now only user namespace support:\n"
+"			    --join-ns user:PID,UID,GID to specify uid and gid.\n"
 "Check options:\n"
 "  without any arguments, \"criu check\" checks availability of absolutely required\n"
 "  kernel features; if any of these features is missing dump and restore will fail\n"

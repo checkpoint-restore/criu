@@ -37,6 +37,7 @@
 #include "setproctitle.h"
 
 #include "cr-errno.h"
+#include "namespaces.h"
 
 unsigned int service_sk_ino = -1;
 
@@ -373,6 +374,11 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			goto err;
 	}
 
+	for (i = 0; i < req->n_join_ns; i++) {
+		if (join_ns_add(req->join_ns[i]->ns, req->join_ns[i]->ns_file, req->join_ns[i]->extra_opt))
+			goto err;
+	}
+
 	if (req->n_inherit_fd && !opts.swrk_restore) {
 		pr_err("inherit_fd is not allowed in standalone service\n");
 		goto err;
@@ -471,6 +477,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 				goto err;
 		}
 	}
+
+	if (check_namespace_opts())
+		goto err;
 
 	return 0;
 

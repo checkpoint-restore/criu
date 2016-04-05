@@ -15,6 +15,12 @@ message ext_mount_map {
 	required string		val	= 2;
 };
 
+message join_namespace {
+	required string		ns		= 1;
+	required string		ns_file		= 2;
+	optional string		extra_opt	= 3;
+}
+
 message inherit_fd {
 	required string		key	= 1;
 	required int32		fd	= 2;
@@ -90,6 +96,7 @@ message criu_opts {
 	repeated string			irmap_scan_paths = 36;
 	repeated string			external	= 37;
 	optional uint32			empty_ns	= 38;
+	repeated join_namespace		join_ns		= 39;
 }
 
 message criu_dump_resp {
