@@ -59,9 +59,9 @@ void init_opts(void)
 	INIT_LIST_HEAD(&opts.ext_unixsk_ids);
 	INIT_LIST_HEAD(&opts.veth_pairs);
 	INIT_LIST_HEAD(&opts.ext_mounts);
-	INIT_LIST_HEAD(&opts.join_ns);
 	INIT_LIST_HEAD(&opts.inherit_fds);
 	INIT_LIST_HEAD(&opts.external);
+	INIT_LIST_HEAD(&opts.join_ns);
 	INIT_LIST_HEAD(&opts.new_cgroup_roots);
 	INIT_LIST_HEAD(&opts.irmap_scan_paths);
 
