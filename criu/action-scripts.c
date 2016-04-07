@@ -20,6 +20,7 @@ static const char *action_names[ACT_MAX] = {
 	[ ACT_NET_UNLOCK ]	= "network-unlock",
 	[ ACT_SETUP_NS ]	= "setup-namespaces",
 	[ ACT_POST_SETUP_NS ]	= "post-setup-namespaces",
+	[ ACT_POST_RESUME ]	= "post-resume",
 };
 
 int run_scripts(enum script_actions act)

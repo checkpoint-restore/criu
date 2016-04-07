@@ -2175,6 +2175,10 @@ static int restore_root_task(struct pstree_item *init)
 
 	write_stats(RESTORE_STATS);
 
+	ret = run_scripts(ACT_POST_RESUME);
+	if (ret != 0)
+		pr_err("Post-resume script ret code %d\n", ret);
+
 	if (!opts.restore_detach && !opts.exec_cmd)
 		wait(NULL);
 
