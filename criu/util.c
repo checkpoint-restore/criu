@@ -1189,17 +1189,18 @@ int setup_tcp_client(char *addr)
 
 	pr_info("Connecting to server %s:%u\n", addr, (int)ntohs(opts.port));
 
+	if (get_sockaddr_in(&saddr, addr))
+		return -1;
+
 	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sk < 0) {
 		pr_perror("Can't create socket");
 		return -1;
 	}
 
-	if (get_sockaddr_in(&saddr, addr))
-		return -1;
-
 	if (connect(sk, (struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
 		pr_perror("Can't connect to server");
+		close(sk);
 		return -1;
 	}
 
