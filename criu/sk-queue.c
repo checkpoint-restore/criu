@@ -44,7 +44,10 @@ static int collect_one_packet(void *obj, ProtobufCMessage *msg, struct cr_img *i
 	 * will be broken.
 	 */
 	list_add_tail(&pkt->list, &packets_list);
-	lseek(img_raw_fd(img), pkt->entry->length, SEEK_CUR);
+	if (lseek(img_raw_fd(img), pkt->entry->length, SEEK_CUR) < 0) {
+		pr_perror("Unable to change an image offset");
+		return -1;
+	}
 
 	return 0;
 }
