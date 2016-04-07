@@ -136,11 +136,11 @@ int join_ns_add(const char *type, char *ns_file, char *extra_opts)
 {
 	struct join_ns *jn;
 
-	jn = xmalloc(sizeof(*jn));
-	if (!jn)
+	if (check_ns_file(ns_file))
 		return -1;
 
-	if (check_ns_file(ns_file))
+	jn = xmalloc(sizeof(*jn));
+	if (!jn)
 		return -1;
 
 	jn->ns_file = ns_file;
@@ -154,13 +154,13 @@ int join_ns_add(const char *type, char *ns_file, char *extra_opts)
 		jn->nd = &ipc_ns_desc;
 		join_ns_flags |= CLONE_NEWIPC;
 	} else if (!strncmp(type, "pid", 4)) {
-		pr_perror("join-ns pid namespace not supported\n");
-		return -1;
+		pr_err("join-ns pid namespace not supported\n");
+		goto err;
 	} else if (!strncmp(type, "user", 5)) {
 		jn->nd = &user_ns_desc;
 		if (set_user_extra_opts(jn, extra_opts)) {
-			pr_perror("invalid user namespace extra_opts %s\n", extra_opts);
-			return -1;
+			pr_err("invalid user namespace extra_opts %s\n", extra_opts);
+			goto err;
 		}
 		join_ns_flags |= CLONE_NEWUSER;
 	} else if (!strncmp(type, "mnt", 4)) {
@@ -168,12 +168,15 @@ int join_ns_add(const char *type, char *ns_file, char *extra_opts)
 		join_ns_flags |= CLONE_NEWNS;
 	} else {
 		pr_perror("invalid namespace type %s\n", type);
-		return -1;
+		goto err;
 	}
 
 	list_add_tail(&jn->list, &opts.join_ns);
 	pr_info("Added %s:%s join namespace\n", type, ns_file);
 	return 0;
+err:
+	xfree(jn);
+	return -1;
 }
 
 static unsigned int parse_ns_link(char *link, size_t len, struct ns_desc *d)
