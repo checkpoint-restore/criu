@@ -25,7 +25,6 @@ enum pagemap_func {
 
 struct kerndat_s {
 	dev_t shmem_dev;
-	int tcp_max_rshare;
 	int last_cap;
 	u64 zero_page_pfn;
 	bool has_dirty_track;
