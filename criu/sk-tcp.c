@@ -467,9 +467,10 @@ static int __send_tcp_queue(int sk, int queue, u32 len, struct cr_img *img)
 	if (read_img_buf(img, buf, len) < 0)
 		goto err;
 
-	max_chunk = (queue == TCP_RECV_QUEUE ? kdat.tcp_max_rshare : len);
+	max_chunk = len;
 	off = 0;
-	while (len) {
+
+	do {
 		int chunk = len;
 
 		if (chunk > max_chunk)
@@ -477,14 +478,19 @@ static int __send_tcp_queue(int sk, int queue, u32 len, struct cr_img *img)
 
 		ret = send(sk, buf + off, chunk, 0);
 		if (ret <= 0) {
-			if ((queue == TCP_RECV_QUEUE) && (max_chunk > 1024) && (errno == ENOMEM)) {
+			if (max_chunk > 1024) {
 				/*
+				 * Kernel not only refuses the whole chunk,
+				 * but refuses to split it into pieces too.
+				 *
 				 * When restoring recv queue in repair mode
 				 * kernel doesn't try hard and just allocates
 				 * a linear skb with the size we pass to the
 				 * system call. Thus, if the size is too big
 				 * for slab allocator, the send just fails
-				 * with ENOMEM. Try smaller chunk, hopefully
+				 * with ENOMEM.
+				 *
+				 * In any case -- try smaller chunk, hopefully
 				 * there's still enough memory in the system.
 				 */
 				max_chunk >>= 1;
@@ -497,7 +503,7 @@ static int __send_tcp_queue(int sk, int queue, u32 len, struct cr_img *img)
 		}
 		off += ret;
 		len -= ret;
-	}
+	} while (len);
 
 	err = 0;
 err:
