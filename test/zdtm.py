@@ -1265,11 +1265,6 @@ def run_tests(opts):
 		opts['parallel'] = None
 
 	if opts['join_ns']:
-		print "[WARNING] Option --join-ns will skip ns and uns flavors, and some socket related tests."
-		r = re.compile('^(?!.*sock).*$')
-		torun = filter(lambda x: r.match(x), torun)
-		opts['keep_going'] = True
-		run_all = True
 		subprocess.Popen(["ip", "netns", "add", "zdtm_netns"])
 
 	l = launcher(opts, len(torun))
@@ -1310,6 +1305,11 @@ def run_tests(opts):
 					continue
 				if test_flag(tdesc, 'nouser'):
 					l.skip(t, "criu root prio needed")
+					continue
+
+			if opts['join_ns']:
+				if test_flag(tdesc, 'samens'):
+					l.skip(t, "samens test in the same namespace")
 					continue
 
 			test_flavs = tdesc.get('flavor', 'h ns uns').split()
