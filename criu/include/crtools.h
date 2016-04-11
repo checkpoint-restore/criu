@@ -26,9 +26,9 @@ extern int convert_to_elf(char *elf_path, int fd_core);
 extern int cr_check(void);
 extern int cr_dedup(void);
 #ifdef CONFIG_HAS_UFFD
-extern int uffd_listen(void);
+extern int cr_lazy_pages(void);
 #else
-static inline int uffd_listen() { return 0; };
+static inline int cr_lazy_pages() { return 0; };
 #endif /* CONFIG_HAS_UFFD */
 
 extern int check_add_feature(char *arg);
