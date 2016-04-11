@@ -155,23 +155,16 @@ out:
 
 static int pid;
 
-static int ud_open()
+static int ud_open(int listen, struct sockaddr_un *saddr)
 {
 	int client;
-	int listen;
 	int newfd;
 	int ret = -1;
-	struct sockaddr_un saddr;
 	socklen_t len;
-
-	if ((listen = server_listen(&saddr)) < 0) {
-		pr_perror("server_listen error");
-		return -1;
-	}
 
 	/* accept new client request */
 	len = sizeof(struct sockaddr_un);
-	if ((client = accept(listen, (struct sockaddr *)&saddr, &len)) < 0) {
+	if ((client = accept(listen, (struct sockaddr *)saddr, &len)) < 0) {
 		pr_perror("server_accept error: %d", client);
 		close(listen);
 		return -1;
@@ -199,7 +192,6 @@ static int ud_open()
 
 	return newfd;
 out:
-	close(listen);
 	close(client);
 	return ret;
 }
@@ -643,10 +635,11 @@ out:
 
 int cr_lazy_pages()
 {
+	int listen;
 	int uffd;
 	int uffd_flags;
-
-	LIST_HEAD(uffd_list);
+	int ret;
+	struct sockaddr_un saddr;
 
 	if (!opts.addr) {
 		pr_info("Please specify a file name for the unix domain socket\n");
@@ -657,14 +650,25 @@ int cr_lazy_pages()
 	}
 
 	pr_debug("Waiting for incoming connections on %s\n", opts.addr);
-	if ((uffd = ud_open()) < 0)
-		exit(0);
+	if ((listen = server_listen(&saddr)) < 0) {
+		pr_perror("server_listen error");
+		return -1;
+	}
+
+	uffd = ud_open(listen, &saddr);
+	if (uffd < 0) {
+		pr_perror("uffd open error");
+		return -1;
+	}
 
 	pr_debug("uffd is 0x%d\n", uffd);
 	uffd_flags = fcntl(uffd, F_GETFD, NULL);
 	pr_debug("uffd_flags are 0x%x\n", uffd_flags);
 
-	return handle_requests(uffd);
+	ret = handle_requests(uffd);
+	close(listen);
+
+	return ret;
 }
 
 #else /* CONFIG_HAS_UFFD */
