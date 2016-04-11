@@ -638,7 +638,8 @@ out:
 	return ret;
 
 }
-int uffd_listen()
+
+int cr_lazy_pages()
 {
 	int uffd;
 	int uffd_flags;
