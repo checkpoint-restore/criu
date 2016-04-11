@@ -92,9 +92,7 @@ obj-$(CONFIG_COMPAT)	+= vdso-compat.o
 CFLAGS_REMOVE_vdso-compat.o	+= $(CFLAGS-ASAN) $(CFLAGS-GCOV)
 endif
 
-ifeq ($(UFFD),1)
 obj-y	+= uffd.o
-endif
 
 PROTOBUF_GEN := scripts/protobuf-gen.sh
 

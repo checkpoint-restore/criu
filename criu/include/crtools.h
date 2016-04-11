@@ -25,11 +25,7 @@ extern int cr_restore_tasks(void);
 extern int convert_to_elf(char *elf_path, int fd_core);
 extern int cr_check(void);
 extern int cr_dedup(void);
-#ifdef CONFIG_HAS_UFFD
 extern int cr_lazy_pages(void);
-#else
-static inline int cr_lazy_pages() { return 0; };
-#endif /* CONFIG_HAS_UFFD */
 
 extern int check_add_feature(char *arg);
 extern void pr_check_features(const char *offset, const char *sep, int width);

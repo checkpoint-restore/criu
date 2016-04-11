@@ -30,6 +30,8 @@
 #include "include/cr_options.h"
 #include "xmalloc.h"
 
+#ifdef CONFIG_HAS_UFFD
+
 #undef  LOG_PREFIX
 #define LOG_PREFIX "lazy-pages: "
 
@@ -664,3 +666,13 @@ int cr_lazy_pages()
 
 	return handle_requests(uffd);
 }
+
+#else /* CONFIG_HAS_UFFD */
+
+int cr_lazy_pages()
+{
+	pr_msg("userfaultfd system call is not supported, cannot start lazy-pages daemon\n");
+	return -1;
+}
+
+#endif /* CONFIG_HAS_UFFD */
