@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <string.h>
 #include <time.h>
 #include <sys/stat.h>
@@ -430,18 +431,7 @@ static int find_vmas(struct list_head *uffd_list)
 	struct page_read pr;
 	struct uffd_pages_struct *uffd_pages;
 
-
-	if (check_img_inventory() == -1)
-		return -1;
-
 	vm_area_list_init(&vmas);
-
-	/* Allocate memory for task_entries */
-	if (prepare_task_entries() == -1)
-		return -1;
-
-	if (prepare_pstree() == -1)
-		return -1;
 
 	ri = rsti(root_item);
 	if (!ri)
@@ -633,6 +623,27 @@ out:
 
 }
 
+static int lazy_pages_prepare_pstree(void)
+{
+	if (check_img_inventory() == -1)
+		return -1;
+
+	/* Allocate memory for task_entries */
+	if (prepare_task_entries() == -1)
+		return -1;
+
+	if (prepare_pstree() == -1)
+		return -1;
+
+	/* bail out early until we know how to handle multiple tasks */
+	if (task_entries->nr_tasks > 1) {
+		pr_msg("lazy-pages cannot restore more than one task, sorry\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int cr_lazy_pages()
 {
 	int listen;
@@ -648,6 +659,9 @@ int cr_lazy_pages()
 		pr_info("criu --lazy-pages --address /tmp/userfault.socket\n");
 		return -1;
 	}
+
+	if (lazy_pages_prepare_pstree())
+		return -1;
 
 	pr_debug("Waiting for incoming connections on %s\n", opts.addr);
 	if ((listen = server_listen(&saddr)) < 0) {
