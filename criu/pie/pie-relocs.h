@@ -10,19 +10,17 @@
 
 extern __maybe_unused void elf_relocs_apply(void *mem, void *vbase, size_t size,
 					    elf_reloc_t *elf_relocs, size_t nr_relocs);
-#define pie_size(__blob_name)	(round_up(sizeof(__blob_name) + nr_gotpcrel * sizeof(long), page_size()))
-#define ELF_RELOCS_APPLY_PARASITE(__mem, __vbase)			\
-	elf_relocs_apply(__mem, __vbase, sizeof(parasite_blob),		\
-			 parasite_relocs, ARRAY_SIZE(parasite_relocs))
-#define ELF_RELOCS_APPLY_RESTORER(__mem, __vbase)			\
-	elf_relocs_apply(__mem, __vbase, sizeof(restorer_blob),		\
-			 restorer_relocs, ARRAY_SIZE(restorer_relocs))
+/* FIXME: native/compat pie's pie_size(), ELF_RELOCS_APPLY() */
+#define pie_size(__pie_name)	(round_up(sizeof(__pie_name##_blob) + \
+			__pie_name ## _nr_gotpcrel * sizeof(long), page_size()))
+#define ELF_RELOCS_APPLY(__pie_name, __mem, __vbase)			\
+	elf_relocs_apply(__mem, __vbase, sizeof(__pie_name##_blob),	\
+			 __pie_name##_relocs, ARRAY_SIZE(__pie_name##_relocs))
 
 #else
 
-#define pie_size(__blob_name)	(round_up(sizeof(__blob_name), page_size()))
-#define ELF_RELOCS_APPLY_PARASITE(__mem, __vbase)
-#define ELF_RELOCS_APPLY_RESTORER(__mem, __vbase)
+#define pie_size(__pie_name)	(round_up(sizeof(__pie_name##_blob), page_size()))
+#define ELF_RELOCS_APPLY(__pie_name, __mem, __vbase)
 
 #endif
 
