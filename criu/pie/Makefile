@@ -2,16 +2,17 @@ target			+= parasite
 target			+= restorer
 
 parasite-obj-y		+= parasite.o
-parasite-obj-y		+= ./$(ARCH_DIR)/parasite-head.o
 
 restorer-obj-y		+= restorer.o
 restorer-obj-y		+= ./$(ARCH_DIR)/restorer.o
 
 ifeq ($(ARCH),x86)
 # FIXME: depend on 32/64 pie type
+parasite-obj-y		+= ./$(ARCH_DIR)/parasite-head-64.o
 parasite-obj-e		+= ./$(ARCH_DIR)/syscalls-64.built-in.o
 restorer-obj-e		+= ./$(ARCH_DIR)/syscalls-64.built-in.o
 else
+parasite-obj-y		+= ./$(ARCH_DIR)/parasite-head.o
 parasite-obj-e		+= ./$(ARCH_DIR)/syscalls.built-in.o
 restorer-obj-e		+= ./$(ARCH_DIR)/syscalls.built-in.o
 endif
