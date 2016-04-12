@@ -56,7 +56,7 @@ endif
 ifeq ($(ARCH),ppc64)
         LDARCH		:= powerpc:common64
         VDSO		:= y
-        DEFINES		:= -DCONFIG_PPC64
+        DEFINES		:= -DCONFIG_PPC64 -D__SANE_USERSPACE_TYPES__
 endif
 
 ifeq ($(ARCH),x86)
