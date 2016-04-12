@@ -67,7 +67,7 @@ int arch_task_compatible(pid_t pid)
 	if (ret)
 		return -1;
 
-	return !r.is_native;
+	return !user_regs_native(&r);
 }
 
 #define USER32_CS	0x23
@@ -120,7 +120,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	user_regs_struct_t regs = ctl->orig.regs;
 	int err;
 
-	if (regs.is_native) {
+	if (user_regs_native(&regs)) {
 		user_regs_struct64 *r = &regs.native;
 
 		r->ax  = (uint64_t)nr;
@@ -152,7 +152,7 @@ static int save_task_regs(CoreEntry *core,
 		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs);
 
 #define get_signed_user_reg(pregs, name)				\
-	(((pregs)->is_native) ? (int64_t)((pregs)->native.name) :	\
+	((user_regs_native(pregs)) ? (int64_t)((pregs)->native.name) :	\
 				(int32_t)((pregs)->compat.name))
 int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 {
@@ -222,7 +222,7 @@ static int save_task_regs(CoreEntry *core,
 #define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
 #define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
 
-	if (regs.is_native) {
+	if (user_regs_native(regs)) {
 		assign_reg(gpregs, regs->native, r15);
 		assign_reg(gpregs, regs->native, r14);
 		assign_reg(gpregs, regs->native, r13);
@@ -314,11 +314,11 @@ int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs)
 
 	ret = ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, &iov);
 	if (iov.iov_len == sizeof(regs->native)) {
-		regs->is_native = true;
+		regs->__is_native = NATIVE_MAGIC;
 		return ret;
 	}
 	if (iov.iov_len == sizeof(regs->compat)) {
-		regs->is_native = false;
+		regs->__is_native = COMPAT_MAGIC;
 		return ret;
 	}
 
@@ -332,7 +332,7 @@ int ptrace_set_regs(pid_t pid, user_regs_struct_t *regs)
 {
 	struct iovec iov;
 
-	if (regs->is_native) {
+	if (user_regs_native(regs)) {
 		iov.iov_base = &regs->native;
 		iov.iov_len = sizeof(user_regs_struct64);
 	} else {

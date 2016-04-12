@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <signal.h>
+#include "log.h"
+#include "common/bug.h"
 #include "common/page.h"
 #include "syscall-types.h"
 
@@ -61,27 +63,45 @@ typedef struct {
 } user_regs_struct32;
 
 #ifdef CONFIG_X86_64
+/*
+ * To be sure that we rely on inited reg->__is_native, this member
+ * is (short int) instead of initial (bool). The right way to
+ * check if regs are native or compat is to use user_regs_native() macro.
+ * This should cost nothing, as *usually* sizeof(bool) == sizeof(short)
+ */
 typedef struct {
 	union {
 		user_regs_struct64 native;
 		user_regs_struct32 compat;
 	};
-	bool is_native;
+	short __is_native; /* use user_regs_native macro to check it */
 } user_regs_struct_t;
-#define get_user_reg(pregs, name) (((pregs)->is_native) ?	\
-		((pregs)->native.name) :			\
-		((pregs)->compat.name))
-#define set_user_reg(pregs, name, val) (((pregs)->is_native) ?	\
-		((pregs)->native.name = val) :			\
-		((pregs)->compat.name = val))
+
+#define NATIVE_MAGIC	0x0A
+#define COMPAT_MAGIC	0x0C
+static inline bool user_regs_native(user_regs_struct_t *pregs)
+{
+	return pregs->__is_native == NATIVE_MAGIC;
+}
+
+#define get_user_reg(pregs, name)			\
+	((user_regs_native(pregs))		?	\
+	 ((pregs)->native.name)			:	\
+	 ((pregs)->compat.name))
+
+#define set_user_reg(pregs, name, val)			\
+	((user_regs_native(pregs))		?	\
+	 ((pregs)->native.name = (val))		:	\
+	 ((pregs)->compat.name = (val)))
 #else
 typedef struct {
 	union {
 		user_regs_struct32 native;
 	};
 } user_regs_struct_t;
-#define get_user_reg(pregs, name) ((pregs)->native.name)
-#define set_user_reg(pregs, name, val) ((pregs)->native.name = val)
+#define user_regs_native(pregs)		true
+#define get_user_reg(pregs, name)	((pregs)->native.name)
+#define set_user_reg(pregs, name, val)	((pregs)->native.name = val)
 #endif
 
 #if 0

@@ -76,6 +76,8 @@ typedef struct {
 #define REG_IP(regs)		((uint64_t)(regs).nip)
 #define REG_SYSCALL_NR(regs)	((uint64_t)(regs).gpr[0])
 
+#define user_regs_native(pregs)			true
+
 /*
  * Copied from the following kernel header files :
  * 	include/linux/auxvec.h
