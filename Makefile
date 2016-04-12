@@ -85,7 +85,7 @@ ifeq ($(ARCH),ppc64)
                 error := $(error ppc64 big endian not yet supported)
         endif
 
-        DEFINES		:= -DCONFIG_PPC64
+        DEFINES		:= -DCONFIG_PPC64 -D__SANE_USERSPACE_TYPES__
 endif
 
 export PROTOUFIX DEFINES USERCFLAGS
