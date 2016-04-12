@@ -29,6 +29,7 @@ int run_scripts(enum script_actions act)
 	int ret = 0;
 	char image_dir[PATH_MAX];
 	const char *action = action_names[act];
+	char root_item_pid[16];
 
 	pr_debug("Running %s scripts\n", action);
 
@@ -43,6 +44,12 @@ int run_scripts(enum script_actions act)
 	sprintf(image_dir, "/proc/%ld/fd/%d", (long) getpid(), get_service_fd(IMG_FD_OFF));
 	if (setenv("CRTOOLS_IMAGE_DIR", image_dir, 1)) {
 		pr_perror("Can't set CRTOOLS_IMAGE_DIR=%s", image_dir);
+		return -1;
+	}
+
+	snprintf(root_item_pid, sizeof(root_item_pid), "%d", root_item->pid.real);
+	if (setenv("CRTOOLS_INIT_PID", root_item_pid, 1)) {
+		pr_perror("Can't set CRTOOLS_INIT_PID=%s", root_item_pid);
 		return -1;
 	}
 
