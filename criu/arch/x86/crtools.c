@@ -58,9 +58,24 @@ void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *
 			~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF));
 }
 
+int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs);
 int arch_task_compatible(pid_t pid)
 {
-	unsigned long cs, ds;
+	user_regs_struct_t r;
+	int ret = ptrace_get_regs(pid, &r);
+
+	if (ret)
+		return -1;
+
+	return !r.is_native;
+}
+
+#define USER32_CS	0x23
+#define USER_CS		0x33
+
+static bool ldt_task_selectors(pid_t pid)
+{
+	unsigned long cs;
 
 	errno = 0;
 	/*
@@ -73,15 +88,7 @@ int arch_task_compatible(pid_t pid)
 		return -1;
 	}
 
-	errno = 0;
-	ds = ptrace(PTRACE_PEEKUSER, pid, offsetof(user_regs_struct64, ds), 0);
-	if (errno != 0) {
-		pr_perror("Can't get DS register for %d", pid);
-		return -1;
-	}
-
-	/* It's x86-32 or x32 */
-	return cs != 0x33 || ds == 0x2b;
+	return cs != USER_CS && cs != USER32_CS;
 }
 
 bool arch_can_dump_task(struct parasite_ctl *ctl)
@@ -91,6 +98,11 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 	/* FIXME: remove it */
 	if (arch_task_compatible(pid)) {
 		pr_err("Can't dump task %d running in 32-bit mode\n", pid);
+		return false;
+	}
+
+	if (ldt_task_selectors(pid)) {
+		pr_err("Can't dump task %d with LDT descriptors\n", pid);
 		return false;
 	}
 
