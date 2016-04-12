@@ -79,9 +79,9 @@ ifeq ($(strip $(V)),)
         piegen_stdout := >/dev/null
 endif
 
-$(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/lib.a $(obj)/$(PIELDS)
+$(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/native.lib.a $(obj)/$(PIELDS)
 	$(call msg-gen, $@)
-	$(Q) $(LD) -r -T $(obj)/$(PIELDS) -o $@ $< $(obj)/lib.a
+	$(Q) $(LD) -r -T $(obj)/$(PIELDS) -o $@ $< $(obj)/native.lib.a
 
 $(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(obj)/$(PIELDS) compel/compel
 	$(call msg-gen, $@)

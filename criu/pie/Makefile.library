@@ -1,26 +1,28 @@
-lib-y			+= log-simple.o
-lib-y			+= util-fd.o
-lib-y			+= util.o
-lib-y			+= string.o
+target				:= native
+
+$(target)-lib-y			+= log-simple.o
+$(target)-lib-y			+= util-fd.o
+$(target)-lib-y			+= util.o
+$(target)-lib-y			+= string.o
 
 ifeq ($(VDSO),y)
-        lib-y		+= util-vdso.o
-        lib-y		+= parasite-vdso.o
-        lib-y		+= ./$(ARCH_DIR)/vdso-pie.o
+        $(target)-lib-y		+= util-vdso.o
+        $(target)-lib-y		+= parasite-vdso.o
+        $(target)-lib-y		+= ./$(ARCH_DIR)/vdso-pie.o
 
         ifeq ($(SRCARCH),aarch64)
-                lib-y	+= ./$(ARCH_DIR)/intraprocedure.o
+                $(target)-lib-y	+= ./$(ARCH_DIR)/intraprocedure.o
         endif
 
         ifeq ($(SRCARCH),ppc64)
-                lib-y	+= ./$(ARCH_DIR)/vdso-trampoline.o
+                $(target)-lib-y	+= ./$(ARCH_DIR)/vdso-trampoline.o
         endif
 endif
 
 ifeq ($(SRCARCH),ppc64)
-        lib-y		+= ./$(ARCH_DIR)/memcpy_power7.o
-        lib-y		+= ./$(ARCH_DIR)/memcmp_64.o
-        lib-y		+= ./$(ARCH_DIR)/misc.o
+        $(target)-lib-y	+= ./$(ARCH_DIR)/memcpy_power7.o
+        $(target)-lib-y	+= ./$(ARCH_DIR)/memcmp_64.o
+        $(target)-lib-y	+= ./$(ARCH_DIR)/misc.o
 endif
 
 ifeq ($(SRCARCH),x86)
