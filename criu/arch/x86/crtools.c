@@ -26,17 +26,24 @@
 /*
  * Injected syscall instruction
  */
-/* FIXME: 32-bit syscalls */
 const char code_syscall[] = {
 	0x0f, 0x05,				/* syscall    */
 	0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc	/* int 3, ... */
 };
 
+const char code_int_80[] = {
+	0xcd, 0x80,				/* int $0x80  */
+	0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc	/* int 3, ... */
+};
+
 static const int
 code_syscall_aligned = round_up(sizeof(code_syscall), sizeof(long));
+static const int
+code_int_80_aligned = round_up(sizeof(code_syscall), sizeof(long));
 
 static inline __always_unused void __check_code_syscall(void)
 {
+	BUILD_BUG_ON(code_int_80_aligned != BUILTIN_SYSCALL_SIZE);
 	BUILD_BUG_ON(code_syscall_aligned != BUILTIN_SYSCALL_SIZE);
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 }
@@ -130,6 +137,8 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 		r->r10 = arg4;
 		r->r8  = arg5;
 		r->r9  = arg6;
+
+		err = __parasite_execute_syscall(ctl, &regs, code_syscall);
 	} else {
 		user_regs_struct32 *r = &regs.compat;
 
@@ -140,9 +149,9 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 		r->si  = arg4;
 		r->di  = arg5;
 		r->bp  = arg6;
-	}
 
-	err = __parasite_execute_syscall(ctl, &regs, code_syscall);
+		err = __parasite_execute_syscall(ctl, &regs, code_int_80);
+	}
 
 	*ret = get_user_reg(&regs, ax);
 	return err;
