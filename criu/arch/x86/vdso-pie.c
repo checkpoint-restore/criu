@@ -20,16 +20,34 @@ typedef struct {
 	u16	jmp_rax;
 	u32	guards;
 } __packed jmp_t;
+#define IMMEDIATE(j)	(j.imm64)
+
+jmp_t jmp = {
+	.movabs		= 0xb848,
+	.jmp_rax	= 0xe0ff,
+	.guards		= 0xcccccccc,
+};
+
+#else /* CONFIG_X86_64 */
+typedef struct {
+	u8	movl;
+	u32	imm32;
+	u16	jmp_eax;
+	u32	guards;
+} __packed jmp_t;
+#define IMMEDIATE(j)	(j.imm32)
+
+jmp_t jmp = {
+	.movl		= 0xb8,
+	.jmp_eax	= 0xe0ff,
+	.guards		= 0xcccccccc,
+};
+#endif /* CONFIG_X86_64 */
 
 int vdso_redirect_calls(unsigned long base_to, unsigned long base_from,
 			struct vdso_symtable *to,
 			struct vdso_symtable *from)
 {
-	jmp_t jmp = {
-		.movabs		= 0xb848,
-		.jmp_rax	= 0xe0ff,
-		.guards		= 0xcccccccc,
-	};
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(to->symbols); i++) {
@@ -40,20 +58,9 @@ int vdso_redirect_calls(unsigned long base_to, unsigned long base_from,
 			 base_from, from->symbols[i].offset,
 			 base_to, to->symbols[i].offset, i);
 
-		jmp.imm64 = base_to + to->symbols[i].offset;
+		IMMEDIATE(jmp) = base_to + to->symbols[i].offset;
 		memcpy((void *)(base_from + from->symbols[i].offset), &jmp, sizeof(jmp));
 	}
 
 	return 0;
 }
-
-#else /* CONFIG_X86_64 */
-
-int vdso_redirect_calls(unsigned long base_to, unsigned long  base_from,
-			struct vdso_symtable *to,
-			struct vdso_symtable *from)
-{
-	return 0;
-}
-
-#endif /* CONFIG_X86_64 */
