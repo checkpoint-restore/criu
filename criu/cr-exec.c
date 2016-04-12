@@ -17,12 +17,9 @@ struct syscall_exec_desc {
 	unsigned nr;
 };
 
-static struct syscall_exec_desc sc_exec_table[] = {
 #define SYSCALL(__name, __nr) { .name = #__name, .nr = __nr, },
 #include "sys-exec-tbl.c"
 #undef SYSCALL
-	{ }, /* terminator */
-};
 
 static struct syscall_exec_desc *find_syscall(char *name)
 {

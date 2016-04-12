@@ -3,11 +3,18 @@ target			+= restorer
 
 parasite-obj-y		+= parasite.o
 parasite-obj-y		+= ./$(ARCH_DIR)/parasite-head.o
-parasite-obj-e		+= ./$(ARCH_DIR)/syscalls.built-in.o
 
 restorer-obj-y		+= restorer.o
 restorer-obj-y		+= ./$(ARCH_DIR)/restorer.o
+
+ifeq ($(ARCH),x86)
+# FIXME: depend on 32/64 pie type
+parasite-obj-e		+= ./$(ARCH_DIR)/syscalls-64.built-in.o
+restorer-obj-e		+= ./$(ARCH_DIR)/syscalls-64.built-in.o
+else
+parasite-obj-e		+= ./$(ARCH_DIR)/syscalls.built-in.o
 restorer-obj-e		+= ./$(ARCH_DIR)/syscalls.built-in.o
+endif
 
 #
 # We can't provide proper mount implementation
