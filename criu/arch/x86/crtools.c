@@ -53,7 +53,7 @@ void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *
 	regs->flags &= ~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF);
 }
 
-static int task_in_compat_mode(pid_t pid)
+int arch_task_compatible(pid_t pid)
 {
 	unsigned long cs, ds;
 
@@ -79,7 +79,7 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 {
 	pid_t pid = ctl->rpid;
 
-	if (task_in_compat_mode(pid)) {
+	if (arch_task_compatible(pid)) {
 		pr_err("Can't dump task %d running in 32-bit mode\n", pid);
 		return false;
 	}
