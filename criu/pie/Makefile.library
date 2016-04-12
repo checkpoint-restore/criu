@@ -1,33 +1,52 @@
-target				:= native
+target			:= native
 
-$(target)-lib-y			+= log-simple.o
-$(target)-lib-y			+= util-fd.o
-$(target)-lib-y			+= util.o
-$(target)-lib-y			+= string.o
+CFLAGS			:= $(filter-out -DCONFIG_X86_64,$(CFLAGS))
+CFLAGS			+= -Wa,--noexecstack -fno-stack-protector -DCR_NOGLIBC
+
+CFLAGS_native		+= -fpie
+
+ifeq ($(ARCH),x86)
+        target		+= compat
+        CFLAGS_native	+= -DCONFIG_X86_64
+        CFLAGS_compat	+= -fno-pic -m32 -DCONFIG_X86_32
+endif
+
+OBJS			+= log-simple.o util-fd.o util.o string.o
 
 ifeq ($(VDSO),y)
-        $(target)-lib-y		+= util-vdso.o
-        $(target)-lib-y		+= parasite-vdso.o
-        $(target)-lib-y		+= ./$(ARCH_DIR)/vdso-pie.o
+        OBJS		+= util-vdso.o parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o
 
         ifeq ($(SRCARCH),aarch64)
-                $(target)-lib-y	+= ./$(ARCH_DIR)/intraprocedure.o
+                OBJS	+= ./$(ARCH_DIR)/intraprocedure.o
         endif
 
         ifeq ($(SRCARCH),ppc64)
-                $(target)-lib-y	+= ./$(ARCH_DIR)/vdso-trampoline.o
+                OBJS	+= ./$(ARCH_DIR)/vdso-trampoline.o
         endif
 endif
 
 ifeq ($(SRCARCH),ppc64)
-        $(target)-lib-y	+= ./$(ARCH_DIR)/memcpy_power7.o
-        $(target)-lib-y	+= ./$(ARCH_DIR)/memcmp_64.o
-        $(target)-lib-y	+= ./$(ARCH_DIR)/misc.o
+        OBJS		+= ./$(ARCH_DIR)/memcpy_power7.o		\
+			   ./$(ARCH_DIR)/memcmp_64.o ./$(ARCH_DIR)/misc.o
 endif
 
 ifeq ($(SRCARCH),x86)
         lib-y		+= ./$(ARCH_DIR)/memcpy.o
 endif
+
+define gen-native-objs
+native-lib-y		+= $(1)
+CFLAGS_$(1)		:= $(CFLAGS_native)
+endef
+
+compat-obj		= $(basename $(notdir $(1)))-compat.o
+define gen-compat-objs
+compat-lib-y		+= $(dir ./$(call objectify,$(1)))compat/$(compat-obj)
+CFLAGS_$(compat-obj)	:= $(CFLAGS_compat)
+endef
+
+$(eval $(call map,gen-native-objs,$(OBJS)))
+$(eval $(call map,gen-compat-objs,$(OBJS)))
 
 #
 # We can't provide proper mount implementation
