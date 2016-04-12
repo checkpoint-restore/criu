@@ -1188,6 +1188,11 @@ def run_tests(opts):
 	excl = None
 	features = {}
 
+	if opts['pre'] or opts['snaps']:
+		if not criu_cli.check("mem_dirty_track"):
+			print "Tracking memory is not available"
+			return;
+
 	if opts['keep_going'] and (not opts['all']):
 		print "[WARNING] Option --keep-going is more useful with option --all."
 
