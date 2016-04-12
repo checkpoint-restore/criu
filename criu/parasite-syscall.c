@@ -1378,7 +1378,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	ctl->args_size = round_up(parasite_args_size, PAGE_SIZE);
 	parasite_args_size = PARASITE_ARG_SIZE_MIN; /* reset for next task */
-	map_exchange_size = pie_size(parasite) + ctl->args_size;
+	map_exchange_size = pie_size(parasite_native) + ctl->args_size;
 	map_exchange_size += RESTORE_STACK_SIGFRAME + PARASITE_STACK_SIZE;
 	if (item->nr_threads > 1)
 		map_exchange_size += PARASITE_STACK_SIZE;
@@ -1390,16 +1390,16 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		goto err_restore;
 
 	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
-	memcpy(ctl->local_map, parasite_blob, sizeof(parasite_blob));
+	memcpy(ctl->local_map, parasite_native_blob, sizeof(parasite_native_blob));
 
-	ELF_RELOCS_APPLY(parasite, ctl->local_map, ctl->remote_map);
+	ELF_RELOCS_APPLY(parasite_native, ctl->local_map, ctl->remote_map);
 
 	/* Setup the rest of a control block */
 	ctl->parasite_ip	= (unsigned long)parasite_sym(ctl->remote_map, native, __export_parasite_head_start);
 	ctl->addr_cmd		= parasite_sym(ctl->local_map, native, __export_parasite_cmd);
 	ctl->addr_args		= parasite_sym(ctl->local_map, native, __export_parasite_args);
 
-	p = pie_size(parasite) + ctl->args_size;
+	p = pie_size(parasite_native) + ctl->args_size;
 
 	ctl->rsigframe	= ctl->remote_map + p;
 	ctl->sigframe	= ctl->local_map  + p;
