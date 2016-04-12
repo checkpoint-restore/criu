@@ -24,6 +24,8 @@ images/google/protobuf/*.h
 .gitid
 criu/criu
 criu/arch/*/sys-exec-tbl*.c
+# x86 syscalls-table is not generated
+!criu/arch/x86/sys-exec-tbl.c
 criu/arch/*/syscalls*.S
 criu/include/config.h
 criu/include/syscall-codes*.h
