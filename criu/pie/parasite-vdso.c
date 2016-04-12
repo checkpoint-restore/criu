@@ -142,9 +142,9 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 	}
 
 	pr_debug("image [vdso] %lx-%lx [vvar] %lx-%lx\n",
-		 vma_vdso->start, vma_vdso->end,
-		 vma_vvar ? vma_vvar->start : VVAR_BAD_ADDR,
-		 vma_vvar ? vma_vvar->end : VVAR_BAD_ADDR);
+		 (unsigned long)vma_vdso->start, (unsigned long)vma_vdso->end,
+		 vma_vvar ? (unsigned long)vma_vvar->start : VVAR_BAD_ADDR,
+		 vma_vvar ? (unsigned long)vma_vvar->end : VVAR_BAD_ADDR);
 
 	/*
 	 * Easy case -- the vdso from image has same offsets, order and size
@@ -160,13 +160,15 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 
 		pr_info("Runtime vdso/vvar matches dumpee, remap inplace\n");
 
-		if (sys_munmap((void *)vma_vdso->start, vma_entry_len(vma_vdso))) {
+		if (sys_munmap((void *)(uintptr_t)vma_vdso->start,
+					vma_entry_len(vma_vdso))) {
 			pr_err("Failed to unmap %s\n", who);
 			return -1;
 		}
 
 		if (vma_vvar) {
-			if (sys_munmap((void *)vma_vvar->start, vma_entry_len(vma_vvar))) {
+			if (sys_munmap((void *)(uintptr_t)vma_vvar->start,
+						vma_entry_len(vma_vvar))) {
 				pr_err("Failed to unmap %s\n", who);
 				return -1;
 			}
