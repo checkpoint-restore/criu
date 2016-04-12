@@ -16,6 +16,7 @@ cscope*
 tags
 TAGS
 Makefile.local
+compel/compel
 images/*.c
 images/*.h
 images/google/protobuf/*.c
