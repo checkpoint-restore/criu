@@ -85,7 +85,11 @@ $(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/native.lib.a $(obj)/$(PIELDS
 
 $(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(obj)/$(PIELDS) compel/compel
 	$(call msg-gen, $@)
-	$(Q) compel/compel piegen -f $< -v $(call target-name,$@)_relocs -p $(call target-name,$@)_blob_offset__ -s $(call target-name,$@)_blob -o $@ $(piegen_stdout)
+	$(Q) compel/compel piegen -f $<					\
+		-v $(call target-name,$@)_relocs			\
+		-p $(call target-name,$@)_blob_offset__			\
+		-s $(call target-name,$@)_blob				\
+		-o $@ $(piegen_stdout)
 
 else
 
