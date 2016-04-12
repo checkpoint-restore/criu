@@ -1,5 +1,5 @@
 #include "asm/types.h"
-#include "syscall.h"
+#include "syscall-32.h"
 
 #define SYS_SOCKET	1		/* sys_socket(2)		*/
 #define SYS_BIND	2		/* sys_bind(2)			*/

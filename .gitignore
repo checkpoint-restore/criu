@@ -23,11 +23,11 @@ images/google/protobuf/*.c
 images/google/protobuf/*.h
 .gitid
 criu/criu
-criu/arch/*/sys-exec-tbl.c
-criu/arch/*/syscalls.S
+criu/arch/*/sys-exec-tbl*.c
+criu/arch/*/syscalls*.S
 criu/include/config.h
-criu/include/syscall-codes.h
-criu/include/syscall.h
+criu/include/syscall-codes*.h
+criu/include/syscall*.h
 soccr/config.h
 criu/include/version.h
 criu/pie/restorer-blob.h
