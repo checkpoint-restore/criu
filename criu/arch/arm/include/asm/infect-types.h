@@ -57,6 +57,8 @@ struct user_vfp_exc {
 #define REG_IP(regs)		((regs).ARM_pc)
 #define REG_SYSCALL_NR(regs)	((regs).ARM_r7)
 
+#define user_regs_native(pregs)			true
+
 /*
  * Range for task size calculated from the following Linux kernel files:
  *   arch/arm/include/asm/memory.h
