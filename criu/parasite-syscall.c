@@ -1346,13 +1346,27 @@ static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *i
 	return 0;
 }
 
-/* FIXME: parasite native/compat */
+#define init_parasite_ctl(ctl, blob_type)				\
+	do {								\
+	memcpy(ctl->local_map, parasite_##blob_type##_blob,		\
+		sizeof(parasite_##blob_type##_blob));			\
+	ELF_RELOCS_APPLY(parasite_##blob_type,				\
+		ctl->local_map, ctl->remote_map);			\
+	/* Setup the rest of a control block */				\
+	ctl->parasite_ip = (unsigned long)parasite_sym(ctl->remote_map,	\
+		blob_type, __export_parasite_head_start);		\
+	ctl->addr_cmd    = parasite_sym(ctl->local_map, blob_type,	\
+		__export_parasite_cmd);					\
+	ctl->addr_args   = parasite_sym(ctl->local_map, blob_type,	\
+		__export_parasite_args);				\
+	} while (0)
+
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		struct vm_area_list *vma_area_list)
 {
 	int ret;
 	struct parasite_ctl *ctl;
-	unsigned long p, map_exchange_size;
+	unsigned long p, map_exchange_size, parasite_size;
 
 	BUG_ON(item->threads[0].real != pid);
 
@@ -1378,9 +1392,18 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	 * without using ptrace at all.
 	 */
 
+	if (user_regs_native(&ctl->orig.regs))
+		parasite_size = pie_size(parasite_native);
+#ifdef CONFIG_X86_64 /* compat blob isn't defined for other archs */
+	else
+		parasite_size = pie_size(parasite_compat);
+#endif
+
 	ctl->args_size = round_up(parasite_args_size, PAGE_SIZE);
 	parasite_args_size = PARASITE_ARG_SIZE_MIN; /* reset for next task */
-	map_exchange_size = pie_size(parasite_native) + ctl->args_size;
+	parasite_size += ctl->args_size;
+
+	map_exchange_size = parasite_size;
 	map_exchange_size += RESTORE_STACK_SIGFRAME + PARASITE_STACK_SIZE;
 	if (item->nr_threads > 1)
 		map_exchange_size += PARASITE_STACK_SIZE;
@@ -1392,16 +1415,15 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		goto err_restore;
 
 	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
-	memcpy(ctl->local_map, parasite_native_blob, sizeof(parasite_native_blob));
 
-	ELF_RELOCS_APPLY(parasite_native, ctl->local_map, ctl->remote_map);
+	if (user_regs_native(&ctl->orig.regs))
+		init_parasite_ctl(ctl, native);
+#ifdef CONFIG_X86_64 /* compat blob isn't defined for other archs */
+	else
+		init_parasite_ctl(ctl, compat);
+#endif
 
-	/* Setup the rest of a control block */
-	ctl->parasite_ip	= (unsigned long)parasite_sym(ctl->remote_map, native, __export_parasite_head_start);
-	ctl->addr_cmd		= parasite_sym(ctl->local_map, native, __export_parasite_cmd);
-	ctl->addr_args		= parasite_sym(ctl->local_map, native, __export_parasite_args);
-
-	p = pie_size(parasite_native) + ctl->args_size;
+	p = parasite_size;
 
 	ctl->rsigframe	= ctl->remote_map + p;
 	ctl->sigframe	= ctl->local_map  + p;

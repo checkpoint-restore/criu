@@ -10,7 +10,6 @@
 
 extern __maybe_unused void elf_relocs_apply(void *mem, void *vbase, size_t size,
 					    elf_reloc_t *elf_relocs, size_t nr_relocs);
-/* FIXME: native/compat pie's pie_size(), ELF_RELOCS_APPLY() */
 #define pie_size(__pie_name)	(round_up(sizeof(__pie_name##_blob) + \
 			__pie_name ## _nr_gotpcrel * sizeof(long), page_size()))
 #define ELF_RELOCS_APPLY(__pie_name, __mem, __vbase)			\
