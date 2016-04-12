@@ -10,6 +10,7 @@
 #include "servicefd.h"
 #include "cr-service.h"
 #include "action-scripts.h"
+#include "pstree.h"
 
 static const char *action_names[ACT_MAX] = {
 	[ ACT_PRE_DUMP ]	= "pre-dump",
