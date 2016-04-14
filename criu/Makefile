@@ -80,10 +80,6 @@ endif
 include $(__nmk_dir)/msg.mk
 
 #
-# Version header file.
-include Makefile.version
-
-#
 # Configure variables.
 include Makefile.config
 config: $(VERSION_HEADER)
