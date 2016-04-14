@@ -48,10 +48,12 @@ int run_scripts(enum script_actions act)
 		return -1;
 	}
 
-	snprintf(root_item_pid, sizeof(root_item_pid), "%d", root_item->pid.real);
-	if (setenv("CRTOOLS_INIT_PID", root_item_pid, 1)) {
-		pr_perror("Can't set CRTOOLS_INIT_PID=%s", root_item_pid);
-		return -1;
+	if (root_item) {
+		snprintf(root_item_pid, sizeof(root_item_pid), "%d", root_item->pid.real);
+		if (setenv("CRTOOLS_INIT_PID", root_item_pid, 1)) {
+			pr_perror("Can't set CRTOOLS_INIT_PID=%s", root_item_pid);
+			return -1;
+		}
 	}
 
 	list_for_each_entry(script, &opts.scripts, node) {
