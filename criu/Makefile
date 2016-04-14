@@ -1,16 +1,6 @@
-#
-# HOST part is needed to build helper
-# tools such as piegen.
-HOSTCC			?= gcc
-HOSTLD			?= ld
-HOSTCFLAGS		?= $(CFLAGS)
-CFLAGS			+= $(USERCFLAGS)
-
 # here is a workaround for a bug in libnl-3:
 # 6a8d90f5fec4 "attr: Allow attribute type 0" 
 WRAPFLAGS		+= -Wl,--wrap=nla_parse,--wrap=nlmsg_parse
-
-export HOSTCC HOSTLD HOSTCFLAGS
 
 ifeq ($(ARCH),x86)
         SRCARCH		:= x86
