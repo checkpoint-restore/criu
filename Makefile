@@ -29,7 +29,42 @@ SRC_DIR	:= $(CURDIR)
 export SRC_DIR
 
 #
-# General architecture specific options.
+# Architecture specific options.
+ifneq ($(filter-out x86 arm arm64 ppc64,$(ARCH)),)
+        $(error "The architecture $(ARCH) isn't supported")
+endif
+
+ifeq ($(ARCH),x86)
+        SRCARCH		:= x86
+        LDARCH		:= i386:x86-64
+        VDSO		:= y
+endif
+
+ifeq ($(ARCH),arm)
+        SRCARCH		:= arm
+endif
+
+ifeq ($(ARCH),arm64)
+        ARCH		:= aarch64
+        SRCARCH		:= aarch64
+        VDSO		:= y
+endif
+
+ifeq ($(ARCH),ppc64)
+        SRCARCH		:= ppc64
+        LDARCH		:= powerpc:common64
+        VDSO		:= y
+endif
+
+LDARCH ?= $(SRCARCH)
+
+export SRCARCH LDARCH VDSO
+
+SRCARCH			?= $(ARCH)
+LDARCH			?= $(SRCARCH)
+
+export SRCARCH LDARCH VDSO
+
 UNAME-M := $(shell uname -m)
 export UNAME-M
 
@@ -52,10 +87,6 @@ endif
 
 ifeq ($(ARCH),x86)
         DEFINES		:= -DCONFIG_X86_64
-endif
-
-ifeq ($(ARCH),aarch64)
-	VDSO         := y
 endif
 
 #
