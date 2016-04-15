@@ -26,7 +26,7 @@ if [ ! -d "/proc/$CRTOOLS_INIT_PID" ]; then
 	exit 1
 fi
 
-NS_ENTER=/usr/nsenter
+NS_ENTER=/bin/nsenter
 [ ! -x $NSENTER ] || NS_ENTER=/usr/bin/nsenter
 
 if [ ! -x $NS_ENTER ]; then
