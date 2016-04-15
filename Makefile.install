@@ -9,6 +9,7 @@ SYSTEMDUNITDIR	?= $(PREFIX)/lib/systemd/system/
 LOGROTATEDIR	?= $(PREFIX)/etc/logrotate.d/
 LIBDIR		?= $(PREFIX)/lib
 INCLUDEDIR	?= $(PREFIX)/include/criu
+LIBEXECDIR	?= $(PREFIX)/libexec
 
 #
 # For recent Debian/Ubuntu with multiarch support.
@@ -24,12 +25,13 @@ else
 endif
 
 export BINDIR SBINDIR MANDIR SYSTEMDUNITDIR LOGROTATEDIR
-export INCLUDEDIR LIBDIR DESTDIR PREFIX
+export INCLUDEDIR LIBDIR DESTDIR PREFIX LIBEXECDIR
 
 install-tree:
 	$(Q) mkdir -p $(DESTDIR)$(SYSTEMDUNITDIR)
 	$(Q) mkdir -p $(DESTDIR)$(LOGROTATEDIR)
 	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)
+	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)
 .PHONY: install-tree
 
 install-man:
