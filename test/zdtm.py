@@ -982,6 +982,14 @@ def get_freezer(desc):
 	fr = cg_freezer(path = fd[0], state = fd[1])
 	return fr
 
+def check_joinns_state(t):
+	nsstat = os.stat("/proc/%s/ns/net" % t.getpid())
+	joinns = os.stat(join_ns_file)
+	if nsstat.st_ino != joinns.st_ino:
+		print "should join in namespace %d" % joinns.st_ino
+		print "now in namespace %d" % nsstat.st_ino
+		raise test_fail_exc("join-ns compare")
+
 
 def do_run_test(tname, tdesc, flavs, opts):
 	tcname = tname.split('/')[0]
@@ -1016,6 +1024,8 @@ def do_run_test(tname, tdesc, flavs, opts):
 					t.stop()
 			else:
 				check_visible_state(t, s, opts)
+				if opts['join_ns']:
+					check_joinns_state(t)
 				t.stop()
 				try_run_hook(t, ["--clean"])
 		except test_fail_exc as e:
