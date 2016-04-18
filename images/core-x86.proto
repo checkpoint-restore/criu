@@ -2,6 +2,12 @@ syntax = "proto2";
 
 import "opts.proto";
 
+enum user_x86_regs_case_t {
+	NATIVE = 1;
+	COMPAT = 2;
+}
+
+/* Reusing entry for both 64 and 32 bits register sets */
 message user_x86_regs_entry {
 	required uint64			r15		=  1;
 	required uint64			r14		=  2;
@@ -30,6 +36,7 @@ message user_x86_regs_entry {
 	required uint64			es		= 25;
 	required uint64			fs		= 26;
 	required uint64			gs		= 27;
+	optional user_x86_regs_case_t	gpregs_case	= 28 [default = NATIVE];
 }
 
 message user_x86_xsave_entry {
