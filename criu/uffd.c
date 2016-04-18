@@ -36,6 +36,16 @@
 #undef  LOG_PREFIX
 #define LOG_PREFIX "lazy-pages: "
 
+struct lazy_pages_info {
+	int pid;
+	int uffd;
+
+	struct list_head pages;
+
+	unsigned long total_pages;
+	unsigned long copied_pages;
+};
+
 static int send_uffd(int sendfd, int pid)
 {
 	int fd;
@@ -197,14 +207,14 @@ out:
 	return ret;
 }
 
-static int get_page(unsigned long addr, void *dest)
+static int get_page(struct lazy_pages_info *lpi, unsigned long addr, void *dest)
 {
 	struct iovec iov;
 	int ret;
 	unsigned char buf[PAGE_SIZE];
 	struct page_read pr;
 
-	ret = open_page_read(pid, &pr, PR_TASK | PR_MOD);
+	ret = open_page_read(lpi->pid, &pr, PR_TASK | PR_MOD);
 	pr_debug("get_page ret %d\n", ret);
 
 	ret = pr.get_pagemap(&pr, &iov);
@@ -241,15 +251,13 @@ struct uffd_pages_struct {
 	int flags;
 };
 
-static unsigned long total_pages;
-static unsigned long uffd_copied_pages;
-
-static int uffd_copy_page(int uffd, __u64 address, void *dest)
+static int uffd_copy_page(struct lazy_pages_info *lpi, __u64 address,
+			  void *dest)
 {
 	struct uffdio_copy uffdio_copy;
 	int rc;
 
-	rc = get_page(address, dest);
+	rc = get_page(lpi, address, dest);
 	if (rc <= 0)
 		return rc;
 
@@ -260,7 +268,7 @@ static int uffd_copy_page(int uffd, __u64 address, void *dest)
 	uffdio_copy.copy = 0;
 
 	pr_debug("uffdio_copy.dst 0x%llx\n", uffdio_copy.dst);
-	rc = ioctl(uffd, UFFDIO_COPY, &uffdio_copy);
+	rc = ioctl(lpi->uffd, UFFDIO_COPY, &uffdio_copy);
 	pr_debug("ioctl UFFDIO_COPY rc 0x%x\n", rc);
 	pr_debug("uffdio_copy.copy 0x%llx\n", uffdio_copy.copy);
 	if (rc) {
@@ -274,13 +282,13 @@ static int uffd_copy_page(int uffd, __u64 address, void *dest)
 		return -1;
 	}
 
-	uffd_copied_pages++;
+	lpi->copied_pages++;
 
 	return uffdio_copy.copy;
 
 }
 
-static int uffd_zero_page(int uffd, __u64 address)
+static int uffd_zero_page(struct lazy_pages_info *lpi, __u64 address)
 {
 	struct uffdio_zeropage uffdio_zeropage;
 	unsigned long ps = page_size();
@@ -291,7 +299,7 @@ static int uffd_zero_page(int uffd, __u64 address)
 	uffdio_zeropage.mode = 0;
 
 	pr_debug("uffdio_zeropage.range.start 0x%llx\n", uffdio_zeropage.range.start);
-	rc = ioctl(uffd, UFFDIO_ZEROPAGE, &uffdio_zeropage);
+	rc = ioctl(lpi->uffd, UFFDIO_ZEROPAGE, &uffdio_zeropage);
 	pr_debug("ioctl UFFDIO_ZEROPAGE rc 0x%x\n", rc);
 	pr_debug("uffdio_zeropage.zeropage 0x%llx\n", uffdio_zeropage.zeropage);
 	if (rc) {
@@ -302,18 +310,19 @@ static int uffd_zero_page(int uffd, __u64 address)
 	return ps;
 }
 
-static int uffd_handle_page(int uffd, __u64 address, void *dest)
+static int uffd_handle_page(struct lazy_pages_info *lpi, __u64 address,
+			    void *dest)
 {
 	int rc;
 
-	rc = uffd_copy_page(uffd, address, dest);
+	rc = uffd_copy_page(lpi, address, dest);
 	if (rc == 0)
-		rc = uffd_zero_page(uffd, address);
+		rc = uffd_zero_page(lpi, address);
 
 	return rc;
 }
 
-static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list)
+static int collect_uffd_pages(struct page_read *pr, struct lazy_pages_info *lpi)
 {
 	unsigned long base;
 	int i;
@@ -323,7 +332,12 @@ static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list)
 	int rc;
 	struct uffd_pages_struct *uffd_pages;
 	struct vma_area *vma;
-	struct vm_area_list *vmas = &rsti(root_item)->vmas;
+	struct vm_area_list *vmas;
+	struct pstree_item *item = pstree_item_by_virt(lpi->pid);
+
+	BUG_ON(!item);
+
+	vmas = &rsti(item)->vmas;
 
 	rc = pr->get_pagemap(pr, &iov);
 	if (rc <= 0)
@@ -365,24 +379,24 @@ static int collect_uffd_pages(struct page_read *pr, struct list_head *uffd_list)
 		if (!uffd_pages)
 			return -1;
 		uffd_pages->addr = base;
-		list_add(&uffd_pages->list, uffd_list);
+		list_add(&uffd_pages->list, &lpi->pages);
 	}
 
 	return 1;
 }
 
-static int handle_remaining_pages(int uffd, struct list_head *uffd_list, void *dest)
+static int handle_remaining_pages(struct lazy_pages_info *lpi, void *dest)
 {
 	struct uffd_pages_struct *uffd_pages;
 	int rc;
 
-	list_for_each_entry(uffd_pages, uffd_list, list) {
+	list_for_each_entry(uffd_pages, &lpi->pages, list) {
 		pr_debug("Checking remaining pages 0x%lx (flags 0x%x)\n",
 			 uffd_pages->addr, uffd_pages->flags);
 		if (uffd_pages->flags & UFFD_FLAG_SENT)
 			continue;
 
-		rc = uffd_handle_page(uffd, uffd_pages->addr, dest);
+		rc = uffd_handle_page(lpi, uffd_pages->addr, dest);
 		if (rc < 0) {
 			pr_err("Error during UFFD copy\n");
 			return -1;
@@ -395,12 +409,13 @@ static int handle_remaining_pages(int uffd, struct list_head *uffd_list, void *d
 }
 
 
-static int handle_regular_pages(int uffd, struct list_head *uffd_list, void *dest, __u64 address)
+static int handle_regular_pages(struct lazy_pages_info *lpi, void *dest,
+				__u64 address)
 {
 	int rc;
 	struct uffd_pages_struct *uffd_pages;
 
-	rc = uffd_handle_page(uffd, address, dest);
+	rc = uffd_handle_page(lpi, address, dest);
 	if (rc < 0) {
 		pr_err("Error during UFFD copy\n");
 		return -1;
@@ -410,7 +425,7 @@ static int handle_regular_pages(int uffd, struct list_head *uffd_list, void *des
 	 * Mark this page as having been already transferred, so
 	 * that it has not to be copied again later.
 	 */
-	list_for_each_entry(uffd_pages, uffd_list, list) {
+	list_for_each_entry(uffd_pages, &lpi->pages, list) {
 		if (uffd_pages->addr == address)
 			uffd_pages->flags |= UFFD_FLAG_SENT;
 	}
@@ -421,7 +436,7 @@ static int handle_regular_pages(int uffd, struct list_head *uffd_list, void *des
 /*
  *  Setting up criu infrastructure and scan for VMAs.
  */
-static int find_vmas(struct list_head *uffd_list)
+static int find_vmas(struct lazy_pages_info *lpi)
 {
 	struct cr_img *img;
 	int ret;
@@ -430,14 +445,17 @@ static int find_vmas(struct list_head *uffd_list)
 	struct rst_info *ri;
 	struct page_read pr;
 	struct uffd_pages_struct *uffd_pages;
+	struct pstree_item *item = pstree_item_by_virt(lpi->pid);
+
+	BUG_ON(!item);
 
 	vm_area_list_init(&vmas);
 
-	ri = rsti(root_item);
+	ri = rsti(item);
 	if (!ri)
 		return -1;
 
-	img = open_image(CR_FD_MM, O_RSTR, pid);
+	img = open_image(CR_FD_MM, O_RSTR, lpi->pid);
 	if (!img)
 		return -1;
 
@@ -471,7 +489,7 @@ static int find_vmas(struct list_head *uffd_list)
 		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vma->e->start, vma->e->end);
 	}
 
-	ret = open_page_read(pid, &pr, PR_TASK);
+	ret = open_page_read(lpi->pid, &pr, PR_TASK);
 	if (ret <= 0) {
 		ret = -1;
 		goto out;
@@ -483,7 +501,7 @@ static int find_vmas(struct list_head *uffd_list)
 	 * pushed into the process using userfaultfd.
 	 */
 	do {
-		ret = collect_uffd_pages(&pr, uffd_list);
+		ret = collect_uffd_pages(&pr, lpi);
 		if (ret == -1) {
 			goto out;
 		}
@@ -493,7 +511,7 @@ static int find_vmas(struct list_head *uffd_list)
 		pr.close(&pr);
 
 	/* Count detected pages */
-	list_for_each_entry(uffd_pages, uffd_list, list)
+	list_for_each_entry(uffd_pages, &lpi->pages, list)
 	    ret++;
 
 	pr_debug("Found %d pages to be handled by UFFD\n", ret);
@@ -502,7 +520,7 @@ out:
 	return ret;
 }
 
-static int handle_user_fault(int fd, struct list_head *uffd_list, void *dest)
+static int handle_user_fault(struct lazy_pages_info *lpi, void *dest)
 {
 	struct uffd_msg msg;
 	__u64 flags;
@@ -510,7 +528,7 @@ static int handle_user_fault(int fd, struct list_head *uffd_list, void *dest)
 	struct uffd_pages_struct *uffd_pages;
 	int ret;
 
-	ret = read(fd, &msg, sizeof(msg));
+	ret = read(lpi->uffd, &msg, sizeof(msg));
 	pr_debug("read() ret: 0x%x\n", ret);
 	if (!ret)
 		return 1;
@@ -525,7 +543,7 @@ static int handle_user_fault(int fd, struct list_head *uffd_list, void *dest)
 	pr_debug("msg.arg.pagefault.address 0x%llx\n", address);
 
 	/* Make sure to not transfer a page twice */
-	list_for_each_entry(uffd_pages, uffd_list, list)
+	list_for_each_entry(uffd_pages, &lpi->pages, list)
 		if ((uffd_pages->addr == address) && (uffd_pages->flags & UFFD_FLAG_SENT))
 			return 0;
 
@@ -538,7 +556,7 @@ static int handle_user_fault(int fd, struct list_head *uffd_list, void *dest)
 		return -1;
 	}
 
-	ret = handle_regular_pages(fd, uffd_list, dest, address);
+	ret = handle_regular_pages(lpi, dest, address);
 	if (ret < 0) {
 		pr_err("Error during regular page copy\n");
 		return -1;
@@ -547,13 +565,13 @@ static int handle_user_fault(int fd, struct list_head *uffd_list, void *dest)
 	return 0;
 }
 
-static int lazy_pages_summary(void)
+static int lazy_pages_summary(struct lazy_pages_info *lpi)
 {
-	pr_debug("With UFFD transferred pages: (%ld/%ld)\n", uffd_copied_pages, total_pages);
+	pr_debug("With UFFD transferred pages: (%ld/%ld)\n", lpi->copied_pages, lpi->total_pages);
 
-	if ((uffd_copied_pages != total_pages) && (total_pages > 0)) {
-		pr_warn("Only %ld of %ld pages transferred via UFFD\n", uffd_copied_pages,
-			total_pages);
+	if ((lpi->copied_pages != lpi->total_pages) && (lpi->total_pages > 0)) {
+		pr_warn("Only %ld of %ld pages transferred via UFFD\n", lpi->copied_pages,
+			lpi->total_pages);
 		pr_warn("Something probably went wrong.\n");
 		return 1;
 	}
@@ -561,7 +579,7 @@ static int lazy_pages_summary(void)
 	return 0;
 }
 
-static int handle_requests(int fd)
+static int handle_requests(struct lazy_pages_info *lpi)
 {
 	fd_set set;
 	int ret = -1;
@@ -569,18 +587,9 @@ static int handle_requests(int fd)
 	struct timeval timeout;
 	void *dest;
 
-	LIST_HEAD(uffd_list);
-
-	/*
-	 * Find the memory pages belonging to the restored process
-	 * so that it is trackable when all pages have been transferred.
-	 */
-	if ((total_pages = find_vmas(&uffd_list)) == -1)
-		return -1;
-
 	/* Initialize FD sets for read() with timeouts (using select()) */
 	FD_ZERO(&set);
-	FD_SET(fd, &set);
+	FD_SET(lpi->uffd, &set);
 
 	/* All operations will be done on page size */
 	ps = page_size();
@@ -600,7 +609,7 @@ static int handle_requests(int fd)
 		 */
 		timeout.tv_sec = 5;
 		timeout.tv_usec = 0;
-		ret = select(fd + 1, &set, NULL, NULL, &timeout);
+		ret = select(lpi->uffd + 1, &set, NULL, NULL, &timeout);
 		pr_debug("select() rc: 0x%x\n", ret);
 		if (ret == 0) {
 			pr_debug("read timeout\n");
@@ -608,23 +617,23 @@ static int handle_requests(int fd)
 			break;
 		}
 
-		ret = handle_user_fault(fd, &uffd_list, dest);
+		ret = handle_user_fault(lpi, dest);
 		if (ret < 0)
 			goto out;
 	}
 	pr_debug("Handle remaining pages\n");
-	ret = handle_remaining_pages(fd, &uffd_list, dest);
+	ret = handle_remaining_pages(lpi, dest);
 	if (ret < 0) {
 		pr_err("Error during remaining page copy\n");
 		ret = 1;
 		goto out;
 	}
 
-	ret = lazy_pages_summary();
+	ret = lazy_pages_summary(lpi);
 
 out:
 	free(dest);
-	close(fd);
+	close(lpi->uffd);
 	return ret;
 
 }
@@ -650,13 +659,55 @@ static int lazy_pages_prepare_pstree(void)
 	return 0;
 }
 
-int cr_lazy_pages()
+static int prepare_uffds(struct lazy_pages_info *lpi)
 {
 	int listen;
 	int uffd;
 	int uffd_flags;
-	int ret;
 	struct sockaddr_un saddr;
+
+	memset(lpi, 0, sizeof(*lpi));
+	INIT_LIST_HEAD(&lpi->pages);
+
+	pr_debug("Waiting for incoming connections on %s\n", opts.addr);
+	if ((listen = server_listen(&saddr)) < 0) {
+		pr_perror("server_listen error");
+		return -1;
+	}
+
+	uffd = ud_open(listen, &saddr);
+	if (uffd < 0) {
+		pr_perror("uffd open error");
+		goto close_unix_sock;
+	}
+
+	pr_debug("uffd is 0x%d\n", uffd);
+	uffd_flags = fcntl(uffd, F_GETFD, NULL);
+	pr_debug("uffd_flags are 0x%x\n", uffd_flags);
+
+	lpi->uffd = uffd;
+	lpi->pid = pid;
+
+	/*
+	 * Find the memory pages belonging to the restored process
+	 * so that it is trackable when all pages have been transferred.
+	 */
+	if ((lpi->total_pages = find_vmas(lpi)) == -1)
+		goto close_uffd;
+
+	close(listen);
+	return 0;
+
+close_uffd:
+	close(uffd);
+close_unix_sock:
+	close(listen);
+	return -1;
+}
+
+int cr_lazy_pages()
+{
+	struct lazy_pages_info lpi;
 
 	if (!opts.addr) {
 		pr_info("Please specify a file name for the unix domain socket\n");
@@ -669,26 +720,10 @@ int cr_lazy_pages()
 	if (lazy_pages_prepare_pstree())
 		return -1;
 
-	pr_debug("Waiting for incoming connections on %s\n", opts.addr);
-	if ((listen = server_listen(&saddr)) < 0) {
-		pr_perror("server_listen error");
+	if (prepare_uffds(&lpi))
 		return -1;
-	}
 
-	uffd = ud_open(listen, &saddr);
-	if (uffd < 0) {
-		pr_perror("uffd open error");
-		return -1;
-	}
-
-	pr_debug("uffd is 0x%d\n", uffd);
-	uffd_flags = fcntl(uffd, F_GETFD, NULL);
-	pr_debug("uffd_flags are 0x%x\n", uffd_flags);
-
-	ret = handle_requests(uffd);
-	close(listen);
-
-	return ret;
+	return handle_requests(&lpi);
 }
 
 #else /* CONFIG_HAS_UFFD */
