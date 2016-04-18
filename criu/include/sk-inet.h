@@ -32,6 +32,8 @@ struct inet_sk_desc {
 	int rfd;
 	int cpt_reuseaddr;
 	struct list_head rlist;
+
+	void *priv;
 };
 
 struct inet_port;

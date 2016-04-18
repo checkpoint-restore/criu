@@ -137,6 +137,7 @@ static int refresh_inet_sk(struct inet_sk_desc *sk, struct tcp_info *ti)
 static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 {
 	int ret;
+	struct libsoccr_sk *socr;
 
 	pr_info("\tTurning repair on for socket %x\n", sk->sd.ino);
 	/*
@@ -156,10 +157,11 @@ static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 			goto err2;
 	}
 
-	ret = tcp_repair_on(sk->rfd);
-	if (ret < 0)
+	socr = libsoccr_pause(sk->rfd);
+	if (!socr)
 		goto err3;
 
+	sk->priv = socr;
 	list_add_tail(&sk->rlist, &cpt_tcp_repair_sockets);
 	return 0;
 
@@ -184,7 +186,8 @@ static void tcp_unlock_one(struct inet_sk_desc *sk)
 			pr_perror("Failed to unlock TCP connection");
 	}
 
-	tcp_repair_off(sk->rfd);
+	libsoccr_resume(sk->priv);
+	sk->priv = NULL;
 
 	/*
 	 * tcp_repair_off modifies SO_REUSEADDR so
@@ -679,7 +682,7 @@ static int restore_tcp_window(int sk, TcpStreamEntry *tse)
 	return 0;
 }
 
-static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
+static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_sk_info *ii)
 {
 	int aux;
 	struct cr_img *img;
@@ -769,12 +772,15 @@ int prepare_tcp_socks(struct task_restore_args *ta)
 
 int restore_one_tcp(int fd, struct inet_sk_info *ii)
 {
+	struct libsoccr_sk *sk;
+
 	pr_info("Restoring TCP connection\n");
 
-	if (tcp_repair_on(fd))
+	sk = libsoccr_pause(fd);
+	if (!sk)
 		return -1;
 
-	if (restore_tcp_conn_state(fd, ii))
+	if (restore_tcp_conn_state(fd, sk, ii))
 		return -1;
 
 	return 0;
