@@ -82,6 +82,7 @@ obj-y			+= uts_ns.o
 obj-y			+= path.o
 obj-y			+= autofs.o
 obj-y			+= fdstore.o
+obj-y			+= uffd.o
 
 ifeq ($(VDSO),y)
 obj-y			+= pie-util-vdso.o
@@ -91,8 +92,6 @@ CFLAGS_pie-util-vdso-elf32.o	+= -DCONFIG_VDSO_32
 obj-$(CONFIG_COMPAT)	+= vdso-compat.o
 CFLAGS_REMOVE_vdso-compat.o	+= $(CFLAGS-ASAN) $(CFLAGS-GCOV)
 endif
-
-obj-y	+= uffd.o
 
 PROTOBUF_GEN := scripts/protobuf-gen.sh
 
