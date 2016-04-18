@@ -502,16 +502,57 @@ out:
 	return ret;
 }
 
+static int handle_user_fault(int fd, struct list_head *uffd_list, void *dest)
+{
+	struct uffd_msg msg;
+	__u64 flags;
+	__u64 address;
+	struct uffd_pages_struct *uffd_pages;
+	int ret;
+
+	ret = read(fd, &msg, sizeof(msg));
+	pr_debug("read() ret: 0x%x\n", ret);
+	if (!ret)
+		return 1;
+
+	if (ret != sizeof(msg)) {
+		pr_perror("Can't read userfaultfd message");
+		return -1;
+	}
+
+	/* Align requested address to the next page boundary */
+	address = msg.arg.pagefault.address & ~(page_size() - 1);
+	pr_debug("msg.arg.pagefault.address 0x%llx\n", address);
+
+	/* Make sure to not transfer a page twice */
+	list_for_each_entry(uffd_pages, uffd_list, list)
+		if ((uffd_pages->addr == address) && (uffd_pages->flags & UFFD_FLAG_SENT))
+			return 0;
+
+	/* Now handle the pages actually requested. */
+	flags = msg.arg.pagefault.flags;
+	pr_debug("msg.arg.pagefault.flags 0x%llx\n", flags);
+
+	if (msg.event != UFFD_EVENT_PAGEFAULT) {
+		pr_err("unexpected msg event %u\n", msg.event);
+		return -1;
+	}
+
+	ret = handle_regular_pages(fd, uffd_list, dest, address);
+	if (ret < 0) {
+		pr_err("Error during regular page copy\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int handle_requests(int fd)
 {
 	fd_set set;
 	int ret = -1;
-	struct uffd_msg msg;
-	__u64 flags;
-	__u64 address;
 	unsigned long ps;
 	struct timeval timeout;
-	struct uffd_pages_struct *uffd_pages;
 	void *dest;
 
 	LIST_HEAD(uffd_list);
@@ -534,7 +575,6 @@ static int handle_requests(int fd)
 		return ret;
 
 	while (1) {
-		bool page_sent = false;
 		/*
 		 * Setting the timeout to 5 seconds. If after this time
 		 * no uffd pages are requested the code switches to
@@ -553,50 +593,10 @@ static int handle_requests(int fd)
 			pr_debug("switching from request to copy mode\n");
 			break;
 		}
-		ret = read(fd, &msg, sizeof(msg));
-		pr_debug("read() ret: 0x%x\n", ret);
-		if (!ret)
-			break;
 
-		if (ret != sizeof(msg)) {
-			pr_perror("Can't read userfaultfd message from socket");
-			ret = -1;
-			break;
-		}
-
-		ret = 0;
-		/* Align requested address to the next page boundary */
-		address = msg.arg.pagefault.address & ~(ps - 1);
-		pr_debug("msg.arg.pagefault.address 0x%llx\n", address);
-
-		/* Make sure to not transfer a page twice */
-		list_for_each_entry(uffd_pages, &uffd_list, list) {
-			if ((uffd_pages->addr == address) && (uffd_pages->flags & UFFD_FLAG_SENT)) {
-				page_sent = true;
-				break;
-			}
-		}
-
-		if (page_sent)
-			continue;
-
-		/* Now handle the pages actually requested. */
-
-		flags = msg.arg.pagefault.flags;
-		pr_debug("msg.arg.pagefault.flags 0x%llx\n", flags);
-
-		if (msg.event != UFFD_EVENT_PAGEFAULT) {
-			pr_err("unexpected msg event %u\n", msg.event);
-			ret = -1;
+		ret = handle_user_fault(fd, &uffd_list, dest);
+		if (ret < 0)
 			goto out;
-		}
-
-		ret = handle_regular_pages(fd, &uffd_list, dest, address);
-		if (ret < 0) {
-			pr_err("Error during regular page copy\n");
-			ret = -1;
-			goto out;
-		}
 	}
 	pr_debug("Handle remaining pages\n");
 	ret = handle_remaining_pages(fd, &uffd_list, dest);
