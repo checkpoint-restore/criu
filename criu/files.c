@@ -481,6 +481,7 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 	if (!img)
 		goto err;
 
+	ret = 0; /* Don't fail if nr_fds == 0 */
 	for (off = 0; off < dfds->nr_fds; off += nr_fds) {
 		if (nr_fds + off > dfds->nr_fds)
 			nr_fds = dfds->nr_fds - off;
