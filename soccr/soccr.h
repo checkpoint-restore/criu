@@ -12,6 +12,7 @@ void libsoccr_set_log(unsigned int level, void (*fn)(unsigned int level, const c
 struct libsoccr_sk;
 
 struct libsoccr_sk_data {
+	__u32	state;
 	__u32	inq_len;
 	__u32	inq_seq;
 	__u32	outq_len;

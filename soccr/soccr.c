@@ -109,6 +109,8 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 		return -1;
 	}
 
+	data->state = TCP_ESTABLISHED;
+
 	if (ioctl(sk->fd, SIOCOUTQ, &size) == -1) {
 		loge("Unable to get size of snd queue");
 		return -1;
@@ -265,7 +267,7 @@ err_recv:
 /*
  * This is how much data we've had in the initial libsoccr
  */
-#define SOCR_DATA_MIN_SIZE	(16 * sizeof(__u32))
+#define SOCR_DATA_MIN_SIZE	(17 * sizeof(__u32))
 
 int libsoccr_get_sk_data(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size)
 {
@@ -337,6 +339,9 @@ int libsoccr_set_sk_data_unbound(struct libsoccr_sk *sk,
 		struct libsoccr_sk_data *data, unsigned data_size)
 {
 	if (!data || data_size < SOCR_DATA_MIN_SIZE)
+		return -1;
+
+	if (data->state != TCP_ESTABLISHED)
 		return -1;
 
 	if (set_queue_seq(sk, TCP_RECV_QUEUE,
