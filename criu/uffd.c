@@ -14,6 +14,7 @@
 #include <sys/ioctl.h>
 #include <sys/un.h>
 #include <sys/socket.h>
+#include <sys/epoll.h>
 
 #include "int.h"
 #include "page.h"
@@ -579,17 +580,15 @@ static int lazy_pages_summary(struct lazy_pages_info *lpi)
 	return 0;
 }
 
-static int handle_requests(struct lazy_pages_info *lpi)
+#define POLL_TIMEOUT 5000
+
+static int handle_requests(struct lazy_pages_info *lpi, int epollfd,
+			   struct epoll_event *events)
 {
-	fd_set set;
+	int nr_fds = task_entries->nr_tasks;
 	int ret = -1;
 	unsigned long ps;
-	struct timeval timeout;
 	void *dest;
-
-	/* Initialize FD sets for read() with timeouts (using select()) */
-	FD_ZERO(&set);
-	FD_SET(lpi->uffd, &set);
 
 	/* All operations will be done on page size */
 	ps = page_size();
@@ -602,16 +601,13 @@ static int handle_requests(struct lazy_pages_info *lpi)
 		 * Setting the timeout to 5 seconds. If after this time
 		 * no uffd pages are requested the code switches to
 		 * copying the remaining pages.
-		 *
-		 * Timeout is re-defined every time select() is run as
-		 * select(2) says:
-		 *  Consider timeout to be undefined after select() returns.
 		 */
-		timeout.tv_sec = 5;
-		timeout.tv_usec = 0;
-		ret = select(lpi->uffd + 1, &set, NULL, NULL, &timeout);
-		pr_debug("select() rc: 0x%x\n", ret);
-		if (ret == 0) {
+		ret = epoll_wait(epollfd, events, nr_fds, POLL_TIMEOUT);
+		pr_debug("epoll() ret: 0x%x\n", ret);
+		if (ret < 0) {
+			pr_perror("polling failed");
+			goto out;
+		} else if (ret == 0) {
 			pr_debug("read timeout\n");
 			pr_debug("switching from request to copy mode\n");
 			break;
@@ -659,7 +655,42 @@ static int lazy_pages_prepare_pstree(void)
 	return 0;
 }
 
-static int prepare_uffds(struct lazy_pages_info *lpi)
+static int prepare_epoll(int nr_fds, struct epoll_event **events)
+{
+	int epollfd;
+
+	*events = xmalloc(sizeof(struct epoll_event) * nr_fds);
+	if (!*events)
+		return -1;
+
+	epollfd = epoll_create(nr_fds);
+	if (epollfd == -1) {
+		pr_perror("epoll_create failed");
+		goto free_events;
+	}
+
+	return epollfd;
+
+free_events:
+	free(*events);
+	return -1;
+}
+
+static int epoll_add_fd(int epollfd, int fd)
+{
+	struct epoll_event ev;
+
+	ev.events = EPOLLIN;
+	ev.data.fd = fd;
+	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev) == -1) {
+		pr_perror("epoll_ctl failed");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int prepare_uffds(struct lazy_pages_info *lpi, int epollfd)
 {
 	int listen;
 	int uffd;
@@ -695,6 +726,9 @@ static int prepare_uffds(struct lazy_pages_info *lpi)
 	if ((lpi->total_pages = find_vmas(lpi)) == -1)
 		goto close_uffd;
 
+	if (epoll_add_fd(epollfd, uffd))
+		goto close_uffd;
+
 	close(listen);
 	return 0;
 
@@ -708,6 +742,8 @@ close_unix_sock:
 int cr_lazy_pages()
 {
 	struct lazy_pages_info lpi;
+	struct epoll_event *events;
+	int epollfd;
 
 	if (!opts.addr) {
 		pr_info("Please specify a file name for the unix domain socket\n");
@@ -720,10 +756,14 @@ int cr_lazy_pages()
 	if (lazy_pages_prepare_pstree())
 		return -1;
 
-	if (prepare_uffds(&lpi))
+	epollfd = prepare_epoll(task_entries->nr_tasks, &events);
+	if (epollfd < 0)
 		return -1;
 
-	return handle_requests(&lpi);
+	if (prepare_uffds(&lpi, epollfd))
+		return -1;
+
+	return handle_requests(&lpi, epollfd, events);
 }
 
 #else /* CONFIG_HAS_UFFD */
