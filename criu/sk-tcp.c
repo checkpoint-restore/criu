@@ -529,9 +529,6 @@ static int restore_tcp_queues(int sk, TcpStreamEntry *tse, struct cr_img *img)
 {
 	u32 len;
 
-	if (restore_prepare_socket(sk))
-		return -1;
-
 	len = tse->inq_len;
 	if (len && send_tcp_queue(sk, TCP_RECV_QUEUE, len, img))
 		return -1;
@@ -637,6 +634,9 @@ static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
 		goto err_c;
 
 	if (restore_tcp_opts(sk, tse))
+		goto err_c;
+
+	if (restore_prepare_socket(sk))
 		goto err_c;
 
 	if (restore_tcp_queues(sk, tse, img))
