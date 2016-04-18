@@ -1,5 +1,6 @@
 #include <netinet/tcp.h>
 #include <stdlib.h>
+#include <string.h>
 #include "soccr.h"
 
 static void (*log)(unsigned int loglevel, const char *format, ...)
@@ -60,4 +61,19 @@ void libsoccr_resume(struct libsoccr_sk *sk)
 {
 	tcp_repair_off(sk->fd);
 	free(sk);
+}
+
+/*
+ * This is how much data we've had in the initial libsoccr
+ */
+#define SOCR_DATA_MIN_SIZE	(16 * sizeof(__u32))
+
+int libsoccr_get_sk_data(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size)
+{
+	if (!data || data_size < SOCR_DATA_MIN_SIZE)
+		return -1;
+
+	memset(data, 0, data_size);
+
+	return sizeof(struct libsoccr_sk_data);
 }

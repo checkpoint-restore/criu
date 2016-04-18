@@ -353,11 +353,22 @@ static int tcp_get_window(int sk, TcpStreamEntry *tse)
 
 static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 {
+	struct libsoccr_sk *socr = sk->priv;
 	int ret, aux;
 	struct tcp_info ti;
 	struct cr_img *img;
 	TcpStreamEntry tse = TCP_STREAM_ENTRY__INIT;
 	char *in_buf, *out_buf;
+	struct libsoccr_sk_data data;
+
+	ret = libsoccr_get_sk_data(socr, &data, sizeof(data));
+	if (ret < 0)
+		goto err_r;
+	if (ret != sizeof(data)) {
+		pr_err("This libsocr is not supported (%d vs %d)\n",
+				ret, (int)sizeof(data));
+		goto err_r;
+	}
 
 	ret = refresh_inet_sk(sk, &ti);
 	if (ret < 0)
