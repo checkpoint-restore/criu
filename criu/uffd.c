@@ -547,6 +547,20 @@ static int handle_user_fault(int fd, struct list_head *uffd_list, void *dest)
 	return 0;
 }
 
+static int lazy_pages_summary(void)
+{
+	pr_debug("With UFFD transferred pages: (%ld/%ld)\n", uffd_copied_pages, total_pages);
+
+	if ((uffd_copied_pages != total_pages) && (total_pages > 0)) {
+		pr_warn("Only %ld of %ld pages transferred via UFFD\n", uffd_copied_pages,
+			total_pages);
+		pr_warn("Something probably went wrong.\n");
+		return 1;
+	}
+
+	return 0;
+}
+
 static int handle_requests(int fd)
 {
 	fd_set set;
@@ -606,15 +620,7 @@ static int handle_requests(int fd)
 		goto out;
 	}
 
-	pr_debug("With UFFD transferred pages: (%ld/%ld)\n", uffd_copied_pages, total_pages);
-	if ((uffd_copied_pages != total_pages) && (total_pages > 0)) {
-		pr_warn("Only %ld of %ld pages transferred via UFFD\n", uffd_copied_pages,
-			total_pages);
-		pr_warn("Something probably went wrong.\n");
-		ret = 1;
-		goto out;
-	}
-	ret = 0;
+	ret = lazy_pages_summary();
 
 out:
 	free(dest);
