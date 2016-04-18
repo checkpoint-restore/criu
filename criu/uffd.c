@@ -45,7 +45,66 @@ struct lazy_pages_info {
 
 	unsigned long total_pages;
 	unsigned long copied_pages;
+
+	struct hlist_node hash;
 };
+
+#define LPI_HASH_SIZE	16
+static struct hlist_head lpi_hash[LPI_HASH_SIZE];
+
+static struct lazy_pages_info *lpi_init(void)
+{
+	struct lazy_pages_info *lpi = NULL;
+
+	lpi = xmalloc(sizeof(*lpi));
+	if (!lpi)
+		return NULL;
+
+	memset(lpi, 0, sizeof(*lpi));
+	INIT_LIST_HEAD(&lpi->pages);
+	INIT_HLIST_NODE(&lpi->hash);
+
+	return lpi;
+}
+
+static void lpi_fini(struct lazy_pages_info *lpi)
+{
+	if (lpi->uffd > 0)
+		close(lpi->uffd);
+	free(lpi);
+}
+
+static void lpi_hash_init(void)
+{
+	int i;
+
+	for (i = 0; i < LPI_HASH_SIZE; i++)
+		INIT_HLIST_HEAD(&lpi_hash[i]);
+}
+
+struct lazy_pages_info *uffd_to_lpi(int uffd)
+{
+	struct lazy_pages_info *lpi;
+	struct hlist_head *head;
+
+	head = &lpi_hash[uffd % LPI_HASH_SIZE];
+	hlist_for_each_entry(lpi, head, hash)
+		if (lpi->uffd == uffd)
+			return lpi;
+
+	return NULL;
+}
+
+static void lpi_hash_fini(void)
+{
+	struct lazy_pages_info *p;
+	struct hlist_node *n;
+	int i;
+
+	for (i = 0; i < LPI_HASH_SIZE; i++)
+		hlist_for_each_entry_safe(p, n, &lpi_hash[i], hash)
+			lpi_fini(p);
+}
 
 static int send_uffd(int sendfd, int pid)
 {
@@ -167,33 +226,33 @@ out:
 
 static int find_vmas(struct lazy_pages_info *lpi);
 
-static int ud_open(struct lazy_pages_info *lpi, int listen,
-		   struct sockaddr_un *saddr)
+static struct lazy_pages_info *ud_open(int listen, struct sockaddr_un *saddr)
 {
+	struct lazy_pages_info *lpi;
 	int client;
 	int ret = -1;
 	socklen_t len;
 	int uffd_flags;
-
-	memset(lpi, 0, sizeof(*lpi));
-	INIT_LIST_HEAD(&lpi->pages);
 
 	/* accept new client request */
 	len = sizeof(struct sockaddr_un);
 	if ((client = accept(listen, (struct sockaddr *)saddr, &len)) < 0) {
 		pr_perror("server_accept error: %d", client);
 		close(listen);
-		return -1;
+		return NULL;
 	}
 
 	pr_debug("client fd %d\n", client);
+
+	lpi = lpi_init();
+	if (!lpi)
+		goto out;
 
 	/* The "transfer protocol" is first the pid as int and then
 	 * the FD for UFFD */
 	ret = recv(client, &lpi->pid, sizeof(lpi->pid), 0);
 	if (ret != sizeof(lpi->pid)) {
 		pr_perror("PID recv error:");
-		ret = -1;
 		goto out;
 	}
 	pr_debug("received PID: %d\n", lpi->pid);
@@ -201,7 +260,6 @@ static int ud_open(struct lazy_pages_info *lpi, int listen,
 	lpi->uffd = recv_fd(client);
 	if (lpi->uffd < 0) {
 		pr_perror("recv_fd error:");
-		ret = -1;
 		goto out;
 	}
 	pr_debug("lpi->uffd %d\n", lpi->uffd);
@@ -216,11 +274,16 @@ static int ud_open(struct lazy_pages_info *lpi, int listen,
 	 * so that it is trackable when all pages have been transferred.
 	 */
 	if ((lpi->total_pages = find_vmas(lpi)) == -1)
-		return -1;
+		goto out;
+
+	hlist_add_head(&lpi->hash, &lpi_hash[lpi->uffd % LPI_HASH_SIZE]);
+
+	return lpi;
 
 out:
+	lpi_fini(lpi);
 	close(client);
-	return ret;
+	return NULL;
 }
 
 static int get_page(struct lazy_pages_info *lpi, unsigned long addr, void *dest)
@@ -583,7 +646,8 @@ static int handle_user_fault(struct lazy_pages_info *lpi, void *dest)
 
 static int lazy_pages_summary(struct lazy_pages_info *lpi)
 {
-	pr_debug("With UFFD transferred pages: (%ld/%ld)\n", lpi->copied_pages, lpi->total_pages);
+	pr_debug("Process %d: with UFFD transferred pages: (%ld/%ld)\n",
+		 lpi->pid, lpi->copied_pages, lpi->total_pages);
 
 	if ((lpi->copied_pages != lpi->total_pages) && (lpi->total_pages > 0)) {
 		pr_warn("Only %ld of %ld pages transferred via UFFD\n", lpi->copied_pages,
@@ -597,13 +661,14 @@ static int lazy_pages_summary(struct lazy_pages_info *lpi)
 
 #define POLL_TIMEOUT 5000
 
-static int handle_requests(struct lazy_pages_info *lpi, int epollfd,
-			   struct epoll_event *events)
+static int handle_requests(int epollfd, struct epoll_event *events)
 {
 	int nr_fds = task_entries->nr_tasks;
+	struct lazy_pages_info *lpi;
 	int ret = -1;
 	unsigned long ps;
 	void *dest;
+	int i;
 
 	/* All operations will be done on page size */
 	ps = page_size();
@@ -628,23 +693,31 @@ static int handle_requests(struct lazy_pages_info *lpi, int epollfd,
 			break;
 		}
 
-		ret = handle_user_fault(lpi, dest);
-		if (ret < 0)
-			goto out;
+		for (i = 0; i < ret; i++) {
+			lpi = uffd_to_lpi(events[i].data.fd);
+			ret = handle_user_fault(lpi, dest);
+			if (ret < 0)
+				goto out;
+		}
 	}
 	pr_debug("Handle remaining pages\n");
-	ret = handle_remaining_pages(lpi, dest);
-	if (ret < 0) {
-		pr_err("Error during remaining page copy\n");
-		ret = 1;
-		goto out;
+	for (i = 0; i < LPI_HASH_SIZE; i++) {
+		hlist_for_each_entry(lpi, &lpi_hash[i], hash) {
+			ret = handle_remaining_pages(lpi, dest);
+			if (ret < 0) {
+				pr_err("Error during remaining page copy\n");
+				ret = 1;
+				goto out;
+			}
+		}
 	}
 
-	ret = lazy_pages_summary(lpi);
+	for (i = 0; i < LPI_HASH_SIZE; i++)
+		hlist_for_each_entry(lpi, &lpi_hash[i], hash)
+			ret += lazy_pages_summary(lpi);
 
 out:
 	free(dest);
-	close(lpi->uffd);
 	return ret;
 
 }
@@ -660,12 +733,6 @@ static int lazy_pages_prepare_pstree(void)
 
 	if (prepare_pstree() == -1)
 		return -1;
-
-	/* bail out early until we know how to handle multiple tasks */
-	if (task_entries->nr_tasks > 1) {
-		pr_msg("lazy-pages cannot restore more than one task, sorry\n");
-		return -1;
-	}
 
 	return 0;
 }
@@ -705,8 +772,9 @@ static int epoll_add_fd(int epollfd, int fd)
 	return 0;
 }
 
-static int prepare_uffds(struct lazy_pages_info *lpi, int epollfd)
+static int prepare_uffds(int epollfd)
 {
+	int i;
 	int listen;
 	struct sockaddr_un saddr;
 
@@ -716,29 +784,29 @@ static int prepare_uffds(struct lazy_pages_info *lpi, int epollfd)
 		return -1;
 	}
 
-	if (ud_open(lpi, listen, &saddr) < 0) {
-		pr_perror("uffd open error");
-		goto close_unix_sock;
+	for (i = 0; i < task_entries->nr_tasks; i++) {
+		struct lazy_pages_info *lpi;
+		lpi = ud_open(listen, &saddr);
+		if (!lpi)
+			goto close_uffd;
+		if (epoll_add_fd(epollfd, lpi->uffd))
+			goto close_uffd;
 	}
-
-	if (epoll_add_fd(epollfd, lpi->uffd))
-		goto close_uffd;
 
 	close(listen);
 	return 0;
 
 close_uffd:
-	close(lpi->uffd);
-close_unix_sock:
+	lpi_hash_fini();
 	close(listen);
 	return -1;
 }
 
 int cr_lazy_pages()
 {
-	struct lazy_pages_info lpi;
 	struct epoll_event *events;
 	int epollfd;
+	int ret;
 
 	if (!opts.addr) {
 		pr_info("Please specify a file name for the unix domain socket\n");
@@ -748,6 +816,8 @@ int cr_lazy_pages()
 		return -1;
 	}
 
+	lpi_hash_init();
+
 	if (lazy_pages_prepare_pstree())
 		return -1;
 
@@ -755,10 +825,13 @@ int cr_lazy_pages()
 	if (epollfd < 0)
 		return -1;
 
-	if (prepare_uffds(&lpi, epollfd))
+	if (prepare_uffds(epollfd))
 		return -1;
 
-	return handle_requests(&lpi, epollfd, events);
+	ret = handle_requests(epollfd, events);
+	lpi_hash_fini();
+
+	return ret;
 }
 
 #else /* CONFIG_HAS_UFFD */
