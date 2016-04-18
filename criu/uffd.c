@@ -165,14 +165,18 @@ out:
 	return -1;
 }
 
-static int pid;
+static int find_vmas(struct lazy_pages_info *lpi);
 
-static int ud_open(int listen, struct sockaddr_un *saddr)
+static int ud_open(struct lazy_pages_info *lpi, int listen,
+		   struct sockaddr_un *saddr)
 {
 	int client;
-	int newfd;
 	int ret = -1;
 	socklen_t len;
+	int uffd_flags;
+
+	memset(lpi, 0, sizeof(*lpi));
+	INIT_LIST_HEAD(&lpi->pages);
 
 	/* accept new client request */
 	len = sizeof(struct sockaddr_un);
@@ -186,23 +190,34 @@ static int ud_open(int listen, struct sockaddr_un *saddr)
 
 	/* The "transfer protocol" is first the pid as int and then
 	 * the FD for UFFD */
-	ret = recv(client, &pid, sizeof(pid), 0);
-	if (ret != sizeof(pid)) {
+	ret = recv(client, &lpi->pid, sizeof(lpi->pid), 0);
+	if (ret != sizeof(lpi->pid)) {
 		pr_perror("PID recv error:");
 		ret = -1;
 		goto out;
 	}
-	pr_debug("received PID: %d\n", pid);
+	pr_debug("received PID: %d\n", lpi->pid);
 
-	newfd = recv_fd(client);
-	if (newfd < 0) {
+	lpi->uffd = recv_fd(client);
+	if (lpi->uffd < 0) {
 		pr_perror("recv_fd error:");
+		ret = -1;
 		goto out;
 	}
-	pr_debug("newfd %d\n", newfd);
+	pr_debug("lpi->uffd %d\n", lpi->uffd);
 	close(client);
 
-	return newfd;
+	pr_debug("uffd is 0x%d\n", lpi->uffd);
+	uffd_flags = fcntl(lpi->uffd, F_GETFD, NULL);
+	pr_debug("uffd_flags are 0x%x\n", uffd_flags);
+
+	/*
+	 * Find the memory pages belonging to the restored process
+	 * so that it is trackable when all pages have been transferred.
+	 */
+	if ((lpi->total_pages = find_vmas(lpi)) == -1)
+		return -1;
+
 out:
 	close(client);
 	return ret;
@@ -693,12 +708,7 @@ static int epoll_add_fd(int epollfd, int fd)
 static int prepare_uffds(struct lazy_pages_info *lpi, int epollfd)
 {
 	int listen;
-	int uffd;
-	int uffd_flags;
 	struct sockaddr_un saddr;
-
-	memset(lpi, 0, sizeof(*lpi));
-	INIT_LIST_HEAD(&lpi->pages);
 
 	pr_debug("Waiting for incoming connections on %s\n", opts.addr);
 	if ((listen = server_listen(&saddr)) < 0) {
@@ -706,34 +716,19 @@ static int prepare_uffds(struct lazy_pages_info *lpi, int epollfd)
 		return -1;
 	}
 
-	uffd = ud_open(listen, &saddr);
-	if (uffd < 0) {
+	if (ud_open(lpi, listen, &saddr) < 0) {
 		pr_perror("uffd open error");
 		goto close_unix_sock;
 	}
 
-	pr_debug("uffd is 0x%d\n", uffd);
-	uffd_flags = fcntl(uffd, F_GETFD, NULL);
-	pr_debug("uffd_flags are 0x%x\n", uffd_flags);
-
-	lpi->uffd = uffd;
-	lpi->pid = pid;
-
-	/*
-	 * Find the memory pages belonging to the restored process
-	 * so that it is trackable when all pages have been transferred.
-	 */
-	if ((lpi->total_pages = find_vmas(lpi)) == -1)
-		goto close_uffd;
-
-	if (epoll_add_fd(epollfd, uffd))
+	if (epoll_add_fd(epollfd, lpi->uffd))
 		goto close_uffd;
 
 	close(listen);
 	return 0;
 
 close_uffd:
-	close(uffd);
+	close(lpi->uffd);
 close_unix_sock:
 	close(listen);
 	return -1;
