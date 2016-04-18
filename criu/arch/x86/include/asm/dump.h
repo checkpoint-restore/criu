@@ -5,6 +5,9 @@ extern int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core);
 extern int arch_alloc_thread_info(CoreEntry *core);
 extern void arch_free_thread_info(CoreEntry *core);
 
+#define ARCH_HAS_GET_REGS
+extern int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs);
+extern int ptrace_set_regs(pid_t pid, user_regs_struct_t *regs);
 
 #define core_put_tls(core, tls)
 

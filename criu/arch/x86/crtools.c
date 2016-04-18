@@ -26,6 +26,7 @@
 /*
  * Injected syscall instruction
  */
+/* FIXME: 32-bit syscalls */
 const char code_syscall[] = {
 	0x0f, 0x05,				/* syscall    */
 	0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc	/* int 3, ... */
@@ -40,17 +41,21 @@ static inline __always_unused void __check_code_syscall(void)
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 }
 
+/*
+ * regs must be inited when calling this function from original context
+ */
 void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
 {
-	regs->ip = new_ip;
+	set_user_reg(regs, ip, new_ip);
 	if (stack)
-		regs->sp = (unsigned long) stack;
+		set_user_reg(regs, sp, (unsigned long) stack);
 
 	/* Avoid end of syscall processing */
-	regs->orig_ax = -1;
+	set_user_reg(regs, orig_ax, -1);
 
 	/* Make sure flags are in known state */
-	regs->flags &= ~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF);
+	set_user_reg(regs, flags, get_user_reg(regs, flags) &
+			~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF));
 }
 
 int arch_task_compatible(pid_t pid)
@@ -58,14 +63,18 @@ int arch_task_compatible(pid_t pid)
 	unsigned long cs, ds;
 
 	errno = 0;
-	cs = ptrace(PTRACE_PEEKUSER, pid, offsetof(user_regs_struct_t, cs), 0);
+	/*
+	 * Offset of register must be from 64-bit set even for
+	 * compatible tasks. Fix this to support native i386 tasks
+	 */
+	cs = ptrace(PTRACE_PEEKUSER, pid, offsetof(user_regs_struct64, cs), 0);
 	if (errno != 0) {
 		pr_perror("Can't get CS register for %d", pid);
 		return -1;
 	}
 
 	errno = 0;
-	ds = ptrace(PTRACE_PEEKUSER, pid, offsetof(user_regs_struct_t, ds), 0);
+	ds = ptrace(PTRACE_PEEKUSER, pid, offsetof(user_regs_struct64, ds), 0);
 	if (errno != 0) {
 		pr_perror("Can't get DS register for %d", pid);
 		return -1;
@@ -79,6 +88,7 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 {
 	pid_t pid = ctl->rpid;
 
+	/* FIXME: remove it */
 	if (arch_task_compatible(pid)) {
 		pr_err("Can't dump task %d running in 32-bit mode\n", pid);
 		return false;
@@ -98,23 +108,40 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	user_regs_struct_t regs = ctl->orig.regs;
 	int err;
 
-	regs.ax  = (unsigned long)nr;
-	regs.di  = arg1;
-	regs.si  = arg2;
-	regs.dx  = arg3;
-	regs.r10 = arg4;
-	regs.r8  = arg5;
-	regs.r9  = arg6;
+	if (regs.is_native) {
+		user_regs_struct64 *r = &regs.native;
+
+		r->ax  = (uint64_t)nr;
+		r->di  = arg1;
+		r->si  = arg2;
+		r->dx  = arg3;
+		r->r10 = arg4;
+		r->r8  = arg5;
+		r->r9  = arg6;
+	} else {
+		user_regs_struct32 *r = &regs.compat;
+
+		r->ax  = (uint32_t)nr;
+		r->bx  = arg1;
+		r->cx  = arg2;
+		r->dx  = arg3;
+		r->si  = arg4;
+		r->di  = arg5;
+		r->bp  = arg6;
+	}
 
 	err = __parasite_execute_syscall(ctl, &regs, code_syscall);
 
-	*ret = regs.ax;
+	*ret = get_user_reg(&regs, ax);
 	return err;
 }
 
 static int save_task_regs(CoreEntry *core,
 		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs);
 
+#define get_signed_user_reg(pregs, name)				\
+	(((pregs)->is_native) ? (int64_t)((pregs)->native.name) :	\
+				(int32_t)((pregs)->compat.name))
 int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 {
 	user_fpregs_struct_t xsave	= {  }, *xs = NULL;
@@ -125,18 +152,18 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
 
 	/* Did we come from a system call? */
-	if ((int)regs.orig_ax >= 0) {
+	if (get_signed_user_reg(&regs, orig_ax) >= 0) {
 		/* Restart the system call */
-		switch ((long)(int)regs.ax) {
+		switch (get_signed_user_reg(&regs, ax)) {
 		case -ERESTARTNOHAND:
 		case -ERESTARTSYS:
 		case -ERESTARTNOINTR:
-			regs.ax = regs.orig_ax;
-			regs.ip -= 2;
+			set_user_reg(&regs, ax, get_user_reg(&regs, orig_ax));
+			set_user_reg(&regs, ip, get_user_reg(&regs, ip) - 2);
 			break;
 		case -ERESTART_RESTARTBLOCK:
 			pr_warn("Will restore %d with interrupted system call\n", pid);
-			regs.ax = -EINTR;
+			set_user_reg(&regs, ax, -EINTR);
 			break;
 		}
 	}
@@ -180,67 +207,127 @@ static int save_task_regs(CoreEntry *core,
 {
 	UserX86RegsEntry *gpregs	= core->thread_info->gpregs;
 
-#define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))(src)->e; } while (0)
-#define assign_array(dst, src, e)	memcpy(dst->e, &(src)->e, sizeof((src)->e))
+#define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
+#define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
 
-	assign_reg(gpregs, regs, r15);
-	assign_reg(gpregs, regs, r14);
-	assign_reg(gpregs, regs, r13);
-	assign_reg(gpregs, regs, r12);
-	assign_reg(gpregs, regs, bp);
-	assign_reg(gpregs, regs, bx);
-	assign_reg(gpregs, regs, r11);
-	assign_reg(gpregs, regs, r10);
-	assign_reg(gpregs, regs, r9);
-	assign_reg(gpregs, regs, r8);
-	assign_reg(gpregs, regs, ax);
-	assign_reg(gpregs, regs, cx);
-	assign_reg(gpregs, regs, dx);
-	assign_reg(gpregs, regs, si);
-	assign_reg(gpregs, regs, di);
-	assign_reg(gpregs, regs, orig_ax);
-	assign_reg(gpregs, regs, ip);
-	assign_reg(gpregs, regs, cs);
-	assign_reg(gpregs, regs, flags);
-	assign_reg(gpregs, regs, sp);
-	assign_reg(gpregs, regs, ss);
-	assign_reg(gpregs, regs, fs_base);
-	assign_reg(gpregs, regs, gs_base);
-	assign_reg(gpregs, regs, ds);
-	assign_reg(gpregs, regs, es);
-	assign_reg(gpregs, regs, fs);
-	assign_reg(gpregs, regs, gs);
+	if (regs.is_native) {
+		assign_reg(gpregs, regs->native, r15);
+		assign_reg(gpregs, regs->native, r14);
+		assign_reg(gpregs, regs->native, r13);
+		assign_reg(gpregs, regs->native, r12);
+		assign_reg(gpregs, regs->native, bp);
+		assign_reg(gpregs, regs->native, bx);
+		assign_reg(gpregs, regs->native, r11);
+		assign_reg(gpregs, regs->native, r10);
+		assign_reg(gpregs, regs->native, r9);
+		assign_reg(gpregs, regs->native, r8);
+		assign_reg(gpregs, regs->native, ax);
+		assign_reg(gpregs, regs->native, cx);
+		assign_reg(gpregs, regs->native, dx);
+		assign_reg(gpregs, regs->native, si);
+		assign_reg(gpregs, regs->native, di);
+		assign_reg(gpregs, regs->native, orig_ax);
+		assign_reg(gpregs, regs->native, ip);
+		assign_reg(gpregs, regs->native, cs);
+		assign_reg(gpregs, regs->native, flags);
+		assign_reg(gpregs, regs->native, sp);
+		assign_reg(gpregs, regs->native, ss);
+		assign_reg(gpregs, regs->native, fs_base);
+		assign_reg(gpregs, regs->native, gs_base);
+		assign_reg(gpregs, regs->native, ds);
+		assign_reg(gpregs, regs->native, es);
+		assign_reg(gpregs, regs->native, fs);
+		assign_reg(gpregs, regs->native, gs);
+		gpregs->mode = USER_X86_REGS_MODE__NATIVE;
+	} else {
+		assign_reg(gpregs, regs->compat, bx);
+		assign_reg(gpregs, regs->compat, cx);
+		assign_reg(gpregs, regs->compat, dx);
+		assign_reg(gpregs, regs->compat, si);
+		assign_reg(gpregs, regs->compat, di);
+		assign_reg(gpregs, regs->compat, bp);
+		assign_reg(gpregs, regs->compat, ax);
+		assign_reg(gpregs, regs->compat, ds);
+		assign_reg(gpregs, regs->compat, es);
+		assign_reg(gpregs, regs->compat, fs);
+		assign_reg(gpregs, regs->compat, gs);
+		assign_reg(gpregs, regs->compat, orig_ax);
+		assign_reg(gpregs, regs->compat, ip);
+		assign_reg(gpregs, regs->compat, cs);
+		assign_reg(gpregs, regs->compat, flags);
+		assign_reg(gpregs, regs->compat, sp);
+		assign_reg(gpregs, regs->compat, ss);
+		gpregs->mode = USER_X86_REGS_MODE__COMPAT;
+	}
 
 	if (!fpregs)
 		return 0;
 
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, cwd);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, swd);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, twd);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, fop);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, rip);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, rdp);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, mxcsr);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, mxcsr_mask);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, cwd);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, swd);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, twd);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, fop);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, rip);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, rdp);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, mxcsr);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, mxcsr_mask);
 
 	/* Make sure we have enough space */
 	BUG_ON(core->thread_info->fpregs->n_st_space != ARRAY_SIZE(fpregs->i387.st_space));
 	BUG_ON(core->thread_info->fpregs->n_xmm_space != ARRAY_SIZE(fpregs->i387.xmm_space));
 
-	assign_array(core->thread_info->fpregs, &fpregs->i387, st_space);
-	assign_array(core->thread_info->fpregs, &fpregs->i387, xmm_space);
+	assign_array(core->thread_info->fpregs, fpregs->i387, st_space);
+	assign_array(core->thread_info->fpregs, fpregs->i387, xmm_space);
 
 	if (cpu_has_feature(X86_FEATURE_OSXSAVE)) {
 		BUG_ON(core->thread_info->fpregs->xsave->n_ymmh_space != ARRAY_SIZE(fpregs->ymmh.ymmh_space));
 
-		assign_reg(core->thread_info->fpregs->xsave, &fpregs->xsave_hdr, xstate_bv);
-		assign_array(core->thread_info->fpregs->xsave, &fpregs->ymmh, ymmh_space);
+		assign_reg(core->thread_info->fpregs->xsave, fpregs->xsave_hdr, xstate_bv);
+		assign_array(core->thread_info->fpregs->xsave, fpregs->ymmh, ymmh_space);
 	}
 
 #undef assign_reg
 #undef assign_array
 
 	return 0;
+}
+
+int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs)
+{
+	struct iovec iov;
+	int ret;
+
+	iov.iov_base = &regs->native;
+	iov.iov_len = sizeof(user_regs_struct64);
+
+	ret = ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, &iov);
+	if (iov.iov_len == sizeof(regs->native)) {
+		regs->is_native = true;
+		return ret;
+	}
+	if (iov.iov_len == sizeof(regs->compat)) {
+		regs->is_native = false;
+		return ret;
+	}
+
+	pr_err("PTRACE_GETREGSET read %zu bytes for pid %d, but native/compat regs sizes are %zu/%zu bytes",
+			iov.iov_len, pid,
+			sizeof(regs->native), sizeof(regs->compat));
+	return -1;
+}
+
+int ptrace_set_regs(pid_t pid, user_regs_struct_t *regs)
+{
+	struct iovec iov;
+
+	if (regs->is_native) {
+		iov.iov_base = &regs->native;
+		iov.iov_len = sizeof(user_regs_struct64);
+	} else {
+		iov.iov_base = &regs->compat;
+		iov.iov_len = sizeof(user_regs_struct32);
+	}
+	return ptrace(PTRACE_SETREGSET, pid, NT_PRSTATUS, &iov);
 }
 
 int arch_alloc_thread_info(CoreEntry *core)
@@ -477,6 +564,12 @@ void *mmap_seized(struct parasite_ctl *ctl,
 
 int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 {
+	/* FIXME: rt_sigcontext for compatible tasks */
+	if (r->gpregs_case != USER_X86_REGS_CASE_T__NATIVE) {
+		pr_err("Can't prepare rt_sigframe for compatible task restore\n");
+		return -1;
+	}
+
 #define CPREG1(d)	f->uc.uc_mcontext.d = r->d
 #define CPREG2(d, s)	f->uc.uc_mcontext.d = r->s
 
