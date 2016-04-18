@@ -315,3 +315,37 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, int steal)
 
 	return ret;
 }
+
+static int set_queue_seq(struct libsoccr_sk *sk, int queue, __u32 seq)
+{
+	logd("\tSetting %d queue seq to %u\n", queue, seq);
+
+	if (setsockopt(sk->fd, SOL_TCP, TCP_REPAIR_QUEUE, &queue, sizeof(queue)) < 0) {
+		loge("Can't set repair queue");
+		return -1;
+	}
+
+	if (setsockopt(sk->fd, SOL_TCP, TCP_QUEUE_SEQ, &seq, sizeof(seq)) < 0) {
+		loge("Can't set queue seq");
+		return -1;
+	}
+
+	return 0;
+}
+
+int libsoccr_set_sk_data_unbound(struct libsoccr_sk *sk,
+		struct libsoccr_sk_data *data, unsigned data_size)
+{
+	if (!data || data_size < SOCR_DATA_MIN_SIZE)
+		return -1;
+
+	if (set_queue_seq(sk, TCP_RECV_QUEUE,
+				data->inq_seq - data->inq_len))
+		return -2;
+	if (set_queue_seq(sk, TCP_SEND_QUEUE,
+				data->outq_seq - data->outq_len))
+		return -3;
+
+	return 0;
+}
+

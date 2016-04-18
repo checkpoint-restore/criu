@@ -285,35 +285,6 @@ int dump_one_tcp(int fd, struct inet_sk_desc *sk)
 	return 0;
 }
 
-static int set_tcp_queue_seq(int sk, int queue, u32 seq)
-{
-	pr_debug("\tSetting %d queue seq to %u\n", queue, seq);
-
-	if (setsockopt(sk, SOL_TCP, TCP_REPAIR_QUEUE, &queue, sizeof(queue)) < 0) {
-		pr_perror("Can't set repair queue");
-		return -1;
-	}
-
-	if (setsockopt(sk, SOL_TCP, TCP_QUEUE_SEQ, &seq, sizeof(seq)) < 0) {
-		pr_perror("Can't set queue seq");
-		return -1;
-	}
-
-	return 0;
-}
-
-static int restore_tcp_seqs(int sk, TcpStreamEntry *tse)
-{
-	if (set_tcp_queue_seq(sk, TCP_RECV_QUEUE,
-				tse->inq_seq - tse->inq_len))
-		return -1;
-	if (set_tcp_queue_seq(sk, TCP_SEND_QUEUE,
-				tse->outq_seq - tse->outq_len))
-		return -1;
-
-	return 0;
-}
-
 static int __send_tcp_queue(int sk, int queue, u32 len, struct cr_img *img)
 {
 	int ret, err = -1, max_chunk;
@@ -548,7 +519,7 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 
 	(void)data;
 
-	if (restore_tcp_seqs(sk, tse))
+	if (libsoccr_set_sk_data_unbound(socr, &data, sizeof(data)))
 		goto err_c;
 
 	if (inet_bind(sk, ii))
