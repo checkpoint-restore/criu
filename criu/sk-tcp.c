@@ -525,7 +525,7 @@ static int send_tcp_queue(int sk, int queue, u32 len, struct cr_img *img)
 	return __send_tcp_queue(sk, queue, len, img);
 }
 
-static int restore_tcp_queues(int sk, TcpStreamEntry *tse, struct cr_img *img, mutex_t *reuse_lock)
+static int restore_tcp_queues(int sk, TcpStreamEntry *tse, struct cr_img *img)
 {
 	u32 len;
 
@@ -552,17 +552,11 @@ static int restore_tcp_queues(int sk, TcpStreamEntry *tse, struct cr_img *img, m
 	 * they can be restored without any tricks.
 	 */
 	len = tse->unsq_len;
-	mutex_lock(reuse_lock);
 	tcp_repair_off(sk);
-	if (len && __send_tcp_queue(sk, TCP_SEND_QUEUE, len, img)) {
-		mutex_unlock(reuse_lock);
+	if (len && __send_tcp_queue(sk, TCP_SEND_QUEUE, len, img))
 		return -1;
-	}
-	if (tcp_repair_on(sk)) {
-		mutex_unlock(reuse_lock);
+	if (tcp_repair_on(sk))
 		return -1;
-	}
-	mutex_unlock(reuse_lock);
 
 	return 0;
 }
@@ -645,7 +639,7 @@ static int restore_tcp_conn_state(int sk, struct inet_sk_info *ii)
 	if (restore_tcp_opts(sk, tse))
 		goto err_c;
 
-	if (restore_tcp_queues(sk, tse, img, inet_get_reuseaddr_lock(ii)))
+	if (restore_tcp_queues(sk, tse, img))
 		goto err_c;
 
 	if (tse->has_nodelay && tse->nodelay) {

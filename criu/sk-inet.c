@@ -589,8 +589,12 @@ static int open_inet_sk(struct file_desc *d)
 			goto err;
 		}
 
-		if (restore_one_tcp(sk, ii))
+		mutex_lock(&ii->port->reuseaddr_lock);
+		if (restore_one_tcp(sk, ii)) {
+			mutex_unlock(&ii->port->reuseaddr_lock);
 			goto err;
+		}
+		mutex_unlock(&ii->port->reuseaddr_lock);
 
 		goto done;
 	}
@@ -750,9 +754,4 @@ int inet_connect(int sk, struct inet_sk_info *ii)
 	}
 
 	return 0;
-}
-
-mutex_t *inet_get_reuseaddr_lock(struct inet_sk_info *ii)
-{
-	return &ii->port->reuseaddr_lock;
 }

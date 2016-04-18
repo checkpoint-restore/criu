@@ -74,7 +74,6 @@ extern int restore_one_tcp(int sk, struct inet_sk_info *si);
 #define SK_EST_PARAM	"tcp-established"
 
 extern int check_tcp(void);
-extern mutex_t *inet_get_reuseaddr_lock(struct inet_sk_info *ii);
 
 struct task_restore_args;
 int prepare_tcp_socks(struct task_restore_args *);
