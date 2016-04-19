@@ -1207,49 +1207,53 @@ static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t owner
 	int ret, old_fsuid = -1;
 	int errno_save;
 
-	if (root_ns_mask & CLONE_NEWUSER)
-		/*
-		 * Kernel has strange secutiry restrictions about
-		 * linkat. If the fsuid of the caller doesn't equals
-		 * the uid of the file and the file is not "safe"
-		 * one, then only global CAP_CHOWN will be allowed
-		 * to link().
-		 *
-		 * Next, when we're in user namespace we're ns root,
-		 * but not global CAP_CHOWN. Thus, even though we
-		 * ARE ns root, we will not be allowed to link() at
-		 * files that belong to regular users %)
-		 *
-		 * Fortunately, the setfsuid() requires ns-level
-		 * CAP_SETUID which we have.
-		 */
+	ret = linkat(odir, opath, ndir, npath, 0);
+	if (ret < 0)
+		pr_perror("Can't link %s -> %s", opath, npath);
+	if (ret == 0 || errno != EPERM || !(root_ns_mask & CLONE_NEWUSER))
+		return ret;
 
-		old_fsuid = setfsuid(owner);
+	/*
+	 * Kernel before 4.3 has strange secutiry restrictions about
+	 * linkat. If the fsuid of the caller doesn't equals
+	 * the uid of the file and the file is not "safe"
+	 * one, then only global CAP_CHOWN will be allowed
+	 * to link().
+	 *
+	 * Next, when we're in user namespace we're ns root,
+	 * but not global CAP_CHOWN. Thus, even though we
+	 * ARE ns root, we will not be allowed to link() at
+	 * files that belong to regular users %)
+	 *
+	 * Fortunately, the setfsuid() requires ns-level
+	 * CAP_SETUID which we have.
+	 */
+
+	old_fsuid = setfsuid(owner);
 
 	ret = linkat(odir, opath, ndir, npath, 0);
 	errno_save = errno;
 	if (ret < 0)
 		pr_perror("Can't link %s -> %s", opath, npath);
 
-	if (root_ns_mask & CLONE_NEWUSER) {
-		setfsuid(old_fsuid);
-		if (setfsuid(-1) != old_fsuid) {
-			pr_warn("Failed to restore old fsuid!\n");
-			/*
-			 * Don't fail here. We still have chances to run till
-			 * the pie/restorer, and if _this_ guy fails to set
-			 * the proper fsuid, then we'll abort the restore.
-			 */
-		}
-
+	setfsuid(old_fsuid);
+	if (setfsuid(-1) != old_fsuid) {
+		pr_warn("Failed to restore old fsuid!\n");
 		/*
-		 * Restoring PR_SET_DUMPABLE flag is required after setfsuid,
-		 * as if it not set, proc inode will be created with root cred
-		 * (see proc_pid_make_inode), which will result in permission
-		 * check fail when trying to access files in /proc/self/
+		 * Don't fail here. We still have chances to run till
+		 * the pie/restorer, and if _this_ guy fails to set
+		 * the proper fsuid, then we'll abort the restore.
 		 */
-		prctl(PR_SET_DUMPABLE, 1, 0);
 	}
+
+	/*
+	 * Restoring PR_SET_DUMPABLE flag is required after setfsuid,
+	 * as if it not set, proc inode will be created with root cred
+	 * (see proc_pid_make_inode), which will result in permission
+	 * check fail when trying to access files in /proc/self/
+	 */
+	prctl(PR_SET_DUMPABLE, 1, 0);
+
 	errno = errno_save;
 
 	return ret;
