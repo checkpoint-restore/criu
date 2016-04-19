@@ -1,6 +1,6 @@
 #
 # Installation paths.
-DESTDIR		?=
+DESTDIR		?= /
 PREFIX		?= /usr/local
 SBINDIR		?= $(PREFIX)/sbin
 MANDIR		?= $(PREFIX)/share/man
