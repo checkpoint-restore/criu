@@ -73,12 +73,12 @@ static int piegen(void)
 {
 	struct stat st;
 	void *mem;
-	int fd;
+	int fd, ret = -1;
 
 	fd = open(opts.input_filename, O_RDONLY);
 	if (fd < 0) {
 		pr_perror("Can't open file %s", opts.input_filename);
-		goto err;
+		return -1;
 	}
 
 	if (fstat(fd, &st)) {
@@ -99,15 +99,21 @@ static int piegen(void)
 	}
 
 	if (handle_elf(mem, st.st_size)) {
-		fclose(fout);
+		close(fd), fd = -1;
 		unlink(opts.output_filename);
 		goto err;
 	}
 
+	ret = 0;
+
 err:
-	fclose(fout);
-	printf("%s generated successfully.\n", opts.output_filename);
-	return 0;
+	if (fd >= 0)
+		close(fd);
+	if (fout)
+		fclose(fout);
+	if (!ret)
+		printf("%s generated successfully.\n", opts.output_filename);
+	return ret;
 }
 
 int main(int argc, char *argv[])
