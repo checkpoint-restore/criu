@@ -415,6 +415,7 @@ int handle_elf(void *mem, size_t size)
 
 #ifdef ELF_X86_64
 			case R_X86_64_32: /* Symbol + Addend (4 bytes) */
+			case R_X86_64_32S: /* Symbol + Addend (4 bytes) */
 				pr_debug("\t\t\t\tR_X86_64_32       at 0x%-4lx val 0x%x\n", place, value32);
 				pr_out("	{ .offset = 0x%-8x, .type = PIEGEN_TYPE_INT, "
 				       ".addend = %-8d, .value = 0x%-16x, }, /* R_X86_64_32 */\n",
