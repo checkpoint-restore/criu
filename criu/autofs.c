@@ -290,7 +290,7 @@ static int autofs_create_entry(struct mount_info *pm, AutofsEntry *entry)
 		entry->has_gid = true;
 
 	if (entry->fd != AUTOFS_CATATONIC_FD) {
-		int found, read_fd;
+		int found, read_fd, virt_pgrp;
 
 		read_fd = autofs_find_read_fd(entry->pgrp, pipe_ino);
 		if (read_fd < 0)
@@ -310,13 +310,14 @@ static int autofs_create_entry(struct mount_info *pm, AutofsEntry *entry)
 		}
 
 		/* We need to get virtual pgrp to restore mount */
-		entry->pgrp = pid_to_virt(entry->pgrp);
-		if (!entry->pgrp) {
+		virt_pgrp = pid_to_virt(entry->pgrp);
+		if (!virt_pgrp) {
 			pr_err("failed to find pstree item with pid %d\n",
 					entry->pgrp);
 			pr_err("Non-catatonic mount without master?\n");
 			return -1;
 		}
+		entry->pgrp = virt_pgrp;
 	}
 	return 0;
 }
