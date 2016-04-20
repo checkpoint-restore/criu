@@ -7,7 +7,7 @@
 #define LO_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/lo"
 #define DEF_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/default"
 
-char *devconfs[] = {
+char *devconfs4[] = {
 	"accept_local",
 	"accept_redirects",
 	"accept_source_route",
@@ -42,7 +42,7 @@ char *devconfs[] = {
 	NULL,
 };
 
-int rand_limit[] = {
+int rand_limit4[] = {
 	2,	/* accept_local */
 	2,	/* accept_redirects */
 	2,	/* accept_source_route */
@@ -77,9 +77,9 @@ int rand_limit[] = {
 };
 
 struct test_conf {
-	int ipv4_conf[ARRAY_SIZE(devconfs)];
-	int ipv4_conf_rand[ARRAY_SIZE(devconfs)];
-	char *dir;
+	int ipv4_conf[ARRAY_SIZE(devconfs4)];
+	int ipv4_conf_rand[ARRAY_SIZE(devconfs4)];
+	char *dir4;
 } lo, def;
 
 static int save_and_set(int opt, FILE *fp, struct test_conf *tc) {
@@ -106,8 +106,8 @@ static int save_and_set(int opt, FILE *fp, struct test_conf *tc) {
 	 */
 	val = (int)lrand48();
 
-	if (rand_limit[opt] != 0)
-		tc->ipv4_conf_rand[opt] = val % rand_limit[opt];
+	if (rand_limit4[opt] != 0)
+		tc->ipv4_conf_rand[opt] = val % rand_limit4[opt];
 	else
 		tc->ipv4_conf_rand[opt] = val;
 
@@ -135,7 +135,7 @@ static int check_and_restore(int opt, FILE *fp, struct test_conf *tc) {
 
 	if (val != tc->ipv4_conf_rand[opt]) {
 		fail("Option \"%s/%s\" changed from %d to %d",
-		     tc->dir, devconfs[opt], tc->ipv4_conf_rand[opt], val);
+		     tc->dir, devconfs4[opt], tc->ipv4_conf_rand[opt], val);
 		return -1;
 	}
 
@@ -161,11 +161,11 @@ static int for_each_option_do(int (*f)(int opt, FILE *fp, struct test_conf *tc),
 	int ret;
 	int i;
 
-	for (i = 0; devconfs[i]; i++) {
+	for (i = 0; devconfs4[i]; i++) {
 		FILE *fp;
 		char path[PATH_MAX];
 
-		ret = snprintf(path, sizeof(path), "%s/%s", tc->dir, devconfs[i]);
+		ret = snprintf(path, sizeof(path), "%s/%s", tc->dir4, devconfs4[i]);
 		if (ret < 0) {
 			pr_perror("snprintf");
 			return -1;
@@ -195,8 +195,8 @@ int main(int argc, char **argv)
 {
 	int ret;
 
-	lo.dir = LO_CONF_DIR_PATH;
-	def.dir = DEF_CONF_DIR_PATH;
+	lo.dir4 = LO_CONF_DIR_PATH;
+	def.dir4 = DEF_CONF_DIR_PATH;
 
 	test_init(argc, argv);
 
