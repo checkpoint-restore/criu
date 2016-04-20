@@ -222,6 +222,12 @@ install: criu
 	$(Q) install -m 644 $(UAPI_HEADERS) $(DESTDIR)$(INCLUDEDIR)
 .PHONY: install
 
+uninstall:
+	$(E) " UNINSTALL" criu
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(SBINDIR)/,criu)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/,$(notdir $(UAPI_HEADERS)))
+.PHONY: uninstall
+
 #
 # Final @all target.
 all: criu

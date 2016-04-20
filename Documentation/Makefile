@@ -59,4 +59,8 @@ install: $(MANS)
 	$(Q) mkdir -p $(DESTDIR)$(MAN8DIR)
 	$(Q) install -m 644 $(MANS) $(DESTDIR)$(MAN8DIR)
 
-.PHONY: clean install
+uninstall:
+	$(E) " UNINSTALL" $(MANS)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(MAN8DIR)/,$(MANS))
+
+.PHONY: clean install uninstall

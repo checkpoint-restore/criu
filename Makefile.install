@@ -47,3 +47,9 @@ install-criu: criu
 install: install-man install-lib install-criu
 	@true
 .PHONY: install
+
+uninstall:
+	$(Q) $(MAKE) -C Documentation $@
+	$(Q) $(MAKE) -C lib $@
+	$(Q) $(MAKE) -C criu $@
+.PHONY: uninstall

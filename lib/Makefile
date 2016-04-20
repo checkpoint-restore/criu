@@ -54,3 +54,20 @@ install: lib-c lib-py ../crit/crit c/criu.pc.in
 	$(E) "  INSTALL " crit
 	$(Q) python ../scripts/crit-setup.py install --root=$(DESTDIR) --prefix=$(PREFIX)
 .PHONY: install
+
+uninstall:
+	$(E) " UNINSTALL" $(CRIU_SO)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/,$(CRIU_SO).$(CRIU_SO_VERSION_MAJOR))
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/,$(CRIU_SO))
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/,$(CRIU_SO).$(CRIU_SO_VERSION_MAJOR).$(CRIU_SO_VERSION_MINOR))
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/,$(notdir $(UAPI_HEADERS)))
+	$(E) " UNINSTALL" pkgconfig/criu.pc
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/pkgconfig/,criu.pc)
+	$(E) " UNINSTALL" crit
+	#
+	# FIXME How to deal with python setup properly?
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(BINDIR)/,crit)
+	$(Q) $(RM) -r $(addprefix $(DESTDIR)$(LIBDIR)/python2.7/site-packages/,pycriu)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/python2.7/site-packages/,crit-0.0.1-py2.7.egg-info)
+#	$(Q) python ../scripts/crit-setup.py install --root=$(DESTDIR) --prefix=$(PREFIX)
+.PHONY: uninstall
