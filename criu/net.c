@@ -90,6 +90,8 @@ static char *devconfs[] = {
 	"src_valid_mark",
 	"tag",
 	"ignore_routes_with_linkdown",
+	"drop_gratuitous_arp",
+	"drop_unicast_in_l2_multicast",
 };
 
 /*

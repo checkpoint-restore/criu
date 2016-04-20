@@ -19,6 +19,8 @@ char *devconfs[] = {
 	"bootp_relay",
 	"disable_policy",
 	"disable_xfrm",
+	"drop_gratuitous_arp",
+	"drop_unicast_in_l2_multicast",
 	"force_igmp_version",
 	"forwarding",
 	"igmpv2_unsolicited_report_interval",
@@ -52,6 +54,8 @@ int rand_limit[] = {
 	2,	/* bootp_relay */
 	2,	/* disable_policy */
 	2,	/* disable_xfrm */
+	2,	/* drop_gratuitous_arp */
+	2,	/* drop_unicast_in_l2_multicast */
 	0,	/* force_igmp_version */
 	2,	/* forwarding */
 	0,	/* igmpv2_unsolicited_report_interval */
