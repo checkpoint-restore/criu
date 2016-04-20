@@ -61,7 +61,7 @@ int read_ns_sys_file(char *path, char *buf, int len)
 	return rlen;
 }
 
-static char *devconfs[] = {
+static char *devconfs4[] = {
 	"accept_local",
 	"accept_redirects",
 	"accept_source_route",
@@ -108,22 +108,22 @@ static int ipv4_conf_op(char *tgt, int *conf, int n, int op, NetnsEntry **netns)
 {
 	int i, ri;
 	int ret, flags = op == CTL_READ ? CTL_FLAGS_OPTIONAL : 0;
-	struct sysctl_req req[ARRAY_SIZE(devconfs)];
-	char path[ARRAY_SIZE(devconfs)][MAX_CONF_OPT_PATH];
+	struct sysctl_req req[ARRAY_SIZE(devconfs4)];
+	char path[ARRAY_SIZE(devconfs4)][MAX_CONF_OPT_PATH];
 
-	if (n > ARRAY_SIZE(devconfs))
+	if (n > ARRAY_SIZE(devconfs4))
 		pr_warn("The image contains unknown sysctl-s\n");
 
-	for (i = 0, ri = 0; i < ARRAY_SIZE(devconfs); i++) {
+	for (i = 0, ri = 0; i < ARRAY_SIZE(devconfs4); i++) {
 		if (i >= n) {
-			pr_warn("Skip %s/%s\n", tgt, devconfs[i]);
+			pr_warn("Skip %s/%s\n", tgt, devconfs4[i]);
 			continue;
 		}
 		/*
 		 * If dev conf value is the same as default skip restoring it
 		 */
 		if (netns && conf[i] == (*netns)->def_conf[i]) {
-			pr_debug("DEBUG Skip %s/%s, val =%d\n", tgt, devconfs[i], conf[i]);
+			pr_debug("DEBUG Skip %s/%s, val =%d\n", tgt, devconfs4[i], conf[i]);
 			continue;
 		}
 
@@ -132,7 +132,7 @@ static int ipv4_conf_op(char *tgt, int *conf, int n, int op, NetnsEntry **netns)
 		else if (op == CTL_READ)
 			conf[i] = DEVCONFS_UNUSED;
 
-		snprintf(path[i], MAX_CONF_OPT_PATH, "%s/%s/%s", NET_CONF_PATH, tgt, devconfs[i]);
+		snprintf(path[i], MAX_CONF_OPT_PATH, "%s/%s/%s", NET_CONF_PATH, tgt, devconfs4[i]);
 		req[ri].name = path[i];
 		req[ri].arg = &conf[i];
 		req[ri].type = CTL_32;
@@ -180,7 +180,7 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 				(int)netdev.address.len, netdev.name);
 	}
 
-	netdev.n_conf = ARRAY_SIZE(devconfs);
+	netdev.n_conf = ARRAY_SIZE(devconfs4);
 	netdev.conf = xmalloc(sizeof(int) * netdev.n_conf);
 	if (!netdev.conf)
 		return -1;
@@ -910,8 +910,8 @@ static int dump_netns_conf(struct cr_imgset *fds)
 	int ret, n;
 	NetnsEntry netns = NETNS_ENTRY__INIT;
 
-	netns.n_def_conf = ARRAY_SIZE(devconfs);
-	netns.n_all_conf = ARRAY_SIZE(devconfs);
+	netns.n_def_conf = ARRAY_SIZE(devconfs4);
+	netns.n_all_conf = ARRAY_SIZE(devconfs4);
 	netns.def_conf = xmalloc(sizeof(int) * netns.n_def_conf);
 	if (!netns.def_conf)
 		return -1;
