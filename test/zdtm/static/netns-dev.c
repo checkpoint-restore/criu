@@ -135,7 +135,7 @@ static int check_and_restore(int opt, FILE *fp, struct test_conf *tc) {
 
 	if (val != tc->ipv4_conf_rand[opt]) {
 		fail("Option \"%s/%s\" changed from %d to %d",
-		     tc->dir, devconfs4[opt], tc->ipv4_conf_rand[opt], val);
+		     tc->dir4, devconfs4[opt], tc->ipv4_conf_rand[opt], val);
 		return -1;
 	}
 
