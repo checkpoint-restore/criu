@@ -24,6 +24,8 @@ static const char *action_names[ACT_MAX] = {
 	[ ACT_POST_RESUME ]	= "post-resume",
 };
 
+static LIST_HEAD(scripts);
+
 int run_scripts(enum script_actions act)
 {
 	struct script *script;
@@ -34,7 +36,7 @@ int run_scripts(enum script_actions act)
 
 	pr_debug("Running %s scripts\n", action);
 
-	if (unlikely(list_empty(&opts.scripts)))
+	if (unlikely(list_empty(&scripts)))
 		return 0;
 
 	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
@@ -56,7 +58,7 @@ int run_scripts(enum script_actions act)
 		}
 	}
 
-	list_for_each_entry(script, &opts.scripts, node) {
+	list_for_each_entry(script, &scripts, node) {
 		if (script->path == SCRIPT_RPC_NOTIFY) {
 			pr_debug("\tRPC\n");
 			ret |= send_criu_rpc_script(act, (char *)action, script->arg);
@@ -82,7 +84,7 @@ int add_script(char *path, int arg)
 
 	script->path = path;
 	script->arg = arg;
-	list_add(&script->node, &opts.scripts);
+	list_add(&script->node, &scripts);
 
 	return 0;
 }
