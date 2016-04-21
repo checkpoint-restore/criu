@@ -1643,6 +1643,11 @@ static int restore_task_with_children(void *_arg)
 			goto err;
 	}
 
+	/* Wait prepare_userns */
+	if (current->parent == NULL &&
+            restore_finish_stage(CR_STATE_RESTORE_NS) < 0)
+			goto err;
+
 	/*
 	 * Call this _before_ forking to optimize cgroups
 	 * restore -- if all tasks live in one set of cgroups
@@ -1654,9 +1659,6 @@ static int restore_task_with_children(void *_arg)
 
 	/* Restore root task */
 	if (current->parent == NULL) {
-		if (restore_finish_stage(CR_STATE_RESTORE_NS) < 0)
-			goto err;
-
 		pr_info("Calling restore_sid() for init\n");
 		restore_sid();
 
