@@ -360,8 +360,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		}
 	}
 
-	if (req->notify_scripts &&
-			add_script(SCRIPT_RPC_NOTIFY, sk))
+	if (req->notify_scripts && add_rpc_notify(sk))
 		goto err;
 
 	for (i = 0; i < req->n_veths; i++) {

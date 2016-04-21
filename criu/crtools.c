@@ -390,7 +390,7 @@ int main(int argc, char *argv[], char *envp[])
 			}
 			break;
 		case 1049:
-			if (add_script(optarg, 0))
+			if (add_script(optarg))
 				return 1;
 
 			break;

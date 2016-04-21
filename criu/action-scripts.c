@@ -32,6 +32,8 @@ struct script {
 
 static LIST_HEAD(scripts);
 
+#define SCRIPT_RPC_NOTIFY	(char *)0x1
+
 int run_scripts(enum script_actions act)
 {
 	struct script *script;
@@ -80,7 +82,7 @@ int run_scripts(enum script_actions act)
 	return ret;
 }
 
-int add_script(char *path, int arg)
+int add_script(char *path)
 {
 	struct script *script;
 
@@ -89,7 +91,22 @@ int add_script(char *path, int arg)
 		return 1;
 
 	script->path = path;
-	script->arg = arg;
+	script->arg = 0;
+	list_add(&script->node, &scripts);
+
+	return 0;
+}
+
+int add_rpc_notify(int sk)
+{
+	struct script *script;
+
+	script = xmalloc(sizeof(struct script));
+	if (script == NULL)
+		return 1;
+
+	script->path = SCRIPT_RPC_NOTIFY;
+	script->arg = sk;
 	list_add(&script->node, &scripts);
 
 	return 0;
