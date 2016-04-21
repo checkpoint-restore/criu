@@ -27,12 +27,17 @@ static const char *action_names[ACT_MAX] = {
 struct script {
 	struct list_head node;
 	char *path;
-	int arg;
 };
 
-static LIST_HEAD(scripts);
+enum {
+	SCRIPTS_NONE,
+	SCRIPTS_SHELL,
+	SCRIPTS_RPC
+};
 
-#define SCRIPT_RPC_NOTIFY	(char *)0x1
+static int scripts_mode = SCRIPTS_NONE;
+static int rpc_sk;
+static LIST_HEAD(scripts);
 
 int run_scripts(enum script_actions act)
 {
@@ -44,8 +49,14 @@ int run_scripts(enum script_actions act)
 
 	pr_debug("Running %s scripts\n", action);
 
-	if (unlikely(list_empty(&scripts)))
+	if (scripts_mode == SCRIPTS_NONE)
 		return 0;
+
+	if (scripts_mode == SCRIPTS_RPC) {
+		pr_debug("\tRPC\n");
+		ret = send_criu_rpc_script(act, (char *)action, rpc_sk);
+		goto out;
+	}
 
 	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
 		pr_perror("Can't set CRTOOLS_SCRIPT_ACTION=%s", action);
@@ -67,16 +78,13 @@ int run_scripts(enum script_actions act)
 	}
 
 	list_for_each_entry(script, &scripts, node) {
-		if (script->path == SCRIPT_RPC_NOTIFY) {
-			pr_debug("\tRPC\n");
-			ret |= send_criu_rpc_script(act, (char *)action, script->arg);
-		} else {
-			pr_debug("\t[%s]\n", script->path);
-			ret |= system(script->path);
-		}
+		pr_debug("\t[%s]\n", script->path);
+		ret |= system(script->path);
 	}
 
 	unsetenv("CRTOOLS_SCRIPT_ACTION");
+
+out:
 	if (ret)
 		pr_err("One of more action scripts failed\n");
 	return ret;
@@ -86,12 +94,14 @@ int add_script(char *path)
 {
 	struct script *script;
 
+	BUG_ON(scripts_mode == SCRIPTS_RPC);
+	scripts_mode = SCRIPTS_SHELL;
+
 	script = xmalloc(sizeof(struct script));
 	if (script == NULL)
 		return 1;
 
 	script->path = path;
-	script->arg = 0;
 	list_add(&script->node, &scripts);
 
 	return 0;
@@ -99,15 +109,9 @@ int add_script(char *path)
 
 int add_rpc_notify(int sk)
 {
-	struct script *script;
+	BUG_ON(scripts_mode == SCRIPTS_SHELL);
+	scripts_mode = SCRIPTS_RPC;
 
-	script = xmalloc(sizeof(struct script));
-	if (script == NULL)
-		return 1;
-
-	script->path = SCRIPT_RPC_NOTIFY;
-	script->arg = sk;
-	list_add(&script->node, &scripts);
-
+	rpc_sk = sk;
 	return 0;
 }
