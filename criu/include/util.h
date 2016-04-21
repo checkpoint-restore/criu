@@ -79,7 +79,7 @@ extern int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 	({								\
 		int __fd = do_open_proc(pid, flags,			\
 					fmt, ##__VA_ARGS__);		\
-		if (__fd < 0 && (errno != ier))				\
+		if (__fd < 0 && (errno != (ier)))			\
 			pr_perror("Can't open %d/" fmt " on procfs",	\
 					pid, ##__VA_ARGS__);		\
 									\
