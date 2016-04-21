@@ -34,7 +34,7 @@ if [ ! -x $NS_ENTER ]; then
 	exit 2
 fi
 
-JOIN_CT="$NS_ENTER -t $CRTOOLS_INIT_PID -m -u"
+JOIN_CT="$NS_ENTER -t $CRTOOLS_INIT_PID -m -u -p"
 
 # Skip container, if it's not systemd based
 [ $($JOIN_CT basename -- $(readlink /proc/1/exe)) == "systemd" ] || exit 0
