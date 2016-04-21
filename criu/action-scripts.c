@@ -45,24 +45,32 @@ static int run_shell_scripts(const char *action)
 	struct script *script;
 	char image_dir[PATH_MAX];
 	char root_item_pid[16];
+	static unsigned env_set = 0;
+
+#define ENV_IMGDIR	0x1
+#define ENV_ROOTPID	0x2
 
 	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
 		pr_perror("Can't set CRTOOLS_SCRIPT_ACTION=%s", action);
 		return -1;
 	}
 
-	sprintf(image_dir, "/proc/%ld/fd/%d", (long) getpid(), get_service_fd(IMG_FD_OFF));
-	if (setenv("CRTOOLS_IMAGE_DIR", image_dir, 1)) {
-		pr_perror("Can't set CRTOOLS_IMAGE_DIR=%s", image_dir);
-		return -1;
+	if (!(env_set & ENV_IMGDIR)) {
+		sprintf(image_dir, "/proc/%ld/fd/%d", (long) getpid(), get_service_fd(IMG_FD_OFF));
+		if (setenv("CRTOOLS_IMAGE_DIR", image_dir, 1)) {
+			pr_perror("Can't set CRTOOLS_IMAGE_DIR=%s", image_dir);
+			return -1;
+		}
+		env_set |= ENV_IMGDIR;
 	}
 
-	if (root_item) {
+	if (!(env_set & ENV_ROOTPID) && root_item) {
 		snprintf(root_item_pid, sizeof(root_item_pid), "%d", root_item->pid.real);
 		if (setenv("CRTOOLS_INIT_PID", root_item_pid, 1)) {
 			pr_perror("Can't set CRTOOLS_INIT_PID=%s", root_item_pid);
 			return -1;
 		}
+		env_set |= ENV_ROOTPID;
 	}
 
 	list_for_each_entry(script, &scripts, node) {
