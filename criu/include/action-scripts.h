@@ -1,12 +1,6 @@
 #ifndef __CR_ACTION_SCRIPTS_H__
 #define __CR_ACTION_SCRIPTS_H__
 
-struct script {
-	struct list_head node;
-	char *path;
-	int arg;
-};
-
 #define SCRIPT_RPC_NOTIFY	(char *)0x1
 
 enum script_actions {

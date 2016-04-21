@@ -24,6 +24,12 @@ static const char *action_names[ACT_MAX] = {
 	[ ACT_POST_RESUME ]	= "post-resume",
 };
 
+struct script {
+	struct list_head node;
+	char *path;
+	int arg;
+};
+
 static LIST_HEAD(scripts);
 
 int run_scripts(enum script_actions act)
