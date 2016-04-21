@@ -39,24 +39,12 @@ static int scripts_mode = SCRIPTS_NONE;
 static int rpc_sk;
 static LIST_HEAD(scripts);
 
-int run_scripts(enum script_actions act)
+static int run_shell_scripts(const char *action)
 {
-	struct script *script;
 	int ret = 0;
+	struct script *script;
 	char image_dir[PATH_MAX];
-	const char *action = action_names[act];
 	char root_item_pid[16];
-
-	pr_debug("Running %s scripts\n", action);
-
-	if (scripts_mode == SCRIPTS_NONE)
-		return 0;
-
-	if (scripts_mode == SCRIPTS_RPC) {
-		pr_debug("\tRPC\n");
-		ret = send_criu_rpc_script(act, (char *)action, rpc_sk);
-		goto out;
-	}
 
 	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
 		pr_perror("Can't set CRTOOLS_SCRIPT_ACTION=%s", action);
@@ -84,6 +72,31 @@ int run_scripts(enum script_actions act)
 
 	unsetenv("CRTOOLS_SCRIPT_ACTION");
 
+	return ret;
+}
+
+int run_scripts(enum script_actions act)
+{
+	int ret = 0;
+	const char *action = action_names[act];
+
+	pr_debug("Running %s scripts\n", action);
+
+	if (scripts_mode == SCRIPTS_NONE)
+		return 0;
+
+	if (scripts_mode == SCRIPTS_RPC) {
+		pr_debug("\tRPC\n");
+		ret = send_criu_rpc_script(act, (char *)action, rpc_sk);
+		goto out;
+	}
+
+	if (scripts_mode == SCRIPTS_SHELL) {
+		ret = run_shell_scripts(action);
+		goto out;
+	}
+
+	BUG();
 out:
 	if (ret)
 		pr_err("One of more action scripts failed\n");
