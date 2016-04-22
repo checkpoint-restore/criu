@@ -879,7 +879,7 @@ static int check_autofs(void)
 
 	dir = mkdtemp(template);
 	if (!dir) {
-		pr_perror("failed to construct temporary name\n");
+		pr_perror("failed to construct temporary name");
 		goto free_options;
 	}
 
@@ -891,7 +891,7 @@ static int check_autofs(void)
 	ret = check_autofs_pipe_ino();
 
 	if (umount(dir))
-		pr_perror("failed to umount %s\n", dir);
+		pr_perror("failed to umount %s", dir);
 
 unlink_dir:
 	if (rmdir(dir))

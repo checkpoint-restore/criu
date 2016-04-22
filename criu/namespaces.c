@@ -170,7 +170,7 @@ int join_ns_add(const char *type, char *ns_file, char *extra_opts)
 		jn->nd = &mnt_ns_desc;
 		join_ns_flags |= CLONE_NEWNS;
 	} else {
-		pr_perror("invalid namespace type %s\n", type);
+		pr_err("invalid namespace type %s\n", type);
 		goto err;
 	}
 
