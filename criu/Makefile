@@ -183,6 +183,7 @@ uninstall:
 	$(E) " UNINSTALL" criu
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(SBINDIR)/,criu)
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/,$(notdir $(UAPI_HEADERS)))
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBEXECDIR)/criu/scripts/,systemd-autofs-restart.sh)
 .PHONY: uninstall
 
 #
