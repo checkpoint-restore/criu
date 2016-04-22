@@ -34,8 +34,9 @@ soccr/config.h
 criu/include/version.h
 criu/pie/restorer-blob.h
 criu/pie/parasite-*-blob.h
-criu/pie/piegen/piegen
 criu/pie/pie.lds*.S
 criu/protobuf-desc-gen.h
+lib/build/
+lib/c/criu.pc
 scripts/build/qemu-user-static/*
 lib/.crit-setup.files
