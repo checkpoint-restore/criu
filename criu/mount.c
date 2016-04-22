@@ -1372,7 +1372,7 @@ static int parse_binfmt_misc_entry(struct bfd *f, BinfmtMiscEntry *bme)
 		DUP_EQUAL_AS("mask ", mask)
 #undef DUP_EQUAL_AS
 
-		pr_perror("binfmt_misc: unsupported feature %s\n", str);
+		pr_perror("binfmt_misc: unsupported feature %s", str);
 		return -1;
 	}
 
@@ -2249,7 +2249,7 @@ static int fetch_rt_stat(struct mount_info *m, const char *where)
 	struct stat st;
 
 	if (stat(where, &st)) {
-		pr_perror("Can't stat on %s\n", where);
+		pr_perror("Can't stat on %s", where);
 		return -1;
 	}
 
@@ -2368,7 +2368,7 @@ static int mount_clean_path()
 static int umount_clean_path()
 {
 	if (umount2(mnt_clean_path, MNT_DETACH)) {
-		pr_perror("Unable to umount %s\n", mnt_clean_path);
+		pr_perror("Unable to umount %s", mnt_clean_path);
 		return -1;
 	}
 

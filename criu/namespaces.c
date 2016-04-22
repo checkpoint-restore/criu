@@ -689,7 +689,7 @@ static int check_user_ns(int pid)
 		}
 
 		if (setgroups(0, NULL) < 0) {
-			pr_perror("Unable to drop supplementary groups\n");
+			pr_perror("Unable to drop supplementary groups");
 			return -1;
 		}
 

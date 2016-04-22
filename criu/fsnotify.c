@@ -163,7 +163,7 @@ static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_
 		openable_fd = openat(mntfd, __path, O_PATH);
 		if (openable_fd >= 0) {
 			if (fstat(openable_fd, &st)) {
-				pr_perror("Can't stat on %s\n", __path);
+				pr_perror("Can't stat on %s", __path);
 				close(openable_fd);
 				return ERR_PTR(-errno);
 			}

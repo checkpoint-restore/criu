@@ -327,7 +327,7 @@ static int vma_get_mapfile(char *fname, struct vma_area *vma, DIR *mfd,
 			}
 
 			if (fstat(fd, vma->vmst) < 0) {
-				pr_perror("Can't stat [%s]\n", fname);
+				pr_perror("Can't stat [%s]", fname);
 				close(fd);
 				return -1;
 			}
@@ -2238,7 +2238,7 @@ int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct li
 
 	f = fmemopen(args->contents, strlen(args->contents), "r");
 	if (!f) {
-		pr_perror("couldn't fmemopen cgroup buffer:\n%s\n", args->contents);
+		pr_perror("couldn't fmemopen cgroup buffer:\n%s", args->contents);
 		return -1;
 	}
 

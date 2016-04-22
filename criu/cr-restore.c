@@ -1024,7 +1024,7 @@ static int wait_on_helpers_zombies(void)
 		switch (pi->state) {
 		case TASK_DEAD:
 			if (waitid(P_PID, pid, NULL, WNOWAIT | WEXITED) < 0) {
-				pr_perror("Wait on %d zombie failed\n", pid);
+				pr_perror("Wait on %d zombie failed", pid);
 				return -1;
 			}
 			break;

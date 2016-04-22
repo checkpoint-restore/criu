@@ -1245,7 +1245,7 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 
 	len = strlen(cg_prop_entry_p->value);
 	if (write(fd, cg_prop_entry_p->value, len) != len) {
-		pr_perror("Failed writing %s to %s\n", cg_prop_entry_p->value, path);
+		pr_perror("Failed writing %s to %s", cg_prop_entry_p->value, path);
 		goto out;
 	}
 
