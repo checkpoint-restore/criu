@@ -609,8 +609,6 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 		pr_perror("fork() failed");
 		goto out;
 	} else if (pid == 0) {
-		bool stop_log_fd = false;
-
 		if (userns_pid > 0) {
 			if (switch_ns(userns_pid, &user_ns_desc, NULL))
 				goto out_chld;
@@ -621,11 +619,9 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 		}
 
 		if (out < 0)
-			out = log_get_fd();
-		if (err < 0) {
-			err = log_get_fd();
-			stop_log_fd = true;
-		}
+			out = DUP_SAFE(log_get_fd(), out_chld);
+		if (err < 0)
+			err = DUP_SAFE(log_get_fd(), out_chld);
 
 		/*
 		 * out, err, in should be a separate fds,
@@ -640,9 +636,6 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 		if (move_img_fd(&out, STDIN_FILENO) ||
 		    move_img_fd(&err, STDIN_FILENO))
 			goto out_chld;
-
-		if (stop_log_fd)
-			log_fini();
 
 		if (in < 0) {
 			close(STDIN_FILENO);
