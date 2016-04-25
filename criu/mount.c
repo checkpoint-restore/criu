@@ -3428,7 +3428,8 @@ set_root:
 	return mntns_set_root_fd(pid, fd);
 }
 
-int mntns_get_root_fd(struct ns_id *mntns) {
+int mntns_get_root_fd(struct ns_id *mntns)
+{
 	/*
 	 * All namespaces are restored from the root task and during the
 	 * CR_STATE_FORKING stage the root task has two file descriptors for
