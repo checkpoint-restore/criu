@@ -17,6 +17,8 @@
 #include <sys/resource.h>
 #include <signal.h>
 
+#include "linux/userfaultfd.h"
+
 #include "int.h"
 #include "types.h"
 #include "common/compiler.h"
@@ -723,16 +725,16 @@ static void rst_tcp_socks_all(struct task_restore_args *ta)
 
 static int enable_uffd(int uffd, unsigned long addr, unsigned long len)
 {
+	int rc;
+	struct uffdio_register uffdio_register;
+	unsigned long expected_ioctls;
+
 	/*
 	 * If uffd == -1, this means that userfaultfd is not enabled
 	 * or it is not available.
 	 */
 	if (uffd == -1)
 		return 0;
-#ifdef CONFIG_HAS_UFFD
-	int rc;
-	struct uffdio_register uffdio_register;
-	unsigned long expected_ioctls;
 
 	uffdio_register.range.start = addr;
 	uffdio_register.range.len = len;
@@ -752,7 +754,6 @@ static int enable_uffd(int uffd, unsigned long addr, unsigned long len)
 		pr_err("lazy-pages: unexpected missing uffd ioctl for anon memory\n");
 	}
 
-#endif
 	return 0;
 }
 
