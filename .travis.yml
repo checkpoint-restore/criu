@@ -7,6 +7,7 @@ env:
   - TR_ARCH=x86_64
   - TR_ARCH=armv7hf
   - TR_ARCH=aarch64
+  - TR_ARCH=ppc64le
 script:
   - sudo make -C scripts/build $TR_ARCH
   - sudo ./scripts/travis-tests $TR_ARCH

@@ -1,3 +1,4 @@
-FROM ppc64le/ubuntu
+FROM ppc64le/ubuntu:trusty
 
+ENV QEMU_CPU POWER8
 COPY scripts/build/qemu-user-static/usr/bin/qemu-ppc64le-static /usr/bin/qemu-ppc64le-static
