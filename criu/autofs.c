@@ -704,6 +704,7 @@ static int autofs_create_fle(struct pstree_item *task, FdinfoEntry *fe,
 			     struct file_desc *desc)
 {
 	struct fdinfo_list_entry *le;
+	struct rst_info *rst_info = rsti(task);
 
 	le = shmalloc(sizeof(*le) + sizeof(int));
 	if (!le)
@@ -714,7 +715,9 @@ static int autofs_create_fle(struct pstree_item *task, FdinfoEntry *fe,
 	le->pid = task->pid.virt;
 	le->fe = fe;
 
-	collect_gen_fd(le, rsti(task));
+	collect_gen_fd(le, rst_info);
+
+	collect_used_fd(le, rst_info);
 
 	list_add_tail(&le->desc_list, &desc->fd_info_head);
 	le->desc = desc;
