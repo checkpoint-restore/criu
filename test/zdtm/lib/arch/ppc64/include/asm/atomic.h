@@ -47,7 +47,7 @@ ATOMIC_OP(sub, subf)
 
 #undef ATOMIC_OP
 
-static __inline__ int atomic_inc(atomic_t *v)
+static __inline__ int atomic_inc_return(atomic_t *v)
 {
 	int t;
 
@@ -63,6 +63,11 @@ static __inline__ int atomic_inc(atomic_t *v)
 	: "cc", "xer", "memory");
 
 	return t;
+}
+
+static __inline__ int atomic_inc(atomic_t *v)
+{
+	return atomic_inc_return(v) - 1;
 }
 
 static __inline__ void atomic_dec(atomic_t *v)
