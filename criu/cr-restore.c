@@ -1869,6 +1869,9 @@ static int clear_breakpoints()
 	struct pstree_item *item;
 	int ret = 0, i;
 
+	if (fault_injected(FI_NO_BREAKPOINTS))
+		return 0;
+
 	for_each_pstree_item(item) {
 		if (!task_alive(item))
 			continue;

@@ -10,6 +10,7 @@ enum faults {
 	/* not fatal */
 	FI_CHECK_OPEN_HANDLE = 128,
 	FI_NO_MEMFD = 129,
+	FI_NO_BREAKPOINTS = 130,
 	FI_MAX,
 };
 

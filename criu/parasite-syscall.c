@@ -1403,7 +1403,11 @@ int ptrace_stop_pie(pid_t pid, void *addr, enum trace_flags *tf)
 {
 	int ret;
 
-	ret = ptrace_set_breakpoint(pid, addr);
+	if (fault_injected(FI_NO_BREAKPOINTS)) {
+		pr_debug("Force no-breakpoints restore\n");
+		ret = 0;
+	} else
+		ret = ptrace_set_breakpoint(pid, addr);
 	if (ret < 0)
 		return ret;
 
