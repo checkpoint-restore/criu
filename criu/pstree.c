@@ -18,8 +18,6 @@
 
 struct pstree_item *root_item;
 
-#define CLONE_ALLNS     (CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER)
-
 void core_entry_free(CoreEntry *core)
 {
 	if (core->tc && core->tc->timers)
