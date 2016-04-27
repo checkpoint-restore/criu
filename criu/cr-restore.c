@@ -1305,18 +1305,6 @@ static inline int fork_with_pid(struct pstree_item *item)
 				item->pid.real, item->pid.virt);
 	}
 
-	if (opts.pidfile && root_item == item) {
-		int pid;
-
-		pid = ret;
-
-		ret = write_pidfile(pid);
-		if (ret < 0) {
-			pr_perror("Can't write pidfile");
-			kill(pid, SIGKILL);
-		}
-	}
-
 err_unlock:
 	if (ca.fd >= 0) {
 		if (flock(ca.fd, LOCK_UN))
@@ -1975,6 +1963,23 @@ static void restore_origin_ns_hook(void)
 		pr_err("Restore original /proc/self/loginuid failed");
 }
 
+static int write_restored_pid(void)
+{
+	int pid;
+
+	if (!opts.pidfile)
+		return 0;
+
+	pid = root_item->pid.real;
+
+	if (write_pidfile(pid) < 0) {
+		pr_perror("Can't write pidfile");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int restore_root_task(struct pstree_item *init)
 {
 	enum trace_flags flag = TRACE_ALL;
@@ -2135,6 +2140,9 @@ static int restore_root_task(struct pstree_item *init)
 		goto out_kill;
 	}
 
+	if (write_restored_pid())
+		goto out_kill;
+
 	/* Unlock network before disabling repair mode on sockets */
 	network_unlock();
 
@@ -2212,10 +2220,6 @@ out_kill:
 				kill(pi->pid.virt, SIGKILL);
 	}
 
-	if (opts.pidfile) {
-		if (unlink(opts.pidfile))
-			pr_perror("Unable to remove %s", opts.pidfile);
-	}
 out:
 	fini_cgroup();
 	if (clean_remaps)
