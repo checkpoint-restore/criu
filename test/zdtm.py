@@ -982,13 +982,16 @@ def get_freezer(desc):
 	fr = cg_freezer(path = fd[0], state = fd[1])
 	return fr
 
+def cmp_ns(ns1, match, ns2, msg):
+	ns1_ino = os.stat(ns1).st_ino
+	ns2_ino = os.stat(ns2).st_ino
+	if eval("%r %s %r" % (ns1_ino, match, ns2_ino)):
+		print "%s match (%r %s %r) fail" % (msg, ns1_ino, match, ns2_ino)
+		raise test_fail_exc("%s compare" % msg)
+
+
 def check_joinns_state(t):
-	nsstat = os.stat("/proc/%s/ns/net" % t.getpid())
-	joinns = os.stat(join_ns_file)
-	if nsstat.st_ino != joinns.st_ino:
-		print "should join in namespace %d" % joinns.st_ino
-		print "now in namespace %d" % nsstat.st_ino
-		raise test_fail_exc("join-ns compare")
+	cmp_ns("/proc/%s/ns/net" % t.getpid(), "!=", join_ns_file, "join-ns")
 
 
 def do_run_test(tname, tdesc, flavs, opts):
