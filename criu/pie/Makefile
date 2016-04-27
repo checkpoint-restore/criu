@@ -158,19 +158,24 @@ $(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel
 
 else # !piegen-y
 
+# ld on arm doesn't like -pie and -r options together
+ifeq ($(filter arm aarch64,$(ARCH)),)
+        LD_R := -r
+endif
+
 define gen-rule-built-in.bin.o
 $(obj)/parasite-$(1).built-in.bin.o: $(obj)/$(1).built-in.o		\
-				$(obj)/pie.lds-$(1).S
+				$(obj)/pie.lds-$(1).S $(obj)/native.lib.a
 	$$(call msg-gen, $$@)
-	$(Q) $(LD) -r -T $(obj)/pie.lds-$(1).S -o $$@ $$<
+	$(Q) $(LD) $(LD_R) -T $(obj)/pie.lds-$(1).S -o $$@ $$< $(obj)/native.lib.a
 endef
 
 $(eval $(call map,gen-rule-built-in.bin.o,$(parasite_target)))
 
 $(obj)/restorer.built-in.bin.o: $(obj)/restorer.built-in.o		\
-				$(obj)/pie.lds-native.S
+				$(obj)/pie.lds-native.S $(obj)/native.lib.a
 	$(call msg-gen, $@)
-	$(Q) $(LD) -r -T $(obj)/pie.lds-native.S -o $@ $<
+	$(Q) $(LD) $(LD_R) -T $(obj)/pie.lds-native.S -o $@ $< $(obj)/native.lib.a
 
 $(obj)/%.built-in.bin: $(obj)/%.built-in.bin.o
 	$(call msg-gen, $@)
