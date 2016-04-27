@@ -261,7 +261,7 @@ struct tty_driver *get_tty_driver(dev_t rdev, dev_t dev)
 			return &ctty_driver;
 		break;
 	case TTY_MAJOR:
-		if (minor > MIN_NR_CONSOLES && minor < MAX_NR_CONSOLES)
+		if (minor >= MIN_NR_CONSOLES && minor <= MAX_NR_CONSOLES)
 			/*
 			 * Minors [MIN_NR_CONSOLES; MAX_NR_CONSOLES] stand
 			 * for consoles (virtual terminals, VT in terms
