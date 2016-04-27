@@ -9,6 +9,10 @@
 /* Kernel's limit */
 #define TERMIOS_NCC	19
 
+/* Popular serial console's majors, which not defined in <linux/major.h> */
+#define USB_SERIAL_MAJOR	188
+#define LOW_DENSE_SERIAL_MAJOR	204
+
 extern const struct fdtype_ops tty_dump_ops;
 
 struct tty_driver;

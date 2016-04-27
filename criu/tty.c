@@ -210,6 +210,12 @@ static struct tty_driver ext_driver = {
 	.open			= open_ext_tty,
 };
 
+static struct tty_driver serial_driver = {
+	.type			= TTY_TYPE__SERIAL,
+	.name			= "serial",
+	.open			= open_simple_tty,
+};
+
 static int pts_fd_get_index(int fd, const struct fd_parms *p)
 {
 	int index;
@@ -268,6 +274,10 @@ struct tty_driver *get_tty_driver(dev_t rdev, dev_t dev)
 			 * of kernel).
 			 */
 			return &vt_driver;
+		/* Other minors points to UART serial ports */
+	case USB_SERIAL_MAJOR:
+	case LOW_DENSE_SERIAL_MAJOR:
+		return &serial_driver;
 	case UNIX98_PTY_MASTER_MAJOR ... (UNIX98_PTY_MASTER_MAJOR + UNIX98_PTY_MAJOR_COUNT - 1):
 		return &ptm_driver;
 	case UNIX98_PTY_SLAVE_MAJOR:
@@ -668,6 +678,7 @@ static bool tty_is_master(struct tty_info *info)
 	case TTY_TYPE__CONSOLE:
 	case TTY_TYPE__CTTY:
 		return true;
+	case TTY_TYPE__SERIAL:
 	case TTY_TYPE__VT:
 		if (!opts.shell_job)
 			return true;
@@ -1368,6 +1379,7 @@ static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg, struct c
 		break;
 	case TTY_TYPE__CTTY:
 	case TTY_TYPE__CONSOLE:
+	case TTY_TYPE__SERIAL:
 	case TTY_TYPE__VT:
 	case TTY_TYPE__EXT_TTY:
 		if (info->tie->pty) {
