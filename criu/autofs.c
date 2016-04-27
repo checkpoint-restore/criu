@@ -547,19 +547,10 @@ static int autofs_create_dentries(const struct mount_info *mi, char *mnt_path)
 static int autofs_populate_mount(const struct mount_info *mi,
 				 const AutofsEntry *entry)
 {
-	struct mount_info *b;
-
 	if (entry->mode != AUTOFS_MODE_INDIRECT)
 		return 0;
 
-	if (autofs_create_dentries(mi, mi->mountpoint) < 0)
-		return -1;
-
-	list_for_each_entry(b, &mi->mnt_bind, mnt_bind) {
-		if (autofs_create_dentries(b, mi->mountpoint) < 0)
-			return -1;
-	}
-	return 0;
+	return autofs_create_dentries(mi, mi->mountpoint);
 }
 
 static int autofs_post_mount(const char *mnt_path, dev_t mnt_dev,
