@@ -351,6 +351,81 @@ static int for_each_option_do(int (*f)(FILE *fp, int *conf, int *conf_rand,
 	return 0;
 }
 
+#define IPV6ADDR_EXAMPLE "2607:f0d0:1002:0051:0000:0000:0000:0004"
+#define MAX_STR_CONF_LEN 200
+
+static int set_stable_secret(struct test_conf *tc) {
+	int ret;
+	FILE *fp;
+	char path[PATH_MAX];
+
+	ret = snprintf(path, sizeof(path), "%s/%s", tc->dir6, "stable_secret");
+	if (ret < 0) {
+		pr_perror("snprintf");
+		return -1;
+	}
+
+	ret = access(path, W_OK);
+	if (ret < 0)
+		return 0;
+
+	fp = fopen(path, "r+");
+	if (fp == NULL) {
+		pr_perror("fopen");
+		return -1;
+	}
+
+	ret = fprintf(fp, IPV6ADDR_EXAMPLE);
+	if (ret < 0) {
+		pr_perror("fprintf");
+		fclose(fp);
+		return -1;
+	}
+
+	fclose(fp);
+	return 0;
+}
+
+static int check_stable_secret(struct test_conf *tc) {
+	int ret;
+	FILE *fp;
+	char path[PATH_MAX];
+	char val[MAX_STR_CONF_LEN+1];
+
+	ret = snprintf(path, sizeof(path), "%s/%s", tc->dir6, "stable_secret");
+	if (ret < 0) {
+		pr_perror("snprintf");
+		return -1;
+	}
+
+	ret = access(path, W_OK);
+	if (ret < 0)
+		return 0;
+
+	fp = fopen(path, "r+");
+	if (fp == NULL) {
+		pr_perror("fopen");
+		return -1;
+	}
+
+	ret = fscanf(fp, "%s", val);
+	if (ret != 1) {
+		pr_perror("fscanf");
+		fclose(fp);
+		return -1;
+	}
+
+	if (strcmp(val, IPV6ADDR_EXAMPLE)) {
+		fail("Option \"%s\" changed from %s to %s",
+		     path, IPV6ADDR_EXAMPLE, val);
+		fclose(fp);
+		return -1;
+	}
+
+	fclose(fp);
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	int ret;
@@ -368,11 +443,17 @@ int main(int argc, char **argv)
 	ret = for_each_option_do(gen_conf, &lo);
 	if (ret < 0)
 		return -1;
+	ret = set_stable_secret(&lo);
+	if (ret < 0)
+		return -1;
 
 	ret = for_each_option_do(save_conf, &def);
 	if (ret < 0)
 		return -1;
 	ret = for_each_option_do(gen_conf, &def);
+	if (ret < 0)
+		return -1;
+	ret = set_stable_secret(&def);
 	if (ret < 0)
 		return -1;
 
@@ -385,11 +466,17 @@ int main(int argc, char **argv)
 	ret = for_each_option_do(restore_conf, &lo);
 	if (ret < 0)
 		return -1;
+	ret = check_stable_secret(&lo);
+	if (ret < 0)
+		return -1;
 
 	ret = for_each_option_do(check_conf, &def);
 	if (ret < 0)
 		return -1;
 	ret = for_each_option_do(restore_conf, &def);
+	if (ret < 0)
+		return -1;
+	ret = check_stable_secret(&def);
 	if (ret < 0)
 		return -1;
 
