@@ -84,6 +84,100 @@ struct range rand_range4[] = {
 	{INT_MIN, INT_MAX},	/* tag */
 };
 
+char *devconfs6[] = {
+	"accept_dad",
+	"accept_ra",
+	"accept_ra_defrtr",
+	"accept_ra_from_local",
+	"accept_ra_min_hop_limit",
+	"accept_ra_mtu",
+	"accept_ra_pinfo",
+	"accept_ra_rt_info_max_plen",
+	"accept_ra_rtr_pref",
+	"accept_redirects",
+	"accept_source_route",
+	"autoconf",
+	"dad_transmits",
+	"disable_ipv6",
+	"drop_unicast_in_l2_multicast",
+	"drop_unsolicited_na",
+	"force_mld_version",
+	"force_tllao",
+	"forwarding",
+	"hop_limit",
+	"ignore_routes_with_linkdown",
+	"keep_addr_on_down",
+	"max_addresses",
+	"max_desync_factor",
+	"mldv1_unsolicited_report_interval",
+	"mldv2_unsolicited_report_interval",
+	"mtu",
+	"ndisc_notify",
+	"optimistic_dad",
+	"proxy_ndp",
+	"regen_max_retry",
+	"router_probe_interval",
+	"router_solicitation_delay",
+	"router_solicitation_interval",
+	"router_solicitations",
+	"suppress_frag_ndisc",
+	"temp_prefered_lft",
+	"temp_valid_lft",
+	"use_oif_addrs_only",
+	"use_optimistic",
+	"use_tempaddr",
+	NULL,
+};
+
+#define IPV6_MIN_MTU 1280
+#define ROUTER_MAX 60
+/* According to kernel docs do not make max_addresses too large */
+#define MAX_ADDRESSES 128
+
+struct range rand_range6[] = {
+	{0, 2},	/* accept_dad */
+	{0, 2},	/* accept_ra */
+	{0, 1},	/* accept_ra_defrtr */
+	{0, 1},	/* accept_ra_from_local */
+	{0, INT_MAX},	/* accept_ra_min_hop_limit */
+	{0, 1},	/* accept_ra_mtu */
+	{0, 1},	/* accept_ra_pinfo */
+	{0, INT_MAX},	/* accept_ra_rt_info_max_plen */
+	{0, 1},	/* accept_ra_rtr_pref */
+	{0, 1},	/* accept_redirects */
+	{-1, 0},	/* accept_source_route */
+	{0, 1},	/* autoconf */
+	{0, INT_MAX},	/* dad_transmits */
+	{0, 1},	/* disable_ipv6 */
+	{0, 1},	/* drop_unicast_in_l2_multicast */
+	{0, 1},	/* drop_unsolicited_na */
+	{0, 2},	/* force_mld_version */
+	{0, 1},	/* force_tllao */
+	{0, 1},	/* forwarding */
+	{0, INT_MAX},	/* hop_limit */
+	{0, 1},	/* ignore_routes_with_linkdown */
+	{-1, 1},	/* keep_addr_on_down */
+	{0, MAX_ADDRESSES},	/* max_addresses */
+	{0, INT_MAX},	/* max_desync_factor */
+	{0, INT_MAX},	/* mldv1_unsolicited_report_interval */
+	{0, INT_MAX},	/* mldv2_unsolicited_report_interval */
+	{IPV6_MIN_MTU, IPV6_MIN_MTU},	/* mtu */
+	{0, 1},	/* ndisc_notify */
+	{0, 1},	/* optimistic_dad */
+	{0, 1},	/* proxy_ndp */
+	{0, INT_MAX},	/* regen_max_retry */
+	{0, ROUTER_MAX},	/* router_probe_interval */
+	{0, ROUTER_MAX},	/* router_solicitation_delay */
+	{0, ROUTER_MAX},	/* router_solicitation_interval */
+	{0, ROUTER_MAX},	/* router_solicitations */
+	{0, 1},	/* suppress_frag_ndisc */
+	{0, INT_MAX},	/* temp_prefered_lft */
+	{0, INT_MAX},	/* temp_valid_lft */
+	{0, 1},	/* use_oif_addrs_only */
+	{0, 1},	/* use_optimistic */
+	{0, 2},	/* use_tempaddr */
+};
+
 struct test_conf {
 	int ipv4_conf[ARRAY_SIZE(devconfs4)];
 	int ipv4_conf_rand[ARRAY_SIZE(devconfs4)];
