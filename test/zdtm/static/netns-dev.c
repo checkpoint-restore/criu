@@ -90,6 +90,22 @@ struct test_conf {
 	char *dir4;
 } lo, def;
 
+static int save_conf(FILE *fp, int *conf, int *conf_rand,
+		struct range *range, char *path) {
+	int ret;
+
+	/*
+	 * Save
+	 */
+	ret = fscanf(fp, "%d", conf);
+	if (ret != 1) {
+		pr_perror("fscanf");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int rand_in_small_range(struct range *r) {
 	return lrand48() % (r->max - r->min + 1) + r->min;
 }
@@ -113,25 +129,9 @@ static int rand_in_range(struct range *r) {
 	return rand_in_small_range(&small);
 }
 
-static int save_and_set(FILE *fp, int *conf, int *conf_rand,
+static int gen_conf(FILE *fp, int *conf, int *conf_rand,
 		struct range *range, char *path) {
 	int ret;
-
-	/*
-	 * Save
-	 */
-	ret = fscanf(fp, "%d", conf);
-	if (ret != 1) {
-		pr_perror("fscanf");
-		return -1;
-	}
-
-	ret = fseek(fp, 0, SEEK_SET);
-	if (ret) {
-		pr_perror("fseek");
-		return -1;
-	}
-
 	/*
 	 * Set random value
 	 */
@@ -146,7 +146,7 @@ static int save_and_set(FILE *fp, int *conf, int *conf_rand,
 	return 0;
 }
 
-static int check_and_restore(FILE *fp, int *conf, int *conf_rand,
+static int check_conf(FILE *fp, int *conf, int *conf_rand,
 		struct range *range, char *path) {
 	int ret;
 	int val;
@@ -166,12 +166,12 @@ static int check_and_restore(FILE *fp, int *conf, int *conf_rand,
 		return -1;
 	}
 
-	ret = fseek(fp, 0, SEEK_SET);
-	if (ret) {
-		pr_perror("fseek");
-		return -1;
-	}
+	return 0;
+}
 
+static int restore_conf(FILE *fp, int *conf, int *conf_rand,
+		struct range *range, char *path) {
+	int ret;
 	/*
 	 * Restore opt
 	 */
@@ -228,22 +228,34 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	ret = for_each_option_do(save_and_set, &lo);
+	ret = for_each_option_do(save_conf, &lo);
+	if (ret < 0)
+		return -1;
+	ret = for_each_option_do(gen_conf, &lo);
 	if (ret < 0)
 		return -1;
 
-	ret = for_each_option_do(save_and_set, &def);
+	ret = for_each_option_do(save_conf, &def);
+	if (ret < 0)
+		return -1;
+	ret = for_each_option_do(gen_conf, &def);
 	if (ret < 0)
 		return -1;
 
 	test_daemon();
 	test_waitsig();
 
-	ret = for_each_option_do(check_and_restore, &lo);
+	ret = for_each_option_do(check_conf, &lo);
+	if (ret < 0)
+		return -1;
+	ret = for_each_option_do(restore_conf, &lo);
 	if (ret < 0)
 		return -1;
 
-	ret = for_each_option_do(check_and_restore, &def);
+	ret = for_each_option_do(check_conf, &def);
+	if (ret < 0)
+		return -1;
+	ret = for_each_option_do(restore_conf, &def);
 	if (ret < 0)
 		return -1;
 
