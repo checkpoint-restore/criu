@@ -179,9 +179,12 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 			continue;
 		}
 		/*
-		 * If dev conf value is the same as default skip restoring it
+		 * If dev conf value is the same as default skip restoring it,
+		 * mtu may be changed by disable_ipv6 so we can not skip
+		 * it's restore
 		 */
-		if (def_conf && sysctl_entries_equal(conf[i], def_conf[i])) {
+		if (def_conf && sysctl_entries_equal(conf[i], def_conf[i])
+				&& strcmp(devconfs[i], "mtu")) {
 			pr_debug("Skip %s/%s, coincides with default\n", tgt, devconfs[i]);
 			continue;
 		}
@@ -1002,6 +1005,11 @@ static int restore_links(int pid, NetnsEntry **netns)
 			ret = ipv4_conf_op(nde->name, nde->conf4, nde->n_conf4, CTL_WRITE, def_netns ? (*def_netns)->def_conf4 : NULL);
 		else if (nde->conf)
 			ret = ipv4_conf_op_old(nde->name, nde->conf, nde->n_conf, CTL_WRITE, def_netns ? (*def_netns)->def_conf : NULL);
+		if (ret)
+			goto exit;
+
+		if (nde->conf6)
+			ret = ipv6_conf_op(nde->name, nde->conf6, nde->n_conf6, CTL_WRITE, def_netns ? (*def_netns)->def_conf6 : NULL);
 exit:
 		net_device_entry__free_unpacked(nde, NULL);
 		if (ret)
@@ -1322,12 +1330,23 @@ static int restore_netns_conf(int pid, NetnsEntry **netns)
 		if (ret)
 			goto out;
 		ret = ipv4_conf_op("all", (*netns)->all_conf4, (*netns)->n_all_conf4, CTL_WRITE, NULL);
+		if (ret)
+			goto out;
 	} else if ((*netns)->def_conf) {
 		/* Backward compatibility */
 		ret = ipv4_conf_op_old("default", (*netns)->def_conf, (*netns)->n_def_conf, CTL_WRITE, NULL);
 		if (ret)
 			goto out;
 		ret = ipv4_conf_op_old("all", (*netns)->all_conf, (*netns)->n_all_conf, CTL_WRITE, NULL);
+		if (ret)
+			goto out;
+	}
+
+	if ((*netns)->def_conf6) {
+		ret = ipv6_conf_op("all", (*netns)->all_conf6, (*netns)->n_all_conf6, CTL_WRITE, NULL);
+		if (ret)
+			goto out;
+		ret = ipv6_conf_op("default", (*netns)->def_conf6, (*netns)->n_def_conf6, CTL_WRITE, NULL);
 	}
 out:
 	close_image(img);
