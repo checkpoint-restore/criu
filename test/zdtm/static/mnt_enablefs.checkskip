@@ -1,0 +1,3 @@
+#!/bin/sh
+
+unshare -m --propagation private mount -t nfsd nfsd /mnt
