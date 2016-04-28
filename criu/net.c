@@ -61,6 +61,21 @@ int read_ns_sys_file(char *path, char *buf, int len)
 	return rlen;
 }
 
+static bool sysctl_entries_equal(SysctlEntry *a, SysctlEntry *b)
+{
+	if (a->type != b->type)
+		return false;
+
+	switch (CTL_TYPE(a->type)) {
+		case CTL_32:
+			return a->has_iarg && b->has_iarg && a->iarg == b->iarg;
+		case __CTL_STR:
+			return a->sarg && b->sarg && !strcmp(a->sarg, b->sarg);
+	}
+
+	return false;
+}
+
 static char *devconfs4[] = {
 	"accept_local",
 	"accept_redirects",
@@ -94,6 +109,100 @@ static char *devconfs4[] = {
 	"drop_unicast_in_l2_multicast",
 };
 
+#define CONF_OPT_PATH "net/%s/conf/%s/%s"
+#define MAX_CONF_OPT_PATH IFNAMSIZ+50
+#define MAX_STR_CONF_LEN 200
+
+static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto,
+		struct sysctl_req *req, char (*path)[MAX_CONF_OPT_PATH], int size,
+		char **devconfs, SysctlEntry **def_conf)
+{
+	int i, ri;
+	int ret, flags = op == CTL_READ ? CTL_FLAGS_OPTIONAL : 0;
+	SysctlEntry **rconf;
+
+	if (n > size)
+		pr_warn("The image contains unknown sysctl-s\n");
+
+	rconf = xmalloc(sizeof(SysctlEntry *) * size);
+	if (!rconf)
+		return -1;
+
+	for (i = 0, ri = 0; i < size; i++) {
+		if (i >= n) {
+			pr_warn("Skip %s/%s\n", tgt, devconfs[i]);
+			continue;
+		}
+		/*
+		 * If dev conf value is the same as default skip restoring it
+		 */
+		if (def_conf && sysctl_entries_equal(conf[i], def_conf[i])) {
+			pr_debug("Skip %s/%s, coincides with default\n", tgt, devconfs[i]);
+			continue;
+		}
+
+		snprintf(path[i], MAX_CONF_OPT_PATH, CONF_OPT_PATH, proto, tgt, devconfs[i]);
+		req[ri].name = path[i];
+		switch (CTL_TYPE(conf[i]->type)) {
+			case CTL_32:
+				req[ri].type = CTL_32;
+
+				/* skip non-existing sysctl */
+				if (op == CTL_WRITE && !conf[i]->has_iarg)
+					continue;
+
+				req[ri].arg = &conf[i]->iarg;
+				break;
+			case __CTL_STR:
+				req[ri].type = CTL_STR(MAX_STR_CONF_LEN);
+
+				/* skip non-existing sysctl */
+				if (op == CTL_WRITE && !conf[i]->sarg)
+					continue;
+
+				req[ri].arg = conf[i]->sarg;
+				break;
+			default:
+				continue;
+		}
+		req[ri].flags = flags;
+		rconf[ri] = conf[i];
+		ri++;
+	}
+
+	ret = sysctl_op(req, ri, op, CLONE_NEWNET);
+	if (ret < 0) {
+		pr_err("Failed to %s %s/<confs>\n", (op == CTL_READ)?"read":"write", tgt);
+		goto err_free;
+	}
+
+	if (op == CTL_READ) {
+		/* (un)mark (non-)existing sysctls in image */
+		for (i = 0; i < ri; i++)
+			if (req[i].flags & CTL_FLAGS_HAS) {
+				if (CTL_TYPE(rconf[i]->type) == CTL_32)
+					rconf[i]->has_iarg = true;
+			} else {
+				if (CTL_TYPE(rconf[i]->type) == __CTL_STR)
+					rconf[i]->sarg = NULL;
+			}
+	}
+
+err_free:
+	xfree(rconf);
+	return ret;
+}
+
+static int ipv4_conf_op(char *tgt, SysctlEntry **conf, int n, int op, SysctlEntry **def_conf)
+{
+	struct sysctl_req req[ARRAY_SIZE(devconfs4)];
+	char path[ARRAY_SIZE(devconfs4)][MAX_CONF_OPT_PATH];
+
+	return net_conf_op(tgt, conf, n, op, "ipv4",
+			req, path, ARRAY_SIZE(devconfs4),
+			devconfs4, def_conf);
+}
+
 /*
  * I case if some entry is missing in
  * the kernel, simply write DEVCONFS_UNUSED
@@ -101,10 +210,7 @@ static char *devconfs4[] = {
  */
 #define DEVCONFS_UNUSED        (-1u)
 
-#define NET_CONF_PATH "net/ipv4/conf"
-#define MAX_CONF_OPT_PATH IFNAMSIZ+50
-
-static int ipv4_conf_op(char *tgt, int *conf, int n, int op, NetnsEntry **netns)
+static int ipv4_conf_op_old(char *tgt, int *conf, int n, int op, int *def_conf)
 {
 	int i, ri;
 	int ret, flags = op == CTL_READ ? CTL_FLAGS_OPTIONAL : 0;
@@ -122,7 +228,7 @@ static int ipv4_conf_op(char *tgt, int *conf, int n, int op, NetnsEntry **netns)
 		/*
 		 * If dev conf value is the same as default skip restoring it
 		 */
-		if (netns && conf[i] == (*netns)->def_conf[i]) {
+		if (def_conf && conf[i] == def_conf[i]) {
 			pr_debug("DEBUG Skip %s/%s, val =%d\n", tgt, devconfs4[i], conf[i]);
 			continue;
 		}
@@ -132,7 +238,7 @@ static int ipv4_conf_op(char *tgt, int *conf, int n, int op, NetnsEntry **netns)
 		else if (op == CTL_READ)
 			conf[i] = DEVCONFS_UNUSED;
 
-		snprintf(path[i], MAX_CONF_OPT_PATH, "%s/%s/%s", NET_CONF_PATH, tgt, devconfs4[i]);
+		snprintf(path[i], MAX_CONF_OPT_PATH, CONF_OPT_PATH, "ipv4", tgt, devconfs4[i]);
 		req[ri].name = path[i];
 		req[ri].arg = &conf[i];
 		req[ri].type = CTL_32;
@@ -157,8 +263,11 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 		struct nlattr **tb, struct cr_imgset *fds,
 		int (*dump)(NetDeviceEntry *, struct cr_imgset *))
 {
-	int ret;
+	int ret = -1;
+	int i;
 	NetDeviceEntry netdev = NET_DEVICE_ENTRY__INIT;
+	SysctlEntry *confs4 = NULL;
+	int size4 = ARRAY_SIZE(devconfs4);
 
 	if (!tb[IFLA_IFNAME]) {
 		pr_err("No name for link %d\n", ifi->ifi_index);
@@ -180,12 +289,22 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 				(int)netdev.address.len, netdev.name);
 	}
 
-	netdev.n_conf = ARRAY_SIZE(devconfs4);
-	netdev.conf = xmalloc(sizeof(int) * netdev.n_conf);
-	if (!netdev.conf)
-		return -1;
+	netdev.n_conf4 = size4;
+	netdev.conf4 = xmalloc(sizeof(SysctlEntry *) * size4);
+	if (!netdev.conf4)
+		goto err_free;
 
-	ret = ipv4_conf_op(netdev.name, netdev.conf, netdev.n_conf, CTL_READ, NULL);
+	confs4 = xmalloc(sizeof(SysctlEntry) * size4);
+	if (!confs4)
+		goto err_free;
+
+	for (i = 0; i < size4; i++) {
+		sysctl_entry__init(&confs4[i]);
+		netdev.conf4[i] = &confs4[i];
+		netdev.conf4[i]->type = CTL_32;
+	}
+
+	ret = ipv4_conf_op(netdev.name, netdev.conf4, size4, CTL_READ, NULL);
 	if (ret < 0)
 		goto err_free;
 
@@ -194,7 +313,8 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 
 	ret = dump(&netdev, fds);
 err_free:
-	xfree(netdev.conf);
+	xfree(confs4);
+	xfree(netdev.conf4);
 	return ret;
 }
 
@@ -772,6 +892,8 @@ static int restore_links(int pid, NetnsEntry **netns)
 	}
 
 	while (1) {
+		NetnsEntry **def_netns = netns;
+
 		ret = pb_read_one_eof(img, &nde, PB_NETDEV);
 		if (ret <= 0)
 			break;
@@ -782,17 +904,18 @@ static int restore_links(int pid, NetnsEntry **netns)
 			goto exit;
 		}
 
-		if (nde->conf) {
-			NetnsEntry **def_netns = netns;
-			/*
-			 * optimize restore of devices configuration except lo
-			 * lo is created with namespace and before default is set
-			 * so we cant optimize its restore
-			 */
-			if (nde->type == ND_TYPE__LOOPBACK)
-				def_netns = NULL;
-			ret = ipv4_conf_op(nde->name, nde->conf, nde->n_conf, CTL_WRITE, def_netns);
-		}
+		/*
+		 * optimize restore of devices configuration except lo
+		 * lo is created with namespace and before default is set
+		 * so we cant optimize its restore
+		 */
+		if (nde->type == ND_TYPE__LOOPBACK)
+			def_netns = NULL;
+
+		if (nde->conf4)
+			ret = ipv4_conf_op(nde->name, nde->conf4, nde->n_conf4, CTL_WRITE, def_netns ? (*def_netns)->def_conf4 : NULL);
+		else if (nde->conf)
+			ret = ipv4_conf_op_old(nde->name, nde->conf, nde->n_conf, CTL_WRITE, def_netns ? (*def_netns)->def_conf : NULL);
 exit:
 		net_device_entry__free_unpacked(nde, NULL);
 		if (ret)
@@ -907,32 +1030,49 @@ static inline int dump_iptables(struct cr_imgset *fds)
 
 static int dump_netns_conf(struct cr_imgset *fds)
 {
-	int ret, n;
+	int ret = -1;
+	int i;
 	NetnsEntry netns = NETNS_ENTRY__INIT;
+	SysctlEntry *def_confs4 = NULL, *all_confs4 = NULL;
+	int size4 = ARRAY_SIZE(devconfs4);
 
-	netns.n_def_conf = ARRAY_SIZE(devconfs4);
-	netns.n_all_conf = ARRAY_SIZE(devconfs4);
-	netns.def_conf = xmalloc(sizeof(int) * netns.n_def_conf);
-	if (!netns.def_conf)
-		return -1;
-	netns.all_conf = xmalloc(sizeof(int) * netns.n_all_conf);
-	if (!netns.all_conf) {
-		xfree(netns.def_conf);
-		return -1;
+	netns.n_def_conf4 = size4;
+	netns.n_all_conf4 = size4;
+	netns.def_conf4 = xmalloc(sizeof(SysctlEntry *) * size4);
+	if (!netns.def_conf4)
+		goto err_free;
+	netns.all_conf4 = xmalloc(sizeof(SysctlEntry *) * size4);
+	if (!netns.all_conf4)
+		goto err_free;
+	def_confs4 = xmalloc(sizeof(SysctlEntry) * size4);
+	if (!def_confs4)
+		goto err_free;
+	all_confs4 = xmalloc(sizeof(SysctlEntry) * size4);
+	if (!all_confs4)
+		goto err_free;
+
+	for (i = 0; i < size4; i++) {
+		sysctl_entry__init(&def_confs4[i]);
+		sysctl_entry__init(&all_confs4[i]);
+		netns.def_conf4[i] = &def_confs4[i];
+		netns.all_conf4[i] = &all_confs4[i];
+		netns.def_conf4[i]->type = CTL_32;
+		netns.all_conf4[i]->type = CTL_32;
 	}
 
-	n = netns.n_def_conf;
-	ret = ipv4_conf_op("default", netns.def_conf, n, CTL_READ, NULL);
+	ret = ipv4_conf_op("default", netns.def_conf4, size4, CTL_READ, NULL);
 	if (ret < 0)
 		goto err_free;
-	ret = ipv4_conf_op("all", netns.all_conf, n, CTL_READ, NULL);
+	ret = ipv4_conf_op("all", netns.all_conf4, size4, CTL_READ, NULL);
 	if (ret < 0)
 		goto err_free;
 
 	ret = pb_write_one(img_from_set(fds, CR_FD_NETNS), &netns, PB_NETNS);
 err_free:
-	xfree(netns.def_conf);
-	xfree(netns.all_conf);
+	xfree(netns.def_conf4);
+	xfree(netns.all_conf4);
+	xfree(def_confs4);
+	xfree(all_confs4);
 	return ret;
 }
 
@@ -1028,7 +1168,7 @@ out:
 
 static int restore_netns_conf(int pid, NetnsEntry **netns)
 {
-	int ret = 0, n;
+	int ret = 0;
 	struct cr_img *img;
 
 	img = open_image(CR_FD_NETNS, O_RSTR, pid);
@@ -1045,11 +1185,18 @@ static int restore_netns_conf(int pid, NetnsEntry **netns)
 		return -1;
 	}
 
-	n = (*netns)->n_def_conf;
-	ret = ipv4_conf_op("default", (*netns)->def_conf, n, CTL_WRITE, NULL);
-	if (ret)
-		goto out;
-	ret = ipv4_conf_op("all", (*netns)->all_conf, n, CTL_WRITE, NULL);
+	if ((*netns)->def_conf4) {
+		ret = ipv4_conf_op("default", (*netns)->def_conf4, (*netns)->n_def_conf4, CTL_WRITE, NULL);
+		if (ret)
+			goto out;
+		ret = ipv4_conf_op("all", (*netns)->all_conf4, (*netns)->n_all_conf4, CTL_WRITE, NULL);
+	} else if ((*netns)->def_conf) {
+		/* Backward compatibility */
+		ret = ipv4_conf_op_old("default", (*netns)->def_conf, (*netns)->n_def_conf, CTL_WRITE, NULL);
+		if (ret)
+			goto out;
+		ret = ipv4_conf_op_old("all", (*netns)->all_conf, (*netns)->n_all_conf, CTL_WRITE, NULL);
+	}
 out:
 	close_image(img);
 	return ret;
