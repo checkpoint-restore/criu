@@ -1,5 +1,6 @@
 import "opts.proto";
 import "tun.proto";
+import "sysctl.proto";
 
 enum nd_type {
 	LOOPBACK	= 1;
@@ -31,9 +32,14 @@ message net_device_entry {
 	optional bytes address		= 7;
 
 	repeated int32 conf		= 8;
+
+	repeated sysctl_entry conf4	= 9;
 }
 
 message netns_entry {
 	repeated int32 def_conf		= 1;
 	repeated int32 all_conf		= 2;
+
+	repeated sysctl_entry def_conf4	= 3;
+	repeated sysctl_entry all_conf4	= 4;
 }

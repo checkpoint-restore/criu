@@ -58,6 +58,7 @@ proto-obj-y	+= opts.o
 proto-obj-y	+= seccomp.o
 proto-obj-y	+= binfmt-misc.o
 proto-obj-y	+= time.o
+proto-obj-y	+= sysctl.o
 
 CFLAGS		+= -iquote $(obj)/
 
