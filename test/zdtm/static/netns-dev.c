@@ -7,6 +7,9 @@
 #define LO_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/lo"
 #define DEF_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/default"
 
+#define INT_MAX ((int)(~0U>>1))
+#define INT_MIN (-INT_MAX - 1)
+
 char *devconfs4[] = {
 	"accept_local",
 	"accept_redirects",
@@ -42,38 +45,43 @@ char *devconfs4[] = {
 	NULL,
 };
 
-int rand_limit4[] = {
-	2,	/* accept_local */
-	2,	/* accept_redirects */
-	2,	/* accept_source_route */
-	2,	/* arp_accept */
-	3,	/* arp_announce */
-	2,	/* arp_filter */
-	9,	/* arp_ignore */
-	2,	/* arp_notify */
-	2,	/* bootp_relay */
-	2,	/* disable_policy */
-	2,	/* disable_xfrm */
-	2,	/* drop_gratuitous_arp */
-	2,	/* drop_unicast_in_l2_multicast */
-	0,	/* force_igmp_version */
-	2,	/* forwarding */
-	0,	/* igmpv2_unsolicited_report_interval */
-	0,	/* igmpv3_unsolicited_report_interval */
-	2,	/* ignore_routes_with_linkdown */
-	2,	/* log_martians */
-	2,	/* mc_forwarding */
-	0,	/* medium_id */
-	2,	/* promote_secondaries */
-	2,	/* proxy_arp */
-	2,	/* proxy_arp_pvlan */
-	2,	/* route_localnet */
-	3,	/* rp_filter */
-	2,	/* secure_redirects */
-	2,	/* send_redirects */
-	2,	/* shared_media */
-	0,	/* src_valid_mark */
-	0,	/* tag */
+struct range {
+	int min;
+	int max;
+};
+
+struct range rand_range4[] = {
+	{0, 1},	/* accept_local */
+	{0, 1},	/* accept_redirects */
+	{-1, 0},	/* accept_source_route */
+	{0, 1},	/* arp_accept */
+	{0, 2},	/* arp_announce */
+	{0, 1},	/* arp_filter */
+	{0, 8},	/* arp_ignore */
+	{0, 1},	/* arp_notify */
+	{0, 1},	/* bootp_relay */
+	{0, 1},	/* disable_policy */
+	{0, 1},	/* disable_xfrm */
+	{0, 1},	/* drop_gratuitous_arp */
+	{0, 1},	/* drop_unicast_in_l2_multicast */
+	{0, INT_MAX},	/* force_igmp_version */
+	{0, 1},	/* forwarding */
+	{0, INT_MAX},	/* igmpv2_unsolicited_report_interval */
+	{0, INT_MAX},	/* igmpv3_unsolicited_report_interval */
+	{0, 1},	/* ignore_routes_with_linkdown */
+	{0, 1},	/* log_martians */
+	{0, 1},	/* mc_forwarding */
+	{-1, INT_MAX},	/* medium_id */
+	{0, 1},	/* promote_secondaries */
+	{0, 1},	/* proxy_arp */
+	{0, 1},	/* proxy_arp_pvlan */
+	{0, 1},	/* route_localnet */
+	{0, 2},	/* rp_filter */
+	{0, 1},	/* secure_redirects */
+	{0, 1},	/* send_redirects */
+	{0, 1},	/* shared_media */
+	{0, 1},	/* src_valid_mark */
+	{INT_MIN, INT_MAX},	/* tag */
 };
 
 struct test_conf {
@@ -82,10 +90,32 @@ struct test_conf {
 	char *dir4;
 } lo, def;
 
+static int rand_in_small_range(struct range *r) {
+	return lrand48() % (r->max - r->min + 1) + r->min;
+}
+
+static int rand_in_range(struct range *r) {
+	struct range small;
+	int mid = r->max / 2 + r->min / 2;
+	int half = r->max / 2 - r->min / 2;
+
+	if (half < INT_MAX / 2)
+		return rand_in_small_range(r);
+
+	if (lrand48() % 2) {
+		small.min = r->min;
+		small.max = mid;
+	} else {
+		small.min = mid + 1;
+		small.max = r->max;
+	}
+
+	return rand_in_small_range(&small);
+}
+
 static int save_and_set(FILE *fp, int *conf, int *conf_rand,
-		int rand_limit, char *path) {
+		struct range *range, char *path) {
 	int ret;
-	int val;
 
 	/*
 	 * Save
@@ -105,12 +135,7 @@ static int save_and_set(FILE *fp, int *conf, int *conf_rand,
 	/*
 	 * Set random value
 	 */
-	val = (int)lrand48();
-
-	if (rand_limit != 0)
-		*conf_rand = val % rand_limit;
-	else
-		*conf_rand = val;
+	*conf_rand = rand_in_range(range);
 
 	ret = fprintf(fp, "%d", *conf_rand);
 	if (ret < 0) {
@@ -122,7 +147,7 @@ static int save_and_set(FILE *fp, int *conf, int *conf_rand,
 }
 
 static int check_and_restore(FILE *fp, int *conf, int *conf_rand,
-		int rand_limit, char *path) {
+		struct range *range, char *path) {
 	int ret;
 	int val;
 
@@ -160,7 +185,7 @@ static int check_and_restore(FILE *fp, int *conf, int *conf_rand,
 }
 
 static int for_each_option_do(int (*f)(FILE *fp, int *conf, int *conf_rand,
-			int rand_limit, char *path), struct test_conf *tc) {
+			struct range *range, char *path), struct test_conf *tc) {
 	int ret;
 	int i;
 
@@ -184,7 +209,7 @@ static int for_each_option_do(int (*f)(FILE *fp, int *conf, int *conf_rand,
 			return -1;
 		}
 
-		ret = (*f)(fp, &tc->ipv4_conf[i], &tc->ipv4_conf_rand[i], rand_limit4[i], path);
+		ret = (*f)(fp, &tc->ipv4_conf[i], &tc->ipv4_conf_rand[i], &rand_range4[i], path);
 		if (ret < 0)
 			return -1;
 
