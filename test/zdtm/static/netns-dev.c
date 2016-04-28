@@ -82,14 +82,15 @@ struct test_conf {
 	char *dir4;
 } lo, def;
 
-static int save_and_set(int opt, FILE *fp, struct test_conf *tc) {
+static int save_and_set(FILE *fp, int *conf, int *conf_rand,
+		int rand_limit, char *path) {
 	int ret;
 	int val;
 
 	/*
 	 * Save
 	 */
-	ret = fscanf(fp, "%d", &tc->ipv4_conf[opt]);
+	ret = fscanf(fp, "%d", conf);
 	if (ret != 1) {
 		pr_perror("fscanf");
 		return -1;
@@ -106,12 +107,12 @@ static int save_and_set(int opt, FILE *fp, struct test_conf *tc) {
 	 */
 	val = (int)lrand48();
 
-	if (rand_limit4[opt] != 0)
-		tc->ipv4_conf_rand[opt] = val % rand_limit4[opt];
+	if (rand_limit != 0)
+		*conf_rand = val % rand_limit;
 	else
-		tc->ipv4_conf_rand[opt] = val;
+		*conf_rand = val;
 
-	ret = fprintf(fp, "%d", tc->ipv4_conf_rand[opt]);
+	ret = fprintf(fp, "%d", *conf_rand);
 	if (ret < 0) {
 		pr_perror("fprintf");
 		return -1;
@@ -120,7 +121,8 @@ static int save_and_set(int opt, FILE *fp, struct test_conf *tc) {
 	return 0;
 }
 
-static int check_and_restore(int opt, FILE *fp, struct test_conf *tc) {
+static int check_and_restore(FILE *fp, int *conf, int *conf_rand,
+		int rand_limit, char *path) {
 	int ret;
 	int val;
 
@@ -133,9 +135,9 @@ static int check_and_restore(int opt, FILE *fp, struct test_conf *tc) {
 		return -1;
 	}
 
-	if (val != tc->ipv4_conf_rand[opt]) {
-		fail("Option \"%s/%s\" changed from %d to %d",
-		     tc->dir4, devconfs4[opt], tc->ipv4_conf_rand[opt], val);
+	if (val != *conf_rand) {
+		fail("Option \"%s\" changed from %d to %d",
+		     path, *conf_rand, val);
 		return -1;
 	}
 
@@ -148,7 +150,7 @@ static int check_and_restore(int opt, FILE *fp, struct test_conf *tc) {
 	/*
 	 * Restore opt
 	 */
-	ret = fprintf(fp, "%d", tc->ipv4_conf[opt]);
+	ret = fprintf(fp, "%d", *conf);
 	if (ret < 0) {
 		pr_perror("fprintf");
 		return -1;
@@ -157,7 +159,8 @@ static int check_and_restore(int opt, FILE *fp, struct test_conf *tc) {
 	return 0;
 }
 
-static int for_each_option_do(int (*f)(int opt, FILE *fp, struct test_conf *tc), struct test_conf *tc) {
+static int for_each_option_do(int (*f)(FILE *fp, int *conf, int *conf_rand,
+			int rand_limit, char *path), struct test_conf *tc) {
 	int ret;
 	int i;
 
@@ -181,7 +184,7 @@ static int for_each_option_do(int (*f)(int opt, FILE *fp, struct test_conf *tc),
 			return -1;
 		}
 
-		ret = (*f)(i, fp, tc);
+		ret = (*f)(fp, &tc->ipv4_conf[i], &tc->ipv4_conf_rand[i], rand_limit4[i], path);
 		if (ret < 0)
 			return -1;
 
