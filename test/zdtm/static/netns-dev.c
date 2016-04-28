@@ -6,6 +6,8 @@
 
 #define LO_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/lo"
 #define DEF_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/default"
+#define LO_CONF6_DIR_PATH "/proc/sys/net/ipv6/conf/lo"
+#define DEF_CONF6_DIR_PATH "/proc/sys/net/ipv6/conf/default"
 
 #define INT_MAX ((int)(~0U>>1))
 #define INT_MIN (-INT_MAX - 1)
@@ -181,7 +183,10 @@ struct range rand_range6[] = {
 struct test_conf {
 	int ipv4_conf[ARRAY_SIZE(devconfs4)];
 	int ipv4_conf_rand[ARRAY_SIZE(devconfs4)];
+	int ipv6_conf[ARRAY_SIZE(devconfs6)];
+	int ipv6_conf_rand[ARRAY_SIZE(devconfs6)];
 	char *dir4;
+	char *dir6;
 } lo, def;
 
 static int save_conf(FILE *fp, int *conf, int *conf_rand,
@@ -316,6 +321,33 @@ static int for_each_option_do(int (*f)(FILE *fp, int *conf, int *conf_rand,
 		fclose(fp);
 	}
 
+	for (i = 0; devconfs6[i]; i++) {
+		FILE *fp;
+		char path[PATH_MAX];
+
+		ret = snprintf(path, sizeof(path), "%s/%s", tc->dir6, devconfs6[i]);
+		if (ret < 0) {
+			pr_perror("snprintf");
+			return -1;
+		}
+
+		ret = access(path, W_OK);
+		if (ret < 0)
+			continue;
+
+		fp = fopen(path, "r+");
+		if (fp == NULL) {
+			pr_perror("fopen");
+			return -1;
+		}
+
+		ret = (*f)(fp, &tc->ipv6_conf[i], &tc->ipv6_conf_rand[i], &rand_range6[i], path);
+		if (ret < 0)
+			return -1;
+
+		fclose(fp);
+	}
+
 	return 0;
 }
 
@@ -325,6 +357,8 @@ int main(int argc, char **argv)
 
 	lo.dir4 = LO_CONF_DIR_PATH;
 	def.dir4 = DEF_CONF_DIR_PATH;
+	lo.dir6 = LO_CONF6_DIR_PATH;
+	def.dir6 = DEF_CONF6_DIR_PATH;
 
 	test_init(argc, argv);
 
