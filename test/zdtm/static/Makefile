@@ -244,6 +244,7 @@ TST_DIR		=				\
 		unlink_regular00		\
 		mnt_enablefs			\
 		autofs				\
+		mnt_enablefs			\
 
 TST_DIR_FILE	=				\
 		chroot				\
