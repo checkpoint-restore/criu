@@ -34,6 +34,8 @@ message net_device_entry {
 	repeated int32 conf		= 8;
 
 	repeated sysctl_entry conf4	= 9;
+
+	repeated sysctl_entry conf6	= 10;
 }
 
 message netns_entry {
@@ -42,4 +44,7 @@ message netns_entry {
 
 	repeated sysctl_entry def_conf4	= 3;
 	repeated sysctl_entry all_conf4	= 4;
+
+	repeated sysctl_entry def_conf6	= 5;
+	repeated sysctl_entry all_conf6	= 6;
 }
