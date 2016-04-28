@@ -610,6 +610,7 @@ class criu_cli:
 		self.__page_server = (opts['page_server'] and True or False)
 		self.__restore_sibling = (opts['sibling'] and True or False)
 		self.__fault = (opts['fault'])
+		self.__script = opts['script']
 		self.__sat = (opts['sat'] and True or False)
 		self.__dedup = (opts['dedup'] and True or False)
 		self.__user = (opts['user'] and True or False)
@@ -671,6 +672,9 @@ class criu_cli:
 			if action == 'restore':
 				strace += [ '-f' ]
 				s_args += [ '--action-script', os.getcwd() + '/../scripts/fake-restore.sh' ]
+
+		if self.__script:
+			s_args += ['--action-script', self.__script]
 
 		preexec = self.__user and self.set_user_id or None
 
@@ -1058,7 +1062,7 @@ class launcher:
 		self.__show_progress()
 
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', \
-				'fault', 'keep_img', 'report', 'snaps', 'sat', \
+				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', \
 				'dedup', 'sbs', 'freezecg', 'user', 'dry_run')
 		arg = repr((name, desc, flavor, { d: self.__opts[d] for d in nd }))
 
@@ -1484,7 +1488,7 @@ rp.add_argument("--user", help = "Run CRIU as regular user", action = 'store_tru
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
 rp.add_argument("-p", "--parallel", help = "Run test in parallel")
 rp.add_argument("--dry-run", help="Don't run tests, just pretend to", action='store_true')
-
+rp.add_argument("--script", help="Add script to get notified by criu")
 rp.add_argument("-k", "--keep-img", help = "Whether or not to keep images after test",
 		choices = [ 'always', 'never', 'failed' ], default = 'failed')
 rp.add_argument("--report", help = "Generate summary report in directory")
