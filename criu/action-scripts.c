@@ -44,7 +44,6 @@ static int run_shell_scripts(const char *action)
 	int ret = 0;
 	struct script *script;
 	char image_dir[PATH_MAX];
-	char root_item_pid[16];
 	static unsigned env_set = 0;
 
 #define ENV_IMGDIR	0x1
@@ -65,12 +64,18 @@ static int run_shell_scripts(const char *action)
 	}
 
 	if (!(env_set & ENV_ROOTPID) && root_item) {
-		snprintf(root_item_pid, sizeof(root_item_pid), "%d", root_item->pid.real);
-		if (setenv("CRTOOLS_INIT_PID", root_item_pid, 1)) {
-			pr_perror("Can't set CRTOOLS_INIT_PID=%s", root_item_pid);
-			return -1;
+		int pid;
+		char root_item_pid[16];
+
+		pid = root_item->pid.real;
+		if (pid != -1) {
+			snprintf(root_item_pid, sizeof(root_item_pid), "%d", pid);
+			if (setenv("CRTOOLS_INIT_PID", root_item_pid, 1)) {
+				pr_perror("Can't set CRTOOLS_INIT_PID=%s", root_item_pid);
+				return -1;
+			}
+			env_set |= ENV_ROOTPID;
 		}
-		env_set |= ENV_ROOTPID;
 	}
 
 	list_for_each_entry(script, &scripts, node) {
