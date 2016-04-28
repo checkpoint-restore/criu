@@ -146,6 +146,8 @@ static int gen_conf(FILE *fp, int *conf, int *conf_rand,
 	return 0;
 }
 
+#define MAX_MSEC_GRANULARITY 10
+
 static int check_conf(FILE *fp, int *conf, int *conf_rand,
 		struct range *range, char *path) {
 	int ret;
@@ -163,6 +165,10 @@ static int check_conf(FILE *fp, int *conf, int *conf_rand,
 	if (val != *conf_rand) {
 		fail("Option \"%s\" changed from %d to %d",
 		     path, *conf_rand, val);
+		if ((strstr(path, "mldv1_unsolicited_report_interval")
+		     || strstr(path, "mldv2_unsolicited_report_interval"))
+		    && val - *conf_rand < MAX_MSEC_GRANULARITY)
+			return 0;
 		return -1;
 	}
 
