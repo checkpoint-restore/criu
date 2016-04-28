@@ -5,13 +5,19 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
+#include <linux/limits.h>
 
 #include "zdtmtst.h"
 
 const char *test_doc	= "Open, unlink, change size, seek, migrate, check size";
 
+#ifdef UNLINK_FSTAT04
+char *dirname;
+TEST_OPTION(dirname, string, "directory name", 1);
+#else
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
+#endif
 
 int main(int argc, char ** argv)
 {
@@ -23,14 +29,29 @@ int main(int argc, char ** argv)
 	uint8_t buf[fsize];
 	struct stat fst;
 	uint32_t crc;
+#ifdef UNLINK_FSTAT04
+	char filename[PATH_MAX];
+#endif
 
 	test_init(argc, argv);
 
+#ifdef UNLINK_FSTAT04
+	snprintf(filename, sizeof(filename), "%s/test\\file'\n\"un%%linkfstat00", dirname);
+
+	mkdir(dirname, 0700);
+#endif
 	fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
 	if (fd < 0) {
 		pr_perror("can't open %s", filename);
 		exit(1);
 	}
+
+#ifdef UNLINK_FSTAT04
+	if (chmod(dirname, 0500)) {
+		pr_perror("chmod");
+		exit(1);
+	}
+#endif
 
 	if (fstat(fd, &fst) < 0) {
 		pr_perror("can't get file info %s before", filename);

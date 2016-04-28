@@ -185,6 +185,7 @@
 /static/unlink_fstat01+
 /static/unlink_fstat02
 /static/unlink_fstat03
+/static/unlink_fstat04
 /static/unlink_largefile
 /static/unlink_mmap00
 /static/unlink_mmap01
