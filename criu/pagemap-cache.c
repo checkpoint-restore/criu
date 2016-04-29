@@ -7,6 +7,7 @@
 #include "util.h"
 #include "log.h"
 #include "vma.h"
+#include "mem.h"
 #include "kerndat.h"
 
 #undef	LOG_PREFIX
@@ -131,12 +132,16 @@ static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 	BUG_ON(pmc->map_len < size_map);
 
 	if (unlikely(pmc->fd < 0)) {
+		u64 pme = PME_PRESENT;
+		size_t i;
+
 		/*
 		 * We don't have access to the dumpee pagemap so fill
 		 * everything as present. It's better than refuse
 		 * to dump because it simply disables optimisation.
 		 */
-		memset(pmc->map, 1, size_map);
+		for (i = 0; i < (size_map / sizeof(pme)); i++)
+			pmc->map[i] = pme;
 	} else {
 		if (pread(pmc->fd, pmc->map, size_map, PAGEMAP_PFN_OFF(pmc->start)) != size_map) {
 			pmc_zap(pmc);
