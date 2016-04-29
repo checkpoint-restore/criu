@@ -61,6 +61,15 @@ static int do_relative_toc(long value, uint16_t *location,
 }
 #endif
 
+static bool is_header_supported(Ehdr_t *hdr)
+{
+	if (!arch_is_machine_supported(hdr->e_machine))
+		return false;
+	if (hdr->e_type != ET_REL || hdr->e_version != EV_CURRENT)
+		return false;
+	return true;
+}
+
 int __handle_elf(void *mem, size_t size)
 {
 	const char *symstrings = NULL;
@@ -83,19 +92,10 @@ int __handle_elf(void *mem, size_t size)
 	pr_debug("\ttype 0x%x machine 0x%x version 0x%x\n",
 		 (unsigned)hdr->e_type, (unsigned)hdr->e_machine, (unsigned)hdr->e_version);
 
-#ifdef ELF_X86_64
-	if (hdr->e_type != ET_REL || hdr->e_machine != EM_X86_64 || hdr->e_version != EV_CURRENT) {
+	if (!is_header_supported(hdr)) {
 		pr_err("Unsupported header detected\n");
 		goto err;
 	}
-#endif
-
-#ifdef ELF_X86_32
-	if (hdr->e_type != ET_REL || hdr->e_machine != EM_386 || hdr->e_version != EV_CURRENT) {
-		pr_err("Unsupported header detected\n");
-		goto err;
-	}
-#endif
 
 	sec_hdrs = malloc(sizeof(*sec_hdrs) * hdr->e_shnum);
 	if (!sec_hdrs) {
