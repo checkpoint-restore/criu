@@ -7,13 +7,11 @@
 #include <string.h>
 
 #include <fcntl.h>
-#include <elf.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#include "common/compiler.h"
 #include "piegen.h"
 
 static const char compel_cflags_pie[] = "-fpie -Wa,--noexecstack -fno-stack-protector";
@@ -30,44 +28,6 @@ piegen_opt_t opts = {
 };
 
 FILE *fout;
-
-static int handle_elf(void *mem, size_t size)
-{
-#if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
-	unsigned char elf_ident_x86_32[EI_NIDENT] = {
-		0x7f, 0x45, 0x4c, 0x46, 0x01, 0x01, 0x01, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	};
-
-	unsigned char elf_ident_x86_64[EI_NIDENT] = {
-		0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	};
-
-	if (memcmp(mem, elf_ident_x86_32, sizeof(elf_ident_x86_32)) == 0)
-		return handle_elf_x86_32(mem, size);
-	else if (memcmp(mem, elf_ident_x86_64, sizeof(elf_ident_x86_64)) == 0)
-		return handle_elf_x86_64(mem, size);
-#endif
-
-#if defined(CONFIG_PPC64)
-	const unsigned char elf_ident[EI_NIDENT] = {
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-                0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-#else
-		0x7f, 0x45, 0x4c, 0x46, 0x02, 0x02, 0x01, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-#endif
-	};
-
-	if (memcmp(mem, elf_ident, sizeof(elf_ident)) == 0)
-		return handle_elf_ppc64(mem, size);
-#endif /* CONFIG_PPC64 */
-
-	pr_err("Unsupported Elf format detected\n");
-	return -1;
-}
 
 static int piegen(void)
 {
@@ -98,7 +58,7 @@ static int piegen(void)
 		goto err;
 	}
 
-	if (handle_elf(mem, st.st_size)) {
+	if (handle_binary(mem, st.st_size)) {
 		close(fd), fd = -1;
 		unlink(opts.output_filename);
 		goto err;

@@ -3,9 +3,8 @@
 
 #include "uapi/elf32-types.h"
 
-#define ELF_PPC64
-#define __handle_elf	handle_elf_ppc64
+#define __handle_elf	handle_elf_arm
 
-extern int handle_elf_ppc64(void *mem, size_t size);
+extern int handle_elf_arm(void *mem, size_t size);
 
 #endif /* __COMPEL_HANDLE_ELF_H__ */
