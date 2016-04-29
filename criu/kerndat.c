@@ -292,7 +292,13 @@ no_dt:
 static int init_zero_page_pfn()
 {
 	void *addr;
-	int ret;
+	int ret = 0;
+
+	kdat.zero_page_pfn = -1;
+	if (kdat.pmap != PM_FULL) {
+		pr_info("Zero page detection failed, optimization turns off.\n");
+		return 0;
+	}
 
 	addr = mmap(NULL, PAGE_SIZE, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (addr == MAP_FAILED) {
@@ -303,11 +309,6 @@ static int init_zero_page_pfn()
 	if (*((int *) addr) != 0) {
 		BUG();
 		return -1;
-	}
-
-	if (kdat.pmap != PM_FULL) {
-		pr_info("Zero page detection failed, optimization turns off.\n");
-		return 0;
 	}
 
 	ret = vaddr_to_pfn((unsigned long)addr, &kdat.zero_page_pfn);
