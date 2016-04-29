@@ -6,7 +6,6 @@
 #include <string.h>
 
 #include <fcntl.h>
-#include <elf.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -14,7 +13,6 @@
 
 #include "asm-generic/int.h"
 
-#include "common/compiler.h"
 #include "piegen.h"
 #include "handle-elf.h"
 
@@ -63,7 +61,7 @@ static int do_relative_toc(long value, uint16_t *location,
 }
 #endif
 
-int handle_elf(void *mem, size_t size)
+int __handle_elf(void *mem, size_t size)
 {
 	const char *symstrings = NULL;
 	Shdr_t *symtab_hdr = NULL;

@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <elf.h>
+#include "compiler.h"
+
 typedef struct {
 	char		*input_filename;
 	char		*output_filename;
@@ -17,20 +20,29 @@ typedef struct {
 extern piegen_opt_t opts;
 extern FILE *fout;
 
-#if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
-extern int handle_elf_x86_32(void *mem, size_t size);
-extern int handle_elf_x86_64(void *mem, size_t size);
-#endif
-
-#if defined(CONFIG_PPC64)
-extern int handle_elf_ppc64(void *mem, size_t size);
-#endif
-
 #define pr_out(fmt, ...)	fprintf(fout, fmt, ##__VA_ARGS__)
 
 #define pr_debug(fmt, ...)	printf("%s: "fmt, opts.stream_name, ##__VA_ARGS__)
 
 #define pr_err(fmt, ...)	fprintf(stderr, "%s: Error (%s:%d): "fmt, opts.stream_name, __FILE__, __LINE__, ##__VA_ARGS__)
 #define pr_perror(fmt, ...)	fprintf(stderr, "%s: Error (%s:%d): "fmt ": %m\n", opts.stream_name, __FILE__, __LINE__, ##__VA_ARGS__)
+
+extern int handle_binary(void *mem, size_t size);
+
+static const unsigned char __maybe_unused
+elf_ident_32[EI_NIDENT] = {
+	0x7f, 0x45, 0x4c, 0x46, 0x01, 0x01, 0x01, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+static const unsigned char __maybe_unused
+elf_ident_64_le[EI_NIDENT] = {
+	0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+static const unsigned char __maybe_unused
+elf_ident_64_be[EI_NIDENT] = {
+	0x7f, 0x45, 0x4c, 0x46, 0x02, 0x02, 0x01, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
 
 #endif /* __ELFTIL_H__ */
