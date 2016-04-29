@@ -1,5 +1,5 @@
-#define ELF_X86_32
-#define handle_elf	handle_elf_x86_32
+#ifndef __COMPEL_ELF32_TYPES_H__
+#define __COMPEL_ELF32_TYPES_H__
 
 #define Ehdr_t		Elf32_Ehdr
 #define Shdr_t		Elf32_Shdr
@@ -13,4 +13,4 @@
 #define ELF_R_SYM	ELF32_R_SYM
 #define ELF_R_TYPE	ELF32_R_TYPE
 
-#include "elf.c"
+#endif /* __COMPEL_ELF32_TYPES_H__ */

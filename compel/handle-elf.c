@@ -16,6 +16,7 @@
 
 #include "common/compiler.h"
 #include "piegen.h"
+#include "handle-elf.h"
 
 static bool __ptr_oob(const void *ptr, const void *start, const size_t size)
 {
@@ -219,7 +220,7 @@ int handle_elf(void *mem, size_t size)
 
 		for (k = 0; k < sh->sh_size / sh->sh_entsize; k++) {
 			s64 __maybe_unused addend64, __maybe_unused value64;
-			s32 addend32, value32;
+			s32 __maybe_unused addend32, __maybe_unused value32;
 			unsigned long place;
 			const char *name;
 			void *where;

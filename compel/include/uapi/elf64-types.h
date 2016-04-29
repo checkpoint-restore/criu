@@ -1,5 +1,5 @@
-#define ELF_PPC64
-#define handle_elf	handle_elf_ppc64
+#ifndef __COMPEL_ELF64_TYPES_H__
+#define __COMPEL_ELF64_TYPES_H__
 
 #define Ehdr_t		Elf64_Ehdr
 #define Shdr_t		Elf64_Shdr
@@ -13,4 +13,4 @@
 #define ELF_R_SYM	ELF64_R_SYM
 #define ELF_R_TYPE	ELF64_R_TYPE
 
-#include "elf.c"
+#endif /* __COMPEL_ELF64_TYPES_H__ */
