@@ -1275,7 +1275,10 @@ def run_tests(opts):
 		opts['parallel'] = None
 
 	if opts['join_ns']:
-		subprocess.Popen(["ip", "netns", "add", "zdtm_netns"])
+		if subprocess.Popen(["ip", "netns", "add", "zdtm_netns"]).wait():
+                    raise Exception("Unable to create a network namespace")
+		if subprocess.Popen(["ip", "netns", "exec", "zdtm_netns", "ip", "link", "set", "up", "dev", "lo"]).wait():
+                    raise Exception("ip link set up dev lo")
 
 	l = launcher(opts, len(torun))
 	try:
