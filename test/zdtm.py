@@ -245,7 +245,10 @@ def encode_flav(f):
 	return (flavors.keys().index(f) + 128)
 
 def decode_flav(i):
-	return flavors.keys()[i - 128]
+        i = i - 128
+        if flavors.has_key(i):
+                return flavors.keys()[i - 128]
+        return "unknown"
 
 def tail(path):
 	p = subprocess.Popen(['tail', '-n1', path],
