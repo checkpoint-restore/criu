@@ -56,7 +56,25 @@ function check_fs_type {
 	local mountpoint=$1
 	local fs_type=$2
 
-	[  "$($JOIN_CT stat -f --printf=%T $mountpoint)" = "$fs_type" ]
+	local top_mount_id=""
+	local top_mount_fs_type=""
+
+	while IFS='' read -r line || [[ -n "$line" ]]; do
+		# Skip those entries which do not match the mountpoint
+		[ $(echo $line | awk '{print $5;}') = $mountpoint ] || continue
+
+		local mnt_id=$(echo $line | awk '{print $1;}')
+		local mnt_parent_id=$(echo $line | awk '{print $2;}')
+		local mnt_fs_type=$(echo $line | awk '{print $9;}')
+
+		# Skip mount entry, if not the first one and not a child
+		[ -n "$top_mount_id" ] && [ "$mnt_parent_id" != "$top_mount_id" ] && continue
+
+		top_mount_id=$mnt_id
+		top_mount_fs_type=$mnt_fs_type
+	done < "/proc/$CRTOOLS_INIT_PID/mountinfo"
+
+	[ $top_mount_fs_type = $fs_type ]
 }
 
 function bind_mount {
