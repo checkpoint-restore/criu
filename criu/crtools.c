@@ -653,6 +653,16 @@ int main(int argc, char *argv[], char *envp[])
 			return 1;
 	}
 
+	/*
+	 * When a process group becomes an orphan,
+	 * its processes are sent a SIGHUP signal
+	 */
+	if (!strcmp(argv[optind], "restore") &&
+			opts.restore_detach &&
+			opts.final_state == TASK_STOPPED &&
+			opts.shell_job)
+		pr_warn("Stopped and detached shell job will get SIGHUP from OS.");
+
 	if (chdir(opts.work_dir)) {
 		pr_perror("Can't change directory to %s", opts.work_dir);
 		return 1;
