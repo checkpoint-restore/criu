@@ -160,10 +160,33 @@ out:
 	return ret;
 }
 
+/* Runtime detection if userfaultfd can be used */
+
+static int check_for_uffd()
+{
+	int uffd;
+
+	uffd = syscall(SYS_userfaultfd, 0);
+	/*
+	 * uffd == -1 is probably enough to not use lazy-restore
+	 * on this system. Additionally checking for ENOSYS
+	 * makes sure it is actually not implemented.
+	 */
+	if ((uffd == -1) && (errno == ENOSYS)) {
+		pr_err("Runtime detection of userfaultfd failed on this system.\n");
+		pr_err("Processes cannot be lazy-restored on this system.\n");
+		return -1;
+	}
+	close(uffd);
+	return 0;
+}
+
 /* This function is used by 'criu restore --lazy-pages' */
 int setup_uffd(struct task_restore_args *task_args, int pid)
 {
 	struct uffdio_api uffdio_api;
+	if (check_for_uffd())
+		return -1;
 	/*
 	 * Open userfaulfd FD which is passed to the restorer blob and
 	 * to a second process handling the userfaultfd page faults.
@@ -809,6 +832,9 @@ int cr_lazy_pages()
 	struct epoll_event *events;
 	int epollfd;
 	int ret;
+
+	if (check_for_uffd())
+		return -1;
 
 	if (!opts.addr) {
 		pr_info("Please specify a file name for the unix domain socket\n");
