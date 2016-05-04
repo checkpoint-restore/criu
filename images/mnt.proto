@@ -19,6 +19,8 @@ enum fstype {
 	FUSE			= 15;
 	AUTO			= 16;
 	OVERLAYFS		= 17;
+	// AUTOFS		= 18; RESERVED in criu-dev branch
+	TRACEFS			= 19;
 };
 
 message mnt_entry {
