@@ -101,6 +101,12 @@ else
         CFLAGS		+= -O2 -g
 endif
 
+ifeq ($(GMON),1)
+        CFLAGS		+= -pg
+        GMONLDOPT	+= -pg
+export GMON GMONLDOPT
+endif
+
 CFLAGS			+= $(WARNINGS) $(DEFINES)
 
 #
