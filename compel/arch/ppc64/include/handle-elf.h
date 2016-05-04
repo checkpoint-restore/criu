@@ -1,7 +1,7 @@
 #ifndef __COMPEL_HANDLE_ELF_H__
 #define __COMPEL_HANDLE_ELF_H__
 
-#include "uapi/elf32-types.h"
+#include "uapi/elf64-types.h"
 
 #define ELF_PPC64
 #define __handle_elf	handle_elf_ppc64
