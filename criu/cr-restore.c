@@ -1291,7 +1291,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	 * move_in_cgroup(), so drop this flag here as well.
 	 */
 	ret = clone(restore_task_with_children, ca.stack_ptr,
-		    (ca.clone_flags & (~CLONE_NEWNET | ~CLONE_NEWCGROUP)) | SIGCHLD, &ca);
+		    (ca.clone_flags & ~(CLONE_NEWNET | CLONE_NEWCGROUP)) | SIGCHLD, &ca);
 
 	if (ret < 0) {
 		pr_perror("Can't fork for %d", pid);
