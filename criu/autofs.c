@@ -2,6 +2,7 @@
 #include <sys/stat.h>
 #include <stdarg.h>
 #include <sys/mount.h>
+#include <sys/wait.h>
 
 #include "proc_parse.h"
 #include "autofs.h"
@@ -22,6 +23,8 @@
 #define AUTOFS_MODE_OFFSET	2
 
 #define AUTOFS_CATATONIC_FD	-1
+
+static int autofs_mnt_open(const char *mnt_path, dev_t devid);
 
 struct autofs_pipe_s {
 	struct list_head list;
@@ -279,6 +282,144 @@ static int parse_options(char *options, AutofsEntry *entry, long *pipe_ino)
 	return 0;
 }
 
+static int autofs_revisit_options(struct mount_info *pm)
+{
+	FILE *f;
+	char *str;
+	int ret = -ENOMEM;
+
+	str = malloc(1024);
+	if (!str) {
+		pr_err("failed to allocate\n");
+		return -ENOMEM;
+	}
+
+	f = fopen_proc(getpid(), "mountinfo");
+	if (!f) {
+		pr_perror("Can't open %d mountinfo", getpid());
+		goto free_str;
+	}
+
+	while (fgets(str, 1024, f)) {
+		int mnt_id = -1;
+		char *token;
+
+		/* Removing '/n' */
+		str[strlen(str)-1] = '\0';
+
+		while ((token = strsep(&str, " ")) != NULL) {
+			if (mnt_id == -1) {
+				mnt_id = atoi(token);
+				if (mnt_id != pm->mnt_id)
+					break;
+			} else if (strstr(token, "pipe_ino=")) {
+				ret = 0;
+				free(pm->options);
+
+				pm->options = xstrdup(token);
+				if (!pm->options)
+					pr_err("failed to duplicate string\n");
+				else
+					ret = 0;
+				goto close_proc;
+			}
+		}
+	}
+
+	pr_err("failed to find autofs mount with mnt_id %d\n", pm->mnt_id);
+	ret = -ENOENT;
+
+close_proc:
+	fclose(f);
+free_str:
+	free(str);
+	return ret;
+}
+
+/*
+ * To access the mount point we have to set proper mount namespace.
+ * But, unfortunatelly, we have to set proper pid namespace as well,
+ * because otherwise autofs driver won't find the autofs master.
+ */
+static int access_autofs_mount(struct mount_info *pm)
+{
+	const char *mnt_path = pm->mountpoint + 1;
+	dev_t dev_id = pm->s_dev;
+	int new_pid_ns = -1, old_pid_ns = -1;
+	int old_mnt_ns;
+	int autofs_mnt;
+	int err = -1;
+	int pid, status;
+
+	/*
+	 * To be able to set proper pid namespace, we must open fd before
+	 * switching to the mount namespace.
+	 * The same applies to pid namespace fd to restore back.
+	 */
+	new_pid_ns = open_proc(pm->nsid->ns_pid, "ns/pid");
+	if (new_pid_ns < 0)
+		return -1;
+
+	old_pid_ns = open("/proc/self/ns/pid", O_RDONLY);
+	if (old_pid_ns < 0) {
+		pr_perror("Can't open /proc/self/ns/pid");
+		goto close_new_pid_ns;
+	}
+
+	if (switch_ns(pm->nsid->ns_pid, &mnt_ns_desc, &old_mnt_ns)) {
+		pr_err("failed to switch to mount namespace\n");
+		goto close_old_pid_ns;
+	}
+
+	if (restore_ns(new_pid_ns, &pid_ns_desc)) {
+		pr_err("failed to restore pid namespace\n");
+		goto restore_mnt_ns;
+	}
+	new_pid_ns = -1;
+
+	autofs_mnt = autofs_mnt_open(mnt_path, dev_id);
+	if (autofs_mnt < 0)
+		goto restore_pid_ns;
+
+	pid = fork();
+	switch (pid) {
+		case -1:
+			pr_err("failed to fork\n");
+			goto close_autofs_mnt;
+		case 0:
+			/* We don't care about results.
+			 * All we need is to "touch" */
+			openat(autofs_mnt, mnt_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY);
+			_exit(0);
+
+	}
+	/* Here we also don't care about results */
+	waitpid(pid, &status, 0);
+
+	err = autofs_revisit_options(pm);
+
+close_autofs_mnt:
+	close(autofs_mnt);
+restore_pid_ns:
+	if (restore_ns(old_pid_ns, &pid_ns_desc)) {
+		pr_err("failed to restore pid namespace\n");
+		return -1;
+	}
+	old_pid_ns = -1;
+restore_mnt_ns:
+	if (restore_ns(old_mnt_ns, &mnt_ns_desc)) {
+		pr_err("failed to restore mount namespace\n");
+		return -1;
+	}
+close_old_pid_ns:
+	if (old_pid_ns >= 0)
+		close(old_pid_ns);
+close_new_pid_ns:
+	if (new_pid_ns >= 0)
+		close(new_pid_ns);
+	return err;
+}
+
 static int autofs_create_entry(struct mount_info *pm, AutofsEntry *entry)
 {
 	long pipe_ino;
@@ -295,8 +436,36 @@ static int autofs_create_entry(struct mount_info *pm, AutofsEntry *entry)
 		int found, read_fd, virt_pgrp;
 
 		read_fd = autofs_find_read_fd(entry->pgrp, pipe_ino);
-		if (read_fd < 0)
+		if (read_fd < 0) {
+			if (read_fd != -ENOENT)
+				return -1;
+
+			/* Ok, our read end doesn't exist.
+			 * There can be a case, when mount looks normal, but
+			 * it's a "hidden" or "abandoned" catatonic mount in
+			 * reality.
+			 * This can happen if:
+			 * 1) autofs master process has exited without switching
+			 * the mount to catatonic mode (or was killed).
+			 * 2) mount point was unmounted, but not propagated to
+			 * nested mount namespace with private mounts.
+			 * We can try handle these cases by accessing the mount
+			 * point. If it's catatonic, it will update it's
+			 * options, then we can read them again and dump it.
+			 */
+			if (access_autofs_mount(pm)) {
+				pr_err("failed to access autofs %s\n",
+						pm->mountpoint + 1);
+				return -1;
+			}
+			if (parse_options(pm->options, entry, &pipe_ino))
+				return -1;
+			if (entry->fd == AUTOFS_CATATONIC_FD)
+				return 0;
+			pr_err("Autofs %d is alive, but unreachable.\n",
+					pm->mnt_id);
 			return -1;
+		}
 
 		/* Let' check whether write end is still open */
 		found = autofs_kernel_pipe_alive(entry->pgrp, entry->fd, pipe_ino);
