@@ -613,6 +613,14 @@ static int validate_shared(struct mount_info *m)
 		ct_mpnt_rpath = ct->mountpoint + t_mpnt_l; /* path from t->mountpoint to ct->mountpoint */
 
 		/*
+		 * if mountpoints of ct and t are equal we can't build
+		 * absolute path in ct_mpnt_rpath, so let's skip the first "/"
+		 * in m_root_rpath
+		 */
+		if (ct_mpnt_rpath[0] == 0)
+			m_root_rpath++;
+
+		/*
 		 * Check whether ct can be is visible at m, i.e. the
 		 * ct's rpath starts (as path) with m's rpath.
 		 */
