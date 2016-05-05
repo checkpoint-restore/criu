@@ -329,8 +329,6 @@ static bool mounts_equal(struct mount_info *a, struct mount_info *b)
 		return false;
 	if (strcmp(a->root, b->root))
 		return false;
-	if (strcmp(basename(a->mountpoint), basename(b->mountpoint)))
-		return false;
 
 	return true;
 }
