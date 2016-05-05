@@ -141,21 +141,23 @@ static int autofs_find_pipe_read_end(int pgrp, long ino, int *read_fd)
 
 		if (fstatat(dirfd(dir), de->d_name, &buf, 0) < 0) {
 			pr_perror("Failed to fstatat");
-			break;
+			goto out;
 		}
 
 		fd = atoi(de->d_name);
 
 		found = autofs_check_fd_stat(&buf, pgrp, fd, ino, &mode);
 		if (found < 0)
-			break;
+			goto out;
 		if (found && (mode == O_RDONLY)) {
 			*read_fd = fd;
-			ret = 0;
 			break;
 		}
 	}
 
+	ret = 0;
+
+out:
 	closedir(dir);
 	close_pid_proc();
 
@@ -177,7 +179,7 @@ static int autofs_find_read_fd(int pgrp, long pipe_ino)
 		pr_err("Master %d doesn't have a read end of the pipe with "
 			"inode %ld opened\n", pgrp, pipe_ino);
 		pr_err("Abandoned mount or control was delegated to child?\n");
-		return -1;
+		return -ENOENT;
 	}
 
 	/* Let's check, that read end is empty */
