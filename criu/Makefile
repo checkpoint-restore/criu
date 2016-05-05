@@ -8,7 +8,7 @@ CFLAGS			+= $(USERCFLAGS)
 
 # here is a workaround for a bug in libnl-3:
 # 6a8d90f5fec4 "attr: Allow attribute type 0" 
-LDFLAGS			+= -Wl,--wrap=nla_parse,--wrap=nlmsg_parse
+WRAPFLAGS		+= -Wl,--wrap=nla_parse,--wrap=nlmsg_parse
 
 export HOSTCC HOSTLD HOSTCFLAGS
 
@@ -177,7 +177,7 @@ built-in.o: pie
 
 criu: $(PROGRAM-BUILTINS)
 	$(call msg-link, $@)
-	$(Q) $(CC) $(CFLAGS) $^ $(ARCH-LIB) $(LIBS) $(LDFLAGS) $(GMONLDOPT) -rdynamic -o $@
+	$(Q) $(CC) $(CFLAGS) $^ $(ARCH-LIB) $(LIBS) $(WRAPFLAGS) $(LDFLAGS) $(GMONLDOPT) -rdynamic -o $@
 
 
 subclean:
