@@ -1277,6 +1277,10 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 
 	cure_path(new->source);
 
+	new->fsname = xstrdup(*fsname);
+	if (!new->fsname)
+		goto err;
+
 	/*
 	 * The kernel reports "subtypes" sometimes and the valid
 	 * type-vs-subtype delimiter is the dot symbol. We disregard

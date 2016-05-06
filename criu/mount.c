@@ -1677,10 +1677,13 @@ static int always_fail(struct mount_info *pm)
 	return -1;
 }
 
-static struct fstype fstypes[32] = {
+static struct fstype fstypes[] = {
 	{
 		.name = "unsupported",
 		.code = FSTYPE__UNSUPPORTED,
+	}, {
+		.name = "auto_cr",
+		.code = FSTYPE__AUTO,
 	}, {
 		.name = "proc",
 		.code = FSTYPE__PROC,
@@ -1803,7 +1806,7 @@ bool add_fsname_auto(const char *names)
 	return fsauto_names != NULL;
 }
 
-static struct fstype *__find_fstype_by_name(char *fst, bool force_auto)
+struct fstype *find_fstype_by_name(char *fst)
 {
 	int i;
 
@@ -1817,36 +1820,19 @@ static struct fstype *__find_fstype_by_name(char *fst, bool force_auto)
 	for (i = 1; i < ARRAY_SIZE(fstypes); i++) {
 		struct fstype *fstype = fstypes + i;
 
-		if (!fstype->name) {
-			if (!force_auto && !fsname_is_auto(fst))
-				break;
-
-			fstype->name = xstrdup(fst);
-			fstype->code = FSTYPE__AUTO;
-			return fstype;
-		}
-
 		if (!strcmp(fstype->name, fst))
 			return fstype;
 	}
 
-	if (i == ARRAY_SIZE(fstypes)) /* ensure we have a room for auto */
-		pr_err_once("fstypes[] overflow!\n");
+	if (fsname_is_auto(fst))
+		return &fstypes[1];
 
 	return &fstypes[0];
 }
 
-struct fstype *find_fstype_by_name(char *fst)
-{
-	return __find_fstype_by_name(fst, false);
-}
-
-static struct fstype *decode_fstype(u32 fst, char *fsname)
+static struct fstype *decode_fstype(u32 fst)
 {
 	int i;
-
-	if (fst == FSTYPE__AUTO)
-		return __find_fstype_by_name(fsname, true);
 
 	if (fst == FSTYPE__UNSUPPORTED)
 		goto uns;
@@ -1874,7 +1860,7 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 	me.fstype		= pm->fstype->code;
 
 	if (me.fstype == FSTYPE__AUTO)
-		me.fsname = pm->fstype->name;
+		me.fsname = pm->fsname;
 
 	if (pm->parent && !pm->dumped && !pm->need_plugin && !pm->external &&
 	    pm->fstype->dump && fsroot_mounted(pm)) {
@@ -2272,6 +2258,13 @@ static int do_simple_mount(struct mount_info *mi, const char *src, const
 	return mount(src, mi->mountpoint, fstype, mountflags, mi->options);
 }
 
+static char *mnt_fsname(struct mount_info *mi)
+{
+	if (mi->fstype->code == FSTYPE__AUTO)
+		return mi->fsname;
+	return mi->fstype->name;
+}
+
 static int do_new_mount(struct mount_info *mi)
 {
 	unsigned long sflags = mi->sb_flags;
@@ -2294,7 +2287,7 @@ static int do_new_mount(struct mount_info *mi)
 	if (remount_ro)
 		sflags &= ~MS_RDONLY;
 
-	if (do_mount(mi, src, tp->name, sflags) < 0) {
+	if (do_mount(mi, src, mnt_fsname(mi), sflags) < 0) {
 		pr_perror("Can't mount at %s", mi->mountpoint);
 		return -1;
 	}
@@ -2724,6 +2717,7 @@ void mnt_entry_free(struct mount_info *mi)
 		xfree(mi->mountpoint);
 		xfree(mi->source);
 		xfree(mi->options);
+		xfree(mi->fsname);
 		xfree(mi);
 	}
 }
@@ -2934,8 +2928,19 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		if (!pm->options)
 			goto err;
 
+		if (me->fstype != FSTYPE__AUTO && me->fsname) {
+			pr_err("fsname can be set only for FSTYPE__AUTO mounts\n");
+			goto err;
+		}
+
 		/* FIXME: abort unsupported early */
-		pm->fstype = decode_fstype(me->fstype, me->fsname);
+		pm->fstype = decode_fstype(me->fstype);
+
+		if (me->fsname) {
+			pm->fsname = xstrdup(me->fsname);
+			if (!pm->fsname)
+				goto err;
+		}
 
 		if (get_mp_root(me, pm))
 			goto err;
