@@ -25,9 +25,8 @@ piegen_opt_t opts = {
 	.prefix_name		= "__",
 	.var_name		= "elf_relocs",
 	.nrgotpcrel_name	= "nr_gotpcrel",
+	.fout			= NULL,
 };
-
-FILE *fout;
 
 static int piegen(void)
 {
@@ -46,8 +45,8 @@ static int piegen(void)
 		goto err;
 	}
 
-	fout = fopen(opts.output_filename, "w");
-	if (fout == NULL) {
+	opts.fout = fopen(opts.output_filename, "w");
+	if (opts.fout == NULL) {
 		pr_perror("Can't open %s", opts.output_filename);
 		goto err;
 	}
@@ -69,8 +68,8 @@ static int piegen(void)
 err:
 	if (fd >= 0)
 		close(fd);
-	if (fout)
-		fclose(fout);
+	if (opts.fout)
+		fclose(opts.fout);
 	if (!ret)
 		printf("%s generated successfully.\n", opts.output_filename);
 	return ret;
@@ -81,6 +80,9 @@ int main(int argc, char *argv[])
 	const char *current_cflags = NULL;
 	int opt, idx, i;
 	char *action;
+
+	opts.fdebug = stdout;
+	opts.ferr = stderr;
 
 	typedef struct {
 		const char	*arch;
