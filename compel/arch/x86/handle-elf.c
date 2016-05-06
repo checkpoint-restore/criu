@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include "piegen.h"
+#include "uapi/piegen-err.h"
 #include "handle-elf.h"
 
 int handle_binary(void *mem, size_t size)
@@ -11,5 +12,5 @@ int handle_binary(void *mem, size_t size)
 		return handle_elf_x86_64(mem, size);
 
 	pr_err("Unsupported Elf format detected\n");
-	return -1;
+	return -E_NOT_ELF;
 }
