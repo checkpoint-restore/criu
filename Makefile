@@ -127,7 +127,7 @@ endif
 CFLAGS			+= $(WARNINGS) $(DEFINES) -iquote include/
 
 # Default target
-all: compel criu lib
+all: compel/compel criu lib
 .PHONY: all
 
 #
