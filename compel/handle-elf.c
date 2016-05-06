@@ -16,16 +16,36 @@
 #include "piegen.h"
 #include "handle-elf.h"
 
-static bool __ptr_oob(const void *ptr, const void *start, const size_t size)
+/* TODO: merge with util-vdso.c part in criu header */
+/* Check if pointer is out-of-bound */
+static bool
+__ptr_oob(const uintptr_t ptr, const uintptr_t start, const size_t size)
 {
-	const void *end = (const void *)((const unsigned long)start + size);
-	return ptr > end || ptr < start;
+	uintptr_t end = start + size;
+
+	return ptr >= end || ptr < start;
+}
+
+/* Check if pointed structure's end is out-of-bound */
+static bool __ptr_struct_end_oob(const uintptr_t ptr, const size_t struct_size,
+				const uintptr_t start, const size_t size)
+{
+	/* the last byte of the structure should be inside [begin, end) */
+	return __ptr_oob(ptr + struct_size - 1, start, size);
+}
+
+/* Check if pointed structure is out-of-bound */
+static bool __ptr_struct_oob(const uintptr_t ptr, const size_t struct_size,
+				const uintptr_t start, const size_t size)
+{
+	return __ptr_oob(ptr, start, size) ||
+		__ptr_struct_end_oob(ptr, struct_size, start, size);
 }
 
 static bool test_pointer(const void *ptr, const void *start, const size_t size,
 			 const char *name, const char *file, const int line)
 {
-	if (__ptr_oob(ptr, start, size)) {
+	if (__ptr_oob((const uintptr_t)ptr, (const uintptr_t)start, size)) {
 		pr_err("Corrupted pointer %p (%s) at %s:%d\n",
 		       ptr, name, file, line);
 		return true;
@@ -70,6 +90,43 @@ static bool is_header_supported(Ehdr_t *hdr)
 	return true;
 }
 
+static const char *get_strings_section(Ehdr_t *hdr, uintptr_t mem, size_t size)
+{
+	size_t sec_table_size = hdr->e_shentsize * hdr->e_shnum;
+	uintptr_t sec_table = mem + hdr->e_shoff;
+	Shdr_t *secstrings_hdr;
+	uintptr_t addr;
+
+	if (__ptr_struct_oob(sec_table, sec_table_size, mem, size)) {
+		pr_err("Section table [%#zx, %#zx) is out of [%#zx, %#zx)\n",
+			sec_table, sec_table + sec_table_size, mem, mem + size);
+		return NULL;
+	}
+
+	/*
+	 * strings section header's offset in section headers table is
+	 * (size of section header * index of string section header)
+	 */
+	addr = sec_table + hdr->e_shentsize * hdr->e_shstrndx;
+	if (__ptr_struct_oob(addr, sizeof(Shdr_t),
+			sec_table, sec_table + sec_table_size)) {
+		pr_err("String section header @%#zx is out of [%#zx, %#zx)\n",
+			addr, sec_table, sec_table + sec_table_size);
+		return NULL;
+	}
+	secstrings_hdr = (void*)addr;
+
+	addr = mem + secstrings_hdr->sh_offset;
+	if (__ptr_struct_oob(addr, secstrings_hdr->sh_size, mem, size)) {
+		pr_err("String section @%#zx size %#lx is out of [%#zx, %#zx)\n",
+			addr, (unsigned long)secstrings_hdr->sh_size,
+			mem, mem + size);
+		return NULL;
+	}
+
+	return (void*)addr;
+}
+
 int __handle_elf(void *mem, size_t size)
 {
 	const char *symstrings = NULL;
@@ -77,7 +134,6 @@ int __handle_elf(void *mem, size_t size)
 	Sym_t *symbols = NULL;
 	Ehdr_t *hdr = mem;
 
-	Shdr_t *secstrings_hdr = NULL;
 	Shdr_t *strtab_hdr = NULL;
 	Shdr_t **sec_hdrs = NULL;
 	const char *secstrings;
@@ -103,10 +159,9 @@ int __handle_elf(void *mem, size_t size)
 		goto err;
 	}
 
-	secstrings_hdr = mem + hdr->e_shoff + hdr->e_shentsize * hdr->e_shstrndx;
-	secstrings = mem + secstrings_hdr->sh_offset;
-	ptr_func_exit(secstrings_hdr);
-	ptr_func_exit(secstrings);
+	secstrings = get_strings_section(hdr, (uintptr_t)mem, size);
+	if (!secstrings)
+		goto err;
 
 	pr_debug("Sections\n");
 	pr_debug("------------\n");
