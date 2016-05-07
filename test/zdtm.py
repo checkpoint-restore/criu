@@ -413,10 +413,10 @@ class zdtm_test:
 		return opts
 
 	def getdopts(self):
-		return self.__getcropts() + self.__freezer.getdopts()
+		return self.__getcropts() + self.__freezer.getdopts() + self.__desc.get('dopts', '').split()
 
 	def getropts(self):
-		return self.__getcropts() + self.__freezer.getropts()
+		return self.__getcropts() + self.__freezer.getropts() + self.__desc.get('ropts', '').split()
 
 	def gone(self, force = True):
 		if not self.auto_reap:

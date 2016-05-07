@@ -230,6 +230,7 @@ TST_DIR		=				\
 		mntns_shared_vs_private		\
 		mnt_ext_auto			\
 		mnt_ext_master			\
+		mnt_ext_dev			\
 		mntns_deleted			\
 		unlink_regular00		\
 
