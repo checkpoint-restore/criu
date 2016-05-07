@@ -177,6 +177,7 @@ extern int inherit_fd_fini(void);
 
 extern bool external_lookup_id(char *id);
 extern int inherit_fd_lookup_id(char *id);
+extern char *external_lookup_by_key(char *id);
 
 extern bool inherited_fd(struct file_desc *, int *fdp);
 

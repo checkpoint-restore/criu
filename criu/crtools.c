@@ -607,11 +607,6 @@ int main(int argc, char *argv[], char *envp[])
 	if (log_init(opts.output))
 		return 1;
 
-	if (!list_empty(&opts.external) && strcmp(argv[optind], "dump")) {
-		pr_err("--external is dump-only option\n");
-		return 1;
-	}
-
 	if (!list_empty(&opts.inherit_fds)) {
 		if (strcmp(argv[optind], "restore")) {
 			pr_err("--inherit-fd is restore-only option\n");
@@ -778,9 +773,12 @@ usage:
 "                        force criu to (try to) dump/restore these filesystem's\n"
 "                        mountpoints even if fs is not supported.\n"
 "  --external RES        dump objects from this list as external resources:\n"
-"                        Formats of RES:\n"
+"                        Formats of RES on dump:\n"
 "                            tty[rdev:dev]\n"
 "                            file[mnt_id:inode]\n"
+"                            dev[maj:min]:VAL\n"
+"                        Formats of RES on restore:\n"
+"                            dev[VAL]:DEVPATH\n"
 "  --inherit-fd fd[<num>]:<existing>\n"
 "                        Inherit file descriptors. This allows to treat file descriptor\n"
 "                        <num> as being already opened via <existing> one and instead of\n"

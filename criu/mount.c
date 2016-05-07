@@ -38,6 +38,8 @@
 #undef	LOG_PREFIX
 #define LOG_PREFIX "mnt: "
 
+static struct fstype fstypes[];
+
 int ext_mount_add(char *key, char *val)
 {
 	struct ext_mount *em;
@@ -483,15 +485,42 @@ static void mnt_tree_show(struct mount_info *tree, int off)
 static int try_resolve_ext_mount(struct mount_info *info)
 {
 	struct ext_mount *em;
+	char devstr[64];
 
 	em = ext_mount_lookup(info->mountpoint + 1 /* trim the . */);
-	if (em == NULL)
-		return -ENOTSUP;
+	if (em) {
+		pr_info("Found %s mapping for %s mountpoint\n",
+				em->val, info->mountpoint);
+		info->external = em;
+		return 0;
+	}
 
-	pr_info("Found %s mapping for %s mountpoint\n",
-			em->val, info->mountpoint);
-	info->external = em;
-	return 0;
+	snprintf(devstr, sizeof(devstr), "dev[%d/%d]",
+			kdev_major(info->s_dev),  kdev_minor(info->s_dev));
+
+	if (info->fstype->code == FSTYPE__UNSUPPORTED) {
+		char *val;
+
+		val = external_lookup_by_key(devstr);
+		if (val) {
+			char *source;
+			int len;
+
+			len = strlen(val) + sizeof("dev[]");
+			source = xmalloc(len);
+			if (source == NULL)
+				return -1;
+
+			snprintf(source, len, "dev[%s]", val);
+			info->fstype = &fstypes[1];
+			BUG_ON(info->fstype->code != FSTYPE__AUTO);
+			xfree(info->source);
+			info->source = source;
+			return 0;
+		}
+	}
+
+	return -ENOTSUP;
 }
 
 static struct mount_info *find_widest_shared(struct mount_info *m)
@@ -2084,6 +2113,11 @@ static char *resolve_source(struct mount_info *mi)
 
 	if (mi->fstype->code == FSTYPE__AUTO) {
 		struct stat st;
+		char *val;
+
+		val = external_lookup_by_key(mi->source);
+		if (val)
+			return val;
 
 		if (!stat(mi->source, &st) && S_ISBLK(st.st_mode) &&
 		    major(st.st_rdev) == kdev_major(mi->s_dev) &&
