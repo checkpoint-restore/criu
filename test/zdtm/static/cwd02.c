@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 	}
 
 	if (stf.st_ino != std.st_ino ||
-			stf.st_dev != stf.st_dev) {
+			stf.st_dev != std.st_dev) {
 		fail("cwd and opened fd are not the same\n");
 		goto cleanup;
 	}
