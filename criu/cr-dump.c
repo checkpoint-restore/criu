@@ -828,6 +828,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 		pr_err("Can't dump thread for pid %d\n", pid);
 		goto err;
 	}
+	pstree_insert_pid(tid->virt, tid);
 
 	img = open_image(CR_FD_CORE, O_DUMP, tid->virt);
 	if (!img)
@@ -1284,6 +1285,7 @@ static int dump_one_task(struct pstree_item *item)
 	}
 
 	parasite_ctl->pid.virt = item->pid.virt = misc.pid;
+	pstree_insert_pid(item->pid.virt, &item->pid);
 	item->sid = misc.sid;
 	item->pgid = misc.pgid;
 

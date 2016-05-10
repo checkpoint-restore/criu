@@ -409,6 +409,15 @@ static struct pid *lookup_create_pid(pid_t pid, struct pid *pid_node)
 	return pid_node;
 }
 
+void pstree_insert_pid(pid_t pid, struct pid *pid_node)
+{
+	struct pid* n;
+
+	n = lookup_create_pid(pid, pid_node);
+
+	BUG_ON(n != pid_node);
+}
+
 struct pstree_item *lookup_create_item(pid_t pid)
 {
 	struct pid *node;;
