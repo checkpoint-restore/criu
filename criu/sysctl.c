@@ -303,8 +303,13 @@ static int __userns_sysctl_op(void *arg, int proc_fd, pid_t pid)
 		close(nsfd);
 
 		for (i = 0; i < userns_req->nr_req; i++) {
-			if (do_sysctl_op(fds[i], reqs[i], op) < 0)
-				exit(1);
+			if (do_sysctl_op(fds[i], reqs[i], op) < 0) {
+				if (op != CTL_READ || errno != EIO || !(req->flags & CTL_FLAGS_READ_EIO_SKIP))
+					exit(1);
+			} else {
+				/* mark sysctl in question exists */
+				req->flags |= CTL_FLAGS_HAS;
+			}
 		}
 
 		exit(0);
@@ -372,8 +377,16 @@ static int __nonuserns_sysctl_op(struct sysctl_req *req, size_t nr_req, int op)
 		}
 
 		ret = do_sysctl_op(fd, req, op);
-		if (ret)
-			goto out;
+		if (ret) {
+			if (op != CTL_READ || errno != EIO || !(req->flags & CTL_FLAGS_READ_EIO_SKIP)) {
+				close(fd);
+				goto out;
+			}
+		} else {
+			/* mark sysctl in question exists */
+			req->flags |= CTL_FLAGS_HAS;
+		}
+
 		close(fd);
 		req++;
 	}
