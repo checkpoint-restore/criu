@@ -155,7 +155,7 @@ char *devconfs6[] = {
 };
 
 #define CONF_OPT_PATH "net/%s/conf/%s/%s"
-#define MAX_CONF_OPT_PATH IFNAMSIZ+50
+#define MAX_CONF_OPT_PATH IFNAMSIZ+60
 #define MAX_STR_CONF_LEN 200
 
 static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto,
@@ -200,6 +200,8 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 				break;
 			case __CTL_STR:
 				req[ri].type = CTL_STR(MAX_STR_CONF_LEN);
+				flags |= op == CTL_READ && !strcmp(devconfs[i], "stable_secret")
+					? CTL_FLAGS_READ_EIO_SKIP : 0;
 
 				/* skip non-existing sysctl */
 				if (op == CTL_WRITE && !conf[i]->sarg)
@@ -246,6 +248,16 @@ static int ipv4_conf_op(char *tgt, SysctlEntry **conf, int n, int op, SysctlEntr
 	return net_conf_op(tgt, conf, n, op, "ipv4",
 			req, path, ARRAY_SIZE(devconfs4),
 			devconfs4, def_conf);
+}
+
+static int ipv6_conf_op(char *tgt, SysctlEntry **conf, int n, int op, SysctlEntry **def_conf)
+{
+	struct sysctl_req req[ARRAY_SIZE(devconfs6)];
+	char path[ARRAY_SIZE(devconfs6)][MAX_CONF_OPT_PATH];
+
+	return net_conf_op(tgt, conf, n, op, "ipv6",
+			req, path, ARRAY_SIZE(devconfs6),
+			devconfs6, def_conf);
 }
 
 /*
@@ -313,6 +325,9 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 	NetDeviceEntry netdev = NET_DEVICE_ENTRY__INIT;
 	SysctlEntry *confs4 = NULL;
 	int size4 = ARRAY_SIZE(devconfs4);
+	SysctlEntry *confs6 = NULL;
+	int size6 = ARRAY_SIZE(devconfs6);
+	char stable_secret[MAX_STR_CONF_LEN + 1];
 
 	if (!tb[IFLA_IFNAME]) {
 		pr_err("No name for link %d\n", ifi->ifi_index);
@@ -349,7 +364,31 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 		netdev.conf4[i]->type = CTL_32;
 	}
 
+	netdev.n_conf6 = size6;
+	netdev.conf6 = xmalloc(sizeof(SysctlEntry *) * size6);
+	if (!netdev.conf6)
+		goto err_free;
+
+	confs6 = xmalloc(sizeof(SysctlEntry) * size6);
+	if (!confs6)
+		goto err_free;
+
+	for (i = 0; i < size6; i++) {
+		sysctl_entry__init(&confs6[i]);
+		netdev.conf6[i] = &confs6[i];
+		if (strcmp(devconfs6[i], "stable_secret")) {
+			netdev.conf6[i]->type = CTL_32;
+		} else {
+			netdev.conf6[i]->type = __CTL_STR;
+			netdev.conf6[i]->sarg = stable_secret;
+		}
+	}
+
 	ret = ipv4_conf_op(netdev.name, netdev.conf4, size4, CTL_READ, NULL);
+	if (ret < 0)
+		goto err_free;
+
+	ret = ipv6_conf_op(netdev.name, netdev.conf6, size6, CTL_READ, NULL);
 	if (ret < 0)
 		goto err_free;
 
@@ -358,8 +397,10 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 
 	ret = dump(&netdev, fds);
 err_free:
-	xfree(confs4);
 	xfree(netdev.conf4);
+	xfree(confs4);
+	xfree(netdev.conf6);
+	xfree(confs6);
 	return ret;
 }
 
@@ -1080,6 +1121,10 @@ static int dump_netns_conf(struct cr_imgset *fds)
 	NetnsEntry netns = NETNS_ENTRY__INIT;
 	SysctlEntry *def_confs4 = NULL, *all_confs4 = NULL;
 	int size4 = ARRAY_SIZE(devconfs4);
+	SysctlEntry *def_confs6 = NULL, *all_confs6 = NULL;
+	int size6 = ARRAY_SIZE(devconfs6);
+	char def_stable_secret[MAX_STR_CONF_LEN + 1];
+	char all_stable_secret[MAX_STR_CONF_LEN + 1];
 
 	netns.n_def_conf4 = size4;
 	netns.n_all_conf4 = size4;
@@ -1105,10 +1150,48 @@ static int dump_netns_conf(struct cr_imgset *fds)
 		netns.all_conf4[i]->type = CTL_32;
 	}
 
+	netns.n_def_conf6 = size6;
+	netns.n_all_conf6 = size6;
+	netns.def_conf6 = xmalloc(sizeof(SysctlEntry *) * size6);
+	if (!netns.def_conf6)
+		goto err_free;
+	netns.all_conf6 = xmalloc(sizeof(SysctlEntry *) * size6);
+	if (!netns.all_conf6)
+		goto err_free;
+	def_confs6 = xmalloc(sizeof(SysctlEntry) * size6);
+	if (!def_confs6)
+		goto err_free;
+	all_confs6 = xmalloc(sizeof(SysctlEntry) * size6);
+	if (!all_confs6)
+		goto err_free;
+
+	for (i = 0; i < size6; i++) {
+		sysctl_entry__init(&def_confs6[i]);
+		sysctl_entry__init(&all_confs6[i]);
+		netns.def_conf6[i] = &def_confs6[i];
+		netns.all_conf6[i] = &all_confs6[i];
+		if (strcmp(devconfs6[i], "stable_secret")) {
+			netns.def_conf6[i]->type = CTL_32;
+			netns.all_conf6[i]->type = CTL_32;
+		} else {
+			netns.def_conf6[i]->type = __CTL_STR;
+			netns.all_conf6[i]->type = __CTL_STR;
+			netns.def_conf6[i]->sarg = def_stable_secret;
+			netns.all_conf6[i]->sarg = all_stable_secret;
+		}
+	}
+
 	ret = ipv4_conf_op("default", netns.def_conf4, size4, CTL_READ, NULL);
 	if (ret < 0)
 		goto err_free;
 	ret = ipv4_conf_op("all", netns.all_conf4, size4, CTL_READ, NULL);
+	if (ret < 0)
+		goto err_free;
+
+	ret = ipv6_conf_op("default", netns.def_conf6, size6, CTL_READ, NULL);
+	if (ret < 0)
+		goto err_free;
+	ret = ipv6_conf_op("all", netns.all_conf6, size6, CTL_READ, NULL);
 	if (ret < 0)
 		goto err_free;
 
@@ -1118,6 +1201,10 @@ err_free:
 	xfree(netns.all_conf4);
 	xfree(def_confs4);
 	xfree(all_confs4);
+	xfree(netns.def_conf6);
+	xfree(netns.all_conf6);
+	xfree(def_confs6);
+	xfree(all_confs6);
 	return ret;
 }
 
