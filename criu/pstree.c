@@ -596,12 +596,17 @@ static int get_free_pid()
 		prev = rb_entry(rb_first(&pid_root_rb), struct pstree_item, pid.node);
 
 	while (1) {
+		struct rb_node *node;
 		pid_t pid;
+
 		pid = prev->pid.virt + 1;
 		pid = pid < RESERVED_PIDS ? RESERVED_PIDS + 1 : pid;
 
-		next = rb_entry(rb_next(&prev->pid.node), struct pstree_item, pid.node);
-		if (&next->pid.node == NULL || next->pid.virt > pid)
+		node = rb_next(&prev->pid.node);
+		if (node == NULL)
+			return pid;
+		next = rb_entry(node, struct pstree_item, pid.node);
+		if (next->pid.virt > pid)
 			return pid;
 		prev = next;
 	}
