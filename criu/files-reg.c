@@ -806,36 +806,34 @@ static int dump_linked_remap(char *path, int len, const struct stat *ost,
 static pid_t *dead_pids;
 static int n_dead_pids;
 
-static int dead_pid_check_threads(struct pstree_item *item, pid_t pid)
-{
-	int i;
-
-	for (i = 0; i < item->nr_threads; i++) {
-		/*
-		 * If the dead PID was given to a main thread of another
-		 * process, this is handled during restore.
-		 */
-		if (item->pid.real == item->threads[i].real ||
-		    item->threads[i].virt != pid)
-			continue;
-
-		pr_err("Conflict with a dead task with the same PID as of this thread (virt %d, real %d).\n",
-			item->threads[i].virt, item->threads[i].real);
-		return 1;
-	}
-
-	return 0;
-}
-
 int dead_pid_conflict(void)
 {
-	struct pstree_item *item;
 	int i;
 
 	for (i = 0; i < n_dead_pids; i++) {
-		for_each_pstree_item(item)
-			if (dead_pid_check_threads(item, dead_pids[i]))
-				return 1;
+		struct pid *node;
+		pid_t pid = dead_pids[i];
+
+		node = pstree_pid_by_virt(pid);
+		if (!node)
+			continue;
+
+		if (node->state != TASK_THREAD) {
+			struct pstree_item *item;
+
+			/*
+			 * If the dead PID was given to a main thread of another
+			 * process, this is handled during restore.
+			 */
+			item = container_of(node, struct pstree_item, pid);
+			if (item->pid.real == item->threads[i].real ||
+			    item->threads[i].virt != pid)
+				continue;
+		}
+
+		pr_err("Conflict with a dead task with the same PID as of this thread (virt %d, real %d).\n",
+			node->virt, node->real);
+		return -1;
 	}
 
 	return 0;

@@ -430,7 +430,7 @@ struct pstree_item *lookup_create_item(pid_t pid)
 	return container_of(node, struct pstree_item, pid);
 }
 
-static struct pid *pstree_pid_by_virt(pid_t pid)
+struct pid *pstree_pid_by_virt(pid_t pid)
 {
 	struct rb_node *node = pid_root_rb.rb_node;
 
