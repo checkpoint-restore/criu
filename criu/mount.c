@@ -2318,7 +2318,7 @@ static int do_new_mount(struct mount_info *mi)
 	if (!src)
 		return -1;
 
-	/* Merge superblock and mount flags if it's posiable */
+	/* Merge superblock and mount flags if it's possible */
 	if (!(mflags & ~MS_MNT_KNOWN_FLAGS) && !((sflags ^ mflags) & MS_RDONLY)) {
 		sflags |= mflags;
 		mflags = 0;
