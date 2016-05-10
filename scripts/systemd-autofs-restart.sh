@@ -65,7 +65,7 @@ function check_fs_type {
 
 		local mnt_id=$(echo $line | awk '{print $1;}')
 		local mnt_parent_id=$(echo $line | awk '{print $2;}')
-		local mnt_fs_type=$(echo $line | awk '{print $9;}')
+		local mnt_fs_type=$(echo $line | sed 's/.* - //g' | awk '{print $1;}')
 
 		# Skip mount entry, if not the first one and not a child
 		[ -n "$top_mount_id" ] && [ "$mnt_parent_id" != "$top_mount_id" ] && continue
