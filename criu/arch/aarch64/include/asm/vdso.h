@@ -10,11 +10,21 @@
  */
 #define VDSO_SYMBOL_MAX		4
 
+/*
+ * Workaround for VDSO array symbol table's relocation.
+ * XXX: remove when compel/piegen will support aarch64.
+ */
+static const char* __maybe_unused aarch_vdso_symbol1 = "__kernel_clock_getres";
+static const char* __maybe_unused aarch_vdso_symbol2 = "__kernel_clock_gettime";
+static const char* __maybe_unused aarch_vdso_symbol3 = "__kernel_gettimeofday";
+static const char* __maybe_unused aarch_vdso_symbol4 = "__kernel_rt_sigreturn";
+
 #define ARCH_VDSO_SYMBOLS			\
-	"__kernel_clock_getres",		\
-	"__kernel_clock_gettime",		\
-	"__kernel_gettimeofday",		\
-	"__kernel_rt_sigreturn"
+	aarch_vdso_symbol1,			\
+	aarch_vdso_symbol2,			\
+	aarch_vdso_symbol3,			\
+	aarch_vdso_symbol4
+
 
 struct vdso_symtable;
 extern int vdso_redirect_calls(unsigned long base_to,
