@@ -1390,6 +1390,8 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 			if (ret) {
 				pr_err("Failed to parse FS specific data on %s\n",
 						new->mountpoint);
+				mnt_entry_free(new);
+				new = NULL;
 				goto end;
 			}
 		}
