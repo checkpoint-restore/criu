@@ -202,7 +202,7 @@ again:
 		}
 	} else {
 		if ((ret = mkreg_ghost(path, gfe->mode, gf, img)) < 0)
-			msg = "Can't create ghost regfile\n";
+			msg = "Can't create ghost regfile";
 	}
 
 	if (ret < 0) {
