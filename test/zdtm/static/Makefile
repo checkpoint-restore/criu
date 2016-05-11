@@ -224,6 +224,7 @@ TST_DIR		=				\
 		unlink_fstat04			\
 		mntns_open			\
 		mntns_link_remap		\
+		mntns_ghost			\
 		mntns_link_ghost		\
 		mntns_shared_bind		\
 		mntns_shared_bind02		\
