@@ -694,7 +694,9 @@ class criu_cli:
 					# on restore we move only a log file, because we need images
 					os.rename(os.path.join(__ddir, log), os.path.join(__ddir, log + ".fail"))
 				# try again without faults
+		                print "Run criu " + action
 				ret = self.__criu(action, s_args, False, strace, preexec)
+		                grep_errors(os.path.join(__ddir, log))
 				if ret == 0:
 					return
 			if self.__test.blocking() or (self.__sat and action == 'restore'):
