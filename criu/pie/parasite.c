@@ -478,6 +478,7 @@ err:
 err_io:
 
 	/* kernel reports EIO for get ioctls on pair-less ptys */
+	pr_debug("tty: EIO on tty\n");
 	args->hangup = true;
 	return 0;
 #undef __tty_ioctl
