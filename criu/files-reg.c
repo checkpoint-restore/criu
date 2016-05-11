@@ -495,17 +495,25 @@ static void try_clean_ghost(struct remap_info *ri)
 	ret = rst_get_mnt_root(mnt_id, path, sizeof(path));
 	if (ret < 0)
 		return;
+	if (ret >= sizeof(path) - 1) {
+		pr_err("The path buffer is too small\n");
+		return;
+	}
+	if (path[ret] != '/') {
+		path[ret++] = '/';
+		path[ret] = 0;
+	}
 
 	if (ri->rfi->remap == NULL)
 		return;
 	if (!ri->rfi->is_dir) {
-		ghost_path(path + ret, sizeof(path) - 1, ri->rfi, ri->rfe);
+		ghost_path(path + ret, sizeof(path) - ret, ri->rfi, ri->rfe);
 		if (!unlink(path)) {
 			pr_info(" `- X [%s] ghost\n", path);
 			return;
 		}
 	} else {
-		strncpy(path + ret, ri->rfi->path, sizeof(path) - 1);
+		strncpy(path + ret, ri->rfi->path, sizeof(path) - ret);
 		if (!rmdir(path)) {
 			pr_info(" `- Xd [%s] ghost\n", path);
 			return;
