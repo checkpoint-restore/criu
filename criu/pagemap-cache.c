@@ -48,9 +48,19 @@ int pmc_init(pmc_t *pmc, pid_t pid, const struct list_head *vma_head, size_t siz
 		goto err;
 
 	if (kdat.pmap == PM_DISABLED) {
-		pmc->fd = -1;
-		pr_warn("No pagemap for %d available, "
-				"switching to greedy mode\n", pid);
+		/*
+		 * FIXME We might need to implement greedy
+		 * mode via reading all pages available inside
+		 * parasite.
+		 *
+		 * Actually since linux-4.4 the pagemap file
+		 * is available for usernamespace with hiding
+		 * PFNs but providing page attributes, so other
+		 * option simply require kernel 4.4 and above
+		 * for usernamespace support.
+		 */
+		pr_err("No pagemap for %d available\n", pid);
+		goto err;
 	} else {
 		pmc->fd = open_proc(pid, "pagemap");
 		if (pmc->fd < 0)
@@ -130,24 +140,12 @@ static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 
 	size_map = PAGEMAP_LEN(pmc->end - pmc->start);
 	BUG_ON(pmc->map_len < size_map);
+	BUG_ON(pmc->fd < 0);
 
-	if (unlikely(pmc->fd < 0)) {
-		u64 pme = PME_PRESENT;
-		size_t i;
-
-		/*
-		 * We don't have access to the dumpee pagemap so fill
-		 * everything as present. It's better than refuse
-		 * to dump because it simply disables optimisation.
-		 */
-		for (i = 0; i < (size_map / sizeof(pme)); i++)
-			pmc->map[i] = pme;
-	} else {
-		if (pread(pmc->fd, pmc->map, size_map, PAGEMAP_PFN_OFF(pmc->start)) != size_map) {
-			pmc_zap(pmc);
-			pr_perror("Can't read %d's pagemap file", pmc->pid);
-			return -1;
-		}
+	if (pread(pmc->fd, pmc->map, size_map, PAGEMAP_PFN_OFF(pmc->start)) != size_map) {
+		pmc_zap(pmc);
+		pr_perror("Can't read %d's pagemap file", pmc->pid);
+		return -1;
 	}
 
 	return 0;
