@@ -275,6 +275,7 @@ struct tty_driver *get_tty_driver(dev_t rdev, dev_t dev)
 			 */
 			return &vt_driver;
 		/* Other minors points to UART serial ports */
+		break;
 	case USB_SERIAL_MAJOR:
 	case LOW_DENSE_SERIAL_MAJOR:
 		return &serial_driver;
