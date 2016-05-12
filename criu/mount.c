@@ -1151,8 +1151,10 @@ static char *get_clean_mnt(struct mount_info *mi, char *mnt_path_tmp, char *mnt_
 	return mnt_path;
 }
 
+#define MNT_UNREACHABLE INT_MIN
 static int open_mountpoint(struct mount_info *pm)
 {
+	struct mount_info *c;
 	int fd = -1, ns_old = -1;
 	char mnt_path_tmp[] = "/tmp/cr-tmpfs.XXXXXX";
 	char mnt_path_root[] = "/cr-tmpfs.XXXXXX";
@@ -1167,6 +1169,13 @@ static int open_mountpoint(struct mount_info *pm)
 		return __open_mountpoint(pm, -1);
 
 	pr_info("Something is mounted on top of %s\n", pm->mountpoint);
+
+	list_for_each_entry(c, &pm->children, siblings) {
+		if (!strcmp(c->mountpoint, pm->mountpoint)) {
+			pr_debug("%d:%s is overmounted\n", pm->mnt_id, pm->mountpoint);
+			return MNT_UNREACHABLE;
+		}
+	}
 
 	/*
 	 * To create a "private" copy, the target mount is bind-mounted
@@ -1250,7 +1259,7 @@ static int tmpfs_dump(struct mount_info *pm)
 
 	fd = open_mountpoint(pm);
 	if (fd < 0)
-		return -1;
+		return fd;
 
 	/* if fd happens to be 0 here, we need to move it to something
 	 * non-zero, because cr_system_userns closes STDIN_FILENO as we are not
@@ -1461,7 +1470,7 @@ static int binfmt_misc_dump(struct mount_info *pm)
 
 	fd = open_mountpoint(pm);
 	if (fd < 0)
-		return -1;
+		return fd;
 
 	fdir = fdopendir(fd);
 	if (fdir == NULL) {
@@ -1632,7 +1641,7 @@ static int fusectl_dump(struct mount_info *pm)
 
 	fd = open_mountpoint(pm);
 	if (fd < 0)
-		return -1;
+		return fd;
 
 	fdir = fdopendir(fd);
 	if (fdir == NULL) {
@@ -1686,10 +1695,10 @@ static int cgroup_parse(struct mount_info *pm)
 static int dump_empty_fs(struct mount_info *pm)
 {
 	int fd, ret = -1;
-	fd = open_mountpoint(pm);
 
+	fd = open_mountpoint(pm);
 	if (fd < 0)
-		return -1;
+		return fd;
 
 	ret = is_empty_dir(fd);
 	close(fd);
@@ -1885,6 +1894,41 @@ uns:
 	return &fstypes[0];
 }
 
+static int dump_one_fs(struct mount_info *mi)
+{
+	struct mount_info *pm = mi;
+	struct mount_info *t;
+	bool first = true;
+
+	if (mi->is_ns_root || mi->need_plugin || mi->external || !mi->fstype->dump)
+		return 0;
+
+	/* mnt_bind is a cycled list, so list_for_each can't be used here. */
+	for (; &pm->mnt_bind != &mi->mnt_bind || first;
+	     pm = list_entry(pm->mnt_bind.next, typeof(*pm), mnt_bind)) {
+		int ret;
+
+		first = false;
+
+		if (!fsroot_mounted(pm))
+			continue;
+
+		ret = pm->fstype->dump(pm);
+		if (ret == MNT_UNREACHABLE)
+			continue;
+		if (ret < 0)
+			return ret;
+
+		list_for_each_entry(t, &pm->mnt_bind, mnt_bind)
+			t->dumped = true;
+		return 0;
+	}
+
+	pr_err("Unable to dump a file system for %d:%s\n",
+				mi->mnt_id, mi->mountpoint);
+	return -1;
+}
+
 static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 {
 	MntEntry me = MNT_ENTRY__INIT;
@@ -1897,16 +1941,9 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 	if (me.fstype == FSTYPE__AUTO)
 		me.fsname = pm->fsname;
 
-	if (pm->parent && !pm->dumped && !pm->need_plugin && !pm->external &&
-	    pm->fstype->dump && fsroot_mounted(pm)) {
-		struct mount_info *t;
 
-		if (pm->fstype->dump(pm))
-			return -1;
-
-		list_for_each_entry(t, &pm->mnt_bind, mnt_bind)
-			t->dumped = true;
-	}
+	if (!pm->dumped && dump_one_fs(pm))
+		return -1;
 
 	me.mnt_id		= pm->mnt_id;
 	me.root_dev		= pm->s_dev;
