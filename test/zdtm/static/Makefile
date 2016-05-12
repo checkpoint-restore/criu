@@ -205,6 +205,7 @@ TST_DIR		=				\
 		overmount_fifo			\
 		overmount_sock			\
 		tempfs				\
+		tempfs_overmounted		\
 		tempfs_ro			\
 		tempfs_subns			\
 		mnt_ro_bind			\
