@@ -21,9 +21,9 @@ static void signal_handler_sighup(int signum)
 
 int main(int argc, char ** argv)
 {
-	int fdm, fds, ret, tty;
+	int fdm, fds, ret, tty, i;
 	char *slavename;
-	char buf[10];
+	char buf[4096];
 	const char teststr[] = "hello\n";
 
 	struct sigaction sa = {
@@ -77,21 +77,24 @@ int main(int argc, char ** argv)
 	close(fds);
 	fds = 100;
 
-	test_daemon();
-
-	test_waitsig();
-
-	/* Check connectivity */
-	ret = write(fdm, teststr, sizeof(teststr) - 1);
-	if (ret != sizeof(teststr) - 1) {
-		pr_perror("write(fdm) failed");
-		return 1;
+	for (i = 0; i  < 10; i++) {
+		/* Check connectivity */
+		ret = write(fdm, teststr, sizeof(teststr) - 1);
+		if (ret != sizeof(teststr) - 1) {
+			pr_perror("write(fdm) failed");
+			return 1;
+		}
 	}
 
-	ret = read(fds, buf, sizeof(teststr) - 1);
-	if (ret != sizeof(teststr) - 1) {
-		pr_perror("read(fds) failed");
-		return 1;
+	test_daemon();
+	test_waitsig();
+
+	for (i = 0; i  < 10; i++) {
+		ret = read(fds, buf, sizeof(teststr) - 1);
+		if (ret != sizeof(teststr) - 1) {
+			pr_perror("read(fds) failed");
+			return 1;
+		}
 	}
 
 	if (strncmp(teststr, buf, sizeof(teststr) - 1)) {
