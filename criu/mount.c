@@ -806,6 +806,8 @@ static char *cut_root_for_bind(char *target_root, char *source_root)
 			break;
 		BUG_ON(target_root[tok] == '\0');
 	}
+	if (target_root[tok] == '/')
+		tok++;
 
 	return target_root + tok;
 
