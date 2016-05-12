@@ -2456,13 +2456,14 @@ static int do_bind_mount(struct mount_info *mi)
 	char mnt_fd_path[PSFDS];
 	char *root, *cut_root, rpath[PATH_MAX];
 	unsigned long mflags;
-	int exit_code = -1;
+	int exit_code = -1, mp_len;
 	bool shared = false;
 	bool master = false;
 	bool private = false;
 	char *mnt_path = NULL;
 	struct stat st;
 	bool umount_mnt_path = false;
+	struct mount_info *c;
 
 	if (mi->need_plugin) {
 		if (restore_ext_mount(mi))
@@ -2495,14 +2496,30 @@ static int do_bind_mount(struct mount_info *mi)
 	mi->private = mi->bind->private;
 
 	mnt_path = mi->bind->mountpoint;
+
+	/* Access a mount by fd if mi->bind->mountpoint is overmounted */
 	if (mi->bind->fd >= 0) {
 		snprintf(mnt_fd_path, sizeof(mnt_fd_path),
 					"/proc/self/fd/%d", mi->bind->fd);
 		mnt_path = mnt_fd_path;
 	}
 
-	if (!list_empty(&mi->bind->children)) {
-		/* mi->bind->mountpoint may be overmounted */
+	if (cut_root[0] == 0) /* This case is handled by mi->bind->fd */
+		goto skip_overmount_check;
+
+	mp_len = strlen(mi->bind->mountpoint);
+	if (mp_len > 1) /* skip a joining / if mi->bind->mountpoint isn't "/" */
+		mp_len++;
+
+	list_for_each_entry(c, &mi->bind->children, siblings) {
+		if (!c->mounted)
+			continue;
+		if (issubpath(cut_root, c->mountpoint + mp_len))
+			break; /* a source path is overmounted */
+	}
+
+	if (&c->siblings != &mi->bind->children) {
+		/* Get a copy of mi->bind without child mounts */
 		if (mount(mnt_path, mnt_clean_path, NULL, MS_BIND, NULL)) {
 			pr_perror("Unable to bind-mount %s to %s",
 					mi->bind->mountpoint, mnt_clean_path);
@@ -2510,9 +2527,11 @@ static int do_bind_mount(struct mount_info *mi)
 		mnt_path = mnt_clean_path;
 		umount_mnt_path = true;
 	}
+
 	if (mnt_path == NULL)
 		return -1;
 
+skip_overmount_check:
 	snprintf(rpath, sizeof(rpath), "%s/%s",
 			mnt_path, cut_root);
 	root = rpath;
