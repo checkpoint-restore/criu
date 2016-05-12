@@ -2451,6 +2451,7 @@ static int umount_clean_path()
 
 static int do_bind_mount(struct mount_info *mi)
 {
+	char mnt_fd_path[PSFDS];
 	char *root, *cut_root, rpath[PATH_MAX];
 	unsigned long mflags;
 	int exit_code = -1;
@@ -2484,11 +2485,23 @@ static int do_bind_mount(struct mount_info *mi)
 	private = !mi->master_id && !shared;
 	cut_root = cut_root_for_bind(mi->root, mi->bind->root);
 
-	if (list_empty(&mi->bind->children))
-		mnt_path = mi->bind->mountpoint;
-	else {
+	/* Mount private can be initialized on mount() callback, which is
+	 * called only once.
+	 * It have to be copied to all it's sibling structures to provide users
+	 * of it with actual data.
+	 */
+	mi->private = mi->bind->private;
+
+	mnt_path = mi->bind->mountpoint;
+	if (mi->bind->fd >= 0) {
+		snprintf(mnt_fd_path, sizeof(mnt_fd_path),
+					"/proc/self/fd/%d", mi->bind->fd);
+		mnt_path = mnt_fd_path;
+	}
+
+	if (!list_empty(&mi->bind->children)) {
 		/* mi->bind->mountpoint may be overmounted */
-		if (mount(mi->bind->mountpoint, mnt_clean_path, NULL, MS_BIND, NULL)) {
+		if (mount(mnt_path, mnt_clean_path, NULL, MS_BIND, NULL)) {
 			pr_perror("Unable to bind-mount %s to %s",
 					mi->bind->mountpoint, mnt_clean_path);
 		}
@@ -2643,6 +2656,12 @@ static int do_mount_root(struct mount_info *mi)
 	return fetch_rt_stat(mi, mi->mountpoint);
 }
 
+static int do_close_one(struct mount_info *mi)
+{
+	close_safe(&mi->fd);
+	return 0;
+}
+
 static int do_mount_one(struct mount_info *mi)
 {
 	int ret;
@@ -2653,6 +2672,14 @@ static int do_mount_one(struct mount_info *mi)
 	if (!can_mount_now(mi)) {
 		pr_debug("Postpone slave %s\n", mi->mountpoint);
 		return 1;
+	}
+
+	if (mi->parent && !strcmp(mi->parent->mountpoint, mi->mountpoint)) {
+		mi->parent->fd = open(mi->parent->mountpoint, O_PATH);
+		if (mi->parent->fd < 0) {
+			pr_perror("Unable to open %s", mi->mountpoint);
+			return -1;
+		}
 	}
 
 	pr_debug("\tMounting %s @%s (%d)\n", mi->fstype->name, mi->mountpoint, mi->need_plugin);
@@ -2777,6 +2804,7 @@ struct mount_info *mnt_entry_alloc()
 
 	new = xzalloc(sizeof(struct mount_info));
 	if (new) {
+		new->fd = -1;
 		INIT_LIST_HEAD(&new->children);
 		INIT_LIST_HEAD(&new->siblings);
 		INIT_LIST_HEAD(&new->mnt_slave_list);
@@ -3254,6 +3282,7 @@ static int populate_mnt_ns(void)
 		return -1;
 
 	ret = mnt_tree_for_each(pms, do_mount_one);
+	mnt_tree_for_each(pms, do_close_one);
 
 	if (umount_clean_path())
 		return -1;
