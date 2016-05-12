@@ -228,6 +228,7 @@ TST_DIR		=				\
 		mntns_shared_bind02		\
 		mntns_root_bind			\
 		mntns_root_bind02		\
+		mntns_overmount			\
 		mntns_shared_vs_private		\
 		mnt_ext_auto			\
 		mnt_ext_master			\
