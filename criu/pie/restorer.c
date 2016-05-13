@@ -613,7 +613,7 @@ static int restore_aio_ring(struct rst_aio_ring *raio)
 				MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 	iocbp = (void *)iocb + sizeof(struct iocb);
 
-	if (iocb == MAP_FAILED) {
+	if (IS_ERR(iocb)) {
 		pr_err("Can't mmap aio tmp buffer\n");
 		return -1;
 	}
