@@ -959,8 +959,3 @@ int pid_to_virt(pid_t real)
 		return item->pid.virt;
 	return 0;
 }
-
-bool pid_in_pstree(pid_t pid)
-{
-	return pstree_item_by_real(pid) != NULL;
-}

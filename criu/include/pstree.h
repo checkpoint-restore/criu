@@ -84,7 +84,6 @@ struct pstree_item *pstree_item_by_real(pid_t virt);
 struct pstree_item *pstree_item_by_virt(pid_t virt);
 
 extern int pid_to_virt(pid_t pid);
-extern bool pid_in_pstree(pid_t pid);
 
 struct task_entries;
 extern struct task_entries *task_entries;

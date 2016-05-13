@@ -1932,6 +1932,11 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 	return 0;
 }
 
+static bool pid_in_pstree(pid_t pid)
+{
+	return pstree_item_by_real(pid) != NULL;
+}
+
 int parse_file_locks(void)
 {
 	struct file_lock *fl;
