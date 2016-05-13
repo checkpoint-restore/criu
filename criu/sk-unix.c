@@ -186,10 +186,7 @@ static int resolve_rel_name(struct unix_sk_desc *sk, const struct fd_parms *p)
 	int mntns_root, i;
 	struct ns_id *ns;
 
-	for_each_pstree_item(task) {
-		if (task->pid.real == p->pid)
-			break;
-	}
+	task = pstree_item_by_real(p->pid);
 	if (!task) {
 		pr_err("Can't find task with pid %d\n", p->pid);
 		return -ENOENT;
