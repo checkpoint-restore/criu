@@ -186,6 +186,11 @@ Thus for command line argument the example above will look like:
     Same as *--cgroup-props* except the specification is read from
     a file pointed by '<path>'.
 
+*--cgroup-dump-controller* '<name>'::
+    Dump controller with '<name>' only, skipping anything else
+    automatically discovered (usually via procfs filesystem). Suitable
+    when need *criu* to skip some controllers.
+
 *--cgroup-props-ignore-default*::
     When combined with *--cgroup-props* makes *criu* to substitute
     predefined controller property with new one shipped. Otherwise
