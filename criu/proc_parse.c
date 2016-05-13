@@ -33,6 +33,7 @@
 #include "namespaces.h"
 #include "files-reg.h"
 #include "cgroup.h"
+#include "cgroup-props.h"
 
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
@@ -2231,6 +2232,18 @@ int parse_cgroup_file(FILE *f, struct list_head *retl, unsigned int *n)
 		*path++ = '\0';
 		if (e)
 			*e = '\0';
+
+		/*
+		 * Controllers and their props might be
+		 * configured the way some of them are
+		 * not taken into the image for migration
+		 * sake or container specifics.
+		 */
+		if (cgp_should_skip_controller(name)) {
+			pr_debug("cg-prop: Skipping controller %s\n", name);
+			xfree(ncc);
+			continue;
+		}
 
 		ncc->name = xstrdup(name);
 		ncc->path = xstrdup(path);

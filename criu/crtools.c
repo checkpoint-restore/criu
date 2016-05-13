@@ -38,6 +38,7 @@
 #include "mount.h"
 #include "namespaces.h"
 #include "cgroup.h"
+#include "cgroup-props.h"
 #include "cpu.h"
 #include "action-scripts.h"
 #include "irmap.h"
@@ -275,6 +276,8 @@ int main(int argc, char *argv[], char *envp[])
 		{ "extra",			no_argument,		0, 1077	},
 		{ "experimental",		no_argument,		0, 1078	},
 		{ "all",			no_argument,		0, 1079	},
+		{ "cgroup-props",		required_argument,	0, 1080	},
+		{ "cgroup-props-file",		required_argument,	0, 1081	},
 		{ },
 	};
 
@@ -569,6 +572,12 @@ int main(int argc, char *argv[], char *envp[])
 			opts.check_extra_features = true;
 			opts.check_experimental_features = true;
 			break;
+		case 1080:
+			opts.cgroup_props = optarg;
+			break;
+		case 1081:
+			opts.cgroup_props_file = optarg;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -806,6 +815,13 @@ usage:
 "                        change the root cgroup the controller will be\n"
 "                        installed into. No controller means that root is the\n"
 "                        default for all controllers not specified.\n"
+"  --cgroup-props STRING\n"
+"                        define cgroup controllers and properties\n"
+"                        to be checkpointed, which are described\n"
+"                        via STRING using simplified YAML format.\n"
+"  --cgroup-props-file FILE\n"
+"                        same as --cgroup-props but taking descrition\n"
+"                        from the path specified.\n"
 "  --skip-mnt PATH       ignore this mountpoint when dumping the mount namespace.\n"
 "  --enable-fs FSNAMES   a comma separated list of filesystem names or \"all\".\n"
 "                        force criu to (try to) dump/restore these filesystem's\n"

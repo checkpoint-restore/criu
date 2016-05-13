@@ -10,6 +10,7 @@
 #include "list.h"
 #include "xmalloc.h"
 #include "cgroup.h"
+#include "cgroup-props.h"
 #include "cr_options.h"
 #include "pstree.h"
 #include "proc_parse.h"
@@ -23,73 +24,6 @@
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"
-
-/*
- * These string arrays have the names of all the properties that will be
- * restored. To add a property for a cgroup type, add it to the
- * corresponding char array above the NULL terminator. If you are adding
- * a new cgroup family all together, you must also edit get_known_properties()
- * Currently the code only supports properties with 1 value
- */
-
-static const char *cpu_props[] = {
-	"cpu.shares",
-	"cpu.cfs_period_us",
-	"cpu.cfs_quota_us",
-	"cpu.rt_period_us",
-	"cpu.rt_runtime_us",
-	"notify_on_release",
-	NULL
-};
-
-static const char *memory_props[] = {
-	/* limit_in_bytes and memsw.limit_in_bytes must be set in this order */
-	"memory.limit_in_bytes",
-	"memory.memsw.limit_in_bytes",
-	"memory.use_hierarchy",
-	"notify_on_release",
-	NULL
-};
-
-static const char *cpuset_props[] = {
-	/*
-	 * cpuset.cpus and cpuset.mems must be set before the process moves
-	 * into its cgroup; they are "initialized" below to whatever the root
-	 * values are in copy_special_cg_props so as not to cause ENOSPC when
-	 * values are restored via this code.
-	 */
-	"cpuset.cpus",
-	"cpuset.mems",
-	"cpuset.memory_migrate",
-	"cpuset.cpu_exclusive",
-	"cpuset.mem_exclusive",
-	"cpuset.mem_hardwall",
-	"cpuset.memory_spread_page",
-	"cpuset.memory_spread_slab",
-	"cpuset.sched_load_balance",
-	"cpuset.sched_relax_domain_level",
-	"notify_on_release",
-	NULL
-};
-
-static const char *blkio_props[] = {
-	"blkio.weight",
-	"notify_on_release",
-	NULL
-};
-
-static const char *freezer_props[] = {
-	"notify_on_release",
-	NULL
-};
-
-static const char *global_props[] = {
-	"cgroup.clone_children",
-	"notify_on_release",
-	"cgroup.procs",
-	"tasks",
-	NULL
-};
 
 /*
  * This structure describes set of controller groups
@@ -421,33 +355,14 @@ static void free_all_cgroup_props(struct cgroup_dir *ncd)
 	ncd->n_properties = 0;
 }
 
-static const char **get_known_properties(char *controller)
-{
-	const char **prop_arr = NULL;
-
-	if (!strcmp(controller, "cpu"))
-		prop_arr = cpu_props;
-	else if (!strcmp(controller, "memory"))
-		prop_arr = memory_props;
-	else if (!strcmp(controller, "cpuset"))
-		prop_arr = cpuset_props;
-	else if (!strcmp(controller, "blkio"))
-		prop_arr = blkio_props;
-	else if (!strcmp(controller, "freezer"))
-		prop_arr = freezer_props;
-
-	return prop_arr;
-}
-
-static int dump_cg_props_array(const char *fpath, struct cgroup_dir *ncd,
-			       const char **prop_arr)
+static int dump_cg_props_array(const char *fpath, struct cgroup_dir *ncd, const cgp_t *cgp)
 {
 	int j;
 	char buf[PATH_MAX];
 	struct cgroup_prop *prop;
 
-	for (j = 0; prop_arr != NULL && prop_arr[j] != NULL; ++j) {
-		if (snprintf(buf, PATH_MAX, "%s/%s", fpath, prop_arr[j]) >= PATH_MAX) {
+	for (j = 0; cgp && j < cgp->nr_props; j++) {
+		if (snprintf(buf, PATH_MAX, "%s/%s", fpath, cgp->props[j]) >= PATH_MAX) {
 			pr_err("snprintf output was truncated\n");
 			return -1;
 		}
@@ -457,7 +372,7 @@ static int dump_cg_props_array(const char *fpath, struct cgroup_dir *ncd,
 			continue;
 		}
 
-		prop = create_cgroup_prop(prop_arr[j]);
+		prop = create_cgroup_prop(cgp->props[j]);
 		if (!prop) {
 			free_all_cgroup_props(ncd);
 			return -1;
@@ -483,15 +398,14 @@ static int add_cgroup_properties(const char *fpath, struct cgroup_dir *ncd,
 	int i;
 
 	for (i = 0; i < controller->n_controllers; ++i) {
+		const cgp_t *cgp = cgp_get_props(controller->controllers[i]);
 
-		const char **prop_arr = get_known_properties(controller->controllers[i]);
-
-		if (dump_cg_props_array(fpath, ncd, prop_arr) < 0) {
+		if (dump_cg_props_array(fpath, ncd, cgp) < 0) {
 			pr_err("dumping known properties failed");
 			return -1;
 		}
 
-		if (dump_cg_props_array(fpath, ncd, global_props) < 0) {
+		if (dump_cg_props_array(fpath, ncd, &cgp_global) < 0) {
 			pr_err("dumping global properties failed");
 			return -1;
 		}

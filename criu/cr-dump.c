@@ -61,6 +61,7 @@
 #include "cpu.h"
 #include "elf.h"
 #include "cgroup.h"
+#include "cgroup-props.h"
 #include "file-lock.h"
 #include "page-xfer.h"
 #include "kerndat.h"
@@ -1538,6 +1539,7 @@ static int cr_dump_finish(int ret)
 		ret = -1;
 
 	cr_plugin_fini(CR_PLUGIN_STAGE__DUMP, ret);
+	cgp_fini();
 
 	if (!ret) {
 		/*
@@ -1635,6 +1637,12 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	if (vdso_init())
+		goto err;
+
+	if (cgp_init(opts.cgroup_props,
+		     opts.cgroup_props ?
+		     strlen(opts.cgroup_props) : 0,
+		     opts.cgroup_props_file))
 		goto err;
 
 	if (parse_cg_info())

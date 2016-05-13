@@ -95,6 +95,8 @@ struct cr_options {
 	char			**exec_cmd;
 	unsigned int		manage_cgroups;
 	char			*new_global_cg_root;
+	char			*cgroup_props;
+	char			*cgroup_props_file;
 	struct list_head	new_cgroup_roots;
 	bool			autodetect_ext_mounts;
 	bool			enable_external_sharing;
