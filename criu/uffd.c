@@ -288,7 +288,7 @@ static struct lazy_pages_info *ud_open(int listen, struct sockaddr_un *saddr)
 		goto out;
 	}
 	pr_debug("lpi->uffd %d\n", lpi->uffd);
-	close(client);
+	close_safe(&client);
 
 	pr_debug("uffd is 0x%d\n", lpi->uffd);
 	uffd_flags = fcntl(lpi->uffd, F_GETFD, NULL);
@@ -307,7 +307,7 @@ static struct lazy_pages_info *ud_open(int listen, struct sockaddr_un *saddr)
 
 out:
 	lpi_fini(lpi);
-	close(client);
+	close_safe(&client);
 	return NULL;
 }
 
