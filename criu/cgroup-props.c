@@ -477,12 +477,41 @@ err:
 	return ret;
 }
 
+static char **dump_controllers;
+static size_t nr_dump_controllers;
+
+bool cgp_add_dump_controller(const char *name)
+{
+	if (xrealloc_safe(&dump_controllers, (nr_dump_controllers + 1) * sizeof(char *))) {
+		pr_err("Can't add controller \"%s\" to mark\n", name);
+		return false;
+	}
+
+	dump_controllers[nr_dump_controllers] = xstrdup(name);
+	if (!dump_controllers[nr_dump_controllers])
+		return false;
+
+	pr_debug("Mark controller \"%s\" to dump\n", name);
+	nr_dump_controllers++;
+	return true;
+}
+
 bool cgp_should_skip_controller(const char *name)
 {
+	size_t i;
+
 	/*
-	 * FIXME Implement!
+	 * Dump all by default.
 	 */
-	return false;
+	if (!nr_dump_controllers)
+		return false;
+
+	for (i = 0; i < nr_dump_controllers; i++) {
+		if (!strcmp(name, dump_controllers[i]))
+			return false;
+	}
+
+	return true;
 }
 
 const cgp_t *cgp_get_props(const char *name)
@@ -500,8 +529,14 @@ const cgp_t *cgp_get_props(const char *name)
 void cgp_fini(void)
 {
 	cgp_list_entry_t *p, *t;
+	size_t i;
 
 	list_for_each_entry_safe(p, t, &cgp_list, list)
 		cgp_free(p);
 	INIT_LIST_HEAD(&cgp_list);
+
+	for (i = 0; i < nr_dump_controllers; i++)
+		xfree(dump_controllers[i]);
+	xfree(dump_controllers);
+	nr_dump_controllers = 0;
 }

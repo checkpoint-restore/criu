@@ -278,6 +278,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "all",			no_argument,		0, 1079	},
 		{ "cgroup-props",		required_argument,	0, 1080	},
 		{ "cgroup-props-file",		required_argument,	0, 1081	},
+		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
 		{ },
 	};
 
@@ -578,6 +579,10 @@ int main(int argc, char *argv[], char *envp[])
 		case 1081:
 			opts.cgroup_props_file = optarg;
 			break;
+		case 1082:
+			if (!cgp_add_dump_controller(optarg))
+				return 1;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -822,6 +827,9 @@ usage:
 "  --cgroup-props-file FILE\n"
 "                        same as --cgroup-props but taking descrition\n"
 "                        from the path specified.\n"
+"  --cgroup-dump-controller NAME\n"
+"                        define cgroup controller to be dumped\n"
+"                        and skip anything else present in system.\n"
 "  --skip-mnt PATH       ignore this mountpoint when dumping the mount namespace.\n"
 "  --enable-fs FSNAMES   a comma separated list of filesystem names or \"all\".\n"
 "                        force criu to (try to) dump/restore these filesystem's\n"

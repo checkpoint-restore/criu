@@ -12,6 +12,7 @@ typedef struct {
 extern cgp_t cgp_global;
 extern const cgp_t *cgp_get_props(const char *name);
 extern bool cgp_should_skip_controller(const char *name);
+extern bool cgp_add_dump_controller(const char *name);
 
 extern int cgp_init(char *stream, size_t len, char *path);
 extern void cgp_fini(void);
