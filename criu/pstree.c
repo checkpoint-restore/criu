@@ -474,7 +474,7 @@ static int read_pstree_image(void)
 {
 	int ret = 0, i;
 	struct cr_img *img;
-	struct pstree_item *pi, *parent = NULL;
+	struct pstree_item *pi;
 
 	pr_info("Reading image tree\n");
 
@@ -520,36 +520,21 @@ static int read_pstree_image(void)
 			root_item = pi;
 			pi->parent = NULL;
 		} else {
-			/*
-			 * Fast path -- if the pstree image is not edited, the
-			 * parent of any item should have already being restored
-			 * and sit among the last item's ancestors.
-			 */
-			while (parent) {
-				if (parent->pid.virt == e->ppid)
-					break;
-				parent = parent->parent;
+			struct pid *pid;
+			struct pstree_item *parent;
+
+			pid = pstree_pid_by_virt(e->ppid);
+			if (!pid || pid->state == TASK_UNDEF || pid->state == TASK_THREAD) {
+				pr_err("Can't find a parent for %d\n", pi->pid.virt);
+				pstree_entry__free_unpacked(e, NULL);
+				xfree(pi);
+				goto err;
 			}
 
-			if (parent == NULL) {
-				for_each_pstree_item(parent) {
-					if (parent->pid.virt == e->ppid)
-						break;
-				}
-
-				if (parent == NULL) {
-					pr_err("Can't find a parent for %d\n", pi->pid.virt);
-					pstree_entry__free_unpacked(e, NULL);
-					xfree(pi);
-					goto err;
-				}
-			}
-
+			parent = container_of(pid, struct pstree_item, pid);
 			pi->parent = parent;
 			list_add(&pi->sibling, &parent->children);
 		}
-
-		parent = pi;
 
 		pi->nr_threads = e->n_threads;
 		pi->threads = xmalloc(e->n_threads * sizeof(struct pid));
