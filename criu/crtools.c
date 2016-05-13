@@ -189,7 +189,7 @@ int main(int argc, char *argv[], char *envp[])
 	int log_level = LOG_UNSET;
 	char *imgs_dir = ".";
 	char *work_dir = NULL;
-	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:n:v::x::Vr:jlW:L:M:";
+	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:v::x::Vr:jlW:L:M:";
 	static struct option long_opts[] = {
 		{ "tree",			required_argument,	0, 't'	},
 		{ "pid",			required_argument,	0, 'p'	},
@@ -204,7 +204,6 @@ int main(int argc, char *argv[], char *envp[])
 		{ "images-dir",			required_argument,	0, 'D'	},
 		{ "work-dir",			required_argument,	0, 'W'	},
 		{ "log-file",			required_argument,	0, 'o'	},
-		{ "namespaces",			required_argument,	0, 'n'	},
 		{ "root",			required_argument,	0, 'r'	},
 		{ USK_EXT_PARAM,		optional_argument,	0, 'x'	},
 		{ "help",			no_argument,		0, 'h'	},
@@ -335,9 +334,6 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 'o':
 			opts.output = optarg;
-			break;
-		case 'n':
-			pr_warn("The -n|--namespaces option has no effect and will soon be removed.\n");
 			break;
 		case 'v':
 			if (log_level == LOG_UNSET)
