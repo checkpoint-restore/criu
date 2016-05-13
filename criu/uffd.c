@@ -192,6 +192,10 @@ int setup_uffd(struct task_restore_args *task_args, int pid)
 	 * to a second process handling the userfaultfd page faults.
 	 */
 	task_args->uffd = syscall(SYS_userfaultfd, O_CLOEXEC | O_NONBLOCK);
+	if (task_args->uffd < 0) {
+		pr_perror("Unable to open an userfaultfd descriptor");
+		return -1;
+	}
 
 	/*
 	 * Check if the UFFD_API is the one which is expected
@@ -200,19 +204,20 @@ int setup_uffd(struct task_restore_args *task_args, int pid)
 	uffdio_api.features = 0;
 	if (ioctl(task_args->uffd, UFFDIO_API, &uffdio_api)) {
 		pr_err("Checking for UFFDIO_API failed.\n");
-		return -1;
+		goto err;
 	}
 	if (uffdio_api.api != UFFD_API) {
 		pr_err("Result of looking up UFFDIO_API does not match: %Lu\n", uffdio_api.api);
-		return -1;
+		goto err;
 	}
 
-	if (send_uffd(task_args->uffd, pid) < 0) {
-		close(task_args->uffd);
-		return -1;
-	}
+	if (send_uffd(task_args->uffd, pid) < 0)
+		goto err;
 
 	return 0;
+err:
+	close(task_args->uffd);
+	return -1;
 }
 
 static int server_listen(struct sockaddr_un *saddr)
