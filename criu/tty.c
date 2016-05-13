@@ -78,6 +78,11 @@ struct tty_info_entry {
 	TtyInfoEntry			*tie;
 };
 
+struct tty_data_entry {
+	struct list_head		list;
+	TtyDataEntry			*tde;
+};
+
 struct tty_info {
 	struct list_head		list;
 	struct file_desc		d;
@@ -94,6 +99,8 @@ struct tty_info {
 	bool				inherit;
 
 	struct tty_info			*ctl_tty;
+	struct tty_info			*link;
+	struct tty_data_entry		*tty_data;
 };
 
 struct tty_dump_info {
@@ -104,6 +111,13 @@ struct tty_dump_info {
 	pid_t				pgrp;
 	int				fd;
 	struct tty_driver		*driver;
+
+	int				index;
+	int				lfd;
+	int				flags;
+	struct tty_dump_info		*link;
+	void				*tty_data;
+	size_t				tty_data_size;
 };
 
 static LIST_HEAD(all_tty_info_entries);
@@ -346,7 +360,7 @@ static int tty_get_index(u32 id)
 }
 
 /* Make sure the active pairs do exist */
-int tty_verify_active_pairs(void)
+static int tty_verify_active_pairs(void * unused)
 {
 	unsigned long i, unpaired_slaves = 0;
 
@@ -801,6 +815,28 @@ static int restore_tty_params(int fd, struct tty_info *info)
 	return userns_call(do_restore_tty_parms, UNS_ASYNC, &p, sizeof(p), fd);
 }
 
+/*
+ * When we restore queued data we don't exit if error happened:
+ * the terminals never was a transport with guaranted delivery,
+ * it's up to application which uses it to guaratee the data
+ * integrity.
+ */
+static void pty_restore_queued_data(struct tty_info *info, int fd)
+{
+	if (info && info->tty_data) {
+		ProtobufCBinaryData bd = info->tty_data->tde->data;
+		int retval;
+
+		pr_debug("restore queued data on %#x (%zu bytes)\n",
+			 info->tfe->id, (size_t)bd.len);
+
+		retval = write(fd, bd.data, bd.len);
+		if (retval != bd.len)
+			pr_err("Restored %d bytes while %zu expected\n",
+			       retval, (size_t)bd.len);
+	}
+}
+
 static int pty_open_slaves(struct tty_info *info)
 {
 	int sock = -1, fd = -1, ret = -1;
@@ -835,6 +871,7 @@ static int pty_open_slaves(struct tty_info *info)
 			goto err;
 		}
 
+		pty_restore_queued_data(slave->link, fd);
 		close(fd);
 		fd = -1;
 	}
@@ -974,6 +1011,8 @@ static int pty_open_ptmx(struct tty_info *info)
 
 	if (pty_open_slaves(info))
 		goto err;
+
+	pty_restore_queued_data(info->link, master);
 
 	if (info->tie->locked)
 		lock_pty(master);
@@ -1239,6 +1278,28 @@ static int tty_setup_slavery(void * unused)
 	struct tty_info *info, *peer, *m;
 
 	/*
+	 * Setup links for PTY terminal pairs by
+	 * their indices, queued data already bound
+	 * to them by data ids.
+	 */
+	list_for_each_entry(info, &all_ttys, list) {
+		if (!is_pty(info->driver) || info->link)
+			continue;
+		peer = info;
+		list_for_each_entry_continue(peer, &all_ttys, list) {
+			if (!is_pty(peer->driver) || peer->link)
+				continue;
+			if (peer->tie->pty->index == info->tie->pty->index) {
+				info->link = peer;
+				peer->link = info;
+
+				pr_debug("Link PTYs (%#x)\n", info->tfe->id);
+				break;
+			}
+		}
+	}
+
+	/*
 	 * The image may carry several terminals opened
 	 * belonging to the same session, so choose the
 	 * leader which gonna be setting up the controlling
@@ -1430,6 +1491,8 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 	info->create = tty_is_master(info);
 	info->inherit = false;
 	info->ctl_tty = NULL;
+	info->tty_data = NULL;
+	info->link = NULL;
 
 	if (verify_info(info))
 		return -1;
@@ -1466,14 +1529,12 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 
 	pr_info("Collected tty ID %#x (%s)\n", info->tfe->id, info->driver->name);
 
-	if (list_empty(&all_ttys))
-		/*
-		 * XXX -- not every tty requires this.
-		 * Check that we have such here and queue
-		 * post-cb only if required.
-		 */
+	if (list_empty(&all_ttys)) {
+		if (add_post_prepare_cb(tty_verify_active_pairs, NULL))
+			return -1;
 		if (add_post_prepare_cb(tty_setup_slavery, NULL))
 			return -1;
+	}
 
 	list_add(&info->list, &all_ttys);
 	return file_desc_add(&info->d, info->tfe->id, &tty_desc_ops);
@@ -1484,6 +1545,33 @@ struct collect_image_info tty_cinfo = {
 	.pb_type	= PB_TTY_FILE,
 	.priv_size	= sizeof(struct tty_info),
 	.collect	= collect_one_tty,
+};
+
+static int collect_one_tty_data(void *obj, ProtobufCMessage *msg, struct cr_img *i)
+{
+	struct tty_data_entry *tdo = obj;
+	struct tty_info *info;
+
+	tdo->tde = pb_msg(msg, TtyDataEntry);
+	pr_debug("Collected data for id %#x (size %zu bytes)\n",
+		 tdo->tde->tty_id, (size_t)tdo->tde->data.len);
+
+	list_for_each_entry(info, &all_ttys, list) {
+		if (tdo->tde->tty_id == info->tie->id) {
+			info->tty_data = tdo;
+			return 0;
+		}
+	}
+
+	pr_err("No tty found to queued data on id %#x\n", tdo->tde->tty_id);
+	return -ENOENT;
+}
+
+struct collect_image_info tty_cdata = {
+	.fd_type	= CR_FD_TTY_DATA,
+	.pb_type	= PB_TTY_DATA,
+	.priv_size	= sizeof(struct tty_data_entry),
+	.collect	= collect_one_tty_data,
 };
 
 /* Make sure the ttys we're dumping do belong our process tree */
@@ -1531,7 +1619,6 @@ int dump_verify_tty_sids(void)
 				}
 			}
 		}
-		xfree(dinfo);
 	}
 
 	return ret;
@@ -1564,7 +1651,7 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_d
 	if (!pti)
 		return -1;
 
-	dinfo = xmalloc(sizeof(*dinfo));
+	dinfo = xzalloc(sizeof(*dinfo));
 	if (!dinfo)
 		return -1;
 
@@ -1573,6 +1660,20 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_d
 	dinfo->pgrp		= pti->pgrp;
 	dinfo->fd		= p->fd;
 	dinfo->driver		= driver;
+
+	if (is_pty(driver)) {
+		dinfo->lfd = dup(lfd);
+		if (dinfo->lfd < 0) {
+			pr_perror("Can't dup local fd on %x", id);
+			xfree(dinfo);
+			return -1;
+		}
+		dinfo->index	= index;
+		dinfo->flags	= p->flags;
+	} else {
+		dinfo->index	= -1;
+		dinfo->lfd	= -1;
+	}
 
 	list_add_tail(&dinfo->list, &all_ttys);
 
@@ -1710,6 +1811,214 @@ const struct fdtype_ops tty_dump_ops = {
 	.type	= FD_TYPES__TTY,
 	.dump	= dump_one_tty,
 };
+
+static int tty_reblock(int id, int lfd, int flags)
+{
+	static const int fmask = O_RDWR | O_NONBLOCK;
+	int ret;
+
+	if ((flags & fmask) != fmask) {
+		if (fcntl(lfd, F_SETFL, flags)) {
+			ret = -errno;
+			pr_perror("Can't revert mode back to %o on (%#x)\n", fmask, id);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static int tty_unblock(int id, int lfd, int flags)
+{
+	static const int fmask = O_RDWR | O_NONBLOCK;
+	int ret;
+
+	if ((flags & fmask) != fmask) {
+		if (fcntl(lfd, F_SETFL, fmask)) {
+			ret = -errno;
+			pr_perror("Can't change mode to %o on (%#x)\n", fmask, id);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static int tty_do_dump_queued_data(struct tty_dump_info *dinfo)
+{
+	TtyDataEntry e = TTY_DATA_ENTRY__INIT;
+	size_t off = 0, size = 16384;
+	char *buf;
+	int ret;
+
+	buf = xmalloc(size);
+	if (!buf)
+		return -ENOMEM;
+
+	ret = tty_unblock(dinfo->id, dinfo->lfd, dinfo->flags);
+	if (ret) {
+		xfree(buf);
+		return ret;
+	}
+
+	while (1) {
+		ret = read(dinfo->lfd, &buf[off], size - off);
+		if (ret == 0) {
+			pr_debug("No more data on tty (%s %#x)\n",
+				 dinfo->driver->name, dinfo->id);
+			break;
+		} else if (ret < 0) {
+			if (errno == EAGAIN) {
+				pr_debug("Not waiting data tty (%s %#x)\n",
+					 dinfo->driver->name, dinfo->id);
+				break;
+			} else {
+				ret = -errno;
+				pr_perror("Can't read data from tty (%s %#x)",
+					  dinfo->driver->name, dinfo->id);
+				xfree(buf);
+				return ret;
+			}
+		}
+
+		off += ret;
+		pr_debug("Read %d bytes (%d) from tty (%s %#x)\n",
+			 ret, (int)off, dinfo->driver->name, dinfo->id);
+
+		if (off >= size) {
+			pr_err("The tty (%s %#x) queued data overrflow %zu bytes limit\n",
+			       dinfo->driver->name, dinfo->id, size);
+			off = size;
+			break;
+		}
+	}
+
+	if (off) {
+		dinfo->tty_data = buf;
+		dinfo->tty_data_size = off;
+
+		e.tty_id	= dinfo->id;
+		e.data.data	= (void *)buf;
+		e.data.len	= off;
+
+		ret = pb_write_one(img_from_set(glob_imgset, CR_FD_TTY_DATA),
+				   &e, PB_TTY_DATA);
+	} else {
+		xfree(buf);
+		ret = 0;
+	}
+
+	return ret;
+}
+
+/*
+ * If error happens here, so be it, ttys are not delivering
+ * data with guaranteed results.
+ */
+static void __tty_do_writeback_queued_data(struct tty_dump_info *dinfo)
+{
+	if (write(dinfo->link->lfd, dinfo->tty_data,
+		  dinfo->tty_data_size) != dinfo->tty_data_size)
+		pr_perror("Can't writeback to tty (%#x)\n", dinfo->id);
+	tty_reblock(dinfo->link->id, dinfo->link->lfd, dinfo->link->flags);
+}
+
+static void tty_do_writeback_queued_data(struct tty_dump_info *dinfo)
+{
+	if (dinfo->tty_data)
+		__tty_do_writeback_queued_data(dinfo);
+	if (dinfo->link->tty_data)
+		__tty_do_writeback_queued_data(dinfo->link);
+}
+
+static void tty_dinfo_free(struct tty_dump_info *dinfo)
+{
+	list_del(&dinfo->list);
+	close_safe(&dinfo->lfd);
+	xfree(dinfo->tty_data);
+	xfree(dinfo);
+}
+
+/*
+ * Dumping queued data must be done at the very end of the
+ * checkpoint procedure -- it's tail optimization, we trying
+ * to defer this procedure until everything else passed
+ * succesfully because in real it is time consuming on
+ * its own which might require writting data back to the
+ * former peers if case something go wrong.
+ *
+ * Moreover when we gather PTYs peers into own list we
+ * do it in destructive way -- the former @all_ttys
+ * list get modified (one of the peer get moved from
+ * @all_ttys to @all_ptys list) because otherwise we
+ * will have to add one more entry into tty_dump_info,
+ * thus we simply reuse the @list entry for own needs.
+ */
+static int tty_dump_queued_data(void)
+{
+	struct tty_dump_info *dinfo, *peer, *n;
+	LIST_HEAD(all_ptys);
+	int ret = 0;
+
+	/*
+	 * Link PTY peers, and move one of linked
+	 * into separate list.
+	 */
+	list_for_each_entry_safe(dinfo, n, &all_ttys, list) {
+		if (!is_pty(dinfo->driver) || dinfo->link)
+			continue;
+
+		peer = dinfo;
+		list_for_each_entry_continue(peer, &all_ttys, list) {
+			if (!is_pty(peer->driver) || peer->link)
+				continue;
+
+			if (peer->index == dinfo->index) {
+				dinfo->link = peer;
+				peer->link = dinfo;
+				pr_debug("Link PTYs (%#x)\n", dinfo->id);
+
+				list_move(&dinfo->list, &all_ptys);
+			}
+		}
+	}
+
+	/*
+	 * Once linked fetch the queued data if present.
+	 */
+	list_for_each_entry(dinfo, &all_ptys, list) {
+		ret = tty_do_dump_queued_data(dinfo);
+		if (ret)
+			break;
+		ret = tty_do_dump_queued_data(dinfo->link);
+		if (ret)
+			break;
+	}
+
+	if (ret || opts.final_state != TASK_DEAD) {
+		list_for_each_entry(dinfo, &all_ptys, list)
+			tty_do_writeback_queued_data(dinfo);
+	}
+
+	list_for_each_entry_safe(dinfo, n, &all_ptys, list) {
+		tty_dinfo_free(dinfo->link);
+		tty_dinfo_free(dinfo);
+	}
+
+	list_for_each_entry_safe(dinfo, n, &all_ttys, list)
+		tty_dinfo_free(dinfo);
+
+	return ret;
+}
+
+int tty_post_actions(void)
+{
+	if (tty_verify_active_pairs(NULL))
+		return -1;
+	else if (tty_dump_queued_data())
+		return -1;
+	return 0;
+}
 
 int tty_prep_fds(void)
 {

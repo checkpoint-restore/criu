@@ -34,6 +34,11 @@ enum TtyType {
 	SERIAL		= 6;
 }
 
+message tty_data_entry {
+	required uint32			tty_id		= 1;
+	required bytes			data		= 2;
+}
+
 message tty_info_entry {
 	required uint32			id		=  1;
 

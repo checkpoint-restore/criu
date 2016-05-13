@@ -81,6 +81,7 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY(BINFMT_MISC,	"binfmt-misc-%d"),
 	FD_ENTRY(TTY_FILES,	"tty"),
 	FD_ENTRY(TTY_INFO,	"tty-info"),
+	FD_ENTRY_F(TTY_DATA,	"tty-data", O_NOBUF),
 	FD_ENTRY(FILE_LOCKS,	"filelocks"),
 	FD_ENTRY(RLIMIT,	"rlimit-%d"),
 	FD_ENTRY_F(PAGES,	"pages-%u", O_NOBUF),

@@ -22,12 +22,12 @@ static inline int is_tty(dev_t rdev, dev_t dev)
 	return get_tty_driver(rdev, dev) != NULL;
 }
 
+extern int tty_post_actions(void);
 extern int dump_verify_tty_sids(void);
 extern struct collect_image_info tty_info_cinfo;
 extern struct collect_image_info tty_cinfo;
+extern struct collect_image_info tty_cdata;
 extern int prepare_shared_tty(void);
-
-extern int tty_verify_active_pairs(void);
 
 extern int tty_prep_fds(void);
 extern void tty_fini_fds(void);

@@ -370,6 +370,7 @@ handlers = {
 	'MNTS'			: entry_handler(mnt_entry),
 	'TTY_FILES'		: entry_handler(tty_file_entry),
 	'TTY_INFO'		: entry_handler(tty_info_entry),
+	'TTY_DATA'		: entry_handler(tty_data_entry),
 	'RLIMIT'		: entry_handler(rlimit_entry),
 	'TUNFILE'		: entry_handler(tunfile_entry),
 	'EXT_FILES'		: entry_handler(ext_file_entry),

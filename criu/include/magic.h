@@ -76,6 +76,7 @@
 #define NETNS_MAGIC		0x55933752 /* Dolgoprudny */
 #define TTY_FILES_MAGIC		0x59433025 /* Pushkin */
 #define TTY_INFO_MAGIC		0x59453036 /* Kolpino */
+#define TTY_DATA_MAGIC		0x59413026 /* Pavlovsk */
 #define FILE_LOCKS_MAGIC	0x54323616 /* Kaluga */
 #define RLIMIT_MAGIC		0x57113925 /* Rostov */
 #define FANOTIFY_FILE_MAGIC	0x55096122 /* Chelyabinsk */
