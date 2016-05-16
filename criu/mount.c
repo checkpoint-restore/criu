@@ -2590,7 +2590,7 @@ do_bind:
 		}
 	}
 
-	if (mount(root, mi->mountpoint, NULL, MS_BIND, NULL) < 0) {
+	if (mount(root, mi->mountpoint, NULL, MS_BIND | (mi->flags & MS_REC), NULL) < 0) {
 		pr_perror("Can't mount at %s", mi->mountpoint);
 		goto err;
 	}
