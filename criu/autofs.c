@@ -371,11 +371,12 @@ static int access_autofs_mount(struct mount_info *pm)
 		goto close_old_pid_ns;
 	}
 
-	if (restore_ns(new_pid_ns, &pid_ns_desc)) {
+	err = restore_ns(new_pid_ns, &pid_ns_desc);
+	new_pid_ns = -1;
+	if (err) {
 		pr_err("failed to restore pid namespace\n");
 		goto restore_mnt_ns;
 	}
-	new_pid_ns = -1;
 
 	autofs_mnt = autofs_mnt_open(mnt_path, dev_id);
 	if (autofs_mnt < 0)
