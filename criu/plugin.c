@@ -13,7 +13,10 @@
 #include "list.h"
 #include "log.h"
 
-cr_plugin_ctl_t cr_plugin_ctl;
+cr_plugin_ctl_t cr_plugin_ctl = {
+	.head.next = &cr_plugin_ctl.head,
+	.head.prev = &cr_plugin_ctl.head,
+};
 
 /*
  * If we met old version of a plugin, selfgenerate a plugin descriptor for it.
