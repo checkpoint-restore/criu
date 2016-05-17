@@ -81,24 +81,26 @@ static int cgp_merge_props(cgp_list_entry_t *d, cgp_list_entry_t *s)
 	return 0;
 }
 
-static int cgp_handle_props(cgp_list_entry_t *p, int strategy)
+static int cgp_handle_props(cgp_list_entry_t **p, int strategy)
 {
+	cgp_list_entry_t *s = *p;
 	cgp_list_entry_t *t;
 
 	list_for_each_entry(t, &cgp_list, list) {
-		if (strcmp(t->cgp.name, p->cgp.name))
+		if (strcmp(t->cgp.name, s->cgp.name))
 			continue;
 
 		pr_debug("%s \"%s\" controller properties\n",
 			 strategy == CGP_MERGE ?
 			 "Merging" : "Replacing",
-			 p->cgp.name);
+			 s->cgp.name);
 
 		if (strategy == CGP_MERGE) {
 			int ret;
 
-			ret = cgp_merge_props(t, p);
-			cgp_free(p);
+			ret = cgp_merge_props(t, s);
+			cgp_free(s);
+			*p = NULL;
 			return ret;
 		} else if (strategy == CGP_REPLACE) {
 			/*
@@ -114,7 +116,8 @@ static int cgp_handle_props(cgp_list_entry_t *p, int strategy)
 	/*
 	 * New controller, simply add it.
 	 */
-	list_add(&p->list, &cgp_list);
+	list_add(&s->list, &cgp_list);
+	*p = NULL;
 	return 0;
 }
 
@@ -338,7 +341,7 @@ static int cgp_parse_stream(char *stream, size_t len)
 			goto err_parse;
 		}
 
-		if (cgp_handle_props(cgp_entry, strategy))
+		if (cgp_handle_props(&cgp_entry, strategy))
 			goto err_parse;
 
 		cgp_entry = NULL;
