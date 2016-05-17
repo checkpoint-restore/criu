@@ -315,7 +315,7 @@ static int cgp_parse_stream(char *stream, size_t len)
 					  (cgp_entry->cgp.nr_props + 1) * sizeof(char *))) {
 				pr_err("Can't allocate property for controller %s\n",
 				       cgp_entry->cgp.name);
-				return -1;
+				goto err_parse;
 			}
 
 			cgp_entry->cgp.props[cgp_entry->cgp.nr_props++] = p;
