@@ -277,9 +277,9 @@ static int cgp_parse_stream(char *stream, size_t len)
 		} else if (!strcmp(p, "replace")) {
 			strategy = CGP_REPLACE;
 		} else {
-			xfree(p);
 			pr_err("Unknown strategy \"%s\" in controller's %s stream\n",
 			       p, cgp_entry->cgp.name);
+			xfree(p);
 			goto err_parse;
 		}
 
