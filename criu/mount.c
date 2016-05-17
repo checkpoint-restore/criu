@@ -515,12 +515,12 @@ static struct mount_info *find_widest_shared(struct mount_info *m)
 }
 
 static struct mount_info *find_shared_peer(struct mount_info *m,
-		struct mount_info *ct, char *ct_mountpoint, int m_mpnt_l)
+		struct mount_info *ct, char *ct_mountpoint)
 {
 	struct mount_info *cm;
 
 	list_for_each_entry(cm, &m->children, siblings) {
-		if (strcmp(ct_mountpoint, cm->mountpoint + m_mpnt_l))
+		if (strcmp(ct_mountpoint, cm->mountpoint))
 			continue;
 
 		if (!mounts_equal(cm, ct))
@@ -554,8 +554,7 @@ static inline int path_length(char *path)
 static int validate_shared(struct mount_info *m)
 {
 	struct mount_info *t, *ct;
-	int t_root_l, m_root_l, t_mpnt_l, m_mpnt_l;
-	char *m_root_rpath;
+	char buf[PATH_MAX], *sibling_path;
 	LIST_HEAD(children);
 
 	/*
@@ -579,74 +578,18 @@ static int validate_shared(struct mount_info *m)
 		 */
 		return 0;
 
-	/* A set of childrent which ar visiable for both should be the same */
-
-	t_root_l = path_length(t->root);
-	m_root_l = path_length(m->root);
-	t_mpnt_l = path_length(t->mountpoint);
-	m_mpnt_l = path_length(m->mountpoint);
-
-	/* For example:
-	 * t->root = /		t->mp = ./zdtm/live/static/mntns_root_bind.test
-	 * m->root = /test	m->mp = ./zdtm/live/static/mntns_root_bind.test/test.bind
-	 * t_root_l = 0	t_mpnt_l = 39
-	 * m_root_l = 5	m_mpnt_l = 49
-	 * ct->root = /		ct->mp = ./zdtm/live/static/mntns_root_bind.test/test/sub
-	 * tp = /test/sub	mp = /test len=5
-	 */
-
-	/*
-	 * ct:  | t->root       |	child mount point	|
-	 * cm:  |       m->root         | child mount point	|
-	 * ct:  |		|  /test/sub			|
-	 * cm:  |		  /test	| /sub			|
-	 *                      | A     | B                     |
-	 *			| ct->mountpoint + t_mpnt_l
-	 *			| m->root + strlen(t->root)
-	 */
-
-	m_root_rpath = m->root + t_root_l;	/* path from t->root to m->root */
-
 	/* Search a child, which is visiable in both mounts. */
 	list_for_each_entry(ct, &t->children, siblings) {
-		char *ct_mpnt_rpath;
 		struct mount_info *cm;
 
 		if (ct->is_ns_root)
 			continue;
 
-		ct_mpnt_rpath = ct->mountpoint + t_mpnt_l; /* path from t->mountpoint to ct->mountpoint */
-
-		/*
-		 * if mountpoints of ct and t are equal we can't build
-		 * absolute path in ct_mpnt_rpath, so let's skip the first "/"
-		 * in m_root_rpath
-		 */
-		if (ct_mpnt_rpath[0] == 0)
-			m_root_rpath++;
-
-		/*
-		 * Check whether ct can be is visible at m, i.e. the
-		 * ct's rpath starts (as path) with m's rpath.
-		 */
-
-		if (!issubpath(ct_mpnt_rpath, m_root_rpath))
+		sibling_path = mnt_get_sibling_path(ct, m, buf, sizeof(buf));
+		if (sibling_path == NULL)
 			continue;
 
-		/*
-		 * The ct has peer in m but with the mount path deeper according
-		 * to m's depth relavie to t. Thus -- trim this difference (the
-		 * lenght of m_root_rpath) from ct's mountpoint path.
-		 */
-
-		ct_mpnt_rpath += m_root_l - t_root_l;
-
-		/*
-		 * Find in m the mountpoint that fully matches with ct (with the
-		 * described above path corrections).
-		 */
-
-		cm = find_shared_peer(m, ct, ct_mpnt_rpath, m_mpnt_l);
+		cm = find_shared_peer(m, ct, sibling_path);
 		if (!cm)
 			goto err;
 
@@ -2179,14 +2122,16 @@ static int restore_shared_options(struct mount_info *mi, bool private, bool shar
 static int umount_from_slaves(struct mount_info *mi)
 {
 	struct mount_info *t;
-	char mpath[PATH_MAX];
+	char *mpath, buf[PATH_MAX];
 
 	list_for_each_entry(t, &mi->parent->mnt_slave_list, mnt_slave) {
 		if (!t->mounted)
 			continue;
 
-		snprintf(mpath, sizeof(mpath), "%s/%s",
-				t->mountpoint, basename(mi->mountpoint));
+		mpath = mnt_get_sibling_path(mi, t, buf, sizeof(buf));
+		if (mpath == NULL)
+			continue;
+
 		pr_debug("\t\tUmount slave %s\n", mpath);
 		if (umount(mpath) == -1) {
 			pr_perror("Can't umount slave %s", mpath);
@@ -2245,9 +2190,15 @@ static int propagate_mount(struct mount_info *mi)
 
 	list_for_each_entry(t, &mi->parent->mnt_share, mnt_share) {
 		struct mount_info *c;
+		char path[PATH_MAX], *mp;
+		bool found = false;
+
+		mp = mnt_get_sibling_path(mi, t, path, sizeof(path));
+		if (mp == NULL)
+			continue;
 
 		list_for_each_entry(c, &t->children, siblings) {
-			if (mounts_equal(mi, c)) {
+			if (mounts_equal(mi, c) && !strcmp(mp, c->mountpoint)) {
 				pr_debug("\t\tPropagate %s\n", c->mountpoint);
 
 				/*
@@ -2260,7 +2211,12 @@ static int propagate_mount(struct mount_info *mi)
 				c->mounted = true;
 				propagate_siblings(c);
 				umount_from_slaves(c);
+				found = true;
 			}
+		}
+		if (!found) {
+			pr_err("Unable to find %s\n", mp);
+			return -1;
 		}
 	}
 
