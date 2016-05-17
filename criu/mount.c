@@ -28,6 +28,7 @@
 #include "kerndat.h"
 #include "fs-magic.h"
 #include "sysfs_parse.h"
+#include "path.h"
 
 #include "images/mnt.pb-c.h"
 #include "images/binfmt-misc.pb-c.h"
@@ -90,31 +91,6 @@ static int open_mountpoint(struct mount_info *pm);
 
 static struct mount_info *mnt_build_tree(struct mount_info *list, struct mount_info *roots_mp);
 static int validate_mounts(struct mount_info *info, bool for_dump);
-
-/* Asolute paths are used on dump and relative paths are used on restore */
-static inline int is_root(char *p)
-{
-	return (!strcmp(p, "/"));
-}
-
-/* True for the root mount (the topmost one) */
-static inline int is_root_mount(struct mount_info *mi)
-{
-	return is_root(mi->mountpoint + 1);
-}
-
-/*
- * True if the mountpoint target is root on its FS.
- *
- * This is used to determine whether we need to postpone
- * mounting. E.g. one can bind mount some subdir from a
- * disk, and in this case we'll have to get the root disk
- * mount first, then bind-mount it. See do_mount_one().
- */
-static inline int fsroot_mounted(struct mount_info *mi)
-{
-	return is_root(mi->root);
-}
 
 static struct mount_info *__lookup_overlayfs(struct mount_info *list, char *rpath,
 						unsigned int st_dev, unsigned int st_ino,
@@ -790,27 +766,6 @@ skip_fstype:
 	}
 
 	return 0;
-}
-
-static char *cut_root_for_bind(char *target_root, char *source_root)
-{
-	int tok = 0;
-	/*
-	 * Cut common part of root.
-	 * For non-root binds the source is always "/" (checked)
-	 * so this will result in this slash removal only.
-	 */
-	while (target_root[tok] == source_root[tok]) {
-		tok++;
-		if (source_root[tok] == '\0')
-			break;
-		BUG_ON(target_root[tok] == '\0');
-	}
-	if (target_root[tok] == '/')
-		tok++;
-
-	return target_root + tok;
-
 }
 
 static struct mount_info *find_best_external_match(struct mount_info *list, struct mount_info *info)
