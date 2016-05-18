@@ -152,6 +152,7 @@ TST_NOFILE	=				\
 #		jobctl00			\
 
 TST_FILE	=				\
+		maps06				\
 		write_read00			\
 		write_read01			\
 		write_read02			\
