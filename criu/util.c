@@ -800,7 +800,6 @@ struct vma_area *alloc_vma_area(void)
 	if (p) {
 		p->e = (VmaEntry *)(p + 1);
 		vma_entry__init(p->e);
-		p->vm_file_fd = -1;
 		p->e->fd = -1;
 	}
 

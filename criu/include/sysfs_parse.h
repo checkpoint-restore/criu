@@ -7,7 +7,7 @@
 #define AUFSBR_PATH_LEN	(SBINFO_PATH_LEN + 6 + 1)	/* /sys/fs/aufs/<sbinfo>/br%3d */
 
 extern int parse_aufs_branches(struct mount_info *mi);
-extern int fixup_aufs_vma_fd(struct vma_area *vma);
+extern int fixup_aufs_vma_fd(struct vma_area *vma, int vm_file_fd);
 extern void free_aufs_branches(void);
 
 #endif /* __CR_SYSFS_PARSE_H__ */

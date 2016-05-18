@@ -272,13 +272,13 @@ err:
  * globl root (/) for later use in dump_filemap()
  * and parse_smaps().
  */
-int fixup_aufs_vma_fd(struct vma_area *vma)
+int fixup_aufs_vma_fd(struct vma_area *vma, int vm_file_fd)
 {
 	char path[PATH_MAX];
 	int len;
 
 	path[0] = '.';
-	len = read_fd_link(vma->vm_file_fd, &path[1], sizeof path - 1);
+	len = read_fd_link(vm_file_fd, &path[0], sizeof path - 1);
 	if (len < 0)
 		return -1;
 

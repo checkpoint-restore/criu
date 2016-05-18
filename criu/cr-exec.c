@@ -147,7 +147,7 @@ int cr_exec(int pid, char **opt)
 	 */
 	free(creds);
 
-	ret = collect_mappings(pid, &vmas);
+	ret = collect_mappings(pid, &vmas, NULL);
 	if (ret) {
 		pr_err("Can't collect vmas for %d\n", pid);
 		goto out_unseize;
