@@ -1583,67 +1583,88 @@ err:
 }
 
 static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controllers,
-			  char **from, char *to)
+			  char **dir_name, char *newroot)
 {
-	int i, j;
-	bool set_from = false;
+	size_t dirlen = strlen(*dir_name);
+	char *dir = *dir_name;
+	char *dirnew = NULL;
+	size_t i, j;
+
+	/*
+	 * For example we may have the following in the image:
+	 *
+	 * set
+	 * 	name "hugetlb"
+	 * 	path "/300"
+	 *
+	 * controller
+	 * 	cnames hugetlb
+	 * 	dirs
+	 * 		dirname "300"
+	 * 		properties ...
+	 *
+	 * when we're switching to a new root we need to change
+	 * @path and don't forget to update the @dirname into
+	 * new state.
+	 */
 
 	for (i = 0; i < cge->n_sets; i++) {
 		CgSetEntry *set = cge->sets[i];
+
 		for (j = 0; j < set->n_ctls; j++) {
 			CgMemberEntry *cg = set->ctls[j];
-			char *tmp = cg->path, *tmp2 = NULL;
 
+			/*
+			 * Make sure if it's same controller
+			 * and its path with stripping leading
+			 * "/" is matching to be renamed.
+			 */
 			if (!(cgroup_contains(controllers, n_controllers, cg->name) &&
-					/* +1 to get rid of leading / */
-					strstartswith(cg->path + 1, *from)))
+					strstartswith(cg->path + 1, dir)))
 				continue;
 
-			/* If this cgset has a cgns prefix, let's use
-			 * that as the start of the root replacement.
-			 */
 			if (cg->has_cgns_prefix && cg->cgns_prefix) {
-				/* Rewrite the group dir to match the
-				 * prefix. We can do this exactly once
-				 * since we know all the tasks are in
-				 * the same cgroup ns (and thus have
-				 * the same per-controller prefix path)
-				 * since we don't support nesting.
-				 */
-				if (!set_from) {
-					set_from = true;
-					tmp2 = *from;
-					/* -1 because cgns_prefix includes leading / */
-					*from = xsprintf("%s%s", to, (*from) + cg->cgns_prefix - 1);
-				}
+				char *prev = cg->path;
 
-				cg->path = xsprintf("%s%s", to, cg->path +
-							cg->cgns_prefix);
-				cg->cgns_prefix = strlen(to);
+				cg->path = xsprintf("%s%s", newroot, cg->path + cg->cgns_prefix);
+				if (!cg->path) {
+					cg->path = prev;
+					return -ENOMEM;
+				}
+				xfree(prev);
+				cg->cgns_prefix = strlen(newroot);
+
+				if (!dirnew) {
+					/* -1 because cgns_prefix includes leading "/" */
+					dirnew = xsprintf("%s%s", newroot, dir + cg->cgns_prefix - 1);
+					if (!dirnew)
+						return -ENOMEM;
+				}
 			} else {
-				/* otherwise, use the old rewriting strategy */
-				cg->path = xsprintf("%s%s", to, cg->path +
-							strlen(*from) + 1);
-				if (!set_from) {
-					set_from = true;
-					tmp2 = *from;
-					*from = xstrdup(to);
+				char *prev = cg->path;
+				/*
+				 * If no prefix present simply rename the
+				 * root but make sure the rest of path is
+				 * untouched.
+				 */
+				cg->path = xsprintf("%s%s", newroot,
+						    cg->path + dirlen + 1);
+				if (!cg->path) {
+					cg->path = prev;
+					return -ENOMEM;
+				}
+				xfree(prev);
+				if (!dirnew) {
+					dirnew = xstrdup(newroot);
+					if (!dirnew)
+						return -ENOMEM;
 				}
 			}
-
-			if (tmp2) {
-				xfree(tmp2);
-				if (!*from)
-					return -1;
-			}
-
-			if (!cg->path)
-				return -1;
-
-			free(tmp);
 		}
-
 	}
+
+	xfree(dir);
+	*dir_name = dirnew;
 	return 0;
 }
 
