@@ -368,12 +368,15 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 				((ue->shutdown == SK_SHUTDOWN__BOTH)  &&
 				 (peer->shutdown != SK_SHUTDOWN__BOTH)) )) {
 			/*
-			 * On restore we assume, that stream pairs must
-			 * be shut down from one end only
+			 * Usually this doesn't happen, however it's possible if
+			 * socket was shut down before connect() (see sockets03.c test).
+			 * On restore we will shutdown both end (iow socktes will be in
+			 * matched state). This shoudn't be a problem, since kernel seems
+			 * to check both ends on read()/write(). Thus mismatched sockets behave
+			 * the same way as matched.
 			 */
-			pr_err("Shutdown mismatch %u:%d -> %u:%d\n",
+			pr_warn("Shutdown mismatch %u:%d -> %u:%d\n",
 					ue->ino, ue->shutdown, peer->sd.ino, peer->shutdown);
-			goto err;
 		}
 	} else if (ue->state == TCP_ESTABLISHED) {
 		const struct unix_sk_listen_icon *e;
@@ -1063,13 +1066,8 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui)
 	if (restore_socket_opts(sk, ui->ue->opts))
 		return -1;
 
-	if (ui->ue->type == SOCK_DGRAM)
-		/*
-		 * Stream socket's "slave" end will be shut down
-		 * together with master
-		 */
-		if (shutdown_unix_sk(sk, ui))
-			return -1;
+	if (shutdown_unix_sk(sk, ui))
+		return -1;
 
 	return sk;
 }
