@@ -2528,6 +2528,10 @@ static int do_bind_mount(struct mount_info *mi)
 	if (cut_root[0] == 0) /* This case is handled by mi->bind->fd */
 		goto skip_overmount_check;
 
+	/*
+	 * The target path may be over-mounted by one of child mounts
+	 * and we need to create a new bind-mount to get access to the path.
+	 */
 	mp_len = strlen(mi->bind->mountpoint);
 	if (mp_len > 1) /* skip a joining / if mi->bind->mountpoint isn't "/" */
 		mp_len++;
