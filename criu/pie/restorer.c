@@ -37,6 +37,7 @@
 #include "images/creds.pb-c.h"
 #include "images/mm.pb-c.h"
 
+#include "shmem.h"
 #include "asm/restorer.h"
 
 #ifndef PR_SET_PDEATHSIG
@@ -510,9 +511,18 @@ static unsigned long restore_mapping(const VmaEntry *vma_entry)
 	int flags	= vma_entry->flags | MAP_FIXED;
 	unsigned long addr;
 
-	if (vma_entry_is(vma_entry, VMA_AREA_SYSVIPC))
+	if (vma_entry_is(vma_entry, VMA_AREA_SYSVIPC)) {
+		/*
+		 * See comment in get_sysv_shmem_fd() for what SYSV_SHMEM_SKIP_FD
+		 * means and why we check for PROT_EXEC few lines below.
+		 */
+		if (vma_entry->fd == SYSV_SHMEM_SKIP_FD)
+			return vma_entry->start;
+
+		pr_info("Attach SYSV shmem %d at %"PRIx64"\n", (int)vma_entry->fd, vma_entry->start);
 		return sys_shmat(vma_entry->fd, decode_pointer(vma_entry->start),
-				 (vma_entry->prot & PROT_WRITE) ? 0 : SHM_RDONLY);
+				vma_entry->prot & PROT_EXEC ? 0 : SHM_RDONLY);
+	}
 
 	/*
 	 * Restore or shared mappings are tricky, since

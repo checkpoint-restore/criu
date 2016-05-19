@@ -25,6 +25,7 @@
  * it's opened in cr-restor, because pgoff may be non zero
  */
 struct shmem_info {
+	struct list_head l;
 	unsigned long	shmid;
 	unsigned long	size;
 	int		pid;
@@ -46,9 +47,31 @@ struct shmem_info {
 	 */
 	int		count;		/* the number of regions */
 	int		self_count;	/* the number of regions, which belongs to "pid" */
-
-	struct list_head l;
 };
+
+/*
+ * Entries collected while creating the sysv shmem
+ * segment. As they sit in the same list with shmem_info-s
+ * their initial fields should match!
+ */
+struct shmem_sysv_info {
+	struct list_head l;
+	unsigned long	shmid;
+	unsigned long	size;
+	int		pid;
+
+	struct list_head att; /* list of shmem_sysv_att-s */
+	int		want_write;
+};
+
+struct shmem_sysv_att {
+	struct list_head l;
+	VmaEntry	*first;
+	unsigned long	prev_end;
+};
+
+/* This is the "pid that will restore shmem" value for sysv */
+#define SYSVIPC_SHMEM_PID	(-1)
 
 /*
  * This list is filled with shared objects before we fork
@@ -77,6 +100,151 @@ static struct shmem_info *find_shmem_by_id(unsigned long shmid)
 	return NULL;
 }
 
+int collect_sysv_shmem(unsigned long shmid, unsigned long size)
+{
+	struct shmem_sysv_info *si;
+
+	/*
+	 * Tasks will not modify this object, so don't
+	 * shmalloc() as we do it for anon shared mem
+	 */
+	si = malloc(sizeof(*si));
+	if (!si)
+		return -1;
+
+	si->shmid = shmid;
+	si->pid = SYSVIPC_SHMEM_PID;
+	si->size = size;
+	si->want_write = 0;
+	INIT_LIST_HEAD(&si->att);
+	list_add_tail(&si->l, &shmems);
+
+	pr_info("Collected SysV shmem %lx, size %ld\n", si->shmid, si->size);
+
+	return 0;
+}
+
+int fixup_sysv_shmems(void)
+{
+	struct shmem_sysv_info *si;
+	struct shmem_sysv_att *att;
+
+	list_for_each_entry(si, &shmems, l) {
+		/* It can be anon shmem */
+		if (si->pid != SYSVIPC_SHMEM_PID)
+			continue;
+
+		list_for_each_entry(att, &si->att, l) {
+			/*
+			 * Same thing is checked in get_sysv_shmem_fd() for
+			 * intermediate holes.
+			 */
+			if (att->first->start + si->size != att->prev_end) {
+				pr_err("Sysv shmem %lx with tail hole not supported\n", si->shmid);
+				return -1;
+			}
+
+			/*
+			 * See comment in get_shmem_fd() about this PROT_EXEC 
+			 */
+			if (si->want_write)
+				att->first->prot |= PROT_EXEC;
+		}
+	}
+
+	return 0;
+}
+
+int get_sysv_shmem_fd(VmaEntry *vme)
+{
+	struct shmem_sysv_info *si;
+	struct shmem_sysv_att *att;
+	int ret_fd;
+
+	si = (struct shmem_sysv_info *)find_shmem_by_id(vme->shmid);
+	if (!si) {
+		pr_err("Can't find sysv shmem for %lx\n", vme->shmid);
+		return -1;
+	}
+
+	if (si->pid != SYSVIPC_SHMEM_PID) {
+		pr_err("SysV shmem vma %lx points to anon vma %lx\n",
+				vme->start, si->shmid);
+		return -1;
+	}
+
+	/*
+	 * We can have a chain of VMAs belonging to the same
+	 * sysv shmem segment all with different access rights
+	 * (ro and rw). But single shmat() system call attaches
+	 * the whole segment regardless of the actual mapping
+	 * size. This can be achieved by attaching a segment
+	 * and then write-protecting its parts.
+	 *
+	 * So, to restore this thing we note the very first
+	 * area of the segment and make it restore the whole
+	 * thing. All the subsequent ones will carry the sign
+	 * telling the restorer to omit shmat and only do the
+	 * ro protection. Yes, it may happen that some sysv
+	 * shmem vma-s sit in the list (and restorer's array)
+	 * for no use.
+	 *
+	 * Holes in between are not handled now, as well as
+	 * the hole at the end (see fixup_sysv_shmems).
+	 *
+	 * One corner case. At shmat() time we need to know
+	 * whether to create the segment rw or ro, but the
+	 * first vma can have different protection. So the
+	 * segment ro-ness is marked with PROT_EXEC bit in
+	 * the first vma. Unfortunatelly, we only know this
+	 * after we scan all the vmas, so this bit is set
+	 * at the end in fixup_sysv_shmems().
+	 */
+
+	if (vme->pgoff == 0) {
+		att = xmalloc(sizeof(*att));
+		if (!att)
+			return -1;
+
+		att->first = vme;
+		list_add(&att->l, &si->att);
+
+		ret_fd = si->shmid;
+	} else {
+		att = list_first_entry(&si->att, struct shmem_sysv_att, l);
+		if (att->prev_end != vme->start) {
+			pr_err("Sysv shmem %lx with a hole not supported\n", si->shmid);
+			return -1;
+		}
+		if (vme->pgoff != att->prev_end - att->first->start) {
+			pr_err("Sysv shmem %lx with misordered attach chunks\n", si->shmid);
+			return -1;
+		}
+
+		/*
+		 * Value that doesn't (shouldn't) match with any real
+		 * sysv shmem ID (thus it cannot be 0, as shmem id can)
+		 * and still is not negative to prevent open_vmas() from
+		 * treating it as error.
+		 */
+		ret_fd = SYSV_SHMEM_SKIP_FD;
+	}
+
+	pr_info("Note 0x%"PRIx64"-0x%"PRIx64" as %lx sysvshmem\n", vme->start, vme->end, si->shmid);
+
+	att->prev_end = vme->end;
+	if (!vme->has_fdflags || vme->fdflags == O_RDWR)
+		/*
+		 * We can't look at vma->prot & PROT_WRITE as all this stuff
+		 * can be read-protected. If !has_fdflags these are old images
+		 * and ... we have no other choice other than make it with
+		 * maximum access :(
+		 */
+		si->want_write = 1;
+
+	return ret_fd;
+}
+
 int collect_shmem(int pid, VmaEntry *vi)
 {
 	unsigned long size = vi->pgoff + vi->end - vi->start;
@@ -84,6 +252,10 @@ int collect_shmem(int pid, VmaEntry *vi)
 
 	si = find_shmem_by_id(vi->shmid);
 	if (si) {
+		if (si->pid == SYSVIPC_SHMEM_PID) {
+			pr_err("Shmem %lx already collected as SYSVIPC\n", vi->shmid);
+			return -1;
+		}
 
 		if (si->size < size)
 			si->size = size;
@@ -209,6 +381,8 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 		pr_err("Can't find my shmem 0x%016"PRIx64"\n", vi->start);
 		return -1;
 	}
+
+	BUG_ON(si->pid == SYSVIPC_SHMEM_PID);
 
 	if (si->pid != pid)
 		return shmem_wait_and_open(pid, si);

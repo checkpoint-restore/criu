@@ -14,6 +14,7 @@
 #include "namespaces.h"
 #include "sysctl.h"
 #include "ipc_ns.h"
+#include "shmem.h"
 
 #include "protobuf.h"
 #include "images/ipc-var.pb-c.h"
@@ -758,6 +759,9 @@ static int prepare_ipc_shm_seg(struct cr_img *img, const IpcShmEntry *shm)
 		{ "kernel/shm_next_id", &shm->desc->id, CTL_U32 },
 	};
 	struct shmid_ds shmid;
+
+	if (collect_sysv_shmem(shm->desc->id, shm->size))
+		return -1;
 
 	ret = sysctl_op(req, ARRAY_SIZE(req), CTL_WRITE, CLONE_NEWIPC);
 	if (ret < 0) {

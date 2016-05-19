@@ -71,6 +71,7 @@
 #include "timerfd.h"
 #include "file-lock.h"
 #include "action-scripts.h"
+#include "shmem.h"
 #include "aio.h"
 #include "lsm.h"
 #include "seccomp.h"
@@ -683,7 +684,7 @@ static int open_vmas(int pid)
 				vma->e->pgoff, vma->e->status);
 
 		if (vma_area_is(vma, VMA_AREA_SYSVIPC))
-			ret = vma->e->shmid;
+			ret = get_sysv_shmem_fd(vma->e);
 		else if (vma_area_is(vma, VMA_ANON_SHARED))
 			ret = get_shmem_fd(pid, vma->e);
 		else if (vma_area_is(vma, VMA_FILE_SHARED))
@@ -920,6 +921,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (open_vmas(pid))
+		return -1;
+
+	if (fixup_sysv_shmems())
 		return -1;
 
 	if (open_cores(pid, core))
