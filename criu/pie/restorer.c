@@ -584,8 +584,9 @@ static int restore_aio_ring(struct rst_aio_ring *raio)
 	i = (raio->len - sizeof(struct aio_ring)) / sizeof(struct io_event);
 	if (tail >= ring->nr || head >= ring->nr || ring->nr != i ||
 	    new->nr != ring->nr) {
-		pr_err("wrong aio parametrs: tail=%x head=%x nr=%x len=%lx\n",
-			tail, head, raio->nr_req, raio->len);
+		pr_err("wrong aio: tail=%x head=%x req=%x old_nr=%x new_nr=%x expect=%x\n",
+			tail, head, raio->nr_req, ring->nr, new->nr, i);
+
 		return -1;
 	}
 
@@ -623,7 +624,7 @@ static int restore_aio_ring(struct rst_aio_ring *raio)
 	iocbp = (void *)iocb + sizeof(struct iocb);
 
 	if (IS_ERR(iocb)) {
-		pr_err("Can't mmap aio tmp buffer\n");
+		pr_err("Can't mmap aio tmp buffer: %ld\n", PTR_ERR(iocb));
 		return -1;
 	}
 

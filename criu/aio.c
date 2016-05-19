@@ -13,9 +13,6 @@ int dump_aio_ring(MmEntry *mme, struct vma_area *vma)
 	int nr = mme->n_aios;
 	AioRingEntry *re;
 
-	pr_info("Dumping AIO ring @%"PRIx64", %u reqs\n",
-			vma->e->start, vma->aio_nr_req);
-
 	mme->aios = xrealloc(mme->aios, (nr + 1) * sizeof(re));
 	if (!mme->aios)
 		return -1;
@@ -30,6 +27,8 @@ int dump_aio_ring(MmEntry *mme, struct vma_area *vma)
 	re->ring_len = vma->e->end - vma->e->start;
 	mme->aios[nr] = re;
 	mme->n_aios = nr + 1;
+	pr_info("Dumping AIO ring @%"PRIx64"-%"PRIx64"\n",
+		vma->e->start, vma->e->end);
 	return 0;
 }
 
