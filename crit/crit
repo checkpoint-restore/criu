@@ -25,7 +25,7 @@ def decode(opts):
 	indent = None
 
 	try:
-		img = pycriu.images.load(inf(opts), opts['pretty'])
+		img = pycriu.images.load(inf(opts), opts['pretty'], opts['nopl'])
 	except pycriu.images.MagicException as exc:
 		print >>sys.stderr, "Unknown magic %#x.\n"\
 				"Maybe you are feeding me an image with "\
@@ -265,6 +265,7 @@ def main():
 	show_parser = subparsers.add_parser('show',
 			help = "convert criu image from binary to human-readable json")
 	show_parser.add_argument("in")
+	show_parser.add_argument('--nopl', help = 'do not show entry payload (if exists)', action = 'store_true')
 	show_parser.set_defaults(func=decode, pretty=True, out=None)
 
 	opts = vars(parser.parse_args())

@@ -79,7 +79,7 @@ class entry_handler:
 		self.payload		= payload
 		self.extra_handler	= extra_handler
 
-	def load(self, f, pretty = False):
+	def load(self, f, pretty = False, no_payload = False):
 		"""
 		Convert criu image entries from binary format to dict(json).
 		Takes a file-like object and returnes a list with entries in
@@ -101,7 +101,21 @@ class entry_handler:
 
 			# Read extra
 			if self.extra_handler:
-				entry['extra'] = self.extra_handler.load(f, pb)
+				if no_payload:
+					def human_readable(num):
+						for unit in ['','K','M','G','T','P','E','Z']:
+							if num < 1024.0:
+								if int(num) == num:
+									return "%d%sB" % (num, unit)
+								else:
+									return "%.1f%sB" % (num, unit)
+							num /= 1024.0
+						return "%.1fYB" % num
+
+					pl_size = self.extra_handler.skip(f, pb)
+					entry['extra'] = '... <%s>' % human_readable(pl_size)
+				else:
+					entry['extra'] = self.extra_handler.load(f, pb)
 
 			entries.append(entry)
 
@@ -167,7 +181,7 @@ class pagemap_handler:
 	that it has a header of pagemap_head type followed by entries
 	of pagemap_entry type.
 	"""
-	def load(self, f, pretty = False):
+	def load(self, f, pretty = False, no_payload = False):
 		entries = []
 
 		pb = pagemap_head()
@@ -223,6 +237,10 @@ class pipes_data_extra_handler:
 		data = extra.decode('base64')
 		f.write(data)
 
+	def skip(self, f, pload):
+		f.seek(pload.bytes, os.SEEK_CUR)
+		return pload.bytes
+
 class sk_queues_extra_handler:
 	def load(self, f, pload):
 		size = pload.length
@@ -233,6 +251,10 @@ class sk_queues_extra_handler:
 		data = extra.decode('base64')
 		f.write(data)
 
+	def skip(self, f, pload):
+		f.seek(pload.length, os.SEEK_CUR)
+		return pload.length
+
 class ghost_file_extra_handler:
 	def load(self, f, pb):
 		data = f.read()
@@ -241,6 +263,11 @@ class ghost_file_extra_handler:
 	def dump(self, extra, f, pb):
 		data = extra.decode('base64')
 		f.write(data)
+
+	def skip(self, f, pb):
+		p = f.tell()
+		f.seek(0, os.SEEK_END)
+		return f.tell() - p
 
 class tcp_stream_extra_handler:
 	def load(self, f, pb):
@@ -260,6 +287,10 @@ class tcp_stream_extra_handler:
 
 		f.write(inq)
 		f.write(outq)
+
+	def skip(self, f, pb):
+		f.seek(0, os.SEEK_END)
+		return pb.inq_len + pb.outq_len
 
 class ipc_sem_set_handler:
 	def load(self, f, pb):
@@ -285,6 +316,12 @@ class ipc_sem_set_handler:
 			raise Exception("Number of semaphores mismatch")
 		f.write(s.tostring())
 		f.write('\0' * (rounded - size))
+
+	def skip(self, f, pb):
+		entry = pb2dict.pb2dict(pb)
+		size = sizeof_u16 * entry['nsems']
+		f.seek(round_up(size, sizeof_u64), os.SEEK_CUR)
+		return size
 
 class ipc_msg_queue_handler:
 	def load(self, f, pb):
@@ -318,6 +355,22 @@ class ipc_msg_queue_handler:
 			f.write(data[:msg.msize])
 			f.write('\0' * (rounded - msg.msize))
 
+	def skip(self, f, pb):
+		entry = pb2dict.pb2dict(pb)
+		pl_len = 0
+		for x in range (0, entry['qnum']):
+			buf = f.read(4)
+			if buf == '':
+				break
+			size, = struct.unpack('i', buf)
+			msg = ipc_msg()
+			msg.ParseFromString(f.read(size))
+			rounded = round_up(msg.msize, sizeof_u64)
+			f.seek(rounded, os.SEEK_CUR)
+			pl_len += size + msg.msize
+
+		return pl_len
+
 class ipc_shm_handler:
 	def load(self, f, pb):
 		entry = pb2dict.pb2dict(pb)
@@ -334,6 +387,14 @@ class ipc_shm_handler:
 		rounded = round_up(size, sizeof_u32)
 		f.write(data[:size])
 		f.write('\0' * (rounded - size))
+
+	def skip(self, f, pb):
+		entry = pb2dict.pb2dict(pb)
+		size = entry['size']
+		rounded = round_up(size, sizeof_u32)
+		f.seek(rounded, os.SEEK_CUR)
+		return size
+
 
 handlers = {
 	'INVENTORY'		: entry_handler(inventory_entry),
@@ -412,7 +473,7 @@ def __rhandler(f):
 
 	return m, handler
 
-def load(f, pretty = False):
+def load(f, pretty = False, no_payload = False):
 	"""
 	Convert criu image from binary format to dict(json).
 	Takes a file-like object to read criu image from.
@@ -423,7 +484,7 @@ def load(f, pretty = False):
 	m, handler = __rhandler(f)
 
 	image['magic'] = m
-	image['entries'] = handler.load(f, pretty)
+	image['entries'] = handler.load(f, pretty, no_payload)
 
 	return image
 
