@@ -8,6 +8,7 @@
 struct simple_buf {
 	char buf[LOG_SIMPLE_CHUNK];
 	char *bp;
+	int prefix_len;
 	void (*flush)(struct simple_buf *b);
 };
 
@@ -18,22 +19,38 @@ static void sbuf_log_flush(struct simple_buf *b);
 
 static void sbuf_log_init(struct simple_buf *b)
 {
+	char pid_buf[12], *s;
+	int n;
+
+	/*
+	 * Format:
+	 *
+	 * pie: pid: string-itself
+	 */
+	b->prefix_len = vprint_num(pid_buf, sizeof(pid_buf), sys_gettid(), &s);
 	b->buf[0] = 'p';
 	b->buf[1] = 'i';
 	b->buf[2] = 'e';
 	b->buf[3] = ':';
 	b->buf[4] = ' ';
-	b->bp = b->buf + 5;
+
+	for (n = 0; n < b->prefix_len; n++)
+		b->buf[n + 5] = s[n];
+	b->buf[n + 5] = ':';
+	b->buf[n + 6] = ' ';
+	b->prefix_len += 7;
+
+	b->bp = b->buf + b->prefix_len;
 	b->flush = sbuf_log_flush;
 }
 
 static void sbuf_log_flush(struct simple_buf *b)
 {
-	if (b->bp == b->buf + 5)
+	if (b->bp == b->buf + b->prefix_len)
 		return;
 
 	sys_write(logfd, b->buf, b->bp - b->buf);
-	sbuf_log_init(b);
+	b->bp = b->buf + b->prefix_len;
 }
 
 static void sbuf_putc(struct simple_buf *b, char c)
