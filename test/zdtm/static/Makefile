@@ -186,6 +186,7 @@ TST_FILE	=				\
 		cow01				\
 		fdt_shared			\
 		sockets00			\
+		sockets03			\
 		sockets_dgram			\
 		file_locks00			\
 		file_locks01			\
