@@ -45,6 +45,7 @@ TST_NOFILE	=				\
 		inotify_system			\
 		inotify_system_nodel		\
 		shm				\
+		shm-mp				\
 		ptrace_sig			\
 		pipe00				\
 		pipe01				\
