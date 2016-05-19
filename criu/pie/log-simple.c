@@ -204,7 +204,7 @@ static void print_hex_l(unsigned long num, struct simple_buf *b)
 	print_string(z, b);
 }
 
-void sbuf_printf(struct simple_buf *b, const char *format, va_list args)
+static void sbuf_printf(struct simple_buf *b, const char *format, va_list args)
 {
 	const char *s = format;
 	while (1) {
