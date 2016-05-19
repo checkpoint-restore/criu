@@ -252,7 +252,6 @@ static int vma_get_mapfile(char *fname, struct vma_area *vma, DIR *mfd,
 			if ((buf.st_mode & S_IFMT) == 0 && !strncmp(fname, AIO_FNAME, sizeof(AIO_FNAME) - 1)) {
 				/* AIO ring, let's try */
 				close_safe(vm_file_fd);
-				vma->aio_nr_req = -1;
 				vma->e->status = VMA_AREA_AIORING;
 				return 0;
 			}

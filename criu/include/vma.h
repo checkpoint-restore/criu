@@ -43,7 +43,6 @@ struct vma_area {
 				 * The aio_nr_req is only for aio rings.
 				 */
 				int	vm_socket_id;
-				unsigned int aio_nr_req;
 			};
 
 			char		*aufs_rpath;	/* path from aufs root */

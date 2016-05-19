@@ -140,8 +140,6 @@ struct parasite_dump_posix_timers_args {
 struct parasite_aio {
 	unsigned long ctx;
 	unsigned int size;
-	unsigned int max_reqs;
-	unsigned int *vma_nr_reqs;
 };
 
 struct parasite_check_aios_args {

@@ -418,8 +418,6 @@ static int parasite_check_aios(struct parasite_check_aios_args *args)
 		}
 
 		/* XXX: wait aio completion */
-
-		args->ring[i].max_reqs = ring->nr;
 	}
 
 	return 0;
