@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 
+#include "list.h"
 #include "pid.h"
 #include "shmem.h"
 #include "image.h"
@@ -19,49 +20,68 @@
 #include "images/pagemap.pb-c.h"
 
 /*
- * pid is a pid of a creater
- * start, end are used for open mapping
- * fd is a file discriptor, which is valid for creater,
- * it's opened in cr-restor, because pgoff may be non zero
+ * Hash table and routines for keeping shmid -> shmem_xinfo mappings 
  */
-struct shmem_info {
-	struct list_head l;
-	unsigned long	shmid;
-	unsigned long	size;
-	int		pid;
-	int		fd;
-
-	/*
-	 * 0. lock is initilized to zero
-	 * 1. the master opens a descriptor and set lock to 1
-	 * 2. slaves open their descriptors and increment lock
-	 * 3. the master waits all slaves on lock. After that
-	 *    it can close the descriptor.
-	 */
-	futex_t		lock;
-
-	/*
-	 * Here is a problem, that we don't know, which process will restore
-	 * an region. Each time when we	found a process with a smaller pid,
-	 * we reset self_count, so we can't have only one counter.
-	 */
-	int		count;		/* the number of regions */
-	int		self_count;	/* the number of regions, which belongs to "pid" */
-};
 
 /*
- * Entries collected while creating the sysv shmem
- * segment. As they sit in the same list with shmem_info-s
- * their initial fields should match!
+ * The hash is filled with shared objects before we fork
+ * any tasks. Thus the heads are private (COW-ed) and the
+ * entries are all in shmem.
  */
-struct shmem_sysv_info {
-	struct list_head l;
-	unsigned long	shmid;
-	unsigned long	size;
-	int		pid;
+#define SHMEM_HASH_SIZE	32
+static struct hlist_head shmems_hash[SHMEM_HASH_SIZE];
 
-	struct list_head att; /* list of shmem_sysv_att-s */
-	int		want_write;
+#define for_each_shmem(_i, _si)				\
+	for (i = 0; i < SHMEM_HASH_SIZE; i++)			\
+		hlist_for_each_entry(_si, &shmems_hash[_i], h)
+
+struct shmem_info {
+	struct hlist_node h;
+	unsigned long	shmid;
+
+	/*
+	 * Owner PID. This guy creates anon shmem on restore and
+	 * from this the shmem is read on dump
+	 */
+	int		pid;
+	unsigned long	size;
+
+	union {
+		struct { /* For restore */
+			/*
+			 * Descriptor by which this shmem is opened
+			 * by the creator
+			 */
+			int		fd;
+
+			/*
+			 * 0. lock is initilized to zero
+			 * 1. the master opens a descriptor and set lock to 1
+			 * 2. slaves open their descriptors and increment lock
+			 * 3. the master waits all slaves on lock. After that
+			 *    it can close the descriptor.
+			 */
+			futex_t		lock;
+
+			/*
+			 * Here is a problem, that we don't know, which process will restore
+			 * an region. Each time when we	found a process with a smaller pid,
+			 * we reset self_count, so we can't have only one counter.
+			 */
+			int		count;		/* the number of regions */
+			int		self_count;	/* the number of regions, which belongs to "pid" */
+		};
+
+		struct { /* For sysvipc restore */
+			struct list_head att; /* list of shmem_sysv_att-s */
+			int		 want_write;
+		};
+
+		struct { /* For dump */
+			unsigned long	start;
+			unsigned long	end;
+		};
+	};
 };
 
 struct shmem_sysv_att {
@@ -73,36 +93,36 @@ struct shmem_sysv_att {
 /* This is the "pid that will restore shmem" value for sysv */
 #define SYSVIPC_SHMEM_PID	(-1)
 
-/*
- * This list is filled with shared objects before we fork
- * any tasks. Thus the head is private (COW-ed) and the
- * entries are all in shmem.
- */
-static LIST_HEAD(shmems); /* XXX hash? tree? */
-
-void show_saved_shmems(void)
+static inline struct hlist_head *shmem_chain(unsigned long shmid)
 {
-	struct shmem_info *si;
-
-	pr_info("\tSaved shmems:\n");
-	list_for_each_entry(si, &shmems, l)
-		pr_info("\t\tshmid: 0x%lx pid: %d\n", si->shmid, si->pid);
+	return &shmems_hash[shmid % SHMEM_HASH_SIZE];
 }
 
-static struct shmem_info *find_shmem_by_id(unsigned long shmid)
+static void shmem_hash_add(struct shmem_info *si)
 {
+	struct hlist_head *chain;
+
+	chain = shmem_chain(si->shmid);
+	hlist_add_head(&si->h, chain);
+}
+
+static struct shmem_info *shmem_find(unsigned long shmid)
+{
+	struct hlist_head *chain;
 	struct shmem_info *si;
 
-	list_for_each_entry(si, &shmems, l)
+	chain = shmem_chain(shmid);
+	hlist_for_each_entry(si, chain, h)
 		if (si->shmid == shmid)
 			return si;
 
 	return NULL;
 }
 
+
 int collect_sysv_shmem(unsigned long shmid, unsigned long size)
 {
-	struct shmem_sysv_info *si;
+	struct shmem_info *si;
 
 	/*
 	 * Tasks will not modify this object, so don't
@@ -117,7 +137,8 @@ int collect_sysv_shmem(unsigned long shmid, unsigned long size)
 	si->size = size;
 	si->want_write = 0;
 	INIT_LIST_HEAD(&si->att);
-	list_add_tail(&si->l, &shmems);
+
+	shmem_hash_add(si);
 
 	pr_info("Collected SysV shmem %lx, size %ld\n", si->shmid, si->size);
 
@@ -126,10 +147,11 @@ int collect_sysv_shmem(unsigned long shmid, unsigned long size)
 
 int fixup_sysv_shmems(void)
 {
-	struct shmem_sysv_info *si;
+	int i;
+	struct shmem_info *si;
 	struct shmem_sysv_att *att;
 
-	list_for_each_entry(si, &shmems, l) {
+	for_each_shmem(i, si) {
 		/* It can be anon shmem */
 		if (si->pid != SYSVIPC_SHMEM_PID)
 			continue;
@@ -158,11 +180,11 @@ int fixup_sysv_shmems(void)
 static int open_shmem_sysv(int pid, struct vma_area *vma)
 {
 	VmaEntry *vme = vma->e;
-	struct shmem_sysv_info *si;
+	struct shmem_info *si;
 	struct shmem_sysv_att *att;
 	uint64_t ret_fd;
 
-	si = (struct shmem_sysv_info *)find_shmem_by_id(vme->shmid);
+	si = shmem_find(vme->shmid);
 	if (!si) {
 		pr_err("Can't find sysv shmem for %lx\n", vme->shmid);
 		return -1;
@@ -262,7 +284,7 @@ int collect_shmem(int pid, struct vma_area *vma)
 
 	vma->vm_open = open_shmem;
 
-	si = find_shmem_by_id(vi->shmid);
+	si = shmem_find(vi->shmid);
 	if (si) {
 		if (si->pid == SYSVIPC_SHMEM_PID) {
 			pr_err("Shmem %lx already collected as SYSVIPC\n", vi->shmid);
@@ -306,7 +328,7 @@ int collect_shmem(int pid, struct vma_area *vma)
 	si->count = 1;
 	si->self_count = 1;
 	futex_init(&si->lock);
-	list_add_tail(&si->l, &shmems);
+	shmem_hash_add(si);
 
 	return 0;
 }
@@ -392,7 +414,7 @@ static int open_shmem(int pid, struct vma_area *vma)
 	int f = -1;
 	int flags;
 
-	si = find_shmem_by_id(vi->shmid);
+	si = shmem_find(vi->shmid);
 	pr_info("Search for 0x%016"PRIx64" shmem 0x%"PRIx64" %p/%d\n", vi->start, vi->shmid, si, si ? si->pid : -1);
 	if (!si) {
 		pr_err("Can't find my shmem 0x%016"PRIx64"\n", vi->start);
@@ -479,38 +501,12 @@ err:
 	return -1;
 }
 
-struct shmem_info_dump {
-	unsigned long	size;
-	unsigned long	shmid;
-	unsigned long	start;
-	unsigned long	end;
-	int		pid;
-
-	struct shmem_info_dump *next;
-};
-
-#define SHMEM_HASH_SIZE	32
-static struct shmem_info_dump *shmems_hash[SHMEM_HASH_SIZE];
-
-static struct shmem_info_dump *shmem_find(struct shmem_info_dump **chain,
-		unsigned long shmid)
-{
-	struct shmem_info_dump *sh;
-
-	for (sh = *chain; sh; sh = sh->next)
-		if (sh->shmid == shmid)
-			return sh;
-
-	return NULL;
-}
-
 int add_shmem_area(pid_t pid, VmaEntry *vma)
 {
-	struct shmem_info_dump *si, **chain;
+	struct shmem_info *si;
 	unsigned long size = vma->pgoff + (vma->end - vma->start);
 
-	chain = &shmems_hash[vma->shmid % SHMEM_HASH_SIZE];
-	si = shmem_find(chain, vma->shmid);
+	si = shmem_find(vma->shmid);
 	if (si) {
 		if (si->size < size)
 			si->size = size;
@@ -521,14 +517,12 @@ int add_shmem_area(pid_t pid, VmaEntry *vma)
 	if (!si)
 		return -1;
 
-	si->next = *chain;
-	*chain = si;
-
 	si->size = size;
 	si->pid = pid;
 	si->start = vma->start;
 	si->end = vma->end;
 	si->shmid = vma->shmid;
+	shmem_hash_add(si);
 
 	return 0;
 }
@@ -548,7 +542,7 @@ static int dump_pages(struct page_pipe *pp, struct page_xfer *xfer, void *addr)
 	return page_xfer_dump_pages(xfer, pp, (unsigned long)addr);
 }
 
-static int dump_one_shmem(struct shmem_info_dump *si)
+static int dump_one_shmem(struct shmem_info *si)
 {
 	struct iovec *iovs;
 	struct page_pipe *pp;
@@ -630,20 +624,16 @@ err:
 	return ret;
 }
 
-#define for_each_shmem_dump(_i, _si)				\
-	for (i = 0; i < SHMEM_HASH_SIZE; i++)			\
-		for (si = shmems_hash[i]; si; si = si->next)
-
 int cr_dump_shmem(void)
 {
 	int ret = 0, i;
-	struct shmem_info_dump *si;
+	struct shmem_info *si;
 
-	for_each_shmem_dump (i, si) {
+	for_each_shmem(i, si) {
 		ret = dump_one_shmem(si);
 		if (ret)
-			break;
+			goto out;
 	}
-
+out:
 	return ret;
 }

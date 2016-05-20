@@ -9,7 +9,6 @@ struct vma_area;
 
 extern int collect_shmem(int pid, struct vma_area *vma);
 extern int collect_sysv_shmem(unsigned long shmid, unsigned long size);
-extern void show_saved_shmems(void);
 extern int cr_dump_shmem(void);
 extern int add_shmem_area(pid_t pid, VmaEntry *vma);
 extern int fixup_sysv_shmems(void);
