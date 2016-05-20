@@ -236,6 +236,7 @@ TST_DIR		=				\
 		mnt_ext_auto			\
 		mnt_ext_master			\
 		mnt_ext_dev			\
+		mnt_tracefs			\
 		mntns_deleted			\
 		unlink_regular00		\
 		mnt_enablefs			\

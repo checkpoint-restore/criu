@@ -72,6 +72,7 @@
 /static/mmx00
 /static/mnt_ext_auto
 /static/mnt_ext_master
+/static/mnt_tracefs
 /static/mnt_ro_bind
 /static/mntns_deleted
 /static/mntns_link_ghost
