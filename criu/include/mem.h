@@ -24,4 +24,7 @@ extern int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 #define PME_PFRAME_MASK		((1ULL << PME_PSHIFT_OFFSET) - 1)
 #define PME_PFRAME(x)		((x) & PME_PFRAME_MASK)
 
+int open_vmas(struct pstree_item *t);
+int unmap_guard_pages(struct pstree_item *t);
+int prepare_mappings(struct pstree_item *t);
 #endif /* __CR_MEM_H__ */
