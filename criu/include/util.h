@@ -19,8 +19,6 @@
 #include "log.h"
 #include "err.h"
 
-#include "images/vma.pb-c.h"
-
 #define PREF_SHIFT_OP(pref, op, size)	((size) op (pref ##BYTES_SHIFT))
 #define KBYTES_SHIFT	10
 #define MBYTES_SHIFT	20
