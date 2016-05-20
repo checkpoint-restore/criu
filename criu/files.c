@@ -887,7 +887,7 @@ static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle, int *sock)
 		return -1;
 
 	pr_info("\t\t\tGoing to dup %d into %d\n", fd, dfd);
-	if (move_img_fd(sock, dfd))
+	if (move_fd_from(sock, dfd))
 		return -1;
 
 	if (dup2(fd, dfd) != dfd) {

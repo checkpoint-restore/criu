@@ -218,7 +218,7 @@ int reopen_fd_as_safe(char *file, int line, int new_fd, int old_fd, bool allow_r
 	return 0;
 }
 
-int move_img_fd(int *img_fd, int want_fd)
+int move_fd_from(int *img_fd, int want_fd)
 {
 	if (*img_fd == want_fd) {
 		int tmp;
@@ -621,8 +621,8 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 		if (out == in)
 			out = DUP_SAFE(out, out_chld);
 
-		if (move_img_fd(&out, STDIN_FILENO) ||
-		    move_img_fd(&err, STDIN_FILENO))
+		if (move_fd_from(&out, STDIN_FILENO) ||
+		    move_fd_from(&err, STDIN_FILENO))
 			goto out_chld;
 
 		if (in < 0) {
@@ -632,7 +632,7 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 				goto out_chld;
 		}
 
-		if (move_img_fd(&err, STDOUT_FILENO))
+		if (move_fd_from(&err, STDOUT_FILENO))
 			goto out_chld;
 
 		if (reopen_fd_as_nocheck(STDOUT_FILENO, out))

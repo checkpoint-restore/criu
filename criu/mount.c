@@ -1267,7 +1267,7 @@ static int tmpfs_dump(struct mount_info *pm)
 	 * non-zero, because cr_system_userns closes STDIN_FILENO as we are not
 	 * interested in passing stdin to tar.
 	 */
-	if (move_img_fd(&fd, STDIN_FILENO) < 0)
+	if (move_fd_from(&fd, STDIN_FILENO) < 0)
 		goto out;
 
 	if (fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) & ~FD_CLOEXEC) == -1) {

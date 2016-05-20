@@ -50,7 +50,7 @@ extern void pr_vma(unsigned int loglevel, const struct vma_area *vma_area);
 	} while (0)
 #define pr_info_vma_list(head)	pr_vma_list(LOG_INFO, head)
 
-extern int move_img_fd(int *img_fd, int want_fd);
+extern int move_fd_from(int *img_fd, int want_fd);
 extern int close_safe(int *fd);
 
 extern int reopen_fd_as_safe(char *file, int line, int new_fd, int old_fd, bool allow_reuse_fd);
