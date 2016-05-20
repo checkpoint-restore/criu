@@ -331,7 +331,7 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 	int size4 = ARRAY_SIZE(devconfs4);
 	SysctlEntry *confs6 = NULL;
 	int size6 = ARRAY_SIZE(devconfs6);
-	char stable_secret[MAX_STR_CONF_LEN + 1];
+	char stable_secret[MAX_STR_CONF_LEN + 1] = {};
 
 	if (!tb[IFLA_IFNAME]) {
 		pr_err("No name for link %d\n", ifi->ifi_index);
@@ -1132,8 +1132,8 @@ static int dump_netns_conf(struct cr_imgset *fds)
 	int size4 = ARRAY_SIZE(devconfs4);
 	SysctlEntry *def_confs6 = NULL, *all_confs6 = NULL;
 	int size6 = ARRAY_SIZE(devconfs6);
-	char def_stable_secret[MAX_STR_CONF_LEN + 1];
-	char all_stable_secret[MAX_STR_CONF_LEN + 1];
+	char def_stable_secret[MAX_STR_CONF_LEN + 1] = {};
+	char all_stable_secret[MAX_STR_CONF_LEN + 1] = {};
 
 	netns.n_def_conf4 = size4;
 	netns.n_all_conf4 = size4;
