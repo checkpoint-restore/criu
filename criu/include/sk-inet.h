@@ -9,7 +9,7 @@
 #include "protobuf.h"
 #include "images/sk-inet.pb-c.h"
 
-#define INET_ADDR_LEN		40
+#define INET_ADDR_LEN		48 /* max of INET_ADDRSTRLEN and INET6_ADDRSTRLEN */
 #ifndef TCP_REPAIR
 #define TCP_REPAIR		19      /* TCP sock is under repair right now */
 #define TCP_REPAIR_QUEUE	20
