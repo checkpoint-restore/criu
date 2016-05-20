@@ -931,21 +931,6 @@ int fd_has_data(int lfd)
 	return ret;
 }
 
-size_t read_into_buffer(int fd, char *buff, size_t size)
-{
-	size_t n = 0;
-	size_t curr = 0;
-
-	while (1) {
-		n  = read(fd, buff + curr, size - curr);
-		if (n < 1)
-			return n;
-		curr += n;
-		if (curr == size)
-			return size;
-	}
-}
-
 int make_yard(char *path)
 {
 	if (mount("none", path, "tmpfs", 0, NULL)) {

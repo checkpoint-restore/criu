@@ -129,9 +129,6 @@ extern int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
 		__f;							\
 	 })
 
-#define pr_img_head(type, ...)	pr_msg("\n"#type __VA_ARGS__ "\n----------------\n")
-#define pr_img_tail(type)	pr_msg("----------------\n")
-
 #define DEVZERO		(makedev(1, 5))
 
 #define KDEV_MINORBITS	20
@@ -264,7 +261,6 @@ FILE *fopenat(int dirfd, char *path, char *cflags);
 void split(char *str, char token, char ***out, int *n);
 
 int fd_has_data(int lfd);
-size_t read_into_buffer(int fd, char *buff, size_t size);
 
 int make_yard(char *path);
 

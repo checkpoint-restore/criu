@@ -24,20 +24,6 @@
 #include <time.h>
 
 #include "images/mm.pb-c.h"
-#include "images/vma.pb-c.h"
-#include "images/creds.pb-c.h"
-#include "images/core.pb-c.h"
-
-struct task_restore_core_args;
-struct thread_restore_args;
-
-typedef long (*task_restore_fcall_t) (struct task_restore_core_args *args);
-typedef long (*thread_restore_fcall_t) (struct thread_restore_args *args);
-
-#define RESTORE_CMD__NONE		0
-#define RESTORE_CMD__GET_SELF_LEN	1
-#define RESTORE_CMD__RESTORE_CORE	2
-#define RESTORE_CMD__RESTORE_THREAD	3
 
 /*
  * These *must* be power of two values.
@@ -63,8 +49,6 @@ struct restore_posix_timer {
 	struct itimerspec val;
 	int overrun;
 };
-
-struct task_restore_core_args;
 
 /*
  * We should be able to construct fpu sigframe in sigreturn_prep_fpu_frame,
@@ -116,6 +100,8 @@ struct thread_restore_args {
 
 	struct thread_creds_args	*creds_args;
 } __aligned(64);
+
+typedef long (*thread_restore_fcall_t) (struct thread_restore_args *args);
 
 struct task_restore_args {
 	struct thread_restore_args	*t;			/* thread group leader */
