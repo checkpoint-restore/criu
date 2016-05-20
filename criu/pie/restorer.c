@@ -28,7 +28,6 @@
 #include "sk-inet.h"
 #include "vma.h"
 
-#include "crtools.h"
 #include "lock.h"
 #include "restorer.h"
 #include "aio.h"
