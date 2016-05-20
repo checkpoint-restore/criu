@@ -26,24 +26,6 @@
 #define REMAP_GHOST	(1 << 31)
 
 /*
- * By-default, when dumping a unix socket, we should dump its peer
- * as well. Which in turn means, we should dump the task(s) that have
- * this peer opened.
- *
- * Sometimes, we can break this rule and dump only one end of the
- * unix sockets pair, and on restore time connect() this end back to
- * its peer.
- *
- * So, to resolve this situation we mark the peers we don't dump
- * as "external" and require the --ext-unix-sk option.
- */
-
-#define USK_EXTERN	(1 << 0)
-#define USK_SERVICE	(1 << 1)
-#define USK_CALLBACK	(1 << 2)
-#define USK_INHERIT	(1 << 3)
-
-/*
  * VMA_AREA status:
  *
  *  - none
