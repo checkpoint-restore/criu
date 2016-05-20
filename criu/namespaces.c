@@ -11,7 +11,7 @@
 #include <sched.h>
 #include <sys/capability.h>
 
-#include "util.h"
+#include "rst-malloc.h"
 #include "imgset.h"
 #include "uts_ns.h"
 #include "ipc_ns.h"

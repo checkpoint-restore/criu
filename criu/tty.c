@@ -21,7 +21,7 @@
 #include "imgset.h"
 #include "servicefd.h"
 #include "image.h"
-#include "util.h"
+#include "rst-malloc.h"
 #include "log.h"
 #include "list.h"
 #include "util-pie.h"

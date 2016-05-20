@@ -22,7 +22,7 @@
 #include "files.h"
 #include "image.h"
 #include "list.h"
-#include "util.h"
+#include "rst-malloc.h"
 #include "fs-magic.h"
 #include "asm/atomic.h"
 #include "namespaces.h"

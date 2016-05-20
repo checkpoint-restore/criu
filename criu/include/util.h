@@ -169,9 +169,6 @@ extern int is_anon_link_type(char *link, char *type);
 	 ((c) >= 'a' && (c) <= 'f')	||	\
 	 ((c) >= 'A' && (c) <= 'F'))
 
-extern void *shmalloc(size_t bytes);
-extern void shfree_last(void *ptr);
-
 #define CRS_CAN_FAIL	0x1 /* cmd can validly exit with non zero code */
 
 extern int cr_system(int in, int out, int err, char *cmd, char *const argv[], unsigned flags);

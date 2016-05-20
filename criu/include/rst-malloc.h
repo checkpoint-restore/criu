@@ -71,4 +71,7 @@ extern void rst_mem_align(int type);
 extern unsigned long rst_mem_lock(void);
 extern int rst_mem_remap(void *to);
 
+extern void *shmalloc(size_t bytes);
+extern void shfree_last(void *ptr);
+
 #endif /* __CR_RST_MALLOC__H__ */

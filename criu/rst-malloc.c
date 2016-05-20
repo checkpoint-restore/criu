@@ -231,3 +231,16 @@ int rst_mem_remap(void *to)
 
 	return ret;
 }
+
+void *shmalloc(size_t bytes)
+{
+	rst_mem_align(RM_SHARED);
+	return rst_mem_alloc(bytes, RM_SHARED);
+}
+
+/* Only last chunk can be released */
+void shfree_last(void *ptr)
+{
+	rst_mem_free_last(RM_SHARED);
+}
+

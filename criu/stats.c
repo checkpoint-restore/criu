@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <sys/time.h>
 #include "asm/atomic.h"
+#include "rst-malloc.h"
 #include "protobuf.h"
 #include "stats.h"
 #include "image.h"

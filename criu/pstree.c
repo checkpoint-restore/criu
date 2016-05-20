@@ -5,7 +5,7 @@
 
 #include "cr_options.h"
 #include "pstree.h"
-#include "util.h"
+#include "rst-malloc.h"
 #include "lock.h"
 #include "namespaces.h"
 #include "files.h"

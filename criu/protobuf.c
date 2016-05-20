@@ -13,7 +13,7 @@
 #include "compiler.h"
 #include "asm/types.h"
 #include "log.h"
-#include "util.h"
+#include "rst-malloc.h"
 #include "string.h"
 #include "sockets.h"
 #include "cr_options.h"

@@ -19,7 +19,7 @@
 #include "file-lock.h"
 #include "image.h"
 #include "list.h"
-#include "util.h"
+#include "rst-malloc.h"
 #include "util-pie.h"
 #include "lock.h"
 #include "sockets.h"

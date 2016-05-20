@@ -558,18 +558,6 @@ int is_anon_link_type(char *link, char *type)
 	return !strcmp(link, aux);
 }
 
-void *shmalloc(size_t bytes)
-{
-	rst_mem_align(RM_SHARED);
-	return rst_mem_alloc(bytes, RM_SHARED);
-}
-
-/* Only last chunk can be released */
-void shfree_last(void *ptr)
-{
-	rst_mem_free_last(RM_SHARED);
-}
-
 #define DUP_SAFE(fd, out)						\
 	({							\
 		int ret__;					\

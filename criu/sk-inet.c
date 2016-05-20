@@ -19,7 +19,7 @@
 #include "files.h"
 #include "image.h"
 #include "log.h"
-#include "util.h"
+#include "rst-malloc.h"
 #include "sockets.h"
 #include "sk-inet.h"
 
