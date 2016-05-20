@@ -20,7 +20,6 @@
 #include "cr_options.h"
 #include "imgset.h"
 #include "servicefd.h"
-#include "image.h"
 #include "rst-malloc.h"
 #include "log.h"
 #include "list.h"

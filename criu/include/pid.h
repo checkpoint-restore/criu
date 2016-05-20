@@ -24,6 +24,13 @@ struct pid {
 	struct rb_node node;
 };
 
+#define TASK_UNDEF		0x0
+#define TASK_ALIVE		0x1
+#define TASK_DEAD		0x2
+#define TASK_STOPPED		0x3
+#define TASK_HELPER		0x4
+#define TASK_THREAD		0x5
+
 /*
  * When we have to restore a shared resource, we mush select which
  * task should do it, and make other(s) wait for it. In order to

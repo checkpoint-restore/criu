@@ -20,7 +20,6 @@
 #include "file-ids.h"
 #include "mount.h"
 #include "files.h"
-#include "image.h"
 #include "list.h"
 #include "rst-malloc.h"
 #include "fs-magic.h"
