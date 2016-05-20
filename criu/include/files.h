@@ -6,7 +6,6 @@
 #include "fcntl.h"
 #include "lock.h"
 #include "list.h"
-#include "image.h"
 #include "pid.h"
 #include "rst_info.h"
 

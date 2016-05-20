@@ -3,7 +3,6 @@
 
 #include <sys/types.h>
 #include "asm/types.h"
-#include "image.h"
 #include "list.h"
 
 #include "images/eventfd.pb-c.h"

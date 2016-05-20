@@ -8,7 +8,6 @@
 #include "compiler.h"
 #include "asm/types.h"
 #include "asm/fpu.h"
-#include "image.h"
 #include "lock.h"
 #include "util.h"
 #include "asm/restorer.h"

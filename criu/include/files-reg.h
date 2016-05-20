@@ -3,7 +3,6 @@
 
 #include "asm/types.h"
 #include "files.h"
-#include "image.h"
 
 #include "images/regfile.pb-c.h"
 #include "images/ghost-file.pb-c.h"

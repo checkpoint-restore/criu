@@ -14,7 +14,7 @@
 #include "compiler.h"
 
 #include "cr_options.h"
-#include "proc_parse.h"
+#include "image.h"
 #include "util.h"
 #include "log.h"
 

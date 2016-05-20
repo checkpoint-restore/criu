@@ -3,7 +3,6 @@
 
 #include "list.h"
 #include "pid.h"
-#include "image.h"
 #include "images/core.pb-c.h"
 
 /*
