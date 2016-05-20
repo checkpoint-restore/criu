@@ -66,11 +66,12 @@ static bool sysctl_entries_equal(SysctlEntry *a, SysctlEntry *b)
 	if (a->type != b->type)
 		return false;
 
-	switch (CTL_TYPE(a->type)) {
-		case CTL_32:
+	switch (a->type) {
+		case SYSCTL_TYPE__CTL_32:
 			return a->has_iarg && b->has_iarg && a->iarg == b->iarg;
-		case __CTL_STR:
+		case SYSCTL_TYPE__CTL_STR:
 			return a->sarg && b->sarg && !strcmp(a->sarg, b->sarg);
+		default:;
 	}
 
 	return false;
@@ -191,8 +192,8 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 
 		snprintf(path[i], MAX_CONF_OPT_PATH, CONF_OPT_PATH, proto, tgt, devconfs[i]);
 		req[ri].name = path[i];
-		switch (CTL_TYPE(conf[i]->type)) {
-			case CTL_32:
+		switch (conf[i]->type) {
+			case SYSCTL_TYPE__CTL_32:
 				req[ri].type = CTL_32;
 
 				/* skip non-existing sysctl */
@@ -201,7 +202,7 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 
 				req[ri].arg = &conf[i]->iarg;
 				break;
-			case __CTL_STR:
+			case SYSCTL_TYPE__CTL_STR:
 				req[ri].type = CTL_STR(MAX_STR_CONF_LEN);
 				flags |= op == CTL_READ && !strcmp(devconfs[i], "stable_secret")
 					? CTL_FLAGS_READ_EIO_SKIP : 0;
@@ -230,10 +231,10 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 		/* (un)mark (non-)existing sysctls in image */
 		for (i = 0; i < ri; i++)
 			if (req[i].flags & CTL_FLAGS_HAS) {
-				if (CTL_TYPE(rconf[i]->type) == CTL_32)
+				if (rconf[i]->type == SYSCTL_TYPE__CTL_32)
 					rconf[i]->has_iarg = true;
 			} else {
-				if (CTL_TYPE(rconf[i]->type) == __CTL_STR)
+				if (rconf[i]->type == SYSCTL_TYPE__CTL_STR)
 					rconf[i]->sarg = NULL;
 			}
 	}
@@ -380,9 +381,9 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 		sysctl_entry__init(&confs6[i]);
 		netdev.conf6[i] = &confs6[i];
 		if (strcmp(devconfs6[i], "stable_secret")) {
-			netdev.conf6[i]->type = CTL_32;
+			netdev.conf6[i]->type = SYSCTL_TYPE__CTL_32;
 		} else {
-			netdev.conf6[i]->type = __CTL_STR;
+			netdev.conf6[i]->type = SYSCTL_TYPE__CTL_STR;
 			netdev.conf6[i]->sarg = stable_secret;
 		}
 	}
@@ -1179,11 +1180,11 @@ static int dump_netns_conf(struct cr_imgset *fds)
 		netns.def_conf6[i] = &def_confs6[i];
 		netns.all_conf6[i] = &all_confs6[i];
 		if (strcmp(devconfs6[i], "stable_secret")) {
-			netns.def_conf6[i]->type = CTL_32;
-			netns.all_conf6[i]->type = CTL_32;
+			netns.def_conf6[i]->type = SYSCTL_TYPE__CTL_32;
+			netns.all_conf6[i]->type = SYSCTL_TYPE__CTL_32;
 		} else {
-			netns.def_conf6[i]->type = __CTL_STR;
-			netns.all_conf6[i]->type = __CTL_STR;
+			netns.def_conf6[i]->type = SYSCTL_TYPE__CTL_STR;
+			netns.all_conf6[i]->type = SYSCTL_TYPE__CTL_STR;
 			netns.def_conf6[i]->sarg = def_stable_secret;
 			netns.all_conf6[i]->sarg = all_stable_secret;
 		}

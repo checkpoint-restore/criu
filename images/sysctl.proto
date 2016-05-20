@@ -1,6 +1,6 @@
 enum SysctlType {
-	__CTL_STR	= 5;
-	CTL_32		= 6;
+	CTL_STR	= 5;
+	CTL_32	= 6;
 }
 
 message sysctl_entry {
