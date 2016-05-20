@@ -1580,9 +1580,10 @@ int open_reg_by_id(u32 id)
 	return open_reg_fd(fd);
 }
 
-int get_filemap_fd(struct vma_area *vma)
+static int open_filemap(int pid, struct vma_area *vma)
 {
 	u32 flags;
+	int ret;
 
 	/*
 	 * Thevma->fd should have been assigned in collect_filemap
@@ -1599,7 +1600,25 @@ int get_filemap_fd(struct vma_area *vma)
 	else
 		flags = O_RDONLY;
 
-	return open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
+	ret = open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
+	if (ret < 0)
+		return ret;
+
+	vma->e->fd = ret;
+	return 0;
+}
+
+int collect_filemap(struct vma_area *vma)
+{
+	struct file_desc *fd;
+
+	fd = collect_special_file(vma->e->shmid);
+	if (!fd)
+		return -1;
+
+	vma->vmfd = fd;
+	vma->vm_open = open_filemap;
+	return 0;
 }
 
 static void remap_get(struct file_desc *fdesc, char typ)

@@ -18,6 +18,7 @@
 #include "shmem.h"
 #include "pstree.h"
 #include "restorer.h"
+#include "sk-packet.h"
 #include "files-reg.h"
 #include "pagemap-cache.h"
 #include "fault-injection.h"
@@ -405,18 +406,6 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	return ret;
 }
 
-static inline int collect_filemap(struct vma_area *vma)
-{
-	struct file_desc *fd;
-
-	fd = collect_special_file(vma->e->shmid);
-	if (!fd)
-		return -1;
-
-	vma->vmfd = fd;
-	return 0;
-}
-
 int prepare_mm_pid(struct pstree_item *i)
 {
 	pid_t pid = i->pid.virt;
@@ -478,12 +467,13 @@ int prepare_mm_pid(struct pstree_item *i)
 
 		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vma->e->start, vma->e->end);
 
-		if (vma_area_is(vma, VMA_ANON_SHARED) &&
-				!vma_area_is(vma, VMA_AREA_SYSVIPC))
-			ret = collect_shmem(pid, vma->e);
+		if (vma_area_is(vma, VMA_ANON_SHARED))
+			ret = collect_shmem(pid, vma);
 		else if (vma_area_is(vma, VMA_FILE_PRIVATE) ||
 				vma_area_is(vma, VMA_FILE_SHARED))
 			ret = collect_filemap(vma);
+		else if (vma_area_is(vma, VMA_AREA_SOCKET))
+			ret = collect_socket_map(vma);
 		else
 			ret = 0;
 		if (ret)

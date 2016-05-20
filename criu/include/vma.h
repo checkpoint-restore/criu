@@ -60,6 +60,7 @@ struct vma_area {
 		};
 
 		struct /* for restore */ {
+			int (*vm_open)(int pid, struct vma_area *vma);
 			struct file_desc *vmfd;
 			unsigned long	*page_bitmap;	/* existent pages */
 			unsigned long	*ppage_bitmap;	/* parent's existent pages */

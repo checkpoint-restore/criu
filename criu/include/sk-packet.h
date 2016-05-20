@@ -12,8 +12,9 @@ struct vma_area;
 extern struct collect_image_info packet_sk_cinfo;
 
 extern int dump_socket_map(struct vma_area *vma);
-extern int get_socket_fd(int pid, VmaEntry *vma);
+extern int collect_socket_map(struct vma_area *);
 
+struct nlmsghdr;
 extern int packet_receive_one(struct nlmsghdr *h, void *arg);
 
 #ifndef PACKET_VNET_HDR

@@ -289,12 +289,13 @@ static int map_private_vma(struct vma_area *vma, void **tgt_addr,
 	struct vma_area *p = *pvma;
 
 	if (vma_area_is(vma, VMA_FILE_PRIVATE)) {
-		ret = get_filemap_fd(vma);
+		ret = vma->vm_open(current->pid.virt, vma);
 		if (ret < 0) {
 			pr_err("Can't fixup VMA's fd\n");
 			return -1;
 		}
-		vma->e->fd = ret;
+
+		vma->vm_open = NULL; /* prevent from 2nd open in open_vmas */
 	}
 
 	nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
@@ -672,7 +673,6 @@ static int unmap_guard_pages()
 static int open_vmas(int pid)
 {
 	struct vma_area *vma;
-	int ret = 0;
 	struct list_head *vmas = &rsti(current)->vmas.h;
 
 	list_for_each_entry(vma, vmas, list) {
@@ -683,27 +683,13 @@ static int open_vmas(int pid)
 				vma->e->start, vma->e->end,
 				vma->e->pgoff, vma->e->status);
 
-		if (vma_area_is(vma, VMA_AREA_SYSVIPC))
-			ret = get_sysv_shmem_fd(vma->e);
-		else if (vma_area_is(vma, VMA_ANON_SHARED))
-			ret = get_shmem_fd(pid, vma->e);
-		else if (vma_area_is(vma, VMA_FILE_SHARED))
-			ret = get_filemap_fd(vma);
-		else if (vma_area_is(vma, VMA_AREA_SOCKET))
-			ret = get_socket_fd(pid, vma->e);
-		else
-			continue;
-
-		if (ret < 0) {
-			pr_err("Can't fixup fd\n");
-			break;
+		if (vma->vm_open && vma->vm_open(pid, vma)) {
+			pr_err("`- Can't open vma\n");
+			return -1;
 		}
-
-		pr_info("\t`- setting %d as mapping fd\n", ret);
-		vma->e->fd = ret;
 	}
 
-	return ret < 0 ? -1 : 0;
+	return 0;
 }
 
 static rt_sigaction_t sigchld_act;

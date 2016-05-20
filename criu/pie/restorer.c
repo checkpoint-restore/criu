@@ -513,7 +513,7 @@ static unsigned long restore_mapping(const VmaEntry *vma_entry)
 
 	if (vma_entry_is(vma_entry, VMA_AREA_SYSVIPC)) {
 		/*
-		 * See comment in get_sysv_shmem_fd() for what SYSV_SHMEM_SKIP_FD
+		 * See comment in open_shmem_sysv() for what SYSV_SHMEM_SKIP_FD
 		 * means and why we check for PROT_EXEC few lines below.
 		 */
 		if (vma_entry->fd == SYSV_SHMEM_SKIP_FD)

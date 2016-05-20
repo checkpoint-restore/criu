@@ -136,7 +136,7 @@ int fixup_sysv_shmems(void)
 
 		list_for_each_entry(att, &si->att, l) {
 			/*
-			 * Same thing is checked in get_sysv_shmem_fd() for
+			 * Same thing is checked in open_shmem_sysv() for
 			 * intermediate holes.
 			 */
 			if (att->first->start + si->size != att->prev_end) {
@@ -145,7 +145,7 @@ int fixup_sysv_shmems(void)
 			}
 
 			/*
-			 * See comment in get_shmem_fd() about this PROT_EXEC 
+			 * See comment in open_shmem_sysv() about this PROT_EXEC 
 			 */
 			if (si->want_write)
 				att->first->prot |= PROT_EXEC;
@@ -155,11 +155,12 @@ int fixup_sysv_shmems(void)
 	return 0;
 }
 
-int get_sysv_shmem_fd(VmaEntry *vme)
+static int open_shmem_sysv(int pid, struct vma_area *vma)
 {
+	VmaEntry *vme = vma->e;
 	struct shmem_sysv_info *si;
 	struct shmem_sysv_att *att;
-	int ret_fd;
+	uint64_t ret_fd;
 
 	si = (struct shmem_sysv_info *)find_shmem_by_id(vme->shmid);
 	if (!si) {
@@ -242,13 +243,24 @@ int get_sysv_shmem_fd(VmaEntry *vme)
 		 */
 		si->want_write = 1;
 
-	return ret_fd;
+	vme->fd = ret_fd;
+	return 0;
 }
 
-int collect_shmem(int pid, VmaEntry *vi)
+static int open_shmem(int pid, struct vma_area *vma);
+
+int collect_shmem(int pid, struct vma_area *vma)
 {
+	VmaEntry *vi = vma->e;
 	unsigned long size = vi->pgoff + vi->end - vi->start;
 	struct shmem_info *si;
+
+	if (vma_entry_is(vi, VMA_AREA_SYSVIPC)) {
+		vma->vm_open = open_shmem_sysv;
+		return 0;
+	}
+
+	vma->vm_open = open_shmem;
 
 	si = find_shmem_by_id(vi->shmid);
 	if (si) {
@@ -299,7 +311,7 @@ int collect_shmem(int pid, VmaEntry *vi)
 	return 0;
 }
 
-static int shmem_wait_and_open(int pid, struct shmem_info *si)
+static int shmem_wait_and_open(int pid, struct shmem_info *si, VmaEntry *vi)
 {
 	char path[128];
 	int ret;
@@ -316,7 +328,11 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si)
 		pr_perror("     %d: Can't stat shmem at %s",
 				si->pid, path);
 	futex_inc_and_wake(&si->lock);
-	return ret;
+	if (ret < 0)
+		return -1;
+
+	vi->fd = ret;
+	return 0;
 }
 
 static int restore_shmem_content(void *addr, struct shmem_info *si)
@@ -368,8 +384,9 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 	return ret;
 }
 
-int get_shmem_fd(int pid, VmaEntry *vi)
+static int open_shmem(int pid, struct vma_area *vma)
 {
+	VmaEntry *vi = vma->e;
 	struct shmem_info *si;
 	void *addr = MAP_FAILED;
 	int f = -1;
@@ -385,10 +402,17 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 	BUG_ON(si->pid == SYSVIPC_SHMEM_PID);
 
 	if (si->pid != pid)
-		return shmem_wait_and_open(pid, si);
+		return shmem_wait_and_open(pid, si, vi);
 
-	if (si->fd != -1)
-		return dup(si->fd);
+	if (si->fd != -1) {
+		f = dup(si->fd);
+		if (f < 0) {
+			pr_perror("Can't dup shmem fd");
+			return -1;
+		}
+
+		goto out;
+	}
 
 	flags = MAP_SHARED;
 #ifdef CONFIG_HAS_MEMFD
@@ -445,8 +469,9 @@ int get_shmem_fd(int pid, VmaEntry *vi)
 	 * the file descriptor, so we don't wait them.
 	 */
 	futex_wait_until(&si->lock, si->count - si->self_count + 1);
-
-	return f;
+out:
+	vi->fd = f;
+	return 0;
 err:
 	if (addr != MAP_FAILED)
 		munmap(addr, si->size);

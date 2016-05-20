@@ -302,8 +302,9 @@ err:
 	return -1;
 }
 
-int get_socket_fd(int pid, VmaEntry *vma)
+static int open_socket_map(int pid, struct vma_area *vm)
 {
+	VmaEntry *vma = vm->e;
 	struct file_desc *fd;
 	struct fdinfo_list_entry *le;
 
@@ -329,11 +330,18 @@ int get_socket_fd(int pid, VmaEntry *vma)
 				return -1;
 			}
 
-			return fd;
+			vma->fd = fd;
+			return 0;
 		}
 
 	pr_err("No open packet socket %x by %d\n", (int)vma->shmid, pid);
 	return -1;
+}
+
+int collect_socket_map(struct vma_area *vma)
+{
+	vma->vm_open = open_socket_map;
+	return 0;
 }
 
 static int restore_mreqs(int sk, PacketSockEntry *pse)

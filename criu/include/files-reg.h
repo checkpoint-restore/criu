@@ -45,6 +45,7 @@ extern void remap_put(struct file_remap *remap);
 
 extern struct file_desc *try_collect_special_file(u32 id, int optional);
 #define collect_special_file(id)	try_collect_special_file(id, 0)
+extern int collect_filemap(struct vma_area *);
 
 extern int collect_remaps_and_regfiles(void);
 

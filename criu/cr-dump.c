@@ -378,7 +378,7 @@ static int dump_filemap(struct vma_area *vma_area, int fd)
 		p.link = &aufs_link;
 	}
 
-	/* Flags will be set during restore in get_filemap_fd() */
+	/* Flags will be set during restore in open_filmap() */
 
 	if (fd_id_generate_special(&p, &id))
 		ret = dump_one_reg_file(fd, id, &p);
