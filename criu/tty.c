@@ -1917,18 +1917,18 @@ static int tty_do_dump_queued_data(struct tty_dump_info *dinfo)
  */
 static void __tty_do_writeback_queued_data(struct tty_dump_info *dinfo)
 {
-	if (write(dinfo->link->lfd, dinfo->tty_data,
-		  dinfo->tty_data_size) != dinfo->tty_data_size)
-		pr_perror("Can't writeback to tty (%#x)\n", dinfo->id);
+	if (dinfo->tty_data) {
+		if (write(dinfo->link->lfd, dinfo->tty_data,
+			  dinfo->tty_data_size) != dinfo->tty_data_size)
+			pr_perror("Can't writeback to tty (%#x)\n", dinfo->id);
+	}
 	tty_reblock(dinfo->link->id, dinfo->link->lfd, dinfo->link->flags);
 }
 
 static void tty_do_writeback_queued_data(struct tty_dump_info *dinfo)
 {
-	if (dinfo->tty_data)
-		__tty_do_writeback_queued_data(dinfo);
-	if (dinfo->link->tty_data)
-		__tty_do_writeback_queued_data(dinfo->link);
+	__tty_do_writeback_queued_data(dinfo);
+	__tty_do_writeback_queued_data(dinfo->link);
 }
 
 static void tty_dinfo_free(struct tty_dump_info *dinfo)
