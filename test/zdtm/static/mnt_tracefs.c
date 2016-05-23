@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+#include <sched.h>
 #include <sys/mount.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -18,8 +20,6 @@ TEST_OPTION(dirname, string, "directory name", 1);
 int main(int argc, char ** argv)
 {
 	char dst[PATH_MAX], *root;
-	int status;
-	pid_t pid;
 
 	root = getenv("ZDTM_ROOT");
 	if (root == NULL) {
@@ -32,23 +32,16 @@ int main(int argc, char ** argv)
 	if (strcmp(getenv("ZDTM_NEWNS"), "1"))
 		goto test;
 
-	pid = fork();
-	if (pid < 0)
+	if (unshare(CLONE_NEWNS)) {
+		pr_perror("unshare");
 		return 1;
-	if (pid == 0) {
-		test_ext_init(argc, argv);
-
-		mkdir(dst, 755);
-		if (mount("/sys/kernel/debug", dst, NULL, MS_BIND, NULL)) {
-			pr_perror("mount");
-			return 1;
-		}
-		return 0;
 	}
 
-	wait(&status);
-	if (status != 0)
+	mkdir(dst, 755);
+	if (mount("/sys/kernel/debug", dst, NULL, MS_BIND | MS_REC, NULL)) {
+		pr_perror("mount");
 		return 1;
+	}
 
 test:
 	test_init(argc, argv);
