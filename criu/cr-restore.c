@@ -117,7 +117,6 @@ static int prepare_rlimits(int pid, CoreEntry *core);
 static int prepare_posix_timers(int pid, CoreEntry *core);
 static int prepare_signals(int pid, CoreEntry *core);
 
-static int root_as_sibling;
 static unsigned long helpers_pos = 0;
 static int n_helpers = 0;
 static unsigned long zombies_pos = 0;
@@ -760,7 +759,6 @@ static void maybe_clone_parent(struct pstree_item *item,
 		 * least warn a user about potential problems.
 		 */
 		rsti(item)->clone_flags |= CLONE_PARENT;
-		root_as_sibling = 1;
 		if (rsti(item)->clone_flags & CLONE_NEWPID)
 			pr_warn("Set CLONE_PARENT | CLONE_NEWPID but it might cause restore problem,"
 				"because not all kernels support such clone flags combinations!\n");
@@ -1562,7 +1560,7 @@ static int restore_root_task(struct pstree_item *init)
 {
 	enum trace_flags flag = TRACE_ALL;
 	int ret, fd, mnt_ns_fd = -1;
-	int clean_remaps = 1;
+	int clean_remaps = 1, root_seized = 0;
 
 	ret = run_scripts(ACT_PRE_RESTORE);
 	if (ret != 0) {
@@ -1616,8 +1614,10 @@ static int restore_root_task(struct pstree_item *init)
 
 	restore_origin_ns_hook();
 
-	if (root_as_sibling) {
+	if (rsti(init)->clone_flags & CLONE_PARENT) {
 		struct sigaction act;
+
+		root_seized = 1;
 		/*
 		 * Root task will be our sibling. This means, that
 		 * we will not notice when (if) it dies in SIGCHLD
@@ -1734,14 +1734,14 @@ static int restore_root_task(struct pstree_item *init)
 	 * -------------------------------------------------------------
 	 * Below this line nothing should fail, because network is unlocked
 	 */
-	attach_to_tasks(root_as_sibling);
+	attach_to_tasks(root_seized);
 
 	ret = restore_switch_stage(CR_STATE_RESTORE_CREDS);
 	BUG_ON(ret);
 
 	timing_stop(TIME_RESTORE);
 
-	ret = catch_tasks(root_as_sibling, &flag);
+	ret = catch_tasks(root_seized, &flag);
 
 	pr_info("Restore finished successfully. Resuming tasks.\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
