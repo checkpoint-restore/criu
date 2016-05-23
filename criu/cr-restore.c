@@ -399,6 +399,23 @@ static int collect_zombie_pids()
 	return collect_child_pids(TASK_DEAD, &n_zombies);
 }
 
+static int open_core(int pid, CoreEntry **pcore)
+{
+	int ret;
+	struct cr_img *img;
+
+	img = open_image(CR_FD_CORE, O_RSTR, pid);
+	if (!img) {
+		pr_err("Can't open core data for %d", pid);
+		return -1;
+	}
+
+	ret = pb_read_one(img, pcore, PB_CORE);
+	close_image(img);
+
+	return ret <= 0 ? -1 : 0;
+}
+
 static int open_cores(int pid, CoreEntry *leader_core)
 {
 	int i, tpid;
@@ -413,22 +430,8 @@ static int open_cores(int pid, CoreEntry *leader_core)
 
 		if (tpid == pid)
 			cores[i] = leader_core;
-		else {
-			struct cr_img *img;
-
-			img = open_image(CR_FD_CORE, O_RSTR, tpid);
-			if (!img) {
-				pr_err("Can't open core data for thread %d\n", tpid);
-				goto err;
-			}
-
-			if (pb_read_one(img, &cores[i], PB_CORE) <= 0) {
-				close_image(img);
-				goto err;
-			}
-
-			close_image(img);
-		}
+		else if (open_core(tpid, &cores[i]))
+			goto err;
 	}
 
 	current->core = cores;
@@ -776,16 +779,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	pid_t pid = item->pid.virt;
 
 	if (item->pid.state != TASK_HELPER) {
-		struct cr_img *img;
-
-		img = open_image(CR_FD_CORE, O_RSTR, pid);
-		if (!img)
-			return -1;
-
-		ret = pb_read_one(img, &ca.core, PB_CORE);
-		close_image(img);
-
-		if (ret < 0)
+		if (open_core(pid, &ca.core))
 			return -1;
 
 		if (check_core(ca.core, item))
