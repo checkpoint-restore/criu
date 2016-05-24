@@ -186,7 +186,7 @@ static int open_shmem_sysv(int pid, struct vma_area *vma)
 
 	si = shmem_find(vme->shmid);
 	if (!si) {
-		pr_err("Can't find sysv shmem for %lx\n", vme->shmid);
+		pr_err("Can't find sysv shmem for %"PRIx64"\n", vme->shmid);
 		return -1;
 	}
 
@@ -287,7 +287,7 @@ int collect_shmem(int pid, struct vma_area *vma)
 	si = shmem_find(vi->shmid);
 	if (si) {
 		if (si->pid == SYSVIPC_SHMEM_PID) {
-			pr_err("Shmem %lx already collected as SYSVIPC\n", vi->shmid);
+			pr_err("Shmem %"PRIx64" already collected as SYSVIPC\n", vi->shmid);
 			return -1;
 		}
 
