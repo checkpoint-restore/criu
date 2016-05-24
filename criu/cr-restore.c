@@ -111,7 +111,7 @@
 static struct pstree_item *current;
 
 static int restore_task_with_children(void *);
-static int sigreturn_restore(pid_t pid, CoreEntry *core);
+static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core);
 static int prepare_restorer_blob(void);
 static int prepare_rlimits(int pid, CoreEntry *core);
 static int prepare_posix_timers(int pid, CoreEntry *core);
@@ -483,9 +483,21 @@ static int prepare_proc_misc(pid_t pid, TaskCoreEntry *tc)
 
 static int restore_one_alive_task(int pid, CoreEntry *core)
 {
+	unsigned args_len;
+	unsigned long ta_cp;
+	struct task_restore_args *ta;
 	pr_info("Restoring resources\n");
 
 	rst_mem_switch_to_private();
+
+	args_len = round_up(sizeof(*ta) + sizeof(struct thread_restore_args) *
+			current->nr_threads, page_size());
+	ta_cp = rst_mem_align_cpos(RM_PRIVATE);
+	ta = rst_mem_alloc(args_len, RM_PRIVATE);
+	if (!ta)
+		return -1;
+
+	memzero(ta, args_len);
 
 	if (prepare_fds(current))
 		return -1;
@@ -523,7 +535,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_proc_misc(pid, core->tc))
 		return -1;
 
-	return sigreturn_restore(pid, core);
+	return sigreturn_restore(pid, ta_cp, core);
 }
 
 static void zombie_prepare_signals(void)
@@ -2636,7 +2648,7 @@ static int rst_prep_creds(pid_t pid, CoreEntry *core, unsigned long *creds_pos)
 	return 0;
 }
 
-static int sigreturn_restore(pid_t pid, CoreEntry *core)
+static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 {
 	void *mem = MAP_FAILED;
 	void *restore_thread_exec_start;
@@ -2652,7 +2664,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	struct task_restore_args *task_args;
 	struct thread_restore_args *thread_args;
 	struct restore_mem_zone *mz;
-	long args_len;
 
 	struct vma_area *vma;
 	unsigned long tgt_vmas;
@@ -2680,10 +2691,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	BUILD_BUG_ON(sizeof(struct task_restore_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
-
-	args_len = round_up(sizeof(*task_args) + sizeof(*thread_args) * current->nr_threads, page_size());
-	pr_info("%d threads require %ldK of memory\n",
-			current->nr_threads, KBYTES(args_len));
 
 	/*
 	 * Copy VMAs to private rst memory so that it's able to
@@ -2757,8 +2764,10 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	rst_mem_size = rst_mem_lock();
 	memzone_size = round_up(sizeof(struct restore_mem_zone) * current->nr_threads, page_size());
-	restore_bootstrap_len = restorer_len + memzone_size + args_len + rst_mem_size;
+	restore_bootstrap_len = restorer_len + memzone_size + rst_mem_size;
 	BUG_ON(restore_bootstrap_len & (PAGE_SIZE - 1));
+	pr_info("%d threads require %ldK of memory\n",
+			current->nr_threads, KBYTES(restore_bootstrap_len));
 
 #ifdef CONFIG_VDSO
 	/*
@@ -2807,7 +2816,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	exec_mem_hint += restorer_len;
 
 	/* VMA we need to run task_restore code */
-	mem = mmap((void *)exec_mem_hint, memzone_size + args_len,
+	mem = mmap((void *)exec_mem_hint, memzone_size,
 			PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
 	if (mem != (void *)exec_mem_hint) {
@@ -2817,14 +2826,27 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	exec_mem_hint -= restorer_len;
 
-	memzero(mem, memzone_size + args_len);
-	mz		= mem;
-	task_args	= mem + memzone_size;
-	thread_args	= (struct thread_restore_args *)(task_args + 1);
-	mem		+= memzone_size + args_len;
+	memzero(mem, memzone_size);
+	mz = mem;
+	mem += memzone_size;
 
 	if (rst_mem_remap(mem))
 		goto err;
+
+	task_args	= rst_mem_remap_ptr(ta_cp, RM_PRIVATE);
+	thread_args	= (struct thread_restore_args *)(task_args + 1);
+
+	/*
+	 * At this point we've found a gap in VM that fits in both -- current
+	 * and target tasks' mappings -- and its structure is
+	 *
+	 * | restorer code | memzone (stacks and sigframes) | arguments |
+	 *
+	 * Arguments is task_restore_args, thread_restore_args-s and all
+	 * the bunch of objects allocated with rst_mem_alloc().
+	 * Note, that the task_args itself is inside the 3rd section and (!)
+	 * it gets unmapped at the very end of __export_restore_task
+	 */
 
 	task_args->proc_fd = dup(get_service_fd(PROC_FD_OFF));
 	if (task_args->proc_fd < 0) {
@@ -2835,8 +2857,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->breakpoint = &rsti(current)->breakpoint;
 	task_args->task_entries = rst_mem_remap_ptr(task_entries_pos, RM_SHREMAP);
 
-	task_args->rst_mem = mem - args_len;
-	task_args->rst_mem_size = rst_mem_size + args_len;
+	task_args->rst_mem = mem;
+	task_args->rst_mem_size = rst_mem_size;
 
 	task_args->bootstrap_start = (void *)exec_mem_hint;
 	task_args->bootstrap_len = restore_bootstrap_len;
