@@ -2658,7 +2658,6 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 #ifdef CONFIG_VDSO
 	unsigned long vdso_rt_size = 0;
-	unsigned long vdso_rt_delta = 0;
 #endif
 
 	unsigned long aio_rings;
@@ -2757,19 +2756,15 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	rst_mem_size = rst_mem_lock();
 	restore_bootstrap_len = restorer_len + args_len + rst_mem_size;
+	BUG_ON(restore_bootstrap_len & (PAGE_SIZE - 1));
 
 #ifdef CONFIG_VDSO
 	/*
 	 * Figure out how much memory runtime vdso and vvar will need.
 	 */
 	vdso_rt_size = vdso_vma_size(&vdso_sym_rt);
-	if (vdso_rt_size) {
-		vdso_rt_delta = ALIGN(restore_bootstrap_len, PAGE_SIZE) - restore_bootstrap_len;
-		vdso_rt_size += vdso_rt_delta;
-		if (vvar_vma_size(&vdso_sym_rt))
-			vdso_rt_size += ALIGN(vvar_vma_size(&vdso_sym_rt), PAGE_SIZE);
-	}
-
+	if (vdso_rt_size && vvar_vma_size(&vdso_sym_rt))
+		vdso_rt_size += ALIGN(vvar_vma_size(&vdso_sym_rt), PAGE_SIZE);
 	restore_bootstrap_len += vdso_rt_size;
 #endif
 
@@ -2970,7 +2965,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	 * self-vmas are unmaped.
 	 */
 	mem += rst_mem_size;
-	task_args->vdso_rt_parked_at = (unsigned long)mem + vdso_rt_delta;
+	task_args->vdso_rt_parked_at = (unsigned long)mem;
 	task_args->vdso_sym_rt = vdso_sym_rt;
 	task_args->vdso_rt_size = vdso_rt_size;
 #endif
