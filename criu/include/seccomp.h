@@ -28,5 +28,6 @@
 
 extern int collect_seccomp_filters(void);
 extern int prepare_seccomp_filters(void);
-extern int seccomp_filters_get_rst_pos(CoreEntry *item, int *count, unsigned long *pos);
+struct task_restore_args;
+extern int seccomp_filters_get_rst_pos(CoreEntry *item, struct task_restore_args *);
 #endif

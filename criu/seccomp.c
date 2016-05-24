@@ -9,6 +9,7 @@
 #include "pstree.h"
 #include "ptrace.h"
 #include "proc_parse.h"
+#include "restorer.h"
 #include "seccomp.h"
 #include "servicefd.h"
 #include "util.h"
@@ -216,28 +217,26 @@ int prepare_seccomp_filters(void)
 	return 0;
 }
 
-int seccomp_filters_get_rst_pos(CoreEntry *core, int *count, unsigned long *pos)
+int seccomp_filters_get_rst_pos(CoreEntry *core, struct task_restore_args *ta)
 {
 	SeccompFilter *sf = NULL;
 	struct sock_fprog *arr = NULL;
 	void *filter_data = NULL;
-	int ret = -1, i;
+	int ret = -1, i, n_filters;
 	size_t filter_size = 0;
 
-	if (!core->tc->has_seccomp_filter) {
-		*count = 0;
-		return 0;
-	}
+	ta->seccomp_filters_n = 0;
 
-	*count = 0;
-	*pos = rst_mem_align_cpos(RM_PRIVATE);
+	if (!core->tc->has_seccomp_filter)
+		return 0;
+
+	ta->seccomp_filters = (struct sock_fprog *)rst_mem_align_cpos(RM_PRIVATE);
 
 	BUG_ON(core->tc->seccomp_filter > se->n_seccomp_filters);
 	sf = se->seccomp_filters[core->tc->seccomp_filter];
 
 	while (1) {
-		(*count)++;
-
+		ta->seccomp_filters_n++;
 		filter_size += sf->filter.len;
 
 		if (!sf->has_prev)
@@ -246,13 +245,14 @@ int seccomp_filters_get_rst_pos(CoreEntry *core, int *count, unsigned long *pos)
 		sf = se->seccomp_filters[sf->prev];
 	}
 
-	arr = rst_mem_alloc(sizeof(struct sock_fprog) * (*count) + filter_size, RM_PRIVATE);
+	n_filters = ta->seccomp_filters_n;
+	arr = rst_mem_alloc(sizeof(struct sock_fprog) * n_filters + filter_size, RM_PRIVATE);
 	if (!arr)
 		goto out;
 
-	filter_data = &arr[*count];
+	filter_data = &arr[n_filters];
 	sf = se->seccomp_filters[core->tc->seccomp_filter];
-	for (i = 0; i < *count; i++) {
+	for (i = 0; i < n_filters; i++) {
 		struct sock_fprog *fprog = &arr[i];
 
 		BUG_ON(sf->filter.len % sizeof(struct sock_filter));

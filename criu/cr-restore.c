@@ -548,6 +548,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_timerfds(ta))
 		return -1;
 
+	if (seccomp_filters_get_rst_pos(core, ta) < 0)
+		return -1;
+
 	return sigreturn_restore(pid, ta_cp, core);
 }
 
@@ -2679,8 +2682,6 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 #ifdef CONFIG_VDSO
 	unsigned long vdso_rt_size = 0;
 #endif
-	int n_seccomp_filters = 0;
-	unsigned long seccomp_filter_pos = 0;
 
 	struct vm_area_list self_vmas;
 	struct vm_area_list *vmas = &rsti(current)->vmas;
@@ -2711,9 +2712,6 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 
 	ret = parse_self_maps_lite(&self_vmas);
 	if (ret < 0)
-		goto err;
-
-	if (seccomp_filters_get_rst_pos(core, &n_seccomp_filters, &seccomp_filter_pos) < 0)
 		goto err;
 
 	rst_mem_size = rst_mem_lock();
@@ -2831,13 +2829,12 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	task_args->rlims = rst_mem_remap_ptr((unsigned long)task_args->rlims, RM_PRIVATE);
 	task_args->helpers = rst_mem_remap_ptr((unsigned long)task_args->helpers, RM_PRIVATE);
 	task_args->zombies = rst_mem_remap_ptr((unsigned long)task_args->zombies, RM_PRIVATE);
+	task_args->seccomp_filters = rst_mem_remap_ptr((unsigned long)task_args->seccomp_filters, RM_PRIVATE);
 
 #define remap_array(name, nr, cpos)	do {				\
 		task_args->name##_n = nr;				\
 		task_args->name = rst_mem_remap_ptr(cpos, RM_PRIVATE);	\
 	} while (0)
-
-	remap_array(seccomp_filters,	n_seccomp_filters, seccomp_filter_pos);
 
 #undef remap_array
 
