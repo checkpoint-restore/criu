@@ -102,6 +102,8 @@ static inline bool should_dump_page(VmaEntry *vmae, u64 pme)
 	 */
 	if (vma_entry_is(vmae, VMA_FILE_PRIVATE) && (pme & PME_FILE))
 		return false;
+	if (vma_entry_is(vmae, VMA_AREA_AIORING))
+		return true;
 	if (pme & PME_SWAP)
 		return true;
 	if ((pme & PME_PRESENT) && ((pme & PME_PFRAME_MASK) != kdat.zero_page_pfn))
