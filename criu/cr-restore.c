@@ -117,10 +117,6 @@ static int prepare_rlimits(int pid, struct task_restore_args *, CoreEntry *core)
 static int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry *core);
 static int prepare_signals(int pid, struct task_restore_args *, CoreEntry *core);
 
-static unsigned long helpers_pos = 0;
-static int n_helpers = 0;
-static unsigned long zombies_pos = 0;
-static int n_zombies = 0;
 
 static int crtools_prepare_shared(void)
 {
@@ -365,7 +361,7 @@ err:
 	return ret;
 }
 
-static int collect_child_pids(int state, int *n)
+static int collect_child_pids(int state, unsigned int *n)
 {
 	struct pstree_item *pi;
 
@@ -387,16 +383,16 @@ static int collect_child_pids(int state, int *n)
 	return 0;
 }
 
-static int collect_helper_pids()
+static int collect_helper_pids(struct task_restore_args *ta)
 {
-	helpers_pos = rst_mem_align_cpos(RM_PRIVATE);
-	return collect_child_pids(TASK_HELPER, &n_helpers);
+	ta->helpers = (pid_t *)rst_mem_align_cpos(RM_PRIVATE);
+	return collect_child_pids(TASK_HELPER, &ta->helpers_n);
 }
 
-static int collect_zombie_pids()
+static int collect_zombie_pids(struct task_restore_args *ta)
 {
-	zombies_pos = rst_mem_align_cpos(RM_PRIVATE);
-	return collect_child_pids(TASK_DEAD, &n_zombies);
+	ta->zombies = (pid_t *)rst_mem_align_cpos(RM_PRIVATE);
+	return collect_child_pids(TASK_DEAD, &ta->zombies_n);
 }
 
 static int open_core(int pid, CoreEntry **pcore)
@@ -526,10 +522,10 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_rlimits(pid, ta, core) < 0)
 		return -1;
 
-	if (collect_helper_pids() < 0)
+	if (collect_helper_pids(ta) < 0)
 		return -1;
 
-	if (collect_zombie_pids() < 0)
+	if (collect_zombie_pids(ta) < 0)
 		return -1;
 
 	if (inherit_fd_fini() < 0)
@@ -2833,14 +2829,14 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	task_args->posix_timers = rst_mem_remap_ptr((unsigned long)task_args->posix_timers, RM_PRIVATE);
 	task_args->siginfo = rst_mem_remap_ptr((unsigned long)task_args->siginfo, RM_PRIVATE);
 	task_args->rlims = rst_mem_remap_ptr((unsigned long)task_args->rlims, RM_PRIVATE);
+	task_args->helpers = rst_mem_remap_ptr((unsigned long)task_args->helpers, RM_PRIVATE);
+	task_args->zombies = rst_mem_remap_ptr((unsigned long)task_args->zombies, RM_PRIVATE);
 
 #define remap_array(name, nr, cpos)	do {				\
 		task_args->name##_n = nr;				\
 		task_args->name = rst_mem_remap_ptr(cpos, RM_PRIVATE);	\
 	} while (0)
 
-	remap_array(helpers,	  n_helpers, helpers_pos);
-	remap_array(zombies,	  n_zombies, zombies_pos);
 	remap_array(seccomp_filters,	n_seccomp_filters, seccomp_filter_pos);
 
 #undef remap_array
