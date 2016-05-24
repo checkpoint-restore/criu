@@ -182,9 +182,15 @@ static int check_for_uffd()
 }
 
 /* This function is used by 'criu restore --lazy-pages' */
-int setup_uffd(struct task_restore_args *task_args, int pid)
+int setup_uffd(int pid, struct task_restore_args *task_args)
 {
 	struct uffdio_api uffdio_api;
+
+	if (!opts.lazy_pages) {
+		task_args->uffd = -1;
+		return 0;
+	}
+
 	if (check_for_uffd())
 		return -1;
 	/*
