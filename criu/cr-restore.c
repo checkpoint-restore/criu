@@ -2820,23 +2820,16 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 
 	task_args->task_size = kdat.task_size;
 
-	task_args->vmas = rst_mem_remap_ptr((unsigned long)task_args->vmas, RM_PRIVATE);
-	task_args->rings = rst_mem_remap_ptr((unsigned long)task_args->rings, RM_PRIVATE);
-	task_args->tcp_socks = rst_mem_remap_ptr((unsigned long)task_args->tcp_socks, RM_PRIVATE);
-	task_args->timerfd = rst_mem_remap_ptr((unsigned long)task_args->timerfd, RM_PRIVATE);
-	task_args->posix_timers = rst_mem_remap_ptr((unsigned long)task_args->posix_timers, RM_PRIVATE);
-	task_args->siginfo = rst_mem_remap_ptr((unsigned long)task_args->siginfo, RM_PRIVATE);
-	task_args->rlims = rst_mem_remap_ptr((unsigned long)task_args->rlims, RM_PRIVATE);
-	task_args->helpers = rst_mem_remap_ptr((unsigned long)task_args->helpers, RM_PRIVATE);
-	task_args->zombies = rst_mem_remap_ptr((unsigned long)task_args->zombies, RM_PRIVATE);
-	task_args->seccomp_filters = rst_mem_remap_ptr((unsigned long)task_args->seccomp_filters, RM_PRIVATE);
-
-#define remap_array(name, nr, cpos)	do {				\
-		task_args->name##_n = nr;				\
-		task_args->name = rst_mem_remap_ptr(cpos, RM_PRIVATE);	\
-	} while (0)
-
-#undef remap_array
+	RST_MEM_FIXUP_PPTR(task_args->vmas);
+	RST_MEM_FIXUP_PPTR(task_args->rings);
+	RST_MEM_FIXUP_PPTR(task_args->tcp_socks);
+	RST_MEM_FIXUP_PPTR(task_args->timerfd);
+	RST_MEM_FIXUP_PPTR(task_args->posix_timers);
+	RST_MEM_FIXUP_PPTR(task_args->siginfo);
+	RST_MEM_FIXUP_PPTR(task_args->rlims);
+	RST_MEM_FIXUP_PPTR(task_args->helpers);
+	RST_MEM_FIXUP_PPTR(task_args->zombies);
+	RST_MEM_FIXUP_PPTR(task_args->seccomp_filters);
 
 	if (core->tc->has_seccomp_mode)
 		task_args->seccomp_mode = core->tc->seccomp_mode;
