@@ -505,7 +505,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_file_locks(pid))
 		return -1;
 
-	if (open_vmas(current))
+	if (prepare_vmas(current, ta))
 		return -1;
 
 	if (fixup_sysv_shmems())
@@ -2665,9 +2665,6 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	struct thread_restore_args *thread_args;
 	struct restore_mem_zone *mz;
 
-	struct vma_area *vma;
-	unsigned long tgt_vmas;
-
 #ifdef CONFIG_VDSO
 	unsigned long vdso_rt_size = 0;
 #endif
@@ -2691,25 +2688,6 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 
 	BUILD_BUG_ON(sizeof(struct task_restore_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
-
-	/*
-	 * Copy VMAs to private rst memory so that it's able to
-	 * walk them and m(un|re)map.
-	 */
-
-	tgt_vmas = rst_mem_align_cpos(RM_PRIVATE);
-	list_for_each_entry(vma, &vmas->h, list) {
-		VmaEntry *vme;
-
-		vme = rst_mem_alloc(sizeof(*vme), RM_PRIVATE);
-		if (!vme)
-			goto err_nv;
-
-		*vme = *vma->e;
-
-		if (vma_area_is_private(vma, kdat.task_size))
-			vma_premmaped_start(vme) = vma->premmaped_addr;
-	}
 
 	/*
 	 * Put info about AIO rings, they will get remapped
@@ -2868,12 +2846,13 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 
 	task_args->task_size = kdat.task_size;
 
+	task_args->vmas = rst_mem_remap_ptr((unsigned long)task_args->vmas, RM_PRIVATE);
+
 #define remap_array(name, nr, cpos)	do {				\
 		task_args->name##_n = nr;				\
 		task_args->name = rst_mem_remap_ptr(cpos, RM_PRIVATE);	\
 	} while (0)
 
-	remap_array(vmas,	  vmas->nr, tgt_vmas);
 	remap_array(posix_timers, posix_timers_nr, posix_timers_cpos);
 	remap_array(timerfd,	  rst_timerfd_nr, rst_timerfd_cpos);
 	remap_array(siginfo,	  siginfo_nr, siginfo_cpos);

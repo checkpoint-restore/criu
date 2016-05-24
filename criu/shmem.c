@@ -247,7 +247,7 @@ static int open_shmem_sysv(int pid, struct vma_area *vma)
 		/*
 		 * Value that doesn't (shouldn't) match with any real
 		 * sysv shmem ID (thus it cannot be 0, as shmem id can)
-		 * and still is not negative to prevent open_vmas() from
+		 * and still is not negative to prevent prepare_vmas() from
 		 * treating it as error.
 		 */
 		ret_fd = SYSV_SHMEM_SKIP_FD;

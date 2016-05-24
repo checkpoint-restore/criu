@@ -18,6 +18,7 @@
 #include "shmem.h"
 #include "pstree.h"
 #include "restorer.h"
+#include "rst-malloc.h"
 #include "bitmap.h"
 #include "sk-packet.h"
 #include "files-reg.h"
@@ -503,7 +504,7 @@ static int map_private_vma(struct pstree_item *t,
 			return -1;
 		}
 
-		vma->vm_open = NULL; /* prevent from 2nd open in open_vmas */
+		vma->vm_open = NULL; /* prevent from 2nd open in prepare_vmas */
 	}
 
 	nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
@@ -878,24 +879,41 @@ int unmap_guard_pages(struct pstree_item *t)
 	return 0;
 }
 
-int open_vmas(struct pstree_item *t)
+int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 {
 	int pid = t->pid.virt;
 	struct vma_area *vma;
-	struct list_head *vmas = &rsti(t)->vmas.h;
+	struct vm_area_list *vmas = &rsti(t)->vmas;
 
-	list_for_each_entry(vma, vmas, list) {
-		if (!(vma_area_is(vma, VMA_AREA_REGULAR)))
-			continue;
+	ta->vmas = (VmaEntry *)rst_mem_align_cpos(RM_PRIVATE);
+	ta->vmas_n = vmas->nr;
 
-		pr_info("Opening 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" (%x) vma\n",
-				vma->e->start, vma->e->end,
-				vma->e->pgoff, vma->e->status);
+	list_for_each_entry(vma, &vmas->h, list) {
+		VmaEntry *vme;
 
-		if (vma->vm_open && vma->vm_open(pid, vma)) {
-			pr_err("`- Can't open vma\n");
-			return -1;
+		if (vma_area_is(vma, VMA_AREA_REGULAR)) {
+			pr_info("Opening 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" (%x) vma\n",
+					vma->e->start, vma->e->end,
+					vma->e->pgoff, vma->e->status);
+
+			if (vma->vm_open && vma->vm_open(pid, vma)) {
+				pr_err("`- Can't open vma\n");
+				return -1;
+			}
 		}
+
+		vme = rst_mem_alloc(sizeof(*vme), RM_PRIVATE);
+		if (!vme)
+			return -1;
+
+		/*
+		 * Copy VMAs to private rst memory so that it's able to
+		 * walk them and m(un|re)map.
+		 */
+		*vme = *vma->e;
+
+		if (vma_area_is_private(vma, kdat.task_size))
+			vma_premmaped_start(vme) = vma->premmaped_addr;
 	}
 
 	return 0;
