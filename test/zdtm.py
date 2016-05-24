@@ -882,7 +882,7 @@ def get_visible_state(test):
 		except IOError, e:
 			if e.errno != errno.EINVAL:
 				raise e
-		mounts[pid] = set(cmounts)
+		mounts[pid] = cmounts
 	return files, maps, mounts
 
 def check_visible_state(test, state, opts):
@@ -906,9 +906,15 @@ def check_visible_state(test, state, opts):
 
 		old_mounts = state[2][pid]
 		new_mounts = new[2][pid]
-		if old_mounts != new_mounts:
-			print "%s: Old mounts lost: %s" % (pid, old_mounts - new_mounts)
-			print "%s: New mounts appeared: %s" % (pid, new_mounts - old_mounts)
+		for i in xrange(len(old_mounts)):
+			m = old_mounts.pop(0)
+			if m in new_mounts:
+				new_mounts.remove(m)
+			else:
+				old_mounts.append(m)
+		if old_mounts or new_mounts:
+			print "%s: Old mounts lost: %s" % (pid, old_mounts)
+			print "%s: New mounts appeared: %s" % (pid, new_mounts)
 			raise test_fail_exc("mounts compare")
 
 
