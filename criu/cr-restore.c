@@ -115,7 +115,7 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core);
 static int prepare_restorer_blob(void);
 static int prepare_rlimits(int pid, CoreEntry *core);
 static int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry *core);
-static int prepare_signals(int pid, CoreEntry *core);
+static int prepare_signals(int pid, struct task_restore_args *, CoreEntry *core);
 
 static unsigned long helpers_pos = 0;
 static int n_helpers = 0;
@@ -517,7 +517,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (open_cores(pid, core))
 		return -1;
 
-	if (prepare_signals(pid, core))
+	if (prepare_signals(pid, ta, core))
 		return -1;
 
 	if (prepare_posix_timers(pid, ta, core))
@@ -2444,23 +2444,22 @@ static int prepare_one_signal_queue(SignalQueueEntry *sqe, unsigned int *nr)
 	return 0;
 }
 
-static unsigned long siginfo_cpos;
-static unsigned int siginfo_nr, *siginfo_priv_nr;
+static unsigned int *siginfo_priv_nr; /* FIXME -- put directly on thread_args */
 
-static int prepare_signals(int pid, CoreEntry *leader_core)
+static int prepare_signals(int pid, struct task_restore_args *ta, CoreEntry *leader_core)
 {
 	int ret = -1, i;
 
-	siginfo_cpos = rst_mem_align_cpos(RM_PRIVATE);
+	ta->siginfo = (siginfo_t *)rst_mem_align_cpos(RM_PRIVATE);
 	siginfo_priv_nr = xmalloc(sizeof(int) * current->nr_threads);
 	if (siginfo_priv_nr == NULL)
 		goto out;
 
 	/* Prepare shared signals */
 	if (!leader_core->tc->signals_s)/*backward compatibility*/
-		ret = open_signal_image(CR_FD_SIGNAL, pid, &siginfo_nr);
+		ret = open_signal_image(CR_FD_SIGNAL, pid, &ta->siginfo_n);
 	else
-		ret = prepare_one_signal_queue(leader_core->tc->signals_s, &siginfo_nr);
+		ret = prepare_one_signal_queue(leader_core->tc->signals_s, &ta->siginfo_n);
 
 	if (ret < 0)
 		goto out;
@@ -2691,7 +2690,7 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 
 	struct vm_area_list self_vmas;
 	struct vm_area_list *vmas = &rsti(current)->vmas;
-	int i;
+	int i, siginfo_n;
 
 	unsigned long creds_pos = 0;
 	unsigned long creds_pos_next;
@@ -2834,13 +2833,13 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	task_args->tcp_socks = rst_mem_remap_ptr((unsigned long)task_args->tcp_socks, RM_PRIVATE);
 	task_args->timerfd = rst_mem_remap_ptr((unsigned long)task_args->timerfd, RM_PRIVATE);
 	task_args->posix_timers = rst_mem_remap_ptr((unsigned long)task_args->posix_timers, RM_PRIVATE);
+	task_args->siginfo = rst_mem_remap_ptr((unsigned long)task_args->siginfo, RM_PRIVATE);
 
 #define remap_array(name, nr, cpos)	do {				\
 		task_args->name##_n = nr;				\
 		task_args->name = rst_mem_remap_ptr(cpos, RM_PRIVATE);	\
 	} while (0)
 
-	remap_array(siginfo,	  siginfo_nr, siginfo_cpos);
 	remap_array(rlims,	  rlims_nr, rlims_cpos);
 	remap_array(helpers,	  n_helpers, helpers_pos);
 	remap_array(zombies,	  n_zombies, zombies_pos);
@@ -2868,15 +2867,16 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	 * Fill up per-thread data.
 	 */
 	creds_pos_next = creds_pos;
+	siginfo_n = 0;
 	for (i = 0; i < current->nr_threads; i++) {
 		CoreEntry *tcore;
 		struct rt_sigframe *sigframe;
 
 		thread_args[i].pid = current->threads[i].virt;
 		thread_args[i].siginfo_n = siginfo_priv_nr[i];
-		thread_args[i].siginfo = rst_mem_remap_ptr(siginfo_cpos, RM_PRIVATE);
-		thread_args[i].siginfo += siginfo_nr;
-		siginfo_nr += thread_args[i].siginfo_n;
+		thread_args[i].siginfo = task_args->siginfo;
+		thread_args[i].siginfo += siginfo_n;
+		siginfo_n += thread_args[i].siginfo_n;
 
 		/* skip self */
 		if (thread_args[i].pid == pid) {
