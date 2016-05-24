@@ -37,7 +37,7 @@ fi
 JOIN_CT="$NS_ENTER -t $CRTOOLS_INIT_PID -m -u -p"
 
 # Skip container, if it's not systemd based
-[ $($JOIN_CT basename -- $(readlink /proc/1/exe)) == "systemd" ] || exit 0
+[ "$($JOIN_CT basename -- $(readlink /proc/1/exe))" == "systemd" ] || exit 0
 
 AUTOFS_SERVICES="proc-sys-fs-binfmt_misc.automount"
 
@@ -61,7 +61,7 @@ function check_fs_type {
 
 	while IFS='' read -r line || [[ -n "$line" ]]; do
 		# Skip those entries which do not match the mountpoint
-		[ $(echo $line | awk '{print $5;}') = $mountpoint ] || continue
+		[ "$(echo $line | awk '{print $5;}')" = "$mountpoint" ] || continue
 
 		local mnt_id=$(echo $line | awk '{print $1;}')
 		local mnt_parent_id=$(echo $line | awk '{print $2;}')
@@ -74,7 +74,7 @@ function check_fs_type {
 		top_mount_fs_type=$mnt_fs_type
 	done < "/proc/$CRTOOLS_INIT_PID/mountinfo"
 
-	[ $top_mount_fs_type = $fs_type ]
+	[ "$top_mount_fs_type" = "$fs_type" ]
 }
 
 function bind_mount {
