@@ -114,7 +114,7 @@ static int restore_task_with_children(void *);
 static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core);
 static int prepare_restorer_blob(void);
 static int prepare_rlimits(int pid, CoreEntry *core);
-static int prepare_posix_timers(int pid, CoreEntry *core);
+static int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry *core);
 static int prepare_signals(int pid, CoreEntry *core);
 
 static unsigned long helpers_pos = 0;
@@ -520,7 +520,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_signals(pid, core))
 		return -1;
 
-	if (prepare_posix_timers(pid, core))
+	if (prepare_posix_timers(pid, ta, core))
 		return -1;
 
 	if (prepare_rlimits(pid, core) < 0)
@@ -2093,11 +2093,10 @@ static int cmp_posix_timer_proc_id(const void *p1, const void *p2)
 	return ((struct restore_posix_timer *)p1)->spt.it_id - ((struct restore_posix_timer *)p2)->spt.it_id;
 }
 
-static unsigned long posix_timers_cpos;
-static unsigned int posix_timers_nr;
-
-static void sort_posix_timers(void)
+static void sort_posix_timers(struct task_restore_args *ta)
 {
+	void *tmem;
+
 	/*
 	 * This is required for restorer's create_posix_timers(),
 	 * it will probe them one-by-one for the desired ID, since
@@ -2105,18 +2104,19 @@ static void sort_posix_timers(void)
 	 * with given ID.
 	 */
 
-	if (posix_timers_nr > 0)
-		qsort(rst_mem_remap_ptr(posix_timers_cpos, RM_PRIVATE),
-				posix_timers_nr,
+	if (ta->posix_timers_n > 0) {
+		tmem = rst_mem_remap_ptr((unsigned long)ta->posix_timers, RM_PRIVATE);
+		qsort(tmem, ta->posix_timers_n,
 				sizeof(struct restore_posix_timer),
 				cmp_posix_timer_proc_id);
+	}
 }
 
 /*
  * Legacy posix timers restoration from CR_FD_POSIX_TIMERS
  */
 
-static int prepare_posix_timers_from_fd(int pid)
+static int prepare_posix_timers_from_fd(int pid, struct task_restore_args *ta)
 {
 	struct cr_img *img;
 	int ret = -1;
@@ -2126,6 +2126,7 @@ static int prepare_posix_timers_from_fd(int pid)
 	if (!img)
 		return -1;
 
+	ta->posix_timers_n = 0;
 	while (1) {
 		PosixTimerEntry *pte;
 
@@ -2142,29 +2143,29 @@ static int prepare_posix_timers_from_fd(int pid)
 			break;
 
 		posix_timer_entry__free_unpacked(pte, NULL);
-		posix_timers_nr++;
+		ta->posix_timers_n++;
 	}
 
 	close_image(img);
 	if (!ret)
-		sort_posix_timers();
+		sort_posix_timers(ta);
 
 	return ret;
 }
 
-static int prepare_posix_timers(int pid, CoreEntry *core)
+static int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry *core)
 {
 	int i, ret = -1;
 	TaskTimersEntry *tte = core->tc->timers;
 	struct restore_posix_timer *t;
 
-	posix_timers_cpos = rst_mem_align_cpos(RM_PRIVATE);
+	ta->posix_timers = (struct restore_posix_timer *)rst_mem_align_cpos(RM_PRIVATE);
 
 	if (!tte)
-		return prepare_posix_timers_from_fd(pid);
+		return prepare_posix_timers_from_fd(pid, ta);
 
-	posix_timers_nr = tte->n_posix;
-	for (i = 0; i < posix_timers_nr; i++) {
+	ta->posix_timers_n = tte->n_posix;
+	for (i = 0; i < ta->posix_timers_n; i++) {
 		t = rst_mem_alloc(sizeof(struct restore_posix_timer), RM_PRIVATE);
 		if (!t)
 			goto out;
@@ -2174,7 +2175,7 @@ static int prepare_posix_timers(int pid, CoreEntry *core)
 	}
 
 	ret = 0;
-	sort_posix_timers();
+	sort_posix_timers(ta);
 out:
 	return ret;
 }
@@ -2832,13 +2833,13 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	task_args->rings = rst_mem_remap_ptr((unsigned long)task_args->rings, RM_PRIVATE);
 	task_args->tcp_socks = rst_mem_remap_ptr((unsigned long)task_args->tcp_socks, RM_PRIVATE);
 	task_args->timerfd = rst_mem_remap_ptr((unsigned long)task_args->timerfd, RM_PRIVATE);
+	task_args->posix_timers = rst_mem_remap_ptr((unsigned long)task_args->posix_timers, RM_PRIVATE);
 
 #define remap_array(name, nr, cpos)	do {				\
 		task_args->name##_n = nr;				\
 		task_args->name = rst_mem_remap_ptr(cpos, RM_PRIVATE);	\
 	} while (0)
 
-	remap_array(posix_timers, posix_timers_nr, posix_timers_cpos);
 	remap_array(siginfo,	  siginfo_nr, siginfo_cpos);
 	remap_array(rlims,	  rlims_nr, rlims_cpos);
 	remap_array(helpers,	  n_helpers, helpers_pos);
