@@ -606,6 +606,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_vmas(current, ta))
 		return -1;
 
+	if (setup_uffd(pid, ta))
+		return -1;
+
 	return sigreturn_restore(pid, ta, args_len, core);
 }
 
@@ -2963,12 +2966,6 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	task_args->sigchld_act	= sigchld_act;
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
-
-	if (!opts.lazy_pages)
-		task_args->uffd = -1;
-	else
-		if (setup_uffd(task_args, pid) != 0)
-			goto err;
 
 	/*
 	 * Fill up per-thread data.
