@@ -508,6 +508,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_vmas(current, ta))
 		return -1;
 
+	if (prepare_aios(current, ta))
+		return -1;
+
 	if (fixup_sysv_shmems())
 		return -1;
 
@@ -2668,10 +2671,6 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 #ifdef CONFIG_VDSO
 	unsigned long vdso_rt_size = 0;
 #endif
-
-	unsigned long aio_rings;
-	MmEntry *mm = rsti(current)->mm;
-
 	int n_seccomp_filters = 0;
 	unsigned long seccomp_filter_pos = 0;
 
@@ -2688,23 +2687,6 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 
 	BUILD_BUG_ON(sizeof(struct task_restore_args) & 1);
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
-
-	/*
-	 * Put info about AIO rings, they will get remapped
-	 */
-
-	aio_rings = rst_mem_align_cpos(RM_PRIVATE);
-	for (i = 0; i < mm->n_aios; i++) {
-		struct rst_aio_ring *raio;
-
-		raio = rst_mem_alloc(sizeof(*raio), RM_PRIVATE);
-		if (!raio)
-			goto err_nv;
-
-		raio->addr = mm->aios[i]->id;
-		raio->nr_req = mm->aios[i]->nr_req;
-		raio->len = mm->aios[i]->ring_len;
-	}
 
 	/*
 	 * Get all the tcp sockets fds into rst memory -- restorer
@@ -2847,6 +2829,7 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	task_args->task_size = kdat.task_size;
 
 	task_args->vmas = rst_mem_remap_ptr((unsigned long)task_args->vmas, RM_PRIVATE);
+	task_args->rings = rst_mem_remap_ptr((unsigned long)task_args->rings, RM_PRIVATE);
 
 #define remap_array(name, nr, cpos)	do {				\
 		task_args->name##_n = nr;				\
@@ -2857,7 +2840,6 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	remap_array(timerfd,	  rst_timerfd_nr, rst_timerfd_cpos);
 	remap_array(siginfo,	  siginfo_nr, siginfo_cpos);
 	remap_array(tcp_socks,	  rst_tcp_socks_nr, rst_tcp_socks_cpos);
-	remap_array(rings,	  mm->n_aios, aio_rings);
 	remap_array(rlims,	  rlims_nr, rlims_cpos);
 	remap_array(helpers,	  n_helpers, helpers_pos);
 	remap_array(zombies,	  n_zombies, zombies_pos);

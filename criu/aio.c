@@ -3,7 +3,11 @@
 #include <stdbool.h>
 #include "vma.h"
 #include "xmalloc.h"
+#include "pstree.h"
+#include "restorer.h"
 #include "aio.h"
+#include "rst_info.h"
+#include "rst-malloc.h"
 #include "parasite.h"
 #include "parasite-syscall.h"
 #include "images/mm.pb-c.h"
@@ -114,6 +118,32 @@ int parasite_collect_aios(struct parasite_ctl *ctl, struct vm_area_list *vmas)
 
 	if (parasite_execute_daemon(PARASITE_CMD_CHECK_AIOS, ctl))
 		return -1;
+
+	return 0;
+}
+
+int prepare_aios(struct pstree_item *t, struct task_restore_args *ta)
+{
+	int i;
+	MmEntry *mm = rsti(t)->mm;
+	/*
+	 * Put info about AIO rings, they will get remapped
+	 */
+
+	ta->rings = (struct rst_aio_ring *)rst_mem_align_cpos(RM_PRIVATE);
+	ta->rings_n = mm->n_aios;
+
+	for (i = 0; i < mm->n_aios; i++) {
+		struct rst_aio_ring *raio;
+
+		raio = rst_mem_alloc(sizeof(*raio), RM_PRIVATE);
+		if (!raio)
+			return -1;
+
+		raio->addr = mm->aios[i]->id;
+		raio->nr_req = mm->aios[i]->nr_req;
+		raio->len = mm->aios[i]->ring_len;
+	}
 
 	return 0;
 }
