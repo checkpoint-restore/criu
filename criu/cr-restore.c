@@ -477,6 +477,9 @@ static int prepare_proc_misc(pid_t pid, TaskCoreEntry *tc)
 	return 0;
 }
 
+static int prepare_itimers(int pid, struct task_restore_args *args, CoreEntry *core);
+static int prepare_mm(pid_t pid, struct task_restore_args *args);
+
 static int restore_one_alive_task(int pid, CoreEntry *core)
 {
 	unsigned args_len;
@@ -549,6 +552,12 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (seccomp_filters_get_rst_pos(core, ta) < 0)
+		return -1;
+
+	if (prepare_itimers(pid, ta, core) < 0)
+		return -1;
+
+	if (prepare_mm(pid, ta))
 		return -1;
 
 	return sigreturn_restore(pid, ta_cp, core);
@@ -2031,7 +2040,7 @@ out:
 	return ret;
 }
 
-static int prepare_itimers(int pid, CoreEntry *core, struct task_restore_args *args)
+static int prepare_itimers(int pid, struct task_restore_args *args, CoreEntry *core)
 {
 	int ret = 0;
 	TaskTimersEntry *tte = core->tc->timers;
@@ -2931,14 +2940,6 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 #endif
 
 	new_sp = restorer_stack(task_args->t->mz);
-
-	ret = prepare_itimers(pid, core, task_args);
-	if (ret < 0)
-		goto err;
-
-	ret = prepare_mm(pid, task_args);
-	if (ret < 0)
-		goto err;
 
 	/* No longer need it */
 	core_entry__free_unpacked(core, NULL);
