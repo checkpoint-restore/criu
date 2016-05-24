@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+#include <sched.h>
 #include <sys/mount.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -9,8 +11,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Run busy loop while migrating";
-const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
+const char *test_doc	= "Check --mnt-ext-map auto";
+const char *test_author	= "Andrew Vagin <avagin@gmail.com>";
 
 char *dirname = "mnt_ext_auto.test";
 TEST_OPTION(dirname, string, "directory name", 1);
@@ -19,8 +21,7 @@ int main(int argc, char ** argv)
 {
 	char src[PATH_MAX], dst[PATH_MAX], *root;
 	char *dname = "/tmp/zdtm_ext_auto.XXXXXX";
-	int status;
-	pid_t pid;
+	struct stat sta, stb;
 
 	root = getenv("ZDTM_ROOT");
 	if (root == NULL) {
@@ -28,42 +29,45 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	sprintf(dst, "%s/ext_mounts", getenv("ZDTM_ROOT"));
+	sprintf(dst, "%s/%s", get_current_dir_name(), dirname);
 
 	if (strcmp(getenv("ZDTM_NEWNS"), "1"))
 		goto test;
 
-	pid = fork();
-	if (pid < 0)
+	mkdir(dname, 755);
+	sprintf(src, "%s/test", dname);
+	if (mount("zdtm_auto_ext_mnt", dname, "tmpfs", 0, NULL)) {
+		pr_perror("mount");
 		return 1;
-	if (pid == 0) {
-		test_ext_init(argc, argv);
-
-		mkdir(dname, 755);
-		sprintf(src, "%s/test", dname);
-		if (mount("zdtm_auto_ext_mnt", dname, "tmpfs", 0, NULL)) {
-			pr_perror("mount");
-			return 1;
-		}
-		mkdir(src, 755);
-		mkdir(dst, 755);
-		if (mount(src, dst, NULL, MS_BIND, NULL)) {
-			pr_perror("bind");
-			return 1;
-		}
-		return 0;
 	}
+	mkdir(src, 755);
 
-	wait(&status);
-	if (status != 0)
+	unshare(CLONE_NEWNS);
+	mkdir(dst, 755);
+	if (mount(src, dst, NULL, MS_BIND, NULL)) {
+		pr_perror("bind");
 		return 1;
-
+	}
 test:
 	test_init(argc, argv);
+
+	if (stat(dirname, &stb)) {
+		pr_perror("stat");
+		sleep(100);
+		return 1;
+	}
 
 	test_daemon();
 	test_waitsig();
 
+	if (stat(dirname, &sta)) {
+		pr_perror("stat");
+		return 1;
+	}
+	if (sta.st_dev != stb.st_dev) {
+		fail();
+		return 1;
+	}
 
 	pass();
 
