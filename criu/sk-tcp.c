@@ -22,6 +22,7 @@
 #include "xmalloc.h"
 #include "config.h"
 #include "kerndat.h"
+#include "restorer.h"
 #include "rst-malloc.h"
 
 #include "protobuf.h"
@@ -670,14 +671,13 @@ err:
 	return -1;
 }
 
-unsigned long rst_tcp_socks_cpos;
-unsigned int rst_tcp_socks_nr = 0;
-
-int rst_tcp_socks_prep(void)
+int prepare_tcp_socks(struct task_restore_args *ta)
 {
 	struct inet_sk_info *ii;
 
-	rst_tcp_socks_cpos = rst_mem_align_cpos(RM_PRIVATE);
+	ta->tcp_socks = (struct rst_tcp_sock *) rst_mem_align_cpos(RM_PRIVATE);
+	ta->tcp_socks_n = 0;
+
 	list_for_each_entry(ii, &rst_tcp_repair_sockets, rlist) {
 		struct rst_tcp_sock *rs;
 
@@ -694,7 +694,7 @@ int rst_tcp_socks_prep(void)
 
 		rs->sk = ii->sk_fd;
 		rs->reuseaddr = ii->ie->opts->reuseaddr;
-		rst_tcp_socks_nr++;
+		ta->tcp_socks_n++;
 	}
 
 	return 0;

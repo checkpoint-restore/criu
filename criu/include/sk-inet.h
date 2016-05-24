@@ -76,9 +76,8 @@ extern int restore_one_tcp(int sk, struct inet_sk_info *si);
 extern int check_tcp(void);
 extern mutex_t *inet_get_reuseaddr_lock(struct inet_sk_info *ii);
 
-int rst_tcp_socks_prep(void);
-extern unsigned long rst_tcp_socks_cpos;
-extern unsigned int rst_tcp_socks_nr;
+struct task_restore_args;
+int prepare_tcp_socks(struct task_restore_args *);
 
 struct rst_tcp_sock {
 	int	sk;

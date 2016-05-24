@@ -538,6 +538,14 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_proc_misc(pid, core->tc))
 		return -1;
 
+	/*
+	 * Get all the tcp sockets fds into rst memory -- restorer
+	 * will turn repair off before going sigreturn
+	 */
+	if (prepare_tcp_socks(ta))
+		return -1;
+
+
 	return sigreturn_restore(pid, ta_cp, core);
 }
 
@@ -2689,13 +2697,6 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 
 	/*
-	 * Get all the tcp sockets fds into rst memory -- restorer
-	 * will turn repair off before going sigreturn
-	 */
-	if (rst_tcp_socks_prep())
-		goto err_nv;
-
-	/*
 	 * Copy timerfd params for restorer args, we need to proceed
 	 * timer setting at the very late.
 	 */
@@ -2830,6 +2831,7 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 
 	task_args->vmas = rst_mem_remap_ptr((unsigned long)task_args->vmas, RM_PRIVATE);
 	task_args->rings = rst_mem_remap_ptr((unsigned long)task_args->rings, RM_PRIVATE);
+	task_args->tcp_socks = rst_mem_remap_ptr((unsigned long)task_args->tcp_socks, RM_PRIVATE);
 
 #define remap_array(name, nr, cpos)	do {				\
 		task_args->name##_n = nr;				\
@@ -2839,7 +2841,6 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	remap_array(posix_timers, posix_timers_nr, posix_timers_cpos);
 	remap_array(timerfd,	  rst_timerfd_nr, rst_timerfd_cpos);
 	remap_array(siginfo,	  siginfo_nr, siginfo_cpos);
-	remap_array(tcp_socks,	  rst_tcp_socks_nr, rst_tcp_socks_cpos);
 	remap_array(rlims,	  rlims_nr, rlims_cpos);
 	remap_array(helpers,	  n_helpers, helpers_pos);
 	remap_array(zombies,	  n_zombies, zombies_pos);
