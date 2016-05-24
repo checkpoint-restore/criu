@@ -545,6 +545,12 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_tcp_socks(ta))
 		return -1;
 
+	/*
+	 * Copy timerfd params for restorer args, we need to proceed
+	 * timer setting at the very late.
+	 */
+	if (prepare_timerfds(ta))
+		return -1;
 
 	return sigreturn_restore(pid, ta_cp, core);
 }
@@ -2697,13 +2703,6 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	BUILD_BUG_ON(sizeof(struct thread_restore_args) & 1);
 
 	/*
-	 * Copy timerfd params for restorer args, we need to proceed
-	 * timer setting at the very late.
-	 */
-	if (rst_timerfd_prep())
-		goto err_nv;
-
-	/*
 	 * Read creds info for every thread and allocate memory
 	 * needed so we can use this data inside restorer.
 	 */
@@ -2832,6 +2831,7 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	task_args->vmas = rst_mem_remap_ptr((unsigned long)task_args->vmas, RM_PRIVATE);
 	task_args->rings = rst_mem_remap_ptr((unsigned long)task_args->rings, RM_PRIVATE);
 	task_args->tcp_socks = rst_mem_remap_ptr((unsigned long)task_args->tcp_socks, RM_PRIVATE);
+	task_args->timerfd = rst_mem_remap_ptr((unsigned long)task_args->timerfd, RM_PRIVATE);
 
 #define remap_array(name, nr, cpos)	do {				\
 		task_args->name##_n = nr;				\
@@ -2839,7 +2839,6 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	} while (0)
 
 	remap_array(posix_timers, posix_timers_nr, posix_timers_cpos);
-	remap_array(timerfd,	  rst_timerfd_nr, rst_timerfd_cpos);
 	remap_array(siginfo,	  siginfo_nr, siginfo_cpos);
 	remap_array(rlims,	  rlims_nr, rlims_cpos);
 	remap_array(helpers,	  n_helpers, helpers_pos);

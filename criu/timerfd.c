@@ -37,9 +37,6 @@ struct timerfd_info {
 
 static LIST_HEAD(rst_timerfds);
 
-unsigned long rst_timerfd_cpos;
-unsigned int rst_timerfd_nr = 0;
-
 int check_timerfd(void)
 {
 	int fd, ret = -1;
@@ -110,12 +107,14 @@ static int timerfd_post_open(struct file_desc *d, int fd)
 	return 0;
 }
 
-int rst_timerfd_prep(void)
+int prepare_timerfds(struct task_restore_args *ta)
 {
 	struct timerfd_info *ti;
 	struct restore_timerfd *t;
 
-	rst_timerfd_cpos = rst_mem_align_cpos(RM_PRIVATE);
+	ta->timerfd = (struct restore_timerfd *)rst_mem_align_cpos(RM_PRIVATE);
+	ta->timerfd_n = 0;
+
 	list_for_each_entry(ti, &rst_timerfds, rlist) {
 		TimerfdEntry *tfe = ti->tfe;
 
@@ -133,7 +132,7 @@ int rst_timerfd_prep(void)
 		t->val.it_value.tv_sec		= (time_t)tfe->vsec;
 		t->val.it_value.tv_nsec		= (long)tfe->vnsec;
 
-		rst_timerfd_nr++;
+		ta->timerfd_n++;
 	}
 
 	return 0;

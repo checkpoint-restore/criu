@@ -20,10 +20,8 @@ struct restore_timerfd {
 extern const struct fdtype_ops timerfd_dump_ops;
 extern struct collect_image_info timerfd_cinfo;
 
-int rst_timerfd_prep(void);
-extern unsigned long rst_timerfd_cpos;
-extern unsigned int rst_timerfd_nr;
-
+struct task_restore_args;
+int prepare_timerfds(struct task_restore_args *);
 
 extern int check_timerfd(void);
 extern int is_timerfd_link(char *link);
