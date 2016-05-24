@@ -383,6 +383,7 @@ static int vma_get_mapfile(char *fname, struct vma_area *vma, DIR *mfd,
 int parse_self_maps_lite(struct vm_area_list *vms)
 {
 	FILE *maps;
+	struct vma_area *prev = NULL;
 
 	vm_area_list_init(vms);
 
@@ -395,17 +396,31 @@ int parse_self_maps_lite(struct vm_area_list *vms)
 	while (fgets(buf, BUF_SIZE, maps) != NULL) {
 		struct vma_area *vma;
 		char *end;
+		unsigned long s, e;
 
-		vma = alloc_vma_area();
-		if (!vma) {
-			fclose(maps);
-			return -1;
+		s = strtoul(buf, &end, 16);
+		e = strtoul(end + 1, NULL, 16);
+
+		if (prev && prev->e->end == s)
+			/*
+			 * This list is needed for one thing only -- to
+			 * get the idea of what parts of current address
+			 * space are busy. So merge them alltogether.
+			 */
+			prev->e->end = e;
+		else {
+			vma = alloc_vma_area();
+			if (!vma) {
+				fclose(maps);
+				return -1;
+			}
+
+			vma->e->start = s;
+			vma->e->end = e;
+			list_add_tail(&vma->list, &vms->h);
+			vms->nr++;
+			prev = vma;
 		}
-
-		vma->e->start = strtoul(buf, &end, 16);
-		vma->e->end = strtoul(end + 1, NULL, 16);
-		list_add_tail(&vma->list, &vms->h);
-		vms->nr++;
 
 		pr_debug("Parsed %"PRIx64"-%"PRIx64" vma\n", vma->e->start, vma->e->end);
 	}
