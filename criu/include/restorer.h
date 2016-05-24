@@ -76,7 +76,7 @@ struct thread_creds_args {
 };
 
 struct thread_restore_args {
-	struct restore_mem_zone		mem_zone;
+	struct restore_mem_zone		*mz;
 
 	int				pid;
 	UserRegsEntry			gpregs;
@@ -189,9 +189,9 @@ struct task_restore_args {
 #define RESTORE_ALIGN_STACK(start, size)	\
 	(ALIGN((start) + (size) - 16, 16))
 
-static inline unsigned long restorer_stack(struct thread_restore_args *a)
+static inline unsigned long restorer_stack(struct restore_mem_zone *mz)
 {
-	return RESTORE_ALIGN_STACK((long)a->mem_zone.stack, RESTORE_STACK_SIZE);
+	return RESTORE_ALIGN_STACK((long)&mz->stack, RESTORE_STACK_SIZE);
 }
 
 enum {

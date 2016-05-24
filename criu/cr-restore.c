@@ -2647,9 +2647,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	long restore_bootstrap_len;
 	long rst_mem_size;
+	long memzone_size;
 
 	struct task_restore_args *task_args;
 	struct thread_restore_args *thread_args;
+	struct restore_mem_zone *mz;
 	long args_len;
 
 	struct vma_area *vma;
@@ -2754,7 +2756,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 
 	rst_mem_size = rst_mem_lock();
-	restore_bootstrap_len = restorer_len + args_len + rst_mem_size;
+	memzone_size = round_up(sizeof(struct restore_mem_zone) * current->nr_threads, page_size());
+	restore_bootstrap_len = restorer_len + memzone_size + args_len + rst_mem_size;
 	BUG_ON(restore_bootstrap_len & (PAGE_SIZE - 1));
 
 #ifdef CONFIG_VDSO
@@ -2804,7 +2807,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	exec_mem_hint += restorer_len;
 
 	/* VMA we need to run task_restore code */
-	mem = mmap((void *)exec_mem_hint, args_len,
+	mem = mmap((void *)exec_mem_hint, memzone_size + args_len,
 			PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
 	if (mem != (void *)exec_mem_hint) {
@@ -2814,9 +2817,14 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 
 	exec_mem_hint -= restorer_len;
 
-	memzero(mem, args_len);
-	task_args	= mem;
+	memzero(mem, memzone_size + args_len);
+	mz		= mem;
+	task_args	= mem + memzone_size;
 	thread_args	= (struct thread_restore_args *)(task_args + 1);
+	mem		+= memzone_size + args_len;
+
+	if (rst_mem_remap(mem))
+		goto err;
 
 	task_args->proc_fd = dup(get_service_fd(PROC_FD_OFF));
 	if (task_args->proc_fd < 0) {
@@ -2824,26 +2832,11 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 		goto err;
 	}
 
-	/*
-	 * Get a reference to shared memory area which is
-	 * used to signal if shmem restoration complete
-	 * from low-level restore code.
-	 *
-	 * This shmem area is mapped right after the whole area of
-	 * sigreturn rt code. Note we didn't allocated it before
-	 * but this area is taken into account for 'hint' memory
-	 * address.
-	 */
-
-	mem += args_len;
-	if (rst_mem_remap(mem))
-		goto err;
-
 	task_args->breakpoint = &rsti(current)->breakpoint;
 	task_args->task_entries = rst_mem_remap_ptr(task_entries_pos, RM_SHREMAP);
 
-	task_args->rst_mem = mem;
-	task_args->rst_mem_size = rst_mem_size;
+	task_args->rst_mem = mem - args_len;
+	task_args->rst_mem_size = rst_mem_size + args_len;
 
 	task_args->bootstrap_start = (void *)exec_mem_hint;
 	task_args->bootstrap_len = restore_bootstrap_len;
@@ -2942,7 +2935,8 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 				goto err;
 		}
 
-		sigframe = (struct rt_sigframe *)thread_args[i].mem_zone.rt_sigframe;
+		thread_args[i].mz = mz + i;
+		sigframe = (struct rt_sigframe *)&mz[i].rt_sigframe;
 
 		if (construct_sigframe(sigframe, sigframe, tcore))
 			goto err;
@@ -2951,8 +2945,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 			core_entry__free_unpacked(tcore, NULL);
 
 		pr_info("Thread %4d stack %8p rt_sigframe %8p\n",
-				i, thread_args[i].mem_zone.stack,
-				thread_args[i].mem_zone.rt_sigframe);
+				i, mz[i].stack, mz[i].rt_sigframe);
 
 	}
 
@@ -2969,7 +2962,7 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 	task_args->vdso_rt_size = vdso_rt_size;
 #endif
 
-	new_sp = restorer_stack(task_args->t);
+	new_sp = restorer_stack(task_args->t->mz);
 
 	ret = prepare_itimers(pid, core, task_args);
 	if (ret < 0)

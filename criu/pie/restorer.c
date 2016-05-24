@@ -451,7 +451,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 		goto core_restore_end;
 	}
 
-	rt_sigframe = (void *)args->mem_zone.rt_sigframe;
+	rt_sigframe = (void *)&args->mz->rt_sigframe;
 
 	if (restore_thread_common(args))
 		goto core_restore_end;
@@ -1236,7 +1236,7 @@ long __export_restore_task(struct task_restore_args *args)
 	 * registers from the frame, set them up and
 	 * finally pass execution to the new IP.
 	 */
-	rt_sigframe = (void *)args->t->mem_zone.rt_sigframe;
+	rt_sigframe = (void *)&args->t->mz->rt_sigframe;
 
 	if (restore_thread_common(args->t))
 		goto core_restore_end;
@@ -1287,7 +1287,7 @@ long __export_restore_task(struct task_restore_args *args)
 			if (thread_args[i].pid == args->t->pid)
 				continue;
 
-			new_sp = restorer_stack(thread_args + i);
+			new_sp = restorer_stack(thread_args[i].mz);
 			last_pid_len = vprint_num(last_pid_buf, sizeof(last_pid_buf), thread_args[i].pid - 1, &s);
 			sys_lseek(fd, 0, SEEK_SET);
 			ret = sys_write(fd, s, last_pid_len);
