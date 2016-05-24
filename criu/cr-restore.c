@@ -113,7 +113,7 @@ static struct pstree_item *current;
 static int restore_task_with_children(void *);
 static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core);
 static int prepare_restorer_blob(void);
-static int prepare_rlimits(int pid, CoreEntry *core);
+static int prepare_rlimits(int pid, struct task_restore_args *, CoreEntry *core);
 static int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry *core);
 static int prepare_signals(int pid, struct task_restore_args *, CoreEntry *core);
 
@@ -523,7 +523,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_posix_timers(pid, ta, core))
 		return -1;
 
-	if (prepare_rlimits(pid, core) < 0)
+	if (prepare_rlimits(pid, ta, core) < 0)
 		return -1;
 
 	if (collect_helper_pids() < 0)
@@ -2298,14 +2298,11 @@ static unsigned long decode_rlim(u_int64_t ival)
 	return ival == -1 ? RLIM_INFINITY : ival;
 }
 
-static unsigned long rlims_cpos;
-static unsigned int rlims_nr;
-
 /*
  * Legacy rlimits restore from CR_FD_RLIMIT
  */
 
-static int prepare_rlimits_from_fd(int pid)
+static int prepare_rlimits_from_fd(int pid, struct task_restore_args *ta)
 {
 	struct rlimit *r;
 	int ret;
@@ -2318,6 +2315,7 @@ static int prepare_rlimits_from_fd(int pid)
 	if (!img)
 		return -1;
 
+	ta->rlims_n = 0;
 	while (1) {
 		RlimitEntry *re;
 
@@ -2328,7 +2326,7 @@ static int prepare_rlimits_from_fd(int pid)
 		r = rst_mem_alloc(sizeof(*r), RM_PRIVATE);
 		if (!r) {
 			pr_err("Can't allocate memory for resource %d\n",
-			       rlims_nr);
+			       ta->rlims_n);
 			return -1;
 		}
 
@@ -2336,13 +2334,13 @@ static int prepare_rlimits_from_fd(int pid)
 		r->rlim_max = decode_rlim(re->max);
 		if (r->rlim_cur > r->rlim_max) {
 			pr_err("Can't restore cur > max for %d.%d\n",
-					pid, rlims_nr);
+					pid, ta->rlims_n);
 			r->rlim_cur = r->rlim_max;
 		}
 
 		rlimit_entry__free_unpacked(re, NULL);
 
-		rlims_nr++;
+		ta->rlims_n++;
 	}
 
 	close_image(img);
@@ -2350,16 +2348,16 @@ static int prepare_rlimits_from_fd(int pid)
 	return 0;
 }
 
-static int prepare_rlimits(int pid, CoreEntry *core)
+static int prepare_rlimits(int pid, struct task_restore_args *ta, CoreEntry *core)
 {
 	int i;
 	TaskRlimitsEntry *rls = core->tc->rlimits;
 	struct rlimit64 *r;
 
-	rlims_cpos = rst_mem_align_cpos(RM_PRIVATE);
+	ta->rlims = (struct rlimit64 *)rst_mem_align_cpos(RM_PRIVATE);
 
 	if (!rls)
-		return prepare_rlimits_from_fd(pid);
+		return prepare_rlimits_from_fd(pid, ta);
 
 	for (i = 0; i < rls->n_rlimits; i++) {
 		r = rst_mem_alloc(sizeof(*r), RM_PRIVATE);
@@ -2377,7 +2375,7 @@ static int prepare_rlimits(int pid, CoreEntry *core)
 		}
 	}
 
-	rlims_nr = rls->n_rlimits;
+	ta->rlims_n = rls->n_rlimits;
 	return 0;
 }
 
@@ -2834,13 +2832,13 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	task_args->timerfd = rst_mem_remap_ptr((unsigned long)task_args->timerfd, RM_PRIVATE);
 	task_args->posix_timers = rst_mem_remap_ptr((unsigned long)task_args->posix_timers, RM_PRIVATE);
 	task_args->siginfo = rst_mem_remap_ptr((unsigned long)task_args->siginfo, RM_PRIVATE);
+	task_args->rlims = rst_mem_remap_ptr((unsigned long)task_args->rlims, RM_PRIVATE);
 
 #define remap_array(name, nr, cpos)	do {				\
 		task_args->name##_n = nr;				\
 		task_args->name = rst_mem_remap_ptr(cpos, RM_PRIVATE);	\
 	} while (0)
 
-	remap_array(rlims,	  rlims_nr, rlims_cpos);
 	remap_array(helpers,	  n_helpers, helpers_pos);
 	remap_array(zombies,	  n_zombies, zombies_pos);
 	remap_array(seccomp_filters,	n_seccomp_filters, seccomp_filter_pos);
