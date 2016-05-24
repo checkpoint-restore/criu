@@ -2395,9 +2395,11 @@ static int do_new_mount(struct mount_info *mi)
 	if (tp->restore && tp->restore(mi))
 		return -1;
 
-	if (remount_ro)
-		return mount(NULL, mi->mountpoint, tp->name,
-			     MS_REMOUNT | MS_RDONLY, NULL);
+	if (remount_ro && mount(NULL, mi->mountpoint, tp->name,
+				     MS_REMOUNT | MS_RDONLY, NULL)) {
+		pr_perror("Unable to apply mount options");
+		return -1;
+	}
 
 	if (mflags && mount(NULL, mi->mountpoint, NULL,
 				MS_REMOUNT | MS_BIND | mflags, NULL)) {
