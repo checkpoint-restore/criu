@@ -93,7 +93,7 @@ function save_mountpoint {
 	# Nothing to do, if no file system is on top of autofs
 	check_fs_type $mountpoint "autofs" && return
 
-	bindmount=`$JOIN_CT mktemp -d`
+	bindmount=$($JOIN_CT mktemp -d)
 	if [ -z "$bindmount" ]; then
 		echo "Failed to create temporary directory"
 		return
@@ -121,7 +121,7 @@ function restore_mountpoint {
 
 function restart_service {
 	local service=$1
-	local mountpoint=`$JOIN_CT systemctl show $service -p Where | sed 's/.*=//g'`
+	local mountpoint=$($JOIN_CT systemctl show $service -p Where | sed 's/.*=//g')
 
 	if [ -z "$mountpoint" ]; then
 		echo "Failed to discover $service mountpoint"
