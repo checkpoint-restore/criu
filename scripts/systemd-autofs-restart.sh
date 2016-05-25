@@ -37,7 +37,7 @@ fi
 JOIN_CT="$NS_ENTER -t $CRTOOLS_INIT_PID -m -u -p"
 
 # Skip container, if it's not systemd based
-[ "$($JOIN_CT basename -- $(readlink /proc/1/exe))" == "systemd" ] || exit 0
+[ "$($JOIN_CT basename -- $($JOIN_CT readlink /proc/1/exe))" == "systemd" ] || exit 0
 
 AUTOFS_SERVICES="proc-sys-fs-binfmt_misc.automount"
 
