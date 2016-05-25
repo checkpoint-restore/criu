@@ -156,7 +156,7 @@ struct range rand_range6[] = {
 	{0, 2},	/* force_mld_version */
 	{0, 1},	/* force_tllao */
 	{0, 1},	/* forwarding */
-	{0, 255},	/* hop_limit */
+	{1, 255},	/* hop_limit */
 	{0, 1},	/* ignore_routes_with_linkdown */
 	{-1, 1},	/* keep_addr_on_down */
 	{0, MAX_ADDRESSES},	/* max_addresses */
