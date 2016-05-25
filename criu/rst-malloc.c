@@ -66,7 +66,18 @@ static int grow_remap(struct rst_mem_type_s *t, int flag, unsigned long size)
 		 */
 		aux = mmap(NULL, size, PROT_READ | PROT_WRITE,
 				flag | MAP_ANON, 0, 0);
-	else
+	else {
+		if (flag & MAP_SHARED) {
+			/*
+			 * Anon shared memory cannot grow with
+			 * mremap, anon-shmem file size doesn't
+			 * chage and memory access generates
+			 * SIGBUS. We should truncate the guy,
+			 * but for now we don't need it.
+			 */
+			pr_err("Can't grow RM_SHREMAP memory\n");
+			return -1;
+		}
 		/*
 		 * We'll have to remap all objects into restorer
 		 * address space and get their new addresses. Since
@@ -78,6 +89,7 @@ static int grow_remap(struct rst_mem_type_s *t, int flag, unsigned long size)
 		 */
 		aux = mremap(t->buf, t->size,
 				t->size + size, MREMAP_MAYMOVE);
+	}
 	if (aux == MAP_FAILED)
 		return -1;
 
