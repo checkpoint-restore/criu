@@ -82,6 +82,19 @@ def add_to_report(path, tgt_name):
 				os.mkdir(os.path.dirname(tgt_path))
 			shutil.copy2(path, tgt_path)
 
+def add_to_output(path):
+	global report_dir
+	if not report_dir:
+		return
+
+	fdi = open(path, "r")
+	fdo = open(os.path.join(report_dir, "output"), "a")
+	while True:
+		buf = fdi.read(1<<20)
+		if not buf:
+			break
+		fdo.write(buf)
+
 
 # Arch we run on
 arch = os.uname()[4]
@@ -1100,7 +1113,7 @@ class launcher:
 					print >> self.__file_report, testline
 					print >> self.__file_report, yaml.dump(details, explicit_start=True, explicit_end=True, default_style='|')
 				if sub['log']:
-					add_to_report(sub['log'], sub['name'].replace('/', '_') + "_" + failed_flavor + "/output")
+					add_to_output(sub['log'])
 			else:
 				if self.__file_report:
 					testline = "ok %d - %s" % (self.__runtest, sub['name'])
