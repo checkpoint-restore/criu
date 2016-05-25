@@ -191,7 +191,7 @@ static int open_shmem_sysv(int pid, struct vma_area *vma)
 	}
 
 	if (si->pid != SYSVIPC_SHMEM_PID) {
-		pr_err("SysV shmem vma %lx points to anon vma %lx\n",
+		pr_err("SysV shmem vma 0x%"PRIx64" points to anon vma %lx\n",
 				vme->start, si->shmid);
 		return -1;
 	}
