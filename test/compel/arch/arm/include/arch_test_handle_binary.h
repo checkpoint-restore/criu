@@ -2,7 +2,7 @@
 #define __ARCH_TEST_HANDLE_BINARY__
 
 #include "uapi/elf32-types.h"
-#define __run_tests	arch_run_tests
+#define arch_run_tests(mem) __run_tests(mem, "")
 
 static __maybe_unused void arch_test_set_elf_hdr_ident(void *mem)
 {

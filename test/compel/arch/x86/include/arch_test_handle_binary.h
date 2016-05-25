@@ -34,12 +34,12 @@ static __maybe_unused void arch_test_set_elf_hdr_machine(Ehdr_t *hdr)
 
 #endif /* CONFIG_X86_32 */
 
-extern void run_tests_64(void *mem);
-extern void run_tests_32(void *mem);
+extern void run_tests_64(void *mem, const char *msg);
+extern void run_tests_32(void *mem, const char *msg);
 
 static __maybe_unused void arch_run_tests(void *mem)
 {
-	run_tests_64(mem);
-	run_tests_32(mem);
+	run_tests_64(mem, "(64-bit ELF)");
+	run_tests_32(mem, "(32-bit ELF)");
 }
 #endif /* __ARCH_TEST_HANDLE_BINARY__ */
