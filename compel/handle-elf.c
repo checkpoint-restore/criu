@@ -93,7 +93,7 @@ static bool is_header_supported(Ehdr_t *hdr)
 
 static const char *get_strings_section(Ehdr_t *hdr, uintptr_t mem, size_t size)
 {
-	size_t sec_table_size = hdr->e_shentsize * hdr->e_shnum;
+	size_t sec_table_size = ((size_t) hdr->e_shentsize) * hdr->e_shnum;
 	uintptr_t sec_table = mem + hdr->e_shoff;
 	Shdr_t *secstrings_hdr;
 	uintptr_t addr;
@@ -108,7 +108,7 @@ static const char *get_strings_section(Ehdr_t *hdr, uintptr_t mem, size_t size)
 	 * strings section header's offset in section headers table is
 	 * (size of section header * index of string section header)
 	 */
-	addr = sec_table + hdr->e_shentsize * hdr->e_shstrndx;
+	addr = sec_table + ((size_t) hdr->e_shentsize) * hdr->e_shstrndx;
 	if (__ptr_struct_oob(addr, sizeof(Shdr_t),
 			sec_table, sec_table + sec_table_size)) {
 		pr_err("String section header @%#zx is out of [%#zx, %#zx)\n",
