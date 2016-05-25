@@ -111,7 +111,7 @@
 static struct pstree_item *current;
 
 static int restore_task_with_children(void *);
-static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core);
+static int sigreturn_restore(pid_t pid, struct task_restore_args *ta, unsigned long alen, CoreEntry *core);
 static int prepare_restorer_blob(void);
 static int prepare_rlimits(int pid, struct task_restore_args *, CoreEntry *core);
 static int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry *core);
@@ -483,7 +483,6 @@ static int prepare_mm(pid_t pid, struct task_restore_args *args);
 static int restore_one_alive_task(int pid, CoreEntry *core)
 {
 	unsigned args_len;
-	unsigned long ta_cp;
 	struct task_restore_args *ta;
 	pr_info("Restoring resources\n");
 
@@ -491,8 +490,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 
 	args_len = round_up(sizeof(*ta) + sizeof(struct thread_restore_args) *
 			current->nr_threads, page_size());
-	ta_cp = rst_mem_align_cpos(RM_PRIVATE);
-	ta = rst_mem_alloc(args_len, RM_PRIVATE);
+	ta = mmap(NULL, args_len, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, 0, 0);
 	if (!ta)
 		return -1;
 
@@ -560,7 +558,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_mm(pid, ta))
 		return -1;
 
-	return sigreturn_restore(pid, ta_cp, core);
+	return sigreturn_restore(pid, ta, args_len, core);
 }
 
 static void zombie_prepare_signals(void)
@@ -2671,7 +2669,7 @@ static int rst_prep_creds(pid_t pid, CoreEntry *core, unsigned long *creds_pos)
 	return 0;
 }
 
-static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
+static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, unsigned long alen, CoreEntry *core)
 {
 	void *mem = MAP_FAILED;
 	void *restore_thread_exec_start;
@@ -2684,7 +2682,6 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	long rst_mem_size;
 	long memzone_size;
 
-	struct task_restore_args *task_args;
 	struct thread_restore_args *thread_args;
 	struct restore_mem_zone *mz;
 
@@ -2725,7 +2722,7 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 
 	rst_mem_size = rst_mem_lock();
 	memzone_size = round_up(sizeof(struct restore_mem_zone) * current->nr_threads, page_size());
-	restore_bootstrap_len = restorer_len + memzone_size + rst_mem_size;
+	restore_bootstrap_len = restorer_len + memzone_size + alen + rst_mem_size;
 	BUG_ON(restore_bootstrap_len & (PAGE_SIZE - 1));
 	pr_info("%d threads require %ldK of memory\n",
 			current->nr_threads, KBYTES(restore_bootstrap_len));
@@ -2791,11 +2788,16 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	mz = mem;
 	mem += memzone_size;
 
+	task_args = mremap(task_args, alen, alen, MREMAP_MAYMOVE|MREMAP_FIXED, mem);
+	if (task_args != mem) {
+		pr_perror("Can't move task args");
+		goto err;
+	}
+
+	thread_args = (struct thread_restore_args *)(task_args + 1);
+	mem += alen;
 	if (rst_mem_remap(mem))
 		goto err;
-
-	task_args	= rst_mem_remap_ptr(ta_cp, RM_PRIVATE);
-	thread_args	= (struct thread_restore_args *)(task_args + 1);
 
 	/*
 	 * At this point we've found a gap in VM that fits in both -- current
@@ -2818,8 +2820,8 @@ static int sigreturn_restore(pid_t pid, unsigned long ta_cp, CoreEntry *core)
 	task_args->breakpoint = &rsti(current)->breakpoint;
 	task_args->task_entries = rst_mem_remap_ptr(task_entries_pos, RM_SHREMAP);
 
-	task_args->rst_mem = mem;
-	task_args->rst_mem_size = rst_mem_size;
+	task_args->rst_mem = mem - alen;
+	task_args->rst_mem_size = rst_mem_size + alen;
 
 	task_args->bootstrap_start = (void *)exec_mem_hint;
 	task_args->bootstrap_len = restore_bootstrap_len;
