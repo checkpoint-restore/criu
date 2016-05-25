@@ -202,10 +202,10 @@ $(eval $(call gen-built-in,images))
 .PHONY: .FORCE
 
 # Compel get used by CRIU, build it earlier
-compel/%:
+compel/%: .FORCE
 	$(Q) $(MAKE) $(build)=compel $@
 
-test/compel/%:
+test/compel/%: .FORCE
 	$(Q) $(MAKE) $(build)=compel $@
 
 #
