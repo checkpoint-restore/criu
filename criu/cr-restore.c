@@ -2672,13 +2672,11 @@ static int rst_prep_creds(pid_t pid, CoreEntry *core, unsigned long *creds_pos)
 static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, unsigned long alen, CoreEntry *core)
 {
 	void *mem = MAP_FAILED;
-	void *restore_thread_exec_start;
 	void *restore_task_exec_start;
 
-	long new_sp, exec_mem_hint;
+	long new_sp;
 	long ret;
 
-	long restore_bootstrap_len;
 	long rst_mem_size;
 	long memzone_size;
 
@@ -2722,10 +2720,10 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	rst_mem_size = rst_mem_lock();
 	memzone_size = round_up(sizeof(struct restore_mem_zone) * current->nr_threads, page_size());
-	restore_bootstrap_len = restorer_len + memzone_size + alen + rst_mem_size;
-	BUG_ON(restore_bootstrap_len & (PAGE_SIZE - 1));
+	task_args->bootstrap_len = restorer_len + memzone_size + alen + rst_mem_size;
+	BUG_ON(task_args->bootstrap_len & (PAGE_SIZE - 1));
 	pr_info("%d threads require %ldK of memory\n",
-			current->nr_threads, KBYTES(restore_bootstrap_len));
+			current->nr_threads, KBYTES(task_args->bootstrap_len));
 
 #ifdef CONFIG_VDSO
 	/*
@@ -2734,7 +2732,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	vdso_rt_size = vdso_vma_size(&vdso_sym_rt);
 	if (vdso_rt_size && vvar_vma_size(&vdso_sym_rt))
 		vdso_rt_size += ALIGN(vvar_vma_size(&vdso_sym_rt), PAGE_SIZE);
-	restore_bootstrap_len += vdso_rt_size;
+	task_args->bootstrap_len += vdso_rt_size;
 #endif
 
 	/*
@@ -2748,18 +2746,18 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 * or inited from scratch).
 	 */
 
-	exec_mem_hint = restorer_get_vma_hint(&vmas->h, &self_vmas.h,
-					      restore_bootstrap_len);
-	if (exec_mem_hint == -1) {
+	mem = (void *)restorer_get_vma_hint(&vmas->h, &self_vmas.h,
+					      task_args->bootstrap_len);
+	if (mem == (void *)-1) {
 		pr_err("No suitable area for task_restore bootstrap (%ldK)\n",
-		       restore_bootstrap_len);
+				task_args->bootstrap_len);
 		goto err;
 	}
 
-	pr_info("Found bootstrap VMA hint at: 0x%lx (needs ~%ldK)\n", exec_mem_hint,
-			KBYTES(restore_bootstrap_len));
+	pr_info("Found bootstrap VMA hint at: 0x%p (needs ~%ldK)\n",
+			mem, KBYTES(task_args->bootstrap_len));
 
-	ret = remap_restorer_blob((void *)exec_mem_hint);
+	ret = remap_restorer_blob(mem);
 	if (ret < 0)
 		goto err;
 
@@ -2767,34 +2765,39 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 * Prepare a memory map for restorer. Note a thread space
 	 * might be completely unused so it's here just for convenience.
 	 */
-	restore_thread_exec_start	= restorer_sym(exec_mem_hint, arch_export_restore_thread);
-	restore_task_exec_start		= restorer_sym(exec_mem_hint, arch_export_restore_task);
-	rsti(current)->munmap_restorer	= restorer_sym(exec_mem_hint, arch_export_unmap);
+	task_args->clone_restore_fn	= restorer_sym(mem, arch_export_restore_thread);
+	restore_task_exec_start		= restorer_sym(mem, arch_export_restore_task);
+	rsti(current)->munmap_restorer	= restorer_sym(mem, arch_export_unmap);
 
-	exec_mem_hint += restorer_len;
+	task_args->bootstrap_start = mem;
+	mem += restorer_len;
 
-	/* VMA we need to run task_restore code */
-	mem = mmap((void *)exec_mem_hint, memzone_size,
-			PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0);
-	if (mem != (void *)exec_mem_hint) {
+	/* VMA we need for stacks and sigframes for threads */
+	if (mmap(mem, memzone_size, PROT_READ | PROT_WRITE,
+			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0) != mem) {
 		pr_err("Can't mmap section for restore code\n");
 		goto err;
 	}
-
-	exec_mem_hint -= restorer_len;
 
 	memzero(mem, memzone_size);
 	mz = mem;
 	mem += memzone_size;
 
+	/* New home for task_restore_args and thread_restore_args */
 	task_args = mremap(task_args, alen, alen, MREMAP_MAYMOVE|MREMAP_FIXED, mem);
 	if (task_args != mem) {
 		pr_perror("Can't move task args");
 		goto err;
 	}
 
+	task_args->rst_mem = mem;
+	task_args->rst_mem_size = rst_mem_size + alen;
 	thread_args = (struct thread_restore_args *)(task_args + 1);
+
+	/*
+	 * And finally -- the rest arguments referenced by task_ and
+	 * thread_restore_args. Pointers will get remapped below.
+	 */
 	mem += alen;
 	if (rst_mem_remap(mem))
 		goto err;
@@ -2819,12 +2822,6 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	task_args->breakpoint = &rsti(current)->breakpoint;
 	task_args->task_entries = rst_mem_remap_ptr(task_entries_pos, RM_SHREMAP);
-
-	task_args->rst_mem = mem - alen;
-	task_args->rst_mem_size = rst_mem_size + alen;
-
-	task_args->bootstrap_start = (void *)exec_mem_hint;
-	task_args->bootstrap_len = restore_bootstrap_len;
 
 	task_args->premmapped_addr = (unsigned long)rsti(current)->premmapped_addr;
 	task_args->premmapped_len = rsti(current)->premmapped_len;
@@ -2951,7 +2948,6 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 * Now prepare run-time data for threads restore.
 	 */
 	task_args->nr_threads		= current->nr_threads;
-	task_args->clone_restore_fn	= (void *)restore_thread_exec_start;
 	task_args->thread_args		= thread_args;
 
 	/*
