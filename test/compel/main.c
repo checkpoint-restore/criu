@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdarg.h>
 
 #include "piegen.h"
 #include "arch_test_handle_binary.h"
@@ -22,22 +23,30 @@
 extern int handle_binary(void *mem, size_t size);
 extern void run_tests(void *mem);
 
+/* To shut down error printing on tests for failures */
 piegen_opt_t opts = {
 	.fout		= NULL,
 	.ferr		= NULL,
 	.fdebug		= NULL,
 };
 
-int launch_test(void *mem, int expected_ret, const char *test_name)
+int launch_test(void *mem, int expected_ret, const char *test_fmt, ...)
 {
 	static unsigned test_nr = 1;
 	int ret = handle_binary(mem, ELF_BUF_SIZE);
+	va_list params;
 
-	if (ret != expected_ret)
-		printf("not ok %u - %s, expected %d but ret is %d\n",
-				test_nr, test_name, expected_ret, ret);
-	else
-		printf("ok %u - %s\n", test_nr, test_name);
+	va_start(params, test_fmt);
+	if (ret != expected_ret) {
+		printf("not ok %u - ", test_nr);
+		vprintf(test_fmt, params);
+		printf(", expected %d but ret is %d\n", expected_ret, ret);
+	} else {
+		printf("ok %u - ", test_nr);
+		vprintf(test_fmt, params);
+		putchar('\n');
+	}
+	va_end(params);
 	test_nr++;
 	fflush(stdout);
 
