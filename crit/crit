@@ -236,7 +236,7 @@ def main():
 	decode_parser.add_argument('-o',
 			    '--out',
 			help = 'where to put criu image in json format (stdout by default)')
-	decode_parser.set_defaults(func=decode)
+	decode_parser.set_defaults(func=decode, nopl=False)
 
 	# Encode
 	encode_parser = subparsers.add_parser('encode',
