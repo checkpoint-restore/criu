@@ -141,8 +141,9 @@ include Makefile.versions
 
 VERSION_HEADER		:= $(SRC_DIR)/criu/include/version.h
 GITID_FILE		:= .gitid
-GITID			:= $(shell if [ -d ".git" ]; then git describe; fi)
+GITID		:= $(shell if [ -d ".git" ]; then git describe --always; fi)
 
+# Git repository wasn't inited in CRIU folder
 ifeq ($(GITID),)
         GITID := 0
 else
@@ -248,7 +249,16 @@ test: zdtm
 # "v" prefix stripped.
 head-name := $(shell git tag -l v$(CRIU_VERSION))
 ifeq ($(head-name),)
-        head-name := $(shell git describe)
+        head-name := $(shell git describe 2>/dev/null)
+endif
+# If no git tag could describe current commit,
+# use pre-defined CRIU_VERSION with GITID (if any).
+ifeq ($(head-name),)
+        ifneq ($(GITID),)
+                head-name := $(CRIU_VERSION)-$(GITID)
+        else
+                head-name := $(CRIU_VERSION)
+        endif
 endif
 tar-name := $(shell echo $(head-name) | sed -e 's/^v//g')
 criu-$(tar-name).tar.bz2:
