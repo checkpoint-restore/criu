@@ -118,10 +118,14 @@ static void copy_fhandle(char *tok, struct fanotify_mark_inode *inode)
 
 static int cmp_fanotify_obj(struct fanotify_obj *old, struct fanotify_obj *new)
 {
+	/*
+	 * mnt_id and s_dev may change during container migration,
+	 * moreover the backend (say PLOOP) may be re-mounted during
+	 * c/r, so exclude them.
+	 */
 	if ((old->glob.faflags != new->glob.faflags)			||
 	    (old->glob.evflags != new->glob.evflags)			||
 	    (old->inode.i_ino != new->inode.i_ino)			||
-	    (old->inode.s_dev != new->inode.s_dev)			||
 	    (old->inode.mflags != new->inode.mflags)			||
 	    (old->inode.mask != new->inode.mask)			||
 	    (old->inode.ignored_mask != new->inode.ignored_mask))
@@ -131,7 +135,6 @@ static int cmp_fanotify_obj(struct fanotify_obj *old, struct fanotify_obj *new)
 		   sizeof(new->inode.fhandle)))
 		return -2;
 
-	/* mnt_id may change, exclude it */
 	if ((old->mount.mflags != new->mount.mflags)			||
 	    (old->mount.mask != new->mount.mask)			||
 	    (old->mount.ignored_mask != new->mount.ignored_mask))
