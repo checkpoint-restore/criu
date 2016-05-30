@@ -27,8 +27,10 @@ compel-objs += handle-elf-32.o
 export HOSTCFLAGS_handle-elf-32.o += -DCONFIG_X86_32
 endif # ARCH == x86
 
+.PHONY: .FORCE
+
 export compel-objs
-test/compel/%:
+test/compel/%: .FORCE
 	$(Q) $(MAKE) $(build)=test/compel $@
 
 test: test/compel/test_handle_binary
