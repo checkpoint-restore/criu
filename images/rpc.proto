@@ -97,6 +97,10 @@ message criu_opts {
 	repeated string			external	= 37;
 	optional uint32			empty_ns	= 38;
 	repeated join_namespace		join_ns		= 39;
+
+	optional string			cgroup_props		= 41;
+	optional string			cgroup_props_file	= 42;
+	repeated string			cgroup_dump_controller	= 43;
 }
 
 message criu_dump_resp {

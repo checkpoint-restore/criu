@@ -700,6 +700,52 @@ err:
 	return -ENOMEM;
 }
 
+int criu_local_add_cg_props(criu_opts *opts, char *stream)
+{
+	char *new;
+
+	new = strdup(stream);
+	if (!new)
+		return -ENOMEM;
+
+	free(opts->rpc->cgroup_props);
+	opts->rpc->cgroup_props = new;
+	return 0;
+}
+
+int criu_local_add_cg_props_file(criu_opts *opts, char *path)
+{
+	char *new;
+
+	new = strdup(path);
+	if (!new)
+		return -ENOMEM;
+
+	free(opts->rpc->cgroup_props_file);
+	opts->rpc->cgroup_props_file = new;
+	return 0;
+}
+
+int criu_local_add_cg_dump_controller(criu_opts *opts, char *name)
+{
+	char **new;
+	size_t nr;
+
+	nr = opts->n_cgroup_dump_controller + 1;
+	new = realloc(opts->cgroup_dump_controller, nr * sizeof(char *));
+	if (!new)
+		return -ENOMEM;
+
+	new[opts->n_cgroup_dump_controller] = strdup(name);
+	if (!new[opts->n_cgroup_dump_controller])
+		return -ENOMEM;
+
+	opts->n_cgroup_dump_controller = nr;
+	opts->cgroup_dump_controller = new;
+
+	return 0;
+}
+
 int criu_add_skip_mnt(char *mnt)
 {
 	return criu_local_add_skip_mnt(global_opts, mnt);
