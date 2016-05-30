@@ -88,11 +88,12 @@ static int test_prepare_elf_header(void *elf)
 	return 0;
 }
 
-void __run_tests(void *mem, const char *msg)
+int __run_tests(void *mem, const char *msg)
 {
 	elf_addr = (uintptr_t)mem;
 	test_bitness = msg;
 
 	if (test_prepare_elf_header(mem))
-		return;
+		return 1;
+	return 0;
 }

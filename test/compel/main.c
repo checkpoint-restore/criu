@@ -56,8 +56,9 @@ int launch_test(void *mem, int expected_ret, const char *test_fmt, ...)
 int main(int argc, char **argv)
 {
 	void *elf_buf = malloc(test_elf_buf_size);
+	int ret;
 
-	arch_run_tests(elf_buf);
+	ret = arch_run_tests(elf_buf);
 	free(elf_buf);
-	return 0;
+	return ret;
 }
