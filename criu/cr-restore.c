@@ -2862,7 +2862,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 * Fill up per-thread data.
 	 */
 	creds_pos_next = creds_pos;
-	siginfo_n = 0;
+	siginfo_n = task_args->siginfo_n;
 	for (i = 0; i < current->nr_threads; i++) {
 		CoreEntry *tcore;
 		struct rt_sigframe *sigframe;
