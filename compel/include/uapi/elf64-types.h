@@ -7,6 +7,10 @@
 #define Rel_t		Elf64_Rel
 #define Rela_t		Elf64_Rela
 
+#define Off_t		Elf64_Off
+#define Word_t		Elf64_Word
+#define Half_t		Elf64_Half
+
 #define ELF_ST_TYPE	ELF64_ST_TYPE
 #define ELF_ST_BIND	ELF64_ST_BIND
 
