@@ -1,8 +1,11 @@
 #ifndef __ARCH_TEST_HANDLE_BINARY__
 #define __ARCH_TEST_HANDLE_BINARY__
 
+#include <string.h>
+
 #include "uapi/elf64-types.h"
 #define arch_run_tests(mem) __run_tests(mem, "")
+extern int __run_tests(void *mem, const char *msg);
 
 static __maybe_unused void arch_test_set_elf_hdr_ident(void *mem)
 {
