@@ -18,7 +18,7 @@
 #include "arch_test_handle_binary.h"
 
 /* size of buffer with formed ELF file */
-#define ELF_BUF_SIZE	4096
+const size_t test_elf_buf_size = 4096;
 
 extern int handle_binary(void *mem, size_t size);
 extern void run_tests(void *mem);
@@ -33,7 +33,7 @@ piegen_opt_t opts = {
 int launch_test(void *mem, int expected_ret, const char *test_fmt, ...)
 {
 	static unsigned test_nr = 1;
-	int ret = handle_binary(mem, ELF_BUF_SIZE);
+	int ret = handle_binary(mem, test_elf_buf_size);
 	va_list params;
 
 	va_start(params, test_fmt);
@@ -55,7 +55,7 @@ int launch_test(void *mem, int expected_ret, const char *test_fmt, ...)
 
 int main(int argc, char **argv)
 {
-	void *elf_buf = malloc(ELF_BUF_SIZE);
+	void *elf_buf = malloc(test_elf_buf_size);
 
 	arch_run_tests(elf_buf);
 	free(elf_buf);
