@@ -25,6 +25,7 @@ extern int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 #define PME_PFRAME(x)		((x) & PME_PFRAME_MASK)
 
 struct task_restore_args;
+int open_vmas(struct pstree_item *t);
 int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta);
 int unmap_guard_pages(struct pstree_item *t);
 int prepare_mappings(struct pstree_item *t);

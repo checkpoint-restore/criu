@@ -502,7 +502,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (prepare_file_locks(pid))
 		return -1;
 
-	if (prepare_vmas(current, ta))
+	if (open_vmas(current))
 		return -1;
 
 	if (prepare_aios(current, ta))
@@ -556,6 +556,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (prepare_mm(pid, ta))
+		return -1;
+
+	if (prepare_vmas(current, ta))
 		return -1;
 
 	return sigreturn_restore(pid, ta, args_len, core);

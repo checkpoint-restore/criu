@@ -879,9 +879,31 @@ int unmap_guard_pages(struct pstree_item *t)
 	return 0;
 }
 
-int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
+int open_vmas(struct pstree_item *t)
 {
 	int pid = t->pid.virt;
+	struct vma_area *vma;
+	struct vm_area_list *vmas = &rsti(t)->vmas;
+
+	list_for_each_entry(vma, &vmas->h, list) {
+		if (!vma_area_is(vma, VMA_AREA_REGULAR) || !vma->vm_open)
+			continue;
+
+		pr_info("Opening 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" (%x) vma\n",
+				vma->e->start, vma->e->end,
+				vma->e->pgoff, vma->e->status);
+
+		if (vma->vm_open(pid, vma)) {
+			pr_err("`- Can't open vma\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
+{
 	struct vma_area *vma;
 	struct vm_area_list *vmas = &rsti(t)->vmas;
 
@@ -890,17 +912,6 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 
 	list_for_each_entry(vma, &vmas->h, list) {
 		VmaEntry *vme;
-
-		if (vma_area_is(vma, VMA_AREA_REGULAR)) {
-			pr_info("Opening 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" (%x) vma\n",
-					vma->e->start, vma->e->end,
-					vma->e->pgoff, vma->e->status);
-
-			if (vma->vm_open && vma->vm_open(pid, vma)) {
-				pr_err("`- Can't open vma\n");
-				return -1;
-			}
-		}
 
 		vme = rst_mem_alloc(sizeof(*vme), RM_PRIVATE);
 		if (!vme)
