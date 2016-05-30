@@ -48,6 +48,9 @@ int check_namespace_opts(void)
 		pr_perror("Conflict flags: -join-ns and -empty-ns");
 		return -1;
 	}
+	if (join_ns_flags & CLONE_NEWUSER)
+		pr_warn("join-ns with user-namespace is not fully tested and dangerous");
+
 	errno = 0;
 	return 0;
 }

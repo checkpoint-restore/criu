@@ -834,6 +834,8 @@ usage:
 "			    --join-ns net:12345 or --join-ns net:/foo/bar.\n"
 "			Extra_opts is optional, for now only user namespace support:\n"
 "			    --join-ns user:PID,UID,GID to specify uid and gid.\n"
+"			Please NOTE: join-ns with user-namespace is not fully tested.\n"
+"			It may be dangerous to use this feature\n"
 "Check options:\n"
 "  without any arguments, \"criu check\" checks availability of absolutely required\n"
 "  kernel features; if any of these features is missing dump and restore will fail\n"
