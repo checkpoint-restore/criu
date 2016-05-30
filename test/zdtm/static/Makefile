@@ -45,6 +45,7 @@ TST_NOFILE	=				\
 		inotify_system			\
 		inotify_system_nodel		\
 		shm				\
+		shm-unaligned			\
 		shm-mp				\
 		ptrace_sig			\
 		pipe00				\
@@ -296,6 +297,9 @@ $(TST_DIR_FILE:%=%.pid):	%.pid:	%
 
 cmdlinenv00.pid: cmdlinenv00
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --arg1=arg1 --arg2=arg2 --arg3=arg3
+
+shm-unaligned.pid: shm-unaligned
+	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --shmem_size=5000
 
 env00.pid:	env00
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --envname=ENV_00_TEST

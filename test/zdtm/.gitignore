@@ -137,6 +137,7 @@
 /static/session02
 /static/session03
 /static/shm
+/static/shm-unaligned
 /static/shm-mp
 /static/sigaltstack
 /static/signalfd00

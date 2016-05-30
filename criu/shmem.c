@@ -161,7 +161,7 @@ int fixup_sysv_shmems(void)
 			 * Same thing is checked in open_shmem_sysv() for
 			 * intermediate holes.
 			 */
-			if (att->first->start + si->size != att->prev_end) {
+			if (att->first->start + round_up(si->size, page_size()) != att->prev_end) {
 				pr_err("Sysv shmem %lx with tail hole not supported\n", si->shmid);
 				return -1;
 			}
