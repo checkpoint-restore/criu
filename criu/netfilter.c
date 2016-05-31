@@ -20,7 +20,7 @@ static char buf[512];
  * ANy brave soul to write it using xtables-devel?
  */
 
-static const char *nf_conn_cmd = "%s -t filter %s %s --protocol tcp "
+static const char *nf_conn_cmd = "%s -w -t filter %s %s --protocol tcp "
 	"--source %s --sport %d --destination %s --dport %d -j DROP";
 
 static char iptable_cmd_ipv4[] = "iptables";
