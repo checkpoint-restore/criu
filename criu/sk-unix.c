@@ -364,11 +364,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 		 * until all sockets the program owns are processed.
 		 */
 		if (!peer->sd.already_dumped) {
-			if (list_empty(&peer->list)) {
-				show_one_unix("Add a peer", peer);
-				list_add_tail(&peer->list, &unix_sockets);
-			}
-
+			show_one_unix("Add a peer", peer);
 			list_add(&sk->peer_node, &peer->peer_list);
 			sk->fd = dup(lfd);
 			if (sk->fd < 0) {
@@ -464,7 +460,6 @@ dump:
 	if (list_empty(&sk->peer_node) && write_unix_entry(sk))
 		return -1;
 
-	list_del_init(&sk->list);
 	sk->sd.already_dumped = 1;
 
 	while (!list_empty(&sk->peer_list)) {
@@ -677,6 +672,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 	}
 
 	sk_collect_one(m->udiag_ino, AF_UNIX, &d->sd);
+	list_add_tail(&d->list, &unix_sockets);
 	show_one_unix("Collected", d);
 
 	return 0;
@@ -757,9 +753,10 @@ int fix_external_unix_sockets(void)
 		FownEntry fown = FOWN_ENTRY__INIT;
 		SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 
-		show_one_unix("Dumping extern", sk);
+		if (sk->sd.already_dumped)
+			continue;
 
-		BUG_ON(sk->sd.already_dumped);
+		show_one_unix("Dumping extern", sk);
 
 		fd_id_generate_special(NULL, &e.id);
 		e.ino		= sk->sd.ino;
