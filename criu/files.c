@@ -97,12 +97,26 @@ static inline struct file_desc *find_file_desc(FdinfoEntry *fe)
 	return find_file_desc_raw(fe->type, fe->id);
 }
 
+struct fdinfo_list_entry *find_used_fd(struct list_head *head, int fd)
+{
+	struct fdinfo_list_entry *fle;
+
+	list_for_each_entry_reverse(fle, head, used_list) {
+		if (fle->fe->fd == fd)
+			return fle;
+		/* List is ordered, so let's stop */
+		if (fle->fe->fd < fd)
+			break;
+	}
+	return NULL;
+}
+
 unsigned int find_unused_fd(struct list_head *head, int hint_fd)
 {
 	struct fdinfo_list_entry *fle;
 	int fd = 0, prev_fd;
 
-	if ((hint_fd >= 0) && (!fd_is_used(head, hint_fd))) {
+	if ((hint_fd >= 0) && (!find_used_fd(head, hint_fd))) {
 		fd = hint_fd;
 		goto out;
 	}

@@ -125,19 +125,8 @@ static inline void collect_gen_fd(struct fdinfo_list_entry *fle, struct rst_info
 	list_add_tail(&fle->ps_list, &ri->fds);
 }
 
-static inline bool fd_is_used(struct list_head *head, int fd)
-{
-	struct fdinfo_list_entry *fle;
-
-	list_for_each_entry(fle, head, used_list) {
-		if (fle->fe->fd == fd)
-			return true;
-	}
-
-	return false;
-}
-
 unsigned int find_unused_fd(struct list_head *head, int hint_fd);
+struct fdinfo_list_entry *find_used_fd(struct list_head *head, int fd);
 
 struct file_desc {
 	u32			id;		/* File id, unique */
