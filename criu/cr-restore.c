@@ -108,7 +108,7 @@
 #define arch_export_unmap		__export_unmap
 #endif
 
-static struct pstree_item *current;
+struct pstree_item *current;
 
 static int restore_task_with_children(void *);
 static int sigreturn_restore(pid_t pid, struct task_restore_args *ta, unsigned long alen, CoreEntry *core);

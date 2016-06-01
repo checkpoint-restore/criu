@@ -26,6 +26,8 @@ struct pstree_item {
 	TaskKobjIdsEntry	*ids;
 };
 
+struct pstree_item *current;
+
 struct rst_info;
 /* See alloc_pstree_item() for details */
 static inline struct rst_info *rsti(struct pstree_item *i)
