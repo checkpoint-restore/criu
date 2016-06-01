@@ -1339,10 +1339,29 @@ struct collect_image_info unix_sk_cinfo = {
 	.flags = COLLECT_SHARED,
 };
 
+static void interconnected_pair(struct unix_sk_info *ui, struct unix_sk_info *peer)
+{
+	struct fdinfo_list_entry *fle, *fle_peer;
+	/*
+	 * Select who will restore the pair. Check is identical to
+	 * the one in pipes.c and makes sure tasks wait for each other
+	 * in pids sorting order (ascending).
+	 */
+	fle = file_master(&ui->d);
+	fle_peer = file_master(&peer->d);
+
+	if (fdinfo_rst_prio(fle, fle_peer)) {
+		ui->flags |= USK_PAIR_MASTER;
+		peer->flags |= USK_PAIR_SLAVE;
+	} else {
+		peer->flags |= USK_PAIR_MASTER;
+		ui->flags |= USK_PAIR_SLAVE;
+	}
+}
+
 static int resolve_unix_peers(void *unused)
 {
 	struct unix_sk_info *ui, *peer;
-	struct fdinfo_list_entry *fle, *fle_peer;
 
 	list_for_each_entry(ui, &unix_sockets, list) {
 		if (ui->peer)
@@ -1367,25 +1386,10 @@ static int resolve_unix_peers(void *unused)
 		if (peer->ue->peer != ui->ue->ino)
 			continue;
 
-		/* socketpair or interconnected sockets */
 		peer->peer = ui;
 
-		/*
-		 * Select who will restore the pair. Check is identical to
-		 * the one in pipes.c and makes sure tasks wait for each other
-		 * in pids sorting order (ascending).
-		 */
-
-		fle = file_master(&ui->d);
-		fle_peer = file_master(&peer->d);
-
-		if (fdinfo_rst_prio(fle, fle_peer)) {
-			ui->flags |= USK_PAIR_MASTER;
-			peer->flags |= USK_PAIR_SLAVE;
-		} else {
-			peer->flags |= USK_PAIR_MASTER;
-			ui->flags |= USK_PAIR_SLAVE;
-		}
+		/* socketpair or interconnected sockets */
+		interconnected_pair(ui, peer);
 	}
 
 	pr_info("Unix sockets:\n");
