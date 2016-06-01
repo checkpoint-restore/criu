@@ -97,6 +97,31 @@ static inline struct file_desc *find_file_desc(FdinfoEntry *fe)
 	return find_file_desc_raw(fe->type, fe->id);
 }
 
+unsigned int find_unused_fd(struct list_head *head, int hint_fd)
+{
+	struct fdinfo_list_entry *fle;
+	int fd = 0, prev_fd;
+
+	if ((hint_fd >= 0) && (!fd_is_used(head, hint_fd))) {
+		fd = hint_fd;
+		goto out;
+	}
+
+	prev_fd = service_fd_min_fd() - 1;
+
+	list_for_each_entry_reverse(fle, head, used_list) {
+		fd = fle->fe->fd;
+		if (prev_fd > fd) {
+			fd++;
+			goto out;
+		}
+		prev_fd = fd - 1;
+	}
+	BUG();
+out:
+	return fd;
+}
+
 /*
  * A file may be shared between several file descriptors. E.g
  * when doing a fork() every fd of a forker and respective fds

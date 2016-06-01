@@ -409,6 +409,11 @@ static int __get_service_fd(enum sfd_type type, int service_fd_id)
 	return service_fd_rlim_cur - type - SERVICE_FD_MAX * service_fd_id;
 }
 
+int service_fd_min_fd(void)
+{
+	return service_fd_rlim_cur - (SERVICE_FD_MAX - 1) - SERVICE_FD_MAX * service_fd_id;
+}
+
 static DECLARE_BITMAP(sfd_map, SERVICE_FD_MAX);
 
 int reserve_service_fd(enum sfd_type type)

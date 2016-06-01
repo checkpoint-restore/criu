@@ -137,13 +137,7 @@ static inline bool fd_is_used(struct list_head *head, int fd)
 	return false;
 }
 
-static inline unsigned int find_unused_fd(struct list_head *head, int hint_fd)
-{
-	if ((hint_fd >= 0) && (!fd_is_used(head, hint_fd)))
-		return hint_fd;
-	/* Return last used fd +1 */
-	return list_entry(head->prev, typeof(struct fdinfo_list_entry), used_list)->fe->fd + 1;
-}
+unsigned int find_unused_fd(struct list_head *head, int hint_fd);
 
 struct file_desc {
 	u32			id;		/* File id, unique */
