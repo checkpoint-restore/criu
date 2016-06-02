@@ -528,7 +528,7 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 		struct iovec piov;
 		unsigned long pend;
 
-		ret = seek_pagemap_page(p, off, true);
+		ret = p->seek_page(p, off, true);
 		if (ret <= 0 || !p->pe)
 			return -1;
 

@@ -154,7 +154,7 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 		struct iovec tiov;
 		struct page_read * prp;
 
-		ret = seek_pagemap_page(pr, off, false);
+		ret = pr->seek_page(pr, off, false);
 		if (ret == -1)
 			return -1;
 
