@@ -59,12 +59,12 @@ void iovec2pagemap(struct iovec *iov, PagemapEntry *pe)
 
 static int get_pagemap(struct page_read *pr, struct iovec *iov)
 {
-	int ret;
 	PagemapEntry *pe;
 
-	ret = pb_read_one_eof(pr->pmi, &pe, PB_PAGEMAP);
-	if (ret <= 0)
-		return ret;
+	if (pr->curr_pme >= pr->nr_pmes)
+		return 0;
+
+	pe = pr->pmes[pr->curr_pme];
 
 	pagemap2iovec(pe, iov);
 
@@ -81,7 +81,7 @@ static int get_pagemap(struct page_read *pr, struct iovec *iov)
 
 static void put_pagemap(struct page_read *pr)
 {
-	pagemap_entry__free_unpacked(pr->pe, NULL);
+	pr->curr_pme++;
 }
 
 static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
@@ -216,6 +216,16 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr, 
 	return 1;
 }
 
+static void free_pagemaps(struct page_read *pr)
+{
+	int i;
+
+	for (i = 0; i < pr->nr_pmes; i++)
+		pagemap_entry__free_unpacked(pr->pmes[i], NULL);
+
+	xfree(pr->pmes);
+}
+
 static void close_page_read(struct page_read *pr)
 {
 	int ret;
@@ -233,9 +243,13 @@ static void close_page_read(struct page_read *pr)
 		xfree(pr->parent);
 	}
 
-	close_image(pr->pmi);
+	if (pr->pmi)
+		close_image(pr->pmi);
 	if (pr->pi)
 		close_image(pr->pi);
+
+	if (pr->pmes)
+		free_pagemaps(pr);
 }
 
 static int try_open_parent(int dfd, int pid, struct page_read *pr, int pr_flags)
@@ -269,6 +283,60 @@ err_free:
 	xfree(parent);
 err_cl:
 	close(pfd);
+	return -1;
+}
+
+/*
+ * The pagemap entry size is at least 8 bytes for small mappings with
+ * low address and may get to 18 bytes or even more for large mappings
+ * with high address and in_parent flag set. 16 seems to be nice round
+ * number to minimize {over,under}-allocations
+ */
+#define PAGEMAP_ENTRY_SIZE_ESTIMATE 16
+
+static int init_pagemaps(struct page_read *pr)
+{
+	off_t fsize;
+	int nr_pmes, nr_realloc;
+
+	fsize = img_raw_size(pr->pmi);
+	if (fsize < 0)
+		return -1;
+
+	nr_pmes = fsize / PAGEMAP_ENTRY_SIZE_ESTIMATE + 1;
+	nr_realloc = nr_pmes / 2;
+
+	pr->pmes = xzalloc(nr_pmes * sizeof(*pr->pmes));
+	if (!pr->pmes)
+		return -1;
+
+	pr->nr_pmes = pr->curr_pme = 0;
+
+	while (1) {
+		int ret = pb_read_one_eof(pr->pmi, &pr->pmes[pr->nr_pmes],
+					  PB_PAGEMAP);
+		if (ret < 0)
+			goto free_pagemaps;
+		if (ret == 0)
+			break;
+
+		pr->nr_pmes++;
+		if (pr->nr_pmes >= nr_pmes) {
+			nr_pmes += nr_realloc;
+			pr->pmes = xrealloc(pr->pmes,
+					    nr_pmes * sizeof(*pr->pmes));
+			if (!pr->pmes)
+				goto free_pagemaps;
+		}
+	}
+
+	return 0;
+
+	close_image(pr->pmi);
+	pr->pmi = NULL;
+
+free_pagemaps:
+	free_pagemaps(pr);
 	return -1;
 }
 
@@ -319,6 +387,11 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 
 	pr->pi = open_pages_image_at(dfd, flags, pr->pmi);
 	if (!pr->pi) {
+		close_page_read(pr);
+		return -1;
+	}
+
+	if (init_pagemaps(pr)) {
 		close_page_read(pr);
 		return -1;
 	}

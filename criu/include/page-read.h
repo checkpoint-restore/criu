@@ -67,6 +67,10 @@ struct page_read {
 	struct iovec bunch;		/* record consequent neighbour
 					   iovecs to punch together */
 	unsigned id; /* for logging */
+
+	PagemapEntry **pmes;
+	int nr_pmes;
+	int curr_pme;
 };
 
 #define PR_SHMEM	0x1
