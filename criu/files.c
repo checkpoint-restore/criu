@@ -391,7 +391,7 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 	const struct fdtype_ops *ops;
 
 	if (fill_fd_params(ctl, fd, lfd, opts, &p) < 0) {
-		pr_perror("Can't get stat on %d", fd);
+		pr_err("Can't get stat on %d\n", fd);
 		return -1;
 	}
 
