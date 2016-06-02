@@ -84,8 +84,6 @@ static void put_pagemap(struct page_read *pr)
 	pagemap_entry__free_unpacked(pr->pe, NULL);
 }
 
-static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr, void *buf);
-
 static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 {
 	if (!len)
