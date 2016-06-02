@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include "crtools.h"
 #include "cr_options.h"
 #include "imgset.h"
@@ -563,3 +564,14 @@ int read_img_str(struct cr_img *img, char **pstr, int size)
 	return 0;
 }
 
+off_t img_raw_size(struct cr_img *img)
+{
+	struct stat stat;
+
+	if (fstat(img->_x.fd, &stat)) {
+		pr_perror("Failed to get image stats\n");
+		return -1;
+	}
+
+	return stat.st_size;
+}
