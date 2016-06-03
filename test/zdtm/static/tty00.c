@@ -23,10 +23,13 @@ static void sighup_handler(int signo)
 int main(int argc, char ** argv)
 {
 	int fdm, fds, status;
+	task_waiter_t t;
 	char *slavename;
 	pid_t pid;
 
 	test_init(argc, argv);
+
+	task_waiter_init(&t);
 
 	fdm = open("/dev/ptmx", O_RDWR);
 	if (fdm == -1) {
@@ -64,12 +67,15 @@ int main(int argc, char ** argv)
 		}
 		close(fds);
 
+		task_waiter_complete_current(&t);
+
 		test_waitsig();
 		if (sighup)
 			return 0;
 		return 1;
 	}
 
+	task_waiter_wait4(&t, pid);
 
 	test_daemon();
 

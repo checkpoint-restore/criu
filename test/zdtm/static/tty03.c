@@ -15,11 +15,13 @@ const char *test_author	= "Andrey Vagin <avagin@openvz.org>";
 int main(int argc, char ** argv)
 {
 	int fdm, fds, exit_code = 1, status;
+	task_waiter_t t;
 	char *slavename;
 	pid_t sid_b, sid_a, pid;
 	int pfd[2];
 
 	test_init(argc, argv);
+	task_waiter_init(&t);
 
 	if (pipe(pfd) == -1) {
 		pr_perror("pipe");
@@ -62,12 +64,16 @@ int main(int argc, char ** argv)
 
 			close(pfd[1]);
 
+			task_waiter_complete(&t, 1);
 			test_waitsig();
 			exit(0);
 		}
 
 		close(fds);
 		close(pfd[1]);
+
+		task_waiter_wait4(&t, 1);
+		task_waiter_complete(&t, 0);
 
 		test_waitsig();
 
@@ -88,6 +94,7 @@ int main(int argc, char ** argv)
 		goto out;
 	}
 
+	task_waiter_wait4(&t, 0);
 	test_daemon();
 	test_waitsig();
 
