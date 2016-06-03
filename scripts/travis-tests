@@ -9,3 +9,6 @@ chmod a+x $HOME
 make
 make -C test/zdtm
 python test/zdtm.py run -a -f h,ns -x 'cgroup*'
+
+pip install flake8
+make lint

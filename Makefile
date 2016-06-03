@@ -321,6 +321,9 @@ help:
 	@echo '      gcov            - Make code coverage report'
 .PHONY: help
 
+lint:
+	flake8 --config=scripts/flake8.cfg test/zdtm.py
+
 include Makefile.install
 
 .DEFAULT_GOAL := all
