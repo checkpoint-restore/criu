@@ -39,6 +39,8 @@ int test_fork_id(int id)
 	return fork();
 }
 
+static int cwd = -1;
+
 #define INPROGRESS ".inprogress"
 static void test_fini(void)
 {
@@ -48,9 +50,9 @@ static void test_fini(void)
 		return;
 
 	snprintf(path, sizeof(path), "%s%s", outfile, INPROGRESS);
-	rename(path, outfile);
+	renameat(cwd, path, cwd, outfile);
 
-	unlink(pidfile);
+	unlinkat(cwd, pidfile, 0);
 }
 
 static void setup_outfile()
@@ -58,6 +60,12 @@ static void setup_outfile()
 	if (!access(outfile, F_OK) || errno != ENOENT) {
 		fprintf(stderr, "Output file %s appears to exist, aborting\n",
 			outfile);
+		exit(1);
+	}
+
+	cwd = open(".", O_RDONLY);
+	if (cwd < 0) {
+		fprintf(stderr, "Unable to open\n");
 		exit(1);
 	}
 
