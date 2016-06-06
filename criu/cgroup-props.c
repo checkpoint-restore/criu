@@ -335,6 +335,11 @@ static int cgp_parse_stream(char *stream, size_t len)
 			}
 		}
 
+		if (cgp_entry->cgp.nr_props == 0 && !eat_symbol(&stream, &len, ']', true)) {
+			pr_err("Expected ']' in empty property list for %s\n", cgp_entry->cgp.name);
+			goto err_parse;
+		}
+
 		if (!eat_symbol(&stream, &len, '\n', true) && len) {
 			pr_err("Expected \'\\n\' symbol in controller's %s stream\n",
 			       cgp_entry->cgp.name);
