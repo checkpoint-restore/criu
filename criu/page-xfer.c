@@ -32,12 +32,6 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 	iov->iov_len = ps->nr_pages * PAGE_SIZE;
 }
 
-static void iovec2psi(struct iovec *iov, struct page_server_iov *ps)
-{
-	ps->vaddr = encode_pointer(iov->iov_base);
-	ps->nr_pages = iov->iov_len / PAGE_SIZE;
-}
-
 #define PS_IOV_ADD	1
 #define PS_IOV_HOLE	2
 #define PS_IOV_OPEN	3
@@ -65,22 +59,36 @@ static long decode_pm_id(u64 dst_id)
 	return (long)(dst_id >> PS_TYPE_BITS);
 }
 
-/* page-server xfer */
-static int write_pagemap_to_server(struct page_xfer *xfer,
-		struct iovec *iov)
+static inline int send_psi(int sk, u32 cmd, u32 nr_pages, u64 vaddr, u64 dst_id)
 {
-	struct page_server_iov pi;
+	struct page_server_iov pi = {
+		.cmd		= cmd,
+		.nr_pages	= nr_pages,
+		.vaddr		= vaddr,
+		.dst_id		= dst_id,
+	};
 
-	pi.cmd = PS_IOV_ADD;
-	pi.dst_id = xfer->dst_id;
-	iovec2psi(iov, &pi);
-
-	if (write(xfer->sk, &pi, sizeof(pi)) != sizeof(pi)) {
-		pr_perror("Can't write pagemap to server");
+	if (write(sk, &pi, sizeof(pi)) != sizeof(pi)) {
+		pr_perror("Can't write PSI %d to server", cmd);
 		return -1;
 	}
 
 	return 0;
+}
+
+static inline int send_iov(int sk, u32 cmd, u64 dst_id, struct iovec *iov)
+{
+	u64 vaddr = encode_pointer(iov->iov_base);
+	u32 nr_pages = iov->iov_len / PAGE_SIZE;
+
+	return send_psi(sk, cmd, nr_pages, vaddr, dst_id);
+}
+
+/* page-server xfer */
+static int write_pagemap_to_server(struct page_xfer *xfer,
+		struct iovec *iov)
+{
+	return send_iov(xfer->sk, PS_IOV_ADD, xfer->dst_id, iov);
 }
 
 static int write_pages_to_server(struct page_xfer *xfer,
@@ -98,18 +106,7 @@ static int write_pages_to_server(struct page_xfer *xfer,
 
 static int write_hole_to_server(struct page_xfer *xfer, struct iovec *iov)
 {
-	struct page_server_iov pi;
-
-	pi.cmd = PS_IOV_HOLE;
-	pi.dst_id = xfer->dst_id;
-	iovec2psi(iov, &pi);
-
-	if (write(xfer->sk, &pi, sizeof(pi)) != sizeof(pi)) {
-		pr_perror("Can't write pagehole to server");
-		return -1;
-	}
-
-	return 0;
+	return send_iov(xfer->sk, PS_IOV_HOLE, xfer->dst_id, iov);
 }
 
 static void close_server_xfer(struct page_xfer *xfer)
@@ -119,7 +116,6 @@ static void close_server_xfer(struct page_xfer *xfer)
 
 static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 {
-	struct page_server_iov pi;
 	char has_parent;
 
 	xfer->sk = page_server_sk;
@@ -130,12 +126,7 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 	xfer->dst_id = encode_pm_id(fd_type, id);
 	xfer->parent = NULL;
 
-	pi.cmd = PS_IOV_OPEN2;
-	pi.dst_id = xfer->dst_id;
-	pi.vaddr = 0;
-	pi.nr_pages = 0;
-
-	if (write(xfer->sk, &pi, sizeof(pi)) != sizeof(pi)) {
+	if (send_psi(xfer->sk, PS_IOV_OPEN2, 0, 0, xfer->dst_id)) {
 		pr_perror("Can't write to page server");
 		return -1;
 	}
