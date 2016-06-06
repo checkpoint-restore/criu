@@ -12,6 +12,7 @@
 /static/cgroup01
 /static/cgroup02
 /static/cgroup03
+/static/cgroup04
 /static/cgroupns
 /static/cgroup_stray
 /static/child_opened_proc

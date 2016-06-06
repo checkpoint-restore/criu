@@ -224,6 +224,7 @@ TST_DIR		=				\
 		cgroup01			\
 		cgroup02			\
 		cgroup03			\
+		cgroup04			\
 		cgroup_stray		\
 		unlink_fstat04			\
 		mntns_open			\
