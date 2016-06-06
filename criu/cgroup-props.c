@@ -480,6 +480,12 @@ static int cgp_parse_builtins(void)
 			" - \"properties\": "
 			"[ "
 				"\"pids.current\" "
+			"]\n"
+		"\"devices\":\n"
+			" - \"strategy\": \"replace\"\n"
+			" - \"properties\": "
+			"[ "
+				"\"devices.list\" "
 			"]\n";
 
 	return cgp_parse_stream((void *)predefined_stream,

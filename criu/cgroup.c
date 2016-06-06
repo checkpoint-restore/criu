@@ -1253,6 +1253,46 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 				if (special)
 					continue;
 
+				/* The devices cgroup must be restored in a
+				 * special way: only the contents of
+				 * devices.list can be read, and it is a
+				 * whitelist of all the devices the cgroup is
+				 * allowed to create. To re-creat this
+				 * whitelist, we first deny everything via
+				 * devices.deny, and then write the list back
+				 * into devices.allow.
+				 */
+				if (!strcmp(e->properties[j]->name, "devices.list")) {
+					CgroupPropEntry *pe = e->properties[j];
+					char *old_val = pe->value, *old_name = pe->name;
+					int ret;
+
+					/* A bit of a fudge here. These are
+					 * write only by owner by default, but
+					 * the container engine could have
+					 * changed the perms. We should come up
+					 * with a better way to restore all of
+					 * this stuff.
+					 */
+					pe->perms->mode = 0200;
+
+					pe->name = "devices.deny";
+					pe->value = "a";
+					ret = restore_cgroup_prop(e->properties[j], path, off2);
+					pe->name = old_name;
+					pe->name = old_val;
+
+					if (ret < 0)
+						return -1;
+
+					pe->name = xstrdup("devices.allow");
+					if (!pe->name) {
+						pe->name = old_name;
+						return -1;
+					}
+					xfree(old_name);
+				}
+
 				if (restore_cgroup_prop(e->properties[j], path, off2) < 0)
 					return -1;
 			}
