@@ -6,15 +6,16 @@
 
 #define LO_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/lo"
 #define DEF_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/default"
+#define ALL_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/all"
 #define LO_CONF6_DIR_PATH "/proc/sys/net/ipv6/conf/lo"
 #define DEF_CONF6_DIR_PATH "/proc/sys/net/ipv6/conf/default"
+#define ALL_CONF6_DIR_PATH "/proc/sys/net/ipv6/conf/all"
 
 #define INT_MAX ((int)(~0U>>1))
 #define INT_MIN (-INT_MAX - 1)
 
 char *devconfs4[] = {
 	"accept_local",
-	"accept_redirects",
 	"accept_source_route",
 	"arp_accept",
 	"arp_announce",
@@ -28,6 +29,7 @@ char *devconfs4[] = {
 	"drop_unicast_in_l2_multicast",
 	"force_igmp_version",
 	"forwarding",
+	"accept_redirects",
 	"igmpv2_unsolicited_report_interval",
 	"igmpv3_unsolicited_report_interval",
 	"ignore_routes_with_linkdown",
@@ -54,7 +56,6 @@ struct range {
 
 struct range rand_range4[] = {
 	{0, 1},	/* accept_local */
-	{0, 1},	/* accept_redirects */
 	{-1, 0},	/* accept_source_route */
 	{0, 1},	/* arp_accept */
 	{0, 2},	/* arp_announce */
@@ -68,6 +69,7 @@ struct range rand_range4[] = {
 	{0, 1},	/* drop_unicast_in_l2_multicast */
 	{0, INT_MAX},	/* force_igmp_version */
 	{0, 1},	/* forwarding */
+	{0, 1},	/* accept_redirects */
 	{0, INT_MAX},	/* igmpv2_unsolicited_report_interval */
 	{0, INT_MAX},	/* igmpv3_unsolicited_report_interval */
 	{0, 1},	/* ignore_routes_with_linkdown */
@@ -96,7 +98,6 @@ char *devconfs6[] = {
 	"accept_ra_pinfo",
 	"accept_ra_rt_info_max_plen",
 	"accept_ra_rtr_pref",
-	"accept_redirects",
 	"accept_source_route",
 	"autoconf",
 	"dad_transmits",
@@ -106,6 +107,7 @@ char *devconfs6[] = {
 	"force_mld_version",
 	"force_tllao",
 	"forwarding",
+	"accept_redirects",
 	"hop_limit",
 	"ignore_routes_with_linkdown",
 	"keep_addr_on_down",
@@ -146,7 +148,6 @@ struct range rand_range6[] = {
 	{0, 1},	/* accept_ra_pinfo */
 	{0, INT_MAX},	/* accept_ra_rt_info_max_plen */
 	{0, 1},	/* accept_ra_rtr_pref */
-	{0, 1},	/* accept_redirects */
 	{-1, 0},	/* accept_source_route */
 	{0, 1},	/* autoconf */
 	{0, INT_MAX},	/* dad_transmits */
@@ -156,6 +157,7 @@ struct range rand_range6[] = {
 	{0, 2},	/* force_mld_version */
 	{0, 1},	/* force_tllao */
 	{0, 1},	/* forwarding */
+	{0, 1},	/* accept_redirects */
 	{1, 255},	/* hop_limit */
 	{0, 1},	/* ignore_routes_with_linkdown */
 	{-1, 1},	/* keep_addr_on_down */
@@ -187,7 +189,7 @@ struct test_conf {
 	int ipv6_conf_rand[ARRAY_SIZE(devconfs6)];
 	char *dir4;
 	char *dir6;
-} lo, def;
+} lo, def, all;
 
 static int save_conf(FILE *fp, int *conf, int *conf_rand,
 		struct range *range, char *path) {
@@ -432,51 +434,67 @@ int main(int argc, char **argv)
 
 	lo.dir4 = LO_CONF_DIR_PATH;
 	def.dir4 = DEF_CONF_DIR_PATH;
+	all.dir4 = ALL_CONF_DIR_PATH;
 	lo.dir6 = LO_CONF6_DIR_PATH;
 	def.dir6 = DEF_CONF6_DIR_PATH;
+	all.dir6 = ALL_CONF6_DIR_PATH;
 
 	test_init(argc, argv);
 
+	ret = for_each_option_do(save_conf, &all);
+	if (ret < 0)
+		return -1;
+	ret = for_each_option_do(save_conf, &def);
+	if (ret < 0)
+		return -1;
 	ret = for_each_option_do(save_conf, &lo);
 	if (ret < 0)
 		return -1;
+
+	ret = for_each_option_do(gen_conf, &all);
+	if (ret < 0)
+		return -1;
+	ret = for_each_option_do(gen_conf, &def);
+	if (ret < 0)
+		return -1;
 	ret = for_each_option_do(gen_conf, &lo);
+	if (ret < 0)
+		return -1;
+
+	ret = set_stable_secret(&def);
 	if (ret < 0)
 		return -1;
 	ret = set_stable_secret(&lo);
 	if (ret < 0)
 		return -1;
 
-	ret = for_each_option_do(save_conf, &def);
-	if (ret < 0)
-		return -1;
-	ret = for_each_option_do(gen_conf, &def);
-	if (ret < 0)
-		return -1;
-	ret = set_stable_secret(&def);
-	if (ret < 0)
-		return -1;
-
 	test_daemon();
 	test_waitsig();
 
+	ret = for_each_option_do(check_conf, &all);
+	if (ret < 0)
+		return -1;
+	ret = for_each_option_do(check_conf, &def);
+	if (ret < 0)
+		return -1;
 	ret = for_each_option_do(check_conf, &lo);
 	if (ret < 0)
 		return -1;
-	ret = for_each_option_do(restore_conf, &lo);
-	if (ret < 0)
-		return -1;
-	ret = check_stable_secret(&lo);
-	if (ret < 0)
-		return -1;
 
-	ret = for_each_option_do(check_conf, &def);
+	ret = for_each_option_do(restore_conf, &all);
 	if (ret < 0)
 		return -1;
 	ret = for_each_option_do(restore_conf, &def);
 	if (ret < 0)
 		return -1;
+	ret = for_each_option_do(restore_conf, &lo);
+	if (ret < 0)
+		return -1;
+
 	ret = check_stable_secret(&def);
+	if (ret < 0)
+		return -1;
+	ret = check_stable_secret(&lo);
 	if (ret < 0)
 		return -1;
 
