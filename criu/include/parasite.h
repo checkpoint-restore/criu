@@ -30,10 +30,8 @@ enum {
 	PARASITE_CMD_UNMAP,
 
 	/*
-	 * These two must be greater than INITs.
+	 * This must be greater than INITs.
 	 */
-	PARASITE_CMD_DAEMONIZED,
-
 	PARASITE_CMD_FINI,
 
 	PARASITE_CMD_MPROTECT_VMAS,
