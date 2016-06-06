@@ -133,4 +133,6 @@ void page_pipe_reinit(struct page_pipe *pp);
 extern int page_pipe_split(struct page_pipe *pp, unsigned long addr,
 			   unsigned int *nr_pages);
 
+extern void page_pipe_destroy_ppb(struct page_pipe_buf *ppb);
+
 #endif /* __CR_PAGE_PIPE_H__ */

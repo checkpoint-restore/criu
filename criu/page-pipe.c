@@ -442,6 +442,12 @@ int page_pipe_split(struct page_pipe *pp, unsigned long addr,
 	return 0;
 }
 
+void page_pipe_destroy_ppb(struct page_pipe_buf *ppb)
+{
+	list_del(&ppb->l);
+	ppb_destroy(ppb);
+}
+
 void debug_show_page_pipe(struct page_pipe *pp)
 {
 	struct page_pipe_buf *ppb;
