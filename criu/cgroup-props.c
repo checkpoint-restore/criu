@@ -409,8 +409,7 @@ static int cgp_parse_builtins(void)
 				"\"cpu.cfs_period_us\", "
 				"\"cpu.cfs_quota_us\", "
 				"\"cpu.rt_period_us\", "
-				"\"cpu.rt_runtime_us\", "
-				"\"notify_on_release\" "
+				"\"cpu.rt_runtime_us\" "
 			"]\n"
 		/* limit_in_bytes and memsw.limit_in_bytes must be set in this order */
 		"\"memory\":\n"
@@ -419,8 +418,7 @@ static int cgp_parse_builtins(void)
 			"[ "
 				"\"memory.limit_in_bytes\", "
 				"\"memory.memsw.limit_in_bytes\", "
-				"\"memory.use_hierarchy\", "
-				"\"notify_on_release\" "
+				"\"memory.use_hierarchy\" "
 			"]\n"
 		/*
 		 * cpuset.cpus and cpuset.mems must be set before the process moves
@@ -441,21 +439,18 @@ static int cgp_parse_builtins(void)
 				"\"cpuset.memory_spread_page\", "
 				"\"cpuset.memory_spread_slab\", "
 				"\"cpuset.sched_load_balance\", "
-				"\"cpuset.sched_relax_domain_level\", "
-				"\"notify_on_release\" "
+				"\"cpuset.sched_relax_domain_level\" "
 			"]\n"
 		"\"blkio\":\n"
 			" - \"strategy\": \"replace\"\n"
 			" - \"properties\": "
 			"[ "
-				"\"blkio.weight\", "
-				"\"notify_on_release\" "
+				"\"blkio.weight\" "
 			"]\n"
 		"\"freezer\":\n"
 			" - \"strategy\": \"replace\"\n"
 			" - \"properties\": "
 			"[ "
-				"\"notify_on_release\" "
 			"]\n";
 
 	return cgp_parse_stream((void *)predefined_stream,
