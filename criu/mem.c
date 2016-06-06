@@ -145,12 +145,16 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 
 	for (pfn = 0; pfn < nr_to_scan; pfn++) {
 		unsigned long vaddr;
+		unsigned int ppb_flags = 0;
 		int ret;
 
 		if (!should_dump_page(vma->e, at[pfn]))
 			continue;
 
 		vaddr = vma->e->start + *off + pfn * PAGE_SIZE;
+
+		if (vma_entry_can_be_lazy(vma->e))
+			ppb_flags |= PPB_LAZY;
 
 		/*
 		 * If we're doing incremental dump (parent images
@@ -163,7 +167,7 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 			ret = page_pipe_add_hole(pp, vaddr);
 			pages[0]++;
 		} else {
-			ret = page_pipe_add_page(pp, vaddr);
+			ret = page_pipe_add_page(pp, vaddr, ppb_flags);
 			pages[1]++;
 		}
 

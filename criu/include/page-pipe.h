@@ -95,6 +95,8 @@ struct page_pipe_buf {
 	unsigned int pipe_size;	/* how many pages can be fit into pipe */
 	unsigned int pages_in;	/* how many pages are there */
 	unsigned int nr_segs;	/* how many iov-s are busy */
+#define PPB_LAZY (1 << 0)
+	unsigned int flags;
 	struct iovec *iov;	/* vaddr:len map */
 	struct list_head l;	/* links into page_pipe->bufs */
 };
@@ -121,7 +123,8 @@ struct page_pipe {
 
 struct page_pipe *create_page_pipe(unsigned int nr_segs, struct iovec *iovs, unsigned flags);
 extern void destroy_page_pipe(struct page_pipe *p);
-extern int page_pipe_add_page(struct page_pipe *p, unsigned long addr);
+extern int page_pipe_add_page(struct page_pipe *p, unsigned long addr,
+			      unsigned int flags);
 extern int page_pipe_add_hole(struct page_pipe *p, unsigned long addr);
 
 extern void debug_show_page_pipe(struct page_pipe *pp);
