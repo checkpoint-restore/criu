@@ -81,7 +81,7 @@ function bind_mount {
 	local from=$1
 	local to=$2
 
-	$($JOIN_CT mount --bind $from $to) && return 0
+	$JOIN_CT mount --bind $from $to && return 0
 
 	echo "Failed to bind mount $from to $to"
 	return 1
@@ -111,7 +111,7 @@ function restore_mountpoint {
 
 	# Umount file system, remounted by systemd, if any
 	if ! check_fs_type $mountpoint "autofs"; then
-		$($JOIN_CT umount $mountpoint) || echo "Failed to umount $mountpoint"
+		$JOIN_CT umount $mountpoint || echo "Failed to umount $mountpoint"
 	fi
 
 	# Restore origin file system even if we failed to unmount the new one
