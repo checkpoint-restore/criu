@@ -59,7 +59,7 @@ function check_fs_type {
 	local top_mount_id=""
 	local top_mount_fs_type=""
 
-	while IFS='' read -r line || [[ -n "$line" ]]; do
+	while IFS='' read -r line; do
 		# Skip those entries which do not match the mountpoint
 		[ "$(echo $line | awk '{print $5;}')" = "$mountpoint" ] || continue
 
