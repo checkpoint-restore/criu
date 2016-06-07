@@ -96,7 +96,7 @@ function save_mountpoint {
 	bindmount=$($JOIN_CT mktemp -d)
 	if [ -z "$bindmount" ]; then
 		echo "Failed to create temporary directory"
-		return
+		return 1
 	fi
 
 	# No need to unmount fs on top of autofs:
