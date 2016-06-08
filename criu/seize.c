@@ -650,8 +650,9 @@ err_close:
 	return -1;
 }
 
-int collect_pstree(pid_t pid)
+int collect_pstree(void)
 {
+	pid_t pid = root_item->pid.real;
 	int ret = -1;
 
 	timing_start(TIME_FREEZING);
@@ -665,12 +666,6 @@ int collect_pstree(pid_t pid)
 
 	if (opts.freeze_cgroup && freeze_processes())
 		goto err;
-
-	root_item = alloc_pstree_item();
-	if (root_item == NULL)
-		goto err;
-
-	root_item->pid.real = pid;
 
 	if (!opts.freeze_cgroup && seize_catch_task(pid)) {
 		set_cr_errno(ESRCH);

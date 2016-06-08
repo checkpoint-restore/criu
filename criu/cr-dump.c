@@ -1471,6 +1471,11 @@ int cr_pre_dump_tasks(pid_t pid)
 	int ret = -1;
 	LIST_HEAD(ctls);
 
+	root_item = alloc_pstree_item();
+	if (!root_item)
+		goto err;
+	root_item->pid.real = pid;
+
 	if (!opts.track_mem) {
 		pr_info("Enforcing memory tracking for pre-dump.\n");
 		opts.track_mem = true;
@@ -1505,7 +1510,7 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (setup_alarm_handler())
 		goto err;
 
-	if (collect_pstree(pid))
+	if (collect_pstree())
 		goto err;
 
 	if (collect_pstree_ids_predump())
@@ -1616,6 +1621,11 @@ int cr_dump_tasks(pid_t pid)
 	pr_info("Dumping processes (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
+	root_item = alloc_pstree_item();
+	if (!root_item)
+		goto err;
+	root_item->pid.real = pid;
+
 	pre_dump_ret = run_scripts(ACT_PRE_DUMP);
 	if (pre_dump_ret != 0) {
 		pr_err("Pre dump script failed with %d!\n", pre_dump_ret);
@@ -1668,7 +1678,7 @@ int cr_dump_tasks(pid_t pid)
 	 * afterwards.
 	 */
 
-	if (collect_pstree(pid))
+	if (collect_pstree())
 		goto err;
 
 	if (collect_pstree_ids())
