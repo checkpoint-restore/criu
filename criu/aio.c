@@ -31,8 +31,10 @@ int dump_aio_ring(MmEntry *mme, struct vma_area *vma)
 	re->id = vma->e->start;
 	re->ring_len = vma->e->end - vma->e->start;
 	re->nr_req = aio_estimate_nr_reqs(re->ring_len);
-	if (!re->nr_req)
+	if (!re->nr_req) {
+		xfree(re);
 		return -1;
+	}
 	mme->aios[nr] = re;
 	mme->n_aios = nr + 1;
 	pr_info("Dumping AIO ring @%"PRIx64"-%"PRIx64"\n",
