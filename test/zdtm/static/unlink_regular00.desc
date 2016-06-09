@@ -1,1 +1,1 @@
-{'flavor': 'ns', 'flags': 'suid noauto'}
+{'flavor': 'ns', 'flags': 'suid crfail'}
