@@ -932,6 +932,26 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	return 0;
 }
 
+static bool task_is_trapped(int status, pid_t pid)
+{
+	if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP)
+		return true;
+
+	pr_err("Task %d is in unexpected state: %x\n", pid, status);
+	if (WIFEXITED(status))
+		pr_err("Task exited with %d\n", WEXITSTATUS(status));
+	if (WIFSIGNALED(status))
+		pr_err("Task signaled with %d: %s\n",
+			WTERMSIG(status), strsignal(WTERMSIG(status)));
+	if (WIFSTOPPED(status))
+		pr_err("Task stopped with %d: %s\n",
+			WSTOPSIG(status), strsignal(WSTOPSIG(status)));
+	if (WIFCONTINUED(status))
+		pr_err("Task continued\n");
+
+	return false;
+}
+
 /*
  * Trap tasks on the exit from the specified syscall
  *
@@ -955,10 +975,8 @@ int parasite_stop_on_syscall(int tasks, const int sys_nr, enum trace_flags trace
 			return -1;
 		}
 
-		if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP) {
-			pr_err("Task is in unexpected state: %x\n", status);
+		if (!task_is_trapped(status, pid))
 			return -1;
-		}
 
 		pr_debug("%d was trapped\n", pid);
 
@@ -994,10 +1012,8 @@ int parasite_stop_on_syscall(int tasks, const int sys_nr, enum trace_flags trace
 				return -1;
 			}
 
-			if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP) {
-				pr_err("Task is in unexpected state: %x\n", status);
+			if (!task_is_trapped(status, pid))
 				return -1;
-			}
 
 			pr_debug("%d was stopped\n", pid);
 			tasks--;
