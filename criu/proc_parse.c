@@ -423,7 +423,7 @@ int parse_self_maps_lite(struct vm_area_list *vms)
 			prev = vma;
 		}
 
-		pr_debug("Parsed %"PRIx64"-%"PRIx64" vma\n", vma->e->start, vma->e->end);
+		pr_debug("Parsed %"PRIx64"-%"PRIx64" vma\n", prev->e->start, prev->e->end);
 	}
 
 	fclose(maps);
