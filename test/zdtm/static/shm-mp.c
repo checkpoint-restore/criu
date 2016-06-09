@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
-	id = shmget(key, 2 * 4096, 0777 | IPC_CREAT | IPC_EXCL);
+	id = shmget(key, 2 * PAGE_SIZE, 0777 | IPC_CREAT | IPC_EXCL);
 	if (id == -1) {
 		pr_perror("Can't make seg");
 		goto out;
@@ -86,9 +86,9 @@ int main(int argc, char **argv)
 	}
 
 	mem[0] = 'R';
-	mem[4096] = 'W';
+	mem[PAGE_SIZE] = 'W';
 
-	if (mprotect(mem, 4096, PROT_READ)) {
+	if (mprotect(mem, PAGE_SIZE, PROT_READ)) {
 		pr_perror("Can't mprotect shmem");
 		goto out_dt;
 	}
@@ -98,7 +98,7 @@ int main(int argc, char **argv)
 
 	if (check_prot(mem, 'R', PROT_READ))
 		f++;
-	if (check_prot(mem + 4096, 'W', PROT_READ | PROT_WRITE))
+	if (check_prot(mem + PAGE_SIZE, 'W', PROT_READ | PROT_WRITE))
 		f++;
 
 
