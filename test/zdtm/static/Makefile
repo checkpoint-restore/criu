@@ -45,7 +45,6 @@ TST_NOFILE	=				\
 		inotify_system			\
 		inotify_system_nodel		\
 		shm				\
-		shm-unaligned			\
 		shm-mp				\
 		ptrace_sig			\
 		pipe00				\
@@ -259,6 +258,7 @@ TST		=				\
 		fifo-rowo-pair			\
 		umask00				\
 		cmdlinenv00			\
+		shm-unaligned			\
 
 TST_STATE	=				\
 		conntracks			\
