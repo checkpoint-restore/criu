@@ -101,6 +101,8 @@ message criu_opts {
 	optional string			cgroup_props		= 41;
 	optional string			cgroup_props_file	= 42;
 	repeated string			cgroup_dump_controller	= 43;
+
+	optional string			freeze_cgroup		= 44;
 }
 
 message criu_dump_resp {

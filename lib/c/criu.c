@@ -385,6 +385,16 @@ void criu_set_manage_cgroups_mode(enum criu_cg_mode mode)
 	criu_local_set_manage_cgroups_mode(global_opts, mode);
 }
 
+void criu_local_set_freeze_cgroup(criu_opts *opts, char *name)
+{
+	opts->rpc->freeze_cgroup = name;
+}
+
+void criu_set_freeze_cgroup(char *name)
+{
+	criu_local_set_freeze_cgroup(global_opts, name);
+}
+
 void criu_local_set_auto_ext_mnt(criu_opts *opts, bool val)
 {
 	opts->rpc->has_auto_ext_mnt = true;

@@ -454,6 +454,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		opts.manage_cgroups = mode;
 	}
 
+	if (req->freeze_cgroup)
+		opts.freeze_cgroup = req->freeze_cgroup;
+
 	if (req->cgroup_props)
 		opts.cgroup_props = req->cgroup_props;
 
