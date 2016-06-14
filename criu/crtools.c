@@ -279,6 +279,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "cgroup-props",		required_argument,	0, 1080	},
 		{ "cgroup-props-file",		required_argument,	0, 1081	},
 		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
+		{ SK_INFLIGHT_PARAM,		no_argument,		0, 1083	},
 		{ },
 	};
 
@@ -583,6 +584,10 @@ int main(int argc, char *argv[], char *envp[])
 			if (!cgp_add_dump_controller(optarg))
 				return 1;
 			break;
+		case 1083:
+			pr_msg("Will skip in-flight TCP connections\n");
+			opts.tcp_skip_in_flight = true;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -791,6 +796,10 @@ usage:
 "* Special resources support:\n"
 "  -x|--" USK_EXT_PARAM "inode,.." "      allow external unix connections (optionally can be assign socket's inode that allows one-sided dump)\n"
 "     --" SK_EST_PARAM "  checkpoint/restore established TCP connections\n"
+"     --" SK_INFLIGHT_PARAM "   this option skips in-flight TCP connections.\n"
+"                        if TCP connections are found which are not yet completely\n"
+"                        established, criu will ignore these connections in favor\n"
+"                        of erroring out.\n"
 "  -r|--root PATH        change the root filesystem (when run in mount namespace)\n"
 "  --evasive-devices     use any path to a device file if the original one\n"
 "                        is inaccessible\n"

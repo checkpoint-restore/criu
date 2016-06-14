@@ -72,6 +72,7 @@ extern int dump_one_tcp(int sk, struct inet_sk_desc *sd);
 extern int restore_one_tcp(int sk, struct inet_sk_info *si);
 
 #define SK_EST_PARAM	"tcp-established"
+#define SK_INFLIGHT_PARAM "skip-in-flight"
 
 extern int check_tcp(void);
 

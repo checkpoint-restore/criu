@@ -144,6 +144,11 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 	switch (sk->state) {
 	case TCP_LISTEN:
 		if (sk->rqlen != 0) {
+			if (opts.tcp_skip_in_flight) {
+				pr_info("Skipping in-flight connection (l) for %x\n",
+						sk->sd.ino);
+				break;
+			}
 			/*
 			 * Currently the ICONS nla reports the conn
 			 * requests for listen sockets. Need to pick
@@ -151,6 +156,8 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 			 */
 			pr_err("In-flight connection (l) for %x\n",
 					sk->sd.ino);
+			pr_err("In-flight connections can be ignored with the"
+					"--%s option.\n", SK_INFLIGHT_PARAM);
 			return 0;
 		}
 		break;
