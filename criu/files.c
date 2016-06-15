@@ -1150,26 +1150,18 @@ out:
 
 static int fchroot(int fd)
 {
-	char fd_path[PSFDS];
-	int proc;
-
 	/*
 	 * There's no such thing in syscalls. We can emulate
-	 * it using the /proc/self/fd/ :)
-	 *
-	 * But since there might be no /proc mount in our mount
-	 * namespace, we will have to ... workaround it.
+	 * it using fchdir()
 	 */
 
-	proc = get_service_fd(PROC_FD_OFF);
-	if (fchdir(proc) < 0) {
+	if (fchdir(fd) < 0) {
 		pr_perror("Can't chdir to proc");
 		return -1;
 	}
 
-	sprintf(fd_path, "./self/fd/%d", fd);
-	pr_debug("Going to chroot into %s\n", fd_path);
-	return chroot(fd_path);
+	pr_debug("Going to chroot into /proc/self/fd/%d\n", fd);
+	return chroot(".");
 }
 
 int restore_fs(struct pstree_item *me)
@@ -1195,9 +1187,8 @@ int restore_fs(struct pstree_item *me)
 	}
 
 	/*
-	 * Now do chroot/chdir. Chroot goes first as it
-	 * calls chdir into proc service descriptor so
-	 * we'd need to fix chdir after it anyway.
+	 * Now do chroot/chdir. Chroot goes first as it calls chdir into
+	 * dd_root so we'd need to fix chdir after it anyway.
 	 */
 
 	ret = fchroot(dd_root);
