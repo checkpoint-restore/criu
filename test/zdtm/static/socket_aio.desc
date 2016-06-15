@@ -1,1 +1,1 @@
-{'opts': '--tcp-established'}
+{'opts': '--tcp-established', 'flags' : 'nouser'}
