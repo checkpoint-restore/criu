@@ -55,6 +55,8 @@ for imgf in find.stdout.readlines():
 		continue
 	if imgf_b.startswith('netns-exp-'):
 		continue
+	if imgf_b.startswith('rule-'):
+		continue
 
 	o_img = open(imgf).read()
 	if not recode_and_check(imgf, o_img, False):
