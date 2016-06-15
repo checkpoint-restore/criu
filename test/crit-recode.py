@@ -5,7 +5,7 @@ import sys
 import os
 import subprocess
 
-find = subprocess.Popen(['find', 'test/dump/', '-name', '*.img'],
+find = subprocess.Popen(['find', 'test/dump/', '-size', '+0', '-name', '*.img'],
 		stdout = subprocess.PIPE)
 
 test_pass = True
