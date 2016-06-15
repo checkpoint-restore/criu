@@ -156,7 +156,7 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 			 */
 			pr_err("In-flight connection (l) for %x\n",
 					sk->sd.ino);
-			pr_err("In-flight connections can be ignored with the"
+			pr_err("In-flight connections can be ignored with the "
 					"--%s option.\n", SK_INFLIGHT_PARAM);
 			return 0;
 		}
