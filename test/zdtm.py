@@ -714,7 +714,10 @@ class criu_cli:
 		if self.__script:
 			s_args += ['--action-script', self.__script]
 
-		preexec = self.__user and self.set_user_id or None
+		if action == "restore":
+			preexec = None
+		else:
+			preexec = self.__user and self.set_user_id or None
 
 		__ddir = self.__ddir()
 
