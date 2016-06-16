@@ -13,6 +13,9 @@ Pages worth starting with are:
 - [A simple example of usage](http://criu.org/Simple_loop)
 - [More sophisticated example with graphical app](http://criu.org/VNC)
 
+### A video tour on basic CRIU features
+[![CRIU introduction](https://asciinema.org/a/7fnt2prsumvxiwf3ng61fgct3.png)](https://asciinema.org/a/7fnt2prsumvxiwf3ng61fgct3)
+
 ### How to contribute
 
 * [How to submit patches](http://criu.org/How_to_submit_patches);
