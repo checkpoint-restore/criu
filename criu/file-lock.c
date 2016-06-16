@@ -339,39 +339,16 @@ static int restore_file_locks(int pid)
 	return ret;
 }
 
-static int restore_file_locks_legacy(int pid)
-{
-	int ret = -1;
-	struct cr_img *img;
-	FileLockEntry *fle;
-
-	img = open_image(CR_FD_FILE_LOCKS_PID, O_RSTR, pid);
-	if (!img)
-		return -1;
-
-	while (1) {
-		ret = pb_read_one_eof(img, &fle, PB_FILE_LOCK);
-		if (ret <= 0)
-			break;
-
-		ret = restore_file_lock(fle);
-		file_lock_entry__free_unpacked(fle, NULL);
-		if (ret)
-			break;
-	}
-
-	close_image(img);
-	return ret;
-}
-
 int prepare_file_locks(int pid)
 {
 	if (!opts.handle_file_locks)
 		return 0;
 
-	pr_info("Restore file locks.\n");
-	if (file_locks_cinfo.flags & COLLECT_HAPPENED)
-		return restore_file_locks(pid);
+	if (!(file_locks_cinfo.flags & COLLECT_HAPPENED)) {
+		pr_warn("Per-pid file locks are deprecated\n");
+		return -1;
+	}
 
-	return restore_file_locks_legacy(pid);
+	return restore_file_locks(pid);
+
 }
