@@ -66,10 +66,8 @@ int mount_and_add(const char *controller, const char *path, const char *prop, co
 
 	sprintf(aux, "%d", getpid());
 	sprintf(paux, "%s/%s/tasks", subdir, path);
-	/*
 	if (write_value(paux, aux) < 0)
 		goto err_rs;
-	*/
 
 	return 0;
 err_rs:
