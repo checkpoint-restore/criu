@@ -15,36 +15,6 @@
 #define SEEK_HOLE	4
 #endif
 
-static int get_page_vaddr(struct page_read *pr, struct iovec *iov)
-{
-	int ret;
-	u64 img_va;
-
-	ret = read_img_eof(pr->pmi, &img_va);
-	if (ret <= 0)
-		return ret;
-
-	iov->iov_base = (void *)decode_pointer(img_va);
-	iov->iov_len = PAGE_SIZE;
-
-	return 1;
-}
-
-static int read_page(struct page_read *pr, unsigned long vaddr, int nr, void *buf)
-{
-	int ret;
-
-	BUG_ON(nr != 1);
-
-	ret = read(img_raw_fd(pr->pmi), buf, PAGE_SIZE);
-	if (ret != PAGE_SIZE) {
-		pr_err("Can't read mapping page %d\n", ret);
-		return -1;
-	}
-
-	return 1;
-}
-
 void pagemap2iovec(PagemapEntry *pe, struct iovec *iov)
 {
 	iov->iov_base = decode_pointer(pe->vaddr);
@@ -342,7 +312,7 @@ free_pagemaps:
 
 int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 {
-	int flags, i_typ, i_typ_o;
+	int flags, i_typ;
 	static unsigned ids = 1;
 
 	if (opts.auto_dedup)
@@ -355,11 +325,9 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	switch (pr_flags & PR_TYPE_MASK) {
 	case PR_TASK:
 		i_typ = CR_FD_PAGEMAP;
-		i_typ_o = CR_FD_PAGES_OLD;
 		break;
 	case PR_SHMEM:
 		i_typ = CR_FD_SHMEM_PAGEMAP;
-		i_typ_o = CR_FD_SHM_PAGES_OLD;
 		break;
 	default:
 		BUG();
@@ -377,7 +345,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 
 	if (empty_image(pr->pmi)) {
 		close_image(pr->pmi);
-		goto open_old;
+		return 0;
 	}
 
 	if ((i_typ != CR_FD_SHMEM_PAGEMAP) && try_open_parent(dfd, pid, pr, pr_flags)) {
@@ -405,25 +373,6 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 
 	pr_debug("Opened page read %u (parent %u)\n",
 			pr->id, pr->parent ? pr->parent->id : 0);
-
-	return 1;
-
-open_old:
-	pr->pmi = open_image_at(dfd, i_typ_o, flags, pid);
-	if (!pr->pmi)
-		return -1;
-
-	if (empty_image(pr->pmi)) {
-		close_image(pr->pmi);
-		return 0;
-	}
-
-	pr->get_pagemap = get_page_vaddr;
-	pr->put_pagemap = NULL;
-	pr->read_pages = read_page;
-	pr->pi = NULL;
-	pr->close = close_page_read;
-	pr->seek_page = NULL;
 
 	return 1;
 }
