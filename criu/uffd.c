@@ -731,6 +731,7 @@ static int handle_requests(int epollfd, struct epoll_event *events)
 
 		for (i = 0; i < ret; i++) {
 			lpi = uffd_to_lpi(events[i].data.fd);
+			BUG_ON(!lpi);
 			ret = handle_user_fault(lpi, dest);
 			if (ret < 0)
 				goto out;
