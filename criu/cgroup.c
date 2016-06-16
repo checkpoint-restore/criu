@@ -1280,7 +1280,7 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 					pe->value = "a";
 					ret = restore_cgroup_prop(e->properties[j], path, off2);
 					pe->name = old_name;
-					pe->name = old_val;
+					pe->value = old_val;
 
 					if (ret < 0)
 						return -1;
