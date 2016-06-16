@@ -96,7 +96,6 @@
 
 #define CR_PARENT_LINK "parent"
 
-extern bool fdinfo_per_id;
 extern bool ns_per_id;
 extern bool img_common_magic;
 

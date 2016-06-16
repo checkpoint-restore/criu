@@ -695,21 +695,15 @@ int prepare_fd_pid(struct pstree_item *item)
 	INIT_LIST_HEAD(&rst_info->tty_slaves);
 	INIT_LIST_HEAD(&rst_info->tty_ctty);
 
-	if (!fdinfo_per_id) {
-		img = open_image(CR_FD_FDINFO, O_RSTR, pid);
-		if (!img)
-			return -1;
-	} else {
-		if (item->ids == NULL) /* zombie */
-			return 0;
+	if (item->ids == NULL) /* zombie */
+		return 0;
 
-		if (rsti(item)->fdt && rsti(item)->fdt->pid != item->pid.virt)
-			return 0;
+	if (rsti(item)->fdt && rsti(item)->fdt->pid != item->pid.virt)
+		return 0;
 
-		img = open_image(CR_FD_FDINFO, O_RSTR, item->ids->files_id);
-		if (!img)
-			return -1;
-	}
+	img = open_image(CR_FD_FDINFO, O_RSTR, item->ids->files_id);
+	if (!img)
+		return -1;
 
 	while (1) {
 		FdinfoEntry *e;

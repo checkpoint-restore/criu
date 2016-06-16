@@ -14,7 +14,6 @@
 #include "images/inventory.pb-c.h"
 #include "images/pagemap.pb-c.h"
 
-bool fdinfo_per_id = false;
 bool ns_per_id = false;
 bool img_common_magic = true;
 TaskKobjIdsEntry *root_ids;
@@ -34,7 +33,11 @@ int check_img_inventory(void)
 	if (pb_read_one(img, &he, PB_INVENTORY) < 0)
 		goto out_close;
 
-	fdinfo_per_id = he->has_fdinfo_per_id ?  he->fdinfo_per_id : false;
+	if (!he->has_fdinfo_per_id || !he->fdinfo_per_id) {
+		pr_err("Too old image, no longer supported\n");
+		goto out_close;
+	}
+
 	ns_per_id = he->has_ns_per_id ? he->ns_per_id : false;
 
 	if (he->root_ids) {
