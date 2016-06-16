@@ -330,7 +330,7 @@ static int restore_socket_filter(int sk, SkOptsEntry *soe)
 
 static struct socket_desc *sockets[SK_HASH_SIZE];
 
-struct socket_desc *lookup_socket(int ino, int family, int proto)
+struct socket_desc *lookup_socket(unsigned ino, int family, int proto)
 {
 	struct socket_desc *sd;
 
@@ -350,7 +350,7 @@ struct socket_desc *lookup_socket(int ino, int family, int proto)
 	return NULL;
 }
 
-int sk_collect_one(int ino, int family, struct socket_desc *d)
+int sk_collect_one(unsigned ino, int family, struct socket_desc *d)
 {
 	struct socket_desc **chain;
 

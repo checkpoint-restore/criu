@@ -33,7 +33,7 @@ extern void preload_socket_modules();
 
 extern bool socket_test_collect_bit(unsigned int family, unsigned int proto);
 
-extern int sk_collect_one(int ino, int family, struct socket_desc *d);
+extern int sk_collect_one(unsigned ino, int family, struct socket_desc *d);
 struct ns_id;
 extern int collect_sockets(struct ns_id *);
 extern int collect_inet_sockets(void);
@@ -42,7 +42,7 @@ extern int fix_external_unix_sockets(void);
 
 extern struct collect_image_info netlink_sk_cinfo;
 
-extern struct socket_desc *lookup_socket(int ino, int family, int proto);
+extern struct socket_desc *lookup_socket(unsigned ino, int family, int proto);
 
 extern const struct fdtype_ops unix_dump_ops;
 extern const struct fdtype_ops inet_dump_ops;
