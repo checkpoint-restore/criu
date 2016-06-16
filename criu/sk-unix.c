@@ -958,32 +958,35 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 	if (prep_unix_sk_cwd(ui, &cwd_fd))
 		return -1;
 
-	if (bind(sk, (struct sockaddr *)&addr,
-				sizeof(addr.sun_family) + ui->ue->name.len)) {
-		pr_perror("Can't bind socket");
-		goto done;
-	}
-
-	if (ui->ue->name.len && *ui->name && ui->ue->file_perms) {
-		FilePermsEntry *perms = ui->ue->file_perms;
-		char fname[PATH_MAX];
-
-		if (ui->ue->name.len >= sizeof(fname)) {
-			pr_err("The file name is too long\n");
+	if (ui->ue->name.len) {
+		ret = bind(sk, (struct sockaddr *)&addr,
+				sizeof(addr.sun_family) + ui->ue->name.len);
+		if (ret < 0) {
+			pr_perror("Can't bind socket");
 			goto done;
 		}
 
-		memcpy(fname, ui->name, ui->ue->name.len);
-		fname[ui->ue->name.len] = '\0';
+		if (*ui->name && ui->ue->file_perms) {
+			FilePermsEntry *perms = ui->ue->file_perms;
+			char fname[PATH_MAX];
 
-		if (fchownat(AT_FDCWD, fname, perms->uid, perms->gid, 0) == -1) {
-			pr_perror("Unable to change file owner and group");
-			goto done;
-		}
+			if (ui->ue->name.len >= sizeof(fname)) {
+				pr_err("The file name is too long\n");
+				goto done;
+			}
 
-		if (fchmodat(AT_FDCWD, fname, perms->mode, 0) == -1) {
-			pr_perror("Unable to change file mode bits");
-			goto done;
+			memcpy(fname, ui->name, ui->ue->name.len);
+			fname[ui->ue->name.len] = '\0';
+
+			if (fchownat(AT_FDCWD, fname, perms->uid, perms->gid, 0) == -1) {
+				pr_perror("Unable to change file owner and group");
+				goto done;
+			}
+
+			if (fchmodat(AT_FDCWD, fname, perms->mode, 0) == -1) {
+				pr_perror("Unable to change file mode bits");
+				goto done;
+			}
 		}
 	}
 
