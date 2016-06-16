@@ -163,7 +163,7 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 		struct sysctl_req *req, char (*path)[MAX_CONF_OPT_PATH], int size,
 		char **devconfs, SysctlEntry **def_conf)
 {
-	int i, ri;
+	int i, ri, ar = -1;
 	int ret, flags = op == CTL_READ ? CTL_FLAGS_OPTIONAL : 0;
 	SysctlEntry **rconf;
 
@@ -187,6 +187,15 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 		if (def_conf && sysctl_entries_equal(conf[i], def_conf[i])
 				&& strcmp(devconfs[i], "mtu")) {
 			pr_debug("Skip %s/%s, coincides with default\n", tgt, devconfs[i]);
+			continue;
+		}
+
+		/*
+		 * Make "accept_redirects" go last on write(it should
+		 * restore after forwarding to be correct)
+		 */
+		if (op == CTL_WRITE && !strcmp(devconfs[i], "accept_redirects")) {
+			ar = i;
 			continue;
 		}
 
@@ -218,6 +227,18 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 		}
 		req[ri].flags = flags;
 		rconf[ri] = conf[i];
+		ri++;
+	}
+
+	if (ar != -1
+	    && conf[ar]->type == SYSCTL_TYPE__CTL_32
+	    && conf[ar]->has_iarg) {
+		snprintf(path[ar], MAX_CONF_OPT_PATH, CONF_OPT_PATH, proto, tgt, devconfs[ar]);
+		req[ri].name = path[ar];
+		req[ri].type = CTL_32;
+		req[ri].arg = &conf[ar]->iarg;
+		req[ri].flags = flags;
+		rconf[ri] = conf[ar];
 		ri++;
 	}
 
@@ -1327,18 +1348,18 @@ static int restore_netns_conf(int pid, NetnsEntry **netns)
 	}
 
 	if ((*netns)->def_conf4) {
-		ret = ipv4_conf_op("default", (*netns)->def_conf4, (*netns)->n_def_conf4, CTL_WRITE, NULL);
+		ret = ipv4_conf_op("all", (*netns)->all_conf4, (*netns)->n_all_conf4, CTL_WRITE, NULL);
 		if (ret)
 			goto out;
-		ret = ipv4_conf_op("all", (*netns)->all_conf4, (*netns)->n_all_conf4, CTL_WRITE, NULL);
+		ret = ipv4_conf_op("default", (*netns)->def_conf4, (*netns)->n_def_conf4, CTL_WRITE, NULL);
 		if (ret)
 			goto out;
 	} else if ((*netns)->def_conf) {
 		/* Backward compatibility */
-		ret = ipv4_conf_op_old("default", (*netns)->def_conf, (*netns)->n_def_conf, CTL_WRITE, NULL);
+		ret = ipv4_conf_op_old("all", (*netns)->all_conf, (*netns)->n_all_conf, CTL_WRITE, NULL);
 		if (ret)
 			goto out;
-		ret = ipv4_conf_op_old("all", (*netns)->all_conf, (*netns)->n_all_conf, CTL_WRITE, NULL);
+		ret = ipv4_conf_op_old("default", (*netns)->def_conf, (*netns)->n_def_conf, CTL_WRITE, NULL);
 		if (ret)
 			goto out;
 	}
