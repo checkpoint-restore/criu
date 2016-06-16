@@ -854,7 +854,10 @@ int dump_cgroups(void)
 
 	/*
 	 * Check whether root task lives in its own set as compared
-	 * to criu. If yes, we should not dump anything.
+	 * to criu. If yes, we should not dump anything. Note that
+	 * list_is_singular() is slightly wrong here: if the criu cgset has
+	 * empty cgroups, those will not be restored on the target host, since
+	 * we're not dumping anything here.
 	 */
 
 	if (root_cgset == criu_cgset && list_is_singular(&cg_sets)) {
