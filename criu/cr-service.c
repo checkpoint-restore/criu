@@ -457,6 +457,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->freeze_cgroup)
 		opts.freeze_cgroup = req->freeze_cgroup;
 
+	if (req->has_timeout)
+		opts.timeout = req->timeout;
+
 	if (req->cgroup_props)
 		opts.cgroup_props = req->cgroup_props;
 

@@ -395,6 +395,16 @@ void criu_set_freeze_cgroup(char *name)
 	criu_local_set_freeze_cgroup(global_opts, name);
 }
 
+void criu_local_set_timeout(criu_opts *opts, unsigned int timeout)
+{
+	opts->rpc->timeout = timeout;
+}
+
+void criu_set_timeout(unsigned int timeout)
+{
+	criu_local_set_timeout(global_opts, timeout);
+}
+
 void criu_local_set_auto_ext_mnt(criu_opts *opts, bool val)
 {
 	opts->rpc->has_auto_ext_mnt = true;

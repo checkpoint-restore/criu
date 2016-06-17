@@ -103,6 +103,7 @@ message criu_opts {
 	repeated string			cgroup_dump_controller	= 43;
 
 	optional string			freeze_cgroup		= 44;
+	optional uint32			timeout			= 45;
 }
 
 message criu_dump_resp {
