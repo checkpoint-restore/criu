@@ -1166,6 +1166,8 @@ ext:
 	rfe.flags	= p->flags;
 	rfe.pos		= p->pos;
 	rfe.fown	= (FownEntry *)&p->fown;
+	rfe.has_mode	= true;
+	rfe.mode	= p->stat.st_mode;
 
 	if (S_ISREG(p->stat.st_mode) && should_check_size(rfe.flags)) {
 		rfe.has_size = true;
@@ -1471,7 +1473,8 @@ ext:
 		return -1;
 	}
 
-	if (rfi->rfe->has_size && !rfi->size_checked) {
+	if ((rfi->rfe->has_size || rfi->rfe->has_mode) &&
+	    !rfi->size_mode_checked) {
 		struct stat st;
 
 		if (fstat(tmp, &st) < 0) {
@@ -1479,11 +1482,20 @@ ext:
 			return -1;
 		}
 
-		if (st.st_size != rfi->rfe->size) {
+		if (rfi->rfe->has_size && (st.st_size != rfi->rfe->size)) {
 			pr_err("File %s has bad size %"PRIu64" (expect %"PRIu64")\n",
 					rfi->path, st.st_size,
 					rfi->rfe->size);
 			return -1;
+		}
+
+		if (rfi->rfe->has_mode && (st.st_mode != rfi->rfe->mode)) {
+			if (st.st_mode != rfi->rfe->mode) {
+				pr_err("File %s has bad mode 0%o (expect 0%o)\n",
+				       rfi->path, (int)st.st_mode,
+				       rfi->rfe->mode);
+				return -1;
+			}
 		}
 
 		/*
@@ -1491,7 +1503,7 @@ ext:
 		 * change w/o locks. Other tasks sharing the same
 		 * file will get one via unix sockets.
 		 */
-		rfi->size_checked = true;
+		rfi->size_mode_checked = true;
 	}
 
 	if (rfi->remap) {
@@ -1696,7 +1708,7 @@ static int collect_one_regfile(void *o, ProtobufCMessage *base, struct cr_img *i
 	else
 		rfi->path = rfi->rfe->name + 1;
 	rfi->remap = NULL;
-	rfi->size_checked = false;
+	rfi->size_mode_checked = false;
 
 	pr_info("Collected [%s] ID %#x\n", rfi->path, rfi->rfe->id);
 	return file_desc_add(&rfi->d, rfi->rfe->id, &reg_desc_ops);
