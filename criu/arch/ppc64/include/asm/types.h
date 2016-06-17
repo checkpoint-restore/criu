@@ -72,9 +72,6 @@ typedef UserPpc64RegsEntry UserRegsEntry;
 
 #define CORE_ENTRY__MARCH	CORE_ENTRY__MARCH__PPC64
 
-#define ASSIGN_TYPED(a, b) do { a = (typeof(a))b; } while (0)
-#define ASSIGN_MEMBER(a,b,m) do { ASSIGN_TYPED((a)->m, (b)->m); } while (0)
-
 #define REG_RES(regs)           ((u64)(regs).gpr[3])
 #define REG_IP(regs)            ((u64)(regs).nip)
 #define REG_SYSCALL_NR(regs)    ((u64)(regs).gpr[0])

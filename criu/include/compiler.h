@@ -10,6 +10,9 @@
 #define ARRAY_SIZE(x)		(sizeof(x) / sizeof((x)[0]))
 #define BUILD_BUG_ON(condition)	((void)sizeof(char[1 - 2*!!(condition)]))
 
+#define ASSIGN_TYPED(a, b)	do { (a) = (typeof(a))(b); } while (0)
+#define ASSIGN_MEMBER(a, b, m)	do { ASSIGN_TYPED((a)->m, (b)->m); } while (0)
+
 #define __stringify_1(x...)	#x
 #define __stringify(x...)	__stringify_1(x)
 

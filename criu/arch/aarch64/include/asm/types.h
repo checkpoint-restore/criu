@@ -54,9 +54,6 @@ typedef struct {
 typedef struct user_pt_regs user_regs_struct_t;
 
 
-#define ASSIGN_TYPED(a, b) do { a = (typeof(a))b; } while (0)
-#define ASSIGN_MEMBER(a,b,m) do { ASSIGN_TYPED((a)->m, (b)->m); } while (0)
-
 #define REG_RES(regs)		((u64)(regs).regs[0])
 #define REG_IP(regs)		((u64)(regs).pc)
 #define REG_SYSCALL_NR(regs)	((u64)(regs).regs[8])

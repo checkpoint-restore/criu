@@ -105,9 +105,6 @@ typedef struct {
 	u32		padding[24];
 } user_fpregs_struct_t;
 
-#define ASSIGN_TYPED(a, b) do { a = (typeof(a))b; } while (0)
-#define ASSIGN_MEMBER(a,b,m) do { ASSIGN_TYPED((a)->m, (b)->m); } while (0)
-
 #ifdef CONFIG_X86_64
 # define TASK_SIZE	((1UL << 47) - PAGE_SIZE)
 #else

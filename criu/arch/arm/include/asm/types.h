@@ -89,9 +89,6 @@ struct user_vfp_exc {
 	unsigned long   fpinst2;
 };
 
-#define ASSIGN_TYPED(a, b) do { a = (typeof(a))b; } while (0)
-#define ASSIGN_MEMBER(a,b,m) do { ASSIGN_TYPED((a)->m, (b)->m); } while (0)
-
 #define REG_RES(regs) ((regs).ARM_r0)
 #define REG_IP(regs)  ((regs).ARM_pc)
 #define REG_SYSCALL_NR(regs) ((regs).ARM_r7)
