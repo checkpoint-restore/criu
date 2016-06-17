@@ -21,6 +21,11 @@ enum fstype {
 	OVERLAYFS		= 17;
 	// AUTOFS		= 18; RESERVED in criu-dev branch
 	TRACEFS			= 19;
+
+	/* These three are reserved for NFS support */
+	// RPC_PIPEFS		= 20;
+	// NFS			= 21;
+	// NFS4			= 22;
 };
 
 message mnt_entry {
