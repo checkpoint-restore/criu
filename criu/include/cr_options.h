@@ -110,6 +110,7 @@ struct cr_options {
 	unsigned int		timeout;
 	unsigned int		empty_ns;
 	bool			tcp_skip_in_flight;
+	char			*work_dir;
 };
 
 extern struct cr_options opts;

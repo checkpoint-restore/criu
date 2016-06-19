@@ -215,7 +215,6 @@ int main(int argc, char *argv[], char *envp[])
 	int opt, idx;
 	int log_level = LOG_UNSET;
 	char *imgs_dir = ".";
-	char *work_dir = NULL;
 	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:v::x::Vr:jJ:lW:L:M:";
 	static struct option long_opts[] = {
 		{ "tree",			required_argument,	0, 't'	},
@@ -364,7 +363,7 @@ int main(int argc, char *argv[], char *envp[])
 			imgs_dir = optarg;
 			break;
 		case 'W':
-			work_dir = optarg;
+			opts.work_dir = optarg;
 			break;
 		case 'o':
 			opts.output = optarg;
@@ -616,8 +615,8 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
-	if (work_dir == NULL)
-		work_dir = imgs_dir;
+	if (opts.work_dir == NULL)
+		opts.work_dir = imgs_dir;
 
 	if (optind >= argc) {
 		pr_msg("Error: command is required\n");
@@ -654,8 +653,8 @@ int main(int argc, char *argv[], char *envp[])
 			return 1;
 	}
 
-	if (chdir(work_dir)) {
-		pr_perror("Can't change directory to %s", work_dir);
+	if (chdir(opts.work_dir)) {
+		pr_perror("Can't change directory to %s", opts.work_dir);
 		return 1;
 	}
 
