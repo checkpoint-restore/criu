@@ -39,6 +39,8 @@
 #undef  LOG_PREFIX
 #define LOG_PREFIX "lazy-pages: "
 
+#define LAZY_PAGES_SOCK_NAME	"lazy-pages.socket"
+
 struct lazy_pages_info {
 	int pid;
 	int uffd;
@@ -108,6 +110,24 @@ static void lpi_hash_fini(void)
 			lpi_fini(p);
 }
 
+static int prepare_sock_addr(struct sockaddr_un *saddr)
+{
+	int len;
+
+	memset(saddr, 0, sizeof(struct sockaddr_un));
+
+	saddr->sun_family = AF_UNIX;
+	len = snprintf(saddr->sun_path, sizeof(saddr->sun_path),
+		       "%s/%s", opts.work_dir, LAZY_PAGES_SOCK_NAME);
+	if (len >= sizeof(saddr->sun_path)) {
+		pr_err("Wrong UNIX socket name: %s/%s\n",
+		       opts.work_dir, LAZY_PAGES_SOCK_NAME);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int send_uffd(int sendfd, int pid)
 {
 	int fd;
@@ -115,30 +135,18 @@ static int send_uffd(int sendfd, int pid)
 	int ret = -1;
 	struct sockaddr_un sun;
 
-	if (!opts.addr) {
-		pr_info("Please specify a file name for the unix domain socket\n");
-		pr_info("used to communicate between the lazy-pages server\n");
-		pr_info("and the restore process. Use the --address option like\n");
-		pr_info("criu restore --lazy-pages --address /tmp/userfault.socket\n");
-		return -1;
-	}
-
 	if (sendfd < 0)
 		return -1;
 
-	if (strlen(opts.addr) >= sizeof(sun.sun_path)) {
+	if (prepare_sock_addr(&sun))
 		return -1;
-	}
 
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
 		return -1;
 
-	memset(&sun, 0, sizeof(sun));
-	sun.sun_family = AF_UNIX;
-	strcpy(sun.sun_path, opts.addr);
-	len = offsetof(struct sockaddr_un, sun_path) + strlen(opts.addr);
+	len = offsetof(struct sockaddr_un, sun_path) + strlen(sun.sun_path);
 	if (connect(fd, (struct sockaddr *) &sun, len) < 0) {
-		pr_perror("connect to %s failed", opts.addr);
+		pr_perror("connect to %s failed", sun.sun_path);
 		goto out;
 	}
 
@@ -231,19 +239,12 @@ static int server_listen(struct sockaddr_un *saddr)
 	int fd;
 	int len;
 
-	if (strlen(opts.addr) >= sizeof(saddr->sun_path)) {
-		return -1;
-	}
-
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
 		return -1;
 
-	unlink(opts.addr);
+	unlink(saddr->sun_path);
 
-	memset(saddr, 0, sizeof(struct sockaddr_un));
-	saddr->sun_family = AF_UNIX;
-	strcpy(saddr->sun_path, opts.addr);
-	len = offsetof(struct sockaddr_un, sun_path) + strlen(opts.addr);
+	len = offsetof(struct sockaddr_un, sun_path) + strlen(saddr->sun_path);
 
 	if (bind(fd, (struct sockaddr *) saddr, len) < 0) {
 		goto out;
@@ -816,7 +817,10 @@ static int prepare_uffds(int epollfd)
 	int listen;
 	struct sockaddr_un saddr;
 
-	pr_debug("Waiting for incoming connections on %s\n", opts.addr);
+	if (prepare_sock_addr(&saddr))
+		return -1;
+
+	pr_debug("Waiting for incoming connections on %s\n", saddr.sun_path);
 	if ((listen = server_listen(&saddr)) < 0) {
 		pr_perror("server_listen error");
 		return -1;
@@ -848,14 +852,6 @@ int cr_lazy_pages()
 
 	if (check_for_uffd())
 		return -1;
-
-	if (!opts.addr) {
-		pr_info("Please specify a file name for the unix domain socket\n");
-		pr_info("used to communicate between the lazy-pages server\n");
-		pr_info("and the restore process. Use the --address option like\n");
-		pr_info("criu --lazy-pages --address /tmp/userfault.socket\n");
-		return -1;
-	}
 
 	lpi_hash_init();
 
