@@ -199,6 +199,13 @@ Thus for command line argument the example above will look like:
 *--tcp-established*::
     Checkpoint established TCP connections.
 
+*--skip-in-flight*::
+    This option skips in-flight TCP connections. If TCP connections
+    are found which are not yet completely established, criu will
+    ignore these connections in favor of erroring out.
+    The TCP stack on the client side is expected to handle the
+    re-connect gracefully.
+
 *--veth-pair* '<IN>'*=*'<OUT>'::
     Correspondence between outside and inside names of veth devices.
 

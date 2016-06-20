@@ -309,6 +309,17 @@ void criu_set_tcp_established(bool tcp_established)
 	criu_local_set_tcp_established(global_opts, tcp_established);
 }
 
+void criu_local_set_tcp_skip_in_flight(criu_opts *opts, bool tcp_skip_in_flight)
+{
+	opts->rpc->has_tcp_skip_in_flight	= true;
+	opts->rpc->tcp_skip_in_flight		= tcp_skip_in_flight;
+}
+
+void criu_set_tcp_skip_in_flight(bool tcp_skip_in_flight)
+{
+	criu_local_set_tcp_skip_in_flight(global_opts, tcp_skip_in_flight);
+}
+
 void criu_local_set_evasive_devices(criu_opts *opts, bool evasive_devices)
 {
 	opts->rpc->has_evasive_devices	= true;
