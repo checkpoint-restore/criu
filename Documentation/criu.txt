@@ -30,7 +30,7 @@ Common options
 Common options are applied to any '<command>'.
 
 *-v*['<num>'|*v*...]::
-    Set logging level to '<num>'. The higer the level, the more output
+    Set logging level to '<num>'. The higher the level, the more output
     is produced. Either numeric values or multiple *v* can be used.
     +
 The following levels are available:
@@ -57,7 +57,7 @@ The following levels are available:
 
 *--prev-images-dir* '<path>'::
     Use path '<path>' as a parent directory where to look for dump files set.
-    This make sence in case of increment dumps.
+    This make sense in case of increment dumps.
 
 *-W*, *--work-dir* '<dir>'::
     Use directory '<dir>' for putting logs, pidfiles and statistics. If not
@@ -174,7 +174,7 @@ their properties.
 +
 Mark the format: double quotes, spaces and new lines are required.
 The '<strategy>' specify how to behave if controller specified already
-exsit as built in one: *criu* either 'merge' or 'replace' them.
+exist as built in one: *criu* either 'merge' or 'replace' them.
 +
 Thus for command line argument the example above will look like:
 +
@@ -194,7 +194,7 @@ Thus for command line argument the example above will look like:
 *--cgroup-props-ignore-default*::
     When combined with *--cgroup-props* makes *criu* to substitute
     predefined controller property with new one shipped. Otherwise
-    predefined properies are merged with provided.
+    predefined properties are merged with provided.
 
 *--tcp-established*::
     Checkpoint established TCP connections.
@@ -224,7 +224,7 @@ Thus for command line argument the example above will look like:
 
 *-l*, *--file-locks*::
     Dump file locks. It is necessary to make sure that all file lock users
-    are taken into dump, so it is only safe to use this for enclojured containers
+    are taken into dump, so it is only safe to use this for enclosed containers
     where locks are not holed by someone outside of it.
 
 *-M*, *--ext-mount-map* '<KEY>'*:*'<VAL>'::
@@ -285,7 +285,7 @@ The '<mode>' may be one of below.
     - *props*.  Restore cgroup properties and require cgroup to pre-exist.
 
     - *soft*.   Restore cgroup properties if only cgroup has been created
-                by *criu*, otherwise do not restore properies. This is the
+                by *criu*, otherwise do not restore properties. This is the
 		default if mode is unspecified.
 
     - *full*.   Always restore all cgroups and their properties.
@@ -341,12 +341,12 @@ The '<mode>' may be one of below.
     - *cpu*.    Require the CPU to have all capabilities in image to match
                 runtime CPU.
 
-    - *fpu*.    Requre the CPU to have comaptible FPU. For example the process
+    - *fpu*.    Require the CPU to have compatible FPU. For example the process
                 might be dumped with xsave capability but attempted to restore
                 without it present on target CPU. In such case we refuse to
-                procceed. This is *default* mode if *--cpu-cap* is not present
+                proceed. This is *default* mode if *--cpu-cap* is not present
                 in command line. Note this argument might be passed even if
-                on the *dump* no *--cpu-cap* have been specified becase FPU
+                on the *dump* no *--cpu-cap* have been specified because FPU
                 frames are always encoded into images.
 
     - *ins*.    Require CPU compatibility on instructions level.
@@ -428,7 +428,7 @@ Executes a system call inside a destination task\'s context.
 
 *service*
 ~~~~~~~~~
-Launches *criu* in RPC daemon mode where *criu* is listeninп for
+Launches *criu* in RPC daemon mode where *criu* is listening for
 RPC commands over socket to perform. This is convenient for the
 case where daemon itself is running in a privilege (superuser) mode
 but clients are not.
@@ -436,7 +436,7 @@ but clients are not.
 dedup
 ~~~~~
 Starts pagemap data deduplication procedure, where *criu* scans over all
-pagemap files and tries to minimalize the number of pagemap entries by
+pagemap files and tries to minimize the number of pagemap entries by
 obtaining the references from a parent pagemap image.
 
 *cpuinfo* *dump*
