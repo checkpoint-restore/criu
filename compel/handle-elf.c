@@ -527,7 +527,8 @@ int __handle_elf(void *mem, size_t size)
 #endif
 
 			default:
-				pr_err("Unsupported relocation\n");
+				pr_err("Unsupported relocation of type %lu\n",
+					(unsigned long)ELF_R_TYPE(r->rel.r_info));
 				goto err;
 			}
 		}
