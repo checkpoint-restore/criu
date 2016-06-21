@@ -1149,7 +1149,7 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 	cg = get_service_fd(CGROUP_YARD);
 	fd = openat(cg, path, O_WRONLY);
 	if (fd < 0) {
-		pr_err("bad file stream?");
+		pr_perror("bad cgroup path: %s", path);
 		return -1;
 	}
 
