@@ -927,9 +927,13 @@ static int ctrl_dir_and_opt(CgControllerEntry *ctl, char *dir, int ds,
 	return doff;
 }
 
-static const char *special_cpuset_props[] = {
+/* Some properties cannot be restored after the cgroup has children or tasks in
+ * it. We restore these properties as soon as the cgroup is created.
+ */
+static const char *special_props[] = {
 	"cpuset.cpus",
 	"cpuset.mems",
+	"memory.kmem.limit_in_bytes",
 	NULL,
 };
 
@@ -1270,8 +1274,8 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 				 * the restore to fail if some other task has
 				 * entered the cgroup.
 				 */
-				for (k = 0; special_cpuset_props[k]; k++) {
-					if (!strcmp(e->properties[j]->name, special_cpuset_props[k])) {
+				for (k = 0; special_props[k]; k++) {
+					if (!strcmp(e->properties[j]->name, special_props[k])) {
 						special = true;
 						break;
 					}
@@ -1353,14 +1357,14 @@ int prepare_cgroup_properties(void)
 	return 0;
 }
 
-static int restore_special_cpuset_props(char *paux, size_t off, CgroupDirEntry *e)
+static int restore_special_props(char *paux, size_t off, CgroupDirEntry *e)
 {
 	int i, j;
 
-	pr_info("Restore special cpuset props\n");
+	pr_info("Restore special props\n");
 
-	for (i = 0; special_cpuset_props[i]; i++) {
-		const char *name = special_cpuset_props[i];
+	for (i = 0; special_props[i]; i++) {
+		const char *name = special_props[i];
 
 		for (j = 0; j < e->n_properties; j++) {
 			CgroupPropEntry *prop = e->properties[j];
@@ -1423,8 +1427,8 @@ static int prepare_cgroup_dirs(char **controllers, int n_controllers, char *paux
 				return -1;
 
 			for (j = 0; j < n_controllers; j++) {
-				if (strcmp(controllers[j], "cpuset") == 0) {
-					if (restore_special_cpuset_props(paux, off2, e) < 0) {
+				if (!strcmp(controllers[j], "cpuset") || !strcmp(controllers[j], "memory")) {
+					if (restore_special_props(paux, off2, e) < 0) {
 						pr_err("Restoring special cpuset props failed!\n");
 						return -1;
 					}
