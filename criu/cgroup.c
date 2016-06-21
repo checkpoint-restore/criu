@@ -1157,8 +1157,10 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 		goto out;
 
 	/* skip these two since restoring their values doesn't make sense */
-	if (!strcmp(cg_prop_entry_p->name, "cgroup.procs") || !strcmp(cg_prop_entry_p->name, "tasks"))
+	if (!strcmp(cg_prop_entry_p->name, "cgroup.procs") || !strcmp(cg_prop_entry_p->name, "tasks")) {
+		ret = 0;
 		goto out;
+	}
 
 	len = strlen(cg_prop_entry_p->value);
 	if (write(fd, cg_prop_entry_p->value, len) != len) {
@@ -1166,11 +1168,11 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 		goto out;
 	}
 
+	ret = 0;
+
 out:
 	if (close(fd) != 0)
 		pr_perror("Failed closing %s", path);
-	else
-		ret = 0;
 
 	return ret;
 }
