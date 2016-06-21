@@ -277,15 +277,20 @@ static rt_sigaction_t parent_act[SIGMAX];
 static bool sa_inherited(int sig, rt_sigaction_t *sa)
 {
 	rt_sigaction_t *pa;
+	int i;
 
 	if (current == root_item)
 		return false; /* XXX -- inherit from CRIU? */
 
 	pa = &parent_act[sig];
+
+	for (i = 0; i < _KNSIG_WORDS; i++)
+		if (pa->rt_sa_mask.sig[i] != sa->rt_sa_mask.sig[i])
+			return false;
+
 	return pa->rt_sa_handler == sa->rt_sa_handler &&
 		pa->rt_sa_flags == sa->rt_sa_flags &&
-		pa->rt_sa_restorer == sa->rt_sa_restorer &&
-		pa->rt_sa_mask.sig[0] == sa->rt_sa_mask.sig[0];
+		pa->rt_sa_restorer == sa->rt_sa_restorer;
 }
 
 /* Returns number of restored signals, -1 or negative errno on fail */
