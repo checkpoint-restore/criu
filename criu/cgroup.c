@@ -384,6 +384,28 @@ static int dump_cg_props_array(const char *fpath, struct cgroup_dir *ncd, const 
 			return -1;
 		}
 
+		if (!strcmp("memory.oom_control", cgp->props[j])) {
+			char *new;
+			int disable;
+
+			if (sscanf(prop->value, "oom_kill_disable %d\n", &disable) != 1) {
+				pr_err("couldn't scan oom state from %s\n", prop->value);
+				free_cgroup_prop(prop);
+				free_all_cgroup_props(ncd);
+				return -1;
+			}
+
+			if (asprintf(&new, "%d", disable) < 0) {
+				pr_err("couldn't aloocate new oom value\n");
+				free_cgroup_prop(prop);
+				free_all_cgroup_props(ncd);
+				return -1;
+			}
+
+			xfree(prop->value);
+			prop->value = new;
+		}
+
 		pr_info("Dumping value %s from %s/%s\n", prop->value, fpath, prop->name);
 		list_add_tail(&prop->list, &ncd->properties);
 		ncd->n_properties++;
