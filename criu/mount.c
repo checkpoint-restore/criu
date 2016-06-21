@@ -1038,7 +1038,7 @@ static char *get_clean_mnt(struct mount_info *mi, char *mnt_path_tmp, char *mnt_
 		mnt_path = mkdtemp(mnt_path_root);
 	if (mnt_path == NULL) {
 		pr_perror("Can't create a temporary directory");
-		return NULL;;
+		return NULL;
 	}
 
 	if (mount(mi->mountpoint, mnt_path, NULL, MS_BIND, NULL)) {
@@ -1487,7 +1487,7 @@ static int binfmt_misc_restore(struct mount_info *mi)
 {
 	struct cr_img *img;
 	char *buf;
-	int ret = -1;;
+	int ret = -1;
 
 	buf = xmalloc(BINFMT_MISC_STR);
 	if (!buf)
