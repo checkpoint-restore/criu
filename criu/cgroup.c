@@ -1131,7 +1131,7 @@ static int restore_perms(int fd, const char *path, CgroupPerms *perms)
 static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 			       char *path, int off)
 {
-	int cg, fd, len, ret = -1;;
+	int cg, fd, len, ret = -1;
 	CgroupPerms *perms = cg_prop_entry_p->perms;
 
 	if (!cg_prop_entry_p->value) {
