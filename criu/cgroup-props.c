@@ -479,7 +479,7 @@ static int cgp_parse_builtins(void)
 			" - \"strategy\": \"replace\"\n"
 			" - \"properties\": "
 			"[ "
-				"\"pids.current\" "
+				"\"pids.max\" "
 			"]\n"
 		"\"devices\":\n"
 			" - \"strategy\": \"replace\"\n"
