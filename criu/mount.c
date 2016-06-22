@@ -2726,7 +2726,7 @@ static int cr_pivot_root(char *root)
 		goto err_tmpfs;
 	}
 
-	if (mount("none", put_root, "none", MS_REC|MS_PRIVATE, NULL)) {
+	if (mount("none", put_root, "none", MS_REC|MS_SLAVE, NULL)) {
 		pr_perror("Can't remount root with MS_PRIVATE");
 		return -1;
 	}
