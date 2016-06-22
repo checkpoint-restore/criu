@@ -288,12 +288,61 @@ static bool sa_inherited(int sig, rt_sigaction_t *sa)
 		pa->rt_sa_mask.sig[0] == sa->rt_sa_mask.sig[0];
 }
 
+/* Returns number of restored signals, -1 or negative errno on fail */
+static int restore_one_sigaction(int sig, struct cr_img *img, int pid)
+{
+	rt_sigaction_t act;
+	SaEntry *e;
+	int ret = 0;
+
+	BUG_ON(sig == SIGKILL || sig == SIGSTOP);
+
+	ret = pb_read_one_eof(img, &e, PB_SIGACT);
+	if (ret == 0) {
+		if (sig != SIGMAX_OLD + 1) { /* backward compatibility */
+			pr_err("Unexpected EOF %d\n", sig);
+			return -1;
+		}
+		pr_warn("This format of sigacts-%d.img is deprecated\n", pid);
+		return -1;
+	}
+	if (ret < 0)
+		return ret;
+
+	ASSIGN_TYPED(act.rt_sa_handler, decode_pointer(e->sigaction));
+	ASSIGN_TYPED(act.rt_sa_flags, e->flags);
+	ASSIGN_TYPED(act.rt_sa_restorer, decode_pointer(e->restorer));
+	ASSIGN_TYPED(act.rt_sa_mask.sig[0], e->mask);
+
+	sa_entry__free_unpacked(e, NULL);
+
+	if (sig == SIGCHLD) {
+		sigchld_act = act;
+		return 0;
+	}
+
+	if (sa_inherited(sig - 1, &act))
+		return 1;
+
+	/*
+	 * A pure syscall is used, because glibc
+	 * sigaction overwrites se_restorer.
+	 */
+	ret = syscall(SYS_rt_sigaction, sig, &act, NULL, sizeof(k_rtsigset_t));
+	if (ret < 0) {
+		pr_perror("Can't restore sigaction");
+		return ret;
+	}
+
+	parent_act[sig - 1] = act;
+
+	return 1;
+}
+
 static int prepare_sigactions(void)
 {
 	int pid = current->pid.virt;
-	rt_sigaction_t act;
 	struct cr_img *img;
-	SaEntry *e;
 	int sig, rst = 0;
 	int ret = 0;
 
@@ -310,52 +359,16 @@ static int prepare_sigactions(void)
 		if (sig == SIGKILL || sig == SIGSTOP)
 			continue;
 
-		ret = pb_read_one_eof(img, &e, PB_SIGACT);
-		if (ret == 0) {
-			if (sig != SIGMAX_OLD + 1) { /* backward compatibility */
-				pr_err("Unexpected EOF %d\n", sig);
-				ret = -1;
-				break;
-			}
-			pr_warn("This format of sigacts-%d.img is deprecated\n", pid);
-			break;
-		}
+		ret = restore_one_sigaction(sig, img, pid);
 		if (ret < 0)
 			break;
-
-		ASSIGN_TYPED(act.rt_sa_handler, decode_pointer(e->sigaction));
-		ASSIGN_TYPED(act.rt_sa_flags, e->flags);
-		ASSIGN_TYPED(act.rt_sa_restorer, decode_pointer(e->restorer));
-		ASSIGN_TYPED(act.rt_sa_mask.sig[0], e->mask);
-
-		sa_entry__free_unpacked(e, NULL);
-
-		if (sig == SIGCHLD) {
-			sigchld_act = act;
-			continue;
-		}
-
-		if (sa_inherited(sig - 1, &act))
-			continue;
-
-		/*
-		 * A pure syscall is used, because glibc
-		 * sigaction overwrites se_restorer.
-		 */
-		ret = syscall(SYS_rt_sigaction, sig, &act, NULL, sizeof(k_rtsigset_t));
-		if (ret < 0) {
-			pr_perror("Can't restore sigaction");
-			goto err;
-		}
-
-		parent_act[sig - 1] = act;
-		rst++;
+		if (ret)
+			rst++;
 	}
 
 	pr_info("Restored %d/%d sigacts\n", rst,
 			SIGMAX - 3 /* KILL, STOP and CHLD */);
 
-err:
 	close_image(img);
 	return ret;
 }
