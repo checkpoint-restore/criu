@@ -38,8 +38,6 @@ struct rst_info {
 
 	void			*munmap_restorer;
 
-	int			nr_zombies;
-
 	int service_fd_id;
 	struct fdt		*fdt;
 

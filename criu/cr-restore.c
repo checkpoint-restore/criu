@@ -827,9 +827,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 		rsti(item)->has_seccomp = ca.core->tc->seccomp_mode != SECCOMP_MODE_DISABLED;
 
-		if (item->pid.state == TASK_DEAD)
-			rsti(item->parent)->nr_zombies++;
-		else if (!task_alive(item)) {
+		if (item->pid.state != TASK_DEAD && !task_alive(item)) {
 			pr_err("Unknown task state %d\n", item->pid.state);
 			return -1;
 		}
