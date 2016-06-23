@@ -978,8 +978,6 @@ static int wait_zombies(struct task_restore_args *task_args)
 {
 	int i;
 
-	atomic_add(task_args->zombies_n, &task_entries->nr_zombies);
-
 	for (i = 0; i < task_args->zombies_n; i++) {
 		if (sys_waitid(P_PID, task_args->zombies[i], NULL, WNOWAIT | WEXITED, NULL) < 0) {
 			pr_err("Wait on %d zombie failed\n", task_args->zombies[i]);
@@ -987,7 +985,6 @@ static int wait_zombies(struct task_restore_args *task_args)
 		}
 		pr_debug("%ld: Collect a zombie with pid %d\n",
 			sys_getpid(), task_args->zombies[i]);
-		futex_dec_and_wake(&task_entries->nr_in_progress);
 	}
 
 	return 0;

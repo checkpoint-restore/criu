@@ -1590,6 +1590,7 @@ static int restore_root_task(struct pstree_item *init)
 	enum trace_flags flag = TRACE_ALL;
 	int ret, fd, mnt_ns_fd = -1;
 	int clean_remaps = 1, root_seized = 0;
+	struct pstree_item *item;
 
 	ret = run_scripts(ACT_PRE_RESTORE);
 	if (ret != 0) {
@@ -1709,15 +1710,15 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret < 0)
 		goto out_kill;
 
+	/* Zombies die after CR_STATE_RESTORE */
+	for_each_pstree_item(item) {
+		if (item->pid.state == TASK_DEAD)
+			task_entries->nr_threads--;
+	}
+
 	ret = restore_switch_stage(CR_STATE_RESTORE_SIGCHLD);
 	if (ret < 0)
 		goto out_kill;
-
-	/*
-	 * The task_entries->nr_zombies is updated in the
-	 * CR_STATE_RESTORE_SIGCHLD in pie code.
-	 */
-	task_entries->nr_threads -= atomic_read(&task_entries->nr_zombies);
 
 	/*
 	 * There is no need to call try_clean_remaps() after this point,
@@ -1850,7 +1851,6 @@ static int prepare_task_entries(void)
 	task_entries->nr_threads = 0;
 	task_entries->nr_tasks = 0;
 	task_entries->nr_helpers = 0;
-	atomic_set(&task_entries->nr_zombies, 0);
 	futex_set(&task_entries->start, CR_STATE_RESTORE_NS);
 	mutex_init(&task_entries->userns_sync_lock);
 

@@ -7,7 +7,6 @@
 
 struct task_entries {
 	int nr_threads, nr_tasks, nr_helpers;
-	atomic_t nr_zombies;
 	futex_t nr_in_progress;
 	futex_t start;
 	atomic_t cr_err;
