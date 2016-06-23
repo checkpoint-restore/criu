@@ -5,7 +5,7 @@
 #include "image.h"
 #include "cr_options.h"
 #include "servicefd.h"
-#include "page-read.h"
+#include "pagemap.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"

@@ -1,6 +1,6 @@
 #ifndef __CR_PAGE_XFER__H__
 #define __CR_PAGE_XFER__H__
-#include "page-read.h"
+#include "pagemap.h"
 
 extern int cr_page_server(bool daemon_mode, int cfd);
 

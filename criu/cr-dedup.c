@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 #include "crtools.h"
-#include "page-read.h"
+#include "pagemap.h"
 #include "restorer.h"
 
 #define MAX_BUNCH_SIZE 256
