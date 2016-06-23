@@ -7,8 +7,6 @@
 #include "pagemap.h"
 #include "restorer.h"
 
-#define MAX_BUNCH_SIZE 256
-
 static int cr_dedup_one_pagemap(int pid);
 
 int cr_dedup(void)
@@ -100,98 +98,5 @@ exit:
 	if (ret < 0)
 		return ret;
 
-	return 0;
-}
-
-static inline bool can_extend_batch(struct iovec *bunch,
-		unsigned long off, unsigned long len)
-{
-	return  /* The next region is the continuation of the existing */
-		((unsigned long)bunch->iov_base + bunch->iov_len == off) &&
-		/* The resulting region is non empty and is small enough */
-		(bunch->iov_len == 0 || bunch->iov_len + len < MAX_BUNCH_SIZE * PAGE_SIZE);
-}
-
-int punch_hole(struct page_read *pr, unsigned long off, unsigned long len,
-	       bool cleanup)
-{
-	int ret;
-	struct iovec * bunch = &pr->bunch;
-
-	if (!cleanup && can_extend_batch(bunch, off, len)) {
-		pr_debug("pr%d:Extend bunch len from %zu to %lu\n", pr->id,
-			 bunch->iov_len, bunch->iov_len + len);
-		bunch->iov_len += len;
-	} else {
-		if (bunch->iov_len > 0) {
-			pr_debug("Punch!/%p/%zu/\n", bunch->iov_base, bunch->iov_len);
-			ret = fallocate(img_raw_fd(pr->pi), FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
-					(unsigned long)bunch->iov_base, bunch->iov_len);
-			if (ret != 0) {
-				pr_perror("Error punching hole");
-				return -1;
-			}
-		}
-		bunch->iov_base = (void *)off;
-		bunch->iov_len = len;
-		pr_debug("pr%d:New bunch/%p/%zu/\n", pr->id, bunch->iov_base, bunch->iov_len);
-	}
-	return 0;
-}
-
-int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
-{
-	unsigned long off;
-	unsigned long off_real;
-	unsigned long iov_end;
-
-	iov_end = (unsigned long)iov->iov_base + iov->iov_len;
-	off = (unsigned long)iov->iov_base;
-	while (1) {
-		int ret;
-		struct iovec piov;
-		unsigned long piov_end;
-		struct iovec tiov;
-		struct page_read * prp;
-
-		ret = pr->seek_page(pr, off, false);
-		if (ret == -1)
-			return -1;
-
-		if (ret == 0) {
-			if (off < pr->cvaddr && pr->cvaddr < iov_end)
-				off = pr->cvaddr;
-			else
-				return 0;
-		}
-
-		if (!pr->pe)
-			return -1;
-		pagemap2iovec(pr->pe, &piov);
-		piov_end = (unsigned long)piov.iov_base + piov.iov_len;
-		off_real = lseek(img_raw_fd(pr->pi), 0, SEEK_CUR);
-		if (!pr->pe->in_parent) {
-			ret = punch_hole(pr, off_real, min(piov_end, iov_end) - off, false);
-			if (ret == -1)
-				return ret;
-		}
-
-		prp = pr->parent;
-		if (prp) {
-			/* recursively */
-			pr_debug("Go to next parent level\n");
-			tiov.iov_base = (void*)off;
-			tiov.iov_len = min(piov_end, iov_end) - off;
-			ret = dedup_one_iovec(prp, &tiov);
-			if (ret != 0)
-				return -1;
-		}
-
-		if (piov_end < iov_end) {
-			off = piov_end;
-			continue;
-		} else
-			return 0;
-	}
 	return 0;
 }
