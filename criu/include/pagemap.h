@@ -90,5 +90,4 @@ extern void pagemap2iovec(PagemapEntry *pe, struct iovec *iov);
 extern void iovec2pagemap(struct iovec *iov, PagemapEntry *pe);
 
 extern int dedup_one_iovec(struct page_read *pr, struct iovec *iov);
-extern int punch_hole(struct page_read *pr, unsigned long off, unsigned long len, bool cleanup);
 #endif /* __CR_PAGE_READ_H__ */

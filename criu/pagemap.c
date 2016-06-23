@@ -38,8 +38,8 @@ static inline bool can_extend_batch(struct iovec *bunch,
 		(bunch->iov_len == 0 || bunch->iov_len + len < MAX_BUNCH_SIZE * PAGE_SIZE);
 }
 
-int punch_hole(struct page_read *pr, unsigned long off, unsigned long len,
-	       bool cleanup)
+static int punch_hole(struct page_read *pr, unsigned long off,
+		      unsigned long len, bool cleanup)
 {
 	int ret;
 	struct iovec * bunch = &pr->bunch;
