@@ -485,9 +485,10 @@ static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int subty
 		BUG_ON(!pos || !inverted_path);
 
 		memcpy(inverted_path, orig->rfe->name, slash_at + 1);
-		if (subtype == TTY_SUBTYPE_MASTER)
+		if (subtype == TTY_SUBTYPE_MASTER) {
+			inverted_path[slash_at + 1] = '\0';
 			strcat(inverted_path, "ptmx");
-		else {
+		} else {
 			if (slash_at >= 3 && strncmp(&inverted_path[slash_at - 3], "pts", 3))
 				snprintf(&inverted_path[slash_at + 1], 10, "pts/%u",
 					 info->tie->pty->index);
