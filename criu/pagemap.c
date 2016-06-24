@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <linux/falloc.h>
 
 #include "image.h"
 #include "cr_options.h"
