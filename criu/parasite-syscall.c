@@ -673,7 +673,8 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 		ASSIGN_TYPED(se.sigaction, encode_pointer(args->sas[i].rt_sa_handler));
 		ASSIGN_TYPED(se.flags, args->sas[i].rt_sa_flags);
 		ASSIGN_TYPED(se.restorer, encode_pointer(args->sas[i].rt_sa_restorer));
-		ASSIGN_TYPED(se.mask, args->sas[i].rt_sa_mask.sig[0]);
+		BUILD_BUG_ON(sizeof(se.mask) != sizeof(args->sas[0].rt_sa_mask.sig));
+		memcpy(&se.mask, args->sas[i].rt_sa_mask.sig, sizeof(se.mask));
 
 		if (pb_write_one(img, &se, PB_SIGACT) < 0)
 			return -1;

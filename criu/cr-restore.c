@@ -317,7 +317,8 @@ static int restore_one_sigaction(int sig, struct cr_img *img, int pid)
 	ASSIGN_TYPED(act.rt_sa_handler, decode_pointer(e->sigaction));
 	ASSIGN_TYPED(act.rt_sa_flags, e->flags);
 	ASSIGN_TYPED(act.rt_sa_restorer, decode_pointer(e->restorer));
-	ASSIGN_TYPED(act.rt_sa_mask.sig[0], e->mask);
+	BUILD_BUG_ON(sizeof(e->mask) != sizeof(act.rt_sa_mask.sig));
+	memcpy(act.rt_sa_mask.sig, &e->mask, sizeof(act.rt_sa_mask.sig));
 
 	sa_entry__free_unpacked(e, NULL);
 
