@@ -30,7 +30,7 @@ void iovec2pagemap(struct iovec *iov, PagemapEntry *pe)
 	pe->nr_pages = iov->iov_len / PAGE_SIZE;
 }
 
-static inline bool can_extend_batch(struct iovec *bunch,
+static inline bool can_extend_bunch(struct iovec *bunch,
 		unsigned long off, unsigned long len)
 {
 	return  /* The next region is the continuation of the existing */
@@ -45,7 +45,7 @@ static int punch_hole(struct page_read *pr, unsigned long off,
 	int ret;
 	struct iovec * bunch = &pr->bunch;
 
-	if (!cleanup && can_extend_batch(bunch, off, len)) {
+	if (!cleanup && can_extend_bunch(bunch, off, len)) {
 		pr_debug("pr%d:Extend bunch len from %zu to %lu\n", pr->id,
 			 bunch->iov_len, bunch->iov_len + len);
 		bunch->iov_len += len;
