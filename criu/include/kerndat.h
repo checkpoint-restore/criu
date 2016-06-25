@@ -34,6 +34,7 @@ struct kerndat_s {
 	bool ipv6;
 	bool has_loginuid;
 	enum pagemap_func pmap;
+	unsigned int has_xtlocks;
 };
 
 extern struct kerndat_s kdat;
