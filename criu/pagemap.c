@@ -396,10 +396,10 @@ static int init_pagemaps(struct page_read *pr)
 		}
 	}
 
-	return 0;
-
 	close_image(pr->pmi);
 	pr->pmi = NULL;
+
+	return 0;
 
 free_pagemaps:
 	free_pagemaps(pr);
