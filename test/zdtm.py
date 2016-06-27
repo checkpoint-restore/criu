@@ -894,16 +894,17 @@ def get_visible_state(test):
 	for pid in pids:
 		files[pid] = set(os.listdir("/proc/%s/root/proc/%s/fd" % (test.getpid(), pid)))
 
-		cmaps = [[0, 0]]
+		cmaps = [[0, 0, ""]]
 		last = 0
 		for mp in open("/proc/%s/root/proc/%s/maps" % (test.getpid(), pid)):
 			m = map(lambda x: int('0x' + x, 0), mp.split()[0].split('-'))
-			if cmaps[last][1] == m[0]:
+			m.append(mp.split()[1])
+			if cmaps[last][1] == m[0] and cmaps[last][2] == m[2]:
 				cmaps[last][1] = m[1]
 			else:
 				cmaps.append(m)
 				last += 1
-		maps[pid] = set(map(lambda x: '%x-%x' % (x[0], x[1]), cmaps))
+		maps[pid] = set(map(lambda x: '%x-%x %s' % (x[0], x[1], x[2]), cmaps))
 
 		cmounts = []
 		try:
