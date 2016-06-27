@@ -1532,7 +1532,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 				       info->tfe->id);
 				return -1;
 			}
-		} if (info->driver->type != TTY_TYPE__EXT_TTY) {
+		} else if (info->driver->type != TTY_TYPE__EXT_TTY) {
 			pr_err("No reg_d descriptor for id %#x\n", info->tfe->id);
 			return -1;
 		}
