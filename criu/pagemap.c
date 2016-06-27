@@ -69,7 +69,6 @@ static int punch_hole(struct page_read *pr, unsigned long off,
 int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 {
 	unsigned long off;
-	unsigned long off_real;
 	unsigned long iov_end;
 
 	iov_end = (unsigned long)iov->iov_base + iov->iov_len;
@@ -96,9 +95,8 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 			return -1;
 		pagemap2iovec(pr->pe, &piov);
 		piov_end = (unsigned long)piov.iov_base + piov.iov_len;
-		off_real = lseek(img_raw_fd(pr->pi), 0, SEEK_CUR);
 		if (!pr->pe->in_parent) {
-			ret = punch_hole(pr, off_real, min(piov_end, iov_end) - off, false);
+			ret = punch_hole(pr, pr->pi_off, min(piov_end, iov_end) - off, false);
 			if (ret == -1)
 				return ret;
 		}
@@ -157,7 +155,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 
 	pr_debug("\tpr%u Skip %lu bytes from page-dump\n", pr->id, len);
 	if (!pr->pe->in_parent)
-		lseek(img_raw_fd(pr->pi), len, SEEK_CUR);
+		pr->pi_off += len;
 	pr->cvaddr += len;
 }
 
@@ -260,7 +258,7 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr, 
 		} while (nr);
 	} else {
 		int fd = img_raw_fd(pr->pi);
-		off_t current_vaddr = lseek(fd, 0, SEEK_CUR);
+		off_t current_vaddr = lseek(fd, pr->pi_off, SEEK_SET);
 
 		pr_debug("\tpr%u Read page from self %lx/%"PRIx64"\n", pr->id, pr->cvaddr, current_vaddr);
 		ret = read(fd, buf, len);
@@ -268,6 +266,8 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr, 
 			pr_perror("Can't read mapping page %d", ret);
 			return -1;
 		}
+
+		pr->pi_off += len;
 
 		if (opts.auto_dedup) {
 			ret = punch_hole(pr, current_vaddr, len, false);
@@ -432,6 +432,8 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 
 	pr->pe = NULL;
 	pr->parent = NULL;
+	pr->cvaddr = 0;
+	pr->pi_off = 0;
 	pr->bunch.iov_len = 0;
 	pr->bunch.iov_base = NULL;
 

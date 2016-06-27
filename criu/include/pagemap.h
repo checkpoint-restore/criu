@@ -63,6 +63,7 @@ struct page_read {
 					   go to this guy for page, see
 					   read_pagemap_page */
 	unsigned long cvaddr;		/* vaddr we are on */
+	off_t pi_off;			/* current offset in pages file */
 
 	struct iovec bunch;		/* record consequent neighbour
 					   iovecs to punch together */
