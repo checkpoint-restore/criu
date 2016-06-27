@@ -52,6 +52,7 @@ struct page_read {
 	void (*skip_pages)(struct page_read *, unsigned long len);
 	int (*sync)(struct page_read *pr);
 	int (*seek_pagemap)(struct page_read *pr, unsigned long vaddr);
+	void (*reset)(struct page_read *pr);
 
 	/* Private data of reader */
 	struct cr_img *pmi;
