@@ -36,6 +36,8 @@ struct rt_sigcontext {
 	unsigned long			reserved1[8];
 };
 
+#define SIGFRAME_MAX_OFFSET 8
+
 #include "sigframe.h"
 
 struct rt_sigframe {
@@ -139,7 +141,6 @@ struct rt_sigframe {
 #define RT_SIGFRAME_FPU(rt_sigframe) (rt_sigframe)->fpu_state
 
 #define SIGFRAME_OFFSET 8
-
 
 int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r);
 int restore_nonsigframe_gpregs(UserX86RegsEntry *r);

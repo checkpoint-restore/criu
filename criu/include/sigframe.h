@@ -10,8 +10,13 @@
 
 struct rt_sigframe;
 
+#ifndef SIGFRAME_MAX_OFFSET
+#define SIGFRAME_MAX_OFFSET SIGFRAME_OFFSET
+#endif
+
 /* sigframe should be aligned on 64 byte for x86 and 8 bytes for arm */
-#define RESTORE_STACK_SIGFRAME ALIGN(sizeof(struct rt_sigframe) + SIGFRAME_OFFSET, 64)
+#define RESTORE_STACK_SIGFRAME						\
+	ALIGN(sizeof(struct rt_sigframe) + SIGFRAME_MAX_OFFSET, 64)
 
 #ifndef __ARCH_SI_PREAMBLE_SIZE
 #define __ARCH_SI_PREAMBLE_SIZE	(3 * sizeof(int))
