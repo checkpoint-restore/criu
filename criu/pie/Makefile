@@ -14,6 +14,7 @@ restorer-obj-y		+= ./$(ARCH_DIR)/restorer.o
 
 ifeq ($(ARCH),x86)
         restorer-obj-e		+= ./$(ARCH_DIR)/syscalls-64.built-in.o
+        restorer-obj-y		+= ./$(ARCH_DIR)/call32.o
 
         native-obj-y		+= ./$(ARCH_DIR)/parasite-head-64.o
         native-obj-e		+= ./$(ARCH_DIR)/syscalls-64.built-in.o
