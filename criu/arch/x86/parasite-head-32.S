@@ -14,8 +14,8 @@ ENTRY(__export_parasite_head_start)
 	movl	%esp, %ebp
 	call	1f
 1:	popl	%ecx
-2:	leal	(__export_parasite_cmd-2b)(%ecx), %eax
-	leal	(__export_parasite_args-2b)(%ecx), %edx
+	movl	(__export_parasite_cmd-1b)(%ecx), %eax
+	leal	(__export_parasite_args-1b)(%ecx), %edx
 	call	parasite_service
 	int	$0x03
 	.align 8
