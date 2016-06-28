@@ -52,6 +52,7 @@
 			: "sp", "x0", "memory")
 
 
+#define kdat_compat_sigreturn_test()			0
 
 int restore_gpregs(struct rt_sigframe *f, UserAarch64RegsEntry *r);
 int restore_nonsigframe_gpregs(UserAarch64RegsEntry *r);

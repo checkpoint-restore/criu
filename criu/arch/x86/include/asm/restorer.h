@@ -54,6 +54,12 @@
 		     :						\
 		     : "r"(ret)					\
 		     : "memory")
+
+#ifndef ARCH_MAP_VDSO_32
+# define ARCH_MAP_VDSO_32		0x2002
+#endif
+
+extern int kdat_compat_sigreturn_test(void);
 #else /* CONFIG_X86_64 */
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,      \
 			     thread_args, clone_restore_fn)             \
@@ -72,6 +78,8 @@
 		     :						\
 		     : "r"(ret)					\
 		     : "memory")
+
+#define kdat_compat_sigreturn_test()			0
 #endif /* CONFIG_X86_64 */
 
 static inline void
