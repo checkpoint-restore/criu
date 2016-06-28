@@ -183,7 +183,7 @@ void arch_free_thread_info(CoreEntry *core)
 int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 {
 	int i;
-	struct fpsimd_context *fpsimd = &RT_SIGFRAME_FPU(sigframe);
+	struct fpsimd_context *fpsimd = RT_SIGFRAME_FPU(sigframe);
 
 	if (core->ti_aarch64->fpsimd->n_vregs != 64)
 		return 1;

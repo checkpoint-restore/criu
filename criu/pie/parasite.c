@@ -614,7 +614,7 @@ static int fini()
 		mprotect_vmas(mprotect_args);
 	}
 
-	new_sp = (long)sigframe + SIGFRAME_OFFSET;
+	new_sp = (long)sigframe + RT_SIGFRAME_OFFSET(sigframe);
 	pr_debug("%ld: new_sp=%lx ip %lx\n", sys_gettid(),
 		  new_sp, RT_SIGFRAME_REGIP(sigframe));
 

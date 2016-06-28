@@ -18,7 +18,7 @@
 #define rt_sigcontext sigcontext
 
 #include "sigframe.h"
-#define SIGFRAME_OFFSET 0
+#define RT_SIGFRAME_OFFSET(rt_sigframe) 0
 
 /* Copied from the Linux kernel header arch/powerpc/include/asm/ptrace.h */
 #define USER_REDZONE_SIZE       512
@@ -104,7 +104,7 @@ struct rt_sigframe {
 #define RT_SIGFRAME_UC(rt_sigframe) (&(rt_sigframe)->uc)
 #define RT_SIGFRAME_REGIP(rt_sigframe) ((long unsigned int)(rt_sigframe)->uc.uc_mcontext.gp_regs[PT_NIP])
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe) (1)
-#define RT_SIGFRAME_FPU(rt_sigframe) ((rt_sigframe)->uc.uc_mcontext)
+#define RT_SIGFRAME_FPU(rt_sigframe) (&(rt_sigframe)->uc.uc_mcontext)
 
 int restore_gpregs(struct rt_sigframe *f, UserPpc64RegsEntry *r);
 int restore_nonsigframe_gpregs(UserPpc64RegsEntry *r);
@@ -123,7 +123,7 @@ static inline int ptrace_flush_breakpoints(pid_t pid)
 }
 
 int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe,
-			     mcontext_t *sigcontext);
+		struct rt_sigframe *rframe);
 
 /*
  * Defined in arch/ppc64/syscall-common-ppc64.S

@@ -126,15 +126,21 @@ struct rt_sigframe {
 #define RT_SIGFRAME_UC(rt_sigframe) (&rt_sigframe->sig.uc)
 #define RT_SIGFRAME_REGIP(rt_sigframe) (rt_sigframe)->sig.uc.uc_mcontext.arm_ip
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe) 1
-#define RT_SIGFRAME_FPU(rt_sigframe) ((struct aux_sigframe *)&rt_sigframe->sig.uc.uc_regspace)->vfp
-
-#define SIGFRAME_OFFSET 0
+#define RT_SIGFRAME_AUX_SIGFRAME(rt_sigframe)				\
+	((struct aux_sigframe *)&(rt_sigframe)->sig.uc.uc_regspace)
+#define RT_SIGFRAME_FPU(rt_sigframe)					\
+	(&RT_SIGFRAME_AUX_SIGFRAME(rt_sigframe)->vfp)
+#define RT_SIGFRAME_OFFSET(rt_sigframe) 0
 
 
 int restore_gpregs(struct rt_sigframe *f, UserArmRegsEntry *r);
 int restore_nonsigframe_gpregs(UserArmRegsEntry *r);
 
-static inline int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe, fpu_state_t *fpu_state) { return 0; }
+static inline int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe,
+		struct rt_sigframe *rsigframe)
+{
+	return 0;
+}
 
 static inline void restore_tls(tls_t *ptls) {
 	asm (

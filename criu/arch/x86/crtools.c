@@ -499,8 +499,10 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 	return 0;
 }
 
-int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe, fpu_state_t *fpu_state)
+int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe,
+		struct rt_sigframe *rsigframe)
 {
+	fpu_state_t *fpu_state = RT_SIGFRAME_FPU(rsigframe);
 	unsigned long addr = (unsigned long)(void *)&fpu_state->xsave;
 
 	if ((addr % 64ul) == 0ul) {

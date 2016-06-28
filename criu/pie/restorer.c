@@ -482,7 +482,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 
 	futex_dec_and_wake(&thread_inprogress);
 
-	new_sp = (long)rt_sigframe + SIGFRAME_OFFSET;
+	new_sp = (long)rt_sigframe + RT_SIGFRAME_OFFSET(rt_sigframe);
 	rst_sigreturn(new_sp);
 
 core_restore_end:
@@ -1432,7 +1432,7 @@ long __export_restore_task(struct task_restore_args *args)
 	/*
 	 * Sigframe stack.
 	 */
-	new_sp = (long)rt_sigframe + SIGFRAME_OFFSET;
+	new_sp = (long)rt_sigframe + RT_SIGFRAME_OFFSET(rt_sigframe);
 
 	/*
 	 * Prepare the stack and call for sigreturn,

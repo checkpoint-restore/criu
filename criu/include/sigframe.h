@@ -11,7 +11,7 @@
 struct rt_sigframe;
 
 #ifndef SIGFRAME_MAX_OFFSET
-#define SIGFRAME_MAX_OFFSET SIGFRAME_OFFSET
+#define SIGFRAME_MAX_OFFSET RT_SIGFRAME_OFFSET(0)
 #endif
 
 /* sigframe should be aligned on 64 byte for x86 and 8 bytes for arm */

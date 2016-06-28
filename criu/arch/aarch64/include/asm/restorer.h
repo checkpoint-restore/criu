@@ -93,15 +93,21 @@ struct rt_sigframe {
 #define RT_SIGFRAME_UC(rt_sigframe) (&rt_sigframe->uc)
 #define RT_SIGFRAME_REGIP(rt_sigframe) ((long unsigned int)(rt_sigframe)->uc.uc_mcontext.pc)
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe) (1)
-#define RT_SIGFRAME_FPU(rt_sigframe) ((struct aux_context*)&(rt_sigframe)->uc.uc_mcontext.__reserved)->fpsimd
-
-#define SIGFRAME_OFFSET 0
+#define RT_SIGFRAME_AUX_CONTEXT(rt_sigframe)				\
+	((struct aux_context*)&(rt_sigframe)->uc.uc_mcontext.__reserved)
+#define RT_SIGFRAME_FPU(rt_sigframe)					\
+	(&RT_SIGFRAME_AUX_CONTEXT(rt_sigframe)->fpsimd)
+#define RT_SIGFRAME_OFFSET(rt_sigframe) 0
 
 
 int restore_gpregs(struct rt_sigframe *f, UserAarch64RegsEntry *r);
 int restore_nonsigframe_gpregs(UserAarch64RegsEntry *r);
 
-static inline int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe, fpu_state_t *fpu_state) { return 0; }
+static inline int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe,
+		struct rt_sigframe *rsigframe)
+{
+	return 0;
+}
 
 static inline void restore_tls(tls_t *ptls)
 {
