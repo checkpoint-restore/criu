@@ -522,6 +522,25 @@ static void try_clean_ghost(struct remap_info *ri)
 	pr_perror(" `- XFail [%s] ghost", path);
 }
 
+static int clean_one_remap(struct file_remap *remap)
+{
+	int rmntns_root, ret = 0;
+
+	rmntns_root = mntns_get_root_by_mnt_id(remap->rmnt_id);
+	if (rmntns_root < 0)
+		return -1;
+
+	pr_info("Unlink remap %s\n", remap->rpath);
+
+	ret = unlinkat(rmntns_root, remap->rpath, remap->is_dir ? AT_REMOVEDIR : 0);
+	if (ret < 0) {
+		pr_perror("Couldn't unlink remap %s", remap->rpath);
+		return -1;
+	}
+
+	return 0;
+}
+
 void try_clean_remaps(int ns_fd)
 {
 	struct remap_info *ri;
@@ -647,14 +666,8 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 void remap_put(struct file_remap *remap)
 {
 	mutex_lock(ghost_file_mutex);
-	if (--remap->users == 0) {
-		int mntns_root;
-
-		pr_info("Unlink the ghost %s\n", remap->rpath);
-
-		mntns_root = mntns_get_root_by_mnt_id(remap->rmnt_id);
-		unlinkat(mntns_root, remap->rpath, 0);
-	}
+	if (--remap->users == 0)
+		clean_one_remap(remap);
 	mutex_unlock(ghost_file_mutex);
 }
 
@@ -1513,11 +1526,8 @@ ext:
 		}
 
 		BUG_ON(!rfi->remap->users);
-		if (--rfi->remap->users == 0) {
-			pr_info("Unlink the ghost %s\n", rfi->remap->rpath);
-			mntns_root = mntns_get_root_by_mnt_id(rfi->remap->rmnt_id);
-			unlinkat(mntns_root, rfi->remap->rpath, rfi->remap->is_dir ? AT_REMOVEDIR : 0);
-		}
+		if (--rfi->remap->users == 0)
+			clean_one_remap(rfi->remap);
 
 		mutex_unlock(ghost_file_mutex);
 	}
