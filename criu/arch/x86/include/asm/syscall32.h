@@ -14,12 +14,4 @@ extern long sys_getsockopt(int sockfd, int level, int optname, const void *optva
 extern long sys_shmat(int shmid, void *shmaddr, int shmflag);
 extern long sys_pread(unsigned int fd, char *ubuf, u32 count, u64 pos);
 
-/*
- * For x86_32 __NR_mmap inside the kernel represents old_mmap system
- * call, but since we didn't use it yet lets go further and simply
- * define own alias for __NR_mmap2 which would allow us to unify code
- * between 32 and 64 bits version.
- */
-#define __NR_mmap __NR_mmap2
-
 #endif /* __CR_SYSCALL32_H__ */
