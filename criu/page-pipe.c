@@ -111,6 +111,7 @@ static inline void iov_init_compat(struct iovec_compat *iov, unsigned long addr)
 static int page_pipe_grow(struct page_pipe *pp, unsigned int flags)
 {
 	struct page_pipe_buf *ppb;
+	struct iovec *free_iov;
 
 	pr_debug("Will grow page pipe (iov off is %u)\n", pp->free_iov);
 
@@ -128,7 +129,11 @@ static int page_pipe_grow(struct page_pipe *pp, unsigned int flags)
 		return -1;
 
 out:
-	ppb_init(ppb, 0, 0, flags, &pp->iovs[pp->free_iov]);
+	if (pp->flags & PP_COMPAT)
+		free_iov = (void*)&((struct iovec_compat*)pp->iovs)[pp->free_iov];
+	else
+		free_iov = &pp->iovs[pp->free_iov];
+	ppb_init(ppb, 0, 0, flags, free_iov);
 
 	return 0;
 }
