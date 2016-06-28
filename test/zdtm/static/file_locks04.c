@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/file.h>
 #include <string.h>
+#include <limits.h>
 #include <sys/wait.h>
 
 #include "zdtmtst.h"
@@ -16,27 +17,27 @@ const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-static int check_file_locks(int alt_pid, int fd)
+static int check_file_locks(pid_t child_pid, int fd, int child_fd)
 {
+	char		path[PATH_MAX];
 	FILE		*fp_locks = NULL;
 	char		buf[100], fl_flag[16], fl_type[16], fl_option[16];
-	pid_t		pid = getpid();
 	int		found = 0, num, fl_owner;
 
-	fp_locks = fopen("/proc/locks", "r");
-	if (!fp_locks)
+	sprintf(path, "/proc/%d/fdinfo/%d", child_pid, child_fd);
+	fp_locks = fopen(path, "r");
+	if (!fp_locks) {
+		pr_err("Can't open %s\n", path);
 		return -1;
-
-	test_msg("C: %d/%d\n", pid, alt_pid);
+	}
 
 	while (fgets(buf, sizeof(buf), fp_locks)) {
+		if (strncmp(buf, "lock:\t", 6) != 0)
+			continue;
 		test_msg("c: %s", buf);
 
-		if (strstr(buf, "->"))
-			continue;
-
 		num = sscanf(buf,
-			"%*d:%s %s %s %d %*02x:%*02x:%*d %*d %*s",
+			"%*s %*d:%s %s %s %d %*02x:%*02x:%*d %*d %*s",
 			fl_flag, fl_type, fl_option, &fl_owner);
 
 		if (num < 4) {
@@ -44,8 +45,10 @@ static int check_file_locks(int alt_pid, int fd)
 			break;
 		}
 
-		if (fl_owner != pid && fl_owner != alt_pid)
+		if (fl_owner != child_pid && fl_owner != getpid()) {
+			pr_err("Wrong owner\n");
 			continue;
+		}
 
 		if (!strcmp(fl_flag, "FLOCK") &&
 				!strcmp(fl_type, "ADVISORY") &&
@@ -67,11 +70,11 @@ static int check_file_locks(int alt_pid, int fd)
 
 int main(int argc, char **argv)
 {
-	int fd, pid;
+	int fd, child_fd, pid;
 
 	test_init(argc, argv);
 
-	fd = open(filename, O_CREAT | O_RDWR, 0600);
+	fd = child_fd = open(filename, O_CREAT | O_RDWR, 0600);
 	if (fd < 0) {
 		pr_perror("No file");
 		return -1;
@@ -105,7 +108,7 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	if (check_file_locks(pid, fd))
+	if (check_file_locks(pid, fd, child_fd) > 0)
 		pass();
 	else
 		fail("Flock file locks check failed");
