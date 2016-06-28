@@ -1160,7 +1160,8 @@ long __export_restore_task(struct task_restore_args *args)
 
 	if (args->compatible_mode) {
 		/* Map compatible vdso */
-		if (vdso_map_compat(args->vdso_rt_parked_at))
+		if (vdso_map_compat(args->vdso_rt_parked_at,
+				vdso_rt_size, &args->vdso_sym_rt))
 			goto core_restore_end;
 	}
 
