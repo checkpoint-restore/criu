@@ -74,6 +74,39 @@
 		     : "memory")
 #endif /* CONFIG_X86_64 */
 
+static inline void
+__setup_sas_compat(struct ucontext_ia32* uc, ThreadSasEntry *sas)
+{
+	uc->uc_stack.ss_sp	= (compat_uptr_t)(sas)->ss_sp;
+	uc->uc_stack.ss_flags	= (int)(sas)->ss_flags;
+	uc->uc_stack.ss_size	= (compat_size_t)(sas)->ss_size;
+}
+
+static inline void
+__setup_sas(struct rt_sigframe* sigframe, ThreadSasEntry *sas)
+{
+#ifdef CONFIG_X86_64
+	if (sigframe->is_native) {
+		struct rt_ucontext *uc	= &sigframe->native.uc;
+
+		uc->uc_stack.ss_sp	= (void *)decode_pointer((sas)->ss_sp);
+		uc->uc_stack.ss_flags	= (int)(sas)->ss_flags;
+		uc->uc_stack.ss_size	= (size_t)(sas)->ss_size;
+	} else {
+		__setup_sas_compat(&sigframe->compat.uc, sas);
+	}
+#else
+	__setup_sas_compat(&sigframe->uc, sas);
+#endif
+}
+
+static inline void _setup_sas(struct rt_sigframe* sigframe, ThreadSasEntry *sas)
+{
+	if (sas)
+		__setup_sas(sigframe, sas);
+}
+#define setup_sas _setup_sas
+
 int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r);
 int restore_nonsigframe_gpregs(UserX86RegsEntry *r);
 
