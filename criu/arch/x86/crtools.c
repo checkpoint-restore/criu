@@ -389,6 +389,18 @@ int ptrace_set_regs(pid_t pid, user_regs_struct_t *regs)
 	return ptrace(PTRACE_SETREGSET, pid, NT_PRSTATUS, &iov);
 }
 
+static void alloc_tls(ThreadInfoX86 *ti, void **mempool)
+{
+	int i;
+
+	ti->tls = xptr_pull_s(mempool, GDT_ENTRY_TLS_NUM*sizeof(UserDescT*));
+	ti->n_tls = GDT_ENTRY_TLS_NUM;
+	for (i = 0; i < GDT_ENTRY_TLS_NUM; i++) {
+		ti->tls[i] = xptr_pull(mempool, UserDescT);
+		user_desc_t__init(ti->tls[i]);
+	}
+}
+
 int arch_alloc_thread_info(CoreEntry *core)
 {
 	size_t sz;
@@ -399,7 +411,9 @@ int arch_alloc_thread_info(CoreEntry *core)
 
 	with_fpu = cpu_has_feature(X86_FEATURE_FPU);
 
-	sz = sizeof(ThreadInfoX86) + sizeof(UserX86RegsEntry);
+	sz = sizeof(ThreadInfoX86) + sizeof(UserX86RegsEntry) +
+		GDT_ENTRY_TLS_NUM*sizeof(UserDescT) +
+		GDT_ENTRY_TLS_NUM*sizeof(UserDescT*);
 	if (with_fpu) {
 		sz += sizeof(UserX86FpregsEntry);
 		with_xsave = cpu_has_feature(X86_FEATURE_OSXSAVE);
@@ -415,6 +429,7 @@ int arch_alloc_thread_info(CoreEntry *core)
 	thread_info_x86__init(ti);
 	ti->gpregs = xptr_pull(&m, UserX86RegsEntry);
 	user_x86_regs_entry__init(ti->gpregs);
+	alloc_tls(ti, &m);
 
 	if (with_fpu) {
 		UserX86FpregsEntry *fpregs;

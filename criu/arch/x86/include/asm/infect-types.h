@@ -136,7 +136,19 @@ typedef struct xsave_struct user_fpregs_struct_t;
 static inline unsigned long task_size(void) { return TASK_SIZE; }
 
 typedef uint64_t auxv_t;
-typedef uint32_t tls_t;
+
+/*
+ * Linux preserves three TLS segments in GDT.
+ * Offsets in GDT differ between 32-bit and 64-bit machines.
+ * For 64-bit x86 those GDT offsets are the same
+ * for native and compat tasks.
+ */
+#define GDT_ENTRY_TLS_MIN		12
+#define GDT_ENTRY_TLS_MAX		14
+#define GDT_ENTRY_TLS_NUM		3
+typedef struct {
+	user_desc_t desc[GDT_ENTRY_TLS_NUM];
+} tls_t;
 
 #define REG_RES(regs)		get_user_reg(&regs, ax)
 #define REG_IP(regs)		get_user_reg(&regs, ip)
