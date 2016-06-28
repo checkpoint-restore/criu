@@ -81,16 +81,32 @@ int vdso_map_compat(unsigned long map_at)
 	ret = sys_arch_prctl(ARCH_MAP_VDSO_32, map_at);
 	return ret;
 }
+
+extern int vdso_fill_symtable_compat(uintptr_t mem, size_t size,
+		struct vdso_symtable *t);
+int __vdso_fill_symtable(uintptr_t mem, size_t size,
+		struct vdso_symtable *t, bool compat_vdso)
+{
+	if (compat_vdso)
+		return vdso_fill_symtable_compat(mem, size, t);
+	else
+		return vdso_fill_symtable(mem, size, t);
+}
 #else
 int vdso_map_compat(unsigned long map_at)
 {
 	return 0;
 }
+int __vdso_fill_symtable(uintptr_t mem, size_t size,
+		struct vdso_symtable *t, bool __always_unused compat_vdso)
+{
+	return vdso_fill_symtable(mem, size, t);
+}
 #endif
 
 int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 		 unsigned long vdso_rt_parked_at, size_t index,
-		 VmaEntry *vmas, size_t nr_vmas)
+		 VmaEntry *vmas, size_t nr_vmas, bool compat_vdso)
 {
 	VmaEntry *vma_vdso = NULL, *vma_vvar = NULL;
 	struct vdso_symtable s = VDSO_SYMTABLE_INIT;
@@ -125,8 +141,8 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 	/*
 	 * Find symbols in vDSO zone read from image.
 	 */
-	if (vdso_fill_symtable((uintptr_t)vma_vdso->start,
-				vma_entry_len(vma_vdso), &s))
+	if (__vdso_fill_symtable((uintptr_t)vma_vdso->start,
+			vma_entry_len(vma_vdso), &s, compat_vdso))
 		return -1;
 
 	/*

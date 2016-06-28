@@ -88,6 +88,10 @@ static inline unsigned long vvar_vma_size(struct vdso_symtable *t)
 	return t->vvar_end - t->vvar_start;
 }
 
+#if defined(CONFIG_X86_32)
+# define vdso_fill_symtable vdso_fill_symtable_compat
+#endif
+
 extern int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t);
 
 #endif /* __CR_UTIL_VDSO_H__ */
