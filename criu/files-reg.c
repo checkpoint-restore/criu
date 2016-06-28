@@ -975,8 +975,8 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms,
 		if (!start)
 			return -1;
 		start = strstr(start + 1, "/");
-		if (!start)
-			return -1;
+		if (!start) /* it's /proc */
+			return 0;
 		pid = strtol(start + 1, &end, 10);
 
 		/* If strtol didn't convert anything, then we are looking at
