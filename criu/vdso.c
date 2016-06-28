@@ -100,7 +100,14 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		 */
 		args->start = vma->e->start;
 		args->len = vma_area_len(vma);
-		args->try_fill_symtable = (fd < 0) ? true : false;
+		/*
+		 * XXX: For compatible tasks, vDSO pfn is different from
+		 * our native vdso_pfn. Check vma explicitly.
+		 */
+		if (!seized_native(ctl))
+			args->try_fill_symtable = true;
+		else
+			args->try_fill_symtable = (fd < 0) ? true : false;
 		args->is_vdso = false;
 
 		if (parasite_execute_daemon(PARASITE_CMD_CHECK_VDSO_MARK, ctl)) {
