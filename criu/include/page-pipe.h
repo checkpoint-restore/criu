@@ -121,6 +121,12 @@ struct page_pipe {
 #define PP_COMPAT	0x2	/* Use compatible iovs (struct compat_iovec) */
 #define PP_OWN_IOVS	0x4	/* create_page_pipe allocated IOVs memory */
 
+/* XXX: move to arch-depended file, when non-x86 add support for compat mode */
+struct iovec_compat {
+	u32	iov_base;
+	u32	iov_len;
+};
+
 struct page_pipe *create_page_pipe(unsigned int nr_segs, struct iovec *iovs, unsigned flags);
 extern void destroy_page_pipe(struct page_pipe *p);
 extern int page_pipe_add_page(struct page_pipe *p, unsigned long addr,

@@ -341,9 +341,19 @@ static int page_xfer_dump_hole(struct page_xfer *xfer,
 	return 0;
 }
 
-static struct iovec get_iov(struct iovec *iovs, unsigned int n)
+static struct iovec get_iov(struct iovec *iovs, unsigned int n, bool compat)
 {
-	return iovs[n];
+	if (likely(!compat)) {
+		return iovs[n];
+	} else {
+		struct iovec ret;
+		struct iovec_compat *tmp = (struct iovec_compat*)(void *)iovs;
+
+		tmp += n;
+		ret.iov_base = (void *)(uintptr_t)tmp->iov_base;
+		ret.iov_len = tmp->iov_len;
+		return ret;
+	}
 }
 
 static int dump_holes(struct page_xfer *xfer, struct page_pipe *pp,
@@ -352,7 +362,8 @@ static int dump_holes(struct page_xfer *xfer, struct page_pipe *pp,
 	int ret;
 
 	for (; *cur_hole < pp->free_hole ; (*cur_hole)++) {
-		struct iovec hole = get_iov(pp->holes, *cur_hole);
+		struct iovec hole = get_iov(pp->holes, *cur_hole,
+						pp->flags & PP_COMPAT);
 
 		if (limit && hole.iov_base >= limit)
 			break;
@@ -380,7 +391,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 		pr_debug("\tbuf %d/%d\n", ppb->pages_in, ppb->nr_segs);
 
 		for (i = 0; i < ppb->nr_segs; i++) {
-			struct iovec iov = get_iov(ppb->iov, i);
+			struct iovec iov = get_iov(ppb->iov, i, pp->flags & PP_COMPAT);
 
 			ret = dump_holes(xfer, pp, &cur_hole, iov.iov_base, off);
 			if (ret)

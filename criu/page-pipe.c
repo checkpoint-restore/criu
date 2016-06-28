@@ -102,12 +102,6 @@ static struct page_pipe_buf *ppb_alloc_resize(struct page_pipe *pp, int size)
 	return ppb;
 }
 
-/* XXX: move to arch-depended file, when non-x86 add support for compat mode */
-struct iovec_compat {
-	u32	iov_base;
-	u32	iov_len;
-};
-
 static inline void iov_init_compat(struct iovec_compat *iov, unsigned long addr)
 {
 	iov->iov_base = (u32)addr;
