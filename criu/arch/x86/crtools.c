@@ -280,6 +280,7 @@ static int save_task_regs(CoreEntry *core,
 		assign_reg(gpregs, regs->compat, ss);
 		gpregs->mode = USER_X86_REGS_MODE__COMPAT;
 	}
+	gpregs->has_gpregs_case = true;
 
 	if (!fpregs)
 		return 0;
