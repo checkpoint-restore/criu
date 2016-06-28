@@ -71,7 +71,7 @@ struct parasite_init_args {
 
 	int			log_level;
 
-	struct rt_sigframe	*sigframe;
+	u64			sigframe; /* pointer to sigframe */
 
 	void			*sigreturn_addr;
 	futex_t			daemon_connected;

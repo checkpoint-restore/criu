@@ -792,7 +792,7 @@ static noinline __used int parasite_init_daemon(void *data)
 	int ret;
 
 	args->sigreturn_addr = fini_sigreturn;
-	sigframe = args->sigframe;
+	sigframe = (void*)(uintptr_t)args->sigframe;
 
 	ret = tsock = sys_socket(PF_UNIX, SOCK_SEQPACKET, 0);
 	if (tsock < 0) {

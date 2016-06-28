@@ -93,10 +93,10 @@ typedef struct {
 
 	union {
 		struct xsave_struct	xsave;
-		unsigned char		__pad[sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE];
+		u8		__pad[sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE];
 	};
 
-	bool has_fpu;
+	u8 has_fpu;
 } fpu_state_t;
 
 #endif /* __CR_ASM_FPU_H__ */
