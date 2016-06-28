@@ -1147,12 +1147,22 @@ long __export_restore_task(struct task_restore_args *args)
 		pr_debug("lazy-pages: uffd %d\n", args->uffd);
 	}
 
-	if (vdso_do_park(&args->vdso_sym_rt, args->vdso_rt_parked_at, vdso_rt_size))
-		goto core_restore_end;
+	if (!args->compatible_mode) {
+		/* Compatible vDSO will be mapped, not moved */
+		if (vdso_do_park(&args->vdso_sym_rt,
+				args->vdso_rt_parked_at, vdso_rt_size))
+			goto core_restore_end;
+	}
 
 	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len,
 				bootstrap_start, bootstrap_len, args->task_size))
 		goto core_restore_end;
+
+	if (args->compatible_mode) {
+		/* Map compatible vdso */
+		if (vdso_map_compat(args->vdso_rt_parked_at))
+			goto core_restore_end;
+	}
 
 	/* Shift private vma-s to the left */
 	for (i = 0; i < args->vmas_n; i++) {

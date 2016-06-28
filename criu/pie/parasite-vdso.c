@@ -68,6 +68,26 @@ int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned l
 	return ret;
 }
 
+#ifdef CONFIG_X86_64
+#ifndef ARCH_MAP_VDSO_32
+# define ARCH_MAP_VDSO_32	0x2002
+#endif
+int vdso_map_compat(unsigned long map_at)
+{
+	int ret;
+
+	pr_debug("Mapping compatible vDSO at %lx\n", map_at);
+
+	ret = sys_arch_prctl(ARCH_MAP_VDSO_32, map_at);
+	return ret;
+}
+#else
+int vdso_map_compat(unsigned long map_at)
+{
+	return 0;
+}
+#endif
+
 int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 		 unsigned long vdso_rt_parked_at, size_t index,
 		 VmaEntry *vmas, size_t nr_vmas)
