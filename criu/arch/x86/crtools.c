@@ -172,7 +172,8 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 	struct iovec iov;
 	int ret = -1;
 
-	pr_info("Dumping GP/FPU registers for %d\n", pid);
+	pr_info("Dumping general registers for %d in %s mode\n", pid,
+			user_regs_native(&regs) ? "native" : "compat");
 
 	/* Did we come from a system call? */
 	if (get_signed_user_reg(&regs, orig_ax) >= 0) {
@@ -202,6 +203,8 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 	 * FPU fetched either via fxsave or via xsave,
 	 * thus decode it accrodingly.
 	 */
+
+	pr_info("Dumping GP/FPU registers for %d\n", pid);
 
 	if (cpu_has_feature(X86_FEATURE_OSXSAVE)) {
 		iov.iov_base = &xsave;
