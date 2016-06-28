@@ -51,6 +51,13 @@ typedef struct {
 } rt_sigaction_t;
 
 typedef struct {
+	u32	rt_sa_handler;
+	u32	rt_sa_flags;
+	u32	rt_sa_restorer;
+	k_rtsigset_t	rt_sa_mask;
+} rt_sigaction_t_compat;
+
+typedef struct {
 	unsigned int	entry_number;
 	unsigned int	base_addr;
 	unsigned int	limit;

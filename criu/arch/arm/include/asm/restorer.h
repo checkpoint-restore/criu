@@ -82,4 +82,9 @@ static inline int ptrace_flush_breakpoints(pid_t pid)
 	return 0;
 }
 
+static inline void *alloc_compat_syscall_stack(void) { return NULL; }
+static inline void free_compat_syscall_stack(void *stack32) { }
+static inline int
+arch_compat_rt_sigaction(void *stack, int sig, void *act) { return -1; }
+
 #endif

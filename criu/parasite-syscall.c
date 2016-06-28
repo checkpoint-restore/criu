@@ -699,8 +699,9 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 	int ret, sig;
 	struct cr_img *img;
 	SaEntry se = SA_ENTRY__INIT;
+	bool native_task = seized_native(ctl);
 
-	if (seized_native(ctl))
+	if (native_task)
 		args = parasite_args(ctl, struct parasite_dump_sa_args);
 	else
 		args_c = parasite_args(ctl, struct parasite_dump_sa_args_compat);
@@ -717,10 +718,12 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 		if (sig == SIGSTOP || sig == SIGKILL)
 			continue;
 
-		if (seized_native(ctl))
+		if (native_task)
 			ASSIGN_SAS(se, args);
 		else
 			ASSIGN_SAS(se, args_c);
+		se.has_compat_sigaction = true;
+		se.compat_sigaction = !native_task;
 
 		if (pb_write_one(img, &se, PB_SIGACT) < 0)
 			return -1;

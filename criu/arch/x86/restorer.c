@@ -34,8 +34,6 @@ int restore_nonsigframe_gpregs(UserX86RegsEntry *r)
 	return 0;
 }
 
-extern unsigned long call32_from_64(void *stack, void *func);
-
 asm (	"	.pushsection .text				\n"
 	"	.global restore_set_thread_area			\n"
 	"	.code32						\n"
@@ -55,10 +53,8 @@ static int prepare_stack32(void)
 	if (stack32)
 		return 0;
 
-	stack32 = (void*)sys_mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
-				MAP_32BIT | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	if (stack32 == MAP_FAILED) {
-		stack32 = NULL;
+	stack32 = alloc_compat_syscall_stack();
+	if (!stack32) {
 		pr_err("Failed to allocate stack for 32-bit TLS restore\n");
 		return -1;
 	}
@@ -92,5 +88,5 @@ void restore_tls(tls_t *ptls)
 	}
 
 	if (stack32)
-		sys_munmap(stack32, PAGE_SIZE);
+		free_compat_syscall_stack(stack32);
 }

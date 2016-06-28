@@ -7,6 +7,22 @@
 
 #include "sigframe.h"
 
+#ifdef CONFIG_COMPAT
+extern void *alloc_compat_syscall_stack(void);
+extern void free_compat_syscall_stack(void *mem);
+extern unsigned long call32_from_64(void *stack, void *func);
+extern void restore_tls(tls_t *ptls);
+
+extern int arch_compat_rt_sigaction(void *stack32, int sig,
+		rt_sigaction_t_compat *act);
+#else
+static inline void *alloc_compat_syscall_stack(void) { return NULL; }
+static inline void free_compat_syscall_stack(void *stack32) { }
+static inline void restore_tls(tls_t *ptls) { }
+static inline int
+arch_compat_rt_sigaction(void *stack, int sig, void *act) { return -1; }
+#endif
+
 #ifdef CONFIG_X86_64
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,      \
 			     thread_args, clone_restore_fn)             \
