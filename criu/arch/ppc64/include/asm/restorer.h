@@ -70,4 +70,9 @@ static inline int ptrace_flush_breakpoints(pid_t pid)
  */
 unsigned long sys_shmat(int shmid, const void *shmaddr, int shmflg);
 
+static inline void *alloc_compat_syscall_stack(void) { return NULL; }
+static inline void free_compat_syscall_stack(void *stack32) { }
+static inline int
+arch_compat_rt_sigaction(void *stack, int sig, void *act) { return -1; }
+
 #endif /*__CR_ASM_RESTORER_H__*/

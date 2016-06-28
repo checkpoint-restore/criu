@@ -1478,7 +1478,20 @@ long __export_restore_task(struct task_restore_args *args)
 		goto core_restore_end;
 	}
 
-	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL, sizeof(k_rtsigset_t));
+	if (!args->compatible_mode) {
+		sys_sigaction(SIGCHLD, &args->sigchld_act,
+				NULL, sizeof(k_rtsigset_t));
+	} else {
+		void *stack = alloc_compat_syscall_stack();
+
+		if (!stack) {
+			pr_err("Failed to allocate 32-bit stack for sigaction\n");
+			goto core_restore_end;
+		}
+		arch_compat_rt_sigaction(stack, SIGCHLD,
+				(void*)&args->sigchld_act);
+		free_compat_syscall_stack(stack);
+	}
 
 	ret = restore_signals(args->siginfo, args->siginfo_n, true);
 	if (ret)
