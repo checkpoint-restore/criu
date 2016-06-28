@@ -34,6 +34,7 @@ call32_from_64:
 	pushfq
 
 	// Switch stacks
+	sub $8, %rdi
 	mov %rsp,(%rdi)
 	mov %rdi,%rsp
 
@@ -53,6 +54,7 @@ call32_from_64:
 1:
 	// Restore the stack
 	mov (%rsp),%rsp
+	add $8, %rdi
 
 	// Restore registers
 	popfq
