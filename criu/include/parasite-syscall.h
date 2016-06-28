@@ -119,6 +119,7 @@ extern int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 extern int __parasite_execute_syscall(struct parasite_ctl *ctl,
 		user_regs_struct_t *regs, const char *code_syscall);
 extern bool arch_can_dump_task(struct parasite_ctl *ctl);
+extern bool seized_native(struct parasite_ctl *ctl);
 
 /*
  * The PTRACE_SYSCALL will trap task twice -- on
