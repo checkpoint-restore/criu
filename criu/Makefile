@@ -27,6 +27,7 @@ REQ-RPM-PKG-NAMES	+= protobuf-compiler
 REQ-RPM-PKG-NAMES	+= protobuf-devel
 REQ-RPM-PKG-NAMES	+= protobuf-python
 REQ-RPM-PKG-NAMES	+= libnl3-devel
+REQ-RPM-PKG-NAMES	+= libcap-devel
 
 REQ-DEB-PKG-NAMES	+= libprotobuf-dev
 REQ-DEB-PKG-NAMES	+= libprotobuf-c0-dev
@@ -34,12 +35,11 @@ REQ-DEB-PKG-NAMES	+= protobuf-c-compiler
 REQ-DEB-PKG-NAMES	+= protobuf-compiler
 REQ-DEB-PKG-NAMES	+= python-protobuf
 REQ-DEB-PKG-NAMES	+= libnl-3-dev
+REQ-DEB-PKG-NAMES	+= libcap-dev
 
 REQ-RPM-PKG-TEST-NAMES  += libaio-devel
-REQ-RPM-PKG-TEST-NAMES  += libcap-devel
 
 REQ-DEB-PKG-TEST-NAMES  += libaio-dev
-REQ-DEV-PKG-TEST-NAMES  += libcap-dev
 
 #
 # Make sure all required libs are installed
