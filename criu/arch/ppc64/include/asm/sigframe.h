@@ -43,7 +43,7 @@ struct rt_sigframe {
         char				abigap[USER_REDZONE_SIZE];
 } __attribute__((aligned(16)));
 
-#define ARCH_RT_SIGRETURN(new_sp)				\
+#define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)			\
         asm volatile(						\
 		"mr 1, %0 \n"					\
 		"li 0, "__stringify(__NR_rt_sigreturn)" \n"	\

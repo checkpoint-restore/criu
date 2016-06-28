@@ -32,7 +32,7 @@ struct rt_sigframe {
 	uint64_t			lr;
 };
 
-#define ARCH_RT_SIGRETURN(new_sp)						\
+#define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)					\
 	asm volatile(								\
 			"mov sp, %0					\n"	\
 			"mov x8, #"__stringify(__NR_rt_sigreturn)"	\n"	\
