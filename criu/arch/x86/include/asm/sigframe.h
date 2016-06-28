@@ -174,7 +174,9 @@ struct rt_sigframe {
  */
 #define RT_SIGFRAME_OFFSET(rt_sigframe)	((rt_sigframe->is_native) ? 8 : 4 )
 
-#define ARCH_RT_SIGRETURN(new_sp)					\
+#define USER32_CS		0x23
+
+#define ARCH_RT_SIGRETURN_NATIVE(new_sp)				\
 	asm volatile(							\
 		     "movq %0, %%rax				    \n"	\
 		     "movq %%rax, %%rsp				    \n"	\
@@ -183,6 +185,28 @@ struct rt_sigframe {
 		     :							\
 		     : "r"(new_sp)					\
 		     : "rax","rsp","memory")
+#define ARCH_RT_SIGRETURN_COMPAT(new_sp)				\
+	asm volatile(							\
+		"pushq $"__stringify(USER32_CS)"		\n"	\
+		"pushq $1f					\n"	\
+		"lretq						\n"	\
+		"1:						\n"	\
+		".code32					\n"	\
+		"movl %%edi, %%esp				\n"	\
+		"movl $"__stringify(__NR32_rt_sigreturn)",%%eax	\n"	\
+		"int $0x80					\n"	\
+		".code64					\n"	\
+		:							\
+		: "rdi"(new_sp)						\
+		: "eax","esp","memory")
+
+#define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)				\
+do {									\
+	if ((rt_sigframe)->is_native)					\
+		ARCH_RT_SIGRETURN_NATIVE(new_sp);			\
+	else								\
+		ARCH_RT_SIGRETURN_COMPAT(new_sp);			\
+} while (0)
 #else /* CONFIG_X86_64 */
 #define RT_SIGFRAME_UC(rt_sigframe) (&rt_sigframe->uc)
 #define RT_SIGFRAME_OFFSET(rt_sigframe)	4
@@ -191,7 +215,7 @@ struct rt_sigframe {
 #define RT_SIGFRAME_FPU(rt_sigframe) (&(rt_sigframe)->fpu_state)
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe) (RT_SIGFRAME_FPU(rt_sigframe)->has_fpu)
 
-#define ARCH_RT_SIGRETURN(new_sp)					\
+#define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)				\
 	asm volatile(							\
 		     "movl %0, %%eax				    \n"	\
 		     "movl %%eax, %%esp				    \n"	\
