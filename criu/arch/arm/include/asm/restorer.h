@@ -126,7 +126,7 @@ struct rt_sigframe {
 #define RT_SIGFRAME_UC(rt_sigframe) (&rt_sigframe->sig.uc)
 #define RT_SIGFRAME_REGIP(rt_sigframe) (rt_sigframe)->sig.uc.uc_mcontext.arm_ip
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe) 1
-#define RT_SIGFRAME_FPU(rt_sigframe) ((struct aux_sigframe *)&sigframe->sig.uc.uc_regspace)->vfp
+#define RT_SIGFRAME_FPU(rt_sigframe) ((struct aux_sigframe *)&rt_sigframe->sig.uc.uc_regspace)->vfp
 
 #define SIGFRAME_OFFSET 0
 
