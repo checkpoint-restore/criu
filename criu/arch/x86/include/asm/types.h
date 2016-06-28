@@ -38,7 +38,7 @@ typedef rt_restorefn_t *rt_sigrestore_t;
 #define _KNSIG_WORDS     (_KNSIG / _NSIG_BPW)
 
 typedef struct {
-	unsigned long sig[_KNSIG_WORDS];
+	u64 sig[_KNSIG_WORDS];
 } k_rtsigset_t;
 
 #define SA_RESTORER	0x04000000
