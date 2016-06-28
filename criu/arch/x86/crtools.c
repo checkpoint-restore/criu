@@ -3,6 +3,8 @@
 #include <elf.h>
 #include <sys/user.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
+#include <sys/auxv.h>
 
 #include "types.h"
 #include "asm/processor-flags.h"
@@ -20,6 +22,7 @@
 #include "cpu.h"
 #include "errno.h"
 #include "syscall-codes.h"
+#include "kerndat.h"
 
 #include "protobuf.h"
 #include "images/core.pb-c.h"
@@ -67,6 +70,31 @@ void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *
 			~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF));
 }
 
+#ifdef CONFIG_X86_64
+/* Remaps 64-bit vDSO on the same addr, where it already is */
+int kdat_compat_sigreturn_test(void)
+{
+	unsigned long auxval;
+	int ret;
+
+	errno = 0;
+	auxval = getauxval(AT_SYSINFO_EHDR);
+	if (!auxval || errno == ENOENT) {
+		pr_err("Failed to get auxval, err: %lu\n", auxval);
+		return 0;
+	}
+	/*
+	 * Mapping vDSO on very low unaligned address (1).
+	 * We will get ENOMEM or EPERM if ARCH_MAP_VDSO_* exist,
+	 * and ENOSYS if patches aren't in kernel.
+	 */
+	ret = syscall(SYS_arch_prctl, ARCH_MAP_VDSO_32, 1);
+	if (ret == -1 && errno == ENOSYS)
+		return 0;
+	return 1;
+}
+#endif /* CONFIG_X86_64 */
+
 int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs);
 int arch_task_compatible(pid_t pid)
 {
@@ -103,9 +131,13 @@ static bool ldt_task_selectors(pid_t pid)
 bool arch_can_dump_task(struct parasite_ctl *ctl)
 {
 	pid_t pid = ctl->rpid;
+	int ret;
 
-	/* FIXME: remove it */
-	if (arch_task_compatible(pid)) {
+	ret = arch_task_compatible(pid);
+	if (ret < 0)
+		return false;
+
+	if (ret && !kdat.has_compat_sigreturn) {
 		pr_err("Can't dump task %d running in 32-bit mode\n", pid);
 		return false;
 	}
