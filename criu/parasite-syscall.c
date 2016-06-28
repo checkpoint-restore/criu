@@ -120,7 +120,7 @@ static int restore_thread_ctx(int pid, struct thread_ctx *ctx)
 	return ret;
 }
 
-static inline bool seized_native(struct parasite_ctl *ctl)
+bool seized_native(struct parasite_ctl *ctl)
 {
 	return user_regs_native(&ctl->orig.regs);
 }
