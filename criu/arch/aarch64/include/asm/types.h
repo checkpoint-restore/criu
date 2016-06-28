@@ -10,7 +10,6 @@
 #include "bitops.h"
 #include "asm/int.h"
 
-
 typedef void rt_signalfn_t(int, siginfo_t *, void *);
 typedef rt_signalfn_t *rt_sighandler_t;
 
@@ -34,6 +33,8 @@ typedef struct {
 	rt_sigrestore_t	rt_sa_restorer;
 	k_rtsigset_t	rt_sa_mask;
 } rt_sigaction_t;
+
+#define core_is_compat(core)			false
 
 typedef UserAarch64RegsEntry UserRegsEntry;
 

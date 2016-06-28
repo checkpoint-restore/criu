@@ -106,6 +106,7 @@
 
 #ifndef arch_export_unmap
 #define arch_export_unmap		__export_unmap
+#define arch_export_unmap_compat	__export_unmap_compat
 #endif
 
 struct pstree_item *current;
@@ -2871,7 +2872,12 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 */
 	task_args->clone_restore_fn	= restorer_sym(mem, arch_export_restore_thread);
 	restore_task_exec_start		= restorer_sym(mem, arch_export_restore_task);
-	rsti(current)->munmap_restorer	= restorer_sym(mem, arch_export_unmap);
+	if (core_is_compat(core))
+		rsti(current)->munmap_restorer =
+			restorer_sym(mem, arch_export_unmap_compat);
+	else
+		rsti(current)->munmap_restorer =
+			restorer_sym(mem, arch_export_unmap);
 
 	task_args->bootstrap_start = mem;
 	mem += restorer_len;

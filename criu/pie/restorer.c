@@ -941,8 +941,6 @@ static void restore_posix_timers(struct task_restore_args *args)
 		sys_timer_settime((kernel_timer_t)rt->spt.it_id, 0, &rt->val, NULL);
 	}
 }
-static void *bootstrap_start;
-static unsigned int bootstrap_len;
 
 /*
  * sys_munmap must not return here. The control process must
@@ -954,10 +952,33 @@ static unsigned long vdso_rt_size;
 #define vdso_rt_size	(0)
 #endif
 
+static void *bootstrap_start;
+static unsigned int bootstrap_len;
+
 void __export_unmap(void)
 {
 	sys_munmap(bootstrap_start, bootstrap_len - vdso_rt_size);
 }
+
+#ifdef CONFIG_X86_64
+asm (
+	"	.pushsection .text\n"
+	"	.global	__export_unmap_compat\n"
+	"__export_unmap_compat:\n"
+	"	.code32\n"
+	"	mov bootstrap_start, %ebx\n"
+	"	mov bootstrap_len, %ecx\n"
+	"	movl $"__stringify(__NR32_munmap)", %eax\n"
+	"	int	$0x80\n"
+	"	.code64\n"
+	"	.popsection\n"
+);
+extern char __export_unmap_compat;
+#else
+void __export_unmap_compat(void)
+{
+}
+#endif
 
 /*
  * This function unmaps all VMAs, which don't belong to

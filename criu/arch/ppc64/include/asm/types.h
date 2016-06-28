@@ -37,10 +37,11 @@ typedef struct {
         k_rtsigset_t rt_sa_mask;               /* mask last for extensibility */
 } rt_sigaction_t;
 
+#define core_is_compat(core)			false
+
 typedef UserPpc64RegsEntry UserRegsEntry;
 
 #define CORE_ENTRY__MARCH	CORE_ENTRY__MARCH__PPC64
-
 
 #define CORE_THREAD_ARCH_INFO(core) core->ti_ppc64
 

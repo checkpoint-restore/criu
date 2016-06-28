@@ -33,6 +33,8 @@ typedef struct {
 	k_rtsigset_t	rt_sa_mask;
 } rt_sigaction_t;
 
+#define core_is_compat(core)			false
+
 typedef UserArmRegsEntry UserRegsEntry;
 
 #define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__ARM
