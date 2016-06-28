@@ -10,6 +10,22 @@
 
 #include "images/core.pb-c.h"
 
+#ifdef CONFIG_X86_64
+static inline int core_is_compat(CoreEntry *c)
+{
+	switch (c->thread_info->gpregs->mode) {
+		case USER_X86_REGS_MODE__NATIVE:
+			return 0;
+		case USER_X86_REGS_MODE__COMPAT:
+			return 1;
+		default:
+			return -1;
+	}
+}
+#else /* CONFIG_X86_64 */
+static inline int core_is_compat(CoreEntry *c) { return 0; }
+#endif /* CONFIG_X86_64 */
+
 typedef void rt_signalfn_t(int, siginfo_t *, void *);
 typedef rt_signalfn_t *rt_sighandler_t;
 

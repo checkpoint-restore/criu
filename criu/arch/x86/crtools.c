@@ -496,7 +496,9 @@ static void show_rt_xsave_frame(struct xsave_struct *x)
 
 int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 {
-	fpu_state_t *fpu_state = &sigframe->fpu_state;
+	fpu_state_t *fpu_state = core_is_compat(core) ?
+		&sigframe->compat.fpu_state :
+		&sigframe->native.fpu_state;
 	struct xsave_struct *x = &fpu_state->xsave;
 
 	/*
@@ -584,51 +586,83 @@ void *mmap_seized(struct parasite_ctl *ctl,
 	return (void *)map;
 }
 
-int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
+#ifdef CONFIG_X86_64
+#define CPREG32(d)	f->compat.uc.uc_mcontext.d = r->d
+#else
+#define CPREG32(d)	f->uc.uc_mcontext.d = r->d
+#endif
+static void restore_compat_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 {
-	/* FIXME: rt_sigcontext for compatible tasks */
-	if (r->gpregs_case != USER_X86_REGS_CASE_T__NATIVE) {
-		pr_err("Can't prepare rt_sigframe for compatible task restore\n");
-		return -1;
-	}
+	CPREG32(gs);
+	CPREG32(fs);
+	CPREG32(es);
+	CPREG32(ds);
 
-#define CPREG1(d)	f->uc.uc_mcontext.d = r->d
-#define CPREG2(d, s)	f->uc.uc_mcontext.d = r->s
+	CPREG32(di); CPREG32(si); CPREG32(bp); CPREG32(sp); CPREG32(bx);
+	CPREG32(dx); CPREG32(cx); CPREG32(ip); CPREG32(ax);
+	CPREG32(cs);
+	CPREG32(ss);
+	CPREG32(flags);
 
 #ifdef CONFIG_X86_64
-	CPREG1(r8);
-	CPREG1(r9);
-	CPREG1(r10);
-	CPREG1(r11);
-	CPREG1(r12);
-	CPREG1(r13);
-	CPREG1(r14);
-	CPREG1(r15);
+	f->is_native = false;
 #endif
+}
+#undef CPREG32
 
-	CPREG2(rdi, di);
-	CPREG2(rsi, si);
-	CPREG2(rbp, bp);
-	CPREG2(rbx, bx);
-	CPREG2(rdx, dx);
-	CPREG2(rax, ax);
-	CPREG2(rcx, cx);
-	CPREG2(rsp, sp);
-	CPREG2(rip, ip);
-	CPREG2(eflags, flags);
+#ifdef CONFIG_X86_64
+#define CPREG64(d, s)	f->native.uc.uc_mcontext.d = r->s
+static void restore_native_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
+{
+	CPREG64(rdi, di);
+	CPREG64(rsi, si);
+	CPREG64(rbp, bp);
+	CPREG64(rsp, sp);
+	CPREG64(rbx, bx);
+	CPREG64(rdx, dx);
+	CPREG64(rcx, cx);
+	CPREG64(rip, ip);
+	CPREG64(rax, ax);
 
-	CPREG1(cs);
-	CPREG1(ss);
+	CPREG64(r8, r8);
+	CPREG64(r9, r9);
+	CPREG64(r10, r10);
+	CPREG64(r11, r11);
+	CPREG64(r12, r12);
+	CPREG64(r13, r13);
+	CPREG64(r14, r14);
+	CPREG64(r15, r15);
 
-#ifdef CONFIG_X86_32
-	CPREG1(gs);
-	CPREG1(fs);
-	CPREG1(es);
-	CPREG1(ds);
-#endif
+	CPREG64(cs, cs);
 
+	CPREG64(eflags, flags);
+
+	f->is_native = true;
+}
+#undef CPREG64
+
+int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
+{
+	switch (r->gpregs_case) {
+		case USER_X86_REGS_CASE_T__NATIVE:
+			restore_native_gpregs(f, r);
+			break;
+		case USER_X86_REGS_CASE_T__COMPAT:
+			restore_compat_gpregs(f, r);
+			break;
+		default:
+			pr_err("Can't prepare rt_sigframe: regs_case corrupt\n");
+			return -1;
+	}
 	return 0;
 }
+#else /* !CONFIG_X86_64 */
+int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
+{
+	restore_compat_gpregs(f, r);
+	return 0;
+}
+#endif
 
 /* Copied from the gdb header gdb/nat/x86-dregs.h */
 
