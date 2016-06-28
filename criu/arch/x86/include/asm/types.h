@@ -50,7 +50,12 @@ typedef struct {
 	k_rtsigset_t	rt_sa_mask;
 } rt_sigaction_t;
 
-typedef struct {
+/*
+ * Note: there is unaligned access on x86_64 and it's fine.
+ * However, when porting this code -- keep in mind about possible issues
+ * with unaligned rt_sa_mask.
+ */
+typedef struct __attribute__((packed)) {
 	u32	rt_sa_handler;
 	u32	rt_sa_flags;
 	u32	rt_sa_restorer;
