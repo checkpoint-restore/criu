@@ -927,7 +927,8 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	if (ret < 0)
 		return ret;
 
-	if (parasite_stop_on_syscall(1, __NR_rt_sigreturn, flag))
+	if (parasite_stop_on_syscall(1, __NR(rt_sigreturn, 0),
+				__NR(rt_sigreturn, 1), flag))
 		return -1;
 
 	if (ptrace_flush_breakpoints(pid))
@@ -962,13 +963,31 @@ static bool task_is_trapped(int status, pid_t pid)
 	return false;
 }
 
+static inline int is_required_syscall(user_regs_struct_t regs, pid_t pid,
+		const int sys_nr, const int sys_nr_compat)
+{
+	const char *mode = user_regs_native(&regs) ? "native" : "compat";
+	int req_sysnr = user_regs_native(&regs) ? sys_nr : sys_nr_compat;
+
+	pr_debug("%d (%s) is going to execute the syscall %lu, required is %d\n",
+		pid, mode, REG_SYSCALL_NR(regs), req_sysnr);
+	if (user_regs_native(&regs) && (REG_SYSCALL_NR(regs) == sys_nr))
+		return true;
+	if (!user_regs_native(&regs) && (REG_SYSCALL_NR(regs) == sys_nr_compat))
+		return true;
+
+	return false;
+}
 /*
  * Trap tasks on the exit from the specified syscall
  *
  * tasks - number of processes, which should be trapped
  * sys_nr - the required syscall number
+ * sys_nr_compat - the required compatible syscall number
  */
-int parasite_stop_on_syscall(int tasks, const int sys_nr, enum trace_flags trace)
+int parasite_stop_on_syscall(int tasks,
+	const int sys_nr, const int sys_nr_compat,
+	enum trace_flags trace)
 {
 	user_regs_struct_t regs;
 	int status, ret;
@@ -1004,8 +1023,7 @@ int parasite_stop_on_syscall(int tasks, const int sys_nr, enum trace_flags trace
 			return -1;
 		}
 
-		pr_debug("%d is going to execute the syscall %lu\n", pid, REG_SYSCALL_NR(regs));
-		if (REG_SYSCALL_NR(regs) == sys_nr) {
+		if (is_required_syscall(regs, pid, sys_nr, sys_nr_compat)) {
 			/*
 			 * The process is going to execute the required syscall,
 			 * the next stop will be on the exit from this syscall
@@ -1083,7 +1101,7 @@ int parasite_cure_remote(struct parasite_ctl *ctl)
 	} else {
 		unsigned long ret;
 
-		syscall_seized(ctl, __NR_munmap, &ret,
+		syscall_seized(ctl, __NR(munmap, !seized_native(ctl)), &ret,
 				(unsigned long)ctl->remote_map, ctl->map_length,
 				0, 0, 0, 0);
 		if (ret) {
@@ -1137,7 +1155,8 @@ int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr)
 	if (ret)
 		goto err;
 
-	ret = parasite_stop_on_syscall(1, __NR_munmap, TRACE_ENTER);
+	ret = parasite_stop_on_syscall(1, __NR(munmap, 0),
+			__NR(munmap, 1), TRACE_ENTER);
 
 	if (restore_thread_ctx(pid, &ctl->orig))
 		ret = -1;
@@ -1217,6 +1236,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 	pid_t pid = ctl->rpid;
 	unsigned long sret = -ENOSYS;
 	int ret, fd, lfd;
+	bool __maybe_unused compat_task = !user_regs_native(&ctl->orig.regs);
 
 	if (fault_injected(FI_NO_MEMFD))
 		return 1;
@@ -1228,13 +1248,14 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 		return -1;
 	}
 
-	ret = syscall_seized(ctl, __NR_memfd_create, &sret,
+	ret = syscall_seized(ctl, __NR(memfd_create, compat_task), &sret,
 			     (unsigned long)where, 0, 0, 0, 0, 0);
 
 	if (ptrace_poke_area(pid, orig_code, where, sizeof(orig_code))) {
 		fd = (int)(long)sret;
 		if (fd >= 0)
-			syscall_seized(ctl, __NR_close, &sret, fd, 0, 0, 0, 0, 0);
+			syscall_seized(ctl, __NR(close, compat_task), &sret,
+					fd, 0, 0, 0, 0, 0);
 		pr_err("Can't restore memfd args (pid: %d)\n", pid);
 		return -1;
 	}
@@ -1274,7 +1295,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 		goto err_curef;
 	}
 
-	syscall_seized(ctl, __NR_close, &sret, fd, 0, 0, 0, 0, 0);
+	syscall_seized(ctl, __NR(close, compat_task), &sret, fd, 0, 0, 0, 0, 0);
 	close(lfd);
 
 	pr_info("Set up parasite blob using memfd\n");
@@ -1283,7 +1304,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 err_curef:
 	close(lfd);
 err_cure:
-	syscall_seized(ctl, __NR_close, &sret, fd, 0, 0, 0, 0, 0);
+	syscall_seized(ctl, __NR(close, compat_task), &sret, fd, 0, 0, 0, 0, 0);
 	return -1;
 }
 

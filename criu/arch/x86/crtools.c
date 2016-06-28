@@ -6,6 +6,7 @@
 
 #include "types.h"
 #include "asm/processor-flags.h"
+#include "asm/parasite-syscall.h"
 #include "asm/restorer.h"
 #include "asm/fpu.h"
 
@@ -18,6 +19,7 @@
 #include "util.h"
 #include "cpu.h"
 #include "errno.h"
+#include "syscall-codes.h"
 
 #include "protobuf.h"
 #include "images/core.pb-c.h"
@@ -570,8 +572,9 @@ void *mmap_seized(struct parasite_ctl *ctl,
 {
 	unsigned long map;
 	int err;
+	bool compat_task = !user_regs_native(&ctl->orig.regs);
 
-	err = syscall_seized(ctl, __NR_mmap, &map,
+	err = syscall_seized(ctl, __NR(mmap, compat_task), &map,
 			(unsigned long)addr, length, prot, flags, fd, offset);
 	if (err < 0)
 		return NULL;

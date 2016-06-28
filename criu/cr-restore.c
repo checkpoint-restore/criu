@@ -80,6 +80,7 @@
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
+#include "syscall-codes.h"
 
 #include "protobuf.h"
 #include "images/sa.pb-c.h"
@@ -1868,7 +1869,7 @@ static int restore_root_task(struct pstree_item *init)
 
 	if (ret == 0)
 		ret = parasite_stop_on_syscall(task_entries->nr_threads,
-						__NR_rt_sigreturn, flag);
+			__NR(rt_sigreturn, 0), __NR(rt_sigreturn, 1), flag);
 
 	if (clear_breakpoints())
 		pr_err("Unable to flush breakpoints\n");
