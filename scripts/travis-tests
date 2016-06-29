@@ -8,7 +8,7 @@ apt-get install -qq protobuf-c-compiler libprotobuf-c0-dev libaio-dev libprotobu
 chmod a+x $HOME
 make GCOV=1
 make -C test/zdtm
-python test/zdtm.py run -a -f h,ns -x 'cgroup*'
+python test/zdtm.py run -a -x 'cgroup*'
 
 pip install flake8
 make lint
