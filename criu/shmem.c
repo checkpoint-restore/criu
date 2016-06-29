@@ -422,7 +422,6 @@ static int open_shmem(int pid, struct vma_area *vma)
 	}
 
 	flags = MAP_SHARED;
-#ifdef CONFIG_HAS_MEMFD
 	if (kdat.has_memfd) {
 		f = syscall(SYS_memfd_create, "", 0);
 		if (f < 0) {
@@ -436,7 +435,6 @@ static int open_shmem(int pid, struct vma_area *vma)
 		}
 		flags |= MAP_FILE;
 	} else
-#endif
 		flags |= MAP_ANONYMOUS;
 
 	/*

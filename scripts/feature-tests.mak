@@ -74,19 +74,3 @@ int main(int argc, char *argv[], char *envp[])
 }
 
 endef
-
-define FEATURE_TEST_MEMFD
-
-#include <unistd.h>
-#include <sys/syscall.h>
-
-int main(void)
-{
-#ifdef __NR_memfd_create
-	return 0;
-#else
-# error No memfd support
-#endif
-}
-
-endef
