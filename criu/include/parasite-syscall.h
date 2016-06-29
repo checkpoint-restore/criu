@@ -53,7 +53,6 @@ struct parasite_ctl {
 	unsigned long		args_size;
 	int			tsock;					/* transport socket for transfering fds */
 
-	struct list_head	pre_list;
 	struct page_pipe	*mem_pp;
 };
 

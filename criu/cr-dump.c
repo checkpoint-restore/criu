@@ -1095,7 +1095,7 @@ err:
 	return ret;
 }
 
-static int pre_dump_one_task(struct pstree_item *item, struct list_head *ctls)
+static int pre_dump_one_task(struct pstree_item *item)
 {
 	pid_t pid = item->pid.real;
 	struct vm_area_list vmas;
@@ -1151,13 +1151,12 @@ static int pre_dump_one_task(struct pstree_item *item, struct list_head *ctls)
 
 	parasite_ctl->pid.virt = item->pid.virt = misc.pid;
 
-	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, &parasite_ctl->mem_pp);
+	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, true);
 	if (ret)
 		goto err_cure;
 
 	if (parasite_cure_remote(parasite_ctl))
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
-	list_add_tail(&parasite_ctl->pre_list, ctls);
 err_free:
 	free_mappings(&vmas);
 err:
@@ -1308,7 +1307,7 @@ static int dump_one_task(struct pstree_item *item)
 		}
 	}
 
-	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, NULL);
+	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, false);
 	if (ret)
 		goto err_cure;
 
@@ -1417,12 +1416,11 @@ static int setup_alarm_handler()
 	return 0;
 }
 
-static int cr_pre_dump_finish(struct list_head *ctls, int ret)
+static int cr_pre_dump_finish(int ret)
 {
-	struct parasite_ctl *ctl, *n;
+	struct pstree_item *item;
 
 	pstree_switch_state(root_item, TASK_ALIVE);
-	free_pstree(root_item);
 
 	timing_stop(TIME_FROZEN);
 
@@ -1430,7 +1428,8 @@ static int cr_pre_dump_finish(struct list_head *ctls, int ret)
 		goto err;
 
 	pr_info("Pre-dumping tasks' memory\n");
-	list_for_each_entry_safe(ctl, n, ctls, pre_list) {
+	for_each_pstree_item(item) {
+		struct parasite_ctl *ctl = dmpi(item)->parasite_ctl;
 		struct page_xfer xfer;
 
 		pr_info("\tPre-dumping %d\n", ctl->pid.virt);
@@ -1449,9 +1448,10 @@ static int cr_pre_dump_finish(struct list_head *ctls, int ret)
 		timing_stop(TIME_MEMWRITE);
 
 		destroy_page_pipe(ctl->mem_pp);
-		list_del(&ctl->pre_list);
 		parasite_cure_local(ctl);
 	}
+
+	free_pstree(root_item);
 
 	if (irmap_predump_run()) {
 		ret = -1;
@@ -1478,7 +1478,6 @@ int cr_pre_dump_tasks(pid_t pid)
 {
 	struct pstree_item *item;
 	int ret = -1;
-	LIST_HEAD(ctls);
 
 	root_item = alloc_pstree_item();
 	if (!root_item)
@@ -1529,7 +1528,7 @@ int cr_pre_dump_tasks(pid_t pid)
 		goto err;
 
 	for_each_pstree_item(item)
-		if (pre_dump_one_task(item, &ctls))
+		if (pre_dump_one_task(item))
 			goto err;
 
 	if (irmap_predump_prep())
@@ -1537,7 +1536,7 @@ int cr_pre_dump_tasks(pid_t pid)
 
 	ret = 0;
 err:
-	return cr_pre_dump_finish(&ctls, ret);
+	return cr_pre_dump_finish(ret);
 }
 
 static int cr_dump_finish(int ret)

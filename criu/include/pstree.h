@@ -43,6 +43,8 @@ struct dmp_info {
 	 * threads. Dumping tasks with different creds is not supported.
 	 */
 	struct proc_status_creds *pi_creds;
+
+	struct parasite_ctl *parasite_ctl;
 };
 
 static inline struct dmp_info *dmpi(struct pstree_item *i)
