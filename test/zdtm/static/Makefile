@@ -275,10 +275,6 @@ OUT	= $(TST:%=%.out)
 STATE	= $(TST_STATE:%=%.state)
 STATE_OUT	= $(TST_STATE:%=%.out)
 
-DEPEND.c = $(COMPILE.c) -MM -MP
-%.d:	%.c
-	$(DEPEND.c) $(OUTPUT_OPTION) $<
-
 all:	$(TST) criu-rtc.so
 install: all
 .PHONY: all install
@@ -426,7 +422,3 @@ criu-rtc.so: criu-rtc.c criu-rtc.pb-c.c
 	$(CC) -g -Wall -shared -nostartfiles criu-rtc.c criu-rtc.pb-c.c -o criu-rtc.so -iquote ../../../criu/include -fPIC $(USERCFLAGS)
 
 .PHONY:	force clean cleandep cleanout realclean start check_start stop wait_stop
-
-ifeq ($(filter-out no-deps-targets, $(MAKECMDGOALS)),)
--include $(DEP)
-endif

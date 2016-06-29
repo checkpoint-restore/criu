@@ -37,10 +37,6 @@ DEP	= $(SRC:%.c=%.d)
 PID	= $(TST:%=%.pid)
 OUT	= $(TST:%=%.out)
 
-DEPEND.c = $(COMPILE.c) -MM -MP
-%.d:	%.c
-	$(DEPEND.c) $(OUTPUT_OPTION) $<
-
 all:	$(TST)
 install: all
 .PHONY: all install
@@ -104,7 +100,3 @@ cleanout:
 realclean:	cleandep cleanout
 
 .PHONY:	force clean cleandep cleanout realclean start check_start stop wait_stop
-
-ifeq ($(filter-out no-deps-targets, $(MAKECMDGOALS)),)
--include $(DEP)
-endif
