@@ -93,6 +93,7 @@ struct page_pipe {
 
 	bool chunk_mode;	/* Restrict the maximum buffer size of pipes
 				   and dump memory for a few iterations */
+	bool own_iovs;		/* create_page_pipe allocated IOVs memory */
 };
 
 extern struct page_pipe *create_page_pipe(unsigned int nr,

@@ -527,7 +527,6 @@ static int dump_pages(struct page_pipe *pp, struct page_xfer *xfer, void *addr)
 
 static int dump_one_shmem(struct shmem_info *si)
 {
-	struct iovec *iovs;
 	struct page_pipe *pp;
 	struct page_xfer xfer;
 	int err, ret = -1, fd;
@@ -565,13 +564,9 @@ static int dump_one_shmem(struct shmem_info *si)
 	if (err)
 		goto err_unmap;
 
-	iovs = xmalloc(((nrpages + 1) / 2) * sizeof(struct iovec));
-	if (!iovs)
-		goto err_unmap;
-
-	pp = create_page_pipe((nrpages + 1) / 2, iovs, true);
+	pp = create_page_pipe((nrpages + 1) / 2, NULL, true);
 	if (!pp)
-		goto err_iovs;
+		goto err_unmap;
 
 	err = open_page_xfer(&xfer, CR_FD_SHMEM_PAGEMAP, si->shmid);
 	if (err)
@@ -598,8 +593,6 @@ err_xfer:
 	xfer.close(&xfer);
 err_pp:
 	destroy_page_pipe(pp);
-err_iovs:
-	xfree(iovs);
 err_unmap:
 	munmap(addr,  si->size);
 err:
