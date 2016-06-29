@@ -2,6 +2,7 @@ include ../Makefile.inc
 
 LIBDIR	= ../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
+LDLIBS	+= $(LIBDIR)/libzdtmtst.a
 override CPPFLAGS += -I$(LIBDIR)
 CFLAGS	= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 CFLAGS	+= $(USERCFLAGS)
@@ -275,6 +276,10 @@ OUT	= $(TST:%=%.out)
 STATE	= $(TST_STATE:%=%.state)
 STATE_OUT	= $(TST_STATE:%=%.out)
 
+%: %.c
+	$(Q)echo $@ >> .gitignore
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(LOADLIBES) $^ $(LDLIBS) -o $@
+
 all:	$(TST) criu-rtc.so
 install: all
 .PHONY: all install
@@ -399,7 +404,10 @@ stopped12:	override CFLAGS += -DZDTM_STOPPED_KILL -DZDTM_STOPPED_TKILL
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
 
-clean:
+gitignore-clean:
+	$(RM) -f .gitignore
+
+clean:	gitignore-clean
 	$(RM) -f $(OBJ) $(TST) *~ criu-rtc.so criu-rtc.pb-c.c criu-rtc.pb-c.h get_smaps_bits.o
 
 cleandep:	clean
@@ -416,6 +424,8 @@ realclean:	cleandep cleanout
 rtc.c: criu-rtc.so
 
 criu-rtc.pb-c.c: criu-rtc.proto
+	$(Q)echo $@ >> .gitignore
+	$(Q)echo $(@:%.c=%.h) >> .gitignore
 	protoc-c --proto_path=. --c_out=. criu-rtc.proto
 
 criu-rtc.so: criu-rtc.c criu-rtc.pb-c.c
