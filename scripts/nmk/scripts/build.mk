@@ -25,6 +25,15 @@ ifndef obj
 endif
 
 #
+# Filter out any -Wl,XXX option: some of build farms
+# assumes that we're using $(CC) for building built-in
+# targets (and they have all rights to). But we're
+# using $(LD) directly instead so filter out -Wl
+# flags to make maintainer's life easier.
+LDFLAGS-MASK	:= -Wl,%
+LDFLAGS		:= $(filter-out $(LDFLAGS-MASK),$(LDFLAGS))
+
+#
 # Accumulate common flags.
 define nmk-ccflags
         $(CFLAGS) $(ccflags-y) $(CFLAGS_$(@F))
