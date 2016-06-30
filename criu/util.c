@@ -161,12 +161,13 @@ void pr_vma(unsigned int loglevel, const struct vma_area *vma_area)
 		return;
 
 	vma_opt_str(vma_area, opt);
-	print_on_level(loglevel, "%#"PRIx64"-%#"PRIx64" (%"PRIi64"K) prot %#x flags %#x st %#x off %#"PRIx64" "
+	print_on_level(loglevel, "%#"PRIx64"-%#"PRIx64" (%"PRIi64"K) prot %#x flags %#x fdflags %#o st %#x off %#"PRIx64" "
 			"%s shmid: %#"PRIx64"\n",
 			vma_area->e->start, vma_area->e->end,
 			KBYTES(vma_area_len(vma_area)),
 			vma_area->e->prot,
 			vma_area->e->flags,
+			vma_area->e->fdflags,
 			vma_area->e->status,
 			vma_area->e->pgoff,
 			opt, vma_area->e->shmid);
