@@ -215,6 +215,8 @@ static int collect_fds(pid_t pid, struct parasite_drain_fd **dfds)
 
 static int fill_fd_params_special(int fd, struct fd_parms *p)
 {
+	struct statfs fst;
+
 	*p = FD_PARMS_INIT;
 
 	if (fstat(fd, &p->stat) < 0) {
@@ -224,6 +226,13 @@ static int fill_fd_params_special(int fd, struct fd_parms *p)
 
 	if (get_fd_mntid(fd, &p->mnt_id))
 		return -1;
+
+	if (fstatfs(fd, &fst)) {
+		pr_perror("Unable to statfs fd %d", fd);
+		return -1;
+	}
+
+	p->fs_type = fst.f_type;
 
 	return 0;
 }
