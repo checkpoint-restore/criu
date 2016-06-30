@@ -431,6 +431,7 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 {
 	struct fd_parms p = FD_PARMS_INIT;
 	const struct fdtype_ops *ops;
+	struct fd_link link;
 
 	if (fill_fd_params(ctl, fd, lfd, opts, &p) < 0) {
 		pr_err("Can't get stat on %d\n", fd);
@@ -471,8 +472,6 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 	}
 
 	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode)) {
-		struct fd_link link;
-
 		if (fill_fdlink(lfd, &p, &link))
 			return -1;
 
@@ -495,7 +494,15 @@ static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_op
 		return do_dump_gen_file(&p, lfd, ops, img);
 	}
 
-	return dump_unsupp_fd(&p, lfd, img, "unknown", NULL);
+	/*
+	 * For debug purpose -- at least show the link
+	 * file pointing to when reporting unsupported file.
+	 * On error simply empty string here.
+	 */
+	if (fill_fdlink(lfd, &p, &link))
+		memzero(&link, sizeof(link));
+
+	return dump_unsupp_fd(&p, lfd, img, "unknown", link.name + 1);
 }
 
 int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
