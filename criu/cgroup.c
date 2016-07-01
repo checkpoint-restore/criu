@@ -1246,6 +1246,24 @@ static void add_freezer_state_for_restore(CgroupPropEntry *entry, char *path, si
 	freezer_path[path_len] = 0;
 }
 
+static void advance_device_entry(char **buf)
+{
+	char *pos = *buf;
+
+	while (1) {
+		if (*pos == '\n') {
+			pos++;
+			break;
+		} else if (*pos == '\0') {
+			break;
+		}
+
+		pos++;
+	}
+
+	*buf = pos;
+}
+
 static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **ents,
 					 unsigned int n_ents)
 {
@@ -1292,11 +1310,16 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 				 * whitelist, we first deny everything via
 				 * devices.deny, and then write the list back
 				 * into devices.allow.
+				 *
+				 * Further, we must have a write() call for
+				 * each line, because the kernel only parses
+				 * the first line of any write().
 				 */
 				if (!strcmp(e->properties[j]->name, "devices.list")) {
 					CgroupPropEntry *pe = e->properties[j];
 					char *old_val = pe->value, *old_name = pe->name;
 					int ret;
+					char *pos;
 
 					/* A bit of a fudge here. These are
 					 * write only by owner by default, but
@@ -1322,10 +1345,21 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 						return -1;
 					}
 					xfree(old_name);
+
+					for (pos = pe->value; *pos; advance_device_entry(&pos)) {
+						pe->value = pos;
+						ret = restore_cgroup_prop(pe, path, off2);
+						if (ret < 0) {
+							pe->value = old_val;
+							return -1;
+						}
+					}
+					pe->value = old_val;
+
+				} else if (restore_cgroup_prop(e->properties[j], path, off2) < 0) {
+					return -1;
 				}
 
-				if (restore_cgroup_prop(e->properties[j], path, off2) < 0)
-					return -1;
 			}
 		}
 skip:
