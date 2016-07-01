@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 message itimer_entry {
 	required uint64		isec		= 1;
 	required uint64		iusec		= 2;

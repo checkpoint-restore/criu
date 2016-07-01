@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 message cpuinfo_x86_entry {
 	enum vendor {
 		UNKNOWN		= 0;

@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 message user_ppc64_regs_entry {
 	// Following is the list of regiters starting at r0.
 	repeated uint64 gpr		= 1;

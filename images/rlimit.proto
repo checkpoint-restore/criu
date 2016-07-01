@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 message rlimit_entry {
 	required uint64		cur = 1;
 	required uint64		max = 2;

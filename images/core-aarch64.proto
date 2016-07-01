@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 message user_aarch64_regs_entry {
 	repeated uint64 regs	= 1;
 	required uint64 sp	= 2;

@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 message pstree_entry {
 	required uint32			pid		= 1;
 	required uint32			ppid		= 2;

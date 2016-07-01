@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 import "core-x86.proto";
 import "core-arm.proto";
 import "core-aarch64.proto";

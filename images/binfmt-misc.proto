@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 message binfmt_misc_entry {
 	required string		name			= 1;
 	required bool		enabled			= 2;

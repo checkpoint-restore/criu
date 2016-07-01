@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 message fown_entry {
 	required uint32		uid		= 1;
 	required uint32		euid		= 2;

@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 message ipc_var_entry {
 	repeated uint32			sem_ctls		=  1;
 	required uint32			msg_ctlmax		=  2;

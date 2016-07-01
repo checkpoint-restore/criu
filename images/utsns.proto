@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 message utsns_entry {
 	required string nodename	= 1;
 	required string domainname	= 2;

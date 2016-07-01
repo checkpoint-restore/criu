@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 message cgroup_perms {
 	required uint32			mode		= 1;
 	required uint32			uid		= 2;

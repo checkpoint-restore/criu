@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 import "opts.proto";
 import "fown.proto";
 import "sk-opts.proto";

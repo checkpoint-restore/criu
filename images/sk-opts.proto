@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 message sk_opts_entry {
 	required uint32		so_sndbuf	= 1;
 	required uint32		so_rcvbuf	= 2;

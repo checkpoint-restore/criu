@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 import "opts.proto";
 
 enum fh_entry_sizes {

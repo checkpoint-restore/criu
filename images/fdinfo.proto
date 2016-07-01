@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 enum fd_types {
 	UND		= 0;
 	REG		= 1;

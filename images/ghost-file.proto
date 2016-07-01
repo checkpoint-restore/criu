@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 import "opts.proto";
 import "time.proto";
 

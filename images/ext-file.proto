@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 import "fown.proto";
 
 message ext_file_entry {
