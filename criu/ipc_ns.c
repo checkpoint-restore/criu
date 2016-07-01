@@ -38,7 +38,7 @@
 
 static void pr_ipc_desc_entry(unsigned int loglevel, const IpcDescEntry *desc)
 {
-	print_on_level(loglevel, "id: %-10d key: 0x%08x uid: %-10d gid: %-10d "
+	print_on_level(loglevel, "id: %-10d key: %#08x uid: %-10d gid: %-10d "
 		       "cuid: %-10d cgid: %-10d mode: %-10o ",
 		       desc->id, desc->key, desc->uid, desc->gid,
 		       desc->cuid, desc->cgid, desc->mode);

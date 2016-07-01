@@ -531,7 +531,7 @@ static int map_private_vma(struct pstree_item *t,
 		    vma->e->shmid != p->e->shmid)
 			break;
 
-		pr_info("COW 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
+		pr_info("COW %#016"PRIx64"-%#016"PRIx64" %#016"PRIx64" vma\n",
 			vma->e->start, vma->e->end, vma->e->pgoff);
 		paddr = decode_pointer(p->premmaped_addr);
 
@@ -555,7 +555,7 @@ static int map_private_vma(struct pstree_item *t,
 		 * The respective memory area was NOT found in the parent.
 		 * Map a new one.
 		 */
-		pr_info("Map 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" vma\n",
+		pr_info("Map %#016"PRIx64"-%#016"PRIx64" %#016"PRIx64" vma\n",
 			vma->e->start, vma->e->end, vma->e->pgoff);
 
 		/*
@@ -594,7 +594,7 @@ static int map_private_vma(struct pstree_item *t,
 	}
 
 	vma->premmaped_addr = (unsigned long) addr;
-	pr_debug("\tpremap 0x%016"PRIx64"-0x%016"PRIx64" -> %016lx\n",
+	pr_debug("\tpremap %#016"PRIx64"-%#016"PRIx64" -> %016lx\n",
 		vma->e->start, vma->e->end, (unsigned long)addr);
 
 	if (vma->e->flags & MAP_GROWSDOWN) { /* Skip gurad page */
@@ -889,7 +889,7 @@ int open_vmas(struct pstree_item *t)
 		if (!vma_area_is(vma, VMA_AREA_REGULAR) || !vma->vm_open)
 			continue;
 
-		pr_info("Opening 0x%016"PRIx64"-0x%016"PRIx64" 0x%016"PRIx64" (%x) vma\n",
+		pr_info("Opening %#016"PRIx64"-%#016"PRIx64" %#016"PRIx64" (%x) vma\n",
 				vma->e->start, vma->e->end,
 				vma->e->pgoff, vma->e->status);
 

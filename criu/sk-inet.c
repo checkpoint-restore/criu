@@ -72,7 +72,7 @@ static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 		pr_perror("Failed to translate address");
 	}
 
-	pr_debug("\t%s: ino 0x%8x family %4d type %4d port %8d "
+	pr_debug("\t%s: ino %#8x family %4d type %4d port %8d "
 		"state %2d src_addr %s\n",
 		act, sk->sd.ino, sk->sd.family, sk->type, sk->src_port,
 		sk->state, src_addr);

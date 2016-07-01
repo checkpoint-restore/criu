@@ -204,13 +204,13 @@ static int open_handle(unsigned int s_dev, unsigned long i_ino,
 
 	mntfd = open_mount(s_dev);
 	if (mntfd < 0) {
-		pr_err("Mount root for 0x%08x not found\n", s_dev);
+		pr_err("Mount root for %#08x not found\n", s_dev);
 		goto out;
 	}
 
 	fd = userns_call(open_by_handle, UNS_FDOUT, &handle, sizeof(handle), mntfd);
 	if (fd < 0) {
-		pr_perror("Can't open file handle for 0x%08x:0x%016lx",
+		pr_perror("Can't open file handle for %#08x:%#016lx",
 				s_dev, i_ino);
 	}
 
@@ -307,9 +307,9 @@ static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 	struct inotify_wd_entry *wd_entry = (struct inotify_wd_entry *) e;
 	InotifyWdEntry *we = &wd_entry->e;
 
-	pr_info("wd: wd 0x%08x s_dev 0x%08x i_ino 0x%16"PRIx64" mask 0x%08x\n",
+	pr_info("wd: wd %#08x s_dev %#08x i_ino %#16"PRIx64" mask %#08x\n",
 			we->wd, we->s_dev, we->i_ino, we->mask);
-	pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016"PRIx64":0x%016"PRIx64"\n",
+	pr_info("\t[fhandle] bytes %#08x type %#08x __handle %#016"PRIx64":%#016"PRIx64"\n",
 			we->f_handle->bytes, we->f_handle->type,
 			we->f_handle->handle[0], we->f_handle->handle[1]);
 
@@ -339,7 +339,7 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	if (ret < 0)
 		return -1;
 	else if (ret > 0)
-		pr_warn("The 0x%08x inotify events will be dropped\n", id);
+		pr_warn("The %#08x inotify events will be dropped\n", id);
 
 	ie.id = id;
 	ie.flags = p->flags;
@@ -357,7 +357,7 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 		ie.wd[i++] = &we->ify.e;
 	ie.n_wd = wd_list.n;
 
-	pr_info("id 0x%08x flags 0x%08x\n", ie.id, ie.flags);
+	pr_info("id %#08x flags %#08x\n", ie.id, ie.flags);
 	if (pb_write_one(img_from_set(glob_imgset, CR_FD_INOTIFY_FILE), &ie, PB_INOTIFY_FILE))
 		goto free;
 
@@ -401,10 +401,10 @@ static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 
 		BUG_ON(!fme->ie);
 
-		pr_info("mark: s_dev 0x%08x i_ino 0x%016"PRIx64" mask 0x%08x\n",
+		pr_info("mark: s_dev %#08x i_ino %#016"PRIx64" mask %#08x\n",
 			fme->s_dev, fme->ie->i_ino, fme->mask);
 
-		pr_info("\t[fhandle] bytes 0x%08x type 0x%08x __handle 0x%016"PRIx64":0x%016"PRIx64"\n",
+		pr_info("\t[fhandle] bytes %#08x type %#08x __handle %#016"PRIx64":%#016"PRIx64"\n",
 			fme->ie->f_handle->bytes, fme->ie->f_handle->type,
 			fme->ie->f_handle->handle[0], fme->ie->f_handle->handle[1]);
 
@@ -424,7 +424,7 @@ static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 		}
 		fme->s_dev = m->s_dev;
 
-		pr_info("mark: s_dev 0x%08x mnt_id  0x%08x mask 0x%08x\n",
+		pr_info("mark: s_dev %#08x mnt_id  %#08x mask %#08x\n",
 			fme->s_dev, fme->me->mnt_id, fme->mask);
 
 	}
@@ -449,7 +449,7 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 	if (ret < 0)
 		return -1;
 	else if (ret > 0)
-		pr_warn("The 0x%08x fanotify events will be dropped\n", id);
+		pr_warn("The %#08x fanotify events will be dropped\n", id);
 	ret = -1;
 
 	fe.id = id;
@@ -469,7 +469,7 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 		fe.mark[i++] = &we->ffy.e;
 	fe.n_mark = wd_list.n;
 
-	pr_info("id 0x%08x flags 0x%08x\n", fe.id, fe.flags);
+	pr_info("id %#08x flags %#08x\n", fe.id, fe.flags);
 
 	fe.faflags = wd_list.fsn_params.faflags;
 	fe.evflags = wd_list.fsn_params.evflags;
@@ -518,7 +518,7 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 
 		mntns_root = mntns_get_root_by_mnt_id(remap->rmnt_id);
 
-		pr_debug("\t\tRestore %s watch for 0x%08x:0x%016lx (via %s)\n",
+		pr_debug("\t\tRestore %s watch for %#08x:%#016lx (via %s)\n",
 			 who, s_dev, i_ino, remap->rpath);
 		*target = openat(mntns_root, remap->rpath, O_PATH);
 	} else if (f_handle->path) {
@@ -561,7 +561,7 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 		if (read_fd_link(*target, link, sizeof(link)) < 0)
 			link[0] = '\0';
 
-		pr_debug("\t\tRestore %s watch for 0x%08x:0x%016lx (via %s -> %s)\n",
+		pr_debug("\t\tRestore %s watch for %#08x:%#016lx (via %s -> %s)\n",
 				who, s_dev, i_ino, path, link);
 	}
 err:
@@ -689,12 +689,12 @@ static int open_inotify_fd(struct file_desc *d)
 
 	tmp = inotify_init1(info->ife->flags);
 	if (tmp < 0) {
-		pr_perror("Can't create inotify for 0x%08x", info->ife->id);
+		pr_perror("Can't create inotify for %#08x", info->ife->id);
 		return -1;
 	}
 
 	list_for_each_entry(wd_info, &info->marks, list) {
-		pr_info("\tRestore 0x%x wd for 0x%08x\n", wd_info->iwe->wd, wd_info->iwe->id);
+		pr_info("\tRestore 0x%x wd for %#08x\n", wd_info->iwe->wd, wd_info->iwe->id);
 		if (restore_one_inotify(tmp, wd_info)) {
 			close_safe(&tmp);
 			break;
@@ -729,7 +729,7 @@ static int open_fanotify_fd(struct file_desc *d)
 	}
 
 	list_for_each_entry(mark, &info->marks, list) {
-		pr_info("\tRestore fanotify for 0x%08x\n", mark->fme->id);
+		pr_info("\tRestore fanotify for %#08x\n", mark->fme->id);
 		if (restore_one_fanotify(ret, mark)) {
 			close_safe(&ret);
 			break;
@@ -763,7 +763,7 @@ static struct fsnotify_file_info *find_inotify_info(unsigned id)
 		 * wd-s for one inotify in one row, thus sometimes
 		 * we can avoid scanning the inotify_info_head.
 		 */
-		pr_debug("\t\tlast ify for 0x%08x found\n", id);
+		pr_debug("\t\tlast ify for %#08x found\n", id);
 		return last;
 	}
 
@@ -773,7 +773,7 @@ static struct fsnotify_file_info *find_inotify_info(unsigned id)
 			return p;
 		}
 
-	pr_err("Can't find inotify with id 0x%08x\n", id);
+	pr_err("Can't find inotify with id %#08x\n", id);
 	return NULL;
 }
 
@@ -824,7 +824,7 @@ static int collect_fanotify_mark(struct fsnotify_mark_info *mark)
 			return __collect_inotify_mark(p, mark);
 	}
 
-	pr_err("Can't find fanotify with id 0x%08x\n", mark->fme->id);
+	pr_err("Can't find fanotify with id %#08x\n", mark->fme->id);
 	return -1;
 }
 
@@ -836,7 +836,7 @@ static int collect_one_inotify(void *o, ProtobufCMessage *msg, struct cr_img *im
 	info->ife = pb_msg(msg, InotifyFileEntry);
 	INIT_LIST_HEAD(&info->marks);
 	list_add(&info->list, &inotify_info_head);
-	pr_info("Collected id 0x%08x flags 0x%08x\n", info->ife->id, info->ife->flags);
+	pr_info("Collected id %#08x flags %#08x\n", info->ife->id, info->ife->flags);
 
 	for (i = 0; i < info->ife->n_wd; i++) {
 		struct fsnotify_mark_info *mark;
@@ -871,7 +871,7 @@ static int collect_one_fanotify(void *o, ProtobufCMessage *msg, struct cr_img *i
 	info->ffe = pb_msg(msg, FanotifyFileEntry);
 	INIT_LIST_HEAD(&info->marks);
 	list_add(&info->list, &fanotify_info_head);
-	pr_info("Collected id 0x%08x flags 0x%08x\n", info->ffe->id, info->ffe->flags);
+	pr_info("Collected id %#08x flags %#08x\n", info->ffe->id, info->ffe->flags);
 
 	for (i = 0; i < info->ffe->n_mark; i++) {
 		struct fsnotify_mark_info *mark;

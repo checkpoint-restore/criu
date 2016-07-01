@@ -500,7 +500,7 @@ int handle_elf(void *mem, size_t size)
 		for (j=0; j < sh->sh_size; j++, k++) {
 			if (k && (k % 8) == 0)
 				pr_out("\n\t");
-			pr_out("0x%02x,", shdata[j]);
+			pr_out("%#02x,", shdata[j]);
 		}
 	}
 	pr_out("};\n");

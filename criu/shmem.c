@@ -318,7 +318,7 @@ int collect_shmem(int pid, struct vma_area *vma)
 	if (!si)
 		return -1;
 
-	pr_info("Add new shmem 0x%"PRIx64" (0x%016"PRIx64"-0x%016"PRIx64")\n",
+	pr_info("Add new shmem 0x%"PRIx64" (%#016"PRIx64"-%#016"PRIx64")\n",
 				vi->shmid, vi->start, vi->end);
 
 	si->shmid = vi->shmid;
@@ -400,9 +400,9 @@ static int open_shmem(int pid, struct vma_area *vma)
 	int flags;
 
 	si = shmem_find(vi->shmid);
-	pr_info("Search for 0x%016"PRIx64" shmem 0x%"PRIx64" %p/%d\n", vi->start, vi->shmid, si, si ? si->pid : -1);
+	pr_info("Search for %#016"PRIx64" shmem 0x%"PRIx64" %p/%d\n", vi->start, vi->shmid, si, si ? si->pid : -1);
 	if (!si) {
-		pr_err("Can't find my shmem 0x%016"PRIx64"\n", vi->start);
+		pr_err("Can't find my shmem %#016"PRIx64"\n", vi->start);
 		return -1;
 	}
 
