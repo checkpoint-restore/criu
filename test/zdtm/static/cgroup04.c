@@ -79,17 +79,22 @@ err_rd:
 
 bool checkval(char *path, char *val)
 {
-	FILE *f;
 	char buf[64];
+	int fd, n;
 
-	f = fopen(path, "r");
-	if (!f) {
-		pr_perror("fopen %s", path);
+	fd = open(path, O_RDONLY);
+	if (fd < 0) {
+		pr_perror("open %s", path);
 		return false;
 	}
 
-	fgets(buf, sizeof(buf), f);
-	fclose(f);
+	n = read(fd, buf, sizeof(buf));
+	close(fd);
+	if (n < 0) {
+		pr_perror("read");
+		return false;
+	}
+	buf[n] = 0;
 
 	if (strcmp(val, buf)) {
 		pr_err("got %s expected %s\n", buf, val);
@@ -114,6 +119,9 @@ int main(int argc, char **argv)
 	if (write_value(path, "c 1:3 rwm") < 0)
 		goto out;
 
+	if (write_value(path, "c 1:5 rwm") < 0)
+		goto out;
+
 	if (mount_and_add("memory", cgname, "memory.limit_in_bytes", "268435456") < 0)
 		goto out;
 
@@ -121,7 +129,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	sprintf(path, "%s/devices/%s/devices.list", dirname, cgname);
-	if (!checkval(path, "c 1:3 rwm\n")) {
+	if (!checkval(path, "c 1:3 rwm\nc 1:5 rwm\n")) {
 		fail();
 		goto out;
 	}
