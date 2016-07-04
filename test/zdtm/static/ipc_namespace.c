@@ -47,9 +47,11 @@ struct ipc_ns {
 
 //	unsigned int    mq_queues_count;
 
-	unsigned int    mq_queues_max;   /* initialized to DFLT_QUEUESMAX */
-	unsigned int    mq_msg_max;      /* initialized to DFLT_MSGMAX */
-	unsigned int    mq_msgsize_max;  /* initialized to DFLT_MSGSIZEMAX */
+	unsigned int    mq_queues_max;       /* initialized to DFLT_QUEUESMAX */
+	unsigned int    mq_msg_max;          /* initialized to DFLT_MSGMAX */
+	unsigned int    mq_msgsize_max;      /* initialized to DFLT_MSGSIZEMAX */
+	unsigned int    mq_msg_default;      /* initialized to DFLT_MSG */
+	unsigned int    mq_msgsize_default;  /* initialized to DFLT_MSGSIZE */
 
 	struct user_ns *user_ns;
 };
@@ -108,6 +110,22 @@ static int get_messages_info(struct ipc_ns *ipc)
 	if (read_ipc_sysctl("/proc/sys/kernel/auto_msgmni",
 			&ipc->auto_msgmni, sizeof(ipc->auto_msgmni)))
 		return -1;
+	if (read_ipc_sysctl("/proc/sys/fs/mqueue/queues_max",
+			(int *)&ipc->mq_queues_max, sizeof(ipc->mq_queues_max)))
+		return -1;
+	if (read_ipc_sysctl("/proc/sys/fs/mqueue/msg_max",
+			(int *)&ipc->mq_msg_max, sizeof(ipc->mq_msg_max)))
+		return -1;
+	if (read_ipc_sysctl("/proc/sys/fs/mqueue/msgsize_max",
+			(int *)&ipc->mq_msgsize_max, sizeof(ipc->mq_msgsize_max)))
+		return -1;
+	if (read_ipc_sysctl("/proc/sys/fs/mqueue/msg_default",
+			(int *)&ipc->mq_msg_default, sizeof(ipc->mq_msg_default)))
+		return -1;
+	if (read_ipc_sysctl("/proc/sys/fs/mqueue/msgsize_default",
+			(int *)&ipc->mq_msgsize_default, sizeof(ipc->mq_msgsize_default)))
+		return -1;
+
 	return 0;
 }
 
@@ -156,15 +174,6 @@ static int get_shared_memory_info(struct ipc_ns *ipc)
 
 	if (read_ipc_sysctl("/proc/sys/kernel/shm_rmid_forced",
 			&ipc->shm_rmid_forced, sizeof(ipc->shm_rmid_forced)))
-		return -1;
-	if (read_ipc_sysctl("/proc/sys/fs/mqueue/queues_max",
-			(int *)&ipc->mq_queues_max, sizeof(ipc->mq_queues_max)))
-		return -1;
-	if (read_ipc_sysctl("/proc/sys/fs/mqueue/msg_max",
-			(int *)&ipc->mq_msg_max, sizeof(ipc->mq_msg_max)))
-		return -1;
-	if (read_ipc_sysctl("/proc/sys/fs/mqueue/msgsize_max",
-			(int *)&ipc->mq_msgsize_max, sizeof(ipc->mq_msgsize_max)))
 		return -1;
 
 	return 0;
@@ -268,6 +277,10 @@ static int rand_ipc_ns(void)
 		ret = rand_ipc_sysctl("/proc/sys/fs/mqueue/msg_max", ((unsigned)lrand48() % 65536) + 1);
 	if (!ret)
 		ret = rand_ipc_sysctl("/proc/sys/fs/mqueue/msgsize_max", ((unsigned)lrand48() & (8192 * 128 - 1)) | 128);
+	if (!ret)
+		ret = rand_ipc_sysctl("/proc/sys/fs/mqueue/msg_default", ((unsigned)lrand48() % 65536) + 1);
+	if (!ret)
+		ret = rand_ipc_sysctl("/proc/sys/fs/mqueue/msgsize_default", ((unsigned)lrand48() & (8192 * 128 - 1)) | 128);
 
 	if (ret < 0)
 		pr_perror("Failed to randomize ipc namespace tunables");
@@ -325,6 +338,12 @@ static void show_ipc_entry(struct ipc_ns *old, struct ipc_ns *new)
 	if (old->mq_msgsize_max != new->mq_msgsize_max)
 		pr_perror("mq_msgsize_max differs: %d ---> %d",
 			old->mq_msgsize_max, new->mq_msgsize_max);
+	if (old->mq_msg_default != new->mq_msg_default)
+		pr_perror("mq_msg_default differs: %d ---> %d",
+			old->mq_msg_default, new->mq_msg_default);
+	if (old->mq_msgsize_default != new->mq_msgsize_default)
+		pr_perror("mq_msgsize_default differs: %d ---> %d",
+			old->mq_msgsize_default, new->mq_msgsize_default);
 }
 
 int main(int argc, char **argv)
