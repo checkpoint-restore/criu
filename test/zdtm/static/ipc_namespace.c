@@ -36,6 +36,9 @@ struct ipc_ns {
 	int		msg_bytes;   // +
 	int		msg_hdrs;    // +
 	int		auto_msgmni; // +
+	int		msg_next_id; // +
+	int		sem_next_id; // +
+	int		shm_next_id; // +
 
 	size_t		shm_ctlmax;
 	size_t		shm_ctlall;
@@ -109,6 +112,15 @@ static int get_messages_info(struct ipc_ns *ipc)
 
 	if (read_ipc_sysctl("/proc/sys/kernel/auto_msgmni",
 			&ipc->auto_msgmni, sizeof(ipc->auto_msgmni)))
+		return -1;
+	if (read_ipc_sysctl("/proc/sys/kernel/msg_next_id",
+			&ipc->msg_next_id, sizeof(ipc->msg_next_id)))
+		return -1;
+	if (read_ipc_sysctl("/proc/sys/kernel/sem_next_id",
+			&ipc->sem_next_id, sizeof(ipc->sem_next_id)))
+		return -1;
+	if (read_ipc_sysctl("/proc/sys/kernel/shm_next_id",
+			&ipc->shm_next_id, sizeof(ipc->shm_next_id)))
 		return -1;
 	if (read_ipc_sysctl("/proc/sys/fs/mqueue/queues_max",
 			(int *)&ipc->mq_queues_max, sizeof(ipc->mq_queues_max)))
@@ -248,6 +260,8 @@ static int rand_ipc_sem(void)
 	return 0;
 }
 
+#define INT_MAX ((int)(~0U>>1))
+
 static int rand_ipc_ns(void)
 {
 	int ret;
@@ -261,6 +275,12 @@ static int rand_ipc_ns(void)
 		ret = rand_ipc_sysctl("/proc/sys/kernel/msgmni", (unsigned)lrand48());
 	if (!ret)
 		ret = rand_ipc_sysctl("/proc/sys/kernel/auto_msgmni", 0);
+	if (!ret && (unsigned)lrand48() % 2)
+		ret = rand_ipc_sysctl("/proc/sys/kernel/msg_next_id", (unsigned)lrand48() % ((unsigned)INT_MAX + 1));
+	if (!ret && (unsigned)lrand48() % 2)
+		ret = rand_ipc_sysctl("/proc/sys/kernel/sem_next_id", (unsigned)lrand48() % ((unsigned)INT_MAX + 1));
+	if (!ret && (unsigned)lrand48() % 2)
+		ret = rand_ipc_sysctl("/proc/sys/kernel/shm_next_id", (unsigned)lrand48() % ((unsigned)INT_MAX + 1));
 	if (!ret)
 		ret = rand_ipc_sysctl("/proc/sys/kernel/shmmax", (unsigned)lrand48());
 	if (!ret)
@@ -317,6 +337,15 @@ static void show_ipc_entry(struct ipc_ns *old, struct ipc_ns *new)
 	if (old->auto_msgmni != new->auto_msgmni)
 		pr_perror("auto_msgmni differs: %d ---> %d",
 			old->auto_msgmni, new->auto_msgmni);
+	if (old->msg_next_id != new->msg_next_id)
+		pr_perror("msg_next_id differs: %d ---> %d",
+			old->msg_next_id, new->msg_next_id);
+	if (old->sem_next_id != new->sem_next_id)
+		pr_perror("sem_next_id differs: %d ---> %d",
+			old->sem_next_id, new->sem_next_id);
+	if (old->shm_next_id != new->shm_next_id)
+		pr_perror("shm_next_id differs: %d ---> %d",
+			old->shm_next_id, new->shm_next_id);
 	if (old->shm_ctlmax != new->shm_ctlmax)
 		pr_perror("shm_ctlmax differs: %zu ---> %zu",
 			old->shm_ctlmax, new->shm_ctlmax);
