@@ -309,6 +309,8 @@ static int ipc_sysctl_req(IpcVarEntry *e, int op)
 		{ "fs/mqueue/queues_max",	&e->mq_queues_max,	CTL_U32 },
 		{ "fs/mqueue/msg_max",		&e->mq_msg_max,		CTL_U32 },
 		{ "fs/mqueue/msgsize_max",	&e->mq_msgsize_max,	CTL_U32 },
+		{ "fs/mqueue/msg_default",	&e->mq_msg_default,	CTL_U32 },
+		{ "fs/mqueue/msgsize_default",	&e->mq_msgsize_default,	CTL_U32 },
 	};
 
 	int ret;
@@ -322,7 +324,8 @@ static int ipc_sysctl_req(IpcVarEntry *e, int op)
 		return 0;
 	}
 
-	return sysctl_op(req_mq, ARRAY_SIZE(req_mq), op, CLONE_NEWIPC);
+	return sysctl_op(req_mq, ARRAY_SIZE(req_mq) - (e->has_mq_msg_default ? 0 : 2),
+	                 op, CLONE_NEWIPC);
 }
 
 /*
@@ -416,6 +419,8 @@ static int dump_ipc_var(struct cr_img *img)
 	var.sem_ctls	= xmalloc(pb_repeated_size(&var, sem_ctls));
 	if (!var.sem_ctls)
 		goto err;
+	var.has_mq_msg_default = true;
+	var.has_mq_msgsize_default = true;
 
 	ret = ipc_sysctl_req(&var, CTL_READ);
 	if (ret < 0) {
