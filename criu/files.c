@@ -910,7 +910,7 @@ static int open_transport_fd(int pid, struct fdinfo_list_entry *fle)
 		pr_perror("Can't create socket");
 		return -1;
 	}
-	ret = bind(sock, &saddr, sun_len);
+	ret = bind(sock, (struct sockaddr *)&saddr, sun_len);
 	if (ret < 0) {
 		pr_perror("Can't bind unix socket %s", saddr.sun_path + 1);
 		goto err;

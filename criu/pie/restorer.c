@@ -6,6 +6,7 @@
 #include <linux/aio_abi.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/time.h>

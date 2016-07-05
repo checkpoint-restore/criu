@@ -15,7 +15,7 @@
 #include <sys/vfs.h>
 #include <linux/magic.h>
 #include <sys/wait.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/mman.h>
 #include <sys/mount.h>
 #include <aio.h>

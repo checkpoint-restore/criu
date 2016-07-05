@@ -11,6 +11,8 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include <sched.h>
+#include <time.h>
+#include <fcntl.h>
 
 #include "asm/types.h"
 

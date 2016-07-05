@@ -2,7 +2,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <string.h>
-#include <wait.h>
+#include <sys/wait.h>
 #include <stdlib.h>
 
 #include "asm/types.h"

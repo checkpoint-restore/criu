@@ -1166,7 +1166,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 		 * The below is hack: we use that connect with AF_UNSPEC
 		 * clears socket's peer.
 		 */
-		if (connect(sk, &addr, sizeof(addr.sun_family))) {
+		if (connect(sk, (struct sockaddr *)&addr, sizeof(addr.sun_family))) {
 			pr_perror("Can't clear socket's peer");
 			return -1;
 		}

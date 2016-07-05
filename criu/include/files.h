@@ -1,6 +1,8 @@
 #ifndef __CR_FILES_H__
 #define __CR_FILES_H__
 
+#include <sys/stat.h>
+
 #include "compiler.h"
 #include "asm/types.h"
 #include "fcntl.h"

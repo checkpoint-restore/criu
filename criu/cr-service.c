@@ -1100,7 +1100,7 @@ int cr_service(bool daemon_mode)
 
 		pr_info("Waiting for connection...\n");
 
-		sk = accept(server_fd, &client_addr, &client_addr_len);
+		sk = accept(server_fd, (struct sockaddr *)&client_addr, &client_addr_len);
 		if (sk == -1) {
 			pr_perror("Can't accept connection");
 			goto err;
