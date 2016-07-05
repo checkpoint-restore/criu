@@ -84,7 +84,7 @@ struct ns_id {
 	 * are mounted) and other tasks may do setns on it
 	 * and proceed.
 	 */
-	futex_t ns_populated;
+	bool ns_populated;
 
 	union {
 		struct {

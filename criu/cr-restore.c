@@ -1315,15 +1315,21 @@ static int restore_task_with_children(void *_arg)
 
 	restore_pgid();
 
-	if (restore_finish_stage(CR_STATE_FORKING) < 0)
-		goto err;
-
 	if (current->parent == NULL) {
+		/*
+		 * Wait when all tasks passed the CR_STATE_FORKING stage.
+		 * It means that all tasks entered into their namespaces.
+		 */
+		futex_wait_while_gt(&task_entries->nr_in_progress, 1);
+
 		if (depopulate_roots_yard())
 			goto err;
 
 		fini_restore_mntns();
 	}
+
+	if (restore_finish_stage(CR_STATE_FORKING) < 0)
+		goto err;
 
 	if (restore_one_task(current->pid.virt, ca->core))
 		goto err;
