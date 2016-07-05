@@ -47,4 +47,5 @@ message unix_sk_entry {
 	 * Relative socket name may have prefix.
 	 */
 	optional string			name_dir	= 14;
+	optional bool			deleted		= 15;
 }

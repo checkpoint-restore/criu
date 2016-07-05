@@ -72,6 +72,7 @@ struct unix_sk_desc {
 	unsigned int		nr_icons;
 	unsigned int		*icons;
 	unsigned char		shutdown;
+	bool			deleted;
 
 	mode_t			mode;
 	uid_t			uid;
@@ -337,6 +338,11 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 		perms->gid	= userns_gid(sk->gid);
 	}
 
+	if (sk->deleted) {
+		ue->has_deleted = true;
+		ue->deleted	= sk->deleted;
+	}
+
 	sk_encode_shutdown(ue, sk->shutdown);
 
 	if (ue->peer) {
@@ -503,7 +509,7 @@ static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg 
 
 	if (name[0] != '\0') {
 		struct unix_diag_vfs *uv;
-		bool drop_path = false;
+		bool deleted = false;
 		char rpath[PATH_MAX];
 		struct ns_id *ns;
 		struct stat st;
@@ -554,30 +560,21 @@ static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg 
 
 			pr_info("unix: Dropping path %s for unlinked sk %#x\n",
 				name, m->udiag_ino);
-			drop_path = true;
+			deleted = true;
 		} else if ((st.st_ino != uv->udiag_vfs_ino) ||
 			   !phys_stat_dev_match(st.st_dev, uv->udiag_vfs_dev, ns, name)) {
 			pr_info("unix: Dropping path %s for unlinked bound "
 				"sk %#x.%#x real %#x.%#x\n",
 				name, (int)st.st_dev, (int)st.st_ino,
 				(int)uv->udiag_vfs_dev, (int)uv->udiag_vfs_ino);
-			drop_path = true;
-		}
-
-		if (drop_path) {
-			/*
-			 * When a socket is bound to unlinked file, we
-			 * just drop his name, since no one will access
-			 * it via one.
-			 */
-			xfree(name);
-			len = 0;
-			name = NULL;
+			deleted = true;
 		}
 
 		d->mode = st.st_mode;
 		d->uid	= st.st_uid;
 		d->gid	= st.st_gid;
+
+		d->deleted = deleted;
 	}
 
 postprone:
@@ -962,8 +959,47 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 		ret = bind(sk, (struct sockaddr *)&addr,
 				sizeof(addr.sun_family) + ui->ue->name.len);
 		if (ret < 0) {
-			pr_perror("Can't bind socket");
-			goto done;
+			if (ui->ue->has_deleted && ui->ue->deleted && errno == EADDRINUSE) {
+				char temp[PATH_MAX];
+
+				pr_info("found duplicate unix socket bound at %s\n", addr.sun_path);
+
+				ret = snprintf(temp, sizeof(temp), "%s-%s-%d", addr.sun_path, "criu-temp", getpid());
+				/* this shouldn't happen, since sun_addr is only 108 chars long */
+				if (ret < 0 || ret >= sizeof(temp)) {
+					pr_err("snprintf of %s failed?\n", addr.sun_path);
+					goto done;
+				}
+
+				ret = rename(addr.sun_path, temp);
+				if (ret < 0) {
+					pr_perror("couldn't move socket for binding");
+					goto done;
+				}
+
+				ret = bind(sk, (struct sockaddr *)&addr,
+						sizeof(addr.sun_family) + ui->ue->name.len);
+				if (ret < 0) {
+					pr_perror("Can't bind socket after move");
+					goto done;
+				}
+
+				ret = rename(temp, addr.sun_path);
+				if (ret < 0) {
+					pr_perror("couldn't move socket back");
+					goto done;
+				}
+
+				/* we've handled the deleted-ness of this
+				 * socket and we don't want to delete it later
+				 * since it's not /this/ socket.
+				 */
+				ui->ue->deleted = false;
+
+			} else {
+				pr_perror("Can't bind socket");
+				goto done;
+			}
 		}
 
 		if (*ui->name && ui->ue->file_perms) {
@@ -987,6 +1023,11 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 				pr_perror("Unable to change file mode bits");
 				goto done;
 			}
+		}
+
+		if (ui->ue->deleted && unlink((char *)ui->ue->name.data) < 0) {
+			pr_perror("failed to unlink %s\n", ui->ue->name.data);
+			return -1;
 		}
 	}
 
