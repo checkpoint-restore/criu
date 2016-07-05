@@ -28,6 +28,7 @@
 /static/cwd01
 /static/cwd02
 /static/deleted_dev
+/static/deleted_standalone_unix
 /static/deleted_unix_sock
 /static/different_creds
 /static/dumpable01
