@@ -41,6 +41,7 @@
 #include "namespaces.h"
 #include "pstree.h"
 #include "fault-injection.h"
+#include "syscall-codes.h"
 
 #include "protobuf.h"
 #include "images/fsnotify.pb-c.h"
@@ -104,7 +105,7 @@ static void decode_handle(fh_t *handle, FhEntry *img)
 
 static int open_by_handle(void *arg, int fd, int pid)
 {
-	return open_by_handle_at(fd, arg, O_PATH);
+	return syscall(__NR_open_by_handle_at, fd, arg, O_PATH);
 }
 
 static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle)

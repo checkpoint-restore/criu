@@ -41,6 +41,19 @@
 
 #include <stdlib.h>
 
+#ifndef SIGEV_SIGNAL
+#define SIGEV_SIGNAL    0       /* notify via signal */
+#endif
+#ifndef SIGEV_NONE
+#define SIGEV_NONE      1       /* other notification: meaningless */
+#endif
+#ifndef SIGEV_THREAD
+#define SIGEV_THREAD    2       /* deliver via thread creation */
+#endif
+#ifndef SIGEV_THREAD_ID
+#define SIGEV_THREAD_ID 4       /* deliver to thread */
+#endif
+
 struct buffer {
 	char buf[PAGE_SIZE];
 	char end; /* '\0' */
