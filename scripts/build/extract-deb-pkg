@@ -3,7 +3,7 @@ set -e
 test -d $1 && exit
 mkdir $1
 cd $1
-pkg=`curl http://mirror.yandex.ru/ubuntu/ubuntu/dists/xenial/universe/binary-amd64/Packages.gz | zcat | grep "Filename.*$1" | awk '{ print $2 }'`
+pkg=`curl http://mirror.yandex.ru/ubuntu/dists/xenial/universe/binary-amd64/Packages.gz | zcat | grep "Filename.*$1" | awk '{ print $2 }'`
 wget "http://mirror.yandex.ru/ubuntu/$pkg"
 pkg=`basename $pkg`
 ar vx $pkg
