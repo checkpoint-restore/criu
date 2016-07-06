@@ -16,15 +16,19 @@
  * the fly.
  */
 
+#include "common/asm/linkage.h"
+
+#define __USER32_CS	0x23
+#define __USER_CS	0x33
+
 	.text
 
-	.global call32_from_64
-	.type call32_from_64, @function
-call32_from_64:
-	// rdi: stack to use
-	// esi: function to call
-
-	// Save registers
+/*
+ * @rdi: Stack to use
+ * @esi: Pointer to function for calling
+ */
+ENTRY(call32_from_64)
+	/* Callee-saving registers due to ABI */
 	pushq %rbx
 	pushq %rbp
 	pushq %r12
@@ -33,30 +37,29 @@ call32_from_64:
 	pushq %r15
 	pushfq
 
-	// Switch stacks
+	/* Switch stacks */
 	sub $8, %rdi
 	mov %rsp,(%rdi)
 	mov %rdi,%rsp
 
-	// Switch to compatibility mode
-	pushq $0x23  /* USER32_CS */
+	/* Switch into compatibility mode */
+	pushq $__USER32_CS
 	pushq $1f
 	lretq
 
 1:
 	.code32
-	// Call the function
+	/* Run function and switch back */
 	call *%esi
-	// Switch back to long mode
-	jmp $0x33,$1f
+	jmp $__USER_CS,$1f
 	.code64
 
 1:
-	// Restore the stack
+	/* Restore the stack */
 	mov (%rsp),%rsp
 	add $8, %rdi
 
-	// Restore registers
+	/* Restore registers */
 	popfq
 	popq %r15
 	popq %r14
@@ -64,7 +67,5 @@ call32_from_64:
 	popq %r12
 	popq %rbp
 	popq %rbx
-
 	ret
-
-.size call32_from_64, .-call32_from_64
+END(call32_from_64)
