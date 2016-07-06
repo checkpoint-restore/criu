@@ -6,6 +6,7 @@ function exit_hook()
 
 function prep()
 {
+	test -n "$SKIP_PREP" && return
 	# systemd executes jenkins in a separate sched cgroup.
 	echo 950000 > /sys/fs/cgroup/cpu,cpuacct/system/cpu.rt_runtime_us || true
 	echo 950000 > /sys/fs/cgroup/cpu,cpuacct/system/jenkins.service/cpu.rt_runtime_us || true
@@ -24,7 +25,7 @@ function prep()
 
 function mount_tmpfs_to_dump()
 {
-		
+	test -n "$SKIP_PREP" && return	
 	mkdir -p test/dump &&
 	mount -t tmpfs criu_dump test/dump &&
 	true

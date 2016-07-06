@@ -9,7 +9,33 @@ chmod a+x $HOME
 export GCOV=1
 make
 make -C test/zdtm
-python test/zdtm.py run -a -x 'cgroup*'
+
+./criu/criu check
+./criu/criu check --all || echo $?
+./criu/criu cpuinfo dump
+./criu/criu cpuinfo check
+
+umask 0000
+export SKIP_PREP=1
+
+./test/zdtm.py run -a -x 'cgroup*'
+
+bash ./test/jenkins/criu-fault.sh
+bash ./test/jenkins/criu-fcg.sh
+bash ./test/jenkins/criu-inhfd.sh
+
+make -C test/others/mnt-ext-dev/ run
+
+./test/zdtm.py run -t zdtm/static/env00 --sibling
+
+./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --dedup
+./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server
+
+./test/zdtm.py run -t zdtm/static/socket-tcp-local --norst
+
+ip net add test
+./test/zdtm.py run --unshare -t zdtm/static/env00
+./test/zdtm.py run -t zdtm/static/env00 -f h --join-ns
 
 pip install flake8
 make lint
