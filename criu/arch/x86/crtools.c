@@ -317,7 +317,7 @@ static int save_task_regs(CoreEntry *core,
 		assign_reg(gpregs, regs->compat, ss);
 		gpregs->mode = USER_X86_REGS_MODE__COMPAT;
 	}
-	gpregs->has_gpregs_case = true;
+	gpregs->has_mode = true;
 
 	if (!fpregs)
 		return 0;
@@ -701,15 +701,15 @@ static void restore_native_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 
 int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 {
-	switch (r->gpregs_case) {
-		case USER_X86_REGS_CASE_T__NATIVE:
+	switch (r->mode) {
+		case USER_X86_REGS_MODE__NATIVE:
 			restore_native_gpregs(f, r);
 			break;
-		case USER_X86_REGS_CASE_T__COMPAT:
+		case USER_X86_REGS_MODE__COMPAT:
 			restore_compat_gpregs(f, r);
 			break;
 		default:
-			pr_err("Can't prepare rt_sigframe: regs_case corrupt\n");
+			pr_err("Can't prepare rt_sigframe: registers mode corrupted (%d)\n", r->mode);
 			return -1;
 	}
 	return 0;
