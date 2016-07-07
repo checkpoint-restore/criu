@@ -23,7 +23,7 @@ struct syscall_exec_desc {
 
 #ifndef ARCH_HAS_FIND_SYSCALL
 struct syscall_exec_desc *
-find_syscall(char *name, int __attribute__((unused)) pid)
+find_syscall(char *name, struct parasite_ctl __always_unused *ctl)
 {
 	int i;
 
@@ -135,12 +135,6 @@ int cr_exec(int pid, char **opt)
 		goto out;
 	}
 
-	si = find_syscall(sys_name, pid);
-	if (!si) {
-		pr_err("Unknown syscall [%s]\n", sys_name);
-		goto out;
-	}
-
 	if (seize_catch_task(pid))
 		goto out;
 
@@ -176,6 +170,12 @@ int cr_exec(int pid, char **opt)
 	if (!ctl) {
 		pr_err("Can't prep ctl %d\n", pid);
 		goto out_unseize;
+	}
+
+	si = find_syscall(sys_name, ctl);
+	if (!si) {
+		pr_err("Unknown syscall [%s]\n", sys_name);
+		goto out_cure;
 	}
 
 	ret = execute_syscall(ctl, si, opt + 1);
