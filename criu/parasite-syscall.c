@@ -29,6 +29,7 @@
 #include "proc_parse.h"
 #include "aio.h"
 #include "fault-injection.h"
+#include "syscall-codes.h"
 
 #include <string.h>
 #include <stdlib.h>
