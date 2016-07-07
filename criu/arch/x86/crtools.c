@@ -360,6 +360,11 @@ int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs)
 	iov.iov_len = sizeof(user_regs_struct64);
 
 	ret = ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, &iov);
+	if (ret == -1) {
+		pr_perror("PTRACE_GETREGSET failed");
+		return -1;
+	}
+
 	if (iov.iov_len == sizeof(regs->native)) {
 		regs->__is_native = NATIVE_MAGIC;
 		return ret;
