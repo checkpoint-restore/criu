@@ -1055,12 +1055,14 @@ int parasite_stop_daemon(struct parasite_ctl *ctl)
 
 int parasite_cure_remote(struct parasite_ctl *ctl)
 {
-	int ret = 0;
-
 	if (parasite_stop_daemon(ctl))
 		return -1;
 
-	if (ctl->remote_map) {
+	if (!ctl->remote_map)
+		return 0;
+
+	/* Unseizing task with parasite -- it does it himself */
+	if (ctl->addr_cmd) {
 		struct parasite_unmap_args *args;
 
 		*ctl->addr_cmd = PARASITE_CMD_UNMAP;
@@ -1069,10 +1071,21 @@ int parasite_cure_remote(struct parasite_ctl *ctl)
 		args->parasite_start = ctl->remote_map;
 		args->parasite_len = ctl->map_length;
 		if (parasite_unmap(ctl, ctl->parasite_ip))
-			ret = -1;
+			return -1;
+	} else {
+		unsigned long ret;
+
+		syscall_seized(ctl, __NR_munmap, &ret,
+				(unsigned long)ctl->remote_map, ctl->map_length,
+				0, 0, 0, 0);
+		if (ret) {
+			pr_err("munmap for remote map %p, %lu returned %lu\n",
+					ctl->remote_map, ctl->map_length, ret);
+			return -1;
+		}
 	}
 
-	return ret;
+	return 0;
 }
 
 int parasite_cure_local(struct parasite_ctl *ctl)
