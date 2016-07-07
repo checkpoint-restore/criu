@@ -7,6 +7,7 @@
 #include "vma.h"
 #include "log.h"
 #include "util.h"
+#include "kerndat.h"
 
 struct syscall_exec_desc {
 	char *name;
@@ -122,6 +123,11 @@ int cr_exec(int pid, char **opt)
 
 	if (!sys_name) {
 		pr_err("Syscall name required\n");
+		goto out;
+	}
+
+	if (kerndat_init_cr_exec()) {
+		pr_err("Failed to init kerndat\n");
 		goto out;
 	}
 

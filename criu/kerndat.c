@@ -506,3 +506,12 @@ int kerndat_init_rst(void)
 
 	return ret;
 }
+
+int kerndat_init_cr_exec(void)
+{
+	int ret;
+
+	ret = get_task_size();
+
+	return ret;
+}

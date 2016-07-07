@@ -12,6 +12,7 @@ struct stat;
 
 extern int kerndat_init(void);
 extern int kerndat_init_rst(void);
+extern int kerndat_init_cr_exec(void);
 extern int kerndat_get_dirty_track(void);
 extern int kerndat_fdinfo_has_lock(void);
 extern int kerndat_loginuid(bool only_dump);
