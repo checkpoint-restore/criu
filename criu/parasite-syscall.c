@@ -1025,17 +1025,17 @@ static bool task_is_trapped(int status, pid_t pid)
 	return false;
 }
 
-static inline int is_required_syscall(user_regs_struct_t regs, pid_t pid,
+static inline int is_required_syscall(user_regs_struct_t *regs, pid_t pid,
 		const int sys_nr, const int sys_nr_compat)
 {
-	const char *mode = user_regs_native(&regs) ? "native" : "compat";
-	int req_sysnr = user_regs_native(&regs) ? sys_nr : sys_nr_compat;
+	const char *mode = user_regs_native(regs) ? "native" : "compat";
+	int req_sysnr = user_regs_native(regs) ? sys_nr : sys_nr_compat;
 
 	pr_debug("%d (%s) is going to execute the syscall %lu, required is %d\n",
-		pid, mode, REG_SYSCALL_NR(regs), req_sysnr);
-	if (user_regs_native(&regs) && (REG_SYSCALL_NR(regs) == sys_nr))
+		pid, mode, REG_SYSCALL_NR(*regs), req_sysnr);
+	if (user_regs_native(regs) && (REG_SYSCALL_NR(*regs) == sys_nr))
 		return true;
-	if (!user_regs_native(&regs) && (REG_SYSCALL_NR(regs) == sys_nr_compat))
+	if (!user_regs_native(regs) && (REG_SYSCALL_NR(*regs) == sys_nr_compat))
 		return true;
 
 	return false;
@@ -1085,7 +1085,7 @@ int parasite_stop_on_syscall(int tasks,
 			return -1;
 		}
 
-		if (is_required_syscall(regs, pid, sys_nr, sys_nr_compat)) {
+		if (is_required_syscall(&regs, pid, sys_nr, sys_nr_compat)) {
 			/*
 			 * The process is going to execute the required syscall,
 			 * the next stop will be on the exit from this syscall
