@@ -11,6 +11,9 @@ binfmt_misc:
 	./binfmt_misc
 .PHONY: binfmt_misc
 
+alpine:
+	docker build  -t criu-$@ -f Dockerfile.alpine ../..
+
 %: Dockerfile.% qemu-user-static binfmt_misc
 	docker build  -t criu-$@ -f $< ../..
 
