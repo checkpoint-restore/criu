@@ -789,21 +789,42 @@ static int core_alloc_posix_timers(TaskTimersEntry *tte, int n,
 	return 0;
 }
 
-#define encode_posix_timer(v, vp, pte)						\
+#define set_posix_timer_arg(args, ctl, m, val)					\
 do {										\
-	(pte)->it_id = (vp)->spt.it_id;						\
-	(pte)->clock_id = (vp)->spt.clock_id;					\
-	(pte)->si_signo = (vp)->spt.si_signo;					\
-	(pte)->it_sigev_notify = (vp)->spt.it_sigev_notify;			\
-	(pte)->sival_ptr = encode_pointer((vp)->spt.sival_ptr);			\
-										\
-	(pte)->overrun = (v)->overrun;						\
-										\
-	(pte)->isec = (v)->val.it_interval.tv_sec;				\
-	(pte)->insec = (v)->val.it_interval.tv_nsec;				\
-	(pte)->vsec = (v)->val.it_value.tv_sec;					\
-	(pte)->vnsec = (v)->val.it_value.tv_nsec;				\
-} while(0)
+	if (seized_native(ctl))							\
+		ASSIGN_TYPED(							\
+		((struct parasite_dump_posix_timers_args*)args)->m, val);	\
+	else									\
+		ASSIGN_TYPED(							\
+		((struct parasite_dump_posix_timers_args_compat*)args)->m, val);\
+} while (0)
+
+#define get_posix_timer_arg(out, m)						\
+do {										\
+	if (seized_native(ctl))							\
+		ASSIGN_TYPED(							\
+		out, ((struct parasite_dump_posix_timers_args*)args)->m);	\
+	else									\
+		ASSIGN_TYPED(							\
+		out, ((struct parasite_dump_posix_timers_args_compat*)args)->m);\
+} while (0)
+
+static void encode_posix_timer(void *args, struct parasite_ctl *ctl,
+		struct proc_posix_timer *vp, PosixTimerEntry *pte, int i)
+{
+	pte->it_id = vp->spt.it_id;
+	pte->clock_id = vp->spt.clock_id;
+	pte->si_signo = vp->spt.si_signo;
+	pte->it_sigev_notify = vp->spt.it_sigev_notify;
+	pte->sival_ptr = encode_pointer(vp->spt.sival_ptr);
+
+	get_posix_timer_arg(pte->overrun, timer[i].overrun);
+
+	get_posix_timer_arg(pte->isec, timer[i].val.it_interval.tv_sec);
+	get_posix_timer_arg(pte->insec, timer[i].val.it_interval.tv_nsec);
+	get_posix_timer_arg(pte->vsec, timer[i].val.it_value.tv_sec);
+	get_posix_timer_arg(pte->vnsec, timer[i].val.it_value.tv_nsec);
+}
 
 int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 		struct parasite_ctl *ctl, struct pstree_item *item)
@@ -811,31 +832,26 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 	CoreEntry *core = item->core[0];
 	TaskTimersEntry *tte = core->tc->timers;
 	PosixTimerEntry *pte;
-	struct parasite_dump_posix_timers_args *args = NULL;
-	struct parasite_dump_posix_timers_args_compat *args_c = NULL;
 	struct proc_posix_timer *temp;
-	int i;
+	void *args = NULL;
+	int args_size;
 	int ret = 0;
+	int i;
 
 	if (core_alloc_posix_timers(tte, proc_args->timer_n, &pte))
 		return -1;
 
-	if(seized_native(ctl)) {
-		args = parasite_args_s(ctl,
-			posix_timers_dump_size(proc_args->timer_n));
-		args->timer_n = proc_args->timer_n;
-	} else {
-		args_c = parasite_args_s(ctl,
-			posix_timers_compat_dump_size(proc_args->timer_n));
-		args_c->timer_n = proc_args->timer_n;
-	}
+	if (seized_native(ctl))
+		args_size = posix_timers_dump_size(proc_args->timer_n);
+	else
+		args_size = posix_timers_compat_dump_size(proc_args->timer_n);
+	args = parasite_args_s(ctl, args_size);
+
+	set_posix_timer_arg(args, ctl, timer_n, proc_args->timer_n);
 
 	i = 0;
 	list_for_each_entry(temp, &proc_args->timers, list) {
-		if(seized_native(ctl))
-			args->timer[i].it_id = temp->spt.it_id;
-		else
-			args_c->timer[i].it_id = temp->spt.it_id;
+		set_posix_timer_arg(args, ctl, timer[i].it_id, temp->spt.it_id);
 		i++;
 	}
 
@@ -846,7 +862,7 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 	i = 0;
 	list_for_each_entry(temp, &proc_args->timers, list) {
 		posix_timer_entry__init(&pte[i]);
-		encode_posix_timer(&args->timer[i], temp, &pte[i]);
+		encode_posix_timer(args, ctl, temp, &pte[i], i);
 		tte->posix[i] = &pte[i];
 		i++;
 	}
