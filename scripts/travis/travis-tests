@@ -1,7 +1,7 @@
 #!/bin/sh
 set -x -e
 
-test "$1" = "x86_64" || exit 0
+cd ../../
 
 apt-get update -qq
 apt-get install -qq protobuf-c-compiler libprotobuf-c0-dev libaio-dev libprotobuf-dev protobuf-compiler python-ipaddr libcap-dev libnl-3-dev
