@@ -10,6 +10,8 @@
 #include <limits.h>
 #include "zdtmtst.h"
 
+#define ARRAY_SIZE(x)           (sizeof(x) / sizeof((x)[0]))
+
 const char *test_doc	= "Check that some cgroups properties in kernel controllers are preserved";
 const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
 
@@ -79,7 +81,7 @@ err_rd:
 
 bool checkval(char *path, char *val)
 {
-	char buf[64];
+	char buf[1024];
 	int fd, n;
 
 	fd = open(path, O_RDONLY);
@@ -106,8 +108,22 @@ bool checkval(char *path, char *val)
 
 int main(int argc, char **argv)
 {
-	int ret = -1;
-	char path[PATH_MAX];
+	int ret = -1, i;
+	char buf[1024], path[PATH_MAX];
+
+	char *deny[] = {
+		"c *:* m",
+		"b *:* m",
+		"c 1:3 rwm",
+		"c 1:5 rwm",
+		"c 1:7 rwm",
+		"c 5:0 rwm",
+		"c 5:2 rwm",
+		"c 1:8 rwm",
+		"c 1:9 rwm",
+		"c 136:* rwm",
+		"c 10:229 rwm",
+	};
 
 	test_init(argc, argv);
 
@@ -116,11 +132,10 @@ int main(int argc, char **argv)
 
 	/* need to allow /dev/null for restore */
 	sprintf(path, "%s/devices/%s/devices.allow", dirname, cgname);
-	if (write_value(path, "c 1:3 rwm") < 0)
-		goto out;
-
-	if (write_value(path, "c 1:5 rwm") < 0)
-		goto out;
+	for (i = 0; i < ARRAY_SIZE(deny); i++) {
+		if (write_value(path, deny[i]) < 0)
+			goto out;
+	}
 
 	if (mount_and_add("memory", cgname, "memory.limit_in_bytes", "268435456") < 0)
 		goto out;
@@ -128,8 +143,14 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
+	buf[0] = 0;
+	for (i = 0; i < ARRAY_SIZE(deny); i++) {
+		strcat(buf, deny[i]);
+		strcat(buf, "\n");
+	}
+
 	sprintf(path, "%s/devices/%s/devices.list", dirname, cgname);
-	if (!checkval(path, "c 1:3 rwm\nc 1:5 rwm\n")) {
+	if (!checkval(path, buf)) {
 		fail();
 		goto out;
 	}
