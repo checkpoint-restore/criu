@@ -1246,12 +1246,13 @@ static void add_freezer_state_for_restore(CgroupPropEntry *entry, char *path, si
 	freezer_path[path_len] = 0;
 }
 
-static void advance_device_entry(char **buf)
+static int next_device_entry(char *buf)
 {
-	char *pos = *buf;
+	char *pos = buf;
 
 	while (1) {
 		if (*pos == '\n') {
+			*pos = '\0';
 			pos++;
 			break;
 		} else if (*pos == '\0') {
@@ -1261,7 +1262,7 @@ static void advance_device_entry(char **buf)
 		pos++;
 	}
 
-	*buf = pos;
+	return pos - buf;
 }
 
 static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **ents,
@@ -1346,13 +1347,16 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 					}
 					xfree(old_name);
 
-					for (pos = pe->value; *pos; advance_device_entry(&pos)) {
+					pos = pe->value;
+					while (*pos) {
+						int offset = next_device_entry(pos);
 						pe->value = pos;
 						ret = restore_cgroup_prop(pe, path, off2);
 						if (ret < 0) {
 							pe->value = old_val;
 							return -1;
 						}
+						pos += offset;
 					}
 					pe->value = old_val;
 
