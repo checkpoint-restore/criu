@@ -1432,6 +1432,9 @@ static int cr_pre_dump_finish(int ret)
 		struct parasite_ctl *ctl = dmpi(item)->parasite_ctl;
 		struct page_xfer xfer;
 
+		if (!task_alive(item))
+			continue;
+
 		pr_info("\tPre-dumping %d\n", ctl->pid.virt);
 		timing_start(TIME_MEMWRITE);
 		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
