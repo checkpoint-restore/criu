@@ -243,6 +243,78 @@ static int freezer_detach(void)
 	return 0;
 }
 
+static int log_unfrozen_stacks(char *root)
+{
+	DIR *dir;
+	struct dirent *de;
+	char path[PATH_MAX];
+	FILE *f;
+
+	snprintf(path, sizeof(path), "%s/tasks", root);
+	f = fopen(path, "r");
+	if (f == NULL) {
+		pr_perror("Unable to open %s", path);
+		return -1;
+	}
+	while (fgets(path, sizeof(path), f)) {
+		pid_t pid;
+		int ret, stack;
+		char stackbuf[2048];
+
+		pid = atoi(path);
+
+		stack = open_proc(pid, "stack");
+		if (stack < 0) {
+			pr_perror("couldn't log %d's stack", pid);
+			return -1;
+		}
+
+		ret = read(stack, stackbuf, sizeof(stackbuf));
+		close(stack);
+		if (ret < 0) {
+			pr_perror("couldn't read %d's stack", pid);
+			return -1;
+		}
+		stackbuf[ret] = '\0';
+
+		pr_debug("Task %d has stack:\n%s", pid, stackbuf);
+
+	}
+	fclose(f);
+
+	dir = opendir(root);
+	if (!dir) {
+		pr_perror("Unable to open %s", root);
+		return -1;
+	}
+
+	while ((de = readdir(dir))) {
+		struct stat st;
+
+		if (dir_dots(de))
+			continue;
+
+		sprintf(path, "%s/%s", root, de->d_name);
+
+		if (fstatat(dirfd(dir), de->d_name, &st, 0) < 0) {
+			pr_perror("stat of %s failed", path);
+			closedir(dir);
+			return -1;
+		}
+
+		if (!S_ISDIR(st.st_mode))
+			continue;
+
+		if (log_unfrozen_stacks(path) < 0) {
+			closedir(dir);
+			return -1;
+		}
+	}
+	closedir(dir);
+
+	return 0;
+}
+
 static int freeze_processes(void)
 {
 	int i, fd, exit_code = -1;
@@ -310,6 +382,10 @@ static int freeze_processes(void)
 
 	if (i > NR_ATTEMPTS) {
 		pr_err("Unable to freeze cgroup %s\n", opts.freeze_cgroup);
+
+		if (!pr_quelled(LOG_DEBUG))
+			log_unfrozen_stacks(opts.freeze_cgroup);
+
 		goto err;
 	}
 
