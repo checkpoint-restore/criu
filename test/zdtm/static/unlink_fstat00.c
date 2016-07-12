@@ -64,7 +64,7 @@ int main(int argc, char ** argv)
 	}
 	/* Change file size */
 	if (fst.st_size != 0) {
-		pr_perror("%s file size eq %d", fst.st_size);
+		pr_perror("%s file size eq %ld", filename, (long)fst.st_size);
 		goto failed;
 	}
 
@@ -111,12 +111,14 @@ int main(int argc, char ** argv)
 
 	/* Check file size */
 	if (fst.st_size != fsize) {
-		fail("(via fstat): file size changed to %d", fst.st_size);
+		fail("(via fstat): file size changed to %ld",
+				(long)fst.st_size);
 		goto failed;
 	}
 	fst.st_size = lseek(fd, 0, SEEK_END);
 	if (fst.st_size != fsize) {
-		fail("(via lseek): file size changed to %d", fst.st_size);
+		fail("(via lseek): file size changed to %ld",
+				(long)fst.st_size);
 		goto failed;
 	}
 	/* Check mode */

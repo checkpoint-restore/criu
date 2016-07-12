@@ -43,7 +43,7 @@ static int sascmp(stack_t *old, stack_t *new)
 
 static void show_ss(char *prefix, stack_t *s)
 {
-	test_msg("%20s: at %p (size %#8x flags %#2x)\n",
+	test_msg("%20s: at %p (size %8zu flags %#2x)\n",
 		 prefix, s->ss_sp, s->ss_size, s->ss_flags);
 }
 

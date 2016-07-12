@@ -163,7 +163,7 @@ int main(int argc, char **argv)
 			goto out_destroy;
 		}
 		if (val[i] != 0) {
-			fail("Non-zero sem %d value: %d", val);
+			fail("Non-zero sem %d value: %d", i, val[i]);
 			fail_count++;
 		}
 	}

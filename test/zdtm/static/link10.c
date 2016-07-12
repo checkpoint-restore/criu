@@ -59,8 +59,9 @@ int main(int argc, char ** argv)
 
 	if (stat.st_ino != stat2.st_ino ||
 	    stat.st_dev != stat2.st_dev) {
-		fail("files are different: st_ino %d != %d or st_dev %d != %d",
-		     stat.st_ino, stat2.st_ino, stat.st_dev, stat2.st_dev);
+		fail("files are different: st_ino %lu != %lu or st_dev %lu != %lu",
+		     (long unsigned)stat.st_ino, (long unsigned)stat2.st_ino,
+		     (long unsigned)stat.st_dev, (long unsigned)stat2.st_dev);
 	}
 
 	pass();

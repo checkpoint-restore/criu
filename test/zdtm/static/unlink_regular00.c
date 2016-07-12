@@ -88,7 +88,8 @@ int main(int argc, char ** argv)
 	}
 
 	if (strcmp(buf, MSG)) {
-		fail("content differs: %s, %s, sizeof=%d", buf, MSG, sizeof(MSG));
+		fail("content differs: %s, %s, sizeof=%zu",
+				buf, MSG, sizeof(MSG));
 		goto close_file;
 	}
 

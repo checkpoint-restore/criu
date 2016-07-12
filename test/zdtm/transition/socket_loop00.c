@@ -115,7 +115,7 @@ int main(int argc, char **argv)
 			if (errno == EINTR)
 				continue;
 			else {
-				fail("write failed: %m\n", i);
+				fail("write failed\n");
 				ret = 1;
 				break;
 			}

@@ -73,7 +73,7 @@ static int read_ipc_sysctl(char *name, int *data, size_t size)
 
 	fd = open(name, O_RDONLY);
 	if (fd < 0) {
-		pr_perror("Can't open %d", name);
+		pr_perror("Can't open %s", name);
 		return fd;
 	}
 	ret = read(fd, buf, 32);
@@ -212,7 +212,7 @@ static int rand_ipc_sysctl(char *name, unsigned int val)
 
 	fd = open(name, O_WRONLY);
 	if (fd < 0) {
-		pr_perror("Can't open %d", name);
+		pr_perror("Can't open %s", name);
 		return fd;
 	}
 	sprintf(buf, "%d\n", val);
@@ -318,10 +318,10 @@ static void show_ipc_entry(struct ipc_ns *old, struct ipc_ns *new)
 		pr_perror("auto_msgmni differs: %d ---> %d",
 			old->auto_msgmni, new->auto_msgmni);
 	if (old->shm_ctlmax != new->shm_ctlmax)
-		pr_perror("shm_ctlmax differs: %d ---> %d",
+		pr_perror("shm_ctlmax differs: %zu ---> %zu",
 			old->shm_ctlmax, new->shm_ctlmax);
 	if (old->shm_ctlall != new->shm_ctlall)
-		pr_perror("shm_ctlall differs: %d ---> %d",
+		pr_perror("shm_ctlall differs: %zu ---> %zu",
 			old->shm_ctlall, new->shm_ctlall);
 	if (old->shm_ctlmni != new->shm_ctlmni)
 		pr_perror("shm_ctlmni differs: %d ---> %d",

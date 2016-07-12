@@ -31,7 +31,8 @@ extern int test_fork_id(int id);
 /* finish setting up the test, write out pid file, and go to background */
 extern void test_daemon(void);
 /* store a message to a static buffer */
-extern void test_msg(const char *format, ...);
+extern void test_msg(const char *format, ...)
+	__attribute__ ((__format__ (__printf__, 1, 2)));
 /* tell if SIGTERM hasn't been received yet */
 extern int test_go(void);
 /* sleep until SIGTERM is delivered */

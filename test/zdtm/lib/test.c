@@ -204,7 +204,7 @@ void test_init(int argc, char **argv)
 		if (futex_get(&sig_received) == SIGCHLD) {
 			int ret;
 			if (waitpid(pid, &ret, 0) != pid) {
-				pr_perror("Unable to wait %d, pid");
+				pr_perror("Unable to wait %d", pid);
 				exit(1);
 			}
 

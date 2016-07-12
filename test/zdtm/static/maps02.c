@@ -87,7 +87,7 @@ int main(int argc, char **argv)
 			return -1;
 
 		if (m[i].orig_flags != m[i].new_flags) {
-			pr_perror("Flags are changed %lx %lx -> %lx (%d)",
+			pr_perror("Flags are changed %lx %lx -> %lx (%zu)",
 			    (unsigned long)m[i].start,
 			    m[i].orig_flags, m[i].new_flags, i);
 			fail();
@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 		}
 
 		if (m[i].orig_madv != m[i].new_madv) {
-			pr_perror("Madvs are changed %lx %lx -> %lx (%d)",
+			pr_perror("Madvs are changed %lx %lx -> %lx (%zu)",
 			    (unsigned long)m[i].start,
 			    m[i].orig_madv, m[i].new_madv, i);
 			fail();

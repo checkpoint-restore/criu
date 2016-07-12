@@ -175,7 +175,7 @@ int main(int argc, char ** argv)
 
 	fd = dup2(fd, TEST_FD);
 	if (fd == -1) {
-		pr_perror("Can't dup fd to %d", fd, TEST_FD);
+		pr_perror("Can't dup fd %d to %d", fd, TEST_FD);
 		return -1;
 	}
 

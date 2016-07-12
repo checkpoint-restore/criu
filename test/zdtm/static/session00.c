@@ -226,7 +226,7 @@ int main(int argc, char ** argv)
 
 	pid = wait(&status);
 	if (pid != -1 || errno != ECHILD) {
-		pr_perror("%d isn't waited");
+		pr_perror("%d isn't waited", pid);
 		err++;
 	}
 

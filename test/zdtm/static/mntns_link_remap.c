@@ -118,7 +118,7 @@ int ns_child(void *_arg)
 #else
 	if (st1.st_nlink != 0) {
 #endif
-		pr_perror("Wrong number of links: %d", st1.st_nlink);
+		pr_perror("Wrong number of links: %lu", st1.st_nlink);
 		exit(1);
 	}
 

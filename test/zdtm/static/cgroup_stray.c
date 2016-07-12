@@ -207,7 +207,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!WIFEXITED(status) || WEXITSTATUS(status)) {
-		fail("exit status %s\n", status);
+		fail("exit status %d\n", status);
 		goto out_umount;
 	}
 

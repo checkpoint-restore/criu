@@ -296,8 +296,8 @@ next_event:
 int read_set(int inot_fd, char *event_set) {
 	int len;
 	if ((len = read(inot_fd, event_set, EVENT_BUF_LEN)) < 0) {
-		pr_perror("read(%d, buf, %d) Failed, errno=%d : %s",
-			inot_fd, EVENT_BUF_LEN, errno, strerror(errno));
+		pr_perror("read(%d, buf, %lu) Failed, errno=%d",
+			inot_fd, EVENT_BUF_LEN, errno);
 		return -1;
 	}
 	return len;

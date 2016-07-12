@@ -69,7 +69,7 @@ int main(int argc, char **argv)
 	}
 
 	if (st.st_mode != mode) {
-		fail("%s is no longer the fifo we had");
+		fail("%s is no longer the fifo we had", path);
 		goto unlink;
 	}
 

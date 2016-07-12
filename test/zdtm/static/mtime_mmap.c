@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 	mtime_new = fst.st_mtime;
 	/* time of last modification */
 	if (mtime_new <= mtime_old) {
-		fail("mtime %d wasn't updated on mmapped %s file",
+		fail("mtime %ld wasn't updated on mmapped %s file",
 			mtime_new, filename);
 		goto failed;
 	}
@@ -102,8 +102,7 @@ int main(int argc, char **argv)
 
 	/* time of last modification */
 	if (fst.st_mtime != mtime_new) {
-		fail("After migration, mtime changed to %d",
-			fst.st_mtime);
+		fail("After migration, mtime changed to %ld", fst.st_mtime);
 		goto failed;
 	}
 

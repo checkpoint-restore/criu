@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 
 	if (st.st_mode != mode || st.st_rdev != dev) {
 		fail("%s is no longer the device file we had", filename);
-		test_msg("mode %x want %x, dev %x want %x\n",
+		test_msg("mode %x want %x, dev %lx want %lx\n",
 				st.st_mode, mode, st.st_rdev, dev);
 		goto out;
 	}
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 	}
 
 	if (unlink(filename) != -1 || errno != ENOENT) {
-		fail("file %s should have been deleted before migration: unlink: %m\n");
+		fail("file %s should have been deleted before migration: unlink: %m\n", filename);
 		goto out;
 	}
 

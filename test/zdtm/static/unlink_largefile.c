@@ -28,8 +28,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (lseek64(fd, offset, SEEK_SET) < 0) {
-		pr_perror("can't lseek %s, offset= %x", filename,
-			offset);
+		pr_perror("can't lseek %s, offset= %lx", filename, offset);
 		goto failed;
 	}
 

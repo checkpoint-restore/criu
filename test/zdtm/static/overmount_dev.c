@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 	}
 
 	if (st.st_mode != mode || st.st_rdev != dev) {
-		fail("%s is no longer the device file we had");
+		fail("%s is no longer the device file we had", path);
 		goto unlink;
 	}
 

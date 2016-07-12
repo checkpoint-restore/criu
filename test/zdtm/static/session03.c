@@ -244,7 +244,7 @@ static int send_command(int id, enum commands op, int arg)
 	}
 
 	if (status) {
-		pr_perror("The command(%d, %d, %d) failed");
+		pr_perror("The command(%d, %d) failed", op, arg);
 		goto err;
 	}
 
