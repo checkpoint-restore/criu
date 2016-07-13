@@ -33,6 +33,17 @@
 #define SIOCOUTQNSD     0x894B
 #endif
 
+#ifndef CONFIG_HAS_TCP_REPAIR_WINDOW
+struct tcp_repair_window {
+	u32   snd_wl1;
+	u32   snd_wnd;
+	u32   max_window;
+
+	u32   rcv_wnd;
+	u32   rcv_wup;
+};
+#endif
+
 #ifndef CONFIG_HAS_TCP_REPAIR
 /*
  * It's been reported that both tcp_repair_opt
@@ -56,6 +67,10 @@ enum {
 
 #ifndef TCP_TIMESTAMP
 #define TCP_TIMESTAMP	24
+#endif
+
+#ifndef TCP_REPAIR_WINDOW
+#define TCP_REPAIR_WINDOW       29
 #endif
 
 #ifndef TCPOPT_SACK_PERM
@@ -751,3 +766,41 @@ out:
 
 	return ret;
 }
+
+int kerndat_tcp_repair_window()
+{
+	struct tcp_repair_window opt;
+	socklen_t optlen = sizeof(opt);
+	int sk, val = 1;
+
+	sk = socket(AF_INET, SOCK_STREAM, 0);
+	if (sk < 0) {
+		pr_perror("Unable to create a netlink socket");
+		return -1;
+	}
+
+	if (setsockopt(sk, SOL_TCP, TCP_REPAIR, &val, sizeof(val))) {
+		if (errno == EPERM) {
+			kdat.has_tcp_window = false;
+			pr_warn("TCP_REPAIR isn't available to unprivileged users\n");
+			return 0;
+		}
+		pr_perror("Unable to set TCP_REPAIR");
+		close(sk);
+		return -1;
+	}
+
+	if (getsockopt(sk, SOL_TCP, TCP_REPAIR_WINDOW, &opt, &optlen)) {
+		if (errno != ENOPROTOOPT) {
+			pr_perror("Unable to set TCP_REPAIR_WINDOW");
+			close(sk);
+			return -1;
+		}
+		kdat.has_tcp_window = false;
+	} else
+		kdat.has_tcp_window = true;
+	close(sk);
+
+	return 0;
+}
+

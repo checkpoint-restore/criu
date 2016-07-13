@@ -31,6 +31,7 @@ struct kerndat_s {
 	bool has_dirty_track;
 	bool has_memfd;
 	bool has_fdinfo_lock;
+	bool has_tcp_window;
 	unsigned long task_size;
 	bool ipv6;
 	bool has_loginuid;
@@ -55,5 +56,7 @@ enum {
  * a new (likely virtuzlized) fs instance.
  */
 extern int kerndat_fs_virtualized(unsigned int which, u32 kdev);
+
+extern int kerndat_tcp_repair_window();
 
 #endif /* __CR_KERNDAT_H__ */

@@ -917,6 +917,22 @@ static int check_cgroupns(void)
 	return 0;
 }
 
+static int check_tcp_window(void)
+{
+	int ret;
+
+	ret = kerndat_tcp_repair_window();
+	if (ret < 0)
+		return -1;
+
+	if (!kdat.has_tcp_window) {
+		pr_err("The TCP_REPAIR_WINDOW option isn't supported.\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1014,6 +1030,7 @@ int cr_check(void)
 		ret |= check_fdinfo_lock();
 		ret |= check_clone_parent_vs_pid();
 		ret |= check_cgroupns();
+		ret |= check_tcp_window();
 	}
 
 	/*

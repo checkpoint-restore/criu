@@ -12,6 +12,20 @@ int main(void)
 }
 endef
 
+define FEATURE_TEST_TCP_REPAIR_WINDOW
+
+#include <netinet/tcp.h>
+
+int main(void)
+{
+	struct tcp_repair_window opts;
+
+	opts.snd_wl1 = 0;
+
+	return opts.snd_wl1;
+}
+endef
+
 define FEATURE_TEST_LIBBSD_DEV
 #include <bsd/string.h>
 
