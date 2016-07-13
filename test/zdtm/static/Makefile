@@ -151,6 +151,7 @@ TST_NOFILE	=				\
 		oom_score_adj			\
 		loginuid			\
 		cgroupns			\
+		helper_zombie_child		\
 #		jobctl00			\
 
 TST_FILE	=				\
