@@ -5,6 +5,7 @@
 #include <grp.h>
 #include <string.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <sys/mount.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -251,6 +252,7 @@ int ns_init(int argc, char **argv)
 	int ret, fd, status_pipe = STATUS_FD;
 	char buf[128], *x;
 	pid_t pid;
+	bool reap;
 
 	ret = fcntl(status_pipe, F_SETFD, FD_CLOEXEC);
 	if (ret == -1) {
@@ -258,9 +260,12 @@ int ns_init(int argc, char **argv)
 		exit(1);
 	}
 
+	reap = getenv("ZDTM_NOREAP") == NULL;
+
 	sigemptyset(&sa.sa_mask);
 	sigaddset(&sa.sa_mask, SIGTERM);
-	sigaddset(&sa.sa_mask, SIGCHLD);
+	if (reap)
+		sigaddset(&sa.sa_mask, SIGCHLD);
 
 	if (sigaction(SIGTERM, &sa, NULL)) {
 		fprintf(stderr, "Can't set SIGTERM handler: %m\n");
@@ -290,12 +295,12 @@ int ns_init(int argc, char **argv)
 
 	show_ps();
 
-	if (sigaction(SIGCHLD, &sa, NULL)) {
+	if (reap && sigaction(SIGCHLD, &sa, NULL)) {
 		fprintf(stderr, "Can't set SIGCHLD handler: %m\n");
 		exit(1);
 	}
 
-	while (1) {
+	while (reap && 1) {
 		int status;
 
 		pid = waitpid(-1, &status, WNOHANG);
