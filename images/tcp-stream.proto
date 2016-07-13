@@ -18,4 +18,10 @@ message tcp_stream_entry {
 	optional bool		nodelay		= 11;
 
 	optional uint32		unsq_len	= 12; /* unsent data in the send queue */
+
+	optional uint32		snd_wl1		= 13;
+	optional uint32		snd_wnd		= 14;
+	optional uint32		max_window	= 15;
+	optional uint32		rcv_wnd		= 16;
+	optional uint32		rcv_wup		= 17;
 }
