@@ -343,8 +343,13 @@ int ns_init(int argc, char **argv)
 		kill(pid, SIGTERM);
 
 	ret = 0;
-	while (ret != -1)
-		ret = wait(NULL);
+	if (reap) {
+		while (ret != -1)
+			ret = wait(NULL);
+	} else {
+		waitpid(pid, NULL, 0);
+	}
+
 
 	exit(1);
 }
