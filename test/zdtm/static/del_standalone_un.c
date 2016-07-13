@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 	}
 
 	if (fill_sock_name(&addr, filename) < 0) {
-		pr_err("filename \"%s\" is too long", filename);
+		pr_err("filename \"%s\" is too long\n", filename);
 		goto out;
 	}
 
