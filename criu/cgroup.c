@@ -934,6 +934,8 @@ static const char *special_props[] = {
 	"cpuset.cpus",
 	"cpuset.mems",
 	"memory.kmem.limit_in_bytes",
+	"memory.swappiness",
+	"memory.use_hierarchy",
 	NULL,
 };
 
