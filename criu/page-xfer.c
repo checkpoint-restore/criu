@@ -354,7 +354,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 		pr_debug("\tbuf %d/%d\n", ppb->pages_in, ppb->nr_segs);
 
 		for (i = 0; i < ppb->nr_segs; i++) {
-			struct iovec iov = get_iov(ppb->iov, i, pp->compat_iov);
+			struct iovec iov = get_iov(ppb->iov, i);
 
 			for (; cur_hole < pp->free_hole ; cur_hole++) {
 				struct iovec hole = get_iov(pp->holes, cur_hole,

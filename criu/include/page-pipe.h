@@ -90,14 +90,15 @@ struct page_pipe {
 	unsigned int nr_holes;	/* number of holes allocated */
 	unsigned int free_hole;	/* number of holes in use */
 	struct iovec *holes;	/* holes */
-
-	bool chunk_mode;	/* Restrict the maximum buffer size of pipes
-				   and dump memory for a few iterations */
-	bool own_iovs;		/* create_page_pipe allocated IOVs memory */
+	unsigned flags;		/* PP_FOO flags below */
 };
 
-extern struct page_pipe *create_page_pipe(unsigned int nr,
-					  struct iovec *, bool chunk_mode);
+#define PP_CHUNK_MODE	0x1	/* Restrict the maximum buffer size of pipes
+				   and dump memory for a few iterations */
+#define PP_COMPAT	0x2	/* Use compatible iovs (struct compat_iovec) */
+#define PP_OWN_IOVS	0x4	/* create_page_pipe allocated IOVs memory */
+
+struct page_pipe *create_page_pipe(unsigned int nr_segs, struct iovec *iovs, unsigned flags);
 extern void destroy_page_pipe(struct page_pipe *p);
 extern int page_pipe_add_page(struct page_pipe *p, unsigned long addr);
 extern int page_pipe_add_hole(struct page_pipe *p, unsigned long addr);

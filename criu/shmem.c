@@ -564,7 +564,7 @@ static int dump_one_shmem(struct shmem_info *si)
 	if (err)
 		goto err_unmap;
 
-	pp = create_page_pipe((nrpages + 1) / 2, NULL, true);
+	pp = create_page_pipe((nrpages + 1) / 2, NULL, PP_CHUNK_MODE);
 	if (!pp)
 		goto err_unmap;
 
