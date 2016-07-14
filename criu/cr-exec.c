@@ -118,7 +118,7 @@ int cr_exec(int pid, char **opt)
 	struct parasite_ctl *ctl;
 	struct vm_area_list vmas;
 	int ret, prev_state, exit_code = -1;
-	struct proc_status_creds *creds;
+	struct proc_status_creds *creds = NULL;
 
 	if (!sys_name) {
 		pr_err("Syscall name required\n");
