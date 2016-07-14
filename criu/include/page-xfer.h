@@ -16,7 +16,7 @@ struct page_xfer {
 	/* transfers pages related to previous pagemap */
 	int (*write_pages)(struct page_xfer *self, int pipe, unsigned long len);
 	/* transfers one hole -- vaddr:len entry w/o pages */
-	int (*write_hole)(struct page_xfer *self, struct iovec *iov);
+	int (*write_hole)(struct page_xfer *self, struct iovec *iov, int type);
 	void (*close)(struct page_xfer *self);
 
 	/* private data for every page-xfer engine */

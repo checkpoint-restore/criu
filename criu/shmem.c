@@ -218,6 +218,8 @@ static void update_shmem_pmaps(struct shmem_info *si, u64 *map, VmaEntry *vma)
 		shmem_pfn = vma_pfn + DIV_ROUND_UP(vma->pgoff, PAGE_SIZE);
 		if (map[vma_pfn] & PME_SOFT_DIRTY)
 			set_pstate(si->pstate_map, shmem_pfn, PST_DIRTY);
+		else if (page_is_zero(map[vma_pfn]))
+			set_pstate(si->pstate_map, shmem_pfn, PST_ZERO);
 		else
 			set_pstate(si->pstate_map, shmem_pfn, PST_DUMP);
 	}
@@ -710,9 +712,9 @@ static int dump_one_shmem(struct shmem_info *si)
 		pgaddr = (unsigned long)addr + pfn * PAGE_SIZE;
 again:
 		if (pgstate == PST_ZERO)
-			ret = 0;
+			ret = page_pipe_add_hole(pp, pgaddr, PP_HOLE_ZERO);
 		else if (xfer.parent && page_in_parent(pgstate == PST_DIRTY))
-			ret = page_pipe_add_hole(pp, pgaddr);
+			ret = page_pipe_add_hole(pp, pgaddr, PP_HOLE_PARENT);
 		else
 			ret = page_pipe_add_page(pp, pgaddr, 0);
 

@@ -101,6 +101,9 @@ struct page_pipe_buf {
 	struct list_head l;	/* links into page_pipe->bufs */
 };
 
+#define PP_HOLE_PARENT (1 << 0)
+#define PP_HOLE_ZERO   (1 << 1)
+
 struct page_pipe {
 	unsigned int nr_pipes;	/* how many page_pipe_bufs in there */
 	struct list_head bufs;	/* list of bufs */
@@ -113,6 +116,7 @@ struct page_pipe {
 	unsigned int nr_holes;	/* number of holes allocated */
 	unsigned int free_hole;	/* number of holes in use */
 	struct iovec *holes;	/* holes */
+	unsigned int *hole_flags;
 	unsigned flags;		/* PP_FOO flags below */
 };
 
@@ -131,7 +135,8 @@ struct page_pipe *create_page_pipe(unsigned int nr_segs, struct iovec *iovs, uns
 extern void destroy_page_pipe(struct page_pipe *p);
 extern int page_pipe_add_page(struct page_pipe *p, unsigned long addr,
 			      unsigned int flags);
-extern int page_pipe_add_hole(struct page_pipe *p, unsigned long addr);
+extern int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr,
+			      unsigned int flags);
 
 extern void debug_show_page_pipe(struct page_pipe *pp);
 void page_pipe_reinit(struct page_pipe *pp);

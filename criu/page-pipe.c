@@ -284,7 +284,8 @@ int page_pipe_add_page(struct page_pipe *pp, unsigned long addr,
 
 #define PP_HOLES_BATCH	32
 
-int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr)
+int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr,
+		       unsigned int flags)
 {
 	if (pp->free_hole >= pp->nr_holes) {
 		pp->holes = xrealloc(pp->holes,
@@ -292,11 +293,17 @@ int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr)
 		if (!pp->holes)
 			return -1;
 
+		pp->hole_flags = xrealloc(pp->hole_flags,
+					  (pp->nr_holes + PP_HOLES_BATCH) * sizeof(unsigned int));
+		if(!pp->hole_flags)
+			return -1;
+
 		pp->nr_holes += PP_HOLES_BATCH;
 	}
 
 	if (pp->free_hole &&
-			iov_grow_page(&pp->holes[pp->free_hole - 1], addr))
+	    pp->hole_flags[pp->free_hole - 1] == flags &&
+	    iov_grow_page(&pp->holes[pp->free_hole - 1], addr))
 		goto out;
 
 	if (pp->flags & PP_COMPAT) {
@@ -306,6 +313,9 @@ int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr)
 	} else {
 		iov_init(&pp->holes[pp->free_hole++], addr);
 	}
+
+	pp->hole_flags[pp->free_hole - 1] = flags;
+
 out:
 	return 0;
 }

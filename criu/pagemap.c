@@ -122,13 +122,19 @@ int dedup_one_iovec(struct page_read *pr, unsigned long off, unsigned long len)
 
 static int advance(struct page_read *pr)
 {
-	pr->curr_pme++;
-	if (pr->curr_pme >= pr->nr_pmes)
-		return 0;
+	for (;;) {
+		pr->curr_pme++;
+		if (pr->curr_pme >= pr->nr_pmes)
+			return 0;
+
+		pe = pr->pmes[pr->curr_pme];
+
+		if (!pe->zero)
+			break;
+	}
 
 	pr->pe = pr->pmes[pr->curr_pme];
 	pr->cvaddr = pr->pe->vaddr;
-
 	return 1;
 }
 
@@ -137,7 +143,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	if (!len)
 		return;
 
-	if (!pr->pe->in_parent)
+	if (!pr->pe->in_parent && !pr->pe->zero)
 		pr->pi_off += len;
 	pr->cvaddr += len;
 }
@@ -384,6 +390,9 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
 	if (pr->pe->in_parent) {
 		if (read_parent_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
+	} else if (pr->pe->zero) {
+		/* zero mappings should be skipped by get_pagemap */
+		BUG();
 	} else {
 		if (maybe_read_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
