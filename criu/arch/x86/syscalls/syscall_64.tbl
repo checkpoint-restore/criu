@@ -22,6 +22,7 @@ __NR_mremap			25		sys_mremap		(unsigned long addr, unsigned long old_len, unsign
 __NR_mincore			27		sys_mincore		(void *addr, unsigned long size, unsigned char *vec)
 __NR_madvise			28		sys_madvise		(unsigned long start, size_t len, int behavior)
 __NR_shmat			30		sys_shmat		(int shmid, void *shmaddr, int shmflag)
+__NR_dup2			33		sys_dup2		(int oldfd, int newfd)
 __NR_nanosleep			35		sys_nanosleep		(struct timespec *req, struct timespec *rem)
 __NR_getitimer			36		sys_getitimer		(int which, const struct itimerval *val)
 __NR_setitimer			38		sys_setitimer		(int which, const struct itimerval *val, struct itimerval *old)
