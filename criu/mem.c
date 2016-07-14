@@ -142,7 +142,7 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 {
 	u64 *at = &map[PAGE_PFN(*off)];
 	unsigned long pfn, nr_to_scan;
-	unsigned long pages[3] = {};
+	unsigned long pages[4] = {};
 
 	nr_to_scan = (vma_area_len(vma) - *off) / PAGE_SIZE;
 
@@ -174,7 +174,10 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 			pages[1]++;
 		} else {
 			ret = page_pipe_add_page(pp, vaddr, ppb_flags);
-			pages[2]++;
+			if (ppb_flags & PPB_LAZY)
+				pages[2]++;
+			else
+				pages[3]++;
 		}
 
 		if (ret) {
@@ -188,10 +191,11 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 	cnt_add(CNT_PAGES_SCANNED, nr_to_scan);
 	cnt_add(CNT_PAGES_ZERO, pages[0]);
 	cnt_add(CNT_PAGES_SKIPPED_PARENT, pages[1]);
-	cnt_add(CNT_PAGES_WRITTEN, pages[2]);
+	cnt_add(CNT_PAGES_LAZY, pages[2]);
+	cnt_add(CNT_PAGES_WRITTEN, pages[3]);
 
-	pr_info("Pagemap generated: %lu pages %lu holes %lu zeros\n",
-		pages[2], pages[1], pages[0]);
+	pr_info("Pagemap generated: %lu pages (%lu lazy) %lu holes %lu zeros\n",
+		pages[3] + pages[2], pages[2], pages[1], pages[0]);
 	return 0;
 }
 
@@ -271,7 +275,7 @@ static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer)
 	 *           pre-dump action (see pre_dump_one_task)
 	 */
 	timing_start(TIME_MEMWRITE);
-	ret = page_xfer_dump_pages(xfer, pp, 0);
+	ret = page_xfer_dump_pages(xfer, pp, 0, true);
 	timing_stop(TIME_MEMWRITE);
 
 	return ret;

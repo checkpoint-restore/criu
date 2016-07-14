@@ -39,6 +39,7 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 #define PS_IOV_OPEN2	4
 #define PS_IOV_PARENT	5
 #define PS_IOV_ZERO	6
+#define PS_IOV_LAZY	7
 
 #define PS_IOV_FLUSH		0x1023
 #define PS_IOV_FLUSH_N_CLOSE	0x1024
@@ -257,6 +258,10 @@ static int write_hole_loc(struct page_xfer *xfer, struct iovec *iov, int type)
 		pe.has_zero = true;
 		pe.zero = true;
 		break;
+	case PS_IOV_LAZY:
+		pe.has_lazy = true;
+		pe.lazy = true;
+		break;
 	default:
 		return -1;
 	}
@@ -405,7 +410,7 @@ static int dump_holes(struct page_xfer *xfer, struct page_pipe *pp,
 }
 
 int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
-		unsigned long off)
+			 unsigned long off, bool dump_lazy)
 {
 	struct page_pipe_buf *ppb;
 	unsigned int cur_hole = 0;
@@ -429,6 +434,12 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 			iov.iov_base -= off;
 			pr_debug("\tp %p [%u]\n", iov.iov_base,
 					(unsigned int)(iov.iov_len / PAGE_SIZE));
+
+			if (!dump_lazy && ppb->flags & PPB_LAZY) {
+				if (xfer->write_hole(xfer, &iov, PS_IOV_LAZY))
+					return -1;
+				continue;
+			}
 
 			if (xfer->write_pagemap(xfer, &iov))
 				return -1;
@@ -695,6 +706,7 @@ static int page_server_serve(int sk)
 			break;
 		case PS_IOV_HOLE:
 		case PS_IOV_ZERO:
+		case PS_IOV_LAZY:
 			ret = page_server_hole(sk, &pi);
 			break;
 		case PS_IOV_FLUSH:

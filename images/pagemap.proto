@@ -11,4 +11,5 @@ message pagemap_entry {
 	required uint32 nr_pages	= 2;
 	optional bool	in_parent	= 3;
 	optional bool	zero		= 4;
+	optional bool	lazy		= 5;
 }

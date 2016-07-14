@@ -143,7 +143,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	if (!len)
 		return;
 
-	if (!pr->pe->in_parent && !pr->pe->zero)
+	if (!pr->pe->in_parent && !pr->pe->zero && !pr->pe->lazy)
 		pr->pi_off += len;
 	pr->cvaddr += len;
 }

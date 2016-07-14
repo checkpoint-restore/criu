@@ -158,6 +158,7 @@ void write_stats(int what)
 		ds_entry.pages_skipped_parent = dstats->counts[CNT_PAGES_SKIPPED_PARENT];
 		ds_entry.pages_written = dstats->counts[CNT_PAGES_WRITTEN];
 		ds_entry.pages_zero = dstats->counts[CNT_PAGES_ZERO];
+		ds_entry.pages_lazy = dstats->counts[CNT_PAGES_LAZY];
 
 		name = "dump";
 	} else if (what == RESTORE_STATS) {
