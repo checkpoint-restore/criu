@@ -339,6 +339,25 @@ static struct iovec get_iov(struct iovec *iovs, unsigned int n)
 	return iovs[n];
 }
 
+static int dump_holes(struct page_xfer *xfer, struct page_pipe *pp,
+		      unsigned int *cur_hole, void *limit, unsigned long off)
+{
+	int ret;
+
+	for (; *cur_hole < pp->free_hole ; (*cur_hole)++) {
+		struct iovec hole = get_iov(pp->holes, *cur_hole);
+
+		if (limit && hole.iov_base >= limit)
+			break;
+
+		ret = page_xfer_dump_hole(xfer, &hole, off);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 		unsigned long off)
 {
@@ -356,16 +375,9 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec iov = get_iov(ppb->iov, i);
 
-			for (; cur_hole < pp->free_hole ; cur_hole++) {
-				struct iovec hole = get_iov(pp->holes, cur_hole,
-						pp->compat_iov);
-
-				if (hole.iov_base < iov.iov_base)
-					break;
-				ret = page_xfer_dump_hole(xfer, &hole, off);
-				if (ret)
-					return ret;
-			}
+			ret = dump_holes(xfer, pp, &cur_hole, iov.iov_base, off);
+			if (ret)
+				return ret;
 
 			BUG_ON(iov.iov_base < (void *)off);
 			iov.iov_base -= off;
@@ -379,15 +391,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 		}
 	}
 
-	for (; cur_hole < pp->free_hole ; cur_hole++) {
-		struct iovec hole = get_iov(pp->holes, cur_hole, pp->compat_iov);
-
-		ret = page_xfer_dump_hole(xfer, &hole, off);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
+	return dump_holes(xfer, pp, &cur_hole, NULL, off);
 }
 
 /*
