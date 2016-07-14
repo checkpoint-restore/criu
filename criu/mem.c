@@ -266,7 +266,7 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
 	return 0;
 }
 
-static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer)
+static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer, bool lazy)
 {
 	int ret;
 
@@ -275,7 +275,7 @@ static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer)
 	 *           pre-dump action (see pre_dump_one_task)
 	 */
 	timing_start(TIME_MEMWRITE);
-	ret = page_xfer_dump_pages(xfer, pp, 0, true);
+	ret = page_xfer_dump_pages(xfer, pp, 0, !lazy);
 	timing_stop(TIME_MEMWRITE);
 
 	return ret;
@@ -315,7 +315,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 		return -1;
 
 	ret = -1;
-	if (!mdc->pre_dump)
+	if (!(mdc->pre_dump || mdc->lazy))
 		/*
 		 * Chunk mode pushes pages portion by portion. This mode
 		 * only works when we don't need to keep pp for later
@@ -325,7 +325,8 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 	if (!seized_native(ctl))
 		cpp_flags |= PP_COMPAT;
 	pp = create_page_pipe(vma_area_list->priv_size,
-					    pargs_iovs(args), cpp_flags);
+					    mdc->lazy ? NULL : pargs_iovs(args),
+					    cpp_flags);
 	if (!pp)
 		goto out;
 
@@ -379,7 +380,7 @@ again:
 
 				ret = drain_pages(pp, ctl, args);
 				if (!ret)
-					ret = xfer_pages(pp, &xfer);
+					ret = xfer_pages(pp, &xfer, mdc->lazy /* false actually */);
 				if (!ret) {
 					page_pipe_reinit(pp);
 					goto again;
@@ -390,9 +391,12 @@ again:
 			goto out_xfer;
 	}
 
+	if (mdc->lazy)
+		memcpy(pargs_iovs(args), pp->iovs,
+		       sizeof(struct iovec) * pp->nr_iovs);
 	ret = drain_pages(pp, ctl, args);
 	if (!ret && !mdc->pre_dump)
-		ret = xfer_pages(pp, &xfer);
+		ret = xfer_pages(pp, &xfer, mdc->lazy);
 	if (ret)
 		goto out_xfer;
 
@@ -407,7 +411,7 @@ out_xfer:
 	if (!mdc->pre_dump)
 		xfer.close(&xfer);
 out_pp:
-	if (ret || !mdc->pre_dump)
+	if (ret || !(mdc->pre_dump || mdc->lazy))
 		destroy_page_pipe(pp);
 	else
 		dmpi(item)->mem_pp = pp;

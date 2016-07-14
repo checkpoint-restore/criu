@@ -12,6 +12,7 @@ struct pstree_item;
 
 struct mem_dump_ctl {
 	bool	pre_dump;
+	bool	lazy;
 };
 
 extern bool page_in_parent(bool dirty);
