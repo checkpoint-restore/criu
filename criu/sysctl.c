@@ -130,12 +130,13 @@ sysctl_read_char(int fd, struct sysctl_req *req, char *arg, int nr)
 	int ret = -1;
 
 	pr_debug("%s nr %d\n", req->name, nr);
-	ret = read(fd, arg, nr);
+	ret = read(fd, arg, nr - 1);
 	if (ret < 0) {
 		if (errno != EIO ||  !(req->flags & CTL_FLAGS_READ_EIO_SKIP))
 			pr_perror("Can't read %s", req->name);
 		goto err;
 	}
+	arg[ret]='\0';
 	ret = 0;
 
 err:
