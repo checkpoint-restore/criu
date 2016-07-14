@@ -117,7 +117,7 @@ int cr_exec(int pid, char **opt)
 	struct syscall_exec_desc *si;
 	struct parasite_ctl *ctl;
 	struct vm_area_list vmas;
-	int ret = -1, prev_state;
+	int ret, prev_state, exit_code = -1;
 	struct proc_status_creds *creds;
 
 	if (!sys_name) {
@@ -160,12 +160,16 @@ int cr_exec(int pid, char **opt)
 	}
 
 	ret = execute_syscall(ctl, si, opt + 1);
-	if (ret < 0)
+	if (ret < 0) {
 		pr_err("Can't execute syscall remotely\n");
+		goto out_cure;
+	}
 
+	exit_code = 0;
+out_cure:
 	parasite_cure_seized(ctl);
 out_unseize:
 	unseize_task(pid, prev_state, prev_state);
 out:
-	return ret;
+	return exit_code;
 }
