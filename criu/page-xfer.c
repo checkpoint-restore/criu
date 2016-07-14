@@ -17,6 +17,8 @@
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
 #include "fcntl.h"
+#include "pstree.h"
+#include "parasite-syscall.h"
 
 static int page_server_sk = -1;
 
@@ -40,6 +42,7 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 #define PS_IOV_PARENT	5
 #define PS_IOV_ZERO	6
 #define PS_IOV_LAZY	7
+#define PS_IOV_GET	8
 
 #define PS_IOV_FLUSH		0x1023
 #define PS_IOV_FLUSH_N_CLOSE	0x1024
@@ -655,26 +658,72 @@ static int page_server_hole(int sk, struct page_server_iov *pi)
 	return 0;
 }
 
+static int page_server_get_pages(int sk, struct page_server_iov *pi)
+{
+	struct pstree_item *item;
+	struct page_pipe *pp;
+	struct page_pipe_buf *ppb;
+	struct iovec *iov;
+	int ret;
+
+	item = pstree_item_by_virt(pi->dst_id);
+	pp = dmpi(item)->mem_pp;
+
+	ret = page_pipe_split(pp, pi->vaddr, &pi->nr_pages);
+	if (ret)
+		return ret;
+
+	if (pi->nr_pages == 0) {
+		/* no iovs found means we've hit a zero page */
+		pr_debug("no iovs found, zero pages\n");
+		return send_psi(sk, PS_IOV_ZERO, 0, 0, 0);
+	}
+
+	ppb = list_first_entry(&pp->bufs, struct page_pipe_buf, l);
+	iov = &ppb->iov[0];
+
+	BUG_ON(!(ppb->flags & PPB_LAZY));
+	BUG_ON(iov->iov_len != pi->nr_pages * PAGE_SIZE);
+	BUG_ON(pi->vaddr != encode_pointer(iov->iov_base));
+
+	if (send_psi(sk, PS_IOV_ADD, pi->nr_pages, pi->vaddr, pi->dst_id))
+		return -1;
+
+	ret = splice(ppb->p[0], NULL, sk, NULL, iov->iov_len, SPLICE_F_MOVE);
+	if (ret != iov->iov_len)
+		return -1;
+
+	tcp_nodelay(sk, true);
+
+	page_pipe_destroy_ppb(ppb);
+
+	return 0;
+}
+
 static int page_server_serve(int sk)
 {
 	int ret = -1;
 	bool flushed = false;
 
-	/*
-	 * This socket only accepts data except one thing -- it
-	 * writes back the has_parent bit from time to time, so
-	 * make it NODELAY all the time.
-	 */
-	tcp_nodelay(sk, true);
+	if (!opts.lazy_pages) {
+		/*
+		 * This socket only accepts data except one thing -- it
+		 * writes back the has_parent bit from time to time, so
+		 * make it NODELAY all the time.
+		 */
+		tcp_nodelay(sk, true);
 
-	if (pipe(cxfer.p)) {
-		pr_perror("Can't make pipe for xfer");
-		close(sk);
-		return -1;
+		if (pipe(cxfer.p)) {
+			pr_perror("Can't make pipe for xfer");
+			close(sk);
+			return -1;
+		}
+
+		cxfer.pipe_size = fcntl(cxfer.p[0], F_GETPIPE_SZ, 0);
+		pr_debug("Created xfer pipe size %u\n", cxfer.pipe_size);
+	} else {
+		tcp_cork(sk, true);
 	}
-
-	cxfer.pipe_size = fcntl(cxfer.p[0], F_GETPIPE_SZ, 0);
-	pr_debug("Created xfer pipe size %u\n", cxfer.pipe_size);
 
 	while (1) {
 		struct page_server_iov pi;
@@ -728,6 +777,10 @@ static int page_server_serve(int sk)
 			flushed = true;
 			break;
 		}
+		case PS_IOV_GET:
+			flushed = true;
+			ret = page_server_get_pages(sk, &pi);
+			break;
 		default:
 			pr_err("Unknown command %u\n", pi.cmd);
 			ret = -1;
@@ -770,7 +823,8 @@ int cr_page_server(bool daemon_mode, int cfd)
 	int sk = -1;
 	int ret;
 
-	up_page_ids_base();
+	if (!opts.lazy_pages)
+		up_page_ids_base();
 
 	if (opts.ps_socket != -1) {
 		ret = 0;
@@ -859,4 +913,33 @@ int disconnect_from_page_server(void)
 out:
 	close_safe(&page_server_sk);
 	return ret ? : status;
+}
+
+int get_remote_pages(int pid, unsigned long addr, int nr_pages, void *dest)
+{
+	int ret;
+
+	struct page_server_iov pi;
+
+	if (send_psi(page_server_sk, PS_IOV_GET, nr_pages, addr, pid))
+		return -1;
+
+	tcp_nodelay(page_server_sk, true);
+
+	ret = recv(page_server_sk, &pi, sizeof(pi), MSG_WAITALL);
+	if (ret != sizeof(pi))
+		return -1;
+
+	/* zero page */
+	if (pi.cmd == PS_IOV_ZERO)
+		return 0;
+
+	if (pi.nr_pages > nr_pages)
+		return -1;
+
+	ret = recv(page_server_sk, dest, PAGE_SIZE, MSG_WAITALL);
+	if (ret != PAGE_SIZE)
+		return -1;
+
+	return 1;
 }

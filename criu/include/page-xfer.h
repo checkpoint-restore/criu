@@ -44,4 +44,6 @@ extern int disconnect_from_page_server(void);
 
 extern int check_parent_page_xfer(int fd_type, long id);
 
+extern int get_remote_pages(int pid, unsigned long addr, int nr_pages, void *dest);
+
 #endif /* __CR_PAGE_XFER__H__ */
