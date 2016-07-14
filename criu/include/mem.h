@@ -13,6 +13,7 @@ struct vma_area;
 
 struct mem_dump_ctl {
 	bool	pre_dump;
+	bool	lazy;
 };
 
 extern bool vma_has_guard_gap_hidden(struct vma_area *vma);
