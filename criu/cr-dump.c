@@ -451,7 +451,7 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 	mme.n_vmas = vma_area_list->nr;
 	mme.vmas = xmalloc(mme.n_vmas * sizeof(VmaEntry *));
 	if (!mme.vmas)
-		goto err;
+		return -1;
 
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
 		VmaEntry *vma = vma_area->e;
@@ -512,6 +512,7 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat,
 	xfree(mme.mm_saved_auxv);
 	free_aios(&mme);
 err:
+	xfree(mme.vmas);
 	return ret;
 }
 
