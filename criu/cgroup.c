@@ -547,7 +547,7 @@ static int collect_cgroups(struct list_head *ctls)
 
 	list_for_each_entry(cc, ctls, l) {
 		char path[PATH_MAX], mopts[1024];
-		char *name, prefix[] = ".criu.cgmounts.XXXXXX";
+		char prefix[] = ".criu.cgmounts.XXXXXX";
 		struct cg_controller *cg;
 
 		current_controller = NULL;
@@ -578,13 +578,10 @@ static int collect_cgroups(struct list_head *ctls)
 		if (!opts.manage_cgroups)
 			continue;
 
-		if (strstartswith(cc->name, "name=")) {
-			name = cc->name + 5;
+		if (strstartswith(cc->name, "name="))
 			snprintf(mopts, sizeof(mopts), "none,%s", cc->name);
-		} else {
-			name = cc->name;
-			snprintf(mopts, sizeof(mopts), "%s", name);
-		}
+		else
+			snprintf(mopts, sizeof(mopts), "%s", cc->name);
 
 		if (mkdtemp(prefix) == NULL) {
 			pr_perror("can't make dir for cg mounts");
