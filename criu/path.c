@@ -95,8 +95,6 @@ char *mnt_get_sibling_path(struct mount_info *m,
 		rpath++;
 
 	off = snprintf(path, len, "/%s", rpath);
-	len -= off;
-	path += off;
 
 	return buf;
 }
