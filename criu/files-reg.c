@@ -27,6 +27,7 @@
 #include "namespaces.h"
 #include "proc_parse.h"
 #include "pstree.h"
+#include "fault-injection.h"
 
 #include "protobuf.h"
 #include "images/regfile.pb-c.h"
@@ -1396,6 +1397,11 @@ int open_path(struct file_desc *d,
 	}
 
 	if (rfi->remap) {
+		if (fault_injected(FI_RESTORE_OPEN_LINK_REMAP)) {
+			pr_info("fault: Open link-remap failure!\n");
+			BUG();
+		}
+
 		mutex_lock(ghost_file_mutex);
 		if (rfi->remap->is_dir) {
 			/*
