@@ -78,6 +78,7 @@
 #include "sk-queue.h"
 
 #include "parasite-syscall.h"
+#include "files-reg.h"
 
 #include "protobuf.h"
 #include "images/sa.pb-c.h"
@@ -1322,9 +1323,6 @@ static int restore_task_with_children(void *_arg)
 		 */
 		futex_wait_while_gt(&task_entries->nr_in_progress, 1);
 
-		if (depopulate_roots_yard())
-			goto err;
-
 		fini_restore_mntns();
 	}
 
@@ -1747,9 +1745,11 @@ static int restore_root_task(struct pstree_item *init)
 	 * There is no need to call try_clean_remaps() after this point,
 	 * as restore went OK and all ghosts were removed by the openers.
 	 */
+	if (depopulate_roots_yard(mnt_ns_fd, false))
+		goto out_kill;
+
 	clean_remaps = 0;
 	close_safe(&mnt_ns_fd);
-	cleanup_mnt_ns();
 
 	ret = stop_usernsd();
 	if (ret < 0)
@@ -1854,8 +1854,7 @@ out_kill:
 out:
 	fini_cgroup();
 	if (clean_remaps)
-		try_clean_remaps(mnt_ns_fd);
-	cleanup_mnt_ns();
+		depopulate_roots_yard(mnt_ns_fd, true);
 	stop_usernsd();
 	__restore_switch_stage(CR_STATE_FAIL);
 	pr_err("Restoring FAILED.\n");

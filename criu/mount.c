@@ -30,6 +30,7 @@
 #include "sysfs_parse.h"
 #include "path.h"
 #include "autofs.h"
+#include "files-reg.h"
 
 #include "images/mnt.pb-c.h"
 #include "images/binfmt-misc.pb-c.h"
@@ -3254,7 +3255,7 @@ static int populate_mnt_ns(void)
 	return ret;
 }
 
-int depopulate_roots_yard(void)
+static int __depopulate_roots_yard(void)
 {
 	int ret = 0;
 
@@ -3273,8 +3274,66 @@ int depopulate_roots_yard(void)
 	 */
 	if (umount2(mnt_roots, MNT_DETACH)) {
 		pr_perror("Can't unmount %s", mnt_roots);
-		ret = 1;
+		ret = -1;
 	}
+
+	if (rmdir(mnt_roots)) {
+		pr_perror("Can't remove the directory %s", mnt_roots);
+		ret = -1;
+	}
+
+	return ret;
+}
+
+int depopulate_roots_yard(int mntns_fd, bool clean_remaps)
+{
+	int ret = 0, old_cwd = -1, old_ns = -1;
+
+	if (mntns_fd < 0) {
+		if (clean_remaps)
+			try_clean_remaps();
+		cleanup_mnt_ns();
+		return 0;
+	}
+
+	pr_info("Switching to new ns to clean ghosts\n");
+
+	old_cwd = open(".", O_PATH);
+	if (old_cwd < 0) {
+		pr_perror("Unable to open cwd");
+		return -1;
+	}
+
+	old_ns = open_proc(PROC_SELF, "ns/mnt");
+	if (old_ns < 0) {
+		pr_perror("`- Can't keep old ns");
+		close(old_cwd);
+		return -1;
+	}
+	if (setns(mntns_fd, CLONE_NEWNS) < 0) {
+		close(old_ns);
+		close(old_cwd);
+		pr_perror("`- Can't switch");
+		return -1;
+	}
+
+	if (clean_remaps)
+		try_clean_remaps();
+
+	if (__depopulate_roots_yard())
+		ret = -1;
+
+	if (setns(old_ns, CLONE_NEWNS) < 0) {
+		pr_perror("Fail to switch back!");
+		ret = -1;
+	}
+	close(old_ns);
+
+	if (fchdir(old_cwd)) {
+		pr_perror("Unable to restore cwd");
+		ret = -1;
+	}
+	close(old_cwd);
 
 	return ret;
 }

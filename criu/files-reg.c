@@ -541,60 +541,17 @@ static int clean_one_remap(struct file_remap *remap)
 	return 0;
 }
 
-void try_clean_remaps(int ns_fd)
+void try_clean_remaps()
 {
 	struct remap_info *ri;
-	int old_ns = -1;
-	int cwd_fd = -1;
 
 	if (list_empty(&remaps))
-		goto out;
-
-	if (ns_fd >= 0) {
-		pr_info("Switching to new ns to clean ghosts\n");
-
-		old_ns = open_proc(PROC_SELF, "ns/mnt");
-		if (old_ns < 0) {
-			pr_perror("`- Can't keep old ns");
-			return;
-		}
-
-		cwd_fd = open(".", O_DIRECTORY);
-		if (cwd_fd < 0) {
-			pr_perror("Unable to open cwd");
-			return;
-		}
-
-		if (setns(ns_fd, CLONE_NEWNS) < 0) {
-			close(old_ns);
-			close(cwd_fd);
-			pr_perror("`- Can't switch");
-			return;
-		}
-	}
+		return;
 
 	list_for_each_entry(ri, &remaps, list)
 		if (ri->rfe->remap_type == REMAP_TYPE__GHOST)
 			try_clean_ghost(ri);
 
-	if (old_ns >= 0) {
-		if (setns(old_ns, CLONE_NEWNS) < 0)
-			pr_perror("Fail to switch back!");
-		close(old_ns);
-	}
-
-	if (cwd_fd >= 0) {
-		if (fchdir(cwd_fd)) {
-			pr_perror("Unable to restore cwd");
-			close(cwd_fd);
-			return;
-		}
-		close(cwd_fd);
-	}
-
-out:
-	if (ns_fd >= 0)
-		close(ns_fd);
 }
 
 static struct collect_image_info remap_cinfo = {
