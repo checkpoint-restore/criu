@@ -96,6 +96,7 @@ static int cr_lib_load(int stage, char *path)
 	plugin_desc_t *this;
 	size_t i;
 	void *h;
+	bool allocated = false;
 
 	h = dlopen(path, RTLD_LAZY);
 	if (h == NULL) {
@@ -110,25 +111,22 @@ static int cr_lib_load(int stage, char *path)
 	 * be changing own format frequently.
 	 */
 	d = dlsym(h, "CR_PLUGIN_DESC");
-	if (!d)
-		d = cr_gen_plugin_desc(h, path);
 	if (!d) {
-		pr_err("Can't load plugin %s\n", path);
-		dlclose(h);
-		return -1;
+		d = cr_gen_plugin_desc(h, path);
+		if (!d) {
+			pr_err("Can't load plugin %s\n", path);
+			goto error_close;
+		}
+		allocated = true;
 	}
 
 	this = xzalloc(sizeof(*this));
-	if (!this) {
-		dlclose(h);
-		return -1;
-	}
+	if (!this)
+		goto error_close;
 
 	if (verify_plugin(d)) {
 		pr_err("Corrupted plugin %s\n", path);
-		xfree(this);
-		dlclose(h);
-		return -1;
+		goto error_free;
 	}
 
 	this->d = d;
@@ -144,9 +142,7 @@ static int cr_lib_load(int stage, char *path)
 	if (d->init && d->init(stage)) {
 		pr_err("Failed in init(%d) of \"%s\"\n", stage, d->name);
 		list_del(&this->list);
-		xfree(this);
-		dlclose(h);
-		return -1;
+		goto error_free;
 	}
 
 	/*
@@ -160,6 +156,14 @@ static int cr_lib_load(int stage, char *path)
 	}
 
 	return 0;
+
+error_free:
+	xfree(this);
+error_close:
+	dlclose(h);
+	if (allocated)
+		xfree(d);
+	return -1;
 }
 
 void cr_plugin_fini(int stage, int ret)
