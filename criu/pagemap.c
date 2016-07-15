@@ -436,6 +436,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	pr->pi_off = 0;
 	pr->bunch.iov_len = 0;
 	pr->bunch.iov_base = NULL;
+	pr->pmes = NULL;
 
 	pr->pmi = open_image_at(dfd, i_typ, O_RSTR, (long)pid);
 	if (!pr->pmi)
