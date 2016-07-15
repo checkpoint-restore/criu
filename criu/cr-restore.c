@@ -1397,7 +1397,6 @@ static int attach_to_tasks(bool root_seized)
 	struct pstree_item *item;
 
 	for_each_pstree_item(item) {
-		pid_t pid = item->pid.real;
 		int status, i;
 
 		if (!task_alive(item))
@@ -1407,7 +1406,7 @@ static int attach_to_tasks(bool root_seized)
 			return -1;
 
 		for (i = 0; i < item->nr_threads; i++) {
-			pid = item->threads[i].real;
+			pid_t pid = item->threads[i].real;
 
 			if (item != root_item || !root_seized || i != 0) {
 				if (ptrace(PTRACE_SEIZE, pid, 0, 0)) {
@@ -1451,7 +1450,6 @@ static int catch_tasks(bool root_seized, enum trace_flags *flag)
 	struct pstree_item *item;
 
 	for_each_pstree_item(item) {
-		pid_t pid = item->pid.real;
 		int status, i, ret;
 
 		if (!task_alive(item))
@@ -1461,7 +1459,7 @@ static int catch_tasks(bool root_seized, enum trace_flags *flag)
 			return -1;
 
 		for (i = 0; i < item->nr_threads; i++) {
-			pid = item->threads[i].real;
+			pid_t pid = item->threads[i].real;
 
 			if (ptrace(PTRACE_INTERRUPT, pid, 0, 0)) {
 				pr_perror("Can't interrupt the %d task", pid);
