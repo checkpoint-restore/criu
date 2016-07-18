@@ -266,6 +266,7 @@ static int log_unfrozen_stacks(char *root)
 		stack = open_proc(pid, "stack");
 		if (stack < 0) {
 			pr_perror("couldn't log %d's stack", pid);
+			fclose(f);
 			return -1;
 		}
 
@@ -273,6 +274,7 @@ static int log_unfrozen_stacks(char *root)
 		close(stack);
 		if (ret < 0) {
 			pr_perror("couldn't read %d's stack", pid);
+			fclose(f);
 			return -1;
 		}
 		stackbuf[ret] = '\0';
