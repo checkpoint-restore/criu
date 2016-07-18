@@ -270,7 +270,7 @@ static int log_unfrozen_stacks(char *root)
 			return -1;
 		}
 
-		ret = read(stack, stackbuf, sizeof(stackbuf));
+		ret = read(stack, stackbuf, sizeof(stackbuf) - 1);
 		close(stack);
 		if (ret < 0) {
 			pr_perror("couldn't read %d's stack", pid);
