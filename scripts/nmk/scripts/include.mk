@@ -47,7 +47,7 @@ build := -r -R -f $(__nmk_dir)main.mk makefile=Makefile obj
 export build
 
 # With specified Makefile
-build-as := -r -R -f $(__nmk_dir)main.mk makefile=$$(1) obj=$$(2)
+build-as = -r -R -f $(__nmk_dir)main.mk makefile=$(1) obj=$(2)
 export build-as
 
 #
