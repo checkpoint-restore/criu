@@ -15,7 +15,12 @@ restorer-obj-e		+= ./$(ARCH_DIR)/syscalls.built-in.o
 # applications, which is not the target of the
 # project.
 #
-CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) -iquote pie/piegen -iquote arch/$(ARCH)/include -iquote $(SRC_DIR) -iquote $(SRC_DIR)/criu/include
+CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS))
+CFLAGS			+= -iquote $(SRC_DIR)/criu/pie/piegen
+CFLAGS			+= -iquote $(SRC_DIR)/criu/arch/$(ARCH)/include
+CFLAGS			+= -iquote $(SRC_DIR)/criu/include
+CFLAGS			+= -iquote $(SRC_DIR)
+
 
 ifneq ($(filter-out ia32,$(ARCH)),)
         ccflags-y	+= -DCR_NOGLIBC -fpie -Wa,--noexecstack -fno-stack-protector
@@ -37,7 +42,7 @@ PIELDS			:= pie.lds.S
 .SECONDARY:
 
 ifeq ($(piegen-y),y)
-target-name = $(patsubst pie/%-blob.h,%,$(1))
+target-name = $(patsubst criu/pie/%-blob.h,%,$(1))
 
 ifeq ($(SRCARCH),ppc64)
 $(obj)/$(PIELDS): $(obj)/pie-reloc.lds.S.in
@@ -68,9 +73,9 @@ $(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/lib.a $(obj)/$(PIELDS)
 	$(call msg-gen, $@)
 	$(Q) $(LD) -r -T $(obj)/$(PIELDS) -o $@ $< $(obj)/lib.a
 
-$(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(obj)/$(PIELDS) pie/piegen
+$(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(obj)/$(PIELDS) criu/pie/piegen
 	$(call msg-gen, $@)
-	$(Q) pie/piegen/piegen -f $< -v $(call target-name,$@)_relocs -p $(call target-name,$@)_blob_offset__ -s $(call target-name,$@)_blob -o $@ $(piegen_stdout)
+	$(Q) criu/pie/piegen/piegen -f $< -v $(call target-name,$@)_relocs -p $(call target-name,$@)_blob_offset__ -s $(call target-name,$@)_blob -o $@ $(piegen_stdout)
 
 else
 

@@ -28,7 +28,9 @@ endif
 # applications, which is not the target of the
 # project.
 #
-iquotes			:= -iquote pie/piegen -iquote arch/$(ARCH)/include -iquote $(SRC_DIR) -iquote $(SRC_DIR)/criu/include
+iquotes			:= -iquote $(SRC_DIR)/$(PIE_DIR)/piegen
+iquotes			+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
+iquotes			+= -iquote $(SRC_DIR) -iquote $(SRC_DIR)/criu/include
 CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) $(iquotes)
 asflags-y		:= -D__ASSEMBLY__ $(iquotes)
 
