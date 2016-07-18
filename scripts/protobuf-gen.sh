@@ -5,7 +5,7 @@ for x in $(sed -n '/PB_AUTOGEN_START/,/PB_AUTOGEN_STOP/ {
 		s/,.*$//;
 		s/\tPB_//;
 		p;
-	   }' include/protobuf-desc.h); do
+	   }' criu/include/protobuf-desc.h); do
 	x_la=$(echo $x | sed $TR)
 	x_uf=$(echo $x | sed -nr 's/^./&#\\\
 /;

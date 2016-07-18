@@ -2,8 +2,9 @@
 # 6a8d90f5fec4 "attr: Allow attribute type 0" 
 WRAPFLAGS		+= -Wl,--wrap=nla_parse,--wrap=nlmsg_parse
 
-ARCH_DIR		:= arch/$(SRCARCH)
-export ARCH_DIR
+ARCH_DIR		:= criu/arch/$(SRCARCH)
+PIE_DIR			:= criu/pie
+export ARCH_DIR PIE_DIR
 
 #
 # General flags.
@@ -11,8 +12,8 @@ ccflags-y		+= -fno-strict-aliasing
 ccflags-y		+= -iquote $(SRC_DIR)/criu/include
 ccflags-y		+= -iquote $(SRC_DIR)/images
 ccflags-y		+= -iquote $(SRC_DIR)/criu/pie
-ccflags-y		+= -iquote $(SRC_DIR)/criu/$(ARCH_DIR)
-ccflags-y		+= -iquote $(SRC_DIR)/criu/$(ARCH_DIR)/include
+ccflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)
+ccflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
 ccflags-y		+= -iquote $(SRC_DIR)/
 ccflags-y		+= -I/usr/include/libnl3
 
@@ -38,11 +39,14 @@ include $(__nmk_dir)/msg.mk
 
 #
 # Needed libraries checks
-include Makefile.packages
+include $(SRC_DIR)/criu/Makefile.packages
 
 #
 # Configure variables.
-include Makefile.config
+CONFIG_HEADER := $(obj)/include/config.h
+ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
+include $(SRC_DIR)/criu/Makefile.config
+endif
 config: $(VERSION_HEADER)
 
 #
@@ -55,84 +59,84 @@ syscalls_lib: config
 #
 # Architecture dependant part.
 ARCH-LIB		:= $(ARCH_DIR)/crtools.built-in.o
-arch_lib: syscalls_lib
-	$(Q) $(MAKE) $(call build-as,Makefile,$(ARCH_DIR)) all
-.PHONY: arch_lib
+$(ARCH-LIB): syscalls_lib
+	$(Q) $(MAKE) $(build)=$(ARCH_DIR) all
 
 #
 # piegen tool needed for PIE code.
 ifeq ($(piegen-y),y)
-piegen-bin		:= pie/piegen/piegen
+piegen-bin		:= criu/pie/piegen/piegen
 
-pie/piegen/%: config
-	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(ccflags-y) $(HOSTCFLAGS) $(WARNINGS) $(DEFINES)" $(MAKE) $(build)=pie/piegen $@
-$(piegen-bin): pie/piegen/built-in.o
+criu/pie/piegen/%: config
+	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(ccflags-y) $(HOSTCFLAGS) $(WARNINGS) $(DEFINES)" $(MAKE) $(build)=criu/pie/piegen $@
+$(piegen-bin): criu/pie/piegen/built-in.o
 	$(call msg-link, $@)
 	$(Q) $(HOSTCC) $(HOSTCFLAGS) $^ $(LDFLAGS) -o $@
 endif
 
 #
 # PIE library code.
-pie/lib.a: arch_lib
-	$(Q) $(MAKE) $(call build-as,Makefile.library,pie) all
+criu/pie/lib.a: $(ARCH-LIB)
+	$(Q) $(MAKE) $(call build-as,Makefile.library,criu/pie) all
 
 #
 # PIE code blobs themseves.
-pie: $(piegen-bin) pie/lib.a
-	$(Q) $(MAKE) $(build)=pie all
+pie: $(piegen-bin) criu/pie/lib.a
+	$(Q) $(MAKE) $(build)=criu/pie all
 .PHONY: pie
 
 #
 # CRIU executable
-PROGRAM-BUILTINS	+= ../images/built-in.o
-PROGRAM-BUILTINS	+= built-in.o
-PROGRAM-BUILTINS	+= pie/lib.a
+PROGRAM-BUILTINS	+= criu/pie/lib.a
+PROGRAM-BUILTINS	+= images/built-in.o
+PROGRAM-BUILTINS	+= $(obj)/built-in.o
+PROGRAM-BUILTINS	+= $(ARCH-LIB)
 
-built-in.o: pie
-	$(Q) $(MAKE) $(call build-as,Makefile.crtools,.) all
+$(obj)/built-in.o: pie
+	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) all
 
-criu: $(PROGRAM-BUILTINS)
+$(obj)/criu: $(PROGRAM-BUILTINS)
 	$(call msg-link, $@)
-	$(Q) $(CC) $(CFLAGS) $^ $(ARCH-LIB) $(LIBS) $(WRAPFLAGS) $(LDFLAGS) $(GMONLDOPT) -rdynamic -o $@
+	$(Q) $(CC) $(CFLAGS) $^ $(LIBS) $(WRAPFLAGS) $(LDFLAGS) $(GMONLDOPT) -rdynamic -o $@
 
-
-subclean:
-	$(Q) $(RM) ./*.{gcda,gcno,gcov}
-	$(Q) $(RM) ./pie/*.{gcda,gcno,gcov}
-	$(Q) $(RM) ./pie/piegen/*.{gcda,gcno,gcov}
-	$(Q) $(RM) -r ./gcov
-	$(Q) $(RM) criu
-.PHONY: subclean
 
 #
 # Clean the most, except generated c files
+subclean:
+	$(Q) $(RM) $(obj)/*.{gcda,gcno,gcov}
+	$(Q) $(RM) $(obj)/pie/*.{gcda,gcno,gcov}
+	$(Q) $(RM) $(obj)/pie/piegen/*.{gcda,gcno,gcov}
+	$(Q) $(RM) -r $(obj)/gcov
+	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) clean
+	$(Q) $(MAKE) $(build)=$(ARCH_DIR) clean
+	$(Q) $(MAKE) $(call build-as,Makefile.library,$(PIE_DIR)) clean
+	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) clean
+	$(Q) $(MAKE) $(build)=$(PIE_DIR) clean
+	$(Q) $(MAKE) $(build)=$(PIE_DIR)/piegen clean
+.PHONY: subclean
+cleanup-y      += $(obj)/criu
 clean: subclean
-	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) $@
-	$(Q) $(MAKE) $(call build-as,Makefile,$(ARCH_DIR)) $@
-	$(Q) $(MAKE) $(call build-as,Makefile.library,pie) $@
-	$(Q) $(MAKE) $(call build-as,Makefile.crtools,.) $@
-	$(Q) $(MAKE) $(build)=pie/piegen $@
-	$(Q) $(MAKE) $(build)=pie $@
-.PHONY: clean
 
 #
 # Delete all generated files
-mrproper: subclean
-	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) $@
-	$(Q) $(MAKE) $(call build-as,Makefile,$(ARCH_DIR)) $@
-	$(Q) $(MAKE) $(call build-as,Makefile.library,pie) $@
-	$(Q) $(MAKE) $(call build-as,Makefile.crtools,.) $@
-	$(Q) $(MAKE) $(build)=pie/piegen $@
-	$(Q) $(MAKE) $(build)=pie $@
-	$(Q) $(RM) $(CONFIG_HEADER)
-.PHONY: mrproper
+subproper:
+	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) mrproper
+	$(Q) $(MAKE) $(build)=$(ARCH_DIR) mrproper
+	$(Q) $(MAKE) $(call build-as,Makefile.library,$(PIE_DIR)) mrproper
+	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) mrproper
+	$(Q) $(MAKE) $(build)=$(PIE_DIR) mrproper
+	$(Q) $(MAKE) $(build)=$(PIE_DIR)/piegen mrproper
+.PHONY: subproper
+mrproper-y     += $(CONFIG_HEADER)
+mrproper: subproper
 
-UAPI_HEADERS := include/criu-plugin.h include/criu-log.h
+UAPI_HEADERS := $(SRC_DIR)/criu/include/criu-plugin.h
+UAPI_HEADERS += $(SRC_DIR)/criu/include/criu-log.h
 
-install: criu
-	$(E) "  INSTALL " criu
+install: $(obj)/criu
+	$(E) "  INSTALL " $(obj)/criu
 	$(Q) mkdir -p $(DESTDIR)$(SBINDIR)
-	$(Q) install -m 755 criu $(DESTDIR)$(SBINDIR)
+	$(Q) install -m 755 $(obj)/criu $(DESTDIR)$(SBINDIR)
 	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)
 	$(Q) install -m 644 $(UAPI_HEADERS) $(DESTDIR)$(INCLUDEDIR)
 	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)/criu/scripts
@@ -146,8 +150,4 @@ uninstall:
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBEXECDIR)/criu/scripts/,systemd-autofs-restart.sh)
 .PHONY: uninstall
 
-#
-# Final @all target.
-all: check-packages criu
-	@true
-.PHONY: all
+all-y += check-packages $(obj)/criu

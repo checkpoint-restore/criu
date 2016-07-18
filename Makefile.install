@@ -43,7 +43,7 @@ install-lib: lib
 .PHONY: install-lib
 
 install-criu: criu
-	$(Q) $(MAKE) -C criu install
+	$(Q) $(MAKE) $(build)=criu install
 .PHONY: install-criu
 
 install: install-man install-lib install-criu

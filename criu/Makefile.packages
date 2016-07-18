@@ -38,5 +38,6 @@ check-packages-failed:
 	$(error Compilation aborted)
 
 check-packages:
-	$(Q) $(MAKE) check-build-packages || $(MAKE) check-packages-failed
+	$(Q) $(MAKE) -f $(obj)/Makefile.packages check-build-packages || \
+		$(MAKE) -f $(obj)/Makefile.packages check-packages-failed
 .PHONY: check-build-packages check-packages-failed check-packages

@@ -179,6 +179,8 @@ endif
 # on anything else.
 $(eval $(call gen-built-in,images))
 
+.PHONY: .FORCE
+
 #
 # CRIU building done in own directory
 # with slightly different rules so we
@@ -187,17 +189,17 @@ $(eval $(call gen-built-in,images))
 #
 # But note that we're already included
 # the nmk so we can reuse it there.
-criu/%: images/built-in.o $(VERSION_HEADER)
-	$(Q) $(MAKE) -C criu $@
+criu/%: images/built-in.o $(VERSION_HEADER) .FORCE
+	$(Q) $(MAKE) $(build)=criu $@
 criu: images/built-in.o $(VERSION_HEADER)
-	$(Q) $(MAKE) -C criu all
+	$(Q) $(MAKE) $(build)=criu all
 .PHONY: criu
 
 #
 # Libraries next once criu it ready
 # (we might generate headers and such
 # when building criu itself).
-lib/%: criu
+lib/%: criu .FORCE
 	$(Q) $(MAKE) -C lib $@
 lib: criu
 	$(Q) $(MAKE) -C lib all
@@ -215,13 +217,13 @@ subclean:
 
 clean: subclean
 	$(Q) $(MAKE) $(build)=images $@
-	$(Q) $(MAKE) -C criu $@
+	$(Q) $(MAKE) $(build)=criu $@
 .PHONY: clean
 
 # mrproper depends on clean in nmk
 mrproper: subclean
 	$(Q) $(MAKE) $(build)=images $@
-	$(Q) $(MAKE) -C criu $@
+	$(Q) $(MAKE) $(build)=criu $@
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(RM) cscope.*
 	$(Q) $(RM) tags TAGS

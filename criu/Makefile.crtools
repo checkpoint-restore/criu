@@ -1,4 +1,4 @@
-ccflags-y		+= -iquote $(ARCH)
+ccflags-y		+= -iquote criu/$(ARCH)
 ccflags-y		+= $(DEFINES)
 obj-y			+= action-scripts.o
 obj-y			+= aio.o
@@ -86,10 +86,10 @@ endif
 
 PROTOBUF_GEN := $(SRC_DIR)/scripts/protobuf-gen.sh
 
-protobuf-desc.c: protobuf-desc-gen.h
+$(obj)/protobuf-desc.d: $(obj)/protobuf-desc-gen.h
 
-protobuf-desc-gen.h: $(PROTOBUF_GEN) include/protobuf-desc.h
+$(obj)/protobuf-desc-gen.h: $(PROTOBUF_GEN) criu/include/protobuf-desc.h
 	$(call msg-gen, $@)
 	$(Q) $(SH) $(PROTOBUF_GEN) > $@
 
-mrproper-y += protobuf-desc-gen.h
+mrproper-y += $(obj)/protobuf-desc-gen.h
