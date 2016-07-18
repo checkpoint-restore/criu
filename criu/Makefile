@@ -18,47 +18,6 @@ ccflags-y		+= -I/usr/include/libnl3
 
 export ccflags-y
 
-LIBS			:= -lrt -lpthread -lprotobuf-c -ldl -lnl-3
-
-REQ-RPM-PKG-NAMES	+= protobuf
-REQ-RPM-PKG-NAMES	+= protobuf-c
-REQ-RPM-PKG-NAMES	+= protobuf-c-devel
-REQ-RPM-PKG-NAMES	+= protobuf-compiler
-REQ-RPM-PKG-NAMES	+= protobuf-devel
-REQ-RPM-PKG-NAMES	+= protobuf-python
-REQ-RPM-PKG-NAMES	+= libnl3-devel
-REQ-RPM-PKG-NAMES	+= libcap-devel
-
-REQ-DEB-PKG-NAMES	+= libprotobuf-dev
-REQ-DEB-PKG-NAMES	+= libprotobuf-c0-dev
-REQ-DEB-PKG-NAMES	+= protobuf-c-compiler
-REQ-DEB-PKG-NAMES	+= protobuf-compiler
-REQ-DEB-PKG-NAMES	+= python-protobuf
-REQ-DEB-PKG-NAMES	+= libnl-3-dev
-REQ-DEB-PKG-NAMES	+= libcap-dev
-
-REQ-RPM-PKG-TEST-NAMES  += libaio-devel
-
-REQ-DEB-PKG-TEST-NAMES  += libaio-dev
-
-#
-# Make sure all required libs are installed
-ifneq ($(MAKECMDGOALS),clean)
-ifneq ($(MAKECMDGOALS),mrproper)
-        ifneq ($(shell sh -c                                                            \
-                        'echo "int main(int argc, char *argv[]) { return 0; }" |        \
-                        "$(CC)" -x c - $(LIBS) -o /dev/null > /dev/null 2>&1 && echo y'),y)
-                $(warning "Couldn't find some of the required libraries")
-                $(warning "Make sure the following packages are installed")
-                $(warning "RPM based distros: $(REQ-RPM-PKG-NAMES)")
-                $(warning "DEB based distros: $(REQ-DEB-PKG-NAMES)")
-                $(warning "To run tests the following packages are needed")
-                $(warning "RPM based distros: $(REQ-RPM-PKG-TEST-NAMES)")
-                $(warning "DEB based distros: $(REQ-DEB-PKG-TEST-NAMES)")
-                $(error "Compilation aborted")
-        endif
-endif
-endif
 ifeq ($(GMON),1)
 	CFLAGS		+= -pg
 	GMONLDOPT	:= -pg
@@ -76,6 +35,10 @@ endif
 
 # msg-* printing
 include $(__nmk_dir)/msg.mk
+
+#
+# Needed libraries checks
+include Makefile.packages
 
 #
 # Configure variables.
@@ -186,6 +149,6 @@ uninstall:
 
 #
 # Final @all target.
-all: criu
+all: check-packages criu
 	@true
 .PHONY: all
