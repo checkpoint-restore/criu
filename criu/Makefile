@@ -46,10 +46,8 @@ REQ-DEB-PKG-TEST-NAMES  += libaio-dev
 ifneq ($(MAKECMDGOALS),clean)
 ifneq ($(MAKECMDGOALS),mrproper)
         ifneq ($(shell sh -c                                                            \
-                        'TMP="$(OUTPUT)$(TMPOUT).$$$$";                                 \
-                        echo "int main(int argc, char *argv[]) { return 0; }" |         \
-                        "$(CC)" -x c - $(LIBS) -o "$$TMP" > /dev/null 2>&1 && echo y;   \
-                        rm -f "$$TMP"'),y)
+                        'echo "int main(int argc, char *argv[]) { return 0; }" |        \
+                        "$(CC)" -x c - $(LIBS) -o /dev/null > /dev/null 2>&1 && echo y'),y)
                 $(warning "Couldn't find some of the required libraries")
                 $(warning "Make sure the following packages are installed")
                 $(warning "RPM based distros: $(REQ-RPM-PKG-NAMES)")
