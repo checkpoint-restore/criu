@@ -2772,7 +2772,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		goto err;
 	}
 
-	pr_info("Found bootstrap VMA hint at: 0x%p (needs ~%ldK)\n",
+	pr_info("Found bootstrap VMA hint at: %p (needs ~%ldK)\n",
 			mem, KBYTES(task_args->bootstrap_len));
 
 	ret = remap_restorer_blob(mem);
