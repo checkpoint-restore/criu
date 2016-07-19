@@ -1027,7 +1027,7 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 
 		if (ui->ue->deleted && unlink((char *)ui->ue->name.data) < 0) {
 			pr_perror("failed to unlink %s\n", ui->ue->name.data);
-			return -1;
+			goto done;
 		}
 	}
 
