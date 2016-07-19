@@ -976,11 +976,6 @@ static int do_dump_namespaces(struct ns_id *ns)
 				ns->id, ns->ns_pid);
 		ret = dump_net_ns(ns->id);
 		break;
-	case CLONE_NEWCGROUP:
-		pr_info("Dump CGROUP namespace info %d via %d\n",
-				ns->id, ns->ns_pid);
-		/* handled separately in cgroup dumping code */
-		break;
 	default:
 		pr_err("Unknown namespace flag %x\n", ns->nd->cflag);
 		break;
@@ -1027,6 +1022,8 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 			case CLONE_NEWNS:
 			/* Userns is dumped before dumping tasks */
 			case CLONE_NEWUSER:
+			/* handled separately in cgroup dumping code */
+			case CLONE_NEWCGROUP:
 				continue;
 		}
 
