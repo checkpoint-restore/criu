@@ -1049,12 +1049,8 @@ static inline int is_required_syscall(user_regs_struct_t *regs, pid_t pid,
 
 	pr_debug("%d (%s) is going to execute the syscall %lu, required is %d\n",
 		pid, mode, REG_SYSCALL_NR(*regs), req_sysnr);
-	if (user_regs_native(regs) && (REG_SYSCALL_NR(*regs) == sys_nr))
-		return true;
-	if (!user_regs_native(regs) && (REG_SYSCALL_NR(*regs) == sys_nr_compat))
-		return true;
 
-	return false;
+	return (REG_SYSCALL_NR(*regs) == req_sysnr);
 }
 /*
  * Trap tasks on the exit from the specified syscall
