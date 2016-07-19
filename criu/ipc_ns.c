@@ -291,6 +291,8 @@ static void pr_info_ipc_shm(const IpcShmEntry *shm)
 	print_on_level(LOG_INFO, "size: %-10"PRIu64"\n", shm->size);
 }
 
+#define NR_MANDATORY_IPC_SYSCTLS 9
+
 static int ipc_sysctl_req(IpcVarEntry *e, int op)
 {
 	struct sysctl_req req[] = {
@@ -303,29 +305,37 @@ static int ipc_sysctl_req(IpcVarEntry *e, int op)
 		{ "kernel/shmall",		&e->shm_ctlall,		CTL_U64 },
 		{ "kernel/shmmni",		&e->shm_ctlmni,		CTL_U32 },
 		{ "kernel/shm_rmid_forced",	&e->shm_rmid_forced,	CTL_U32 },
-	};
-
-	struct sysctl_req req_mq[] = {
+		/* We have 9 mandatory sysctls above and 8 optional below */
 		{ "fs/mqueue/queues_max",	&e->mq_queues_max,	CTL_U32 },
 		{ "fs/mqueue/msg_max",		&e->mq_msg_max,		CTL_U32 },
 		{ "fs/mqueue/msgsize_max",	&e->mq_msgsize_max,	CTL_U32 },
 		{ "fs/mqueue/msg_default",	&e->mq_msg_default,	CTL_U32 },
 		{ "fs/mqueue/msgsize_default",	&e->mq_msgsize_default,	CTL_U32 },
+		{ "kernel/msg_next_id", 	&e->msg_next_id, 	CTL_U32 },
+		{ "kernel/sem_next_id", 	&e->sem_next_id, 	CTL_U32 },
+		{ "kernel/shm_next_id", 	&e->shm_next_id, 	CTL_U32 },
 	};
 
-	int ret;
+	int nr = NR_MANDATORY_IPC_SYSCTLS;
 
-	ret = sysctl_op(req, ARRAY_SIZE(req), op, CLONE_NEWIPC);
-	if (ret)
-		return ret;
-
-	if (access("/proc/sys/fs/mqueue", X_OK)) {
+	/* Skip sysctls which can't be set or haven't existed on dump */
+	if (access("/proc/sys/fs/mqueue", X_OK))
 		pr_info("Mqueue sysctls are missing\n");
-		return 0;
+	else {
+		nr += 3;
+		if (e->has_mq_msg_default) {
+			req[nr++] = req[12];
+			req[nr++] = req[13];
+		}
 	}
+	if (e->has_msg_next_id)
+		req[nr++] = req[14];
+	if (e->has_sem_next_id)
+		req[nr++] = req[15];
+	if (e->has_shm_next_id)
+		req[nr++] = req[16];
 
-	return sysctl_op(req_mq, ARRAY_SIZE(req_mq) - (e->has_mq_msg_default ? 0 : 2),
-	                 op, CLONE_NEWIPC);
+	return sysctl_op(req, nr, op, CLONE_NEWIPC);
 }
 
 /*
@@ -421,12 +431,26 @@ static int dump_ipc_var(struct cr_img *img)
 		goto err;
 	var.has_mq_msg_default = true;
 	var.has_mq_msgsize_default = true;
+	var.has_msg_next_id = true;
+	var.has_sem_next_id = true;
+	var.has_shm_next_id = true;
 
 	ret = ipc_sysctl_req(&var, CTL_READ);
 	if (ret < 0) {
 		pr_err("Failed to read IPC variables\n");
 		goto err;
 	}
+
+	/*
+	 * One can not write to msg_next_xxx sysctls -1,
+	 * which is their initial value
+	 */
+	if (var.msg_next_id == -1)
+		var.has_msg_next_id = false;
+	if (var.sem_next_id == -1)
+		var.has_sem_next_id = false;
+	if (var.shm_next_id == -1)
+		var.has_shm_next_id = false;
 
 	ret = pb_write_one(img, &var, PB_IPC_VAR);
 	if (ret < 0) {

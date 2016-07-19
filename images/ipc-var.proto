@@ -15,4 +15,7 @@ message ipc_var_entry {
 	required uint32			mq_msgsize_max		= 12;
 	optional uint32			mq_msg_default		= 13;
 	optional uint32			mq_msgsize_default	= 14;
+	optional uint32			msg_next_id		= 15;
+	optional uint32			sem_next_id		= 16;
+	optional uint32			shm_next_id		= 17;
 }
