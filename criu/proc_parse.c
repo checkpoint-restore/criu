@@ -1285,7 +1285,6 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 	new->mountpoint = xmalloc(PATH_MAX);
 	if (new->mountpoint == NULL)
 		goto err;
-	new->ns_mountpoint = new->mountpoint;
 
 	new->mountpoint[0] = '.';
 	ret = sscanf(str, "%i %i %u:%u %ms %s %ms %n",
@@ -1308,6 +1307,7 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 	new->mountpoint = xrealloc(new->mountpoint, strlen(new->mountpoint) + 1);
 	if (!new->mountpoint)
 		goto err;
+	new->ns_mountpoint = new->mountpoint;
 
 	new->s_dev = new->s_dev_rt = MKKDEV(kmaj, kmin);
 	new->flags = 0;
