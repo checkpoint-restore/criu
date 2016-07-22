@@ -380,12 +380,11 @@ static int prepare_sigactions(void)
 	return ret;
 }
 
-static int collect_child_pids(int state, unsigned int *n)
+static int __collect_child_pids(struct pstree_item *p, int state, unsigned int *n)
 {
 	struct pstree_item *pi;
 
-	*n = 0;
-	list_for_each_entry(pi, &current->children, sibling) {
+	list_for_each_entry(pi, &p->children, sibling) {
 		pid_t *child;
 
 		if (pi->pid.state != state)
@@ -400,6 +399,30 @@ static int collect_child_pids(int state, unsigned int *n)
 	}
 
 	return 0;
+}
+
+static int collect_child_pids(int state, unsigned int *n)
+{
+	struct pstree_item *pi;
+
+	*n = 0;
+
+	/*
+	 * All children of helpers and zombies will be reparented to the init
+	 * process and they have to be collected too.
+	 */
+
+	if (current == root_item) {
+		for_each_pstree_item(pi) {
+			if (pi->pid.state != TASK_HELPER &&
+			    pi->pid.state != TASK_DEAD)
+				continue;
+			if (__collect_child_pids(pi, state, n))
+				return -1;
+		}
+	}
+
+	return __collect_child_pids(current, state, n);
 }
 
 static int collect_helper_pids(struct task_restore_args *ta)

@@ -986,8 +986,23 @@ static int wait_zombies(struct task_restore_args *task_args)
 	int i;
 
 	for (i = 0; i < task_args->zombies_n; i++) {
-		if (sys_waitid(P_PID, task_args->zombies[i], NULL, WNOWAIT | WEXITED, NULL) < 0) {
-			pr_err("Wait on %d zombie failed\n", task_args->zombies[i]);
+		int ret, nr_in_progress;
+
+		nr_in_progress = futex_get(&task_entries->nr_in_progress);
+
+		ret = sys_waitid(P_PID, task_args->zombies[i], NULL, WNOWAIT | WEXITED, NULL);
+		if (ret == -ECHILD) {
+			/* A process isn't reparented to this task yet.
+			 * Let's wait when someone complete this stage
+			 * and try again.
+			 */
+			futex_wait_while_eq(&task_entries->nr_in_progress,
+								nr_in_progress);
+			i--;
+			continue;
+		}
+		if (ret < 0) {
+			pr_err("Wait on %d zombie failed: %d\n", task_args->zombies[i], ret);
 			return -1;
 		}
 		pr_debug("%ld: Collect a zombie with pid %d\n",
@@ -1339,10 +1354,9 @@ long __export_restore_task(struct task_restore_args *args)
 
 	restore_finish_stage(CR_STATE_RESTORE);
 
-	if (wait_zombies(args) < 0)
-		goto core_restore_end;
-
 	if (wait_helpers(args) < 0)
+		goto core_restore_end;
+	if (wait_zombies(args) < 0)
 		goto core_restore_end;
 
 	ksigfillset(&to_block);
