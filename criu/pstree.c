@@ -471,7 +471,7 @@ static int read_pstree_ids(struct pstree_item *pi)
 	return 0;
 }
 
-static int read_pstree_image(void)
+static int read_pstree_image(pid_t *pid_max)
 {
 	int ret = 0, i;
 	struct cr_img *img;
@@ -508,8 +508,14 @@ static int read_pstree_image(void)
 			break;
 
 		pi->pid.virt = e->pid;
+		if (e->pid > *pid_max)
+			*pid_max = e->pid;
 		pi->pgid = e->pgid;
+		if (e->pgid > *pid_max)
+			*pid_max = e->pgid;
 		pi->sid = e->sid;
+		if (e->sid > *pid_max)
+			*pid_max = e->sid;
 		pi->pid.state = TASK_ALIVE;
 
 		if (e->ppid == 0) {
@@ -879,8 +885,41 @@ static int prepare_pstree_kobj_ids(void)
 int prepare_pstree(void)
 {
 	int ret;
+	pid_t pid_max = 0, kpid_max = 0;
+	int fd;
+	char buf[20];
 
-	ret = read_pstree_image();
+	fd = open_proc(PROC_GEN, PID_MAX_PATH);
+	if (fd != 1) {
+		ret = read(fd, buf, sizeof(buf));
+		if (ret > 0) {
+			buf[ret] = 0;
+			kpid_max = strtoul(buf, NULL, 10);
+			pr_debug("kernel pid_max=%d\n", kpid_max);
+		}
+		close (fd);
+	}
+
+	ret = read_pstree_image(&pid_max);
+	pr_debug("pstree pid_max=%d\n", pid_max);
+
+	if (!ret && kpid_max && pid_max > kpid_max) {
+		/* Try to set kernel pid_max */
+		fd = open_proc_rw(PROC_GEN, PID_MAX_PATH);
+		if (fd == -1)
+			ret = -1;
+		else {
+			snprintf(buf, sizeof(buf), "%u", pid_max+1);
+			if (write(fd, buf, strlen(buf)) < 0) {
+				pr_perror("Can't set kernel pid_max=%s", buf);
+				ret = -1;
+			}
+			else
+				pr_info("kernel pid_max pushed to %s\n", buf);
+			close(fd);
+		}
+	}
+
 	if (!ret)
 		/*
 		 * Shell job may inherit sid/pgid from the current

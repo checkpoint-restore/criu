@@ -279,5 +279,6 @@ int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk);
 int setup_tcp_client(char *addr);
 
 #define LAST_PID_PATH		"sys/kernel/ns_last_pid"
+#define PID_MAX_PATH		"sys/kernel/pid_max"
 
 #endif /* __CR_UTIL_H__ */
