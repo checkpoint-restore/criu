@@ -205,6 +205,7 @@ static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
 		ARCH_VDSO_SYMBOLS
 	};
+	const size_t vdso_symbol_length = sizeof(t->symbols[0].name);
 
 	Word_t nbucket, nchain;
 	Word_t *bucket, *chain;
@@ -239,14 +240,14 @@ static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 				continue;
 
 			addr = dynsymbol_names + sym->st_name;
-			if (__ptr_struct_oob(addr, VDSO_SYMBOL_MAX, mem, size))
+			if (__ptr_struct_oob(addr, vdso_symbol_length, mem, size))
 				continue;
 			name = (void *)addr;
 
-			if (builtin_strncmp(name, symbol, VDSO_SYMBOL_MAX))
+			if (builtin_strncmp(name, symbol, vdso_symbol_length))
 				continue;
 
-			builtin_memcpy(t->symbols[i].name, name, VDSO_SYMBOL_MAX);
+			builtin_memcpy(t->symbols[i].name, name, vdso_symbol_length);
 			t->symbols[i].offset = (unsigned long)sym->st_value - load->p_vaddr;
 			break;
 		}
