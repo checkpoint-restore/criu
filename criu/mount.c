@@ -3382,6 +3382,8 @@ int prepare_mnt_ns(void)
 			return -1;
 	} else {
 		struct mount_info *mi;
+		char *ret;
+		char path[PATH_MAX];
 
 		/*
 		 * The whole tree of mountpoints is to be moved into one
@@ -3390,8 +3392,14 @@ int prepare_mnt_ns(void)
 		 * with a single umount call later.
 		 */
 
+		ret = realpath(opts.root, path);
+		if (!ret) {
+			pr_err("Unable to find real path for %s\n", opts.root);
+			return -1;
+		}
+
 		/* moving a mount residing under a shared mount is invalid. */
-		mi = mount_resolve_path(ns.mnt.mntinfo_tree, opts.root);
+		mi = mount_resolve_path(ns.mnt.mntinfo_tree, path);
 		if (mi == NULL) {
 			pr_err("Unable to find mount point for %s\n", opts.root);
 			return -1;
