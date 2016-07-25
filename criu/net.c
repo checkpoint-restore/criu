@@ -1390,7 +1390,7 @@ static int mount_ns_sysfs(void)
 		return -1;
 	}
 
-	if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL)) {
+	if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL)) {
 		pr_perror("Can't mark the root mount as private");
 		return -1;
 	}
