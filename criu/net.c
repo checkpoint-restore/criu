@@ -1678,7 +1678,7 @@ static int prep_ns_sockets(struct ns_id *ns, bool for_dump)
 	} else
 		ns->net.nlsk = -1;
 
-	ret = ns->net.seqsk = socket(PF_UNIX, SOCK_SEQPACKET, 0);
+	ret = ns->net.seqsk = socket(PF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0);
 	if (ret < 0) {
 		pr_perror("Can't create seqsk for parasite");
 		goto err_sq;

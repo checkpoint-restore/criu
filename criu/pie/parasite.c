@@ -735,7 +735,7 @@ static noinline __used int parasite_init_daemon(void *data)
 	args->sigreturn_addr = fini_sigreturn;
 	sigframe = args->sigframe;
 
-	tsock = sys_socket(PF_UNIX, SOCK_SEQPACKET, 0);
+	ret = tsock = sys_socket(PF_UNIX, SOCK_SEQPACKET, 0);
 	if (tsock < 0) {
 		pr_err("Can't create socket: %d\n", tsock);
 		goto err;
@@ -746,6 +746,8 @@ static noinline __used int parasite_init_daemon(void *data)
 		pr_err("Can't connect the control socket\n");
 		goto err;
 	}
+
+	futex_set_and_wake(&args->daemon_connected, 1);
 
 	ret = recv_fd(tsock);
 	if (ret >= 0) {
@@ -758,6 +760,7 @@ static noinline __used int parasite_init_daemon(void *data)
 	parasite_daemon(data);
 
 err:
+	futex_set_and_wake(&args->daemon_connected, ret);
 	fini();
 	BUG();
 

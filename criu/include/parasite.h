@@ -15,6 +15,7 @@
 
 #include "image.h"
 #include "util-pie.h"
+#include "lock.h"
 
 #include "images/vma.pb-c.h"
 #include "images/tty.pb-c.h"
@@ -72,6 +73,7 @@ struct parasite_init_args {
 	struct rt_sigframe	*sigframe;
 
 	void			*sigreturn_addr;
+	futex_t			daemon_connected;
 };
 
 struct parasite_unmap_args {
