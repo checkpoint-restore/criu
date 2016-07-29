@@ -201,4 +201,6 @@ extern FdinfoEntry *dup_fdinfo(FdinfoEntry *old, int fd, unsigned flags);
 int dup_fle(struct pstree_item *task, struct fdinfo_list_entry *ple,
 	    int fd, unsigned flags);
 
+extern int open_transport_socket(void);
+
 #endif /* __CR_FILES_H__ */

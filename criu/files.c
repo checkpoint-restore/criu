@@ -1000,11 +1000,7 @@ static int serve_out_fd(int pid, int fd, struct file_desc *d)
 	int sock, ret;
 	struct fdinfo_list_entry *fle;
 
-	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
-	if (sock < 0) {
-		pr_perror("Can't create socket");
-		return -1;
-	}
+	sock = get_service_fd(TRANSPORT_FD_OFF);
 
 	pr_info("\t\tCreate fd for %d\n", fd);
 
@@ -1022,7 +1018,6 @@ static int serve_out_fd(int pid, int fd, struct file_desc *d)
 
 	ret = 0;
 out:
-	close(sock);
 	return ret;
 }
 
@@ -1671,4 +1666,22 @@ char *external_lookup_by_key(char *key)
 			return ext->id + len + 1;
 	}
 	return NULL;
+}
+
+int open_transport_socket()
+{
+	int sock;
+
+	sock = socket(PF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+	if (sock < 0) {
+		pr_perror("Can't create socket");
+		return -1;
+	}
+	if (install_service_fd(TRANSPORT_FD_OFF, sock) < 0) {
+		close(sock);
+		return -1;
+	}
+	close(sock);
+
+	return 0;
 }

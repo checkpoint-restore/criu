@@ -19,6 +19,7 @@ enum sfd_type {
 	CGROUP_YARD,
 	USERNSD_SK,	/* Socket for usernsd */
 	NS_FD_OFF,	/* Node's net namespace fd */
+	TRANSPORT_FD_OFF, /* to transfer file descriptors */
 
 	SERVICE_FD_MAX
 };
