@@ -423,28 +423,27 @@ found:
 
 static unsigned int __get_ns_id(int pid, struct ns_desc *nd, protobuf_c_boolean *supported, struct ns_id **ns)
 {
-	int proc_dir, ret;
+	int proc_dir;
 	unsigned int kid;
-	char ns_path[10], ns_id[32];
+	char ns_path[10];
+	struct stat st;
 
 	proc_dir = open_pid_proc(pid);
 	if (proc_dir < 0)
 		return 0;
 
 	sprintf(ns_path, "ns/%s", nd->str);
-	ret = readlinkat(proc_dir, ns_path, ns_id, sizeof(ns_id) - 1);
-	if (ret < 0) {
+
+	if (fstatat(proc_dir, ns_path, &st, 0)) {
 		if (errno == ENOENT) {
 			/* The namespace is unsupported */
 			kid = 0;
 			goto out;
 		}
-		pr_perror("Can't readlink ns link");
-		return 0;
+		pr_perror("Unable to stat %s", ns_path);
+		return -1;
 	}
-	ns_id[ret] = '\0';
-
-	kid = parse_ns_link(ns_id, ret, nd);
+	kid = st.st_ino;
 	BUG_ON(!kid);
 
 out:
