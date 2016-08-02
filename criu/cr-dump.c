@@ -215,8 +215,6 @@ static int collect_fds(pid_t pid, struct parasite_drain_fd **dfds)
 
 static int fill_fd_params_special(int fd, struct fd_parms *p)
 {
-	struct statfs fst;
-
 	*p = FD_PARMS_INIT;
 
 	if (fstat(fd, &p->stat) < 0) {
@@ -227,13 +225,28 @@ static int fill_fd_params_special(int fd, struct fd_parms *p)
 	if (get_fd_mntid(fd, &p->mnt_id))
 		return -1;
 
-	if (fstatfs(fd, &fst)) {
-		pr_perror("Unable to statfs fd %d", fd);
+	return 0;
+}
+
+static int get_fs_type(int lfd)
+{
+	struct statfs fst;
+
+	if (fstatfs(lfd, &fst)) {
+		pr_perror("Unable to statfs fd %d", lfd);
 		return -1;
 	}
+	return fst.f_type;
+}
 
-	p->fs_type = fst.f_type;
-
+static int dump_one_reg_file_cond(int lfd, u32 *id, struct fd_parms *parms)
+{
+	if (fd_id_generate_special(parms, id)) {
+		parms->fs_type = get_fs_type(lfd);
+		if (parms->fs_type < 0)
+			return -1;
+		return dump_one_reg_file(lfd, *id, parms);
+	}
 	return 0;
 }
 
@@ -249,8 +262,7 @@ static int dump_task_exe_link(pid_t pid, MmEntry *mm)
 	if (fill_fd_params_special(fd, &params))
 		return -1;
 
-	if (fd_id_generate_special(&params, &mm->exe_file_id))
-		ret = dump_one_reg_file(fd, mm->exe_file_id, &params);
+	ret = dump_one_reg_file_cond(fd, &mm->exe_file_id, &params);
 
 	close(fd);
 	return ret;
@@ -272,11 +284,9 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_im
 	if (fill_fd_params_special(fd, &p))
 		return -1;
 
-	if (fd_id_generate_special(&p, &fe.cwd_id)) {
-		ret = dump_one_reg_file(fd, fe.cwd_id, &p);
-		if (ret < 0)
-			return ret;
-	}
+	ret = dump_one_reg_file_cond(fd, &fe.cwd_id, &p);
+	if (ret < 0)
+		return ret;
 
 	close(fd);
 
@@ -287,11 +297,9 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_im
 	if (fill_fd_params_special(fd, &p))
 		return -1;
 
-	if (fd_id_generate_special(&p, &fe.root_id)) {
-		ret = dump_one_reg_file(fd, fe.root_id, &p);
-		if (ret < 0)
-			return ret;
-	}
+	ret = dump_one_reg_file_cond(fd, &fe.root_id, &p);
+	if (ret < 0)
+		return ret;
 
 	close(fd);
 
@@ -390,8 +398,7 @@ static int dump_filemap(struct vma_area *vma_area, int fd)
 
 	/* Flags will be set during restore in open_filmap() */
 
-	if (fd_id_generate_special(&p, &id))
-		ret = dump_one_reg_file(fd, id, &p);
+	ret = dump_one_reg_file_cond(fd, &id, &p);
 
 	vma->shmid = id;
 	return ret;
