@@ -38,7 +38,7 @@ struct cg_root_opt {
  */
 #define DEFAULT_GHOST_LIMIT	(1 << 20)
 
-#define DEFAULT_TIMEOUT		5
+#define DEFAULT_TIMEOUT		10
 
 struct irmap;
 

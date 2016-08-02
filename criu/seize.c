@@ -319,9 +319,29 @@ static int log_unfrozen_stacks(char *root)
 
 static int freeze_processes(void)
 {
-	int i, fd, exit_code = -1;
+	int fd, exit_code = -1;
 	char path[PATH_MAX];
 	const char *state = thawed;
+
+	static const unsigned long step_ms = 100;
+	unsigned long nr_attempts = (opts.timeout * 1000000) / step_ms;
+	unsigned long i;
+
+	const struct timespec req = {
+		.tv_nsec	= step_ms * 1000000,
+		.tv_sec		= 0,
+	};
+
+	if (unlikely(!nr_attempts)) {
+		/*
+		 * If timeout is turned off, lets
+		 * wait for at least 10 seconds.
+		 */
+		nr_attempts = (10 * 1000000) / step_ms;
+	}
+
+	pr_debug("freezing processes: %lu attempst with %lu ms steps\n",
+		 nr_attempts, step_ms);
 
 	snprintf(path, sizeof(path), "%s/freezer.state", opts.freeze_cgroup);
 	fd = open(path, O_RDWR);
@@ -350,10 +370,7 @@ static int freeze_processes(void)
 	 * freezer.state.
 	 * Here is one extra attempt to check that everything are frozen.
 	 */
-	for (i = 0; i <= NR_ATTEMPTS; i++) {
-		struct timespec req = {};
-		u64 timeout;
-
+	for (i = 0; i <= nr_attempts; i++) {
 		if (seize_cgroup_tree(opts.freeze_cgroup, state) < 0)
 			goto err;
 
@@ -376,13 +393,10 @@ static int freeze_processes(void)
 		if (alarm_timeouted())
 			goto err;
 
-		timeout = 100000000 * (i + 1); /* 100 msec */
-		req.tv_nsec = timeout % 1000000000;
-		req.tv_sec = timeout / 1000000000;
 		nanosleep(&req, NULL);
 	}
 
-	if (i > NR_ATTEMPTS) {
+	if (i > nr_attempts) {
 		pr_err("Unable to freeze cgroup %s\n", opts.freeze_cgroup);
 
 		if (!pr_quelled(LOG_DEBUG))
@@ -391,6 +405,7 @@ static int freeze_processes(void)
 		goto err;
 	}
 
+	pr_debug("freezing processes: %lu attempts done\n", i);
 	exit_code = 0;
 err:
 	if (exit_code == 0 || freezer_thawed) {
