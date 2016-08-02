@@ -950,6 +950,13 @@ def check_visible_state(test, state, opts):
 			print "%s: New mounts appeared: %s" % (pid, new_mounts)
 			raise test_fail_exc("mounts compare")
 
+	if '--link-remap' in test.getdopts():
+		import glob
+		link_remap_list = glob.glob(os.path.dirname(test.getname()) + '/link_remap*')
+		if link_remap_list:
+			print "%s: link-remap files left: %s" % (test.getname(), link_remap_list)
+			raise test_fail_exc("link remaps left")
+
 
 class noop_freezer:
 	def __init__(self):
