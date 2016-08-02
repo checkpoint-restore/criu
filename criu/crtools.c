@@ -663,6 +663,8 @@ int main(int argc, char *argv[], char *envp[])
 	if (log_init(opts.output))
 		return 1;
 
+	pr_debug("Version: %s (gitid %s)\n", CRIU_VERSION, CRIU_GITID);
+
 	if (!list_empty(&opts.inherit_fds)) {
 		if (strcmp(argv[optind], "restore")) {
 			pr_err("--inherit-fd is restore-only option\n");
