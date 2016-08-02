@@ -363,50 +363,40 @@ static int freeze_processes(void)
 			close(fd);
 			return -1;
 		}
-	}
 
-	/*
-	 * There is not way to wait a specified state, so we need to poll the
-	 * freezer.state.
-	 * Here is one extra attempt to check that everything are frozen.
-	 */
-	for (i = 0; i <= nr_attempts; i++) {
-		if (seize_cgroup_tree(opts.freeze_cgroup, state) < 0)
-			goto err;
+		/*
+		 * Wait the freezer to complete before
+		 * processing tasks. They might be exiting
+		 * before freezing complete so we should
+		 * not read @tasks pids while freezer in
+		 * transition stage.
+		 */
+		for (i = 0; i <= nr_attempts; i++) {
+			state = get_freezer_state(fd);
+			if (!state) {
+				close(fd);
+				return -1;
+			}
 
-		if (state == frozen)
-			break;
-
-		state = get_freezer_state(fd);
-		if (!state)
-			goto err;
-
-		if (state == frozen) {
-			/*
-			 * Enumerate all tasks one more time to collect all new
-			 * tasks, which can be born while the cgroup is being frozen.
-			 */
-
-			continue;
+			if (state == frozen)
+				break;
+			if (alarm_timeouted())
+				goto err;
+			nanosleep(&req, NULL);
 		}
 
-		if (alarm_timeouted())
+		if (i > nr_attempts) {
+			pr_err("Unable to freeze cgroup %s\n", opts.freeze_cgroup);
+			if (!pr_quelled(LOG_DEBUG))
+				log_unfrozen_stacks(opts.freeze_cgroup);
 			goto err;
+		}
 
-		nanosleep(&req, NULL);
+		pr_debug("freezing processes: %lu attempts done\n", i);
 	}
 
-	if (i > nr_attempts) {
-		pr_err("Unable to freeze cgroup %s\n", opts.freeze_cgroup);
+	exit_code = seize_cgroup_tree(opts.freeze_cgroup, state);
 
-		if (!pr_quelled(LOG_DEBUG))
-			log_unfrozen_stacks(opts.freeze_cgroup);
-
-		goto err;
-	}
-
-	pr_debug("freezing processes: %lu attempts done\n", i);
-	exit_code = 0;
 err:
 	if (exit_code == 0 || freezer_thawed) {
 		lseek(fd, 0, SEEK_SET);
