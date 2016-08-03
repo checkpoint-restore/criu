@@ -1,0 +1,240 @@
+#!/usr/bin/env python
+import ctypes
+import ctypes.util
+import errno
+import sys
+import os
+
+# <sched.h> constants for unshare
+CLONE_NEWNS = 0x00020000
+CLONE_NEWPID = 0x20000000
+
+# <sys/mount.h> - constants for mount
+MS_REC = 16384
+MS_PRIVATE = 1 << 18
+MS_SLAVE = 1 << 19
+
+# Load libc bindings
+_libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
+
+try:
+	_unshare = _libc.unshare
+except AttributeError:
+	raise OSError(errno.EINVAL, "unshare is not supported on this platform")
+else:
+	_unshare.argtypes = [ ctypes.c_int ]
+	_unshare.restype = ctypes.c_int
+
+try:
+	_setns = _libc.setns
+except AttributeError:
+	raise OSError(errno.EINVAL, "setns is not supported on this platform")
+else:
+	_setns.argtypes = [ ctypes.c_int, ctypes.c_int ]
+	_setns.restype = ctypes.c_int
+
+try:
+	_mount = _libc.mount
+except AttributeError:
+	raise OSError(errno.EINVAL, "mount is not supported on this platform")
+else:
+	_mount.argtypes = [
+		ctypes.c_char_p,
+		ctypes.c_char_p,
+		ctypes.c_char_p,
+		ctypes.c_ulong,
+		ctypes.c_void_p
+	]
+	_mount.restype = ctypes.c_int
+
+try:
+	_umount = _libc.umount
+except AttributeError:
+	raise OSError(errno.EINVAL, "umount is not supported on this platform")
+else:
+	_umount.argtypes = [ctypes.c_char]
+	_umount.restype = ctypes.c_int
+
+
+def run_criu():
+	print sys.argv
+	os.execlp('criu', *['criu'] + sys.argv[1:])
+
+
+def wrap_restore():
+	# Unshare pid and mount namespaces
+	if _unshare(CLONE_NEWNS | CLONE_NEWPID) != 0:
+		_errno = ctypes.get_errno()
+		raise OSError(_errno, errno.errorcode[_errno])
+
+	(r_pipe, w_pipe) = os.pipe()
+
+	# Spawn the init
+	if os.fork() == 0:
+		os.close(r_pipe)
+
+		# Mount new /proc
+		if _mount(None, "/", None, MS_SLAVE|MS_REC, None) != 0:
+			_errno = ctypes.get_errno()
+			raise OSError(_errno, errno.errorcode[_errno])
+
+		if _mount('proc', '/proc', 'proc', 0, None) != 0:
+			_errno = ctypes.get_errno()
+			raise OSError(_errno, errno.errorcode[_errno])
+
+		# Spawn CRIU binary
+		criu_pid = os.fork()
+		if criu_pid == 0:
+			run_criu()
+			raise OSError(errno.ENOENT, "No such command")
+
+		while True:
+			try:
+				(pid, status) = os.wait()
+				if pid == criu_pid:
+					status = os.WEXITSTATUS(status)
+					break
+			except OSError:
+				status = -251
+				break
+
+		os.write(w_pipe, "%d" % status)
+		os.close(w_pipe)
+
+		if status != 0:
+			sys.exit(status)
+
+		while True:
+			try:
+				os.wait()
+			except OSError:
+				break
+
+		sys.exit(0)
+
+	# Wait for CRIU to exit and report the status back
+	os.close(w_pipe)
+	status = os.read(r_pipe, 1024)
+	if not status.isdigit():
+		status_i = -252
+	else:
+		status_i = int(status)
+
+	return status_i
+
+
+def get_varg(args):
+	for i in xrange(1, len(sys.argv)):
+		if not sys.argv[i] in args:
+			continue
+
+		if i + 1 >= len(sys.argv):
+			break
+
+		return (sys.argv[i + 1], i + 1)
+
+	return (None, None)
+
+
+
+def set_pidns(tpid, pid_idx):
+	# Joind pid namespace. Note, that the given pid should
+	# be changed in -t option, as task lives in different
+	# pid namespace.
+
+	myns = os.stat('/proc/self/ns/pid').st_ino
+
+	ns_fd = os.open('/proc/%s/ns/pid' % tpid, os.O_RDONLY)
+	if myns != os.fstat(ns_fd).st_ino:
+
+		for l in open('/proc/%s/status' % tpid):
+			if not l.startswith('NSpid:'):
+				continue
+
+			ls = l.split()
+			if ls[1] != tpid:
+				raise OSError(errno.ESRCH, 'No such pid')
+
+			print 'Replace pid %s with %s' % (tpid, ls[2])
+			sys.argv[pid_idx] = ls[2]
+			break
+		else:
+			raise OSError(errno.ENOENT, 'Cannot find NSpid field in proc')
+
+		if _setns(ns_fd, 0) != 0:
+			_errno = ctypes.get_errno()
+			raise OSError(_errno, errno.errorcode[_errno])
+
+	os.close(ns_fd)
+
+
+def set_mntns(tpid):
+	# Join mount namespace. Trick here too -- check / and .
+	# will be the same in target mntns.
+
+	myns = os.stat('/proc/self/ns/mnt').st_ino
+	ns_fd = os.open('/proc/%s/ns/mnt' % tpid, os.O_RDONLY)
+	if myns != os.fstat(ns_fd).st_ino:
+		root_st = os.stat('/')
+		cwd_st = os.stat('.')
+		cwd_path = os.path.realpath('.')
+
+		if _setns(ns_fd, 0) != 0:
+			_errno = ctypes.get_errno()
+			raise OSError(_errno, errno.errorcode[_errno])
+
+		os.chdir(cwd_path)
+		root_nst = os.stat('/')
+		cwd_nst = os.stat('.')
+
+		def steq(st, nst):
+			return (st.st_dev, st.st_ino) == (nst.st_dev, nst.st_ino)
+
+		if not steq(root_st, root_nst):
+			raise OSError(errno.EXDEV, 'Target ns / is not as current')
+		if not steq(cwd_st, cwd_nst):
+			raise OSError(errno.EXDEV, 'Target ns . is not as current')
+
+
+	os.close(ns_fd)
+
+
+def wrap_dump():
+	(pid, pid_idx) = get_varg(('-t', '--tree'))
+	if pid is None:
+		raise OSError(errno.EINVAL, 'No --tree option given')
+
+	set_pidns(pid, pid_idx)
+	set_mntns(pid)
+
+	# Spawn CRIU binary
+	criu_pid = os.fork()
+	if criu_pid == 0:
+		run_criu()
+		raise OSError(errno.ENOENT, "No such command")
+
+	# Wait for CRIU to exit and report the status back
+	while True:
+		try:
+			(pid, status) = os.wait()
+			if pid == criu_pid:
+				status = os.WEXITSTATUS(status)
+				break
+		except OSError:
+			status = -251
+			break
+
+	return status
+
+
+action = sys.argv[1]
+
+if action == 'restore':
+	res = wrap_restore()
+elif action == 'dump' or action == 'pre-dump':
+	res = wrap_dump()
+else:
+	print 'Unsupported action %s for nswrap' % action
+	res = -1
+
+sys.exit(res)
