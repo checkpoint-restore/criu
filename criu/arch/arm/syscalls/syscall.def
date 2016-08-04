@@ -1,9 +1,9 @@
 #
-# System calls table, please make sure the table consist only the syscalls
-# really used somewhere in project.
+# System calls table, please make sure the table consists of only the syscalls
+# really used somewhere in the project.
 #
-# The template is (name and arguments are optinal if you need only __NR_x
-# defined, but no realy entry point in syscalls lib).
+# The template is (name and arguments are optional if you need only __NR_x
+# defined, but no real entry point in syscalls lib).
 #
 # name/alias			code64	code32	arguments
 # -----------------------------------------------------------------------
