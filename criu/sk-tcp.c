@@ -840,6 +840,7 @@ int kerndat_tcp_repair_window()
 		if (errno == EPERM) {
 			kdat.has_tcp_window = false;
 			pr_warn("TCP_REPAIR isn't available to unprivileged users\n");
+			close(sk);
 			return 0;
 		}
 		pr_perror("Unable to set TCP_REPAIR");
