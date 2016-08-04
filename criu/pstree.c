@@ -887,17 +887,17 @@ int prepare_pstree(void)
 	int ret;
 	pid_t pid_max = 0, kpid_max = 0;
 	int fd;
-	char buf[20];
+	char buf[21];
 
 	fd = open_proc(PROC_GEN, PID_MAX_PATH);
-	if (fd != 1) {
-		ret = read(fd, buf, sizeof(buf));
+	if (fd >= 0) {
+		ret = read(fd, buf, sizeof(buf) - 1);
+		close(fd);
 		if (ret > 0) {
 			buf[ret] = 0;
 			kpid_max = strtoul(buf, NULL, 10);
 			pr_debug("kernel pid_max=%d\n", kpid_max);
 		}
-		close (fd);
 	}
 
 	ret = read_pstree_image(&pid_max);
