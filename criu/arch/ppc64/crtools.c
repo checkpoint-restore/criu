@@ -353,7 +353,7 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 		}
 	}
 
-	/* Resetting trap since we are now comming from user space. */
+	/* Resetting trap since we are now coming from user space. */
 	regs.trap = 0;
 
 #define assign_reg(dst, src, e) do {			\
