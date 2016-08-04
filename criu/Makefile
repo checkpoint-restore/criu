@@ -57,7 +57,7 @@ syscalls_lib: config
 .PHONY: syscalls_lib
 
 #
-# Architecture dependant part.
+# Architecture dependent part.
 ARCH-LIB		:= $(ARCH_DIR)/crtools.built-in.o
 $(ARCH-LIB): syscalls_lib
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) all
