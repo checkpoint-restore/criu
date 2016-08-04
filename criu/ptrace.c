@@ -111,7 +111,7 @@ static int skip_sigstop(int pid, int nr_signals)
 	 * SGISTOP can't be blocked, so we need to wait when the kernel
 	 * handles this signal.
 	 *
-	 * Otherwise the process will be stopped immediatly after
+	 * Otherwise the process will be stopped immediately after
 	 * starting it.
 	 *
 	 * 2) A seized task was stopped:

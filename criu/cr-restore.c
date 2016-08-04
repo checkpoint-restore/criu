@@ -2610,7 +2610,7 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 	}
 
 	/*
-	 * Zap fields which we cant use.
+	 * Zap fields which we can't use.
 	 */
 	args->creds.cap_inh = NULL;
 	args->creds.cap_eff = NULL;
@@ -2757,7 +2757,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	/*
 	 * We're about to search for free VM area and inject the restorer blob
-	 * into it. No irrelevent mmaps/mremaps beyond this point, otherwise
+	 * into it. No irrelevant mmaps/mremaps beyond this point, otherwise
 	 * this unwanted mapping might get overlapped by the restorer.
 	 */
 

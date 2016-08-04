@@ -447,7 +447,7 @@ out:
 	return ret;
 }
 
-/* We separate the prepartion of PROCFS remaps because they allocate pstree
+/* We separate the preparation of PROCFS remaps because they allocate pstree
  * items, which need to be seen by the root task. We can't do all remaps here,
  * because the files haven't been loaded yet.
  */

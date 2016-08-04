@@ -451,7 +451,7 @@ static struct file_desc *pty_alloc_reg(struct tty_info *info, bool add)
  * @info as a template we generate that named 'inverted-path'.
  *
  * For example if the master peer was /dev/pts/ptmx with index 1,
- * the inverted path is /dev/pts/1, for inverted slaves it's simplier
+ * the inverted path is /dev/pts/1, for inverted slaves it's simpler
  * we just add 'ptmx' postfix.
  */
 static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int subtype)
@@ -1964,7 +1964,7 @@ static void tty_dinfo_free(struct tty_dump_info *dinfo)
  * Dumping queued data must be done at the very end of the
  * checkpoint procedure -- it's tail optimization, we trying
  * to defer this procedure until everything else passed
- * succesfully because in real it is time consuming on
+ * successfully because in real it is time consuming on
  * its own which might require writting data back to the
  * former peers if case something go wrong.
  *

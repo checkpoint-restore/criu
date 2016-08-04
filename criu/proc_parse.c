@@ -307,7 +307,7 @@ static int vma_get_mapfile(char *fname, struct vma_area *vma, DIR *mfd,
 				/*
 				 * Another bad thing is that kernel first checks
 				 * for permission access to ANY map_files link,
-				 * then checks for its existance. So we have to
+				 * then checks for its existence. So we have to
 				 * check for file path being empty to "emulate"
 				 * the ENOENT case.
 				 */
@@ -436,7 +436,7 @@ int parse_self_maps_lite(struct vm_area_list *vms)
 			/*
 			 * This list is needed for one thing only -- to
 			 * get the idea of what parts of current address
-			 * space are busy. So merge them alltogether.
+			 * space are busy. So merge them altogether.
 			 */
 			prev->e->end = e;
 		else {
@@ -2505,11 +2505,11 @@ bool proc_status_creds_dumpable(struct proc_status_creds *parent,
 			offsetof(struct proc_status_creds, cap_inh);
 
 	/*
-	 * The comparision rules are the following
+	 * The comparison rules are the following
 	 *
 	 *  - CAPs can be different
 	 *  - seccomp filters should be passed via
-	 *    semantic comparision (FIXME) but for
+	 *    semantic comparison (FIXME) but for
 	 *    now we require them to be exactly
 	 *    identical
 	 *  - the rest of members must match

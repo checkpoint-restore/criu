@@ -1095,7 +1095,7 @@ struct unsc_msg {
 	/*
 	 * 0th is the call address
 	 * 1st is the flags
-	 * 2nd is the optional (NULL in responce) arguments
+	 * 2nd is the optional (NULL in response) arguments
 	 */
 	struct iovec iov[3];
 	char c[CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int))];
@@ -1275,10 +1275,10 @@ int __userns_call(const char *func_name, uns_call_t call, int flags,
 		/*
 		 * Why don't we lock for async requests? Because
 		 * they just put the request in the daemon's
-		 * queue and do not wait for the responce. Thus
-		 * when daemon responce there's only one client
+		 * queue and do not wait for the response. Thus
+		 * when daemon response there's only one client
 		 * waiting for it in recvmsg below, so he
-		 * responces to proper caller.
+		 * responses to proper caller.
 		 */
 		mutex_lock(&task_entries->userns_sync_lock);
 	else
@@ -1344,7 +1344,7 @@ static int start_usernsd(void)
 	 * b) Make callers note the damon death by seeing the
 	 *    disconnected socket. In case of dgram socket
 	 *    callers would just get stuck in receiving the
-	 *    responce.
+	 *    response.
 	 */
 
 	if (socketpair(PF_UNIX, SOCK_SEQPACKET, 0, sk)) {

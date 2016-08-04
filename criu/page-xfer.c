@@ -365,7 +365,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 	unsigned int cur_hole = 0;
 	int ret;
 
-	pr_debug("Transfering pages:\n");
+	pr_debug("Transferring pages:\n");
 
 	list_for_each_entry(ppb, &pp->bufs, l) {
 		unsigned int i;
@@ -436,7 +436,7 @@ static int page_server_check_parent(int sk, struct page_server_iov *pi)
 		return -1;
 
 	if (write(sk, &ret, sizeof(ret)) != sizeof(ret)) {
-		pr_perror("Unable to send reponse");
+		pr_perror("Unable to send response");
 		return -1;
 	}
 
@@ -511,7 +511,7 @@ static int page_server_open(int sk, struct page_server_iov *pi)
 		char has_parent = !!cxfer.loc_xfer.parent;
 
 		if (write(sk, &has_parent, 1) != 1) {
-			pr_perror("Unable to send reponse");
+			pr_perror("Unable to send response");
 			close_page_xfer(&cxfer.loc_xfer);
 			return -1;
 		}

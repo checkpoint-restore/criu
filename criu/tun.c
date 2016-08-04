@@ -35,7 +35,7 @@
 #endif
 
 /*
- * Absense of the 1st ioctl means we cannot restore tun link. But
+ * Absence of the 1st ioctl means we cannot restore tun link. But
  * since the 2nd one appeared at the same time, we'll "check" this
  * by trying to dump filter and abort dump if it's not there.
  */

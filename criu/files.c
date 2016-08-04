@@ -153,7 +153,7 @@ out:
  * 2. Open step.
  *    The one who creates the file (the 'master') creates one,
  *    then creates one more unix socket (transport) and sends the
- *    created file over this socket to the other recepients.
+ *    created file over this socket to the other recipients.
  * 3. Receive step.
  *    Those, who wait for the file to appear, receive one via
  *    the transport socket, then close the socket and dup() the

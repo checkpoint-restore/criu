@@ -1018,7 +1018,7 @@ static int restore_links(int pid, NetnsEntry **netns)
 		/*
 		 * optimize restore of devices configuration except lo
 		 * lo is created with namespace and before default is set
-		 * so we cant optimize its restore
+		 * so we can't optimize its restore
 		 */
 		if (nde->type == ND_TYPE__LOOPBACK)
 			def_netns = NULL;

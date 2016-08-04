@@ -214,7 +214,7 @@ static int rst_mem_remap_one(struct rst_mem_type_s *t, void *to)
 
 	if (!t->buf)
 		/*
-		 * No allocations happenned from this buffer.
+		 * No allocations happened from this buffer.
 		 * It's safe just to do nothing.
 		 */
 		return 0;

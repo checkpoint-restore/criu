@@ -540,7 +540,7 @@ static inline int path_length(char *path)
 
 	off = strlen(path);
 	/*
-	 * If we're pure / then set lenght to zero so that adding this
+	 * If we're pure / then set length to zero so that adding this
 	 * value as sub-path offset would produce the correct result.
 	 * E.g. the tail path of the "/foo/bar" relative to the "/foo"
 	 * will be the "/foo/bar" + len("/foo") == "/bar", while the
@@ -1455,7 +1455,7 @@ static int make_bfmtm_magic_str(char *buf, BinfmtMiscEntry *bme)
 	/*
 	 * Format is ":name:type(M):offset:magic:mask:interpreter:flags".
 	 * Magic and mask are special fields. Kernel outputs them as
-	 * a sequence of hexidecimal numbers (abc -> 616263), and we
+	 * a sequence of hexadecimal numbers (abc -> 616263), and we
 	 * dump them without changes. But for registering a new entry
 	 * it expects every byte is prepended with \x, i.e. \x61\x62\x63.
 	 */
@@ -3267,7 +3267,7 @@ static int __depopulate_roots_yard(void)
 		ret = 1;
 	}
 	/*
-	 * Don't exit after a first error, becuase this function
+	 * Don't exit after a first error, because this function
 	 * can be used to rollback in a error case.
 	 * Don't worry about MNT_DETACH, because files are restored after this
 	 * and nobody will not be restored from a wrong mount namespace.

@@ -778,7 +778,7 @@ static int chk_keepopen_req(CriuReq *msg)
 /*
  * Generic function to handle CRIU_REQ_TYPE__FEATURE_CHECK.
  *
- * The function will have resp.sucess = true for most cases
+ * The function will have resp.success = true for most cases
  * and the actual result will be in resp.features.
  *
  * For each feature which has been requested in msg->features

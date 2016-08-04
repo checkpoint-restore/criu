@@ -886,7 +886,7 @@ static void *bootstrap_start;
 static unsigned int bootstrap_len;
 
 /*
- * sys_munmap must not return here. The controll process must
+ * sys_munmap must not return here. The control process must
  * trap us on the exit from sys_munmap.
  */
 #ifdef CONFIG_VDSO

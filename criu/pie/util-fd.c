@@ -147,7 +147,7 @@ int recv_fds(int sock, int *fds, int nr_fds, struct fd_opts *opts)
 
 		min_fd = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
 		/*
-		 * In case if kernel screwed the recepient, most probably
+		 * In case if kernel screwed the recipient, most probably
 		 * the caller stack frame will be overwriten, just scream
 		 * and exit.
 		 *

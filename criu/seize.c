@@ -605,7 +605,7 @@ static int collect_threads(struct pstree_item *item)
 		goto err;
 	}
 
-	/* The number of threads can't be less than allready frozen */
+	/* The number of threads can't be less than already frozen */
 	item->threads = xrealloc(item->threads, nr_threads * sizeof(struct pid));
 	if (item->threads == NULL)
 		return -1;
