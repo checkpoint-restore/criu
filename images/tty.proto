@@ -65,7 +65,7 @@ message tty_info_entry {
 	optional winsize_entry		winsize		= 11;
 
 	/*
-	 * These are optional fields which presense depends on
+	 * These are optional fields which presence depends on
 	 * TTY type.
 	 */
 	optional tty_pty_entry		pty		= 12;
