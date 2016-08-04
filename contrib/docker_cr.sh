@@ -48,7 +48,7 @@ MOUNT_MAP_ARGS=()
 
 #
 # The default mode is non-verbose, printing only a short message
-# saying if the comand succeeded or failed.  For the verbose mode,
+# saying if the command succeeded or failed.  For the verbose mode,
 # we could have used set -o xtrace but this option would have
 # generated excessive output suitable for debugging, not normal
 # usage.  So we set ${ECHO} to echo in the verbose mode to print
