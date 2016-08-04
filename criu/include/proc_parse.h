@@ -92,7 +92,7 @@ struct proc_status_creds {
 
 	/*
 	 * Keep them at the end of structure
-	 * for fast comparision reason.
+	 * for fast comparison reason.
 	 */
 	u32			cap_inh[PROC_CAP_SIZE];
 	u32			cap_prm[PROC_CAP_SIZE];

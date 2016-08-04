@@ -10,7 +10,7 @@
 extern Lsmtype host_lsm_type(void);
 
 /*
- * Initilize the Lsmtype for the current host
+ * Initialize the Lsmtype for the current host
  */
 extern void kerndat_lsm(void);
 

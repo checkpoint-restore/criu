@@ -171,7 +171,7 @@ typedef int (*uns_call_t)(void *arg, int fd, pid_t pid);
  * If the operation in question can be offloaded to another process,
  * this call allows to do that.
  *
- * In case we're not in userns, just call the callback immediatelly
+ * In case we're not in userns, just call the callback immediately
  * in the context of calling task.
  */
 extern int __userns_call(const char *func_name, uns_call_t call, int flags,

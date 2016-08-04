@@ -34,7 +34,7 @@
  * pg2:  05,0F,10,11,17,18
  *
  * When trying to restore from these 4 files we'd have
- * to carefull scan pagemap.img's one by one and read or
+ * to carefully scan pagemap.img's one by one and read or
  * skip pages from pages.img where appropriate.
  *
  * All this is implemented in read_pagemap_page.
