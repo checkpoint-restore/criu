@@ -107,7 +107,7 @@ function save_mountpoint {
 function restore_mountpoint {
 	local mountpoint=$1
 
-	[ -n "$bindmount" ] || exit 1
+	[ -n "$bindmount" ] || return
 
 	# Umount file system, remounted by systemd, if any
 	if ! check_fs_type $mountpoint "autofs"; then
