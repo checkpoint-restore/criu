@@ -54,4 +54,6 @@ int libsoccr_get_sk_data(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, 
 char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, int steal);
 
 int libsoccr_set_sk_data_unbound(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size);
+int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size);
+int libsoccr_set_sk_data(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size);
 #endif

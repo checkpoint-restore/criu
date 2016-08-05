@@ -349,3 +349,82 @@ int libsoccr_set_sk_data_unbound(struct libsoccr_sk *sk,
 	return 0;
 }
 
+#ifndef TCPOPT_SACK_PERM
+#define TCPOPT_SACK_PERM TCPOPT_SACK_PERMITTED
+#endif
+
+int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
+		struct libsoccr_sk_data *data, unsigned data_size)
+{
+	struct tcp_repair_opt opts[4];
+	int onr = 0;
+
+	if (!data || data_size < SOCR_DATA_MIN_SIZE)
+		return -1;
+
+	logd("\tRestoring TCP options\n");
+
+	if (data->opt_mask & TCPI_OPT_SACK) {
+		logd("\t\tWill turn SAK on\n");
+		opts[onr].opt_code = TCPOPT_SACK_PERM;
+		opts[onr].opt_val = 0;
+		onr++;
+	}
+
+	if (data->opt_mask & TCPI_OPT_WSCALE) {
+		logd("\t\tWill set snd_wscale to %u\n", data->snd_wscale);
+		logd("\t\tWill set rcv_wscale to %u\n", data->rcv_wscale);
+		opts[onr].opt_code = TCPOPT_WINDOW;
+		opts[onr].opt_val = data->snd_wscale + (data->rcv_wscale << 16);
+		onr++;
+	}
+
+	if (data->opt_mask & TCPI_OPT_TIMESTAMPS) {
+		logd("\t\tWill turn timestamps on\n");
+		opts[onr].opt_code = TCPOPT_TIMESTAMP;
+		opts[onr].opt_val = 0;
+		onr++;
+	}
+
+	logd("Will set mss clamp to %u\n", data->mss_clamp);
+	opts[onr].opt_code = TCPOPT_MAXSEG;
+	opts[onr].opt_val = data->mss_clamp;
+	onr++;
+
+	if (setsockopt(sk->fd, SOL_TCP, TCP_REPAIR_OPTIONS,
+				opts, onr * sizeof(struct tcp_repair_opt)) < 0) {
+		loge("Can't repair options");
+		return -2;
+	}
+
+	if (data->opt_mask & TCPI_OPT_TIMESTAMPS) {
+		if (setsockopt(sk->fd, SOL_TCP, TCP_TIMESTAMP,
+				&data->timestamp, sizeof(data->timestamp)) < 0) {
+			loge("Can't set timestamp");
+			return -3;
+		}
+	}
+
+	return 0;
+}
+
+int libsoccr_set_sk_data(struct libsoccr_sk *sk,
+		struct libsoccr_sk_data *data, unsigned data_size)
+{
+	if (data->flags & SOCCR_FLAGS_WINDOW) {
+		struct tcp_repair_window wopt = {
+			.snd_wl1 = data->snd_wl1,
+			.snd_wnd = data->snd_wnd,
+			.max_window = data->max_window,
+			.rcv_wnd = data->rcv_wnd,
+			.rcv_wup = data->rcv_wup,
+		};
+	
+		if (setsockopt(sk->fd, SOL_TCP, TCP_REPAIR_WINDOW, &wopt, sizeof(wopt))) {
+			loge("Unable to set window parameters");
+			return -1;
+		}
+	}
+
+	return 0;
+}

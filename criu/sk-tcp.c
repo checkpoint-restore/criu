@@ -67,10 +67,6 @@ enum {
 #define TCP_REPAIR_WINDOW       29
 #endif
 
-#ifndef TCPOPT_SACK_PERM
-#define TCPOPT_SACK_PERM TCPOPT_SACK_PERMITTED
-#endif
-
 static LIST_HEAD(cpt_tcp_repair_sockets);
 static LIST_HEAD(rst_tcp_repair_sockets);
 
@@ -388,80 +384,6 @@ static int restore_tcp_queues(int sk, TcpStreamEntry *tse, struct cr_img *img)
 	return 0;
 }
 
-static int restore_tcp_opts(int sk, TcpStreamEntry *tse)
-{
-	struct tcp_repair_opt opts[4];
-	int onr = 0;
-
-	pr_debug("\tRestoring TCP options\n");
-
-	if (tse->opt_mask & TCPI_OPT_SACK) {
-		pr_debug("\t\tWill turn SAK on\n");
-		opts[onr].opt_code = TCPOPT_SACK_PERM;
-		opts[onr].opt_val = 0;
-		onr++;
-	}
-
-	if (tse->opt_mask & TCPI_OPT_WSCALE) {
-		pr_debug("\t\tWill set snd_wscale to %u\n", tse->snd_wscale);
-		pr_debug("\t\tWill set rcv_wscale to %u\n", tse->rcv_wscale);
-		opts[onr].opt_code = TCPOPT_WINDOW;
-		opts[onr].opt_val = tse->snd_wscale + (tse->rcv_wscale << 16);
-		onr++;
-	}
-
-	if (tse->opt_mask & TCPI_OPT_TIMESTAMPS) {
-		pr_debug("\t\tWill turn timestamps on\n");
-		opts[onr].opt_code = TCPOPT_TIMESTAMP;
-		opts[onr].opt_val = 0;
-		onr++;
-	}
-
-	pr_debug("Will set mss clamp to %u\n", tse->mss_clamp);
-	opts[onr].opt_code = TCPOPT_MAXSEG;
-	opts[onr].opt_val = tse->mss_clamp;
-	onr++;
-
-	if (setsockopt(sk, SOL_TCP, TCP_REPAIR_OPTIONS,
-				opts, onr * sizeof(struct tcp_repair_opt)) < 0) {
-		pr_perror("Can't repair options");
-		return -1;
-	}
-
-	if (tse->has_timestamp) {
-		if (setsockopt(sk, SOL_TCP, TCP_TIMESTAMP,
-				&tse->timestamp, sizeof(tse->timestamp)) < 0) {
-			pr_perror("Can't set timestamp");
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
-static int restore_tcp_window(int sk, TcpStreamEntry *tse)
-{
-	struct tcp_repair_window opt = {
-		.snd_wl1 = tse->snd_wl1,
-		.snd_wnd = tse->snd_wnd,
-		.max_window = tse->max_window,
-		.rcv_wnd = tse->rcv_wnd,
-		.rcv_wup = tse->rcv_wup,
-	};
-
-	if (!kdat.has_tcp_window || !tse->has_snd_wnd) {
-		pr_warn_once("Window parameters are not restored\n");
-		return 0;
-	}
-
-	if (setsockopt(sk, SOL_TCP, TCP_REPAIR_WINDOW, &opt, sizeof(opt))) {
-		pr_perror("Unable to set window parameters");
-		return -1;
-	}
-
-	return 0;
-}
-
 static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_sk_info *ii)
 {
 	int aux;
@@ -528,7 +450,7 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 	if (inet_connect(sk, ii))
 		goto err_c;
 
-	if (restore_tcp_opts(sk, tse))
+	if (libsoccr_set_sk_data_noq(socr, &data, sizeof(data)))
 		goto err_c;
 
 	if (restore_prepare_socket(sk))
@@ -537,7 +459,7 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 	if (restore_tcp_queues(sk, tse, img))
 		goto err_c;
 
-	if (restore_tcp_window(sk, tse))
+	if (libsoccr_set_sk_data(socr, &data, sizeof(data)))
 		goto err_c;
 
 	if (tse->has_nodelay && tse->nodelay) {
