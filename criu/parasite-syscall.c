@@ -468,6 +468,10 @@ static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
 		}
 	}
 
+	/* Check a case when parasite can't initialize a command socket */
+	if (fault_injected(FI_PARASITE_CONNECT))
+		args->h_addr_len = gen_parasite_saddr(&args->h_addr, getpid() + 1);
+
 	/*
 	 * Set to -1 to prevent any accidental misuse. The
 	 * only valid user of it is accept_tsock().
