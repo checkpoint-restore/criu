@@ -428,3 +428,105 @@ int libsoccr_set_sk_data(struct libsoccr_sk *sk,
 
 	return 0;
 }
+
+static int __send_queue(struct libsoccr_sk *sk, int queue, char *buf, __u32 len)
+{
+	int ret, err = -1, max_chunk;
+	int off;
+
+	max_chunk = len;
+	off = 0;
+
+	do {
+		int chunk = len;
+
+		if (chunk > max_chunk)
+			chunk = max_chunk;
+
+		ret = send(sk->fd, buf + off, chunk, 0);
+		if (ret <= 0) {
+			if (max_chunk > 1024) {
+				/*
+				 * Kernel not only refuses the whole chunk,
+				 * but refuses to split it into pieces too.
+				 *
+				 * When restoring recv queue in repair mode
+				 * kernel doesn't try hard and just allocates
+				 * a linear skb with the size we pass to the
+				 * system call. Thus, if the size is too big
+				 * for slab allocator, the send just fails
+				 * with ENOMEM.
+				 *
+				 * In any case -- try smaller chunk, hopefully
+				 * there's still enough memory in the system.
+				 */
+				max_chunk >>= 1;
+				continue;
+			}
+
+			loge("Can't restore %d queue data (%d), want (%d:%d:%d)",
+				  queue, ret, chunk, len, max_chunk);
+			goto err;
+		}
+		off += ret;
+		len -= ret;
+	} while (len);
+
+	err = 0;
+err:
+	return err;
+}
+
+static int send_queue(struct libsoccr_sk *sk, int queue, char *buf, __u32 len)
+{
+	logd("\tRestoring TCP %d queue data %u bytes\n", queue, len);
+
+	if (setsockopt(sk->fd, SOL_TCP, TCP_REPAIR_QUEUE, &queue, sizeof(queue)) < 0) {
+		loge("Can't set repair queue");
+		return -1;
+	}
+
+	return __send_queue(sk, queue, buf, len);
+}
+
+int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size,
+		int queue, char *buf)
+{
+	if (!data || data_size < SOCR_DATA_MIN_SIZE)
+		return -1;
+
+	if (queue == TCP_RECV_QUEUE)
+		return send_queue(sk, TCP_RECV_QUEUE, buf, data->inq_len);
+
+	if (queue == TCP_SEND_QUEUE) {
+		__u32 len, ulen;
+
+		/*
+		 * All data in a write buffer can be divided on two parts sent
+		 * but not yet acknowledged data and unsent data.
+		 * The TCP stack must know which data have been sent, because
+		 * acknowledgment can be received for them. These data must be
+		 * restored in repair mode.
+		 */
+		ulen = data->unsq_len;
+		len = data->outq_len - ulen;
+		if (len && send_queue(sk, TCP_SEND_QUEUE, buf, len))
+			return -2;
+
+		if (ulen) {
+			/*
+			 * The second part of data have never been sent to outside, so
+			 * they can be restored without any tricks.
+			 */
+			tcp_repair_off(sk->fd);
+			if (__send_queue(sk, TCP_SEND_QUEUE, buf + len, ulen))
+				return -3;
+			if (tcp_repair_on(sk->fd))
+				return -4;
+		}
+
+		return 0;
+	}
+
+	return -5;
+}
