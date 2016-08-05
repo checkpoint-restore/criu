@@ -35,7 +35,6 @@ make -C test/others/exec/ run
 ./test/zdtm.py run -t zdtm/static/socket-tcp-local --norst
 
 ip net add test
-./test/zdtm.py run --unshare -t zdtm/static/env00
 ./test/zdtm.py run -t zdtm/static/env00 -f h --join-ns
 
 pip install flake8
