@@ -8,6 +8,8 @@
 #include <sched.h>
 #include <netinet/in.h>
 
+#include "../soccr/soccr.h"
+
 #include "cr_options.h"
 #include "util.h"
 #include "common/list.h"
