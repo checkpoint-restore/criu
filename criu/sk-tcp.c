@@ -496,6 +496,7 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 	int aux;
 	struct cr_img *img;
 	TcpStreamEntry *tse;
+	struct libsoccr_sk_data data = {};
 
 	pr_info("Restoring TCP connection id %x ino %x\n", ii->ie->id, ii->ie->ino);
 
@@ -505,6 +506,47 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 
 	if (pb_read_one(img, &tse, PB_TCP_STREAM) < 0)
 		goto err_c;
+
+	if (!tse->has_unsq_len) {
+		pr_err("No unsq len in the image\n");
+		goto err_c;
+	}
+
+	data.inq_len = tse->inq_len;
+	data.inq_seq = tse->inq_seq;
+	data.outq_len = tse->outq_len;
+	data.outq_seq = tse->outq_seq;
+	data.unsq_len = tse->unsq_len;
+	data.mss_clamp = tse->mss_clamp;
+	data.opt_mask = tse->opt_mask;
+	if (tse->opt_mask & TCPI_OPT_WSCALE) {
+		if (!tse->has_rcv_wscale) {
+			pr_err("No rcv wscale in the image\n");
+			goto err_c;
+		}
+
+		data.snd_wscale = tse->snd_wscale;
+		data.rcv_wscale = tse->rcv_wscale;
+	}
+	if (tse->opt_mask & TCPI_OPT_TIMESTAMPS) {
+		if (!tse->has_timestamp) {
+			pr_err("No timestamp in the image\n");
+			goto err_c;
+		}
+
+		data.timestamp = tse->timestamp;
+	}
+
+	if (tse->has_snd_wnd) {
+		data.flags |= SOCCR_FLAGS_WINDOW;
+		data.snd_wl1 = tse->snd_wl1;
+		data.snd_wnd = tse->snd_wnd;
+		data.max_window = tse->max_window;
+		data.rcv_wnd = tse->rcv_wnd;
+		data.rcv_wup = tse->rcv_wup;
+	}
+
+	(void)data;
 
 	if (restore_tcp_seqs(sk, tse))
 		goto err_c;
