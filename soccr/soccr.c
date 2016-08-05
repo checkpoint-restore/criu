@@ -59,6 +59,8 @@ static void tcp_repair_off(int fd)
 
 struct libsoccr_sk {
 	int fd;
+	char *recv_queue;
+	char *send_queue;
 };
 
 struct libsoccr_sk *libsoccr_pause(int fd)
@@ -74,6 +76,8 @@ struct libsoccr_sk *libsoccr_pause(int fd)
 		return NULL;
 	}
 
+	ret->recv_queue = NULL;
+	ret->send_queue = NULL;
 	ret->fd = fd;
 	return ret;
 }
@@ -81,6 +85,8 @@ struct libsoccr_sk *libsoccr_pause(int fd)
 void libsoccr_resume(struct libsoccr_sk *sk)
 {
 	tcp_repair_off(sk->fd);
+	free(sk->send_queue);
+	free(sk->recv_queue);
 	free(sk);
 }
 
@@ -186,6 +192,77 @@ static int get_window(struct libsoccr_sk *sk, struct libsoccr_sk_data *data)
 }
 
 /*
+ * TCP queues sequences and their relations to the code below
+ *
+ *       output queue
+ * net <----------------------------- sk
+ *        ^       ^       ^    seq >>
+ *        snd_una snd_nxt write_seq
+ *
+ *                     input  queue
+ * net -----------------------------> sk
+ *     << seq   ^       ^
+ *              rcv_nxt copied_seq
+ *
+ *
+ * inq_len  = rcv_nxt - copied_seq = SIOCINQ
+ * outq_len = write_seq - snd_una  = SIOCOUTQ
+ * inq_seq  = rcv_nxt
+ * outq_seq = write_seq
+ *
+ * On restore kernel moves the option we configure with setsockopt,
+ * thus we should advance them on the _len value in restore_tcp_seqs.
+ *
+ */
+
+static int get_queue(int sk, int queue_id,
+		__u32 *seq, __u32 len, char **bufp)
+{
+	int ret, aux;
+	socklen_t auxl;
+	char *buf;
+
+	aux = queue_id;
+	auxl = sizeof(aux);
+	ret = setsockopt(sk, SOL_TCP, TCP_REPAIR_QUEUE, &aux, auxl);
+	if (ret < 0)
+		goto err_sopt;
+
+	auxl = sizeof(*seq);
+	ret = getsockopt(sk, SOL_TCP, TCP_QUEUE_SEQ, seq, &auxl);
+	if (ret < 0)
+		goto err_sopt;
+
+	if (len) {
+		/*
+		 * Try to grab one byte more from the queue to
+		 * make sure there are len bytes for real
+		 */
+		buf = malloc(len + 1);
+		if (!buf)
+			goto err_buf;
+
+		ret = recv(sk, buf, len + 1, MSG_PEEK | MSG_DONTWAIT);
+		if (ret != len)
+			goto err_recv;
+	} else
+		buf = NULL;
+
+	*bufp = buf;
+	return 0;
+
+err_sopt:
+	loge("\tsockopt failed");
+err_buf:
+	return -1;
+
+err_recv:
+	loge("\trecv failed (%d, want %d)", ret, len);
+	free(buf);
+	goto err_buf;
+}
+
+/*
  * This is how much data we've had in the initial libsoccr
  */
 #define SOCR_DATA_MIN_SIZE	(16 * sizeof(__u32))
@@ -208,5 +285,33 @@ int libsoccr_get_sk_data(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, 
 	if (get_window(sk, data))
 		return -4;
 
+	if (get_queue(sk->fd, TCP_RECV_QUEUE, &data->inq_seq, data->inq_len, &sk->recv_queue))
+		return -4;
+
+	if (get_queue(sk->fd, TCP_SEND_QUEUE, &data->outq_seq, data->outq_len, &sk->send_queue))
+		return -5;
+
 	return sizeof(struct libsoccr_sk_data);
+}
+
+char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, int steal)
+{
+	char **p, *ret;
+
+	switch (queue_id) {
+		case TCP_RECV_QUEUE:
+			p = &sk->recv_queue;
+			break;
+		case TCP_SEND_QUEUE:
+			p = &sk->send_queue;
+			break;
+		default:
+			return NULL;
+	}
+
+	ret = *p;
+	if (steal)
+		*p = NULL;
+
+	return ret;
 }

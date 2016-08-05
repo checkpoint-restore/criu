@@ -157,89 +157,13 @@ void cpt_unlock_tcp_connections(void)
 		tcp_unlock_one(sk);
 }
 
-/*
- * TCP queues sequences and their relations to the code below
- *
- *       output queue
- * net <----------------------------- sk
- *        ^       ^       ^    seq >>
- *        snd_una snd_nxt write_seq
- *
- *                     input  queue
- * net -----------------------------> sk
- *     << seq   ^       ^
- *              rcv_nxt copied_seq
- *
- *
- * inq_len  = rcv_nxt - copied_seq = SIOCINQ
- * outq_len = write_seq - snd_una  = SIOCOUTQ
- * inq_seq  = rcv_nxt
- * outq_seq = write_seq
- *
- * On restore kernel moves the option we configure with setsockopt,
- * thus we should advance them on the _len value in restore_tcp_seqs.
- *
- */
-
-static int tcp_stream_get_queue(int sk, int queue_id,
-		u32 *seq, u32 len, char **bufp)
-{
-	int ret, aux;
-	socklen_t auxl;
-	char *buf;
-
-	pr_debug("\tSet repair queue %d\n", queue_id);
-	aux = queue_id;
-	auxl = sizeof(aux);
-	ret = setsockopt(sk, SOL_TCP, TCP_REPAIR_QUEUE, &aux, auxl);
-	if (ret < 0)
-		goto err_sopt;
-
-	pr_debug("\tGet queue seq\n");
-	auxl = sizeof(*seq);
-	ret = getsockopt(sk, SOL_TCP, TCP_QUEUE_SEQ, seq, &auxl);
-	if (ret < 0)
-		goto err_sopt;
-
-	pr_info("\t`- seq %u len %u\n", *seq, len);
-
-	if (len) {
-		/*
-		 * Try to grab one byte more from the queue to
-		 * make sure there are len bytes for real
-		 */
-		buf = xmalloc(len + 1);
-		if (!buf)
-			goto err_buf;
-
-		pr_debug("\tReading queue (%d bytes)\n", len);
-		ret = recv(sk, buf, len + 1, MSG_PEEK | MSG_DONTWAIT);
-		if (ret != len)
-			goto err_recv;
-	} else
-		buf = NULL;
-
-	*bufp = buf;
-	return 0;
-
-err_sopt:
-	pr_perror("\tsockopt failed");
-err_buf:
-	return -1;
-
-err_recv:
-	pr_perror("\trecv failed (%d, want %d, errno %d)", ret, len, errno);
-	xfree(buf);
-	goto err_buf;
-}
-
 static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 {
 	struct libsoccr_sk *socr = sk->priv;
 	int ret, aux;
 	struct cr_img *img;
 	TcpStreamEntry tse = TCP_STREAM_ENTRY__INIT;
-	char *in_buf, *out_buf;
+	char *buf;
 	struct libsoccr_sk_data data;
 
 	ret = libsoccr_get_sk_data(socr, &data, sizeof(data));
@@ -252,7 +176,9 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	}
 
 	tse.inq_len = data.inq_len;
+	tse.inq_seq = data.inq_seq;
 	tse.outq_len = data.outq_len;
+	tse.outq_seq = data.outq_seq;
 	tse.unsq_len = data.unsq_len;
 	tse.has_unsq_len = true;
 	tse.mss_clamp = data.mss_clamp;
@@ -279,26 +205,6 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 		tse.rcv_wnd		= data.rcv_wnd;
 		tse.rcv_wup		= data.rcv_wup;
 	}
-
-	/*
-	 * Read queue
-	 */
-
-	pr_info("Reading inq for socket\n");
-	ret = tcp_stream_get_queue(sk->rfd, TCP_RECV_QUEUE,
-			&tse.inq_seq, tse.inq_len, &in_buf);
-	if (ret < 0)
-		goto err_in;
-
-	/*
-	 * Write queue
-	 */
-
-	pr_info("Reading outq for socket\n");
-	ret = tcp_stream_get_queue(sk->rfd, TCP_SEND_QUEUE,
-			&tse.outq_seq, tse.outq_len, &out_buf);
-	if (ret < 0)
-		goto err_out;
 
 	/*
 	 * TCP socket options
@@ -332,16 +238,22 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	if (ret < 0)
 		goto err_iw;
 
-	if (in_buf) {
-		ret = write_img_buf(img, in_buf, tse.inq_len);
+	buf = libsoccr_get_queue_bytes(socr, TCP_RECV_QUEUE, 1);
+	if (buf) {
+		ret = write_img_buf(img, buf, tse.inq_len);
 		if (ret < 0)
 			goto err_iw;
+
+		xfree(buf);
 	}
 
-	if (out_buf) {
-		ret = write_img_buf(img, out_buf, tse.outq_len);
+	buf = libsoccr_get_queue_bytes(socr, TCP_SEND_QUEUE, 1);
+	if (buf) {
+		ret = write_img_buf(img, buf, tse.outq_len);
 		if (ret < 0)
 			goto err_iw;
+
+		xfree(buf);
 	}
 
 	pr_info("Done\n");
@@ -349,10 +261,6 @@ err_iw:
 	close_image(img);
 err_img:
 err_opt:
-	xfree(out_buf);
-err_out:
-	xfree(in_buf);
-err_in:
 err_r:
 	return ret;
 }
