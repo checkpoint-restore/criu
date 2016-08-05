@@ -1,6 +1,4 @@
 #include <netinet/tcp.h>
-#include <sys/ioctl.h>
-#include <linux/sockios.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -28,11 +26,6 @@
 
 #include "protobuf.h"
 #include "images/tcp-stream.pb-c.h"
-
-#ifndef SIOCOUTQNSD
-/* MAO - Define SIOCOUTQNSD ioctl if we don't have it */
-#define SIOCOUTQNSD     0x894B
-#endif
 
 #ifndef CONFIG_HAS_TCP_REPAIR_WINDOW
 struct tcp_repair_window {
@@ -90,48 +83,6 @@ static int tcp_repair_on(int fd)
 		pr_perror("Can't turn TCP repair mode ON");
 
 	return ret;
-}
-
-static int refresh_inet_sk(struct inet_sk_desc *sk, struct tcp_info *ti)
-{
-	int size;
-
-	if (dump_opt(sk->rfd, SOL_TCP, TCP_INFO, ti)) {
-		pr_perror("Failed to obtain TCP_INFO");
-		return -1;
-	}
-
-	switch (ti->tcpi_state) {
-	case TCP_ESTABLISHED:
-	case TCP_CLOSE:
-		break;
-	default:
-		pr_err("Unknown state %d\n", sk->state);
-		return -1;
-	}
-
-	if (ioctl(sk->rfd, SIOCOUTQ, &size) == -1) {
-		pr_perror("Unable to get size of snd queue");
-		return -1;
-	}
-
-	sk->wqlen = size;
-
-	if (ioctl(sk->rfd, SIOCOUTQNSD, &size) == -1) {
-		pr_perror("Unable to get size of unsent data");
-		return -1;
-	}
-
-	sk->uwqlen = size;
-
-	if (ioctl(sk->rfd, SIOCINQ, &size) == -1) {
-		pr_perror("Unable to get size of recv queue");
-		return -1;
-	}
-
-	sk->rqlen = size;
-
-	return 0;
 }
 
 static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
@@ -282,80 +233,10 @@ err_recv:
 	goto err_buf;
 }
 
-static int tcp_stream_get_options(int sk, struct tcp_info *ti, TcpStreamEntry *tse)
-{
-	int ret;
-	socklen_t auxl;
-	int val;
-
-	auxl = sizeof(tse->mss_clamp);
-	ret = getsockopt(sk, SOL_TCP, TCP_MAXSEG, &tse->mss_clamp, &auxl);
-	if (ret < 0)
-		goto err_sopt;
-
-	tse->opt_mask = ti->tcpi_options;
-	if (ti->tcpi_options & TCPI_OPT_WSCALE) {
-		tse->snd_wscale = ti->tcpi_snd_wscale;
-		tse->rcv_wscale = ti->tcpi_rcv_wscale;
-		tse->has_rcv_wscale = true;
-	}
-
-	if (ti->tcpi_options & TCPI_OPT_TIMESTAMPS) {
-		auxl = sizeof(val);
-		ret = getsockopt(sk, SOL_TCP, TCP_TIMESTAMP, &val, &auxl);
-		if (ret < 0)
-			goto err_sopt;
-
-		tse->has_timestamp = true;
-		tse->timestamp = val;
-	}
-
-	pr_info("\toptions: mss_clamp %x wscale %x tstamp %d sack %d\n",
-			(int)tse->mss_clamp,
-			ti->tcpi_options & TCPI_OPT_WSCALE ? (int)tse->snd_wscale : -1,
-			ti->tcpi_options & TCPI_OPT_TIMESTAMPS ? 1 : 0,
-			ti->tcpi_options & TCPI_OPT_SACK ? 1 : 0);
-
-	return 0;
-
-err_sopt:
-	pr_perror("\tsockopt failed");
-	return -1;
-}
-
-static int tcp_get_window(int sk, TcpStreamEntry *tse)
-{
-	struct tcp_repair_window opt;
-	socklen_t optlen = sizeof(opt);
-
-	if (!kdat.has_tcp_window)
-		return 0;
-
-	if (getsockopt(sk, SOL_TCP,
-			TCP_REPAIR_WINDOW, &opt, &optlen)) {
-		pr_perror("Unable to get window properties");
-		return -1;
-	}
-
-	tse->has_snd_wl1	= true;
-	tse->has_snd_wnd	= true;
-	tse->has_max_window	= true;
-	tse->has_rcv_wnd	= true;
-	tse->has_rcv_wup	= true;
-	tse->snd_wl1		= opt.snd_wl1;
-	tse->snd_wnd		= opt.snd_wnd;
-	tse->max_window		= opt.max_window;
-	tse->rcv_wnd		= opt.rcv_wnd;
-	tse->rcv_wup		= opt.rcv_wup;
-
-	return 0;
-}
-
 static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 {
 	struct libsoccr_sk *socr = sk->priv;
 	int ret, aux;
-	struct tcp_info ti;
 	struct cr_img *img;
 	TcpStreamEntry tse = TCP_STREAM_ENTRY__INIT;
 	char *in_buf, *out_buf;
@@ -370,16 +251,40 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 		goto err_r;
 	}
 
-	ret = refresh_inet_sk(sk, &ti);
-	if (ret < 0)
-		goto err_r;
+	tse.inq_len = data.inq_len;
+	tse.outq_len = data.outq_len;
+	tse.unsq_len = data.unsq_len;
+	tse.has_unsq_len = true;
+	tse.mss_clamp = data.mss_clamp;
+	tse.opt_mask = data.opt_mask;
+	if (tse.opt_mask & TCPI_OPT_WSCALE) {
+		tse.snd_wscale = data.snd_wscale;
+		tse.rcv_wscale = data.rcv_wscale;
+		tse.has_rcv_wscale = true;
+	}
+	if (tse.opt_mask & TCPI_OPT_TIMESTAMPS) {
+		tse.timestamp = data.timestamp;
+		tse.has_timestamp = true;
+	}
+
+	if (data.flags & SOCCR_FLAGS_WINDOW) {
+		tse.has_snd_wl1		= true;
+		tse.has_snd_wnd		= true;
+		tse.has_max_window	= true;
+		tse.has_rcv_wnd		= true;
+		tse.has_rcv_wup		= true;
+		tse.snd_wl1		= data.snd_wl1;
+		tse.snd_wnd		= data.snd_wnd;
+		tse.max_window		= data.max_window;
+		tse.rcv_wnd		= data.rcv_wnd;
+		tse.rcv_wup		= data.rcv_wup;
+	}
 
 	/*
 	 * Read queue
 	 */
 
 	pr_info("Reading inq for socket\n");
-	tse.inq_len = sk->rqlen;
 	ret = tcp_stream_get_queue(sk->rfd, TCP_RECV_QUEUE,
 			&tse.inq_seq, tse.inq_len, &in_buf);
 	if (ret < 0)
@@ -390,25 +295,10 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	 */
 
 	pr_info("Reading outq for socket\n");
-	tse.outq_len = sk->wqlen;
-	tse.unsq_len = sk->uwqlen;
-	tse.has_unsq_len = true;
 	ret = tcp_stream_get_queue(sk->rfd, TCP_SEND_QUEUE,
 			&tse.outq_seq, tse.outq_len, &out_buf);
 	if (ret < 0)
 		goto err_out;
-
-	/*
-	 * Initial options
-	 */
-
-	pr_info("Reading options for socket\n");
-	ret = tcp_stream_get_options(sk->rfd, &ti, &tse);
-	if (ret < 0)
-		goto err_opt;
-
-	if (tcp_get_window(sk->rfd, &tse))
-		goto err_opt;
 
 	/*
 	 * TCP socket options
