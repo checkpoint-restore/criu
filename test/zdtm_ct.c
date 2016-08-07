@@ -12,10 +12,10 @@ int main(int argc, char **argv)
 	int status;
 
 	/*
-	 *pidns is used to avoid conflicts
+	 * pidns is used to avoid conflicts
 	 * mntns is used to mount /proc
 	 * net is used to avoid conflicts of parasite sockets
-	*/
+	 */
 	if (unshare(CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC))
 		return 1;
 	pid = fork();
