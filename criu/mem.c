@@ -114,7 +114,7 @@ bool should_dump_page(VmaEntry *vmae, u64 pme)
 	return false;
 }
 
-static inline bool page_is_zero(u64 pme)
+bool page_is_zero(u64 pme)
 {
 	return (pme & PME_PFRAME_MASK) == kdat.zero_page_pfn;
 }
