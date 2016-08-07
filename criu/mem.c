@@ -276,14 +276,14 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	timing_start(TIME_MEMDUMP);
 
 	pr_debug("   Private vmas %lu/%lu pages\n",
-			vma_area_list->longest, vma_area_list->priv_size);
+			vma_area_list->priv_longest, vma_area_list->priv_size);
 
 	/*
 	 * Step 0 -- prepare
 	 */
 
 	if (pmc_init(&pmc, ctl->pid.real, &vma_area_list->h,
-		     vma_area_list->longest * PAGE_SIZE))
+			 vma_area_list->priv_longest * PAGE_SIZE))
 		return -1;
 
 	ret = -1;
