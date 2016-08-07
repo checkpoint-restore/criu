@@ -1,11 +1,14 @@
 #ifndef __CR_MEM_H__
 #define __CR_MEM_H__
 
+#include <stdbool.h>
+
 struct parasite_ctl;
 struct vm_area_list;
 struct page_pipe;
 struct pstree_item;
 
+extern bool page_in_parent(bool dirty);
 extern int prepare_mm_pid(struct pstree_item *i);
 extern int do_task_reset_dirty_track(int pid);
 extern unsigned int dump_pages_args_size(struct vm_area_list *vmas);

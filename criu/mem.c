@@ -113,14 +113,14 @@ static inline bool should_dump_page(VmaEntry *vmae, u64 pme)
 	return false;
 }
 
-static inline bool page_in_parent(u64 pme)
+bool page_in_parent(bool dirty)
 {
 	/*
 	 * If we do memory tracking, but w/o parent images,
 	 * then we have to dump all memory
 	 */
 
-	return opts.track_mem && opts.img_parent && !(pme & PME_SOFT_DIRTY);
+	return opts.track_mem && opts.img_parent && !dirty;
 }
 
 /*
@@ -156,7 +156,7 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 		 * page. The latter would be checked in page-xfer.
 		 */
 
-		if (has_parent && page_in_parent(at[pfn])) {
+		if (has_parent && page_in_parent(at[pfn] & PME_SOFT_DIRTY)) {
 			ret = page_pipe_add_hole(pp, vaddr);
 			pages[0]++;
 		} else {
