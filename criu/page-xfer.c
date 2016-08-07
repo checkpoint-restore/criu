@@ -279,9 +279,10 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 	 *    to exist in parent (either pagemap or hole)
 	 */
 	xfer->parent = NULL;
-	if (fd_type == CR_FD_PAGEMAP) {
+	if (fd_type == CR_FD_PAGEMAP || fd_type == CR_FD_SHMEM_PAGEMAP) {
 		int ret;
 		int pfd;
+		int pr_flags = (fd_type == CR_FD_PAGEMAP) ? PR_TASK : PR_SHMEM;
 
 		pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
 		if (pfd < 0 && errno == ENOENT)
@@ -293,7 +294,7 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 			return -1;
 		}
 
-		ret = open_page_read_at(pfd, id, xfer->parent, PR_TASK);
+		ret = open_page_read_at(pfd, id, xfer->parent, pr_flags);
 		if (ret <= 0) {
 			pr_perror("No parent image found, though parent directory is set");
 			xfree(xfer->parent);
