@@ -1489,7 +1489,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	if (seized_native(ctl))
 		parasite_size = pie_size(parasite_native);
-#ifdef CONFIG_X86_64 /* compat blob isn't defined for other archs */
+#ifdef CONFIG_COMPAT
 	else
 		parasite_size = pie_size(parasite_compat);
 #endif
@@ -1513,7 +1513,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	if (seized_native(ctl))
 		init_parasite_ctl(ctl, native);
-#ifdef CONFIG_X86_64 /* compat blob isn't defined for other archs */
+#ifdef CONFIG_COMPAT
 	else
 		init_parasite_ctl(ctl, compat);
 #endif

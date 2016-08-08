@@ -299,11 +299,11 @@ void debug_show_page_pipe(struct page_pipe *pp)
 			if (pp->flags & PP_COMPAT) {
 				iov_c = (void *)ppb->iov;
 				pr_debug("\t\t%x %lu\n", iov_c[i].iov_base,
-						iov_c[i].iov_len / PAGE_SIZE);
+						(unsigned long) iov_c[i].iov_len / PAGE_SIZE);
 			} else {
 				iov = &ppb->iov[i];
 				pr_debug("\t\t%p %lu\n", iov->iov_base,
-						iov->iov_len / PAGE_SIZE);
+						(unsigned long) iov->iov_len / PAGE_SIZE);
 			}
 		}
 	}
@@ -313,11 +313,11 @@ void debug_show_page_pipe(struct page_pipe *pp)
 		if (pp->flags & PP_COMPAT) {
 			iov_c = (void *)pp->holes;
 			pr_debug("\t%x %lu\n", iov_c[i].iov_base,
-					iov_c[i].iov_len / PAGE_SIZE);
+					(unsigned long) iov_c[i].iov_len / PAGE_SIZE);
 		} else {
 			iov = &pp->holes[i];
 			pr_debug("\t%p %lu\n", iov->iov_base,
-					iov->iov_len / PAGE_SIZE);
+					(unsigned long) iov->iov_len / PAGE_SIZE);
 		}
 	}
 }

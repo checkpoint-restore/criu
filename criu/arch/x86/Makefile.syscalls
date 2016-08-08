@@ -17,11 +17,9 @@ target			:=
 target_32		:= syscalls-32
 target_64		:= syscalls-64
 
-SYS-BITS		:= 32
-
-# native x86_64
-ifeq ($(ARCH),x86)
-	SYS-BITS	+= 64
+SYS-BITS		:= 64
+ifeq ($(CONFIG_COMPAT),y)
+        SYS-BITS	+= 32
 endif
 
 # targets

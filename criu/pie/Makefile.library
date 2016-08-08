@@ -6,11 +6,12 @@ CFLAGS			+= -Wa,--noexecstack -fno-stack-protector -DCR_NOGLIBC
 CFLAGS_native		+= -fpie
 
 ifeq ($(ARCH),x86)
-        target		+= compat
+        ifeq ($(CONFIG_COMPAT),y)
+                target	+= compat
+                native-lib-y	+= util-vdso-elf32.o
+        endif
         CFLAGS_native	+= -DCONFIG_X86_64
         CFLAGS_compat	+= -fno-pic -m32 -DCONFIG_X86_32
-
-        native-lib-y	+= util-vdso-elf32.o
         CFLAGS_util-vdso-elf32.o	+= -DCONFIG_X86_32
 endif
 
