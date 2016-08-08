@@ -898,13 +898,21 @@ def get_visible_state(test):
 		last = 0
 		for mp in open("/proc/%s/root/proc/%s/maps" % (test.getpid(), pid)):
 			m = map(lambda x: int('0x' + x, 0), mp.split()[0].split('-'))
+
 			m.append(mp.split()[1])
+
+                        f = "/proc/%s/root/proc/%s/map_files/%s" % (test.getpid(), pid, mp.split()[0])
+                        if os.access(f, os.F_OK):
+                                st = os.lstat(f)
+                                m.append(oct(st.st_mode))
+
 			if cmaps[last][1] == m[0] and cmaps[last][2] == m[2]:
 				cmaps[last][1] = m[1]
 			else:
 				cmaps.append(m)
 				last += 1
-		maps[pid] = set(map(lambda x: '%x-%x %s' % (x[0], x[1], x[2]), cmaps))
+
+		maps[pid] = set(map(lambda x: '%x-%x %s' % (x[0], x[1], x[2:]), cmaps))
 
 		cmounts = []
 		try:
