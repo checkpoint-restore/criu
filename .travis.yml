@@ -9,6 +9,7 @@ env:
   - TR_ARCH=armv7hf
   - TR_ARCH=aarch64
   - TR_ARCH=ppc64le
+  - TR_ARCH=alpine
 script:
   - sudo make -C scripts/travis $TR_ARCH
 after_success:
