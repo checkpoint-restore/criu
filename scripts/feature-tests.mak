@@ -88,3 +88,15 @@ int main(int argc, char *argv[], char *envp[])
 }
 
 endef
+
+define FEATURE_TEST_X86_COMPAT
+
+/* Test for glibc-devel.i686 presence */
+#include <gnu/stubs-32.h>
+
+int main(int argc, char **argv)
+{
+        return 0;
+}
+
+endef
