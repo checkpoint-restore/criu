@@ -13,7 +13,6 @@
 
 int restore_nonsigframe_gpregs(UserX86RegsEntry *r)
 {
-#ifdef CONFIG_X86_64
 	long ret;
 	unsigned long fsgs_base;
 
@@ -30,10 +29,10 @@ int restore_nonsigframe_gpregs(UserX86RegsEntry *r)
 		pr_info("SET_GS fail %ld\n", ret);
 		return -1;
 	}
-#endif
 	return 0;
 }
 
+#ifdef CONFIG_COMPAT
 asm (	"	.pushsection .text				\n"
 	"	.global restore_set_thread_area			\n"
 	"	.code32						\n"
@@ -90,3 +89,4 @@ void restore_tls(tls_t *ptls)
 	if (stack32)
 		free_compat_syscall_stack(stack32);
 }
+#endif

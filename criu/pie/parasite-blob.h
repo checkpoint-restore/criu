@@ -1,5 +1,5 @@
 #include "parasite-native-blob.h"
 
-#ifdef CONFIG_X86_64
+#ifdef CONFIG_COMPAT
 # include "parasite-compat-blob.h"
 #endif
