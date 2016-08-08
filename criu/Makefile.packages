@@ -21,12 +21,6 @@ REQ-DEB-PKG-TEST-NAMES  += libaio-dev
 
 export LIBS		:= -lrt -lpthread -lprotobuf-c -ldl -lnl-3
 
-#
-# Make sure all required libs are installed
-check-build-packages:
-	$(Q) echo "int main(int argc, char *argv[]) { return 0; }" |	\
-		$(CC) -x c - $(LIBS) -o /dev/null > /dev/null 2>&1
-
 check-packages-failed:
 	$(warning Can not find some of the required libraries)
 	$(warning Make sure the following packages are installed)
@@ -37,7 +31,10 @@ check-packages-failed:
 	$(warning DEB based distros: $(REQ-DEB-PKG-TEST-NAMES))
 	$(error Compilation aborted)
 
+#
+# Make sure all required libs are installed
+PROGRAM_STUB := int main(int argc, char **argv) { return 0; }
 check-packages:
-	$(Q) $(MAKE) -f $(obj)/Makefile.packages check-build-packages || \
-		$(MAKE) -f $(obj)/Makefile.packages check-packages-failed
-.PHONY: check-build-packages check-packages-failed check-packages
+	$(Q) $(call try-cc,$(PROGRAM_STUB),$(LIBS)) \
+		|| $(MAKE) -f $(obj)/Makefile.packages check-packages-failed
+.PHONY: check-packages-failed check-packages
