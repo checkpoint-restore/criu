@@ -949,6 +949,7 @@ static const char *special_props[] = {
 	"cpuset.mems",
 	"memory.kmem.limit_in_bytes",
 	"memory.swappiness",
+	"memory.oom_control",
 	"memory.use_hierarchy",
 	NULL,
 };
@@ -1425,11 +1426,15 @@ static int restore_special_props(char *paux, size_t off, CgroupDirEntry *e)
 
 			if (strcmp(name, prop->name) == 0) {
 				/* XXX: we can drop this hack and make
-				 * memory.swappiness a regular property when we
-				 * drop support for kernels < 3.16. See 3dae7fec5.
+				 * memory.swappiness and memory.oom_control
+				 * regular properties when we drop support for
+				 * kernels < 3.16. See 3dae7fec5.
 				 */
 				if (!strcmp(prop->name, "memory.swappiness") &&
 						!strcmp(prop->value, "60")) {
+					continue;
+				} else if (!strcmp(prop->name, "memory.oom_control") &&
+						!strcmp(prop->value, "0")) {
 					continue;
 				} else if (restore_cgroup_prop(prop, paux, off) < 0) {
 					return -1;
