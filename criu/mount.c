@@ -2702,8 +2702,11 @@ static int do_umount_one(struct mount_info *mi)
 
 static int cr_pivot_root(char *root)
 {
-	char put_root[] = "crtools-put-root.XXXXXX";
+	char tmp_dir_tmpl[] = "crtools-put-root.XXXXXX";
+	bool tmp_dir = false;
+	char *put_root = "tmp";
 	int exit_code = -1;
+	struct stat st;
 
 	pr_info("Move the root to %s\n", root ? : ".");
 
@@ -2714,9 +2717,13 @@ static int cr_pivot_root(char *root)
 		}
 	}
 
-	if (mkdtemp(put_root) == NULL) {
-		pr_perror("Can't create a temporary directory");
-		return -1;
+	if (stat(put_root, &st) || !S_ISDIR(st.st_mode)) {
+		put_root = mkdtemp(tmp_dir_tmpl);
+		if (put_root == NULL) {
+			pr_perror("Can't create a temporary directory");
+			return -1;
+		}
+		tmp_dir = true;
 	}
 
 	if (mount(put_root, put_root, NULL, MS_BIND, NULL)) {
@@ -2753,7 +2760,7 @@ err_tmpfs:
 	}
 
 err_root:
-	if (rmdir(put_root)) {
+	if (tmp_dir && rmdir(put_root)) {
 		pr_perror("Can't remove the directory %s", put_root);
 		return -1;
 	}
