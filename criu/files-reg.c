@@ -718,6 +718,7 @@ static int create_link_remap(char *path, int len, int lfd,
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 	FownEntry fwn = FOWN_ENTRY__INIT;
 	int mntns_root;
+	int ret;
 
 	if (!opts.link_remap_ok) {
 		pr_err("Can't create link remap for %s. "
@@ -754,7 +755,16 @@ static int create_link_remap(char *path, int len, int lfd,
 
 	mntns_root = mntns_get_root_fd(nsid);
 
-	if (linkat(lfd, "", mntns_root, link_name, AT_EMPTY_PATH) < 0) {
+again:
+	ret = linkat(lfd, "", mntns_root, link_name, AT_EMPTY_PATH);
+	if (ret < 0 && errno == ENOENT) {
+		/* Use grand parent, if parent directory does not exist. */
+		if (trim_last_parent(link_name) < 0) {
+			pr_err("trim failed: @%s@\n", link_name);
+			return -1;
+		}
+		goto again;
+	} else if (ret < 0) {
 		pr_perror("Can't link remap to %s", path);
 		return -1;
 	}
