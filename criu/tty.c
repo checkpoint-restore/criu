@@ -864,11 +864,7 @@ static int pty_open_slaves(struct tty_info *info)
 	struct fdinfo_list_entry *fle;
 	struct tty_info *slave;
 
-	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
-	if (sock < 0) {
-		pr_perror("Can't create socket");
-		goto err;
-	}
+	sock = get_service_fd(TRANSPORT_FD_OFF);
 
 	list_for_each_entry(slave, &info->sibling, sibling) {
 		BUG_ON(tty_is_master(slave));
@@ -900,7 +896,6 @@ static int pty_open_slaves(struct tty_info *info)
 
 err:
 	close_safe(&fd);
-	close_safe(&sock);
 	return ret;
 }
 

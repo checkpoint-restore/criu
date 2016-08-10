@@ -1080,11 +1080,7 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 	if (shutdown_unix_sk(sk[0], ui))
 		return -1;
 
-	tsk = socket(PF_UNIX, SOCK_DGRAM, 0);
-	if (tsk < 0) {
-		pr_perror("Can't make transport socket");
-		return -1;
-	}
+	tsk = get_service_fd(TRANSPORT_FD_OFF);
 
 	fle = file_master(&peer->d);
 	if (send_fd_to_peer(sk[1], fle, tsk)) {
@@ -1092,7 +1088,6 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 		return -1;
 	}
 
-	close(tsk);
 	close(sk[1]);
 
 	return sk[0];
