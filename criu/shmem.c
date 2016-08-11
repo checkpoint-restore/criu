@@ -13,6 +13,7 @@
 #include "page-xfer.h"
 #include "rst-malloc.h"
 #include "vma.h"
+#include "mem.h"
 #include "config.h"
 #include "syscall-codes.h"
 
@@ -484,10 +485,11 @@ err:
 	return -1;
 }
 
-int add_shmem_area(pid_t pid, VmaEntry *vma)
+int add_shmem_area(pid_t pid, VmaEntry *vma, u64 *map)
 {
 	struct shmem_info *si;
 	unsigned long size = vma->pgoff + (vma->end - vma->start);
+	(void)map;
 
 	si = shmem_find(vma->shmid);
 	if (si) {
