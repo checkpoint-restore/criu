@@ -793,6 +793,12 @@ int prepare_fd_pid(struct pstree_item *item)
 		if (ret <= 0)
 			break;
 
+		if (e->fd >= service_fd_min_fd()) {
+			ret = -1;
+			pr_err("Too big FD number to restore %d\n", e->fd);
+			break;
+		}
+
 		ret = collect_fd(pid, e, rst_info);
 		if (ret < 0) {
 			fdinfo_entry__free_unpacked(e, NULL);
@@ -950,7 +956,7 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int sock)
 	return send_fd(sock, &saddr, len, fd);
 }
 
-static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle, int *sock)
+static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle, int sock)
 {
 	int dfd = fle->fe->fd;
 
@@ -961,10 +967,9 @@ static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle, int *sock)
 	if (inherit_fd_resolve_clash(dfd) < 0)
 		return -1;
 
-	pr_info("\t\t\tGoing to dup %d into %d\n", fd, dfd);
-	if (move_fd_from(sock, dfd))
-		return -1;
+	BUG_ON(dfd == sock);
 
+	pr_info("\t\t\tGoing to dup %d into %d\n", fd, dfd);
 	if (dup2(fd, dfd) != dfd) {
 		pr_perror("Can't dup local fd %d -> %d", fd, dfd);
 		return -1;
@@ -1006,7 +1011,7 @@ static int serve_out_fd(int pid, int fd, struct file_desc *d)
 
 	list_for_each_entry(fle, &d->fd_info_head, desc_list) {
 		if (pid == fle->pid)
-			ret = send_fd_to_self(fd, fle, &sock);
+			ret = send_fd_to_self(fd, fle, sock);
 		else
 			ret = send_fd_to_peer(fd, fle, sock);
 
