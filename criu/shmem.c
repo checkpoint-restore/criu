@@ -605,16 +605,10 @@ static int dump_one_shmem(struct shmem_info *si)
 	struct page_pipe *pp;
 	struct page_xfer xfer;
 	int err, ret = -1, fd;
-	unsigned char *map = NULL;
 	void *addr = NULL;
 	unsigned long pfn, nrpages;
 
 	pr_info("Dumping shared memory %ld\n", si->shmid);
-
-	nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
-	map = xmalloc(nrpages * sizeof(*map));
-	if (!map)
-		goto err;
 
 	fd = open_proc(si->pid, "map_files/%lx-%lx", si->start, si->end);
 	if (fd < 0)
@@ -628,17 +622,7 @@ static int dump_one_shmem(struct shmem_info *si)
 		goto err;
 	}
 
-	/*
-	 * We can't use pagemap here, because this vma is
-	 * not mapped to us at all, but mincore reports the
-	 * pagecache status of a file, which is correct in
-	 * this case.
-	 */
-
-	err = mincore(addr, si->size, map);
-	if (err)
-		goto err_unmap;
-
+	nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
 	pp = create_page_pipe((nrpages + 1) / 2, NULL, PP_CHUNK_MODE);
 	if (!pp)
 		goto err_unmap;
@@ -648,10 +632,20 @@ static int dump_one_shmem(struct shmem_info *si)
 		goto err_pp;
 
 	for (pfn = 0; pfn < nrpages; pfn++) {
-		if (!(map[pfn] & PAGE_RSS))
+		unsigned int pgstate;
+		unsigned long pgaddr;
+
+		pgstate = get_pstate(si->pstate_map, pfn);
+		if (pgstate == PST_DONT_DUMP)
 			continue;
+
+		pgaddr = (unsigned long)addr + pfn * PAGE_SIZE;
 again:
-		ret = page_pipe_add_page(pp, (unsigned long)addr + pfn * PAGE_SIZE);
+		if (xfer.parent && page_in_parent(pgstate == PST_DIRTY))
+			ret = page_pipe_add_hole(pp, pgaddr);
+		else /* pgstate == PST_DUMP */
+			ret = page_pipe_add_page(pp, pgaddr);
+
 		if (ret == -EAGAIN) {
 			ret = dump_pages(pp, &xfer, addr);
 			if (ret)
@@ -671,7 +665,6 @@ err_pp:
 err_unmap:
 	munmap(addr,  si->size);
 err:
-	xfree(map);
 	return ret;
 }
 
