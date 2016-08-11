@@ -1541,6 +1541,10 @@ int cr_pre_dump_tasks(pid_t pid)
 		if (pre_dump_one_task(item))
 			goto err;
 
+	ret = cr_dump_shmem();
+	if (ret)
+		goto err;
+
 	if (irmap_predump_prep())
 		goto err;
 
