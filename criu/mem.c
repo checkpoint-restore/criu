@@ -78,7 +78,7 @@ unsigned int dump_pages_args_size(struct vm_area_list *vmas)
 		(vmas->priv_size + 1) * sizeof(struct iovec);
 }
 
-static inline bool should_dump_page(VmaEntry *vmae, u64 pme)
+bool should_dump_page(VmaEntry *vmae, u64 pme)
 {
 #ifdef CONFIG_VDSO
 	/*

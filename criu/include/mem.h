@@ -2,6 +2,8 @@
 #define __CR_MEM_H__
 
 #include <stdbool.h>
+#include "asm/int.h"
+#include "vma.pb-c.h"
 
 struct parasite_ctl;
 struct vm_area_list;
@@ -32,4 +34,5 @@ int open_vmas(struct pstree_item *t);
 int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta);
 int unmap_guard_pages(struct pstree_item *t);
 int prepare_mappings(struct pstree_item *t);
+bool should_dump_page(VmaEntry *vmae, u64 pme);
 #endif /* __CR_MEM_H__ */
