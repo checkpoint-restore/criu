@@ -15,6 +15,7 @@ TST_NOFILE	=	\
 		fork2		\
 		thread-bomb	\
 		maps007		\
+		maps008		\
 		pipe_loop00     \
 		pipe_shared00   \
 		socket_loop00   \
