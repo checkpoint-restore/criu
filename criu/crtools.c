@@ -206,6 +206,17 @@ int add_external(char *key)
 	return 0;
 }
 
+bool deprecated_ok(char *what)
+{
+	if (opts.deprecated_ok)
+		return true;
+
+	pr_err("Deprecated functionality (%s) rejected.\n", what);
+	pr_err("Use the --deprecated option or set CRIU_DEPRECATED environment.\n");
+	pr_err("For details visit https://criu.org/Deprecation\n");
+	return false;
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	pid_t pid = 0, tree_id = 0;
@@ -279,6 +290,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "cgroup-props-file",		required_argument,	0, 1081	},
 		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
 		{ SK_INFLIGHT_PARAM,		no_argument,		0, 1083	},
+		{ "deprecated",			no_argument,		0, 1084 },
 		{ },
 	};
 
@@ -587,6 +599,10 @@ int main(int argc, char *argv[], char *envp[])
 			pr_msg("Will skip in-flight TCP connections\n");
 			opts.tcp_skip_in_flight = true;
 			break;
+		case 1084:
+			pr_msg("Turn deprecated stuff ON\n");
+			opts.deprecated_ok = true;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -598,6 +614,11 @@ int main(int argc, char *argv[], char *envp[])
 		default:
 			goto usage;
 		}
+	}
+
+	if (getenv("CRIU_DEPRECATED")) {
+		pr_msg("Turn deprecated stuff ON via env\n");
+		opts.deprecated_ok = true;
 	}
 
 	if (check_namespace_opts()) {
@@ -674,6 +695,8 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 
 	pr_debug("Version: %s (gitid %s)\n", CRIU_VERSION, CRIU_GITID);
+	if (opts.deprecated_ok)
+		pr_debug("DEPRECATED ON\n");
 
 	if (!list_empty(&opts.inherit_fds)) {
 		if (strcmp(argv[optind], "restore")) {
