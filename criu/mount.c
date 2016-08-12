@@ -297,6 +297,9 @@ static bool mounts_sb_equal(struct mount_info *a, struct mount_info *b)
 			return false;
 	}
 
+	if (a->fstype->code == FSTYPE__CGROUP && strcmp(a->private, b->private))
+		return false;
+
 	return a->s_dev == b->s_dev && !strcmp(a->source, b->source);
 }
 
@@ -1602,7 +1605,7 @@ static int cgroup_parse(struct mount_info *pm)
 	/* cgroup namespaced mounts don't look rooted to CRIU, so let's fake it
 	 * here.
 	 */
-	xfree(pm->root);
+	pm->private = pm->root;
 	pm->root = xstrdup("/");
 	if (!pm->root)
 		return -1;
