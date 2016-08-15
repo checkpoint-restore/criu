@@ -1716,8 +1716,6 @@ def run_tests(opts):
 				run_flavs -= set(['ns', 'uns'])
 			if opts['empty_ns']:
 				run_flavs -= set(['h'])
-			if opts['lazy_pages']:
-				run_flavs -= set(['ns', 'uns'])
 
 			if run_flavs:
 				l.run_test(t, tdesc, run_flavs)
