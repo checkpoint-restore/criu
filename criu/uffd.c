@@ -36,11 +36,15 @@
 #include "syscall-codes.h"
 #include "restorer.h"
 #include "page-xfer.h"
+#include "lock.h"
+#include "rst-malloc.h"
 
 #undef  LOG_PREFIX
 #define LOG_PREFIX "lazy-pages: "
 
 #define LAZY_PAGES_SOCK_NAME	"lazy-pages.socket"
+
+static mutex_t *lazy_sock_mutex;
 
 struct lazy_pages_info {
 	int pid;
@@ -144,24 +148,18 @@ static int prepare_sock_addr(struct sockaddr_un *saddr)
 static int send_uffd(int sendfd, int pid)
 {
 	int fd;
-	int len;
 	int ret = -1;
-	struct sockaddr_un sun;
 
 	if (sendfd < 0)
 		return -1;
 
-	if (prepare_sock_addr(&sun))
+	fd = get_service_fd(LAZY_PAGES_SK_OFF);
+	if (fd < 0) {
+		pr_err("%s: get_service_fd\n", __func__);
 		return -1;
-
-	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
-		return -1;
-
-	len = offsetof(struct sockaddr_un, sun_path) + strlen(sun.sun_path);
-	if (connect(fd, (struct sockaddr *) &sun, len) < 0) {
-		pr_perror("connect to %s failed", sun.sun_path);
-		goto out;
 	}
+
+	mutex_lock(lazy_sock_mutex);
 
 	/* The "transfer protocol" is first the pid as int and then
 	 * the FD for UFFD */
@@ -175,6 +173,9 @@ static int send_uffd(int sendfd, int pid)
 		pr_perror("send_fd error:");
 		goto out;
 	}
+
+	mutex_unlock(lazy_sock_mutex);
+
 	ret = 0;
 out:
 	close(fd);
@@ -247,6 +248,42 @@ err:
 	return -1;
 }
 
+int prepare_lazy_pages_socket(void)
+{
+	int fd, new_fd;
+	int len;
+	struct sockaddr_un sun;
+
+	if (!opts.lazy_pages)
+		return 0;
+
+	if (prepare_sock_addr(&sun))
+		return -1;
+
+	lazy_sock_mutex = shmalloc(sizeof(*lazy_sock_mutex));
+	if (!lazy_sock_mutex)
+		return -1;
+
+	mutex_init(lazy_sock_mutex);
+
+	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
+		return -1;
+
+	new_fd = install_service_fd(LAZY_PAGES_SK_OFF, fd);
+	close(fd);
+	if (new_fd < 0)
+		return -1;
+
+	len = offsetof(struct sockaddr_un, sun_path) + strlen(sun.sun_path);
+	if (connect(new_fd, (struct sockaddr *) &sun, len) < 0) {
+		pr_perror("connect to %s failed", sun.sun_path);
+		close(new_fd);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int server_listen(struct sockaddr_un *saddr)
 {
 	int fd;
@@ -276,23 +313,11 @@ out:
 
 static int find_vmas(struct lazy_pages_info *lpi);
 
-static struct lazy_pages_info *ud_open(int listen, struct sockaddr_un *saddr)
+static struct lazy_pages_info *ud_open(int client)
 {
 	struct lazy_pages_info *lpi;
-	int client;
 	int ret = -1;
-	socklen_t len;
 	int uffd_flags;
-
-	/* accept new client request */
-	len = sizeof(struct sockaddr_un);
-	if ((client = accept(listen, (struct sockaddr *)saddr, &len)) < 0) {
-		pr_perror("server_accept error: %d", client);
-		close(listen);
-		return NULL;
-	}
-
-	pr_debug("client fd %d\n", client);
 
 	lpi = lpi_init();
 	if (!lpi)
@@ -313,7 +338,6 @@ static struct lazy_pages_info *ud_open(int listen, struct sockaddr_un *saddr)
 		goto out;
 	}
 	pr_debug("lpi->uffd %d\n", lpi->uffd);
-	close_safe(&client);
 
 	pr_debug("uffd is 0x%d\n", lpi->uffd);
 	uffd_flags = fcntl(lpi->uffd, F_GETFD, NULL);
@@ -332,7 +356,6 @@ static struct lazy_pages_info *ud_open(int listen, struct sockaddr_un *saddr)
 
 out:
 	lpi_fini(lpi);
-	close_safe(&client);
 	return NULL;
 }
 
@@ -816,6 +839,8 @@ static int prepare_uffds(int epollfd)
 {
 	int i;
 	int listen;
+	int client;
+	socklen_t len;
 	struct sockaddr_un saddr;
 
 	if (prepare_sock_addr(&saddr))
@@ -827,20 +852,31 @@ static int prepare_uffds(int epollfd)
 		return -1;
 	}
 
+	/* accept new client request */
+	len = sizeof(struct sockaddr_un);
+	if ((client = accept(listen, (struct sockaddr *) &saddr, &len)) < 0) {
+		pr_perror("server_accept error: %d", client);
+		close(listen);
+		return -1;
+	}
+	pr_debug("client fd %d\n", client);
+
 	for (i = 0; i < task_entries->nr_tasks; i++) {
 		struct lazy_pages_info *lpi;
-		lpi = ud_open(listen, &saddr);
+		lpi = ud_open(client);
 		if (!lpi)
 			goto close_uffd;
 		if (epoll_add_fd(epollfd, lpi->uffd))
 			goto close_uffd;
 	}
 
+	close_safe(&client);
 	close(listen);
 	return 0;
 
 close_uffd:
 	lpi_hash_fini();
+	close_safe(&client);
 	close(listen);
 	return -1;
 }
