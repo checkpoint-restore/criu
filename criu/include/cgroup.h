@@ -69,4 +69,28 @@ int parse_cg_info(void);
 int new_cg_root_add(char *controller, char *newroot);
 
 extern struct ns_desc cgroup_ns_desc;
+
+/*
+ * This struct describes a group controlled by one controller.
+ * The @name is the controller name or 'name=...' for named cgroups.
+ * The @path is the path from the hierarchy root.
+ */
+
+struct cg_ctl {
+	struct list_head l;
+	char *name;
+	char *path;
+	u32 cgns_prefix;
+};
+
+/*
+ * Returns the list of cg_ctl-s sorted by name
+ */
+struct list_head;
+struct parasite_dump_cgroup_args;
+extern int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct list_head *l, unsigned int *n);
+extern void put_ctls(struct list_head *);
+
+int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups);
+
 #endif /* __CR_CGROUP_H__ */

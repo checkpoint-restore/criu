@@ -162,29 +162,6 @@ extern int get_fd_mntid(int fd, int *mnt_id);
 struct pid;
 extern int parse_threads(int pid, struct pid **_t, int *_n);
 
-/*
- * This struct describes a group controlled by one controller.
- * The @name is the controller name or 'name=...' for named cgroups.
- * The @path is the path from the hierarchy root.
- */
-
-struct cg_ctl {
-	struct list_head l;
-	char *name;
-	char *path;
-	u32 cgns_prefix;
-};
-
-/*
- * Returns the list of cg_ctl-s sorted by name
- */
-struct list_head;
-struct parasite_dump_cgroup_args;
-extern int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct list_head *l, unsigned int *n);
-extern void put_ctls(struct list_head *);
-
-int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups);
-
 int parse_children(pid_t pid, pid_t **_c, int *_n);
 
 #endif /* __CR_PROC_PARSE_H__ */

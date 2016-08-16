@@ -13,7 +13,6 @@
 #include "cgroup-props.h"
 #include "cr_options.h"
 #include "pstree.h"
-#include "proc_parse.h"
 #include "util.h"
 #include "imgset.h"
 #include "util-pie.h"
