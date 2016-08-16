@@ -128,4 +128,29 @@ extern int mntns_maybe_create_roots(void);
 extern int read_mnt_ns_img(void);
 extern void cleanup_mnt_ns(void);
 
+struct mount_info;
+typedef int (*mount_fn_t)(struct mount_info *mi, const char *src, const
+			  char *fstype, unsigned long mountflags);
+
+struct fstype {
+	char *name;
+	int code;
+	int (*dump)(struct mount_info *pm);
+	int (*restore)(struct mount_info *pm);
+	int (*parse)(struct mount_info *pm);
+	mount_fn_t mount;
+};
+
+extern bool add_skip_mount(const char *mountpoint);
+struct ns_id;
+extern struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump);
+
+/* callback for AUFS support */
+extern int aufs_parse(struct mount_info *mi);
+
+/* callback for OverlayFS support */
+extern int overlayfs_parse(struct mount_info *mi);
+
+extern int check_mnt_id(void);
+
 #endif /* __CR_MOUNT_H__ */

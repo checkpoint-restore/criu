@@ -6,6 +6,9 @@
 #define SBINFO_PATH_LEN	(sizeof SYSFS_AUFS + SBINFO_LEN) /* /sys/fs/aufs/<sbinfo> */
 #define AUFSBR_PATH_LEN	(SBINFO_PATH_LEN + 6 + 1)	/* /sys/fs/aufs/<sbinfo>/br%3d */
 
+struct mount_info;
+struct vma_area;
+
 extern int parse_aufs_branches(struct mount_info *mi);
 extern int fixup_aufs_vma_fd(struct vma_area *vma, int vm_file_fd);
 extern void free_aufs_branches(void);

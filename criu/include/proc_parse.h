@@ -103,26 +103,8 @@ struct proc_status_creds {
 bool proc_status_creds_dumpable(struct proc_status_creds *parent,
 				struct proc_status_creds *child);
 
-struct mount_info;
-typedef int (*mount_fn_t)(struct mount_info *mi, const char *src, const
-			  char *fstype, unsigned long mountflags);
-
-struct fstype {
-	char *name;
-	int code;
-	int (*dump)(struct mount_info *pm);
-	int (*restore)(struct mount_info *pm);
-	int (*parse)(struct mount_info *pm);
-	mount_fn_t mount;
-};
-
-struct vm_area_list;
-
 #define INVALID_UID ((uid_t)-1)
 
-extern bool add_skip_mount(const char *mountpoint);
-struct ns_id;
-extern struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump);
 extern int parse_pid_stat(pid_t pid, struct proc_pid_stat *s);
 extern unsigned int parse_pid_loginuid(pid_t pid, int *err, bool ignore_noent);
 extern int parse_pid_oom_score_adj(pid_t pid, int *err);
@@ -180,8 +162,6 @@ extern int get_fd_mntid(int fd, int *mnt_id);
 struct pid;
 extern int parse_threads(int pid, struct pid **_t, int *_n);
 
-extern int check_mnt_id(void);
-
 /*
  * This struct describes a group controlled by one controller.
  * The @name is the controller name or 'name=...' for named cgroups.
@@ -204,12 +184,6 @@ extern int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, st
 extern void put_ctls(struct list_head *);
 
 int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups);
-
-/* callback for AUFS support */
-extern int aufs_parse(struct mount_info *mi);
-
-/* callback for OverlayFS support */
-extern int overlayfs_parse(struct mount_info *mi);
 
 int parse_children(pid_t pid, pid_t **_c, int *_n);
 
