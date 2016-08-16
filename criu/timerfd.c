@@ -8,7 +8,7 @@
 #include "protobuf.h"
 #include "images/timerfd.pb-c.h"
 
-#include "proc_parse.h"
+#include "fdinfo.h"
 #include "rst-malloc.h"
 #include "cr_options.h"
 #include "restorer.h"

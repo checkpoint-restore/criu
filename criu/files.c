@@ -37,7 +37,7 @@
 #include "timerfd.h"
 #include "imgset.h"
 #include "fs-magic.h"
-#include "proc_parse.h"
+#include "fdinfo.h"
 #include "cr_options.h"
 #include "autofs.h"
 

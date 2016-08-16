@@ -25,6 +25,7 @@
 #include "vma.h"
 #include "bfd.h"
 #include "proc_parse.h"
+#include "fdinfo.h"
 #include "parasite.h"
 #include "cr_options.h"
 #include "sysfs_parse.h"

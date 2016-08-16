@@ -26,7 +26,7 @@
 #include "asm/types.h"
 #include "imgset.h"
 #include "fsnotify.h"
-#include "proc_parse.h"
+#include "fdinfo.h"
 #include "mount.h"
 #include "image.h"
 #include "util.h"

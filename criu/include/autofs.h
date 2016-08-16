@@ -5,6 +5,8 @@
 #define AUTOFS_MINOR	235
 #endif
 
+#include <stdbool.h>
+
 bool is_autofs_pipe(unsigned long inode);
 
 struct mount_info;
