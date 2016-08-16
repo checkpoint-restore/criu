@@ -11,9 +11,9 @@
 
 #include "cr_options.h"
 #include "compiler.h"
+#include "restorer.h"
 #include "ptrace.h"
 #include "parasite-syscall.h"
-#include "restorer.h"
 #include "log.h"
 #include "util.h"
 #include "cpu.h"
