@@ -1138,7 +1138,7 @@ int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr)
 	pid_t pid = ctl->pid.real;
 	int ret = -1;
 
-	ret = parasite_run(pid, PTRACE_SYSCALL, addr, NULL, &regs, &ctl->orig);
+	ret = parasite_run(pid, PTRACE_SYSCALL, addr, ctl->rstack, &regs, &ctl->orig);
 	if (ret)
 		goto err;
 
