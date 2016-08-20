@@ -901,10 +901,10 @@ def get_visible_state(test):
 
 			m.append(mp.split()[1])
 
-                        f = "/proc/%s/root/proc/%s/map_files/%s" % (test.getpid(), pid, mp.split()[0])
-                        if os.access(f, os.F_OK):
-                                st = os.lstat(f)
-                                m.append(oct(st.st_mode))
+			f = "/proc/%s/root/proc/%s/map_files/%s" % (test.getpid(), pid, mp.split()[0])
+			if os.access(f, os.F_OK):
+				st = os.lstat(f)
+				m.append(oct(st.st_mode))
 
 			if cmaps[last][1] == m[0] and cmaps[last][2] == m[2]:
 				cmaps[last][1] = m[1]
