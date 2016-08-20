@@ -278,7 +278,9 @@ def decode_flav(i):
 def tail(path):
 	p = subprocess.Popen(['tail', '-n1', path],
 			stdout = subprocess.PIPE)
-	return p.stdout.readline()
+	out = p.stdout.readline()
+	p.wait()
+	return out
 
 
 def rpidfile(path):
