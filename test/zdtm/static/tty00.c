@@ -97,8 +97,10 @@ int main(int argc, char ** argv)
 			fail("The child returned %d", WEXITSTATUS(status));
 			return 1;
 		}
-	} else
+	} else {
 		test_msg("The child has been killed by %d\n", WTERMSIG(status));
+		return 1;
+	}
 
 	pass();
 

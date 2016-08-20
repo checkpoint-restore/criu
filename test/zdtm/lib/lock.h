@@ -64,7 +64,7 @@ static inline void futex_add_and_wake(futex_t *f, uint32_t v)
 				break;				\
 			ret = sys_futex(&(__f)->raw, FUTEX_WAIT,\
 					tmp, NULL, NULL, 0);	\
-			if (ret < 0 && errno == EAGAIN)			\
+			if (ret < 0 && (errno == EAGAIN || errno == EINTR)) \
 				continue;			\
 			BUG_ON(ret < 0 && errno != EWOULDBLOCK);	\
 		}						\
@@ -119,7 +119,7 @@ static inline uint32_t futex_wait_while(futex_t *f, uint32_t v)
 {
 	while (f->raw == v) {
 		int ret = sys_futex(&f->raw, FUTEX_WAIT, v, NULL, NULL, 0);
-		if (ret < 0 && errno == EAGAIN)
+		if (ret < 0 && (errno == EAGAIN || errno == EINTR))
 			continue;
 		BUG_ON(ret < 0 && errno != EWOULDBLOCK);
 	}
