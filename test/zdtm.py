@@ -427,6 +427,10 @@ class zdtm_test:
 
 		res = tail(self.__name + '.out')
 		if 'PASS' not in res.split():
+			if os.access(self.__name + '.out.inprogress', os.F_OK):
+				print_sep(self.__name + '.out.inprogress')
+				print open(self.__name + '.out.inprogress').read()
+				print_sep(self.__name + '.out.inprogress')
 			raise test_fail_exc("result check")
 
 	def getpid(self):
