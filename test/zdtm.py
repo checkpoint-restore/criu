@@ -658,6 +658,7 @@ class criu_cli:
 		self.__sat = (opts['sat'] and True or False)
 		self.__dedup = (opts['dedup'] and True or False)
 		self.__user = (opts['user'] and True or False)
+		self.__leave_stopped = (opts['stop'] and True or False)
 
 	def logs(self):
 		return self.__dump_path
@@ -783,7 +784,14 @@ class criu_cli:
 			a_opts.append("--ext-mount-map")
 			a_opts.append("%s:zdtm" % criu_dir)
 
+		if self.__leave_stopped:
+			a_opts += ['--leave-stopped']
+
 		self.__criu_act(action, opts = a_opts + opts)
+
+		if self.__leave_stopped:
+			pstree_check_stopped(self.__test.getpid())
+			pstree_signal(self.__test.getpid(), signal.SIGKILL)
 
 		if self.__page_server:
 			wait_pid_die(int(rpidfile(self.__ddir() + "/ps.pid")), "page server")
@@ -803,7 +811,15 @@ class criu_cli:
 		if os.getenv("GCOV"):
 			r_opts.append("--ext-mount-map")
 			r_opts.append("zdtm:%s" % criu_dir)
+
+		if self.__leave_stopped:
+			r_opts += ['--leave-stopped']
+
 		self.__criu_act("restore", opts = r_opts + ["--restore-detached"])
+
+		if self.__leave_stopped:
+			pstree_check_stopped(self.__test.getpid())
+			pstree_signal(self.__test.getpid(), signal.SIGCONT)
 
 	@staticmethod
 	def check(feature):
@@ -1044,6 +1060,69 @@ def check_joinns_state(t):
 	cmp_ns("/proc/%s/ns/net" % t.getpid(), "!=", join_ns_file, "join-ns")
 
 
+def pstree_each_pid(root_pid):
+	f_children_path = "/proc/{0}/task/{0}/children".format(root_pid)
+	child_pids = []
+	try:
+		with open(f_children_path, "r") as f_children:
+			pid_line = f_children.readline().strip(" \n")
+			if pid_line:
+				child_pids += pid_line.split(" ")
+	except:
+		return  # process is dead
+
+	yield root_pid
+	for child_pid in child_pids:
+		for pid in pstree_each_pid(child_pid):
+			yield pid
+
+
+def is_proc_stopped(pid):
+	def get_thread_status(thread_dir):
+		try:
+			with open(os.path.join(thread_dir, "status")) as f_status:
+				for line in f_status.readlines():
+					if line.startswith("State:"):
+						return line.split(":", 1)[1].strip().split(" ")[0]
+		except:
+			pass  # process is dead
+		return None
+
+	def is_thread_stopped(status):
+		return (status is None) or (status == "T") or (status == "Z")
+
+	tasks_dir = "/proc/%s/task" % pid
+	thread_dirs = []
+	try:
+		thread_dirs = os.listdir(tasks_dir)
+	except:
+		pass  # process is dead
+
+	for thread_dir in thread_dirs:
+		thread_status = get_thread_status(os.path.join(tasks_dir, thread_dir))
+		if not is_thread_stopped(thread_status):
+			return False
+
+	if not is_thread_stopped(get_thread_status("/proc/%s" % pid)):
+		return False
+
+	return True
+
+
+def pstree_check_stopped(root_pid):
+	for pid in pstree_each_pid(root_pid):
+		if not is_proc_stopped(pid):
+			raise test_fail_exc("CRIU --leave-stopped %s" % pid)
+
+
+def pstree_signal(root_pid, signal):
+	for pid in pstree_each_pid(root_pid):
+		try:
+			os.kill(int(pid), signal)
+		except:
+			pass  # process is dead
+
+
 def do_run_test(tname, tdesc, flavs, opts):
 	tcname = tname.split('/')[0]
 	tclass = test_classes.get(tcname, None)
@@ -1154,7 +1233,7 @@ class launcher:
 		self.__nr += 1
 		self.__show_progress()
 
-		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling',
+		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'stop',
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script',
 				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
@@ -1594,6 +1673,7 @@ rp.add_argument("--snaps", help = "Instead of pre-dumps do full dumps", action =
 rp.add_argument("--dedup", help = "Auto-deduplicate images on iterations", action = 'store_true')
 rp.add_argument("--nocr", help = "Do not CR anything, just check test works", action = 'store_true')
 rp.add_argument("--norst", help = "Don't restore tasks, leave them running after dump", action = 'store_true')
+rp.add_argument("--stop", help = "Check that --leave-stopped option stops ps tree.", action = 'store_true')
 rp.add_argument("--iters", help = "Do CR cycle several times before check (n[:pause])")
 rp.add_argument("--fault", help = "Test fault injection")
 rp.add_argument("--sat", help = "Generate criu strace-s for sat tool (restore is fake, images are kept)", action = 'store_true')
