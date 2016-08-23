@@ -103,6 +103,7 @@ struct cr_options {
 	bool			enable_external_masters;
 	bool			aufs;		/* auto-deteced, not via cli */
 	bool			overlayfs;
+	bool			has_binfmt_misc; /* auto-detected */
 	size_t			ghost_limit;
 	struct list_head	irmap_scan_paths;
 	bool			lsm_supplied;

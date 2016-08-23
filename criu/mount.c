@@ -1281,6 +1281,14 @@ static int devtmpfs_restore(struct mount_info *pm)
 	return ret;
 }
 
+static int binfmt_misc_parse(struct mount_info *pm)
+{
+	if (pm->nsid->type == NS_ROOT)
+		opts.has_binfmt_misc = true;
+	return 0;
+
+}
+
 static int binfmt_misc_virtual(struct mount_info *pm)
 {
 	return kerndat_fs_virtualized(KERNDAT_FS_STAT_BINFMT_MISC, pm->s_dev);
@@ -1718,6 +1726,7 @@ static struct fstype fstypes[] = {
 		.restore = devtmpfs_restore,
 	}, {
 		.name = "binfmt_misc",
+		.parse = binfmt_misc_parse,
 		.code = FSTYPE__BINFMT_MISC,
 		.dump = binfmt_misc_dump,
 		.restore = binfmt_misc_restore,
@@ -3071,6 +3080,9 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 			pr_err("fsname can be set only for FSTYPE__AUTO mounts\n");
 			goto err;
 		}
+
+		if (me->fstype == FSTYPE__BINFMT_MISC)
+			opts.has_binfmt_misc = true;
 
 		/* FIXME: abort unsupported early */
 		pm->fstype = decode_fstype(me->fstype);
