@@ -40,6 +40,12 @@
 #undef	LOG_PREFIX
 #define LOG_PREFIX "mnt: "
 
+struct binfmt_misc_info {
+	BinfmtMiscEntry *bme;
+	struct list_head list;
+};
+
+static LIST_HEAD(binfmt_misc_list);
 static struct fstype fstypes[];
 
 int ext_mount_add(char *key, char *val)
@@ -1536,6 +1542,29 @@ free_buf:
 	free(buf);
 	return ret;
 }
+
+static int collect_one_binfmt_misc_entry(void *o, ProtobufCMessage *msg, struct cr_img *img)
+{
+	struct binfmt_misc_info *bmi = o;
+
+	bmi->bme = pb_msg(msg, BinfmtMiscEntry);
+	list_add_tail(&bmi->list, &binfmt_misc_list);
+
+	return 0;
+}
+
+struct collect_image_info binfmt_misc_cinfo = {
+	.fd_type = CR_FD_BINFMT_MISC,
+	.pb_type = PB_BINFMT_MISC,
+	.priv_size = sizeof(struct binfmt_misc_info),
+	.collect = collect_one_binfmt_misc_entry,
+};
+
+int collect_binfmt_misc(void)
+{
+	return collect_image(&binfmt_misc_cinfo);
+}
+
 
 static int fusectl_dump(struct mount_info *pm)
 {

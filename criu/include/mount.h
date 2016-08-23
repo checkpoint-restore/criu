@@ -90,6 +90,7 @@ struct mount_info {
 
 extern struct mount_info *mntinfo;
 extern struct ns_desc mnt_ns_desc;
+extern int collect_binfmt_misc(void);
 
 extern struct mount_info *mnt_entry_alloc();
 extern void mnt_entry_free(struct mount_info *mi);
