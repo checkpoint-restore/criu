@@ -128,6 +128,7 @@ extern int ext_mount_add(char *key, char *val);
 extern int mntns_maybe_create_roots(void);
 extern int read_mnt_ns_img(void);
 extern void cleanup_mnt_ns(void);
+extern void clean_cr_time_mounts(void);
 
 struct mount_info;
 typedef int (*mount_fn_t)(struct mount_info *mi, const char *src, const

@@ -40,6 +40,9 @@
 #undef	LOG_PREFIX
 #define LOG_PREFIX "mnt: "
 
+#define BINFMT_MISC_HOME "/proc/sys/fs/binfmt_misc"
+#define CRTIME_MNT_ID 0
+
 struct binfmt_misc_info {
 	BinfmtMiscEntry *bme;
 	struct list_head list;
@@ -1144,6 +1147,54 @@ static int attach_option(struct mount_info *pm, char *opt)
 	return pm->options ? 0 : -1;
 }
 
+static int add_cr_time_mount(struct mount_info *root, char *fsname, const char *path, unsigned int s_dev)
+{
+	struct mount_info *mi, *t, *parent;
+
+	mi = mnt_entry_alloc();
+	if (!mi)
+		return -1;
+	mi->mountpoint = xmalloc(strlen(path) + 2);
+	if (!mi->mountpoint)
+		return -1;
+	mi->ns_mountpoint = mi->mountpoint;
+	sprintf(mi->mountpoint, ".%s", path);
+	mi->mnt_id = CRTIME_MNT_ID;
+	mi->flags = mi->sb_flags = 0;
+	mi->root = xstrdup("/");
+	mi->fsname = xstrdup(fsname);
+	mi->source = xstrdup(fsname);
+	mi->options = xstrdup("");
+	if (!mi->root || !mi->fsname || !mi->source || !mi->options)
+		return -1;
+	mi->fstype = find_fstype_by_name(fsname);
+
+	mi->s_dev = mi->s_dev_rt = s_dev;
+
+	parent = root;
+	while (1) {
+		list_for_each_entry(t, &parent->children, siblings) {
+			if (strstartswith(mi->mountpoint, t->mountpoint)) {
+				parent = t;
+				break;
+			}
+		}
+		if (&t->siblings == &parent->children)
+			break;
+	}
+
+	mi->nsid = parent->nsid;
+	mi->parent = parent;
+	mi->parent_mnt_id = parent->mnt_id;
+	mi->next = parent->next;
+	parent->next = mi;
+	list_add(&mi->siblings, &parent->children);
+	pr_info("Add cr-time mountpoint %s with parent %s(%u)\n",
+		mi->mountpoint, parent->mountpoint, parent->mnt_id);
+	return 0;
+}
+
+
 /* Is it mounted w or w/o the newinstance option */
 static int devpts_parse(struct mount_info *pm)
 {
@@ -1287,6 +1338,39 @@ static int binfmt_misc_parse(struct mount_info *pm)
 		opts.has_binfmt_misc = true;
 	return 0;
 
+}
+
+/* Returns 1 in case of success, -errno in case of mount fail, and 0 on other errors */
+static int mount_cr_time_mount(struct ns_id *ns, unsigned int *s_dev, const char *source,
+			       const char *target, const char *type)
+{
+	int mnt_fd, ret, exit_code = 0;
+	struct stat st;
+
+	ret = switch_ns(ns->ns_pid, &mnt_ns_desc, &mnt_fd);
+	if (ret < 0) {
+		pr_err("Can't switch mnt_ns\n");
+		goto out;
+	}
+
+	ret = mount(source, target, type, 0, NULL);
+	if (ret < 0) {
+		exit_code = -errno;
+		goto restore_ns;
+	} else {
+		if (stat(target, &st) < 0) {
+			 pr_perror("Can't stat on %s\n", target);
+			 exit_code = 0;
+		} else {
+			*s_dev = st.st_dev;
+			exit_code = 1;
+		}
+	}
+
+restore_ns:
+	ret = restore_ns(mnt_fd, &mnt_ns_desc);
+out:
+	return ret < 0 ? 0 : exit_code;
 }
 
 static int binfmt_misc_virtual(struct mount_info *pm)
@@ -1942,6 +2026,11 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 	if (!pm->dumped && dump_one_fs(pm))
 		return -1;
 
+	if (pm->mnt_id == CRTIME_MNT_ID) {
+		pr_info("Skip dumping cr-time mountpoint: %s\n", pm->mountpoint);
+		return 0;
+	}
+
 	me.mnt_id		= pm->mnt_id;
 	me.root_dev		= pm->s_dev;
 	me.parent_mnt_id	= pm->parent_mnt_id;
@@ -2001,6 +2090,7 @@ static void free_mntinfo(struct mount_info *pms)
 struct mount_info *collect_mntinfo(struct ns_id *ns, bool for_dump)
 {
 	struct mount_info *pm;
+	int ret;
 
 	pm = parse_mountinfo(ns->ns_pid, ns, for_dump);
 	if (!pm) {
@@ -2011,6 +2101,22 @@ struct mount_info *collect_mntinfo(struct ns_id *ns, bool for_dump)
 	ns->mnt.mntinfo_tree = mnt_build_tree(pm, NULL);
 	if (ns->mnt.mntinfo_tree == NULL)
 		goto err;
+
+	if (for_dump && ns->type == NS_ROOT && !opts.has_binfmt_misc) {
+		unsigned int s_dev = 0;
+		ret = mount_cr_time_mount(ns, &s_dev, "binfmt_misc", BINFMT_MISC_HOME,
+					  "binfmt_misc");
+		if (ret == -EPERM)
+			pr_info("Can't mount binfmt_misc: EPERM. Running in user_ns?\n");
+		else if (ret < 0 && ret != -EBUSY && ret != -ENODEV && ret != -ENOENT) {
+			pr_err("Can't mount binfmt_misc: %d %s", ret, strerror(-ret));
+			return NULL;
+		} else if (ret == 0)
+			return NULL;
+		else if (ret > 0 && add_cr_time_mount(ns->mnt.mntinfo_tree, "binfmt_misc",
+						      BINFMT_MISC_HOME, s_dev) < 0)
+			return NULL;
+	}
 
 	ns->mnt.mntinfo_list = pm;
 	return pm;
@@ -3787,6 +3893,30 @@ int dump_mnt_namespaces(void)
 	}
 
 	return 0;
+}
+
+void clean_cr_time_mounts(void)
+{
+	struct mount_info *mi;
+	int mnt_fd, ret;
+
+	for (mi = mntinfo; mi; mi = mi->next) {
+		if (mi->mnt_id != CRTIME_MNT_ID)
+			continue;
+		ret = switch_ns(mi->nsid->ns_pid, &mnt_ns_desc, &mnt_fd);
+		if (ret) {
+			pr_err("Can't switch to pid's %u mnt_ns\n", mi->nsid->ns_pid);
+			continue;
+		}
+
+		if (umount(mi->mountpoint) < 0)
+			pr_perror("Can't umount forced mount %s\n", mi->mountpoint);
+
+		if (restore_ns(mnt_fd, &mnt_ns_desc)) {
+			pr_err("cleanup_forced_mounts exiting with wrong mnt_ns\n");
+			return;
+		}
+	}
 }
 
 struct ns_desc mnt_ns_desc = NS_DESC_ENTRY(CLONE_NEWNS, "mnt");
