@@ -107,6 +107,7 @@
 
 #define PAGES_OLD_MAGIC		PAGEMAP_MAGIC
 #define SHM_PAGES_OLD_MAGIC	PAGEMAP_MAGIC
+#define BINFMT_MISC_OLD_MAGIC	BINFMT_MISC_MAGIC
 
 /*
  * These are special files, not exactly images

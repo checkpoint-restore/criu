@@ -1383,7 +1383,7 @@ static int binfmt_misc_dump(struct mount_info *pm)
 	}
 
 	ret = -1;
-	img = open_image(CR_FD_BINFMT_MISC, O_DUMP, pm->s_dev);
+	img = open_image(CR_FD_BINFMT_MISC_OLD, O_DUMP, pm->s_dev);
 	if (!img)
 		goto out;
 
@@ -1497,7 +1497,7 @@ static int binfmt_misc_restore(struct mount_info *mi)
 	if (!buf)
 		return -1;
 
-	img = open_image(CR_FD_BINFMT_MISC, O_RSTR, mi->s_dev);
+	img = open_image(CR_FD_BINFMT_MISC_OLD, O_RSTR, mi->s_dev);
 	if (!img) {
 		goto free_buf;
 	}
