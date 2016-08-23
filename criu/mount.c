@@ -1413,7 +1413,7 @@ out:
 	return ret;
 }
 
-static int restore_binfmt_misc_entry(char *mp, char *buf, BinfmtMiscEntry *bme)
+static int write_binfmt_misc_entry(char *mp, char *buf, BinfmtMiscEntry *bme)
 {
 	int fd, len, ret = -1;
 	char path[PATH_MAX+1];
@@ -1493,6 +1493,31 @@ static int make_bfmtm_magic_str(char *buf, BinfmtMiscEntry *bme)
 	return 1;
 }
 
+static int binfmt_misc_restore_bme(struct mount_info *mi, BinfmtMiscEntry *bme, char *buf)
+{
+	int ret;
+
+	/* :name:type:offset:magic/extension:mask:interpreter:flags */
+	if ((!bme->magic && !bme->extension) || !bme->interpreter) {
+		pr_perror("binfmt_misc: bad dump");
+		ret = -1;
+	} else if (bme->magic) {
+		ret = make_bfmtm_magic_str(buf, bme);
+	} else if (bme->extension) {
+		/* :name:E::extension::interpreter:flags */
+		ret = snprintf(buf, BINFMT_MISC_STR, ":%s:E::%s::%s:%s",
+			       bme->name, bme->extension, bme->interpreter,
+			       bme->flags ? : "\0");
+	}
+
+	if (ret > 0) {
+		pr_debug("binfmt_misc_pattern=%s\n", buf);
+		ret = write_binfmt_misc_entry(mi->mountpoint, buf, bme);
+	}
+
+	return ret;
+}
+
 static int binfmt_misc_restore(struct mount_info *mi)
 {
 	struct cr_img *img;
@@ -1516,23 +1541,7 @@ static int binfmt_misc_restore(struct mount_info *mi)
 		if (ret <= 0)
 			break;
 
-		/* :name:type:offset:magic/extension:mask:interpreter:flags */
-		if ((!bme->magic && !bme->extension) || !bme->interpreter) {
-			pr_perror("binfmt_misc: bad dump");
-			ret = -1;
-		} else if (bme->magic) {
-			ret = make_bfmtm_magic_str(buf, bme);
-		} else if (bme->extension) {
-			/* :name:E::extension::interpreter:flags */
-			ret = snprintf(buf, BINFMT_MISC_STR, ":%s:E::%s::%s:%s",
-				       bme->name, bme->extension, bme->interpreter,
-				       bme->flags ? : "\0");
-		}
-
-		if (ret > 0) {
-			pr_debug("binfmt_misc_pattern=%s\n", buf);
-			ret = restore_binfmt_misc_entry(mi->mountpoint, buf, bme);
-		}
+		ret = binfmt_misc_restore_bme(mi, bme, buf);
 
 		binfmt_misc_entry__free_unpacked(bme, NULL);
 	}
