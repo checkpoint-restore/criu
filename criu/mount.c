@@ -2488,6 +2488,15 @@ static int do_new_mount(struct mount_info *mi)
 	if (tp->restore && tp->restore(mi))
 		return -1;
 
+	if (mi->mnt_id == CRTIME_MNT_ID) {
+		/* C-r time mountpoint, umount it */
+		if (umount(mi->mountpoint) < 0) {
+			pr_perror("Can't umount %s\n", mi->mountpoint);
+			return -1;
+		}
+		goto out;
+	}
+
 	if (remount_ro && mount(NULL, mi->mountpoint, tp->name,
 				     MS_REMOUNT | MS_RDONLY, NULL)) {
 		pr_perror("Unable to apply mount options");
@@ -2507,7 +2516,7 @@ static int do_new_mount(struct mount_info *mi)
 	BUG_ON(mi->master_id);
 	if (restore_shared_options(mi, !mi->shared_id, mi->shared_id, 0))
 		return -1;
-
+out:
 	mi->mounted = true;
 
 	return 0;
@@ -3398,6 +3407,13 @@ static int populate_mnt_ns(void)
 	pms = mnt_build_tree(mntinfo, roots_mp);
 	if (!pms)
 		return -1;
+
+	if (!opts.has_binfmt_misc && !list_empty(&binfmt_misc_list)) {
+		/* Add to mount tree. Generic code will mount it later */
+		ret = add_cr_time_mount(pms, "binfmt_misc", BINFMT_MISC_HOME, 0);
+		if (ret)
+			return -1;
+	}
 
 	if (resolve_shared_mounts(mntinfo, pms->master_id))
 		return -1;
