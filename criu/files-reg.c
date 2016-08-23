@@ -1195,10 +1195,15 @@ static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t owner
 	int errno_save;
 
 	ret = linkat(odir, opath, ndir, npath, 0);
-	if (ret < 0)
+	if (ret == 0)
+		return 0;
+
+	if (!( (errno == EPERM) && (root_ns_mask & CLONE_NEWUSER) )) {
+		errno_save = errno;
 		pr_perror("Can't link %s -> %s", opath, npath);
-	if (ret == 0 || errno != EPERM || !(root_ns_mask & CLONE_NEWUSER))
+		errno = errno_save;
 		return ret;
+	}
 
 	/*
 	 * Kernel before 4.3 has strange secutiry restrictions about
