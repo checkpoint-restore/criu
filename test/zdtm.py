@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 # vim: noet
 import argparse
+import glob
 import os
 import subprocess
 import time
@@ -101,6 +102,25 @@ def add_to_output(path):
 			break
 		fdo.write(buf)
 
+
+prev_crash_reports = set(glob.glob("/tmp/zdtm-core-*.txt"))
+
+
+def check_core_files():
+	reports = set(glob.glob("/tmp/zdtm-core-*.txt")) - prev_crash_reports
+	if not reports:
+		return False
+
+	while subprocess.Popen("ps axf | grep 'abrt\.sh'", shell = True).wait() == 0:
+		time.sleep(1)
+
+	for i in reports:
+		add_to_report(i, os.path.basename(i))
+		print_sep(i)
+		print open(i).read()
+		print_sep(i)
+
+	return True
 
 # Arch we run on
 arch = os.uname()[4]
@@ -1300,6 +1320,8 @@ class launcher:
 
 	def finish(self):
 		self.__wait_all()
+		if not opts['fault'] and check_core_files():
+			self.__fail = True
 		if self.__file_report:
 			self.__file_report.close()
 		if self.__fail:
