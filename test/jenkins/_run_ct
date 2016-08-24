@@ -1,7 +1,7 @@
 #!/bin/sh
 
 set -e
-mount --make-rprivate /
+mount --make-rslave /
 umount -l  /proc
 mount -t proc proc /proc/
 mount -t binfmt_misc none /proc/sys/fs/binfmt_misc/

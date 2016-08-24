@@ -84,7 +84,7 @@ static int prepare_mntns(void)
 		return -1;
 	}
 
-	if (mount("./old", "./old", NULL, MS_PRIVATE | MS_REC , NULL)) {
+	if (mount("./old", "./old", NULL, MS_SLAVE | MS_REC , NULL)) {
 		fprintf(stderr, "Can't bind-mount root: %m\n");
 		return -1;
 	}

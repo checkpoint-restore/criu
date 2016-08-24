@@ -20,8 +20,8 @@ int main(int argc, char **argv)
 		return 1;
 	pid = fork();
 	if (pid == 0) {
-		if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL)) {
-			fprintf(stderr, "mount(/, S_REC | MS_PRIVATE)): %m");
+		if (mount(NULL, "/", NULL, MS_REC | MS_SLAVE, NULL)) {
+			fprintf(stderr, "mount(/, S_REC | MS_SLAVE)): %m");
 			return 1;
 		}
 		umount2("/proc", MNT_DETACH);
