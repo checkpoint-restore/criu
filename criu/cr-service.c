@@ -114,6 +114,7 @@ static void set_resp_err(CriuResp *resp)
 {
 	resp->cr_errno = get_cr_errno();
 	resp->has_cr_errno = resp->cr_errno ? true : false;
+	resp->cr_errmsg = log_first_err();
 }
 
 static void send_criu_err(int sk, char *msg)
@@ -281,6 +282,11 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	log_set_loglevel(req->log_level);
 	if (log_init(opts.output) == -1) {
 		pr_perror("Can't initiate log");
+		goto err;
+	}
+
+	if (log_keep_err()) {
+		pr_perror("Can't tune log");
 		goto err;
 	}
 

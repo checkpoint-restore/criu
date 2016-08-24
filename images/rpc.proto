@@ -187,4 +187,5 @@ message criu_resp {
 
 	optional int32			cr_errno	= 7;
 	optional criu_features		features	= 8;
+	optional string			cr_errmsg	= 9;
 }
