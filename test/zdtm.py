@@ -20,6 +20,8 @@ import fcntl
 import errno
 import datetime
 import yaml
+import socket
+import criu as crpc
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -674,6 +676,72 @@ class criu_cli:
 		cr = subprocess.Popen(strace + [criu_bin, action] + args, env = env, preexec_fn = preexec)
 		return cr.wait()
 
+class criu_rpc:
+	@staticmethod
+	def __set_opts(criu, args, ctx):
+		while len(args) != 0:
+			arg = args.pop(0)
+			if arg == '-v4':
+				criu.opts.log_level = 4
+				continue
+			if arg == '-o':
+				criu.opts.log_file = args.pop(0)
+				continue
+			if arg == '-D':
+				criu.opts.images_dir_fd = os.open(args.pop(0), os.O_DIRECTORY)
+				ctx['imgd'] = criu.opts.images_dir_fd
+				continue
+			if arg == '-t':
+				criu.opts.pid = int(args.pop(0))
+				continue
+			if arg == '--pidfile':
+				ctx['pidf'] = args.pop(0)
+				continue
+			if arg == '--timeout':
+				criu.opts.timeout = int(args.pop(0))
+				continue
+			if arg == '--restore-detached':
+				# Set by service by default
+				ctx['rd'] = True
+				continue
+			if arg == '--root':
+				criu.opts.root = args.pop(0)
+				continue
+
+			raise test_fail_exc('RPC for %s required' % arg)
+
+	@staticmethod
+	def run(action, args, fault = None, strace = [], preexec = None):
+		if fault:
+			raise test_fail_exc('RPC and FAULT not supported')
+		if strace:
+			raise test_fail_exc('RPC and SAT not supported')
+		if preexec:
+			raise test_fail_exc('RPC and PREEXEC not supported')
+
+		ctx = {} # Object used to keep info untill action is done
+		criu = crpc.criu()
+		criu.use_binary(criu_bin)
+		criu_rpc.__set_opts(criu, args, ctx)
+
+		if action == 'dump':
+			criu.dump()
+		elif action == 'restore':
+			if not ctx.has_key('rd'):
+				raise test_fail_exc('RPC Non-detached restore is impossible')
+
+			res = criu.restore()
+			pidf = ctx.get('pidf')
+			if pidf:
+				open(pidf, 'w').write('%d\n' % res.pid)
+		else:
+			raise test_fail_exc('RPC for %s required' % action)
+
+		imgd = ctx.get('imgd')
+		if imgd:
+			os.close(imgd)
+		return 0
+
 class criu:
 	def __init__(self, opts):
 		self.__test = None
@@ -689,6 +757,7 @@ class criu:
 		self.__dedup = (opts['dedup'] and True or False)
 		self.__user = (opts['user'] and True or False)
 		self.__leave_stopped = (opts['stop'] and True or False)
+		self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
 
 	def logs(self):
 		return self.__dump_path
@@ -749,7 +818,7 @@ class criu:
 
 		__ddir = self.__ddir()
 
-		ret = criu_cli.run(action, s_args, self.__fault, strace, preexec)
+		ret = self.__criu.run(action, s_args, self.__fault, strace, preexec)
 		grep_errors(os.path.join(__ddir, log))
 		if ret != 0:
 			if self.__fault and int(self.__fault) < 128:
@@ -764,7 +833,7 @@ class criu:
 					os.rename(os.path.join(__ddir, log), os.path.join(__ddir, log + ".fail"))
 				# try again without faults
 				print "Run criu " + action
-				ret = criu_cli.run(action, s_args, False, strace, preexec)
+				ret = self.__criu.run(action, s_args, False, strace, preexec)
 				grep_errors(os.path.join(__ddir, log))
 				if ret == 0:
 					return
@@ -1255,7 +1324,7 @@ class launcher:
 		self.__show_progress()
 
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'stop',
-				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script',
+				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'rpc',
 				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
@@ -1703,6 +1772,7 @@ rp.add_argument("--sat", help = "Generate criu strace-s for sat tool (restore is
 rp.add_argument("--sbs", help = "Do step-by-step execution, asking user for keypress to continue", action = 'store_true')
 rp.add_argument("--freezecg", help = "Use freeze cgroup (path:state)")
 rp.add_argument("--user", help = "Run CRIU as regular user", action = 'store_true')
+rp.add_argument("--rpc", help = "Run CRIU via RPC rather than CLI", action = 'store_true')
 
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
 rp.add_argument("-p", "--parallel", help = "Run test in parallel")
