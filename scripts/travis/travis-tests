@@ -24,6 +24,10 @@ make -C test/zdtm
 
 umask 0000
 export SKIP_PREP=1
+# The 3.19 Ubuntu kernel has a bug. When pagemap are read for a few vma-s
+# for one read call, it returns incorrect data.
+# https://github.com/xemul/criu/issues/207
+export CRIU_PMC_OFF=1
 
 ./test/zdtm.py run -a -x 'cgroup*' -p 2
 

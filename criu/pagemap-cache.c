@@ -21,6 +21,13 @@
 
 #define PAGEMAP_LEN(addr)	(PAGE_PFN(addr) * sizeof(u64))
 
+/*
+ * It's a workaround for a kernel bug. In the 3.19 kernel when pagemap are read
+ * for a few vma-s for one read call, it returns incorrect data.
+ * https://github.com/xemul/criu/issues/207
+*/
+static bool pagemap_cache_disabled;
+
 static inline void pmc_reset(pmc_t *pmc)
 {
 	memzero(pmc, sizeof(*pmc));
@@ -46,6 +53,9 @@ int pmc_init(pmc_t *pmc, pid_t pid, const struct list_head *vma_head, size_t siz
 	pmc->map = xmalloc(pmc->map_len);
 	if (!pmc->map)
 		goto err;
+
+	if (pagemap_cache_disabled)
+		pr_debug("The pagemap cache is disabled\n");
 
 	if (kdat.pmap == PM_DISABLED) {
 		/*
@@ -107,7 +117,8 @@ static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 	 * The benefit (apart redusing the number of read() calls)
 	 * is to walk page tables less.
 	 */
-	if (len < PMC_SIZE && (vma->e->start - low) < PMC_SIZE_GAP) {
+	if (!pagemap_cache_disabled &&
+            len < PMC_SIZE && (vma->e->start - low) < PMC_SIZE_GAP) {
 		size_t size_cov = len;
 		size_t nr_vmas = 1;
 
@@ -173,4 +184,9 @@ void pmc_fini(pmc_t *pmc)
 	close_safe(&pmc->fd);
 	xfree(pmc->map);
 	pmc_reset(pmc);
+}
+
+static void __attribute__((constructor)) pagemap_cache_init(void)
+{
+	pagemap_cache_disabled = (getenv("CRIU_PMC_OFF") != NULL);
 }
