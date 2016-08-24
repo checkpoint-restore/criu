@@ -704,7 +704,7 @@ static int restore_one_zombie(CoreEntry *core)
 	prctl(PR_SET_NAME, (long)(void *)core->tc->comm, 0, 0, 0);
 
 	if (task_entries != NULL) {
-		restore_finish_stage(CR_STATE_RESTORE);
+		restore_finish_stage(task_entries, CR_STATE_RESTORE);
 		zombie_prepare_signals();
 	}
 
@@ -786,7 +786,7 @@ static int restore_one_task(int pid, CoreEntry *core)
 			return -1;
 		}
 
-		restore_finish_stage(CR_STATE_RESTORE);
+		restore_finish_stage(task_entries, CR_STATE_RESTORE);
 		if (wait_on_helpers_zombies()) {
 			pr_err("failed to wait on helpers and zombies\n");
 			ret = -1;
@@ -1278,7 +1278,7 @@ static int restore_task_with_children(void *_arg)
 
 	/* Wait prepare_userns */
 	if (current->parent == NULL &&
-            restore_finish_stage(CR_STATE_RESTORE_NS) < 0)
+            restore_finish_stage(task_entries, CR_STATE_RESTORE_NS) < 0)
 			goto err;
 
 	/*
@@ -1314,7 +1314,7 @@ static int restore_task_with_children(void *_arg)
 		if (root_prepare_shared())
 			goto err;
 
-		if (restore_finish_stage(CR_STATE_RESTORE_SHARED) < 0)
+		if (restore_finish_stage(task_entries, CR_STATE_RESTORE_SHARED) < 0)
 			goto err;
 	}
 
@@ -1351,7 +1351,7 @@ static int restore_task_with_children(void *_arg)
 		fini_restore_mntns();
 	}
 
-	if (restore_finish_stage(CR_STATE_FORKING) < 0)
+	if (restore_finish_stage(task_entries, CR_STATE_FORKING) < 0)
 		goto err;
 
 	if (restore_one_task(current->pid.virt, ca->core))

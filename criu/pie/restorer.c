@@ -467,18 +467,18 @@ long __export_restore_thread(struct thread_restore_args *args)
 
 	pr_info("%ld: Restored\n", sys_gettid());
 
-	restore_finish_stage(CR_STATE_RESTORE);
+	restore_finish_stage(task_entries, CR_STATE_RESTORE);
 
 	if (restore_signals(args->siginfo, args->siginfo_n, false))
 		goto core_restore_end;
 
-	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
+	restore_finish_stage(task_entries, CR_STATE_RESTORE_SIGCHLD);
 	restore_pdeath_sig(args);
 
 	if (args->ta->seccomp_mode != SECCOMP_MODE_DISABLED)
 		pr_info("Restoring seccomp mode %d for %ld\n", args->ta->seccomp_mode, sys_getpid());
 
-	restore_finish_stage(CR_STATE_RESTORE_CREDS);
+	restore_finish_stage(task_entries, CR_STATE_RESTORE_CREDS);
 
 	futex_dec_and_wake(&thread_inprogress);
 
@@ -1352,7 +1352,7 @@ long __export_restore_task(struct task_restore_args *args)
 
 	pr_info("%ld: Restored\n", sys_getpid());
 
-	restore_finish_stage(CR_STATE_RESTORE);
+	restore_finish_stage(task_entries, CR_STATE_RESTORE);
 
 	if (wait_helpers(args) < 0)
 		goto core_restore_end;
@@ -1376,7 +1376,7 @@ long __export_restore_task(struct task_restore_args *args)
 	if (ret)
 		goto core_restore_end;
 
-	restore_finish_stage(CR_STATE_RESTORE_SIGCHLD);
+	restore_finish_stage(task_entries, CR_STATE_RESTORE_SIGCHLD);
 
 	rst_tcp_socks_all(args);
 
@@ -1398,7 +1398,7 @@ long __export_restore_task(struct task_restore_args *args)
 
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
 
-	restore_finish_stage(CR_STATE_RESTORE_CREDS);
+	restore_finish_stage(task_entries, CR_STATE_RESTORE_CREDS);
 
 	if (ret)
 		BUG();

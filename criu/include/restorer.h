@@ -211,10 +211,10 @@ enum {
 	CR_STATE_COMPLETE
 };
 
-#define restore_finish_stage(__stage) ({				\
-		futex_dec_and_wake(&task_entries->nr_in_progress);	\
-		futex_wait_while(&task_entries->start, __stage);	\
-		(s32) futex_get(&task_entries->start);			\
+#define restore_finish_stage(__v, __stage) ({			\
+		futex_dec_and_wake(&(__v)->nr_in_progress);	\
+		futex_wait_while(&(__v)->start, __stage);	\
+		(s32) futex_get(&(__v)->start);			\
 	})
 
 
