@@ -11,7 +11,7 @@ echo "|`pwd`/test/abrt.sh %P %p %s %e" > /proc/sys/kernel/core_pattern
 apt-get update -qq
 apt-get install -qq protobuf-c-compiler libprotobuf-c0-dev libaio-dev	\
 	libprotobuf-dev protobuf-compiler python-ipaddr libcap-dev	\
-	libnl-3-dev gdb bash
+	libnl-3-dev gdb bash python-protobuf
 chmod a+x $HOME
 export GCOV=1
 make
