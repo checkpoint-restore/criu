@@ -399,7 +399,7 @@ class zdtm_test:
 			env['ZDTM_THREAD_BOMB'] = "5"
 
 		if not test_flag(self.__desc, 'suid'):
-			# Numbers should match those in criu_cli
+			# Numbers should match those in criu
 			env['ZDTM_UID'] = "18943"
 			env['ZDTM_GID'] = "58467"
 			env['ZDTM_GROUPS'] = "27495 48244"
@@ -664,7 +664,7 @@ criu_bin = "../criu/criu"
 join_ns_file = '/run/netns/zdtm_netns'
 
 
-class criu_cli:
+class criu:
 	def __init__(self, opts):
 		self.__test = None
 		self.__dump_path = None
@@ -843,7 +843,7 @@ class criu_cli:
 
 	@staticmethod
 	def check(feature):
-		return criu_cli.__criu("check", ["-v0", "--feature", feature]) == 0
+		return criu.__criu("check", ["-v0", "--feature", feature]) == 0
 
 	@staticmethod
 	def available():
@@ -1164,7 +1164,7 @@ def do_run_test(tname, tdesc, flavs, opts):
 			continue
 		flav = flavors[f](opts)
 		t = tclass(tname, tdesc, flav, fcg)
-		cr_api = criu_cli(opts)
+		cr_api = criu(opts)
 
 		try:
 			t.start()
@@ -1391,7 +1391,7 @@ def run_tests(opts):
 	features = {}
 
 	if opts['pre'] or opts['snaps']:
-		if not criu_cli.check("mem_dirty_track"):
+		if not criu.check("mem_dirty_track"):
 			print "Tracking memory is not available"
 			return
 
@@ -1461,7 +1461,7 @@ def run_tests(opts):
 			if feat:
 				if feat not in features:
 					print "Checking feature %s" % feat
-					features[feat] = criu_cli.check(feat)
+					features[feat] = criu.check(feat)
 
 				if not features[feat]:
 					l.skip(t, "no %s feature" % feat)
@@ -1490,7 +1490,7 @@ def run_tests(opts):
 				run_flavs = set(test_flavs) & set(opts_flavs)
 			else:
 				run_flavs = set([test_flavs.pop()])
-			if not criu_cli.check("userns"):
+			if not criu.check("userns"):
 				run_flavs -= set(['uns'])
 			if opts['user']:
 				# FIXME -- probably uns will make sense
@@ -1733,7 +1733,7 @@ if opts.get('sat', False):
 if opts['debug']:
 	sys.settrace(traceit)
 
-criu_cli.available()
+criu.available()
 for tst in test_classes.values():
 	tst.available()
 
