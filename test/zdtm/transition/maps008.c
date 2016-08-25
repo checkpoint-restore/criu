@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 #include <linux/limits.h>
 #include "zdtmtst.h"
+#include "lock.h"
 
 const char *test_doc = "ps tree with anon shared vmas for dedup";
 
@@ -134,6 +135,7 @@ static void chk_proc_mem_eq(pid_t pid1, void *addr1, unsigned long size1,
  * |       |          |
  * proc111 proc112    proc131
  */
+#define PROC_CNT 7
 
 #define PROC1_PGIX 0
 #define PROC11_PGIX 1
@@ -156,6 +158,12 @@ struct pstree {
 	pid_t proc131;
 };
 struct pstree *pstree;
+
+struct test_sync {
+	futex_t datagen;
+	futex_t datagen_exit_cnt;
+};
+struct test_sync *test_sync;
 
 size_t mem1_size = 1L << 20;
 size_t mem2_size = 1L << 21;
@@ -180,7 +188,7 @@ void datagen_each_pg(uint8_t *mem, size_t size, size_t off, uint32_t crc_epoch)
 	if (!mem)
 		return;
 
-	while (test_go() && (off < size)) {
+	while (futex_get(&test_sync->datagen) && (off < size)) {
 		uint32_t crc = crc_epoch;
 
 		datagen(mem + off, CRC_EPOCH_OFFSET, &crc);
@@ -239,8 +247,9 @@ static int proc131_func(task_waiter_t *setup_waiter)
 	mems_datagen_each_pgix(PROC131_PGIX, &crc_epoch);
 	task_waiter_complete_current(setup_waiter);
 
-	while (test_go())
+	while (futex_get(&test_sync->datagen))
 		mems_datagen_each_pgix(PROC131_PGIX, &crc_epoch);
+	futex_inc_and_wake(&test_sync->datagen_exit_cnt);
 	test_waitsig();
 
 	mems_datachck_each_pgix(PROC131_PGIX);
@@ -265,8 +274,9 @@ static int proc13_func(task_waiter_t *setup_waiter)
 	fork_and_setup(proc131_func);
 	task_waiter_complete_current(setup_waiter);
 
-	while (test_go())
+	while (futex_get(&test_sync->datagen))
 		mems_datagen_each_pgix(PROC13_PGIX, &crc_epoch);
+	futex_inc_and_wake(&test_sync->datagen_exit_cnt);
 	test_waitsig();
 
 	mems_datachck_each_pgix(PROC13_PGIX);
@@ -290,8 +300,9 @@ static int proc12_func(task_waiter_t *setup_waiter)
 	mems_datagen_each_pgix(PROC12_PGIX, &crc_epoch);
 	task_waiter_complete_current(setup_waiter);
 
-	while (test_go())
+	while (futex_get(&test_sync->datagen))
 		mems_datagen_each_pgix(PROC12_PGIX, &crc_epoch);
+	futex_inc_and_wake(&test_sync->datagen_exit_cnt);
 	test_waitsig();
 
 	mems_datachck_each_pgix(PROC12_PGIX);
@@ -307,8 +318,9 @@ static int proc111_func(task_waiter_t *setup_waiter)
 	mems_datagen_each_pgix(PROC111_PGIX, &crc_epoch);
 	task_waiter_complete_current(setup_waiter);
 
-	while (test_go())
+	while (futex_get(&test_sync->datagen))
 		mems_datagen_each_pgix(PROC111_PGIX, &crc_epoch);
+	futex_inc_and_wake(&test_sync->datagen_exit_cnt);
 	test_waitsig();
 
 	mems_datachck_each_pgix(PROC111_PGIX);
@@ -323,8 +335,9 @@ static int proc112_func(task_waiter_t *setup_waiter)
 	mems_datagen_each_pgix(PROC112_PGIX, &crc_epoch);
 	task_waiter_complete_current(setup_waiter);
 
-	while (test_go())
+	while (futex_get(&test_sync->datagen))
 		mems_datagen_each_pgix(PROC112_PGIX, &crc_epoch);
+	futex_inc_and_wake(&test_sync->datagen_exit_cnt);
 	test_waitsig();
 
 	mems_datachck_each_pgix(PROC112_PGIX);
@@ -350,8 +363,9 @@ static int proc11_func(task_waiter_t *setup_waiter)
 	mems_datagen_each_pgix(PROC11_PGIX, &crc_epoch);
 	task_waiter_complete_current(setup_waiter);
 
-	while (test_go())
+	while (futex_get(&test_sync->datagen))
 		mems_datagen_each_pgix(PROC11_PGIX, &crc_epoch);
+	futex_inc_and_wake(&test_sync->datagen_exit_cnt);
 	test_waitsig();
 
 	mems_datachck_each_pgix(PROC11_PGIX);
@@ -386,6 +400,7 @@ static int proc1_func(void)
 	uint32_t crc_epoch = 0;
 	uint8_t *mem2_old = NULL;
 
+	futex_set(&test_sync->datagen, 1);
 	pstree->proc1 = getpid();
 	mem1 = mmap_ashmem(mem1_size);
 	mem2 = mmap_ashmem(mem2_size);
@@ -410,6 +425,9 @@ static int proc1_func(void)
 	while (test_go())
 		mems_datagen_each_pgix(PROC1_PGIX, &crc_epoch);
 	test_waitsig();
+	futex_set(&test_sync->datagen_exit_cnt, 0);
+	futex_set(&test_sync->datagen, 0);
+	futex_wait_while(&test_sync->datagen_exit_cnt, PROC_CNT);
 
 	mems_datachck_each_pgix(PROC1_PGIX);
 
@@ -465,6 +483,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	pstree = (struct pstree *)mmap_ashmem(PAGE_SIZE);
+	test_sync = (struct test_sync *)mmap_ashmem(sizeof(*test_sync));
 
 	struct sigaction sa = {
 		.sa_sigaction = sigchld_hand,
