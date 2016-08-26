@@ -765,8 +765,10 @@ int collect_pstree(void)
 	if (ret < 0)
 		goto err;
 
-	if (opts.freeze_cgroup && freezer_wait_processes())
+	if (opts.freeze_cgroup && freezer_wait_processes()) {
+		ret = -1;
 		goto err;
+	}
 
 	ret = 0;
 	timing_stop(TIME_FREEZING);
