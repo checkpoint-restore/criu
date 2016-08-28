@@ -605,6 +605,7 @@ static int dump_one_shmem(struct shmem_info *si)
 	struct page_pipe *pp;
 	struct page_xfer xfer;
 	int err, ret = -1, fd;
+	unsigned char *mc_map = NULL;
 	void *addr = NULL;
 	unsigned long pfn, nrpages;
 
@@ -623,6 +624,14 @@ static int dump_one_shmem(struct shmem_info *si)
 	}
 
 	nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
+	mc_map = xmalloc(nrpages * sizeof(*mc_map));
+	if (!mc_map)
+		goto err_unmap;
+	/* We can't rely only on PME bits for anon shmem */
+	err = mincore(addr, si->size, mc_map);
+	if (err)
+		goto err_unmap;
+
 	pp = create_page_pipe((nrpages + 1) / 2, NULL, PP_CHUNK_MODE);
 	if (!pp)
 		goto err_unmap;
@@ -636,7 +645,7 @@ static int dump_one_shmem(struct shmem_info *si)
 		unsigned long pgaddr;
 
 		pgstate = get_pstate(si->pstate_map, pfn);
-		if (pgstate == PST_DONT_DUMP)
+		if ((pgstate == PST_DONT_DUMP) && !(mc_map[pfn] & PAGE_RSS))
 			continue;
 
 		pgaddr = (unsigned long)addr + pfn * PAGE_SIZE;
@@ -665,6 +674,7 @@ err_pp:
 err_unmap:
 	munmap(addr,  si->size);
 err:
+	xfree(mc_map);
 	return ret;
 }
 
