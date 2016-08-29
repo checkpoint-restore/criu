@@ -796,7 +796,7 @@ int collect_user_namespaces(bool for_dump)
 	if (!(root_ns_mask & CLONE_NEWUSER))
 		return 0;
 
-	return walk_namespaces(&net_ns_desc, collect_user_ns, NULL);
+	return walk_namespaces(&user_ns_desc, collect_user_ns, NULL);
 }
 
 static int check_user_ns(int pid)
