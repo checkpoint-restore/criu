@@ -70,6 +70,9 @@ message tty_info_entry {
 	 */
 	optional tty_pty_entry		pty		= 12;
 	optional uint32			dev		= 13;
+
+	optional uint32			uid		= 14;
+	optional uint32			gid		= 15;
 };
 
 message tty_file_entry {

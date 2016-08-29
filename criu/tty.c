@@ -838,6 +838,16 @@ static int restore_tty_params(int fd, struct tty_info *info)
 		winsize_copy(&p.w, info->tie->winsize);
 	}
 
+	if (info->tie->has_uid && info->tie->has_gid) {
+		if (fchown(fd, info->tie->uid, info->tie->gid)) {
+			pr_perror("Can't setup uid %d gid %d on %x\n",
+				  (int)info->tie->uid,
+				  (int)info->tie->gid,
+				  info->tfe->id);
+			return -1;
+		}
+	}
+
 	return userns_call(do_restore_tty_parms, UNS_ASYNC, &p, sizeof(p), fd);
 }
 
@@ -1713,6 +1723,11 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_d
 	info.locked		= pti->st_lock;
 	info.exclusive		= pti->st_excl;
 	info.packet_mode	= pti->st_pckt;
+
+	info.has_uid		= true;
+	info.uid		= userns_uid(p->stat.st_uid);
+	info.has_gid		= true;
+	info.gid		= userns_gid(p->stat.st_gid);
 
 	info.type = driver->type;
 	if (info.type == TTY_TYPE__PTY) {
