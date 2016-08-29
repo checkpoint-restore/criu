@@ -52,9 +52,8 @@ function remove_bindmount {
 }
 trap remove_bindmount EXIT
 
-function check_fs_type {
+function get_fs_type {
 	local mountpoint=$1
-	local fs_type=$2
 
 	local top_mount_id=""
 	local top_mount_fs_type=""
@@ -74,7 +73,7 @@ function check_fs_type {
 		top_mount_fs_type=$mnt_fs_type
 	done < "/proc/$CRTOOLS_INIT_PID/mountinfo"
 
-	[ "$top_mount_fs_type" = "$fs_type" ]
+	echo $top_mount_fs_type
 }
 
 function bind_mount {
@@ -89,9 +88,16 @@ function bind_mount {
 
 function save_mountpoint {
 	local mountpoint=$1
+	local top_mount_fs_type=""
+
+	top_mount_fs_type=$(get_fs_type $mountpoint)
+	if [ $? -ne 0 ]; then
+		echo "Failed to discover $mountpoint mount point type"
+		return
+	fi
 
 	# Nothing to do, if no file system is on top of autofs
-	check_fs_type $mountpoint "autofs" && return
+	[ "$top_mount_fs_type" = "autofs" ] && return
 
 	bindmount=$($JOIN_CT mktemp -d)
 	if [ -z "$bindmount" ]; then
