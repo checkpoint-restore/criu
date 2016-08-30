@@ -54,3 +54,10 @@ ip net add test
 
 pip install flake8
 make lint
+
+# Check that help output fits into 80 columns
+WIDTH=$(./criu/criu --help | wc --max-line-length)
+if [ "$WIDTH" -gt 80 ]; then
+	echo "criu --help output does not obey 80 characters line width!"
+	exit 1
+fi
