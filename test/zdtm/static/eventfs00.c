@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <inttypes.h>
 
 #include "zdtmtst.h"
 
@@ -65,7 +66,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	test_msg("created eventfd with %lx\n", v);
+	test_msg("created eventfd with %"PRIu64"\n", v);
 
 	ret = write(efd, &v, sizeof(v));
 	if (ret != sizeof(v)) {

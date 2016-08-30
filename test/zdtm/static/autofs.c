@@ -188,9 +188,10 @@ static int check_fd(struct autofs_params *p)
 	}
 
 	if (st.st_dev != p->fd_stat.st_dev) {
-		skip("%s: st_dev differs: %lu != %lu "
+		skip("%s: st_dev differs: %llu != %llu "
 		     "(waiting for \"device namespaces\")", p->mountpoint,
-				st.st_dev, p->fd_stat.st_dev);
+				(long long unsigned)st.st_dev,
+				(long long unsigned)p->fd_stat.st_dev);
 //		ret++;
 	}
 	if (st.st_mode != p->fd_stat.st_mode) {
@@ -200,7 +201,7 @@ static int check_fd(struct autofs_params *p)
 	}
 	if (st.st_nlink != p->fd_stat.st_nlink) {
 		pr_err("%s: st_nlink differs: %ld != %ld\n", p->mountpoint,
-				st.st_nlink, p->fd_stat.st_nlink);
+				(long)st.st_nlink, (long)p->fd_stat.st_nlink);
 		ret++;
 	}
 	if (st.st_uid != p->fd_stat.st_uid) {
@@ -214,8 +215,9 @@ static int check_fd(struct autofs_params *p)
 		ret++;
 	}
 	if (st.st_rdev != p->fd_stat.st_rdev) {
-		pr_err("%s: st_rdev differs: %ld != %ld\n", p->mountpoint,
-				st.st_rdev, p->fd_stat.st_rdev);
+		pr_err("%s: st_rdev differs: %lld != %lld\n", p->mountpoint,
+				(long long)st.st_rdev,
+				(long long)p->fd_stat.st_rdev);
 		ret++;
 	}
 	if (st.st_size != p->fd_stat.st_size) {
@@ -484,7 +486,7 @@ static int automountd_loop(int pipe, const char *mountpoint, struct autofs_param
 			return -EINVAL;
 		}
 		if (bytes != sizeof(*packet)) {
-			pr_err("read less than expected: %ld\n", bytes);
+			pr_err("read less than expected: %zd\n", bytes);
 			return -EINVAL;
 		}
 		err = automountd_serve(mountpoint, param, packet);
