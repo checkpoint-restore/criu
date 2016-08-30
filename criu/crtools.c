@@ -899,13 +899,12 @@ usage:
 "			    user:PID,UID,GID\n"
 "\n"
 "Check options:\n"
-"  without any arguments, \"criu check\" checks availability of absolutely required\n"
-"  kernel features; if any of these features is missing dump and restore will fail\n"
-"  --extra               also check availability of extra kernel features\n"
-"  --experimental        also check availability of experimental kernel features\n"
-"  --all                 also check availability of extra and experimental kernel features\n"
-"  --feature FEAT        only check availability of one of the following kernel features\n"
-"                        "
+"  Without options, \"criu check\" checks availability of absolutely required\n"
+"  kernel features, critical for performing dump and restore.\n"
+"  --extra               add check for extra kernel features\n"
+"  --experimental        add check for experimental kernel features\n"
+"  --all                 same as --extra --experimental\n"
+"  --feature FEAT        only check a particular feature, one of:"
 	);
 	check_add_feature("list");
 	pr_msg(
