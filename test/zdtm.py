@@ -317,10 +317,12 @@ def wait_pid_die(pid, who, tmo = 30):
 		except:  # Died
 			break
 
-		print "Wait for %s to die for %f" % (who, stime)
+		print "Wait for %s(%d) to die for %f" % (who, pid, stime)
 		time.sleep(stime)
 		stime *= 2
 	else:
+		subprocess.Popen(["ps", "-p", str(pid)]).wait()
+		subprocess.Popen(["ps", "axf", str(pid)]).wait()
 		raise test_fail_exc("%s die" % who)
 
 
@@ -439,6 +441,7 @@ class zdtm_test:
 	def kill(self, sig = signal.SIGKILL):
 		self.__freezer.thaw()
 		if self.__pid:
+			print "Send the %d signal to  %s" % (sig, self.__pid)
 			os.kill(int(self.__pid), sig)
 			self.gone(sig == signal.SIGKILL)
 
