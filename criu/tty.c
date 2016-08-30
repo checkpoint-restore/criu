@@ -119,6 +119,7 @@ struct tty_dump_info {
 	size_t				tty_data_size;
 };
 
+static bool stdin_isatty = false;
 static LIST_HEAD(all_tty_info_entries);
 static LIST_HEAD(all_ttys);
 
@@ -931,11 +932,17 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 	 */
 
 	if (likely(slave->inherit)) {
+		if (!stdin_isatty) {
+			pr_err("Don't have tty to inherit session from, aborting\n");
+			return -1;
+		}
+
 		fd = dup(get_service_fd(SELF_STDIN_OFF));
 		if (fd < 0) {
 			pr_perror("Can't dup SELF_STDIN_OFF");
 			return -1;
 		}
+
 		pr_info("Migrated slave peer %x -> to fd %d\n",
 			slave->tfe->id, fd);
 	} else {
@@ -2041,10 +2048,10 @@ int tty_prep_fds(void)
 	if (!opts.shell_job)
 		return 0;
 
-	if (!isatty(STDIN_FILENO)) {
-		pr_err("Standard stream is not a terminal, aborting\n");
-		return -1;
-	}
+	if (!isatty(STDIN_FILENO))
+		pr_info("Standard stream is not a terminal, may fail later\n");
+	else
+		stdin_isatty = true;
 
 	if (install_service_fd(SELF_STDIN_OFF, STDIN_FILENO) < 0) {
 		pr_perror("Can't dup stdin to SELF_STDIN_OFF");
