@@ -1,4 +1,4 @@
-#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE 500
 #include <stdlib.h>
 #include "zdtmtst.h"
 #include <sys/types.h>
