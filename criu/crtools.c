@@ -906,7 +906,7 @@ usage:
 "  --all                 same as --extra --experimental\n"
 "  --feature FEAT        only check a particular feature, one of:"
 	);
-	check_add_feature("list");
+	pr_check_features("                            ", ", ", 80);
 	pr_msg(
 "\n"
 "* Logging:\n"
