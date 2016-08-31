@@ -51,16 +51,16 @@ tests_root = None
 
 def clean_tests_root():
 	global tests_root
-	if tests_root:
-		os.rmdir(tests_root)
+	if tests_root and tests_root[0] == os.getpid():
+		os.rmdir(tests_root[1])
 
 
 def make_tests_root():
 	global tests_root
 	if not tests_root:
-		tests_root = tempfile.mkdtemp("", "criu-root-", "/tmp")
+		tests_root = (os.getpid(), tempfile.mkdtemp("", "criu-root-", "/tmp"))
 		atexit.register(clean_tests_root)
-	return tests_root
+	return tests_root[1]
 
 # Report generation
 
