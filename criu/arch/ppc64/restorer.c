@@ -9,6 +9,37 @@
 
 int restore_nonsigframe_gpregs(UserPpc64RegsEntry *r)
 {
+#define SPRN_TFHAR	128
+#define SPRN_TFIAR	129
+#define SPRN_TEXASR	130
+
+	if (r->has_tfhar) {
+		asm __volatile__ (
+			"ld	3, %[value]	;"
+			"mtspr	%[sprn],3	;"
+			: [value]"=m"(r->tfhar)
+			: [sprn]"i"(SPRN_TFHAR)
+			: "r3");
+	}
+
+	if (r->has_tfiar) {
+		asm __volatile__ (
+			"ld	3, %[value]	;"
+			"mtspr	%[sprn],3	;"
+			: [value]"=m"(r->tfiar)
+			: [sprn]"i"(SPRN_TFIAR)
+			: "r3");
+	}
+
+	if (r->has_texasr) {
+		asm __volatile__ (
+			"ld	3, %[value]	;"
+			"mtspr	%[sprn],3	;"
+			: [value]"=m"(r->texasr)
+			: [sprn]"i"(SPRN_TEXASR)
+			: "r3");
+	}
+
 	return 0;
 }
 

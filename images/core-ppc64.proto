@@ -11,6 +11,10 @@ message user_ppc64_regs_entry {
 	required uint64 xer		= 7;
 	required uint64 ccr		= 8;
 	required uint64 trap		= 9;
+	/* For Transactional memory support since P8 */
+	optional uint64 texasr		= 10;
+	optional uint64 tfhar		= 11;
+	optional uint64 tfiar		= 12;
 }
 
 message user_ppc64_fpstate_entry {
@@ -45,10 +49,21 @@ message user_ppc64_vsxstate_entry {
 	repeated uint64 vsxregs		= 1;
 }
 
+/*
+ * Transactional memory operation's state
+ */
+message user_ppc64_tm_regs_entry {
+	required user_ppc64_regs_entry		gpregs 		= 1;
+	optional user_ppc64_fpstate_entry	fpstate		= 2;
+	optional user_ppc64_vrstate_entry	vrstate		= 3;
+	optional user_ppc64_vsxstate_entry	vsxstate	= 4;
+}
+
 message thread_info_ppc64 {
 	required uint64			 	clear_tid_addr	= 1;
 	required user_ppc64_regs_entry	 	gpregs		= 2;
 	optional user_ppc64_fpstate_entry 	fpstate		= 3;
 	optional user_ppc64_vrstate_entry	vrstate		= 4;
 	optional user_ppc64_vsxstate_entry	vsxstate	= 5;
+	optional user_ppc64_tm_regs_entry	tmstate		= 6;
 }

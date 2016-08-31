@@ -3,6 +3,7 @@
 #include <elf.h>
 #include <sys/user.h>
 #include <asm/unistd.h>
+#include <sys/uio.h>
 
 #include "asm/types.h"
 #include "asm/fpu.h"
@@ -21,8 +22,22 @@
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
 
-#define MSR_VEC (1<<25)
-#define MSR_VSX (1<<23)
+#define MSR_TMA (1UL<<34)	/* bit 29 Trans Mem state: Transactional */
+#define MSR_TMS (1UL<<33)	/* bit 30 Trans Mem state: Suspended */
+#define MSR_TM  (1UL<<32)	/* bit 31 Trans Mem Available */
+#define MSR_VEC (1UL<<25)
+#define MSR_VSX (1UL<<23)
+
+#define MSR_TM_ACTIVE(x) ((((x) & MSR_TM) && ((x)&(MSR_TMA|MSR_TMS))) != 0)
+
+#ifndef NT_PPC_TM_SPR
+#define NT_PPC_TM_CGPR  0x108           /* TM checkpointed GPR Registers */
+#define NT_PPC_TM_CFPR  0x109           /* TM checkpointed FPR Registers */
+#define NT_PPC_TM_CVMX  0x10a           /* TM checkpointed VMX Registers */
+#define NT_PPC_TM_CVSX  0x10b           /* TM checkpointed VSX Registers */
+#define NT_PPC_TM_SPR   0x10c           /* TM Special Purpose Registers */
+#endif
+
 
 /*
  * Injected syscall instruction
@@ -392,8 +407,158 @@ static UserPpc64RegsEntry *allocate_gp_regs(void)
 	return gpregs;
 }
 
+/****************************************************************************
+ * TRANSACTIONAL MEMORY SUPPORT
+ */
+static void xfree_tm_state(UserPpc64TmRegsEntry *tme)
+{
+	if (tme) {
+		if (tme->fpstate) {
+			xfree(tme->fpstate->fpregs);
+			xfree(tme->fpstate);
+		}
+		if (tme->vrstate) {
+			xfree(tme->vrstate->vrregs);
+			xfree(tme->vrstate);
+		}
+		if (tme->vsxstate) {
+			xfree(tme->vsxstate->vsxregs);
+			xfree(tme->vsxstate);
+		}
+                if (tme->gpregs) {
+			if (tme->gpregs->gpr)
+				xfree(tme->gpregs->gpr);
+			xfree(tme->gpregs);
+		}
+		xfree(tme);
+	}
+}
+
+static int get_tm_regs(pid_t pid, CoreEntry *core)
+{
+	struct {
+		uint64_t tfhar, texasr, tfiar;
+	} tm_spr_regs;
+	user_regs_struct_t regs;
+	uint64_t fpregs[NFPREG], vmxregs[34][2], vsxregs[32];
+	struct iovec iov;
+	UserPpc64TmRegsEntry *tme;
+	UserPpc64RegsEntry *gpregs = core->ti_ppc64->gpregs;
+
+	pr_debug("Dumping TM registers\n");
+
+	tme = xmalloc(sizeof(*tme));
+	if (!tme)
+		return -1;
+	user_ppc64_tm_regs_entry__init(tme);
+
+	tme->gpregs = allocate_gp_regs();
+	if (!tme->gpregs)
+		goto out_free;
+
+#define TM_REQUIRED	0
+#define TM_OPTIONAL	1
+#define PTRACE_GET_TM(s,n,c,u) do {					\
+	iov.iov_base = &s;						\
+	iov.iov_len = sizeof(s);					\
+	if (ptrace(PTRACE_GETREGSET, pid, c, &iov)) {			\
+		if (!u || errno != EIO) {				\
+			pr_perror("Couldn't get TM "n);			\
+			pr_err("Your kernel seems to not support the "	\
+			       "new TM ptrace API (>= 4.8)\n");		\
+			goto out_free;					\
+		}							\
+		pr_debug("TM "n" not supported.\n");			\
+		iov.iov_base = NULL;					\
+	}								\
+} while(0)
+
+	/* Get special registers */
+	PTRACE_GET_TM(tm_spr_regs, "SPR", NT_PPC_TM_SPR, TM_REQUIRED);
+	gpregs->has_tfhar 	= true;
+	gpregs->tfhar 		= tm_spr_regs.tfhar;
+	gpregs->has_texasr 	= true;
+	gpregs->texasr		= tm_spr_regs.texasr;
+	gpregs->has_tfiar 	= true;
+	gpregs->tfiar		= tm_spr_regs.tfiar;
+
+	/* Get checkpointed regular registers */
+	PTRACE_GET_TM(regs, "GPR", NT_PPC_TM_CGPR, TM_REQUIRED);
+	copy_gp_regs(gpregs, &regs);
+
+	/* Get checkpointed FP registers */
+	PTRACE_GET_TM(fpregs, "FPR", NT_PPC_TM_CFPR, TM_OPTIONAL);
+	if (iov.iov_base) {
+		core->ti_ppc64->fpstate = copy_fp_regs(fpregs);
+		if (!core->ti_ppc64->fpstate)
+			goto out_free;
+	}
+
+	/* Get checkpointed VMX (Altivec) registers */
+	PTRACE_GET_TM(vmxregs, "VMX", NT_PPC_TM_CVMX, TM_OPTIONAL);
+	if (iov.iov_base) {
+		core->ti_ppc64->vrstate = copy_altivec_regs((unsigned char *)vmxregs);
+		if (!core->ti_ppc64->vrstate)
+			goto out_free;
+	}
+
+	/* Get checkpointed VSX registers */
+	PTRACE_GET_TM(vsxregs, "VSX", NT_PPC_TM_CVSX, TM_OPTIONAL);
+	if (iov.iov_base) {
+		core->ti_ppc64->vsxstate = copy_vsx_regs(vsxregs);
+		if (!core->ti_ppc64->vsxstate)
+			goto out_free;
+	}
+
+	core->ti_ppc64->tmstate = tme;
+	return 0;
+
+out_free:
+	xfree_tm_state(tme);
+	return -1;	/* still failing the checkpoint */
+}
+
+static int put_tm_regs(struct rt_sigframe *f, UserPpc64TmRegsEntry *tme)
+{
+/*
+ * WARNING: As stated in kernel's restore_tm_sigcontexts, TEXASR has to be
+ * restored by the process itself :
+ *   TEXASR was set by the signal delivery reclaim, as was TFIAR.
+ *   Users doing anything abhorrent like thread-switching w/ signals for
+ *   TM-Suspended code will have to back TEXASR/TFIAR up themselves.
+ *   For the case of getting a signal and simply returning from it,
+ *   we don't need to re-copy them here.
+ */
+	struct ucontext *tm_uc = &f->uc_transact;
+
+	pr_debug("Restoring TM registers FP:%d VR:%d VSX:%d\n",
+		 !!(tme->fpstate), !!(tme->vrstate), !!(tme->vsxstate));
+
+	restore_gp_regs(&tm_uc->uc_mcontext, tme->gpregs);
+
+	if (tme->fpstate)
+		put_fpu_regs(&tm_uc->uc_mcontext, tme->fpstate);
+
+	if (tme->vrstate && put_altivec_regs(&tm_uc->uc_mcontext,
+					     tme->vrstate))
+		return -1;
+
+	if (tme->vsxstate && put_vsx_regs(&tm_uc->uc_mcontext,
+					  tme->vsxstate))
+		return -1;
+
+	f->uc.uc_link = tm_uc;
+	return 0;
+}
+
+/****************************************************************************/
 int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 {
+	UserPpc64RegsEntry *gpregs;
+	UserPpc64FpstateEntry **fpstate;
+	UserPpc64VrstateEntry **vrstate;
+	UserPpc64VsxstateEntry **vsxstate;
+
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
 
 	/*
@@ -423,35 +588,60 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 	/* Resetting trap since we are now coming from user space. */
 	regs.trap = 0;
 
-	copy_gp_regs(core->ti_ppc64->gpregs, &regs);
+	/*
+	 * Check for Transactional Memory operation in progress.
+	 * Until we have support of TM register's state through the ptrace API,
+	 * we can't checkpoint process with TM operation in progress (almost
+	 * impossible) or suspended (easy to get).
+	 */
+	if (MSR_TM_ACTIVE(regs.msr)) {
+		pr_debug("Task %d has %s TM operation at 0x%lx\n",
+			 pid,
+			 (regs.msr & MSR_TMS) ? "a suspended" : "an active",
+			 regs.nip);
+		if (get_tm_regs(pid, core))
+			return -1;
 
-	core->ti_ppc64->fpstate = get_fpu_regs(pid);
-	if (!core->ti_ppc64->fpstate)
+		gpregs = core->ti_ppc64->tmstate->gpregs;
+		fpstate = &(core->ti_ppc64->tmstate->fpstate);
+		vrstate = &(core->ti_ppc64->tmstate->vrstate);
+		vsxstate = &(core->ti_ppc64->tmstate->vsxstate);
+	} else {
+		gpregs = core->ti_ppc64->gpregs;
+		fpstate = &(core->ti_ppc64->fpstate);
+		vrstate = &(core->ti_ppc64->vrstate);
+		vsxstate = &(core->ti_ppc64->vsxstate);
+	}
+
+	copy_gp_regs(gpregs, &regs);
+
+	*fpstate = get_fpu_regs(pid);
+	if (!*fpstate)
 		return -1;
 
-	core->ti_ppc64->vrstate = get_altivec_regs(pid);
-	if (core->ti_ppc64->vrstate) {
-		if (core->ti_ppc64->vrstate == (UserPpc64VrstateEntry*)-1L)
+	*vrstate = get_altivec_regs(pid);
+	if (*vrstate) {
+		if (*vrstate == (UserPpc64VrstateEntry*)-1L)
 			return -1;
 		/*
 		 * Force the MSR_VEC bit of the restored MSR otherwise the
 		 * kernel will not restore them from the signal frame.
 		 */
-		core->ti_ppc64->gpregs->msr |= MSR_VEC;
+		gpregs->msr |= MSR_VEC;
 
 		/*
 		 * Save the VSX registers if Altivec registers are supported
 		 */
-		core->ti_ppc64->vsxstate = get_vsx_regs(pid);
-		if (core->ti_ppc64->vsxstate) {
-			if (core->ti_ppc64->vsxstate == (UserPpc64VsxstateEntry *)-1L)
+		*vsxstate = get_vsx_regs(pid);
+		if (*vsxstate) {
+			if (*vsxstate == (UserPpc64VsxstateEntry *)-1L)
 				return -1;
 			/*
 			 * Force the MSR_VSX bit of the restored MSR otherwise
 			 * the kernel will not restore them from the signal
 			 * frame.
 			 */
-			core->ti_ppc64->gpregs->msr |= MSR_VSX;
+			gpregs->msr |= MSR_VSX;
 		}
 	}
 
@@ -493,6 +683,7 @@ void arch_free_thread_info(CoreEntry *core)
 			xfree(CORE_THREAD_ARCH_INFO(core)->vsxstate->vsxregs);
 			xfree(CORE_THREAD_ARCH_INFO(core)->vsxstate);
 		}
+		xfree_tm_state(CORE_THREAD_ARCH_INFO(core)->tmstate);
                 xfree(CORE_THREAD_ARCH_INFO(core)->gpregs->gpr);
                 xfree(CORE_THREAD_ARCH_INFO(core)->gpregs);
                 xfree(CORE_THREAD_ARCH_INFO(core));
@@ -503,6 +694,7 @@ void arch_free_thread_info(CoreEntry *core)
 int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 {
 	int ret = 0;
+
 	if (CORE_THREAD_ARCH_INFO(core)->fpstate)
 		put_fpu_regs(&sigframe->uc.uc_mcontext,
 			     CORE_THREAD_ARCH_INFO(core)->fpstate);
@@ -523,6 +715,14 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 		ret = -1;
 	}
 
+	if (!ret && CORE_THREAD_ARCH_INFO(core)->tmstate)
+		ret = put_tm_regs(sigframe,
+				  CORE_THREAD_ARCH_INFO(core)->tmstate);
+	else if (MSR_TM_ACTIVE(core->ti_ppc64->gpregs->msr)) {
+		pr_err("TM register's data mismatch, corrupted image ?\n");
+		ret = -1;
+	}
+
 	return ret;
 }
 
@@ -531,12 +731,8 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
  * used in the context of the checkpointed process, the v_regs pointer in the
  * signal frame must be updated to match the address in the remote stack.
  */
-int sigreturn_prep_fpu_frame(struct rt_sigframe *frame,
-		struct rt_sigframe *rframe)
+static inline void update_vregs(mcontext_t *lcontext, mcontext_t *rcontext)
 {
-	mcontext_t *rcontext = RT_SIGFRAME_FPU(rframe);
-	mcontext_t *lcontext = RT_SIGFRAME_FPU(frame);
-
 	if (lcontext->v_regs) {
 		uint64_t offset = (uint64_t)(lcontext->v_regs) - (uint64_t)lcontext;
 		lcontext->v_regs = (vrregset_t *)((uint64_t)rcontext + offset);
@@ -545,6 +741,28 @@ int sigreturn_prep_fpu_frame(struct rt_sigframe *frame,
 			 (unsigned long long) lcontext->v_regs,
 			 (unsigned long long) rcontext);
 	}
+}
+
+int sigreturn_prep_fpu_frame(struct rt_sigframe *frame,
+			     struct rt_sigframe *rframe)
+{
+	uint64_t msr = frame->uc.uc_mcontext.gp_regs[PT_MSR];
+
+	update_vregs(&frame->uc.uc_mcontext, &rframe->uc.uc_mcontext);
+
+	/* Sanity check: If TM so uc_link should be set, otherwise not */
+	if (MSR_TM_ACTIVE(msr) ^ (!!(frame->uc.uc_link))) {
+		BUG();
+		return 1;
+	}
+
+	/* Updating the transactional state address if any */
+	if (frame->uc.uc_link) {
+		update_vregs(&frame->uc_transact.uc_mcontext,
+			     &rframe->uc_transact.uc_mcontext);
+		frame->uc.uc_link =  &rframe->uc_transact;
+	}
+
 	return 0;
 }
 

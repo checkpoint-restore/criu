@@ -32,13 +32,7 @@
 struct rt_sigframe {
         /* sys_rt_sigreturn requires the ucontext be the first field */
         struct ucontext uc;
-#if 1
-	/*
-	 * XXX: Assuming that transactional is turned on by default in
-	 * most of the Linux distribution.
-	 */
-        struct ucontext uc_transact;
-#endif
+        struct ucontext uc_transact;  	/* Transactional state	 */
         unsigned long _unused[2];
         unsigned int tramp[TRAMP_SIZE];
         struct rt_siginfo *pinfo;
