@@ -29,6 +29,10 @@ export SKIP_PREP=1
 # https://github.com/xemul/criu/issues/207
 export CRIU_PMC_OFF=1
 
+chmod 0777 test/
+chmod 0777 test/zdtm/static
+chmod 0777 test/zdtm/transition
+
 ./test/zdtm.py run -a -x 'cgroup*' -p 2
 
 bash ./test/jenkins/criu-fault.sh
