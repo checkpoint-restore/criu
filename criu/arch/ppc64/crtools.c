@@ -168,7 +168,7 @@ static int get_altivec_regs(pid_t pid, CoreEntry *core)
 	 * "Userland shall check AT_HWCAP to know whether it can rely on the
 	 * v_regs pointer or not"
 	 */
-	unsigned char vrregs[33 * 16 + 4];
+	unsigned char vrregs[(NVRREG-1) * 16 + 4];
 	UserPpc64VrstateEntry *vse;
 	uint64_t *p64;
 	uint32_t *p32;
@@ -192,7 +192,8 @@ static int get_altivec_regs(pid_t pid, CoreEntry *core)
 		return -1;
 	user_ppc64_vrstate_entry__init(vse);
 
-	vse->n_vrregs = 33 * 2; /* protocol buffer store 64bit entries */
+	/* protocol buffer store only 64bit entries and we need 128bit */
+	vse->n_vrregs = (NVRREG-1) * 2;
 	vse->vrregs = xmalloc(vse->n_vrregs * sizeof(vse->vrregs[0]));
 	if (!vse->vrregs) {
 		xfree(vse);
@@ -200,13 +201,13 @@ static int get_altivec_regs(pid_t pid, CoreEntry *core)
 	}
 
 	/* Vectors are 2*64bits entries */
-	for (i = 0; i < 33; i++) {
+	for (i = 0; i < (NVRREG-1); i++) {
 		p64 = (uint64_t*) &vrregs[i * 2 * sizeof(uint64_t)];
 		vse->vrregs[i*2] =  p64[0];
 		vse->vrregs[i*2 + 1] = p64[1];
 	}
 
-	p32 = (uint32_t*) &vrregs[33 * 2 * sizeof(uint64_t)];
+	p32 = (uint32_t*) &vrregs[(NVRREG-1) * 2 * sizeof(uint64_t)];
 	vse->vrsave = *p32;
 
 	core->ti_ppc64->vrstate = vse;
@@ -226,7 +227,7 @@ static int put_altivec_regs(mcontext_t *mc, UserPpc64VrstateEntry *vse)
 
 	pr_debug("Restoring Altivec registers\n");
 
-	if (vse->n_vrregs != 33*2) {
+	if (vse->n_vrregs != (NVRREG-1)*2) {
 		pr_err("Corrupted Altivec dump data\n");
 		return -1;
 	}
@@ -234,7 +235,8 @@ static int put_altivec_regs(mcontext_t *mc, UserPpc64VrstateEntry *vse)
 	/* Note that this should only be done in the case MSR_VEC is set but
 	 * this is not a big deal to do that in all cases.
 	 */
-	memcpy(&v_regs->vrregs[0][0], vse->vrregs, sizeof(uint64_t) * 2 * 33);
+	memcpy(&v_regs->vrregs[0][0], vse->vrregs,
+	       sizeof(uint64_t) * 2 * (NVRREG-1));
 	/* vscr has been restored with the previous memcpy which copied 32
 	 * 128bits registers + a 128bits field containing the vscr value in
 	 * the low part.
