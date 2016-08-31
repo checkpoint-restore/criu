@@ -143,6 +143,8 @@ static LIST_HEAD(all_ttys);
 #define CONSOLE_INDEX	1002
 #define VT_INDEX	1004
 #define CTTY_INDEX	1006
+#define ETTY_INDEX	1008
+#define STTY_INDEX	1010
 #define INDEX_ERR	(MAX_TTYS + 1)
 
 static DECLARE_BITMAP(tty_bitmap, (MAX_TTYS << 1));
@@ -221,12 +223,14 @@ static int open_ext_tty(struct tty_info *info);
 static struct tty_driver ext_driver = {
 	.type			= TTY_TYPE__EXT_TTY,
 	.name			= "ext",
+	.index			= ETTY_INDEX,
 	.open			= open_ext_tty,
 };
 
 static struct tty_driver serial_driver = {
 	.type			= TTY_TYPE__SERIAL,
 	.name			= "serial",
+	.index			= STTY_INDEX,
 	.open			= open_simple_tty,
 };
 
