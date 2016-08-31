@@ -105,7 +105,7 @@ DEFINES			+= -D_GNU_SOURCE
 
 CFLAGS			+= $(USERCFLAGS)
 
-WARNINGS		:= -Wall
+WARNINGS		:= -Wall -Wformat-security
 
 CFLAGS-GCOV		:= --coverage -fno-exceptions -fno-inline
 export CFLAGS-GCOV
