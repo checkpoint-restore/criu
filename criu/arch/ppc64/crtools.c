@@ -116,7 +116,13 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
  *
  * PTRACE_GETVSRREGS and PTRACE_GETFPREGS are required since we need
  * to save FPSCR too.
+ *
+ * There 32 VSX double word registers to save since the 32 first VSX double
+ * word registers are saved through FPR[0..32] and the remaining registers
+ * are saved when saving the Altivec registers VR[0..32].
  */
+#define NVSXREG		32
+
 static int get_fpu_regs(pid_t pid, CoreEntry *core)
 {
 	uint64_t fpregs[NFPREG];
@@ -260,7 +266,7 @@ static int put_altivec_regs(mcontext_t *mc, UserPpc64VrstateEntry *vse)
 static int get_vsx_regs(pid_t pid, CoreEntry *core)
 {
 	UserPpc64VsxstateEntry *vse;
-	uint64_t vsregs[32];
+	uint64_t vsregs[NVSXREG];
 	int i;
 
 	if (ptrace(PTRACE_GETVSRREGS, pid, 0, (void*)&vsregs) < 0) {
@@ -283,7 +289,7 @@ static int get_vsx_regs(pid_t pid, CoreEntry *core)
 		return -1;
 	user_ppc64_vsxstate_entry__init(vse);
 
-	vse->n_vsxregs = 32;
+	vse->n_vsxregs = NVSXREG;
 	vse->vsxregs = xmalloc(vse->n_vsxregs * sizeof(vse->vsxregs[0]));
 	if (!vse->vsxregs) {
 		xfree(vse);
@@ -319,7 +325,7 @@ static int put_vsx_regs(mcontext_t *mc, UserPpc64VsxstateEntry *vse)
 	buf = (uint64_t*) (mc->v_regs + 1);
 
 	/* Copy the value saved by get_vsx_regs in the sigframe */
-	for (i=0; i<vse->n_vsxregs; i++)
+	for (i=0; i < vse->n_vsxregs; i++)
 		buf[i] = vse->vsxregs[i];
 
 	return 0;
