@@ -451,7 +451,7 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 		ret = put_altivec_regs(&sigframe->uc.uc_mcontext,
 				       CORE_THREAD_ARCH_INFO(core)->vrstate);
 	else if (core->ti_ppc64->gpregs->msr & MSR_VEC) {
-		pr_err("Internal error\n");
+		pr_err("Register's data mismatch, corrupted image ?\n");
 		ret = -1;
 	}
 
@@ -459,7 +459,7 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 		ret = put_vsx_regs(&sigframe->uc.uc_mcontext,
 				   CORE_THREAD_ARCH_INFO(core)->vsxstate);
 	else if (core->ti_ppc64->gpregs->msr & MSR_VSX) {
-		pr_err("Internal error\n");
+		pr_err("VSX register's data mismatch, corrupted image ?\n");
 		ret = -1;
 	}
 
