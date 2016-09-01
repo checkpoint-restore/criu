@@ -20,7 +20,6 @@ import fcntl
 import errno
 import datetime
 import yaml
-import socket
 import criu as crpc
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -679,6 +678,7 @@ class criu_cli:
 		cr = subprocess.Popen(strace + [criu_bin, action] + args, env = env, preexec_fn = preexec)
 		return cr.wait()
 
+
 class criu_rpc:
 	@staticmethod
 	def __set_opts(criu, args, ctx):
@@ -722,7 +722,7 @@ class criu_rpc:
 		if preexec:
 			raise test_fail_exc('RPC and PREEXEC not supported')
 
-		ctx = {} # Object used to keep info untill action is done
+		ctx = {}  # Object used to keep info untill action is done
 		criu = crpc.criu()
 		criu.use_binary(criu_bin)
 		criu_rpc.__set_opts(criu, args, ctx)
@@ -730,7 +730,7 @@ class criu_rpc:
 		if action == 'dump':
 			criu.dump()
 		elif action == 'restore':
-			if not ctx.has_key('rd'):
+			if 'rd' not in ctx:
 				raise test_fail_exc('RPC Non-detached restore is impossible')
 
 			res = criu.restore()
@@ -744,6 +744,7 @@ class criu_rpc:
 		if imgd:
 			os.close(imgd)
 		return 0
+
 
 class criu:
 	def __init__(self, opts):
