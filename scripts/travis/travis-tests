@@ -45,7 +45,9 @@ make -C test/others/exec/ run
 ./test/zdtm.py run -t zdtm/static/env00 --sibling
 
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --dedup
+./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --noauto-dedup
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server
+./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server --dedup
 
 ./test/zdtm.py run -t zdtm/static/socket-tcp-local --norst
 
