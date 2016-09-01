@@ -21,6 +21,8 @@ other:
 
 zdtm_ct: zdtm_ct.c
 
+umount2: umount2
+
 zdtm:
 	./zdtm.py run -a --parallel 2
 .PHONY: zdtm
@@ -53,7 +55,7 @@ clean_root:
 .PHONY: clean_root
 
 clean: clean_root
-	$(RM) zdtm_ct zdtm-tst-list
+	$(RM) zdtm_ct zdtm-tst-list umount2
 	$(Q) $(RM) *.log
 	$(Q) $(RM) -r ./dump/
 	$(Q) $(MAKE) -C zdtm cleandep clean cleanout

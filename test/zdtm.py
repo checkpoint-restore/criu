@@ -246,8 +246,7 @@ class ns_flavor:
 
 	def fini(self):
 		if self.root_mounted:
-			subprocess.check_call(["mount", "--make-private", self.root])
-			subprocess.check_call(["umount", "-l", self.root])
+			subprocess.check_call(["./umount2", self.root])
 			self.root_mounted = False
 
 	@staticmethod
@@ -510,6 +509,8 @@ class zdtm_test:
 
 	@staticmethod
 	def available():
+		if not os.access("umount2", os.X_OK):
+			subprocess.check_call(["make", "umount2"])
 		if not os.access("zdtm_ct", os.X_OK):
 			subprocess.check_call(["make", "zdtm_ct"])
 		if not os.access("zdtm/lib/libzdtmtst.a", os.F_OK):
