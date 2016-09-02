@@ -440,12 +440,20 @@ int kerndat_loginuid(bool only_dump)
 
 static int kerndat_iptables_has_xtlocks(void)
 {
+	int fd;
 	char *argv[4] = { "sh", "-c", "iptables -w -L", NULL };
 
+	fd = open("/dev/null", O_RDWR);
+	if (fd < 0) {
+		fd = -1;
+		pr_perror("failed to open /dev/null, using log fd for xtlocks check");
+	}
+
 	kdat.has_xtlocks = 1;
-	if (cr_system(-1, -1, -1, "sh", argv, CRS_CAN_FAIL) == -1)
+	if (cr_system(fd, fd, fd, "sh", argv, CRS_CAN_FAIL) == -1)
 		kdat.has_xtlocks = 0;
 
+	close_safe(&fd);
 	return 0;
 }
 
