@@ -75,10 +75,8 @@ static int cr_dedup_one_pagemap(int id, int flags)
 
 	flags |= PR_MOD;
 	ret = open_page_read(id, &pr, flags);
-	if (ret <= 0) {
-		ret = -1;
-		goto exit;
-	}
+	if (ret <= 0)
+		return -1;
 
 	prp = pr.parent;
 	if (!prp)
