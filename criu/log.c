@@ -114,8 +114,12 @@ static void log_note_err(char *msg)
 
 char *log_first_err(void)
 {
-	BUG_ON(!first_err);
-	return first_err->s[0] == '\0' ? NULL : first_err->s;
+	if (!first_err)
+		return NULL;
+	if (first_err->s[0] == '\0')
+		return NULL;
+
+	return first_err->s;
 }
 
 int log_init(const char *output)
