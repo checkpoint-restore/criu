@@ -27,6 +27,9 @@ int construct_sigframe(struct rt_sigframe *sigframe,
 {
 	k_rtsigset_t *blk_sigset = RT_SIGFRAME_UC_SIGMASK(sigframe);
 
+	if (restore_gpregs(sigframe, CORE_THREAD_ARCH_INFO(core)->gpregs))
+		return -1;
+
 	if (core->tc)
 		memcpy(blk_sigset, &core->tc->blk_sigset, sizeof(k_rtsigset_t));
 	else if (core->thread_core->has_blk_sigset) {
@@ -41,9 +44,6 @@ int construct_sigframe(struct rt_sigframe *sigframe,
 	if (RT_SIGFRAME_HAS_FPU(sigframe))
 		if (sigreturn_prep_fpu_frame(sigframe, rsigframe))
 			return -1;
-
-	if (restore_gpregs(sigframe, CORE_THREAD_ARCH_INFO(core)->gpregs))
-		return -1;
 
 	setup_sas(sigframe, core->thread_core->sas);
 
