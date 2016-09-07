@@ -1538,10 +1538,17 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 	 * The image might have no reg file record in old CRIU, so
 	 * lets don't fail for a while. After a couple of releases
 	 * simply require the record to present.
+	 *
+	 * Note for external ttys it's fine to not have any
+	 * reg file rectord because they are inherited from
+	 * command line on restore.
 	 */
 	info->reg_d = try_collect_special_file(info->tfe->id, 1);
 	if (!info->reg_d) {
-		if (!deprecated_ok("TTY w/o regfile"))
+		if (info->driver->type != TTY_TYPE__EXT_TTY) {
+			pr_err("No reg_d descriptor for id %#x\n", info->tfe->id);
+			return -1;
+		} else if (!deprecated_ok("TTY w/o regfile"))
 			return -1;
 
 		if (is_pty(info->driver)) {
@@ -1551,9 +1558,6 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 				       info->tfe->id);
 				return -1;
 			}
-		} else if (info->driver->type != TTY_TYPE__EXT_TTY) {
-			pr_err("No reg_d descriptor for id %#x\n", info->tfe->id);
-			return -1;
 		}
 	}
 
