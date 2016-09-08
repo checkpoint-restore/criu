@@ -788,9 +788,6 @@ static int restore_priv_vma_content(struct pstree_item *t)
 			}
 
 		}
-
-		if (pr.put_pagemap)
-			pr.put_pagemap(&pr);
 	}
 
 err_read:

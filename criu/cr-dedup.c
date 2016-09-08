@@ -83,22 +83,17 @@ static int cr_dedup_one_pagemap(int id, int flags)
 	if (!prp)
 		goto exit;
 
-	ret = pr.get_pagemap(&pr, &iov);
-	if (ret <= 0)
-		goto exit;
-
 	while (1) {
+		ret = pr.get_pagemap(&pr, &iov);
+		if (ret <= 0)
+			goto exit;
+
 		pr_debug("dedup iovec base=%p, len=%zu\n", iov.iov_base, iov.iov_len);
 		if (!pr.pe->in_parent) {
 			ret = dedup_one_iovec(prp, &iov);
 			if (ret)
 				goto exit;
 		}
-
-		pr.put_pagemap(&pr);
-		ret = pr.get_pagemap(&pr, &iov);
-		if (ret <= 0)
-			goto exit;
 	}
 exit:
 	pr.close(&pr);

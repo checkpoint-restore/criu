@@ -481,9 +481,6 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 			break;
 
 		pr.read_pages(&pr, vaddr, nr_pages, addr + vaddr);
-
-		if (pr.put_pagemap)
-			pr.put_pagemap(&pr);
 	}
 
 	pr.close(&pr);
