@@ -480,6 +480,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec iov = ppb->iov[i];
+			u32 flags = PE_PRESENT;
 
 			ret = dump_holes(xfer, pp, &cur_hole, iov.iov_base, off);
 			if (ret)
@@ -490,13 +491,18 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 			pr_debug("\tp %p [%u]\n", iov.iov_base,
 					(unsigned int)(iov.iov_len / PAGE_SIZE));
 
-			if (!dump_lazy && ppb->flags & PPB_LAZY) {
-				if (xfer->write_hole(xfer, &iov, PS_IOV_LAZY))
-					return -1;
-				continue;
+			if (ppb->flags & PPB_LAZY) {
+				if (!dump_lazy) {
+					if (xfer->write_hole(xfer, &iov,
+							     PS_IOV_LAZY))
+						return -1;
+					continue;
+				} else {
+					flags |= PE_LAZY;
+				}
 			}
 
-			if (xfer->write_pagemap(xfer, &iov, 0))
+			if (xfer->write_pagemap(xfer, &iov, flags))
 				return -1;
 			if (xfer->write_pages(xfer, ppb->p[0], iov.iov_len))
 				return -1;
