@@ -143,7 +143,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	if (!len)
 		return;
 
-	if (!pagemap_in_parent(pr->pe) && !pagemap_zero(pr->pe) && !pagemap_lazy(pr->pe))
+	if (pagemap_present(pr->pe))
 		pr->pi_off += len;
 	pr->cvaddr += len;
 }
@@ -577,8 +577,16 @@ err_cl:
 
 static void init_compat_pagemap_entry(PagemapEntry *pe)
 {
+	/*
+	 * pagemap image generated with older version will either
+	 * contain a hole because the pages are in the parent
+	 * shanpshot or a pagemap that should be marked with
+	 * PE_PRESENT
+	 */
 	if (pe->has_in_parent && pe->in_parent)
 		pe->flags |= PE_PARENT;
+	else if (!pe->has_flags)
+		pe->flags = PE_PRESENT;
 }
 
 /*
