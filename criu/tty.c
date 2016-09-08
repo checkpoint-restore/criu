@@ -1546,16 +1546,18 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 	info->reg_d = try_collect_special_file(info->tfe->id, 1);
 	if (!info->reg_d) {
 		if (info->driver->type != TTY_TYPE__EXT_TTY) {
-			pr_err("No reg_d descriptor for id %#x\n", info->tfe->id);
-			return -1;
-		} else if (!deprecated_ok("TTY w/o regfile"))
-			return -1;
+			if (!deprecated_ok("TTY w/o regfile"))
+				return -1;
 
-		if (is_pty(info->driver)) {
-			info->reg_d = pty_alloc_reg(info, true);
-			if (!info->reg_d) {
-				pr_err("Can't generate new reg descriptor for id %#x\n",
-				       info->tfe->id);
+			if (is_pty(info->driver)) {
+				info->reg_d = pty_alloc_reg(info, true);
+				if (!info->reg_d) {
+					pr_err("Can't generate new reg descriptor for id %#x\n",
+					       info->tfe->id);
+					return -1;
+				}
+			} else {
+				pr_err("No reg_d descriptor for id %#x\n", info->tfe->id);
 				return -1;
 			}
 		}
