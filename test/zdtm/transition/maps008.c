@@ -165,9 +165,7 @@ struct test_sync {
 };
 struct test_sync *test_sync;
 
-size_t mem1_size = 1L << 20;
-size_t mem2_size = 1L << 21;
-size_t mem3_size = 1L << 22;
+size_t mem1_size, mem2_size, mem3_size;
 uint8_t *mem1, *mem2, *mem3;
 
 #define CRC_EPOCH_OFFSET (PAGE_SIZE - sizeof(uint32_t))
@@ -258,8 +256,8 @@ static int proc131_func(task_waiter_t *setup_waiter)
 
 static int proc13_func(task_waiter_t *setup_waiter)
 {
-	size_t MEM1_HOLE_START = 10 * MEM_PERIOD;
-	size_t MEM1_HOLE_SIZE = 3 * MEM_PERIOD;
+	size_t MEM1_HOLE_START = 2 * MEM_PERIOD;
+	size_t MEM1_HOLE_SIZE = 1 * MEM_PERIOD;
 	uint32_t crc_epoch = 0;
 
 	pstree->proc13 = getpid();
@@ -346,7 +344,7 @@ static int proc112_func(task_waiter_t *setup_waiter)
 
 static int proc11_func(task_waiter_t *setup_waiter)
 {
-	const size_t MEM3_START_CUT = 5 * MEM_PERIOD;
+	const size_t MEM3_START_CUT = 1 * MEM_PERIOD;
 	const size_t MEM3_END_CUT = 2 * MEM_PERIOD;
 	void *mem3_old = mem3;
 	size_t mem3_size_old = mem3_size;
@@ -395,10 +393,22 @@ static int proc11_func(task_waiter_t *setup_waiter)
 	return 0;
 }
 
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MB(n) ((n) * (1UL << 20))
+
 static int proc1_func(void)
 {
 	uint32_t crc_epoch = 0;
 	uint8_t *mem2_old = NULL;
+
+	/*
+	 * Min mem size:
+	 * At least 5 mem periods for mem pages and vma holes.
+	 * At least 1 MB mem size not to test on tiny working set.
+	 */
+	mem1_size = MEM_PERIOD * MAX(5, MB(1) / MEM_PERIOD + 1);
+	mem2_size = mem1_size * 2;
+	mem3_size = mem2_size * 3;
 
 	futex_set(&test_sync->datagen, 1);
 	pstree->proc1 = getpid();
