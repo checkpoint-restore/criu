@@ -95,7 +95,7 @@ int dedup_one_iovec(struct page_read *pr, unsigned long off, unsigned long len)
 		if (!pr->pe)
 			return -1;
 		piov_end = pr->pe->vaddr + pagemap_len(pr->pe);
-		if (!pr->pe->in_parent) {
+		if (!pagemap_in_parent(pr->pe)) {
 			ret = punch_hole(pr, pr->pi_off, min(piov_end, iov_end) - off, false);
 			if (ret == -1)
 				return ret;
@@ -129,7 +129,7 @@ static int advance(struct page_read *pr)
 
 		pe = pr->pmes[pr->curr_pme];
 
-		if (!pe->zero)
+		if (!pagemap_zero(pe))
 			break;
 	}
 
@@ -143,7 +143,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	if (!len)
 		return;
 
-	if (!pr->pe->in_parent && !pr->pe->zero && !pr->pe->lazy)
+	if (!pagemap_in_parent(pr->pe) && !pagemap_zero(pr->pe) && !pagemap_lazy(pr->pe))
 		pr->pi_off += len;
 	pr->cvaddr += len;
 }
@@ -387,10 +387,10 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
 	pr_info("pr%u Read %lx %u pages\n", pr->id, vaddr, nr);
 	pagemap_bound_check(pr->pe, vaddr, nr);
 
-	if (pr->pe->in_parent) {
+	if (pagemap_in_parent(pr->pe)) {
 		if (read_parent_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
-	} else if (pr->pe->zero) {
+	} else if (pagemap_zero(pr->pe)) {
 		/* zero mappings should be skipped by get_pagemap */
 		BUG();
 	} else {
@@ -575,6 +575,12 @@ err_cl:
 	return -1;
 }
 
+static void init_compat_pagemap_entry(PagemapEntry *pe)
+{
+	if (pe->has_in_parent && pe->in_parent)
+		pe->flags |= PE_PARENT;
+}
+
 /*
  * The pagemap entry size is at least 8 bytes for small mappings with
  * low address and may get to 18 bytes or even more for large mappings
@@ -609,6 +615,8 @@ static int init_pagemaps(struct page_read *pr)
 			goto free_pagemaps;
 		if (ret == 0)
 			break;
+
+		init_compat_pagemap_entry(pr->pmes[pr->nr_pmes]);
 
 		pr->nr_pmes++;
 		if (pr->nr_pmes >= nr_pmes) {

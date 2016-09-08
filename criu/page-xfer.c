@@ -161,6 +161,7 @@ static int write_pagemap_loc(struct page_xfer *xfer,
 
 	pe.vaddr = encode_pointer(iov->iov_base);
 	pe.nr_pages = iov->iov_len / PAGE_SIZE;
+	pe.has_flags = true;
 	if (opts.auto_dedup && xfer->parent != NULL) {
 		ret = dedup_one_iovec(xfer->parent, pe.vaddr,
 				pagemap_len(&pe));
@@ -240,6 +241,7 @@ static int write_hole_loc(struct page_xfer *xfer, struct iovec *iov, int type)
 
 	pe.vaddr = encode_pointer(iov->iov_base);
 	pe.nr_pages = iov->iov_len / PAGE_SIZE;
+	pe.has_flags = true;
 
 	switch (type) {
 	case PS_IOV_HOLE:
@@ -253,17 +255,13 @@ static int write_hole_loc(struct page_xfer *xfer, struct iovec *iov, int type)
 				return -1;
 			}
 		}
-
-		pe.has_in_parent = true;
-		pe.in_parent = true;
+		pe.flags |= PE_PARENT;
 		break;
 	case PS_IOV_ZERO:
-		pe.has_zero = true;
-		pe.zero = true;
+		pe.flags |= PE_ZERO;
 		break;
 	case PS_IOV_LAZY:
-		pe.has_lazy = true;
-		pe.lazy = true;
+		pe.flags |= PE_LAZY;
 		break;
 	default:
 		return -1;

@@ -103,4 +103,25 @@ static inline unsigned long pagemap_len(PagemapEntry *pe)
 {
 	return pe->nr_pages * PAGE_SIZE;
 }
+
+/* Pagemap flags */
+#define PE_PARENT	(1 << 0)	/* pages are in parent snapshot */
+#define PE_ZERO		(1 << 1)	/* pages can be lazily restored */
+#define PE_LAZY		(1 << 2)	/* pages are mapped to zero pfn */
+
+static inline bool pagemap_in_parent(PagemapEntry *pe)
+{
+	return !!(pe->flags & PE_PARENT);
+}
+
+static inline bool pagemap_zero(PagemapEntry *pe)
+{
+	return !!(pe->flags & PE_ZERO);
+}
+
+static inline bool pagemap_lazy(PagemapEntry *pe)
+{
+	return !!(pe->flags & PE_LAZY);
+}
+
 #endif /* __CR_PAGE_READ_H__ */
