@@ -1,0 +1,18 @@
+# Required packages for development in Debian
+build-essential
+libprotobuf-dev
+libprotobuf-c0-dev
+protobuf-c-compiler
+protobuf-compiler
+python-protobuf
+
+# Extra packages, required for testing and building other tools
+pkg-config
+libnl-3-dev
+python-ipaddr
+libbsd0
+libbsd-dev
+iproute2
+libcap-dev
+libaio-dev
+python-yaml
