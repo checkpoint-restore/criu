@@ -567,7 +567,11 @@ static int collect_cgroups(struct list_head *ctls)
 				pr_err("controller %s not found\n", cc->name);
 				return -1;
 			} else {
-				struct cg_controller *nc = new_controller(cc->name);
+				struct cg_controller *nc;
+
+				nc = new_controller(cc->name);
+				if (!nc)
+					return -1;
 				list_add_tail(&nc->l, &cg->l);
 				n_cgroups++;
 				current_controller = nc;
