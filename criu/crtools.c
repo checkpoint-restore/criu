@@ -318,7 +318,7 @@ int main(int argc, char *argv[], char *envp[])
 		/*
 		 * This is to start criu service worker from libcriu calls.
 		 * The usage is "criu swrk <fd>" and is not for CLI/scripts.
-		 * The arguments semantics can change at any tyme with the
+		 * The arguments semantics can change at any time with the
 		 * corresponding lib call change.
 		 */
 		opts.swrk_restore = true;
@@ -622,7 +622,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	if (check_namespace_opts()) {
-		pr_msg("Error: namespace flags confict\n");
+		pr_msg("Error: namespace flags conflict\n");
 		return 1;
 	}
 
@@ -851,7 +851,7 @@ usage:
 "  -M|--ext-mount-map KEY:VALUE\n"
 "                        add external mount mapping\n"
 "  -M|--ext-mount-map auto\n"
-"                        attempt to autodetect external mount mapings\n"
+"                        attempt to autodetect external mount mappings\n"
 "  --enable-external-sharing\n"
 "                        allow autoresolving mounts with external sharing\n"
 "  --enable-external-masters\n"
@@ -890,7 +890,7 @@ usage:
 "                            pipe[inode]\n"
 "                            socket[inode]\n"
 "                            file[mnt_id:inode]\n"
-"  --empty-ns net        Create a namespace, but don't restore its properies\n"
+"  --empty-ns net        Create a namespace, but don't restore its properties\n"
 "                        (assuming it will be restored by action scripts)\n"
 "  -J|--join-ns NS:{PID|NS_FILE}[,OPTIONS]\n"
 "			Join existing namespace and restore process in it.\n"
