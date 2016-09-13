@@ -71,6 +71,9 @@ int mount_and_add(const char *controller, const char *path, const char *prop, co
 	if (write_value(paux, aux) < 0)
 		goto err_rs;
 
+	sprintf(paux, "%s/%s/special_prop_check", subdir, path);
+	mkdir(paux, 0600);
+
 	return 0;
 err_rs:
 	umount(dirname);
@@ -110,6 +113,7 @@ int main(int argc, char **argv)
 {
 	int ret = -1, i;
 	char buf[1024], path[PATH_MAX];
+	struct stat sb;
 
 	char *deny[] = {
 		"c *:* m",
@@ -161,9 +165,23 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
+	sprintf(path, "%s/devices/%s/special_prop_check", dirname, cgname);
+	if (stat(path, &sb) < 0) {
+		fail("special_prop_check doesn't exist?");
+		goto out;
+	}
+
+	if (!S_ISDIR(sb.st_mode)) {
+		fail("special_prop_check not a directory?");
+		goto out;
+	}
+
 	pass();
 	ret = 0;
 out:
+	sprintf(path, "%s/devices/%s/special_prop_check", dirname, cgname);
+	rmdir(path);
+
 	sprintf(path, "%s/devices/%s", dirname, cgname);
 	rmdir(path);
 	sprintf(path, "%s/devices", dirname);
