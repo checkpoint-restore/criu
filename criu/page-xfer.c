@@ -47,6 +47,9 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 #define PS_IOV_FLUSH		0x1023
 #define PS_IOV_FLUSH_N_CLOSE	0x1024
 
+#define PS_CMD_BITS	16
+#define PS_CMD_MASK	((1 << PS_CMD_BITS) - 1)
+
 #define PS_TYPE_BITS	8
 #define PS_TYPE_MASK	((1 << PS_TYPE_BITS) - 1)
 
@@ -63,6 +66,21 @@ static int decode_pm_type(u64 dst_id)
 static long decode_pm_id(u64 dst_id)
 {
 	return (long)(dst_id >> PS_TYPE_BITS);
+}
+
+static inline u32 encode_ps_cmd(u32 cmd, u32 flags)
+{
+	return flags << PS_CMD_BITS | cmd;
+}
+
+static inline u32 decode_ps_cmd(u32 cmd)
+{
+	return cmd & PS_CMD_MASK;
+}
+
+static inline u32 decode_ps_flags(u32 cmd)
+{
+	return cmd >> PS_CMD_BITS;
 }
 
 static inline int send_psi(int sk, u32 cmd, u32 nr_pages, u64 vaddr, u64 dst_id)
@@ -91,10 +109,11 @@ static inline int send_iov(int sk, u32 cmd, u64 dst_id, struct iovec *iov)
 }
 
 /* page-server xfer */
-static int write_pagemap_to_server(struct page_xfer *xfer,
-		struct iovec *iov)
+static int write_pagemap_to_server(struct page_xfer *xfer, struct iovec *iov,
+				   u32 flags)
 {
-	return send_iov(xfer->sk, PS_IOV_ADD, xfer->dst_id, iov);
+	return send_iov(xfer->sk, encode_ps_cmd(PS_IOV_ADD, flags),
+			xfer->dst_id, iov);
 }
 
 static int write_pages_to_server(struct page_xfer *xfer,
@@ -153,8 +172,8 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 }
 
 /* local xfer */
-static int write_pagemap_loc(struct page_xfer *xfer,
-		struct iovec *iov)
+static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov,
+			     u32 flags)
 {
 	int ret;
 	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
@@ -162,6 +181,7 @@ static int write_pagemap_loc(struct page_xfer *xfer,
 	pe.vaddr = encode_pointer(iov->iov_base);
 	pe.nr_pages = iov->iov_len / PAGE_SIZE;
 	pe.has_flags = true;
+	pe.flags = flags;
 	if (opts.auto_dedup && xfer->parent != NULL) {
 		ret = dedup_one_iovec(xfer->parent, pe.vaddr,
 				pagemap_len(&pe));
@@ -442,7 +462,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 				continue;
 			}
 
-			if (xfer->write_pagemap(xfer, &iov))
+			if (xfer->write_pagemap(xfer, &iov, 0))
 				return -1;
 			if (xfer->write_pages(xfer, ppb->p[0], iov.iov_len))
 				return -1;
@@ -592,6 +612,7 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 	size_t len;
 	struct page_xfer *lxfer = &cxfer.loc_xfer;
 	struct iovec iov;
+	u32 flags;
 
 	pr_debug("Adding %"PRIx64"/%u\n", pi->vaddr, pi->nr_pages);
 
@@ -599,7 +620,8 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 		return -1;
 
 	psi2iovec(pi, &iov);
-	if (lxfer->write_pagemap(lxfer, &iov))
+	flags = decode_ps_flags(pi->cmd);
+	if (lxfer->write_pagemap(lxfer, &iov, flags))
 		return -1;
 
 	len = iov.iov_len;
@@ -725,6 +747,7 @@ static int page_server_serve(int sk)
 
 	while (1) {
 		struct page_server_iov pi;
+		u32 cmd;
 
 		ret = recv(sk, &pi, sizeof(pi), MSG_WAITALL);
 		if (!ret)
@@ -737,8 +760,9 @@ static int page_server_serve(int sk)
 		}
 
 		flushed = false;
+		cmd = decode_ps_cmd(pi.cmd);
 
-		switch (pi.cmd) {
+		switch (cmd) {
 		case PS_IOV_OPEN:
 			ret = page_server_open(-1, &pi);
 			break;
