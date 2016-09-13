@@ -12,7 +12,7 @@ extern int cr_page_server(bool daemon_mode, int cfd);
 
 struct page_xfer {
 	/* transfers one vaddr:len entry */
-	int (*write_pagemap)(struct page_xfer *self, struct iovec *iov);
+	int (*write_pagemap)(struct page_xfer *self, struct iovec *iov, u32 flags);
 	/* transfers pages related to previous pagemap */
 	int (*write_pages)(struct page_xfer *self, int pipe, unsigned long len);
 	/* transfers one hole -- vaddr:len entry w/o pages */
