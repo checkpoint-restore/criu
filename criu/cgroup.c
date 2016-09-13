@@ -950,6 +950,7 @@ static int ctrl_dir_and_opt(CgControllerEntry *ctl, char *dir, int ds,
 static const char *special_props[] = {
 	"cpuset.cpus",
 	"cpuset.mems",
+	"devices.list",
 	"memory.kmem.limit_in_bytes",
 	"memory.swappiness",
 	"memory.oom_control",
@@ -1323,64 +1324,7 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 				if (special)
 					continue;
 
-				/* The devices cgroup must be restored in a
-				 * special way: only the contents of
-				 * devices.list can be read, and it is a
-				 * whitelist of all the devices the cgroup is
-				 * allowed to create. To re-creat this
-				 * whitelist, we first deny everything via
-				 * devices.deny, and then write the list back
-				 * into devices.allow.
-				 *
-				 * Further, we must have a write() call for
-				 * each line, because the kernel only parses
-				 * the first line of any write().
-				 */
-				if (!strcmp(e->properties[j]->name, "devices.list")) {
-					CgroupPropEntry *pe = e->properties[j];
-					char *old_val = pe->value, *old_name = pe->name;
-					int ret;
-					char *pos;
-
-					/* A bit of a fudge here. These are
-					 * write only by owner by default, but
-					 * the container engine could have
-					 * changed the perms. We should come up
-					 * with a better way to restore all of
-					 * this stuff.
-					 */
-					pe->perms->mode = 0200;
-
-					pe->name = "devices.deny";
-					pe->value = "a";
-					ret = restore_cgroup_prop(e->properties[j], path, off2);
-					pe->name = old_name;
-					pe->value = old_val;
-
-					if (ret < 0)
-						return -1;
-
-					pe->name = xstrdup("devices.allow");
-					if (!pe->name) {
-						pe->name = old_name;
-						return -1;
-					}
-					xfree(old_name);
-
-					pos = pe->value;
-					while (*pos) {
-						int offset = next_device_entry(pos);
-						pe->value = pos;
-						ret = restore_cgroup_prop(pe, path, off2);
-						if (ret < 0) {
-							pe->value = old_val;
-							return -1;
-						}
-						pos += offset;
-					}
-					pe->value = old_val;
-
-				} else if (restore_cgroup_prop(e->properties[j], path, off2) < 0) {
+				if (restore_cgroup_prop(e->properties[j], path, off2) < 0) {
 					return -1;
 				}
 
@@ -1439,7 +1383,74 @@ static int restore_special_props(char *paux, size_t off, CgroupDirEntry *e)
 				} else if (!strcmp(prop->name, "memory.oom_control") &&
 						!strcmp(prop->value, "0")) {
 					continue;
-				} else if (restore_cgroup_prop(prop, paux, off) < 0) {
+				}
+
+				if (!strcmp(e->properties[j]->name, "devices.list")) {
+					/* The devices cgroup must be restored in a
+					 * special way: only the contents of
+					 * devices.list can be read, and it is a
+					 * whitelist of all the devices the cgroup is
+					 * allowed to create. To re-creat this
+					 * whitelist, we first deny everything via
+					 * devices.deny, and then write the list back
+					 * into devices.allow.
+					 *
+					 * Further, we must have a write() call for
+					 * each line, because the kernel only parses
+					 * the first line of any write().
+					 */
+					CgroupPropEntry *pe = e->properties[j];
+					char *old_val = pe->value, *old_name = pe->name;
+					int ret;
+					char *pos;
+
+					/* A bit of a fudge here. These are
+					 * write only by owner by default, but
+					 * the container engine could have
+					 * changed the perms. We should come up
+					 * with a better way to restore all of
+					 * this stuff.
+					 */
+					pe->perms->mode = 0200;
+
+					pe->name = "devices.deny";
+					pe->value = "a";
+					ret = restore_cgroup_prop(e->properties[j], paux, off);
+					pe->name = old_name;
+					pe->value = old_val;
+
+					/* an emptry string here means nothing
+					 * is allowed, and the kernel disallows
+					 * writing an "" to devices.allow, so
+					 * let's just keep going.
+					 */
+					if (!strcmp(pe->value, ""))
+						continue;
+
+					if (ret < 0)
+						return -1;
+
+					pe->name = "devices.allow";
+
+					pos = pe->value;
+					while (*pos) {
+						int offset = next_device_entry(pos);
+						pe->value = pos;
+						ret = restore_cgroup_prop(pe, paux, off);
+						if (ret < 0) {
+							pe->name = old_name;
+							pe->value = old_val;
+							return -1;
+						}
+						pos += offset;
+					}
+					pe->value = old_val;
+					pe->name = old_name;
+					continue;
+
+				}
+
+				if (restore_cgroup_prop(prop, paux, off) < 0) {
 					return -1;
 				}
 			}
@@ -1498,7 +1509,9 @@ static int prepare_cgroup_dirs(char **controllers, int n_controllers, char *paux
 				return -1;
 
 			for (j = 0; j < n_controllers; j++) {
-				if (!strcmp(controllers[j], "cpuset") || !strcmp(controllers[j], "memory")) {
+				if (!strcmp(controllers[j], "cpuset")
+						|| !strcmp(controllers[j], "memory")
+						|| !strcmp(controllers[j], "devices")) {
 					if (restore_special_props(paux, off2, e) < 0) {
 						pr_err("Restoring special cpuset props failed!\n");
 						return -1;
