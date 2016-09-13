@@ -3108,11 +3108,11 @@ out:
 	return 0;
 }
 
-static int get_mp_mountpoint(MntEntry *me, struct mount_info *mi, char *root, int root_len)
+static int get_mp_mountpoint(char *mountpoint, struct mount_info *mi, char *root, int root_len)
 {
 	int len;
 
-	len  = strlen(me->mountpoint) + root_len + 1;
+	len  = strlen(mountpoint) + root_len + 1;
 	mi->mountpoint = xmalloc(len);
 	if (!mi->mountpoint)
 		return -1;
@@ -3125,7 +3125,7 @@ static int get_mp_mountpoint(MntEntry *me, struct mount_info *mi, char *root, in
 	 */
 
 	strcpy(mi->mountpoint, root);
-	strcpy(mi->mountpoint + root_len, me->mountpoint);
+	strcpy(mi->mountpoint + root_len, mountpoint);
 
 	mi->ns_mountpoint = mi->mountpoint + root_len;
 
@@ -3220,7 +3220,7 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		if (get_mp_root(me, pm))
 			goto err;
 
-		if (get_mp_mountpoint(me, pm, root, root_len))
+		if (get_mp_mountpoint(me->mountpoint, pm, root, root_len))
 			goto err;
 
 		pr_debug("\tRead %d mp @ %s\n", pm->mnt_id, pm->mountpoint);
