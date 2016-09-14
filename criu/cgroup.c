@@ -1743,8 +1743,10 @@ static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controller
 		}
 	}
 
-	xfree(dir);
-	*dir_name = dirnew;
+	if (dirnew) {
+		xfree(dir);
+		*dir_name = dirnew;
+	}
 	return 0;
 }
 
