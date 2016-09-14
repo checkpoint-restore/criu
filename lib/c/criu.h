@@ -32,13 +32,13 @@ enum criu_service_comm {
 };
 
 enum criu_cg_mode {
-	CRIU_CG_MODE_IGNORE	= 0,
-	CRIU_CG_MODE_NONE	= 1,
-	CRIU_CG_MODE_PROPS	= 2,
-	CRIU_CG_MODE_SOFT	= 3,
-	CRIU_CG_MODE_FULL	= 4,
-	CRIU_CG_MODE_STRICT	= 5,
-	CRIU_CG_MODE_DEFAULT	= 6
+	CRIU_CG_MODE_IGNORE,
+	CRIU_CG_MODE_NONE,
+	CRIU_CG_MODE_PROPS,
+	CRIU_CG_MODE_SOFT,
+	CRIU_CG_MODE_FULL,
+	CRIU_CG_MODE_STRICT,
+	CRIU_CG_MODE_DEFAULT,
 };
 
 void criu_set_service_address(char *path);
