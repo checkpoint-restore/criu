@@ -867,3 +867,21 @@ int __used __parasite_entry parasite_service(unsigned int cmd, void *args)
 
 	return parasite_trap_cmd(cmd, args);
 }
+
+/*
+ * Mainally, -fstack-protector is disabled for parasite.
+ * But we share some object files, compiled for CRIU with parasite.
+ * Those files (like cpu.c) may be compiled with stack protector
+ * support. We can't use gcc-ld provided stackprotector callback,
+ * as Glibc is unmapped. Let's just try to cure application in
+ * case of stack smashing in parasite.
+ */
+void __stack_chk_fail(void)
+{
+	/*
+	 * Smash didn't happen in printing part, as it's not shared
+	 * with CRIU, therefore compiled with -fnostack-protector.
+	 */
+	pr_err("Stack smash detected in parasite\n");
+	fini();
+}
