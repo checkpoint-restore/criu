@@ -1572,3 +1572,14 @@ core_restore_end:
 	sys_exit_group(1);
 	return -1;
 }
+
+/*
+ * For most of the restorer's objects -fstack-protector is disabled.
+ * But we share some of them with CRIU, which may have it enabled.
+ */
+void __stack_chk_fail(void)
+{
+	pr_err("Restorer stack smash detected %ld\n", sys_getpid());
+	sys_exit_group(1);
+	BUG();
+}
