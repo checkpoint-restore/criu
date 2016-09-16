@@ -1,6 +1,8 @@
 #ifndef __ASM_PARASITE_H__
 #define __ASM_PARASITE_H__
 
+#include "asm-generic/string.h"
+
 #ifdef CONFIG_X86_32
 # define __parasite_entry __attribute__((regparm(3)))
 #endif
@@ -50,7 +52,7 @@ static void arch_get_tls(tls_t *ptls)
 	{
 		user_desc_t *d = &ptls->desc[i];
 
-		memset(d, 0, sizeof(user_desc_t));
+		builtin_memset(d, 0, sizeof(user_desc_t));
 		d->entry_number = GDT_ENTRY_TLS_MIN + i;
 		arch_get_user_desc(d);
 	}
