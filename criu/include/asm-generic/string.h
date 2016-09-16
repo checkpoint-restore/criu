@@ -46,4 +46,15 @@ static always_inline int builtin_strncmp(const char *cs, const char *ct, size_t 
 }
 #endif
 
+#ifndef HAS_BUILTIN_MEMSET
+static always_inline void builtin_memset(void *s, const int c, size_t count)
+{
+	char *dest = s;
+	size_t i = 0;
+
+	while (i < count)
+		dest[i++] = (char) c;
+}
+#endif
+
 #endif /* __CR_ASM_GENERIC_STRING_H__ */

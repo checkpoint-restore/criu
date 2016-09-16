@@ -20,8 +20,6 @@
 #include "tty.h"
 #include "aio.h"
 
-#include <string.h>
-
 #include "asm/parasite.h"
 #include "restorer.h"
 
