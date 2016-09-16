@@ -23,6 +23,7 @@ TST_NOFILE	=	\
 		file_aio        \
 		socket-tcp      \
 		socket-tcp6     \
+		shmem		\
 
 
 TST_FILE	=	\
