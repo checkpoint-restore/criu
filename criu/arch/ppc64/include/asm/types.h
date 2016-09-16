@@ -30,13 +30,6 @@ typedef struct {
         uint64_t sig[_KNSIG_WORDS];
 } k_rtsigset_t;
 
-static inline void ksigfillset(k_rtsigset_t *set)
-{
-        int i;
-        for (i = 0; i < _KNSIG_WORDS; i++)
-                set->sig[i] = (unsigned long)-1;
-}
-
 /* Copied from the Linux kernel arch/powerpc/include/uapi/asm/signal.h */
 #define SA_RESTORER     0x04000000U
 

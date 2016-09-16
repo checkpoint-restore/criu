@@ -30,6 +30,7 @@
 #include "aio.h"
 #include "fault-injection.h"
 #include "syscall-codes.h"
+#include "signal.h"
 
 #include <string.h>
 #include <stdlib.h>
