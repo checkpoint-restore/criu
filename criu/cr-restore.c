@@ -2754,6 +2754,8 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	unsigned long creds_pos = 0;
 	unsigned long creds_pos_next;
 
+	sigset_t blockmask;
+
 	pr_info("Restore via sigreturn\n");
 
 	/* pr_info_vma_list(&self_vma_list); */
@@ -2881,6 +2883,15 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	}
 
 	task_args->breakpoint = &rsti(current)->breakpoint;
+
+	sigemptyset(&blockmask);
+	sigaddset(&blockmask, SIGCHLD);
+
+	if (sigprocmask(SIG_BLOCK, &blockmask, NULL) == -1) {
+		pr_perror("Can not set mask of blocked signals");
+		return -1;
+	}
+
 	task_args->task_entries = rst_mem_remap_ptr(task_entries_pos, RM_SHREMAP);
 
 	task_args->premmapped_addr = (unsigned long)rsti(current)->premmapped_addr;
