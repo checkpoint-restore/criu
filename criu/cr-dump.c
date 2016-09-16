@@ -229,7 +229,7 @@ static int fill_fd_params_special(int fd, struct fd_parms *p)
 	return 0;
 }
 
-static int get_fs_type(int lfd)
+static long get_fs_type(int lfd)
 {
 	struct statfs fst;
 
