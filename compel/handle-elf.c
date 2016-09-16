@@ -319,7 +319,8 @@ int __handle_elf(void *mem, size_t size)
 					goto err;
 				}
 #else
-				continue;
+				pr_err("Unexpected undefined symbol: `%s'. External symbol in PIE?\n", name);
+				goto err;
 #endif
 			}
 
