@@ -68,7 +68,7 @@ int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned l
 	return ret;
 }
 
-#ifdef CONFIG_X86_64
+#if defined(CONFIG_X86_64) && defined(CONFIG_COMPAT)
 #ifndef ARCH_MAP_VDSO_32
 # define ARCH_MAP_VDSO_32	0x2002
 #endif
