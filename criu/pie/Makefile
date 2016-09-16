@@ -58,11 +58,14 @@ CFLAGS			+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
 ccflags-y		+= -DCR_NOGLIBC
 ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
 NATIVE_CFLAGS		:= $(shell $(SRC_DIR)/compel/compel --arch=$(ARCH) cflags)
+ifeq ($(ARCH),x86)
+        COMPAT_CFLAGS	:= $(shell $(SRC_DIR)/compel/compel --arch=ia32 cflags)
+endif
 endif
 
 ifeq ($(ARCH),x86)
         NATIVE_CFLAGS	+= -DCONFIG_X86_64
-        COMPAT_CFLAGS	+= -fno-pic -m32 -DCONFIG_X86_32
+        COMPAT_CFLAGS	+= -m32 -DCONFIG_X86_32
         COMPAT_LDFLAGS	+= -m elf_i386
 endif
 
