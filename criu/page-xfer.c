@@ -100,22 +100,7 @@ static inline int send_psi(int sk, u32 cmd, u32 nr_pages, u64 vaddr, u64 dst_id)
 	return 0;
 }
 
-static inline int send_iov(int sk, u32 cmd, u64 dst_id, struct iovec *iov)
-{
-	u64 vaddr = encode_pointer(iov->iov_base);
-	u32 nr_pages = iov->iov_len / PAGE_SIZE;
-
-	return send_psi(sk, cmd, nr_pages, vaddr, dst_id);
-}
-
 /* page-server xfer */
-static int write_pagemap_to_server(struct page_xfer *xfer, struct iovec *iov,
-				   u32 flags)
-{
-	return send_iov(xfer->sk, encode_ps_cmd(PS_IOV_ADD, flags),
-			xfer->dst_id, iov);
-}
-
 static int write_pages_to_server(struct page_xfer *xfer,
 		int p, unsigned long len)
 {
@@ -129,12 +114,13 @@ static int write_pages_to_server(struct page_xfer *xfer,
 	return 0;
 }
 
-static int write_hole_to_server(struct page_xfer *xfer, struct iovec *iov, u32 flags)
+static int write_pagemap_to_server(struct page_xfer *xfer, struct iovec *iov, u32 flags)
 {
 	u32 cmd = 0;
-	BUG_ON(flags & PE_PRESENT);
 
-	if (flags & PE_PARENT)
+	if (flags & PE_PRESENT)
+		cmd = encode_ps_cmd(PS_IOV_ADD, flags);
+	else if (flags & PE_PARENT)
 		cmd = PS_IOV_HOLE;
 	else if (flags & PE_LAZY)
 		cmd = PS_IOV_LAZY;
@@ -143,7 +129,9 @@ static int write_hole_to_server(struct page_xfer *xfer, struct iovec *iov, u32 f
 	else
 		BUG();
 
-	return send_iov(xfer->sk, cmd, xfer->dst_id, iov);
+	return send_psi(xfer->sk, cmd,
+			iov->iov_len / PAGE_SIZE, encode_pointer(iov->iov_base),
+			xfer->dst_id);
 }
 
 static void close_server_xfer(struct page_xfer *xfer)
@@ -158,7 +146,6 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 	xfer->sk = page_server_sk;
 	xfer->write_pagemap = write_pagemap_to_server;
 	xfer->write_pages = write_pages_to_server;
-	xfer->write_hole = write_hole_to_server;
 	xfer->close = close_server_xfer;
 	xfer->dst_id = encode_pm_id(fd_type, id);
 	xfer->parent = NULL;
@@ -183,27 +170,6 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 }
 
 /* local xfer */
-static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov,
-			     u32 flags)
-{
-	int ret;
-	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
-
-	pe.vaddr = encode_pointer(iov->iov_base);
-	pe.nr_pages = iov->iov_len / PAGE_SIZE;
-	pe.has_flags = true;
-	pe.flags = flags;
-	if (opts.auto_dedup && xfer->parent != NULL) {
-		ret = dedup_one_iovec(xfer->parent, pe.vaddr,
-				pagemap_len(&pe));
-		if (ret == -1) {
-			pr_perror("Auto-deduplication failed");
-			return ret;
-		}
-	}
-	return pb_write_one(xfer->pmi, &pe, PB_PAGEMAP);
-}
-
 static int write_pages_loc(struct page_xfer *xfer,
 		int p, unsigned long len)
 {
@@ -266,21 +232,27 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 	}
 }
 
-static int write_hole_loc(struct page_xfer *xfer, struct iovec *iov, u32 flags)
+static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov, u32 flags)
 {
+	int ret;
 	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
-
-	BUG_ON(flags & PE_PRESENT);
 
 	pe.vaddr = encode_pointer(iov->iov_base);
 	pe.nr_pages = iov->iov_len / PAGE_SIZE;
 	pe.has_flags = true;
 	pe.flags = flags;
 
-	if (flags & PE_PARENT) {
+	if (flags & PE_PRESENT) {
+		if (opts.auto_dedup && xfer->parent != NULL) {
+			ret = dedup_one_iovec(xfer->parent, pe.vaddr,
+					      pagemap_len(&pe));
+			if (ret == -1) {
+				pr_perror("Auto-deduplication failed");
+				return ret;
+			}
+		}
+	} else if (flags & PE_PARENT) {
 		if (xfer->parent != NULL) {
-			int ret;
-
 			ret = check_pagehole_in_parent(xfer->parent, iov);
 			if (ret) {
 				pr_err("Hole %p/%zu not found in parent\n",
@@ -356,7 +328,6 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 out:
 	xfer->write_pagemap = write_pagemap_loc;
 	xfer->write_pages = write_pages_loc;
-	xfer->write_hole = write_hole_loc;
 	xfer->close = close_page_xfer;
 	return 0;
 }
@@ -377,7 +348,7 @@ static int page_xfer_dump_hole(struct page_xfer *xfer,
 	pr_debug("\th %p [%u]\n", hole->iov_base,
 			(unsigned int)(hole->iov_len / PAGE_SIZE));
 
-	if (xfer->write_hole(xfer, hole, flags))
+	if (xfer->write_pagemap(xfer, hole, flags))
 		return -1;
 
 	return 0;
@@ -463,7 +434,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 
 			if (ppb->flags & PPB_LAZY) {
 				if (!dump_lazy) {
-					if (xfer->write_hole(xfer, &iov, PE_LAZY))
+					if (xfer->write_pagemap(xfer, &iov, PE_LAZY))
 						return -1;
 					continue;
 				} else {
@@ -681,7 +652,7 @@ static int page_server_hole(int sk, struct page_server_iov *pi, u32 flags)
 		return -1;
 
 	psi2iovec(pi, &iov);
-	if (lxfer->write_hole(lxfer, &iov, flags))
+	if (lxfer->write_pagemap(lxfer, &iov, flags))
 		return -1;
 
 	return 0;
