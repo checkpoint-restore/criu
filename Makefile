@@ -3,8 +3,8 @@
 __nmk_dir=$(CURDIR)/scripts/nmk/scripts/
 export __nmk_dir
 
-include $(__nmk_dir)/include.mk
-include $(__nmk_dir)/macro.mk
+include $(__nmk_dir)include.mk
+include $(__nmk_dir)macro.mk
 
 #
 # To build host helpers.

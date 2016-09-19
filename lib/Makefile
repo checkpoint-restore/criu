@@ -1,5 +1,4 @@
-include $(__nmk_dir)/include.mk
-include $(__nmk_dir)/macro.mk
+include $(__nmk_dir)include.mk
 
 CRIU_SO			:= libcriu.so
 UAPI_HEADERS		:= c/criu.h ../images/rpc.proto

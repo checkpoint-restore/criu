@@ -1,6 +1,6 @@
 __nmk_dir ?= ../scripts/nmk/scripts/
-include $(__nmk_dir)/include.mk
-include $(__nmk_dir)/macro.mk
+include $(__nmk_dir)include.mk
+include $(__nmk_dir)macro.mk
 
 ASCIIDOC	:= asciidoc
 A2X		:= a2x

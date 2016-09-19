@@ -35,7 +35,7 @@ ifneq ($(filter ia32 x86 ppc64,$(ARCH)),)
 endif
 
 # msg-* printing
-include $(__nmk_dir)/msg.mk
+include $(__nmk_dir)msg.mk
 
 #
 # Needed libraries checks
