@@ -41,7 +41,7 @@ $(SRC): $(FOOTER)
 %.8: %.txt
 	$(call msg-gen, $@)
 	$(Q) $(ASCIIDOC) -b docbook -d manpage -o $(patsubst %.8,%.xml,$@) $<
-	$(Q) $(XMLTO) man --skip-validation $(patsubst %.8,%.xml,$@) 2>/dev/null
+	$(Q) $(XMLTO) man -m custom.xsl $(patsubst %.8,%.xml,$@) 2>/dev/null
 
 %.ps: %.8
 	$(call msg-gen, $@)
