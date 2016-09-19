@@ -129,10 +129,21 @@ static int write_pages_to_server(struct page_xfer *xfer,
 	return 0;
 }
 
-static int write_hole_to_server(struct page_xfer *xfer, struct iovec *iov,
-				int type)
+static int write_hole_to_server(struct page_xfer *xfer, struct iovec *iov, u32 flags)
 {
-	return send_iov(xfer->sk, type, xfer->dst_id, iov);
+	u32 cmd = 0;
+	BUG_ON(flags & PE_PRESENT);
+
+	if (flags & PE_PARENT)
+		cmd = PS_IOV_HOLE;
+	else if (flags & PE_LAZY)
+		cmd = PS_IOV_LAZY;
+	else if (flags & PE_ZERO)
+		cmd = PS_IOV_ZERO;
+	else
+		BUG();
+
+	return send_iov(xfer->sk, cmd, xfer->dst_id, iov);
 }
 
 static void close_server_xfer(struct page_xfer *xfer)
@@ -255,16 +266,18 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 	}
 }
 
-static int write_hole_loc(struct page_xfer *xfer, struct iovec *iov, int type)
+static int write_hole_loc(struct page_xfer *xfer, struct iovec *iov, u32 flags)
 {
 	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
+
+	BUG_ON(flags & PE_PRESENT);
 
 	pe.vaddr = encode_pointer(iov->iov_base);
 	pe.nr_pages = iov->iov_len / PAGE_SIZE;
 	pe.has_flags = true;
+	pe.flags = flags;
 
-	switch (type) {
-	case PS_IOV_HOLE:
+	if (flags & PE_PARENT) {
 		if (xfer->parent != NULL) {
 			int ret;
 
@@ -275,16 +288,6 @@ static int write_hole_loc(struct page_xfer *xfer, struct iovec *iov, int type)
 				return -1;
 			}
 		}
-		pe.flags |= PE_PARENT;
-		break;
-	case PS_IOV_ZERO:
-		pe.flags |= PE_ZERO;
-		break;
-	case PS_IOV_LAZY:
-		pe.flags |= PE_LAZY;
-		break;
-	default:
-		return -1;
 	}
 
 	if (pb_write_one(xfer->pmi, &pe, PB_PAGEMAP) < 0)
@@ -367,14 +370,14 @@ int open_page_xfer(struct page_xfer *xfer, int fd_type, long id)
 }
 
 static int page_xfer_dump_hole(struct page_xfer *xfer,
-			       struct iovec *hole, unsigned long off, int type)
+			       struct iovec *hole, unsigned long off, u32 flags)
 {
 	BUG_ON(hole->iov_base < (void *)off);
 	hole->iov_base -= off;
 	pr_debug("\th %p [%u]\n", hole->iov_base,
 			(unsigned int)(hole->iov_len / PAGE_SIZE));
 
-	if (xfer->write_hole(xfer, hole, type))
+	if (xfer->write_hole(xfer, hole, flags))
 		return -1;
 
 	return 0;
@@ -395,14 +398,14 @@ static struct iovec get_iov(struct iovec *iovs, unsigned int n, bool compat)
 	}
 }
 
-static int get_hole_type(struct page_pipe *pp, int n)
+static int get_hole_flags(struct page_pipe *pp, int n)
 {
 	unsigned int hole_flags = pp->hole_flags[n];
 
 	if (hole_flags == PP_HOLE_PARENT)
-		return PS_IOV_HOLE;
+		return PE_PARENT;
 	if (hole_flags == PP_HOLE_ZERO)
-		return PS_IOV_ZERO;
+		return PE_ZERO;
 	else
 		BUG();
 
@@ -417,12 +420,13 @@ static int dump_holes(struct page_xfer *xfer, struct page_pipe *pp,
 	for (; *cur_hole < pp->free_hole ; (*cur_hole)++) {
 		struct iovec hole = get_iov(pp->holes, *cur_hole,
 						pp->flags & PP_COMPAT);
-		int hole_type = get_hole_type(pp, *cur_hole);
+		u32 hole_flags;
 
 		if (limit && hole.iov_base >= limit)
 			break;
 
-		ret = page_xfer_dump_hole(xfer, &hole, off, hole_type);
+		hole_flags = get_hole_flags(pp, *cur_hole);
+		ret = page_xfer_dump_hole(xfer, &hole, off, hole_flags);
 		if (ret)
 			return ret;
 	}
@@ -459,8 +463,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 
 			if (ppb->flags & PPB_LAZY) {
 				if (!dump_lazy) {
-					if (xfer->write_hole(xfer, &iov,
-							     PS_IOV_LAZY))
+					if (xfer->write_hole(xfer, &iov, PE_LAZY))
 						return -1;
 					continue;
 				} else {
@@ -667,7 +670,7 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 	return 0;
 }
 
-static int page_server_hole(int sk, struct page_server_iov *pi)
+static int page_server_hole(int sk, struct page_server_iov *pi, u32 flags)
 {
 	struct page_xfer *lxfer = &cxfer.loc_xfer;
 	struct iovec iov;
@@ -678,7 +681,7 @@ static int page_server_hole(int sk, struct page_server_iov *pi)
 		return -1;
 
 	psi2iovec(pi, &iov);
-	if (lxfer->write_hole(lxfer, &iov, pi->cmd))
+	if (lxfer->write_hole(lxfer, &iov, flags))
 		return -1;
 
 	return 0;
@@ -782,9 +785,13 @@ static int page_server_serve(int sk)
 			ret = page_server_add(sk, &pi);
 			break;
 		case PS_IOV_HOLE:
+			ret = page_server_hole(sk, &pi, PE_PARENT);
+			break;
 		case PS_IOV_ZERO:
+			ret = page_server_hole(sk, &pi, PE_ZERO);
+			break;
 		case PS_IOV_LAZY:
-			ret = page_server_hole(sk, &pi);
+			ret = page_server_hole(sk, &pi, PE_LAZY);
 			break;
 		case PS_IOV_FLUSH:
 		case PS_IOV_FLUSH_N_CLOSE:
