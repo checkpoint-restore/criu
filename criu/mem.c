@@ -181,7 +181,7 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 }
 
 static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl *ctl,
-		struct vm_area_list *vma_area_list, bool delayed_dump)
+		struct vm_area_list *vma_area_list, bool skip_non_trackable)
 {
 	struct parasite_dump_pages_args *args;
 	struct parasite_vma_entry *p_vma;
@@ -199,7 +199,7 @@ static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl
 		 * Kernel write to aio ring is not soft-dirty tracked,
 		 * so we ignore them at pre-dump.
 		 */
-		if (vma_entry_is(vma->e, VMA_AREA_AIORING) && delayed_dump)
+		if (vma_entry_is(vma->e, VMA_AREA_AIORING) && skip_non_trackable)
 			continue;
 		if (vma->e->prot & PROT_READ)
 			continue;
@@ -295,14 +295,24 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		return -1;
 
 	ret = -1;
-	if (!mdc->delayed_dump)
+	if (!mdc->pre_dump)
+		/*
+		 * Chunk mode pushes pages portion by portion. This mode
+		 * only works when we don't need to keep pp for later
+		 * use, i.e. on non-lazy non-predump.
+		 */
 		cpp_flags |= PP_CHUNK_MODE;
-	ctl->mem_pp = pp = create_page_pipe(vma_area_list->priv_size,
+	pp = create_page_pipe(vma_area_list->priv_size,
 					    pargs_iovs(args), cpp_flags);
 	if (!pp)
 		goto out;
 
-	if (!mdc->delayed_dump) {
+	if (!mdc->pre_dump) {
+		/*
+		 * Regular dump -- create xfer object and send pages to it
+		 * right here. For pre-dumps the pp will be taken by the
+		 * caller and handled later.
+		 */
 		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
 		if (ret < 0)
 			goto out_pp;
@@ -328,7 +338,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 				!vma_area_is(vma_area, VMA_ANON_SHARED))
 			continue;
 		if (vma_entry_is(vma_area->e, VMA_AREA_AIORING)) {
-			if (mdc->delayed_dump)
+			if (mdc->pre_dump)
 				continue;
 			has_parent = false;
 		}
@@ -343,7 +353,7 @@ again:
 			ret = generate_iovs(vma_area, pp, map, &off,
 				has_parent);
 			if (ret == -EAGAIN) {
-				BUG_ON(mdc->delayed_dump);
+				BUG_ON(!(pp->flags & PP_CHUCK_MODE));
 
 				ret = drain_pages(pp, ctl, args);
 				if (!ret)
@@ -359,7 +369,7 @@ again:
 	}
 
 	ret = drain_pages(pp, ctl, args);
-	if (!ret && !mdc->delayed_dump)
+	if (!ret && !mdc->pre_dump)
 		ret = xfer_pages(pp, &xfer);
 	if (ret)
 		goto out_xfer;
@@ -372,11 +382,13 @@ again:
 
 	ret = task_reset_dirty_track(ctl->pid.real);
 out_xfer:
-	if (!mdc->delayed_dump)
+	if (!mdc->pre_dump)
 		xfer.close(&xfer);
 out_pp:
-	if (ret || !mdc->delayed_dump)
+	if (ret || !mdc->pre_dump)
 		destroy_page_pipe(pp);
+	else
+		ctl->mem_pp = pp;
 out:
 	pmc_fini(&pmc);
 	pr_info("----------------------------------------\n");
@@ -390,7 +402,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	int ret;
 	struct parasite_dump_pages_args *pargs;
 
-	pargs = prep_dump_pages_args(ctl, vma_area_list, mdc->delayed_dump);
+	pargs = prep_dump_pages_args(ctl, vma_area_list, mdc->pre_dump);
 
 	/*
 	 * Add PROT_READ protection for all VMAs we're about to
