@@ -30,7 +30,5 @@ export NM SH MAKE MKDIR AWK PERL PYTHON SH CSCOPE
 
 #
 # Footer.
-$(__nmk_dir)scripts/tools.mk:
-	@true
 ____nmk_defined__tools = y
 endif

@@ -67,7 +67,5 @@ map = $(foreach x,$2,$(call $1,$x)$(newline))
 
 #
 # Footer.
-$(__nmk_dir)scripts/msg.mk:
-	@true
 ____nmk_defined__msg = y
 endif #____nmk_defined__msg

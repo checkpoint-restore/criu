@@ -24,7 +24,5 @@ $(eval $(call include-once,build.mk))
 
 #
 # Footer
-$(__nmk_dir)scripts/main.mk:
-	@true
 ____nmk_defined__main = y
 endif

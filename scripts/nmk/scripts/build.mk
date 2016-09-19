@@ -284,7 +284,5 @@ mrproper: clean
 
 #
 # Footer.
-$(__nmk_dir)scripts/build.mk:
-	@true
 ____nmk_defined__build = y
 endif

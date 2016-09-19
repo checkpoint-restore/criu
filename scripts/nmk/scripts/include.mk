@@ -52,7 +52,5 @@ export build-as
 
 #
 # Footer.
-$(__nmk_dir)scripts/include.mk:
-	@true
 ____nmk_defined__include = y
 endif

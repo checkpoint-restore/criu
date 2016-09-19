@@ -23,7 +23,5 @@ cleanify = $(foreach o,$(sort $(call uniq,$(1))),$(o) $(o:.o=.d) $(o:.o=.i) $(o:
 
 #
 # Footer.
-$(__nmk_dir)scripts/utils.mk:
-	@true
 ____nmk_defined__utils = y
 endif

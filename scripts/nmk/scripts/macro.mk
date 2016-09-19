@@ -29,7 +29,5 @@ endef
 
 #
 # Footer.
-$(__nmk_dir)scripts/macro.mk:
-	@true
 ____nmk_defined__macro = y
 endif
