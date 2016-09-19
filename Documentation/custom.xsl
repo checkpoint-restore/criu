@@ -3,5 +3,6 @@
 
  <xsl:param name="man.hyphenate">1</xsl:param>
  <xsl:param name="man.justify">1</xsl:param>
+ <xsl:param name="man.output.better.ps.enabled">1</xsl:param>
 
 </xsl:stylesheet>
