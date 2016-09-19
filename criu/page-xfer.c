@@ -587,12 +587,11 @@ static int prep_loc_xfer(struct page_server_iov *pi)
 		return 0;
 }
 
-static int page_server_add(int sk, struct page_server_iov *pi)
+static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 {
 	size_t len;
 	struct page_xfer *lxfer = &cxfer.loc_xfer;
 	struct iovec iov;
-	u32 flags;
 
 	pr_debug("Adding %"PRIx64"/%u\n", pi->vaddr, pi->nr_pages);
 
@@ -600,9 +599,11 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 		return -1;
 
 	psi2iovec(pi, &iov);
-	flags = decode_ps_flags(pi->cmd);
 	if (lxfer->write_pagemap(lxfer, &iov, flags))
 		return -1;
+
+	if (!(flags & PE_PRESENT))
+		return 0;
 
 	len = iov.iov_len;
 	while (len > 0) {
@@ -637,23 +638,6 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 
 		len -= chunk;
 	}
-
-	return 0;
-}
-
-static int page_server_hole(int sk, struct page_server_iov *pi, u32 flags)
-{
-	struct page_xfer *lxfer = &cxfer.loc_xfer;
-	struct iovec iov;
-
-	pr_debug("Adding %"PRIx64"/%u hole\n", pi->vaddr, pi->nr_pages);
-
-	if (prep_loc_xfer(pi))
-		return -1;
-
-	psi2iovec(pi, &iov);
-	if (lxfer->write_pagemap(lxfer, &iov, flags))
-		return -1;
 
 	return 0;
 }
@@ -753,16 +737,16 @@ static int page_server_serve(int sk)
 			ret = page_server_check_parent(sk, &pi);
 			break;
 		case PS_IOV_ADD:
-			ret = page_server_add(sk, &pi);
+			ret = page_server_add(sk, &pi, PE_PRESENT | decode_ps_flags(pi.cmd));
 			break;
 		case PS_IOV_HOLE:
-			ret = page_server_hole(sk, &pi, PE_PARENT);
+			ret = page_server_add(sk, &pi, PE_PARENT);
 			break;
 		case PS_IOV_ZERO:
-			ret = page_server_hole(sk, &pi, PE_ZERO);
+			ret = page_server_add(sk, &pi, PE_ZERO);
 			break;
 		case PS_IOV_LAZY:
-			ret = page_server_hole(sk, &pi, PE_LAZY);
+			ret = page_server_add(sk, &pi, PE_LAZY);
 			break;
 		case PS_IOV_FLUSH:
 		case PS_IOV_FLUSH_N_CLOSE:
