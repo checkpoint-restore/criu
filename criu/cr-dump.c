@@ -1109,6 +1109,7 @@ static int pre_dump_one_task(struct pstree_item *item)
 	struct parasite_ctl *parasite_ctl;
 	int ret = -1;
 	struct parasite_dump_misc misc;
+	struct mem_dump_ctl mdc;
 
 	INIT_LIST_HEAD(&vmas.h);
 	vmas.nr = 0;
@@ -1158,7 +1159,9 @@ static int pre_dump_one_task(struct pstree_item *item)
 
 	parasite_ctl->pid.virt = item->pid.virt = misc.pid;
 
-	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, true);
+	mdc.delayed_dump = true;
+
+	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, &mdc);
 	if (ret)
 		goto err_cure;
 
@@ -1185,6 +1188,7 @@ static int dump_one_task(struct pstree_item *item)
 	struct cr_imgset *cr_imgset = NULL;
 	struct parasite_drain_fd *dfds = NULL;
 	struct proc_posix_timers_stat proc_args;
+	struct mem_dump_ctl mdc;
 
 	INIT_LIST_HEAD(&vmas.h);
 	vmas.nr = 0;
@@ -1314,7 +1318,9 @@ static int dump_one_task(struct pstree_item *item)
 		}
 	}
 
-	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, false);
+	mdc.delayed_dump = false;
+
+	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, &mdc);
 	if (ret)
 		goto err_cure;
 
