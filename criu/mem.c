@@ -215,8 +215,8 @@ static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl
 	return args;
 }
 
-static int dump_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
-			struct parasite_dump_pages_args *args, struct page_xfer *xfer)
+static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
+		      struct parasite_dump_pages_args *args)
 {
 	struct page_pipe_buf *ppb;
 	int ret = 0;
@@ -244,15 +244,20 @@ static int dump_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
 		args->off += args->nr_segs;
 	}
 
+	return 0;
+}
+
+static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer)
+{
+	int ret;
+
 	/*
 	 * Step 3 -- write pages into image (or delay writing for
 	 *           pre-dump action (see pre_dump_one_task)
 	 */
-	if (xfer) {
-		timing_start(TIME_MEMWRITE);
-		ret = page_xfer_dump_pages(xfer, pp, 0);
-		timing_stop(TIME_MEMWRITE);
-	}
+	timing_start(TIME_MEMWRITE);
+	ret = page_xfer_dump_pages(xfer, pp, 0);
+	timing_stop(TIME_MEMWRITE);
 
 	return ret;
 }
@@ -340,7 +345,9 @@ again:
 			if (ret == -EAGAIN) {
 				BUG_ON(mdc->delayed_dump);
 
-				ret = dump_pages(pp, ctl, args, &xfer);
+				ret = drain_pages(pp, ctl, args);
+				if (!ret)
+					ret = xfer_pages(pp, &xfer);
 				if (!ret) {
 					page_pipe_reinit(pp);
 					goto again;
@@ -351,7 +358,9 @@ again:
 			goto out_xfer;
 	}
 
-	ret = dump_pages(pp, ctl, args, mdc->delayed_dump ? NULL : &xfer);
+	ret = drain_pages(pp, ctl, args);
+	if (!ret && !mdc->delayed_dump)
+		ret = xfer_pages(pp, &xfer);
 	if (ret)
 		goto out_xfer;
 
