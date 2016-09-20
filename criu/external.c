@@ -1,3 +1,4 @@
+#include "common/err.h"
 #include "common/list.h"
 #include "cr_options.h"
 #include "xmalloc.h"
@@ -36,8 +37,10 @@ char *external_lookup_by_key(char *key)
 			continue;
 		if (ext->id[len] == ':')
 			return ext->id + len + 1;
+		else if (ext->id[len] == '\0')
+			return NULL;
 	}
-	return NULL;
+	return ERR_PTR(-ENOENT);
 }
 
 int external_for_each_type(char *type, int (*cb)(struct external *, void *), void *arg)
