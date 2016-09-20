@@ -48,12 +48,11 @@ CONFIG_HEADER := $(obj)/include/config.h
 ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
 include $(SRC_DIR)/criu/Makefile.config
 endif
-config: $(VERSION_HEADER)
 
 #
 # System calls library.
 SYSCALL-LIB		:= $(ARCH_DIR)/syscalls.built-in.o
-syscalls_lib: config
+syscalls_lib: $(CONFIG_HEADER)
 	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) all
 .PHONY: syscalls_lib
 
@@ -86,6 +85,9 @@ pie: $(piegen-bin) criu/pie/lib.a
 	$(Q) $(MAKE) $(build)=criu/pie all
 .PHONY: pie
 
+criu/pie/%: pie
+	@true
+
 #
 # CRIU executable
 PROGRAM-BUILTINS	+= criu/pie/lib.a
@@ -95,6 +97,12 @@ PROGRAM-BUILTINS	+= $(ARCH-LIB)
 
 $(obj)/built-in.o: pie
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) all
+
+$(obj)/Makefile:
+	@true
+
+$(obj)/%: pie
+	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) $@
 
 $(obj)/criu: $(PROGRAM-BUILTINS)
 	$(call msg-link, $@)
