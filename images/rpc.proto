@@ -71,7 +71,7 @@ message criu_opts {
 
 	optional int32			work_dir_fd	= 17;
 	optional bool			link_remap	= 18;
-	repeated criu_veth_pair		veths		= 19;
+	repeated criu_veth_pair		veths		= 19; /* DEPRECATED, use external instead */
 
 	optional uint32			cpu_cap		= 20 [default = 0xffffffff];
 	optional bool			force_irmap	= 21;

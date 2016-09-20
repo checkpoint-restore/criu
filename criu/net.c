@@ -30,6 +30,8 @@
 #include "sysctl.h"
 #include "kerndat.h"
 #include "util.h"
+#include "external.h"
+
 #include "protobuf.h"
 #include "images/netdev.pb-c.h"
 
@@ -904,12 +906,25 @@ enum {
 #define IFLA_NET_NS_FD	28
 #endif
 
+static void veth_peer_info(NetDeviceEntry *nde, struct newlink_req *req)
+{
+	char key[100], *val;
+
+	snprintf(key, sizeof(key), "veth[%s]", nde->name);
+	val = external_lookup_by_key(key);
+	if (!IS_ERR_OR_NULL(val)) {
+		char *aux;
+
+		aux = strchrnul(val, '@');
+		addattr_l(&req->h, sizeof(*req), IFLA_IFNAME, val, aux - val - 1);		
+	}
+}
+
 static int veth_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 {
 	int ns_fd = get_service_fd(NS_FD_OFF);
 	struct rtattr *veth_data, *peer_data;
 	struct ifinfomsg ifm;
-	struct veth_pair *n;
 
 	BUG_ON(ns_fd < 0);
 
@@ -920,12 +935,7 @@ static int veth_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 	peer_data = NLMSG_TAIL(&req->h);
 	memset(&ifm, 0, sizeof(ifm));
 	addattr_l(&req->h, sizeof(*req), VETH_INFO_PEER, &ifm, sizeof(ifm));
-	list_for_each_entry(n, &opts.veth_pairs, node) {
-		if (!strcmp(nde->name, n->inside))
-			break;
-	}
-	if (&n->node != &opts.veth_pairs)
-		addattr_l(&req->h, sizeof(*req), IFLA_IFNAME, n->outside, strlen(n->outside));
+	veth_peer_info(nde, req);
 	addattr_l(&req->h, sizeof(*req), IFLA_NET_NS_FD, &ns_fd, sizeof(ns_fd));
 	peer_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)peer_data;
 	veth_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)veth_data;
@@ -1620,33 +1630,13 @@ void network_unlock(void)
 
 int veth_pair_add(char *in, char *out)
 {
-	char *aux;
-	struct veth_pair *n;
+	char *e_str;
 
-	n = xmalloc(sizeof(*n));
-	if (n == NULL)
+	e_str = xmalloc(200); /* For 3 IFNAMSIZ + 8 service characters */
+	if (!e_str)
 		return -1;
-
-	n->inside = in;
-	n->outside = out;
-	/*
-	 * Does the out string specify a bridge for
-	 * moving the outside end of the veth pair to?
-	 */
-	aux = strrchr(out, '@');
-	if (aux) {
-		*aux++ = '\0';
-		n->bridge = aux;
-	} else {
-		n->bridge = NULL;
-	}
-
-	list_add(&n->node, &opts.veth_pairs);
-	if (n->bridge)
-		pr_debug("Added %s:%s@%s veth map\n", in, out, aux);
-	else
-		pr_debug("Added %s:%s veth map\n", in, out);
-	return 0;
+	snprintf(e_str, 200, "veth[%s]:%s", in, out);
+	return add_external(e_str);
 }
 
 /*
@@ -1727,20 +1717,26 @@ int collect_net_namespaces(bool for_dump)
 
 struct ns_desc net_ns_desc = NS_DESC_ENTRY(CLONE_NEWNET, "net");
 
-int move_veth_to_bridge(void)
+static int move_to_bridge(struct external *ext, void *arg)
 {
-	int s;
+	int s = *(int *)arg;
 	int ret;
-	struct veth_pair *n;
+	char *out, *br;
 	struct ifreq ifr;
 
-	s = -1;
-	ret = 0;
-	list_for_each_entry(n, &opts.veth_pairs, node) {
-		if (n->bridge == NULL)
-			continue;
+	out = external_val(ext);
+	if (!out)
+		return -1;
 
-		pr_debug("\tMoving dev %s to bridge %s\n", n->outside, n->bridge);
+	br = strchr(out, '@');
+	if (!br)
+		return 0;
+
+	*br = '\0';
+	br++;
+
+	{
+		pr_debug("\tMoving dev %s to bridge %s\n", out, br);
 
 		if (s == -1) {
 			s = socket(AF_LOCAL, SOCK_STREAM|SOCK_CLOEXEC, 0);
@@ -1754,18 +1750,17 @@ int move_veth_to_bridge(void)
 		 * Add the device to the bridge. This is equivalent to:
 		 * $ brctl addif <bridge> <device>
 		 */
-		ifr.ifr_ifindex = if_nametoindex(n->outside);
+		ifr.ifr_ifindex = if_nametoindex(out);
 		if (ifr.ifr_ifindex == 0) {
-			pr_perror("Can't get index of %s", n->outside);
+			pr_perror("Can't get index of %s", out);
 			ret = -1;
-			break;
+			goto out;
 		}
-		strlcpy(ifr.ifr_name, n->bridge, IFNAMSIZ);
+		strlcpy(ifr.ifr_name, br, IFNAMSIZ);
 		ret = ioctl(s, SIOCBRADDIF, &ifr);
 		if (ret < 0) {
-			pr_perror("Can't add interface %s to bridge %s",
-				n->outside, n->bridge);
-			break;
+			pr_perror("Can't add interface %s to bridge %s", out, br);
+			goto out;
 		}
 
 		/*
@@ -1773,24 +1768,41 @@ int move_veth_to_bridge(void)
 		 * $ ip link set dev <device> up
 		 */
 		ifr.ifr_ifindex = 0;
-		strlcpy(ifr.ifr_name, n->outside, IFNAMSIZ);
+		strlcpy(ifr.ifr_name, out, IFNAMSIZ);
 		ret = ioctl(s, SIOCGIFFLAGS, &ifr);
 		if (ret < 0) {
-			pr_perror("Can't get flags of interface %s", n->outside);
-			break;
+			pr_perror("Can't get flags of interface %s", out);
+			goto out;
 		}
+
+		ret = 0;
 		if (ifr.ifr_flags & IFF_UP)
-			continue;
+			goto out;
+
 		ifr.ifr_flags |= IFF_UP;
 		ret = ioctl(s, SIOCSIFFLAGS, &ifr);
 		if (ret < 0) {
 			pr_perror("Can't set flags of interface %s to 0x%x",
-				n->outside, ifr.ifr_flags);
-			break;
+				out, ifr.ifr_flags);
+			goto out;
 		}
-	}
 
-	if (s >= 0)
-		close(s);
+		ret = 0;
+	}
+out:
+	br--;
+	*br = '@';
+	*(int *)arg = s;
+	return ret;
+}
+
+int move_veth_to_bridge(void)
+{
+	int sk = -1, ret;
+
+	ret = external_for_each_type("veth", move_to_bridge, &sk);
+	if (sk >= 0)
+		close(sk);
+
 	return ret;
 }
