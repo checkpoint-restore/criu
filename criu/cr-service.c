@@ -17,6 +17,7 @@
 
 #include "crtools.h"
 #include "cr_options.h"
+#include "external.h"
 #include "util.h"
 #include "log.h"
 #include "cpu.h"

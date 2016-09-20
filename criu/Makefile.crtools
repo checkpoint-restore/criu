@@ -1,5 +1,6 @@
 ccflags-y		+= -iquote criu/$(ARCH)
 obj-y			+= action-scripts.o
+obj-y			+= external.o
 obj-y			+= aio.o
 obj-y			+= bfd.o
 obj-y			+= bitmap.o

@@ -28,6 +28,7 @@
 #include "proc_parse.h"
 #include "pstree.h"
 #include "fault-injection.h"
+#include "external.h"
 
 #include "protobuf.h"
 #include "images/regfile.pb-c.h"

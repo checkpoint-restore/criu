@@ -47,11 +47,6 @@ struct irmap_path_opt {
 	struct irmap *ir;
 };
 
-struct external {
-	struct list_head node;
-	char *id;
-};
-
 struct cr_options {
 	int			final_state;
 	char			*show_dump_file;
@@ -125,7 +120,5 @@ struct cr_options {
 extern struct cr_options opts;
 
 extern void init_opts(void);
-
-extern int add_external(char *key);
 
 #endif /* __CR_OPTIONS_H__ */

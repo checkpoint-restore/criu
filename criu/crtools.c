@@ -24,6 +24,7 @@
 #include "compiler.h"
 #include "crtools.h"
 #include "cr_options.h"
+#include "external.h"
 #include "sockets.h"
 #include "files.h"
 #include "sk-inet.h"
@@ -191,19 +192,6 @@ static size_t parse_size(char *optarg)
 	else if (index(optarg, 'G'))
 		return (size_t)GIGA(atol(optarg));
 	return (size_t)atol(optarg);
-}
-
-int add_external(char *key)
-{
-	struct external *ext;
-
-	ext = xmalloc(sizeof(*ext));
-	if (!ext)
-		return -1;
-	ext->id = key;
-	list_add(&ext->node, &opts.external);
-
-	return 0;
 }
 
 bool deprecated_ok(char *what)

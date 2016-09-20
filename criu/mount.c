@@ -30,6 +30,7 @@
 #include "path.h"
 #include "autofs.h"
 #include "files-reg.h"
+#include "external.h"
 
 #include "images/mnt.pb-c.h"
 #include "images/binfmt-misc.pb-c.h"

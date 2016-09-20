@@ -28,6 +28,7 @@
 #include "file-ids.h"
 #include "files-reg.h"
 #include "namespaces.h"
+#include "external.h"
 
 #include "protobuf.h"
 #include "images/tty.pb-c.h"
