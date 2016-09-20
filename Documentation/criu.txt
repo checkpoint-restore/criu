@@ -254,6 +254,13 @@ Thus for command line argument the example above will look like:
     information into image file. If the option is omitted or set to *none*
     then image will not be written. By default *criu* do not write this image.
 
+*--cgroup-root* '[<controller>:]/<newroot>'::
+    Change the root for the controller that will be dumped. By default, CRIU
+    simply dumps everything below where any of the tasks live. However, if a
+    container moves all of its tasks into a cgroup directory below the container
+    engine's default directory for tasks, permissions will not be preserved on
+    the upper directories with no tasks in them, which may cause problems.
+
 *restore*
 ~~~~~~~~~
 Restores previously checkpointed processes.
