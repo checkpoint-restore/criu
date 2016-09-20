@@ -40,3 +40,22 @@ char *external_lookup_by_key(char *key)
 	return NULL;
 }
 
+int external_for_each_type(char *type, int (*cb)(struct external *, void *), void *arg)
+{
+	struct external *ext;
+	int ln = strlen(type);
+	int ret = 0;
+
+	list_for_each_entry(ext, &opts.external, node) {
+		if (strncmp(ext->id, type, ln))
+			continue;
+		if (ext->id[ln] != '[')
+			continue;
+
+		ret = cb(ext, arg);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
