@@ -61,7 +61,6 @@ void init_opts(void)
 
 	/* Default options */
 	opts.final_state = TASK_DEAD;
-	INIT_LIST_HEAD(&opts.ext_unixsk_ids);
 	INIT_LIST_HEAD(&opts.ext_mounts);
 	INIT_LIST_HEAD(&opts.inherit_fds);
 	INIT_LIST_HEAD(&opts.external);
@@ -827,14 +826,12 @@ usage:
 "                            tty[rdev:dev]\n"
 "                            file[mnt_id:inode]\n"
 "                            dev[maj:min]:VAL\n"
+"                            unix[ino]\n"
 "                        Formats of RES on restore:\n"
 "                            dev[VAL]:DEVPATH\n"
 "                            veth[IFNAME]:OUTNAME{@BRIDGE}\n"
 "\n"
 "* Special resources support:\n"
-"  -x|--" USK_EXT_PARAM " [inode,...]\n"
-"                        allow external unix connections (optional arguments\n"
-"                        are socketpair inode(s) that allow one-sided dump)\n"
 "     --" SK_EST_PARAM "  checkpoint/restore established TCP connections\n"
 "     --" SK_INFLIGHT_PARAM "   skip (ignore) in-flight TCP connections\n"
 "  -r|--root PATH        change the root filesystem (when run in mount namespace)\n"

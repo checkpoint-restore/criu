@@ -91,7 +91,7 @@ message criu_opts {
 	repeated string			skip_mnt	= 31;
 	repeated string			enable_fs	= 32;
 
-	repeated unix_sk                unix_sk_ino     = 33;
+	repeated unix_sk                unix_sk_ino     = 33; /* DEPRECATED, use external instead */
 
 	optional criu_cg_mode		manage_cgroups_mode = 34;
 	optional uint32			ghost_limit	= 35 [default = 0x100000];
