@@ -24,6 +24,8 @@ RUN apt-get install -y \
 COPY . /criu
 WORKDIR /criu
 
-RUN make mrproper && make -j $(nproc) CC=$CC
+RUN make mrproper
+RUN make -j $(nproc) CC=$CC criu/parasite-syscall.o
+RUN make -j $(nproc) CC=$CC
 RUN make mrproper
 RUN bash -c 'CLEAN="$(git clean -ndx --exclude=scripts/build)"; echo "${CLEAN}"; test -z "${CLEAN}"; exit $?'
