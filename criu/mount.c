@@ -474,6 +474,7 @@ static void mnt_tree_show(struct mount_info *tree, int off)
 	pr_info("%*s<--\n", off, "");
 }
 
+/* Returns -1 on error, 1 if external mount resolved, 0 otherwise */
 static int try_resolve_ext_mount(struct mount_info *info)
 {
 	struct ext_mount *em;
@@ -484,7 +485,7 @@ static int try_resolve_ext_mount(struct mount_info *info)
 		pr_info("Found %s mapping for %s mountpoint\n",
 				em->val, info->mountpoint);
 		info->external = em;
-		return 0;
+		return 1;
 	}
 
 	snprintf(devstr, sizeof(devstr), "dev[%d/%d]",
@@ -508,11 +509,11 @@ static int try_resolve_ext_mount(struct mount_info *info)
 			BUG_ON(info->fstype->code != FSTYPE__AUTO);
 			xfree(info->source);
 			info->source = source;
-			return 0;
+			return 1;
 		}
 	}
 
-	return -ENOTSUP;
+	return 0;
 }
 
 static struct mount_info *find_widest_shared(struct mount_info *m)
@@ -823,13 +824,10 @@ static int resolve_external_mounts(struct mount_info *info)
 			continue;
 
 		ret = try_resolve_ext_mount(m);
-		if (ret < 0 && ret != -ENOTSUP) {
-			return -1;
-		} else if (ret == -ENOTSUP && !ext_ns) {
+		if (ret < 0)
+			return ret;
+		if (ret == 1 || !ext_ns)
 			continue;
-		} else if (ret == 0) {
-			continue;
-		}
 
 		match = find_best_external_match(ext_ns->mnt.mntinfo_list, m);
 		if (!match)
