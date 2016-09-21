@@ -1,38 +1,23 @@
 include $(SRC_DIR)/Makefile.versions
 
-ccflags-y	+= -iquote criu/include
-ccflags-y	+= -iquote compel/include
-ccflags-y	+= -iquote compel/arch/$(ARCH)/include
-ccflags-y	+= -DCOMPEL_VERSION=\"$(COMPEL_SO_VERSION_MAJOR).$(COMPEL_SO_VERSION_MINOR)\"
-
-host-ccflags-y	+= $(filter-out -pg $(CFLAGS-GCOV),$(ccflags-y))
-HOSTCFLAGS	+= $(filter-out -pg $(CFLAGS-GCOV),$(WARNINGS) $(DEFINES))
-HOSTLDFLAGS	+= $(filter-out -pg $(CFLAGS-GCOV),$(LDFLAGS))
-HOSTCFLAGS	:= $(filter-out -DCONFIG_X86_64,$(HOSTCFLAGS))
-export host-ccflags-y HOSTCFLAGS HOSTLDFLAGS
-
-hostprogs-y	+= compel
-compel-objs	+= main.o
-compel-objs	+= handle-elf.o
-compel-objs	+= arch/$(ARCH)/handle-elf.o
-
-ifeq ($(ARCH),x86)
-# Add -DCONFIG_X86_64 or -DCONFIG_X86_32 to HOSTCFLAGS
-define ccflags-defines
-        export HOSTCFLAGS_$(notdir $(1)) += -DCONFIG_X86_64
-endef
-$(eval $(call map,ccflags-defines,$(compel-objs)))
-
-compel-objs += handle-elf-32.o
-export HOSTCFLAGS_handle-elf-32.o += -DCONFIG_X86_32
-endif # ARCH == x86
-
 .PHONY: .FORCE
 
-export compel-objs
-test/compel/%: .FORCE
-	$(Q) $(MAKE) $(build)=test/compel $@
+COMPEL_SO_VERSION	:= $(COMPEL_SO_VERSION_MAJOR)$(if $(COMPEL_SO_VERSION_MINOR),.$(COMPEL_SO_VERSION_MINOR))$(if $(COMPEL_SO_VERSION_SUBLEVEL),.$(COMPEL_SO_VERSION_SUBLEVEL))
+COMPEL_SO_VERSION_CODE	:= $(shell expr $(COMPEL_SO_VERSION_MAJOR) \* 65536 \+ $(COMPEL_SO_VERSION_MINOR) \* 256 \+ $(COMPEL_SO_VERSION_SUBLEVEL))
+ccflags-y		+= -iquote compel/arch/$(ARCH)/src/lib/include
+ccflags-y		+= -iquote compel/include
+ccflags-y		+= -iquote compel/plugins/include
+ccflags-y		+= -iquote $(SRC_DIR)/criu/include
+ccflags-y		+= -fPIC
 
-test: test/compel/test_handle_binary
+lib-y			+= arch/$(ARCH)/src/lib/handle-elf.o
+lib-y			+= src/lib/handle-elf.o
+lib-y			+= src/lib/handle-elf-32.o
 
-.PHONY: test
+obj-y			+= src/main.o
+
+CFLAGS_handle-elf-32.o += -UCONFIG_X86_64 -DCONFIG_X86_32
+CFLAGS_handle-elf-32.d += -UCONFIG_X86_64 -DCONFIG_X86_32
+
+cleanup-y		+= compel/compel
+cleanup-y		+= compel/libcompel.so
