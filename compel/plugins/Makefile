@@ -8,6 +8,7 @@ ccflags-y		+= -iquote $(SRC_DIR)/compel/include
 # General compel/plugins includes
 ccflags-y		+= -iquote $(obj)/include
 ccflags-y		+= -iquote $(obj)/include/uapi
+asflags-y		+= -iquote $(obj)/include
 asflags-y		+= -iquote $(obj)/include/uapi
 
 # Arch compel/plugins includes
@@ -27,6 +28,7 @@ std-obj-y		+= std/std.o
 std-obj-y		+= std/string.o
 std-obj-y		+= ./$(ARCH_DIR)/std/syscalls-64.o
 std-obj-y		+= ./$(ARCH_DIR)/std/call32.o
+std-obj-y		+= ./$(ARCH_DIR)/std/prologue.o
 
 sys-proto-generic	:= $(obj)/include/uapi/std/syscall.h
 sys-codes-generic	:= $(obj)/include/uapi/std/syscall-codes.h
