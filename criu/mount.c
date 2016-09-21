@@ -84,13 +84,17 @@ static struct ext_mount *ext_mount_lookup(char *key)
 	return NULL;
 }
 
-static struct ext_mount *ext_mount_make_auto(char *key, char *val)
+static struct ext_mount *ext_mount_make_auto(char *val)
 {
 	struct ext_mount *em;
 
 	em = xmalloc(sizeof(*em));
 	if (em) {
-		em->key = key;
+		/*
+		 * The key is (should) only be used for lookup by
+		 * ext_mount_lookup() above.
+		 */
+		em->key = (char *)0x00BEDA00;
 		em->val = val;
 	}
 
@@ -878,7 +882,7 @@ static int resolve_external_mounts(struct mount_info *info)
 		if (!p)
 			return -1;
 
-		m->external = ext_mount_make_auto(p, AUTODETECTED_MOUNT);
+		m->external = ext_mount_make_auto(AUTODETECTED_MOUNT);
 		if (!m->external) {
 			free(p);
 			return -1;
@@ -3107,7 +3111,7 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 		 * dump by resolve_external_mounts().
 		 */
 
-		em = ext_mount_make_auto(AUTODETECTED_MOUNT, mi->source);
+		em = ext_mount_make_auto(mi->source);
 		if (!em)
 			return -1;
 	}
