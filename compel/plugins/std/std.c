@@ -4,6 +4,8 @@
 #include "uapi/plugins.h"
 #include "uapi/plugin-std.h"
 
+#include "asm/prologue.h"
+
 extern int main(void *arg_p, unsigned int arg_s);
 
 static struct prologue_init_args *init_args;
