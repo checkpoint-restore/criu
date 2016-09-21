@@ -15,6 +15,10 @@ ccflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
 asflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
 asflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)
 
+# General flags for assembly
+asflags-y		+= -Wstrict-prototypes -Wa,--noexecstack
+asflags-y		+= -D__ASSEMBLY__ -nostdlib -fomit-frame-pointer
+
 
 #
 # STD plugin
