@@ -226,9 +226,9 @@ $(SOCCR_A): |soccr/built-in.o
 #
 # But note that we're already included
 # the nmk so we can reuse it there.
-criu/%: images/built-in.o compel/compel $(VERSION_HEADER) $(CONFIG_HEADER) .FORCE
+criu/%: images/built-in.o compel/compel-host $(VERSION_HEADER) $(CONFIG_HEADER) .FORCE
 	$(Q) $(MAKE) $(build)=criu $@
-criu: images/built-in.o compel/compel $(SOCCR_A) $(VERSION_HEADER) $(CONFIG_HEADER)
+criu: images/built-in.o compel/compel-host $(SOCCR_A) $(VERSION_HEADER) $(CONFIG_HEADER)
 	$(Q) $(MAKE) $(build)=criu all
 .PHONY: criu
 
