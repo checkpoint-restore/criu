@@ -11,16 +11,15 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
+#include "uapi/compel.h"
+
 #include "asm-generic/int.h"
 
-#include "uapi/piegen-err.h"
-#include "piegen.h"
 #include "handle-elf.h"
+#include "piegen.h"
 
-/* TODO: merge with util-vdso.c part in criu header */
 /* Check if pointer is out-of-bound */
-static bool
-__ptr_oob(const uintptr_t ptr, const uintptr_t start, const size_t size)
+static bool __ptr_oob(const uintptr_t ptr, const uintptr_t start, const size_t size)
 {
 	uintptr_t end = start + size;
 
@@ -29,7 +28,7 @@ __ptr_oob(const uintptr_t ptr, const uintptr_t start, const size_t size)
 
 /* Check if pointed structure's end is out-of-bound */
 static bool __ptr_struct_end_oob(const uintptr_t ptr, const size_t struct_size,
-				const uintptr_t start, const size_t size)
+				 const uintptr_t start, const size_t size)
 {
 	/* the last byte of the structure should be inside [begin, end) */
 	return __ptr_oob(ptr + struct_size - 1, start, size);
@@ -37,7 +36,7 @@ static bool __ptr_struct_end_oob(const uintptr_t ptr, const size_t struct_size,
 
 /* Check if pointed structure is out-of-bound */
 static bool __ptr_struct_oob(const uintptr_t ptr, const size_t struct_size,
-				const uintptr_t start, const size_t size)
+			     const uintptr_t start, const size_t size)
 {
 	return __ptr_oob(ptr, start, size) ||
 		__ptr_struct_end_oob(ptr, struct_size, start, size);
@@ -73,7 +72,8 @@ static int do_relative_toc(long value, uint16_t *location,
 	}
 
 	if ((~mask & 0xffff) & value) {
-		pr_err("bad TOC16 relocation (%ld) (0x%lx)\n", value, (~mask & 0xffff) & value);
+		pr_err("bad TOC16 relocation (%ld) (0x%lx)\n",
+		       value, (~mask & 0xffff) & value);
 		return -1;
 	}
 
@@ -82,7 +82,7 @@ static int do_relative_toc(long value, uint16_t *location,
 }
 #endif
 
-static bool is_header_supported(Ehdr_t *hdr)
+static bool is_header_supported(Elf_Ehdr *hdr)
 {
 	if (!arch_is_machine_supported(hdr->e_machine))
 		return false;
@@ -91,11 +91,11 @@ static bool is_header_supported(Ehdr_t *hdr)
 	return true;
 }
 
-static const char *get_strings_section(Ehdr_t *hdr, uintptr_t mem, size_t size)
+static const char *get_strings_section(Elf_Ehdr *hdr, uintptr_t mem, size_t size)
 {
 	size_t sec_table_size = ((size_t) hdr->e_shentsize) * hdr->e_shnum;
 	uintptr_t sec_table = mem + hdr->e_shoff;
-	Shdr_t *secstrings_hdr;
+	Elf_Shdr *secstrings_hdr;
 	uintptr_t addr;
 
 	if (__ptr_struct_oob(sec_table, sec_table_size, mem, size)) {
@@ -109,7 +109,7 @@ static const char *get_strings_section(Ehdr_t *hdr, uintptr_t mem, size_t size)
 	 * (size of section header * index of string section header)
 	 */
 	addr = sec_table + ((size_t) hdr->e_shentsize) * hdr->e_shstrndx;
-	if (__ptr_struct_oob(addr, sizeof(Shdr_t),
+	if (__ptr_struct_oob(addr, sizeof(Elf_Shdr),
 			sec_table, sec_table + sec_table_size)) {
 		pr_err("String section header @%#zx is out of [%#zx, %#zx)\n",
 			addr, sec_table, sec_table + sec_table_size);
@@ -128,51 +128,55 @@ static const char *get_strings_section(Ehdr_t *hdr, uintptr_t mem, size_t size)
 	return (void*)addr;
 }
 
+/*
+ * This name @__handle_elf get renamed into
+ * @handle_elf_ppc64 or say @handle_elf_x86_64
+ * depending on the architecture it's compiled
+ * under.
+ */
 int __handle_elf(void *mem, size_t size)
 {
 	const char *symstrings = NULL;
-	Shdr_t *symtab_hdr = NULL;
-	Sym_t *symbols = NULL;
-	Ehdr_t *hdr = mem;
+	Elf_Shdr *symtab_hdr = NULL;
+	Elf_Sym *symbols = NULL;
+	Elf_Ehdr *hdr = mem;
 
-	Shdr_t *strtab_hdr = NULL;
-	Shdr_t **sec_hdrs = NULL;
+	Elf_Shdr *strtab_hdr = NULL;
+	Elf_Shdr **sec_hdrs = NULL;
 	const char *secstrings;
 
 	size_t i, k, nr_gotpcrel = 0;
 #ifdef ELF_PPC64
 	s64 toc_offset = 0;
 #endif
-	int ret = -E_UNKNOWN;
+	int ret = -EINVAL;
 
 	pr_debug("Header\n");
 	pr_debug("------------\n");
 	pr_debug("\ttype 0x%x machine 0x%x version 0x%x\n",
-		 (unsigned)hdr->e_type, (unsigned)hdr->e_machine, (unsigned)hdr->e_version);
+		 (unsigned)hdr->e_type, (unsigned)hdr->e_machine,
+		 (unsigned)hdr->e_version);
 
 	if (!is_header_supported(hdr)) {
 		pr_err("Unsupported header detected\n");
-		ret = -E_NOT_ELF;
 		goto err;
 	}
 
 	sec_hdrs = malloc(sizeof(*sec_hdrs) * hdr->e_shnum);
 	if (!sec_hdrs) {
 		pr_err("No memory for section headers\n");
-		ret = -E_NOMEM;
+		ret = -ENOMEM;
 		goto err;
 	}
 
 	secstrings = get_strings_section(hdr, (uintptr_t)mem, size);
-	if (!secstrings) {
-		ret = -E_NO_STR_SEC;
+	if (!secstrings)
 		goto err;
-	}
 
 	pr_debug("Sections\n");
 	pr_debug("------------\n");
 	for (i = 0; i < hdr->e_shnum; i++) {
-		Shdr_t *sh = mem + hdr->e_shoff + hdr->e_shentsize * i;
+		Elf_Shdr *sh = mem + hdr->e_shoff + hdr->e_shentsize * i;
 		ptr_func_exit(sh);
 
 		if (sh->sh_type == SHT_SYMTAB)
@@ -221,9 +225,9 @@ int __handle_elf(void *mem, size_t size)
 	pr_out("#include \"%s/types.h\"\n", opts.uapi_dir);
 
 	for (i = 0; i < symtab_hdr->sh_size / symtab_hdr->sh_entsize; i++) {
-		Sym_t *sym = &symbols[i];
+		Elf_Sym *sym = &symbols[i];
 		const char *name;
-		Shdr_t *sh_src;
+		Elf_Shdr *sh_src;
 
 		ptr_func_exit(sym);
 		name = &symstrings[sym->st_name];
@@ -245,7 +249,8 @@ int __handle_elf(void *mem, size_t size)
 #endif
 			if (strncmp(name, "__export", 8))
 				continue;
-			if ((sym->st_shndx && sym->st_shndx < hdr->e_shnum) || sym->st_shndx == SHN_ABS) {
+			if ((sym->st_shndx && sym->st_shndx < hdr->e_shnum) ||
+			    sym->st_shndx == SHN_ABS) {
 				if (sym->st_shndx == SHN_ABS) {
 					sh_src = NULL;
 				} else {
@@ -254,7 +259,8 @@ int __handle_elf(void *mem, size_t size)
 				}
 				pr_out("#define %s%s 0x%lx\n",
 				       opts.prefix_name, name,
-				       (unsigned long)(sym->st_value + (sh_src ? sh_src->sh_addr : 0)));
+				       (unsigned long)(sym->st_value +
+						       (sh_src ? sh_src->sh_addr : 0)));
 			}
 		}
 	}
@@ -264,8 +270,8 @@ int __handle_elf(void *mem, size_t size)
 	pr_debug("Relocations\n");
 	pr_debug("------------\n");
 	for (i = 0; i < hdr->e_shnum; i++) {
-		Shdr_t *sh = sec_hdrs[i];
-		Shdr_t *sh_rel;
+		Elf_Shdr *sh = sec_hdrs[i];
+		Elf_Shdr *sh_rel;
 
 		if (sh->sh_type != SHT_REL && sh->sh_type != SHT_RELA)
 			continue;
@@ -283,11 +289,11 @@ int __handle_elf(void *mem, size_t size)
 			unsigned long place;
 			const char *name;
 			void *where;
-			Sym_t *sym;
+			Elf_Sym *sym;
 
 			union {
-				Rel_t rel;
-				Rela_t rela;
+				Elf_Rel rel;
+				Elf_Rela rela;
 			} *r = mem + sh->sh_offset + sh->sh_entsize * k;
 			ptr_func_exit(r);
 
@@ -341,7 +347,7 @@ int __handle_elf(void *mem, size_t size)
 				value32 = (s32)sym->st_value;
 				value64 = (s64)sym->st_value;
 			} else {
-				Shdr_t *sh_src;
+				Elf_Shdr *sh_src;
 
 				if ((unsigned)sym->st_shndx > (unsigned)hdr->e_shnum) {
 					pr_err("Unexpected symbol section index %u/%u\n",
@@ -356,7 +362,9 @@ int __handle_elf(void *mem, size_t size)
 			}
 
 #ifdef ELF_PPC64
-/* Snippet from the OpenPOWER ABI for Linux Supplement:
+/*
+ * Snippet from the OpenPOWER ABI for Linux Supplement:
+ *
  * The OpenPOWER ABI uses the three most-significant bits in the symbol
  * st_other field specifies the number of instructions between a function's
  * global entry point and local entry point. The global entry point is used
@@ -364,6 +372,7 @@ int __handle_elf(void *mem, size_t size)
  * local entry point is used when r2 is known to already be valid for the
  * function. A value of zero in these bits asserts that the function does
  * not use r2.
+ *
  * The st_other values have the following meanings:
  * 0 and 1, the local and global entry points are the same.
  * 2, the local entry point is at 1 instruction past the global entry point.
@@ -408,7 +417,7 @@ int __handle_elf(void *mem, size_t size)
 			case R_PPC64_ADDR32:
 				pr_debug("\t\t\tR_PPC64_ADDR32 at 0x%-4lx val 0x%x\n",
 					 place, (unsigned int)(value32 + addend32));
-				pr_out("	{ .offset = 0x%-8x, .type = PIEGEN_TYPE_INT, "
+				pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_INT, "
 				       " .addend = %-8d, .value = 0x%-16x, "
 				       "}, /* R_PPC64_ADDR32 */\n",
 				       (unsigned int) place,  addend32, value32);
@@ -418,7 +427,7 @@ int __handle_elf(void *mem, size_t size)
 			case R_PPC64_REL64:
 				pr_debug("\t\t\tR_PPC64_ADDR64 at 0x%-4lx val 0x%lx\n",
 					 place, value64 + addend64);
-				pr_out("\t{ .offset = 0x%-8x, .type = PIEGEN_TYPE_LONG,"
+				pr_out("\t{ .offset = 0x%-8x, .type = COMPEL_TYPE_LONG,"
 				       " .addend = %-8ld, .value = 0x%-16lx, "
 				       "}, /* R_PPC64_ADDR64 */\n",
 				       (unsigned int) place, (long)addend64, (long)value64);
@@ -478,13 +487,13 @@ int __handle_elf(void *mem, size_t size)
 			case R_X86_64_32: /* Symbol + Addend (4 bytes) */
 			case R_X86_64_32S: /* Symbol + Addend (4 bytes) */
 				pr_debug("\t\t\t\tR_X86_64_32       at 0x%-4lx val 0x%x\n", place, value32);
-				pr_out("	{ .offset = 0x%-8x, .type = PIEGEN_TYPE_INT, "
+				pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_INT, "
 				       ".addend = %-8d, .value = 0x%-16x, }, /* R_X86_64_32 */\n",
 				       (unsigned int)place, addend32, value32);
 				break;
 			case R_X86_64_64: /* Symbol + Addend (8 bytes) */
 				pr_debug("\t\t\t\tR_X86_64_64       at 0x%-4lx val 0x%lx\n", place, (long)value64);
-				pr_out("	{ .offset = 0x%-8x, .type = PIEGEN_TYPE_LONG, "
+				pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_LONG, "
 				       ".addend = %-8ld, .value = 0x%-16lx, }, /* R_X86_64_64 */\n",
 				       (unsigned int)place, (long)addend64, (long)value64);
 				break;
@@ -504,7 +513,7 @@ int __handle_elf(void *mem, size_t size)
 				break;
 			case R_X86_64_GOTPCREL: /* SymbolOffsetInGot + GOT + Addend - Place  (4 bytes) */
 				pr_debug("\t\t\t\tR_X86_64_GOTPCREL at 0x%-4lx val 0x%x\n", place, value32);
-				pr_out("	{ .offset = 0x%-8x, .type = PIEGEN_TYPE_LONG | PIEGEN_TYPE_GOTPCREL, "
+				pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_LONG | COMPEL_TYPE_GOTPCREL, "
 				       ".addend = %-8d, .value = 0x%-16x, }, /* R_X86_64_GOTPCREL */\n",
 				       (unsigned int)place, addend32, value32);
 				nr_gotpcrel++;
@@ -514,7 +523,7 @@ int __handle_elf(void *mem, size_t size)
 #ifdef ELF_X86_32
 			case R_386_32: /* Symbol + Addend */
 				pr_debug("\t\t\t\tR_386_32   at 0x%-4lx val 0x%x\n", place, value32 + addend32);
-				pr_out("	{ .offset = 0x%-8x, .type = PIEGEN_TYPE_INT, "
+				pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_INT, "
 				       ".addend = %-4d, .value = 0x%x, },\n",
 				       (unsigned int)place, addend32, value32);
 				break;
@@ -539,8 +548,8 @@ int __handle_elf(void *mem, size_t size)
 
 	pr_out("static __maybe_unused const char %s[] = {\n\t", opts.stream_name);
 
-	for (i=0, k=0; i < hdr->e_shnum; i++) {
-		Shdr_t *sh = sec_hdrs[i];
+	for (i = 0, k = 0; i < hdr->e_shnum; i++) {
+		Elf_Shdr *sh = sec_hdrs[i];
 		unsigned char *shdata;
 		size_t j;
 
@@ -548,19 +557,19 @@ int __handle_elf(void *mem, size_t size)
 			continue;
 
 		shdata =  mem + sh->sh_offset;
-		pr_debug("Copying section '%s'\n" \
+		pr_debug("Copying section '%s'\n"
 			 "\tstart:0x%lx (gap:0x%lx) size:0x%lx\n",
 			 &secstrings[sh->sh_name], (unsigned long) sh->sh_addr,
 			 (unsigned long)(sh->sh_addr - k), (unsigned long) sh->sh_size);
 
 		/* write 0 in the gap between the 2 sections */
-		for (;k < sh->sh_addr; k++) {
+		for (; k < sh->sh_addr; k++) {
 			if (k && (k % 8) == 0)
 				pr_out("\n\t");
 			pr_out("0x00,");
 		}
 
-		for (j=0; j < sh->sh_size; j++, k++) {
+		for (j = 0; j < sh->sh_size; j++, k++) {
 			if (k && (k % 8) == 0)
 				pr_out("\n\t");
 			pr_out("%#02x,", shdata[j]);

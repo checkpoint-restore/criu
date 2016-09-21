@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
+#include "version.h"
 #include "piegen.h"
 
 static const char compel_cflags_pie[] = "-fpie -Wa,--noexecstack -fno-stack-protector";
