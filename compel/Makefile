@@ -19,5 +19,14 @@ obj-y			+= src/main.o
 CFLAGS_handle-elf-32.o += -UCONFIG_X86_64 -DCONFIG_X86_32
 CFLAGS_handle-elf-32.d += -UCONFIG_X86_64 -DCONFIG_X86_32
 
+host-ccflags-y		+= $(ccflags-y)
+
+hostprogs-y		+= compel-host
+compel-host-objs	:= $(patsubst %.o,%-host.o,$(obj-y) $(lib-y))
+
+HOSTCFLAGS_handle-elf-32-host.o += -UCONFIG_X86_64 -DCONFIG_X86_32
+HOSTCFLAGS_handle-elf-32-host.d += -UCONFIG_X86_64 -DCONFIG_X86_32
+
 cleanup-y		+= compel/compel
+cleanup-y		+= compel/compel-host
 cleanup-y		+= compel/libcompel.so
