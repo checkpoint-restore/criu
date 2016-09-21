@@ -2,24 +2,27 @@
 
 ARCH_DIR		:= compel/arch/$(ARCH)/plugins
 
-ccflags-y		+= -iquote $(obj)/include/
-ccflags-y		+= -iquote $(obj)/include/uapi
-ccflags-y		+= -iquote $(SRC_DIR)/criu/include
-ccflags-y		+= -iquote $(SRC_DIR)/criu/arch/$(ARCH)/include
+# General compel includes
 ccflags-y		+= -iquote $(SRC_DIR)/compel/include
-ccflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
 
-asflags-y		+= -iquote $(SRC_DIR)/criu/arch/$(ARCH)/include
-asflags-y		+= -iquote $(SRC_DIR)/compel/plugins/include/uapi
+# General compel/plugins includes
+ccflags-y		+= -iquote $(obj)/include
+ccflags-y		+= -iquote $(obj)/include/uapi
+asflags-y		+= -iquote $(obj)/include/uapi
+
+# Arch compel/plugins includes
+ccflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
+asflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
 asflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)
+
 
 #
 # STD plugin
 target			+= std
 std-obj-y		+= std/std.o
 std-obj-y		+= std/string.o
-std-obj-y		+= arch/$(ARCH)/plugins/std/syscalls-64.o
-std-obj-y		+= arch/$(ARCH)/plugins/std/calls32.o
+std-obj-y		+= ./$(ARCH_DIR)/std/syscalls-64.o
+std-obj-y		+= ./$(ARCH_DIR)/std/call32.o
 
 sys-proto-generic	:= $(obj)/include/uapi/std/syscall.h
 sys-codes-generic	:= $(obj)/include/uapi/std/syscall-codes.h
