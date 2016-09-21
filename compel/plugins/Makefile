@@ -2,6 +2,9 @@
 
 ARCH_DIR		:= compel/arch/$(ARCH)/plugins
 
+#
+# CFLAGS, ASFLAGS, LDFLAGS
+
 # General compel includes
 ccflags-y		+= -iquote $(SRC_DIR)/compel/include
 
@@ -20,6 +23,10 @@ asflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)
 asflags-y		+= -Wstrict-prototypes -Wa,--noexecstack
 asflags-y		+= -D__ASSEMBLY__ -nostdlib -fomit-frame-pointer
 
+#
+# Shmem plugin
+target			+= shmem
+shmem-obj-y		+= shmem/shmem.o
 
 #
 # STD plugin
