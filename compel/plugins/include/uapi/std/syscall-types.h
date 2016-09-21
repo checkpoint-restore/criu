@@ -14,6 +14,8 @@
 #include <fcntl.h>
 #include <time.h>
 
+#include "int.h"
+
 struct cap_header {
 	u32 version;
 	int pid;
@@ -50,6 +52,6 @@ struct krlimit {
 /* Type of timers in the kernel.  */
 typedef int kernel_timer_t;
 
-#include "asm/std/syscall-types.h"
+#include "asm/syscall-types.h"
 
 #endif /* COMPEL_SYSCALL_TYPES_H__ */
