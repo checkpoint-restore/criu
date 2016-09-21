@@ -57,9 +57,9 @@ CFLAGS			+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
 
 ccflags-y		+= -DCR_NOGLIBC
 ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
-NATIVE_CFLAGS		:= $(shell $(SRC_DIR)/compel/compel --arch=$(ARCH) cflags)
+NATIVE_CFLAGS		:= $(shell $(SRC_DIR)/compel/compel-host --arch=$(ARCH) cflags)
 ifeq ($(ARCH),x86)
-        COMPAT_CFLAGS	:= $(shell $(SRC_DIR)/compel/compel --arch=ia32 cflags)
+        COMPAT_CFLAGS	:= $(shell $(SRC_DIR)/compel/compel-host --arch=ia32 cflags)
 endif
 endif
 
@@ -157,9 +157,9 @@ $(obj)/parasite-$(1).built-in.bin.o: $(obj)/$(1).built-in.o		\
 endef
 $(eval $(call map,gen-rule-built-in.bin.o,$(parasite_target)))
 
-$(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel
+$(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel-host
 	$(call msg-gen, $@)
-	$(Q) $(SRC_DIR)/compel/compel piegen -f $<			\
+	$(Q) $(SRC_DIR)/compel/compel-host piegen -f $<			\
 		-v $(call target-name,$@)_relocs			\
 		-p $(call target-name,$@)_blob_offset__			\
 		-s $(call target-name,$@)_blob				\
