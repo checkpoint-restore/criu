@@ -12,20 +12,27 @@ ccflags-y		+= -fPIC
 
 lib-y			+= arch/$(ARCH)/src/lib/handle-elf.o
 lib-y			+= src/lib/handle-elf.o
+
+ifeq ($(ARCH),x86)
 lib-y			+= src/lib/handle-elf-32.o
+endif
 
 obj-y			+= src/main.o
 
+ifeq ($(ARCH),x86)
 CFLAGS_handle-elf-32.o += -UCONFIG_X86_64 -DCONFIG_X86_32
 CFLAGS_handle-elf-32.d += -UCONFIG_X86_64 -DCONFIG_X86_32
+endif
 
 host-ccflags-y		+= $(ccflags-y)
 
 hostprogs-y		+= compel-host
 compel-host-objs	:= $(patsubst %.o,%-host.o,$(obj-y) $(lib-y))
 
+ifeq ($(ARCH),x86)
 HOSTCFLAGS_handle-elf-32-host.o += -UCONFIG_X86_64 -DCONFIG_X86_32
 HOSTCFLAGS_handle-elf-32-host.d += -UCONFIG_X86_64 -DCONFIG_X86_32
+endif
 
 cleanup-y		+= compel/compel
 cleanup-y		+= compel/compel-host
