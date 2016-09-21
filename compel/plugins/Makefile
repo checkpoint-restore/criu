@@ -24,6 +24,11 @@ asflags-y		+= -Wstrict-prototypes -Wa,--noexecstack
 asflags-y		+= -D__ASSEMBLY__ -nostdlib -fomit-frame-pointer
 
 #
+# Fds plugin
+target			+= fds
+fds-obj-y		+= fds/fds.o
+
+#
 # Shmem plugin
 target			+= shmem
 shmem-obj-y		+= shmem/shmem.o
