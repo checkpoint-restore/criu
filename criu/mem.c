@@ -353,7 +353,7 @@ again:
 			ret = generate_iovs(vma_area, pp, map, &off,
 				has_parent);
 			if (ret == -EAGAIN) {
-				BUG_ON(!(pp->flags & PP_CHUCK_MODE));
+				BUG_ON(!(pp->flags & PP_CHUNK_MODE));
 
 				ret = drain_pages(pp, ctl, args);
 				if (!ret)
