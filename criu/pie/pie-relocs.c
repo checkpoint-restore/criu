@@ -17,19 +17,19 @@
 #include "log.h"
 
 #include "common/compiler.h"
-#include "compel/include/uapi/types.h"
+#include "compel/include/uapi/compel.h"
 #include "common/bug.h"
 
-__maybe_unused void elf_relocs_apply(void *mem, void *vbase, size_t size, elf_reloc_t *elf_relocs, size_t nr_relocs)
+__maybe_unused void elf_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *elf_relocs, size_t nr_relocs)
 {
 	size_t i, j;
 
 	for (i = 0, j = 0; i < nr_relocs; i++) {
-		if (elf_relocs[i].type & PIEGEN_TYPE_LONG) {
+		if (elf_relocs[i].type & COMPEL_TYPE_LONG) {
 			long *where = mem + elf_relocs[i].offset;
 			long *p = mem + size;
 
-			if (elf_relocs[i].type & PIEGEN_TYPE_GOTPCREL) {
+			if (elf_relocs[i].type & COMPEL_TYPE_GOTPCREL) {
 				int *value = (int *)where;
 				int rel;
 
@@ -40,7 +40,7 @@ __maybe_unused void elf_relocs_apply(void *mem, void *vbase, size_t size, elf_re
 				j++;
 			} else
 				*where = elf_relocs[i].value + elf_relocs[i].addend + (unsigned long)vbase;
-		} else if (elf_relocs[i].type & PIEGEN_TYPE_INT) {
+		} else if (elf_relocs[i].type & COMPEL_TYPE_INT) {
 			int *where = (mem + elf_relocs[i].offset);
 			*where = elf_relocs[i].value + elf_relocs[i].addend + (unsigned long)vbase;
 		} else

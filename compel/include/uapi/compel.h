@@ -14,14 +14,4 @@ typedef struct {
 	long		value;
 } compel_reloc_t;
 
-/*
- * FIXME: Backward compat layer for CRIU. Need to
- * drop it later, before the release.
- */
-
-#define elf_reloc_t		compel_reloc_t
-#define PIEGEN_TYPE_INT		COMPEL_TYPE_INT
-#define PIEGEN_TYPE_LONG	COMPEL_TYPE_LONG
-#define PIEGEN_TYPE_GOTPCREL	COMPEL_TYPE_GOTPCREL
-
 #endif /* UAPI_COMPEL_H__ */
