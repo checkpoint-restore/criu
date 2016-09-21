@@ -1,4 +1,4 @@
-#include "asm/linkage.h"
+#include "common/asm/linkage.h"
 
 #define SYSCALL(name, opcode)		\
 	ENTRY(name);			\
