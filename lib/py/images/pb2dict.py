@@ -99,11 +99,19 @@ rfile_flags_map = [
 	('O_LARGEFILE',	0100000),
 ];
 
+pmap_flags_map = [
+	('PE_PARENT',	1 << 0),
+	('PE_ZERO',	1 << 1),
+	('PE_LAZY',	1 << 2),
+	('PE_PRESENT',	1 << 3),
+];
+
 flags_maps = {
 	'mmap.prot' : mmap_prot_map,
 	'mmap.flags' : mmap_flags_map,
 	'mmap.status' : mmap_status_map,
 	'rfile.flags' : rfile_flags_map,
+	'pmap.flags' : pmap_flags_map,
 }
 
 def map_flags(value, flags_map):
