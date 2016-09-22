@@ -37,6 +37,7 @@
 #include "cr-service.h"
 #include "plugin.h"
 #include "mount.h"
+#include "filesystems.h"
 #include "namespaces.h"
 #include "cgroup.h"
 #include "cgroup-props.h"

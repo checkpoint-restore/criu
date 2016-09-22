@@ -28,6 +28,7 @@
 #include "page-xfer.h"
 #include "net.h"
 #include "mount.h"
+#include "filesystems.h"
 #include "cgroup.h"
 #include "cgroup-props.h"
 #include "action-scripts.h"

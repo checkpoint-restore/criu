@@ -14,6 +14,7 @@
 #include "list.h"
 #include "util.h"
 #include "mount.h"
+#include "filesystems.h"
 #include "mman.h"
 #include "cpu.h"
 #include "file-lock.h"

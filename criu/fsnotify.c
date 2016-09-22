@@ -28,6 +28,7 @@
 #include "fsnotify.h"
 #include "fdinfo.h"
 #include "mount.h"
+#include "filesystems.h"
 #include "image.h"
 #include "util.h"
 #include "files.h"

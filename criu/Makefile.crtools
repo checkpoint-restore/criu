@@ -35,6 +35,7 @@ obj-y			+= log.o
 obj-y			+= lsm.o
 obj-y			+= mem.o
 obj-y			+= mount.o
+obj-y			+= filesystems.o
 obj-y			+= namespaces.o
 obj-y			+= netfilter.o
 obj-y			+= net.o
