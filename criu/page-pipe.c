@@ -395,6 +395,8 @@ static int page_pipe_split_iov(struct page_pipe *pp, struct page_pipe_buf *ppb,
 static int page_pipe_split_ppb(struct page_pipe *pp, struct page_pipe_buf *ppb,
 			       struct iovec *iov, unsigned long len)
 {
+	struct page_pipe_buf *ppb_tmp;
+	struct iovec *iov_tmp = iov;
 	struct page_pipe_buf *ppb_new;
 	int ret;
 
@@ -413,6 +415,34 @@ static int page_pipe_split_ppb(struct page_pipe *pp, struct page_pipe_buf *ppb,
 	ppb->pages_in -= len / PAGE_SIZE;
 
 	list_move(&ppb->l, &pp->bufs);
+
+	/*
+	 * Only the leading iov's are split from the page_pipe_buffer.
+	 * The complete page_pipe_buffer at the start of the page_pipe
+	 * list will be deleted and therefore it is necessary to also
+	 * move unrelated iov's to their own page_pipe_buffers.
+	 */
+
+	if (ppb->nr_segs <= len / PAGE_SIZE)
+		return 0;
+
+	/* Move to the iov after the current request */
+	iov += len / PAGE_SIZE;
+	ret = page_pipe_split_ppb(pp, ppb, iov, len);
+	if (ret)
+		return -1;
+
+	/*
+	 * Rotate until correct head pointer. The function transmitting
+	 * the page data expects that the head points to the right
+	 * page_pipe_buffer. The complete first page_pipe_buffer is
+	 * deleted even it contains additional elements.
+	 */
+	ppb_tmp = list_first_entry(&pp->bufs, struct page_pipe_buf, l);
+	while (ppb_tmp->iov != iov_tmp) {
+		list_rotate_left(&pp->bufs);
+		ppb_tmp = list_first_entry(&pp->bufs, struct page_pipe_buf, l);
+	}
 
 	return 0;
 }
