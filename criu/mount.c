@@ -655,6 +655,23 @@ static struct mount_info *find_fsroot_mount_for(struct mount_info *bm)
 	return NULL;
 }
 
+static bool does_mnt_overmount(struct mount_info *m)
+{
+	struct mount_info *t;
+
+	if (!m->parent)
+		return false;
+
+	list_for_each_entry(t, &m->parent->children, siblings) {
+		if (m == t)
+			continue;
+		if (issubpath(t->mountpoint, m->mountpoint))
+			return true;
+	}
+
+	return false;
+}
+
 static int validate_mounts(struct mount_info *info, bool for_dump)
 {
 	struct mount_info *m, *t;
@@ -719,13 +736,9 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 			}
 		}
 skip_fstype:
-		list_for_each_entry(t, &m->parent->children, siblings) {
-			if (m == t)
-				continue;
-			if (!issubpath(m->mountpoint, t->mountpoint))
-				continue;
-
-			pr_err("%d:%s is overmounted\n", m->mnt_id, m->mountpoint);
+		if (does_mnt_overmount(m)) {
+			pr_err("Unable to handle mounts under %d:%s\n",
+					m->mnt_id, m->mountpoint);
 			return -1;
 		}
 	}
