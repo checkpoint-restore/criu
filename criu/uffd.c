@@ -507,7 +507,8 @@ static int collect_uffd_pages(struct page_read *pr, struct lazy_pages_info *lpi)
 			 */
 			if (base >= vma->e->start && base < vma->e->end) {
 				if (vma_entry_can_be_lazy(vma->e)) {
-					uffd_page = true;
+					if(!pagemap_in_parent(pr->pe))
+						uffd_page = true;
 					break;
 				}
 			}
