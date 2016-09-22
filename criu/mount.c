@@ -1580,7 +1580,9 @@ static int propagate_siblings(struct mount_info *mi)
 	 * to inherite shared group or master id
 	 */
 	list_for_each_entry(t, &mi->mnt_share, mnt_share) {
-		if (t->mounted || t->bind)
+		if (t->mounted)
+			continue;
+		if (t->bind && t->bind->shared_id == t->shared_id)
 			continue;
 		pr_debug("\t\tBind share %s\n", t->mountpoint);
 		t->bind = mi;
