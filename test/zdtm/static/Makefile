@@ -151,6 +151,7 @@ TST_NOFILE	:=				\
 		loginuid			\
 		cgroupns			\
 		helper_zombie_child		\
+		clone_fs			\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
@@ -407,6 +408,7 @@ sk-freebind-false:	override CFLAGS += -DZDTM_FREEBIND_FALSE
 stopped01:	override CFLAGS += -DZDTM_STOPPED_KILL
 stopped02:	override CFLAGS += -DZDTM_STOPPED_TKILL
 stopped12:	override CFLAGS += -DZDTM_STOPPED_KILL -DZDTM_STOPPED_TKILL
+clone_fs:		override LDLIBS += -pthread
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
