@@ -191,6 +191,9 @@ endif
 export CONFIG_HEADER := criu/include/config.h
 ifeq ($(filter clean mrproper,$(MAKECMDGOALS)),)
 include $(SRC_DIR)/Makefile.config
+else
+# To clean all files, enable make/build options here
+export CONFIG_COMPAT := y
 endif
 
 #
