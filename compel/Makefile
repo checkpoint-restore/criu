@@ -11,10 +11,13 @@ ccflags-y		+= -iquote $(SRC_DIR)/criu/include
 ccflags-y		+= -fPIC
 
 lib-y			+= arch/$(ARCH)/src/lib/handle-elf.o
+host-lib-y		+= arch/$(ARCH)/src/lib/handle-elf.o
 lib-y			+= src/lib/handle-elf.o
+host-lib-y		+= src/lib/handle-elf.o
 
 ifeq ($(ARCH),x86)
 lib-y			+= src/lib/handle-elf-32.o
+host-lib-y		+= src/lib/handle-elf-32.o
 endif
 
 obj-y			+= src/main.o
@@ -27,7 +30,7 @@ endif
 host-ccflags-y		+= $(ccflags-y)
 
 hostprogs-y		+= compel-host
-compel-host-objs	:= $(patsubst %.o,%-host.o,$(obj-y) $(lib-y))
+compel-host-objs	:= $(patsubst %.o,%-host.o,$(obj-y) $(host-lib-y))
 
 ifeq ($(ARCH),x86)
 HOSTCFLAGS_handle-elf-32-host.o += -UCONFIG_X86_64 -DCONFIG_X86_32
