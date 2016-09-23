@@ -1325,7 +1325,6 @@ static void free_mntinfo(struct mount_info *pms)
 struct mount_info *collect_mntinfo(struct ns_id *ns, bool for_dump)
 {
 	struct mount_info *pm;
-	int ret;
 
 	pm = parse_mountinfo(ns->ns_pid, ns, for_dump);
 	if (!pm) {
@@ -1336,22 +1335,6 @@ struct mount_info *collect_mntinfo(struct ns_id *ns, bool for_dump)
 	ns->mnt.mntinfo_tree = mnt_build_tree(pm, NULL);
 	if (ns->mnt.mntinfo_tree == NULL)
 		goto err;
-
-	if (for_dump && ns->type == NS_ROOT && !opts.has_binfmt_misc) {
-		unsigned int s_dev = 0;
-		ret = mount_cr_time_mount(ns, &s_dev, "binfmt_misc", BINFMT_MISC_HOME,
-					  "binfmt_misc");
-		if (ret == -EPERM)
-			pr_info("Can't mount binfmt_misc: EPERM. Running in user_ns?\n");
-		else if (ret < 0 && ret != -EBUSY && ret != -ENODEV && ret != -ENOENT) {
-			pr_err("Can't mount binfmt_misc: %d %s", ret, strerror(-ret));
-			return NULL;
-		} else if (ret == 0)
-			return NULL;
-		else if (ret > 0 && add_cr_time_mount(ns->mnt.mntinfo_tree, "binfmt_misc",
-						      BINFMT_MISC_HOME, s_dev) < 0)
-			return NULL;
-	}
 
 	ns->mnt.mntinfo_list = pm;
 	return pm;
@@ -3099,6 +3082,34 @@ int collect_mnt_namespaces(bool for_dump)
 	ret = walk_namespaces(&mnt_ns_desc, collect_mntns, &arg);
 	if (ret)
 		goto err;
+
+	if (for_dump && !opts.has_binfmt_misc) {
+		unsigned int s_dev = 0;
+		struct ns_id *ns;
+
+		for (ns = ns_ids; ns != NULL; ns = ns->next) {
+			if (ns->type == NS_ROOT && ns->nd == &mnt_ns_desc)
+				break;
+		}
+
+		if (ns) {
+			ret = mount_cr_time_mount(ns, &s_dev, "binfmt_misc", BINFMT_MISC_HOME,
+						  "binfmt_misc");
+			if (ret == -EPERM)
+				pr_info("Can't mount binfmt_misc: EPERM. Running in user_ns?\n");
+			else if (ret < 0 && ret != -EBUSY && ret != -ENODEV && ret != -ENOENT) {
+				pr_err("Can't mount binfmt_misc: %d %s", ret, strerror(-ret));
+				goto err;
+			} else if (ret == 0) {
+				ret = -1;
+				goto err;
+			} else if (ret > 0 && add_cr_time_mount(ns->mnt.mntinfo_tree, "binfmt_misc",
+								BINFMT_MISC_HOME, s_dev) < 0) {
+				ret = -1;
+				goto err;
+			}
+		}
+	}
 
 	ret = resolve_external_mounts(mntinfo);
 	if (ret)
