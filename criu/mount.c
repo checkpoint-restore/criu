@@ -587,7 +587,7 @@ static int validate_shared(struct mount_info *m)
 	list_for_each_entry(ct, &t->children, siblings) {
 		struct mount_info *cm;
 
-		if (ct->is_ns_root)
+		if (ct->is_ns_root || ct->mnt_id == CRTIME_MNT_ID)
 			continue;
 
 		sibling_path = mnt_get_sibling_path(ct, m, buf, sizeof(buf));
@@ -605,8 +605,11 @@ static int validate_shared(struct mount_info *m)
 		list_move(&cm->siblings, &children);
 	}
 
-	if (!list_empty(&m->children))
-		goto err;
+	/* Now all real mounts should be moved */
+	list_for_each_entry(ct, &m->children, siblings) {
+		if (ct->mnt_id != CRTIME_MNT_ID)
+			goto err;
+	}
 
 	list_splice(&children, &m->children);
 	return 0;
