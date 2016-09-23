@@ -188,8 +188,7 @@ endif
 
 #
 # Configure variables.
-CONFIG_HEADER_REL := criu/include/config.h
-export CONFIG_HEADER := $(SRC_DIR)/$(CONFIG_HEADER_REL)
+export CONFIG_HEADER := criu/include/config.h
 ifeq ($(filter clean mrproper,$(MAKECMDGOALS)),)
 include $(SRC_DIR)/Makefile.config
 endif
@@ -211,7 +210,7 @@ include Makefile.compel
 SOCCR_A := soccr/libsoccr.a
 SOCCR_CONFIG := $(SRC_DIR)/soccr/config.h
 $(SOCCR_CONFIG): $(CONFIG_HEADER)
-	$(Q) test -f $@ || ln -s ../$(CONFIG_HEADER_REL) $@
+	$(Q) test -f $@ || ln -s ../$(CONFIG_HEADER) $@
 soccr/%: $(SOCCR_CONFIG) .FORCE
 	$(Q) $(MAKE) $(build)=soccr $@
 soccr/built-in.o: $(SOCCR_CONFIG) .FORCE
@@ -226,9 +225,9 @@ $(SOCCR_A): |soccr/built-in.o
 #
 # But note that we're already included
 # the nmk so we can reuse it there.
-criu/%: images/built-in.o compel/compel-host $(VERSION_HEADER) $(CONFIG_HEADER) .FORCE
+criu/%: images/built-in.o compel/compel-host $(VERSION_HEADER) .FORCE
 	$(Q) $(MAKE) $(build)=criu $@
-criu: images/built-in.o compel/compel-host $(SOCCR_A) $(VERSION_HEADER) $(CONFIG_HEADER)
+criu: images/built-in.o compel/compel-host $(SOCCR_A) $(VERSION_HEADER)
 	$(Q) $(MAKE) $(build)=criu all
 .PHONY: criu
 
