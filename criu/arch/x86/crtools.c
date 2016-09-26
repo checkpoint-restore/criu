@@ -112,7 +112,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 
 int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 {
-	struct xsave_struct xsave	= {  };
+	user_fpregs_struct_t xsave	= {  };
 
 	struct iovec iov;
 	int ret = -1;

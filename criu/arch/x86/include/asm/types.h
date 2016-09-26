@@ -83,6 +83,7 @@ typedef struct {
 	unsigned long	gs;
 } user_regs_struct_t;
 
+#if 0
 typedef struct {
 	unsigned short	cwd;
 	unsigned short	swd;
@@ -97,6 +98,9 @@ typedef struct {
 	u32		xmm_space[64];	/* 16*16 bytes for each XMM-reg = 256 bytes */
 	u32		padding[24];
 } user_fpregs_struct_t;
+#endif
+
+typedef struct xsave_struct user_fpregs_struct_t;
 
 #ifdef CONFIG_X86_64
 # define TASK_SIZE	((1UL << 47) - PAGE_SIZE)
