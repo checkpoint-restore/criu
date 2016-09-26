@@ -19,12 +19,17 @@ struct f_owner_ex {
 #define F_GETOWNER_UIDS	17
 #endif
 
+/*
+ * These things are required to compile on CentOS-6
+ */
 #ifndef F_LINUX_SPECIFIC_BASE
-#define F_LINUX_SPECIFIC_BASE	1024
+# define F_LINUX_SPECIFIC_BASE	1024
 #endif
+
 #ifndef F_SETPIPE_SZ
 # define F_SETPIPE_SZ	(F_LINUX_SPECIFIC_BASE + 7)
 #endif
+
 #ifndef F_GETPIPE_SZ
 # define F_GETPIPE_SZ	(F_LINUX_SPECIFIC_BASE + 8)
 #endif

@@ -1,5 +1,4 @@
 #include <unistd.h>
-#include <fcntl.h>
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "page-pipe: "
@@ -9,6 +8,7 @@
 #include "util.h"
 #include "criu-log.h"
 #include "page-pipe.h"
+#include "fcntl.h"
 
 /* can existing iov accumulate the page? */
 static inline bool iov_grow_page(struct iovec *iov, unsigned long addr)

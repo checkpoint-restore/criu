@@ -3,7 +3,6 @@
 #include <arpa/inet.h>
 #include <linux/falloc.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -17,6 +16,7 @@
 #include "util.h"
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
+#include "fcntl.h"
 
 static int page_server_sk = -1;
 
