@@ -8,6 +8,7 @@
 #include "types.h"
 #include "asm/fpu.h"
 #include "asm/restorer.h"
+#include "asm/dump.h"
 
 #include "cr_options.h"
 #include "common/compiler.h"
@@ -692,9 +693,13 @@ static int __copy_task_regs(user_regs_struct_t *regs,
 	return 0;
 }
 
+int save_task_regs(void *arg, user_regs_struct_t *u, user_fpregs_struct_t *f)
+{
+	return __copy_task_regs(u, f, (CoreEntry *)arg);
+}
 
 /****************************************************************************/
-int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
+int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
 {
 	user_fpregs_struct_t fpregs;
 	int ret;
@@ -703,7 +708,7 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 	if (ret)
 		return ret;
 
-	return __copy_task_regs(&regs, &fpregs, core);
+	return save(arg, &regs, &fpregs);
 }
 
 int arch_alloc_thread_info(CoreEntry *core)

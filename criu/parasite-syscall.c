@@ -667,7 +667,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 		return -1;
 	}
 
-	ret = get_task_regs(pid, octx.regs, core);
+	ret = get_task_regs(pid, octx.regs, save_task_regs, core);
 	if (ret) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		return -1;
@@ -1427,7 +1427,7 @@ static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *i
 	 * while in daemon it is not such.
 	 */
 
-	if (get_task_regs(pid, ctl->orig.regs, item->core[0])) {
+	if (get_task_regs(pid, ctl->orig.regs, save_task_regs, item->core[0])) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		return -1;
 	}

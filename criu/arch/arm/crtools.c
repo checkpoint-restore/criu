@@ -4,6 +4,7 @@
 #include "types.h"
 #include "asm/restorer.h"
 #include "common/compiler.h"
+#include "asm/dump.h"
 #include "ptrace.h"
 #include "asm/processor-flags.h"
 #include "protobuf.h"
@@ -79,13 +80,10 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	return err;
 }
 
-static int save_task_regs(CoreEntry *core,
-		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs);
-
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))((src)->ARM_##e)
 
 #define PTRACE_GETVFPREGS 27
-int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
+int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
 {
 	user_fpregs_struct_t vfp;
 	int ret = -1;
@@ -114,14 +112,15 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 		}
 	}
 
-	ret = save_task_regs(core, &regs, &vfp);
+	ret = save(arg, &regs, &vfp);
 err:
 	return ret;
 }
 
-static int save_task_regs(CoreEntry *core,
-		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
+int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
+	CoreEntry *core = x;
+
 	// Save the ARM CPU state
 
 	assign_reg(core->ti_arm->gpregs, regs, r0);

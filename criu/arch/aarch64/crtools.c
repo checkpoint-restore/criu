@@ -8,6 +8,7 @@
 #include "common/compiler.h"
 #include "ptrace.h"
 #include "asm/processor-flags.h"
+#include "asm/dump.h"
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
@@ -77,12 +78,9 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	return err;
 }
 
-static int save_task_regs(CoreEntry *core,
-		user_regs_struct_t *regs, user_fpregs_struct_t *fpsimd);
-
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))(src)->e
 
-int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
+int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
 {
 	struct iovec iov;
 	user_fpregs_struct_t fpsimd;
@@ -104,15 +102,15 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 		goto err;
 	}
 
-	ret = save_task_regs(core, &regs, &fpsimd);
+	ret = save(arg, &regs, &fpsimd);
 err:
 	return ret;
 }
 
-static int save_task_regs(CoreEntry *core,
-		user_regs_struct_t *regs, user_fpregs_struct_t *fpsimd)
+int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpsimd)
 {
 	int i;
+	CoreEntry *core = x;
 
 	// Save the Aarch64 CPU state
 	for (i = 0; i < 31; ++i)
