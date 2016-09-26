@@ -26,6 +26,10 @@ struct thread_ctx {
 	user_regs_struct_t	regs;
 };
 
+struct infect_ctx {
+	int	*p_sock;
+};
+
 /* parasite control block */
 struct parasite_ctl {
 	int			rpid;					/* Real pid of the victim */
@@ -33,6 +37,8 @@ struct parasite_ctl {
 	void			*local_map;
 	void			*sigreturn_addr;			/* A place for the breakpoint */
 	unsigned long		map_length;
+
+	struct infect_ctx	ictx;
 
 	/* thread leader data */
 	bool			daemonized;
