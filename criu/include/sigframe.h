@@ -52,6 +52,7 @@ struct rt_ucontext {
 
 extern int construct_sigframe(struct rt_sigframe *sigframe,
 			      struct rt_sigframe *rsigframe,
+			      k_rtsigset_t *blkset,
 			      CoreEntry *core);
 
 #endif /* __CR_SIGFRAME_H__ */

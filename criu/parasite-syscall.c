@@ -1347,7 +1347,7 @@ static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *i
 		return -1;
 	}
 
-	if (construct_sigframe(ctl->sigframe, ctl->rsigframe, item->core[0]))
+	if (construct_sigframe(ctl->sigframe, ctl->rsigframe, &ctl->orig.sigmask, item->core[0]))
 		return -1;
 
 	if (parasite_init_daemon(ctl, dmpi(item)->netns))

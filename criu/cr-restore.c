@@ -2934,6 +2934,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	for (i = 0; i < current->nr_threads; i++) {
 		CoreEntry *tcore;
 		struct rt_sigframe *sigframe;
+		k_rtsigset_t *blkset = NULL;
 
 		thread_args[i].pid = current->threads[i].virt;
 		thread_args[i].siginfo_n = siginfo_priv_nr[i];
@@ -2945,8 +2946,12 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		if (thread_args[i].pid == pid) {
 			task_args->t = thread_args + i;
 			tcore = core;
-		} else
+			blkset = (void *)&tcore->tc->blk_sigset;
+		} else {
 			tcore = current->core[i];
+			if (tcore->thread_core->has_blk_sigset)
+				blkset = (void *)&tcore->thread_core->blk_sigset;
+		}
 
 		if ((tcore->tc || tcore->ids) && thread_args[i].pid != pid) {
 			pr_err("Thread has optional fields present %d\n",
@@ -2983,7 +2988,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		thread_args[i].mz = mz + i;
 		sigframe = (struct rt_sigframe *)&mz[i].rt_sigframe;
 
-		if (construct_sigframe(sigframe, sigframe, tcore))
+		if (construct_sigframe(sigframe, sigframe, blkset, tcore))
 			goto err;
 
 		if (thread_args[i].pid != pid)
