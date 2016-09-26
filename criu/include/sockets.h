@@ -51,7 +51,7 @@ extern int inet_collect_one(struct nlmsghdr *h, int family, int type);
 extern int unix_receive_one(struct nlmsghdr *h, void *);
 extern int netlink_receive_one(struct nlmsghdr *hdr, void *arg);
 
-extern int unix_sk_id_add(ino_t ino);
+extern int unix_sk_id_add(unsigned int ino);
 extern int unix_sk_ids_parse(char *optarg);
 
 extern int do_dump_opt(int sk, int level, int name, void *val, int len);

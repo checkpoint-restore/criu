@@ -159,11 +159,11 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 	return 1;
 }
 
-static bool unix_sk_exception_lookup_id(ino_t ino)
+static bool unix_sk_exception_lookup_id(unsigned int ino)
 {
 	char id[20];
 
-	snprintf(id, sizeof(id), "unix[%lu]", ino);
+	snprintf(id, sizeof(id), "unix[%u]", ino);
 	if (external_lookup_id(id)) {
 		pr_debug("Found ino %u in exception unix sk list\n", (unsigned int)ino);
 		return true;
@@ -1438,14 +1438,14 @@ static int resolve_unix_peers(void *unused)
 	return 0;
 }
 
-int unix_sk_id_add(ino_t ino)
+int unix_sk_id_add(unsigned int ino)
 {
 	char *e_str;
 
 	e_str = xmalloc(20);
 	if (!e_str)
 		return -1;
-	snprintf(e_str, 20, "unix[%lu]", ino);
+	snprintf(e_str, 20, "unix[%u]", ino);
 	return add_external(e_str);
 }
 
@@ -1462,7 +1462,7 @@ int unix_sk_ids_parse(char *optarg)
 		if (*iter == ',')
 			iter++;
 		else {
-			ino_t ino = (ino_t)strtoul(iter, &iter, 10);
+			unsigned int ino = strtoul(iter, &iter, 10);
 
 			if (0 == ino) {
 				pr_err("Can't parse unix socket inode from optarg: %s\n", optarg);
