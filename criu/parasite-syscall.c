@@ -1464,12 +1464,13 @@ static int make_sigframe(void *arg, struct rt_sigframe *sf, struct rt_sigframe *
 	return construct_sigframe(sf, rtsf, bs, (CoreEntry *)arg);
 }
 
+static int infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size);
+
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		struct vm_area_list *vma_area_list)
 {
-	int ret;
 	struct parasite_ctl *ctl;
-	unsigned long p, map_exchange_size, parasite_size = 0;
+	unsigned long p;
 
 	BUG_ON(item->threads[0].real != pid);
 
@@ -1499,8 +1500,26 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	parasite_ensure_args_size(dump_pages_args_size(vma_area_list));
 	parasite_ensure_args_size(aio_rings_args_size(vma_area_list));
 
+	if (infect(ctl, item->nr_threads, parasite_args_size) < 0) {
+		parasite_cure_seized(ctl);
+		return NULL;
+	}
+
+	parasite_args_size = PARASITE_ARG_SIZE_MIN; /* reset for next task */
+	memcpy(&item->core[0]->tc->blk_sigset, &ctl->orig.sigmask, sizeof(k_rtsigset_t));
+	dmpi(item)->parasite_ctl = ctl;
+
+	return ctl;
+}
+
+static int infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size)
+{
+	int ret;
+	unsigned long p, map_exchange_size, parasite_size = 0;
+
 	if (!arch_can_dump_task(ctl))
-		goto err_restore;
+		goto err;
+
 	/*
 	 * Inject a parasite engine. Ie allocate memory inside alien
 	 * space and copy engine code there. Then re-map the engine
@@ -1515,20 +1534,17 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		parasite_size = pie_size(parasite_compat);
 #endif
 
-	ctl->args_size = round_up(parasite_args_size, PAGE_SIZE);
-	parasite_args_size = PARASITE_ARG_SIZE_MIN; /* reset for next task */
+	ctl->args_size = round_up(args_size, PAGE_SIZE);
 	parasite_size += ctl->args_size;
 
 	map_exchange_size = parasite_size;
 	map_exchange_size += RESTORE_STACK_SIGFRAME + PARASITE_STACK_SIZE;
-	if (item->nr_threads > 1)
+	if (nr_threads > 1)
 		map_exchange_size += PARASITE_STACK_SIZE;
-
-	memcpy(&item->core[0]->tc->blk_sigset, &ctl->orig.sigmask, sizeof(k_rtsigset_t));
 
 	ret = parasite_map_exchange(ctl, map_exchange_size);
 	if (ret)
-		goto err_restore;
+		goto err;
 
 	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
 
@@ -1548,21 +1564,18 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	p += PARASITE_STACK_SIZE;
 	ctl->rstack = ctl->remote_map + p;
 
-	if (item->nr_threads > 1) {
+	if (nr_threads > 1) {
 		p += PARASITE_STACK_SIZE;
 		ctl->r_thread_stack = ctl->remote_map + p;
 	}
 
 	if (parasite_start_daemon(ctl))
-		goto err_restore;
+		goto err;
 
-	dmpi(item)->parasite_ctl = ctl;
+	return 0;
 
-	return ctl;
-
-err_restore:
-	parasite_cure_seized(ctl);
-	return NULL;
+err:
+	return -1;
 }
 
 int ptrace_stop_pie(pid_t pid, void *addr, enum trace_flags *tf)
