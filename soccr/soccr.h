@@ -1,6 +1,49 @@
 #ifndef __LIBSOCCR_H__
 #define __LIBSOCCR_H__
 #include <linux/types.h>
+#include <stdint.h>
+
+#include "config.h"
+
+#ifndef CONFIG_HAS_TCP_REPAIR_WINDOW
+struct tcp_repair_window {
+	uint32_t   snd_wl1;
+	uint32_t   snd_wnd;
+	uint32_t   max_window;
+
+	uint32_t   rcv_wnd;
+	uint32_t   rcv_wup;
+};
+#endif
+
+#ifndef CONFIG_HAS_TCP_REPAIR
+/*
+ * It's been reported that both tcp_repair_opt
+ * and TCP_ enum already shipped in netinet/tcp.h
+ * system header by some distros thus we need a
+ * test if we can use predefined ones or provide
+ * our own.
+ */
+struct tcp_repair_opt {
+	uint32_t	opt_code;
+	uint32_t	opt_val;
+};
+
+enum {
+	TCP_NO_QUEUE,
+	TCP_RECV_QUEUE,
+	TCP_SEND_QUEUE,
+	TCP_QUEUES_NR,
+};
+#endif
+
+#ifndef TCP_TIMESTAMP
+#define TCP_TIMESTAMP	24
+#endif
+
+#ifndef TCP_REPAIR_WINDOW
+#define TCP_REPAIR_WINDOW       29
+#endif
 
 struct libsoccr_sk;
 

@@ -11,19 +11,6 @@
 #define SIOCOUTQNSD     0x894B
 #endif
 
-#ifndef TCP_REPAIR_WINDOW
-#define TCP_REPAIR_WINDOW       29
-#endif
-
-struct tcp_repair_window {
-	__u32   snd_wl1;
-	__u32   snd_wnd;
-	__u32   max_window;
-
-	__u32   rcv_wnd;
-	__u32   rcv_wup;
-};
-
 static void (*log)(unsigned int loglevel, const char *format, ...)
 	__attribute__ ((__format__ (__printf__, 2, 3)));
 static unsigned int log_level = 0;
