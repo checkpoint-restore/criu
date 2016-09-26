@@ -1422,9 +1422,10 @@ void parasite_ensure_args_size(unsigned long sz)
 		parasite_args_size = sz;
 }
 
-static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *item)
+static int parasite_start_daemon(struct parasite_ctl *ctl)
 {
 	pid_t pid = ctl->rpid;
+	struct infect_ctx *ictx = &ctl->ictx;
 
 	/*
 	 * Get task registers before going daemon, since the
@@ -1432,12 +1433,12 @@ static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *i
 	 * while in daemon it is not such.
 	 */
 
-	if (get_task_regs(pid, ctl->orig.regs, save_task_regs, item->core[0])) {
+	if (get_task_regs(pid, ctl->orig.regs, ictx->save_regs, ictx->regs_arg)) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		return -1;
 	}
 
-	if (construct_sigframe(ctl->sigframe, ctl->rsigframe, &ctl->orig.sigmask, item->core[0]))
+	if (ictx->make_sigframe(ictx->regs_arg, ctl->sigframe, ctl->rsigframe, &ctl->orig.sigmask))
 		return -1;
 
 	if (parasite_init_daemon(ctl))
@@ -1461,6 +1462,11 @@ static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *i
 		__export_parasite_args);				\
 	} while (0)
 
+static int make_sigframe(void *arg, struct rt_sigframe *sf, struct rt_sigframe *rtsf, k_rtsigset_t *bs)
+{
+	return construct_sigframe(sf, rtsf, bs, (CoreEntry *)arg);
+}
+
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		struct vm_area_list *vma_area_list)
 {
@@ -1482,6 +1488,9 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	ctl->ictx.child_handler = sigchld_handler;
 	ctl->ictx.p_sock = &dmpi(item)->netns->net.seqsk;
+	ctl->ictx.save_regs = save_task_regs;
+	ctl->ictx.make_sigframe = make_sigframe;
+	ctl->ictx.regs_arg = item->core[0];
 
 	if (fault_injected(FI_NO_MEMFD))
 		ctl->ictx.flags |= INFECT_NO_MEMFD;
@@ -1545,7 +1554,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		ctl->r_thread_stack = ctl->remote_map + p;
 	}
 
-	if (parasite_start_daemon(ctl, item))
+	if (parasite_start_daemon(ctl))
 		goto err_restore;
 
 	dmpi(item)->parasite_ctl = ctl;

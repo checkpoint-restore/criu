@@ -20,6 +20,7 @@ struct cr_imgset;
 struct fd_opts;
 struct pid;
 struct parasite_dump_cgroup_args;
+struct rt_sigframe;
 
 struct thread_ctx {
 	k_rtsigset_t		sigmask;
@@ -28,6 +29,14 @@ struct thread_ctx {
 
 struct infect_ctx {
 	int	*p_sock;
+
+	/*
+	 * Regs manipulation context.
+	 */
+	int (*save_regs)(void *, user_regs_struct_t *, user_fpregs_struct_t *);
+	int (*make_sigframe)(void *, struct rt_sigframe *, struct rt_sigframe *, k_rtsigset_t *);
+	void *regs_arg;
+
 	unsigned long		flags;			/* fine-tune (e.g. faults) */
 
 	void (*child_handler)(int, siginfo_t *, void *);	/* hander for SIGCHLD deaths */
