@@ -8,13 +8,20 @@ typedef rt_signalfn_t *rt_sighandler_t;
 typedef void rt_restorefn_t(void);
 typedef rt_restorefn_t *rt_sigrestore_t;
 
-#define _KNSIG           64
-# define _NSIG_BPW      64
+#define SA_RESTORER	0x04000000
 
-#define _KNSIG_WORDS     (_KNSIG / _NSIG_BPW)
+#define _KNSIG		64
+
+#ifndef CONFIG_COMPAT
+#define _NSIG_BPW	64
+#else
+#define _NSIG_BPW	32
+#endif
+
+#define _KNSIG_WORDS	(_KNSIG / _NSIG_BPW)
 
 typedef struct {
-	u64 sig[_KNSIG_WORDS];
+	unsigned long	sig[_KNSIG_WORDS];
 } k_rtsigset_t;
 
 typedef struct {
@@ -30,9 +37,9 @@ typedef struct {
  * with unaligned rt_sa_mask.
  */
 typedef struct __attribute__((packed)) {
-	u32	rt_sa_handler;
-	u32	rt_sa_flags;
-	u32	rt_sa_restorer;
+	unsigned int	rt_sa_handler;
+	unsigned int	rt_sa_flags;
+	unsigned int	rt_sa_restorer;
 	k_rtsigset_t	rt_sa_mask;
 } rt_sigaction_t_compat;
 
