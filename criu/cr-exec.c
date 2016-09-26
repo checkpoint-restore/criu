@@ -120,6 +120,7 @@ int cr_exec(int pid, char **opt)
 	struct vm_area_list vmas;
 	int ret, prev_state, exit_code = -1;
 	struct proc_status_creds *creds = NULL;
+	unsigned long p_start;
 
 	if (!sys_name) {
 		pr_err("Syscall name required\n");
@@ -159,7 +160,13 @@ int cr_exec(int pid, char **opt)
 		goto out_unseize;
 	}
 
-	ctl = parasite_prep_ctl(pid, &vmas);
+	p_start = get_exec_start(&vmas);
+	if (!p_start) {
+		pr_err("No suitable VM are found\n");
+		goto out_unseize;
+	}
+
+	ctl = parasite_prep_ctl(pid, p_start);
 	if (!ctl) {
 		pr_err("Can't prep ctl %d\n", pid);
 		goto out_unseize;

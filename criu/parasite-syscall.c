@@ -44,11 +44,11 @@
 #define MEMFD_FNAME	"CRIUMFD"
 #define MEMFD_FNAME_SZ	sizeof(MEMFD_FNAME)
 
-static unsigned long get_exec_start(struct list_head *vma_area_list)
+unsigned long get_exec_start(struct vm_area_list *vmas)
 {
 	struct vma_area *vma_area;
 
-	list_for_each_entry(vma_area, vma_area_list, list) {
+	list_for_each_entry(vma_area, &vmas->h, list) {
 		unsigned long len;
 
 		if (vma_area->e->start >= kdat.task_size)
@@ -1144,7 +1144,7 @@ err:
 }
 
 /* If vma_area_list is NULL, a place for injecting syscall will not be set. */
-struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_list)
+struct parasite_ctl *parasite_prep_ctl(pid_t pid, unsigned long exec_start)
 {
 	struct parasite_ctl *ctl = NULL;
 
@@ -1168,17 +1168,7 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 	ctl->pid.real	= pid;
 	ctl->pid.virt	= 0;
 
-	if (vma_area_list == NULL)
-		return ctl;
-
-	/* Search a place for injecting syscall */
-	ctl->syscall_ip = get_exec_start(&vma_area_list->h);
-	if (!ctl->syscall_ip) {
-		pr_err("No suitable VMA found to run parasite "
-		       "bootstrap code (pid: %d)\n", pid);
-		goto err;
-	}
-
+	ctl->syscall_ip = exec_start;
 	pr_debug("Parasite syscall_ip at %p\n", (void *)ctl->syscall_ip);
 
 	return ctl;
@@ -1365,7 +1355,13 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	BUG_ON(item->threads[0].real != pid);
 
-	ctl = parasite_prep_ctl(pid, vma_area_list);
+	p = get_exec_start(vma_area_list);
+	if (!p) {
+		pr_err("No suitable VM found\n");
+		return NULL;
+	}
+
+	ctl = parasite_prep_ctl(pid, p);
 	if (!ctl)
 		return NULL;
 
