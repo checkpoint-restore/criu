@@ -17,6 +17,9 @@ ccflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)
 ccflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
 ccflags-y		+= -iquote $(SRC_DIR)/
 ccflags-y		+= -I/usr/include/libnl3
+ccflags-y		+= -iquote compel/plugins/include
+ccflags-y		+= -iquote compel/include
+ccflags-y		+= -iquote compel/arch/$(ARCH)/plugins/std
 
 export ccflags-y
 
