@@ -19,7 +19,7 @@ REQ-DEB-PKG-NAMES	+= libcap-dev
 
 REQ-DEB-PKG-TEST-NAMES  += libaio-dev
 
-export LIBS		:= -lrt -lpthread -lprotobuf-c -ldl -lnl-3
+export LIBS		+= -lrt -lpthread -lprotobuf-c -ldl -lnl-3
 
 check-packages-failed:
 	$(warning Can not find some of the required libraries)

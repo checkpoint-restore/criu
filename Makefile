@@ -178,6 +178,23 @@ endif
 	$(Q) echo "#endif /* __CR_VERSION_H__ */"				>> $@
 
 #
+# piegen tool might be disabled by hands. Don't use it until
+# you know what you're doing.
+ifneq ($(filter ia32 x86 ppc64,$(ARCH)),)
+        ifneq ($(PIEGEN),no)
+                piegen-y := y
+                export piegen-y
+        endif
+endif
+
+#
+# Configure variables.
+export CONFIG_HEADER := $(SRC_DIR)/criu/include/config.h
+ifeq ($(filter clean mrproper,$(MAKECMDGOALS)),)
+include $(SRC_DIR)/Makefile.config
+endif
+
+#
 # Protobuf images first, they are not depending
 # on anything else.
 $(eval $(call gen-built-in,images))
@@ -224,6 +241,7 @@ clean: subclean
 mrproper: subclean
 	$(Q) $(MAKE) $(build)=images $@
 	$(Q) $(MAKE) $(build)=criu $@
+	$(Q) $(RM) $(CONFIG_HEADER)
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(RM) cscope.*
 	$(Q) $(RM) tags TAGS
