@@ -112,9 +112,12 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	return err;
 }
 
+static int save_task_regs(CoreEntry *core,
+		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs);
+
 int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 {
-	user_fpregs_struct_t xsave	= {  };
+	user_fpregs_struct_t xsave	= {  }, *xs = NULL;
 
 	struct iovec iov;
 	int ret = -1;
@@ -137,37 +140,6 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 			break;
 		}
 	}
-
-#define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
-#define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
-
-	assign_reg(core->thread_info->gpregs, regs, r15);
-	assign_reg(core->thread_info->gpregs, regs, r14);
-	assign_reg(core->thread_info->gpregs, regs, r13);
-	assign_reg(core->thread_info->gpregs, regs, r12);
-	assign_reg(core->thread_info->gpregs, regs, bp);
-	assign_reg(core->thread_info->gpregs, regs, bx);
-	assign_reg(core->thread_info->gpregs, regs, r11);
-	assign_reg(core->thread_info->gpregs, regs, r10);
-	assign_reg(core->thread_info->gpregs, regs, r9);
-	assign_reg(core->thread_info->gpregs, regs, r8);
-	assign_reg(core->thread_info->gpregs, regs, ax);
-	assign_reg(core->thread_info->gpregs, regs, cx);
-	assign_reg(core->thread_info->gpregs, regs, dx);
-	assign_reg(core->thread_info->gpregs, regs, si);
-	assign_reg(core->thread_info->gpregs, regs, di);
-	assign_reg(core->thread_info->gpregs, regs, orig_ax);
-	assign_reg(core->thread_info->gpregs, regs, ip);
-	assign_reg(core->thread_info->gpregs, regs, cs);
-	assign_reg(core->thread_info->gpregs, regs, flags);
-	assign_reg(core->thread_info->gpregs, regs, sp);
-	assign_reg(core->thread_info->gpregs, regs, ss);
-	assign_reg(core->thread_info->gpregs, regs, fs_base);
-	assign_reg(core->thread_info->gpregs, regs, gs_base);
-	assign_reg(core->thread_info->gpregs, regs, ds);
-	assign_reg(core->thread_info->gpregs, regs, es);
-	assign_reg(core->thread_info->gpregs, regs, fs);
-	assign_reg(core->thread_info->gpregs, regs, gs);
 
 #ifndef PTRACE_GETREGSET
 # define PTRACE_GETREGSET 0x4204
@@ -196,37 +168,79 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 		}
 	}
 
-	assign_reg(core->thread_info->fpregs, xsave.i387, cwd);
-	assign_reg(core->thread_info->fpregs, xsave.i387, swd);
-	assign_reg(core->thread_info->fpregs, xsave.i387, twd);
-	assign_reg(core->thread_info->fpregs, xsave.i387, fop);
-	assign_reg(core->thread_info->fpregs, xsave.i387, rip);
-	assign_reg(core->thread_info->fpregs, xsave.i387, rdp);
-	assign_reg(core->thread_info->fpregs, xsave.i387, mxcsr);
-	assign_reg(core->thread_info->fpregs, xsave.i387, mxcsr_mask);
+	xs = &xsave;
+out:
+	ret = save_task_regs(core, &regs, xs);
+err:
+	return ret;
+}
+
+static int save_task_regs(CoreEntry *core,
+		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
+{
+	UserX86RegsEntry *gpregs	= core->thread_info->gpregs;
+
+#define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))(src)->e; } while (0)
+#define assign_array(dst, src, e)	memcpy(dst->e, &(src)->e, sizeof((src)->e))
+
+	assign_reg(gpregs, regs, r15);
+	assign_reg(gpregs, regs, r14);
+	assign_reg(gpregs, regs, r13);
+	assign_reg(gpregs, regs, r12);
+	assign_reg(gpregs, regs, bp);
+	assign_reg(gpregs, regs, bx);
+	assign_reg(gpregs, regs, r11);
+	assign_reg(gpregs, regs, r10);
+	assign_reg(gpregs, regs, r9);
+	assign_reg(gpregs, regs, r8);
+	assign_reg(gpregs, regs, ax);
+	assign_reg(gpregs, regs, cx);
+	assign_reg(gpregs, regs, dx);
+	assign_reg(gpregs, regs, si);
+	assign_reg(gpregs, regs, di);
+	assign_reg(gpregs, regs, orig_ax);
+	assign_reg(gpregs, regs, ip);
+	assign_reg(gpregs, regs, cs);
+	assign_reg(gpregs, regs, flags);
+	assign_reg(gpregs, regs, sp);
+	assign_reg(gpregs, regs, ss);
+	assign_reg(gpregs, regs, fs_base);
+	assign_reg(gpregs, regs, gs_base);
+	assign_reg(gpregs, regs, ds);
+	assign_reg(gpregs, regs, es);
+	assign_reg(gpregs, regs, fs);
+	assign_reg(gpregs, regs, gs);
+
+	if (!fpregs)
+		return 0;
+
+	assign_reg(core->thread_info->fpregs, &fpregs->i387, cwd);
+	assign_reg(core->thread_info->fpregs, &fpregs->i387, swd);
+	assign_reg(core->thread_info->fpregs, &fpregs->i387, twd);
+	assign_reg(core->thread_info->fpregs, &fpregs->i387, fop);
+	assign_reg(core->thread_info->fpregs, &fpregs->i387, rip);
+	assign_reg(core->thread_info->fpregs, &fpregs->i387, rdp);
+	assign_reg(core->thread_info->fpregs, &fpregs->i387, mxcsr);
+	assign_reg(core->thread_info->fpregs, &fpregs->i387, mxcsr_mask);
 
 	/* Make sure we have enough space */
-	BUG_ON(core->thread_info->fpregs->n_st_space != ARRAY_SIZE(xsave.i387.st_space));
-	BUG_ON(core->thread_info->fpregs->n_xmm_space != ARRAY_SIZE(xsave.i387.xmm_space));
+	BUG_ON(core->thread_info->fpregs->n_st_space != ARRAY_SIZE(fpregs->i387.st_space));
+	BUG_ON(core->thread_info->fpregs->n_xmm_space != ARRAY_SIZE(fpregs->i387.xmm_space));
 
-	assign_array(core->thread_info->fpregs, xsave.i387, st_space);
-	assign_array(core->thread_info->fpregs, xsave.i387, xmm_space);
+	assign_array(core->thread_info->fpregs, &fpregs->i387, st_space);
+	assign_array(core->thread_info->fpregs, &fpregs->i387, xmm_space);
 
 	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
-		BUG_ON(core->thread_info->fpregs->xsave->n_ymmh_space != ARRAY_SIZE(xsave.ymmh.ymmh_space));
+		BUG_ON(core->thread_info->fpregs->xsave->n_ymmh_space != ARRAY_SIZE(fpregs->ymmh.ymmh_space));
 
-		assign_reg(core->thread_info->fpregs->xsave, xsave.xsave_hdr, xstate_bv);
-		assign_array(core->thread_info->fpregs->xsave, xsave.ymmh, ymmh_space);
+		assign_reg(core->thread_info->fpregs->xsave, &fpregs->xsave_hdr, xstate_bv);
+		assign_array(core->thread_info->fpregs->xsave, &fpregs->ymmh, ymmh_space);
 	}
 
 #undef assign_reg
 #undef assign_array
 
-out:
-	ret = 0;
-
-err:
-	return ret;
+	return 0;
 }
 
 int arch_alloc_thread_info(CoreEntry *core)

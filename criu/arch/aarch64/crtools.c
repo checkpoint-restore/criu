@@ -77,14 +77,16 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	return err;
 }
 
+static int save_task_regs(CoreEntry *core,
+		user_regs_struct_t *regs, user_fpregs_struct_t *fpsimd);
 
-#define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))(src).e
+#define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))(src)->e
 
 int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 {
 	struct iovec iov;
 	user_fpregs_struct_t fpsimd;
-	int i, ret;
+	int ret;
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
 
@@ -102,6 +104,15 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 		goto err;
 	}
 
+	ret = save_task_regs(core, &regs, &fpsimd);
+err:
+	return ret;
+}
+
+static int save_task_regs(CoreEntry *core,
+		user_regs_struct_t *regs, user_fpregs_struct_t *fpsimd)
+{
+	int i;
 
 	// Save the Aarch64 CPU state
 	for (i = 0; i < 31; ++i)
@@ -114,16 +125,13 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 	// Save the FP/SIMD state
 	for (i = 0; i < 32; ++i)
 	{
-		core->ti_aarch64->fpsimd->vregs[2*i]     = fpsimd.vregs[i];
-		core->ti_aarch64->fpsimd->vregs[2*i + 1] = fpsimd.vregs[i] >> 64;
+		core->ti_aarch64->fpsimd->vregs[2*i]     = fpsimd->vregs[i];
+		core->ti_aarch64->fpsimd->vregs[2*i + 1] = fpsimd->vregs[i] >> 64;
 	}
 	assign_reg(core->ti_aarch64->fpsimd, fpsimd, fpsr);
 	assign_reg(core->ti_aarch64->fpsimd, fpsimd, fpcr);
 
-	ret = 0;
-
-err:
-	return ret;
+	return 0;
 }
 
 int arch_alloc_thread_info(CoreEntry *core)
@@ -190,8 +198,8 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 	for (i = 0; i < 32; ++i)
 		fpsimd->vregs[i] =	(__uint128_t)core->ti_aarch64->fpsimd->vregs[2*i] |
 					((__uint128_t)core->ti_aarch64->fpsimd->vregs[2*i + 1] << 64);
-	assign_reg(fpsimd, *core->ti_aarch64->fpsimd, fpsr);
-	assign_reg(fpsimd, *core->ti_aarch64->fpsimd, fpcr);
+	assign_reg(fpsimd, core->ti_aarch64->fpsimd, fpsr);
+	assign_reg(fpsimd, core->ti_aarch64->fpsimd, fpcr);
 
 	fpsimd->head.magic = FPSIMD_MAGIC;
 	fpsimd->head.size = sizeof(*fpsimd);

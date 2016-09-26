@@ -79,7 +79,10 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	return err;
 }
 
-#define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))src.ARM_##e
+static int save_task_regs(CoreEntry *core,
+		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs);
+
+#define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))((src)->ARM_##e)
 
 #define PTRACE_GETVFPREGS 27
 int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
@@ -111,7 +114,14 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 		}
 	}
 
+	ret = save_task_regs(core, &regs, &vfp);
+err:
+	return ret;
+}
 
+static int save_task_regs(CoreEntry *core,
+		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
+{
 	// Save the ARM CPU state
 
 	assign_reg(core->ti_arm->gpregs, regs, r0);
@@ -131,18 +141,15 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 	assign_reg(core->ti_arm->gpregs, regs, lr);
 	assign_reg(core->ti_arm->gpregs, regs, pc);
 	assign_reg(core->ti_arm->gpregs, regs, cpsr);
-	core->ti_arm->gpregs->orig_r0 = regs.ARM_ORIG_r0;
+	core->ti_arm->gpregs->orig_r0 = regs->ARM_ORIG_r0;
 
 
 	// Save the VFP state
 
-	memcpy(CORE_THREAD_ARCH_INFO(core)->fpstate->vfp_regs, &vfp.fpregs, sizeof(vfp.fpregs));
-	CORE_THREAD_ARCH_INFO(core)->fpstate->fpscr = vfp.fpscr;
+	memcpy(CORE_THREAD_ARCH_INFO(core)->fpstate->vfp_regs, &fpregs->fpregs, sizeof(fpregs->fpregs));
+	CORE_THREAD_ARCH_INFO(core)->fpstate->fpscr = fpregs->fpscr;
 
-	ret = 0;
-
-err:
-	return ret;
+	return 0;
 }
 
 int arch_alloc_thread_info(CoreEntry *core)
