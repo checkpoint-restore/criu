@@ -11,6 +11,7 @@
 #include "asm/parasite-syscall.h"
 #include "asm/restorer.h"
 #include "asm/fpu.h"
+#include "asm/dump.h"
 
 #include "cr_options.h"
 #include "common/compiler.h"
@@ -184,13 +185,11 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	return err;
 }
 
-static int save_task_regs(CoreEntry *core,
-		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs);
-
 #define get_signed_user_reg(pregs, name)				\
 	((user_regs_native(pregs)) ? (int64_t)((pregs)->native.name) :	\
 				(int32_t)((pregs)->compat.name))
-int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
+
+int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
 {
 	user_fpregs_struct_t xsave	= {  }, *xs = NULL;
 
@@ -248,14 +247,14 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 
 	xs = &xsave;
 out:
-	ret = save_task_regs(core, &regs, xs);
+	ret = save(arg, &regs, xs);
 err:
 	return ret;
 }
 
-static int save_task_regs(CoreEntry *core,
-		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
+int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
+	CoreEntry *core = x;
 	UserX86RegsEntry *gpregs	= core->thread_info->gpregs;
 
 #define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
