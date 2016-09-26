@@ -40,13 +40,3 @@ endif
 cleanup-y		+= compel/compel
 cleanup-y		+= compel/compel-host
 cleanup-y		+= compel/libcompel.so
-
-#
-# FIXME Fake target for syscalls headers generation,
-# drop after syscalls generation.
-$(obj)/plugins/include/uapi/std/asm/syscall-types.h: $(obj)/arch/$(ARCH)/plugins/include/asm/syscall-types.h
-	$(call msg-gen,$@)
-	$(Q) ln -s ../../../../../arch/$(ARCH)/plugins/include/asm/syscall-types.h $@
-
-cleanup-y		+= $(obj)/plugins/include/uapi/std/asm/syscall-types.h
-$(obj)/compel-host: $(obj)/plugins/include/uapi/std/asm/syscall-types.h

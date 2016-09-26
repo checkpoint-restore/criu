@@ -35,16 +35,16 @@ include $(__nmk_dir)msg.mk
 # Needed libraries checks
 include $(SRC_DIR)/criu/Makefile.packages
 
-#
-# System calls library.
-ifeq ($(ARCH),x86)
-# Do not need 32-bit compatible syscall lib compiled in criu
-SYSCALL-LIB		:= $(ARCH_DIR)/syscalls-64.built-in.o
-else
-SYSCALL-LIB		:= $(ARCH_DIR)/syscalls.built-in.o
-endif
-syscalls_lib:
-	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) all
+##
+## System calls library.
+#ifeq ($(ARCH),x86)
+## Do not need 32-bit compatible syscall lib compiled in criu
+#SYSCALL-LIB		:= $(ARCH_DIR)/syscalls-64.built-in.o
+#else
+#SYSCALL-LIB		:= $(ARCH_DIR)/syscalls.built-in.o
+#endif
+#syscalls_lib:
+#	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) all
 .PHONY: syscalls_lib
 
 #
@@ -95,7 +95,6 @@ subclean:
 	$(Q) $(RM) $(obj)/*.{gcda,gcno,gcov}
 	$(Q) $(RM) $(obj)/pie/*.{gcda,gcno,gcov}
 	$(Q) $(RM) -r $(obj)/gcov
-	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) clean
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) clean
 	$(Q) $(MAKE) $(call build-as,Makefile.library,$(PIE_DIR)) clean
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) clean
@@ -107,7 +106,6 @@ clean: subclean
 #
 # Delete all generated files
 subproper:
-	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) mrproper
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) mrproper
 	$(Q) $(MAKE) $(call build-as,Makefile.library,$(PIE_DIR)) mrproper
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) mrproper
