@@ -3,7 +3,7 @@
 #include "restorer.h"
 #include "asm/restorer.h"
 
-#include "syscall.h"
+#include "uapi/std/syscall.h"
 #include "log.h"
 #include "asm/fpu.h"
 #include "cpu.h"

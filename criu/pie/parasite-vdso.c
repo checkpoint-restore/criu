@@ -12,7 +12,7 @@
 #include "int.h"
 #include "types.h"
 #include "page.h"
-#include "syscall.h"
+#include "uapi/std/syscall.h"
 #include "image.h"
 #include "parasite-vdso.h"
 #include "vma.h"

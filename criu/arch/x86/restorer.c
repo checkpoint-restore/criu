@@ -7,7 +7,7 @@
 #include "asm/fpu.h"
 #include "asm/string.h"
 
-#include "syscall.h"
+#include "uapi/std/syscall.h"
 #include "log.h"
 #include "cpu.h"
 
