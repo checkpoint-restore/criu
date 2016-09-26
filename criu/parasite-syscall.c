@@ -44,36 +44,28 @@
 #define MEMFD_FNAME	"CRIUMFD"
 #define MEMFD_FNAME_SZ	sizeof(MEMFD_FNAME)
 
-static int can_run_syscall(unsigned long ip, unsigned long start,
-			   unsigned long end, unsigned long pad)
-{
-	return ip >= start && ip < (end - BUILTIN_SYSCALL_SIZE - pad);
-}
-
-static int syscall_fits_vma_area(struct vma_area *vma_area, unsigned long pad)
-{
-	return can_run_syscall((unsigned long)vma_area->e->start,
-			       (unsigned long)vma_area->e->start,
-			       (unsigned long)vma_area->e->end,
-			       pad);
-}
-
-static struct vma_area *get_vma_by_ip(struct list_head *vma_area_list,
-				      unsigned long ip,
-				      unsigned long pad)
+static unsigned long get_exec_start(struct list_head *vma_area_list)
 {
 	struct vma_area *vma_area;
 
 	list_for_each_entry(vma_area, vma_area_list, list) {
+		unsigned long len;
+
 		if (vma_area->e->start >= kdat.task_size)
 			continue;
 		if (!(vma_area->e->prot & PROT_EXEC))
 			continue;
-		if (syscall_fits_vma_area(vma_area, pad))
-			return vma_area;
+
+		len = vma_area_len(vma_area);
+		if (len < BUILTIN_SYSCALL_SIZE + MEMFD_FNAME_SZ) {
+			pr_warn("Suspiciously short VMA @%#lx\n", (unsigned long)vma_area->e->start);
+			continue;
+		}
+
+		return vma_area->e->start;
 	}
 
-	return NULL;
+	return 0;
 }
 
 static inline int ptrace_get_regs(int pid, user_regs_struct_t *regs)
@@ -1155,7 +1147,6 @@ err:
 struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_list)
 {
 	struct parasite_ctl *ctl = NULL;
-	struct vma_area *vma_area;
 
 	if (!arch_can_dump_task(pid))
 		goto err;
@@ -1181,15 +1172,13 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, struct vm_area_list *vma_area_
 		return ctl;
 
 	/* Search a place for injecting syscall */
-	vma_area = get_vma_by_ip(&vma_area_list->h, REG_IP(ctl->orig.regs),
-				 MEMFD_FNAME_SZ);
-	if (!vma_area) {
+	ctl->syscall_ip = get_exec_start(&vma_area_list->h);
+	if (!ctl->syscall_ip) {
 		pr_err("No suitable VMA found to run parasite "
 		       "bootstrap code (pid: %d)\n", pid);
 		goto err;
 	}
 
-	ctl->syscall_ip	= vma_area->e->start;
 	pr_debug("Parasite syscall_ip at %p\n", (void *)ctl->syscall_ip);
 
 	return ctl;
