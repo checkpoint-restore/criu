@@ -84,7 +84,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 {
 	struct iovec iov;
-	struct user_fpsimd_state fpsimd;
+	user_fpregs_struct_t fpsimd;
 	int i, ret;
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);

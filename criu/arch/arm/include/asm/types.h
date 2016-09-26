@@ -49,6 +49,8 @@ typedef struct {
         long uregs[18];
 } user_regs_struct_t;
 
+typedef struct user_vfp user_fpregs_struct_t;
+
 #define ARM_cpsr        uregs[16]
 #define ARM_pc          uregs[15]
 #define ARM_lr          uregs[14]
