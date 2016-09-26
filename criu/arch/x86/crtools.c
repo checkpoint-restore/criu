@@ -21,7 +21,7 @@
 #include "util.h"
 #include "cpu.h"
 #include "errno.h"
-#include "syscall-codes.h"
+#include "uapi/std/syscall-codes.h"
 #include "kerndat.h"
 
 #include "protobuf.h"

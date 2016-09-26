@@ -23,7 +23,7 @@
 #include "types.h"
 #include "common/compiler.h"
 #include "string.h"
-#include "syscall.h"
+#include "uapi/std/syscall.h"
 #include "signal.h"
 #include "config.h"
 #include "prctl.h"

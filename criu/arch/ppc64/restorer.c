@@ -4,7 +4,7 @@
 #include "asm/restorer.h"
 #include "asm/fpu.h"
 
-#include "syscall.h"
+#include "uapi/std/syscall.h"
 #include "log.h"
 
 int restore_nonsigframe_gpregs(UserPpc64RegsEntry *r)

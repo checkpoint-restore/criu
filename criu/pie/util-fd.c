@@ -11,7 +11,7 @@
 #include "string.h"
 
 #ifdef CR_NOGLIBC
-# include "syscall.h"
+# include "uapi/std/syscall.h"
 # define __sys(foo)	sys_##foo
 # define __sys_err(ret)	ret
 #else
