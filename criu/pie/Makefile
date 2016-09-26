@@ -13,7 +13,7 @@ restorer-obj-y		+= restorer.o
 restorer-obj-y		+= ./$(ARCH_DIR)/restorer.o
 
 ifeq ($(ARCH),x86)
-        restorer-obj-e		+= ./$(ARCH_DIR)/syscalls-64.built-in.o
+        restorer-obj-e		+= ./compel/plugins/std.built-in.o
 
         ifeq ($(CONFIG_COMPAT),y)
                 restorer-obj-y	+= ./$(ARCH_DIR)/call32.o
@@ -21,9 +21,9 @@ ifeq ($(ARCH),x86)
         endif
 
         native-obj-y		+= ./$(ARCH_DIR)/parasite-head-64.o
-        native-obj-e		+= ./$(ARCH_DIR)/syscalls-64.built-in.o
+        native-obj-e		+= ./compel/plugins/std.built-in.o
         compat-obj-y		+= ./$(ARCH_DIR)/parasite-head-32.o
-        compat-obj-e		+= ./$(ARCH_DIR)/syscalls-32.built-in.o
+        compat-obj-e		+= ./compel/plugins/std-32.built-in.o
 
         AFLAGS_parasite-head-64.o += -fpie -DCONFIG_X86_64
         AFLAGS_parasite-head-64.d += -fpie -DCONFIG_X86_64
@@ -32,8 +32,8 @@ ifeq ($(ARCH),x86)
         AFLAGS_parasite-head-32.d += -fno-pic -m32 -DCONFIG_X86_32
 else
         native-obj-y		+= ./$(ARCH_DIR)/parasite-head.o
-        native-obj-e		+= ./$(ARCH_DIR)/syscalls.built-in.o
-        restorer-obj-e		+= ./$(ARCH_DIR)/syscalls.built-in.o
+        native-obj-e		+= ./compel/plugins/std.built-in.o
+        restorer-obj-e		+= ./compel/plugins/std.built-in.o
 endif
 
 target			+= $(parasite_target) restorer
@@ -54,7 +54,8 @@ CFLAGS			+= -iquote $(SRC_DIR)
 CFLAGS			+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 CFLAGS			+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
 
-
+ccflags-y		+= -iquote $(SRC_DIR)/compel/plugins/include
+ccflags-y		+= -iquote $(SRC_DIR)/compel/include
 ccflags-y		+= -DCR_NOGLIBC
 ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
 NATIVE_CFLAGS		:= $(shell $(SRC_DIR)/compel/compel-host --arch=$(ARCH) cflags)

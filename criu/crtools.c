@@ -771,6 +771,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (!strcmp(argv[optind], "check"))
 		return cr_check() != 0;
 
+#if 0
 	if (!strcmp(argv[optind], "exec")) {
 		if (!pid)
 			pid = tree_id; /* old usage */
@@ -778,6 +779,7 @@ int main(int argc, char *argv[], char *envp[])
 			goto opt_pid_missing;
 		return cr_exec(pid, argv + optind + 1) != 0;
 	}
+#endif
 
 	if (!strcmp(argv[optind], "page-server"))
 		return cr_page_server(opts.daemon_mode, -1) != 0;

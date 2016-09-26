@@ -222,6 +222,8 @@ fin:
 
 void *std_memcpy(void *to, const void *from, unsigned int n)
 {
+	/* FIXME: Per-arch support */
+#if 0
 	int d0, d1, d2;
 	asm volatile("rep ; movsl		\n"
 		     "movl %4,%%ecx		\n"
@@ -232,6 +234,7 @@ void *std_memcpy(void *to, const void *from, unsigned int n)
 		     : "=&c" (d0), "=&D" (d1), "=&S" (d2)
 		     : "0" (n / 4), "g" (n), "1" ((long)to), "2" ((long)from)
 		     : "memory");
+#endif
 	return to;
 }
 

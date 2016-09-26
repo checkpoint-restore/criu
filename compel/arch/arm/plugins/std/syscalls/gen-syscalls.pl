@@ -17,9 +17,9 @@ $prototypes    =~ s/.*include\///g;
 my $bits       = $ARGV[6];
 
 my $codesdef   = $codes;
-$codesdef      =~ tr/.-/_/;
+$codesdef      =~ tr/.\-\//_/;
 my $protosdef  = $protos;
-$protosdef     =~ tr/.-/_/;
+$protosdef     =~ tr/.\-\//_/;
 my $code       = "code$bits";
 my $need_aux   = 0;
 
@@ -91,8 +91,8 @@ for (<IN>) {
 }
 
 if ($need_aux == 1) {
-	print ASMOUT   "#include \"asm/syscall-aux.S\"\n";
-	print CODESOUT "#include \"asm/syscall-aux.h\"\n";
+	print ASMOUT   "#include \"uapi/std/syscall-aux.S\"\n";
+	print CODESOUT "#include \"uapi/std/syscall-aux.h\"\n";
 }
 
 print CODESOUT  "#endif /* $codesdef */";

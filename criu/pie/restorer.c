@@ -64,6 +64,11 @@ static int n_helpers;
 static pid_t *zombies;
 static int n_zombies;
 
+int compel_main(void *arg_p, unsigned int arg_s)
+{
+	return 0;
+}
+
 extern void cr_restore_rt (void) asm ("__cr_restore_rt")
 			__attribute__ ((visibility ("hidden")));
 
