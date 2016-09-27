@@ -1213,7 +1213,7 @@ static int mount_cr_time_mount(struct ns_id *ns, unsigned int *s_dev, const char
 			 pr_perror("Can't stat on %s\n", target);
 			 exit_code = 0;
 		} else {
-			*s_dev = st.st_dev;
+			*s_dev = MKKDEV(major(st.st_dev), minor(st.st_dev));
 			exit_code = 1;
 		}
 	}
