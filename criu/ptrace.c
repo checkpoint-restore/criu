@@ -180,12 +180,12 @@ try_again:
 		goto err;
 
 	if (ret < 0 || WIFEXITED(status) || WIFSIGNALED(status)) {
-		if (creds->state != 'Z') {
+		if (creds->s.state != 'Z') {
 			if (pid == getpid())
 				pr_err("The criu itself is within dumped tree.\n");
 			else
 				pr_err("Unseizable non-zombie %d found, state %c, err %d/%d\n",
-						pid, creds->state, ret, wait_errno);
+						pid, creds->s.state, ret, wait_errno);
 			return -1;
 		}
 
@@ -195,9 +195,9 @@ try_again:
 			return TASK_DEAD;
 	}
 
-	if ((ppid != -1) && (creds->ppid != ppid)) {
+	if ((ppid != -1) && (creds->s.ppid != ppid)) {
 		pr_err("Task pid reused while suspending (%d: %d -> %d)\n",
-				pid, ppid, creds->ppid);
+				pid, ppid, creds->s.ppid);
 		goto err;
 	}
 
@@ -229,13 +229,13 @@ try_again:
 		goto try_again;
 	}
 
-	if (creds->seccomp_mode != SECCOMP_MODE_DISABLED && suspend_seccomp(pid) < 0)
+	if (creds->s.seccomp_mode != SECCOMP_MODE_DISABLED && suspend_seccomp(pid) < 0)
 		goto err;
 
 	nr_sigstop = 0;
-	if (creds->sigpnd & (1 << (SIGSTOP - 1)))
+	if (creds->s.sigpnd & (1 << (SIGSTOP - 1)))
 		nr_sigstop++;
-	if (creds->shdpnd & (1 << (SIGSTOP - 1)))
+	if (creds->s.shdpnd & (1 << (SIGSTOP - 1)))
 		nr_sigstop++;
 	if (si.si_signo == SIGSTOP)
 		nr_sigstop++;
