@@ -2,6 +2,7 @@
 #include <sys/mman.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <stdbool.h>
 
 #include "list.h"
 #include "pid.h"
@@ -17,6 +18,7 @@
 #include "config.h"
 #include "syscall-codes.h"
 #include "asm/bitops.h"
+#include "criu-log.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -131,6 +133,26 @@ static struct shmem_info *shmem_find(unsigned long shmid)
 #define PST_BIT0_IX(pfn) ((pfn) * PST_BITS)
 #define PST_BIT1_IX(pfn) (PST_BIT0_IX(pfn) + 1)
 
+/*
+ * Disable pagemap based shmem changes tracking by default
+ * because it has bugs in implementation -
+ * process can map shmem page, change it and unmap it.
+ * We won't observe any changes in such pagemaps during dump.
+ */
+static bool is_shmem_tracking_en(void)
+{
+	static bool is_inited = false;
+	static bool is_enabled = false;
+
+	if (!is_inited) {
+		is_enabled = (bool)getenv("CRIU_TRACK_SHMEM");
+		is_inited = true;
+		if (is_enabled)
+			pr_msg("Turn anon shmem tracking on via env\n");
+	}
+	return is_enabled;
+}
+
 static unsigned int get_pstate(unsigned long *pstate_map, unsigned long pfn)
 {
 	unsigned int bit0 = test_bit(PST_BIT0_IX(pfn), pstate_map) ? 1 : 0;
@@ -150,9 +172,14 @@ static void set_pstate(unsigned long *pstate_map, unsigned long pfn,
 static int expand_shmem(struct shmem_info *si, unsigned long new_size)
 {
 	unsigned long nr_pages, nr_map_items, map_size,
-				nr_new_map_items, new_map_size;
+				nr_new_map_items, new_map_size, old_size;
 
-	nr_pages = DIV_ROUND_UP(si->size, PAGE_SIZE);
+	old_size = si->size;
+	si->size = new_size;
+	if (!is_shmem_tracking_en())
+		return 0;
+
+	nr_pages = DIV_ROUND_UP(old_size, PAGE_SIZE);
 	nr_map_items = BITS_TO_LONGS(nr_pages * PST_BITS);
 	map_size = nr_map_items * sizeof(*si->pstate_map);
 
@@ -166,14 +193,15 @@ static int expand_shmem(struct shmem_info *si, unsigned long new_size)
 	if (!si->pstate_map)
 		return -1;
 	memzero(si->pstate_map + nr_map_items, new_map_size - map_size);
-
-	si->size = new_size;
 	return 0;
 }
 
 static void update_shmem_pmaps(struct shmem_info *si, u64 *map, VmaEntry *vma)
 {
 	unsigned long shmem_pfn, vma_pfn, vma_pgcnt;
+
+	if (!is_shmem_tracking_en())
+		return;
 
 	vma_pgcnt = DIV_ROUND_UP(si->size - vma->pgoff, PAGE_SIZE);
 	for (vma_pfn = 0; vma_pfn < vma_pgcnt; ++vma_pfn) {
@@ -641,18 +669,23 @@ static int dump_one_shmem(struct shmem_info *si)
 		goto err_pp;
 
 	for (pfn = 0; pfn < nrpages; pfn++) {
-		unsigned int pgstate;
+		unsigned int pgstate = PST_DIRTY;
+		bool use_mc = true;
 		unsigned long pgaddr;
 
-		pgstate = get_pstate(si->pstate_map, pfn);
-		if ((pgstate == PST_DONT_DUMP) && !(mc_map[pfn] & PAGE_RSS))
+		if (is_shmem_tracking_en()) {
+			pgstate = get_pstate(si->pstate_map, pfn);
+			use_mc = pgstate == PST_DONT_DUMP;
+		}
+
+		if (use_mc && !(mc_map[pfn] & PAGE_RSS))
 			continue;
 
 		pgaddr = (unsigned long)addr + pfn * PAGE_SIZE;
 again:
 		if (xfer.parent && page_in_parent(pgstate == PST_DIRTY))
 			ret = page_pipe_add_hole(pp, pgaddr);
-		else /* pgstate == PST_DUMP */
+		else
 			ret = page_pipe_add_page(pp, pgaddr);
 
 		if (ret == -EAGAIN) {
