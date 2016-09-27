@@ -53,7 +53,7 @@ $(sys-asm-types): $(PLUGIN_ARCH_DIR)/include/asm/syscall-types.h
 	$(Q) ln -s ../../../../../$(PLUGIN_ARCH_DIR)/std/syscalls/syscall-aux.S $(obj)/include/uapi/std/syscall-aux.S
 	$(Q) ln -s ../../../../../$(PLUGIN_ARCH_DIR)/std/syscalls/syscall-aux.h $(obj)/include/uapi/std/syscall-aux.h
 
-std-headers-deps	+= $(sys-codes) $(sys-proto) $(sys-asm-types)
+std-headers-deps	+= $(sys-asm) $(sys-codes) $(sys-proto) $(sys-asm-types)
 mrproper-y		+= $(std-headers-deps)
 mrproper-y		+= $(obj)/include/uapi/std/syscall-aux.S
 mrproper-y		+= $(obj)/include/uapi/std/syscall-aux.h
