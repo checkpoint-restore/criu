@@ -5,6 +5,7 @@
 #include "types.h"
 #include "crtools.h"
 #include "proc_parse.h"
+#include "ptrace.h"
 #include "pstree.h"
 #include "parasite-syscall.h"
 #include "vma.h"
@@ -144,7 +145,7 @@ int cr_exec(int pid, char **opt)
 	 * mess with creds in this use case anyway.
 	 */
 
-	prev_state = ret = seize_wait_task(pid, -1, parse_pid_status, &creds.s);
+	prev_state = ret = compel_wait_task(pid, -1, parse_pid_status, &creds.s);
 	if (ret < 0) {
 		pr_err("Can't seize task %d\n", pid);
 		goto out;

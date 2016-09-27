@@ -62,17 +62,6 @@
 
 #define SI_EVENT(_si_code)	(((_si_code) & 0xFFFF) >> 8)
 
-struct seize_task_status {
-	char			state;
-	int			ppid;
-	unsigned long long	sigpnd;
-	unsigned long long	shdpnd;
-	int			seccomp_mode;
-};
-
-extern int seize_wait_task(pid_t pid, pid_t ppid,
-		int (*get_status)(int pid, struct seize_task_status *),
-		struct seize_task_status *st);
 extern int suspend_seccomp(pid_t pid);
 extern int unseize_task(pid_t pid, int orig_state, int state);
 extern int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
