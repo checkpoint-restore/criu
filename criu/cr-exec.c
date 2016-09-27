@@ -11,6 +11,7 @@
 #include "log.h"
 #include "util.h"
 #include "kerndat.h"
+#include "infect.h"
 
 struct syscall_exec_desc {
 	char *name;
@@ -135,7 +136,7 @@ int cr_exec(int pid, char **opt)
 		goto out;
 	}
 
-	if (seize_catch_task(pid))
+	if (compel_stop_task(pid))
 		goto out;
 
 	/*

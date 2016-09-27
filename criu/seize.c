@@ -20,6 +20,7 @@
 #include "stats.h"
 #include "xmalloc.h"
 #include "util.h"
+#include "infect.h"
 
 #define NR_ATTEMPTS 5
 
@@ -128,7 +129,7 @@ static int seize_cgroup_tree(char *root_path, const char *state)
 			return -1;
 		}
 
-		if (!seize_catch_task(pid)) {
+		if (!compel_stop_task(pid)) {
 			pr_debug("SEIZE %d: success\n", pid);
 			processes_to_wait++;
 		} else if (state == frozen) {
@@ -480,7 +481,7 @@ static int collect_children(struct pstree_item *item)
 
 		if (!opts.freeze_cgroup)
 			/* fails when meets a zombie */
-			seize_catch_task(pid);
+			compel_stop_task(pid);
 
 		creds = xzalloc(sizeof(*creds));
 		if (!creds) {
@@ -711,7 +712,7 @@ static int collect_threads(struct pstree_item *item)
 		pr_info("\tSeizing %d's %d thread\n",
 				item->pid->real, pid);
 
-		if (!opts.freeze_cgroup && seize_catch_task(pid))
+		if (!opts.freeze_cgroup && compel_stop_task(pid))
 			continue;
 
 		ret = seize_wait_task(pid, item_ppid(item), parse_pid_status, &t_creds.s);
@@ -844,7 +845,7 @@ int collect_pstree(void)
 	if (opts.freeze_cgroup && freeze_processes())
 		goto err;
 
-	if (!opts.freeze_cgroup && seize_catch_task(pid)) {
+	if (!opts.freeze_cgroup && compel_stop_task(pid)) {
 		set_cr_errno(ESRCH);
 		goto err;
 	}
