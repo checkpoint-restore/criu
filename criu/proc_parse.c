@@ -2511,55 +2511,6 @@ int aufs_parse(struct mount_info *new)
 	return ret;
 }
 
-bool proc_status_creds_dumpable(struct proc_status_creds *parent,
-				struct proc_status_creds *child)
-{
-	const size_t size = sizeof(struct proc_status_creds) -
-			offsetof(struct proc_status_creds, cap_inh);
-
-	/*
-	 * The comparison rules are the following
-	 *
-	 *  - CAPs can be different
-	 *  - seccomp filters should be passed via
-	 *    semantic comparison (FIXME) but for
-	 *    now we require them to be exactly
-	 *    identical
-	 *  - the rest of members must match
-	 */
-
-	if (memcmp(parent, child, size)) {
-		if (!pr_quelled(LOG_DEBUG)) {
-			pr_debug("Creds undumpable (parent:child)\n"
-				 "  uids:               %d:%d %d:%d %d:%d %d:%d\n"
-				 "  gids:               %d:%d %d:%d %d:%d %d:%d\n"
-				 "  state:              %d:%d"
-				 "  ppid:               %d:%d\n"
-				 "  sigpnd:             %llu:%llu\n"
-				 "  shdpnd:             %llu:%llu\n"
-				 "  seccomp_mode:       %d:%d\n"
-				 "  last_filter:        %u:%u\n",
-				 parent->uids[0], child->uids[0],
-				 parent->uids[1], child->uids[1],
-				 parent->uids[2], child->uids[2],
-				 parent->uids[3], child->uids[3],
-				 parent->gids[0], child->gids[0],
-				 parent->gids[1], child->gids[1],
-				 parent->gids[2], child->gids[2],
-				 parent->gids[3], child->gids[3],
-				 parent->state, child->state,
-				 parent->ppid, child->ppid,
-				 parent->sigpnd, child->sigpnd,
-				 parent->shdpnd, child->shdpnd,
-				 parent->seccomp_mode, child->seccomp_mode,
-				 parent->last_filter, child->last_filter);
-		}
-		return false;
-	}
-
-	return true;
-}
-
 int parse_children(pid_t pid, pid_t **_c, int *_n)
 {
 	pid_t *ch = NULL;

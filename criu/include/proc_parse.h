@@ -94,9 +94,6 @@ struct proc_status_creds {
 	u32			cap_bnd[PROC_CAP_SIZE];
 };
 
-bool proc_status_creds_dumpable(struct proc_status_creds *parent,
-				struct proc_status_creds *child);
-
 #define INVALID_UID ((uid_t)-1)
 
 extern int parse_pid_stat(pid_t pid, struct proc_pid_stat *s);

@@ -76,7 +76,7 @@ struct ptrace_peeksiginfo_args {
 extern int processes_to_wait;
 
 extern int seize_catch_task(pid_t pid);
-extern int seize_wait_task(pid_t pid, pid_t ppid, struct proc_status_creds **creds);
+extern int seize_wait_task(pid_t pid, pid_t ppid, struct proc_status_creds *creds);
 extern int suspend_seccomp(pid_t pid);
 extern int unseize_task(pid_t pid, int orig_state, int state);
 extern int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);

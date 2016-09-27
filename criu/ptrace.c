@@ -148,17 +148,11 @@ static int skip_sigstop(int pid, int nr_signals)
  * of it so the task would not know if it was saddled
  * up with someone else.
  */
-int seize_wait_task(pid_t pid, pid_t ppid, struct proc_status_creds **creds)
+int seize_wait_task(pid_t pid, pid_t ppid, struct proc_status_creds *creds)
 {
 	siginfo_t si;
 	int status, nr_sigstop;
 	int ret = 0, ret2, wait_errno = 0;
-	struct proc_status_creds cr;
-
-	/*
-	 * For the comparison below, let's zero out any padding.
-	 */
-	memzero(&cr, sizeof(struct proc_status_creds));
 
 	/*
 	 * It's ugly, but the ptrace API doesn't allow to distinguish
@@ -184,26 +178,26 @@ try_again:
 		wait_errno = errno;
 	}
 
-	ret2 = parse_pid_status(pid, &cr);
+	ret2 = parse_pid_status(pid, creds);
 	if (ret2)
 		goto err;
 
 	if (ret < 0 || WIFEXITED(status) || WIFSIGNALED(status)) {
-		if (cr.state != 'Z') {
+		if (creds->state != 'Z') {
 			if (pid == getpid())
 				pr_err("The criu itself is within dumped tree.\n");
 			else
 				pr_err("Unseizable non-zombie %d found, state %c, err %d/%d\n",
-						pid, cr.state, ret, wait_errno);
+						pid, creds->state, ret, wait_errno);
 			return -1;
 		}
 
 		return TASK_DEAD;
 	}
 
-	if ((ppid != -1) && (cr.ppid != ppid)) {
+	if ((ppid != -1) && (creds->ppid != ppid)) {
 		pr_err("Task pid reused while suspending (%d: %d -> %d)\n",
-				pid, ppid, cr.ppid);
+				pid, ppid, creds->ppid);
 		goto err;
 	}
 
@@ -235,25 +229,13 @@ try_again:
 		goto try_again;
 	}
 
-	if (*creds == NULL) {
-		*creds = xzalloc(sizeof(struct proc_status_creds));
-		if (!*creds)
-			goto err;
-
-		**creds = cr;
-
-	} else if (!proc_status_creds_dumpable(*creds, &cr)) {
-		pr_err("creds don't match %d %d\n", pid, ppid);
-		goto err;
-	}
-
-	if (cr.seccomp_mode != SECCOMP_MODE_DISABLED && suspend_seccomp(pid) < 0)
+	if (creds->seccomp_mode != SECCOMP_MODE_DISABLED && suspend_seccomp(pid) < 0)
 		goto err;
 
 	nr_sigstop = 0;
-	if (cr.sigpnd & (1 << (SIGSTOP - 1)))
+	if (creds->sigpnd & (1 << (SIGSTOP - 1)))
 		nr_sigstop++;
-	if (cr.shdpnd & (1 << (SIGSTOP - 1)))
+	if (creds->shdpnd & (1 << (SIGSTOP - 1)))
 		nr_sigstop++;
 	if (si.si_signo == SIGSTOP)
 		nr_sigstop++;
