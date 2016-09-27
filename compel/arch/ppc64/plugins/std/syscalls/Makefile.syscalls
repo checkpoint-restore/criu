@@ -53,5 +53,5 @@ $(sys-asm-types): $(PLUGIN_ARCH_DIR)/include/asm/syscall-types.h
 	$(call msg-gen, $@)
 	$(Q) ln -s ../../../../../../$(PLUGIN_ARCH_DIR)/include/asm/syscall-types.h $(sys-asm-types)
 
-std-headers-deps	+= $(sys-codes) $(sys-proto) $(sys-asm-types)
+std-headers-deps	+= $(sys-asm) $(sys-codes) $(sys-proto) $(sys-asm-types)
 mrproper-y		+= $(std-headers-deps)
