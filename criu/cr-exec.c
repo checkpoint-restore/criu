@@ -166,11 +166,13 @@ int cr_exec(int pid, char **opt)
 		goto out_unseize;
 	}
 
-	ctl = parasite_prep_ctl(pid, p_start);
+	ctl = parasite_prep_ctl(pid);
 	if (!ctl) {
 		pr_err("Can't prep ctl %d\n", pid);
 		goto out_unseize;
 	}
+
+	ctl->ictx.syscall_ip = p_start;
 
 	si = find_syscall(sys_name, ctl);
 	if (!si) {

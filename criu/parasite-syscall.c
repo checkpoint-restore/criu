@@ -224,18 +224,18 @@ int __parasite_execute_syscall(struct parasite_ctl *ctl,
 	 * we will need it to restore original program content.
 	 */
 	memcpy(code_orig, code_syscall, sizeof(code_orig));
-	if (ptrace_swap_area(pid, (void *)ctl->syscall_ip,
+	if (ptrace_swap_area(pid, (void *)ctl->ictx.syscall_ip,
 			     (void *)code_orig, sizeof(code_orig))) {
 		pr_err("Can't inject syscall blob (pid: %d)\n", pid);
 		return -1;
 	}
 
-	err = parasite_run(pid, PTRACE_CONT, ctl->syscall_ip, 0, regs, &ctl->orig);
+	err = parasite_run(pid, PTRACE_CONT, ctl->ictx.syscall_ip, 0, regs, &ctl->orig);
 	if (!err)
 		err = parasite_trap(ctl, pid, regs, &ctl->orig);
 
 	if (ptrace_poke_area(pid, (void *)code_orig,
-			     (void *)ctl->syscall_ip, sizeof(code_orig))) {
+			     (void *)ctl->ictx.syscall_ip, sizeof(code_orig))) {
 		pr_err("Can't restore syscall blob (pid: %d)\n", ctl->rpid);
 		err = -1;
 	}
@@ -1244,7 +1244,7 @@ err:
 }
 
 /* If vma_area_list is NULL, a place for injecting syscall will not be set. */
-struct parasite_ctl *parasite_prep_ctl(pid_t pid, unsigned long exec_start)
+struct parasite_ctl *parasite_prep_ctl(pid_t pid)
 {
 	struct parasite_ctl *ctl = NULL;
 
@@ -1265,9 +1265,6 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, unsigned long exec_start)
 	ctl->rpid = pid;
 
 	BUILD_BUG_ON(PARASITE_START_AREA_MIN < BUILTIN_SYSCALL_SIZE + MEMFD_FNAME_SZ);
-
-	ctl->syscall_ip = exec_start;
-	pr_debug("Parasite syscall_ip at %p\n", (void *)ctl->syscall_ip);
 
 	return ctl;
 
@@ -1310,7 +1307,7 @@ static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
 
 static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 {
-	void *where = (void *)ctl->syscall_ip + BUILTIN_SYSCALL_SIZE;
+	void *where = (void *)ctl->ictx.syscall_ip + BUILTIN_SYSCALL_SIZE;
 	u8 orig_code[MEMFD_FNAME_SZ] = MEMFD_FNAME;
 	pid_t pid = ctl->rpid;
 	unsigned long sret = -ENOSYS;
@@ -1482,7 +1479,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		return NULL;
 	}
 
-	ctl = parasite_prep_ctl(pid, p);
+	ctl = parasite_prep_ctl(pid);
 	if (!ctl)
 		return NULL;
 
@@ -1491,6 +1488,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	ctl->ictx.save_regs = save_task_regs;
 	ctl->ictx.make_sigframe = make_sigframe;
 	ctl->ictx.regs_arg = item->core[0];
+	ctl->ictx.syscall_ip = p;
+	pr_debug("Parasite syscall_ip at %#lx\n", p);
 
 	if (fault_injected(FI_NO_MEMFD))
 		ctl->ictx.flags |= INFECT_NO_MEMFD;
