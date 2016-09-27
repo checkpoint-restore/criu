@@ -70,7 +70,6 @@ struct seize_task_status {
 	int			seccomp_mode;
 };
 
-extern int seize_catch_task(pid_t pid);
 extern int seize_wait_task(pid_t pid, pid_t ppid,
 		int (*get_status)(int pid, struct seize_task_status *),
 		struct seize_task_status *st);
