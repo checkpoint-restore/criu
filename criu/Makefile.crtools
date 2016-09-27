@@ -3,6 +3,7 @@ ccflags-y		+= -iquote compel/plugins/include
 ccflags-y		+= -iquote compel/include
 ccflags-y		+= -iquote compel/arch/$(ARCH)/plugins/std
 
+obj-y			+= infect.o
 obj-y			+= action-scripts.o
 obj-y			+= external.o
 obj-y			+= aio.o
