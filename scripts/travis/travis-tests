@@ -54,7 +54,7 @@ bash ./test/jenkins/criu-fcg.sh
 bash ./test/jenkins/criu-inhfd.sh
 
 make -C test/others/mnt-ext-dev/ run
-make -C test/others/exec/ run
+#make -C test/others/exec/ run
 
 ./test/zdtm.py run -t zdtm/static/env00 --sibling
 
