@@ -148,7 +148,9 @@ static int skip_sigstop(int pid, int nr_signals)
  * of it so the task would not know if it was saddled
  * up with someone else.
  */
-int seize_wait_task(pid_t pid, pid_t ppid, struct proc_status_creds *creds)
+int seize_wait_task(pid_t pid, pid_t ppid,
+		int (*get_status)(int pid, struct seize_task_status *),
+		struct seize_task_status *ss)
 {
 	siginfo_t si;
 	int status, nr_sigstop;
@@ -175,17 +177,17 @@ try_again:
 		wait_errno = errno;
 	}
 
-	ret2 = parse_pid_status(pid, creds);
+	ret2 = get_status(pid, ss);
 	if (ret2)
 		goto err;
 
 	if (ret < 0 || WIFEXITED(status) || WIFSIGNALED(status)) {
-		if (creds->s.state != 'Z') {
+		if (ss->state != 'Z') {
 			if (pid == getpid())
 				pr_err("The criu itself is within dumped tree.\n");
 			else
 				pr_err("Unseizable non-zombie %d found, state %c, err %d/%d\n",
-						pid, creds->s.state, ret, wait_errno);
+						pid, ss->state, ret, wait_errno);
 			return -1;
 		}
 
@@ -195,9 +197,9 @@ try_again:
 			return TASK_DEAD;
 	}
 
-	if ((ppid != -1) && (creds->s.ppid != ppid)) {
+	if ((ppid != -1) && (ss->ppid != ppid)) {
 		pr_err("Task pid reused while suspending (%d: %d -> %d)\n",
-				pid, ppid, creds->s.ppid);
+				pid, ppid, ss->ppid);
 		goto err;
 	}
 
@@ -229,13 +231,13 @@ try_again:
 		goto try_again;
 	}
 
-	if (creds->s.seccomp_mode != SECCOMP_MODE_DISABLED && suspend_seccomp(pid) < 0)
+	if (ss->seccomp_mode != SECCOMP_MODE_DISABLED && suspend_seccomp(pid) < 0)
 		goto err;
 
 	nr_sigstop = 0;
-	if (creds->s.sigpnd & (1 << (SIGSTOP - 1)))
+	if (ss->sigpnd & (1 << (SIGSTOP - 1)))
 		nr_sigstop++;
-	if (creds->s.shdpnd & (1 << (SIGSTOP - 1)))
+	if (ss->shdpnd & (1 << (SIGSTOP - 1)))
 		nr_sigstop++;
 	if (si.si_signo == SIGSTOP)
 		nr_sigstop++;
