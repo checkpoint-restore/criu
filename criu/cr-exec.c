@@ -4,7 +4,7 @@
 #include "int.h"
 #include "types.h"
 #include "crtools.h"
-#include "ptrace.h"
+#include "proc_parse.h"
 #include "pstree.h"
 #include "parasite-syscall.h"
 #include "vma.h"

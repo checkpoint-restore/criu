@@ -50,7 +50,7 @@ static int collect_filter_for_pstree(struct pstree_item *item)
 	void *m;
 
 	if (item->pid->state == TASK_DEAD ||
-	    dmpi(item)->pi_creds->seccomp_mode != SECCOMP_MODE_FILTER)
+	    dmpi(item)->pi_creds->s.seccomp_mode != SECCOMP_MODE_FILTER)
 		return 0;
 
 	for (i = 0; true; i++) {
