@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-#include "ptrace.h"
+#include "infect.h"
 #include "images/seccomp.pb-c.h"
 
 #define PROC_TASK_COMM_LEN	32
