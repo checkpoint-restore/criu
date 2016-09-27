@@ -89,6 +89,10 @@ static int freezer_restore_state(void)
 	return 0;
 }
 
+/* A number of tasks in a freezer cgroup which are not going to be dumped */
+static int processes_to_wait;
+static pid_t *processes_to_wait_pids;
+
 static int seize_cgroup_tree(char *root_path, const char *state)
 {
 	DIR *dir;
@@ -174,10 +178,6 @@ static int seize_cgroup_tree(char *root_path, const char *state)
 
 	return 0;
 }
-
-/* A number of tasks in a freezer cgroup which are not going to be dumped */
-int processes_to_wait;
-static pid_t *processes_to_wait_pids;
 
 /*
  * A freezer cgroup can contain tasks which will not be dumped
@@ -484,6 +484,11 @@ static int collect_children(struct pstree_item *item)
 			continue;
 		}
 
+		if (ret == TASK_ZOMBIE)
+			ret = TASK_DEAD;
+		else
+			processes_to_wait--;
+
 		dmpi(c)->pi_creds = creds;
 		c->pid.real = pid;
 		c->parent = item;
@@ -701,6 +706,11 @@ static int collect_threads(struct pstree_item *item)
 			continue;
 		}
 
+		if (ret == TASK_ZOMBIE)
+			ret = TASK_DEAD;
+		else
+			processes_to_wait--;
+
 		BUG_ON(item->nr_threads + 1 > nr_threads);
 		item->threads[item->nr_threads].real = pid;
 		item->nr_threads++;
@@ -825,6 +835,11 @@ int collect_pstree(void)
 	ret = seize_wait_task(pid, -1, creds);
 	if (ret < 0)
 		goto err;
+
+	if (ret == TASK_ZOMBIE)
+		ret = TASK_DEAD;
+	else
+		processes_to_wait--;
 
 	pr_info("Seized task %d, state %d\n", pid, ret);
 	root_item->pid.state = ret;

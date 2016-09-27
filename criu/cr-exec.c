@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "crtools.h"
 #include "ptrace.h"
+#include "pstree.h"
 #include "parasite-syscall.h"
 #include "vma.h"
 #include "log.h"
@@ -149,6 +150,11 @@ int cr_exec(int pid, char **opt)
 	prev_state = ret = seize_wait_task(pid, -1, &creds);
 	if (ret < 0) {
 		pr_err("Can't seize task %d\n", pid);
+		goto out;
+	}
+
+	if (!is_alive_state(prev_state)) {
+		pr_err("Only can exec on running/stopped tasks\n");
 		goto out;
 	}
 

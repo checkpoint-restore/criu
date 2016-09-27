@@ -73,8 +73,6 @@ struct ptrace_peeksiginfo_args {
 
 #define SI_EVENT(_si_code)	(((_si_code) & 0xFFFF) >> 8)
 
-extern int processes_to_wait;
-
 extern int seize_catch_task(pid_t pid);
 extern int seize_wait_task(pid_t pid, pid_t ppid, struct proc_status_creds *creds);
 extern int suspend_seccomp(pid_t pid);

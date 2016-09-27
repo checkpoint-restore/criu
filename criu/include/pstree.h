@@ -59,9 +59,14 @@ static inline int shared_fdtable(struct pstree_item *item)
 		item->ids->files_id == item->parent->ids->files_id);
 }
 
+static inline bool is_alive_state(int state)
+{
+	return (state == TASK_ALIVE) || (state == TASK_STOPPED);
+}
+
 static inline bool task_alive(struct pstree_item *i)
 {
-	return (i->pid.state == TASK_ALIVE) || (i->pid.state == TASK_STOPPED);
+	return is_alive_state(i->pid.state);
 }
 
 extern void free_pstree(struct pstree_item *root_item);

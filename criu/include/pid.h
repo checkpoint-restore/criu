@@ -30,6 +30,7 @@ struct pid {
 #define TASK_STOPPED		0x3
 #define TASK_HELPER		0x4
 #define TASK_THREAD		0x5
+#define TASK_ZOMBIE		0x6
 
 /*
  * When we have to restore a shared resource, we mush select which
