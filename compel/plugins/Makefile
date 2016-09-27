@@ -1,5 +1,6 @@
 .PHONY: .FORCE
 
+CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS))
 PLUGIN_ARCH_DIR		:= compel/arch/$(ARCH)/plugins
 
 #
