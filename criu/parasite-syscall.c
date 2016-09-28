@@ -197,17 +197,6 @@ int __parasite_execute_syscall(struct parasite_ctl *ctl,
 	return err;
 }
 
-void *parasite_args_p(struct parasite_ctl *ctl)
-{
-	return ctl->addr_args;
-}
-
-void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
-{
-	BUG_ON(args_size > ctl->args_size);
-	return parasite_args_p(ctl);
-}
-
 static int parasite_run_in_thread(pid_t pid, unsigned int cmd,
 					struct parasite_ctl *ctl,
 					struct thread_ctx *octx)
@@ -400,10 +389,10 @@ int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEn
 	int ret;
 
 	if (seized_native(ctl)) {
-		args = parasite_args(ctl, struct parasite_dump_thread);
+		args = compel_parasite_args(ctl, struct parasite_dump_thread);
 		pc = args->creds;
 	} else {
-		args_c = parasite_args(ctl, struct parasite_dump_thread_compat);
+		args_c = compel_parasite_args(ctl, struct parasite_dump_thread_compat);
 		pc = args_c->creds;
 	}
 
@@ -440,10 +429,10 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	BUG_ON(id == 0); /* Leader is dumped in dump_task_core_all */
 
 	if (seized_native(ctl)) {
-		args = parasite_args(ctl, struct parasite_dump_thread);
+		args = compel_parasite_args(ctl, struct parasite_dump_thread);
 		pc = args->creds;
 	} else {
-		args_c = parasite_args(ctl, struct parasite_dump_thread_compat);
+		args_c = compel_parasite_args(ctl, struct parasite_dump_thread_compat);
 		pc = args_c->creds;
 	}
 
@@ -503,9 +492,9 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 	bool native_task = seized_native(ctl);
 
 	if (native_task)
-		args = parasite_args(ctl, struct parasite_dump_sa_args);
+		args = compel_parasite_args(ctl, struct parasite_dump_sa_args);
 	else
-		args_c = parasite_args(ctl, struct parasite_dump_sa_args_compat);
+		args_c = compel_parasite_args(ctl, struct parasite_dump_sa_args_compat);
 
 	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_SIGACTS, ctl);
 	if (ret < 0)
@@ -555,9 +544,9 @@ int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_item *i
 	int ret;
 
 	if (seized_native(ctl))
-		args = parasite_args(ctl, struct parasite_dump_itimers_args);
+		args = compel_parasite_args(ctl, struct parasite_dump_itimers_args);
 	else
-		args_c = parasite_args(ctl, struct parasite_dump_itimers_args_compat);
+		args_c = compel_parasite_args(ctl, struct parasite_dump_itimers_args_compat);
 
 	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_ITIMERS, ctl);
 	if (ret < 0)
@@ -646,7 +635,7 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 		args_size = posix_timers_dump_size(proc_args->timer_n);
 	else
 		args_size = posix_timers_compat_dump_size(proc_args->timer_n);
-	args = parasite_args_s(ctl, args_size);
+	args = compel_parasite_args_s(ctl, args_size);
 
 	set_posix_timer_arg(args, ctl, timer_n, proc_args->timer_n);
 
@@ -677,7 +666,7 @@ int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_mis
 {
 	struct parasite_dump_misc *ma;
 
-	ma = parasite_args(ctl, struct parasite_dump_misc);
+	ma = compel_parasite_args(ctl, struct parasite_dump_misc);
 	if (parasite_execute_daemon(PARASITE_CMD_DUMP_MISC, ctl) < 0)
 		return -1;
 
@@ -689,7 +678,7 @@ struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd, in
 {
 	struct parasite_tty_args *p;
 
-	p = parasite_args(ctl, struct parasite_tty_args);
+	p = compel_parasite_args(ctl, struct parasite_tty_args);
 	p->fd = fd;
 	p->type = type;
 
@@ -707,7 +696,7 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 	struct parasite_drain_fd *args;
 
 	size = drain_fds_size(dfds);
-	args = parasite_args_s(ctl, size);
+	args = compel_parasite_args_s(ctl, size);
 	args->nr_fds = nr_fds;
 	memcpy(&args->fds, dfds->fds + off, sizeof(int) * nr_fds);
 
@@ -1012,7 +1001,7 @@ int parasite_dump_cgroup(struct parasite_ctl *ctl, struct parasite_dump_cgroup_a
 	int ret;
 	struct parasite_dump_cgroup_args *ca;
 
-	ca = parasite_args(ctl, struct parasite_dump_cgroup_args);
+	ca = compel_parasite_args(ctl, struct parasite_dump_cgroup_args);
 	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_CGROUP, ctl);
 	if (ret) {
 		pr_err("Parasite failed to dump /proc/self/cgroup\n");

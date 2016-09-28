@@ -394,7 +394,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 
 	*ctl->addr_cmd = PARASITE_CMD_INIT_DAEMON;
 
-	args = parasite_args(ctl, struct parasite_init_args);
+	args = compel_parasite_args(ctl, struct parasite_init_args);
 
 	args->sigframe = (uintptr_t)ctl->rsigframe;
 	args->log_level = log_get_loglevel();
@@ -699,7 +699,7 @@ int compel_cure_remote(struct parasite_ctl *ctl)
 
 		*ctl->addr_cmd = PARASITE_CMD_UNMAP;
 
-		args = parasite_args(ctl, struct parasite_unmap_args);
+		args = compel_parasite_args(ctl, struct parasite_unmap_args);
 		args->parasite_start = ctl->remote_map;
 		args->parasite_len = ctl->map_length;
 		if (parasite_unmap(ctl, ctl->parasite_ip))
@@ -744,5 +744,16 @@ int compel_cure(struct parasite_ctl *ctl)
 		ret = compel_cure_local(ctl);
 
 	return ret;
+}
+
+void *compel_parasite_args_p(struct parasite_ctl *ctl)
+{
+	return ctl->addr_args;
+}
+
+void *compel_parasite_args_s(struct parasite_ctl *ctl, int args_size)
+{
+	BUG_ON(args_size > ctl->args_size);
+	return compel_parasite_args_p(ctl);
 }
 

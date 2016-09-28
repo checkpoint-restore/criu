@@ -55,16 +55,6 @@ struct proc_posix_timers_stat;
 extern int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 		struct parasite_ctl *ctl, struct pstree_item *);
 
-#define parasite_args(ctl, type)					\
-	({								\
-	 	void *___ret;						\
-		BUILD_BUG_ON(sizeof(type) > PARASITE_ARG_SIZE_MIN);	\
-		___ret = parasite_args_p(ctl);				\
-	 	___ret;							\
-	})
-
-extern void *parasite_args_p(struct parasite_ctl *ctl);
-extern void *parasite_args_s(struct parasite_ctl *ctl, int args_size);
 extern int parasite_send_fd(struct parasite_ctl *ctl, int fd);
 
 /*

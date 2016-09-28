@@ -19,6 +19,7 @@
 #include "log.h"
 #include "mem.h"
 #include "vma.h"
+#include "infect.h"
 
 #ifdef LOG_PREFIX
 # undef LOG_PREFIX
@@ -46,7 +47,7 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 	struct vma_area *vma;
 	off_t off;
 
-	args = parasite_args(ctl, struct parasite_vdso_vma_entry);
+	args = compel_parasite_args(ctl, struct parasite_vdso_vma_entry);
 	if (kdat.pmap == PM_FULL) {
 		BUG_ON(vdso_pfn == VDSO_BAD_PFN);
 		fd = open_proc(pid, "pagemap");
