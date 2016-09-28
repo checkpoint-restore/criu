@@ -15,8 +15,14 @@
 #include "version.h"
 #include "piegen.h"
 
-static const char compel_cflags_pie[] = "-fpie -Wa,--noexecstack -fno-stack-protector";
-static const char compel_cflags_nopic[] = "-fno-pic -Wa,--noexecstack -fno-stack-protector";
+static const char compel_cflags_pie[] =
+	"-fpie -Wstrict-prototypes -Wa,--noexecstack "
+	"-fno-stack-protector -fno-jump-tables -nostdlib "
+	"-fomit-frame-pointer";
+static const char compel_cflags_nopic[] =
+	"-fno-pic -Wstrict-prototypes -Wa,--noexecstack "
+	"-fno-stack-protector -fno-jump-tables -nostdlib "
+	"-fomit-frame-pointer";
 static const char compel_ldflags[] = "-r";
 
 piegen_opt_t opts = {
