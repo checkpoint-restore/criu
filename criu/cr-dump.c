@@ -1161,7 +1161,7 @@ static int pre_dump_one_task(struct pstree_item *item)
 
 	mdc.pre_dump = true;
 
-	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, &mdc);
+	ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
 	if (ret)
 		goto err_cure;
 
@@ -1320,7 +1320,7 @@ static int dump_one_task(struct pstree_item *item)
 
 	mdc.pre_dump = false;
 
-	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, &mdc);
+	ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
 	if (ret)
 		goto err_cure;
 

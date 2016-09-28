@@ -262,10 +262,11 @@ static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer)
 	return ret;
 }
 
-static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
+static int __parasite_dump_pages_seized(struct pstree_item *item,
 		struct parasite_dump_pages_args *args,
 		struct vm_area_list *vma_area_list,
-		struct mem_dump_ctl *mdc)
+		struct mem_dump_ctl *mdc,
+		struct parasite_ctl *ctl)
 {
 	pmc_t pmc = PMC_INIT;
 	struct page_pipe *pp;
@@ -395,9 +396,10 @@ out:
 	return ret;
 }
 
-int parasite_dump_pages_seized(struct parasite_ctl *ctl,
+int parasite_dump_pages_seized(struct pstree_item *item,
 		struct vm_area_list *vma_area_list,
-		struct mem_dump_ctl *mdc)
+		struct mem_dump_ctl *mdc,
+		struct parasite_ctl *ctl)
 {
 	int ret;
 	struct parasite_dump_pages_args *pargs;
@@ -424,7 +426,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		return -1;
 	}
 
-	ret = __parasite_dump_pages_seized(ctl, pargs, vma_area_list, mdc);
+	ret = __parasite_dump_pages_seized(item, pargs, vma_area_list, mdc, ctl);
 	if (ret) {
 		pr_err("Can't dump page with parasite\n");
 		/* Parasite will unprotect VMAs after fail in fini() */
