@@ -793,3 +793,25 @@ void *compel_parasite_args_s(struct parasite_ctl *ctl, int args_size)
 	return compel_parasite_args_p(ctl);
 }
 
+int compel_run_in_thread(pid_t pid, unsigned int cmd,
+					struct parasite_ctl *ctl,
+					struct thread_ctx *octx)
+{
+	void *stack = ctl->r_thread_stack;
+	user_regs_struct_t regs = octx->regs;
+	int ret;
+
+	*ctl->addr_cmd = cmd;
+
+	ret = parasite_run(pid, PTRACE_CONT, ctl->parasite_ip, stack, &regs, octx);
+	if (ret == 0)
+		ret = parasite_trap(ctl, pid, &regs, octx);
+	if (ret == 0)
+		ret = (int)REG_RES(regs);
+
+	if (ret)
+		pr_err("Parasite exited with %d\n", ret);
+
+	return ret;
+}
+
