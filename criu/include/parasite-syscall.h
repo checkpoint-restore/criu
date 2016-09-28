@@ -28,7 +28,11 @@ struct thread_ctx {
 
 struct infect_ctx {
 	int	*p_sock;
+	unsigned long		flags;			/* fine-tune (e.g. faults) */
 };
+
+#define INFECT_NO_MEMFD		0x1	/* don't use memfd() */
+#define INFECT_FAIL_CONNECT	0x2	/* make parasite connect() fail */
 
 /* parasite control block */
 struct parasite_ctl {
