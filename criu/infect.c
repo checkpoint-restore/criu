@@ -318,6 +318,23 @@ static int setup_child_handler(struct parasite_ctl *ctl)
 	return 0;
 }
 
+static int restore_child_handler()
+{
+	struct sigaction sa = {
+		.sa_handler	= SIG_DFL, /* XXX -- should be original? */
+		.sa_flags	= SA_SIGINFO | SA_RESTART,
+	};
+
+	sigemptyset(&sa.sa_mask);
+	sigaddset(&sa.sa_mask, SIGCHLD);
+	if (sigaction(SIGCHLD, &sa, NULL)) {
+		pr_perror("Unable to setup SIGCHLD handler");
+		return -1;
+	}
+
+	return 0;
+}
+
 int parasite_run(pid_t pid, int cmd, unsigned long ip, void *stack,
 		user_regs_struct_t *regs, struct thread_ctx *octx)
 {
@@ -572,5 +589,160 @@ struct parasite_ctl *compel_prepare(int pid)
 err:
 	xfree(ctl);
 	return NULL;
+}
+
+static bool task_in_parasite(struct parasite_ctl *ctl, user_regs_struct_t *regs)
+{
+	void *addr = (void *) REG_IP(*regs);
+	return addr >= ctl->remote_map &&
+		addr < ctl->remote_map + ctl->map_length;
+}
+
+static int parasite_fini_seized(struct parasite_ctl *ctl)
+{
+	pid_t pid = ctl->rpid;
+	user_regs_struct_t regs;
+	int status, ret = 0;
+	enum trace_flags flag;
+
+	/* stop getting chld from parasite -- we're about to step-by-step it */
+	if (restore_child_handler())
+		return -1;
+
+	/* Start to trace syscalls for each thread */
+	if (ptrace(PTRACE_INTERRUPT, pid, NULL, NULL)) {
+		pr_perror("Unable to interrupt the process");
+		return -1;
+	}
+
+	pr_debug("Waiting for %d to trap\n", pid);
+	if (wait4(pid, &status, __WALL, NULL) != pid) {
+		pr_perror("Waited pid mismatch (pid: %d)", pid);
+		return -1;
+	}
+
+	pr_debug("Daemon %d exited trapping\n", pid);
+	if (!WIFSTOPPED(status)) {
+		pr_err("Task is still running (pid: %d)\n", pid);
+		return -1;
+	}
+
+	ret = ptrace_get_regs(pid, &regs);
+	if (ret) {
+		pr_perror("Unable to get registers");
+		return -1;
+	}
+
+	if (!task_in_parasite(ctl, &regs)) {
+		pr_err("The task is not in parasite code\n");
+		return -1;
+	}
+
+	ret = __parasite_execute_daemon(PARASITE_CMD_FINI, ctl);
+	close_safe(&ctl->tsock);
+	if (ret)
+		return -1;
+
+	/* Go to sigreturn as closer as we can */
+	ret = ptrace_stop_pie(pid, ctl->sigreturn_addr, &flag);
+	if (ret < 0)
+		return ret;
+
+	if (parasite_stop_on_syscall(1, __NR(rt_sigreturn, 0),
+				__NR(rt_sigreturn, 1), flag))
+		return -1;
+
+	if (ptrace_flush_breakpoints(pid))
+		return -1;
+
+	/*
+	 * All signals are unblocked now. The kernel notifies about leaving
+	 * syscall before starting to deliver signals. All parasite code are
+	 * executed with blocked signals, so we can sefly unmap a parasite blob.
+	 */
+
+	return 0;
+}
+
+int compel_stop_daemon(struct parasite_ctl *ctl)
+{
+	if (ctl->daemonized) {
+		/*
+		 * Looks like a previous attempt failed, we should do
+		 * nothing in this case. parasite will try to cure itself.
+		 */
+		if (ctl->tsock < 0)
+			return -1;
+
+		if (parasite_fini_seized(ctl)) {
+			close_safe(&ctl->tsock);
+			return -1;
+		}
+	}
+
+	ctl->daemonized = false;
+
+	return 0;
+}
+
+int compel_cure_remote(struct parasite_ctl *ctl)
+{
+	if (compel_stop_daemon(ctl))
+		return -1;
+
+	if (!ctl->remote_map)
+		return 0;
+
+	/* Unseizing task with parasite -- it does it himself */
+	if (ctl->addr_cmd) {
+		struct parasite_unmap_args *args;
+
+		*ctl->addr_cmd = PARASITE_CMD_UNMAP;
+
+		args = parasite_args(ctl, struct parasite_unmap_args);
+		args->parasite_start = ctl->remote_map;
+		args->parasite_len = ctl->map_length;
+		if (parasite_unmap(ctl, ctl->parasite_ip))
+			return -1;
+	} else {
+		unsigned long ret;
+
+		syscall_seized(ctl, __NR(munmap, !seized_native(ctl)), &ret,
+				(unsigned long)ctl->remote_map, ctl->map_length,
+				0, 0, 0, 0);
+		if (ret) {
+			pr_err("munmap for remote map %p, %lu returned %lu\n",
+					ctl->remote_map, ctl->map_length, ret);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+int compel_cure_local(struct parasite_ctl *ctl)
+{
+	int ret = 0;
+
+	if (ctl->local_map) {
+		if (munmap(ctl->local_map, ctl->map_length)) {
+			pr_err("munmap failed (pid: %d)\n", ctl->rpid);
+			ret = -1;
+		}
+	}
+
+	free(ctl);
+	return ret;
+}
+
+int compel_cure(struct parasite_ctl *ctl)
+{
+	int ret;
+
+	ret = compel_cure_remote(ctl);
+	if (!ret)
+		ret = compel_cure_local(ctl);
+
+	return ret;
 }
 

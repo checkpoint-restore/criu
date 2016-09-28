@@ -1188,7 +1188,7 @@ static int pre_dump_one_task(struct pstree_item *item)
 	if (ret)
 		goto err_cure;
 
-	if (parasite_cure_remote(parasite_ctl))
+	if (compel_cure_remote(parasite_ctl))
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 err_free:
 	free_mappings(&vmas);
@@ -1196,7 +1196,7 @@ err:
 	return ret;
 
 err_cure:
-	if (parasite_cure_seized(parasite_ctl))
+	if (compel_cure(parasite_ctl))
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 	goto err_free;
 }
@@ -1372,7 +1372,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	ret = parasite_stop_daemon(parasite_ctl);
+	ret = compel_stop_daemon(parasite_ctl);
 	if (ret) {
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 		goto err;
@@ -1385,9 +1385,9 @@ static int dump_one_task(struct pstree_item *item)
 	}
 
 	if (opts.lazy_pages)
-		ret = parasite_cure_remote(parasite_ctl);
+		ret = compel_cure_remote(parasite_ctl);
 	else
-		ret = parasite_cure_seized(parasite_ctl);
+		ret = compel_cure(parasite_ctl);
 	if (ret) {
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 		goto err;
@@ -1416,7 +1416,7 @@ err:
 err_cure:
 	close_cr_imgset(&cr_imgset);
 err_cure_imgset:
-	parasite_cure_seized(parasite_ctl);
+	compel_cure(parasite_ctl);
 	goto err;
 }
 
@@ -1493,7 +1493,7 @@ static int cr_pre_dump_finish(int ret)
 		timing_stop(TIME_MEMWRITE);
 
 		destroy_page_pipe(mem_pp);
-		parasite_cure_local(ctl);
+		compel_cure_local(ctl);
 	}
 
 	free_pstree(root_item);
@@ -1598,7 +1598,7 @@ static int cr_lazy_mem_dump(void)
 
 	for_each_pstree_item(item) {
 		destroy_page_pipe(dmpi(item)->mem_pp);
-		parasite_cure_local(dmpi(item)->parasite_ctl);
+		compel_cure_local(dmpi(item)->parasite_ctl);
 	}
 
 	if (ret)
