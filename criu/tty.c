@@ -1694,7 +1694,7 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_d
 	BUILD_BUG_ON(sizeof(termios.c_cc) != sizeof(void *));
 	BUILD_BUG_ON((sizeof(termios.c_cc) * TERMIOS_NCC) < sizeof(t.c_cc));
 
-	pti = parasite_dump_tty(p->ctl, p->fd, driver->type);
+	pti = parasite_dump_tty(p->fd_ctl, p->fd, driver->type);
 	if (!pti)
 		return -1;
 

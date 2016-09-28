@@ -325,7 +325,7 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 		return -1;
 
 	p->fs_type	= fsbuf.f_type;
-	p->ctl		= ctl;
+	p->fd_ctl	= ctl;
 	p->fd		= fd;
 	p->pos		= fdinfo.pos;
 	p->flags	= fdinfo.flags;

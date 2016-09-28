@@ -49,7 +49,7 @@ struct fd_parms {
 	long		fs_type;
 	int		mnt_id;
 
-	struct parasite_ctl *ctl;
+	struct parasite_ctl *fd_ctl;
 };
 
 #define FD_PARMS_INIT			\
