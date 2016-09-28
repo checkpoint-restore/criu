@@ -3,6 +3,8 @@ SECTIONS
 	.text : {
 		*(.head.text)
 		*(.text*)
+		*(.compel.init)
+		*(.compel.exit)
 	}
 
 	.data : {
