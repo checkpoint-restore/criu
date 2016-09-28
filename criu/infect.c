@@ -370,9 +370,62 @@ err_sig:
 }
 
 /* XXX will be removed soon */
-extern int parasite_trap(struct parasite_ctl *ctl, pid_t pid,
+extern int restore_thread_ctx(int pid, struct thread_ctx *ctx);
+
+/* we run at @regs->ip */
+static int parasite_trap(struct parasite_ctl *ctl, pid_t pid,
 				user_regs_struct_t *regs,
-				struct thread_ctx *octx);
+				struct thread_ctx *octx)
+{
+	siginfo_t siginfo;
+	int status;
+	int ret = -1;
+
+	/*
+	 * Most ideas are taken from Tejun Heo's parasite thread
+	 * https://code.google.com/p/ptrace-parasite/
+	 */
+
+	if (wait4(pid, &status, __WALL, NULL) != pid) {
+		pr_perror("Waited pid mismatch (pid: %d)", pid);
+		goto err;
+	}
+
+	if (!WIFSTOPPED(status)) {
+		pr_err("Task is still running (pid: %d)\n", pid);
+		goto err;
+	}
+
+	if (ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo)) {
+		pr_perror("Can't get siginfo (pid: %d)", pid);
+		goto err;
+	}
+
+	if (ptrace_get_regs(pid, regs)) {
+		pr_perror("Can't obtain registers (pid: %d)", pid);
+			goto err;
+	}
+
+	if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != ARCH_SI_TRAP) {
+		pr_debug("** delivering signal %d si_code=%d\n",
+			 siginfo.si_signo, siginfo.si_code);
+
+		pr_err("Unexpected %d task interruption, aborting\n", pid);
+		goto err;
+	}
+
+	/*
+	 * We've reached this point if int3 is triggered inside our
+	 * parasite code. So we're done.
+	 */
+	ret = 0;
+err:
+	if (restore_thread_ctx(pid, octx))
+		ret = -1;
+
+	return ret;
+}
+
 
 int compel_execute_syscall(struct parasite_ctl *ctl,
 		user_regs_struct_t *regs, const char *code_syscall)
@@ -815,9 +868,6 @@ int compel_run_in_thread(pid_t pid, unsigned int cmd,
 	return ret;
 }
 
-/* XXX will be removed soon */
-
-extern int restore_thread_ctx(int pid, struct thread_ctx *ctx);
 /*
  * compel_unmap() is used for unmapping parasite and restorer blobs.
  * A blob can contain code for unmapping itself, so the porcess is
