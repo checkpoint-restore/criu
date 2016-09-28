@@ -474,7 +474,7 @@ static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
 	}
 
 	/* Check a case when parasite can't initialize a command socket */
-	if (fault_injected(FI_PARASITE_CONNECT))
+	if (ctl->ictx.flags & INFECT_FAIL_CONNECT)
 		args->h_addr_len = gen_parasite_saddr(&args->h_addr, getpid() + 1);
 
 	/*
@@ -1317,7 +1317,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 	int ret, fd, lfd;
 	bool __maybe_unused compat_task = !seized_native(ctl);
 
-	if (fault_injected(FI_NO_MEMFD))
+	if (ctl->ictx.flags & INFECT_NO_MEMFD)
 		return 1;
 
 	BUILD_BUG_ON(sizeof(orig_code) < sizeof(long));
@@ -1481,6 +1481,11 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		return NULL;
 
 	ctl->ictx.p_sock = &dmpi(item)->netns->net.seqsk;
+
+	if (fault_injected(FI_NO_MEMFD))
+		ctl->ictx.flags |= INFECT_NO_MEMFD;
+	if (fault_injected(FI_PARASITE_CONNECT))
+		ctl->ictx.flags |= INFECT_FAIL_CONNECT;
 
 	parasite_ensure_args_size(dump_pages_args_size(vma_area_list));
 	parasite_ensure_args_size(aio_rings_args_size(vma_area_list));
