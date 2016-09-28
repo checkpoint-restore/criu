@@ -17,6 +17,7 @@
 #include "util.h"
 #include "cpu.h"
 #include "restorer.h"
+#include "infect.h"
 #include "infect-priv.h"
 
 /*
@@ -72,7 +73,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	regs.regs[6] = 0;
 	regs.regs[7] = 0;
 
-	err = __parasite_execute_syscall(ctl, &regs, code_syscall);
+	err = compel_execute_syscall(ctl, &regs, code_syscall);
 
 	*ret = regs.regs[0];
 	return err;

@@ -25,6 +25,7 @@
 #include "uapi/std/syscall-codes.h"
 #include "kerndat.h"
 #include "infect-priv.h"
+#include "infect.h"
 
 #include "protobuf.h"
 #include "images/core.pb-c.h"
@@ -167,7 +168,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 		r->r8  = arg5;
 		r->r9  = arg6;
 
-		err = __parasite_execute_syscall(ctl, &regs, code_syscall);
+		err = compel_execute_syscall(ctl, &regs, code_syscall);
 	} else {
 		user_regs_struct32 *r = &regs.compat;
 
@@ -179,7 +180,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 		r->di  = arg5;
 		r->bp  = arg6;
 
-		err = __parasite_execute_syscall(ctl, &regs, code_int_80);
+		err = compel_execute_syscall(ctl, &regs, code_int_80);
 	}
 
 	*ret = get_user_reg(&regs, ax);

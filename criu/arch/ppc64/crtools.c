@@ -18,6 +18,7 @@
 #include "util.h"
 #include "cpu.h"
 #include "errno.h"
+#include "infect.h"
 #include "infect-priv.h"
 
 #include "protobuf.h"
@@ -87,7 +88,7 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	regs.gpr[7] = arg5;
 	regs.gpr[8] = arg6;
 
-	err = __parasite_execute_syscall(ctl, &regs, (char*)code_syscall);
+	err = compel_execute_syscall(ctl, &regs, (char*)code_syscall);
 
 	*ret = regs.gpr[3];
 	return err;

@@ -113,7 +113,7 @@ bool seized_native(struct parasite_ctl *ctl)
 }
 
 /* we run at @regs->ip */
-static int parasite_trap(struct parasite_ctl *ctl, pid_t pid,
+int parasite_trap(struct parasite_ctl *ctl, pid_t pid,
 				user_regs_struct_t *regs,
 				struct thread_ctx *octx)
 {
@@ -164,37 +164,6 @@ err:
 		ret = -1;
 
 	return ret;
-}
-
-int __parasite_execute_syscall(struct parasite_ctl *ctl,
-		user_regs_struct_t *regs, const char *code_syscall)
-{
-	pid_t pid = ctl->rpid;
-	int err;
-	u8 code_orig[BUILTIN_SYSCALL_SIZE];
-
-	/*
-	 * Inject syscall instruction and remember original code,
-	 * we will need it to restore original program content.
-	 */
-	memcpy(code_orig, code_syscall, sizeof(code_orig));
-	if (ptrace_swap_area(pid, (void *)ctl->ictx.syscall_ip,
-			     (void *)code_orig, sizeof(code_orig))) {
-		pr_err("Can't inject syscall blob (pid: %d)\n", pid);
-		return -1;
-	}
-
-	err = parasite_run(pid, PTRACE_CONT, ctl->ictx.syscall_ip, 0, regs, &ctl->orig);
-	if (!err)
-		err = parasite_trap(ctl, pid, regs, &ctl->orig);
-
-	if (ptrace_poke_area(pid, (void *)code_orig,
-			     (void *)ctl->ictx.syscall_ip, sizeof(code_orig))) {
-		pr_err("Can't restore syscall blob (pid: %d)\n", ctl->rpid);
-		err = -1;
-	}
-
-	return err;
 }
 
 static int parasite_run_in_thread(pid_t pid, unsigned int cmd,
