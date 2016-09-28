@@ -90,9 +90,6 @@ extern int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 					int *lfds, struct fd_opts *flags);
 extern int parasite_get_proc_fd_seized(struct parasite_ctl *ctl);
 
-extern int parasite_cure_remote(struct parasite_ctl *ctl);
-extern int parasite_cure_local(struct parasite_ctl *ctl);
-extern int parasite_cure_seized(struct parasite_ctl *ctl);
 extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 						   struct pstree_item *item,
 						   struct vm_area_list *vma_area_list);
@@ -129,7 +126,6 @@ enum trace_flags {
 	TRACE_EXIT,
 };
 
-extern int parasite_stop_daemon(struct parasite_ctl *ctl);
 extern int parasite_stop_on_syscall(int tasks, int sys_nr,
 		int sys_nr_compat, enum trace_flags trace);
 extern int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr);

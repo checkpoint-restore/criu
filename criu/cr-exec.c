@@ -191,7 +191,7 @@ int cr_exec(int pid, char **opt)
 
 	exit_code = 0;
 out_cure:
-	parasite_cure_seized(ctl);
+	compel_cure(ctl);
 out_unseize:
 	unseize_task(pid, prev_state, prev_state);
 out:

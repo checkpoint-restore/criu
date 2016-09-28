@@ -30,4 +30,8 @@ extern struct parasite_ctl *compel_prepare(int pid);
 extern int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size);
 extern int compel_prepare_thread(int pid, struct thread_ctx *ctx);
 
+extern int compel_stop_daemon(struct parasite_ctl *ctl);
+extern int compel_cure_remote(struct parasite_ctl *ctl);
+extern int compel_cure_local(struct parasite_ctl *ctl);
+extern int compel_cure(struct parasite_ctl *ctl);
 #endif
