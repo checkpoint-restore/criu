@@ -2,7 +2,6 @@
 #define __CR_PARASITE_H__
 
 #define PARASITE_STACK_SIZE	(16 << 10)
-#define PARASITE_ARG_SIZE_MIN	( 1 << 12)
 #define PARASITE_START_AREA_MIN	(4096)
 
 #define PARASITE_MAX_SIZE	(64 << 10)
@@ -272,7 +271,7 @@ struct parasite_dump_cgroup_args {
 	 *
 	 * The string is null terminated.
 	 */
-	char contents[PARASITE_ARG_SIZE_MIN];
+	char contents[1 << 12];
 };
 
 /* the parasite prefix is added by gen_offsets.sh */

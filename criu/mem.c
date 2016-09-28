@@ -27,6 +27,7 @@
 #include "files-reg.h"
 #include "pagemap-cache.h"
 #include "fault-injection.h"
+#include "infect.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -206,7 +207,7 @@ static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl
 	struct parasite_vma_entry *p_vma;
 	struct vma_area *vma;
 
-	args = parasite_args_s(ctl, dump_pages_args_size(vma_area_list));
+	args = compel_parasite_args_s(ctl, dump_pages_args_size(vma_area_list));
 
 	p_vma = pargs_vmas(args);
 	args->nr_vmas = 0;

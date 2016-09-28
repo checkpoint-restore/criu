@@ -34,4 +34,17 @@ extern int compel_stop_daemon(struct parasite_ctl *ctl);
 extern int compel_cure_remote(struct parasite_ctl *ctl);
 extern int compel_cure_local(struct parasite_ctl *ctl);
 extern int compel_cure(struct parasite_ctl *ctl);
+
+#define PARASITE_ARG_SIZE_MIN	( 1 << 12)
+
+#define compel_parasite_args(ctl, type)					\
+	({								\
+	 	void *___ret;						\
+		BUILD_BUG_ON(sizeof(type) > PARASITE_ARG_SIZE_MIN);	\
+		___ret = compel_parasite_args_p(ctl);			\
+	 	___ret;							\
+	})
+
+extern void *compel_parasite_args_p(struct parasite_ctl *ctl);
+extern void *compel_parasite_args_s(struct parasite_ctl *ctl, int args_size);
 #endif
