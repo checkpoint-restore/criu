@@ -411,10 +411,10 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	exit(1);
 }
 
-static int setup_child_handler()
+static int setup_child_handler(struct parasite_ctl *ctl)
 {
 	struct sigaction sa = {
-		.sa_sigaction	= sigchld_handler,
+		.sa_sigaction	= ctl->ictx.child_handler,
 		.sa_flags	= SA_SIGINFO | SA_RESTART,
 	};
 
@@ -524,7 +524,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 		goto err;
 
 	/* after this we can catch parasite errors in chld handler */
-	if (setup_child_handler())
+	if (setup_child_handler(ctl))
 		goto err;
 
 	regs = ctl->orig.regs;
@@ -1480,6 +1480,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	if (!ctl)
 		return NULL;
 
+	ctl->ictx.child_handler = sigchld_handler;
 	ctl->ictx.p_sock = &dmpi(item)->netns->net.seqsk;
 
 	if (fault_injected(FI_NO_MEMFD))
