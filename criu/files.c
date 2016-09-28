@@ -304,12 +304,12 @@ int fill_fdlink(int lfd, const struct fd_parms *p, struct fd_link *link)
 	return 0;
 }
 
-static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
+static int fill_fd_params(struct pid *owner_pid, int fd, int lfd,
 				struct fd_opts *opts, struct fd_parms *p)
 {
 	int ret;
 	struct statfs fsbuf;
-	struct fdinfo_common fdinfo = { .mnt_id = -1, .owner = ctl->pid.virt };
+	struct fdinfo_common fdinfo = { .mnt_id = -1, .owner = owner_pid->virt };
 
 	if (fstat(lfd, &p->stat) < 0) {
 		pr_perror("Can't stat fd %d", lfd);
@@ -321,22 +321,21 @@ static int fill_fd_params(struct parasite_ctl *ctl, int fd, int lfd,
 		return -1;
 	}
 
-	if (parse_fdinfo_pid(ctl->pid.real, fd, FD_TYPES__UND, NULL, &fdinfo))
+	if (parse_fdinfo_pid(owner_pid->real, fd, FD_TYPES__UND, NULL, &fdinfo))
 		return -1;
 
 	p->fs_type	= fsbuf.f_type;
-	p->fd_ctl	= ctl;
 	p->fd		= fd;
 	p->pos		= fdinfo.pos;
 	p->flags	= fdinfo.flags;
 	p->mnt_id	= fdinfo.mnt_id;
-	p->pid		= ctl->pid.real;
+	p->pid		= owner_pid->real;
 	p->fd_flags	= opts->flags;
 
 	fown_entry__init(&p->fown);
 
 	pr_info("%d fdinfo %d: pos: %#16"PRIx64" flags: %16o/%#x\n",
-		ctl->pid.real, fd, p->pos, p->flags, (int)p->fd_flags);
+			owner_pid->real, fd, p->pos, p->flags, (int)p->fd_flags);
 
 	ret = fcntl(lfd, F_GETSIG, 0);
 	if (ret < 0) {
@@ -426,20 +425,22 @@ static int dump_chrdev(struct fd_parms *p, int lfd, struct cr_img *img)
 	return do_dump_gen_file(p, lfd, ops, img);
 }
 
-static int dump_one_file(struct parasite_ctl *ctl, int fd, int lfd, struct fd_opts *opts,
-		       struct cr_img *img)
+static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
+		       struct cr_img *img, struct parasite_ctl *ctl)
 {
 	struct fd_parms p = FD_PARMS_INIT;
 	const struct fdtype_ops *ops;
 	struct fd_link link;
 
-	if (fill_fd_params(ctl, fd, lfd, opts, &p) < 0) {
+	if (fill_fd_params(pid, fd, lfd, opts, &p) < 0) {
 		pr_err("Can't get stat on %d\n", fd);
 		return -1;
 	}
 
-	if (note_file_lock(&ctl->pid, fd, lfd, &p))
+	if (note_file_lock(pid, fd, lfd, &p))
 		return -1;
+
+	p.fd_ctl = ctl; /* Some dump_opts require this to talk to parasite */
 
 	if (S_ISSOCK(p.stat.st_mode))
 		return dump_socket(&p, lfd, img);
@@ -515,7 +516,7 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 	int off, nr_fds = min((int) PARASITE_MAX_FDS, dfds->nr_fds);
 
 	pr_info("\n");
-	pr_info("Dumping opened files (pid: %d)\n", ctl->pid.real);
+	pr_info("Dumping opened files (pid: %d)\n", item->pid.real);
 	pr_info("----------------------------------------\n");
 
 	lfds = xmalloc(nr_fds * sizeof(int));
@@ -541,8 +542,8 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 			goto err;
 
 		for (i = 0; i < nr_fds; i++) {
-			ret = dump_one_file(ctl, dfds->fds[i + off],
-						lfds[i], opts + i, img);
+			ret = dump_one_file(&item->pid, dfds->fds[i + off],
+						lfds[i], opts + i, img, ctl);
 			close(lfds[i]);
 			if (ret)
 				break;
