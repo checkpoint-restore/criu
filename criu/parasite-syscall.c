@@ -91,21 +91,6 @@ static inline int ptrace_set_regs(int pid, user_regs_struct_t *regs)
 }
 #endif
 
-static int get_thread_ctx(int pid, struct thread_ctx *ctx)
-{
-	if (ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &ctx->sigmask)) {
-		pr_perror("can't get signal blocking mask for %d", pid);
-		return -1;
-	}
-
-	if (ptrace_get_regs(pid, &ctx->regs)) {
-		pr_perror("Can't obtain registers (pid: %d)", pid);
-		return -1;
-	}
-
-	return 0;
-}
-
 static int restore_thread_ctx(int pid, struct thread_ctx *ctx)
 {
 	int ret = 0;
@@ -481,7 +466,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 	pc->cap_last_cap = kdat.last_cap;
 
-	ret = get_thread_ctx(pid, &octx);
+	ret = compel_prepare_thread(pid, &octx);
 	if (ret)
 		return -1;
 
@@ -1071,36 +1056,6 @@ err:
 	return ret;
 }
 
-/* If vma_area_list is NULL, a place for injecting syscall will not be set. */
-struct parasite_ctl *parasite_prep_ctl(pid_t pid)
-{
-	struct parasite_ctl *ctl = NULL;
-
-	/*
-	 * Control block early setup.
-	 */
-	ctl = xzalloc(sizeof(*ctl));
-	if (!ctl) {
-		pr_err("Parasite control block allocation failed (pid: %d)\n", pid);
-		goto err;
-	}
-
-	ctl->tsock = -1;
-
-	if (get_thread_ctx(pid, &ctl->orig))
-		goto err;
-
-	ctl->rpid = pid;
-
-	BUILD_BUG_ON(PARASITE_START_AREA_MIN < BUILTIN_SYSCALL_SIZE + MEMFD_FNAME_SZ);
-
-	return ctl;
-
-err:
-	xfree(ctl);
-	return NULL;
-}
-
 static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
 {
 	int fd;
@@ -1266,7 +1221,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		return NULL;
 	}
 
-	ctl = parasite_prep_ctl(pid);
+	ctl = compel_prepare(pid);
 	if (!ctl)
 		return NULL;
 
