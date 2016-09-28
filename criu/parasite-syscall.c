@@ -166,28 +166,6 @@ err:
 	return ret;
 }
 
-static int parasite_run_in_thread(pid_t pid, unsigned int cmd,
-					struct parasite_ctl *ctl,
-					struct thread_ctx *octx)
-{
-	void *stack = ctl->r_thread_stack;
-	user_regs_struct_t regs = octx->regs;
-	int ret;
-
-	*ctl->addr_cmd = cmd;
-
-	ret = parasite_run(pid, PTRACE_CONT, ctl->parasite_ip, stack, &regs, octx);
-	if (ret == 0)
-		ret = parasite_trap(ctl, pid, &regs, octx);
-	if (ret == 0)
-		ret = (int)REG_RES(regs);
-
-	if (ret)
-		pr_err("Parasite exited with %d\n", ret);
-
-	return ret;
-}
-
 static int __parasite_send_cmd(int sockfd, struct ctl_msg *m)
 {
 	int ret;
@@ -414,7 +392,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	tc->has_blk_sigset = true;
 	memcpy(&tc->blk_sigset, &octx.sigmask, sizeof(k_rtsigset_t));
 
-	ret = parasite_run_in_thread(pid, PARASITE_CMD_DUMP_THREAD, ctl, &octx);
+	ret = compel_run_in_thread(pid, PARASITE_CMD_DUMP_THREAD, ctl, &octx);
 	if (ret) {
 		pr_err("Can't init thread in parasite %d\n", pid);
 		return -1;

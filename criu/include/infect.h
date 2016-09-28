@@ -53,4 +53,7 @@ extern void *compel_parasite_args_s(struct parasite_ctl *ctl, int args_size);
 
 extern int compel_execute_syscall(struct parasite_ctl *ctl,
 		user_regs_struct_t *regs, const char *code_syscall);
+extern int compel_run_in_thread(pid_t pid, unsigned int cmd,
+					struct parasite_ctl *ctl,
+					struct thread_ctx *octx);
 #endif
