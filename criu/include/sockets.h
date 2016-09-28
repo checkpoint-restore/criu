@@ -29,7 +29,7 @@ extern int dump_socket_opts(int sk, SkOptsEntry *soe);
 extern int restore_socket_opts(int sk, SkOptsEntry *soe);
 extern void release_skopts(SkOptsEntry *);
 extern int restore_prepare_socket(int sk);
-extern void preload_socket_modules();
+extern void preload_socket_modules(void);
 
 extern bool socket_test_collect_bit(unsigned int family, unsigned int proto);
 

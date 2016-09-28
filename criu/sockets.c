@@ -135,7 +135,7 @@ static inline void probe_diag(int nl, struct sock_diag_req *req, int expected_er
 	do_rtnl_req(nl, req, req->hdr.nlmsg_len, probe_recv_one, probe_err, &expected_err);
 }
 
-void preload_socket_modules()
+void preload_socket_modules(void)
 {
 	int nl;
 	struct sock_diag_req req;
