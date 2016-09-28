@@ -28,7 +28,7 @@ struct thread_ctx {
 
 /* parasite control block */
 struct parasite_ctl {
-	struct pid		pid;
+	int			rpid;					/* Real pid of the victim */
 	void			*remote_map;
 	void			*local_map;
 	void			*sigreturn_addr;			/* A place for the breakpoint */

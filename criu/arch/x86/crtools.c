@@ -452,7 +452,7 @@ void *mmap_seized(struct parasite_ctl *ctl,
 	if (IS_ERR_VALUE(map)) {
 		if (map == -EACCES && (prot & PROT_WRITE) && (prot & PROT_EXEC))
 			pr_warn("mmap(PROT_WRITE | PROT_EXEC) failed for %d, "
-				"check selinux execmem policy\n", ctl->pid.real);
+				"check selinux execmem policy\n", ctl->rpid);
 		return NULL;
 	}
 

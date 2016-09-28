@@ -1157,7 +1157,7 @@ static int pre_dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	parasite_ctl->pid.virt = item->pid.virt = misc.pid;
+	item->pid.virt = misc.pid;
 
 	mdc.pre_dump = true;
 
@@ -1286,7 +1286,7 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure_imgset;
 	}
 
-	parasite_ctl->pid.virt = item->pid.virt = misc.pid;
+	item->pid.virt = misc.pid;
 	pstree_insert_pid(item->pid.virt, &item->pid);
 	item->sid = misc.sid;
 	item->pgid = misc.pgid;

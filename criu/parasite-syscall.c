@@ -208,7 +208,7 @@ err:
 int __parasite_execute_syscall(struct parasite_ctl *ctl,
 		user_regs_struct_t *regs, const char *code_syscall)
 {
-	pid_t pid = ctl->pid.real;
+	pid_t pid = ctl->rpid;
 	int err;
 	u8 code_orig[BUILTIN_SYSCALL_SIZE];
 
@@ -229,7 +229,7 @@ int __parasite_execute_syscall(struct parasite_ctl *ctl,
 
 	if (ptrace_poke_area(pid, (void *)code_orig,
 			     (void *)ctl->syscall_ip, sizeof(code_orig))) {
-		pr_err("Can't restore syscall blob (pid: %d)\n", ctl->pid.real);
+		pr_err("Can't restore syscall blob (pid: %d)\n", ctl->rpid);
 		err = -1;
 	}
 
@@ -495,7 +495,7 @@ static int accept_tsock(struct parasite_ctl *ctl)
 static int parasite_init_daemon(struct parasite_ctl *ctl, struct ns_id *net)
 {
 	struct parasite_init_args *args;
-	pid_t pid = ctl->pid.real;
+	pid_t pid = ctl->rpid;
 	user_regs_struct_t regs;
 	struct ctl_msg m = { };
 
@@ -877,7 +877,7 @@ static bool task_in_parasite(struct parasite_ctl *ctl, user_regs_struct_t *regs)
 
 static int parasite_fini_seized(struct parasite_ctl *ctl)
 {
-	pid_t pid = ctl->pid.real;
+	pid_t pid = ctl->rpid;
 	user_regs_struct_t regs;
 	int status, ret = 0;
 	enum trace_flags flag;
@@ -1100,7 +1100,7 @@ int parasite_cure_local(struct parasite_ctl *ctl)
 
 	if (ctl->local_map) {
 		if (munmap(ctl->local_map, ctl->map_length)) {
-			pr_err("munmap failed (pid: %d)\n", ctl->pid.real);
+			pr_err("munmap failed (pid: %d)\n", ctl->rpid);
 			ret = -1;
 		}
 	}
@@ -1128,7 +1128,7 @@ int parasite_cure_seized(struct parasite_ctl *ctl)
 int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr)
 {
 	user_regs_struct_t regs = ctl->orig.regs;
-	pid_t pid = ctl->pid.real;
+	pid_t pid = ctl->rpid;
 	int ret = -1;
 
 	ret = parasite_run(pid, PTRACE_SYSCALL, addr, ctl->rstack, &regs, &ctl->orig);
@@ -1165,8 +1165,7 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, unsigned long exec_start)
 	if (get_thread_ctx(pid, &ctl->orig))
 		goto err;
 
-	ctl->pid.real	= pid;
-	ctl->pid.virt	= 0;
+	ctl->rpid = pid;
 
 	ctl->syscall_ip = exec_start;
 	pr_debug("Parasite syscall_ip at %p\n", (void *)ctl->syscall_ip);
@@ -1186,13 +1185,13 @@ static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
 				      PROT_READ | PROT_WRITE | PROT_EXEC,
 				      MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 	if (!ctl->remote_map) {
-		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", ctl->pid.real);
+		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", ctl->rpid);
 		return -1;
 	}
 
 	ctl->map_length = round_up(size, page_size());
 
-	fd = open_proc_rw(ctl->pid.real, "map_files/%p-%p",
+	fd = open_proc_rw(ctl->rpid, "map_files/%p-%p",
 		 ctl->remote_map, ctl->remote_map + ctl->map_length);
 	if (fd < 0)
 		return -1;
@@ -1214,7 +1213,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 {
 	void *where = (void *)ctl->syscall_ip + BUILTIN_SYSCALL_SIZE;
 	u8 orig_code[MEMFD_FNAME_SZ] = MEMFD_FNAME;
-	pid_t pid = ctl->pid.real;
+	pid_t pid = ctl->rpid;
 	unsigned long sret = -ENOSYS;
 	int ret, fd, lfd;
 
@@ -1249,7 +1248,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 		return fd;
 
 	ctl->map_length = round_up(size, page_size());
-	lfd = open_proc_rw(ctl->pid.real, "fd/%d", fd);
+	lfd = open_proc_rw(ctl->rpid, "fd/%d", fd);
 	if (lfd < 0)
 		goto err_cure;
 
@@ -1324,7 +1323,7 @@ void parasite_ensure_args_size(unsigned long sz)
 
 static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *item)
 {
-	pid_t pid = ctl->pid.real;
+	pid_t pid = ctl->rpid;
 
 	/*
 	 * Get task registers before going daemon, since the
