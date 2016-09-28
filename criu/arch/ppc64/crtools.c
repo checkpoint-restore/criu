@@ -18,6 +18,7 @@
 #include "util.h"
 #include "cpu.h"
 #include "errno.h"
+#include "infect-priv.h"
 
 #include "protobuf.h"
 #include "images/core.pb-c.h"

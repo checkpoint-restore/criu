@@ -6,8 +6,11 @@
 #include <signal.h>
 #include <linux/seccomp.h>
 
+#include "parasite-syscall.h"
+
 #include "log.h"
 #include "infect.h"
+#include "infect-priv.h"
 
 #define PTRACE_EVENT_STOP	128
 

@@ -46,34 +46,7 @@ struct infect_ctx {
 #define INFECT_NO_MEMFD		0x1	/* don't use memfd() */
 #define INFECT_FAIL_CONNECT	0x2	/* make parasite connect() fail */
 
-/* parasite control block */
-struct parasite_ctl {
-	int			rpid;					/* Real pid of the victim */
-	void			*remote_map;
-	void			*local_map;
-	void			*sigreturn_addr;			/* A place for the breakpoint */
-	unsigned long		map_length;
-
-	struct infect_ctx	ictx;
-
-	/* thread leader data */
-	bool			daemonized;
-
-	struct thread_ctx	orig;
-
-	void			*rstack;				/* thread leader stack*/
-	struct rt_sigframe	*sigframe;
-	struct rt_sigframe	*rsigframe;				/* address in a parasite */
-
-	void			*r_thread_stack;			/* stack for non-leader threads */
-
-	unsigned long		parasite_ip;				/* service routine start ip */
-
-	unsigned int		*addr_cmd;				/* addr for command */
-	void			*addr_args;				/* address for arguments */
-	unsigned long		args_size;
-	int			tsock;					/* transport socket for transferring fds */
-};
+struct parasite_ctl;
 
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_imgset);
 extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_item *);
@@ -84,10 +57,13 @@ extern int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc
 
 #define parasite_args(ctl, type)					\
 	({								\
+	 	void *___ret;						\
 		BUILD_BUG_ON(sizeof(type) > PARASITE_ARG_SIZE_MIN);	\
-		ctl->addr_args;						\
+		___ret = parasite_args_p(ctl);				\
+	 	___ret;							\
 	})
 
+extern void *parasite_args_p(struct parasite_ctl *ctl);
 extern void *parasite_args_s(struct parasite_ctl *ctl, int args_size);
 extern int parasite_send_fd(struct parasite_ctl *ctl, int fd);
 

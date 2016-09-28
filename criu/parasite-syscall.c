@@ -42,6 +42,8 @@
 #include "restorer.h"
 #include "pie/pie-relocs.h"
 
+#include "infect-priv.h"
+
 #define MEMFD_FNAME	"CRIUMFD"
 #define MEMFD_FNAME_SZ	sizeof(MEMFD_FNAME)
 
@@ -243,10 +245,15 @@ int __parasite_execute_syscall(struct parasite_ctl *ctl,
 	return err;
 }
 
+void *parasite_args_p(struct parasite_ctl *ctl)
+{
+	return ctl->addr_args;
+}
+
 void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
 {
 	BUG_ON(args_size > ctl->args_size);
-	return ctl->addr_args;
+	return parasite_args_p(ctl);
 }
 
 static int parasite_run_in_thread(pid_t pid, unsigned int cmd,
