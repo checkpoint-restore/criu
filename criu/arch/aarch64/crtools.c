@@ -17,7 +17,7 @@
 #include "util.h"
 #include "cpu.h"
 #include "restorer.h"
-
+#include "infect-priv.h"
 
 /*
  * Injected syscall instruction
