@@ -13,7 +13,7 @@ restorer-obj-y		+= restorer.o
 restorer-obj-y		+= ./$(ARCH_DIR)/restorer.o
 
 ifeq ($(ARCH),x86)
-        restorer-obj-e		+= ./compel/arch/$(ARCH)/plugins/std/syscalls-64.o
+        restorer-obj-e		+= ./compel/plugins/std.built-in.o
 
         ifeq ($(CONFIG_COMPAT),y)
                 restorer-obj-y	+= ./$(ARCH_DIR)/call32.o
@@ -21,7 +21,7 @@ ifeq ($(ARCH),x86)
         endif
 
         native-obj-y		+= ./$(ARCH_DIR)/parasite-head-64.o
-        native-obj-e		+= ./compel/arch/$(ARCH)/plugins/std/syscalls-64.o
+        native-obj-e		+= ./compel/plugins/std.built-in.o
         compat-obj-y		+= ./$(ARCH_DIR)/parasite-head-32.o
         compat-obj-e		+= ./compel/plugins/std-32.built-in.o
 
@@ -32,8 +32,8 @@ ifeq ($(ARCH),x86)
         AFLAGS_parasite-head-32.d += -fno-pic -m32 -DCONFIG_X86_32
 else
         native-obj-y		+= ./$(ARCH_DIR)/parasite-head.o
-        native-obj-e		+= ./compel/arch/$(ARCH)/plugins/std/syscalls/syscalls.o
-        restorer-obj-e		+= ./compel/arch/$(ARCH)/plugins/std/syscalls/syscalls.o
+        native-obj-e		+= ./compel/plugins/std.built-in.o
+        restorer-obj-e		+= ./compel/plugins/std.built-in.o
 endif
 
 target			+= $(parasite_target) restorer
