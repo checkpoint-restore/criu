@@ -91,7 +91,7 @@ static inline int ptrace_set_regs(int pid, user_regs_struct_t *regs)
 }
 #endif
 
-static int restore_thread_ctx(int pid, struct thread_ctx *ctx)
+int restore_thread_ctx(int pid, struct thread_ctx *ctx)
 {
 	int ret = 0;
 
@@ -794,30 +794,6 @@ goon:
 	}
 
 	return 0;
-}
-
-/*
- * parasite_unmap() is used for unmapping parasite and restorer blobs.
- * A blob can contain code for unmapping itself, so the porcess is
- * trapped on the exit from the munmap syscall.
- */
-int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr)
-{
-	user_regs_struct_t regs = ctl->orig.regs;
-	pid_t pid = ctl->rpid;
-	int ret = -1;
-
-	ret = parasite_run(pid, PTRACE_SYSCALL, addr, ctl->rstack, &regs, &ctl->orig);
-	if (ret)
-		goto err;
-
-	ret = parasite_stop_on_syscall(1, __NR(munmap, 0),
-			__NR(munmap, 1), TRACE_ENTER);
-
-	if (restore_thread_ctx(pid, &ctl->orig))
-		ret = -1;
-err:
-	return ret;
 }
 
 static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)

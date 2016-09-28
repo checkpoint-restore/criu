@@ -335,7 +335,7 @@ static int restore_child_handler()
 	return 0;
 }
 
-int parasite_run(pid_t pid, int cmd, unsigned long ip, void *stack,
+static int parasite_run(pid_t pid, int cmd, unsigned long ip, void *stack,
 		user_regs_struct_t *regs, struct thread_ctx *octx)
 {
 	k_rtsigset_t block;
@@ -738,7 +738,7 @@ int compel_cure_remote(struct parasite_ctl *ctl)
 		args = compel_parasite_args(ctl, struct parasite_unmap_args);
 		args->parasite_start = ctl->remote_map;
 		args->parasite_len = ctl->map_length;
-		if (parasite_unmap(ctl, ctl->parasite_ip))
+		if (compel_unmap(ctl, ctl->parasite_ip))
 			return -1;
 	} else {
 		unsigned long ret;
@@ -812,6 +812,33 @@ int compel_run_in_thread(pid_t pid, unsigned int cmd,
 	if (ret)
 		pr_err("Parasite exited with %d\n", ret);
 
+	return ret;
+}
+
+/* XXX will be removed soon */
+
+extern int restore_thread_ctx(int pid, struct thread_ctx *ctx);
+/*
+ * compel_unmap() is used for unmapping parasite and restorer blobs.
+ * A blob can contain code for unmapping itself, so the porcess is
+ * trapped on the exit from the munmap syscall.
+ */
+int compel_unmap(struct parasite_ctl *ctl, unsigned long addr)
+{
+	user_regs_struct_t regs = ctl->orig.regs;
+	pid_t pid = ctl->rpid;
+	int ret = -1;
+
+	ret = parasite_run(pid, PTRACE_SYSCALL, addr, ctl->rstack, &regs, &ctl->orig);
+	if (ret)
+		goto err;
+
+	ret = parasite_stop_on_syscall(1, __NR(munmap, 0),
+			__NR(munmap, 1), TRACE_ENTER);
+
+	if (restore_thread_ctx(pid, &ctl->orig))
+		ret = -1;
+err:
 	return ret;
 }
 

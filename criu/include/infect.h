@@ -56,4 +56,6 @@ extern int compel_execute_syscall(struct parasite_ctl *ctl,
 extern int compel_run_in_thread(pid_t pid, unsigned int cmd,
 					struct parasite_ctl *ctl,
 					struct thread_ctx *octx);
+
+extern int compel_unmap(struct parasite_ctl *ctl, unsigned long addr);
 #endif
