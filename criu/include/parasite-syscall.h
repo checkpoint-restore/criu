@@ -29,6 +29,8 @@ struct thread_ctx {
 struct infect_ctx {
 	int	*p_sock;
 	unsigned long		flags;			/* fine-tune (e.g. faults) */
+
+	void (*child_handler)(int, siginfo_t *, void *);	/* hander for SIGCHLD deaths */
 };
 
 #define INFECT_NO_MEMFD		0x1	/* don't use memfd() */
