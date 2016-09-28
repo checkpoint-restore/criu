@@ -389,7 +389,7 @@ out_pp:
 	if (ret || !mdc->pre_dump)
 		destroy_page_pipe(pp);
 	else
-		ctl->mem_pp = pp;
+		dmpi(item)->mem_pp = pp;
 out:
 	pmc_fini(&pmc);
 	pr_info("----------------------------------------\n");

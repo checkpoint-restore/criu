@@ -1443,6 +1443,7 @@ static int cr_pre_dump_finish(int ret)
 	pr_info("Pre-dumping tasks' memory\n");
 	for_each_pstree_item(item) {
 		struct parasite_ctl *ctl = dmpi(item)->parasite_ctl;
+		struct page_pipe *mem_pp;
 		struct page_xfer xfer;
 
 		if (!ctl)
@@ -1454,7 +1455,8 @@ static int cr_pre_dump_finish(int ret)
 		if (ret < 0)
 			goto err;
 
-		ret = page_xfer_dump_pages(&xfer, ctl->mem_pp, 0);
+		mem_pp = dmpi(item)->mem_pp;
+		ret = page_xfer_dump_pages(&xfer, mem_pp, 0);
 
 		xfer.close(&xfer);
 
@@ -1463,7 +1465,7 @@ static int cr_pre_dump_finish(int ret)
 
 		timing_stop(TIME_MEMWRITE);
 
-		destroy_page_pipe(ctl->mem_pp);
+		destroy_page_pipe(mem_pp);
 		parasite_cure_local(ctl);
 	}
 

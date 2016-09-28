@@ -52,8 +52,6 @@ struct parasite_ctl {
 	void			*addr_args;				/* address for arguments */
 	unsigned long		args_size;
 	int			tsock;					/* transport socket for transferring fds */
-
-	struct page_pipe	*mem_pp;
 };
 
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_imgset);
