@@ -24,7 +24,10 @@ extern int compel_wait_task(int pid, int ppid,
 #define TASK_ZOMBIE		0x6
 
 struct parasite_ctl;
+struct thread_ctx;
 
+extern struct parasite_ctl *compel_prepare(int pid);
 extern int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size);
+extern int compel_prepare_thread(int pid, struct thread_ctx *ctx);
 
 #endif

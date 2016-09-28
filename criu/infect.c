@@ -20,6 +20,9 @@
 #include "infect.h"
 #include "infect-priv.h"
 
+#define MEMFD_FNAME	"CRIUMFD"
+#define MEMFD_FNAME_SZ	sizeof(MEMFD_FNAME)
+
 /* XXX will be removed soon */
 extern int parasite_wait_ack(int sockfd, unsigned int cmd, struct ctl_msg *m);
 
@@ -525,5 +528,49 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 
 err:
 	return -1;
+}
+
+int compel_prepare_thread(int pid, struct thread_ctx *ctx)
+{
+	if (ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &ctx->sigmask)) {
+		pr_perror("can't get signal blocking mask for %d", pid);
+		return -1;
+	}
+
+	if (ptrace_get_regs(pid, &ctx->regs)) {
+		pr_perror("Can't obtain registers (pid: %d)", pid);
+		return -1;
+	}
+
+	return 0;
+}
+
+struct parasite_ctl *compel_prepare(int pid)
+{
+	struct parasite_ctl *ctl = NULL;
+
+	/*
+	 * Control block early setup.
+	 */
+	ctl = xzalloc(sizeof(*ctl));
+	if (!ctl) {
+		pr_err("Parasite control block allocation failed (pid: %d)\n", pid);
+		goto err;
+	}
+
+	ctl->tsock = -1;
+
+	if (compel_prepare_thread(pid, &ctl->orig))
+		goto err;
+
+	ctl->rpid = pid;
+
+	BUILD_BUG_ON(PARASITE_START_AREA_MIN < BUILTIN_SYSCALL_SIZE + MEMFD_FNAME_SZ);
+
+	return ctl;
+
+err:
+	xfree(ctl);
+	return NULL;
 }
 

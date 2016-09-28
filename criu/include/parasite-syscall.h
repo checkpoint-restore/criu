@@ -98,7 +98,6 @@ extern struct parasite_ctl *parasite_infect_seized(pid_t pid,
 						   struct vm_area_list *vma_area_list);
 extern void parasite_ensure_args_size(unsigned long sz);
 extern unsigned long get_exec_start(struct vm_area_list *);
-extern struct parasite_ctl *parasite_prep_ctl(pid_t pid);
 extern int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size);
 
 extern int parasite_dump_cgroup(struct parasite_ctl *ctl, struct parasite_dump_cgroup_args *cgroup);
