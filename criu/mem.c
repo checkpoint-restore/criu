@@ -277,7 +277,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 	unsigned long pmc_size;
 
 	pr_info("\n");
-	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid.real);
+	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, item->pid.real);
 	pr_info("----------------------------------------\n");
 
 	timing_start(TIME_MEMDUMP);
@@ -291,7 +291,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 
 	pmc_size = max(vma_area_list->priv_longest,
 		vma_area_list->shared_longest);
-	if (pmc_init(&pmc, ctl->pid.real, &vma_area_list->h,
+	if (pmc_init(&pmc, item->pid.real, &vma_area_list->h,
 			 pmc_size * PAGE_SIZE))
 		return -1;
 
@@ -314,11 +314,11 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 		 * right here. For pre-dumps the pp will be taken by the
 		 * caller and handled later.
 		 */
-		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
+		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, item->pid.virt);
 		if (ret < 0)
 			goto out_pp;
 	} else {
-		ret = check_parent_page_xfer(CR_FD_PAGEMAP, ctl->pid.virt);
+		ret = check_parent_page_xfer(CR_FD_PAGEMAP, item->pid.virt);
 		if (ret < 0)
 			goto out_pp;
 
@@ -348,7 +348,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 		if (!map)
 			goto out_xfer;
 		if (vma_area_is(vma_area, VMA_ANON_SHARED))
-			ret = add_shmem_area(ctl->pid.real, vma_area->e, map);
+			ret = add_shmem_area(item->pid.real, vma_area->e, map);
 		else {
 again:
 			ret = generate_iovs(vma_area, pp, map, &off,
@@ -381,7 +381,7 @@ again:
 	 * Step 4 -- clean up
 	 */
 
-	ret = task_reset_dirty_track(ctl->pid.real);
+	ret = task_reset_dirty_track(item->pid.real);
 out_xfer:
 	if (!mdc->pre_dump)
 		xfer.close(&xfer);
