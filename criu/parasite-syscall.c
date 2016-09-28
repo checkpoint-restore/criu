@@ -91,22 +91,6 @@ static inline int ptrace_set_regs(int pid, user_regs_struct_t *regs)
 }
 #endif
 
-int restore_thread_ctx(int pid, struct thread_ctx *ctx)
-{
-	int ret = 0;
-
-	if (ptrace_set_regs(pid, &ctx->regs)) {
-		pr_perror("Can't restore registers (pid: %d)", pid);
-		ret = -1;
-	}
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &ctx->sigmask)) {
-		pr_perror("Can't block signals");
-		ret = -1;
-	}
-
-	return ret;
-}
-
 bool seized_native(struct parasite_ctl *ctl)
 {
 	return user_regs_native(&ctl->orig.regs);
