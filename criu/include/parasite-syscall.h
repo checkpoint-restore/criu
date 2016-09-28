@@ -116,7 +116,6 @@ enum trace_flags {
 
 extern int parasite_stop_on_syscall(int tasks, int sys_nr,
 		int sys_nr_compat, enum trace_flags trace);
-extern int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr);
 extern int ptrace_stop_pie(pid_t pid, void *addr, enum trace_flags *tf);
 
 #endif /* __CR_PARASITE_SYSCALL_H__ */

@@ -1658,7 +1658,7 @@ static void finalize_restore(void)
 		if (ctl == NULL)
 			continue;
 
-		parasite_unmap(ctl, (unsigned long)rsti(item)->munmap_restorer);
+		compel_unmap(ctl, (unsigned long)rsti(item)->munmap_restorer);
 
 		xfree(ctl);
 
