@@ -32,4 +32,6 @@ struct parasite_ctl {
 	int			tsock;					/* transport socket for transferring fds */
 };
 
+int parasite_run(pid_t pid, int cmd, unsigned long ip, void *stack,
+		user_regs_struct_t *regs, struct thread_ctx *octx);
 #endif
