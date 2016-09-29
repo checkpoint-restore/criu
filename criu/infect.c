@@ -902,11 +902,12 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 		return -1;
 
 	/* Go to sigreturn as closer as we can */
-	ret = ptrace_stop_pie(pid, ctl->sigreturn_addr, &flag);
+	ret = compel_stop_pie(pid, ctl->sigreturn_addr, &flag,
+			ctl->ictx.flags & INFECT_NO_BREAKPOINTS);
 	if (ret < 0)
 		return ret;
 
-	if (parasite_stop_on_syscall(1, __NR(rt_sigreturn, 0),
+	if (compel_stop_on_syscall(1, __NR(rt_sigreturn, 0),
 				__NR(rt_sigreturn, 1), flag))
 		return -1;
 
@@ -1052,7 +1053,7 @@ int compel_unmap(struct parasite_ctl *ctl, unsigned long addr)
 	if (ret)
 		goto err;
 
-	ret = parasite_stop_on_syscall(1, __NR(munmap, 0),
+	ret = compel_stop_on_syscall(1, __NR(munmap, 0),
 			__NR(munmap, 1), TRACE_ENTER);
 
 	if (restore_thread_ctx(pid, &ctl->orig))
@@ -1061,3 +1062,149 @@ err:
 	return ret;
 }
 
+int compel_stop_pie(pid_t pid, void *addr, enum trace_flags *tf, bool no_bp)
+{
+	int ret;
+
+	if (no_bp) {
+		pr_debug("Force no-breakpoints restore\n");
+		ret = 0;
+	} else
+		ret = ptrace_set_breakpoint(pid, addr);
+	if (ret < 0)
+		return ret;
+
+	if (ret > 0) {
+		/*
+		 * PIE will stop on a breakpoint, next
+		 * stop after that will be syscall enter.
+		 */
+		*tf = TRACE_EXIT;
+		return 0;
+	}
+
+	/*
+	 * No breakpoints available -- start tracing it
+	 * in a per-syscall manner.
+	 */
+	ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+	if (ret) {
+		pr_perror("Unable to restart the %d process", pid);
+		return -1;
+	}
+
+	*tf = TRACE_ENTER;
+	return 0;
+}
+
+static bool task_is_trapped(int status, pid_t pid)
+{
+	if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP)
+		return true;
+
+	pr_err("Task %d is in unexpected state: %x\n", pid, status);
+	if (WIFEXITED(status))
+		pr_err("Task exited with %d\n", WEXITSTATUS(status));
+	if (WIFSIGNALED(status))
+		pr_err("Task signaled with %d: %s\n",
+			WTERMSIG(status), strsignal(WTERMSIG(status)));
+	if (WIFSTOPPED(status))
+		pr_err("Task stopped with %d: %s\n",
+			WSTOPSIG(status), strsignal(WSTOPSIG(status)));
+	if (WIFCONTINUED(status))
+		pr_err("Task continued\n");
+
+	return false;
+}
+
+static inline int is_required_syscall(user_regs_struct_t *regs, pid_t pid,
+		const int sys_nr, const int sys_nr_compat)
+{
+	const char *mode = user_regs_native(regs) ? "native" : "compat";
+	int req_sysnr = user_regs_native(regs) ? sys_nr : sys_nr_compat;
+
+	pr_debug("%d (%s) is going to execute the syscall %lu, required is %d\n",
+		pid, mode, REG_SYSCALL_NR(*regs), req_sysnr);
+
+	return (REG_SYSCALL_NR(*regs) == req_sysnr);
+}
+
+/*
+ * Trap tasks on the exit from the specified syscall
+ *
+ * tasks - number of processes, which should be trapped
+ * sys_nr - the required syscall number
+ * sys_nr_compat - the required compatible syscall number
+ */
+int compel_stop_on_syscall(int tasks,
+	const int sys_nr, const int sys_nr_compat,
+	enum trace_flags trace)
+{
+	user_regs_struct_t regs;
+	int status, ret;
+	pid_t pid;
+
+	if (tasks > 1)
+		trace = TRACE_ALL;
+
+	/* Stop all threads on the enter point in sys_rt_sigreturn */
+	while (tasks) {
+		pid = wait4(-1, &status, __WALL, NULL);
+		if (pid == -1) {
+			pr_perror("wait4 failed");
+			return -1;
+		}
+
+		if (!task_is_trapped(status, pid))
+			return -1;
+
+		pr_debug("%d was trapped\n", pid);
+
+		if (trace == TRACE_EXIT) {
+			trace = TRACE_ENTER;
+			pr_debug("`- Expecting exit\n");
+			goto goon;
+		}
+		if (trace == TRACE_ENTER)
+			trace = TRACE_EXIT;
+
+		ret = ptrace_get_regs(pid, &regs);
+		if (ret) {
+			pr_perror("ptrace");
+			return -1;
+		}
+
+		if (is_required_syscall(&regs, pid, sys_nr, sys_nr_compat)) {
+			/*
+			 * The process is going to execute the required syscall,
+			 * the next stop will be on the exit from this syscall
+			 */
+			ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+			if (ret) {
+				pr_perror("ptrace");
+				return -1;
+			}
+
+			pid = wait4(pid, &status, __WALL, NULL);
+			if (pid == -1) {
+				pr_perror("wait4 failed");
+				return -1;
+			}
+
+			if (!task_is_trapped(status, pid))
+				return -1;
+
+			pr_debug("%d was stopped\n", pid);
+			tasks--;
+			continue;
+		}
+goon:
+		ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+		if (ret) {
+			pr_perror("ptrace");
+			return -1;
+		}
+	}
+
+	return 0;
+}

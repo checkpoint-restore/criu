@@ -58,5 +58,22 @@ extern int compel_run_in_thread(pid_t pid, unsigned int cmd,
 					struct parasite_ctl *ctl,
 					struct thread_ctx *octx);
 
+/*
+ * The PTRACE_SYSCALL will trap task twice -- on
+ * enter into and on exit from syscall. If we trace
+ * a single task, we may skip half of all getregs
+ * calls -- on exit we don't need them.
+ */
+enum trace_flags {
+	TRACE_ALL,
+	TRACE_ENTER,
+	TRACE_EXIT,
+};
+
+extern int compel_stop_on_syscall(int tasks, int sys_nr,
+		int sys_nr_compat, enum trace_flags trace);
+
+extern int compel_stop_pie(pid_t pid, void *addr, enum trace_flags *tf, bool no_bp);
+
 extern int compel_unmap(struct parasite_ctl *ctl, unsigned long addr);
 #endif
