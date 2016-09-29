@@ -538,7 +538,7 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 	 * the item->state is the state task was in when we seized one.
 	 */
 
-	unseize_task(item->pid->real, item->pid->state, st);
+	compel_unseize_task(item->pid->real, item->pid->state, st);
 
 	if (st == TASK_DEAD)
 		return;

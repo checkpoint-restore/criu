@@ -23,41 +23,6 @@
 #include "seccomp.h"
 #include "cr_options.h"
 
-int unseize_task(pid_t pid, int orig_st, int st)
-{
-	pr_debug("\tUnseizing %d into %d\n", pid, st);
-
-	if (st == TASK_DEAD) {
-		kill(pid, SIGKILL);
-		return 0;
-	} else if (st == TASK_STOPPED) {
-		/*
-		 * Task might have had STOP in queue. We detected such
-		 * guy as TASK_STOPPED, but cleared signal to run the
-		 * parasite code. hus after detach the task will become
-		 * running. That said -- STOP everyone regardless of
-		 * the initial state.
-		 */
-		kill(pid, SIGSTOP);
-	} else if (st == TASK_ALIVE) {
-		/*
-		 * Same as in the comment above -- there might be a
-		 * task with STOP in queue that would get lost after
-		 * detach, so stop it again.
-		 */
-		if (orig_st == TASK_STOPPED)
-			kill(pid, SIGSTOP);
-	} else
-		pr_err("Unknown final state %d\n", st);
-
-	if (ptrace(PTRACE_DETACH, pid, NULL, NULL)) {
-		pr_perror("Unable to detach from %d", pid);
-		return -1;
-	}
-
-	return 0;
-}
-
 int suspend_seccomp(pid_t pid)
 {
 	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_SUSPEND_SECCOMP) < 0) {
