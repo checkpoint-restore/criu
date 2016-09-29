@@ -69,6 +69,7 @@
 #include "file-lock.h"
 #include "action-scripts.h"
 #include "shmem.h"
+#include "infect.h"
 #include "aio.h"
 #include "lsm.h"
 #include "seccomp.h"
@@ -1615,7 +1616,8 @@ static int catch_tasks(bool root_seized, enum trace_flags *flag)
 				return -1;
 			}
 
-			ret = ptrace_stop_pie(pid, rsti(item)->breakpoint, flag);
+			ret = compel_stop_pie(pid, rsti(item)->breakpoint,
+					flag, fault_injected(FI_NO_BREAKPOINTS));
 			if (ret < 0)
 				return -1;
 		}
@@ -1969,7 +1971,7 @@ static int restore_root_task(struct pstree_item *init)
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
 
 	if (ret == 0)
-		ret = parasite_stop_on_syscall(task_entries->nr_threads,
+		ret = compel_stop_on_syscall(task_entries->nr_threads,
 			__NR(rt_sigreturn, 0), __NR(rt_sigreturn, 1), flag);
 
 	if (clear_breakpoints())

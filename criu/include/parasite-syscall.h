@@ -45,6 +45,7 @@ struct infect_ctx {
 
 #define INFECT_NO_MEMFD		0x1	/* don't use memfd() */
 #define INFECT_FAIL_CONNECT	0x2	/* make parasite connect() fail */
+#define INFECT_NO_BREAKPOINTS	0x4	/* no breakpoints in pie tracking */
 
 struct parasite_ctl;
 
@@ -100,21 +101,5 @@ extern int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 
 extern bool arch_can_dump_task(struct parasite_ctl *ctl);
 extern bool seized_native(struct parasite_ctl *ctl);
-
-/*
- * The PTRACE_SYSCALL will trap task twice -- on
- * enter into and on exit from syscall. If we trace
- * a single task, we may skip half of all getregs
- * calls -- on exit we don't need them.
- */
-enum trace_flags {
-	TRACE_ALL,
-	TRACE_ENTER,
-	TRACE_EXIT,
-};
-
-extern int parasite_stop_on_syscall(int tasks, int sys_nr,
-		int sys_nr_compat, enum trace_flags trace);
-extern int ptrace_stop_pie(pid_t pid, void *addr, enum trace_flags *tf);
 
 #endif /* __CR_PARASITE_SYSCALL_H__ */
