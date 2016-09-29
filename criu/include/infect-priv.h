@@ -32,4 +32,9 @@ struct parasite_ctl {
 	int			tsock;					/* transport socket for transferring fds */
 };
 
+#define MEMFD_FNAME	"CRIUMFD"
+#define MEMFD_FNAME_SZ	sizeof(MEMFD_FNAME)
+
+/* XXX -- remove with cr-exec.c */
+extern int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size);
 #endif

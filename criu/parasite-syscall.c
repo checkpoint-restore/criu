@@ -44,9 +44,6 @@
 #include "infect.h"
 #include "infect-priv.h"
 
-#define MEMFD_FNAME	"CRIUMFD"
-#define MEMFD_FNAME_SZ	sizeof(MEMFD_FNAME)
-
 unsigned long get_exec_start(struct vm_area_list *vmas)
 {
 	struct vma_area *vma_area;
@@ -724,129 +721,6 @@ goon:
 	}
 
 	return 0;
-}
-
-static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
-{
-	int fd;
-
-	ctl->remote_map = mmap_seized(ctl, NULL, size,
-				      PROT_READ | PROT_WRITE | PROT_EXEC,
-				      MAP_ANONYMOUS | MAP_SHARED, -1, 0);
-	if (!ctl->remote_map) {
-		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", ctl->rpid);
-		return -1;
-	}
-
-	ctl->map_length = round_up(size, page_size());
-
-	fd = open_proc_rw(ctl->rpid, "map_files/%p-%p",
-		 ctl->remote_map, ctl->remote_map + ctl->map_length);
-	if (fd < 0)
-		return -1;
-
-	ctl->local_map = mmap(NULL, size, PROT_READ | PROT_WRITE,
-			      MAP_SHARED | MAP_FILE, fd, 0);
-	close(fd);
-
-	if (ctl->local_map == MAP_FAILED) {
-		ctl->local_map = NULL;
-		pr_perror("Can't map remote parasite map");
-		return -1;
-	}
-
-	return 0;
-}
-
-static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
-{
-	void *where = (void *)ctl->ictx.syscall_ip + BUILTIN_SYSCALL_SIZE;
-	u8 orig_code[MEMFD_FNAME_SZ] = MEMFD_FNAME;
-	pid_t pid = ctl->rpid;
-	unsigned long sret = -ENOSYS;
-	int ret, fd, lfd;
-	bool __maybe_unused compat_task = !seized_native(ctl);
-
-	if (ctl->ictx.flags & INFECT_NO_MEMFD)
-		return 1;
-
-	BUILD_BUG_ON(sizeof(orig_code) < sizeof(long));
-
-	if (ptrace_swap_area(pid, where, (void *)orig_code, sizeof(orig_code))) {
-		pr_err("Can't inject memfd args (pid: %d)\n", pid);
-		return -1;
-	}
-
-	ret = syscall_seized(ctl, __NR(memfd_create, compat_task), &sret,
-			     (unsigned long)where, 0, 0, 0, 0, 0);
-
-	if (ptrace_poke_area(pid, orig_code, where, sizeof(orig_code))) {
-		fd = (int)(long)sret;
-		if (fd >= 0)
-			syscall_seized(ctl, __NR(close, compat_task), &sret,
-					fd, 0, 0, 0, 0, 0);
-		pr_err("Can't restore memfd args (pid: %d)\n", pid);
-		return -1;
-	}
-
-	if (ret < 0)
-		return ret;
-
-	fd = (int)(long)sret;
-	if (fd == -ENOSYS)
-		return 1;
-	if (fd < 0)
-		return fd;
-
-	ctl->map_length = round_up(size, page_size());
-	lfd = open_proc_rw(ctl->rpid, "fd/%d", fd);
-	if (lfd < 0)
-		goto err_cure;
-
-	if (ftruncate(lfd, ctl->map_length) < 0) {
-		pr_perror("Fail to truncate memfd for parasite");
-		goto err_cure;
-	}
-
-	ctl->remote_map = mmap_seized(ctl, NULL, size,
-				      PROT_READ | PROT_WRITE | PROT_EXEC,
-				      MAP_FILE | MAP_SHARED, fd, 0);
-	if (!ctl->remote_map) {
-		pr_err("Can't rmap memfd for parasite blob\n");
-		goto err_curef;
-	}
-
-	ctl->local_map = mmap(NULL, size, PROT_READ | PROT_WRITE,
-			      MAP_SHARED | MAP_FILE, lfd, 0);
-	if (ctl->local_map == MAP_FAILED) {
-		ctl->local_map = NULL;
-		pr_perror("Can't lmap memfd for parasite blob");
-		goto err_curef;
-	}
-
-	syscall_seized(ctl, __NR(close, compat_task), &sret, fd, 0, 0, 0, 0, 0);
-	close(lfd);
-
-	pr_info("Set up parasite blob using memfd\n");
-	return 0;
-
-err_curef:
-	close(lfd);
-err_cure:
-	syscall_seized(ctl, __NR(close, compat_task), &sret, fd, 0, 0, 0, 0, 0);
-	return -1;
-}
-
-int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
-{
-	int ret;
-
-	ret = parasite_memfd_exchange(ctl, size);
-	if (ret == 1) {
-		pr_info("MemFD parasite doesn't work, goto legacy mmap\n");
-		ret = parasite_mmap_exchange(ctl, size);
-	}
-	return ret;
 }
 
 int parasite_dump_cgroup(struct parasite_ctl *ctl, struct parasite_dump_cgroup_args *cgroup)
