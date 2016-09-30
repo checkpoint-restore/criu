@@ -89,11 +89,6 @@ static inline int ptrace_set_regs(int pid, user_regs_struct_t *regs)
 }
 #endif
 
-bool seized_native(struct parasite_ctl *ctl)
-{
-	return user_regs_native(&ctl->orig.regs);
-}
-
 int parasite_send_fd(struct parasite_ctl *ctl, int fd)
 {
 	int sk;
@@ -180,7 +175,7 @@ int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEn
 	struct parasite_dump_creds *pc;
 	int ret;
 
-	if (seized_native(ctl)) {
+	if (compel_mode_native(ctl)) {
 		args = compel_parasite_args(ctl, struct parasite_dump_thread);
 		pc = args->creds;
 	} else {
@@ -200,7 +195,7 @@ int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEn
 		return -1;
 	}
 
-	if (seized_native(ctl))
+	if (compel_mode_native(ctl))
 		return dump_thread_core(pid, core, true, args);
 	else
 		return dump_thread_core(pid, core, false, args_c);
@@ -220,7 +215,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 	BUG_ON(id == 0); /* Leader is dumped in dump_task_core_all */
 
-	if (seized_native(ctl)) {
+	if (compel_mode_native(ctl)) {
 		args = compel_parasite_args(ctl, struct parasite_dump_thread);
 		pc = args->creds;
 	} else {
@@ -255,7 +250,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 		return -1;
 	}
 
-	if (seized_native(ctl)) {
+	if (compel_mode_native(ctl)) {
 		tid->ns[0].virt = args->tid;
 		return dump_thread_core(pid, core, true, args);
 	} else {
@@ -281,7 +276,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 	int ret, sig;
 	struct cr_img *img;
 	SaEntry se = SA_ENTRY__INIT;
-	bool native_task = seized_native(ctl);
+	bool native_task = compel_mode_native(ctl);
 
 	if (native_task)
 		args = compel_parasite_args(ctl, struct parasite_dump_sa_args);
@@ -335,7 +330,7 @@ int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_item *i
 	struct parasite_dump_itimers_args_compat *args_c = NULL;
 	int ret;
 
-	if (seized_native(ctl))
+	if (compel_mode_native(ctl))
 		args = compel_parasite_args(ctl, struct parasite_dump_itimers_args);
 	else
 		args_c = compel_parasite_args(ctl, struct parasite_dump_itimers_args_compat);
@@ -344,7 +339,7 @@ int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_item *i
 	if (ret < 0)
 		return ret;
 
-	if (seized_native(ctl))
+	if (compel_mode_native(ctl))
 		ASSIGN_ITIMER(args);
 	else
 		ASSIGN_ITIMER(args_c);
@@ -373,7 +368,7 @@ static int core_alloc_posix_timers(TaskTimersEntry *tte, int n,
 
 #define set_posix_timer_arg(args, ctl, m, val)					\
 do {										\
-	if (seized_native(ctl))							\
+	if (compel_mode_native(ctl))						\
 		ASSIGN_TYPED(							\
 		((struct parasite_dump_posix_timers_args*)args)->m, val);	\
 	else									\
@@ -383,7 +378,7 @@ do {										\
 
 #define get_posix_timer_arg(out, m)						\
 do {										\
-	if (seized_native(ctl))							\
+	if (compel_mode_native(ctl))						\
 		ASSIGN_TYPED(							\
 		out, ((struct parasite_dump_posix_timers_args*)args)->m);	\
 	else									\
@@ -423,7 +418,7 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 	if (core_alloc_posix_timers(tte, proc_args->timer_n, &pte))
 		return -1;
 
-	if (seized_native(ctl))
+	if (compel_mode_native(ctl))
 		args_size = posix_timers_dump_size(proc_args->timer_n);
 	else
 		args_size = posix_timers_compat_dump_size(proc_args->timer_n);

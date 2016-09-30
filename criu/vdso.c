@@ -106,7 +106,7 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		 * XXX: For compatible tasks, vDSO pfn is different from
 		 * our native vdso_pfn. Check vma explicitly.
 		 */
-		if (!seized_native(ctl))
+		if (!compel_mode_native(ctl))
 			args->try_fill_symtable = true;
 		else
 			args->try_fill_symtable = (fd < 0) ? true : false;

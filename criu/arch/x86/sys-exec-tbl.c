@@ -1,3 +1,4 @@
+#include "infect.h"
 
 static struct syscall_exec_desc sc_exec_table_64[] = {
 #include "sys-exec-tbl-64.c"
@@ -29,7 +30,7 @@ find_syscall_table(char *name, struct syscall_exec_desc *tbl)
 #ifdef CONFIG_COMPAT
 struct syscall_exec_desc * find_syscall(char *name, struct parasite_ctl *ctl)
 {
-	if (seized_native(ctl))
+	if (compel_mode_native(ctl))
 		return find_syscall_table(name, sc_exec_table_64);
 	else
 		return find_syscall_table(name, sc_exec_table_32);

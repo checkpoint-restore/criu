@@ -76,4 +76,7 @@ extern int compel_stop_on_syscall(int tasks, int sys_nr,
 extern int compel_stop_pie(pid_t pid, void *addr, enum trace_flags *tf, bool no_bp);
 
 extern int compel_unmap(struct parasite_ctl *ctl, unsigned long addr);
+
+extern int compel_mode_native(struct parasite_ctl *ctl);
+
 #endif
