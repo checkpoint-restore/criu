@@ -42,6 +42,7 @@
 #include "pie/pie-relocs.h"
 
 #include "infect.h"
+#include "infect-rpc.h"
 #include "infect-priv.h"
 
 unsigned long get_exec_start(struct vm_area_list *vmas)
@@ -93,95 +94,12 @@ bool seized_native(struct parasite_ctl *ctl)
 	return user_regs_native(&ctl->orig.regs);
 }
 
-static int __parasite_send_cmd(int sockfd, struct ctl_msg *m)
-{
-	int ret;
-
-	ret = send(sockfd, m, sizeof(*m), 0);
-	if (ret == -1) {
-		pr_perror("Failed to send command %d to daemon", m->cmd);
-		return -1;
-	} else if (ret != sizeof(*m)) {
-		pr_err("Message to daemon is trimmed (%d/%d)\n",
-		       (int)sizeof(*m), ret);
-		return -1;
-	}
-
-	pr_debug("Sent msg to daemon %d %d %d\n", m->cmd, m->ack, m->err);
-	return 0;
-}
-
-int parasite_wait_ack(int sockfd, unsigned int cmd, struct ctl_msg *m)
-{
-	int ret;
-
-	pr_debug("Wait for ack %d on daemon socket\n", cmd);
-
-	while (1) {
-		memzero(m, sizeof(*m));
-
-		ret = recv(sockfd, m, sizeof(*m), MSG_WAITALL);
-		if (ret == -1) {
-			pr_perror("Failed to read ack");
-			return -1;
-		} else if (ret != sizeof(*m)) {
-			pr_err("Message reply from daemon is trimmed (%d/%d)\n",
-			       (int)sizeof(*m), ret);
-			return -1;
-		}
-		pr_debug("Fetched ack: %d %d %d\n",
-			 m->cmd, m->ack, m->err);
-
-		if (m->cmd != cmd || m->ack != cmd) {
-			pr_err("Communication error, this is not "
-			       "the ack we expected\n");
-			return -1;
-		}
-		return 0;
-	}
-
-	return -1;
-}
-
-int __parasite_wait_daemon_ack(unsigned int cmd,
-					struct parasite_ctl *ctl)
-{
-	struct ctl_msg m;
-
-	if (parasite_wait_ack(ctl->tsock, cmd, &m))
-		return -1;
-
-	if (m.err != 0) {
-		pr_err("Command %d for daemon failed with %d\n",
-		       cmd, m.err);
-		return -1;
-	}
-
-	return 0;
-}
-
-int __parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl)
-{
-	struct ctl_msg m;
-
-	m = ctl_msg_cmd(cmd);
-	return __parasite_send_cmd(ctl->tsock, &m);
-}
-
-int parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl)
-{
-	int ret;
-
-	ret = __parasite_execute_daemon(cmd, ctl);
-	if (!ret)
-		ret = __parasite_wait_daemon_ack(cmd, ctl);
-
-	return ret;
-}
-
 int parasite_send_fd(struct parasite_ctl *ctl, int fd)
 {
-	if (send_fd(ctl->tsock, NULL, 0, fd) < 0) {
+	int sk;
+
+	sk = compel_rpc_sock(ctl);
+	if (send_fd(sk, NULL, 0, fd) < 0) {
 		pr_perror("Can't send file descriptor");
 		return -1;
 	}
@@ -272,7 +190,7 @@ int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEn
 
 	pc->cap_last_cap = kdat.last_cap;
 
-	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_THREAD, ctl);
+	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_THREAD, ctl);
 	if (ret < 0)
 		return ret;
 
@@ -370,7 +288,7 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 	else
 		args_c = compel_parasite_args(ctl, struct parasite_dump_sa_args_compat);
 
-	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_SIGACTS, ctl);
+	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_SIGACTS, ctl);
 	if (ret < 0)
 		return ret;
 
@@ -422,7 +340,7 @@ int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_item *i
 	else
 		args_c = compel_parasite_args(ctl, struct parasite_dump_itimers_args_compat);
 
-	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_ITIMERS, ctl);
+	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_ITIMERS, ctl);
 	if (ret < 0)
 		return ret;
 
@@ -519,7 +437,7 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 		i++;
 	}
 
-	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_POSIX_TIMERS, ctl);
+	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_POSIX_TIMERS, ctl);
 	if (ret < 0)
 		goto end_posix;
 
@@ -541,7 +459,7 @@ int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_mis
 	struct parasite_dump_misc *ma;
 
 	ma = compel_parasite_args(ctl, struct parasite_dump_misc);
-	if (parasite_execute_daemon(PARASITE_CMD_DUMP_MISC, ctl) < 0)
+	if (compel_rpc_call_sync(PARASITE_CMD_DUMP_MISC, ctl) < 0)
 		return -1;
 
 	*misc = *ma;
@@ -556,7 +474,7 @@ struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd, in
 	p->fd = fd;
 	p->type = type;
 
-	if (parasite_execute_daemon(PARASITE_CMD_DUMP_TTY, ctl) < 0)
+	if (compel_rpc_call_sync(PARASITE_CMD_DUMP_TTY, ctl) < 0)
 		return NULL;
 
 	return p;
@@ -566,7 +484,7 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 		struct parasite_drain_fd *dfds, int nr_fds, int off,
 		int *lfds, struct fd_opts *opts)
 {
-	int ret = -1, size;
+	int ret = -1, size, sk;
 	struct parasite_drain_fd *args;
 
 	size = drain_fds_size(dfds);
@@ -574,35 +492,37 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 	args->nr_fds = nr_fds;
 	memcpy(&args->fds, dfds->fds + off, sizeof(int) * nr_fds);
 
-	ret = __parasite_execute_daemon(PARASITE_CMD_DRAIN_FDS, ctl);
+	ret = compel_rpc_call(PARASITE_CMD_DRAIN_FDS, ctl);
 	if (ret) {
 		pr_err("Parasite failed to drain descriptors\n");
 		goto err;
 	}
 
-	ret = recv_fds(ctl->tsock, lfds, nr_fds, opts, sizeof(struct fd_opts));
+	sk = compel_rpc_sock(ctl);
+	ret = recv_fds(sk, lfds, nr_fds, opts, sizeof(struct fd_opts));
 	if (ret)
 		pr_err("Can't retrieve FDs from socket\n");
 
-	ret |= __parasite_wait_daemon_ack(PARASITE_CMD_DRAIN_FDS, ctl);
+	ret |= compel_rpc_sync(PARASITE_CMD_DRAIN_FDS, ctl);
 err:
 	return ret;
 }
 
 int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 {
-	int ret = -1, fd;
+	int ret = -1, fd, sk;
 
-	ret = __parasite_execute_daemon(PARASITE_CMD_GET_PROC_FD, ctl);
+	ret = compel_rpc_call(PARASITE_CMD_GET_PROC_FD, ctl);
 	if (ret) {
 		pr_err("Parasite failed to get proc fd\n");
 		return ret;
 	}
 
-	fd = recv_fd(ctl->tsock);
+	sk = compel_rpc_sock(ctl);
+	fd = recv_fd(sk);
 	if (fd < 0)
 		pr_err("Can't retrieve FD from socket\n");
-	if (__parasite_wait_daemon_ack(PARASITE_CMD_GET_PROC_FD, ctl)) {
+	if (compel_rpc_sync(PARASITE_CMD_GET_PROC_FD, ctl)) {
 		close_safe(&fd);
 		return -1;
 	}
@@ -618,7 +538,7 @@ int parasite_dump_cgroup(struct parasite_ctl *ctl, struct parasite_dump_cgroup_a
 	struct parasite_dump_cgroup_args *ca;
 
 	ca = compel_parasite_args(ctl, struct parasite_dump_cgroup_args);
-	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_CGROUP, ctl);
+	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_CGROUP, ctl);
 	if (ret) {
 		pr_err("Parasite failed to dump /proc/self/cgroup\n");
 		return ret;

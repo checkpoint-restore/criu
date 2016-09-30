@@ -28,6 +28,7 @@
 #include "pagemap-cache.h"
 #include "fault-injection.h"
 #include "infect.h"
+#include "infect-rpc.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -250,14 +251,14 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
 		pr_debug("PPB: %d pages %d segs %u pipe %d off\n",
 				args->nr_pages, args->nr_segs, ppb->pipe_size, args->off);
 
-		ret = __parasite_execute_daemon(PARASITE_CMD_DUMPPAGES, ctl);
+		ret = compel_rpc_call(PARASITE_CMD_DUMPPAGES, ctl);
 		if (ret < 0)
 			return -1;
 		ret = parasite_send_fd(ctl, ppb->p[1]);
 		if (ret)
 			return -1;
 
-		ret = __parasite_wait_daemon_ack(PARASITE_CMD_DUMPPAGES, ctl);
+		ret = compel_rpc_sync(PARASITE_CMD_DUMPPAGES, ctl);
 		if (ret < 0)
 			return -1;
 
@@ -444,7 +445,7 @@ int parasite_dump_pages_seized(struct pstree_item *item,
 	 */
 
 	pargs->add_prot = PROT_READ;
-	ret = parasite_execute_daemon(PARASITE_CMD_MPROTECT_VMAS, ctl);
+	ret = compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl);
 	if (ret) {
 		pr_err("Can't dump unprotect vmas with parasite\n");
 		return ret;
@@ -463,7 +464,7 @@ int parasite_dump_pages_seized(struct pstree_item *item,
 	}
 
 	pargs->add_prot = 0;
-	if (parasite_execute_daemon(PARASITE_CMD_MPROTECT_VMAS, ctl)) {
+	if (compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl)) {
 		pr_err("Can't rollback unprotected vmas with parasite\n");
 		ret = -1;
 	}

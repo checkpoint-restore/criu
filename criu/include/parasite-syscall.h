@@ -58,16 +58,6 @@ extern int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc
 
 extern int parasite_send_fd(struct parasite_ctl *ctl, int fd);
 
-/*
- * Execute a command in parasite when it's in daemon mode.
- * The __-ed version is asyncronous (doesn't wait for ack).
- */
-extern int parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl);
-extern int __parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl);
-
-extern int __parasite_wait_daemon_ack(unsigned int cmd,
-					      struct parasite_ctl *ctl);
-
 extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc);
 extern int parasite_dump_creds(struct parasite_ctl *ctl, struct _CredsEntry *ce);
 extern int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, struct _CoreEntry *core);
