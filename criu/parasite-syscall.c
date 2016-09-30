@@ -43,7 +43,6 @@
 
 #include "infect.h"
 #include "infect-rpc.h"
-#include "infect-priv.h"
 
 unsigned long get_exec_start(struct vm_area_list *vmas)
 {
@@ -597,7 +596,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	}
 
 	parasite_args_size = PARASITE_ARG_SIZE_MIN; /* reset for next task */
-	memcpy(&item->core[0]->tc->blk_sigset, &ctl->orig.sigmask, sizeof(k_rtsigset_t));
+	memcpy(&item->core[0]->tc->blk_sigset, compel_task_sigmask(ctl), sizeof(k_rtsigset_t));
 	dmpi(item)->parasite_ctl = ctl;
 
 	return ctl;
