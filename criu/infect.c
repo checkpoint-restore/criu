@@ -1211,3 +1211,8 @@ int compel_mode_native(struct parasite_ctl *ctl)
 {
 	return user_regs_native(&ctl->orig.regs);
 }
+
+k_rtsigset_t *compel_task_sigmask(struct parasite_ctl *ctl)
+{
+	return &ctl->orig.sigmask;
+}
