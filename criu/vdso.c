@@ -20,6 +20,7 @@
 #include "mem.h"
 #include "vma.h"
 #include "infect.h"
+#include "infect-rpc.h"
 
 #ifdef LOG_PREFIX
 # undef LOG_PREFIX
@@ -111,7 +112,7 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			args->try_fill_symtable = (fd < 0) ? true : false;
 		args->is_vdso = false;
 
-		if (parasite_execute_daemon(PARASITE_CMD_CHECK_VDSO_MARK, ctl)) {
+		if (compel_rpc_call_sync(PARASITE_CMD_CHECK_VDSO_MARK, ctl)) {
 			pr_err("Parasite failed to poke for mark\n");
 			goto err;
 		}

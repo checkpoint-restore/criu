@@ -35,6 +35,9 @@ struct parasite_ctl {
 #define MEMFD_FNAME	"CRIUMFD"
 #define MEMFD_FNAME_SZ	sizeof(MEMFD_FNAME)
 
+struct ctl_msg;
+int parasite_wait_ack(int sockfd, unsigned int cmd, struct ctl_msg *m);
+
 /* XXX -- remove with cr-exec.c */
 extern int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size);
 #endif

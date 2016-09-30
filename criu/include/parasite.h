@@ -52,18 +52,6 @@ enum {
 	PARASITE_CMD_MAX,
 };
 
-struct ctl_msg {
-	unsigned int	cmd;			/* command itself */
-	unsigned int	ack;			/* ack on command */
-	int		err;			/* error code on reply */
-};
-
-#define ctl_msg_cmd(_cmd)		\
-	(struct ctl_msg){.cmd = _cmd, }
-
-#define ctl_msg_ack(_cmd, _err)	\
-	(struct ctl_msg){.cmd = _cmd, .ack = _cmd, .err = _err, }
-
 struct parasite_init_args {
 	int			h_addr_len;
 	struct sockaddr_un	h_addr;

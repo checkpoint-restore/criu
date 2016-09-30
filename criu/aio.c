@@ -12,6 +12,7 @@
 #include "parasite-syscall.h"
 #include "images/mm.pb-c.h"
 #include "infect.h"
+#include "infect-rpc.h"
 
 #define NR_IOEVENTS_IN_NPAGES(npages) ((PAGE_SIZE * npages - sizeof(struct aio_ring)) / sizeof(struct io_event))
 
@@ -119,7 +120,7 @@ int parasite_collect_aios(struct parasite_ctl *ctl, struct vm_area_list *vmas)
 	}
 	aa->nr_rings = vmas->nr_aios;
 
-	if (parasite_execute_daemon(PARASITE_CMD_CHECK_AIOS, ctl))
+	if (compel_rpc_call_sync(PARASITE_CMD_CHECK_AIOS, ctl))
 		return -1;
 
 	return 0;
