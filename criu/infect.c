@@ -1216,3 +1216,8 @@ k_rtsigset_t *compel_task_sigmask(struct parasite_ctl *ctl)
 {
 	return &ctl->orig.sigmask;
 }
+
+struct infect_ctx *compel_infect_ctx(struct parasite_ctl *ctl)
+{
+	return &ctl->ictx;
+}

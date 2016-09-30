@@ -27,26 +27,6 @@ struct thread_ctx {
 	user_regs_struct_t	regs;
 };
 
-struct infect_ctx {
-	int	*p_sock;
-
-	/*
-	 * Regs manipulation context.
-	 */
-	int (*save_regs)(void *, user_regs_struct_t *, user_fpregs_struct_t *);
-	int (*make_sigframe)(void *, struct rt_sigframe *, struct rt_sigframe *, k_rtsigset_t *);
-	void *regs_arg;
-
-	unsigned long		syscall_ip;				/* entry point of infection */
-	unsigned long		flags;			/* fine-tune (e.g. faults) */
-
-	void (*child_handler)(int, siginfo_t *, void *);	/* hander for SIGCHLD deaths */
-};
-
-#define INFECT_NO_MEMFD		0x1	/* don't use memfd() */
-#define INFECT_FAIL_CONNECT	0x2	/* make parasite connect() fail */
-#define INFECT_NO_BREAKPOINTS	0x4	/* no breakpoints in pie tracking */
-
 struct parasite_ctl;
 
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_imgset);
