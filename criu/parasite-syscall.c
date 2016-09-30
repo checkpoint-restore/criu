@@ -558,6 +558,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		struct vm_area_list *vma_area_list)
 {
 	struct parasite_ctl *ctl;
+	struct infect_ctx *ictx;
 	unsigned long p;
 
 	BUG_ON(item->threads[0].real != pid);
@@ -572,20 +573,22 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	if (!ctl)
 		return NULL;
 
-	ctl->ictx.child_handler = sigchld_handler;
-	ctl->ictx.p_sock = &dmpi(item)->netns->net.seqsk;
-	ctl->ictx.save_regs = save_task_regs;
-	ctl->ictx.make_sigframe = make_sigframe;
-	ctl->ictx.regs_arg = item->core[0];
-	ctl->ictx.syscall_ip = p;
+	ictx = compel_infect_ctx(ctl);
+
+	ictx->child_handler = sigchld_handler;
+	ictx->p_sock = &dmpi(item)->netns->net.seqsk;
+	ictx->save_regs = save_task_regs;
+	ictx->make_sigframe = make_sigframe;
+	ictx->regs_arg = item->core[0];
+	ictx->syscall_ip = p;
 	pr_debug("Parasite syscall_ip at %#lx\n", p);
 
 	if (fault_injected(FI_NO_MEMFD))
-		ctl->ictx.flags |= INFECT_NO_MEMFD;
+		ictx->flags |= INFECT_NO_MEMFD;
 	if (fault_injected(FI_PARASITE_CONNECT))
-		ctl->ictx.flags |= INFECT_FAIL_CONNECT;
+		ictx->flags |= INFECT_FAIL_CONNECT;
 	if (fault_injected(FI_NO_BREAKPOINTS))
-		ctl->ictx.flags |= INFECT_NO_BREAKPOINTS;
+		ictx->flags |= INFECT_NO_BREAKPOINTS;
 
 	parasite_ensure_args_size(dump_pages_args_size(vma_area_list));
 	parasite_ensure_args_size(aio_rings_args_size(vma_area_list));
