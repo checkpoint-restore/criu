@@ -90,6 +90,5 @@ extern int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 			  unsigned long arg5, unsigned long arg6);
 
 extern bool arch_can_dump_task(struct parasite_ctl *ctl);
-extern bool seized_native(struct parasite_ctl *ctl);
 
 #endif /* __CR_PARASITE_SYSCALL_H__ */

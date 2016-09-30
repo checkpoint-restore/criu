@@ -638,7 +638,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 	pid_t pid = ctl->rpid;
 	unsigned long sret = -ENOSYS;
 	int ret, fd, lfd;
-	bool __maybe_unused compat_task = !seized_native(ctl);
+	bool __maybe_unused compat_task = !compel_mode_native(ctl);
 
 	if (ctl->ictx.flags & INFECT_NO_MEMFD)
 		return 1;
@@ -752,7 +752,7 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	 * without using ptrace at all.
 	 */
 
-	if (seized_native(ctl))
+	if (compel_mode_native(ctl))
 		parasite_size = pie_size(parasite_native);
 #ifdef CONFIG_COMPAT
 	else
@@ -773,7 +773,7 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 
 	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
 
-	if (seized_native(ctl))
+	if (compel_mode_native(ctl))
 		init_parasite_ctl(ctl, native);
 #ifdef CONFIG_COMPAT
 	else
@@ -964,7 +964,7 @@ int compel_cure_remote(struct parasite_ctl *ctl)
 	} else {
 		unsigned long ret;
 
-		syscall_seized(ctl, __NR(munmap, !seized_native(ctl)), &ret,
+		syscall_seized(ctl, __NR(munmap, !compel_mode_native(ctl)), &ret,
 				(unsigned long)ctl->remote_map, ctl->map_length,
 				0, 0, 0, 0);
 		if (ret) {
@@ -1205,4 +1205,9 @@ goon:
 	}
 
 	return 0;
+}
+
+int compel_mode_native(struct parasite_ctl *ctl)
+{
+	return user_regs_native(&ctl->orig.regs);
 }
