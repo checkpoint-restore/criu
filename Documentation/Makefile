@@ -28,6 +28,9 @@ check:
 		$$B --version > /dev/null || exit 1;	\
 	done
 
+ifeq ($(CRIU_VERSION),)
+ include ../Makefile.versions
+endif
 $(FOOTER): ../Makefile.versions
 	$(call msg-gen, $@)
 	$(Q) echo ":doctype:       manpage"		>  $@
