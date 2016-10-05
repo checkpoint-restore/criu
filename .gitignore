@@ -27,6 +27,7 @@ criu/arch/*/syscalls.S
 criu/include/config.h
 criu/include/syscall-codes.h
 criu/include/syscall.h
+soccr/config.h
 criu/include/version.h
 criu/pie/restorer-blob.h
 criu/pie/parasite-blob.h
