@@ -38,10 +38,7 @@ $(FOOTER): ../Makefile.versions
 	$(Q) echo ":man version:   $(CRIU_VERSION)"	>> $@
 	$(Q) echo ":man manual:    CRIU Manual"		>> $@
 
-$(SRC): $(FOOTER)
-	@true
-
-%.8: %.txt
+%.8: %.txt $(FOOTER) custom.xsl
 	$(call msg-gen, $@)
 	$(Q) $(ASCIIDOC) -b docbook -d manpage -o $(patsubst %.8,%.xml,$@) $<
 	$(Q) $(XMLTO) man -m custom.xsl $(patsubst %.8,%.xml,$@) 2>/dev/null
