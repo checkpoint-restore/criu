@@ -1902,7 +1902,7 @@ static int do_bind_mount(struct mount_info *mi)
 		/* Get a copy of mi->bind without child mounts */
 		if (mount(mnt_path, mnt_clean_path, NULL, MS_BIND, NULL)) {
 			pr_perror("Unable to bind-mount %s to %s",
-					mi->bind->mountpoint, mnt_clean_path);
+					mnt_path, mnt_clean_path);
 			return -1;
 		}
 		mnt_path = mnt_clean_path;
