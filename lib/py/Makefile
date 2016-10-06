@@ -1,16 +1,13 @@
-all: images rpc.py
+all: images rpc_pb2.py
 
 .PHONY: all images clean
 
 images:
 	$(Q) $(MAKE) -C images all
 
-# rpc_pb2.py doesn't depend on any other file, so
-# it is safe to rename it, dropping ugly _pb2 suffix.
-rpc.py:
-	$(Q) protoc -I=$(SRC_DIR)/images/ --python_out=./ $(SRC_DIR)/images/$(@:.py=.proto)
-	$(Q) mv $(@:.py=_pb2.py) $@
+rpc_pb2.py:
+	$(Q) protoc -I=$(SRC_DIR)/images/ --python_out=./ $(SRC_DIR)/images/$(@:_pb2.py=.proto)
 
 clean:
 	$(Q) $(MAKE) -C images clean
-	$(Q) $(RM) rpc.py *.pyc
+	$(Q) $(RM) rpc_pb2.py *.pyc
