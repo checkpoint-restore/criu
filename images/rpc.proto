@@ -39,7 +39,7 @@ message unix_sk {
 
 enum criu_cg_mode {
 	IGNORE	= 0;
-	NONE	= 1;
+	CG_NONE	= 1;
 	PROPS	= 2;
 	SOFT	= 3;
 	FULL	= 4;

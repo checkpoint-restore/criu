@@ -434,7 +434,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		case CRIU_CG_MODE__IGNORE:
 			mode = CG_MODE_IGNORE;
 			break;
-		case CRIU_CG_MODE__NONE:
+		case CRIU_CG_MODE__CG_NONE:
 			mode = CG_MODE_NONE;
 			break;
 		case CRIU_CG_MODE__PROPS:
