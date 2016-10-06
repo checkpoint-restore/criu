@@ -47,10 +47,10 @@ static bool test_pointer(const void *ptr, const void *start, const size_t size,
 static int do_relative_toc(long value, uint16_t *location,
 			   unsigned long mask, int complain_signed)
 {
-        if (complain_signed && (value + 0x8000 > 0xffff)) {
+	if (complain_signed && (value + 0x8000 > 0xffff)) {
 		pr_err("TOC16 relocation overflows (%ld)\n", value);
 		return -1;
-        }
+	}
 
 	if ((~mask & 0xffff) & value) {
 		pr_err("bad TOC16 relocation (%ld) (0x%lx)\n", value, (~mask & 0xffff) & value);
@@ -341,7 +341,7 @@ int handle_elf(void *mem, size_t size)
 				}
 				/* Only replace bits 2 through 26 */
 				*(uint32_t *)where = (*(uint32_t *)where & ~0x03fffffc) |
-                                        (value64 & 0x03fffffc);
+					(value64 & 0x03fffffc);
 				break;
 
 			case R_PPC64_ADDR32:
