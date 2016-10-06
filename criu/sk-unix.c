@@ -694,16 +694,17 @@ static int dump_external_sockets(struct unix_sk_desc *peer)
 
 		ret = run_plugins(DUMP_UNIX_SK, sk->fd, sk->sd.ino);
 		if (ret == -ENOTSUP) {
-			if (!opts.ext_unix_sk) {
-				show_one_unix("Runaway socket", peer);
-				pr_err("External socket is used. "
-						"Consider using --" USK_EXT_PARAM " option.\n");
-				return -1;
-			}
-
 			if (unix_sk_exception_lookup_id(sk->sd.ino)) {
 				pr_debug("found exception for unix name-less external socket.\n");
 			} else {
+				/* Legacy -x|--ext-unix-sk option handling */
+				if (!opts.ext_unix_sk) {
+					show_one_unix("Runaway socket", peer);
+					pr_err("External socket is used. "
+							"Consider using --" USK_EXT_PARAM " option.\n");
+					return -1;
+				}
+
 				if (peer->type != SOCK_DGRAM) {
 					show_one_unix("Ext stream not supported", peer);
 					pr_err("Can't dump half of stream unix connection.\n");

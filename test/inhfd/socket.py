@@ -12,4 +12,4 @@ def filename(sockf):
 	return 'socket:[%d]' % __sock_ino(sockf)
 
 def dump_opts(sockf):
-	return ['--ext-unix-sk=%d' % __sock_ino(sockf)]
+	return ['--external', 'unix[%d]' % __sock_ino(sockf)]
