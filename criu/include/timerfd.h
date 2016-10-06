@@ -6,6 +6,8 @@
 
 #include "files.h"
 
+#include "images/timerfd.pb-c.h"
+
 struct pstree_item;
 
 struct restore_timerfd {
@@ -33,5 +35,17 @@ extern int is_timerfd_link(char *link);
 #ifndef TFD_IOC_SET_TICKS
 # define TFD_IOC_SET_TICKS	_IOW('T', 0, u64)
 #endif
+
+static inline int verify_timerfd(TimerfdEntry *tfe)
+{
+	if (tfe->clockid != CLOCK_REALTIME &&
+	    tfe->clockid != CLOCK_MONOTONIC) {
+		pr_err("Unknown clock type %d for %#x\n", tfe->clockid, tfe->id);
+		return -1;
+	}
+
+	return 0;
+}
+
 
 #endif /* __CR_TIMERFD_H__ */

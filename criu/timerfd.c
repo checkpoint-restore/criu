@@ -176,17 +176,6 @@ static struct file_desc_ops timerfd_desc_ops = {
 	.post_open	= timerfd_post_open,
 };
 
-static int verify_timerfd(TimerfdEntry *tfe)
-{
-	if (tfe->clockid != CLOCK_REALTIME &&
-	    tfe->clockid != CLOCK_MONOTONIC) {
-		pr_err("Unknown clock type %d for %#x\n", tfe->clockid, tfe->id);
-		return -1;
-	}
-
-	return 0;
-}
-
 static int collect_one_timerfd(void *o, ProtobufCMessage *msg, struct cr_img *i)
 {
 	struct timerfd_info *info = o;

@@ -36,6 +36,7 @@
 #include "files-reg.h"
 #include "cgroup.h"
 #include "cgroup-props.h"
+#include "timerfd.h"
 
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
@@ -1570,6 +1571,9 @@ static int parse_timerfd(struct bfd *f, char *str, TimerfdEntry *tfy)
 	 * it_interval: (1, 0)
 	 */
 	if (sscanf(str, "clockid: %d", &tfy->clockid) != 1)
+		goto parse_err;
+
+	if (verify_timerfd(tfy) < 0)
 		goto parse_err;
 
 	str = breadline(f);
