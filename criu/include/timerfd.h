@@ -39,6 +39,7 @@ extern int is_timerfd_link(char *link);
 static inline int verify_timerfd(TimerfdEntry *tfe)
 {
 	if (tfe->clockid != CLOCK_REALTIME &&
+	    tfe->clockid != CLOCK_BOOTTIME &&
 	    tfe->clockid != CLOCK_MONOTONIC) {
 		pr_err("Unknown clock type %d for %#x\n", tfe->clockid, tfe->id);
 		return -1;
