@@ -73,7 +73,13 @@ function get_fs_type {
 		top_mount_fs_type=$mnt_fs_type
 	done < "/proc/$CRTOOLS_INIT_PID/mountinfo"
 
+	if [ -z "$top_mount_fs_type" ]; then
+		echo "Failed to find $mountpoint mountpoint"
+		return 1
+	fi
+
 	echo $top_mount_fs_type
+	return 0
 }
 
 function bind_mount {
@@ -92,7 +98,7 @@ function save_mountpoint {
 
 	top_mount_fs_type=$(get_fs_type $mountpoint)
 	if [ $? -ne 0 ]; then
-		echo "Failed to discover $mountpoint mount point type"
+		echo "$top_mount_fs_type"
 		return
 	fi
 
