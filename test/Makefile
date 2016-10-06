@@ -19,10 +19,6 @@ other:
 	done
 .PHONY: other
 
-zdtm_ct: zdtm_ct.c
-
-umount2: umount2
-
 zdtm:
 	./zdtm.py run -a --parallel 2
 .PHONY: zdtm
