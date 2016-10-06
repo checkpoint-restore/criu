@@ -174,7 +174,7 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 			pages[1]++;
 		} else {
 			ret = page_pipe_add_page(pp, vaddr, ppb_flags);
-			if (ppb_flags & PPB_LAZY)
+			if (ppb_flags & PPB_LAZY && opts.lazy_pages)
 				pages[2]++;
 			else
 				pages[3]++;
