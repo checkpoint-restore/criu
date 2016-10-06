@@ -57,7 +57,10 @@ int check_img_inventory(void)
 		root_cg_set = he->root_cg_set;
 	}
 
-	image_lsm = he->lsmtype;
+	if (he->has_lsmtype)
+		image_lsm = he->lsmtype;
+	else
+		image_lsm = LSMTYPE__NO_LSM;
 
 	switch (he->img_version) {
 	case CRTOOLS_IMAGES_V1:
@@ -113,6 +116,7 @@ int prepare_inventory(InventoryEntry *he)
 	he->has_fdinfo_per_id = true;
 	he->ns_per_id = true;
 	he->has_ns_per_id = true;
+	he->has_lsmtype = true;
 	he->lsmtype = host_lsm_type();
 
 	crt.i.pid.state = TASK_ALIVE;
