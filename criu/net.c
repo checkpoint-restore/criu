@@ -916,7 +916,7 @@ static void veth_peer_info(NetDeviceEntry *nde, struct newlink_req *req)
 		char *aux;
 
 		aux = strchrnul(val, '@');
-		addattr_l(&req->h, sizeof(*req), IFLA_IFNAME, val, aux - val - 1);		
+		addattr_l(&req->h, sizeof(*req), IFLA_IFNAME, val, aux - val);
 	}
 }
 
