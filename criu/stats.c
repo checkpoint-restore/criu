@@ -3,6 +3,7 @@
 #include <sys/time.h>
 #include "int.h"
 #include "atomic.h"
+#include "cr_options.h"
 #include "rst-malloc.h"
 #include "protobuf.h"
 #include "stats.h"
@@ -102,6 +103,38 @@ static void encode_time(int t, u_int32_t *to)
 	*to = tm->total.tv_sec * USEC_PER_SEC + tm->total.tv_usec;
 }
 
+static void display_stats(int what, StatsEntry *stats)
+{
+	if (what == DUMP_STATS) {
+		pr_msg("Displaying dump stats:\n");
+		pr_msg("Freezing time: %d us\n", stats->dump->freezing_time);
+		pr_msg("Frozen time: %d us\n", stats->dump->frozen_time);
+		pr_msg("Memory dump time: %d us\n", stats->dump->memdump_time);
+		pr_msg("Memory write time: %d us\n", stats->dump->memwrite_time);
+		if (stats->dump->has_irmap_resolve)
+			pr_msg("IRMAP resolve time: %d us\n", stats->dump->irmap_resolve);
+		pr_msg("Memory pages scanned: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_scanned,
+				stats->dump->pages_scanned);
+		pr_msg("Memory pages skipped from parent: %" PRIu64 " (0x%" PRIx64 ")\n",
+				stats->dump->pages_skipped_parent,
+				stats->dump->pages_skipped_parent);
+		pr_msg("Memory pages written: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_written,
+				stats->dump->pages_written);
+	} else if (what == RESTORE_STATS) {
+		pr_msg("Displaying restore stats:\n");
+		pr_msg("Pages compared: %" PRIu64 " (0x%" PRIx64 ")\n", stats->restore->pages_compared,
+				stats->restore->pages_compared);
+		pr_msg("Pages skipped COW: %" PRIu64 " (0x%" PRIx64 ")\n", stats->restore->pages_skipped_cow,
+				stats->restore->pages_skipped_cow);
+		if (stats->restore->has_pages_restored)
+			pr_msg("Pages restored: %" PRIu64 " (0x%" PRIx64 ")\n", stats->restore->pages_restored,
+					stats->restore->pages_restored);
+		pr_msg("Restore time: %d us\n", stats->restore->restore_time);
+		pr_msg("Forking time: %d us\n", stats->restore->forking_time);
+	} else
+		return;
+}
+
 void write_stats(int what)
 {
 	StatsEntry stats = STATS_ENTRY__INIT;
@@ -146,6 +179,9 @@ void write_stats(int what)
 		pb_write_one(img, &stats, PB_STATS);
 		close_image(img);
 	}
+
+	if (opts.display_stats)
+		display_stats(what, &stats);
 }
 
 int init_stats(int what)

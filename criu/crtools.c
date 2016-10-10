@@ -282,6 +282,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
 		{ SK_INFLIGHT_PARAM,		no_argument,		0, 1083	},
 		{ "deprecated",			no_argument,		0, 1084 },
+		{ "display-stats",		no_argument,		0, 1086 },
 		{ },
 	};
 
@@ -593,6 +594,9 @@ int main(int argc, char *argv[], char *envp[])
 		case 1084:
 			pr_msg("Turn deprecated stuff ON\n");
 			opts.deprecated_ok = true;
+			break;
+		case 1086:
+			opts.display_stats = true;
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
@@ -913,6 +917,7 @@ usage:
 "                          -v2|-vv   - also warnings (default level)\n"
 "                          -v3|-vvv  - also information messages and timestamps\n"
 "                          -v4|-vvvv - lots of debug\n"
+"  --display-stats       print out dump/restore stats\n"
 "\n"
 "* Memory dumping options:\n"
 "  --track-mem           turn on memory changes tracker in kernel\n"
