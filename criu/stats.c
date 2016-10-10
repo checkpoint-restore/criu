@@ -120,6 +120,10 @@ static void display_stats(int what, StatsEntry *stats)
 				stats->dump->pages_skipped_parent);
 		pr_msg("Memory pages written: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_written,
 				stats->dump->pages_written);
+		pr_msg("Zero memory pages: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_zero,
+				stats->dump->pages_zero);
+		pr_msg("Lazy memory pages: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_lazy,
+				stats->dump->pages_lazy);
 	} else if (what == RESTORE_STATS) {
 		pr_msg("Displaying restore stats:\n");
 		pr_msg("Pages compared: %" PRIu64 " (0x%" PRIx64 ")\n", stats->restore->pages_compared,
