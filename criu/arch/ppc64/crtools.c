@@ -183,7 +183,7 @@ static void put_fpu_regs(mcontext_t *mc, UserPpc64FpstateEntry *fpe)
 		mcfp[i] =  fpe->fpregs[i];
 }
 
-static UserPpc64VrstateEntry *copy_altivec_regs(unsigned char *vrregs)
+static UserPpc64VrstateEntry *copy_altivec_regs(__vector128 *vrregs)
 {
 	UserPpc64VrstateEntry *vse;
 	uint64_t *p64;
@@ -205,12 +205,12 @@ static UserPpc64VrstateEntry *copy_altivec_regs(unsigned char *vrregs)
 
 	/* Vectors are 2*64bits entries */
 	for (i = 0; i < (NVRREG-1); i++) {
-		p64 = (uint64_t*) &vrregs[i * 2 * sizeof(uint64_t)];
+		p64 = (uint64_t*) &vrregs[i];
 		vse->vrregs[i*2] =  p64[0];
 		vse->vrregs[i*2 + 1] = p64[1];
 	}
 
-	p32 = (uint32_t*) &vrregs[(NVRREG-1) * 2 * sizeof(uint64_t)];
+	p32 = (uint32_t*) &vrregs[NVRREG-1];
 	vse->vrsave = *p32;
 
 	return vse;
@@ -227,7 +227,7 @@ static UserPpc64VrstateEntry *get_altivec_regs(pid_t pid)
 	 * "Userland shall check AT_HWCAP to know whether it can rely on the
 	 * v_regs pointer or not"
 	 */
-	unsigned char vrregs[(NVRREG-1) * 16 + 4];
+	__vector128 vrregs[NVRREG];
 
 	if (ptrace(PTRACE_GETVRREGS, pid, 0, (void*)&vrregs) < 0) {
 		/* PTRACE_GETVRREGS returns EIO if Altivec is not supported.
@@ -440,7 +440,8 @@ static int get_tm_regs(pid_t pid, CoreEntry *core)
 		uint64_t tfhar, texasr, tfiar;
 	} tm_spr_regs;
 	user_regs_struct_t regs;
-	uint64_t fpregs[NFPREG], vmxregs[34][2], vsxregs[32];
+	uint64_t fpregs[NFPREG], vsxregs[32];
+	__vector128 vmxregs[NVRREG];
 	struct iovec iov;
 	UserPpc64TmRegsEntry *tme;
 	UserPpc64RegsEntry *gpregs = core->ti_ppc64->gpregs;
@@ -497,7 +498,7 @@ static int get_tm_regs(pid_t pid, CoreEntry *core)
 	/* Get checkpointed VMX (Altivec) registers */
 	PTRACE_GET_TM(vmxregs, "VMX", NT_PPC_TM_CVMX, TM_OPTIONAL);
 	if (iov.iov_base) {
-		core->ti_ppc64->vrstate = copy_altivec_regs((unsigned char *)vmxregs);
+		core->ti_ppc64->vrstate = copy_altivec_regs(vmxregs);
 		if (!core->ti_ppc64->vrstate)
 			goto out_free;
 	}
