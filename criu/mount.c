@@ -857,7 +857,7 @@ static int resolve_external_mounts(struct mount_info *info)
 			 * about slavery relationships in external mounts. This
 			 * seems like an uncommon case, so we punt for not.
 			 */
-			if (m->master_id != match->shared_id)
+			if (m->master_id != match->shared_id && m->master_id != match->master_id)
 				continue;
 		}
 
