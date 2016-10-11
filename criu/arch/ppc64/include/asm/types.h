@@ -61,6 +61,32 @@ typedef struct {
         unsigned long result;           /* Result of a system call */
 } user_regs_struct_t;
 
+#define NVSXREG	32
+
+#define USER_FPREGS_FL_FP	0x00001
+#define USER_FPREGS_FL_ALTIVEC	0x00002
+#define USER_FPREGS_FL_VSX	0x00004
+#define USER_FPREGS_FL_TM	0x00010
+
+typedef struct {
+	uint64_t fpregs[NFPREG];
+	__vector128 vrregs[NVRREG];
+	uint64_t vsxregs[NVSXREG];
+
+	int flags;
+	struct tm_regs {
+		int flags;
+		struct {
+			uint64_t tfhar, texasr, tfiar;
+		} tm_spr_regs;
+		user_regs_struct_t regs;
+		uint64_t fpregs[NFPREG];
+		__vector128 vrregs[NVRREG];
+		uint64_t vsxregs[NVSXREG];
+	} tm;
+} user_fpregs_struct_t;
+
+
 typedef UserPpc64RegsEntry UserRegsEntry;
 
 #define CORE_ENTRY__MARCH	CORE_ENTRY__MARCH__PPC64
