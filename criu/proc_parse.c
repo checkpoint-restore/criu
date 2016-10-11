@@ -1410,7 +1410,6 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 {
 	struct mount_info *list = NULL;
 	FILE *f;
-	char str[1024];
 
 	f = fopen_proc(pid, "mountinfo");
 	if (!f) {
@@ -1418,7 +1417,7 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 		return NULL;
 	}
 
-	while (fgets(str, sizeof(str), f)) {
+	while (fgets(buf, BUF_SIZE, f)) {
 		struct mount_info *new;
 		int ret = -1;
 		char *fsname = NULL;
@@ -1429,9 +1428,9 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 
 		new->nsid = nsid;
 
-		ret = parse_mountinfo_ent(str, new, &fsname);
+		ret = parse_mountinfo_ent(buf, new, &fsname);
 		if (ret < 0) {
-			pr_err("Bad format in %d mountinfo: '%s'\n", pid, str);
+			pr_err("Bad format in %d mountinfo: '%s'\n", pid, buf);
 			goto end;
 		}
 
