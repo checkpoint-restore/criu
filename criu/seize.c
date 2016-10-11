@@ -137,11 +137,16 @@ static int seize_cgroup_tree(char *root_path, const char *state)
 			snprintf(buf, sizeof(buf), "/proc/%d/exe", pid);
 			if (stat(buf, &st) == -1 && errno == ENOENT)
 				continue;
-
-			/* fails when meets a zombie */
+			/*
+			 * fails when meets a zombie, or eixting process:
+			 * there is a small race in a kernel -- the process
+			 * may start exiting and we are trying to freeze it
+			 * before it compete exit procedure. The caller simply
+			 * should wait a bit and try freezing again.
+			 */
 			pr_err("zombie found while seizing\n");
 			fclose(f);
-			return -1;
+			return -EAGAIN;
 		}
 	}
 	fclose(f);
@@ -154,6 +159,7 @@ static int seize_cgroup_tree(char *root_path, const char *state)
 
 	while ((de = readdir(dir))) {
 		struct stat st;
+		int ret;
 
 		if (dir_dots(de))
 			continue;
@@ -168,10 +174,10 @@ static int seize_cgroup_tree(char *root_path, const char *state)
 
 		if (!S_ISDIR(st.st_mode))
 			continue;
-
-		if (seize_cgroup_tree(path, state) < 0) {
+		ret = seize_cgroup_tree(path, state);
+		if (ret < 0) {
 			closedir(dir);
-			return -1;
+			return ret;
 		}
 	}
 	closedir(dir);
@@ -325,7 +331,7 @@ static int freeze_processes(void)
 
 	static const unsigned long step_ms = 100;
 	unsigned long nr_attempts = (opts.timeout * 1000000) / step_ms;
-	unsigned long i;
+	unsigned long i = 0;
 
 	const struct timespec req = {
 		.tv_nsec	= step_ms * 1000000,
@@ -371,7 +377,7 @@ static int freeze_processes(void)
 		 * not read @tasks pids while freezer in
 		 * transition stage.
 		 */
-		for (i = 0; i <= nr_attempts; i++) {
+		for (; i <= nr_attempts; i++) {
 			state = get_freezer_state(fd);
 			if (!state) {
 				close(fd);
@@ -395,7 +401,18 @@ static int freeze_processes(void)
 		pr_debug("freezing processes: %lu attempts done\n", i);
 	}
 
-	exit_code = seize_cgroup_tree(opts.freeze_cgroup, state);
+	/*
+	 * Pay attention on @i variable -- it's continuation.
+	 */
+	for (; i <= nr_attempts; i++) {
+		exit_code = seize_cgroup_tree(opts.freeze_cgroup, state);
+		if (exit_code == -EAGAIN) {
+			if (alarm_timeouted())
+				goto err;
+			nanosleep(&req, NULL);
+		} else
+			break;
+	}
 
 err:
 	if (exit_code == 0 || freezer_thawed) {
