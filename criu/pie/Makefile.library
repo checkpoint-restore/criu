@@ -13,6 +13,7 @@ ifeq ($(ARCH),x86)
         CFLAGS_native	+= -DCONFIG_X86_64
         CFLAGS_compat	+= -fno-pic -m32 -DCONFIG_X86_32
         CFLAGS_util-vdso-elf32.o	+= -DCONFIG_X86_32
+        OBJS		+= ./$(ARCH_DIR)/memcpy.o
 endif
 
 OBJS			+= log-simple.o util-fd.o util.o string.o
@@ -32,10 +33,6 @@ endif
 ifeq ($(SRCARCH),ppc64)
         OBJS		+= ./$(ARCH_DIR)/memcpy_power7.o		\
 			   ./$(ARCH_DIR)/memcmp_64.o ./$(ARCH_DIR)/misc.o
-endif
-
-ifeq ($(SRCARCH),x86)
-        lib-y		+= ./$(ARCH_DIR)/memcpy.o
 endif
 
 define gen-native-objs
