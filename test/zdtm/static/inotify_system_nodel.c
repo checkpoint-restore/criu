@@ -63,9 +63,9 @@ const char *inot_dir = "./inotify.nodel";
 
 typedef struct {
 	int inot;
-	uint32_t file;
-	uint32_t link;
-	uint32_t dir;
+	int file;
+	int link;
+	int dir;
 } desc;
 
 void do_wait() {
