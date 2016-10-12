@@ -15,15 +15,15 @@
 #include "version.h"
 #include "piegen.h"
 
-static const char compel_cflags_pie[] =
-	"-fpie -Wstrict-prototypes -Wa,--noexecstack "
-	"-fno-stack-protector -fno-jump-tables -nostdlib "
-	"-fomit-frame-pointer";
-static const char compel_cflags_nopic[] =
-	"-fno-pic -Wstrict-prototypes -Wa,--noexecstack "
-	"-fno-stack-protector -fno-jump-tables -nostdlib "
-	"-fomit-frame-pointer";
-static const char compel_ldflags[] = "-r";
+#define CFLAGS_DEFAULT_SET					\
+	"-Wstrict-prototypes -Wa,--noexecstack "		\
+	"-fno-stack-protector -nostdlib -fomit-frame-pointer "
+
+#define COMPEL_CFLAGS_PIE	CFLAGS_DEFAULT_SET "-fpie -fno-jump-tables"
+#define COMPEL_CFLAGS_PIE_JPT	CFLAGS_DEFAULT_SET "-fpie"
+#define COMPEL_CFLAGS_NOPIC	CFLAGS_DEFAULT_SET "-fno-pic -fno-jump-tables"
+
+#define COMPEL_LDFLAGS_DEFAULT "-r"
 
 piegen_opt_t opts = {
 	.input_filename		= NULL,
@@ -99,19 +99,19 @@ int main(int argc, char *argv[])
 	static const compel_cflags_t compel_cflags[] = {
 		{
 			.arch	= "x86",
-			.cflags	= compel_cflags_pie,
+			.cflags	= COMPEL_CFLAGS_PIE,
 		}, {
 			.arch	= "ia32",
-			.cflags	= compel_cflags_nopic,
+			.cflags	= COMPEL_CFLAGS_NOPIC,
 		}, {
 			.arch	= "aarch64",
-			.cflags	= compel_cflags_pie,
+			.cflags	= COMPEL_CFLAGS_PIE,
 		}, {
 			.arch	= "arm",
-			.cflags	= compel_cflags_pie,
+			.cflags	= COMPEL_CFLAGS_PIE,
 		}, {
 			.arch	= "ppc64",
-			.cflags	= compel_cflags_pie,
+			.cflags	= COMPEL_CFLAGS_PIE_JPT,
 		},
 	};
 
@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!strcmp(action, "ldflags")) {
-		printf("%s", compel_ldflags);
+		printf("%s", COMPEL_LDFLAGS_DEFAULT);
 		return 0;
 	}
 
