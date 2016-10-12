@@ -173,6 +173,6 @@ int main(int argc, char **argv)
 	return 0;
 err:
 	kill(child, SIGSEGV);
-	*((int *) 0) = 0;
+	*((volatile int *) 0) = 0;
 	return 1;
 }
