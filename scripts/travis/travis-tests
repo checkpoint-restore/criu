@@ -20,7 +20,7 @@ travis_prep
 ulimit -c unlimited
 echo "|`pwd`/test/abrt.sh %P %p %s %e" > /proc/sys/kernel/core_pattern
 
-export GCOV=1
+export GCOV
 make
 make -C test/zdtm
 

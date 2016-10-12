@@ -1,6 +1,9 @@
 #!/bin/sh
 set -x -e
 
+# We only need to run the below for gcov-enabled builds
+[ "$GCOV" = "1" ] || exit 0
+
 sudo apt-get install -qq -y lcov
 gem install coveralls-lcov
 sudo lcov --directory ../.. --capture --output-file coverage.info
