@@ -556,25 +556,6 @@ static struct mount_info *find_shared_peer(struct mount_info *m,
 	return NULL;
 }
 
-static inline int path_length(char *path)
-{
-	int off;
-
-	off = strlen(path);
-	/*
-	 * If we're pure / then set length to zero so that adding this
-	 * value as sub-path offset would produce the correct result.
-	 * E.g. the tail path of the "/foo/bar" relative to the "/foo"
-	 * will be the "/foo/bar" + len("/foo") == "/bar", while the
-	 * same relative to the "/" should be +0 to be the "/foo/bar",
-	 * not +1 and the "foo/bar".
-	 */
-	if (path[off - 1] == '/')
-		off--;
-
-	return off;
-}
-
 static int validate_shared(struct mount_info *m)
 {
 	struct mount_info *t, *ct;
