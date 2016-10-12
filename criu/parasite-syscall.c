@@ -1461,7 +1461,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 {
 	int ret;
 	struct parasite_ctl *ctl;
-	unsigned long p, map_exchange_size, parasite_size;
+	unsigned long p, map_exchange_size, parasite_size = 0;
 
 	BUG_ON(item->threads[0].real != pid);
 
