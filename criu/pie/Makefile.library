@@ -22,6 +22,10 @@ ifeq ($(SRCARCH),ppc64)
         lib-y		+= ./$(ARCH_DIR)/misc.o
 endif
 
+ifeq ($(SRCARCH),x86)
+        lib-y		+= ./$(ARCH_DIR)/memcpy.o
+endif
+
 #
 # We can't provide proper mount implementation
 # in parasite code -- it requires run-time rellocation
