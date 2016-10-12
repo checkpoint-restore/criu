@@ -15,7 +15,8 @@
 
 int main(int argc, char **argv)
 {
-	unsigned long data, delta;
+	unsigned long data;
+	long delta;
 	int fd, fail = NR_FAILS, to_pass = NR_FAILS;
 	struct timeval start, end;
 
