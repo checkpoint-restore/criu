@@ -302,7 +302,7 @@ static int vdso_clock_gettime_handler(void *func)
 	test_msg("clock_gettime: tv_sec %li vdso_clock_gettime: tv_sec %li\n",
 		 ts1.tv_sec, ts2.tv_sec);
 
-	if (abs(ts1.tv_sec - ts2.tv_sec) > TIME_DELTA_SEC) {
+	if (labs(ts1.tv_sec - ts2.tv_sec) > TIME_DELTA_SEC) {
 		pr_perror("Delta is too big");
 		return -1;
 	}
@@ -333,7 +333,7 @@ static int vdso_gettimeofday_handler(void *func)
 	test_msg("gettimeofday: tv_sec %li vdso_gettimeofday: tv_sec %li\n",
 		 tv1.tv_sec, tv2.tv_sec);
 
-	if (abs(tv1.tv_sec - tv2.tv_sec) > TIME_DELTA_SEC) {
+	if (labs(tv1.tv_sec - tv2.tv_sec) > TIME_DELTA_SEC) {
 		pr_perror("Delta is too big");
 		return -1;
 	}
@@ -351,7 +351,7 @@ static int vdso_time_handler(void *func)
 
 	test_msg("time: %li vdso_time: %li\n", (long)t1, (long)t1);
 
-	if (abs(t1 - t2) > TIME_DELTA_SEC) {
+	if (labs(t1 - t2) > TIME_DELTA_SEC) {
 		pr_perror("Delta is too big");
 		return -1;
 	}
