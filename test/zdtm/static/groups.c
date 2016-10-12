@@ -14,7 +14,8 @@ const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
 
 int main(int argc, char **argv)
 {
-	unsigned int ng, *grp, *grp2, i, max;
+	int ng;
+	unsigned int *grp, *grp2, i, max;
 
 	test_init(argc, argv);
 
