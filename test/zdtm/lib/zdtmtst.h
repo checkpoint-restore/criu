@@ -72,7 +72,8 @@ extern void __push_opt(struct long_opt *opt);
 	static struct long_opt __long_opt_##name = {				\
 		#name, #type, doc, is_required, parse_opt_##type, &name };	\
 	static void __init_opt_##name(void) __attribute__ ((constructor));	\
-	static void __init_opt_##name(void) { __push_opt(&__long_opt_##name); }
+	static void __init_opt_##name(void) \
+	{ (void)__check_##name; __push_opt(&__long_opt_##name); }
 
 #define __param_check(name, p, type) \
 	static inline type *__check_##name(void) { return(p); }
