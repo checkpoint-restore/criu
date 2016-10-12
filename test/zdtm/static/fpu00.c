@@ -10,10 +10,10 @@ const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
 void start(float a, float b, float c, float d)
 {
 	__asm__ volatile (
-			  "fld	%0\n"
-			  "fadd	%1\n"
-			  "fld	%2\n"
-			  "fadd	%3\n"
+			  "flds  %0\n"
+			  "fadds %1\n"
+			  "flds  %2\n"
+			  "fadds %3\n"
 			  "fmulp %%st(1)\n"
 			  :
 			  : "m" (a), "m" (b), "m" (c), "m" (d)
@@ -25,7 +25,7 @@ float finish(void)
 	float res;
 
 	__asm__ volatile (
-			  "fstp	%0\n"
+			  "fstps %0\n"
 			  : "=m" (res)
 			 );
 	return res;
