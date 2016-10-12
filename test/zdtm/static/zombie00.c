@@ -49,7 +49,7 @@ int main(int argc, char ** argv)
 			if (zombie[i].exited)
 				_exit(zombie[i].exitcode);
 			else if (zombie[i].exitcode == SIGSEGV)
-				*(int *)NULL = 0;
+				*(volatile int *)NULL = 0;
 			else
 				kill(getpid(), zombie[i].exitcode);
 
