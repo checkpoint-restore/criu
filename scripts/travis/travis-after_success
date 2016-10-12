@@ -1,0 +1,7 @@
+#!/bin/sh
+set -x -e
+
+sudo apt-get install -qq -y lcov
+gem install coveralls-lcov
+sudo lcov --directory ../.. --capture --output-file coverage.info
+coveralls-lcov coverage.info

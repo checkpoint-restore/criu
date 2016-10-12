@@ -13,7 +13,4 @@ env:
 script:
   - sudo make -C scripts/travis $TR_ARCH
 after_success:
-  - sudo apt-get install -qq -y lcov
-  - gem install coveralls-lcov
-  - sudo lcov --directory criu --capture --output-file coverage.info
-  - coveralls-lcov coverage.info
+  - make -C scripts/travis after_success
