@@ -11,6 +11,7 @@ const char *test_author	= "Andrew Vagin <avagin@openvz.org>";
 int main(int argc, char **argv)
 {
 	char *start_addr, *fake_grow_down, *test_addr, *grow_down;
+	volatile char *p;
 	test_init(argc, argv);
 
 	start_addr = mmap(NULL, PAGE_SIZE * 10, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
@@ -28,8 +29,9 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	fake_grow_down[0] = 'c';
-	*(fake_grow_down - 1) = 'b';
+	p = fake_grow_down;
+	*p-- = 'c';
+	*p = 'b';
 
 	/* overlap the guard page of fake_grow_down */
 	test_addr = mmap(start_addr + PAGE_SIZE * 3, PAGE_SIZE,
@@ -57,8 +59,9 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	grow_down[0] = 'z';
-	*(grow_down - 1) = 'x';
+	p = grow_down;
+	*p-- = 'z';
+	*p = 'x';
 
 	pass();
 
