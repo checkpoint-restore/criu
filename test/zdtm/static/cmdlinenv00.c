@@ -21,7 +21,7 @@ TEST_OPTION(arg3, string, "arg3", 1);
 
 static void read_from_proc(const char *path, char *buf, size_t size)
 {
-	size_t r = 0, ret;
+	ssize_t r = 0, ret;
 	int fd;
 
 	fd = open(path, O_RDONLY);
