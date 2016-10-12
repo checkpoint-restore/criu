@@ -83,7 +83,7 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	if (checkprofile(0) == 0)
+	if (checkprofile() == 0)
 		pass();
 
 	return 0;
