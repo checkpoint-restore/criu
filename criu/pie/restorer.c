@@ -803,7 +803,7 @@ static int timerfd_arm(struct task_restore_args *args)
 		pr_debug("timerfd: arm for fd %d (%d)\n", t->fd, i);
 
 		if (t->settime_flags & TFD_TIMER_ABSTIME) {
-			struct timespec ts = { };
+			struct timespec ts;
 
 			/*
 			 * We might need to adjust value because the checkpoint
