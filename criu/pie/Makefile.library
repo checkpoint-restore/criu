@@ -1,7 +1,8 @@
 target			:= native
 
 CFLAGS			:= $(filter-out -DCONFIG_X86_64,$(CFLAGS))
-CFLAGS			+= -Wa,--noexecstack -fno-stack-protector -DCR_NOGLIBC
+CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC
+LDFLAGS			+= -z noexecstack
 
 CFLAGS_native		+= -fpie
 
