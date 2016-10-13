@@ -51,6 +51,15 @@ The following levels are available:
 *--log-pid*::
     Write separate logging files per each pid.
 
+*--display-stats*::
+    During dump as well as during restore *criu* collects information
+    like the time required to dump or restore the process or the
+    number of pages dumped or restored. This information is always
+    written to the files 'stats-dump' and 'stats-restore' and can
+    be easily displayed using *crit*. The option *--display-stats*
+    additionally prints out this information on the console at the end
+    of a dump or a restore.
+
 *-D*, *--images-dir* 'path'::
     Use 'path' as a base directory where to look for sets of image files.
 
