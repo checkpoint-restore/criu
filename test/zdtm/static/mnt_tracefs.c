@@ -19,15 +19,7 @@ TEST_OPTION(dirname, string, "directory name", 1);
 
 int main(int argc, char ** argv)
 {
-	char dst[PATH_MAX], *root;
-
-	root = getenv("ZDTM_ROOT");
-	if (root == NULL) {
-		pr_perror("root");
-		return 1;
-	}
-
-	sprintf(dst, "%s/debugfs", getenv("ZDTM_ROOT"));
+	char dst[PATH_MAX];
 
 	if (strcmp(getenv("ZDTM_NEWNS"), "1"))
 		goto test;
@@ -37,9 +29,24 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	mkdir(dst, 755);
+	sprintf(dst, "%s/%s", get_current_dir_name(), dirname);
+	if (mkdir(dst, 755) < 0) {
+		pr_perror("mkdir");
+		return 1;
+	}
+
 	if (mount("/sys/kernel/debug", dst, NULL, MS_BIND | MS_REC, NULL)) {
+		rmdir(dst);
 		pr_perror("mount");
+		return 1;
+	}
+
+	/* trigger the tracefs mount */
+	strcat(dst, "/tracing/README");
+	if (access(dst, F_OK) < 0) {
+		umount(dst);
+		rmdir(dst);
+		pr_perror("access");
 		return 1;
 	}
 
@@ -49,9 +56,18 @@ test:
 	test_daemon();
 	test_waitsig();
 
+	sprintf(dst, "%s/%s/tracing/README", get_current_dir_name(), dirname);
+
+	/* EACCES is what we expect, since users can't actually /see/ this
+	 * filesystem, but CRIU needs to know how to remount it, so the restore
+	 * should succeed
+	 */
+	if (access(dst, F_OK) < 0 && errno != EACCES) {
+		fail("couldn't access tracefs at %s", dst);
+		return 1;
+	}
 
 	pass();
-
 	return 0;
 }
 
