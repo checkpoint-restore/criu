@@ -112,7 +112,6 @@ export CFLAGS-GCOV
 
 ifeq ($(GCOV),1)
         LDFLAGS         += -lgcov
-        DEBUG           := 1
         CFLAGS          += $(CFLAGS-GCOV)
 endif
 
