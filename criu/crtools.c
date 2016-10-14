@@ -311,6 +311,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
 		BOOL_OPT(SK_INFLIGHT_PARAM, &opts.tcp_skip_in_flight),
 		BOOL_OPT("deprecated", &opts.deprecated_ok),
+		BOOL_OPT("check-only", &opts.check_only),
 		BOOL_OPT("display-stats", &opts.display_stats),
 		BOOL_OPT("weak-sysctls", &opts.weak_sysctls),
 		{ "status-fd",			required_argument,	0, 1088 },
@@ -623,6 +624,10 @@ int main(int argc, char *argv[], char *envp[])
 		pr_info("Will allow link remaps on FS\n");
 	if (opts.weak_sysctls)
 		pr_msg("Will skip non-existant sysctls on restore\n");
+	if (opts.check_only) {
+		pr_msg("Only checking if requested operation will succeed\n");
+		opts.final_state = TASK_ALIVE;
+	}
 
 	if (getenv("CRIU_DEPRECATED")) {
 		pr_msg("Turn deprecated stuff ON via env\n");
@@ -847,6 +852,9 @@ usage:
 "                        this requires running a second instance of criu\n"
 "                        in lazy-pages mode: 'criu lazy-pages -D DIR'\n"
 "                        --lazy-pages and lazy-pages mode require userfaultfd\n"
+"  --check-only          check if checkpointing/restoring will actually work\n"
+"                        the process will keep on running and memory pages\n"
+"                        will not be dumped\n"
 "\n"
 "* External resources support:\n"
 "  --external RES        dump objects from this list as external resources:\n"

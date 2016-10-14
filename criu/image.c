@@ -78,6 +78,12 @@ int check_img_inventory(void)
 		goto out_err;
 	}
 
+	if (!opts.check_only && he->has_check_only)
+		opts.check_only = he->check_only;
+
+	if (opts.check_only)
+		pr_msg("Checking mode enabled\n");
+
 	ret = 0;
 
 out_err:
@@ -122,6 +128,10 @@ int prepare_inventory(InventoryEntry *he)
 	he->has_ns_per_id = true;
 	he->has_lsmtype = true;
 	he->lsmtype = host_lsm_type();
+	if (opts.check_only) {
+		he->has_check_only = true;
+		he->check_only = true;
+	}
 
 	crt.i.pid->state = TASK_ALIVE;
 	crt.i.pid->real = getpid();

@@ -326,6 +326,15 @@ For example, the command line for the above example should look like this:
     option is intended for post-copy (lazy) migration and should be
     used in conjunction with *restore* with appropriate options.
 
+*--check-only*::
+    Check if the checkpoint operation will actually succeed. An almost
+    complete checkpoint of the specified processes will be performed, except
+    that memory pages will not be dumped to disk. The checkpoint will be
+    marked as a *check-only* checkpoint and *criu* will detect during restore
+    that not a full restore should be performed but only a *check-only*
+    restore. In addition to not dumping memory pages, the checkpointed process
+    will continue running.
+
 *restore*
 ~~~~~~~~~
 Restores previously checkpointed processes.
@@ -464,6 +473,18 @@ The 'mode' may be one of the following:
     *none*:::   Ignore capabilities. Most dangerous mode. The behaviour is
                 implementation dependent. Try to not use it until really
                 required.
+
+*--check-only*::
+    Check if the restore operation will actually succeed. If a checkpoint
+    is a *check-only* checkpoint will be automatically detected by *criu*.
+    A *check-only* checkpoint does not include any memory pages in the dump.
+    This option is therefore only required if a normal (not *check-only*)
+    checkpoint should be used to run in *check-only* mode.
+    A restore in *check-only* mode skips copying the memory pages to the
+    restored process but all other steps to verify that the restore would
+    succeed are performed as if it would be a real restore. Just before
+    giving control to the restored process the restore is aborted as the
+    restored process will crash without its memory pages.
 +
 For example, this option can be used in case *--cpu-cap=cpu* was used
 during *dump*, and images are migrated to a less capable CPU and are

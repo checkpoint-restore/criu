@@ -304,6 +304,9 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 	unsigned cpp_flags = 0;
 	unsigned long pmc_size;
 
+	if (opts.check_only)
+		return 0;
+
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, item->pid->real);
 	pr_info("----------------------------------------\n");
@@ -855,6 +858,11 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 	unsigned int nr_compared = 0;
 	unsigned int nr_lazy = 0;
 	unsigned long va;
+
+	if (opts.check_only) {
+		pr->close(pr);
+		return 0;
+	}
 
 	vma = list_first_entry(vmas, struct vma_area, list);
 	rsti(t)->pages_img_id = pr->pages_img_id;

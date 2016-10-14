@@ -1357,10 +1357,11 @@ long __export_restore_task(struct task_restore_args *args)
 	/*
 	 * Proxify vDSO.
 	 */
-	if (vdso_proxify(&args->vdso_maps_rt.sym, args->vdso_rt_parked_at,
-		     args->vmas, args->vmas_n, args->compatible_mode,
-		     fault_injected(FI_VDSO_TRAMPOLINES)))
-		goto core_restore_end;
+	if (!args->check_only)
+		if (vdso_proxify(&args->vdso_maps_rt.sym, args->vdso_rt_parked_at,
+			     args->vmas, args->vmas_n, args->compatible_mode,
+			     fault_injected(FI_VDSO_TRAMPOLINES)))
+			goto core_restore_end;
 #endif
 
 	/*
@@ -1642,6 +1643,13 @@ long __export_restore_task(struct task_restore_args *args)
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE_CREDS);
+
+	if (args->check_only) {
+		pr_info("Restore check was successful.\n");
+		futex_abort_and_wake(&task_entries_local->nr_in_progress);
+		return 0;
+	}
+
 
 	if (ret)
 		BUG();
