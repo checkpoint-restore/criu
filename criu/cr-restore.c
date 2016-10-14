@@ -1972,6 +1972,9 @@ static int restore_root_task(struct pstree_item *init)
 	pr_info("Restore finished successfully. Resuming tasks.\n");
 	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
 
+	if (opts.check_only)
+		goto skip_for_check;
+
 	if (ret == 0)
 		ret = parasite_stop_on_syscall(task_entries->nr_threads,
 			__NR(rt_sigreturn, 0), __NR(rt_sigreturn, 1), flag);
@@ -1986,13 +1989,15 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret)
 		pr_err("Pre-resume script ret code %d\n", ret);
 
+skip_for_check:
 	if (restore_freezer_state())
 		pr_err("Unable to restore freezer state\n");
 
 	fini_cgroup();
 
-	/* Detaches from processes and they continue run through sigreturn. */
-	finalize_restore_detach(ret);
+	if (!opts.check_only)
+		/* Detaches from processes and they continue run through sigreturn. */
+		finalize_restore_detach(ret);
 
 	write_stats(RESTORE_STATS);
 
@@ -3069,6 +3074,9 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		task_args->seccomp_mode = core->tc->seccomp_mode;
 
 	task_args->compatible_mode = core_is_compat(core);
+
+	if (opts.check_only)
+		task_args->check_only = true;
 	/*
 	 * Arguments for task restoration.
 	 */
