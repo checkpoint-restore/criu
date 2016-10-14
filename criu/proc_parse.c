@@ -1197,7 +1197,7 @@ static int parse_mnt_flags(char *opt, unsigned *flags)
 
 	/* Otherwise the kernel assumes RELATIME by default */
 	if ((*flags & (MS_RELATIME | MS_NOATIME)) == 0)
-		*flags = MS_STRICTATIME;
+		*flags |= MS_STRICTATIME;
 
 	return 0;
 }
