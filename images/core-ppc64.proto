@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+import "opts.proto";
+
 message user_ppc64_regs_entry {
 	/* Following is the list of regiters starting at r0. */
 	repeated uint64 gpr		= 1;
@@ -60,8 +62,8 @@ message user_ppc64_tm_regs_entry {
 }
 
 message thread_info_ppc64 {
-	required uint64			 	clear_tid_addr	= 1;
-	required user_ppc64_regs_entry	 	gpregs		= 2;
+	required uint64			 	clear_tid_addr	= 1[(criu).hex = true];
+	required user_ppc64_regs_entry	 	gpregs		= 2[(criu).hex = true];
 	optional user_ppc64_fpstate_entry 	fpstate		= 3;
 	optional user_ppc64_vrstate_entry	vrstate		= 4;
 	optional user_ppc64_vsxstate_entry	vsxstate	= 5;
