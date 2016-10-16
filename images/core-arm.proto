@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+import "opts.proto";
+
 message user_arm_regs_entry {
 	required uint32 r0      = 1;
 	required uint32 r1      = 2;
@@ -30,8 +32,8 @@ message user_arm_vfpstate_entry {
 }
 
 message thread_info_arm {
-	required uint64			 clear_tid_addr	= 1;
+	required uint64			 clear_tid_addr	= 1[(criu).hex = true];
 	required uint32                  tls            = 2;
-	required user_arm_regs_entry	 gpregs		= 3;
+	required user_arm_regs_entry	 gpregs		= 3[(criu).hex = true];
 	required user_arm_vfpstate_entry fpstate	= 4;
 }
