@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+import "opts.proto";
+
 message user_aarch64_regs_entry {
 	repeated uint64 regs	= 1;
 	required uint64 sp	= 2;
@@ -14,8 +16,8 @@ message user_aarch64_fpsimd_context_entry {
 }
 
 message thread_info_aarch64 {
-	required uint64			 		clear_tid_addr	= 1;
+	required uint64			 		clear_tid_addr	= 1[(criu).hex = true];
 	required uint64					tls		= 2;
-	required user_aarch64_regs_entry		gpregs		= 3;
+	required user_aarch64_regs_entry		gpregs		= 3[(criu).hex = true];
 	required user_aarch64_fpsimd_context_entry	fpsimd		= 4;
 }
