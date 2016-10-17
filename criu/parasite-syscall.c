@@ -242,11 +242,11 @@ void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
 	return ctl->addr_args;
 }
 
-static int parasite_execute_trap_by_pid(unsigned int cmd,
-					struct parasite_ctl *ctl, pid_t pid,
-					void *stack,
+static int parasite_run_in_thread(pid_t pid, unsigned int cmd,
+					struct parasite_ctl *ctl,
 					struct thread_ctx *octx)
 {
+	void *stack = ctl->r_thread_stack;
 	user_regs_struct_t regs = octx->regs;
 	int ret;
 
@@ -633,8 +633,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	tc->has_blk_sigset = true;
 	memcpy(&tc->blk_sigset, &octx.sigmask, sizeof(k_rtsigset_t));
 
-	ret = parasite_execute_trap_by_pid(PARASITE_CMD_DUMP_THREAD, ctl,
-			pid, ctl->r_thread_stack, &octx);
+	ret = parasite_run_in_thread(pid, PARASITE_CMD_DUMP_THREAD, ctl, &octx);
 	if (ret) {
 		pr_err("Can't init thread in parasite %d\n", pid);
 		return -1;
