@@ -3,6 +3,7 @@
 
 #define PARASITE_STACK_SIZE	(16 << 10)
 #define PARASITE_ARG_SIZE_MIN	( 1 << 12)
+#define PARASITE_START_AREA_MIN	(4096)
 
 #define PARASITE_MAX_SIZE	(64 << 10)
 

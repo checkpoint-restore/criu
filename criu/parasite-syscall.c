@@ -57,7 +57,7 @@ unsigned long get_exec_start(struct vm_area_list *vmas)
 			continue;
 
 		len = vma_area_len(vma_area);
-		if (len < BUILTIN_SYSCALL_SIZE + MEMFD_FNAME_SZ) {
+		if (len < PARASITE_START_AREA_MIN) {
 			pr_warn("Suspiciously short VMA @%#lx\n", (unsigned long)vma_area->e->start);
 			continue;
 		}
@@ -1165,6 +1165,8 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, unsigned long exec_start)
 		goto err;
 
 	ctl->rpid = pid;
+
+	BUILD_BUG_ON(PARASITE_START_AREA_MIN < BUILTIN_SYSCALL_SIZE + MEMFD_FNAME_SZ);
 
 	ctl->syscall_ip = exec_start;
 	pr_debug("Parasite syscall_ip at %p\n", (void *)ctl->syscall_ip);
