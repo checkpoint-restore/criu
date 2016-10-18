@@ -1,0 +1,8 @@
+arch/x86/plugins/std/sys-exec-tbl-64.c
+arch/x86/plugins/std/syscalls-64.S
+include/version.h
+plugins/include/uapi/std/asm/syscall-types.h
+plugins/include/uapi/std/syscall-64.h
+plugins/include/uapi/std/syscall-codes-64.h
+plugins/include/uapi/std/syscall-codes.h
+plugins/include/uapi/std/syscall.h
