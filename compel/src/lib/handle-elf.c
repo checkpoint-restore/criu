@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdint.h>
 
 #include <fcntl.h>
 
@@ -12,8 +13,6 @@
 #include <sys/mman.h>
 
 #include "uapi/compel.h"
-
-#include "asm-generic/int.h"
 
 #include "handle-elf.h"
 #include "piegen.h"
@@ -147,7 +146,7 @@ int __handle_elf(void *mem, size_t size)
 
 	size_t i, k, nr_gotpcrel = 0;
 #ifdef ELF_PPC64
-	s64 toc_offset = 0;
+	int64_t toc_offset = 0;
 #endif
 	int ret = -EINVAL;
 
@@ -284,8 +283,8 @@ int __handle_elf(void *mem, size_t size)
 			 (unsigned)sh->sh_info, &secstrings[sh->sh_name]);
 
 		for (k = 0; k < sh->sh_size / sh->sh_entsize; k++) {
-			s64 __maybe_unused addend64, __maybe_unused value64;
-			s32 __maybe_unused addend32, __maybe_unused value32;
+			int64_t __maybe_unused addend64, __maybe_unused value64;
+			int32_t __maybe_unused addend32, __maybe_unused value32;
 			unsigned long place;
 			const char *name;
 			void *where;
@@ -331,11 +330,11 @@ int __handle_elf(void *mem, size_t size)
 			}
 
 			if (sh->sh_type == SHT_REL) {
-				addend32 = *(s32 *)where;
-				addend64 = *(s64 *)where;
+				addend32 = *(int32_t *)where;
+				addend64 = *(int64_t *)where;
 			} else {
-				addend32 = (s32)r->rela.r_addend;
-				addend64 = (s64)r->rela.r_addend;
+				addend32 = (int32_t)r->rela.r_addend;
+				addend64 = (int64_t)r->rela.r_addend;
 			}
 
 			place = sh_rel->sh_addr + r->rel.r_offset;
@@ -344,8 +343,8 @@ int __handle_elf(void *mem, size_t size)
 				 (unsigned long)sym->st_value, addend32, (long)addend64, (long)place, name);
 
 			if (sym->st_shndx == SHN_ABS) {
-				value32 = (s32)sym->st_value;
-				value64 = (s64)sym->st_value;
+				value32 = (int32_t)sym->st_value;
+				value64 = (int64_t)sym->st_value;
 			} else {
 				Elf_Shdr *sh_src;
 
@@ -357,8 +356,8 @@ int __handle_elf(void *mem, size_t size)
 				sh_src = sec_hdrs[sym->st_shndx];
 				ptr_func_exit(sh_src);
 
-				value32 = (s32)sh_src->sh_addr + (s32)sym->st_value;
-				value64 = (s64)sh_src->sh_addr + (s64)sym->st_value;
+				value32 = (int32_t)sh_src->sh_addr + (int32_t)sym->st_value;
+				value64 = (int64_t)sh_src->sh_addr + (int64_t)sym->st_value;
 			}
 
 #ifdef ELF_PPC64
@@ -499,18 +498,18 @@ int __handle_elf(void *mem, size_t size)
 				       (unsigned int)place, (long)addend64, (long)value64);
 				break;
 			case R_X86_64_PC32: /* Symbol + Addend - Place (4 bytes) */
-				pr_debug("\t\t\t\tR_X86_64_PC32     at 0x%-4lx val 0x%x\n", place, value32 + addend32 - (s32)place);
+				pr_debug("\t\t\t\tR_X86_64_PC32     at 0x%-4lx val 0x%x\n", place, value32 + addend32 - (int32_t)place);
 				/*
 				 * R_X86_64_PC32 are relative, patch them inplace.
 				 */
-				*((s32 *)where) = value32 + addend32 - place;
+				*((int32_t *)where) = value32 + addend32 - place;
 				break;
 			case R_X86_64_PLT32: /* ProcLinkage + Addend - Place (4 bytes) */
-				pr_debug("\t\t\t\tR_X86_64_PLT32    at 0x%-4lx val 0x%x\n", place, value32 + addend32 - (s32)place);
+				pr_debug("\t\t\t\tR_X86_64_PLT32    at 0x%-4lx val 0x%x\n", place, value32 + addend32 - (int32_t)place);
 				/*
 				 * R_X86_64_PLT32 are relative, patch them inplace.
 				 */
-				*((s32 *)where) = value32 + addend32 - place;
+				*((int32_t *)where) = value32 + addend32 - place;
 				break;
 			case R_X86_64_GOTPCREL: /* SymbolOffsetInGot + GOT + Addend - Place  (4 bytes) */
 				pr_debug("\t\t\t\tR_X86_64_GOTPCREL at 0x%-4lx val 0x%x\n", place, value32);
@@ -529,11 +528,11 @@ int __handle_elf(void *mem, size_t size)
 				       (unsigned int)place, addend32, value32);
 				break;
 			case R_386_PC32: /* Symbol + Addend - Place */
-				pr_debug("\t\t\t\tR_386_PC32 at 0x%-4lx val 0x%x\n", place, value32 + addend32 - (s32)place);
+				pr_debug("\t\t\t\tR_386_PC32 at 0x%-4lx val 0x%x\n", place, value32 + addend32 - (int32_t)place);
 				/*
 				 * R_386_PC32 are relative, patch them inplace.
 				 */
-				*((s32 *)where) = value32 + addend32 - place;
+				*((int32_t *)where) = value32 + addend32 - place;
 				break;
 #endif
 
