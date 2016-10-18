@@ -284,6 +284,10 @@ Restores previously checkpointed processes.
 *-d*, *--restore-detached*::
     Detach *criu* itself once restore is complete.
 
+*-s*, *--leave-stopped*::
+    Leave tasks in stopped state after restore (rather than resuming
+    their execution).
+
 *-S*, *--restore-sibling*::
     Restore root task as a sibling (makes sense only with
     *--restore-detached*).
