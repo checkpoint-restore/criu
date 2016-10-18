@@ -19,6 +19,8 @@ lib-y			+= arch/$(ARCH)/src/lib/handle-elf.o
 host-lib-y		+= arch/$(ARCH)/src/lib/handle-elf.o
 lib-y			+= src/lib/handle-elf.o
 host-lib-y		+= src/lib/handle-elf.o
+lib-y			+= src/lib/log.o
+host-lib-y		+= src/lib/log.o
 
 ifeq ($(ARCH),x86)
 lib-y			+= src/lib/handle-elf-32.o
