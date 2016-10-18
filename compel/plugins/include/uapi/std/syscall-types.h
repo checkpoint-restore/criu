@@ -10,21 +10,20 @@
 #include <sys/time.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <stdint.h>
 #include <sched.h>
 #include <fcntl.h>
 #include <time.h>
 
-#include "int.h"
-
 struct cap_header {
-	u32 version;
+	uint32_t version;
 	int pid;
 };
 
 struct cap_data {
-	u32 eff;
-	u32 prm;
-	u32 inh;
+	uint32_t eff;
+	uint32_t prm;
+	uint32_t inh;
 };
 
 struct robust_list_head;
