@@ -12,8 +12,11 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
+#include "uapi/compel/compel.h"
+
 #include "version.h"
 #include "piegen.h"
+#include "log.h"
 
 #define CFLAGS_DEFAULT_SET					\
 	"-Wstrict-prototypes "					\
@@ -81,14 +84,18 @@ err:
 	return ret;
 }
 
+static void cli_log(unsigned int lvl, const char *fmt, va_list parms)
+{
+	if (!pr_quelled(lvl))
+		vprintf(fmt, parms);
+}
+
 int main(int argc, char *argv[])
 {
 	const char *current_cflags = NULL;
+	int log_level = DEFAULT_LOGLEVEL;
 	int opt, idx, i;
 	char *action;
-
-	opts.fdebug = stdout;
-	opts.ferr = stderr;
 
 	typedef struct {
 		const char	*arch;
@@ -114,7 +121,7 @@ int main(int argc, char *argv[])
 		},
 	};
 
-	static const char short_opts[] = "a:f:o:s:p:v:r:u:hV";
+	static const char short_opts[] = "a:f:o:s:p:v:r:u:hVl:";
 	static struct option long_opts[] = {
 		{ "arch",	required_argument,	0, 'a' },
 		{ "file",	required_argument,	0, 'f' },
@@ -126,6 +133,7 @@ int main(int argc, char *argv[])
 		{ "pcrelocs",	required_argument,	0, 'r' },
 		{ "help",	required_argument,	0, 'h' },
 		{ "version",	no_argument,		0, 'V' },
+		{ "log-level",	required_argument,	0, 'l' },
 		{ },
 	};
 
@@ -170,6 +178,9 @@ int main(int argc, char *argv[])
 		case 'r':
 			opts.nrgotpcrel_name = optarg;
 			break;
+		case 'l':
+			break;
+			log_level = atoi(optarg);
 		case 'h':
 			goto usage;
 		case 'V':
@@ -204,6 +215,7 @@ int main(int argc, char *argv[])
 	if (!strcmp(action, "piegen")) {
 		if (!opts.input_filename)
 			goto usage;
+		compel_log_init(&cli_log, log_level);
 		return piegen();
 	}
 

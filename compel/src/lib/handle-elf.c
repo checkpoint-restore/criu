@@ -16,6 +16,7 @@
 
 #include "handle-elf.h"
 #include "piegen.h"
+#include "log.h"
 
 /* Check if pointer is out-of-bound */
 static bool __ptr_oob(const uintptr_t ptr, const uintptr_t start, const size_t size)

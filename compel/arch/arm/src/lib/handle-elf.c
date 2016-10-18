@@ -4,6 +4,7 @@
 
 #include "handle-elf.h"
 #include "piegen.h"
+#include "log.h"
 
 static const unsigned char __maybe_unused
 elf_ident_32[EI_NIDENT] = {
