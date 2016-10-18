@@ -207,7 +207,7 @@ $(eval $(call gen-built-in,images))
 SOCCR_A := soccr/libsoccr.a
 SOCCR_CONFIG := $(SRC_DIR)/soccr/config.h
 $(SOCCR_CONFIG): $(CONFIG_HEADER)
-	$(Q) ln -s ../$(CONFIG_HEADER_REL) $@
+	$(Q) test -f $@ || ln -s ../$(CONFIG_HEADER_REL) $@
 soccr/%: $(SOCCR_CONFIG) .FORCE
 	$(Q) $(MAKE) $(build)=soccr $@
 soccr/built-in.o: $(SOCCR_CONFIG) .FORCE
