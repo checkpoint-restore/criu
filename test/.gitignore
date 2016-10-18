@@ -13,3 +13,4 @@
 /stats-restore
 /zdtm_mount_cgroups.lock
 /compel/handle_binary
+/umount2
