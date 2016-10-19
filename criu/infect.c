@@ -581,11 +581,11 @@ static int parasite_start_daemon(struct parasite_ctl *ctl)
 
 	/*
 	 * Get task registers before going daemon, since the
-	 * get_task_regs needs to call ptrace on _stopped_ task,
+	 * compel_get_task_regs needs to call ptrace on _stopped_ task,
 	 * while in daemon it is not such.
 	 */
 
-	if (get_task_regs(pid, ctl->orig.regs, ictx->save_regs, ictx->regs_arg)) {
+	if (compel_get_task_regs(pid, ctl->orig.regs, ictx->save_regs, ictx->regs_arg)) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		return -1;
 	}

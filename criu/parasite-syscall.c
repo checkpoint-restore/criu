@@ -243,7 +243,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 		return -1;
 	}
 
-	ret = get_task_regs(pid, octx.regs, save_task_regs, core);
+	ret = compel_get_task_regs(pid, octx.regs, save_task_regs, core);
 	if (ret) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		return -1;
