@@ -1,6 +1,10 @@
 #!/bin/sh
 set -x -e
 
+TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c0-dev libaio-dev
+		libprotobuf-dev protobuf-compiler python-ipaddr libcap-dev
+		libnl-3-dev gdb bash python-protobuf"
+
 travis_prep () {
 	[ -n "$SKIP_TRAVIS_PREP" ] && return
 
@@ -9,9 +13,7 @@ travis_prep () {
 	service apport stop
 
 	apt-get update -qq
-	apt-get install -qq protobuf-c-compiler libprotobuf-c0-dev libaio-dev	\
-		libprotobuf-dev protobuf-compiler python-ipaddr libcap-dev	\
-		libnl-3-dev gdb bash python-protobuf
+	apt-get install -qq $TRAVIS_PKGS
 		if [ "$CLANG" = "1" ]; then
 			apt-get install -qq clang
 			MAKE_VARS=CC=clang
