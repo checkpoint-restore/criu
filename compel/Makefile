@@ -22,6 +22,8 @@ host-lib-y		+= src/lib/handle-elf.o
 lib-y			+= src/lib/log.o
 host-lib-y		+= src/lib/log.o
 
+lib-y			+= arch/$(ARCH)/src/lib/cpu.o
+
 ifeq ($(ARCH),x86)
 lib-y			+= src/lib/handle-elf-32.o
 host-lib-y		+= src/lib/handle-elf-32.o

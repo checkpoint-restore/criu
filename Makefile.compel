@@ -33,6 +33,7 @@ compel-uapi-links	+= $(SRC_DIR)/compel/include/asm
 compel-deps		+= $(compel-uapi-links)
 compel-deps		+= $(COMPEL_VERSION_HEADER)
 compel-deps		+= $(CONFIG_HEADER)
+compel-deps		+= include/common/asm
 
 #
 # Compel itself.

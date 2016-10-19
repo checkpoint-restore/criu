@@ -2,6 +2,8 @@
 #include <unistd.h>
 
 #include "types.h"
+#include <compel/asm/processor-flags.h>
+
 #include "asm/restorer.h"
 #include "common/compiler.h"
 #include "asm/dump.h"
