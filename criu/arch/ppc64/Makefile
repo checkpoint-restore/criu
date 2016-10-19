@@ -8,3 +8,4 @@ ccflags-y		+= -iquote $(SRC_DIR)/compel/include
 obj-y			+= cpu.o
 obj-y			+= crtools.o
 obj-y			+= sigframe.o
+obj-y			+= infect.o
