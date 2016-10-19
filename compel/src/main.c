@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 		},
 	};
 
-	static const char short_opts[] = "a:f:o:s:p:v:r:u:h";
+	static const char short_opts[] = "a:f:o:s:p:v:r:u:hV";
 	static struct option long_opts[] = {
 		{ "arch",	required_argument,	0, 'a' },
 		{ "file",	required_argument,	0, 'f' },
@@ -126,6 +126,7 @@ int main(int argc, char *argv[])
 		{ "variable",	required_argument,	0, 'v' },
 		{ "pcrelocs",	required_argument,	0, 'r' },
 		{ "help",	required_argument,	0, 'h' },
+		{ "version",	no_argument,		0, 'V' },
 		{ },
 	};
 
@@ -172,6 +173,13 @@ int main(int argc, char *argv[])
 			break;
 		case 'h':
 			goto usage;
+		case 'V':
+			printf("Version: %d.%d.%d\n",
+			       COMPEL_SO_VERSION_MAJOR,
+			       COMPEL_SO_VERSION_MINOR,
+			       COMPEL_SO_VERSION_SUBLEVEL);
+			exit(0);
+			break;
 		default:
 			break;
 		}
