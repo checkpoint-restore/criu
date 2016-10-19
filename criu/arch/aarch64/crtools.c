@@ -18,7 +18,6 @@
 #include "cpu.h"
 #include "restorer.h"
 #include "infect.h"
-#include "infect-priv.h"
 
 void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
 {
