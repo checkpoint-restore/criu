@@ -83,41 +83,6 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))((src)->ARM_##e)
 
-#define PTRACE_GETVFPREGS 27
-int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
-{
-	user_fpregs_struct_t vfp;
-	int ret = -1;
-
-	pr_info("Dumping GP/FPU registers for %d\n", pid);
-
-	if (ptrace(PTRACE_GETVFPREGS, pid, NULL, &vfp)) {
-		pr_perror("Can't obtain FPU registers for %d", pid);
-		goto err;
-	}
-
-	/* Did we come from a system call? */
-	if ((int)regs.ARM_ORIG_r0 >= 0) {
-		/* Restart the system call */
-		switch ((long)(int)regs.ARM_r0) {
-		case -ERESTARTNOHAND:
-		case -ERESTARTSYS:
-		case -ERESTARTNOINTR:
-			regs.ARM_r0 = regs.ARM_ORIG_r0;
-			regs.ARM_pc -= 4;
-			break;
-		case -ERESTART_RESTARTBLOCK:
-			regs.ARM_r0 = __NR_restart_syscall;
-			regs.ARM_pc -= 4;
-			break;
-		}
-	}
-
-	ret = save(arg, &regs, &vfp);
-err:
-	return ret;
-}
-
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	CoreEntry *core = x;
