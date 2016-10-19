@@ -9,7 +9,8 @@
 #include "asm/cpu.h"
 #include "kerndat.h"
 
-#include "compel/include/asm/processor-flags.h"
+#include <compel/asm/processor-flags.h>
+#include <compel/cpu.h>
 #include "compel/include/errno.h"
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/plugins/std/syscall.h>

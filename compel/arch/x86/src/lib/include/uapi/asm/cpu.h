@@ -1,7 +1,7 @@
 #ifndef __CR_ASM_CPU_H__
 #define __CR_ASM_CPU_H__
 
-#include "asm/types.h"
+#include <stdint.h>
 
 /*
  * Adopted from linux kernel and enhanced from Intel/AMD manuals.
@@ -176,8 +176,6 @@ static inline unsigned int cpuid_edx(unsigned int op)
 	return edx;
 }
 
-#define X86_FEATURE_VERSION		1
-
 enum {
 	X86_VENDOR_INTEL	= 0,
 	X86_VENDOR_AMD		= 1,
@@ -186,22 +184,17 @@ enum {
 };
 
 struct cpuinfo_x86 {
-	u8			x86_family;
-	u8			x86_vendor;
-	u8			x86_model;
-	u8			x86_mask;
-	u32			x86_capability[NCAPINTS];
-	u32			extended_cpuid_level;
+	uint8_t			x86_family;
+	uint8_t			x86_vendor;
+	uint8_t			x86_model;
+	uint8_t			x86_mask;
+	uint32_t		x86_capability[NCAPINTS];
+	uint32_t		extended_cpuid_level;
 	int			cpuid_level;
 	char			x86_vendor_id[16];
 	char			x86_model_id[64];
 };
 
-extern bool cpu_has_feature(unsigned int feature);
-extern int cpu_init(void);
-extern int cpu_dump_cpuinfo(void);
-extern int cpu_validate_cpuinfo(void);
-extern int cpuinfo_dump(void);
-extern int cpuinfo_check(void);
+typedef struct cpuinfo_x86 compel_cpuinfo_t;
 
-#endif /* __CR_CPU_H__ */
+#endif /* __CR_ASM_CPU_H__ */
