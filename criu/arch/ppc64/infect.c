@@ -19,6 +19,20 @@
 #define NT_PPC_TM_SPR   0x10c           /* TM Special Purpose Registers */
 #endif
 
+/*
+ * Injected syscall instruction
+ */
+const u32 code_syscall[] = {
+	0x44000002,		/* sc 		*/
+	0x0fe00000		/* twi 31,0,0	*/
+};
+
+static inline void __check_code_syscall(void)
+{
+	BUILD_BUG_ON(sizeof(code_syscall) != BUILTIN_SYSCALL_SIZE);
+	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
+}
+
 /* This is the layout of the POWER7 VSX registers and the way they
  * overlap with the existing FPR and VMX registers.
  *
@@ -240,4 +254,44 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, v
 		return ret;
 
 	return save(arg, &regs, &fpregs);
+}
+
+int compel_syscall(struct parasite_ctl *ctl, int nr, unsigned long *ret,
+		unsigned long arg1,
+		unsigned long arg2,
+		unsigned long arg3,
+		unsigned long arg4,
+		unsigned long arg5,
+		unsigned long arg6)
+{
+	user_regs_struct_t regs = ctl->orig.regs;
+	int err;
+
+	regs.gpr[0] = (unsigned long)nr;
+	regs.gpr[3] = arg1;
+	regs.gpr[4] = arg2;
+	regs.gpr[5] = arg3;
+	regs.gpr[6] = arg4;
+	regs.gpr[7] = arg5;
+	regs.gpr[8] = arg6;
+
+	err = compel_execute_syscall(ctl, &regs, (char*)code_syscall);
+
+	*ret = regs.gpr[3];
+	return err;
+}
+
+void *remote_mmap(struct parasite_ctl *ctl,
+		  void *addr, size_t length, int prot,
+		  int flags, int fd, off_t offset)
+{
+	unsigned long map = 0;
+	int err;
+
+	err = compel_syscall(ctl, __NR_mmap, &map,
+			(unsigned long)addr, length, prot, flags, fd, offset);
+	if (err < 0 || (long)map < 0)
+		map = 0;
+
+	return (void *)map;
 }

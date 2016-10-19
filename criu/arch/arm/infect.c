@@ -10,6 +10,23 @@
 #include "infect.h"
 #include "infect-priv.h"
 
+/*
+ * Injected syscall instruction
+ */
+const char code_syscall[] = {
+	0x00, 0x00, 0x00, 0xef,         /* SVC #0  */
+	0xf0, 0x01, 0xf0, 0xe7          /* UDF #32 */
+};
+
+static const int
+code_syscall_aligned = round_up(sizeof(code_syscall), sizeof(long));
+
+static inline __always_unused void __check_code_syscall(void)
+{
+	BUILD_BUG_ON(code_syscall_aligned != BUILTIN_SYSCALL_SIZE);
+	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
+}
+
 #define PTRACE_GETVFPREGS 27
 int compel_get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
 {
@@ -43,5 +60,48 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, v
 	ret = save(arg, &regs, &vfp);
 err:
 	return ret;
+}
+
+int compel_syscall(struct parasite_ctl *ctl, int nr, unsigned long *ret,
+		unsigned long arg1,
+		unsigned long arg2,
+		unsigned long arg3,
+		unsigned long arg4,
+		unsigned long arg5,
+		unsigned long arg6)
+{
+	user_regs_struct_t regs = ctl->orig.regs;
+	int err;
+
+	regs.ARM_r7 = (unsigned long)nr;
+	regs.ARM_r0 = arg1;
+	regs.ARM_r1 = arg2;
+	regs.ARM_r2 = arg3;
+	regs.ARM_r3 = arg4;
+	regs.ARM_r4 = arg5;
+	regs.ARM_r5 = arg6;
+
+	err = compel_execute_syscall(ctl, &regs, code_syscall);
+
+	*ret = regs.ARM_r0;
+	return err;
+}
+
+void *remote_mmap(struct parasite_ctl *ctl,
+		  void *addr, size_t length, int prot,
+		  int flags, int fd, off_t offset)
+{
+	unsigned long map;
+	int err;
+
+	if (offset & ~PAGE_MASK)
+		return 0;
+
+	err = compel_syscall(ctl, __NR_mmap2, &map,
+			(unsigned long)addr, length, prot, flags, fd, offset >> 12);
+	if (err < 0 || map > kdat.task_size)
+		map = 0;
+
+	return (void *)map;
 }
 

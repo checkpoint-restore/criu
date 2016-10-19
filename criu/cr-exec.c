@@ -98,7 +98,7 @@ static int execute_syscall(struct parasite_ctl *ctl,
 	pr_info("Calling %d with %lu %lu %lu %lu %lu %lu\n", scd->nr,
 			args[0], args[1], args[2], args[3], args[4], args[5]);
 
-	err = syscall_seized(ctl, scd->nr, &ret,
+	err = compel_syscall(ctl, scd->nr, &ret,
 			args[0], args[1], args[2], args[3], args[4], args[5]);
 	if (err)
 		return err;
