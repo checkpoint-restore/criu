@@ -25,20 +25,6 @@
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
 
-/*
- * Injected syscall instruction
- */
-const u32 code_syscall[] = {
-	0x44000002,		/* sc 		*/
-	0x0fe00000		/* twi 31,0,0	*/
-};
-
-static inline void __always_unused __check_code_syscall(void)
-{
-	BUILD_BUG_ON(sizeof(code_syscall) != BUILTIN_SYSCALL_SIZE);
-	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
-}
-
 void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
 {
 	/*
@@ -58,31 +44,6 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 	 * TODO: We should detect 32bit task when BE support is done.
 	 */
 	return true;
-}
-
-int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
-		unsigned long arg1,
-		unsigned long arg2,
-		unsigned long arg3,
-		unsigned long arg4,
-		unsigned long arg5,
-		unsigned long arg6)
-{
-	user_regs_struct_t regs = ctl->orig.regs;
-	int err;
-
-	regs.gpr[0] = (unsigned long)nr;
-	regs.gpr[3] = arg1;
-	regs.gpr[4] = arg2;
-	regs.gpr[5] = arg3;
-	regs.gpr[6] = arg4;
-	regs.gpr[7] = arg5;
-	regs.gpr[8] = arg6;
-
-	err = compel_execute_syscall(ctl, &regs, (char*)code_syscall);
-
-	*ret = regs.gpr[3];
-	return err;
 }
 
 static UserPpc64FpstateEntry *copy_fp_regs(uint64_t *fpregs)
@@ -564,19 +525,4 @@ int restore_gpregs(struct rt_sigframe *f, UserPpc64RegsEntry *r)
 	restore_gp_regs(&f->uc.uc_mcontext, r);
 
 	return 0;
-}
-
-void *mmap_seized(struct parasite_ctl *ctl,
-		  void *addr, size_t length, int prot,
-		  int flags, int fd, off_t offset)
-{
-	unsigned long map = 0;
-	int err;
-
-	err = syscall_seized(ctl, __NR_mmap, &map,
-			(unsigned long)addr, length, prot, flags, fd, offset);
-	if (err < 0 || (long)map < 0)
-		map = 0;
-
-	return (void *)map;
 }

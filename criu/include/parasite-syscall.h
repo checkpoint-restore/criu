@@ -64,11 +64,6 @@ extern struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int
 extern int parasite_init_threads_seized(struct parasite_ctl *ctl, struct pstree_item *item);
 extern int parasite_fini_threads_seized(struct parasite_ctl *ctl);
 
-extern int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
-			  unsigned long arg1, unsigned long arg2,
-			  unsigned long arg3, unsigned long arg4,
-			  unsigned long arg5, unsigned long arg6);
-
 extern bool arch_can_dump_task(struct parasite_ctl *ctl);
 
 #endif /* __CR_PARASITE_SYSCALL_H__ */

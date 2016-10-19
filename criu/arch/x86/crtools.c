@@ -32,31 +32,6 @@
 #include "images/creds.pb-c.h"
 
 /*
- * Injected syscall instruction
- */
-const char code_syscall[] = {
-	0x0f, 0x05,				/* syscall    */
-	0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc	/* int 3, ... */
-};
-
-const char code_int_80[] = {
-	0xcd, 0x80,				/* int $0x80  */
-	0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc	/* int 3, ... */
-};
-
-static const int
-code_syscall_aligned = round_up(sizeof(code_syscall), sizeof(long));
-static const int
-code_int_80_aligned = round_up(sizeof(code_syscall), sizeof(long));
-
-static inline __always_unused void __check_code_syscall(void)
-{
-	BUILD_BUG_ON(code_int_80_aligned != BUILTIN_SYSCALL_SIZE);
-	BUILD_BUG_ON(code_syscall_aligned != BUILTIN_SYSCALL_SIZE);
-	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
-}
-
-/*
  * regs must be inited when calling this function from original context
  */
 void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
@@ -144,47 +119,6 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 	}
 
 	return true;
-}
-
-int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
-		unsigned long arg1,
-		unsigned long arg2,
-		unsigned long arg3,
-		unsigned long arg4,
-		unsigned long arg5,
-		unsigned long arg6)
-{
-	user_regs_struct_t regs = ctl->orig.regs;
-	int err;
-
-	if (user_regs_native(&regs)) {
-		user_regs_struct64 *r = &regs.native;
-
-		r->ax  = (uint64_t)nr;
-		r->di  = arg1;
-		r->si  = arg2;
-		r->dx  = arg3;
-		r->r10 = arg4;
-		r->r8  = arg5;
-		r->r9  = arg6;
-
-		err = compel_execute_syscall(ctl, &regs, code_syscall);
-	} else {
-		user_regs_struct32 *r = &regs.compat;
-
-		r->ax  = (uint32_t)nr;
-		r->bx  = arg1;
-		r->cx  = arg2;
-		r->dx  = arg3;
-		r->si  = arg4;
-		r->di  = arg5;
-		r->bp  = arg6;
-
-		err = compel_execute_syscall(ctl, &regs, code_int_80);
-	}
-
-	*ret = get_user_reg(&regs, ax);
-	return err;
 }
 
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
@@ -546,29 +480,6 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 #undef assign_array
 
 	return 0;
-}
-
-void *mmap_seized(struct parasite_ctl *ctl,
-		  void *addr, size_t length, int prot,
-		  int flags, int fd, off_t offset)
-{
-	unsigned long map;
-	int err;
-	bool compat_task = !user_regs_native(&ctl->orig.regs);
-
-	err = syscall_seized(ctl, __NR(mmap, compat_task), &map,
-			(unsigned long)addr, length, prot, flags, fd, offset);
-	if (err < 0)
-		return NULL;
-
-	if (IS_ERR_VALUE(map)) {
-		if (map == -EACCES && (prot & PROT_WRITE) && (prot & PROT_EXEC))
-			pr_warn("mmap(PROT_WRITE | PROT_EXEC) failed for %d, "
-				"check selinux execmem policy\n", ctl->rpid);
-		return NULL;
-	}
-
-	return (void *)map;
 }
 
 #ifdef CONFIG_X86_64

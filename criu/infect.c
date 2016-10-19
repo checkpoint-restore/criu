@@ -603,7 +603,7 @@ static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
 {
 	int fd;
 
-	ctl->remote_map = mmap_seized(ctl, NULL, size,
+	ctl->remote_map = remote_mmap(ctl, NULL, size,
 				      PROT_READ | PROT_WRITE | PROT_EXEC,
 				      MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 	if (!ctl->remote_map) {
@@ -650,13 +650,13 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 		return -1;
 	}
 
-	ret = syscall_seized(ctl, __NR(memfd_create, compat_task), &sret,
+	ret = compel_syscall(ctl, __NR(memfd_create, compat_task), &sret,
 			     (unsigned long)where, 0, 0, 0, 0, 0);
 
 	if (ptrace_poke_area(pid, orig_code, where, sizeof(orig_code))) {
 		fd = (int)(long)sret;
 		if (fd >= 0)
-			syscall_seized(ctl, __NR(close, compat_task), &sret,
+			compel_syscall(ctl, __NR(close, compat_task), &sret,
 					fd, 0, 0, 0, 0, 0);
 		pr_err("Can't restore memfd args (pid: %d)\n", pid);
 		return -1;
@@ -681,7 +681,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 		goto err_cure;
 	}
 
-	ctl->remote_map = mmap_seized(ctl, NULL, size,
+	ctl->remote_map = remote_mmap(ctl, NULL, size,
 				      PROT_READ | PROT_WRITE | PROT_EXEC,
 				      MAP_FILE | MAP_SHARED, fd, 0);
 	if (!ctl->remote_map) {
@@ -697,7 +697,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 		goto err_curef;
 	}
 
-	syscall_seized(ctl, __NR(close, compat_task), &sret, fd, 0, 0, 0, 0, 0);
+	compel_syscall(ctl, __NR(close, compat_task), &sret, fd, 0, 0, 0, 0, 0);
 	close(lfd);
 
 	pr_info("Set up parasite blob using memfd\n");
@@ -706,7 +706,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 err_curef:
 	close(lfd);
 err_cure:
-	syscall_seized(ctl, __NR(close, compat_task), &sret, fd, 0, 0, 0, 0, 0);
+	compel_syscall(ctl, __NR(close, compat_task), &sret, fd, 0, 0, 0, 0, 0);
 	return -1;
 }
 
@@ -964,7 +964,7 @@ int compel_cure_remote(struct parasite_ctl *ctl)
 	} else {
 		unsigned long ret;
 
-		syscall_seized(ctl, __NR(munmap, !compel_mode_native(ctl)), &ret,
+		compel_syscall(ctl, __NR(munmap, !compel_mode_native(ctl)), &ret,
 				(unsigned long)ctl->remote_map, ctl->map_length,
 				0, 0, 0, 0);
 		if (ret) {
