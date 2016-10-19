@@ -25,7 +25,6 @@
 #include "uapi/std/syscall-codes.h"
 #include "kerndat.h"
 #include "infect.h"
-#include "infect-priv.h"
 
 #include "protobuf.h"
 #include "images/core.pb-c.h"
