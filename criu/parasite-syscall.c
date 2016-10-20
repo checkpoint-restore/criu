@@ -36,7 +36,7 @@
 #include <stdlib.h>
 #include <elf.h>
 
-#include "asm/dump.h"
+#include "dump.h"
 #include "restorer.h"
 #include "pie/pie-relocs.h"
 

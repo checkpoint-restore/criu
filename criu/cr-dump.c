@@ -81,8 +81,7 @@
 #include "seccomp.h"
 #include "seize.h"
 #include "fault-injection.h"
-
-#include "asm/dump.h"
+#include "dump.h"
 
 static char loc_buf[PAGE_SIZE];
 
