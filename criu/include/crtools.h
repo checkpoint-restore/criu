@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-#include "list.h"
+#include "common/list.h"
 #include "asm/types.h"
 #include "servicefd.h"
 

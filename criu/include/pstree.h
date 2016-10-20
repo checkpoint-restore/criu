@@ -1,7 +1,7 @@
 #ifndef __CR_PSTREE_H__
 #define __CR_PSTREE_H__
 
-#include "list.h"
+#include "common/list.h"
 #include "pid.h"
 #include "images/core.pb-c.h"
 

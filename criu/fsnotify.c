@@ -35,7 +35,7 @@
 #include "files-reg.h"
 #include "file-ids.h"
 #include "log.h"
-#include "list.h"
+#include "common/list.h"
 #include "lock.h"
 #include "irmap.h"
 #include "cr_options.h"

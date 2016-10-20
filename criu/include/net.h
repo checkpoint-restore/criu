@@ -1,7 +1,7 @@
 #ifndef __CR_NET_H__
 #define __CR_NET_H__
 
-#include "list.h"
+#include "common/list.h"
 
 struct cr_imgset;
 extern int dump_net_ns(int ns_id);

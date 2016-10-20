@@ -33,7 +33,7 @@
 #include "images/siginfo.pb-c.h"
 
 #include "asm/types.h"
-#include "list.h"
+#include "common/list.h"
 #include "imgset.h"
 #include "file-ids.h"
 #include "kcmp-ids.h"

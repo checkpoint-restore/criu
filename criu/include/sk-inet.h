@@ -5,7 +5,7 @@
 
 #include "sockets.h"
 #include "files.h"
-#include "list.h"
+#include "common/list.h"
 #include "protobuf.h"
 #include "images/sk-inet.pb-c.h"
 

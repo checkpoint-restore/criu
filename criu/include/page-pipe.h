@@ -2,7 +2,7 @@
 #define __CR_PAGE_PIPE_H__
 
 #include <sys/uio.h>
-#include "list.h"
+#include "common/list.h"
 
 /*
  * page_pipe is a descriptor of task's virtual memory

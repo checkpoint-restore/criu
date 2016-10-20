@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <ftw.h>
 #include <libgen.h>
-#include "list.h"
+#include "common/list.h"
 #include "xmalloc.h"
 #include "cgroup.h"
 #include "cgroup-props.h"

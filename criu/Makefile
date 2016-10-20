@@ -10,6 +10,7 @@ export ARCH_DIR PIE_DIR
 # General flags.
 ccflags-y		+= -fno-strict-aliasing
 ccflags-y		+= -iquote $(SRC_DIR)/criu/include
+ccflags-y		+= -iquote $(SRC_DIR)/include
 ccflags-y		+= -iquote $(SRC_DIR)/images
 ccflags-y		+= -iquote $(SRC_DIR)/criu/pie
 ccflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)

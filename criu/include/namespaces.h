@@ -3,7 +3,7 @@
 
 #include "compiler.h"
 #include "files.h"
-#include "list.h"
+#include "common/list.h"
 
 #ifndef CLONE_NEWNS
 #define CLONE_NEWNS	0x00020000

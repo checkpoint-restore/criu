@@ -10,7 +10,7 @@
 #include "compiler.h"
 #include "xmalloc.h"
 #include "plugin.h"
-#include "list.h"
+#include "common/list.h"
 #include "log.h"
 
 cr_plugin_ctl_t cr_plugin_ctl = {

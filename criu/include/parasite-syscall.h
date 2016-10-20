@@ -3,7 +3,7 @@
 
 #include "asm/types.h"
 #include "pid.h"
-#include "list.h"
+#include "common/list.h"
 #include "config.h"
 
 #define BUILTIN_SYSCALL_SIZE	8

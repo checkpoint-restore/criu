@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#include "list.h"
+#include "common/list.h"
 
 /*
  * CPU capability options.

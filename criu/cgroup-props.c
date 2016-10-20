@@ -15,7 +15,7 @@
 #include "xmalloc.h"
 #include "string.h"
 #include "util.h"
-#include "list.h"
+#include "common/list.h"
 #include "log.h"
 #include "bug.h"
 

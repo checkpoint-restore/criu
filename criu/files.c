@@ -18,7 +18,7 @@
 #include "files-reg.h"
 #include "file-lock.h"
 #include "image.h"
-#include "list.h"
+#include "common/list.h"
 #include "rst-malloc.h"
 #include "util-pie.h"
 #include "lock.h"

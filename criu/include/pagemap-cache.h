@@ -5,7 +5,7 @@
 #include "asm/page.h"
 #include "asm/int.h"
 
-#include "list.h"
+#include "common/list.h"
 
 struct vma_area;
 

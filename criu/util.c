@@ -37,7 +37,7 @@
 
 #include "compiler.h"
 #include "asm/types.h"
-#include "list.h"
+#include "common/list.h"
 #include "util.h"
 #include "rst-malloc.h"
 #include "image.h"

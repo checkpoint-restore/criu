@@ -3,7 +3,7 @@
 
 #include "criu-plugin.h"
 #include "compiler.h"
-#include "list.h"
+#include "common/list.h"
 
 #define CR_PLUGIN_DEFAULT "/var/lib/criu/"
 

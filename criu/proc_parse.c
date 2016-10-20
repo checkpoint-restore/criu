@@ -11,7 +11,7 @@
 #include <linux/fs.h>
 
 #include "asm/types.h"
-#include "list.h"
+#include "common/list.h"
 #include "util.h"
 #include "mount.h"
 #include "filesystems.h"

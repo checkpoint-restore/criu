@@ -10,7 +10,7 @@
 #include "bug.h"
 #include "log.h"
 #include "bfd.h"
-#include "list.h"
+#include "common/list.h"
 #include "util.h"
 #include "xmalloc.h"
 #include "asm/page.h"

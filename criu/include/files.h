@@ -7,7 +7,7 @@
 #include "asm/types.h"
 #include "fcntl.h"
 #include "lock.h"
-#include "list.h"
+#include "common/list.h"
 #include "pid.h"
 #include "rst_info.h"
 

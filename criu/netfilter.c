@@ -7,7 +7,7 @@
 
 #include "asm/types.h"
 #include "util.h"
-#include "list.h"
+#include "common/list.h"
 #include "files.h"
 #include "netfilter.h"
 #include "sockets.h"

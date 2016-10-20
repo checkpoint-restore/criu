@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 #include "cr_options.h"
-#include "list.h"
+#include "common/list.h"
 #include "xmalloc.h"
 #include "log.h"
 #include "servicefd.h"

@@ -3,7 +3,7 @@
 
 #include "asm/types.h"
 #include "image.h"
-#include "list.h"
+#include "common/list.h"
 
 #include "images/vma.pb-c.h"
 

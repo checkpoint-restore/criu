@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <stdbool.h>
 
-#include "list.h"
+#include "common/list.h"
 #include "pid.h"
 #include "shmem.h"
 #include "image.h"

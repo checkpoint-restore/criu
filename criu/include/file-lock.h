@@ -1,7 +1,7 @@
 #ifndef __FILE_LOCK_H__
 #define __FILE_LOCK_H__
 
-#include "list.h"
+#include "common/list.h"
 
 #include "protobuf.h"
 #include "images/file-lock.pb-c.h"

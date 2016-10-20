@@ -4,7 +4,7 @@
 #include <sys/types.h>
 
 #include "asm/types.h"
-#include "list.h"
+#include "common/list.h"
 
 struct proc_mountinfo;
 struct pstree_item;

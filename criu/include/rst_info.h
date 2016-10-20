@@ -2,7 +2,7 @@
 #define __CR_RST_INFO_H__
 
 #include "lock.h"
-#include "list.h"
+#include "common/list.h"
 #include "vma.h"
 
 struct task_entries {

@@ -22,7 +22,7 @@
 #include "servicefd.h"
 #include "rst-malloc.h"
 #include "log.h"
-#include "list.h"
+#include "common/list.h"
 #include "util-pie.h"
 #include "proc_parse.h"
 #include "file-ids.h"
