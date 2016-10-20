@@ -39,8 +39,7 @@ LIST_HEAD(binfmt_misc_list);
 
 static int binfmt_misc_parse(struct mount_info *pm)
 {
-	if (pm->nsid->type == NS_ROOT)
-		opts.has_binfmt_misc = true;
+	opts.has_binfmt_misc = true;
 	return 0;
 
 }
