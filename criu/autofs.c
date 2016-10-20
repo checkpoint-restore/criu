@@ -4,6 +4,7 @@
 #include <sys/mount.h>
 #include <sys/wait.h>
 
+#include "int.h"
 #include "fdinfo.h"
 #include "autofs.h"
 #include "rst-malloc.h"

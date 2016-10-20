@@ -4,6 +4,7 @@
 #include <asm/ptrace.h>
 #include <asm/elf.h>
 #include <asm/types.h>
+#include "asm/types.h"
 
 /*
  * sigcontext structure defined in file

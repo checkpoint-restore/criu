@@ -9,7 +9,6 @@
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
-#include "parasite-syscall.h"
 #include "log.h"
 #include "util.h"
 #include "cpu.h"

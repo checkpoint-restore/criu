@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <sched.h>
 
+#include "int.h"
 #include "namespaces.h"
 #include "sysctl.h"
 #include "util.h"

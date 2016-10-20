@@ -20,6 +20,7 @@
 #include <dlfcn.h>
 
 #include "int.h"
+#include "page.h"
 #include "compiler.h"
 #include "crtools.h"
 #include "cr_options.h"

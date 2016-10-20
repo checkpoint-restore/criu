@@ -3,6 +3,7 @@
 #include <linux/falloc.h>
 #include <unistd.h>
 
+#include "int.h"
 #include "crtools.h"
 #include "pagemap.h"
 #include "restorer.h"

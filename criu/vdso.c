@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
+#include "types.h"
 #include "parasite-syscall.h"
 #include "parasite.h"
 #include "compiler.h"
