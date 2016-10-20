@@ -1,6 +1,8 @@
 #ifndef __CR_NET_H__
 #define __CR_NET_H__
 
+#include <linux/netlink.h>
+
 #include "common/list.h"
 
 struct cr_imgset;
@@ -23,7 +25,7 @@ extern void network_unlock(void);
 extern struct ns_desc net_ns_desc;
 
 #include "images/netdev.pb-c.h"
-extern int write_netdev_img(NetDeviceEntry *nde, struct cr_imgset *fds);
+extern int write_netdev_img(NetDeviceEntry *nde, struct cr_imgset *fds, struct nlattr **info);
 extern int read_ns_sys_file(char *path, char *buf, int len);
 extern int restore_link_parms(NetDeviceEntry *nde, int nlsk);
 

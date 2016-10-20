@@ -338,14 +338,14 @@ static int ipv4_conf_op_old(char *tgt, int *conf, int n, int op, int *def_conf)
 	return 0;
 }
 
-int write_netdev_img(NetDeviceEntry *nde, struct cr_imgset *fds)
+int write_netdev_img(NetDeviceEntry *nde, struct cr_imgset *fds, struct nlattr **info)
 {
 	return pb_write_one(img_from_set(fds, CR_FD_NETDEV), nde, PB_NETDEV);
 }
 
 static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 		struct nlattr **tb, struct cr_imgset *fds,
-		int (*dump)(NetDeviceEntry *, struct cr_imgset *))
+		int (*dump)(NetDeviceEntry *, struct cr_imgset *, struct nlattr **info))
 {
 	int ret = -1;
 	int i;
@@ -355,6 +355,7 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 	SysctlEntry *confs6 = NULL;
 	int size6 = ARRAY_SIZE(devconfs6);
 	char stable_secret[MAX_STR_CONF_LEN + 1] = {};
+	struct nlattr *info[IFLA_INFO_MAX], **arg = NULL;
 
 	if (!tb[IFLA_IFNAME]) {
 		pr_err("No name for link %d\n", ifi->ifi_index);
@@ -422,7 +423,16 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 	if (!dump)
 		dump = write_netdev_img;
 
-	ret = dump(&netdev, fds);
+	if (tb[IFLA_LINKINFO]) {
+		ret = nla_parse_nested(info, IFLA_INFO_MAX, tb[IFLA_LINKINFO], NULL);
+		if (ret < 0) {
+			pr_err("failed to parse nested linkinfo\n");
+			return -1;
+		}
+		arg = info;
+	}
+
+	ret = dump(&netdev, fds, arg);
 err_free:
 	xfree(netdev.conf4);
 	xfree(confs4);
@@ -464,7 +474,7 @@ static int dump_unknown_device(struct ifinfomsg *ifi, char *kind,
 	return -1;
 }
 
-static int dump_bridge(NetDeviceEntry *nde, struct cr_imgset *imgset)
+static int dump_bridge(NetDeviceEntry *nde, struct cr_imgset *imgset, struct nlattr **info)
 {
 	char spath[IFNAMSIZ + 16]; /* len("class/net//brif") + 1 for null */
 	int ret, fd;
@@ -496,7 +506,7 @@ static int dump_bridge(NetDeviceEntry *nde, struct cr_imgset *imgset)
 		return -1;
 	}
 
-	return write_netdev_img(nde, imgset);
+	return write_netdev_img(nde, imgset, info);
 }
 
 static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
