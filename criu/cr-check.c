@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/eventfd.h>
@@ -43,6 +44,8 @@
 #include "namespaces.h"
 #include "pstree.h"
 #include "cr_options.h"
+#include "libnetlink.h"
+#include "net.h"
 
 static char *feature_name(int (*func)());
 
@@ -935,6 +938,58 @@ static int check_tcp_window(void)
 	return 0;
 }
 
+static int nsid_manip_cb(struct nlmsghdr *hdr, void *arg)
+{
+	return 0;
+}
+
+static int check_nsid_manip(void)
+{
+	int parent = -1, ret = -1, nlsk = -1;
+	struct {
+		struct nlmsghdr n;
+		struct rtgenmsg g;
+		char buf[1024];
+	} req;
+
+	parent = open("/proc/self/ns/net", O_RDONLY);
+	if (parent < 0) {
+		pr_perror("open");
+		return -1;
+	}
+
+	if (unshare(CLONE_NEWNET) < 0) {
+		pr_perror("unshare");
+		goto out;
+	}
+
+	nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+	if (nlsk < 0) {
+		pr_perror("socket");
+		goto out;
+	}
+
+	memset(&req, 0, sizeof(req));
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.g));
+	req.n.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK;
+	req.n.nlmsg_type = RTM_GETNSID;
+	req.n.nlmsg_seq = CR_NLMSG_SEQ;
+
+	addattr_l(&req.n, sizeof(req), NETNSA_FD, &parent, sizeof(parent));
+	ret = do_rtnl_req(nlsk, &req, req.n.nlmsg_len, nsid_manip_cb, NULL, NULL);
+	if (ret < 0)
+		pr_err("can't manipulate netns ids\n");
+out:
+	if (nlsk > 0)
+		close(nlsk);
+	if (setns(parent, CLONE_NEWNET) < 0)
+		pr_warn("couldn't setns back to parent");
+	if (parent > 0)
+		close(parent);
+	return ret;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1035,6 +1090,7 @@ int cr_check(void)
 		ret |= check_clone_parent_vs_pid();
 		ret |= check_cgroupns();
 		ret |= check_tcp_window();
+		ret |= check_nsid_manip();
 	}
 
 	/*
@@ -1114,6 +1170,7 @@ static struct feature_list feature_list[] = {
 	{ "loginuid", check_loginuid },
 	{ "cgroupns", check_cgroupns },
 	{ "autofs", check_autofs },
+	{ "nsid_manip", check_nsid_manip },
 	{ NULL, NULL },
 };
 

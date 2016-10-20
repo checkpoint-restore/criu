@@ -36,23 +36,12 @@
 #include "protobuf.h"
 #include "images/netdev.pb-c.h"
 
-#ifdef CONFIG_HAS_NET_NAMESPACE_H
-#include <linux/net_namespace.h>
-#else
-#define NETNSA_NSID	1
-#define NETNSA_FD	3
-#endif
-
 #ifndef IFLA_LINK_NETNSID
 #define IFLA_LINK_NETNSID	37
 #endif
 
 #ifndef RTM_NEWNSID
 #define RTM_NEWNSID		88
-#endif
-
-#ifndef RTM_GETNSID
-#define RTM_GETNSID		90
 #endif
 
 #ifndef IFLA_MACVLAN_FLAGS

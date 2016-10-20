@@ -6,6 +6,17 @@
 #include "common/list.h"
 #include "external.h"
 
+#ifdef CONFIG_HAS_NET_NAMESPACE_H
+#include <linux/net_namespace.h>
+#else
+#define NETNSA_NSID	1
+#define NETNSA_FD	3
+#endif
+
+#ifndef RTM_GETNSID
+#define RTM_GETNSID		90
+#endif
+
 struct cr_imgset;
 extern int dump_net_ns(int ns_id);
 extern int prepare_net_ns(int pid);
