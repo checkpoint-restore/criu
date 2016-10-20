@@ -89,7 +89,6 @@
 
 #include "asm/restore.h"
 #include "asm/atomic.h"
-#include "asm/bitops.h"
 
 #include "cr-errno.h"
 

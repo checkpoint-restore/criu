@@ -10,7 +10,7 @@
 #include <netinet/in.h>
 
 #include "int.h"
-#include "asm/bitops.h"
+#include "bitops.h"
 #include "libnetlink.h"
 #include "sockets.h"
 #include "unix_diag.h"

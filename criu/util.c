@@ -36,7 +36,7 @@
 #include <ctype.h>
 
 #include "int.h"
-#include "asm/bitops.h"
+#include "bitops.h"
 #include "page.h"
 #include "compiler.h"
 #include "common/list.h"
