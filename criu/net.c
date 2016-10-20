@@ -1,7 +1,6 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
-#include <linux/net_namespace.h>
 #include <linux/rtnetlink.h>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_conntrack.h>
@@ -36,6 +35,13 @@
 
 #include "protobuf.h"
 #include "images/netdev.pb-c.h"
+
+#ifdef CONFIG_HAS_NET_NAMESPACE_H
+#include <linux/net_namespace.h>
+#else
+#define NETNSA_NSID	1
+#define NETNSA_FD	3
+#endif
 
 #ifndef IFLA_LINK_NETNSID
 #define IFLA_LINK_NETNSID	37
