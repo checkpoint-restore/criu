@@ -26,7 +26,6 @@
 #include "types.h"
 #include "ptrace.h"
 #include "compiler.h"
-#include "asm/restorer.h"
 
 #include "cr_options.h"
 #include "servicefd.h"

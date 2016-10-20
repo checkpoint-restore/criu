@@ -38,7 +38,7 @@
 #include "images/mm.pb-c.h"
 
 #include "shmem.h"
-#include "asm/restorer.h"
+#include "restorer.h"
 
 #ifndef PR_SET_PDEATHSIG
 #define PR_SET_PDEATHSIG 1

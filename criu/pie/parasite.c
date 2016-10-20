@@ -22,7 +22,7 @@
 #include <string.h>
 
 #include "asm/parasite.h"
-#include "asm/restorer.h"
+#include "restorer.h"
 
 static int tsock = -1;
 

@@ -2,7 +2,6 @@
 #include <string.h>
 
 #include "asm/restore.h"
-#include "asm/restorer.h"
 
 #include "images/core.pb-c.h"
 

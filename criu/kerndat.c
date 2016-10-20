@@ -8,9 +8,8 @@
 #include <errno.h>
 #include <sys/syscall.h>
 
-#include "int.h"
 #include "log.h"
-#include "bug.h"
+#include "restorer.h"
 #include "kerndat.h"
 #include "fs-magic.h"
 #include "mem.h"
