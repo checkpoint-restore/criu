@@ -1,6 +1,9 @@
 #ifndef __CR_PATH_H__
 #define __CR_PATH_H__
 
+#include "namespaces.h"
+#include "pstree.h"
+
 /* Asolute paths are used on dump and relative paths are used on restore */
 static inline int is_root(char *p)
 {
@@ -10,7 +13,7 @@ static inline int is_root(char *p)
 /* True for the root mount (the topmost one) */
 static inline int is_root_mount(struct mount_info *mi)
 {
-	return is_root(mi->mountpoint + 1);
+	return mi->parent == NULL && mi->nsid->id == root_item->ids->mnt_ns_id;
 }
 
 /*
