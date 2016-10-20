@@ -31,12 +31,22 @@
 static inline void core_get_tls(CoreEntry *pcore, tls_t *ptls)
 {
 	ThreadInfoX86 *ti = pcore->thread_info;
-	int i;
+	size_t i;
 
 	for (i = 0; i < GDT_ENTRY_TLS_NUM; i++) {
 		user_desc_t *to = &ptls->desc[i];
-		UserDescT *from = ti->tls[i];
+		UserDescT *from;
 
+		/*
+		 * If proto image has lesser TLS entries,
+		 * mark them as not present (and thus skip restore).
+		 */
+		if (i >= ti->n_tls) {
+			to->seg_not_present = 1;
+			continue;
+		}
+
+		from = ti->tls[i];
 #define COPY_TLS(field) to->field = from->field
 		COPY_TLS(entry_number);
 		COPY_TLS(base_addr);
