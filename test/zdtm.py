@@ -374,6 +374,8 @@ class zdtm_test:
 
 		s = subprocess.Popen(s_args, env = env, cwd = root, close_fds = True,
 				preexec_fn = self.__freezer and self.__freezer.attach or None)
+		if act == "pid":
+			try_run_hook(self, ["--post-start"])
 		s.wait()
 
 		if self.__freezer:
