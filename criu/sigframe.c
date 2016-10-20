@@ -1,8 +1,6 @@
 #include <unistd.h>
 #include <string.h>
-
-#include "asm/restore.h"
-
+#include "restore.h"
 #include "images/core.pb-c.h"
 
 static inline void setup_sas(struct rt_sigframe* sigframe, ThreadSasEntry *sas)

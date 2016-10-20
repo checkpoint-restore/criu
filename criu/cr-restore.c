@@ -86,7 +86,7 @@
 #include "images/pagemap.pb-c.h"
 #include "images/siginfo.pb-c.h"
 
-#include "asm/restore.h"
+#include "restore.h"
 
 #include "cr-errno.h"
 
