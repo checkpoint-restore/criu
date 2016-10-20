@@ -842,34 +842,33 @@ struct newlink_req {
 	char buf[1024];
 };
 
-static int do_rtm_link_req(int msg_type, NetDeviceEntry *nde, int nlsk,
+static int populate_newlink_req(struct newlink_req *req, int msg_type, NetDeviceEntry *nde,
 		int (*link_info)(NetDeviceEntry *, struct newlink_req *))
 {
-	struct newlink_req req;
+	memset(req, 0, sizeof(*req));
 
-	memset(&req, 0, sizeof(req));
-
-	req.h.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-	req.h.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK|NLM_F_CREATE;
-	req.h.nlmsg_type = msg_type;
-	req.h.nlmsg_seq = CR_NLMSG_SEQ;
-	req.i.ifi_family = AF_PACKET;
+	req->h.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req->h.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK|NLM_F_CREATE;
+	req->h.nlmsg_type = msg_type;
+	req->h.nlmsg_seq = CR_NLMSG_SEQ;
+	req->i.ifi_family = AF_PACKET;
 	/*
 	 * SETLINK is called for external devices which may
 	 * have ifindex changed. Thus configure them by their
 	 * name only.
 	 */
 	if (msg_type == RTM_NEWLINK)
-		req.i.ifi_index = nde->ifindex;
-	req.i.ifi_flags = nde->flags;
+		req->i.ifi_index = nde->ifindex;
+	req->i.ifi_flags = nde->flags;
 
-	addattr_l(&req.h, sizeof(req), IFLA_IFNAME, nde->name, strlen(nde->name));
-	addattr_l(&req.h, sizeof(req), IFLA_MTU, &nde->mtu, sizeof(nde->mtu));
+
+	addattr_l(&req->h, sizeof(*req), IFLA_IFNAME, nde->name, strlen(nde->name));
+	addattr_l(&req->h, sizeof(*req), IFLA_MTU, &nde->mtu, sizeof(nde->mtu));
 
 	if (nde->has_address) {
 		pr_debug("Restore ll addr (%02x:../%d) for device\n",
 				(int)nde->address.data[0], (int)nde->address.len);
-		addattr_l(&req.h, sizeof(req), IFLA_ADDRESS,
+		addattr_l(&req->h, sizeof(*req), IFLA_ADDRESS,
 				nde->address.data, nde->address.len);
 	}
 
@@ -877,15 +876,26 @@ static int do_rtm_link_req(int msg_type, NetDeviceEntry *nde, int nlsk,
 		struct rtattr *linkinfo;
 		int ret;
 
-		linkinfo = NLMSG_TAIL(&req.h);
-		addattr_l(&req.h, sizeof(req), IFLA_LINKINFO, NULL, 0);
+		linkinfo = NLMSG_TAIL(&req->h);
+		addattr_l(&req->h, sizeof(*req), IFLA_LINKINFO, NULL, 0);
 
-		ret = link_info(nde, &req);
+		ret = link_info(nde, req);
 		if (ret < 0)
 			return ret;
 
-		linkinfo->rta_len = (void *)NLMSG_TAIL(&req.h) - (void *)linkinfo;
+		linkinfo->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)linkinfo;
 	}
+
+	return 0;
+}
+
+static int do_rtm_link_req(int msg_type, NetDeviceEntry *nde, int nlsk,
+		int (*link_info)(NetDeviceEntry *, struct newlink_req *))
+{
+	struct newlink_req req;
+
+	if (populate_newlink_req(&req, msg_type, nde, link_info) < 0)
+		return -1;
 
 	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL, NULL);
 }
