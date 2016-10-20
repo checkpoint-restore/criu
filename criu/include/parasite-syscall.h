@@ -4,6 +4,7 @@
 #include "pid.h"
 #include "common/list.h"
 #include "config.h"
+#include "asm/parasite-syscall.h"
 
 #define BUILTIN_SYSCALL_SIZE	8
 

@@ -36,7 +36,6 @@
 #include <stdlib.h>
 #include <elf.h>
 
-#include "asm/parasite-syscall.h"
 #include "asm/dump.h"
 #include "restorer.h"
 #include "pie/pie-relocs.h"
