@@ -23,7 +23,6 @@
 #include "common/list.h"
 #include "rst-malloc.h"
 #include "fs-magic.h"
-#include "asm/atomic.h"
 #include "namespaces.h"
 #include "proc_parse.h"
 #include "pstree.h"

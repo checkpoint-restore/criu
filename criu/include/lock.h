@@ -6,7 +6,7 @@
 #include <limits.h>
 #include <errno.h>
 
-#include "asm/atomic.h"
+#include "atomic.h"
 #include "bug.h"
 
 #ifdef CR_NOGLIBC

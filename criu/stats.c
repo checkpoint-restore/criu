@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/time.h>
-#include "asm/atomic.h"
+#include "atomic.h"
 #include "rst-malloc.h"
 #include "protobuf.h"
 #include "stats.h"

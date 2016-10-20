@@ -88,7 +88,6 @@
 #include "images/siginfo.pb-c.h"
 
 #include "asm/restore.h"
-#include "asm/atomic.h"
 
 #include "cr-errno.h"
 
