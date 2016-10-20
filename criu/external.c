@@ -27,6 +27,21 @@ bool external_lookup_id(char *id)
 	return false;
 }
 
+void *external_lookup_data(char *key)
+{
+	struct external *ext;
+	int len = strlen(key);
+
+	list_for_each_entry(ext, &opts.external, node) {
+		if (strncmp(ext->id, key, len))
+			continue;
+
+		return ext->data;
+	}
+
+	return ERR_PTR(-ENOENT);
+}
+
 char *external_lookup_by_key(char *key)
 {
 	struct external *ext;
