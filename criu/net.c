@@ -990,6 +990,21 @@ static int bridge_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 	return 0;
 }
 
+static int changeflags(int s, char *name, short flags)
+{
+	struct ifreq ifr;
+
+	strlcpy(ifr.ifr_name, name, IFNAMSIZ);
+	ifr.ifr_flags = flags;
+
+	if (ioctl(s, SIOCSIFFLAGS, &ifr) < 0) {
+		pr_perror("couldn't set flags on %s", name);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int restore_link(NetDeviceEntry *nde, int nlsk)
 {
 	pr_info("Restoring link %s type %d\n", nde->name, nde->type);
@@ -1800,13 +1815,8 @@ static int move_to_bridge(struct external *ext, void *arg)
 			goto out;
 
 		ifr.ifr_flags |= IFF_UP;
-		ret = ioctl(s, SIOCSIFFLAGS, &ifr);
-		if (ret < 0) {
-			pr_perror("Can't set flags of interface %s to 0x%x",
-				out, ifr.ifr_flags);
+		if (changeflags(s, out, ifr.ifr_flags) < 0)
 			goto out;
-		}
-
 		ret = 0;
 	}
 out:
