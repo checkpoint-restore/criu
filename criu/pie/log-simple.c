@@ -1,7 +1,6 @@
 #include <stdarg.h>
 
-#include "asm/bitsperlong.h"
-
+#include "bitsperlong.h"
 #include "syscall.h"
 #include "log.h"
 
