@@ -3,6 +3,9 @@
 #include "cr_options.h"
 #include "xmalloc.h"
 #include "external.h"
+#include "util.h"
+
+#include "net.h"
 
 int add_external(char *key)
 {
@@ -12,6 +15,12 @@ int add_external(char *key)
 	if (!ext)
 		return -1;
 	ext->id = key;
+
+	if (strstartswith(key, "macvlan") && macvlan_ext_add(ext) < 0) {
+		xfree(ext);
+		return -1;
+	}
+
 	list_add(&ext->node, &opts.external);
 
 	return 0;

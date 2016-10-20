@@ -830,6 +830,7 @@ usage:
 "                        Formats of RES on restore:\n"
 "                            dev[VAL]:DEVPATH\n"
 "                            veth[IFNAME]:OUTNAME{@BRIDGE}\n"
+"                            macvlan[IFNAME]:OUTNAME\n"
 "\n"
 "* Special resources support:\n"
 "     --" SK_EST_PARAM "  checkpoint/restore established TCP connections\n"
