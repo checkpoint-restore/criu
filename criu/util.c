@@ -37,7 +37,7 @@
 
 #include "int.h"
 #include "asm/bitops.h"
-#include "asm/page.h"
+#include "page.h"
 #include "compiler.h"
 #include "common/list.h"
 #include "util.h"

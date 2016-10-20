@@ -13,7 +13,7 @@
 #include <fcntl.h>
 
 #include "int.h"
-#include "asm/page.h"
+#include "page.h"
 #include "compiler.h"
 #include "util.h"
 #include "cr_options.h"

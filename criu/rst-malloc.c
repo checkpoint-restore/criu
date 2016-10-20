@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <sys/mman.h>
 
-#include "asm/page.h"
+#include "page.h"
 #include "rst-malloc.h"
 #include "bug.h"
 

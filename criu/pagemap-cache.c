@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include "page.h"
 #include "pagemap-cache.h"
 #include "compiler.h"
 #include "xmalloc.h"

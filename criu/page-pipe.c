@@ -5,7 +5,7 @@
 #define LOG_PREFIX "page-pipe: "
 
 #include "int.h"
-#include "asm/page.h"
+#include "page.h"
 #include "config.h"
 #include "util.h"
 #include "page-pipe.h"

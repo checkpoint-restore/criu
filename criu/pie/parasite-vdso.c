@@ -10,7 +10,7 @@
 #include <sys/mman.h>
 
 #include "asm/string.h"
-
+#include "page.h"
 #include "syscall.h"
 #include "image.h"
 #include "parasite-vdso.h"
