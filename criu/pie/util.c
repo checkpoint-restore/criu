@@ -7,7 +7,6 @@
 
 #include "int.h"
 #include "compiler.h"
-#include "asm/string.h"
 #include "fcntl.h"
 #include "log.h"
 #include "util-pie.h"

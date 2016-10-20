@@ -9,7 +9,6 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#include "asm/string.h"
 #include "page.h"
 #include "syscall.h"
 #include "image.h"

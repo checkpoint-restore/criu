@@ -18,7 +18,7 @@
 #include <signal.h>
 
 #include "compiler.h"
-#include "asm/string.h"
+#include "string.h"
 #include "syscall.h"
 #include "signal.h"
 #include "config.h"

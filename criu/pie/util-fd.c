@@ -7,7 +7,7 @@
 #include "int.h"
 #include "compiler.h"
 #include "log.h"
-#include "asm/string.h"
+#include "string.h"
 
 #ifdef CR_NOGLIBC
 # include "syscall.h"
