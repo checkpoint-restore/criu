@@ -2,7 +2,7 @@
 #define __CR_MEM_H__
 
 #include <stdbool.h>
-#include "asm/int.h"
+#include "int.h"
 #include "vma.pb-c.h"
 
 struct parasite_ctl;

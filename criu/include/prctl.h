@@ -1,7 +1,7 @@
 #ifndef __CR_PRCTL_H__
 #define __CR_PRCTL_H__
 
-#include "asm/int.h"
+#include "int.h"
 
 #ifndef PR_SET_NAME
 # define PR_SET_NAME		15

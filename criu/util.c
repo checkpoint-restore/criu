@@ -35,7 +35,7 @@
 #include <sched.h>
 #include <ctype.h>
 
-#include "asm/int.h"
+#include "int.h"
 #include "asm/bitops.h"
 #include "asm/page.h"
 #include "compiler.h"

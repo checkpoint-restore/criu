@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 #include "asm/page.h"
-#include "asm/int.h"
+#include "int.h"
 
 #include "common/list.h"
 

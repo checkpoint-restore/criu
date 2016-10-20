@@ -1,7 +1,7 @@
 #ifndef __CR_SHMEM_H__
 #define __CR_SHMEM_H__
 
-#include "asm/int.h"
+#include "int.h"
 #include "lock.h"
 #include "images/vma.pb-c.h"
 

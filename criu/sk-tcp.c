@@ -8,7 +8,7 @@
 #include <sched.h>
 #include <netinet/in.h>
 
-#include "asm/int.h"
+#include "int.h"
 #include "cr_options.h"
 #include "util.h"
 #include "common/list.h"

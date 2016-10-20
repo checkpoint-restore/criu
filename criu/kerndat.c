@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <sys/syscall.h>
 
-#include "asm/int.h"
+#include "int.h"
 #include "log.h"
 #include "bug.h"
 #include "kerndat.h"

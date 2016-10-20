@@ -10,7 +10,7 @@
 #include <ctype.h>
 #include <linux/fs.h>
 
-#include "asm/int.h"
+#include "int.h"
 #include "common/list.h"
 #include "util.h"
 #include "mount.h"

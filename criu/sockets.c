@@ -9,7 +9,7 @@
 #include <string.h>
 #include <netinet/in.h>
 
-#include "asm/int.h"
+#include "int.h"
 #include "asm/bitops.h"
 #include "libnetlink.h"
 #include "sockets.h"

@@ -1,7 +1,7 @@
 #ifndef __CR_IMAGE_DESC_H__
 #define __CR_IMAGE_DESC_H__
 
-#include "asm/int.h"
+#include "int.h"
 
 enum {
 	CR_FD_INVENTORY,

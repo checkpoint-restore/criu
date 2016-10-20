@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sched.h>
 
-#include "asm/int.h"
+#include "int.h"
 #include "util.h"
 #include "namespaces.h"
 #include "sysctl.h"

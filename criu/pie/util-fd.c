@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <errno.h>
 
-#include "asm/int.h"
+#include "int.h"
 #include "compiler.h"
 #include "log.h"
 #include "asm/string.h"

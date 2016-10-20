@@ -12,7 +12,7 @@
 
 #include <fcntl.h>
 
-#include "asm/int.h"
+#include "int.h"
 #include "asm/page.h"
 #include "compiler.h"
 #include "util.h"

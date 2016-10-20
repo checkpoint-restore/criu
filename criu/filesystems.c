@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <sys/mount.h>
 
-#include "asm/int.h"
+#include "int.h"
 #include "compiler.h"
 #include "xmalloc.h"
 #include "cr_options.h"

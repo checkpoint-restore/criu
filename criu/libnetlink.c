@@ -7,7 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "asm/int.h"
+#include "int.h"
 #include "libnetlink.h"
 #include "util.h"
 

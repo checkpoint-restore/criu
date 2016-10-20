@@ -5,7 +5,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
-#include "asm/int.h"
+#include "int.h"
 #include "compiler.h"
 #include "asm/string.h"
 #include "fcntl.h"

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#include "asm/int.h"
+#include "int.h"
 #include "mount.h"
 #include "path.h"
 #include "bug.h"
