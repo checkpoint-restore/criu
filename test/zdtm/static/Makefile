@@ -152,6 +152,7 @@ TST_NOFILE	:=				\
 		cgroupns			\
 		helper_zombie_child		\
 		clone_fs			\
+		macvlan			\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
