@@ -1027,7 +1027,7 @@ static int changeflags(int s, char *name, short flags)
 	return 0;
 }
 
-static int restore_link(NetDeviceEntry *nde, int nlsk)
+static int restore_link(NetDeviceEntry *nde, int nlsk, int criu_nlsk)
 {
 	pr_info("Restoring link %s type %d\n", nde->name, nde->type);
 
@@ -1053,7 +1053,7 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 
 static int restore_links(int pid, NetnsEntry **netns)
 {
-	int nlsk, ret;
+	int nlsk, criu_nlsk = -1, ret = -1, my_netns = -1, ns_fd = get_service_fd(NS_FD_OFF);
 	struct cr_img *img;
 	NetDeviceEntry *nde;
 
@@ -1068,6 +1068,38 @@ static int restore_links(int pid, NetnsEntry **netns)
 		return -1;
 	}
 
+	if (!(root_ns_mask & CLONE_NEWUSER)) {
+		/* FIXME: this whole dance is so we can have a netlink socket to criu's
+		 * netns in case we need it. It should really live on the ns_id struct,
+		 * but those aren't generated on restore yet.
+		 */
+		my_netns = open_proc(PROC_SELF, "ns/net");
+		if (my_netns < 0) {
+			pr_perror("couldn't open my netns");
+			goto out;
+		}
+
+		if (setns(ns_fd, CLONE_NEWNET) < 0) {
+			close(my_netns);
+			pr_perror("couldn't setns to parent ns");
+			goto out;
+		}
+
+		criu_nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+		ret = setns(my_netns, CLONE_NEWNET);
+		close(my_netns);
+
+		if (ret < 0) {
+			pr_perror("Can't setns back my netns");
+			goto out;
+		}
+
+		if (criu_nlsk < 0) {
+			pr_perror("Can't create nlk socket");
+			goto out;
+		}
+	}
+
 	while (1) {
 		NetnsEntry **def_netns = netns;
 
@@ -1075,7 +1107,7 @@ static int restore_links(int pid, NetnsEntry **netns)
 		if (ret <= 0)
 			break;
 
-		ret = restore_link(nde, nlsk);
+		ret = restore_link(nde, nlsk, criu_nlsk);
 		if (ret) {
 			pr_err("Can't restore link\n");
 			goto exit;
@@ -1104,6 +1136,9 @@ exit:
 			break;
 	}
 
+out:
+	if (criu_nlsk >= 0)
+		close(criu_nlsk);
 	close(nlsk);
 	close_image(img);
 	return ret;
