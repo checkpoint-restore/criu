@@ -11,7 +11,6 @@
 #include "image.h"
 #include "servicefd.h"
 #include "compiler.h"
-#include "asm/types.h"
 #include "log.h"
 #include "rst-malloc.h"
 #include "string.h"

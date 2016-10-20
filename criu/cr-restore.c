@@ -19,14 +19,13 @@
 #include <sys/shm.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
-
 #include <sched.h>
 
 #include <sys/sendfile.h>
 
+#include "types.h"
 #include "ptrace.h"
 #include "compiler.h"
-#include "asm/types.h"
 #include "asm/restorer.h"
 
 #include "cr_options.h"

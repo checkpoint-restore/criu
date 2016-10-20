@@ -4,7 +4,6 @@
 #include <sys/types.h>
 
 #include "common/list.h"
-#include "asm/types.h"
 #include "servicefd.h"
 
 #include "images/inventory.pb-c.h"

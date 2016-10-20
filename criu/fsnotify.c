@@ -23,7 +23,6 @@
 #include <sys/fanotify.h>
 
 #include "compiler.h"
-#include "asm/types.h"
 #include "imgset.h"
 #include "fsnotify.h"
 #include "fdinfo.h"

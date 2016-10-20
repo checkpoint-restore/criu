@@ -13,7 +13,6 @@
 #include <sys/eventfd.h>
 
 #include "compiler.h"
-#include "asm/types.h"
 #include "imgset.h"
 #include "eventfd.h"
 #include "fdinfo.h"

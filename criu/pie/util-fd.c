@@ -1,13 +1,13 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/mount.h>
-
+#include <stdbool.h>
 #include <errno.h>
 
+#include "asm/int.h"
 #include "compiler.h"
 #include "log.h"
 #include "asm/string.h"
-#include "asm/types.h"
 
 #ifdef CR_NOGLIBC
 # include "syscall.h"

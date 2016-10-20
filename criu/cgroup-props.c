@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "asm/int.h"
 #include "compiler.h"
 #include "cgroup-props.h"
 #include "cr_options.h"

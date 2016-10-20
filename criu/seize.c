@@ -9,6 +9,7 @@
 #include <sys/wait.h>
 #include <time.h>
 
+#include "asm/int.h"
 #include "compiler.h"
 #include "cr_options.h"
 #include "cr-errno.h"

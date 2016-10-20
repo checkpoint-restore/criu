@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#include "types.h"
 #include "cr_options.h"
 #include "servicefd.h"
 #include "mem.h"

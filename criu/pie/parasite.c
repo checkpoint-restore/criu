@@ -8,6 +8,7 @@
 #include <sys/ioctl.h>
 
 #include "syscall.h"
+#include "types.h"
 #include "parasite.h"
 #include "config.h"
 #include "fcntl.h"
@@ -20,7 +21,6 @@
 
 #include <string.h>
 
-#include "asm/types.h"
 #include "asm/parasite.h"
 #include "asm/restorer.h"
 

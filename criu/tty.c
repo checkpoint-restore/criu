@@ -12,9 +12,8 @@
 #include <termios.h>
 #include <linux/major.h>
 
+#include "types.h"
 #include "compiler.h"
-#include "asm/types.h"
-
 #include "crtools.h"
 #include "files.h"
 #include "cr_options.h"

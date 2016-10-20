@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sched.h>
 
+#include "types.h"
 #include "cr_options.h"
 #include "pstree.h"
 #include "rst-malloc.h"

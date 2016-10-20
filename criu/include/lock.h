@@ -6,7 +6,6 @@
 #include <limits.h>
 #include <errno.h>
 
-#include "asm/types.h"
 #include "asm/atomic.h"
 #include "bug.h"
 

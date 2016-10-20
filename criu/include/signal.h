@@ -1,6 +1,5 @@
 #ifndef __CR_SIGNAL_H__
 #define __CR_SIGNAL_H__
-#include "asm/types.h"
 
 static inline void ksigfillset(k_rtsigset_t *set)
 {

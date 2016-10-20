@@ -11,8 +11,8 @@
 #include <sys/wait.h>
 #include <sched.h>
 
+#include "asm/int.h"
 #include "cr_options.h"
-#include "asm/types.h"
 #include "util.h"
 #include "util-pie.h"
 #include "log.h"

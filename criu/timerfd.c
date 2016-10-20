@@ -5,6 +5,7 @@
 #include <sys/timerfd.h>
 #include <sys/ioctl.h>
 
+#include "asm/int.h"
 #include "protobuf.h"
 #include "images/timerfd.pb-c.h"
 

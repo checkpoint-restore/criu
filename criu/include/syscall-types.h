@@ -14,8 +14,6 @@
 #include <time.h>
 #include <fcntl.h>
 
-#include "asm/types.h"
-
 struct cap_header {
 	u32 version;
 	int pid;

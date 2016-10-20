@@ -2,7 +2,6 @@
 #define __CR_PROC_PARSE_H__
 
 #include <sys/types.h>
-#include "asm/types.h"
 
 #include "images/seccomp.pb-c.h"
 

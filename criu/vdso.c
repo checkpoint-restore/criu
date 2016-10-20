@@ -9,7 +9,6 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#include "asm/types.h"
 #include "asm/parasite-syscall.h"
 
 #include "parasite-syscall.h"

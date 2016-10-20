@@ -15,6 +15,7 @@
 #include <arpa/inet.h>
 #include <sched.h>
 
+#include "asm/int.h"
 #include "crtools.h"
 #include "cr_options.h"
 #include "external.h"

@@ -3,7 +3,6 @@
 
 #include <sys/types.h>
 
-#include "asm/types.h"
 #include "common/list.h"
 
 struct proc_mountinfo;

@@ -14,6 +14,7 @@
 #include <limits.h>
 #include <errno.h>
 
+#include "asm/page.h"
 #include "rst-malloc.h"
 #include "cr_options.h"
 #include "imgset.h"

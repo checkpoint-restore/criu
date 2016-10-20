@@ -16,8 +16,6 @@
 #include "proc_parse.h"
 #include "servicefd.h"
 #include "file-lock.h"
-#include "parasite.h"
-#include "parasite-syscall.h"
 
 struct file_lock_rst {
 	FileLockEntry *fle;

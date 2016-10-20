@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <linux/falloc.h>
 
+#include "types.h"
 #include "image.h"
 #include "cr_options.h"
 #include "servicefd.h"

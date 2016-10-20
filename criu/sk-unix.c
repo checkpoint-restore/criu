@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <dlfcn.h>
 
-#include "asm/types.h"
 #include "libnetlink.h"
 #include "cr_options.h"
 #include "imgset.h"

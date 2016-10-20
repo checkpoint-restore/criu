@@ -23,6 +23,7 @@
 #include <linux/aio_abi.h>
 #include <sys/mount.h>
 
+#include "types.h"
 #include "fdinfo.h"
 #include "sockets.h"
 #include "crtools.h"

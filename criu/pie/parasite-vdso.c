@@ -10,7 +10,6 @@
 #include <sys/mman.h>
 
 #include "asm/string.h"
-#include "asm/types.h"
 
 #include "syscall.h"
 #include "image.h"

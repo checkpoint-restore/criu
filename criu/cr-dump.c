@@ -22,6 +22,7 @@
 #include <sched.h>
 #include <sys/resource.h>
 
+#include "types.h"
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
 #include "images/fs.pb-c.h"
@@ -32,7 +33,6 @@
 #include "images/rlimit.pb-c.h"
 #include "images/siginfo.pb-c.h"
 
-#include "asm/types.h"
 #include "common/list.h"
 #include "imgset.h"
 #include "file-ids.h"

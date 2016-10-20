@@ -5,7 +5,6 @@
 #ifndef __CR_SIGFRAME_H__
 #define __CR_SIGFRAME_H__
 
-#include "asm/types.h"
 #include "images/core.pb-c.h"
 
 struct rt_sigframe;

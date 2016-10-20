@@ -3,7 +3,6 @@
 
 #include "protobuf-desc.h"
 
-#include "asm/types.h"
 #include "compiler.h"
 #include "util.h"
 

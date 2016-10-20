@@ -4,7 +4,6 @@
 #include <sys/stat.h>
 
 #include "compiler.h"
-#include "asm/types.h"
 #include "fcntl.h"
 #include "lock.h"
 #include "common/list.h"

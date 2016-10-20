@@ -19,8 +19,7 @@
 
 #include <dlfcn.h>
 
-#include "asm/types.h"
-
+#include "asm/int.h"
 #include "compiler.h"
 #include "crtools.h"
 #include "cr_options.h"

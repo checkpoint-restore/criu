@@ -3,7 +3,6 @@
 #include <sys/signalfd.h>
 
 #include "compiler.h"
-#include "asm/types.h"
 #include "signalfd.h"
 #include "fdinfo.h"
 #include "imgset.h"

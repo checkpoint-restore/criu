@@ -1,7 +1,6 @@
 #ifndef __CR_FSNOTIFY_H__
 #define __CR_FSNOTIFY_H__
 
-#include "asm/types.h"
 #include "files.h"
 
 #include "protobuf.h"

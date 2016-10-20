@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 
+#include "types.h"
 #include "protobuf.h"
 #include "images/sa.pb-c.h"
 #include "images/timer.pb-c.h"

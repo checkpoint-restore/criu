@@ -8,7 +8,6 @@
 #include <stddef.h>
 
 #include "compiler.h"
-#include "asm/types.h"
 
 #define	RB_RED		0
 #define	RB_BLACK	1

@@ -12,8 +12,9 @@
 
 #include <fcntl.h>
 
+#include "asm/int.h"
+#include "asm/page.h"
 #include "compiler.h"
-#include "asm/types.h"
 #include "util.h"
 #include "cr_options.h"
 #include "servicefd.h"

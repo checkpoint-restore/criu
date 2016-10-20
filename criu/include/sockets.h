@@ -4,8 +4,6 @@
 #include <stdbool.h>
 #include <sys/socket.h>
 
-#include "asm/types.h"
-
 #include "protobuf.h"
 #include "images/sk-opts.pb-c.h"
 

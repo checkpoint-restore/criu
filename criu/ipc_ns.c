@@ -8,6 +8,7 @@
 #include <sys/shm.h>
 #include <sched.h>
 
+#include "asm/int.h"
 #include "util.h"
 #include "cr_options.h"
 #include "imgset.h"

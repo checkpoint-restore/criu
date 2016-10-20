@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <sys/syscall.h>
 
-#include "asm/types.h"
+#include "asm/int.h"
 #include "rbtree.h"
 #include "util.h"
 #include "kcmp-ids.h"

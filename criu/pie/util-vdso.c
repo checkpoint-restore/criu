@@ -11,7 +11,6 @@
 #include <sys/mman.h>
 
 #include "asm/string.h"
-#include "asm/types.h"
 
 #include "image.h"
 #include "util-vdso.h"

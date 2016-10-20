@@ -35,8 +35,10 @@
 #include <sched.h>
 #include <ctype.h>
 
+#include "asm/int.h"
+#include "asm/bitops.h"
+#include "asm/page.h"
 #include "compiler.h"
-#include "asm/types.h"
 #include "common/list.h"
 #include "util.h"
 #include "rst-malloc.h"

@@ -8,8 +8,6 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 
-#include "asm/types.h"
-
 #include "compiler.h"
 #include "log.h"
 

@@ -1,8 +1,6 @@
 #ifndef __CR_KERNDAT_H__
 #define __CR_KERNDAT_H__
 
-#include "asm/types.h"
-
 struct stat;
 
 /*

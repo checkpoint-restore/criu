@@ -1,8 +1,6 @@
 #ifndef __CR_UNIX_DIAG_H__
 #define __CR_UNIX_DIAG_H__
 
-#include "asm/types.h"
-
 struct unix_diag_req {
 	u8	sdiag_family;
 	u8	sdiag_protocol;

@@ -13,7 +13,6 @@
 #include <dirent.h>
 
 #include "compiler.h"
-#include "asm/types.h"
 #include "xmalloc.h"
 #include "bug.h"
 #include "log.h"

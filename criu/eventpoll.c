@@ -14,7 +14,6 @@
 
 #include "crtools.h"
 #include "compiler.h"
-#include "asm/types.h"
 #include "imgset.h"
 #include "rst_info.h"
 #include "eventpoll.h"

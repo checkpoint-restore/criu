@@ -11,7 +11,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "asm/types.h"
 #include "libnetlink.h"
 #include "cr_options.h"
 #include "imgset.h"

@@ -3,10 +3,11 @@
 #include <sys/mount.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdbool.h>
 
+#include "asm/int.h"
 #include "compiler.h"
 #include "asm/string.h"
-#include "asm/types.h"
 #include "fcntl.h"
 #include "log.h"
 #include "util-pie.h"

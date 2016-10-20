@@ -8,11 +8,11 @@
 #include <sched.h>
 #include <netinet/in.h>
 
+#include "asm/int.h"
 #include "cr_options.h"
 #include "util.h"
 #include "common/list.h"
 #include "log.h"
-#include "asm/types.h"
 #include "files.h"
 #include "sockets.h"
 #include "sk-inet.h"

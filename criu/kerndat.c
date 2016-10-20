@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <sys/syscall.h>
 
+#include "asm/int.h"
 #include "log.h"
 #include "bug.h"
 #include "kerndat.h"
@@ -15,7 +16,6 @@
 #include "mem.h"
 #include "compiler.h"
 #include "sysctl.h"
-#include "asm/types.h"
 #include "cr_options.h"
 #include "util.h"
 #include "lsm.h"

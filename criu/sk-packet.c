@@ -5,7 +5,6 @@
 #include <libnl3/netlink/msg.h>
 #include <unistd.h>
 #include <string.h>
-#include "asm/types.h"
 #include "imgset.h"
 #include "files.h"
 #include "sockets.h"

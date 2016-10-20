@@ -9,6 +9,8 @@
 #include <string.h>
 #include <netinet/in.h>
 
+#include "asm/int.h"
+#include "asm/bitops.h"
 #include "libnetlink.h"
 #include "sockets.h"
 #include "unix_diag.h"
