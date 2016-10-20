@@ -842,8 +842,17 @@ struct newlink_req {
 	char buf[1024];
 };
 
+/* Optional extra things to be provided at the top level of the NEWLINK
+ * request.
+ */
+struct newlink_extras {
+	int netns_id;		/* IFLA_NET_NS_ID */
+	int link;		/* IFLA_LINK */
+	int target_netns;	/* IFLA_NET_NS_FD */
+};
+
 static int populate_newlink_req(struct newlink_req *req, int msg_type, NetDeviceEntry *nde,
-		int (*link_info)(NetDeviceEntry *, struct newlink_req *))
+		int (*link_info)(NetDeviceEntry *, struct newlink_req *), struct newlink_extras *extras)
 {
 	memset(req, 0, sizeof(*req));
 
@@ -861,6 +870,17 @@ static int populate_newlink_req(struct newlink_req *req, int msg_type, NetDevice
 		req->i.ifi_index = nde->ifindex;
 	req->i.ifi_flags = nde->flags;
 
+	if (extras) {
+		if (extras->netns_id >= 0)
+			addattr_l(&req->h, sizeof(*req), IFLA_LINK_NETNSID, &extras->netns_id, sizeof(extras->netns_id));
+
+		if (extras->link >= 0)
+			addattr_l(&req->h, sizeof(*req), IFLA_LINK, &extras->link, sizeof(extras->link));
+
+		if (extras->target_netns >= 0)
+			addattr_l(&req->h, sizeof(*req), IFLA_NET_NS_FD, &extras->target_netns, sizeof(extras->target_netns));
+
+	}
 
 	addattr_l(&req->h, sizeof(*req), IFLA_IFNAME, nde->name, strlen(nde->name));
 	addattr_l(&req->h, sizeof(*req), IFLA_MTU, &nde->mtu, sizeof(nde->mtu));
@@ -890,11 +910,12 @@ static int populate_newlink_req(struct newlink_req *req, int msg_type, NetDevice
 }
 
 static int do_rtm_link_req(int msg_type, NetDeviceEntry *nde, int nlsk,
-		int (*link_info)(NetDeviceEntry *, struct newlink_req *))
+		int (*link_info)(NetDeviceEntry *, struct newlink_req *),
+		struct newlink_extras *extras)
 {
 	struct newlink_req req;
 
-	if (populate_newlink_req(&req, msg_type, nde, link_info) < 0)
+	if (populate_newlink_req(&req, msg_type, nde, link_info, extras) < 0)
 		return -1;
 
 	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL, NULL);
@@ -902,14 +923,15 @@ static int do_rtm_link_req(int msg_type, NetDeviceEntry *nde, int nlsk,
 
 int restore_link_parms(NetDeviceEntry *nde, int nlsk)
 {
-	return do_rtm_link_req(RTM_SETLINK, nde, nlsk, NULL);
+	return do_rtm_link_req(RTM_SETLINK, nde, nlsk, NULL, NULL);
 }
 
 static int restore_one_link(NetDeviceEntry *nde, int nlsk,
-		int (*link_info)(NetDeviceEntry *, struct newlink_req *))
+		int (*link_info)(NetDeviceEntry *, struct newlink_req *),
+		struct newlink_extras *extras)
 {
 	pr_info("Restoring netdev %s idx %d\n", nde->name, nde->ifindex);
-	return do_rtm_link_req(RTM_NEWLINK, nde, nlsk, link_info);
+	return do_rtm_link_req(RTM_NEWLINK, nde, nlsk, link_info, extras);
 }
 
 #ifndef VETH_INFO_MAX
@@ -1014,14 +1036,13 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 	case ND_TYPE__EXTLINK:  /* see comment in images/netdev.proto */
 		return restore_link_parms(nde, nlsk);
 	case ND_TYPE__VENET:
-		return restore_one_link(nde, nlsk, venet_link_info);
+		return restore_one_link(nde, nlsk, venet_link_info, NULL);
 	case ND_TYPE__VETH:
-		return restore_one_link(nde, nlsk, veth_link_info);
+		return restore_one_link(nde, nlsk, veth_link_info, NULL);
 	case ND_TYPE__TUN:
 		return restore_one_tun(nde, nlsk);
 	case ND_TYPE__BRIDGE:
-		return restore_one_link(nde, nlsk, bridge_link_info);
-
+		return restore_one_link(nde, nlsk, bridge_link_info, NULL);
 	default:
 		pr_err("Unsupported link type %d\n", nde->type);
 		break;
