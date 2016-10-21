@@ -14,7 +14,6 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 
-#include "int.h"
 #include "compiler.h"
 #include "util.h"
 #include "ptrace.h"

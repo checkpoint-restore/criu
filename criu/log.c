@@ -12,7 +12,6 @@
 
 #include <fcntl.h>
 
-#include "int.h"
 #include "page.h"
 #include "compiler.h"
 #include "util.h"

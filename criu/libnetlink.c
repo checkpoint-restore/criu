@@ -7,7 +7,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "int.h"
 #include "libnetlink.h"
 #include "util.h"
 

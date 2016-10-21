@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "int.h"
 #include "config.h"
 #include "pstree.h"
 #include "util.h"

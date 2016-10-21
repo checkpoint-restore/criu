@@ -16,7 +16,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "int.h"
 #include "xmalloc.h"
 #include "irmap.h"
 #include "mount.h"

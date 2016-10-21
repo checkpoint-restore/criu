@@ -8,7 +8,6 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-#include "int.h"
 #include "cr_options.h"
 #include "criu-log.h"
 #include "xmalloc.h"

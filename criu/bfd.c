@@ -7,7 +7,6 @@
 #include <sys/uio.h>
 #include <errno.h>
 
-#include "int.h"
 #include "bug.h"
 #include "log.h"
 #include "bfd.h"

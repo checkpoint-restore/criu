@@ -4,7 +4,6 @@
 #undef LOG_PREFIX
 #define LOG_PREFIX "page-pipe: "
 
-#include "int.h"
 #include "page.h"
 #include "config.h"
 #include "util.h"

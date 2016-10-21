@@ -35,7 +35,6 @@
 #include <sched.h>
 #include <ctype.h>
 
-#include "int.h"
 #include "bitops.h"
 #include "page.h"
 #include "compiler.h"

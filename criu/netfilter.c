@@ -5,7 +5,6 @@
 #include <sys/wait.h>
 #include <stdlib.h>
 
-#include "int.h"
 #include "util.h"
 #include "common/list.h"
 #include "files.h"

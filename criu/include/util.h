@@ -12,6 +12,7 @@
 #include <sys/statfs.h>
 #include <dirent.h>
 
+#include "int.h"
 #include "compiler.h"
 #include "xmalloc.h"
 #include "bug.h"
