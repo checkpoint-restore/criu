@@ -10,7 +10,6 @@
 #include "lock.h"
 #include "util.h"
 #include "asm/restorer.h"
-#include "rst_info.h"
 #include "config.h"
 
 #include "posix-timer.h"
