@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 
 #include "cr_options.h"
-#include "criu-log.h"
+#include "log.h"
 #include "xmalloc.h"
 #include "files.h"
 #include "proc_parse.h"

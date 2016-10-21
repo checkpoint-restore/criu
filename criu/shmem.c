@@ -18,7 +18,7 @@
 #include "config.h"
 #include "syscall-codes.h"
 #include "bitops.h"
-#include "criu-log.h"
+#include "log.h"
 #include "page.h"
 
 #include "protobuf.h"
