@@ -111,6 +111,18 @@ struct fdinfo_list_entry *find_used_fd(struct list_head *head, int fd)
 	return NULL;
 }
 
+void collect_used_fd(struct fdinfo_list_entry *new_fle, struct rst_info *ri)
+{
+	struct fdinfo_list_entry *fle;
+
+	list_for_each_entry(fle, &ri->used, used_list) {
+		if (new_fle->fe->fd < fle->fe->fd)
+			break;
+	}
+
+	list_add_tail(&new_fle->used_list, &fle->used_list);
+}
+
 unsigned int find_unused_fd(struct list_head *head, int hint_fd)
 {
 	struct fdinfo_list_entry *fle;
