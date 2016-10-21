@@ -840,6 +840,35 @@ int criu_add_inherit_fd(int fd, char *key)
 	return criu_local_add_inherit_fd(global_opts, fd, key);
 }
 
+int criu_local_add_external(criu_opts *opts, char *key)
+{
+	int nr;
+	char **a, *e = NULL;
+
+	e = strdup(key);
+	if (!e)
+		goto err;
+
+	nr = opts->rpc->n_external + 1;
+	a = realloc(opts->rpc->external, nr * sizeof(*a));
+	if (!a)
+		goto err;
+
+	a[nr - 1] = e;
+	opts->rpc->external = a;
+	opts->rpc->n_external = nr;
+	return 0;
+err:
+	if (e)
+		free(e);
+	return -ENOMEM;
+}
+
+int criu_add_external(char *key)
+{
+	return criu_local_add_external(global_opts, key);
+}
+
 static CriuResp *recv_resp(int socket_fd)
 {
 	unsigned char *buf = NULL;
