@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <sys/socket.h>
 
-#include "protobuf.h"
 #include "images/sk-opts.pb-c.h"
 
 struct fdinfo_list_entry;
