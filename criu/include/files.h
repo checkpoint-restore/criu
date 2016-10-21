@@ -3,6 +3,7 @@
 
 #include <sys/stat.h>
 
+#include "int.h"
 #include "compiler.h"
 #include "fcntl.h"
 #include "lock.h"
