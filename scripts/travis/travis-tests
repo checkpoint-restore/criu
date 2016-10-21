@@ -27,8 +27,8 @@ ulimit -c unlimited
 echo "|`pwd`/test/abrt.sh %P %p %s %e" > /proc/sys/kernel/core_pattern
 
 export GCOV
-make $(MAKE_VARS)
-make $(MAKE_VARS) -C test/zdtm
+make ${MAKE_VARS}
+make ${MAKE_VARS} -C test/zdtm
 
 ./criu/criu check
 ./criu/criu check --all || echo $?
