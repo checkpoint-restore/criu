@@ -33,7 +33,7 @@
 #include "files.h"
 #include "files-reg.h"
 #include "file-ids.h"
-#include "log.h"
+#include "criu-log.h"
 #include "common/list.h"
 #include "lock.h"
 #include "irmap.h"

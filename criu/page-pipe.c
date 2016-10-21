@@ -7,6 +7,7 @@
 #include "page.h"
 #include "config.h"
 #include "util.h"
+#include "criu-log.h"
 #include "page-pipe.h"
 
 /* can existing iov accumulate the page? */

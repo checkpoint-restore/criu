@@ -32,7 +32,7 @@
 #include "image.h"
 #include "util.h"
 #include "util-pie.h"
-#include "log.h"
+#include "criu-log.h"
 #include "restorer.h"
 #include "sockets.h"
 #include "sk-packet.h"

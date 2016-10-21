@@ -14,6 +14,7 @@
 #include "cr_options.h"
 #include "cr-errno.h"
 #include "pstree.h"
+#include "criu-log.h"
 #include "ptrace.h"
 #include "seize.h"
 #include "stats.h"

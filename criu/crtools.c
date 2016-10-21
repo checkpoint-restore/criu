@@ -36,6 +36,7 @@
 #include "file-lock.h"
 #include "cr-service.h"
 #include "plugin.h"
+#include "criu-log.h"
 #include "mount.h"
 #include "filesystems.h"
 #include "namespaces.h"

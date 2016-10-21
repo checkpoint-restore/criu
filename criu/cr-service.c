@@ -19,7 +19,7 @@
 #include "cr_options.h"
 #include "external.h"
 #include "util.h"
-#include "log.h"
+#include "criu-log.h"
 #include "cpu.h"
 #include "files.h"
 #include "pstree.h"

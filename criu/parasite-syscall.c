@@ -25,6 +25,7 @@
 #include "pstree.h"
 #include "posix-timer.h"
 #include "mem.h"
+#include "criu-log.h"
 #include "vma.h"
 #include "proc_parse.h"
 #include "aio.h"

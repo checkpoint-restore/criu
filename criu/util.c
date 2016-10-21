@@ -45,7 +45,7 @@
 #include "vma.h"
 #include "mem.h"
 #include "namespaces.h"
-#include "log.h"
+#include "criu-log.h"
 
 #include "cr_options.h"
 #include "servicefd.h"

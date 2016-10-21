@@ -15,7 +15,7 @@
 #include "prctl.h"
 #include "lock.h"
 #include "parasite-vdso.h"
-#include "log.h"
+#include "criu-log.h"
 #include "tty.h"
 #include "aio.h"
 
