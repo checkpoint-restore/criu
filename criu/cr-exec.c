@@ -6,7 +6,7 @@
 #include "pstree.h"
 #include "parasite-syscall.h"
 #include "vma.h"
-#include "log.h"
+#include "criu-log.h"
 #include "util.h"
 #include "kerndat.h"
 

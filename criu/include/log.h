@@ -30,8 +30,6 @@ extern int write_pidfile(int pid);
 
 #define DEFAULT_LOG_FILENAME "criu.log"
 
-extern void print_data(unsigned long addr, unsigned char *data, size_t size);
-
 static inline int pr_quelled(unsigned int loglevel)
 {
 	return log_get_loglevel() < loglevel && loglevel != LOG_MSG;
