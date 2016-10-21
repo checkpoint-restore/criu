@@ -19,9 +19,8 @@
 	"-Wstrict-prototypes "					\
 	"-fno-stack-protector -nostdlib -fomit-frame-pointer "
 
-#define COMPEL_CFLAGS_PIE	CFLAGS_DEFAULT_SET "-fpie -fno-jump-tables"
-#define COMPEL_CFLAGS_PIE_JPT	CFLAGS_DEFAULT_SET "-fpie"
-#define COMPEL_CFLAGS_NOPIC	CFLAGS_DEFAULT_SET "-fno-pic -fno-jump-tables"
+#define COMPEL_CFLAGS_PIE	CFLAGS_DEFAULT_SET "-fpie"
+#define COMPEL_CFLAGS_NOPIC	CFLAGS_DEFAULT_SET "-fno-pic"
 
 #define COMPEL_LDFLAGS_DEFAULT "-r -z noexecstack"
 
@@ -111,7 +110,7 @@ int main(int argc, char *argv[])
 			.cflags	= COMPEL_CFLAGS_PIE,
 		}, {
 			.arch	= "ppc64",
-			.cflags	= COMPEL_CFLAGS_PIE_JPT,
+			.cflags	= COMPEL_CFLAGS_PIE,
 		},
 	};
 
