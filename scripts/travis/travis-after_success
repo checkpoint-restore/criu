@@ -2,7 +2,7 @@
 set -x -e
 
 # We only need to run the below for gcov-enabled builds
-[ "$GCOV" = "1" ] || exit 0
+test -z "$GCOV" && exit 0
 
 sudo apt-get install -qq -y lcov
 gem install coveralls-lcov

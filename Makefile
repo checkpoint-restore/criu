@@ -110,7 +110,7 @@ WARNINGS		:= -Wall -Wformat-security
 CFLAGS-GCOV		:= --coverage -fno-exceptions -fno-inline
 export CFLAGS-GCOV
 
-ifeq ($(GCOV),1)
+ifneq ($(GCOV),)
         LDFLAGS         += -lgcov
         CFLAGS          += $(CFLAGS-GCOV)
 endif
