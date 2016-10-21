@@ -34,6 +34,8 @@
 #define LOG_INFO	(3) /* Informative, everything is fine */
 #define LOG_DEBUG	(4) /* Debug only */
 
+#define DEFAULT_LOGLEVEL	LOG_WARN
+
 extern void print_on_level(unsigned int loglevel, const char *format, ...)
 	__attribute__ ((__format__ (__printf__, 2, 3)));
 

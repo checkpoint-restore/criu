@@ -26,8 +26,6 @@ extern void simple_sprintf(char output[LOG_SIMPLE_CHUNK], const char *format, ..
 
 extern int write_pidfile(int pid);
 
-#define DEFAULT_LOGLEVEL	LOG_WARN
-
 #define DEFAULT_LOG_FILENAME "criu.log"
 
 static inline int pr_quelled(unsigned int loglevel)
