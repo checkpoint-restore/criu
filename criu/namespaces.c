@@ -27,6 +27,7 @@
 #include "cgroup.h"
 
 #include "protobuf.h"
+#include "util.h"
 #include "images/ns.pb-c.h"
 #include "images/userns.pb-c.h"
 

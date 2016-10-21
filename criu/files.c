@@ -45,6 +45,7 @@
 #include "parasite-syscall.h"
 
 #include "protobuf.h"
+#include "util.h"
 #include "images/fs.pb-c.h"
 #include "images/ext-file.pb-c.h"
 

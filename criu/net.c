@@ -29,7 +29,7 @@
 #include "string.h"
 #include "sysctl.h"
 #include "kerndat.h"
-
+#include "util.h"
 #include "protobuf.h"
 #include "images/netdev.pb-c.h"
 

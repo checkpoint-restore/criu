@@ -13,7 +13,7 @@
 #include "tty.h"
 #include "mount.h"
 #include "dump.h"
-
+#include "util.h"
 #include "protobuf.h"
 #include "images/pstree.pb-c.h"
 

@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <linux/if.h>
@@ -17,6 +18,7 @@
 #include "tun.h"
 #include "net.h"
 #include "namespaces.h"
+#include "xmalloc.h"
 
 #include "images/tun.pb-c.h"
 

@@ -30,6 +30,7 @@
 #include "external.h"
 
 #include "protobuf.h"
+#include "util.h"
 #include "images/regfile.pb-c.h"
 #include "images/remap-file-path.pb-c.h"
 

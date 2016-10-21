@@ -9,6 +9,7 @@
 #include "servicefd.h"
 #include "pagemap.h"
 
+#include "xmalloc.h"
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
 

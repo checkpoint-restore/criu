@@ -21,6 +21,7 @@
 #include "rst-malloc.h"
 #include "sockets.h"
 #include "sk-inet.h"
+#include "util.h"
 
 #define PB_ALEN_INET	1
 #define PB_ALEN_INET6	4

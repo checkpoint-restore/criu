@@ -20,7 +20,7 @@
 #include "bitops.h"
 #include "log.h"
 #include "page.h"
-
+#include "util.h"
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
 

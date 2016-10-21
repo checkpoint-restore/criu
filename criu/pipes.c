@@ -14,6 +14,7 @@
 #include "autofs.h"
 
 #include "protobuf.h"
+#include "util.h"
 #include "images/pipe.pb-c.h"
 #include "images/pipe-data.pb-c.h"
 

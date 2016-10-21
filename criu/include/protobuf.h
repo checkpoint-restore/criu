@@ -1,10 +1,10 @@
 #ifndef __CR_PROTOBUF_H__
 #define __CR_PROTOBUF_H__
 
-#include "protobuf-desc.h"
+#include <stdbool.h>
 
+#include "protobuf-desc.h"
 #include "compiler.h"
-#include "util.h"
 
 struct cr_img;
 

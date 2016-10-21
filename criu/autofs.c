@@ -14,6 +14,7 @@
 #include "protobuf.h"
 #include "pipes.h"
 #include "crtools.h"
+#include "util.h"
 
 #include "images/autofs.pb-c.h"
 

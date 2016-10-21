@@ -38,6 +38,7 @@
 #include "ptrace.h"
 #include "kerndat.h"
 #include "timerfd.h"
+#include "util.h"
 #include "tun.h"
 #include "namespaces.h"
 #include "pstree.h"

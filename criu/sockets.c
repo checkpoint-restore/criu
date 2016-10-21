@@ -22,6 +22,7 @@
 #include "sk-packet.h"
 #include "namespaces.h"
 #include "net.h"
+#include "xmalloc.h"
 #include "fs-magic.h"
 
 #ifndef SOCK_DIAG_BY_FAMILY

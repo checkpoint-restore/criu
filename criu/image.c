@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <unistd.h>
 #include <stdarg.h>
 #include <fcntl.h>
@@ -11,6 +12,7 @@
 #include "cgroup.h"
 #include "lsm.h"
 #include "protobuf.h"
+#include "xmalloc.h"
 #include "images/inventory.pb-c.h"
 #include "images/pagemap.pb-c.h"
 

@@ -18,6 +18,7 @@
 #include "cr_options.h"
 #include "bfd.h"
 #include "protobuf.h"
+#include "util.h"
 
 /*
  * To speed up reading of packed objects

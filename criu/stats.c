@@ -6,6 +6,7 @@
 #include "rst-malloc.h"
 #include "protobuf.h"
 #include "stats.h"
+#include "util.h"
 #include "image.h"
 #include "images/stats.pb-c.h"
 

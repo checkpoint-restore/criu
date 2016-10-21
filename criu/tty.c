@@ -30,6 +30,7 @@
 #include "external.h"
 
 #include "protobuf.h"
+#include "util.h"
 #include "images/tty.pb-c.h"
 
 #include "parasite-syscall.h"

@@ -12,6 +12,7 @@
 #include "fs-magic.h"
 #include "kerndat.h"
 #include "image.h"
+#include "util.h"
 #include "mount.h"
 #include "proc_parse.h"
 #include "servicefd.h"
