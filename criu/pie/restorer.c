@@ -17,6 +17,8 @@
 #include <sys/resource.h>
 #include <signal.h>
 
+#include "int.h"
+#include "types.h"
 #include "compiler.h"
 #include "string.h"
 #include "syscall.h"

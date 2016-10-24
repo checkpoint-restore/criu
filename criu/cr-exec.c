@@ -1,6 +1,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include "int.h"
+#include "types.h"
 #include "crtools.h"
 #include "ptrace.h"
 #include "pstree.h"

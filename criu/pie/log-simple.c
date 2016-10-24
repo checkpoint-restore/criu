@@ -1,5 +1,7 @@
 #include <stdarg.h>
 
+#include "int.h"
+#include "types.h"
 #include "bitsperlong.h"
 #include "syscall.h"
 #include "log.h"

@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 #include "int.h"
+#include "types.h"
 #include "compiler.h"
 #include "fcntl.h"
 #include "log.h"

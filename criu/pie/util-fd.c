@@ -5,6 +5,7 @@
 #include <errno.h>
 
 #include "int.h"
+#include "types.h"
 #include "compiler.h"
 #include "log.h"
 #include "string.h"

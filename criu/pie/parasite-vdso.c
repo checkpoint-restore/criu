@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
+#include "int.h"
+#include "types.h"
 #include "page.h"
 #include "syscall.h"
 #include "image.h"

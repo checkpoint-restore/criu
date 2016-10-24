@@ -7,8 +7,9 @@
 #include <stdarg.h>
 #include <sys/ioctl.h>
 
-#include "syscall.h"
+#include "int.h"
 #include "types.h"
+#include "syscall.h"
 #include "parasite.h"
 #include "config.h"
 #include "fcntl.h"

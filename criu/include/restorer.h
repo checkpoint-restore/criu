@@ -5,6 +5,8 @@
 #include <limits.h>
 #include <sys/resource.h>
 
+#include "int.h"
+#include "types.h"
 #include "compiler.h"
 #include "asm/fpu.h"
 #include "lock.h"
