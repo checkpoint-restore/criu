@@ -172,7 +172,7 @@ extern int cr_system_userns(int in, int out, int err, char *cmd,
 extern int cr_daemon(int nochdir, int noclose, int *keep_fd, int close_fd);
 extern int is_root_user(void);
 
-static inline bool dir_dots(struct dirent *de)
+static inline bool dir_dots(const struct dirent *de)
 {
 	return !strcmp(de->d_name, ".") || !strcmp(de->d_name, "..");
 }
