@@ -9,7 +9,11 @@
 
 #include "atomic.h"
 #include "log.h"
-#include "common/bug.h"
+
+#define LOCK_BUG_ON(condition)							\
+	if ((condition))							\
+		*(volatile unsigned long *)NULL = 0xdead0000 + __LINE__
+#define LOCK_BUG()	LOCK_BUG_ON(1)
 
 #ifdef CR_NOGLIBC
 # include "syscall.h"
@@ -60,16 +64,12 @@ static inline void futex_set(futex_t *f, uint32_t v)
 				break;				\
 			ret = sys_futex((uint32_t *)&(__f)->raw.counter, FUTEX_WAIT,\
 					tmp, &to, NULL, 0);	\
-			if (ret == -ETIMEDOUT) {		\
-				pr_warn("blocked for more than 120 seconds\n"); \
+			if (ret == -ETIMEDOUT)			\
 				continue;			\
-			}					\
 			if (ret == -EINTR || ret == -EWOULDBLOCK) \
 				continue;			\
-			if (ret < 0) {				\
-				pr_err("futex() returned an unexpected error: %d\n", ret); \
-				BUG();				\
-			}					\
+			if (ret < 0)				\
+				LOCK_BUG();			\
 		}						\
 	} while (0)
 
@@ -77,7 +77,7 @@ static inline void futex_set(futex_t *f, uint32_t v)
 static inline void futex_set_and_wake(futex_t *f, uint32_t v)
 {
 	atomic_set(&f->raw, (int)v);
-	BUG_ON(sys_futex((uint32_t *)&f->raw.counter, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
+	LOCK_BUG_ON(sys_futex((uint32_t *)&f->raw.counter, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
 }
 
 /* Mark futex @f as wait abort needed and wake up all waiters */
@@ -91,14 +91,14 @@ static inline void futex_abort_and_wake(futex_t *f)
 static inline void futex_dec_and_wake(futex_t *f)
 {
 	atomic_dec(&f->raw);
-	BUG_ON(sys_futex((uint32_t *)&f->raw.counter, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
+	LOCK_BUG_ON(sys_futex((uint32_t *)&f->raw.counter, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
 }
 
 /* Increment futex @f value and wake up all waiters */
 static inline void futex_inc_and_wake(futex_t *f)
 {
 	atomic_inc(&f->raw);
-	BUG_ON(sys_futex((uint32_t *)&f->raw.counter, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
+	LOCK_BUG_ON(sys_futex((uint32_t *)&f->raw.counter, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
 }
 
 /* Plain increment futex @f value */
@@ -124,7 +124,7 @@ static inline void futex_wait_while(futex_t *f, uint32_t v)
 {
 	while ((uint32_t)atomic_read(&f->raw) == v) {
 		int ret = sys_futex((uint32_t *)&f->raw.counter, FUTEX_WAIT, v, NULL, NULL, 0);
-		BUG_ON(ret < 0 && ret != -EWOULDBLOCK);
+		LOCK_BUG_ON(ret < 0 && ret != -EWOULDBLOCK);
 	}
 }
 
@@ -145,7 +145,7 @@ static inline void mutex_lock(mutex_t *m)
 
 	while ((c = (uint32_t)atomic_inc_return(&m->raw)) != 1) {
 		ret = sys_futex((uint32_t *)&m->raw.counter, FUTEX_WAIT, c, NULL, NULL, 0);
-		BUG_ON(ret < 0 && ret != -EWOULDBLOCK);
+		LOCK_BUG_ON(ret < 0 && ret != -EWOULDBLOCK);
 	}
 }
 
@@ -153,7 +153,7 @@ static inline void mutex_unlock(mutex_t *m)
 {
 	uint32_t c = 0;
 	atomic_set(&m->raw, (int)c);
-	BUG_ON(sys_futex((uint32_t *)&m->raw.counter, FUTEX_WAKE, 1, NULL, NULL, 0) < 0);
+	LOCK_BUG_ON(sys_futex((uint32_t *)&m->raw.counter, FUTEX_WAKE, 1, NULL, NULL, 0) < 0);
 }
 
 #endif /* __CR_LOCK_H__ */
