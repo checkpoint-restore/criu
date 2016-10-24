@@ -9,6 +9,7 @@
 #include "pstree.h"
 #include "util.h"
 #include "cr_options.h"
+#include "lsm.h"
 
 #include "protobuf.h"
 #include "images/inventory.pb-c.h"
@@ -116,7 +117,7 @@ void kerndat_lsm(void)
 	if (name)
 		return;
 
-	if (access("/sys/kernel/security/apparmor", F_OK) == 0) {
+	if (access(AA_SECURITYFS_PATH, F_OK) == 0) {
 		get_label = apparmor_get_label;
 		lsmtype = LSMTYPE__APPARMOR;
 		name = "apparmor";

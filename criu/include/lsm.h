@@ -4,6 +4,8 @@
 #include "images/inventory.pb-c.h"
 #include "images/creds.pb-c.h"
 
+#define AA_SECURITYFS_PATH "/sys/kernel/security/apparmor"
+
 /*
  * Get the Lsmtype for the current host.
  */
