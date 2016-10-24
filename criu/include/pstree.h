@@ -47,7 +47,7 @@ struct dmp_info {
 	struct parasite_ctl *parasite_ctl;
 };
 
-static inline struct dmp_info *dmpi(struct pstree_item *i)
+static inline struct dmp_info *dmpi(const struct pstree_item *i)
 {
 	return (struct dmp_info *)(i + 1);
 }
