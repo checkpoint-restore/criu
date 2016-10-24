@@ -132,7 +132,7 @@ ifeq ($(GMON),1)
 export GMON GMONLDOPT
 endif
 
-CFLAGS			+= $(WARNINGS) $(DEFINES)
+CFLAGS			+= $(WARNINGS) $(DEFINES) -iquote include/common
 
 # Default target
 all: criu lib
@@ -176,6 +176,13 @@ ifneq ($(CRIU_VERSION_EXTRA),)
 endif
 	$(Q) echo "#define CRIU_GITID \"$(GITID)\""				>> $@
 	$(Q) echo "#endif /* __CR_VERSION_H__ */"				>> $@
+
+#
+# Setup proper link for asm headers in common code.
+include/common/asm: include/common/arch/$(ARCH)/asm
+	$(call msg-gen, $@)
+	$(Q) ln -s ./arch/$(ARCH)/asm $@
+$(VERSION_HEADER): include/common/asm
 
 #
 # piegen tool might be disabled by hands. Don't use it until
@@ -243,6 +250,7 @@ mrproper: subclean
 	$(Q) $(MAKE) $(build)=criu $@
 	$(Q) $(RM) $(CONFIG_HEADER)
 	$(Q) $(RM) $(VERSION_HEADER)
+	$(Q) $(RM) include/common/asm
 	$(Q) $(RM) cscope.*
 	$(Q) $(RM) tags TAGS
 .PHONY: mrproper
