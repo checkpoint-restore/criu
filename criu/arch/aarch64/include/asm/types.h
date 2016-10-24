@@ -6,7 +6,7 @@
 #include <asm/ptrace.h>
 #include "images/core.pb-c.h"
 
-#include "asm/page.h"
+#include "page.h"
 #include "bitops.h"
 #include "asm/int.h"
 
