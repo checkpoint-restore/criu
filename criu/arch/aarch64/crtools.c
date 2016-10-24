@@ -5,7 +5,7 @@
 
 #include "asm/types.h"
 #include "asm/restorer.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "ptrace.h"
 #include "asm/processor-flags.h"
 #include "protobuf.h"

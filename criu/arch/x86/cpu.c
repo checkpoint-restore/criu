@@ -11,7 +11,7 @@
 #include "asm/cpu.h"
 #include "asm/fpu.h"
 
-#include "compiler.h"
+#include "common/compiler.h"
 
 #include "cr_options.h"
 #include "image.h"

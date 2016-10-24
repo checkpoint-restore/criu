@@ -10,7 +10,7 @@
 #include "asm/fpu.h"
 
 #include "cr_options.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "restorer.h"
 #include "ptrace.h"
 #include "parasite-syscall.h"

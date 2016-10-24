@@ -3,7 +3,7 @@
 
 #include "piegen/uapi/types.h"
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "config.h"
 
 #ifdef CONFIG_PIEGEN

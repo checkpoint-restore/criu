@@ -19,7 +19,7 @@
 
 #include "int.h"
 #include "types.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "string.h"
 #include "syscall.h"
 #include "signal.h"

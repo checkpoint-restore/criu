@@ -2,7 +2,7 @@
 #include <signal.h>
 #include <sys/signalfd.h>
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "signalfd.h"
 #include "fdinfo.h"
 #include "imgset.h"

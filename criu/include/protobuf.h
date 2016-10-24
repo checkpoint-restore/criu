@@ -4,7 +4,8 @@
 #include <stdbool.h>
 
 #include "protobuf-desc.h"
-#include "compiler.h"
+#include "common/compiler.h"
+#include "util.h"
 
 struct cr_img;
 

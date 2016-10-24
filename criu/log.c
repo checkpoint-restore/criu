@@ -13,7 +13,7 @@
 #include <fcntl.h>
 
 #include "page.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "util.h"
 #include "cr_options.h"
 #include "servicefd.h"

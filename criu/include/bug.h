@@ -4,7 +4,7 @@
 #include <signal.h>
 #include <stdbool.h>
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "log.h"
 
 #ifndef BUG_ON_HANDLER

@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "servicefd.h"
 #include "image-desc.h"
 #include "fcntl.h"

@@ -1,7 +1,7 @@
 #ifndef __CR_ASM_STRING_H__
 #define __CR_ASM_STRING_H__
 
-#include "compiler.h"
+#include "common/compiler.h"
 
 #define HAS_BUILTIN_MEMCPY
 #define HAS_BUILTIN_MEMCMP

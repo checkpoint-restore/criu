@@ -10,7 +10,7 @@
 
 #include "image.h"
 #include "servicefd.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "log.h"
 #include "rst-malloc.h"
 #include "string.h"

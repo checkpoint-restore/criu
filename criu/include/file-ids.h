@@ -1,7 +1,7 @@
 #ifndef __CR_FILE_IDS_H__
 #define __CR_FILE_IDS_H__
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "rbtree.h"
 
 #include "images/fdinfo.pb-c.h"

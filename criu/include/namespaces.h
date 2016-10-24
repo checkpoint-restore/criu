@@ -1,7 +1,7 @@
 #ifndef __CR_NS_H__
 #define __CR_NS_H__
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "files.h"
 #include "common/list.h"
 

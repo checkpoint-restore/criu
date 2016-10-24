@@ -7,7 +7,7 @@
 #include <dlfcn.h>
 
 #include "cr_options.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "xmalloc.h"
 #include "plugin.h"
 #include "common/list.h"

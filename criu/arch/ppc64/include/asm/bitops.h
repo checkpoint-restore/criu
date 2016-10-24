@@ -38,7 +38,7 @@
  * Copied from the kernel file arch/powerpc/include/asm/bitops.h
  */
 
-#include "compiler.h"
+#include "common/compiler.h"
 
 #include "asm/bitsperlong.h"
 

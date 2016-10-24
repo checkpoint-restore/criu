@@ -13,7 +13,7 @@
 #include <linux/major.h>
 
 #include "types.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "crtools.h"
 #include "files.h"
 #include "cr_options.h"

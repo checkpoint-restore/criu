@@ -1,7 +1,7 @@
 #ifndef __CR_ASM_GENERIC_STRING_H__
 #define __CR_ASM_GENERIC_STRING_H__
 
-#include "compiler.h"
+#include "common/compiler.h"
 
 #ifndef HAS_BUILTIN_MEMCPY
 static always_inline void *builtin_memcpy(void *to, const void *from, unsigned int n)

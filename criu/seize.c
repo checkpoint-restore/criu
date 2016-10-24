@@ -10,7 +10,7 @@
 #include <time.h>
 
 #include "int.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "cr_options.h"
 #include "cr-errno.h"
 #include "pstree.h"

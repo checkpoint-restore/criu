@@ -37,7 +37,7 @@
 
 #include "bitops.h"
 #include "page.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "common/list.h"
 #include "util.h"
 #include "rst-malloc.h"

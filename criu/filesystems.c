@@ -5,7 +5,7 @@
 #include <sys/mount.h>
 
 #include "int.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "xmalloc.h"
 #include "cr_options.h"
 #include "filesystems.h"

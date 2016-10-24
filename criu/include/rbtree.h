@@ -7,7 +7,7 @@
 
 #include <stddef.h>
 
-#include "compiler.h"
+#include "common/compiler.h"
 
 #define	RB_RED		0
 #define	RB_BLACK	1

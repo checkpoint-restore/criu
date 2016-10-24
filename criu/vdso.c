@@ -12,7 +12,7 @@
 #include "types.h"
 #include "parasite-syscall.h"
 #include "parasite.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "kerndat.h"
 #include "vdso.h"
 #include "util.h"

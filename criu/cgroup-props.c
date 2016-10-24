@@ -8,7 +8,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "compiler.h"
+#include "int.h"
+#include "common/compiler.h"
 #include "cgroup-props.h"
 #include "cr_options.h"
 #include "config.h"

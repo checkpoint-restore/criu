@@ -14,7 +14,7 @@
 
 #include "asm-generic/int.h"
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "piegen.h"
 
 static bool __ptr_oob(const void *ptr, const void *start, const size_t size)

@@ -3,7 +3,7 @@
 
 #define HAS_BUILTIN_MEMCPY
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "asm-generic/string.h"
 
 #ifdef CR_NOGLIBC

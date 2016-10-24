@@ -8,7 +8,7 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "log.h"
 
 #include "protobuf-desc.h"

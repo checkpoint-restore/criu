@@ -12,7 +12,7 @@
 #include <sys/ioctl.h>
 #include <sys/eventfd.h>
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "imgset.h"
 #include "eventfd.h"
 #include "fdinfo.h"

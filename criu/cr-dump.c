@@ -37,7 +37,7 @@
 #include "imgset.h"
 #include "file-ids.h"
 #include "kcmp-ids.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "crtools.h"
 #include "cr_options.h"
 #include "servicefd.h"

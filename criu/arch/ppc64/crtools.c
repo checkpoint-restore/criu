@@ -10,7 +10,7 @@
 #include "asm/restorer.h"
 
 #include "cr_options.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "ptrace.h"
 #include "parasite-syscall.h"
 #include "log.h"

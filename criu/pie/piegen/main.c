@@ -13,7 +13,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "config.h"
 #include "piegen.h"
 

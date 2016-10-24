@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include <stdbool.h>
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "asm/int.h"
 
 #define FP_MIN_ALIGN_BYTES		64

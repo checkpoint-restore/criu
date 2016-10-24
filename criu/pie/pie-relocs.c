@@ -14,7 +14,7 @@
 
 #include "asm-generic/int.h"
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "piegen/uapi/types.h"
 #include "bug.h"
 

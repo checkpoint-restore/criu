@@ -14,7 +14,7 @@
 #include "kerndat.h"
 #include "fs-magic.h"
 #include "mem.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "sysctl.h"
 #include "cr_options.h"
 #include "util.h"
