@@ -11,7 +11,7 @@ typedef struct {
         int counter;
 } atomic_t;
 
-#include "asm/cmpxchg.h"
+#include "common/arch/ppc64/asm/cmpxchg.h"
 
 #define PPC_ATOMIC_ENTRY_BARRIER	"lwsync \n"
 #define PPC_ATOMIC_EXIT_BARRIER		"sync  	\n"

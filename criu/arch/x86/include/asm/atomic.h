@@ -1,9 +1,7 @@
 #ifndef __CR_ATOMIC_H__
 #define __CR_ATOMIC_H__
 
-#include "asm/cmpxchg.h"
-
-#define LOCK_PREFIX "\n\tlock; "
+#include "common/arch/x86/asm/cmpxchg.h"
 
 typedef struct {
 	int counter;

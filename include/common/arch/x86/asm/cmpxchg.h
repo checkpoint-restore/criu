@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define LOCK_PREFIX "\n\tlock; "
+
 #define __X86_CASE_B	1
 #define __X86_CASE_W	2
 #define __X86_CASE_L	4
