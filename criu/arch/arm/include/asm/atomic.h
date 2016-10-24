@@ -1,7 +1,7 @@
 #ifndef __CR_ATOMIC_H__
 #define __CR_ATOMIC_H__
 
-#include "asm/processor.h"
+#include "common/arch/arm/asm/processor.h"
 
 typedef struct {
 	int counter;
