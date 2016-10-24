@@ -6,7 +6,7 @@
 
 #include <sys/types.h>
 
-#include "asm/bitops.h"
+#include "bitops.h"
 #include "asm/types.h"
 #include "asm/cpu.h"
 #include "asm/fpu.h"

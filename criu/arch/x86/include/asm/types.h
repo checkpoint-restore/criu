@@ -5,7 +5,7 @@
 #include <signal.h>
 
 #include "asm/page.h"
-#include "asm/bitops.h"
+#include "bitops.h"
 #include "asm/int.h"
 
 #include "images/core.pb-c.h"

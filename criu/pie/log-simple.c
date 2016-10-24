@@ -2,7 +2,7 @@
 
 #include "int.h"
 #include "types.h"
-#include "bitsperlong.h"
+#include "common/bitsperlong.h"
 #include "syscall.h"
 #include "log.h"
 
