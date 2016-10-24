@@ -5,7 +5,8 @@
 #include "int.h"
 #include "mount.h"
 #include "path.h"
-#include "bug.h"
+#include "log.h"
+#include "common/bug.h"
 
 char *cut_root_for_bind(char *target_root, char *source_root)
 {

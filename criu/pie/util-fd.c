@@ -20,7 +20,7 @@
 #include "util-pie.h"
 #include "fcntl.h"
 
-#include "bug.h"
+#include "common/bug.h"
 
 static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds)
 {

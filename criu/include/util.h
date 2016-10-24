@@ -15,7 +15,7 @@
 #include "int.h"
 #include "common/compiler.h"
 #include "xmalloc.h"
-#include "bug.h"
+#include "common/bug.h"
 #include "log.h"
 #include "err.h"
 

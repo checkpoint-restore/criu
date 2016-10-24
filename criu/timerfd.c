@@ -18,7 +18,7 @@
 #include "imgset.h"
 #include "util.h"
 #include "log.h"
-#include "bug.h"
+#include "common/bug.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "timerfd: "

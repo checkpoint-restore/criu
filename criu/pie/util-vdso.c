@@ -15,7 +15,7 @@
 #include "util-vdso.h"
 #include "vma.h"
 #include "log.h"
-#include "bug.h"
+#include "common/bug.h"
 
 #ifdef LOG_PREFIX
 # undef LOG_PREFIX

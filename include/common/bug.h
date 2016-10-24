@@ -5,7 +5,6 @@
 #include <stdbool.h>
 
 #include "common/compiler.h"
-#include "log.h"
 
 #ifndef BUG_ON_HANDLER
 
@@ -16,6 +15,9 @@
 #endif
 
 #ifndef __clang_analyzer__
+# ifndef pr_err
+#  error pr_err macro must be defined
+# endif
 # define BUG_ON_HANDLER(condition)							\
 	do {										\
 		if ((condition)) {							\

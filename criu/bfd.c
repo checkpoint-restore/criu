@@ -7,8 +7,9 @@
 #include <sys/uio.h>
 #include <errno.h>
 
-#include "bug.h"
+#include "int.h"
 #include "log.h"
+#include "common/bug.h"
 #include "bfd.h"
 #include "common/list.h"
 #include "util.h"

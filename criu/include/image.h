@@ -9,7 +9,8 @@
 #include "fcntl.h"
 #include "magic.h"
 #include "bfd.h"
-#include "bug.h"
+#include "log.h"
+#include "common/bug.h"
 
 #ifdef _ARCH_PPC64
 #define PAGE_IMAGE_SIZE	65536

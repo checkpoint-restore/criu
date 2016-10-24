@@ -7,7 +7,8 @@
 #include <errno.h>
 
 #include "atomic.h"
-#include "bug.h"
+#include "log.h"
+#include "common/bug.h"
 
 #ifdef CR_NOGLIBC
 # include "syscall.h"
