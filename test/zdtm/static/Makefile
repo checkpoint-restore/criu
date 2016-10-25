@@ -245,6 +245,7 @@ TST_DIR		=				\
 		mntns_root_bind02		\
 		mntns_overmount			\
 		mntns_shared_vs_private		\
+		mnt_ext_manual			\
 		mnt_ext_auto			\
 		mnt_ext_master			\
 		mnt_ext_dev			\
@@ -394,6 +395,7 @@ socket-tcp6-local: override CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV6
 socket-tcp-local: override CFLAGS += -D ZDTM_TCP_LOCAL
 socket-tcp-nfconntrack: override CFLAGS += -D ZDTM_TCP_LOCAL -DZDTM_CONNTRACK
 socket_listen6: override CFLAGS += -D ZDTM_IPV6
+mnt_ext_manual: override CFLAGS += -D ZDTM_EXTMAP_MANUAL
 sigpending:		override LDLIBS += -lrt
 vdso01:			override LDLIBS += -lrt
 mntns_link_remap:	override CFLAGS += -DZDTM_LINK_REMAP

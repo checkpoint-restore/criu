@@ -11,10 +11,16 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check --mnt-ext-map auto";
+const char *test_doc	= "Check --mnt-ext-map";
 const char *test_author	= "Andrew Vagin <avagin@gmail.com>";
 
+#ifdef ZDTM_EXTMAP_MANUAL
+char *dirname = "mnt_ext_manual.test";
+#define DDIR	"mtest"
+#else
 char *dirname = "mnt_ext_auto.test";
+#define DDIR	"atest"
+#endif
 TEST_OPTION(dirname, string, "directory name", 1);
 
 int main(int argc, char ** argv)
@@ -35,7 +41,7 @@ int main(int argc, char ** argv)
 		goto test;
 
 	mkdir(dname, 755);
-	sprintf(src, "%s/test", dname);
+	sprintf(src, "%s/%s", dname, DDIR);
 	if (mount("zdtm_auto_ext_mnt", dname, "tmpfs", 0, NULL)) {
 		pr_perror("mount");
 		return 1;
