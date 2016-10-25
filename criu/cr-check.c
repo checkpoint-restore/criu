@@ -962,7 +962,7 @@ static int (*chk_feature)(void);
 			} while (0)
 int cr_check(void)
 {
-	struct ns_id ns = { .type = NS_CRIU, .ns_pid = PROC_SELF, .nd = &mnt_ns_desc };
+	struct ns_id *ns;
 	int ret = 0;
 
 	if (!is_root_user())
@@ -977,9 +977,11 @@ int cr_check(void)
 	if (collect_pstree_ids())
 		return -1;
 
-	ns.id = root_item->ids->mnt_ns_id;
+	ns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
+	if (ns == NULL)
+		return -1;
 
-	mntinfo = collect_mntinfo(&ns, false);
+	mntinfo = collect_mntinfo(ns, false);
 	if (mntinfo == NULL)
 		return -1;
 
