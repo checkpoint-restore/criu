@@ -1,4 +1,4 @@
-{   'dopts': '--ext-mount-map /zdtm/static/mnt_ext_manual.test:ZDTM',
+{   'dopts': '--external mnt[/zdtm/static/mnt_ext_manual.test]:ZDTM',
     'feature': 'mnt_id',
     'flavor': 'ns uns',
-    'ropts': '--ext-mount-map ZDTM:/tmp/zdtm_ext_auto.XXXXXX/mtest'}
+    'ropts': '--external mnt[ZDTM]:/tmp/zdtm_ext_auto.XXXXXX/mtest'}
