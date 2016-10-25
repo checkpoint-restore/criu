@@ -59,32 +59,15 @@ int ext_mount_add(char *key, char *val)
 }
 
 /* Lookup ext_mount by key field */
-static struct ext_mount *ext_mount_lookup(char *key)
+static char *ext_mount_lookup(char *key)
 {
 	struct ext_mount *em;
 
 	list_for_each_entry(em, &opts.ext_mounts, list)
 		if (!strcmp(em->key, key))
-			return em;
+			return em->val;
 
 	return NULL;
-}
-
-static struct ext_mount *ext_mount_make_auto(char *val)
-{
-	struct ext_mount *em;
-
-	em = xmalloc(sizeof(*em));
-	if (em) {
-		/*
-		 * The key is (should) only be used for lookup by
-		 * ext_mount_lookup() above.
-		 */
-		em->key = (char *)0x00BEDA00;
-		em->val = val;
-	}
-
-	return em;
 }
 
 /*
@@ -483,14 +466,14 @@ static void mnt_tree_show(struct mount_info *tree, int off)
 /* Returns -1 on error, 1 if external mount resolved, 0 otherwise */
 static int try_resolve_ext_mount(struct mount_info *info)
 {
-	struct ext_mount *em;
+	char *ext;
 	char devstr[64];
 
-	em = ext_mount_lookup(info->mountpoint + 1 /* trim the . */);
-	if (em) {
+	ext = ext_mount_lookup(info->mountpoint + 1 /* trim the . */);
+	if (ext) {
 		pr_info("Found %s mapping for %s mountpoint\n",
-				em->val, info->mountpoint);
-		info->external = em;
+				ext, info->mountpoint);
+		info->external = ext;
 		return 1;
 	}
 
@@ -850,11 +833,7 @@ static int resolve_external_mounts(struct mount_info *info)
 		if (!p)
 			return -1;
 
-		m->external = ext_mount_make_auto(AUTODETECTED_MOUNT);
-		if (!m->external) {
-			free(p);
-			return -1;
-		}
+		m->external = AUTODETECTED_MOUNT;
 
 		/*
 		 * Put the guessed name in source. It will be picked up
@@ -1298,7 +1277,7 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 		 * value instead of root. See collect_mnt_from_image
 		 * for reverse mapping details.
 		 */
-		me.root	= pm->external->val;
+		me.root	= pm->external;
 		me.has_ext_mount = true;
 		me.ext_mount = true;
 	} else
@@ -1820,7 +1799,7 @@ static int do_bind_mount(struct mount_info *mi)
 		 * is tuned in collect_mnt_from_image to refer
 		 * to proper location in the namespace we restore.
 		 */
-		root = mi->external->val;
+		root = mi->external;
 		private = !mi->master_id && (mi->internal_sharing || !mi->shared_id);
 		goto do_bind;
 	}
@@ -2270,7 +2249,7 @@ static int rst_collect_local_mntns(enum ns_type typ)
 
 static int get_mp_root(MntEntry *me, struct mount_info *mi)
 {
-	struct ext_mount *em = NULL;
+	char *ext = NULL;
 
 	mi->root = xstrdup(me->root);
 	if (!mi->root)
@@ -2284,8 +2263,8 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 	 * from the command line and put into root's place
 	 */
 
-	em = ext_mount_lookup(me->root);
-	if (!em) {
+	ext = ext_mount_lookup(me->root);
+	if (!ext) {
 		if (!opts.autodetect_ext_mounts) {
 			pr_err("No mapping for %s mountpoint\n", me->mountpoint);
 			return -1;
@@ -2300,15 +2279,13 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 		 * dump by resolve_external_mounts().
 		 */
 
-		em = ext_mount_make_auto(mi->source);
-		if (!em)
-			return -1;
+		ext = mi->source;
 	}
 
-	mi->external = em;
+	mi->external = ext;
 out:
 	pr_debug("\t\tWill mount %d from %s%s\n",
-			mi->mnt_id, em ? em->val : mi->root, em ? " (E)" : "");
+			mi->mnt_id, ext ? : mi->root, ext ? " (E)" : "");
 	return 0;
 }
 

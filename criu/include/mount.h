@@ -67,7 +67,7 @@ struct mount_info {
 	struct mount_info	*next;
 	struct ns_id		*nsid;
 
-	struct ext_mount	*external;
+	char			*external;
 	bool			internal_sharing;
 
 	/* tree linkage */
