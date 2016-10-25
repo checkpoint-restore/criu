@@ -45,29 +45,40 @@
 
 int ext_mount_add(char *key, char *val)
 {
-	struct ext_mount *em;
+	char *e_str;
 
-	em = xmalloc(sizeof(*em));
-	if (!em)
+	e_str = xmalloc(strlen(key) + strlen(val) + 8);
+	if (!e_str)
 		return -1;
 
-	em->key = key;
-	em->val = val;
-	list_add_tail(&em->list, &opts.ext_mounts);
-	pr_info("Added %s:%s ext mount mapping\n", key, val);
-	return 0;
+	/*
+	 * On dump the key is the mountpoint as seen from the mount
+	 * namespace, the val is some name that will be put into image
+	 * instead of the mount point's root path.
+	 *
+	 * On restore the key is the name from the image (the one
+	 * mentioned above) and the val is the path in criu's mount
+	 * namespace that will become the mount point's root, i.e. --
+	 * be bind mounted to the respective mountpoint.
+	 */
+
+	sprintf(e_str, "mnt[%s]:%s", key, val);
+	return add_external(e_str);
 }
 
 /* Lookup ext_mount by key field */
 static char *ext_mount_lookup(char *key)
 {
-	struct ext_mount *em;
+	char *v;
+	int len = strlen(key);
+	char mkey[len + 8];
 
-	list_for_each_entry(em, &opts.ext_mounts, list)
-		if (!strcmp(em->key, key))
-			return em->val;
+	sprintf(mkey, "mnt[%s]", key);
+	v = external_lookup_by_key(mkey);
+	if (IS_ERR(v))
+		v = NULL;
 
-	return NULL;
+	return v;
 }
 
 /*

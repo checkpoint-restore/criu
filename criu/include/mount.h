@@ -10,24 +10,6 @@ struct pstree_item;
 struct fstype;
 struct ns_id;
 
-/*
- * Structure to keep external mount points resolving info.
- *
- * On dump the key is the mountpoint as seen from the mount
- * namespace, the val is some name that will be put into image
- * instead of the mount point's root path.
- *
- * On restore the key is the name from the image (the one
- * mentioned above) and the val is the path in criu's mount
- * namespace that will become the mount point's root, i.e. --
- * be bind mounted to the respective mountpoint.
- */
-struct ext_mount {
-	struct list_head	list;
-	char			*key;
-	char			*val;
-};
-
 #define MOUNT_INVALID_DEV	(0)
 
 struct mount_info {
