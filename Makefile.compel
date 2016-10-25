@@ -57,7 +57,7 @@ compel/plugins/shmem.built-in.o: $(compel-deps) .FORCE
 compel/plugins/fds.built-in.o: $(compel-deps) .FORCE
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 
-compel/compel: compel/built-in.o compel/lib.a | $(compel-deps)
+compel/compel: compel/built-in.o compel/libcompel.a | $(compel-deps)
 	$(call msg-link, $@)
 	$(Q) $(CC) $(CFLAGS) $^ $(WRAPFLAGS) $(LDFLAGS) -rdynamic -o $@
 
@@ -65,6 +65,6 @@ compel/compel: compel/built-in.o compel/lib.a | $(compel-deps)
 # And compel library.
 LIBCOMPEL_SO		:= libcompel.so
 LIBCOMPEL_SO_CFLAGS	+= $(CFLAGS) -rdynamic -Wl,-soname,$(LIBCOMPEL_SO).$(COMPEL_SO_VERSION_MAJOR)
-compel/$(LIBCOMPEL_SO): compel/lib.a
+compel/$(LIBCOMPEL_SO): compel/libcompel.a
 	$(call msg-link, $@)
 	$(Q) $(CC) -shared $(LIBCOMPEL_SO_CFLAGS) -o $@ -Wl,--whole-archive $^ -Wl,--no-whole-archive $(LDFLAGS)

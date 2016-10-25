@@ -14,6 +14,7 @@ ccflags-y		+= -fPIC
 ccflags-y		+= -I compel/include/uapi
 ccflags-y		+= -I compel/plugins/include/uapi
 
+lib-name		:= libcompel.a
 lib-y			+= arch/$(ARCH)/src/lib/handle-elf.o
 host-lib-y		+= arch/$(ARCH)/src/lib/handle-elf.o
 lib-y			+= src/lib/handle-elf.o
