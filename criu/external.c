@@ -2,6 +2,7 @@
 #include "common/list.h"
 #include "cr_options.h"
 #include "xmalloc.h"
+#include "mount.h"
 #include "external.h"
 #include "util.h"
 
@@ -19,6 +20,11 @@ int add_external(char *key)
 	if (strstartswith(key, "macvlan") && macvlan_ext_add(ext) < 0) {
 		xfree(ext);
 		return -1;
+	}
+
+	if (strstartswith(key, "mnt[]")) {
+		xfree(ext);
+		return ext_mount_parse_auto(key + 5);
 	}
 
 	list_add(&ext->node, &opts.external);

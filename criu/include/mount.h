@@ -105,6 +105,7 @@ extern int depopulate_roots_yard(int mntns_root, bool clean_remaps);
 
 extern int rst_get_mnt_root(int mnt_id, char *path, int plen);
 extern int ext_mount_add(char *key, char *val);
+extern int ext_mount_parse_auto(char *key);
 extern int mntns_maybe_create_roots(void);
 extern int read_mnt_ns_img(void);
 extern void cleanup_mnt_ns(void);

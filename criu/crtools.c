@@ -624,11 +624,6 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
-	if (!opts.autodetect_ext_mounts && (opts.enable_external_masters || opts.enable_external_sharing)) {
-		pr_msg("must specify --ext-mount-map auto with --enable-external-{sharing|masters}");
-		return 1;
-	}
-
 	if (opts.work_dir == NULL)
 		opts.work_dir = imgs_dir;
 
@@ -828,6 +823,7 @@ usage:
 "                            dev[maj:min]:VAL\n"
 "                            unix[ino]\n"
 "                            mnt[MOUNTPOINT]:COOKIE\n"
+"                            mnt[]{:AUTO_OPTIONS}\n"
 "                        Formats of RES on restore:\n"
 "                            dev[VAL]:DEVPATH\n"
 "                            veth[IFNAME]:OUTNAME{@BRIDGE}\n"
@@ -849,12 +845,6 @@ usage:
 "  --force-irmap         force resolving names for inotify/fsnotify watches\n"
 "  --irmap-scan-path FILE\n"
 "                        add a path the irmap hints to scan\n"
-"  -M|--ext-mount-map auto\n"
-"                        attempt to autodetect external mount mappings\n"
-"  --enable-external-sharing\n"
-"                        allow autoresolving mounts with external sharing\n"
-"  --enable-external-masters\n"
-"                        allow autoresolving mounts with external masters\n"
 "  --manage-cgroups [m]  dump/restore process' cgroups; argument can be one of\n"
 "                        'none', 'props', 'soft' (default), 'full' or 'strict'\n"
 "  --cgroup-root [controller:]/newroot\n"

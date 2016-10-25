@@ -66,6 +66,27 @@ int ext_mount_add(char *key, char *val)
 	return add_external(e_str);
 }
 
+int ext_mount_parse_auto(char *key)
+{
+	opts.autodetect_ext_mounts = true;
+
+	if (*key == ':') {
+		while (1) {
+			key++;
+			if (*key == '\0')
+				break;
+			else if (*key == 'm')
+				opts.enable_external_masters = true;
+			else if (*key == 's')
+				opts.enable_external_sharing = true;
+			else
+				return -1;
+		}
+	}
+
+	return 0;
+}
+
 /* Lookup ext_mount by key field */
 static char *ext_mount_lookup(char *key)
 {
