@@ -1,0 +1,1 @@
+{'flavor': 'ns uns', 'deps': [ '/bin/sh', '/bin/sed', '/bin/grep', '/sbin/ip', '/usr/bin/diff'], 'flags': 'suid', 'ropts': '--external veth[zdtmvthc0]:zdtmvthh0@zdtmbr0'}

@@ -10,3 +10,4 @@
 *.inprogress
 *.test
 *.test.*
+*.state

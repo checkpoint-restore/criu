@@ -995,6 +995,7 @@ def cr(cr_api, test, opts):
 			sbs('pre-restore')
 			try_run_hook(test, ["--pre-restore"])
 			cr_api.restore()
+			try_run_hook(test, ["--post-restore"])
 			sbs('post-restore')
 
 		time.sleep(iters[1])

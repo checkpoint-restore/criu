@@ -153,6 +153,7 @@ TST_NOFILE	:=				\
 		helper_zombie_child		\
 		clone_fs			\
 		macvlan			\
+		cr_veth				\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
