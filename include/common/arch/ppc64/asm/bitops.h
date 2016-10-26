@@ -68,7 +68,7 @@ static __inline__ void fn(unsigned long mask,   \
         unsigned long old;                      \
         unsigned long *p = (unsigned long *)_p; \
         __asm__ __volatile__ (                  \
-"1:	ldarx	%0,0,%3,0\n"			\
+"1:	ldarx	%0,0,%3\n"			\
         stringify_in_c(op) "%0,%0,%2\n"		\
         "stdcx.	%0,0,%3\n"			\
         "bne- 1b\n"                             \
