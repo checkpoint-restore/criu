@@ -46,7 +46,7 @@ chmod 0777 test/
 chmod 0777 test/zdtm/static
 chmod 0777 test/zdtm/transition
 
-./test/zdtm.py run -a -x 'cgroup*' -p 2
+./test/zdtm.py run -a -p 2
 
 bash ./test/jenkins/criu-fault.sh
 bash ./test/jenkins/criu-fcg.sh
