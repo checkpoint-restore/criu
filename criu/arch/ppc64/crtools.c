@@ -47,7 +47,7 @@ const u32 code_syscall[] = {
 	0x0fe00000		/* twi 31,0,0	*/
 };
 
-static inline void __check_code_syscall(void)
+static inline void __always_unused __check_code_syscall(void)
 {
 	BUILD_BUG_ON(sizeof(code_syscall) != BUILTIN_SYSCALL_SIZE);
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
