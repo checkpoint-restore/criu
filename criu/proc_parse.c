@@ -37,6 +37,7 @@
 #include "cgroup.h"
 #include "cgroup-props.h"
 #include "timerfd.h"
+#include "path.h"
 
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
@@ -1318,6 +1319,7 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 	if (!new->mountpoint)
 		goto err;
 	new->ns_mountpoint = new->mountpoint;
+	new->is_ns_root = is_root(new->ns_mountpoint + 1);
 
 	new->s_dev = new->s_dev_rt = MKKDEV(kmaj, kmin);
 	new->flags = 0;
