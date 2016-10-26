@@ -4,6 +4,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define INPROGRESS ".inprogress"
+
 #ifndef PAGE_SIZE
 # define PAGE_SIZE (unsigned int)(sysconf(_SC_PAGESIZE))
 #endif

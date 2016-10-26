@@ -41,7 +41,6 @@ int test_fork_id(int id)
 
 static int cwd = -1;
 
-#define INPROGRESS ".inprogress"
 static void test_fini(void)
 {
 	char path[PATH_MAX];

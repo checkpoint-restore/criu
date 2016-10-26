@@ -362,6 +362,7 @@ void ns_create(int argc, char **argv)
 	int ret, status;
 	struct ns_exec_args args;
 	int flags;
+	char *pidf;
 
 	args.argc = argc;
 	args.argv = argv;
@@ -416,6 +417,14 @@ void ns_create(int argc, char **argv)
 	}
 	shutdown(args.status_pipe[0], SHUT_WR);
 
+	pidf = pidfile;
+	pidfile = malloc(strlen(pidfile) + 13);
+	sprintf(pidfile, "%s%s", pidf, INPROGRESS);
+	if (write_pidfile(pid)) {
+		fprintf(stderr, "Preparations fail\n");
+		exit(1);
+	}
+
 	status = 1;
 	ret = read(args.status_pipe[0], &status, sizeof(status));
 	if (ret != sizeof(status) || status) {
@@ -427,6 +436,9 @@ void ns_create(int argc, char **argv)
 		fprintf(stderr, "Unexpected message from test\n");
 		exit(1);
 	}
+
+	unlink(pidfile);
+	pidfile = pidf;
 
 	if (write_pidfile(pid))
 		exit(1);
