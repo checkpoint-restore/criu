@@ -6,7 +6,8 @@ if [ "$1" == "--post-start" ]; then
 	set -e
 
 	i=0
-	while [ -z "$(pidof -s macvlan)" ]; do
+	PIDF="zdtm/static/macvlan.pid.inprogress"
+	while [ ! -f "$PIDF" ]; do
 		i=$(($i+1))
 		if [ "$i" -eq "10" ]; then
 			echo "failed to create macvlan test"
@@ -15,12 +16,14 @@ if [ "$1" == "--post-start" ]; then
 		sleep 1
 	done
 
+	TPID=$(cat $PIDF)
+
 	ip link add zdtmbr0 type bridge
 	ip addr add 10.0.55.55/32 dev zdtmbr0
 	ip link set zdtmbr0 up
 	ip link add zdtmmvlan0 link zdtmbr0 type macvlan mode bridge
 	ip addr add 10.0.55.56/32 dev zdtmmvlan0
-	ip link set zdtmmvlan0 netns $(pidof -s macvlan)
+	ip link set zdtmmvlan0 netns $TPID
 else
 	ip link del zdtmmvlan0 || true
 
