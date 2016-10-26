@@ -221,6 +221,7 @@ TST_DIR		=				\
 		tempfs_overmounted		\
 		tempfs_overmounted01		\
 		tempfs_ro			\
+		tempfs_ro02			\
 		tempfs_subns			\
 		mnt_ro_bind			\
 		mount_paths			\
