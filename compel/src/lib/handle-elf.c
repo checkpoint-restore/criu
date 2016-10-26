@@ -415,6 +415,7 @@ int __handle_elf(void *mem, size_t size)
 				break;
 
 			case R_PPC64_ADDR32:
+			case R_PPC64_REL32:
 				pr_debug("\t\t\tR_PPC64_ADDR32 at 0x%-4lx val 0x%x\n",
 					 place, (unsigned int)(value32 + addend32));
 				pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_INT, "
