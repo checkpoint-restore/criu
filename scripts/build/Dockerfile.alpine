@@ -1,6 +1,8 @@
 FROM alpine:3.4
 RUN apk update && apk add \
                 build-base \
+                coreutils \
+                git \
                 protobuf-c-dev \
                 protobuf-dev \
                 python \
