@@ -1,7 +1,6 @@
 ccflags-y		+= -iquote criu/$(ARCH)
-ccflags-y		+= -iquote compel/plugins/include
-ccflags-y		+= -iquote compel/include
-ccflags-y		+= -iquote compel/arch/$(ARCH)/plugins/std
+ccflags-y		+= -I compel/include/uapi
+ccflags-y		+= -I compel/plugins/include/uapi
 
 obj-y			+= infect.o
 obj-y			+= infect-rpc.o

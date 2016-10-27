@@ -3,7 +3,7 @@
 
 #include "asm/types.h"
 
-#include "uapi/std/syscall.h"
+#include <compel/plugins/std/syscall.h>
 #include "parasite-vdso.h"
 #include "log.h"
 #include "common/bug.h"

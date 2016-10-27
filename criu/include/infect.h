@@ -2,7 +2,7 @@
 #define __COMPEL_INFECT_H__
 
 #include "asm/infect-types.h"
-#include "compel/include/uapi/ksigset.h"
+#include <compel/ksigset.h>
 
 #define PARASITE_START_AREA_MIN	(4096)
 

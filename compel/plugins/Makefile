@@ -6,6 +6,13 @@ PLUGIN_ARCH_DIR		:= compel/arch/$(ARCH)/plugins
 #
 # CFLAGS, ASFLAGS, LDFLAGS
 
+#
+# UAPI inclusion, referred as <compel/...>
+ccflags-y		+= -I compel/include/uapi
+ccflags-y		+= -I compel/plugins/include/uapi
+asflags-y		+= -I compel/include/uapi
+asflags-y		+= -I compel/plugins/include/uapi
+
 # General compel includes
 ccflags-y		+= -iquote $(SRC_DIR)/compel/include
 ccflags-y		+= -fno-stack-protector

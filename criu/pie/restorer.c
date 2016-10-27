@@ -21,8 +21,8 @@
 #include "types.h"
 #include "common/compiler.h"
 #include "string.h"
-#include "uapi/std/syscall.h"
-#include "uapi/ksigset.h"
+#include <compel/plugins/std/syscall.h>
+#include <compel/ksigset.h>
 #include "signal.h"
 #include "config.h"
 #include "prctl.h"

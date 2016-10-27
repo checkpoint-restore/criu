@@ -80,7 +80,7 @@
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
-#include "uapi/std/syscall-codes.h"
+#include <compel/plugins/std/syscall-codes.h>
 #include "compel/include/asm/syscall.h"
 
 #include "protobuf.h"

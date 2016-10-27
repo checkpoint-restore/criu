@@ -5,7 +5,7 @@
 #include <sys/mman.h>
 
 #ifdef CR_NOGLIBC
-# include "uapi/std/syscall.h"
+# include <compel/plugins/std/syscall.h>
 #else
 # define sys_mmap mmap
 # define sys_munmap munmap

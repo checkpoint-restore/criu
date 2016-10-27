@@ -51,6 +51,6 @@ struct krlimit {
 /* Type of timers in the kernel.  */
 typedef int kernel_timer_t;
 
-#include "uapi/std/asm/syscall-types.h"
+#include <compel/plugins/std/asm/syscall-types.h>
 
 #endif /* COMPEL_SYSCALL_TYPES_H__ */

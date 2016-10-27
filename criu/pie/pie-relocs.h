@@ -1,7 +1,7 @@
 #ifndef __PIE_RELOCS_H__
 #define __PIE_RELOCS_H__
 
-#include "compel/include/uapi/compel.h"
+#include <compel/compel.h>
 
 #include "common/compiler.h"
 #include "config.h"

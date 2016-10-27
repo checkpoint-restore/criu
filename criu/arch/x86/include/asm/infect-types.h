@@ -7,7 +7,7 @@
 #include "log.h"
 #include "common/bug.h"
 #include "common/page.h"
-#include "syscall-types.h"
+#include <compel/plugins/std/asm/syscall-types.h>
 
 #define SIGMAX			64
 #define SIGMAX_OLD		31

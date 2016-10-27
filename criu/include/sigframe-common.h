@@ -9,8 +9,7 @@
 #endif
 
 #include <signal.h>
-#include "syscall-types.h"
-#include "asm/types.h"
+#include <compel/plugins/std/asm/syscall-types.h>
 
 struct rt_sigframe;
 

@@ -16,8 +16,8 @@
 #include "common/xmalloc.h"
 #include "lock.h"
 
-#include "uapi/std/syscall-codes.h"
-#include "uapi/std/asm/syscall-types.h"
+#include <compel/plugins/std/syscall-codes.h>
+#include <compel/plugins/std/asm/syscall-types.h>
 #include "compel/include/asm/ptrace.h"
 #include "compel/include/asm/syscall.h"
 #include "asm/sigframe.h"
