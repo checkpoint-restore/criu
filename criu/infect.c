@@ -4,20 +4,29 @@
 #include <unistd.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/mman.h>
+#include <stdio.h>
 #include <linux/seccomp.h>
 
+#include "xmalloc.h"
+#include "uapi/std/syscall-codes.h"
+#include "uapi/std/asm/syscall-types.h"
 #include "compel/include/asm/ptrace.h"
 #include "compel/include/asm/syscall.h"
+#include "asm/sigframe.h"
 #include "infect.h"
 #include "ptrace.h"
-#include "restorer.h"
 #include "pie-relocs.h"
 #include "parasite-blob.h"
-#include "sigframe.h"
 #include "criu-log.h"
+#include "common/bug.h"
+#include "lock.h"
 #include "infect-rpc.h"
 #include "infect-priv.h"
 #include "infect-util.h"
+
+#include <fcntl.h>
+#include "util.h"
 
 #define UNIX_PATH_MAX (sizeof(struct sockaddr_un) - \
 			(size_t)((struct sockaddr_un *) 0)->sun_path)
