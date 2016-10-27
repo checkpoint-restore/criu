@@ -22,11 +22,6 @@ struct pid;
 struct parasite_dump_cgroup_args;
 struct rt_sigframe;
 
-struct thread_ctx {
-	k_rtsigset_t		sigmask;
-	user_regs_struct_t	regs;
-};
-
 struct parasite_ctl;
 
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_imgset);

@@ -8,7 +8,6 @@
 
 #include "infect.h"
 #include "ptrace.h"
-#include "asm/parasite-syscall.h"
 #include "restorer.h"
 #include "parasite-syscall.h"
 #include "pie-relocs.h"
