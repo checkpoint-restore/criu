@@ -6,7 +6,6 @@
 #include <sys/user.h>
 
 #include "asm/processor-flags.h"
-#include "asm/parasite-syscall.h"
 #include "uapi/std/syscall-codes.h"
 #include "compel/include/asm/syscall.h"
 #include "compel/include/asm/ptrace.h"
@@ -15,7 +14,6 @@
 #include "asm/types.h"
 #include "errno.h"
 #include "asm/cpu.h"
-#include "parasite-syscall.h"
 #include "ptrace.h"
 #include "kerndat.h"
 #include "infect.h"
