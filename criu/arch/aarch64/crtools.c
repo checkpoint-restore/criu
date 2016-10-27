@@ -7,7 +7,6 @@
 #include "asm/restorer.h"
 #include "common/compiler.h"
 #include "ptrace.h"
-#include "asm/processor-flags.h"
 #include "asm/dump.h"
 #include "protobuf.h"
 #include "images/core.pb-c.h"
