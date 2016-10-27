@@ -127,6 +127,7 @@ extern int prepare_namespace_before_tasks(void);
 extern int prepare_namespace(struct pstree_item *item, unsigned long clone_flags);
 
 extern int switch_ns(int pid, struct ns_desc *nd, int *rst);
+extern int switch_ns_by_fd(int nsfd, struct ns_desc *nd, int *rst);
 extern int restore_ns(int rst, struct ns_desc *nd);
 
 extern int dump_task_ns_ids(struct pstree_item *);
