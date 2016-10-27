@@ -8,7 +8,16 @@
 #include <stdio.h>
 #include <linux/seccomp.h>
 
-#include "xmalloc.h"
+#include "pie-relocs.h"
+#include "parasite-blob.h"
+#include "criu-log.h"
+#include "common/bug.h"
+#include "common/xmalloc.h"
+#include "lock.h"
+
+#include <fcntl.h>
+#include "util.h"
+
 #include "uapi/std/syscall-codes.h"
 #include "uapi/std/asm/syscall-types.h"
 #include "compel/include/asm/ptrace.h"
@@ -16,17 +25,9 @@
 #include "asm/sigframe.h"
 #include "infect.h"
 #include "ptrace.h"
-#include "pie-relocs.h"
-#include "parasite-blob.h"
-#include "criu-log.h"
-#include "common/bug.h"
-#include "lock.h"
 #include "infect-rpc.h"
 #include "infect-priv.h"
 #include "infect-util.h"
-
-#include <fcntl.h>
-#include "util.h"
 
 #define UNIX_PATH_MAX (sizeof(struct sockaddr_un) - \
 			(size_t)((struct sockaddr_un *) 0)->sun_path)
