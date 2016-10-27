@@ -12,6 +12,9 @@ if [ "$1" == "--post-start" ]; then
 	ps xaf
 	echo "-> $TPID"
 
+	set -x
+
+	ip l l
 	ip link add zdtmvthc0 type veth peer name zdtmvthh0
 	ip link set zdtmvthc0 netns $TPID
 
@@ -30,7 +33,8 @@ elif [ "$1" == "--post-restore" ]; then
 	echo "Device OK"
 elif [ "$1" == "--pre-restore" -o "$1" == "--cleanup" ]; then
 	# Wait for the link to die
+	ip l l
 	while ip l l zdtmvthh0 ; do
-		true
+		sleep ".5"
 	done
 fi
