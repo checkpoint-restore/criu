@@ -5,12 +5,12 @@
 #include <sys/mman.h>
 #include <sys/user.h>
 
-#include "errno.h"
 #include "asm/processor-flags.h"
 #include "asm/fpu.h"
 #include "asm/cpu.h"
 #include "kerndat.h"
 
+#include "compel/include/errno.h"
 #include "uapi/std/syscall-codes.h"
 #include "compel/include/asm/syscall.h"
 #include "compel/include/asm/ptrace.h"

@@ -19,7 +19,6 @@
 #include "log.h"
 #include "util.h"
 #include "cpu.h"
-#include "errno.h"
 #include "uapi/std/syscall-codes.h"
 #include "kerndat.h"
 #include "infect.h"

@@ -17,7 +17,6 @@
 #include "log.h"
 #include "util.h"
 #include "cpu.h"
-#include "errno.h"
 #include "infect.h"
 
 #include "protobuf.h"

@@ -6,7 +6,7 @@
 #include "asm/types.h"
 #include "ptrace.h"
 #include "parasite-syscall.h"
-#include "errno.h"
+#include "compel/include/errno.h"
 #include "criu-log.h"
 #include "infect.h"
 #include "infect-priv.h"
