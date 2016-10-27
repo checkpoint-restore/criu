@@ -68,18 +68,6 @@ unsigned long get_exec_start(struct vm_area_list *vmas)
 	return 0;
 }
 
-int parasite_send_fd(struct parasite_ctl *ctl, int fd)
-{
-	int sk;
-
-	sk = compel_rpc_sock(ctl);
-	if (send_fd(sk, NULL, 0, fd) < 0) {
-		pr_perror("Can't send file descriptor");
-		return -1;
-	}
-	return 0;
-}
-
 /*
  * We need to detect parasite crashes not to hang on socket operations.
  * Since CRIU holds parasite with ptrace, it will receive SIGCHLD if the

@@ -6,8 +6,6 @@
 #include "config.h"
 #include "asm/parasite-syscall.h"
 
-#define BUILTIN_SYSCALL_SIZE	8
-
 struct parasite_dump_thread;
 struct parasite_dump_misc;
 struct parasite_drain_fd;
@@ -30,8 +28,6 @@ extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_
 struct proc_posix_timers_stat;
 extern int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 		struct parasite_ctl *ctl, struct pstree_item *);
-
-extern int parasite_send_fd(struct parasite_ctl *ctl, int fd);
 
 extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc);
 extern int parasite_dump_creds(struct parasite_ctl *ctl, struct _CredsEntry *ce);
@@ -58,7 +54,5 @@ extern struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int
 
 extern int parasite_init_threads_seized(struct parasite_ctl *ctl, struct pstree_item *item);
 extern int parasite_fini_threads_seized(struct parasite_ctl *ctl);
-
-extern bool arch_can_dump_task(struct parasite_ctl *ctl);
 
 #endif /* __CR_PARASITE_SYSCALL_H__ */

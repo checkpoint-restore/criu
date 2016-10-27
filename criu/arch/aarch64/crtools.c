@@ -19,21 +19,6 @@
 #include "restorer.h"
 #include "infect.h"
 
-void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
-{
-	regs->pc = new_ip;
-	if (stack)
-		regs->sp = (unsigned long)stack;
-}
-
-bool arch_can_dump_task(struct parasite_ctl *ctl)
-{
-	/*
-	 * TODO: Add proper check here
-	 */
-	return true;
-}
-
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))(src)->e
 
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpsimd)

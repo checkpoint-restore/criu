@@ -20,24 +20,6 @@
 #include "kerndat.h"
 #include "infect.h"
 
-void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
-{
-	regs->ARM_pc = new_ip;
-	if (stack)
-		regs->ARM_sp = (unsigned long)stack;
-
-	/* Make sure flags are in known state */
-	regs->ARM_cpsr &= PSR_f | PSR_s | PSR_x | MODE32_BIT;
-}
-
-bool arch_can_dump_task(struct parasite_ctl *ctl)
-{
-	/*
-	 * TODO: Add proper check here
-	 */
-	return true;
-}
-
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))((src)->ARM_##e)
 
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
