@@ -6,12 +6,6 @@ export __nmk_dir
 include $(__nmk_dir)include.mk
 include $(__nmk_dir)macro.mk
 
-#
-# To build host helpers.
-HOSTCC		?= gcc
-HOSTLD		?= ld
-export HOSTCC HOSTLD
-
 CFLAGS		+= $(USERCFLAGS)
 export CFLAGS
 
