@@ -89,6 +89,9 @@ extern k_rtsigset_t *compel_task_sigmask(struct parasite_ctl *ctl);
 
 struct rt_sigframe;
 
+typedef int (*open_proc_fn)(int pid, int mode, const char *fmt, ...)
+	__attribute__ ((__format__ (__printf__, 3, 4)));
+
 struct infect_ctx {
 	int	*p_sock;
 
@@ -103,6 +106,8 @@ struct infect_ctx {
 	unsigned long		flags;			/* fine-tune (e.g. faults) */
 
 	void (*child_handler)(int, siginfo_t *, void *);	/* hander for SIGCHLD deaths */
+
+	open_proc_fn open_proc;
 };
 
 extern struct infect_ctx *compel_infect_ctx(struct parasite_ctl *);

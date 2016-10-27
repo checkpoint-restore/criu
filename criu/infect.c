@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <sys/mman.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include <linux/seccomp.h>
 
 #include "pie-relocs.h"
@@ -14,9 +15,6 @@
 #include "common/bug.h"
 #include "common/xmalloc.h"
 #include "lock.h"
-
-#include <fcntl.h>
-#include "util.h"
 
 #include "uapi/std/syscall-codes.h"
 #include "uapi/std/asm/syscall-types.h"
@@ -45,6 +43,14 @@
 #endif
 
 #define SI_EVENT(_si_code)	(((_si_code) & 0xFFFF) >> 8)
+
+static inline void close_safe(int *pfd)
+{
+	if (*pfd > -1) {
+		close(*pfd);
+		*pfd = -1;
+	}
+}
 
 int compel_stop_task(int pid)
 {
@@ -626,7 +632,7 @@ static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
 
 	ctl->map_length = round_up(size, page_size());
 
-	fd = open_proc_rw(ctl->rpid, "map_files/%p-%p",
+	fd = ctl->ictx.open_proc(ctl->rpid, O_RDWR, "map_files/%p-%p",
 		 ctl->remote_map, ctl->remote_map + ctl->map_length);
 	if (fd < 0)
 		return -1;
@@ -685,7 +691,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 		return fd;
 
 	ctl->map_length = round_up(size, page_size());
-	lfd = open_proc_rw(ctl->rpid, "fd/%d", fd);
+	lfd = ctl->ictx.open_proc(ctl->rpid, O_RDWR, "fd/%d", fd);
 	if (lfd < 0)
 		goto err_cure;
 

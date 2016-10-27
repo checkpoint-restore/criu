@@ -543,6 +543,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	ictx = compel_infect_ctx(ctl);
 
+	ictx->open_proc = do_open_proc;
 	ictx->child_handler = sigchld_handler;
 	ictx->p_sock = &dmpi(item)->netns->net.seqsk;
 	ictx->save_regs = save_task_regs;
