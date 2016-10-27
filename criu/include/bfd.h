@@ -1,7 +1,7 @@
 #ifndef __CR_BFD_H__
 #define __CR_BFD_H__
 
-#include "err.h"
+#include "common/err.h"
 
 struct bfd_buf;
 struct xbuf {

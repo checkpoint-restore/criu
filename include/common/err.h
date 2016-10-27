@@ -1,8 +1,8 @@
 /*
  * Adopted from linux kernel
  */
-#ifndef __CR_ERR_H__
-#define __CR_ERR_H__
+#ifndef __CR_COMMON_ERR_H__
+#define __CR_COMMON_ERR_H__
 
 #include "common/compiler.h"
 

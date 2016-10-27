@@ -17,7 +17,7 @@
 #include "xmalloc.h"
 #include "common/bug.h"
 #include "log.h"
-#include "err.h"
+#include "common/err.h"
 
 #define PREF_SHIFT_OP(pref, op, size)	((size) op (pref ##BYTES_SHIFT))
 #define KBYTES_SHIFT	10
