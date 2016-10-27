@@ -22,7 +22,7 @@
 
 #include "common/bug.h"
 
-static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds)
+static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds, bool with_flags)
 {
 	struct cmsghdr *cmsg;
 
@@ -30,6 +30,8 @@ static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds)
 
 	cmsg		= CMSG_FIRSTHDR(&fdset->hdr);
 	cmsg->cmsg_len	= fdset->hdr.msg_controllen;
+
+	fdset->iov.iov_len = with_flags ? (sizeof(struct fd_opts) * nr_fds) : 1;
 }
 
 static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr,
@@ -40,7 +42,6 @@ static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr,
 	BUILD_BUG_ON(sizeof(fdset->msg_buf) < (CMSG_SPACE(sizeof(int) * CR_SCM_MAX_FD)));
 
 	fdset->iov.iov_base		= fdset->opts;
-	fdset->iov.iov_len		= with_flags ? sizeof(fdset->opts) : 1;
 
 	fdset->hdr.msg_iov		= &fdset->iov;
 	fdset->hdr.msg_iovlen		= 1;
@@ -68,7 +69,7 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 	cmsg_data = scm_fdset_init(&fdset, saddr, len, with_flags);
 	for (i = 0; i < nr_fds; i += min_fd) {
 		min_fd = min(CR_SCM_MAX_FD, nr_fds - i);
-		scm_fdset_init_chunk(&fdset, min_fd);
+		scm_fdset_init_chunk(&fdset, min_fd, with_flags);
 		builtin_memcpy(cmsg_data, &fds[i], sizeof(int) * min_fd);
 
 		if (with_flags) {
@@ -134,7 +135,7 @@ int recv_fds(int sock, int *fds, int nr_fds, struct fd_opts *opts)
 	cmsg_data = scm_fdset_init(&fdset, NULL, 0, opts != NULL);
 	for (i = 0; i < nr_fds; i += min_fd) {
 		min_fd = min(CR_SCM_MAX_FD, nr_fds - i);
-		scm_fdset_init_chunk(&fdset, min_fd);
+		scm_fdset_init_chunk(&fdset, min_fd, opts != NULL);
 
 		ret = __sys(recvmsg)(sock, &fdset.hdr, 0);
 		if (ret <= 0)
