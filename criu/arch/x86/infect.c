@@ -11,8 +11,8 @@
 
 #include "compel/include/asm/processor-flags.h"
 #include "compel/include/errno.h"
-#include "uapi/std/syscall-codes.h"
-#include "compel/include/asm/syscall.h"
+#include <compel/plugins/std/syscall-codes.h>
+#include <compel/plugins/std/syscall.h>
 #include "compel/include/asm/ptrace.h"
 #include "common/err.h"
 #include "asm/infect-types.h"

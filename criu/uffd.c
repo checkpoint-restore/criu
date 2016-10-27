@@ -33,7 +33,7 @@
 #include "crtools.h"
 #include "cr_options.h"
 #include "xmalloc.h"
-#include "uapi/std/syscall-codes.h"
+#include <compel/plugins/std/syscall-codes.h>
 #include "restorer.h"
 #include "page-xfer.h"
 #include "lock.h"

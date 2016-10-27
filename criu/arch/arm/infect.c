@@ -1,7 +1,7 @@
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include "asm/parasite-syscall.h"
-#include "uapi/std/syscall-codes.h"
+#include <compel/plugins/std/syscall-codes.h>
 #include "asm/types.h"
 #include "criu-log.h"
 #include "kerndat.h"

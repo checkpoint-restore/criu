@@ -2,7 +2,7 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <errno.h>
-#include "uapi/std/syscall-codes.h"
+#include <compel/plugins/std/syscall-codes.h>
 #include "asm/types.h"
 #include "ptrace.h"
 #include "parasite-syscall.h"

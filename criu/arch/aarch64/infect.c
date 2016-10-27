@@ -3,7 +3,7 @@
 #include <sys/uio.h>
 #include <linux/elf.h>
 #include "asm/parasite-syscall.h"
-#include "uapi/std/syscall-codes.h"
+#include <compel/plugins/std/syscall-codes.h>
 #include "asm/types.h"
 #include "criu-log.h"
 #include "kerndat.h"

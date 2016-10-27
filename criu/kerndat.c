@@ -27,7 +27,7 @@
 #include "proc_parse.h"
 #include "config.h"
 #include "sk-inet.h"
-#include "uapi/std/syscall-codes.h"
+#include <compel/plugins/std/syscall-codes.h>
 
 struct kerndat_s kdat = {
 };

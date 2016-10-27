@@ -46,7 +46,6 @@ target			+= $(parasite_target) restorer
 #
 CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS))
 CFLAGS			:= $(filter-out -DCONFIG_X86_64,$(CFLAGS))
-CFLAGS			+= -iquote $(SRC_DIR)/compel/include
 CFLAGS			+= -iquote $(SRC_DIR)/criu/arch/$(ARCH)/include
 CFLAGS			+= -iquote $(SRC_DIR)/criu/include
 CFLAGS			+= -iquote $(SRC_DIR)/include
@@ -54,8 +53,8 @@ CFLAGS			+= -iquote $(SRC_DIR)
 CFLAGS			+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 CFLAGS			+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
 
-ccflags-y		+= -iquote $(SRC_DIR)/compel/plugins/include
-ccflags-y		+= -iquote $(SRC_DIR)/compel/include
+ccflags-y		+= -I compel/include/uapi
+ccflags-y		+= -I compel/plugins/include/uapi
 ccflags-y		+= -DCR_NOGLIBC
 ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
 NATIVE_CFLAGS		:= $(shell $(SRC_DIR)/compel/compel-host --arch=$(ARCH) cflags)

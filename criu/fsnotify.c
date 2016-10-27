@@ -41,7 +41,7 @@
 #include "namespaces.h"
 #include "pstree.h"
 #include "fault-injection.h"
-#include "uapi/std/syscall-codes.h"
+#include <compel/plugins/std/syscall-codes.h>
 
 #include "protobuf.h"
 #include "images/fsnotify.pb-c.h"

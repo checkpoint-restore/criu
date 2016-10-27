@@ -26,30 +26,38 @@ $(SRC_DIR)/compel/include/asm: $(SRC_DIR)/compel/arch/$(ARCH)/src/lib/include
 	$(Q) ln -s $^ $@
 $(COMPEL_VERSION_HEADER): $(SRC_DIR)/compel/include/asm
 
+compel-uapi-links	+= $(SRC_DIR)/compel/include/uapi/compel
+compel-uapi-links	+= $(SRC_DIR)/compel/include/uapi/asm
+compel-uapi-links	+= $(SRC_DIR)/compel/include/asm
+
+compel-deps		+= $(compel-uapi-links)
+compel-deps		+= $(COMPEL_VERSION_HEADER)
+compel-deps		+= $(CONFIG_HEADER)
+
 #
 # Compel itself.
-compel/%: $(COMPEL_VERSION_HEADER) $(CONFIG_HEADER) .FORCE
+compel/%: $(compel-deps) .FORCE
 	$(Q) $(MAKE) $(build)=compel $@
 
 #
 # Plugins
-compel/plugins/%: $(COMPEL_VERSION_HEADER) $(CONFIG_HEADER) .FORCE
+compel/plugins/%: $(compel-deps) .FORCE
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 
 #
 # GNU make 4.x supports targets matching via wide
 # match targeting, where GNU make 3.x series (used on
 # Travis) is not, so we have to write them here explicitly.
-compel/plugins/std.built-in.o: $(COMPEL_VERSION_HEADER) .FORCE
+compel/plugins/std.built-in.o: $(compel-deps) .FORCE
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 
-compel/plugins/shmem.built-in.o: $(COMPEL_VERSION_HEADER) .FORCE
+compel/plugins/shmem.built-in.o: $(compel-deps) .FORCE
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 
-compel/plugins/fds.built-in.o: $(COMPEL_VERSION_HEADER) .FORCE
+compel/plugins/fds.built-in.o: $(compel-deps) .FORCE
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 
-compel/compel: compel/built-in.o compel/lib.a $(COMPEL_VERSION_HEADER)
+compel/compel: compel/built-in.o compel/lib.a | $(compel-deps)
 	$(call msg-link, $@)
 	$(Q) $(CC) $(CFLAGS) $^ $(WRAPFLAGS) $(LDFLAGS) -rdynamic -o $@
 

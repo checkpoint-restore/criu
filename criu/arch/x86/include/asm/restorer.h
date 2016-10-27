@@ -4,7 +4,7 @@
 #include "asm/types.h"
 #include "asm/fpu.h"
 #include "images/core.pb-c.h"
-#include "uapi/std/syscall-codes.h"
+#include <compel/plugins/std/syscall-codes.h>
 
 #include "sigframe.h"
 

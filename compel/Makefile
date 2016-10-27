@@ -9,6 +9,11 @@ ccflags-y		+= -iquote compel/include
 ccflags-y		+= -iquote compel/plugins/include
 ccflags-y		+= -fPIC
 
+#
+# UAPI inclusion, referred as <compel/...>
+ccflags-y		+= -I compel/include/uapi
+ccflags-y		+= -I compel/plugins/include/uapi
+
 lib-y			+= arch/$(ARCH)/src/lib/handle-elf.o
 host-lib-y		+= arch/$(ARCH)/src/lib/handle-elf.o
 lib-y			+= src/lib/handle-elf.o

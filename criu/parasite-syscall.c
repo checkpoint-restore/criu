@@ -29,7 +29,7 @@
 #include "proc_parse.h"
 #include "aio.h"
 #include "fault-injection.h"
-#include "uapi/std/syscall-codes.h"
+#include <compel/plugins/std/syscall-codes.h>
 #include "signal.h"
 #include "sigframe.h"
 

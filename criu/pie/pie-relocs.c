@@ -17,7 +17,7 @@
 #include "log.h"
 
 #include "common/compiler.h"
-#include "compel/include/uapi/compel.h"
+#include <compel/compel.h>
 #include "common/bug.h"
 
 __maybe_unused void elf_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *elf_relocs, size_t nr_relocs)

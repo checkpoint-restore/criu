@@ -9,7 +9,7 @@
 #include "bitops.h"
 #include "asm/int.h"
 
-#include "uapi/std/asm/syscall-types.h"
+#include <compel/plugins/std/asm/syscall-types.h>
 
 typedef UserPpc64RegsEntry UserRegsEntry;
 

@@ -19,7 +19,7 @@
 #include "log.h"
 #include "util.h"
 #include "cpu.h"
-#include "uapi/std/syscall-codes.h"
+#include <compel/plugins/std/syscall-codes.h>
 #include "kerndat.h"
 #include "infect.h"
 
