@@ -6,7 +6,7 @@
 #include "common/compiler.h"
 #include "asm/dump.h"
 #include "ptrace.h"
-#include "asm/processor-flags.h"
+#include "compel/include/asm/processor-flags.h"
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
