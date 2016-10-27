@@ -892,7 +892,6 @@ struct newlink_req {
  * request.
  */
 struct newlink_extras {
-	int netns_id;		/* IFLA_NET_NS_ID */
 	int link;		/* IFLA_LINK */
 	int target_netns;	/* IFLA_NET_NS_FD */
 };
@@ -917,9 +916,6 @@ static int populate_newlink_req(struct newlink_req *req, int msg_type, NetDevice
 	req->i.ifi_flags = nde->flags;
 
 	if (extras) {
-		if (extras->netns_id >= 0)
-			addattr_l(&req->h, sizeof(*req), IFLA_LINK_NETNSID, &extras->netns_id, sizeof(extras->netns_id));
-
 		if (extras->link >= 0)
 			addattr_l(&req->h, sizeof(*req), IFLA_LINK, &extras->link, sizeof(extras->link));
 
@@ -1102,108 +1098,39 @@ static int userns_restore_one_link(void *arg, int fd, pid_t pid)
 {
 	int nlsk, ret;
 	struct newlink_req *req = arg;
+	int ns_fd = get_service_fd(NS_FD_OFF), rst = -1;
+
+	if (!(root_ns_mask & CLONE_NEWUSER)) {
+		if (switch_ns_by_fd(ns_fd, &net_ns_desc, &rst))
+			return -1;
+	}
 
 	nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (nlsk < 0) {
 		pr_perror("Can't create nlk socket");
-		return -1;
+		ret = -1;
+		goto out;
 	}
 
 	addattr_l(&req->h, sizeof(*req), IFLA_NET_NS_FD, &fd, sizeof(fd));
 
 	ret = do_rtnl_req(nlsk, req, req->h.nlmsg_len, restore_link_cb, NULL, NULL);
 	close(nlsk);
+
+out:
+	if (rst >= 0 && restore_ns(rst, &net_ns_desc) < 0)
+		ret = -1;
 	return ret;
-}
-
-static int get_nsid_cb(struct nlmsghdr *nlh, void *arg)
-{
-	struct rtgenmsg *rthdr;
-	struct rtattr *rta;
-	int len, *netnsid = arg;
-
-	rthdr = NLMSG_DATA(nlh);
-	len = nlh->nlmsg_len - NLMSG_SPACE(sizeof(*rthdr));
-
-	if (len < 0)
-		return -1;
-
-	rta = NETNS_RTA(rthdr);
-
-	while (RTA_OK(rta, len)) {
-		if (rta->rta_type == NETNSA_NSID)
-			*netnsid = *((int *) RTA_DATA(rta));
-		rta = RTA_NEXT(rta, len);
-	}
-
-	if (netnsid < 0) {
-		pr_err("Didn't get a netnsid back from netlink?\n");
-		return -1;
-	}
-
-	return 0;
-}
-
-static int get_criu_netnsid(int nlsk)
-{
-	static int netnsid = -1;
-	struct {
-		struct nlmsghdr n;
-		struct rtgenmsg g;
-		char buf[1024];
-	} req;
-	int ns_fd = get_service_fd(NS_FD_OFF), i;
-
-	if (netnsid > 0)
-		return netnsid;
-
-	for (i = 0; i < 10; i++) {
-		int ret;
-
-		memset(&req, 0, sizeof(req));
-
-		req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.g));
-		req.n.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK;
-		req.n.nlmsg_type = RTM_NEWNSID;
-		req.n.nlmsg_seq = CR_NLMSG_SEQ;
-
-		addattr_l(&req.n, sizeof(req), NETNSA_FD, &ns_fd, sizeof(ns_fd));
-		addattr_l(&req.n, sizeof(req), NETNSA_NSID, &i, sizeof(i));
-
-		ret = do_rtnl_req(nlsk, &req, req.n.nlmsg_len, NULL, NULL, NULL);
-		if (ret < 0) {
-			if (ret == -EEXIST) {
-				req.n.nlmsg_type = RTM_GETNSID;
-				ret = do_rtnl_req(nlsk, &req, req.n.nlmsg_len, get_nsid_cb, NULL, &netnsid);
-				if (ret < 0) {
-					pr_err("Couldn't get netnsid: %d\n", ret);
-					return -1;
-				}
-
-				return netnsid;
-			}
-			errno = -ret;
-			pr_perror("couldn't create new netnsid");
-			return -1;
-		}
-
-		netnsid = i;
-		return netnsid;
-	}
-
-	pr_err("tried to create too many netnsids\n");
-	return -1;
 }
 
 static int restore_one_macvlan(NetDeviceEntry *nde, int nlsk, int criu_nlsk)
 {
 	struct newlink_extras extras = {
-		.netns_id = -1,
 		.link = -1,
 		.target_netns = -1,
 	};
 	char key[100], *val;
-	int my_netns = -1, ret = -1, s;
+	int my_netns = -1, ret = -1;
 
 	snprintf(key, sizeof(key), "macvlan[%s]", nde->name);
 	val = external_lookup_data(key);
@@ -1224,19 +1151,13 @@ static int restore_one_macvlan(NetDeviceEntry *nde, int nlsk, int criu_nlsk)
 	 */
 	extras.link = (int) (unsigned long) val;
 
-	extras.netns_id = get_criu_netnsid(nlsk);
-	if (extras.netns_id < 0) {
-		pr_err("failed to get criu's netnsid\n");
-		return -1;
-	}
-
 	my_netns = open_proc(PROC_SELF, "ns/net");
 	if (my_netns < 0) {
 		pr_perror("couldn't get my netns");
 		return -1;
 	}
 
-	if (root_ns_mask & CLONE_NEWUSER) {
+	{
 		struct newlink_req req;
 
 		if (populate_newlink_req(&req, RTM_NEWLINK, nde, macvlan_link_info, &extras) < 0)
@@ -1246,27 +1167,9 @@ static int restore_one_macvlan(NetDeviceEntry *nde, int nlsk, int criu_nlsk)
 			pr_err("couldn't restore macvlan interface %s via usernsd\n", nde->name);
 			goto out;
 		}
-	} else {
-		extras.target_netns = my_netns;
-		ret = restore_one_link(nde, criu_nlsk, macvlan_link_info, &extras);
-		if (ret < 0)
-			return -1;
 	}
 
-	/* We have to change the flags of the NDE manually here because
-	 * we used IFLA_LINK_NETNSID to restore it, which creates the
-	 * device and then shuts it down when it changes the device's
-	 * namespace, but doesn't start it back up when it goes to the
-	 * other namespace. So, we restore its state here.
-	 */
-	s = socket(AF_LOCAL, SOCK_STREAM, 0);
-	if (s < 0) {
-		pr_perror("couldn't open socket for flag changing");
-		goto out;
-	}
-	ret = changeflags(s, nde->name, nde->flags);
-	close(s);
-
+	ret = 0;
 out:
 	if (my_netns >= 0)
 		close(my_netns);
@@ -1301,7 +1204,7 @@ static int restore_link(NetDeviceEntry *nde, int nlsk, int criu_nlsk)
 
 static int restore_links(int pid, NetnsEntry **netns)
 {
-	int nlsk, criu_nlsk = -1, ret = -1, my_netns = -1, ns_fd = get_service_fd(NS_FD_OFF);
+	int nlsk, criu_nlsk = -1, ret = -1;
 	struct cr_img *img;
 	NetDeviceEntry *nde;
 
@@ -1314,38 +1217,6 @@ static int restore_links(int pid, NetnsEntry **netns)
 		pr_perror("Can't create nlk socket");
 		close_image(img);
 		return -1;
-	}
-
-	if (!(root_ns_mask & CLONE_NEWUSER)) {
-		/* FIXME: this whole dance is so we can have a netlink socket to criu's
-		 * netns in case we need it. It should really live on the ns_id struct,
-		 * but those aren't generated on restore yet.
-		 */
-		my_netns = open_proc(PROC_SELF, "ns/net");
-		if (my_netns < 0) {
-			pr_perror("couldn't open my netns");
-			goto out;
-		}
-
-		if (setns(ns_fd, CLONE_NEWNET) < 0) {
-			close(my_netns);
-			pr_perror("couldn't setns to parent ns");
-			goto out;
-		}
-
-		criu_nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-		ret = setns(my_netns, CLONE_NEWNET);
-		close(my_netns);
-
-		if (ret < 0) {
-			pr_perror("Can't setns back my netns");
-			goto out;
-		}
-
-		if (criu_nlsk < 0) {
-			pr_perror("Can't create nlk socket");
-			goto out;
-		}
 	}
 
 	while (1) {
@@ -1384,9 +1255,6 @@ exit:
 			break;
 	}
 
-out:
-	if (criu_nlsk >= 0)
-		close(criu_nlsk);
 	close(nlsk);
 	close_image(img);
 	return ret;

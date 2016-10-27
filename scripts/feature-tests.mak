@@ -88,14 +88,3 @@ int main(int argc, char *argv[], char *envp[])
 }
 
 endef
-
-define FEATURE_TEST_NET_NAMESPACE_H
-
-#include <linux/net_namespace.h>
-
-int main(int argc, char **argv)
-{
-        return 0;
-}
-
-endef

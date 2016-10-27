@@ -6,13 +6,6 @@
 #include "common/list.h"
 #include "external.h"
 
-#ifdef CONFIG_HAS_NET_NAMESPACE_H
-#include <linux/net_namespace.h>
-#else
-#define NETNSA_NSID	1
-#define NETNSA_FD	3
-#endif
-
 #ifndef RTM_GETNSID
 #define RTM_GETNSID		90
 #endif
