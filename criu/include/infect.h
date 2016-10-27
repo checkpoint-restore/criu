@@ -31,7 +31,10 @@ extern int compel_unseize_task(pid_t pid, int orig_state, int state);
 #define TASK_ZOMBIE		0x6
 
 struct parasite_ctl;
-struct thread_ctx;
+struct thread_ctx {
+	k_rtsigset_t		sigmask;
+	user_regs_struct_t	regs;
+};
 
 extern struct parasite_ctl *compel_prepare(int pid);
 extern int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size);

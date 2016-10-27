@@ -1,6 +1,5 @@
 #include "xmalloc.h"
 #include "types.h"
-#include "parasite-syscall.h"
 #include "log.h"
 #include "common/bug.h"
 #include "lock.h"
