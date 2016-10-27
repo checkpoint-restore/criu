@@ -6,7 +6,7 @@
 
 #include "std-priv.h"
 
-#include "compiler.h"
+#include "common/compiler.h"
 
 #define __sys(foo)	sys_##foo
 #define __std(foo)	std_##foo
