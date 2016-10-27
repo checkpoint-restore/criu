@@ -29,6 +29,7 @@
 #include "fault-injection.h"
 #include "infect.h"
 #include "infect-rpc.h"
+#include "infect-util.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -254,7 +255,7 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
 		ret = compel_rpc_call(PARASITE_CMD_DUMPPAGES, ctl);
 		if (ret < 0)
 			return -1;
-		ret = parasite_send_fd(ctl, ppb->p[1]);
+		ret = compel_util_send_fd(ctl, ppb->p[1]);
 		if (ret)
 			return -1;
 

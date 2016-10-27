@@ -7,7 +7,6 @@
 #include <sys/auxv.h>
 
 #include "types.h"
-#include "asm/processor-flags.h"
 #include "asm/parasite-syscall.h"
 #include "asm/restorer.h"
 #include "asm/fpu.h"
@@ -29,23 +28,6 @@
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
-
-/*
- * regs must be inited when calling this function from original context
- */
-void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
-{
-	set_user_reg(regs, ip, new_ip);
-	if (stack)
-		set_user_reg(regs, sp, (unsigned long) stack);
-
-	/* Avoid end of syscall processing */
-	set_user_reg(regs, orig_ax, -1);
-
-	/* Make sure flags are in known state */
-	set_user_reg(regs, flags, get_user_reg(regs, flags) &
-			~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF));
-}
 
 #ifdef CONFIG_X86_64
 /* Remaps 64-bit vDSO on the same addr, where it already is */
@@ -71,54 +53,6 @@ int kdat_compat_sigreturn_test(void)
 	return 1;
 }
 #endif /* CONFIG_X86_64 */
-
-static int arch_task_compatible(struct parasite_ctl *ctl)
-{
-	return !user_regs_native(&ctl->orig.regs);
-}
-
-#define USER32_CS	0x23
-#define USER_CS		0x33
-
-static bool ldt_task_selectors(pid_t pid)
-{
-	unsigned long cs;
-
-	errno = 0;
-	/*
-	 * Offset of register must be from 64-bit set even for
-	 * compatible tasks. Fix this to support native i386 tasks
-	 */
-	cs = ptrace(PTRACE_PEEKUSER, pid, offsetof(user_regs_struct64, cs), 0);
-	if (errno != 0) {
-		pr_perror("Can't get CS register for %d", pid);
-		return -1;
-	}
-
-	return cs != USER_CS && cs != USER32_CS;
-}
-
-bool arch_can_dump_task(struct parasite_ctl *ctl)
-{
-	pid_t pid = ctl->rpid;
-	int ret;
-
-	ret = arch_task_compatible(ctl);
-	if (ret < 0)
-		return false;
-
-	if (ret && !kdat.has_compat_sigreturn) {
-		pr_err("Can't dump task %d running in 32-bit mode\n", pid);
-		return false;
-	}
-
-	if (ldt_task_selectors(pid)) {
-		pr_err("Can't dump task %d with LDT descriptors\n", pid);
-		return false;
-	}
-
-	return true;
-}
 
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {

@@ -6,16 +6,18 @@
 #include <signal.h>
 #include <linux/seccomp.h>
 
+#include "compel/include/asm/ptrace.h"
+#include "compel/include/asm/syscall.h"
 #include "infect.h"
 #include "ptrace.h"
 #include "restorer.h"
-#include "parasite-syscall.h"
 #include "pie-relocs.h"
 #include "parasite-blob.h"
 #include "sigframe.h"
 #include "criu-log.h"
 #include "infect-rpc.h"
 #include "infect-priv.h"
+#include "infect-util.h"
 
 #define UNIX_PATH_MAX (sizeof(struct sockaddr_un) - \
 			(size_t)((struct sockaddr_un *) 0)->sun_path)
@@ -556,7 +558,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 	if (accept_tsock(ctl) < 0)
 		goto err;
 
-	if (parasite_send_fd(ctl, log_get_fd()))
+	if (compel_util_send_fd(ctl, log_get_fd()))
 		goto err;
 
 	pr_info("Wait for parasite being daemonized...\n");

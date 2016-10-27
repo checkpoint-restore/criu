@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#define BUILTIN_SYSCALL_SIZE	8
+
 /* parasite control block */
 struct parasite_ctl {
 	int			rpid;					/* Real pid of the victim */
@@ -46,7 +48,10 @@ extern int compel_syscall(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 			  unsigned long arg5, unsigned long arg6);
 
 
+extern void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs);
 extern void *remote_mmap(struct parasite_ctl *ctl,
 		void *addr, size_t length, int prot,
 		int flags, int fd, off_t offset);
+extern bool arch_can_dump_task(struct parasite_ctl *ctl);
+
 #endif

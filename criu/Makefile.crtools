@@ -5,6 +5,7 @@ ccflags-y		+= -iquote compel/arch/$(ARCH)/plugins/std
 
 obj-y			+= infect.o
 obj-y			+= infect-rpc.o
+obj-y			+= infect-util.o
 obj-y			+= action-scripts.o
 obj-y			+= external.o
 obj-y			+= aio.o

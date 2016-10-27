@@ -24,27 +24,6 @@
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
 
-void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
-{
-	/*
-	 * OpenPOWER ABI requires that r12 is set to the calling function addressi
-	 * to compute the TOC pointer.
-	 */
-	regs->gpr[12] = new_ip;
-	regs->nip = new_ip;
-	if (stack)
-		regs->gpr[1] = (unsigned long) stack;
-	regs->trap = 0;
-}
-
-bool arch_can_dump_task(struct parasite_ctl *ctl)
-{
-	/*
-	 * TODO: We should detect 32bit task when BE support is done.
-	 */
-	return true;
-}
-
 static UserPpc64FpstateEntry *copy_fp_regs(uint64_t *fpregs)
 {
 	UserPpc64FpstateEntry *fpe;
