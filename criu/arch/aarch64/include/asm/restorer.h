@@ -62,16 +62,6 @@ static inline void restore_tls(tls_t *ptls)
 	asm("msr tpidr_el0, %0" : : "r" (*ptls));
 }
 
-static inline int ptrace_set_breakpoint(pid_t pid, void *addr)
-{
-	return 0;
-}
-
-static inline int ptrace_flush_breakpoints(pid_t pid)
-{
-	return 0;
-}
-
 static inline void *alloc_compat_syscall_stack(void) { return NULL; }
 static inline void free_compat_syscall_stack(void *stack32) { }
 static inline int

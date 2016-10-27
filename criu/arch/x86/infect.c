@@ -3,11 +3,13 @@
 #include <sys/uio.h>
 #include <sys/auxv.h>
 #include <sys/mman.h>
+#include <sys/user.h>
 
 #include "asm/processor-flags.h"
 #include "asm/parasite-syscall.h"
 #include "uapi/std/syscall-codes.h"
 #include "compel/include/asm/syscall.h"
+#include "compel/include/asm/ptrace.h"
 #include "err.h"
 #include "asm/fpu.h"
 #include "asm/types.h"
@@ -244,6 +246,64 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 	}
 
 	return true;
+}
+
+/* Copied from the gdb header gdb/nat/x86-dregs.h */
+
+/* Debug registers' indices.  */
+#define DR_FIRSTADDR 0
+#define DR_LASTADDR  3
+#define DR_NADDR     4  /* The number of debug address registers.  */
+#define DR_STATUS    6  /* Index of debug status register (DR6).  */
+#define DR_CONTROL   7  /* Index of debug control register (DR7).  */
+
+#define DR_LOCAL_ENABLE_SHIFT   0 /* Extra shift to the local enable bit.  */
+#define DR_GLOBAL_ENABLE_SHIFT  1 /* Extra shift to the global enable bit.  */
+#define DR_ENABLE_SIZE          2 /* Two enable bits per debug register.  */
+
+/* Locally enable the break/watchpoint in the I'th debug register.  */
+#define X86_DR_LOCAL_ENABLE(i) (1 << (DR_LOCAL_ENABLE_SHIFT + DR_ENABLE_SIZE * (i)))
+
+int ptrace_set_breakpoint(pid_t pid, void *addr)
+{
+	int ret;
+
+	/* Set a breakpoint */
+	if (ptrace(PTRACE_POKEUSER, pid,
+			offsetof(struct user, u_debugreg[DR_FIRSTADDR]),
+			addr)) {
+		pr_perror("Unable to setup a breakpoint into %d", pid);
+		return -1;
+	}
+
+	/* Enable the breakpoint */
+	if (ptrace(PTRACE_POKEUSER, pid,
+			offsetof(struct user, u_debugreg[DR_CONTROL]),
+			X86_DR_LOCAL_ENABLE(DR_FIRSTADDR))) {
+		pr_perror("Unable to enable the breakpoint for %d", pid);
+		return -1;
+	}
+
+	ret = ptrace(PTRACE_CONT, pid, NULL, NULL);
+	if (ret) {
+		pr_perror("Unable to restart the  stopped tracee process %d", pid);
+		return -1;
+	}
+
+	return 1;
+}
+
+int ptrace_flush_breakpoints(pid_t pid)
+{
+	/* Disable the breakpoint */
+	if (ptrace(PTRACE_POKEUSER, pid,
+			offsetof(struct user, u_debugreg[DR_CONTROL]),
+			0)) {
+		pr_perror("Unable to disable the breakpoint for %d", pid);
+		return -1;
+	}
+
+	return 0;
 }
 
 int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs)
