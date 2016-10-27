@@ -2,6 +2,7 @@
 #define __COMPEL_INFECT_H__
 
 #include "types.h"
+#include "compel/include/uapi/ksigset.h"
 
 extern int compel_stop_task(int pid);
 

@@ -8,7 +8,6 @@
 
 #include "infect.h"
 #include "ptrace.h"
-#include "signal.h"
 #include "asm/parasite-syscall.h"
 #include "asm/dump.h"
 #include "restorer.h"
