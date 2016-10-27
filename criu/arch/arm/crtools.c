@@ -16,7 +16,6 @@
 #include "elf.h"
 #include "parasite-syscall.h"
 #include "restorer.h"
-#include "errno.h"
 #include "kerndat.h"
 #include "infect.h"
 

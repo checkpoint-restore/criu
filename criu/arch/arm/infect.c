@@ -6,7 +6,7 @@
 #include "criu-log.h"
 #include "kerndat.h"
 #include "parasite-syscall.h"
-#include "errno.h"
+#include "compel/include/errno.h"
 #include "infect.h"
 #include "infect-priv.h"
 
