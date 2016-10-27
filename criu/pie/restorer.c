@@ -22,6 +22,7 @@
 #include "common/compiler.h"
 #include "string.h"
 #include "uapi/std/syscall.h"
+#include "uapi/ksigset.h"
 #include "signal.h"
 #include "config.h"
 #include "prctl.h"

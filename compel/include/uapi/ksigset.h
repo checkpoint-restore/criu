@@ -1,5 +1,5 @@
-#ifndef __CR_SIGNAL_H__
-#define __CR_SIGNAL_H__
+#ifndef __COMPEL_KSIGSET_H__
+#define __COMPEL_KSIGSET_H__
 
 static inline void ksigfillset(k_rtsigset_t *set)
 {
