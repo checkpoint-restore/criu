@@ -4,6 +4,8 @@
 #include <linux/types.h>
 #include <sys/ptrace.h>
 
+#include "types.h"
+
 /* some constants for ptrace */
 #ifndef PTRACE_SEIZE
 # define PTRACE_SEIZE		0x4206
@@ -66,5 +68,8 @@ extern int suspend_seccomp(pid_t pid);
 extern int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
 extern int ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes);
 extern int ptrace_swap_area(pid_t pid, void *dst, void *src, long bytes);
+
+extern int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs);
+extern int ptrace_set_regs(pid_t pid, user_regs_struct_t *regs);
 
 #endif /* __CR_PTRACE_H__ */

@@ -7,7 +7,8 @@
 #include <stdbool.h>
 #include <limits.h>
 #include <signal.h>
-
+#include <elf.h>
+#include <sys/uio.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/time.h>
@@ -81,4 +82,21 @@ int ptrace_swap_area(pid_t pid, void *dst, void *src, long bytes)
 	memcpy(src, t, bytes);
 
 	return 0;
+}
+
+int __attribute__((weak)) ptrace_get_regs(int pid, user_regs_struct_t *regs) {
+	struct iovec iov;
+
+	iov.iov_base = regs;
+	iov.iov_len = sizeof(user_regs_struct_t);
+	return ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, &iov);
+}
+
+int __attribute__((weak)) ptrace_set_regs(int pid, user_regs_struct_t *regs)
+{
+	struct iovec iov;
+
+	iov.iov_base = regs;
+	iov.iov_len = sizeof(user_regs_struct_t);
+	return ptrace(PTRACE_SETREGSET, pid, NT_PRSTATUS, &iov);
 }
