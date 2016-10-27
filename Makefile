@@ -132,7 +132,7 @@ ifeq ($(GMON),1)
 export GMON GMONLDOPT
 endif
 
-CFLAGS			+= $(WARNINGS) $(DEFINES) -iquote include/common
+CFLAGS			+= $(WARNINGS) $(DEFINES) -iquote include/
 
 # Default target
 all: criu lib

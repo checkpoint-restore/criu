@@ -8,7 +8,7 @@
 #ifndef __CR_GENERIC_BITOPS_H__
 #define __CR_GENERIC_BITOPS_H__
 
-#include "asm/bitsperlong.h"
+#include "common/asm/bitsperlong.h"
 
 #define DIV_ROUND_UP(n,d)	(((n) + (d) - 1) / (d))
 #define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_LONG)
