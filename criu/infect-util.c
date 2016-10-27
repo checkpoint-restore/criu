@@ -3,6 +3,7 @@
 #include "common/bug.h"
 #include "lock.h"
 #include "util-pie.h"
+
 #include "infect-rpc.h"
 #include "infect-util.h"
 

@@ -1,8 +1,8 @@
-#include "xmalloc.h"
-#include "types.h"
 #include "log.h"
 #include "common/bug.h"
+#include "common/xmalloc.h"
 #include "lock.h"
+
 #include "infect.h"
 #include "infect-priv.h"
 #include "infect-rpc.h"
