@@ -5,10 +5,6 @@ extern int save_task_regs(void *, user_regs_struct_t *, user_fpregs_struct_t *);
 extern int arch_alloc_thread_info(CoreEntry *core);
 extern void arch_free_thread_info(CoreEntry *core);
 
-#define ARCH_HAS_GET_REGS
-extern int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs);
-extern int ptrace_set_regs(pid_t pid, user_regs_struct_t *regs);
-
 static inline void core_put_tls(CoreEntry *core, tls_t tls)
 {
 	ThreadInfoX86 *ti = core->thread_info;

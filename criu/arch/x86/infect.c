@@ -169,3 +169,46 @@ void *remote_mmap(struct parasite_ctl *ctl,
 
 	return (void *)map;
 }
+
+int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs)
+{
+	struct iovec iov;
+	int ret;
+
+	iov.iov_base = &regs->native;
+	iov.iov_len = sizeof(user_regs_struct64);
+
+	ret = ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, &iov);
+	if (ret == -1) {
+		pr_perror("PTRACE_GETREGSET failed");
+		return -1;
+	}
+
+	if (iov.iov_len == sizeof(regs->native)) {
+		regs->__is_native = NATIVE_MAGIC;
+		return ret;
+	}
+	if (iov.iov_len == sizeof(regs->compat)) {
+		regs->__is_native = COMPAT_MAGIC;
+		return ret;
+	}
+
+	pr_err("PTRACE_GETREGSET read %zu bytes for pid %d, but native/compat regs sizes are %zu/%zu bytes",
+			iov.iov_len, pid,
+			sizeof(regs->native), sizeof(regs->compat));
+	return -1;
+}
+
+int ptrace_set_regs(pid_t pid, user_regs_struct_t *regs)
+{
+	struct iovec iov;
+
+	if (user_regs_native(regs)) {
+		iov.iov_base = &regs->native;
+		iov.iov_len = sizeof(user_regs_struct64);
+	} else {
+		iov.iov_base = &regs->compat;
+		iov.iov_len = sizeof(user_regs_struct32);
+	}
+	return ptrace(PTRACE_SETREGSET, pid, NT_PRSTATUS, &iov);
+}
