@@ -5,7 +5,8 @@
 #include <unistd.h>
 
 #include <elf.h>
-#include "compiler.h"
+
+#include "common/compiler.h"
 
 typedef struct {
 	char		*input_filename;
