@@ -11,7 +11,6 @@
 #include "asm/parasite-syscall.h"
 #include "asm/dump.h"
 #include "restorer.h"
-#include "parasite.h"
 #include "parasite-syscall.h"
 #include "pie-relocs.h"
 #include "parasite-blob.h"
@@ -19,6 +18,11 @@
 #include "criu-log.h"
 #include "infect-rpc.h"
 #include "infect-priv.h"
+
+#define UNIX_PATH_MAX (sizeof(struct sockaddr_un) - \
+			(size_t)((struct sockaddr_un *) 0)->sun_path)
+
+#define PARASITE_STACK_SIZE	(16 << 10)
 
 #define PTRACE_EVENT_STOP	128
 
@@ -720,6 +724,12 @@ int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 	}
 	return ret;
 }
+
+/* the parasite prefix is added by gen_offsets.sh */
+#define __pblob_offset(ptype, symbol)					\
+	parasite_ ## ptype ## _blob_offset__ ## symbol
+#define parasite_sym(pblob, ptype, symbol)				\
+	((void *)(pblob) + __pblob_offset(ptype, symbol))
 
 #define init_parasite_ctl(ctl, blob_type)				\
 	do {								\
