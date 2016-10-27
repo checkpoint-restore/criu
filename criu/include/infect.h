@@ -4,6 +4,8 @@
 #include "types.h"
 #include "compel/include/uapi/ksigset.h"
 
+#define PARASITE_START_AREA_MIN	(4096)
+
 extern int compel_stop_task(int pid);
 
 struct seize_task_status {
