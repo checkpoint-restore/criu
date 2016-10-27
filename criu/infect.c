@@ -585,7 +585,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 		goto err;
 	}
 
-	ctl->sigreturn_addr = args->sigreturn_addr;
+	ctl->sigreturn_addr = (void*)(uintptr_t)args->sigreturn_addr;
 	ctl->daemonized = true;
 	pr_info("Parasite %d has been switched to daemon mode\n", pid);
 	return 0;
