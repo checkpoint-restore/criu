@@ -7,7 +7,7 @@
 #include "asm/types.h"
 #include "images/core.pb-c.h"
 
-#include "sigframe.h"
+#include <compel/asm/sigframe.h>
 
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,		\
 			     thread_args, clone_restore_fn)			\

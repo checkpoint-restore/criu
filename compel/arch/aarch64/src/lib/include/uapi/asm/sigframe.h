@@ -21,7 +21,7 @@ struct aux_context {
 // XXX: the idetifier rt_sigcontext is expected to be struct by the CRIU code
 #define rt_sigcontext			sigcontext
 
-#include "sigframe-common.h"
+#include <compel/sigframe-common.h>
 
 /* Copied from the kernel source arch/arm64/kernel/signal.c */
 

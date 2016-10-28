@@ -51,7 +51,7 @@ struct aux_sigframe {
 	unsigned long		end_magic;
 } __attribute__((aligned(8)));
 
-#include "sigframe-common.h"
+#include <compel/sigframe-common.h>
 
 struct sigframe {
 	struct rt_ucontext	uc;

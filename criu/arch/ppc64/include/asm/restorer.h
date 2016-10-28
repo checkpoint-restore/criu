@@ -7,7 +7,7 @@
 #include "asm/types.h"
 #include "asm/infect-types.h"
 
-#include "sigframe.h"
+#include <compel/asm/sigframe.h>
 
 /*
  * Clone trampoline
