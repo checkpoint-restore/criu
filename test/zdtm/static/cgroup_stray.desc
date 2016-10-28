@@ -1,1 +1,4 @@
-{'flavor': 'h ns', 'flags': 'suid', 'feature': 'cgroupns', 'opts': '--manage-cgroups'}
+{   'feature': 'cgroupns',
+    'flags': 'suid',
+    'flavor': 'h ns',
+    'opts': '--manage-cgroups'}

@@ -1,1 +1,3 @@
-{'flavor': 'ns uns', 'feature': 'mnt_id', 'opts': '--ext-mount-map auto --enable-external-masters'}
+{   'feature': 'mnt_id',
+    'flavor': 'ns uns',
+    'opts': '--ext-mount-map auto --enable-external-masters'}

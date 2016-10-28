@@ -1,1 +1,4 @@
-{'flavor': 'ns', 'feature': 'mnt_id', "flags": "suid", "opts" : "--enable-fs nfsd" }
+{   'feature': 'mnt_id',
+    'flags': 'suid',
+    'flavor': 'ns',
+    'opts': '--enable-fs nfsd'}
