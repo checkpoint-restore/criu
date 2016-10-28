@@ -36,7 +36,7 @@
 #include <compel/plugins/std/syscall-codes.h>
 #include "restorer.h"
 #include "page-xfer.h"
-#include "lock.h"
+#include "common/lock.h"
 #include "rst-malloc.h"
 
 #undef  LOG_PREFIX

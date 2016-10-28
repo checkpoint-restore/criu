@@ -1,7 +1,7 @@
 #include "log.h"
 #include "common/bug.h"
 #include "common/xmalloc.h"
-#include "lock.h"
+#include "common/lock.h"
 
 #include "infect.h"
 #include "infect-priv.h"
