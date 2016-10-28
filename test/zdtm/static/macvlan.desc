@@ -1,1 +1,8 @@
-{'flavor': 'ns uns', 'deps': [ '/bin/sh', '/usr/bin/sort', '/bin/grep', '/sbin/ip', '/usr/bin/diff'], 'flags': 'suid', 'ropts': '--external macvlan[zdtmmvlan0]:zdtmbr0'}
+{   'deps': [   '/bin/sh',
+                '/usr/bin/sort',
+                '/bin/grep',
+                '/sbin/ip',
+                '/usr/bin/diff'],
+    'flags': 'suid',
+    'flavor': 'ns uns',
+    'ropts': '--external macvlan[zdtmmvlan0]:zdtmbr0'}
