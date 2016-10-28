@@ -1,5 +1,5 @@
 #include "asm/restorer.h"
-#include "asm/fpu.h"
+#include <compel/asm/fpu.h>
 #include "asm/string.h"
 
 #include <sys/mman.h>

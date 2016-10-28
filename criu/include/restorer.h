@@ -9,7 +9,7 @@
 #include "int.h"
 #include "types.h"
 #include "common/compiler.h"
-#include "asm/fpu.h"
+#include <compel/asm/fpu.h>
 #include "common/lock.h"
 #include "util.h"
 #include "asm/restorer.h"

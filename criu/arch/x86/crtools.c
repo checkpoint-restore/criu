@@ -8,7 +8,7 @@
 #include "types.h"
 #include "asm/parasite-syscall.h"
 #include "asm/restorer.h"
-#include "asm/fpu.h"
+#include <compel/asm/fpu.h>
 #include "asm/dump.h"
 
 #include "cr_options.h"

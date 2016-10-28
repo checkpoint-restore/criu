@@ -5,7 +5,8 @@
 #include <sys/mman.h>
 #include <sys/user.h>
 
-#include "asm/fpu.h"
+#include <compel/asm/fpu.h>
+
 #include "asm/cpu.h"
 #include "kerndat.h"
 
