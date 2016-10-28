@@ -3,9 +3,9 @@
 
 #include <sys/types.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "common/compiler.h"
-#include "asm/int.h"
 
 #define FP_MIN_ALIGN_BYTES		64
 
@@ -21,56 +21,56 @@
 #define XSAVE_SIZE			832
 
 struct fpx_sw_bytes {
-	u32				magic1;
-	u32				extended_size;
-	u64				xstate_bv;
-	u32				xstate_size;
-	u32				padding[7];
+	uint32_t			magic1;
+	uint32_t			extended_size;
+	uint64_t			xstate_bv;
+	uint32_t			xstate_size;
+	uint32_t			padding[7];
 };
 
 struct i387_fxsave_struct {
-	u16				cwd; /* Control Word			*/
-	u16				swd; /* Status Word			*/
-	u16				twd; /* Tag Word			*/
-	u16				fop; /* Last Instruction Opcode		*/
+	uint16_t			cwd; /* Control Word			*/
+	uint16_t			swd; /* Status Word			*/
+	uint16_t			twd; /* Tag Word			*/
+	uint16_t			fop; /* Last Instruction Opcode		*/
 	union {
 		struct {
-			u64		rip; /* Instruction Pointer		*/
-			u64		rdp; /* Data Pointer			*/
+			uint64_t	rip; /* Instruction Pointer		*/
+			uint64_t	rdp; /* Data Pointer			*/
 		};
 		struct {
-			u32		fip; /* FPU IP Offset			*/
-			u32		fcs; /* FPU IP Selector			*/
-			u32		foo; /* FPU Operand Offset		*/
-			u32		fos; /* FPU Operand Selector		*/
+			uint32_t	fip; /* FPU IP Offset			*/
+			uint32_t	fcs; /* FPU IP Selector			*/
+			uint32_t	foo; /* FPU Operand Offset		*/
+			uint32_t	fos; /* FPU Operand Selector		*/
 		};
 	};
-	u32				mxcsr;		/* MXCSR Register State */
-	u32				mxcsr_mask;	/* MXCSR Mask		*/
+	uint32_t			mxcsr;		/* MXCSR Register State */
+	uint32_t			mxcsr_mask;	/* MXCSR Mask		*/
 
 	/* 8*16 bytes for each FP-reg = 128 bytes				*/
-	u32				st_space[32];
+	uint32_t			st_space[32];
 
 	/* 16*16 bytes for each XMM-reg = 256 bytes				*/
-	u32				xmm_space[64];
+	uint32_t			xmm_space[64];
 
-	u32				padding[12];
+	uint32_t			padding[12];
 
 	union {
-		u32			padding1[12];
-		u32			sw_reserved[12];
+		uint32_t		padding1[12];
+		uint32_t		sw_reserved[12];
 	};
 
 } __aligned(16);
 
 struct xsave_hdr_struct {
-	u64				xstate_bv;
-	u64				reserved1[2];
-	u64				reserved2[5];
+	uint64_t			xstate_bv;
+	uint64_t			reserved1[2];
+	uint64_t			reserved2[5];
 } __packed;
 
 struct ymmh_struct {
-	u32				ymmh_space[64];
+	uint32_t			ymmh_space[64];
 } __packed;
 
 /*
@@ -93,10 +93,10 @@ typedef struct {
 
 	union {
 		struct xsave_struct	xsave;
-		u8		__pad[sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE];
+		uint8_t			__pad[sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE];
 	};
 
-	u8 has_fpu;
+	uint8_t has_fpu;
 } fpu_state_t;
 
 #endif /* __CR_ASM_FPU_H__ */

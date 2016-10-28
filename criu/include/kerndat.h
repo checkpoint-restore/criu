@@ -1,6 +1,8 @@
 #ifndef __CR_KERNDAT_H__
 #define __CR_KERNDAT_H__
 
+#include "int.h"
+
 struct stat;
 
 /*
