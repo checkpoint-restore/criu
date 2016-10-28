@@ -37,7 +37,7 @@ compel-deps		+= include/common/asm
 
 #
 # Compel itself.
-compel/%: $(compel-deps) .FORCE
+compel/%: $(compel-deps) compel/plugins/std.built-in.o .FORCE
 	$(Q) $(MAKE) $(build)=compel $@
 
 #
