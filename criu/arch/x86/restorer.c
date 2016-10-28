@@ -4,7 +4,7 @@
 #include "types.h"
 #include "restorer.h"
 #include "asm/restorer.h"
-#include "asm/fpu.h"
+#include <compel/asm/fpu.h>
 #include "asm/string.h"
 
 #include <compel/plugins/std/syscall.h>

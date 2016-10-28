@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "asm/fpu.h"
+#include <compel/asm/fpu.h>
 
 #define SIGFRAME_MAX_OFFSET 8
 

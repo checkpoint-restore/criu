@@ -9,7 +9,7 @@
 #include "bitops.h"
 #include "asm/types.h"
 #include "asm/cpu.h"
-#include "asm/fpu.h"
+#include <compel/asm/fpu.h>
 #include <compel/cpu.h>
 
 #include "common/compiler.h"

@@ -2,7 +2,7 @@
 #define __CR_ASM_RESTORER_H__
 
 #include "asm/types.h"
-#include "asm/fpu.h"
+#include <compel/asm/fpu.h>
 #include "images/core.pb-c.h"
 #include <compel/plugins/std/syscall-codes.h>
 
