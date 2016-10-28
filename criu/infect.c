@@ -20,6 +20,7 @@
 #include <compel/plugins/std/asm/syscall-types.h>
 #include "compel/include/asm/ptrace.h"
 #include "compel/include/asm/syscall.h"
+#include "asm/infect-types.h"
 #include "asm/sigframe.h"
 #include "infect.h"
 #include "ptrace.h"

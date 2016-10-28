@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include "asm/parasite-syscall.h"
 #include <compel/plugins/std/syscall-codes.h>
+#include <compel/asm/processor-flags.h>
 #include "asm/types.h"
 #include "criu-log.h"
 #include "kerndat.h"

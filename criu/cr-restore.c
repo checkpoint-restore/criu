@@ -23,6 +23,8 @@
 
 #include <sys/sendfile.h>
 
+#include "compel/include/asm/ptrace.h"
+
 #include "types.h"
 #include "ptrace.h"
 #include "common/compiler.h"
