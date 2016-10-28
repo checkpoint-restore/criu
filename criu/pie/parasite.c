@@ -14,7 +14,7 @@
 #include "config.h"
 #include "fcntl.h"
 #include "prctl.h"
-#include "lock.h"
+#include "common/lock.h"
 #include "parasite-vdso.h"
 #include "criu-log.h"
 #include "tty.h"

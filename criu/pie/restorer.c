@@ -31,7 +31,7 @@
 #include "sk-inet.h"
 #include "vma.h"
 
-#include "lock.h"
+#include "common/lock.h"
 #include "restorer.h"
 #include "aio.h"
 #include "seccomp.h"

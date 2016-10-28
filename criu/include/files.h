@@ -6,7 +6,7 @@
 #include "int.h"
 #include "common/compiler.h"
 #include "fcntl.h"
-#include "lock.h"
+#include "common/lock.h"
 #include "common/list.h"
 #include "pid.h"
 #include "rst_info.h"

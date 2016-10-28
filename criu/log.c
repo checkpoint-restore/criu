@@ -18,7 +18,7 @@
 #include "cr_options.h"
 #include "servicefd.h"
 #include "rst-malloc.h"
-#include "lock.h"
+#include "common/lock.h"
 #include "string.h"
 
 #define DEFAULT_LOGFD		STDERR_FILENO

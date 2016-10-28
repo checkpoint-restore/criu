@@ -1,14 +1,12 @@
-#ifndef __CR_LOCK_H__
-#define __CR_LOCK_H__
+#ifndef __CR_COMMON_LOCK_H__
+#define __CR_COMMON_LOCK_H__
 
 #include <stdint.h>
 #include <linux/futex.h>
 #include <sys/time.h>
 #include <limits.h>
 #include <errno.h>
-
-#include "atomic.h"
-#include "log.h"
+#include "common/asm/atomic.h"
 
 #define LOCK_BUG_ON(condition)							\
 	if ((condition))							\
@@ -156,4 +154,4 @@ static inline void mutex_unlock(mutex_t *m)
 	LOCK_BUG_ON(sys_futex((uint32_t *)&m->raw.counter, FUTEX_WAKE, 1, NULL, NULL, 0) < 0);
 }
 
-#endif /* __CR_LOCK_H__ */
+#endif /* __CR_COMMON_LOCK_H__ */

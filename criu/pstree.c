@@ -7,7 +7,7 @@
 #include "cr_options.h"
 #include "pstree.h"
 #include "rst-malloc.h"
-#include "lock.h"
+#include "common/lock.h"
 #include "namespaces.h"
 #include "files.h"
 #include "tty.h"

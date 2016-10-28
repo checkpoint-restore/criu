@@ -1,7 +1,7 @@
 #ifndef __CR_RST_INFO_H__
 #define __CR_RST_INFO_H__
 
-#include "lock.h"
+#include "common/lock.h"
 #include "common/list.h"
 #include "vma.h"
 

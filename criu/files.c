@@ -22,7 +22,7 @@
 #include "common/list.h"
 #include "rst-malloc.h"
 #include "util-pie.h"
-#include "lock.h"
+#include "common/lock.h"
 #include "sockets.h"
 #include "pstree.h"
 #include "tty.h"

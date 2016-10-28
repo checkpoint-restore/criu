@@ -35,7 +35,7 @@
 #include "file-ids.h"
 #include "criu-log.h"
 #include "common/list.h"
-#include "lock.h"
+#include "common/lock.h"
 #include "irmap.h"
 #include "cr_options.h"
 #include "namespaces.h"

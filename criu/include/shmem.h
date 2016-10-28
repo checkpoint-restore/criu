@@ -2,7 +2,7 @@
 #define __CR_SHMEM_H__
 
 #include "int.h"
-#include "lock.h"
+#include "common/lock.h"
 #include "images/vma.pb-c.h"
 
 struct _VmaEntry;

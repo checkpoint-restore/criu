@@ -36,7 +36,7 @@
 #include "restorer.h"
 #include "sockets.h"
 #include "sk-packet.h"
-#include "lock.h"
+#include "common/lock.h"
 #include "files.h"
 #include "files-reg.h"
 #include "pipes.h"
