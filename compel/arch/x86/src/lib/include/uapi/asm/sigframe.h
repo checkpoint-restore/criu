@@ -66,7 +66,7 @@ struct rt_sigcontext_32 {
 	uint32_t			cr2;
 };
 
-#include "sigframe-common.h"
+#include <compel/sigframe-common.h>
 
 /*
  * XXX: move declarations to generic sigframe.h or sigframe-compat.h
