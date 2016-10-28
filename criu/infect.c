@@ -14,7 +14,7 @@
 #include "criu-log.h"
 #include "common/bug.h"
 #include "common/xmalloc.h"
-#include "lock.h"
+#include "common/lock.h"
 
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/plugins/std/asm/syscall-types.h>

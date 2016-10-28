@@ -1,7 +1,7 @@
 #include "int.h"
 #include "log.h"
 #include "common/bug.h"
-#include "lock.h"
+#include "common/lock.h"
 #include "util-pie.h"
 
 #include "infect-rpc.h"
