@@ -1,6 +1,8 @@
 #ifndef __COMPEL_KSIGSET_H__
 #define __COMPEL_KSIGSET_H__
 
+#include <compel/plugins/std/asm/syscall-types.h>
+
 static inline void ksigfillset(k_rtsigset_t *set)
 {
 	int i;
