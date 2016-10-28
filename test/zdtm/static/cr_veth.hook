@@ -31,7 +31,7 @@ elif [ "$1" == "--post-restore" ]; then
 	fi
 
 	echo "Device OK"
-elif [ "$1" == "--pre-restore" -o "$1" == "--cleanup" ]; then
+elif [ "$1" == "--pre-restore" -o "$1" == "--clean" ]; then
 	# Wait for the link to die
 	ip l l
 	while ip l l zdtmvthh0 ; do
