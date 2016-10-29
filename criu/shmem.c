@@ -24,6 +24,11 @@
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
 
+#ifndef SEEK_DATA
+#define SEEK_DATA	3
+#define SEEK_HOLE	4
+#endif
+
 /*
  * Hash table and routines for keeping shmid -> shmem_xinfo mappings 
  */
@@ -629,14 +634,40 @@ static int dump_pages(struct page_pipe *pp, struct page_xfer *xfer, void *addr)
 	return page_xfer_dump_pages(xfer, pp, (unsigned long)addr);
 }
 
+static int next_data_segment(int fd, unsigned long pfn,
+			unsigned long *next_data_pfn, unsigned long *next_hole_pfn)
+{
+	off_t off;
+
+	off = lseek(fd, pfn * PAGE_SIZE, SEEK_DATA);
+	if (off == (off_t) -1) {
+		if (errno == ENXIO) {
+			*next_data_pfn = ~0UL;
+			*next_hole_pfn = ~0UL;
+			return 0;
+		}
+		pr_perror("Unable to lseek(SEEK_DATA)");
+		return -1;
+	}
+	*next_data_pfn = off / PAGE_SIZE;
+
+	off = lseek(fd, off, SEEK_HOLE);
+	if (off == (off_t) -1) {
+		pr_perror("Unable to lseek(SEEK_HOLE)");
+		return -1;
+	}
+	*next_hole_pfn = off / PAGE_SIZE;
+
+	return 0;
+}
+
 static int dump_one_shmem(struct shmem_info *si)
 {
 	struct page_pipe *pp;
 	struct page_xfer xfer;
 	int err, ret = -1, fd;
-	unsigned char *mc_map = NULL;
 	void *addr = NULL;
-	unsigned long pfn, nrpages;
+	unsigned long pfn, nrpages, next_data_pnf = 0, next_hole_pfn = 0;
 
 	pr_info("Dumping shared memory %ld\n", si->shmid);
 
@@ -645,7 +676,6 @@ static int dump_one_shmem(struct shmem_info *si)
 		goto err;
 
 	addr = mmap(NULL, si->size, PROT_READ, MAP_SHARED, fd, 0);
-	close(fd);
 	if (addr == MAP_FAILED) {
 		pr_err("Can't map shmem 0x%lx (0x%lx-0x%lx)\n",
 				si->shmid, si->start, si->end);
@@ -653,13 +683,6 @@ static int dump_one_shmem(struct shmem_info *si)
 	}
 
 	nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
-	mc_map = xmalloc(nrpages * sizeof(*mc_map));
-	if (!mc_map)
-		goto err_unmap;
-	/* We can't rely only on PME bits for anon shmem */
-	err = mincore(addr, si->size, mc_map);
-	if (err)
-		goto err_unmap;
 
 	pp = create_page_pipe((nrpages + 1) / 2, NULL, PP_CHUNK_MODE);
 	if (!pp)
@@ -674,13 +697,21 @@ static int dump_one_shmem(struct shmem_info *si)
 		bool use_mc = true;
 		unsigned long pgaddr;
 
+		if (pfn >= next_hole_pfn &&
+		    next_data_segment(fd, pfn, &next_data_pnf, &next_hole_pfn))
+			goto err_xfer;
+
 		if (is_shmem_tracking_en()) {
 			pgstate = get_pstate(si->pstate_map, pfn);
 			use_mc = pgstate == PST_DONT_DUMP;
 		}
 
-		if (use_mc && !(mc_map[pfn] & PAGE_RSS))
-			continue;
+		if (use_mc) {
+			if (pfn < next_data_pnf)
+				pgstate = PST_ZERO;
+			else
+				pgstate = PST_DIRTY;
+		}
 
 		pgaddr = (unsigned long)addr + pfn * PAGE_SIZE;
 again:
@@ -708,7 +739,7 @@ err_pp:
 err_unmap:
 	munmap(addr,  si->size);
 err:
-	xfree(mc_map);
+	close_safe(&fd);
 	return ret;
 }
 
