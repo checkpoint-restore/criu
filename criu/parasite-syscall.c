@@ -558,6 +558,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		ictx->flags |= INFECT_FAIL_CONNECT;
 	if (fault_injected(FI_NO_BREAKPOINTS))
 		ictx->flags |= INFECT_NO_BREAKPOINTS;
+	if (kdat.has_compat_sigreturn)
+		ictx->flags |= INFECT_HAS_COMPAT_SIGRETURN;
 
 	parasite_ensure_args_size(dump_pages_args_size(vma_area_list));
 	parasite_ensure_args_size(aio_rings_args_size(vma_area_list));

@@ -115,6 +115,7 @@ extern struct infect_ctx *compel_infect_ctx(struct parasite_ctl *);
 #define INFECT_NO_MEMFD		0x1	/* don't use memfd() */
 #define INFECT_FAIL_CONNECT	0x2	/* make parasite connect() fail */
 #define INFECT_NO_BREAKPOINTS	0x4	/* no breakpoints in pie tracking */
+#define INFECT_HAS_COMPAT_SIGRETURN 0x8
 
 typedef int (*save_regs_t)(void *, user_regs_struct_t *, user_fpregs_struct_t *);
 extern int compel_get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t, void *);
