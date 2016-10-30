@@ -1147,9 +1147,6 @@ struct parasite_ctl *parasite_prep_ctl(pid_t pid, unsigned long exec_start)
 {
 	struct parasite_ctl *ctl = NULL;
 
-	if (!arch_can_dump_task(pid))
-		goto err;
-
 	/*
 	 * Control block early setup.
 	 */
@@ -1368,6 +1365,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	parasite_ensure_args_size(dump_pages_args_size(vma_area_list));
 	parasite_ensure_args_size(aio_rings_args_size(vma_area_list));
 
+	if (!arch_can_dump_task(pid))
+		goto err_restore;
 	/*
 	 * Inject a parasite engine. Ie allocate memory inside alien
 	 * space and copy engine code there. Then re-map the engine
