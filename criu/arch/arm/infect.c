@@ -5,7 +5,6 @@
 #include <compel/asm/processor-flags.h>
 #include "asm/types.h"
 #include "criu-log.h"
-#include "kerndat.h"
 #include "parasite-syscall.h"
 #include "compel/include/errno.h"
 #include "infect.h"
@@ -100,7 +99,7 @@ void *remote_mmap(struct parasite_ctl *ctl,
 
 	err = compel_syscall(ctl, __NR_mmap2, &map,
 			(unsigned long)addr, length, prot, flags, fd, offset >> 12);
-	if (err < 0 || map > kdat.task_size)
+	if (err < 0 || map > ctl->ictx.task_size)
 		map = 0;
 
 	return (void *)map;
