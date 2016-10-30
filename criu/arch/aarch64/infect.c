@@ -6,7 +6,6 @@
 #include <compel/plugins/std/syscall-codes.h>
 #include "asm/types.h"
 #include "criu-log.h"
-#include "kerndat.h"
 #include "parasite-syscall.h"
 #include "compel/include/errno.h"
 #include "infect.h"

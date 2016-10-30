@@ -549,6 +549,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	ictx->save_regs = save_task_regs;
 	ictx->make_sigframe = make_sigframe;
 	ictx->regs_arg = item->core[0];
+	ictx->task_size = kdat.task_size;
 	ictx->syscall_ip = p;
 	pr_debug("Parasite syscall_ip at %#lx\n", p);
 

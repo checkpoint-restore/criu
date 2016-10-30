@@ -102,6 +102,7 @@ struct infect_ctx {
 	int (*make_sigframe)(void *, struct rt_sigframe *, struct rt_sigframe *, k_rtsigset_t *);
 	void *regs_arg;
 
+	unsigned long		task_size;
 	unsigned long		syscall_ip;				/* entry point of infection */
 	unsigned long		flags;			/* fine-tune (e.g. faults) */
 
