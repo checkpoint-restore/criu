@@ -95,16 +95,9 @@ int kdat_compat_sigreturn_test(void)
 }
 #endif /* CONFIG_X86_64 */
 
-int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs);
-static int arch_task_compatible(pid_t pid)
+static int arch_task_compatible(struct parasite_ctl *ctl)
 {
-	user_regs_struct_t r;
-	int ret = ptrace_get_regs(pid, &r);
-
-	if (ret)
-		return -1;
-
-	return !user_regs_native(&r);
+	return !user_regs_native(&ctl->orig.regs);
 }
 
 #define USER32_CS	0x23
@@ -133,7 +126,7 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 	pid_t pid = ctl->rpid;
 	int ret;
 
-	ret = arch_task_compatible(pid);
+	ret = arch_task_compatible(ctl);
 	if (ret < 0)
 		return false;
 
