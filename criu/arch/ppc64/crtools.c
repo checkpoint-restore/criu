@@ -66,7 +66,7 @@ void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *
 	regs->trap = 0;
 }
 
-bool arch_can_dump_task(pid_t pid)
+bool arch_can_dump_task(struct parasite_ctl *ctl)
 {
 	/*
 	 * TODO: We should detect 32bit task when BE support is done.
