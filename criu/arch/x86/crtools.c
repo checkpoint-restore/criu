@@ -96,7 +96,7 @@ int kdat_compat_sigreturn_test(void)
 #endif /* CONFIG_X86_64 */
 
 int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs);
-int arch_task_compatible(pid_t pid)
+static int arch_task_compatible(pid_t pid)
 {
 	user_regs_struct_t r;
 	int ret = ptrace_get_regs(pid, &r);
