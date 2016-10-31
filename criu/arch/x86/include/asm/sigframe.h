@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 #include <compel/asm/fpu.h>
+#include <compel/plugins/std/syscall-codes.h>
 
 #define SIGFRAME_MAX_OFFSET 8
 
