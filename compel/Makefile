@@ -23,6 +23,11 @@ lib-y			+= src/lib/log.o
 host-lib-y		+= src/lib/log.o
 
 lib-y			+= arch/$(ARCH)/src/lib/cpu.o
+lib-y			+= arch/$(ARCH)/src/lib/infect.o
+lib-y			+= src/lib/infect-rpc.o
+lib-y			+= src/lib/infect-util.o
+lib-y			+= src/lib/infect.o
+lib-y			+= src/lib/ptrace.o
 
 ifeq ($(ARCH),x86)
 lib-y			+= src/lib/handle-elf-32.o

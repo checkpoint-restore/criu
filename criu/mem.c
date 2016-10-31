@@ -27,9 +27,7 @@
 #include "files-reg.h"
 #include "pagemap-cache.h"
 #include "fault-injection.h"
-#include "infect.h"
-#include "infect-rpc.h"
-#include "infect-util.h"
+#include <compel/compel.h>
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"

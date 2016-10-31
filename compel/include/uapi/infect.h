@@ -1,9 +1,14 @@
 #ifndef __COMPEL_INFECT_H__
 #define __COMPEL_INFECT_H__
 
-#include "asm/infect-types.h"
+#include <stdbool.h>
+
+#include <compel/asm/sigframe.h>
+#include <compel/asm/infect-types.h>
 #include <compel/ksigset.h>
 #include <compel/compel.h>
+
+#include "common/compiler.h"
 
 #define PARASITE_START_AREA_MIN	(4096)
 

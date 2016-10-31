@@ -9,19 +9,20 @@
 #include <fcntl.h>
 #include <linux/seccomp.h>
 
-#include "criu-log.h"
+#include "log.h"
 #include "common/bug.h"
 #include "common/xmalloc.h"
 #include "common/lock.h"
+#include "common/page.h"
 
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/plugins/std/asm/syscall-types.h>
-#include "compel/include/asm/ptrace.h"
-#include "compel/include/asm/syscall.h"
+#include "asm/ptrace.h"
+#include "uapi/compel/plugins/std/syscall.h"
 #include "asm/infect-types.h"
 #include "asm/sigframe.h"
 #include "infect.h"
-#include "ptrace.h"
+#include "uapi/compel/ptrace.h"
 #include "infect-rpc.h"
 #include "infect-priv.h"
 #include "infect-util.h"
@@ -495,7 +496,7 @@ int compel_execute_syscall(struct parasite_ctl *ctl,
 {
 	pid_t pid = ctl->rpid;
 	int err;
-	u8 code_orig[BUILTIN_SYSCALL_SIZE];
+	uint8_t code_orig[BUILTIN_SYSCALL_SIZE];
 
 	/*
 	 * Inject syscall instruction and remember original code,
@@ -549,7 +550,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 	args = compel_parasite_args(ctl, struct parasite_init_args);
 
 	args->sigframe = (uintptr_t)ctl->rsigframe;
-	args->log_level = log_get_loglevel();
+	args->log_level = compel_log_get_loglevel();
 
 	futex_set(&args->daemon_connected, 0);
 
@@ -653,7 +654,7 @@ static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
 static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 {
 	void *where = (void *)ctl->ictx.syscall_ip + BUILTIN_SYSCALL_SIZE;
-	u8 orig_code[MEMFD_FNAME_SZ] = MEMFD_FNAME;
+	uint8_t orig_code[MEMFD_FNAME_SZ] = MEMFD_FNAME;
 	pid_t pid = ctl->rpid;
 	unsigned long sret = -ENOSYS;
 	int ret, fd, lfd;

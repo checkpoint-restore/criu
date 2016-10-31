@@ -1,10 +1,11 @@
-#ifndef __CR_PTRACE_H__
-#define __CR_PTRACE_H__
+#ifndef UAPI_COMPEL_PTRACE_H__
+#define UAPI_COMPEL_PTRACE_H__
 
 #include <linux/types.h>
 #include <sys/ptrace.h>
 
-#include "types.h"
+#include <compel/asm/infect-types.h>
+#include <compel/asm/breakpoints.h>
 
 /* some constants for ptrace */
 #ifndef PTRACE_SEIZE
@@ -72,4 +73,4 @@ extern int ptrace_swap_area(pid_t pid, void *dst, void *src, long bytes);
 extern int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs);
 extern int ptrace_set_regs(pid_t pid, user_regs_struct_t *regs);
 
-#endif /* __CR_PTRACE_H__ */
+#endif /* UAPI_COMPEL_PTRACE_H__ */

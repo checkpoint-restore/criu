@@ -12,12 +12,12 @@
 
 #include "cr_options.h"
 #include "common/compiler.h"
-#include "ptrace.h"
+#include <compel/ptrace.h>
 #include "parasite-syscall.h"
 #include "log.h"
 #include "util.h"
 #include "cpu.h"
-#include "infect.h"
+#include <compel/compel.h>
 
 #include "protobuf.h"
 #include "images/core.pb-c.h"

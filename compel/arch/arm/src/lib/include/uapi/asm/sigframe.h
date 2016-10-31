@@ -1,6 +1,8 @@
 #ifndef UAPI_COMPEL_ASM_SIGFRAME_H__
 #define UAPI_COMPEL_ASM_SIGFRAME_H__
 
+#include <compel/asm/infect-types.h>
+
 /* Copied from the Linux kernel header arch/arm/include/asm/sigcontext.h */
 
 struct rt_sigcontext {

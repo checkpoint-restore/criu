@@ -12,7 +12,6 @@ asflags-y		+= -iquote $(obj)/include
 obj-y			+= cpu.o
 obj-y			+= crtools.o
 obj-y			+= sigframe.o
-obj-y			+= infect.o
 ifeq ($(CONFIG_COMPAT),y)
         obj-y		+= sigaction_compat.o
         obj-y		+= call32.o

@@ -15,7 +15,7 @@
 #include "images/pagemap.pb-c.h"
 
 #include "imgset.h"
-#include "ptrace.h"
+#include <compel/ptrace.h>
 #include "parasite-syscall.h"
 #include "parasite.h"
 #include "crtools.h"
@@ -45,6 +45,8 @@
 #include "infect.h"
 #include "infect-rpc.h"
 #include "parasite-blob.h"
+
+#include <compel/compel.h>
 
 unsigned long get_exec_start(struct vm_area_list *vmas)
 {

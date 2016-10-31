@@ -23,10 +23,8 @@
 
 #include <sys/sendfile.h>
 
-#include "compel/include/asm/ptrace.h"
-
 #include "types.h"
-#include "ptrace.h"
+#include <compel/ptrace.h>
 #include "common/compiler.h"
 
 #include "cr_options.h"
@@ -72,7 +70,7 @@
 #include "file-lock.h"
 #include "action-scripts.h"
 #include "shmem.h"
-#include "infect.h"
+#include <compel/compel.h>
 #include "aio.h"
 #include "lsm.h"
 #include "seccomp.h"

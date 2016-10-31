@@ -19,8 +19,6 @@
 #include "criu-log.h"
 #include "tty.h"
 #include "aio.h"
-#include "infect-rpc.h"
-#include "infect-pie.h"
 
 #include "asm/parasite.h"
 #include "restorer.h"
