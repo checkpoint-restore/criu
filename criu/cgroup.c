@@ -1712,7 +1712,6 @@ static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controller
 					return -ENOMEM;
 				}
 				xfree(prev);
-				cg->cgns_prefix = strlen(newroot);
 
 				if (!dirnew) {
 					/* -1 because cgns_prefix includes leading "/" */
@@ -1720,6 +1719,7 @@ static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controller
 					if (!dirnew)
 						return -ENOMEM;
 				}
+				cg->cgns_prefix = strlen(newroot);
 			} else {
 				char *prev = cg->path;
 				/*
