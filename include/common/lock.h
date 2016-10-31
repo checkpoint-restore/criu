@@ -18,8 +18,8 @@
 #else
 # include <unistd.h>
 # include <sys/syscall.h>
-static inline long sys_futex(void *addr1, int op, int val1,
-                            struct timespec *timeout, void *addr2, int val3)
+static inline long sys_futex (uint32_t *addr1, int op, uint32_t val1,
+			      struct timespec *timeout, uint32_t *addr2, uint32_t val3)
 {
        int rc = syscall(SYS_futex, addr1, op, val1, timeout, addr2, val3);
        if (rc == -1) rc = -errno;
