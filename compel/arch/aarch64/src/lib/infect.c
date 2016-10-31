@@ -2,12 +2,10 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <linux/elf.h>
-#include "asm/parasite-syscall.h"
 #include <compel/plugins/std/syscall-codes.h>
-#include "asm/types.h"
-#include "criu-log.h"
-#include "parasite-syscall.h"
-#include "compel/include/errno.h"
+#include "uapi/compel/asm/infect-types.h"
+#include "log.h"
+#include "errno.h"
 #include "infect.h"
 #include "infect-priv.h"
 

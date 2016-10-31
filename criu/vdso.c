@@ -19,8 +19,7 @@
 #include "log.h"
 #include "mem.h"
 #include "vma.h"
-#include "infect.h"
-#include "infect-rpc.h"
+#include <compel/compel.h>
 
 #ifdef LOG_PREFIX
 # undef LOG_PREFIX

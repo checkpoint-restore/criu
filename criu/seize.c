@@ -15,13 +15,13 @@
 #include "cr-errno.h"
 #include "pstree.h"
 #include "criu-log.h"
-#include "ptrace.h"
+#include <compel/ptrace.h>
 #include "proc_parse.h"
 #include "seize.h"
 #include "stats.h"
 #include "xmalloc.h"
 #include "util.h"
-#include "infect.h"
+#include <compel/compel.h>
 
 #define NR_ATTEMPTS 5
 

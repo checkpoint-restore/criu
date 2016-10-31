@@ -5,8 +5,6 @@
 #include <sys/mman.h>
 #include "common/page.h"
 
-#include "page.h"
-
 #define SIGMAX			64
 #define SIGMAX_OLD		31
 

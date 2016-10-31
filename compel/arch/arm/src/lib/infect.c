@@ -1,12 +1,10 @@
 #include <sys/ptrace.h>
 #include <sys/types.h>
-#include "asm/parasite-syscall.h"
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/asm/processor-flags.h>
-#include "asm/types.h"
-#include "criu-log.h"
-#include "parasite-syscall.h"
-#include "compel/include/errno.h"
+#include "uapi/compel/asm/infect-types.h"
+#include "log.h"
+#include "errno.h"
 #include "infect.h"
 #include "infect-priv.h"
 

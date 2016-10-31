@@ -1,5 +1,5 @@
-#ifndef __COMPEL_PTRACE_H__
-#define __COMPEL_PTRACE_H__
+#ifndef __COMPEL_BREAKPOINTS_H__
+#define __COMPEL_BREAKPOINTS_H__
 #define ARCH_SI_TRAP TRAP_BRKPT
 
 static inline int ptrace_set_breakpoint(pid_t pid, void *addr)

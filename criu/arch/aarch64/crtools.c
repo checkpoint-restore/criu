@@ -6,10 +6,10 @@
 #include "types.h"
 #include <compel/asm/processor-flags.h>
 
-#include "asm/infect-types.h"
+#include <compel/asm/infect-types.h>
 #include "asm/restorer.h"
 #include "common/compiler.h"
-#include "ptrace.h"
+#include <compel/ptrace.h>
 #include "asm/dump.h"
 #include "protobuf.h"
 #include "images/core.pb-c.h"
@@ -19,7 +19,7 @@
 #include "util.h"
 #include "cpu.h"
 #include "restorer.h"
-#include "infect.h"
+#include <compel/compel.h>
 
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))(src)->e
 

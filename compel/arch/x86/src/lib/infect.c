@@ -11,15 +11,16 @@
 
 #include <compel/asm/processor-flags.h>
 #include <compel/cpu.h>
-#include "compel/include/errno.h"
+#include "errno.h"
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/plugins/std/syscall.h>
-#include "compel/include/asm/ptrace.h"
+#include "asm/ptrace.h"
 #include "common/err.h"
 #include "asm/infect-types.h"
-#include "ptrace.h"
+#include "uapi/compel/ptrace.h"
 #include "infect.h"
 #include "infect-priv.h"
+#include "log.h"
 
 /*
  * Injected syscall instruction

@@ -2,9 +2,6 @@ ccflags-y		+= -iquote criu/$(ARCH)
 ccflags-y		+= -I compel/include/uapi
 ccflags-y		+= -I compel/plugins/include/uapi
 
-obj-y			+= infect.o
-obj-y			+= infect-rpc.o
-obj-y			+= infect-util.o
 obj-y			+= action-scripts.o
 obj-y			+= external.o
 obj-y			+= aio.o
@@ -58,7 +55,6 @@ obj-y			+= proc_parse.o
 obj-y			+= protobuf-desc.o
 obj-y			+= protobuf.o
 obj-y			+= pstree.o
-obj-y			+= ptrace.o
 obj-y			+= rbtree.o
 obj-y			+= rst-malloc.o
 obj-y			+= seccomp.o

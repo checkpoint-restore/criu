@@ -7,7 +7,7 @@
 #include "imgset.h"
 #include "kcmp.h"
 #include "pstree.h"
-#include "ptrace.h"
+#include <compel/ptrace.h>
 #include "proc_parse.h"
 #include "restorer.h"
 #include "seccomp.h"

@@ -15,14 +15,12 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 
-#include "int.h"
 #include "common/compiler.h"
-#include "util.h"
-#include "ptrace.h"
-#include "pid.h"
-#include "proc_parse.h"
-#include "seccomp.h"
-#include "cr_options.h"
+
+#include "uapi/compel/asm/infect-types.h"
+#include "uapi/compel/ptrace.h"
+
+#include "log.h"
 
 int suspend_seccomp(pid_t pid)
 {

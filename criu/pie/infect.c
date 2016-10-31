@@ -8,7 +8,7 @@
 #include "sigframe.h"
 #include "infect-rpc.h"
 #include "infect-pie.h"
-#include "rpc-pie-priv.h"
+#include "compel/include/rpc-pie-priv.h"
 
 static int tsock = -1;
 

@@ -1,8 +1,8 @@
-#include "int.h"
 #include "log.h"
 #include "common/bug.h"
 #include "common/lock.h"
-#include "util-pie.h"
+
+#include "uapi/compel/plugins/plugin-fds.h"
 
 #include "infect-rpc.h"
 #include "infect-util.h"

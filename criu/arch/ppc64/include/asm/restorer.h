@@ -5,7 +5,7 @@
 #include <asm/elf.h>
 #include <asm/types.h>
 #include "asm/types.h"
-#include "asm/infect-types.h"
+#include <compel/asm/infect-types.h>
 
 #include <compel/asm/sigframe.h>
 

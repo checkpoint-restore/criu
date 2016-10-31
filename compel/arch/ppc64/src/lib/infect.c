@@ -1,13 +1,13 @@
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <stdint.h>
 #include <errno.h>
 #include <compel/plugins/std/syscall-codes.h>
-#include "asm/types.h"
-#include "ptrace.h"
-#include "parasite-syscall.h"
-#include "compel/include/errno.h"
-#include "criu-log.h"
+#include "uapi/compel/asm/infect-types.h"
+#include "errno.h"
+#include "log.h"
+#include "common/bug.h"
 #include "infect.h"
 #include "infect-priv.h"
 
@@ -22,7 +22,7 @@
 /*
  * Injected syscall instruction
  */
-const u32 code_syscall[] = {
+const uint32_t code_syscall[] = {
 	0x44000002,		/* sc 		*/
 	0x0fe00000		/* twi 31,0,0	*/
 };
