@@ -662,14 +662,19 @@ static noinline void fini_sigreturn(unsigned long new_sp)
 	ARCH_RT_SIGRETURN(new_sp);
 }
 
-static int fini(void)
+static void parasite_cleanup(void)
 {
-	unsigned long new_sp;
-
 	if (mprotect_args) {
 		mprotect_args->add_prot = 0;
 		mprotect_vmas(mprotect_args);
 	}
+}
+
+static int fini(void)
+{
+	unsigned long new_sp;
+
+	parasite_cleanup();
 
 	new_sp = (long)sigframe + RT_SIGFRAME_OFFSET(sigframe);
 	pr_debug("%ld: new_sp=%lx ip %lx\n", sys_gettid(),
