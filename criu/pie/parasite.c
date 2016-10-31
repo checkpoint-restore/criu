@@ -685,6 +685,59 @@ static int fini(void)
 	return -1;
 }
 
+static int parasite_daemon_cmd(int cmd, void *args)
+{
+	int ret;
+
+	switch (cmd) {
+	case PARASITE_CMD_DUMPPAGES:
+		ret = dump_pages(args);
+		break;
+	case PARASITE_CMD_MPROTECT_VMAS:
+		ret = mprotect_vmas(args);
+		break;
+	case PARASITE_CMD_DUMP_SIGACTS:
+		ret = dump_sigact(args);
+		break;
+	case PARASITE_CMD_DUMP_ITIMERS:
+		ret = dump_itimers(args);
+		break;
+	case PARASITE_CMD_DUMP_POSIX_TIMERS:
+		ret = dump_posix_timers(args);
+		break;
+	case PARASITE_CMD_DUMP_THREAD:
+		ret = dump_thread(args);
+		break;
+	case PARASITE_CMD_DUMP_MISC:
+		ret = dump_misc(args);
+		break;
+	case PARASITE_CMD_DRAIN_FDS:
+		ret = drain_fds(args);
+		break;
+	case PARASITE_CMD_GET_PROC_FD:
+		ret = parasite_get_proc_fd();
+		break;
+	case PARASITE_CMD_DUMP_TTY:
+		ret = parasite_dump_tty(args);
+		break;
+	case PARASITE_CMD_CHECK_AIOS:
+		ret = parasite_check_aios(args);
+		break;
+	case PARASITE_CMD_CHECK_VDSO_MARK:
+		ret = parasite_check_vdso_mark(args);
+		break;
+	case PARASITE_CMD_DUMP_CGROUP:
+		ret = parasite_dump_cgroup(args);
+		break;
+	default:
+		pr_err("Unknown command in parasite daemon thread leader: %d\n", cmd);
+		ret = -1;
+		break;
+	}
+
+	return ret;
+}
+
 static noinline __used int noinline parasite_daemon(void *args)
 {
 	struct ctl_msg m;
@@ -707,53 +760,10 @@ static noinline __used int noinline parasite_daemon(void *args)
 			continue;
 		}
 
-		switch (m.cmd) {
-		case PARASITE_CMD_FINI:
+		if (m.cmd == PARASITE_CMD_FINI)
 			goto out;
-		case PARASITE_CMD_DUMPPAGES:
-			ret = dump_pages(args);
-			break;
-		case PARASITE_CMD_MPROTECT_VMAS:
-			ret = mprotect_vmas(args);
-			break;
-		case PARASITE_CMD_DUMP_SIGACTS:
-			ret = dump_sigact(args);
-			break;
-		case PARASITE_CMD_DUMP_ITIMERS:
-			ret = dump_itimers(args);
-			break;
-		case PARASITE_CMD_DUMP_POSIX_TIMERS:
-			ret = dump_posix_timers(args);
-			break;
-		case PARASITE_CMD_DUMP_THREAD:
-			ret = dump_thread(args);
-			break;
-		case PARASITE_CMD_DUMP_MISC:
-			ret = dump_misc(args);
-			break;
-		case PARASITE_CMD_DRAIN_FDS:
-			ret = drain_fds(args);
-			break;
-		case PARASITE_CMD_GET_PROC_FD:
-			ret = parasite_get_proc_fd();
-			break;
-		case PARASITE_CMD_DUMP_TTY:
-			ret = parasite_dump_tty(args);
-			break;
-		case PARASITE_CMD_CHECK_AIOS:
-			ret = parasite_check_aios(args);
-			break;
-		case PARASITE_CMD_CHECK_VDSO_MARK:
-			ret = parasite_check_vdso_mark(args);
-			break;
-		case PARASITE_CMD_DUMP_CGROUP:
-			ret = parasite_dump_cgroup(args);
-			break;
-		default:
-			pr_err("Unknown command in parasite daemon thread leader: %d\n", m.cmd);
-			ret = -1;
-			break;
-		}
+
+		ret = parasite_daemon_cmd(m.cmd, args);
 
 		if (__parasite_daemon_reply_ack(m.cmd, ret))
 			break;
