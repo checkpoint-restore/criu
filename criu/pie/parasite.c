@@ -839,6 +839,17 @@ err:
 	return -1;
 }
 
+static int parasite_trap_cmd(int cmd, void *args)
+{
+	switch (cmd) {
+	case PARASITE_CMD_DUMP_THREAD:
+		return dump_thread(args);
+	}
+
+	pr_err("Unknown command to parasite: %d\n", cmd);
+	return -EINVAL;
+}
+
 #ifndef __parasite_entry
 # define __parasite_entry
 #endif
@@ -848,14 +859,11 @@ int __used __parasite_entry parasite_service(unsigned int cmd, void *args)
 	pr_info("Parasite cmd %d/%x process\n", cmd, cmd);
 
 	switch (cmd) {
-	case PARASITE_CMD_DUMP_THREAD:
-		return dump_thread(args);
 	case PARASITE_CMD_INIT_DAEMON:
 		return parasite_init_daemon(args);
 	case PARASITE_CMD_UNMAP:
 		return unmap_itself(args);
 	}
 
-	pr_err("Unknown command to parasite: %d\n", cmd);
-	return -EINVAL;
+	return parasite_trap_cmd(cmd, args);
 }
