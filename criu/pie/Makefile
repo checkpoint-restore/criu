@@ -7,7 +7,9 @@ ifeq ($(CONFIG_COMPAT),y)
 endif
 
 native-obj-y           += parasite.o
+native-obj-y           += infect.o
 compat-obj-y           += compat/parasite-compat.o
+compat-obj-y           += compat/infect-compat.o
 
 restorer-obj-y		+= restorer.o
 restorer-obj-y		+= ./$(ARCH_DIR)/restorer.o
