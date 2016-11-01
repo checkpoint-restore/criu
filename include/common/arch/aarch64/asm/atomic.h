@@ -70,6 +70,7 @@ static inline int atomic_dec(atomic_t *v) { return atomic_sub_return(1, v) + 1; 
 
 /* true if the result is 0, or false for all other cases. */
 #define atomic_dec_and_test(v) (atomic_sub_return(1, v) == 0)
+#define atomic_dec_return(v)  (atomic_sub_return(1, v))
 
 #define atomic_inc_return(v)	(atomic_add_return(1, v))
 
