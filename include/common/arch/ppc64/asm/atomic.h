@@ -107,6 +107,26 @@ static __inline__ void atomic_dec(atomic_t *v)
 	: "cc", "xer");
 }
 
+static __inline__ int atomic_sub_return(int a, atomic_t *v)
+{
+	int t;
+
+	__asm__ __volatile__(
+"	\nLWSYNC\n"
+"1:	lwarx	%0,0,%2		# atomic_sub_return\n\
+	subf	%0,%1,%0\n"
+"	stwcx.	%0,0,%2 \n\
+	bne-	1b"
+"	\nsync\n"
+	: "=&r" (t)
+	: "r" (a), "r" (&v->counter)
+	: "cc", "memory");
+
+	return t;
+}
+
+#define atomic_dec_return(v)  (atomic_sub_return(1, v))
+
 #define atomic_cmpxchg(v, o, n) (cmpxchg(&((v)->counter), (o), (n)))
 
 #endif /* __CR_ATOMIC_H__ */
