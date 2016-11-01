@@ -1138,7 +1138,7 @@ out:
 	return -1;
 }
 
-static int add_cr_time_mount(struct mount_info *root, char *fsname, const char *path, unsigned int s_dev)
+static __maybe_unused int add_cr_time_mount(struct mount_info *root, char *fsname, const char *path, unsigned int s_dev)
 {
 	struct mount_info *mi, *t, *parent;
 
@@ -1186,7 +1186,7 @@ static int add_cr_time_mount(struct mount_info *root, char *fsname, const char *
 }
 
 /* Returns 1 in case of success, -errno in case of mount fail, and 0 on other errors */
-static int mount_cr_time_mount(struct ns_id *ns, unsigned int *s_dev, const char *source,
+static __maybe_unused int mount_cr_time_mount(struct ns_id *ns, unsigned int *s_dev, const char *source,
 			       const char *target, const char *type)
 {
 	int mnt_fd, ret, exit_code = 0;
@@ -2453,8 +2453,10 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 			goto err;
 		}
 
+#ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
 		if (me->fstype == FSTYPE__BINFMT_MISC)
 			opts.has_binfmt_misc = true;
+#endif
 
 		/* FIXME: abort unsupported early */
 		pm->fstype = decode_fstype(me->fstype);
@@ -2665,12 +2667,14 @@ static int populate_mnt_ns(void)
 	if (!pms)
 		return -1;
 
+#ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
 	if (!opts.has_binfmt_misc && !list_empty(&binfmt_misc_list)) {
 		/* Add to mount tree. Generic code will mount it later */
 		ret = add_cr_time_mount(pms, "binfmt_misc", BINFMT_MISC_HOME, 0);
 		if (ret)
 			return -1;
 	}
+#endif
 
 	if (resolve_shared_mounts(mntinfo, pms->master_id))
 		return -1;
@@ -3126,6 +3130,7 @@ int collect_mnt_namespaces(bool for_dump)
 	if (ret)
 		goto err;
 
+#ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
 	if (for_dump && !opts.has_binfmt_misc) {
 		unsigned int s_dev = 0;
 		struct ns_id *ns;
@@ -3153,6 +3158,7 @@ int collect_mnt_namespaces(bool for_dump)
 			}
 		}
 	}
+#endif
 
 	ret = resolve_external_mounts(mntinfo);
 	if (ret)

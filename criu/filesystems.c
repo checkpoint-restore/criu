@@ -30,6 +30,7 @@ static int attach_option(struct mount_info *pm, char *opt)
 	return pm->options ? 0 : -1;
 }
 
+#ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
 struct binfmt_misc_info {
 	BinfmtMiscEntry *bme;
 	struct list_head list;
@@ -370,6 +371,11 @@ int collect_binfmt_misc(void)
 {
 	return collect_image(&binfmt_misc_cinfo);
 }
+#else
+#define binfmt_misc_dump	NULL
+#define binfmt_misc_restore	NULL
+#define binfmt_misc_parse	NULL
+#endif
 
 static int tmpfs_dump(struct mount_info *pm)
 {

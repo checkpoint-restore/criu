@@ -71,7 +71,11 @@ struct mount_info {
 
 extern struct mount_info *mntinfo;
 extern struct ns_desc mnt_ns_desc;
+#ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
 extern int collect_binfmt_misc(void);
+#else
+static inline int collect_binfmt_misc(void) { return 0; }
+#endif
 
 extern struct mount_info *mnt_entry_alloc();
 extern void mnt_entry_free(struct mount_info *mi);
