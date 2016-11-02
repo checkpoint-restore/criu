@@ -162,6 +162,7 @@ $(eval $(call map,gen-rule-built-in.bin.o,$(parasite_target)))
 $(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel-host
 	$(call msg-gen, $@)
 	$(Q) $(SRC_DIR)/compel/compel-host piegen -f $<			\
+		-l 4							\
 		-v $(call target-name,$@)_relocs			\
 		-p $(call target-name,$@)_blob_offset__			\
 		-s $(call target-name,$@)_blob				\
