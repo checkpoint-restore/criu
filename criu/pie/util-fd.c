@@ -24,4 +24,6 @@
 
 #include "common/bug.h"
 
+#define SCM_FDSET_HAS_OPTS
+
 #include "common/scm-code.c"

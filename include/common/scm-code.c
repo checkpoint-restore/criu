@@ -6,6 +6,14 @@
 #error "The __memcpy macro is required"
 #endif
 
+#ifdef SCM_FDSET_HAS_OPTS
+#define OPTS_LEN(_flags, _nr)	(_flags ? sizeof(struct fd_opts) * (_nr) : 1)
+#define OPTS_BUF(_fdset)	((_fdset)->opts)
+#else
+#define OPTS_LEN(_flags, _nr)	(1)
+#define OPTS_BUF(_fdset)	(&(_fdset)->dummy)
+#endif
+
 static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds, bool with_flags)
 {
 	struct cmsghdr *cmsg;
@@ -15,7 +23,7 @@ static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds, bool with_
 	cmsg		= CMSG_FIRSTHDR(&fdset->hdr);
 	cmsg->cmsg_len	= fdset->hdr.msg_controllen;
 
-	fdset->iov.iov_len = with_flags ? (sizeof(struct fd_opts) * nr_fds) : 1;
+	fdset->iov.iov_len = OPTS_LEN(with_flags, nr_fds);
 }
 
 static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr,
@@ -25,7 +33,7 @@ static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr,
 
 	BUILD_BUG_ON(sizeof(fdset->msg_buf) < (CMSG_SPACE(sizeof(int) * CR_SCM_MAX_FD)));
 
-	fdset->iov.iov_base		= fdset->opts;
+	fdset->iov.iov_base		= OPTS_BUF(fdset);
 
 	fdset->hdr.msg_iov		= &fdset->iov;
 	fdset->hdr.msg_iovlen		= 1;
@@ -56,6 +64,7 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 		scm_fdset_init_chunk(&fdset, min_fd, with_flags);
 		__memcpy(cmsg_data, &fds[i], sizeof(int) * min_fd);
 
+#ifdef SCM_FDSET_HAS_OPTS
 		if (with_flags) {
 			int j;
 
@@ -99,6 +108,7 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 				p->fown.pid	 = owner_ex.pid;
 			}
 		}
+#endif
 
 		ret = __sys(sendmsg)(sock, &fdset.hdr, 0);
 		if (ret <= 0)
@@ -146,8 +156,10 @@ int recv_fds(int sock, int *fds, int nr_fds, struct fd_opts *opts)
 		if (unlikely(min_fd <= 0))
 			return -1;
 		__memcpy(&fds[i], cmsg_data, sizeof(int) * min_fd);
+#ifdef SCM_FDSET_HAS_OPTS
 		if (opts)
 			__memcpy(opts + i, fdset.opts, sizeof(struct fd_opts) * min_fd);
+#endif
 	}
 
 	return 0;
