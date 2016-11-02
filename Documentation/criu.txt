@@ -147,10 +147,6 @@ In other words, do not use it unless really needed.
 *-s*, *--leave-stopped*::
     Leave tasks in stopped state after checkpoint, instead of killing.
 
-*-x*, *--ext-unix-sk* ['inode'[,'inode'...]]::
-    Dump external unix sockets. Optionally passing a comma-separated
-    list of inodes to allow a one sided dump for those.
-
 *--freeze-cgroup*::
    Use cgroup freezer to collect processes.
 
@@ -214,9 +210,6 @@ For example, the command line for the above example should look like this:
     The TCP stack on the client side is expected to handle the
     re-connect gracefully.
 
-*--veth-pair* 'IN'*=*'OUT'::
-    Relation between outside and inside names of veth devices.
-
 *--evasive-devices*::
     Use any path to a device file if the original one is inaccessible.
 
@@ -234,11 +227,6 @@ For example, the command line for the above example should look like this:
     Dump file locks. It is necessary to make sure that all file lock users
     are taken into dump, so it is only safe to use this for enclosed containers
     where locks are not held by any processes outside of dumped process tree.
-
-*-M*, *--ext-mount-map* 'KEY'*:*'VAL'::
-    Setup mapping for external mounts. Here 'KEY' is a mountpoint inside
-    a container, and corresponding 'VAL' is a string to be written into
-    the image as the mountpoint\'s root value.
 
 *--link-remap*::
     Allows to link unlinked files back, if possible (modifies filesystem
@@ -330,21 +318,6 @@ The 'mode' may be one of the following:
 
 *-l*, *--file-locks*::
     Restore file locks from the image.
-
-*-M*, *--ext-mount-map* 'KEY'*:*'VAL'::
-    Setup mapping for external mounts. 'KEY' is the value from the image
-    ('VAL' from dump) and the 'VAL' is the path on host that will be
-    bind-mounted into container (to the mountpoint path from image).
-
-*--ext-mount-map* *auto*::
-    This is a special case. If this flag is passed, when an external
-    mount is missing from the command line '*--ext-mount-map* KEY:VAL' syntax,
-    criu attempts to automatically resolve this mount from its namespace.
-
-*--enable-external-sharing*::
-*--enable-external-masters*::
-    These flags enable external shared or slave mounts to be resolved
-    automatically when '*--ext-mount-map auto*' is passed.
 
 *--auto-dedup*::
     As soon as a page is restored it get punched out from image.
