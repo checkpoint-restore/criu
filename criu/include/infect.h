@@ -109,6 +109,8 @@ struct infect_ctx {
 	void (*child_handler)(int, siginfo_t *, void *);	/* hander for SIGCHLD deaths */
 
 	open_proc_fn open_proc;
+
+	int			log_fd;	/* fd for parasite code to send messages to */
 };
 
 extern struct infect_ctx *compel_infect_ctx(struct parasite_ctl *);
