@@ -11,33 +11,9 @@
 #define SO_PEEK_OFF            42
 #endif
 
-/*
- * Because of kernel doing kmalloc for user data passed
- * in SCM messages, and there is kernel's SCM_MAX_FD as a limit
- * for descriptors passed at once we're trying to reduce
- * the pressue on kernel memory manager and use predefined
- * known to work well size of the message buffer.
- */
-#define CR_SCM_MSG_SIZE		(1024)
-#define CR_SCM_MAX_FD		(252)
+#define SCM_FDSET_HAS_OPTS
 
-struct fd_opts {
-	char flags;
-	struct {
-		u32 uid;
-		u32 euid;
-		u32 signum;
-		u32 pid_type;
-		u32 pid;
-	} fown;
-};
-
-struct scm_fdset {
-	struct msghdr	hdr;
-	struct iovec	iov;
-	char		msg_buf[CR_SCM_MSG_SIZE];
-	struct fd_opts	opts[CR_SCM_MAX_FD];
-};
+#include "common/scm.h"
 
 extern int send_fds(int sock, struct sockaddr_un *saddr, int saddr_len,
 		int *fds, int nr_fds, bool with_flags);
