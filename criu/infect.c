@@ -575,7 +575,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 	if (accept_tsock(ctl) < 0)
 		goto err;
 
-	if (compel_util_send_fd(ctl, log_get_fd()))
+	if (compel_util_send_fd(ctl, ctl->ictx.log_fd))
 		goto err;
 
 	pr_info("Wait for parasite being daemonized...\n");
@@ -768,6 +768,9 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	int ret;
 	unsigned long p, map_exchange_size, parasite_size = 0;
 
+	if (ctl->ictx.log_fd < 0)
+		goto err;
+
 	if (!arch_can_dump_task(ctl))
 		goto err;
 
@@ -858,6 +861,7 @@ struct parasite_ctl *compel_prepare(int pid)
 	}
 
 	ctl->tsock = -1;
+	ctl->ictx.log_fd = -1;
 
 	if (compel_prepare_thread(pid, &ctl->orig))
 		goto err;

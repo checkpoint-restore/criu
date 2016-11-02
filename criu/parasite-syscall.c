@@ -562,6 +562,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	if (kdat.has_compat_sigreturn)
 		ictx->flags |= INFECT_HAS_COMPAT_SIGRETURN;
 
+	ictx->log_fd = log_get_fd();
+
 	parasite_ensure_args_size(dump_pages_args_size(vma_area_list));
 	parasite_ensure_args_size(aio_rings_args_size(vma_area_list));
 
