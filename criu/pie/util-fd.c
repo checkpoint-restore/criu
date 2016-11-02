@@ -17,6 +17,8 @@
 # define __sys(foo)	foo
 #endif
 
+#define __memcpy builtin_memcpy
+
 #include "util-pie.h"
 #include "fcntl.h"
 

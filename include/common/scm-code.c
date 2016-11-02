@@ -2,6 +2,10 @@
 #error "The __sys macro is required"
 #endif
 
+#ifndef __memcpy
+#error "The __memcpy macro is required"
+#endif
+
 static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds, bool with_flags)
 {
 	struct cmsghdr *cmsg;
@@ -50,7 +54,7 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 	for (i = 0; i < nr_fds; i += min_fd) {
 		min_fd = min(CR_SCM_MAX_FD, nr_fds - i);
 		scm_fdset_init_chunk(&fdset, min_fd, with_flags);
-		builtin_memcpy(cmsg_data, &fds[i], sizeof(int) * min_fd);
+		__memcpy(cmsg_data, &fds[i], sizeof(int) * min_fd);
 
 		if (with_flags) {
 			int j;
@@ -141,9 +145,9 @@ int recv_fds(int sock, int *fds, int nr_fds, struct fd_opts *opts)
 
 		if (unlikely(min_fd <= 0))
 			return -1;
-		builtin_memcpy(&fds[i], cmsg_data, sizeof(int) * min_fd);
+		__memcpy(&fds[i], cmsg_data, sizeof(int) * min_fd);
 		if (opts)
-			builtin_memcpy(opts + i, fdset.opts, sizeof(struct fd_opts) * min_fd);
+			__memcpy(opts + i, fdset.opts, sizeof(struct fd_opts) * min_fd);
 	}
 
 	return 0;
