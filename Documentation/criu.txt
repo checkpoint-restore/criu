@@ -263,11 +263,23 @@ For example, the command line for the above example should look like this:
 ~~~~~~~~~
 Restores previously checkpointed processes.
 
-*--inherit-fd* *fd[*'N'*]:*'path'::
-    Inherit file descriptors. This asks *criu* to use an already opened
-    file descriptor 'N' for restoring a file indentified by 'path'. Note
-    that the 'N' must be enclosed in a literal square brackets, that
-    usually needs to be escaped from shell.
+*--inherit-fd* *fd[*'N'*]:*'resource'::
+    Inherit a file descriptor. This option lets *criu* use an already opened
+    file descriptor 'N' for restoring a file indentified by 'resource'.
+    This option can be used to restore an external resource dumped
+    with the help of *--external* *file*, *tty*, and *unix* options.
++
+The 'resource' argument can be one of the following:
++
+    - *tty[*'rdev'*:*'dev'*]*
+    - *pipe[*'inode'*]*
+    - *socket[*'inode'*]*
+    - *file[*'mnt_id'*:*'inode'*]*
+    - 'path/to/file'
+
++
+Note that square brackets used in this option arguments are literals and
+usually need to be escaped from shell.
 
 *-d*, *--restore-detached*::
     Detach *criu* itself once restore is complete.
