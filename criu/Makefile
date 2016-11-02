@@ -50,7 +50,7 @@ $(ARCH-LIB): syscalls_lib
 ifeq ($(piegen-y),y)
 piegen-bin		:= criu/pie/piegen/piegen
 
-criu/pie/piegen/%: config
+criu/pie/piegen/%: $(CONFIG_HEADER)
 	$(Q) CC=$(HOSTCC) LD=$(HOSTLD) CFLAGS="$(ccflags-y) $(HOSTCFLAGS) $(WARNINGS) $(DEFINES)" $(MAKE) $(build)=criu/pie/piegen $@
 $(piegen-bin): criu/pie/piegen/built-in.o
 	$(call msg-link, $@)
