@@ -210,7 +210,7 @@ $(eval $(call gen-built-in,images))
 #
 # But note that we're already included
 # the nmk so we can reuse it there.
-criu/%: images/built-in.o $(VERSION_HEADER) .FORCE
+criu/%: images/built-in.o $(VERSION_HEADER) $(CONFIG_HEADER) .FORCE
 	$(Q) $(MAKE) $(build)=criu $@
 criu: images/built-in.o $(VERSION_HEADER) $(CONFIG_HEADER)
 	$(Q) $(MAKE) $(build)=criu all
