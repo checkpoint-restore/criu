@@ -6,10 +6,13 @@
 #include "infect.h"
 #include "infect-priv.h"
 #include "infect-rpc.h"
+#include "rpc-pie-priv.h"
 
 static int __parasite_send_cmd(int sockfd, struct ctl_msg *m)
 {
 	int ret;
+
+	BUILD_BUG_ON(PARASITE_USER_CMDS < __PARASITE_END_CMDS);
 
 	ret = send(sockfd, m, sizeof(*m), 0);
 	if (ret == -1) {
