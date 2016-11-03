@@ -304,7 +304,7 @@ Restores previously checkpointed processes.
 
 *--inherit-fd* *fd[*'N'*]:*'resource'::
     Inherit a file descriptor. This option lets *criu* use an already opened
-    file descriptor 'N' for restoring a file indentified by 'resource'.
+    file descriptor 'N' for restoring a file identified by 'resource'.
     This option can be used to restore an external resource dumped
     with the help of *--external* *file*, *tty*, and *unix* options.
 +
@@ -505,7 +505,7 @@ Launches *criu* in page server mode.
 *exec*
 ~~~~~~
 Executes a system call inside a destination task\'s context. This functionality
-is depreated; please use *Compel* instead.
+is deprecated; please use *Compel* instead.
 
 *service*
 ~~~~~~~~~
