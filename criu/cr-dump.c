@@ -43,6 +43,7 @@
 #include "servicefd.h"
 #include "string.h"
 #include "ptrace.h"
+#include "ptrace-compat.h"
 #include "util.h"
 #include "namespaces.h"
 #include "image.h"

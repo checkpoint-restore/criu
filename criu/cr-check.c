@@ -37,6 +37,7 @@
 #include "mount.h"
 #include "tty.h"
 #include "ptrace.h"
+#include "ptrace-compat.h"
 #include "kerndat.h"
 #include "timerfd.h"
 #include "util.h"
