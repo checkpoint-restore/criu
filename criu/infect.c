@@ -10,7 +10,6 @@
 #include <linux/seccomp.h>
 
 #include "pie-relocs.h"
-#include "parasite-blob.h"
 #include "criu-log.h"
 #include "common/bug.h"
 #include "common/xmalloc.h"
@@ -743,27 +742,6 @@ int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 	return ret;
 }
 
-/* the parasite prefix is added by gen_offsets.sh */
-#define __pblob_offset(ptype, symbol)					\
-	parasite_ ## ptype ## _blob_offset__ ## symbol
-#define parasite_sym(pblob, ptype, symbol)				\
-	((void *)(pblob) + __pblob_offset(ptype, symbol))
-
-#define init_parasite_ctl(ctl, blob_type)				\
-	do {								\
-	memcpy(ctl->local_map, parasite_##blob_type##_blob,		\
-		sizeof(parasite_##blob_type##_blob));			\
-	ELF_RELOCS_APPLY(parasite_##blob_type,				\
-		ctl->local_map, ctl->remote_map);			\
-	/* Setup the rest of a control block */				\
-	ctl->parasite_ip = (unsigned long)parasite_sym(ctl->remote_map,	\
-		blob_type, __export_parasite_head_start);		\
-	ctl->addr_cmd    = parasite_sym(ctl->local_map, blob_type,	\
-		__export_parasite_cmd);					\
-	ctl->addr_args   = parasite_sym(ctl->local_map, blob_type,	\
-		__export_parasite_args);				\
-	} while (0)
-
 int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size)
 {
 	int ret;
@@ -782,12 +760,7 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	 * without using ptrace at all.
 	 */
 
-	if (compel_mode_native(ctl))
-		parasite_size = pie_size(parasite_native);
-#ifdef CONFIG_COMPAT
-	else
-		parasite_size = pie_size(parasite_compat);
-#endif
+	parasite_size = ctl->pblob.size;
 
 	ctl->args_size = round_up(args_size, PAGE_SIZE);
 	parasite_size += ctl->args_size;
@@ -803,12 +776,14 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 
 	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
 
-	if (compel_mode_native(ctl))
-		init_parasite_ctl(ctl, native);
-#ifdef CONFIG_COMPAT
-	else
-		init_parasite_ctl(ctl, compat);
-#endif
+	ctl->parasite_ip = (unsigned long)(ctl->remote_map + ctl->pblob.parasite_ip_off);
+	ctl->addr_cmd = ctl->local_map + ctl->pblob.addr_cmd_off;
+	ctl->addr_args = ctl->local_map + ctl->pblob.addr_arg_off;
+
+	memcpy(ctl->local_map, ctl->pblob.mem, ctl->pblob.size);
+	if (ctl->pblob.nr_relocs)
+		elf_relocs_apply(ctl->local_map, ctl->remote_map, ctl->pblob.bsize,
+				ctl->pblob.relocs, ctl->pblob.nr_relocs);
 
 	p = parasite_size;
 
@@ -1251,4 +1226,9 @@ k_rtsigset_t *compel_task_sigmask(struct parasite_ctl *ctl)
 struct infect_ctx *compel_infect_ctx(struct parasite_ctl *ctl)
 {
 	return &ctl->ictx;
+}
+
+struct parasite_blob_desc *compel_parasite_blob_desc(struct parasite_ctl *ctl)
+{
+	return &ctl->pblob;
 }
