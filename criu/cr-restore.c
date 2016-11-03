@@ -2352,7 +2352,7 @@ static int prep_sched_info(struct rst_sched_param *sp, ThreadCoreEntry *tc)
 	return 0;
 }
 
-static unsigned long decode_rlim(u_int64_t ival)
+static rlim_t decode_rlim(rlim_t ival)
 {
 	return ival == -1 ? RLIM_INFINITY : ival;
 }

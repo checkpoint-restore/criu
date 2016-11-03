@@ -309,7 +309,7 @@ static int dump_task_fs(pid_t pid, struct parasite_dump_misc *misc, struct cr_im
 	return pb_write_one(img_from_set(imgset, CR_FD_FS), &fe, PB_FS);
 }
 
-static inline u_int64_t encode_rlim(unsigned long val)
+static inline rlim_t encode_rlim(rlim_t val)
 {
 	return val == RLIM_INFINITY ? -1 : val;
 }
