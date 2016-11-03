@@ -32,6 +32,8 @@ struct parasite_ctl {
 	void			*addr_args;				/* address for arguments */
 	unsigned long		args_size;
 	int			tsock;					/* transport socket for transferring fds */
+
+	struct parasite_blob_desc pblob;
 };
 
 #define MEMFD_FNAME	"CRIUMFD"
