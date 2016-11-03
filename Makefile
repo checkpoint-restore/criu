@@ -61,8 +61,6 @@ ifeq ($(ARCH),arm)
         ARMV		:= $(shell echo $(UNAME-M) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
         DEFINES		:= -DCONFIG_ARMV$(ARMV)
 
-        USERCFLAGS += -Wa,-mimplicit-it=always
-
         ifeq ($(ARMV),6)
                 USERCFLAGS += -march=armv6
         endif

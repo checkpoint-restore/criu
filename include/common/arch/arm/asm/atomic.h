@@ -27,6 +27,7 @@ static inline int atomic_cmpxchg(atomic_t *ptr, int old, int new)
 		"ldrex	%1, [%3]\n"
 		"mov	%0, #0\n"
 		"teq	%1, %4\n"
+		"it	eq\n"
 		"strexeq %0, %5, [%3]\n"
 		    : "=&r" (res), "=&r" (oldval), "+Qo" (ptr->counter)
 		    : "r" (&ptr->counter), "Ir" (old), "r" (new)
