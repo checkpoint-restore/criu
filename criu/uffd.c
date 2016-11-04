@@ -313,7 +313,7 @@ out:
 
 static int find_vmas(struct lazy_pages_info *lpi);
 
-static struct lazy_pages_info *ud_open(int client)
+static int ud_open(int client, struct lazy_pages_info **_lpi)
 {
 	struct lazy_pages_info *lpi;
 	int ret = -1;
@@ -351,12 +351,13 @@ static struct lazy_pages_info *ud_open(int client)
 		goto out;
 
 	hlist_add_head(&lpi->hash, &lpi_hash[lpi->uffd % LPI_HASH_SIZE]);
+	*_lpi = lpi;
 
-	return lpi;
+	return 0;
 
 out:
 	lpi_fini(lpi);
-	return NULL;
+	return -1;
 }
 
 static int get_page(struct lazy_pages_info *lpi, unsigned long addr, void *dest)
@@ -863,9 +864,8 @@ static int prepare_uffds(int epollfd)
 	pr_debug("client fd %d\n", client);
 
 	for (i = 0; i < task_entries->nr_tasks; i++) {
-		struct lazy_pages_info *lpi;
-		lpi = ud_open(client);
-		if (!lpi)
+		struct lazy_pages_info *lpi = NULL;
+		if (ud_open(client, &lpi))
 			goto close_uffd;
 		if (epoll_add_fd(epollfd, lpi->uffd))
 			goto close_uffd;
