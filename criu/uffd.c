@@ -123,22 +123,15 @@ static void lpi_hash_fini(void)
 
 static int prepare_sock_addr(struct sockaddr_un *saddr)
 {
-	char cwd[PATH_MAX];
 	int len;
-
-	if (!getcwd(cwd, PATH_MAX)) {
-		pr_perror("Cannot get CWD\n");
-		return -1;
-	}
 
 	memset(saddr, 0, sizeof(struct sockaddr_un));
 
 	saddr->sun_family = AF_UNIX;
 	len = snprintf(saddr->sun_path, sizeof(saddr->sun_path),
-		       "%s/%s", cwd, LAZY_PAGES_SOCK_NAME);
+		       "%s", LAZY_PAGES_SOCK_NAME);
 	if (len >= sizeof(saddr->sun_path)) {
-		pr_err("Wrong UNIX socket name: %s/%s\n",
-		       cwd, LAZY_PAGES_SOCK_NAME);
+		pr_err("Wrong UNIX socket name: %s\n", LAZY_PAGES_SOCK_NAME);
 		return -1;
 	}
 
