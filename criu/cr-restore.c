@@ -807,6 +807,9 @@ static int restore_one_zombie(CoreEntry *core)
 	if (inherit_fd_fini() < 0)
 		return -1;
 
+	if (lazy_pages_setup_zombie())
+		return -1;
+
 	prctl(PR_SET_NAME, (long)(void *)core->tc->comm, 0, 0, 0);
 
 	if (task_entries != NULL) {

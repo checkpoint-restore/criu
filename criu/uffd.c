@@ -169,6 +169,12 @@ static int send_uffd(int sendfd, int pid)
 		goto out;
 	}
 
+	/* for a zombie process pid will be -1 */
+	if (pid == -1) {
+		ret = 0;
+		goto out;
+	}
+
 	if (send_fd(fd, NULL, 0, sendfd) < 0) {
 		pr_perror("send_fd error:");
 		goto out;
@@ -199,6 +205,17 @@ static int check_for_uffd()
 		return -1;
 	}
 	close(uffd);
+	return 0;
+}
+
+int lazy_pages_setup_zombie(void)
+{
+	if (!opts.lazy_pages)
+		return 0;
+
+	if (send_uffd(0, -1))
+		return -1;
+
 	return 0;
 }
 
@@ -330,6 +347,11 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 		goto out;
 	}
 	pr_debug("received PID: %d\n", lpi->pid);
+
+	if (lpi->pid == -1) {
+		lpi_fini(lpi);
+		return 0;
+	}
 
 	lpi->uffd = recv_fd(client);
 	if (lpi->uffd < 0) {
@@ -866,6 +888,8 @@ static int prepare_uffds(int epollfd)
 		struct lazy_pages_info *lpi = NULL;
 		if (ud_open(client, &lpi))
 			goto close_uffd;
+		if (lpi == NULL)
+			continue;
 		if (epoll_add_fd(epollfd, lpi->uffd))
 			goto close_uffd;
 	}
