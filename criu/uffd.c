@@ -174,10 +174,9 @@ static int send_uffd(int sendfd, int pid)
 		goto out;
 	}
 
-	mutex_unlock(lazy_sock_mutex);
-
 	ret = 0;
 out:
+	mutex_unlock(lazy_sock_mutex);
 	close(fd);
 	return ret;
 }
