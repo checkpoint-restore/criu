@@ -21,6 +21,7 @@ alpine:
 alpine-clang: DB_ARGS=--build-arg CC=clang
 alpine-clang: alpine
 armv7hf-clang: armv7hf
+aarch64-clang: DB_ARGS=--build-arg CC=clang-3.6
 aarch64-clang: aarch64
 ppc64le-clang: ppc64le
 x86_64-clang: x86_64
