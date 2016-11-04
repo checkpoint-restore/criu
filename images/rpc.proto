@@ -77,7 +77,7 @@ message criu_opts {
 	optional bool			force_irmap	= 21;
 	repeated string			exec_cmd	= 22;
 
-	repeated ext_mount_map		ext_mnt		= 23;
+	repeated ext_mount_map		ext_mnt		= 23; /* DEPRECATED, use external instead */
 	optional bool			manage_cgroups	= 24; /* backward compatibility */
 	repeated cgroup_root		cg_root		= 25;
 
