@@ -137,4 +137,6 @@ extern struct parasite_blob_desc *compel_parasite_blob_desc(struct parasite_ctl 
 typedef int (*save_regs_t)(void *, user_regs_struct_t *, user_fpregs_struct_t *);
 extern int compel_get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t, void *);
 
+extern void compel_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *elf_relocs, size_t nr_relocs);
+
 #endif

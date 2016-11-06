@@ -9,7 +9,6 @@
 #include <fcntl.h>
 #include <linux/seccomp.h>
 
-#include "pie-relocs.h"
 #include "criu-log.h"
 #include "common/bug.h"
 #include "common/xmalloc.h"
@@ -730,6 +729,34 @@ err_cure:
 	return -1;
 }
 
+void compel_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *elf_relocs, size_t nr_relocs)
+{
+	size_t i, j;
+
+	for (i = 0, j = 0; i < nr_relocs; i++) {
+		if (elf_relocs[i].type & COMPEL_TYPE_LONG) {
+			long *where = mem + elf_relocs[i].offset;
+			long *p = mem + size;
+
+			if (elf_relocs[i].type & COMPEL_TYPE_GOTPCREL) {
+				int *value = (int *)where;
+				int rel;
+
+				p[j] = (long)vbase + elf_relocs[i].value;
+				rel = (unsigned)((void *)&p[j] - (void *)mem) - elf_relocs[i].offset + elf_relocs[i].addend;
+
+				*value = rel;
+				j++;
+			} else
+				*where = elf_relocs[i].value + elf_relocs[i].addend + (unsigned long)vbase;
+		} else if (elf_relocs[i].type & COMPEL_TYPE_INT) {
+			int *where = (mem + elf_relocs[i].offset);
+			*where = elf_relocs[i].value + elf_relocs[i].addend + (unsigned long)vbase;
+		} else
+			BUG();
+	}
+}
+
 int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 {
 	int ret;
@@ -782,8 +809,8 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 
 	memcpy(ctl->local_map, ctl->pblob.mem, ctl->pblob.size);
 	if (ctl->pblob.nr_relocs)
-		elf_relocs_apply(ctl->local_map, ctl->remote_map, ctl->pblob.bsize,
-				ctl->pblob.relocs, ctl->pblob.nr_relocs);
+		compel_relocs_apply(ctl->local_map, ctl->remote_map, ctl->pblob.bsize,
+				    ctl->pblob.relocs, ctl->pblob.nr_relocs);
 
 	p = parasite_size;
 
