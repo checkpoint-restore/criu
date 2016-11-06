@@ -1265,6 +1265,7 @@ def do_run_test(tname, tdesc, flavs, opts):
 			print_sep("Test %s FAIL at %s" % (tname, e.step), '#')
 			t.print_output()
 			t.kill()
+			try_run_hook(t, ["--clean"])
 			if cr_api.logs():
 				add_to_report(cr_api.logs(), tname.replace('/', '_') + "_" + f + "/images")
 			if opts['keep_img'] == 'never':
