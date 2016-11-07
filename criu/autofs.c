@@ -290,9 +290,8 @@ static int autofs_revisit_options(struct mount_info *pm)
 	char *str;
 	int ret = -ENOMEM;
 
-	str = malloc(1024);
+	str = xmalloc(1024);
 	if (!str) {
-		pr_err("failed to allocate\n");
 		return -ENOMEM;
 	}
 
