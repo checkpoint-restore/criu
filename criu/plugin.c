@@ -29,7 +29,7 @@ static cr_plugin_desc_t *cr_gen_plugin_desc(void *h, char *path)
 	if (!d)
 		return NULL;
 
-	d->name		= strdup(path);
+	d->name		= xstrdup(path);
 	d->max_hooks	= CR_PLUGIN_HOOK__MAX;
 	d->version	= CRIU_PLUGIN_VERSION_OLD;
 

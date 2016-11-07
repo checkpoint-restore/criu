@@ -81,7 +81,7 @@ static int note_link_remap(char *path, struct ns_id *nsid)
 	if (!rlb)
 		goto err;
 
-	rlb->path = strdup(path);
+	rlb->path = xstrdup(path);
 	if (!rlb->path)
 		goto err2;
 
