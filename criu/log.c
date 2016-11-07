@@ -227,10 +227,11 @@ static void __print_on_level(unsigned int loglevel, const char *format, va_list 
 			break;
 		off += ret;
 	}
-	errno =  __errno;
 
 	if (loglevel == LOG_ERROR)
 		log_note_err(buffer + buf_off);
+
+	errno =  __errno;
 }
 
 void print_on_level(unsigned int loglevel, const char *format, ...)
