@@ -570,7 +570,7 @@ static int pty_open_ptmx_index(struct file_desc *d, int index, int flags)
 	for (i = 0; i < ARRAY_SIZE(fds); i++) {
 		fds[i] = open_tty_reg(d, flags);
 		if (fds[i] < 0) {
-			pr_perror("Can't open %s", path_from_reg(d));
+			pr_err("Can't open %s\n", path_from_reg(d));
 			break;
 		}
 
@@ -692,7 +692,7 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 
 	slave = open_tty_reg(slave_d, O_RDONLY);
 	if (slave < 0) {
-		pr_perror("Can't open %s", path_from_reg(slave_d));
+		pr_err("Can't open slave tty %s\n", path_from_reg(slave_d));
 		goto err;
 	}
 
@@ -887,7 +887,7 @@ static int pty_open_slaves(struct tty_info *info)
 
 		fd = open_tty_reg(slave->reg_d, slave->tfe->flags);
 		if (fd < 0) {
-			pr_perror("Can't open slave %s", path_from_reg(slave->reg_d));
+			pr_err("Can't open slave tty %s\n", path_from_reg(slave->reg_d));
 			goto err;
 		}
 
@@ -900,7 +900,7 @@ static int pty_open_slaves(struct tty_info *info)
 			 slave->tfe->id, fd, path_from_reg(slave->reg_d), fle->pid);
 
 		if (send_fd_to_peer(fd, fle, sock)) {
-			pr_perror("Can't send file descriptor");
+			pr_err("Can't send file descriptor\n");
 			goto err;
 		}
 
@@ -966,7 +966,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 			goto err;
 		master = pty_open_ptmx_index(&fake->d, slave->tie->pty->index, O_RDONLY);
 		if (master < 0) {
-			pr_perror("Can't open fale %x (index %d)",
+			pr_err("Can't open master pty %x (index %d)\n",
 				  slave->tfe->id, slave->tie->pty->index);
 			goto err;
 		}
@@ -975,7 +975,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 
 		fd = open_tty_reg(slave->reg_d, slave->tfe->flags);
 		if (fd < 0) {
-			pr_perror("Can't open slave %s", path_from_reg(slave->reg_d));
+			pr_err("Can't open slave pty %s\n", path_from_reg(slave->reg_d));
 			goto err;
 		}
 
@@ -1027,7 +1027,7 @@ static int pty_open_ptmx(struct tty_info *info)
 
 	master = pty_open_ptmx_index(info->reg_d, info->tie->pty->index, info->tfe->flags);
 	if (master < 0) {
-		pr_perror("Can't open %x (index %d)",
+		pr_err("Can't open master pty %x (index %d)\n",
 			  info->tfe->id, info->tie->pty->index);
 		return -1;
 	}
@@ -1067,7 +1067,7 @@ static int open_simple_tty(struct tty_info *info)
 
 	fd = open_tty_reg(info->reg_d, info->tfe->flags);
 	if (fd < 0) {
-		pr_perror("Can't open %s %x",
+		pr_err("Can't open tty %s %x\n",
 				info->driver->name, info->tfe->id);
 		return -1;
 	}
@@ -2083,7 +2083,7 @@ int tty_prep_fds(void)
 		stdin_isatty = true;
 
 	if (install_service_fd(SELF_STDIN_OFF, STDIN_FILENO) < 0) {
-		pr_perror("Can't dup stdin to SELF_STDIN_OFF");
+		pr_err("Can't dup stdin to SELF_STDIN_OFF\n");
 		return -1;
 	}
 
