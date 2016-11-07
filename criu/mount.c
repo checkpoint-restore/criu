@@ -2275,11 +2275,9 @@ static int create_mnt_roots(void)
 		goto out;
 	}
 
-	mnt_roots = strdup(".criu.mntns.XXXXXX");
-	if (mnt_roots == NULL) {
-		pr_perror("Can't allocate memory");
+	mnt_roots = xstrdup(".criu.mntns.XXXXXX");
+	if (mnt_roots == NULL)
 		goto out;
-	}
 
 	if (mkdtemp(mnt_roots) == NULL) {
 		pr_perror("Unable to create a temporary directory");
