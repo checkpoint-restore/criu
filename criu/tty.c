@@ -841,7 +841,7 @@ static int restore_tty_params(int fd, struct tty_info *info)
 
 	if (info->tie->has_uid && info->tie->has_gid) {
 		if (fchown(fd, info->tie->uid, info->tie->gid)) {
-			pr_perror("Can't setup uid %d gid %d on %x\n",
+			pr_perror("Can't setup uid %d gid %d on %x",
 				  (int)info->tie->uid,
 				  (int)info->tie->gid,
 				  info->tfe->id);
@@ -1872,7 +1872,7 @@ static int tty_reblock(int id, int lfd, int flags)
 	if ((flags & fmask) != fmask) {
 		if (fcntl(lfd, F_SETFL, flags)) {
 			ret = -errno;
-			pr_perror("Can't revert mode back to %o on (%#x)\n", fmask, id);
+			pr_perror("Can't revert mode back to %o on (%#x)", fmask, id);
 			return ret;
 		}
 	}
@@ -1888,7 +1888,7 @@ static int tty_unblock(int id, int lfd, int flags)
 	if ((flags & fmask) != fmask) {
 		if (fcntl(lfd, F_SETFL, fmask)) {
 			ret = -errno;
-			pr_perror("Can't change mode to %o on (%#x)\n", fmask, id);
+			pr_perror("Can't change mode to %o on (%#x)", fmask, id);
 			return ret;
 		}
 	}
@@ -1972,7 +1972,7 @@ static void __tty_do_writeback_queued_data(struct tty_dump_info *dinfo)
 	if (dinfo->tty_data) {
 		if (write(dinfo->link->lfd, dinfo->tty_data,
 			  dinfo->tty_data_size) != dinfo->tty_data_size)
-			pr_perror("Can't writeback to tty (%#x)\n", dinfo->id);
+			pr_perror("Can't writeback to tty (%#x)", dinfo->id);
 	}
 	tty_reblock(dinfo->link->id, dinfo->link->lfd, dinfo->link->flags);
 }

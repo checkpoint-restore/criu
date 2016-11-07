@@ -371,18 +371,18 @@ static int cgp_parse_file(char *path)
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
-		pr_perror("Can't open file %s\n", path);
+		pr_perror("Can't open file %s", path);
 		goto err;
 	}
 
 	if (fstat(fd, &st)) {
-		pr_perror("Can't stat file %s\n", path);
+		pr_perror("Can't stat file %s", path);
 		goto err;
 	}
 
 	mem = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FILE, fd, 0);
 	if (mem == MAP_FAILED) {
-		pr_perror("Can't mmap file %s\n", path);
+		pr_perror("Can't mmap file %s", path);
 		goto err;
 	}
 

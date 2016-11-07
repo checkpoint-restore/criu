@@ -1204,7 +1204,7 @@ static __maybe_unused int mount_cr_time_mount(struct ns_id *ns, unsigned int *s_
 		goto restore_ns;
 	} else {
 		if (stat(target, &st) < 0) {
-			 pr_perror("Can't stat on %s\n", target);
+			 pr_perror("Can't stat %s", target);
 			 exit_code = 0;
 		} else {
 			*s_dev = MKKDEV(major(st.st_dev), minor(st.st_dev));
@@ -1740,7 +1740,7 @@ static int do_new_mount(struct mount_info *mi)
 	if (mi->mnt_id == CRTIME_MNT_ID) {
 		/* C-r time mountpoint, umount it */
 		if (umount(mi->mountpoint) < 0) {
-			pr_perror("Can't umount %s\n", mi->mountpoint);
+			pr_perror("Can't umount %s", mi->mountpoint);
 			return -1;
 		}
 		goto out;
@@ -1751,7 +1751,7 @@ static int do_new_mount(struct mount_info *mi)
 
 		fd = open(mi->mountpoint, O_PATH);
 		if (fd < 0) {
-			pr_perror("Unable to open %s\n", mi->mountpoint);
+			pr_perror("Unable to open %s", mi->mountpoint);
 			return -1;
 		}
 
@@ -3215,7 +3215,7 @@ void clean_cr_time_mounts(void)
 		}
 
 		if (umount(mi->mountpoint) < 0)
-			pr_perror("Can't umount forced mount %s\n", mi->mountpoint);
+			pr_perror("Can't umount forced mount %s", mi->mountpoint);
 
 		if (restore_ns(mnt_fd, &mnt_ns_desc)) {
 			pr_err("cleanup_forced_mounts exiting with wrong mnt_ns\n");

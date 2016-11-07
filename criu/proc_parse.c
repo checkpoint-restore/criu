@@ -2328,7 +2328,7 @@ int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct li
 
 	f = fmemopen(args->contents, strlen(args->contents), "r");
 	if (!f) {
-		pr_perror("couldn't fmemopen cgroup buffer:\n%s", args->contents);
+		pr_perror("couldn't fmemopen cgroup buffer %s", args->contents);
 		return -1;
 	}
 

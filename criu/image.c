@@ -579,7 +579,7 @@ off_t img_raw_size(struct cr_img *img)
 	struct stat stat;
 
 	if (fstat(img->_x.fd, &stat)) {
-		pr_perror("Failed to get image stats\n");
+		pr_perror("Failed to get image stats");
 		return -1;
 	}
 
