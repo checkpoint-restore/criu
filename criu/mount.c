@@ -2772,9 +2772,9 @@ int depopulate_roots_yard(int mntns_fd, bool clean_remaps)
 		return -1;
 	}
 	if (setns(mntns_fd, CLONE_NEWNS) < 0) {
+		pr_perror("`- Can't switch");
 		close(old_ns);
 		close(old_cwd);
-		pr_perror("`- Can't switch");
 		return -1;
 	}
 
