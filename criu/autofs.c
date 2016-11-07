@@ -297,10 +297,8 @@ static int autofs_revisit_options(struct mount_info *pm)
 	}
 
 	f = fopen_proc(getpid(), "mountinfo");
-	if (!f) {
-		pr_perror("Can't open %d mountinfo", getpid());
+	if (!f)
 		goto free_str;
-	}
 
 	while (fgets(str, 1024, f)) {
 		int mnt_id = -1;

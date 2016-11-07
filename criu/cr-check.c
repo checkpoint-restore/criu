@@ -838,10 +838,8 @@ static int check_autofs_pipe_ino(void)
 	int ret = -ENOENT;
 
 	f = fopen_proc(PROC_SELF, "mountinfo");
-	if (!f) {
-		pr_perror("Can't open %d mountinfo", getpid());
+	if (!f)
 		return -1;
-	}
 
 	while (fgets(str, sizeof(str), f)) {
 		if (strstr(str, " autofs ")) {

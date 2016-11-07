@@ -74,10 +74,8 @@ static int parse_self_maps(unsigned long vm_start, dev_t *device)
 	char buf[1024];
 
 	maps = fopen_proc(PROC_SELF, "maps");
-	if (maps == NULL) {
-		pr_perror("Can't open self maps");
+	if (maps == NULL)
 		return -1;
-	}
 
 	while (fgets(buf, sizeof(buf), maps) != NULL) {
 		char *end, *aux;

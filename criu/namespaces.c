@@ -225,10 +225,8 @@ int switch_ns(int pid, struct ns_desc *nd, int *rst)
 	int ret;
 
 	nsfd = open_proc(pid, "ns/%s", nd->str);
-	if (nsfd < 0) {
-		pr_perror("Can't open ns file");
+	if (nsfd < 0)
 		return -1;
-	}
 
 	ret = switch_ns_by_fd(nsfd, nd, rst);
 

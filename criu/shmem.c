@@ -448,9 +448,6 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si, VmaEntry *vi)
 
 	pr_info("Opening shmem [%s] \n", path);
 	ret = open_proc_rw(si->pid, "fd/%d", si->fd);
-	if (ret < 0)
-		pr_perror("     %d: Can't stat shmem at %s",
-				si->pid, path);
 	futex_inc_and_wake(&si->lock);
 	if (ret < 0)
 		return -1;

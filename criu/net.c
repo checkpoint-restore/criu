@@ -1152,10 +1152,8 @@ static int restore_one_macvlan(NetDeviceEntry *nde, int nlsk, int criu_nlsk)
 	extras.link = (int) (unsigned long) val;
 
 	my_netns = open_proc(PROC_SELF, "ns/net");
-	if (my_netns < 0) {
-		pr_perror("couldn't get my netns");
+	if (my_netns < 0)
 		return -1;
-	}
 
 	{
 		struct newlink_req req;

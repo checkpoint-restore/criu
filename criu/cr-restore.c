@@ -901,10 +901,8 @@ static inline int fork_with_pid(struct pstree_item *item)
 		int len;
 
 		ca.fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-		if (ca.fd < 0) {
-			pr_perror("%d: Can't open %s", pid, LAST_PID_PATH);
+		if (ca.fd < 0)
 			goto err;
-		}
 
 		if (flock(ca.fd, LOCK_EX)) {
 			close(ca.fd);
@@ -1727,10 +1725,8 @@ static int restore_root_task(struct pstree_item *init)
 
 	if (root_ns_mask & CLONE_NEWNS) {
 		mnt_ns_fd = open_proc(init->pid.real, "ns/mnt");
-		if (mnt_ns_fd < 0) {
-			pr_perror("Can't open init's mntns fd");
+		if (mnt_ns_fd < 0)
 			goto out_kill;
-		}
 	}
 
 	ret = run_scripts(ACT_SETUP_NS);
