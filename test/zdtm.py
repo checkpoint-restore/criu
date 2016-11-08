@@ -879,8 +879,8 @@ class criu:
 
 		criu_dir = os.path.dirname(os.getcwd())
 		if os.getenv("GCOV"):
-			a_opts.append("--ext-mount-map")
-			a_opts.append("%s:zdtm" % criu_dir)
+			a_opts.append('--external')
+			a_opts.append('mnt[%s]:zdtm' % criu_dir)
 
 		if self.__leave_stopped:
 			a_opts += ['--leave-stopped']
@@ -909,8 +909,8 @@ class criu:
 		self.__prev_dump_iter = None
 		criu_dir = os.path.dirname(os.getcwd())
 		if os.getenv("GCOV"):
-			r_opts.append("--ext-mount-map")
-			r_opts.append("zdtm:%s" % criu_dir)
+			r_opts.append('--external')
+			r_opts.append('mnt[zdtm]:%s' % criu_dir)
 
 		if self.__leave_stopped:
 			r_opts += ['--leave-stopped']
