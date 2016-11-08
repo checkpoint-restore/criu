@@ -42,6 +42,7 @@
 #include "cr_options.h"
 #include "servicefd.h"
 #include "string.h"
+#include <compel/ptrace.h>
 #include "ptrace-compat.h"
 #include "util.h"
 #include "namespaces.h"
