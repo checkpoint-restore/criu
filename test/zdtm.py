@@ -713,6 +713,9 @@ class criu_rpc:
 			if arg == '--root':
 				criu.opts.root = args.pop(0)
 				continue
+			if arg == '--external':
+				criu.opts.external.append(args.pop(0))
+				continue
 
 			raise test_fail_exc('RPC for %s required' % arg)
 
