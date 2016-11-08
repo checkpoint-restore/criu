@@ -730,23 +730,29 @@ class criu_rpc:
 		criu.use_binary(criu_bin)
 		criu_rpc.__set_opts(criu, args, ctx)
 
-		if action == 'dump':
-			criu.dump()
-		elif action == 'restore':
-			if 'rd' not in ctx:
-				raise test_fail_exc('RPC Non-detached restore is impossible')
+		try:
+			if action == 'dump':
+				criu.dump()
+			elif action == 'restore':
+				if 'rd' not in ctx:
+					raise test_fail_exc('RPC Non-detached restore is impossible')
 
-			res = criu.restore()
-			pidf = ctx.get('pidf')
-			if pidf:
-				open(pidf, 'w').write('%d\n' % res.pid)
+				res = criu.restore()
+				pidf = ctx.get('pidf')
+				if pidf:
+					open(pidf, 'w').write('%d\n' % res.pid)
+			else:
+				raise test_fail_exc('RPC for %s required' % action)
+		except crpc.CRIUExceptionExternal:
+			print "Fail"
+			ret = -1
 		else:
-			raise test_fail_exc('RPC for %s required' % action)
+			ret = 0
 
 		imgd = ctx.get('imgd')
 		if imgd:
 			os.close(imgd)
-		return 0
+		return ret
 
 
 class criu:
