@@ -408,7 +408,7 @@ free_pagemaps:
 	return -1;
 }
 
-int open_page_read_at(int dfd, int id, struct page_read *pr, int pr_flags)
+int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 {
 	int flags, i_typ;
 	static unsigned ids = 1;
@@ -440,7 +440,7 @@ int open_page_read_at(int dfd, int id, struct page_read *pr, int pr_flags)
 	pr->bunch.iov_base = NULL;
 	pr->pmes = NULL;
 
-	pr->pmi = open_image_at(dfd, i_typ, O_RSTR, (long)id);
+	pr->pmi = open_image_at(dfd, i_typ, O_RSTR, (long)pid);
 	if (!pr->pmi)
 		return -1;
 
@@ -449,7 +449,7 @@ int open_page_read_at(int dfd, int id, struct page_read *pr, int pr_flags)
 		return 0;
 	}
 
-	if (try_open_parent(dfd, id, pr, pr_flags)) {
+	if (try_open_parent(dfd, pid, pr, pr_flags)) {
 		close_image(pr->pmi);
 		return -1;
 	}
@@ -478,7 +478,7 @@ int open_page_read_at(int dfd, int id, struct page_read *pr, int pr_flags)
 	return 1;
 }
 
-int open_page_read(int id, struct page_read *pr, int pr_flags)
+int open_page_read(int pid, struct page_read *pr, int pr_flags)
 {
-	return open_page_read_at(get_service_fd(IMG_FD_OFF), id, pr, pr_flags);
+	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr, pr_flags);
 }
