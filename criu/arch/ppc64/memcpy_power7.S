@@ -21,7 +21,7 @@
  * Copied from the kernel file arch/powerpc/lib/memcpy_power7.S
  * Altivec support has been removed so we don't taint restored process.
  */
-#include "asm/linkage.h"
+#include "common/asm/linkage.h"
 
 /*
  * When building the parasite code, the compiler may rely on the C library

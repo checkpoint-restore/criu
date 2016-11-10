@@ -1,4 +1,4 @@
-#include "asm/linkage.h"
+#include "common/asm/linkage.h"
 
 @ We use the register R8 unlike libc that uses R12.
 @ This avoids corruption of the register by the stub

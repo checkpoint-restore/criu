@@ -1,4 +1,4 @@
-#include "asm/linkage.h"
+#include "common/asm/linkage.h"
 
 /* The following code is taken from Linux kernel (arch/x86/lib/memcpy_64.S).
  * There are 3 implementations in there, we use the one that relies on

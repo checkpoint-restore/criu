@@ -10,7 +10,7 @@
  * --
  * Copied form the linux file arch/powerpc/lib/memcmp_64.S
  */
-#include "asm/linkage.h"
+#include "common/asm/linkage.h"
 
 #define off8	r6
 #define off16	r7

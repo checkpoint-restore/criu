@@ -1,4 +1,4 @@
-#include "asm/linkage.h"
+#include "common/asm/linkage.h"
 #include <asm/unistd.h>		/* for __NR_ipc */
 
 #define SYSCALL(name, opcode)		\
