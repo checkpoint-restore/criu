@@ -30,7 +30,7 @@ static int tcp_repair_on(int fd)
 
 	ret = setsockopt(fd, SOL_TCP, TCP_REPAIR, &aux, sizeof(aux));
 	if (ret < 0)
-		loge("Can't turn TCP repair mode ON");
+		loge("Can't turn TCP repair mode ON\n");
 
 	return ret;
 }
@@ -83,7 +83,7 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 	socklen_t olen = sizeof(*ti);
 
 	if (getsockopt(sk->fd, SOL_TCP, TCP_INFO, ti, &olen) || olen != sizeof(*ti)) {
-		loge("Failed to obtain TCP_INFO");
+		loge("Failed to obtain TCP_INFO\n");
 		return -1;
 	}
 
@@ -99,21 +99,21 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 	data->state = TCP_ESTABLISHED;
 
 	if (ioctl(sk->fd, SIOCOUTQ, &size) == -1) {
-		loge("Unable to get size of snd queue");
+		loge("Unable to get size of snd queue\n");
 		return -1;
 	}
 
 	data->outq_len = size;
 
 	if (ioctl(sk->fd, SIOCOUTQNSD, &size) == -1) {
-		loge("Unable to get size of unsent data");
+		loge("Unable to get size of unsent data\n");
 		return -1;
 	}
 
 	data->unsq_len = size;
 
 	if (ioctl(sk->fd, SIOCINQ, &size) == -1) {
-		loge("Unable to get size of recv queue");
+		loge("Unable to get size of recv queue\n");
 		return -1;
 	}
 
@@ -151,7 +151,7 @@ static int get_stream_options(struct libsoccr_sk *sk, struct libsoccr_sk_data *d
 	return 0;
 
 err_sopt:
-	loge("\tsockopt failed");
+	loge("\tsockopt failed\n");
 	return -1;
 }
 
@@ -166,7 +166,7 @@ static int get_window(struct libsoccr_sk *sk, struct libsoccr_sk_data *data)
 		if (errno == ENOPROTOOPT)
 			return 0;
 
-		loge("Unable to get window properties");
+		loge("Unable to get window properties\n");
 		return -1;
 	}
 
@@ -241,12 +241,12 @@ static int get_queue(int sk, int queue_id,
 	return 0;
 
 err_sopt:
-	loge("\tsockopt failed");
+	loge("\tsockopt failed\n");
 err_buf:
 	return -1;
 
 err_recv:
-	loge("\trecv failed (%d, want %d)", ret, len);
+	loge("\trecv failed (%d, want %d)\n", ret, len);
 	free(buf);
 	goto err_buf;
 }
@@ -310,12 +310,12 @@ static int set_queue_seq(struct libsoccr_sk *sk, int queue, __u32 seq)
 	logd("\tSetting %d queue seq to %u\n", queue, seq);
 
 	if (setsockopt(sk->fd, SOL_TCP, TCP_REPAIR_QUEUE, &queue, sizeof(queue)) < 0) {
-		loge("Can't set repair queue");
+		loge("Can't set repair queue\n");
 		return -1;
 	}
 
 	if (setsockopt(sk->fd, SOL_TCP, TCP_QUEUE_SEQ, &seq, sizeof(seq)) < 0) {
-		loge("Can't set queue seq");
+		loge("Can't set queue seq\n");
 		return -1;
 	}
 
@@ -385,14 +385,14 @@ int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 
 	if (setsockopt(sk->fd, SOL_TCP, TCP_REPAIR_OPTIONS,
 				opts, onr * sizeof(struct tcp_repair_opt)) < 0) {
-		loge("Can't repair options");
+		loge("Can't repair options\n");
 		return -2;
 	}
 
 	if (data->opt_mask & TCPI_OPT_TIMESTAMPS) {
 		if (setsockopt(sk->fd, SOL_TCP, TCP_TIMESTAMP,
 				&data->timestamp, sizeof(data->timestamp)) < 0) {
-			loge("Can't set timestamp");
+			loge("Can't set timestamp\n");
 			return -3;
 		}
 	}
@@ -413,7 +413,7 @@ int libsoccr_set_sk_data(struct libsoccr_sk *sk,
 		};
 	
 		if (setsockopt(sk->fd, SOL_TCP, TCP_REPAIR_WINDOW, &wopt, sizeof(wopt))) {
-			loge("Unable to set window parameters");
+			loge("Unable to set window parameters\n");
 			return -1;
 		}
 	}
@@ -456,7 +456,7 @@ static int __send_queue(struct libsoccr_sk *sk, int queue, char *buf, __u32 len)
 				continue;
 			}
 
-			loge("Can't restore %d queue data (%d), want (%d:%d:%d)",
+			loge("Can't restore %d queue data (%d), want (%d:%d:%d)\n",
 				  queue, ret, chunk, len, max_chunk);
 			goto err;
 		}
@@ -474,7 +474,7 @@ static int send_queue(struct libsoccr_sk *sk, int queue, char *buf, __u32 len)
 	logd("\tRestoring TCP %d queue data %u bytes\n", queue, len);
 
 	if (setsockopt(sk->fd, SOL_TCP, TCP_REPAIR_QUEUE, &queue, sizeof(queue)) < 0) {
-		loge("Can't set repair queue");
+		loge("Can't set repair queue\n");
 		return -1;
 	}
 
