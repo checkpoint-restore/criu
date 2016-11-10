@@ -208,75 +208,94 @@ static inline void pagemap_bound_check(PagemapEntry *pe, unsigned long vaddr, in
 	}
 }
 
+static int read_parent_page(struct page_read *pr, unsigned long vaddr,
+			    int nr, void *buf)
+{
+	struct page_read *ppr = pr->parent;
+	int ret;
+
+	/*
+	 * Parent pagemap at this point entry may be shorter
+	 * than the current vaddr:nr needs, so we have to
+	 * carefully 'split' the vaddr:nr into pieces and go
+	 * to parent page-read with the longest requests it
+	 * can handle.
+	 */
+
+	do {
+		int p_nr;
+
+		pr_debug("\tpr%u Read from parent\n", pr->id);
+		ret = seek_pagemap_page(ppr, vaddr, true);
+		if (ret <= 0)
+			return -1;
+
+		/*
+		 * This is how many pages we have in the parent
+		 * page_read starting from vaddr. Go ahead and
+		 * read as much as we can.
+		 */
+		p_nr = ppr->pe->nr_pages - (vaddr - ppr->pe->vaddr) / PAGE_SIZE;
+		pr_info("\tparent has %u pages in\n", p_nr);
+		if (p_nr > nr)
+			p_nr = nr;
+
+		ret = ppr->read_pages(ppr, vaddr, p_nr, buf);
+		if (ret == -1)
+			return ret;
+
+		/*
+		 * OK, let's see how much data we have left and go
+		 * to parent page-read again for the next pagemap
+		 * entry.
+		 */
+		nr -= p_nr;
+		vaddr += p_nr * PAGE_SIZE;
+		buf += p_nr * PAGE_SIZE;
+	} while (nr);
+
+	return 0;
+}
+
+static int read_local_page(struct page_read *pr, unsigned long vaddr,
+			   unsigned long len, void *buf)
+{
+	int fd = img_raw_fd(pr->pi);
+	off_t current_vaddr = lseek(fd, pr->pi_off, SEEK_SET);
+	int ret;
+
+	pr_debug("\tpr%u Read page from self %lx/%"PRIx64"\n", pr->id, pr->cvaddr, current_vaddr);
+	ret = read(fd, buf, len);
+	if (ret != len) {
+		pr_perror("Can't read mapping page %d", ret);
+		return -1;
+	}
+
+	pr->pi_off += len;
+
+	if (opts.auto_dedup) {
+		ret = punch_hole(pr, current_vaddr, len, false);
+		if (ret == -1) {
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr, void *buf)
 {
-	int ret;
 	unsigned long len = nr * PAGE_SIZE;
 
 	pr_info("pr%u Read %lx %u pages\n", pr->id, vaddr, nr);
 	pagemap_bound_check(pr->pe, vaddr, nr);
 
 	if (pr->pe->in_parent) {
-		struct page_read *ppr = pr->parent;
-
-		/*
-		 * Parent pagemap at this point entry may be shorter
-		 * than the current vaddr:nr needs, so we have to
-		 * carefully 'split' the vaddr:nr into pieces and go
-		 * to parent page-read with the longest requests it
-		 * can handle.
-		 */
-
-		do {
-			int p_nr;
-
-			pr_debug("\tpr%u Read from parent\n", pr->id);
-			ret = seek_pagemap_page(ppr, vaddr, true);
-			if (ret <= 0)
-				return -1;
-
-			/*
-			 * This is how many pages we have in the parent
-			 * page_read starting from vaddr. Go ahead and
-			 * read as much as we can.
-			 */
-			p_nr = ppr->pe->nr_pages - (vaddr - ppr->pe->vaddr) / PAGE_SIZE;
-			pr_info("\tparent has %u pages in\n", p_nr);
-			if (p_nr > nr)
-				p_nr = nr;
-
-			ret = read_pagemap_page(ppr, vaddr, p_nr, buf);
-			if (ret == -1)
-				return ret;
-
-			/*
-			 * OK, let's see how much data we have left and go
-			 * to parent page-read again for the next pagemap
-			 * entry.
-			 */
-			nr -= p_nr;
-			vaddr += p_nr * PAGE_SIZE;
-			buf += p_nr * PAGE_SIZE;
-		} while (nr);
-	} else {
-		int fd = img_raw_fd(pr->pi);
-		off_t current_vaddr = lseek(fd, pr->pi_off, SEEK_SET);
-
-		pr_debug("\tpr%u Read page from self %lx/%"PRIx64"\n", pr->id, pr->cvaddr, current_vaddr);
-		ret = read(fd, buf, len);
-		if (ret != len) {
-			pr_perror("Can't read mapping page %d", ret);
+		if (read_parent_page(pr, vaddr, nr, buf) < 0)
 			return -1;
-		}
-
-		pr->pi_off += len;
-
-		if (opts.auto_dedup) {
-			ret = punch_hole(pr, current_vaddr, len, false);
-			if (ret == -1) {
-				return -1;
-			}
-		}
+	} else {
+		if (read_local_page(pr, vaddr, len, buf) < 0)
+			return -1;
 	}
 
 	pr->cvaddr += len;
