@@ -6,6 +6,9 @@ ifeq ($(CONFIG_COMPAT),y)
         parasite_target	+= compat
 endif
 
+compel_pack_lds-native	:= $(SRC_DIR)/compel/arch/$(ARCH)/scripts/compel-pack.lds.S
+compel_pack_lds-compat	:= $(SRC_DIR)/compel/arch/$(ARCH)/scripts/compel-pack-compat.lds.S
+
 native-obj-y           += parasite.o
 native-obj-y           += infect.o
 compat-obj-y           += compat/parasite-compat.o
@@ -97,45 +100,11 @@ GEN-OFFSETS		:= $(obj)/../../scripts/gen-offsets.sh
 BLOBS			+= $(obj)/restorer-blob.h
 
 define gen-pields-blobs-var
-PIELDS			+= $(obj)/pie.lds-$(1).S
 BLOBS			+= $(obj)/parasite-$(1)-blob.h
 endef
 $(eval $(call map,gen-pields-blobs-var,$(parasite_target)))
 
 .SECONDARY:
-
-ifeq ($(piegen-y),y)
-PIELDS_INCLUDE		:= $(obj)/pie-reloc.lds.S.in
-else
-PIELDS_INCLUDE		:= $(obj)/pie.lds.S.in
-endif
-
-ifeq ($(ARCH),x86)
-$(obj)/pie.lds-native.S: $(PIELDS_INCLUDE)
-	$(call msg-gen, $@)
-	$(Q) echo "OUTPUT_ARCH(i386:x86-64)"		>  $@
-	$(Q) echo "TARGET(elf64-x86-64)"		>> $@
-	$(Q) cat $<					>> $@
-
-$(obj)/pie.lds-compat.S: $(PIELDS_INCLUDE)
-	$(call msg-gen, $@)
-	$(Q) echo "OUTPUT_ARCH(i386)"			>  $@
-	$(Q) echo "TARGET(elf32-i386)"			>> $@
-	$(Q) cat $<					>> $@
-else # !x86
-ifeq ($(filter-out i386 ia32,$(ARCH)),)
-$(PIELDS): $(PIELDS_INCLUDE)
-	$(call msg-gen, $@)
-	$(Q) echo "OUTPUT_ARCH(i386)"			>  $@
-	$(Q) echo "TARGET(elf32-i386)"			>> $@
-	$(Q) cat $<					>> $@
-else # arm, aarch64, ppc64
-$(PIELDS): $(PIELDS_INCLUDE)
-	$(call msg-gen, $@)
-	$(Q) echo "OUTPUT_ARCH($(LDARCH))"              >  $@
-	$(Q) cat $<					>> $@
-endif # non i386
-endif # non x86 ARCH
 
 # for C files, we need "parasite-native" to be "parasite_native"
 target-name = $(patsubst criu/pie/%_blob.h,%,$(subst -,_,$(1)))
@@ -146,16 +115,16 @@ ifeq ($(strip $(V)),)
 endif
 
 $(obj)/restorer.built-in.bin.o: $(obj)/restorer.built-in.o		\
-				$(obj)/native.lib.a $(obj)/pie.lds-native.S
+				$(obj)/native.lib.a $(compel_pack_lds-native)
 	$(call msg-gen, $@)
-	$(Q) $(LD) -r -T $(obj)/pie.lds-native.S -o $@ $< $(obj)/native.lib.a
+	$(Q) $(LD) -r -T $(compel_pack_lds-native) -o $@ $< $(obj)/native.lib.a
 
 # $1 - binary mode: native/compat
 define gen-rule-built-in.bin.o
 $(obj)/parasite-$(1).built-in.bin.o: $(obj)/$(1).built-in.o		\
-				$(obj)/$(1).lib.a $(obj)/pie.lds-$(1).S
+				$(obj)/$(1).lib.a $(compel_pack_lds-$(1))
 	$$(call msg-gen, $$@)
-	$(Q) $(LD) -r -T $(obj)/pie.lds-$(1).S -o $$@ $$< $(obj)/$(1).lib.a
+	$(Q) $(LD) -r -T $(compel_pack_lds-$(1)) -o $$@ $$< $(obj)/$(1).lib.a
 endef
 $(eval $(call map,gen-rule-built-in.bin.o,$(parasite_target)))
 
@@ -179,17 +148,17 @@ endif
 
 define gen-rule-built-in.bin.o
 $(obj)/parasite-$(1).built-in.bin.o: $(obj)/$(1).built-in.o		\
-				$(obj)/pie.lds-$(1).S $(obj)/native.lib.a
+				$(compel_pack_lds-$(1)) $(obj)/native.lib.a
 	$$(call msg-gen, $$@)
-	$(Q) $(LD) $(LD_R) -T $(obj)/pie.lds-$(1).S -o $$@ $$< $(obj)/native.lib.a
+	$(Q) $(LD) $(LD_R) -T $(compel_pack_lds-$(1)) -o $$@ $$< $(obj)/native.lib.a
 endef
 
 $(eval $(call map,gen-rule-built-in.bin.o,$(parasite_target)))
 
 $(obj)/restorer.built-in.bin.o: $(obj)/restorer.built-in.o		\
-				$(obj)/pie.lds-native.S $(obj)/native.lib.a
+				$(compel_pack_lds-native) $(obj)/native.lib.a
 	$(call msg-gen, $@)
-	$(Q) $(LD) $(LD_R) -T $(obj)/pie.lds-native.S -o $@ $< $(obj)/native.lib.a
+	$(Q) $(LD) $(LD_R) -T $(compel_pack_lds-native) -o $@ $< $(obj)/native.lib.a
 
 $(obj)/%.built-in.bin: $(obj)/%.built-in.bin.o
 	$(call msg-gen, $@)
@@ -206,7 +175,6 @@ all-y += $(BLOBS)
 # blobs and pields are in cleanup, rather than in mrproper because
 # we want them to be re-generated after `make clean && make`
 cleanup-y += $(BLOBS)
-cleanup-y += $(PIELDS)
 cleanup-y += $(obj)/*.bin
 cleanup-y += $(obj)/*.built-in.bin.o
 cleanup-y += $(obj)/*.built-in.bin
