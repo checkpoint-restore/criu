@@ -52,6 +52,7 @@ CFLAGS			+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
 ccflags-y		+= -I compel/include/uapi
 ccflags-y		+= -I compel/plugins/include/uapi
 ccflags-y		+= -DCR_NOGLIBC
+ccflags-y		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
 NATIVE_CFLAGS		:= $(shell $(SRC_DIR)/compel/compel-host --arch=$(ARCH) cflags)
 ifeq ($(ARCH),x86)
