@@ -1,6 +1,6 @@
 .PHONY: .FORCE
 
-CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS))
+CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) -DCR_NOGLIBC
 PLUGIN_ARCH_DIR		:= compel/arch/$(ARCH)/plugins
 
 #
@@ -15,7 +15,7 @@ asflags-y		+= -I compel/plugins/include/uapi
 
 # General compel includes
 ccflags-y		+= -iquote $(SRC_DIR)/compel/include
-ccflags-y		+= -fno-stack-protector
+ccflags-y		+= -fpie -fno-stack-protector
 
 # General compel/plugins includes
 ccflags-y		+= -iquote $(obj)/include
