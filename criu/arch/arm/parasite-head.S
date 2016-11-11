@@ -1,5 +1,4 @@
 #include "common/asm/linkage.h"
-#include "parasite.h"
 
 	.section .head.text, "ax"
 ENTRY(__export_parasite_head_start)
