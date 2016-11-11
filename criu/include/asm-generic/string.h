@@ -4,9 +4,9 @@
 #include "common/compiler.h"
 
 #ifndef HAS_BUILTIN_MEMCPY
-static always_inline void *builtin_memcpy(void *to, const void *from, unsigned int n)
+static always_inline void *builtin_memcpy(void *to, const void *from, size_t n)
 {
-	int i;
+	size_t i;
 	unsigned char *cto = to;
 	const unsigned char *cfrom = from;
 
@@ -47,13 +47,15 @@ static always_inline int builtin_strncmp(const char *cs, const char *ct, size_t 
 #endif
 
 #ifndef HAS_BUILTIN_MEMSET
-static always_inline void builtin_memset(void *s, const int c, size_t count)
+static always_inline void *builtin_memset(void *s, const int c, size_t count)
 {
 	char *dest = s;
 	size_t i = 0;
 
 	while (i < count)
 		dest[i++] = (char) c;
+
+	return s;
 }
 #endif
 
