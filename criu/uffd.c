@@ -57,11 +57,10 @@ struct lazy_pages_info {
 	unsigned long total_pages;
 	unsigned long copied_pages;
 
-	struct hlist_node hash;
+	struct list_head l;
 };
 
-#define LPI_HASH_SIZE	16
-static struct hlist_head lpi_hash[LPI_HASH_SIZE];
+static LIST_HEAD(lpis);
 
 static struct lazy_pages_info *lpi_init(void)
 {
@@ -73,7 +72,7 @@ static struct lazy_pages_info *lpi_init(void)
 
 	memset(lpi, 0, sizeof(*lpi));
 	INIT_LIST_HEAD(&lpi->pages);
-	INIT_HLIST_NODE(&lpi->hash);
+	INIT_LIST_HEAD(&lpi->l);
 
 	return lpi;
 }
@@ -87,25 +86,6 @@ static void lpi_fini(struct lazy_pages_info *lpi)
 	if (lpi->pr.close)
 		lpi->pr.close(&lpi->pr);
 	free(lpi);
-}
-
-static void lpi_hash_init(void)
-{
-	int i;
-
-	for (i = 0; i < LPI_HASH_SIZE; i++)
-		INIT_HLIST_HEAD(&lpi_hash[i]);
-}
-
-static void lpi_hash_fini(void)
-{
-	struct lazy_pages_info *p;
-	struct hlist_node *n;
-	int i;
-
-	for (i = 0; i < LPI_HASH_SIZE; i++)
-		hlist_for_each_entry_safe(p, n, &lpi_hash[i], hash)
-			lpi_fini(p);
 }
 
 static int prepare_sock_addr(struct sockaddr_un *saddr)
@@ -354,7 +334,7 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 	if ((lpi->total_pages = find_vmas(lpi)) == -1)
 		goto out;
 
-	hlist_add_head(&lpi->hash, &lpi_hash[lpi->uffd % LPI_HASH_SIZE]);
+	list_add_tail(&lpi->l, &lpis);
 	*_lpi = lpi;
 
 	return 0;
@@ -770,20 +750,17 @@ static int handle_requests(int epollfd, struct epoll_event *events)
 		}
 	}
 	pr_debug("Handle remaining pages\n");
-	for (i = 0; i < LPI_HASH_SIZE; i++) {
-		hlist_for_each_entry(lpi, &lpi_hash[i], hash) {
-			ret = handle_remaining_pages(lpi, dest);
-			if (ret < 0) {
-				pr_err("Error during remaining page copy\n");
-				ret = 1;
-				goto out;
-			}
+	list_for_each_entry(lpi, &lpis, l) {
+		ret = handle_remaining_pages(lpi, dest);
+		if (ret < 0) {
+			pr_err("Error during remaining page copy\n");
+			ret = 1;
+			goto out;
 		}
 	}
 
-	for (i = 0; i < LPI_HASH_SIZE; i++)
-		hlist_for_each_entry(lpi, &lpi_hash[i], hash)
-			ret += lazy_pages_summary(lpi);
+	list_for_each_entry(lpi, &lpis, l)
+		ret += lazy_pages_summary(lpi);
 
 out:
 	free(dest);
@@ -882,7 +859,6 @@ static int prepare_uffds(int epollfd)
 	return 0;
 
 close_uffd:
-	lpi_hash_fini();
 	close_safe(&client);
 	close(listen);
 	return -1;
@@ -896,8 +872,6 @@ int cr_lazy_pages()
 
 	if (check_for_uffd())
 		return -1;
-
-	lpi_hash_init();
 
 	if (lazy_pages_prepare_pstree())
 		return -1;
@@ -913,7 +887,6 @@ int cr_lazy_pages()
 		return -1;
 
 	ret = handle_requests(epollfd, events);
-	lpi_hash_fini();
 
 	return ret;
 }
