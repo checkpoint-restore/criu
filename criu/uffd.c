@@ -664,6 +664,11 @@ static int handle_user_fault(struct lazy_pages_info *lpi, void *dest)
 		return -1;
 	}
 
+	if (msg.event != UFFD_EVENT_PAGEFAULT) {
+		pr_err("unexpected msg event %u\n", msg.event);
+		return -1;
+	}
+
 	/* Align requested address to the next page boundary */
 	address = msg.arg.pagefault.address & ~(page_size() - 1);
 	pr_debug("msg.arg.pagefault.address 0x%llx\n", address);
@@ -676,11 +681,6 @@ static int handle_user_fault(struct lazy_pages_info *lpi, void *dest)
 	/* Now handle the pages actually requested. */
 	flags = msg.arg.pagefault.flags;
 	pr_debug("msg.arg.pagefault.flags 0x%llx\n", flags);
-
-	if (msg.event != UFFD_EVENT_PAGEFAULT) {
-		pr_err("unexpected msg event %u\n", msg.event);
-		return -1;
-	}
 
 	ret = handle_regular_pages(lpi, dest, address);
 	if (ret < 0) {
