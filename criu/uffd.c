@@ -97,19 +97,6 @@ static void lpi_hash_init(void)
 		INIT_HLIST_HEAD(&lpi_hash[i]);
 }
 
-struct lazy_pages_info *uffd_to_lpi(int uffd)
-{
-	struct lazy_pages_info *lpi;
-	struct hlist_head *head;
-
-	head = &lpi_hash[uffd % LPI_HASH_SIZE];
-	hlist_for_each_entry(lpi, head, hash)
-		if (lpi->uffd == uffd)
-			return lpi;
-
-	return NULL;
-}
-
 static void lpi_hash_fini(void)
 {
 	struct lazy_pages_info *p;
@@ -775,8 +762,8 @@ static int handle_requests(int epollfd, struct epoll_event *events)
 
 		for (i = 0; i < ret; i++) {
 			int err;
-			lpi = uffd_to_lpi(events[i].data.fd);
-			BUG_ON(!lpi);
+
+			lpi = (struct lazy_pages_info *)events[i].data.ptr;
 			err = handle_user_fault(lpi, dest);
 			if (err < 0)
 				goto out;
@@ -840,13 +827,13 @@ free_events:
 	return -1;
 }
 
-static int epoll_add_fd(int epollfd, int fd)
+static int epoll_add_lpi(int epollfd, struct lazy_pages_info *lpi)
 {
 	struct epoll_event ev;
 
 	ev.events = EPOLLIN;
-	ev.data.fd = fd;
-	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev) == -1) {
+	ev.data.ptr = lpi;
+	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, lpi->uffd, &ev) == -1) {
 		pr_perror("epoll_ctl failed");
 		return -1;
 	}
@@ -886,7 +873,7 @@ static int prepare_uffds(int epollfd)
 			goto close_uffd;
 		if (lpi == NULL)
 			continue;
-		if (epoll_add_fd(epollfd, lpi->uffd))
+		if (epoll_add_lpi(epollfd, lpi))
 			goto close_uffd;
 	}
 
