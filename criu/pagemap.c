@@ -256,24 +256,23 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr,
 			   unsigned long len, void *buf)
 {
 	int fd = img_raw_fd(pr->pi);
-	off_t current_vaddr = lseek(fd, pr->pi_off, SEEK_SET);
 	int ret;
 
-	pr_debug("\tpr%u Read page from self %lx/%"PRIx64"\n", pr->id, pr->cvaddr, current_vaddr);
-	ret = read(fd, buf, len);
+	pr_debug("\tpr%u Read page from self %lx/%"PRIx64"\n", pr->id, pr->cvaddr, pr->pi_off);
+	ret = pread(fd, buf, len, pr->pi_off);
 	if (ret != len) {
 		pr_perror("Can't read mapping page %d", ret);
 		return -1;
 	}
 
-	pr->pi_off += len;
-
 	if (opts.auto_dedup) {
-		ret = punch_hole(pr, current_vaddr, len, false);
+		ret = punch_hole(pr, pr->pi_off, len, false);
 		if (ret == -1) {
 			return -1;
 		}
 	}
+
+	pr->pi_off += len;
 
 	return 0;
 }
