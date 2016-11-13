@@ -15,12 +15,13 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
+#include <sys/wait.h>
 
 #include "linux/userfaultfd.h"
 
 #include "int.h"
 #include "page.h"
-#include "log.h"
+#include "criu-log.h"
 #include "criu-plugin.h"
 #include "pagemap.h"
 #include "files-reg.h"
@@ -776,12 +777,9 @@ static int epoll_add_lpi(int epollfd, struct lazy_pages_info *lpi)
 	return 0;
 }
 
-static int prepare_uffds(int epollfd)
+static int prepare_lazy_socket(void)
 {
-	int i;
 	int listen;
-	int client;
-	socklen_t len;
 	struct sockaddr_un saddr;
 
 	if (prepare_sock_addr(&saddr))
@@ -792,6 +790,16 @@ static int prepare_uffds(int epollfd)
 		pr_perror("server_listen error");
 		return -1;
 	}
+
+	return listen;
+}
+
+static int prepare_uffds(int listen, int epollfd)
+{
+	int i;
+	int client;
+	socklen_t len;
+	struct sockaddr_un saddr;
 
 	/* accept new client request */
 	len = sizeof(struct sockaddr_un);
@@ -822,10 +830,11 @@ close_uffd:
 	return -1;
 }
 
-int cr_lazy_pages()
+int cr_lazy_pages(bool daemon)
 {
 	struct epoll_event *events;
 	int epollfd;
+	int lazy_sk;
 	int ret;
 
 	if (check_for_uffd())
@@ -834,11 +843,38 @@ int cr_lazy_pages()
 	if (lazy_pages_prepare_pstree())
 		return -1;
 
+	lazy_sk = prepare_lazy_socket();
+	if (lazy_sk < 0)
+		return -1;
+
+	if (daemon) {
+		ret = cr_daemon(1, 0, &lazy_sk, -1);
+		if (ret == -1) {
+			pr_err("Can't run in the background\n");
+			return -1;
+		}
+		if (ret > 0) { /* parent task, daemon started */
+			if (opts.pidfile) {
+				if (write_pidfile(ret) == -1) {
+					pr_perror("Can't write pidfile");
+					kill(ret, SIGKILL);
+					waitpid(ret, NULL, 0);
+					return -1;
+				}
+			}
+
+			return 0;
+		}
+	}
+
+	if (close_status_fd())
+		return -1;
+
 	epollfd = prepare_epoll(task_entries->nr_tasks, &events);
 	if (epollfd < 0)
 		return -1;
 
-	if (prepare_uffds(epollfd))
+	if (prepare_uffds(lazy_sk, epollfd))
 		return -1;
 
 	if (connect_to_page_server())
