@@ -295,22 +295,16 @@ struct uffd_pages_struct {
 	int flags;
 };
 
-static int collect_uffd_pages(struct page_read *pr, struct lazy_pages_info *lpi)
+static int collect_uffd_pages(struct lazy_pages_info *lpi, MmEntry *mm)
 {
 	unsigned long base;
-	int i;
+	int i, j;
 	struct iovec iov;
 	unsigned long nr_pages;
 	unsigned long ps;
 	int rc;
 	struct uffd_pages_struct *uffd_pages;
-	struct vma_area *vma;
-	struct vm_area_list *vmas;
-	struct pstree_item *item = pstree_item_by_virt(lpi->pid);
-
-	BUG_ON(!item);
-
-	vmas = &rsti(item)->vmas;
+	struct page_read *pr = &lpi->pr;
 
 	rc = pr->get_pagemap(pr, &iov);
 	if (rc <= 0)
@@ -329,13 +323,14 @@ static int collect_uffd_pages(struct page_read *pr, struct lazy_pages_info *lpi)
 		 * are relevant for userfaultfd handling.
 		 * Loop over all VMAs to see if the flags matching.
 		 */
-		list_for_each_entry(vma, &vmas->h, list) {
+		for (j = 0; j < mm->n_vmas; j++) {
+			VmaEntry *vma = mm->vmas[j];
 			/*
 			 * This loop assumes that base can actually be found
 			 * in the VMA list.
 			 */
-			if (base >= vma->e->start && base < vma->e->end) {
-				if (vma_entry_can_be_lazy(vma->e)) {
+			if (base >= vma->start && base < vma->end) {
+				if (vma_entry_can_be_lazy(vma)) {
 					if(!pagemap_in_parent(pr->pe))
 						uffd_page = true;
 					break;
@@ -366,53 +361,18 @@ static int find_vmas(struct lazy_pages_info *lpi)
 {
 	struct cr_img *img;
 	int ret;
-	struct vm_area_list vmas;
-	int vn = 0;
-	struct rst_info *ri;
+	MmEntry *mm;
 	struct uffd_pages_struct *uffd_pages;
-	struct pstree_item *item = pstree_item_by_virt(lpi->pid);
-
-	BUG_ON(!item);
-
-	vm_area_list_init(&vmas);
-
-	ri = rsti(item);
-	if (!ri)
-		return -1;
 
 	img = open_image(CR_FD_MM, O_RSTR, lpi->pid);
 	if (!img)
 		return -1;
 
-	ret = pb_read_one_eof(img, &ri->mm, PB_MM);
+	ret = pb_read_one_eof(img, &mm, PB_MM);
 	close_image(img);
 	if (ret == -1)
 		return -1;
-
-	pr_debug("Found %zd VMAs in image\n", ri->mm->n_vmas);
-
-	while (vn < ri->mm->n_vmas) {
-		struct vma_area *vma;
-
-		ret = -1;
-		vma = alloc_vma_area();
-		if (!vma)
-			goto out;
-
-		ret = 0;
-		ri->vmas.nr++;
-		vma->e = ri->mm->vmas[vn++];
-
-		list_add_tail(&vma->list, &ri->vmas.h);
-
-		if (vma_area_is_private(vma, kdat.task_size)) {
-			vmas.priv_size += vma_area_len(vma);
-			if (vma->e->flags & MAP_GROWSDOWN)
-				vmas.priv_size += PAGE_SIZE;
-		}
-
-		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vma->e->start, vma->e->end);
-	}
+	pr_debug("Found %zd VMAs in image\n", mm->n_vmas);
 
 	ret = open_page_read(lpi->pid, &lpi->pr, PR_TASK);
 	if (ret <= 0) {
@@ -426,7 +386,7 @@ static int find_vmas(struct lazy_pages_info *lpi)
 	 * pushed into the process using userfaultfd.
 	 */
 	do {
-		ret = collect_uffd_pages(&lpi->pr, lpi);
+		ret = collect_uffd_pages(lpi, mm);
 		if (ret == -1) {
 			goto out;
 		}
