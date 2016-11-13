@@ -748,7 +748,7 @@ static int restore_priv_vma_content(struct pstree_item *t)
 			if (vma->ppage_bitmap) { /* inherited vma */
 				clear_bit(off, vma->ppage_bitmap);
 
-				ret = pr.read_pages(&pr, va, 1, buf);
+				ret = pr.read_pages(&pr, va, 1, buf, 0);
 				if (ret < 0)
 					goto err_read;
 
@@ -776,7 +776,7 @@ static int restore_priv_vma_content(struct pstree_item *t)
 
 				nr = min_t(int, nr_pages - i, (vma->e->end - va) / PAGE_SIZE);
 
-				ret = pr.read_pages(&pr, va, nr, p);
+				ret = pr.read_pages(&pr, va, nr, p, PR_ASYNC);
 				if (ret < 0)
 					goto err_read;
 

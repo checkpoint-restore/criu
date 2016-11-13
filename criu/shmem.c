@@ -480,7 +480,7 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 		if (vaddr + nr_pages * PAGE_SIZE > si->size)
 			break;
 
-		pr.read_pages(&pr, vaddr, nr_pages, addr + vaddr);
+		pr.read_pages(&pr, vaddr, nr_pages, addr + vaddr, 0);
 	}
 
 	pr.close(&pr);

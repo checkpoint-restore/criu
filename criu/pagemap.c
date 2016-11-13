@@ -204,7 +204,7 @@ static inline void pagemap_bound_check(PagemapEntry *pe, unsigned long vaddr, in
 }
 
 static int read_parent_page(struct page_read *pr, unsigned long vaddr,
-			    int nr, void *buf)
+			    int nr, void *buf, unsigned flags)
 {
 	struct page_read *ppr = pr->parent;
 	int ret;
@@ -235,7 +235,7 @@ static int read_parent_page(struct page_read *pr, unsigned long vaddr,
 		if (p_nr > nr)
 			p_nr = nr;
 
-		ret = ppr->read_pages(ppr, vaddr, p_nr, buf);
+		ret = ppr->read_pages(ppr, vaddr, p_nr, buf, flags);
 		if (ret == -1)
 			return ret;
 
@@ -253,7 +253,7 @@ static int read_parent_page(struct page_read *pr, unsigned long vaddr,
 }
 
 static int read_local_page(struct page_read *pr, unsigned long vaddr,
-			   unsigned long len, void *buf)
+			   unsigned long len, void *buf, unsigned flags)
 {
 	int fd = img_raw_fd(pr->pi);
 	int ret;
@@ -277,7 +277,8 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr,
 	return 0;
 }
 
-static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr, void *buf)
+static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
+			     void *buf, unsigned flags)
 {
 	unsigned long len = nr * PAGE_SIZE;
 
@@ -285,10 +286,10 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr, 
 	pagemap_bound_check(pr->pe, vaddr, nr);
 
 	if (pr->pe->in_parent) {
-		if (read_parent_page(pr, vaddr, nr, buf) < 0)
+		if (read_parent_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
 	} else {
-		if (read_local_page(pr, vaddr, len, buf) < 0)
+		if (read_local_page(pr, vaddr, len, buf, flags) < 0)
 			return -1;
 	}
 

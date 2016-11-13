@@ -47,7 +47,8 @@ struct page_read {
 	 */
 	int (*get_pagemap)(struct page_read *, struct iovec *iov);
 	/* reads page from current pagemap */
-	int (*read_pages)(struct page_read *, unsigned long vaddr, int nr, void *);
+	int (*read_pages)(struct page_read *, unsigned long vaddr, int nr,
+			  void *, unsigned flags);
 	void (*close)(struct page_read *);
 	int (*seek_page)(struct page_read *pr, unsigned long vaddr, bool warn);
 
@@ -72,6 +73,10 @@ struct page_read {
 	int curr_pme;
 };
 
+/* flags for ->read_pages */
+#define PR_ASYNC	0x1 /* may exit w/o data in the buffer */
+
+/* flags for open_page_read */
 #define PR_SHMEM	0x1
 #define PR_TASK		0x2
 
