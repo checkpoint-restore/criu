@@ -773,7 +773,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	if (!strcmp(argv[optind], "lazy-pages"))
-		return cr_lazy_pages() != 0;
+		return cr_lazy_pages(opts.daemon_mode) != 0;
 
 	if (!strcmp(argv[optind], "check"))
 		return cr_check() != 0;
