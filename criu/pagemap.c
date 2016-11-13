@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <linux/falloc.h>
+#include <sys/uio.h>
+#include <limits.h>
 
 #include "types.h"
 #include "image.h"
@@ -19,6 +21,18 @@
 #endif
 
 #define MAX_BUNCH_SIZE 256
+
+/*
+ * One "job" for the preadv() syscall in pagemap.c
+ */
+struct page_read_iov {
+	off_t from;		/* offset in pi file where to start reading from */
+	off_t end;		/* the end of the read == sum to.iov_len -s */
+	struct iovec *to;	/* destination iovs */
+	unsigned int nr;	/* their number */
+
+	struct list_head l;
+};
 
 void pagemap2iovec(PagemapEntry *pe, struct iovec *iov)
 {
@@ -253,10 +267,17 @@ static int read_parent_page(struct page_read *pr, unsigned long vaddr,
 }
 
 static int read_local_page(struct page_read *pr, unsigned long vaddr,
-			   unsigned long len, void *buf, unsigned flags)
+			   unsigned long len, void *buf)
 {
 	int fd = img_raw_fd(pr->pi);
 	int ret;
+
+	/*
+	 * Flush any pending async requests if any not to break the
+	 * linear reading from the pages.img file.
+	 */
+	if (pr->sync(pr))
+		return -1;
 
 	pr_debug("\tpr%u Read page from self %lx/%"PRIx64"\n", pr->id, pr->cvaddr, pr->pi_off);
 	ret = pread(fd, buf, len, pr->pi_off);
@@ -267,14 +288,106 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr,
 
 	if (opts.auto_dedup) {
 		ret = punch_hole(pr, pr->pi_off, len, false);
-		if (ret == -1) {
+		if (ret == -1)
 			return -1;
-		}
 	}
+
+	return 0;
+}
+
+static int enqueue_async_iov(struct page_read *pr, unsigned long len, void *buf)
+{
+	struct page_read_iov *pr_iov;
+	struct iovec *iov;
+
+	pr_iov = xzalloc(sizeof(*pr_iov));
+	if (!pr_iov)
+		return -1;
+
+	pr_iov->from = pr->pi_off;
+	pr_iov->end = pr->pi_off + len;
+
+	iov = xzalloc(sizeof(*iov));
+	if (!iov) {
+		xfree(pr_iov);
+		return -1;
+	}
+
+	iov->iov_base = buf;
+	iov->iov_len = len;
+
+	pr_iov->to = iov;
+	pr_iov->nr = 1;
+
+	list_add_tail(&pr_iov->l, &pr->async);
+
+	return 0;
+}
+
+static int enqueue_async_page(struct page_read *pr, unsigned long vaddr,
+			      unsigned long len, void *buf)
+{
+	struct page_read_iov *cur_async = NULL;
+	struct iovec *iov;
+
+	if (!list_empty(&pr->async))
+		cur_async = list_entry(pr->async.prev, struct page_read_iov, l);
+
+	/*
+	 * We don't have any async requests or we have new read
+	 * request that should happen at pos _after_ some hole from
+	 * the previous one.
+	 * Start the new preadv request here.
+	 */
+	if (!cur_async || pr->pi_off != cur_async->end)
+		return enqueue_async_iov(pr, len, buf);
+
+	/*
+	 * This read is pure continuation of the previous one. Let's
+	 * just add another IOV (or extend one of the existing).
+	 */
+	iov = &cur_async->to[cur_async->nr - 1];
+	if (iov->iov_base + iov->iov_len == buf) {
+		/* Extendable */
+		iov->iov_len += len;
+	} else {
+		/* Need one more target iovec */
+		unsigned int n_iovs = cur_async->nr + 1;
+
+		if (n_iovs >= IOV_MAX)
+			return enqueue_async_iov(pr, len, buf);
+
+		iov = xrealloc(cur_async->to, n_iovs * sizeof(*iov));
+		if (!iov)
+			return -1;
+
+		cur_async->to = iov;
+
+		iov += cur_async->nr;
+		iov->iov_base = buf;
+		iov->iov_len = len;
+
+		cur_async->nr = n_iovs;
+	}
+
+	cur_async->end += len;
+
+	return 0;
+}
+
+static int maybe_read_page(struct page_read *pr, unsigned long vaddr,
+			   unsigned long len, void *buf, unsigned flags)
+{
+	int ret;
+
+	if (flags & PR_ASYNC)
+		ret = enqueue_async_page(pr, vaddr, len, buf);
+	else
+		ret = read_local_page(pr, vaddr, len, buf);
 
 	pr->pi_off += len;
 
-	return 0;
+	return ret;
 }
 
 static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
@@ -289,7 +402,7 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
 		if (read_parent_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
 	} else {
-		if (read_local_page(pr, vaddr, len, buf, flags) < 0)
+		if (maybe_read_page(pr, vaddr, len, buf, flags) < 0)
 			return -1;
 	}
 
@@ -308,9 +421,40 @@ static void free_pagemaps(struct page_read *pr)
 	xfree(pr->pmes);
 }
 
+static int process_async_reads(struct page_read *pr)
+{
+	int fd, ret = 0;
+	struct page_read_iov *piov, *n;
+
+	fd = img_raw_fd(pr->pi);
+	list_for_each_entry_safe(piov, n, &pr->async, l) {
+		int ret;
+
+		ret = preadv(fd, piov->to, piov->nr, piov->from);
+		if (ret != piov->end - piov->from) {
+			pr_err("Can't read async pr bytes\n");
+			return -1;
+		}
+
+		if (opts.auto_dedup && punch_hole(pr, piov->from, ret, false))
+			return -1;
+
+		list_del(&piov->l);
+		xfree(piov->to);
+		xfree(piov);
+	}
+
+	if (pr->parent)
+		ret = process_async_reads(pr->parent);
+
+	return ret;
+}
+
 static void close_page_read(struct page_read *pr)
 {
 	int ret;
+
+	BUG_ON(!list_empty(&pr->async));
 
 	if (pr->bunch.iov_len > 0) {
 		ret = punch_hole(pr, 0, 0, true);
@@ -447,6 +591,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 		return -1;
 	}
 
+	INIT_LIST_HEAD(&pr->async);
 	pr->pe = NULL;
 	pr->parent = NULL;
 	pr->cvaddr = 0;
@@ -484,6 +629,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	pr->read_pages = read_pagemap_page;
 	pr->close = close_page_read;
 	pr->seek_page = seek_pagemap_page;
+	pr->sync = process_async_reads;
 	pr->id = ids++;
 
 	pr_debug("Opened page read %u (parent %u)\n",

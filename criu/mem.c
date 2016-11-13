@@ -791,6 +791,9 @@ static int restore_priv_vma_content(struct pstree_item *t)
 	}
 
 err_read:
+	if (pr.sync(&pr))
+		return -1;
+
 	pr.close(&pr);
 	if (ret < 0)
 		return ret;
