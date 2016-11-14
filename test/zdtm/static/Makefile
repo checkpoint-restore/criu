@@ -390,6 +390,7 @@ shm:			override CFLAGS += -DNEW_IPC_NS
 msgque:			override CFLAGS += -DNEW_IPC_NS
 sem:			override CFLAGS += -DNEW_IPC_NS
 posix_timers:		override LDLIBS += -lrt -pthread
+remap_dead_pid_root:	override CFLAGS += -DREMAP_PID_ROOT
 socket-tcp6: override CFLAGS += -D ZDTM_IPV6
 socket-tcpbuf6: override CFLAGS += -D ZDTM_IPV6
 socket-tcpbuf-local: override CFLAGS += -D ZDTM_TCP_LOCAL

@@ -14,6 +14,12 @@
 #define CLONE_NEWNS     0x00020000
 #endif
 
+#ifdef REMAP_PID_ROOT
+const char *proc_path = "/proc/%d";
+#else
+const char *proc_path = "/proc/%d/mountinfo";
+#endif
+
 const char *test_doc	= "Check that dead pid's /proc entries are remapped correctly";
 const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
 
@@ -40,7 +46,7 @@ int main(int argc, char **argv)
 		char path[PATH_MAX];
 		pid_t result;
 
-		sprintf(path, "/proc/%d/mountinfo", pid);
+		sprintf(path, proc_path, pid);
 		fd = open(path, O_RDONLY);
 		if (fd < 0) {
 			fail("failed to open fd");
@@ -52,11 +58,6 @@ int main(int argc, char **argv)
 		result = waitpid(pid, NULL, 0);
 		if (result < 0) {
 			fail("failed waitpid()");
-			return -1;
-		}
-
-		if (fd < 0) {
-			fail("failed opening %s", path);
 			return -1;
 		}
 
