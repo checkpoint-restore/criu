@@ -182,7 +182,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	CredsEntry *creds = tc->creds;
 	struct parasite_dump_creds *pc;
 	int ret;
-	struct thread_ctx octx;
+	struct parasite_thread_ctl *tctl;
 
 	BUG_ON(id == 0); /* Leader is dumped in dump_task_core_all */
 
@@ -196,30 +196,32 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 	pc->cap_last_cap = kdat.last_cap;
 
-	ret = compel_prepare_thread(pid, &octx);
-	if (ret)
+	tctl = compel_prepare_thread(ctl, pid);
+	if (!tctl)
 		return -1;
 
 	tc->has_blk_sigset = true;
-	memcpy(&tc->blk_sigset, compel_thread_sigmask(&octx), sizeof(k_rtsigset_t));
+	memcpy(&tc->blk_sigset, compel_thread_sigmask(tctl), sizeof(k_rtsigset_t));
 
-	ret = compel_run_in_thread(pid, PARASITE_CMD_DUMP_THREAD, ctl, &octx);
+	ret = compel_run_in_thread(pid, PARASITE_CMD_DUMP_THREAD, ctl, tctl);
 	if (ret) {
 		pr_err("Can't init thread in parasite %d\n", pid);
-		return -1;
+		goto err_rth;
 	}
 
 	ret = alloc_groups_copy_creds(creds, pc);
 	if (ret) {
 		pr_err("Can't copy creds for thread %d\n", pid);
-		return -1;
+		goto err_rth;
 	}
 
-	ret = compel_get_task_regs(pid, octx.regs, save_task_regs, core);
+	ret = compel_get_task_regs(pid, tctl->th.regs, save_task_regs, core);
 	if (ret) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
-		return -1;
+		goto err_rth;
 	}
+
+	compel_release_thread(tctl);
 
 	if (compel_mode_native(ctl)) {
 		tid->ns[0].virt = args->tid;
@@ -228,6 +230,10 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 		tid->ns[0].virt = args_c->tid;
 		return dump_thread_core(pid, core, false, args_c);
 	}
+
+err_rth:
+	compel_release_thread(tctl);
+	return -1;
 }
 
 #define ASSIGN_SAS(se, args)							\

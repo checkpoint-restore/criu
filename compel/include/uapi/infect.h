@@ -42,9 +42,14 @@ struct thread_ctx {
 	user_regs_struct_t	regs;
 };
 
+struct parasite_thread_ctl {
+	struct thread_ctx	th;
+};
+
 extern struct parasite_ctl *compel_prepare(int pid);
 extern int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size);
-extern int compel_prepare_thread(int pid, struct thread_ctx *ctx);
+extern struct parasite_thread_ctl *compel_prepare_thread(struct parasite_ctl *ctl, int pid);
+extern void compel_release_thread(struct parasite_thread_ctl *);
 
 extern int compel_stop_daemon(struct parasite_ctl *ctl);
 extern int compel_cure_remote(struct parasite_ctl *ctl);
@@ -68,7 +73,7 @@ extern int compel_execute_syscall(struct parasite_ctl *ctl,
 		user_regs_struct_t *regs, const char *code_syscall);
 extern int compel_run_in_thread(pid_t pid, unsigned int cmd,
 					struct parasite_ctl *ctl,
-					struct thread_ctx *octx);
+					struct parasite_thread_ctl *tctl);
 
 /*
  * The PTRACE_SYSCALL will trap task twice -- on
@@ -92,7 +97,7 @@ extern int compel_unmap(struct parasite_ctl *ctl, unsigned long addr);
 extern int compel_mode_native(struct parasite_ctl *ctl);
 
 extern k_rtsigset_t *compel_task_sigmask(struct parasite_ctl *ctl);
-extern k_rtsigset_t *compel_thread_sigmask(struct thread_ctx *tctx);
+extern k_rtsigset_t *compel_thread_sigmask(struct parasite_thread_ctl *tctl);
 
 struct rt_sigframe;
 
