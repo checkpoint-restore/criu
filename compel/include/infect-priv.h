@@ -42,6 +42,8 @@ struct parasite_ctl {
 };
 
 struct parasite_thread_ctl {
+	int			tid;
+	struct parasite_ctl	*ctl;
 	struct thread_ctx	th;
 };
 
