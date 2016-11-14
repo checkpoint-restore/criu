@@ -27,7 +27,7 @@ static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds, bool with_
 }
 
 static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr,
-		int saddr_len, bool with_flags)
+		int saddr_len)
 {
 	struct cmsghdr *cmsg;
 
@@ -58,7 +58,7 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 	int *cmsg_data;
 	int i, min_fd, ret;
 
-	cmsg_data = scm_fdset_init(&fdset, saddr, len, with_flags);
+	cmsg_data = scm_fdset_init(&fdset, saddr, len);
 	for (i = 0; i < nr_fds; i += min_fd) {
 		min_fd = min(CR_SCM_MAX_FD, nr_fds - i);
 		scm_fdset_init_chunk(&fdset, min_fd, with_flags);
@@ -126,7 +126,7 @@ int recv_fds(int sock, int *fds, int nr_fds, struct fd_opts *opts)
 	int ret;
 	int i, min_fd;
 
-	cmsg_data = scm_fdset_init(&fdset, NULL, 0, opts != NULL);
+	cmsg_data = scm_fdset_init(&fdset, NULL, 0);
 	for (i = 0; i < nr_fds; i += min_fd) {
 		min_fd = min(CR_SCM_MAX_FD, nr_fds - i);
 		scm_fdset_init_chunk(&fdset, min_fd, opts != NULL);
