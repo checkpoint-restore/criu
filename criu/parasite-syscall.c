@@ -201,7 +201,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 		return -1;
 
 	tc->has_blk_sigset = true;
-	memcpy(&tc->blk_sigset, &octx.sigmask, sizeof(k_rtsigset_t));
+	memcpy(&tc->blk_sigset, compel_thread_sigmask(&octx), sizeof(k_rtsigset_t));
 
 	ret = compel_run_in_thread(pid, PARASITE_CMD_DUMP_THREAD, ctl, &octx);
 	if (ret) {

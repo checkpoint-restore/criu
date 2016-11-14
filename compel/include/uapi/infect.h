@@ -92,6 +92,7 @@ extern int compel_unmap(struct parasite_ctl *ctl, unsigned long addr);
 extern int compel_mode_native(struct parasite_ctl *ctl);
 
 extern k_rtsigset_t *compel_task_sigmask(struct parasite_ctl *ctl);
+extern k_rtsigset_t *compel_thread_sigmask(struct thread_ctx *tctx);
 
 struct rt_sigframe;
 
