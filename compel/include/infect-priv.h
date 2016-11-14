@@ -5,6 +5,11 @@
 
 #define BUILTIN_SYSCALL_SIZE	8
 
+struct thread_ctx {
+	k_rtsigset_t		sigmask;
+	user_regs_struct_t	regs;
+};
+
 /* parasite control block */
 struct parasite_ctl {
 	int			rpid;					/* Real pid of the victim */
@@ -34,6 +39,10 @@ struct parasite_ctl {
 	int			tsock;					/* transport socket for transferring fds */
 
 	struct parasite_blob_desc pblob;
+};
+
+struct parasite_thread_ctl {
+	struct thread_ctx	th;
 };
 
 #define MEMFD_FNAME	"CRIUMFD"
