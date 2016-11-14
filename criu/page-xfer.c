@@ -210,7 +210,7 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 		pr_debug("\tFound %p/%zu\n", piov.iov_base, piov.iov_len);
 
 		/*
-		 * The pagemap entry in parent may heppen to be
+		 * The pagemap entry in parent may happen to be
 		 * shorter, than the hole we write. In this case
 		 * we should go ahead and check the remainder.
 		 */
