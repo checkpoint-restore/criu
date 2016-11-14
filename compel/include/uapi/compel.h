@@ -17,13 +17,7 @@ typedef struct {
 	long		value;
 } compel_reloc_t;
 
-/*
- * Logging
- */
-typedef void (*compel_log_fn)(unsigned int lvl, const char *fmt, va_list parms);
-extern void compel_log_init(compel_log_fn log_fn, unsigned int level);
-extern unsigned int compel_log_get_loglevel(void);
-
+#include <compel/log.h>
 #include <compel/infect-util.h>
 #include <compel/infect-rpc.h>
 #include <compel/infect.h>
