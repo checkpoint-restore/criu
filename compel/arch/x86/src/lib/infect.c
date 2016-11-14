@@ -51,7 +51,7 @@ static inline __always_unused void __check_code_syscall(void)
 	((user_regs_native(pregs)) ? (int64_t)((pregs)->native.name) :	\
 				(int32_t)((pregs)->compat.name))
 
-int compel_get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
+int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
 {
 	user_fpregs_struct_t xsave	= {  }, *xs = NULL;
 
