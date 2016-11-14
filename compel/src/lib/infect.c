@@ -856,6 +856,9 @@ struct parasite_thread_ctl *compel_prepare_thread(struct parasite_ctl *ctl, int 
 		if (prepare_thread(pid, &tctl->th)) {
 			xfree(tctl);
 			tctl = NULL;
+		} else {
+			tctl->tid = pid;
+			tctl->ctl = ctl;
 		}
 	}
 
@@ -1083,10 +1086,10 @@ void *compel_parasite_args_s(struct parasite_ctl *ctl, int args_size)
 	return compel_parasite_args_p(ctl);
 }
 
-int compel_run_in_thread(pid_t pid, unsigned int cmd,
-					struct parasite_ctl *ctl,
-					struct parasite_thread_ctl *tctl)
+int compel_run_in_thread(struct parasite_thread_ctl *tctl, unsigned int cmd)
 {
+	int pid = tctl->tid;
+	struct parasite_ctl *ctl = tctl->ctl;
 	struct thread_ctx *octx = &tctl->th;
 	void *stack = ctl->r_thread_stack;
 	user_regs_struct_t regs = octx->regs;
@@ -1297,9 +1300,9 @@ k_rtsigset_t *compel_task_sigmask(struct parasite_ctl *ctl)
 	return thread_ctx_sigmask(&ctl->orig);
 }
 
-int compel_get_thread_regs(pid_t pid, struct parasite_thread_ctl *tctl, save_regs_t save, void * arg)
+int compel_get_thread_regs(struct parasite_thread_ctl *tctl, save_regs_t save, void * arg)
 {
-	return get_task_regs(pid, tctl->th.regs, save, arg);
+	return get_task_regs(tctl->tid, tctl->th.regs, save, arg);
 }
 
 struct infect_ctx *compel_infect_ctx(struct parasite_ctl *ctl)
