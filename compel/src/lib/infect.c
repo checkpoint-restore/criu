@@ -616,7 +616,7 @@ static int parasite_start_daemon(struct parasite_ctl *ctl)
 	 * while in daemon it is not such.
 	 */
 
-	if (compel_get_task_regs(pid, ctl->orig.regs, ictx->save_regs, ictx->regs_arg)) {
+	if (get_task_regs(pid, ctl->orig.regs, ictx->save_regs, ictx->regs_arg)) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		return -1;
 	}
@@ -1295,6 +1295,11 @@ k_rtsigset_t *compel_thread_sigmask(struct parasite_thread_ctl *tctl)
 k_rtsigset_t *compel_task_sigmask(struct parasite_ctl *ctl)
 {
 	return thread_ctx_sigmask(&ctl->orig);
+}
+
+int compel_get_thread_regs(pid_t pid, struct parasite_thread_ctl *tctl, save_regs_t save, void * arg)
+{
+	return get_task_regs(pid, tctl->th.regs, save, arg);
 }
 
 struct infect_ctx *compel_infect_ctx(struct parasite_ctl *ctl)

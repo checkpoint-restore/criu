@@ -215,7 +215,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 		goto err_rth;
 	}
 
-	ret = compel_get_task_regs(pid, tctl->th.regs, save_task_regs, core);
+	ret = compel_get_thread_regs(pid, tctl, save_task_regs, core);
 	if (ret) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		goto err_rth;

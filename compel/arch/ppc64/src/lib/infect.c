@@ -244,7 +244,7 @@ static int __get_task_regs(pid_t pid, user_regs_struct_t *regs,
 	return 0;
 }
 
-int compel_get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
+int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
 {
 	user_fpregs_struct_t fpregs;
 	int ret;
