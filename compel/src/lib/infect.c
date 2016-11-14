@@ -54,6 +54,8 @@
 
 #define SI_EVENT(_si_code)	(((_si_code) & 0xFFFF) >> 8)
 
+static int prepare_thread(int pid, struct thread_ctx *ctx);
+
 static inline void close_safe(int *pfd)
 {
 	if (*pfd > -1) {
@@ -845,7 +847,22 @@ err:
 	return -1;
 }
 
-int compel_prepare_thread(int pid, struct thread_ctx *ctx)
+struct parasite_thread_ctl *compel_prepare_thread(struct parasite_ctl *ctl, int pid)
+{
+	struct parasite_thread_ctl *tctl;
+
+	tctl = xmalloc(sizeof(*tctl));
+	if (tctl) {
+		if (prepare_thread(pid, &tctl->th)) {
+			xfree(tctl);
+			tctl = NULL;
+		}
+	}
+
+	return tctl;
+}
+
+static int prepare_thread(int pid, struct thread_ctx *ctx)
 {
 	if (ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &ctx->sigmask)) {
 		pr_perror("can't get signal blocking mask for %d", pid);
@@ -858,6 +875,15 @@ int compel_prepare_thread(int pid, struct thread_ctx *ctx)
 	}
 
 	return 0;
+}
+
+void compel_release_thread(struct parasite_thread_ctl *tctl)
+{
+	/*
+	 * No stuff to cure in thread here, all routines leave the
+	 * guy intact (for now)
+	 */
+	xfree(tctl);
 }
 
 struct parasite_ctl *compel_prepare(int pid)
@@ -876,7 +902,7 @@ struct parasite_ctl *compel_prepare(int pid)
 	ctl->tsock = -1;
 	ctl->ictx.log_fd = -1;
 
-	if (compel_prepare_thread(pid, &ctl->orig))
+	if (prepare_thread(pid, &ctl->orig))
 		goto err;
 
 	ctl->rpid = pid;
@@ -1059,8 +1085,9 @@ void *compel_parasite_args_s(struct parasite_ctl *ctl, int args_size)
 
 int compel_run_in_thread(pid_t pid, unsigned int cmd,
 					struct parasite_ctl *ctl,
-					struct thread_ctx *octx)
+					struct parasite_thread_ctl *tctl)
 {
+	struct thread_ctx *octx = &tctl->th;
 	void *stack = ctl->r_thread_stack;
 	user_regs_struct_t regs = octx->regs;
 	int ret;
@@ -1255,14 +1282,19 @@ int compel_mode_native(struct parasite_ctl *ctl)
 	return user_regs_native(&ctl->orig.regs);
 }
 
-k_rtsigset_t *compel_thread_sigmask(struct thread_ctx *tctx)
+static inline k_rtsigset_t *thread_ctx_sigmask(struct thread_ctx *tctx)
 {
 	return &tctx->sigmask;
 }
 
+k_rtsigset_t *compel_thread_sigmask(struct parasite_thread_ctl *tctl)
+{
+	return thread_ctx_sigmask(&tctl->th);
+}
+
 k_rtsigset_t *compel_task_sigmask(struct parasite_ctl *ctl)
 {
-	return compel_thread_sigmask(&ctl->orig);
+	return thread_ctx_sigmask(&ctl->orig);
 }
 
 struct infect_ctx *compel_infect_ctx(struct parasite_ctl *ctl)
