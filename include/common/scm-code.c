@@ -118,7 +118,11 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 	return 0;
 }
 
+#ifdef SCM_FDSET_HAS_OPTS
 int recv_fds(int sock, int *fds, int nr_fds, struct fd_opts *opts)
+#else
+int recv_fds(int sock, int *fds, int nr_fds, char *opts)
+#endif
 {
 	struct scm_fdset fdset;
 	struct cmsghdr *cmsg;
