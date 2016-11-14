@@ -2,6 +2,8 @@
 #define __COMMON_SCM_H__
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <sys/un.h>
 
 /*
  * Because of kernel doing kmalloc for user data passed
@@ -39,6 +41,15 @@ struct scm_fdset {
 
 #ifndef F_GETOWNER_UIDS
 #define F_GETOWNER_UIDS	17
+#endif
+
+extern int send_fds(int sock, struct sockaddr_un *saddr, int len,
+		    int *fds, int nr_fds, bool with_flags);
+
+#ifdef SCM_FDSET_HAS_OPTS
+extern int recv_fds(int sock, int *fds, int nr_fds, struct fd_opts *opts);
+#else
+extern int recv_fds(int sock, int *fds, int nr_fds, char *opts);
 #endif
 
 #endif
