@@ -906,7 +906,7 @@ out:
 	 * on urgent data is the smartest mode ever.
 	 */
 	tcp_cork(page_server_sk, true);
-	return 0;
+	return page_server_sk;
 }
 
 int disconnect_from_page_server(void)
