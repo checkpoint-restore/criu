@@ -566,7 +566,7 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	return len;
 }
 
-static int uffd_handle_page(struct lazy_pages_info *lpi, __u64 address)
+static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
 {
 	int ret;
 
@@ -577,19 +577,19 @@ static int uffd_handle_page(struct lazy_pages_info *lpi, __u64 address)
 		return 0;
 
 	if (pagemap_zero(lpi->pr.pe))
-		return uffd_zero(lpi, address, 1);
+		return uffd_zero(lpi, address, nr);
 
 	if (opts.use_page_server)
-		ret = get_remote_pages(lpi->pid, address, 1, lpi->buf);
+		ret = get_remote_pages(lpi->pid, address, nr, lpi->buf);
 	else
-		ret = lpi->pr.read_pages(&lpi->pr, address, 1, lpi->buf, 0);
+		ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, 0);
 
 	if (ret <= 0) {
 		pr_err("%d: failed reading pages at %llx\n", lpi->pid, address);
 		return ret;
 	}
 
-	return uffd_copy(lpi, address, 1);
+	return uffd_copy(lpi, address, nr);
 }
 
 static int handle_remaining_pages(struct lazy_pages_info *lpi)
@@ -606,7 +606,7 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 		for (i = 0; i < nr_pages; i++) {
 			addr = lazy_iov->base + i * PAGE_SIZE;
 
-			err = uffd_handle_page(lpi, addr);
+			err = uffd_handle_pages(lpi, addr, 1);
 			if (err < 0) {
 				pr_err("Error during UFFD copy\n");
 				return -1;
@@ -617,17 +617,18 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	return 0;
 }
 
-static int handle_regular_pages(struct lazy_pages_info *lpi, __u64 address)
+static int handle_regular_pages(struct lazy_pages_info *lpi, __u64 address,
+				int nr)
 {
 	int rc;
 
-	rc = uffd_handle_page(lpi, address);
+	rc = uffd_handle_pages(lpi, address, nr);
 	if (rc < 0) {
 		pr_err("Error during UFFD copy\n");
 		return -1;
 	}
 
-	rc = update_lazy_iovecs(lpi, address, PAGE_SIZE);
+	rc = update_lazy_iovecs(lpi, address, PAGE_SIZE * nr);
 	if (rc < 0)
 		return -1;
 
@@ -670,7 +671,7 @@ static int handle_user_fault(struct lazy_pages_fd *lpfd)
 	flags = msg.arg.pagefault.flags;
 	pr_debug("msg.arg.pagefault.flags 0x%llx\n", flags);
 
-	ret = handle_regular_pages(lpi, address);
+	ret = handle_regular_pages(lpi, address, 1);
 	if (ret < 0) {
 		pr_err("Error during regular page copy\n");
 		return -1;
