@@ -569,7 +569,17 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	return 0;
 }
 
-static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
+/*
+ * Seek for the requested address in the pagemap. If it is found, the
+ * subsequent call to pr->page_read will bring us the data. If the
+ * address is not found in the pagemap, but no error occured, the
+ * address should be mapped to zero pfn.
+ *
+ * Returns 0 for zero pages, 1 for "real" pages and negative value on
+ * error
+ */
+static int uffd_seek_or_zero_pages(struct lazy_pages_info *lpi, __u64 address,
+				   int nr)
 {
 	int ret;
 
@@ -581,6 +591,17 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
 
 	if (pagemap_zero(lpi->pr.pe))
 		return uffd_zero(lpi, address, nr);
+
+	return 1;
+}
+
+static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
+{
+	int ret;
+
+	ret = uffd_seek_or_zero_pages(lpi, address, nr);
+	if (ret <= 0)
+		return ret;
 
 	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, 0);
 	if (ret <= 0) {
