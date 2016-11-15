@@ -1,0 +1,58 @@
+CRIT(1)
+=======
+include::footer.txt[]
+
+NAME
+----
+crit - CRiu Image Tool
+
+SYNOPSIS
+--------
+*crit* 'decode' [-h] [-i IN] [-o OUT] [--pretty]
+
+*crit* 'encode' [-h] [-i IN] [-o OUT]
+
+*crit* 'info' [-h] in
+
+*crit* 'x' [-h] dir {ps,fds,mems}
+
+*crit* 'show' [-h] in
+
+DESCRIPTION
+-----------
+*crit* is a feature-rich replacement for existing *criu* show.
+
+ARGUMENTS
+---------
+
+Positional Arguments
+~~~~~~~~~~~~~~~~~~~~
+
+*decode*::
+    convert *criu* image from binary type JSON
+
+*encode*::
+    convert *criu* image from JSON type to binary
+
+*info*::
+    show info about image
+
+*x*::
+    explore image directory
+
+*show*::
+    convert *criu* image from binary to human-readable JSON
+
+Optional Arguments
+~~~~~~~~~~~~~~~~~~
+
+*-h*, *--help*::
+    Print some help and exit
+
+SEE ALSO
+--------
+criu(8)
+
+AUTHOR
+------
+The CRIU team
