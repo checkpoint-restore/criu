@@ -53,9 +53,13 @@ struct lazy_iovec {
 	unsigned long len;
 };
 
+struct lazy_pages_fd {
+	int fd;
+	int (*event)(struct lazy_pages_fd *, void *dest);
+};
+
 struct lazy_pages_info {
 	int pid;
-	int uffd;
 
 	struct list_head iovs;
 
@@ -64,10 +68,13 @@ struct lazy_pages_info {
 	unsigned long total_pages;
 	unsigned long copied_pages;
 
+	struct lazy_pages_fd lpfd;
+
 	struct list_head l;
 };
 
 static LIST_HEAD(lpis);
+static int handle_user_fault(struct lazy_pages_fd *lpfd, void *dest);
 
 static struct lazy_pages_info *lpi_init(void)
 {
@@ -80,6 +87,7 @@ static struct lazy_pages_info *lpi_init(void)
 	memset(lpi, 0, sizeof(*lpi));
 	INIT_LIST_HEAD(&lpi->iovs);
 	INIT_LIST_HEAD(&lpi->l);
+	lpi->lpfd.event = handle_user_fault;
 
 	return lpi;
 }
@@ -92,8 +100,8 @@ static void lpi_fini(struct lazy_pages_info *lpi)
 		return;
 	list_for_each_entry_safe(p, n, &lpi->iovs, l)
 		xfree(p);
-	if (lpi->uffd > 0)
-		close(lpi->uffd);
+	if (lpi->lpfd.fd > 0)
+		close(lpi->lpfd.fd);
 	if (lpi->pr.close)
 		lpi->pr.close(&lpi->pr);
 	free(lpi);
@@ -457,15 +465,15 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 		return 0;
 	}
 
-	lpi->uffd = recv_fd(client);
-	if (lpi->uffd < 0) {
+	lpi->lpfd.fd = recv_fd(client);
+	if (lpi->lpfd.fd < 0) {
 		pr_err("recv_fd error");
 		goto out;
 	}
-	pr_debug("lpi->uffd %d\n", lpi->uffd);
+	pr_debug("lpi->uffd %d\n", lpi->lpfd.fd);
 
-	pr_debug("uffd is 0x%d\n", lpi->uffd);
-	uffd_flags = fcntl(lpi->uffd, F_GETFD, NULL);
+	pr_debug("uffd is 0x%d\n", lpi->lpfd.fd);
+	uffd_flags = fcntl(lpi->lpfd.fd, F_GETFD, NULL);
 	pr_debug("uffd_flags are 0x%x\n", uffd_flags);
 
 	ret = open_page_read(lpi->pid, &lpi->pr, PR_TASK);
@@ -537,7 +545,7 @@ static int uffd_copy_page(struct lazy_pages_info *lpi, __u64 address,
 	uffdio_copy.copy = 0;
 
 	pr_debug("uffdio_copy.dst 0x%llx\n", uffdio_copy.dst);
-	rc = ioctl(lpi->uffd, UFFDIO_COPY, &uffdio_copy);
+	rc = ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy);
 	pr_debug("ioctl UFFDIO_COPY rc 0x%x\n", rc);
 	pr_debug("uffdio_copy.copy 0x%llx\n", uffdio_copy.copy);
 	if (rc) {
@@ -568,7 +576,7 @@ static int uffd_zero_page(struct lazy_pages_info *lpi, __u64 address)
 	uffdio_zeropage.mode = 0;
 
 	pr_debug("uffdio_zeropage.range.start 0x%llx\n", uffdio_zeropage.range.start);
-	rc = ioctl(lpi->uffd, UFFDIO_ZEROPAGE, &uffdio_zeropage);
+	rc = ioctl(lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage);
 	pr_debug("ioctl UFFDIO_ZEROPAGE rc 0x%x\n", rc);
 	pr_debug("uffdio_zeropage.zeropage 0x%llx\n", uffdio_zeropage.zeropage);
 	if (rc) {
@@ -634,14 +642,17 @@ static int handle_regular_pages(struct lazy_pages_info *lpi, void *dest,
 	return 0;
 }
 
-static int handle_user_fault(struct lazy_pages_info *lpi, void *dest)
+static int handle_user_fault(struct lazy_pages_fd *lpfd, void *dest)
 {
+	struct lazy_pages_info *lpi;
 	struct uffd_msg msg;
 	__u64 flags;
 	__u64 address;
 	int ret;
 
-	ret = read(lpi->uffd, &msg, sizeof(msg));
+	lpi = container_of(lpfd, struct lazy_pages_info, lpfd);
+
+	ret = read(lpfd->fd, &msg, sizeof(msg));
 	pr_debug("read() ret: 0x%x\n", ret);
 	if (!ret)
 		return 1;
@@ -709,6 +720,8 @@ static int handle_requests(int epollfd, struct epoll_event *events)
 		return ret;
 
 	while (1) {
+		struct lazy_pages_fd *lpfd;
+
 		/*
 		 * Setting the timeout to 5 seconds. If after this time
 		 * no uffd pages are requested the code switches to
@@ -728,8 +741,8 @@ static int handle_requests(int epollfd, struct epoll_event *events)
 		for (i = 0; i < ret; i++) {
 			int err;
 
-			lpi = (struct lazy_pages_info *)events[i].data.ptr;
-			err = handle_user_fault(lpi, dest);
+			lpfd = (struct lazy_pages_fd *)events[i].data.ptr;
+			err = lpfd->event(lpfd, dest);
 			if (err < 0)
 				goto out;
 		}
@@ -789,13 +802,13 @@ free_events:
 	return -1;
 }
 
-static int epoll_add_lpi(int epollfd, struct lazy_pages_info *lpi)
+static int epoll_add_lpfd(int epollfd, struct lazy_pages_fd *lpfd)
 {
 	struct epoll_event ev;
 
 	ev.events = EPOLLIN;
-	ev.data.ptr = lpi;
-	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, lpi->uffd, &ev) == -1) {
+	ev.data.ptr = lpfd;
+	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, lpfd->fd, &ev) == -1) {
 		pr_perror("epoll_ctl failed");
 		return -1;
 	}
@@ -842,7 +855,7 @@ static int prepare_uffds(int listen, int epollfd)
 			goto close_uffd;
 		if (lpi == NULL)
 			continue;
-		if (epoll_add_lpi(epollfd, lpi))
+		if (epoll_add_lpfd(epollfd, &lpi->lpfd))
 			goto close_uffd;
 	}
 
