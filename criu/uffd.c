@@ -47,11 +47,17 @@
 
 static mutex_t *lazy_sock_mutex;
 
+struct lazy_iovec {
+	struct list_head l;
+	unsigned long base;
+	unsigned long len;
+};
+
 struct lazy_pages_info {
 	int pid;
 	int uffd;
 
-	struct list_head pages;
+	struct list_head iovs;
 
 	struct page_read pr;
 
@@ -72,7 +78,7 @@ static struct lazy_pages_info *lpi_init(void)
 		return NULL;
 
 	memset(lpi, 0, sizeof(*lpi));
-	INIT_LIST_HEAD(&lpi->pages);
+	INIT_LIST_HEAD(&lpi->iovs);
 	INIT_LIST_HEAD(&lpi->l);
 
 	return lpi;
@@ -80,8 +86,12 @@ static struct lazy_pages_info *lpi_init(void)
 
 static void lpi_fini(struct lazy_pages_info *lpi)
 {
+	struct lazy_iovec *p, *n;
+
 	if (!lpi)
 		return;
+	list_for_each_entry_safe(p, n, &lpi->iovs, l)
+		xfree(p);
 	if (lpi->uffd > 0)
 		close(lpi->uffd);
 	if (lpi->pr.close)
@@ -288,118 +298,135 @@ out:
 	return -1;
 }
 
-#define UFFD_FLAG_SENT	0x1
-
-struct uffd_pages_struct {
-	struct list_head list;
-	unsigned long addr;
-	int flags;
-};
-
-static int collect_uffd_pages(struct lazy_pages_info *lpi, MmEntry *mm)
-{
-	unsigned long base;
-	int i, j;
-	struct iovec iov;
-	unsigned long nr_pages;
-	unsigned long ps;
-	int rc;
-	struct uffd_pages_struct *uffd_pages;
-	struct page_read *pr = &lpi->pr;
-
-	rc = pr->get_pagemap(pr, &iov);
-	if (rc <= 0)
-		return 0;
-
-	ps = page_size();
-	nr_pages = iov.iov_len / ps;
-	base = (unsigned long) iov.iov_base;
-	pr_debug("iov.iov_base 0x%lx (%ld pages)\n", base, nr_pages);
-
-	for (i = 0; i < nr_pages; i++) {
-		bool uffd_page = false;
-		base = (unsigned long) iov.iov_base + (i * ps);
-		/*
-		 * Only pages which are MAP_ANONYMOUS and MAP_PRIVATE
-		 * are relevant for userfaultfd handling.
-		 * Loop over all VMAs to see if the flags matching.
-		 */
-		for (j = 0; j < mm->n_vmas; j++) {
-			VmaEntry *vma = mm->vmas[j];
-			/*
-			 * This loop assumes that base can actually be found
-			 * in the VMA list.
-			 */
-			if (base >= vma->start && base < vma->end) {
-				if (vma_entry_can_be_lazy(vma)) {
-					if(!pagemap_in_parent(pr->pe))
-						uffd_page = true;
-					break;
-				}
-			}
-		}
-
-		/* This is not a page we are looking for. Move along */
-		if (!uffd_page)
-			continue;
-
-		pr_debug("Adding 0x%lx to our list\n", base);
-
-		uffd_pages = xzalloc(sizeof(struct uffd_pages_struct));
-		if (!uffd_pages)
-			return -1;
-		uffd_pages->addr = base;
-		list_add(&uffd_pages->list, &lpi->pages);
-	}
-
-	return 1;
-}
-
-/*
- *  Setting up criu infrastructure and scan for VMAs.
- */
-static int find_vmas(struct lazy_pages_info *lpi)
+static MmEntry *init_mm_entry(struct lazy_pages_info *lpi)
 {
 	struct cr_img *img;
-	int ret;
 	MmEntry *mm;
-	struct uffd_pages_struct *uffd_pages;
+	int ret;
 
 	img = open_image(CR_FD_MM, O_RSTR, lpi->pid);
 	if (!img)
-		return -1;
+		return NULL;
 
 	ret = pb_read_one_eof(img, &mm, PB_MM);
 	close_image(img);
 	if (ret == -1)
-		return -1;
+		return NULL;
 	pr_debug("Found %zd VMAs in image\n", mm->n_vmas);
 
-	ret = open_page_read(lpi->pid, &lpi->pr, PR_TASK);
-	if (ret <= 0) {
-		ret = -1;
-		goto out;
-	}
-	/*
-	 * This puts all pages which should be handled by userfaultfd
-	 * in the list uffd_list. This list is later used to detect if
-	 * a page has already been transferred or if it needs to be
-	 * pushed into the process using userfaultfd.
-	 */
-	do {
-		ret = collect_uffd_pages(lpi, mm);
-		if (ret == -1) {
-			goto out;
+	return mm;
+}
+
+static int update_lazy_iovecs(struct lazy_pages_info *lpi, unsigned long addr,
+			      int len)
+{
+	struct lazy_iovec *lazy_iov, *n;
+
+	list_for_each_entry_safe(lazy_iov, n, &lpi->iovs, l) {
+		unsigned long start = lazy_iov->base;
+		unsigned long end = start + lazy_iov->len;
+
+		if (len <= 0)
+			break;
+
+		if (addr < start || addr >= end)
+			continue;
+
+		if (addr + len < end) {
+			if (addr == start) {
+				lazy_iov->base += len;
+				lazy_iov->len -= len;
+			} else {
+				struct lazy_iovec *new_iov;
+
+				lazy_iov->len -= (end - addr);
+
+				new_iov = xzalloc(sizeof(*new_iov));
+				if (!new_iov)
+					return -1;
+
+				new_iov->base = addr + len;
+				new_iov->len = end - (addr + len);
+
+				list_add(&new_iov->l, &lazy_iov->l);
+			}
+			break;
 		}
-	} while (ret);
 
-	/* Count detected pages */
-	list_for_each_entry(uffd_pages, &lpi->pages, list)
-	    ret++;
+		if (addr == start) {
+			list_del(&lazy_iov->l);
+			xfree(lazy_iov);
+		} else {
+			lazy_iov->len -= (end - addr);
+		}
 
-	pr_debug("Found %d pages to be handled by UFFD\n", ret);
+		len -= (end - addr);
+		addr = end;
+	}
 
-out:
+	return 0;
+}
+
+/*
+ * Create a list of IOVs that can be handled using userfaultfd. The
+ * IOVs generally correspond to lazy pagemap entries, except the cases
+ * when a single pagemap entry covers several VMAs. In those cases
+ * IOVs are split at VMA boundaries because UFFDIO_COPY may be done
+ * only inside a single VMA.
+ * We assume here that pagemaps and VMAs are sorted.
+ */
+static int collect_lazy_iovecs(struct lazy_pages_info *lpi)
+{
+	struct page_read *pr = &lpi->pr;
+	struct lazy_iovec *lazy_iov, *n;
+	MmEntry *mm;
+	int nr_pages = 0, n_vma = 0;
+	int ret = -1;
+	unsigned long start, end, len;
+
+	mm = init_mm_entry(lpi);
+	if (!mm)
+		return -1;
+
+	while (pr->advance(pr)) {
+		if (!pagemap_lazy(pr->pe))
+			continue;
+
+		start = pr->pe->vaddr;
+		end = start + pr->pe->nr_pages * page_size();
+		nr_pages += pr->pe->nr_pages;
+
+		for (; n_vma < mm->n_vmas; n_vma++) {
+			VmaEntry *vma = mm->vmas[n_vma];
+
+			if (start >= vma->end)
+				continue;
+
+			lazy_iov = xzalloc(sizeof(*lazy_iov));
+			if (!lazy_iov)
+				goto free_iovs;
+
+			len = min_t(uint64_t, end, vma->end) - start;
+			lazy_iov->base = start;
+			lazy_iov->len = len;
+			list_add_tail(&lazy_iov->l, &lpi->iovs);
+
+			if (end <= vma->end)
+				break;
+
+			start = vma->end;
+		}
+	}
+
+	ret = nr_pages;
+	goto free_mm;
+
+free_iovs:
+	list_for_each_entry_safe(lazy_iov, n, &lpi->iovs, l)
+		xfree(lazy_iov);
+free_mm:
+	mm_entry__free_unpacked(mm, NULL);
+
 	return ret;
 }
 
@@ -441,12 +468,22 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 	uffd_flags = fcntl(lpi->uffd, F_GETFD, NULL);
 	pr_debug("uffd_flags are 0x%x\n", uffd_flags);
 
+	ret = open_page_read(lpi->pid, &lpi->pr, PR_TASK);
+	if (ret <= 0) {
+		ret = -1;
+		goto out;
+	}
+
 	/*
 	 * Find the memory pages belonging to the restored process
 	 * so that it is trackable when all pages have been transferred.
 	 */
-	if ((lpi->total_pages = find_vmas(lpi)) == -1)
+	ret = collect_lazy_iovecs(lpi);
+	if (ret < 0)
 		goto out;
+	lpi->total_pages = ret;
+
+	pr_debug("Found %ld pages to be handled by UFFD\n", lpi->total_pages);
 
 	list_add_tail(&lpi->l, &lpis);
 	*_lpi = lpi;
@@ -556,33 +593,33 @@ static int uffd_handle_page(struct lazy_pages_info *lpi, __u64 address,
 
 static int handle_remaining_pages(struct lazy_pages_info *lpi, void *dest)
 {
-	struct uffd_pages_struct *uffd_pages;
-	int rc;
+	struct lazy_iovec *lazy_iov;
+	int nr_pages, i, err;
+	unsigned long addr;
 
-	list_for_each_entry(uffd_pages, &lpi->pages, list) {
-		pr_debug("Checking remaining pages 0x%lx (flags 0x%x)\n",
-			 uffd_pages->addr, uffd_pages->flags);
-		if (uffd_pages->flags & UFFD_FLAG_SENT)
-			continue;
+	lpi->pr.reset(&lpi->pr);
 
-		rc = uffd_handle_page(lpi, uffd_pages->addr, dest);
-		if (rc < 0) {
-			pr_err("Error during UFFD copy\n");
-			return -1;
+	list_for_each_entry(lazy_iov, &lpi->iovs, l) {
+		nr_pages = lazy_iov->len / PAGE_SIZE;
+
+		for (i = 0; i < nr_pages; i++) {
+			addr = lazy_iov->base + i * PAGE_SIZE;
+
+			err = uffd_handle_page(lpi, addr, dest);
+			if (err < 0) {
+				pr_err("Error during UFFD copy\n");
+				return -1;
+			}
 		}
-
-		uffd_pages->flags |= UFFD_FLAG_SENT;
 	}
 
 	return 0;
 }
 
-
 static int handle_regular_pages(struct lazy_pages_info *lpi, void *dest,
 				__u64 address)
 {
 	int rc;
-	struct uffd_pages_struct *uffd_pages;
 
 	rc = uffd_handle_page(lpi, address, dest);
 	if (rc < 0) {
@@ -590,14 +627,9 @@ static int handle_regular_pages(struct lazy_pages_info *lpi, void *dest,
 		return -1;
 	}
 
-	/*
-	 * Mark this page as having been already transferred, so
-	 * that it has not to be copied again later.
-	 */
-	list_for_each_entry(uffd_pages, &lpi->pages, list) {
-		if (uffd_pages->addr == address)
-			uffd_pages->flags |= UFFD_FLAG_SENT;
-	}
+	rc = update_lazy_iovecs(lpi, address, PAGE_SIZE);
+	if (rc < 0)
+		return -1;
 
 	return 0;
 }
@@ -607,7 +639,6 @@ static int handle_user_fault(struct lazy_pages_info *lpi, void *dest)
 	struct uffd_msg msg;
 	__u64 flags;
 	__u64 address;
-	struct uffd_pages_struct *uffd_pages;
 	int ret;
 
 	ret = read(lpi->uffd, &msg, sizeof(msg));
@@ -631,11 +662,6 @@ static int handle_user_fault(struct lazy_pages_info *lpi, void *dest)
 	/* Align requested address to the next page boundary */
 	address = msg.arg.pagefault.address & ~(page_size() - 1);
 	pr_debug("msg.arg.pagefault.address 0x%llx\n", address);
-
-	/* Make sure to not transfer a page twice */
-	list_for_each_entry(uffd_pages, &lpi->pages, list)
-		if ((uffd_pages->addr == address) && (uffd_pages->flags & UFFD_FLAG_SENT))
-			return 0;
 
 	/* Now handle the pages actually requested. */
 	flags = msg.arg.pagefault.flags;
