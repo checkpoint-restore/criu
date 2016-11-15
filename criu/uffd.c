@@ -544,7 +544,7 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 
 	lpi->copied_pages += nr_pages;
 
-	return uffdio_copy.copy;
+	return 0;
 }
 
 static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
@@ -566,7 +566,7 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 		return -1;
 	}
 
-	return len;
+	return 0;
 }
 
 static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
