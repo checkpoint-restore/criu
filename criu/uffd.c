@@ -565,11 +565,9 @@ static int uffd_handle_page(struct lazy_pages_info *lpi, __u64 address,
 
 	lpi->pr.reset(&lpi->pr);
 
-	ret = lpi->pr.seek_page(&lpi->pr, address);
-	if (ret < 0) {
-		pr_err("%d: no pagemap containing %llx\n", lpi->pid, address);
-		return ret;
-	}
+	ret = lpi->pr.seek_pagemap(&lpi->pr, address);
+	if (!ret)
+		return 0;
 
 	if (pagemap_zero(lpi->pr.pe))
 		return uffd_zero_page(lpi, address);
