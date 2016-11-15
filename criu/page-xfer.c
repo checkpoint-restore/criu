@@ -908,6 +908,7 @@ out:
 int get_remote_pages(int pid, unsigned long addr, int nr_pages, void *dest)
 {
 	int ret;
+	int len = PAGE_SIZE * nr_pages;
 
 	struct page_server_iov pi;
 
@@ -927,8 +928,8 @@ int get_remote_pages(int pid, unsigned long addr, int nr_pages, void *dest)
 	if (pi.nr_pages > nr_pages)
 		return -1;
 
-	ret = recv(page_server_sk, dest, PAGE_SIZE, MSG_WAITALL);
-	if (ret != PAGE_SIZE)
+	ret = recv(page_server_sk, dest, len, MSG_WAITALL);
+	if (ret != len)
 		return -1;
 
 	return 1;
