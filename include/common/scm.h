@@ -52,4 +52,20 @@ extern int recv_fds(int sock, int *fds, int nr_fds, struct fd_opts *opts);
 extern int recv_fds(int sock, int *fds, int nr_fds, char *opts);
 #endif
 
+static inline int send_fd(int sock, struct sockaddr_un *saddr, int saddr_len, int fd)
+{
+	return send_fds(sock, saddr, saddr_len, &fd, 1, false);
+}
+
+static inline int recv_fd(int sock)
+{
+	int fd, ret;
+
+	ret = recv_fds(sock, &fd, 1, NULL);
+	if (ret)
+		return -1;
+
+	return fd;
+}
+
 #endif
