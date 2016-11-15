@@ -61,6 +61,7 @@ def make_tests_root():
 		atexit.register(clean_tests_root)
 	return tests_root[1]
 
+
 # Report generation
 
 report_dir = None
@@ -122,6 +123,7 @@ def check_core_files():
 		print_sep(i)
 
 	return True
+
 
 # Arch we run on
 arch = os.uname()[4]
@@ -955,6 +957,7 @@ def try_run_hook(test, args):
 		if hook.wait() != 0:
 			raise test_fail_exc("hook " + " ".join(args))
 
+
 #
 # Step by step execution
 #
@@ -1607,6 +1610,7 @@ def run_tests(opts):
 		l.finish()
 		if opts['join_ns']:
 			subprocess.Popen(["ip", "netns", "delete", "zdtm_netns"])
+
 
 sti_fmt = "%-40s%-10s%s"
 
