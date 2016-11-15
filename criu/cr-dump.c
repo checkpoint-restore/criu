@@ -1559,7 +1559,7 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (vdso_init())
 		goto err;
 
-	if (connect_to_page_server())
+	if (connect_to_page_server() < 0)
 		goto err;
 
 	if (setup_alarm_handler())
@@ -1751,7 +1751,7 @@ int cr_dump_tasks(pid_t pid)
 			goto err;
 	}
 
-	if (connect_to_page_server())
+	if (connect_to_page_server() < 0)
 		goto err;
 
 	if (setup_alarm_handler())

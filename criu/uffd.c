@@ -847,6 +847,17 @@ close_uffd:
 	return -1;
 }
 
+static int prepare_page_server_socket(void)
+{
+	int sk;
+
+	sk = connect_to_page_server();
+	if (sk < 0)
+		return -1;
+
+	return 0;
+}
+
 int cr_lazy_pages(bool daemon)
 {
 	struct epoll_event *events;
@@ -894,7 +905,7 @@ int cr_lazy_pages(bool daemon)
 	if (prepare_uffds(lazy_sk, epollfd))
 		return -1;
 
-	if (connect_to_page_server())
+	if (prepare_page_server_socket())
 		return -1;
 
 	ret = handle_requests(epollfd, events);
