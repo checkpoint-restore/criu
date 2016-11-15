@@ -27,6 +27,15 @@
 #include "infect-priv.h"
 #include "infect-util.h"
 #include "rpc-pie-priv.h"
+#include "infect-util.h"
+
+#define __sys(foo)	foo
+#define __memcpy	memcpy
+
+#define SCM_FDSET_HAS_OPTS
+
+#include "common/scm.h"
+#include "common/scm-code.c"
 
 #define UNIX_PATH_MAX (sizeof(struct sockaddr_un) - \
 			(size_t)((struct sockaddr_un *) 0)->sun_path)
