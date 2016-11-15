@@ -388,7 +388,11 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 	int ret;
 
 	if (flags & PR_ASYNC)
-		ret = -1;	/* not yet supported */
+		/*
+		 * Note, that for async remote page_read, the actual
+		 * transfer happens in the lazy-pages daemon
+		 */
+		ret = request_remote_pages(pr->pid, vaddr, len / PAGE_SIZE);
 	else
 		ret = get_remote_pages(pr->pid, vaddr, nr, buf);
 
