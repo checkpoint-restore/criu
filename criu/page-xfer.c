@@ -934,3 +934,48 @@ int get_remote_pages(int pid, unsigned long addr, int nr_pages, void *dest)
 
 	return 1;
 }
+
+int request_remote_pages(int pid, unsigned long addr, int nr_pages)
+{
+	struct page_server_iov pi = {
+		.cmd		= PS_IOV_GET,
+		.nr_pages	= nr_pages,
+		.vaddr		= addr,
+		.dst_id		= pid,
+	};
+
+	/* We cannot use send_psi here because we have to use MSG_DONTWAIT */
+	if (send(page_server_sk, &pi, sizeof(pi), MSG_DONTWAIT) != sizeof(pi)) {
+		pr_perror("Can't write PSI to server");
+		return -1;
+	}
+
+	tcp_nodelay(page_server_sk, true);
+	return 0;
+}
+
+int receive_remote_pages_info(int *nr_pages, unsigned long *addr, int *pid)
+{
+	struct page_server_iov pi;
+
+	if (recv(page_server_sk, &pi, sizeof(pi), MSG_WAITALL) != sizeof(pi)) {
+		pr_perror("Failed to receive page metadata");
+		return -1;
+	}
+
+	*nr_pages = pi.nr_pages;
+	*addr = pi.vaddr;
+	*pid = pi.dst_id;
+
+	return 0;
+}
+
+int receive_remote_pages(int len, void *buf)
+{
+	if (recv(page_server_sk, buf, len, MSG_WAITALL) != len) {
+		pr_perror("Failed to receive page data");
+		return -1;
+	}
+
+	return 0;
+}
