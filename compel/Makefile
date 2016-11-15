@@ -15,10 +15,6 @@ ccflags-y		+= -I compel/include/uapi
 ccflags-y		+= -I compel/plugins/include/uapi
 
 lib-name		:= libcompel.a
-lib-y			+= arch/$(ARCH)/src/lib/handle-elf.o
-host-lib-y		+= arch/$(ARCH)/src/lib/handle-elf.o
-lib-y			+= src/lib/handle-elf.o
-host-lib-y		+= src/lib/handle-elf.o
 lib-y			+= src/lib/log.o
 host-lib-y		+= src/lib/log.o
 
@@ -30,11 +26,12 @@ lib-y			+= src/lib/infect.o
 lib-y			+= src/lib/ptrace.o
 
 ifeq ($(ARCH),x86)
-lib-y			+= src/lib/handle-elf-32.o
-host-lib-y		+= src/lib/handle-elf-32.o
+obj-y			+= src/lib/handle-elf-32.o
 endif
 
 obj-y			+= src/main.o
+obj-y			+= arch/$(ARCH)/src/lib/handle-elf.o
+obj-y			+= src/lib/handle-elf.o
 
 ifeq ($(ARCH),x86)
 CFLAGS_handle-elf-32.o += -UCONFIG_X86_64 -DCONFIG_X86_32
