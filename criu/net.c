@@ -1650,9 +1650,9 @@ int dump_net_ns(int ns_id)
 			ret = dump_route(fds);
 		if (!ret)
 			ret = dump_rule(fds);
+		if (!ret)
+			ret = dump_iptables(fds);
 	}
-	if (!ret)
-		ret = dump_iptables(fds);
 	if (!ret)
 		ret = dump_nf_ct(fds, CR_FD_NETNF_CT);
 	if (!ret)
@@ -1683,9 +1683,10 @@ int prepare_net_ns(int pid)
 			ret = restore_route(pid);
 		if (!ret)
 			ret = restore_rule(pid);
+		if (!ret)
+			ret = restore_iptables(pid);
 	}
-	if (!ret)
-		ret = restore_iptables(pid);
+
 	if (!ret)
 		ret = restore_nf_ct(pid, CR_FD_NETNF_CT);
 	if (!ret)
@@ -1757,7 +1758,7 @@ err:
 	return ret;
 }
 
-static int network_lock_internal()
+int network_lock_internal()
 {
 	char conf[] =	"*filter\n"
 				":CRIU - [0:0]\n"
