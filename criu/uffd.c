@@ -452,6 +452,7 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 	struct lazy_pages_info *lpi;
 	int ret = -1;
 	int uffd_flags;
+	int pr_flags = PR_TASK;
 
 	lpi = lpi_init();
 	if (!lpi)
@@ -485,7 +486,9 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 	uffd_flags = fcntl(lpi->lpfd.fd, F_GETFD, NULL);
 	pr_debug("uffd_flags are 0x%x\n", uffd_flags);
 
-	ret = open_page_read(lpi->pid, &lpi->pr, PR_TASK);
+	if (opts.use_page_server)
+		pr_flags |= PR_REMOTE;
+	ret = open_page_read(lpi->pid, &lpi->pr, pr_flags);
 	if (ret <= 0) {
 		ret = -1;
 		goto out;
@@ -579,11 +582,7 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
 	if (pagemap_zero(lpi->pr.pe))
 		return uffd_zero(lpi, address, nr);
 
-	if (opts.use_page_server)
-		ret = get_remote_pages(lpi->pid, address, nr, lpi->buf);
-	else
-		ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, 0);
-
+	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, 0);
 	if (ret <= 0) {
 		pr_err("%d: failed reading pages at %llx\n", lpi->pid, address);
 		return ret;

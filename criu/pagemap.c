@@ -10,6 +10,7 @@
 #include "cr_options.h"
 #include "servicefd.h"
 #include "pagemap.h"
+#include "page-xfer.h"
 
 #include "fault-injection.h"
 #include "xmalloc.h"
@@ -365,8 +366,8 @@ static int enqueue_async_page(struct page_read *pr, unsigned long vaddr,
 	return 0;
 }
 
-static int maybe_read_page(struct page_read *pr, unsigned long vaddr,
-		int nr, void *buf, unsigned flags)
+static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr,
+				 int nr, void *buf, unsigned flags)
 {
 	int ret;
 	unsigned long len = nr * PAGE_SIZE;
@@ -377,6 +378,19 @@ static int maybe_read_page(struct page_read *pr, unsigned long vaddr,
 		ret = read_local_page(pr, vaddr, len, buf);
 
 	pr->pi_off += len;
+
+	return ret;
+}
+
+static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
+				  int nr, void *buf, unsigned flags)
+{
+	int ret;
+
+	if (flags & PR_ASYNC)
+		ret = -1;	/* not yet supported */
+	else
+		ret = get_remote_pages(pr->pid, vaddr, nr, buf);
 
 	return ret;
 }
@@ -394,7 +408,7 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
 		/* zero mappings should be skipped by get_pagemap */
 		BUG();
 	} else {
-		if (maybe_read_page(pr, vaddr, nr, buf, flags) < 0)
+		if (pr->maybe_read_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
 	}
 
@@ -650,6 +664,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 {
 	int flags, i_typ;
 	static unsigned ids = 1;
+	bool remote = pr_flags & PR_REMOTE;
 
 	if (opts.auto_dedup)
 		pr_flags |= PR_MOD;
@@ -712,9 +727,16 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	pr->seek_pagemap = seek_pagemap;
 	pr->reset = reset_pagemap;
 	pr->id = ids++;
+	pr->pid = pid;
 
-	pr_debug("Opened page read %u (parent %u)\n",
-			pr->id, pr->parent ? pr->parent->id : 0);
+	if (remote)
+		pr->maybe_read_page = maybe_read_page_remote;
+	else
+		pr->maybe_read_page = maybe_read_page_local;
+
+	pr_debug("Opened %s page read %u (parent %u)\n",
+		 remote ? "remote" : "local", pr->id,
+		 pr->parent ? pr->parent->id : 0);
 
 	return 1;
 }
