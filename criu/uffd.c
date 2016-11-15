@@ -503,40 +503,11 @@ out:
 	return -1;
 }
 
-static int get_page(struct lazy_pages_info *lpi, unsigned long addr, void *dest)
-{
-	int ret;
-
-	lpi->pr.reset(&lpi->pr);
-
-	ret = lpi->pr.seek_page(&lpi->pr, addr);
-	pr_debug("seek_pagemap_page ret 0x%x\n", ret);
-	if (ret <= 0)
-		return ret;
-
-	if (pagemap_zero(lpi->pr.pe))
-		return 0;
-
-	ret = lpi->pr.read_pages(&lpi->pr, addr, 1, dest, 0);
-	pr_debug("read_pages ret %d\n", ret);
-	if (ret <= 0)
-		return ret;
-
-	return 1;
-}
-
 static int uffd_copy_page(struct lazy_pages_info *lpi, __u64 address,
 			  void *dest)
 {
 	struct uffdio_copy uffdio_copy;
 	int rc;
-
-	if (opts.use_page_server)
-		rc = get_remote_pages(lpi->pid, address, 1, dest);
-	else
-		rc = get_page(lpi, address, dest);
-	if (rc <= 0)
-		return rc;
 
 	uffdio_copy.dst = address;
 	uffdio_copy.src = (unsigned long) dest;
@@ -590,13 +561,30 @@ static int uffd_zero_page(struct lazy_pages_info *lpi, __u64 address)
 static int uffd_handle_page(struct lazy_pages_info *lpi, __u64 address,
 			    void *dest)
 {
-	int rc;
+	int ret;
 
-	rc = uffd_copy_page(lpi, address, dest);
-	if (rc == 0)
-		rc = uffd_zero_page(lpi, address);
+	lpi->pr.reset(&lpi->pr);
 
-	return rc;
+	ret = lpi->pr.seek_page(&lpi->pr, address);
+	if (ret < 0) {
+		pr_err("%d: no pagemap containing %llx\n", lpi->pid, address);
+		return ret;
+	}
+
+	if (pagemap_zero(lpi->pr.pe))
+		return uffd_zero_page(lpi, address);
+
+	if (opts.use_page_server)
+		ret = get_remote_pages(lpi->pid, address, 1, dest);
+	else
+		ret = lpi->pr.read_pages(&lpi->pr, address, 1, dest, 0);
+
+	if (ret <= 0) {
+		pr_err("%d: failed reading pages at %llx\n", lpi->pid, address);
+		return ret;
+	}
+
+	return uffd_copy_page(lpi, address, dest);
 }
 
 static int handle_remaining_pages(struct lazy_pages_info *lpi, void *dest)
