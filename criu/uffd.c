@@ -53,9 +53,18 @@ struct lazy_iovec {
 	unsigned long len;
 };
 
+struct lazy_pages_info;
+
+struct sk_event_data {
+	int nr_pages;
+	unsigned long addr;
+	struct lazy_pages_info *lpi;
+};
+
 struct lazy_pages_fd {
 	int fd;
 	int (*event)(struct lazy_pages_fd *);
+	struct sk_event_data *ev_data;
 };
 
 struct lazy_pages_info {
@@ -908,33 +917,61 @@ close_uffd:
 	return -1;
 }
 
+/*
+ * There are two possible event types we need to handle:
+ * - page info is available as a reply to request_remote_page
+ * - page data is available, and it follows page info we've just received
+ * Since the on dump side communications are completely synchronous,
+ * we can return to epoll right after the reception of page info and
+ * for sure the next time socket event will occur we'll get page data
+ * related to info we've just received
+ */
 static int page_server_event(struct lazy_pages_fd *lpfd)
 {
 	struct lazy_pages_info *lpi;
 	int pid, nr_pages;
 	unsigned long addr;
 
-	if (receive_remote_pages_info(&nr_pages, &addr, &pid))
-		return -1;
+	lpi = lpfd->ev_data->lpi;
 
-	lpi = pid2lpi(pid);
-	if (!lpi)
-		return -1;
+	if (!lpi) {
+		if (receive_remote_pages_info(&nr_pages, &addr, &pid))
+			return -1;
 
-	if (receive_remote_pages(nr_pages * PAGE_SIZE, lpi->buf))
-		return -1;
+		lpi = pid2lpi(pid);
+		if (!lpi)
+			return -1;
 
-	if (uffd_copy(lpi, addr, nr_pages))
-		return -1;
+		lpfd->ev_data->lpi = lpi;
+		lpfd->ev_data->nr_pages = nr_pages;
+		lpfd->ev_data->addr = addr;
 
-	if (update_lazy_iovecs(lpi, addr, PAGE_SIZE * nr_pages))
-		return -1;
+		return 0;
+	} else {
+		lpi = lpfd->ev_data->lpi;
+		nr_pages = lpfd->ev_data->nr_pages;
+		addr = lpfd->ev_data->addr;
 
-	return 0;
+		memset(lpfd->ev_data, 0, sizeof(*lpfd->ev_data));
+
+		if (receive_remote_pages(nr_pages * PAGE_SIZE, lpi->buf))
+			return -1;
+
+		if (uffd_copy(lpi, addr, nr_pages))
+			return -1;
+
+		if (update_lazy_iovecs(lpi, addr, PAGE_SIZE * nr_pages))
+			return -1;
+
+		return 0;
+	}
 }
+
+static struct sk_event_data sk_event_data;
 
 static struct lazy_pages_fd page_server_sk_fd = {
 	.event = page_server_event,
+	.ev_data = &sk_event_data,
 };
 
 static int prepare_page_server_socket(int epollfd)
