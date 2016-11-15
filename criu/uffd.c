@@ -110,6 +110,25 @@ static void lpi_fini(struct lazy_pages_info *lpi)
 	free(lpi);
 }
 
+static struct lazy_pages_info *pid2lpi(int pid)
+{
+	struct lazy_pages_info *lpi;
+
+	list_for_each_entry(lpi, &lpis, l) {
+		if (lpi->pid == pid)
+			return lpi;
+	}
+
+	return NULL;
+}
+
+static int epoll_nr_fds(int nr_tasks)
+{
+       if (opts.use_page_server)
+               return nr_tasks + 1;
+       return nr_tasks;
+}
+
 static int prepare_sock_addr(struct sockaddr_un *saddr)
 {
 	int len;
@@ -632,23 +651,44 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	return 0;
 }
 
-static int handle_regular_pages(struct lazy_pages_info *lpi, __u64 address,
-				int nr)
+static int page_fault_common(struct lazy_pages_info *lpi, __u64 address, int nr,
+			     int pr_flags)
 {
-	int rc;
+	int ret;
 
-	rc = uffd_handle_pages(lpi, address, nr);
-	if (rc < 0) {
-		pr_err("Error during UFFD copy\n");
-		return -1;
+	ret = uffd_seek_or_zero_pages(lpi, address, nr);
+	if (ret <= 0)
+		return ret;
+
+	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, pr_flags);
+	if (ret <= 0) {
+		pr_err("%d: failed reading pages at %llx\n", lpi->pid, address);
+		return ret;
 	}
 
-	rc = update_lazy_iovecs(lpi, address, PAGE_SIZE * nr);
-	if (rc < 0)
+	return 0;
+}
+
+static int page_fault_local(struct lazy_pages_info *lpi, __u64 address, int nr)
+{
+	if (page_fault_common(lpi, address, nr, 0))
+		return -1;
+
+	if (uffd_copy(lpi, address, nr))
+		return -1;
+
+	if (update_lazy_iovecs(lpi, address, PAGE_SIZE * nr))
 		return -1;
 
 	return 0;
 }
+
+static int page_fault_remote(struct lazy_pages_info *lpi, __u64 address, int nr)
+{
+	return page_fault_common(lpi, address, nr, PR_ASYNC);
+}
+
+static int (*pf_handler)(struct lazy_pages_info *lpi, __u64 address, int nr);
 
 static int handle_user_fault(struct lazy_pages_fd *lpfd)
 {
@@ -686,7 +726,7 @@ static int handle_user_fault(struct lazy_pages_fd *lpfd)
 	flags = msg.arg.pagefault.flags;
 	pr_debug("msg.arg.pagefault.flags 0x%llx\n", flags);
 
-	ret = handle_regular_pages(lpi, address, 1);
+	ret = pf_handler(lpi, address, 1);
 	if (ret < 0) {
 		pr_err("Error during regular page copy\n");
 		return -1;
@@ -714,7 +754,7 @@ static int lazy_pages_summary(struct lazy_pages_info *lpi)
 
 static int handle_requests(int epollfd, struct epoll_event *events)
 {
-	int nr_fds = task_entries->nr_tasks;
+	int nr_fds = epoll_nr_fds(task_entries->nr_tasks);
 	struct lazy_pages_info *lpi;
 	int ret = -1;
 	int i;
@@ -868,7 +908,36 @@ close_uffd:
 	return -1;
 }
 
-static int prepare_page_server_socket(void)
+static int page_server_event(struct lazy_pages_fd *lpfd)
+{
+	struct lazy_pages_info *lpi;
+	int pid, nr_pages;
+	unsigned long addr;
+
+	if (receive_remote_pages_info(&nr_pages, &addr, &pid))
+		return -1;
+
+	lpi = pid2lpi(pid);
+	if (!lpi)
+		return -1;
+
+	if (receive_remote_pages(nr_pages * PAGE_SIZE, lpi->buf))
+		return -1;
+
+	if (uffd_copy(lpi, addr, nr_pages))
+		return -1;
+
+	if (update_lazy_iovecs(lpi, addr, PAGE_SIZE * nr_pages))
+		return -1;
+
+	return 0;
+}
+
+static struct lazy_pages_fd page_server_sk_fd = {
+	.event = page_server_event,
+};
+
+static int prepare_page_server_socket(int epollfd)
 {
 	int sk;
 
@@ -876,13 +945,16 @@ static int prepare_page_server_socket(void)
 	if (sk < 0)
 		return -1;
 
-	return 0;
+	page_server_sk_fd.fd = sk;
+
+	return epoll_add_lpfd(epollfd, &page_server_sk_fd);
 }
 
 int cr_lazy_pages(bool daemon)
 {
 	struct epoll_event *events;
 	int epollfd;
+	int nr_fds;
 	int lazy_sk;
 	int ret;
 
@@ -919,15 +991,21 @@ int cr_lazy_pages(bool daemon)
 	if (close_status_fd())
 		return -1;
 
-	epollfd = prepare_epoll(task_entries->nr_tasks, &events);
+	nr_fds = epoll_nr_fds(task_entries->nr_tasks);
+	epollfd = prepare_epoll(nr_fds, &events);
 	if (epollfd < 0)
 		return -1;
 
 	if (prepare_uffds(lazy_sk, epollfd))
 		return -1;
 
-	if (prepare_page_server_socket())
-		return -1;
+	if (opts.use_page_server) {
+		if (prepare_page_server_socket(epollfd))
+			return -1;
+		pf_handler = page_fault_remote;
+	} else {
+		pf_handler = page_fault_local;
+	}
 
 	ret = handle_requests(epollfd, events);
 
