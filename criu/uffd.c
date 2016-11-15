@@ -595,22 +595,17 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
 static int handle_remaining_pages(struct lazy_pages_info *lpi)
 {
 	struct lazy_iovec *lazy_iov;
-	int nr_pages, i, err;
-	unsigned long addr;
+	int nr_pages, err;
 
 	lpi->pr.reset(&lpi->pr);
 
 	list_for_each_entry(lazy_iov, &lpi->iovs, l) {
 		nr_pages = lazy_iov->len / PAGE_SIZE;
 
-		for (i = 0; i < nr_pages; i++) {
-			addr = lazy_iov->base + i * PAGE_SIZE;
-
-			err = uffd_handle_pages(lpi, addr, 1);
-			if (err < 0) {
-				pr_err("Error during UFFD copy\n");
-				return -1;
-			}
+		err = uffd_handle_pages(lpi, lazy_iov->base, nr_pages);
+		if (err < 0) {
+			pr_err("Error during UFFD copy\n");
+			return -1;
 		}
 	}
 
