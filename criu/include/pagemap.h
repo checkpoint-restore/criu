@@ -53,6 +53,8 @@ struct page_read {
 	int (*sync)(struct page_read *pr);
 	int (*seek_pagemap)(struct page_read *pr, unsigned long vaddr);
 	void (*reset)(struct page_read *pr);
+	int (*maybe_read_page)(struct page_read *pr, unsigned long vaddr,
+			       int nr, void *buf, unsigned flags);
 
 	/* Whether or not pages can be read in PIE code */
 	bool pieok;
@@ -72,7 +74,8 @@ struct page_read {
 
 	struct iovec bunch;		/* record consequent neighbour
 					   iovecs to punch together */
-	unsigned id; /* for logging */
+	unsigned id;			/* for logging */
+	int pid;			/* PID of the process */
 
 	PagemapEntry **pmes;
 	int nr_pmes;
@@ -90,6 +93,7 @@ struct page_read {
 
 #define PR_TYPE_MASK	0x3
 #define PR_MOD		0x4	/* Will need to modify */
+#define PR_REMOTE	0x8
 
 /*
  * -1 -- error
