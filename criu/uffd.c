@@ -512,7 +512,7 @@ out:
 	return -1;
 }
 
-static int uffd_copy_page(struct lazy_pages_info *lpi, __u64 address)
+static int uffd_copy(struct lazy_pages_info *lpi, __u64 address)
 {
 	struct uffdio_copy uffdio_copy;
 	int rc;
@@ -544,7 +544,7 @@ static int uffd_copy_page(struct lazy_pages_info *lpi, __u64 address)
 
 }
 
-static int uffd_zero_page(struct lazy_pages_info *lpi, __u64 address)
+static int uffd_zero(struct lazy_pages_info *lpi, __u64 address)
 {
 	struct uffdio_zeropage uffdio_zeropage;
 	unsigned long ps = page_size();
@@ -577,7 +577,7 @@ static int uffd_handle_page(struct lazy_pages_info *lpi, __u64 address)
 		return 0;
 
 	if (pagemap_zero(lpi->pr.pe))
-		return uffd_zero_page(lpi, address);
+		return uffd_zero(lpi, address);
 
 	if (opts.use_page_server)
 		ret = get_remote_pages(lpi->pid, address, 1, lpi->buf);
@@ -589,7 +589,7 @@ static int uffd_handle_page(struct lazy_pages_info *lpi, __u64 address)
 		return ret;
 	}
 
-	return uffd_copy_page(lpi, address);
+	return uffd_copy(lpi, address);
 }
 
 static int handle_remaining_pages(struct lazy_pages_info *lpi)
