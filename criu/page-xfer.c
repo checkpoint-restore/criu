@@ -905,6 +905,91 @@ out:
 	return ret ? : status;
 }
 
+struct ps_async_read {
+	unsigned long rb; /* read bytes */
+	unsigned long goal;
+
+	struct page_server_iov pi;
+	void *pages;
+
+	ps_async_read_complete complete;
+	void *priv;
+
+	struct list_head l;
+};
+
+static LIST_HEAD(async_reads);
+
+int page_server_start_async_read(void *buf, int nr_pages,
+		ps_async_read_complete complete, void *priv)
+{
+	struct ps_async_read *ar;
+
+	ar = xmalloc(sizeof(*ar));
+	if (ar == NULL)
+		return -1;
+
+	ar->pages = buf;
+	ar->rb = 0;
+	ar->goal = sizeof(ar->pi) + nr_pages * PAGE_SIZE;
+	ar->complete = complete;
+	ar->priv = priv;
+
+	list_add_tail(&ar->l, &async_reads);
+	return 0;
+}
+
+/*
+ * There are two possible event types we need to handle:
+ * - page info is available as a reply to request_remote_page
+ * - page data is available, and it follows page info we've just received
+ * Since the on dump side communications are completely synchronous,
+ * we can return to epoll right after the reception of page info and
+ * for sure the next time socket event will occur we'll get page data
+ * related to info we've just received
+ */
+int page_server_async_read(void)
+{
+	struct ps_async_read *ar;
+	int ret, need;
+	void *buf;
+
+	BUG_ON(list_empty(&async_reads));
+	ar = list_first_entry(&async_reads, struct ps_async_read, l);
+
+	if (ar->rb < sizeof(ar->pi)) {
+		/* Header */
+		buf = ((void *)&ar->pi) + ar->rb;
+		need = sizeof(ar->pi) - ar->rb;
+	} else {
+		/* Page(s) data itself */
+		buf = ar->pages + (ar->rb - sizeof(ar->pi));
+		need = ar->goal - ar->rb;
+	}
+
+	ret = recv(page_server_sk, buf, need, MSG_DONTWAIT);
+	if (ret < 0) {
+		pr_perror("Error reading async data from page server\n");
+		return -1;
+	}
+
+	ar->rb += ret;
+	if (ar->rb < ar->goal)
+		return 0;
+
+	/*
+	 * IO complete -- notify the caller and drop the request
+	 */
+	BUG_ON(ar->rb > ar->goal);
+	ret = ar->complete((int)ar->pi.dst_id, (unsigned long)ar->pi.vaddr,
+				(int)ar->pi.nr_pages, ar->priv);
+
+	list_del(&ar->l);
+	xfree(ar);
+
+	return ret;
+}
+
 int request_remote_pages(int pid, unsigned long addr, int nr_pages)
 {
 	struct page_server_iov pi = {

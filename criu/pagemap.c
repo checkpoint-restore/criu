@@ -391,6 +391,23 @@ static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr,
 	return ret;
 }
 
+static int read_page_complete(int pid, unsigned long vaddr, int nr_pages, void *priv)
+{
+	int ret = 0;
+	struct page_read *pr = priv;
+
+	if (pr->pid != pid) {
+		pr_err("Out of order read completed (want %d have %d)\n",
+				pr->pid, pid);
+		return -1;
+	}
+
+	if (pr->io_complete)
+		ret = pr->io_complete(pr, vaddr, nr_pages);
+
+	return ret;
+}
+
 static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 				  int nr, void *buf, unsigned flags)
 {
@@ -398,8 +415,10 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 
 	/* We always do PR_ASAP mode here (FIXME?) */
 	ret = request_remote_pages(pr->pid, vaddr, nr);
-	if ((ret < 0) || (flags & PR_ASYNC))
+	if (ret < 0)
 		return ret;
+	if (flags & PR_ASYNC)
+		return page_server_start_async_read(buf, nr, read_page_complete, pr);
 
 	/*
 	 * Note, that for async remote page_read, the actual
