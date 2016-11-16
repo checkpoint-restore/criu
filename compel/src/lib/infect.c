@@ -32,8 +32,6 @@
 #define __sys(foo)	foo
 #define __memcpy	memcpy
 
-#define SCM_FDSET_HAS_OPTS
-
 #include "common/scm.h"
 #include "common/scm-code.c"
 

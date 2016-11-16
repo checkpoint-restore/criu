@@ -8,11 +8,11 @@ endif
 
 compel_pack_lds-native	:= $(SRC_DIR)/compel/arch/$(ARCH)/scripts/compel-pack.lds.S
 compel_pack_lds-compat	:= $(SRC_DIR)/compel/arch/$(ARCH)/scripts/compel-pack-compat.lds.S
+compel_std-native	:= $(SRC_DIR)/compel/plugins/std.built-in.o
+compel_std-compat	:= $(SRC_DIR)/compel/plugins/std-compat.built-in.o
 
 native-obj-y           += parasite.o
-native-obj-y           += infect.o
 compat-obj-y           += compat/parasite-compat.o
-compat-obj-y           += compat/infect-compat.o
 
 restorer-obj-y		+= restorer.o
 restorer-obj-y		+= ./$(ARCH_DIR)/restorer.o
@@ -25,18 +25,9 @@ ifeq ($(ARCH),x86)
                 restorer-obj-y	+= ./$(ARCH_DIR)/sigaction_compat_pie.o
         endif
 
-        native-obj-y		+= ./$(ARCH_DIR)/parasite-head-64.o
         native-obj-e		+= ./compel/plugins/std.built-in.o
-        compat-obj-y		+= ./$(ARCH_DIR)/parasite-head-32.o
-        compat-obj-e		+= ./compel/plugins/std-32.built-in.o
-
-        AFLAGS_parasite-head-64.o += -fpie -DCONFIG_X86_64
-        AFLAGS_parasite-head-64.d += -fpie -DCONFIG_X86_64
-
-        AFLAGS_parasite-head-32.o += -fno-pic -m32 -DCONFIG_X86_32
-        AFLAGS_parasite-head-32.d += -fno-pic -m32 -DCONFIG_X86_32
+        compat-obj-e		+= ./compel/plugins/std-compat.built-in.o
 else
-        native-obj-y		+= ./$(ARCH_DIR)/parasite-head.o
         native-obj-e		+= ./compel/plugins/std.built-in.o
         restorer-obj-e		+= ./compel/plugins/std.built-in.o
 endif
@@ -114,6 +105,7 @@ ifeq ($(strip $(V)),)
         piegen_stdout := >/dev/null
 endif
 
+$(obj)/restorer.built-in.o: $(compel_std-native)
 $(obj)/restorer.built-in.bin.o: $(obj)/restorer.built-in.o		\
 				$(obj)/native.lib.a $(compel_pack_lds-native)
 	$(call msg-gen, $@)
@@ -121,6 +113,7 @@ $(obj)/restorer.built-in.bin.o: $(obj)/restorer.built-in.o		\
 
 # $1 - binary mode: native/compat
 define gen-rule-built-in.bin.o
+$(obj)/$(1).built-in.o: $(compel_std-$(1))
 $(obj)/parasite-$(1).built-in.bin.o: $(obj)/$(1).built-in.o		\
 				$(obj)/$(1).lib.a $(compel_pack_lds-$(1))
 	$$(call msg-gen, $$@)
@@ -147,6 +140,7 @@ ifeq ($(filter arm aarch64,$(ARCH)),)
 endif
 
 define gen-rule-built-in.bin.o
+$(obj)/$(1).built-in.o: $(compel_std-$(1))
 $(obj)/parasite-$(1).built-in.bin.o: $(obj)/$(1).built-in.o		\
 				$(compel_pack_lds-$(1)) $(obj)/native.lib.a
 	$$(call msg-gen, $$@)
@@ -155,6 +149,7 @@ endef
 
 $(eval $(call map,gen-rule-built-in.bin.o,$(parasite_target)))
 
+$(obj)/restorer.built-in.o: $(compel_std-native)
 $(obj)/restorer.built-in.bin.o: $(obj)/restorer.built-in.o		\
 				$(compel_pack_lds-native) $(obj)/native.lib.a
 	$(call msg-gen, $@)
