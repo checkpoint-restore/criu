@@ -476,6 +476,8 @@ free_mm:
 	return ret;
 }
 
+static int uffd_io_complete(struct page_read *pr, unsigned long vaddr, int nr);
+
 static int ud_open(int client, struct lazy_pages_info **_lpi)
 {
 	struct lazy_pages_info *lpi;
@@ -522,6 +524,8 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 		ret = -1;
 		goto out;
 	}
+
+	lpi->pr.io_complete = uffd_io_complete;
 
 	/*
 	 * Find the memory pages belonging to the restored process
@@ -587,6 +591,14 @@ static int complete_page_fault(struct lazy_pages_info *lpi, unsigned long vaddr,
 	return update_lazy_iovecs(lpi, vaddr, nr * PAGE_SIZE);
 }
 
+static int uffd_io_complete(struct page_read *pr, unsigned long vaddr, int nr)
+{
+	struct lazy_pages_info *lpi;
+
+	lpi = container_of(pr, struct lazy_pages_info, pr);
+	return complete_page_fault(lpi, vaddr, nr);
+}
+
 static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 {
 	struct uffdio_zeropage uffdio_zeropage;
@@ -649,7 +661,7 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
 		return ret;
 	}
 
-	return complete_page_fault(lpi, address, nr);
+	return 0;
 }
 
 static int handle_remaining_pages(struct lazy_pages_info *lpi)
@@ -694,10 +706,7 @@ static int page_fault_common(struct lazy_pages_info *lpi, __u64 address, int nr,
 
 static int page_fault_local(struct lazy_pages_info *lpi, __u64 address, int nr)
 {
-	if (page_fault_common(lpi, address, nr, PR_ASYNC | PR_ASAP))
-		return -1;
-
-	return complete_page_fault(lpi, address, nr);
+	return page_fault_common(lpi, address, nr, PR_ASYNC | PR_ASAP);
 }
 
 static int page_fault_remote(struct lazy_pages_info *lpi, __u64 address, int nr)
