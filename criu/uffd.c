@@ -82,6 +82,7 @@ struct lazy_pages_info {
 	struct list_head l;
 
 	void *buf;
+	bool remaining;
 };
 
 static LIST_HEAD(lpis);
@@ -575,6 +576,17 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	return 0;
 }
 
+static int complete_page_fault(struct lazy_pages_info *lpi, unsigned long vaddr, int nr)
+{
+	if (uffd_copy(lpi, vaddr, nr))
+		return -1;
+
+	if (lpi->remaining)
+		return 0;
+
+	return update_lazy_iovecs(lpi, vaddr, nr * PAGE_SIZE);
+}
+
 static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 {
 	struct uffdio_zeropage uffdio_zeropage;
@@ -637,13 +649,15 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
 		return ret;
 	}
 
-	return uffd_copy(lpi, address, nr);
+	return complete_page_fault(lpi, address, nr);
 }
 
 static int handle_remaining_pages(struct lazy_pages_info *lpi)
 {
 	struct lazy_iovec *lazy_iov;
 	int nr_pages, err;
+
+	lpi->remaining = true;
 
 	lpi->pr.reset(&lpi->pr);
 
@@ -683,13 +697,7 @@ static int page_fault_local(struct lazy_pages_info *lpi, __u64 address, int nr)
 	if (page_fault_common(lpi, address, nr, PR_ASYNC | PR_ASAP))
 		return -1;
 
-	if (uffd_copy(lpi, address, nr))
-		return -1;
-
-	if (update_lazy_iovecs(lpi, address, PAGE_SIZE * nr))
-		return -1;
-
-	return 0;
+	return complete_page_fault(lpi, address, nr);
 }
 
 static int page_fault_remote(struct lazy_pages_info *lpi, __u64 address, int nr)
@@ -957,13 +965,7 @@ static int page_server_event(struct lazy_pages_fd *lpfd)
 		if (receive_remote_pages(nr_pages * PAGE_SIZE, lpi->buf))
 			return -1;
 
-		if (uffd_copy(lpi, addr, nr_pages))
-			return -1;
-
-		if (update_lazy_iovecs(lpi, addr, PAGE_SIZE * nr_pages))
-			return -1;
-
-		return 0;
+		return complete_page_fault(lpi, addr, nr_pages);
 	}
 }
 
