@@ -17,7 +17,7 @@ ifeq ($(ARCH),x86)
         OBJS		+= ./$(ARCH_DIR)/memcpy.o
 endif
 
-OBJS			+= log-simple.o util-fd.o util.o string.o
+OBJS			+= util-fd.o util.o string.o
 
 ifeq ($(VDSO),y)
         OBJS		+= util-vdso.o parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o

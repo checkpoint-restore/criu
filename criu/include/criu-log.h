@@ -35,7 +35,6 @@ extern int log_get_fd(void);
 extern void log_set_loglevel(unsigned int loglevel);
 extern unsigned int log_get_loglevel(void);
 extern void log_get_logstart(struct timeval *);
-extern void log_set_start(struct timeval *s);
 
 extern int write_pidfile(int pid);
 
