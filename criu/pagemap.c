@@ -385,16 +385,19 @@ static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr,
 static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 				  int nr, void *buf, unsigned flags)
 {
-	int ret;
+	int ret, pid;
 
-	if (flags & PR_ASYNC)
-		/*
-		 * Note, that for async remote page_read, the actual
-		 * transfer happens in the lazy-pages daemon
-		 */
-		ret = request_remote_pages(pr->pid, vaddr, len / PAGE_SIZE);
-	else
-		ret = get_remote_pages(pr->pid, vaddr, nr, buf);
+	ret = request_remote_pages(pr->pid, vaddr, nr);
+	if ((ret < 0) || (flags & PR_ASYNC))
+		return ret;
+
+	/*
+	 * Note, that for async remote page_read, the actual
+	 * transfer happens in the lazy-pages daemon
+	 */
+	ret = receive_remote_pages_info(&nr, &vaddr, &pid);
+	if (ret == 0)
+		ret = receive_remote_pages(nr * PAGE_SIZE, buf);
 
 	return ret;
 }

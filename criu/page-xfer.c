@@ -905,36 +905,6 @@ out:
 	return ret ? : status;
 }
 
-int get_remote_pages(int pid, unsigned long addr, int nr_pages, void *dest)
-{
-	int ret;
-	int len = PAGE_SIZE * nr_pages;
-
-	struct page_server_iov pi;
-
-	if (send_psi(page_server_sk, PS_IOV_GET, nr_pages, addr, pid))
-		return -1;
-
-	tcp_nodelay(page_server_sk, true);
-
-	ret = recv(page_server_sk, &pi, sizeof(pi), MSG_WAITALL);
-	if (ret != sizeof(pi))
-		return -1;
-
-	/* zero page */
-	if (pi.cmd == PS_IOV_ZERO)
-		return 0;
-
-	if (pi.nr_pages > nr_pages)
-		return -1;
-
-	ret = recv(page_server_sk, dest, len, MSG_WAITALL);
-	if (ret != len)
-		return -1;
-
-	return 1;
-}
-
 int request_remote_pages(int pid, unsigned long addr, int nr_pages)
 {
 	struct page_server_iov pi = {
@@ -962,6 +932,10 @@ int receive_remote_pages_info(int *nr_pages, unsigned long *addr, int *pid)
 		pr_perror("Failed to receive page metadata");
 		return -1;
 	}
+
+	if (pi.cmd == PS_IOV_ZERO)
+		pr_warn("Unexpected ZERO page received for %d.%lx\n",
+				(int)pi.dst_id, (unsigned long)pi.vaddr);
 
 	*nr_pages = pi.nr_pages;
 	*addr = pi.vaddr;
