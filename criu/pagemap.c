@@ -353,9 +353,10 @@ static int enqueue_async_page(struct page_read *pr, unsigned long vaddr,
 }
 
 static int maybe_read_page(struct page_read *pr, unsigned long vaddr,
-			   unsigned long len, void *buf, unsigned flags)
+		int nr, void *buf, unsigned flags)
 {
 	int ret;
+	unsigned long len = nr * PAGE_SIZE;
 
 	if (flags & PR_ASYNC)
 		ret = enqueue_async_page(pr, vaddr, len, buf);
@@ -370,8 +371,6 @@ static int maybe_read_page(struct page_read *pr, unsigned long vaddr,
 static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
 			     void *buf, unsigned flags)
 {
-	unsigned long len = nr * PAGE_SIZE;
-
 	pr_info("pr%u Read %lx %u pages\n", pr->id, vaddr, nr);
 	pagemap_bound_check(pr->pe, vaddr, nr);
 
@@ -379,11 +378,11 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
 		if (read_parent_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
 	} else {
-		if (maybe_read_page(pr, vaddr, len, buf, flags) < 0)
+		if (maybe_read_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
 	}
 
-	pr->cvaddr += len;
+	pr->cvaddr += nr * PAGE_SIZE;
 
 	return 1;
 }
