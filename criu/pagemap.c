@@ -372,7 +372,13 @@ static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr,
 	int ret;
 	unsigned long len = nr * PAGE_SIZE;
 
-	if (flags & PR_ASYNC)
+	/*
+	 * There's no API in the kernel to start asynchronous
+	 * cached read (or write), so in case someone is asking
+	 * for us for urgent async read, just do the regular
+	 * cached read.
+	 */
+	if ((flags & (PR_ASYNC|PR_ASAP)) == PR_ASYNC)
 		ret = enqueue_async_page(pr, vaddr, len, buf);
 	else
 		ret = read_local_page(pr, vaddr, len, buf);
@@ -387,6 +393,7 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 {
 	int ret, pid;
 
+	/* We always do PR_ASAP mode here (FIXME?) */
 	ret = request_remote_pages(pr->pid, vaddr, nr);
 	if ((ret < 0) || (flags & PR_ASYNC))
 		return ret;

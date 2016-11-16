@@ -680,7 +680,7 @@ static int page_fault_common(struct lazy_pages_info *lpi, __u64 address, int nr,
 
 static int page_fault_local(struct lazy_pages_info *lpi, __u64 address, int nr)
 {
-	if (page_fault_common(lpi, address, nr, 0))
+	if (page_fault_common(lpi, address, nr, PR_ASYNC | PR_ASAP))
 		return -1;
 
 	if (uffd_copy(lpi, address, nr))
@@ -694,7 +694,7 @@ static int page_fault_local(struct lazy_pages_info *lpi, __u64 address, int nr)
 
 static int page_fault_remote(struct lazy_pages_info *lpi, __u64 address, int nr)
 {
-	return page_fault_common(lpi, address, nr, PR_ASYNC);
+	return page_fault_common(lpi, address, nr, PR_ASYNC | PR_ASAP);
 }
 
 static int (*pf_handler)(struct lazy_pages_info *lpi, __u64 address, int nr);
