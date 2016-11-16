@@ -686,8 +686,7 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	return 0;
 }
 
-static int page_fault_common(struct lazy_pages_info *lpi, __u64 address, int nr,
-			     int pr_flags)
+static int handle_page_fault(struct lazy_pages_info *lpi, __u64 address, int nr)
 {
 	int ret;
 
@@ -695,7 +694,7 @@ static int page_fault_common(struct lazy_pages_info *lpi, __u64 address, int nr,
 	if (ret <= 0)
 		return ret;
 
-	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, pr_flags);
+	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, PR_ASYNC | PR_ASAP);
 	if (ret <= 0) {
 		pr_err("%d: failed reading pages at %llx\n", lpi->pid, address);
 		return ret;
@@ -703,18 +702,6 @@ static int page_fault_common(struct lazy_pages_info *lpi, __u64 address, int nr,
 
 	return 0;
 }
-
-static int page_fault_local(struct lazy_pages_info *lpi, __u64 address, int nr)
-{
-	return page_fault_common(lpi, address, nr, PR_ASYNC | PR_ASAP);
-}
-
-static int page_fault_remote(struct lazy_pages_info *lpi, __u64 address, int nr)
-{
-	return page_fault_common(lpi, address, nr, PR_ASYNC | PR_ASAP);
-}
-
-static int (*pf_handler)(struct lazy_pages_info *lpi, __u64 address, int nr);
 
 static int handle_user_fault(struct lazy_pages_fd *lpfd)
 {
@@ -752,7 +739,7 @@ static int handle_user_fault(struct lazy_pages_fd *lpfd)
 	flags = msg.arg.pagefault.flags;
 	pr_debug("msg.arg.pagefault.flags 0x%llx\n", flags);
 
-	ret = pf_handler(lpi, address, 1);
+	ret = handle_page_fault(lpi, address, 1);
 	if (ret < 0) {
 		pr_err("Error during regular page copy\n");
 		return -1;
@@ -1050,9 +1037,6 @@ int cr_lazy_pages(bool daemon)
 	if (opts.use_page_server) {
 		if (prepare_page_server_socket(epollfd))
 			return -1;
-		pf_handler = page_fault_remote;
-	} else {
-		pf_handler = page_fault_local;
 	}
 
 	ret = handle_requests(epollfd, events);
