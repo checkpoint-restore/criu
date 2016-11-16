@@ -24,6 +24,7 @@
 #include "common/compiler.h"
 #include "string.h"
 #include <compel/plugins/std/syscall.h>
+#include <compel/plugins/std/log.h>
 #include <compel/ksigset.h>
 #include "signal.h"
 #include "config.h"
@@ -106,14 +107,14 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 static int lsm_set_label(char *label, int procfd)
 {
 	int ret = -1, len, lsmfd;
-	char path[LOG_SIMPLE_CHUNK];
+	char path[STD_LOG_SIMPLE_CHUNK];
 
 	if (!label)
 		return 0;
 
 	pr_info("restoring lsm profile %s\n", label);
 
-	simple_sprintf(path, "self/task/%ld/attr/current", sys_gettid());
+	std_sprintf(path, "self/task/%ld/attr/current", sys_gettid());
 
 	lsmfd = sys_openat(procfd, path, O_WRONLY, 0);
 	if (lsmfd < 0) {
@@ -1143,9 +1144,9 @@ long __export_restore_task(struct task_restore_args *args)
 	ksigaddset(&to_block, SIGCHLD);
 	ret = sys_sigprocmask(SIG_UNBLOCK, &to_block, NULL, sizeof(k_rtsigset_t));
 
-	log_set_fd(args->logfd);
-	log_set_loglevel(args->loglevel);
-	log_set_start(&args->logstart);
+	std_log_set_fd(args->logfd);
+	std_log_set_loglevel(args->loglevel);
+	std_log_set_start(&args->logstart);
 
 	pr_info("Switched to the restorer %d\n", my_pid);
 
@@ -1428,7 +1429,7 @@ skip_vdso:
 				continue;
 
 			new_sp = restorer_stack(thread_args[i].mz);
-			last_pid_len = vprint_num(last_pid_buf, sizeof(last_pid_buf), thread_args[i].pid - 1, &s);
+			last_pid_len = std_vprint_num(last_pid_buf, sizeof(last_pid_buf), thread_args[i].pid - 1, &s);
 			sys_lseek(fd, 0, SEEK_SET);
 			ret = sys_write(fd, s, last_pid_len);
 			if (ret < 0) {
@@ -1548,7 +1549,7 @@ skip_vdso:
 	futex_wait_while_gt(&thread_inprogress, 1);
 
 	sys_close(args->proc_fd);
-	log_set_fd(-1);
+	std_log_set_fd(-1);
 
 	/*
 	 * The code that prepared the itimers makes shure the
