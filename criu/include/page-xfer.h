@@ -52,9 +52,6 @@ extern int check_parent_page_xfer(int fd_type, long id);
  * - dump-side page server sends the raw page data
  */
 
-/* sync receive of remote pages */
-extern int get_remote_pages(int pid, unsigned long addr, int nr_pages, void *dest);
-
 /* async request/receive of remote pages */
 extern int request_remote_pages(int pid, unsigned long addr, int nr_pages);
 extern int receive_remote_pages_info(int *nr_pages, unsigned long *addr, int *pid);
