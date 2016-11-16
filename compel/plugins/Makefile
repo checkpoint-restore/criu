@@ -48,6 +48,7 @@ shmem-obj-y		+= shmem/shmem.o
 # STD plugin
 target			+= std
 std-obj-y		+= std/std.o
+std-obj-y		+= std/log.o
 std-obj-y		+= std/string.o
 
 include ./$(PLUGIN_ARCH_DIR)/std/syscalls/Makefile.syscalls

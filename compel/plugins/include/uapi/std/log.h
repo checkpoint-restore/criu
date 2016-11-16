@@ -5,6 +5,7 @@
 
 extern void std_log_set_fd(int fd);
 extern void std_log_set_loglevel(unsigned int level);
+extern void std_log_set_start(struct timeval *tv);
 extern int std_vprint_num(char *buf, int blen, int num, char **ps);
 extern void std_sprintf(char output[STD_LOG_SIMPLE_CHUNK], const char *format, ...)
 	__attribute__ ((__format__ (__printf__, 2, 3)));

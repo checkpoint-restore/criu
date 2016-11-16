@@ -124,7 +124,7 @@ void std_log_set_loglevel(unsigned int level)
 	cur_loglevel = level;
 }
 
-void log_set_start(struct timeval *s)
+void std_log_set_start(struct timeval *s)
 {
 	start = *s;
 }
