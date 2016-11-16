@@ -59,7 +59,7 @@ criu/pie/native.lib.a: $(ARCH-LIB)
 
 #
 # PIE code blobs themseves.
-pie: criu/pie/native.lib.a
+pie: criu/pie/native.lib.a compel/plugins/std.built-in.o
 	$(Q) $(MAKE) $(build)=criu/pie all
 .PHONY: pie
 

@@ -1,15 +1,24 @@
+#include <compel/plugins/std/syscall.h>
+#include <compel/plugins/std/infect.h>
+
+#include "common/scm.h"
+#include "uapi/compel/plugins/plugin-fds.h"
+#include "uapi/compel/plugins/std/string.h"
+#include "uapi/compel/plugins/std/log.h"
+
 #include "common/compiler.h"
 #include "common/lock.h"
-#include "int.h"
-#include "util-pie.h"
 
-#include <compel/plugins/std/log.h>
-#include "criu-log.h"
+#define pr_err(fmt, ...)	print_on_level(1, fmt, ##__VA_ARGS__)
+#define pr_info(fmt, ...)	print_on_level(3, fmt, ##__VA_ARGS__)
+#define pr_debug(fmt, ...)	print_on_level(4, fmt, ##__VA_ARGS__)
+
 #include "common/bug.h"
-#include "sigframe.h"
-#include "infect-rpc.h"
-#include "infect-pie.h"
-#include "compel/include/rpc-pie-priv.h"
+
+#include "uapi/compel/asm/sigframe.h"
+#include "uapi/compel/infect-rpc.h"
+
+#include "rpc-pie-priv.h"
 
 static int tsock = -1;
 
@@ -201,22 +210,4 @@ int __used __parasite_entry parasite_service(unsigned int cmd, void *args)
 	}
 
 	return parasite_trap_cmd(cmd, args);
-}
-
-/*
- * Mainally, -fstack-protector is disabled for parasite.
- * But we share some object files, compiled for CRIU with parasite.
- * Those files (like cpu.c) may be compiled with stack protector
- * support. We can't use gcc-ld provided stackprotector callback,
- * as Glibc is unmapped. Let's just try to cure application in
- * case of stack smashing in parasite.
- */
-void __stack_chk_fail(void)
-{
-	/*
-	 * Smash didn't happen in printing part, as it's not shared
-	 * with CRIU, therefore compiled with -fnostack-protector.
-	 */
-	pr_err("Stack smash detected in parasite\n");
-	fini();
 }
