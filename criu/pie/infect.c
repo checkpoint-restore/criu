@@ -3,6 +3,7 @@
 #include "int.h"
 #include "util-pie.h"
 
+#include <compel/plugins/std/log.h>
 #include "criu-log.h"
 #include "common/bug.h"
 #include "sigframe.h"
@@ -79,7 +80,7 @@ static int fini(void)
 		  new_sp, RT_SIGFRAME_REGIP(sigframe));
 
 	sys_close(tsock);
-	log_set_fd(-1);
+	std_log_set_fd(-1);
 
 	fini_sigreturn(new_sp);
 
@@ -168,8 +169,8 @@ static noinline __used int parasite_init_daemon(void *data)
 
 	ret = recv_fd(tsock);
 	if (ret >= 0) {
-		log_set_fd(ret);
-		log_set_loglevel(args->log_level);
+		std_log_set_fd(ret);
+		std_log_set_loglevel(args->log_level);
 		ret = 0;
 	} else
 		goto err;
