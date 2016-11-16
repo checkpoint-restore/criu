@@ -670,6 +670,11 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	static unsigned ids = 1;
 	bool remote = pr_flags & PR_REMOTE;
 
+	/*
+	 * Only the top-most page-read can be remote, all the
+	 * others are always local.
+	 */
+	pr_flags &= ~PR_REMOTE;
 	if (opts.auto_dedup)
 		pr_flags |= PR_MOD;
 	if (pr_flags & PR_MOD)
