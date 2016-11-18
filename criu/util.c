@@ -801,14 +801,14 @@ struct vma_area *alloc_vma_area(void)
 	return p;
 }
 
-int mkdirpat(int fd, const char *path)
+int mkdirpat(int fd, const char *path, int mode)
 {
 	size_t i;
 	char made_path[PATH_MAX], *pos;
 
 	if (strlen(path) >= PATH_MAX) {
 		pr_err("path %s is longer than PATH_MAX\n", path);
-		return -1;
+		return -ENOSPC;
 	}
 
 	strcpy(made_path, path);
@@ -821,9 +821,10 @@ int mkdirpat(int fd, const char *path)
 		pos = strchr(made_path + i, '/');
 		if (pos)
 			*pos = '\0';
-		if (mkdirat(fd, made_path, 0755) < 0 && errno != EEXIST) {
+		if (mkdirat(fd, made_path, mode) < 0 && errno != EEXIST) {
+			int ret = -errno;
 			pr_perror("couldn't mkdirpat directory %s", made_path);
-			return -1;
+			return ret;
 		}
 		if (pos) {
 			*pos = '/';

@@ -1510,7 +1510,7 @@ static int prepare_cgroup_dirs(char **controllers, int n_controllers, char *paux
 				return -1;
 			}
 
-			if (mkdirpat(cg, paux)) {
+			if (mkdirpat(cg, paux, 0755)) {
 				pr_perror("Can't make cgroup dir %s", paux);
 				return -1;
 			}
