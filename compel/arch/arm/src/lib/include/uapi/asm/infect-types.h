@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include <sys/mman.h>
-#include "common/page.h"
 
 #define SIGMAX			64
 #define SIGMAX_OLD		31
@@ -58,26 +57,6 @@ struct user_vfp_exc {
 #define REG_SYSCALL_NR(regs)	((regs).ARM_r7)
 
 #define user_regs_native(pregs)			true
-
-/*
- * Range for task size calculated from the following Linux kernel files:
- *   arch/arm/include/asm/memory.h
- *   arch/arm/Kconfig (PAGE_OFFSET values in Memory split section)
- */
-#define TASK_SIZE_MIN		0x3f000000
-#define TASK_SIZE_MAX		0xbf000000
-#define SZ_1G			0x40000000
-
-static inline unsigned long task_size(void)
-{
-	unsigned long task_size;
-
-	for (task_size = TASK_SIZE_MIN; task_size < TASK_SIZE_MAX; task_size += SZ_1G)
-		if (munmap((void *)task_size, page_size()))
-			break;
-
-	return task_size;
-}
 
 #define AT_VECTOR_SIZE		40
 

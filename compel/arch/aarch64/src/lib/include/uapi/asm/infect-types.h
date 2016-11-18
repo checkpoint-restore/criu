@@ -5,7 +5,6 @@
 #include <signal.h>
 #include <sys/mman.h>
 #include <asm/ptrace.h>
-#include "common/page.h"
 
 #define SIGMAX			64
 #define SIGMAX_OLD		31
@@ -24,26 +23,6 @@ typedef struct user_fpsimd_state	user_fpregs_struct_t;
 #define REG_SYSCALL_NR(r)		((uint64_t)(r).regs[8])
 
 #define user_regs_native(pregs)			true
-
-/*
- * Range for task size calculated from the following Linux kernel files:
- *   arch/arm64/include/asm/memory.h
- *   arch/arm64/Kconfig
- *
- * TODO: handle 32 bit tasks
- */
-#define TASK_SIZE_MIN (1UL << 39)
-#define TASK_SIZE_MAX (1UL << 48)
-
-static inline unsigned long task_size(void)
-{
-	unsigned long task_size;
-
-	for (task_size = TASK_SIZE_MIN; task_size < TASK_SIZE_MAX; task_size <<= 1)
-		if (munmap((void *)task_size, page_size()))
-			break;
-	return task_size;
-}
 
 #define AT_VECTOR_SIZE 40
 
