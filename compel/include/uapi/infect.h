@@ -96,7 +96,7 @@ typedef int (*open_proc_fn)(int pid, int mode, const char *fmt, ...)
 	__attribute__ ((__format__ (__printf__, 3, 4)));
 
 struct infect_ctx {
-	int	*p_sock;
+	int	sock;
 
 	/*
 	 * Regs manipulation context.
