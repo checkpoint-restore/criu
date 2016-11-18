@@ -3,6 +3,7 @@
 #include <sys/uio.h>
 #include <linux/elf.h>
 #include <compel/plugins/std/syscall-codes.h>
+#include "common/page.h"
 #include "uapi/compel/asm/infect-types.h"
 #include "log.h"
 #include "errno.h"
@@ -109,3 +110,24 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 	 */
 	return true;
 }
+
+/*
+ * Range for task size calculated from the following Linux kernel files:
+ *   arch/arm64/include/asm/memory.h
+ *   arch/arm64/Kconfig
+ *
+ * TODO: handle 32 bit tasks
+ */
+#define TASK_SIZE_MIN (1UL << 39)
+#define TASK_SIZE_MAX (1UL << 48)
+
+unsigned long compel_task_size(void)
+{
+	unsigned long task_size;
+
+	for (task_size = TASK_SIZE_MIN; task_size < TASK_SIZE_MAX; task_size <<= 1)
+		if (munmap((void *)task_size, page_size()))
+			break;
+	return task_size;
+}
+
