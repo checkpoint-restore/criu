@@ -62,7 +62,7 @@ int main(int argc, char **argv)
 	status = -1;
 	waitpid(pid, &status, 0);
 	if (status) {
-		pr_perror("The child return non-zero code: %d\n", status);
+		pr_err("The child return non-zero code: %d\n", status);
 		return 1;
 	}
 

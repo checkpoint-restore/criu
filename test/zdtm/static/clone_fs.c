@@ -34,13 +34,13 @@ static int kcmp(int type, pid_t pid1, pid_t pid2, unsigned long idx1, unsigned l
 			test_msg("FS for pids %d and %d doesn't match: %d\n", pid1, pid2, ret);
 			break;
 		case -1:
-			pr_perror("kcmp (type: %d, pid1: %d, pid2: %d, "
+			pr_err("kcmp (type: %d, pid1: %d, pid2: %d, "
 					"idx1: %ld, idx2: %ld) failed: %d\n",
 					type, pid1, pid2, idx1, idx2, errno);
 			break;
 		default:
-			pr_perror("kcmp (type: %d, pid1: %d, pid2: %d, "
-					"idx1: %ld, idx2: %ld) returned %d\n\n",
+			pr_err("kcmp (type: %d, pid1: %d, pid2: %d, "
+					"idx1: %ld, idx2: %ld) returned %d\n",
 					type, pid1, pid2, idx1, idx2, ret);
 			break;
 	}

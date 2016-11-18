@@ -190,7 +190,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-		pr_perror("expected 0 exit, got %d\n", WEXITSTATUS(status));
+		pr_err("expected 0 exit, got %d\n", WEXITSTATUS(status));
 		exit(1);
 	}
 

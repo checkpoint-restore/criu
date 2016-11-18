@@ -134,7 +134,7 @@ int main(int argc, char ** argv)
 		}
 
 		if (WTERMSIG(status) != SIGSYS) {
-			pr_perror("expected SIGSYS, got %d\n", WTERMSIG(status));
+			pr_err("expected SIGSYS, got %d\n", WTERMSIG(status));
 			_exit(1);
 		}
 

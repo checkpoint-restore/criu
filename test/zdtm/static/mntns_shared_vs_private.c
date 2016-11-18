@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 		}
 
 		if (status) {
-			pr_perror("%d/%d/%d/%d", WIFEXITED(status), WEXITSTATUS(status), WIFSIGNALED(status), WTERMSIG(status));
+			pr_err("%d/%d/%d/%d\n", WIFEXITED(status), WEXITSTATUS(status), WIFSIGNALED(status), WTERMSIG(status));
 			return 1;
 		}
 	}

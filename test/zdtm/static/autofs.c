@@ -638,7 +638,7 @@ static int reap_child(struct autofs_params *p)
 	}
 
 	if (WIFSIGNALED(status)) {
-		pr_perror("Kid was killed by %d\n", WTERMSIG(status));
+		pr_err("Child was killed by %d\n", WTERMSIG(status));
 		return -1;
 	}
 
