@@ -320,20 +320,27 @@ static int gen_parasite_saddr(struct sockaddr_un *saddr, int key)
 static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
 		struct parasite_init_args *args)
 {
-	static int ssock = -1;
+	int ssock = -1;
+	socklen_t sk_len;
+	struct sockaddr_un addr;
 
 	pr_info("Putting tsock into pid %d\n", pid);
 	args->h_addr_len = gen_parasite_saddr(&args->h_addr, getpid());
 
+	ssock = ctl->ictx.sock;
+	sk_len = sizeof(addr);
+
 	if (ssock == -1) {
-		ssock = *ctl->ictx.p_sock;
-		if (ssock == -1) {
-			pr_err("No socket in ictx\n");
-			goto err;
-		}
+		pr_err("No socket in ictx\n");
+		goto err;
+	}
 
-		*ctl->ictx.p_sock = -1;
+	if (getsockname(ssock, (struct sockaddr *) &addr, &sk_len) < 0) {
+		pr_perror("Unable to get name for a socket");
+		return -1;
+	}
 
+	if (sk_len == sizeof(addr.sun_family)) {
 		if (bind(ssock, (struct sockaddr *)&args->h_addr, args->h_addr_len) < 0) {
 			pr_perror("Can't bind socket");
 			goto err;
