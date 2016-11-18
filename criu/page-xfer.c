@@ -969,7 +969,7 @@ int page_server_async_read(void)
 
 	ret = recv(page_server_sk, buf, need, MSG_DONTWAIT);
 	if (ret < 0) {
-		pr_perror("Error reading async data from page server\n");
+		pr_perror("Error reading async data from page server");
 		return -1;
 	}
 
