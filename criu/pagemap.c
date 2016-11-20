@@ -97,10 +97,8 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 		struct page_read * prp;
 
 		ret = pr->seek_page(pr, off);
-		if (ret == -1)
-			return -1;
-
 		if (ret == 0) {
+			pr_warn("Missing %lx in parent pagemap\n", off);
 			if (off < pr->cvaddr && pr->cvaddr < iov_end)
 				off = pr->cvaddr;
 			else
