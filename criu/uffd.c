@@ -161,8 +161,8 @@ static int send_uffd(int sendfd, int pid)
 		goto out;
 	}
 
-	/* for a zombie process pid will be -1 */
-	if (pid == -1) {
+	/* for a zombie process pid will be negative */
+	if (pid < 0) {
 		ret = 0;
 		goto out;
 	}
@@ -200,12 +200,12 @@ static int check_for_uffd()
 	return 0;
 }
 
-int lazy_pages_setup_zombie(void)
+int lazy_pages_setup_zombie(int pid)
 {
 	if (!opts.lazy_pages)
 		return 0;
 
-	if (send_uffd(0, -1))
+	if (send_uffd(0, -pid))
 		return -1;
 
 	return 0;
@@ -482,7 +482,7 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 	}
 	pr_debug("received PID: %d\n", lpi->pid);
 
-	if (lpi->pid == -1) {
+	if (lpi->pid < 0) {
 		lpi_fini(lpi);
 		return 0;
 	}
