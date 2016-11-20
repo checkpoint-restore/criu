@@ -463,7 +463,6 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 {
 	struct lazy_pages_info *lpi;
 	int ret = -1;
-	int uffd_flags;
 	int pr_flags = PR_TASK;
 
 	lpi = lpi_init();
@@ -480,9 +479,9 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 			pr_err("PID recv: short read\n");
 		goto out;
 	}
-	pr_debug("received PID: %d\n", lpi->pid);
 
 	if (lpi->pid < 0) {
+		pr_debug("Zombie PID: %d\n", lpi->pid);
 		lpi_fini(lpi);
 		return 0;
 	}
@@ -492,11 +491,7 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 		pr_err("recv_fd error");
 		goto out;
 	}
-	pr_debug("lpi->uffd %d\n", lpi->lpfd.fd);
-
-	pr_debug("uffd is 0x%d\n", lpi->lpfd.fd);
-	uffd_flags = fcntl(lpi->lpfd.fd, F_GETFD, NULL);
-	pr_debug("uffd_flags are 0x%x\n", uffd_flags);
+	pr_debug("Received PID: %d, uffd: %d\n", lpi->pid, lpi->lpfd.fd);
 
 	if (opts.use_page_server)
 		pr_flags |= PR_REMOTE;
@@ -541,16 +536,14 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	uffdio_copy.mode = 0;
 	uffdio_copy.copy = 0;
 
-	pr_debug("uffdio_copy.dst 0x%llx\n", uffdio_copy.dst);
+	pr_debug("%d: uffd_copy: 0x%llx/%ld\n", lpi->pid, uffdio_copy.dst, len);
 	rc = ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy);
-	pr_debug("ioctl UFFDIO_COPY rc 0x%x\n", rc);
-	pr_debug("uffdio_copy.copy 0x%llx\n", uffdio_copy.copy);
 	if (rc) {
 		/* real retval in ufdio_copy.copy */
-		if (uffdio_copy.copy != -EEXIST) {
-			pr_err("UFFDIO_COPY error %Ld\n", uffdio_copy.copy);
+		pr_err("%d: UFFDIO_COPY failed: rc:%d copy:%Ld\n", lpi->pid, rc,
+		       uffdio_copy.copy);
+		if (uffdio_copy.copy != -EEXIST)
 			return -1;
-		}
 	} else if (uffdio_copy.copy != len) {
 		pr_err("UFFDIO_COPY unexpected size %Ld\n", uffdio_copy.copy);
 		return -1;
@@ -590,10 +583,8 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	uffdio_zeropage.range.len = len;
 	uffdio_zeropage.mode = 0;
 
-	pr_debug("uffdio_zeropage.range.start 0x%llx\n", uffdio_zeropage.range.start);
+	pr_debug("%d: zero page at 0x%llx\n", lpi->pid, address);
 	rc = ioctl(lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage);
-	pr_debug("ioctl UFFDIO_ZEROPAGE rc 0x%x\n", rc);
-	pr_debug("uffdio_zeropage.zeropage 0x%llx\n", uffdio_zeropage.zeropage);
 	if (rc) {
 		pr_err("UFFDIO_ZEROPAGE error %d\n", rc);
 		return -1;
@@ -688,14 +679,12 @@ static int handle_user_fault(struct lazy_pages_fd *lpfd)
 {
 	struct lazy_pages_info *lpi;
 	struct uffd_msg msg;
-	__u64 flags;
 	__u64 address;
 	int ret;
 
 	lpi = container_of(lpfd, struct lazy_pages_info, lpfd);
 
 	ret = read(lpfd->fd, &msg, sizeof(msg));
-	pr_debug("read() ret: 0x%x\n", ret);
 	if (!ret)
 		return 1;
 
@@ -714,11 +703,22 @@ static int handle_user_fault(struct lazy_pages_fd *lpfd)
 
 	/* Align requested address to the next page boundary */
 	address = msg.arg.pagefault.address & ~(page_size() - 1);
-	pr_debug("msg.arg.pagefault.address 0x%llx\n", address);
+	pr_debug("%d: pagefalt at 0x%llx\n", lpi->pid, address);
+
+#if 0
+	/*
+	 * Until uffd in kernel gets support for write protection,
+	 * flags are always 0, so there is no point to read and print
+	 * them
+	 */
+	{
+	__u64 flags;
 
 	/* Now handle the pages actually requested. */
 	flags = msg.arg.pagefault.flags;
 	pr_debug("msg.arg.pagefault.flags 0x%llx\n", flags);
+	}
+#endif
 
 	ret = handle_page_fault(lpi, address, 1);
 	if (ret < 0) {
@@ -762,12 +762,10 @@ static int handle_requests(int epollfd, struct epoll_event *events)
 		 * copying the remaining pages.
 		 */
 		ret = epoll_wait(epollfd, events, nr_fds, POLL_TIMEOUT);
-		pr_debug("epoll() ret: 0x%x\n", ret);
 		if (ret < 0) {
 			pr_perror("polling failed");
 			goto out;
 		} else if (ret == 0) {
-			pr_debug("read timeout\n");
 			pr_debug("switching from request to copy mode\n");
 			break;
 		}
@@ -781,6 +779,7 @@ static int handle_requests(int epollfd, struct epoll_event *events)
 				goto out;
 		}
 	}
+
 	pr_debug("Handle remaining pages\n");
 	list_for_each_entry(lpi, &lpis, l) {
 		ret = handle_remaining_pages(lpi);
@@ -880,7 +879,6 @@ static int prepare_uffds(int listen, int epollfd)
 		close(listen);
 		return -1;
 	}
-	pr_debug("client fd %d\n", client);
 
 	for (i = 0; i < task_entries->nr_tasks; i++) {
 		struct lazy_pages_info *lpi = NULL;
