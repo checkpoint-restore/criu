@@ -1671,7 +1671,7 @@ static int cr_dump_finish(int ret)
 		clean_cr_time_mounts();
 	}
 
-	if (opts.lazy_pages)
+	if (!ret && opts.lazy_pages)
 		ret = cr_lazy_mem_dump();
 
 	pstree_switch_state(root_item,
