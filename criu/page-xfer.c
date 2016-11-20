@@ -202,7 +202,7 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 		struct iovec piov;
 		unsigned long pend;
 
-		ret = p->seek_page(p, off);
+		ret = p->seek_pagemap(p, off);
 		if (ret <= 0 || !p->pe) {
 			pr_err("Missing %lx in parent pagemap\n", off);
 			return -1;
