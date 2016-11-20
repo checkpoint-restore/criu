@@ -1677,7 +1677,7 @@ static int cr_dump_finish(int ret)
 		clean_cr_time_mounts();
 	}
 
-	if (opts.lazy_pages)
+	if (!ret && opts.lazy_pages)
 		ret = cr_lazy_mem_dump();
 
 	arch_set_thread_regs(root_item);
