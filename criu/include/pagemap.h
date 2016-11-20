@@ -51,7 +51,7 @@ struct page_read {
 	int (*read_pages)(struct page_read *, unsigned long vaddr, int nr,
 			  void *, unsigned flags);
 	void (*close)(struct page_read *);
-	int (*seek_page)(struct page_read *pr, unsigned long vaddr, bool warn);
+	int (*seek_page)(struct page_read *pr, unsigned long vaddr);
 	int (*sync)(struct page_read *pr);
 
 	/* Private data of reader */
