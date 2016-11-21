@@ -32,6 +32,7 @@
 #include "fault-injection.h"
 #include "syscall-codes.h"
 #include "signal.h"
+#include "sigframe.h"
 
 #include <string.h>
 #include <stdlib.h>

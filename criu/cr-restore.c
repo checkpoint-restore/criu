@@ -74,6 +74,7 @@
 #include "seccomp.h"
 #include "fault-injection.h"
 #include "sk-queue.h"
+#include "sigframe.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"

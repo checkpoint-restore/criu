@@ -6,62 +6,13 @@
 #include <asm/types.h>
 #include "asm/types.h"
 
-/*
- * sigcontext structure defined in file
- *	/usr/include/powerpc64le-linux-gnu/bits/sigcontext.h,
- * included from /usr/include/signal.h
- *
- * Kernel definition can be found in arch/powerpc/include/uapi/asm/sigcontext.h
- */
-#include <signal.h>
-
-// XXX: the idetifier rt_sigcontext is expected to be struct by the CRIU code
-#define rt_sigcontext sigcontext
-
 #include "sigframe.h"
-#define RT_SIGFRAME_OFFSET(rt_sigframe) 0
-
-/* Copied from the Linux kernel header arch/powerpc/include/asm/ptrace.h */
-#define USER_REDZONE_SIZE       512
-
-/* Copied from the Linux kernel source file arch/powerpc/kernel/signal_64.c */
-#define TRAMP_SIZE      	6
-
-/*
- * ucontext defined in /usr/include/powerpc64le-linux-gnu/sys/ucontext.h
- */
-struct rt_sigframe {
-        /* sys_rt_sigreturn requires the ucontext be the first field */
-        struct ucontext uc;
-        struct ucontext uc_transact;  	/* Transactional state	 */
-        unsigned long _unused[2];
-        unsigned int tramp[TRAMP_SIZE];
-        struct rt_siginfo *pinfo;
-        void *puc;
-        struct rt_siginfo info;
-        /* New 64 bit little-endian ABI allows redzone of 512 bytes below sp */
-        char abigap[USER_REDZONE_SIZE];
-} __attribute__ ((aligned (16)));
-
-#define ARCH_RT_SIGRETURN(new_sp)				\
-        asm volatile(						\
-		"mr 1, %0 \n"					\
-		"li 0, "__stringify(__NR_rt_sigreturn)" \n"	\
-		"sc \n"						\
-		:						\
-		: "r"(new_sp)					\
-		: "1", "memory")
 
 /*
  * Clone trampoline
  *
  * See glibc sysdeps/powerpc/powerpc64/sysdep.h for FRAME_MIN_SIZE defines
  */
-#if _CALL_ELF != 2
-#error Only supporting ABIv2.
-#else
-#define FRAME_MIN_SIZE_PARM     96
-#endif
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid, 	\
 			     thread_args, clone_restore_fn)		\
 	asm volatile( 							\
@@ -96,10 +47,6 @@ struct rt_sigframe {
 		  "r"(&thread_args[i])		/* %6 */		\
 		: "memory","0","3","4","5","6","7","14","15")
 
-#define RT_SIGFRAME_UC(rt_sigframe) (&(rt_sigframe)->uc)
-#define RT_SIGFRAME_REGIP(rt_sigframe) ((long unsigned int)(rt_sigframe)->uc.uc_mcontext.gp_regs[PT_NIP])
-#define RT_SIGFRAME_HAS_FPU(rt_sigframe) (1)
-#define RT_SIGFRAME_FPU(rt_sigframe) (&(rt_sigframe)->uc.uc_mcontext)
 
 int restore_gpregs(struct rt_sigframe *f, UserPpc64RegsEntry *r);
 int restore_nonsigframe_gpregs(UserPpc64RegsEntry *r);
@@ -116,9 +63,6 @@ static inline int ptrace_flush_breakpoints(pid_t pid)
 {
         return 0;
 }
-
-int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe,
-		struct rt_sigframe *rframe);
 
 /*
  * Defined in arch/ppc64/syscall-common-ppc64.S

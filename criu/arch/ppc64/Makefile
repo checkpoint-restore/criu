@@ -5,3 +5,4 @@ ccflags-y		+= -iquote $(SRC_DIR)/criu/include -iquote $(SRC_DIR)/include
 
 obj-y			+= cpu.o
 obj-y			+= crtools.o
+obj-y			+= sigframe.o

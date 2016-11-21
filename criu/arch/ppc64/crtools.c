@@ -22,14 +22,6 @@
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
 
-#define MSR_TMA (1UL<<34)	/* bit 29 Trans Mem state: Transactional */
-#define MSR_TMS (1UL<<33)	/* bit 30 Trans Mem state: Suspended */
-#define MSR_TM  (1UL<<32)	/* bit 31 Trans Mem Available */
-#define MSR_VEC (1UL<<25)
-#define MSR_VSX (1UL<<23)
-
-#define MSR_TM_ACTIVE(x) ((((x) & MSR_TM) && ((x)&(MSR_TMA|MSR_TMS))) != 0)
-
 #ifndef NT_PPC_TM_SPR
 #define NT_PPC_TM_CGPR  0x108           /* TM checkpointed GPR Registers */
 #define NT_PPC_TM_CFPR  0x109           /* TM checkpointed FPR Registers */
@@ -790,46 +782,6 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 	}
 
 	return ret;
-}
-
-/*
- * The signal frame has been built using local addresses. Since it has to be
- * used in the context of the checkpointed process, the v_regs pointer in the
- * signal frame must be updated to match the address in the remote stack.
- */
-static inline void update_vregs(mcontext_t *lcontext, mcontext_t *rcontext)
-{
-	if (lcontext->v_regs) {
-		uint64_t offset = (uint64_t)(lcontext->v_regs) - (uint64_t)lcontext;
-		lcontext->v_regs = (vrregset_t *)((uint64_t)rcontext + offset);
-
-		pr_debug("Updated v_regs:%llx (rcontext:%llx)\n",
-			 (unsigned long long) lcontext->v_regs,
-			 (unsigned long long) rcontext);
-	}
-}
-
-int sigreturn_prep_fpu_frame(struct rt_sigframe *frame,
-			     struct rt_sigframe *rframe)
-{
-	uint64_t msr = frame->uc.uc_mcontext.gp_regs[PT_MSR];
-
-	update_vregs(&frame->uc.uc_mcontext, &rframe->uc.uc_mcontext);
-
-	/* Sanity check: If TM so uc_link should be set, otherwise not */
-	if (MSR_TM_ACTIVE(msr) ^ (!!(frame->uc.uc_link))) {
-		BUG();
-		return 1;
-	}
-
-	/* Updating the transactional state address if any */
-	if (frame->uc.uc_link) {
-		update_vregs(&frame->uc_transact.uc_mcontext,
-			     &rframe->uc_transact.uc_mcontext);
-		frame->uc.uc_link =  &rframe->uc_transact;
-	}
-
-	return 0;
 }
 
 int restore_gpregs(struct rt_sigframe *f, UserPpc64RegsEntry *r)
