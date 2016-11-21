@@ -29,8 +29,10 @@ int main(int argc, char **argv)
 
 	mkdir(dirname, 0777);
 	loop = getenv("ZDTM_MNT_EXT_DEV");
-	if (loop == NULL)
+	if (loop == NULL) {
+		pr_perror("ZDTM_MNT_EXT_DEV is not set");
 		return 1;
+	}
 
 	if (mount(loop, dirname, "ext4", 0, NULL) == -1) {
 		pr_perror("mount");
