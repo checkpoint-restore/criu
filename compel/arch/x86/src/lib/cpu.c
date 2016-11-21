@@ -1,8 +1,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "uapi/compel/cpu.h"
-
+#include "compel-cpu.h"
 #include "common/bitops.h"
 #include "common/compiler.h"
 
