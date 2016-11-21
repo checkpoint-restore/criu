@@ -959,6 +959,39 @@ out:
 	return ret;
 }
 
+/*
+ * This routine is to create PF_UNIX/SOCK_SEQPACKET socket
+ * in the target net namespace
+ */
+static int make_sock_for(int pid)
+{
+	int ret = -1;
+	int mfd, fd;
+	char p[32];
+
+	sprintf(p, "/proc/%d/ns/net", pid);
+	fd = open(p, O_RDONLY);
+	if (fd < 0)
+		goto out;
+
+	mfd = open("/proc/self/ns/net", O_RDONLY);
+	if (mfd < 0)
+		goto out_c;
+
+	if (setns(fd, CLONE_NEWNET))
+		goto out_cm;
+
+	ret = socket(PF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0);
+
+	setns(mfd, CLONE_NEWNET);
+out_cm:
+	close(mfd);
+out_c:
+	close(fd);
+out:
+	return ret;
+}
+
 static int simple_open_proc(int pid, int mode, const char *fmt, ...)
 {
 	int l;
@@ -988,6 +1021,9 @@ struct parasite_ctl *compel_prepare(int pid)
 	ictx->open_proc = simple_open_proc;
 	ictx->syscall_ip = find_executable_area(pid);
 	if (ictx->syscall_ip == (unsigned long)MAP_FAILED)
+		goto err;
+	ictx->sock = make_sock_for(pid);
+	if (ictx->sock < 0)
 		goto err;
 
 out:
