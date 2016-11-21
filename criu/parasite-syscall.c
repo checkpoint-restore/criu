@@ -581,6 +581,10 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	ictx->open_proc = do_open_proc;
 	ictx->child_handler = sigchld_handler;
+	ictx->orig_handler.sa_handler = SIG_DFL;
+	ictx->orig_handler.sa_flags = SA_SIGINFO | SA_RESTART;
+	sigemptyset(&ictx->orig_handler.sa_mask);
+	sigaddset(&ictx->orig_handler.sa_mask, SIGCHLD);
 	ictx->sock = dmpi(item)->netns->net.seqsk;
 	ictx->save_regs = save_task_regs;
 	ictx->make_sigframe = make_sigframe;
