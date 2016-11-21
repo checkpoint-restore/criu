@@ -40,6 +40,7 @@ struct parasite_ctl;
 struct parasite_thread_ctl;
 
 extern struct parasite_ctl *compel_prepare(int pid);
+extern struct parasite_ctl *compel_prepare_noctx(int pid);
 extern int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size);
 extern struct parasite_thread_ctl *compel_prepare_thread(struct parasite_ctl *ctl, int pid);
 extern void compel_release_thread(struct parasite_thread_ctl *);

@@ -894,7 +894,7 @@ void compel_release_thread(struct parasite_thread_ctl *tctl)
 	xfree(tctl);
 }
 
-struct parasite_ctl *compel_prepare(int pid)
+struct parasite_ctl *compel_prepare_noctx(int pid)
 {
 	struct parasite_ctl *ctl = NULL;
 
@@ -922,6 +922,21 @@ struct parasite_ctl *compel_prepare(int pid)
 err:
 	xfree(ctl);
 	return NULL;
+}
+
+struct parasite_ctl *compel_prepare(int pid)
+{
+	struct parasite_ctl *ctl;
+	struct infect_ctx *ictx;
+
+	ctl = compel_prepare_noctx(pid);
+	if (ctl == NULL)
+		goto out;
+
+	ictx = &ctl->ictx;
+	ictx->task_size = compel_task_size();
+out:
+	return ctl;
 }
 
 static bool task_in_parasite(struct parasite_ctl *ctl, user_regs_struct_t *regs)
