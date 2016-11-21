@@ -4,9 +4,9 @@
 #include <sys/user.h>
 #include <sys/mman.h>
 
+#include "types.h"
 #include "asm/processor-flags.h"
 #include "asm/restorer.h"
-#include "asm/types.h"
 #include "asm/fpu.h"
 
 #include "cr_options.h"

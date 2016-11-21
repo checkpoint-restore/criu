@@ -13,6 +13,7 @@
 #include <sched.h>
 #include <time.h>
 #include <fcntl.h>
+#include "int.h"
 
 struct cap_header {
 	u32 version;

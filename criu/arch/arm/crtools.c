@@ -1,7 +1,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "asm/types.h"
+#include "types.h"
 #include "asm/restorer.h"
 #include "common/compiler.h"
 #include "ptrace.h"

@@ -1,6 +1,7 @@
 #include <asm/prctl.h>
 #include <unistd.h>
 
+#include "types.h"
 #include "restorer.h"
 #include "asm/restorer.h"
 #include "asm/fpu.h"
