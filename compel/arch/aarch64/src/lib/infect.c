@@ -27,6 +27,35 @@ static inline void __always_unused __check_code_syscall(void)
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 }
 
+int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
+			      user_regs_struct_t *regs,
+			      user_fpregs_struct_t *fpregs)
+{
+	struct fpsimd_context *fpsimd = RT_SIGFRAME_FPU(sigframe);
+
+	memcpy(sigframe->uc.uc_mcontext.regs, regs->regs, sizeof(regs->regs));
+
+	sigframe->uc.uc_mcontext.sp	= regs->sp;
+	sigframe->uc.uc_mcontext.pc	= regs->pc;
+	sigframe->uc.uc_mcontext.pstate	= regs->pstate;
+
+	memcpy(fpsimd->vregs, fpregs->vregs, 32 * sizeof(__uint128_t));
+
+	fpsimd->fpsr = fpregs->fpsr;
+	fpsimd->fpcr = fpregs->fpcr;
+
+	fpsimd->head.magic = FPSIMD_MAGIC;
+	fpsimd->head.size = sizeof(*fpsimd);
+
+	return 0;
+}
+
+int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
+				   struct rt_sigframe *rsigframe)
+{
+	return 0;
+}
+
 int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
 {
 	struct iovec iov;

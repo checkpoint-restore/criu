@@ -47,6 +47,87 @@ static inline __always_unused void __check_code_syscall(void)
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 }
 
+int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
+			      user_regs_struct_t *regs,
+			      user_fpregs_struct_t *fpregs)
+{
+	bool is_native = user_regs_native(regs);
+	fpu_state_t *fpu_state = is_native ?
+				&sigframe->native.fpu_state :
+				&sigframe->compat.fpu_state;
+	if (is_native) {
+#define cpreg64_native(d, s)	sigframe->native.uc.uc_mcontext.d = regs->native.s
+		cpreg64_native(rdi, di);
+		cpreg64_native(rsi, si);
+		cpreg64_native(rbp, bp);
+		cpreg64_native(rsp, sp);
+		cpreg64_native(rbx, bx);
+		cpreg64_native(rdx, dx);
+		cpreg64_native(rcx, cx);
+		cpreg64_native(rip, ip);
+		cpreg64_native(rax, ax);
+		cpreg64_native(r8, r8);
+		cpreg64_native(r9, r9);
+		cpreg64_native(r10, r10);
+		cpreg64_native(r11, r11);
+		cpreg64_native(r12, r12);
+		cpreg64_native(r13, r13);
+		cpreg64_native(r14, r14);
+		cpreg64_native(r15, r15);
+		cpreg64_native(cs, cs);
+		cpreg64_native(eflags, flags);
+
+		sigframe->is_native = true;
+#undef cpreg64_native
+	} else {
+#define cpreg32_compat(d)	sigframe->compat.uc.uc_mcontext.d = regs->compat.d
+		cpreg32_compat(gs);
+		cpreg32_compat(fs);
+		cpreg32_compat(es);
+		cpreg32_compat(ds);
+		cpreg32_compat(di);
+		cpreg32_compat(si);
+		cpreg32_compat(bp);
+		cpreg32_compat(sp);
+		cpreg32_compat(bx);
+		cpreg32_compat(dx);
+		cpreg32_compat(cx);
+		cpreg32_compat(ip);
+		cpreg32_compat(ax);
+		cpreg32_compat(cs);
+		cpreg32_compat(ss);
+		cpreg32_compat(flags);
+#undef cpreg32_compat
+		sigframe->is_native = false;
+	}
+
+	fpu_state->has_fpu = true;
+	memcpy(&fpu_state->xsave, fpregs, sizeof(*fpregs));
+
+	return 0;
+}
+
+int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
+				   struct rt_sigframe *rsigframe)
+{
+	fpu_state_t *fpu_state = (sigframe->is_native) ?
+		&rsigframe->native.fpu_state :
+		&rsigframe->compat.fpu_state;
+	unsigned long addr = (unsigned long)(void *)&fpu_state->xsave;
+
+	if (sigframe->is_native && (addr % 64ul) == 0ul) {
+		sigframe->native.uc.uc_mcontext.fpstate = &fpu_state->xsave;
+	} else if (!sigframe->is_native && (addr % 32ul) == 0ul) {
+		sigframe->compat.uc.uc_mcontext.fpstate = (uint32_t)addr;
+	} else {
+		pr_err("Unaligned address passed: %lx (native %d)\n",
+		       addr, sigframe->is_native);
+		return -1;
+	}
+
+	return 0;
+}
+
 #define get_signed_user_reg(pregs, name)				\
 	((user_regs_native(pregs)) ? (int64_t)((pregs)->native.name) :	\
 				(int32_t)((pregs)->compat.name))
