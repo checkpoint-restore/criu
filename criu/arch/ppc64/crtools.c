@@ -49,8 +49,8 @@ static UserPpc64FpstateEntry *copy_fp_regs(uint64_t *fpregs)
 
 static void put_fpu_regs(mcontext_t *mc, UserPpc64FpstateEntry *fpe)
 {
-	int i;
 	uint64_t *mcfp = (uint64_t *)mc->fp_regs;
+	size_t i;
 
 	for (i = 0; i < fpe->n_fpregs; i++)
 		mcfp[i] =  fpe->fpregs[i];

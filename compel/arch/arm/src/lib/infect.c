@@ -26,6 +26,44 @@ static inline __always_unused void __check_code_syscall(void)
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 }
 
+int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
+			      user_regs_struct_t *regs,
+			      user_fpregs_struct_t *fpregs)
+{
+	struct aux_sigframe *aux = (struct aux_sigframe *)(void *)&sigframe->sig.uc.uc_regspace;
+
+	sigframe->sig.uc.uc_mcontext.arm_r0 = regs->ARM_r0;
+	sigframe->sig.uc.uc_mcontext.arm_r1 = regs->ARM_r1;
+	sigframe->sig.uc.uc_mcontext.arm_r2 = regs->ARM_r2;
+	sigframe->sig.uc.uc_mcontext.arm_r3 = regs->ARM_r3;
+	sigframe->sig.uc.uc_mcontext.arm_r4 = regs->ARM_r4;
+	sigframe->sig.uc.uc_mcontext.arm_r5 = regs->ARM_r5;
+	sigframe->sig.uc.uc_mcontext.arm_r6 = regs->ARM_r6;
+	sigframe->sig.uc.uc_mcontext.arm_r7 = regs->ARM_r7;
+	sigframe->sig.uc.uc_mcontext.arm_r8 = regs->ARM_r8;
+	sigframe->sig.uc.uc_mcontext.arm_r9 = regs->ARM_r9;
+	sigframe->sig.uc.uc_mcontext.arm_r10 = regs->ARM_r10;
+	sigframe->sig.uc.uc_mcontext.arm_fp = regs->ARM_fp;
+	sigframe->sig.uc.uc_mcontext.arm_ip = regs->ARM_ip;
+	sigframe->sig.uc.uc_mcontext.arm_sp = regs->ARM_sp;
+	sigframe->sig.uc.uc_mcontext.arm_lr = regs->ARM_lr;
+	sigframe->sig.uc.uc_mcontext.arm_pc = regs->ARM_pc;
+	sigframe->sig.uc.uc_mcontext.arm_cpsr = regs->ARM_cpsr;
+
+	memcpy(&aux->vfp.ufp.fpregs, &fpregs->fpregs, sizeof(aux->vfp.ufp.fpregs));
+	aux->vfp.ufp.fpscr = fpregs->fpscr;
+	aux->vfp.magic = VFP_MAGIC;
+	aux->vfp.size = VFP_STORAGE_SIZE;
+
+	return 0;
+}
+
+int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
+				   struct rt_sigframe *rsigframe)
+{
+	return 0;
+}
+
 #define PTRACE_GETVFPREGS 27
 int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
 {

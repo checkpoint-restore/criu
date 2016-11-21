@@ -1008,6 +1008,58 @@ static void handle_sigchld(int signal, siginfo_t *siginfo, void *data)
 	/* FIXME -- what to do here? */
 }
 
+struct plain_regs_struct {
+	user_regs_struct_t regs;
+	user_fpregs_struct_t fpregs;
+};
+
+static int save_regs_plain(void *to, user_regs_struct_t *r, user_fpregs_struct_t *f)
+{
+	struct plain_regs_struct *prs = to;
+
+	prs->regs = *r;
+	prs->fpregs = *f;
+
+	return 0;
+}
+
+#ifndef RT_SIGFRAME_UC_SIGMASK
+#define RT_SIGFRAME_UC_SIGMASK(sigframe)				\
+	(k_rtsigset_t*)&RT_SIGFRAME_UC(sigframe)->uc_sigmask
+#endif
+
+static int make_sigframe_plain(void *from, struct rt_sigframe *f, struct rt_sigframe *rtf, k_rtsigset_t *b)
+{
+	struct plain_regs_struct *prs = from;
+	k_rtsigset_t *blk_sigset;
+
+	/*
+	 * Make sure it's zeroified.
+	 */
+	memset(f, 0, sizeof(*f));
+
+	if (sigreturn_prep_regs_plain(f, &prs->regs, &prs->fpregs))
+		return -1;
+
+	blk_sigset = RT_SIGFRAME_UC_SIGMASK(f);
+	if (b)
+		memcpy(blk_sigset, b, sizeof(k_rtsigset_t));
+	else
+		memset(blk_sigset, 0, sizeof(k_rtsigset_t));
+
+	if (RT_SIGFRAME_HAS_FPU(f)) {
+		if (sigreturn_prep_fpu_frame_plain(f, rtf))
+			return -1;
+	}
+
+	/*
+	 * FIXME What about sas?
+	 * setup_sas(sigframe, core->thread_core->sas);
+	 */
+
+	return 0;
+}
+
 struct parasite_ctl *compel_prepare(int pid)
 {
 	struct parasite_ctl *ctl;
@@ -1024,6 +1076,12 @@ struct parasite_ctl *compel_prepare(int pid)
 	ictx->child_handler = handle_sigchld;
 	sigaction(SIGCHLD, NULL, &ictx->orig_handler);
 
+	ictx->save_regs = save_regs_plain;
+	ictx->make_sigframe = make_sigframe_plain;
+	ictx->regs_arg = xmalloc(sizeof(struct plain_regs_struct));
+	if (ictx->regs_arg == NULL)
+		goto err;
+
 	if (ictx->syscall_ip == (unsigned long)MAP_FAILED)
 		goto err;
 	ictx->sock = make_sock_for(pid);
@@ -1034,6 +1092,7 @@ out:
 	return ctl;
 
 err:
+	free(ictx->regs_arg);
 	free(ctl);
 	goto out;
 }

@@ -1,6 +1,7 @@
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <sys/user.h>
 #include <stdint.h>
 #include <errno.h>
 #include <compel/plugins/std/syscall-codes.h>
@@ -31,6 +32,130 @@ static inline void __check_code_syscall(void)
 {
 	BUILD_BUG_ON(sizeof(code_syscall) != BUILTIN_SYSCALL_SIZE);
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
+}
+
+static void prep_gp_regs(mcontext_t *dst, user_regs_struct_t *regs)
+{
+	memcpy(dst->gp_regs, regs->gpr, sizeof(regs->gpr));
+
+	dst->gp_regs[PT_NIP]		= regs->nip;
+	dst->gp_regs[PT_MSR]		= regs->msr;
+	dst->gp_regs[PT_ORIG_R3]	= regs->orig_gpr3;
+	dst->gp_regs[PT_CTR]		= regs->ctr;
+	dst->gp_regs[PT_LNK]		= regs->link;
+	dst->gp_regs[PT_XER]		= regs->xer;
+	dst->gp_regs[PT_CCR]		= regs->ccr;
+	dst->gp_regs[PT_TRAP]		= regs->trap;
+}
+
+static void put_fpu_regs(mcontext_t *mc, uint64_t *fpregs)
+{
+	uint64_t *mcfp = (uint64_t *)mc->fp_regs;
+
+	memcpy(mcfp, fpregs, sizeof(*fpregs) * NFPREG);
+}
+
+static void put_altivec_regs(mcontext_t *mc, __vector128 *vrregs)
+{
+	vrregset_t *v_regs = (vrregset_t *)(((unsigned long)mc->vmx_reserve + 15) & ~0xful);
+
+	memcpy(&v_regs->vrregs[0][0], vrregs, sizeof(uint64_t) * 2 * (NVRREG - 1));
+	v_regs->vrsave = *((uint32_t *)&vrregs[NVRREG - 1]);
+	mc->v_regs = v_regs;
+}
+
+static void put_vsx_regs(mcontext_t *mc, uint64_t *vsxregs)
+{
+	memcpy((uint64_t *)(mc->v_regs + 1), vsxregs, sizeof(*vsxregs) * NVSXREG);
+}
+
+int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
+			      user_regs_struct_t *regs,
+			      user_fpregs_struct_t *fpregs)
+{
+	mcontext_t *dst_tc = &sigframe->uc_transact.uc_mcontext;
+	mcontext_t *dst = &sigframe->uc.uc_mcontext;
+
+	if (fpregs->flags & USER_FPREGS_FL_TM) {
+		prep_gp_regs(&sigframe->uc_transact.uc_mcontext, &fpregs->tm.regs);
+		prep_gp_regs(&sigframe->uc.uc_mcontext, &fpregs->tm.regs);
+	} else {
+		prep_gp_regs(&sigframe->uc.uc_mcontext, regs);
+	}
+
+	if (fpregs->flags & USER_FPREGS_FL_TM)
+		sigframe->uc.uc_link = &sigframe->uc_transact;
+
+	if (fpregs->flags & USER_FPREGS_FL_FP) {
+		if (fpregs->flags & USER_FPREGS_FL_TM) {
+			put_fpu_regs(&sigframe->uc_transact.uc_mcontext, fpregs->tm.fpregs);
+			put_fpu_regs(&sigframe->uc.uc_mcontext, fpregs->tm.fpregs);
+		} else {
+			put_fpu_regs(&sigframe->uc.uc_mcontext, fpregs->fpregs);
+		}
+	}
+
+	if (fpregs->flags & USER_FPREGS_FL_ALTIVEC) {
+		if (fpregs->flags & USER_FPREGS_FL_TM) {
+			put_altivec_regs(&sigframe->uc_transact.uc_mcontext, fpregs->tm.vrregs);
+			put_altivec_regs(&sigframe->uc.uc_mcontext, fpregs->tm.vrregs);
+
+			dst_tc->gp_regs[PT_MSR] |= MSR_VEC;
+		} else {
+			put_altivec_regs(&sigframe->uc.uc_mcontext, fpregs->vrregs);
+		}
+
+		dst->gp_regs[PT_MSR] |= MSR_VEC;
+
+		if (fpregs->flags & USER_FPREGS_FL_VSX) {
+			if (fpregs->flags & USER_FPREGS_FL_TM) {
+				put_vsx_regs(&sigframe->uc_transact.uc_mcontext, fpregs->tm.vsxregs);
+				put_vsx_regs(&sigframe->uc.uc_mcontext, fpregs->tm.vsxregs);
+
+				dst_tc->gp_regs[PT_MSR] |= MSR_VSX;
+			} else {
+				put_vsx_regs(&sigframe->uc.uc_mcontext, fpregs->vsxregs);
+			}
+			dst->gp_regs[PT_MSR] |= MSR_VSX;
+		}
+	}
+
+	return 0;
+}
+
+static void update_vregs(mcontext_t *lcontext, mcontext_t *rcontext)
+{
+	if (lcontext->v_regs) {
+		uint64_t offset = (uint64_t)(lcontext->v_regs) - (uint64_t)lcontext;
+		lcontext->v_regs = (vrregset_t *)((uint64_t)rcontext + offset);
+
+		pr_debug("Updated v_regs:%llx (rcontext:%llx)\n",
+			 (unsigned long long)lcontext->v_regs,
+			 (unsigned long long)rcontext);
+	}
+}
+
+int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *frame,
+				   struct rt_sigframe *rframe)
+{
+	uint64_t msr = frame->uc.uc_mcontext.gp_regs[PT_MSR];
+
+	update_vregs(&frame->uc.uc_mcontext, &rframe->uc.uc_mcontext);
+
+	/* Sanity check: If TM so uc_link should be set, otherwise not */
+	if (MSR_TM_ACTIVE(msr) ^ (!!(frame->uc.uc_link))) {
+		BUG();
+		return -1;
+	}
+
+	/* Updating the transactional state address if any */
+	if (frame->uc.uc_link) {
+		update_vregs(&frame->uc_transact.uc_mcontext,
+			     &rframe->uc_transact.uc_mcontext);
+		frame->uc.uc_link =  &rframe->uc_transact;
+	}
+
+	return 0;
 }
 
 /* This is the layout of the POWER7 VSX registers and the way they
