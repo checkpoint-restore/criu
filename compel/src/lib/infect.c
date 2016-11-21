@@ -924,6 +924,41 @@ err:
 	return NULL;
 }
 
+/*
+ * Find first executable VMA that would fit the initial
+ * syscall injection.
+ */
+static unsigned long find_executable_area(int pid)
+{
+	char aux[128];
+	FILE *f;
+	unsigned long ret = (unsigned long)MAP_FAILED;
+
+	sprintf(aux, "/proc/%d/maps", pid);
+	f = fopen(aux, "r");
+	if (!f)
+		goto out;
+
+	while (fgets(aux, sizeof(aux), f)) {
+		unsigned long start, end;
+		char *f;
+
+		start = strtoul(aux, &f, 16);
+		end = strtoul(f + 1, &f, 16);
+
+		/* f now points at " rwx" (yes, with space) part */
+		if (f[3] == 'x') {
+			BUG_ON(end - start < PARASITE_START_AREA_MIN);
+			ret = start;
+			break;
+		}
+	}
+
+	fclose(f);
+out:
+	return ret;
+}
+
 struct parasite_ctl *compel_prepare(int pid)
 {
 	struct parasite_ctl *ctl;
@@ -935,8 +970,16 @@ struct parasite_ctl *compel_prepare(int pid)
 
 	ictx = &ctl->ictx;
 	ictx->task_size = compel_task_size();
+	ictx->syscall_ip = find_executable_area(pid);
+	if (ictx->syscall_ip == (unsigned long)MAP_FAILED)
+		goto err;
+
 out:
 	return ctl;
+
+err:
+	free(ctl);
+	goto out;
 }
 
 static bool task_in_parasite(struct parasite_ctl *ctl, user_regs_struct_t *regs)
