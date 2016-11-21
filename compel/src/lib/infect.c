@@ -384,16 +384,9 @@ static int setup_child_handler(struct parasite_ctl *ctl)
 	return 0;
 }
 
-static int restore_child_handler()
+static int restore_child_handler(struct parasite_ctl *ctl)
 {
-	struct sigaction sa = {
-		.sa_handler	= SIG_DFL, /* XXX -- should be original? */
-		.sa_flags	= SA_SIGINFO | SA_RESTART,
-	};
-
-	sigemptyset(&sa.sa_mask);
-	sigaddset(&sa.sa_mask, SIGCHLD);
-	if (sigaction(SIGCHLD, &sa, NULL)) {
+	if (sigaction(SIGCHLD, &ctl->ictx.orig_handler, NULL)) {
 		pr_perror("Unable to setup SIGCHLD handler");
 		return -1;
 	}
@@ -1007,6 +1000,14 @@ static int simple_open_proc(int pid, int mode, const char *fmt, ...)
 	return open(path, mode);
 }
 
+static void handle_sigchld(int signal, siginfo_t *siginfo, void *data)
+{
+	int status;
+
+	waitpid(-1, &status, WNOHANG);
+	/* FIXME -- what to do here? */
+}
+
 struct parasite_ctl *compel_prepare(int pid)
 {
 	struct parasite_ctl *ctl;
@@ -1020,6 +1021,9 @@ struct parasite_ctl *compel_prepare(int pid)
 	ictx->task_size = compel_task_size();
 	ictx->open_proc = simple_open_proc;
 	ictx->syscall_ip = find_executable_area(pid);
+	ictx->child_handler = handle_sigchld;
+	sigaction(SIGCHLD, NULL, &ictx->orig_handler);
+
 	if (ictx->syscall_ip == (unsigned long)MAP_FAILED)
 		goto err;
 	ictx->sock = make_sock_for(pid);
@@ -1049,7 +1053,7 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	enum trace_flags flag;
 
 	/* stop getting chld from parasite -- we're about to step-by-step it */
-	if (restore_child_handler())
+	if (restore_child_handler(ctl))
 		return -1;
 
 	/* Start to trace syscalls for each thread */
