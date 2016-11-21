@@ -28,6 +28,7 @@ int main(int argc, char ** argv)
 	char src[PATH_MAX], dst[PATH_MAX], *root;
 	char *dname = "/tmp/zdtm_ext_auto.XXXXXX";
 	struct stat sta, stb;
+	char* zdtm_newns = getenv("ZDTM_NEWNS");
 
 	root = getenv("ZDTM_ROOT");
 	if (root == NULL) {
@@ -37,8 +38,12 @@ int main(int argc, char ** argv)
 
 	sprintf(dst, "%s/%s", get_current_dir_name(), dirname);
 
-	if (strcmp(getenv("ZDTM_NEWNS"), "1"))
+	if (!zdtm_newns) {
+		pr_perror("ZDTM_NEWNS is not set");
+		return 1;
+	} else if (strcmp(zdtm_newns, "1")) {
 		goto test;
+	}
 
 	mkdir(dname, 755);
 	sprintf(src, "%s/%s", dname, DDIR);
