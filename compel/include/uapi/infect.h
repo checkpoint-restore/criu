@@ -12,7 +12,7 @@
 
 #define PARASITE_START_AREA_MIN	(4096)
 
-extern int compel_stop_task(int pid);
+extern int compel_interrupt_task(int pid);
 
 struct seize_task_status {
 	char			state;

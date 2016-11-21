@@ -137,7 +137,7 @@ int cr_exec(int pid, char **opt)
 		goto out;
 	}
 
-	if (compel_stop_task(pid))
+	if (compel_interrupt_task(pid))
 		goto out;
 
 	/*
