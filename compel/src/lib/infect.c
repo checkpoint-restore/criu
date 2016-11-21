@@ -62,7 +62,66 @@ static inline void close_safe(int *pfd)
 	}
 }
 
+static int parse_pid_status(int pid, struct seize_task_status *ss)
+{
+	char aux[128];
+	FILE *f;
+
+	sprintf(aux, "/proc/%d/status", pid);
+	f = fopen(aux, "r");
+	if (!f)
+		return -1;
+
+	ss->ppid = -1; /* Not needed at this point */
+	ss->seccomp_mode = SECCOMP_MODE_DISABLED;
+
+	while (fgets(aux, sizeof(aux), f)) {
+		if (!strncmp(aux, "State:", 6)) {
+			ss->state = aux[7];
+			continue;
+		}
+
+		if (!strncmp(aux, "Seccomp:", 8)) {
+			if (sscanf(aux + 9, "%d", &ss->seccomp_mode) != 1)
+				goto err_parse;
+
+			continue;
+		}
+
+		if (!strncmp(aux, "ShdPnd:", 7)) {
+			if (sscanf(aux + 7, "%llx", &ss->shdpnd) != 1)
+				goto err_parse;
+
+			continue;
+		}
+		if (!strncmp(aux, "SigPnd:", 7)) {
+			if (sscanf(aux + 7, "%llx", &ss->sigpnd) != 1)
+				goto err_parse;
+
+			continue;
+		}
+	}
+
+	fclose(f);
+	return 0;
+
+err_parse:
+	fclose(f);
+	return -1;
+}
+
 int compel_stop_task(int pid)
+{
+	int ret;
+	struct seize_task_status ss;
+
+	ret = compel_interrupt_task(pid);
+	if (ret == 0)
+		ret = compel_wait_task(pid, -1, parse_pid_status, &ss);
+	return ret;
+}
+
+int compel_interrupt_task(int pid)
 {
 	int ret;
 
