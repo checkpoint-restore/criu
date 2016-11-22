@@ -37,7 +37,8 @@ extern int open_page_xfer(struct page_xfer *xfer, int fd_type, long id);
 struct page_pipe;
 extern int page_xfer_dump_pages(struct page_xfer *, struct page_pipe *,
 				unsigned long off, bool dump_lazy);
-extern int connect_to_page_server(void);
+extern int connect_to_page_server_to_send(void);
+extern int connect_to_page_server_to_recv(int epfd);
 extern int disconnect_from_page_server(void);
 
 extern int check_parent_page_xfer(int fd_type, long id);
@@ -60,6 +61,5 @@ extern int receive_remote_pages(int len, void *buf);
 typedef int (*ps_async_read_complete)(int pid, unsigned long vaddr, int nr_pages, void *);
 extern int page_server_start_async_read(void *buf, int nr_pages,
 		ps_async_read_complete complete, void *priv);
-extern int page_server_async_read(void);
 
 #endif /* __CR_PAGE_XFER__H__ */

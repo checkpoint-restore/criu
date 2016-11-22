@@ -840,7 +840,7 @@ no_server:
 	return ret;
 }
 
-int connect_to_page_server(void)
+static int connect_to_page_server(void)
 {
 	if (!opts.use_page_server)
 		return 0;
@@ -861,7 +861,12 @@ out:
 	 * on urgent data is the smartest mode ever.
 	 */
 	tcp_cork(page_server_sk, true);
-	return page_server_sk;
+	return 0;
+}
+
+int connect_to_page_server_to_send(void)
+{
+	return connect_to_page_server();
 }
 
 int disconnect_from_page_server(void)
@@ -948,7 +953,7 @@ int page_server_start_async_read(void *buf, int nr_pages,
  * for sure the next time socket event will occur we'll get page data
  * related to info we've just received
  */
-int page_server_async_read(void)
+static int page_server_async_read(struct epoll_rfd *f)
 {
 	struct ps_async_read *ar;
 	int ret, need;
@@ -988,6 +993,19 @@ int page_server_async_read(void)
 	xfree(ar);
 
 	return ret;
+}
+
+static struct epoll_rfd ps_rfd;
+
+int connect_to_page_server_to_recv(int epfd)
+{
+	if (connect_to_page_server())
+		return -1;
+
+	ps_rfd.fd = page_server_sk;
+	ps_rfd.revent = page_server_async_read;
+
+	return epoll_add_rfd(epfd, &ps_rfd);
 }
 
 int request_remote_pages(int pid, unsigned long addr, int nr_pages)

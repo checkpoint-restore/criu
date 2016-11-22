@@ -805,27 +805,6 @@ close_uffd:
 	return -1;
 }
 
-static int page_server_event(struct epoll_rfd *lpfd)
-{
-	return page_server_async_read();
-}
-
-static struct epoll_rfd page_server_sk_fd;
-
-static int prepare_page_server_socket(int epollfd)
-{
-	int sk;
-
-	sk = connect_to_page_server();
-	if (sk < 0)
-		return -1;
-
-	page_server_sk_fd.revent = page_server_event;
-	page_server_sk_fd.fd = sk;
-
-	return epoll_add_rfd(epollfd, &page_server_sk_fd);
-}
-
 int cr_lazy_pages(bool daemon)
 {
 	struct epoll_event *events;
@@ -876,7 +855,7 @@ int cr_lazy_pages(bool daemon)
 		return -1;
 
 	if (opts.use_page_server) {
-		if (prepare_page_server_socket(epollfd))
+		if (connect_to_page_server_to_recv(epollfd))
 			return -1;
 	}
 
