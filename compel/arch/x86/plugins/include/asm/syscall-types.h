@@ -11,17 +11,17 @@ typedef rt_restorefn_t *rt_sigrestore_t;
 #define SA_RESTORER	0x04000000
 
 #define _KNSIG		64
-
-#ifndef CONFIG_COMPAT
 #define _NSIG_BPW	64
-#else
-#define _NSIG_BPW	32
-#endif
 
 #define _KNSIG_WORDS	(_KNSIG / _NSIG_BPW)
 
+/*
+ * Note: as k_rtsigset_t is the same size for 32-bit and 64-bit,
+ * sig defined as uint64_t rather than (unsigned long) - for the
+ * purpose if we ever going to support native 32-bit compilation.
+ */
 typedef struct {
-	unsigned long	sig[_KNSIG_WORDS];
+	uint64_t	sig[_KNSIG_WORDS];
 } k_rtsigset_t;
 
 typedef struct {
