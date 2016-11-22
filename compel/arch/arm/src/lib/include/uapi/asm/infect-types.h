@@ -58,11 +58,6 @@ struct user_vfp_exc {
 
 #define user_regs_native(pregs)			true
 
-#define AT_VECTOR_SIZE		40
-
-typedef uint32_t auxv_t;
-typedef uint32_t tls_t;
-
 #define ARCH_SI_TRAP		TRAP_BRKPT
 
 #define __NR(syscall, compat)	__NR_##syscall
