@@ -73,17 +73,8 @@ struct rt_sigcontext_32 {
  *      when (if) other architectures will support compatible C/R
  */
 
-typedef u32			compat_uptr_t;
-typedef u32			compat_size_t;
-typedef u32			compat_sigset_word;
-
-#define _COMPAT_NSIG		64
-#define _COMPAT_NSIG_BPW	32
-#define _COMPAT_NSIG_WORDS	(_COMPAT_NSIG / _COMPAT_NSIG_BPW)
-
-typedef struct {
-	compat_sigset_word	sig[_COMPAT_NSIG_WORDS];
-} compat_sigset_t;
+typedef uint32_t			compat_uptr_t;
+typedef uint32_t			compat_size_t;
 
 typedef struct compat_siginfo {
 	int	si_signo;
@@ -91,11 +82,6 @@ typedef struct compat_siginfo {
 	int	si_code;
 	int	_pad[128/sizeof(int) - 3];
 } compat_siginfo_t;
-
-static inline void __always_unused __check_compat_sigset_t(void)
-{
-	BUILD_BUG_ON(sizeof(compat_sigset_t) != sizeof(k_rtsigset_t));
-}
 
 #ifdef CONFIG_X86_32
 #define rt_sigframe_ia32		rt_sigframe
