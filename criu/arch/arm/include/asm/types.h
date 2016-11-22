@@ -24,4 +24,8 @@ typedef UserArmRegsEntry UserRegsEntry;
 static inline void *decode_pointer(u64 v) { return (void*)(u32)v; }
 static inline u64 encode_pointer(void *p) { return (u32)p; }
 
+#define AT_VECTOR_SIZE		40
+typedef uint32_t auxv_t;
+typedef uint32_t tls_t;
+
 #endif /* __CR_ASM_TYPES_H__ */

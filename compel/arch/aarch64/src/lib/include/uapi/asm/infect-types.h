@@ -24,11 +24,6 @@ typedef struct user_fpsimd_state	user_fpregs_struct_t;
 
 #define user_regs_native(pregs)			true
 
-#define AT_VECTOR_SIZE 40
-
-typedef uint64_t auxv_t;
-typedef uint64_t tls_t;
-
 #define ARCH_SI_TRAP		TRAP_BRKPT
 
 #define __NR(syscall, compat)	__NR_##syscall

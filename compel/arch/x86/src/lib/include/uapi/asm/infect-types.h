@@ -124,25 +124,14 @@ typedef struct xsave_struct user_fpregs_struct_t;
 #define REG_IP(regs)		get_user_reg(&regs, ip)
 #define REG_SYSCALL_NR(regs)	get_user_reg(&regs, orig_ax)
 
-typedef uint64_t auxv_t;
+#define __NR(syscall, compat)	((compat) ? __NR32_##syscall : __NR_##syscall)
 
 /*
- * Linux preserves three TLS segments in GDT.
- * Offsets in GDT differ between 32-bit and 64-bit machines.
- * For 64-bit x86 those GDT offsets are the same
- * for native and compat tasks.
+ * For x86_32 __NR_mmap inside the kernel represents old_mmap system
+ * call, but since we didn't use it yet lets go further and simply
+ * define own alias for __NR_mmap2 which would allow us to unify code
+ * between 32 and 64 bits version.
  */
-#define GDT_ENTRY_TLS_MIN		12
-#define GDT_ENTRY_TLS_MAX		14
-#define GDT_ENTRY_TLS_NUM		3
-typedef struct {
-	user_desc_t desc[GDT_ENTRY_TLS_NUM];
-} tls_t;
-
-#define REG_RES(regs)		get_user_reg(&regs, ax)
-#define REG_IP(regs)		get_user_reg(&regs, ip)
-#define REG_SYSCALL_NR(regs)	get_user_reg(&regs, orig_ax)
-
-#define AT_VECTOR_SIZE 44
+#define __NR32_mmap __NR32_mmap2
 
 #endif /* UAPI_COMPEL_ASM_TYPES_H__ */
