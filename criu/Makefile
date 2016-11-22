@@ -34,22 +34,10 @@ include $(__nmk_dir)msg.mk
 # Needed libraries checks
 include $(SRC_DIR)/criu/Makefile.packages
 
-##
-## System calls library.
-#ifeq ($(ARCH),x86)
-## Do not need 32-bit compatible syscall lib compiled in criu
-#SYSCALL-LIB		:= $(ARCH_DIR)/syscalls-64.built-in.o
-#else
-#SYSCALL-LIB		:= $(ARCH_DIR)/syscalls.built-in.o
-#endif
-#syscalls_lib:
-#	$(Q) $(MAKE) $(call build-as,Makefile.syscalls,$(ARCH_DIR)) all
-.PHONY: syscalls_lib
-
 #
 # Architecture dependent part.
 ARCH-LIB		:= $(ARCH_DIR)/crtools.built-in.o
-$(ARCH-LIB): syscalls_lib
+$(ARCH-LIB):
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) all
 
 #
