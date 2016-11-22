@@ -619,7 +619,7 @@ static int uffd_seek_or_zero_pages(struct lazy_pages_info *lpi, __u64 address,
 	return 1;
 }
 
-static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
+static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr, unsigned flags)
 {
 	int ret;
 
@@ -627,7 +627,7 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
 	if (ret <= 0)
 		return ret;
 
-	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, 0);
+	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, flags);
 	if (ret <= 0) {
 		pr_err("%d: failed reading pages at %llx\n", lpi->pid, address);
 		return ret;
@@ -648,28 +648,11 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	list_for_each_entry(lazy_iov, &lpi->iovs, l) {
 		nr_pages = lazy_iov->len / PAGE_SIZE;
 
-		err = uffd_handle_pages(lpi, lazy_iov->base, nr_pages);
+		err = uffd_handle_pages(lpi, lazy_iov->base, nr_pages, 0);
 		if (err < 0) {
 			pr_err("Error during UFFD copy\n");
 			return -1;
 		}
-	}
-
-	return 0;
-}
-
-static int handle_page_fault(struct lazy_pages_info *lpi, __u64 address, int nr)
-{
-	int ret;
-
-	ret = uffd_seek_or_zero_pages(lpi, address, nr);
-	if (ret <= 0)
-		return ret;
-
-	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, PR_ASYNC | PR_ASAP);
-	if (ret <= 0) {
-		pr_err("%d: failed reading pages at %llx\n", lpi->pid, address);
-		return ret;
 	}
 
 	return 0;
@@ -720,7 +703,7 @@ static int handle_user_fault(struct lazy_pages_fd *lpfd)
 	}
 #endif
 
-	ret = handle_page_fault(lpi, address, 1);
+	ret = uffd_handle_pages(lpi, address, 1, PR_ASYNC | PR_ASAP);
 	if (ret < 0) {
 		pr_err("Error during regular page copy\n");
 		return -1;
