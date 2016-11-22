@@ -14,7 +14,6 @@
 #include <sys/ioctl.h>
 #include <sys/un.h>
 #include <sys/socket.h>
-#include <sys/epoll.h>
 #include <sys/wait.h>
 
 #include "linux/userfaultfd.h"
@@ -39,6 +38,7 @@
 #include "page-xfer.h"
 #include "common/lock.h"
 #include "rst-malloc.h"
+#include "util.h"
 
 #undef  LOG_PREFIX
 #define LOG_PREFIX "lazy-pages: "
@@ -55,11 +55,6 @@ struct lazy_iovec {
 
 struct lazy_pages_info;
 
-struct lazy_pages_fd {
-	int fd;
-	int (*event)(struct lazy_pages_fd *);
-};
-
 struct lazy_pages_info {
 	int pid;
 
@@ -70,7 +65,7 @@ struct lazy_pages_info {
 	unsigned long total_pages;
 	unsigned long copied_pages;
 
-	struct lazy_pages_fd lpfd;
+	struct epoll_rfd lpfd;
 
 	struct list_head l;
 
@@ -79,7 +74,7 @@ struct lazy_pages_info {
 };
 
 static LIST_HEAD(lpis);
-static int handle_user_fault(struct lazy_pages_fd *lpfd);
+static int handle_user_fault(struct epoll_rfd *lpfd);
 
 static struct lazy_pages_info *lpi_init(void)
 {
@@ -92,7 +87,7 @@ static struct lazy_pages_info *lpi_init(void)
 	memset(lpi, 0, sizeof(*lpi));
 	INIT_LIST_HEAD(&lpi->iovs);
 	INIT_LIST_HEAD(&lpi->l);
-	lpi->lpfd.event = handle_user_fault;
+	lpi->lpfd.revent = handle_user_fault;
 
 	return lpi;
 }
@@ -658,7 +653,7 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	return 0;
 }
 
-static int handle_user_fault(struct lazy_pages_fd *lpfd)
+static int handle_user_fault(struct epoll_rfd *lpfd)
 {
 	struct lazy_pages_info *lpi;
 	struct uffd_msg msg;
@@ -731,38 +726,15 @@ static int lazy_pages_summary(struct lazy_pages_info *lpi)
 
 static int handle_requests(int epollfd, struct epoll_event *events)
 {
-	int nr_fds = epoll_nr_fds(task_entries->nr_tasks);
 	struct lazy_pages_info *lpi;
-	int ret = -1;
-	int i;
+	int ret;
 
-	while (1) {
-		struct lazy_pages_fd *lpfd;
+	ret = epoll_run_rfds(epollfd, events, epoll_nr_fds(task_entries->nr_tasks), POLL_TIMEOUT);
+	if (ret < 0)
+		goto out;
 
-		/*
-		 * Setting the timeout to 5 seconds. If after this time
-		 * no uffd pages are requested the code switches to
-		 * copying the remaining pages.
-		 */
-		ret = epoll_wait(epollfd, events, nr_fds, POLL_TIMEOUT);
-		if (ret < 0) {
-			pr_perror("polling failed");
-			goto out;
-		} else if (ret == 0) {
-			pr_debug("switching from request to copy mode\n");
-			break;
-		}
 
-		for (i = 0; i < ret; i++) {
-			int err;
-
-			lpfd = (struct lazy_pages_fd *)events[i].data.ptr;
-			err = lpfd->event(lpfd);
-			if (err < 0)
-				goto out;
-		}
-	}
-
+	pr_debug("switching from request to copy mode\n");
 	pr_debug("Handle remaining pages\n");
 	list_for_each_entry(lpi, &lpis, l) {
 		ret = handle_remaining_pages(lpi);
@@ -779,41 +751,6 @@ static int handle_requests(int epollfd, struct epoll_event *events)
 out:
 	return ret;
 
-}
-
-static int prepare_epoll(int nr_fds, struct epoll_event **events)
-{
-	int epollfd;
-
-	*events = xmalloc(sizeof(struct epoll_event) * nr_fds);
-	if (!*events)
-		return -1;
-
-	epollfd = epoll_create(nr_fds);
-	if (epollfd == -1) {
-		pr_perror("epoll_create failed");
-		goto free_events;
-	}
-
-	return epollfd;
-
-free_events:
-	free(*events);
-	return -1;
-}
-
-static int epoll_add_lpfd(int epollfd, struct lazy_pages_fd *lpfd)
-{
-	struct epoll_event ev;
-
-	ev.events = EPOLLIN;
-	ev.data.ptr = lpfd;
-	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, lpfd->fd, &ev) == -1) {
-		pr_perror("epoll_ctl failed");
-		return -1;
-	}
-
-	return 0;
 }
 
 static int prepare_lazy_socket(void)
@@ -854,7 +791,7 @@ static int prepare_uffds(int listen, int epollfd)
 			goto close_uffd;
 		if (lpi == NULL)
 			continue;
-		if (epoll_add_lpfd(epollfd, &lpi->lpfd))
+		if (epoll_add_rfd(epollfd, &lpi->lpfd))
 			goto close_uffd;
 	}
 
@@ -868,12 +805,12 @@ close_uffd:
 	return -1;
 }
 
-static int page_server_event(struct lazy_pages_fd *lpfd)
+static int page_server_event(struct epoll_rfd *lpfd)
 {
 	return page_server_async_read();
 }
 
-static struct lazy_pages_fd page_server_sk_fd;
+static struct epoll_rfd page_server_sk_fd;
 
 static int prepare_page_server_socket(int epollfd)
 {
@@ -883,10 +820,10 @@ static int prepare_page_server_socket(int epollfd)
 	if (sk < 0)
 		return -1;
 
-	page_server_sk_fd.event = page_server_event;
+	page_server_sk_fd.revent = page_server_event;
 	page_server_sk_fd.fd = sk;
 
-	return epoll_add_lpfd(epollfd, &page_server_sk_fd);
+	return epoll_add_rfd(epollfd, &page_server_sk_fd);
 }
 
 int cr_lazy_pages(bool daemon)
@@ -931,7 +868,7 @@ int cr_lazy_pages(bool daemon)
 		return -1;
 
 	nr_fds = epoll_nr_fds(task_entries->nr_tasks);
-	epollfd = prepare_epoll(nr_fds, &events);
+	epollfd = epoll_prepare(nr_fds, &events);
 	if (epollfd < 0)
 		return -1;
 
