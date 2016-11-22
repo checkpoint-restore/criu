@@ -135,6 +135,7 @@ TST_NOFILE	:=				\
 		dumpable02			\
 		remap_dead_pid			\
 		remap_dead_pid_root			\
+		scm00				\
 		aio00				\
 		aio01				\
 		fd				\
