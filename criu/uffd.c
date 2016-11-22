@@ -781,21 +781,6 @@ out:
 
 }
 
-static int lazy_pages_prepare_pstree(void)
-{
-	if (check_img_inventory() == -1)
-		return -1;
-
-	/* Allocate memory for task_entries */
-	if (prepare_task_entries() == -1)
-		return -1;
-
-	if (prepare_pstree() == -1)
-		return -1;
-
-	return 0;
-}
-
 static int prepare_epoll(int nr_fds, struct epoll_event **events)
 {
 	int epollfd;
@@ -915,7 +900,7 @@ int cr_lazy_pages(bool daemon)
 	if (check_for_uffd())
 		return -1;
 
-	if (lazy_pages_prepare_pstree())
+	if (prepare_dummy_pstree())
 		return -1;
 
 	lazy_sk = prepare_lazy_socket();
