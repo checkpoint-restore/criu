@@ -1214,3 +1214,66 @@ int setup_tcp_client(char *addr)
 
 	return sk;
 }
+
+int epoll_add_rfd(int epfd, struct epoll_rfd *rfd)
+{
+	struct epoll_event ev;
+
+	ev.events = EPOLLIN;
+	ev.data.ptr = rfd;
+	if (epoll_ctl(epfd, EPOLL_CTL_ADD, rfd->fd, &ev) == -1) {
+		pr_perror("epoll_ctl failed");
+		return -1;
+	}
+
+	return 0;
+}
+
+int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout)
+{
+	int ret = 0, i;
+
+	while (1) {
+		/* FIXME -- timeout should decrease over time...  */
+		ret = epoll_wait(epollfd, evs, nr_fds, timeout);
+		if (ret <= 0) {
+			if (ret < 0)
+				pr_perror("polling failed");
+			else
+				pr_debug("polling timeout\n");
+			break;
+		}
+
+		for (i = 0; i < ret; i++) {
+			struct epoll_rfd *rfd;
+
+			rfd = (struct epoll_rfd *)evs[i].data.ptr;
+			ret = rfd->revent(rfd);
+			if (ret < 0)
+				goto out;
+		}
+	}
+out:
+	return ret;
+}
+
+int epoll_prepare(int nr_fds, struct epoll_event **events)
+{
+	int epollfd;
+
+	*events = xmalloc(sizeof(struct epoll_event) * nr_fds);
+	if (!*events)
+		return -1;
+
+	epollfd = epoll_create(nr_fds);
+	if (epollfd == -1) {
+		pr_perror("epoll_create failed");
+		goto free_events;
+	}
+
+	return epollfd;
+
+free_events:
+	xfree(*events);
+	return -1;
+}
