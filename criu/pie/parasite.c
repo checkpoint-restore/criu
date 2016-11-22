@@ -277,12 +277,70 @@ grps_err:
 	return -1;
 }
 
+static int fill_fds_opts(struct parasite_drain_fd *fds, struct fd_opts *opts)
+{
+	int i;
+
+	for (i = 0; i < fds->nr_fds; i++) {
+		int flags, fd = fds->fds[i], ret;
+		struct fd_opts *p = opts + i;
+		struct f_owner_ex owner_ex;
+		uint32_t v[2];
+
+		flags = sys_fcntl(fd, F_GETFD, 0);
+		if (flags < 0) {
+			pr_err("fcntl(%d, F_GETFD) -> %d\n", fd, flags);
+			return -1;
+		}
+
+		p->flags = (char)flags;
+
+		ret = sys_fcntl(fd, F_GETOWN_EX, (long)&owner_ex);
+		if (ret) {
+			pr_err("fcntl(%d, F_GETOWN_EX) -> %d\n", fd, ret);
+			return -1;
+		}
+
+		/*
+		 * Simple case -- nothing is changed.
+		 */
+		if (owner_ex.pid == 0) {
+			p->fown.pid = 0;
+			continue;
+		}
+
+		ret = sys_fcntl(fd, F_GETOWNER_UIDS, (long)&v);
+		if (ret) {
+			pr_err("fcntl(%d, F_GETOWNER_UIDS) -> %d\n", fd, ret);
+			return -1;
+		}
+
+		p->fown.uid	 = v[0];
+		p->fown.euid	 = v[1];
+		p->fown.pid_type = owner_ex.type;
+		p->fown.pid	 = owner_ex.pid;
+	}
+
+	return 0;
+}
+
 static int drain_fds(struct parasite_drain_fd *args)
 {
 	int ret;
+	struct fd_opts *opts;
+
+	/*
+	 * See the drain_fds_size() in criu code, the memory
+	 * for this args is ensured to be large enough to keep
+	 * an array of fd_opts at the tail.
+	 */
+	opts = ((void *)args) + sizeof(*args) + args->nr_fds * sizeof(args->fds[0]);
+	ret = fill_fds_opts(args, opts);
+	if (ret)
+		return ret;
 
 	ret = send_fds(tsock, NULL, 0,
-		       args->fds, args->nr_fds, true);
+		       args->fds, args->nr_fds, opts, sizeof(struct fd_opts));
 	if (ret)
 		pr_err("send_fds failed (%d)\n", ret);
 

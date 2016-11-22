@@ -836,7 +836,7 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 		goto err;
 	}
 
-	ret = recv_fds(ctl->tsock, lfds, nr_fds, opts);
+	ret = recv_fds(ctl->tsock, lfds, nr_fds, opts, sizeof(struct fd_opts));
 	if (ret)
 		pr_err("Can't retrieve FDs from socket\n");
 

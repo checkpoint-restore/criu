@@ -11,8 +11,6 @@
 #define SO_PEEK_OFF            42
 #endif
 
-#define SCM_FDSET_HAS_OPTS
-
 #include "common/scm.h"
 
 extern int open_detach_mount(char *dir);
