@@ -108,13 +108,6 @@ static void lpi_fini(struct lazy_pages_info *lpi)
 	free(lpi);
 }
 
-static int epoll_nr_fds(int nr_tasks)
-{
-       if (opts.use_page_server)
-               return nr_tasks + 1;
-       return nr_tasks;
-}
-
 static int prepare_sock_addr(struct sockaddr_un *saddr)
 {
 	int len;
@@ -724,12 +717,12 @@ static int lazy_pages_summary(struct lazy_pages_info *lpi)
 
 #define POLL_TIMEOUT 5000
 
-static int handle_requests(int epollfd, struct epoll_event *events)
+static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 {
 	struct lazy_pages_info *lpi;
 	int ret;
 
-	ret = epoll_run_rfds(epollfd, events, epoll_nr_fds(task_entries->nr_tasks), POLL_TIMEOUT);
+	ret = epoll_run_rfds(epollfd, events, nr_fds, POLL_TIMEOUT);
 	if (ret < 0)
 		goto out;
 
@@ -846,7 +839,7 @@ int cr_lazy_pages(bool daemon)
 	if (close_status_fd())
 		return -1;
 
-	nr_fds = epoll_nr_fds(task_entries->nr_tasks);
+	nr_fds = task_entries->nr_tasks + (opts.use_page_server ? 1 : 0);
 	epollfd = epoll_prepare(nr_fds, &events);
 	if (epollfd < 0)
 		return -1;
@@ -859,7 +852,7 @@ int cr_lazy_pages(bool daemon)
 			return -1;
 	}
 
-	ret = handle_requests(epollfd, events);
+	ret = handle_requests(epollfd, events, nr_fds);
 
 	return ret;
 }
