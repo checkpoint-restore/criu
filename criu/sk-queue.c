@@ -58,6 +58,24 @@ struct collect_image_info sk_queues_cinfo = {
 	.collect = collect_one_packet,
 };
 
+/*
+ * Maximum size of the control messages. XXX -- is there any
+ * way to get this value out of the kernel?
+ * */
+#define CMSG_MAX_SIZE	1024
+
+static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe)
+{
+	struct cmsghdr *ch;
+
+	for (ch = CMSG_FIRSTHDR(mh); ch; ch = CMSG_NXTHDR(mh, ch)) {
+		pr_err("Control messages in queue, not supported\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int dump_sk_queue(int sock_fd, int sock_id)
 {
 	SkPacketEntry pe = SK_PACKET_ENTRY__INIT;
@@ -108,6 +126,7 @@ int dump_sk_queue(int sock_fd, int sock_id)
 	pe.id_for = sock_id;
 
 	while (1) {
+		char cmsg[CMSG_MAX_SIZE];
 		struct iovec iov = {
 			.iov_base	= data,
 			.iov_len	= size,
@@ -115,6 +134,8 @@ int dump_sk_queue(int sock_fd, int sock_id)
 		struct msghdr msg = {
 			.msg_iov	= &iov,
 			.msg_iovlen	= 1,
+			.msg_control	= &cmsg,
+			.msg_controllen	= sizeof(cmsg),
 		};
 
 		ret = pe.length = recvmsg(sock_fd, &msg, MSG_DONTWAIT | MSG_PEEK);
@@ -139,6 +160,9 @@ int dump_sk_queue(int sock_fd, int sock_id)
 			ret = -E2BIG;
 			goto err_set_sock;
 		}
+
+		if (dump_packet_cmsg(&msg, &pe))
+			goto err_set_sock;
 
 		ret = pb_write_one(img_from_set(glob_imgset, CR_FD_SK_QUEUES), &pe, PB_SK_QUEUES);
 		if (ret < 0) {
