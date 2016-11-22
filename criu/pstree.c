@@ -16,6 +16,7 @@
 #include "util.h"
 #include "protobuf.h"
 #include "images/pstree.pb-c.h"
+#include "crtools.h"
 
 struct pstree_item *root_item;
 static struct rb_root pid_root_rb;
@@ -948,6 +949,22 @@ int prepare_pstree(void)
 		ret = prepare_pstree_ids();
 
 	return ret;
+}
+
+int prepare_dummy_pstree(void)
+{
+	pid_t dummy = 0;
+
+	if (check_img_inventory() == -1)
+		return -1;
+
+	if (prepare_task_entries() == -1)
+		return -1;
+
+	if (read_pstree_image(&dummy) == -1)
+		return -1;
+
+	return 0;
 }
 
 bool restore_before_setsid(struct pstree_item *child)
