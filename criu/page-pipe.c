@@ -393,10 +393,9 @@ static int page_pipe_split_iov(struct page_pipe *pp, struct page_pipe_buf *ppb,
 }
 
 static int page_pipe_split_ppb(struct page_pipe *pp, struct page_pipe_buf *ppb,
-			       struct iovec *iov, unsigned long len)
+			       struct iovec *iov, unsigned long len,
+			       bool popup_new)
 {
-	struct page_pipe_buf *ppb_tmp;
-	struct iovec *iov_tmp = iov;
 	struct page_pipe_buf *ppb_new;
 	int ret;
 
@@ -414,35 +413,9 @@ static int page_pipe_split_ppb(struct page_pipe *pp, struct page_pipe_buf *ppb,
 	ppb->nr_segs -= ppb_new->nr_segs;
 	ppb->pages_in -= len / PAGE_SIZE;
 
+	if (popup_new)
+		ppb = ppb_new;
 	list_move(&ppb->l, &pp->bufs);
-
-	/*
-	 * Only the leading iov's are split from the page_pipe_buffer.
-	 * The complete page_pipe_buffer at the start of the page_pipe
-	 * list will be deleted and therefore it is necessary to also
-	 * move unrelated iov's to their own page_pipe_buffers.
-	 */
-
-	if (ppb->nr_segs <= len / PAGE_SIZE)
-		return 0;
-
-	/* Move to the iov after the current request */
-	iov += len / PAGE_SIZE;
-	ret = page_pipe_split_ppb(pp, ppb, iov, len);
-	if (ret)
-		return -1;
-
-	/*
-	 * Rotate until correct head pointer. The function transmitting
-	 * the page data expects that the head points to the right
-	 * page_pipe_buffer. The complete first page_pipe_buffer is
-	 * deleted even it contains additional elements.
-	 */
-	ppb_tmp = list_first_entry(&pp->bufs, struct page_pipe_buf, l);
-	while (ppb_tmp->iov != iov_tmp) {
-		list_rotate_left(&pp->bufs);
-		ppb_tmp = list_first_entry(&pp->bufs, struct page_pipe_buf, l);
-	}
 
 	return 0;
 }
@@ -471,14 +444,31 @@ int page_pipe_split(struct page_pipe *pp, unsigned long addr,
 		return 0;
 	}
 
-	/* split origingal ppb on boundary of iov that contains addr */
+	/*
+	 * Split origingal ppb on boundary of iov that contains
+	 * addr. The ppb containing the address will remain at the
+	 * pp->buf list head.
+	 */
 	if (iov != ppb->iov) {
 		len -= (addr - (unsigned long)iov->iov_base);
-		ret = page_pipe_split_ppb(pp, ppb, iov, len);
+		ret = page_pipe_split_ppb(pp, ppb, iov, len, false);
 		if (ret)
 			return -1;
 	}
 
+	/*
+	 * Split the tail of the ppb. We presume that requests do not
+	 * cross IOV (that is pagemap entry) boundaries.
+	 * The newly created ppb will contain the desired IOV and will
+	 * be poped to the head of the pp->buf list
+	 */
+	if (ppb->nr_segs > 1) {
+		len = iov->iov_len;
+		ret = page_pipe_split_ppb(pp, ppb, iov + 1, len, true);
+		if (ret)
+			return -1;
+		ppb = list_first_entry(&pp->bufs, struct page_pipe_buf, l);
+	}
 
 	/*
 	 * if address does not match iov base, split the iov and
