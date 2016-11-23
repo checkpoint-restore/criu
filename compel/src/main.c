@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	if (!strcmp(action, "piegen")) {
+	if (!strcmp(action, "hgen")) {
 		if (!opts.input_filename)
 			goto usage;
 		compel_log_init(&cli_log, log_level);
@@ -223,6 +223,6 @@ usage:
 	printf("Usage:\n");
 	printf("  compel --arch=(x86|ia32|aarch64|arm|ppc64) cflags\n");
 	printf("  compel --arch=(x86|ia32|aarch64|arm|ppc64) ldflags\n");
-	printf("  compel -f filename piegen\n");
+	printf("  compel -f filename hgen\n");
 	return 1;
 }
