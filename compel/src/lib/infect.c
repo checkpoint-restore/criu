@@ -843,6 +843,9 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	int ret;
 	unsigned long p, map_exchange_size, parasite_size = 0;
 
+	if (ctl->pblob.parasite_type != COMPEL_BLOB_CHEADER)
+		goto err;
+
 	if (ctl->ictx.log_fd < 0)
 		goto err;
 
@@ -856,7 +859,7 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	 * without using ptrace at all.
 	 */
 
-	parasite_size = ctl->pblob.size;
+	parasite_size = ctl->pblob.hdr.size;
 
 	ctl->args_size = round_up(args_size, PAGE_SIZE);
 	parasite_size += ctl->args_size;
@@ -872,14 +875,14 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 
 	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
 
-	ctl->parasite_ip = (unsigned long)(ctl->remote_map + ctl->pblob.parasite_ip_off);
-	ctl->addr_cmd = ctl->local_map + ctl->pblob.addr_cmd_off;
-	ctl->addr_args = ctl->local_map + ctl->pblob.addr_arg_off;
+	ctl->parasite_ip = (unsigned long)(ctl->remote_map + ctl->pblob.hdr.parasite_ip_off);
+	ctl->addr_cmd = ctl->local_map + ctl->pblob.hdr.addr_cmd_off;
+	ctl->addr_args = ctl->local_map + ctl->pblob.hdr.addr_arg_off;
 
-	memcpy(ctl->local_map, ctl->pblob.mem, ctl->pblob.size);
-	if (ctl->pblob.nr_relocs)
-		compel_relocs_apply(ctl->local_map, ctl->remote_map, ctl->pblob.bsize,
-				    ctl->pblob.relocs, ctl->pblob.nr_relocs);
+	memcpy(ctl->local_map, ctl->pblob.hdr.mem, ctl->pblob.hdr.size);
+	if (ctl->pblob.hdr.nr_relocs)
+		compel_relocs_apply(ctl->local_map, ctl->remote_map, ctl->pblob.hdr.bsize,
+				    ctl->pblob.hdr.relocs, ctl->pblob.hdr.nr_relocs);
 
 	p = parasite_size;
 

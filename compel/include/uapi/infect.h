@@ -125,15 +125,27 @@ extern struct infect_ctx *compel_infect_ctx(struct parasite_ctl *);
 #define INFECT_NO_BREAKPOINTS	0x4	/* no breakpoints in pie tracking */
 #define INFECT_HAS_COMPAT_SIGRETURN 0x8
 
+/*
+ * There are several ways to describe a blob to compel
+ * library. The simplest one derived from criu is to
+ * provide it from .h files.
+ */
+#define COMPEL_BLOB_CHEADER	0x1
+
 struct parasite_blob_desc {
-	const void		*mem;
-	size_t			bsize; /* size of the blob */
-	size_t			size;  /* size of the blob with relocs */
-	unsigned long		parasite_ip_off;
-	unsigned long		addr_cmd_off;
-	unsigned long		addr_arg_off;
-	compel_reloc_t		*relocs;
-	unsigned int		nr_relocs;
+	unsigned		parasite_type;
+	union {
+		struct {
+			const void		*mem;
+			size_t			bsize; /* size of the blob */
+			size_t			size;  /* size of the blob with relocs */
+			unsigned long		parasite_ip_off;
+			unsigned long		addr_cmd_off;
+			unsigned long		addr_arg_off;
+			compel_reloc_t		*relocs;
+			unsigned int		nr_relocs;
+		} hdr;
+	};
 };
 
 extern struct parasite_blob_desc *compel_parasite_blob_desc(struct parasite_ctl *);

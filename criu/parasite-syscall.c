@@ -539,21 +539,21 @@ static int make_sigframe(void *arg, struct rt_sigframe *sf, struct rt_sigframe *
 #ifdef CONFIG_PIEGEN
 #define init_blob_relocs(bdesc, blob_type)						\
 	do {										\
-		bdesc->relocs = parasite_##blob_type##_relocs;				\
-		bdesc->nr_relocs = ARRAY_SIZE(parasite_##blob_type##_relocs);		\
+		bdesc->hdr.relocs = parasite_##blob_type##_relocs;			\
+		bdesc->hdr.nr_relocs = ARRAY_SIZE(parasite_##blob_type##_relocs);	\
 	} while (0)
 #else
 #define init_blob_relocs(bdesc, blob_type)
 #endif
 
 #define init_blob_desc(bdesc, blob_type) do {						\
-	pbd->size = pie_size(parasite_##blob_type);					\
-	bdesc->mem = parasite_##blob_type##_blob;					\
-	bdesc->bsize = sizeof(parasite_##blob_type##_blob);				\
+	bdesc->hdr.size = pie_size(parasite_##blob_type);				\
+	bdesc->hdr.mem = parasite_##blob_type##_blob;					\
+	bdesc->hdr.bsize = sizeof(parasite_##blob_type##_blob);				\
 	/* Setup the rest of a control block */						\
-	bdesc->parasite_ip_off = pblob_offset(blob_type, __export_parasite_head_start);	\
-	bdesc->addr_cmd_off    = pblob_offset(blob_type, __export_parasite_cmd);	\
-	bdesc->addr_arg_off    = pblob_offset(blob_type, __export_parasite_args);	\
+	bdesc->hdr.parasite_ip_off = pblob_offset(blob_type, __export_parasite_head_start);\
+	bdesc->hdr.addr_cmd_off    = pblob_offset(blob_type, __export_parasite_cmd);	\
+	bdesc->hdr.addr_arg_off    = pblob_offset(blob_type, __export_parasite_args);	\
 	init_blob_relocs(bdesc, blob_type);						\
 	} while (0)
 
@@ -605,6 +605,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	ictx->log_fd = log_get_fd();
 
 	pbd = compel_parasite_blob_desc(ctl);
+	pbd->parasite_type = COMPEL_BLOB_CHEADER;
+
 	if (compel_mode_native(ctl))
 		init_blob_desc(pbd, native);
 #ifdef CONFIG_COMPAT
