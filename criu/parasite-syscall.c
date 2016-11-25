@@ -547,9 +547,9 @@ static int make_sigframe(void *arg, struct rt_sigframe *sf, struct rt_sigframe *
 #endif
 
 #define init_blob_desc(bdesc, blob_type) do {						\
-	bdesc->hdr.size = pie_size(parasite_##blob_type);				\
 	bdesc->hdr.mem = parasite_##blob_type##_blob;					\
 	bdesc->hdr.bsize = sizeof(parasite_##blob_type##_blob);				\
+	bdesc->hdr.nr_gotpcrel = pie_nr_gotpcrel(parasite_##blob_type);			\
 	/* Setup the rest of a control block */						\
 	bdesc->hdr.parasite_ip_off = pblob_offset(blob_type, __export_parasite_head_start);\
 	bdesc->hdr.addr_cmd_off    = pblob_offset(blob_type, __export_parasite_cmd);	\

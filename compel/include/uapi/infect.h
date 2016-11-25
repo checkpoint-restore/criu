@@ -139,8 +139,8 @@ struct parasite_blob_desc {
 	union {
 		struct {
 			const void		*mem;
-			size_t			bsize; /* size of the blob */
-			size_t			size;  /* size of the blob with relocs */
+			size_t			bsize;
+			size_t			nr_gotpcrel;
 			unsigned long		parasite_ip_off;
 			unsigned long		addr_cmd_off;
 			unsigned long		addr_arg_off;
