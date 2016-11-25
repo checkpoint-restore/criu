@@ -2,7 +2,7 @@
 #include <compel/plugins/std/infect.h>
 
 #include "common/scm.h"
-#include "uapi/compel/plugins/plugin-fds.h"
+#include "uapi/compel/plugins/std/fds.h"
 #include "uapi/compel/plugins/std/string.h"
 #include "uapi/compel/plugins/std/log.h"
 

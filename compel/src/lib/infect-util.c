@@ -2,7 +2,7 @@
 #include "common/bug.h"
 #include "common/lock.h"
 
-#include "uapi/compel/plugins/plugin-fds.h"
+#include "uapi/compel/plugins/std/fds.h"
 
 #include "infect-rpc.h"
 #include "infect-util.h"
