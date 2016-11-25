@@ -72,4 +72,6 @@ extern int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
 				     user_fpregs_struct_t *fpregs);
 extern int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
 					  struct rt_sigframe *rsigframe);
+extern int compel_execute_syscall(struct parasite_ctl *ctl,
+		user_regs_struct_t *regs, const char *code_syscall);
 #endif
