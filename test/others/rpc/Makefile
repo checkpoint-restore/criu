@@ -2,7 +2,7 @@ all: test-c rpc_pb2.py criu
 .PHONY: all
 
 CFLAGS += -g -Werror -Wall -I.
-LDFLAGS += -lprotobuf-c
+LDLIBS +=  -lprotobuf-c
 
 run: all
 	mkdir -p build
