@@ -838,10 +838,15 @@ int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 	return ret;
 }
 
+static inline unsigned long total_pie_size(size_t blob_size, size_t nr_gp)
+{
+	return round_up(blob_size + nr_gp * sizeof(long), page_size());
+}
+
 int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size)
 {
 	int ret;
-	unsigned long p, map_exchange_size, parasite_size = 0;
+	unsigned long p, map_exchange_size, pie_size, parasite_size = 0;
 
 	if (ctl->pblob.parasite_type != COMPEL_BLOB_CHEADER)
 		goto err;
@@ -859,7 +864,7 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	 * without using ptrace at all.
 	 */
 
-	parasite_size = ctl->pblob.hdr.size;
+	pie_size = parasite_size = total_pie_size(ctl->pblob.hdr.bsize, ctl->pblob.hdr.nr_gotpcrel);
 
 	ctl->args_size = round_up(args_size, PAGE_SIZE);
 	parasite_size += ctl->args_size;
@@ -879,7 +884,7 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	ctl->addr_cmd = ctl->local_map + ctl->pblob.hdr.addr_cmd_off;
 	ctl->addr_args = ctl->local_map + ctl->pblob.hdr.addr_arg_off;
 
-	memcpy(ctl->local_map, ctl->pblob.hdr.mem, ctl->pblob.hdr.size);
+	memcpy(ctl->local_map, ctl->pblob.hdr.mem, pie_size);
 	if (ctl->pblob.hdr.nr_relocs)
 		compel_relocs_apply(ctl->local_map, ctl->remote_map, ctl->pblob.hdr.bsize,
 				    ctl->pblob.hdr.relocs, ctl->pblob.hdr.nr_relocs);
