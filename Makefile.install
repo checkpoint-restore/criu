@@ -8,7 +8,7 @@ MANDIR		?= $(PREFIX)/share/man
 SYSTEMDUNITDIR	?= $(PREFIX)/lib/systemd/system/
 LOGROTATEDIR	?= $(PREFIX)/etc/logrotate.d/
 LIBDIR		?= $(PREFIX)/lib
-INCLUDEDIR	?= $(PREFIX)/include/criu
+INCLUDEDIR	?= $(PREFIX)/include/
 LIBEXECDIR	?= $(PREFIX)/libexec
 
 #
