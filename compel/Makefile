@@ -15,7 +15,7 @@ ccflags-y		+= -fPIC
 ccflags-y		+= -I compel/include/uapi
 ccflags-y		+= -I compel/plugins/include/uapi
 
-lib-name		:= libcompel.a
+lib-name		:= $(LIBCOMPEL_A)
 lib-y			+= src/lib/log.o
 host-lib-y		+= src/lib/log.o
 
@@ -52,3 +52,43 @@ endif
 cleanup-y		+= compel/compel
 cleanup-y		+= compel/compel-host
 cleanup-y		+= compel/libcompel.so
+
+install: compel/compel compel/$(LIBCOMPEL_SO) compel/$(LIBCOMPEL_A)
+	$(E) "  INSTALL " compel
+	$(Q) mkdir -p $(DESTDIR)$(SBINDIR)
+	$(Q) install -m 755 compel/compel $(DESTDIR)$(SBINDIR)
+	$(E) "  INSTALL " $(LIBCOMPEL_SO)
+	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)
+	$(Q) install -m 0644 compel/$(LIBCOMPEL_SO) $(DESTDIR)$(LIBDIR)
+	$(Q) install -m 755 compel/$(LIBCOMPEL_SO) $(DESTDIR)$(LIBDIR)/$(LIBCOMPEL_SO).$(COMPEL_SO_VERSION_MAJOR).$(COMPEL_SO_VERSION_MINOR)
+	$(Q) ln -fns $(LIBCOMPEL_SO).$(COMPEL_SO_VERSION_MAJOR).$(COMPEL_SO_VERSION_MINOR) $(DESTDIR)$(LIBDIR)/$(LIBCOMPEL_SO).$(COMPEL_SO_VERSION_MAJOR)
+	$(Q) ln -fns $(LIBCOMPEL_SO).$(COMPEL_SO_VERSION_MAJOR).$(COMPEL_SO_VERSION_MINOR) $(DESTDIR)$(LIBDIR)/$(LIBCOMPEL_SO)
+	$(E) "  INSTALL " $(LIBCOMPEL_A)
+	$(Q) install -m 0644 compel/$(LIBCOMPEL_A) $(DESTDIR)$(LIBDIR)
+	$(E) "  INSTALL " compel uapi
+	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)/compel/
+	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)/compel/asm
+	$(Q) cp -fr compel/include/uapi/compel/*.h $(DESTDIR)$(INCLUDEDIR)/compel
+	$(Q) cp -fr compel/include/uapi/compel/asm/*.h $(DESTDIR)$(INCLUDEDIR)/compel/asm
+	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)/compel/common/asm
+	$(Q) cp -fr include/common/compiler.h $(DESTDIR)$(INCLUDEDIR)/compel/common/
+.PHONY: install
+
+uninstall:
+	$(E) " UNINSTALL" compel
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(SBINDIR)/,compel)
+	$(E) " UNINSTALL" $(LIBCOMPEL_SO)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/,$(LIBCOMPEL_SO))
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/,$(LIBCOMPEL_SO).$(COMPEL_SO_VERSION_MAJOR))
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/,$(LIBCOMPEL_SO).$(COMPEL_SO_VERSION_MAJOR).$(COMPEL_SO_VERSION_MINOR))
+	$(E) " UNINSTALL" $(LIBCOMPEL_A)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/,$(LIBCOMPEL_A))
+	$(E) " UNINSTALL" compel uapi
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/*.h)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/asm/*.h)
+	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/asm/)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/common/*.h)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/common/asm/*.h)
+	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/common/asm/)
+	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/common/)
+.PHONY: uninstall

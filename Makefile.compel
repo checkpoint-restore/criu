@@ -35,6 +35,10 @@ compel-deps		+= $(COMPEL_VERSION_HEADER)
 compel-deps		+= $(CONFIG_HEADER)
 compel-deps		+= include/common/asm
 
+LIBCOMPEL_SO		:= libcompel.so
+LIBCOMPEL_A		:= libcompel.a
+export LIBCOMPEL_SO LIBCOMPEL_A
+
 #
 # Compel itself.
 compel/%: $(compel-deps) compel/plugins/std.built-in.o .FORCE
@@ -58,14 +62,17 @@ compel/plugins/shmem.built-in.o: $(compel-deps) .FORCE
 compel/plugins/fds.built-in.o: $(compel-deps) .FORCE
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 
-compel/compel: compel/built-in.o compel/libcompel.a | $(compel-deps)
+compel/compel: compel/built-in.o compel/$(LIBCOMPEL_A) | $(compel-deps)
 	$(call msg-link, $@)
 	$(Q) $(CC) $(CFLAGS) $^ $(WRAPFLAGS) $(LDFLAGS) -rdynamic -o $@
 
 #
 # And compel library.
-LIBCOMPEL_SO		:= libcompel.so
 LIBCOMPEL_SO_CFLAGS	+= $(CFLAGS) -rdynamic -Wl,-soname,$(LIBCOMPEL_SO).$(COMPEL_SO_VERSION_MAJOR)
-compel/$(LIBCOMPEL_SO): compel/libcompel.a
+compel/$(LIBCOMPEL_SO): compel/$(LIBCOMPEL_A)
 	$(call msg-link, $@)
 	$(Q) $(CC) -shared $(LIBCOMPEL_SO_CFLAGS) -o $@ -Wl,--whole-archive $^ -Wl,--no-whole-archive $(LDFLAGS)
+
+compel-install-targets	+= compel/$(LIBCOMPEL_SO)
+compel-install-targets	+= compel/compel
+compel-install-targets	+= compel/plugins/std.built-in.o
