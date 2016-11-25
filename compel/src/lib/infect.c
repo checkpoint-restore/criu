@@ -327,7 +327,7 @@ err:
 	return -1;
 }
 
-int compel_unseize_task(pid_t pid, int orig_st, int st)
+int compel_resume_task(pid_t pid, int orig_st, int st)
 {
 	pr_debug("\tUnseizing %d into %d\n", pid, st);
 
