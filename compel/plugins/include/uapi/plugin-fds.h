@@ -7,6 +7,6 @@
 
 #include <sys/un.h>
 
-#include "common/scm.h"
+#include <compel/common/scm.h>
 
 #endif /* __COMPEL_PLUGIN_FDS_H__ */
