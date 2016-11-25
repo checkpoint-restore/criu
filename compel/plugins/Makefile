@@ -35,11 +35,6 @@ asflags-y		+= -fno-stack-protector
 ldflags-y		+= -z noexecstack
 
 #
-# Fds plugin
-target			+= fds
-fds-obj-y		+= fds/fds.o
-
-#
 # Shmem plugin
 target			+= shmem
 shmem-obj-y		+= shmem/shmem.o
@@ -48,6 +43,7 @@ shmem-obj-y		+= shmem/shmem.o
 # STD plugin
 target			+= std
 std-obj-y		+= std/std.o
+std-obj-y		+= std/fds.o
 std-obj-y		+= std/log.o
 std-obj-y		+= std/string.o
 std-obj-y		+= std/infect.o
@@ -71,11 +67,10 @@ $(foreach t,$(target),$(eval $(call syscall-priority,$(t)-obj-y,std-headers-deps
 #
 # FIXME syscall-types.h should be setup earlier
 #
-install: compel/plugins/std.built-in.o compel/plugins/fds.built-in.o
+install: compel/plugins/std.built-in.o
 	$(E) "  INSTALL " compel plugins
 	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)/compel/
 	$(Q) install -m 0644 compel/plugins/std.built-in.o $(DESTDIR)$(LIBEXECDIR)/compel/
-	$(Q) install -m 0644 compel/plugins/fds.built-in.o $(DESTDIR)$(LIBEXECDIR)/compel/
 	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)/compel/scripts
 	$(Q) install -m 0644 compel/arch/$(ARCH)/scripts/compel-pack.lds.S $(DESTDIR)$(LIBEXECDIR)/compel/scripts
 	$(E) "  INSTALL " compel plugins uapi
@@ -83,13 +78,11 @@ install: compel/plugins/std.built-in.o compel/plugins/fds.built-in.o
 	$(Q) cp -fr compel/include/uapi/compel/plugins/plugin-std.h $(DESTDIR)$(INCLUDEDIR)/compel/plugins
 	$(Q) cp -fr compel/include/uapi/compel/plugins/std/*.h $(DESTDIR)$(INCLUDEDIR)/compel/plugins/std
 	$(Q) cp -fr compel/arch/$(ARCH)/plugins/include/asm/syscall-types.h $(DESTDIR)$(INCLUDEDIR)/compel/plugins/std/asm
-	$(Q) cp -fr compel/include/uapi/compel/plugins/plugin-fds.h $(DESTDIR)$(INCLUDEDIR)/compel/plugins
 .PHONY: install
 
 uninstall:
 	$(E) " UNINSTALL" compel plugins
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBEXECDIR)/compel/,std.built-in.o)
-	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBEXECDIR)/compel/,fds.built-in.o)
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBEXECDIR)/compel/scripts,compel-pack.lds.S)
 	$(E) " UNINSTALL" compel and plugins uapi
 	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/plugins)

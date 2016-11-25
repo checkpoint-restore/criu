@@ -5,7 +5,7 @@
 #include "uapi/std/syscall.h"
 #include "uapi/std/string.h"
 #include "uapi/std/log.h"
-#include "uapi/plugin-fds.h"
+#include "uapi/std/fds.h"
 
 #include "std-priv.h"
 
@@ -18,5 +18,3 @@
 #define __memcpy	std_memcpy
 
 #include "common/scm-code.c"
-
-PLUGIN_REGISTER_DUMMY(fds)
