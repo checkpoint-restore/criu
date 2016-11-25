@@ -22,7 +22,6 @@ enum {
 	PARASITE_CMD_ACK,
 
 	PARASITE_CMD_INIT_DAEMON,
-	PARASITE_CMD_UNMAP,
 
 	/*
 	 * This must be greater than INITs.

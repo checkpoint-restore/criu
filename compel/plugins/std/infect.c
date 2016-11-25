@@ -140,20 +140,6 @@ out:
 	return 0;
 }
 
-static noinline int unmap_itself(void *data)
-{
-	struct parasite_unmap_args *args = data;
-
-	sys_munmap(args->parasite_start, args->parasite_len);
-	/*
-	 * This call to sys_munmap must never return. Instead, the controlling
-	 * process must trap us on the exit from munmap.
-	 */
-
-	BUG();
-	return -1;
-}
-
 static noinline __used int parasite_init_daemon(void *data)
 {
 	struct parasite_init_args *args = data;
@@ -202,12 +188,8 @@ int __used __parasite_entry parasite_service(unsigned int cmd, void *args)
 {
 	pr_info("Parasite cmd %d/%x process\n", cmd, cmd);
 
-	switch (cmd) {
-	case PARASITE_CMD_INIT_DAEMON:
+	if (cmd == PARASITE_CMD_INIT_DAEMON)
 		return parasite_init_daemon(args);
-	case PARASITE_CMD_UNMAP:
-		return unmap_itself(args);
-	}
 
 	return parasite_trap_cmd(cmd, args);
 }
