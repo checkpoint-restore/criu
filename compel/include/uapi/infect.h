@@ -27,7 +27,7 @@ extern int compel_wait_task(int pid, int ppid,
 		struct seize_task_status *st);
 
 extern int compel_stop_task(int pid);
-extern int compel_unseize_task(pid_t pid, int orig_state, int state);
+extern int compel_resume_task(pid_t pid, int orig_state, int state);
 
 /*
  * FIXME -- these should be mapped to pid.h's
