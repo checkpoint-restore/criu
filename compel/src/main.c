@@ -179,8 +179,8 @@ int main(int argc, char *argv[])
 			opts.nrgotpcrel_name = optarg;
 			break;
 		case 'l':
-			break;
 			log_level = atoi(optarg);
+			break;
 		case 'h':
 			goto usage;
 		case 'V':
