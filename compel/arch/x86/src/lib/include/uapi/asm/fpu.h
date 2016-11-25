@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "common/compiler.h"
+#include <compel/common/compiler.h>
 
 #define FP_MIN_ALIGN_BYTES		64
 
