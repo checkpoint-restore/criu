@@ -112,6 +112,7 @@ extern int pid_to_virt(pid_t pid);
 struct task_entries;
 extern struct task_entries *task_entries;
 extern int prepare_task_entries(void);
+extern int prepare_dummy_task_state(struct pstree_item *pi);
 
 extern int get_task_ids(struct pstree_item *);
 extern struct _TaskKobjIdsEntry *root_ids;
