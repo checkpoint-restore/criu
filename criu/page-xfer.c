@@ -642,6 +642,31 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 	return 0;
 }
 
+static bool can_send_pages(struct page_pipe_buf *ppb, struct iovec *iov,
+			   struct page_server_iov *pi)
+{
+	unsigned long len = pi->nr_pages * PAGE_SIZE;
+
+	if (!(ppb->flags & PPB_LAZY)) {
+		pr_err("Requested pages are not lazy\n");
+		return false;
+	}
+
+	if (iov->iov_len != len) {
+		pr_err("IOV len %zu does not match requested %lu\n",
+		       iov->iov_len, len);
+		return false;
+	}
+
+	if(pi->vaddr != encode_pointer(iov->iov_base)) {
+		pr_err("IOV start %p does not match requested addr %"PRIx64"\n",
+		       iov->iov_base, pi->vaddr);
+		return false;
+	}
+
+	return true;
+}
+
 static int page_server_get_pages(int sk, struct page_server_iov *pi)
 {
 	struct pstree_item *item;
@@ -666,9 +691,8 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	ppb = list_first_entry(&pp->bufs, struct page_pipe_buf, l);
 	iov = &ppb->iov[0];
 
-	BUG_ON(!(ppb->flags & PPB_LAZY));
-	BUG_ON(iov->iov_len != pi->nr_pages * PAGE_SIZE);
-	BUG_ON(pi->vaddr != encode_pointer(iov->iov_base));
+	if (!can_send_pages(ppb, iov, pi))
+		return -1;
 
 	if (send_psi(sk, PS_IOV_ADD, pi->nr_pages, pi->vaddr, pi->dst_id))
 		return -1;
