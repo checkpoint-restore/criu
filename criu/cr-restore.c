@@ -809,7 +809,7 @@ static int restore_one_zombie(CoreEntry *core)
 	if (inherit_fd_fini() < 0)
 		return -1;
 
-	if (lazy_pages_setup_zombie(current->pid.virt))
+	if (lazy_pages_setup_zombie(current->pid->ns[0].virt))
 		return -1;
 
 	prctl(PR_SET_NAME, (long)(void *)core->tc->comm, 0, 0, 0);
@@ -2062,6 +2062,19 @@ int prepare_task_entries(void)
 	task_entries->nr_helpers = 0;
 	futex_set(&task_entries->start, CR_STATE_RESTORE_NS);
 	mutex_init(&task_entries->userns_sync_lock);
+
+	return 0;
+}
+
+int prepare_dummy_task_state(struct pstree_item *pi)
+{
+	CoreEntry *core;
+
+	if (open_core(pi->pid->ns[0].virt, &core))
+		return -1;
+
+	pi->pid->state = core->tc->task_state;
+	core_entry__free_unpacked(core, NULL);
 
 	return 0;
 }

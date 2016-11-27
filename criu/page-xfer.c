@@ -19,6 +19,7 @@
 #include "fcntl.h"
 #include "pstree.h"
 #include "parasite-syscall.h"
+#include "rst_info.h"
 
 static int page_server_sk = -1;
 
@@ -831,14 +832,119 @@ static int page_server_serve(int sk)
 	return ret;
 }
 
+static int fill_page_pipe(struct page_read *pr, struct page_pipe *pp)
+{
+	struct page_pipe_buf *ppb;
+	int i, ret;
+
+	pr->reset(pr);
+
+	while (pr->advance(pr)) {
+		unsigned long vaddr = pr->pe->vaddr;
+
+		for (i = 0; i < pr->pe->nr_pages; i++, vaddr += PAGE_SIZE) {
+			if (pagemap_zero(pr->pe))
+				ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_ZERO);
+			else if (pagemap_in_parent(pr->pe))
+				ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_PARENT);
+			else
+				ret = page_pipe_add_page(pp, vaddr, pagemap_lazy(pr->pe) ? PPB_LAZY : 0);
+			if (ret) {
+				pr_err("Failed adding page at %lx\n", vaddr);
+				return -1;
+			}
+		}
+	}
+
+	list_for_each_entry(ppb, &pp->bufs, l) {
+		for (i = 0; i < ppb->nr_segs; i++) {
+			struct iovec iov = get_iov(ppb->iov, i,
+						   pp->flags & PP_COMPAT);
+			if (splice(img_raw_fd(pr->pi), NULL, ppb->p[1], NULL,
+				   iov.iov_len, SPLICE_F_MOVE) != iov.iov_len) {
+				pr_perror("Splice failed");
+				return -1;
+			}
+		}
+	}
+
+	debug_show_page_pipe(pp);
+
+	return 0;
+}
+
+static int page_pipe_from_pagemap(struct page_pipe **pp, int pid)
+{
+	struct page_read pr;
+	int nr_pages = 0;
+
+	if (open_page_read(pid, &pr, PR_TASK) <= 0) {
+		pr_err("Failed to open page read for %d\n", pid);
+		return -1;
+	}
+
+	while (pr.advance(&pr))
+		if (pagemap_present(pr.pe))
+			nr_pages += pr.pe->nr_pages;
+
+	*pp = create_page_pipe(nr_pages, NULL, 0);
+	if (!*pp) {
+		pr_err("Cannot create page pipe for %d\n", pid);
+		return -1;
+	}
+
+	if (fill_page_pipe(&pr, *pp))
+		return -1;
+
+	return 0;
+}
+
+static int page_server_init_send(void)
+{
+	struct pstree_item *pi;
+	struct page_pipe *pp;
+
+	BUILD_BUG_ON(sizeof(struct dmp_info) > sizeof(struct rst_info));
+
+	if (prepare_dummy_pstree())
+		return -1;
+
+	for_each_pstree_item(pi) {
+		if (prepare_dummy_task_state(pi))
+			return -1;
+
+		if (!task_alive(pi))
+			continue;
+
+		if (page_pipe_from_pagemap(&pp, pi->pid->ns[0].virt)) {
+			pr_err("%d: failed to open page-read\n", pi->pid->ns[0].virt);
+			return -1;
+		}
+
+		/*
+		 * prepare_dummy_pstree presumes 'restore' behaviour,
+		 * but page_server_get_pages uses dmpi() to get access
+		 * to the page-pipe, so we are faking it here.
+		 */
+		memset(rsti(pi), 0, sizeof(struct rst_info));
+		dmpi(pi)->mem_pp = pp;
+	}
+
+	return 0;
+}
+
 int cr_page_server(bool daemon_mode, int cfd)
 {
 	int ask = -1;
 	int sk = -1;
 	int ret;
 
-	if (!opts.lazy_pages)
+	if (!opts.lazy_pages) {
 		up_page_ids_base();
+	} else {
+		if (page_server_init_send())
+			return -1;
+	}
 
 	if (opts.ps_socket != -1) {
 		ret = 0;
