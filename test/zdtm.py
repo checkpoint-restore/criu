@@ -1663,6 +1663,11 @@ def run_tests(opts):
 					l.skip(t, "samens test in the same namespace")
 					continue
 
+			if opts['lazy_pages']:
+				if test_flag(tdesc, 'nolazy'):
+					l.skip(t, "lazy pages are not supported")
+					continue
+
 			test_flavs = tdesc.get('flavor', 'h ns uns').split()
 			opts_flavs = (opts['flavor'] or 'h,ns,uns').split(',')
 			if opts_flavs != ['best']:
