@@ -771,7 +771,9 @@ class criu:
 		self.__iter = 0
 		self.__prev_dump_iter = None
 		self.__page_server = (opts['page_server'] and True or False)
-		self.__lazy_pages = (opts['lazy_pages'] and True or False)
+		self.__remote_lazy_pages = (opts['remote_lazy_pages'] and True or False)
+		self.__lazy_pages = (self.__remote_lazy_pages or
+				     opts['lazy_pages'] and True or False)
 		self.__restore_sibling = (opts['sibling'] and True or False)
 		self.__join_ns = (opts['join_ns'] and True or False)
 		self.__empty_ns = (opts['empty_ns'] and True or False)
@@ -954,7 +956,13 @@ class criu:
 			r_opts.append('mnt[zdtm]:%s' % criu_dir)
 
 		if self.__lazy_pages:
-			self.__criu_act("lazy-pages", opts = ["--daemon", "--pidfile", "lp.pid"])
+			lp_opts = ["--daemon", "--pidfile", "lp.pid"]
+			if self.__remote_lazy_pages:
+				lp_opts += ['--page-server', "--port", "12345"]
+				ps_opts = ["--daemon", "--pidfile", "ps.pid",
+					   "--port", "12345", "--lazy-pages"]
+				self.__criu_act("page-server", opts = ps_opts)
+			self.__criu_act("lazy-pages", opts = lp_opts)
 			r_opts += ["--lazy-pages"]
 
 		if self.__leave_stopped:
@@ -1417,7 +1425,7 @@ class launcher:
 
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'stop', 'empty_ns',
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'rpc', 'lazy_pages',
-				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup')
+				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup', 'remote_lazy_pages')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
 		if self.__use_log:
@@ -1663,7 +1671,7 @@ def run_tests(opts):
 					l.skip(t, "samens test in the same namespace")
 					continue
 
-			if opts['lazy_pages']:
+			if opts['lazy_pages'] or opts['remote_lazy_pages']:
 				if test_flag(tdesc, 'nolazy'):
 					l.skip(t, "lazy pages are not supported")
 					continue
@@ -1902,6 +1910,7 @@ rp.add_argument("-k", "--keep-img", help = "Whether or not to keep images after 
 rp.add_argument("--report", help = "Generate summary report in directory")
 rp.add_argument("--keep-going", help = "Keep running tests in spite of failures", action = 'store_true')
 rp.add_argument("--lazy-pages", help = "restore pages on demand", action = 'store_true')
+rp.add_argument("--remote-lazy-pages", help = "simulate lazy migration", action = 'store_true')
 
 lp = sp.add_parser("list", help = "List tests")
 lp.set_defaults(action = list_tests)
