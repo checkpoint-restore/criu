@@ -743,7 +743,8 @@ int fix_external_unix_sockets(void)
 		FownEntry fown = FOWN_ENTRY__INIT;
 		SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 
-		if (sk->sd.already_dumped)
+		if (sk->sd.already_dumped ||
+		    list_empty(&sk->peer_list))
 			continue;
 
 		show_one_unix("Dumping extern", sk);
