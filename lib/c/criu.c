@@ -321,6 +321,17 @@ void criu_set_tcp_skip_in_flight(bool tcp_skip_in_flight)
 	criu_local_set_tcp_skip_in_flight(global_opts, tcp_skip_in_flight);
 }
 
+void criu_local_set_weak_sysctls(criu_opts *opts, bool val)
+{
+	opts->rpc->has_weak_sysctls = true;
+	opts->rpc->weak_sysctls	= val;
+}
+
+void criu_set_weak_sysctls(bool val)
+{
+	criu_local_set_weak_sysctls(global_opts, val);
+}
+
 void criu_local_set_evasive_devices(criu_opts *opts, bool evasive_devices)
 {
 	opts->rpc->has_evasive_devices	= true;

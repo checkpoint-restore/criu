@@ -327,6 +327,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_tcp_skip_in_flight)
 		opts.tcp_skip_in_flight = req->tcp_skip_in_flight;
 
+	if (req->has_weak_sysctls)
+		opts.weak_sysctls = req->weak_sysctls;
+
 	if (req->has_evasive_devices)
 		opts.evasive_devices = req->evasive_devices;
 
