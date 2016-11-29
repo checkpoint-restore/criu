@@ -1308,6 +1308,8 @@ class launcher:
 		self.__subs = {}
 		self.__fail = False
 		self.__file_report = None
+		self.__failed = []
+		self.__nr_skip = 0
 		if self.__max > 1 and self.__total > 1:
 			self.__use_log = True
 		elif opts['report']:
@@ -1338,6 +1340,7 @@ class launcher:
 		print "Skipping %s (%s)" % (name, reason)
 		self.__nr += 1
 		self.__runtest += 1
+		self.__nr_skip += 1
 		if self.__file_report:
 			testline = "ok %d - %s # SKIP %s" % (self.__runtest, name, reason)
 			print >> self.__file_report, testline
@@ -1381,6 +1384,7 @@ class launcher:
 			if status != 0:
 				self.__fail = True
 				failed_flavor = decode_flav(os.WEXITSTATUS(status))
+				self.__failed.append([sub['name'], failed_flavor])
 				if self.__file_report:
 					testline = "not ok %d - %s # flavor %s" % (self.__runtest, sub['name'], failed_flavor)
 					details = {'output': open(sub['log']).read()}
@@ -1425,6 +1429,11 @@ class launcher:
 		if self.__file_report:
 			self.__file_report.close()
 		if self.__fail:
+			if opts['keep_going']:
+				print_sep("%d TEST(S) FAILED (TOTAL %d/SKIPPED %d)"
+						% (len(self.__failed), self.__total, self.__nr_skip), "#")
+				for failed in self.__failed:
+					print " * %s(%s)" % (failed[0], failed[1])
 			print_sep("FAIL", "#")
 			sys.exit(1)
 
