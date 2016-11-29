@@ -185,6 +185,9 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 	if (n > size)
 		pr_warn("The image contains unknown sysctl-s\n");
 
+	if (opts.weak_sysctls)
+		flags = CTL_FLAGS_OPTIONAL;
+
 	rconf = xmalloc(sizeof(SysctlEntry *) * size);
 	if (!rconf)
 		return -1;
@@ -216,6 +219,7 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 
 		snprintf(path[i], MAX_CONF_OPT_PATH, CONF_OPT_PATH, proto, tgt, devconfs[i]);
 		req[ri].name = path[i];
+		req[ri].flags = flags;
 		switch (conf[i]->type) {
 			case SYSCTL_TYPE__CTL_32:
 				req[ri].type = CTL_32;
@@ -228,7 +232,7 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 				break;
 			case SYSCTL_TYPE__CTL_STR:
 				req[ri].type = CTL_STR(MAX_STR_CONF_LEN);
-				flags |= op == CTL_READ && !strcmp(devconfs[i], "stable_secret")
+				req[ri].flags |= op == CTL_READ && !strcmp(devconfs[i], "stable_secret")
 					? CTL_FLAGS_READ_EIO_SKIP : 0;
 
 				/* skip non-existing sysctl */
@@ -240,7 +244,6 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 			default:
 				continue;
 		}
-		req[ri].flags = flags;
 		rconf[ri] = conf[i];
 		ri++;
 	}
