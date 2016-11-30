@@ -787,6 +787,8 @@ static int dump_linked_remap(char *path, int len, const struct stat *ost,
 
 	rpe.orig_id = id;
 	rpe.remap_id = lid;
+	rpe.has_remap_type = true;
+	rpe.remap_type = REMAP_TYPE__LINKED;
 
 	return pb_write_one(img_from_set(glob_imgset, CR_FD_REMAP_FPATH),
 			&rpe, PB_REMAP_FPATH);
