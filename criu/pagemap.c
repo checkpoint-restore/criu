@@ -162,7 +162,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 {
 	if (!pr->pe)
-		advance(pr);
+		goto adv;
 
 	do {
 		unsigned long start = pr->pe->vaddr;
@@ -179,6 +179,8 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 
 		if (end <= vaddr)
 			skip_pagemap_pages(pr, end - pr->cvaddr);
+adv:
+		; /* otherwise "label at end of compound stmt" gcc error */
 	} while (advance(pr));
 
 	return 0;
