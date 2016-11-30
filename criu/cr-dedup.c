@@ -84,7 +84,7 @@ static int cr_dedup_one_pagemap(int id, int flags)
 		goto exit;
 
 	while (1) {
-		ret = pr.get_pagemap(&pr);
+		ret = pr.advance(&pr);
 		if (ret <= 0)
 			goto exit;
 

@@ -470,7 +470,7 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 		unsigned long vaddr;
 		unsigned nr_pages;
 
-		ret = pr.get_pagemap(&pr);
+		ret = pr.advance(&pr);
 		if (ret <= 0)
 			break;
 
