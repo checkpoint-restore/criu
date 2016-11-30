@@ -1130,13 +1130,14 @@ static void tty_collect_fd(struct file_desc *d, struct fdinfo_list_entry *fle,
 	 */
 
 	if (tty_is_master(info) && info->driver->type != TTY_TYPE__CTTY)
-		tgt = &ri->fds;
-	else if (info->driver->type == TTY_TYPE__CTTY)
-		tgt = &ri->tty_ctty;
-	else
-		tgt = &ri->tty_slaves;
-
-	list_add_tail(&fle->ps_list, tgt);
+		collect_gen_fd(fle, ri);
+	else {
+		if (info->driver->type == TTY_TYPE__CTTY)
+			tgt = &ri->tty_ctty;
+		else
+			tgt = &ri->tty_slaves;
+		list_add_tail(&fle->ps_list, tgt);
+	}
 }
 
 static char *tty_d_name(struct file_desc *d, char *buf, size_t s)
