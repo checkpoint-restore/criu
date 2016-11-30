@@ -19,6 +19,7 @@
 #include "syscall-codes.h"
 #include "bitops.h"
 #include "log.h"
+#include "types.h"
 #include "page.h"
 #include "util.h"
 #include "protobuf.h"
@@ -468,14 +469,13 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 	while (1) {
 		unsigned long vaddr;
 		unsigned nr_pages;
-		struct iovec iov;
 
-		ret = pr.get_pagemap(&pr, &iov);
+		ret = pr.get_pagemap(&pr);
 		if (ret <= 0)
 			break;
 
-		vaddr = (unsigned long)iov.iov_base;
-		nr_pages = iov.iov_len / PAGE_SIZE;
+		vaddr = (unsigned long)decode_pointer(pr.pe->vaddr);
+		nr_pages = pr.pe->nr_pages;
 
 		if (vaddr + nr_pages * PAGE_SIZE > si->size)
 			break;

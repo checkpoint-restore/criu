@@ -149,7 +149,7 @@ static int advance(struct page_read *pr)
 	return 1;
 }
 
-static int get_pagemap(struct page_read *pr, struct iovec *iov)
+static int get_pagemap(struct page_read *pr)
 {
 	if (!advance(pr))
 		return 0;
@@ -158,8 +158,6 @@ static int get_pagemap(struct page_read *pr, struct iovec *iov)
 		pr_err("No parent for snapshot pagemap\n");
 		return -1;
 	}
-
-	pagemap2iovec(pr->pe, iov);
 
 	return 1;
 }

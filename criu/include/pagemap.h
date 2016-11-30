@@ -46,7 +46,7 @@ struct page_read {
 	 * Gets next vaddr:len pair to work on. The zero pagemaps are skipped.
 	 * Pagemap entries should be returned in sorted order.
 	 */
-	int (*get_pagemap)(struct page_read *, struct iovec *iov);
+	int (*get_pagemap)(struct page_read *);
 	/* reads page from current pagemap */
 	int (*read_pages)(struct page_read *, unsigned long vaddr, int nr,
 			  void *, unsigned flags);

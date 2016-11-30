@@ -704,14 +704,13 @@ static int restore_priv_vma_content(struct pstree_item *t)
 	 */
 	while (1) {
 		unsigned long off, i, nr_pages;
-		struct iovec iov;
 
-		ret = pr.get_pagemap(&pr, &iov);
+		ret = pr.get_pagemap(&pr);
 		if (ret <= 0)
 			break;
 
-		va = (unsigned long)iov.iov_base;
-		nr_pages = iov.iov_len / PAGE_SIZE;
+		va = (unsigned long)decode_pointer(pr.pe->vaddr);
+		nr_pages = pr.pe->nr_pages;
 
 		for (i = 0; i < nr_pages; i++) {
 			unsigned char buf[PAGE_SIZE];
