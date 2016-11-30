@@ -484,6 +484,9 @@ int clone_service_fd(int id)
 		int old = __get_service_fd(i, service_fd_id);
 		int new = __get_service_fd(i, id);
 
+		/* Do not dup parent's transport fd */
+		if (i == TRANSPORT_FD_OFF)
+			continue;
 		ret = dup2(old, new);
 		if (ret == -1) {
 			if (errno == EBADF)

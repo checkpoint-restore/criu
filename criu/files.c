@@ -1229,6 +1229,7 @@ int prepare_fds(struct pstree_item *me)
 			break;
 	}
 out_w:
+	close_service_fd(TRANSPORT_FD_OFF);
 	if (rsti(me)->fdt)
 		futex_inc_and_wake(&rsti(me)->fdt->fdt_lock);
 out:
@@ -1663,15 +1664,28 @@ int inherit_fd_fini()
 	return 0;
 }
 
-int open_transport_socket()
+int open_transport_socket(void)
 {
-	int sock;
+	struct fdt *fdt = rsti(current)->fdt;
+	pid_t pid = current->pid.virt;
+	struct sockaddr_un saddr;
+	int sock, slen;
+
+	if (!task_alive(current) || (fdt && fdt->pid != pid))
+		return 0;
 
 	sock = socket(PF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 	if (sock < 0) {
 		pr_perror("Can't create socket");
 		return -1;
 	}
+
+	transport_name_gen(&saddr, &slen, pid, -1);
+	if (bind(sock, (struct sockaddr *)&saddr, slen) < 0) {
+		pr_perror("Can't bind transport socket %s", saddr.sun_path + 1);
+		return -1;
+	}
+
 	if (install_service_fd(TRANSPORT_FD_OFF, sock) < 0) {
 		close(sock);
 		return -1;
