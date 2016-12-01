@@ -74,6 +74,10 @@ TST_NOFILE	:=				\
 		socket-tcpbuf6-local		\
 		socket-tcpbuf6			\
 		socket-closed-tcp		\
+		socket-tcp-fin-wait1		\
+		socket-tcp6-fin-wait1		\
+		socket-tcp-fin-wait2		\
+		socket-tcp6-fin-wait2		\
 		sock_opts00			\
 		sock_opts01			\
 		sk-unix-unconn			\
@@ -420,6 +424,11 @@ stopped01:	override CFLAGS += -DZDTM_STOPPED_KILL
 stopped02:	override CFLAGS += -DZDTM_STOPPED_TKILL
 stopped12:	override CFLAGS += -DZDTM_STOPPED_KILL -DZDTM_STOPPED_TKILL
 clone_fs:		override LDLIBS += -pthread
+
+socket-tcp-fin-wait1:	override CFLAGS += -D ZDTM_TCP_FIN_WAIT1
+socket-tcp-fin-wait2:	override CFLAGS += -D ZDTM_TCP_FIN_WAIT2
+socket-tcp6-fin-wait1:	override CFLAGS += -D ZDTM_TCP_FIN_WAIT1 -D ZDTM_IPV6
+socket-tcp6-fin-wait2:	override CFLAGS += -D ZDTM_TCP_FIN_WAIT2 -D ZDTM_IPV6
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
