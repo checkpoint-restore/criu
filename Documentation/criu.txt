@@ -442,6 +442,11 @@ during *dump*, and images are migrated to a less capable CPU and are
 to be restored. By default, *criu* shows an error that CPU capabilities
 are not adequate, but this can be suppressed by using *--cpu-cap=none*.
 
+*--weak-sysctls*::
+   Silently skip restoring sysctls that are not available. This allows
+   to restore on an older kernel, or a kernel configured without some
+   options.
+
 *check*
 ~~~~~~~
 Checks whether the kernel supports the features needed by *criu* to
