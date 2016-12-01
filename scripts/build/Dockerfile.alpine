@@ -11,6 +11,7 @@ RUN apk update && apk add \
                 libcap-dev \
                 libnl3-dev \
                 pkgconfig \
+                libnet-dev \
                 $CC
 COPY . /criu
 WORKDIR /criu

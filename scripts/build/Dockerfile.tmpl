@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
                 libselinux-dev \
                 pkg-config \
                 git-core \
+		libnet-dev \
                 $CC
 
 COPY . /criu
