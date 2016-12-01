@@ -78,6 +78,10 @@ TST_NOFILE	:=				\
 		socket-tcp6-fin-wait1		\
 		socket-tcp-fin-wait2		\
 		socket-tcp6-fin-wait2		\
+		socket-tcp-close-wait		\
+		socket-tcp6-close-wait		\
+		socket-tcp-last-ack		\
+		socket-tcp6-last-ack		\
 		sock_opts00			\
 		sock_opts01			\
 		sk-unix-unconn			\
@@ -429,6 +433,10 @@ socket-tcp-fin-wait1:	override CFLAGS += -D ZDTM_TCP_FIN_WAIT1
 socket-tcp-fin-wait2:	override CFLAGS += -D ZDTM_TCP_FIN_WAIT2
 socket-tcp6-fin-wait1:	override CFLAGS += -D ZDTM_TCP_FIN_WAIT1 -D ZDTM_IPV6
 socket-tcp6-fin-wait2:	override CFLAGS += -D ZDTM_TCP_FIN_WAIT2 -D ZDTM_IPV6
+socket-tcp-close-wait:	override CFLAGS += -D ZDTM_TCP_CLOSE_WAIT
+socket-tcp6-close-wait:	override CFLAGS += -D ZDTM_TCP_CLOSE_WAIT -D ZDTM_IPV6
+socket-tcp-last-ack:	override CFLAGS += -D ZDTM_TCP_LAST_ACK
+socket-tcp6-last-ack:	override CFLAGS += -D ZDTM_TCP_LAST_ACK -D ZDTM_IPV6
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
