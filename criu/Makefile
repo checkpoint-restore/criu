@@ -77,6 +77,7 @@ PROGRAM-BUILTINS	+= criu/pie/lib.a
 PROGRAM-BUILTINS	+= images/built-in.o
 PROGRAM-BUILTINS	+= $(obj)/built-in.o
 PROGRAM-BUILTINS	+= $(ARCH-LIB)
+PROGRAM-BUILTINS	+= soccr/libsoccr.a
 
 $(obj)/built-in.o: pie
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) all
