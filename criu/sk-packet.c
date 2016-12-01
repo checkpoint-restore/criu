@@ -325,7 +325,7 @@ static int open_socket_map(int pid, struct vma_area *vm)
 			 */
 
 			fd = dup(le->fe->fd);
-			if (!fd) {
+			if (fd < 0) {
 				pr_perror("Can't dup packet sk");
 				return -1;
 			}

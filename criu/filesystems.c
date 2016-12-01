@@ -213,7 +213,7 @@ static int write_binfmt_misc_entry(char *mp, char *buf, BinfmtMiscEntry *bme)
 		snprintf(path, PATH_MAX, "%s/%s", mp, bme->name);
 
 		fd = open(path, O_WRONLY);
-		if (!fd) {
+		if (fd < 0) {
 			pr_perror("binfmt_misc: can't open %s", path);
 			goto out;
 		}

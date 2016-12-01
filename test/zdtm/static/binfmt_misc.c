@@ -120,7 +120,7 @@ int main(int argc, char **argv)
 	/* Register binfmt_entries */
 	sprintf(path, "%s/" "register", dirname);
 	fd = open(path, O_WRONLY);
-	if (!fd) {
+	if (fd < 0) {
 		fail("open");
 		exit(1);
 	}
@@ -145,7 +145,7 @@ int main(int argc, char **argv)
 	/* Disable one of the entries */
 	sprintf(path, "%s/%s", dirname, NAME[0]);
 	fd = open(path, O_WRONLY);
-	if (!fd || write(fd, "0", 1) != 1) {
+	if (fd < 0 || write(fd, "0", 1) != 1) {
 		fail("Can't disable %s\n", path);
 		exit(1);
 	}
