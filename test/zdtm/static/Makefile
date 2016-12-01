@@ -88,6 +88,7 @@ TST_NOFILE	:=				\
 		socket-tcp6-closed		\
 		socket-tcp-unconn		\
 		socket-tcp6-unconn		\
+		socket-tcp-syn-sent		\
 		sock_opts00			\
 		sock_opts01			\
 		sk-unix-unconn			\
