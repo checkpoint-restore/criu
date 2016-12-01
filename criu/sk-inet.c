@@ -304,7 +304,6 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	ie.family	= family;
 	ie.proto	= proto;
 	ie.type		= sk->type;
-	ie.state	= sk->state;
 	ie.src_port	= sk->src_port;
 	ie.dst_port	= sk->dst_port;
 	ie.backlog	= sk->wqlen;
@@ -365,9 +364,6 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
 
-	if (pb_write_one(img_from_set(glob_imgset, CR_FD_INETSK), &ie, PB_INET_SK))
-		goto err;
-
 	pr_info("Dumping inet socket at %d\n", p->fd);
 	show_one_inet("Dumping", sk);
 	show_one_inet_img("Dumped", &ie);
@@ -382,6 +378,11 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 		err = 0;
 		break;
 	}
+
+	ie.state = sk->state;
+
+	if (pb_write_one(img_from_set(glob_imgset, CR_FD_INETSK), &ie, PB_INET_SK))
+		goto err;
 err:
 	release_skopts(&skopts);
 	xfree(ie.src_addr);

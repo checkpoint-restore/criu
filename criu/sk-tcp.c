@@ -132,6 +132,8 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 		goto err_r;
 	}
 
+	sk->state = data.state;
+
 	tse.inq_len = data.inq_len;
 	tse.inq_seq = data.inq_seq;
 	tse.outq_len = data.outq_len;
