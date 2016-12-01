@@ -1504,20 +1504,15 @@ def run_tests(opts):
 			print "Tracking memory is not available"
 			return
 
-	if opts['keep_going'] and (not opts['all']):
-		print "[WARNING] Option --keep-going is more useful with option --all."
-
 	if opts['all']:
 		torun = all_tests(opts)
 		run_all = True
 	elif opts['tests']:
 		r = re.compile(opts['tests'])
 		torun = filter(lambda x: r.match(x), all_tests(opts))
-		opts['keep_going'] = False
 		run_all = True
 	elif opts['test']:
 		torun = opts['test']
-		opts['keep_going'] = False
 		run_all = False
 	elif opts['from']:
 		if not os.access(opts['from'], os.R_OK):
@@ -1530,6 +1525,10 @@ def run_tests(opts):
 	else:
 		print "Specify test with -t <name> or -a"
 		return
+
+	if opts['keep_going'] and len(torun) < 2:
+		print "[WARNING] Option --keep-going is more useful when running multiple tests"
+		opts['keep_going'] = False
 
 	if opts['exclude']:
 		excl = re.compile(".*(" + "|".join(opts['exclude']) + ")")
