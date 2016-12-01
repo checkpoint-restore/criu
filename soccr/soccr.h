@@ -1,6 +1,7 @@
 #ifndef __LIBSOCCR_H__
 #define __LIBSOCCR_H__
 #include <linux/types.h>
+#include <netinet/in.h>
 #include <stdint.h>
 
 #include "config.h"
@@ -57,6 +58,12 @@ void libsoccr_set_log(unsigned int level, void (*fn)(unsigned int level, const c
  */
 struct libsoccr_sk;
 
+union libsoccr_addr {
+	struct sockaddr sa;
+	struct sockaddr_in v4;
+	struct sockaddr_in6 v6;
+};
+
 /*
  * Connection info that should be saved after fetching from the
  * socket and given back into the library in two steps (see below).
@@ -80,6 +87,9 @@ struct libsoccr_sk_data {
 	__u32	max_window;
 	__u32	rcv_wnd;
 	__u32	rcv_wup;
+
+	union libsoccr_addr src_addr;
+	union libsoccr_addr dst_addr;
 };
 
 /*

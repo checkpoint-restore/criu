@@ -11,6 +11,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "../soccr/soccr.h"
+
 #include "libnetlink.h"
 #include "cr_options.h"
 #include "imgset.h"
@@ -655,12 +657,7 @@ err:
 	return -1;
 }
 
-union sockaddr_inet {
-	struct sockaddr_in v4;
-	struct sockaddr_in6 v6;
-};
-
-static int restore_sockaddr(union sockaddr_inet *sa,
+int restore_sockaddr(union libsoccr_addr *sa,
 		int family, u32 pb_port, u32 *pb_addr, u32 ifindex)
 {
 	BUILD_BUG_ON(sizeof(sa->v4.sin_addr.s_addr) > PB_ALEN_INET * sizeof(u32));
@@ -695,7 +692,7 @@ static int restore_sockaddr(union sockaddr_inet *sa,
 int inet_bind(int sk, struct inet_sk_info *ii)
 {
 	bool rst_freebind = false;
-	union sockaddr_inet addr;
+	union libsoccr_addr addr;
 	int addr_size, ifindex = 0;
 
 	if (ii->ie->ifname) {
@@ -751,7 +748,7 @@ int inet_bind(int sk, struct inet_sk_info *ii)
 
 int inet_connect(int sk, struct inet_sk_info *ii)
 {
-	union sockaddr_inet addr;
+	union libsoccr_addr addr;
 	int addr_size;
 
 	addr_size = restore_sockaddr(&addr, ii->ie->family,

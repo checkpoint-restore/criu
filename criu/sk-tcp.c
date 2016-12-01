@@ -338,6 +338,15 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 		data.rcv_wup = tse->rcv_wup;
 	}
 
+	if (restore_sockaddr(&data.src_addr,
+				ii->ie->family, ii->ie->src_port,
+				ii->ie->src_addr, 0) < 0)
+		goto err_c;
+	if (restore_sockaddr(&data.dst_addr,
+				ii->ie->family, ii->ie->dst_port,
+				ii->ie->dst_addr, 0) < 0)
+		goto err_c;
+
 	(void)data;
 
 	if (libsoccr_set_sk_data_unbound(socr, &data, sizeof(data)))

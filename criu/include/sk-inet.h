@@ -85,4 +85,8 @@ struct rst_tcp_sock {
 	bool	reuseaddr;
 };
 
+union libsoccr_addr;
+int restore_sockaddr(union libsoccr_addr *sa,
+		int family, u32 pb_port, u32 *pb_addr, u32 ifindex);
+
 #endif /* __CR_SK_INET_H__ */
