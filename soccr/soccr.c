@@ -4,12 +4,66 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 #include <linux/sockios.h>
+#include <libnet.h>
+#include <assert.h>
+
 #include "soccr.h"
 
 #ifndef SIOCOUTQNSD
 /* MAO - Define SIOCOUTQNSD ioctl if we don't have it */
 #define SIOCOUTQNSD     0x894B
 #endif
+
+enum {
+        TCPF_ESTABLISHED = (1 << 1),
+        TCPF_SYN_SENT    = (1 << 2),
+        TCPF_SYN_RECV    = (1 << 3),
+        TCPF_FIN_WAIT1   = (1 << 4),
+        TCPF_FIN_WAIT2   = (1 << 5),
+        TCPF_TIME_WAIT   = (1 << 6),
+        TCPF_CLOSE       = (1 << 7),
+        TCPF_CLOSE_WAIT  = (1 << 8),
+        TCPF_LAST_ACK    = (1 << 9),
+        TCPF_LISTEN      = (1 << 10),
+        TCPF_CLOSING     = (1 << 11),
+};
+
+/*
+ * The TCP transition diagram for half closed connections
+ *
+ * ------------
+ * FIN_WAIT1	\ FIN
+ *			---------
+ *		/ ACK   CLOSE_WAIT
+ * -----------
+ * FIN_WAIT2
+ *			----------
+ *		/ FIN   LAST_ACK
+ * -----------
+ * TIME_WAIT	\ ACK
+ *			----------
+ *			CLOSED
+ *
+ * How to get the TCP_CLOSING state
+ *
+ * -----------		----------
+ * FIN_WAIT1	\/ FIN	FIN_WAIT1
+ * -----------		----------
+ *  CLOSING		CLOSING
+ *		\/ ACK
+ * -----------		----------
+ *  TIME_WAIT		TIME_WAIT
+ */
+
+/* Restore a fin packet in a send queue first */
+#define SNDQ_FIRST_FIN	(TCPF_FIN_WAIT1 | TCPF_FIN_WAIT2 | TCPF_CLOSING)
+/* Restore fin in a send queue after restoring fi in the receive queue. */
+#define SNDQ_SECOND_FIN (TCPF_LAST_ACK | TCPF_CLOSE)
+#define SNDQ_FIN_ACKED	(TCPF_FIN_WAIT2 | TCPF_CLOSE)
+
+#define RCVQ_FIRST_FIN	(TCPF_CLOSE_WAIT | TCPF_LAST_ACK | TCPF_CLOSE)
+#define RCVQ_SECOND_FIN (TCPF_CLOSING)
+#define RCVQ_FIN_ACKED	(TCPF_CLOSE)
 
 static void (*log)(unsigned int loglevel, const char *format, ...)
 	__attribute__ ((__format__ (__printf__, 2, 3)));
@@ -90,6 +144,11 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 
 	switch (ti->tcpi_state) {
 	case TCP_ESTABLISHED:
+	case TCP_FIN_WAIT1:
+	case TCP_FIN_WAIT2:
+	case TCP_LAST_ACK:
+	case TCP_CLOSE_WAIT:
+	case TCP_CLOSING:
 	case TCP_CLOSE:
 		break;
 	default:
@@ -97,7 +156,7 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 		return -1;
 	}
 
-	data->state = TCP_ESTABLISHED;
+	data->state = ti->tcpi_state;
 
 	if (ioctl(sk->fd, SIOCOUTQ, &size) == -1) {
 		logerr("Unable to get size of snd queue");
@@ -112,6 +171,13 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 	}
 
 	data->unsq_len = size;
+
+	/* Don't account the fin packet. It doesn't countain real data. */
+	if ((1 << data->state) & (SNDQ_FIRST_FIN | SNDQ_SECOND_FIN)) {
+		if (data->outq_len)
+			data->outq_len--;
+		data->unsq_len = data->unsq_len ? data->unsq_len - 1 : 0;
+	}
 
 	if (ioctl(sk->fd, SIOCINQ, &size) == -1) {
 		logerr("Unable to get size of recv queue");
@@ -330,6 +396,7 @@ static int set_queue_seq(struct libsoccr_sk *sk, int queue, __u32 seq)
 int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 		struct libsoccr_sk_data *data, unsigned data_size)
 {
+	int mstate = 1 << data->state;
 	struct tcp_repair_opt opts[4];
 	int addr_size;
 	int onr = 0;
@@ -337,8 +404,15 @@ int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 	if (!data || data_size < SOCR_DATA_MIN_SIZE)
 		return -1;
 
-	if (data->state != TCP_ESTABLISHED)
+	if (data->state == TCP_LISTEN)
 		return -1;
+
+	if (mstate & (RCVQ_FIRST_FIN | RCVQ_SECOND_FIN))
+		data->inq_seq--;
+
+	/* outq_seq is adjusted due to not accointing the fin packet */
+	if (mstate & (SNDQ_FIRST_FIN | SNDQ_SECOND_FIN))
+		data->outq_seq--;
 
 	if (set_queue_seq(sk, TCP_RECV_QUEUE,
 				data->inq_seq - data->inq_len))
@@ -403,9 +477,135 @@ int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 	return 0;
 }
 
+static int send_fin(struct libsoccr_sk_data *data, unsigned data_size, uint8_t flags)
+{
+	int ret, exit_code = -1;
+	char errbuf[LIBNET_ERRBUF_SIZE];
+	int mark = SOCCR_MARK;;
+	int libnet_type;
+	libnet_t *l;
+
+	if (data->dst_addr.sa.sa_family == AF_INET6)
+		libnet_type = LIBNET_RAW6;
+	else
+		libnet_type = LIBNET_RAW4;
+
+	l = libnet_init(
+		libnet_type,                            /* injection type */
+		NULL,                                   /* network interface */
+		errbuf);                                /* errbuf */
+	if (l == NULL)
+		return -1;
+
+	if (setsockopt(l->fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)))
+		goto err;
+
+	ret = libnet_build_tcp(
+		ntohs(data->dst_addr.v4.sin_port),		/* source port */
+		ntohs(data->src_addr.v4.sin_port),		/* destination port */
+		data->inq_seq,			/* sequence number */
+		data->outq_seq - data->outq_len,	/* acknowledgement num */
+		flags,				/* control flags */
+		data->rcv_wnd,			/* window size */
+		0,				/* checksum */
+		10,				/* urgent pointer */
+		LIBNET_TCP_H + 20,		/* TCP packet size */
+		NULL,				/* payload */
+		0,				/* payload size */
+		l,				/* libnet handle */
+		0);				/* libnet id */
+	if (ret == -1) {
+		loge("Can't build TCP header: %s\n", libnet_geterror(l));
+		goto err;
+	}
+
+	if (data->dst_addr.sa.sa_family == AF_INET6) {
+		struct libnet_in6_addr src, dst;
+
+		memcpy(&dst, &data->dst_addr.v6.sin6_addr, sizeof(dst));
+		memcpy(&src, &data->src_addr.v6.sin6_addr, sizeof(src));
+
+		ret = libnet_build_ipv6(
+			0, 0,
+			LIBNET_TCP_H,	/* length */
+			IPPROTO_TCP,	/* protocol */
+			64,		/* hop limit */
+			dst,		/* source IP */
+			src,		/* destination IP */
+			NULL,		/* payload */
+			0,		/* payload size */
+			l,		/* libnet handle */
+			0);		/* libnet id */
+	} else if (data->dst_addr.sa.sa_family == AF_INET)
+		ret = libnet_build_ipv4(
+			LIBNET_IPV4_H + LIBNET_TCP_H + 20,	/* length */
+			0,			/* TOS */
+			242,			/* IP ID */
+			0,			/* IP Frag */
+			64,			/* TTL */
+			IPPROTO_TCP,		/* protocol */
+			0,			/* checksum */
+			data->dst_addr.v4.sin_addr.s_addr,	/* source IP */
+			data->src_addr.v4.sin_addr.s_addr,	/* destination IP */
+			NULL,			/* payload */
+			0,			/* payload size */
+			l,			/* libnet handle */
+			0);			/* libnet id */
+	else {
+		loge("Unknown socket family");
+		goto err;
+	}
+	if (ret == -1) {
+		loge("Can't build IP header: %s\n", libnet_geterror(l));
+		goto err;
+	}
+
+	ret = libnet_write(l);
+	if (ret == -1) {
+		loge("Unable to send a fin packet: %s", libnet_geterror(l));
+		goto err;
+	}
+
+	exit_code = 0;
+err:
+	libnet_destroy(l);
+	return exit_code;
+}
+
+static int restore_fin_in_snd_queue(int sk, int acked)
+{
+	int queue = TCP_SEND_QUEUE;
+	int ret;
+
+	/*
+	 * If TCP_SEND_QUEUE is set, a fin packet will be
+	 * restored as a sent packet.
+	 */
+	if (acked &&
+	    setsockopt(sk, SOL_TCP, TCP_REPAIR_QUEUE, &queue, sizeof(queue)) < 0) {
+		logerr("Can't set repair queue");
+		return -1;
+	}
+
+	ret = shutdown(sk, SHUT_WR);
+	if (ret < 0)
+		logerr("Unable to shut down a socket");
+
+	queue = TCP_NO_QUEUE;
+	if (acked &&
+	    setsockopt(sk, SOL_TCP, TCP_REPAIR_QUEUE, &queue, sizeof(queue)) < 0) {
+		logerr("Can't set repair queue");
+		return -1;
+	}
+
+	return ret;
+}
+
 int libsoccr_set_sk_data(struct libsoccr_sk *sk,
 		struct libsoccr_sk_data *data, unsigned data_size)
 {
+	int mstate = 1 << data->state;
+
 	if (data->flags & SOCCR_FLAGS_WINDOW) {
 		struct tcp_repair_window wopt = {
 			.snd_wl1 = data->snd_wl1,
@@ -414,11 +614,42 @@ int libsoccr_set_sk_data(struct libsoccr_sk *sk,
 			.rcv_wnd = data->rcv_wnd,
 			.rcv_wup = data->rcv_wup,
 		};
-	
+
+		if (mstate & (RCVQ_FIRST_FIN | RCVQ_SECOND_FIN)) {
+			wopt.rcv_wup--;
+			wopt.rcv_wnd++;
+		}
+
 		if (setsockopt(sk->fd, SOL_TCP, TCP_REPAIR_WINDOW, &wopt, sizeof(wopt))) {
 			logerr("Unable to set window parameters");
 			return -1;
 		}
+	}
+
+	/*
+	 * To restore a half closed sockets, fin packets has to be restored in
+	 * recv and send queues. Here shutdown() is used to restore a fin
+	 * packet in the send queue and a fake fin packet is send to restore it
+	 * in the recv queue.
+	 */
+	if (mstate & SNDQ_FIRST_FIN)
+		restore_fin_in_snd_queue(sk->fd, mstate & SNDQ_FIN_ACKED);
+
+	/* Send a fin packet to the socket to restore it in a receive queue. */
+	if (mstate & (RCVQ_FIRST_FIN | RCVQ_SECOND_FIN))
+		if (send_fin(data, data_size, TH_ACK | TH_FIN) < 0)
+			return -1;
+
+	if (mstate & SNDQ_SECOND_FIN)
+		restore_fin_in_snd_queue(sk->fd, mstate & SNDQ_FIN_ACKED);
+
+	if (mstate & RCVQ_FIN_ACKED)
+		data->inq_seq++;
+
+	if (mstate & SNDQ_FIN_ACKED) {
+		data->outq_seq++;
+		if (send_fin(data, data_size, TH_ACK) < 0)
+			return -1;
 	}
 
 	return 0;
