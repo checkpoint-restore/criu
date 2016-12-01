@@ -182,10 +182,24 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 	return 1;
 }
 
+static int dump_sockaddr(union libsoccr_addr *sa, u32 *pb_port, u32 *pb_addr)
+{
+	if (sa->sa.sa_family == AF_INET) {
+		memcpy(pb_addr, &sa->v4.sin_addr, sizeof(sa->v4.sin_addr));
+		*pb_port = ntohs(sa->v4.sin_port);
+		return 0;
+	} if (sa->sa.sa_family == AF_INET6) {
+		*pb_port = ntohs(sa->v6.sin6_port);
+		memcpy(pb_addr, &sa->v6.sin6_addr, sizeof(sa->v6.sin6_addr));
+		return 0;
+	}
+	return -1;
+}
+
 static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p, int proto)
 {
 	struct inet_sk_desc *sk;
-	char address;
+	union libsoccr_addr address;
 	socklen_t aux;
 	int ret;
 
@@ -193,25 +207,39 @@ static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p, int 
 	if (!sk)
 		goto err;
 
-	/* It should has no peer name */
-	aux = sizeof(address);
+	ret  = do_dump_opt(lfd, SOL_SOCKET, SO_DOMAIN, &sk->sd.family, sizeof(sk->sd.family));
+	ret |= do_dump_opt(lfd, SOL_SOCKET, SO_TYPE, &sk->type, sizeof(sk->type));
+	if (ret)
+		goto err;
+
+	if (sk->sd.family == AF_INET)
+		aux = sizeof(struct sockaddr_in);
+	else if (sk->sd.family == AF_INET6)
+		aux = sizeof(struct sockaddr_in6);
+	else {
+		pr_err("Unsupported socket family: %d\n", sk->sd.family);
+		goto err;
+	}
+
 	ret = getsockopt(lfd, SOL_SOCKET, SO_PEERNAME, &address, &aux);
 	if (ret < 0) {
 		if (errno != ENOTCONN) {
 			pr_perror("Unexpected error returned from unconnected socket");
 			goto err;
 		}
-	} else if (ret == 0) {
-		pr_err("Name resolved on unconnected socket\n");
+	} else if (dump_sockaddr(&address, &sk->dst_port, sk->dst_addr))
 		goto err;
-	}
+
+	ret = getsockname(lfd, &address.sa, &aux);
+	if (ret < 0) {
+		if (errno != ENOTCONN) {
+			pr_perror("Unexpected error returned from unconnected socket");
+			goto err;
+		}
+	} else if (dump_sockaddr(&address, &sk->src_port, sk->src_addr))
+		goto err;
 
 	sk->sd.ino = p->stat.st_ino;
-
-	ret  = do_dump_opt(lfd, SOL_SOCKET, SO_DOMAIN, &sk->sd.family, sizeof(sk->sd.family));
-	ret |= do_dump_opt(lfd, SOL_SOCKET, SO_TYPE, &sk->type, sizeof(sk->type));
-	if (ret)
-		goto err;
 
 	if (proto == IPPROTO_TCP) {
 		struct tcp_info info;
