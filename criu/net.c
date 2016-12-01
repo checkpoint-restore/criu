@@ -15,6 +15,8 @@
 #include <linux/sockios.h>
 #include <libnl3/netlink/msg.h>
 
+#include "../soccr/soccr.h"
+
 #include "imgset.h"
 #include "namespaces.h"
 #include "net.h"
@@ -1767,6 +1769,7 @@ int network_lock_internal()
 				":CRIU - [0:0]\n"
 				"-I INPUT -j CRIU\n"
 				"-I OUTPUT -j CRIU\n"
+				"-A CRIU -m mark --mark " __stringify(SOCCR_MARK) " -j ACCEPT\n"
 				"-A CRIU -j DROP\n"
 				"COMMIT\n";
 	int ret = 0, nsret;

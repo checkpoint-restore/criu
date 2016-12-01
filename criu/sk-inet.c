@@ -117,13 +117,13 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 {
 	BUG_ON((sk->sd.family != AF_INET) && (sk->sd.family != AF_INET6));
 
-	if (sk->shutdown) {
-		pr_err("Can't dump shutdown inet socket %x\n",
-				sk->sd.ino);
-		return 0;
-	}
-
 	if (sk->type == SOCK_DGRAM) {
+		if (sk->shutdown) {
+			pr_err("Can't dump shutdown inet socket %x\n",
+					sk->sd.ino);
+			return 0;
+		}
+
 		if (sk->wqlen != 0) {
 			pr_err("Can't dump corked dgram socket %x\n",
 					sk->sd.ino);
@@ -165,6 +165,11 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 		}
 		break;
 	case TCP_ESTABLISHED:
+	case TCP_FIN_WAIT2:
+	case TCP_FIN_WAIT1:
+	case TCP_CLOSE_WAIT:
+	case TCP_LAST_ACK:
+	case TCP_CLOSING:
 		if (!opts.tcp_established_ok) {
 			pr_err("Connected TCP socket, consider using --%s option.\n",
 					SK_EST_PARAM);
@@ -485,7 +490,7 @@ static struct file_desc_ops inet_desc_ops = {
 
 static inline int tcp_connection(InetSkEntry *ie)
 {
-	return (ie->proto == IPPROTO_TCP) && (ie->state == TCP_ESTABLISHED);
+	return (ie->proto == IPPROTO_TCP && ie->dst_port);
 }
 
 static int collect_one_inetsk(void *o, ProtobufCMessage *base, struct cr_img *i)
@@ -662,7 +667,7 @@ static int open_inet_sk(struct file_desc *d)
 		mutex_unlock(&ii->port->reuseaddr_lock);
 	}
 
-	if (ie->state == TCP_ESTABLISHED &&
+	if (ie->dst_port &&
 			inet_connect(sk, ii))
 		goto err;
 done:

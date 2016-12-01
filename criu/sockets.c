@@ -645,7 +645,10 @@ int collect_sockets(struct ns_id *ns)
 	req.r.i.sdiag_protocol	= IPPROTO_TCP;
 	req.r.i.idiag_ext	= 0;
 	/* Only listening and established sockets supported yet */
-	req.r.i.idiag_states	= (1 << TCP_LISTEN) | (1 << TCP_ESTABLISHED);
+	req.r.i.idiag_states	= (1 << TCP_LISTEN) | (1 << TCP_ESTABLISHED) |
+					(1 << TCP_FIN_WAIT1) | (1 << TCP_FIN_WAIT2) |
+					(1 << TCP_CLOSE_WAIT) | (1 << TCP_LAST_ACK) |
+					(1 << TCP_CLOSING);
 	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, &req.r.i);
 	if (tmp)
 		err = tmp;
@@ -673,7 +676,10 @@ int collect_sockets(struct ns_id *ns)
 	req.r.i.sdiag_protocol	= IPPROTO_TCP;
 	req.r.i.idiag_ext	= 0;
 	/* Only listening sockets supported yet */
-	req.r.i.idiag_states	= (1 << TCP_LISTEN) | (1 << TCP_ESTABLISHED);
+	req.r.i.idiag_states	= (1 << TCP_LISTEN) | (1 << TCP_ESTABLISHED) |
+					(1 << TCP_FIN_WAIT1) | (1 << TCP_FIN_WAIT2) |
+					(1 << TCP_CLOSE_WAIT) | (1 << TCP_LAST_ACK) |
+					(1 << TCP_CLOSING);
 	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, &req.r.i);
 	if (tmp)
 		err = tmp;

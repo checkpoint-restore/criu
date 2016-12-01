@@ -142,6 +142,7 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	tse.has_unsq_len = true;
 	tse.mss_clamp = data.mss_clamp;
 	tse.opt_mask = data.opt_mask;
+
 	if (tse.opt_mask & TCPI_OPT_WSCALE) {
 		tse.snd_wscale = data.snd_wscale;
 		tse.rcv_wscale = data.rcv_wscale;
@@ -226,7 +227,7 @@ err_r:
 
 int dump_one_tcp(int fd, struct inet_sk_desc *sk)
 {
-	if (sk->state != TCP_ESTABLISHED)
+	if (sk->dst_port == 0)
 		return 0;
 
 	pr_info("Dumping TCP connection\n");
@@ -303,7 +304,7 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 		goto err_c;
 	}
 
-	data.state = TCP_ESTABLISHED;
+	data.state = ii->ie->state;;
 	data.inq_len = tse->inq_len;
 	data.inq_seq = tse->inq_seq;
 	data.outq_len = tse->outq_len;
