@@ -1005,14 +1005,18 @@ def cr(cr_api, test, opts):
 
 		sbs('pre-dump')
 
+		os.environ["ZDTM_TEST_PID"] = str(test.getpid())
 		if opts['norst']:
+			try_run_hook(test, ["--pre-dump"])
 			cr_api.dump("dump", opts = ["--leave-running"])
 		else:
+			try_run_hook(test, ["--pre-dump"])
 			cr_api.dump("dump")
 			test.gone()
 			sbs('pre-restore')
 			try_run_hook(test, ["--pre-restore"])
 			cr_api.restore()
+			os.environ["ZDTM_TEST_PID"] = str(test.getpid())
 			try_run_hook(test, ["--post-restore"])
 			sbs('post-restore')
 
