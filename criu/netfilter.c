@@ -74,7 +74,7 @@ static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port,
 
 	snprintf(buf, sizeof(buf), NF_CONN_CMD, cmd,
 			kdat.has_xtlocks ? "-w" : "",
-			lock ? "-A" : "-D",
+			lock ? "-I" : "-D",
 			input ? "INPUT" : "OUTPUT",
 			dip, (int)dst_port, sip, (int)src_port);
 
