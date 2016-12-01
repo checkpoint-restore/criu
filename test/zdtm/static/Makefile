@@ -73,7 +73,6 @@ TST_NOFILE	:=				\
 		socket-tcpbuf-local		\
 		socket-tcpbuf6-local		\
 		socket-tcpbuf6			\
-		socket-closed-tcp		\
 		socket-tcp-fin-wait1		\
 		socket-tcp6-fin-wait1		\
 		socket-tcp-fin-wait2		\
@@ -84,6 +83,9 @@ TST_NOFILE	:=				\
 		socket-tcp6-last-ack		\
 		socket-tcp-closing		\
 		socket-tcp6-closing		\
+		socket-tcp-closed		\
+		socket-tcp-closed-last-ack	\
+		socket-tcp6-closed		\
 		sock_opts00			\
 		sock_opts01			\
 		sk-unix-unconn			\
@@ -414,6 +416,8 @@ socket-tcp6-local: override CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV6
 socket-tcp-local: override CFLAGS += -D ZDTM_TCP_LOCAL
 socket-tcp-nfconntrack: override CFLAGS += -D ZDTM_TCP_LOCAL -DZDTM_CONNTRACK
 socket_listen6: override CFLAGS += -D ZDTM_IPV6
+socket-tcp6-closed: override CFLAGS += -D ZDTM_IPV6
+socket-tcp-closed-last-ack: override CFLAGS += -D ZDTM_TCP_LAST_ACK
 mnt_ext_manual: override CFLAGS += -D ZDTM_EXTMAP_MANUAL
 sigpending:		override LDLIBS += -lrt
 vdso01:			override LDLIBS += -lrt
