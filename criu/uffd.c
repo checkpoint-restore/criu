@@ -676,7 +676,7 @@ static int handle_user_fault(struct epoll_rfd *lpfd)
 
 	/* Align requested address to the next page boundary */
 	address = msg.arg.pagefault.address & ~(page_size() - 1);
-	pr_debug("%d: pagefalt at 0x%llx\n", lpi->pid, address);
+	pr_debug("%d: #PF at 0x%llx\n", lpi->pid, address);
 
 #if 0
 	/*
