@@ -648,7 +648,7 @@ int collect_sockets(struct ns_id *ns)
 	req.r.i.idiag_states	= (1 << TCP_LISTEN) | (1 << TCP_ESTABLISHED) |
 					(1 << TCP_FIN_WAIT1) | (1 << TCP_FIN_WAIT2) |
 					(1 << TCP_CLOSE_WAIT) | (1 << TCP_LAST_ACK) |
-					(1 << TCP_CLOSING);
+					(1 << TCP_CLOSING) | (1 << TCP_SYN_SENT);
 	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, &req.r.i);
 	if (tmp)
 		err = tmp;
@@ -679,7 +679,7 @@ int collect_sockets(struct ns_id *ns)
 	req.r.i.idiag_states	= (1 << TCP_LISTEN) | (1 << TCP_ESTABLISHED) |
 					(1 << TCP_FIN_WAIT1) | (1 << TCP_FIN_WAIT2) |
 					(1 << TCP_CLOSE_WAIT) | (1 << TCP_LAST_ACK) |
-					(1 << TCP_CLOSING);
+					(1 << TCP_CLOSING) | (1 << TCP_SYN_SENT);
 	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, &req.r.i);
 	if (tmp)
 		err = tmp;

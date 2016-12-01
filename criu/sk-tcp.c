@@ -350,10 +350,14 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 
 	(void)data;
 
-	if (libsoccr_set_sk_data_noq(socr, &data, sizeof(data)))
+	/*
+	 * O_NONBLOCK has to be set before libsoccr_set_sk_data_noq(),
+	 * it is required to restore syn-sent sockets.
+	 */
+	if (restore_prepare_socket(sk))
 		goto err_c;
 
-	if (restore_prepare_socket(sk))
+	if (libsoccr_set_sk_data_noq(socr, &data, sizeof(data)))
 		goto err_c;
 
 	if (restore_tcp_queues(socr, &data, img))

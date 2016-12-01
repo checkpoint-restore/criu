@@ -170,6 +170,7 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 	case TCP_CLOSE_WAIT:
 	case TCP_LAST_ACK:
 	case TCP_CLOSING:
+	case TCP_SYN_SENT:
 		if (!opts.tcp_established_ok) {
 			pr_err("Connected TCP socket, consider using --%s option.\n",
 					SK_EST_PARAM);
