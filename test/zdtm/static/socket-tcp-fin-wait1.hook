@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+import sys
+
+sys.path.append("../crit")
+
+import pycriu
+import os, os.path
+import json
+import difflib
+import subprocess
+
+if sys.argv[1] in ["--pre-dump", "--post-restore"]:
+    pid = os.getenv("ZDTM_TEST_PID")
+    try:
+        subprocess.Popen(["nsenter", "-t", pid, "-n", "ss", "-t", "-a", "-n"]).wait()
+    except OSError, e:
+        pass
+
+if sys.argv[1] != "--post-restore":
+    sys.exit(0)
+
+print "Check TCP images"
+
+def get_sockets(image_dir):
+    f = open(os.path.join(image_dir, "inetsk.img"))
+    sockets = pycriu.images.load(f)
+    sockets = sockets["entries"]
+
+    for s in sockets:
+        f = open(os.path.join(image_dir, "inetsk.img"))
+        ids = pycriu.images.load(f)
+        tcp_img = os.path.join(image_dir, "tcp-stream-%x.img" % int(s["ino"]))
+        print tcp_img
+        if os.access(tcp_img, os.F_OK):
+            f = open(tcp_img)
+            tcp = pycriu.images.load(f)
+            s['tcp'] = tcp["entries"][0]
+            s["tcp"].pop("extra", None)
+            s["tcp"].pop("timestamp", None)
+            s["tcp"].pop("snd_wl1", None)
+            s["tcp"].pop("rcv_wnd", None)
+            s["tcp"].pop("snd_wnd", None)
+            s["tcp"].pop("max_window", None)
+        s.pop("id", None)
+        s.pop("ino")
+    sockets.sort(lambda a, b: cmp(a["src_port"] + a["dst_port"], b["src_port"] + b["dst_port"]))
+    return sockets
+
+path = os.getenv("ZDTM_IMG_DIR")
+prev = None
+exit_code = 0
+for d in os.listdir(path):
+    sockets = get_sockets(os.path.join(path, d))
+    if not prev:
+        prev = sockets
+        continue
+
+    if prev == sockets:
+        continue
+
+    sockets_str = json.dumps(sockets, sys.stdout, indent=8, sort_keys=True)
+    prev_str = json.dumps(prev, sys.stdout, indent=8, sort_keys=True)
+
+    print "\n".join(difflib.unified_diff(prev_str.split("\n"), sockets_str.split("\n")))
+
+sys.exit(exit_code)
