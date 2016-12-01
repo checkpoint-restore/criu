@@ -70,7 +70,6 @@ struct lazy_pages_info {
 	struct list_head l;
 
 	void *buf;
-	bool remaining;
 };
 
 static LIST_HEAD(lpis);
@@ -547,9 +546,6 @@ static int complete_page_fault(struct lazy_pages_info *lpi, unsigned long vaddr,
 	if (uffd_copy(lpi, vaddr, nr))
 		return -1;
 
-	if (lpi->remaining)
-		return 0;
-
 	return update_lazy_iovecs(lpi, vaddr, nr * PAGE_SIZE);
 }
 
@@ -631,18 +627,16 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	struct lazy_iovec *lazy_iov;
 	int nr_pages, err;
 
-	lpi->remaining = true;
+	if (list_empty(&lpi->iovs))
+		return 0;
 
-	lpi->pr.reset(&lpi->pr);
+	lazy_iov = list_first_entry(&lpi->iovs, struct lazy_iovec, l);
+	nr_pages = lazy_iov->len / PAGE_SIZE;
 
-	list_for_each_entry(lazy_iov, &lpi->iovs, l) {
-		nr_pages = lazy_iov->len / PAGE_SIZE;
-
-		err = uffd_handle_pages(lpi, lazy_iov->base, nr_pages, 0);
-		if (err < 0) {
-			pr_err("Error during UFFD copy\n");
-			return -1;
-		}
+	err = uffd_handle_pages(lpi, lazy_iov->base, nr_pages, 0);
+	if (err < 0) {
+		pr_err("Error during UFFD copy\n");
+		return -1;
 	}
 
 	return 0;
@@ -717,27 +711,37 @@ static int lazy_pages_summary(struct lazy_pages_info *lpi)
 	return 0;
 }
 
-#define POLL_TIMEOUT 5000
+#define POLL_TIMEOUT 1000
 
 static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 {
 	struct lazy_pages_info *lpi;
+	int poll_timeout = POLL_TIMEOUT;
 	int ret;
 
-	ret = epoll_run_rfds(epollfd, events, nr_fds, POLL_TIMEOUT);
-	if (ret < 0)
-		goto out;
+	for (;;) {
+		bool remaining = false;
 
-
-	pr_debug("switching from request to copy mode\n");
-	pr_debug("Handle remaining pages\n");
-	list_for_each_entry(lpi, &lpis, l) {
-		ret = handle_remaining_pages(lpi);
-		if (ret < 0) {
-			pr_err("Error during remaining page copy\n");
-			ret = 1;
+		ret = epoll_run_rfds(epollfd, events, nr_fds, poll_timeout);
+		if (ret < 0)
 			goto out;
+
+		if (poll_timeout)
+			pr_debug("Start handling remaining pages\n");
+
+		poll_timeout = 0;
+		list_for_each_entry(lpi, &lpis, l) {
+			if (lpi->copied_pages < lpi->total_pages) {
+				remaining = true;
+				ret = handle_remaining_pages(lpi);
+				if (ret < 0)
+					goto out;
+				break;
+			}
 		}
+
+		if (!remaining)
+			break;
 	}
 
 	list_for_each_entry(lpi, &lpis, l)
