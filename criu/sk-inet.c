@@ -594,6 +594,11 @@ static int open_inet_sk(struct file_desc *d)
 	if (restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &yes))
 		goto err;
 
+	if (ie->src_port) {
+		if (inet_bind(sk, ii))
+			goto err;
+	}
+
 	if (tcp_connection(ie)) {
 		if (!opts.tcp_established_ok) {
 			pr_err("Connected TCP socket in image\n");
@@ -614,12 +619,6 @@ static int open_inet_sk(struct file_desc *d)
 	 * Listen sockets are easiest ones -- simply
 	 * bind() and listen(), and that's all.
 	 */
-
-	if (ie->src_port) {
-		if (inet_bind(sk, ii))
-			goto err;
-	}
-
 	if (ie->state == TCP_LISTEN) {
 		if (ie->proto != IPPROTO_TCP) {
 			pr_err("Wrong socket in listen state %d\n", ie->proto);

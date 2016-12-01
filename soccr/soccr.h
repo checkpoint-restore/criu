@@ -178,25 +178,18 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, int steal);
  * 	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
  *
  * 	h = libsoccr_pause(sk)
- * 	libsoccr_set_sk_data_unbound(h, &data, sizeof(data))
  * 	bind(sk, &name, ...)
- * 	connect(sk, &name, ...)
- * 	libsoccr_set_sk_data(h, &data, sizeof(data))
+ *
+ * 	libsoccr_set_sk_data_noq(h, &data, sizeof(data))
  * 	libsoccr_set_queue_bytes(h, &data, sizeof(data), TCP_RECV_QUEUE, inq)
  * 	libsoccr_set_queue_bytes(h, &data, sizeof(data), TCP_SEND_QUEUE, outq)
+ * 	libsoccr_set_sk_data(h, &data, sizeof(data))
  *
  * 	libsoccr_resume(h)
  *
  * Only after this the packets path from and to the socket can be
  * enabled back.
  */
-
-/*
- * Performs restore action while the socket is not bind()-ed and
- * not connect()-ed. The data should be the one from _get_sk_data
- * call. The data_size is the amount of bytes sitting in there.
- */
-int libsoccr_set_sk_data_unbound(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size);
 
 /*
  * Performs additional restore actions on bind()-ed and connect()-ed

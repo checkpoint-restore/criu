@@ -349,15 +349,6 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 
 	(void)data;
 
-	if (libsoccr_set_sk_data_unbound(socr, &data, sizeof(data)))
-		goto err_c;
-
-	if (inet_bind(sk, ii))
-		goto err_c;
-
-	if (inet_connect(sk, ii))
-		goto err_c;
-
 	if (libsoccr_set_sk_data_noq(socr, &data, sizeof(data)))
 		goto err_c;
 

@@ -323,9 +323,17 @@ static int set_queue_seq(struct libsoccr_sk *sk, int queue, __u32 seq)
 	return 0;
 }
 
-int libsoccr_set_sk_data_unbound(struct libsoccr_sk *sk,
+#ifndef TCPOPT_SACK_PERM
+#define TCPOPT_SACK_PERM TCPOPT_SACK_PERMITTED
+#endif
+
+int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 		struct libsoccr_sk_data *data, unsigned data_size)
 {
+	struct tcp_repair_opt opts[4];
+	int addr_size;
+	int onr = 0;
+
 	if (!data || data_size < SOCR_DATA_MIN_SIZE)
 		return -1;
 
@@ -339,21 +347,15 @@ int libsoccr_set_sk_data_unbound(struct libsoccr_sk *sk,
 				data->outq_seq - data->outq_len))
 		return -3;
 
-	return 0;
-}
+	if (data->dst_addr.sa.sa_family == AF_INET)
+		addr_size = sizeof(data->dst_addr.v4);
+	else
+		addr_size = sizeof(data->dst_addr.v6);
 
-#ifndef TCPOPT_SACK_PERM
-#define TCPOPT_SACK_PERM TCPOPT_SACK_PERMITTED
-#endif
-
-int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
-		struct libsoccr_sk_data *data, unsigned data_size)
-{
-	struct tcp_repair_opt opts[4];
-	int onr = 0;
-
-	if (!data || data_size < SOCR_DATA_MIN_SIZE)
+	if (connect(sk->fd, &data->dst_addr.sa, addr_size) == -1) {
+		loge("Can't connect inet socket back\n");
 		return -1;
+	}
 
 	logd("\tRestoring TCP options\n");
 
