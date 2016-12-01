@@ -10,6 +10,8 @@
 #include <sys/sysmacros.h>
 #include <sys/sysmacros.h>
 #include <stdint.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
 
 #include "int.h"
 #include "log.h"
@@ -25,6 +27,7 @@
 #include "proc_parse.h"
 #include "config.h"
 #include "syscall-codes.h"
+#include "sk-inet.h"
 
 struct kerndat_s kdat = {
 };
@@ -491,6 +494,69 @@ static int kerndat_iptables_has_xtlocks(void)
 	return 0;
 }
 
+int kerndat_tcp_repair(void)
+{
+	int sock, clnt = -1, yes = 1, exit_code = -1;
+	struct sockaddr_in addr;
+	socklen_t aux;
+
+	memset(&addr,0,sizeof(addr));
+	addr.sin_family = AF_INET;
+	inet_pton(AF_INET, "127.0.0.1", &(addr.sin_addr));
+	addr.sin_port = 0;
+	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sock < 0) {
+		pr_perror("Unable to create a socket");
+		return -1;
+	}
+
+	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr))) {
+		pr_perror("Unable to bind a socket");
+		goto err;
+	}
+
+	aux = sizeof(addr);
+	if (getsockname(sock, (struct sockaddr *) &addr, &aux)) {
+		pr_perror("Unable to get a socket name");
+		goto err;
+	}
+
+	if (listen(sock, 1)) {
+		pr_perror("Unable to listen a socket");
+		goto err;
+	}
+
+	clnt = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (clnt < 0) {
+		pr_perror("Unable to create a socket");
+		goto err;
+	}
+
+	if (connect(clnt, (struct sockaddr *) &addr, sizeof(addr))) {
+		pr_perror("Unable to connect a socket");
+		goto err;
+	}
+
+	if (shutdown(clnt, SHUT_WR)) {
+		pr_perror("Unable to shutdown a socket");
+		goto err;
+	}
+
+	if (setsockopt(clnt, SOL_TCP, TCP_REPAIR, &yes, sizeof(yes))) {
+		if (errno != EPERM)
+			goto err;
+		kdat.has_tcp_half_closed = false;
+	} else
+		kdat.has_tcp_half_closed = true;
+
+	exit_code = 0;
+err:
+	close_safe(&clnt);
+	close(sock);
+
+	return exit_code;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -516,6 +582,8 @@ int kerndat_init(void)
 		ret = kerndat_iptables_has_xtlocks();
 	if (!ret)
 		ret = kerndat_tcp_repair_window();
+	if (!ret)
+		ret = kerndat_tcp_repair();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
@@ -548,6 +616,8 @@ int kerndat_init_rst(void)
 		ret = kerndat_iptables_has_xtlocks();
 	if (!ret)
 		ret = kerndat_tcp_repair_window();
+	if (!ret)
+		ret = kerndat_tcp_repair();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
