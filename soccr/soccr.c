@@ -6,6 +6,7 @@
 #include <linux/sockios.h>
 #include <libnet.h>
 #include <assert.h>
+#include <errno.h>
 
 #include "soccr.h"
 
@@ -90,13 +91,15 @@ static int tcp_repair_on(int fd)
 	return ret;
 }
 
-static void tcp_repair_off(int fd)
+static int tcp_repair_off(int fd)
 {
 	int aux = 0, ret;
 
 	ret = setsockopt(fd, SOL_TCP, TCP_REPAIR, &aux, sizeof(aux));
 	if (ret < 0)
 		logerr("Failed to turn off repair mode on socket");
+
+	return ret;
 }
 
 struct libsoccr_sk {
@@ -150,6 +153,7 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 	case TCP_CLOSE_WAIT:
 	case TCP_CLOSING:
 	case TCP_CLOSE:
+	case TCP_SYN_SENT:
 		break;
 	default:
 		loge("Unknown state %d\n", ti->tcpi_state);
@@ -400,6 +404,7 @@ int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 	struct tcp_repair_opt opts[4];
 	int addr_size;
 	int onr = 0;
+	__u32 seq;
 
 	if (!data || data_size < SOCR_DATA_MIN_SIZE)
 		return -1;
@@ -417,8 +422,12 @@ int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 	if (set_queue_seq(sk, TCP_RECV_QUEUE,
 				data->inq_seq - data->inq_len))
 		return -2;
-	if (set_queue_seq(sk, TCP_SEND_QUEUE,
-				data->outq_seq - data->outq_len))
+
+	seq = data->outq_seq - data->outq_len;
+	if (data->state == TCP_SYN_SENT)
+		seq--;
+
+	if (set_queue_seq(sk, TCP_SEND_QUEUE, seq))
 		return -3;
 
 	if (data->dst_addr.sa.sa_family == AF_INET)
@@ -426,10 +435,17 @@ int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 	else
 		addr_size = sizeof(data->dst_addr.v6);
 
-	if (connect(sk->fd, &data->dst_addr.sa, addr_size) == -1) {
+	if (data->state == TCP_SYN_SENT && tcp_repair_off(sk->fd))
+		return -1;
+
+	if (connect(sk->fd, &data->dst_addr.sa, addr_size) == -1 &&
+						errno != EINPROGRESS) {
 		loge("Can't connect inet socket back\n");
 		return -1;
 	}
+
+	if (data->state == TCP_SYN_SENT && tcp_repair_on(sk->fd))
+		return -1;
 
 	logd("\tRestoring TCP options\n");
 
@@ -460,7 +476,8 @@ int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 	opts[onr].opt_val = data->mss_clamp;
 	onr++;
 
-	if (setsockopt(sk->fd, SOL_TCP, TCP_REPAIR_OPTIONS,
+	if (data->state != TCP_SYN_SENT &&
+	    setsockopt(sk->fd, SOL_TCP, TCP_REPAIR_OPTIONS,
 				opts, onr * sizeof(struct tcp_repair_opt)) < 0) {
 		logerr("Can't repair options");
 		return -2;
