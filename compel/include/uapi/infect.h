@@ -73,6 +73,7 @@ extern int compel_syscall(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 		unsigned long arg5,
 		unsigned long arg6);
 extern int compel_run_in_thread(struct parasite_thread_ctl *tctl, unsigned int cmd);
+extern int compel_run_at(struct parasite_ctl *ctl, unsigned long ip, user_regs_struct_t *ret_regs);
 
 /*
  * The PTRACE_SYSCALL will trap task twice -- on

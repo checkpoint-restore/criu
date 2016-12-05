@@ -590,6 +590,17 @@ int compel_execute_syscall(struct parasite_ctl *ctl,
 	return err;
 }
 
+int compel_run_at(struct parasite_ctl *ctl, unsigned long ip, user_regs_struct_t *ret_regs)
+{
+	user_regs_struct_t regs = ctl->orig.regs;
+	int ret;
+
+	ret = parasite_run(ctl->rpid, PTRACE_CONT, ip, 0, &regs, &ctl->orig);
+	if (!ret)
+		ret = parasite_trap(ctl, ctl->rpid, ret_regs ? ret_regs : &regs, &ctl->orig);
+	return ret;
+}
+
 static int accept_tsock(struct parasite_ctl *ctl)
 {
 	int sock;
