@@ -5,6 +5,7 @@ libprotobuf-c0-dev
 protobuf-c-compiler
 protobuf-compiler
 python-protobuf
+libnet-dev
 
 # Extra packages, required for testing and building other tools
 pkg-config
