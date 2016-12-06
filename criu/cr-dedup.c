@@ -72,7 +72,6 @@ static int cr_dedup_one_pagemap(int id, int flags)
 	int ret;
 	struct page_read pr;
 	struct page_read * prp;
-	struct iovec iov;
 
 	flags |= PR_MOD;
 	ret = open_page_read(id, &pr, flags);
@@ -88,8 +87,8 @@ static int cr_dedup_one_pagemap(int id, int flags)
 		if (ret <= 0)
 			goto exit;
 
-		pagemap2iovec(pr.pe, &iov);
-		pr_debug("dedup iovec base=%p, len=%zu\n", iov.iov_base, iov.iov_len);
+		pr_debug("dedup iovec base=%"PRIx64", len=%lu\n",
+			 pr.pe->vaddr, pagemap_len(pr.pe));
 		if (!pr.pe->in_parent) {
 			ret = dedup_one_iovec(prp, pr.pe->vaddr,
 					      pagemap_len(pr.pe));

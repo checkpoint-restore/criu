@@ -34,18 +34,6 @@ struct page_read_iov {
 	struct list_head l;
 };
 
-void pagemap2iovec(PagemapEntry *pe, struct iovec *iov)
-{
-	iov->iov_base = decode_pointer(pe->vaddr);
-	iov->iov_len = pe->nr_pages * PAGE_SIZE;
-}
-
-void iovec2pagemap(struct iovec *iov, PagemapEntry *pe)
-{
-	pe->vaddr = encode_pointer(iov->iov_base);
-	pe->nr_pages = iov->iov_len / PAGE_SIZE;
-}
-
 static inline bool can_extend_bunch(struct iovec *bunch,
 		unsigned long off, unsigned long len)
 {
@@ -84,16 +72,13 @@ static int punch_hole(struct page_read *pr, unsigned long off,
 
 static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr);
 
-int dedup_one_iovec(struct page_read *pr, unsigned long base, unsigned long len)
+int dedup_one_iovec(struct page_read *pr, unsigned long off, unsigned long len)
 {
-	unsigned long off;
 	unsigned long iov_end;
 
-	iov_end = base + len;
-	off = base;
+	iov_end = off + len;
 	while (1) {
 		int ret;
-		struct iovec piov;
 		unsigned long piov_end;
 		struct page_read * prp;
 
@@ -108,8 +93,7 @@ int dedup_one_iovec(struct page_read *pr, unsigned long base, unsigned long len)
 
 		if (!pr->pe)
 			return -1;
-		pagemap2iovec(pr->pe, &piov);
-		piov_end = (unsigned long)piov.iov_base + piov.iov_len;
+		piov_end = pr->pe->vaddr + pagemap_len(pr->pe);
 		if (!pr->pe->in_parent) {
 			ret = punch_hole(pr, pr->pi_off, min(piov_end, iov_end) - off, false);
 			if (ret == -1)
