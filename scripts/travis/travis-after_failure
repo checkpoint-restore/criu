@@ -1,0 +1,5 @@
+#!/bin/sh
+pip install dropbox
+cd ../../../
+tar -czf criu-$TRAVIS_JOB_ID.tar.gz criu
+./criu/scripts/dropbox_upload.py criu-$TRAVIS_JOB_ID.tar.gz

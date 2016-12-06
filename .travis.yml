@@ -1,21 +1,22 @@
 language: c
 sudo: required
 dist: trusty
-services:
-  - docker
 env:
-  - TR_ARCH=local       GCOV=1
-  - TR_ARCH=local       CLANG=1
-  - TR_ARCH=alpine
-  - TR_ARCH=x86_64
-  - TR_ARCH=armv7hf
-  - TR_ARCH=aarch64
-  - TR_ARCH=ppc64le
-  - TR_ARCH=armv7hf     CLANG=1
-  - TR_ARCH=aarch64     CLANG=1
-  - TR_ARCH=ppc64le     CLANG=1
-  - TR_ARCH=alpine      CLANG=1
+ matrix:
+  - TTT=linux    TR_ARCH=local KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git"
+  - TTT=next     TR_ARCH=local KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git" GCOV=1
+  - TTT=net-next TR_ARCH=local KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git"
+  - TTT=userns-t TR_ARCH=local KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.git -b for-testing"
+  - TTT=userns-n TR_ARCH=local KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.git -b for-next"
+  - TTT=akpm     TR_ARCH=local KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git -b akpm"
+  - TTT=pre-akpm TR_ARCH=local KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git -b akpm-base"
+  - TTT=cgroup   TR_ARCH=local KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/tj/cgroup.git -b for-next"
+  - TTT=vfs      TR_ARCH=local KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git -b for-next"
+ global:
+  - secure: "pLXteR7eodHe2qp5q1wB+W53OOd/9b5q1IHPajh5ES86Yvut5ig7pUhmLU75hDcu7TPeISYl2//Et9xxbBF0h2z1dqtTlvAnN+THBmIZ4Yv4X+LMkD532sI/AQpCJHVOXQ5r6tLgWQqL0zEC20ImC0LaJfz6qFSmdQ8uX/r61r8="
 script:
   - sudo make -C scripts/travis $TR_ARCH
 after_success:
   - make -C scripts/travis after_success
+after_failure:
+  - sudo make -C scripts/travis after_failure

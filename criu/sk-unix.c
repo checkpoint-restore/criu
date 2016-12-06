@@ -710,7 +710,6 @@ static int dump_external_sockets(struct unix_sk_desc *peer)
 				if (peer->type != SOCK_DGRAM) {
 					show_one_unix("Ext stream not supported", peer);
 					pr_err("Can't dump half of stream unix connection.\n");
-					return -1;
 				}
 
 				if (!peer->name) {
