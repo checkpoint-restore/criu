@@ -91,7 +91,8 @@ static int cr_dedup_one_pagemap(int id, int flags)
 		pagemap2iovec(pr.pe, &iov);
 		pr_debug("dedup iovec base=%p, len=%zu\n", iov.iov_base, iov.iov_len);
 		if (!pr.pe->in_parent) {
-			ret = dedup_one_iovec(prp, &iov);
+			ret = dedup_one_iovec(prp, pr.pe->vaddr,
+					      pagemap_len(pr.pe));
 			if (ret)
 				goto exit;
 		}

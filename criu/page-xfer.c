@@ -155,7 +155,8 @@ static int write_pagemap_loc(struct page_xfer *xfer,
 
 	iovec2pagemap(iov, &pe);
 	if (opts.auto_dedup && xfer->parent != NULL) {
-		ret = dedup_one_iovec(xfer->parent, iov);
+		ret = dedup_one_iovec(xfer->parent, pe.vaddr,
+				pagemap_len(&pe));
 		if (ret == -1) {
 			pr_perror("Auto-deduplication failed");
 			return ret;

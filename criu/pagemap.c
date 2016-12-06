@@ -84,18 +84,17 @@ static int punch_hole(struct page_read *pr, unsigned long off,
 
 static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr);
 
-int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
+int dedup_one_iovec(struct page_read *pr, unsigned long base, unsigned long len)
 {
 	unsigned long off;
 	unsigned long iov_end;
 
-	iov_end = (unsigned long)iov->iov_base + iov->iov_len;
-	off = (unsigned long)iov->iov_base;
+	iov_end = base + len;
+	off = base;
 	while (1) {
 		int ret;
 		struct iovec piov;
 		unsigned long piov_end;
-		struct iovec tiov;
 		struct page_read * prp;
 
 		ret = seek_pagemap_page(pr, off);
@@ -121,9 +120,8 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 		if (prp) {
 			/* recursively */
 			pr_debug("Go to next parent level\n");
-			tiov.iov_base = (void*)off;
-			tiov.iov_len = min(piov_end, iov_end) - off;
-			ret = dedup_one_iovec(prp, &tiov);
+			len = min(piov_end, iov_end) - off;
+			ret = dedup_one_iovec(prp, off, len);
 			if (ret != 0)
 				return -1;
 		}
