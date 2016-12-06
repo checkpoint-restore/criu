@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <string.h>
 #include <sched.h>
+#include <stdio.h>
 
 #include "zdtmtst.h"
 
@@ -26,12 +27,28 @@ int main(int argc, char ** argv)
 {
 	int pid, ret, err = 0;
 	struct sched_param p;
+	int old_rt_runtime_us = -1;
+	FILE *file;
 
 	test_init(argc, argv);
 
 	pid = fork();
 	if (!pid)
 		return do_nothing();
+
+	file = fopen("/sys/fs/cgroup/cpu/user.slice/cpu.rt_runtime_us", "r");
+	if (file) {
+		ret = fscanf(file, "%d", &old_rt_runtime_us);
+		fclose(file);
+
+		if ((ret > 0) && (old_rt_runtime_us == 0)) {
+			file = fopen("/sys/fs/cgroup/cpu/user.slice/cpu.rt_runtime_us", "w");
+			if (file) {
+				fprintf(file, "100\n");
+				fclose(file);
+			}
+		}
+	}
 
 	p.sched_priority = parm;
 	if (sched_setscheduler(pid, SCHED_RR, &p)) {
@@ -59,5 +76,13 @@ int main(int argc, char ** argv)
 		pass();
 
 	kill(pid, SIGKILL);
+	if (old_rt_runtime_us != -1) {
+		file = fopen("/sys/fs/cgroup/cpu/user.slice/cpu.rt_runtime_us", "w");
+		if (file) {
+			fprintf(file, "%d\n", old_rt_runtime_us);
+			fclose(file);
+		}
+
+	}
 	return err;
 }
