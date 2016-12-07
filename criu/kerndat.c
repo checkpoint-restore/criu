@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <sys/syscall.h>
+#include <sys/sysmacros.h>
 
 #include "int.h"
 #include "log.h"
