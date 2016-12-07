@@ -9,6 +9,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <linux/fs.h>
+#include <sys/sysmacros.h>
 
 #include "types.h"
 #include "common/list.h"

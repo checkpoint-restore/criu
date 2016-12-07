@@ -6,6 +6,7 @@
 #endif
 
 #include <sys/types.h>
+#include <sys/sysmacros.h>
 
 #include <limits.h>
 
