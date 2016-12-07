@@ -1482,15 +1482,27 @@ def print_sep(title, sep = "=", width = 80):
 	print (" " + title + " ").center(width, sep)
 
 
+def print_error(line):
+	line = line.rstrip()
+	print line
+	if line.endswith('>'):  # combine pie output
+		return True
+	return False
+
+
 def grep_errors(fname):
 	first = True
+	print_next = False
 	for l in open(fname):
 		if "Error" in l:
 			if first:
 				print_fname(fname, 'log')
 				print_sep("grep Error", "-", 60)
 				first = False
-			print l,
+			print_next = print_error(l)
+		else:
+			if print_next:
+				print_next = print_error(l)
 	if not first:
 		print_sep("ERROR OVER", "-", 60)
 
