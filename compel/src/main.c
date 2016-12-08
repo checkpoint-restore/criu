@@ -163,6 +163,8 @@ int main(int argc, char *argv[])
 				}
 			}
 			if (!current_cflags) {
+				fprintf(stderr, "Error: unknown arch '%s'\n",
+						optarg);
 				return usage(1);
 			}
 			break;
@@ -205,12 +207,14 @@ int main(int argc, char *argv[])
 	}
 
 	if (optind >= argc) {
+		fprintf(stderr, "Error: action argument required\n");
 		return usage(1);
 	}
 	action = argv[optind++];
 
 	if (!strcmp(action, "cflags")) {
 		if (!current_cflags) {
+			fprintf(stderr, "Error: option --arch required\n");
 			return usage(1);
 		}
 		printf("%s", current_cflags);
@@ -224,14 +228,17 @@ int main(int argc, char *argv[])
 
 	if (!strcmp(action, "hgen")) {
 		if (!opts.input_filename) {
+			fprintf(stderr, "Error: option --file required\n");
 			return usage(1);
 		}
 		if (!opts.output_filename) {
+			fprintf(stderr, "Error: option --output required\n");
 			return usage(1);
 		}
 		compel_log_init(&cli_log, log_level);
 		return piegen();
 	}
 
+	fprintf(stderr, "Error: unknown action '%s'\n", action);
 	return usage(1);
 }
