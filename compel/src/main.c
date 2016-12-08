@@ -106,8 +106,15 @@ err:
 
 static void cli_log(unsigned int lvl, const char *fmt, va_list parms)
 {
-	if (!pr_quelled(lvl))
-		vprintf(fmt, parms);
+	FILE *f = stdout;
+
+	if (pr_quelled(lvl))
+		return;
+
+	if ((lvl == LOG_ERROR) || (lvl == LOG_WARN))
+		f = stderr;
+
+	vfprintf(f, fmt, parms);
 }
 
 static int usage(int rc) {
