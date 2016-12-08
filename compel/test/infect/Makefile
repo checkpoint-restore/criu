@@ -28,7 +28,6 @@ spy: spy.c $(COMPEL_LIBRARY) | parasite.h
 parasite.h: parasite.po
 	$(COMPEL) hgen -f $^ -l 4		\
 		-p parasite			\
-		-u $(COMPEL_IDIR)		\
 		-o $@
 
 parasite.po: parasite.o $(COMPEL_PLUGINS)/std.built-in.o

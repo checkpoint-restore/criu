@@ -54,7 +54,6 @@ static const compel_cflags_t compel_cflags[] = {
 piegen_opt_t opts = {
 	.input_filename		= NULL,
 	.output_filename	= NULL,
-	.uapi_dir		= "piegen/uapi",
 	.fout			= NULL,
 };
 
@@ -145,12 +144,11 @@ int main(int argc, char *argv[])
 	int opt, idx, i;
 	char *action;
 
-	static const char short_opts[] = "a:f:o:u:p:hVl:";
+	static const char short_opts[] = "a:f:o:p:hVl:";
 	static struct option long_opts[] = {
 		{ "arch",	required_argument,	0, 'a' },
 		{ "file",	required_argument,	0, 'f' },
 		{ "output",	required_argument,	0, 'o' },
-		{ "uapi-dir",	required_argument,	0, 'u' },
 		{ "prefix",	required_argument,	0, 'p' },
 		{ "help",	no_argument,		0, 'h' },
 		{ "version",	no_argument,		0, 'V' },
@@ -182,9 +180,6 @@ int main(int argc, char *argv[])
 			break;
 		case 'o':
 			opts.output_filename = optarg;
-			break;
-		case 'u':
-			opts.uapi_dir = optarg;
 			break;
 		case 'p':
 			opts.prefix = optarg;

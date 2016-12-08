@@ -127,7 +127,6 @@ $(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel-host
 	$(Q) $(SRC_DIR)/compel/compel-host hgen -f $<			\
 		-l 4							\
 		-p $(call target-name,$@)				\
-		-u $(SRC_DIR)/compel/include/uapi			\
 		-o $@ $(piegen_stdout)
 
 else # !piegen-y
