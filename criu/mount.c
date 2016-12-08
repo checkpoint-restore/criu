@@ -736,7 +736,8 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 			}
 		}
 skip_fstype:
-		if (does_mnt_overmount(m)) {
+		if (does_mnt_overmount(m) &&
+		    !list_empty(&m->parent->mnt_share)) {
 			pr_err("Unable to handle mounts under %d:%s\n",
 					m->mnt_id, m->mountpoint);
 			return -1;
@@ -2162,6 +2163,144 @@ static int do_umount_one(struct mount_info *mi)
 	return 0;
 }
 
+/*
+ * If a mount overmounts other mounts, it is restored separetly in the roots
+ * yard and then moved to the right place.
+ *
+ * mnt_remap_entry is created for each such mount and it's added into
+ * mnt_remap_list. The origin mount point is replaced on a new one in
+ * roots_yard where it will be restored. The remapped mount will be
+ * moved to the right places after restoring all mounts.
+ */
+
+static inline int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs);
+static int get_mp_mountpoint(char *mountpoint, struct mount_info *mi, char *root, int root_len);
+
+static LIST_HEAD(mnt_remap_list);
+static int remap_id;
+
+struct mnt_remap_entry {
+	struct mount_info *mi; /* child is remaped into the root yards */
+	struct mount_info *parent; /* the origin parent for the child*/
+	struct list_head node;
+};
+
+static int do_remap_mount(struct mount_info *m)
+{
+	int len;
+
+	if (m->nsid->type == NS_OTHER) {
+		/*
+		 * m->mountpoint already contains a roots_yard prefix and
+		 * it has a fixed size, so it can be just replaced.
+		 */
+		len = print_ns_root(m->nsid, remap_id, m->mountpoint, PATH_MAX);
+		m->mountpoint[len] = '/';
+	} else if (m->nsid->type == NS_ROOT) {
+		char root[PATH_MAX], *mp, *ns_mp;
+		int len, ret;
+
+		/*
+		 * Allocate a new path in the roots yard. m->mountpoint in the
+		 * root namespace doesn't have a roots_yard prefix, so its
+		 * size has to be changed and a new storage has to be
+		 * allocated.
+		 */
+		mp = m->mountpoint; ns_mp = m->ns_mountpoint;
+
+		len = print_ns_root(m->nsid, remap_id, root, PATH_MAX);
+
+		ret = get_mp_mountpoint(ns_mp, m, root, len);
+		if (ret < 0)
+			return ret;
+		xfree(mp);
+	} else
+		BUG();
+	return 0;
+}
+
+static int try_remap_mount(struct mount_info *m)
+{
+	struct mnt_remap_entry *r;
+
+	if (!does_mnt_overmount(m))
+		return 0;
+
+	BUG_ON(!m->parent || !list_empty(&m->parent->mnt_share));
+
+	r = xmalloc(sizeof(struct mnt_remap_entry));
+	if (!r)
+		return -1;
+
+	r->mi = m;
+	list_add(&r->node, &mnt_remap_list);
+
+	return 0;
+}
+
+static int find_remap_mounts(struct mount_info *root)
+{
+	struct mnt_remap_entry *r;
+	struct mount_info *m;
+
+	/*
+	 * It's impossible to change a tree without interrupting
+	 * enumeration, so on the first step mounts are added
+	 * into mnt_remap_list and then they are connected to root_yard_mp.
+	 */
+	if (mnt_tree_for_each(root, try_remap_mount))
+		return -1;
+
+	/* Move remapped mounts to root_yard */
+	list_for_each_entry(r, &mnt_remap_list, node) {
+		m = r->mi;
+		r->parent = m->parent;
+		m->parent = root_yard_mp;
+		list_del(&m->siblings);
+		list_add(&m->siblings, &root_yard_mp->children);
+
+		remap_id++;
+		mnt_tree_for_each(m, do_remap_mount);
+		pr_debug("Restore the %d mount in %s\n", m->mnt_id, m->mountpoint);
+	}
+
+	return 0;
+}
+
+/* Move remapped mounts to places where they have to be */
+static int fixup_remap_mounts()
+{
+	struct mnt_remap_entry *r;
+
+	list_for_each_entry(r, &mnt_remap_list, node) {
+		struct mount_info *m = r->mi;
+		char path[PATH_MAX];
+		int len;
+
+		if (m->nsid->type == NS_ROOT) {
+			path[0] = '.';
+			strncpy(path + 1, m->ns_mountpoint, PATH_MAX - 1);
+		} else {
+			strncpy(path, m->mountpoint, PATH_MAX);
+			len = print_ns_root(m->nsid, 0, path, PATH_MAX);
+			path[len] = '/';
+		}
+
+		pr_debug("Move mount %s -> %s\n", m->mountpoint, path);
+		if (mount(m->mountpoint, path, NULL, MS_MOVE, NULL)) {
+			pr_perror("Unable to move mount %s -> %s", m->mountpoint, path);
+			return -1;
+		}
+
+		/* Insert child back to its place in the tree */
+		list_del(&r->mi->siblings);
+		list_add(&r->mi->siblings, &r->parent->children);
+		r->mi->parent = r->parent;
+	}
+
+	return 0;
+}
+
 static int cr_pivot_root(char *root)
 {
 	char tmp_dir_tmpl[] = "crtools-put-root.XXXXXX";
@@ -2637,6 +2776,7 @@ void fini_restore_mntns(void)
  */
 static int populate_roots_yard(void)
 {
+	struct mnt_remap_entry *r;
 	char path[PATH_MAX];
 	struct ns_id *nsid;
 
@@ -2653,6 +2793,17 @@ static int populate_roots_yard(void)
 		print_ns_root(nsid, 0, path, sizeof(path));
 		if (mkdir(path, 0600)) {
 			pr_perror("Unable to create %s", path);
+			return -1;
+		}
+	}
+
+	/*
+	 * mnt_remap_list is filled in find_remap_mounts() and
+	 * contains mounts which has to be restored separatly
+	 */
+	list_for_each_entry(r, &mnt_remap_list, node) {
+		if (mkdirpat(AT_FDCWD, r->mi->mountpoint, 0755)) {
+			pr_perror("Unable to create %s", r->mi->mountpoint);
 			return -1;
 		}
 	}
@@ -2707,6 +2858,9 @@ static int populate_mnt_ns(void)
 	if (validate_mounts(mntinfo, false))
 		return -1;
 
+	if (find_remap_mounts(pms))
+		return -1;
+
 	/*
 	 * Set properties for the root before mounting a root yard,
 	 * otherwise the root yard can be propagated into the host
@@ -2723,6 +2877,9 @@ static int populate_mnt_ns(void)
 
 	ret = mnt_tree_for_each(pms, do_mount_one);
 	mnt_tree_for_each(pms, do_close_one);
+
+	if (ret == 0 && fixup_remap_mounts())
+		return -1;
 
 	if (umount_clean_path())
 		return -1;
