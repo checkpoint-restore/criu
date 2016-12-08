@@ -2264,9 +2264,9 @@ void mnt_entry_free(struct mount_info *mi)
  * Helper for getting a path to where the namespace's root
  * is re-constructed.
  */
-static inline int print_ns_root(struct ns_id *ns, char *buf, int bs)
+static inline int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs)
 {
-	return snprintf(buf, bs, "%s/%d", mnt_roots, ns->id);
+	return snprintf(buf, bs, "%s/%d-%010d", mnt_roots, ns->id, remap_id);
 }
 
 static int create_mnt_roots(void)
@@ -2403,7 +2403,7 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		return -1;
 
 	if (nsid->type == NS_OTHER)
-		root_len = print_ns_root(nsid, root, sizeof(root));
+		root_len = print_ns_root(nsid, 0, root, sizeof(root));
 
 	pr_debug("Reading mountpoint images (id %d pid %d)\n",
 		 nsid->id, (int)nsid->ns_pid);
@@ -2526,7 +2526,7 @@ int rst_get_mnt_root(int mnt_id, char *path, int plen)
 		return -1;
 
 	if (m->nsid->type == NS_OTHER)
-		return print_ns_root(m->nsid, path, plen);
+		return print_ns_root(m->nsid, 0, path, plen);
 
 rroot:
 	path[0] = '/';
@@ -2646,7 +2646,7 @@ static int populate_roots_yard(void)
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
 
-		print_ns_root(nsid, path, sizeof(path));
+		print_ns_root(nsid, 0, path, sizeof(path));
 		if (mkdir(path, 0600)) {
 			pr_perror("Unable to create %s", path);
 			return -1;
@@ -2940,7 +2940,7 @@ int prepare_mnt_ns(void)
 
 		/* Set its root */
 		path[0] = '/';
-		print_ns_root(nsid, path + 1, sizeof(path) - 1);
+		print_ns_root(nsid, 0, path + 1, sizeof(path) - 1);
 		if (cr_pivot_root(path))
 			goto err;
 
