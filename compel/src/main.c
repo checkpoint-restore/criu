@@ -137,9 +137,6 @@ int main(int argc, char *argv[])
 		{ },
 	};
 
-	if (argc < 3)
-		goto usage;
-
 	while (1) {
 		idx = -1;
 		opt = getopt_long(argc, argv, short_opts, long_opts, &idx);
