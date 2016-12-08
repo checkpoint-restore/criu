@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 		{ "sym-prefix",	required_argument,	0, 'p' },
 		{ "variable",	required_argument,	0, 'v' },
 		{ "pcrelocs",	required_argument,	0, 'r' },
-		{ "help",	required_argument,	0, 'h' },
+		{ "help",	no_argument,		0, 'h' },
 		{ "version",	no_argument,		0, 'V' },
 		{ "log-level",	required_argument,	0, 'l' },
 		{ },
