@@ -26,6 +26,12 @@ lib-y			+= src/lib/infect-util.o
 lib-y			+= src/lib/infect.o
 lib-y			+= src/lib/ptrace.o
 
+# handle_elf() has no support of ELF relocations on ARM (yet?)
+ifneq ($(filter arm aarch64,$(ARCH)),)
+CFLAGS			+= -DNO_RELOCS
+HOSTCFLAGS		+= -DNO_RELOCS
+endif
+
 ifeq ($(ARCH),x86)
 obj-y			+= src/lib/handle-elf-32.o
 endif

@@ -87,8 +87,6 @@ endif
 
 asflags-y		+= -D__ASSEMBLY__
 
-GEN-OFFSETS		:= $(obj)/../../scripts/gen-offsets.sh
-
 BLOBS			+= $(obj)/restorer-blob.h
 
 define gen-pields-blobs-var
@@ -101,7 +99,6 @@ $(eval $(call map,gen-pields-blobs-var,$(parasite_target)))
 # for C files, we need "parasite-native" to be "parasite_native"
 target-name = $(patsubst criu/pie/%_blob.h,%,$(subst -,_,$(1)))
 
-ifeq ($(piegen-y),y)
 ifeq ($(strip $(V)),)
         piegen_stdout := >/dev/null
 endif
@@ -128,40 +125,6 @@ $(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel-host
 		-l 4							\
 		-p $(call target-name,$@)				\
 		-o $@ $(piegen_stdout)
-
-else # !piegen-y
-
-# ld on arm doesn't like -pie and -r options together
-ifeq ($(filter arm aarch64,$(ARCH)),)
-        LD_R := -r
-endif
-
-define gen-rule-built-in.bin.o
-$(obj)/$(1).built-in.o: $(compel_std-$(1))
-$(obj)/parasite-$(1).built-in.bin.o: $(obj)/$(1).built-in.o		\
-				$(compel_pack_lds-$(1)) $(obj)/native.lib.a
-	$$(call msg-gen, $$@)
-	$(Q) $(LD) $(LD_R) -T $(compel_pack_lds-$(1)) -o $$@ $$< $(obj)/native.lib.a
-endef
-
-$(eval $(call map,gen-rule-built-in.bin.o,$(parasite_target)))
-
-$(obj)/restorer.built-in.o: $(compel_std-native)
-$(obj)/restorer.built-in.bin.o: $(obj)/restorer.built-in.o		\
-				$(compel_pack_lds-native) $(obj)/native.lib.a
-	$(call msg-gen, $@)
-	$(Q) $(LD) $(LD_R) -T $(compel_pack_lds-native) -o $@ $< $(obj)/native.lib.a
-
-$(obj)/%.built-in.bin: $(obj)/%.built-in.bin.o
-	$(call msg-gen, $@)
-	$(Q) $(OBJCOPY) -O binary $^ $@
-
-$(obj)/%-blob.h: $(obj)/%.built-in.bin $(GEN-OFFSETS)
-	$(call msg-gen, $@)
-	$(Q) $(SH) $(GEN-OFFSETS) $(@:-blob.h=) $(call target-name,$@) $(CROSS_COMPILE) > $@
-
-
-endif # !piegen-y
 
 all-y += $(BLOBS)
 # blobs and pields are in cleanup, rather than in mrproper because
