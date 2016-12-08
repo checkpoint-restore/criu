@@ -166,27 +166,6 @@ out:
 	return ret;
 }
 
-/* Runtime detection if userfaultfd can be used */
-
-static int check_for_uffd()
-{
-	int uffd;
-
-	uffd = syscall(SYS_userfaultfd, 0);
-	/*
-	 * uffd == -1 is probably enough to not use lazy-restore
-	 * on this system. Additionally checking for ENOSYS
-	 * makes sure it is actually not implemented.
-	 */
-	if ((uffd == -1) && (errno == ENOSYS)) {
-		pr_err("Runtime detection of userfaultfd failed on this system.\n");
-		pr_err("Processes cannot be lazy-restored on this system.\n");
-		return -1;
-	}
-	close(uffd);
-	return 0;
-}
-
 int lazy_pages_setup_zombie(int pid)
 {
 	if (!opts.lazy_pages)
@@ -208,8 +187,6 @@ int setup_uffd(int pid, struct task_restore_args *task_args)
 		return 0;
 	}
 
-	if (check_for_uffd())
-		return -1;
 	/*
 	 * Open userfaulfd FD which is passed to the restorer blob and
 	 * to a second process handling the userfaultfd page faults.
@@ -812,7 +789,7 @@ int cr_lazy_pages(bool daemon)
 	int lazy_sk;
 	int ret;
 
-	if (check_for_uffd())
+	if (kerndat_uffd(true))
 		return -1;
 
 	if (prepare_dummy_pstree())

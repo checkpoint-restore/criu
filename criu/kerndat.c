@@ -30,6 +30,7 @@
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/compel.h>
 #include "netfilter.h"
+#include "linux/userfaultfd.h"
 
 struct kerndat_s kdat = {
 };
@@ -714,6 +715,44 @@ unl:
 	}
 }
 
+int kerndat_uffd(bool need_uffd)
+{
+	struct uffdio_api uffdio_api;
+	int uffd;
+
+	uffd = syscall(SYS_userfaultfd, 0);
+
+	/*
+	 * uffd == -1 is probably enough to not use lazy-restore
+	 * on this system. Additionally checking for ENOSYS
+	 * makes sure it is actually not implemented.
+	 */
+	if (uffd == -1 && errno == ENOSYS) {
+		if (!need_uffd)
+			return 0;
+
+		pr_err("Lazy pages are not available\n");
+		return -1;
+	}
+
+	uffdio_api.api = UFFD_API;
+	uffdio_api.features = 0;
+	if (ioctl(uffd, UFFDIO_API, &uffdio_api)) {
+		pr_perror("Failed to get uffd API");
+		return -1;
+	}
+	if (uffdio_api.api != UFFD_API) {
+		pr_err("Incompatible uffd API: expected %Lu, got %Lu\n",
+		       UFFD_API, uffdio_api.api);
+		return -1;
+	}
+
+	kdat.uffd_features = uffdio_api.features;
+
+	close(uffd);
+	return 0;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -752,6 +791,8 @@ int kerndat_init(void)
 		ret = kerndat_has_memfd_create();
 	if (!ret)
 		ret = kerndat_detect_stack_guard_gap();
+	if (!ret)
+		ret = kerndat_uffd(opts.lazy_pages);
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
