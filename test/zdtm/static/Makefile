@@ -238,6 +238,7 @@ TST_DIR		=				\
 		cgroup04			\
 		cgroup_stray		\
 		unlink_fstat04			\
+		mntns_remap			\
 		mntns_open			\
 		mntns_link_remap		\
 		mntns_ghost			\
