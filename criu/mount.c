@@ -43,6 +43,9 @@
 #define BINFMT_MISC_HOME "/proc/sys/fs/binfmt_misc"
 #define CRTIME_MNT_ID 0
 
+/* A helper mount_info entry for the roots yard */
+static struct mount_info *root_yard_mp = NULL;
+
 int ext_mount_add(char *key, char *val)
 {
 	char *e_str;
@@ -965,7 +968,8 @@ static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 	return 0;
 }
 
-static struct mount_info *mnt_build_tree(struct mount_info *list, struct mount_info *roots_mp)
+static struct mount_info *mnt_build_tree(struct mount_info *list,
+					 struct mount_info *root_mp)
 {
 	struct mount_info *tree;
 
@@ -974,7 +978,7 @@ static struct mount_info *mnt_build_tree(struct mount_info *list, struct mount_i
 	 */
 
 	pr_info("Building mountpoints tree\n");
-	tree = mnt_build_ids_tree(list, roots_mp);
+	tree = mnt_build_ids_tree(list, root_mp);
 	if (!tree)
 		return NULL;
 
@@ -2660,20 +2664,19 @@ static int populate_mnt_ns(void)
 {
 	struct mount_info *pms;
 	struct ns_id *nsid;
-	struct mount_info *roots_mp = NULL;
 	int ret;
 
 	if (mnt_roots) {
 		/* mnt_roots is a tmpfs mount and it's private */
-		roots_mp = mnt_entry_alloc();
-		if (!roots_mp)
+		root_yard_mp = mnt_entry_alloc();
+		if (!root_yard_mp)
 			return -1;
 
-		roots_mp->mountpoint = mnt_roots;
-		roots_mp->mounted = true;
+		root_yard_mp->mountpoint = mnt_roots;
+		root_yard_mp->mounted = true;
 	}
 
-	pms = mnt_build_tree(mntinfo, roots_mp);
+	pms = mnt_build_tree(mntinfo, root_yard_mp);
 	if (!pms)
 		return -1;
 
