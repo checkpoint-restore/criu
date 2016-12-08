@@ -29,6 +29,7 @@
 
 piegen_opt_t opts = {
 	.input_filename		= NULL,
+	.output_filename	= NULL,
 	.uapi_dir		= "piegen/uapi",
 	.stream_name		= "stream",
 	.prefix_name		= "__",
@@ -223,6 +224,9 @@ int main(int argc, char *argv[])
 
 	if (!strcmp(action, "hgen")) {
 		if (!opts.input_filename) {
+			return usage(1);
+		}
+		if (!opts.output_filename) {
 			return usage(1);
 		}
 		compel_log_init(&cli_log, log_level);
