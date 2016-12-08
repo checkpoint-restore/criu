@@ -1683,6 +1683,7 @@ int open_transport_socket(void)
 	transport_name_gen(&saddr, &slen, pid, -1);
 	if (bind(sock, (struct sockaddr *)&saddr, slen) < 0) {
 		pr_perror("Can't bind transport socket %s", saddr.sun_path + 1);
+		close(sock);
 		return -1;
 	}
 
