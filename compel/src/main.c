@@ -201,7 +201,9 @@ int main(int argc, char *argv[])
 			       COMPEL_SO_VERSION_SUBLEVEL);
 			exit(0);
 			break;
-		default:
+		default: // '?'
+			// error message already printed by getopt_long()
+			return usage(1);
 			break;
 		}
 	}
