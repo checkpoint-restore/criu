@@ -121,9 +121,6 @@ static void mntinfo_add_list(struct mount_info *new)
 	}
 }
 
-static struct mount_info *mnt_build_tree(struct mount_info *list, struct mount_info *roots_mp);
-static int validate_mounts(struct mount_info *info, bool for_dump);
-
 static struct mount_info *__lookup_overlayfs(struct mount_info *list, char *rpath,
 						unsigned int st_dev, unsigned int st_ino,
 						unsigned int mnt_id)
