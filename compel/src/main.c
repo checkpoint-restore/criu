@@ -90,6 +90,17 @@ static void cli_log(unsigned int lvl, const char *fmt, va_list parms)
 		vprintf(fmt, parms);
 }
 
+static int usage(int rc) {
+	printf(
+"Usage:\n"
+"  compel --arch=(x86|ia32|aarch64|arm|ppc64) cflags\n"
+"  compel --arch=(x86|ia32|aarch64|arm|ppc64) ldflags\n"
+"  compel -f filename hgen\n"
+);
+
+	return rc;
+}
+
 int main(int argc, char *argv[])
 {
 	const char *current_cflags = NULL;
@@ -150,9 +161,9 @@ int main(int argc, char *argv[])
 					break;
 				}
 			}
-
-			if (!current_cflags)
-				goto usage;
+			if (!current_cflags) {
+				return usage(1);
+			}
 			break;
 		case 'f':
 			opts.input_filename = optarg;
@@ -179,7 +190,7 @@ int main(int argc, char *argv[])
 			log_level = atoi(optarg);
 			break;
 		case 'h':
-			goto usage;
+			return usage(0);
 		case 'V':
 			printf("Version: %d.%d.%d\n",
 			       COMPEL_SO_VERSION_MAJOR,
@@ -192,14 +203,15 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (optind >= argc)
-		goto usage;
-
+	if (optind >= argc) {
+		return usage(1);
+	}
 	action = argv[optind++];
 
 	if (!strcmp(action, "cflags")) {
-		if (!current_cflags)
-			goto usage;
+		if (!current_cflags) {
+			return usage(1);
+		}
 		printf("%s", current_cflags);
 		return 0;
 	}
@@ -210,16 +222,12 @@ int main(int argc, char *argv[])
 	}
 
 	if (!strcmp(action, "hgen")) {
-		if (!opts.input_filename)
-			goto usage;
+		if (!opts.input_filename) {
+			return usage(1);
+		}
 		compel_log_init(&cli_log, log_level);
 		return piegen();
 	}
 
-usage:
-	printf("Usage:\n");
-	printf("  compel --arch=(x86|ia32|aarch64|arm|ppc64) cflags\n");
-	printf("  compel --arch=(x86|ia32|aarch64|arm|ppc64) ldflags\n");
-	printf("  compel -f filename hgen\n");
-	return 1;
+	return usage(1);
 }
