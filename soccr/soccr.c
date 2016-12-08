@@ -400,14 +400,15 @@ static int set_queue_seq(struct libsoccr_sk *sk, int queue, __u32 seq)
 static int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 		struct libsoccr_sk_data *data, unsigned data_size)
 {
-	int mstate = 1 << data->state;
 	struct tcp_repair_opt opts[4];
-	int addr_size;
+	int addr_size, mstate;
 	int onr = 0;
 	__u32 seq;
 
 	if (!data || data_size < SOCR_DATA_MIN_SIZE)
 		return -1;
+
+	mstate = 1 << data->state;
 
 	if (data->state == TCP_LISTEN)
 		return -1;
