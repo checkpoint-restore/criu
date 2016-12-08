@@ -136,9 +136,14 @@ static int usage(int rc) {
 
 	printf(
 " }\n"
-"  compel -f FILE -o FILE [...] hgen\n"
+"  compel -f FILE -o FILE -p NAME [-l N] hgen\n"
 "    -f, --file FILE		input (parasite object) file name\n"
 "    -o, --output FILE		output (header) file name\n"
+"    -p, --prefix NAME		prefix for var names\n"
+"    -l, --log-level NUM	log level (default: %d)\n"
+"  compel -h|--help\n"
+"  compel -V|--version\n"
+, DEFAULT_LOGLEVEL
 );
 
 	return rc;
