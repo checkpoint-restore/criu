@@ -239,6 +239,10 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "Error: option --output required\n");
 			return usage(1);
 		}
+		if (!opts.prefix) {
+			fprintf(stderr, "Error: option --prefix required\n");
+			return usage(1);
+		}
 		compel_log_init(&cli_log, log_level);
 		return piegen();
 	}
