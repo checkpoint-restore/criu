@@ -22,7 +22,7 @@ clean:
 victim: victim.c
 	gcc -o $@ $^
 
-spy: spy.c parasite.h $(COMPEL_LIBRARY)
+spy: spy.c $(COMPEL_LIBRARY) | parasite.h
 	gcc -Werror -I$(COMPEL_IDIR) -I$(COMMON_IDIR) -o $@ $^
 
 parasite.h: parasite.po
