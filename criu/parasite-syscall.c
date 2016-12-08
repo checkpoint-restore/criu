@@ -532,37 +532,11 @@ static int make_sigframe(void *arg, struct rt_sigframe *sf, struct rt_sigframe *
 	return construct_sigframe(sf, rtsf, bs, (CoreEntry *)arg);
 }
 
-/* the parasite prefix is added by gen_offsets.sh */
-#define pblob_offset(ptype, symbol)					\
-	parasite_ ## ptype ## _blob_offset__ ## symbol
-
-#ifdef CONFIG_PIEGEN
-#define init_blob_relocs(bdesc, blob_type)						\
-	do {										\
-		bdesc->hdr.relocs = parasite_##blob_type##_relocs;			\
-		bdesc->hdr.nr_relocs = ARRAY_SIZE(parasite_##blob_type##_relocs);	\
-	} while (0)
-#else
-#define init_blob_relocs(bdesc, blob_type)
-#endif
-
-#define init_blob_desc(bdesc, blob_type) do {						\
-	bdesc->hdr.mem = parasite_##blob_type##_blob;					\
-	bdesc->hdr.bsize = sizeof(parasite_##blob_type##_blob);				\
-	bdesc->hdr.nr_gotpcrel = pie_nr_gotpcrel(parasite_##blob_type);			\
-	/* Setup the rest of a control block */						\
-	bdesc->hdr.parasite_ip_off = pblob_offset(blob_type, __export_parasite_head_start);\
-	bdesc->hdr.addr_cmd_off    = pblob_offset(blob_type, __export_parasite_cmd);	\
-	bdesc->hdr.addr_arg_off    = pblob_offset(blob_type, __export_parasite_args);	\
-	init_blob_relocs(bdesc, blob_type);						\
-	} while (0)
-
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		struct vm_area_list *vma_area_list)
 {
 	struct parasite_ctl *ctl;
 	struct infect_ctx *ictx;
-	struct parasite_blob_desc *pbd;
 	unsigned long p;
 
 	BUG_ON(item->threads[0].real != pid);
@@ -604,14 +578,11 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	ictx->log_fd = log_get_fd();
 
-	pbd = compel_parasite_blob_desc(ctl);
-	pbd->parasite_type = COMPEL_BLOB_CHEADER;
-
 	if (compel_mode_native(ctl))
-		init_blob_desc(pbd, native);
+		parasite_native_setup_c_header(ctl);
 #ifdef CONFIG_COMPAT
 	else
-		init_blob_desc(pbd, compat);
+		parasite_compat_setup_c_header(ctl);
 #endif
 
 	parasite_ensure_args_size(dump_pages_args_size(vma_area_list));

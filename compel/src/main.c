@@ -55,10 +55,6 @@ piegen_opt_t opts = {
 	.input_filename		= NULL,
 	.output_filename	= NULL,
 	.uapi_dir		= "piegen/uapi",
-	.stream_name		= "stream",
-	.prefix_name		= "__",
-	.var_name		= "elf_relocs",
-	.nrgotpcrel_name	= "nr_gotpcrel",
 	.fout			= NULL,
 };
 
@@ -149,16 +145,13 @@ int main(int argc, char *argv[])
 	int opt, idx, i;
 	char *action;
 
-	static const char short_opts[] = "a:f:o:s:p:v:r:u:hVl:";
+	static const char short_opts[] = "a:f:o:u:p:hVl:";
 	static struct option long_opts[] = {
 		{ "arch",	required_argument,	0, 'a' },
 		{ "file",	required_argument,	0, 'f' },
 		{ "output",	required_argument,	0, 'o' },
-		{ "stream",	required_argument,	0, 's' },
 		{ "uapi-dir",	required_argument,	0, 'u' },
-		{ "sym-prefix",	required_argument,	0, 'p' },
-		{ "variable",	required_argument,	0, 'v' },
-		{ "pcrelocs",	required_argument,	0, 'r' },
+		{ "prefix",	required_argument,	0, 'p' },
 		{ "help",	no_argument,		0, 'h' },
 		{ "version",	no_argument,		0, 'V' },
 		{ "log-level",	required_argument,	0, 'l' },
@@ -193,17 +186,8 @@ int main(int argc, char *argv[])
 		case 'u':
 			opts.uapi_dir = optarg;
 			break;
-		case 's':
-			opts.stream_name = optarg;
-			break;
 		case 'p':
-			opts.prefix_name = optarg;
-			break;
-		case 'v':
-			opts.var_name = optarg;
-			break;
-		case 'r':
-			opts.nrgotpcrel_name = optarg;
+			opts.prefix = optarg;
 			break;
 		case 'l':
 			log_level = atoi(optarg);

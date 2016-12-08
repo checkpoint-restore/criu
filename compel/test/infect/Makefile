@@ -27,10 +27,7 @@ spy: spy.c parasite.h $(COMPEL_LIBRARY)
 
 parasite.h: parasite.po
 	$(COMPEL) hgen -f $^ -l 4		\
-                -v parasite_relocs		\
-		-p parasite_sym			\
-		-s parasite_blob		\
-		-r parasite_nr_gotpcrel		\
+		-p parasite			\
 		-u $(COMPEL_IDIR)		\
 		-o $@
 

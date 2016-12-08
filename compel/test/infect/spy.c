@@ -48,21 +48,7 @@ static int do_infection(int pid)
 	ictx = compel_infect_ctx(ctl);
 	ictx->log_fd = STDERR_FILENO;
 
-	/*
-	 * Next the blob descriptor. We've requested for hgen
-	 * in Makefile, so prepare this type of blob with the
-	 * values from parasite.h.
-	 */
-	pbd = compel_parasite_blob_desc(ctl);
-	pbd->parasite_type	= COMPEL_BLOB_CHEADER;
-	pbd->hdr.mem		= parasite_blob;
-	pbd->hdr.bsize		= sizeof(parasite_blob);
-	pbd->hdr.nr_gotpcrel	= parasite_nr_gotpcrel;
-	pbd->hdr.parasite_ip_off	= COMPEL_H_PARASITE_HEAD(parasite_sym);
-	pbd->hdr.addr_cmd_off	= COMPEL_H_PARASITE_CMD(parasite_sym);
-	pbd->hdr.addr_arg_off	= COMPEL_H_PARASITE_ARGS(parasite_sym);
-	pbd->hdr.relocs		= parasite_relocs;
-	pbd->hdr.nr_relocs		= sizeof(parasite_relocs) / sizeof(parasite_relocs[0]);
+	parasite_setup_c_header(ctl);
 
 	printf("Infecting\n");
 	if (compel_infect(ctl, 1, sizeof(int)))

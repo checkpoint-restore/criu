@@ -257,15 +257,15 @@ int __handle_elf(void *mem, size_t size)
 					sh_src = sec_hdrs[sym->st_shndx];
 					ptr_func_exit(sh_src);
 				}
-				pr_out("#define %s%s 0x%lx\n",
-				       opts.prefix_name, name,
+				pr_out("#define %s_sym%s 0x%lx\n",
+				       opts.prefix, name,
 				       (unsigned long)(sym->st_value +
 						       (sh_src ? sh_src->sh_addr : 0)));
 			}
 		}
 	}
 
-	pr_out("static __maybe_unused compel_reloc_t %s[] = {\n", opts.var_name);
+	pr_out("static __maybe_unused compel_reloc_t %s_relocs[] = {\n", opts.prefix);
 
 	pr_debug("Relocations\n");
 	pr_debug("------------\n");
@@ -545,9 +545,9 @@ int __handle_elf(void *mem, size_t size)
 		}
 	}
 	pr_out("};\n");
-	pr_out("static __maybe_unused size_t %s = %zd;\n", opts.nrgotpcrel_name, nr_gotpcrel);
+	pr_out("static __maybe_unused size_t %s_nr_gotpcrel = %zd;\n", opts.prefix, nr_gotpcrel);
 
-	pr_out("static __maybe_unused const char %s[] = {\n\t", opts.stream_name);
+	pr_out("static __maybe_unused const char %s_blob[] = {\n\t", opts.prefix);
 
 	for (i = 0, k = 0; i < hdr->e_shnum; i++) {
 		Elf_Shdr *sh = sec_hdrs[i];
@@ -577,6 +577,31 @@ int __handle_elf(void *mem, size_t size)
 		}
 	}
 	pr_out("};\n");
+	pr_out("\n");
+	pr_out("static void __maybe_unused %s_setup_c_header(struct parasite_ctl *ctl)\n",
+			opts.prefix);
+	pr_out(
+"{\n"
+"	struct parasite_blob_desc *pbd;\n"
+"\n"
+"	pbd = compel_parasite_blob_desc(ctl);\n"
+"	pbd->parasite_type	= COMPEL_BLOB_CHEADER;\n"
+);
+	pr_out("\tpbd->hdr.mem		= %s_blob;\n", opts.prefix);
+	pr_out("\tpbd->hdr.bsize		= sizeof(%s_blob);\n",
+			opts.prefix);
+	pr_out("\tpbd->hdr.nr_gotpcrel	= %s_nr_gotpcrel;\n", opts.prefix);
+	pr_out("\tpbd->hdr.parasite_ip_off	= "
+			"COMPEL_H_PARASITE_HEAD(%s_sym);\n", opts.prefix);
+	pr_out("\tpbd->hdr.addr_cmd_off	= "
+			"COMPEL_H_PARASITE_CMD(%s_sym);\n", opts.prefix);
+	pr_out("\tpbd->hdr.addr_arg_off	= "
+			"COMPEL_H_PARASITE_ARGS(%s_sym);\n", opts.prefix);
+	pr_out("\tpbd->hdr.relocs		= %s_relocs;\n", opts.prefix);
+	pr_out("\tpbd->hdr.nr_relocs	= "
+			"sizeof(%s_relocs) / sizeof(%s_relocs[0]);\n",
+			opts.prefix, opts.prefix);
+	pr_out("}\n");
 	ret = 0;
 err:
 	free(sec_hdrs);
