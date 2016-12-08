@@ -126,10 +126,7 @@ $(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel-host
 	$(call msg-gen, $@)
 	$(Q) $(SRC_DIR)/compel/compel-host hgen -f $<			\
 		-l 4							\
-		-v $(call target-name,$@)_relocs			\
-		-p $(call target-name,$@)_blob_offset__			\
-		-s $(call target-name,$@)_blob				\
-		-r $(call target-name,$@)_nr_gotpcrel			\
+		-p $(call target-name,$@)				\
 		-u $(SRC_DIR)/compel/include/uapi			\
 		-o $@ $(piegen_stdout)
 

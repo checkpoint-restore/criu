@@ -229,8 +229,7 @@ enum {
 	})
 
 
-/* the restorer_blob_offset__ prefix is added by gen_offsets.sh */
-#define __blob_offset(name)	restorer_blob_offset__ ## name
-#define restorer_sym(rblob, name)	(void*)(rblob + __blob_offset(name))
+#define __r_sym(name)			restorer_sym ## name
+#define restorer_sym(rblob, name)	(void*)(rblob + __r_sym(name))
 
 #endif /* __CR_RESTORER_H__ */
