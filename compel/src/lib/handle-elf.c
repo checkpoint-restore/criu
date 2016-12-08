@@ -110,7 +110,7 @@ static const char *get_strings_section(Elf_Ehdr *hdr, uintptr_t mem, size_t size
 	 */
 	addr = sec_table + ((size_t) hdr->e_shentsize) * hdr->e_shstrndx;
 	if (__ptr_struct_oob(addr, sizeof(Elf_Shdr),
-			sec_table, sec_table + sec_table_size)) {
+			sec_table, sec_table_size)) {
 		pr_err("String section header @%#zx is out of [%#zx, %#zx)\n",
 			addr, sec_table, sec_table + sec_table_size);
 		return NULL;
