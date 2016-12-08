@@ -177,16 +177,6 @@ include/common/asm: include/common/arch/$(ARCH)/asm
 $(VERSION_HEADER): include/common/asm
 
 #
-# piegen tool might be disabled by hands. Don't use it until
-# you know what you're doing.
-ifneq ($(filter ia32 x86 ppc64,$(ARCH)),)
-        ifneq ($(PIEGEN),no)
-                piegen-y := y
-                export piegen-y
-        endif
-endif
-
-#
 # Configure variables.
 export CONFIG_HEADER := criu/include/config.h
 ifeq ($(filter clean mrproper,$(MAKECMDGOALS)),)

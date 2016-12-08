@@ -267,7 +267,7 @@ int __handle_elf(void *mem, size_t size)
 	}
 
 	pr_out("static __maybe_unused compel_reloc_t %s_relocs[] = {\n", opts.prefix);
-
+#ifndef NO_RELOCS
 	pr_debug("Relocations\n");
 	pr_debug("------------\n");
 	for (i = 0; i < hdr->e_shnum; i++) {
@@ -545,6 +545,7 @@ int __handle_elf(void *mem, size_t size)
 			}
 		}
 	}
+#endif /* !NO_RELOCS */
 	pr_out("};\n");
 	pr_out("static __maybe_unused size_t %s_nr_gotpcrel = %zd;\n", opts.prefix, nr_gotpcrel);
 
