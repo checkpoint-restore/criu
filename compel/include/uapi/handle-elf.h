@@ -12,12 +12,4 @@ typedef struct {
 	long		value;
 } compel_reloc_t;
 
-/*
- * Helpers for compel hgen command results. The pref should match
- * the -p|--sym-prefix argument value.
- */
-#define COMPEL_H_PARASITE_HEAD(pref)	pref##__export_parasite_head_start
-#define COMPEL_H_PARASITE_CMD(pref)	pref##__export_parasite_cmd
-#define COMPEL_H_PARASITE_ARGS(pref)	pref##__export_parasite_args
-
 #endif

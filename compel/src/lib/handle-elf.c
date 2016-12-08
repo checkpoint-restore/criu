@@ -592,11 +592,11 @@ int __handle_elf(void *mem, size_t size)
 			opts.prefix);
 	pr_out("\tpbd->hdr.nr_gotpcrel	= %s_nr_gotpcrel;\n", opts.prefix);
 	pr_out("\tpbd->hdr.parasite_ip_off	= "
-			"COMPEL_H_PARASITE_HEAD(%s_sym);\n", opts.prefix);
+			"%s_sym__export_parasite_head_start;\n", opts.prefix);
 	pr_out("\tpbd->hdr.addr_cmd_off	= "
-			"COMPEL_H_PARASITE_CMD(%s_sym);\n", opts.prefix);
+			"%s_sym__export_parasite_cmd;\n", opts.prefix);
 	pr_out("\tpbd->hdr.addr_arg_off	= "
-			"COMPEL_H_PARASITE_ARGS(%s_sym);\n", opts.prefix);
+			"%s_sym__export_parasite_args;\n", opts.prefix);
 	pr_out("\tpbd->hdr.relocs		= %s_relocs;\n", opts.prefix);
 	pr_out("\tpbd->hdr.nr_relocs	= "
 			"sizeof(%s_relocs) / sizeof(%s_relocs[0]);\n",

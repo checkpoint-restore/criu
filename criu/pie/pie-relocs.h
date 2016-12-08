@@ -10,7 +10,6 @@
 
 #define pie_size(__pie_name)	(round_up(sizeof(__pie_name##_blob) + \
 			__pie_name ## _nr_gotpcrel * sizeof(long), page_size()))
-#define pie_nr_gotpcrel(__pie_name)	(__pie_name ## _nr_gotpcrel)
 #define ELF_RELOCS_APPLY(__pie_name, __mem, __vbase)			\
 	compel_relocs_apply(__mem, __vbase, sizeof(__pie_name##_blob),	\
 			 __pie_name##_relocs, ARRAY_SIZE(__pie_name##_relocs))
@@ -18,7 +17,6 @@
 #else
 
 #define pie_size(__pie_name)	(round_up(sizeof(__pie_name##_blob), page_size()))
-#define pie_nr_gotpcrel(__pie_name)	(0)
 #define ELF_RELOCS_APPLY(__pie_name, __mem, __vbase)
 
 #endif
