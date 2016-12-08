@@ -134,7 +134,9 @@ static int usage(int rc) {
 
 	printf(
 " }\n"
-"  compel -f filename hgen\n"
+"  compel -f FILE -o FILE [...] hgen\n"
+"    -f, --file FILE		input (parasite object) file name\n"
+"    -o, --output FILE		output (header) file name\n"
 );
 
 	return rc;
