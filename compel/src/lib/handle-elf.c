@@ -233,35 +233,36 @@ int __handle_elf(void *mem, size_t size)
 		name = &symstrings[sym->st_name];
 		ptr_func_exit(name);
 
-		if (*name) {
-			pr_debug("\ttype 0x%-2x bind 0x%-2x shndx 0x%-4x value 0x%-2lx name %s\n",
-				 (unsigned)ELF_ST_TYPE(sym->st_info), (unsigned)ELF_ST_BIND(sym->st_info),
-				 (unsigned)sym->st_shndx, (unsigned long)sym->st_value, name);
+		if (!*name)
+			continue;
+
+		pr_debug("\ttype 0x%-2x bind 0x%-2x shndx 0x%-4x value 0x%-2lx name %s\n",
+				(unsigned)ELF_ST_TYPE(sym->st_info), (unsigned)ELF_ST_BIND(sym->st_info),
+				(unsigned)sym->st_shndx, (unsigned long)sym->st_value, name);
 #ifdef ELF_PPC64
-			if (!sym->st_value && !strncmp(name, ".TOC.", 6)) {
-				if (!toc_offset) {
-					pr_err("No TOC pointer\n");
-					goto err;
-				}
-				sym->st_value = toc_offset;
-				continue;
+		if (!sym->st_value && !strncmp(name, ".TOC.", 6)) {
+			if (!toc_offset) {
+				pr_err("No TOC pointer\n");
+				goto err;
 			}
+			sym->st_value = toc_offset;
+			continue;
+		}
 #endif
-			if (strncmp(name, "__export", 8))
-				continue;
-			if ((sym->st_shndx && sym->st_shndx < hdr->e_shnum) ||
-			    sym->st_shndx == SHN_ABS) {
-				if (sym->st_shndx == SHN_ABS) {
-					sh_src = NULL;
-				} else {
-					sh_src = sec_hdrs[sym->st_shndx];
-					ptr_func_exit(sh_src);
-				}
-				pr_out("#define %s_sym%s 0x%lx\n",
-				       opts.prefix, name,
-				       (unsigned long)(sym->st_value +
-						       (sh_src ? sh_src->sh_addr : 0)));
+		if (strncmp(name, "__export", 8))
+			continue;
+		if ((sym->st_shndx && sym->st_shndx < hdr->e_shnum) ||
+				sym->st_shndx == SHN_ABS) {
+			if (sym->st_shndx == SHN_ABS) {
+				sh_src = NULL;
+			} else {
+				sh_src = sec_hdrs[sym->st_shndx];
+				ptr_func_exit(sh_src);
 			}
+			pr_out("#define %s_sym%s 0x%lx\n",
+					opts.prefix, name,
+					(unsigned long)(sym->st_value +
+						(sh_src ? sh_src->sh_addr : 0)));
 		}
 	}
 
