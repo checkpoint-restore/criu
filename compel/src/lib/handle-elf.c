@@ -577,8 +577,7 @@ int __handle_elf(void *mem, size_t size)
 		}
 	}
 	pr_out("};\n");
-	free(sec_hdrs);
-	return 0;
+	ret = 0;
 err:
 	free(sec_hdrs);
 	return ret;
