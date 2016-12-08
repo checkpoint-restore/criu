@@ -27,6 +27,30 @@
 
 #define COMPEL_LDFLAGS_DEFAULT "-r -z noexecstack"
 
+typedef struct {
+	const char	*arch;
+	const char	*cflags;
+} compel_cflags_t;
+
+static const compel_cflags_t compel_cflags[] = {
+	{
+		.arch	= "x86",
+		.cflags	= COMPEL_CFLAGS_PIE,
+	}, {
+		.arch	= "ia32",
+		.cflags	= COMPEL_CFLAGS_NOPIC,
+	}, {
+		.arch	= "aarch64",
+		.cflags	= COMPEL_CFLAGS_PIE,
+	}, {
+		.arch	= "arm",
+		.cflags	= COMPEL_CFLAGS_PIE,
+	}, {
+		.arch	= "ppc64",
+		.cflags	= COMPEL_CFLAGS_PIE,
+	},
+};
+
 piegen_opt_t opts = {
 	.input_filename		= NULL,
 	.output_filename	= NULL,
@@ -92,10 +116,24 @@ static void cli_log(unsigned int lvl, const char *fmt, va_list parms)
 }
 
 static int usage(int rc) {
+	int i = 0;
 	printf(
 "Usage:\n"
-"  compel --arch=(x86|ia32|aarch64|arm|ppc64) cflags\n"
-"  compel --arch=(x86|ia32|aarch64|arm|ppc64) ldflags\n"
+"  compel --arch=ARCH cflags\n"
+"  compel --arch=ARCH ldflags\n"
+"    ARCH := { "
+);
+
+	/* Print list of known arches */
+	while (1) {
+		printf("%s", compel_cflags[i++].arch);
+		if (i == ARRAY_SIZE(compel_cflags))
+			break;
+		printf(" | ");
+	}
+
+	printf(
+" }\n"
 "  compel -f filename hgen\n"
 );
 
@@ -108,30 +146,6 @@ int main(int argc, char *argv[])
 	int log_level = DEFAULT_LOGLEVEL;
 	int opt, idx, i;
 	char *action;
-
-	typedef struct {
-		const char	*arch;
-		const char	*cflags;
-	} compel_cflags_t;
-
-	static const compel_cflags_t compel_cflags[] = {
-		{
-			.arch	= "x86",
-			.cflags	= COMPEL_CFLAGS_PIE,
-		}, {
-			.arch	= "ia32",
-			.cflags	= COMPEL_CFLAGS_NOPIC,
-		}, {
-			.arch	= "aarch64",
-			.cflags	= COMPEL_CFLAGS_PIE,
-		}, {
-			.arch	= "arm",
-			.cflags	= COMPEL_CFLAGS_PIE,
-		}, {
-			.arch	= "ppc64",
-			.cflags	= COMPEL_CFLAGS_PIE,
-		},
-	};
 
 	static const char short_opts[] = "a:f:o:s:p:v:r:u:hVl:";
 	static struct option long_opts[] = {
