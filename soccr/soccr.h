@@ -91,6 +91,9 @@ struct libsoccr_sk_data {
 	__u32	rcv_wnd;
 	__u32	rcv_wup;
 
+	char *inq_data;
+	char *outq_data;
+
 	union libsoccr_addr src_addr;
 	union libsoccr_addr dst_addr;
 };
@@ -183,9 +186,6 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, int steal);
  * 	h = libsoccr_pause(sk)
  * 	bind(sk, &name, ...)
  *
- * 	libsoccr_set_sk_data_noq(h, &data, sizeof(data))
- * 	libsoccr_set_queue_bytes(h, &data, sizeof(data), TCP_RECV_QUEUE, inq)
- * 	libsoccr_set_queue_bytes(h, &data, sizeof(data), TCP_SEND_QUEUE, outq)
  * 	libsoccr_set_sk_data(h, &data, sizeof(data))
  *
  * 	libsoccr_resume(h)
@@ -195,22 +195,8 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, int steal);
  */
 
 /*
- * Performs additional restore actions on bind()-ed and connect()-ed
- * socket, but without queues restored.
- */
-int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size);
-
-/*
- * Performs final restore action after queues restoration.
+ * Performs restore actions on bind()-ed socket
  */
 int libsoccr_set_sk_data(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size);
 
-/*
- * Restores the data in queues. The amount of data in *buf should
- * match the _len-s from data as in the _get_queue_bytes case.
- *
- * Called after the _set_sk_data().
- */
-int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size,
-		int queue, char *buf);
 #endif

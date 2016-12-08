@@ -397,7 +397,7 @@ static int set_queue_seq(struct libsoccr_sk *sk, int queue, __u32 seq)
 #define TCPOPT_SACK_PERM TCPOPT_SACK_PERMITTED
 #endif
 
-int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
+static int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 		struct libsoccr_sk_data *data, unsigned data_size)
 {
 	int mstate = 1 << data->state;
@@ -618,10 +618,22 @@ static int restore_fin_in_snd_queue(int sk, int acked)
 	return ret;
 }
 
+static int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size,
+		int queue, char *buf);
+
 int libsoccr_set_sk_data(struct libsoccr_sk *sk,
 		struct libsoccr_sk_data *data, unsigned data_size)
 {
 	int mstate = 1 << data->state;
+
+	if (libsoccr_set_sk_data_noq(sk, data, data_size))
+		return -1;
+
+	if (libsoccr_set_queue_bytes(sk, data, sizeof(*data), TCP_RECV_QUEUE, data->inq_data))
+		return -1;
+
+	if (libsoccr_set_queue_bytes(sk, data, sizeof(*data), TCP_SEND_QUEUE, data->outq_data))
+		return -1;
 
 	if (data->flags & SOCCR_FLAGS_WINDOW) {
 		struct tcp_repair_window wopt = {
@@ -732,14 +744,17 @@ static int send_queue(struct libsoccr_sk *sk, int queue, char *buf, __u32 len)
 	return __send_queue(sk, queue, buf, len);
 }
 
-int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size,
+static int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size,
 		int queue, char *buf)
 {
 	if (!data || data_size < SOCR_DATA_MIN_SIZE)
 		return -1;
 
-	if (queue == TCP_RECV_QUEUE)
+	if (queue == TCP_RECV_QUEUE) {
+		if (!data->inq_len)
+			return 0;
 		return send_queue(sk, TCP_RECV_QUEUE, buf, data->inq_len);
+	}
 
 	if (queue == TCP_SEND_QUEUE) {
 		__u32 len, ulen;

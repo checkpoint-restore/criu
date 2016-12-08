@@ -245,7 +245,7 @@ int dump_one_tcp(int fd, struct inet_sk_desc *sk)
 	return 0;
 }
 
-static int send_tcp_queue(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
+static int read_tcp_queue(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
 		int queue, u32 len, struct cr_img *img)
 {
 	char *buf;
@@ -257,10 +257,11 @@ static int send_tcp_queue(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
 	if (read_img_buf(img, buf, len) < 0)
 		goto err;
 
-	if (libsoccr_set_queue_bytes(sk, data, sizeof(*data), queue, buf))
-		goto err;
+	if (queue == TCP_SEND_QUEUE)
+		data->outq_data = buf;
+	else
+		data->inq_data = buf;
 
-	xfree(buf);
 	return 0;
 
 err:
@@ -268,16 +269,16 @@ err:
 	return -1;
 }
 
-static int restore_tcp_queues(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, struct cr_img *img)
+static int read_tcp_queues(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, struct cr_img *img)
 {
 	u32 len;
 
 	len = data->inq_len;
-	if (len && send_tcp_queue(sk, data, TCP_RECV_QUEUE, len, img))
+	if (len && read_tcp_queue(sk, data, TCP_RECV_QUEUE, len, img))
 		return -1;
 
 	len = data->outq_len;
-	if (len && send_tcp_queue(sk, data, TCP_SEND_QUEUE, len, img))
+	if (len && read_tcp_queue(sk, data, TCP_SEND_QUEUE, len, img))
 		return -1;
 
 	return 0;
@@ -348,8 +349,6 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 				ii->ie->dst_addr, 0) < 0)
 		goto err_c;
 
-	(void)data;
-
 	/*
 	 * O_NONBLOCK has to be set before libsoccr_set_sk_data_noq(),
 	 * it is required to restore syn-sent sockets.
@@ -357,10 +356,7 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 	if (restore_prepare_socket(sk))
 		goto err_c;
 
-	if (libsoccr_set_sk_data_noq(socr, &data, sizeof(data)))
-		goto err_c;
-
-	if (restore_tcp_queues(socr, &data, img))
+	if (read_tcp_queues(socr, &data, img))
 		goto err_c;
 
 	if (libsoccr_set_sk_data(socr, &data, sizeof(data)))
@@ -383,6 +379,8 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 	return 0;
 
 err_c:
+	xfree(data.inq_data);
+	xfree(data.outq_data);
 	tcp_stream_entry__free_unpacked(tse, NULL);
 	close_image(img);
 err:
