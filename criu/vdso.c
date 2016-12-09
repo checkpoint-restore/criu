@@ -275,15 +275,8 @@ err:
 	return exit_code;
 }
 
-static int vdso_fill_self_symtable(struct vdso_symtable *s)
+static int validate_vdso_addr(struct vdso_symtable *s)
 {
-
-	if (vdso_parse_maps(PROC_SELF, s))
-		return -1;
-
-	if (vdso_fill_symtable(s->vma_start, s->vma_end - s->vma_start, s))
-		return -1;
-
 	/*
 	 * Validate its structure -- for new vDSO format the
 	 * structure must be like
@@ -309,6 +302,21 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 		pr_err("Can't find rt vDSO\n");
 		return -1;
 	}
+
+	return 0;
+}
+
+static int vdso_fill_self_symtable(struct vdso_symtable *s)
+{
+
+	if (vdso_parse_maps(PROC_SELF, s))
+		return -1;
+
+	if (vdso_fill_symtable(s->vma_start, s->vma_end - s->vma_start, s))
+		return -1;
+
+	if (validate_vdso_addr(s))
+		return -1;
 
 	pr_debug("rt [vdso] %lx-%lx [vvar] %lx-%lx\n",
 		 s->vma_start, s->vma_end,
