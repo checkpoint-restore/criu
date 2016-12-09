@@ -22,7 +22,6 @@ static int do_infection(int pid)
 	int state;
 	struct parasite_ctl *ctl;
 	struct infect_ctx *ictx;
-	struct parasite_blob_desc *pbd;
 	int *arg;
 
 	compel_log_init(print_vmsg, LOG_DEBUG);

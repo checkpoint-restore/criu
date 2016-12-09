@@ -593,8 +593,14 @@ int __handle_elf(void *mem, size_t size)
 	pr_out("\tpbd->hdr.bsize		= sizeof(%s_blob);\n",
 			opts.prefix);
 	pr_out("\tpbd->hdr.nr_gotpcrel	= %s_nr_gotpcrel;\n", opts.prefix);
-	pr_out("\tpbd->hdr.parasite_ip_off	= "
-			"%s_sym__export_parasite_head_start;\n", opts.prefix);
+	pr_out("\tif (compel_mode_native(ctl))\n");
+	pr_out("\t\tpbd->hdr.parasite_ip_off	= "
+		"%s_sym__export_parasite_head_start;\n", opts.prefix);
+	pr_out("#ifdef CONFIG_COMPAT\n");
+	pr_out("\telse\n");
+	pr_out("\t\tpbd->hdr.parasite_ip_off	= "
+		"%s_sym__export_parasite_head_start_compat;\n", opts.prefix);
+	pr_out("#endif /* CONFIG_COMPAT */\n");
 	pr_out("\tpbd->hdr.addr_cmd_off	= "
 			"%s_sym__export_parasite_cmd;\n", opts.prefix);
 	pr_out("\tpbd->hdr.addr_arg_off	= "
