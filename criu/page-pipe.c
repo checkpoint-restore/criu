@@ -81,15 +81,10 @@ static int ppb_resize_pipe(struct page_pipe_buf *ppb, unsigned long new_size)
 	return 0;
 }
 
-static inline void iov_init_compat(struct iovec_compat *iov, unsigned long addr)
-{
-	iov->iov_base = (u32)addr;
-	iov->iov_len = PAGE_SIZE;
-}
-
 static int page_pipe_grow(struct page_pipe *pp)
 {
 	struct page_pipe_buf *ppb;
+	struct iovec *free_iov;
 
 	pr_debug("Will grow page pipe (iov off is %u)\n", pp->free_iov);
 
@@ -107,7 +102,8 @@ static int page_pipe_grow(struct page_pipe *pp)
 		return -1;
 
 out:
-	ppb_init(ppb, 0, 0, &pp->iovs[pp->free_iov]);
+	free_iov = &pp->iovs[pp->free_iov];
+	ppb_init(ppb, 0, 0, free_iov);
 
 	return 0;
 }
@@ -214,13 +210,7 @@ static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *pp
 
 	pr_debug("Add iov to page pipe (%u iovs, %u/%u total)\n",
 			ppb->nr_segs, pp->free_iov, pp->nr_iovs);
-	if (pp->flags & PP_COMPAT) {
-		struct iovec_compat *iovs = (void *)ppb->iov;
-
-		iov_init_compat(&iovs[ppb->nr_segs++], addr);
-	} else {
-		iov_init(&ppb->iov[ppb->nr_segs++], addr);
-	}
+	iov_init(&ppb->iov[ppb->nr_segs++], addr);
 	pp->free_iov++;
 	BUG_ON(pp->free_iov > pp->nr_iovs);
 out:
@@ -268,13 +258,8 @@ int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr)
 			iov_grow_page(&pp->holes[pp->free_hole - 1], addr))
 		goto out;
 
-	if (pp->flags & PP_COMPAT) {
-		struct iovec_compat *iovs = (void *)pp->holes;
+	iov_init(&pp->holes[pp->free_hole++], addr);
 
-		iov_init_compat(&iovs[pp->free_hole++], addr);
-	} else {
-		iov_init(&pp->holes[pp->free_hole++], addr);
-	}
 out:
 	return 0;
 }
@@ -284,7 +269,6 @@ void debug_show_page_pipe(struct page_pipe *pp)
 	struct page_pipe_buf *ppb;
 	int i;
 	struct iovec *iov;
-	struct iovec_compat *iov_c;
 
 	if (pr_quelled(LOG_DEBUG))
 		return;
@@ -296,28 +280,15 @@ void debug_show_page_pipe(struct page_pipe *pp)
 		pr_debug("\tbuf %u pages, %u iovs:\n",
 				ppb->pages_in, ppb->nr_segs);
 		for (i = 0; i < ppb->nr_segs; i++) {
-			if (pp->flags & PP_COMPAT) {
-				iov_c = (void *)ppb->iov;
-				pr_debug("\t\t%x %lu\n", iov_c[i].iov_base,
-						(unsigned long) iov_c[i].iov_len / PAGE_SIZE);
-			} else {
-				iov = &ppb->iov[i];
-				pr_debug("\t\t%p %lu\n", iov->iov_base,
-						(unsigned long) iov->iov_len / PAGE_SIZE);
-			}
+			iov = &ppb->iov[i];
+			pr_debug("\t\t%p %lu\n", iov->iov_base,
+					iov->iov_len / PAGE_SIZE);
 		}
 	}
 
 	pr_debug("* %u holes:\n", pp->free_hole);
 	for (i = 0; i < pp->free_hole; i++) {
-		if (pp->flags & PP_COMPAT) {
-			iov_c = (void *)pp->holes;
-			pr_debug("\t%x %lu\n", iov_c[i].iov_base,
-					(unsigned long) iov_c[i].iov_len / PAGE_SIZE);
-		} else {
-			iov = &pp->holes[i];
-			pr_debug("\t%p %lu\n", iov->iov_base,
-					(unsigned long) iov->iov_len / PAGE_SIZE);
-		}
+		iov = &pp->holes[i];
+		pr_debug("\t%p %lu\n", iov->iov_base, iov->iov_len / PAGE_SIZE);
 	}
 }
