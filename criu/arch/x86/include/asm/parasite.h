@@ -3,12 +3,13 @@
 
 #include "asm-generic/string.h"
 #include <compel/plugins/std/syscall-codes.h>
+#include "asm/compat.h"
 
 #ifdef CONFIG_X86_32
 # define __parasite_entry __attribute__((regparm(3)))
 #endif
 
-static void arch_get_user_desc(user_desc_t *desc)
+static int arch_get_user_desc(user_desc_t *desc)
 {
 	int ret = __NR32_get_thread_area;
 	/*
@@ -46,21 +47,39 @@ static void arch_get_user_desc(user_desc_t *desc)
 	if (ret)
 		pr_err("Failed to dump TLS descriptor #%d: %d\n",
 				desc->entry_number, ret);
+	return ret;
 }
 
 static void arch_get_tls(tls_t *ptls)
 {
+	void *syscall_mem;
 	int i;
+
+	syscall_mem = alloc_compat_syscall_stack();
+	if (!syscall_mem) {
+		pr_err("Failed to allocate memory <4Gb for compat syscall\n");
+
+		for (i = 0; i < GDT_ENTRY_TLS_NUM; i++) {
+			user_desc_t *d = &ptls->desc[i];
+
+			d->seg_not_present = 1;
+			d->entry_number = GDT_ENTRY_TLS_MIN + i;
+		}
+		return;
+	}
 
 	for (i = 0; i < GDT_ENTRY_TLS_NUM; i++)
 	{
-		user_desc_t *d = &ptls->desc[i];
+		user_desc_t *d = syscall_mem;
 
 		builtin_memset(d, 0, sizeof(user_desc_t));
 		d->seg_not_present = 1;
 		d->entry_number = GDT_ENTRY_TLS_MIN + i;
 		arch_get_user_desc(d);
+		builtin_memcpy(&ptls->desc[i], d, sizeof(user_desc_t));
 	}
+
+	free_compat_syscall_stack(syscall_mem);
 }
 
 #endif

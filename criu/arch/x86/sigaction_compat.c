@@ -1,35 +1,17 @@
 #include "asm/restorer.h"
 #include <compel/asm/fpu.h>
 #include "asm/string.h"
-
-#include <sys/mman.h>
+#include "asm/compat.h"
 
 #ifdef CR_NOGLIBC
 # include <compel/plugins/std/syscall.h>
 #else
-# define sys_mmap mmap
-# define sys_munmap munmap
 # ifndef  __NR32_rt_sigaction
 #  define  __NR32_rt_sigaction 174
 # endif
 #endif
 #include "log.h"
 #include "cpu.h"
-
-void *alloc_compat_syscall_stack(void)
-{
-	void *mem = (void*)sys_mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
-			MAP_32BIT | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-
-	if (mem == MAP_FAILED)
-		return 0;
-	return mem;
-}
-
-void free_compat_syscall_stack(void *mem)
-{
-	sys_munmap(mem, PAGE_SIZE);
-}
 
 asm (	"	.pushsection .text				\n"
 	"	.global restore_rt_sigaction			\n"
