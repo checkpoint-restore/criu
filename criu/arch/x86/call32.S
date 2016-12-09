@@ -18,9 +18,6 @@
 
 #include "common/asm/linkage.h"
 
-#define __USER32_CS	0x23
-#define __USER_CS	0x33
-
 	.text
 
 /*
