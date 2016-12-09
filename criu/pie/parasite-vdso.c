@@ -69,10 +69,8 @@ int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned l
 }
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_COMPAT)
-int vdso_map_compat(unsigned long map_at, unsigned long *park_size,
-		struct vdso_symtable *sym_rt)
+int vdso_map_compat(unsigned long map_at)
 {
-	unsigned long search_vdso;
 	int ret;
 
 	pr_debug("Mapping compatible vDSO at %lx\n", map_at);
@@ -80,25 +78,7 @@ int vdso_map_compat(unsigned long map_at, unsigned long *park_size,
 	ret = sys_arch_prctl(ARCH_MAP_VDSO_32, map_at);
 	if (ret < 0)
 		return ret;
-	*park_size = (unsigned long)ret;
-
-	/*
-	 * We could map VVAR firstly, or VDSO.
-	 * Try to find VDSO pages in this couple of parking pages.
-	 * XXX: Please, FIXME - compat vdso/vvar sizes should be counted
-	 * at CRIU start time by parsing /proc/<...>/maps then by searching
-	 * ELF magic.
-	 */
-	for (search_vdso = map_at; search_vdso < map_at + *park_size;
-			search_vdso += PAGE_SIZE)
-	{
-		ret = vdso_fill_symtable_compat(search_vdso,
-			map_at + *park_size - search_vdso, sym_rt);
-		if (!ret)
-			return 0;
-	}
-	pr_err("Failed to parse a arch_prctl-mapped vDSO %d\n", ret);
-	return ret;
+	return 0;
 }
 
 int __vdso_fill_symtable(uintptr_t mem, size_t size,
@@ -110,9 +90,7 @@ int __vdso_fill_symtable(uintptr_t mem, size_t size,
 		return vdso_fill_symtable(mem, size, t);
 }
 #else
-int vdso_map_compat(unsigned long __always_unused map_at,
-		unsigned long __always_unused *park_size,
-		struct vdso_symtable __always_unused *sym_rt)
+int vdso_map_compat(unsigned long __always_unused map_at)
 {
 	/* shouldn't be called on !CONFIG_COMPAT */
 	BUG();

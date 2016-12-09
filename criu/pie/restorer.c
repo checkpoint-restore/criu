@@ -1182,12 +1182,9 @@ long __export_restore_task(struct task_restore_args *args)
 				bootstrap_start, bootstrap_len, args->task_size))
 		goto core_restore_end;
 
-	if (args->compatible_mode) {
-		/* Map compatible vdso */
-		if (vdso_map_compat(args->vdso_rt_parked_at,
-				&vdso_rt_size, &args->vdso_sym_rt))
-			goto core_restore_end;
-	}
+	/* Map compatible vdso */
+	if (args->compatible_mode && vdso_map_compat(args->vdso_rt_parked_at))
+		goto core_restore_end;
 
 	/* Shift private vma-s to the left */
 	for (i = 0; i < args->vmas_n; i++) {
