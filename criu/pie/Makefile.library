@@ -13,7 +13,7 @@ ifeq ($(ARCH),x86)
         endif
         CFLAGS_native	+= -DCONFIG_X86_64
         CFLAGS_compat	+= -fno-pic -m32 -DCONFIG_X86_32
-        CFLAGS_util-vdso-elf32.o	+= -DCONFIG_X86_32
+        CFLAGS_util-vdso-elf32.o	+= -DCONFIG_VDSO_32
         OBJS		+= ./$(ARCH_DIR)/memcpy.o
 endif
 

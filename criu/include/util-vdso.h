@@ -49,7 +49,7 @@ struct vdso_symtable {
 			},						\
 	}
 
-#ifdef CONFIG_X86_32
+#if defined(CONFIG_X86_32) || defined(CONFIG_VDSO_32)
 
 #define Ehdr_t		Elf32_Ehdr
 #define Sym_t		Elf32_Sym
@@ -88,7 +88,7 @@ static inline unsigned long vvar_vma_size(struct vdso_symtable *t)
 	return t->vvar_end - t->vvar_start;
 }
 
-#if defined(CONFIG_X86_32)
+#if defined(CONFIG_VDSO_32)
 # define vdso_fill_symtable vdso_fill_symtable_compat
 #endif
 
