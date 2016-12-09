@@ -667,7 +667,8 @@ static int dump_task_ids(struct pstree_item *item, const struct cr_imgset *cr_im
 	return pb_write_one(img_from_set(cr_imgset, CR_FD_IDS), item->ids, PB_IDS);
 }
 
-int dump_thread_core(int pid, CoreEntry *core, bool native, const void *dump_thread)
+int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread *ti)
+
 {
 	int ret;
 	ThreadCoreEntry *tc = core->thread_core;
@@ -678,30 +679,14 @@ int dump_thread_core(int pid, CoreEntry *core, bool native, const void *dump_thr
 	if (!ret)
 		ret = dump_sched_info(pid, tc);
 	if (!ret) {
-		if (native) {
-			const struct parasite_dump_thread *ti = dump_thread;
-
-			core_put_tls(core, ti->tls);
-			CORE_THREAD_ARCH_INFO(core)->clear_tid_addr =
-				encode_pointer(ti->tid_addr);
-			BUG_ON(!tc->sas);
-			copy_sas(tc->sas, &ti->sas);
-			if (ti->pdeath_sig) {
-				tc->has_pdeath_sig = true;
-				tc->pdeath_sig = ti->pdeath_sig;
-			}
-		} else {
-			const struct parasite_dump_thread_compat *ti = dump_thread;
-
-			core_put_tls(core, (tls_t)ti->tls);
-			CORE_THREAD_ARCH_INFO(core)->clear_tid_addr =
-				encode_pointer((void*)(uintptr_t)ti->tid_addr);
-			BUG_ON(!tc->sas);
-			copy_sas_compat(tc->sas, &ti->sas);
-			if (ti->pdeath_sig) {
-				tc->has_pdeath_sig = true;
-				tc->pdeath_sig = ti->pdeath_sig;
-			}
+		core_put_tls(core, ti->tls);
+		CORE_THREAD_ARCH_INFO(core)->clear_tid_addr =
+			encode_pointer(ti->tid_addr);
+		BUG_ON(!tc->sas);
+		copy_sas(tc->sas, &ti->sas);
+		if (ti->pdeath_sig) {
+			tc->has_pdeath_sig = true;
+			tc->pdeath_sig = ti->pdeath_sig;
 		}
 	}
 
