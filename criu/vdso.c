@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 
 #include "types.h"
 #include "parasite-syscall.h"
@@ -20,6 +21,7 @@
 #include "mem.h"
 #include "vma.h"
 #include <compel/compel.h>
+#include <compel/plugins/std/syscall.h>
 
 #ifdef LOG_PREFIX
 # undef LOG_PREFIX
@@ -28,6 +30,7 @@
 
 struct vdso_symtable vdso_sym_rt = VDSO_SYMTABLE_INIT;
 u64 vdso_pfn = VDSO_BAD_PFN;
+struct vdso_symtable vdso_compat_rt = VDSO_SYMTABLE_INIT;
 /*
  * The VMAs list might have proxy vdso/vvar areas left
  * from previous dump/restore cycle so we need to detect
@@ -325,9 +328,72 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 	return 0;
 }
 
+static int vdso_fill_compat_symtable(struct vdso_symtable *native,
+		struct vdso_symtable *compat)
+{
+#ifdef CONFIG_COMPAT
+	pid_t pid;
+	int status, ret = -1;
+
+	pid = fork();
+	if (pid == 0) {
+		size_t vma_size = native->vma_end - native->vma_start;
+
+		if (syscall(__NR_munmap, native->vma_start, vma_size))
+			syscall(__NR_exit, 1);
+		vma_size = native->vvar_end - native->vvar_start;
+		if (syscall(__NR_munmap, native->vvar_start, vma_size))
+			syscall(__NR_exit, 2);
+
+		if (syscall(__NR_arch_prctl, ARCH_MAP_VDSO_32, native->vma_start) < 0)
+			syscall(__NR_exit, 3);
+
+		syscall(__NR_kill, syscall(__NR_getpid), SIGSTOP);
+		/* this helper should be killed at this point */
+		BUG();
+	}
+
+	waitpid(pid, &status, WUNTRACED);
+
+	if (WIFEXITED(status)) {
+		pr_err("Compat vdso helper exited with %d\n",
+				WEXITSTATUS(status));
+		goto out_kill;
+	}
+
+	if (!WIFSTOPPED(status)) {
+		pr_err("Compat vdso helper isn't stopped\n");
+		goto out_kill;
+	}
+
+	if (vdso_parse_maps(pid, compat))
+		goto out_kill;
+
+	if (vdso_fill_symtable_compat(compat->vma_start,
+				compat->vma_end - compat->vma_start, compat))
+		goto out_kill;
+
+	if (validate_vdso_addr(compat))
+		goto out_kill;
+
+	pr_debug("compat [vdso] %lx-%lx [vvar] %lx-%lx\n",
+		 compat->vma_start, compat->vma_end,
+		 compat->vvar_start, compat->vvar_end);
+	ret = 0;
+
+out_kill:
+	kill(pid, SIGKILL);
+	return ret;
+#else
+	return 0;
+#endif
+}
+
 int vdso_init(void)
 {
 	if (vdso_fill_self_symtable(&vdso_sym_rt))
+		return -1;
+	if (vdso_fill_compat_symtable(&vdso_sym_rt, &vdso_compat_rt))
 		return -1;
 
 	if (kdat.pmap != PM_FULL)
