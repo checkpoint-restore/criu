@@ -768,7 +768,7 @@ int vaddr_to_pfn(unsigned long vaddr, u64 *pfn)
 	int fd, ret = -1;
 	off_t off;
 
-	fd = open_proc(getpid(), "pagemap");
+	fd = open_proc(PROC_SELF, "pagemap");
 	if (fd < 0)
 		return -1;
 
