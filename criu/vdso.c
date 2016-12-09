@@ -222,15 +222,15 @@ err:
 	return exit_code;
 }
 
-static int vdso_fill_self_symtable(struct vdso_symtable *s)
+static int vdso_parse_maps(pid_t pid, struct vdso_symtable *s)
 {
+	int exit_code = -1;
 	char buf[512];
-	int ret, exit_code = -1;
 	FILE *maps;
 
 	*s = (struct vdso_symtable)VDSO_SYMTABLE_INIT;
 
-	maps = fopen_proc(PROC_SELF, "maps");
+	maps = fopen_proc(pid, "maps");
 	if (!maps)
 		return -1;
 
@@ -247,8 +247,7 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 		if (!has_vdso && !has_vvar)
 			continue;
 
-		ret = sscanf(buf, "%lx-%lx", &start, &end);
-		if (ret != 2) {
+		if (sscanf(buf, "%lx-%lx", &start, &end) != 2) {
 			pr_err("Can't find vDSO/VVAR bounds\n");
 			goto err;
 		}
@@ -260,10 +259,6 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 			}
 			s->vma_start = start;
 			s->vma_end = end;
-
-			ret = vdso_fill_symtable(start, end - start, s);
-			if (ret)
-				goto err;
 		} else {
 			if (s->vvar_start != VVAR_BAD_ADDR) {
 				pr_err("Got second VVAR entry\n");
@@ -273,6 +268,21 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 			s->vvar_end = end;
 		}
 	}
+
+	exit_code = 0;
+err:
+	fclose(maps);
+	return exit_code;
+}
+
+static int vdso_fill_self_symtable(struct vdso_symtable *s)
+{
+
+	if (vdso_parse_maps(PROC_SELF, s))
+		return -1;
+
+	if (vdso_fill_symtable(s->vma_start, s->vma_end - s->vma_start, s))
+		return -1;
 
 	/*
 	 * Validate its structure -- for new vDSO format the
@@ -292,22 +302,19 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 			if (s->vma_end != s->vvar_start &&
 			    s->vvar_end != s->vma_start) {
 				pr_err("Unexpected rt vDSO area bounds\n");
-				goto err;
+				return -1;
 			}
 		}
 	} else {
 		pr_err("Can't find rt vDSO\n");
-		goto err;
+		return -1;
 	}
 
 	pr_debug("rt [vdso] %lx-%lx [vvar] %lx-%lx\n",
 		 s->vma_start, s->vma_end,
 		 s->vvar_start, s->vvar_end);
 
-	exit_code = 0;
-err:
-	fclose(maps);
-	return exit_code;
+	return 0;
 }
 
 int vdso_init(void)
