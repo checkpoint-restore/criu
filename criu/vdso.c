@@ -104,12 +104,8 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		 */
 		args->start = vma->e->start;
 		args->len = vma_area_len(vma);
-		/*
-		 * XXX: For compatible tasks, vDSO pfn is different from
-		 * our native vdso_pfn. Check vma explicitly.
-		 */
 		if (!compel_mode_native(ctl))
-			args->try_fill_symtable = true;
+			args->try_fill_symtable = false;
 		else
 			args->try_fill_symtable = (fd < 0) ? true : false;
 		args->is_vdso = false;
@@ -172,7 +168,12 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 				vma->e->status |= VMA_AREA_VDSO;
 			}
 		} else {
-			if (unlikely(vma_area_is(vma, VMA_AREA_VDSO))) {
+			/*
+			 * Compat vDSO mremap support is only after v4.8,
+			 * [vdso] vma name always stays after mremap.
+			 */
+			if (unlikely(vma_area_is(vma, VMA_AREA_VDSO)) &&
+					compel_mode_native(ctl)) {
 				pr_debug("Drop mishinted vDSO status at %lx\n",
 					 (long)vma->e->start);
 				vma->e->status &= ~VMA_AREA_VDSO;
