@@ -709,12 +709,12 @@ static int dump_one_shmem(struct shmem_info *si)
 
 		pgaddr = (unsigned long)addr + pfn * PAGE_SIZE;
 again:
-		if (xfer.parent && page_in_parent(pgstate == PST_DIRTY))
-			ret = page_pipe_add_hole(pp, pgaddr);
-		else if (pgstate != PST_ZERO)
-			ret = page_pipe_add_page(pp, pgaddr);
-		else
+		if (pgstate == PST_ZERO)
 			ret = 0;
+		else if (xfer.parent && page_in_parent(pgstate == PST_DIRTY))
+			ret = page_pipe_add_hole(pp, pgaddr);
+		else
+			ret = page_pipe_add_page(pp, pgaddr);
 
 		if (ret == -EAGAIN) {
 			ret = dump_pages(pp, &xfer, addr);
