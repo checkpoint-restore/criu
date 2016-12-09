@@ -28,7 +28,6 @@
 #include "images/creds.pb-c.h"
 
 #ifdef CONFIG_X86_64
-/* Remaps 64-bit vDSO on the same addr, where it already is */
 int kdat_compat_sigreturn_test(void)
 {
 	unsigned long auxval;
@@ -41,14 +40,13 @@ int kdat_compat_sigreturn_test(void)
 		return 0;
 	}
 	/*
-	 * Mapping vDSO on very low unaligned address (1).
-	 * We will get ENOMEM or EPERM if ARCH_MAP_VDSO_* exist,
-	 * and ENOSYS if patches aren't in kernel.
+	 * Mapping vDSO while have not unmap it yet:
+	 * this is restricted by API if ARCH_MAP_VDSO_* is supported.
 	 */
 	ret = syscall(SYS_arch_prctl, ARCH_MAP_VDSO_32, 1);
-	if (ret == -1 && errno == ENOSYS)
-		return 0;
-	return 1;
+	if (ret == -1 && errno == EEXIST)
+		return 1;
+	return 0;
 }
 #endif /* CONFIG_X86_64 */
 
