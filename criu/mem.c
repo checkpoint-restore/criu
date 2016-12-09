@@ -326,8 +326,6 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 		 * use, i.e. on non-lazy non-predump.
 		 */
 		cpp_flags |= PP_CHUNK_MODE;
-	if (!compel_mode_native(ctl))
-		cpp_flags |= PP_COMPAT;
 	pp = create_page_pipe(vma_area_list->priv_size,
 					    mdc->lazy ? NULL : pargs_iovs(args),
 					    cpp_flags);
