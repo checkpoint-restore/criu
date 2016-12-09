@@ -80,15 +80,14 @@ static inline bool is_vdso_mark(void *addr)
 }
 
 extern int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned long park_size);
-extern int vdso_map_compat(unsigned long map_at, unsigned long *park_size,
-		struct vdso_symtable *sym_rt);
+extern int vdso_map_compat(unsigned long map_at);
 extern int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 			unsigned long vdso_rt_parked_at, size_t index,
 			VmaEntry *vmas, size_t nr_vmas, bool compat_vdso);
 
 #else /* CONFIG_VDSO */
 #define vdso_do_park(sym_rt, park_at, park_size)		(0)
-#define vdso_map_compat(map_at, park_size, sym_rt)		(0)
+#define vdso_map_compat(map_at)					(0)
 
 #endif /* CONFIG_VDSO */
 
