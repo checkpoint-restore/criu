@@ -42,12 +42,12 @@ $(ARCH-LIB):
 
 #
 # PIE library code.
-criu/pie/native.lib.a: $(ARCH-LIB)
+criu/pie/pie.lib.a: $(ARCH-LIB)
 	$(Q) $(MAKE) $(call build-as,Makefile.library,criu/pie) all
 
 #
 # PIE code blobs themseves.
-pie: criu/pie/native.lib.a compel/plugins/std.built-in.o
+pie: criu/pie/pie.lib.a compel/plugins/std.built-in.o
 	$(Q) $(MAKE) $(build)=criu/pie all
 .PHONY: pie
 
@@ -56,7 +56,7 @@ criu/pie/%: pie
 
 #
 # CRIU executable
-PROGRAM-BUILTINS	+= criu/pie/native.lib.a
+PROGRAM-BUILTINS	+= criu/pie/pie.lib.a
 PROGRAM-BUILTINS	+= images/built-in.o
 PROGRAM-BUILTINS	+= $(obj)/built-in.o
 PROGRAM-BUILTINS	+= $(ARCH-LIB)
