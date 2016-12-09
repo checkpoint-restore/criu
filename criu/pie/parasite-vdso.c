@@ -69,12 +69,6 @@ int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned l
 }
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_COMPAT)
-#ifndef ARCH_MAP_VDSO_32
-# define ARCH_MAP_VDSO_32	0x2002
-#endif
-extern int vdso_fill_symtable_compat(uintptr_t mem, size_t size,
-		struct vdso_symtable *t);
-
 int vdso_map_compat(unsigned long map_at, unsigned long *park_size,
 		struct vdso_symtable *sym_rt)
 {
