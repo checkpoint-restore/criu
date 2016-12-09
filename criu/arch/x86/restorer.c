@@ -33,22 +33,18 @@ int restore_nonsigframe_gpregs(UserX86RegsEntry *r)
 }
 
 #ifdef CONFIG_COMPAT
-asm (	"	.pushsection .text				\n"
-	"	.global restore_set_thread_area			\n"
-	"	.code32						\n"
-	"restore_set_thread_area:				\n"
-	"	movl $"__stringify(__NR32_set_thread_area)",%eax\n"
-	"	int $0x80					\n"
-	"	ret						\n"
-	"	.popsection					\n"
-	"	.code64");
-extern char restore_set_thread_area;
-
+/*
+ * We need here compatible stack, because 32-bit syscalls get
+ * 4-byte pointer and _usally_ restorer is also under 4Gb, but
+ * it can be upper and then pointers are messed up.
+ * (we lose high 4 bytes and... BUNG!)
+ * Nothing serious, but syscall will return -EFAULT - or if we're
+ * lucky and lower 4 bytes points on some writeable VMA - corruption).
+ */
 static void *stack32;
 
 static int prepare_stack32(void)
 {
-
 	if (stack32)
 		return 0;
 
@@ -63,7 +59,7 @@ static int prepare_stack32(void)
 
 void restore_tls(tls_t *ptls)
 {
-	int i;
+	unsigned i;
 
 	for (i = 0; i < GDT_ENTRY_TLS_NUM; i++) {
 		user_desc_t *desc = &ptls->desc[i];
@@ -76,13 +72,17 @@ void restore_tls(tls_t *ptls)
 			return;
 
 		builtin_memcpy(stack32, desc, sizeof(user_desc_t));
+		asm volatile (
+		"       mov %1,%%eax                    \n"
+		"       mov %2,%%ebx                    \n"
+		"	int $0x80			\n"
+		"	mov %%eax,%0			\n"
+		: "=g"(ret)
+		: "r"(__NR32_set_thread_area), "r"((uint32_t)(uintptr_t)stack32)
+		: "eax", "ebx", "memory");
 
-		/* user_desc parameter for set_thread_area syscall */
-		asm volatile ("\t movl %%ebx,%%ebx\n" : :"b"(stack32));
-		call32_from_64(stack32 + PAGE_SIZE, &restore_set_thread_area);
-		asm volatile ("\t movl %%eax,%0\n" : "=r"(ret));
 		if (ret)
-			pr_err("Failed to restore TLS descriptor %d in GDT ret %d\n",
+			pr_err("Failed to restore TLS descriptor %u in GDT: %d\n",
 					desc->entry_number, ret);
 	}
 
