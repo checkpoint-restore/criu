@@ -1,54 +1,35 @@
-target			:= pie
+lib-name		:= pie.lib.a
 
-CFLAGS			:= $(filter-out -DCONFIG_X86_64,$(CFLAGS))
-CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC
+CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC -fpie
 LDFLAGS			+= -z noexecstack
 
-CFLAGS_pie		+= -fpie
-
-ifeq ($(ARCH),x86)
-        ifeq ($(CONFIG_COMPAT),y)
-                target	+= compat
-                pie-lib-y	+= util-vdso-elf32.o
-        endif
-        CFLAGS_pie	+= -DCONFIG_X86_64
-        CFLAGS_compat	+= -fno-pic -m32 -DCONFIG_X86_32
-        CFLAGS_util-vdso-elf32.o	+= -DCONFIG_VDSO_32
-        OBJS		+= ./$(ARCH_DIR)/memcpy.o
-endif
-
-OBJS			+= util-fd.o util.o string.o
+lib-y			+= util-fd.o util.o string.o
 
 ifeq ($(VDSO),y)
-        OBJS		+= util-vdso.o parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o
+        lib-y		+= util-vdso.o parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o
 
         ifeq ($(SRCARCH),aarch64)
-                OBJS	+= ./$(ARCH_DIR)/intraprocedure.o
+                lib-y	+= ./$(ARCH_DIR)/intraprocedure.o
         endif
 
         ifeq ($(SRCARCH),ppc64)
-                OBJS	+= ./$(ARCH_DIR)/vdso-trampoline.o
+                lib-y	+= ./$(ARCH_DIR)/vdso-trampoline.o
         endif
 endif
 
 ifeq ($(SRCARCH),ppc64)
-        OBJS		+= ./$(ARCH_DIR)/memcpy_power7.o		\
+        lib-y		+= ./$(ARCH_DIR)/memcpy_power7.o		\
 			   ./$(ARCH_DIR)/memcmp_64.o ./$(ARCH_DIR)/misc.o
 endif
 
-define gen-pie-objs
-pie-lib-y		+= $(1)
-CFLAGS_$(1)		:= $(CFLAGS_pie)
-endef
+ifeq ($(SRCARCH),x86)
+        ifeq ($(CONFIG_COMPAT),y)
+                lib-y	+= util-vdso-elf32.o
+        endif
+        CFLAGS_util-vdso-elf32.o	+= -DCONFIG_VDSO_32
 
-compat-obj		= $(basename $(notdir $(1)))-compat.o
-define gen-compat-objs
-compat-lib-y		+= $(dir ./$(call objectify,$(1)))compat/$(compat-obj)
-CFLAGS_$(compat-obj)	:= $(CFLAGS_compat)
-endef
-
-$(eval $(call map,gen-pie-objs,$(OBJS)))
-$(eval $(call map,gen-compat-objs,$(OBJS)))
+        lib-y		+= ./$(ARCH_DIR)/memcpy.o
+endif
 
 #
 # We can't provide proper mount implementation
