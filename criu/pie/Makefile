@@ -105,17 +105,17 @@ endif
 
 $(obj)/restorer.built-in.o: $(compel_std-native)
 $(obj)/restorer.built-in.bin.o: $(obj)/restorer.built-in.o		\
-				$(obj)/native.lib.a $(compel_pack_lds-native)
+				$(obj)/pie.lib.a $(compel_pack_lds-native)
 	$(call msg-gen, $@)
-	$(Q) $(LD) -r -T $(compel_pack_lds-native) -o $@ $< $(obj)/native.lib.a
+	$(Q) $(LD) -r -T $(compel_pack_lds-native) -o $@ $< $(obj)/pie.lib.a
 
 # $1 - binary mode: native/compat
 define gen-rule-built-in.bin.o
 $(obj)/$(1).built-in.o: $(compel_std-$(1))
 $(obj)/parasite-$(1).built-in.bin.o: $(obj)/$(1).built-in.o		\
-				$(obj)/$(1).lib.a $(compel_pack_lds-$(1))
+				$(obj)/pie.lib.a $(compel_pack_lds-$(1))
 	$$(call msg-gen, $$@)
-	$(Q) $(LD) -r -T $(compel_pack_lds-$(1)) -o $$@ $$< $(obj)/$(1).lib.a
+	$(Q) $(LD) -r -T $(compel_pack_lds-$(1)) -o $$@ $$< $(obj)/pie.lib.a
 endef
 $(eval $(call map,gen-rule-built-in.bin.o,$(parasite_target)))
 

@@ -1,17 +1,17 @@
-target			:= native
+target			:= pie
 
 CFLAGS			:= $(filter-out -DCONFIG_X86_64,$(CFLAGS))
 CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC
 LDFLAGS			+= -z noexecstack
 
-CFLAGS_native		+= -fpie
+CFLAGS_pie		+= -fpie
 
 ifeq ($(ARCH),x86)
         ifeq ($(CONFIG_COMPAT),y)
                 target	+= compat
-                native-lib-y	+= util-vdso-elf32.o
+                pie-lib-y	+= util-vdso-elf32.o
         endif
-        CFLAGS_native	+= -DCONFIG_X86_64
+        CFLAGS_pie	+= -DCONFIG_X86_64
         CFLAGS_compat	+= -fno-pic -m32 -DCONFIG_X86_32
         CFLAGS_util-vdso-elf32.o	+= -DCONFIG_VDSO_32
         OBJS		+= ./$(ARCH_DIR)/memcpy.o
@@ -36,9 +36,9 @@ ifeq ($(SRCARCH),ppc64)
 			   ./$(ARCH_DIR)/memcmp_64.o ./$(ARCH_DIR)/misc.o
 endif
 
-define gen-native-objs
-native-lib-y		+= $(1)
-CFLAGS_$(1)		:= $(CFLAGS_native)
+define gen-pie-objs
+pie-lib-y		+= $(1)
+CFLAGS_$(1)		:= $(CFLAGS_pie)
 endef
 
 compat-obj		= $(basename $(notdir $(1)))-compat.o
@@ -47,7 +47,7 @@ compat-lib-y		+= $(dir ./$(call objectify,$(1)))compat/$(compat-obj)
 CFLAGS_$(compat-obj)	:= $(CFLAGS_compat)
 endef
 
-$(eval $(call map,gen-native-objs,$(OBJS)))
+$(eval $(call map,gen-pie-objs,$(OBJS)))
 $(eval $(call map,gen-compat-objs,$(OBJS)))
 
 #
