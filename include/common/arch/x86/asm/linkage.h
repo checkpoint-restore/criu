@@ -21,4 +21,7 @@
 
 #endif  /* __ASSEMBLY__ */
 
+#define __USER32_CS	0x23
+#define __USER_CS	0x33
+
 #endif /* __CR_LINKAGE_H__ */
