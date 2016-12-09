@@ -578,12 +578,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	ictx->log_fd = log_get_fd();
 
-	if (compel_mode_native(ctl))
-		parasite_native_setup_c_header(ctl);
-#ifdef CONFIG_COMPAT
-	else
-		parasite_compat_setup_c_header(ctl);
-#endif
+	parasite_setup_c_header(ctl);
 
 	parasite_ensure_args_size(dump_pages_args_size(vma_area_list));
 	parasite_ensure_args_size(aio_rings_args_size(vma_area_list));
