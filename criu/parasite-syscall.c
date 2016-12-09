@@ -141,19 +141,13 @@ static int alloc_groups_copy_creds(CredsEntry *ce, struct parasite_dump_creds *c
 int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEntry *core)
 {
 	ThreadCoreEntry *tc = core->thread_core;
-	struct parasite_dump_thread *args = NULL;
-	struct parasite_dump_thread_compat *args_c = NULL;
+	struct parasite_dump_thread *args;
 	struct parasite_dump_creds *pc;
 	int ret;
 
-	if (compel_mode_native(ctl)) {
-		args = compel_parasite_args(ctl, struct parasite_dump_thread);
-		pc = args->creds;
-	} else {
-		args_c = compel_parasite_args(ctl, struct parasite_dump_thread_compat);
-		pc = args_c->creds;
-	}
+	args = compel_parasite_args(ctl, struct parasite_dump_thread);
 
+	pc = args->creds;
 	pc->cap_last_cap = kdat.last_cap;
 
 	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_THREAD, ctl);
@@ -166,17 +160,13 @@ int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEn
 		return -1;
 	}
 
-	if (compel_mode_native(ctl))
-		return dump_thread_core(pid, core, true, args);
-	else
-		return dump_thread_core(pid, core, false, args_c);
+	return dump_thread_core(pid, core, args);
 }
 
 int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 				struct pid *tid, CoreEntry *core)
 {
-	struct parasite_dump_thread *args = NULL;
-	struct parasite_dump_thread_compat *args_c = NULL;
+	struct parasite_dump_thread *args;
 	pid_t pid = tid->real;
 	ThreadCoreEntry *tc = core->thread_core;
 	CredsEntry *creds = tc->creds;
@@ -186,14 +176,9 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 	BUG_ON(id == 0); /* Leader is dumped in dump_task_core_all */
 
-	if (compel_mode_native(ctl)) {
-		args = compel_parasite_args(ctl, struct parasite_dump_thread);
-		pc = args->creds;
-	} else {
-		args_c = compel_parasite_args(ctl, struct parasite_dump_thread_compat);
-		pc = args_c->creds;
-	}
+	args = compel_parasite_args(ctl, struct parasite_dump_thread);
 
+	pc = args->creds;
 	pc->cap_last_cap = kdat.last_cap;
 
 	tctl = compel_prepare_thread(ctl, pid);
@@ -223,42 +208,22 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 	compel_release_thread(tctl);
 
-	if (compel_mode_native(ctl)) {
-		tid->ns[0].virt = args->tid;
-		return dump_thread_core(pid, core, true, args);
-	} else {
-		tid->ns[0].virt = args_c->tid;
-		return dump_thread_core(pid, core, false, args_c);
-	}
+	tid->ns[0].virt = args->tid;
+	return dump_thread_core(pid, core, args);
 
 err_rth:
 	compel_release_thread(tctl);
 	return -1;
 }
 
-#define ASSIGN_SAS(se, args)							\
-do {										\
-	ASSIGN_TYPED(se.sigaction, encode_pointer(				\
-				(void*)(uintptr_t)args->sas[i].rt_sa_handler));	\
-	ASSIGN_TYPED(se.flags, args->sas[i].rt_sa_flags);			\
-	ASSIGN_TYPED(se.restorer, encode_pointer(				\
-				(void*)(uintptr_t)args->sas[i].rt_sa_restorer));\
-	BUILD_BUG_ON(sizeof(se.mask) != sizeof(args->sas[0].rt_sa_mask.sig));	\
-	memcpy(&se.mask, args->sas[i].rt_sa_mask.sig, sizeof(se.mask));		\
-} while(0)
 int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_imgset)
 {
-	struct parasite_dump_sa_args *args = NULL;
-	struct parasite_dump_sa_args_compat *args_c = NULL;
+	struct parasite_dump_sa_args *args;
 	int ret, sig;
 	struct cr_img *img;
 	SaEntry se = SA_ENTRY__INIT;
-	bool native_task = compel_mode_native(ctl);
 
-	if (native_task)
-		args = compel_parasite_args(ctl, struct parasite_dump_sa_args);
-	else
-		args_c = compel_parasite_args(ctl, struct parasite_dump_sa_args_compat);
+	args = compel_parasite_args(ctl, struct parasite_dump_sa_args);
 
 	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_SIGACTS, ctl);
 	if (ret < 0)
@@ -272,12 +237,13 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 		if (sig == SIGSTOP || sig == SIGKILL)
 			continue;
 
-		if (native_task)
-			ASSIGN_SAS(se, args);
-		else
-			ASSIGN_SAS(se, args_c);
+		ASSIGN_TYPED(se.sigaction, encode_pointer(args->sas[i].rt_sa_handler));
+		ASSIGN_TYPED(se.flags, args->sas[i].rt_sa_flags);
+		ASSIGN_TYPED(se.restorer, encode_pointer(args->sas[i].rt_sa_restorer));
+		BUILD_BUG_ON(sizeof(se.mask) != sizeof(args->sas[0].rt_sa_mask.sig));
+		memcpy(&se.mask, args->sas[i].rt_sa_mask.sig, sizeof(se.mask));
 		se.has_compat_sigaction = true;
-		se.compat_sigaction = !native_task;
+		se.compat_sigaction = !compel_mode_native(ctl);
 
 		if (pb_write_one(img, &se, PB_SIGACT) < 0)
 			return -1;
@@ -286,40 +252,29 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 	return 0;
 }
 
-#define encode_itimer(v, ie)							\
-do {										\
-	ie->isec = v->it_interval.tv_sec;					\
-	ie->iusec = v->it_interval.tv_usec;					\
-	ie->vsec = v->it_value.tv_sec;						\
-	ie->vusec = v->it_value.tv_usec;					\
-} while(0)									\
+static void encode_itimer(struct itimerval *v, ItimerEntry *ie)
+{
+	ie->isec = v->it_interval.tv_sec;
+	ie->iusec = v->it_interval.tv_usec;
+	ie->vsec = v->it_value.tv_sec;
+	ie->vusec = v->it_value.tv_usec;
+}
 
-#define ASSIGN_ITIMER(args)							\
-do {										\
-	encode_itimer((&args->real), (core->tc->timers->real));			\
-	encode_itimer((&args->virt), (core->tc->timers->virt));			\
-	encode_itimer((&args->prof), (core->tc->timers->prof));			\
-} while(0)
 int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_item *item)
 {
 	CoreEntry *core = item->core[0];
-	struct parasite_dump_itimers_args *args = NULL;
-	struct parasite_dump_itimers_args_compat *args_c = NULL;
+	struct parasite_dump_itimers_args *args;
 	int ret;
 
-	if (compel_mode_native(ctl))
-		args = compel_parasite_args(ctl, struct parasite_dump_itimers_args);
-	else
-		args_c = compel_parasite_args(ctl, struct parasite_dump_itimers_args_compat);
+	args = compel_parasite_args(ctl, struct parasite_dump_itimers_args);
 
 	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_ITIMERS, ctl);
 	if (ret < 0)
 		return ret;
 
-	if (compel_mode_native(ctl))
-		ASSIGN_ITIMER(args);
-	else
-		ASSIGN_ITIMER(args_c);
+	encode_itimer((&args->real), (core->tc->timers->real));			\
+	encode_itimer((&args->virt), (core->tc->timers->virt));			\
+	encode_itimer((&args->prof), (core->tc->timers->prof));			\
 
 	return 0;
 }
@@ -343,28 +298,8 @@ static int core_alloc_posix_timers(TaskTimersEntry *tte, int n,
 	return 0;
 }
 
-#define set_posix_timer_arg(args, ctl, m, val)					\
-do {										\
-	if (compel_mode_native(ctl))						\
-		ASSIGN_TYPED(							\
-		((struct parasite_dump_posix_timers_args*)args)->m, val);	\
-	else									\
-		ASSIGN_TYPED(							\
-		((struct parasite_dump_posix_timers_args_compat*)args)->m, val);\
-} while (0)
-
-#define get_posix_timer_arg(out, m)						\
-do {										\
-	if (compel_mode_native(ctl))						\
-		ASSIGN_TYPED(							\
-		out, ((struct parasite_dump_posix_timers_args*)args)->m);	\
-	else									\
-		ASSIGN_TYPED(							\
-		out, ((struct parasite_dump_posix_timers_args_compat*)args)->m);\
-} while (0)
-
-static void encode_posix_timer(void *args, struct parasite_ctl *ctl,
-		struct proc_posix_timer *vp, PosixTimerEntry *pte, int i)
+static void encode_posix_timer(struct posix_timer *v,
+		struct proc_posix_timer *vp, PosixTimerEntry *pte)
 {
 	pte->it_id = vp->spt.it_id;
 	pte->clock_id = vp->spt.clock_id;
@@ -372,12 +307,12 @@ static void encode_posix_timer(void *args, struct parasite_ctl *ctl,
 	pte->it_sigev_notify = vp->spt.it_sigev_notify;
 	pte->sival_ptr = encode_pointer(vp->spt.sival_ptr);
 
-	get_posix_timer_arg(pte->overrun, timer[i].overrun);
+	pte->overrun = v->overrun;
 
-	get_posix_timer_arg(pte->isec, timer[i].val.it_interval.tv_sec);
-	get_posix_timer_arg(pte->insec, timer[i].val.it_interval.tv_nsec);
-	get_posix_timer_arg(pte->vsec, timer[i].val.it_value.tv_sec);
-	get_posix_timer_arg(pte->vnsec, timer[i].val.it_value.tv_nsec);
+	pte->isec = v->val.it_interval.tv_sec;
+	pte->insec = v->val.it_interval.tv_nsec;
+	pte->vsec = v->val.it_value.tv_sec;
+	pte->vnsec = v->val.it_value.tv_nsec;
 }
 
 int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
@@ -387,7 +322,7 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 	TaskTimersEntry *tte = core->tc->timers;
 	PosixTimerEntry *pte;
 	struct proc_posix_timer *temp;
-	void *args = NULL;
+	struct parasite_dump_posix_timers_args *args;
 	int args_size;
 	int ret = 0;
 	int i;
@@ -395,17 +330,13 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 	if (core_alloc_posix_timers(tte, proc_args->timer_n, &pte))
 		return -1;
 
-	if (compel_mode_native(ctl))
-		args_size = posix_timers_dump_size(proc_args->timer_n);
-	else
-		args_size = posix_timers_compat_dump_size(proc_args->timer_n);
+	args_size = posix_timers_dump_size(proc_args->timer_n);
 	args = compel_parasite_args_s(ctl, args_size);
-
-	set_posix_timer_arg(args, ctl, timer_n, proc_args->timer_n);
+	args->timer_n = proc_args->timer_n;
 
 	i = 0;
 	list_for_each_entry(temp, &proc_args->timers, list) {
-		set_posix_timer_arg(args, ctl, timer[i].it_id, temp->spt.it_id);
+		args->timer[i].it_id = temp->spt.it_id;
 		i++;
 	}
 
@@ -416,7 +347,7 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 	i = 0;
 	list_for_each_entry(temp, &proc_args->timers, list) {
 		posix_timer_entry__init(&pte[i]);
-		encode_posix_timer(args, ctl, temp, &pte[i], i);
+		encode_posix_timer(&args->timer[i], temp, &pte[i]);
 		tte->posix[i] = &pte[i];
 		i++;
 	}
