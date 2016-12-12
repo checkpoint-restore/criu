@@ -277,6 +277,6 @@ class criu:
 		resp = self._send_req_and_recv_resp(req)
 
 		if not resp.success:
-			raise CRIUExceptionExternal(req.type, resp.type, resp.errno)
+			raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno)
 
 		return resp.restore
