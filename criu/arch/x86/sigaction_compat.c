@@ -1,3 +1,4 @@
+#include "log.h"
 #include "asm/restorer.h"
 #include <compel/asm/fpu.h>
 #include "asm/string.h"
@@ -10,7 +11,6 @@
 #  define  __NR32_rt_sigaction 174
 # endif
 #endif
-#include "log.h"
 #include "cpu.h"
 
 asm (	"	.pushsection .text				\n"

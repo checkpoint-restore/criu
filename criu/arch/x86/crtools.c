@@ -6,6 +6,7 @@
 #include <sys/auxv.h>
 
 #include "types.h"
+#include "log.h"
 #include "asm/parasite-syscall.h"
 #include "asm/restorer.h"
 #include <compel/asm/fpu.h>
@@ -16,7 +17,6 @@
 #include "restorer.h"
 #include <compel/ptrace.h>
 #include "parasite-syscall.h"
-#include "log.h"
 #include "util.h"
 #include "cpu.h"
 #include <compel/plugins/std/syscall-codes.h>
