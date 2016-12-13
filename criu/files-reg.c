@@ -10,6 +10,7 @@
 #include <sys/prctl.h>
 #include <ctype.h>
 #include <sched.h>
+#include <sys/capability.h>
 
 /* Stolen from kernel/fs/nfs/unlink.c */
 #define SILLYNAME_PREF ".nfs"
@@ -38,6 +39,7 @@
 #include "plugin.h"
 
 int setfsuid(uid_t fsuid);
+int setfsgid(gid_t fsuid);
 
 /*
  * Ghost files are those not visible from the FS. Dumping them is
@@ -293,7 +295,8 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	gf->id = rfe->remap_id;
 	gf->remap.users = 0;
 	gf->remap.is_dir = S_ISDIR(gfe->mode);
-	gf->remap.owner = gfe->uid;
+	gf->remap.uid = gfe->uid;
+	gf->remap.gid = gfe->gid;
 	list_add_tail(&gf->list, &ghost_files);
 gf_found:
 	rfi->is_dir = gf->remap.is_dir;
@@ -316,7 +319,8 @@ static int open_remap_linked(struct reg_file_info *rfi,
 	struct file_remap *rm;
 	struct file_desc *rdesc;
 	struct reg_file_info *rrfi;
-	uid_t owner = -1;
+	uid_t uid = -1;
+	gid_t gid = -1;
 
 	rdesc = find_file_desc_raw(FD_TYPES__REG, rfe->remap_id);
 	if (!rdesc) {
@@ -342,13 +346,15 @@ static int open_remap_linked(struct reg_file_info *rfi,
 			return -1;
 		}
 
-		owner = st.st_uid;
+		uid = st.st_uid;
+		gid = st.st_gid;
 	}
 
 	rm->rpath = rrfi->path;
 	rm->users = 0;
 	rm->is_dir = false;
-	rm->owner = owner;
+	rm->uid = uid;
+	rm->gid = gid;
 	rm->rmnt_id = rfi->rfe->mnt_id;
 	rfi->remap = rm;
 	return 0;
@@ -709,9 +715,11 @@ static void __rollback_link_remaps(bool do_unlink)
 
 void delete_link_remaps(void) { __rollback_link_remaps(true); }
 void free_link_remaps(void) { __rollback_link_remaps(false); }
+static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t uid, gid_t gid, int flags);
 
 static int create_link_remap(char *path, int len, int lfd,
-				u32 *idp, struct ns_id *nsid)
+				u32 *idp, struct ns_id *nsid,
+				const struct stat *st)
 {
 	char link_name[PATH_MAX], *tmp;
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
@@ -755,7 +763,8 @@ static int create_link_remap(char *path, int len, int lfd,
 	mntns_root = mntns_get_root_fd(nsid);
 
 again:
-	ret = linkat(lfd, "", mntns_root, link_name, AT_EMPTY_PATH);
+	ret = linkat_hard(lfd, "", mntns_root, link_name,
+				st->st_uid, st->st_gid, AT_EMPTY_PATH);
 	if (ret < 0 && errno == ENOENT) {
 		/* Use grand parent, if parent directory does not exist. */
 		if (trim_last_parent(link_name) < 0) {
@@ -780,7 +789,7 @@ static int dump_linked_remap(char *path, int len, const struct stat *ost,
 	u32 lid;
 	RemapFilePathEntry rpe = REMAP_FILE_PATH_ENTRY__INIT;
 
-	if (create_link_remap(path, len, lfd, &lid, nsid))
+	if (create_link_remap(path, len, lfd, &lid, nsid, ost))
 		return -1;
 
 	rpe.orig_id = id;
@@ -1190,16 +1199,18 @@ static void convert_path_from_another_mp(char *src, char *dst, int dlen,
 				src + off);
 }
 
-static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t owner)
+static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t uid, gid_t gid, int flags)
 {
-	int ret, old_fsuid = -1;
+	struct __user_cap_data_struct data[_LINUX_CAPABILITY_U32S_3];
+	struct __user_cap_header_struct hdr;
+	int ret, old_fsuid = -1, old_fsgid = -1;
 	int errno_save;
 
-	ret = linkat(odir, opath, ndir, npath, 0);
+	ret = linkat(odir, opath, ndir, npath, flags);
 	if (ret == 0)
 		return 0;
 
-	if (!( (errno == EPERM) && (root_ns_mask & CLONE_NEWUSER) )) {
+	if (!( (errno == EPERM || errno == EOVERFLOW) && (root_ns_mask & CLONE_NEWUSER) )) {
 		errno_save = errno;
 		pr_perror("Can't link %s -> %s", opath, npath);
 		errno = errno_save;
@@ -1220,16 +1231,42 @@ static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t owner
 	 *
 	 * Fortunately, the setfsuid() requires ns-level
 	 * CAP_SETUID which we have.
+	 *
+	 * Starting with 4.8 the kernel doesn't allow to create inodes
+	 * with a uid or gid unknown to an user namespace.
+	 * 036d523641c66 ("vfs: Don't create inodes with a uid or gid unknown to the vfs")
 	 */
 
-	old_fsuid = setfsuid(owner);
+	old_fsuid = setfsuid(uid);
+	old_fsgid = setfsgid(gid);
 
-	ret = linkat(odir, opath, ndir, npath, 0);
+	/* AT_EMPTY_PATH requires CAP_DAC_READ_SEARCH */
+	if (flags & AT_EMPTY_PATH) {
+		hdr.version = _LINUX_CAPABILITY_VERSION_3;
+		hdr.pid = 0;
+
+		if (capget(&hdr, data) < 0) {
+			errno_save = errno;
+			pr_perror("capget");
+			goto out;
+		}
+		data[0].effective = data[0].permitted;
+		data[1].effective = data[1].permitted;
+		if (capset(&hdr, data) < 0) {
+			errno_save = errno;
+			pr_perror("capset");
+			goto out;
+		}
+	}
+
+	ret = linkat(odir, opath, ndir, npath, flags);
 	errno_save = errno;
 	if (ret < 0)
 		pr_perror("Can't link %s -> %s", opath, npath);
 
+out:
 	setfsuid(old_fsuid);
+	setfsgid(old_fsgid);
 	if (setfsuid(-1) != old_fsuid) {
 		pr_warn("Failed to restore old fsuid!\n");
 		/*
@@ -1380,7 +1417,8 @@ out_root:
 	if (*level < 0)
 		return -1;
 
-	if (linkat_hard(mntns_root, rpath, mntns_root, path, rfi->remap->owner) < 0) {
+	if (linkat_hard(mntns_root, rpath, mntns_root, path,
+			rfi->remap->uid, rfi->remap->gid, 0) < 0) {
 		rm_parent_dirs(mntns_root, path, *level);
 		return -1;
 	}
