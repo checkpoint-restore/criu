@@ -1795,6 +1795,9 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret < 0)
 		goto out_kill;
 
+	if (fault_injected(FI_POST_RESTORE))
+		goto out_kill;
+
 	ret = run_scripts(ACT_POST_RESTORE);
 	if (ret != 0) {
 		pr_err("Aborting restore due to post-restore script ret code %d\n", ret);

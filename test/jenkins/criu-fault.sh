@@ -13,4 +13,8 @@ prep
 ./test/zdtm.py run -t zdtm/static/mntns_ghost --fault 2 --keep-going --report report || fail
 ./test/zdtm.py run -t zdtm/static/mntns_ghost --fault 4 --keep-going --report report || fail
 
+./test/zdtm.py run -t zdtm/static/mntns_ghost --fault 6 --report report || fail
+./test/zdtm.py run -t zdtm/static/mntns_link_remap --fault 6 --report report || fail
+./test/zdtm.py run -t zdtm/static/unlink_fstat03 --fault 6 --report report || fail
+
 ./test/zdtm.py run -t zdtm/static/env00 --fault 5 --keep-going --report report || fail
