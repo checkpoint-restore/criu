@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <string.h>
+#include "log.h"
 #include "restore.h"
 #include "images/core.pb-c.h"
 
