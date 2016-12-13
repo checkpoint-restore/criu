@@ -605,9 +605,6 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 	}
 
 err:
-	if (info->remap)
-		remap_put(info->remap);
-
 	close_safe(&target);
 	return ret;
 }
@@ -671,9 +668,6 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 			goto err;
 		}
 	}
-
-	if (mark->remap)
-		remap_put(mark->remap);
 
 err:
 	close_safe(&target);

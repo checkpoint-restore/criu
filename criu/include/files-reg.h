@@ -13,7 +13,6 @@ struct file_remap {
 	char *rpath;
 	bool is_dir;
 	int  rmnt_id;
-	unsigned int users;
 	uid_t uid;
 	gid_t gid;
 };
@@ -40,7 +39,6 @@ extern int do_open_reg_noseek_flags(int ns_root_fd, struct reg_file_info *rfi, v
 extern int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p);
 
 extern struct file_remap *lookup_ghost_remap(u32 dev, u32 ino);
-extern void remap_put(struct file_remap *remap);
 
 extern struct file_desc *try_collect_special_file(u32 id, int optional);
 #define collect_special_file(id)	try_collect_special_file(id, 0)
@@ -51,7 +49,7 @@ extern int collect_remaps_and_regfiles(void);
 extern void delete_link_remaps(void);
 extern void free_link_remaps(void);
 extern int prepare_remaps(void);
-extern void try_clean_remaps(void);
+extern int try_clean_remaps(bool only_ghosts);
 
 extern int strip_deleted(struct fd_link *link);
 

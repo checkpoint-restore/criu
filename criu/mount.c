@@ -2916,15 +2916,14 @@ static int __depopulate_roots_yard(void)
 	return ret;
 }
 
-int depopulate_roots_yard(int mntns_fd, bool clean_remaps)
+int depopulate_roots_yard(int mntns_fd, bool only_ghosts)
 {
 	int ret = 0, old_cwd = -1, old_ns = -1;
 
 	if (mntns_fd < 0) {
-		if (clean_remaps)
-			try_clean_remaps();
+		ret |= try_clean_remaps(only_ghosts);
 		cleanup_mnt_ns();
-		return 0;
+		return ret;
 	}
 
 	pr_info("Switching to new ns to clean ghosts\n");
@@ -2948,8 +2947,8 @@ int depopulate_roots_yard(int mntns_fd, bool clean_remaps)
 		return -1;
 	}
 
-	if (clean_remaps)
-		try_clean_remaps();
+	if (try_clean_remaps(only_ghosts))
+		ret = -1;
 
 	if (__depopulate_roots_yard())
 		ret = -1;

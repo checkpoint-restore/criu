@@ -1631,7 +1631,7 @@ static int restore_root_task(struct pstree_item *init)
 {
 	enum trace_flags flag = TRACE_ALL;
 	int ret, fd, mnt_ns_fd = -1;
-	int clean_remaps = 1, root_seized = 0;
+	int root_seized = 0;
 	struct pstree_item *item;
 
 	ret = run_scripts(ACT_PRE_RESTORE);
@@ -1773,16 +1773,6 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret < 0)
 		goto out_kill;
 
-	/*
-	 * There is no need to call try_clean_remaps() after this point,
-	 * as restore went OK and all ghosts were removed by the openers.
-	 */
-	if (depopulate_roots_yard(mnt_ns_fd, false))
-		goto out_kill;
-
-	clean_remaps = 0;
-	close_safe(&mnt_ns_fd);
-
 	ret = stop_usernsd();
 	if (ret < 0)
 		goto out_kill;
@@ -1805,6 +1795,15 @@ static int restore_root_task(struct pstree_item *init)
 		write_stats(RESTORE_STATS);
 		goto out_kill;
 	}
+
+	/*
+	 * There is no need to call try_clean_remaps() after this point,
+	 * as restore went OK and all ghosts were removed by the openers.
+	 */
+	if (depopulate_roots_yard(mnt_ns_fd, false))
+		goto out_kill;
+
+	close_safe(&mnt_ns_fd);
 
 	if (write_restored_pid())
 		goto out_kill;
@@ -1888,8 +1887,7 @@ out_kill:
 
 out:
 	fini_cgroup();
-	if (clean_remaps)
-		depopulate_roots_yard(mnt_ns_fd, true);
+	depopulate_roots_yard(mnt_ns_fd, true);
 	stop_usernsd();
 	__restore_switch_stage(CR_STATE_FAIL);
 	pr_err("Restoring FAILED.\n");
