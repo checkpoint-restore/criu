@@ -344,8 +344,22 @@ int ns_init(int argc, char **argv)
 
 	ret = 0;
 	if (reap) {
-		while (ret != -1)
-			ret = wait(NULL);
+		while (true) {
+			pid_t child;
+			ret = -1;
+
+			child = waitpid(-1, &ret, 0);
+			if (child < 0) {
+				fprintf(stderr, "Unable to wait a test process: %m");
+				exit(1);
+			}
+			if (child == pid) {
+				fprintf(stderr, "The test returned 0x%x", ret);
+				exit(!(ret == 0));
+			}
+			if (ret)
+				fprintf(stderr, "The %d process exited with 0x%x", child, ret);
+		}
 	} else {
 		waitpid(pid, NULL, 0);
 	}
