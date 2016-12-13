@@ -1332,9 +1332,9 @@ class launcher:
 			print >> self.__file_report, "# "
 			print >> self.__file_report, "1.." + str(nr_tests)
 
-	def __show_progress(self):
+	def __show_progress(self, msg):
 		perc = self.__nr * 16 / self.__total
-		print "=== Run %d/%d %s" % (self.__nr, self.__total, '=' * perc + '-' * (16 - perc))
+		print "=== Run %d/%d %s %s" % (self.__nr, self.__total, '=' * perc + '-' * (16 - perc), msg)
 
 	def skip(self, name, reason):
 		print "Skipping %s (%s)" % (name, reason)
@@ -1354,7 +1354,7 @@ class launcher:
 			self.wait_all()
 
 		self.__nr += 1
-		self.__show_progress()
+		self.__show_progress(name)
 
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'stop', 'empty_ns',
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'rpc',
