@@ -354,9 +354,13 @@ int libsoccr_save(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigne
 	return sizeof(struct libsoccr_sk_data);
 }
 
-char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, int steal)
+#define GET_Q_FLAGS	(SOCCR_MEM_EXCL)
+char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, unsigned flags)
 {
 	char **p, *ret;
+
+	if (flags & ~GET_Q_FLAGS)
+		return NULL;
 
 	switch (queue_id) {
 		case TCP_RECV_QUEUE:
@@ -370,7 +374,7 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, int steal)
 	}
 
 	ret = *p;
-	if (steal)
+	if (flags & SOCCR_MEM_EXCL)
 		*p = NULL;
 
 	return ret;

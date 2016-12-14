@@ -131,6 +131,18 @@ struct libsoccr_sk *libsoccr_pause(int fd);
 void libsoccr_resume(struct libsoccr_sk *sk);
 
 /*
+ * Flags for calls below
+ */
+
+/*
+ * Memory given to or taken from library is in exclusive ownership
+ * of the resulting owner. I.e. -- when taken by caller from library,
+ * the former will free() one, when given to the library, the latter
+ * is to free() it.
+ */
+#define SOCCR_MEM_EXCL		0x1
+
+/*
  * CHECKPOINTING calls
  *
  * Roughly the checkpoint steps for sockets in supported states are
@@ -172,7 +184,7 @@ int libsoccr_save(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigne
  * library and should free() it himself. Otherwise the buffer can
  * be claimed again and will be free by library upon _resume call.
  */
-char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, int steal);
+char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, unsigned flags);
 
 /*
  * RESTORING calls

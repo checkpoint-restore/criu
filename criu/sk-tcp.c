@@ -198,7 +198,7 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	if (ret < 0)
 		goto err_iw;
 
-	buf = libsoccr_get_queue_bytes(socr, TCP_RECV_QUEUE, 1);
+	buf = libsoccr_get_queue_bytes(socr, TCP_RECV_QUEUE, SOCCR_MEM_EXCL);
 	if (buf) {
 		ret = write_img_buf(img, buf, tse.inq_len);
 		if (ret < 0)
@@ -207,7 +207,7 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 		xfree(buf);
 	}
 
-	buf = libsoccr_get_queue_bytes(socr, TCP_SEND_QUEUE, 1);
+	buf = libsoccr_get_queue_bytes(socr, TCP_SEND_QUEUE, SOCCR_MEM_EXCL);
 	if (buf) {
 		ret = write_img_buf(img, buf, tse.outq_len);
 		if (ret < 0)
