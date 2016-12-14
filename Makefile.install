@@ -1,6 +1,5 @@
 #
 # Installation paths.
-DESTDIR		?= /
 PREFIX		?= /usr/local
 BINDIR		?= $(PREFIX)/bin
 SBINDIR		?= $(PREFIX)/sbin
