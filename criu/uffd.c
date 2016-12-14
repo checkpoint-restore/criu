@@ -302,6 +302,10 @@ static MmEntry *init_mm_entry(struct lazy_pages_info *lpi)
 	return mm;
 }
 
+/*
+ * Purge range (addr, addr + len) from lazy_iovecs. The range may
+ * cover several continuous IOVs.
+ */
 static int update_lazy_iovecs(struct lazy_pages_info *lpi, unsigned long addr,
 			      int len)
 {
@@ -317,6 +321,13 @@ static int update_lazy_iovecs(struct lazy_pages_info *lpi, unsigned long addr,
 		if (addr < start || addr >= end)
 			continue;
 
+		/*
+		 * The range completely fits into the current IOV.
+		 * If addr equals iov_base we just "drop" the
+		 * beginning of the IOV. Otherwise, we make the IOV to
+		 * end at addr, and add a new IOV start starts at
+		 * addr + len.
+		 */
 		if (addr + len < end) {
 			if (addr == start) {
 				lazy_iov->base += len;
@@ -338,6 +349,12 @@ static int update_lazy_iovecs(struct lazy_pages_info *lpi, unsigned long addr,
 			break;
 		}
 
+		/*
+		 * The range spawns beyond the end of the current IOV.
+		 * If addr equals iov_base we just "drop" the entire
+		 * IOV.  Otherwise, we cut the beginning of the IOV
+		 * and continue to the next one with the updated range
+		 */
 		if (addr == start) {
 			list_del(&lazy_iov->l);
 			xfree(lazy_iov);
