@@ -123,7 +123,7 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	char *buf;
 	struct libsoccr_sk_data data;
 
-	ret = libsoccr_get_sk_data(socr, &data, sizeof(data));
+	ret = libsoccr_save(socr, &data, sizeof(data));
 	if (ret < 0)
 		goto err_r;
 	if (ret != sizeof(data)) {
@@ -350,7 +350,7 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 		goto err_c;
 
 	/*
-	 * O_NONBLOCK has to be set before libsoccr_set_sk_data_noq(),
+	 * O_NONBLOCK has to be set before libsoccr_restore(),
 	 * it is required to restore syn-sent sockets.
 	 */
 	if (restore_prepare_socket(sk))
@@ -359,7 +359,7 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 	if (read_tcp_queues(socr, &data, img))
 		goto err_c;
 
-	if (libsoccr_set_sk_data(socr, &data, sizeof(data)))
+	if (libsoccr_restore(socr, &data, sizeof(data)))
 		goto err_c;
 
 	if (tse->has_nodelay && tse->nodelay) {

@@ -136,7 +136,7 @@ void libsoccr_resume(struct libsoccr_sk *sk);
  * Roughly the checkpoint steps for sockets in supported states are
  *
  * 	h = libsoccr_pause(sk);
- * 	libsoccr_get_sk_data(h, &data, sizeof(data))
+ * 	libsoccr_save(h, &data, sizeof(data))
  * 	inq = libsoccr_get_queue_bytes(h, TCP_RECV_QUEUE, 0)
  * 	outq = libsoccr_get_queue_bytes(h, TCP_SEND_QUEUE, 0)
  * 	getsocname(sk, &name, ...)
@@ -157,7 +157,7 @@ void libsoccr_resume(struct libsoccr_sk *sk);
  * data_size shows the size of a buffer. The returned value is the
  * amount of bytes put into data (the rest is zeroed with memcpy).
  */
-int libsoccr_get_sk_data(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size);
+int libsoccr_save(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size);
 
 /*
  * Get a pointer on the contents of queues. The amount of bytes is
@@ -184,9 +184,7 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, int steal);
  * 	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
  *
  * 	h = libsoccr_pause(sk)
- * 	bind(sk, &name, ...)
- *
- * 	libsoccr_set_sk_data(h, &data, sizeof(data))
+ * 	libsoccr_restore(h, &data, sizeof(data))
  *
  * 	libsoccr_resume(h)
  *
@@ -197,6 +195,6 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, int steal);
 /*
  * Performs restore actions on bind()-ed socket
  */
-int libsoccr_set_sk_data(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size);
+int libsoccr_restore(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size);
 
 #endif

@@ -327,7 +327,7 @@ err_recv:
  */
 #define SOCR_DATA_MIN_SIZE	(17 * sizeof(__u32))
 
-int libsoccr_get_sk_data(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size)
+int libsoccr_save(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size)
 {
 	struct tcp_info ti;
 
@@ -622,7 +622,7 @@ static int restore_fin_in_snd_queue(int sk, int acked)
 static int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size,
 		int queue, char *buf);
 
-int libsoccr_set_sk_data(struct libsoccr_sk *sk,
+int libsoccr_restore(struct libsoccr_sk *sk,
 		struct libsoccr_sk_data *data, unsigned data_size)
 {
 	int mstate = 1 << data->state;
