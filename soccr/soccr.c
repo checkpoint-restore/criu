@@ -104,9 +104,13 @@ static int tcp_repair_off(int fd)
 
 struct libsoccr_sk {
 	int fd;
+	unsigned flags;
 	char *recv_queue;
 	char *send_queue;
 };
+
+#define SK_FLAG_FREE_RQ		0x1
+#define SK_FLAG_FREE_SQ		0x2
 
 struct libsoccr_sk *libsoccr_pause(int fd)
 {
@@ -121,6 +125,7 @@ struct libsoccr_sk *libsoccr_pause(int fd)
 		return NULL;
 	}
 
+	ret->flags = 0;
 	ret->recv_queue = NULL;
 	ret->send_queue = NULL;
 	ret->fd = fd;
@@ -130,8 +135,10 @@ struct libsoccr_sk *libsoccr_pause(int fd)
 void libsoccr_resume(struct libsoccr_sk *sk)
 {
 	tcp_repair_off(sk->fd);
-	free(sk->send_queue);
-	free(sk->recv_queue);
+	if (sk->flags & SK_FLAG_FREE_RQ)
+		free(sk->recv_queue);
+	if (sk->flags & SK_FLAG_FREE_SQ)
+		free(sk->send_queue);
 	free(sk);
 }
 
@@ -344,6 +351,8 @@ int libsoccr_save(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigne
 
 	if (get_window(sk, data))
 		return -4;
+
+	sk->flags |= SK_FLAG_FREE_SQ | SK_FLAG_FREE_RQ;
 
 	if (get_queue(sk->fd, TCP_RECV_QUEUE, &data->inq_seq, data->inq_len, &sk->recv_queue))
 		return -4;
@@ -623,7 +632,7 @@ static int restore_fin_in_snd_queue(int sk, int acked)
 	return ret;
 }
 
-static int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size,
+static int libsoccr_restore_queue(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size,
 		int queue, char *buf);
 
 int libsoccr_restore(struct libsoccr_sk *sk,
@@ -634,10 +643,10 @@ int libsoccr_restore(struct libsoccr_sk *sk,
 	if (libsoccr_set_sk_data_noq(sk, data, data_size))
 		return -1;
 
-	if (libsoccr_set_queue_bytes(sk, data, sizeof(*data), TCP_RECV_QUEUE, data->inq_data))
+	if (libsoccr_restore_queue(sk, data, sizeof(*data), TCP_RECV_QUEUE, sk->recv_queue))
 		return -1;
 
-	if (libsoccr_set_queue_bytes(sk, data, sizeof(*data), TCP_SEND_QUEUE, data->outq_data))
+	if (libsoccr_restore_queue(sk, data, sizeof(*data), TCP_SEND_QUEUE, sk->send_queue))
 		return -1;
 
 	if (data->flags & SOCCR_FLAGS_WINDOW) {
@@ -749,9 +758,12 @@ static int send_queue(struct libsoccr_sk *sk, int queue, char *buf, __u32 len)
 	return __send_queue(sk, queue, buf, len);
 }
 
-static int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size,
+static int libsoccr_restore_queue(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size,
 		int queue, char *buf)
 {
+	if (!buf)
+		return 0;
+
 	if (!data || data_size < SOCR_DATA_MIN_SIZE)
 		return -1;
 
@@ -792,4 +804,26 @@ static int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, struct libsoccr_sk_d
 	}
 
 	return -5;
+}
+
+#define SET_Q_FLAGS	(SOCCR_MEM_EXCL)
+int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, int queue_id, char *bytes, unsigned flags)
+{
+	if (flags & ~SET_Q_FLAGS)
+		return -1;
+
+	switch (queue_id) {
+		case TCP_RECV_QUEUE:
+			sk->recv_queue = bytes;
+			if (flags & SOCCR_MEM_EXCL)
+				sk->flags |= SK_FLAG_FREE_RQ;
+			return 0;
+		case TCP_SEND_QUEUE:
+			sk->send_queue = bytes;
+			if (flags & SOCCR_MEM_EXCL)
+				sk->flags |= SK_FLAG_FREE_SQ;
+			return 0;
+	}
+
+	return -1;
 }

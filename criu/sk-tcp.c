@@ -257,12 +257,7 @@ static int read_tcp_queue(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
 	if (read_img_buf(img, buf, len) < 0)
 		goto err;
 
-	if (queue == TCP_SEND_QUEUE)
-		data->outq_data = buf;
-	else
-		data->inq_data = buf;
-
-	return 0;
+	return libsoccr_set_queue_bytes(sk, queue, buf, SOCCR_MEM_EXCL);
 
 err:
 	xfree(buf);
@@ -379,8 +374,6 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 	return 0;
 
 err_c:
-	xfree(data.inq_data);
-	xfree(data.outq_data);
 	tcp_stream_entry__free_unpacked(tse, NULL);
 	close_image(img);
 err:

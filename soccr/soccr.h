@@ -91,9 +91,6 @@ struct libsoccr_sk_data {
 	__u32	rcv_wnd;
 	__u32	rcv_wup;
 
-	char *inq_data;
-	char *outq_data;
-
 	union libsoccr_addr src_addr;
 	union libsoccr_addr dst_addr;
 };
@@ -196,6 +193,8 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, unsigned fl
  * 	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
  *
  * 	h = libsoccr_pause(sk)
+ * 	libsoccr_set_queue_bytes(h, TCP_SEND_QUEUE, outq);
+ * 	libsoccr_set_queue_bytes(h, TCP_RECV_QUEUE, inq);
  * 	libsoccr_restore(h, &data, sizeof(data))
  *
  * 	libsoccr_resume(h)
@@ -203,6 +202,13 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, unsigned fl
  * Only after this the packets path from and to the socket can be
  * enabled back.
  */
+
+/*
+ * Set a pointer on the send/recv queue data.
+ * If flags have SOCCR_MEM_EXCL, the buffer is stolen by the library and is 
+ * free()-ed after libsoccr_resume().
+ */
+int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, int queue_id, char *bytes, unsigned flags);
 
 /*
  * Performs restore actions on bind()-ed socket
