@@ -38,12 +38,8 @@ static int arch_get_user_desc(user_desc_t *desc)
 	"	mov %%eax,%0			\n"
 	: "+m"(ret)
 	: "m"(desc)
-	: "eax", "rbx", "memory");
+	: "rax", "rbx", "r8", "r9", "r10", "r11", "memory");
 
-	/*
-	 * Fixup for Travis: on missing GDT entry get_thread_area()
-	 * retruns -EINTR then descriptor with seg_not_preset = 1
-	 */
 	if (ret)
 		pr_err("Failed to dump TLS descriptor #%d: %d\n",
 				desc->entry_number, ret);

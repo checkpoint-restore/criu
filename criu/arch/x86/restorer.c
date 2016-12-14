@@ -79,7 +79,7 @@ void restore_tls(tls_t *ptls)
 		"	mov %%eax,%0			\n"
 		: "=g"(ret)
 		: "r"(__NR32_set_thread_area), "r"((uint32_t)(uintptr_t)stack32)
-		: "eax", "ebx", "memory");
+		: "eax", "ebx", "r8", "r9", "r10", "r11", "memory");
 
 		if (ret)
 			pr_err("Failed to restore TLS descriptor %u in GDT: %d\n",

@@ -185,7 +185,7 @@ struct rt_sigframe {
 		".code64					\n"	\
 		:							\
 		: "rdi"(new_sp)						\
-		: "eax","esp","memory")
+		: "eax","esp", "r8", "r9", "r10", "r11", "memory")
 
 #define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)				\
 do {									\
