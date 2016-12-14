@@ -155,6 +155,7 @@ TST_NOFILE	:=				\
 		clone_fs			\
 		macvlan			\
 		cr_veth				\
+		sock_peercred			\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
