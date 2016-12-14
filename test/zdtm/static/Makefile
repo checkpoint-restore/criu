@@ -247,6 +247,7 @@ TST_DIR		=				\
 		mntns_link_ghost		\
 		mntns_shared_bind		\
 		mntns_shared_bind02		\
+		mntns_shared_bind03		\
 		mntns_root_bind			\
 		mntns_root_bind02		\
 		mntns_overmount			\
