@@ -90,9 +90,6 @@ struct libsoccr_sk_data {
 	__u32	max_window;
 	__u32	rcv_wnd;
 	__u32	rcv_wup;
-
-	union libsoccr_addr src_addr;
-	union libsoccr_addr dst_addr;
 };
 
 /*
@@ -184,6 +181,13 @@ int libsoccr_save(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigne
 char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, unsigned flags);
 
 /*
+ * Returns filled libsoccr_addr for a socket. This value is also required
+ * on restore, but addresses may be obtained from somewhere else, these
+ * are just common sockaddr-s.
+ */
+union libsoccr_addr *libsoccr_get_addr(struct libsoccr_sk *sk, int self, unsigned flags);
+
+/*
  * RESTORING calls
  *
  * The restoring of a socket is like below
@@ -195,6 +199,8 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, unsigned fl
  * 	h = libsoccr_pause(sk)
  * 	libsoccr_set_queue_bytes(h, TCP_SEND_QUEUE, outq);
  * 	libsoccr_set_queue_bytes(h, TCP_RECV_QUEUE, inq);
+ * 	libsoccr_set_addr(h, 1, src_addr);
+ * 	libsoccr_set_addr(h, 0, dst_addr);
  * 	libsoccr_restore(h, &data, sizeof(data))
  *
  * 	libsoccr_resume(h)
@@ -209,6 +215,13 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, unsigned fl
  * free()-ed after libsoccr_resume().
  */
 int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, int queue_id, char *bytes, unsigned flags);
+
+/*
+ * Set a pointer on the libsoccr_addr for src/dst.
+ * If flags have SOCCR_MEM_EXCL, the buffer is stolen by the library and is 
+ * fre()-ed after libsoccr_resume().
+ */
+int libsoccr_set_addr(struct libsoccr_sk *sk, int self, union libsoccr_addr *, unsigned flags);
 
 /*
  * Performs restore actions on bind()-ed socket

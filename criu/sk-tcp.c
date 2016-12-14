@@ -285,6 +285,7 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 	struct cr_img *img;
 	TcpStreamEntry *tse;
 	struct libsoccr_sk_data data = {};
+	union libsoccr_addr sa_src, sa_dst;
 
 	pr_info("Restoring TCP connection id %x ino %x\n", ii->ie->id, ii->ie->ino);
 
@@ -335,14 +336,17 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 		data.rcv_wup = tse->rcv_wup;
 	}
 
-	if (restore_sockaddr(&data.src_addr,
+	if (restore_sockaddr(&sa_src,
 				ii->ie->family, ii->ie->src_port,
 				ii->ie->src_addr, 0) < 0)
 		goto err_c;
-	if (restore_sockaddr(&data.dst_addr,
+	if (restore_sockaddr(&sa_dst,
 				ii->ie->family, ii->ie->dst_port,
 				ii->ie->dst_addr, 0) < 0)
 		goto err_c;
+
+	libsoccr_set_addr(socr, 1, &sa_src, 0);
+	libsoccr_set_addr(socr, 0, &sa_dst, 0);
 
 	/*
 	 * O_NONBLOCK has to be set before libsoccr_restore(),

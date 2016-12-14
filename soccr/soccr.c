@@ -107,10 +107,14 @@ struct libsoccr_sk {
 	unsigned flags;
 	char *recv_queue;
 	char *send_queue;
+	union libsoccr_addr *src_addr;
+	union libsoccr_addr *dst_addr;
 };
 
 #define SK_FLAG_FREE_RQ		0x1
 #define SK_FLAG_FREE_SQ		0x2
+#define SK_FLAG_FREE_SA		0x4
+#define SK_FLAG_FREE_DA		0x8
 
 struct libsoccr_sk *libsoccr_pause(int fd)
 {
@@ -128,6 +132,8 @@ struct libsoccr_sk *libsoccr_pause(int fd)
 	ret->flags = 0;
 	ret->recv_queue = NULL;
 	ret->send_queue = NULL;
+	ret->src_addr = NULL;
+	ret->dst_addr = NULL;
 	ret->fd = fd;
 	return ret;
 }
@@ -139,6 +145,10 @@ void libsoccr_resume(struct libsoccr_sk *sk)
 		free(sk->recv_queue);
 	if (sk->flags & SK_FLAG_FREE_SQ)
 		free(sk->send_queue);
+	if (sk->flags & SK_FLAG_FREE_SA)
+		free(sk->src_addr);
+	if (sk->flags & SK_FLAG_FREE_DA)
+		free(sk->dst_addr);
 	free(sk);
 }
 
@@ -389,6 +399,16 @@ char *libsoccr_get_queue_bytes(struct libsoccr_sk *sk, int queue_id, unsigned fl
 	return ret;
 }
 
+#define GET_SA_FLAGS	(SOCCR_MEM_EXCL)
+union libsoccr_addr *libsoccr_get_addr(struct libsoccr_sk *sk, int self, unsigned flags)
+{
+	if (flags & ~GET_SA_FLAGS)
+		return NULL;
+
+	/* FIXME -- implemeted in CRIU, makes sence to have it here too */
+	return NULL;
+}
+
 static int set_queue_seq(struct libsoccr_sk *sk, int queue, __u32 seq)
 {
 	logd("\tSetting %d queue seq to %u\n", queue, seq);
@@ -421,6 +441,9 @@ static int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 	if (!data || data_size < SOCR_DATA_MIN_SIZE)
 		return -1;
 
+	if (!sk->dst_addr || !sk->src_addr)
+		return -1;
+
 	mstate = 1 << data->state;
 
 	if (data->state == TCP_LISTEN)
@@ -444,15 +467,15 @@ static int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 	if (set_queue_seq(sk, TCP_SEND_QUEUE, seq))
 		return -3;
 
-	if (data->dst_addr.sa.sa_family == AF_INET)
-		addr_size = sizeof(data->dst_addr.v4);
+	if (sk->dst_addr->sa.sa_family == AF_INET)
+		addr_size = sizeof(sk->dst_addr->v4);
 	else
-		addr_size = sizeof(data->dst_addr.v6);
+		addr_size = sizeof(sk->dst_addr->v6);
 
 	if (data->state == TCP_SYN_SENT && tcp_repair_off(sk->fd))
 		return -1;
 
-	if (connect(sk->fd, &data->dst_addr.sa, addr_size) == -1 &&
+	if (connect(sk->fd, &sk->dst_addr->sa, addr_size) == -1 &&
 						errno != EINPROGRESS) {
 		loge("Can't connect inet socket back\n");
 		return -1;
@@ -508,7 +531,8 @@ static int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 	return 0;
 }
 
-static int send_fin(struct libsoccr_sk_data *data, unsigned data_size, uint8_t flags)
+static int send_fin(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
+		unsigned data_size, uint8_t flags)
 {
 	int ret, exit_code = -1;
 	char errbuf[LIBNET_ERRBUF_SIZE];
@@ -516,7 +540,7 @@ static int send_fin(struct libsoccr_sk_data *data, unsigned data_size, uint8_t f
 	int libnet_type;
 	libnet_t *l;
 
-	if (data->dst_addr.sa.sa_family == AF_INET6)
+	if (sk->dst_addr->sa.sa_family == AF_INET6)
 		libnet_type = LIBNET_RAW6;
 	else
 		libnet_type = LIBNET_RAW4;
@@ -532,8 +556,8 @@ static int send_fin(struct libsoccr_sk_data *data, unsigned data_size, uint8_t f
 		goto err;
 
 	ret = libnet_build_tcp(
-		ntohs(data->dst_addr.v4.sin_port),		/* source port */
-		ntohs(data->src_addr.v4.sin_port),		/* destination port */
+		ntohs(sk->dst_addr->v4.sin_port),		/* source port */
+		ntohs(sk->src_addr->v4.sin_port),		/* destination port */
 		data->inq_seq,			/* sequence number */
 		data->outq_seq - data->outq_len,	/* acknowledgement num */
 		flags,				/* control flags */
@@ -550,11 +574,11 @@ static int send_fin(struct libsoccr_sk_data *data, unsigned data_size, uint8_t f
 		goto err;
 	}
 
-	if (data->dst_addr.sa.sa_family == AF_INET6) {
+	if (sk->dst_addr->sa.sa_family == AF_INET6) {
 		struct libnet_in6_addr src, dst;
 
-		memcpy(&dst, &data->dst_addr.v6.sin6_addr, sizeof(dst));
-		memcpy(&src, &data->src_addr.v6.sin6_addr, sizeof(src));
+		memcpy(&dst, &sk->dst_addr->v6.sin6_addr, sizeof(dst));
+		memcpy(&src, &sk->src_addr->v6.sin6_addr, sizeof(src));
 
 		ret = libnet_build_ipv6(
 			0, 0,
@@ -567,7 +591,7 @@ static int send_fin(struct libsoccr_sk_data *data, unsigned data_size, uint8_t f
 			0,		/* payload size */
 			l,		/* libnet handle */
 			0);		/* libnet id */
-	} else if (data->dst_addr.sa.sa_family == AF_INET)
+	} else if (sk->dst_addr->sa.sa_family == AF_INET)
 		ret = libnet_build_ipv4(
 			LIBNET_IPV4_H + LIBNET_TCP_H + 20,	/* length */
 			0,			/* TOS */
@@ -576,8 +600,8 @@ static int send_fin(struct libsoccr_sk_data *data, unsigned data_size, uint8_t f
 			64,			/* TTL */
 			IPPROTO_TCP,		/* protocol */
 			0,			/* checksum */
-			data->dst_addr.v4.sin_addr.s_addr,	/* source IP */
-			data->src_addr.v4.sin_addr.s_addr,	/* destination IP */
+			sk->dst_addr->v4.sin_addr.s_addr,	/* source IP */
+			sk->src_addr->v4.sin_addr.s_addr,	/* destination IP */
 			NULL,			/* payload */
 			0,			/* payload size */
 			l,			/* libnet handle */
@@ -680,7 +704,7 @@ int libsoccr_restore(struct libsoccr_sk *sk,
 
 	/* Send a fin packet to the socket to restore it in a receive queue. */
 	if (mstate & (RCVQ_FIRST_FIN | RCVQ_SECOND_FIN))
-		if (send_fin(data, data_size, TH_ACK | TH_FIN) < 0)
+		if (send_fin(sk, data, data_size, TH_ACK | TH_FIN) < 0)
 			return -1;
 
 	if (mstate & SNDQ_SECOND_FIN)
@@ -691,7 +715,7 @@ int libsoccr_restore(struct libsoccr_sk *sk,
 
 	if (mstate & SNDQ_FIN_ACKED) {
 		data->outq_seq++;
-		if (send_fin(data, data_size, TH_ACK) < 0)
+		if (send_fin(sk, data, data_size, TH_ACK) < 0)
 			return -1;
 	}
 
@@ -826,4 +850,23 @@ int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, int queue_id, char *bytes, 
 	}
 
 	return -1;
+}
+
+#define SET_SA_FLAGS	(SOCCR_MEM_EXCL)
+int libsoccr_set_addr(struct libsoccr_sk *sk, int self, union libsoccr_addr *addr, unsigned flags)
+{
+	if (flags & ~SET_SA_FLAGS)
+		return -1;
+
+	if (self) {
+		sk->src_addr = addr;
+		if (flags & SOCCR_MEM_EXCL)
+			sk->flags |= SK_FLAG_FREE_SA;
+	} else {
+		sk->dst_addr = addr;
+		if (flags & SOCCR_MEM_EXCL)
+			sk->flags |= SK_FLAG_FREE_DA;
+	}
+
+	return 0;
 }
