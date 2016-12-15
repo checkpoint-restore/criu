@@ -411,7 +411,7 @@ static int read_page_complete(int pid, unsigned long vaddr, int nr_pages, void *
 static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 				  int nr, void *buf, unsigned flags)
 {
-	int ret, pid;
+	int ret, pid, new_nr;
 
 	/* We always do PR_ASAP mode here (FIXME?) */
 	ret = request_remote_pages(pr->pid, vaddr, nr);
@@ -424,9 +424,12 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 	 * Note, that for async remote page_read, the actual
 	 * transfer happens in the lazy-pages daemon
 	 */
-	ret = receive_remote_pages_info(&nr, &vaddr, &pid);
-	if (ret == 0)
+	ret = receive_remote_pages_info(&new_nr, &vaddr, &pid);
+	if (ret == 0) {
+		if (new_nr < 0 || new_nr > nr)
+			return -1;
 		ret = receive_remote_pages(nr * PAGE_SIZE, buf);
+	}
 
 	if (ret == 0 && pr->io_complete)
 		ret = pr->io_complete(pr, vaddr, nr);
