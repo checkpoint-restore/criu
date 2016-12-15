@@ -46,7 +46,7 @@ struct page_read {
 	/* reads page from current pagemap */
 	int (*read_pages)(struct page_read *, unsigned long vaddr, int nr,
 			  void *, unsigned flags);
-	/* Advance page_read to the next entry (including zero pagemaps) */
+	/* Advance page_read to the next entry */
 	int (*advance)(struct page_read *pr);
 	void (*close)(struct page_read *);
 	void (*skip_pages)(struct page_read *, unsigned long len);
@@ -113,18 +113,12 @@ static inline unsigned long pagemap_len(PagemapEntry *pe)
 
 /* Pagemap flags */
 #define PE_PARENT	(1 << 0)	/* pages are in parent snapshot */
-#define PE_ZERO		(1 << 1)	/* pages can be lazily restored */
-#define PE_LAZY		(1 << 2)	/* pages are mapped to zero pfn */
-#define PE_PRESENT	(1 << 3)	/* pages are present in pages*img */
+#define PE_LAZY		(1 << 1)	/* pages can be lazily restored */
+#define PE_PRESENT	(1 << 2)	/* pages are present in pages*img */
 
 static inline bool pagemap_in_parent(PagemapEntry *pe)
 {
 	return !!(pe->flags & PE_PARENT);
-}
-
-static inline bool pagemap_zero(PagemapEntry *pe)
-{
-	return !!(pe->flags & PE_ZERO);
 }
 
 static inline bool pagemap_lazy(PagemapEntry *pe)

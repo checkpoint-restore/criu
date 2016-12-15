@@ -101,9 +101,8 @@ rfile_flags_map = [
 
 pmap_flags_map = [
 	('PE_PARENT',	1 << 0),
-	('PE_ZERO',	1 << 1),
-	('PE_LAZY',	1 << 2),
-	('PE_PRESENT',	1 << 3),
+	('PE_LAZY',	1 << 1),
+	('PE_PRESENT',	1 << 2),
 ];
 
 flags_maps = {

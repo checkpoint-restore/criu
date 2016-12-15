@@ -125,8 +125,6 @@ static int write_pagemap_to_server(struct page_xfer *xfer, struct iovec *iov, u3
 		cmd = PS_IOV_HOLE;
 	else if (flags & PE_LAZY)
 		cmd = PS_IOV_LAZY;
-	else if (flags & PE_ZERO)
-		cmd = PS_IOV_ZERO;
 	else
 		BUG();
 
@@ -361,8 +359,6 @@ static int get_hole_flags(struct page_pipe *pp, int n)
 
 	if (hole_flags == PP_HOLE_PARENT)
 		return PE_PARENT;
-	if (hole_flags == PP_HOLE_ZERO)
-		return PE_ZERO;
 	else
 		BUG();
 
@@ -751,9 +747,6 @@ static int page_server_serve(int sk)
 		case PS_IOV_HOLE:
 			ret = page_server_add(sk, &pi, PE_PARENT);
 			break;
-		case PS_IOV_ZERO:
-			ret = page_server_add(sk, &pi, PE_ZERO);
-			break;
 		case PS_IOV_LAZY:
 			ret = page_server_add(sk, &pi, PE_LAZY);
 			break;
@@ -827,9 +820,7 @@ static int fill_page_pipe(struct page_read *pr, struct page_pipe *pp)
 		unsigned long vaddr = pr->pe->vaddr;
 
 		for (i = 0; i < pr->pe->nr_pages; i++, vaddr += PAGE_SIZE) {
-			if (pagemap_zero(pr->pe))
-				ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_ZERO);
-			else if (pagemap_in_parent(pr->pe))
+			if (pagemap_in_parent(pr->pe))
 				ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_PARENT);
 			else
 				ret = page_pipe_add_page(pp, vaddr, pagemap_lazy(pr->pe) ? PPB_LAZY : 0);

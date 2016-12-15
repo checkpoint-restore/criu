@@ -109,7 +109,7 @@ bool should_dump_page(VmaEntry *vmae, u64 pme)
 		return false;
 	if (vma_entry_is(vmae, VMA_AREA_AIORING))
 		return true;
-	if (pme & (PME_PRESENT | PME_SWAP))
+	if ((pme & (PME_PRESENT | PME_SWAP)) && !page_is_zero(pme))
 		return true;
 
 	return false;
@@ -143,7 +143,7 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 {
 	u64 *at = &map[PAGE_PFN(*off)];
 	unsigned long pfn, nr_to_scan;
-	unsigned long pages[4] = {};
+	unsigned long pages[3] = {};
 
 	nr_to_scan = (vma_area_len(vma) - *off) / PAGE_SIZE;
 
@@ -167,18 +167,15 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 		 * page. The latter would be checked in page-xfer.
 		 */
 
-		if (page_is_zero(at[pfn])) {
-			ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_ZERO);
-			pages[0]++;
-		} else if (has_parent && page_in_parent(at[pfn] & PME_SOFT_DIRTY)) {
+		if (has_parent && page_in_parent(at[pfn] & PME_SOFT_DIRTY)) {
 			ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_PARENT);
-			pages[1]++;
+			pages[0]++;
 		} else {
 			ret = page_pipe_add_page(pp, vaddr, ppb_flags);
 			if (ppb_flags & PPB_LAZY && opts.lazy_pages)
-				pages[2]++;
+				pages[1]++;
 			else
-				pages[3]++;
+				pages[2]++;
 		}
 
 		if (ret) {
@@ -190,13 +187,12 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 	*off += pfn * PAGE_SIZE;
 
 	cnt_add(CNT_PAGES_SCANNED, nr_to_scan);
-	cnt_add(CNT_PAGES_ZERO, pages[0]);
-	cnt_add(CNT_PAGES_SKIPPED_PARENT, pages[1]);
-	cnt_add(CNT_PAGES_LAZY, pages[2]);
-	cnt_add(CNT_PAGES_WRITTEN, pages[3]);
+	cnt_add(CNT_PAGES_SKIPPED_PARENT, pages[0]);
+	cnt_add(CNT_PAGES_LAZY, pages[1]);
+	cnt_add(CNT_PAGES_WRITTEN, pages[2]);
 
-	pr_info("Pagemap generated: %lu pages (%lu lazy) %lu holes %lu zeros\n",
-		pages[3] + pages[2], pages[2], pages[1], pages[0]);
+	pr_info("Pagemap generated: %lu pages (%lu lazy) %lu holes\n",
+		pages[2] + pages[1], pages[1], pages[0]);
 	return 0;
 }
 
