@@ -120,8 +120,6 @@ static void display_stats(int what, StatsEntry *stats)
 				stats->dump->pages_skipped_parent);
 		pr_msg("Memory pages written: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_written,
 				stats->dump->pages_written);
-		pr_msg("Zero memory pages: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_zero,
-				stats->dump->pages_zero);
 		pr_msg("Lazy memory pages: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_lazy,
 				stats->dump->pages_lazy);
 	} else if (what == RESTORE_STATS) {
@@ -161,7 +159,6 @@ void write_stats(int what)
 		ds_entry.pages_scanned = dstats->counts[CNT_PAGES_SCANNED];
 		ds_entry.pages_skipped_parent = dstats->counts[CNT_PAGES_SKIPPED_PARENT];
 		ds_entry.pages_written = dstats->counts[CNT_PAGES_WRITTEN];
-		ds_entry.pages_zero = dstats->counts[CNT_PAGES_ZERO];
 		ds_entry.pages_lazy = dstats->counts[CNT_PAGES_LAZY];
 
 		name = "dump";
