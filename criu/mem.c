@@ -82,6 +82,21 @@ unsigned int dump_pages_args_size(struct vm_area_list *vmas)
 		(vmas->priv_size + 1) * sizeof(struct iovec);
 }
 
+static inline bool __page_is_zero(u64 pme)
+{
+	return (pme & PME_PFRAME_MASK) == kdat.zero_page_pfn;
+}
+
+static inline bool __page_in_parent(bool dirty)
+{
+	/*
+	 * If we do memory tracking, but w/o parent images,
+	 * then we have to dump all memory
+	 */
+
+	return opts.track_mem && opts.img_parent && !dirty;
+}
+
 bool should_dump_page(VmaEntry *vmae, u64 pme)
 {
 #ifdef CONFIG_VDSO
@@ -109,7 +124,7 @@ bool should_dump_page(VmaEntry *vmae, u64 pme)
 		return false;
 	if (vma_entry_is(vmae, VMA_AREA_AIORING))
 		return true;
-	if ((pme & (PME_PRESENT | PME_SWAP)) && !page_is_zero(pme))
+	if ((pme & (PME_PRESENT | PME_SWAP)) && !__page_is_zero(pme))
 		return true;
 
 	return false;
@@ -117,17 +132,12 @@ bool should_dump_page(VmaEntry *vmae, u64 pme)
 
 bool page_is_zero(u64 pme)
 {
-	return (pme & PME_PFRAME_MASK) == kdat.zero_page_pfn;
+	return __page_is_zero(pme);
 }
 
 bool page_in_parent(bool dirty)
 {
-	/*
-	 * If we do memory tracking, but w/o parent images,
-	 * then we have to dump all memory
-	 */
-
-	return opts.track_mem && opts.img_parent && !dirty;
+	return __page_in_parent(dirty);
 }
 
 /*
