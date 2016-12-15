@@ -220,7 +220,7 @@ int cpu_init(void)
 	pr_debug("fpu:%d fxsr:%d xsave:%d\n",
 		 !!cpu_has_feature(X86_FEATURE_FPU),
 		 !!cpu_has_feature(X86_FEATURE_FXSR),
-		 !!cpu_has_feature(X86_FEATURE_XSAVE));
+		 !!cpu_has_feature(X86_FEATURE_OSXSAVE));
 
 	return 0;
 }
@@ -394,7 +394,7 @@ static int cpu_validate_features(CpuinfoX86Entry *img_x86_entry)
 		 !cpu_has_feature(__bit))
 		if (__mismatch_fpu_bit(X86_FEATURE_FPU)		||
 		    __mismatch_fpu_bit(X86_FEATURE_FXSR)	||
-		    __mismatch_fpu_bit(X86_FEATURE_XSAVE)) {
+		    __mismatch_fpu_bit(X86_FEATURE_OSXSAVE)) {
 			pr_err("FPU feature required by image "
 			       "is not supported on host.\n");
 			return -1;

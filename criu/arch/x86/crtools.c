@@ -153,7 +153,7 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 	 * thus decode it accrodingly.
 	 */
 
-	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
+	if (cpu_has_feature(X86_FEATURE_OSXSAVE)) {
 		iov.iov_base = &xsave;
 		iov.iov_len = sizeof(xsave);
 
@@ -230,7 +230,7 @@ static int save_task_regs(CoreEntry *core,
 	assign_array(core->thread_info->fpregs, &fpregs->i387, st_space);
 	assign_array(core->thread_info->fpregs, &fpregs->i387, xmm_space);
 
-	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
+	if (cpu_has_feature(X86_FEATURE_OSXSAVE)) {
 		BUG_ON(core->thread_info->fpregs->xsave->n_ymmh_space != ARRAY_SIZE(fpregs->ymmh.ymmh_space));
 
 		assign_reg(core->thread_info->fpregs->xsave, &fpregs->xsave_hdr, xstate_bv);
@@ -256,7 +256,7 @@ int arch_alloc_thread_info(CoreEntry *core)
 	sz = sizeof(ThreadInfoX86) + sizeof(UserX86RegsEntry);
 	if (with_fpu) {
 		sz += sizeof(UserX86FpregsEntry);
-		with_xsave = cpu_has_feature(X86_FEATURE_XSAVE);
+		with_xsave = cpu_has_feature(X86_FEATURE_OSXSAVE);
 		if (with_xsave)
 			sz += sizeof(UserX86XsaveEntry);
 	}
@@ -336,7 +336,7 @@ static bool valid_xsave_frame(CoreEntry *core)
 		return false;
 	}
 
-	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
+	if (cpu_has_feature(X86_FEATURE_OSXSAVE)) {
 		if (core->thread_info->fpregs->xsave &&
 		    core->thread_info->fpregs->xsave->n_ymmh_space < ARRAY_SIZE(x->ymmh.ymmh_space)) {
 			pr_err("Corruption in FPU ymmh_space area "
@@ -348,7 +348,7 @@ static bool valid_xsave_frame(CoreEntry *core)
 	} else {
 		/*
 		 * If the image has xsave area present then CPU we're restoring
-		 * on must have X86_FEATURE_XSAVE feature until explicitly
+		 * on must have X86_FEATURE_OSXSAVE feature until explicitly
 		 * stated in options.
 		 */
 		if (core->thread_info->fpregs->xsave) {
@@ -420,7 +420,7 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 	assign_array(x->i387, core->thread_info->fpregs, st_space);
 	assign_array(x->i387, core->thread_info->fpregs, xmm_space);
 
-	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
+	if (cpu_has_feature(X86_FEATURE_OSXSAVE)) {
 		struct fpx_sw_bytes *fpx_sw = (void *)&x->i387.sw_reserved;
 		void *magic2;
 
