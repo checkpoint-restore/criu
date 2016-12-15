@@ -12,6 +12,7 @@
 #include "action-scripts.h"
 #include "pstree.h"
 #include "common/bug.h"
+#include "util.h"
 
 static const char *action_names[ACT_MAX] = {
 	[ ACT_PRE_DUMP ]	= "pre-dump",
@@ -42,7 +43,7 @@ static LIST_HEAD(scripts);
 
 static int run_shell_scripts(const char *action)
 {
-	int ret = 0;
+	int retval = 0;
 	struct script *script;
 	char image_dir[PATH_MAX];
 	static unsigned env_set = 0;
@@ -80,13 +81,18 @@ static int run_shell_scripts(const char *action)
 	}
 
 	list_for_each_entry(script, &scripts, node) {
+		int err;
 		pr_debug("\t[%s]\n", script->path);
-		ret |= system(script->path);
+		err = cr_system(-1, -1, -1, script->path,
+				(char *[]) { script->path, NULL }, 0);
+		if (err)
+			pr_err("Script %s exited with %d\n", script->path, err);
+		retval |= err;
 	}
 
 	unsetenv("CRTOOLS_SCRIPT_ACTION");
 
-	return ret;
+	return retval;
 }
 
 int run_scripts(enum script_actions act)
