@@ -711,7 +711,7 @@ static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 		pgaddr = (unsigned long)addr + pfn * PAGE_SIZE;
 again:
 		if (pgstate == PST_ZERO)
-			ret = page_pipe_add_hole(pp, pgaddr, PP_HOLE_ZERO);
+			ret = 0;
 		else if (xfer.parent && page_in_parent(pgstate == PST_DIRTY))
 			ret = page_pipe_add_hole(pp, pgaddr, PP_HOLE_PARENT);
 		else
