@@ -449,6 +449,16 @@ static int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 	if (data->state == TCP_LISTEN)
 		return -1;
 
+	if (sk->src_addr->sa.sa_family == AF_INET)
+		addr_size = sizeof(sk->src_addr->v4);
+	else
+		addr_size = sizeof(sk->src_addr->v6);
+
+	if (bind(sk->fd, &sk->src_addr->sa, addr_size)) {
+		loge("Can't bind inet socket back\n");
+		return -1;
+	}
+
 	if (mstate & (RCVQ_FIRST_FIN | RCVQ_SECOND_FIN))
 		data->inq_seq--;
 

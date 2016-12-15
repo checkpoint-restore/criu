@@ -224,7 +224,7 @@ int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, int queue_id, char *bytes, 
 int libsoccr_set_addr(struct libsoccr_sk *sk, int self, union libsoccr_addr *, unsigned flags);
 
 /*
- * Performs restore actions on bind()-ed socket
+ * Performs restore actions on a socket
  */
 int libsoccr_restore(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size);
 
