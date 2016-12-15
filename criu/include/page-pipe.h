@@ -102,7 +102,6 @@ struct page_pipe_buf {
 };
 
 #define PP_HOLE_PARENT (1 << 0)
-#define PP_HOLE_ZERO   (1 << 1)
 
 struct page_pipe {
 	unsigned int nr_pipes;	/* how many page_pipe_bufs in there */
