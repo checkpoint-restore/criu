@@ -588,10 +588,7 @@ static int uffd_seek_or_zero_pages(struct lazy_pages_info *lpi, __u64 address,
 	lpi->pr.reset(&lpi->pr);
 
 	ret = lpi->pr.seek_pagemap(&lpi->pr, address);
-	if (!ret)
-		return 0;
-
-	if (pagemap_zero(lpi->pr.pe))
+	if (!ret || pagemap_zero(lpi->pr.pe))
 		return uffd_zero(lpi, address, nr);
 
 	lpi->pr.skip_pages(&lpi->pr, address - lpi->pr.pe->vaddr);
