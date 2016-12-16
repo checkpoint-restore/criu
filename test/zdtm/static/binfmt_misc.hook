@@ -1,0 +1,22 @@
+#!/bin/bash
+
+[ "$1" == "--clean" ] || exit 0
+
+name=$(basename -s .hook $0).test
+
+tname=$(mktemp -d binfmt_misc.XXXXXX)
+mount -t binfmt_misc none $tname
+
+echo "Cleaning $name: $@"
+set +e
+if [ -e $tname/${name}_magic ]; then
+	echo -1 > $tname/${name}_magic
+fi
+
+if [ -e $tname/${name}_extention ]; then
+	echo -1 > $tname/${name}_extention
+fi
+set -e
+
+umount "$tname"
+rmdir "$tname"
