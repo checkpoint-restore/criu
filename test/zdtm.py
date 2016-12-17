@@ -1326,10 +1326,10 @@ class launcher:
 				att += 1
 
 			self.__file_report = open(reportname, 'a')
+			print >> self.__file_report, "TAP version 13"
 			print >> self.__file_report, "# Hardware architecture: " + arch
 			print >> self.__file_report, "# Timestamp: " + now.strftime("%Y-%m-%d %H:%M") + " (GMT+1)"
 			print >> self.__file_report, "# "
-			print >> self.__file_report, "TAP version 13"
 			print >> self.__file_report, "1.." + str(nr_tests)
 
 	def __show_progress(self):
