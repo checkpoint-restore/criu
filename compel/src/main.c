@@ -110,7 +110,9 @@ static void cli_log(unsigned int lvl, const char *fmt, va_list parms)
 }
 
 static int usage(int rc) {
-	printf(
+	FILE *out = (rc == 0) ? stdout : stderr;
+
+	fprintf(out,
 "Usage:\n"
 "  compel [--compat] cflags | ldflags\n"
 "  compel -f FILE -o FILE -p NAME [-l N] hgen\n"
