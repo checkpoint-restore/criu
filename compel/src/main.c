@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <getopt.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <fcntl.h>
 
@@ -122,7 +123,7 @@ static int usage(int rc) {
 "Usage:\n"
 "  compel [--compat] includes | cflags | ldflags | plugins\n"
 "  compel [--compat] [--static] libs\n"
-"  compel -f FILE -o FILE -p NAME [-l N] hgen\n"
+"  compel -f FILE -o FILE [-p NAME] [-l N] hgen\n"
 "    -f, --file FILE		input (parasite object) file name\n"
 "    -o, --output FILE		output (header) file name\n"
 "    -p, --prefix NAME		prefix for var names\n"
@@ -211,6 +212,73 @@ static int print_libs(bool is_static)
 	}
 
 	return 0;
+}
+
+/* Extracts the file name (removing directory path and suffix,
+ * and checks the result for being a valid C identifier
+ * (replacing - with _ along the way).
+ *
+ * If everything went fine, return the resulting string,
+ * otherwise NULL.
+ *
+ * Example: get_prefix("./some/path/to/file.c") ==> "file"
+ */
+static char *gen_prefix(const char *path)
+{
+	const char *p1 = NULL, *p2 = NULL;
+	size_t len;
+	int i;
+	char *p, *ret;
+
+	len = strlen(path);
+	if (len == 0)
+		return NULL;
+
+	// Find the last slash (p1)
+	// and  the first dot after it (p2)
+	for (i = len - 1; i >= 0; i--) {
+		if (!p1 && path[i] == '.') {
+			p2 = path + i - 1;
+		}
+		else if (!p1 && path[i] == '/') {
+			p1 = path + i + 1;
+			break;
+		}
+	}
+
+	if (!p1) // no slash in path
+		p1 = path;
+	if (!p2) // no dot (after slash)
+		p2 = path + len;
+
+	len = p2 - p1 + 1;
+	if (len < 1)
+		return NULL;
+
+	ret = strndup(p1, len);
+
+	// Now, check if we got a valid C identifier. We don't need to care
+	// about C reserved keywords, as this is only used as a prefix.
+	for (p = ret; *p != '\0'; p++) {
+		if (isalpha(*p))
+			continue;
+		// digit is fine, except the first character
+		if (isdigit(*p) && p > ret)
+			continue;
+		// only allowed special character is _
+		if (*p == '_')
+			continue;
+		// as a courtesy, replace - with _
+		if (*p == '-') {
+			*p = '_';
+			continue;
+		}
+		// invalid character!
+		free(ret);
+		return NULL;
+	}
+
+	return ret;
 }
 
 int main(int argc, char *argv[])
@@ -318,8 +386,15 @@ int main(int argc, char *argv[])
 			return usage(1);
 		}
 		if (!opts.prefix) {
-			fprintf(stderr, "Error: option --prefix required\n");
-			return usage(1);
+			// prefix not provided, let's autogenerate
+			opts.prefix = gen_prefix(opts.input_filename);
+			if (!opts.prefix)
+				opts.prefix = gen_prefix(opts.output_filename);
+			if (!opts.prefix) {
+				fprintf(stderr, "Error: can't autogenerate "
+						"prefix (supply --prefix)");
+				return 2;
+			}
 		}
 		compel_log_init(&cli_log, log_level);
 		return piegen();

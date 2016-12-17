@@ -19,9 +19,7 @@ spy: spy.c parasite.h
 	$(CC) $(CFLAGS) $(shell $(COMPEL) includes) -o $@ $< $(shell $(COMPEL) --static libs)
 
 parasite.h: parasite.po
-	$(COMPEL) hgen -f $^ -l 4		\
-		-p parasite			\
-		-o $@
+	$(COMPEL) hgen -o $@ -f $<
 
 parasite.po: parasite.o
 	ld $(shell $(COMPEL) ldflags) -o $@ $^ $(shell $(COMPEL) plugins)
