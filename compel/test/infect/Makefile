@@ -32,4 +32,4 @@ parasite.po: parasite.o $(COMPEL_PLUGINS)/std.built-in.o
 	ld -r -T $(COMPEL_PACK_LDS) -o $@ $^
 
 parasite.o: parasite.c
-	$(CC) $(CFLAGS) -c $(shell $(COMPEL) --arch=$(ARCH) cflags) -I$(COMPEL_IDIR) -o $@ $^
+	$(CC) $(CFLAGS) -c $(shell $(COMPEL) cflags) -I$(COMPEL_IDIR) -o $@ $^

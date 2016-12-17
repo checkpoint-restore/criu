@@ -72,6 +72,10 @@ ifeq ($(ARCH),arm)
         PROTOUFIX	:= y
 endif
 
+ifeq ($(ARCH),aarch64)
+	DEFINES		:= -DCONFIG_AARCH64
+endif
+
 ifeq ($(ARCH),x86)
         DEFINES		:= -DCONFIG_X86_64
 endif

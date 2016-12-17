@@ -28,27 +28,23 @@
 #define COMPEL_LDFLAGS_DEFAULT "-r -z noexecstack"
 
 typedef struct {
-	const char	*arch;
 	const char	*cflags;
-} compel_cflags_t;
+	const char	*cflags_compat;
+} flags_t;
 
-static const compel_cflags_t compel_cflags[] = {
-	{
-		.arch	= "x86",
-		.cflags	= COMPEL_CFLAGS_PIE,
-	}, {
-		.arch	= "ia32",
-		.cflags	= COMPEL_CFLAGS_NOPIC,
-	}, {
-		.arch	= "aarch64",
-		.cflags	= COMPEL_CFLAGS_PIE,
-	}, {
-		.arch	= "arm",
-		.cflags	= COMPEL_CFLAGS_PIE,
-	}, {
-		.arch	= "ppc64",
-		.cflags	= COMPEL_CFLAGS_PIE,
-	},
+static const flags_t flags = {
+#if defined CONFIG_X86_64
+	.cflags		= COMPEL_CFLAGS_PIE,
+	.cflags_compat	= COMPEL_CFLAGS_NOPIC,
+#elif defined CONFIG_AARCH64
+	.cflags		= COMPEL_CFLAGS_PIE,
+#elif defined(CONFIG_ARMV6) || defined(CONFIG_ARMV7)
+	.cflags		= COMPEL_CFLAGS_PIE,
+#elif defined CONFIG_PPC64
+	.cflags		= COMPEL_CFLAGS_PIE,
+#else
+#error "CONFIG_<ARCH> not defined, or unsupported ARCH"
+#endif
 };
 
 piegen_opt_t opts = {};
@@ -114,24 +110,9 @@ static void cli_log(unsigned int lvl, const char *fmt, va_list parms)
 }
 
 static int usage(int rc) {
-	int i = 0;
 	printf(
 "Usage:\n"
-"  compel --arch=ARCH cflags\n"
-"  compel --arch=ARCH ldflags\n"
-"    ARCH := { "
-);
-
-	/* Print list of known arches */
-	while (1) {
-		printf("%s", compel_cflags[i++].arch);
-		if (i == ARRAY_SIZE(compel_cflags))
-			break;
-		printf(" | ");
-	}
-
-	printf(
-" }\n"
+"  compel [--compat] cflags | ldflags\n"
 "  compel -f FILE -o FILE -p NAME [-l N] hgen\n"
 "    -f, --file FILE		input (parasite object) file name\n"
 "    -o, --output FILE		output (header) file name\n"
@@ -145,16 +126,21 @@ static int usage(int rc) {
 	return rc;
 }
 
+static void print_cflags(bool compat)
+{
+	printf("%s\n", compat ? flags.cflags_compat : flags.cflags);
+}
+
 int main(int argc, char *argv[])
 {
-	const char *current_cflags = NULL;
 	int log_level = DEFAULT_LOGLEVEL;
-	int opt, idx, i;
+	bool compat = false;
+	int opt, idx;
 	char *action;
 
-	static const char short_opts[] = "a:f:o:p:hVl:";
+	static const char short_opts[] = "cf:o:p:hVl:";
 	static struct option long_opts[] = {
-		{ "arch",	required_argument,	0, 'a' },
+		{ "compat",	no_argument,		0, 'c' },
 		{ "file",	required_argument,	0, 'f' },
 		{ "output",	required_argument,	0, 'o' },
 		{ "prefix",	required_argument,	0, 'p' },
@@ -170,18 +156,8 @@ int main(int argc, char *argv[])
 		if (opt == -1)
 			break;
 		switch (opt) {
-		case 'a':
-			for (i = 0; i < ARRAY_SIZE(compel_cflags); i++) {
-				if (!strcmp(optarg, compel_cflags[i].arch)) {
-					current_cflags = compel_cflags[i].cflags;
-					break;
-				}
-			}
-			if (!current_cflags) {
-				fprintf(stderr, "Error: unknown arch '%s'\n",
-						optarg);
-				return usage(1);
-			}
+		case 'c':
+			compat = true;
 			break;
 		case 'f':
 			opts.input_filename = optarg;
@@ -218,11 +194,7 @@ int main(int argc, char *argv[])
 	action = argv[optind++];
 
 	if (!strcmp(action, "cflags")) {
-		if (!current_cflags) {
-			fprintf(stderr, "Error: option --arch required\n");
-			return usage(1);
-		}
-		printf("%s", current_cflags);
+		print_cflags(compat);
 		return 0;
 	}
 
