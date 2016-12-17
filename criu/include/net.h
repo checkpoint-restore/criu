@@ -43,4 +43,8 @@ extern int veth_pair_add(char *in, char *out);
 extern int macvlan_ext_add(struct external *ext);
 extern int move_veth_to_bridge(void);
 
+extern int kerndat_link_nsid(void);
+extern int net_get_nsid(int rtsk, int fd, int *nsid);
+extern int kerndat_nsid(void);
+
 #endif /* __CR_NET_H__ */
