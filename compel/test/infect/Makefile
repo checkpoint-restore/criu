@@ -17,8 +17,8 @@ clean:
 victim: victim.c
 	$(CC) $(CFLAGS) -o $@ $^
 
-spy: spy.c | parasite.h
-	$(CC) $(CFLAGS) $(shell $(COMPEL) includes) -o $@ $^ $(COMPEL_LIBRARY)
+spy: spy.c parasite.h
+	$(CC) $(CFLAGS) $(shell $(COMPEL) includes) -o $@ $< $(COMPEL_LIBRARY)
 
 parasite.h: parasite.po
 	$(COMPEL) hgen -f $^ -l 4		\
