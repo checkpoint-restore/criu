@@ -4,10 +4,10 @@ PREFIX		?= /usr/local
 BINDIR		?= $(PREFIX)/bin
 SBINDIR		?= $(PREFIX)/sbin
 MANDIR		?= $(PREFIX)/share/man
-SYSTEMDUNITDIR	?= $(PREFIX)/lib/systemd/system/
-LOGROTATEDIR	?= $(PREFIX)/etc/logrotate.d/
+SYSTEMDUNITDIR	?= $(PREFIX)/lib/systemd/system
+LOGROTATEDIR	?= $(PREFIX)/etc/logrotate.d
 LIBDIR		?= $(PREFIX)/lib
-INCLUDEDIR	?= $(PREFIX)/include/
+INCLUDEDIR	?= $(PREFIX)/include
 LIBEXECDIR	?= $(PREFIX)/libexec
 
 #
