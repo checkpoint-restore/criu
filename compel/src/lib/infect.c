@@ -735,7 +735,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 	void *where = (void *)ctl->ictx.syscall_ip + BUILTIN_SYSCALL_SIZE;
 	uint8_t orig_code[MEMFD_FNAME_SZ] = MEMFD_FNAME;
 	pid_t pid = ctl->rpid;
-	unsigned long sret = -ENOSYS;
+	long sret = -ENOSYS;
 	int ret, fd, lfd;
 	bool __maybe_unused compat_task = !compel_mode_native(ctl);
 
@@ -1303,7 +1303,7 @@ int compel_stop_daemon(struct parasite_ctl *ctl)
 
 int compel_cure_remote(struct parasite_ctl *ctl)
 {
-	unsigned long ret;
+	long ret;
 
 	if (compel_stop_daemon(ctl))
 		return -1;

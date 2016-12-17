@@ -65,7 +65,7 @@ extern int compel_cure(struct parasite_ctl *ctl);
 extern void *compel_parasite_args_p(struct parasite_ctl *ctl);
 extern void *compel_parasite_args_s(struct parasite_ctl *ctl, int args_size);
 
-extern int compel_syscall(struct parasite_ctl *ctl, int nr, unsigned long *ret,
+extern int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 		unsigned long arg1,
 		unsigned long arg2,
 		unsigned long arg3,

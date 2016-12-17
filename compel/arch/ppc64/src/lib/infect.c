@@ -381,7 +381,7 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *ar
 	return save(arg, &regs, &fpregs);
 }
 
-int compel_syscall(struct parasite_ctl *ctl, int nr, unsigned long *ret,
+int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 		unsigned long arg1,
 		unsigned long arg2,
 		unsigned long arg3,
@@ -410,7 +410,7 @@ void *remote_mmap(struct parasite_ctl *ctl,
 		  void *addr, size_t length, int prot,
 		  int flags, int fd, off_t offset)
 {
-	unsigned long map = 0;
+	long map = 0;
 	int err;
 
 	err = compel_syscall(ctl, __NR_mmap, &map,
