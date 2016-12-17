@@ -1243,7 +1243,7 @@ static int do_dump_namespaces(struct ns_id *ns)
 	case CLONE_NEWNET:
 		pr_info("Dump NET namespace info %d via %d\n",
 				ns->id, ns->ns_pid);
-		ret = dump_net_ns(ns->id);
+		ret = dump_net_ns(ns);
 		break;
 	default:
 		pr_err("Unknown namespace flag %x\n", ns->nd->cflag);

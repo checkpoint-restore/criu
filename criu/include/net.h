@@ -11,7 +11,8 @@
 #endif
 
 struct cr_imgset;
-extern int dump_net_ns(int ns_id);
+struct ns_id;
+extern int dump_net_ns(struct ns_id *ns);
 extern int prepare_net_namespaces(void);
 extern void fini_net_namespaces(void);
 extern int netns_keep_nsfd(void);
