@@ -120,7 +120,7 @@ static int usage(int rc) {
 
 	fprintf(out,
 "Usage:\n"
-"  compel [--compat] includes | cflags | ldflags\n"
+"  compel [--compat] includes | cflags | ldflags | plugins\n"
 "  compel -f FILE -o FILE -p NAME [-l N] hgen\n"
 "    -f, --file FILE		input (parasite object) file name\n"
 "    -o, --output FILE		output (header) file name\n"
@@ -182,12 +182,25 @@ static void print_ldflags(bool compat)
 	}
 }
 
+static void print_plugins(const char *list[])
+{
+	while (*list != NULL) {
+		if (uninst_root)
+			printf("%s/plugins/%s.built-in.o\n",
+					uninst_root, *list);
+		else
+			printf("%s/compel/%s.built-in.o\n", LIBEXECDIR, *list);
+		list++;
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	int log_level = DEFAULT_LOGLEVEL;
 	bool compat = false;
 	int opt, idx;
 	char *action;
+	const char *plugins_list[] = { "std", NULL };
 
 	static const char short_opts[] = "cf:o:p:hVl:";
 	static struct option long_opts[] = {
@@ -257,6 +270,13 @@ int main(int argc, char *argv[])
 
 	if (!strcmp(action, "ldflags")) {
 		print_ldflags(compat);
+		return 0;
+	}
+
+	if (!strcmp(action, "plugins")) {
+		/* TODO: add option to specify additional plugins
+		 * if/when we'll have any */
+		print_plugins(plugins_list);
 		return 0;
 	}
 
