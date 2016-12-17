@@ -9,6 +9,7 @@ export ARCH_DIR PIE_DIR
 ifeq ($(filter clean mrproper,$(MAKECMDGOALS)),)
 	COMPEL_UAPI_INCLUDES	:= $(shell $(COMPEL_BIN) includes)
 	export COMPEL_UAPI_INCLUDES
+	COMPEL_LIBS		:= $(shell $(COMPEL_BIN) --static libs)
 endif
 
 #
@@ -65,7 +66,7 @@ PROGRAM-BUILTINS	+= images/built-in.o
 PROGRAM-BUILTINS	+= $(obj)/built-in.o
 PROGRAM-BUILTINS	+= $(ARCH-LIB)
 PROGRAM-BUILTINS	+= soccr/libsoccr.a
-PROGRAM-BUILTINS	+= compel/libcompel.a
+PROGRAM-BUILTINS	+= $(COMPEL_LIBS)
 
 $(obj)/built-in.o: pie
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) all

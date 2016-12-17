@@ -4,6 +4,9 @@ COMPEL_SO_VERSION	:= $(COMPEL_SO_VERSION_MAJOR)$(if $(COMPEL_SO_VERSION_MINOR),.
 COMPEL_SO_VERSION_CODE	:= $(shell expr $(COMPEL_SO_VERSION_MAJOR) \* 65536 \+ $(COMPEL_SO_VERSION_MINOR) \* 256 \+ $(COMPEL_SO_VERSION_SUBLEVEL))
 ccflags-y		+= -DINCLUDEDIR=\"$(INCLUDEDIR)\"
 ccflags-y		+= -DLIBEXECDIR=\"$(LIBEXECDIR)\"
+ccflags-y		+= -DLIBDIR=\"$(LIBDIR)\"
+ccflags-y		+= -DSTATIC_LIB=\"$(LIBCOMPEL_A)\"
+ccflags-y		+= -DDYN_LIB=\"$(LIBCOMPEL_SO).$(COMPEL_SO_VERSION_MAJOR)\"
 ccflags-y		+= -iquote compel/arch/$(ARCH)/src/lib/include
 ccflags-y		+= -iquote compel/include
 ccflags-y		+= -fno-strict-aliasing
