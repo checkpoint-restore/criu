@@ -195,6 +195,7 @@ TST_NOFILE	:=				\
 		thread_different_uid_gid	\
 		pipe03				\
 		netns_sub			\
+		netns_sub_veth			\
 #		jobctl00			\
 
 include ../Makefile.inc
