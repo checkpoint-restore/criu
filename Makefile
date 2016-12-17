@@ -173,12 +173,15 @@ endif
 	$(Q) echo "#define CRIU_GITID \"$(GITID)\""				>> $@
 	$(Q) echo "#endif /* __CR_VERSION_H__ */"				>> $@
 
+criu-deps	+= $(VERSION_HEADER)
+
 #
 # Setup proper link for asm headers in common code.
 include/common/asm: include/common/arch/$(ARCH)/asm
 	$(call msg-gen, $@)
 	$(Q) ln -s ./arch/$(ARCH)/asm $@
-$(VERSION_HEADER): include/common/asm
+
+criu-deps	+= include/common/asm
 
 #
 # Configure variables.
@@ -194,6 +197,7 @@ endif
 # Protobuf images first, they are not depending
 # on anything else.
 $(eval $(call gen-built-in,images))
+criu-deps	+= images/built-in.o
 
 .PHONY: .FORCE
 
@@ -213,6 +217,7 @@ soccr/%: $(SOCCR_CONFIG) .FORCE
 soccr/built-in.o: $(SOCCR_CONFIG) .FORCE
 	$(Q) $(MAKE) $(build)=soccr all
 $(SOCCR_A): |soccr/built-in.o
+criu-deps	+= $(SOCCR_A)
 
 #
 # CRIU building done in own directory
@@ -222,9 +227,9 @@ $(SOCCR_A): |soccr/built-in.o
 #
 # But note that we're already included
 # the nmk so we can reuse it there.
-criu/%: images/built-in.o compel/plugins/std.built-in.o compel/libcompel.a compel/compel-host-bin $(VERSION_HEADER) .FORCE
+criu/%: $(criu-deps) .FORCE
 	$(Q) $(MAKE) $(build)=criu $@
-criu: images/built-in.o compel/plugins/std.built-in.o compel/libcompel.a compel/compel-host-bin $(SOCCR_A) $(VERSION_HEADER)
+criu: $(criu-deps)
 	$(Q) $(MAKE) $(build)=criu all
 .PHONY: criu
 

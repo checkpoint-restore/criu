@@ -27,11 +27,14 @@ compel-plugins		+= compel/plugins/std.built-in.o
 LIBCOMPEL_SO		:= libcompel.so
 LIBCOMPEL_A		:= libcompel.a
 export LIBCOMPEL_SO LIBCOMPEL_A
+criu-deps		+= compel/$(LIBCOMPEL_A)
 
 #
 # Compel itself.
 compel/%: $(compel-deps) $(compel-plugins) .FORCE
 	$(Q) $(MAKE) $(build)=compel $@
+
+criu-deps		+= compel/compel-host-bin
 
 #
 # Plugins
