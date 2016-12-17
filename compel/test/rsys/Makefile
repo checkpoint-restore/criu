@@ -1,9 +1,6 @@
-ifeq ($(ARCH),)
-        ARCH := x86
-endif
+CC	:= gcc
+CFLAGS	?= -O2 -g -Wall -Werror
 
-# FIXME -- generate common symlink in compel/uapi
-COMMON_IDIR	:= ../../../include
 COMPEL_IDIR	:= ../../../compel/include/uapi
 COMPEL_LIBRARY	:= ../../../compel/libcompel.a
 
@@ -14,7 +11,7 @@ clean:
 	rm -f spy
 
 victim: victim.c
-	gcc -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
-spy: spy.c $(COMPEL_LIBRARY)
-	gcc -Werror -I$(COMPEL_IDIR) -I$(COMMON_IDIR) -o $@ $^
+spy: spy.c
+	$(CC) $(CFLAGS) -I$(COMPEL_IDIR) -o $@ $^ $(COMPEL_LIBRARY)
