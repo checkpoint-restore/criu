@@ -1,6 +1,5 @@
 target		+= parasite restorer
 
-compel_std	:= $(SRC_DIR)/compel/plugins/std.built-in.o
 parasite-obj-e	+= ./compel/plugins/std.built-in.o
 restorer-obj-e	+= ./compel/plugins/std.built-in.o
 
@@ -36,6 +35,7 @@ ccflags-y	+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
 
 ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
         CFLAGS	+= $(shell $(COMPEL_BIN) cflags)
+	compel_std	:= $(shell $(COMPEL_BIN) plugins)
 endif
 
 ifeq ($(SRCARCH),arm)

@@ -2,7 +2,6 @@ CC	:= gcc
 CFLAGS	?= -O2 -g -Wall -Werror
 
 COMPEL		:= ../../../compel/compel-host
-COMPEL_PLUGINS	:= ../../../compel/plugins
 COMPEL_LIBRARY	:= ../../../compel/libcompel.a
 
 all: victim spy
@@ -25,8 +24,8 @@ parasite.h: parasite.po
 		-p parasite			\
 		-o $@
 
-parasite.po: parasite.o $(COMPEL_PLUGINS)/std.built-in.o
-	ld $(shell $(COMPEL) ldflags) -o $@ $^
+parasite.po: parasite.o
+	ld $(shell $(COMPEL) ldflags) -o $@ $^ $(shell $(COMPEL) plugins)
 
 parasite.o: parasite.c
 	$(CC) $(CFLAGS) -c $(shell $(COMPEL) cflags) -o $@ $^
