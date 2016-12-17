@@ -14,15 +14,15 @@ $(COMPEL_VERSION_HEADER): $(SRC_DIR)/Makefile.versions
 	$(Q) echo "#define COMPEL_SO_VERSION_SUBLEVEL " $(COMPEL_SO_VERSION_SUBLEVEL)	>> $(COMPEL_VERSION_HEADER)
 	$(Q) echo "#endif /* COMPEL_SO_VERSION_H__ */"					>> $(COMPEL_VERSION_HEADER)
 
-$(SRC_DIR)/compel/include/asm: $(SRC_DIR)/compel/arch/$(ARCH)/src/lib/include
+compel/include/asm:
 	$(call msg-gen, $@)
-	$(Q) ln -s $^ $@
-$(COMPEL_VERSION_HEADER): $(SRC_DIR)/compel/include/asm
+	$(Q) ln -s ../arch/$(ARCH)/src/lib/include $@
 
-compel-deps		+= $(SRC_DIR)/compel/include/asm
+compel-deps		+= compel/include/asm
 compel-deps		+= $(COMPEL_VERSION_HEADER)
 compel-deps		+= $(CONFIG_HEADER)
 compel-deps		+= include/common/asm
+compel-plugins		+= compel/plugins/std.built-in.o
 
 LIBCOMPEL_SO		:= libcompel.so
 LIBCOMPEL_A		:= libcompel.a
@@ -30,7 +30,7 @@ export LIBCOMPEL_SO LIBCOMPEL_A
 
 #
 # Compel itself.
-compel/%: $(compel-deps) compel/plugins/std.built-in.o .FORCE
+compel/%: $(compel-deps) $(compel-plugins) .FORCE
 	$(Q) $(MAKE) $(build)=compel $@
 
 #
@@ -61,4 +61,4 @@ compel/$(LIBCOMPEL_SO): compel/$(LIBCOMPEL_A)
 
 compel-install-targets	+= compel/$(LIBCOMPEL_SO)
 compel-install-targets	+= compel/compel
-compel-install-targets	+= compel/plugins/std.built-in.o
+compel-install-targets	+= $(compel-plugins)
