@@ -266,7 +266,6 @@ mrproper: subclean
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(RM) $(COMPEL_VERSION_HEADER)
 	$(Q) $(RM) include/common/asm
-	$(Q) $(RM) compel/include/uapi/compel
 	$(Q) $(RM) compel/include/uapi/asm
 	$(Q) $(RM) compel/include/asm
 	$(Q) $(RM) cscope.*
