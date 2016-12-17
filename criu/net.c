@@ -13,7 +13,9 @@
 #include <sys/types.h>
 #include <net/if.h>
 #include <linux/sockios.h>
+#include <libnl3/netlink/attr.h>
 #include <libnl3/netlink/msg.h>
+#include <libnl3/netlink/netlink.h>
 
 #include "../soccr/soccr.h"
 
@@ -41,6 +43,8 @@
 
 #ifndef IFLA_LINK_NETNSID
 #define IFLA_LINK_NETNSID	37
+#undef IFLA_MAX
+#define IFLA_MAX IFLA_LINK_NETNSID
 #endif
 
 #ifndef RTM_NEWNSID
@@ -2461,4 +2465,216 @@ int move_veth_to_bridge(void)
 		close(sk);
 
 	return ret;
+}
+
+#if NLA_TYPE_MAX < 14
+#define NLA_S32 14
+#endif
+
+#ifndef NETNSA_MAX
+/* Attributes of RTM_NEWNSID/RTM_GETNSID messages */
+enum {
+        NETNSA_NONE,
+#define NETNSA_NSID_NOT_ASSIGNED -1
+        NETNSA_NSID,
+        NETNSA_PID,
+        NETNSA_FD,
+        __NETNSA_MAX,
+};
+
+#define NETNSA_MAX              (__NETNSA_MAX - 1)
+#endif
+
+static struct nla_policy rtnl_net_policy[NETNSA_MAX + 1] = {
+        [NETNSA_NONE]           = { .type = NLA_UNSPEC },
+        [NETNSA_NSID]           = { .type = NLA_S32 },
+        [NETNSA_PID]            = { .type = NLA_U32 },
+        [NETNSA_FD]             = { .type = NLA_U32 },
+};
+
+static int nsid_cb(struct nlmsghdr *msg, struct ns_id *ns, void *arg)
+{
+	struct nlattr *tb[NETNSA_MAX + 1];
+	int err;
+
+	err = nlmsg_parse(msg, sizeof(struct rtgenmsg), tb,
+				NETNSA_MAX, rtnl_net_policy);
+	if (err < 0)
+		return NL_STOP;
+
+	if (tb[NETNSA_NSID])
+		*((int *)arg) = nla_get_s32(tb[NETNSA_NSID]);
+
+	return 0;
+}
+
+int net_get_nsid(int rtsk, int pid, int *nsid)
+{
+	struct {
+		struct nlmsghdr nlh;
+		struct rtgenmsg g;
+		char msg[128];
+	} req;
+	int32_t id = INT_MIN;
+
+	memset(&req, 0, sizeof(req));
+	req.nlh.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtgenmsg));
+	req.nlh.nlmsg_type = RTM_GETNSID;
+	req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req.nlh.nlmsg_seq = CR_NLMSG_SEQ;
+	if (addattr_l(&req.nlh, sizeof(req), NETNSA_PID, &pid, sizeof(pid)))
+		return -1;
+
+	if (do_rtnl_req(rtsk, &req, req.nlh.nlmsg_len, nsid_cb, NULL, NULL, (void *) &id) < 0)
+		return -1;
+
+	if (id == INT_MIN)
+		return -1;
+
+	*nsid = id;
+
+	return 0;
+}
+
+
+static int nsid_link_info(NetDeviceEntry *nde, struct newlink_req *req)
+{
+	struct rtattr *veth_data, *peer_data;
+	struct ifinfomsg ifm;
+
+	addattr_l(&req->h, sizeof(*req), IFLA_INFO_KIND, "veth", 4);
+
+	veth_data = NLMSG_TAIL(&req->h);
+	addattr_l(&req->h, sizeof(*req), IFLA_INFO_DATA, NULL, 0);
+	peer_data = NLMSG_TAIL(&req->h);
+	memset(&ifm, 0, sizeof(ifm));
+
+	ifm.ifi_index = nde->peer_ifindex;
+	addattr_l(&req->h, sizeof(*req), VETH_INFO_PEER, &ifm, sizeof(ifm));
+
+	addattr_l(&req->h, sizeof(*req), IFLA_NET_NS_FD, &nde->peer_nsid, sizeof(int));
+	peer_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)peer_data;
+	veth_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)veth_data;
+
+	return 0;
+}
+
+static int check_one_link_nsid(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
+{
+	bool *has_link_nsid = arg;
+	struct ifinfomsg *ifi;
+	int len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
+	struct nlattr *tb[IFLA_MAX + 1];
+
+	ifi = NLMSG_DATA(hdr);
+
+	if (len < 0) {
+		pr_err("No iflas for link %d\n", ifi->ifi_index);
+		return -1;
+	}
+
+	nlmsg_parse(hdr, sizeof(struct ifinfomsg), tb, IFLA_MAX, NULL);
+	pr_info("\tLD: Got link %d, type %d\n", ifi->ifi_index, ifi->ifi_type);
+
+	if (tb[IFLA_LINK_NETNSID])
+		*has_link_nsid = true;
+
+	return 0;
+}
+
+static int check_link_nsid(int rtsk, void *args)
+{
+	struct {
+		struct nlmsghdr nlh;
+		struct rtgenmsg g;
+	} req;
+
+	pr_info("Dumping netns links\n");
+
+	memset(&req, 0, sizeof(req));
+	req.nlh.nlmsg_len = sizeof(req);
+	req.nlh.nlmsg_type = RTM_GETLINK;
+	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
+	req.nlh.nlmsg_pid = 0;
+	req.nlh.nlmsg_seq = CR_NLMSG_SEQ;
+	req.g.rtgen_family = AF_PACKET;
+
+	return do_rtnl_req(rtsk, &req, sizeof(req), check_one_link_nsid, NULL, NULL, args);
+}
+
+int kerndat_link_nsid()
+{
+	int status;
+	pid_t pid;
+
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("Unable to fork a process");
+		return -1;
+	}
+
+	if (pid == 0) {
+		NetDeviceEntry nde = NET_DEVICE_ENTRY__INIT;
+		int nsfd, sk, ret;
+
+		sk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+		if (sk < 0) {
+			pr_perror("Unable to create a netlink socket");
+			exit(1);
+		}
+
+		if (unshare(CLONE_NEWNET)) {
+			pr_perror("Unable create a network namespace");
+			exit(1);
+		}
+
+		nsfd = open_proc(PROC_SELF, "ns/net");
+		if (nsfd < 0)
+			exit(1);
+
+		if (unshare(CLONE_NEWNET)) {
+			pr_perror("Unable create a network namespace");
+			exit(1);
+		}
+
+		nde.type = ND_TYPE__VETH;
+		nde.name = "veth";
+		nde.ifindex = 10;
+		nde.mtu = 1500;
+		nde.peer_nsid = nsfd;
+		nde.peer_ifindex = 11;
+		nde.has_peer_ifindex = true;
+		nde.has_peer_nsid = true;
+
+		ret = restore_one_link(&nde, sk, nsid_link_info, NULL);
+		if (ret) {
+			pr_err("Unable to create a veth pair: %d\n", ret);
+			exit(1);
+		}
+
+		bool has_link_nsid = false;
+		if (check_link_nsid(sk, &has_link_nsid))
+			exit(1);
+
+		if (!has_link_nsid)
+			exit(5);
+
+		close(sk);
+
+		exit(0);
+	}
+
+	if (waitpid(pid, &status, 0) != pid) {
+		pr_perror("Unable to wait a process");
+		return -1;
+	}
+
+	if (status) {
+		pr_warn("NSID isn't reported for network links\n");
+		return -1;
+	}
+
+	kdat.has_link_nsid = true;
+
+	return 0;
 }
