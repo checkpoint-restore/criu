@@ -1,9 +1,7 @@
-ifeq ($(ARCH),)
-        ARCH := x86
-endif
+CC	:= gcc
+CFLAGS	?= -O2 -g -Wall -Werror
+ARCH	?= x86
 
-# FIXME -- generate common symlink in compel/uapi
-COMMON_IDIR	:= ../../../include
 COMPEL		:= ../../../compel/compel-host
 COMPEL_IDIR	:= ../../../compel/include/uapi
 COMPEL_PACK_LDS	:= ../../../compel/arch/$(ARCH)/scripts/compel-pack.lds.S
@@ -20,10 +18,10 @@ clean:
 	rm -f parasite.o
 
 victim: victim.c
-	gcc -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
-spy: spy.c $(COMPEL_LIBRARY) | parasite.h
-	gcc -Werror -I$(COMPEL_IDIR) -I$(COMMON_IDIR) -o $@ $^
+spy: spy.c | parasite.h
+	$(CC) $(CFLAGS) -I$(COMPEL_IDIR) -o $@ $^ $(COMPEL_LIBRARY)
 
 parasite.h: parasite.po
 	$(COMPEL) hgen -f $^ -l 4		\
@@ -34,4 +32,4 @@ parasite.po: parasite.o $(COMPEL_PLUGINS)/std.built-in.o
 	ld -r -T $(COMPEL_PACK_LDS) -o $@ $^
 
 parasite.o: parasite.c
-	gcc -c $(shell $(COMPEL) --arch=$(ARCH) cflags) -I$(COMPEL_IDIR) -o $@ $^
+	$(CC) $(CFLAGS) -c $(shell $(COMPEL) --arch=$(ARCH) cflags) -I$(COMPEL_IDIR) -o $@ $^
