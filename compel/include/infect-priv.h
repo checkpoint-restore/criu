@@ -55,7 +55,7 @@ int parasite_wait_ack(int sockfd, unsigned int cmd, struct ctl_msg *m);
 
 /* XXX -- remove with cr-exec.c */
 extern int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size);
-extern int compel_syscall(struct parasite_ctl *ctl, int nr, unsigned long *ret,
+extern int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 			  unsigned long arg1, unsigned long arg2,
 			  unsigned long arg3, unsigned long arg4,
 			  unsigned long arg5, unsigned long arg6);

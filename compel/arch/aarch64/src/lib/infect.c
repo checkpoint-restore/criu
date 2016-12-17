@@ -83,7 +83,7 @@ err:
 	return ret;
 }
 
-int compel_syscall(struct parasite_ctl *ctl, int nr, unsigned long *ret,
+int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 					unsigned long arg1,
 					unsigned long arg2,
 					unsigned long arg3,
@@ -114,7 +114,7 @@ void *remote_mmap(struct parasite_ctl *ctl,
 		void *addr, size_t length, int prot,
 		int flags, int fd, off_t offset)
 {
-	unsigned long map;
+	long map;
 	int err;
 
 	err = compel_syscall(ctl, __NR_mmap, &map,
