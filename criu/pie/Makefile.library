@@ -42,7 +42,6 @@ iquotes			+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
 iquotes			+= -iquote $(SRC_DIR) -iquote $(SRC_DIR)/criu/include -iquote $(SRC_DIR)/include
 CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) $(iquotes)
 asflags-y		:= -D__ASSEMBLY__ $(iquotes)
-ccflags-y		+= -I compel/plugins/include/uapi
 ccflags-y		+= -I compel/include/uapi
 
 ifeq ($(SRCARCH),arm)
