@@ -51,11 +51,7 @@ static const compel_cflags_t compel_cflags[] = {
 	},
 };
 
-piegen_opt_t opts = {
-	.input_filename		= NULL,
-	.output_filename	= NULL,
-	.fout			= NULL,
-};
+piegen_opt_t opts = {};
 
 static int piegen(void)
 {
