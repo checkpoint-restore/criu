@@ -1,9 +1,7 @@
 CC	:= gcc
 CFLAGS	?= -O2 -g -Wall -Werror
-ARCH	?= x86
 
 COMPEL		:= ../../../compel/compel-host
-COMPEL_PACK_LDS	:= ../../../compel/arch/$(ARCH)/scripts/compel-pack.lds.S
 COMPEL_PLUGINS	:= ../../../compel/plugins
 COMPEL_LIBRARY	:= ../../../compel/libcompel.a
 
@@ -28,7 +26,7 @@ parasite.h: parasite.po
 		-o $@
 
 parasite.po: parasite.o $(COMPEL_PLUGINS)/std.built-in.o
-	ld -r -T $(COMPEL_PACK_LDS) -o $@ $^
+	ld $(shell $(COMPEL) ldflags) -o $@ $^
 
 parasite.o: parasite.c
 	$(CC) $(CFLAGS) -c $(shell $(COMPEL) cflags) -o $@ $^

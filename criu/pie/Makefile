@@ -1,6 +1,5 @@
 target		+= parasite restorer
 
-compel_lds	:= $(SRC_DIR)/compel/arch/$(ARCH)/scripts/compel-pack.lds.S
 compel_std	:= $(SRC_DIR)/compel/plugins/std.built-in.o
 parasite-obj-e	+= ./compel/plugins/std.built-in.o
 restorer-obj-e	+= ./compel/plugins/std.built-in.o
@@ -57,9 +56,9 @@ endif
 
 $(obj)/restorer.built-in.o: $(compel_std)
 $(obj)/parasite.built-in.o: $(compel_std)
-$(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/pie.lib.a $(compel_lds)
+$(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/pie.lib.a
 	$(call msg-gen, $@)
-	$(Q) $(LD) -r -T $(compel_lds) -o $@ $< $(obj)/pie.lib.a
+	$(Q) $(LD) $(shell $(COMPEL_BIN) ldflags) -o $@ $< $(obj)/pie.lib.a
 
 $(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel-host-bin
 	$(call msg-gen, $@)
