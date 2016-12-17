@@ -3,7 +3,6 @@ builtin-name		:= crtools.built-in.o
 ccflags-y		+= -iquote $(obj) -iquote $(SRC_DIR) -iquote $(obj)/include
 ccflags-y		+= -iquote $(SRC_DIR)/criu/include -iquote $(SRC_DIR)/include
 ccflags-y		+= -I compel/include/uapi
-ccflags-y		+= -I compel/plugins/include/uapi
 
 asflags-y		+= -Wstrict-prototypes -Wa,--noexecstack
 asflags-y		+= -D__ASSEMBLY__ -nostdlib -fomit-frame-pointer

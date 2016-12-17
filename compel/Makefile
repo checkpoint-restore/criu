@@ -5,14 +5,12 @@ COMPEL_SO_VERSION_CODE	:= $(shell expr $(COMPEL_SO_VERSION_MAJOR) \* 65536 \+ $(
 ccflags-y		+= -DINCLUDEDIR=\"$(INCLUDEDIR)\"
 ccflags-y		+= -iquote compel/arch/$(ARCH)/src/lib/include
 ccflags-y		+= -iquote compel/include
-ccflags-y		+= -iquote compel/plugins/include
 ccflags-y		+= -fno-strict-aliasing
 ccflags-y		+= -fPIC
 
 #
 # UAPI inclusion, referred as <compel/...>
 ccflags-y		+= -I compel/include/uapi
-ccflags-y		+= -I compel/plugins/include/uapi
 
 lib-name		:= $(LIBCOMPEL_A)
 lib-y			+= src/lib/log.o

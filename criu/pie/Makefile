@@ -31,7 +31,6 @@ CFLAGS		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 CFLAGS		+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
 
 ccflags-y	+= -I compel/include/uapi
-ccflags-y	+= -I compel/plugins/include/uapi
 ccflags-y	+= -DCR_NOGLIBC
 ccflags-y	+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 ccflags-y	+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
