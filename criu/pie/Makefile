@@ -58,7 +58,7 @@ $(obj)/restorer.built-in.o: $(compel_std)
 $(obj)/parasite.built-in.o: $(compel_std)
 $(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/pie.lib.a
 	$(call msg-gen, $@)
-	$(Q) $(LD) $(shell $(COMPEL_BIN) ldflags) -o $@ $< $(obj)/pie.lib.a
+	$(Q) $(LD) $(shell $(COMPEL_BIN) ldflags) -o $@ $^
 
 $(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel-host-bin
 	$(call msg-gen, $@)
