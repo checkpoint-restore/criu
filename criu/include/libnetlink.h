@@ -11,6 +11,8 @@ extern int do_rtnl_req(int nl, void *req, int size,
 extern int addattr_l(struct nlmsghdr *n, int maxlen, int type,
 		const void *data, int alen);
 
+extern int32_t nla_get_s32(const struct nlattr *nla);
+
 #define NLMSG_TAIL(nmsg) \
 	((struct rtattr *) (((void *) (nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
 
