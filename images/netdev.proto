@@ -42,7 +42,20 @@ message net_device_entry {
 
 	optional macvlan_link_entry	macvlan		= 11;
 
+	optional uint32 peer_ifindex	= 12;
+	optional uint32 peer_nsid	= 13;
 	optional sit_entry sit		= 15;
+}
+
+message netns_id {
+	/* This is CRIU's id which is allocated for each namespace */
+	required uint32	target_ns_id	= 1;
+	/*
+	 * This is an id which can be used to address this namespace
+	 * from another network namespace. Each network namespace has
+	 * one set of id-s for other namespaces.
+	 */
+	required int32	netnsid_value	= 2;
 }
 
 message netns_entry {
@@ -54,4 +67,6 @@ message netns_entry {
 
 	repeated sysctl_entry def_conf6	= 5;
 	repeated sysctl_entry all_conf6	= 6;
+
+	repeated netns_id nsids		= 7;
 }
