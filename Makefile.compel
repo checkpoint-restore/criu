@@ -1,3 +1,6 @@
+COMPEL_BIN		:= $(SRC_DIR)/compel/compel-host
+export COMPEL_BIN
+
 COMPEL_VERSION_HEADER	:= compel/include/version.h
 
 $(COMPEL_VERSION_HEADER): $(SRC_DIR)/Makefile.versions
