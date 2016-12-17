@@ -14,20 +14,12 @@ $(COMPEL_VERSION_HEADER): $(SRC_DIR)/Makefile.versions
 	$(Q) echo "#define COMPEL_SO_VERSION_SUBLEVEL " $(COMPEL_SO_VERSION_SUBLEVEL)	>> $(COMPEL_VERSION_HEADER)
 	$(Q) echo "#endif /* COMPEL_SO_VERSION_H__ */"					>> $(COMPEL_VERSION_HEADER)
 
-$(SRC_DIR)/compel/include/uapi/asm: $(SRC_DIR)/compel/arch/$(ARCH)/src/lib/include/uapi/asm
-	$(call msg-gen, $@)
-	$(Q) ln -s $^ $@
-$(COMPEL_VERSION_HEADER): $(SRC_DIR)/compel/include/uapi/asm
-
 $(SRC_DIR)/compel/include/asm: $(SRC_DIR)/compel/arch/$(ARCH)/src/lib/include
 	$(call msg-gen, $@)
 	$(Q) ln -s $^ $@
 $(COMPEL_VERSION_HEADER): $(SRC_DIR)/compel/include/asm
 
-compel-uapi-links	+= $(SRC_DIR)/compel/include/uapi/asm
-compel-uapi-links	+= $(SRC_DIR)/compel/include/asm
-
-compel-deps		+= $(compel-uapi-links)
+compel-deps		+= $(SRC_DIR)/compel/include/asm
 compel-deps		+= $(COMPEL_VERSION_HEADER)
 compel-deps		+= $(CONFIG_HEADER)
 compel-deps		+= include/common/asm
