@@ -121,6 +121,7 @@ static int usage(int rc) {
 	fprintf(out,
 "Usage:\n"
 "  compel [--compat] includes | cflags | ldflags | plugins\n"
+"  compel [--compat] [--static] libs\n"
 "  compel -f FILE -o FILE -p NAME [-l N] hgen\n"
 "    -f, --file FILE		input (parasite object) file name\n"
 "    -o, --output FILE		output (header) file name\n"
@@ -194,17 +195,37 @@ static void print_plugins(const char *list[])
 	}
 }
 
+static int print_libs(bool is_static)
+{
+	if (uninst_root) {
+		if (!is_static) {
+			fprintf(stderr, "Compel is not installed, can "
+					"only link with static libraries "
+					"(use --static)\n");
+			return 1;
+		}
+		printf("%s/%s\n", uninst_root, STATIC_LIB);
+	}
+	else {
+		printf("%s/%s\n", LIBDIR, (is_static) ? STATIC_LIB : DYN_LIB);
+	}
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int log_level = DEFAULT_LOGLEVEL;
 	bool compat = false;
+	bool is_static = false;
 	int opt, idx;
 	char *action;
 	const char *plugins_list[] = { "std", NULL };
 
-	static const char short_opts[] = "cf:o:p:hVl:";
+	static const char short_opts[] = "csf:o:p:hVl:";
 	static struct option long_opts[] = {
 		{ "compat",	no_argument,		0, 'c' },
+		{ "static",	no_argument,		0, 's' },
 		{ "file",	required_argument,	0, 'f' },
 		{ "output",	required_argument,	0, 'o' },
 		{ "prefix",	required_argument,	0, 'p' },
@@ -224,6 +245,9 @@ int main(int argc, char *argv[])
 		switch (opt) {
 		case 'c':
 			compat = true;
+			break;
+		case 's':
+			is_static = true;
 			break;
 		case 'f':
 			opts.input_filename = optarg;
@@ -278,6 +302,10 @@ int main(int argc, char *argv[])
 		 * if/when we'll have any */
 		print_plugins(plugins_list);
 		return 0;
+	}
+
+	if (!strcmp(action, "libs")) {
+		return print_libs(is_static);
 	}
 
 	if (!strcmp(action, "hgen")) {
