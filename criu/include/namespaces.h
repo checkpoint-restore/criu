@@ -88,6 +88,12 @@ struct netns_id {
 	struct list_head	node;
 };
 
+struct net_link {
+	unsigned int		ifindex;
+	bool			created;
+	struct list_head	node;
+};
+
 struct ns_id {
 	unsigned int kid;
 	unsigned int id;
@@ -135,6 +141,7 @@ struct ns_id {
 			int nlsk;	/* for sockets collection */
 			int seqsk;	/* to talk to parasite daemons */
 			struct list_head ids;
+			struct list_head links;
 		} net;
 		struct {
 			UsernsEntry *e;

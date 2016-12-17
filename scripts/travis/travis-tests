@@ -4,7 +4,7 @@ set -x -e
 TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c0-dev libaio-dev
 		libprotobuf-dev protobuf-compiler python-ipaddr libcap-dev
 		libnl-3-dev gcc-multilib gdb bash python-protobuf
-		libnet-dev util-linux asciidoc xmlto"
+		libnet-dev util-linux asciidoc xmlto libnl-route-3-dev"
 
 travis_prep () {
 	[ -n "$SKIP_TRAVIS_PREP" ] && return
