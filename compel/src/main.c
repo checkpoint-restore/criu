@@ -48,6 +48,7 @@ static const flags_t flags = {
 };
 
 piegen_opt_t opts = {};
+const char *uninst_root;
 
 static int piegen(void)
 {
@@ -114,7 +115,7 @@ static int usage(int rc) {
 
 	fprintf(out,
 "Usage:\n"
-"  compel [--compat] cflags | ldflags\n"
+"  compel [--compat] includes | cflags | ldflags\n"
 "  compel -f FILE -o FILE -p NAME [-l N] hgen\n"
 "    -f, --file FILE		input (parasite object) file name\n"
 "    -o, --output FILE		output (header) file name\n"
@@ -128,9 +129,35 @@ static int usage(int rc) {
 	return rc;
 }
 
+static void print_includes(void)
+{
+	int i;
+	/* list of standard include dirs (built into C preprocessor) */
+	const char *standard_includes[] = {
+		"/usr/include",
+		"/usr/local/include",
+	};
+
+	/* I am not installed, called via a wrapper */
+	if (uninst_root) {
+		printf("-I %s/include/uapi\n", uninst_root);
+		return;
+	}
+
+	/* I am installed
+	 * Make sure to not print banalities */
+	for (i = 0; i < ARRAY_SIZE(standard_includes); i++)
+		if (strcmp(INCLUDEDIR, standard_includes[i]) == 0)
+			return;
+
+	/* Finally, print our non-standard include path */
+	printf("%s\n", "-I " INCLUDEDIR);
+}
+
 static void print_cflags(bool compat)
 {
 	printf("%s\n", compat ? flags.cflags_compat : flags.cflags);
+	print_includes();
 }
 
 int main(int argc, char *argv[])
@@ -151,6 +178,8 @@ int main(int argc, char *argv[])
 		{ "log-level",	required_argument,	0, 'l' },
 		{ },
 	};
+
+	uninst_root = getenv("COMPEL_UNINSTALLED_ROOTDIR");
 
 	while (1) {
 		idx = -1;
@@ -195,6 +224,10 @@ int main(int argc, char *argv[])
 	}
 	action = argv[optind++];
 
+	if (!strcmp(action, "includes")) {
+		print_includes();
+		return 0;
+	}
 	if (!strcmp(action, "cflags")) {
 		print_cflags(compat);
 		return 0;

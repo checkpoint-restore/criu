@@ -62,7 +62,7 @@ $(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/pie.lib.a $(compel_lds)
 	$(call msg-gen, $@)
 	$(Q) $(LD) -r -T $(compel_lds) -o $@ $< $(obj)/pie.lib.a
 
-$(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel-host
+$(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel-host-bin
 	$(call msg-gen, $@)
 	$(Q) $(SRC_DIR)/compel/compel-host hgen -f $<			\
 		-l 4							\
