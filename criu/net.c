@@ -1007,21 +1007,14 @@ out:
 
 }
 
-static int dump_links(struct ns_id *ns, struct cr_imgset *fds)
+static int dump_links(int rtsk, struct ns_id *ns, struct cr_imgset *fds)
 {
-	int sk, ret;
 	struct {
 		struct nlmsghdr nlh;
 		struct rtgenmsg g;
 	} req;
 
 	pr_info("Dumping netns links\n");
-
-	ret = sk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-	if (sk < 0) {
-		pr_perror("Can't open rtnl sock for net dump");
-		goto out;
-	}
 
 	memset(&req, 0, sizeof(req));
 	req.nlh.nlmsg_len = sizeof(req);
@@ -1031,10 +1024,7 @@ static int dump_links(struct ns_id *ns, struct cr_imgset *fds)
 	req.nlh.nlmsg_seq = CR_NLMSG_SEQ;
 	req.g.rtgen_family = AF_PACKET;
 
-	ret = do_rtnl_req(sk, &req, sizeof(req), dump_one_link, NULL, ns, fds);
-	close(sk);
-out:
-	return ret;
+	return do_rtnl_req(rtsk, &req, sizeof(req), dump_one_link, NULL, ns, fds);
 }
 
 static int restore_link_cb(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
@@ -1882,10 +1872,19 @@ int dump_net_ns(struct ns_id *ns)
 
 	ret = mount_ns_sysfs();
 	if (!(opts.empty_ns & CLONE_NEWNET)) {
+		int sk;
+
+		sk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+		if (sk < 0) {
+			pr_perror("Can't open rtnl sock for net dump");
+			ret = -1;
+		}
+
 		if (!ret)
-			ret = dump_netns_conf(ns, fds);
-		if (!ret)
-			ret = dump_links(ns, fds);
+			ret = dump_links(sk, ns, fds);
+
+		close(sk);
+
 		if (!ret)
 			ret = dump_ifaddr(fds);
 		if (!ret)
@@ -1894,6 +1893,8 @@ int dump_net_ns(struct ns_id *ns)
 			ret = dump_rule(fds);
 		if (!ret)
 			ret = dump_iptables(fds);
+		if (!ret)
+			ret = dump_netns_conf(ns, fds);
 	}
 	if (!ret)
 		ret = dump_nf_ct(fds, CR_FD_NETNF_CT);
