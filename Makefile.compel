@@ -62,9 +62,6 @@ compel/plugins/std.built-in.o: $(compel-deps) .FORCE
 compel/plugins/shmem.built-in.o: $(compel-deps) .FORCE
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 
-compel/plugins/fds.built-in.o: $(compel-deps) .FORCE
-	$(Q) $(MAKE) $(build)=compel/plugins $@
-
 compel/compel: compel/built-in.o compel/$(LIBCOMPEL_A) | $(compel-deps)
 	$(call msg-link, $@)
 	$(Q) $(CC) $(CFLAGS) $^ $(WRAPFLAGS) $(LDFLAGS) -rdynamic -o $@
