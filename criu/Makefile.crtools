@@ -1,5 +1,5 @@
 ccflags-y		+= -iquote criu/$(ARCH)
-ccflags-y		+= -I compel/include/uapi
+ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 
 obj-y			+= action-scripts.o
 obj-y			+= external.o

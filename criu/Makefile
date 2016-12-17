@@ -6,6 +6,11 @@ ARCH_DIR		:= criu/arch/$(SRCARCH)
 PIE_DIR			:= criu/pie
 export ARCH_DIR PIE_DIR
 
+ifeq ($(filter clean mrproper,$(MAKECMDGOALS)),)
+	COMPEL_UAPI_INCLUDES	:= $(shell $(COMPEL_BIN) includes)
+	export COMPEL_UAPI_INCLUDES
+endif
+
 #
 # General flags.
 ccflags-y		+= -fno-strict-aliasing
@@ -17,7 +22,7 @@ ccflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)
 ccflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
 ccflags-y		+= -iquote $(SRC_DIR)/
 ccflags-y		+= -I/usr/include/libnl3
-ccflags-y		+= -I compel/include/uapi
+ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 
 export ccflags-y
 
