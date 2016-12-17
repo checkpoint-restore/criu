@@ -17,7 +17,7 @@ tags
 TAGS
 Makefile.local
 compel/compel
-compel/compel-host
+compel/compel-host-bin
 images/*.c
 images/*.h
 images/google/protobuf/*.c
