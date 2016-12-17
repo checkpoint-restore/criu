@@ -50,10 +50,6 @@ BLOBS		+= $(obj)/restorer-blob.h $(obj)/parasite-blob.h
 
 target-name = $(patsubst criu/pie/%-blob.h,%,$(1))
 
-ifeq ($(strip $(V)),)
-        piegen_stdout := >/dev/null
-endif
-
 $(obj)/restorer.built-in.o: $(compel_std)
 $(obj)/parasite.built-in.o: $(compel_std)
 $(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/pie.lib.a
@@ -62,10 +58,7 @@ $(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/pie.lib.a
 
 $(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel-host-bin
 	$(call msg-gen, $@)
-	$(Q) $(COMPEL_BIN) hgen -f $<		\
-		-l 4				\
-		-p $(call target-name,$@)	\
-		-o $@ $(piegen_stdout)
+	$(Q) $(COMPEL_BIN) hgen -f $< -o $@
 
 all-y += $(BLOBS)
 # blobs and pields are in cleanup, rather than in mrproper because
