@@ -140,7 +140,7 @@ static int usage(int rc) {
 "    -f, --file FILE		input (parasite object) file name\n"
 "    -o, --output FILE		output (header) file name\n"
 "    -p, --prefix NAME		prefix for var names\n"
-"    -l, --log-level NUM	log level (default: %d)\n"
+"    -l, --log-level NUM		log level (default: %d)\n"
 "  compel -h|--help\n"
 "  compel -V|--version\n"
 , DEFAULT_LOGLEVEL
