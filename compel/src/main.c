@@ -25,22 +25,27 @@
 #define COMPEL_CFLAGS_PIE	CFLAGS_DEFAULT_SET "-fpie"
 #define COMPEL_CFLAGS_NOPIC	CFLAGS_DEFAULT_SET "-fno-pic"
 
-#define COMPEL_LDFLAGS_DEFAULT "-r -z noexecstack"
+#define COMPEL_LDFLAGS_COMMON	"-r -z noexecstack -T "
 
 typedef struct {
+	const char	*arch;		// dir name under arch/
 	const char	*cflags;
 	const char	*cflags_compat;
 } flags_t;
 
 static const flags_t flags = {
 #if defined CONFIG_X86_64
+	.arch		= "x86",
 	.cflags		= COMPEL_CFLAGS_PIE,
 	.cflags_compat	= COMPEL_CFLAGS_NOPIC,
 #elif defined CONFIG_AARCH64
+	.arch		= "aarch64",
 	.cflags		= COMPEL_CFLAGS_PIE,
 #elif defined(CONFIG_ARMV6) || defined(CONFIG_ARMV7)
+	.arch		= "arm",
 	.cflags		= COMPEL_CFLAGS_PIE,
 #elif defined CONFIG_PPC64
+	.arch		= "ppc64",
 	.cflags		= COMPEL_CFLAGS_PIE,
 #else
 #error "CONFIG_<ARCH> not defined, or unsupported ARCH"
@@ -160,6 +165,23 @@ static void print_cflags(bool compat)
 	print_includes();
 }
 
+static void print_ldflags(bool compat)
+{
+	const char *compat_str = (compat) ? "-compat" : "";
+
+	printf("%s", COMPEL_LDFLAGS_COMMON);
+
+	if (uninst_root) {
+		printf("%s/arch/%s/scripts/compel-pack%s.lds.S\n",
+				uninst_root, flags.arch, compat_str);
+	}
+	else {
+		printf("%s/compel/scripts/compel-pack%s.lds.S\n",
+				LIBEXECDIR, compat_str);
+
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	int log_level = DEFAULT_LOGLEVEL;
@@ -234,7 +256,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!strcmp(action, "ldflags")) {
-		printf("%s", COMPEL_LDFLAGS_DEFAULT);
+		print_ldflags(compat);
 		return 0;
 	}
 

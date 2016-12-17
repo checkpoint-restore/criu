@@ -3,6 +3,7 @@ include $(SRC_DIR)/Makefile.versions
 COMPEL_SO_VERSION	:= $(COMPEL_SO_VERSION_MAJOR)$(if $(COMPEL_SO_VERSION_MINOR),.$(COMPEL_SO_VERSION_MINOR))$(if $(COMPEL_SO_VERSION_SUBLEVEL),.$(COMPEL_SO_VERSION_SUBLEVEL))
 COMPEL_SO_VERSION_CODE	:= $(shell expr $(COMPEL_SO_VERSION_MAJOR) \* 65536 \+ $(COMPEL_SO_VERSION_MINOR) \* 256 \+ $(COMPEL_SO_VERSION_SUBLEVEL))
 ccflags-y		+= -DINCLUDEDIR=\"$(INCLUDEDIR)\"
+ccflags-y		+= -DLIBEXECDIR=\"$(LIBEXECDIR)\"
 ccflags-y		+= -iquote compel/arch/$(ARCH)/src/lib/include
 ccflags-y		+= -iquote compel/include
 ccflags-y		+= -fno-strict-aliasing
