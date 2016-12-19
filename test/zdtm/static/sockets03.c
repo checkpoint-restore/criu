@@ -35,6 +35,8 @@ int main(int argc, char *argv[])
 	int ret;
 
 	test_init(argc, argv);
+    
+	signal(SIGPIPE, SIG_IGN);
 
 	cwd = get_current_dir_name();
 	if (!cwd) {
