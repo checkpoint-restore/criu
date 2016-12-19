@@ -788,6 +788,11 @@ static int dump_one_sit(struct ifinfomsg *ifi, char *kind,
 	return dump_one_netdev(ND_TYPE__SIT, ifi, tb, fds, dump_sit);
 }
 
+static int list_one_link(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
+{
+	return 0;
+}
+
 static int dump_one_link(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
 	struct cr_imgset *fds = arg;
@@ -1005,6 +1010,34 @@ static int dump_nf_ct(struct cr_imgset *fds, int type)
 out:
 	return ret;
 
+}
+
+/*
+ * When we request information about a link, the kernel shows
+ * information about the pair device (netns id and idx).
+ * If a pair device lives in another namespace and this namespace
+ * doesn't have a netns ID in the current namespace, the kernel
+ * will generate it. So we need to list all links, before dumping
+ * netns indexes.
+ */
+static int list_links(int rtsk, void *args)
+{
+	struct {
+		struct nlmsghdr nlh;
+		struct rtgenmsg g;
+	} req;
+
+	pr_info("Dumping netns links\n");
+
+	memset(&req, 0, sizeof(req));
+	req.nlh.nlmsg_len = sizeof(req);
+	req.nlh.nlmsg_type = RTM_GETLINK;
+	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
+	req.nlh.nlmsg_pid = 0;
+	req.nlh.nlmsg_seq = CR_NLMSG_SEQ;
+	req.g.rtgen_family = AF_PACKET;
+
+	return do_rtnl_req(rtsk, &req, sizeof(req), list_one_link, NULL, NULL, args);
 }
 
 static int dump_links(int rtsk, struct ns_id *ns, struct cr_imgset *fds)
@@ -1612,13 +1645,32 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 	int size6 = ARRAY_SIZE(devconfs6);
 	char def_stable_secret[MAX_STR_CONF_LEN + 1] = {};
 	char all_stable_secret[MAX_STR_CONF_LEN + 1] = {};
+	NetnsId	*ids;
+	struct netns_id *p;
+
+	i = 0;
+	list_for_each_entry(p, &ns->net.ids, node)
+		i++;
 
 	o_buf = buf = xmalloc(
+			i * (sizeof(NetnsId*) + sizeof(NetnsId)) +
 			size4 * (sizeof(SysctlEntry*) + sizeof(SysctlEntry)) * 2 +
 			size6 * (sizeof(SysctlEntry*) + sizeof(SysctlEntry)) * 2
 		     );
 	if (!buf)
 		goto out;
+
+	netns.nsids = xptr_pull_s(&buf, i * sizeof(NetnsId*));
+	ids = xptr_pull_s(&buf, i * sizeof(NetnsId));
+	i = 0;
+	list_for_each_entry(p, &ns->net.ids, node) {
+		netns_id__init(&ids[i]);
+		ids[i].target_ns_id = p->target_ns_id;
+		ids[i].netnsid_value = p->netnsid_value;
+		netns.nsids[i] = ids + i;
+		i++;
+	}
+	netns.n_nsids = i;
 
 	netns.n_def_conf4 = size4;
 	netns.n_all_conf4 = size4;
@@ -1861,6 +1913,46 @@ static int mount_ns_sysfs(void)
 	return ns_sysfs_fd >= 0 ? 0 : -1;
 }
 
+struct net_id_arg {
+	struct ns_id *ns;
+	int sk;
+};
+
+static int collect_netns_id(struct ns_id *ns, void *oarg)
+{
+	struct net_id_arg *arg = oarg;
+	struct netns_id *netns_id;
+	int nsid = -1;
+
+	if (net_get_nsid(arg->sk, ns->ns_pid, &nsid))
+		return -1;
+
+	if (nsid == -1)
+		return 0;
+
+	netns_id = xmalloc(sizeof(*netns_id));
+	if (!netns_id)
+		return -1;
+
+	pr_debug("Fount the %d id for %d in %d\n", nsid, ns->id, arg->ns->id);
+	netns_id->target_ns_id = ns->id;
+	netns_id->netnsid_value = nsid;
+
+	list_add(&netns_id->node, &arg->ns->net.ids);
+
+	return 0;
+}
+
+static int dump_netns_ids(int rtsk, struct ns_id *ns)
+{
+	struct net_id_arg arg = {
+		.ns = ns,
+		.sk = rtsk,
+	};
+	return walk_namespaces(&net_ns_desc, collect_netns_id,
+			(void *)&arg);
+}
+
 int dump_net_ns(struct ns_id *ns)
 {
 	struct cr_imgset *fds;
@@ -1880,6 +1972,17 @@ int dump_net_ns(struct ns_id *ns)
 			ret = -1;
 		}
 
+		/*
+		 * If a device has a pair in another netns, the kernel generates
+		 * a netns ID for this netns when we request information about
+		 * the link.
+		 * So we need to get information about all links to be sure that
+		 * all related net namespaces have got netns id-s in this netns.
+		 */
+		if (!ret)
+			ret = list_links(sk, NULL);
+		if (!ret)
+			ret = dump_netns_ids(sk, ns);
 		if (!ret)
 			ret = dump_links(sk, ns, fds);
 
@@ -1908,6 +2011,45 @@ int dump_net_ns(struct ns_id *ns)
 	return ret;
 }
 
+static int net_set_nsid(int rtsk, int fd, int nsid);
+static int restore_netns_ids(struct ns_id *ns, NetnsEntry *netns)
+{
+	int i, sk, exit_code = -1;
+
+	sk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+	if (sk < 0) {
+		pr_perror("Can't open rtnl sock for net dump");
+		return -1;
+	}
+
+	for (i = 0; i < netns->n_nsids; i++) {
+		struct ns_id *tg_ns;
+		struct netns_id *id;
+
+		id = xmalloc(sizeof(*id));
+		if (!id)
+			goto out;
+		id->target_ns_id = netns->nsids[i]->target_ns_id;
+		id->netnsid_value = netns->nsids[i]->netnsid_value;
+		list_add(&id->node, &ns->net.ids);
+
+		tg_ns = lookup_ns_by_id(id->target_ns_id, &net_ns_desc);
+		if (tg_ns == NULL) {
+			pr_err("Unknown namespace: %d\n", id->target_ns_id);
+			goto out;
+		}
+
+		if (net_set_nsid(sk, tg_ns->net.ns_fd, id->netnsid_value))
+			goto out;
+	}
+
+	exit_code = 0;
+out:
+	close(sk);
+
+	return exit_code;
+}
+
 static int prepare_net_ns(struct ns_id *ns)
 {
 	int ret = 0, nsid = ns->id;
@@ -1915,6 +2057,8 @@ static int prepare_net_ns(struct ns_id *ns)
 
 	if (!(opts.empty_ns & CLONE_NEWNET)) {
 		ret = restore_netns_conf(nsid, &netns);
+		if (!ret)
+			ret = restore_netns_ids(ns, netns);
 		if (!ret)
 			ret = restore_links(nsid, &netns);
 		if (netns)
@@ -1935,25 +2079,29 @@ static int prepare_net_ns(struct ns_id *ns)
 	if (!ret)
 		ret = restore_nf_ct(nsid, CR_FD_NETNF_EXP);
 
+	if (!ret) {
+		int fd = ns->net.ns_fd;
+
+		ns->net.nsfd_id = fdstore_add(fd);
+		if (ns->net.nsfd_id < 0)
+			ret = -1;
+		close(fd);
+	}
+
+	ns->ns_populated = true;
+
 	return ret;
 }
 
 static int open_net_ns(struct ns_id *nsid)
 {
-	int fd, id;
+	int fd;
 
 	/* Pin one with a file descriptor */
 	fd = open_proc(PROC_SELF, "ns/net");
 	if (fd < 0)
 		return -1;
-
-	id = fdstore_add(fd);
-	close(fd);
-	if (id < 0) {
-		return -1;
-	}
-
-	nsid->net.nsfd_id = id;
+	nsid->net.ns_fd = fd;
 
 	return 0;
 }
@@ -1964,8 +2112,6 @@ static int do_create_net_ns(struct ns_id *ns)
 		pr_perror("Unable to create a new netns");
 		return -1;
 	}
-	if (prepare_net_ns(ns))
-		return -1;
 	if (open_net_ns(ns))
 		return -1;
 	return 0;
@@ -2014,6 +2160,17 @@ int prepare_net_namespaces()
 			if (do_create_net_ns(nsid))
 				goto err;
 		}
+	}
+
+	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
+		if (nsid->nd != &net_ns_desc)
+			continue;
+
+		if (switch_ns_by_fd(nsid->net.ns_fd, &net_ns_desc, NULL))
+			goto err;
+
+		if (prepare_net_ns(nsid))
+			goto err;
 	}
 
 	close_service_fd(NS_FD_OFF);
@@ -2505,6 +2662,30 @@ static int nsid_cb(struct nlmsghdr *msg, struct ns_id *ns, void *arg)
 
 	if (tb[NETNSA_NSID])
 		*((int *)arg) = nla_get_s32(tb[NETNSA_NSID]);
+
+	return 0;
+}
+
+static int net_set_nsid(int rtsk, int fd, int nsid)
+{
+	struct {
+		struct nlmsghdr nlh;
+		struct rtgenmsg g;
+		char msg[128];
+	} req;
+
+	memset(&req, 0, sizeof(req));
+	req.nlh.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtgenmsg));
+	req.nlh.nlmsg_type = RTM_NEWNSID;
+	req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req.nlh.nlmsg_seq = CR_NLMSG_SEQ;
+	if (addattr_l(&req.nlh, sizeof(req), NETNSA_FD, &fd, sizeof(fd)))
+		return -1;
+	if (addattr_l(&req.nlh, sizeof(req), NETNSA_NSID, &nsid, sizeof(nsid)))
+		return -1;
+
+	if (do_rtnl_req(rtsk, &req, req.nlh.nlmsg_len, NULL, NULL, NULL, NULL) < 0)
+		return -1;
 
 	return 0;
 }

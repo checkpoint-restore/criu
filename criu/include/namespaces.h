@@ -82,6 +82,12 @@ enum ns_type {
 	NS_OTHER,
 };
 
+struct netns_id {
+	unsigned		target_ns_id;
+	unsigned		netnsid_value;
+	struct list_head	node;
+};
+
 struct ns_id {
 	unsigned int kid;
 	unsigned int id;
@@ -111,9 +117,24 @@ struct ns_id {
 		} mnt;
 
 		struct {
-			int nsfd_id;	/* a namespace descriptor id in fdstore */
+
+			/*
+			 * ns_fd is used when network namespaces are being
+			 * restored. On this stage we access these file
+			 * descriptors many times and it is more efficient to
+			 * have them opened rather than to get them from fdstore.
+			 *
+			 * nsfd_id is used to restore sockets. On this stage we
+			 * can't use random file descriptors to not conflict
+			 * with restored file descriptors.
+			 */
+			union {
+				int nsfd_id;	/* a namespace descriptor id in fdstore */
+				int ns_fd;	/* a namespace file descriptor */
+			};
 			int nlsk;	/* for sockets collection */
 			int seqsk;	/* to talk to parasite daemons */
+			struct list_head ids;
 		} net;
 		struct {
 			UsernsEntry *e;
