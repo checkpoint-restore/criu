@@ -41,6 +41,7 @@ TST_NOFILE	:=				\
 		socket_dgram_data		\
 		packet_sock			\
 		packet_sock_mmap		\
+		packet_sock_spkt		\
 		sock_filter			\
 		msgque				\
 		inotify_system			\
