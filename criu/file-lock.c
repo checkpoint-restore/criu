@@ -205,6 +205,57 @@ static int lock_check_fd(int lfd, struct file_lock *fl)
 	return 1;
 }
 
+static int lock_ofd_check_fd(int lfd, struct file_lock *fl)
+{
+	int ret;
+
+	struct flock lck = {
+		.l_whence = SEEK_SET,
+		.l_type   = F_WRLCK,
+		.l_start  = fl->start
+	};
+	if (strcmp(fl->end, "EOF")) {
+		unsigned long end;
+
+		ret = sscanf(fl->end, "%lu", &end);
+		if (ret <= 0) {
+			pr_err("Invalid lock entry\n");
+			return -1;
+		}
+		lck.l_len = end - fl->start + 1;
+	} else {
+		lck.l_len = 0;
+	}
+
+	ret = fcntl(lfd, F_OFD_SETLK, &lck);
+	pr_debug("   `- %d/%d\n", ret, errno);
+	if (ret != 0) {
+		if (errno != EAGAIN) {
+			pr_err("Bogus lock test result %d\n", ret);
+			return -1;
+		}
+
+		return 0;
+	} else {
+		/*
+		 * The ret == 0 means, that new lock doesn't conflict
+		 * with any others on the file. But since we do know,
+		 * that there should be some other one (file is found
+		 * in /proc/locks), it means that the lock is already
+		 * on file pointed by fd.
+		 */
+		pr_debug("   `- downgrading lock back\n");
+		if (fl->fl_ltype & LOCK_WRITE)
+			lck.l_type = F_WRLCK;
+		else
+			lck.l_type = F_RDLCK;
+
+		fcntl(lfd, F_OFD_SETLK, &lck);
+	}
+
+	return 1;
+}
+
 int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 {
 	struct file_lock *fl;
@@ -233,11 +284,11 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 			 */
 			if (fl->fl_owner != pid->real)
 				continue;
-		} else /* fl->fl_kind == FL_FLOCK */ {
+		} else /* fl->fl_kind == FL_FLOCK || fl->fl_kind == FL_OFD */ {
 			int ret;
 
 			/*
-			 * FLOCKs can be inherited across fork,
+			 * OFD locks & FLOCKs can be inherited across fork,
 			 * thus we can have any task as lock
 			 * owner. But the creator is preferred
 			 * anyway.
@@ -248,7 +299,11 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 				continue;
 
 			pr_debug("Checking lock holder %d:%d\n", pid->real, fd);
-			ret = lock_check_fd(lfd, fl);
+			if (fl->fl_kind == FL_FLOCK)
+				ret = lock_check_fd(lfd, fl);
+			else
+				ret = lock_ofd_check_fd(lfd, fl);
+
 			if (ret < 0)
 				return ret;
 			if (ret == 0)
@@ -311,6 +366,25 @@ static int restore_file_lock(FileLockEntry *fle)
 		ret = fcntl(fle->fd, F_SETLKW, &flk);
 		if (ret < 0) {
 			pr_err("Can not set posix lock!\n");
+			goto err;
+		}
+	} else if (fle->flag & FL_OFD) {
+		struct flock flk = {
+			.l_whence = SEEK_SET,
+			.l_start  = fle->start,
+			.l_len    = fle->len,
+			.l_pid    = 0,
+			.l_type   = fle->type
+		};
+
+		pr_info("(ofd)flag: %d, type: %d, pid: %d, fd: %d, "
+				"start: %8"PRIx64", len: %8"PRIx64"\n",
+				fle->flag, fle->type, fle->pid, fle->fd,
+				fle->start, fle->len);
+
+		ret = fcntl(fle->fd, F_OFD_SETLK, &flk);
+		if (ret < 0) {
+			pr_err("Can not set ofd lock!\n");
 			goto err;
 		}
 	} else {
