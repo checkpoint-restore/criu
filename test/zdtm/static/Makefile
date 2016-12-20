@@ -223,6 +223,9 @@ TST_FILE	=				\
 		file_locks03			\
 		file_locks04			\
 		file_locks05			\
+		file_locks06			\
+		file_locks07			\
+		file_locks08			\
 		netns-nf			\
 		maps_file_prot			\
 		socket_close_data01		\
