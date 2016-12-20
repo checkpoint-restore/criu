@@ -1,5 +1,7 @@
 #include <linux/if_packet.h>
 #include <sys/socket.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <libnl3/netlink/msg.h>
@@ -403,6 +405,55 @@ static int restore_rings(int sk, PacketSockEntry *psk)
 	return 0;
 }
 
+static int open_packet_sk_spkt(PacketSockEntry *pse)
+{
+	struct sockaddr addr_spkt;
+	int sk;
+
+	sk = socket(PF_PACKET, pse->type, pse->protocol);
+	if (sk < 0) {
+		pr_perror("Can't create packet socket");
+		return -1;
+	}
+
+	memset(&addr_spkt, 0, sizeof(addr_spkt));
+	addr_spkt.sa_family = AF_PACKET;
+
+	// if the socket was bound to any device
+	if (pse->ifindex > 0) {
+		const size_t sa_data_size = sizeof(addr_spkt.sa_data);
+		struct ifreq req;
+
+		memset(&req, 0, sizeof(req));
+		req.ifr_ifindex = pse->ifindex;
+
+		if (ioctl(sk, SIOCGIFNAME, &req) < 0) {
+			pr_perror("Can't get interface name (ifindex %d)", pse->ifindex);
+			goto err;
+		}
+
+		strncpy(addr_spkt.sa_data, req.ifr_name, sa_data_size);
+		addr_spkt.sa_data[sa_data_size - 1] = 0;
+
+		if (bind(sk, &addr_spkt, sizeof(addr_spkt)) < 0) {
+			pr_perror("Can't bind packet socket to %s", req.ifr_name);
+			goto err;
+		}
+	}
+
+	if (rst_file_params(sk, pse->fown, pse->flags))
+		goto err;
+
+	if (restore_socket_opts(sk, pse->opts))
+		goto err;
+
+	return sk;
+
+err:
+	close(sk);
+	return -1;
+}
+
 static int open_packet_sk(struct file_desc *d)
 {
 	struct packet_sock_info *psi;
@@ -414,6 +465,9 @@ static int open_packet_sk(struct file_desc *d)
 	pse = psi->pse;
 
 	pr_info("Opening packet socket id %#x\n", pse->id);
+
+	if (pse->type == SOCK_PACKET)
+		return open_packet_sk_spkt(pse);
 
 	sk = socket(PF_PACKET, pse->type, pse->protocol);
 	if (sk < 0) {
