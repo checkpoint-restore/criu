@@ -60,8 +60,7 @@ do_stop()
 	echo "PASS" > $outfile
 }
 
-
-tmpargs="$(parseargs.sh --name=$0 \
+tmpargs="$(../lib/parseargs.sh --name=$0 \
 		--flags-req=statefile,outfile \
 		-- "$@")" ||
 	die "can't parse command line"
