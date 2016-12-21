@@ -467,6 +467,11 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 				(int)netdev.address.len, netdev.name);
 	}
 
+	if (tb[IFLA_MASTER]) {
+		netdev.has_master = true;
+		netdev.master = nla_get_u32(tb[IFLA_MASTER]);
+	}
+
 	netdev.n_conf4 = size4;
 	netdev.conf4 = xmalloc(sizeof(SysctlEntry *) * size4);
 	if (!netdev.conf4)
@@ -566,36 +571,6 @@ static int dump_unknown_device(struct ifinfomsg *ifi, char *kind,
 
 static int dump_bridge(NetDeviceEntry *nde, struct cr_imgset *imgset, struct nlattr **info)
 {
-	char spath[IFNAMSIZ + 16]; /* len("class/net//brif") + 1 for null */
-	int ret, fd;
-
-	ret = snprintf(spath, sizeof(spath), "class/net/%s/brif", nde->name);
-	if (ret < 0 || ret >= sizeof(spath))
-		return -1;
-
-	/* Let's only allow dumping empty bridges for now. To do a full bridge
-	 * restore, we need to make sure the bridge and slaves are restored in
-	 * the right order and attached correctly. It looks like the veth code
-	 * supports this, but we need some way to do ordering.
-	 */
-	fd = openat(ns_sysfs_fd, spath, O_DIRECTORY, 0);
-	if (fd < 0) {
-		pr_perror("opening %s failed", spath);
-		return -1;
-	}
-
-	ret = is_empty_dir(fd);
-	close(fd);
-	if (ret < 0) {
-		pr_perror("problem testing %s for emptiness", spath);
-		return -1;
-	}
-
-	if (!ret) {
-		pr_err("dumping bridges with attached slaves not supported currently\n");
-		return -1;
-	}
-
 	return write_netdev_img(nde, imgset, info);
 }
 
@@ -1621,37 +1596,110 @@ exit:
 	return ret;
 }
 
-static int restore_links()
+static int restore_master_link(int nlsk, struct ns_id *ns, struct net_link *link)
+{
+	struct newlink_req req;
+
+	memset(&req, 0, sizeof(req));
+
+	req.h.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.h.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK|NLM_F_CREATE;
+	req.h.nlmsg_type = RTM_SETLINK;
+	req.h.nlmsg_seq = CR_NLMSG_SEQ;
+	req.i.ifi_family = AF_PACKET;
+	req.i.ifi_index = link->nde->ifindex;
+	req.i.ifi_flags = link->nde->flags;
+
+	addattr_l(&req.h, sizeof(req), IFLA_MASTER,
+			&link->nde->master, sizeof(link->nde->master));
+
+	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL, NULL, NULL);
+}
+
+struct net_link *lookup_net_link(struct ns_id *ns, uint32_t ifindex)
+{
+	struct net_link *link;
+
+	list_for_each_entry(link, &ns->net.links, node)
+		if (link->nde->ifindex == ifindex)
+			return link;
+
+	return NULL;
+}
+
+static int __restore_links(struct ns_id *nsid, int *nrlinks, int *nrcreated)
 {
 	struct net_link *link, *t;
-	int exit_code = -1, nlsk = -1;
-	struct ns_id *nsid;
+	int ret;
 
-	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
-		if (nsid->nd != &net_ns_desc)
+	list_for_each_entry_safe(link, t, &nsid->net.links, node) {
+		struct net_link *mlink = NULL;
+
+		if (link->created)
 			continue;
 
-		if (switch_ns_by_fd(nsid->net.ns_fd, &net_ns_desc, NULL))
-			goto out;
+		(*nrlinks)++;
 
-		nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-		if (nlsk < 0) {
-			pr_perror("Can't create nlk socket");
+		pr_debug("Try to restore a link %d:%d:%s",
+				nsid->id, link->nde->ifindex, link->nde->name);
+		if (link->nde->has_master) {
+			mlink = lookup_net_link(nsid, link->nde->master);
+			if (mlink == NULL) {
+				pr_err("Unable to find the %d master\n", link->nde->master);
+				return -1;
+			}
+
+			if (!mlink->created) {
+				pr_debug("The master %d:%d:%s isn't created yet",
+					nsid->id, mlink->nde->ifindex, mlink->nde->name);
+				continue;
+			}
+		}
+
+		ret = restore_link(nsid->net.nlsk, nsid, link);
+		if (ret < 0)
 			return -1;
-		}
 
-		list_for_each_entry_safe(link, t, &nsid->net.links, node) {
-			if (restore_link(nlsk, nsid, link))
-				goto out;
+		if (ret == 0) {
+			(*nrcreated)++;
+			link->created = true;
+
+			if (mlink && restore_master_link(nsid->net.nlsk, nsid, link))
+				return -1;
 		}
-		close_safe(&nlsk);
 	}
 
-	exit_code = 0;
-out:
-	close_safe(&nlsk);
+	return 0;
+}
 
-	return exit_code;
+static int restore_links()
+{
+	int nrcreated, nrlinks;
+	struct ns_id *nsid;
+
+	while (true) {
+		nrcreated = 0;
+		nrlinks = 0;
+		for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
+			if (nsid->nd != &net_ns_desc)
+				continue;
+
+			if (switch_ns_by_fd(nsid->net.ns_fd, &net_ns_desc, NULL))
+				return -1;
+
+			if (__restore_links(nsid, &nrlinks, &nrcreated))
+				return -1;
+		}
+
+		if (nrcreated == nrlinks)
+			break;
+		if (nrcreated == 0) {
+			pr_err("Unable to restore network links");
+			return -1;
+		}
+	}
+
+	return 0;
 }
 
 
@@ -2307,6 +2355,13 @@ int prepare_net_namespaces()
 
 		if (prepare_net_ns_first_stage(nsid))
 			goto err;
+
+		nsid->net.nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+		if (nsid->net.nlsk < 0) {
+			pr_perror("Can't create nlk socket");
+			goto err;
+		}
+
 	}
 
 	if (restore_links())
@@ -2321,6 +2376,8 @@ int prepare_net_namespaces()
 
 		if (prepare_net_ns_second_stage(nsid))
 			goto err;
+
+		close_safe(&nsid->net.nlsk);
 	}
 
 	close_service_fd(NS_FD_OFF);
