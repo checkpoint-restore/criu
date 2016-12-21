@@ -4,7 +4,7 @@ const char *test_doc = "static test for packet sockets mmaps";
 const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
 #include <stdio.h>
-#include <sys/types.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>

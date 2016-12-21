@@ -7,7 +7,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <sys/mount.h>
-#include <sys/types.h>
+#include <sys/sysmacros.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/param.h>
