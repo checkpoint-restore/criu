@@ -35,6 +35,7 @@ struct kerndat_s {
 	bool has_loginuid;
 	enum pagemap_func pmap;
 	unsigned int has_xtlocks;
+	unsigned long mmap_min_addr;
 };
 
 extern struct kerndat_s kdat;

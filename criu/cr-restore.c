@@ -1969,7 +1969,7 @@ static long restorer_get_vma_hint(struct list_head *tgt_vma_list,
 
 	end_vma.e = &end_e;
 	end_e.start = end_e.end = kdat.task_size;
-	prev_vma_end = PAGE_SIZE * 0x10; /* CONFIG_LSM_MMAP_MIN_ADDR=65536 */
+	prev_vma_end = kdat.mmap_min_addr;
 
 	s_vma = list_first_entry(self_vma_list, struct vma_area, list);
 	t_vma = list_first_entry(tgt_vma_list, struct vma_area, list);
