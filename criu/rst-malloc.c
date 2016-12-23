@@ -44,7 +44,7 @@ static int grow_shared(struct rst_mem_type_s *t, unsigned long size)
 	 * new one
 	 */
 	aux = mmap(NULL, size, PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_ANON, 0, 0);
+			MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (aux == MAP_FAILED)
 		return -1;
 
@@ -66,7 +66,7 @@ static int grow_remap(struct rst_mem_type_s *t, int flag, unsigned long size)
 		 * Can't call mremap with NULL address :(
 		 */
 		aux = mmap(NULL, size, PROT_READ | PROT_WRITE,
-				flag | MAP_ANON, 0, 0);
+				flag | MAP_ANONYMOUS, 0, 0);
 	else {
 		if (flag & MAP_SHARED) {
 			/*
