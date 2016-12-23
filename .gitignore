@@ -41,3 +41,5 @@ lib/build/
 lib/c/criu.pc
 scripts/build/qemu-user-static/*
 lib/.crit-setup.files
+compel/include/asm
+include/common/asm
