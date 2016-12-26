@@ -857,16 +857,6 @@ err:
 struct fd_open_state {
 	char *name;
 	int (*cb)(int, struct fdinfo_list_entry *);
-
-	/*
-	 * Two last stages -- receive fds and post-open them -- are
-	 * not required always. E.g. if no fd sharing takes place
-	 * or task doens't have any files that need to be post-opened.
-	 *
-	 * Thus, in order not to scan through fdinfo-s lists in vain
-	 * and speed things up a little bit, we may want to skeep these.
-	 */
-	bool required;
 };
 
 static int open_fd(int pid, struct fdinfo_list_entry *fle);
@@ -874,12 +864,10 @@ static int receive_fd(int pid, struct fdinfo_list_entry *fle);
 static int post_open_fd(int pid, struct fdinfo_list_entry *fle);
 
 static struct fd_open_state states[] = {
-	{ "create",		open_fd,		true,},
-	{ "receive",		receive_fd,		true,},
-	{ "post_create",	post_open_fd,		false,},
+	{ "create",		open_fd,	},
+	{ "receive",		receive_fd,	},
+	{ "post_create",	post_open_fd,	},
 };
-
-#define want_post_open_stage()	do { states[2].required = true; } while (0)
 
 static void transport_name_gen(struct sockaddr_un *addr, int *len, int pid)
 {
@@ -1025,9 +1013,6 @@ static int open_fd(int pid, struct fdinfo_list_entry *fle)
 	struct file_desc *d = fle->desc;
 	int new_fd;
 
-	if (d->ops->post_open)
-		want_post_open_stage();
-
 	if (fle != file_master(d))
 		return 0;
 
@@ -1162,11 +1147,6 @@ int prepare_fds(struct pstree_item *me)
 	}
 
 	for (state = 0; state < ARRAY_SIZE(states); state++) {
-		if (!states[state].required) {
-			pr_debug("Skipping %s fd stage\n", states[state].name);
-			continue;
-		}
-
 		ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->fds, state);
 		if (ret)
 			break;
@@ -1193,11 +1173,6 @@ int prepare_fds(struct pstree_item *me)
 		goto out_w;
 
 	for (state = 0; state < ARRAY_SIZE(states); state++) {
-		if (!states[state].required) {
-			pr_debug("Skipping %s fd stage\n", states[state].name);
-			continue;
-		}
-
 		/*
 		 * Opening current TTYs require session to be already set up,
 		 * thus slave peers already handled now it's time for cttys,
