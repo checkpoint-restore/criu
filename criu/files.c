@@ -865,7 +865,6 @@ static int post_open_fd(int pid, struct fdinfo_list_entry *fle);
 
 static struct fd_open_state states[] = {
 	{ "create",		open_fd,	},
-	{ "receive",		receive_fd,	},
 	{ "post_create",	post_open_fd,	},
 };
 
@@ -971,15 +970,17 @@ static int post_open_fd(int pid, struct fdinfo_list_entry *fle)
 {
 	struct file_desc *d = fle->desc;
 
+	if (fle != file_master(d)) {
+		if (receive_fd(pid, fle) < 0) {
+			pr_err("Can't receive\n");
+			return -1;
+		}
+		if (!is_service_fd(fle->fe->fd, CTL_TTY_OFF))
+			return 0;
+	}
+
 	if (!d->ops->post_open)
 		return 0;
-
-	if (is_service_fd(fle->fe->fd, CTL_TTY_OFF))
-		return d->ops->post_open(d, fle->fe->fd);
-
-	if (fle != file_master(d))
-		return 0;
-
 	return d->ops->post_open(d, fle->fe->fd);
 }
 
@@ -1034,11 +1035,6 @@ static int open_fd(int pid, struct fdinfo_list_entry *fle)
 static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 {
 	int fd;
-	struct fdinfo_list_entry *flem;
-
-	flem = file_master(fle->desc);
-	if (flem->pid == pid)
-		return 0;
 
 	pr_info("\tReceive fd for %d\n", fle->fe->fd);
 
