@@ -1005,12 +1005,16 @@ static int post_open_fd(int pid, struct fdinfo_list_entry *fle)
 			return -1;
 		}
 		if (!is_service_fd(fle->fe->fd, CTL_TTY_OFF))
-			return 0;
+			goto out;
 	}
 
 	if (!d->ops->post_open)
-		return 0;
-	return d->ops->post_open(d, fle->fe->fd);
+		goto out;
+	if (d->ops->post_open(d, fle->fe->fd))
+		return -1;
+out:
+	fle->stage = FLE_RESTORED;
+	return 0;
 }
 
 
@@ -1057,6 +1061,8 @@ static int open_fd(int pid, struct fdinfo_list_entry *fle)
 		pr_perror("Unable to set file descriptor flags");
 		return -1;
 	}
+
+	fle->stage = FLE_OPEN;
 
 	return serve_out_fd(pid, fle->fe->fd, d);
 }
