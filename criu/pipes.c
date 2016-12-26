@@ -327,18 +327,9 @@ out:
 	return tmp;
 }
 
-static int want_transport(FdinfoEntry *fe, struct file_desc *d)
-{
-	struct pipe_info *pi;
-
-	pi = container_of(d, struct pipe_info, d);
-	return !pi->create;
-}
-
 static struct file_desc_ops pipe_desc_ops = {
 	.type		= FD_TYPES__PIPE,
 	.open		= open_pipe,
-	.want_transport	= want_transport,
 	.name		= pipe_d_name,
 };
 

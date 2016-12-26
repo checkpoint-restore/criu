@@ -1034,15 +1034,6 @@ done:
 	return ret;
 }
 
-static int unixsk_should_open_transport(FdinfoEntry *fe,
-				struct file_desc *d)
-{
-	struct unix_sk_info *ui;
-
-	ui = container_of(d, struct unix_sk_info, d);
-	return ui->flags & USK_PAIR_SLAVE;
-}
-
 static int open_unixsk_pair_master(struct unix_sk_info *ui)
 {
 	int sk[2];
@@ -1293,7 +1284,6 @@ static struct file_desc_ops unix_desc_ops = {
 	.type = FD_TYPES__UNIXSK,
 	.open = open_unix_sk,
 	.post_open = post_open_unix_sk,
-	.want_transport = unixsk_should_open_transport,
 	.name = socket_d_name,
 };
 

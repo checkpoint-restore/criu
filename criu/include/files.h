@@ -103,11 +103,6 @@ struct file_desc_ops {
 	 */
 	int			(*post_open)(struct file_desc *d, int fd);
 	/*
-	 * Report whether the fd in question wants a transport socket
-	 * in it instead of a real file. See file_master for details.
-	 */
-	int			(*want_transport)(FdinfoEntry *fe, struct file_desc *d);
-	/*
 	 * Called to collect a new fd before adding it on desc. Clients
 	 * may chose to collect it to some specific rst_info list. See
 	 * prepare_fds() for details.

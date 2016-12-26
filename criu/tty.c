@@ -1108,12 +1108,6 @@ static int tty_open(struct file_desc *d)
 	return info->driver->open(info);
 }
 
-static int tty_transport(FdinfoEntry *fe, struct file_desc *d)
-{
-	struct tty_info *info = container_of(d, struct tty_info, d);
-	return !info->create;
-}
-
 static void tty_collect_fd(struct file_desc *d, struct fdinfo_list_entry *fle,
 		struct rst_info *ri)
 {
@@ -1150,7 +1144,6 @@ static struct file_desc_ops tty_desc_ops = {
 	.type		= FD_TYPES__TTY,
 	.open		= tty_open,
 	.post_open	= tty_restore_ctl_terminal,
-	.want_transport = tty_transport,
 	.collect_fd	= tty_collect_fd,
 	.name		= tty_d_name,
 };
