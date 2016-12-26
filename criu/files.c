@@ -869,20 +869,17 @@ struct fd_open_state {
 	bool required;
 };
 
-static int open_transport_fd(int pid, struct fdinfo_list_entry *fle);
 static int open_fd(int pid, struct fdinfo_list_entry *fle);
 static int receive_fd(int pid, struct fdinfo_list_entry *fle);
 static int post_open_fd(int pid, struct fdinfo_list_entry *fle);
 
 static struct fd_open_state states[] = {
-	{ "prepare",		open_transport_fd,	true,},
 	{ "create",		open_fd,		true,},
-	{ "receive",		receive_fd,		false,},
+	{ "receive",		receive_fd,		true,},
 	{ "post_create",	post_open_fd,		false,},
 };
 
-#define want_recv_stage()	do { states[2].required = true; } while (0)
-#define want_post_open_stage()	do { states[3].required = true; } while (0)
+#define want_post_open_stage()	do { states[2].required = true; } while (0)
 
 static void transport_name_gen(struct sockaddr_un *addr, int *len,
 		int pid, int fd)
@@ -891,68 +888,6 @@ static void transport_name_gen(struct sockaddr_un *addr, int *len,
 	snprintf(addr->sun_path, UNIX_PATH_MAX, "x/crtools-fd-%d-%d", pid, fd);
 	*len = SUN_LEN(addr);
 	*addr->sun_path = '\0';
-}
-
-static int should_open_transport(FdinfoEntry *fe, struct file_desc *fd)
-{
-	if (fd->ops->want_transport)
-		return fd->ops->want_transport(fe, fd);
-	else
-		return 0;
-}
-
-static int open_transport_fd(int pid, struct fdinfo_list_entry *fle)
-{
-	struct fdinfo_list_entry *flem;
-	struct sockaddr_un saddr;
-	int sock;
-	int ret, sun_len;
-
-	flem = file_master(fle->desc);
-
-	if (flem->pid == pid) {
-		if (flem->fe->fd != fle->fe->fd)
-			/* dup-ed file. Will be opened in the open_fd */
-			return 0;
-
-		if (!should_open_transport(fle->fe, fle->desc))
-			/* pure master file */
-			return 0;
-
-		/*
-		 * some master file, that wants a transport, e.g.
-		 * a pipe or unix socket pair 'slave' end
-		 */
-	}
-
-	transport_name_gen(&saddr, &sun_len, getpid(), fle->fe->fd);
-
-	pr_info("\t\tCreate transport fd %s\n", saddr.sun_path + 1);
-
-
-	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
-	if (sock < 0) {
-		pr_perror("Can't create socket");
-		return -1;
-	}
-	ret = bind(sock, (struct sockaddr *)&saddr, sun_len);
-	if (ret < 0) {
-		pr_perror("Can't bind unix socket %s", saddr.sun_path + 1);
-		goto err;
-	}
-
-	ret = reopen_fd_as(fle->fe->fd, sock);
-	if (ret < 0)
-		goto err;
-
-	pr_info("\t\tWake up fdinfo pid=%d fd=%d\n", fle->pid, fle->fe->fd);
-	futex_set_and_wake(&fle->real_pid, getpid());
-	want_recv_stage();
-
-	return 0;
-err:
-	close(sock);
-	return -1;
 }
 
 static bool task_fle(struct pstree_item *task, struct fdinfo_list_entry *fle)
@@ -969,22 +904,20 @@ static int keep_fd_for_future(struct fdinfo_list_entry *fle, int fd)
 {
 	BUG_ON(fle->received);
 	fle->received = 1;
-	if (close(fle->fe->fd) < 0) {
-		pr_perror("Can't close transport fd\n");
-		return -1;
-	}
 	return reopen_fd_as(fle->fe->fd, fd);
 }
 
 int recv_fd_from_peer(struct fdinfo_list_entry *fle)
 {
 	struct fdinfo_list_entry *tmp;
-	int fd, ret;
+	int fd, ret, tsock;
 
 	if (fle->received)
 		return fle->fe->fd;
+
+	tsock = get_service_fd(TRANSPORT_FD_OFF);
 again:
-	ret = recv_fds(fle->fe->fd, &fd, 1, (void *)&tmp, sizeof(struct fdinfo_list_entry *));
+	ret = recv_fds(tsock, &fd, 1, (void *)&tmp, sizeof(struct fdinfo_list_entry *));
 	if (ret)
 		return -1;
 
@@ -998,7 +931,6 @@ again:
 			return -1;
 		goto again;
 	}
-	close(fle->fe->fd);
 	fle->received = 1;
 
 	return fd;
@@ -1011,10 +943,7 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle)
 
 	sock = get_service_fd(TRANSPORT_FD_OFF);
 
-	pr_info("\t\tWait fdinfo pid=%d fd=%d\n", fle->pid, fle->fe->fd);
-	futex_wait_while(&fle->real_pid, 0);
-	transport_name_gen(&saddr, &len,
-			futex_get(&fle->real_pid), fle->fe->fd);
+	transport_name_gen(&saddr, &len, fle->pid, -1);
 	pr_info("\t\tSend fd %d to %s\n", fd, saddr.sun_path + 1);
 	return send_fds(sock, &saddr, len, &fd, 1, (void *)&fle, sizeof(struct fdinfo_list_entry *));
 }

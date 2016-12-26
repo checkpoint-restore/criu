@@ -70,14 +70,12 @@ struct fdinfo_list_entry {
 	struct list_head	ps_list;	/* To chain  per-task files */
 	struct list_head	used_list;	/* To chain per-task used fds */
 	int			pid;
-	futex_t			real_pid;
 	FdinfoEntry		*fe;
 	u8			received:1;
 };
 
 static inline void fle_init(struct fdinfo_list_entry *fle, int pid, FdinfoEntry *fe)
 {
-	futex_init(&fle->real_pid);
 	fle->pid = pid;
 	fle->fe = fe;
 	fle->received = 0;
