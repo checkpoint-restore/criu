@@ -1061,15 +1061,17 @@ static int open_fdinfo(int pid, struct fdinfo_list_entry *fle, int state)
 	return states[state].cb(pid, fle);
 }
 
-static int open_fdinfos(int pid, struct list_head *list, int state)
+static int open_fdinfos(int pid, struct list_head *list)
 {
-	int ret = 0;
+	int state, ret = 0;
 	struct fdinfo_list_entry *fle;
 
-	list_for_each_entry(fle, list, ps_list) {
-		ret = open_fdinfo(pid, fle, state);
-		if (ret)
-			break;
+	for (state = 0; state < ARRAY_SIZE(states); state++) {
+		list_for_each_entry(fle, list, ps_list) {
+			ret = open_fdinfo(pid, fle, state);
+			if (ret)
+				break;
+		}
 	}
 
 	return ret;
@@ -1111,7 +1113,6 @@ int close_old_fds(void)
 int prepare_fds(struct pstree_item *me)
 {
 	u32 ret = 0;
-	int state;
 
 	pr_info("Opening fdinfo-s\n");
 
@@ -1142,41 +1143,28 @@ int prepare_fds(struct pstree_item *me)
 		}
 	}
 
-	for (state = 0; state < ARRAY_SIZE(states); state++) {
-		ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->fds, state);
-		if (ret)
-			break;
-
-		/*
-		 * Now handle TTYs. Slaves are delayed to be sure masters
-		 * are already opened.
-		 */
-		ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->tty_slaves, state);
-		if (ret)
-			break;
-
-		/*
-		 * The eventpoll descriptors require all the other ones
-		 * to be already restored, thus we store them in a separate
-		 * list and restore at the very end.
-		 */
-		ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->eventpoll, state);
-		if (ret)
-			break;
-	}
-
+	ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->fds);
 	if (ret)
 		goto out_w;
 
-	for (state = 0; state < ARRAY_SIZE(states); state++) {
-		/*
-		 * Opening current TTYs require session to be already set up,
-		 * thus slave peers already handled now it's time for cttys,
-		 */
-		ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->tty_ctty, state);
-		if (ret)
-			break;
-	}
+	/*
+	 * Now handle TTYs. Slaves are delayed to be sure masters
+	 * are already opened.
+	 */
+	ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->tty_slaves);
+	if (ret)
+		goto out_w;
+
+	/*
+	 * The eventpoll descriptors require all the other ones
+	 * to be already restored, thus we store them in a separate
+	 * list and restore at the very end.
+	 */
+	ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->eventpoll);
+	if (ret)
+		goto out_w;
+
+	ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->tty_ctty);
 out_w:
 	close_service_fd(TRANSPORT_FD_OFF);
 	if (rsti(me)->fdt)
