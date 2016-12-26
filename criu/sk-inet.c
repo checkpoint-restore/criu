@@ -35,7 +35,7 @@ struct inet_port {
 	int port;
 	int type;
 	struct list_head type_list;
-	futex_t users;
+	atomic_t users;
 	mutex_t reuseaddr_lock;
 	struct list_head list;
 };
@@ -47,7 +47,7 @@ static struct inet_port *port_add(struct inet_sk_info *ii, int port)
 
 	list_for_each_entry(e, &inet_ports, list)
 		if (e->type == type && e->port == port) {
-			futex_inc(&e->users);
+			atomic_inc(&e->users);
 			goto out_link;
 		}
 
@@ -59,8 +59,7 @@ static struct inet_port *port_add(struct inet_sk_info *ii, int port)
 
 	e->port = port;
 	e->type = type;
-	futex_init(&e->users);
-	futex_inc(&e->users);
+	atomic_set(&e->users, 1);
 	mutex_init(&e->reuseaddr_lock);
 	INIT_LIST_HEAD(&e->type_list);
 
@@ -551,6 +550,19 @@ static int inet_validate_address(InetSkEntry *ie)
 	return -1;
 }
 
+static void dec_users_and_wake(struct inet_port *port)
+{
+	struct fdinfo_list_entry *fle;
+	struct inet_sk_info *ii;
+
+	if (atomic_dec_return(&port->users))
+		return;
+	list_for_each_entry(ii, &port->type_list, port_list) {
+		fle = file_master(&ii->d);
+		set_fds_event(fle->pid);
+	}
+}
+
 static int post_open_inet_sk(struct file_desc *d, int sk)
 {
 	struct inet_sk_info *ii;
@@ -573,7 +585,8 @@ static int post_open_inet_sk(struct file_desc *d, int sk)
 	if (ii->ie->opts->reuseaddr)
 		return 0;
 
-	futex_wait_until(&ii->port->users, 0);
+	while (atomic_read(&ii->port->users))
+		wait_fds_event();
 
 	val = ii->ie->opts->reuseaddr;
 	if (restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &val))
@@ -677,7 +690,7 @@ static int open_inet_sk(struct file_desc *d)
 			inet_connect(sk, ii))
 		goto err;
 done:
-	futex_dec_and_wake(&ii->port->users);
+	dec_users_and_wake(ii->port);
 
 	if (rst_file_params(sk, ie->fown, ie->flags))
 		goto err;
