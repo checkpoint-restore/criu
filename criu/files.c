@@ -694,9 +694,7 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 	if (!new_le)
 		return -1;
 
-	futex_init(&new_le->real_pid);
-	new_le->pid = pid;
-	new_le->fe = e;
+	fle_init(new_le, pid, e);
 
 	fdesc = find_file_desc(e);
 	if (fdesc == NULL) {

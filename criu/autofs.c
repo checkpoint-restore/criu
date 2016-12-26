@@ -873,9 +873,7 @@ static int autofs_create_fle(struct pstree_item *task, FdinfoEntry *fe,
 		return -1;
 	le = (void *)ALIGN((long)le, sizeof(int));
 
-	futex_init(&le->real_pid);
-	le->pid = task->pid->ns[0].virt;
-	le->fe = fe;
+	fle_init(le, task->pid->ns[0].virt, fe);
 
 	collect_gen_fd(le, rst_info);
 

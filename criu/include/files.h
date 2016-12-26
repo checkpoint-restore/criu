@@ -74,6 +74,13 @@ struct fdinfo_list_entry {
 	FdinfoEntry		*fe;
 };
 
+static inline void fle_init(struct fdinfo_list_entry *fle, int pid, FdinfoEntry *fe)
+{
+	futex_init(&fle->real_pid);
+	fle->pid = pid;
+	fle->fe = fe;
+}
+
 /* reports whether fd_a takes prio over fd_b */
 static inline int fdinfo_rst_prio(struct fdinfo_list_entry *fd_a, struct fdinfo_list_entry *fd_b)
 {
