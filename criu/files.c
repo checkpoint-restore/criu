@@ -933,7 +933,10 @@ again:
 	}
 	fle->received = 1;
 
-	return fd;
+	if (reopen_fd_as(fle->fe->fd, fd) < 0)
+		return -1;
+
+	return fle->fe->fd;
 }
 
 int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle)
@@ -1046,7 +1049,7 @@ static int open_fd(int pid, struct fdinfo_list_entry *fle)
 
 static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 {
-	int tmp;
+	int fd;
 	struct fdinfo_list_entry *flem;
 
 	flem = file_master(fle->desc);
@@ -1055,14 +1058,13 @@ static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 
 	pr_info("\tReceive fd for %d\n", fle->fe->fd);
 
-	tmp = recv_fd_from_peer(fle);
-	if (tmp < 0) {
-		pr_err("Can't get fd %d\n", tmp);
+	fd = recv_fd_from_peer(fle);
+	if (fd < 0) {
+		pr_err("Can't get fd=%d, pid=%d\n", fle->fe->fd, fle->pid);
 		return -1;
 	}
 
-	if (reopen_fd_as(fle->fe->fd, tmp) < 0)
-		return -1;
+	BUG_ON(fd != fle->fe->fd);
 
 	if (fcntl(fle->fe->fd, F_SETFD, fle->fe->flags) == -1) {
 		pr_perror("Unable to set file descriptor flags");
