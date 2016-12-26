@@ -1,6 +1,7 @@
 #ifndef __CR_BITOPS_H__
 #define __CR_BITOPS_H__
 
+#include "common/arch/x86/asm/cmpxchg.h"
 #include "common/asm/bitsperlong.h"
 
 #define DIV_ROUND_UP(n,d)	(((n) + (d) - 1) / (d))
@@ -44,6 +45,24 @@ static inline int test_bit(int nr, volatile const unsigned long *addr)
 static inline void clear_bit(int nr, volatile unsigned long *addr)
 {
 	asm volatile("btrl %1,%0" : ADDR : "Ir" (nr));
+}
+
+/**
+ * test_and_set_bit - Set a bit and return its old value
+ * @nr: Bit to set
+ * @addr: Address to count from
+ *
+ * This operation is atomic and cannot be reordered.
+ * It also implies a memory barrier.
+ */
+static inline int test_and_set_bit(int nr, volatile unsigned long *addr)
+{
+	int oldbit;
+
+	asm volatile(LOCK_PREFIX "bts %2,%1\n\t"
+		     "sbb %0,%0" : "=r" (oldbit), ADDR : "Ir" (nr) : "memory");
+
+	return oldbit;
 }
 
 /**

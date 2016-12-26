@@ -59,6 +59,17 @@
 #define PPC_BIT(bit)            (1UL << PPC_BITLSHIFT(bit))
 #define PPC_BITMASK(bs, be)     ((PPC_BIT(bs) - PPC_BIT(be)) | PPC_BIT(bs))
 
+#define PPC_INST_LDARX		0x7c0000a8
+#define ___PPC_RA(a)		(((a) & 0x1f) << 16)
+#define ___PPC_RB(b)		(((b) & 0x1f) << 11)
+#define ___PPC_RS(s)		(((s) & 0x1f) << 21)
+#define __PPC_EH(eh)		(((eh) & 0x1) << 0)
+#define ___PPC_RT(t)		___PPC_RS(t)
+
+#define PPC_LDARX(t, a, b, eh)  stringify_in_c(.long PPC_INST_LDARX | \
+					___PPC_RT(t) | ___PPC_RA(a) | \
+					___PPC_RB(b) | __PPC_EH(eh))
+#define PPC_LLARX(t, a, b, eh)  PPC_LDARX(t, a, b, eh)
 
 /* Macro for generating the ***_bits() functions */
 #define DEFINE_BITOP(fn, op)            	\
@@ -99,6 +110,36 @@ static __inline__ void change_bit(int nr, volatile unsigned long *addr)
 static inline int test_bit(int nr, const volatile unsigned long *addr)
 {
         return 1UL & (addr[BIT_WORD(nr)] >> (nr & (BITS_PER_LONG-1)));
+}
+
+/* Like DEFINE_BITOP(), with changes to the arguments to 'op' and the output
+ * operands. */
+#define DEFINE_TESTOP(fn, op, prefix, postfix, eh)	\
+static __inline__ unsigned long fn(			\
+		unsigned long mask,			\
+		volatile unsigned long *_p)		\
+{							\
+	unsigned long old, t;				\
+	unsigned long *p = (unsigned long *)_p;		\
+	__asm__ __volatile__ (				\
+	prefix						\
+"1:"	PPC_LLARX(%0,0,%3,eh) "\n"			\
+	stringify_in_c(op) "%1,%0,%2\n"			\
+	"stdcx. %1,0,%3\n"				\
+	"bne- 1b\n"					\
+	postfix						\
+	: "=&r" (old), "=&r" (t)			\
+	: "r" (mask), "r" (p)				\
+	: "cc", "memory");				\
+	return (old & mask);				\
+}
+
+DEFINE_TESTOP(test_and_set_bits, or, "\nLWSYNC\n", "\nsync\n", 0)
+
+static __inline__ int test_and_set_bit(unsigned long nr,
+				       volatile unsigned long *addr)
+{
+	return test_and_set_bits(BIT_MASK(nr), addr + BIT_WORD(nr)) != 0;
 }
 
 /*
