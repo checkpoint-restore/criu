@@ -782,6 +782,8 @@ struct unix_sk_info {
 	unsigned flags;
 	struct unix_sk_info *peer;
 	struct file_desc d;
+	struct list_head connected; /* List of sockets, connected to me */
+	struct list_head node; /* To link in peer's connected list  */
 
 	/*
 	 * Futex to signal when the socket is prepared. In particular, we
@@ -1342,6 +1344,8 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	futex_init(&ui->prepared);
 	ui->queuer = 0;
 	ui->peer = NULL;
+	INIT_LIST_HEAD(&ui->connected);
+	INIT_LIST_HEAD(&ui->node);
 	ui->flags = 0;
 	pr_info(" `- Got %#x peer %#x (name %s dir %s)\n",
 		ui->ue->ino, ui->ue->peer,
@@ -1358,6 +1362,12 @@ struct collect_image_info unix_sk_cinfo = {
 	.collect = collect_one_unixsk,
 	.flags = COLLECT_SHARED,
 };
+
+static void set_peer(struct unix_sk_info *ui, struct unix_sk_info *peer)
+{
+	ui->peer = peer;
+	list_add(&ui->node, &peer->connected);
+}
 
 static void interconnected_pair(struct unix_sk_info *ui, struct unix_sk_info *peer)
 {
@@ -1397,7 +1407,7 @@ static int resolve_unix_peers(void *unused)
 			return -1;
 		}
 
-		ui->peer = peer;
+		set_peer(ui, peer);
 		if (!peer->queuer)
 			peer->queuer = ui->ue->ino;
 		if (ui == peer)
@@ -1406,7 +1416,7 @@ static int resolve_unix_peers(void *unused)
 		if (peer->ue->peer != ui->ue->ino)
 			continue;
 
-		peer->peer = ui;
+		set_peer(peer, ui);
 
 		/* socketpair or interconnected sockets */
 		interconnected_pair(ui, peer);
