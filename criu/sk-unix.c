@@ -786,18 +786,13 @@ struct unix_sk_info {
 	struct list_head node; /* To link in peer's connected list  */
 
 	/*
-	 * Futex to signal when the socket is prepared. In particular, we
-	 * signal after bind()ing the socket if it is not in TCP_LISTEN, or
-	 * after listen() if the socket is in TCP_LISTEN.
-	 */
-	futex_t prepared;
-
-	/*
 	 * For DGRAM sockets with queues, we should only restore the queue
 	 * once although it may be open by more than one tid. This is the peer
 	 * that should do the queueing.
 	 */
 	u32 queuer;
+	u8 bound:1;
+	u8 listen:1;
 };
 
 #define USK_PAIR_MASTER		0x1
@@ -813,6 +808,26 @@ static struct unix_sk_info *find_unix_sk_by_ino(int ino)
 	}
 
 	return NULL;
+}
+
+static int wake_connected_sockets(struct unix_sk_info *ui)
+{
+	struct fdinfo_list_entry *fle;
+	struct unix_sk_info *tmp;
+
+	list_for_each_entry(tmp, &ui->connected, node) {
+		fle = file_master(&tmp->d);
+		set_fds_event(fle->pid);
+	}
+	return 0;
+}
+
+static bool peer_is_not_prepared(struct unix_sk_info *peer)
+{
+	if (peer->ue->state != TCP_LISTEN)
+		return (!peer->bound);
+	else
+		return (!peer->listen);
 }
 
 static int shutdown_unix_sk(int sk, struct unix_sk_info *ui)
@@ -887,7 +902,8 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 
 	/* Skip external sockets */
 	if (!list_empty(&peer->d.fd_info_head))
-		futex_wait_while(&peer->prepared, 0);
+		while (peer_is_not_prepared(peer))
+			wait_fds_event();
 
 	if (ui->ue->uflags & USK_INHERIT)
 		return 0;
@@ -1027,8 +1043,10 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 		}
 	}
 
-	if (ui->ue->state != TCP_LISTEN)
-		futex_set_and_wake(&ui->prepared, 1);
+	if (ui->ue->state != TCP_LISTEN) {
+		ui->bound = 1;
+		wake_connected_sockets(ui);
+	}
 
 	ret = 0;
 done:
@@ -1236,7 +1254,8 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 			pr_perror("Can't make usk listen");
 			return -1;
 		}
-		futex_set_and_wake(&ui->prepared, 1);
+		ui->listen = 1;
+		wake_connected_sockets(ui);
 	}
 out:
 	if (rst_file_params(sk, ui->ue->fown, ui->ue->flags))
@@ -1341,9 +1360,10 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	} else
 		ui->name = NULL;
 
-	futex_init(&ui->prepared);
 	ui->queuer = 0;
 	ui->peer = NULL;
+	ui->bound = 0;
+	ui->listen = 0;
 	INIT_LIST_HEAD(&ui->connected);
 	INIT_LIST_HEAD(&ui->node);
 	ui->flags = 0;
