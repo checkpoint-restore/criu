@@ -242,7 +242,6 @@ static int recv_pipe_fd(struct pipe_info *pi)
 		pr_err("Can't get fd %d\n", tmp);
 		return -1;
 	}
-	close(fd);
 
 	if (pi->reopen)
 		fd = reopen_pipe(tmp, pi->pe->flags);

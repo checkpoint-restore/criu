@@ -1102,7 +1102,6 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui)
 		pr_err("Can't recv pair slave\n");
 		return -1;
 	}
-	close(fle->fe->fd);
 
 	if (bind_unix_sk(sk, ui))
 		return -1;

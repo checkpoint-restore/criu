@@ -970,6 +970,7 @@ int recv_fd_from_peer(struct fdinfo_list_entry *fle)
 		pr_err("Received wrong fle\n");
 		return -1;
 	}
+	close(fle->fe->fd);
 
 	return fd;
 }
@@ -1099,7 +1100,6 @@ static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 		pr_err("Can't get fd %d\n", tmp);
 		return -1;
 	}
-	close(fle->fe->fd);
 
 	if (reopen_fd_as(fle->fe->fd, tmp) < 0)
 		return -1;
