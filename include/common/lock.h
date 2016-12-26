@@ -79,6 +79,12 @@ static inline void futex_set_and_wake(futex_t *f, uint32_t v)
 	LOCK_BUG_ON(sys_futex((uint32_t *)&f->raw.counter, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
 }
 
+/* Wake up all futex @f waiters */
+static inline void futex_wake(futex_t *f)
+{
+	LOCK_BUG_ON(sys_futex((uint32_t *)&f->raw.counter, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
+}
+
 /* Mark futex @f as wait abort needed and wake up all waiters */
 static inline void futex_abort_and_wake(futex_t *f)
 {

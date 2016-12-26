@@ -193,5 +193,7 @@ int dup_fle(struct pstree_item *task, struct fdinfo_list_entry *ple,
 	    int fd, unsigned flags);
 
 extern int open_transport_socket(void);
+extern int set_fds_event(pid_t virt);
+extern void wait_fds_event(void);
 
 #endif /* __CR_FILES_H__ */

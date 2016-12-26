@@ -149,6 +149,35 @@ out:
 	return fd;
 }
 
+int set_fds_event(pid_t virt)
+{
+	struct pstree_item *item;
+	int old;
+
+	item = pstree_item_by_virt(virt);
+	BUG_ON(!item);
+
+	old = test_and_set_bit(FDS_EVENT_BIT, (unsigned long *)&item->task_st);
+
+	if (!(old & FDS_EVENT))
+		futex_wake(&item->task_st);
+	return 0;
+}
+
+void clear_fds_event(void)
+{
+	futex_t *f = &current->task_st;
+
+	clear_bit(FDS_EVENT_BIT, (unsigned long *)&f->raw.counter);
+}
+
+void wait_fds_event(void)
+{
+	futex_t *f = &current->task_st;
+
+	futex_wait_if_cond(f, FDS_EVENT, &);
+	clear_fds_event();
+}
 /*
  * A file may be shared between several file descriptors. E.g
  * when doing a fork() every fd of a forker and respective fds
