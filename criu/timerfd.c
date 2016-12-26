@@ -91,22 +91,6 @@ const struct fdtype_ops timerfd_dump_ops = {
 	.dump		= dump_one_timerfd,
 };
 
-/*
- * We need to restore timers at the very late stage in restorer
- * to eliminate the case when timer is expired but we have not
- * yet finished restore procedure and signal handlers are not
- * set up properly. We need to copy timers settings into restorer
- * area that's why post-open is used for.
- */
-static int timerfd_post_open(struct file_desc *d, int fd)
-{
-	struct timerfd_info *info = container_of(d, struct timerfd_info, d);
-
-	info->t_fd = fd;
-	list_add_tail(&info->rlist, &rst_timerfds);
-	return 0;
-}
-
 int prepare_timerfds(struct task_restore_args *ta)
 {
 	struct timerfd_info *ti;
@@ -163,6 +147,9 @@ static int timerfd_open(struct file_desc *d)
 		goto err_close;
 	}
 
+	info->t_fd = file_master(d)->fe->fd;
+	list_add_tail(&info->rlist, &rst_timerfds);
+
 	return tmp;
 
 err_close:
@@ -173,7 +160,6 @@ err_close:
 static struct file_desc_ops timerfd_desc_ops = {
 	.type		= FD_TYPES__TIMERFD,
 	.open		= timerfd_open,
-	.post_open	= timerfd_post_open,
 };
 
 static int collect_one_timerfd(void *o, ProtobufCMessage *msg, struct cr_img *i)
