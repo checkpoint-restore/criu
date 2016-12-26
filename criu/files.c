@@ -881,11 +881,10 @@ static struct fd_open_state states[] = {
 
 #define want_post_open_stage()	do { states[2].required = true; } while (0)
 
-static void transport_name_gen(struct sockaddr_un *addr, int *len,
-		int pid, int fd)
+static void transport_name_gen(struct sockaddr_un *addr, int *len, int pid)
 {
 	addr->sun_family = AF_UNIX;
-	snprintf(addr->sun_path, UNIX_PATH_MAX, "x/crtools-fd-%d-%d", pid, fd);
+	snprintf(addr->sun_path, UNIX_PATH_MAX, "x/crtools-fd-%d", pid);
 	*len = SUN_LEN(addr);
 	*addr->sun_path = '\0';
 }
@@ -946,7 +945,7 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle)
 
 	sock = get_service_fd(TRANSPORT_FD_OFF);
 
-	transport_name_gen(&saddr, &len, fle->pid, -1);
+	transport_name_gen(&saddr, &len, fle->pid);
 	pr_info("\t\tSend fd %d to %s\n", fd, saddr.sun_path + 1);
 	return send_fds(sock, &saddr, len, &fd, 1, (void *)&fle, sizeof(struct fdinfo_list_entry *));
 }
@@ -1659,7 +1658,7 @@ int open_transport_socket(void)
 		return -1;
 	}
 
-	transport_name_gen(&saddr, &slen, pid, -1);
+	transport_name_gen(&saddr, &slen, pid);
 	if (bind(sock, (struct sockaddr *)&saddr, slen) < 0) {
 		pr_perror("Can't bind transport socket %s", saddr.sun_path + 1);
 		close(sock);
