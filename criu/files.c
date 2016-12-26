@@ -955,20 +955,51 @@ err:
 	return -1;
 }
 
+static bool task_fle(struct pstree_item *task, struct fdinfo_list_entry *fle)
+{
+	struct fdinfo_list_entry *tmp;
+
+	list_for_each_entry(tmp, &rsti(task)->used, used_list)
+		if (fle == tmp)
+			return true;
+	return false;
+}
+
+static int keep_fd_for_future(struct fdinfo_list_entry *fle, int fd)
+{
+	BUG_ON(fle->received);
+	fle->received = 1;
+	if (close(fle->fe->fd) < 0) {
+		pr_perror("Can't close transport fd\n");
+		return -1;
+	}
+	return reopen_fd_as(fle->fe->fd, fd);
+}
+
 int recv_fd_from_peer(struct fdinfo_list_entry *fle)
 {
 	struct fdinfo_list_entry *tmp;
 	int fd, ret;
 
+	if (fle->received)
+		return fle->fe->fd;
+again:
 	ret = recv_fds(fle->fe->fd, &fd, 1, (void *)&tmp, sizeof(struct fdinfo_list_entry *));
 	if (ret)
 		return -1;
 
 	if (tmp != fle) {
-		pr_err("Received wrong fle\n");
-		return -1;
+		pr_info("Further fle=%p, pid=%d\n", tmp, fle->pid);
+		if (!task_fle(current, fle)) {
+			pr_err("Unexpected fle %p, pid=%d\n", fle, current->pid->ns[0].virt);
+			return -1;
+		}
+		if (keep_fd_for_future(tmp, fd))
+			return -1;
+		goto again;
 	}
 	close(fle->fe->fd);
+	fle->received = 1;
 
 	return fd;
 }
@@ -1011,6 +1042,8 @@ static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle)
 		pr_perror("Unable to set file descriptor flags");
 		return -1;
 	}
+
+	fle->received = 1;
 
 	return 0;
 }

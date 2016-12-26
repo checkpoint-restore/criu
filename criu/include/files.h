@@ -72,6 +72,7 @@ struct fdinfo_list_entry {
 	int			pid;
 	futex_t			real_pid;
 	FdinfoEntry		*fe;
+	u8			received:1;
 };
 
 static inline void fle_init(struct fdinfo_list_entry *fle, int pid, FdinfoEntry *fe)
@@ -79,6 +80,7 @@ static inline void fle_init(struct fdinfo_list_entry *fle, int pid, FdinfoEntry 
 	futex_init(&fle->real_pid);
 	fle->pid = pid;
 	fle->fe = fe;
+	fle->received = 0;
 }
 
 /* reports whether fd_a takes prio over fd_b */
