@@ -2,6 +2,7 @@
 #define __CR_PSTREE_H__
 
 #include "common/list.h"
+#include "common/lock.h"
 #include "pid.h"
 #include "images/core.pb-c.h"
 
@@ -24,7 +25,13 @@ struct pstree_item {
 	struct pid		*threads;	/* array of threads */
 	CoreEntry		**core;
 	TaskKobjIdsEntry	*ids;
+	futex_t			task_st;
 };
+
+enum {
+	FDS_EVENT_BIT	= 0,
+};
+#define FDS_EVENT (1 << FDS_EVENT_BIT)
 
 struct pstree_item *current;
 
