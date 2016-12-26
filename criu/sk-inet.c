@@ -34,19 +34,21 @@ static LIST_HEAD(inet_ports);
 struct inet_port {
 	int port;
 	int type;
+	struct list_head type_list;
 	futex_t users;
 	mutex_t reuseaddr_lock;
 	struct list_head list;
 };
 
-static struct inet_port *port_add(int type, int port)
+static struct inet_port *port_add(struct inet_sk_info *ii, int port)
 {
+	int type = ii->ie->type;
 	struct inet_port *e;
 
 	list_for_each_entry(e, &inet_ports, list)
 		if (e->type == type && e->port == port) {
 			futex_inc(&e->users);
-			return e;
+			goto out_link;
 		}
 
 	e = shmalloc(sizeof(*e));
@@ -60,8 +62,11 @@ static struct inet_port *port_add(int type, int port)
 	futex_init(&e->users);
 	futex_inc(&e->users);
 	mutex_init(&e->reuseaddr_lock);
+	INIT_LIST_HEAD(&e->type_list);
 
 	list_add(&e->list, &inet_ports);
+out_link:
+	list_add(&ii->port_list, &e->type_list);
 
 	return e;
 }
@@ -507,7 +512,7 @@ static int collect_one_inetsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	 * so a value of SO_REUSEADDR can be restored after restoring all
 	 * sockets.
 	 */
-	ii->port = port_add(ii->ie->type, ii->ie->src_port);
+	ii->port = port_add(ii, ii->ie->src_port);
 	if (ii->port == NULL)
 		return -1;
 

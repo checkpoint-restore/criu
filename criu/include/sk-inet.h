@@ -41,6 +41,7 @@ struct inet_sk_info {
 	InetSkEntry *ie;
 	struct file_desc d;
 	struct inet_port *port;
+	struct list_head port_list;
 	/*
 	 * This is an fd by which the socket is opened.
 	 * It will be carried down to restorer code to
