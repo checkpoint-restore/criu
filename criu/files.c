@@ -957,6 +957,23 @@ err:
 	return -1;
 }
 
+int recv_fd_from_peer(struct fdinfo_list_entry *fle)
+{
+	struct fdinfo_list_entry *tmp;
+	int fd, ret;
+
+	ret = recv_fds(fle->fe->fd, &fd, 1, (void *)&tmp, sizeof(struct fdinfo_list_entry *));
+	if (ret)
+		return -1;
+
+	if (tmp != fle) {
+		pr_err("Received wrong fle\n");
+		return -1;
+	}
+
+	return fd;
+}
+
 int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int sock)
 {
 	struct sockaddr_un saddr;
@@ -967,7 +984,7 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int sock)
 	transport_name_gen(&saddr, &len,
 			futex_get(&fle->real_pid), fle->fe->fd);
 	pr_info("\t\tSend fd %d to %s\n", fd, saddr.sun_path + 1);
-	return send_fd(sock, &saddr, len, fd);
+	return send_fds(sock, &saddr, len, &fd, 1, (void *)&fle, sizeof(struct fdinfo_list_entry *));
 }
 
 static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle, int sock)
@@ -1077,7 +1094,7 @@ static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 
 	pr_info("\tReceive fd for %d\n", fle->fe->fd);
 
-	tmp = recv_fd(fle->fe->fd);
+	tmp = recv_fd_from_peer(fle);
 	if (tmp < 0) {
 		pr_err("Can't get fd %d\n", tmp);
 		return -1;

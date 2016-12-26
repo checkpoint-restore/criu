@@ -237,7 +237,7 @@ static int recv_pipe_fd(struct pipe_info *pi)
 
 	pr_info("\tWaiting fd for %d\n", fd);
 
-	tmp = recv_fd(fd);
+	tmp = recv_fd_from_peer(fle);
 	if (tmp < 0) {
 		pr_err("Can't get fd %d\n", tmp);
 		return -1;

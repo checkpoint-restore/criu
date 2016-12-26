@@ -923,7 +923,7 @@ static int receive_tty(struct tty_info *info)
 	fle = file_master(&info->d);
 	pr_info("\tWaiting tty fd %d (pid %d)\n", fle->fe->fd, fle->pid);
 
-	fd = recv_fd(fle->fe->fd);
+	fd = recv_fd_from_peer(fle);
 	close(fle->fe->fd);
 	if (fd < 0) {
 		pr_err("Can't get fd %d\n", fd);
