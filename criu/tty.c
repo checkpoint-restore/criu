@@ -876,11 +876,9 @@ static void pty_restore_queued_data(struct tty_info *info, int fd)
 
 static int pty_open_slaves(struct tty_info *info)
 {
-	int sock = -1, fd = -1, ret = -1;
+	int fd = -1, ret = -1;
 	struct fdinfo_list_entry *fle;
 	struct tty_info *slave;
-
-	sock = get_service_fd(TRANSPORT_FD_OFF);
 
 	list_for_each_entry(slave, &info->sibling, sibling) {
 		BUG_ON(tty_is_master(slave));
@@ -899,7 +897,7 @@ static int pty_open_slaves(struct tty_info *info)
 		pr_debug("send slave %#x fd %d connected on %s (pid %d)\n",
 			 slave->tfe->id, fd, path_from_reg(slave->reg_d), fle->pid);
 
-		if (send_fd_to_peer(fd, fle, sock)) {
+		if (send_fd_to_peer(fd, fle)) {
 			pr_err("Can't send file descriptor\n");
 			goto err;
 		}

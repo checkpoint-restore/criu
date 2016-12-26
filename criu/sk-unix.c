@@ -1045,7 +1045,7 @@ static int unixsk_should_open_transport(FdinfoEntry *fe,
 
 static int open_unixsk_pair_master(struct unix_sk_info *ui)
 {
-	int sk[2], tsk;
+	int sk[2];
 	struct unix_sk_info *peer = ui->peer;
 	struct fdinfo_list_entry *fle;
 
@@ -1074,10 +1074,8 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 	if (shutdown_unix_sk(sk[0], ui))
 		return -1;
 
-	tsk = get_service_fd(TRANSPORT_FD_OFF);
-
 	fle = file_master(&peer->d);
-	if (send_fd_to_peer(sk[1], fle, tsk)) {
+	if (send_fd_to_peer(sk[1], fle)) {
 		pr_err("Can't send pair slave\n");
 		return -1;
 	}
