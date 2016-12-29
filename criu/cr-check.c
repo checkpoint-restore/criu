@@ -24,6 +24,8 @@
 #include <linux/aio_abi.h>
 #include <sys/mount.h>
 
+#include "../soccr/soccr.h"
+
 #include "types.h"
 #include "fdinfo.h"
 #include "sockets.h"
@@ -937,6 +939,46 @@ static int check_tcp_halt_closed(void)
 	return 0;
 }
 
+static int kerndat_tcp_repair_window(void)
+{
+	struct tcp_repair_window opt;
+	socklen_t optlen = sizeof(opt);
+	int sk, val = 1;
+
+	sk = socket(AF_INET, SOCK_STREAM, 0);
+	if (sk < 0) {
+		pr_perror("Unable to create inet socket");
+		goto errn;
+	}
+
+	if (setsockopt(sk, SOL_TCP, TCP_REPAIR, &val, sizeof(val))) {
+		if (errno == EPERM) {
+			pr_warn("TCP_REPAIR isn't available to unprivileged users\n");
+			goto now;
+		}
+		pr_perror("Unable to set TCP_REPAIR");
+		goto err;
+	}
+
+	if (getsockopt(sk, SOL_TCP, TCP_REPAIR_WINDOW, &opt, &optlen)) {
+		if (errno != ENOPROTOOPT) {
+			pr_perror("Unable to set TCP_REPAIR_WINDOW");
+			goto err;
+		}
+now:
+		val = 0;
+	} else
+		val = 1;
+
+	close(sk);
+	return val;
+
+err:
+	close(sk);
+errn:
+	return -1;
+}
+
 static int check_tcp_window(void)
 {
 	int ret;
@@ -945,7 +987,7 @@ static int check_tcp_window(void)
 	if (ret < 0)
 		return -1;
 
-	if (!kdat.has_tcp_window) {
+	if (ret == 0) {
 		pr_err("The TCP_REPAIR_WINDOW option isn't supported.\n");
 		return -1;
 	}

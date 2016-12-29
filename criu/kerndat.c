@@ -581,8 +581,6 @@ int kerndat_init(void)
 	if (!ret)
 		ret = kerndat_iptables_has_xtlocks();
 	if (!ret)
-		ret = kerndat_tcp_repair_window();
-	if (!ret)
 		ret = kerndat_tcp_repair();
 
 	kerndat_lsm();
@@ -614,8 +612,6 @@ int kerndat_init_rst(void)
 		ret = kerndat_loginuid(false);
 	if (!ret)
 		ret = kerndat_iptables_has_xtlocks();
-	if (!ret)
-		ret = kerndat_tcp_repair_window();
 	if (!ret)
 		ret = kerndat_tcp_repair();
 
