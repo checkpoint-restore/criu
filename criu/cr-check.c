@@ -923,6 +923,36 @@ static int check_cgroupns(void)
 	return 0;
 }
 
+static int check_tcp(void)
+{
+	socklen_t optlen;
+	int sk, ret;
+	int val;
+
+	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sk < 0) {
+		pr_perror("Can't create TCP socket :(");
+		return -1;
+	}
+
+	val = 1;
+	ret = setsockopt(sk, SOL_TCP, TCP_REPAIR, &val, sizeof(val));
+	if (ret < 0) {
+		pr_perror("Can't turn TCP repair mode ON");
+		goto out;
+	}
+
+	optlen = sizeof(val);
+	ret = getsockopt(sk, SOL_TCP, TCP_TIMESTAMP, &val, &optlen);
+	if (ret)
+		pr_perror("Can't get TCP_TIMESTAMP");
+
+out:
+	close(sk);
+
+	return ret;
+}
+
 static int check_tcp_halt_closed(void)
 {
 	int ret;

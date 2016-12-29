@@ -8,7 +8,6 @@
 
 #include "../soccr/soccr.h"
 
-#include "cr_options.h"
 #include "util.h"
 #include "common/list.h"
 #include "log.h"
@@ -30,17 +29,6 @@
 
 static LIST_HEAD(cpt_tcp_repair_sockets);
 static LIST_HEAD(rst_tcp_repair_sockets);
-
-static int tcp_repair_on(int fd)
-{
-	int ret, aux = 1;
-
-	ret = setsockopt(fd, SOL_TCP, TCP_REPAIR, &aux, sizeof(aux));
-	if (ret < 0)
-		pr_perror("Can't turn TCP repair mode ON");
-
-	return ret;
-}
 
 static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
 {
@@ -446,31 +434,3 @@ void rst_unlock_tcp_connections(void)
 	list_for_each_entry(ii, &rst_tcp_repair_sockets, rlist)
 		nf_unlock_connection_info(ii);
 }
-
-int check_tcp(void)
-{
-	socklen_t optlen;
-	int sk, ret;
-	int val;
-
-	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (sk < 0) {
-		pr_perror("Can't create TCP socket :(");
-		return -1;
-	}
-
-	ret = tcp_repair_on(sk);
-	if (ret)
-		goto out;
-
-	optlen = sizeof(val);
-	ret = getsockopt(sk, SOL_TCP, TCP_TIMESTAMP, &val, &optlen);
-	if (ret)
-		pr_perror("Can't get TCP_TIMESTAMP");
-
-out:
-	close(sk);
-
-	return ret;
-}
-
