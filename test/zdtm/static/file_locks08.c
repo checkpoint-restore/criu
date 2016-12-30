@@ -52,14 +52,18 @@ int main(int argc, char **argv)
 	int pid;
 	int status;
 	int ret = 0;
+	task_waiter_t tw;
 	struct flock lck;
 
 	test_init(argc, argv);
 	if (init_file_lock(&fd, &lck))
 		return -1;
 
+	task_waiter_init(&tw);
+
 	pid = fork();
 	if (pid == 0) {
+		task_waiter_wait4(&tw, getppid());
 		if (check_file_lock_restored(getpid(), fd, &lck) ||
 			check_lock_exists(filename, &lck) < 0)
 			ret = -1;
@@ -68,6 +72,8 @@ int main(int argc, char **argv)
 
 	test_daemon();
 	test_waitsig();
+
+	task_waiter_complete_current(&tw);
 
 	if (check_file_lock_restored(getpid(), fd, &lck) ||
 		check_lock_exists(filename, &lck) < 0)
