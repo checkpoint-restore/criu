@@ -29,8 +29,8 @@ int main(int argc, char **argv)
 	pid_t pid = -1;
 	int status = 1;
 
-	task_waiter_init(&lock);
 	test_init(argc, argv);
+	task_waiter_init(&lock);
 
 	pid = fork();
 	if (pid < 0) {

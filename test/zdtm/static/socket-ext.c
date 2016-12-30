@@ -66,10 +66,10 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	test_init(argc, argv);
-
 	task_waiter_wait4(&lock, 1);
 	task_waiter_fini(&lock);
+
+	test_init(argc, argv);
 
 	sk = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (sk < 0) {

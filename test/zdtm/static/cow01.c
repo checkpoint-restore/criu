@@ -452,13 +452,13 @@ int main(int argc, char ** argv)
 	task_waiter_t child_waiter;
 	int pfd[2], fd;
 
+	test_init(argc, argv);
+
 	task_waiter_init(&child_waiter);
 
 	memset(zero_page, 0, sizeof(zero_page));
 
 	datasum(zero_page, sizeof(zero_page), &zero_crc);
-
-	test_init(argc, argv);
 
 	if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pfd)) {
 		pr_perror("pipe");
