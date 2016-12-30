@@ -227,7 +227,7 @@ static int check_fd(struct autofs_params *p)
 	}
 	if (st.st_blksize != p->fd_stat.st_blksize) {
 		pr_err("%s: st_blksize differs %ld != %ld:\n", p->mountpoint,
-				st.st_blksize, p->fd_stat.st_blksize);
+				(long)st.st_blksize, (long)p->fd_stat.st_blksize);
 		ret++;
 	}
 	if (st.st_blocks != p->fd_stat.st_blocks) {
