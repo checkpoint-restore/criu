@@ -543,8 +543,9 @@ static int do_open_tty_reg(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 	return fd;
 }
 
-static int open_tty_reg(struct file_desc *reg_d, u32 flags)
+static int open_tty_reg(void *arg, int flags)
 {
+	struct file_desc *reg_d = arg;
 	/*
 	 * Never set as a control terminal automatically, all
 	 * ctty magic happens only in tty_set_sid().
@@ -559,7 +560,8 @@ static char *path_from_reg(struct file_desc *d)
 	return rfi->path;
 }
 
-static int pty_open_ptmx_index(struct file_desc *d, int index, int flags)
+static int __pty_open_ptmx_index(int index, int flags,
+			int (*cb)(void *arg, int flags), void *arg, char *path)
 {
 	int fds[32], i, ret = -1, cur_idx;
 
@@ -568,15 +570,15 @@ static int pty_open_ptmx_index(struct file_desc *d, int index, int flags)
 	mutex_lock(tty_mutex);
 
 	for (i = 0; i < ARRAY_SIZE(fds); i++) {
-		fds[i] = open_tty_reg(d, flags);
+		fds[i] = cb(arg, flags);
 		if (fds[i] < 0) {
-			pr_err("Can't open %s\n", path_from_reg(d));
+			pr_err("Can't open %s\n", path);
 			break;
 		}
 
 		if (ioctl(fds[i], TIOCGPTN, &cur_idx)) {
 			pr_perror("Can't obtain current index on %s",
-				  path_from_reg(d));
+				  path);
 			break;
 		}
 
@@ -597,7 +599,7 @@ static int pty_open_ptmx_index(struct file_desc *d, int index, int flags)
 			continue;
 
 		pr_err("Unable to open %s with specified index %d\n",
-		       path_from_reg(d), index);
+		       path, index);
 		break;
 	}
 
@@ -609,6 +611,12 @@ static int pty_open_ptmx_index(struct file_desc *d, int index, int flags)
 	mutex_unlock(tty_mutex);
 
 	return ret;
+}
+
+static int pty_open_ptmx_index(struct file_desc *d, struct tty_info *info, int flags)
+{
+	return __pty_open_ptmx_index(info->tie->pty->index, flags,
+					open_tty_reg, d, path_from_reg(d));
 }
 
 static int unlock_pty(int fd)
@@ -965,7 +973,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 		fake = pty_alloc_fake_master(slave);
 		if (!fake)
 			goto err;
-		master = pty_open_ptmx_index(&fake->d, slave->tie->pty->index, O_RDONLY);
+		master = pty_open_ptmx_index(&fake->d, slave, O_RDONLY);
 		if (master < 0) {
 			pr_err("Can't open master pty %#x (index %d)\n",
 				  slave->tfe->id, slave->tie->pty->index);
@@ -1026,7 +1034,7 @@ static int pty_open_ptmx(struct tty_info *info)
 {
 	int master = -1;
 
-	master = pty_open_ptmx_index(info->reg_d, info->tie->pty->index, info->tfe->flags);
+	master = pty_open_ptmx_index(info->reg_d, info, info->tfe->flags);
 	if (master < 0) {
 		pr_err("Can't open master pty %#x (index %d)\n",
 			  info->tfe->id, info->tie->pty->index);
