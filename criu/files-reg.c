@@ -540,9 +540,11 @@ static int clean_linked_remap(struct remap_info *ri)
 
 	ret = unlinkat(rmntns_root, remap->rpath, remap->is_dir ? AT_REMOVEDIR : 0);
 	if (ret < 0) {
+		close(rmntns_root);
 		pr_perror("Couldn't unlink remap %d %s", rmntns_root, remap->rpath);
 		return -1;
 	}
+	close(rmntns_root);
 	remap->rpath[0] = 0;
 
 	return 0;
