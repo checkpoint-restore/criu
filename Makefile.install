@@ -4,8 +4,6 @@ PREFIX		:= /usr/local
 BINDIR		:= $(PREFIX)/bin
 SBINDIR		:= $(PREFIX)/sbin
 MANDIR		:= $(PREFIX)/share/man
-SYSTEMDUNITDIR	:= $(PREFIX)/lib/systemd/system
-LOGROTATEDIR	:= $(PREFIX)/etc/logrotate.d
 LIBDIR		:= $(PREFIX)/lib
 INCLUDEDIR	:= $(PREFIX)/include
 LIBEXECDIR	:= $(PREFIX)/libexec
@@ -23,15 +21,8 @@ else
         endif
 endif
 
-export BINDIR SBINDIR MANDIR SYSTEMDUNITDIR LOGROTATEDIR
-export INCLUDEDIR LIBDIR DESTDIR PREFIX LIBEXECDIR
-
-install-tree:
-	$(Q) mkdir -p $(DESTDIR)$(SYSTEMDUNITDIR)
-	$(Q) mkdir -p $(DESTDIR)$(LOGROTATEDIR)
-	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)
-	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)
-.PHONY: install-tree
+export PREFIX BINDIR SBINDIR MANDIR
+export LIBDIR INCLUDEDIR LIBEXECDIR
 
 install-man:
 	$(Q) $(MAKE) -C Documentation install
