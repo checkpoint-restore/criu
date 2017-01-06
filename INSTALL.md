@@ -14,7 +14,7 @@ this command accepts the following variables:
  * **SBINDIR**, to specify where to put CRIU executable (`$(PREFIX)/sbin` by default);
  * **MANDIR**, to specify directory for manual pages (`$(PREFIX)/share/man` by default);
  * **SYSTEMDUNITDIR**, to specify place where systemd units are living (`$(PREFIX)/lib/systemd/system` by default);
- * **LIBDIR**, to specify directory where to put libraries (`$(PREFIX)/lib` by default).
+ * **LIBDIR**, to specify directory where to put libraries (guess the correct path  by default).
 
 Thus one can type
 
