@@ -1,3 +1,5 @@
+.PHONY: .FORCE
+
 # here is a workaround for a bug in libnl-3:
 # 6a8d90f5fec4 "attr: Allow attribute type 0" 
 WRAPFLAGS		+= -Wl,--wrap=nla_parse,--wrap=nlmsg_parse
@@ -47,7 +49,7 @@ $(ARCH-LIB):
 
 #
 # PIE library code.
-criu/pie/pie.lib.a: $(ARCH-LIB)
+criu/pie/pie.lib.a: $(ARCH-LIB) .FORCE
 	$(Q) $(MAKE) $(call build-as,Makefile.library,criu/pie) all
 
 #
