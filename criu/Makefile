@@ -44,7 +44,7 @@ include $(SRC_DIR)/criu/Makefile.packages
 #
 # Architecture dependent part.
 ARCH-LIB		:= $(ARCH_DIR)/crtools.built-in.o
-$(ARCH-LIB):
+$(ARCH-LIB): .FORCE
 	$(Q) $(MAKE) $(build)=$(ARCH_DIR) all
 
 #
