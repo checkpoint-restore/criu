@@ -30,6 +30,7 @@
 #ifdef CONFIG_X86_64
 int kdat_compat_sigreturn_test(void)
 {
+#ifdef CONFIG_COMPAT
 	unsigned long auxval;
 	int ret;
 
@@ -46,6 +47,7 @@ int kdat_compat_sigreturn_test(void)
 	ret = syscall(SYS_arch_prctl, ARCH_MAP_VDSO_32, 1);
 	if (ret == -1 && errno == EEXIST)
 		return 1;
+#endif
 	return 0;
 }
 #endif /* CONFIG_X86_64 */
