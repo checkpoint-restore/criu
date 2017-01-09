@@ -1232,6 +1232,7 @@ int epoll_add_rfd(int epfd, struct epoll_rfd *rfd)
 int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout)
 {
 	int ret, i, nr_events;
+	bool have_a_break = false;
 
 	while (1) {
 		/* FIXME -- timeout should decrease over time...  */
@@ -1252,7 +1253,12 @@ int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout
 			ret = rfd->revent(rfd);
 			if (ret < 0)
 				goto out;
+			if (ret > 0)
+				have_a_break = true;
 		}
+
+		if (have_a_break)
+			return 1;
 	}
 out:
 	return ret;
