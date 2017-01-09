@@ -214,6 +214,7 @@ int main(int argc, char *argv[], char *envp[])
 	int ret = -1;
 	bool usage_error = true;
 	bool has_exec_cmd = false;
+	bool has_sub_command;
 	int opt, idx;
 	int log_level = LOG_UNSET;
 	char *imgs_dir = ".";
@@ -639,8 +640,10 @@ int main(int argc, char *argv[], char *envp[])
 		goto usage;
 	}
 
+	has_sub_command = (argc - optind) > 1;
+
 	if (has_exec_cmd) {
-		if (argc - optind <= 1) {
+		if (!has_sub_command) {
 			pr_msg("Error: --exec-cmd requires a command\n");
 			goto usage;
 		}
@@ -660,6 +663,14 @@ int main(int argc, char *argv[], char *envp[])
 			return 1;
 		memcpy(opts.exec_cmd, &argv[optind + 1], (argc - optind - 1) * sizeof(char *));
 		opts.exec_cmd[argc - optind - 1] = NULL;
+	} else {
+		/* No subcommands except for cpuinfo and restore --exec-cmd */
+		if ((strcmp(argv[optind], "cpuinfo") && strcmp(argv[optind], "exec"))
+				&& has_sub_command) {
+			pr_msg("Error: excessive parameter%s for command %s\n",
+				(argc - optind) > 2 ? "s" : "", argv[optind]);
+			goto usage;
+		}
 	}
 
 	/* We must not open imgs dir, if service is called */
@@ -765,8 +776,10 @@ int main(int argc, char *argv[], char *envp[])
 		return cr_dedup() != 0;
 
 	if (!strcmp(argv[optind], "cpuinfo")) {
-		if (!argv[optind + 1])
+		if (!argv[optind + 1]) {
+			pr_msg("Error: cpuinfo requires an action: dump or check\n");
 			goto usage;
+		}
 		if (!strcmp(argv[optind + 1], "dump"))
 			return cpuinfo_dump();
 		else if (!strcmp(argv[optind + 1], "check"))
