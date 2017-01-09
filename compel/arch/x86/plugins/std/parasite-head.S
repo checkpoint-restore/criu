@@ -6,10 +6,10 @@
 # error 64-bit parasite should compile with CONFIG_X86_64
 #endif
 
-.macro PARASITE_ENTRY
+.macro PARASITE_ENTRY num
 	subq	$16, %rsp
 	andq	$~15, %rsp
-	pushq	$0
+	pushq	$\num
 	movq	%rsp, %rbp
 	movl	__export_parasite_cmd(%rip), %edi
 	leaq	__export_parasite_args(%rip), %rsi
@@ -23,7 +23,7 @@ ENTRY(__export_parasite_head_start_compat)
 	jmp	$__USER_CS,$1f
 1:
 .code64
-	PARASITE_ENTRY
+	PARASITE_ENTRY 0
 	pushq	$__USER32_CS
 	pushq	$2f
 	lretq
@@ -43,7 +43,7 @@ END(__export_parasite_head_start_compat)
 #endif
 
 ENTRY(__export_parasite_head_start)
-	PARASITE_ENTRY
+	PARASITE_ENTRY 0
 	int	$0x03
 END(__export_parasite_head_start)
 
