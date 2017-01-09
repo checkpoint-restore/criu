@@ -788,6 +788,10 @@ class criu:
 		self.__lazy_pages_p = None
 		self.__page_server_p = None
 
+	def fini(self, opts):
+		if self.__lazy_pages:
+			wait_pid_die(int(rpidfile(self.__ddir() + "/lp.pid")), "lazy-pages")
+
 	def logs(self):
 		return self.__dump_path
 
@@ -985,9 +989,6 @@ class criu:
 		if self.__leave_stopped:
 			pstree_check_stopped(self.__test.getpid())
 			pstree_signal(self.__test.getpid(), signal.SIGCONT)
-
-		if self.__lazy_pages:
-			wait_pid_die(int(rpidfile(self.__ddir() + "/lp.pid")), "lazy pages daemon")
 
 	@staticmethod
 	def check(feature):
@@ -1344,6 +1345,7 @@ def do_run_test(tname, tdesc, flavs, opts):
 				if opts['join_ns']:
 					check_joinns_state(t)
 				t.stop()
+				cr_api.fini(opts)
 				try_run_hook(t, ["--clean"])
 		except test_fail_exc as e:
 			print_sep("Test %s FAIL at %s" % (tname, e.step), '#')
