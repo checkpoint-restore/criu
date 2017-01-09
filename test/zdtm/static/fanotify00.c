@@ -75,7 +75,11 @@ static int fanotify_init(unsigned int flags, unsigned int event_f_flags)
 static int fanotify_mark(int fanotify_fd, unsigned int flags, unsigned long mask,
 			 int dfd, const char *pathname)
 {
+#ifdef __i386__
+	return syscall(__NR_fanotify_mark, fanotify_fd, flags, mask, 0, dfd, pathname);
+#else
 	return syscall(__NR_fanotify_mark, fanotify_fd, flags, mask, dfd, pathname);
+#endif
 }
 
 #define fdinfo_field(str, field)	!strncmp(str, field":", sizeof(field))
@@ -226,9 +230,8 @@ int main (int argc, char *argv[])
 		}
 	}
 
-	fa_fd = fanotify_init(FAN_NONBLOCK | O_RDONLY | O_LARGEFILE |
-			      FAN_CLASS_NOTIF | FAN_UNLIMITED_QUEUE,
-			      0);
+	fa_fd = fanotify_init(FAN_NONBLOCK | FAN_CLASS_NOTIF | FAN_UNLIMITED_QUEUE,
+			      O_RDONLY | O_LARGEFILE);
 	if (fa_fd < 0) {
 		pr_perror("fanotify_init failed");
 		exit(1);
