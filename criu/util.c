@@ -1231,7 +1231,7 @@ int epoll_add_rfd(int epfd, struct epoll_rfd *rfd)
 
 int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout)
 {
-	int ret = 0, i;
+	int ret, i, nr_events;
 
 	while (1) {
 		/* FIXME -- timeout should decrease over time...  */
@@ -1244,7 +1244,8 @@ int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout
 			break;
 		}
 
-		for (i = 0; i < ret; i++) {
+		nr_events = ret;
+		for (i = 0; i < nr_events; i++) {
 			struct epoll_rfd *rfd;
 
 			rfd = (struct epoll_rfd *)evs[i].data.ptr;
