@@ -13,6 +13,7 @@ const char *test_author	= "Andrew Vagin <avagin@parallels.com>";
 int main(int argc, char **argv)
 {
 	pid_t pid;
+	siginfo_t infop;
 	int p[2], ret, status;
 
 	test_init(argc, argv);
@@ -40,7 +41,7 @@ int main(int argc, char **argv)
 	close(p[0]);
 
 	kill(pid, SIGSTOP);
-	if (waitid(P_PID, pid, NULL, WNOWAIT | WSTOPPED) < 0) {
+	if (waitid(P_PID, pid, &infop, WNOWAIT | WSTOPPED) < 0) {
 		pr_perror("waitid");
 		return 1;
 	}

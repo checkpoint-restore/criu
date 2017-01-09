@@ -170,6 +170,7 @@ int main(int argc, char ** argv)
 	sigset_t blockmask, oldset, newset;
 	struct sigaction act;
 	pthread_t pthrd;
+	siginfo_t infop;
 	int i;
 
 	memset(&oldset, 0, sizeof(oldset));
@@ -209,7 +210,7 @@ int main(int argc, char ** argv)
 
 	if(child == 0)
 		return 5; /* SIGCHLD */
-	if (waitid(P_PID, child, NULL, WNOWAIT | WEXITED)) {
+	if (waitid(P_PID, child, &infop, WNOWAIT | WEXITED)) {
 		pr_perror("waitid");
 		return 1;
 	}
