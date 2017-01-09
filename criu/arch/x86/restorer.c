@@ -33,23 +33,14 @@ int restore_nonsigframe_gpregs(UserX86RegsEntry *r)
 }
 
 #ifdef CONFIG_COMPAT
-/*
- * We need here compatible stack, because 32-bit syscalls get
- * 4-byte pointer and _usally_ restorer is also under 4Gb, but
- * it can be upper and then pointers are messed up.
- * (we lose high 4 bytes and... BUNG!)
- * Nothing serious, but syscall will return -EFAULT - or if we're
- * lucky and lower 4 bytes points on some writeable VMA - corruption).
- */
-static void *stack32;
 
-static int prepare_stack32(void)
+static int prepare_stack32(void **stack32)
 {
-	if (stack32)
+	if (*stack32)
 		return 0;
 
-	stack32 = alloc_compat_syscall_stack();
-	if (!stack32) {
+	*stack32 = alloc_compat_syscall_stack();
+	if (!*stack32) {
 		pr_err("Failed to allocate stack for 32-bit TLS restore\n");
 		return -1;
 	}
@@ -59,6 +50,15 @@ static int prepare_stack32(void)
 
 void restore_tls(tls_t *ptls)
 {
+	/*
+	 * We need here compatible stack, because 32-bit syscalls get
+	 * 4-byte pointer and _usally_ restorer is also under 4Gb, but
+	 * it can be upper and then pointers are messed up.
+	 * (we lose high 4 bytes and... BANG!)
+	 * Nothing serious, but syscall will return -EFAULT - or if we're
+	 * lucky and lower 4 bytes points on some writeable VMA - corruption).
+	 */
+	void *stack32 = NULL;
 	unsigned i;
 
 	for (i = 0; i < GDT_ENTRY_TLS_NUM; i++) {
@@ -68,7 +68,7 @@ void restore_tls(tls_t *ptls)
 		if (desc->seg_not_present)
 			continue;
 
-		if (prepare_stack32() < 0)
+		if (prepare_stack32(&stack32) < 0)
 			return;
 
 		builtin_memcpy(stack32, desc, sizeof(user_desc_t));
