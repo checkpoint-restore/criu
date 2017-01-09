@@ -12,6 +12,7 @@
 #include <sys/statfs.h>
 #include <sys/sysmacros.h>
 #include <dirent.h>
+#include <poll.h>
 
 #include "int.h"
 #include "common/compiler.h"
@@ -262,6 +263,12 @@ void split(char *str, char token, char ***out, int *n);
 int fd_has_data(int lfd);
 
 int make_yard(char *path);
+
+static inline int sk_wait_data(int sk)
+{
+	struct pollfd pfd = {sk, POLLIN, 0};
+	return poll(&pfd, 1, -1);
+}
 
 void tcp_nodelay(int sk, bool on);
 void tcp_cork(int sk, bool on);

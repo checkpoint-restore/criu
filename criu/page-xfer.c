@@ -557,6 +557,20 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 		if (chunk > cxfer.pipe_size)
 			chunk = cxfer.pipe_size;
 
+		/*
+		 * Splicing into a pipe may end up blocking if pipe is "full",
+		 * and we need the SPLICE_F_NONBLOCK flag here. At the same time
+		 * splcing from UNIX socket with this flag aborts splice with
+		 * the EAGAIN if there's no data in it (TCP looks at the socket
+		 * O_NONBLOCK flag _only_ and waits for data), so before doing
+		 * the non-blocking splice we need to explicitly wait.
+		 */
+
+		if (sk_wait_data(sk) < 0) {
+			pr_perror("Can't poll socket");
+			return -1;
+		}
+
 		chunk = splice(sk, NULL, cxfer.p[1], NULL, chunk, SPLICE_F_MOVE | SPLICE_F_NONBLOCK);
 		if (chunk < 0) {
 			pr_perror("Can't read from socket");
