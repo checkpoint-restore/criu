@@ -73,7 +73,7 @@ struct lazy_pages_info {
 };
 
 static LIST_HEAD(lpis);
-static int handle_user_fault(struct epoll_rfd *lpfd);
+static int handle_uffd_event(struct epoll_rfd *lpfd);
 
 static struct lazy_pages_info *lpi_init(void)
 {
@@ -86,7 +86,7 @@ static struct lazy_pages_info *lpi_init(void)
 	memset(lpi, 0, sizeof(*lpi));
 	INIT_LIST_HEAD(&lpi->iovs);
 	INIT_LIST_HEAD(&lpi->l);
-	lpi->lpfd.revent = handle_user_fault;
+	lpi->lpfd.revent = handle_uffd_event;
 
 	return lpi;
 }
@@ -633,34 +633,13 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	return 0;
 }
 
-static int handle_user_fault(struct epoll_rfd *lpfd)
+static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
-	struct lazy_pages_info *lpi;
-	struct uffd_msg msg;
 	__u64 address;
 	int ret;
 
-	lpi = container_of(lpfd, struct lazy_pages_info, lpfd);
-
-	ret = read(lpfd->fd, &msg, sizeof(msg));
-	if (!ret)
-		return 1;
-
-	if (ret != sizeof(msg)) {
-		if (ret < 0)
-			pr_perror("Can't read userfaultfd message");
-		else
-			pr_err("Can't read userfaultfd message: short read");
-		return -1;
-	}
-
-	if (msg.event != UFFD_EVENT_PAGEFAULT) {
-		pr_err("unexpected msg event %u\n", msg.event);
-		return -1;
-	}
-
 	/* Align requested address to the next page boundary */
-	address = msg.arg.pagefault.address & ~(page_size() - 1);
+	address = msg->arg.pagefault.address & ~(page_size() - 1);
 	pr_debug("%d: #PF at 0x%llx\n", lpi->pid, address);
 
 #if 0
@@ -681,6 +660,37 @@ static int handle_user_fault(struct epoll_rfd *lpfd)
 	ret = uffd_handle_pages(lpi, address, 1, PR_ASYNC | PR_ASAP);
 	if (ret < 0) {
 		pr_err("Error during regular page copy\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int handle_uffd_event(struct epoll_rfd *lpfd)
+{
+	struct lazy_pages_info *lpi;
+	struct uffd_msg msg;
+	int ret;
+
+	lpi = container_of(lpfd, struct lazy_pages_info, lpfd);
+
+	ret = read(lpfd->fd, &msg, sizeof(msg));
+	if (!ret)
+		return 1;
+
+	if (ret != sizeof(msg)) {
+		if (ret < 0)
+			pr_perror("Can't read userfaultfd message");
+		else
+			pr_err("Can't read userfaultfd message: short read");
+		return -1;
+	}
+
+	switch (msg.event) {
+	case UFFD_EVENT_PAGEFAULT:
+		return handle_page_fault(lpi, &msg);
+	default:
+		pr_err("unexpected uffd event %u\n", msg.event);
 		return -1;
 	}
 
