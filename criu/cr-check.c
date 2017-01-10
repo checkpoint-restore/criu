@@ -49,6 +49,7 @@
 #include "cr_options.h"
 #include "libnetlink.h"
 #include "net.h"
+#include "restorer.h"
 
 static char *feature_name(int (*func)());
 
@@ -1058,6 +1059,14 @@ static int check_loginuid(void)
 	return 0;
 }
 
+static int check_compat_cr(void)
+{
+	if (kdat_compat_sigreturn_test())
+		return 0;
+	pr_warn("compat_cr is not supported. Requires kernel >= v4.9\n");
+	return -1;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1168,6 +1177,7 @@ int cr_check(void)
 	 */
 	if (opts.check_experimental_features) {
 		ret |= check_autofs();
+		ret |= check_compat_cr();
 	}
 
 	print_on_level(DEFAULT_LOGLEVEL, "%s\n", ret ? CHECK_MAYBE : CHECK_GOOD);
@@ -1208,6 +1218,7 @@ static struct feature_list feature_list[] = {
 	{ "cgroupns", check_cgroupns },
 	{ "autofs", check_autofs },
 	{ "tcp_half_closed", check_tcp_halt_closed },
+	{ "compat_cr", check_compat_cr },
 	{ NULL, NULL },
 };
 
