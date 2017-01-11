@@ -2580,13 +2580,11 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 			goto err;
 		}
 
-#ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
-		if (me->fstype == FSTYPE__BINFMT_MISC)
-			opts.has_binfmt_misc = true;
-#endif
-
 		/* FIXME: abort unsupported early */
 		pm->fstype = decode_fstype(me->fstype);
+		if (pm->fstype->collect && (pm->fstype->collect(pm) < 0))
+			goto err;
+
 
 		if (me->fsname) {
 			pm->fsname = xstrdup(me->fsname);

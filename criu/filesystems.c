@@ -39,7 +39,7 @@ struct binfmt_misc_info {
 
 LIST_HEAD(binfmt_misc_list);
 
-static int binfmt_misc_parse(struct mount_info *pm)
+static int binfmt_misc_parse_or_collect(struct mount_info *pm)
 {
 	opts.has_binfmt_misc = true;
 	return 0;
@@ -375,7 +375,7 @@ int collect_binfmt_misc(void)
 #else
 #define binfmt_misc_dump	NULL
 #define binfmt_misc_restore	NULL
-#define binfmt_misc_parse	NULL
+#define binfmt_misc_parse_or_collect NULL
 #endif
 
 static int tmpfs_dump(struct mount_info *pm)
@@ -684,7 +684,8 @@ static struct fstype fstypes[] = {
 		.restore = devtmpfs_restore,
 	}, {
 		.name = "binfmt_misc",
-		.parse = binfmt_misc_parse,
+		.parse = binfmt_misc_parse_or_collect,
+		.collect = binfmt_misc_parse_or_collect,
 		.code = FSTYPE__BINFMT_MISC,
 		.dump = binfmt_misc_dump,
 		.restore = binfmt_misc_restore,
