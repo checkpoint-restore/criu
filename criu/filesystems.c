@@ -590,6 +590,40 @@ static int cgroup_parse(struct mount_info *pm)
 	return 0;
 }
 
+static bool btrfs_sb_equal(struct mount_info *a, struct mount_info *b)
+{
+	/* There is a btrfs bug where it doesn't emit subvol= correctly when
+	 * files are bind mounted, so let's ignore it for now.
+	 * https://marc.info/?l=linux-btrfs&m=145857372803614&w=2
+	 */
+
+	char *posa = strstr(a->options, "subvol="), *posb = strstr(b->options, "subvol=");
+	bool equal;
+
+	if (!posa || !posb) {
+		pr_err("invalid btrfs options, no subvol argument");
+		return false;
+	}
+
+	*posa = *posb = 0;
+	equal = !strcmp(a->options, b->options);
+	*posa = *posb = 's';
+
+	if (!equal)
+		return false;
+
+	posa = strchr(posa, ',');
+	posb = strchr(posb, ',');
+
+	if ((posa && !posb) || (!posa && posb))
+		return false;
+
+	if (posa && strcmp(posa, posb))
+		return false;
+
+	return true;
+}
+
 static int dump_empty_fs(struct mount_info *pm)
 {
 	int fd, ret = -1;
@@ -658,6 +692,7 @@ static struct fstype fstypes[] = {
 	}, {
 		.name = "btrfs",
 		.code = FSTYPE__UNSUPPORTED,
+		.sb_equal = btrfs_sb_equal,
 	}, {
 		.name = "pstore",
 		.dump = dump_empty_fs,

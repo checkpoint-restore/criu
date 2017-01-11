@@ -14,6 +14,7 @@ struct fstype {
 	int (*dump)(struct mount_info *pm);
 	int (*restore)(struct mount_info *pm);
 	int (*parse)(struct mount_info *pm);
+	bool (*sb_equal)(struct mount_info *a, struct mount_info *b);
 	mount_fn_t mount;
 };
 
