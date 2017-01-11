@@ -70,7 +70,7 @@ extern void print_on_level(unsigned int loglevel, const char *format, ...)
 
 #else
 
-#define LOG_SIMPLE_CHUNK	72
+#define LOG_SIMPLE_CHUNK	79
 
 extern int vprint_num(char *buf, int blen, int num, char **ps);
 extern void simple_sprintf(char output[LOG_SIMPLE_CHUNK], const char *format, ...)

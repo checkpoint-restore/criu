@@ -66,6 +66,16 @@ int log_get_fd(void)
 	return fd < 0 ? DEFAULT_LOGFD : fd;
 }
 
+void log_get_logstart(struct timeval *s)
+{
+	if (current_loglevel >= LOG_TIMESTAMP)
+		*s = start;
+	else {
+		s->tv_sec = 0;
+		s->tv_usec = 0;
+	}
+}
+
 static void reset_buf_off(void)
 {
 	if (current_loglevel >= LOG_TIMESTAMP)

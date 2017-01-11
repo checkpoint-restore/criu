@@ -2,6 +2,7 @@
 
 #include "int.h"
 #include "types.h"
+#include "string.h"
 #include "common/bitsperlong.h"
 #include "syscall.h"
 #include "log.h"
@@ -15,33 +16,75 @@ struct simple_buf {
 
 static int logfd = -1;
 static int cur_loglevel = DEFAULT_LOGLEVEL;
+static struct timeval start;
 
 static void sbuf_log_flush(struct simple_buf *b);
 
+static inline void timediff(struct timeval *from, struct timeval *to)
+{
+	to->tv_sec -= from->tv_sec;
+	if (to->tv_usec >= from->tv_usec)
+		to->tv_usec -= from->tv_usec;
+	else {
+		to->tv_sec--;
+		to->tv_usec += 1000000 - from->tv_usec;
+	}
+}
+
+static inline void pad_num(char **s, int *n, int nr)
+{
+	while (*n < nr) {
+		(*s)--;
+		(*n)++;
+		**s = '0';
+	}
+}
+
 static void sbuf_log_init(struct simple_buf *b)
 {
-	char pid_buf[12], *s;
+	char pbuf[12], *s;
 	int n;
 
 	/*
 	 * Format:
 	 *
-	 * pie: pid: string-itself
+	 * (time)pie: pid: string-itself
 	 */
-	b->prefix_len = vprint_num(pid_buf, sizeof(pid_buf), sys_gettid(), &s);
-	b->buf[0] = 'p';
-	b->buf[1] = 'i';
-	b->buf[2] = 'e';
-	b->buf[3] = ':';
-	b->buf[4] = ' ';
+	b->bp = b->buf;
 
-	for (n = 0; n < b->prefix_len; n++)
-		b->buf[n + 5] = s[n];
-	b->buf[n + 5] = ':';
-	b->buf[n + 6] = ' ';
-	b->prefix_len += 7;
+	if (start.tv_sec != 0) {
+		struct timeval now;
 
-	b->bp = b->buf + b->prefix_len;
+		sys_gettimeofday(&now, NULL);
+		timediff(&start, &now);
+
+		/* Seconds */
+		n = vprint_num(pbuf, sizeof(pbuf), (unsigned)now.tv_sec, &s);
+		pad_num(&s, &n, 2);
+		b->bp[0] = '(';
+		memcpy(b->bp + 1, s, n);
+		b->bp[n + 1] = '.';
+		b->bp += n + 2;
+
+		/* Mu-seconds */
+		n = vprint_num(pbuf, sizeof(pbuf), (unsigned)now.tv_usec, &s);
+		pad_num(&s, &n, 6);
+		memcpy(b->bp, s, n);
+		b->bp[n] = ')';
+		b->bp += n + 1;
+	}
+
+	n = vprint_num(pbuf, sizeof(pbuf), sys_gettid(), &s);
+	b->bp[0] = 'p';
+	b->bp[1] = 'i';
+	b->bp[2] = 'e';
+	b->bp[3] = ':';
+	b->bp[4] = ' ';
+	memcpy(b->bp + 5, s, n);
+	b->bp[n + 5] = ':';
+	b->bp[n + 6] = ' ';
+	b->bp += n + 7;
+	b->prefix_len = b->bp - b->buf;
 	b->flush = sbuf_log_flush;
 }
 
@@ -80,6 +123,11 @@ void log_set_fd(int fd)
 void log_set_loglevel(unsigned int level)
 {
 	cur_loglevel = level;
+}
+
+void log_set_start(struct timeval *s)
+{
+	start = *s;
 }
 
 static void print_string(const char *msg, struct simple_buf *b)

@@ -2929,6 +2929,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	task_args->logfd	= log_get_fd();
 	task_args->loglevel	= log_get_loglevel();
+	log_get_logstart(&task_args->logstart);
 	task_args->sigchld_act	= sigchld_act;
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));

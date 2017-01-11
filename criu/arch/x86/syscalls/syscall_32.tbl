@@ -24,6 +24,7 @@ __NR_ioctl		54		sys_ioctl		(unsigned int fd, unsigned int cmd, unsigned long arg
 __NR_fcntl		55		sys_fcntl		(unsigned int fd, unsigned int cmd, unsigned long arg)
 __NR_umask		60		sys_umask		(int mask)
 __NR_setrlimit		75		sys_setrlimit		(unsigned int resource, struct krlimit *rlim)
+__NR_gettimeofday	78		sys_gettimeofday	(struct timeval *tv, struct timezone *tz)
 __NR_munmap		91		sys_munmap		(void *addr, unsigned long len)
 __NR_setpriority	97		sys_setpriority		(int which, int who, int nice)
 __NR_socketcall		102		sys_socketcall		(int call, unsigned long *args)
