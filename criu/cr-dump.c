@@ -1581,7 +1581,7 @@ static int cr_lazy_mem_dump(void)
 	int ret = 0;
 
 	pr_info("Starting lazy pages server\n");
-	ret = cr_page_server(false, -1);
+	ret = cr_page_server(false, true, -1);
 
 	for_each_pstree_item(item) {
 		destroy_page_pipe(dmpi(item)->mem_pp);

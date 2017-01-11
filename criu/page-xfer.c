@@ -908,18 +908,17 @@ static int page_server_init_send(void)
 	return 0;
 }
 
-int cr_page_server(bool daemon_mode, int cfd)
+int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 {
 	int ask = -1;
 	int sk = -1;
 	int ret;
 
-	if (!opts.lazy_pages) {
+	if (!opts.lazy_pages)
 		up_page_ids_base();
-	} else {
+	else if (!lazy_dump)
 		if (page_server_init_send())
 			return -1;
-	}
 
 	if (opts.ps_socket != -1) {
 		ret = 0;

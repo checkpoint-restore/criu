@@ -789,7 +789,7 @@ int main(int argc, char *argv[], char *envp[])
 #endif
 
 	if (!strcmp(argv[optind], "page-server"))
-		return cr_page_server(opts.daemon_mode, -1) != 0;
+		return cr_page_server(opts.daemon_mode, false, -1) != 0;
 
 	if (!strcmp(argv[optind], "service"))
 		return cr_service(opts.daemon_mode);
