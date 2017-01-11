@@ -306,11 +306,6 @@ static bool mounts_sb_equal(struct mount_info *a, struct mount_info *b)
 	if (strcmp(a->options, b->options))
 		return false;
 
-	if (a->fstype->code == FSTYPE__CGROUP &&
-	    a->private && b->private &&
-	    strcmp(a->private, b->private))
-		return false;
-
 	return true;
 }
 
