@@ -2,7 +2,7 @@
 #define __CR_PAGE_XFER__H__
 #include "pagemap.h"
 
-extern int cr_page_server(bool daemon_mode, int cfd);
+extern int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd);
 
 /*
  * page_xfer -- transfer pages into image file.
