@@ -294,6 +294,12 @@ static bool mounts_sb_equal(struct mount_info *a, struct mount_info *b)
 	if (a->fstype != b->fstype)
 		return false;
 
+	if (a->s_dev != b->s_dev)
+		return false;
+
+	if (strcmp(a->source, b->source) != 0)
+		return false;
+
 	/* There is a btrfs bug where it doesn't emit subvol= correctly when
 	 * files are bind mounted, so let's ignore it for now.
 	 * https://marc.info/?l=linux-btrfs&m=145857372803614&w=2
@@ -332,7 +338,7 @@ static bool mounts_sb_equal(struct mount_info *a, struct mount_info *b)
 	    strcmp(a->private, b->private))
 		return false;
 
-	return a->s_dev == b->s_dev && !strcmp(a->source, b->source);
+	return true;
 }
 
 /*
