@@ -29,7 +29,7 @@ do_start()
 
 	do_or_fail "can't install a state match" \
 		iptables -A INPUT \
-		-m state --state RELATED,ESTABLISHED -j ACCEPT
+		-m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 
 	do_or_fail "can't list the loaded iptables" \
 		iptables -L \> "$statefile"
