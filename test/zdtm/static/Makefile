@@ -365,7 +365,7 @@ start:	$(PID) $(STATE)
 check_start:	$(PID:%.pid=%.is_running)
 
 stop:	$(STATE_OUT)
-	-kill -TERM `cat *.pid`
+	-kill -TERM `awk '{print}' *.pid`
 
 WAIT_TIME=240
 %.stop:	%.pid %
@@ -383,7 +383,7 @@ WAIT_TIME=240
 wait_stop:
 		i=0; \
 		while [ $$i -lt $(WAIT_TIME) ] ; do \
-		kill -0 `cat *.pid 2>/dev/null` 2>/dev/null || break; \
+		kill -0 `awk '{print}' *.pid 2>/dev/null` 2>/dev/null || break; \
 		sleep 1; \
 		i=`expr $$i + 1`; \
 	done

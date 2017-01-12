@@ -65,12 +65,12 @@ start:	$(PID)
 check_start:	$(PID:%.pid=%.is_running)
 
 stop:
-	-kill -TERM `cat *.pid`
+	-kill -TERM `awk '{print}' *.pid`
 
 WAIT_TIME=10
 wait_stop:
 	-for i in `seq 1 $(WAIT_TIME)`; do \
-		kill -0 `cat *.pid 2>/dev/null` 2>/dev/null || break; \
+		kill -0 `awk '{print}' *.pid 2>/dev/null` 2>/dev/null || break; \
 		sleep 1; \
 	done
 
