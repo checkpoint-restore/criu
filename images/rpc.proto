@@ -108,6 +108,7 @@ message criu_opts {
 	optional uint32			timeout			= 45;
 	optional bool			tcp_skip_in_flight	= 46;
 	optional bool			weak_sysctls		= 47;
+	optional bool			lazy_pages		= 48;
 	optional int32			status_fd		= 49;
 	optional bool			orphan_pts_master	= 50;
 }
