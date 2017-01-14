@@ -197,9 +197,13 @@ static int lock_check_fd(int lfd, struct file_lock *fl)
 		 */
 		pr_debug("   `- downgrading lock back\n");
 		if (fl->fl_ltype & LOCK_MAND)
-			flock(lfd, fl->fl_ltype);
+			ret = flock(lfd, fl->fl_ltype);
 		else if (fl->fl_ltype == F_RDLCK)
-			flock(lfd, LOCK_SH);
+			ret = flock(lfd, LOCK_SH);
+		if (ret) {
+			pr_err("Can't downgrade lock back %d\n", ret);
+			return -1;
+		}
 	}
 
 	return 1;
@@ -250,7 +254,11 @@ static int lock_ofd_check_fd(int lfd, struct file_lock *fl)
 		else
 			lck.l_type = F_RDLCK;
 
-		fcntl(lfd, F_OFD_SETLK, &lck);
+		ret = fcntl(lfd, F_OFD_SETLK, &lck);
+		if (ret) {
+			pr_err("Can't downgrade lock back %d\n", ret);
+			return -1;
+		}
 	}
 
 	return 1;
