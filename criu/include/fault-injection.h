@@ -22,6 +22,14 @@ extern int fault_injection_init(void);
 
 static inline bool fault_injected(enum faults f)
 {
+	/*
+	 * Temporary workaround for Xen guests. Breakpoints degrade
+	 * performance linearly, so until we find out the reason,
+	 * let's disable them.
+	 */
+	if (f == FI_NO_BREAKPOINTS)
+		return true;
+
 	return fi_strategy == f;
 }
 #endif
