@@ -124,6 +124,9 @@ struct libsoccr_sk_data {
 struct libsoccr_sk *libsoccr_pause(int fd);
 void libsoccr_resume(struct libsoccr_sk *sk);
 
+/* This one is like _resume, but doesn't turn repair off on socket. */
+void libsoccr_release(struct libsoccr_sk *sk);
+
 /*
  * Flags for calls below
  */

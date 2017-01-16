@@ -141,6 +141,11 @@ struct libsoccr_sk *libsoccr_pause(int fd)
 void libsoccr_resume(struct libsoccr_sk *sk)
 {
 	tcp_repair_off(sk->fd);
+	libsoccr_release(sk);
+}
+
+void libsoccr_release(struct libsoccr_sk *sk)
+{
 	if (sk->flags & SK_FLAG_FREE_RQ)
 		free(sk->recv_queue);
 	if (sk->flags & SK_FLAG_FREE_SQ)
