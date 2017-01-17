@@ -85,9 +85,14 @@ $(obj)/$(PIELDS): $(obj)/$(PIELDS).in
 	$(Q) $(SH) -c "echo 'OUTPUT_ARCH($(LDARCH))'	 > $(obj)/$(PIELDS)"
 	$(Q) $(SH) -c "cat $(obj)/$(PIELDS).in		>> $(obj)/$(PIELDS)"
 
-$(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/$(PIELDS)
+# ld on arm doesn't like -pie and -r options together
+ifeq ($(filter arm aarch64,$(ARCH)),)
+        LD_R := -r
+endif
+
+$(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/$(PIELDS) $(obj)/lib.a
 	$(call msg-gen, $@)
-	$(Q) $(LD) -r -T $(obj)/$(PIELDS) -o $@ $<
+	$(Q) $(LD) $(LD_R) -T $(obj)/$(PIELDS) -o $@ $< $(obj)/lib.a
 
 $(obj)/%.built-in.bin: $(obj)/%.built-in.bin.o
 	$(call msg-gen, $@)
