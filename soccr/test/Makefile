@@ -12,7 +12,15 @@ tcp-constructor: tcp-constructor.c ../libsoccr.a
 clean:
 	rm -f tcp-constructor
 
-test: tcp-constructor
+tcp-conn: tcp-conn.c
+	$(CC) $(CFLAGS) tcp-conn.c -o tcp-conn $(LDFLAGS)
+
+tcp-conn-v6: tcp-conn-v6.c
+	$(CC) $(CFLAGS) -DTEST_IPV6 tcp-conn-v6.c -o tcp-conn-v6 $(LDFLAGS)
+
+test: tcp-constructor tcp-conn tcp-conn-v6
+	unshare -n sh -c "ip link set up dev lo; ./tcp-conn"
+	unshare -n sh -c "ip link set up dev lo; ./tcp-conn-v6"
 	python run.py ./$(RUN)
 
 .PHONY: test
