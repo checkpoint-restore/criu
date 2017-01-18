@@ -781,7 +781,6 @@ int prepare_fd_pid(struct pstree_item *item)
 
 	INIT_LIST_HEAD(&rst_info->used);
 	INIT_LIST_HEAD(&rst_info->fds);
-	INIT_LIST_HEAD(&rst_info->eventpoll);
 
 	if (item->ids == NULL) /* zombie */
 		return 0;
@@ -1184,18 +1183,7 @@ int prepare_fds(struct pstree_item *me)
 	}
 
 	ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->fds);
-	if (ret)
-		goto out_w;
 
-	/*
-	 * The eventpoll descriptors require all the other ones
-	 * to be already restored, thus we store them in a separate
-	 * list and restore at the very end.
-	 */
-	ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->eventpoll);
-	if (ret)
-		goto out_w;
-out_w:
 	close_service_fd(TRANSPORT_FD_OFF);
 	if (rsti(me)->fdt)
 		futex_inc_and_wake(&rsti(me)->fdt->fdt_lock);

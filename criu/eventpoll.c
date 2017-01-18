@@ -215,16 +215,9 @@ static int eventpoll_post_open(struct file_desc *d, int fd)
 	return 0;
 }
 
-static void eventpoll_collect_fd(struct file_desc *d,
-		struct fdinfo_list_entry *fle, struct rst_info *ri)
-{
-	list_add_tail(&fle->ps_list, &ri->eventpoll);
-}
-
 static struct file_desc_ops desc_ops = {
 	.type = FD_TYPES__EVENTPOLL,
 	.open = eventpoll_open,
-	.collect_fd = eventpoll_collect_fd,
 };
 
 static int collect_one_epoll_tfd(void *o, ProtobufCMessage *msg, struct cr_img *i)
