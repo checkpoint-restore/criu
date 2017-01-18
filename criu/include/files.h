@@ -115,12 +115,7 @@ struct file_desc_ops {
 	char *			(*name)(struct file_desc *, char *b, size_t s);
 };
 
-extern void collect_used_fd(struct fdinfo_list_entry *new_fle, struct rst_info *ri);
-
-static inline void collect_gen_fd(struct fdinfo_list_entry *fle, struct rst_info *ri)
-{
-	list_add_tail(&fle->ps_list, &ri->fds);
-}
+void collect_task_fd(struct fdinfo_list_entry *new_fle, struct rst_info *ri);
 
 unsigned int find_unused_fd(struct list_head *head, int hint_fd);
 struct fdinfo_list_entry *find_used_fd(struct list_head *head, int fd);

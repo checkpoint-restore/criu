@@ -1654,12 +1654,6 @@ int collect_filemap(struct vma_area *vma)
 	return 0;
 }
 
-static void collect_reg_fd(struct file_desc *fdesc,
-		struct fdinfo_list_entry *fle, struct rst_info *ri)
-{
-	collect_gen_fd(fle, ri);
-}
-
 static int open_fe_fd(struct file_desc *fd, int *new_fd)
 {
 	int tmp;
@@ -1682,7 +1676,6 @@ static char *reg_file_path(struct file_desc *d, char *buf, size_t s)
 static struct file_desc_ops reg_desc_ops = {
 	.type = FD_TYPES__REG,
 	.open = open_fe_fd,
-	.collect_fd = collect_reg_fd,
 	.name = reg_file_path,
 };
 

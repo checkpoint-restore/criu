@@ -112,10 +112,14 @@ struct fdinfo_list_entry *find_used_fd(struct list_head *head, int fd)
 	return NULL;
 }
 
-void collect_used_fd(struct fdinfo_list_entry *new_fle, struct rst_info *ri)
+void collect_task_fd(struct fdinfo_list_entry *new_fle, struct rst_info *ri)
 {
 	struct fdinfo_list_entry *fle;
 
+	/* fles in fds list are disordered */
+	list_add_tail(&new_fle->ps_list, &ri->fds);
+
+	/* fles in used list are ordered by fd */
 	list_for_each_entry(fle, &ri->used, used_list) {
 		if (new_fle->fe->fd < fle->fe->fd)
 			break;
@@ -705,10 +709,8 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 
 	if (fdesc->ops->collect_fd)
 		fdesc->ops->collect_fd(fdesc, new_le, rst_info);
-	else
-		collect_gen_fd(new_le, rst_info);
 
-	collect_used_fd(new_le, rst_info);
+	collect_task_fd(new_le, rst_info);
 
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 	new_le->desc = fdesc;

@@ -126,7 +126,6 @@ static void collect_fifo_fd(struct file_desc *d,
 	info = container_of(d, struct fifo_info, d);
 	info->reg_d = collect_special_file(info->fe->id);
 	BUG_ON(info->reg_d == NULL);
-	collect_gen_fd(fle, ri);
 }
 
 static struct file_desc_ops fifo_desc_ops = {
