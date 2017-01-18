@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (mount("zdtm_fs", dirname, "tmpfs", 0, NULL)) {
+	if (mount("zdtm_dirname", dirname, "tmpfs", 0, NULL)) {
 		pr_perror("mount");
 		return 1;
 	}
@@ -79,6 +79,11 @@ int main(int argc, char **argv)
 			task_waiter_complete(&t, 1);
 			task_waiter_wait4(&t, 2);
 
+			if (umount(path)) {
+				pr_perror("umount");
+				return 1;
+			}
+
 			return 0;
 		}
 	}
@@ -88,15 +93,6 @@ int main(int argc, char **argv)
 
 	test_daemon();
 	test_waitsig();
-
-	if (umount(path)) {
-		pr_perror("Unable to umount %s", path);
-		return 1;
-	}
-	if (umount(dirname)) {
-		pr_perror("Unable to umount %s", dirname);
-		return 1;
-	}
 
 	for (i = 0; i < 2; i++) {
 		task_waiter_complete(&t, 2);
@@ -110,6 +106,16 @@ int main(int argc, char **argv)
 			pr_err("%d/%d/%d/%d\n", WIFEXITED(status), WEXITSTATUS(status), WIFSIGNALED(status), WTERMSIG(status));
 			return 1;
 		}
+	}
+
+
+	if (umount(path)) {
+		pr_perror("Unable to umount %s", path);
+		return 1;
+	}
+	if (umount(dirname)) {
+		pr_perror("Unable to umount %s", dirname);
+		return 1;
 	}
 
 	pass();
