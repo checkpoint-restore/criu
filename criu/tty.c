@@ -1099,12 +1099,12 @@ static int open_ext_tty(struct tty_info *info)
 
 static bool tty_deps_restored(struct tty_info *info)
 {
-	struct list_head *list = &rsti(current)->used;
+	struct list_head *list = &rsti(current)->fds;
 	struct fdinfo_list_entry *fle;
 	struct tty_info *tmp;
 
 	if (info->driver->type == TTY_TYPE__CTTY) {
-		list_for_each_entry(fle, list, used_list) {
+		list_for_each_entry(fle, list, ps_list) {
 			if (fle->desc->ops->type != FD_TYPES__TTY || fle->desc == &info->d)
 				continue;
 
@@ -1113,7 +1113,7 @@ static bool tty_deps_restored(struct tty_info *info)
 				return false;
 		}
 	} else if (!tty_is_master(info)) {
-		list_for_each_entry(fle, list, used_list) {
+		list_for_each_entry(fle, list, ps_list) {
 			if (fle->desc->ops->type != FD_TYPES__TTY || fle->desc == &info->d)
 				continue;
 			tmp = container_of(fle->desc, struct tty_info, d);
