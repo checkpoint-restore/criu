@@ -11,6 +11,7 @@ enum script_actions {
 	ACT_SETUP_NS,
 	ACT_POST_SETUP_NS,
 	ACT_POST_RESUME,
+	ACT_PRE_RESUME,
 
 	ACT_MAX
 };
