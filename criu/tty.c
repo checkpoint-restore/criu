@@ -913,24 +913,29 @@ err:
 	return ret;
 }
 
-static int receive_tty(struct tty_info *info)
+static int receive_tty(struct tty_info *info, int *new_fd)
 {
 	struct fdinfo_list_entry *fle;
-	int fd;
+	int fd, ret;
 
 	fle = file_master(&info->d);
 	pr_info("\tWaiting tty fd %d (pid %d)\n", fle->fe->fd, fle->pid);
 
-	fd = recv_fd_from_peer(fle);
-	if (fd < 0) {
-		pr_err("Can't get fd %d\n", fd);
+	fd = fle->fe->fd;
+	ret = recv_fd_from_peer(fle);
+	if (ret != 0) {
+		if (ret != 1)
+			pr_err("Can't get fd %d\n", fd);
+		return ret;
+	}
+
+	if (rst_file_params(fd, info->tfe->fown, info->tfe->flags) < 0) {
+		close_safe(&fd);
 		return -1;
 	}
 
-	if (rst_file_params(fd, info->tfe->fown, info->tfe->flags))
-		close_safe(&fd);
-
-	return fd;
+	*new_fd = fd;
+	return 0;
 }
 
 static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
@@ -1101,7 +1106,7 @@ static int tty_open(struct file_desc *d, int *new_fd)
 	tty_show_pty_info("open", info);
 
 	if (!info->create)
-		ret = receive_tty(info);
+		return receive_tty(info, new_fd);
 	else if (is_pty(info->driver) && !tty_is_master(info))
 		ret = pty_open_unpaired_slave(d, info);
 	else

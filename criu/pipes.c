@@ -230,18 +230,20 @@ static int reopen_pipe(int fd, int flags)
 static int recv_pipe_fd(struct pipe_info *pi, int *new_fd)
 {
 	struct fdinfo_list_entry *fle;
-	int tmp, fd;
+	int tmp, fd, ret;
 
 	fle = file_master(&pi->d);
 	fd = fle->fe->fd;
 
 	pr_info("\tWaiting fd for %d\n", fd);
 
-	tmp = recv_fd_from_peer(fle);
-	if (tmp < 0) {
-		pr_err("Can't get fd %d\n", tmp);
-		return -1;
+	ret = recv_fd_from_peer(fle);
+	if (ret != 0) {
+		if (ret != 1)
+			pr_err("Can't get fd %d\n", fd);
+		return ret;
 	}
+	tmp = fd;
 
 	if (pi->reopen)
 		fd = reopen_pipe(tmp, pi->pe->flags);

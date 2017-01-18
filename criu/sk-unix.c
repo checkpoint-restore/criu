@@ -1100,18 +1100,20 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 static int open_unixsk_pair_slave(struct unix_sk_info *ui, int *new_fd)
 {
 	struct fdinfo_list_entry *fle;
-	int sk;
+	int sk, ret;
 
 	fle = file_master(&ui->d);
 
 	pr_info("Opening pair slave (id %#x ino %#x peer %#x) on %d\n",
 			ui->ue->id, ui->ue->ino, ui->ue->peer, fle->fe->fd);
 
-	sk = recv_fd_from_peer(fle);
-	if (sk < 0) {
-		pr_err("Can't recv pair slave\n");
-		return -1;
+	ret = recv_fd_from_peer(fle);
+	if (ret != 0) {
+		if (ret != 1)
+			pr_err("Can't recv pair slave\n");
+		return ret;
 	}
+	sk = fle->fe->fd;
 
 	if (bind_unix_sk(sk, ui))
 		return -1;

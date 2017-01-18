@@ -925,13 +925,19 @@ static int keep_fd_for_future(struct fdinfo_list_entry *fle, int fd)
 int recv_fd_from_peer(struct fdinfo_list_entry *fle)
 {
 	struct fdinfo_list_entry *tmp;
-	int fd, ret, tsock;
+	int fd, ret, tsock, count;
 
 	if (fle->received)
-		return fle->fe->fd;
+		return 0;
 
 	tsock = get_service_fd(TRANSPORT_FD_OFF);
 again:
+	if (ioctl(tsock, FIONREAD, &count) < 0) {
+		pr_perror("Can't do ioctl on transport sock: pid=%d\n", fle->pid);
+		return -1;
+	} else if (count == 0)
+		return 1;
+
 	ret = recv_fds(tsock, &fd, 1, (void *)&tmp, sizeof(struct fdinfo_list_entry *));
 	if (ret)
 		return -1;
@@ -951,7 +957,7 @@ again:
 	if (reopen_fd_as(fle->fe->fd, fd) < 0)
 		return -1;
 
-	return fle->fe->fd;
+	return 0;
 }
 
 int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle)
@@ -1003,7 +1009,7 @@ static int post_open_fd(int pid, struct fdinfo_list_entry *fle)
 	struct file_desc *d = fle->desc;
 
 	if (fle != file_master(d)) {
-		if (receive_fd(pid, fle) < 0) {
+		if (receive_fd(pid, fle) != 0) {
 			pr_err("Can't receive\n");
 			return -1;
 		}
@@ -1072,17 +1078,16 @@ static int open_fd(int pid, struct fdinfo_list_entry *fle)
 
 static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 {
-	int fd;
+	int ret;
 
 	pr_info("\tReceive fd for %d\n", fle->fe->fd);
 
-	fd = recv_fd_from_peer(fle);
-	if (fd < 0) {
-		pr_err("Can't get fd=%d, pid=%d\n", fle->fe->fd, fle->pid);
-		return -1;
+	ret = recv_fd_from_peer(fle);
+	if (ret != 0) {
+		if (ret != 1)
+			pr_err("Can't get fd=%d, pid=%d\n", fle->fe->fd, fle->pid);
+		return ret;
 	}
-
-	BUG_ON(fd != fle->fe->fd);
 
 	if (fcntl(fle->fe->fd, F_SETFD, fle->fe->flags) == -1) {
 		pr_perror("Unable to set file descriptor flags");
