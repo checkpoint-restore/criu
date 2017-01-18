@@ -122,7 +122,7 @@ int prepare_timerfds(struct task_restore_args *ta)
 	return 0;
 }
 
-static int timerfd_open(struct file_desc *d)
+static int timerfd_open(struct file_desc *d, int *new_fd)
 {
 	struct timerfd_info *info;
 	TimerfdEntry *tfe;
@@ -150,7 +150,8 @@ static int timerfd_open(struct file_desc *d)
 	info->t_fd = file_master(d)->fe->fd;
 	list_add_tail(&info->rlist, &rst_timerfds);
 
-	return tmp;
+	*new_fd = tmp;
+	return 0;
 
 err_close:
 	close_safe(&tmp);

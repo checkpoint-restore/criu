@@ -227,7 +227,7 @@ static int reopen_pipe(int fd, int flags)
 	return ret;
 }
 
-static int recv_pipe_fd(struct pipe_info *pi)
+static int recv_pipe_fd(struct pipe_info *pi, int *new_fd)
 {
 	struct fdinfo_list_entry *fle;
 	int tmp, fd;
@@ -252,9 +252,10 @@ static int recv_pipe_fd(struct pipe_info *pi)
 			close(fd);
 			return -1;
 		}
+		*new_fd = fd;
 	}
 
-	return fd;
+	return fd < 0 ? -1 : 0;
 }
 
 static char *pipe_d_name(struct file_desc *d, char *buf, size_t s)
@@ -271,7 +272,7 @@ static char *pipe_d_name(struct file_desc *d, char *buf, size_t s)
 	return buf;
 }
 
-static int open_pipe(struct file_desc *d)
+int open_pipe(struct file_desc *d, int *new_fd)
 {
 	struct pipe_info *pi, *p;
 	int ret, tmp;
@@ -284,11 +285,11 @@ static int open_pipe(struct file_desc *d)
 			return tmp;
 
 		pi->reopen = 1;
-		goto out;
+		goto reopen;
 	}
 
 	if (!pi->create)
-		return recv_pipe_fd(pi);
+		return recv_pipe_fd(pi, new_fd);
 
 	if (pipe(pfd) < 0) {
 		pr_perror("Can't create pipe");
@@ -316,15 +317,17 @@ static int open_pipe(struct file_desc *d)
 	close(pfd[!(pi->pe->flags & O_WRONLY)]);
 	tmp = pfd[pi->pe->flags & O_WRONLY];
 
-out:
+reopen:
 	if (pi->reopen)
 		tmp = reopen_pipe(tmp, pi->pe->flags);
 
 	if (tmp >= 0)
 		if (rst_file_params(tmp, pi->pe->fown, pi->pe->flags))
 			return -1;
-
-	return tmp;
+	if (tmp < 0)
+		return -1;
+	*new_fd = tmp;
+	return 0;
 }
 
 static struct file_desc_ops pipe_desc_ops = {

@@ -484,7 +484,7 @@ int inet_collect_one(struct nlmsghdr *h, int family, int type)
 	return ret;
 }
 
-static int open_inet_sk(struct file_desc *d);
+static int open_inet_sk(struct file_desc *d, int *new_fd);
 static int post_open_inet_sk(struct file_desc *d, int sk);
 
 static struct file_desc_ops inet_desc_ops = {
@@ -604,7 +604,7 @@ int restore_ip_opts(int sk, IpOptsEntry *ioe)
 
 	return ret;
 }
-static int open_inet_sk(struct file_desc *d)
+static int open_inet_sk(struct file_desc *d, int *new_fd)
 {
 	struct inet_sk_info *ii;
 	InetSkEntry *ie;
@@ -701,7 +701,8 @@ done:
 	if (restore_socket_opts(sk, ie->opts))
 		goto err;
 
-	return sk;
+	*new_fd = sk;
+	return 0;
 
 err:
 	close(sk);

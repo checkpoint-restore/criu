@@ -114,7 +114,7 @@ const struct fdtype_ops eventpoll_dump_ops = {
 	.dump		= dump_one_eventpoll,
 };
 
-static int eventpoll_open(struct file_desc *d)
+static int eventpoll_open(struct file_desc *d, int *new_fd)
 {
 	struct eventpoll_file_info *info;
 	int tmp;
@@ -136,7 +136,8 @@ static int eventpoll_open(struct file_desc *d)
 		goto err_close;
 	}
 
-	return tmp;
+	*new_fd = tmp;
+	return 0;
 err_close:
 	close(tmp);
 	return -1;

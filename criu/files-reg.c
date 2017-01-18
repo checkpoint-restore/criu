@@ -1660,9 +1660,15 @@ static void collect_reg_fd(struct file_desc *fdesc,
 	collect_gen_fd(fle, ri);
 }
 
-static int open_fe_fd(struct file_desc *fd)
+static int open_fe_fd(struct file_desc *fd, int *new_fd)
 {
-	return open_path(fd, do_open_reg, NULL);
+	int tmp;
+
+	tmp = open_path(fd, do_open_reg, NULL);
+	if (tmp < 0)
+		return -1;
+	*new_fd = tmp;
+	return 0;
 }
 
 static char *reg_file_path(struct file_desc *d, char *buf, size_t s)

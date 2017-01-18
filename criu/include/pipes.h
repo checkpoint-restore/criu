@@ -58,5 +58,6 @@ struct pipe_info {
 
 extern int collect_one_pipe_ops(void *o, ProtobufCMessage *base,
 				struct file_desc_ops *ops);
+extern int open_pipe(struct file_desc *d, int *new_fd);
 
 #endif /* __CR_PIPES_H__ */

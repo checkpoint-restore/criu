@@ -72,7 +72,7 @@ static void sigset_fill(sigset_t *to, unsigned long long from)
 		}
 }
 
-static int signalfd_open(struct file_desc *d)
+static int signalfd_open(struct file_desc *d, int *new_fd)
 {
 	struct signalfd_info *info;
 	int tmp;
@@ -94,7 +94,8 @@ static int signalfd_open(struct file_desc *d)
 		goto err_close;
 	}
 
-	return tmp;
+	*new_fd = tmp;
+	return 0;
 
 err_close:
 	close(tmp);

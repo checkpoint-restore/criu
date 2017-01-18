@@ -106,11 +106,16 @@ out:
 	return new_fifo;
 }
 
-static int open_fifo_fd(struct file_desc *d)
+static int open_fifo_fd(struct file_desc *d, int *new_fd)
 {
 	struct fifo_info *info = container_of(d, struct fifo_info, d);
+	int fd;
 
-	return open_path(info->reg_d, do_open_fifo, info);
+	fd = open_path(info->reg_d, do_open_fifo, info);
+	if (fd < 0)
+		return -1;
+	*new_fd = fd;
+	return 0;
 }
 
 static void collect_fifo_fd(struct file_desc *d,

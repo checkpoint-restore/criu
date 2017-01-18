@@ -674,7 +674,7 @@ err:
 	return ret;
 }
 
-static int open_inotify_fd(struct file_desc *d)
+static int open_inotify_fd(struct file_desc *d, int *new_fd)
 {
 	struct fsnotify_file_info *info;
 	struct fsnotify_mark_info *wd_info;
@@ -699,10 +699,11 @@ static int open_inotify_fd(struct file_desc *d)
 	if (restore_fown(tmp, info->ife->fown))
 		close_safe(&tmp);
 
-	return tmp;
+	*new_fd = tmp;
+	return 0;
 }
 
-static int open_fanotify_fd(struct file_desc *d)
+static int open_fanotify_fd(struct file_desc *d, int *new_fd)
 {
 	struct fsnotify_file_info *info;
 	struct fsnotify_mark_info *mark;
@@ -734,7 +735,8 @@ static int open_fanotify_fd(struct file_desc *d)
 	if (restore_fown(ret, info->ffe->fown))
 		close_safe(&ret);
 
-	return ret;
+	*new_fd = ret;
+	return 0;
 }
 
 static struct file_desc_ops inotify_desc_ops = {

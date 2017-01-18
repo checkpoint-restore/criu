@@ -1053,8 +1053,7 @@ static int open_fd(int pid, struct fdinfo_list_entry *fle)
 	if (fle != file_master(d))
 		return 0;
 
-	new_fd = d->ops->open(d);
-	if (new_fd < 0)
+	if (d->ops->open(d, &new_fd) < 0)
 		return -1;
 
 	if (reopen_fd_as(fle->fe->fd, new_fd))

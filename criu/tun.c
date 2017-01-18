@@ -320,7 +320,7 @@ struct tunfile_info {
 	TunfileEntry *tfe;
 };
 
-static int tunfile_open(struct file_desc *d)
+static int tunfile_open(struct file_desc *d, int *new_fd)
 {
 	int fd;
 	struct tunfile_info *ti;
@@ -334,7 +334,7 @@ static int tunfile_open(struct file_desc *d)
 
 	if (!ti->tfe->netdev)
 		/* just-opened tun file */
-		return fd;
+		goto ok;;
 
 	tl = find_tun_link(ti->tfe->netdev);
 	if (!tl) {
@@ -367,8 +367,9 @@ static int tunfile_open(struct file_desc *d)
 			goto err;
 		}
 	}
-
-	return fd;
+ok:
+	*new_fd = fd;
+	return 0;
 
 err:
 	close(fd);

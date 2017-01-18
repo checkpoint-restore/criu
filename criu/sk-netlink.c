@@ -155,7 +155,7 @@ struct netlink_sock_info {
 	struct file_desc d;
 };
 
-static int open_netlink_sk(struct file_desc *d)
+static int open_netlink_sk(struct file_desc *d, int *new_fd)
 {
 	struct netlink_sock_info *nsi;
 	NetlinkSkEntry *nse;
@@ -206,7 +206,8 @@ static int open_netlink_sk(struct file_desc *d)
 	if (restore_socket_opts(sk, nse->opts))
 		goto err;
 
-	return sk;
+	*new_fd = sk;
+	return 0;
 err:
 	close(sk);
 	return -1;

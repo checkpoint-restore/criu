@@ -1093,19 +1093,23 @@ static int open_ext_tty(struct tty_info *info)
 	return fd;
 }
 
-static int tty_open(struct file_desc *d)
+static int tty_open(struct file_desc *d, int *new_fd)
 {
 	struct tty_info *info = container_of(d, struct tty_info, d);
+	int ret;
 
 	tty_show_pty_info("open", info);
 
 	if (!info->create)
-		return receive_tty(info);
-
-	if (is_pty(info->driver) && !tty_is_master(info))
-		return pty_open_unpaired_slave(d, info);
-
-	return info->driver->open(info);
+		ret = receive_tty(info);
+	else if (is_pty(info->driver) && !tty_is_master(info))
+		ret = pty_open_unpaired_slave(d, info);
+	else
+		ret = info->driver->open(info);
+	if (ret < 0)
+		return -1;
+	*new_fd = ret;
+	return 0;
 }
 
 static void tty_collect_fd(struct file_desc *d, struct fdinfo_list_entry *fle,

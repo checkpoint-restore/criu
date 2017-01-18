@@ -104,7 +104,7 @@ struct file_desc_ops {
 	 * The returned descriptor may be closed (dup2-ed to another)
 	 * so it shouldn't be saved for any post-actions.
 	 */
-	int			(*open)(struct file_desc *d);
+	int			(*open)(struct file_desc *d, int *new_fd);
 	/*
 	 * Called on a file when all files of that type are opened
 	 * and with the fd being the "restored" one.

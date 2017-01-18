@@ -405,7 +405,7 @@ static int restore_rings(int sk, PacketSockEntry *psk)
 	return 0;
 }
 
-static int open_packet_sk_spkt(PacketSockEntry *pse)
+static int open_packet_sk_spkt(PacketSockEntry *pse, int *new_fd)
 {
 	struct sockaddr addr_spkt;
 	int sk;
@@ -447,14 +447,15 @@ static int open_packet_sk_spkt(PacketSockEntry *pse)
 	if (restore_socket_opts(sk, pse->opts))
 		goto err;
 
-	return sk;
+	*new_fd = sk;
+	return 0;
 
 err:
 	close(sk);
 	return -1;
 }
 
-static int open_packet_sk(struct file_desc *d)
+static int open_packet_sk(struct file_desc *d, int *new_fd)
 {
 	struct packet_sock_info *psi;
 	PacketSockEntry *pse;
@@ -467,7 +468,7 @@ static int open_packet_sk(struct file_desc *d)
 	pr_info("Opening packet socket id %#x\n", pse->id);
 
 	if (pse->type == SOCK_PACKET)
-		return open_packet_sk_spkt(pse);
+		return open_packet_sk_spkt(pse, new_fd);
 
 	sk = socket(PF_PACKET, pse->type, pse->protocol);
 	if (sk < 0) {
@@ -538,7 +539,8 @@ static int open_packet_sk(struct file_desc *d)
 	if (restore_socket_opts(sk, pse->opts))
 		goto err_cl;
 
-	return sk;
+	*new_fd = sk;
+	return 0;
 
 err_cl:
 	close(sk);

@@ -1054,7 +1054,7 @@ done:
 	return ret;
 }
 
-static int open_unixsk_pair_master(struct unix_sk_info *ui)
+static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 {
 	int sk[2];
 	struct unix_sk_info *peer = ui->peer;
@@ -1093,10 +1093,11 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 
 	close(sk[1]);
 
-	return sk[0];
+	*new_fd = sk[0];
+	return 0;
 }
 
-static int open_unixsk_pair_slave(struct unix_sk_info *ui)
+static int open_unixsk_pair_slave(struct unix_sk_info *ui, int *new_fd)
 {
 	struct fdinfo_list_entry *fle;
 	int sk;
@@ -1124,10 +1125,11 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui)
 	if (shutdown_unix_sk(sk, ui))
 		return -1;
 
-	return sk;
+	*new_fd = sk;
+	return 0;
 }
 
-static int open_unixsk_standalone(struct unix_sk_info *ui)
+static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 {
 	int sk;
 
@@ -1264,26 +1266,28 @@ out:
 	if (restore_socket_opts(sk, ui->ue->opts))
 		return -1;
 
-	return sk;
+	*new_fd = sk;
+	return 0;
 }
 
-static int open_unix_sk(struct file_desc *d)
+static int open_unix_sk(struct file_desc *d, int *new_fd)
 {
 	struct unix_sk_info *ui;
+	int ret;
 
 	ui = container_of(d, struct unix_sk_info, d);
 
-	int unixsk_fd = -1;
-
-	if (inherited_fd(d, &unixsk_fd)) {
+	if (inherited_fd(d, new_fd)) {
 		ui->ue->uflags |= USK_INHERIT;
-		return unixsk_fd;
+		ret = *new_fd >= 0 ? 0 : -1;
 	} else if (ui->flags & USK_PAIR_MASTER)
-		return open_unixsk_pair_master(ui);
+		ret = open_unixsk_pair_master(ui, new_fd);
 	else if (ui->flags & USK_PAIR_SLAVE)
-		return open_unixsk_pair_slave(ui);
+		ret = open_unixsk_pair_slave(ui, new_fd);
 	else
-		return open_unixsk_standalone(ui);
+		ret = open_unixsk_standalone(ui, new_fd);
+
+	return ret;
 }
 
 static char *socket_d_name(struct file_desc *d, char *buf, size_t s)

@@ -496,7 +496,7 @@ struct ns_file_info {
 	NsFileEntry		*nfe;
 };
 
-static int open_ns_fd(struct file_desc *d)
+static int open_ns_fd(struct file_desc *d, int *new_fd)
 {
 	struct ns_file_info *nfi = container_of(d, struct ns_file_info, d);
 	struct pstree_item *item, *t;
@@ -558,7 +558,8 @@ static int open_ns_fd(struct file_desc *d)
 		return fd;
 	}
 
-	return fd;
+	*new_fd = fd;
+	return 0;
 }
 
 static struct file_desc_ops ns_desc_ops = {

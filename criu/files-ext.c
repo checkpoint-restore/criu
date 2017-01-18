@@ -37,7 +37,7 @@ struct ext_file_info {
 	ExtFileEntry		*xfe;
 };
 
-static int open_fd(struct file_desc *d)
+static int open_fd(struct file_desc *d, int *new_fd)
 {
 	struct ext_file_info *xfi;
 	int fd;
@@ -53,7 +53,8 @@ static int open_fd(struct file_desc *d)
 	if (restore_fown(fd, xfi->xfe->fown))
 		return -1;
 
-	return fd;
+	*new_fd = fd;
+	return 0;
 }
 
 static struct file_desc_ops ext_desc_ops = {
