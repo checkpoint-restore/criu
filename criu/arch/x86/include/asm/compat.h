@@ -16,8 +16,12 @@ static inline void *alloc_compat_syscall_stack(void)
 	void *mem = (void*)sys_mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
 			MAP_32BIT | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
-	if (mem == MAP_FAILED)
+	if ((uintptr_t)mem % PAGE_SIZE) {
+		int err = (~(uint32_t)(uintptr_t)mem) + 1;
+
+		pr_err("mmap() of compat syscall stack failed with %d\n", err);
 		return 0;
+	}
 	return mem;
 }
 
@@ -26,7 +30,7 @@ static inline void free_compat_syscall_stack(void *mem)
 	long int ret = sys_munmap(mem, PAGE_SIZE);
 
 	if (ret)
-		pr_err("munmap of compat addr %p failed with %ld", mem, ret);
+		pr_err("munmap() of compat addr %p failed with %ld", mem, ret);
 }
 
 #ifdef CONFIG_COMPAT
