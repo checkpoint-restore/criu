@@ -178,38 +178,6 @@ void wait_fds_event(void)
 	futex_wait_if_cond(f, FDS_EVENT, &);
 	clear_fds_event();
 }
-/*
- * A file may be shared between several file descriptors. E.g
- * when doing a fork() every fd of a forker and respective fds
- * of the child have such. Another way of getting shared files
- * is by dup()-ing them or sending them via unix sockets in
- * SCM_RIGHTS message.
- *
- * We restore this type of things in 3 steps (states[] below)
- *
- * 1. Prepare step.
- *    Select which task will create the file (open() one, or
- *    call any other syscall for than (socket, pipe, etc.). All
- *    the others, that share one, create unix sockets under the
- *    respective file descriptor (transport socket).
- * 2. Open step.
- *    The one who creates the file (the 'master') creates one,
- *    then creates one more unix socket (transport) and sends the
- *    created file over this socket to the other recipients.
- * 3. Receive step.
- *    Those, who wait for the file to appear, receive one via
- *    the transport socket, then close the socket and dup() the
- *    received file descriptor into its place.
- *
- * There's the 4th step in the states[] array -- the post_open
- * one. This one is not about file-sharing resolving, but about
- * doing something with a file using it's 'desired' fd. The
- * thing is that while going the 3-step process above, the file
- * may appear in variuos places in the task's fd table, and if
- * we want to do something with it's _final_ descriptor value,
- * we should wait for it to appear there. So the post_open is
- * called when the file is finally set into its place.
- */
 
 struct fdinfo_list_entry *file_master(struct file_desc *d)
 {
@@ -888,14 +856,7 @@ struct fd_open_state {
 	int (*cb)(int, struct fdinfo_list_entry *);
 };
 
-static int open_fd(int pid, struct fdinfo_list_entry *fle);
 static int receive_fd(int pid, struct fdinfo_list_entry *fle);
-static int post_open_fd(int pid, struct fdinfo_list_entry *fle);
-
-static struct fd_open_state states[] = {
-	{ "create",		open_fd,	},
-	{ "post_create",	post_open_fd,	},
-};
 
 static void transport_name_gen(struct sockaddr_un *addr, int *len, int pid)
 {
@@ -1004,29 +965,6 @@ static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle)
 	return 0;
 }
 
-static int post_open_fd(int pid, struct fdinfo_list_entry *fle)
-{
-	struct file_desc *d = fle->desc;
-
-	if (fle != file_master(d)) {
-		if (receive_fd(pid, fle) != 0) {
-			pr_err("Can't receive\n");
-			return -1;
-		}
-		if (!is_service_fd(fle->fe->fd, CTL_TTY_OFF))
-			goto out;
-	}
-
-	if (!d->ops->post_open)
-		goto out;
-	if (d->ops->post_open(d, fle->fe->fd))
-		return -1;
-out:
-	fle->stage = FLE_RESTORED;
-	return 0;
-}
-
-
 static int serve_out_fd(int pid, int fd, struct file_desc *d)
 {
 	int ret;
@@ -1051,16 +989,10 @@ out:
 	return ret;
 }
 
-static int open_fd(int pid, struct fdinfo_list_entry *fle)
+static int setup_and_serve_out(struct fdinfo_list_entry *fle, int new_fd)
 {
 	struct file_desc *d = fle->desc;
-	int new_fd;
-
-	if (fle != file_master(d))
-		return 0;
-
-	if (d->ops->open(d, &new_fd) < 0)
-		return -1;
+	pid_t pid = fle->pid;
 
 	if (reopen_fd_as(fle->fe->fd, new_fd))
 		return -1;
@@ -1073,7 +1005,50 @@ static int open_fd(int pid, struct fdinfo_list_entry *fle)
 	BUG_ON(fle->stage != FLE_INITIALIZED);
 	fle->stage = FLE_OPEN;
 
-	return serve_out_fd(pid, fle->fe->fd, d);
+	if (serve_out_fd(pid, fle->fe->fd, d))
+		return -1;
+	return 0;
+}
+
+static int open_fd(int pid, struct fdinfo_list_entry *fle)
+{
+	struct file_desc *d = fle->desc;
+	struct fdinfo_list_entry *flem;
+	int new_fd = -1, ret;
+
+	flem = file_master(d);
+	if (fle != flem) {
+		BUG_ON (fle->stage != FLE_INITIALIZED);
+		ret = receive_fd(pid, fle);
+		if (ret != 0)
+			return ret;
+
+		fle->stage = FLE_RESTORED;
+		return 0;
+	}
+
+	/*
+	 * Open method returns the following values:
+	 * 0  -- restore is successefuly finished;
+	 * 1  -- restore is in process or can't be started
+	 *       yet, because of it depends on another fles,
+	 *       so the method should be called once again;
+	 * -1 -- restore failed.
+	 * In case of 0 and 1 return values, new_fd may
+	 * be not negative. In this case it contains newly
+	 * opened file descriptor, which may be served out.
+	 * For every fle, new_fd is populated only once.
+	 * See setup_and_serve_out() BUG_ON for the details.
+	 */
+	ret = d->ops->open(d, &new_fd);
+	if (ret != -1 && new_fd >= 0) {
+		if (setup_and_serve_out(fle, new_fd) < 0)
+			return -1;
+	}
+
+	if (ret == 0)
+		fle->stage = FLE_RESTORED;
+	return ret;
 }
 
 static int receive_fd(int pid, struct fdinfo_list_entry *fle)
@@ -1097,25 +1072,49 @@ static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 	return 0;
 }
 
-static int open_fdinfo(int pid, struct fdinfo_list_entry *fle, int state)
-{
-	pr_info("\tRestoring fd %d (state -> %s)\n",
-			fle->fe->fd, states[state].name);
-	return states[state].cb(pid, fle);
-}
-
 static int open_fdinfos(int pid, struct list_head *list)
 {
-	int state, ret = 0;
-	struct fdinfo_list_entry *fle;
+	struct fdinfo_list_entry *fle, *tmp, *service_fle = NULL;
+	LIST_HEAD(completed);
+	bool progress, again;
+	int st, ret = 0;
 
-	for (state = 0; state < ARRAY_SIZE(states); state++) {
-		list_for_each_entry(fle, list, ps_list) {
-			ret = open_fdinfo(pid, fle, state);
-			if (ret)
-				break;
+	do {
+		progress = again = false;
+		clear_fds_event();
+
+		list_for_each_entry_safe(fle, tmp, list, ps_list) {
+			st = fle->stage;
+			BUG_ON(st == FLE_RESTORED);
+			ret = open_fd(pid, fle);
+			if (ret == -1)
+				goto splice;
+			if (st != fle->stage || ret == 0)
+				progress = true;
+			if (ret == 0) {
+				/*
+				 * We delete restored items from fds list,
+				 * so open() methods may base on this feature
+				 * and reduce number of fles in their checks.
+				 */
+				list_del(&fle->ps_list);
+				list_add(&fle->ps_list, &completed);
+			}
+			if (ret == 1)
+			       again = true;
+			if (fle->fe->fd == get_service_fd(CTL_TTY_OFF))
+				service_fle = fle;
 		}
-	}
+		if (!progress && again)
+			wait_fds_event();
+	} while (again || progress);
+
+	BUG_ON(!list_empty(list));
+splice:
+	list_splice(&completed, list);
+
+	if (ret == 0 && service_fle)
+		ret = tty_restore_ctl_terminal(service_fle->desc, service_fle->fe->fd);
 
 	return ret;
 }

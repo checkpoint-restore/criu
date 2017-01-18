@@ -106,11 +106,6 @@ struct file_desc_ops {
 	 */
 	int			(*open)(struct file_desc *d, int *new_fd);
 	/*
-	 * Called on a file when all files of that type are opened
-	 * and with the fd being the "restored" one.
-	 */
-	int			(*post_open)(struct file_desc *d, int fd);
-	/*
 	 * Called to collect a new fd before adding it on desc. Clients
 	 * may chose to collect it to some specific rst_info list. See
 	 * prepare_fds() for details.

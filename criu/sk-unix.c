@@ -902,8 +902,8 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 
 	/* Skip external sockets */
 	if (!list_empty(&peer->d.fd_info_head))
-		while (peer_is_not_prepared(peer))
-			wait_fds_event();
+		if (peer_is_not_prepared(peer))
+			return 1;
 
 	if (ui->ue->uflags & USK_INHERIT)
 		return 0;
@@ -1269,13 +1269,18 @@ out:
 		return -1;
 
 	*new_fd = sk;
-	return 0;
+	return 1;
 }
 
 static int open_unix_sk(struct file_desc *d, int *new_fd)
 {
+	struct fdinfo_list_entry *fle;
 	struct unix_sk_info *ui;
 	int ret;
+
+	fle = file_master(d);
+	if (fle->stage >= FLE_OPEN)
+		return post_open_unix_sk(d, fle->fe->fd);
 
 	ui = container_of(d, struct unix_sk_info, d);
 
@@ -1310,7 +1315,6 @@ static char *socket_d_name(struct file_desc *d, char *buf, size_t s)
 static struct file_desc_ops unix_desc_ops = {
 	.type = FD_TYPES__UNIXSK,
 	.open = open_unix_sk,
-	.post_open = post_open_unix_sk,
 	.name = socket_d_name,
 };
 

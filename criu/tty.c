@@ -659,7 +659,7 @@ static int tty_set_prgp(int fd, int group)
 	return 0;
 }
 
-static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
+int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 {
 	struct tty_info *info = container_of(d, struct tty_info, d);
 	struct tty_driver *driver = info->driver;
@@ -667,8 +667,7 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 	struct file_desc *slave_d;
 	int slave = -1, ret = -1, index = -1;
 
-	if (!is_service_fd(fd, CTL_TTY_OFF))
-		return 0;
+	BUG_ON(!is_service_fd(fd, CTL_TTY_OFF));
 
 	if (driver->type == TTY_TYPE__EXT_TTY) {
 		slave = -1;
@@ -708,7 +707,7 @@ out:
 err:
 	pty_free_fake_reg(&fake);
 	close(fd);
-	return ret;
+	return ret ? -1 : 0;
 }
 
 static bool tty_is_master(struct tty_info *info)
@@ -1152,7 +1151,6 @@ static char *tty_d_name(struct file_desc *d, char *buf, size_t s)
 static struct file_desc_ops tty_desc_ops = {
 	.type		= FD_TYPES__TTY,
 	.open		= tty_open,
-	.post_open	= tty_restore_ctl_terminal,
 	.collect_fd	= tty_collect_fd,
 	.name		= tty_d_name,
 };

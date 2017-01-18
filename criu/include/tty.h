@@ -32,6 +32,8 @@ extern int prepare_shared_tty(void);
 extern int tty_prep_fds(void);
 extern void tty_fini_fds(void);
 
+extern int tty_restore_ctl_terminal(struct file_desc *d, int fd);
+
 #define OPT_SHELL_JOB	"shell-job"
 
 #endif /* __CR_TTY_H__ */

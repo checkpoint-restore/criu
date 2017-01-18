@@ -490,7 +490,6 @@ static int post_open_inet_sk(struct file_desc *d, int sk);
 static struct file_desc_ops inet_desc_ops = {
 	.type = FD_TYPES__INETSK,
 	.open = open_inet_sk,
-	.post_open = post_open_inet_sk,
 };
 
 static inline int tcp_connection(InetSkEntry *ie)
@@ -585,8 +584,8 @@ static int post_open_inet_sk(struct file_desc *d, int sk)
 	if (ii->ie->opts->reuseaddr)
 		return 0;
 
-	while (atomic_read(&ii->port->users))
-		wait_fds_event();
+	if (atomic_read(&ii->port->users))
+		return 1;
 
 	val = ii->ie->opts->reuseaddr;
 	if (restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &val))
@@ -606,9 +605,13 @@ int restore_ip_opts(int sk, IpOptsEntry *ioe)
 }
 static int open_inet_sk(struct file_desc *d, int *new_fd)
 {
+	struct fdinfo_list_entry *fle = file_master(d);
 	struct inet_sk_info *ii;
 	InetSkEntry *ie;
 	int sk, yes = 1;
+
+	if (fle->stage >= FLE_OPEN)
+		return post_open_inet_sk(d, fle->fe->fd);
 
 	ii = container_of(d, struct inet_sk_info, d);
 	ie = ii->ie;
@@ -702,8 +705,7 @@ done:
 		goto err;
 
 	*new_fd = sk;
-	return 0;
-
+	return 1;
 err:
 	close(sk);
 	return -1;

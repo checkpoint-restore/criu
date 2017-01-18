@@ -114,12 +114,18 @@ const struct fdtype_ops eventpoll_dump_ops = {
 	.dump		= dump_one_eventpoll,
 };
 
+static int eventpoll_post_open(struct file_desc *d, int fd);
+
 static int eventpoll_open(struct file_desc *d, int *new_fd)
 {
+	struct fdinfo_list_entry *fle = file_master(d);
 	struct eventpoll_file_info *info;
 	int tmp;
 
 	info = container_of(d, struct eventpoll_file_info, d);
+
+	if (fle->stage >= FLE_OPEN)
+		return eventpoll_post_open(d, fle->fe->fd);
 
 	pr_info_eventpoll("Restore ", info->efe);
 
@@ -137,7 +143,7 @@ static int eventpoll_open(struct file_desc *d, int *new_fd)
 	}
 
 	*new_fd = tmp;
-	return 0;
+	return 1;
 err_close:
 	close(tmp);
 	return -1;
@@ -218,7 +224,6 @@ static void eventpoll_collect_fd(struct file_desc *d,
 static struct file_desc_ops desc_ops = {
 	.type = FD_TYPES__EVENTPOLL,
 	.open = eventpoll_open,
-	.post_open = eventpoll_post_open,
 	.collect_fd = eventpoll_collect_fd,
 };
 

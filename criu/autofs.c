@@ -832,7 +832,7 @@ static struct fdinfo_list_entry *find_fle_by_fd(struct list_head *head, int fd)
 {
 	struct fdinfo_list_entry *fle;
 
-	list_for_each_entry(fle, head, ps_list) {
+	list_for_each_entry(fle, head, used_list) {
 		if (fle->fe->fd == fd)
 			return fle;
 	}
@@ -848,7 +848,7 @@ static struct fdinfo_list_entry *autofs_pipe_le(struct pstree_item *master,
 	if (entry->has_read_fd)
 		pipe_fd = entry->read_fd;
 
-	ple = find_fle_by_fd(&rsti(master)->fds, pipe_fd);
+	ple = find_fle_by_fd(&rsti(master)->used, pipe_fd);
 	if (!ple) {
 		pr_err("Failed to find pipe fd %d in process %d\n",
 				pipe_fd, master->pid->ns[0].virt);
@@ -887,6 +887,22 @@ static int autofs_create_fle(struct pstree_item *task, FdinfoEntry *fe,
 	return 0;
 }
 
+static int autofs_open_pipefd(struct file_desc *d, int *new_fd)
+{
+	struct fdinfo_list_entry *fle = file_master(d);
+	int ret;
+
+	if (fle->stage < FLE_OPEN) {
+		ret = open_pipe(d, new_fd);
+		if (ret != 0)
+			return ret;
+		set_fds_event(fle->pid);
+		return 1;
+	}
+
+	return autofs_post_open(d, fle->fe->fd);
+}
+
 static int autofs_create_pipe(struct pstree_item *task, autofs_info_t *i,
 			      struct fdinfo_list_entry *ple)
 {
@@ -903,7 +919,7 @@ static int autofs_create_pipe(struct pstree_item *task, autofs_info_t *i,
 	if (!ops)
 		return -1;
 	memcpy(ops, pi->d.ops, sizeof(*ops));
-	ops->post_open = autofs_post_open;
+	ops->open = autofs_open_pipefd;
 
 	pe = shmalloc(sizeof(*pe));
 	if (!pe)
