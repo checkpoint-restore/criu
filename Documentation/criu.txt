@@ -91,6 +91,11 @@ The following levels are available:
         *pre-restore*:::
             run prior to beginning a *restore*
 
+        *pre-resume*:::
+            run when all processes and resources are
+            restored but tasks are stopped waiting for
+            final kick to run. Must not fail.
+
         *post-restore*:::
             run upon *restore* completion
 
