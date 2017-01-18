@@ -957,13 +957,16 @@ again:
 int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle)
 {
 	struct sockaddr_un saddr;
-	int len, sock;
+	int len, sock, ret;
 
 	sock = get_service_fd(TRANSPORT_FD_OFF);
 
 	transport_name_gen(&saddr, &len, fle->pid);
 	pr_info("\t\tSend fd %d to %s\n", fd, saddr.sun_path + 1);
-	return send_fds(sock, &saddr, len, &fd, 1, (void *)&fle, sizeof(struct fdinfo_list_entry *));
+	ret = send_fds(sock, &saddr, len, &fd, 1, (void *)&fle, sizeof(struct fdinfo_list_entry *));
+	if (ret < 0)
+		return -1;
+	return set_fds_event(fle->pid);
 }
 
 static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle)
