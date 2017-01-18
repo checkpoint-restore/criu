@@ -1152,29 +1152,6 @@ static int tty_open(struct file_desc *d, int *new_fd)
 	return 0;
 }
 
-static void tty_collect_fd(struct file_desc *d, struct fdinfo_list_entry *fle,
-		struct rst_info *ri)
-{
-	struct tty_info *info = container_of(d, struct tty_info, d);
-	struct list_head *tgt;
-
-	/*
-	 * Unix98 pty slave peers requires the master peers being
-	 * opened before them. In turn, current ttys should be opened
-	 * after the slave peers so session must alread exist.
-	 */
-
-	if (tty_is_master(info) && info->driver->type != TTY_TYPE__CTTY)
-		collect_gen_fd(fle, ri);
-	else {
-		if (info->driver->type == TTY_TYPE__CTTY)
-			tgt = &ri->tty_ctty;
-		else
-			tgt = &ri->tty_slaves;
-		list_add_tail(&fle->ps_list, tgt);
-	}
-}
-
 static char *tty_d_name(struct file_desc *d, char *buf, size_t s)
 {
 	struct tty_info *info = container_of(d, struct tty_info, d);
@@ -1187,7 +1164,6 @@ static char *tty_d_name(struct file_desc *d, char *buf, size_t s)
 static struct file_desc_ops tty_desc_ops = {
 	.type		= FD_TYPES__TTY,
 	.open		= tty_open,
-	.collect_fd	= tty_collect_fd,
 	.name		= tty_d_name,
 };
 
