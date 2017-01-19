@@ -20,7 +20,7 @@
  * from procfs and checking them after restoring.
  */
 
-static int parse_ofd_lock(char *buf, struct flock *lck)
+static int parse_ofd_lock(char *buf, struct flock64 *lck)
 {
 	char fl_flag[10], fl_type[15], fl_option[10], fl_end[32];
 	long long start;
@@ -61,7 +61,7 @@ static int parse_ofd_lock(char *buf, struct flock *lck)
 	return 0;
 }
 
-static int read_fd_ofd_lock(int pid, int fd, struct flock *lck)
+static int read_fd_ofd_lock(int pid, int fd, struct flock64 *lck)
 {
 	char path[PATH_MAX];
 	char buf[100];
@@ -90,7 +90,7 @@ static int read_fd_ofd_lock(int pid, int fd, struct flock *lck)
 	return num;
 }
 
-static int check_lock_exists(const char *filename, struct flock *lck)
+static int check_lock_exists(const char *filename, struct flock64 *lck)
 {
 	int ret = -1;
 	int fd;
@@ -129,16 +129,16 @@ out:
 	return ret;
 }
 
-static int check_file_locks_match(struct flock *orig_lck, struct flock *lck)
+static int check_file_locks_match(struct flock64 *orig_lck, struct flock64 *lck)
 {
 	return orig_lck->l_start == lck->l_start &&
 		orig_lck->l_len == lck->l_len &&
 		orig_lck->l_type == lck->l_type;
 }
 
-static int check_file_lock_restored(int pid, int fd, struct flock *lck)
+static int check_file_lock_restored(int pid, int fd, struct flock64 *lck)
 {
-	struct flock lck_restored;
+	struct flock64 lck_restored;
 
 	if (read_fd_ofd_lock(pid, fd, &lck_restored))
 		return -1;
