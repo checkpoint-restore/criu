@@ -230,19 +230,6 @@ static int ns_exec(void *_arg)
 	return -1;
 }
 
-static void show_ps(void)
-{
-	int pid;
-
-	pid = fork();
-	if (pid == 0) {
-		execl("/bin/ps", "ps", "axf", "-o", "pid,sid,comm", NULL);
-		fprintf(stderr, "Unable to execute ps: %m\n");
-		exit(1);
-	} else if (pid > 0)
-		waitpid(pid, NULL, 0);
-}
-
 int ns_init(int argc, char **argv)
 {
 	struct sigaction sa = {
@@ -293,8 +280,6 @@ int ns_init(int argc, char **argv)
 	else if (ret)
 		fprintf(stderr, "The test returned non-zero code %d\n", ret);
 
-	show_ps();
-
 	if (reap && sigaction(SIGCHLD, &sa, NULL)) {
 		fprintf(stderr, "Can't set SIGCHLD handler: %m\n");
 		exit(1);
@@ -322,8 +307,6 @@ int ns_init(int argc, char **argv)
 
 	/* suspend/resume */
 	test_waitsig();
-
-	show_ps();
 
 	fd = open(pidfile, O_RDONLY);
 	if (fd == -1) {
