@@ -156,30 +156,33 @@ out:
 int set_fds_event(pid_t virt)
 {
 	struct pstree_item *item;
-	int old;
+	bool is_set;
 
 	item = pstree_item_by_virt(virt);
 	BUG_ON(!item);
 
-	old = test_and_set_bit(FDS_EVENT_BIT, (unsigned long *)&item->task_st);
+	is_set = !!test_and_set_bit_le(FDS_EVENT_BIT, &item->task_st_le_bits);
 
-	if (!(old & FDS_EVENT))
+	if (!is_set)
 		futex_wake(&item->task_st);
 	return 0;
 }
 
 void clear_fds_event(void)
 {
-	futex_t *f = &current->task_st;
-
-	clear_bit(FDS_EVENT_BIT, (unsigned long *)&f->raw.counter);
+	clear_bit_le(FDS_EVENT_BIT, &current->task_st_le_bits);
 }
 
 void wait_fds_event(void)
 {
 	futex_t *f = &current->task_st;
-
-	futex_wait_if_cond(f, FDS_EVENT, &);
+	int value;
+#if BITS_PER_LONG == 64
+	value = htole64(FDS_EVENT);
+#else
+	value = htole32(FDS_EVENT);
+#endif
+	futex_wait_if_cond(f, value, &);
 	clear_fds_event();
 }
 

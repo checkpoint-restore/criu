@@ -25,7 +25,10 @@ struct pstree_item {
 	struct pid		*threads;	/* array of threads */
 	CoreEntry		**core;
 	TaskKobjIdsEntry	*ids;
-	futex_t			task_st;
+	union {
+		futex_t		task_st;
+		unsigned long	task_st_le_bits;
+	};
 };
 
 enum {
