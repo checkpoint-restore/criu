@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 	int fd, fd_s, ctl_fd;
 	pid_t extpid;
 	int pfd[2];
-	int ret, snd_size = 0, rcv_size = 0;
+	int ret = 0, snd_size = 0, rcv_size = 0;
 #ifndef ZDTM_TCP_LAST_ACK
 	char buf[BUF_SIZE];
 #endif
@@ -104,13 +104,13 @@ int main(int argc, char **argv)
 		test_init(argc, argv);
 
 	if (pipe(pfd)) {
-		pr_err("pipe() failed");
+		pr_perror("pipe() failed");
 		return 1;
 	}
 
 	extpid = fork();
 	if (extpid < 0) {
-		pr_err("fork() failed");
+		pr_perror("fork() failed");
 		return 1;
 	} else if (extpid == 0) {
 		int size = 0;
@@ -121,9 +121,10 @@ int main(int argc, char **argv)
 
 		close(pfd[1]);
 		if (read(pfd[0], &port, sizeof(port)) != sizeof(port)) {
-			pr_err("Can't read port\n");
+			pr_perror("Can't read port\n");
 			return 1;
 		}
+		close(pfd[0]);
 
 		fd = tcp_init_client(ZDTM_FAMILY, "127.0.0.1", port);
 		if (fd < 0)
@@ -133,23 +134,28 @@ int main(int argc, char **argv)
 		if (ctl_fd < 0)
 			return 1;
 
+		/* == The preparation stage == */
 		if (read(ctl_fd, &size, sizeof(size)) != sizeof(size)) {
-			pr_err("write");
+			pr_perror("read");
 			return 1;
 		}
 
 		if (shutdown(fd, SHUT_WR) == -1) {
-			pr_err("shutdown");
+			pr_perror("shutdown");
 			return 1;
 		}
 
 		if (write(ctl_fd, &size, sizeof(size)) != sizeof(size)) {
-			pr_err("write");
+			pr_perror("write");
 			return 1;
 		}
+		/* == End of the preparation stage == */
 
+		/* Checkpoint/restore */
+
+		/* == The final stage == */
 		if (read(ctl_fd, &c, 1) != 0) {
-			pr_err("read");
+			pr_perror("read");
 			return 1;
 		}
 
@@ -160,12 +166,18 @@ int main(int argc, char **argv)
 #else
 		if (read(fd, buf, sizeof(buf)) != sizeof(TEST_MSG) ||
 		    strncmp(buf, TEST_MSG, sizeof(TEST_MSG))) {
-			pr_err("read");
+			pr_perror("read");
 			return 1;
 		}
 #endif
 
-		write(ctl_fd, &size, sizeof(size));
+		if (write(ctl_fd, &size, sizeof(size)) != sizeof(size)) {
+			pr_perror("write");
+			return 1;
+		}
+		/* == End of the final stage == */
+
+		close(ctl_fd);
 		close(fd);
 
 		return 0;
@@ -181,7 +193,7 @@ int main(int argc, char **argv)
 
 	close(pfd[0]);
 	if (write(pfd[1], &port, sizeof(port)) != sizeof(port)) {
-		pr_err("Can't send port");
+		pr_perror("Can't send port");
 		return 1;
 	}
 	close(pfd[1]);
@@ -191,16 +203,17 @@ int main(int argc, char **argv)
 	 */
 	fd = tcp_accept_server(fd_s);
 	if (fd < 0) {
-		pr_err("can't accept client connection %m");
+		pr_perror("can't accept client connection %m");
 		return 1;
 	}
 
 	ctl_fd = tcp_accept_server(fd_s);
 	if (ctl_fd < 0) {
-		pr_err("can't accept client connection %m");
+		pr_perror("can't accept client connection %m");
 		return 1;
 	}
 
+	/* == The preparation stage == */
 #ifdef ZDTM_TCP_LAST_ACK
 	snd_size = fill_sock_buf(fd);
 	if (snd_size <= 0)
@@ -208,18 +221,19 @@ int main(int argc, char **argv)
 #endif
 
 	if (write(ctl_fd, &ret, sizeof(ret)) != sizeof(ret)) {
-		pr_err("read");
+		pr_perror("read");
 		return 1;
 	}
 
 	if (read(ctl_fd, &ret, sizeof(ret)) != sizeof(ret)) {
-		pr_err("read");
+		pr_perror("read");
 		return 1;
 	}
+	/* == End of the preparation stage */
 
 #ifdef ZDTM_TCP_LAST_ACK
 	if (shutdown(fd, SHUT_WR) == -1) {
-		pr_err("shutdown");
+		pr_perror("shutdown");
 		return 1;
 	}
 #endif
@@ -227,19 +241,20 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
+	/* == The final stage == */
 	if (shutdown(ctl_fd, SHUT_WR) == -1) {
-		pr_err("shutdown");
+		pr_perror("shutdown");
 		return 1;
 	}
 
 #ifndef ZDTM_TCP_LAST_ACK
 	if (write(fd, TEST_MSG, sizeof(TEST_MSG)) != sizeof(TEST_MSG)) {
-		pr_err("write");
+		pr_perror("write");
 		return 1;
 	}
 
 	if (shutdown(fd, SHUT_WR) == -1) {
-		pr_err("shutdown");
+		pr_perror("shutdown");
 		return 1;
 	}
 #endif
@@ -252,9 +267,10 @@ int main(int argc, char **argv)
 	}
 
 	if (read(ctl_fd, &ret, sizeof(ret)) != sizeof(ret)) {
-		pr_err("read");
+		pr_perror("read");
 		return 1;
 	}
+	/* == End of the final stage == */
 
 	if (ret != snd_size) {
 		fail("The parent sent %d bytes, but the child received %d bytes\n", snd_size, ret);
