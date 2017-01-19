@@ -483,6 +483,6 @@ criu-rtc.pb-c.c: criu-rtc.proto
 	protoc-c --proto_path=. --c_out=. criu-rtc.proto
 
 criu-rtc.so: criu-rtc.c criu-rtc.pb-c.c
-	$(CC) -g -Wall -shared -nostartfiles criu-rtc.c criu-rtc.pb-c.c -o criu-rtc.so -iquote ../../../criu/include -fPIC $(USERCFLAGS)
+	$(CC) -g -Wall -shared -nostartfiles criu-rtc.c criu-rtc.pb-c.c -o criu-rtc.so -iquote ../../../criu/include -fPIC $(filter-out -m32,$(USERCFLAGS))
 
 .PHONY:	force clean cleandep cleanout realclean start check_start stop wait_stop
