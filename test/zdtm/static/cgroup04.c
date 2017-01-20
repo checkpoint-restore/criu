@@ -93,7 +93,7 @@ bool checkval(char *path, char *val)
 		return false;
 	}
 
-	n = read(fd, buf, sizeof(buf));
+	n = read(fd, buf, sizeof(buf) - 1);
 	close(fd);
 	if (n < 0) {
 		pr_perror("read");
