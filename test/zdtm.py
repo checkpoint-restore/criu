@@ -1464,7 +1464,7 @@ default_test = {}
 
 def get_test_desc(tname):
 	d_path = tname + '.desc'
-	if os.access(d_path, os.F_OK):
+	if os.access(d_path, os.F_OK) and os.path.getsize(d_path) > 0:
 		return eval(open(d_path).read())
 
 	return default_test
