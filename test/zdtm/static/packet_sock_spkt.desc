@@ -1,1 +1,1 @@
-{'flavor':'h', 'flags' : 'suid'}
+{'flavor':'h uns ns', 'flags' : 'suid'}

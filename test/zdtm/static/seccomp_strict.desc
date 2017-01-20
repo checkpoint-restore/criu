@@ -1,1 +1,1 @@
-{'flavor': 'h', 'flags': 'suid', 'feature': 'seccomp_suspend'}
+{'flags': 'suid', 'feature': 'seccomp_suspend'}
