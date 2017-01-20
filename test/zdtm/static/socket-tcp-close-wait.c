@@ -130,7 +130,7 @@ int main(int argc, char **argv)
 			return 1;
 
 		ctl_fd = tcp_init_client(ZDTM_FAMILY, "127.0.0.1", port);
-		if (fd < 0)
+		if (ctl_fd < 0)
 			return 1;
 
 		if (read(ctl_fd, &size, sizeof(size)) != sizeof(size)) {
