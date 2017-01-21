@@ -801,7 +801,7 @@ static int do_restore_tty_parms(void *arg, int fd, pid_t pid)
 	return 0;
 
 err:
-	pr_perror("Can't set tty params on %d", p->tty_id);
+	pr_perror("Can't set tty params on %#x", p->tty_id);
 	return -1;
 }
 
@@ -841,7 +841,7 @@ static int restore_tty_params(int fd, struct tty_info *info)
 
 	if (info->tie->has_uid && info->tie->has_gid) {
 		if (fchown(fd, info->tie->uid, info->tie->gid)) {
-			pr_perror("Can't setup uid %d gid %d on %x",
+			pr_perror("Can't setup uid %d gid %d on %#x",
 				  (int)info->tie->uid,
 				  (int)info->tie->gid,
 				  info->tfe->id);
@@ -958,7 +958,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 			return -1;
 		}
 
-		pr_info("Migrated slave peer %x -> to fd %d\n",
+		pr_info("Migrated slave peer %#x -> to fd %d\n",
 			slave->tfe->id, fd);
 	} else {
 		fake = pty_alloc_fake_master(slave);
@@ -966,7 +966,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 			goto err;
 		master = pty_open_ptmx_index(&fake->d, slave->tie->pty->index, O_RDONLY);
 		if (master < 0) {
-			pr_err("Can't open master pty %x (index %d)\n",
+			pr_err("Can't open master pty %#x (index %d)\n",
 				  slave->tfe->id, slave->tie->pty->index);
 			goto err;
 		}
@@ -1027,7 +1027,7 @@ static int pty_open_ptmx(struct tty_info *info)
 
 	master = pty_open_ptmx_index(info->reg_d, info->tie->pty->index, info->tfe->flags);
 	if (master < 0) {
-		pr_err("Can't open master pty %x (index %d)\n",
+		pr_err("Can't open master pty %#x (index %d)\n",
 			  info->tfe->id, info->tie->pty->index);
 		return -1;
 	}
@@ -1041,7 +1041,7 @@ static int pty_open_ptmx(struct tty_info *info)
 		int packet_mode = 1;
 
 		if (ioctl(master, TIOCPKT, &packet_mode) < 0) {
-			pr_perror("Can't set packed mode on %x",
+			pr_perror("Can't set packed mode on %#x",
 				  info->tfe->id);
 			goto err;
 		}
@@ -1067,7 +1067,7 @@ static int open_simple_tty(struct tty_info *info)
 
 	fd = open_tty_reg(info->reg_d, info->tfe->flags);
 	if (fd < 0) {
-		pr_err("Can't open tty %s %x\n",
+		pr_err("Can't open tty %s %#x\n",
 				info->driver->name, info->tfe->id);
 		return -1;
 	}
@@ -1207,7 +1207,7 @@ static int tty_find_restoring_task(struct tty_info *info)
 	 */
 
 	if (tty_is_hung(info)) {
-		pr_debug("Hungup terminal found id %x\n", info->tfe->id);
+		pr_debug("Hungup terminal found id %#x\n", info->tfe->id);
 		return 0;
 	}
 
@@ -1243,7 +1243,7 @@ static int tty_find_restoring_task(struct tty_info *info)
 		 */
 		item = find_first_sid(info->tie->sid);
 		if (item && item->pid.virt == item->sid) {
-			pr_info("Set a control terminal %x to %d\n",
+			pr_info("Set a control terminal %#x to %d\n",
 				info->tfe->id, info->tie->sid);
 			return prepare_ctl_tty(item->pid.virt,
 					       rsti(item),
@@ -1260,7 +1260,7 @@ static int tty_find_restoring_task(struct tty_info *info)
 
 shell_job:
 	if (opts.shell_job) {
-		pr_info("Inherit terminal for id %x\n", info->tfe->id);
+		pr_info("Inherit terminal for id %#x\n", info->tfe->id);
 		info->inherit = true;
 		return 0;
 	}
@@ -1353,14 +1353,14 @@ static int tty_setup_slavery(void * unused)
 			continue;
 
 		info->ctl_tty = info;
-		pr_debug("ctl tty leader %x\n", info->tfe->id);
+		pr_debug("ctl tty leader %#x\n", info->tfe->id);
 		peer = info;
 		list_for_each_entry_safe_continue(peer, m, &all_ttys, list) {
 			if (!peer->tie->sid || peer->ctl_tty ||
 			    peer->driver->type == TTY_TYPE__CTTY)
 				continue;
 			if (peer->tie->sid == info->tie->sid) {
-				pr_debug(" `- slave %x\n", peer->tfe->id);
+				pr_debug(" `- slave %#x\n", peer->tfe->id);
 				peer->ctl_tty = info;
 			}
 		}
@@ -1423,7 +1423,7 @@ static int verify_termios(u32 id, TermiosEntry *e)
 static int verify_info(struct tty_info *info)
 {
 	if (!info->driver) {
-		pr_err("Unknown driver master peer %x\n", info->tfe->id);
+		pr_err("Unknown driver master peer %#x\n", info->tfe->id);
 		return -1;
 	}
 
@@ -1434,10 +1434,10 @@ static int verify_info(struct tty_info *info)
 	 */
 	if (term_opts_missing_any(info)) {
 		if (tty_is_master(info)) {
-			pr_err("Corrupted master peer %x\n", info->tfe->id);
+			pr_err("Corrupted master peer %#x\n", info->tfe->id);
 			return -1;
 		} else if (!term_opts_missing_all(info)) {
-			pr_err("Corrupted slave peer %x\n", info->tfe->id);
+			pr_err("Corrupted slave peer %#x\n", info->tfe->id);
 			return -1;
 		}
 	}
@@ -1473,7 +1473,7 @@ static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg, struct c
 	switch (info->tie->type) {
 	case TTY_TYPE__PTY:
 		if (!info->tie->pty) {
-			pr_err("No PTY data found (id %x), corrupted image?\n",
+			pr_err("No PTY data found (id %#x), corrupted image?\n",
 			       info->tie->id);
 			return -1;
 		}
@@ -1484,13 +1484,13 @@ static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg, struct c
 	case TTY_TYPE__VT:
 	case TTY_TYPE__EXT_TTY:
 		if (info->tie->pty) {
-			pr_err("PTY data found (id %x), corrupted image?\n",
+			pr_err("PTY data found (id %#x), corrupted image?\n",
 			       info->tie->id);
 			return -1;
 		}
 		break;
 	default:
-		pr_err("Unexpected TTY type %d (id %x)\n",
+		pr_err("Unexpected TTY type %d (id %#x)\n",
 		       info->tie->type, info->tie->id);
 		return -1;
 	}
@@ -1516,7 +1516,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 
 	info->tie = lookup_tty_info_entry(info->tfe->tty_info_id);
 	if (!info->tie) {
-		pr_err("No tty-info-id %x found on id %x\n",
+		pr_err("No tty-info-id %#x found on id %#x\n",
 		       info->tfe->tty_info_id, info->tfe->id);
 		return -1;
 	}
@@ -1713,7 +1713,7 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_d
 	if (is_pty(driver)) {
 		dinfo->lfd = dup(lfd);
 		if (dinfo->lfd < 0) {
-			pr_perror("Can't dup local fd on %x", id);
+			pr_perror("Can't dup local fd on %#x", id);
 			xfree(dinfo);
 			return -1;
 		}
@@ -1779,21 +1779,21 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_d
 
 	memzero(&t, sizeof(t));
 	if (ioctl(lfd, TCGETS, &t) < 0) {
-		pr_perror("Can't get tty params on %x", id);
+		pr_perror("Can't get tty params on %#x", id);
 		goto out;
 	}
 	termios_copy(&termios, &t);
 
 	memzero(&t, sizeof(t));
 	if (ioctl(lfd, TIOCGLCKTRMIOS, &t) < 0) {
-		pr_perror("Can't get tty locked params on %x", id);
+		pr_perror("Can't get tty locked params on %#x", id);
 		goto out;
 	}
 	termios_copy(&termios_locked, &t);
 
 	memzero(&w, sizeof(w));
 	if (ioctl(lfd, TIOCGWINSZ, &w) < 0) {
-		pr_perror("Can't get tty window params on %x", id);
+		pr_perror("Can't get tty window params on %#x", id);
 		goto out;
 	}
 	winsize_copy(&winsize, &w);
