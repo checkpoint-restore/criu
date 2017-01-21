@@ -1524,7 +1524,8 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 	INIT_LIST_HEAD(&info->sibling);
 	info->driver = get_tty_driver(info->tie->rdev, info->tie->dev);
 	if (info->driver == NULL) {
-		pr_err("Unable to find a tty driver\n");
+		pr_err("Unable to find a tty driver (rdev %#x dev %#x)\n",
+		       info->tie->rdev, info->tie->dev);
 		return -1;
 	}
 	info->create = tty_is_master(info);
