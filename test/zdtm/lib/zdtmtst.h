@@ -129,7 +129,7 @@ extern int zdtm_seccomp;
 
 typedef struct {
 	unsigned long	seed;
-	int		sk;
+	int		pipes[2];
 } task_waiter_t;
 
 extern void task_waiter_init(task_waiter_t *t);

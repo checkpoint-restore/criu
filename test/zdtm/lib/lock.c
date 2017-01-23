@@ -7,9 +7,6 @@
 #include <unistd.h>
 #include <linux/unistd.h>
 #include <time.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/stat.h>
 
 #include "zdtmtst.h"
 
@@ -22,52 +19,19 @@ static long sys_gettid(void)
 
 void task_waiter_init(task_waiter_t *t)
 {
-	struct sockaddr_un addr;
-	unsigned int addrlen;
-	struct stat st;
-	int sk;
-
 	datagen((void *)&t->seed, sizeof(t->seed), NULL);
 	t->seed = t->seed % TASK_WAITER_INITIAL;
 
-	sk = socket(AF_UNIX, SOCK_DGRAM, 0);
-	if (sk < 0) {
-		pr_perror("Unable to create a socket");
-		goto err;
+	if (pipe(t->pipes)) {
+		pr_perror("task_waiter_init failed");
+		exit(1);
 	}
-
-	if (fstat(sk, &st)) {
-		pr_perror("Unable to stat a file descriptor");
-		close(sk);
-		goto err;
-	}
-
-	addr.sun_family = AF_UNIX;
-	addrlen = snprintf(addr.sun_path, sizeof(addr.sun_path), "X/criu-zdtm-%lx", st.st_ino);
-	addrlen += sizeof(addr.sun_family);
-
-	addr.sun_path[0] = 0;
-	if (bind(sk, &addr, addrlen)) {
-		pr_perror("Unable to bind a socket");
-		close(sk);
-		goto err;
-	}
-	if (connect(sk, &addr, addrlen)) {
-		pr_perror("Unable to connect a socket");
-		close(sk);
-		goto err;
-	}
-
-	t->sk = sk;
-	return;
-err:
-	exit(1);
 }
 
 void task_waiter_fini(task_waiter_t *t)
 {
-	close(t->sk);
-	t->sk = -1;
+	close(t->pipes[0]);
+	close(t->pipes[1]);
 }
 
 void task_waiter_wait4(task_waiter_t *t, unsigned int lockid)
@@ -77,7 +41,7 @@ void task_waiter_wait4(task_waiter_t *t, unsigned int lockid)
 	unsigned int v;
 
 	for (;;) {
-		if (recv(t->sk, &v, sizeof(v), MSG_PEEK) != sizeof(v))
+		if (read(t->pipes[0], &v, sizeof(v)) != sizeof(v))
 			goto err;
 
 		/*
@@ -89,6 +53,8 @@ void task_waiter_wait4(task_waiter_t *t, unsigned int lockid)
 		 * next attempt.
 		 */
 		if (v != lockid) {
+			if (write(t->pipes[1], &v, sizeof(v)) != sizeof(v))
+				goto err;
 			/*
 			 * If we get a collision in access, lets sleep
 			 * semi-random time magnitude to decrease probability
@@ -99,8 +65,6 @@ void task_waiter_wait4(task_waiter_t *t, unsigned int lockid)
 		} else
 			break;
 	}
-	if (recv(t->sk, &v, sizeof(v), 0) != sizeof(v))
-		goto err;
 
 	return;
 
@@ -111,7 +75,7 @@ err:
 
 void task_waiter_complete(task_waiter_t *t, unsigned int lockid)
 {
-	if (write(t->sk, &lockid, sizeof(lockid)) != sizeof(lockid)) {
+	if (write(t->pipes[1], &lockid, sizeof(lockid)) != sizeof(lockid)) {
 		pr_perror("task_waiter_complete failed");
 		exit(1);
 	}
