@@ -117,6 +117,7 @@ struct cr_options {
 	bool			deprecated_ok;
 	bool			display_stats;
 	bool			weak_sysctls;
+	int			status_fd;
 };
 
 extern struct cr_options opts;

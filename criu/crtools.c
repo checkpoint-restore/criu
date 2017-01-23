@@ -76,6 +76,7 @@ void init_opts(void)
 	opts.ghost_limit = DEFAULT_GHOST_LIMIT;
 	opts.timeout = DEFAULT_TIMEOUT;
 	opts.empty_ns = 0;
+	opts.status_fd = -1;
 }
 
 static int parse_join_ns(const char *ptr)
@@ -285,6 +286,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "deprecated",			no_argument,		0, 1084 },
 		{ "display-stats",		no_argument,		0, 1086 },
 		{ "weak-sysctls",		no_argument,		0, 1087 },
+		{ "status-fd",			required_argument,	0, 1088 },
 		{ },
 	};
 
@@ -603,6 +605,12 @@ int main(int argc, char *argv[], char *envp[])
 		case 1087:
 			pr_msg("Will skip non-existant sysctls on restore\n");
 			opts.weak_sysctls = true;
+			break;
+		case 1088:
+			if (sscanf(optarg, "%d", &opts.status_fd) != 1) {
+				pr_err("Unable to parse a value of --status-fd\n");
+				return 1;
+			}
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
@@ -940,6 +948,8 @@ usage:
 "  --address ADDR        address of server or service\n"
 "  --port PORT           port of page server\n"
 "  -d|--daemon           run in the background after creating socket\n"
+"  --status-fd FD        write \\0 to the FD and close it once process is ready\n"
+"                        to handle requests\n"
 "\n"
 "Other options:\n"
 "  -h|--help             show this text\n"

@@ -690,6 +690,21 @@ out:
 	return ret;
 }
 
+int close_status_fd(void)
+{
+	char c = 0;
+
+	if (opts.status_fd < 0)
+		return 0;
+
+	if (write(opts.status_fd, &c, 1) != 1) {
+		pr_perror("Unable to write into the status fd");
+		return -1;
+	}
+
+	return close_safe(&opts.status_fd);
+}
+
 int cr_daemon(int nochdir, int noclose, int *keep_fd, int close_fd)
 {
 	int pid;
@@ -1154,6 +1169,9 @@ int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
 			return ret;
 		}
 	}
+
+	if (close_status_fd())
+		return -1;
 
 	if (sk >= 0) {
 		ret = *ask = accept(sk, (struct sockaddr *)&caddr, &clen);

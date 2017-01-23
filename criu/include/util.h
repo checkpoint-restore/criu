@@ -172,6 +172,7 @@ extern int cr_system(int in, int out, int err, char *cmd, char *const argv[], un
 extern int cr_system_userns(int in, int out, int err, char *cmd,
 				char *const argv[], unsigned flags, int userns_pid);
 extern int cr_daemon(int nochdir, int noclose, int *keep_fd, int close_fd);
+extern int close_status_fd(void);
 extern int is_root_user(void);
 
 static inline bool dir_dots(const struct dirent *de)
