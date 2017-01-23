@@ -32,8 +32,11 @@ int main(int argc, char **argv)
 	pid_t pid;
 	int ret, res;
 	const struct aiocb   *aioary[1];
+	task_waiter_t child_waiter;
 
 	test_init(argc, argv);
+
+	task_waiter_init(&child_waiter);
 
 	if ((fd_s = tcp_init_server(AF_INET, &port)) < 0) {
 		pr_err("initializing server failed\n");
@@ -64,6 +67,8 @@ int main(int argc, char **argv)
 			pr_perror("aio_read failed");
 			return 1;
 		}
+
+		task_waiter_complete_current(&child_waiter);
 
 		/* Wait for request completion */
 		aioary[0] = &aiocb;
@@ -108,6 +113,8 @@ again:
 		pr_err("can't accept client connection\n");
 		goto error;
 	}
+
+	task_waiter_wait4(&child_waiter, pid);
 
 	test_daemon();
 	test_waitsig();
