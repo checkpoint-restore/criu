@@ -966,7 +966,7 @@ class criu:
 				ps_opts = ["--daemon", "--pidfile", "ps.pid",
 					   "--port", "12345", "--lazy-pages"]
 				self.__criu_act("page-server", opts = ps_opts)
-			self.__criu_act("lazy-pages", opts = lp_opts)
+			self.__lazy_pages_p = self.__criu_act("lazy-pages", opts = lp_opts, nowait = True)
 			r_opts += ["--lazy-pages"]
 
 		if self.__leave_stopped:
