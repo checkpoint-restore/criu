@@ -888,22 +888,17 @@ static int plant_fd(struct fdinfo_list_entry *fle, int fd)
 int recv_fd_from_peer(struct fdinfo_list_entry *fle)
 {
 	struct fdinfo_list_entry *tmp;
-	int fd, ret, tsock, count;
+	int fd, ret, tsock;
 
 	if (fle->received)
 		return 0;
 
 	tsock = get_service_fd(TRANSPORT_FD_OFF);
-
 	do {
-		if (ioctl(tsock, FIONREAD, &count) < 0) {
-			pr_perror("Can't do ioctl on transport sock: pid=%d\n", fle->pid);
-			return -1;
-		} else if (count == 0)
+		ret = __recv_fds(tsock, &fd, 1, (void *)&tmp, sizeof(struct fdinfo_list_entry *), MSG_DONTWAIT);
+		if (ret == -EAGAIN || ret == -EWOULDBLOCK)
 			return 1;
-
-		ret = recv_fds(tsock, &fd, 1, (void *)&tmp, sizeof(struct fdinfo_list_entry *));
-		if (ret)
+		else if (ret)
 			return -1;
 
 		pr_info("Further fle=%p, pid=%d\n", tmp, fle->pid);
