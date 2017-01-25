@@ -383,7 +383,7 @@ static int open_remap_dead_process(struct reg_file_info *rfi,
 	if (!helper)
 		return -1;
 
-	if (helper->pid.state != TASK_UNDEF) {
+	if (helper->pid->state != TASK_UNDEF) {
 		pr_info("Skipping helper for restoring /proc/%d; pid exists\n", rfe->remap_id);
 		return 0;
 	}
@@ -392,11 +392,11 @@ static int open_remap_dead_process(struct reg_file_info *rfi,
 
 	helper->sid = root_item->sid;
 	helper->pgid = root_item->pgid;
-	helper->pid.virt = rfe->remap_id;
+	helper->pid->ns[0].virt = rfe->remap_id;
 	helper->parent = root_item;
 	list_add_tail(&helper->sibling, &root_item->children);
 
-	pr_info("Added a helper for restoring /proc/%d\n", helper->pid.virt);
+	pr_info("Added a helper for restoring /proc/%d\n", helper->pid->ns[0].virt);
 
 	return 0;
 }
@@ -822,14 +822,14 @@ int dead_pid_conflict(void)
 			 * If the dead PID was given to a main thread of another
 			 * process, this is handled during restore.
 			 */
-			item = container_of(node, struct pstree_item, pid);
-			if (item->pid.real == item->threads[i].real ||
-			    item->threads[i].virt != pid)
+			item = node->item;
+			if (item->pid->real == item->threads[i].real ||
+			    item->threads[i].ns[0].virt != pid)
 				continue;
 		}
 
 		pr_err("Conflict with a dead task with the same PID as of this thread (virt %d, real %d).\n",
-			node->virt, node->real);
+			node->ns[0].virt, node->real);
 		return -1;
 	}
 

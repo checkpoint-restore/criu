@@ -437,7 +437,7 @@ static inline bool child_collected(struct pstree_item *i, pid_t pid)
 	struct pstree_item *c;
 
 	list_for_each_entry(c, &i->children, sibling)
-		if (c->pid.real == pid)
+		if (c->pid->real == pid)
 			return true;
 
 	return false;
@@ -449,7 +449,7 @@ static int collect_children(struct pstree_item *item)
 	pid_t *ch;
 	int ret, i, nr_children, nr_inprogress;
 
-	ret = parse_children(item->pid.real, &ch, &nr_children);
+	ret = parse_children(item->pid->real, &ch, &nr_children);
 	if (ret < 0)
 		return ret;
 
@@ -488,7 +488,7 @@ static int collect_children(struct pstree_item *item)
 			goto free;
 		}
 
-		ret = seize_wait_task(pid, item->pid.real, creds);
+		ret = seize_wait_task(pid, item->pid->real, creds);
 		if (ret < 0) {
 			/*
 			 * Here is a race window between parse_children() and seize(),
@@ -509,9 +509,9 @@ static int collect_children(struct pstree_item *item)
 			processes_to_wait--;
 
 		dmpi(c)->pi_creds = creds;
-		c->pid.real = pid;
+		c->pid->real = pid;
 		c->parent = item;
-		c->pid.state = ret;
+		c->pid->state = ret;
 		list_add_tail(&c->sibling, &item->children);
 
 		/* Here is a recursive call (Depth-first search) */
@@ -528,7 +528,7 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 {
 	int i;
 
-	if (item->pid.state == TASK_DEAD)
+	if (item->pid->state == TASK_DEAD)
 		return;
 
 	/*
@@ -536,7 +536,7 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 	 * the item->state is the state task was in when we seized one.
 	 */
 
-	unseize_task(item->pid.real, item->pid.state, st);
+	unseize_task(item->pid->real, item->pid->state, st);
 
 	if (st == TASK_DEAD)
 		return;
@@ -553,7 +553,7 @@ static void pstree_wait(struct pstree_item *root_item)
 
 	for_each_pstree_item(item) {
 
-		if (item->pid.state == TASK_DEAD)
+		if (item->pid->state == TASK_DEAD)
 			continue;
 
 		for (i = 0; i < item->nr_threads; i++) {
@@ -607,14 +607,14 @@ void pstree_switch_state(struct pstree_item *root_item, int st)
 static pid_t item_ppid(const struct pstree_item *item)
 {
 	item = item->parent;
-	return item ? item->pid.real : -1;
+	return item ? item->pid->real : -1;
 }
 
 static inline bool thread_collected(struct pstree_item *i, pid_t tid)
 {
 	int t;
 
-	if (i->pid.real == tid) /* thread leader is collected as task */
+	if (i->pid->real == tid) /* thread leader is collected as task */
 		return true;
 
 	for (t = 0; t < i->nr_threads; t++)
@@ -678,11 +678,11 @@ static int collect_threads(struct pstree_item *item)
 	struct pid *threads = NULL;
 	int nr_threads = 0, i = 0, ret, nr_inprogress, nr_stopped = 0;
 
-	ret = parse_threads(item->pid.real, &threads, &nr_threads);
+	ret = parse_threads(item->pid->real, &threads, &nr_threads);
 	if (ret < 0)
 		goto err;
 
-	if ((item->pid.state == TASK_DEAD) && (nr_threads > 1)) {
+	if ((item->pid->state == TASK_DEAD) && (nr_threads > 1)) {
 		pr_err("Zombies with threads are not supported\n");
 		goto err;
 	}
@@ -693,7 +693,7 @@ static int collect_threads(struct pstree_item *item)
 		return -1;
 
 	if (item->nr_threads == 0) {
-		item->threads[0].real = item->pid.real;
+		item->threads[0].real = item->pid->real;
 		item->nr_threads = 1;
 		item->threads[0].item = NULL;
 	}
@@ -709,7 +709,7 @@ static int collect_threads(struct pstree_item *item)
 		nr_inprogress++;
 
 		pr_info("\tSeizing %d's %d thread\n",
-				item->pid.real, pid);
+				item->pid->real, pid);
 
 		if (!opts.freeze_cgroup && seize_catch_task(pid))
 			continue;
@@ -810,7 +810,7 @@ static int collect_task(struct pstree_item *item)
 	if (ret < 0)
 		goto err_close;
 
-	if ((item->pid.state == TASK_DEAD) && !list_empty(&item->children)) {
+	if ((item->pid->state == TASK_DEAD) && !list_empty(&item->children)) {
 		pr_err("Zombie with children?! O_o Run, run, run!\n");
 		goto err_close;
 	}
@@ -818,7 +818,7 @@ static int collect_task(struct pstree_item *item)
 	if (pstree_alloc_cores(item))
 		goto err_close;
 
-	pr_info("Collected %d in %d state\n", item->pid.real, item->pid.state);
+	pr_info("Collected %d in %d state\n", item->pid->real, item->pid->state);
 	return 0;
 
 err_close:
@@ -828,7 +828,7 @@ err_close:
 
 int collect_pstree(void)
 {
-	pid_t pid = root_item->pid.real;
+	pid_t pid = root_item->pid->real;
 	int ret = -1;
 	struct proc_status_creds *creds;
 
@@ -863,7 +863,7 @@ int collect_pstree(void)
 		processes_to_wait--;
 
 	pr_info("Seized task %d, state %d\n", pid, ret);
-	root_item->pid.state = ret;
+	root_item->pid->state = ret;
 	dmpi(root_item)->pi_creds = creds;
 
 	ret = collect_task(root_item);

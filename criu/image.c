@@ -107,10 +107,11 @@ int write_img_inventory(InventoryEntry *he)
 
 int prepare_inventory(InventoryEntry *he)
 {
+	struct pid pid;
 	struct {
 		struct pstree_item i;
 		struct dmp_info d;
-	} crt = { };
+	} crt = { .i.pid = &pid };
 
 	pr_info("Perparing image inventory (version %u)\n", CRTOOLS_IMAGES_V1);
 
@@ -122,8 +123,8 @@ int prepare_inventory(InventoryEntry *he)
 	he->has_lsmtype = true;
 	he->lsmtype = host_lsm_type();
 
-	crt.i.pid.state = TASK_ALIVE;
-	crt.i.pid.real = getpid();
+	crt.i.pid->state = TASK_ALIVE;
+	crt.i.pid->real = getpid();
 	if (get_task_ids(&crt.i))
 		return -1;
 

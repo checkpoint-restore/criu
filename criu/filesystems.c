@@ -407,7 +407,7 @@ static int tmpfs_dump(struct mount_info *pm)
 	sprintf(tmpfs_path, "/proc/self/fd/%d", fd);
 
 	if (root_ns_mask & CLONE_NEWUSER)
-		userns_pid = root_item->pid.real;
+		userns_pid = root_item->pid->real;
 
 	ret = cr_system_userns(-1, img_raw_fd(img), -1, "tar", (char *[])
 			{ "tar", "--create",

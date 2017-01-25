@@ -309,7 +309,7 @@ struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid,
 
 int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
 {
-	pid_t pid = i->pid.virt;
+	pid_t pid = i->pid->ns[0].virt;
 	struct ns_id *nsid;
 
 	nsid = lookup_ns_by_id(id, nd);
@@ -401,7 +401,7 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 
 	if (pid != getpid()) {
 		type = NS_OTHER;
-		if (pid == root_item->pid.real) {
+		if (pid == root_item->pid->real) {
 			BUG_ON(root_ns_mask & nd->cflag);
 			pr_info("Will take %s namespace in the image\n", nd->str);
 			root_ns_mask |= nd->cflag;
@@ -549,7 +549,7 @@ static int open_ns_fd(struct file_desc *d)
 		return -1;
 	}
 
-	snprintf(path, sizeof(path) - 1, "/proc/%d/ns/%s", item->pid.virt, nd->str);
+	snprintf(path, sizeof(path) - 1, "/proc/%d/ns/%s", item->pid->ns[0].virt, nd->str);
 	path[sizeof(path) - 1] = '\0';
 
 	fd = open(path, nfi->nfe->flags);
@@ -593,7 +593,7 @@ struct collect_image_info nsfile_cinfo = {
 
 int predump_task_ns_ids(struct pstree_item *item)
 {
-	int pid = item->pid.real;
+	int pid = item->pid->real;
 
 	if (!__get_ns_id(pid, &net_ns_desc, NULL, &dmpi(item)->netns))
 		return -1;
@@ -606,7 +606,7 @@ int predump_task_ns_ids(struct pstree_item *item)
 
 int dump_task_ns_ids(struct pstree_item *item)
 {
-	int pid = item->pid.real;
+	int pid = item->pid->real;
 	TaskKobjIdsEntry *ids = item->ids;
 
 	ids->has_pid_ns_id = true;
@@ -790,7 +790,7 @@ int collect_user_ns(struct ns_id *ns, void *oarg)
 	 * mappings, which are used for convirting local id-s to
 	 * userns id-s (userns_uid(), userns_gid())
 	 */
-	if (dump_user_ns(root_item->pid.real, root_item->ids->user_ns_id))
+	if (dump_user_ns(root_item->pid->real, root_item->ids->user_ns_id))
 		return -1;
 
 	return 0;
@@ -994,7 +994,7 @@ static int do_dump_namespaces(struct ns_id *ns)
 
 int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 {
-	struct pid *ns_pid = &item->pid;
+	struct pid *ns_pid = item->pid;
 	struct ns_id *ns;
 	int pid, nr = 0;
 	int ret = 0;
@@ -1010,9 +1010,9 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 	 * net namespace with this is still open
 	 */
 
-	pr_info("Dumping %d(%d)'s namespaces\n", ns_pid->virt, ns_pid->real);
+	pr_info("Dumping %d(%d)'s namespaces\n", ns_pid->ns[0].virt, ns_pid->real);
 
-	if ((ns_flags & CLONE_NEWPID) && ns_pid->virt != 1) {
+	if ((ns_flags & CLONE_NEWPID) && ns_pid->ns[0].virt != 1) {
 		pr_err("Can't dump a pid namespace without the process init\n");
 		return -1;
 	}
@@ -1472,10 +1472,10 @@ int prepare_userns(struct pstree_item *item)
 	if (ret < 0)
 		return -1;
 
-	if (write_id_map(item->pid.real, e->uid_map, e->n_uid_map, "uid_map"))
+	if (write_id_map(item->pid->real, e->uid_map, e->n_uid_map, "uid_map"))
 		return -1;
 
-	if (write_id_map(item->pid.real, e->gid_map, e->n_gid_map, "gid_map"))
+	if (write_id_map(item->pid->real, e->gid_map, e->n_gid_map, "gid_map"))
 		return -1;
 
 	return 0;
@@ -1644,11 +1644,11 @@ err_out:
 
 int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 {
-	pid_t pid = item->pid.virt;
+	pid_t pid = item->pid->ns[0].virt;
 	int id;
 
 	pr_info("Restoring namespaces %d flags 0x%lx\n",
-			item->pid.virt, clone_flags);
+			item->pid->ns[0].virt, clone_flags);
 
 	if ((clone_flags & CLONE_NEWUSER) && prepare_userns_creds())
 		return -1;

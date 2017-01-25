@@ -195,7 +195,7 @@ int send_criu_rpc_script(enum script_actions act, char *name, int fd)
 		 * checking this.
 		 */
 		cn.has_pid = true;
-		cn.pid = root_item->pid.real;
+		cn.pid = root_item->pid->real;
 		break;
 	default:
 		break;
@@ -568,7 +568,7 @@ static int restore_using_req(int sk, CriuOpts *req)
 	success = true;
 exit:
 	if (send_criu_restore_resp(sk, success,
-				   root_item ? root_item->pid.real : -1) == -1) {
+				   root_item ? root_item->pid->real : -1) == -1) {
 		pr_perror("Can't send response");
 		success = false;
 	}

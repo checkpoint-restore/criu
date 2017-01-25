@@ -1774,7 +1774,7 @@ int network_lock_internal()
 				"COMMIT\n";
 	int ret = 0, nsret;
 
-	if (switch_ns(root_item->pid.real, &net_ns_desc, &nsret))
+	if (switch_ns(root_item->pid->real, &net_ns_desc, &nsret))
 		return -1;
 
 
@@ -1798,7 +1798,7 @@ static int network_unlock_internal()
 			"COMMIT\n";
 	int ret = 0, nsret;
 
-	if (switch_ns(root_item->pid.real, &net_ns_desc, &nsret))
+	if (switch_ns(root_item->pid->real, &net_ns_desc, &nsret))
 		return -1;
 
 

@@ -49,7 +49,7 @@ static int collect_filter_for_pstree(struct pstree_item *item)
 	struct sock_filter buf[BPF_MAXINSNS];
 	void *m;
 
-	if (item->pid.state == TASK_DEAD ||
+	if (item->pid->state == TASK_DEAD ||
 	    dmpi(item)->pi_creds->seccomp_mode != SECCOMP_MODE_FILTER)
 		return 0;
 
@@ -57,7 +57,7 @@ static int collect_filter_for_pstree(struct pstree_item *item)
 		int len;
 		struct seccomp_info *info, *inherited = NULL;
 
-		len = ptrace(PTRACE_SECCOMP_GET_FILTER, item->pid.real, i, buf);
+		len = ptrace(PTRACE_SECCOMP_GET_FILTER, item->pid->real, i, buf);
 		if (len < 0) {
 			if (errno == ENOENT) {
 				/* end of the search */

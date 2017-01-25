@@ -13,16 +13,17 @@ struct pid {
 	 */
 	pid_t real;
 
+	int state;	/* TASK_XXX constants */
+
 	/*
 	 * The @virt pid is one which used in the image itself and keeps
 	 * the pid value to be restored. This pid fetched from the
 	 * dumpee context, because the dumpee might have own pid namespace.
 	 */
-	pid_t virt;
-
-	int state;	/* TASK_XXX constants */
-
-	struct rb_node node;
+	struct {
+		pid_t virt;
+		struct rb_node node;
+	} ns[1]; /* Must be at the end of struct pid */
 };
 
 #define TASK_UNDEF		0x0

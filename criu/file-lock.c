@@ -318,11 +318,11 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 				continue;
 		}
 
-		fl->real_owner = pid->virt;
+		fl->real_owner = pid->ns[0].virt;
 		fl->owners_fd = fd;
 
 		pr_info("Found lock entry %d.%d %d vs %d\n",
-				pid->real, pid->virt, fd,
+				pid->real, pid->ns[0].virt, fd,
 				fl->fl_owner);
 	}
 

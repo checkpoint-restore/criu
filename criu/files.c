@@ -322,7 +322,7 @@ static int fill_fd_params(struct pid *owner_pid, int fd, int lfd,
 {
 	int ret;
 	struct statfs fsbuf;
-	struct fdinfo_common fdinfo = { .mnt_id = -1, .owner = owner_pid->virt };
+	struct fdinfo_common fdinfo = { .mnt_id = -1, .owner = owner_pid->ns[0].virt };
 
 	if (fstat(lfd, &p->stat) < 0) {
 		pr_perror("Can't stat fd %d", lfd);
@@ -529,7 +529,7 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 	int off, nr_fds = min((int) PARASITE_MAX_FDS, dfds->nr_fds);
 
 	pr_info("\n");
-	pr_info("Dumping opened files (pid: %d)\n", item->pid.real);
+	pr_info("Dumping opened files (pid: %d)\n", item->pid->real);
 	pr_info("----------------------------------------\n");
 
 	lfds = xmalloc(nr_fds * sizeof(int));
@@ -555,7 +555,7 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 			goto err;
 
 		for (i = 0; i < nr_fds; i++) {
-			ret = dump_one_file(&item->pid, dfds->fds[i + off],
+			ret = dump_one_file(item->pid, dfds->fds[i + off],
 						lfds[i], opts + i, img, ctl);
 			close(lfds[i]);
 			if (ret)
@@ -747,7 +747,7 @@ int dup_fle(struct pstree_item *task, struct fdinfo_list_entry *ple,
 	if (!e)
 		return -1;
 
-	return collect_fd(task->pid.virt, e, rsti(task));
+	return collect_fd(task->pid->ns[0].virt, e, rsti(task));
 }
 
 int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id)
@@ -781,7 +781,7 @@ int prepare_fd_pid(struct pstree_item *item)
 {
 	int ret = 0;
 	struct cr_img *img;
-	pid_t pid = item->pid.virt;
+	pid_t pid = item->pid->ns[0].virt;
 	struct rst_info *rst_info = rsti(item);
 
 	INIT_LIST_HEAD(&rst_info->used);
@@ -793,7 +793,7 @@ int prepare_fd_pid(struct pstree_item *item)
 	if (item->ids == NULL) /* zombie */
 		return 0;
 
-	if (rsti(item)->fdt && rsti(item)->fdt->pid != item->pid.virt)
+	if (rsti(item)->fdt && rsti(item)->fdt->pid != item->pid->ns[0].virt)
 		return 0;
 
 	img = open_image(CR_FD_FDINFO, O_RSTR, item->ids->files_id);
@@ -1176,7 +1176,7 @@ int prepare_fds(struct pstree_item *me)
 		futex_inc_and_wake(&fdt->fdt_lock);
 		futex_wait_while_lt(&fdt->fdt_lock, fdt->nr);
 
-		if (fdt->pid != me->pid.virt) {
+		if (fdt->pid != me->pid->ns[0].virt) {
 			pr_info("File descriptor table is shared with %d\n", fdt->pid);
 			futex_wait_until(&fdt->fdt_lock, fdt->nr + 1);
 			goto out;
@@ -1189,7 +1189,7 @@ int prepare_fds(struct pstree_item *me)
 			continue;
 		}
 
-		ret = open_fdinfos(me->pid.virt, &rsti(me)->fds, state);
+		ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->fds, state);
 		if (ret)
 			break;
 
@@ -1197,7 +1197,7 @@ int prepare_fds(struct pstree_item *me)
 		 * Now handle TTYs. Slaves are delayed to be sure masters
 		 * are already opened.
 		 */
-		ret = open_fdinfos(me->pid.virt, &rsti(me)->tty_slaves, state);
+		ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->tty_slaves, state);
 		if (ret)
 			break;
 
@@ -1206,7 +1206,7 @@ int prepare_fds(struct pstree_item *me)
 		 * to be already restored, thus we store them in a separate
 		 * list and restore at the very end.
 		 */
-		ret = open_fdinfos(me->pid.virt, &rsti(me)->eventpoll, state);
+		ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->eventpoll, state);
 		if (ret)
 			break;
 	}
@@ -1224,7 +1224,7 @@ int prepare_fds(struct pstree_item *me)
 		 * Opening current TTYs require session to be already set up,
 		 * thus slave peers already handled now it's time for cttys,
 		 */
-		ret = open_fdinfos(me->pid.virt, &rsti(me)->tty_ctty, state);
+		ret = open_fdinfos(me->pid->ns[0].virt, &rsti(me)->tty_ctty, state);
 		if (ret)
 			break;
 	}
@@ -1310,7 +1310,7 @@ out:
 
 int prepare_fs_pid(struct pstree_item *item)
 {
-	pid_t pid = item->pid.virt;
+	pid_t pid = item->pid->ns[0].virt;
 	struct rst_info *ri = rsti(item);
 	struct cr_img *img;
 	FsEntry *fe;
@@ -1361,15 +1361,15 @@ int shared_fdt_prepare(struct pstree_item *item)
 
 		futex_init(&fdt->fdt_lock);
 		fdt->nr = 1;
-		fdt->pid = parent->pid.virt;
+		fdt->pid = parent->pid->ns[0].virt;
 	} else
 		fdt = rsti(parent)->fdt;
 
 	rsti(item)->fdt = fdt;
 	rsti(item)->service_fd_id = fdt->nr;
 	fdt->nr++;
-	if (pid_rst_prio(item->pid.virt, fdt->pid))
-		fdt->pid = item->pid.virt;
+	if (pid_rst_prio(item->pid->ns[0].virt, fdt->pid))
+		fdt->pid = item->pid->ns[0].virt;
 
 	return 0;
 }
@@ -1667,7 +1667,7 @@ int inherit_fd_fini()
 int open_transport_socket(void)
 {
 	struct fdt *fdt = rsti(current)->fdt;
-	pid_t pid = current->pid.virt;
+	pid_t pid = current->pid->ns[0].virt;
 	struct sockaddr_un saddr;
 	int sock, slen;
 

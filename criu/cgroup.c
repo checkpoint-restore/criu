@@ -640,7 +640,7 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_
 	struct cg_set *cs;
 
 	if (item)
-		pid = item->pid.real;
+		pid = item->pid->real;
 	else
 		pid = getpid();
 

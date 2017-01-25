@@ -240,7 +240,7 @@ static int root_prepare_shared(void)
 	}
 
 	for_each_pstree_item(pi) {
-		if (pi->pid.state == TASK_HELPER)
+		if (pi->pid->state == TASK_HELPER)
 			continue;
 
 		ret = prepare_mm_pid(pi);
@@ -348,7 +348,7 @@ static int restore_one_sigaction(int sig, struct cr_img *img, int pid)
 
 static int prepare_sigactions(void)
 {
-	int pid = current->pid.virt;
+	int pid = current->pid->ns[0].virt;
 	struct cr_img *img;
 	int sig, rst = 0;
 	int ret = 0;
@@ -387,7 +387,7 @@ static int __collect_child_pids(struct pstree_item *p, int state, unsigned int *
 	list_for_each_entry(pi, &p->children, sibling) {
 		pid_t *child;
 
-		if (pi->pid.state != state)
+		if (pi->pid->state != state)
 			continue;
 
 		child = rst_mem_alloc(sizeof(*child), RM_PRIVATE);
@@ -395,7 +395,7 @@ static int __collect_child_pids(struct pstree_item *p, int state, unsigned int *
 			return -1;
 
 		(*n)++;
-		*child = pi->pid.virt;
+		*child = pi->pid->ns[0].virt;
 	}
 
 	return 0;
@@ -414,8 +414,8 @@ static int collect_child_pids(int state, unsigned int *n)
 
 	if (current == root_item) {
 		for_each_pstree_item(pi) {
-			if (pi->pid.state != TASK_HELPER &&
-			    pi->pid.state != TASK_DEAD)
+			if (pi->pid->state != TASK_HELPER &&
+			    pi->pid->state != TASK_DEAD)
 				continue;
 			if (__collect_child_pids(pi, state, n))
 				return -1;
@@ -464,7 +464,7 @@ static int open_cores(int pid, CoreEntry *leader_core)
 		goto err;
 
 	for (i = 0; i < current->nr_threads; i++) {
-		tpid = current->threads[i].virt;
+		tpid = current->threads[i].ns[0].virt;
 
 		if (tpid == pid)
 			cores[i] = leader_core;
@@ -664,10 +664,10 @@ static int wait_on_helpers_zombies(void)
 	struct pstree_item *pi;
 
 	list_for_each_entry(pi, &current->children, sibling) {
-		pid_t pid = pi->pid.virt;
+		pid_t pid = pi->pid->ns[0].virt;
 		int status;
 
-		switch (pi->pid.state) {
+		switch (pi->pid->state) {
 		case TASK_DEAD:
 			if (waitid(P_PID, pid, NULL, WNOWAIT | WEXITED) < 0) {
 				pr_perror("Wait on %d zombie failed", pid);
@@ -715,7 +715,7 @@ static int restore_one_zombie(CoreEntry *core)
 			signr = SIGABRT;
 		}
 
-		if (kill(current->pid.virt, signr) < 0)
+		if (kill(current->pid->ns[0].virt, signr) < 0)
 			pr_perror("Can't kill myself, will just exit");
 
 		exit_code = 0;
@@ -767,9 +767,9 @@ static int restore_one_task(int pid, CoreEntry *core)
 
 	if (task_alive(current))
 		ret = restore_one_alive_task(pid, core);
-	else if (current->pid.state == TASK_DEAD)
+	else if (current->pid->state == TASK_DEAD)
 		ret = restore_one_zombie(core);
-	else if (current->pid.state == TASK_HELPER) {
+	else if (current->pid->state == TASK_HELPER) {
 		sigset_t blockmask, oldmask;
 
 		sigemptyset(&blockmask);
@@ -852,22 +852,22 @@ static inline int fork_with_pid(struct pstree_item *item)
 {
 	struct cr_clone_arg ca;
 	int ret = -1;
-	pid_t pid = item->pid.virt;
+	pid_t pid = item->pid->ns[0].virt;
 
-	if (item->pid.state != TASK_HELPER) {
+	if (item->pid->state != TASK_HELPER) {
 		if (open_core(pid, &ca.core))
 			return -1;
 
 		if (check_core(ca.core, item))
 			return -1;
 
-		item->pid.state = ca.core->tc->task_state;
+		item->pid->state = ca.core->tc->task_state;
 		rsti(item)->cg_set = ca.core->tc->cg_set;
 
 		rsti(item)->has_seccomp = ca.core->tc->seccomp_mode != SECCOMP_MODE_DISABLED;
 
-		if (item->pid.state != TASK_DEAD && !task_alive(item)) {
-			pr_err("Unknown task state %d\n", item->pid.state);
+		if (item->pid->state != TASK_DEAD && !task_alive(item)) {
+			pr_err("Unknown task state %d\n", item->pid->state);
 			return -1;
 		}
 
@@ -937,9 +937,9 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 
 	if (item == root_item) {
-		item->pid.real = ret;
+		item->pid->real = ret;
 		pr_debug("PID: real %d virt %d\n",
-				item->pid.real, item->pid.virt);
+				item->pid->real, item->pid->ns[0].virt);
 	}
 
 err_unlock:
@@ -966,8 +966,8 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	status = siginfo->si_status;
 
 	/* skip scripts */
-	if (!current && root_item->pid.real != pid) {
-		pid = waitpid(root_item->pid.real, &status, WNOHANG);
+	if (!current && root_item->pid->real != pid) {
+		pid = waitpid(root_item->pid->real, &status, WNOHANG);
 		if (pid <= 0)
 			return;
 		exit = WIFEXITED(status);
@@ -996,11 +996,11 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 
 		/* Exited (with zero code) helpers are OK */
 		list_for_each_entry(pi, &current->children, sibling)
-			if (pi->pid.virt == siginfo->si_pid)
+			if (pi->pid->ns[0].virt == siginfo->si_pid)
 				break;
 
 		BUG_ON(&pi->sibling == &current->children);
-		if (pi->pid.state != TASK_HELPER)
+		if (pi->pid->state != TASK_HELPER)
 			break;
 	}
 
@@ -1074,8 +1074,8 @@ static void restore_sid(void)
 	 * we can call setpgid() on custom values.
 	 */
 
-	if (current->pid.virt == current->sid) {
-		pr_info("Restoring %d to %d sid\n", current->pid.virt, current->sid);
+	if (current->pid->ns[0].virt == current->sid) {
+		pr_info("Restoring %d to %d sid\n", current->pid->ns[0].virt, current->sid);
 		sid = setsid();
 		if (sid != current->sid) {
 			pr_perror("Can't restore sid (%d)", sid);
@@ -1085,7 +1085,7 @@ static void restore_sid(void)
 		sid = getsid(getpid());
 		if (sid != current->sid) {
 			/* Skip the root task if it's not init */
-			if (current == root_item && root_item->pid.virt != INIT_PID)
+			if (current == root_item && root_item->pid->ns[0].virt != INIT_PID)
 				return;
 			pr_err("Requested sid %d doesn't match inherited %d\n",
 					current->sid, sid);
@@ -1108,13 +1108,13 @@ static void restore_pgid(void)
 
 	pid_t pgid, my_pgid = current->pgid;
 
-	pr_info("Restoring %d to %d pgid\n", current->pid.virt, my_pgid);
+	pr_info("Restoring %d to %d pgid\n", current->pid->ns[0].virt, my_pgid);
 
 	pgid = getpgrp();
 	if (my_pgid == pgid)
 		return;
 
-	if (my_pgid != current->pid.virt) {
+	if (my_pgid != current->pid->ns[0].virt) {
 		struct pstree_item *leader;
 
 		/*
@@ -1125,18 +1125,18 @@ static void restore_pgid(void)
 
 		leader = rsti(current)->pgrp_leader;
 		if (leader) {
-			BUG_ON(my_pgid != leader->pid.virt);
+			BUG_ON(my_pgid != leader->pid->ns[0].virt);
 			futex_wait_until(&rsti(leader)->pgrp_set, 1);
 		}
 	}
 
 	pr_info("\twill call setpgid, mine pgid is %d\n", pgid);
 	if (setpgid(0, my_pgid) != 0) {
-		pr_perror("Can't restore pgid (%d/%d->%d)", current->pid.virt, pgid, current->pgid);
+		pr_perror("Can't restore pgid (%d/%d->%d)", current->pid->ns[0].virt, pgid, current->pgid);
 		exit(1);
 	}
 
-	if (my_pgid == current->pid.virt)
+	if (my_pgid == current->pid->ns[0].virt)
 		futex_set_and_wake(&rsti(current)->pgrp_set, 1);
 }
 
@@ -1229,23 +1229,23 @@ static int restore_task_with_children(void *_arg)
 		}
 		buf[ret] = '\0';
 
-		current->pid.real = atoi(buf);
+		current->pid->real = atoi(buf);
 		pr_debug("PID: real %d virt %d\n",
-				current->pid.real, current->pid.virt);
+				current->pid->real, current->pid->ns[0].virt);
 	}
 
 	if ( !(ca->clone_flags & CLONE_FILES))
 		close_safe(&ca->fd);
 
-	if (current->pid.state != TASK_HELPER) {
+	if (current->pid->state != TASK_HELPER) {
 		ret = clone_service_fd(rsti(current)->service_fd_id);
 		if (ret)
 			goto err;
 	}
 
 	pid = getpid();
-	if (current->pid.virt != pid) {
-		pr_err("Pid %d do not match expected %d\n", pid, current->pid.virt);
+	if (current->pid->ns[0].virt != pid) {
+		pr_err("Pid %d do not match expected %d\n", pid, current->pid->ns[0].virt);
 		set_task_cr_err(EEXIST);
 		goto err;
 	}
@@ -1349,7 +1349,7 @@ static int restore_task_with_children(void *_arg)
 	if (restore_finish_stage(task_entries, CR_STATE_FORKING) < 0)
 		goto err;
 
-	if (restore_one_task(current->pid.virt, ca->core))
+	if (restore_one_task(current->pid->ns[0].virt, ca->core))
 		goto err;
 
 	return 0;
@@ -1420,7 +1420,7 @@ static int attach_to_tasks(bool root_seized)
 		if (!task_alive(item))
 			continue;
 
-		if (parse_threads(item->pid.real, &item->threads, &item->nr_threads))
+		if (parse_threads(item->pid->real, &item->threads, &item->nr_threads))
 			return -1;
 
 		for (i = 0; i < item->nr_threads; i++) {
@@ -1473,7 +1473,7 @@ static int catch_tasks(bool root_seized, enum trace_flags *flag)
 		if (!task_alive(item))
 			continue;
 
-		if (parse_threads(item->pid.real, &item->threads, &item->nr_threads))
+		if (parse_threads(item->pid->real, &item->threads, &item->nr_threads))
 			return -1;
 
 		for (i = 0; i < item->nr_threads; i++) {
@@ -1521,7 +1521,7 @@ static void finalize_restore(void)
 	struct pstree_item *item;
 
 	for_each_pstree_item(item) {
-		pid_t pid = item->pid.real;
+		pid_t pid = item->pid->real;
 		struct parasite_ctl *ctl;
 
 		if (!task_alive(item))
@@ -1536,9 +1536,9 @@ static void finalize_restore(void)
 
 		xfree(ctl);
 
-		if ((item->pid.state == TASK_STOPPED) ||
+		if ((item->pid->state == TASK_STOPPED) ||
 				(opts.final_state == TASK_STOPPED))
-			kill(item->pid.real, SIGSTOP);
+			kill(item->pid->real, SIGSTOP);
 	}
 }
 
@@ -1617,7 +1617,7 @@ static int write_restored_pid(void)
 	if (!opts.pidfile)
 		return 0;
 
-	pid = root_item->pid.real;
+	pid = root_item->pid->real;
 
 	if (write_pidfile(pid) < 0) {
 		pr_perror("Can't write pidfile");
@@ -1658,7 +1658,7 @@ static int restore_root_task(struct pstree_item *init)
 	 * this later.
 	 */
 
-	if (init->pid.virt == INIT_PID) {
+	if (init->pid->ns[0].virt == INIT_PID) {
 		if (!(root_ns_mask & CLONE_NEWPID)) {
 			pr_err("This process tree can only be restored "
 				"in a new pid namespace.\n"
@@ -1703,7 +1703,7 @@ static int restore_root_task(struct pstree_item *init)
 		act.sa_flags &= ~SA_NOCLDSTOP;
 		sigaction(SIGCHLD, &act, NULL);
 
-		if (ptrace(PTRACE_SEIZE, init->pid.real, 0, 0)) {
+		if (ptrace(PTRACE_SEIZE, init->pid->real, 0, 0)) {
 			pr_perror("Can't attach to init");
 			goto out_kill;
 		}
@@ -1722,7 +1722,7 @@ static int restore_root_task(struct pstree_item *init)
 		goto out_kill;
 
 	if (root_ns_mask & CLONE_NEWNS) {
-		mnt_ns_fd = open_proc(init->pid.real, "ns/mnt");
+		mnt_ns_fd = open_proc(init->pid->real, "ns/mnt");
 		if (mnt_ns_fd < 0)
 			goto out_kill;
 	}
@@ -1765,7 +1765,7 @@ static int restore_root_task(struct pstree_item *init)
 
 	/* Zombies die after CR_STATE_RESTORE */
 	for_each_pstree_item(item) {
-		if (item->pid.state == TASK_DEAD)
+		if (item->pid->state == TASK_DEAD)
 			task_entries->nr_threads--;
 	}
 
@@ -1875,18 +1875,18 @@ out_kill:
 		int status;
 
 		/* Kill init */
-		if (root_item->pid.real > 0)
-			kill(root_item->pid.real, SIGKILL);
+		if (root_item->pid->real > 0)
+			kill(root_item->pid->real, SIGKILL);
 
-		if (waitpid(root_item->pid.real, &status, 0) < 0)
+		if (waitpid(root_item->pid->real, &status, 0) < 0)
 			pr_warn("Unable to wait %d: %s",
-				root_item->pid.real, strerror(errno));
+				root_item->pid->real, strerror(errno));
 	} else {
 		struct pstree_item *pi;
 
 		for_each_pstree_item(pi)
-			if (pi->pid.virt > 0)
-				kill(pi->pid.virt, SIGKILL);
+			if (pi->pid->ns[0].virt > 0)
+				kill(pi->pid->ns[0].virt, SIGKILL);
 	}
 
 out:
@@ -2539,7 +2539,7 @@ static int prepare_signals(int pid, struct task_restore_args *ta, CoreEntry *lea
 	for (i = 0; i < current->nr_threads; i++) {
 		if (!current->core[i]->thread_core->signals_p)/*backward compatibility*/
 			ret = open_signal_image(CR_FD_PSIGNAL,
-					current->threads[i].virt, &siginfo_priv_nr[i]);
+					current->threads[i].ns[0].virt, &siginfo_priv_nr[i]);
 		else
 			ret = prepare_one_signal_queue(current->core[i]->thread_core->signals_p,
 										&siginfo_priv_nr[i]);
@@ -2944,7 +2944,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		struct rt_sigframe *sigframe;
 		k_rtsigset_t *blkset = NULL;
 
-		thread_args[i].pid = current->threads[i].virt;
+		thread_args[i].pid = current->threads[i].ns[0].virt;
 		thread_args[i].siginfo_n = siginfo_priv_nr[i];
 		thread_args[i].siginfo = task_args->siginfo;
 		thread_args[i].siginfo += siginfo_n;

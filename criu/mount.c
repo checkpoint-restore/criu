@@ -150,9 +150,9 @@ static struct mount_info *__lookup_overlayfs(struct mount_info *list, char *rpat
 		 * to make sure we stat the correct file
 		 */
 		if (mntns_root == -1) {
-			mntns_root = __mntns_get_root_fd(root_item->pid.real);
+			mntns_root = __mntns_get_root_fd(root_item->pid->real);
 			if (mntns_root < 0) {
-				pr_err("Unable to get the root file descriptor of pid %d\n", root_item->pid.real);
+				pr_err("Unable to get the root file descriptor of pid %d\n", root_item->pid->real);
 				return ERR_PTR(-ENOENT);
 			}
 		}
@@ -2679,7 +2679,7 @@ static int do_restore_task_mnt_ns(struct ns_id *nsid, struct pstree_item *curren
 {
 	int fd;
 
-	fd = open_proc(root_item->pid.virt, "fd/%d", nsid->mnt.ns_fd);
+	fd = open_proc(root_item->pid->ns[0].virt, "fd/%d", nsid->mnt.ns_fd);
 	if (fd < 0)
 		return -1;
 
@@ -3196,7 +3196,7 @@ int mntns_get_root_fd(struct ns_id *mntns)
 	if (!mntns->ns_populated) {
 		int fd;
 
-		fd = open_proc(root_item->pid.virt, "fd/%d", mntns->mnt.root_fd);
+		fd = open_proc(root_item->pid->ns[0].virt, "fd/%d", mntns->mnt.root_fd);
 		if (fd < 0)
 			return -1;
 

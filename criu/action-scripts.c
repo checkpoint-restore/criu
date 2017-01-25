@@ -70,7 +70,7 @@ static int run_shell_scripts(const char *action)
 		int pid;
 		char root_item_pid[16];
 
-		pid = root_item->pid.real;
+		pid = root_item->pid->real;
 		if (pid != -1) {
 			snprintf(root_item_pid, sizeof(root_item_pid), "%d", pid);
 			if (setenv("CRTOOLS_INIT_PID", root_item_pid, 1)) {

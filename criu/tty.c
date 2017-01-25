@@ -1001,7 +1001,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 		 * checkpoint complete process tree together with
 		 * the process which keeps the master peer.
 		 */
-		if (root_item->sid != root_item->pid.virt) {
+		if (root_item->sid != root_item->pid->ns[0].virt) {
 			pr_debug("Restore inherited group %d\n",
 				 getpgid(getppid()));
 			if (tty_set_prgp(fd, getpgid(getppid())))
@@ -1242,10 +1242,10 @@ static int tty_find_restoring_task(struct tty_info *info)
 		 * for us.
 		 */
 		item = find_first_sid(info->tie->sid);
-		if (item && item->pid.virt == item->sid) {
+		if (item && item->pid->ns[0].virt == item->sid) {
 			pr_info("Set a control terminal %#x to %d\n",
 				info->tfe->id, info->tie->sid);
-			return prepare_ctl_tty(item->pid.virt,
+			return prepare_ctl_tty(item->pid->ns[0].virt,
 					       rsti(item),
 					       info->tfe->id);
 		}
@@ -1651,7 +1651,7 @@ int dump_verify_tty_sids(void)
 		if (!ret && dinfo->sid) {
 			struct pstree_item *item = find_first_sid(dinfo->sid);
 
-			if (!item || item->pid.virt != dinfo->sid) {
+			if (!item || item->pid->ns[0].virt != dinfo->sid) {
 				if (!opts.shell_job) {
 					pr_err("Found dangling tty with sid %d pgid %d (%s) on peer fd %d.\n",
 					       dinfo->sid, dinfo->pgrp,

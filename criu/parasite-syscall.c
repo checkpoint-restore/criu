@@ -652,7 +652,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 		return -1;
 	}
 
-	tid->virt = args->tid;
+	tid->ns[0].virt = args->tid;
 	return dump_thread_core(pid, core, args);
 }
 

@@ -278,7 +278,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 	unsigned long pmc_size;
 
 	pr_info("\n");
-	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, item->pid.real);
+	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, item->pid->real);
 	pr_info("----------------------------------------\n");
 
 	timing_start(TIME_MEMDUMP);
@@ -292,7 +292,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 
 	pmc_size = max(vma_area_list->priv_longest,
 		vma_area_list->shared_longest);
-	if (pmc_init(&pmc, item->pid.real, &vma_area_list->h,
+	if (pmc_init(&pmc, item->pid->real, &vma_area_list->h,
 			 pmc_size * PAGE_SIZE))
 		return -1;
 
@@ -315,11 +315,11 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 		 * right here. For pre-dumps the pp will be taken by the
 		 * caller and handled later.
 		 */
-		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, item->pid.virt);
+		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, item->pid->ns[0].virt);
 		if (ret < 0)
 			goto out_pp;
 	} else {
-		ret = check_parent_page_xfer(CR_FD_PAGEMAP, item->pid.virt);
+		ret = check_parent_page_xfer(CR_FD_PAGEMAP, item->pid->ns[0].virt);
 		if (ret < 0)
 			goto out_pp;
 
@@ -349,7 +349,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 		if (!map)
 			goto out_xfer;
 		if (vma_area_is(vma_area, VMA_ANON_SHARED))
-			ret = add_shmem_area(item->pid.real, vma_area->e, map);
+			ret = add_shmem_area(item->pid->real, vma_area->e, map);
 		else {
 again:
 			ret = generate_iovs(vma_area, pp, map, &off,
@@ -382,7 +382,7 @@ again:
 	 * Step 4 -- clean up
 	 */
 
-	ret = task_reset_dirty_track(item->pid.real);
+	ret = task_reset_dirty_track(item->pid->real);
 out_xfer:
 	if (!mdc->pre_dump)
 		xfer.close(&xfer);
@@ -445,7 +445,7 @@ int parasite_dump_pages_seized(struct pstree_item *item,
 
 int prepare_mm_pid(struct pstree_item *i)
 {
-	pid_t pid = i->pid.virt;
+	pid_t pid = i->pid->ns[0].virt;
 	int ret = -1, vn = 0;
 	struct cr_img *img;
 	struct rst_info *ri = rsti(i);
@@ -531,7 +531,7 @@ static int map_private_vma(struct pstree_item *t,
 	struct vma_area *p = *pvma;
 
 	if (vma_area_is(vma, VMA_FILE_PRIVATE)) {
-		ret = vma->vm_open(t->pid.virt, vma);
+		ret = vma->vm_open(t->pid->ns[0].virt, vma);
 		if (ret < 0) {
 			pr_err("Can't fixup VMA's fd\n");
 			return -1;
@@ -695,7 +695,7 @@ static int restore_priv_vma_content(struct pstree_item *t)
 
 	vma = list_first_entry(vmas, struct vma_area, list);
 
-	ret = open_page_read(t->pid.virt, &pr, PR_TASK);
+	ret = open_page_read(t->pid->ns[0].virt, &pr, PR_TASK);
 	if (ret <= 0)
 		return -1;
 
@@ -913,7 +913,7 @@ int unmap_guard_pages(struct pstree_item *t)
 
 int open_vmas(struct pstree_item *t)
 {
-	int pid = t->pid.virt;
+	int pid = t->pid->ns[0].virt;
 	struct vma_area *vma;
 	struct vm_area_list *vmas = &rsti(t)->vmas;
 

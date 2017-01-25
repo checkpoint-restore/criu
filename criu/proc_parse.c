@@ -2220,7 +2220,7 @@ int parse_threads(int pid, struct pid **_t, int *_n)
 				return -1;
 			}
 			t = tmp;
-			t[nr - 1].virt = -1;
+			t[nr - 1].ns[0].virt = -1;
 		}
 		t[nr - 1].real = atoi(de->d_name);
 		t[nr - 1].state = TASK_THREAD;

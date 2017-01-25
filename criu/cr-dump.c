@@ -591,7 +591,7 @@ static int dump_task_kobj_ids(struct pstree_item *item)
 {
 	int new;
 	struct kid_elem elem;
-	int pid = item->pid.real;
+	int pid = item->pid->real;
 	TaskKobjIdsEntry *ids = item->ids;
 
 	elem.pid = pid;
@@ -639,7 +639,7 @@ int get_task_ids(struct pstree_item *item)
 
 	task_kobj_ids_entry__init(item->ids);
 
-	if (item->pid.state != TASK_DEAD) {
+	if (item->pid->state != TASK_DEAD) {
 		ret = dump_task_kobj_ids(item);
 		if (ret)
 			goto err_free;
@@ -694,7 +694,7 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 {
 	struct cr_img *img;
 	CoreEntry *core = item->core[0];
-	pid_t pid = item->pid.real;
+	pid_t pid = item->pid->real;
 	int ret = -1;
 	struct proc_status_creds *creds;
 	struct parasite_dump_cgroup_args cgroup_args, *info = NULL;
@@ -709,7 +709,7 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 
 	creds = dmpi(item)->pi_creds;
 	if (creds->seccomp_mode != SECCOMP_MODE_DISABLED) {
-		pr_info("got seccomp mode %d for %d\n", creds->seccomp_mode, item->pid.virt);
+		pr_info("got seccomp mode %d for %d\n", creds->seccomp_mode, item->pid->ns[0].virt);
 		core->tc->has_seccomp_mode = true;
 		core->tc->seccomp_mode = creds->seccomp_mode;
 
@@ -721,7 +721,7 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 
 	strlcpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
 	core->tc->flags = stat->flags;
-	core->tc->task_state = item->pid.state;
+	core->tc->task_state = item->pid->state;
 	core->tc->exit_code = 0;
 
 	ret = parasite_dump_thread_leader_seized(ctl, pid, core);
@@ -766,24 +766,25 @@ err:
 static int collect_pstree_ids_predump(void)
 {
 	struct pstree_item *item;
+	struct pid pid;
 	struct {
 		struct pstree_item i;
 		struct dmp_info d;
-	} crt = { };
+	} crt = { .i.pid = &pid, };
 
 	/*
 	 * This thing is normally done inside
 	 * write_img_inventory().
 	 */
 
-	crt.i.pid.state = TASK_ALIVE;
-	crt.i.pid.real = getpid();
+	crt.i.pid->state = TASK_ALIVE;
+	crt.i.pid->real = getpid();
 
 	if (predump_task_ns_ids(&crt.i))
 		return -1;
 
 	for_each_pstree_item(item) {
-		if (item->pid.state == TASK_DEAD)
+		if (item->pid->state == TASK_DEAD)
 			continue;
 
 		if (predump_task_ns_ids(item))
@@ -827,9 +828,9 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 		pr_err("Can't dump thread for pid %d\n", pid);
 		goto err;
 	}
-	pstree_insert_pid(tid->virt, tid);
+	pstree_insert_pid(tid->ns[0].virt, tid);
 
-	img = open_image(CR_FD_CORE, O_DUMP, tid->virt);
+	img = open_image(CR_FD_CORE, O_DUMP, tid->ns[0].virt);
 	if (!img)
 		goto err;
 
@@ -856,7 +857,7 @@ static int dump_one_zombie(const struct pstree_item *item,
 	core->tc->task_state = TASK_DEAD;
 	core->tc->exit_code = pps->exit_code;
 
-	img = open_image(CR_FD_CORE, O_DUMP, item->pid.virt);
+	img = open_image(CR_FD_CORE, O_DUMP, item->pid->ns[0].virt);
 	if (!img)
 		goto err;
 
@@ -980,8 +981,8 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl,
 
 	for (i = 0; i < item->nr_threads; i++) {
 		/* Leader is already dumped */
-		if (item->pid.real == item->threads[i].real) {
-			item->threads[i].virt = item->pid.virt;
+		if (item->pid->real == item->threads[i].real) {
+			item->threads[i].ns[0].virt = item->pid->ns[0].virt;
 			continue;
 		}
 		if (dump_task_thread(parasite_ctl, item, i))
@@ -1011,17 +1012,17 @@ static int fill_zombies_pids(struct pstree_item *item)
 	 * Pids read here are virtual -- caller has set up
 	 * the proc of target pid namespace.
 	 */
-	if (parse_children(item->pid.virt, &ch, &nr) < 0)
+	if (parse_children(item->pid->ns[0].virt, &ch, &nr) < 0)
 		return -1;
 
 	/*
 	 * Step 1 -- filter our ch's pid of alive tasks
 	 */
 	list_for_each_entry(child, &item->children, sibling) {
-		if (child->pid.virt < 0)
+		if (child->pid->ns[0].virt < 0)
 			continue;
 		for (i = 0; i < nr; i++) {
-			if (ch[i] == child->pid.virt) {
+			if (ch[i] == child->pid->ns[0].virt) {
 				ch[i] = -1;
 				break;
 			}
@@ -1036,12 +1037,12 @@ static int fill_zombies_pids(struct pstree_item *item)
 	 */
 	i = 0;
 	list_for_each_entry(child, &item->children, sibling) {
-		if (child->pid.virt > 0)
+		if (child->pid->ns[0].virt > 0)
 			continue;
 		for (; i < nr; i++) {
 			if (ch[i] < 0)
 				continue;
-			child->pid.virt = ch[i];
+			child->pid->ns[0].virt = ch[i];
 			ch[i] = -1;
 			break;
 		}
@@ -1069,12 +1070,12 @@ static int dump_zombies(void)
 	 */
 
 	for_each_pstree_item(item) {
-		if (item->pid.state != TASK_DEAD)
+		if (item->pid->state != TASK_DEAD)
 			continue;
 
-		if (item->pid.virt < 0) {
+		if (item->pid->ns[0].virt < 0) {
 			if (!pidns)
-				item->pid.virt = item->pid.real;
+				item->pid->ns[0].virt = item->pid->real;
 			else if (root_item == item) {
 				pr_err("A root task is dead\n");
 				goto err;
@@ -1083,7 +1084,7 @@ static int dump_zombies(void)
 		}
 
 		pr_info("Obtaining zombie stat ... \n");
-		if (parse_pid_stat(item->pid.virt, &pps_buf) < 0)
+		if (parse_pid_stat(item->pid->ns[0].virt, &pps_buf) < 0)
 			goto err;
 
 		item->sid = pps_buf.sid;
@@ -1104,7 +1105,7 @@ err:
 
 static int pre_dump_one_task(struct pstree_item *item)
 {
-	pid_t pid = item->pid.real;
+	pid_t pid = item->pid->real;
 	struct vm_area_list vmas;
 	struct parasite_ctl *parasite_ctl;
 	int ret = -1;
@@ -1118,12 +1119,12 @@ static int pre_dump_one_task(struct pstree_item *item)
 	pr_info("Pre-dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
-	if (item->pid.state == TASK_STOPPED) {
+	if (item->pid->state == TASK_STOPPED) {
 		pr_warn("Stopped tasks are not supported\n");
 		return 0;
 	}
 
-	if (item->pid.state == TASK_DEAD)
+	if (item->pid->state == TASK_DEAD)
 		return 0;
 
 	ret = collect_mappings(pid, &vmas, NULL);
@@ -1157,7 +1158,7 @@ static int pre_dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	item->pid.virt = misc.pid;
+	item->pid->ns[0].virt = misc.pid;
 
 	mdc.pre_dump = true;
 
@@ -1180,7 +1181,7 @@ err_cure:
 
 static int dump_one_task(struct pstree_item *item)
 {
-	pid_t pid = item->pid.real;
+	pid_t pid = item->pid->real;
 	struct vm_area_list vmas;
 	struct parasite_ctl *parasite_ctl;
 	int ret, exit_code = -1;
@@ -1197,7 +1198,7 @@ static int dump_one_task(struct pstree_item *item)
 	pr_info("Dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
-	if (item->pid.state == TASK_DEAD)
+	if (item->pid->state == TASK_DEAD)
 		/*
 		 * zombies are dumped separately in dump_zombies()
 		 */
@@ -1286,21 +1287,21 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure_imgset;
 	}
 
-	item->pid.virt = misc.pid;
-	pstree_insert_pid(item->pid.virt, &item->pid);
+	item->pid->ns[0].virt = misc.pid;
+	pstree_insert_pid(item->pid->ns[0].virt, item->pid);
 	item->sid = misc.sid;
 	item->pgid = misc.pgid;
 
 	pr_info("sid=%d pgid=%d pid=%d\n",
-		item->sid, item->pgid, item->pid.virt);
+		item->sid, item->pgid, item->pid->ns[0].virt);
 
 	if (item->sid == 0) {
 		pr_err("A session leader of %d(%d) is outside of its pid namespace\n",
-			item->pid.real, item->pid.virt);
+			item->pid->real, item->pid->ns[0].virt);
 		goto err_cure;
 	}
 
-	cr_imgset = cr_task_imgset_open(item->pid.virt, O_DUMP);
+	cr_imgset = cr_task_imgset_open(item->pid->ns[0].virt, O_DUMP);
 	if (!cr_imgset)
 		goto err_cure;
 
@@ -1449,9 +1450,9 @@ static int cr_pre_dump_finish(int ret)
 		if (!ctl)
 			continue;
 
-		pr_info("\tPre-dumping %d\n", item->pid.virt);
+		pr_info("\tPre-dumping %d\n", item->pid->ns[0].virt);
 		timing_start(TIME_MEMWRITE);
-		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, item->pid.virt);
+		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, item->pid->ns[0].virt);
 		if (ret < 0)
 			goto err;
 
@@ -1500,7 +1501,7 @@ int cr_pre_dump_tasks(pid_t pid)
 	root_item = alloc_pstree_item();
 	if (!root_item)
 		goto err;
-	root_item->pid.real = pid;
+	root_item->pid->real = pid;
 
 	if (!opts.track_mem) {
 		pr_info("Enforcing memory tracking for pre-dump.\n");
@@ -1655,7 +1656,7 @@ int cr_dump_tasks(pid_t pid)
 	root_item = alloc_pstree_item();
 	if (!root_item)
 		goto err;
-	root_item->pid.real = pid;
+	root_item->pid->real = pid;
 
 	pre_dump_ret = run_scripts(ACT_PRE_DUMP);
 	if (pre_dump_ret != 0) {

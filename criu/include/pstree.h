@@ -15,7 +15,7 @@ struct pstree_item {
 	struct list_head	children;	/* list of my children */
 	struct list_head	sibling;	/* linkage in my parent's children list */
 
-	struct pid		pid;
+	struct pid		*pid;
 	pid_t			pgid;
 	pid_t			sid;
 	pid_t			born_sid;
@@ -66,7 +66,7 @@ static inline bool is_alive_state(int state)
 
 static inline bool task_alive(struct pstree_item *i)
 {
-	return is_alive_state(i->pid.state);
+	return is_alive_state(i->pid->state);
 }
 
 extern void free_pstree(struct pstree_item *root_item);

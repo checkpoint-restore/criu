@@ -1095,7 +1095,7 @@ int cr_check(void)
 	if (root_item == NULL)
 		return -1;
 
-	root_item->pid.real = getpid();
+	root_item->pid->real = getpid();
 
 	if (collect_pstree_ids())
 		return -1;
