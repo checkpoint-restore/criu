@@ -90,7 +90,7 @@ int recv_fds(int sock, int *fds, int nr_fds, void *data, unsigned ch_size)
 
 		ret = __sys(recvmsg)(sock, &fdset.hdr, 0);
 		if (ret <= 0)
-			return ret ? : -1;
+			return ret ? __sys_err(ret) : -ENOMSG;
 
 		cmsg = CMSG_FIRSTHDR(&fdset.hdr);
 		if (!cmsg || cmsg->cmsg_type != SCM_RIGHTS)
@@ -111,7 +111,7 @@ int recv_fds(int sock, int *fds, int nr_fds, void *data, unsigned ch_size)
 		BUG_ON(min_fd > CR_SCM_MAX_FD);
 
 		if (unlikely(min_fd <= 0))
-			return -1;
+			return -EBADFD;
 
 		__memcpy(&fds[i], cmsg_data, sizeof(int) * min_fd);
 		if (data)
