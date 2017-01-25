@@ -894,18 +894,21 @@ int recv_fd_from_peer(struct fdinfo_list_entry *fle)
 		return 0;
 
 	tsock = get_service_fd(TRANSPORT_FD_OFF);
-again:
-	if (ioctl(tsock, FIONREAD, &count) < 0) {
-		pr_perror("Can't do ioctl on transport sock: pid=%d\n", fle->pid);
-		return -1;
-	} else if (count == 0)
-		return 1;
 
-	ret = recv_fds(tsock, &fd, 1, (void *)&tmp, sizeof(struct fdinfo_list_entry *));
-	if (ret)
-		return -1;
+	while (1) {
+		if (ioctl(tsock, FIONREAD, &count) < 0) {
+			pr_perror("Can't do ioctl on transport sock: pid=%d\n", fle->pid);
+			return -1;
+		} else if (count == 0)
+			return 1;
 
-	if (tmp != fle) {
+		ret = recv_fds(tsock, &fd, 1, (void *)&tmp, sizeof(struct fdinfo_list_entry *));
+		if (ret)
+			return -1;
+
+		if (tmp == fle)
+			break;
+
 		pr_info("Further fle=%p, pid=%d\n", tmp, fle->pid);
 		if (!task_fle(current, tmp)) {
 			pr_err("Unexpected fle %p, pid=%d\n", tmp, current->pid->ns[0].virt);
@@ -913,7 +916,6 @@ again:
 		}
 		if (plant_fd(tmp, fd))
 			return -1;
-		goto again;
 	}
 
 	if (plant_fd(fle, fd))
