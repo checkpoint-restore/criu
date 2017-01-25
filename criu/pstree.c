@@ -583,23 +583,23 @@ err:
 #define RESERVED_PIDS           300
 static int get_free_pid()
 {
-	static struct pstree_item *prev, *next;
+	static struct pid *prev, *next;
 
 	if (prev == NULL)
-		prev = rb_entry(rb_first(&pid_root_rb), struct pstree_item, pid.node);
+		prev = rb_entry(rb_first(&pid_root_rb), struct pid, node);
 
 	while (1) {
 		struct rb_node *node;
 		pid_t pid;
 
-		pid = prev->pid.virt + 1;
+		pid = prev->virt + 1;
 		pid = pid < RESERVED_PIDS ? RESERVED_PIDS + 1 : pid;
 
-		node = rb_next(&prev->pid.node);
+		node = rb_next(&prev->node);
 		if (node == NULL)
 			return pid;
-		next = rb_entry(node, struct pstree_item, pid.node);
-		if (next->pid.virt > pid)
+		next = rb_entry(node, struct pid, node);
+		if (next->virt > pid)
 			return pid;
 		prev = next;
 	}
