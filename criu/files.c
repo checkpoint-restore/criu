@@ -907,8 +907,8 @@ again:
 
 	if (tmp != fle) {
 		pr_info("Further fle=%p, pid=%d\n", tmp, fle->pid);
-		if (!task_fle(current, fle)) {
-			pr_err("Unexpected fle %p, pid=%d\n", fle, current->pid->ns[0].virt);
+		if (!task_fle(current, tmp)) {
+			pr_err("Unexpected fle %p, pid=%d\n", tmp, current->pid->ns[0].virt);
 			return -1;
 		}
 		if (keep_fd_for_future(tmp, fd))
