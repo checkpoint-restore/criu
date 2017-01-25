@@ -5,6 +5,7 @@
 #include "rbtree.h"
 
 struct pid {
+	struct pstree_item *item;
 	/*
 	 * The @real pid is used to fetch tasks during dumping stage,
 	 * This is a global pid seen from the context where the dumping
