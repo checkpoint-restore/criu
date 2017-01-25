@@ -30,6 +30,7 @@
 #include "infect-util.h"
 
 #define __sys(foo)	foo
+#define __sys_err(ret)	(-errno)
 #define __memcpy	memcpy
 
 #include "common/scm.h"
