@@ -878,7 +878,7 @@ static bool task_fle(struct pstree_item *task, struct fdinfo_list_entry *fle)
 	return false;
 }
 
-static int keep_fd_for_future(struct fdinfo_list_entry *fle, int fd)
+static int plant_fd(struct fdinfo_list_entry *fle, int fd)
 {
 	BUG_ON(fle->received);
 	fle->received = 1;
@@ -911,13 +911,12 @@ again:
 			pr_err("Unexpected fle %p, pid=%d\n", tmp, current->pid->ns[0].virt);
 			return -1;
 		}
-		if (keep_fd_for_future(tmp, fd))
+		if (plant_fd(tmp, fd))
 			return -1;
 		goto again;
 	}
-	fle->received = 1;
 
-	if (reopen_fd_as(fle->fe->fd, fd) < 0)
+	if (plant_fd(fle, fd))
 		return -1;
 
 	return 0;
