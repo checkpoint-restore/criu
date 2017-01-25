@@ -75,7 +75,7 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 	return 0;
 }
 
-int recv_fds(int sock, int *fds, int nr_fds, void *data, unsigned ch_size)
+int __recv_fds(int sock, int *fds, int nr_fds, void *data, unsigned ch_size, int flags)
 {
 	struct scm_fdset fdset;
 	struct cmsghdr *cmsg;
@@ -88,7 +88,7 @@ int recv_fds(int sock, int *fds, int nr_fds, void *data, unsigned ch_size)
 		min_fd = min(CR_SCM_MAX_FD, nr_fds - i);
 		scm_fdset_init_chunk(&fdset, min_fd, data, ch_size);
 
-		ret = __sys(recvmsg)(sock, &fdset.hdr, 0);
+		ret = __sys(recvmsg)(sock, &fdset.hdr, flags);
 		if (ret <= 0)
 			return ret ? __sys_err(ret) : -ENOMSG;
 
