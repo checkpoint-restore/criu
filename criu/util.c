@@ -481,11 +481,10 @@ int clone_service_fd(int id)
 		return 0;
 
 	for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++) {
-		int old = __get_service_fd(i, service_fd_id);
+		int old = get_service_fd(i);
 		int new = __get_service_fd(i, id);
 
-		/* Do not dup parent's transport fd */
-		if (i == TRANSPORT_FD_OFF)
+		if (old < 0)
 			continue;
 		ret = dup2(old, new);
 		if (ret == -1) {
