@@ -3,7 +3,7 @@ lib-name		:= pie.lib.a
 CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC -fpie
 LDFLAGS			+= -z noexecstack
 
-lib-y			+= util-fd.o util.o string.o
+lib-y			+= util.o string.o
 
 ifeq ($(VDSO),y)
         lib-y		+= util-vdso.o parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o
