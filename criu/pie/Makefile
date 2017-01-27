@@ -45,6 +45,7 @@ endif
 asflags-y	+= -D__ASSEMBLY__
 
 BLOBS		+= $(obj)/restorer-blob.h $(obj)/parasite-blob.h
+LDS		:= $(SRC_DIR)/compel/arch/$(SRCARCH)/scripts/compel-pack.lds.S
 
 .SECONDARY:
 
@@ -52,7 +53,7 @@ target-name = $(patsubst criu/pie/%-blob.h,%,$(1))
 
 $(obj)/restorer.built-in.o: $(compel_std)
 $(obj)/parasite.built-in.o: $(compel_std)
-$(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/pie.lib.a
+$(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/pie.lib.a $(LDS)
 	$(call msg-gen, $@)
 	$(Q) $(LD) $(shell $(COMPEL_BIN) ldflags) -o $@ $^
 
