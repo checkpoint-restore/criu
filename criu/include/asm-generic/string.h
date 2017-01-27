@@ -65,7 +65,7 @@ static always_inline int builtin_strncmp(const char *cs, const char *ct, size_t 
 #ifndef HAS_BUILTIN_MEMSET
 static __maybe_unused void *builtin_memset(void *s, const int c, size_t count)
 {
-	char *dest = s;
+	volatile char *dest = s;
 	size_t i = 0;
 
 	while (i < count)
