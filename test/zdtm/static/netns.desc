@@ -1,3 +1,3 @@
-{   'deps': ['/bin/sh', '/sbin/ip', '/usr/bin/diff'],
+{   'deps': ['/bin/sh', '/sbin/ip|/bin/ip', '/usr/bin/diff'],
     'flags': 'suid',
     'flavor': 'ns uns'}
