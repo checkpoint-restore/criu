@@ -306,12 +306,13 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	if (create_ghost(gf, gfe, img))
 		goto close_ifd;
 
-	ghost_file_entry__free_unpacked(gfe, NULL);
 	close_image(img);
 
 	gf->remap.is_dir = S_ISDIR(gfe->mode);
 	gf->remap.uid = gfe->uid;
 	gf->remap.gid = gfe->gid;
+	ghost_file_entry__free_unpacked(gfe, NULL);
+
 	return 0;
 
 close_ifd:
