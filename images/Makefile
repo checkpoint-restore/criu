@@ -75,10 +75,12 @@ $(shell grep "^[[:blank:]]*import[[:blank:]]" $(1)      |       \
         sort | uniq)
 endef
 
+makefile-deps := Makefile $(obj)/Makefile
+
 #
 # Generates rules needed to compile protobuf files.
 define gen-proto-rules
-$(obj)/$(1).pb-c.c $(obj)/$(1).pb-c.h: $(obj)/$(1).proto $(addsuffix .pb-c.c,$(addprefix $(obj)/,$(2)))
+$(obj)/$(1).pb-c.c $(obj)/$(1).pb-c.h: $(obj)/$(1).proto $(addsuffix .pb-c.c,$(addprefix $(obj)/,$(2))) $(makefile-deps)
 	$$(E) "  PBCC    " $$@
 	$$(Q) protoc-c --proto_path=$(obj)/ --c_out=$(obj)/ $$<
 ifeq ($(PROTOUFIX),y)
@@ -86,7 +88,7 @@ ifeq ($(PROTOUFIX),y)
 	$$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $$(patsubst %.c,%.h,$$@)
 	$$(Q) sed -i -e 's/4294967295/0xFFFFFFFF/g' $$(patsubst %.h,%.c,$$@)
 endif
-$(obj)/$(1).pb-c.d: $(obj)/$(1).pb-c.c $(addsuffix .pb-c.d,$(addprefix $(obj)/,$(2)))
+$(obj)/$(1).pb-c.d: $(obj)/$(1).pb-c.c $(addsuffix .pb-c.d,$(addprefix $(obj)/,$(2))) $(makefile-deps)
 	$$(E) "  DEP     " $$@
 	$$(Q) $$(CC) -M -MT $$@ -MT $(patsubst %.d,%.o,$$@) $$(CFLAGS) $$< -o $$@
 endef
