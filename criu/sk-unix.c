@@ -848,8 +848,13 @@ static int shutdown_unix_sk(int sk, struct unix_sk_info *ui)
 	return 0;
 }
 
-static void revert_unix_sk_cwd(int *prev_cwd_fd)
+static void revert_unix_sk_cwd(int *prev_cwd_fd, int *root_fd)
 {
+	if (*root_fd >= 0) {
+		if (fchdir(*root_fd) || chroot("."))
+			pr_perror("Can't revert root directory");
+		close_safe(root_fd);
+	}
 	if (prev_cwd_fd && *prev_cwd_fd >= 0) {
 		if (fchdir(*prev_cwd_fd))
 			pr_perror("Can't revert working dir");
@@ -860,14 +865,36 @@ static void revert_unix_sk_cwd(int *prev_cwd_fd)
 	}
 }
 
-static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd)
+static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd, int *prev_root_fd)
 {
-	if (ui->name_dir) {
-		*prev_cwd_fd = open(".", O_RDONLY);
-		if (*prev_cwd_fd < 0) {
-			pr_err("Can't open current dir\n");
+	static struct ns_id *root = NULL;
+
+	*prev_cwd_fd = open(".", O_RDONLY);
+	if (*prev_cwd_fd < 0) {
+		pr_err("Can't open current dir\n");
+		return -1;
+	}
+
+	if (prev_root_fd && (root_ns_mask & CLONE_NEWNS)) {
+		if (root == NULL)
+			root = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
+		*prev_root_fd = open("/", O_RDONLY);
+		if (*prev_root_fd < 0) {
+			pr_err("Can't open current root\n");
 			return -1;
 		}
+
+		if (fchdir(root->mnt.root_fd)) {
+			pr_perror("Unable to change current working dir");
+			return -1;
+		}
+		if (chroot(".")) {
+			pr_perror("Unable to change root directory");
+			return -1;
+		}
+	}
+
+	if (ui->name_dir) {
 		if (chdir(ui->name_dir)) {
 			pr_perror("Can't change working dir %s",
 				  ui->name_dir);
@@ -876,8 +903,8 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd)
 			return -1;
 		}
 		pr_debug("Change working dir to %s\n", ui->name_dir);
-	} else
-		*prev_cwd_fd = -1;
+	}
+
 	return 0;
 }
 
@@ -886,7 +913,7 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 	struct unix_sk_info *ui;
 	struct unix_sk_info *peer;
 	struct sockaddr_un addr;
-	int cwd_fd = -1;
+	int cwd_fd = -1, root_fd = -1;
 
 	ui = container_of(d, struct unix_sk_info, d);
 	if (ui->flags & (USK_PAIR_MASTER | USK_PAIR_SLAVE))
@@ -914,18 +941,18 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 
 	pr_info("\tConnect %#x to %#x\n", ui->ue->ino, peer->ue->ino);
 
-	if (prep_unix_sk_cwd(peer, &cwd_fd))
+	if (prep_unix_sk_cwd(peer, &cwd_fd, NULL))
 		return -1;
 
 	if (connect(fd, (struct sockaddr *)&addr,
 				sizeof(addr.sun_family) +
 				peer->ue->name.len) < 0) {
-		revert_unix_sk_cwd(&cwd_fd);
+		revert_unix_sk_cwd(&cwd_fd, &root_fd);
 		pr_perror("Can't connect %#x socket", ui->ue->ino);
 		return -1;
 	}
 
-	revert_unix_sk_cwd(&cwd_fd);
+	revert_unix_sk_cwd(&cwd_fd, &root_fd);
 
 	if (peer->queuer == ui->ue->ino && restore_sk_queue(fd, peer->ue->id))
 		return -1;
@@ -945,7 +972,7 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 {
 	struct sockaddr_un addr;
-	int cwd_fd = -1;
+	int cwd_fd = -1, root_fd = -1;
 	int ret = -1;
 
 	if ((ui->ue->type == SOCK_STREAM) && (ui->ue->state == TCP_ESTABLISHED)) {
@@ -964,7 +991,7 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 	addr.sun_family = AF_UNIX;
 	memcpy(&addr.sun_path, ui->name, ui->ue->name.len);
 
-	if (prep_unix_sk_cwd(ui, &cwd_fd))
+	if (prep_unix_sk_cwd(ui, &cwd_fd, NULL))
 		return -1;
 
 	if (ui->ue->name.len) {
@@ -1050,7 +1077,7 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 
 	ret = 0;
 done:
-	revert_unix_sk_cwd(&cwd_fd);
+	revert_unix_sk_cwd(&cwd_fd, &root_fd);
 	return ret;
 }
 
@@ -1324,12 +1351,12 @@ static struct file_desc_ops unix_desc_ops = {
  */
 static void unlink_stale(struct unix_sk_info *ui)
 {
-	int ret, cwd_fd;
+	int ret, cwd_fd = -1, root_fd = -1;
 
 	if (ui->name[0] == '\0' || (ui->ue->uflags & USK_EXTERN))
 		return;
 
-	if (prep_unix_sk_cwd(ui, &cwd_fd))
+	if (prep_unix_sk_cwd(ui, &cwd_fd, &root_fd))
 		return;
 
 	ret = unlinkat(AT_FDCWD, ui->name, 0) ? -1 : 0;
@@ -1339,7 +1366,7 @@ static void unlink_stale(struct unix_sk_info *ui)
 			ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
 			ui->name_dir ? ui->name_dir : "-");
 	}
-	revert_unix_sk_cwd(&cwd_fd);
+	revert_unix_sk_cwd(&cwd_fd, &root_fd);
 }
 
 static int resolve_unix_peers(void *unused);
