@@ -7,6 +7,7 @@
 #include <limits.h>
 #include <errno.h>
 #include "common/asm/atomic.h"
+#include "common/compiler.h"
 
 #define LOCK_BUG_ON(condition)							\
 	if ((condition))							\
@@ -29,7 +30,7 @@ static inline long sys_futex (uint32_t *addr1, int op, uint32_t val1,
 
 typedef struct {
 	atomic_t raw;
-} futex_t;
+} __aligned(sizeof(int)) futex_t;
 
 #define FUTEX_ABORT_FLAG	(0x80000000)
 #define FUTEX_ABORT_RAW		(-1U)
