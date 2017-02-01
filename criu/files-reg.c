@@ -1418,7 +1418,9 @@ out_root:
 
 	if (linkat_hard(mntns_root, rpath, mntns_root, path,
 			rfi->remap->uid, rfi->remap->gid, 0) < 0) {
+		int errno_saved = errno;
 		rm_parent_dirs(mntns_root, path, *level);
+		errno = errno_saved;
 		return -1;
 	}
 
