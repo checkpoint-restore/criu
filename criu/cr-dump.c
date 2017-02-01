@@ -129,7 +129,11 @@ static int dump_sched_info(int pid, ThreadCoreEntry *tc)
 
 	BUILD_BUG_ON(SCHED_OTHER != 0); /* default in proto message */
 
-	ret = sched_getscheduler(pid);
+	/*
+	 * In musl-libc sched_getscheduler and sched_getparam don't call
+	 * syscalls and instead the always return -ENOSYS
+	 */
+	ret = syscall(__NR_sched_getscheduler, pid);
 	if (ret < 0) {
 		pr_perror("Can't get sched policy for %d", pid);
 		return -1;
@@ -140,7 +144,7 @@ static int dump_sched_info(int pid, ThreadCoreEntry *tc)
 	tc->sched_policy = ret;
 
 	if ((ret == SCHED_RR) || (ret == SCHED_FIFO)) {
-		ret = sched_getparam(pid, &sp);
+		ret = syscall(__NR_sched_getparam, pid, &sp);
 		if (ret < 0) {
 			pr_perror("Can't get sched param for %d", pid);
 			return -1;
