@@ -1,1 +1,0 @@
-../parasite-vdso.c
