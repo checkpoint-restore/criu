@@ -750,8 +750,8 @@ static int parse_id_map(pid_t pid, char *name, UidGidExtent ***pb_exts)
 		ret = fscanf(f, "%d %d %d", &ext->first,
 				&ext->lower_first, &ext->count);
 		if (ret != 3) {
-			if (errno != 0) {
-				pr_perror("Unable to parse extents");
+			if (ferror(f)) {
+				pr_perror("Unable to parse extents: %d", ret);
 				ret = -1;
 			} else
 				ret = 0;
