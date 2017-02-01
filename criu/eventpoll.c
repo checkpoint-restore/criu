@@ -158,7 +158,7 @@ static int epoll_not_ready_tfd(EventpollTfdEntry *tdefe)
 			continue;
 
 		if (fle->desc->ops->type == FD_TYPES__EVENTPOLL)
-			return (fle->stage != FLE_OPEN);
+			return (fle->stage < FLE_OPEN);
 		else
 			return (fle->stage != FLE_RESTORED);
 	}
