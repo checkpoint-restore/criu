@@ -963,6 +963,12 @@ class criu:
 			if ret:
 				raise test_fail_exc("criu lazy-pages exited with %s" % ret)
 
+		if self.__page_server_p:
+			ret = self.__page_server_p.wait()
+			self.__page_server_p = None
+			if ret:
+				raise test_fail_exc("criu page-server exited with %s" % ret)
+
 		if self.__leave_stopped:
 			pstree_check_stopped(self.__test.getpid())
 			pstree_signal(self.__test.getpid(), signal.SIGCONT)
