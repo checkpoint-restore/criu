@@ -789,8 +789,7 @@ class criu:
 		self.__page_server_p = None
 
 	def fini(self, opts):
-		if self.__lazy_pages:
-			wait_pid_die(int(rpidfile(self.__ddir() + "/lp.pid")), "lazy-pages")
+                return
 
 	def logs(self):
 		return self.__dump_path
@@ -960,12 +959,12 @@ class criu:
 			r_opts.append('mnt[zdtm]:%s' % criu_dir)
 
 		if self.__lazy_pages:
-			lp_opts = ["--daemon", "--pidfile", "lp.pid"]
+			lp_opts = []
 			if self.__remote_lazy_pages:
 				lp_opts += ['--page-server', "--port", "12345"]
-				ps_opts = ["--daemon", "--pidfile", "ps.pid",
+				ps_opts = ["--pidfile", "ps.pid",
 					   "--port", "12345", "--lazy-pages"]
-				self.__criu_act("page-server", opts = ps_opts)
+				self.__page_server_p = self.__criu_act("page-server", opts = ps_opts, nowait = True)
 			self.__lazy_pages_p = self.__criu_act("lazy-pages", opts = lp_opts, nowait = True)
 			r_opts += ["--lazy-pages"]
 
