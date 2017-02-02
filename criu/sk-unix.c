@@ -583,7 +583,7 @@ skip:
 }
 
 static int unix_collect_one(const struct unix_diag_msg *m,
-			    struct nlattr **tb)
+			    struct nlattr **tb, struct ns_id *ns)
 {
 	struct unix_sk_desc *d;
 	int ret = 0;
@@ -674,14 +674,14 @@ skip:
 	return ret;
 }
 
-int unix_receive_one(struct nlmsghdr *h, void *arg)
+int unix_receive_one(struct nlmsghdr *h, struct ns_id *ns, void *arg)
 {
 	struct unix_diag_msg *m = NLMSG_DATA(h);
 	struct nlattr *tb[UNIX_DIAG_MAX+1];
 
 	nlmsg_parse(h, sizeof(struct unix_diag_msg), tb, UNIX_DIAG_MAX, NULL);
 
-	return unix_collect_one(m, tb);
+	return unix_collect_one(m, tb, ns);
 }
 
 static int dump_external_sockets(struct unix_sk_desc *peer)

@@ -24,7 +24,7 @@ struct netlink_sk_desc {
 	u8			protocol;
 };
 
-int netlink_receive_one(struct nlmsghdr *hdr, void *arg)
+int netlink_receive_one(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
 	struct nlattr *tb[NETLINK_DIAG_MAX+1];
 	struct netlink_diag_msg *m;

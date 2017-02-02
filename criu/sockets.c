@@ -116,7 +116,7 @@ bool socket_test_collect_bit(unsigned int family, unsigned int proto)
 	return test_bit(nr, socket_cl_bits) != 0;
 }
 
-static int probe_recv_one(struct nlmsghdr *h, void *arg)
+static int probe_recv_one(struct nlmsghdr *h, struct ns_id *ns, void *arg)
 {
 	pr_err("PROBE RECEIVED\n");
 	return -1;
@@ -135,7 +135,7 @@ static int probe_err(int err, void *arg)
 
 static inline void probe_diag(int nl, struct sock_diag_req *req, int expected_err)
 {
-	do_rtnl_req(nl, req, req->hdr.nlmsg_len, probe_recv_one, probe_err, &expected_err);
+	do_rtnl_req(nl, req, req->hdr.nlmsg_len, probe_recv_one, probe_err, NULL, &expected_err);
 }
 
 void preload_socket_modules(void)
@@ -584,7 +584,7 @@ int dump_socket(struct fd_parms *p, int lfd, struct cr_img *img)
 	return do_dump_gen_file(p, lfd, ops, img);
 }
 
-static int inet_receive_one(struct nlmsghdr *h, void *arg)
+static int inet_receive_one(struct nlmsghdr *h, struct ns_id *ns, void *arg)
 {
 	struct inet_diag_req_v2 *i = arg;
 	int type;
@@ -602,15 +602,16 @@ static int inet_receive_one(struct nlmsghdr *h, void *arg)
 		return -1;
 	}
 
-	return inet_collect_one(h, i->sdiag_family, type);
+	return inet_collect_one(h, i->sdiag_family, type, ns);
 }
 
 static int do_collect_req(int nl, struct sock_diag_req *req, int size,
-		int (*receive_callback)(struct nlmsghdr *h, void *), void *arg)
+		int (*receive_callback)(struct nlmsghdr *h, struct ns_id *ns, void *),
+		struct ns_id *ns, void *arg)
 {
 	int tmp;
 
-	tmp = do_rtnl_req(nl, req, size, receive_callback, NULL, arg);
+	tmp = do_rtnl_req(nl, req, size, receive_callback, NULL, ns, arg);
 
 	if (tmp == 0)
 		set_collect_bit(req->r.n.sdiag_family, req->r.n.sdiag_protocol);
@@ -636,7 +637,7 @@ int collect_sockets(struct ns_id *ns)
 	req.r.u.udiag_show	= UDIAG_SHOW_NAME | UDIAG_SHOW_VFS |
 				  UDIAG_SHOW_PEER | UDIAG_SHOW_ICONS |
 				  UDIAG_SHOW_RQLEN;
-	tmp = do_collect_req(nl, &req, sizeof(req), unix_receive_one, NULL);
+	tmp = do_collect_req(nl, &req, sizeof(req), unix_receive_one, ns, NULL);
 	if (tmp)
 		err = tmp;
 
@@ -649,7 +650,7 @@ int collect_sockets(struct ns_id *ns)
 					(1 << TCP_FIN_WAIT1) | (1 << TCP_FIN_WAIT2) |
 					(1 << TCP_CLOSE_WAIT) | (1 << TCP_LAST_ACK) |
 					(1 << TCP_CLOSING) | (1 << TCP_SYN_SENT);
-	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, &req.r.i);
+	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, ns, &req.r.i);
 	if (tmp)
 		err = tmp;
 
@@ -658,7 +659,7 @@ int collect_sockets(struct ns_id *ns)
 	req.r.i.sdiag_protocol	= IPPROTO_UDP;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, &req.r.i);
+	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, ns, &req.r.i);
 	if (tmp)
 		err = tmp;
 
@@ -667,7 +668,7 @@ int collect_sockets(struct ns_id *ns)
 	req.r.i.sdiag_protocol	= IPPROTO_UDPLITE;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, &req.r.i);
+	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, ns, &req.r.i);
 	if (tmp)
 		err = tmp;
 
@@ -680,7 +681,7 @@ int collect_sockets(struct ns_id *ns)
 					(1 << TCP_FIN_WAIT1) | (1 << TCP_FIN_WAIT2) |
 					(1 << TCP_CLOSE_WAIT) | (1 << TCP_LAST_ACK) |
 					(1 << TCP_CLOSING) | (1 << TCP_SYN_SENT);
-	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, &req.r.i);
+	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, ns, &req.r.i);
 	if (tmp)
 		err = tmp;
 
@@ -689,7 +690,7 @@ int collect_sockets(struct ns_id *ns)
 	req.r.i.sdiag_protocol	= IPPROTO_UDP;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, &req.r.i);
+	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, ns, &req.r.i);
 	if (tmp)
 		err = tmp;
 
@@ -698,7 +699,7 @@ int collect_sockets(struct ns_id *ns)
 	req.r.i.sdiag_protocol	= IPPROTO_UDPLITE;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, &req.r.i);
+	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, ns, &req.r.i);
 	if (tmp)
 		err = tmp;
 
@@ -706,7 +707,7 @@ int collect_sockets(struct ns_id *ns)
 	req.r.p.sdiag_protocol	= 0;
 	req.r.p.pdiag_show	= PACKET_SHOW_INFO | PACKET_SHOW_MCLIST |
 					PACKET_SHOW_FANOUT | PACKET_SHOW_RING_CFG;
-	tmp = do_collect_req(nl, &req, sizeof(req), packet_receive_one, NULL);
+	tmp = do_collect_req(nl, &req, sizeof(req), packet_receive_one, ns, NULL);
 	if (tmp) {
 		pr_warn("The current kernel doesn't support packet_diag\n");
 		if (ns->ns_pid == 0 || tmp != -ENOENT) /* Fedora 19 */
@@ -716,7 +717,7 @@ int collect_sockets(struct ns_id *ns)
 	req.r.n.sdiag_family	= AF_NETLINK;
 	req.r.n.sdiag_protocol	= NDIAG_PROTO_ALL;
 	req.r.n.ndiag_show	= NDIAG_SHOW_GROUPS;
-	tmp = do_collect_req(nl, &req, sizeof(req), netlink_receive_one, NULL);
+	tmp = do_collect_req(nl, &req, sizeof(req), netlink_receive_one, ns, NULL);
 	if (tmp) {
 		pr_warn("The current kernel doesn't support netlink_diag\n");
 		if (ns->ns_pid == 0 || tmp != -ENOENT) /* Fedora 19 */
