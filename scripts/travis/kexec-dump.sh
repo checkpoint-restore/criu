@@ -7,7 +7,7 @@ mkdir -p /imgs
 rm -rf /imgs/*
 f=`lsof -p $1 | grep /run/systemd/sessions | awk '{ print $9 }'`
 echo $f
-./criu/criu dump -D /imgs -o dump.log -t $1 -j --tcp-established --ext-unix-sk -v4 -l || {
+./criu/criu dump -D /imgs -o dump.log -t $1 -j --tcp-established --ext-unix-sk -v4 -l --ghost-limit 10485760 || {
 	./scripts/dropbox_upload.py /imgs/dump.log
 	touch /reboot.failed
 	exit 1
