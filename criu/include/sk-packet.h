@@ -15,7 +15,7 @@ extern int dump_socket_map(struct vma_area *vma);
 extern int collect_socket_map(struct vma_area *);
 
 struct nlmsghdr;
-extern int packet_receive_one(struct nlmsghdr *h, void *arg);
+extern int packet_receive_one(struct nlmsghdr *h, struct ns_id *ns, void *arg);
 
 #ifndef PACKET_VNET_HDR
 #define PACKET_VNET_HDR 15

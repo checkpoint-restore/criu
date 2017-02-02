@@ -247,7 +247,7 @@ static int packet_save_mreqs(struct packet_sock_desc *sd, struct nlattr *mc)
 	return 0;
 }
 
-int packet_receive_one(struct nlmsghdr *hdr, void *arg)
+int packet_receive_one(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
 	struct packet_diag_msg *m;
 	struct nlattr *tb[PACKET_DIAG_MAX + 1];

@@ -10,8 +10,9 @@
 #include "libnetlink.h"
 #include "util.h"
 
-static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *), 
-		int (*err_cb)(int, void *), void *arg)
+static int nlmsg_receive(char *buf, int len,
+		int (*cb)(struct nlmsghdr *, struct ns_id *ns, void *),
+		int (*err_cb)(int, void *), struct ns_id *ns, void *arg)
 {
 	struct nlmsghdr *hdr;
 
@@ -42,7 +43,7 @@ static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, void *
 
 			return err_cb(err->error, arg);
 		}
-		if (cb(hdr, arg))
+		if (cb(hdr, ns, arg))
 			return -1;
 	}
 
@@ -56,8 +57,8 @@ static int rtnl_return_err(int err, void *arg)
 }
 
 int do_rtnl_req(int nl, void *req, int size,
-		int (*receive_callback)(struct nlmsghdr *h, void *),
-		int (*error_callback)(int err, void *), void *arg)
+		int (*receive_callback)(struct nlmsghdr *h, struct ns_id *ns, void *),
+		int (*error_callback)(int err, void *), struct ns_id *ns, void *arg)
 {
 	struct msghdr msg;
 	struct sockaddr_nl nladdr;
@@ -116,7 +117,7 @@ int do_rtnl_req(int nl, void *req, int size,
 			goto err;
 		}
 
-		err = nlmsg_receive(buf, err, receive_callback, error_callback, arg);
+		err = nlmsg_receive(buf, err, receive_callback, error_callback, ns, arg);
 		if (err < 0)
 			goto err;
 		if (err == 0)

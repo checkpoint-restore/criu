@@ -783,7 +783,7 @@ static int dump_one_sit(struct ifinfomsg *ifi, char *kind,
 	return dump_one_netdev(ND_TYPE__SIT, ifi, tb, fds, dump_sit);
 }
 
-static int dump_one_link(struct nlmsghdr *hdr, void *arg)
+static int dump_one_link(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
 	struct cr_imgset *fds = arg;
 	struct ifinfomsg *ifi;
@@ -833,7 +833,7 @@ unk:
 	return ret;
 }
 
-static int dump_one_nf(struct nlmsghdr *hdr, void *arg)
+static int dump_one_nf(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
 	struct cr_img *img = arg;
 
@@ -946,7 +946,7 @@ static int restore_nf_ct(int pid, int type)
 				goto out;
 
 		nlh->nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK|NLM_F_CREATE;
-		ret = do_rtnl_req(sk, nlh, nlh->nlmsg_len, NULL, NULL, NULL);
+		ret = do_rtnl_req(sk, nlh, nlh->nlmsg_len, NULL, NULL, NULL, NULL);
 		if (ret)
 			goto out;
 	}
@@ -995,7 +995,7 @@ static int dump_nf_ct(struct cr_imgset *fds, int type)
 
 	img = img_from_set(fds, type);
 
-	ret = do_rtnl_req(sk, &req, sizeof(req), dump_one_nf, NULL, img);
+	ret = do_rtnl_req(sk, &req, sizeof(req), dump_one_nf, NULL, NULL, img);
 	close(sk);
 out:
 	return ret;
@@ -1026,13 +1026,13 @@ static int dump_links(struct cr_imgset *fds)
 	req.nlh.nlmsg_seq = CR_NLMSG_SEQ;
 	req.g.rtgen_family = AF_PACKET;
 
-	ret = do_rtnl_req(sk, &req, sizeof(req), dump_one_link, NULL, fds);
+	ret = do_rtnl_req(sk, &req, sizeof(req), dump_one_link, NULL, NULL, fds);
 	close(sk);
 out:
 	return ret;
 }
 
-static int restore_link_cb(struct nlmsghdr *hdr, void *arg)
+static int restore_link_cb(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
 	pr_info("Got response on SETLINK =)\n");
 	return 0;
@@ -1116,7 +1116,7 @@ static int do_rtm_link_req(int msg_type, NetDeviceEntry *nde, int nlsk,
 	if (populate_newlink_req(&req, msg_type, nde, link_info, extras) < 0)
 		return -1;
 
-	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL, NULL);
+	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL, NULL, NULL);
 }
 
 int restore_link_parms(NetDeviceEntry *nde, int nlsk)
@@ -1270,7 +1270,7 @@ static int userns_restore_one_link(void *arg, int fd, pid_t pid)
 
 	addattr_l(&req->h, sizeof(*req), IFLA_NET_NS_FD, &fd, sizeof(fd));
 
-	ret = do_rtnl_req(nlsk, req, req->h.nlmsg_len, restore_link_cb, NULL, NULL);
+	ret = do_rtnl_req(nlsk, req, req->h.nlmsg_len, restore_link_cb, NULL, NULL, NULL);
 	close(nlsk);
 
 out:
