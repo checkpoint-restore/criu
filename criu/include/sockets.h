@@ -50,9 +50,9 @@ extern const struct fdtype_ops inet6_dump_ops;
 extern const struct fdtype_ops netlink_dump_ops;
 extern const struct fdtype_ops packet_dump_ops;
 
-extern int inet_collect_one(struct nlmsghdr *h, int family, int type);
-extern int unix_receive_one(struct nlmsghdr *h, void *);
-extern int netlink_receive_one(struct nlmsghdr *hdr, void *arg);
+extern int inet_collect_one(struct nlmsghdr *h, int family, int type, struct ns_id *ns);
+extern int unix_receive_one(struct nlmsghdr *h, struct ns_id *ns, void *);
+extern int netlink_receive_one(struct nlmsghdr *hdr, struct ns_id *ns, void *arg);
 
 extern int unix_sk_id_add(unsigned int ino);
 extern int unix_sk_ids_parse(char *optarg);

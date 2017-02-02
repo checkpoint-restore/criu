@@ -460,7 +460,7 @@ const struct fdtype_ops inet6_dump_ops = {
 	.dump		= dump_one_inet6_fd,
 };
 
-int inet_collect_one(struct nlmsghdr *h, int family, int type)
+int inet_collect_one(struct nlmsghdr *h, int family, int type, struct ns_id *ns)
 {
 	struct inet_sk_desc *d;
 	struct inet_diag_msg *m = NLMSG_DATA(h);
