@@ -1902,32 +1902,32 @@ int dump_net_ns(int ns_id)
 	return ret;
 }
 
-int prepare_net_ns(int pid)
+int prepare_net_ns(int nsid)
 {
 	int ret = 0;
 	NetnsEntry *netns = NULL;
 
 	if (!(opts.empty_ns & CLONE_NEWNET)) {
-		ret = restore_netns_conf(pid, &netns);
+		ret = restore_netns_conf(nsid, &netns);
 		if (!ret)
-			ret = restore_links(pid, &netns);
+			ret = restore_links(nsid, &netns);
 		if (netns)
 			netns_entry__free_unpacked(netns, NULL);
 
 		if (!ret)
-			ret = restore_ifaddr(pid);
+			ret = restore_ifaddr(nsid);
 		if (!ret)
-			ret = restore_route(pid);
+			ret = restore_route(nsid);
 		if (!ret)
-			ret = restore_rule(pid);
+			ret = restore_rule(nsid);
 		if (!ret)
-			ret = restore_iptables(pid);
+			ret = restore_iptables(nsid);
 	}
 
 	if (!ret)
-		ret = restore_nf_ct(pid, CR_FD_NETNF_CT);
+		ret = restore_nf_ct(nsid, CR_FD_NETNF_CT);
 	if (!ret)
-		ret = restore_nf_ct(pid, CR_FD_NETNF_EXP);
+		ret = restore_nf_ct(nsid, CR_FD_NETNF_EXP);
 
 	close_service_fd(NS_FD_OFF);
 
