@@ -881,16 +881,16 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd, int *prev
 		*prev_root_fd = open("/", O_RDONLY);
 		if (*prev_root_fd < 0) {
 			pr_err("Can't open current root\n");
-			return -1;
+			goto err;
 		}
 
 		if (fchdir(root->mnt.root_fd)) {
 			pr_perror("Unable to change current working dir");
-			return -1;
+			goto err;
 		}
 		if (chroot(".")) {
 			pr_perror("Unable to change root directory");
-			return -1;
+			goto err;
 		}
 	}
 
@@ -898,14 +898,17 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd, int *prev
 		if (chdir(ui->name_dir)) {
 			pr_perror("Can't change working dir %s",
 				  ui->name_dir);
-			close(*prev_cwd_fd);
-			*prev_cwd_fd = -1;
-			return -1;
+			goto err;
 		}
 		pr_debug("Change working dir to %s\n", ui->name_dir);
 	}
 
 	return 0;
+err:
+	close_safe(prev_cwd_fd);
+	if (prev_root_fd)
+		close_safe(prev_root_fd);
+	return -1;
 }
 
 static int post_open_unix_sk(struct file_desc *d, int fd)
