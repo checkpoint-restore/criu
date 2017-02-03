@@ -328,7 +328,7 @@ static bool mounts_equal(struct mount_info *a, struct mount_info *b)
  */
 static char *mnt_roots;
 
-static struct mount_info *mnt_build_ids_tree(struct mount_info *list, struct mount_info *tmp_root_mount)
+static struct mount_info *mnt_build_ids_tree(struct mount_info *list, struct mount_info *yard_mount)
 {
 	struct mount_info *m, *root = NULL;
 
@@ -348,47 +348,42 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list, struct mou
 			parent = NULL;
 
 		if (!parent) {
-			/* This should be / */
-			if (root == NULL && (!tmp_root_mount || is_root_mount(m))) {
+			/* Only a root mount can be without parent */
+			if (root == NULL && m->is_ns_root) {
 				root = m;
-				if (!tmp_root_mount)
+				if (!yard_mount)
 					continue;
+			}
+
+			if (!root) {
+				pr_err("No parent found for mountpoint %d (@%s)\n",
+					m->mnt_id, m->mountpoint);
+				return NULL;
 			}
 
 			pr_debug("Mountpoint %d (@%s) w/o parent %d\n",
 				 m->mnt_id, m->mountpoint, m->parent_mnt_id);
 
-			if (root && m->is_ns_root) {
-				if (!mounts_sb_equal(root, m) ||
-				    strcmp(root->root, m->root)) {
-					pr_err("Nested mount namespaces with different "
-					       "roots %d (@%s %s) %d (@%s %s) are not supported yet\n",
-					       root->mnt_id, root->mountpoint, root->root,
-					       m->mnt_id, m->mountpoint, m->root);
-					return NULL;
-				}
-
-				/*
-				 * A root of a sub mount namespace is
-				 * mounted in a temporary directory in the
-				 * root mount namespace, so its parent is
-				 * the main root.
-				 */
-				parent = tmp_root_mount;
-				if (unlikely(!tmp_root_mount)) {
-					pr_err("Nested mount %d (@%s %s) w/o root insertion detected\n",
-					       m->mnt_id, m->mountpoint, m->root);
-					return NULL;
-				}
-
-				pr_debug("Mountpoint %d (@%s) get parent %d (@%s)\n",
-					 m->mnt_id, m->mountpoint,
-					 parent->mnt_id, parent->mountpoint);
-			} else if (root != m) {
-				pr_err("No root found for mountpoint %d (@%s)\n",
-					m->mnt_id, m->mountpoint);
+			if (!mounts_sb_equal(root, m) ||
+			    strcmp(root->root, m->root)) {
+				pr_err("Nested mount namespaces with different "
+				       "roots %d (@%s %s) %d (@%s %s) are not supported yet\n",
+				       root->mnt_id, root->mountpoint, root->root,
+				       m->mnt_id, m->mountpoint, m->root);
 				return NULL;
 			}
+
+			/* Mount all namespace roots into the roots yard. */
+			parent = yard_mount;
+			if (unlikely(!yard_mount)) {
+				pr_err("Nested mount %d (@%s %s) w/o root insertion detected\n",
+				       m->mnt_id, m->mountpoint, m->root);
+				return NULL;
+			}
+
+			pr_debug("Mountpoint %d (@%s) get parent %d (@%s)\n",
+				 m->mnt_id, m->mountpoint,
+				 parent->mnt_id, parent->mountpoint);
 		}
 
 		m->parent = parent;
@@ -400,8 +395,8 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list, struct mou
 		return NULL;
 	}
 
-	if (tmp_root_mount)
-		return tmp_root_mount;
+	if (yard_mount)
+		return yard_mount;
 
 	return root;
 }
