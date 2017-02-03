@@ -11,6 +11,7 @@
 #include "servicefd.h"
 #include "pagemap.h"
 
+#include "fault-injection.h"
 #include "xmalloc.h"
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -438,6 +439,18 @@ static int process_async_reads(struct page_read *pr)
 				piov->to->iov_base, piov->to->iov_len);
 more:
 		ret = preadv(fd, piov->to, piov->nr, piov->from);
+		if (fault_injected(FI_PARTIAL_PAGES)) {
+			/*
+			 * We might have read everything, but for debug
+			 * purposes let's try to force the advance_piov()
+			 * and re-read tail.
+			 */
+			if (ret > 0 && piov->nr >= 2) {
+				pr_debug("`- trim preadv %zu\n", ret);
+				ret /= 2;
+			}
+		}
+
 		if (ret != piov->end - piov->from) {
 			if (ret < 0) {
 				pr_err("Can't read async pr bytes (%zd / %ju read, %ju off, %d iovs)\n",
