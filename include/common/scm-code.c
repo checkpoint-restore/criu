@@ -50,7 +50,8 @@ static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr,
 int send_fds(int sock, struct sockaddr_un *saddr, int len,
 		int *fds, int nr_fds, void *data, unsigned ch_size)
 {
-	struct scm_fdset fdset;
+	/* In musl_libc the msghdr structure has pads which has to be zeroed */
+	struct scm_fdset fdset = {};
 	int *cmsg_data;
 	int i, min_fd, ret;
 
@@ -73,7 +74,8 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 
 int __recv_fds(int sock, int *fds, int nr_fds, void *data, unsigned ch_size, int flags)
 {
-	struct scm_fdset fdset;
+	/* In musl_libc the msghdr structure has pads which has to be zeroed */
+	struct scm_fdset fdset = {};
 	struct cmsghdr *cmsg;
 	int *cmsg_data;
 	int ret;
