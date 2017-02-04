@@ -2,7 +2,6 @@
 
 #include "restorer.h"
 #include "asm/restorer.h"
-#include "asm/string.h"
 
 #include "syscall.h"
 #include "log.h"

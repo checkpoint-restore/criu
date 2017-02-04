@@ -1,6 +1,7 @@
 lib-y			+= log-simple.o
 lib-y			+= util-fd.o
 lib-y			+= util.o
+lib-y			+= string.o
 
 ifeq ($(VDSO),y)
         lib-y		+= util-vdso.o
@@ -47,3 +48,5 @@ ifneq ($(filter-out ia32,$(ARCH)),)
 else
         ccflags-y	+= -DCR_NOGLIBC -fno-pic -Wa,--noexecstack -fno-stack-protector
 endif
+
+ccflags-y		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0

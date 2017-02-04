@@ -10,12 +10,19 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#include "string.h"
 #include "image.h"
 #include "util-vdso.h"
 #include "vma.h"
 #include "log.h"
 #include "common/bug.h"
+
+#ifdef CR_NOGLIBC
+# include "string.h"
+#else
+# include <string.h>
+# define builtin_strncmp strncmp
+#endif
+
 
 #ifdef LOG_PREFIX
 # undef LOG_PREFIX
@@ -81,7 +88,7 @@ static int has_elf_identity(Ehdr_t *ehdr)
 
 	BUILD_BUG_ON(sizeof(elf_ident) != sizeof(ehdr->e_ident));
 
-	if (builtin_memcmp(ehdr->e_ident, elf_ident, sizeof(elf_ident))) {
+	if (memcmp(ehdr->e_ident, elf_ident, sizeof(elf_ident))) {
 		pr_err("Elf header magic mismatch\n");
 		return false;
 	}
@@ -245,7 +252,7 @@ static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 			if (builtin_strncmp(name, symbol, vdso_symbol_length))
 				continue;
 
-			builtin_memcpy(t->symbols[i].name, name, vdso_symbol_length);
+			memcpy(t->symbols[i].name, name, vdso_symbol_length);
 			t->symbols[i].offset = (unsigned long)sym->st_value - load->p_vaddr;
 			break;
 		}

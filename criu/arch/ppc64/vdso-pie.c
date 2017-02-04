@@ -1,6 +1,6 @@
 #include <unistd.h>
+#include <string.h>
 
-#include "asm/string.h"
 #include "asm/types.h"
 
 #include "syscall.h"
@@ -104,7 +104,7 @@ static unsigned long put_trampoline(unsigned long at, struct vdso_symtable *sym)
 
 			pr_debug("Putting vDSO trampoline in %s at %lx\n",
 				 sym->symbols[i].name, trampoline);
-			builtin_memcpy((void *)trampoline, &vdso_trampoline,
+			memcpy((void *)trampoline, &vdso_trampoline,
 				       size);
 			invalidate_caches(trampoline);
 		}

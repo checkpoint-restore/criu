@@ -31,7 +31,7 @@
 #define LD	ldx
 #endif
 
-ENTRY(builtin_memcmp)
+ENTRY(memcmp)
 	cmpdi	cr1,r5,0
 
 	/* Use the short loop if both strings are not 8B aligned */

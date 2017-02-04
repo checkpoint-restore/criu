@@ -1,6 +1,5 @@
 #include <unistd.h>
 
-#include "asm/string.h"
 #include "asm/types.h"
 
 #include "syscall.h"

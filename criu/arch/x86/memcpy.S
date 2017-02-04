@@ -16,7 +16,6 @@
  * Output:
  * rax original destination
  */
-ENTRY(memcpy_x86)
 ENTRY(memcpy)
 	movq %rdi, %rax
 	movq %rdx, %rcx
@@ -27,4 +26,3 @@ ENTRY(memcpy)
 	rep movsb
 	ret
 END(memcpy)
-END(memcpy_x86)

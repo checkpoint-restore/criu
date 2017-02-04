@@ -1,6 +1,6 @@
 #include <unistd.h>
 
-#include "asm/string.h"
+#include "string.h"
 #include "asm/types.h"
 
 #include "syscall.h"
@@ -41,7 +41,7 @@ int vdso_redirect_calls(unsigned long base_to, unsigned long base_from,
 			 base_to, to->symbols[i].offset, i);
 
 		jmp.imm64 = base_to + to->symbols[i].offset;
-		builtin_memcpy((void *)(base_from + from->symbols[i].offset), &jmp, sizeof(jmp));
+		memcpy((void *)(base_from + from->symbols[i].offset), &jmp, sizeof(jmp));
 	}
 
 	return 0;
