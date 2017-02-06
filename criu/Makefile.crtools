@@ -1,5 +1,6 @@
 ccflags-y		+= -iquote criu/$(ARCH)
 ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
+CFLAGS_REMOVE_clone-noasan.o += $(CFLAGS-ASAN)
 
 obj-y			+= action-scripts.o
 obj-y			+= external.o
@@ -8,6 +9,7 @@ obj-y			+= bfd.o
 obj-y			+= bitmap.o
 obj-y			+= cgroup.o
 obj-y			+= cgroup-props.o
+obj-y			+= clone-noasan.o
 obj-y			+= cr-check.o
 obj-y			+= cr-dedup.o
 obj-y			+= cr-dump.o
