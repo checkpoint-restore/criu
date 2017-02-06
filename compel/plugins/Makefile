@@ -1,6 +1,7 @@
 .PHONY: .FORCE
 
 CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) -DCR_NOGLIBC
+CFLAGS			:= $(filter-out $(CFLAGS-ASAN),$(CFLAGS))
 PLUGIN_ARCH_DIR		:= compel/arch/$(ARCH)/plugins
 
 #

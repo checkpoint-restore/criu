@@ -111,6 +111,12 @@ ifneq ($(GCOV),)
         CFLAGS          += $(CFLAGS-GCOV)
 endif
 
+ifeq ($(ASAN),1)
+	CFLAGS-ASAN	:= -fsanitize=address
+	export		CFLAGS-ASAN
+	CFLAGS		+= $(CFLAGS-ASAN)
+endif
+
 ifneq ($(WERROR),0)
         WARNINGS	+= -Werror
 endif

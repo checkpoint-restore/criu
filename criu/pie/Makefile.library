@@ -41,6 +41,8 @@ iquotes			:= -iquote $(SRC_DIR)/$(PIE_DIR)/piegen
 iquotes			+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
 iquotes			+= -iquote $(SRC_DIR) -iquote $(SRC_DIR)/criu/include -iquote $(SRC_DIR)/include
 CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) $(iquotes)
+CFLAGS			:= $(filter-out $(CFLAGS-ASAN),$(CFLAGS))
+
 asflags-y		:= -D__ASSEMBLY__ $(iquotes)
 ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 
