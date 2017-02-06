@@ -316,11 +316,11 @@ static MmEntry *init_mm_entry(struct lazy_pages_info *lpi)
 static int update_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
 			    int len)
 {
-	struct lazy_iov *lazy_iov, *n;
+	struct lazy_iov *iov, *n;
 
-	list_for_each_entry_safe(lazy_iov, n, &lpi->iovs, l) {
-		unsigned long start = lazy_iov->base;
-		unsigned long end = start + lazy_iov->len;
+	list_for_each_entry_safe(iov, n, &lpi->iovs, l) {
+		unsigned long start = iov->base;
+		unsigned long end = start + iov->len;
 
 		if (len <= 0)
 			break;
@@ -337,12 +337,12 @@ static int update_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
 		 */
 		if (addr + len < end) {
 			if (addr == start) {
-				lazy_iov->base += len;
-				lazy_iov->len -= len;
+				iov->base += len;
+				iov->len -= len;
 			} else {
 				struct lazy_iov *new_iov;
 
-				lazy_iov->len -= (end - addr);
+				iov->len -= (end - addr);
 
 				new_iov = xzalloc(sizeof(*new_iov));
 				if (!new_iov)
@@ -351,7 +351,7 @@ static int update_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
 				new_iov->base = addr + len;
 				new_iov->len = end - (addr + len);
 
-				list_add(&new_iov->l, &lazy_iov->l);
+				list_add(&new_iov->l, &iov->l);
 			}
 			break;
 		}
@@ -363,10 +363,10 @@ static int update_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
 		 * and continue to the next one with the updated range
 		 */
 		if (addr == start) {
-			list_del(&lazy_iov->l);
-			xfree(lazy_iov);
+			list_del(&iov->l);
+			xfree(iov);
 		} else {
-			lazy_iov->len -= (end - addr);
+			iov->len -= (end - addr);
 		}
 
 		len -= (end - addr);
@@ -387,7 +387,7 @@ static int update_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
 static int collect_lazy_iovs(struct lazy_pages_info *lpi)
 {
 	struct page_read *pr = &lpi->pr;
-	struct lazy_iov *lazy_iov, *n;
+	struct lazy_iov *iov, *n;
 	MmEntry *mm;
 	int nr_pages = 0, n_vma = 0, max_iov_len = 0;
 	int ret = -1;
@@ -411,14 +411,14 @@ static int collect_lazy_iovs(struct lazy_pages_info *lpi)
 			if (start >= vma->end)
 				continue;
 
-			lazy_iov = xzalloc(sizeof(*lazy_iov));
-			if (!lazy_iov)
+			iov = xzalloc(sizeof(*iov));
+			if (!iov)
 				goto free_iovs;
 
 			len = min_t(uint64_t, end, vma->end) - start;
-			lazy_iov->base = start;
-			lazy_iov->len = len;
-			list_add_tail(&lazy_iov->l, &lpi->iovs);
+			iov->base = start;
+			iov->len = len;
+			list_add_tail(&iov->l, &lpi->iovs);
 
 			if (len > max_iov_len)
 				max_iov_len = len;
@@ -437,8 +437,8 @@ static int collect_lazy_iovs(struct lazy_pages_info *lpi)
 	goto free_mm;
 
 free_iovs:
-	list_for_each_entry_safe(lazy_iov, n, &lpi->iovs, l)
-		xfree(lazy_iov);
+	list_for_each_entry_safe(iov, n, &lpi->iovs, l)
+		xfree(iov);
 free_mm:
 	mm_entry__free_unpacked(mm, NULL);
 
@@ -632,16 +632,16 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr,
 
 static int handle_remaining_pages(struct lazy_pages_info *lpi)
 {
-	struct lazy_iov *lazy_iov;
+	struct lazy_iov *iov;
 	int nr_pages, err;
 
 	if (list_empty(&lpi->iovs))
 		return 0;
 
-	lazy_iov = list_first_entry(&lpi->iovs, struct lazy_iov, l);
-	nr_pages = lazy_iov->len / PAGE_SIZE;
+	iov = list_first_entry(&lpi->iovs, struct lazy_iov, l);
+	nr_pages = iov->len / PAGE_SIZE;
 
-	err = uffd_handle_pages(lpi, lazy_iov->base, nr_pages, 0);
+	err = uffd_handle_pages(lpi, iov->base, nr_pages, 0);
 	if (err < 0) {
 		pr_err("Error during UFFD copy\n");
 		return -1;
