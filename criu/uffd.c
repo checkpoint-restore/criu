@@ -659,9 +659,6 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	struct lazy_iov *iov;
 	int nr_pages, err;
 
-	if (list_empty(&lpi->iovs))
-		return 0;
-
 	iov = list_first_entry(&lpi->iovs, struct lazy_iov, l);
 	nr_pages = iov->len / PAGE_SIZE;
 
@@ -777,7 +774,7 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 
 		poll_timeout = 0;
 		list_for_each_entry(lpi, &lpis, l) {
-			if (lpi->copied_pages < lpi->total_pages) {
+			if (!list_empty(&lpi->iovs)) {
 				remaining = true;
 				ret = handle_remaining_pages(lpi);
 				if (ret < 0)
