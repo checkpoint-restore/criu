@@ -55,10 +55,16 @@ struct lazy_iovec {
 
 struct lazy_pages_info;
 
+struct lp_req {
+	unsigned long addr;
+	struct list_head l;
+};
+
 struct lazy_pages_info {
 	int pid;
 
 	struct list_head iovs;
+	struct list_head reqs;
 
 	struct page_read pr;
 
@@ -85,6 +91,7 @@ static struct lazy_pages_info *lpi_init(void)
 
 	memset(lpi, 0, sizeof(*lpi));
 	INIT_LIST_HEAD(&lpi->iovs);
+	INIT_LIST_HEAD(&lpi->reqs);
 	INIT_LIST_HEAD(&lpi->l);
 	lpi->lpfd.revent = handle_uffd_event;
 
@@ -537,8 +544,18 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 
 static int complete_page_fault(struct lazy_pages_info *lpi, unsigned long vaddr, int nr)
 {
+	struct lp_req *req;
+
 	if (uffd_copy(lpi, vaddr, nr))
 		return -1;
+
+	list_for_each_entry(req, &lpi->reqs, l) {
+		if (req->addr == vaddr) {
+			list_del(&req->l);
+			xfree(req);
+			break;
+		}
+	}
 
 	return update_lazy_iovecs(lpi, vaddr, nr * PAGE_SIZE);
 }
@@ -635,12 +652,23 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 
 static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
+	struct lp_req *req;
 	__u64 address;
 	int ret;
 
 	/* Align requested address to the next page boundary */
 	address = msg->arg.pagefault.address & ~(page_size() - 1);
 	pr_debug("%d: #PF at 0x%llx\n", lpi->pid, address);
+
+	list_for_each_entry(req, &lpi->reqs, l)
+		if (req->addr == address)
+			return 0;
+
+	req = xzalloc(sizeof(*req));
+	if (!req)
+		return -1;
+	req->addr = address;
+	list_add(&req->l, &lpi->reqs);
 
 	ret = uffd_handle_pages(lpi, address, 1, PR_ASYNC | PR_ASAP);
 	if (ret < 0) {
@@ -664,6 +692,9 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 		return 1;
 
 	if (ret != sizeof(msg)) {
+		/* we've already handled the page fault for another thread */
+		if (errno == EAGAIN)
+			return 0;
 		if (ret < 0)
 			pr_perror("Can't read userfaultfd message");
 		else
