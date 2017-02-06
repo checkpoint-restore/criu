@@ -41,7 +41,13 @@
 #include "util.h"
 
 #undef  LOG_PREFIX
-#define LOG_PREFIX "lazy-pages: "
+#define LOG_PREFIX "uffd: "
+
+#define lp_debug(lpi, fmt, arg...) pr_debug("%d-%d: " fmt, lpi->pid, lpi->lpfd.fd, ##arg)
+#define lp_info(lpi, fmt, arg...) pr_info("%d-%d: " fmt, lpi->pid, lpi->lpfd.fd, ##arg)
+#define lp_warn(lpi, fmt, arg...) pr_warn("%d-%d: " fmt, lpi->pid, lpi->lpfd.fd, ##arg)
+#define lp_err(lpi, fmt, arg...) pr_err("%d-%d: " fmt, lpi->pid, lpi->lpfd.fd, ##arg)
+#define lp_perror(lpi, fmt, arg...) pr_perror("%d-%d: " fmt, lpi->pid, lpi->lpfd.fd, ##arg)
 
 #define LAZY_PAGES_SOCK_NAME	"lazy-pages.socket"
 
@@ -304,7 +310,7 @@ static MmEntry *init_mm_entry(struct lazy_pages_info *lpi)
 	close_image(img);
 	if (ret == -1)
 		return NULL;
-	pr_debug("Found %zd VMAs in image\n", mm->n_vmas);
+	lp_debug(lpi, "Found %zd VMAs in image\n", mm->n_vmas);
 
 	return mm;
 }
@@ -512,7 +518,7 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 		goto out;
 	lpi->total_pages = ret;
 
-	pr_debug("Found %ld pages to be handled by UFFD\n", lpi->total_pages);
+	lp_debug(lpi, "Found %ld pages to be handled by UFFD\n", lpi->total_pages);
 
 	list_add_tail(&lpi->l, &lpis);
 	*_lpi = lpi;
@@ -536,16 +542,16 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	uffdio_copy.mode = 0;
 	uffdio_copy.copy = 0;
 
-	pr_debug("%d: uffd_copy: 0x%llx/%ld\n", lpi->pid, uffdio_copy.dst, len);
+	lp_debug(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
 	rc = ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy);
 	if (rc) {
 		/* real retval in ufdio_copy.copy */
-		pr_err("%d: UFFDIO_COPY failed: rc:%d copy:%Ld\n", lpi->pid, rc,
+		lp_err(lpi, "UFFDIO_COPY failed: rc:%d copy:%Ld\n", rc,
 		       uffdio_copy.copy);
 		if (uffdio_copy.copy != -EEXIST)
 			return -1;
 	} else if (uffdio_copy.copy != len) {
-		pr_err("UFFDIO_COPY unexpected size %Ld\n", uffdio_copy.copy);
+		lp_err(lpi, "UFFDIO_COPY unexpected size %Ld\n", uffdio_copy.copy);
 		return -1;
 	}
 
@@ -590,10 +596,10 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	uffdio_zeropage.range.len = len;
 	uffdio_zeropage.mode = 0;
 
-	pr_debug("%d: zero page at 0x%llx\n", lpi->pid, address);
+	lp_debug(lpi, "zero page at 0x%llx\n", address);
 	rc = ioctl(lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage);
 	if (rc) {
-		pr_err("UFFDIO_ZEROPAGE error %d\n", rc);
+		lp_err(lpi, "UFFDIO_ZEROPAGE error %d\n", rc);
 		return -1;
 	}
 
@@ -617,7 +623,7 @@ static int uffd_seek_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
 
 	ret = lpi->pr.seek_pagemap(&lpi->pr, address);
 	if (!ret) {
-		pr_err("%d: no pagemap covers %llx\n", lpi->pid, address);
+		lp_err(lpi, "no pagemap covers %llx\n", address);
 		return ret;
 	}
 
@@ -636,7 +642,7 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr,
 
 	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, flags);
 	if (ret <= 0) {
-		pr_err("%d: failed reading pages at %llx\n", lpi->pid, address);
+		lp_err(lpi, "failed reading pages at %llx\n", address);
 		return ret;
 	}
 
@@ -656,7 +662,7 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 
 	err = uffd_handle_pages(lpi, iov->base, nr_pages, 0);
 	if (err < 0) {
-		pr_err("Error during UFFD copy\n");
+		lp_err(lpi, "Error during UFFD copy\n");
 		return -1;
 	}
 
@@ -672,7 +678,7 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 
 	/* Align requested address to the next page boundary */
 	address = msg->arg.pagefault.address & ~(page_size() - 1);
-	pr_debug("%d: #PF at 0x%llx\n", lpi->pid, address);
+	lp_debug(lpi, "#PF at 0x%llx\n", address);
 
 	list_for_each_entry(req, &lpi->reqs, l)
 		if (req->addr == address)
@@ -690,7 +696,7 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 
 	ret = uffd_handle_pages(lpi, address, 1, PR_ASYNC | PR_ASAP);
 	if (ret < 0) {
-		pr_err("Error during regular page copy\n");
+		lp_err(lpi, "Error during regular page copy\n");
 		return -1;
 	}
 
@@ -714,9 +720,9 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 		if (errno == EAGAIN)
 			return 0;
 		if (ret < 0)
-			pr_perror("Can't read userfaultfd message");
+			lp_perror(lpi, "Can't read uffd message");
 		else
-			pr_err("Can't read userfaultfd message: short read");
+			lp_err(lpi, "Can't read uffd message: short read");
 		return -1;
 	}
 
@@ -724,7 +730,7 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 	case UFFD_EVENT_PAGEFAULT:
 		return handle_page_fault(lpi, &msg);
 	default:
-		pr_err("unexpected uffd event %u\n", msg.event);
+		lp_err(lpi, "unexpected uffd event %u\n", msg.event);
 		return -1;
 	}
 
@@ -733,13 +739,13 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 
 static int lazy_pages_summary(struct lazy_pages_info *lpi)
 {
-	pr_debug("Process %d: with UFFD transferred pages: (%ld/%ld)\n",
-		 lpi->pid, lpi->copied_pages, lpi->total_pages);
+	lp_debug(lpi, "UFFD transferred pages: (%ld/%ld)\n",
+		 lpi->copied_pages, lpi->total_pages);
 
 	if ((lpi->copied_pages != lpi->total_pages) && (lpi->total_pages > 0)) {
-		pr_warn("Only %ld of %ld pages transferred via UFFD\n", lpi->copied_pages,
-			lpi->total_pages);
-		pr_warn("Something probably went wrong.\n");
+		lp_warn(lpi, "Only %ld of %ld pages transferred via UFFD\n"
+			"Something probably went wrong.\n",
+			lpi->copied_pages, lpi->total_pages);
 		return 1;
 	}
 
