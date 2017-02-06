@@ -49,6 +49,12 @@
 #define lp_err(lpi, fmt, arg...) pr_err("%d-%d: " fmt, lpi->pid, lpi->lpfd.fd, ##arg)
 #define lp_perror(lpi, fmt, arg...) pr_perror("%d-%d: " fmt, lpi->pid, lpi->lpfd.fd, ##arg)
 
+#define NEED_UFFD_API_FEATURES (UFFD_FEATURE_EVENT_FORK |	    \
+				UFFD_FEATURE_EVENT_EXIT |	    \
+				UFFD_FEATURE_EVENT_REMAP |	    \
+				UFFD_FEATURE_EVENT_UNMAP |	    \
+				UFFD_FEATURE_EVENT_REMOVE)
+
 #define LAZY_PAGES_SOCK_NAME	"lazy-pages.socket"
 
 static mutex_t *lazy_sock_mutex;
@@ -229,7 +235,7 @@ int setup_uffd(int pid, struct task_restore_args *task_args)
 	 * Check if the UFFD_API is the one which is expected
 	 */
 	uffdio_api.api = UFFD_API;
-	uffdio_api.features = 0;
+	uffdio_api.features = kdat.uffd_features & NEED_UFFD_API_FEATURES;
 	if (ioctl(task_args->uffd, UFFDIO_API, &uffdio_api)) {
 		pr_err("Checking for UFFDIO_API failed.\n");
 		goto err;
