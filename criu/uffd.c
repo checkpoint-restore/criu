@@ -340,11 +340,16 @@ static int drop_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
 		unsigned long start = iov->base;
 		unsigned long end = start + iov->len;
 
-		if (len <= 0)
+		if (len <= 0 || addr + len < start)
 			break;
 
-		if (addr < start || addr >= end)
+		if (addr >= end)
 			continue;
+
+		if (addr < start) {
+			len -= (start - addr);
+			addr = start;
+		}
 
 		/*
 		 * The range completely fits into the current IOV.
