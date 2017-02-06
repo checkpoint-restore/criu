@@ -47,7 +47,7 @@
 
 static mutex_t *lazy_sock_mutex;
 
-struct lazy_iovec {
+struct lazy_iov {
 	struct list_head l;
 	unsigned long base;
 	unsigned long len;
@@ -100,7 +100,7 @@ static struct lazy_pages_info *lpi_init(void)
 
 static void lpi_fini(struct lazy_pages_info *lpi)
 {
-	struct lazy_iovec *p, *n;
+	struct lazy_iov *p, *n;
 
 	if (!lpi)
 		return;
@@ -310,13 +310,13 @@ static MmEntry *init_mm_entry(struct lazy_pages_info *lpi)
 }
 
 /*
- * Purge range (addr, addr + len) from lazy_iovecs. The range may
+ * Purge range (addr, addr + len) from lazy_iovs. The range may
  * cover several continuous IOVs.
  */
-static int update_lazy_iovecs(struct lazy_pages_info *lpi, unsigned long addr,
-			      int len)
+static int update_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
+			    int len)
 {
-	struct lazy_iovec *lazy_iov, *n;
+	struct lazy_iov *lazy_iov, *n;
 
 	list_for_each_entry_safe(lazy_iov, n, &lpi->iovs, l) {
 		unsigned long start = lazy_iov->base;
@@ -340,7 +340,7 @@ static int update_lazy_iovecs(struct lazy_pages_info *lpi, unsigned long addr,
 				lazy_iov->base += len;
 				lazy_iov->len -= len;
 			} else {
-				struct lazy_iovec *new_iov;
+				struct lazy_iov *new_iov;
 
 				lazy_iov->len -= (end - addr);
 
@@ -384,10 +384,10 @@ static int update_lazy_iovecs(struct lazy_pages_info *lpi, unsigned long addr,
  * only inside a single VMA.
  * We assume here that pagemaps and VMAs are sorted.
  */
-static int collect_lazy_iovecs(struct lazy_pages_info *lpi)
+static int collect_lazy_iovs(struct lazy_pages_info *lpi)
 {
 	struct page_read *pr = &lpi->pr;
-	struct lazy_iovec *lazy_iov, *n;
+	struct lazy_iov *lazy_iov, *n;
 	MmEntry *mm;
 	int nr_pages = 0, n_vma = 0, max_iov_len = 0;
 	int ret = -1;
@@ -495,7 +495,7 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 	 * Find the memory pages belonging to the restored process
 	 * so that it is trackable when all pages have been transferred.
 	 */
-	ret = collect_lazy_iovecs(lpi);
+	ret = collect_lazy_iovs(lpi);
 	if (ret < 0)
 		goto out;
 	lpi->total_pages = ret;
@@ -557,7 +557,7 @@ static int complete_page_fault(struct lazy_pages_info *lpi, unsigned long vaddr,
 		}
 	}
 
-	return update_lazy_iovecs(lpi, vaddr, nr * PAGE_SIZE);
+	return update_lazy_iovs(lpi, vaddr, nr * PAGE_SIZE);
 }
 
 static int uffd_io_complete(struct page_read *pr, unsigned long vaddr, int nr)
@@ -632,13 +632,13 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr,
 
 static int handle_remaining_pages(struct lazy_pages_info *lpi)
 {
-	struct lazy_iovec *lazy_iov;
+	struct lazy_iov *lazy_iov;
 	int nr_pages, err;
 
 	if (list_empty(&lpi->iovs))
 		return 0;
 
-	lazy_iov = list_first_entry(&lpi->iovs, struct lazy_iovec, l);
+	lazy_iov = list_first_entry(&lpi->iovs, struct lazy_iov, l);
 	nr_pages = lazy_iov->len / PAGE_SIZE;
 
 	err = uffd_handle_pages(lpi, lazy_iov->base, nr_pages, 0);
