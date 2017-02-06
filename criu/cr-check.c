@@ -1064,7 +1064,7 @@ static int check_uffd(void)
 {
 	unsigned long features = UFFD_FEATURE_EVENT_FORK |
 		UFFD_FEATURE_EVENT_REMAP |
-		UFFD_FEATURE_EVENT_MADVDONTNEED;
+		UFFD_FEATURE_EVENT_REMOVE;
 
 	if (kerndat_uffd(true))
 		return -1;
