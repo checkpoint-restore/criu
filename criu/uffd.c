@@ -331,8 +331,8 @@ static struct lazy_iov *find_lazy_iov(struct lazy_pages_info *lpi,
  * Purge range (addr, addr + len) from lazy_iovs. The range may
  * cover several continuous IOVs.
  */
-static int update_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
-			    int len)
+static int drop_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
+			  int len)
 {
 	struct lazy_iov *iov, *n;
 
@@ -575,7 +575,7 @@ static int complete_page_fault(struct lazy_pages_info *lpi, unsigned long vaddr,
 		}
 	}
 
-	return update_lazy_iovs(lpi, vaddr, nr * PAGE_SIZE);
+	return drop_lazy_iovs(lpi, vaddr, nr * PAGE_SIZE);
 }
 
 static int uffd_io_complete(struct page_read *pr, unsigned long vaddr, int nr)
