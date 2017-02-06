@@ -112,6 +112,13 @@ int pagemap_enqueue_iovec(struct page_read *pr, void *buf,
 			      unsigned long len, struct list_head *to);
 int pagemap_render_iovec(struct list_head *from, struct task_restore_args *ta);
 
+/*
+ * Create a shallow copy of page_read object.
+ * The new object shares the pagemap structures with the original, but
+ * maintains its own set of references to those structures.
+ */
+extern void dup_page_read(struct page_read *src, struct page_read *dst);
+
 extern int dedup_one_iovec(struct page_read *pr, unsigned long base,
 			   unsigned long len);
 
