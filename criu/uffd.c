@@ -327,6 +327,30 @@ static struct lazy_iov *find_lazy_iov(struct lazy_pages_info *lpi,
 	return NULL;
 }
 
+static int split_iov(struct lazy_iov *iov, unsigned long addr, bool new_below)
+{
+	struct lazy_iov *new;
+
+	new = xzalloc(sizeof(*new));
+	if (!new)
+		return -1;
+
+	if (new_below) {
+		new->base = iov->base;
+		new->len = addr - iov->base;
+		iov->base = addr;
+		iov->len -= new->len;
+		list_add_tail(&new->l, &iov->l);
+	} else {
+		new->base = addr;
+		new->len = iov->len - (addr - iov->base);
+		iov->len -= new->len;
+		list_add(&new->l, &iov->l);
+	}
+
+	return 0;
+}
+
 /*
  * Purge range (addr, addr + len) from lazy_iovs. The range may
  * cover several continuous IOVs.
@@ -363,18 +387,9 @@ static int drop_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
 				iov->base += len;
 				iov->len -= len;
 			} else {
-				struct lazy_iov *new_iov;
-
-				iov->len -= (end - addr);
-
-				new_iov = xzalloc(sizeof(*new_iov));
-				if (!new_iov)
+				if (split_iov(iov, addr + len, false))
 					return -1;
-
-				new_iov->base = addr + len;
-				new_iov->len = end - (addr + len);
-
-				list_add(&new_iov->l, &iov->l);
+				iov->len -= len;
 			}
 			break;
 		}
