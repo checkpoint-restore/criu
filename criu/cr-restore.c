@@ -27,6 +27,7 @@
 #include <compel/ptrace.h>
 #include "common/compiler.h"
 
+#include "clone-noasan.h"
 #include "cr_options.h"
 #include "servicefd.h"
 #include "image.h"
@@ -909,12 +910,6 @@ static int restore_one_task(int pid, CoreEntry *core)
 
 /* All arguments should be above stack, because it grows down */
 struct cr_clone_arg {
-	/*
-	 * Reserve some space for clone() to locate arguments
-	 * and retcode in this place
-	 */
-	char stack[128] __stack_aligned__;
-	char stack_ptr[0];
 	struct pstree_item *item;
 	unsigned long clone_flags;
 	int fd;
@@ -1037,9 +1032,8 @@ static inline int fork_with_pid(struct pstree_item *item)
 	 * The cgroup namespace is also unshared explicitly in the
 	 * move_in_cgroup(), so drop this flag here as well.
 	 */
-	ret = clone(restore_task_with_children, ca.stack_ptr,
-		    (ca.clone_flags & ~(CLONE_NEWNET | CLONE_NEWCGROUP)) | SIGCHLD, &ca);
-
+	ret = clone_noasan(restore_task_with_children,
+			(ca.clone_flags & ~(CLONE_NEWNET | CLONE_NEWCGROUP)) | SIGCHLD, &ca);
 	if (ret < 0) {
 		pr_perror("Can't fork for %d", pid);
 		goto err_unlock;
