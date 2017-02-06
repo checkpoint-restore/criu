@@ -744,12 +744,14 @@ static int lazy_pages_summary(struct lazy_pages_info *lpi)
 	lp_debug(lpi, "UFFD transferred pages: (%ld/%ld)\n",
 		 lpi->copied_pages, lpi->total_pages);
 
+#if 0
 	if ((lpi->copied_pages != lpi->total_pages) && (lpi->total_pages > 0)) {
 		lp_warn(lpi, "Only %ld of %ld pages transferred via UFFD\n"
 			"Something probably went wrong.\n",
 			lpi->copied_pages, lpi->total_pages);
 		return 1;
 	}
+#endif
 
 	return 0;
 }
