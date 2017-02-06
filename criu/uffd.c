@@ -56,6 +56,7 @@ static mutex_t *lazy_sock_mutex;
 struct lazy_iov {
 	struct list_head l;
 	unsigned long base;
+	unsigned long img_base;
 	unsigned long len;
 };
 
@@ -63,6 +64,7 @@ struct lazy_pages_info;
 
 struct lp_req {
 	unsigned long addr;
+	unsigned long img_addr;
 	struct list_head l;
 };
 
@@ -337,12 +339,15 @@ static int split_iov(struct lazy_iov *iov, unsigned long addr, bool new_below)
 
 	if (new_below) {
 		new->base = iov->base;
+		new->img_base = iov->img_base;
 		new->len = addr - iov->base;
 		iov->base = addr;
+		iov->img_base += new->len;
 		iov->len -= new->len;
 		list_add_tail(&new->l, &iov->l);
 	} else {
 		new->base = addr;
+		new->img_base = iov->img_base + addr - iov->base;
 		new->len = iov->len - (addr - iov->base);
 		iov->len -= new->len;
 		list_add(&new->l, &iov->l);
@@ -385,6 +390,7 @@ static int drop_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
 		if (addr + len < end) {
 			if (addr == start) {
 				iov->base += len;
+				iov->img_base += len;
 				iov->len -= len;
 			} else {
 				if (split_iov(iov, addr + len, false))
@@ -409,6 +415,60 @@ static int drop_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
 
 		len -= (end - addr);
 		addr = end;
+	}
+
+	return 0;
+}
+
+static int remap_lazy_iovs(struct lazy_pages_info *lpi, unsigned long from,
+			   unsigned long to, unsigned long len)
+{
+	unsigned long off = to - from;
+	struct lazy_iov *iov, *n, *p;
+	LIST_HEAD(remaps);
+
+	list_for_each_entry_safe(iov, n, &lpi->iovs, l) {
+		unsigned long iov_end = iov->base + iov->len;
+
+		if (from > iov_end)
+			continue;
+
+		if (len <= 0 || from + len < iov->base)
+			break;
+
+		if (from < iov->base) {
+			len -= (iov->base - from);
+			from = iov->base;
+		}
+
+		if (from > iov->base)
+			if (split_iov(iov, from, true))
+				return -1;
+		if (from + len < iov_end)
+			if (split_iov(iov, from + len, false))
+				return -1;
+
+		list_safe_reset_next(iov, n, l);
+
+		/* here we have iov->base = from, iov_end <= from + len */
+		from = iov_end;
+		len -= iov->len;
+		iov->base += off;
+		list_move_tail(&iov->l, &remaps);
+	}
+
+	list_for_each_entry_safe(iov, n, &remaps, l) {
+		list_for_each_entry(p, &lpi->iovs, l) {
+			if (iov->base < p->base) {
+				list_move_tail(&iov->l, &p->l);
+				break;
+			}
+			if (list_is_last(&p->l, &lpi->iovs) &&
+			    iov->base > p->base) {
+				list_move(&iov->l, &p->l);
+				break;
+			}
+		}
 	}
 
 	return 0;
@@ -455,6 +515,7 @@ static int collect_lazy_iovs(struct lazy_pages_info *lpi)
 
 			len = min_t(uint64_t, end, vma->end) - start;
 			iov->base = start;
+			iov->img_base = start;
 			iov->len = len;
 			list_add_tail(&iov->l, &lpi->iovs);
 
@@ -580,30 +641,34 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	return 0;
 }
 
-static int complete_page_fault(struct lazy_pages_info *lpi, unsigned long vaddr, int nr)
+static int complete_page_fault(struct lazy_pages_info *lpi, unsigned long img_addr, int nr)
 {
+	unsigned long addr = 0;
 	struct lp_req *req;
 
-	if (uffd_copy(lpi, vaddr, nr))
-		return -1;
-
 	list_for_each_entry(req, &lpi->reqs, l) {
-		if (req->addr == vaddr) {
+		if (req->img_addr == img_addr) {
+			addr = req->addr;
 			list_del(&req->l);
 			xfree(req);
 			break;
 		}
 	}
 
-	return drop_lazy_iovs(lpi, vaddr, nr * PAGE_SIZE);
+	BUG_ON(!addr);
+
+	if (uffd_copy(lpi, addr, nr))
+		return -1;
+
+	return drop_lazy_iovs(lpi, addr, nr * PAGE_SIZE);
 }
 
-static int uffd_io_complete(struct page_read *pr, unsigned long vaddr, int nr)
+static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr)
 {
 	struct lazy_pages_info *lpi;
 
 	lpi = container_of(pr, struct lazy_pages_info, pr);
-	return complete_page_fault(lpi, vaddr, nr);
+	return complete_page_fault(lpi, img_addr, nr);
 }
 
 static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
@@ -672,12 +737,21 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr,
 static int handle_remaining_pages(struct lazy_pages_info *lpi)
 {
 	struct lazy_iov *iov;
+	struct lp_req *req;
 	int nr_pages, err;
 
 	iov = list_first_entry(&lpi->iovs, struct lazy_iov, l);
 	nr_pages = iov->len / PAGE_SIZE;
 
-	err = uffd_handle_pages(lpi, iov->base, nr_pages, 0);
+	req = xzalloc(sizeof(*req));
+	if (!req)
+		return -1;
+
+	req->addr = iov->base;
+	req->img_addr = iov->img_base;
+	list_add(&req->l, &lpi->reqs);
+
+	err = uffd_handle_pages(lpi, req->img_addr, nr_pages, 0);
 	if (err < 0) {
 		lp_err(lpi, "Error during UFFD copy\n");
 		return -1;
@@ -712,6 +786,17 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	return drop_lazy_iovs(lpi, unreg.start, unreg.len);
 }
 
+static int handle_remap(struct lazy_pages_info *lpi, struct uffd_msg *msg)
+{
+	unsigned long from = msg->arg.remap.from;
+	unsigned long to = msg->arg.remap.to;
+	unsigned long len = msg->arg.remap.len;
+
+	lp_debug(lpi, "REMAP: %lx -> %lx (%ld)\n", from , to, len);
+
+	return remap_lazy_iovs(lpi, from, to, len);
+}
+
 static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
 	struct lp_req *req;
@@ -735,9 +820,10 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	if (!req)
 		return -1;
 	req->addr = address;
+	req->img_addr = iov->img_base + (address - iov->base);
 	list_add(&req->l, &lpi->reqs);
 
-	ret = uffd_handle_pages(lpi, address, 1, PR_ASYNC | PR_ASAP);
+	ret = uffd_handle_pages(lpi, req->img_addr, 1, PR_ASYNC | PR_ASAP);
 	if (ret < 0) {
 		lp_err(lpi, "Error during regular page copy\n");
 		return -1;
@@ -775,6 +861,8 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 	case UFFD_EVENT_REMOVE:
 	case UFFD_EVENT_UNMAP:
 		return handle_remove(lpi, &msg);
+	case UFFD_EVENT_REMAP:
+		return handle_remap(lpi, &msg);
 	default:
 		lp_err(lpi, "unexpected uffd event %u\n", msg.event);
 		return -1;
