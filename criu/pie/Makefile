@@ -21,6 +21,7 @@ endif
 # project.
 #
 CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS))
+CFLAGS		:= $(filter-out $(CFLAGS-ASAN),$(CFLAGS))
 CFLAGS		+= -iquote $(SRC_DIR)/criu/arch/$(ARCH)/include
 CFLAGS		+= -iquote $(SRC_DIR)/criu/include
 CFLAGS		+= -iquote $(SRC_DIR)/include
