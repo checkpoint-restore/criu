@@ -1063,7 +1063,9 @@ static int check_loginuid(void)
 static int check_uffd(void)
 {
 	unsigned long features = UFFD_FEATURE_EVENT_FORK |
+		UFFD_FEATURE_EVENT_EXIT |
 		UFFD_FEATURE_EVENT_REMAP |
+		UFFD_FEATURE_EVENT_UNMAP |
 		UFFD_FEATURE_EVENT_REMOVE;
 
 	if (kerndat_uffd(true))
