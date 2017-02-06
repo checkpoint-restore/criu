@@ -642,21 +642,6 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	address = msg->arg.pagefault.address & ~(page_size() - 1);
 	pr_debug("%d: #PF at 0x%llx\n", lpi->pid, address);
 
-#if 0
-	/*
-	 * Until uffd in kernel gets support for write protection,
-	 * flags are always 0, so there is no point to read and print
-	 * them
-	 */
-	{
-	__u64 flags;
-
-	/* Now handle the pages actually requested. */
-	flags = msg.arg.pagefault.flags;
-	pr_debug("msg.arg.pagefault.flags 0x%llx\n", flags);
-	}
-#endif
-
 	ret = uffd_handle_pages(lpi, address, 1, PR_ASYNC | PR_ASAP);
 	if (ret < 0) {
 		pr_err("Error during regular page copy\n");
