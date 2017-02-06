@@ -52,8 +52,8 @@ static int punch_hole(struct page_read *pr, unsigned long off,
 	struct iovec * bunch = &pr->bunch;
 
 	if (!cleanup && can_extend_bunch(bunch, off, len)) {
-		pr_debug("pr%d:Extend bunch len from %zu to %lu\n", pr->id,
-			 bunch->iov_len, bunch->iov_len + len);
+		pr_debug("pr%d-%d:Extend bunch len from %zu to %lu\n", pr->pid,
+			 pr->id, bunch->iov_len, bunch->iov_len + len);
 		bunch->iov_len += len;
 	} else {
 		if (bunch->iov_len > 0) {
@@ -67,7 +67,7 @@ static int punch_hole(struct page_read *pr, unsigned long off,
 		}
 		bunch->iov_base = (void *)off;
 		bunch->iov_len = len;
-		pr_debug("pr%d:New bunch/%p/%zu/\n", pr->id, bunch->iov_base, bunch->iov_len);
+		pr_debug("pr%d-%d:New bunch/%p/%zu/\n", pr->pid, pr->id, bunch->iov_base, bunch->iov_len);
 	}
 	return 0;
 }
@@ -211,7 +211,7 @@ static int read_parent_page(struct page_read *pr, unsigned long vaddr,
 	do {
 		int p_nr;
 
-		pr_debug("\tpr%u Read from parent\n", pr->id);
+		pr_debug("\tpr%d-%u Read from parent\n", pr->pid, pr->id);
 		ret = seek_pagemap_page(ppr, vaddr);
 		if (ret <= 0) {
 			pr_err("Missing %lx in parent pagemap\n", vaddr);
@@ -259,7 +259,7 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr,
 	if (pr->sync(pr))
 		return -1;
 
-	pr_debug("\tpr%u Read page from self %lx/%"PRIx64"\n", pr->id, pr->cvaddr, pr->pi_off);
+	pr_debug("\tpr%d-%u Read page from self %lx/%"PRIx64"\n", pr->pid, pr->id, pr->cvaddr, pr->pi_off);
 	while (1) {
 		ret = pread(fd, buf + curr, len - curr, pr->pi_off + curr);
 		if (ret < 1) {
@@ -434,7 +434,7 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
 			     void *buf, unsigned flags)
 {
-	pr_info("pr%u Read %lx %u pages\n", pr->id, vaddr, nr);
+	pr_info("pr%d-%u Read %lx %u pages\n", pr->pid, pr->id, vaddr, nr);
 	pagemap_bound_check(pr->pe, vaddr, nr);
 
 	if (pagemap_in_parent(pr->pe)) {
