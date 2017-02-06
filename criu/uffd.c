@@ -87,6 +87,8 @@ struct lazy_pages_info {
 };
 
 static LIST_HEAD(lpis);
+static LIST_HEAD(exiting_lpis);
+
 static int handle_uffd_event(struct epoll_rfd *lpfd);
 
 static struct lazy_pages_info *lpi_init(void)
@@ -106,15 +108,23 @@ static struct lazy_pages_info *lpi_init(void)
 	return lpi;
 }
 
-static void lpi_fini(struct lazy_pages_info *lpi)
+static void free_lazy_iovs(struct lazy_pages_info *lpi)
 {
 	struct lazy_iov *p, *n;
+
+	list_for_each_entry_safe(p, n, &lpi->iovs, l) {
+		list_del(&p->l);
+		xfree(p);
+	}
+}
+
+static void lpi_fini(struct lazy_pages_info *lpi)
+{
 
 	if (!lpi)
 		return;
 	free(lpi->buf);
-	list_for_each_entry_safe(p, n, &lpi->iovs, l)
-		xfree(p);
+	free_lazy_iovs(lpi);
 	if (lpi->lpfd.fd > 0)
 		close(lpi->lpfd.fd);
 	if (lpi->pr.close)
@@ -797,6 +807,29 @@ static int handle_remap(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	return remap_lazy_iovs(lpi, from, to, len);
 }
 
+static int handle_exit(struct lazy_pages_info *lpi, struct uffd_msg *msg)
+{
+	lp_debug(lpi, "EXIT\n");
+	list_move(&lpi->l, &exiting_lpis);
+	return 1;
+}
+
+static int complete_exits(int epollfd)
+{
+	struct lazy_pages_info *lpi, *n;
+
+	list_for_each_entry_safe(lpi, n, &exiting_lpis, l) {
+		if (epoll_del_rfd(epollfd, &lpi->lpfd))
+			return -1;
+		free_lazy_iovs(lpi);
+		close(lpi->lpfd.fd);
+		/* keep it for summary */
+		list_move_tail(&lpi->l, &lpis);
+	}
+
+	return 0;
+}
+
 static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
 	struct lp_req *req;
@@ -863,6 +896,8 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 		return handle_remove(lpi, &msg);
 	case UFFD_EVENT_REMAP:
 		return handle_remap(lpi, &msg);
+	case UFFD_EVENT_EXIT:
+		return handle_exit(lpi, &msg);
 	default:
 		lp_err(lpi, "unexpected uffd event %u\n", msg.event);
 		return -1;
@@ -902,6 +937,11 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 		ret = epoll_run_rfds(epollfd, events, nr_fds, poll_timeout);
 		if (ret < 0)
 			goto out;
+		if (ret > 0) {
+			if (complete_exits(epollfd))
+				return -1;
+			continue;
+		}
 
 		if (poll_timeout)
 			pr_debug("Start handling remaining pages\n");
