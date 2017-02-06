@@ -1229,6 +1229,16 @@ int epoll_add_rfd(int epfd, struct epoll_rfd *rfd)
 	return 0;
 }
 
+int epoll_del_rfd(int epfd, struct epoll_rfd *rfd)
+{
+	if (epoll_ctl(epfd, EPOLL_CTL_DEL, rfd->fd, NULL) == -1) {
+		pr_perror("epoll_ctl failed");
+		return -1;
+	}
+
+	return 0;
+}
+
 int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout)
 {
 	int ret, i, nr_events;

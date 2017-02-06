@@ -303,6 +303,7 @@ struct epoll_rfd {
 };
 
 extern int epoll_add_rfd(int epfd, struct epoll_rfd *);
+extern int epoll_del_rfd(int epfd, struct epoll_rfd *rfd);
 extern int epoll_run_rfds(int epfd, struct epoll_event *evs, int nr_fds, int tmo);
 extern int epoll_prepare(int nr_events, struct epoll_event **evs);
 
