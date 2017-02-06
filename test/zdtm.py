@@ -676,10 +676,12 @@ join_ns_file = '/run/netns/zdtm_netns'
 class criu_cli:
 	@staticmethod
 	def run(action, args, fault = None, strace = [], preexec = None, nowait = False):
-		env = None
+		env = dict(os.environ, ASAN_OPTIONS = "log_path=asan.log:disable_coredump=0:detect_leaks=0")
+
 		if fault:
 			print "Forcing %s fault" % fault
-			env = dict(os.environ, CRIU_FAULT = fault)
+			env['CRIU_FAULT'] = fault
+
 		cr = subprocess.Popen(strace + [criu_bin, action] + args, env = env, preexec_fn = preexec)
 		if nowait:
 			return cr
