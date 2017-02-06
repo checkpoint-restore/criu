@@ -671,6 +671,24 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	return 0;
 }
 
+static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
+{
+	struct uffdio_range unreg;
+
+	unreg.start = msg->arg.remove.start;
+	unreg.len = msg->arg.remove.end - msg->arg.remove.start;
+
+	lp_debug(lpi, "REMOVE: %Lx(%Lx)\n", unreg.start, unreg.len);
+
+	if (ioctl(lpi->lpfd.fd, UFFDIO_UNREGISTER, &unreg)) {
+		pr_perror("Failed to unregister (%llx - %llx)", unreg.start,
+			  unreg.start + unreg.len);
+		return -1;
+	}
+
+	return drop_lazy_iovs(lpi, unreg.start, unreg.len);
+}
+
 static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
 	struct lp_req *req;
@@ -731,6 +749,8 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 	switch (msg.event) {
 	case UFFD_EVENT_PAGEFAULT:
 		return handle_page_fault(lpi, &msg);
+	case UFFD_EVENT_REMOVE:
+		return handle_remove(lpi, &msg);
 	default:
 		lp_err(lpi, "unexpected uffd event %u\n", msg.event);
 		return -1;
