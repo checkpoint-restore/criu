@@ -43,7 +43,7 @@ LDFLAGS		:= $(filter-out $(LDFLAGS-MASK),$(LDFLAGS))
 #
 # Accumulate common flags.
 define nmk-ccflags
-        $(CFLAGS) $(ccflags-y) $(CFLAGS_$(@F))
+        $(filter-out $(CFLAGS_REMOVE_$(@F)), $(CFLAGS) $(ccflags-y) $(CFLAGS_$(@F)))
 endef
 
 define nmk-asflags
