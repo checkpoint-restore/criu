@@ -309,6 +309,18 @@ static MmEntry *init_mm_entry(struct lazy_pages_info *lpi)
 	return mm;
 }
 
+static struct lazy_iov *find_lazy_iov(struct lazy_pages_info *lpi,
+				      unsigned long addr)
+{
+	struct lazy_iov *iov;
+
+	list_for_each_entry(iov, &lpi->iovs, l)
+		if (addr >= iov->base && addr < iov->base + iov->len)
+			return iov;
+
+	return NULL;
+}
+
 /*
  * Purge range (addr, addr + len) from lazy_iovs. The range may
  * cover several continuous IOVs.
@@ -597,28 +609,29 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
  * Returns 0 for zero pages, 1 for "real" pages and negative value on
  * error
  */
-static int uffd_seek_or_zero_pages(struct lazy_pages_info *lpi, __u64 address,
-				   int nr)
+static int uffd_seek_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
 {
 	int ret;
 
 	lpi->pr.reset(&lpi->pr);
 
 	ret = lpi->pr.seek_pagemap(&lpi->pr, address);
-	if (!ret)
-		return uffd_zero(lpi, address, nr);
+	if (!ret) {
+		pr_err("%d: no pagemap covers %llx\n", lpi->pid, address);
+		return ret;
+	}
 
 	lpi->pr.skip_pages(&lpi->pr, address - lpi->pr.pe->vaddr);
 
-	return 1;
+	return 0;
 }
 
 static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr, unsigned flags)
 {
 	int ret;
 
-	ret = uffd_seek_or_zero_pages(lpi, address, nr);
-	if (ret <= 0)
+	ret = uffd_seek_pages(lpi, address, nr);
+	if (ret)
 		return ret;
 
 	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, flags);
@@ -653,6 +666,7 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
 	struct lp_req *req;
+	struct lazy_iov *iov;
 	__u64 address;
 	int ret;
 
@@ -663,6 +677,10 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	list_for_each_entry(req, &lpi->reqs, l)
 		if (req->addr == address)
 			return 0;
+
+	iov = find_lazy_iov(lpi, address);
+	if (!iov)
+		return uffd_zero(lpi, address, 1);
 
 	req = xzalloc(sizeof(*req));
 	if (!req)
