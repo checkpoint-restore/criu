@@ -786,3 +786,16 @@ int open_page_read(int pid, struct page_read *pr, int pr_flags)
 {
 	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr, pr_flags);
 }
+
+
+#define DUP_IDS_BASE 1000
+
+void dup_page_read(struct page_read *src, struct page_read *dst)
+{
+	static int dup_ids = 1;
+
+	memcpy(dst, src, sizeof(*dst));
+	INIT_LIST_HEAD(&dst->async);
+	dst->id = src->id + DUP_IDS_BASE * dup_ids++;
+	dst->reset(dst);
+}

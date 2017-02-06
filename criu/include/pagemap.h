@@ -103,6 +103,13 @@ extern int open_page_read(int pid, struct page_read *, int pr_flags);
 extern int open_page_read_at(int dfd, int pid, struct page_read *pr,
 		int pr_flags);
 
+/*
+ * Create a shallow copy of page_read object.
+ * The new object shares the pagemap structures with the original, but
+ * maintains its own set of references to those structures.
+ */
+extern void dup_page_read(struct page_read *src, struct page_read *dst);
+
 extern int dedup_one_iovec(struct page_read *pr, unsigned long base,
 			   unsigned long len);
 
