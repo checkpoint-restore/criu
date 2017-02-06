@@ -227,6 +227,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	socklen_t ids_len = sizeof(struct ucred);
 	char images_dir_path[PATH_MAX];
 	char work_dir_path[PATH_MAX];
+	char status_fd[PATH_MAX];
 	int i;
 
 	if (getsockopt(sk, SOL_SOCKET, SO_PEERCRED, &ids, &ids_len)) {
@@ -502,6 +503,13 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			if (irmap_scan_path_add(req->irmap_scan_paths[i]))
 				goto err;
 		}
+	}
+
+	if (req->has_status_fd) {
+		sprintf(status_fd, "/proc/%d/fd/%d", ids.pid, req->status_fd);
+		opts.status_fd = open(status_fd, O_WRONLY);
+		if (opts.status_fd < 0)
+			goto err;
 	}
 
 	if (check_namespace_opts())

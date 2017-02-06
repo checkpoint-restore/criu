@@ -108,6 +108,7 @@ message criu_opts {
 	optional uint32			timeout			= 45;
 	optional bool			tcp_skip_in_flight	= 46;
 	optional bool			weak_sysctls		= 47;
+	optional int32			status_fd		= 49;
 }
 
 message criu_dump_resp {
