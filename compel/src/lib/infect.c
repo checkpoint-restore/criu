@@ -850,9 +850,9 @@ int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 	return ret;
 }
 
-static inline unsigned long total_pie_size(size_t blob_size, size_t nr_gp)
+static inline unsigned long total_pie_size(size_t blob_size)
 {
-	return round_up(blob_size + nr_gp * sizeof(long), page_size());
+	return round_up(blob_size, page_size());
 }
 
 int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size)
@@ -876,7 +876,7 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	 * without using ptrace at all.
 	 */
 
-	parasite_size = total_pie_size(ctl->pblob.hdr.bsize, ctl->pblob.hdr.nr_gotpcrel);
+	parasite_size = total_pie_size(ctl->pblob.hdr.bsize);
 
 	ctl->args_size = round_up(args_size, PAGE_SIZE);
 	parasite_size += ctl->args_size;
