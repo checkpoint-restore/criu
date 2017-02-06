@@ -678,9 +678,17 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	unreg.start = msg->arg.remove.start;
 	unreg.len = msg->arg.remove.end - msg->arg.remove.start;
 
-	lp_debug(lpi, "REMOVE: %Lx(%Lx)\n", unreg.start, unreg.len);
+	lp_debug(lpi, "%s: %Lx(%Lx)\n",
+		 msg->event == UFFD_EVENT_REMOVE ? "REMOVE" : "UNMAP",
+		 unreg.start, unreg.len);
 
-	if (ioctl(lpi->lpfd.fd, UFFDIO_UNREGISTER, &unreg)) {
+	/*
+	 * The REMOVE event does not change the VMA, so we need to
+	 * make sure that we won't handle #PFs in the removed
+	 * range. With UNMAP, there's no VMA to worry about
+	 */
+	if (msg->event == UFFD_EVENT_REMOVE &&
+	    ioctl(lpi->lpfd.fd, UFFDIO_UNREGISTER, &unreg)) {
 		pr_perror("Failed to unregister (%llx - %llx)", unreg.start,
 			  unreg.start + unreg.len);
 		return -1;
@@ -750,6 +758,7 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 	case UFFD_EVENT_PAGEFAULT:
 		return handle_page_fault(lpi, &msg);
 	case UFFD_EVENT_REMOVE:
+	case UFFD_EVENT_UNMAP:
 		return handle_remove(lpi, &msg);
 	default:
 		lp_err(lpi, "unexpected uffd event %u\n", msg.event);
