@@ -28,6 +28,7 @@
 #include "files-reg.h"
 #include "namespaces.h"
 #include "external.h"
+#include "action-scripts.h"
 
 #include "protobuf.h"
 #include "util.h"
@@ -376,7 +377,7 @@ static int tty_verify_active_pairs(void * unused)
 				continue;
 			}
 
-			if (!opts.shell_job) {
+			if (!opts.shell_job && !opts.orphan_pts_master) {
 				pr_err("Found slave peer index %d without "
 				       "correspond master peer\n",
 				       tty_get_index(i));
@@ -688,7 +689,7 @@ int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 	else
 		index = driver->index;
 
-	if (is_pty(info->driver)) {
+	if (is_pty(info->driver) && tty_is_master(info)) {
 		fake = pty_alloc_fake_slave(info);
 		if (!fake)
 			goto err;
@@ -956,6 +957,32 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 	 */
 
 	if (likely(slave->inherit)) {
+		if (opts.orphan_pts_master) {
+			fake = pty_alloc_fake_master(slave);
+			if (!fake)
+				goto err;
+			master = pty_open_ptmx_index(&fake->d, slave, O_RDWR);
+			if (master < 0) {
+				pr_err("Can't open master pty %x (index %d)\n",
+					  slave->tfe->id, slave->tie->pty->index);
+				goto err;
+			}
+
+			unlock_pty(master);
+
+			if (opts.orphan_pts_master &&
+			    rpc_send_fd(ACT_ORPHAN_PTS_MASTER, master) == 0) {
+
+				fd = open_tty_reg(slave->reg_d, slave->tfe->flags);
+				if (fd < 0) {
+					pr_err("Can't open slave pty %s\n", path_from_reg(slave->reg_d));
+					goto err;
+				}
+
+				goto out;
+			}
+		}
+
 		if (!stdin_isatty) {
 			pr_err("Don't have tty to inherit session from, aborting\n");
 			return -1;
@@ -990,6 +1017,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 
 	}
 
+out:
 	if (restore_tty_params(fd, slave))
 		goto err;
 
@@ -1002,7 +1030,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 	 * be already restored properly thus we can simply
 	 * use syscalls instead of lookup via process tree.
 	 */
-	if (likely(slave->inherit)) {
+	if (slave->inherit && opts.shell_job) {
 		/*
 		 * The restoration procedure only works if we're
 		 * migrating not a session leader, otherwise it's
@@ -1241,8 +1269,10 @@ static int tty_find_restoring_task(struct tty_info *info)
 		if (!tty_is_master(info)) {
 			if (tty_has_active_pair(info))
 				return 0;
-			else
+			else if (!opts.orphan_pts_master)
 				goto shell_job;
+			else
+				info->inherit = true;
 		}
 
 		/*
@@ -1366,7 +1396,7 @@ static int tty_setup_slavery(void * unused)
 		    info->driver->type == TTY_TYPE__CTTY)
 			continue;
 
-		if (!tty_is_master(info))
+		if (!tty_is_master(info) && info->link)
 			continue;
 
 		info->ctl_tty = info;

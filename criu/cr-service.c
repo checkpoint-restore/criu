@@ -36,6 +36,9 @@
 #include "irmap.h"
 #include "kerndat.h"
 #include "proc_parse.h"
+#include <sys/un.h>
+#include <sys/socket.h>
+#include "common/scm.h"
 
 #include "setproctitle.h"
 
@@ -84,10 +87,10 @@ err:
 	return -1;
 }
 
-static int send_criu_msg(int socket_fd, CriuResp *msg)
+static int send_criu_msg_with_fd(int socket_fd, CriuResp *msg, int fd)
 {
 	unsigned char *buf;
-	int len;
+	int len, ret;
 
 	len = criu_resp__get_packed_size(msg);
 
@@ -100,7 +103,11 @@ static int send_criu_msg(int socket_fd, CriuResp *msg)
 		goto err;
 	}
 
-	if (write(socket_fd, buf, len)  == -1) {
+	if (fd >= 0) {
+		ret = send_fds(socket_fd, NULL, 0, &fd, 1, buf, len);
+	} else
+		ret = write(socket_fd, buf, len);
+	if (ret < 0) {
 		pr_perror("Can't send response");
 		goto err;
 	}
@@ -110,6 +117,11 @@ static int send_criu_msg(int socket_fd, CriuResp *msg)
 err:
 	xfree(buf);
 	return -1;
+}
+
+static int send_criu_msg(int socket_fd, CriuResp *msg)
+{
+	return send_criu_msg_with_fd(socket_fd, msg, -1);
 }
 
 static void set_resp_err(CriuResp *resp)
@@ -174,7 +186,7 @@ int send_criu_restore_resp(int socket_fd, bool success, int pid)
 	return send_criu_msg(socket_fd, &msg);
 }
 
-int send_criu_rpc_script(enum script_actions act, char *name, int fd)
+int send_criu_rpc_script(enum script_actions act, char *name, int sk, int fd)
 {
 	int ret;
 	CriuResp msg = CRIU_RESP__INIT;
@@ -201,11 +213,11 @@ int send_criu_rpc_script(enum script_actions act, char *name, int fd)
 		break;
 	}
 
-	ret = send_criu_msg(fd, &msg);
+	ret = send_criu_msg_with_fd(sk, &msg, fd);
 	if (ret < 0)
 		return ret;
 
-	ret = recv_criu_msg(fd, &req);
+	ret = recv_criu_msg(sk, &req);
 	if (ret < 0)
 		return ret;
 
@@ -511,6 +523,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		if (opts.status_fd < 0)
 			goto err;
 	}
+
+	if (req->orphan_pts_master)
+		opts.orphan_pts_master = true;
 
 	if (check_namespace_opts())
 		goto err;

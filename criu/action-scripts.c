@@ -13,6 +13,9 @@
 #include "pstree.h"
 #include "common/bug.h"
 #include "util.h"
+#include <sys/un.h>
+#include <sys/socket.h>
+#include "common/scm.h"
 
 static const char *action_names[ACT_MAX] = {
 	[ ACT_PRE_DUMP ]	= "pre-dump",
@@ -25,6 +28,7 @@ static const char *action_names[ACT_MAX] = {
 	[ ACT_POST_SETUP_NS ]	= "post-setup-namespaces",
 	[ ACT_PRE_RESUME ]	= "pre-resume",
 	[ ACT_POST_RESUME ]	= "post-resume",
+	[ ACT_ORPHAN_PTS_MASTER ] = "orphan-pts-master",
 };
 
 struct script {
@@ -96,6 +100,17 @@ static int run_shell_scripts(const char *action)
 	return retval;
 }
 
+int rpc_send_fd(enum script_actions act, int fd)
+{
+	const char *action = action_names[act];
+
+	if (scripts_mode != SCRIPTS_RPC)
+		return -1;
+
+	pr_debug("\tRPC\n");
+	return send_criu_rpc_script(act, (char *)action, rpc_sk, fd);
+}
+
 int run_scripts(enum script_actions act)
 {
 	int ret = 0;
@@ -108,7 +123,7 @@ int run_scripts(enum script_actions act)
 
 	if (scripts_mode == SCRIPTS_RPC) {
 		pr_debug("\tRPC\n");
-		ret = send_criu_rpc_script(act, (char *)action, rpc_sk);
+		ret = send_criu_rpc_script(act, (char *)action, rpc_sk, -1);
 		goto out;
 	}
 
@@ -146,6 +161,7 @@ int add_rpc_notify(int sk)
 	BUG_ON(scripts_mode == SCRIPTS_SHELL);
 	scripts_mode = SCRIPTS_RPC;
 
-	rpc_sk = sk;
+	rpc_sk = install_service_fd(RPC_SK_OFF, sk);
+
 	return 0;
 }

@@ -109,6 +109,7 @@ message criu_opts {
 	optional bool			tcp_skip_in_flight	= 46;
 	optional bool			weak_sysctls		= 47;
 	optional int32			status_fd		= 49;
+	optional bool			orphan_pts_master	= 50;
 }
 
 message criu_dump_resp {
