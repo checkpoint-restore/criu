@@ -13,6 +13,17 @@ RUN apk update && apk add \
                 pkgconfig \
                 libnet-dev \
                 $CC
+
 COPY . /criu
 WORKDIR /criu
 RUN make mrproper && make -j $(nproc) CC=$CC
+
+# to run tests
+RUN apk add	py-yaml \
+		py-pip	\
+		ip6tables \
+		iptables \
+		iproute2
+
+RUN pip install protobuf
+RUN make -C test/zdtm/static env00
