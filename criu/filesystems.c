@@ -18,6 +18,7 @@
 #include "autofs.h"
 #include "util.h"
 #include "fs-magic.h"
+#include "tty.h"
 
 #include "images/mnt.pb-c.h"
 #include "images/binfmt-misc.pb-c.h"
@@ -698,6 +699,7 @@ static struct fstype fstypes[] = {
 		.name = "devpts",
 		.parse = devpts_parse,
 		.code = FSTYPE__DEVPTS,
+		.restore = devpts_restore,
 	}, {
 		.name = "simfs",
 		.code = FSTYPE__SIMFS,

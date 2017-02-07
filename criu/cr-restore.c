@@ -75,6 +75,7 @@
 #include "fault-injection.h"
 #include "sk-queue.h"
 #include "sigframe.h"
+#include "fdstore.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
@@ -169,9 +170,6 @@ static struct collect_image_info *cinfos[] = {
 	&inotify_mark_cinfo,
 	&fanotify_cinfo,
 	&fanotify_mark_cinfo,
-	&tty_info_cinfo,
-	&tty_cinfo,
-	&tty_cdata,
 	&tunfile_cinfo,
 	&ext_file_cinfo,
 	&timerfd_cinfo,
@@ -179,6 +177,13 @@ static struct collect_image_info *cinfos[] = {
 	&pipe_data_cinfo,
 	&fifo_data_cinfo,
 	&sk_queues_cinfo,
+};
+
+/* These images are requered to restore namespaces */
+static struct collect_image_info *before_ns_cinfos[] = {
+	&tty_info_cinfo, /* Restore devpts content */
+	&tty_cinfo,
+	&tty_cdata,
 };
 
 struct post_prepare_cb {
@@ -220,9 +225,6 @@ static int root_prepare_shared(void)
 	struct pstree_item *pi;
 
 	pr_info("Preparing info about shared resources\n");
-
-	if (prepare_shared_tty())
-		return -1;
 
 	if (prepare_shared_reg_files())
 		return -1;
@@ -1284,6 +1286,13 @@ static int restore_task_with_children(void *_arg)
 
 	/* Restore root task */
 	if (current->parent == NULL) {
+		int i;
+
+		if (prepare_shared_tty())
+			goto err;
+
+		if (fdstore_init())
+			goto err;
 		if (join_namespaces()) {
 			pr_perror("Join namespaces failed");
 			goto err;
@@ -1299,6 +1308,13 @@ static int restore_task_with_children(void *_arg)
 		 */
 		if (mount_proc())
 			goto err;
+
+		for (i = 0; i < ARRAY_SIZE(before_ns_cinfos); i++) {
+			ret = collect_image(before_ns_cinfos[i]);
+			if (ret)
+				return -1;
+		}
+
 
 		if (prepare_namespace(current, ca->clone_flags))
 			goto err;
@@ -3045,6 +3061,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	close_proc();
 	close_service_fd(ROOT_FD_OFF);
 	close_service_fd(USERNSD_SK);
+	close_service_fd(FDSTORE_SK_OFF);
 	close_service_fd(RPC_SK_OFF);
 
 	__gcov_flush();

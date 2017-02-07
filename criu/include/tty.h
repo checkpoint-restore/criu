@@ -29,6 +29,9 @@ extern struct collect_image_info tty_cinfo;
 extern struct collect_image_info tty_cdata;
 extern int prepare_shared_tty(void);
 
+struct mount_info;
+extern int devpts_restore(struct mount_info *pm);
+
 extern int tty_prep_fds(void);
 extern void tty_fini_fds(void);
 

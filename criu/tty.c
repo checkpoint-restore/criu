@@ -29,6 +29,7 @@
 #include "namespaces.h"
 #include "external.h"
 #include "action-scripts.h"
+#include "mount.h"
 
 #include "protobuf.h"
 #include "util.h"
@@ -38,6 +39,7 @@
 #include "parasite.h"
 
 #include "pstree.h"
+#include "fdstore.h"
 #include "tty.h"
 
 /*
@@ -102,6 +104,8 @@ struct tty_info {
 	struct tty_info			*ctl_tty;
 	struct tty_info			*link;
 	struct tty_data_entry		*tty_data;
+
+	int				fdstore_id;
 };
 
 struct tty_dump_info {
@@ -616,6 +620,9 @@ static int __pty_open_ptmx_index(int index, int flags,
 
 static int pty_open_ptmx_index(struct file_desc *d, struct tty_info *info, int flags)
 {
+	if (info->fdstore_id >= 0)
+		return fdstore_get(info->fdstore_id);
+
 	return __pty_open_ptmx_index(info->tie->pty->index, flags,
 					open_tty_reg, d, path_from_reg(d));
 }
@@ -1632,6 +1639,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 			return -1;
 	}
 
+	info->fdstore_id = -1;
 	list_add(&info->list, &all_ttys);
 	return file_desc_add(&info->d, info->tfe->id, &tty_desc_ops);
 }
@@ -2142,4 +2150,76 @@ int tty_prep_fds(void)
 void tty_fini_fds(void)
 {
 	close_service_fd(SELF_STDIN_OFF);
+}
+
+static int open_pty(void *arg, int flags)
+{
+	int dfd = (unsigned long) arg;
+	/*
+	 * Never set as a control terminal automatically, all
+	 * ctty magic happens only in tty_set_sid().
+	 */
+	flags |= O_NOCTTY;
+	return openat(dfd, "ptmx", flags);
+}
+
+/* Create a pty pair and save a master descriptor in fdstore */
+static int pty_create_ptmx_index(int dfd, int index, int flags)
+{
+	struct tty_info *info;
+	int fd, id;
+
+	fd = __pty_open_ptmx_index(index, flags, open_pty, (void *)(unsigned long) dfd, "ptmx");
+	if (fd < 0)
+		return -1;
+
+	id = fdstore_add(fd);
+	if (id < 0)
+		return -1;
+	close(fd);
+
+	list_for_each_entry(info, &all_ttys, list) {
+		if (!is_pty(info->driver))
+			continue;
+
+		if (info->tie->pty->index == index) {
+			info->fdstore_id = id;
+		}
+	}
+
+	return 0;
+}
+
+/* Restore slave pty-s which have to be bind-mounted to somewhere */
+int devpts_restore(struct mount_info *pm)
+{
+	struct mount_info *bm;
+	int dfd, exit_code = -1;
+
+	dfd = open(pm->mountpoint, O_RDONLY);
+	if (dfd < 0) {
+		pr_perror("Unable to open %s", pm->mountpoint);
+		return -1;
+	}
+
+
+	list_for_each_entry(bm, &pm->mnt_bind, mnt_bind) {
+		int idx;
+		struct stat st;
+
+		if (sscanf(bm->root, "/%d", &idx) < 1)
+			continue;
+
+		if (fstatat(dfd, bm->root + 1, &st, 0) == 0)
+			continue;
+
+		pr_debug("Create a slave tty %d\n", idx);
+		if (pty_create_ptmx_index(dfd, idx, O_RDWR))
+			goto err;
+	}
+
+	exit_code = 0;
+err:
+	close(dfd);
+	return exit_code;
 }
