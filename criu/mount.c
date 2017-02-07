@@ -1091,10 +1091,23 @@ int open_mountpoint(struct mount_info *pm)
 		goto out;
 
 	mnt_path = get_clean_mnt(pm, mnt_path_tmp, mnt_path_root);
-	if (mnt_path == NULL)
-		goto out;
+	if (mnt_path == NULL) {
+		/*
+		 * We probably can't create a temporary direcotry,
+		 * so we can try to clone the mount namespace, open
+		 * the required mount and destroy this mount namespace
+		 * by calling restore_ns() below in this function.
+		 */
+		if (unshare(CLONE_NEWNS)) {
+			pr_perror("Unable to clone a mount namespace");
+			goto out;
+		}
 
-	fd = open_detach_mount(mnt_path);
+		fd = open(pm->mountpoint, O_RDONLY | O_DIRECTORY, 0);
+		if (fd < 0)
+			pr_perror("Can't open directory %s: %d", pm->mountpoint, fd);
+	} else
+		fd = open_detach_mount(mnt_path);
 	if (fd < 0)
 		goto out;
 
