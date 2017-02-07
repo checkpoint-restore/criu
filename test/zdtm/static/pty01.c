@@ -9,6 +9,7 @@
 #include <string.h>
 #include <termios.h>
 #include <signal.h>
+#include <sys/mount.h>
 
 #include "zdtmtst.h"
 
@@ -50,6 +51,19 @@ int main(int argc, char *argv[])
 		pr_perror("open(%s) failed", slavename);
 		return 1;
 	}
+
+#ifdef ZDTM_DEV_CONSOLE
+	{
+		int fd;
+		fd = open("/dev/console", O_CREAT | O_RDONLY, 0755);
+		if (fd < 0)
+			return -1;
+		close(fd);
+
+		if (mount(slavename, "/dev/console", NULL, MS_BIND, NULL))
+			return -1;
+	}
+#endif
 
 	if (fchown(slave1, new_uid, new_gid)) {
 		pr_perror("Can't set uid/gid on %s", slavename);

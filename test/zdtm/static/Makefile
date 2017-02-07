@@ -114,6 +114,7 @@ TST_NOFILE	:=				\
 		rlimits00			\
 		pty00				\
 		pty01				\
+		pty-console			\
 		pty02				\
 		pty03				\
 		pty04				\
@@ -451,6 +452,8 @@ socket-tcp-last-ack:	override CFLAGS += -D ZDTM_TCP_LAST_ACK
 socket-tcp6-last-ack:	override CFLAGS += -D ZDTM_TCP_LAST_ACK -D ZDTM_IPV6
 socket-tcp6-closing:	override CFLAGS += -D ZDTM_IPV6
 socket-tcp6-unconn:	override CFLAGS += -D ZDTM_IPV6
+
+pty-console:		override CFLAGS += -D ZDTM_DEV_CONSOLE
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
