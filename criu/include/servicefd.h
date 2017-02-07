@@ -21,6 +21,7 @@ enum sfd_type {
 	NS_FD_OFF,	/* Node's net namespace fd */
 	TRANSPORT_FD_OFF, /* to transfer file descriptors */
 	RPC_SK_OFF,
+	FDSTORE_SK_OFF,
 
 	SERVICE_FD_MAX
 };
