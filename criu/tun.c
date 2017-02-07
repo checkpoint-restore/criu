@@ -439,8 +439,9 @@ int dump_tun_link(NetDeviceEntry *nde, struct cr_imgset *fds, struct nlattr **in
 	return write_netdev_img(nde, fds, info);
 }
 
-int restore_one_tun(NetDeviceEntry *nde, int nlsk)
+int restore_one_tun(struct net_link *link, int nlsk)
 {
+	NetDeviceEntry *nde = link->nde;
 	int fd, ret = -1, aux;
 
 	if (!nde->tun) {
@@ -489,7 +490,7 @@ int restore_one_tun(NetDeviceEntry *nde, int nlsk)
 		goto out;
 	}
 
-	if (restore_link_parms(nde, nlsk)) {
+	if (restore_link_parms(link, nlsk)) {
 		pr_err("Error restoring %s link params\n", nde->name);
 		goto out;
 	}
