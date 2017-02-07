@@ -1123,12 +1123,14 @@ struct newlink_extras {
 	int target_netns;	/* IFLA_NET_NS_FD */
 };
 
-typedef int (*link_info_t)(struct ns_id *ns, NetDeviceEntry *, struct newlink_req *);
+typedef int (*link_info_t)(struct ns_id *ns, struct net_link *, struct newlink_req *);
 
 static int populate_newlink_req(struct ns_id *ns, struct newlink_req *req,
-			int msg_type, NetDeviceEntry *nde,
+			int msg_type, struct net_link * link,
 			link_info_t link_info, struct newlink_extras *extras)
 {
+	NetDeviceEntry *nde = link->nde;
+
 	memset(req, 0, sizeof(*req));
 
 	req->h.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
@@ -1171,7 +1173,7 @@ static int populate_newlink_req(struct ns_id *ns, struct newlink_req *req,
 		linkinfo = NLMSG_TAIL(&req->h);
 		addattr_l(&req->h, sizeof(*req), IFLA_LINKINFO, NULL, 0);
 
-		ret = link_info(ns, nde, req);
+		ret = link_info(ns, link, req);
 		if (ret < 0)
 			return ret;
 
@@ -1182,27 +1184,27 @@ static int populate_newlink_req(struct ns_id *ns, struct newlink_req *req,
 }
 
 static int do_rtm_link_req(int msg_type,
-			NetDeviceEntry *nde, int nlsk, struct ns_id *ns,
+			struct net_link *link, int nlsk, struct ns_id *ns,
 			link_info_t link_info, struct newlink_extras *extras)
 {
 	struct newlink_req req;
 
-	if (populate_newlink_req(ns, &req, msg_type, nde, link_info, extras) < 0)
+	if (populate_newlink_req(ns, &req, msg_type, link, link_info, extras) < 0)
 		return -1;
 
 	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL, NULL, NULL);
 }
 
-int restore_link_parms(NetDeviceEntry *nde, int nlsk)
+int restore_link_parms(struct net_link *link, int nlsk)
 {
-	return do_rtm_link_req(RTM_SETLINK, nde, nlsk, NULL, NULL, NULL);
+	return do_rtm_link_req(RTM_SETLINK, link, nlsk, NULL, NULL, NULL);
 }
 
-static int restore_one_link(struct ns_id *ns, NetDeviceEntry *nde, int nlsk,
+static int restore_one_link(struct ns_id *ns, struct net_link *link, int nlsk,
 			link_info_t link_info, struct newlink_extras *extras)
 {
-	pr_info("Restoring netdev %s idx %d\n", nde->name, nde->ifindex);
-	return do_rtm_link_req(RTM_NEWLINK, nde, nlsk, ns, link_info, extras);
+	pr_info("Restoring netdev %s idx %d\n", link->nde->name, link->nde->ifindex);
+	return do_rtm_link_req(RTM_NEWLINK, link, nlsk, ns, link_info, extras);
 }
 
 #ifndef VETH_INFO_MAX
@@ -1219,9 +1221,10 @@ enum {
 #define IFLA_NET_NS_FD	28
 #endif
 
-static int veth_peer_info(NetDeviceEntry *nde, struct newlink_req *req,
+static int veth_peer_info(struct net_link *link, struct newlink_req *req,
 						struct ns_id *ns, int ns_fd)
 {
+	NetDeviceEntry *nde = link->nde;
 	char key[100], *val;
 	struct ns_id *peer_ns = NULL;
 
@@ -1237,46 +1240,33 @@ static int veth_peer_info(NetDeviceEntry *nde, struct newlink_req *req,
 	}
 
 	if (nde->has_peer_nsid) {
-		if (ns && nde->peer_nsid == ns->id) {
-			struct net_link *link;
+		struct net_link *plink;
 
-			list_for_each_entry(link, &ns->net.links, node)
-				if (link->nde->ifindex == nde->peer_ifindex && link->created) {
-					pr_err("%d\n", nde->peer_ifindex);
-					req->h.nlmsg_type = RTM_SETLINK;
-					return 0;
-				}
-		}
 		peer_ns = lookup_ns_by_id(nde->peer_nsid, &net_ns_desc);
-		if (peer_ns->ns_populated) {
-			req->h.nlmsg_type = RTM_SETLINK;
-			return 0;
+		if (!peer_ns)
+			goto out;
+		list_for_each_entry(plink, &peer_ns->net.links, node) {
+			if (plink->nde->ifindex == nde->peer_ifindex && plink->created) {
+				req->h.nlmsg_type = RTM_SETLINK;
+				return 0;
+			}
 		}
 	}
 
+	link->created = true;
 	if (peer_ns) {
-		if (ns && nde->peer_nsid == ns->id) {
-			struct net_link *link;
-
-			link = xmalloc(sizeof(*link));
-			if (link == NULL)
-				return -1;
-
-			link->created = true;
-			list_add(&link->node, &ns->net.links);
-		}
-
 		addattr_l(&req->h, sizeof(*req), IFLA_NET_NS_FD, &peer_ns->net.ns_fd, sizeof(int));
 		return 0;
 	}
-
+out:
 	pr_err("Unknown peer net namespace");
 	return -1;
 }
 
-static int veth_link_info(struct ns_id *ns, NetDeviceEntry *nde, struct newlink_req *req)
+static int veth_link_info(struct ns_id *ns, struct net_link *link, struct newlink_req *req)
 {
 	int ns_fd = get_service_fd(NS_FD_OFF);
+	NetDeviceEntry *nde = link->nde;
 	struct rtattr *veth_data, *peer_data;
 	struct ifinfomsg ifm;
 
@@ -1290,14 +1280,14 @@ static int veth_link_info(struct ns_id *ns, NetDeviceEntry *nde, struct newlink_
 	ifm.ifi_index = nde->peer_ifindex;
 	addattr_l(&req->h, sizeof(*req), VETH_INFO_PEER, &ifm, sizeof(ifm));
 
-	veth_peer_info(nde, req, ns, ns_fd);
+	veth_peer_info(link, req, ns, ns_fd);
 	peer_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)peer_data;
 	veth_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)veth_data;
 
 	return 0;
 }
 
-static int venet_link_info(struct ns_id *ns, NetDeviceEntry *nde, struct newlink_req *req)
+static int venet_link_info(struct ns_id *ns, struct net_link *link, struct newlink_req *req)
 {
 	int ns_fd = get_service_fd(NS_FD_OFF);
 	struct rtattr *venet_data;
@@ -1313,7 +1303,7 @@ static int venet_link_info(struct ns_id *ns, NetDeviceEntry *nde, struct newlink
 	return 0;
 }
 
-static int bridge_link_info(struct ns_id *ns, NetDeviceEntry *nde, struct newlink_req *req)
+static int bridge_link_info(struct ns_id *ns, struct net_link *link, struct newlink_req *req)
 {
 	struct rtattr *bridge_data;
 
@@ -1339,9 +1329,10 @@ static int changeflags(int s, char *name, short flags)
 	return 0;
 }
 
-static int macvlan_link_info(struct ns_id *ns, NetDeviceEntry *nde, struct newlink_req *req)
+static int macvlan_link_info(struct ns_id *ns, struct net_link *link, struct newlink_req *req)
 {
 	struct rtattr *macvlan_data;
+	NetDeviceEntry *nde = link->nde;
 	MacvlanLinkEntry *macvlan = nde->macvlan;
 
 	if (!macvlan) {
@@ -1393,7 +1384,7 @@ out:
 	return ret;
 }
 
-static int restore_one_macvlan(struct ns_id *ns, NetDeviceEntry *nde, int nlsk)
+static int restore_one_macvlan(struct ns_id *ns, struct net_link *link, int nlsk)
 {
 	struct newlink_extras extras = {
 		.link = -1,
@@ -1401,6 +1392,7 @@ static int restore_one_macvlan(struct ns_id *ns, NetDeviceEntry *nde, int nlsk)
 	};
 	char key[100], *val;
 	int my_netns = -1, ret = -1;
+	NetDeviceEntry *nde = link->nde;
 
 	snprintf(key, sizeof(key), "macvlan[%s]", nde->name);
 	val = external_lookup_data(key);
@@ -1428,7 +1420,7 @@ static int restore_one_macvlan(struct ns_id *ns, NetDeviceEntry *nde, int nlsk)
 	{
 		struct newlink_req req;
 
-		if (populate_newlink_req(ns, &req, RTM_NEWLINK, nde, macvlan_link_info, &extras) < 0)
+		if (populate_newlink_req(ns, &req, RTM_NEWLINK, link, macvlan_link_info, &extras) < 0)
 			goto out;
 
 		if (userns_call(userns_restore_one_link, 0, &req, sizeof(req), my_netns) < 0) {
@@ -1444,8 +1436,9 @@ out:
 	return ret;
 }
 
-static int sit_link_info(struct ns_id *ns, NetDeviceEntry *nde, struct newlink_req *req)
+static int sit_link_info(struct ns_id *ns, struct net_link *link, struct newlink_req *req)
 {
+	NetDeviceEntry *nde = link->nde;
 	struct rtattr *sit_data;
 	SitEntry *se = nde->sit;
 
@@ -1532,28 +1525,30 @@ skip:;
 	return 0;
 }
 
-static int __restore_link(struct ns_id *ns, NetDeviceEntry *nde, int nlsk)
+static int __restore_link(struct ns_id *ns, struct net_link *link, int nlsk)
 {
+	NetDeviceEntry *nde = link->nde;
+
 	pr_info("Restoring link %s type %d\n", nde->name, nde->type);
 
 	switch (nde->type) {
 	case ND_TYPE__LOOPBACK: /* fallthrough */
 	case ND_TYPE__EXTLINK:  /* see comment in images/netdev.proto */
-		return restore_link_parms(nde, nlsk);
+		return restore_link_parms(link, nlsk);
 	case ND_TYPE__VENET:
-		return restore_one_link(ns, nde, nlsk, venet_link_info, NULL);
+		return restore_one_link(ns, link, nlsk, venet_link_info, NULL);
 	case ND_TYPE__VETH:
-		return restore_one_link(ns, nde, nlsk, veth_link_info, NULL);
+		return restore_one_link(ns, link, nlsk, veth_link_info, NULL);
 	case ND_TYPE__TUN:
-		return restore_one_tun(nde, nlsk);
+		return restore_one_tun(link, nlsk);
 	case ND_TYPE__BRIDGE:
-		return restore_one_link(ns, nde, nlsk, bridge_link_info, NULL);
+		return restore_one_link(ns, link, nlsk, bridge_link_info, NULL);
 	case ND_TYPE__MACVLAN:
-		return restore_one_macvlan(ns, nde, nlsk);
+		return restore_one_macvlan(ns, link, nlsk);
 	case ND_TYPE__SIT:
-		return restore_one_link(ns, nde, nlsk, sit_link_info, NULL);
+		return restore_one_link(ns, link, nlsk, sit_link_info, NULL);
 	default:
-		pr_err("Unsupported link type %d\n", nde->type);
+		pr_err("Unsupported link type %d\n", link->nde->type);
 		break;
 	}
 
@@ -1599,7 +1594,7 @@ static int restore_link(int nlsk, struct ns_id *ns, struct net_link *link)
 	NetnsEntry **def_netns = &ns->net.netns;
 	int ret;
 
-	ret = __restore_link(ns, nde, nlsk);
+	ret = __restore_link(ns, link, nlsk);
 	if (ret) {
 		pr_err("Can't restore link: %d\n", ret);
 		goto exit;
@@ -1626,26 +1621,35 @@ exit:
 	return ret;
 }
 
-static int restore_links(struct ns_id *ns)
+static int restore_links()
 {
 	struct net_link *link, *t;
-	int exit_code = -1, nlsk;
+	int exit_code = -1, nlsk = -1;
+	struct ns_id *nsid;
 
-	nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-	if (nlsk < 0) {
-		pr_perror("Can't create nlk socket");
-		return -1;
-	}
+	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
+		if (nsid->nd != &net_ns_desc)
+			continue;
 
-	list_for_each_entry_safe(link, t, &ns->net.links, node) {
-		if (restore_link(nlsk, ns, link))
+		if (switch_ns_by_fd(nsid->net.ns_fd, &net_ns_desc, NULL))
 			goto out;
-		xfree(link);
+
+		nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+		if (nlsk < 0) {
+			pr_perror("Can't create nlk socket");
+			return -1;
+		}
+
+		list_for_each_entry_safe(link, t, &nsid->net.links, node) {
+			if (restore_link(nlsk, nsid, link))
+				goto out;
+		}
+		close_safe(&nlsk);
 	}
 
 	exit_code = 0;
 out:
-	close(nlsk);
+	close_safe(&nlsk);
 
 	return exit_code;
 }
@@ -2172,19 +2176,27 @@ out:
 	return exit_code;
 }
 
-static int prepare_net_ns(struct ns_id *ns)
+static int prepare_net_ns_first_stage(struct ns_id *ns)
+{
+	int ret = 0;
+
+	if (opts.empty_ns & CLONE_NEWNET)
+		return 0;
+
+	ret = restore_netns_conf(ns);
+	if (!ret)
+		ret = restore_netns_ids(ns);
+	if (!ret)
+		ret = read_links(ns);
+
+	return ret;
+}
+
+static int prepare_net_ns_second_stage(struct ns_id *ns)
 {
 	int ret = 0, nsid = ns->id;
 
 	if (!(opts.empty_ns & CLONE_NEWNET)) {
-		ret = restore_netns_conf(ns);
-		if (!ret)
-			ret = restore_netns_ids(ns);
-		if (!ret)
-			ret = read_links(ns);
-		if (!ret)
-			ret = restore_links(ns);
-
 		if (ns->net.netns)
 			netns_entry__free_unpacked(ns->net.netns, NULL);
 
@@ -2293,7 +2305,21 @@ int prepare_net_namespaces()
 		if (switch_ns_by_fd(nsid->net.ns_fd, &net_ns_desc, NULL))
 			goto err;
 
-		if (prepare_net_ns(nsid))
+		if (prepare_net_ns_first_stage(nsid))
+			goto err;
+	}
+
+	if (restore_links())
+		goto err;
+
+	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
+		if (nsid->nd != &net_ns_desc)
+			continue;
+
+		if (switch_ns_by_fd(nsid->net.ns_fd, &net_ns_desc, NULL))
+			goto err;
+
+		if (prepare_net_ns_second_stage(nsid))
 			goto err;
 	}
 
@@ -2843,8 +2869,9 @@ int net_get_nsid(int rtsk, int pid, int *nsid)
 }
 
 
-static int nsid_link_info(struct ns_id *ns, NetDeviceEntry *nde, struct newlink_req *req)
+static int nsid_link_info(struct ns_id *ns, struct net_link *link, struct newlink_req *req)
 {
+	NetDeviceEntry *nde = link->nde;
 	struct rtattr *veth_data, *peer_data;
 	struct ifinfomsg ifm;
 
@@ -2921,6 +2948,10 @@ int kerndat_link_nsid()
 
 	if (pid == 0) {
 		NetDeviceEntry nde = NET_DEVICE_ENTRY__INIT;
+		struct net_link link = {
+			.created = false,
+			.nde = &nde,
+		};
 		int nsfd, sk, ret;
 
 		sk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
@@ -2952,7 +2983,7 @@ int kerndat_link_nsid()
 		nde.has_peer_ifindex = true;
 		nde.has_peer_nsid = true;
 
-		ret = restore_one_link(NULL, &nde, sk, nsid_link_info, NULL);
+		ret = restore_one_link(NULL, &link, sk, nsid_link_info, NULL);
 		if (ret) {
 			pr_err("Unable to create a veth pair: %d\n", ret);
 			exit(1);

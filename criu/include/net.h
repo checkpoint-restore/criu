@@ -38,7 +38,8 @@ extern struct ns_desc net_ns_desc;
 #include "images/netdev.pb-c.h"
 extern int write_netdev_img(NetDeviceEntry *nde, struct cr_imgset *fds, struct nlattr **info);
 extern int read_ns_sys_file(char *path, char *buf, int len);
-extern int restore_link_parms(NetDeviceEntry *nde, int nlsk);
+struct net_link;
+extern int restore_link_parms(struct net_link *link, int nlsk);
 
 extern int veth_pair_add(char *in, char *out);
 extern int macvlan_ext_add(struct external *ext);
