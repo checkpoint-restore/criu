@@ -1,4 +1,3 @@
-#include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/auxv.h>
@@ -14,10 +13,9 @@
 #include "errno.h"
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/plugins/std/syscall.h>
-#include "asm/ptrace.h"
 #include "common/err.h"
 #include "asm/infect-types.h"
-#include "uapi/compel/ptrace.h"
+#include "ptrace.h"
 #include "infect.h"
 #include "infect-priv.h"
 #include "log.h"
@@ -158,10 +156,6 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *ar
 			break;
 		}
 	}
-
-#ifndef PTRACE_GETREGSET
-# define PTRACE_GETREGSET 0x4204
-#endif
 
 	if (!cpu_has_feature(X86_FEATURE_FPU))
 		goto out;

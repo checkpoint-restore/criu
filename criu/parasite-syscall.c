@@ -15,7 +15,6 @@
 #include "images/pagemap.pb-c.h"
 
 #include "imgset.h"
-#include <compel/ptrace.h>
 #include "parasite-syscall.h"
 #include "parasite.h"
 #include "crtools.h"

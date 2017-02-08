@@ -1572,7 +1572,7 @@ static int attach_to_tasks(bool root_seized)
 			 * doing an munmap in the process, which may be blocked by
 			 * seccomp and cause the task to be killed.
 			 */
-			if (rsti(item)->has_seccomp && suspend_seccomp(pid) < 0)
+			if (rsti(item)->has_seccomp && ptrace_suspend_seccomp(pid) < 0)
 				pr_err("failed to suspend seccomp, restore will probably fail...\n");
 
 			if (ptrace(PTRACE_CONT, pid, NULL, NULL) ) {
