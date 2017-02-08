@@ -19,7 +19,7 @@ static int verify_cpu(void)
 
 	/* Do we have xsave? */
 	cpuid(1, &eax, &ebx, &ecx, &edx);
-	if (!(ecx & (1u << 26)))
+	if (!(ecx & (1u << 27)))
 		return -1;
 
 	/* Is YMM here? */
