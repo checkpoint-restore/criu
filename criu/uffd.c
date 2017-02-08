@@ -61,16 +61,16 @@ static mutex_t *lazy_sock_mutex;
 
 struct lazy_iov {
 	struct list_head l;
-	unsigned long base;
-	unsigned long img_base;
+	unsigned long base;	/* run-time start address, tracks remaps */
+	unsigned long img_base;	/* start address at the dump time */
 	unsigned long len;
 };
 
 struct lazy_pages_info;
 
 struct lp_req {
-	unsigned long addr;
-	unsigned long img_addr;
+	unsigned long addr;	/* actual #PF (or background) destination */
+	unsigned long img_addr;	/* the corresponding address at the dump time */
 	struct list_head l;
 };
 
