@@ -172,6 +172,7 @@ TST_NOFILE	:=				\
 		cr_veth				\
 		sock_peercred			\
 		s390x_mmap_high			\
+		uffd-events			\
 #		jobctl00			\
 
 include ../Makefile.inc
