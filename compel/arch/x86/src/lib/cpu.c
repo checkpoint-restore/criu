@@ -178,7 +178,7 @@ int compel_cpuid(compel_cpuinfo_t *c)
 	return 0;
 }
 
-bool cpu_has_feature(unsigned int feature)
+bool compel_cpu_has_feature(unsigned int feature)
 {
 	if (!rt_info_done) {
 		compel_cpuid(&rt_info);

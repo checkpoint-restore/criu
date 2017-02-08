@@ -6,6 +6,6 @@
 #include <compel/asm/cpu.h>
 
 extern int compel_cpuid(compel_cpuinfo_t *info);
-extern bool cpu_has_feature(unsigned int feature);
+extern bool compel_cpu_has_feature(unsigned int feature);
 
 #endif /* UAPI_COMPEL_CPU_H__ */

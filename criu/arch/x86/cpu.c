@@ -41,17 +41,17 @@ int cpu_init(void)
 	 * Make sure that at least FPU is onboard
 	 * and fxsave is supported.
 	 */
-	if (cpu_has_feature(X86_FEATURE_FPU)) {
-		if (!cpu_has_feature(X86_FEATURE_FXSR)) {
+	if (compel_cpu_has_feature(X86_FEATURE_FPU)) {
+		if (!compel_cpu_has_feature(X86_FEATURE_FXSR)) {
 			pr_err("missing support fxsave/restore insns\n");
 			return -1;
 		}
 	}
 
 	pr_debug("fpu:%d fxsr:%d xsave:%d\n",
-		 !!cpu_has_feature(X86_FEATURE_FPU),
-		 !!cpu_has_feature(X86_FEATURE_FXSR),
-		 !!cpu_has_feature(X86_FEATURE_OSXSAVE));
+		 !!compel_cpu_has_feature(X86_FEATURE_FPU),
+		 !!compel_cpu_has_feature(X86_FEATURE_FXSR),
+		 !!compel_cpu_has_feature(X86_FEATURE_OSXSAVE));
 
 	return 0;
 }
@@ -222,7 +222,7 @@ static int cpu_validate_features(CpuinfoX86Entry *img_x86_entry)
 
 #define __mismatch_fpu_bit(__bit)					\
 		(test_bit(__bit, (void *)img_x86_entry->capability) &&	\
-		 !cpu_has_feature(__bit))
+		 !compel_cpu_has_feature(__bit))
 		if (__mismatch_fpu_bit(X86_FEATURE_FPU)		||
 		    __mismatch_fpu_bit(X86_FEATURE_FXSR)	||
 		    __mismatch_fpu_bit(X86_FEATURE_OSXSAVE)) {
