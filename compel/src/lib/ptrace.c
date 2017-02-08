@@ -9,7 +9,6 @@
 #include <signal.h>
 #include <elf.h>
 #include <sys/uio.h>
-#include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -18,11 +17,11 @@
 #include "common/compiler.h"
 
 #include "uapi/compel/asm/infect-types.h"
-#include "uapi/compel/ptrace.h"
+#include "ptrace.h"
 
 #include "log.h"
 
-int suspend_seccomp(pid_t pid)
+int ptrace_suspend_seccomp(pid_t pid)
 {
 	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_SUSPEND_SECCOMP) < 0) {
 		pr_perror("suspending seccomp failed");

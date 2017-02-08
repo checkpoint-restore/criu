@@ -1,6 +1,5 @@
 #include <sys/wait.h>
 #include <sys/types.h>
-#include <sys/ptrace.h>
 #include <unistd.h>
 #include <errno.h>
 #include <signal.h>
@@ -17,12 +16,11 @@
 
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/plugins/std/asm/syscall-types.h>
-#include "asm/ptrace.h"
 #include "uapi/compel/plugins/std/syscall.h"
 #include "asm/infect-types.h"
 #include "asm/sigframe.h"
 #include "infect.h"
-#include "uapi/compel/ptrace.h"
+#include "ptrace.h"
 #include "infect-rpc.h"
 #include "infect-priv.h"
 #include "infect-util.h"
@@ -41,17 +39,9 @@
 
 #define PARASITE_STACK_SIZE	(16 << 10)
 
-#define PTRACE_EVENT_STOP	128
-
 #ifndef SECCOMP_MODE_DISABLED
 #define SECCOMP_MODE_DISABLED 0
 #endif
-
-#ifndef PTRACE_O_SUSPEND_SECCOMP
-# define PTRACE_O_SUSPEND_SECCOMP (1 << 21)
-#endif
-
-#define SI_EVENT(_si_code)	(((_si_code) & 0xFFFF) >> 8)
 
 static int prepare_thread(int pid, struct thread_ctx *ctx);
 
@@ -195,16 +185,6 @@ static int skip_sigstop(int pid, int nr_signals)
 	return 0;
 }
 
-static int do_suspend_seccomp(pid_t pid)
-{
-	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_SUSPEND_SECCOMP) < 0) {
-		pr_perror("suspending seccomp failed");
-		return -1;
-	}
-
-	return 0;
-}
-
 /*
  * This routine seizes task putting it into a special
  * state where we can manipulate the task via ptrace
@@ -278,7 +258,7 @@ try_again:
 		goto err;
 	}
 
-	if (SI_EVENT(si.si_code) != PTRACE_EVENT_STOP) {
+	if (PTRACE_SI_EVENT(si.si_code) != PTRACE_EVENT_STOP) {
 		/*
 		 * Kernel notifies us about the task being seized received some
 		 * event other than the STOP, i.e. -- a signal. Let the task
@@ -295,7 +275,7 @@ try_again:
 		goto try_again;
 	}
 
-	if (ss->seccomp_mode != SECCOMP_MODE_DISABLED && do_suspend_seccomp(pid) < 0)
+	if (ss->seccomp_mode != SECCOMP_MODE_DISABLED && ptrace_suspend_seccomp(pid) < 0)
 		goto err;
 
 	nr_sigstop = 0;

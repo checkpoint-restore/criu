@@ -15,7 +15,6 @@
 #include "cr_options.h"
 #include "common/compiler.h"
 #include "restorer.h"
-#include <compel/ptrace.h>
 #include "parasite-syscall.h"
 #include "util.h"
 #include "cpu.h"

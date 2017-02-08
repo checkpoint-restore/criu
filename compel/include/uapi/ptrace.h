@@ -1,13 +1,21 @@
 #ifndef UAPI_COMPEL_PTRACE_H__
 #define UAPI_COMPEL_PTRACE_H__
 
-#include <linux/types.h>
+/*
+ * We'd want to include both sys/ptrace.h and linux/ptrace.h,
+ * hoping that most definitions come from either one or another.
+ * Alas, on Alpine/musl both files declare struct ptrace_peeksiginfo_args,
+ * so there is no way they can be used together. Let's rely on libc one.
+ */
 #include <sys/ptrace.h>
 
-#include <compel/asm/infect-types.h>
 #include <compel/asm/breakpoints.h>
 
-/* some constants for ptrace */
+/*
+ * Some constants for ptrace that might be missing from the
+ * standard library includes due to being (relatively) new.
+ */
+
 #ifndef PTRACE_SEIZE
 # define PTRACE_SEIZE		0x4206
 #endif
@@ -18,10 +26,6 @@
 
 #ifndef PTRACE_INTERRUPT
 # define PTRACE_INTERRUPT	0x4207
-#endif
-
-#ifndef PTRACE_LISTEN
-#define PTRACE_LISTEN		0x4208
 #endif
 
 #ifndef PTRACE_PEEKSIGINFO
@@ -45,32 +49,15 @@
 #define PTRACE_SECCOMP_GET_FILTER	0x420c
 #endif
 
-#define PTRACE_SEIZE_DEVEL	0x80000000
+#ifdef PTRACE_EVENT_STOP
+# if PTRACE_EVENT_STOP == 7 /* Bad value from Linux 3.1-3.3, fixed in 3.4 */
+#  undef PTRACE_EVENT_STOP
+# endif
+#endif
+#ifndef PTRACE_EVENT_STOP
+# define PTRACE_EVENT_STOP	128
+#endif
 
-#define PTRACE_EVENT_FORK	1
-#define PTRACE_EVENT_VFORK	2
-#define PTRACE_EVENT_CLONE	3
-#define PTRACE_EVENT_EXEC	4
-#define PTRACE_EVENT_VFORK_DONE	5
-#define PTRACE_EVENT_EXIT	6
-#define PTRACE_EVENT_STOP	128
-
-#define PTRACE_O_TRACESYSGOOD	0x00000001
-#define PTRACE_O_TRACEFORK	0x00000002
-#define PTRACE_O_TRACEVFORK	0x00000004
-#define PTRACE_O_TRACECLONE	0x00000008
-#define PTRACE_O_TRACEEXEC	0x00000010
-#define PTRACE_O_TRACEVFORKDONE	0x00000020
-#define PTRACE_O_TRACEEXIT	0x00000040
-
-#define SI_EVENT(_si_code)	(((_si_code) & 0xFFFF) >> 8)
-
-extern int suspend_seccomp(pid_t pid);
-extern int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
-extern int ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes);
-extern int ptrace_swap_area(pid_t pid, void *dst, void *src, long bytes);
-
-extern int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs);
-extern int ptrace_set_regs(pid_t pid, user_regs_struct_t *regs);
+extern int ptrace_suspend_seccomp(pid_t pid);
 
 #endif /* UAPI_COMPEL_PTRACE_H__ */
