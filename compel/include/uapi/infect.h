@@ -6,7 +6,7 @@
 #include <compel/asm/sigframe.h>
 #include <compel/asm/infect-types.h>
 #include <compel/ksigset.h>
-#include <compel/compel.h>
+#include <compel/handle-elf.h>
 
 #include "common/compiler.h"
 
