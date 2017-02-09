@@ -236,9 +236,9 @@ try_again:
 		}
 
 		if (ret < 0)
-			return TASK_ZOMBIE;
+			return COMPEL_TASK_ZOMBIE;
 		else
-			return TASK_DEAD;
+			return COMPEL_TASK_DEAD;
 	}
 
 	if ((ppid != -1) && (ss->ppid != ppid)) {
@@ -290,11 +290,11 @@ try_again:
 		if (skip_sigstop(pid, nr_sigstop))
 			goto err_stop;
 
-		return TASK_STOPPED;
+		return COMPEL_TASK_STOPPED;
 	}
 
 	if (si.si_signo == SIGTRAP)
-		return TASK_ALIVE;
+		return COMPEL_TASK_ALIVE;
 	else {
 		pr_err("SEIZE %d: unsupported stop signal %d\n", pid, si.si_signo);
 		goto err;
@@ -312,25 +312,25 @@ int compel_resume_task(pid_t pid, int orig_st, int st)
 {
 	pr_debug("\tUnseizing %d into %d\n", pid, st);
 
-	if (st == TASK_DEAD) {
+	if (st == COMPEL_TASK_DEAD) {
 		kill(pid, SIGKILL);
 		return 0;
-	} else if (st == TASK_STOPPED) {
+	} else if (st == COMPEL_TASK_STOPPED) {
 		/*
 		 * Task might have had STOP in queue. We detected such
-		 * guy as TASK_STOPPED, but cleared signal to run the
-		 * parasite code. hus after detach the task will become
+		 * guy as COMPEL_TASK_STOPPED, but cleared signal to run
+		 * the parasite code. Thus after detach the task will become
 		 * running. That said -- STOP everyone regardless of
 		 * the initial state.
 		 */
 		kill(pid, SIGSTOP);
-	} else if (st == TASK_ALIVE) {
+	} else if (st == COMPEL_TASK_ALIVE) {
 		/*
 		 * Same as in the comment above -- there might be a
 		 * task with STOP in queue that would get lost after
 		 * detach, so stop it again.
 		 */
-		if (orig_st == TASK_STOPPED)
+		if (orig_st == COMPEL_TASK_STOPPED)
 			kill(pid, SIGSTOP);
 	} else
 		pr_err("Unknown final state %d\n", st);
