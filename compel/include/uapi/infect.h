@@ -7,6 +7,7 @@
 #include <compel/asm/infect-types.h>
 #include <compel/ksigset.h>
 #include <compel/handle-elf.h>
+#include <compel/task-state.h>
 
 #include "common/compiler.h"
 
@@ -28,15 +29,6 @@ extern int compel_wait_task(int pid, int ppid,
 
 extern int compel_stop_task(int pid);
 extern int compel_resume_task(pid_t pid, int orig_state, int state);
-
-/*
- * FIXME -- these should be mapped to pid.h's
- */
-
-#define TASK_ALIVE		0x1
-#define TASK_DEAD		0x2
-#define TASK_STOPPED		0x3
-#define TASK_ZOMBIE		0x6
 
 struct parasite_ctl;
 struct parasite_thread_ctl;
