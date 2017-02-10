@@ -208,6 +208,39 @@ static int vma_get_mapfile_flags(struct vma_area *vma, DIR *mfd, char *path)
 	return 0;
 }
 
+static int vma_stat(struct vma_area *vma, int fd)
+{
+	vma->vmst = xmalloc(sizeof(struct stat));
+	if (!vma->vmst)
+		return -1;
+
+	/*
+	 * For AUFS support, we need to check if the symbolic link
+	 * points to a branch.  If it does, we cannot fstat() its file
+	 * descriptor because it would return a different dev/ino than
+	 * the real file.  If fixup_aufs_vma_fd() returns positive,
+	 * it means that it has stat()'ed using the full pathname.
+	 * Zero return means that the symbolic link does not point to
+	 * a branch and we can do fstat() below.
+	 */
+	if (opts.aufs) {
+		int ret;
+
+		ret = fixup_aufs_vma_fd(vma, fd);
+		if (ret < 0)
+			return -1;
+		if (ret > 0)
+			return 0;
+	}
+
+	if (fstat(fd, vma->vmst) < 0) {
+		pr_perror("Failed fstat on map %"PRIx64"", vma->e->start);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int vma_get_mapfile_user(const char *fname, struct vma_area *vma,
 			   struct vma_file_info *vfi, int *vm_file_fd,
 			   const char *path)
@@ -272,14 +305,7 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma,
 		return -1;
 	}
 
-	vma->vmst = xmalloc(sizeof(struct stat));
-	if (!vma->vmst) {
-		close(fd);
-		return -1;
-	}
-
-	if (fstat(fd, vma->vmst) < 0) {
-		pr_perror("Can't stat [%s]", fname);
+	if (vma_stat(vma, fd)) {
 		close(fd);
 		return -1;
 	}
@@ -391,35 +417,7 @@ static int vma_get_mapfile(const char *fname, struct vma_area *vma, DIR *mfd,
 		return -1;
 	}
 
-	vma->vmst = xmalloc(sizeof(struct stat));
-	if (!vma->vmst)
-		return -1;
-
-	/*
-	 * For AUFS support, we need to check if the symbolic link
-	 * points to a branch.  If it does, we cannot fstat() its file
-	 * descriptor because it would return a different dev/ino than
-	 * the real file.  If fixup_aufs_vma_fd() returns positive,
-	 * it means that it has stat()'ed using the full pathname.
-	 * Zero return means that the symbolic link does not point to
-	 * a branch and we can do fstat() below.
-	 */
-	if (opts.aufs) {
-		int ret;
-
-		ret = fixup_aufs_vma_fd(vma, *vm_file_fd);
-		if (ret < 0)
-			return -1;
-		if (ret > 0)
-			return 0;
-	}
-
-	if (fstat(*vm_file_fd, vma->vmst) < 0) {
-		pr_perror("Failed fstat on map %"PRIx64"", vma->e->start);
-		return -1;
-	}
-
-	return 0;
+	return vma_stat(vma, *vm_file_fd);
 }
 
 int parse_self_maps_lite(struct vm_area_list *vms)
