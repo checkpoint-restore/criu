@@ -40,7 +40,6 @@ struct list_head;
 extern void pr_vma(unsigned int loglevel, const struct vma_area *vma_area);
 
 #define pr_info_vma(vma_area)	pr_vma(LOG_INFO, vma_area)
-#define pr_msg_vma(vma_area)	pr_vma(LOG_MSG, vma_area)
 
 #define pr_vma_list(level, head)				\
 	do {							\
