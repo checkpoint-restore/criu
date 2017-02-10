@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <ftw.h>
 #include <libgen.h>
+#include <sched.h>
 #include "common/list.h"
 #include "xmalloc.h"
 #include "cgroup.h"
@@ -19,7 +20,6 @@
 #include "util-pie.h"
 #include "namespaces.h"
 #include "seize.h"
-#include "syscall-types.h"
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"
