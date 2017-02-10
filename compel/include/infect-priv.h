@@ -53,14 +53,6 @@ struct parasite_thread_ctl {
 struct ctl_msg;
 int parasite_wait_ack(int sockfd, unsigned int cmd, struct ctl_msg *m);
 
-/* XXX -- remove with cr-exec.c */
-extern int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size);
-extern int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
-			  unsigned long arg1, unsigned long arg2,
-			  unsigned long arg3, unsigned long arg4,
-			  unsigned long arg5, unsigned long arg6);
-
-
 extern void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs);
 extern void *remote_mmap(struct parasite_ctl *ctl,
 		void *addr, size_t length, int prot,
