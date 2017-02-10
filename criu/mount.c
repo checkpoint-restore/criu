@@ -2634,7 +2634,7 @@ static int do_restore_task_mnt_ns(struct ns_id *nsid, struct pstree_item *curren
 {
 	int fd;
 
-	fd = open_proc(root_item->pid->ns[0].virt, "fd/%d", nsid->mnt.ns_fd);
+	fd = open_proc(vpid(root_item), "fd/%d", nsid->mnt.ns_fd);
 	if (fd < 0)
 		return -1;
 
@@ -3101,7 +3101,7 @@ int mntns_get_root_fd(struct ns_id *mntns)
 	if (!mntns->ns_populated) {
 		int fd;
 
-		fd = open_proc(root_item->pid->ns[0].virt, "fd/%d", mntns->mnt.root_fd);
+		fd = open_proc(vpid(root_item), "fd/%d", mntns->mnt.root_fd);
 		if (fd < 0)
 			return -1;
 

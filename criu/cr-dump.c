@@ -713,7 +713,7 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 
 	creds = dmpi(item)->pi_creds;
 	if (creds->seccomp_mode != SECCOMP_MODE_DISABLED) {
-		pr_info("got seccomp mode %d for %d\n", creds->seccomp_mode, item->pid->ns[0].virt);
+		pr_info("got seccomp mode %d for %d\n", creds->seccomp_mode, vpid(item));
 		core->tc->has_seccomp_mode = true;
 		core->tc->seccomp_mode = creds->seccomp_mode;
 
@@ -861,7 +861,7 @@ static int dump_one_zombie(const struct pstree_item *item,
 	core->tc->task_state = TASK_DEAD;
 	core->tc->exit_code = pps->exit_code;
 
-	img = open_image(CR_FD_CORE, O_DUMP, item->pid->ns[0].virt);
+	img = open_image(CR_FD_CORE, O_DUMP, vpid(item));
 	if (!img)
 		goto err;
 
@@ -986,7 +986,7 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl,
 	for (i = 0; i < item->nr_threads; i++) {
 		/* Leader is already dumped */
 		if (item->pid->real == item->threads[i].real) {
-			item->threads[i].ns[0].virt = item->pid->ns[0].virt;
+			item->threads[i].ns[0].virt = vpid(item);
 			continue;
 		}
 		if (dump_task_thread(parasite_ctl, item, i))
@@ -1016,17 +1016,17 @@ static int fill_zombies_pids(struct pstree_item *item)
 	 * Pids read here are virtual -- caller has set up
 	 * the proc of target pid namespace.
 	 */
-	if (parse_children(item->pid->ns[0].virt, &ch, &nr) < 0)
+	if (parse_children(vpid(item), &ch, &nr) < 0)
 		return -1;
 
 	/*
 	 * Step 1 -- filter our ch's pid of alive tasks
 	 */
 	list_for_each_entry(child, &item->children, sibling) {
-		if (child->pid->ns[0].virt < 0)
+		if (vpid(child) < 0)
 			continue;
 		for (i = 0; i < nr; i++) {
-			if (ch[i] == child->pid->ns[0].virt) {
+			if (ch[i] == vpid(child)) {
 				ch[i] = -1;
 				break;
 			}
@@ -1041,7 +1041,7 @@ static int fill_zombies_pids(struct pstree_item *item)
 	 */
 	i = 0;
 	list_for_each_entry(child, &item->children, sibling) {
-		if (child->pid->ns[0].virt > 0)
+		if (vpid(child) > 0)
 			continue;
 		for (; i < nr; i++) {
 			if (ch[i] < 0)
@@ -1077,7 +1077,7 @@ static int dump_zombies(void)
 		if (item->pid->state != TASK_DEAD)
 			continue;
 
-		if (item->pid->ns[0].virt < 0) {
+		if (vpid(item) < 0) {
 			if (!pidns)
 				item->pid->ns[0].virt = item->pid->real;
 			else if (root_item == item) {
@@ -1088,7 +1088,7 @@ static int dump_zombies(void)
 		}
 
 		pr_info("Obtaining zombie stat ... \n");
-		if (parse_pid_stat(item->pid->ns[0].virt, &pps_buf) < 0)
+		if (parse_pid_stat(vpid(item), &pps_buf) < 0)
 			goto err;
 
 		item->sid = pps_buf.sid;
@@ -1292,20 +1292,20 @@ static int dump_one_task(struct pstree_item *item)
 	}
 
 	item->pid->ns[0].virt = misc.pid;
-	pstree_insert_pid(item->pid->ns[0].virt, item->pid);
+	pstree_insert_pid(vpid(item), item->pid);
 	item->sid = misc.sid;
 	item->pgid = misc.pgid;
 
 	pr_info("sid=%d pgid=%d pid=%d\n",
-		item->sid, item->pgid, item->pid->ns[0].virt);
+		item->sid, item->pgid, vpid(item));
 
 	if (item->sid == 0) {
 		pr_err("A session leader of %d(%d) is outside of its pid namespace\n",
-			item->pid->real, item->pid->ns[0].virt);
+			item->pid->real, vpid(item));
 		goto err_cure;
 	}
 
-	cr_imgset = cr_task_imgset_open(item->pid->ns[0].virt, O_DUMP);
+	cr_imgset = cr_task_imgset_open(vpid(item), O_DUMP);
 	if (!cr_imgset)
 		goto err_cure;
 
@@ -1454,9 +1454,9 @@ static int cr_pre_dump_finish(int ret)
 		if (!ctl)
 			continue;
 
-		pr_info("\tPre-dumping %d\n", item->pid->ns[0].virt);
+		pr_info("\tPre-dumping %d\n", vpid(item));
 		timing_start(TIME_MEMWRITE);
-		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, item->pid->ns[0].virt);
+		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, vpid(item));
 		if (ret < 0)
 			goto err;
 

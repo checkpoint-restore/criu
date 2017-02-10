@@ -397,7 +397,7 @@ static int open_remap_dead_process(struct reg_file_info *rfi,
 	helper->ids = root_item->ids;
 	list_add_tail(&helper->sibling, &root_item->children);
 
-	pr_info("Added a helper for restoring /proc/%d\n", helper->pid->ns[0].virt);
+	pr_info("Added a helper for restoring /proc/%d\n", vpid(helper));
 
 	return 0;
 }

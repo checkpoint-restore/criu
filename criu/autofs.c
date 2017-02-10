@@ -579,12 +579,12 @@ static int autofs_dup_pipe(struct pstree_item *task,
 
 	if (dup_fle(task, ple, new_fd, flags) < 0) {
 		pr_err("Failed to add fd %d to process %d\n",
-				new_fd, task->pid->ns[0].virt);
+				new_fd, vpid(task));
 		return -1;
 	}
 
 	pr_info("autofs: added pipe fd %d, flags %#x to %d\n",
-			new_fd, flags, task->pid->ns[0].virt);
+			new_fd, flags, vpid(task));
 	return new_fd;
 }
 
@@ -851,12 +851,12 @@ static struct fdinfo_list_entry *autofs_pipe_le(struct pstree_item *master,
 	ple = find_fle_by_fd(&rsti(master)->used, pipe_fd);
 	if (!ple) {
 		pr_err("Failed to find pipe fd %d in process %d\n",
-				pipe_fd, master->pid->ns[0].virt);
+				pipe_fd, vpid(master));
 		return NULL;
 	}
 	if (ple->fe->type != FD_TYPES__PIPE) {
 		pr_err("Fd %d in process %d is not a pipe: %d\n", pipe_fd,
-				master->pid->ns[0].virt, ple->fe->type);
+				vpid(master), ple->fe->type);
 		return NULL;
 	}
 	return ple;
@@ -873,7 +873,7 @@ static int autofs_create_fle(struct pstree_item *task, FdinfoEntry *fe,
 		return -1;
 	le = (void *)ALIGN((long)le, sizeof(int));
 
-	fle_init(le, task->pid->ns[0].virt, fe);
+	fle_init(le, vpid(task), fe);
 
 	collect_task_fd(le, rst_info);
 
@@ -967,7 +967,7 @@ static int autofs_add_mount_info(void *data)
 		entry->fd = autofs_dup_pipe(master, ple, entry->fd);
 		if (entry->fd < 0) {
 			pr_err("Failed to find free fd in process %d\n",
-					master->pid->ns[0].virt);
+					vpid(master));
 			return -1;
 		}
 	}

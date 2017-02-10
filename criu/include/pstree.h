@@ -31,6 +31,11 @@ struct pstree_item {
 	};
 };
 
+static inline pid_t vpid(const struct pstree_item *i)
+{
+	return i->pid->ns[0].virt;
+}
+
 enum {
 	FDS_EVENT_BIT	= 0,
 };

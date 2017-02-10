@@ -309,7 +309,7 @@ struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid,
 
 int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
 {
-	pid_t pid = i->pid->ns[0].virt;
+	pid_t pid = vpid(i);
 	struct ns_id *nsid;
 
 	nsid = lookup_ns_by_id(id, nd);
@@ -549,7 +549,7 @@ static int open_ns_fd(struct file_desc *d, int *new_fd)
 		return -1;
 	}
 
-	snprintf(path, sizeof(path) - 1, "/proc/%d/ns/%s", item->pid->ns[0].virt, nd->str);
+	snprintf(path, sizeof(path) - 1, "/proc/%d/ns/%s", vpid(item), nd->str);
 	path[sizeof(path) - 1] = '\0';
 
 	fd = open(path, nfi->nfe->flags);
@@ -1645,11 +1645,11 @@ err_out:
 
 int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 {
-	pid_t pid = item->pid->ns[0].virt;
+	pid_t pid = vpid(item);
 	int id;
 
 	pr_info("Restoring namespaces %d flags 0x%lx\n",
-			item->pid->ns[0].virt, clone_flags);
+			vpid(item), clone_flags);
 
 	if ((clone_flags & CLONE_NEWUSER) && prepare_userns_creds())
 		return -1;
