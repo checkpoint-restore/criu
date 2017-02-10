@@ -217,7 +217,7 @@ int main(int argc, char *argv[], char *envp[])
 	bool has_exec_cmd = false;
 	bool has_sub_command;
 	int opt, idx;
-	int log_level = LOG_UNSET;
+	int log_level = DEFAULT_LOGLEVEL;
 	char *imgs_dir = ".";
 	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:v::x::Vr:jJ:lW:L:M:";
 	static struct option long_opts[] = {
@@ -381,8 +381,6 @@ int main(int argc, char *argv[], char *envp[])
 				goto bad_arg;
 			break;
 		case 'v':
-			if (log_level == LOG_UNSET)
-				log_level = 0;
 			if (optarg) {
 				if (optarg[0] == 'v')
 					/* handle -vvvvv */
@@ -928,11 +926,12 @@ usage:
 "* Logging:\n"
 "  -o|--log-file FILE    log file name\n"
 "     --log-pid          enable per-process logging to separate FILE.pid files\n"
-"  -v[NUM]               set logging level (higher level means more output):\n"
-"                          -v1|-v    - only errors and messages\n"
-"                          -v2|-vv   - also warnings (default level)\n"
-"                          -v3|-vvv  - also information messages and timestamps\n"
-"                          -v4|-vvvv - lots of debug\n"
+"  -v[v...]            increase verbosity (can use multiple v)\n"
+"  -vNUM               set verbosity to NUM (higher level means more output):\n"
+"                          -v1 - only errors and messages\n"
+"                          -v2 - also warnings (default level)\n"
+"                          -v3 - also information messages and timestamps\n"
+"                          -v4 - lots of debug\n"
 "  --display-stats       print out dump/restore stats\n"
 "\n"
 "* Memory dumping options:\n"

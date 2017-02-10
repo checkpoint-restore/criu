@@ -28,19 +28,25 @@ Common options
 ~~~~~~~~~~~~~~
 Common options are applicable to any 'command'.
 
-*-v*['num'|*v*...]::
-    Set logging level to 'num'. The higher the level, the more output
-    is produced. Either numeric values or multiple *v* can be used.
+*-v*[*v*...]::
+    Increase verbosity up from the default level. Multiple *v* can be used,
+    each increasing verbosity by one level.
+
+*-v*'num'::
+    Set verbosity level to 'num'. The higher the level, the more output
+    is produced.
     +
 The following levels are available:
-    * *-v1*, *-v*
-        only messages and errors;
-    * *-v2*, *-vv*
-        also warnings (default level);
-    * *-v3*, *-vvv*
-        also information messages and timestamps;
-    * *-v4*, *-vvvv*
-        lots of debug.
+    * *-v0*
+        no output;
+    * *-v1*
+        only errors;
+    * *-v2*
+        above plus warnings (this is the default level);
+    * *-v3*
+        above plus information messages and timestamps;
+    * *-v4*
+        above plus lots of debug.
 
 *--pidfile* 'file'::
     Write root task, service or page-server pid into a 'file'.

@@ -201,10 +201,7 @@ void log_fini(void)
 
 void log_set_loglevel(unsigned int level)
 {
-	if (level == LOG_UNSET)
-		current_loglevel = DEFAULT_LOGLEVEL;
-	else
-		current_loglevel = level;
+	current_loglevel = level;
 }
 
 unsigned int log_get_loglevel(void)
