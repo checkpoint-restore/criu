@@ -90,7 +90,7 @@ extern struct pstree_item *__alloc_pstree_item(bool rst);
 extern void init_pstree_helper(struct pstree_item *ret);
 
 extern struct pstree_item *lookup_create_item(pid_t pid);
-extern void pstree_insert_pid(pid_t pid, struct pid *pid_node);
+extern void pstree_insert_pid(struct pid *pid_node);
 extern struct pid *pstree_pid_by_virt(pid_t pid);
 
 extern struct pstree_item *root_item;
