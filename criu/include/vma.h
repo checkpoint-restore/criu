@@ -34,17 +34,7 @@ struct vma_area {
 
 	union {
 		struct /* for dump */ {
-			union {
-				/*
-				 * These two cannot be assigned at once.
-				 * The file_fd is an fd for a regular file and
-				 * the socket_id is the inode number of the
-				 * mapped (PF_PACKET) socket.
-				 *
-				 * The aio_nr_req is only for aio rings.
-				 */
-				int	vm_socket_id;
-			};
+			int		vm_socket_id;
 
 			char		*aufs_rpath;	/* path from aufs root */
 			char		*aufs_fpath;	/* full path from global root */
