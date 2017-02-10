@@ -817,7 +817,7 @@ void compel_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *el
 	}
 }
 
-int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size)
+static int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 {
 	int ret;
 
