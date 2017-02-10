@@ -818,7 +818,7 @@ static int restore_one_zombie(CoreEntry *core)
 	if (inherit_fd_fini() < 0)
 		return -1;
 
-	if (lazy_pages_setup_zombie(current->pid->ns[0].virt))
+	if (lazy_pages_setup_zombie(vpid(current)))
 		return -1;
 
 	prctl(PR_SET_NAME, (long)(void *)core->tc->comm, 0, 0, 0);
@@ -2099,7 +2099,7 @@ int prepare_dummy_task_state(struct pstree_item *pi)
 {
 	CoreEntry *core;
 
-	if (open_core(pi->pid->ns[0].virt, &core))
+	if (open_core(vpid(pi), &core))
 		return -1;
 
 	pi->pid->state = core->tc->task_state;
