@@ -503,18 +503,16 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area,
 			char *file_path, DIR *map_files_dir,
 			struct vma_file_info *vfi,
 			struct vma_file_info *prev_vfi,
-			struct vm_area_list *vma_area_list,
 			int *vm_file_fd)
 {
 	if (vma_get_mapfile(file_path, vma_area, map_files_dir,
 					vfi, prev_vfi, vm_file_fd))
 		goto err_bogus_mapfile;
 
-	if (vma_area->e->status != 0) {
-		if (vma_area->e->status & VMA_AREA_AIORING)
-			vma_area_list->nr_aios++;
+	if (vma_area->e->status != 0)
 		return 0;
-	} else if (!strcmp(file_path, "[vsyscall]") ||
+
+	if (!strcmp(file_path, "[vsyscall]") ||
 		   !strcmp(file_path, "[vectors]")) {
 		vma_area->e->status |= VMA_AREA_VSYSCALL;
 	} else if (!strcmp(file_path, "[vdso]")) {
@@ -758,14 +756,15 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list,
 		}
 
 		if (handle_vma(pid, vma_area, str + path_off, map_files_dir,
-				&vfi, &prev_vfi, vma_area_list, &vm_file_fd))
+				&vfi, &prev_vfi, &vm_file_fd))
 			goto err;
 
 		if (vma_entry_is(vma_area->e, VMA_FILE_PRIVATE) ||
 				vma_entry_is(vma_area->e, VMA_FILE_SHARED)) {
 			if (dump_filemap && dump_filemap(vma_area, vm_file_fd))
 				goto err;
-		}
+		} else if (vma_entry_is(vma_area->e, VMA_AREA_AIORING))
+			vma_area_list->nr_aios++;
 	}
 
 	vma_area = NULL;
