@@ -208,7 +208,7 @@ static int vma_get_mapfile_flags(struct vma_area *vma, DIR *mfd, char *path)
 	return 0;
 }
 
-static int vma_get_mapfile_user(char *fname, struct vma_area *vma,
+static int vma_get_mapfile_user(const char *fname, struct vma_area *vma,
 			   struct vma_file_info *vfi, int *vm_file_fd,
 			   const char *path)
 {
@@ -296,7 +296,7 @@ static int vma_get_mapfile_user(char *fname, struct vma_area *vma,
 	return 0;
 }
 
-static int vma_get_mapfile(char *fname, struct vma_area *vma, DIR *mfd,
+static int vma_get_mapfile(const char *fname, struct vma_area *vma, DIR *mfd,
 			   struct vma_file_info *vfi,
 			   struct vma_file_info *prev_vfi,
 			   int *vm_file_fd)
@@ -500,7 +500,7 @@ static inline int handle_vvar_vma(struct vma_area *vma)
 #endif
 
 static int handle_vma(pid_t pid, struct vma_area *vma_area,
-			char *file_path, DIR *map_files_dir,
+			const char *file_path, DIR *map_files_dir,
 			struct vma_file_info *vfi,
 			struct vma_file_info *prev_vfi,
 			int *vm_file_fd)
