@@ -135,6 +135,7 @@ struct cr_options {
 	int			weak_sysctls;
 	int			status_fd;
 	bool			orphan_pts_master;
+	int			remote;
 	pid_t			tree_id;
 	int			log_level;
 	char			*imgs_dir;
