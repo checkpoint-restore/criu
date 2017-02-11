@@ -287,7 +287,7 @@ static int open_shmem_sysv(int pid, struct vma_area *vma)
 	VmaEntry *vme = vma->e;
 	struct shmem_info *si;
 	struct shmem_sysv_att *att;
-	uint64_t ret_fd;
+	int64_t ret_fd;
 
 	si = shmem_find(vme->shmid);
 	if (!si) {
