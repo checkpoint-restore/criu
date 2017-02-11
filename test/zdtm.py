@@ -955,6 +955,7 @@ class criu:
 		self.__mdedup = (opts['noauto_dedup'] and True or False)
 		self.__user = (opts['user'] and True or False)
 		self.__leave_stopped = (opts['stop'] and True or False)
+		self.__remote = (opts['remote'] and True or False)
 		self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
 		self.__show_stats = (opts['show_stats'] and True or False)
 		self.__lazy_pages_p = None
@@ -1128,6 +1129,27 @@ class criu:
 
 		a_opts += self.__test.getdopts()
 
+		if self.__remote:
+			logdir = os.getcwd() + "/" + self.__dump_path + "/" + str(self.__iter)
+			print "Adding image cache"
+
+			cache_opts = [self.__criu_bin, "image-cache", "--port", "12345", "-v4", "-o",
+				      logdir + "/image-cache.log", "-D", logdir]
+
+			subprocess.Popen(cache_opts).pid
+			time.sleep(1)
+
+			print "Adding image proxy"
+
+			proxy_opts = [self.__criu_bin, "image-proxy", "--port", "12345", "--address",
+					"localhost", "-v4", "-o", logdir + "/image-proxy.log",
+					"-D", logdir]
+
+			subprocess.Popen(proxy_opts).pid
+			time.sleep(1)
+
+			a_opts += ["--remote"]
+
 		if self.__dedup:
 			a_opts += ["--auto-dedup"]
 
@@ -1176,6 +1198,9 @@ class criu:
 		if self.__empty_ns:
 			r_opts += ['--empty-ns', 'net']
 			r_opts += ['--action-script', os.getcwd() + '/empty-netns-prep.sh']
+
+		if self.__remote:
+			r_opts += ["--remote"]
 
 		if self.__dedup:
 			r_opts += ["--auto-dedup"]
@@ -1696,7 +1721,7 @@ class Launcher:
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'stop', 'empty_ns',
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'rpc', 'lazy_pages',
 				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
-				'remote_lazy_pages', 'show_stats', 'lazy_migrate',
+				'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'remote',
 				'criu_bin', 'crit_bin')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
@@ -2249,6 +2274,7 @@ rp.add_argument("--user", help = "Run CRIU as regular user", action = 'store_tru
 rp.add_argument("--rpc", help = "Run CRIU via RPC rather than CLI", action = 'store_true')
 
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
+rp.add_argument("--remote", help = "Use remote option for diskless C/R", action = 'store_true')
 rp.add_argument("-p", "--parallel", help = "Run test in parallel")
 rp.add_argument("--dry-run", help="Don't run tests, just pretend to", action='store_true')
 rp.add_argument("--script", help="Add script to get notified by criu")
