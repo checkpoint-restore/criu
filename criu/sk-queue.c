@@ -27,7 +27,7 @@
 struct sk_packet {
 	struct list_head	list;
 	SkPacketEntry		*entry;
-	off_t			img_off;
+	char        		*data;
 };
 
 static LIST_HEAD(packets_list);
@@ -37,14 +37,20 @@ static int collect_one_packet(void *obj, ProtobufCMessage *msg, struct cr_img *i
 	struct sk_packet *pkt = obj;
 
 	pkt->entry = pb_msg(msg, SkPacketEntry);
-	pkt->img_off = lseek(img_raw_fd(img), 0, SEEK_CUR);
+
+	pkt->data = xmalloc(pkt->entry->length);
+	if (pkt->data ==NULL)
+		return -1;
+
 	/*
 	 * NOTE: packet must be added to the tail. Otherwise sequence
 	 * will be broken.
 	 */
 	list_add_tail(&pkt->list, &packets_list);
-	if (lseek(img_raw_fd(img), pkt->entry->length, SEEK_CUR) < 0) {
-		pr_perror("Unable to change an image offset");
+
+	if (read_img_buf(img, pkt->data, pkt->entry->length) != 1) {
+		xfree(pkt->data);
+		pr_perror("Unable to read packet data");
 		return -1;
 	}
 
@@ -208,7 +214,6 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 
 	list_for_each_entry_safe(pkt, tmp, &packets_list, list) {
 		SkPacketEntry *entry = pkt->entry;
-		char *buf;
 
 		if (entry->id_for != peer_id)
 			continue;
@@ -224,22 +229,8 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 		 * boundaries messages should be saved.
 		 */
 
-		buf = xmalloc(entry->length);
-		if (buf ==NULL)
-			goto err;
-
-		if (lseek(img_raw_fd(img), pkt->img_off, SEEK_SET) == -1) {
-			pr_perror("lseek() failed");
-			xfree(buf);
-			goto err;
-		}
-		if (read_img_buf(img, buf, entry->length) != 1) {
-			xfree(buf);
-			goto err;
-		}
-
-		ret = write(fd, buf, entry->length);
-		xfree(buf);
+		ret = write(fd, pkt->data, entry->length);
+		xfree(pkt->data);
 		if (ret < 0) {
 			pr_perror("Failed to send packet");
 			goto err;
