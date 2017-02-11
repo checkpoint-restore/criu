@@ -317,11 +317,11 @@ static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long of
 {
 	int ret, flags;
 
-	flags = oflags & ~(O_NOBUF | O_SERVICE);
+	flags = oflags & ~(O_NOBUF | O_SERVICE | O_FORCE_LOCAL);
 
 	ret = openat(dfd, path, flags, CR_FD_PERM);
 	if (ret < 0) {
-		if (!(flags & O_CREAT) && (errno == ENOENT)) {
+		if (!(flags & O_CREAT) && (errno == ENOENT || ret == -ENOENT)) {
 			pr_info("No %s image\n", path);
 			img->_x.fd = EMPTY_IMG_FD;
 			goto skip_magic;

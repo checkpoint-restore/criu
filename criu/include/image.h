@@ -108,6 +108,7 @@ extern bool img_common_magic;
 #define O_DUMP		(O_WRONLY | O_CREAT | O_TRUNC)
 #define O_SHOW		(O_RDONLY | O_NOBUF)
 #define O_RSTR		(O_RDONLY)
+#define O_FORCE_LOCAL	(O_SYNC)
 
 struct cr_img {
 	union {
