@@ -249,6 +249,7 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr,
 {
 	int fd = img_raw_fd(pr->pi);
 	int ret;
+	size_t curr = 0;
 
 	/*
 	 * Flush any pending async requests if any not to break the
@@ -258,10 +259,15 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr,
 		return -1;
 
 	pr_debug("\tpr%u Read page from self %lx/%"PRIx64"\n", pr->id, pr->cvaddr, pr->pi_off);
-	ret = pread(fd, buf, len, pr->pi_off);
-	if (ret != len) {
-		pr_perror("Can't read mapping page %d", ret);
-		return -1;
+	while (1) {
+		ret = pread(fd, buf + curr, len - curr, pr->pi_off + curr);
+		if (ret < 1) {
+			pr_perror("Can't read mapping page %d", ret);
+			return -1;
+		}
+		curr += ret;
+		if (curr == len)
+			break;
 	}
 
 	if (opts.auto_dedup) {
