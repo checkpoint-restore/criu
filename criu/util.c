@@ -568,7 +568,7 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 	ssize_t ret;
 
 	while (1) {
-		if (false) {
+		if (opts.remote) {
 			ret = read(fd_in, buffer, chunk);
 			if (ret < 0) {
 				pr_perror("Can't read from fd_in\n");

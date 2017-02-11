@@ -63,6 +63,7 @@ proto-obj-y	+= sysctl.o
 proto-obj-y	+= autofs.o
 proto-obj-y	+= macvlan.o
 proto-obj-y	+= sit.o
+proto-obj-y	+= remote-image.o
 
 CFLAGS		+= -iquote $(obj)/
 

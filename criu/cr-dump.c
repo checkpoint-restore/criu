@@ -82,6 +82,7 @@
 #include "seize.h"
 #include "fault-injection.h"
 #include "dump.h"
+#include "img-remote.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
@@ -1543,6 +1544,11 @@ int cr_pre_dump_tasks(pid_t pid)
 	struct pstree_item *item;
 	int ret = -1;
 
+	if (opts.remote && push_snapshot_id() < 0) {
+		pr_err("Failed to push image namespace.\n");
+		goto err;
+	}
+
 	root_item = alloc_pstree_item();
 	if (!root_item)
 		goto err;
@@ -1705,6 +1711,11 @@ static int cr_dump_finish(int ret)
 
 	close_service_fd(CR_PROC_FD_OFF);
 
+	if (opts.remote && (finish_remote_dump() < 0)) {
+		pr_err("Finish remote dump failed.\n");
+		return post_dump_ret ? : 1;
+	}
+
 	if (ret) {
 		pr_err("Dumping FAILED.\n");
 	} else {
@@ -1724,6 +1735,11 @@ int cr_dump_tasks(pid_t pid)
 	pr_info("========================================\n");
 	pr_info("Dumping processes (pid: %d)\n", pid);
 	pr_info("========================================\n");
+
+	if (opts.remote && push_snapshot_id() < 0) {
+		pr_err("Failed to push image namespace.\n");
+		goto err;
+	}
 
 	root_item = alloc_pstree_item();
 	if (!root_item)
