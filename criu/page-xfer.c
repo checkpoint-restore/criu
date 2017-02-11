@@ -20,6 +20,7 @@
 #include "pstree.h"
 #include "parasite-syscall.h"
 #include "rst_info.h"
+#include "img-remote.h"
 
 static int page_server_sk = -1;
 
@@ -303,13 +304,29 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 		int pfd;
 		int pr_flags = (fd_type == CR_FD_PAGEMAP) ? PR_TASK : PR_SHMEM;
 
-		pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
-		if (pfd < 0 && errno == ENOENT)
-			goto out;
+
+		if (opts.remote) {
+			/* Note: we are replacing a real directory FD for a snapshot_id
+			 * index. Since we need the parent of the current snapshot_id,
+			 * we want the current snapshot_id index minus one. It is
+			 * possible that dfd is already a snapshot_id index. We test it
+			 * by comparing it to the service FD. When opening an image (see
+			 * do_open_image) we convert the snapshot_id index into a real
+			 * snapshot_id.
+			 */
+			pfd = get_curr_snapshot_id_idx() - 1;
+			if (pfd < 0)
+				goto out;
+		} else {
+			pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
+			if (pfd < 0 && errno == ENOENT)
+				goto out;
+		}
 
 		xfer->parent = xmalloc(sizeof(*xfer->parent));
 		if (!xfer->parent) {
-			close(pfd);
+			if (!opts.remote)
+				close(pfd);
 			return -1;
 		}
 
@@ -318,10 +335,12 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 			pr_perror("No parent image found, though parent directory is set");
 			xfree(xfer->parent);
 			xfer->parent = NULL;
-			close(pfd);
+			if (!opts.remote)
+				close(pfd);
 			goto out;
 		}
-		close(pfd);
+		if (!opts.remote)
+			close(pfd);
 	}
 
 out:
@@ -445,9 +464,16 @@ int check_parent_local_xfer(int fd_type, int id)
 	struct stat st;
 	int ret, pfd;
 
-	pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
-	if (pfd < 0 && errno == ENOENT)
-		return 0;
+	if (opts.remote) {
+		pfd = get_curr_parent_snapshot_id_idx();
+		pr_err("Unable to get parent snapsgot id");
+		if (pfd == -1)
+			return -1;
+	} else {
+		pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
+		if (pfd < 0 && errno == ENOENT)
+			return 0;
+	}
 
 	snprintf(path, sizeof(path), imgset_template[fd_type].fmt, id);
 	ret = fstatat(pfd, path, &st, 0);
@@ -509,6 +535,8 @@ int check_parent_page_xfer(int fd_type, long id)
 {
 	if (opts.use_page_server)
 		return check_parent_server_xfer(fd_type, id);
+	else if (opts.remote)
+		return get_curr_parent_snapshot_id_idx() == -1 ? 0 : 1;
 	else
 		return check_parent_local_xfer(fd_type, id);
 }
