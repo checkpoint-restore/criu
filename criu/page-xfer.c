@@ -170,15 +170,17 @@ static int write_pages_loc(struct page_xfer *xfer,
 		int p, unsigned long len)
 {
 	ssize_t ret;
+	ssize_t curr = 0;
 
-	ret = splice(p, NULL, img_raw_fd(xfer->pi), NULL, len, SPLICE_F_MOVE);
-	if (ret == -1) {
-		pr_perror("Unable to spice data");
-		return -1;
-	}
-	if (ret != len) {
-		pr_err("Only %zu of %lu bytes have been spliced\n", ret, len);
-		return -1;
+	while (1) {
+		ret = splice(p, NULL, img_raw_fd(xfer->pi), NULL, len, SPLICE_F_MOVE);
+		if (ret == -1) {
+			pr_perror("Unable to spice data");
+			return -1;
+		}
+		curr += ret;
+		if (curr == len)
+			break;
 	}
 
 	return 0;
