@@ -29,7 +29,7 @@
 #include "cr_options.h"
 #include "servicefd.h"
 #include "image.h"
-#include "img-streamer.h"
+#include "img-remote.h"
 #include "util.h"
 #include "util-pie.h"
 #include "criu-log.h"
@@ -78,7 +78,6 @@
 #include "string.h"
 #include "memfd.h"
 #include "timens.h"
-#include "bpfmap.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
@@ -96,6 +95,8 @@
 #include "restore.h"
 
 #include "cr-errno.h"
+
+#include "pie/pie-relocs.h"
 
 #ifndef arch_export_restore_thread
 #define arch_export_restore_thread	__export_restore_thread
@@ -273,9 +274,6 @@ static struct collect_image_info *cinfos[] = {
 	&pipe_data_cinfo,
 	&fifo_data_cinfo,
 	&sk_queues_cinfo,
-#ifdef CONFIG_HAS_LIBBPF
-	&bpfmap_data_cinfo,
-#endif
 };
 
 static struct collect_image_info *cinfos_files[] = {
@@ -463,16 +461,9 @@ static int restore_native_sigaction(int sig, SaEntry *e)
 	ASSIGN_TYPED(act.rt_sa_handler, decode_pointer(e->sigaction));
 	ASSIGN_TYPED(act.rt_sa_flags, e->flags);
 	ASSIGN_TYPED(act.rt_sa_restorer, decode_pointer(e->restorer));
-#ifdef CONFIG_MIPS
-	e->has_mask_extended = 1;
-	BUILD_BUG_ON(sizeof(e->mask)* 2 != sizeof(act.rt_sa_mask.sig));
-
-	memcpy(&(act.rt_sa_mask.sig[0]), &e->mask, sizeof(act.rt_sa_mask.sig[0]));
-	memcpy(&(act.rt_sa_mask.sig[1]), &e->mask_extended, sizeof(act.rt_sa_mask.sig[1]));
-#else
 	BUILD_BUG_ON(sizeof(e->mask) != sizeof(act.rt_sa_mask.sig));
 	memcpy(act.rt_sa_mask.sig, &e->mask, sizeof(act.rt_sa_mask.sig));
-#endif
+
 	if (sig == SIGCHLD) {
 		sigchld_act = act;
 		return 0;
@@ -868,11 +859,9 @@ static int prepare_proc_misc(pid_t pid, TaskCoreEntry *tc, struct task_restore_a
 	/* loginuid value is critical to restore */
 	if (kdat.luid == LUID_FULL && tc->has_loginuid &&
 			tc->loginuid != INVALID_UID) {
-		ret = prepare_loginuid(tc->loginuid);
-		if (ret < 0) {
-			pr_err("Setting loginuid for %d task failed\n", pid);
+		ret = prepare_loginuid(tc->loginuid, LOG_ERROR);
+		if (ret < 0)
 			return ret;
-		}
 	}
 
 	/* oom_score_adj is not critical: only log errors */
@@ -1339,33 +1328,9 @@ static bool needs_prep_creds(struct pstree_item *item)
 	return (!item->parent && ((root_ns_mask & CLONE_NEWUSER) || getuid()));
 }
 
-static int set_next_pid(void *arg)
-{
-	char buf[32];
-	pid_t *pid = arg;
-	int len;
-	int fd;
-
-	fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-	if (fd < 0)
-		return -1;
-
-	len = snprintf(buf, sizeof(buf), "%d", *pid - 1);
-	if (write(fd, buf, len) != len) {
-		pr_perror("Failed to write %s to /proc/%s",
-			buf, LAST_PID_PATH);
-		close(fd);
-		return -1;
-	}
-	close(fd);
-	return 0;
-}
-
 static inline int fork_with_pid(struct pstree_item *item)
 {
-	unsigned long clone_flags;
 	struct cr_clone_arg ca;
-	struct ns_id *pid_ns = NULL;
 	int ret = -1;
 	pid_t pid = vpid(item);
 
@@ -1413,81 +1378,36 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ca.clone_flags);
 
-	if (ca.item->ids)
-		pid_ns = lookup_ns_by_id(ca.item->ids->pid_ns_id, &pid_ns_desc);
+	if (!(ca.clone_flags & CLONE_NEWPID)) {
+		char buf[32];
+		int len;
+		int fd = -1;
 
-	clone_flags = ca.clone_flags;
-	if (pid_ns && pid_ns->ext_key) {
-		int fd;
-
-		/* Not possible to restore into an empty PID namespace. */
-		if (pid == INIT_PID) {
-			pr_err("Unable to restore into an empty PID namespace\n");
-			return -1;
+		if (!kdat.has_clone3_set_tid) {
+			fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
+			if (fd < 0)
+				goto err;
 		}
 
-		/*
-		 * Restoring into an existing namespace means that CLONE_NEWPID
-		 * needs to be removed during clone() as the process will be
-		 * created in the correct PID namespace thanks to switch_ns_by_fd().
-		 */
-		clone_flags &= ~CLONE_NEWPID;
-
-		fd = inherit_fd_lookup_id(pid_ns->ext_key);
-		if (fd < 0) {
-			pr_err("Unable to find an external pidns: %s\n", pid_ns->ext_key);
-			return -1;
-		}
-
-		ret = switch_ns_by_fd(fd, &pid_ns_desc, NULL);
-		close(fd);
-		if (ret) {
-			pr_err("Unable to enter existing PID namespace\n");
-			return -1;
-		}
-
-		/*
-		 * If a process without a PID namespace is restored into
-		 * a PID namespace this tells CRIU to still handle the
-		 * process as if using CLONE_NEWPID.
-		 */
-		root_ns_mask |= CLONE_NEWPID;
-		rsti(item)->clone_flags |= CLONE_NEWPID;
-	}
-
-	if (!(clone_flags & CLONE_NEWPID)) {
 		lock_last_pid();
 
 		if (!kdat.has_clone3_set_tid) {
-			if (pid_ns && pid_ns->ext_key) {
-				/*
-				 * Restoring into another namespace requires a helper
-				 * to write to LAST_PID_PATH. Using clone3() this is
-				 * so much easier and simpler. As long as CRIU supports
-				 * clone() this is needed.
-				 */
-				ret = call_in_child_process(set_next_pid, (void *)&pid);
-			} else {
-				ret = set_next_pid((void *)&pid);
-			}
-			if (ret != 0) {
-				pr_err("Setting PID failed");
+			len = snprintf(buf, sizeof(buf), "%d", pid - 1);
+			if (write(fd, buf, len) != len) {
+				pr_perror("%d: Write %s to %s", pid, buf,
+					LAST_PID_PATH);
+				close(fd);
 				goto err_unlock;
 			}
+			close(fd);
 		}
 	} else {
-		if (!(pid_ns && pid_ns->ext_key)) {
-			if (pid != INIT_PID) {
-				pr_err("First PID in a PID namespace needs to be %d and not %d\n",
-					pid, INIT_PID);
-				return -1;
-			}
-		}
+		BUG_ON(pid != INIT_PID);
 	}
 
 	if (kdat.has_clone3_set_tid) {
 		ret = clone3_with_pid_noasan(restore_task_with_children,
-				&ca, (clone_flags &
+				&ca, (ca.clone_flags &
 					~(CLONE_NEWNET | CLONE_NEWCGROUP | CLONE_NEWTIME)),
 				SIGCHLD, pid);
 	} else {
@@ -1505,15 +1425,13 @@ static inline int fork_with_pid(struct pstree_item *item)
 		 */
 		close_pid_proc();
 		ret = clone_noasan(restore_task_with_children,
-				(clone_flags &
+				(ca.clone_flags &
 				 ~(CLONE_NEWNET | CLONE_NEWCGROUP | CLONE_NEWTIME)) | SIGCHLD,
 				&ca);
 	}
 
 	if (ret < 0) {
 		pr_perror("Can't fork for %d", pid);
-		if (errno == EEXIST)
-			set_cr_errno(EEXIST);
 		goto err_unlock;
 	}
 
@@ -1525,9 +1443,9 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 err_unlock:
-	if (!(clone_flags & CLONE_NEWPID))
+	if (!(ca.clone_flags & CLONE_NEWPID))
 		unlock_last_pid();
-
+err:
 	if (ca.core)
 		core_entry__free_unpacked(ca.core, NULL);
 	return ret;
@@ -2158,7 +2076,7 @@ static int prepare_userns_hook(void)
 	if (ret < 0)
 		return -1;
 
-	if (prepare_loginuid(INVALID_UID) < 0) {
+	if (prepare_loginuid(INVALID_UID, LOG_ERROR) < 0) {
 		pr_err("Setting loginuid for CT init task failed, CAP_AUDIT_CONTROL?\n");
 		return -1;
 	}
@@ -2171,7 +2089,7 @@ static void restore_origin_ns_hook(void)
 		return;
 
 	/* not critical: it does not affect CT in any way */
-	if (prepare_loginuid(saved_loginuid) < 0)
+	if (prepare_loginuid(saved_loginuid, LOG_ERROR) < 0)
 		pr_err("Restore original /proc/self/loginuid failed\n");
 }
 
@@ -2222,12 +2140,6 @@ static int restore_root_task(struct pstree_item *init)
 	 * this later.
 	 */
 
-	if (prepare_userns_hook())
-		return -1;
-
-	if (prepare_namespace_before_tasks())
-		return -1;
-
 	if (vpid(init) == INIT_PID) {
 		if (!(root_ns_mask & CLONE_NEWPID)) {
 			pr_err("This process tree can only be restored "
@@ -2240,6 +2152,12 @@ static int restore_root_task(struct pstree_item *init)
 		pr_err("Can't restore pid namespace without the process init\n");
 		return -1;
 	}
+
+	if (prepare_userns_hook())
+		return -1;
+
+	if (prepare_namespace_before_tasks())
+		return -1;
 
 	__restore_switch_stage_nw(CR_STATE_ROOT_TASK);
 
@@ -2438,9 +2356,6 @@ skip_ns_bouncing:
 	pr_info("Restore finished successfully. Tasks resumed.\n");
 	write_stats(RESTORE_STATS);
 
-	/* This has the effect of dismissing the image streamer */
-	close_image_dir();
-
 	ret = run_scripts(ACT_POST_RESUME);
 	if (ret != 0)
 		pr_err("Post-resume script ret code %d\n", ret);
@@ -2573,6 +2488,11 @@ int cr_restore_tasks(void)
 		goto err;
 
 	ret = restore_root_task(root_item);
+
+	if (opts.remote && (finish_remote_restore() < 0)) {
+		pr_err("Finish remote restore failed.\n");
+		goto err;
+	}
 err:
 	cr_plugin_fini(CR_PLUGIN_STAGE__RESTORE, ret);
 	return ret;
@@ -2917,23 +2837,7 @@ static int prepare_restorer_blob(void)
 	 * in turn will lead to set-exe-file prctl to fail with EBUSY.
 	 */
 
-	struct parasite_blob_desc pbd;
-
-	/*
-	 * We pass native=true, which is then used to set the value of
-	 * pbd.parasite_ip_off. We don't use parasite_ip_off, so the value we
-	 * pass as native argument is not relevant.
-	 */
-	restorer_setup_c_header_desc(&pbd, true);
-
-	/*
-	 * args_off is the offset where the binary blob with its GOT table
-	 * ends. As we don't do RPC, parasite sections after args_off can be
-	 * ignored. See compel_infect() for a description of the parasite
-	 * memory layout.
-	 */
-	restorer_len = round_up(pbd.hdr.args_off, page_size());
-
+	restorer_len = pie_size(restorer);
 	restorer = mmap(NULL, restorer_len,
 			PROT_READ | PROT_WRITE | PROT_EXEC,
 			MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
@@ -2942,14 +2846,12 @@ static int prepare_restorer_blob(void)
 		return -1;
 	}
 
-	memcpy(restorer, pbd.hdr.mem, pbd.hdr.bsize);
-
+	memcpy(restorer, &restorer_blob, sizeof(restorer_blob));
 	return 0;
 }
 
 static int remap_restorer_blob(void *addr)
 {
-	struct parasite_blob_desc pbd;
 	void *mem;
 
 	mem = mremap(restorer, restorer_len, restorer_len,
@@ -2959,14 +2861,8 @@ static int remap_restorer_blob(void *addr)
 		return -1;
 	}
 
-	/*
-	 * Pass native=true, which is then used to set the value of
-	 * pbd.parasite_ip_off. parasite_ip_off is unused in restorer
-	 * as compat (ia32) tasks are restored from native (x86_64)
-	 * mode, so the value we pass as native argument is not relevant.
-	 */
-	restorer_setup_c_header_desc(&pbd, true);
-	compel_relocs_apply(addr, addr, &pbd);
+	compel_relocs_apply(addr, addr, sizeof(restorer_blob),
+			restorer_relocs, ARRAY_SIZE(restorer_relocs));
 
 	return 0;
 }
@@ -3220,40 +3116,6 @@ static void rst_reloc_creds(struct thread_restore_args *thread_args,
 	thread_args->creds_args = args;
 }
 
-static bool groups_match(gid_t* groups, int n_groups)
-{
-	int n, len;
-	bool ret;
-	gid_t* gids;
-
-	n = getgroups(0, NULL);
-	if (n == -1) {
-		pr_perror("Failed to get number of supplementary groups");
-		ret = false;
-	}
-	if (n != n_groups)
-		return false;
-	if (n == 0)
-		return true;
-
-	len = n * sizeof(gid_t);
-	gids = xmalloc(len);
-	if (gids == NULL)
-		return false;
-
-	n = getgroups(n, gids);
-	if (n == -1) {
-		pr_perror("Failed to get supplementary groups");
-		ret = false;
-	} else {
-		/* getgroups sorts gids, so it is safe to memcmp gid arrays */
-		ret = !memcmp(gids, groups, len);
-	}
-
-	xfree(gids);
-	return ret;
-}
-
 static struct thread_creds_args *
 rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 {
@@ -3361,7 +3223,7 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 	memcpy(args->cap_prm, ce->cap_prm, sizeof(args->cap_prm));
 	memcpy(args->cap_bnd, ce->cap_bnd, sizeof(args->cap_bnd));
 
-	if (ce->n_groups && !groups_match(ce->groups, ce->n_groups)) {
+	if (ce->n_groups) {
 		unsigned int *groups;
 
 		args->mem_groups_pos = rst_mem_align_cpos(RM_PRIVATE);
@@ -3684,12 +3546,8 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	for (i = 0; i < current->nr_threads; i++) {
 		CoreEntry *tcore;
 		struct rt_sigframe *sigframe;
-#ifdef CONFIG_MIPS
-		k_rtsigset_t mips_blkset;
-#else
 		k_rtsigset_t *blkset = NULL;
 
-#endif
 		thread_args[i].pid = current->threads[i].ns[0].virt;
 		thread_args[i].siginfo_n = siginfo_priv_nr[i];
 		thread_args[i].siginfo = task_args->siginfo;
@@ -3700,22 +3558,11 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		if (thread_args[i].pid == pid) {
 			task_args->t = thread_args + i;
 			tcore = core;
-#ifdef CONFIG_MIPS
-			mips_blkset.sig[0] = tcore->tc->blk_sigset;
-			mips_blkset.sig[1] = tcore->tc->blk_sigset_extended;
-#else
 			blkset = (void *)&tcore->tc->blk_sigset;
-#endif
 		} else {
 			tcore = current->core[i];
-			if (tcore->thread_core->has_blk_sigset) {
-#ifdef CONFIG_MIPS
-				mips_blkset.sig[0] = tcore->thread_core->blk_sigset;
-				mips_blkset.sig[1] = tcore->thread_core->blk_sigset_extended;
-#else
+			if (tcore->thread_core->has_blk_sigset)
 				blkset = (void *)&tcore->thread_core->blk_sigset;
-#endif
-			}
 		}
 
 		if ((tcore->tc || tcore->ids) && thread_args[i].pid != pid) {
@@ -3755,11 +3602,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		thread_args[i].mz = mz + i;
 		sigframe = (struct rt_sigframe *)&mz[i].rt_sigframe;
 
-#ifdef CONFIG_MIPS
-		if (construct_sigframe(sigframe, sigframe, &mips_blkset, tcore))
-#else
 		if (construct_sigframe(sigframe, sigframe, blkset, tcore))
-#endif
 			goto err;
 
 		if (tcore->thread_core->comm)
