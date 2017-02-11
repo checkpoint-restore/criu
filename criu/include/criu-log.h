@@ -23,6 +23,8 @@
 #include "log.h"
 #include <sys/types.h>
 
+struct timeval;
+
 extern int log_init(const char *output);
 extern void log_fini(void);
 extern int log_init_by_pid(pid_t pid);
