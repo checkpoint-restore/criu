@@ -30,9 +30,6 @@ import yaml
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-# File to store content of streamed images
-STREAMED_IMG_FILE_NAME = "img.criu"
-
 prev_line = None
 
 
@@ -1027,7 +1024,7 @@ class criu:
         self.__mdedup = bool(opts['noauto_dedup'])
         self.__user = bool(opts['user'])
         self.__leave_stopped = bool(opts['stop'])
-        self.__stream = bool(opts['stream'])
+        self.__remote = bool(opts['remote'])
         self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
         self.__show_stats = bool(opts['show_stats'])
         self.__lazy_pages_p = None
@@ -1212,18 +1209,10 @@ class criu:
             stats_written = int(stent['shpages_written']) + int(
                 stent['pages_written'])
 
-        if self.__stream:
-            p = self.spawn_criu_image_streamer("extract")
-            p.wait()
-
         real_written = 0
         for f in os.listdir(self.__ddir()):
             if f.startswith('pages-'):
                 real_written += os.path.getsize(os.path.join(self.__ddir(), f))
-
-        if self.__stream:
-            # make sure the extracted image is not usable.
-            os.unlink(os.path.join(self.__ddir(), "inventory.img"))
 
         r_pages = real_written / mmap.PAGESIZE
         r_off = real_written % mmap.PAGESIZE
@@ -1231,57 +1220,6 @@ class criu:
             print("ERROR: bad page counts, stats = %d real = %d(%d)" %
                   (stats_written, r_pages, r_off))
             raise test_fail_exc("page counts mismatch")
-
-    # action can be "capture", "extract", or "serve"
-    def spawn_criu_image_streamer(self, action):
-        print("Run criu-image-streamer in {} mode".format(action))
-
-        progress_r, progress_w = os.pipe()
-        # We fcntl() on both file descriptors due to some potential differences
-        # with python2 and python3.
-        fcntl.fcntl(progress_r, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
-        fcntl.fcntl(progress_w, fcntl.F_SETFD, 0)
-
-        # We use cat because the streamer requires to work with pipes.
-        if action == 'capture':
-            cmd = ["criu-image-streamer",
-                   "--images-dir '{images_dir}'",
-                   "--progress-fd {progress_fd}",
-                   action,
-                   "| cat > {img_file}"]
-        else:
-            cmd = ["cat {img_file} |",
-                   "criu-image-streamer",
-                   "--images-dir '{images_dir}'",
-                   "--progress-fd {progress_fd}",
-                   action]
-
-        # * As we are using a shell pipe command, we want to use pipefail.
-        # Otherwise, failures stay unnoticed. For this, we use bash as sh
-        # doesn't support that feature.
-        # * We use close_fds=False because we want the child to inherit the progress pipe
-        p = subprocess.Popen(["bash", "-c", "set -o pipefail; " + " ".join(cmd).format(
-            progress_fd=progress_w,
-            images_dir=self.__ddir(),
-            img_file=os.path.join(self.__ddir(), STREAMED_IMG_FILE_NAME)
-        )], close_fds=False)
-
-        os.close(progress_w)
-        progress = os.fdopen(progress_r, "r")
-
-        if action == 'serve' or action == 'extract':
-            # Consume image statistics
-            progress.readline()
-
-        if action == 'capture' or action == 'serve':
-            # The streamer socket is ready for consumption once we receive the
-            # socket-init message.
-            if progress.readline().strip() != "socket-init":
-                p.kill()
-                raise test_fail_exc(
-                    "criu-image-streamer is not starting (exit_code=%d)" % p.wait())
-
-        return p
 
     def dump(self, action, opts=[]):
         self.__iter += 1
@@ -1312,9 +1250,26 @@ class criu:
 
         a_opts += self.__test.getdopts()
 
-        if self.__stream:
-            streamer_p = self.spawn_criu_image_streamer("capture")
-            a_opts += ["--stream"]
+        if self.__remote:
+            logdir = os.getcwd() + "/" + self.__dump_path + "/" + str(self.__iter)
+            print "Adding image cache"
+
+            cache_opts = [self.__criu_bin, "image-cache", "--port", "12345", "-v4", "-o",
+                      logdir + "/image-cache.log", "-D", logdir]
+
+            subprocess.Popen(cache_opts).pid
+            time.sleep(1)
+
+            print "Adding image proxy"
+
+            proxy_opts = [self.__criu_bin, "image-proxy", "--port", "12345", "--address",
+                    "localhost", "-v4", "-o", logdir + "/image-proxy.log",
+                    "-D", logdir]
+
+            subprocess.Popen(proxy_opts).pid
+            time.sleep(1)
+
+            a_opts += ["--remote"]
 
         if self.__dedup:
             a_opts += ["--auto-dedup"]
@@ -1340,11 +1295,6 @@ class criu:
         self.__dump_process = self.__criu_act(action,
                                               opts=a_opts + opts,
                                               nowait=nowait)
-        if self.__stream:
-            ret = streamer_p.wait()
-            if ret:
-                raise test_fail_exc("criu-image-streamer exited with %d" % ret)
-
         if self.__mdedup and self.__iter > 1:
             self.__criu_act("dedup", opts=[])
 
@@ -1375,9 +1325,8 @@ class criu:
             r_opts += ['--empty-ns', 'net']
             r_opts += ['--action-script', os.getcwd() + '/empty-netns-prep.sh']
 
-        if self.__stream:
-            streamer_p = self.spawn_criu_image_streamer("serve")
-            r_opts += ["--stream"]
+        if self.__remote:
+            r_opts += ["--remote"]
 
         if self.__dedup:
             r_opts += ["--auto-dedup"]
@@ -1412,11 +1361,6 @@ class criu:
             r_opts += ['--leave-stopped']
 
         self.__criu_act("restore", opts=r_opts + ["--restore-detached"])
-        if self.__stream:
-            ret = streamer_p.wait()
-            if ret:
-                raise test_fail_exc("criu-image-streamer exited with %d" % ret)
-
         self.show_stats("restore")
 
         if self.__leave_stopped:
@@ -1425,13 +1369,6 @@ class criu:
 
     @staticmethod
     def check(feature):
-        if feature == 'stream':
-            try:
-                p = subprocess.Popen(["criu-image-streamer", "--version"])
-                return p.wait() == 0
-            except Exception:
-                return False
-
         return criu_cli.run(
             "check", ["--no-default-config", "-v0", "--feature", feature],
             opts['criu_bin']) == 0
@@ -1667,37 +1604,6 @@ class noop_freezer:
         return []
 
 
-class cg_freezer2:
-    def __init__(self, path, state):
-        self.__path = '/sys/fs/cgroup/' + path
-        self.__state = state
-        self.kernel = True
-
-    def attach(self):
-        if not os.access(self.__path, os.F_OK):
-            os.makedirs(self.__path)
-        with open(self.__path + '/cgroup.procs', 'w') as f:
-            f.write('0')
-
-    def __set_state(self, state):
-        with open(self.__path + '/cgroup.freeze', 'w') as f:
-            f.write(state)
-
-    def freeze(self):
-        if self.__state.startswith('f'):
-            self.__set_state('1')
-
-    def thaw(self):
-        if self.__state.startswith('f'):
-            self.__set_state('0')
-
-    def getdopts(self):
-        return ['--freeze-cgroup', self.__path, '--manage-cgroups']
-
-    def getropts(self):
-        return ['--manage-cgroups']
-
-
 class cg_freezer:
     def __init__(self, path, state):
         self.__path = '/sys/fs/cgroup/freezer/' + path
@@ -1734,11 +1640,7 @@ def get_freezer(desc):
         return noop_freezer()
 
     fd = desc.split(':')
-
-    if os.access("/sys/fs/cgroup/user.slice/cgroup.procs", os .F_OK):
-        fr = cg_freezer2(path=fd[0], state=fd[1])
-    else:
-        fr = cg_freezer(path=fd[0], state=fd[1])
+    fr = cg_freezer(path=fd[0], state=fd[1])
     return fr
 
 
@@ -1975,7 +1877,7 @@ class Launcher:
               'stop', 'empty_ns', 'fault', 'keep_img', 'report', 'snaps',
               'sat', 'script', 'rpc', 'lazy_pages', 'join_ns', 'dedup', 'sbs',
               'freezecg', 'user', 'dry_run', 'noauto_dedup',
-              'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
+              'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'remote',
               'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
@@ -2170,11 +2072,11 @@ def grep_errors(fname):
     print_next = False
     before = []
     with open(fname, errors='replace') as fd:
-        for line in fd:
-            before.append(line)
+        for l in fd:
+            before.append(l)
             if len(before) > 5:
                 before.pop(0)
-            if "Error" in line or "Warn" in line:
+            if "Error" in l or "Warn" in l:
                 if first:
                     print_fname(fname, 'log')
                     print_sep("grep Error", "-", 60)
@@ -2184,7 +2086,7 @@ def grep_errors(fname):
                 before = []
             else:
                 if print_next:
-                    print_next = print_error(line)
+                    print_next = print_error(l)
                     before = []
     if not first:
         print_sep("ERROR OVER", "-", 60)
@@ -2260,15 +2162,6 @@ def run_tests(opts):
             print(
                 "[WARNING] Non-cooperative UFFD is missing, some tests might spuriously fail"
             )
-
-    if opts['stream']:
-        streamer_dir = os.path.realpath(opts['criu_image_streamer_dir'])
-        os.environ['PATH'] = "{}:{}".format(streamer_dir, os.environ['PATH'])
-        if not criu.check('stream'):
-            raise RuntimeError((
-                "Streaming tests need the criu-image-streamer binary to be accessible in the {} directory. " +
-                "Specify --criu-image-streamer-dir or modify PATH to provide an alternate location")
-                .format(streamer_dir))
 
     launcher = Launcher(opts, len(torun))
     try:
@@ -2592,8 +2485,8 @@ rp.add_argument("--rpc",
 rp.add_argument("--page-server",
                 help="Use page server dump",
                 action='store_true')
-rp.add_argument("--stream",
-                help="Use criu-image-streamer",
+rp.add_argument("--remote",
+                help="Use remote option for diskless C/R",
                 action='store_true')
 rp.add_argument("-p", "--parallel", help="Run test in parallel")
 rp.add_argument("--dry-run",
@@ -2632,9 +2525,6 @@ rp.add_argument("--criu-bin",
 rp.add_argument("--crit-bin",
                 help="Path to crit binary",
                 default='../crit/crit')
-rp.add_argument("--criu-image-streamer-dir",
-                help="Directory where the criu-image-streamer binary is located",
-                default="../../criu-image-streamer")
 rp.add_argument("--pre-dump-mode",
                 help="Use splice or read mode of pre-dumping",
                 choices=['splice', 'read'],
