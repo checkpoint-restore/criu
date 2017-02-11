@@ -564,29 +564,46 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 {
 	ssize_t written = 0;
 	size_t chunk = bytes ? bytes : 4096;
+	char *buffer = (char*) malloc(chunk);
+	ssize_t ret;
 
 	while (1) {
-		ssize_t ret;
+		if (false) {
+			ret = read(fd_in, buffer, chunk);
+			if (ret < 0) {
+				pr_perror("Can't read from fd_in\n");
+				ret = -1;
+				goto err;
+			}
+			if (write(fd_out, buffer, ret) != ret) {
+				pr_perror("Couldn't write all read bytes\n");
+				ret = -1;
+				goto err;
+			}
+		} else
+			ret = sendfile(fd_out, fd_in, NULL, chunk);
 
-		ret = sendfile(fd_out, fd_in, NULL, chunk);
 		if (ret < 0) {
 			pr_perror("Can't send data to ghost file");
-			return -1;
+			ret = -1;
+			goto err;
 		}
 
 		if (ret == 0) {
 			if (bytes && (written != bytes)) {
 				pr_err("Ghost file size mismatch %zu/%zu\n",
 						written, bytes);
-				return -1;
+				ret = -1;
+				goto err;
 			}
 			break;
 		}
 
 		written += ret;
 	}
-
-	return 0;
+err:
+	free(buffer);
+	return ret;
 }
 
 int read_fd_link(int lfd, char *buf, size_t size)
