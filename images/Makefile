@@ -65,6 +65,7 @@ proto-obj-y	+= macvlan.o
 proto-obj-y	+= sit.o
 proto-obj-y	+= memfd.o
 proto-obj-y	+= timens.o
+proto-obj-y	+= remote-image.o
 
 CFLAGS		+= -iquote $(obj)/
 
