@@ -46,6 +46,7 @@
 
 #include "setproctitle.h"
 #include "sysctl.h"
+#include "img-remote.h"
 
 int main(int argc, char *argv[], char *envp[])
 {
@@ -226,6 +227,12 @@ int main(int argc, char *argv[], char *envp[])
 	if (!strcmp(argv[optind], "page-server"))
 		return cr_page_server(opts.daemon_mode, false, -1) != 0;
 
+	if (!strcmp(argv[optind], "image-cache"))
+		return image_cache(opts.daemon_mode, DEFAULT_CACHE_SOCKET, opts.port);
+
+	if (!strcmp(argv[optind], "image-proxy"))
+		return image_proxy(opts.daemon_mode, DEFAULT_PROXY_SOCKET, opts.addr, opts.port);
+
 	if (!strcmp(argv[optind], "service"))
 		return cr_service(opts.daemon_mode);
 
@@ -265,6 +272,8 @@ usage:
 "  criu service [<options>]\n"
 "  criu dedup\n"
 "  criu lazy-pages -D DIR [<options>]\n"
+"  criu image-cache [<options>]\n"
+"  criu image-proxy [<options>]\n"
 "\n"
 "Commands:\n"
 "  dump           checkpoint a process/tree identified by pid\n"
@@ -276,6 +285,8 @@ usage:
 "  dedup          remove duplicates in memory dump\n"
 "  cpuinfo dump   writes cpu information into image file\n"
 "  cpuinfo check  validates cpu information read from image file\n"
+"  image-proxy    launch dump-side proxy to sent images\n"
+"  image-cache    launch restore-side cache to reveive images\n"
 	);
 
 	if (usage_error) {
@@ -328,6 +339,8 @@ usage:
 "                            macvlan[IFNAME]:OUTNAME\n"
 "                            mnt[COOKIE]:ROOT\n"
 "\n"
+"  --remote              dump/restore images directly to/from remote node using\n"
+"                        image-proxy/image-cache\n"
 "* Special resources support:\n"
 "     --" SK_EST_PARAM "  checkpoint/restore established TCP connections\n"
 "     --" SK_INFLIGHT_PARAM "   skip (ignore) in-flight TCP connections\n"

@@ -17,6 +17,7 @@
 #include "images/inventory.pb-c.h"
 #include "images/pagemap.pb-c.h"
 #include "proc_parse.h"
+#include "img-remote.h"
 #include "namespaces.h"
 
 bool ns_per_id = false;
@@ -368,6 +369,43 @@ static int img_write_magic(struct cr_img *img, int oflags, int type)
 	return write_img(img, &imgset_template[type].magic);
 }
 
+int do_open_remote_image(int dfd, char *path, int flags)
+{
+	char *snapshot_id = NULL;
+	int ret;
+
+	/* When using namespaces, the current dir is changed so we need to
+	 * change to previous working dir and back to correctly open the image
+	 * proxy and cache sockets. */
+	int save = dirfd(opendir("."));
+	if (fchdir(get_service_fd(IMG_FD_OFF)) < 0) {
+		pr_debug("fchdir to dfd failed!\n");
+		return -1;
+	}
+
+	snapshot_id = get_snapshot_id_from_idx(dfd);
+
+	if (snapshot_id == NULL)
+		ret = -1;
+	else if (flags == O_RDONLY) {
+		pr_debug("do_open_remote_image RDONLY path=%s snapshot_id=%s\n",
+				  path, snapshot_id);
+		ret = read_remote_image_connection(snapshot_id, path);
+	} else {
+		pr_debug("do_open_remote_image WDONLY path=%s snapshot_id=%s\n",
+				  path, snapshot_id);
+		ret = write_remote_image_connection(snapshot_id, path, O_WRONLY);
+	}
+
+	if (fchdir(save) < 0) {
+		pr_debug("fchdir to save failed!\n");
+		return -1;
+	}
+	close(save);
+
+	return ret;
+}
+
 struct openat_args {
 	char	path[PATH_MAX];
 	int	flags;
@@ -393,24 +431,28 @@ static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long of
 
 	flags = oflags & ~(O_NOBUF | O_SERVICE | O_FORCE_LOCAL);
 
-	/*
-	 * For pages images dedup we need to open images read-write on
-	 * restore, that may require proper capabilities, so we ask
-	 * usernsd to do it for us
-	 */
-	if (root_ns_mask & CLONE_NEWUSER &&
-	    type == CR_FD_PAGES && oflags & O_RDWR) {
-		struct openat_args pa = {
-			.flags = flags,
-			.err = 0,
-			.mode = CR_FD_PERM,
-		};
-		snprintf(pa.path, PATH_MAX, "%s", path);
-		ret = userns_call(userns_openat, UNS_FDOUT, &pa, sizeof(struct openat_args), dfd);
-		if (ret < 0)
-			errno = pa.err;
-	} else
-		ret = openat(dfd, path, flags, CR_FD_PERM);
+	if (opts.remote && !(oflags & O_FORCE_LOCAL))
+		ret = do_open_remote_image(dfd, path, flags);
+	else {
+		/*
+		 * For pages images dedup we need to open images read-write on
+		 * restore, that may require proper capabilities, so we ask
+		 * usernsd to do it for us
+		 */
+		if (root_ns_mask & CLONE_NEWUSER &&
+		    type == CR_FD_PAGES && oflags & O_RDWR) {
+			struct openat_args pa = {
+				.flags = flags,
+				.err = 0,
+				.mode = CR_FD_PERM,
+			};
+			snprintf(pa.path, PATH_MAX, "%s", path);
+			ret = userns_call(userns_openat, UNS_FDOUT, &pa, sizeof(struct openat_args), dfd);
+			if (ret < 0)
+				errno = pa.err;
+		} else
+			ret = openat(dfd, path, flags, CR_FD_PERM);
+	}
 	if (ret < 0) {
 		if (!(flags & O_CREAT) && (errno == ENOENT || ret == -ENOENT)) {
 			pr_info("No %s image\n", path);
@@ -513,7 +555,9 @@ int open_image_dir(char *dir)
 		return -1;
 	fd = ret;
 
-	if (opts.img_parent) {
+	if (opts.remote) {
+		init_snapshot_id(dir);
+	} else if (opts.img_parent) {
 		ret = symlinkat(opts.img_parent, fd, CR_PARENT_LINK);
 		if (ret < 0 && errno != EEXIST) {
 			pr_perror("Can't link parent snapshot");
