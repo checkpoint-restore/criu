@@ -1011,6 +1011,7 @@ class criu:
         self.__mdedup = bool(opts['noauto_dedup'])
         self.__user = bool(opts['user'])
         self.__leave_stopped = bool(opts['stop'])
+        self.__remote = bool(opts['remote'])
         self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
         self.__show_stats = bool(opts['show_stats'])
         self.__lazy_pages_p = None
@@ -1235,6 +1236,27 @@ class criu:
 
         a_opts += self.__test.getdopts()
 
+        if self.__remote:
+            logdir = os.getcwd() + "/" + self.__dump_path + "/" + str(self.__iter)
+            print "Adding image cache"
+
+            cache_opts = [self.__criu_bin, "image-cache", "--port", "12345", "-v4", "-o",
+                      logdir + "/image-cache.log", "-D", logdir]
+
+            subprocess.Popen(cache_opts).pid
+            time.sleep(1)
+
+            print "Adding image proxy"
+
+            proxy_opts = [self.__criu_bin, "image-proxy", "--port", "12345", "--address",
+                    "localhost", "-v4", "-o", logdir + "/image-proxy.log",
+                    "-D", logdir]
+
+            subprocess.Popen(proxy_opts).pid
+            time.sleep(1)
+
+            a_opts += ["--remote"]
+
         if self.__dedup:
             a_opts += ["--auto-dedup"]
 
@@ -1286,6 +1308,9 @@ class criu:
         if self.__empty_ns:
             r_opts += ['--empty-ns', 'net']
             r_opts += ['--action-script', os.getcwd() + '/empty-netns-prep.sh']
+
+        if self.__remote:
+            r_opts += ["--remote"]
 
         if self.__dedup:
             r_opts += ["--auto-dedup"]
@@ -1834,7 +1859,7 @@ class Launcher:
               'stop', 'empty_ns', 'fault', 'keep_img', 'report', 'snaps',
               'sat', 'script', 'rpc', 'lazy_pages', 'join_ns', 'dedup', 'sbs',
               'freezecg', 'user', 'dry_run', 'noauto_dedup',
-              'remote_lazy_pages', 'show_stats', 'lazy_migrate',
+              'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'remote',
               'tls', 'criu_bin', 'crit_bin')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
