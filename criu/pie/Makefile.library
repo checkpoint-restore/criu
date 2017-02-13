@@ -3,7 +3,7 @@ lib-name		:= pie.lib.a
 CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC -fpie
 LDFLAGS			+= -z noexecstack
 
-lib-y			+= util.o string.o
+lib-y			+= util.o
 
 ifeq ($(VDSO),y)
         lib-y		+= util-vdso.o parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o
@@ -18,8 +18,7 @@ ifeq ($(VDSO),y)
 endif
 
 ifeq ($(SRCARCH),ppc64)
-        lib-y		+= ./$(ARCH_DIR)/memcpy_power7.o		\
-			   ./$(ARCH_DIR)/memcmp_64.o ./$(ARCH_DIR)/misc.o
+        lib-y		+= ./$(ARCH_DIR)/misc.o
 endif
 
 ifeq ($(SRCARCH),x86)
@@ -27,8 +26,6 @@ ifeq ($(SRCARCH),x86)
                 lib-y	+= util-vdso-elf32.o
         endif
         CFLAGS_util-vdso-elf32.o	+= -DCONFIG_VDSO_32
-
-        lib-y		+= ./$(ARCH_DIR)/memcpy.o
 endif
 
 #
@@ -49,12 +46,3 @@ ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 ifeq ($(SRCARCH),arm)
 	ccflags-y	+= -marm
 endif
-
-ifneq ($(filter-out ia32,$(ARCH)),)
-        ccflags-y	+= -DCR_NOGLIBC -fpie -Wa,--noexecstack -fno-stack-protector
-else
-        ccflags-y	+= -DCR_NOGLIBC -fno-pic -Wa,--noexecstack -fno-stack-protector
-endif
-
-ccflags-y		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
-ccflags-y		+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0

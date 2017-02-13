@@ -20,7 +20,6 @@
 #include "int.h"
 #include "types.h"
 #include "common/compiler.h"
-#include "string.h"
 #include <compel/plugins/std/syscall.h>
 #include <compel/plugins/std/log.h>
 #include <compel/ksigset.h>

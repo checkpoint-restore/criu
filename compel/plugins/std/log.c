@@ -1,8 +1,8 @@
 #include <stdarg.h>
 
-#include "string.h"
 #include "common/bitsperlong.h"
 #include <compel/plugins/std/syscall.h>
+#include "uapi/std/string.h"
 #include <compel/plugins/std/log.h>
 #include <compel/loglevels.h>
 

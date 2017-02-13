@@ -1,11 +1,11 @@
 #include "log.h"
 #include "asm/restorer.h"
 #include <compel/asm/fpu.h>
-#include "asm/string.h"
 #include "asm/compat.h"
 
 #ifdef CR_NOGLIBC
 # include <compel/plugins/std/syscall.h>
+# include <compel/plugins/std/string.h>
 #else
 # ifndef  __NR32_rt_sigaction
 #  define  __NR32_rt_sigaction 174
@@ -38,7 +38,7 @@ int arch_compat_rt_sigaction(void *stack32, int sig, rt_sigaction_t_compat *act)
 	 * To be sure, that sigaction pointer lies under 4G,
 	 * coping it on the bottom of the stack.
 	 */
-	builtin_memcpy(stack32, act, sizeof(rt_sigaction_t_compat));
+	memcpy(stack32, act, sizeof(rt_sigaction_t_compat));
 
 	asm volatile ("\t movl %%ebx,%%ebx\n" : :"b"(sig));	/* signum */
 	asm volatile ("\t movl %%ecx,%%ecx\n" : :"c"(stack32));	/* act */

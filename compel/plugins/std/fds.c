@@ -16,6 +16,5 @@
 
 #define __sys(foo)	sys_##foo
 #define __sys_err(ret)	ret
-#define __memcpy	std_memcpy
 
 #include "common/scm-code.c"

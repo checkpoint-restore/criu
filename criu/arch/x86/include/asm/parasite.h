@@ -1,7 +1,7 @@
 #ifndef __ASM_PARASITE_H__
 #define __ASM_PARASITE_H__
 
-#include "asm-generic/string.h"
+#include <compel/plugins/std/string.h>
 #include <compel/plugins/std/syscall-codes.h>
 #include "asm/compat.h"
 
@@ -68,11 +68,11 @@ static void arch_get_tls(tls_t *ptls)
 	{
 		user_desc_t *d = syscall_mem;
 
-		builtin_memset(d, 0, sizeof(user_desc_t));
+		memset(d, 0, sizeof(user_desc_t));
 		d->seg_not_present = 1;
 		d->entry_number = GDT_ENTRY_TLS_MIN + i;
 		arch_get_user_desc(d);
-		builtin_memcpy(&ptls->desc[i], d, sizeof(user_desc_t));
+		memcpy(&ptls->desc[i], d, sizeof(user_desc_t));
 	}
 
 	free_compat_syscall_stack(syscall_mem);

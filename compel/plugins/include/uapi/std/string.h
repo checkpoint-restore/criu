@@ -21,8 +21,11 @@ extern void __std_printf(int fd, const char *format, ...);
 #define std_putchar(c)		__std_putc(STDOUT_FILENO, c)
 
 extern unsigned long std_strtoul(const char *nptr, char **endptr, int base);
-extern void *std_memcpy(void *to, const void *from, unsigned int n);
-extern int std_memcmp(const void *cs, const void *ct, size_t count);
 extern int std_strcmp(const char *cs, const char *ct);
+extern int std_strncmp(const char *cs, const char *ct, size_t n);
+
+extern void *memcpy(void *dest, const void *src, size_t n);
+extern int memcmp(const void *s1, const void *s2, size_t n);
+extern void *memset(void *s, int c, size_t n);
 
 #endif /* COMPEL_PLUGIN_STD_STRING_H__ */

@@ -29,7 +29,6 @@
 
 #define __sys(foo)	foo
 #define __sys_err(ret)	(-errno)
-#define __memcpy	memcpy
 
 #include "common/scm.h"
 #include "common/scm-code.c"

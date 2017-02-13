@@ -5,8 +5,8 @@
 #include "restorer.h"
 #include "asm/restorer.h"
 #include <compel/asm/fpu.h>
-#include "asm/string.h"
 
+#include <compel/plugins/std/string.h>
 #include <compel/plugins/std/syscall.h>
 #include "log.h"
 #include "cpu.h"
@@ -71,7 +71,7 @@ void restore_tls(tls_t *ptls)
 		if (prepare_stack32(&stack32) < 0)
 			return;
 
-		builtin_memcpy(stack32, desc, sizeof(user_desc_t));
+		memcpy(stack32, desc, sizeof(user_desc_t));
 		asm volatile (
 		"       mov %1,%%eax                    \n"
 		"       mov %2,%%ebx                    \n"
