@@ -73,7 +73,8 @@ extern int set_proc_fd(int fd);
 #define PROC_GEN	-1
 #define PROC_NONE	-2
 
-extern int do_open_proc(pid_t pid, int flags, const char *fmt, ...);
+extern int do_open_proc(pid_t pid, int flags, const char *fmt, ...)
+	__attribute__ ((__format__ (__printf__, 3, 4)));
 
 #define __open_proc(pid, ier, flags, fmt, ...)				\
 	({								\
