@@ -5,6 +5,8 @@
 #include "uapi/std/syscall.h"
 #include "uapi/std/string.h"
 
+#include "features.h"
+
 static const char conv_tab[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 void __std_putc(int fd, char c)
@@ -220,17 +222,33 @@ fin:
 	return neg ? (unsigned long)-num : (unsigned long)num;
 }
 
-void *std_memcpy(void *to, const void *from, unsigned int n)
-{
-	char *tmp = to;
-	const char *s = from;
 
-	while (n--)
-		*tmp++ = *s++;
+/*
+ * C compiler is free to insert implicit calls to memcmp, memset,
+ * memcpy and memmove, assuming they are available during linking.
+ * As the parasite code is not linked with libc, it must provide
+ * our own implementations of the above functions.
+ * Surely, these functions can also be called explicitly.
+ *
+ * Note: for now, not having memmove() seems OK for both gcc and clang.
+ */
+
+#ifndef ARCH_HAS_MEMCPY
+void *memcpy(void *to, const void *from, size_t n)
+{
+	size_t i;
+	unsigned char *cto = to;
+	const unsigned char *cfrom = from;
+
+	for (i = 0; i < n; ++i, ++cto, ++cfrom)
+		*cto = *cfrom;
+
 	return to;
 }
+#endif
 
-int std_memcmp(const void *cs, const void *ct, size_t count)
+#ifndef ARCH_HAS_MEMCMP
+int memcmp(const void *cs, const void *ct, size_t count)
 {
 	const unsigned char *su1, *su2;
 	int res = 0;
@@ -240,6 +258,20 @@ int std_memcmp(const void *cs, const void *ct, size_t count)
 			break;
 	return res;
 }
+#endif
+
+#ifndef ARCH_HAS_MEMSET
+void *memset(void *s, const int c, size_t count)
+{
+	volatile char *dest = s;
+	size_t i = 0;
+
+	while (i < count)
+		dest[i++] = (char) c;
+
+	return s;
+}
+#endif
 
 int std_strcmp(const char *cs, const char *ct)
 {
@@ -251,6 +283,19 @@ int std_strcmp(const char *cs, const char *ct)
 		if (c1 != c2)
 			return c1 < c2 ? -1 : 1;
 		if (!c1)
+			break;
+	}
+	return 0;
+}
+
+int std_strncmp(const char *cs, const char *ct, size_t count)
+{
+	size_t i;
+
+	for (i = 0; i < count; i++) {
+		if (cs[i] != ct[i])
+			return cs[i] < ct[i] ? -1 : 1;
+		if (!cs[i])
 			break;
 	}
 	return 0;

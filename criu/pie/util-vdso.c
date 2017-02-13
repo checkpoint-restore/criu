@@ -17,12 +17,11 @@
 #include "common/bug.h"
 
 #ifdef CR_NOGLIBC
-# include "string.h"
+# include <compel/plugins/std/string.h>
 #else
 # include <string.h>
-# define builtin_strncmp strncmp
+# define std_strncmp strncmp
 #endif
-
 
 #ifdef LOG_PREFIX
 # undef LOG_PREFIX
@@ -246,7 +245,7 @@ static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 				continue;
 			name = (void *)addr;
 
-			if (builtin_strncmp(name, symbol, vdso_symbol_length))
+			if (std_strncmp(name, symbol, vdso_symbol_length))
 				continue;
 
 			memcpy(t->symbols[i].name, name, vdso_symbol_length);
