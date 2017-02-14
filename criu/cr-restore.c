@@ -121,6 +121,7 @@ static int prepare_rlimits(int pid, struct task_restore_args *, CoreEntry *core)
 static int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry *core);
 static int prepare_signals(int pid, struct task_restore_args *, CoreEntry *core);
 
+static void restore_wait_other_tasks();
 
 static int crtools_prepare_shared(void)
 {
@@ -1469,7 +1470,7 @@ static int restore_task_with_children(void *_arg)
 		 * Wait when all tasks passed the CR_STATE_FORKING stage.
 		 * It means that all tasks entered into their namespaces.
 		 */
-		futex_wait_while_gt(&task_entries->nr_in_progress, 1);
+		restore_wait_other_tasks();
 
 		fini_restore_mntns();
 	}
@@ -1514,6 +1515,26 @@ static inline int stage_participants(int next_stage)
 	return -1;
 }
 
+static inline int stage_current_participants(int next_stage)
+{
+	switch (next_stage) {
+	case CR_STATE_FORKING:
+		return 1;
+	case CR_STATE_RESTORE:
+		/*
+		 * Each thread has to be reported about this stage,
+		 * so if we want to wait all other tast, we have to
+		 * exclude all threads of the current process.
+		 * It is supposed that we will wait other tasks,
+		 * before creating threads of the current task.
+		 */
+		return current->nr_threads;
+	}
+
+	BUG();
+	return -1;
+}
+
 static int restore_wait_inprogress_tasks()
 {
 	int ret;
@@ -1540,6 +1561,18 @@ static int restore_switch_stage(int next_stage)
 {
 	__restore_switch_stage(next_stage);
 	return restore_wait_inprogress_tasks();
+}
+
+/* Wait all tasks except the current one */
+static void restore_wait_other_tasks()
+{
+	int participants, stage;
+
+	stage = futex_get(&task_entries->start);
+	participants = stage_current_participants(stage);
+
+	futex_wait_while_gt(&task_entries->nr_in_progress,
+				participants);
 }
 
 static int attach_to_tasks(bool root_seized)
