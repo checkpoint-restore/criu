@@ -43,4 +43,5 @@ message packet_sock_entry {
 	optional uint32		fanout		= 17 [ default = 0xffffffff ];
 	optional packet_ring	rx_ring		= 18;
 	optional packet_ring	tx_ring		= 19;
+	optional uint32		ns_id		= 20;
 }

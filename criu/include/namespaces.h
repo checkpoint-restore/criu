@@ -184,4 +184,6 @@ extern int __userns_call(const char *func_name, uns_call_t call, int flags,
 
 extern int add_ns_shared_cb(int (*actor)(void *data), void *data);
 
+extern struct ns_id *get_socket_ns(int lfd);
+
 #endif /* __CR_NS_H__ */

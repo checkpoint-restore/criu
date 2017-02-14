@@ -39,5 +39,6 @@ message inet_sk_entry {
 	/* for ipv6, we need to send the ifindex to bind(); we keep the ifname
 	 * here and convert it on restore */
 	optional string			ifname		= 17;
+	optional uint32			ns_id		= 18;
 	optional sk_shutdown		shutdown	= 19;
 }

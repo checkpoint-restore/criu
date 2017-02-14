@@ -19,6 +19,7 @@ struct socket_desc {
 	unsigned int		family;
 	unsigned int		ino;
 	struct socket_desc	*next;
+	struct ns_id		*sk_ns;
 	int			already_dumped;
 };
 
@@ -31,7 +32,7 @@ extern void preload_socket_modules(void);
 
 extern bool socket_test_collect_bit(unsigned int family, unsigned int proto);
 
-extern int sk_collect_one(unsigned ino, int family, struct socket_desc *d);
+extern int sk_collect_one(unsigned ino, int family, struct socket_desc *d, struct ns_id *ns);
 struct ns_id;
 extern int collect_sockets(struct ns_id *);
 extern struct collect_image_info inet_sk_cinfo;
