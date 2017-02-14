@@ -192,6 +192,7 @@ TST_NOFILE	:=				\
 		s390x_mmap_high			\
 		uffd-events			\
 		thread_different_uid_gid	\
+		netns_sub			\
 #		jobctl00			\
 
 include ../Makefile.inc
