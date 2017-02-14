@@ -20,7 +20,7 @@ static int do_rsetsid(int pid)
 	long ret;
 	struct parasite_ctl *ctl;
 
-	compel_log_init(print_vmsg, LOG_DEBUG);
+	compel_log_init(print_vmsg, COMPEL_LOG_DEBUG);
 
 	printf("Stopping task\n");
 	state = compel_stop_task(pid);
