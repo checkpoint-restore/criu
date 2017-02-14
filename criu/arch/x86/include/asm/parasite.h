@@ -5,10 +5,6 @@
 #include <compel/plugins/std/syscall-codes.h>
 #include "asm/compat.h"
 
-#ifdef CONFIG_X86_32
-# define __parasite_entry __attribute__((regparm(3)))
-#endif
-
 static int arch_get_user_desc(user_desc_t *desc)
 {
 	int ret = __NR32_get_thread_area;

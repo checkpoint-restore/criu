@@ -49,7 +49,7 @@ struct vdso_symtable {
 			},						\
 	}
 
-#if defined(CONFIG_X86_32) || defined(CONFIG_VDSO_32)
+#ifdef CONFIG_VDSO_32
 
 #define Ehdr_t		Elf32_Ehdr
 #define Sym_t		Elf32_Sym
@@ -60,7 +60,7 @@ struct vdso_symtable {
 #define ELF_ST_TYPE	ELF32_ST_TYPE
 #define ELF_ST_BIND	ELF32_ST_BIND
 
-#else /* !CONFIG_X86_32 */
+#else /* CONFIG_VDSO_32 */
 
 #define Ehdr_t		Elf64_Ehdr
 #define Sym_t		Elf64_Sym
@@ -75,7 +75,7 @@ struct vdso_symtable {
 #define ELF_ST_BIND	ELF64_ST_BIND
 #endif
 
-#endif /* !CONFIG_X86_32 */
+#endif /* CONFIG_VDSO_32 */
 
 /* Size of VMA associated with vdso */
 static inline unsigned long vdso_vma_size(struct vdso_symtable *t)

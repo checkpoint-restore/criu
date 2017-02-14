@@ -17,7 +17,7 @@ static inline void restore_tls(tls_t *ptls) { }
 static inline int
 arch_compat_rt_sigaction(void *stack, int sig, void *act) { return -1; }
 #endif /* !CONFIG_COMPAT */
-#ifdef CONFIG_X86_64
+
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,      \
 			     thread_args, clone_restore_fn)             \
 	asm volatile(							\
@@ -70,27 +70,6 @@ arch_compat_rt_sigaction(void *stack, int sig, void *act) { return -1; }
 #endif
 
 extern int kdat_compat_sigreturn_test(void);
-#else /* CONFIG_X86_64 */
-#define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,      \
-			     thread_args, clone_restore_fn)             \
-	(void)ret;							\
-	(void)clone_flags;						\
-	(void)new_sp;							\
-	(void)parent_tid;						\
-	(void)thread_args;						\
-	(void)clone_restore_fn;						\
-	;
-#define ARCH_FAIL_CORE_RESTORE					\
-	asm volatile(						\
-		     "movl %0, %%esp			    \n"	\
-		     "xorl %%eax, %%eax			    \n"	\
-		     "jmp *%%eax			    \n"	\
-		     :						\
-		     : "r"(ret)					\
-		     : "memory")
-
-#define kdat_compat_sigreturn_test()			0
-#endif /* CONFIG_X86_64 */
 
 static inline void
 __setup_sas_compat(struct ucontext_ia32* uc, ThreadSasEntry *sas)
@@ -103,7 +82,6 @@ __setup_sas_compat(struct ucontext_ia32* uc, ThreadSasEntry *sas)
 static inline void
 __setup_sas(struct rt_sigframe* sigframe, ThreadSasEntry *sas)
 {
-#ifdef CONFIG_X86_64
 	if (sigframe->is_native) {
 		struct rt_ucontext *uc	= &sigframe->native.uc;
 
@@ -113,9 +91,6 @@ __setup_sas(struct rt_sigframe* sigframe, ThreadSasEntry *sas)
 	} else {
 		__setup_sas_compat(&sigframe->compat.uc, sas);
 	}
-#else
-	__setup_sas_compat(&sigframe->uc, sas);
-#endif
 }
 
 static inline void _setup_sas(struct rt_sigframe* sigframe, ThreadSasEntry *sas)

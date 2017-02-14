@@ -12,7 +12,6 @@
 
 #include "images/core.pb-c.h"
 
-#ifdef CONFIG_X86_64
 static inline int core_is_compat(CoreEntry *c)
 {
 	switch (c->thread_info->gpregs->mode) {
@@ -24,9 +23,6 @@ static inline int core_is_compat(CoreEntry *c)
 			return -1;
 	}
 }
-#else /* CONFIG_X86_64 */
-static inline int core_is_compat(CoreEntry *c) { return 0; }
-#endif /* CONFIG_X86_64 */
 
 #define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__X86_64
 

@@ -26,7 +26,6 @@
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
 
-#ifdef CONFIG_X86_64
 int kdat_compat_sigreturn_test(void)
 {
 #ifdef CONFIG_COMPAT
@@ -49,7 +48,6 @@ int kdat_compat_sigreturn_test(void)
 #endif
 	return 0;
 }
-#endif /* CONFIG_X86_64 */
 
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
@@ -369,11 +367,7 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 	return 0;
 }
 
-#ifdef CONFIG_X86_64
 #define CPREG32(d)	f->compat.uc.uc_mcontext.d = r->d
-#else
-#define CPREG32(d)	f->uc.uc_mcontext.d = r->d
-#endif
 static void restore_compat_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 {
 	CPREG32(gs);
@@ -387,13 +381,10 @@ static void restore_compat_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 	CPREG32(ss);
 	CPREG32(flags);
 
-#ifdef CONFIG_X86_64
 	f->is_native = false;
-#endif
 }
 #undef CPREG32
 
-#ifdef CONFIG_X86_64
 #define CPREG64(d, s)	f->native.uc.uc_mcontext.d = r->s
 static void restore_native_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 {
@@ -439,11 +430,3 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 	}
 	return 0;
 }
-#else /* !CONFIG_X86_64 */
-int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
-{
-	restore_compat_gpregs(f, r);
-	return 0;
-}
-#endif
-
