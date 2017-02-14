@@ -848,6 +848,20 @@ static int shutdown_unix_sk(int sk, struct unix_sk_info *ui)
 	return 0;
 }
 
+static int restore_sk_common(int fd, struct unix_sk_info *ui)
+{
+	if (rst_file_params(fd, ui->ue->fown, ui->ue->flags))
+		return -1;
+
+	if (restore_socket_opts(fd, ui->ue->opts))
+		return -1;
+
+	if (shutdown_unix_sk(fd, ui))
+		return -1;
+
+	return 0;
+}
+
 static void revert_unix_sk_cwd(int *prev_cwd_fd, int *root_fd)
 {
 	if (*root_fd >= 0) {
@@ -952,16 +966,7 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 	if (peer->queuer == ui->ue->ino && restore_sk_queue(fd, peer->ue->id))
 		return -1;
 
-	if (rst_file_params(fd, ui->ue->fown, ui->ue->flags))
-		return -1;
-
-	if (restore_socket_opts(fd, ui->ue->opts))
-		return -1;
-
-	if (shutdown_unix_sk(fd, ui))
-		return -1;
-
-	return 0;
+	return restore_sk_common(fd, ui);
 }
 
 static int bind_unix_sk(int sk, struct unix_sk_info *ui)
@@ -1098,13 +1103,7 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 	if (bind_unix_sk(sk[0], ui))
 		return -1;
 
-	if (rst_file_params(sk[0], ui->ue->fown, ui->ue->flags))
-		return -1;
-
-	if (restore_socket_opts(sk[0], ui->ue->opts))
-		return -1;
-
-	if (shutdown_unix_sk(sk[0], ui))
+	if (restore_sk_common(sk[0], ui))
 		return -1;
 
 	fle = file_master(&peer->d);
@@ -1140,13 +1139,7 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui, int *new_fd)
 	if (bind_unix_sk(sk, ui))
 		return -1;
 
-	if (rst_file_params(sk, ui->ue->fown, ui->ue->flags))
-		return -1;
-
-	if (restore_socket_opts(sk, ui->ue->opts))
-		return -1;
-
-	if (shutdown_unix_sk(sk, ui))
+	if (restore_sk_common(sk, ui))
 		return -1;
 
 	*new_fd = sk;
@@ -1295,13 +1288,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 	}
 
 out:
-	if (rst_file_params(sk, ui->ue->fown, ui->ue->flags))
-		return -1;
-
-	if (restore_socket_opts(sk, ui->ue->opts))
-		return -1;
-
-	if (shutdown_unix_sk(sk, ui))
+	if (restore_sk_common(sk, ui))
 		return -1;
 
 	*new_fd = sk;
