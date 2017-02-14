@@ -1663,14 +1663,14 @@ int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 	 * tree (i.e. -- mnt_ns restoring)
 	 */
 
-	id = ns_per_id ? item->ids->net_ns_id : pid;
-	if ((clone_flags & CLONE_NEWNET) && prepare_net_ns(id))
-		return -1;
 	id = ns_per_id ? item->ids->uts_ns_id : pid;
 	if ((clone_flags & CLONE_NEWUTS) && prepare_utsns(id))
 		return -1;
 	id = ns_per_id ? item->ids->ipc_ns_id : pid;
 	if ((clone_flags & CLONE_NEWIPC) && prepare_ipc_ns(id))
+		return -1;
+
+	if (prepare_net_namespaces())
 		return -1;
 
 	/*

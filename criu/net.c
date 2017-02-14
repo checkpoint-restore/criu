@@ -34,6 +34,7 @@
 #include "kerndat.h"
 #include "util.h"
 #include "external.h"
+#include "fdstore.h"
 
 #include "protobuf.h"
 #include "images/netdev.pb-c.h"
@@ -1670,7 +1671,7 @@ int dump_net_ns(int ns_id)
 	return ret;
 }
 
-int prepare_net_ns(int nsid)
+static int prepare_net_ns(int nsid)
 {
 	int ret = 0;
 	NetnsEntry *netns = NULL;
@@ -1697,9 +1698,99 @@ int prepare_net_ns(int nsid)
 	if (!ret)
 		ret = restore_nf_ct(nsid, CR_FD_NETNF_EXP);
 
+	return ret;
+}
+
+static int open_net_ns(struct ns_id *nsid, struct rst_info *rst)
+{
+	int fd, id;
+
+	/* Pin one with a file descriptor */
+	fd = open_proc(PROC_SELF, "ns/net");
+	if (fd < 0)
+		return -1;
+
+	id = fdstore_add(fd);
+	close(fd);
+	if (id < 0) {
+		return -1;
+	}
+
+	nsid->net.nsfd_id = id;
+
+	return 0;
+}
+
+int prepare_net_namespaces()
+{
+	struct ns_id *nsid;
+
+	if (!(root_ns_mask & CLONE_NEWNET))
+		return 0;
+
+	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
+		if (nsid->nd != &net_ns_desc)
+			continue;
+
+		if (unshare(CLONE_NEWNET)) {
+			pr_perror("Unable to create a new netns");
+			goto err;
+		}
+
+		if (prepare_net_ns(nsid->id))
+			goto err;
+
+		if (open_net_ns(nsid, rsti(root_item)))
+			goto err;
+	}
+
 	close_service_fd(NS_FD_OFF);
 
-	return ret;
+	return 0;
+err:
+	return -1;
+}
+
+static int do_restore_task_net_ns(struct ns_id *nsid, struct pstree_item *current)
+{
+	int fd;
+
+	if (!(root_ns_mask & CLONE_NEWNET))
+		return 0;
+
+	fd = fdstore_get(nsid->net.nsfd_id);
+	if (fd < 0)
+		return -1;
+
+	if (setns(fd, CLONE_NEWNET)) {
+		pr_perror("Can't restore netns");
+		close(fd);
+		return -1;
+	}
+	close(fd);
+
+	return 0;
+}
+
+int restore_task_net_ns(struct pstree_item *current)
+{
+	if (current->ids && current->ids->has_net_ns_id) {
+		unsigned int id = current->ids->net_ns_id;
+		struct ns_id *nsid;
+
+		nsid = lookup_ns_by_id(id, &net_ns_desc);
+		if (nsid == NULL) {
+			pr_err("Can't find mount namespace %d\n", id);
+			return -1;
+		}
+
+		BUG_ON(nsid->type == NS_CRIU);
+
+		if (do_restore_task_net_ns(nsid, current))
+			return -1;
+	}
+
+	return 0;
 }
 
 int netns_keep_nsfd(void)
