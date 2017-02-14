@@ -48,4 +48,6 @@ message unix_sk_entry {
 	 */
 	optional string			name_dir	= 14;
 	optional bool			deleted		= 15;
+
+	optional uint32			ns_id		= 16;
 }
