@@ -919,24 +919,16 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 	int cwd_fd = -1, root_fd = -1;
 
 	ui = container_of(d, struct unix_sk_info, d);
-	if (ui->flags & (USK_PAIR_MASTER | USK_PAIR_SLAVE))
-		return 0;
+	BUG_ON((ui->flags & (USK_PAIR_MASTER | USK_PAIR_SLAVE)) ||
+			(ui->ue->uflags & (USK_CALLBACK | USK_INHERIT)));
 
 	peer = ui->peer;
-
-	if (peer == NULL)
-		return 0;
-
-	if (ui->ue->uflags & USK_CALLBACK)
-		return 0;
+	BUG_ON(peer == NULL);
 
 	/* Skip external sockets */
 	if (!list_empty(&peer->d.fd_info_head))
 		if (peer_is_not_prepared(peer))
 			return 1;
-
-	if (ui->ue->uflags & USK_INHERIT)
-		return 0;
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
@@ -1291,6 +1283,17 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		ui->listen = 1;
 		wake_connected_sockets(ui);
 	}
+
+	if (ui->peer) {
+		/*
+		 * We need to connect() to the peer, but the
+		 * guy might have not bind()-ed himself, so
+		 * let's postpone this.
+		 */
+		*new_fd = sk;
+		return 1;
+	}
+
 out:
 	if (rst_file_params(sk, ui->ue->fown, ui->ue->flags))
 		return -1;
@@ -1298,8 +1301,11 @@ out:
 	if (restore_socket_opts(sk, ui->ue->opts))
 		return -1;
 
+	if (shutdown_unix_sk(sk, ui))
+		return -1;
+
 	*new_fd = sk;
-	return 1;
+	return 0;
 }
 
 static int open_unix_sk(struct file_desc *d, int *new_fd)
