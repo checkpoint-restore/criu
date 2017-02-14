@@ -327,7 +327,7 @@ int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
 	return 0;
 }
 
-static struct ns_id *lookup_ns_by_kid(unsigned int kid, struct ns_desc *nd)
+struct ns_id *lookup_ns_by_kid(unsigned int kid, struct ns_desc *nd)
 {
 	struct ns_id *nsid;
 

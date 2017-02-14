@@ -2054,11 +2054,31 @@ static struct ns_id *get_root_netns()
  */
 struct ns_id *get_socket_ns(int lfd)
 {
-	if (netns_nr == 1)
-		return get_root_netns();
+	struct ns_id *ns;
+	struct stat st;
+	int ns_fd;
 
-	pr_perror("Unable to get a socket net namespace");
-	return NULL;
+	ns_fd = ioctl(lfd, SIOCGSKNS);
+	if (ns_fd < 0) {
+		/* backward compatiblity with old kernels */
+		if (netns_nr == 1)
+			return get_root_netns();
+
+		pr_perror("Unable to get a socket net namespace");
+		return NULL;
+	}
+	if (fstat(ns_fd, &st)) {
+		pr_perror("Unable to stat a network namespace");
+		return NULL;
+	}
+
+	ns = lookup_ns_by_kid(st.st_ino, &net_ns_desc);
+	if (ns == NULL) {
+		pr_err("Unable to dump a socket from an external network namespace\n");
+		return NULL;
+	}
+
+	return ns;
 }
 
 int kerndat_socket_netns(void)
