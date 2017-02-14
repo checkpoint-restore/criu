@@ -353,13 +353,14 @@ struct socket_desc *lookup_socket(unsigned ino, int family, int proto)
 	return NULL;
 }
 
-int sk_collect_one(unsigned ino, int family, struct socket_desc *d)
+int sk_collect_one(unsigned ino, int family, struct socket_desc *d, struct ns_id *ns)
 {
 	struct socket_desc **chain;
 
 	d->ino		= ino;
 	d->family	= family;
 	d->already_dumped = 0;
+	d->sk_ns	= ns;
 
 	chain = &sockets[ino % SK_HASH_SIZE];
 	d->next = *chain;

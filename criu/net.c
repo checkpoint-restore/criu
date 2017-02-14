@@ -1915,6 +1915,7 @@ err_nl:
 	goto out;
 }
 
+static int netns_nr;
 static int collect_net_ns(struct ns_id *ns, void *oarg)
 {
 	bool for_dump = (oarg == (void *)1);
@@ -1924,6 +1925,8 @@ static int collect_net_ns(struct ns_id *ns, void *oarg)
 	ret = prep_ns_sockets(ns, for_dump);
 	if (ret)
 		return ret;
+
+	netns_nr++;
 
 	if (!for_dump)
 		return 0;
@@ -1938,6 +1941,34 @@ int collect_net_namespaces(bool for_dump)
 }
 
 struct ns_desc net_ns_desc = NS_DESC_ENTRY(CLONE_NEWNET, "net");
+
+static struct ns_id *get_root_netns()
+{
+	static struct ns_id *root_netns = NULL;
+
+	if (root_netns)
+		return root_netns;
+
+	if (root_item->ids == NULL)
+		return NULL;
+
+	root_netns = lookup_ns_by_id(root_item->ids->net_ns_id, &net_ns_desc);
+
+	return root_netns;
+}
+
+/*
+ * socket_diag doesn't report unbound and unconnected sockets,
+ * so we have to get their network namesapces explicitly
+ */
+struct ns_id *get_socket_ns(int lfd)
+{
+	if (netns_nr == 1)
+		return get_root_netns();
+
+	pr_perror("Unable to get a socket net namespace");
+	return NULL;
+}
 
 static int move_to_bridge(struct external *ext, void *arg)
 {
