@@ -1062,6 +1062,17 @@ static int check_can_map_vdso(void)
 	return -1;
 }
 
+static int check_sk_netns(void)
+{
+	if (kerndat_socket_netns() < 0)
+		return -1;
+
+	if (!kdat.sk_ns)
+		return -1;
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1168,6 +1179,7 @@ int cr_check(void)
 		ret |= check_can_map_vdso();
 		ret |= check_uffd();
 		ret |= check_uffd_noncoop();
+		ret |= check_sk_netns();
 	}
 
 	/*
@@ -1220,6 +1232,7 @@ static struct feature_list feature_list[] = {
 	{ "uffd", check_uffd },
 	{ "uffd-noncoop", check_uffd_noncoop },
 	{ "can_map_vdso", check_can_map_vdso},
+	{ "sk_ns", check_sk_netns },
 	{ NULL, NULL },
 };
 
