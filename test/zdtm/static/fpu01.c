@@ -6,7 +6,7 @@
 
 #include "zdtmtst.h"
 
-#if defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__)
 
 #include "cpuid.h"
 
