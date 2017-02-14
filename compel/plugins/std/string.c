@@ -9,15 +9,15 @@
 
 static const char conv_tab[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 
-void __std_putc(int fd, char c)
+void std_dputc(int fd, char c)
 {
 	sys_write(fd, &c, 1);
 }
 
-void __std_puts(int fd, const char *s)
+void std_dputs(int fd, const char *s)
 {
 	for (; *s; s++)
-		__std_putc(fd, *s);
+		std_dputc(fd, *s);
 }
 
 static size_t __std_vprint_long_hex(char *buf, size_t blen, unsigned long num, char **ps)
@@ -74,7 +74,7 @@ done:
 	return blen - (s - buf);
 }
 
-void __std_printk(int fd, const char *format, va_list args)
+void std_vdprintf(int fd, const char *format, va_list args)
 {
 	const char *s = format;
 
@@ -83,7 +83,7 @@ void __std_printk(int fd, const char *format, va_list args)
 		int along = 0;
 
 		if (*s != '%') {
-			__std_putc(fd, *s);
+			std_dputc(fd, *s);
 			continue;
 		}
 
@@ -97,7 +97,7 @@ void __std_printk(int fd, const char *format, va_list args)
 
 		switch (*s) {
 		case 's':
-			__std_puts(fd, va_arg(args, char *));
+			std_dputs(fd, va_arg(args, char *));
 			break;
 		case 'd':
 			__std_vprint_long(buf, sizeof(buf),
@@ -105,7 +105,7 @@ void __std_printk(int fd, const char *format, va_list args)
 					  va_arg(args, long) :
 					  (long)va_arg(args, int),
 					  &t);
-			__std_puts(fd, t);
+			std_dputs(fd, t);
 			break;
 		case 'x':
 			__std_vprint_long_hex(buf, sizeof(buf),
@@ -113,18 +113,18 @@ void __std_printk(int fd, const char *format, va_list args)
 					      va_arg(args, long) :
 					      (long)va_arg(args, int),
 					      &t);
-			__std_puts(fd, t);
+			std_dputs(fd, t);
 			break;
 		}
 	}
 }
 
-void __std_printf(int fd, const char *format, ...)
+void std_dprintf(int fd, const char *format, ...)
 {
 	va_list args;
 
 	va_start(args, format);
-	__std_printk(fd, format, args);
+	std_vdprintf(fd, format, args);
 	va_end(args);
 }
 
