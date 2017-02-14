@@ -27,6 +27,7 @@
 #include "lsm.h"
 #include "proc_parse.h"
 #include "sk-inet.h"
+#include "sockets.h"
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/compel.h>
 #include "netfilter.h"
@@ -873,6 +874,8 @@ int kerndat_init(void)
 	/* Depends on kerndat_vdso_fill_symtable() */
 	if (!ret)
 		ret = kerndat_vdso_preserves_hint();
+	if (!ret)
+		ret = kerndat_socket_netns();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
