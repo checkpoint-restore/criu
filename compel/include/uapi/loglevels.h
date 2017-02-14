@@ -1,13 +1,20 @@
 #ifndef UAPI_COMPEL_LOGLEVELS_H__
 #define UAPI_COMPEL_LOGLEVELS_H__
 
-#define LOG_UNSET		(-1)
-#define LOG_MSG			(0) /* Print message regardless of log level */
-#define LOG_ERROR		(1) /* Errors only, when we're in trouble */
-#define LOG_WARN		(2) /* Warnings, dazen and confused but trying to continue */
-#define LOG_INFO		(3) /* Informative, everything is fine */
-#define LOG_DEBUG		(4) /* Debug only */
+/*
+ * Log levels used by compel itself (see compel_log_init()),
+ * also by log functions in the std plugin.
+ */
 
-#define DEFAULT_LOGLEVEL	LOG_WARN
+enum __compel_log_levels
+{
+	COMPEL_LOG_MSG,		/* Print message regardless of log level */
+	COMPEL_LOG_ERROR,	/* Errors only, when we're in trouble */
+	COMPEL_LOG_WARN,	/* Warnings */
+	COMPEL_LOG_INFO,	/* Informative, everything is fine */
+	COMPEL_LOG_DEBUG,	/* Debug only */
+
+	COMPEL_DEFAULT_LOGLEVEL	= COMPEL_LOG_WARN
+};
 
 #endif /* UAPI_COMPEL_LOGLEVELS_H__ */

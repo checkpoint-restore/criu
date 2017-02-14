@@ -11,7 +11,7 @@
 
 #include "log.h"
 
-static unsigned int current_loglevel = DEFAULT_LOGLEVEL;
+static unsigned int current_loglevel = COMPEL_DEFAULT_LOGLEVEL;
 static compel_log_fn logfn;
 
 void compel_log_init(compel_log_fn log_fn, unsigned int level)

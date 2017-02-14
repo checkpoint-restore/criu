@@ -2,7 +2,7 @@
 
 #include "common/bitsperlong.h"
 #include <compel/plugins/std/syscall.h>
-#include "uapi/std/string.h"
+#include <compel/plugins/std/string.h>
 #include <compel/plugins/std/log.h>
 #include <compel/loglevels.h>
 
@@ -14,7 +14,7 @@ struct simple_buf {
 };
 
 static int logfd = -1;
-static int cur_loglevel = DEFAULT_LOGLEVEL;
+static int cur_loglevel = COMPEL_DEFAULT_LOGLEVEL;
 static struct timeval start;
 
 static void sbuf_log_flush(struct simple_buf *b);

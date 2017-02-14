@@ -110,7 +110,7 @@ static void cli_log(unsigned int lvl, const char *fmt, va_list parms)
 	if (pr_quelled(lvl))
 		return;
 
-	if ((lvl == LOG_ERROR) || (lvl == LOG_WARN))
+	if ((lvl == COMPEL_LOG_ERROR) || (lvl == COMPEL_LOG_WARN))
 		f = stderr;
 
 	vfprintf(f, fmt, parms);
@@ -130,7 +130,7 @@ static int usage(int rc) {
 "    -l, --log-level NUM		log level (default: %d)\n"
 "  compel -h|--help\n"
 "  compel -V|--version\n"
-, DEFAULT_LOGLEVEL
+, COMPEL_DEFAULT_LOGLEVEL
 );
 
 	return rc;
@@ -283,7 +283,7 @@ static char *gen_prefix(const char *path)
 
 int main(int argc, char *argv[])
 {
-	int log_level = DEFAULT_LOGLEVEL;
+	int log_level = COMPEL_DEFAULT_LOGLEVEL;
 	bool compat = false;
 	bool is_static = false;
 	int opt, idx;

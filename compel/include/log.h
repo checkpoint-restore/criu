@@ -10,22 +10,23 @@
 
 static inline int pr_quelled(unsigned int loglevel)
 {
-	return compel_log_get_loglevel() < loglevel && loglevel != LOG_MSG;
+	return compel_log_get_loglevel() < loglevel
+		&& loglevel != COMPEL_LOG_MSG;
 }
 
 extern void compel_print_on_level(unsigned int loglevel,
 		const char *format, ...);
 
 #define pr_msg(fmt, ...)						\
-	compel_print_on_level(LOG_MSG,					\
+	compel_print_on_level(COMPEL_LOG_MSG,				\
 		       fmt, ##__VA_ARGS__)
 
 #define pr_info(fmt, ...)						\
-	compel_print_on_level(LOG_INFO,					\
+	compel_print_on_level(COMPEL_LOG_INFO,				\
 		       LOG_PREFIX fmt, ##__VA_ARGS__)
 
 #define pr_err(fmt, ...)						\
-	compel_print_on_level(LOG_ERROR,				\
+	compel_print_on_level(COMPEL_LOG_ERROR,				\
 		       "Error (%s:%d): " LOG_PREFIX fmt,		\
 		       __FILE__, __LINE__, ##__VA_ARGS__)
 
@@ -39,7 +40,7 @@ extern void compel_print_on_level(unsigned int loglevel,
 	} while (0)
 
 #define pr_warn(fmt, ...)						\
-	compel_print_on_level(LOG_WARN,					\
+	compel_print_on_level(COMPEL_LOG_WARN,				\
 		       "Warn  (%s:%d): " LOG_PREFIX fmt,		\
 		       __FILE__, __LINE__, ##__VA_ARGS__)
 
@@ -53,7 +54,7 @@ extern void compel_print_on_level(unsigned int loglevel,
 	} while (0)
 
 #define pr_debug(fmt, ...)						\
-	compel_print_on_level(LOG_DEBUG,				\
+	compel_print_on_level(COMPEL_LOG_DEBUG,				\
 		       LOG_PREFIX fmt, ##__VA_ARGS__)
 
 #define pr_perror(fmt, ...)						\

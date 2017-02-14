@@ -24,7 +24,7 @@ static int do_infection(int pid)
 	struct infect_ctx *ictx;
 	int *arg;
 
-	compel_log_init(print_vmsg, LOG_DEBUG);
+	compel_log_init(print_vmsg, COMPEL_LOG_DEBUG);
 
 	printf("Stopping task\n");
 	state = compel_stop_task(pid);
