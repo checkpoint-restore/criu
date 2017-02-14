@@ -470,6 +470,9 @@ static int open_packet_sk(struct file_desc *d, int *new_fd)
 
 	pr_info("Opening packet socket id %#x\n", pse->id);
 
+	if (set_netns(pse->ns_id))
+		return -1;
+
 	if (pse->type == SOCK_PACKET)
 		return open_packet_sk_spkt(pse, new_fd);
 

@@ -643,6 +643,9 @@ static int open_inet_sk(struct file_desc *d, int *new_fd)
 	if (inet_validate_address(ie))
 		return -1;
 
+	if (set_netns(ie->ns_id))
+		return -1;
+
 	sk = socket(ie->family, ie->type, ie->proto);
 	if (sk < 0) {
 		pr_perror("Can't create inet socket");
