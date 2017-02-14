@@ -6,12 +6,17 @@
 #include <stdio.h>
 
 #include "common/scm.h"
+#include "common/lock.h"
 #include "servicefd.h"
 #include "fdstore.h"
 #include "xmalloc.h"
+#include "rst-malloc.h"
 #include "log.h"
 
-static int next_id;
+static struct fdstore_desc {
+	int next_id;
+	mutex_t lock; /* to protect a peek offset */
+} *desc;
 
 int fdstore_init(void)
 {
@@ -19,6 +24,13 @@ int fdstore_init(void)
 	unsigned int addrlen;
 	struct stat st;
 	int sk, ret;
+
+	desc = shmalloc(sizeof(*desc));
+	if (!desc)
+		return -1;
+
+	desc->next_id = 0;
+	mutex_init(&desc->lock);
 
 	sk = socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0);
 	if (sk < 0) {
@@ -67,13 +79,20 @@ int fdstore_init(void)
 int fdstore_add(int fd)
 {
 	int sk = get_service_fd(FDSTORE_SK_OFF);
+	int id;
 
-	if (send_fd(sk, NULL, 0, fd))
+	mutex_lock(&desc->lock);
+
+	if (send_fd(sk, NULL, 0, fd)) {
+		mutex_unlock(&desc->lock);
 		return -1;
+	}
 
-	next_id++;
+	id = desc->next_id++;
 
-	return next_id - 1;
+	mutex_unlock(&desc->lock);
+
+	return id;
 }
 
 int fdstore_get(int id)
@@ -81,14 +100,19 @@ int fdstore_get(int id)
 	int sk = get_service_fd(FDSTORE_SK_OFF);
 	int fd;
 
+	mutex_lock(&desc->lock);
 	if (setsockopt(sk, SOL_SOCKET, SO_PEEK_OFF, &id, sizeof(id))) {
+		mutex_unlock(&desc->lock);
 		pr_perror("Unable to a peek offset");
 		return -1;
 	}
 
 	if (__recv_fds(sk, &fd, 1, NULL, 0, MSG_PEEK) < 0) {
+		mutex_unlock(&desc->lock);
 		pr_perror("Unable to get a file descriptor with the %d id", id);
 		return -1;
 	}
+	mutex_unlock(&desc->lock);
+
 	return fd;
 }
