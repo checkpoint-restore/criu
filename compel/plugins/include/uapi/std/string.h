@@ -14,7 +14,9 @@
 extern void __std_putc(int fd, char c);
 extern void __std_puts(int fd, const char *s);
 extern void __std_printk(int fd, const char *format, va_list args);
-extern void __std_printf(int fd, const char *format, ...);
+extern void __std_printf(int fd, const char *format, ...)
+	__attribute__ ((__format__ (__printf__, 2, 3)));
+
 
 #define std_printf(fmt, ...)	__std_printf(STDOUT_FILENO, fmt, ##__VA_ARGS__)
 #define std_puts(s)		__std_puts(STDOUT_FILENO, s)
