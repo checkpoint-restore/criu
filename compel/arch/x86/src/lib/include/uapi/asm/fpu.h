@@ -82,9 +82,12 @@ struct xsave_struct {
 	struct ymmh_struct		ymmh;
 } __aligned(FP_MIN_ALIGN_BYTES) __packed;
 
-/*
- * This one is used in restorer.
- */
+struct xsave_struct_ia32 {
+	struct i387_fxsave_struct	i387;
+	struct xsave_hdr_struct		xsave_hdr;
+	struct ymmh_struct		ymmh;
+} __packed;
+
 typedef struct {
 	/*
 	 * The FPU xsave area must be continious and FP_MIN_ALIGN_BYTES
@@ -97,6 +100,45 @@ typedef struct {
 	};
 
 	uint8_t has_fpu;
+} fpu_state_64_t;
+
+struct user_i387_ia32_struct {
+	uint32_t			cwd;		/* FPU Control Word		*/
+	uint32_t			swd;		/* FPU Status Word		*/
+	uint32_t			twd;		/* FPU Tag Word			*/
+	uint32_t			fip;		/* FPU IP Offset		*/
+	uint32_t			fcs;		/* FPU IP Selector		*/
+	uint32_t			foo;		/* FPU Operand Pointer Offset	*/
+	uint32_t			fos;		/* FPU Operand Pointer Selector	*/
+	uint32_t			st_space[20];   /* 8*10 bytes for each FP-reg = 80 bytes */
+} __packed;
+
+typedef struct {
+	struct {
+		struct user_i387_ia32_struct	i387_ia32;
+
+		/* Software status information [not touched by FSAVE]:		*/
+		uint32_t			status;
+	} __packed fregs_state;
+	union {
+		struct xsave_struct_ia32	xsave;
+		uint8_t				__pad[sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE];
+	} __packed;
+}  __packed fpu_state_ia32_t;
+
+/*
+ * This one is used in restorer.
+ */
+typedef struct {
+	union {
+		fpu_state_64_t			fpu_state_64;
+		fpu_state_ia32_t		fpu_state_ia32;
+	};
+
+	uint8_t has_fpu;
 } fpu_state_t;
+
+extern void compel_convert_from_fxsr(struct user_i387_ia32_struct *env,
+				     struct i387_fxsave_struct *fxsave);
 
 #endif /* __CR_ASM_FPU_H__ */

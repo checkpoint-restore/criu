@@ -45,6 +45,91 @@ static inline __always_unused void __check_code_syscall(void)
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 }
 
+/* 10-byte legacy floating point register */
+struct fpreg {
+	uint16_t			significand[4];
+	uint16_t			exponent;
+};
+
+/* 16-byte floating point register */
+struct fpxreg {
+	uint16_t			significand[4];
+	uint16_t			exponent;
+	uint16_t			padding[3];
+};
+
+#define FPREG_ADDR(f, n)	((void *)&(f)->st_space + (n) * 16)
+#define FP_EXP_TAG_VALID	0
+#define FP_EXP_TAG_ZERO		1
+#define FP_EXP_TAG_SPECIAL	2
+#define FP_EXP_TAG_EMPTY	3
+
+static inline uint32_t twd_fxsr_to_i387(struct i387_fxsave_struct *fxsave)
+{
+	struct fpxreg *st;
+	uint32_t tos = (fxsave->swd >> 11) & 7;
+	uint32_t twd = (unsigned long)fxsave->twd;
+	uint32_t tag;
+	uint32_t ret = 0xffff0000u;
+	int i;
+
+	for (i = 0; i < 8; i++, twd >>= 1) {
+		if (twd & 0x1) {
+			st = FPREG_ADDR(fxsave, (i - tos) & 7);
+
+			switch (st->exponent & 0x7fff) {
+			case 0x7fff:
+				tag = FP_EXP_TAG_SPECIAL;
+				break;
+			case 0x0000:
+				if (!st->significand[0] &&
+				    !st->significand[1] &&
+				    !st->significand[2] &&
+				    !st->significand[3])
+					tag = FP_EXP_TAG_ZERO;
+				else
+					tag = FP_EXP_TAG_SPECIAL;
+				break;
+			default:
+				if (st->significand[3] & 0x8000)
+					tag = FP_EXP_TAG_VALID;
+				else
+					tag = FP_EXP_TAG_SPECIAL;
+				break;
+			}
+		} else {
+			tag = FP_EXP_TAG_EMPTY;
+		}
+		ret |= tag << (2 * i);
+	}
+	return ret;
+}
+
+void compel_convert_from_fxsr(struct user_i387_ia32_struct *env,
+			      struct i387_fxsave_struct *fxsave)
+{
+	struct fpxreg *from = (struct fpxreg *)&fxsave->st_space[0];
+	struct fpreg *to = (struct fpreg *)&env->st_space[0];
+	int i;
+
+	env->cwd = fxsave->cwd | 0xffff0000u;
+	env->swd = fxsave->swd | 0xffff0000u;
+	env->twd = twd_fxsr_to_i387(fxsave);
+
+	env->fip = fxsave->rip;
+	env->foo = fxsave->rdp;
+	/*
+	 * should be actually ds/cs at fpu exception time, but
+	 * that information is not available in 64bit mode.
+	 */
+	env->fcs = 0x23; /* __USER32_CS */
+	env->fos = 0x2b; /* __USER32_DS */
+	env->fos |= 0xffff0000;
+
+	for (i = 0; i < 8; ++i)
+		memcpy(&to[i], &from[i], sizeof(to[0]));
+}
+
 int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
 			      user_regs_struct_t *regs,
 			      user_fpregs_struct_t *fpregs)
@@ -100,7 +185,13 @@ int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
 	}
 
 	fpu_state->has_fpu = true;
-	memcpy(&fpu_state->xsave, fpregs, sizeof(*fpregs));
+	if (is_native) {
+		memcpy(&fpu_state->fpu_state_64.xsave, fpregs, sizeof(*fpregs));
+	} else {
+		memcpy(&fpu_state->fpu_state_ia32.xsave, fpregs, sizeof(*fpregs));
+		compel_convert_from_fxsr(&fpu_state->fpu_state_ia32.fregs_state.i387_ia32,
+					 &fpu_state->fpu_state_ia32.xsave.i387);
+	}
 
 	return 0;
 }
@@ -111,16 +202,20 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
 	fpu_state_t *fpu_state = (sigframe->is_native) ?
 		&rsigframe->native.fpu_state :
 		&rsigframe->compat.fpu_state;
-	unsigned long addr = (unsigned long)(void *)&fpu_state->xsave;
 
-	if (sigframe->is_native && (addr % 64ul) == 0ul) {
-		sigframe->native.uc.uc_mcontext.fpstate = &fpu_state->xsave;
+	if (sigframe->is_native) {
+		unsigned long addr = (unsigned long)(void *)&fpu_state->fpu_state_64.xsave;
+
+		if ((addr % 64ul)) {
+			pr_err("Unaligned address passed: %lx (native %d)\n",
+			       addr, sigframe->is_native);
+			return -1;
+		}
+
+		sigframe->native.uc.uc_mcontext.fpstate = (void *)addr;
 	} else if (!sigframe->is_native) {
-		sigframe->compat.uc.uc_mcontext.fpstate = (uint32_t)addr;
-	} else {
-		pr_err("Unaligned address passed: %lx (native %d)\n",
-		       addr, sigframe->is_native);
-		return -1;
+		sigframe->compat.uc.uc_mcontext.fpstate =
+			(uint32_t)(unsigned long)(void *)&fpu_state->fpu_state_ia32;
 	}
 
 	return 0;
