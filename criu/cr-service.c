@@ -852,16 +852,13 @@ static int handle_feature_check(int sk, CriuReq * msg)
 	if (pid == 0) {
 		int ret = 1;
 
-		if (setup_opts_from_req(sk, msg->opts))
-			goto cout;
-
-		setproctitle("feature-check --rpc -D %s", images_dir);
+		setproctitle("feature-check --rpc");
 
 		kerndat_get_dirty_track();
 
 		if (kdat.has_dirty_track)
 			ret = 0;
-cout:
+
 		exit(ret);
 	}
 
