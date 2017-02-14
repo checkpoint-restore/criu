@@ -33,28 +33,14 @@ CFLAGS			+= -DNO_RELOCS
 HOSTCFLAGS		+= -DNO_RELOCS
 endif
 
-ifeq ($(ARCH),x86)
-obj-y			+= src/lib/handle-elf-32.o
-endif
-
 obj-y			+= src/main.o
 obj-y			+= arch/$(ARCH)/src/lib/handle-elf.o
 obj-y			+= src/lib/handle-elf.o
-
-ifeq ($(ARCH),x86)
-CFLAGS_handle-elf-32.o += -UCONFIG_X86_64 -DCONFIG_X86_32
-CFLAGS_handle-elf-32.d += -UCONFIG_X86_64 -DCONFIG_X86_32
-endif
 
 host-ccflags-y		+= $(ccflags-y)
 
 hostprogs-y		+= compel-host-bin
 compel-host-bin-objs	:= $(patsubst %.o,%-host.o,$(obj-y) $(host-lib-y))
-
-ifeq ($(ARCH),x86)
-HOSTCFLAGS_handle-elf-32-host.o += -UCONFIG_X86_64 -DCONFIG_X86_32
-HOSTCFLAGS_handle-elf-32-host.d += -UCONFIG_X86_64 -DCONFIG_X86_32
-endif
 
 cleanup-y		+= compel/compel
 cleanup-y		+= compel/compel-host-bin

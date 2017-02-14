@@ -83,10 +83,6 @@ typedef struct compat_siginfo {
 	int	_pad[128/sizeof(int) - 3];
 } compat_siginfo_t;
 
-#ifdef CONFIG_X86_32
-#define rt_sigframe_ia32		rt_sigframe
-#endif
-
 typedef struct compat_sigaltstack {
 	compat_uptr_t		ss_sp;
 	int			ss_flags;
@@ -106,11 +102,7 @@ struct rt_sigframe_ia32 {
 	int32_t			sig;
 	uint32_t		pinfo;
 	uint32_t		puc;
-#ifdef CONFIG_X86_64
 	compat_siginfo_t	info;
-#else
-	struct rt_siginfo	info;
-#endif
 	struct ucontext_ia32	uc;
 	char			retcode[8];
 
@@ -118,7 +110,6 @@ struct rt_sigframe_ia32 {
 	fpu_state_t		fpu_state;
 };
 
-#ifdef CONFIG_X86_64
 struct rt_sigframe_64 {
 	char			*pretcode;
 	struct rt_ucontext	uc;
@@ -194,24 +185,6 @@ do {									\
 	else								\
 		ARCH_RT_SIGRETURN_COMPAT(new_sp);			\
 } while (0)
-#else /* CONFIG_X86_64 */
-#define RT_SIGFRAME_UC(rt_sigframe) (&rt_sigframe->uc)
-#define RT_SIGFRAME_OFFSET(rt_sigframe)	4
-#define RT_SIGFRAME_REGIP(rt_sigframe)					\
-	(unsigned long)(rt_sigframe)->uc.uc_mcontext.ip
-#define RT_SIGFRAME_FPU(rt_sigframe) (&(rt_sigframe)->fpu_state)
-#define RT_SIGFRAME_HAS_FPU(rt_sigframe) (RT_SIGFRAME_FPU(rt_sigframe)->has_fpu)
-
-#define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)				\
-	asm volatile(							\
-		     "movl %0, %%eax				    \n"	\
-		     "movl %%eax, %%esp				    \n"	\
-		     "movl $"__stringify(__NR_rt_sigreturn)", %%eax \n" \
-		     "int $0x80					    \n"	\
-		     :							\
-		     : "r"(new_sp)					\
-		     : "eax","esp","memory")
-#endif /* CONFIG_X86_64 */
 
 int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe,
 		struct rt_sigframe *rsigframe);

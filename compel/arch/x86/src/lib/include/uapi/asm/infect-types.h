@@ -59,7 +59,6 @@ typedef struct {
 	uint32_t	ss;
 } user_regs_struct32;
 
-#ifdef CONFIG_X86_64
 /*
  * To be sure that we rely on inited reg->__is_native, this member
  * is (short int) instead of initial (bool). The right way to
@@ -90,16 +89,6 @@ static inline bool user_regs_native(user_regs_struct_t *pregs)
 	((user_regs_native(pregs))		?	\
 	 ((pregs)->native.name = (val))		:	\
 	 ((pregs)->compat.name = (val)))
-#else
-typedef struct {
-	union {
-		user_regs_struct32 native;
-	};
-} user_regs_struct_t;
-#define user_regs_native(pregs)		true
-#define get_user_reg(pregs, name)	((pregs)->native.name)
-#define set_user_reg(pregs, name, val)	((pregs)->native.name = val)
-#endif
 
 #if 0
 typedef struct {
