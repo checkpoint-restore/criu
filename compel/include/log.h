@@ -15,7 +15,8 @@ static inline int pr_quelled(unsigned int loglevel)
 }
 
 extern void compel_print_on_level(unsigned int loglevel,
-		const char *format, ...);
+		const char *format, ...)
+		__attribute__ ((__format__ (__printf__, 2, 3)));
 
 #define pr_msg(fmt, ...)						\
 	compel_print_on_level(COMPEL_LOG_MSG,				\
