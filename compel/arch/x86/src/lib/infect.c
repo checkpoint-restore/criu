@@ -425,14 +425,11 @@ int ptrace_set_regs(pid_t pid, user_regs_struct_t *regs)
 	return ptrace(PTRACE_SETREGSET, pid, NT_PRSTATUS, &iov);
 }
 
-#ifdef CONFIG_X86_64
-# define TASK_SIZE	((1UL << 47) - PAGE_SIZE)
-#else
+#define TASK_SIZE	((1UL << 47) - PAGE_SIZE)
 /*
  * Task size may be limited to 3G but we need a
  * higher limit, because it's backward compatible.
  */
-# define TASK_SIZE	(0xffffe000)
-#endif
+#define TASK_SIZE_IA32	(0xffffe000)
 
 unsigned long compel_task_size(void) { return TASK_SIZE; }
