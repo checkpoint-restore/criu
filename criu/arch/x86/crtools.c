@@ -302,7 +302,9 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 	fpu_state_t *fpu_state = core_is_compat(core) ?
 		&sigframe->compat.fpu_state :
 		&sigframe->native.fpu_state;
-	struct xsave_struct *x = &fpu_state->xsave;
+	struct xsave_struct *x = core_is_compat(core) ?
+		(void *)&fpu_state->fpu_state_ia32.xsave :
+		(void *)&fpu_state->fpu_state_64.xsave;
 
 	/*
 	 * If no FPU information provided -- we're restoring
@@ -334,6 +336,10 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 	assign_array(x->i387, core->thread_info->fpregs, st_space);
 	assign_array(x->i387, core->thread_info->fpregs, xmm_space);
 
+	if (core_is_compat(core))
+		compel_convert_from_fxsr(&fpu_state->fpu_state_ia32.fregs_state.i387_ia32,
+					 &fpu_state->fpu_state_ia32.xsave.i387);
+
 	if (compel_cpu_has_feature(X86_FEATURE_OSXSAVE)) {
 		struct fpx_sw_bytes *fpx_sw = (void *)&x->i387.sw_reserved;
 		void *magic2;
@@ -355,7 +361,7 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 		/*
 		 * This should be at the end of xsave frame.
 		 */
-		magic2 = fpu_state->__pad + sizeof(struct xsave_struct);
+		magic2 = (void *)x + sizeof(struct xsave_struct);
 		*(u32 *)magic2 = FP_XSTATE_MAGIC2;
 	}
 
