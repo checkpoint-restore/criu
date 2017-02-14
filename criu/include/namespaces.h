@@ -36,7 +36,8 @@
 #define CLONE_ALLNS	(CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER | CLONE_NEWCGROUP)
 
 /* Nested namespaces are supported only for these types */
-#define CLONE_SUBNS	(CLONE_NEWNS)
+#define CLONE_SUBNS	(CLONE_NEWNS | CLONE_NEWNET)
+
 #define EXTRA_SIZE	20
 
 struct ns_desc {
@@ -95,6 +96,7 @@ struct ns_id {
 		} mnt;
 
 		struct {
+			int nsfd_id;	/* a namespace descriptor id in fdstore */
 			int nlsk;	/* for sockets collection */
 			int seqsk;	/* to talk to parasite daemons */
 		} net;

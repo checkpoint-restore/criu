@@ -12,8 +12,12 @@
 
 struct cr_imgset;
 extern int dump_net_ns(int ns_id);
-extern int prepare_net_ns(int pid);
+extern int prepare_net_namespaces(void);
+extern void fini_net_namespaces(void);
 extern int netns_keep_nsfd(void);
+
+struct pstree_item;
+extern int restore_task_net_ns(struct pstree_item *current);
 
 struct veth_pair {
 	struct list_head node;
