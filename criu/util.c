@@ -246,7 +246,6 @@ int move_fd_from(int *img_fd, int want_fd)
  */
 
 static pid_t open_proc_pid = PROC_NONE;
-static int open_proc_fd = -1;
 static pid_t open_proc_self_pid;
 static int open_proc_self_fd = -1;
 
@@ -259,13 +258,18 @@ static inline void set_proc_self_fd(int fd)
 	open_proc_self_pid = getpid();
 }
 
-static inline void set_proc_pid_fd(int pid, int fd)
+static inline int set_proc_pid_fd(int pid, int fd)
 {
-	if (open_proc_fd >= 0)
-		close(open_proc_fd);
+	int ret;
+
+	if (fd < 0)
+		return close_service_fd(PROC_PID_FD_OFF);
 
 	open_proc_pid = pid;
-	open_proc_fd = fd;
+	ret = install_service_fd(PROC_PID_FD_OFF, fd);
+	close(fd);
+
+	return ret;
 }
 
 static inline int get_proc_fd(int pid)
@@ -277,7 +281,7 @@ static inline int get_proc_fd(int pid)
 		}
 		return open_proc_self_fd;
 	} else if (pid == open_proc_pid)
-		return open_proc_fd;
+		return get_service_fd(PROC_PID_FD_OFF);
 	else
 		return -1;
 }
@@ -361,7 +365,7 @@ inline int open_pid_proc(pid_t pid)
 	if (pid == PROC_SELF)
 		set_proc_self_fd(fd);
 	else
-		set_proc_pid_fd(pid, fd);
+		fd = set_proc_pid_fd(pid, fd);
 
 	return fd;
 }
