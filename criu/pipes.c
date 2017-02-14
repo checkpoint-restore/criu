@@ -229,21 +229,14 @@ static int reopen_pipe(int fd, int flags)
 
 static int recv_pipe_fd(struct pipe_info *pi, int *new_fd)
 {
-	struct fdinfo_list_entry *fle;
 	int tmp, fd, ret;
 
-	fle = file_master(&pi->d);
-	fd = fle->fe->fd;
-
-	pr_info("\tWaiting fd for %d\n", fd);
-
-	ret = recv_fd_from_peer(fle);
+	ret = recv_desc_from_peer(&pi->d, &tmp);
 	if (ret != 0) {
 		if (ret != 1)
-			pr_err("Can't get fd %d\n", fd);
+			pr_err("Can't get fd %d\n", tmp);
 		return ret;
 	}
-	tmp = fd;
 
 	if (pi->reopen)
 		fd = reopen_pipe(tmp, pi->pe->flags);
@@ -304,13 +297,9 @@ int open_pipe(struct file_desc *d, int *new_fd)
 		return -1;
 
 	list_for_each_entry(p, &pi->pipe_list, pipe_list) {
-		struct fdinfo_list_entry *fle;
-		int fd;
+		int fd = pfd[p->pe->flags & O_WRONLY];
 
-		fle = file_master(&p->d);
-		fd = pfd[p->pe->flags & O_WRONLY];
-
-		if (send_fd_to_peer(fd, fle)) {
+		if (send_desc_to_peer(fd, &p->d)) {
 			pr_perror("Can't send file descriptor");
 			return -1;
 		}

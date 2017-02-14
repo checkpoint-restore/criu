@@ -1085,7 +1085,6 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 {
 	int sk[2];
 	struct unix_sk_info *peer = ui->peer;
-	struct fdinfo_list_entry *fle;
 
 	pr_info("Opening pair master (id %#x ino %#x peer %#x)\n",
 			ui->ue->id, ui->ue->ino, ui->ue->peer);
@@ -1106,8 +1105,7 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 	if (restore_sk_common(sk[0], ui))
 		return -1;
 
-	fle = file_master(&peer->d);
-	if (send_fd_to_peer(sk[1], fle)) {
+	if (send_desc_to_peer(sk[1], &peer->d)) {
 		pr_err("Can't send pair slave\n");
 		return -1;
 	}
@@ -1120,21 +1118,14 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 
 static int open_unixsk_pair_slave(struct unix_sk_info *ui, int *new_fd)
 {
-	struct fdinfo_list_entry *fle;
 	int sk, ret;
 
-	fle = file_master(&ui->d);
-
-	pr_info("Opening pair slave (id %#x ino %#x peer %#x) on %d\n",
-			ui->ue->id, ui->ue->ino, ui->ue->peer, fle->fe->fd);
-
-	ret = recv_fd_from_peer(fle);
+	ret = recv_desc_from_peer(&ui->d, &sk);
 	if (ret != 0) {
 		if (ret != 1)
 			pr_err("Can't recv pair slave\n");
 		return ret;
 	}
-	sk = fle->fe->fd;
 
 	if (bind_unix_sk(sk, ui))
 		return -1;

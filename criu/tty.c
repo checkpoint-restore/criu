@@ -893,7 +893,6 @@ static void pty_restore_queued_data(struct tty_info *info, int fd)
 static int pty_open_slaves(struct tty_info *info)
 {
 	int fd = -1, ret = -1;
-	struct fdinfo_list_entry *fle;
 	struct tty_info *slave;
 
 	list_for_each_entry(slave, &info->sibling, sibling) {
@@ -908,12 +907,10 @@ static int pty_open_slaves(struct tty_info *info)
 		if (restore_tty_params(fd, slave))
 			goto err;
 
-		fle = file_master(&slave->d);
+		pr_debug("send slave %#x fd %d connected on %s\n",
+			 slave->tfe->id, fd, path_from_reg(slave->reg_d));
 
-		pr_debug("send slave %#x fd %d connected on %s (pid %d)\n",
-			 slave->tfe->id, fd, path_from_reg(slave->reg_d), fle->pid);
-
-		if (send_fd_to_peer(fd, fle)) {
+		if (send_desc_to_peer(fd, &slave->d)) {
 			pr_err("Can't send file descriptor\n");
 			goto err;
 		}
@@ -931,14 +928,9 @@ err:
 
 static int receive_tty(struct tty_info *info, int *new_fd)
 {
-	struct fdinfo_list_entry *fle;
 	int fd, ret;
 
-	fle = file_master(&info->d);
-	pr_info("\tWaiting tty fd %d (pid %d)\n", fle->fe->fd, fle->pid);
-
-	fd = fle->fe->fd;
-	ret = recv_fd_from_peer(fle);
+	ret = recv_desc_from_peer(&info->d, &fd);
 	if (ret != 0) {
 		if (ret != 1)
 			pr_err("Can't get fd %d\n", fd);

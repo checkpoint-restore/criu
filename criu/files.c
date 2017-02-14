@@ -885,7 +885,7 @@ static int plant_fd(struct fdinfo_list_entry *fle, int fd)
 	return reopen_fd_as(fle->fe->fd, fd);
 }
 
-int recv_fd_from_peer(struct fdinfo_list_entry *fle)
+static int recv_fd_from_peer(struct fdinfo_list_entry *fle)
 {
 	struct fdinfo_list_entry *tmp;
 	int fd, ret, tsock;
@@ -913,7 +913,7 @@ int recv_fd_from_peer(struct fdinfo_list_entry *fle)
 	return 0;
 }
 
-int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle)
+static int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle)
 {
 	struct sockaddr_un saddr;
 	int len, sock, ret;
@@ -926,6 +926,25 @@ int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle)
 	if (ret < 0)
 		return -1;
 	return set_fds_event(fle->pid);
+}
+
+/*
+ * Helpers to scatter file_desc across users for those files, that
+ * create two descriptors from a single system call at once (e.g.
+ * ... or better i.e. -- pipes, socketpairs and ttys)
+ */
+int recv_desc_from_peer(struct file_desc *d, int *fd)
+{
+	struct fdinfo_list_entry *fle;
+
+	fle = file_master(d);
+	*fd = fle->fe->fd;
+	return recv_fd_from_peer(fle);
+}
+
+int send_desc_to_peer(int fd, struct file_desc *d)
+{
+	return send_fd_to_peer(fd, file_master(d));
 }
 
 static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle)
