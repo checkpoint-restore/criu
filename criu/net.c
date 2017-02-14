@@ -2061,6 +2061,30 @@ struct ns_id *get_socket_ns(int lfd)
 	return NULL;
 }
 
+int kerndat_socket_netns(void)
+{
+	int sk, ns_fd;
+
+	sk = socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (sk < 0) {
+		pr_perror("Unable to create socket");
+		return -1;
+	}
+	ns_fd = ioctl(sk, SIOCGSKNS);
+	if (ns_fd < 0) {
+		pr_warn("Unable to get a socket network namespace\n");
+		kdat.sk_ns = false;
+		close(sk);
+		return 0;
+	}
+	close(sk);
+	close(ns_fd);
+
+	kdat.sk_ns = true;
+
+	return 0;
+}
+
 static int move_to_bridge(struct external *ext, void *arg)
 {
 	int s = *(int *)arg;
