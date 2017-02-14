@@ -115,7 +115,7 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
 
 	if (sigframe->is_native && (addr % 64ul) == 0ul) {
 		sigframe->native.uc.uc_mcontext.fpstate = &fpu_state->xsave;
-	} else if (!sigframe->is_native && (addr % 32ul) == 0ul) {
+	} else if (!sigframe->is_native) {
 		sigframe->compat.uc.uc_mcontext.fpstate = (uint32_t)addr;
 	} else {
 		pr_err("Unaligned address passed: %lx (native %d)\n",
