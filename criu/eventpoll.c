@@ -153,7 +153,7 @@ static int epoll_not_ready_tfd(EventpollTfdEntry *tdefe)
 {
 	struct fdinfo_list_entry *fle;
 
-	list_for_each_entry(fle, &rsti(current)->used, used_list) {
+	list_for_each_entry(fle, &rsti(current)->fds, ps_list) {
 		if (tdefe->tfd != fle->fe->fd)
 			continue;
 
@@ -162,7 +162,11 @@ static int epoll_not_ready_tfd(EventpollTfdEntry *tdefe)
 		else
 			return (fle->stage != FLE_RESTORED);
 	}
-	BUG();
+
+	/*
+	 * If tgt fle is not on the fds list, it's already
+	 * restored (see open_fdinfos), so we're ready.
+	 */
 	return 0;
 }
 

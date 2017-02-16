@@ -26,7 +26,6 @@ struct fdt {
 struct _MmEntry;
 
 struct rst_info {
-	struct list_head	used;
 	struct list_head	fds;
 
 	void			*premmapped_addr;

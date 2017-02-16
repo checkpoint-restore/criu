@@ -103,8 +103,8 @@ struct fdinfo_list_entry *find_used_fd(struct pstree_item *task, int fd)
 	struct list_head *head;
 	struct fdinfo_list_entry *fle;
 
-	head = &rsti(task)->used;
-	list_for_each_entry_reverse(fle, head, used_list) {
+	head = &rsti(task)->fds;
+	list_for_each_entry_reverse(fle, head, ps_list) {
 		if (fle->fe->fd == fd)
 			return fle;
 		/* List is ordered, so let's stop */
@@ -118,16 +118,13 @@ void collect_task_fd(struct fdinfo_list_entry *new_fle, struct rst_info *ri)
 {
 	struct fdinfo_list_entry *fle;
 
-	/* fles in fds list are disordered */
-	list_add_tail(&new_fle->ps_list, &ri->fds);
-
-	/* fles in used list are ordered by fd */
-	list_for_each_entry(fle, &ri->used, used_list) {
+	/* fles in fds list are ordered by fd */
+	list_for_each_entry(fle, &ri->fds, ps_list) {
 		if (new_fle->fe->fd < fle->fe->fd)
 			break;
 	}
 
-	list_add_tail(&new_fle->used_list, &fle->used_list);
+	list_add_tail(&new_fle->ps_list, &fle->ps_list);
 }
 
 unsigned int find_unused_fd(struct pstree_item *task, int hint_fd)
@@ -142,9 +139,9 @@ unsigned int find_unused_fd(struct pstree_item *task, int hint_fd)
 	}
 
 	prev_fd = service_fd_min_fd() - 1;
-	head = &rsti(task)->used;
+	head = &rsti(task)->fds;
 
-	list_for_each_entry_reverse(fle, head, used_list) {
+	list_for_each_entry_reverse(fle, head, ps_list) {
 		fd = fle->fe->fd;
 		if (prev_fd > fd) {
 			fd++;
@@ -788,7 +785,6 @@ int prepare_fd_pid(struct pstree_item *item)
 	pid_t pid = vpid(item);
 	struct rst_info *rst_info = rsti(item);
 
-	INIT_LIST_HEAD(&rst_info->used);
 	INIT_LIST_HEAD(&rst_info->fds);
 
 	if (item->ids == NULL) /* zombie */
@@ -876,7 +872,7 @@ static bool task_fle(struct pstree_item *task, struct fdinfo_list_entry *fle)
 {
 	struct fdinfo_list_entry *tmp;
 
-	list_for_each_entry(tmp, &rsti(task)->used, used_list)
+	list_for_each_entry(tmp, &rsti(task)->fds, ps_list)
 		if (fle == tmp)
 			return true;
 	return false;
