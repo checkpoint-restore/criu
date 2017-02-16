@@ -105,6 +105,7 @@ $(obj)/%.o: $(obj)/%.pb-c.c $(obj)/%.pb-c.h
 $(obj)/built-in.o: $(addprefix $(obj)/,$(proto-obj-y))
 	$(E) "  LINK    " $@
 	$(Q) $(LD) $(ldflags-y) -r -o $@ $^
+cleanup-y += $(obj)/built-in.o
 
 ifneq ($(MAKECMDGOALS),clean)
 ifneq ($(MAKECMDGOALS),mrproper)
@@ -112,9 +113,7 @@ ifneq ($(MAKECMDGOALS),mrproper)
 endif
 endif
 
-mrproper-y += $(obj)/*.pb-c.c $(obj)/*.pb-c.h
-cleanup-y += $(obj)/*.o $(obj)/*.d $(obj)/*.s $(obj)/*.i
-cleanup-y += $(obj)/google/protobuf/*.d
-cleanup-y += $(obj)/google/protobuf/*.h
-cleanup-y += $(obj)/google/protobuf/*.c
-cleanup-y += $(obj)/google/protobuf/*.o
+cleanup-y += $(call cleanify,$(addprefix $(obj)/,$(proto-obj-y)))
+cleanup-y += $(call cleanify,$(addprefix $(obj)/,$(proto-obj-y:.o=.pb-c.o)))
+mrproper-y += $(addprefix $(obj)/,$(proto-obj-y:.o=.pb-c.c))
+mrproper-y += $(addprefix $(obj)/,$(proto-obj-y:.o=.pb-c.h))
