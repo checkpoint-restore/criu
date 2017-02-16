@@ -118,7 +118,7 @@ struct file_desc_ops {
 void collect_task_fd(struct fdinfo_list_entry *new_fle, struct rst_info *ri);
 
 unsigned int find_unused_fd(struct pstree_item *, int hint_fd);
-struct fdinfo_list_entry *find_used_fd(struct list_head *head, int fd);
+struct fdinfo_list_entry *find_used_fd(struct pstree_item *, int fd);
 
 struct file_desc {
 	u32			id;		/* File id, unique */

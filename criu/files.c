@@ -98,10 +98,12 @@ static inline struct file_desc *find_file_desc(FdinfoEntry *fe)
 	return find_file_desc_raw(fe->type, fe->id);
 }
 
-struct fdinfo_list_entry *find_used_fd(struct list_head *head, int fd)
+struct fdinfo_list_entry *find_used_fd(struct pstree_item *task, int fd)
 {
+	struct list_head *head;
 	struct fdinfo_list_entry *fle;
 
+	head = &rsti(task)->used;
 	list_for_each_entry_reverse(fle, head, used_list) {
 		if (fle->fe->fd == fd)
 			return fle;
@@ -134,14 +136,13 @@ unsigned int find_unused_fd(struct pstree_item *task, int hint_fd)
 	struct fdinfo_list_entry *fle;
 	int fd = 0, prev_fd;
 
-	head = &rsti(task)->used;
-
-	if ((hint_fd >= 0) && (!find_used_fd(head, hint_fd))) {
+	if ((hint_fd >= 0) && (!find_used_fd(task, hint_fd))) {
 		fd = hint_fd;
 		goto out;
 	}
 
 	prev_fd = service_fd_min_fd() - 1;
+	head = &rsti(task)->used;
 
 	list_for_each_entry_reverse(fle, head, used_list) {
 		fd = fle->fe->fd;
