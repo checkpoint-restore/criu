@@ -17,7 +17,7 @@
 #include "kerndat.h"
 #include "vdso.h"
 #include "util.h"
-#include "log.h"
+#include "criu-log.h"
 #include "mem.h"
 #include "vma.h"
 #include <compel/compel.h>
@@ -330,39 +330,62 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 }
 
 #ifdef CONFIG_COMPAT
+static void exit_on(int ret, int err_fd, char *reason)
+{
+	if (ret) {
+		syscall(__NR_write, err_fd, reason, strlen(reason));
+		syscall(__NR_exit, ret);
+	}
+}
 /*
- * The helper runs under fork() - it remaps vdso/vvar blobs to compatible.
- * After that it copies them into shared with parent mmaped vma so that
- * parent could parse compat vdso's symbols and blob sizes into vdso_compat_rt.
- * All system calls should be as light as possible after unmapping vdso.
- * If we call something clever through Glibc here - the child will blow up.
+ * Because of restrictions of ARCH_MAP_VDSO_* API, new vDSO blob
+ * can be mapped only if there is no vDSO blob present for a process.
+ * This is a helper process, it unmaps 64-bit vDSO and maps 32-bit vDSO.
+ * Then it copies vDSO blob to shared with CRIU mapping.
+ *
+ * The purpose is to fill compat vdso's symtable (vdso_compat_rt).
+ * It's an optimization to fill symtable only once at CRIU restore
+ * for all restored tasks.
+ *
+ * @native		- 64-bit vDSO blob (for easy unmap)
+ * @pipe_fd		- to get size of compat blob from /proc/.../maps
+ * @err_fd		- to print error messages
+ * @vdso_buf, buf_size	- shared with CRIU buffer
+ *
+ * WARN: This helper shouldn't call pr_err() or any syscall with
+ *	 Glibc's wrapper function - it may very likely blow up.
  */
 static void compat_vdso_helper(struct vdso_symtable *native, int pipe_fd,
-		void *vdso_buf, size_t buf_size)
+		int err_fd, void *vdso_buf, size_t buf_size)
 {
 	size_t vma_size;
 	void *vdso_addr;
 	long vdso_size;
+	long ret;
 
 	vma_size = native->vma_end - native->vma_start;
-	if (syscall(__NR_munmap, native->vma_start, vma_size))
-		syscall(__NR_exit, 2);
+	ret = syscall(__NR_munmap, native->vma_start, vma_size);
+	exit_on(ret, err_fd, "Error: Failed to unmap native vdso\n");
 
 	vma_size = native->vvar_end - native->vvar_start;
-	if (syscall(__NR_munmap, native->vvar_start, vma_size))
-		syscall(__NR_exit, 3);
+	ret = syscall(__NR_munmap, native->vvar_start, vma_size);
+	exit_on(ret, err_fd, "Error: Failed to unmap native vvar\n");
 
-	vdso_size = syscall(__NR_arch_prctl,
-			ARCH_MAP_VDSO_32, native->vma_start);
-	if (vdso_size < 0)
-		syscall(__NR_exit, 4);
+	ret = syscall(__NR_arch_prctl, ARCH_MAP_VDSO_32, native->vma_start);
+	if (ret < 0)
+		exit_on(ret, err_fd, "Error: ARCH_MAP_VDSO failed\n");
+
+	vdso_size = ret;
 	if (vdso_size > buf_size)
-		syscall(__NR_exit, 5);
+		exit_on(-1, err_fd, "Error: Compatible vdso's size is bigger than reserved buf\n");
 
-	syscall(__NR_kill, syscall(__NR_getpid), SIGSTOP);
+	/* Stop so CRIU could parse smaps to find 32-bit vdso's size */
+	ret = syscall(__NR_kill, syscall(__NR_getpid), SIGSTOP);
+	exit_on(ret, err_fd, "Error: Can't stop myself with SIGSTOP (having a good time)\n");
 
-	if (syscall(__NR_read, pipe_fd, &vdso_addr, sizeof(void *)) != sizeof(void *))
-		syscall(__NR_exit, 6);
+	ret = syscall(__NR_read, pipe_fd, &vdso_addr, sizeof(void *));
+	if (ret != sizeof(void *))
+		exit_on(-1, err_fd, "Error: Can't read size of mmaped vdso from pipe\n");
 
 	memcpy(vdso_buf, vdso_addr, vdso_size);
 
@@ -388,7 +411,8 @@ static int vdso_mmap_compat(struct vdso_symtable *native,
 			syscall(__NR_exit, 1);
 		}
 
-		compat_vdso_helper(native, fds[0], vdso_buf, buf_size);
+		compat_vdso_helper(native, fds[0], log_get_fd(),
+				vdso_buf, buf_size);
 
 		BUG();
 	}
@@ -427,13 +451,17 @@ static int vdso_mmap_compat(struct vdso_symtable *native,
 	}
 	waitpid(pid, &status, WUNTRACED);
 
-	if (!WIFEXITED(status) || WEXITSTATUS(status))
-		pr_err("Compat vdso helper failed\n");
-	else
-		ret = 0;
+	if (WIFEXITED(status)) {
+		ret = WEXITSTATUS(status);
+		if (ret)
+			pr_err("Helper for mmaping compat vdso failed with %d\n", ret);
+		goto out_close;
+	}
+	pr_err("Compat vDSO helper didn't exit, status: %d\n", status);
 
 out_kill:
 	kill(pid, SIGKILL);
+out_close:
 	if (close(fds[1]))
 		pr_perror("Failed to close pipe");
 	return ret;
