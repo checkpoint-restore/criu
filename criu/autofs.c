@@ -569,7 +569,7 @@ static int autofs_dup_pipe(struct pstree_item *task,
 	struct pipe_info *pi = container_of(ple->desc, struct pipe_info, d);
 	unsigned flags = O_WRONLY;
 
-	new_fd = find_unused_fd(&rsti(task)->used, new_fd);
+	new_fd = find_unused_fd(task, new_fd);
 
 	if (dup_pipe_info(pi, flags, pi->d.ops) < 0) {
 		pr_err("Failed to dup pipe entry ID %#x PIPE_ID %#x\n",
@@ -911,7 +911,7 @@ static int autofs_create_pipe(struct pstree_item *task, autofs_info_t *i,
 	struct file_desc_ops *ops;
 	PipeEntry *pe;
 
-	fd = find_unused_fd(&rsti(task)->used, fd);
+	fd = find_unused_fd(task, fd);
 
 	ops = shmalloc(sizeof(*ops));
 	if (!ops)

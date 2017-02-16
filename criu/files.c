@@ -128,10 +128,13 @@ void collect_task_fd(struct fdinfo_list_entry *new_fle, struct rst_info *ri)
 	list_add_tail(&new_fle->used_list, &fle->used_list);
 }
 
-unsigned int find_unused_fd(struct list_head *head, int hint_fd)
+unsigned int find_unused_fd(struct pstree_item *task, int hint_fd)
 {
+	struct list_head *head;
 	struct fdinfo_list_entry *fle;
 	int fd = 0, prev_fd;
+
+	head = &rsti(task)->used;
 
 	if ((hint_fd >= 0) && (!find_used_fd(head, hint_fd))) {
 		fd = hint_fd;
