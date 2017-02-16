@@ -359,19 +359,37 @@ static int vdso_time_handler(void *func)
 	return 0;
 }
 
-int main(int argc, char *argv[])
+static int call_handlers(struct vdso_symtable *symtable)
 {
 	typedef int (handler_t)(void *func);
-
-	struct vdso_symtable symtable;
-	size_t i;
-
 	handler_t *handlers[VDSO_SYMBOL_MAX] = {
 		[VDSO_SYMBOL_CLOCK_GETTIME]	= vdso_clock_gettime_handler,
 		[VDSO_SYMBOL_GETCPU]		= vdso_getcpu_handler,
 		[VDSO_SYMBOL_GETTIMEOFDAY]	= vdso_gettimeofday_handler,
 		[VDSO_SYMBOL_TIME]		= vdso_time_handler,
 	};
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(symtable->symbols); i++) {
+		struct vdso_symbol *s = &symtable->symbols[i];
+		handler_t *func;
+
+		if (vdso_symbol_empty(s) || i > ARRAY_SIZE(handlers))
+			continue;
+		func = handlers[i];
+
+		if (func((void *)(s->offset + symtable->vma_start))) {
+			pr_perror("Handler error");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	struct vdso_symtable symtable;
 
 	test_init(argc, argv);
 
@@ -380,19 +398,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(symtable.symbols); i++) {
-		struct vdso_symbol *s = &symtable.symbols[i];
-		handler_t *func;
-
-		if (vdso_symbol_empty(s) || i > ARRAY_SIZE(handlers))
-			continue;
-		func = handlers[i];
-
-		if (func((void *)(s->offset + symtable.vma_start))) {
-			pr_perror("Handler error");
-			return -1;
-		}
-	}
+	if (call_handlers(&symtable))
+		return -1;
 
 	test_daemon();
 	test_waitsig();
@@ -400,18 +407,9 @@ int main(int argc, char *argv[])
 	/*
 	 * After restore the vDSO must remain in old place.
 	 */
-	for (i = 0; i < ARRAY_SIZE(symtable.symbols); i++) {
-		struct vdso_symbol *s = &symtable.symbols[i];
-		handler_t *func;
-
-		if (vdso_symbol_empty(s) || i > ARRAY_SIZE(handlers))
-			continue;
-		func = handlers[i];
-
-		if (func((void *)(s->offset + symtable.vma_start))) {
-			fail("Handler error");
-			return -1;
-		}
+	if (call_handlers(&symtable)) {
+		fail("Failed to call vdso handlers from symtable after C/R");
+		return -1;
 	}
 
 	pass();
