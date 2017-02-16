@@ -828,17 +828,6 @@ static autofs_info_t *autofs_create_info(const struct mount_info *mi,
 	return i;
 }
 
-static struct fdinfo_list_entry *find_fle_by_fd(struct list_head *head, int fd)
-{
-	struct fdinfo_list_entry *fle;
-
-	list_for_each_entry(fle, head, used_list) {
-		if (fle->fe->fd == fd)
-			return fle;
-	}
-	return NULL;
-}
-
 static struct fdinfo_list_entry *autofs_pipe_le(struct pstree_item *master,
 						AutofsEntry *entry)
 {
@@ -848,7 +837,7 @@ static struct fdinfo_list_entry *autofs_pipe_le(struct pstree_item *master,
 	if (entry->has_read_fd)
 		pipe_fd = entry->read_fd;
 
-	ple = find_fle_by_fd(&rsti(master)->used, pipe_fd);
+	ple = find_used_fd(master, pipe_fd);
 	if (!ple) {
 		pr_err("Failed to find pipe fd %d in process %d\n",
 				pipe_fd, vpid(master));
