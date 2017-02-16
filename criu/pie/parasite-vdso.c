@@ -209,16 +209,16 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 			}
 
 			if (vma_vdso->start < vma_vvar->start) {
-				ret  = vdso_remap(who, vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
+				ret  = vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
 				vdso_rt_parked_at += vdso_vma_size(sym_rt);
-				ret |= vdso_remap(who, vdso_rt_parked_at, vma_vvar->start, vvar_vma_size(sym_rt));
+				ret |= vdso_remap("rt-vvar", vdso_rt_parked_at, vma_vvar->start, vvar_vma_size(sym_rt));
 			} else {
-				ret  = vdso_remap(who, vdso_rt_parked_at, vma_vvar->start, vvar_vma_size(sym_rt));
+				ret  = vdso_remap("rt-vvar", vdso_rt_parked_at, vma_vvar->start, vvar_vma_size(sym_rt));
 				vdso_rt_parked_at += vvar_vma_size(sym_rt);
-				ret |= vdso_remap(who, vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
+				ret |= vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
 			}
 		} else
-			ret = vdso_remap(who, vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
+			ret = vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
 
 		return ret;
 	}
