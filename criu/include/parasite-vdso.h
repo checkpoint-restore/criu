@@ -82,7 +82,7 @@ static inline bool is_vdso_mark(void *addr)
 extern int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned long park_size);
 extern int vdso_map_compat(unsigned long map_at);
 extern int vdso_proxify(struct vdso_symtable *sym_rt,
-			unsigned long vdso_rt_parked_at, size_t index,
+			unsigned long vdso_rt_parked_at,
 			VmaEntry *vmas, size_t nr_vmas, bool compat_vdso);
 
 #else /* CONFIG_VDSO */

@@ -104,26 +104,29 @@ int __vdso_fill_symtable(uintptr_t mem, size_t size,
 #endif
 
 int vdso_proxify(struct vdso_symtable *sym_rt,
-		 unsigned long vdso_rt_parked_at, size_t index,
+		 unsigned long vdso_rt_parked_at,
 		 VmaEntry *vmas, size_t nr_vmas, bool compat_vdso)
 {
 	VmaEntry *vma_vdso = NULL, *vma_vvar = NULL;
 	struct vdso_symtable s = VDSO_SYMTABLE_INIT;
 	bool remap_rt = false;
+	unsigned int i;
 
-	/*
-	 * Figure out which kind of vdso tuple we get.
-	 */
-	if (vma_entry_is(&vmas[index], VMA_AREA_VDSO))
-		vma_vdso = &vmas[index];
-	else if (vma_entry_is(&vmas[index], VMA_AREA_VVAR))
-		vma_vvar = &vmas[index];
+	for (i = 0; i < nr_vmas; i++) {
+		if (vma_entry_is(&vmas[i], VMA_AREA_VDSO))
+			vma_vdso = &vmas[i];
+		else if (vma_entry_is(&vmas[i], VMA_AREA_VVAR))
+			vma_vvar = &vmas[i];
+	}
 
-	if (index < (nr_vmas - 1)) {
-		if (vma_entry_is(&vmas[index + 1], VMA_AREA_VDSO))
-			vma_vdso = &vmas[index + 1];
-		else if (vma_entry_is(&vmas[index + 1], VMA_AREA_VVAR))
-			vma_vvar = &vmas[index + 1];
+	if (!vma_vdso && !vma_vvar) {
+		pr_info("No VVAR, no vDSO in image\n");
+		/*
+		 * We don't have to unmap rt-vdso, rt-vvar as they will
+		 * be unmapped with restorer blob in the end,
+		 * see __export_unmap()
+		 */
+		return 0;
 	}
 
 	if (!vma_vdso) {
