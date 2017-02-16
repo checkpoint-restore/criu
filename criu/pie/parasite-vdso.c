@@ -103,9 +103,9 @@ int __vdso_fill_symtable(uintptr_t mem, size_t size,
 }
 #endif
 
-int vdso_proxify(struct vdso_symtable *sym_rt,
-		 unsigned long vdso_rt_parked_at,
-		 VmaEntry *vmas, size_t nr_vmas, bool compat_vdso)
+int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
+		 VmaEntry *vmas, size_t nr_vmas,
+		 bool compat_vdso, bool force_trampolines)
 {
 	VmaEntry *vma_vdso = NULL, *vma_vvar = NULL;
 	struct vdso_symtable s = VDSO_SYMTABLE_INIT;
@@ -193,7 +193,7 @@ int vdso_proxify(struct vdso_symtable *sym_rt,
 	 * by a caller code. So drop VMA_AREA_REGULAR from it and caller would
 	 * not touch it anymore.
 	 */
-	if (remap_rt) {
+	if (remap_rt && !force_trampolines) {
 		int ret = 0;
 
 		pr_info("Runtime vdso/vvar matches dumpee, remap inplace\n");

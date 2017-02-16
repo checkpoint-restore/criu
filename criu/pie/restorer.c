@@ -1262,7 +1262,8 @@ long __export_restore_task(struct task_restore_args *args)
 	 */
 	if (!args->check_only)
 		if (vdso_proxify(&args->vdso_sym_rt, args->vdso_rt_parked_at,
-			     args->vmas, args->vmas_n, args->compatible_mode))
+			     args->vmas, args->vmas_n, args->compatible_mode,
+			     fault_injected(FI_VDSO_TRAMPOLINES)))
 			goto core_restore_end;
 #endif
 
