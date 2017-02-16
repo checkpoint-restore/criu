@@ -64,6 +64,11 @@ static pid_t *helpers;
 static int n_helpers;
 static pid_t *zombies;
 static int n_zombies;
+static enum faults fi_strategy;
+bool fault_injected(enum faults f)
+{
+	return __fault_injected(f, fi_strategy);
+}
 
 /*
  * These are stubs for std compel plugin.
@@ -1142,6 +1147,8 @@ long __export_restore_task(struct task_restore_args *args)
 #ifdef CONFIG_VDSO
 	vdso_rt_size	= args->vdso_rt_size;
 #endif
+
+	fi_strategy = args->fault_strategy;
 
 	task_entries_local = args->task_entries;
 	helpers = args->helpers;

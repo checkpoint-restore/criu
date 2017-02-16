@@ -18,6 +18,7 @@
 #include "timerfd.h"
 #include "shmem.h"
 #include "parasite-vdso.h"
+#include "fault-injection.h"
 
 #include <time.h>
 
@@ -186,6 +187,8 @@ struct task_restore_args {
 	unsigned long			vdso_rt_parked_at;	/* safe place to keep vdso */
 #endif
 	void				**breakpoint;
+
+	enum faults			fault_strategy;
 } __aligned(64);
 
 /*

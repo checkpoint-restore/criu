@@ -18,10 +18,7 @@ enum faults {
 	FI_MAX,
 };
 
-extern enum faults fi_strategy;
-extern int fault_injection_init(void);
-
-static inline bool fault_injected(enum faults f)
+static inline bool __fault_injected(enum faults f, enum faults fi_strategy)
 {
 	/*
 	 * Temporary workaround for Xen guests. Breakpoints degrade
@@ -33,4 +30,18 @@ static inline bool fault_injected(enum faults f)
 
 	return fi_strategy == f;
 }
+
+#ifndef CR_NOGLIBC
+
+extern enum faults fi_strategy;
+#define fault_injected(f)	__fault_injected(f, fi_strategy)
+
+extern int fault_injection_init(void);
+
+#else /* CR_NOGLIBC */
+
+extern bool fault_injected(enum faults f);
+
+#endif
+
 #endif
