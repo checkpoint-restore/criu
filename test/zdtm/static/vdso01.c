@@ -51,10 +51,12 @@ enum {
 	VDSO_SYMBOL_MAX
 };
 
-#define VDSO_SYMBOL_CLOCK_GETTIME_NAME	"__vdso_clock_gettime"
-#define VDSO_SYMBOL_GETCPU_NAME		"__vdso_getcpu"
-#define VDSO_SYMBOL_GETTIMEOFDAY_NAME	"__vdso_gettimeofday"
-#define VDSO_SYMBOL_TIME_NAME		"__vdso_time"
+const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
+	[VDSO_SYMBOL_CLOCK_GETTIME]	= "__vdso_clock_gettime",
+	[VDSO_SYMBOL_GETCPU]		= "__vdso_getcpu",
+	[VDSO_SYMBOL_GETTIMEOFDAY]	= "__vdso_gettimeofday",
+	[VDSO_SYMBOL_TIME]		= "__vdso_time",
+};
 
 struct vdso_symtable {
 	unsigned long		vma_start;
@@ -114,13 +116,6 @@ static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	const char elf_ident[] = {
 		0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	};
-
-	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
-		[VDSO_SYMBOL_CLOCK_GETTIME]	= VDSO_SYMBOL_CLOCK_GETTIME_NAME,
-		[VDSO_SYMBOL_GETCPU]		= VDSO_SYMBOL_GETCPU_NAME,
-		[VDSO_SYMBOL_GETTIMEOFDAY]	= VDSO_SYMBOL_GETTIMEOFDAY_NAME,
-		[VDSO_SYMBOL_TIME]		= VDSO_SYMBOL_TIME_NAME,
 	};
 
 	char *dynsymbol_names;
