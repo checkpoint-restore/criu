@@ -1258,7 +1258,7 @@ long __export_restore_task(struct task_restore_args *args)
 	for (i = 0; i < args->vmas_n; i++) {
 		if (vma_entry_is(&args->vmas[i], VMA_AREA_VDSO) ||
 		    vma_entry_is(&args->vmas[i], VMA_AREA_VVAR)) {
-			if (vdso_proxify("dumpee", &args->vdso_sym_rt,
+			if (vdso_proxify(&args->vdso_sym_rt,
 					 args->vdso_rt_parked_at,
 					 i, args->vmas, args->vmas_n,
 					 args->compatible_mode))

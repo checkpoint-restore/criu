@@ -103,7 +103,7 @@ int __vdso_fill_symtable(uintptr_t mem, size_t size,
 }
 #endif
 
-int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
+int vdso_proxify(struct vdso_symtable *sym_rt,
 		 unsigned long vdso_rt_parked_at, size_t index,
 		 VmaEntry *vmas, size_t nr_vmas, bool compat_vdso)
 {
@@ -197,14 +197,14 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 
 		if (sys_munmap((void *)(uintptr_t)vma_vdso->start,
 					vma_entry_len(vma_vdso))) {
-			pr_err("Failed to unmap %s\n", who);
+			pr_err("Failed to unmap dumpee\n");
 			return -1;
 		}
 
 		if (vma_vvar) {
 			if (sys_munmap((void *)(uintptr_t)vma_vvar->start,
 						vma_entry_len(vma_vvar))) {
-				pr_err("Failed to unmap %s\n", who);
+				pr_err("Failed to unmap dumpee\n");
 				return -1;
 			}
 
