@@ -22,6 +22,7 @@ CFLAGS			+= -iquote $(SRC_DIR)/criu/include
 CFLAGS			+= -iquote $(SRC_DIR)/include
 CFLAGS			+= -iquote $(SRC_DIR)
 CFLAGS			+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
+CFLAGS			+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
 
 
 ifneq ($(filter-out ia32,$(ARCH)),)
