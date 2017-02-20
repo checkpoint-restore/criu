@@ -442,6 +442,17 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 	return true;
 }
 
+int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
+{
+	long ret;
+	int err;
+
+	err = compel_syscall(ctl, __NR_sigaltstack,
+			     &ret, 0, (unsigned long)&s->uc.uc_stack,
+			     0, 0, 0, 0);
+	return err ? err : ret;
+}
+
 /*
  * Copied for the Linux kernel arch/powerpc/include/asm/processor.h
  *

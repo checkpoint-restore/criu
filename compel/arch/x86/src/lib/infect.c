@@ -419,6 +419,21 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 	return true;
 }
 
+int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
+{
+	int native = compel_mode_native(ctl);
+	void *where = native ?
+		(void *)&s->native.uc.uc_stack :
+		(void *)&s->compat.uc.uc_stack;
+	long ret;
+	int err;
+
+	err = compel_syscall(ctl, __NR(sigaltstack, !native),
+			     &ret, 0, (unsigned long)where,
+			     0, 0, 0, 0);
+	return err ? err : ret;
+}
+
 /* Copied from the gdb header gdb/nat/x86-dregs.h */
 
 /* Debug registers' indices.  */
