@@ -21,7 +21,6 @@ ccflags-y		+= -iquote criu/include
 ccflags-y		+= -iquote include
 ccflags-y		+= -iquote images
 ccflags-y		+= -iquote criu/pie
-ccflags-y		+= -iquote $(ARCH_DIR)
 ccflags-y		+= -iquote $(ARCH_DIR)/include
 ccflags-y		+= -iquote .
 ccflags-y		+= -I/usr/include/libnl3
