@@ -1,8 +1,15 @@
-#
-# Import the build engine first
 __nmk_dir=$(CURDIR)/scripts/nmk/scripts/
 export __nmk_dir
 
+#
+# No need to try to remake our Makefiles
+Makefile: ;
+Makefile.%: ;
+scripts/%.mak: ;
+$(__nmk_dir)%.mk: ;
+
+#
+# Import the build engine
 include $(__nmk_dir)include.mk
 include $(__nmk_dir)macro.mk
 
@@ -213,6 +220,7 @@ SOCCR_A := soccr/libsoccr.a
 SOCCR_CONFIG := soccr/config.h
 $(SOCCR_CONFIG): $(CONFIG_HEADER)
 	$(Q) test -f $@ || ln -s ../$(CONFIG_HEADER) $@
+soccr/Makefile: ;
 soccr/%: $(SOCCR_CONFIG) .FORCE
 	$(Q) $(MAKE) $(build)=soccr $@
 soccr/built-in.o: $(SOCCR_CONFIG) .FORCE
@@ -228,6 +236,9 @@ criu-deps	+= $(SOCCR_A)
 #
 # But note that we're already included
 # the nmk so we can reuse it there.
+criu/Makefile: ;
+criu/Makefile.packages: ;
+criu/Makefile.crtools: ;
 criu/%: $(criu-deps) .FORCE
 	$(Q) $(MAKE) $(build)=criu $@
 criu: $(criu-deps)
@@ -238,6 +249,7 @@ criu: $(criu-deps)
 # Libraries next once criu it ready
 # (we might generate headers and such
 # when building criu itself).
+lib/Makefile: ;
 lib/%: criu .FORCE
 	$(Q) $(MAKE) $(build)=lib $@
 lib: criu

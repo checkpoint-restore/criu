@@ -57,6 +57,8 @@ pie: criu/pie/pie.lib.a
 	$(Q) $(MAKE) $(build)=criu/pie all
 .PHONY: pie
 
+criu/pie/Makefile: ;
+criu/pie/Makefile.library: ;
 criu/pie/%: pie ;
 
 #
@@ -71,8 +73,10 @@ PROGRAM-BUILTINS	+= $(COMPEL_LIBS)
 $(obj)/built-in.o: pie
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) all
 
-$(obj)/Makefile:
-	@true
+
+$(obj)/Makefile: ;
+$(obj)/Makefile.crtools: ;
+$(obj)/Makefile.packages: ;
 
 $(obj)/%: pie
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) $@

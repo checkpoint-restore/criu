@@ -2,6 +2,7 @@ all-y	+= libpy-images rpc_pb2.py
 
 .PHONY: .FORCE
 
+$(obj)/images/Makefile: ;
 $(obj)/images/%: .FORCE
 	$(Q) $(MAKE) $(build)=$(obj)/images $@
 

@@ -31,6 +31,7 @@ criu-deps		+= compel/$(LIBCOMPEL_A)
 
 #
 # Compel itself.
+compel/Makefile: ;
 compel/%: $(compel-deps) $(compel-plugins) .FORCE
 	$(Q) $(MAKE) $(build)=compel $@
 
@@ -38,6 +39,7 @@ criu-deps		+= compel/compel-host-bin
 
 #
 # Plugins
+compel/plugins/Makefile: ;
 compel/plugins/%: $(compel-deps) .FORCE
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 
