@@ -30,7 +30,7 @@ endif
 
 # Do not use make's built-in rules and variables
 # (this increases performance and avoids hard-to-debug behaviour).
-MAKEFLAGS += -rR
+MAKEFLAGS += -rR --no-print-directory
 export MAKEFLAGS
 
 # Avoid funny character set dependencies.
