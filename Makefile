@@ -233,14 +233,12 @@ criu: images/built-in.o $(SOCCR_A) $(VERSION_HEADER) $(CONFIG_HEADER)
 # (we might generate headers and such
 # when building criu itself).
 lib/%: criu .FORCE
-	$(Q) $(MAKE) -C lib $@
+	$(Q) $(MAKE) $(build)=lib $@
 lib: criu
-	$(Q) $(MAKE) -C lib all
+	$(Q) $(MAKE) $(build)=lib all
 .PHONY: lib
 
 subclean:
-	$(call msg-clean, criu)
-	$(Q) $(MAKE) -C lib clean
 	$(Q) $(MAKE) -C Documentation clean
 	$(Q) $(RM) .gitid
 .PHONY: subclean
@@ -249,6 +247,7 @@ clean: subclean
 	$(Q) $(MAKE) $(build)=images $@
 	$(Q) $(MAKE) $(build)=criu $@
 	$(Q) $(MAKE) $(build)=soccr $@
+	$(Q) $(MAKE) $(build)=lib $@
 .PHONY: clean
 
 # mrproper depends on clean in nmk
@@ -256,6 +255,7 @@ mrproper: subclean
 	$(Q) $(MAKE) $(build)=images $@
 	$(Q) $(MAKE) $(build)=criu $@
 	$(Q) $(MAKE) $(build)=soccr $@
+	$(Q) $(MAKE) $(build)=lib $@
 	$(Q) $(RM) $(CONFIG_HEADER)
 	$(Q) $(RM) $(SOCCR_CONFIG)
 	$(Q) $(RM) $(VERSION_HEADER)

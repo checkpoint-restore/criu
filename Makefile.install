@@ -29,7 +29,7 @@ install-man:
 .PHONY: install-man
 
 install-lib: lib
-	$(Q) $(MAKE) -C lib install
+	$(Q) $(MAKE) $(build)=lib install
 .PHONY: install-lib
 
 install-criu: criu
@@ -42,6 +42,6 @@ install: install-man install-lib install-criu
 
 uninstall:
 	$(Q) $(MAKE) -C Documentation $@
-	$(Q) $(MAKE) -C lib $@
+	$(Q) $(MAKE) $(build)=lib $@
 	$(Q) $(MAKE) -C criu $@
 .PHONY: uninstall
