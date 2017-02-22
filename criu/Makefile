@@ -17,13 +17,13 @@ endif
 #
 # General flags.
 ccflags-y		+= -fno-strict-aliasing
-ccflags-y		+= -iquote $(SRC_DIR)/criu/include
-ccflags-y		+= -iquote $(SRC_DIR)/include
-ccflags-y		+= -iquote $(SRC_DIR)/images
-ccflags-y		+= -iquote $(SRC_DIR)/criu/pie
-ccflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)
-ccflags-y		+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
-ccflags-y		+= -iquote $(SRC_DIR)/
+ccflags-y		+= -iquote criu/include
+ccflags-y		+= -iquote include
+ccflags-y		+= -iquote images
+ccflags-y		+= -iquote criu/pie
+ccflags-y		+= -iquote $(ARCH_DIR)
+ccflags-y		+= -iquote $(ARCH_DIR)/include
+ccflags-y		+= -iquote .
 ccflags-y		+= -I/usr/include/libnl3
 ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 
@@ -39,7 +39,7 @@ include $(__nmk_dir)msg.mk
 
 #
 # Needed libraries checks
-include $(SRC_DIR)/criu/Makefile.packages
+include criu/Makefile.packages
 
 #
 # Architecture dependent part.
@@ -108,8 +108,8 @@ subproper:
 .PHONY: subproper
 mrproper: subproper
 
-UAPI_HEADERS := $(SRC_DIR)/criu/include/criu-plugin.h
-UAPI_HEADERS += $(SRC_DIR)/criu/include/criu-log.h
+UAPI_HEADERS := criu/include/criu-plugin.h
+UAPI_HEADERS += criu/include/criu-log.h
 
 install: $(obj)/criu
 	$(E) "  INSTALL " $(obj)/criu
@@ -118,7 +118,7 @@ install: $(obj)/criu
 	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)/criu/
 	$(Q) install -m 644 $(UAPI_HEADERS) $(DESTDIR)$(INCLUDEDIR)/criu/
 	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)/criu/scripts
-	$(Q) install -m 755 $(SRC_DIR)/scripts/systemd-autofs-restart.sh $(DESTDIR)$(LIBEXECDIR)/criu/scripts
+	$(Q) install -m 755 scripts/systemd-autofs-restart.sh $(DESTDIR)$(LIBEXECDIR)/criu/scripts
 .PHONY: install
 
 uninstall:

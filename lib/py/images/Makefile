@@ -1,16 +1,16 @@
 all-y	+= images magic.py pb.py
 
-proto := $(filter-out $(SRC_DIR)/images/rpc.proto, $(sort $(wildcard $(SRC_DIR)/images/*.proto)))
+proto := $(filter-out images/rpc.proto, $(sort $(wildcard images/*.proto)))
 proto-py-modules := $(foreach m,$(proto),$(subst -,_,$(notdir $(m:.proto=_pb2))))
 
 # We don't need rpc_pb2.py here, as it is not related to the images.
 # Unfortunately, we can't drop ugly _pb2 suffixes here, because
 # some _pb2 files depend on others _pb2 files.
 images:
-	$(Q) protoc -I=$(SRC_DIR)/images -I=/usr/include/ --python_out=$(obj) $(proto)
+	$(Q) protoc -I=images/ -I=/usr/include/ --python_out=$(obj) $(proto)
 .PHONY: images
 
-magic.py: $(SRC_DIR)/scripts/magic-gen.py $(SRC_DIR)/criu/include/magic.h
+magic.py: scripts/magic-gen.py criu/include/magic.h
 	$(call msg-gen, $@)
 	$(Q) python $^ $(obj)/$@
 

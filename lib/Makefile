@@ -40,6 +40,7 @@ clean-lib:
 .PHONY: clean-lib
 clean: clean-lib
 cleanup-y	+= lib/c/$(CRIU_SO) lib/c/criu.pc
+mrproper: clean
 
 install: lib-c lib-py crit/crit lib/c/criu.pc.in
 	$(E) "  INSTALL " lib

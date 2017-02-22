@@ -19,10 +19,9 @@ endif
 #
 CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS))
 CFLAGS		:= $(filter-out $(CFLAGS-ASAN),$(CFLAGS))
-CFLAGS		+= -iquote $(SRC_DIR)/criu/arch/$(ARCH)/include
-CFLAGS		+= -iquote $(SRC_DIR)/criu/include
-CFLAGS		+= -iquote $(SRC_DIR)/include
-CFLAGS		+= -iquote $(SRC_DIR)
+CFLAGS		+= -iquote criu/arch/$(ARCH)/include
+CFLAGS		+= -iquote criu/include
+CFLAGS		+= -iquote include
 
 ccflags-y	+= $(COMPEL_UAPI_INCLUDES)
 ccflags-y	+= -DCR_NOGLIBC

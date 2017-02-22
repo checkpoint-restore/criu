@@ -34,9 +34,8 @@ endif
 # applications, which is not the target of the
 # project.
 #
-iquotes			:= -iquote $(SRC_DIR)/$(PIE_DIR)/piegen
-iquotes			+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
-iquotes			+= -iquote $(SRC_DIR) -iquote $(SRC_DIR)/criu/include -iquote $(SRC_DIR)/include
+iquotes			+= -iquote $(ARCH_DIR)/include
+iquotes			+= -iquote criu/include -iquote include
 CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) $(iquotes)
 CFLAGS			:= $(filter-out $(CFLAGS-ASAN),$(CFLAGS))
 
