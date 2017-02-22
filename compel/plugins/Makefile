@@ -15,7 +15,7 @@ ccflags-y		+= -I compel/include/uapi
 asflags-y		+= -I compel/include/uapi
 
 # General compel includes
-ccflags-y		+= -iquote $(SRC_DIR)/compel/include
+ccflags-y		+= -iquote compel/include
 ccflags-y		+= -fpie -fno-stack-protector
 
 # General compel/plugins includes

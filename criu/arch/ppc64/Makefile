@@ -1,7 +1,7 @@
 builtin-name		:= crtools.built-in.o
 
-ccflags-y		+= -iquote $(obj) -iquote $(SRC_DIR) -iquote $(obj)/include
-ccflags-y		+= -iquote $(SRC_DIR)/criu/include -iquote $(SRC_DIR)/include
+ccflags-y		+= -iquote $(obj) -iquote $(obj)/include
+ccflags-y		+= -iquote criu/include -iquote include
 ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 
 obj-y			+= cpu.o

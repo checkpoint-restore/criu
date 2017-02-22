@@ -13,11 +13,6 @@ HOSTCFLAGS	?= $(CFLAGS)
 export HOSTCFLAGS
 
 #
-# Where we live.
-SRC_DIR	:= $(CURDIR)
-export SRC_DIR
-
-#
 # Architecture specific options.
 ifneq ($(filter-out x86 arm arm64 ppc64,$(ARCH)),)
         $(error "The architecture $(ARCH) isn't supported")
@@ -144,7 +139,7 @@ all: criu lib
 # Version headers.
 include Makefile.versions
 
-VERSION_HEADER		:= $(SRC_DIR)/criu/include/version.h
+VERSION_HEADER		:= criu/include/version.h
 GITID_FILE		:= .gitid
 GITID		:= $(shell if [ -d ".git" ]; then git describe --always; fi)
 
@@ -193,7 +188,7 @@ criu-deps	+= include/common/asm
 # Configure variables.
 export CONFIG_HEADER := criu/include/config.h
 ifeq ($(filter clean mrproper,$(MAKECMDGOALS)),)
-include $(SRC_DIR)/Makefile.config
+include Makefile.config
 else
 # To clean all files, enable make/build options here
 export CONFIG_COMPAT := y
@@ -215,7 +210,7 @@ include Makefile.compel
 # Next the socket CR library
 #
 SOCCR_A := soccr/libsoccr.a
-SOCCR_CONFIG := $(SRC_DIR)/soccr/config.h
+SOCCR_CONFIG := soccr/config.h
 $(SOCCR_CONFIG): $(CONFIG_HEADER)
 	$(Q) test -f $@ || ln -s ../$(CONFIG_HEADER) $@
 soccr/%: $(SOCCR_CONFIG) .FORCE
@@ -273,6 +268,7 @@ mrproper: subclean
 	$(Q) $(MAKE) $(build)=lib $@
 	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(MAKE) $(build)=compel/plugins $@
+	$(Q) $(MAKE) $(build)=lib $@
 	$(Q) $(RM) $(CONFIG_HEADER)
 	$(Q) $(RM) $(SOCCR_CONFIG)
 	$(Q) $(RM) $(VERSION_HEADER)
