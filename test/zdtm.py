@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-# vim: noet
+# vim: noet ts=8 sw=8 sts=8
 import argparse
 import glob
 import os
