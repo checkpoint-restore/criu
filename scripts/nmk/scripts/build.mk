@@ -281,8 +281,7 @@ endif
 
 #
 # Main phony rule.
-all: $(all-y)
-	@true
+all: $(all-y) ;
 .PHONY: all
 
 #

@@ -57,8 +57,7 @@ pie: criu/pie/pie.lib.a
 	$(Q) $(MAKE) $(build)=criu/pie all
 .PHONY: pie
 
-criu/pie/%: pie
-	@true
+criu/pie/%: pie ;
 
 #
 # CRIU executable

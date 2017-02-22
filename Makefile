@@ -311,8 +311,7 @@ endif
 tar-name := $(shell echo $(head-name) | sed -e 's/^v//g')
 criu-$(tar-name).tar.bz2:
 	git archive --format tar --prefix 'criu-$(tar-name)/' $(head-name) | bzip2 > $@
-dist tar: criu-$(tar-name).tar.bz2
-	@true
+dist tar: criu-$(tar-name).tar.bz2 ;
 .PHONY: dist tar
 
 tags:
