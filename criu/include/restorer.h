@@ -198,6 +198,11 @@ static inline unsigned long restorer_stack(struct restore_mem_zone *mz)
 enum {
 	CR_STATE_FAIL		= -1,
 	CR_STATE_RESTORE_NS	= 0, /* is used for executing "setup-namespace" scripts */
+	/*
+	 * Need to wait a mount namespace which
+	 * will be used to clean up remap files.
+	 */
+	CR_STATE_POST_RESTORE_NS,
 	CR_STATE_RESTORE_SHARED,
 	CR_STATE_FORKING,
 	CR_STATE_RESTORE,

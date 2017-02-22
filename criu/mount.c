@@ -2948,15 +2948,37 @@ int prepare_mnt_ns(void)
 			goto err;
 		}
 
+		if (nsid->type == NS_ROOT) {
+			int fd;
+
+			/*
+			 * We need to create a mount namespace which will be
+			 * used to clean up remap files
+			 * (depopulate_roots_yard).  The namespace where mounts
+			 * was restored has to be restored as a root mount
+			 * namespace, because there are file descriptors
+			 * linked with it (e.g. to bind-mount slave pty-s).
+			 */
+			fd = open_proc(PROC_SELF, "ns/mnt");
+			if (fd < 0)
+				goto err;
+			if (setns(rst, CLONE_NEWNS)) {
+				pr_perror("Can't restore mntns back");
+				goto err;
+			}
+			nsid->mnt.ns_fd = rst;
+			rst = fd;
+		} else {
+			/* Pin one with a file descriptor */
+			nsid->mnt.ns_fd = open_proc(PROC_SELF, "ns/mnt");
+			if (nsid->mnt.ns_fd < 0)
+				goto err;
+		}
+
 		/* Set its root */
 		path[0] = '/';
 		print_ns_root(nsid, 0, path + 1, sizeof(path) - 1);
 		if (cr_pivot_root(path))
-			goto err;
-
-		/* Pin one with a file descriptor */
-		nsid->mnt.ns_fd = open_proc(PROC_SELF, "ns/mnt");
-		if (nsid->mnt.ns_fd < 0)
 			goto err;
 
 		/* root_fd is used to restore file mappings */

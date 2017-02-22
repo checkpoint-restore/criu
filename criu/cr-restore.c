@@ -1319,6 +1319,9 @@ static int restore_task_with_children(void *_arg)
 		if (prepare_namespace(current, ca->clone_flags))
 			goto err;
 
+		if (restore_finish_stage(task_entries, CR_STATE_POST_RESTORE_NS) < 0)
+			goto err;
+
 		if (root_prepare_shared())
 			goto err;
 
@@ -1382,6 +1385,7 @@ static inline int stage_participants(int next_stage)
 	case CR_STATE_FAIL:
 		return 0;
 	case CR_STATE_RESTORE_NS:
+	case CR_STATE_POST_RESTORE_NS:
 	case CR_STATE_RESTORE_SHARED:
 		return 1;
 	case CR_STATE_FORKING:
@@ -1737,15 +1741,24 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret)
 		goto out_kill;
 
+	ret = run_scripts(ACT_SETUP_NS);
+	if (ret)
+		goto out_kill;
+
+	ret = restore_switch_stage(CR_STATE_POST_RESTORE_NS);
+	if (ret < 0)
+		goto out_kill;
+
+	pr_info("Wait until namespaces are created\n");
+	ret = restore_wait_inprogress_tasks();
+	if (ret)
+		goto out_kill;
+
 	if (root_ns_mask & CLONE_NEWNS) {
 		mnt_ns_fd = open_proc(init->pid->real, "ns/mnt");
 		if (mnt_ns_fd < 0)
 			goto out_kill;
 	}
-
-	ret = run_scripts(ACT_SETUP_NS);
-	if (ret)
-		goto out_kill;
 
 	if (opts.empty_ns & CLONE_NEWNET) {
 		/*
