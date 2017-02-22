@@ -34,8 +34,6 @@ endif
 # applications, which is not the target of the
 # project.
 #
-iquotes			+= -iquote $(ARCH_DIR)/include
-iquotes			+= -iquote criu/include -iquote include
 CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) $(iquotes)
 CFLAGS			:= $(filter-out $(CFLAGS-ASAN),$(CFLAGS))
 

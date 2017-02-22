@@ -1,6 +1,5 @@
 builtin-name		:= crtools.built-in.o
 
-ccflags-y		+= -iquote $(obj)
 ccflags-y		+= -iquote $(obj)/include -iquote criu/include
 ccflags-y		+= -iquote include
 ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
