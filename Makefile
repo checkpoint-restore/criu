@@ -262,6 +262,7 @@ clean: subclean
 	$(Q) $(MAKE) $(build)=lib $@
 	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(MAKE) $(build)=compel/plugins $@
+	$(Q) $(MAKE) $(build)=lib $@
 .PHONY: clean
 
 # mrproper depends on clean in nmk
