@@ -244,31 +244,25 @@ lib: criu
 	$(Q) $(MAKE) $(build)=lib all
 .PHONY: lib
 
-subclean:
+clean mrproper:
+	$(Q) $(MAKE) $(build)=images $@
+	$(Q) $(MAKE) $(build)=criu $@
+	$(Q) $(MAKE) $(build)=soccr $@
+	$(Q) $(MAKE) $(build)=lib $@
+	$(Q) $(MAKE) $(build)=compel $@
+	$(Q) $(MAKE) $(build)=compel/plugins $@
+	$(Q) $(MAKE) $(build)=lib $@
+.PHONY: clean mrproper
+
+clean-top:
 	$(Q) $(MAKE) -C Documentation clean
 	$(Q) $(MAKE) $(build)=test/compel clean
 	$(Q) $(RM) .gitid
-.PHONY: subclean
+.PHONY: clean-top
 
-clean: subclean
-	$(Q) $(MAKE) $(build)=images $@
-	$(Q) $(MAKE) $(build)=criu $@
-	$(Q) $(MAKE) $(build)=soccr $@
-	$(Q) $(MAKE) $(build)=lib $@
-	$(Q) $(MAKE) $(build)=compel $@
-	$(Q) $(MAKE) $(build)=compel/plugins $@
-	$(Q) $(MAKE) $(build)=lib $@
-.PHONY: clean
+clean: clean-top
 
-# mrproper depends on clean in nmk
-mrproper: subclean
-	$(Q) $(MAKE) $(build)=images $@
-	$(Q) $(MAKE) $(build)=criu $@
-	$(Q) $(MAKE) $(build)=soccr $@
-	$(Q) $(MAKE) $(build)=lib $@
-	$(Q) $(MAKE) $(build)=compel $@
-	$(Q) $(MAKE) $(build)=compel/plugins $@
-	$(Q) $(MAKE) $(build)=lib $@
+mrproper-top: clean-top
 	$(Q) $(RM) $(CONFIG_HEADER)
 	$(Q) $(RM) $(SOCCR_CONFIG)
 	$(Q) $(RM) $(VERSION_HEADER)
@@ -277,7 +271,9 @@ mrproper: subclean
 	$(Q) $(RM) compel/include/asm
 	$(Q) $(RM) cscope.*
 	$(Q) $(RM) tags TAGS
-.PHONY: mrproper
+.PHONY: mrproper-top
+
+mrproper: mrproper-top
 
 #
 # Non-CRIU stuff.
