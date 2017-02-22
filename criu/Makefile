@@ -54,7 +54,7 @@ criu/pie/pie.lib.a: $(ARCH-LIB) .FORCE
 
 #
 # PIE code blobs themseves.
-pie: criu/pie/pie.lib.a compel/plugins/std.built-in.o
+pie: criu/pie/pie.lib.a
 	$(Q) $(MAKE) $(build)=criu/pie all
 .PHONY: pie
 
