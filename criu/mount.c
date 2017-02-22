@@ -1267,6 +1267,10 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 	if (!pm->dumped && dump_one_fs(pm))
 		return -1;
 
+	if (!fsroot_mounted(pm) &&
+	    pm->fstype->check_bindmount && pm->fstype->check_bindmount(pm))
+		return -1;
+
 	if (pm->mnt_id == CRTIME_MNT_ID) {
 		pr_info("Skip dumping cr-time mountpoint: %s\n", pm->mountpoint);
 		return 0;

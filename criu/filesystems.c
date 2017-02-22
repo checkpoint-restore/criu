@@ -700,6 +700,7 @@ static struct fstype fstypes[] = {
 		.parse = devpts_parse,
 		.code = FSTYPE__DEVPTS,
 		.restore = devpts_restore,
+		.check_bindmount = devpts_check_bindmount,
 	}, {
 		.name = "simfs",
 		.code = FSTYPE__SIMFS,

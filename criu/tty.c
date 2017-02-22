@@ -115,6 +115,7 @@ struct tty_dump_info {
 	pid_t				sid;
 	pid_t				pgrp;
 	int				fd;
+	int				mnt_id;
 	struct tty_driver		*driver;
 
 	int				index;
@@ -1763,6 +1764,7 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_d
 	dinfo->sid		= pti->sid;
 	dinfo->pgrp		= pti->pgrp;
 	dinfo->fd		= p->fd;
+	dinfo->mnt_id		= p->mnt_id;
 	dinfo->driver		= driver;
 	dinfo->flags		= p->flags;
 
@@ -2185,6 +2187,63 @@ static int pty_create_ptmx_index(int dfd, int index, int flags)
 		if (info->tie->pty->index == index) {
 			info->fdstore_id = id;
 		}
+	}
+
+	return 0;
+}
+
+/*
+ * Here we check that a master of a bind-mounted slave was opened in the root
+ * mount namespace. The problem is that we restore all mounts in the root mount
+ * namespace. Only when all mounts are restored, we create other mount
+ * namespaces. So when we are restoring mounts, we can open files only in the
+ * root mount namespace.
+ */
+int devpts_check_bindmount(struct mount_info *m)
+{
+	struct tty_dump_info *dinfo = NULL;
+	struct mount_info *master_mp;
+	int index;
+
+	if (strcmp(m->root, "/") == 0 || strcmp(m->root, "/ptmx") == 0)
+		return 0;
+
+	if (sscanf(m->root, "/%d", &index) != 1) {
+		pr_err("Unable to parse %s", m->root);
+		return -1;
+	}
+
+	list_for_each_entry(dinfo, &all_ttys, list) {
+		if (!is_pty(dinfo->driver))
+			continue;
+
+		if (dinfo->driver->subtype != TTY_SUBTYPE_MASTER)
+			continue;
+
+		if (dinfo->index == index)
+			goto found;
+	}
+
+	if (opts.orphan_pts_master) /* external master */
+		return 0;
+
+	pr_err("Unable to find a master for %s\n", m->root);
+	return -1;
+
+found:
+	/* mnt_id isn't reported in fdinfo, so here is only one mntns */
+	if (dinfo->mnt_id == -1)
+		return 0;
+
+	master_mp = lookup_mnt_id(dinfo->mnt_id);
+	if (!master_mp) {
+		pr_err("Unable to find a mount %d\n", dinfo->mnt_id);
+		return -1;
+	}
+
+	if (master_mp->nsid->type != NS_ROOT) {
+		pr_err("The master for %s isn't from the root mntns", m->root);
+		return -1;
 	}
 
 	return 0;
