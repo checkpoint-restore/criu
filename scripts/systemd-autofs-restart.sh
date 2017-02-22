@@ -122,7 +122,14 @@ function restore_mountpoint {
 	[ -n "$bindmount" ] || return
 
 	# Umount file system, remounted by systemd, if any
-	if ! check_fs_type $mountpoint "autofs"; then
+	top_mount_fs_type=$(get_fs_type $mountpoint)
+	if [ $? -ne 0 ]; then
+		echo "$top_mount_fs_type"
+		return
+	fi
+
+	# Nothing to do, if no file system is on top of autofs
+	if [ "$top_mount_fs_type" != "autofs" ]; then
 		$JOIN_CT umount $mountpoint || echo "Failed to umount $mountpoint"
 	fi
 
