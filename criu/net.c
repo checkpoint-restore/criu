@@ -1953,9 +1953,39 @@ static int open_net_ns(struct ns_id *nsid, struct rst_info *rst)
 	return 0;
 }
 
+static int create_net_ns(void *arg)
+{
+	struct ns_id *uns, *ns = arg;
+	int ufd;
+
+	uns = ns->user_ns;
+	ufd = fdstore_get(uns->user.nsfd_id);
+	if (ufd < 0) {
+		pr_err("Can't get user ns\n");
+		exit(1);
+	}
+	if (setns(ufd, CLONE_NEWUSER) < 0) {
+		pr_perror("Can't set user ns");
+		exit(2);
+	}
+	close(ufd);
+	if (unshare(CLONE_NEWNET)) {
+		pr_perror("Unable to create a new netns");
+		exit(3);
+	}
+	if (prepare_net_ns(ns->id))
+		exit(4);
+	if (open_net_ns(ns, rsti(root_item)))
+		exit(5);
+	exit(0);
+}
+
 int prepare_net_namespaces()
 {
+	char stack[128] __stack_aligned__;
 	struct ns_id *nsid;
+	int status;
+	pid_t pid;
 
 	if (!(root_ns_mask & CLONE_NEWNET))
 		return 0;
@@ -1963,6 +1993,19 @@ int prepare_net_namespaces()
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
 		if (nsid->nd != &net_ns_desc)
 			continue;
+
+		if (root_user_ns && nsid->user_ns != root_user_ns) {
+			pid = clone(create_net_ns, stack + 128, CLONE_NEWNET | SIGCHLD, nsid);
+			if (pid < 0) {
+				pr_perror("Can't clone");
+				goto err;
+			}
+			if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
+				pr_perror("Child process waiting %d", status);
+				goto err;
+			}
+			continue;
+		}
 
 		if (unshare(CLONE_NEWNET)) {
 			pr_perror("Unable to create a new netns");
