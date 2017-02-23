@@ -164,6 +164,8 @@ extern struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd);
 
 extern int collect_user_namespaces(bool for_dump);
 extern int prepare_userns(pid_t real_pid, UsernsEntry *e);
+extern int __set_user_ns(struct ns_id *ns);
+extern int set_user_ns(u32 id);
 extern int stop_usernsd(void);
 
 extern uid_t userns_uid(uid_t uid);
