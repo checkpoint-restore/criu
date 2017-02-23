@@ -137,6 +137,7 @@ extern struct ns_desc pid_ns_desc;
 extern struct ns_desc user_ns_desc;
 extern struct ns_desc net_ns_desc;
 extern unsigned long root_ns_mask;
+extern UsernsEntry *userns_entry;
 
 extern const struct fdtype_ops nsfile_dump_ops;
 extern struct collect_image_info nsfile_cinfo;
@@ -161,7 +162,7 @@ extern int rst_add_ns_id(unsigned int id, struct pstree_item *, struct ns_desc *
 extern struct ns_id *lookup_ns_by_id(unsigned int id, struct ns_desc *nd);
 
 extern int collect_user_namespaces(bool for_dump);
-extern int prepare_userns(struct pstree_item *item);
+extern int prepare_userns(pid_t real_pid, UsernsEntry *e);
 extern int stop_usernsd(void);
 
 extern uid_t userns_uid(uid_t uid);
