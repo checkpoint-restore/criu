@@ -104,6 +104,15 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 
 static int alloc_groups_copy_creds(const struct pstree_item *item, CredsEntry *ce, struct parasite_dump_creds *c)
 {
+	struct ns_id *ns = NULL;
+	int i;
+
+	ns = lookup_ns_by_id(item->ids->user_ns_id, &user_ns_desc);
+	if (!ns) {
+		pr_err("Can't find ns\n");
+		return -ENOENT;
+	}
+
 	BUILD_BUG_ON(sizeof(ce->groups[0]) != sizeof(c->groups[0]));
 	BUILD_BUG_ON(sizeof(ce->cap_inh[0]) != sizeof(c->cap_inh[0]));
 	BUILD_BUG_ON(sizeof(ce->cap_prm[0]) != sizeof(c->cap_prm[0]));
@@ -124,15 +133,17 @@ static int alloc_groups_copy_creds(const struct pstree_item *item, CredsEntry *c
 	ce->n_groups	= c->ngroups;
 
 	ce->groups	= xmemdup(c->groups, sizeof(c->groups[0]) * c->ngroups);
+	for (i = 0; i < ce->n_groups; i++)
+		ce->groups[i] = root_userns_gid(ns, ce->groups[i]);
 
-	ce->uid		= c->uids[0];
-	ce->gid		= c->gids[0];
-	ce->euid	= c->uids[1];
-	ce->egid	= c->gids[1];
-	ce->suid	= c->uids[2];
-	ce->sgid	= c->gids[2];
-	ce->fsuid	= c->uids[3];
-	ce->fsgid	= c->gids[3];
+	ce->uid		= root_userns_uid(ns, c->uids[0]);
+	ce->gid		= root_userns_gid(ns, c->gids[0]);
+	ce->euid	= root_userns_uid(ns, c->uids[1]);
+	ce->egid	= root_userns_gid(ns, c->gids[1]);
+	ce->suid	= root_userns_uid(ns, c->uids[2]);
+	ce->sgid	= root_userns_gid(ns, c->gids[2]);
+	ce->fsuid	= root_userns_uid(ns, c->uids[3]);
+	ce->fsgid	= root_userns_gid(ns, c->gids[3]);
 
 	return ce->groups ? 0 : -ENOMEM;
 }
