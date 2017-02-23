@@ -496,6 +496,55 @@ int dump_one_ns_file(int lfd, u32 id, const struct fd_parms *p)
 	return pb_write_one(img, &fe, PB_FILE);
 }
 
+static UsernsEntry *dup_userns_entry(UsernsEntry *orig)
+{
+	UsernsEntry *copy;
+	int ret = -1;
+	size_t *i;
+
+	copy = xzalloc(sizeof(*copy));
+	if (!copy)
+		goto out;
+#define COPY_MAP(map, n_map)								\
+	do {										\
+		i = &copy->n_map;							\
+		copy->map = xmalloc(sizeof(UidGidExtent *) * orig->n_map);		\
+		if (!copy->map)								\
+			goto out;							\
+		for (*i = 0; *i < orig->n_map; ++*i) {					\
+			copy->map[*i] = xmalloc(sizeof(UidGidExtent));			\
+			if (!copy->map)							\
+				goto out;						\
+			memcpy(copy->map[*i], orig->map[*i], sizeof(UidGidExtent));	\
+		}									\
+	} while (0)
+
+#define FREE_MAP(map, n_map)								\
+	do {										\
+		if (copy->map) {							\
+			i = &copy->n_map;						\
+			while (--*i > 0)						\
+				xfree(copy->map[*i]);					\
+			xfree(copy->map);						\
+		}									\
+	} while (0)
+
+	COPY_MAP(uid_map, n_uid_map);
+	COPY_MAP(gid_map, n_gid_map);
+	ret = 0;
+out:
+	if (ret) {
+		pr_err("Can't dup entry\n");
+		if (copy) {
+			FREE_MAP(uid_map, n_uid_map);
+			FREE_MAP(gid_map, n_gid_map);
+			xfree(copy);
+		}
+		return NULL;
+	}
+	return copy;
+}
+
 const struct fdtype_ops nsfile_dump_ops = {
 	.type		= FD_TYPES__NS,
 	.dump		= dump_one_ns_file,
