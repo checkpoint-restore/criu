@@ -29,6 +29,7 @@ struct pstree_item {
 		futex_t		task_st;
 		unsigned long	task_st_le_bits;
 	};
+	struct ns_id		*user_ns;
 };
 
 static inline pid_t vpid(const struct pstree_item *i)

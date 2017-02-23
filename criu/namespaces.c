@@ -2277,5 +2277,50 @@ err_unds:
 	return -1;
 }
 
+int __set_user_ns(struct ns_id *ns)
+{
+	int fd;
+
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return 0;
+
+	if (current->user_ns && current->user_ns->id == ns->id)
+		return 0;
+
+	fd = fdstore_get(ns->user.nsfd_id);
+	if (fd < 0) {
+		pr_err("Can't get ns fd\n");
+		return -1;
+	}
+	if (setns(fd, CLONE_NEWUSER) < 0) {
+		pr_perror("Can't setns");
+		close(fd);
+		return -1;
+	}
+	current->user_ns = ns;
+	close(fd);
+
+	if (prepare_userns_creds() < 0) {
+		pr_err("Can't set creds\n");
+		return -1;
+	}
+	return 0;
+}
+
+int set_user_ns(u32 id)
+{
+	struct ns_id *ns;
+
+	if (current->user_ns && current->user_ns->id == id)
+		return 0;
+
+	ns = lookup_ns_by_id(id, &user_ns_desc);
+	if (!ns) {
+		pr_err("Can't find user_ns %u\n", id);
+		return -1;
+	}
+	return __set_user_ns(ns);
+}
+
 struct ns_desc pid_ns_desc = NS_DESC_ENTRY(CLONE_NEWPID, "pid");
 struct ns_desc user_ns_desc = NS_DESC_ENTRY(CLONE_NEWUSER, "user");
