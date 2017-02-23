@@ -877,8 +877,12 @@ static int prepare_pstree_kobj_ids(void)
 			 * be born in a fresh new mount namespace
 			 * which will be populated with all other
 			 * namespaces' entries.
+			 *
+			 * User namespaces are created in create_ns_hierarhy()
+			 * before the tasks, as their hierarhy does not correlated
+			 * with tasks hierarhy in any way.
 			 */
-			rsti(item)->clone_flags &= ~CLONE_NEWNS;
+			rsti(item)->clone_flags &= ~(CLONE_NEWNS | CLONE_NEWUSER);
 
 		cflags &= CLONE_ALLNS;
 

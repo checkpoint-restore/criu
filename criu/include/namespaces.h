@@ -117,6 +117,7 @@ struct ns_id {
 		} net;
 		struct {
 			UsernsEntry *e;
+			int nsfd_id;
 		} user;
 	};
 };

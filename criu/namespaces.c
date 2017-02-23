@@ -30,6 +30,8 @@
 #include "protobuf.h"
 #include "util.h"
 #include "images/ns.pb-c.h"
+#include "common/scm.h"
+#include "fdstore.h"
 
 static struct ns_desc *ns_desc_array[] = {
 	&net_ns_desc,
@@ -2115,6 +2117,101 @@ err_out:
 	return ret;
 }
 
+enum {
+	NS__CREATED = 1,
+	NS__MAPS_POPULATED,
+	NS__RESTORED,
+	NS__EXIT_HELPER,
+	NS__ERROR,
+};
+
+struct ns_arg {
+	struct ns_id *me;
+	futex_t futex;
+	pid_t pid;
+};
+
+static int create_user_ns_hierarhy_fn(void *in_arg)
+{
+	char stack[128] __stack_aligned__;
+	struct ns_arg *arg = NULL, *p_arg = in_arg;
+	futex_t *p_futex = NULL, *futex = NULL;
+	int status, fd, ret = -1;
+	struct ns_id *me, *child;
+	pid_t pid = -1;
+
+	if (p_arg->me != root_user_ns)
+		p_futex = &p_arg->futex;
+	me = p_arg->me;
+
+	if (p_futex) {
+		/* Set self pid to allow parent restore user_ns maps */
+		p_arg->pid = get_self_real_pid();
+		futex_set_and_wake(p_futex, NS__CREATED);
+		fd = open_proc(PROC_SELF, "ns/user");
+		if (fd < 0)
+			goto out;
+		me->user.nsfd_id = fdstore_add(fd);
+		close(fd);
+		if (me->user.nsfd_id < 0) {
+			pr_err("Can't add fd to fdstore\n");
+			goto out;
+		}
+
+		futex_wait_while_lt(p_futex, NS__MAPS_POPULATED);
+		if (prepare_userns_creds()) {
+			pr_err("Can't prepare creds\n");
+			goto out;
+		}
+	}
+
+	arg = mmap(NULL, sizeof(*arg), PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (arg == MAP_FAILED) {
+		pr_perror("Failed to mmap arg");
+		goto out;
+	}
+	futex = &arg->futex;
+
+	list_for_each_entry(child, &me->children, siblings) {
+		arg->me = child;
+		futex_init(futex);
+
+		pid = clone(create_user_ns_hierarhy_fn, stack + 128, CLONE_NEWUSER | CLONE_FILES | SIGCHLD, arg);
+		if (pid < 0) {
+			pr_perror("Can't clone");
+			goto out;
+		}
+		futex_wait_while_lt(futex, NS__CREATED);
+		/* Get child real pid */
+		pid = arg->pid;
+		if (prepare_userns(pid, child->user.e) < 0) {
+			pr_err("Can't prepare child user_ns\n");
+			goto out;
+		}
+		futex_set_and_wake(futex, NS__MAPS_POPULATED);
+
+		errno = 0;
+		if (wait(&status) < 0 || !WIFEXITED(status) || WEXITSTATUS(status)) {
+			pr_perror("Child process waiting: %d", status);
+			goto out;
+		}
+	}
+
+	ret = 0;
+out:
+	if (p_futex)
+		futex_set_and_wake(p_futex, ret ? NS__ERROR : NS__RESTORED);
+	if (arg)
+		munmap(arg, sizeof(*arg));
+	return ret ? 1 : 0;
+}
+
+static int create_user_ns_hierarhy(void)
+{
+	struct ns_arg arg = { .me = root_user_ns };
+	return create_user_ns_hierarhy_fn(&arg);
+}
+
 int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 {
 	pid_t pid = vpid(item);
@@ -2123,7 +2220,8 @@ int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 	pr_info("Restoring namespaces %d flags 0x%lx\n",
 			vpid(item), clone_flags);
 
-	if ((clone_flags & CLONE_NEWUSER) && prepare_userns_creds())
+	if ((clone_flags & CLONE_NEWUSER) && (prepare_userns_creds() ||
+					      create_user_ns_hierarhy()))
 		return -1;
 
 	/*
