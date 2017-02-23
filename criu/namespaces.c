@@ -1455,11 +1455,6 @@ static int usernsd(int sk)
 		unsc_msg_pid_fd(&um, &pid, &fd);
 		pr_debug("uns: daemon calls %p (%d, %d, %x)\n", call, pid, fd, flags);
 
-		if (fd < 0 && flags & UNS_FDOUT) {
-			pr_err("uns: bad flags/fd %p %d %x\n", call, fd, flags);
-			BUG();
-		}
-
 		/*
 		 * Caller has sent us bare address of the routine it
 		 * wants to call. Since the caller is fork()-ed from the

@@ -1386,3 +1386,33 @@ free_events:
 	xfree(*events);
 	return -1;
 }
+
+static int fn_open_proc_r(void *path, int fd, pid_t pid)
+{
+	return openat(get_service_fd(CR_PROC_FD_OFF), path, O_RDONLY);
+}
+static int fn_open_proc_w(void *path, int fd, pid_t pid)
+{
+	return openat(get_service_fd(CR_PROC_FD_OFF), path, O_WRONLY);
+}
+static int fn_open_proc_rw(void *path, int fd, pid_t pid)
+{
+	return openat(get_service_fd(CR_PROC_FD_OFF), path, O_RDWR);
+}
+
+int open_fd_of_real_pid(pid_t pid, int fd, int flags)
+{
+	char path[64];
+	int ret;
+
+	ret = sprintf(path, "%d/fd/%d", pid, fd);
+	if (flags == O_RDONLY)
+		ret = userns_call(fn_open_proc_r, UNS_FDOUT, path, ret + 1, -1);
+	else if (flags == O_WRONLY)
+		ret = userns_call(fn_open_proc_w, UNS_FDOUT, path, ret + 1, -1);
+	else if (flags == O_RDWR)
+		ret = userns_call(fn_open_proc_rw, UNS_FDOUT, path, ret + 1, -1);
+	else
+		BUG();
+	return ret;
+}
