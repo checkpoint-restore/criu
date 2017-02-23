@@ -1651,19 +1651,48 @@ int stop_usernsd(void)
 	return ret;
 }
 
-int prepare_userns(struct pstree_item *item)
+static int do_read_old_user_ns_img(struct ns_id *ns, void *arg)
 {
+	int ret, *count = arg;
 	struct cr_img *img;
 	UsernsEntry *e;
-	int ret;
 
-	img = open_image(CR_FD_USERNS, O_RSTR, item->ids->user_ns_id);
+	if (++*count > 1) {
+		pr_err("More then one user_ns, img format can't be old\n");
+		return -1;
+	}
+
+	img = open_image(CR_FD_USERNS, O_RSTR, ns->id);
 	if (!img)
 		return -1;
 	ret = pb_read_one(img, &e, PB_USERNS);
 	close_image(img);
 	if (ret < 0)
 		return -1;
+	ns->user.e = e;
+	userns_entry = e;
+	root_user_ns = ns;
+	return 0;
+}
+
+static int read_old_user_ns_img(void)
+{
+	int ret, count = 0;
+
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return 0;
+	/* If new format img has already been read */
+	if (root_user_ns)
+		return 0;
+	/* Old format img is only for root_user_ns. More or less is error */
+	ret = walk_namespaces(&user_ns_desc, do_read_old_user_ns_img, &count);
+
+	return ret;
+}
+
+int prepare_userns(struct pstree_item *item)
+{
+	UsernsEntry *e = userns_entry;
 
 	if (write_id_map(item->pid->real, e->uid_map, e->n_uid_map, "uid_map"))
 		return -1;
@@ -1888,6 +1917,9 @@ int prepare_namespace_before_tasks(void)
 		goto err_mnt;
 
 	if (read_mnt_ns_img())
+		goto err_img;
+
+	if (read_old_user_ns_img())
 		goto err_img;
 
 	return 0;
