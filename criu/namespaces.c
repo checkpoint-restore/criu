@@ -313,6 +313,7 @@ struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid,
 int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
 {
 	pid_t pid = vpid(i);
+	int type = NS_OTHER;
 	struct ns_id *nsid;
 
 	nsid = lookup_ns_by_id(id, nd);
@@ -322,8 +323,9 @@ int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
 		return 0;
 	}
 
-	nsid = rst_new_ns_id(id, pid, nd,
-			i == root_item ? NS_ROOT : NS_OTHER);
+	if (i == root_item && nd != &user_ns_desc)
+		type = NS_ROOT;
+	nsid = rst_new_ns_id(id, pid, nd, type);
 	if (nsid == NULL)
 		return -1;
 
@@ -1671,6 +1673,7 @@ static int do_read_old_user_ns_img(struct ns_id *ns, void *arg)
 		return -1;
 	ns->user.e = e;
 	userns_entry = e;
+	ns->type = NS_ROOT;
 	root_user_ns = ns;
 	return 0;
 }
