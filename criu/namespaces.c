@@ -1684,6 +1684,7 @@ static int do_read_old_user_ns_img(struct ns_id *ns, void *arg)
 static int read_old_user_ns_img(void)
 {
 	int ret, count = 0;
+	struct ns_id *ns;
 
 	if (!(root_ns_mask & CLONE_NEWUSER))
 		return 0;
@@ -1692,8 +1693,13 @@ static int read_old_user_ns_img(void)
 		return 0;
 	/* Old format img is only for root_user_ns. More or less is error */
 	ret = walk_namespaces(&user_ns_desc, do_read_old_user_ns_img, &count);
+	if (ret < 0)
+		return -1;
 
-	return ret;
+	for (ns = ns_ids; ns != NULL; ns = ns->next)
+		if (ns->nd != &user_ns_desc)
+			ns->user_ns = root_user_ns;
+	return 0;
 }
 
 int prepare_userns(struct pstree_item *item)
