@@ -30,7 +30,6 @@
 #include "protobuf.h"
 #include "util.h"
 #include "images/ns.pb-c.h"
-#include "images/userns.pb-c.h"
 
 static struct ns_desc *ns_desc_array[] = {
 	&net_ns_desc,
