@@ -53,7 +53,6 @@ proto-obj-y	+= siginfo.o
 proto-obj-y	+= rpc.o
 proto-obj-y	+= ext-file.o
 proto-obj-y	+= cgroup.o
-proto-obj-y	+= userns.o
 proto-obj-y	+= google/protobuf/descriptor.o # To make protoc-c happy and compile opts.proto
 proto-obj-y	+= opts.o
 proto-obj-y	+= seccomp.o

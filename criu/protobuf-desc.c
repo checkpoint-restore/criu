@@ -58,7 +58,6 @@
 #include "images/cgroup.pb-c.h"
 #include "images/timerfd.pb-c.h"
 #include "images/cpuinfo.pb-c.h"
-#include "images/userns.pb-c.h"
 #include "images/seccomp.pb-c.h"
 #include "images/binfmt-misc.pb-c.h"
 #include "images/autofs.pb-c.h"
