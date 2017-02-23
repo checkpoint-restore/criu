@@ -49,6 +49,8 @@
 #define NS_GET_PARENT   _IO(NSIO, 0x2)
 #endif
 
+#define NS_INVALID_XID (~0U)
+
 struct ns_desc {
 	unsigned int	cflag;
 	char		*str;
@@ -128,6 +130,7 @@ extern struct ns_id *ns_ids;
 	}
 
 extern bool check_ns_proc(struct fd_link *link);
+extern unsigned int child_userns_xid(unsigned int xid, UidGidExtent **map, int n);
 
 extern struct ns_desc pid_ns_desc;
 extern struct ns_desc user_ns_desc;
