@@ -32,6 +32,7 @@
 #include "images/ns.pb-c.h"
 #include "common/scm.h"
 #include "fdstore.h"
+#include "proc_parse.h"
 
 static struct ns_desc *ns_desc_array[] = {
 	&net_ns_desc,
@@ -983,11 +984,29 @@ err:
 	return -1;
 }
 
-static int dump_user_ns(struct ns_id *ns);
+static int __dump_user_ns(struct ns_id *ns);
+
+static int dump_user_ns(void *arg)
+{
+	struct ns_id *ns = arg;
+
+	if (switch_ns(ns->parent->ns_pid, &user_ns_desc, NULL) < 0) {
+		pr_err("Can't enter user namespace\n");
+		return -1;
+	}
+
+	return __dump_user_ns(ns);
+}
 
 int collect_user_ns(struct ns_id *ns, void *oarg)
 {
+	int status, stack_size;
+	struct ns_id *p_ns;
+	pid_t pid = -1;
 	UsernsEntry *e;
+	char *stack;
+
+	p_ns = ns->parent;
 
 	e = xmalloc(sizeof(*e));
 	if (!e)
@@ -1003,8 +1022,42 @@ int collect_user_ns(struct ns_id *ns, void *oarg)
 	 * mappings, which are used for convirting local id-s to
 	 * userns id-s (userns_uid(), userns_gid())
 	 */
-	if (dump_user_ns(ns))
-		return -1;
+	if (p_ns) {
+		/*
+		 * Currently, we are in NS_CRIU. To dump a NS_OTHER ns,
+		 * we need to enter its parent ns. As entered to user_ns
+		 * task has no a way back, we create a child for that.
+		 * NS_ROOT is dumped w/o clone(), it's xids maps is relatively
+		 * to NS_CRIU. We use CLONE_VM to make child share our memory,
+		 * and to allow us see allocated maps, he do. Child's open_proc()
+		 * may do changes about CRIU's internal files states in memory,
+		 * so pass CLONE_FILES to reflect that.
+		 */
+		stack_size = 2 * 1024 * 1024;
+		stack = mmap(NULL, stack_size, PROT_WRITE | PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+		if (stack == MAP_FAILED) {
+			pr_perror("Can't allocate stack");
+			return -1;
+		}
+		pid = clone(dump_user_ns, stack + stack_size, CLONE_VM | CLONE_FILES | SIGCHLD, ns);
+		if (pid == -1) {
+			pr_perror("Can't clone");
+			return -1;
+		}
+		if (waitpid(pid, &status, 0) != pid) {
+			pr_perror("Unable to wait the %d process", pid);
+			return -1;
+		}
+		if (!WIFEXITED(status) || WEXITSTATUS(status)) {
+			pr_err("Can't dump nested user_ns: %x\n", status);
+			return -1;
+		}
+		munmap(stack, stack_size);
+		return 0;
+	} else {
+		if (__dump_user_ns(ns))
+			return -1;
+	}
 
 	return 0;
 }
@@ -1042,6 +1095,9 @@ static int check_user_ns(struct ns_id *ns)
 	pid_t pid = ns->ns_pid;
 	int status;
 	pid_t chld;
+
+	if (ns->type != NS_ROOT)
+		return 0;
 
 	chld = fork();
 	if (chld == -1) {
@@ -1138,7 +1194,7 @@ static int check_user_ns(struct ns_id *ns)
 	return 0;
 }
 
-static int dump_user_ns(struct ns_id *ns)
+static int __dump_user_ns(struct ns_id *ns)
 {
 	int ret, exit_code = -1;
 	pid_t pid = ns->ns_pid;
