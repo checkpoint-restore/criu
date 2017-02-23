@@ -873,6 +873,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (restore_task_net_ns(current))
 		return -1;
 
+	if (current->ids && set_user_ns(current->ids->user_ns_id) < 0)
+		return -1;
+
 	if (setup_uffd(pid, ta))
 		return -1;
 
@@ -1179,6 +1182,11 @@ static inline int fork_with_pid(struct pstree_item *item)
 	struct cr_clone_arg ca;
 	int ret = -1;
 	pid_t pid = vpid(item);
+
+	if (item != root_item)
+		item->user_ns = current->user_ns;
+	else
+		item->user_ns = root_user_ns;
 
 	if (item->pid->state != TASK_HELPER) {
 		if (open_core(pid, &ca.core))
