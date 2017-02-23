@@ -900,6 +900,22 @@ int collect_user_namespaces(bool for_dump)
 	return walk_namespaces(&user_ns_desc, collect_user_ns, NULL);
 }
 
+static int collect_ns_hierarhy(bool for_dump)
+{
+	struct ns_id *ns;
+
+	if (!for_dump)
+		return 0;
+
+	for (ns = ns_ids; ns != NULL; ns = ns->next) {
+		if (ns->type == NS_CRIU)
+			continue;
+		if (set_ns_hookups(ns) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 static int check_user_ns(int pid)
 {
 	int status;
@@ -1580,6 +1596,10 @@ int prepare_userns(struct pstree_item *item)
 int collect_namespaces(bool for_dump)
 {
 	int ret;
+
+	ret = collect_ns_hierarhy(for_dump);
+	if (ret < 0)
+		return ret;
 
 	ret = collect_user_namespaces(for_dump);
 	if (ret < 0)
