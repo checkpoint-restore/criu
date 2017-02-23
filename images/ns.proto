@@ -17,3 +17,11 @@ message userns_entry {
 	repeated uid_gid_extent uid_map		= 1;
 	repeated uid_gid_extent gid_map 	= 2;
 }
+
+message ns_entry {
+	required uint32		id		= 1;
+	required uint32		ns_cflag	= 2;
+	optional uint32		parent_id	= 3;
+	optional uint32		userns_id	= 4;
+	optional userns_entry	user_ext	= 5;
+}

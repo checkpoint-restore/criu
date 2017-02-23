@@ -98,6 +98,7 @@ void cr_pb_init(void)
 	CR_PB_DESC(REMAP_FPATH,		RemapFilePath,	remap_file_path);
 	CR_PB_DESC(NETDEV,		NetDevice,	net_device);
 	CR_PB_MDESC_INIT(cr_pb_descs[PB_PAGEMAP_HEAD],	PagemapHead,	pagemap_head);
+	CR_PB_DESC(NS,			Ns,		ns);
 
 #include "protobuf-desc-gen.h"
 }
