@@ -121,6 +121,7 @@ struct ns_id {
 	};
 };
 extern struct ns_id *ns_ids;
+extern struct ns_id *root_user_ns;
 
 #define NS_DESC_ENTRY(_cflag, _str)			\
 	{						\
@@ -163,6 +164,12 @@ extern int stop_usernsd(void);
 
 extern uid_t userns_uid(uid_t uid);
 extern gid_t userns_gid(gid_t gid);
+
+extern unsigned int target_userns_uid(struct ns_id *ns, unsigned int uid);
+extern unsigned int target_userns_gid(struct ns_id *ns, unsigned int gid);
+
+extern unsigned int root_userns_uid(struct ns_id *ns, unsigned int uid);
+extern unsigned int root_userns_gid(struct ns_id *ns, unsigned int gid);
 
 extern void free_userns_maps(void);
 extern int join_ns_add(const char *type, char *ns_file, char *extra_opts);
