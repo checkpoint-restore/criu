@@ -108,6 +108,7 @@ enum {
 	CR_FD_TTY_FILES,
 
 	CR_FD_AUTOFS,
+	CR_FD_NS,
 
 	CR_FD_MAX
 };
