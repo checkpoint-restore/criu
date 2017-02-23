@@ -633,6 +633,24 @@ int is_anon_link_type(char *link, char *type)
 	return !strcmp(link, aux);
 }
 
+pid_t get_self_real_pid(void)
+{
+	char buf[12];
+	int fd, ret;
+
+	fd = get_service_fd(CR_PROC_FD_OFF);
+	if (fd < 0)
+		return -1;
+
+	ret = readlinkat(fd, "self", buf, sizeof(buf) - 1);
+	if (ret < 0) {
+		pr_perror("Unable to read the /proc/self link");
+		return -1;
+	}
+	buf[ret] = '\0';
+	return atoi(buf);
+}
+
 #define DUP_SAFE(fd, out)						\
 	({							\
 		int ret__;					\

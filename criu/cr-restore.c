@@ -1519,24 +1519,11 @@ static int restore_task_with_children(void *_arg)
 	current = ca->item;
 
 	if (current != root_item) {
-		char buf[12];
-		int fd;
-
-		/* Determine PID in CRIU's namespace */
-		fd = get_service_fd(CR_PROC_FD_OFF);
-		if (fd < 0)
-			goto err;
-
-		ret = readlinkat(fd, "self", buf, sizeof(buf) - 1);
-		if (ret < 0) {
-			pr_perror("Unable to read the /proc/self link");
-			goto err;
-		}
-		buf[ret] = '\0';
-
-		current->pid->real = atoi(buf);
+		current->pid->real = get_self_real_pid();
 		pr_debug("PID: real %d virt %d\n",
 				current->pid->real, vpid(current));
+		if (current->pid->real < 0)
+			goto err;
 	}
 
 	if ( !(ca->clone_flags & CLONE_FILES))
