@@ -6,6 +6,7 @@
 #include "common/compiler.h"
 #include "files.h"
 #include "common/list.h"
+#include "images/userns.pb-c.h"
 
 #ifndef CLONE_NEWNS
 #define CLONE_NEWNS	0x00020000
@@ -112,6 +113,9 @@ struct ns_id {
 			int nlsk;	/* for sockets collection */
 			int seqsk;	/* to talk to parasite daemons */
 		} net;
+		struct {
+			UsernsEntry *e;
+		} user;
 	};
 };
 extern struct ns_id *ns_ids;
