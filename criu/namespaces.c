@@ -755,9 +755,8 @@ out:
 
 /* Mapping NS_ROOT to NS_CRIU */
 static UsernsEntry *userns_entry;
-#define INVALID_ID (~0U)
 
-static unsigned int userns_id(unsigned int id, UidGidExtent **map, int n)
+unsigned int child_userns_xid(unsigned int id, UidGidExtent **map, int n)
 {
 	int i;
 
@@ -767,7 +766,7 @@ static unsigned int userns_id(unsigned int id, UidGidExtent **map, int n)
 			return map[i]->first + (id - map[i]->lower_first);
 	}
 
-	return INVALID_ID;
+	return NS_INVALID_XID;
 }
 
 static unsigned int parent_userns_id(unsigned int id, UidGidExtent **map, int n)
@@ -783,7 +782,7 @@ static unsigned int parent_userns_id(unsigned int id, UidGidExtent **map, int n)
 			return map[i]->lower_first + (id - map[i]->first);
 	}
 
-	return INVALID_ID;
+	return NS_INVALID_XID;
 }
 
 static uid_t parent_userns_uid(UsernsEntry *e, uid_t uid)
@@ -803,7 +802,7 @@ uid_t userns_uid(uid_t uid)
 	if (!(root_ns_mask & CLONE_NEWUSER) || !e)
 		return uid;
 
-	return userns_id(uid, e->uid_map, e->n_uid_map);
+	return child_userns_xid(uid, e->uid_map, e->n_uid_map);
 }
 
 gid_t userns_gid(gid_t gid)
@@ -813,7 +812,7 @@ gid_t userns_gid(gid_t gid)
 	if (!(root_ns_mask & CLONE_NEWUSER) || !e)
 		return gid;
 
-	return userns_id(gid, e->gid_map, e->n_gid_map);
+	return child_userns_xid(gid, e->gid_map, e->n_gid_map);
 }
 
 static int parse_id_map(pid_t pid, char *name, UidGidExtent ***pb_exts)
@@ -953,7 +952,7 @@ static int check_user_ns(struct ns_id *ns)
 
 		uid = parent_userns_uid(e, 0);
 		gid = parent_userns_gid(e, 0);
-		if (uid == INVALID_ID || gid == INVALID_ID) {
+		if (uid == NS_INVALID_XID || gid == NS_INVALID_XID) {
 			pr_err("Unable to convert uid or gid\n");
 			return -1;
 		}
