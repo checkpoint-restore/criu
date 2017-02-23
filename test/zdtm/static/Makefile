@@ -194,6 +194,7 @@ TST_NOFILE	:=				\
 		thread_different_uid_gid	\
 		netns_sub			\
 		userns00			\
+		userns01			\
 #		jobctl00			\
 
 include ../Makefile.inc
