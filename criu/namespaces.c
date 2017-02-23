@@ -753,6 +753,7 @@ out:
 	return ret;
 }
 
+struct ns_id *root_user_ns = NULL;
 /* Mapping NS_ROOT to NS_CRIU */
 static UsernsEntry *userns_entry;
 
@@ -813,6 +814,54 @@ gid_t userns_gid(gid_t gid)
 		return gid;
 
 	return child_userns_xid(gid, e->gid_map, e->n_gid_map);
+}
+
+/* Convert uid from NS_ROOT down to its representation in NS_OTHER */
+unsigned int target_userns_uid(struct ns_id *ns, unsigned int uid)
+{
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return uid;
+	if (ns == root_user_ns)
+		return uid;
+	/* User ns max nesting level is only 32 */
+	uid = target_userns_uid(ns->parent, uid);
+	return child_userns_xid(uid, ns->user.e->uid_map, ns->user.e->n_uid_map);
+}
+
+/* Convert gid from NS_ROOT down to its representation in NS_OTHER */
+unsigned int target_userns_gid(struct ns_id *ns, unsigned int gid)
+{
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return gid;
+	if (ns == root_user_ns)
+		return gid;
+	/* User ns max nesting level is only 32 */
+	gid = target_userns_gid(ns->parent, gid);
+	return child_userns_xid(gid, ns->user.e->gid_map, ns->user.e->n_gid_map);
+}
+
+/* Convert uid from NS_OTHER ns up to its representation in NS_ROOT */
+unsigned int root_userns_uid(struct ns_id *ns, unsigned int uid)
+{
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return uid;
+	while (ns != root_user_ns) {
+		uid = parent_userns_uid(ns->user.e, uid);
+		ns = ns->parent;
+	}
+	return uid;
+}
+
+/* Convert gid from NS_OTHER ns up to its representation in NS_ROOT */
+unsigned int root_userns_gid(struct ns_id *ns, unsigned int gid)
+{
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return gid;
+	while (ns != root_user_ns) {
+		gid = parent_userns_gid(ns->user.e, gid);
+		ns = ns->parent;
+	}
+	return gid;
 }
 
 static int parse_id_map(pid_t pid, char *name, UidGidExtent ***pb_exts)
@@ -890,8 +939,10 @@ int collect_user_ns(struct ns_id *ns, void *oarg)
 		return -1;
 	userns_entry__init(e);
 	ns->user.e = e;
-	if (ns->type == NS_ROOT)
+	if (ns->type == NS_ROOT) {
 		userns_entry = e;
+		root_user_ns = ns;
+	}
 	/*
 	 * User namespace is dumped before files to get uid and gid
 	 * mappings, which are used for convirting local id-s to
