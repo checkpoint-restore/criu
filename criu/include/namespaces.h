@@ -135,6 +135,7 @@ extern unsigned int child_userns_xid(unsigned int xid, UidGidExtent **map, int n
 
 extern struct ns_desc pid_ns_desc;
 extern struct ns_desc user_ns_desc;
+extern struct ns_desc net_ns_desc;
 extern unsigned long root_ns_mask;
 
 extern const struct fdtype_ops nsfile_dump_ops;

@@ -480,6 +480,14 @@ static int read_pstree_ids(struct pstree_item *pi)
 		if (rst_add_ns_id(pi->ids->net_ns_id, pi, &net_ns_desc))
 			return -1;
 	}
+	if (pi->ids->has_user_ns_id) {
+		if (rst_add_ns_id(pi->ids->user_ns_id, pi, &user_ns_desc))
+			return -1;
+	}
+	if (pi->ids->has_pid_ns_id) {
+		if (rst_add_ns_id(pi->ids->pid_ns_id, pi, &pid_ns_desc))
+			return -1;
+	}
 
 	return 0;
 }
