@@ -31,8 +31,8 @@ extern int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc
 
 extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc);
 extern int parasite_dump_creds(struct parasite_ctl *ctl, struct _CredsEntry *ce);
-extern int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, struct _CoreEntry *core);
-extern int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
+extern int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, const struct pstree_item *item, int pid, struct _CoreEntry *core);
+extern int parasite_dump_thread_seized(struct parasite_ctl *ctl, const struct pstree_item *item, int id,
 					struct pid *tid, struct _CoreEntry *core);
 extern int dump_thread_core(int pid, CoreEntry *core,
 					const struct parasite_dump_thread *dt);

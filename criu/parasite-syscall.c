@@ -102,7 +102,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	exit(1);
 }
 
-static int alloc_groups_copy_creds(CredsEntry *ce, struct parasite_dump_creds *c)
+static int alloc_groups_copy_creds(const struct pstree_item *item, CredsEntry *ce, struct parasite_dump_creds *c)
 {
 	BUILD_BUG_ON(sizeof(ce->groups[0]) != sizeof(c->groups[0]));
 	BUILD_BUG_ON(sizeof(ce->cap_inh[0]) != sizeof(c->cap_inh[0]));
@@ -137,7 +137,8 @@ static int alloc_groups_copy_creds(CredsEntry *ce, struct parasite_dump_creds *c
 	return ce->groups ? 0 : -ENOMEM;
 }
 
-int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEntry *core)
+int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, const struct pstree_item *item,
+					int pid, CoreEntry *core)
 {
 	ThreadCoreEntry *tc = core->thread_core;
 	struct parasite_dump_thread *args;
@@ -153,7 +154,7 @@ int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEn
 	if (ret < 0)
 		return ret;
 
-	ret = alloc_groups_copy_creds(tc->creds, pc);
+	ret = alloc_groups_copy_creds(item, tc->creds, pc);
 	if (ret) {
 		pr_err("Can't copy creds for thread leader %d\n", pid);
 		return -1;
@@ -162,8 +163,8 @@ int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEn
 	return dump_thread_core(pid, core, args);
 }
 
-int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
-				struct pid *tid, CoreEntry *core)
+int parasite_dump_thread_seized(struct parasite_ctl *ctl, const struct pstree_item *item,
+				int id, struct pid *tid, CoreEntry *core)
 {
 	struct parasite_dump_thread *args;
 	pid_t pid = tid->real;
@@ -198,7 +199,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 		goto err_rth;
 	}
 
-	ret = alloc_groups_copy_creds(creds, pc);
+	ret = alloc_groups_copy_creds(item, creds, pc);
 	if (ret) {
 		pr_err("Can't copy creds for thread %d\n", pid);
 		goto err_rth;
