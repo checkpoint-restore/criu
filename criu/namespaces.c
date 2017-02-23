@@ -1141,7 +1141,6 @@ static int dump_user_ns(struct ns_id *ns)
 	int ret, exit_code = -1;
 	pid_t pid = ns->ns_pid;
 	UsernsEntry *e = ns->user.e;
-	struct cr_img *img;
 
 	ret = parse_id_map(pid, "uid_map", &e->uid_map);
 	if (ret < 0)
@@ -1155,14 +1154,6 @@ static int dump_user_ns(struct ns_id *ns)
 
 	if (check_user_ns(ns))
 		return -1;
-
-	img = open_image(CR_FD_USERNS, O_DUMP, ns->id);
-	if (!img)
-		goto err;
-	ret = pb_write_one(img, e, PB_USERNS);
-	close_image(img);
-	if (ret < 0)
-		goto err;
 
 	return 0;
 err:
@@ -1750,6 +1741,193 @@ static int read_old_user_ns_img(void)
 	return 0;
 }
 
+static int dump_ns_with_hookups(int for_dump)
+{
+	struct cr_img *img;
+	struct ns_id *ns;
+	int ret = 0;
+	NsEntry e;
+
+	if (!for_dump)
+		return 0;
+
+	img = open_image(CR_FD_NS, O_DUMP);
+	if (!img)
+		return -1;
+
+	for (ns = ns_ids; ns != NULL; ns = ns->next) {
+		if (ns->nd != &user_ns_desc &&
+		    ns->nd != &pid_ns_desc &&
+		    ns->nd != &net_ns_desc)
+			continue;
+		if (ns->type == NS_CRIU ||
+		    !(root_ns_mask & ns->nd->cflag))
+			continue;
+
+		ns_entry__init(&e);
+		e.id = ns->id;
+		e.ns_cflag = ns->nd->cflag;
+
+		if (ns->parent) {
+			e.has_parent_id = true;
+			e.parent_id = ns->parent->id;
+		}
+		if (ns->user_ns) {
+			e.has_userns_id = true;
+			e.userns_id = ns->user_ns->id;
+		}
+		if (ns->nd == &user_ns_desc) {
+			e.user_ext = ns->user.e;
+		}
+
+		ret = pb_write_one(img, &e, PB_NS);
+		if (ret < 0) {
+			pr_err("Can't write ns.img\n");
+			break;
+		}
+	}
+
+	close_image(img);
+	return ret;
+}
+
+struct delayed_ns {
+	struct ns_id *ns;
+	u32 userns_id;
+	u32 parent_id;
+};
+
+int read_ns_with_hookups(void)
+{
+	struct ns_id *ns, *p_ns, *u_ns;
+	struct delayed_ns *d_ns = NULL;
+	struct pstree_item fake;
+	NsEntry *e = NULL;
+	int ret = 0, nr_d = 0;
+	struct ns_desc *desc;
+	struct cr_img *img;
+	struct pid pid;
+
+	pid.ns[0].virt = -1;
+	fake.pid = &pid;
+
+	img = open_image(CR_FD_NS, O_RSTR);
+	if (!img)
+		return -1;
+	if (empty_image(img))
+		goto close;
+
+	while (1) {
+		ret = pb_read_one_eof(img, &e, PB_NS);
+		if (ret <= 0)
+			goto close;
+		ret = -1;
+		desc = &pid_ns_desc;
+		if (e->ns_cflag == CLONE_NEWUSER)
+			desc = &user_ns_desc;
+		else if (e->ns_cflag == CLONE_NEWNET)
+			desc = &net_ns_desc;
+
+		if (rst_add_ns_id(e->id, &fake, desc)) {
+			pr_err("Can't add user ns\n");
+			goto close;
+		}
+
+		ns = lookup_ns_by_id(e->id, desc);
+		if (!ns) {
+			pr_err("Can't find ns %d\n", e->id);
+			goto close;
+		}
+
+		if (e->user_ext && e->ns_cflag == CLONE_NEWUSER) {
+			ns->user.e = dup_userns_entry(e->user_ext);
+			if (!ns->user.e) {
+				pr_err("Can't dup map\n");
+				goto close;
+			}
+		}
+
+		if (e->has_userns_id) {
+			if (e->ns_cflag == CLONE_NEWUSER) {
+				pr_err("Unexpected user_ns\n");
+				goto close;
+			}
+			u_ns = lookup_ns_by_id(e->userns_id, &user_ns_desc);
+			if (!u_ns) {
+				/* User_ns hasn't read yet; set aside this ns */
+				d_ns = xrealloc(d_ns, (nr_d + 1) * sizeof(*d_ns));
+				if (!d_ns)
+					goto close;
+				d_ns[nr_d].ns = ns;
+				d_ns[nr_d].parent_id = 0;
+				d_ns[nr_d++].userns_id = e->userns_id;
+			} else
+				ns->user_ns = u_ns;
+		}
+
+		if (e->has_parent_id) {
+			if (!(e->ns_cflag & (CLONE_NEWUSER|CLONE_NEWPID))) {
+				pr_err("Unexpected parent\n");
+				goto close;
+			}
+			p_ns = lookup_ns_by_id(e->parent_id, desc);
+			if (!p_ns) {
+				/* Parent ns may hasn't been read yet */
+				if (!nr_d || d_ns[nr_d-1].ns != ns) {
+					d_ns = xrealloc(d_ns, (nr_d + 1) * sizeof(*d_ns));
+					if (!d_ns)
+						goto close;
+					d_ns[nr_d].ns = ns;
+					d_ns[nr_d++].userns_id = 0;
+				}
+				d_ns[nr_d-1].parent_id = e->parent_id;
+			} else {
+				ns->parent = p_ns;
+				list_add(&ns->siblings, &p_ns->children);
+			}
+		} else if (e->ns_cflag == CLONE_NEWUSER) {
+			if (root_user_ns) {
+				pr_err("root_user_ns already set\n");
+				goto close;
+			}
+			ns->type = NS_ROOT;
+			root_user_ns = ns;
+			userns_entry = ns->user.e;
+		}
+
+		ns_entry__free_unpacked(e, NULL);
+	}
+close:
+	if (!ret) {
+		while (nr_d-- > 0) {
+			if (d_ns[nr_d].userns_id > 0) {
+				u_ns = lookup_ns_by_id(d_ns[nr_d].userns_id, &user_ns_desc);
+				if (!u_ns) {
+					pr_err("Can't find user_ns: %d\n", d_ns[nr_d].userns_id);
+					ret = -1;
+					break;
+				}
+				d_ns[nr_d].ns->user_ns = u_ns;
+			}
+			if (d_ns[nr_d].parent_id > 0) {
+				p_ns = lookup_ns_by_id(d_ns[nr_d].parent_id, d_ns[nr_d].ns->nd);
+				if (!p_ns) {
+					pr_err("Can't find parent\n");
+					ret = -1;
+					break;
+				}
+				d_ns[nr_d].ns->parent = p_ns;
+				list_add(&d_ns[nr_d].ns->siblings, &p_ns->children);
+			}
+		}
+	}
+	if (ret)
+		pr_err("Failed to read ns image\n");
+	xfree(d_ns);
+	close_image(img);
+	return ret;
+}
+
 int prepare_userns(struct pstree_item *item)
 {
 	UsernsEntry *e = userns_entry;
@@ -1780,6 +1958,10 @@ int collect_namespaces(bool for_dump)
 		return ret;
 
 	ret = collect_net_namespaces(for_dump);
+	if (ret < 0)
+		return ret;
+
+	ret = dump_ns_with_hookups(for_dump);
 	if (ret < 0)
 		return ret;
 

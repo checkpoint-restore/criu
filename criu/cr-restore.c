@@ -2243,6 +2243,9 @@ int cr_restore_tasks(void)
 	if (prepare_task_entries() < 0)
 		goto err;
 
+	if (read_ns_with_hookups())
+		goto err;
+
 	if (prepare_pstree() < 0)
 		goto err;
 
