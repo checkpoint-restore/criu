@@ -808,7 +808,7 @@ out:
 
 struct ns_id *root_user_ns = NULL;
 /* Mapping NS_ROOT to NS_CRIU */
-static UsernsEntry *userns_entry;
+UsernsEntry *userns_entry;
 
 unsigned int child_userns_xid(unsigned int id, UidGidExtent **map, int n)
 {
@@ -1928,14 +1928,12 @@ close:
 	return ret;
 }
 
-int prepare_userns(struct pstree_item *item)
+int prepare_userns(pid_t real_pid, UsernsEntry *e)
 {
-	UsernsEntry *e = userns_entry;
-
-	if (write_id_map(item->pid->real, e->uid_map, e->n_uid_map, "uid_map"))
+	if (write_id_map(real_pid, e->uid_map, e->n_uid_map, "uid_map"))
 		return -1;
 
-	if (write_id_map(item->pid->real, e->gid_map, e->n_gid_map, "gid_map"))
+	if (write_id_map(real_pid, e->gid_map, e->n_gid_map, "gid_map"))
 		return -1;
 
 	return 0;

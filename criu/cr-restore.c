@@ -1989,7 +1989,7 @@ static int restore_root_task(struct pstree_item *init)
 	 * uid_map and gid_map must be filled from a parent user namespace.
 	 * prepare_userns_creds() must be called after filling mappings.
 	 */
-	if ((root_ns_mask & CLONE_NEWUSER) && prepare_userns(init))
+	if ((root_ns_mask & CLONE_NEWUSER) && prepare_userns(init->pid->real, userns_entry))
 		goto out_kill;
 
 	pr_info("Wait until namespaces are created\n");
