@@ -2883,12 +2883,25 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 {
 	unsigned long this_pos;
 	struct thread_creds_args *args;
+	struct ns_id *ns = NULL;
+	CredsEntry *creds;
+	int i;
 
 	if (!verify_cap_size(ce)) {
 		pr_err("Caps size mismatch %d %d %d %d\n",
 		       (int)ce->n_cap_inh, (int)ce->n_cap_eff,
 		       (int)ce->n_cap_prm, (int)ce->n_cap_bnd);
 		return ERR_PTR(-EINVAL);
+	}
+
+	if (current->ids->has_user_ns_id) {
+		ns = lookup_ns_by_id(current->ids->user_ns_id, &user_ns_desc);
+		if (!ns) {
+			pr_err("Can't find user_ns\n");
+			return ERR_PTR(-ENOENT);
+		}
+		if (ns->type == NS_ROOT)
+			ns = NULL;
 	}
 
 	this_pos = rst_mem_align_cpos(RM_PRIVATE);
@@ -2898,7 +2911,8 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 		return ERR_PTR(-ENOMEM);
 
 	args->cap_last_cap = kdat.last_cap;
-	memcpy(&args->creds, ce, sizeof(args->creds));
+	creds = &args->creds;
+	memcpy(creds, ce, sizeof(*creds));
 
 	if (ce->lsm_profile || opts.lsm_supplied) {
 		char *rendered = NULL, *profile;
@@ -2939,12 +2953,12 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 	/*
 	 * Zap fields which we can't use.
 	 */
-	args->creds.cap_inh = NULL;
-	args->creds.cap_eff = NULL;
-	args->creds.cap_prm = NULL;
-	args->creds.cap_bnd = NULL;
-	args->creds.groups = NULL;
-	args->creds.lsm_profile = NULL;
+	creds->cap_inh = NULL;
+	creds->cap_eff = NULL;
+	creds->cap_prm = NULL;
+	creds->cap_bnd = NULL;
+	creds->groups = NULL;
+	creds->lsm_profile = NULL;
 
 	memcpy(args->cap_inh, ce->cap_inh, sizeof(args->cap_inh));
 	memcpy(args->cap_eff, ce->cap_eff, sizeof(args->cap_eff));
@@ -2964,6 +2978,26 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 	} else {
 		args->groups = NULL;
 		args->mem_groups_pos = 0;
+	}
+	if (ns) {
+		/*
+		 * Note, that some of xids may not have mapping
+		 * in target user namespace. This is the reason
+		 * why we dump xids from NS_ROOT. Ideally, it's
+		 * need to restore a xid in the lowest user_ns,
+		 * where it's mapped, but it's not implemented
+		 * for now.
+		 */
+		creds->uid = target_userns_uid(ns, creds->uid);
+		creds->gid = target_userns_gid(ns, creds->gid);
+		creds->euid = target_userns_uid(ns, creds->euid);
+		creds->egid = target_userns_gid(ns, creds->egid);
+		creds->suid = target_userns_uid(ns, creds->suid);
+		creds->sgid = target_userns_gid(ns, creds->sgid);
+		creds->fsuid = target_userns_uid(ns, creds->fsuid);
+		creds->fsgid = target_userns_gid(ns, creds->fsgid);
+		for (i = 0; i < ce->n_groups; i++)
+			args->groups[i] = target_userns_gid(ns, args->groups[i]);
 	}
 
 	args->mem_pos_next = 0;

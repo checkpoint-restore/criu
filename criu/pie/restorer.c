@@ -45,6 +45,7 @@
 
 #include "shmem.h"
 #include "restorer.h"
+#include "namespaces.h"
 
 #ifndef PR_SET_PDEATHSIG
 #define PR_SET_PDEATHSIG 1
@@ -196,28 +197,36 @@ static int restore_creds(struct thread_creds_args *args, int procfd)
 	 * to override the setresXid settings.
 	 */
 
-	ret = sys_setresuid(ce->uid, ce->euid, ce->suid);
-	if (ret) {
-		pr_err("Unable to set real, effective and saved user ID: %d\n", ret);
-		return -1;
+	if (ce->uid != NS_INVALID_XID || ce->euid != NS_INVALID_XID || ce->suid != NS_INVALID_XID) {
+		ret = sys_setresuid(ce->uid, ce->euid, ce->suid);
+		if (ret) {
+			pr_err("Unable to set real, effective and saved user ID: %d\n", ret);
+			return -1;
+		}
 	}
 
-	sys_setfsuid(ce->fsuid);
-	if (sys_setfsuid(-1) != ce->fsuid) {
-		pr_err("Unable to set fsuid\n");
-		return -1;
+	if (ce->fsuid != NS_INVALID_XID) {
+		sys_setfsuid(ce->fsuid);
+		if (sys_setfsuid(-1) != ce->fsuid) {
+			pr_err("Unable to set fsuid\n");
+			return -1;
+		}
 	}
 
-	ret = sys_setresgid(ce->gid, ce->egid, ce->sgid);
-	if (ret) {
-		pr_err("Unable to set real, effective and saved group ID: %d\n", ret);
-		return -1;
+	if (ce->gid != NS_INVALID_XID || ce->egid != NS_INVALID_XID || ce->sgid != NS_INVALID_XID) {
+		ret = sys_setresgid(ce->gid, ce->egid, ce->sgid);
+		if (ret) {
+			pr_err("Unable to set real, effective and saved group ID: %d\n", ret);
+			return -1;
+		}
 	}
 
-	sys_setfsgid(ce->fsgid);
-	if (sys_setfsgid(-1) != ce->fsgid) {
-		pr_err("Unable to set fsgid\n");
-		return -1;
+	if (ce->fsgid != NS_INVALID_XID) {
+		sys_setfsgid(ce->fsgid);
+		if (sys_setfsgid(-1) != ce->fsgid) {
+			pr_err("Unable to set fsgid\n");
+			return -1;
+		}
 	}
 
 	/*
