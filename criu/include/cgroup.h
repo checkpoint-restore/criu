@@ -7,7 +7,7 @@
 struct pstree_item;
 struct parasite_dump_cgroup_args;
 extern u32 root_cg_set;
-int dump_task_cgroup(struct pstree_item *, u32 *, struct parasite_dump_cgroup_args *args);
+int dump_task_cgroup(const struct pstree_item *, u32 *, struct parasite_dump_cgroup_args *args);
 int dump_cgroups(void);
 int prepare_task_cgroup(struct pstree_item *);
 int prepare_cgroup(void);
