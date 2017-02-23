@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <limits.h>
 #include <errno.h>
+#include <sys/ioctl.h>
 
 #include "page.h"
 #include "rst-malloc.h"
@@ -302,6 +303,8 @@ struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid,
 		nsid->type = type;
 		nsid_add(nsid, nd, id, pid);
 		nsid->ns_populated = false;
+		INIT_LIST_HEAD(&nsid->children);
+		INIT_LIST_HEAD(&nsid->siblings);
 	}
 
 	return nsid;
@@ -421,6 +424,8 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 	nsid->type = type;
 	nsid->kid = kid;
 	nsid->ns_populated = true;
+	INIT_LIST_HEAD(&nsid->children);
+	INIT_LIST_HEAD(&nsid->siblings);
 	nsid_add(nsid, nd, ns_next_id++, pid);
 
 found:
@@ -659,6 +664,93 @@ int dump_task_ns_ids(struct pstree_item *item)
 	}
 
 	return 0;
+}
+
+static int set_ns_opt(int ns_fd, unsigned ioc, struct ns_id **ns, struct ns_desc *nd)
+{
+	int opt_fd, ret = -1;
+	struct stat st;
+
+	opt_fd = ioctl(ns_fd, ioc);
+	if (opt_fd < 0) {
+		pr_info("Can't do ns ioctl %x\n", ioc);
+		return -errno;
+	}
+	if (fstat(opt_fd, &st) < 0) {
+		pr_perror("Unable to stat on ns fd");
+		ret = -errno;
+		goto out;
+	}
+	*ns = lookup_ns_by_kid(st.st_ino, nd);
+	if (!*ns) {
+		pr_err("Namespaces hierarhies with holes are not supported\n");
+		ret = -EINVAL;
+		goto out;
+	}
+	ret = 0;
+out:
+	close(opt_fd);
+	return ret;
+}
+
+static int set_ns_hookups(struct ns_id *ns)
+{
+	struct ns_desc *nd = ns->nd;
+	struct ns_id *u_ns;
+	int fd, ret = -1;
+
+	fd = open_proc(ns->ns_pid, "ns/%s", nd->str);
+	if (fd < 0) {
+		pr_perror("Can't open %s, pid %d", nd->str, ns->ns_pid);
+		return -1;
+	}
+
+	if (ns->type != NS_ROOT && (nd == &pid_ns_desc || nd == &user_ns_desc)) {
+		if (set_ns_opt(fd, NS_GET_PARENT, &ns->parent, nd) < 0)
+			goto out;
+		if (ns->parent->type == NS_CRIU) {
+			pr_err("Wrong determined NS_ROOT, or root_item has NS_OTHER user_ns\n");
+			goto out;
+		}
+		list_add(&ns->siblings, &ns->parent->children);
+	}
+
+	if (nd != &user_ns_desc) {
+		ret = set_ns_opt(fd, NS_GET_USERNS, &ns->user_ns, &user_ns_desc);
+		if (ret == -ENOTTY) {
+			u_ns = NULL;
+			if (root_ns_mask & CLONE_NEWUSER) {
+				/*
+				 * Assume, we have the only user_ns. If it's not so,
+				 * we'll later fail on NS_GET_PARENT for the second user_ns.
+				 */
+				pr_info("Can't get user_ns of %s %u, assuming NS_ROOT\n",
+					nd->str, ns->id);
+				for (u_ns = ns_ids; u_ns; u_ns = u_ns->next) {
+					if (u_ns->nd == &user_ns_desc && u_ns->type == NS_ROOT)
+						break;
+				}
+				if (!u_ns) {
+					pr_err("Can't find root user_ns\n");
+					goto out;
+				}
+			}
+			ns->user_ns = u_ns;
+		} else if (ret < 0) {
+			goto out;
+		} else if (ns->user_ns->type == NS_CRIU) {
+			if (root_ns_mask & CLONE_NEWUSER) {
+				pr_err("Must not be criu user_ns\n");
+				ret = -1;
+				goto out;
+			}
+			ns->user_ns = NULL;
+		}
+	}
+	ret = 0;
+out:
+	close(fd);
+	return ret;
 }
 
 static UsernsEntry userns_entry = USERNS_ENTRY__INIT;
