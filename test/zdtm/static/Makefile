@@ -193,6 +193,7 @@ TST_NOFILE	:=				\
 		uffd-events			\
 		thread_different_uid_gid	\
 		netns_sub			\
+		userns00			\
 #		jobctl00			\
 
 include ../Makefile.inc
