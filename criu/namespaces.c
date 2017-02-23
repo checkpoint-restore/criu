@@ -1309,6 +1309,16 @@ static int write_id_map(pid_t pid, UidGidExtent **extents, int n, char *id_map)
 	int off = 0, i;
 	int fd;
 
+	fd = get_service_fd(CR_PROC_FD_OFF);
+	if (fd < 0)
+		return -1;
+	snprintf(buf, PAGE_SIZE, "%d/%s", pid, id_map);
+	fd = openat(fd, buf, O_WRONLY);
+	if (fd < 0) {
+		pr_perror("Can't open %s", buf);
+		return -1;
+	}
+
 	/*
 	 *  We can perform only a single write (that may contain multiple
 	 *  newline-delimited records) to a uid_map and a gid_map files.
@@ -1319,9 +1329,6 @@ static int write_id_map(pid_t pid, UidGidExtent **extents, int n, char *id_map)
 					extents[i]->lower_first,
 					extents[i]->count);
 
-	fd = open_proc_rw(pid, "%s", id_map);
-	if (fd < 0)
-		return -1;
 	if (write(fd, buf, off) != off) {
 		pr_perror("Unable to write into %s", id_map);
 		close(fd);
