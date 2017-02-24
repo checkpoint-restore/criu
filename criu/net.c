@@ -1953,6 +1953,19 @@ static int open_net_ns(struct ns_id *nsid)
 	return 0;
 }
 
+static int do_create_net_ns(struct ns_id *ns)
+{
+	if (unshare(CLONE_NEWNET)) {
+		pr_perror("Unable to create a new netns");
+		return -1;
+	}
+	if (prepare_net_ns(ns->id))
+		return -1;
+	if (open_net_ns(ns))
+		return -1;
+	return 0;
+}
+
 int prepare_net_namespaces()
 {
 	struct ns_id *nsid;
@@ -1964,15 +1977,7 @@ int prepare_net_namespaces()
 		if (nsid->nd != &net_ns_desc)
 			continue;
 
-		if (unshare(CLONE_NEWNET)) {
-			pr_perror("Unable to create a new netns");
-			goto err;
-		}
-
-		if (prepare_net_ns(nsid->id))
-			goto err;
-
-		if (open_net_ns(nsid))
+		if (do_create_net_ns(nsid))
 			goto err;
 	}
 
