@@ -1995,7 +1995,7 @@ int prepare_net_namespaces()
 			continue;
 
 		if (root_user_ns && nsid->user_ns != root_user_ns) {
-			pid = clone(create_net_ns, stack + 128, CLONE_NEWNET | SIGCHLD, nsid);
+			pid = clone(create_net_ns, stack + 128, SIGCHLD, nsid);
 			if (pid < 0) {
 				pr_perror("Can't clone");
 				goto err;
