@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <dirent.h>
+#include <grp.h>
 
 #include "zdtmtst.h"
 #include "lock.h"
@@ -34,6 +35,7 @@ enum {
 #define UID_MAP "0 10 1\n1 100 100\n"
 #define GID_MAP "0 12 1\n1 112 100\n"
 
+gid_t gid_list[] = {3, 14, 15, 92}; /* Must be sorted */
 futex_t *futex;
 
 int write_map(pid_t pid, char *file, char *map)
@@ -58,11 +60,18 @@ int write_map(pid_t pid, char *file, char *map)
 	return 0;
 }
 
+int compare_int(const void *a, const void *b)
+{
+	const int *x = a, *y = b;
+	return *x - *y;
+}
+
 int child(void)
 {
+	gid_t gid_list2[ARRAY_SIZE(gid_list) + 1];
+	int i, nr, ret;
 	uid_t uid;
 	gid_t gid;
-	int ret;
 
 	ret = unshare(CLONE_NEWUSER);
 	if (ret < 0) {
@@ -74,6 +83,12 @@ int child(void)
 	futex_set_and_wake(futex, CHILD_CREATED);
 	futex_wait_while_lt(futex, MAP_WRITTEN);
 
+	if (setgroups(ARRAY_SIZE(gid_list), gid_list) < 0) {
+		pr_perror("setgroups");
+		futex_set_and_wake(futex, EMERGENCY_ABORT);
+		return 2;
+	}
+
 	if (setgid(CHILD_GID) < 0) {
 		pr_perror("setgid");
 		futex_set_and_wake(futex, EMERGENCY_ABORT);
@@ -83,7 +98,7 @@ int child(void)
 	if (setuid(CHILD_UID) < 0) {
 		pr_perror("setuid");
 		futex_set_and_wake(futex, EMERGENCY_ABORT);
-		return 2;
+		return 4;
 	}
 
 	futex_set_and_wake(futex, XIDS_SET);
@@ -91,10 +106,20 @@ int child(void)
 
 	uid = getuid();
 	gid = getgid();
-	if (uid != CHILD_UID || gid != CHILD_GID) {
-		pr_perror("UID or GID is wrong: %d %d", uid, gid);
+	nr = getgroups(ARRAY_SIZE(gid_list2), gid_list2);
+	if (uid != CHILD_UID || gid != CHILD_GID || nr != ARRAY_SIZE(gid_list)) {
+		pr_err("UID, GID or nr groups are wrong: %d %d %d\n", uid, gid, nr);
 		futex_set_and_wake(futex, EMERGENCY_ABORT);
-		return 4;
+		return 5;
+	}
+
+	/* man getgroups(2) doesn't say, they are sorted */
+	qsort(gid_list2, nr, sizeof(gid_t), compare_int);
+	if (memcmp(gid_list, gid_list2, sizeof(gid_list)) != 0) {
+		pr_err("Groups are different:\n");
+		for (i = 0; i < nr; i++)
+			pr_err("gid_list2[%d]=%d\n", i, gid_list2[i]);
+		return 6;
 	}
 
 	return 0;
