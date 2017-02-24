@@ -77,11 +77,11 @@ uninstall:
 	$(E) " UNINSTALL" $(LIBCOMPEL_A)
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/,$(LIBCOMPEL_A))
 	$(E) " UNINSTALL" compel uapi
-	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/*.h)
-	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/asm/*.h)
-	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/asm/)
-	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/common/*.h)
-	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/common/asm/*.h)
-	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/common/asm/)
-	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/common/)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/*.h)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/asm/*.h)
+	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/asm/)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/common/*.h)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/common/asm/*.h)
+	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/common/asm/)
+	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/common/)
 .PHONY: uninstall

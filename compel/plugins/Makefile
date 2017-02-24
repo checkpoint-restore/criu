@@ -93,7 +93,7 @@ install: compel/plugins/std.built-in.o
 uninstall:
 	$(E) " UNINSTALL" compel plugins
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBEXECDIR)/compel/,std.built-in.o)
-	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBEXECDIR)/compel/scripts,compel-pack.lds.S)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBEXECDIR)/compel/scripts/,compel-pack.lds.S)
 	$(E) " UNINSTALL" compel and plugins uapi
-	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR),compel/plugins)
+	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/plugins)
 .PHONY: uninstall
