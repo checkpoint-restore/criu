@@ -1953,10 +1953,23 @@ static int open_net_ns(struct ns_id *nsid)
 	return 0;
 }
 
+static int do_create_net_ns(struct ns_id *ns)
+{
+	if (unshare(CLONE_NEWNET)) {
+		pr_perror("Unable to create a new netns");
+		return -1;
+	}
+	if (prepare_net_ns(ns->id))
+		return -1;
+	if (open_net_ns(ns))
+		return -1;
+	return 0;
+}
+
 static int create_net_ns(void *arg)
 {
 	struct ns_id *uns, *ns = arg;
-	int ufd;
+	int ufd, ret;
 
 	uns = ns->user_ns;
 	ufd = fdstore_get(uns->user.nsfd_id);
@@ -1969,15 +1982,8 @@ static int create_net_ns(void *arg)
 		exit(2);
 	}
 	close(ufd);
-	if (unshare(CLONE_NEWNET)) {
-		pr_perror("Unable to create a new netns");
-		exit(3);
-	}
-	if (prepare_net_ns(ns->id))
-		exit(4);
-	if (open_net_ns(ns))
-		exit(5);
-	exit(0);
+	ret = do_create_net_ns(ns) ? 3 : 0;
+	exit(ret);
 }
 
 int prepare_net_namespaces()
@@ -2007,15 +2013,7 @@ int prepare_net_namespaces()
 			continue;
 		}
 
-		if (unshare(CLONE_NEWNET)) {
-			pr_perror("Unable to create a new netns");
-			goto err;
-		}
-
-		if (prepare_net_ns(nsid->id))
-			goto err;
-
-		if (open_net_ns(nsid))
+		if (do_create_net_ns(nsid))
 			goto err;
 	}
 
