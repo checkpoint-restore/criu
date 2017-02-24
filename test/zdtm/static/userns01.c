@@ -31,7 +31,11 @@ enum {
 };
 
 #define CHILD_UID 50
+#define CHILD_EUID 51
+#define CHILD_SUID 52
 #define CHILD_GID 53
+#define CHILD_EGID 54
+#define CHILD_SGID 55
 #define UID_MAP "0 10 1\n1 100 100\n"
 #define GID_MAP "0 12 1\n1 112 100\n"
 
@@ -69,9 +73,9 @@ int compare_int(const void *a, const void *b)
 int child(void)
 {
 	gid_t gid_list2[ARRAY_SIZE(gid_list) + 1];
+	uid_t uid, euid, suid;
+	gid_t gid, egid, sgid;
 	int i, nr, ret;
-	uid_t uid;
-	gid_t gid;
 
 	ret = unshare(CLONE_NEWUSER);
 	if (ret < 0) {
@@ -89,14 +93,14 @@ int child(void)
 		return 2;
 	}
 
-	if (setgid(CHILD_GID) < 0) {
-		pr_perror("setgid");
+	if (setresgid(CHILD_GID, CHILD_EGID, CHILD_SGID) < 0) {
+		pr_perror("setresgid");
 		futex_set_and_wake(futex, EMERGENCY_ABORT);
 		return 3;
 	}
 
-	if (setuid(CHILD_UID) < 0) {
-		pr_perror("setuid");
+	if (setresuid(CHILD_UID, CHILD_EUID, CHILD_SUID) < 0) {
+		pr_perror("setresuid");
 		futex_set_and_wake(futex, EMERGENCY_ABORT);
 		return 4;
 	}
@@ -104,13 +108,26 @@ int child(void)
 	futex_set_and_wake(futex, XIDS_SET);
 	futex_wait_while_lt(futex, POST_RESTORE_CHECK);
 
-	uid = getuid();
-	gid = getgid();
-	nr = getgroups(ARRAY_SIZE(gid_list2), gid_list2);
-	if (uid != CHILD_UID || gid != CHILD_GID || nr != ARRAY_SIZE(gid_list)) {
-		pr_err("UID, GID or nr groups are wrong: %d %d %d\n", uid, gid, nr);
+	if (getresuid(&uid, &euid, &suid) < 0) {
+		pr_perror("getresuid");
 		futex_set_and_wake(futex, EMERGENCY_ABORT);
 		return 5;
+	}
+
+	if (getresgid(&gid, &egid, &sgid) < 0) {
+		pr_perror("getresgid");
+		futex_set_and_wake(futex, EMERGENCY_ABORT);
+		return 6;
+	}
+
+	nr = getgroups(ARRAY_SIZE(gid_list2), gid_list2);
+	if (uid != CHILD_UID || euid != CHILD_EUID || suid != CHILD_SUID ||
+	    gid != CHILD_GID || egid != CHILD_EGID || sgid != CHILD_SGID ||
+	    nr != ARRAY_SIZE(gid_list)) {
+		pr_err("UIDs, GIDs or nr groups are wrong: (%d %d %d) (%d %d %d) %d\n",
+			uid, euid, suid, gid, egid, sgid, nr);
+		futex_set_and_wake(futex, EMERGENCY_ABORT);
+		return 7;
 	}
 
 	/* man getgroups(2) doesn't say, they are sorted */
@@ -119,7 +136,7 @@ int child(void)
 		pr_err("Groups are different:\n");
 		for (i = 0; i < nr; i++)
 			pr_err("gid_list2[%d]=%d\n", i, gid_list2[i]);
-		return 6;
+		return 8;
 	}
 
 	return 0;
