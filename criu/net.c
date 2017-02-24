@@ -1933,7 +1933,7 @@ static int prepare_net_ns(int nsid)
 	return ret;
 }
 
-static int open_net_ns(struct ns_id *nsid, struct rst_info *rst)
+static int open_net_ns(struct ns_id *nsid)
 {
 	int fd, id;
 
@@ -1975,7 +1975,7 @@ static int create_net_ns(void *arg)
 	}
 	if (prepare_net_ns(ns->id))
 		exit(4);
-	if (open_net_ns(ns, rsti(root_item)))
+	if (open_net_ns(ns))
 		exit(5);
 	exit(0);
 }
@@ -2015,7 +2015,7 @@ int prepare_net_namespaces()
 		if (prepare_net_ns(nsid->id))
 			goto err;
 
-		if (open_net_ns(nsid, rsti(root_item)))
+		if (open_net_ns(nsid))
 			goto err;
 	}
 
