@@ -17,6 +17,7 @@
 #include "images/pipe.pb-c.h"
 #include "images/pipe-data.pb-c.h"
 #include "fcntl.h"
+#include "namespaces.h"
 
 static LIST_HEAD(pipes);
 
@@ -213,6 +214,20 @@ err:
 	return ret;
 }
 
+static int userns_reopen(void *_arg, int fd, pid_t pid)
+{
+	char path[PSFDS];
+	int ret, flags = *(int*)_arg;
+
+	sprintf(path, "/proc/self/fd/%d", fd);
+	ret = open(path, flags);
+	if (ret < 0)
+		pr_perror("Unable to reopen the pipe %s", path);
+	close(fd);
+
+	return ret;
+}
+
 static int reopen_pipe(int fd, int flags)
 {
 	int ret;
@@ -220,8 +235,14 @@ static int reopen_pipe(int fd, int flags)
 
 	sprintf(path, "/proc/self/fd/%d", fd);
 	ret = open(path, flags);
-	if (ret < 0)
-		pr_perror("Unable to reopen the pipe %s", path);
+	if (ret < 0) {
+		if (errno == EACCES) {
+			/* It may be an external pipe from an another userns */
+			ret = userns_call(userns_reopen, UNS_FDOUT,
+						&flags, sizeof(flags), fd);
+		} else
+			pr_perror("Unable to reopen the pipe %s", path);
+	}
 	close(fd);
 
 	return ret;
