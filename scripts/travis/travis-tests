@@ -4,7 +4,7 @@ set -x -e
 TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c0-dev libaio-dev
 		libprotobuf-dev protobuf-compiler python-ipaddr libcap-dev
 		libnl-3-dev gcc-multilib libc6-dev-i386 gdb bash python-protobuf
-		libnet-dev util-linux"
+		libnet-dev util-linux asciidoc"
 
 travis_prep () {
 	[ -n "$SKIP_TRAVIS_PREP" ] && return
@@ -70,6 +70,7 @@ bash ./test/jenkins/criu-inhfd.sh
 
 make -C test/others/mnt-ext-dev/ run
 #make -C test/others/exec/ run
+make -C test/others/make/ run
 
 ./test/zdtm.py run -t zdtm/static/env00 --sibling
 
