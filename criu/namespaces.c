@@ -309,9 +309,8 @@ struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid,
 	return nsid;
 }
 
-int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
+int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
 {
-	pid_t pid = vpid(i);
 	struct ns_id *nsid;
 
 	nsid = lookup_ns_by_id(id, nd);
@@ -1858,15 +1857,10 @@ int read_ns_with_hookups(void)
 {
 	struct ns_id *ns, *p_ns, *u_ns;
 	struct delayed_ns *d_ns = NULL;
-	struct pstree_item fake;
 	NsEntry *e = NULL;
 	int ret = 0, nr_d = 0;
 	struct ns_desc *desc;
 	struct cr_img *img;
-	struct pid pid;
-
-	pid.ns[0].virt = -1;
-	fake.pid = &pid;
 
 	img = open_image(CR_FD_NS, O_RSTR);
 	if (!img)
@@ -1885,7 +1879,7 @@ int read_ns_with_hookups(void)
 		else if (e->ns_cflag == CLONE_NEWNET)
 			desc = &net_ns_desc;
 
-		if (rst_add_ns_id(e->id, &fake, desc)) {
+		if (rst_add_ns_id(e->id, -1, desc)) {
 			pr_err("Can't add user ns\n");
 			goto close;
 		}

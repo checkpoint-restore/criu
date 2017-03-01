@@ -463,6 +463,7 @@ struct pid *pstree_pid_by_virt(pid_t pid)
 
 static int read_pstree_ids(struct pstree_item *pi)
 {
+	pid_t pid = vpid(pi);
 	int ret;
 	struct cr_img *img;
 
@@ -477,31 +478,31 @@ static int read_pstree_ids(struct pstree_item *pi)
 		return ret;
 
 	if (pi->ids->has_mnt_ns_id) {
-		if (rst_add_ns_id(pi->ids->mnt_ns_id, pi, &mnt_ns_desc))
+		if (rst_add_ns_id(pi->ids->mnt_ns_id, pid, &mnt_ns_desc))
 			return -1;
 	}
 	if (pi->ids->has_net_ns_id) {
-		if (rst_add_ns_id(pi->ids->net_ns_id, pi, &net_ns_desc))
+		if (rst_add_ns_id(pi->ids->net_ns_id, pid, &net_ns_desc))
 			return -1;
 	}
 	if (pi->ids->has_user_ns_id) {
-		if (rst_add_ns_id(pi->ids->user_ns_id, pi, &user_ns_desc))
+		if (rst_add_ns_id(pi->ids->user_ns_id, pid, &user_ns_desc))
 			return -1;
 	}
 	if (pi->ids->has_pid_ns_id) {
-		if (rst_add_ns_id(pi->ids->pid_ns_id, pi, &pid_ns_desc))
+		if (rst_add_ns_id(pi->ids->pid_ns_id, pid, &pid_ns_desc))
 			return -1;
 	}
 	if (pi->ids->has_ipc_ns_id) {
-		if (rst_add_ns_id(pi->ids->ipc_ns_id, pi, &ipc_ns_desc))
+		if (rst_add_ns_id(pi->ids->ipc_ns_id, pid, &ipc_ns_desc))
 			return -1;
 	}
 	if (pi->ids->has_uts_ns_id) {
-		if (rst_add_ns_id(pi->ids->uts_ns_id, pi, &uts_ns_desc))
+		if (rst_add_ns_id(pi->ids->uts_ns_id, pid, &uts_ns_desc))
 			return -1;
 	}
 	if (pi->ids->has_cgroup_ns_id) {
-		if (rst_add_ns_id(pi->ids->cgroup_ns_id, pi, &cgroup_ns_desc))
+		if (rst_add_ns_id(pi->ids->cgroup_ns_id, pid, &cgroup_ns_desc))
 			return -1;
 	}
 
