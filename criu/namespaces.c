@@ -312,7 +312,6 @@ struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid,
 int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
 {
 	pid_t pid = vpid(i);
-	int type = NS_OTHER;
 	struct ns_id *nsid;
 
 	nsid = lookup_ns_by_id(id, nd);
@@ -322,9 +321,7 @@ int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
 		return 0;
 	}
 
-	if (i == root_item && nd != &user_ns_desc)
-		type = NS_ROOT;
-	nsid = rst_new_ns_id(id, pid, nd, type);
+	nsid = rst_new_ns_id(id, pid, nd, NS_OTHER);
 	if (nsid == NULL)
 		return -1;
 
@@ -1986,6 +1983,32 @@ close:
 	xfree(d_ns);
 	close_image(img);
 	return ret;
+}
+
+static int mark_root_ns(uint32_t id, struct ns_desc *desc)
+{
+	struct ns_id *ns;
+
+	ns = lookup_ns_by_id(id, desc);
+	if (!ns) {
+		pr_err("Can't find root ns %u, %s\n", id, desc->str);
+		return -1;
+	}
+	ns->type = NS_ROOT;
+	return 0;
+}
+
+#define MARK_ROOT_NS(ids, name)	\
+	(ids->has_##name##_ns_id && mark_root_ns(ids->name##_ns_id, &name##_ns_desc) < 0)
+
+int set_ns_roots(void)
+{
+	TaskKobjIdsEntry *ids = root_item->ids;
+	/* Set root for all namespaces except user_ns, which is set in read_ns_with_hookups() */
+	if (MARK_ROOT_NS(ids, pid) || MARK_ROOT_NS(ids, net) || MARK_ROOT_NS(ids, ipc) ||
+	    MARK_ROOT_NS(ids, uts) || MARK_ROOT_NS(ids, mnt) || MARK_ROOT_NS(ids, cgroup))
+		return -1;
+	return 0;
 }
 
 int prepare_userns(pid_t real_pid, UsernsEntry *e)
