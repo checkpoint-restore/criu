@@ -317,7 +317,7 @@ int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
 
 	nsid = lookup_ns_by_id(id, nd);
 	if (nsid) {
-		if (pid_rst_prio(pid, nsid->ns_pid))
+		if (nsid->ns_pid == -1 || pid_rst_prio(pid, nsid->ns_pid))
 			nsid->ns_pid = pid;
 		return 0;
 	}
