@@ -32,6 +32,7 @@ TST_NOFILE	:=				\
 		socket_listen6			\
 		socket_udp			\
 		socket6_udp			\
+		socket_udp_shutdown		\
 		sk-freebind			\
 		sk-freebind-false		\
 		socket_udplite			\
