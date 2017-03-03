@@ -122,12 +122,6 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 	BUG_ON((sk->sd.family != AF_INET) && (sk->sd.family != AF_INET6));
 
 	if (sk->type == SOCK_DGRAM) {
-		if (sk->shutdown) {
-			pr_err("Can't dump shutdown inet socket %x\n",
-					sk->sd.ino);
-			return 0;
-		}
-
 		if (sk->wqlen != 0) {
 			pr_err("Can't dump corked dgram socket %x\n",
 					sk->sd.ino);
@@ -414,6 +408,10 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	case IPPROTO_TCP:
 		err = dump_one_tcp(lfd, sk);
 		break;
+	case IPPROTO_UDP:
+	case IPPROTO_UDPLITE:
+		sk_encode_shutdown(&ie, sk->shutdown);
+		/* Fallthrough! */
 	default:
 		err = 0;
 		break;
@@ -703,6 +701,16 @@ done:
 
 	if (restore_socket_opts(sk, ie->opts))
 		goto err;
+
+	if (ie->has_shutdown &&
+	    (ie->proto == IPPROTO_UDP ||
+	     ie->proto == IPPROTO_UDPLITE)) {
+		if (shutdown(sk, sk_decode_shutdown(ie->shutdown))) {
+			pr_perror("Can't shutdown socket into %d",
+				  sk_decode_shutdown(ie->shutdown));
+			goto err;
+		}
+	}
 
 	*new_fd = sk;
 	return 1;
