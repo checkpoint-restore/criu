@@ -5,8 +5,6 @@
 
 #include "asm/prologue.h"
 
-extern int compel_main(void *arg_p, unsigned int arg_s);
-
 static struct prologue_init_args *init_args;
 static int ctl_socket = -1;
 
@@ -72,9 +70,6 @@ int __export_std_compel_start(struct prologue_init_args *args,
 				break;
 		}
 	}
-
-	if (!ret)
-		ret = compel_main(args->arg_p, args->arg_s);
 
 	for (; i > 0; i--) {
 		const plugin_init_t *d = init_array[i - 1];
