@@ -1,4 +1,4 @@
-#include <compel/plugins/plugin-std.h>
+#include <compel/plugins/std.h>
 
 #include "common/scm.h"
 #include "common/compiler.h"

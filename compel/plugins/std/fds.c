@@ -1,7 +1,7 @@
 #include <errno.h>
 
 #include <compel/plugins.h>
-#include <compel/plugins/plugin-std.h>
+#include <compel/plugins/std.h>
 
 #include "std-priv.h"
 
