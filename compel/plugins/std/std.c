@@ -1,7 +1,7 @@
 #include <sys/types.h>
 
-#include "uapi/plugins.h"
-#include "uapi/plugin-std.h"
+#include <compel/plugins.h>
+#include <compel/plugins/plugin-std.h>
 
 #include "asm/prologue.h"
 

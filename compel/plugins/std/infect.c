@@ -1,11 +1,6 @@
-#include <compel/plugins/std/syscall.h>
-#include <compel/plugins/std/infect.h>
+#include <compel/plugins/plugin-std.h>
 
 #include "common/scm.h"
-#include "uapi/compel/plugins/std/fds.h"
-#include "uapi/compel/plugins/std/string.h"
-#include "uapi/compel/plugins/std/log.h"
-
 #include "common/compiler.h"
 #include "common/lock.h"
 

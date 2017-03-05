@@ -1,11 +1,7 @@
 #include <errno.h>
 
-#include "uapi/plugins.h"
-
-#include "uapi/std/syscall.h"
-#include "uapi/std/string.h"
-#include "uapi/std/log.h"
-#include "uapi/std/fds.h"
+#include <compel/plugins.h>
+#include <compel/plugins/plugin-std.h>
 
 #include "std-priv.h"
 
