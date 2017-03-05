@@ -1,7 +1,7 @@
 #include <sys/mman.h>
 
 #include <compel/plugins.h>
-#include <compel/plugins/plugin-shmem.h>
+#include <compel/plugins/shmem.h>
 #include <compel/plugins/std/syscall.h>
 #include "shmem.h"
 #include "std-priv.h"
