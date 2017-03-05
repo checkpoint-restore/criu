@@ -59,10 +59,9 @@ install: compel/compel compel/$(LIBCOMPEL_SO) compel/$(LIBCOMPEL_A)
 	$(E) "  INSTALL " $(LIBCOMPEL_A)
 	$(Q) install -m 0644 compel/$(LIBCOMPEL_A) $(DESTDIR)$(LIBDIR)
 	$(E) "  INSTALL " compel uapi
-	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)/compel/
 	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)/compel/asm
-	$(Q) cp -fr compel/include/uapi/compel/*.h $(DESTDIR)$(INCLUDEDIR)/compel
-	$(Q) cp -fr compel/include/uapi/compel/asm/*.h $(DESTDIR)$(INCLUDEDIR)/compel/asm
+	$(Q) cp -fr compel/include/uapi/*.h $(DESTDIR)$(INCLUDEDIR)/compel/
+	$(Q) cp -fr compel/include/uapi/asm/*.h $(DESTDIR)$(INCLUDEDIR)/compel/asm/
 	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)/compel/common/asm
 	$(Q) cp -fr include/common/compiler.h $(DESTDIR)$(INCLUDEDIR)/compel/common/
 .PHONY: install
@@ -77,11 +76,5 @@ uninstall:
 	$(E) " UNINSTALL" $(LIBCOMPEL_A)
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/,$(LIBCOMPEL_A))
 	$(E) " UNINSTALL" compel uapi
-	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/*.h)
-	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/asm/*.h)
-	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/asm/)
-	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/common/*.h)
-	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/common/asm/*.h)
-	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/common/asm/)
-	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/common/)
+	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/*)
 .PHONY: uninstall

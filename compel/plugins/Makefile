@@ -84,10 +84,8 @@ install: compel/plugins/std.built-in.o
 	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)/compel/scripts
 	$(Q) install -m 0644 compel/arch/$(ARCH)/scripts/compel-pack.lds.S $(DESTDIR)$(LIBEXECDIR)/compel/scripts
 	$(E) "  INSTALL " compel plugins uapi
-	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)/compel/plugins/std/asm
-	$(Q) cp -fr compel/include/uapi/compel/plugins/plugin-std.h $(DESTDIR)$(INCLUDEDIR)/compel/plugins
-	$(Q) cp -fr compel/include/uapi/compel/plugins/std/*.h $(DESTDIR)$(INCLUDEDIR)/compel/plugins/std
-	$(Q) cp -fr compel/arch/$(ARCH)/plugins/include/asm/syscall-types.h $(DESTDIR)$(INCLUDEDIR)/compel/plugins/std/asm
+	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)/compel/plugins
+	$(Q) cp -frL compel/plugins/include/uapi/* $(DESTDIR)$(INCLUDEDIR)/compel/plugins/
 .PHONY: install
 
 uninstall:
