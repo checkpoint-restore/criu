@@ -24,11 +24,6 @@
 #include "restorer.h"
 #include "infect-pie.h"
 
-int compel_main(void *arg_p, unsigned int arg_s)
-{
-	return 0;
-}
-
 /*
  * PARASITE_CMD_DUMPPAGES is called many times and the parasite args contains
  * an array of VMAs at this time, so VMAs can be unprotected in any moment

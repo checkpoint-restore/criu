@@ -70,11 +70,6 @@ bool fault_injected(enum faults f)
 /*
  * These are stubs for std compel plugin.
  */
-int compel_main(void *arg_p, unsigned int arg_s)
-{
-	return 0;
-}
-
 int parasite_daemon_cmd(int cmd, void *args)
 {
 	return 0;

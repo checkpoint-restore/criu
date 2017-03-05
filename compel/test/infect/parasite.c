@@ -9,7 +9,6 @@
 /*
  * Stubs for std compel plugin.
  */
-int compel_main(void *arg_p, unsigned int arg_s) { return 0; }
 int parasite_trap_cmd(int cmd, void *args) { return 0; }
 void parasite_cleanup(void) { }
 
