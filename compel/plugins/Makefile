@@ -20,9 +20,7 @@ ccflags-y		+= -fpie -fno-stack-protector
 
 # General compel/plugins includes
 ccflags-y		+= -iquote $(obj)/include
-ccflags-y		+= -iquote $(obj)/include/uapi
 asflags-y		+= -iquote $(obj)/include
-asflags-y		+= -iquote $(obj)/include/uapi
 
 # Arch compel/plugins includes
 ccflags-y		+= -iquote $(PLUGIN_ARCH_DIR)/include

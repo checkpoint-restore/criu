@@ -2,8 +2,8 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#include "uapi/std/syscall.h"
-#include "uapi/std/string.h"
+#include <compel/plugins/std/syscall.h>
+#include <compel/plugins/std/string.h>
 
 #include "features.h"
 

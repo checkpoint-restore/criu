@@ -1,10 +1,6 @@
 #include <errno.h>
 
-#include <compel/plugins/std/syscall.h>
-#include <compel/plugins/std/string.h>
-#include <compel/plugins/std/log.h>
-
-#include <compel/infect-rpc.h>
+#include <compel/plugins/plugin-std.h>
 
 /*
  * Stubs for std compel plugin.
