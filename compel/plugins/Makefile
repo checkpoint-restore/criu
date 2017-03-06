@@ -48,6 +48,11 @@ std-obj-y		+= std/string.o
 std-obj-y		+= std/infect.o
 std-obj-y		+= ./$(PLUGIN_ARCH_DIR)/std/parasite-head.o
 
+#
+# FDS plugin
+target			+= fds
+fds-obj-y		+= fds/fds.o
+
 ifeq ($(SRCARCH),x86)
 	std-obj-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcpy.o
 endif
