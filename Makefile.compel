@@ -22,7 +22,7 @@ compel-deps		+= compel/include/asm
 compel-deps		+= $(COMPEL_VERSION_HEADER)
 compel-deps		+= $(CONFIG_HEADER)
 compel-deps		+= include/common/asm
-compel-plugins		+= compel/plugins/std.built-in.o
+compel-plugins		+= compel/plugins/std.built-in.o compel/plugins/fds.built-in.o
 
 LIBCOMPEL_SO		:= libcompel.so
 LIBCOMPEL_A		:= libcompel.a
@@ -50,7 +50,10 @@ compel/plugins/%: $(compel-deps) .FORCE
 compel/plugins/std.built-in.o: $(compel-deps) .FORCE
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 
-compel/plugins/shmem.built-in.o: $(compel-deps) .FORCE
+compel/plugins/shmem.built-in.o: $(compel-deps) compel/plugins/std.built-in.o .FORCE
+	$(Q) $(MAKE) $(build)=compel/plugins $@
+
+compel/plugins/fds.built-in.o: $(compel-deps) compel/plugins/std.built-in.o .FORCE
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 
 compel/compel: compel/built-in.o compel/$(LIBCOMPEL_A) | $(compel-deps)
