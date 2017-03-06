@@ -60,7 +60,7 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY(CREDS,		"creds-%d"),
 	FD_ENTRY(UTSNS,		"utsns-%d"),
 	FD_ENTRY(IPC_VAR,	"ipcns-var-%d"),
-	FD_ENTRY(IPCNS_SHM,	"ipcns-shm-%d"),
+	FD_ENTRY_F(IPCNS_SHM,	"ipcns-shm-%d", O_NOBUF), /* writes segments of data */
 	FD_ENTRY(IPCNS_MSG,	"ipcns-msg-%d"),
 	FD_ENTRY(IPCNS_SEM,	"ipcns-sem-%d"),
 	FD_ENTRY(FS,		"fs-%d"),

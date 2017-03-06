@@ -345,18 +345,36 @@ static int ipc_sysctl_req(IpcVarEntry *e, int op)
 static int dump_ipc_shm_pages(struct cr_img *img, const IpcShmEntry *shm)
 {
 	void *data;
-	int ret;
+	int ifd;
+	ssize_t size, off;
 
 	data = shmat(shm->desc->id, NULL, SHM_RDONLY);
 	if (data == (void *)-1) {
 		pr_perror("Failed to attach IPC shared memory");
 		return -errno;
 	}
-	ret = write_img_buf(img, data, round_up(shm->size, sizeof(u32)));
-	if (ret < 0) {
-		pr_err("Failed to write IPC shared memory data\n");
-		return ret;
-	}
+
+	/*
+	 * FIXME -- this just write the whole memory segment into the
+	 * image. In case the segment is huge this takes time. Need
+	 * to adopt the holes detection code (next_data_segment) from
+	 * shmem.c
+	 */
+	ifd = img_raw_fd(img);
+	size = round_up(shm->size, sizeof(u32));
+	off = 0;
+	do {
+		ssize_t ret;
+
+		ret = write(ifd, data + off, size - off);
+		if (ret <= 0) {
+			pr_perror("Failed to write IPC shared memory data");
+			return (int)ret;
+		}
+
+		off += ret;
+	} while (off < size);
+
 	if (shmdt(data)) {
 		pr_perror("Failed to detach IPC shared memory");
 		return -errno;
@@ -761,19 +779,30 @@ err:
 
 static int prepare_ipc_shm_pages(struct cr_img *img, const IpcShmEntry *shm)
 {
-	int ret;
 	void *data;
+	int ifd;
+	ssize_t size, off;
 
 	data = shmat(shm->desc->id, NULL, 0);
 	if (data == (void *)-1) {
 		pr_perror("Failed to attach IPC shared memory");
 		return -errno;
 	}
-	ret = read_img_buf(img, data, round_up(shm->size, sizeof(u32)));
-	if (ret < 0) {
-		pr_err("Failed to read IPC shared memory data\n");
-		return ret;
-	}
+
+	ifd = img_raw_fd(img);
+	size = round_up(shm->size, sizeof(u32));
+	off = 0;
+	do {
+		ssize_t ret;
+
+		ret = read(ifd, data + off, size - off);
+		if (ret <= 0) {
+			pr_perror("Failed to write IPC shared memory data");
+			return (int)ret;
+		}
+
+		off += ret;
+	} while (off < size);
 	if (shmdt(data)) {
 		pr_perror("Failed to detach IPC shared memory");
 		return -errno;
