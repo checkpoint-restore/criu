@@ -65,7 +65,7 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
 }
 
 #define PTRACE_GETVFPREGS 27
-int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
+int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save, void *arg)
 {
 	user_fpregs_struct_t vfp;
 	int ret = -1;
@@ -78,23 +78,23 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *ar
 	}
 
 	/* Did we come from a system call? */
-	if ((int)regs.ARM_ORIG_r0 >= 0) {
+	if ((int)regs->ARM_ORIG_r0 >= 0) {
 		/* Restart the system call */
-		switch ((long)(int)regs.ARM_r0) {
+		switch ((long)(int)regs->ARM_r0) {
 		case -ERESTARTNOHAND:
 		case -ERESTARTSYS:
 		case -ERESTARTNOINTR:
-			regs.ARM_r0 = regs.ARM_ORIG_r0;
-			regs.ARM_pc -= 4;
+			regs->ARM_r0 = regs->ARM_ORIG_r0;
+			regs->ARM_pc -= 4;
 			break;
 		case -ERESTART_RESTARTBLOCK:
-			regs.ARM_r0 = __NR_restart_syscall;
-			regs.ARM_pc -= 4;
+			regs->ARM_r0 = __NR_restart_syscall;
+			regs->ARM_pc -= 4;
 			break;
 		}
 	}
 
-	ret = save(arg, &regs, &vfp);
+	ret = save(arg, regs, &vfp);
 err:
 	return ret;
 }

@@ -369,16 +369,16 @@ static int __get_task_regs(pid_t pid, user_regs_struct_t *regs,
 	return 0;
 }
 
-int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
+int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save, void *arg)
 {
 	user_fpregs_struct_t fpregs;
 	int ret;
 
-	ret = __get_task_regs(pid, &regs, &fpregs);
+	ret = __get_task_regs(pid, regs, &fpregs);
 	if (ret)
 		return ret;
 
-	return save(arg, &regs, &fpregs);
+	return save(arg, regs, &fpregs);
 }
 
 int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
