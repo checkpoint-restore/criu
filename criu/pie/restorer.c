@@ -1102,7 +1102,7 @@ long __export_restore_task(struct task_restore_args *args)
 	act.rt_sa_restorer = cr_restore_rt;
 	sys_sigaction(SIGCHLD, &act, NULL, sizeof(k_rtsigset_t));
 
-	ksigfillset(&to_block);
+	ksigemptyset(&to_block);
 	ksigaddset(&to_block, SIGCHLD);
 	ret = sys_sigprocmask(SIG_UNBLOCK, &to_block, NULL, sizeof(k_rtsigset_t));
 
