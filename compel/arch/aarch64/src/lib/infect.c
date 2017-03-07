@@ -56,7 +56,7 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
 	return 0;
 }
 
-int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *arg)
+int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save, void *arg)
 {
 	struct iovec iov;
 	user_fpregs_struct_t fpsimd;
@@ -64,7 +64,7 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *ar
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
 
-	iov.iov_base = &regs;
+	iov.iov_base = regs;
 	iov.iov_len = sizeof(user_regs_struct_t);
 	if ((ret = ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, &iov))) {
 		pr_perror("Failed to obtain CPU registers for %d", pid);
@@ -78,7 +78,7 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *ar
 		goto err;
 	}
 
-	ret = save(arg, &regs, &fpsimd);
+	ret = save(arg, regs, &fpsimd);
 err:
 	return ret;
 }
