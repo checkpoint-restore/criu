@@ -852,32 +852,21 @@ static int handle_feature_check(int sk, CriuReq * msg)
 {
 	CriuResp resp = CRIU_RESP__INIT;
 	CriuFeatures feat = CRIU_FEATURES__INIT;
-	bool success = false;
 	int pid, status;
+	int ret;
 
 	/* enable setting of an optional message */
 	feat.has_mem_track = 1;
 	feat.mem_track = false;
+	feat.has_lazy_pages = 1;
+	feat.lazy_pages = false;
 
-	/*
-	 * Check if the requested feature check can be answered.
-	 *
-	 * This function is right now hard-coded to memory
-	 * tracking detection and needs other/better logic to
-	 * handle multiple feature checks.
-	 */
-	if (msg->features->has_mem_track != 1) {
+	/* Check if the requested feature check can be answered. */
+	if ((msg->features->has_mem_track != 1) ||
+	    (msg->features->has_lazy_pages != 1)) {
 		pr_warn("Feature checking for unknown feature.\n");
 		goto out;
 	}
-
-	/*
-	 * From this point on the function will always
-	 * 'succeed'. If the requested features are supported
-	 * can be seen if the requested optional parameters are
-	 * set in the message 'criu_features'.
-	 */
-	success = true;
 
 	pid = fork();
 	if (pid < 0) {
@@ -886,27 +875,73 @@ static int handle_feature_check(int sk, CriuReq * msg)
 	}
 
 	if (pid == 0) {
-		int ret = 1;
 
 		setproctitle("feature-check --rpc");
 
-		kerndat_get_dirty_track();
+		if ((msg->features->has_mem_track == 1) &&
+		    (msg->features->mem_track == true)) {
 
-		if (kdat.has_dirty_track)
-			ret = 0;
+			feat.mem_track = true;
+			ret = kerndat_get_dirty_track();
+
+			if (ret)
+				feat.mem_track = false;
+
+			if (!kdat.has_dirty_track)
+				feat.mem_track = false;
+		}
+
+		if ((msg->features->has_lazy_pages == 1) &&
+		    (msg->features->lazy_pages == true)) {
+			ret = kerndat_uffd(true);
+
+			/*
+			 * Not checking for specific UFFD features yet.
+			 * If no error is returned it is probably
+			 * enough for basic UFFD functionality. This can
+			 * be extended in the future for a more detailed
+			 * UFFD feature check.
+			 */
+			if (ret)
+				feat.lazy_pages = false;
+			else
+				feat.lazy_pages = true;
+		}
+
+		resp.features = &feat;
+		resp.type = msg->type;
+		/* The feature check is working, actual results are in resp.features */
+		resp.success = true;
+
+		/*
+		 * If this point is reached the information about the features
+		 * is transmitted from the forked CRIU process (here).
+		 * If an error occured earlier, the feature check response will be
+		 * be send from the parent process.
+		 */
+		ret = send_criu_msg(sk, &resp);
 
 		exit(ret);
 	}
 
-	wait(&status);
-	if (!WIFEXITED(status) || WEXITSTATUS(status))
+	ret = waitpid(pid, &status,  0);
+	if (ret == -1)
 		goto out;
 
-	feat.mem_track = true;
+	if (WIFEXITED(status) && !WEXITSTATUS(status))
+		/*
+		 * The child process exited was able to send the answer.
+		 * Nothing more to do here.
+		 */
+		return 0;
+
+	/*
+	 * The child process was not able to send an answer. Tell
+	 * the RPC client that something did not work as expected.
+	 */
 out:
-	resp.features = &feat;
 	resp.type = msg->type;
-	resp.success = success;
+	resp.success = false;
 
 	return send_criu_msg(sk, &resp);
 }
