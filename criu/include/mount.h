@@ -87,6 +87,7 @@ extern struct ns_id *lookup_nsid_by_mnt_id(int mnt_id);
 
 extern int open_mount(unsigned int s_dev);
 extern int __open_mountpoint(struct mount_info *pm, int mnt_fd);
+extern int mnt_is_dir(struct mount_info *pm);
 extern int open_mountpoint(struct mount_info *pm);
 
 extern struct mount_info *collect_mntinfo(struct ns_id *ns, bool for_dump);

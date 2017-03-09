@@ -228,7 +228,11 @@ struct mount_info *lookup_mnt_sdev(unsigned int s_dev)
 	struct mount_info *m;
 
 	for (m = mntinfo; m != NULL; m = m->next)
-		if (m->s_dev == s_dev)
+		/*
+		 * We should not provide notdir bindmounts to open_mount as
+		 * opening them can fail/hang for binds of unix sockets/fifos
+		 */
+		if (m->s_dev == s_dev && mnt_is_dir(m))
 			return m;
 
 	return NULL;
@@ -955,6 +959,27 @@ static struct mount_info *mnt_build_tree(struct mount_info *list,
 	pr_info("Done:\n");
 	mnt_tree_show(tree, 0);
 	return tree;
+}
+
+int mnt_is_dir(struct mount_info *pm)
+{
+	int mntns_root;
+	struct stat st;
+
+	mntns_root = mntns_get_root_fd(pm->nsid);
+	if (mntns_root < 0) {
+		pr_perror("Can't get root fd of mntns for %d", pm->mnt_id);
+		return 0;
+	}
+
+	if (fstatat(mntns_root, pm->ns_mountpoint, &st, 0)) {
+		pr_perror("Can't fstatat on %s", pm->ns_mountpoint);
+		return 0;
+	}
+
+	if (S_ISDIR(st.st_mode))
+		return 1;
+	return 0;
 }
 
 /*
