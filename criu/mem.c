@@ -72,7 +72,7 @@ int do_task_reset_dirty_track(int pid)
        return ret;
 }
 
-unsigned int dump_pages_args_size(struct vm_area_list *vmas)
+unsigned long dump_pages_args_size(struct vm_area_list *vmas)
 {
 	/* In the worst case I need one iovec for each page */
 	return sizeof(struct parasite_dump_pages_args) +
