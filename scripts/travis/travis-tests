@@ -1,6 +1,9 @@
 #!/bin/bash
 set -x -e
 
+cat /proc/cmdline
+cat /proc/self/mountinfo
+
 TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c0-dev libaio-dev
 		libprotobuf-dev protobuf-compiler python-ipaddr libcap-dev
 		libnl-3-dev gcc-multilib libc6-dev-i386 gdb bash python-protobuf
