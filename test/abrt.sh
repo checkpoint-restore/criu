@@ -12,6 +12,11 @@ expr match "$comm" zombie00 && {
 	exit 0
 }
 
+expr match "$comm" seccomp && {
+	cat > /dev/null
+	exit 0
+}
+
 report="/tmp/zdtm-core-$pid-$comm"
 exec &> ${report}.txt
 
