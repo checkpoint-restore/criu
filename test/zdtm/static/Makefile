@@ -343,6 +343,7 @@ TST_FILE	=				\
 		deleted_unix_sock		\
 		sk-unix-rel			\
 		sk-unix-rel-seqpacket		\
+		sk-unix-ucred			\
 		deleted_dev			\
 		unlink_fstat00			\
 		unlink_fstat01			\
