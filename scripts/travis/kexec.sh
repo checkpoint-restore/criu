@@ -24,7 +24,7 @@ true && {
 	modprobe macvlan
 	modprobe veth
 
-	git clone --depth 1 $KGIT linux
+	time git clone --depth 1 $KGIT linux
 #	git clone git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux
 	cp scripts/linux-next-config linux/.config
 	cd linux
