@@ -13,8 +13,8 @@
 #define LOG_PREFIX "vdso: "
 
 int vdso_redirect_calls(unsigned long base_to, unsigned long base_from,
-			struct vdso_symtable *to,
-			struct vdso_symtable *from)
+			struct vdso_symtable *to, struct vdso_symtable *from,
+			bool __always_unused compat_vdso)
 {
 	unsigned int i;
 

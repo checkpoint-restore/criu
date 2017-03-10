@@ -125,10 +125,9 @@ static inline void put_trampoline_call(unsigned long at, unsigned long to,
     invalidate_caches(at);
 }
 
-int vdso_redirect_calls(unsigned long base_to,
-			unsigned long base_from,
-			struct vdso_symtable *to,
-			struct vdso_symtable *from)
+int vdso_redirect_calls(unsigned long base_to, unsigned long base_from,
+			struct vdso_symtable *to, struct vdso_symtable *from,
+			bool __always_unused compat_vdso)
 {
 	unsigned int i;
 	unsigned long trampoline;

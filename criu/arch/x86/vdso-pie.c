@@ -13,53 +13,63 @@
 #endif
 #define LOG_PREFIX "vdso: "
 
-#ifdef CONFIG_X86_64
-typedef struct {
-	u16	movabs;
-	u64	imm64;
-	u16	jmp_rax;
-	u32	guards;
-} __packed jmp_t;
-#define IMMEDIATE(j)	(j.imm64)
+static void insert_trampoline32(uintptr_t from, uintptr_t to)
+{
+	struct {
+		u8	movl;
+		u32	imm32;
+		u16	jmp_eax;
+		u32	guards;
+	} __packed jmp = {
+		.movl		= 0xb8,
+		.imm32		= (uint32_t)to,
+		.jmp_eax	= 0xe0ff,
+		.guards		= 0xcccccccc,
+	};
 
-jmp_t jmp = {
-	.movabs		= 0xb848,
-	.jmp_rax	= 0xe0ff,
-	.guards		= 0xcccccccc,
-};
+	memcpy((void *)from, &jmp, sizeof(jmp));
+}
 
-#else /* CONFIG_X86_64 */
-typedef struct {
-	u8	movl;
-	u32	imm32;
-	u16	jmp_eax;
-	u32	guards;
-} __packed jmp_t;
-#define IMMEDIATE(j)	(j.imm32)
+static void insert_trampoline64(uintptr_t from, uintptr_t to)
+{
+	struct {
+		u16	movabs;
+		u64	imm64;
+		u16	jmp_rax;
+		u32	guards;
+	} __packed jmp = {
+		.movabs		= 0xb848,
+		.imm64		= to,
+		.jmp_rax	= 0xe0ff,
+		.guards		= 0xcccccccc,
+	};
 
-jmp_t jmp = {
-	.movl		= 0xb8,
-	.jmp_eax	= 0xe0ff,
-	.guards		= 0xcccccccc,
-};
-#endif /* CONFIG_X86_64 */
+	memcpy((void *)from, &jmp, sizeof(jmp));
+}
 
 int vdso_redirect_calls(unsigned long base_to, unsigned long base_from,
-			struct vdso_symtable *to,
-			struct vdso_symtable *from)
+			struct vdso_symtable *sto, struct vdso_symtable *sfrom,
+			bool compat_vdso)
 {
 	unsigned int i;
 
-	for (i = 0; i < ARRAY_SIZE(to->symbols); i++) {
-		if (vdso_symbol_empty(&from->symbols[i]))
+	for (i = 0; i < ARRAY_SIZE(sto->symbols); i++) {
+		uintptr_t from, to;
+
+		if (vdso_symbol_empty(&sfrom->symbols[i]))
 			continue;
 
 		pr_debug("jmp: %lx/%lx -> %lx/%lx (index %d)\n",
-			 base_from, from->symbols[i].offset,
-			 base_to, to->symbols[i].offset, i);
+			 base_from, sfrom->symbols[i].offset,
+			 base_to, sto->symbols[i].offset, i);
 
-		IMMEDIATE(jmp) = base_to + to->symbols[i].offset;
-		memcpy((void *)(base_from + from->symbols[i].offset), &jmp, sizeof(jmp));
+		from = base_from + sfrom->symbols[i].offset;
+		to = base_to + sto->symbols[i].offset;
+
+		if (!compat_vdso)
+			insert_trampoline64(from, to);
+		else
+			insert_trampoline32(from, to);
 	}
 
 	return 0;

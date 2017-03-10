@@ -242,7 +242,7 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 
 	if (vdso_redirect_calls(vdso_rt_parked_at,
 				vma_vdso->start,
-				sym_rt, &s)) {
+				sym_rt, &s, compat_vdso)) {
 		pr_err("Failed to proxify dumpee contents\n");
 		return -1;
 	}
