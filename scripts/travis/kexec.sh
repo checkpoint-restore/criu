@@ -33,8 +33,8 @@ true && {
 	make olddefconfig
 	yes "" | make localyesconfig
 	make olddefconfig
-	make -j 4
-	make install
+	time make -j 4
+	time make install
 	make kernelrelease
 	cd ..
 }
