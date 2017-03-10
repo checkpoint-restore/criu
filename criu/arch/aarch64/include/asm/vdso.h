@@ -25,12 +25,6 @@ static const char* __maybe_unused aarch_vdso_symbol4 = "__kernel_rt_sigreturn";
 	aarch_vdso_symbol3,			\
 	aarch_vdso_symbol4
 
-
-struct vdso_symtable;
-extern int vdso_redirect_calls(unsigned long base_to,
-			       unsigned long base_from,
-			       struct vdso_symtable *to,
-			       struct vdso_symtable *from);
 extern void write_intraprocedure_branch(unsigned long to, unsigned long from);
 
 #endif /* __CR_ASM_VDSO_H__ */

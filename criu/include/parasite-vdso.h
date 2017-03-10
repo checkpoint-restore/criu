@@ -85,6 +85,8 @@ extern int vdso_proxify(struct vdso_symtable *sym_rt,
 			unsigned long vdso_rt_parked_at,
 			VmaEntry *vmas, size_t nr_vmas,
 			bool compat_vdso, bool force_trampolines);
+extern int vdso_redirect_calls(unsigned long base_to, unsigned long base_from,
+			struct vdso_symtable *to, struct vdso_symtable *from);
 
 #else /* CONFIG_VDSO */
 #define vdso_do_park(sym_rt, park_at, park_size)		(0)

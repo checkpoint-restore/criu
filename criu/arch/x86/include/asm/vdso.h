@@ -24,10 +24,4 @@
 	"__kernel_rt_sigreturn"
 
 
-struct vdso_symtable;
-extern int vdso_redirect_calls(unsigned long base_to,
-			       unsigned long base_from,
-			       struct vdso_symtable *to,
-			       struct vdso_symtable *from);
-
 #endif /* __CR_ASM_VDSO_H__ */
