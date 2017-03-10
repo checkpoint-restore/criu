@@ -935,6 +935,7 @@ asm (
 	"	.code32\n"
 	"	mov bootstrap_start, %ebx\n"
 	"	mov bootstrap_len, %ecx\n"
+	"	sub vdso_rt_size, %ecx\n"
 	"	movl $"__stringify(__NR32_munmap)", %eax\n"
 	"	int	$0x80\n"
 	"	.code64\n"
