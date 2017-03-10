@@ -63,7 +63,7 @@ chmod 0777 test/zdtm/static
 chmod 0777 test/zdtm/transition
 
 date
-./test/zdtm.py run -a -p 2 --keep-going
+./test/zdtm.py run -a -p 4 --keep-going
 date
 bash ./test/jenkins/criu-fault.sh
 date
