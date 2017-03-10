@@ -36,12 +36,15 @@ make ${MAKE_VARS}
 ./criu/criu check --extra --all || echo $?
 python test/zdtm.py run -t zdtm/static/env00
 
+date
 ./scripts/travis/kexec.sh
+date
 
 ulimit -c unlimited
 echo "|`pwd`/test/abrt.sh %P %p %s %e" > /proc/sys/kernel/core_pattern
 make ${MAKE_VARS} -C test/zdtm
 
+date
 ./criu/criu check
 ./criu/criu check --all || echo $?
 ./criu/criu cpuinfo dump
@@ -59,39 +62,55 @@ chmod 0777 test/
 chmod 0777 test/zdtm/static
 chmod 0777 test/zdtm/transition
 
+date
 ./test/zdtm.py run -a -p 2 --keep-going
-
+date
 bash ./test/jenkins/criu-fault.sh
+date
 bash ./test/jenkins/criu-fcg.sh
+date
 bash ./test/jenkins/criu-inhfd.sh
+date
 
 make -C test/others/mnt-ext-dev/ run
 #make -C test/others/exec/ run
 
+date
 ./test/zdtm.py run -t zdtm/static/env00 --sibling
 
+date
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --dedup
+date
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --noauto-dedup
+date
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server
+date
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server --dedup
+date
 
 ./test/zdtm.py run -t zdtm/static/socket-tcp-local --norst
+date
 
 ip net add test
 ./test/zdtm.py run -t zdtm/static/env00 -f h --join-ns
 
+date
 # RPC testing
 ./test/zdtm.py run -t zdtm/static/env00 --rpc		# Basic
 ./test/zdtm.py run -t zdtm/static/ptrace_sig -f h --rpc # Error handling (crfail test)
 
+date
 ./test/zdtm.py run -t zdtm/static/env00 --lazy-pages --pre 2
 ./test/zdtm.py run -t zdtm/static/env00 --remote-lazy-pages
 
+date
 git clean -dxf test/zdtm
 make COMPAT_TEST=y -C test/zdtm/static/ env00
 ./test/zdtm.py run -t zdtm/static/env00 -f h
+date
 
 dmesg
+date
 
 if [ -f /proc/lockdep ]; then
 	cat /proc/lockdep | grep WARNING && exit 1 || true
@@ -102,6 +121,7 @@ cat /proc/sys/kernel/tainted
 
 pip install flake8
 make lint
+date
 
 # Check that help output fits into 80 columns
 WIDTH=$(./criu/criu --help | wc --max-line-length)
