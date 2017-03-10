@@ -34,6 +34,7 @@ export GCOV
 make -j4 ${MAKE_VARS}
 
 ./criu/criu check --extra --all || echo $?
+make -j4 ${MAKE_VARS} -C test/zdtm
 python test/zdtm.py run -t zdtm/static/env00
 
 date
