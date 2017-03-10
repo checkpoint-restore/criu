@@ -53,7 +53,5 @@ echo $DROPBOX_TOKEN > /dropbox
 echo $TRAVIS_BUILD_ID > /travis_id
 set -x
 
-kernel=`ls -c /boot/vmlinuz* | head -n 1 | sed 's/.*vmlinuz-\(.*\)/\1/'`
-echo $kernel
-kexec -l linux/arch/x86/boot/bzImage --reuse-cmdline
+kexec -l linux/arch/x86/boot/bzImage --command-line "root=/dev/sda1 cgroup_enable=memory swapaccount=1 apparmor=0 console=ttyS0 console=ttyS0 debug"
 kexec -e
