@@ -31,7 +31,7 @@ travis_prep
 
 
 export GCOV
-make ${MAKE_VARS}
+make -j4 ${MAKE_VARS}
 
 ./criu/criu check --extra --all || echo $?
 python test/zdtm.py run -t zdtm/static/env00
@@ -42,7 +42,7 @@ date
 
 ulimit -c unlimited
 echo "|`pwd`/test/abrt.sh %P %p %s %e" > /proc/sys/kernel/core_pattern
-make ${MAKE_VARS} -C test/zdtm
+make -j4 ${MAKE_VARS} -C test/zdtm
 
 date
 ./criu/criu check
