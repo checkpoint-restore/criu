@@ -1,4 +1,8 @@
 #!/bin/bash
+cd ../../
+./scripts/travis/kexec.sh prep &
+PREP_PID=$!
+
 set -x -e
 
 cat /proc/cmdline
@@ -12,8 +16,6 @@ TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c0-dev libaio-dev
 
 travis_prep () {
 	[ -n "$SKIP_TRAVIS_PREP" ] && return
-
-	cd ../../
 
 	service apport stop
 

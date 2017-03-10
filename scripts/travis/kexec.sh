@@ -1,6 +1,17 @@
 #!/bin/bash
-
 set -x
+
+if [ "$1" = 'prep' ]; then
+	time git clone --depth 1 $KGIT linux
+	modprobe tun
+	modprobe macvlan
+	modprobe veth
+
+	cp scripts/linux-next-config linux/.config
+	cd linux
+	make olddefconfig
+	exit 0
+fi
 
 uname -a
 cat /proc/cpuinfo
@@ -20,26 +31,13 @@ while :; do
 done
 
 true && {
-	modprobe tun
-	modprobe macvlan
-	modprobe veth
-
-	time git clone --depth 1 $KGIT linux
-#	git clone git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux
-	cp scripts/linux-next-config linux/.config
 	cd linux
-#	git checkout -f 93a205ee98a4881e8bf608e65562c19d45930a93
-#	git clean -dxf
-	make olddefconfig
 	yes "" | make localyesconfig
 	make olddefconfig
 	time make -j 4
 	make kernelrelease
 	cd ..
 }
-
-
-ls -l /boot/
 
 setsid bash -c "setsid ./scripts/travis/kexec-dump.sh $ppid < /dev/null &> /travis.log &"
 for i in `seq 10`; do
