@@ -432,8 +432,10 @@ static struct rimage *new_remote_image(char *path, char *snapshot_id)
 		return NULL;
 	}
 
-	strncpy(rimg->path, path, PATHLEN);
-	strncpy(rimg->snapshot_id, snapshot_id, PATHLEN);
+	strncpy(rimg->path, path, PATHLEN -1 );
+	rimg->path[PATHLEN - 1] = '\0';
+	strncpy(rimg->snapshot_id, snapshot_id, PATHLEN - 1);
+	rimg->snapshot_id[PATHLEN - 1] = '\0';
 	rimg->size = 0;
 	buf->nbytes = 0;
 	INIT_LIST_HEAD(&(rimg->buf_head));
