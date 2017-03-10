@@ -39,7 +39,8 @@ struct snapshot *new_snapshot(char *snapshot_id)
 		pr_perror("Failed to allocate snapshot structure");
 		return NULL;
 	}
-	strncpy(s->snapshot_id, snapshot_id, PATHLEN);
+	strncpy(s->snapshot_id, snapshot_id, PATHLEN - 1);
+	s->snapshot_id[PATHLEN - 1]= '\0';
 	return s;
 }
 
