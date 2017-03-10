@@ -31,10 +31,9 @@ true && {
 #	git checkout -f 93a205ee98a4881e8bf608e65562c19d45930a93
 #	git clean -dxf
 	make olddefconfig
-	yes "" | make localmodconfig
+	yes "" | make localyesconfig
 	make olddefconfig
 	make -j 4
-	make modules_install
 	make install
 	make kernelrelease
 	cd ..

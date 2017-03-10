@@ -55,5 +55,5 @@ set -x
 
 kernel=`ls -c /boot/vmlinuz* | head -n 1 | sed 's/.*vmlinuz-\(.*\)/\1/'`
 echo $kernel
-kexec -l /boot/vmlinuz-$kernel --initrd=/boot/initrd.img-$kernel --reuse-cmdline
+kexec -l /boot/vmlinuz-$kernel --reuse-cmdline
 kexec -e
