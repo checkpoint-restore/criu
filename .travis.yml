@@ -3,15 +3,15 @@ sudo: required
 dist: trusty
 env:
  matrix:
-  - TTT=linux    KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git"
-  - TTT=next     KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git" GCOV=1
-  - TTT=net-next KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git"
-  - TTT=userns-t KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.git -b for-testing"
-  - TTT=userns-n KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.git -b for-next"
-  - TTT=akpm     KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git -b akpm"
-  - TTT=pre-akpm KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git -b akpm-base"
-  - TTT=cgroup   KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/tj/cgroup.git -b for-next"
-  - TTT=vfs      KGIT="git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git -b for-next"
+  - TTT=linux    KGIT="http://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux.git"
+  - TTT=next     KGIT="http://kernel.googlesource.com/pub/scm/linux/kernel/git/next/linux-next.git" GCOV=1
+  - TTT=net-next KGIT="http://kernel.googlesource.com/pub/scm/linux/kernel/git/davem/net-next.git"
+  - TTT=userns-t KGIT="http://kernel.googlesource.com/pub/scm/linux/kernel/git/ebiederm/user-namespace.git -b for-testing"
+  - TTT=userns-n KGIT="http://kernel.googlesource.com/pub/scm/linux/kernel/git/ebiederm/user-namespace.git -b for-next"
+  - TTT=akpm     KGIT="http://kernel.googlesource.com/pub/scm/linux/kernel/git/next/linux-next.git -b akpm"
+  - TTT=pre-akpm KGIT="http://kernel.googlesource.com/pub/scm/linux/kernel/git/next/linux-next.git -b akpm-base"
+  - TTT=cgroup   KGIT="http://kernel.googlesource.com/pub/scm/linux/kernel/git/tj/cgroup.git -b for-next"
+  - TTT=vfs      KGIT="http://kernel.googlesource.com/pub/scm/linux/kernel/git/viro/vfs.git -b for-next"
  global:
   - secure: "pLXteR7eodHe2qp5q1wB+W53OOd/9b5q1IHPajh5ES86Yvut5ig7pUhmLU75hDcu7TPeISYl2//Et9xxbBF0h2z1dqtTlvAnN+THBmIZ4Yv4X+LMkD532sI/AQpCJHVOXQ5r6tLgWQqL0zEC20ImC0LaJfz6qFSmdQ8uX/r61r8="
 script:
