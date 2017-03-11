@@ -39,6 +39,9 @@ true && {
 	cd ..
 }
 
+# Disable Docker daemon start after reboot; upstart way
+echo manual > /etc/init/docker.override
+
 setsid bash -c "setsid ./scripts/travis/kexec-dump.sh $ppid < /dev/null &> /travis.log &"
 for i in `seq 10`; do
 	sleep 15
