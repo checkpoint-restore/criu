@@ -52,6 +52,7 @@
 
 #include "setproctitle.h"
 #include "sysctl.h"
+#include "img-remote.h"
 
 #include "../soccr/soccr.h"
 
@@ -276,6 +277,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "timeout",			required_argument,	0, 1072 },
 		{ "external",			required_argument,	0, 1073	},
 		{ "empty-ns",			required_argument,	0, 1074	},
+		{ "lazy-pages",			no_argument,		0, 1076 },
 		{ "extra",			no_argument,		0, 1077	},
 		{ "experimental",		no_argument,		0, 1078	},
 		{ "all",			no_argument,		0, 1079	},
@@ -284,9 +286,11 @@ int main(int argc, char *argv[], char *envp[])
 		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
 		{ SK_INFLIGHT_PARAM,		no_argument,		0, 1083	},
 		{ "deprecated",			no_argument,		0, 1084 },
+		{ "check-only",			no_argument,		0, 1085 },
 		{ "display-stats",		no_argument,		0, 1086 },
 		{ "weak-sysctls",		no_argument,		0, 1087 },
 		{ "status-fd",			required_argument,	0, 1088 },
+		{ "remote",			no_argument,		0, 1089 },
 		{ },
 	};
 
@@ -539,6 +543,9 @@ int main(int argc, char *argv[], char *envp[])
 		case 1072:
 			opts.timeout = atoi(optarg);
 			break;
+		case 1076:
+			opts.lazy_pages = true;
+			break;
 		case 'M':
 			{
 				char *aux;
@@ -597,6 +604,11 @@ int main(int argc, char *argv[], char *envp[])
 			pr_msg("Turn deprecated stuff ON\n");
 			opts.deprecated_ok = true;
 			break;
+		case 1085:
+			pr_msg("Only checking if requested operation will succeed\n");
+			opts.check_only = true;
+			opts.final_state = TASK_ALIVE;
+			break;
 		case 1086:
 			opts.display_stats = true;
 			break;
@@ -609,6 +621,9 @@ int main(int argc, char *argv[], char *envp[])
 				pr_err("Unable to parse a value of --status-fd\n");
 				return 1;
 			}
+			break;
+		case 1089:
+			opts.remote = true;
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
@@ -646,6 +661,11 @@ int main(int argc, char *argv[], char *envp[])
 		goto usage;
 	}
 
+	if (!strcmp(argv[optind], "exec")) {
+		pr_msg("The \"exec\" action is deprecated by the Compel library.\n");
+		return -1;
+	}
+
 	has_sub_command = (argc - optind) > 1;
 
 	if (has_exec_cmd) {
@@ -671,8 +691,7 @@ int main(int argc, char *argv[], char *envp[])
 		opts.exec_cmd[argc - optind - 1] = NULL;
 	} else {
 		/* No subcommands except for cpuinfo and restore --exec-cmd */
-		if ((strcmp(argv[optind], "cpuinfo") && strcmp(argv[optind], "exec"))
-				&& has_sub_command) {
+		if (strcmp(argv[optind], "cpuinfo") && has_sub_command) {
 			pr_msg("Error: excessive parameter%s for command %s\n",
 				(argc - optind) > 2 ? "s" : "", argv[optind]);
 			goto usage;
@@ -706,6 +725,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (log_init(opts.output))
 		return 1;
 	libsoccr_set_log(log_level, print_on_level);
+	compel_log_init(vprint_on_level, log_get_loglevel());
 
 	pr_debug("Version: %s (gitid %s)\n", CRIU_VERSION, CRIU_GITID);
 	if (opts.deprecated_ok)
@@ -761,19 +781,20 @@ int main(int argc, char *argv[], char *envp[])
 		return -1;
 	}
 
+	if (!strcmp(argv[optind], "lazy-pages"))
+		return cr_lazy_pages(opts.daemon_mode) != 0;
+
 	if (!strcmp(argv[optind], "check"))
 		return cr_check() != 0;
 
-	if (!strcmp(argv[optind], "exec")) {
-		if (!pid)
-			pid = tree_id; /* old usage */
-		if (!pid)
-			goto opt_pid_missing;
-		return cr_exec(pid, argv + optind + 1) != 0;
-	}
-
 	if (!strcmp(argv[optind], "page-server"))
-		return cr_page_server(opts.daemon_mode, -1) != 0;
+		return cr_page_server(opts.daemon_mode, false, -1) != 0;
+
+	if (!strcmp(argv[optind], "image-cache"))
+		return image_cache(opts.daemon_mode, DEFAULT_CACHE_SOCKET, opts.port);
+
+	if (!strcmp(argv[optind], "image-proxy"))
+		return image_proxy(opts.daemon_mode, DEFAULT_PROXY_SOCKET, opts.addr, opts.port);
 
 	if (!strcmp(argv[optind], "service"))
 		return cr_service(opts.daemon_mode);
@@ -799,22 +820,25 @@ usage:
 "  criu dump|pre-dump -t PID [<options>]\n"
 "  criu restore [<options>]\n"
 "  criu check [--feature FEAT]\n"
-"  criu exec -p PID <syscall-string>\n"
 "  criu page-server\n"
 "  criu service [<options>]\n"
 "  criu dedup\n"
+"  criu lazy-pages -D DIR [<options>]\n"
+"  criu image-cache [<options>]\n"
+"  criu image-proxy [<options>]\n"
 "\n"
 "Commands:\n"
 "  dump           checkpoint a process/tree identified by pid\n"
 "  pre-dump       pre-dump task(s) minimizing their frozen time\n"
 "  restore        restore a process/tree\n"
 "  check          checks whether the kernel support is up-to-date\n"
-"  exec           execute a system call by other task\n"
 "  page-server    launch page server\n"
 "  service        launch service\n"
 "  dedup          remove duplicates in memory dump\n"
 "  cpuinfo dump   writes cpu information into image file\n"
 "  cpuinfo check  validates cpu information read from image file\n"
+"  image-proxy    launch dump-side proxy to sent images\n"
+"  image-cache    launch restore-side cache to reveive images\n"
 	);
 
 	if (usage_error) {
@@ -842,6 +866,13 @@ usage:
 "                        restore making it the parent of the restored process\n"
 "  --freeze-cgroup       use cgroup freezer to collect processes\n"
 "  --weak-sysctls        skip restoring sysctls that are not available\n"
+"  --lazy-pages          restore pages on demand\n"
+"                        this requires running a second instance of criu\n"
+"                        in lazy-pages mode: 'criu lazy-pages -D DIR'\n"
+"                        --lazy-pages and lazy-pages mode require userfaultfd\n"
+"  --check-only          check if checkpointing/restoring will actually work\n"
+"                        the process will keep on running and memory pages\n"
+"                        will not be dumped\n"
 "\n"
 "* External resources support:\n"
 "  --external RES        dump objects from this list as external resources:\n"
@@ -858,6 +889,8 @@ usage:
 "                            macvlan[IFNAME]:OUTNAME\n"
 "                            mnt[COOKIE]:ROOT\n"
 "\n"
+"  --remote              dump/restore images directly to/from remote node using\n"
+"                        image-proxy/image-cache\n"
 "* Special resources support:\n"
 "     --" SK_EST_PARAM "  checkpoint/restore established TCP connections\n"
 "     --" SK_INFLIGHT_PARAM "   skip (ignore) in-flight TCP connections\n"
@@ -945,7 +978,7 @@ usage:
 "\n"
 "Page/Service server options:\n"
 "  --address ADDR        address of server or service\n"
-"  --port PORT           port of page server\n"
+"  --port PORT           port of page serve or service\n"
 "  -d|--daemon           run in the background after creating socket\n"
 "  --status-fd FD        write \\0 to the FD and close it once process is ready\n"
 "                        to handle requests\n"

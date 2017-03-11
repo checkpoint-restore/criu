@@ -11,6 +11,7 @@
 #include "util-vdso.h"
 
 extern struct vdso_symtable vdso_sym_rt;
+extern struct vdso_symtable vdso_compat_rt;
 
 extern int vdso_init(void);
 

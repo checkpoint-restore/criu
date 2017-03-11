@@ -3,6 +3,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/syscall.h>
 
 #include "types.h"
 #include "cr_options.h"
@@ -17,6 +18,7 @@
 #include "stats.h"
 #include "vma.h"
 #include "shmem.h"
+#include "uffd.h"
 #include "pstree.h"
 #include "restorer.h"
 #include "rst-malloc.h"
@@ -25,6 +27,7 @@
 #include "files-reg.h"
 #include "pagemap-cache.h"
 #include "fault-injection.h"
+#include <compel/compel.h>
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -79,6 +82,21 @@ unsigned int dump_pages_args_size(struct vm_area_list *vmas)
 		(vmas->priv_size + 1) * sizeof(struct iovec);
 }
 
+static inline bool __page_is_zero(u64 pme)
+{
+	return (pme & PME_PFRAME_MASK) == kdat.zero_page_pfn;
+}
+
+static inline bool __page_in_parent(bool dirty)
+{
+	/*
+	 * If we do memory tracking, but w/o parent images,
+	 * then we have to dump all memory
+	 */
+
+	return opts.track_mem && opts.img_parent && !dirty;
+}
+
 bool should_dump_page(VmaEntry *vmae, u64 pme)
 {
 #ifdef CONFIG_VDSO
@@ -106,22 +124,20 @@ bool should_dump_page(VmaEntry *vmae, u64 pme)
 		return false;
 	if (vma_entry_is(vmae, VMA_AREA_AIORING))
 		return true;
-	if (pme & PME_SWAP)
-		return true;
-	if ((pme & PME_PRESENT) && ((pme & PME_PFRAME_MASK) != kdat.zero_page_pfn))
+	if ((pme & (PME_PRESENT | PME_SWAP)) && !__page_is_zero(pme))
 		return true;
 
 	return false;
 }
 
+bool page_is_zero(u64 pme)
+{
+	return __page_is_zero(pme);
+}
+
 bool page_in_parent(bool dirty)
 {
-	/*
-	 * If we do memory tracking, but w/o parent images,
-	 * then we have to dump all memory
-	 */
-
-	return opts.track_mem && opts.img_parent && !dirty;
+	return __page_in_parent(dirty);
 }
 
 /*
@@ -137,18 +153,22 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 {
 	u64 *at = &map[PAGE_PFN(*off)];
 	unsigned long pfn, nr_to_scan;
-	unsigned long pages[2] = {};
+	unsigned long pages[3] = {};
 
 	nr_to_scan = (vma_area_len(vma) - *off) / PAGE_SIZE;
 
 	for (pfn = 0; pfn < nr_to_scan; pfn++) {
 		unsigned long vaddr;
+		unsigned int ppb_flags = 0;
 		int ret;
 
 		if (!should_dump_page(vma->e, at[pfn]))
 			continue;
 
 		vaddr = vma->e->start + *off + pfn * PAGE_SIZE;
+
+		if (vma_entry_can_be_lazy(vma->e))
+			ppb_flags |= PPB_LAZY;
 
 		/*
 		 * If we're doing incremental dump (parent images
@@ -158,11 +178,14 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 		 */
 
 		if (has_parent && page_in_parent(at[pfn] & PME_SOFT_DIRTY)) {
-			ret = page_pipe_add_hole(pp, vaddr);
+			ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_PARENT);
 			pages[0]++;
 		} else {
-			ret = page_pipe_add_page(pp, vaddr);
-			pages[1]++;
+			ret = page_pipe_add_page(pp, vaddr, ppb_flags);
+			if (ppb_flags & PPB_LAZY && opts.lazy_pages)
+				pages[1]++;
+			else
+				pages[2]++;
 		}
 
 		if (ret) {
@@ -175,9 +198,11 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 
 	cnt_add(CNT_PAGES_SCANNED, nr_to_scan);
 	cnt_add(CNT_PAGES_SKIPPED_PARENT, pages[0]);
-	cnt_add(CNT_PAGES_WRITTEN, pages[1]);
+	cnt_add(CNT_PAGES_LAZY, pages[1]);
+	cnt_add(CNT_PAGES_WRITTEN, pages[2]);
 
-	pr_info("Pagemap generated: %lu pages %lu holes\n", pages[1], pages[0]);
+	pr_info("Pagemap generated: %lu pages (%lu lazy) %lu holes\n",
+		pages[2] + pages[1], pages[1], pages[0]);
 	return 0;
 }
 
@@ -188,7 +213,7 @@ static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl
 	struct parasite_vma_entry *p_vma;
 	struct vma_area *vma;
 
-	args = parasite_args_s(ctl, dump_pages_args_size(vma_area_list));
+	args = compel_parasite_args_s(ctl, dump_pages_args_size(vma_area_list));
 
 	p_vma = pargs_vmas(args);
 	args->nr_vmas = 0;
@@ -231,14 +256,14 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
 		pr_debug("PPB: %d pages %d segs %u pipe %d off\n",
 				args->nr_pages, args->nr_segs, ppb->pipe_size, args->off);
 
-		ret = __parasite_execute_daemon(PARASITE_CMD_DUMPPAGES, ctl);
+		ret = compel_rpc_call(PARASITE_CMD_DUMPPAGES, ctl);
 		if (ret < 0)
 			return -1;
-		ret = parasite_send_fd(ctl, ppb->p[1]);
+		ret = compel_util_send_fd(ctl, ppb->p[1]);
 		if (ret)
 			return -1;
 
-		ret = __parasite_wait_daemon_ack(PARASITE_CMD_DUMPPAGES, ctl);
+		ret = compel_rpc_sync(PARASITE_CMD_DUMPPAGES, ctl);
 		if (ret < 0)
 			return -1;
 
@@ -248,7 +273,7 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
 	return 0;
 }
 
-static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer)
+static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer, bool lazy)
 {
 	int ret;
 
@@ -257,7 +282,7 @@ static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer)
 	 *           pre-dump action (see pre_dump_one_task)
 	 */
 	timing_start(TIME_MEMWRITE);
-	ret = page_xfer_dump_pages(xfer, pp, 0);
+	ret = page_xfer_dump_pages(xfer, pp, 0, !lazy);
 	timing_stop(TIME_MEMWRITE);
 
 	return ret;
@@ -276,6 +301,9 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 	int ret = -1;
 	unsigned cpp_flags = 0;
 	unsigned long pmc_size;
+
+	if (opts.check_only)
+		return 0;
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, item->pid->real);
@@ -297,7 +325,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 		return -1;
 
 	ret = -1;
-	if (!mdc->pre_dump)
+	if (!(mdc->pre_dump || mdc->lazy))
 		/*
 		 * Chunk mode pushes pages portion by portion. This mode
 		 * only works when we don't need to keep pp for later
@@ -305,7 +333,8 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 		 */
 		cpp_flags |= PP_CHUNK_MODE;
 	pp = create_page_pipe(vma_area_list->priv_size,
-					    pargs_iovs(args), cpp_flags);
+					    mdc->lazy ? NULL : pargs_iovs(args),
+					    cpp_flags);
 	if (!pp)
 		goto out;
 
@@ -359,7 +388,7 @@ again:
 
 				ret = drain_pages(pp, ctl, args);
 				if (!ret)
-					ret = xfer_pages(pp, &xfer);
+					ret = xfer_pages(pp, &xfer, mdc->lazy /* false actually */);
 				if (!ret) {
 					page_pipe_reinit(pp);
 					goto again;
@@ -370,9 +399,12 @@ again:
 			goto out_xfer;
 	}
 
+	if (mdc->lazy)
+		memcpy(pargs_iovs(args), pp->iovs,
+		       sizeof(struct iovec) * pp->nr_iovs);
 	ret = drain_pages(pp, ctl, args);
 	if (!ret && !mdc->pre_dump)
-		ret = xfer_pages(pp, &xfer);
+		ret = xfer_pages(pp, &xfer, mdc->lazy);
 	if (ret)
 		goto out_xfer;
 
@@ -387,7 +419,7 @@ out_xfer:
 	if (!mdc->pre_dump)
 		xfer.close(&xfer);
 out_pp:
-	if (ret || !mdc->pre_dump)
+	if (ret || !(mdc->pre_dump || mdc->lazy))
 		destroy_page_pipe(pp);
 	else
 		dmpi(item)->mem_pp = pp;
@@ -416,7 +448,7 @@ int parasite_dump_pages_seized(struct pstree_item *item,
 	 */
 
 	pargs->add_prot = PROT_READ;
-	ret = parasite_execute_daemon(PARASITE_CMD_MPROTECT_VMAS, ctl);
+	ret = compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl);
 	if (ret) {
 		pr_err("Can't dump unprotect vmas with parasite\n");
 		return ret;
@@ -435,7 +467,7 @@ int parasite_dump_pages_seized(struct pstree_item *item,
 	}
 
 	pargs->add_prot = 0;
-	if (parasite_execute_daemon(PARASITE_CMD_MPROTECT_VMAS, ctl)) {
+	if (compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl)) {
 		pr_err("Can't rollback unprotected vmas with parasite\n");
 		ret = -1;
 	}
@@ -690,8 +722,12 @@ static int restore_priv_vma_content(struct pstree_item *t)
 	unsigned int nr_shared = 0;
 	unsigned int nr_droped = 0;
 	unsigned int nr_compared = 0;
+	unsigned int nr_lazy = 0;
 	unsigned long va;
 	struct page_read pr;
+
+	if (opts.check_only)
+		return 0;
 
 	vma = list_first_entry(vmas, struct vma_area, list);
 
@@ -711,6 +747,17 @@ static int restore_priv_vma_content(struct pstree_item *t)
 
 		va = (unsigned long)decode_pointer(pr.pe->vaddr);
 		nr_pages = pr.pe->nr_pages;
+
+		/*
+		 * This means that userfaultfd is used to load the pages
+		 * on demand.
+		 */
+		if (opts.lazy_pages && pagemap_lazy(pr.pe)) {
+			pr_debug("Lazy restore skips %ld pages at %lx\n", nr_pages, va);
+			pr.skip_pages(&pr, nr_pages * PAGE_SIZE);
+			nr_lazy += nr_pages;
+			continue;
+		}
 
 		for (i = 0; i < nr_pages; i++) {
 			unsigned char buf[PAGE_SIZE];
@@ -831,6 +878,7 @@ err_read:
 	pr_info("nr_restored_pages: %d\n", nr_restored);
 	pr_info("nr_shared_pages:   %d\n", nr_shared);
 	pr_info("nr_droped_pages:   %d\n", nr_droped);
+	pr_info("nr_lazy:           %d\n", nr_lazy);
 
 	return 0;
 

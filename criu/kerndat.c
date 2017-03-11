@@ -26,8 +26,11 @@
 #include "lsm.h"
 #include "proc_parse.h"
 #include "config.h"
-#include "syscall-codes.h"
 #include "sk-inet.h"
+#include "sockets.h"
+#include <compel/plugins/std/syscall-codes.h>
+#include <compel/compel.h>
+#include "linux/userfaultfd.h"
 
 struct kerndat_s kdat = {
 };
@@ -386,7 +389,7 @@ static bool kerndat_has_memfd_create(void)
 
 static int get_task_size(void)
 {
-	kdat.task_size = task_size();
+	kdat.task_size = compel_task_size();
 	pr_debug("Found task size of %lx\n", kdat.task_size);
 	return 0;
 }
@@ -557,6 +560,54 @@ err:
 	return exit_code;
 }
 
+static int kerndat_compat_restore(void)
+{
+	int ret = kdat_compat_sigreturn_test();
+
+	if (ret < 0) /* failure */
+		return ret;
+	kdat.has_compat_sigreturn = !!ret;
+	return 0;
+}
+
+int kerndat_uffd(bool need_uffd)
+{
+	struct uffdio_api uffdio_api;
+	int uffd;
+
+	uffd = syscall(SYS_userfaultfd, 0);
+
+	/*
+	 * uffd == -1 is probably enough to not use lazy-restore
+	 * on this system. Additionally checking for ENOSYS
+	 * makes sure it is actually not implemented.
+	 */
+	if (uffd == -1 && errno == ENOSYS) {
+		if (!need_uffd)
+			return 0;
+
+		pr_err("Lazy pages are not available\n");
+		return -1;
+	}
+
+	uffdio_api.api = UFFD_API;
+	uffdio_api.features = 0;
+	if (ioctl(uffd, UFFDIO_API, &uffdio_api)) {
+		pr_perror("Failed to get uffd API");
+		return -1;
+	}
+	if (uffdio_api.api != UFFD_API) {
+		pr_err("Incompatible uffd API: expected %Lu, got %Lu\n",
+		       UFFD_API, uffdio_api.api);
+		return -1;
+	}
+
+	kdat.uffd_features = uffdio_api.features;
+
+	close(uffd);
+	return 0;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -582,6 +633,10 @@ int kerndat_init(void)
 		ret = kerndat_iptables_has_xtlocks();
 	if (!ret)
 		ret = kerndat_tcp_repair();
+	if (!ret)
+		ret = kerndat_compat_restore();
+	if (!ret)
+		ret = kerndat_socket_netns();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
@@ -614,6 +669,12 @@ int kerndat_init_rst(void)
 		ret = kerndat_iptables_has_xtlocks();
 	if (!ret)
 		ret = kerndat_tcp_repair();
+	if (!ret)
+		ret = kerndat_compat_restore();
+	if (!ret)
+		ret = kerndat_uffd(opts.lazy_pages);
+	if (!ret)
+		ret = kerndat_socket_netns();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
@@ -626,6 +687,8 @@ int kerndat_init_cr_exec(void)
 	int ret;
 
 	ret = get_task_size();
+	if (!ret)
+		ret = kerndat_compat_restore();
 
 	return ret;
 }

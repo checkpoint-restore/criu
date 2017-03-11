@@ -49,7 +49,7 @@ struct vdso_symtable {
 			},						\
 	}
 
-#ifdef CONFIG_X86_32
+#ifdef CONFIG_VDSO_32
 
 #define Ehdr_t		Elf32_Ehdr
 #define Sym_t		Elf32_Sym
@@ -60,7 +60,7 @@ struct vdso_symtable {
 #define ELF_ST_TYPE	ELF32_ST_TYPE
 #define ELF_ST_BIND	ELF32_ST_BIND
 
-#else /* !CONFIG_X86_32 */
+#else /* CONFIG_VDSO_32 */
 
 #define Ehdr_t		Elf64_Ehdr
 #define Sym_t		Elf64_Sym
@@ -75,7 +75,7 @@ struct vdso_symtable {
 #define ELF_ST_BIND	ELF64_ST_BIND
 #endif
 
-#endif /* !CONFIG_X86_32 */
+#endif /* CONFIG_VDSO_32 */
 
 /* Size of VMA associated with vdso */
 static inline unsigned long vdso_vma_size(struct vdso_symtable *t)
@@ -88,6 +88,17 @@ static inline unsigned long vvar_vma_size(struct vdso_symtable *t)
 	return t->vvar_end - t->vvar_start;
 }
 
+#if defined(CONFIG_VDSO_32)
+# define vdso_fill_symtable vdso_fill_symtable_compat
+#endif
+
 extern int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t);
+#if defined(CONFIG_X86_64) && defined(CONFIG_COMPAT)
+#ifndef ARCH_MAP_VDSO_32
+# define ARCH_MAP_VDSO_32	0x2002
+#endif
+extern int vdso_fill_symtable_compat(uintptr_t mem, size_t size,
+		struct vdso_symtable *t);
+#endif
 
 #endif /* __CR_UTIL_VDSO_H__ */

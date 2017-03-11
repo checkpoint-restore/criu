@@ -246,7 +246,6 @@ int move_fd_from(int *img_fd, int want_fd)
  */
 
 static pid_t open_proc_pid = PROC_NONE;
-static int open_proc_fd = -1;
 static pid_t open_proc_self_pid;
 static int open_proc_self_fd = -1;
 
@@ -259,13 +258,18 @@ static inline void set_proc_self_fd(int fd)
 	open_proc_self_pid = getpid();
 }
 
-static inline void set_proc_pid_fd(int pid, int fd)
+static inline int set_proc_pid_fd(int pid, int fd)
 {
-	if (open_proc_fd >= 0)
-		close(open_proc_fd);
+	int ret;
+
+	if (fd < 0)
+		return close_service_fd(PROC_PID_FD_OFF);
 
 	open_proc_pid = pid;
-	open_proc_fd = fd;
+	ret = install_service_fd(PROC_PID_FD_OFF, fd);
+	close(fd);
+
+	return ret;
 }
 
 static inline int get_proc_fd(int pid)
@@ -277,7 +281,7 @@ static inline int get_proc_fd(int pid)
 		}
 		return open_proc_self_fd;
 	} else if (pid == open_proc_pid)
-		return open_proc_fd;
+		return get_service_fd(PROC_PID_FD_OFF);
 	else
 		return -1;
 }
@@ -361,7 +365,7 @@ inline int open_pid_proc(pid_t pid)
 	if (pid == PROC_SELF)
 		set_proc_self_fd(fd);
 	else
-		set_proc_pid_fd(pid, fd);
+		fd = set_proc_pid_fd(pid, fd);
 
 	return fd;
 }
@@ -481,11 +485,10 @@ int clone_service_fd(int id)
 		return 0;
 
 	for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++) {
-		int old = __get_service_fd(i, service_fd_id);
+		int old = get_service_fd(i);
 		int new = __get_service_fd(i, id);
 
-		/* Do not dup parent's transport fd */
-		if (i == TRANSPORT_FD_OFF)
+		if (old < 0)
 			continue;
 		ret = dup2(old, new);
 		if (ret == -1) {
@@ -516,29 +519,45 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 {
 	ssize_t written = 0;
 	size_t chunk = bytes ? bytes : 4096;
+	char *buffer = (char*) malloc(chunk);
+	ssize_t ret;
 
 	while (1) {
-		ssize_t ret;
-
-		ret = sendfile(fd_out, fd_in, NULL, chunk);
+		if (opts.remote) {
+			ret = read(fd_in, buffer, chunk);
+			if (ret < 0) {
+				pr_perror("Can't read from fd_in\n");
+				ret = -1;
+				goto err;
+			}
+			if (write(fd_out, buffer, ret) != ret) {
+				pr_perror("Couldn't write all read bytes\n");
+				ret = -1;
+				goto err;
+			}
+		} else
+                        ret = sendfile(fd_out, fd_in, NULL, chunk);
 		if (ret < 0) {
 			pr_perror("Can't send data to ghost file");
-			return -1;
+			ret = -1;
+			goto err;
 		}
 
 		if (ret == 0) {
 			if (bytes && (written != bytes)) {
 				pr_err("Ghost file size mismatch %zu/%zu\n",
 						written, bytes);
-				return -1;
+				ret = -1;
+				goto err;
 			}
 			break;
 		}
 
 		written += ret;
 	}
-
-	return 0;
+err:
+	free(buffer);
+	return ret;
 }
 
 int read_fd_link(int lfd, char *buf, size_t size)
@@ -566,6 +585,24 @@ int is_anon_link_type(char *link, char *type)
 
 	snprintf(aux, sizeof(aux), "anon_inode:%s", type);
 	return !strcmp(link, aux);
+}
+
+pid_t get_self_real_pid(void)
+{
+	char buf[12];
+	int fd, ret;
+
+	fd = get_service_fd(CR_PROC_FD_OFF);
+	if (fd < 0)
+		return -1;
+
+	ret = readlinkat(fd, "self", buf, sizeof(buf) - 1);
+	if (ret < 0) {
+		pr_perror("Unable to read the /proc/self link");
+		return -1;
+	}
+	buf[ret] = '\0';
+	return atoi(buf);
 }
 
 #define DUP_SAFE(fd, out)						\
@@ -1213,4 +1250,114 @@ int setup_tcp_client(char *addr)
 	}
 
 	return sk;
+}
+
+int epoll_add_rfd(int epfd, struct epoll_rfd *rfd)
+{
+	struct epoll_event ev;
+
+	ev.events = EPOLLIN;
+	ev.data.ptr = rfd;
+	if (epoll_ctl(epfd, EPOLL_CTL_ADD, rfd->fd, &ev) == -1) {
+		pr_perror("epoll_ctl failed");
+		return -1;
+	}
+
+	return 0;
+}
+
+int epoll_del_rfd(int epfd, struct epoll_rfd *rfd)
+{
+	if (epoll_ctl(epfd, EPOLL_CTL_DEL, rfd->fd, NULL) == -1) {
+		pr_perror("epoll_ctl failed");
+		return -1;
+	}
+
+	return 0;
+}
+
+int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout)
+{
+	int ret, i, nr_events;
+	bool have_a_break = false;
+
+	while (1) {
+		/* FIXME -- timeout should decrease over time...  */
+		ret = epoll_wait(epollfd, evs, nr_fds, timeout);
+		if (ret <= 0) {
+			if (ret < 0)
+				pr_perror("polling failed");
+			else
+				pr_debug("polling timeout\n");
+			break;
+		}
+
+		nr_events = ret;
+		for (i = 0; i < nr_events; i++) {
+			struct epoll_rfd *rfd;
+
+			rfd = (struct epoll_rfd *)evs[i].data.ptr;
+			ret = rfd->revent(rfd);
+			if (ret < 0)
+				goto out;
+			if (ret > 0)
+				have_a_break = true;
+		}
+
+		if (have_a_break)
+			return 1;
+	}
+out:
+	return ret;
+}
+
+int epoll_prepare(int nr_fds, struct epoll_event **events)
+{
+	int epollfd;
+
+	*events = xmalloc(sizeof(struct epoll_event) * nr_fds);
+	if (!*events)
+		return -1;
+
+	epollfd = epoll_create(nr_fds);
+	if (epollfd == -1) {
+		pr_perror("epoll_create failed");
+		goto free_events;
+	}
+
+	return epollfd;
+
+free_events:
+	xfree(*events);
+	return -1;
+}
+
+static int fn_open_proc_r(void *path, int fd, pid_t pid)
+{
+	return openat(get_service_fd(CR_PROC_FD_OFF), path, O_RDONLY);
+}
+static int fn_open_proc_w(void *path, int fd, pid_t pid)
+{
+	return openat(get_service_fd(CR_PROC_FD_OFF), path, O_WRONLY);
+}
+static int fn_open_proc_rw(void *path, int fd, pid_t pid)
+{
+	return openat(get_service_fd(CR_PROC_FD_OFF), path, O_RDWR);
+}
+
+int open_fd_of_real_pid(pid_t pid, int fd, int flags)
+{
+	char path[64];
+	int ret;
+
+	ret = sprintf(path, "%d/fd/%d", pid, fd);
+	if (flags == O_RDONLY)
+		ret = userns_call(fn_open_proc_r, UNS_FDOUT, path, ret + 1, -1);
+	else if (flags == O_WRONLY)
+		ret = userns_call(fn_open_proc_w, UNS_FDOUT, path, ret + 1, -1);
+	else if (flags == O_RDWR)
+		ret = userns_call(fn_open_proc_rw, UNS_FDOUT, path, ret + 1, -1);
+	else
+		BUG();
+	return ret;
 }

@@ -16,7 +16,7 @@ char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
 
-int init_file_lock(int *fd, struct flock *lck)
+int init_file_lock(int *fd, struct flock64 *lck)
 {
 	*fd = open(filename, O_RDWR | O_CREAT, 0666);
 	if (*fd < 0) {
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
 	int status;
 	int ret = 0;
 	task_waiter_t tw;
-	struct flock lck;
+	struct flock64 lck;
 
 	test_init(argc, argv);
 	if (init_file_lock(&fd, &lck))

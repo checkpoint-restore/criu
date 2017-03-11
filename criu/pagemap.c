@@ -10,11 +10,13 @@
 #include "cr_options.h"
 #include "servicefd.h"
 #include "pagemap.h"
+#include "page-xfer.h"
 
 #include "fault-injection.h"
 #include "xmalloc.h"
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
+#include "img-remote.h"
 
 #ifndef SEEK_DATA
 #define SEEK_DATA	3
@@ -51,8 +53,8 @@ static int punch_hole(struct page_read *pr, unsigned long off,
 	struct iovec * bunch = &pr->bunch;
 
 	if (!cleanup && can_extend_bunch(bunch, off, len)) {
-		pr_debug("pr%d:Extend bunch len from %zu to %lu\n", pr->id,
-			 bunch->iov_len, bunch->iov_len + len);
+		pr_debug("pr%d-%d:Extend bunch len from %zu to %lu\n", pr->pid,
+			 pr->id, bunch->iov_len, bunch->iov_len + len);
 		bunch->iov_len += len;
 	} else {
 		if (bunch->iov_len > 0) {
@@ -66,7 +68,7 @@ static int punch_hole(struct page_read *pr, unsigned long off,
 		}
 		bunch->iov_base = (void *)off;
 		bunch->iov_len = len;
-		pr_debug("pr%d:New bunch/%p/%zu/\n", pr->id, bunch->iov_base, bunch->iov_len);
+		pr_debug("pr%d-%d:New bunch/%p/%zu/\n", pr->pid, pr->id, bunch->iov_base, bunch->iov_len);
 	}
 	return 0;
 }
@@ -95,7 +97,7 @@ int dedup_one_iovec(struct page_read *pr, unsigned long off, unsigned long len)
 		if (!pr->pe)
 			return -1;
 		piov_end = pr->pe->vaddr + pagemap_len(pr->pe);
-		if (!pr->pe->in_parent) {
+		if (!pagemap_in_parent(pr->pe)) {
 			ret = punch_hole(pr, pr->pi_off, min(piov_end, iov_end) - off, false);
 			if (ret == -1)
 				return ret;
@@ -137,8 +139,12 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	if (!len)
 		return;
 
-	if (!pr->pe->in_parent)
+	if (pagemap_present(pr->pe)) {
+		if (opts.remote)
+			if (skip_remote_bytes(img_raw_fd(pr->pi), len))
+				pr_perror("Error skipping remote bytes");
 		pr->pi_off += len;
+	}
 	pr->cvaddr += len;
 }
 
@@ -156,7 +162,7 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 			break;
 
 		if (vaddr >= start && vaddr < end) {
-			skip_pagemap_pages(pr, start - pr->cvaddr);
+			skip_pagemap_pages(pr, start > pr->cvaddr ? start - pr->cvaddr : 0);
 			return 1;
 		}
 
@@ -172,7 +178,7 @@ adv:
 static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr)
 {
 	if (seek_pagemap(pr, vaddr)) {
-		skip_pagemap_pages(pr, vaddr - pr->cvaddr);
+		skip_pagemap_pages(pr, vaddr > pr->cvaddr ? vaddr - pr->cvaddr : 0);
 		return 1;
 	}
 
@@ -210,7 +216,7 @@ static int read_parent_page(struct page_read *pr, unsigned long vaddr,
 	do {
 		int p_nr;
 
-		pr_debug("\tpr%u Read from parent\n", pr->id);
+		pr_debug("\tpr%d-%u Read from parent\n", pr->pid, pr->id);
 		ret = seek_pagemap_page(ppr, vaddr);
 		if (ret <= 0) {
 			pr_err("Missing %lx in parent pagemap\n", vaddr);
@@ -258,7 +264,7 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr,
 	if (pr->sync(pr))
 		return -1;
 
-	pr_debug("\tpr%u Read page from self %lx/%"PRIx64"\n", pr->id, pr->cvaddr, pr->pi_off);
+	pr_debug("\tpr%d-%u Read page from self %lx/%"PRIx64"\n", pr->pid, pr->id, pr->cvaddr, pr->pi_off);
 	while (1) {
 		ret = pread(fd, buf + curr, len - curr, pr->pi_off + curr);
 		if (ret < 1) {
@@ -359,18 +365,73 @@ static int enqueue_async_page(struct page_read *pr, unsigned long vaddr,
 	return 0;
 }
 
-static int maybe_read_page(struct page_read *pr, unsigned long vaddr,
-		int nr, void *buf, unsigned flags)
+static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr,
+				 int nr, void *buf, unsigned flags)
 {
 	int ret;
 	unsigned long len = nr * PAGE_SIZE;
 
-	if (flags & PR_ASYNC)
+	/*
+	 * There's no API in the kernel to start asynchronous
+	 * cached read (or write), so in case someone is asking
+	 * for us for urgent async read, just do the regular
+	 * cached read.
+	 */
+	if ((flags & (PR_ASYNC|PR_ASAP)) == PR_ASYNC && !opts.remote)
 		ret = enqueue_async_page(pr, vaddr, len, buf);
-	else
+	else {
 		ret = read_local_page(pr, vaddr, len, buf);
+		if (ret == 0 && pr->io_complete)
+			ret = pr->io_complete(pr, vaddr, nr);
+	}
 
 	pr->pi_off += len;
+
+	return ret;
+}
+
+static int read_page_complete(int pid, unsigned long vaddr, int nr_pages, void *priv)
+{
+	int ret = 0;
+	struct page_read *pr = priv;
+
+	if (pr->pid != pid) {
+		pr_err("Out of order read completed (want %d have %d)\n",
+				pr->pid, pid);
+		return -1;
+	}
+
+	if (pr->io_complete)
+		ret = pr->io_complete(pr, vaddr, nr_pages);
+
+	return ret;
+}
+
+static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
+				  int nr, void *buf, unsigned flags)
+{
+	int ret, pid, new_nr;
+
+	/* We always do PR_ASAP mode here (FIXME?) */
+	ret = request_remote_pages(pr->pid, vaddr, nr);
+	if (ret < 0)
+		return ret;
+	if (flags & PR_ASYNC)
+		return page_server_start_async_read(buf, nr, read_page_complete, pr);
+
+	/*
+	 * Note, that for async remote page_read, the actual
+	 * transfer happens in the lazy-pages daemon
+	 */
+	ret = receive_remote_pages_info(&new_nr, &vaddr, &pid);
+	if (ret == 0) {
+		if (new_nr < 0 || new_nr > nr)
+			return -1;
+		ret = receive_remote_pages(nr * PAGE_SIZE, buf);
+	}
+
+	if (ret == 0 && pr->io_complete)
+		ret = pr->io_complete(pr, vaddr, nr);
 
 	return ret;
 }
@@ -378,14 +439,14 @@ static int maybe_read_page(struct page_read *pr, unsigned long vaddr,
 static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
 			     void *buf, unsigned flags)
 {
-	pr_info("pr%u Read %lx %u pages\n", pr->id, vaddr, nr);
+	pr_info("pr%d-%u Read %lx %u pages\n", pr->pid, pr->id, vaddr, nr);
 	pagemap_bound_check(pr->pe, vaddr, nr);
 
-	if (pr->pe->in_parent) {
+	if (pagemap_in_parent(pr->pe)) {
 		if (read_parent_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
 	} else {
-		if (maybe_read_page(pr, vaddr, nr, buf, flags) < 0)
+		if (pr->maybe_read_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
 	}
 
@@ -480,6 +541,8 @@ more:
 		if (opts.auto_dedup && punch_hole(pr, start, ret, false))
 			return -1;
 
+		BUG_ON(pr->io_complete); /* FIXME -- implement once needed */
+
 		list_del(&piov->l);
 		xfree(iovs);
 		xfree(piov);
@@ -519,14 +582,42 @@ static void close_page_read(struct page_read *pr)
 		free_pagemaps(pr);
 }
 
+static void reset_pagemap(struct page_read *pr)
+{
+	pr->cvaddr = 0;
+	pr->pi_off = 0;
+	pr->curr_pme = -1;
+	pr->pe = NULL;
+
+	/* FIXME: take care of bunch */
+
+	if (pr->parent)
+		reset_pagemap(pr->parent);
+}
+
 static int try_open_parent(int dfd, int pid, struct page_read *pr, int pr_flags)
 {
 	int pfd, ret;
 	struct page_read *parent = NULL;
 
-	pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
-	if (pfd < 0 && errno == ENOENT)
-		goto out;
+	if (opts.remote) {
+		/* Note: we are replacing a real directory FD for a snapshot_id
+		 * index. Since we need the parent of the current snapshot_id,
+		 * we want the current snapshot_id index minus one. It is
+		 * possible that dfd is already a snapshot_id index. We test it
+		 * by comparing it to the service FD. When opening an image (see
+		 * do_open_image) we convert the snapshot_id index into a real
+		 * snapshot_id.
+		 */
+		pfd = dfd == get_service_fd(IMG_FD_OFF) ?
+			get_curr_snapshot_id_idx() - 1 : dfd - 1;
+		if (pfd < 0)
+			goto out;
+	} else {
+		pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
+		if (pfd < 0 && errno == ENOENT)
+			goto out;
+	}
 
 	parent = xmalloc(sizeof(*parent));
 	if (!parent)
@@ -541,7 +632,8 @@ static int try_open_parent(int dfd, int pid, struct page_read *pr, int pr_flags)
 		parent = NULL;
 	}
 
-	close(pfd);
+	if (!opts.remote)
+		close(pfd);
 out:
 	pr->parent = parent;
 	return 0;
@@ -549,8 +641,23 @@ out:
 err_free:
 	xfree(parent);
 err_cl:
-	close(pfd);
+	if (!opts.remote)
+		close(pfd);
 	return -1;
+}
+
+static void init_compat_pagemap_entry(PagemapEntry *pe)
+{
+	/*
+	 * pagemap image generated with older version will either
+	 * contain a hole because the pages are in the parent
+	 * shanpshot or a pagemap that should be marked with
+	 * PE_PRESENT
+	 */
+	if (pe->has_in_parent && pe->in_parent)
+		pe->flags |= PE_PARENT;
+	else if (!pe->has_flags)
+		pe->flags = PE_PRESENT;
 }
 
 /*
@@ -566,7 +673,18 @@ static int init_pagemaps(struct page_read *pr)
 	off_t fsize;
 	int nr_pmes, nr_realloc;
 
-	fsize = img_raw_size(pr->pmi);
+	if (!opts.remote)
+		fsize = img_raw_size(pr->pmi);
+	else
+		/*
+		 * FIXME - There is no easy way to estimate the size of the
+		 * pagemap that is still to be read from the socket. Possible
+		 * solution is to ask Image Proxy or Image Cache about the size
+		 * of the image. 1024 is a wild guess (more space is allocated
+		 * if needed).
+		 */
+		fsize = 1024;
+
 	if (fsize < 0)
 		return -1;
 
@@ -587,6 +705,8 @@ static int init_pagemaps(struct page_read *pr)
 			goto free_pagemaps;
 		if (ret == 0)
 			break;
+
+		init_compat_pagemap_entry(pr->pmes[pr->nr_pmes]);
 
 		pr->nr_pmes++;
 		if (pr->nr_pmes >= nr_pmes) {
@@ -612,7 +732,13 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 {
 	int flags, i_typ;
 	static unsigned ids = 1;
+	bool remote = pr_flags & PR_REMOTE;
 
+	/*
+	 * Only the top-most page-read can be remote, all the
+	 * others are always local.
+	 */
+	pr_flags &= ~PR_REMOTE;
 	if (opts.auto_dedup)
 		pr_flags |= PR_MOD;
 	if (pr_flags & PR_MOD)
@@ -669,12 +795,22 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	pr->read_pages = read_pagemap_page;
 	pr->advance = advance;
 	pr->close = close_page_read;
+	pr->skip_pages = skip_pagemap_pages;
 	pr->sync = process_async_reads;
 	pr->seek_pagemap = seek_pagemap;
+	pr->reset = reset_pagemap;
+	pr->io_complete = NULL; /* set up by the client if needed */
 	pr->id = ids++;
+	pr->pid = pid;
 
-	pr_debug("Opened page read %u (parent %u)\n",
-			pr->id, pr->parent ? pr->parent->id : 0);
+	if (remote)
+		pr->maybe_read_page = maybe_read_page_remote;
+	else
+		pr->maybe_read_page = maybe_read_page_local;
+
+	pr_debug("Opened %s page read %u (parent %u)\n",
+		 remote ? "remote" : "local", pr->id,
+		 pr->parent ? pr->parent->id : 0);
 
 	return 1;
 }
@@ -682,4 +818,17 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 int open_page_read(int pid, struct page_read *pr, int pr_flags)
 {
 	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr, pr_flags);
+}
+
+
+#define DUP_IDS_BASE 1000
+
+void dup_page_read(struct page_read *src, struct page_read *dst)
+{
+	static int dup_ids = 1;
+
+	memcpy(dst, src, sizeof(*dst));
+	INIT_LIST_HEAD(&dst->async);
+	dst->id = src->id + DUP_IDS_BASE * dup_ids++;
+	dst->reset(dst);
 }

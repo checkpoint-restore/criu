@@ -16,4 +16,5 @@ message netlink_sk_entry {
 	required uint32			dst_group	=  10;
 	required fown_entry		fown		=  11;
 	required sk_opts_entry		opts		=  12;
+	optional uint32			ns_id		=  13;
 }

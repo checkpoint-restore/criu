@@ -1,9 +1,9 @@
 #include <unistd.h>
-#include <string.h>
 
 #include "asm/types.h"
 
-#include "syscall.h"
+#include <compel/plugins/std/string.h>
+#include <compel/plugins/std/syscall.h>
 #include "parasite-vdso.h"
 #include "log.h"
 #include "common/bug.h"

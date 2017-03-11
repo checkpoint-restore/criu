@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <limits.h>
 #include <errno.h>
+#include <sys/ioctl.h>
 
 #include "page.h"
 #include "rst-malloc.h"
@@ -29,7 +30,9 @@
 #include "protobuf.h"
 #include "util.h"
 #include "images/ns.pb-c.h"
-#include "images/userns.pb-c.h"
+#include "common/scm.h"
+#include "fdstore.h"
+#include "proc_parse.h"
 
 static struct ns_desc *ns_desc_array[] = {
 	&net_ns_desc,
@@ -302,32 +305,32 @@ struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid,
 		nsid->type = type;
 		nsid_add(nsid, nd, id, pid);
 		nsid->ns_populated = false;
+		INIT_LIST_HEAD(&nsid->children);
+		INIT_LIST_HEAD(&nsid->siblings);
 	}
 
 	return nsid;
 }
 
-int rst_add_ns_id(unsigned int id, struct pstree_item *i, struct ns_desc *nd)
+int rst_add_ns_id(unsigned int id, pid_t pid, struct ns_desc *nd)
 {
-	pid_t pid = vpid(i);
 	struct ns_id *nsid;
 
 	nsid = lookup_ns_by_id(id, nd);
 	if (nsid) {
-		if (pid_rst_prio(pid, nsid->ns_pid))
+		if (nsid->ns_pid == -1 || pid_rst_prio(pid, nsid->ns_pid))
 			nsid->ns_pid = pid;
 		return 0;
 	}
 
-	nsid = rst_new_ns_id(id, pid, nd,
-			i == root_item ? NS_ROOT : NS_OTHER);
+	nsid = rst_new_ns_id(id, pid, nd, NS_OTHER);
 	if (nsid == NULL)
 		return -1;
 
 	return 0;
 }
 
-static struct ns_id *lookup_ns_by_kid(unsigned int kid, struct ns_desc *nd)
+struct ns_id *lookup_ns_by_kid(unsigned int kid, struct ns_desc *nd)
 {
 	struct ns_id *nsid;
 
@@ -421,6 +424,8 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 	nsid->type = type;
 	nsid->kid = kid;
 	nsid->ns_populated = true;
+	INIT_LIST_HEAD(&nsid->children);
+	INIT_LIST_HEAD(&nsid->siblings);
 	nsid_add(nsid, nd, ns_next_id++, pid);
 
 found:
@@ -484,6 +489,55 @@ int dump_one_ns_file(int lfd, u32 id, const struct fd_parms *p)
 	nfe.flags	= p->flags;
 
 	return pb_write_one(img, &nfe, PB_NS_FILE);
+}
+
+static UsernsEntry *dup_userns_entry(UsernsEntry *orig)
+{
+	UsernsEntry *copy;
+	int ret = -1;
+	size_t *i;
+
+	copy = xzalloc(sizeof(*copy));
+	if (!copy)
+		goto out;
+#define COPY_MAP(map, n_map)								\
+	do {										\
+		i = &copy->n_map;							\
+		copy->map = xmalloc(sizeof(UidGidExtent *) * orig->n_map);		\
+		if (!copy->map)								\
+			goto out;							\
+		for (*i = 0; *i < orig->n_map; ++*i) {					\
+			copy->map[*i] = xmalloc(sizeof(UidGidExtent));			\
+			if (!copy->map)							\
+				goto out;						\
+			memcpy(copy->map[*i], orig->map[*i], sizeof(UidGidExtent));	\
+		}									\
+	} while (0)
+
+#define FREE_MAP(map, n_map)								\
+	do {										\
+		if (copy->map) {							\
+			i = &copy->n_map;						\
+			while (--*i > 0)						\
+				xfree(copy->map[*i]);					\
+			xfree(copy->map);						\
+		}									\
+	} while (0)
+
+	COPY_MAP(uid_map, n_uid_map);
+	COPY_MAP(gid_map, n_gid_map);
+	ret = 0;
+out:
+	if (ret) {
+		pr_err("Can't dup entry\n");
+		if (copy) {
+			FREE_MAP(uid_map, n_uid_map);
+			FREE_MAP(gid_map, n_gid_map);
+			xfree(copy);
+		}
+		return NULL;
+	}
+	return copy;
 }
 
 const struct fdtype_ops nsfile_dump_ops = {
@@ -661,15 +715,100 @@ int dump_task_ns_ids(struct pstree_item *item)
 	return 0;
 }
 
-static UsernsEntry userns_entry = USERNS_ENTRY__INIT;
-#define INVALID_ID (~0U)
+static int set_ns_opt(int ns_fd, unsigned ioc, struct ns_id **ns, struct ns_desc *nd)
+{
+	int opt_fd, ret = -1;
+	struct stat st;
 
-static unsigned int userns_id(unsigned int id, UidGidExtent **map, int n)
+	opt_fd = ioctl(ns_fd, ioc);
+	if (opt_fd < 0) {
+		pr_info("Can't do ns ioctl %x\n", ioc);
+		return -errno;
+	}
+	if (fstat(opt_fd, &st) < 0) {
+		pr_perror("Unable to stat on ns fd");
+		ret = -errno;
+		goto out;
+	}
+	*ns = lookup_ns_by_kid(st.st_ino, nd);
+	if (!*ns) {
+		pr_err("Namespaces hierarhies with holes are not supported\n");
+		ret = -EINVAL;
+		goto out;
+	}
+	ret = 0;
+out:
+	close(opt_fd);
+	return ret;
+}
+
+static int set_ns_hookups(struct ns_id *ns)
+{
+	struct ns_desc *nd = ns->nd;
+	struct ns_id *u_ns;
+	int fd, ret = -1;
+
+	fd = open_proc(ns->ns_pid, "ns/%s", nd->str);
+	if (fd < 0) {
+		pr_perror("Can't open %s, pid %d", nd->str, ns->ns_pid);
+		return -1;
+	}
+
+	if (ns->type != NS_ROOT && (nd == &pid_ns_desc || nd == &user_ns_desc)) {
+		if (set_ns_opt(fd, NS_GET_PARENT, &ns->parent, nd) < 0)
+			goto out;
+		if (ns->parent->type == NS_CRIU) {
+			pr_err("Wrong determined NS_ROOT, or root_item has NS_OTHER user_ns\n");
+			goto out;
+		}
+		list_add(&ns->siblings, &ns->parent->children);
+	}
+
+	if (nd != &user_ns_desc) {
+		ret = set_ns_opt(fd, NS_GET_USERNS, &ns->user_ns, &user_ns_desc);
+		if (ret == -ENOTTY) {
+			u_ns = NULL;
+			if (root_ns_mask & CLONE_NEWUSER) {
+				/*
+				 * Assume, we have the only user_ns. If it's not so,
+				 * we'll later fail on NS_GET_PARENT for the second user_ns.
+				 */
+				pr_info("Can't get user_ns of %s %u, assuming NS_ROOT\n",
+					nd->str, ns->id);
+				for (u_ns = ns_ids; u_ns; u_ns = u_ns->next) {
+					if (u_ns->nd == &user_ns_desc && u_ns->type == NS_ROOT)
+						break;
+				}
+				if (!u_ns) {
+					pr_err("Can't find root user_ns\n");
+					goto out;
+				}
+			}
+			ns->user_ns = u_ns;
+		} else if (ret < 0) {
+			goto out;
+		} else if (ns->user_ns->type == NS_CRIU) {
+			if (root_ns_mask & CLONE_NEWUSER) {
+				pr_err("Must not be criu user_ns\n");
+				ret = -1;
+				goto out;
+			}
+			ns->user_ns = NULL;
+		}
+	}
+	ret = 0;
+out:
+	close(fd);
+	return ret;
+}
+
+struct ns_id *root_user_ns = NULL;
+/* Mapping NS_ROOT to NS_CRIU */
+UsernsEntry *userns_entry;
+
+unsigned int child_userns_xid(unsigned int id, UidGidExtent **map, int n)
 {
 	int i;
-
-	if (!(root_ns_mask & CLONE_NEWUSER))
-		return id;
 
 	for (i = 0; i < n; i++) {
 		if (map[i]->lower_first <= id &&
@@ -677,10 +816,10 @@ static unsigned int userns_id(unsigned int id, UidGidExtent **map, int n)
 			return map[i]->first + (id - map[i]->lower_first);
 	}
 
-	return INVALID_ID;
+	return NS_INVALID_XID;
 }
 
-static unsigned int host_id(unsigned int id, UidGidExtent **map, int n)
+static unsigned int parent_userns_id(unsigned int id, UidGidExtent **map, int n)
 {
 	int i;
 
@@ -693,31 +832,85 @@ static unsigned int host_id(unsigned int id, UidGidExtent **map, int n)
 			return map[i]->lower_first + (id - map[i]->first);
 	}
 
-	return INVALID_ID;
+	return NS_INVALID_XID;
 }
 
-static uid_t host_uid(uid_t uid)
+static uid_t parent_userns_uid(UsernsEntry *e, uid_t uid)
 {
-	UsernsEntry *e = &userns_entry;
-	return host_id(uid, e->uid_map, e->n_uid_map);
+	return parent_userns_id(uid, e->uid_map, e->n_uid_map);
 }
 
-static gid_t host_gid(gid_t gid)
+static gid_t parent_userns_gid(UsernsEntry *e, gid_t gid)
 {
-	UsernsEntry *e = &userns_entry;
-	return host_id(gid, e->gid_map, e->n_gid_map);
+	return parent_userns_id(gid, e->gid_map, e->n_gid_map);
 }
 
 uid_t userns_uid(uid_t uid)
 {
-	UsernsEntry *e = &userns_entry;
-	return userns_id(uid, e->uid_map, e->n_uid_map);
+	UsernsEntry *e = userns_entry;
+
+	if (!(root_ns_mask & CLONE_NEWUSER) || !e)
+		return uid;
+
+	return child_userns_xid(uid, e->uid_map, e->n_uid_map);
 }
 
 gid_t userns_gid(gid_t gid)
 {
-	UsernsEntry *e = &userns_entry;
-	return userns_id(gid, e->gid_map, e->n_gid_map);
+	UsernsEntry *e = userns_entry;
+
+	if (!(root_ns_mask & CLONE_NEWUSER) || !e)
+		return gid;
+
+	return child_userns_xid(gid, e->gid_map, e->n_gid_map);
+}
+
+/* Convert uid from NS_ROOT down to its representation in NS_OTHER */
+unsigned int target_userns_uid(struct ns_id *ns, unsigned int uid)
+{
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return uid;
+	if (ns == root_user_ns)
+		return uid;
+	/* User ns max nesting level is only 32 */
+	uid = target_userns_uid(ns->parent, uid);
+	return child_userns_xid(uid, ns->user.e->uid_map, ns->user.e->n_uid_map);
+}
+
+/* Convert gid from NS_ROOT down to its representation in NS_OTHER */
+unsigned int target_userns_gid(struct ns_id *ns, unsigned int gid)
+{
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return gid;
+	if (ns == root_user_ns)
+		return gid;
+	/* User ns max nesting level is only 32 */
+	gid = target_userns_gid(ns->parent, gid);
+	return child_userns_xid(gid, ns->user.e->gid_map, ns->user.e->n_gid_map);
+}
+
+/* Convert uid from NS_OTHER ns up to its representation in NS_ROOT */
+unsigned int root_userns_uid(struct ns_id *ns, unsigned int uid)
+{
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return uid;
+	while (ns != root_user_ns) {
+		uid = parent_userns_uid(ns->user.e, uid);
+		ns = ns->parent;
+	}
+	return uid;
+}
+
+/* Convert gid from NS_OTHER ns up to its representation in NS_ROOT */
+unsigned int root_userns_gid(struct ns_id *ns, unsigned int gid)
+{
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return gid;
+	while (ns != root_user_ns) {
+		gid = parent_userns_gid(ns->user.e, gid);
+		ns = ns->parent;
+	}
+	return gid;
 }
 
 static int parse_id_map(pid_t pid, char *name, UidGidExtent ***pb_exts)
@@ -784,15 +977,80 @@ err:
 	return -1;
 }
 
+static int __dump_user_ns(struct ns_id *ns);
+
+static int dump_user_ns(void *arg)
+{
+	struct ns_id *ns = arg;
+
+	if (switch_ns(ns->parent->ns_pid, &user_ns_desc, NULL) < 0) {
+		pr_err("Can't enter user namespace\n");
+		return -1;
+	}
+
+	return __dump_user_ns(ns);
+}
+
 int collect_user_ns(struct ns_id *ns, void *oarg)
 {
+	int status, stack_size;
+	struct ns_id *p_ns;
+	pid_t pid = -1;
+	UsernsEntry *e;
+	char *stack;
+
+	p_ns = ns->parent;
+
+	e = xmalloc(sizeof(*e));
+	if (!e)
+		return -1;
+	userns_entry__init(e);
+	ns->user.e = e;
+	if (ns->type == NS_ROOT) {
+		userns_entry = e;
+		root_user_ns = ns;
+	}
 	/*
 	 * User namespace is dumped before files to get uid and gid
 	 * mappings, which are used for convirting local id-s to
 	 * userns id-s (userns_uid(), userns_gid())
 	 */
-	if (dump_user_ns(root_item->pid->real, root_item->ids->user_ns_id))
-		return -1;
+	if (p_ns) {
+		/*
+		 * Currently, we are in NS_CRIU. To dump a NS_OTHER ns,
+		 * we need to enter its parent ns. As entered to user_ns
+		 * task has no a way back, we create a child for that.
+		 * NS_ROOT is dumped w/o clone(), it's xids maps is relatively
+		 * to NS_CRIU. We use CLONE_VM to make child share our memory,
+		 * and to allow us see allocated maps, he do. Child's open_proc()
+		 * may do changes about CRIU's internal files states in memory,
+		 * so pass CLONE_FILES to reflect that.
+		 */
+		stack_size = 2 * 1024 * 1024;
+		stack = mmap(NULL, stack_size, PROT_WRITE | PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+		if (stack == MAP_FAILED) {
+			pr_perror("Can't allocate stack");
+			return -1;
+		}
+		pid = clone(dump_user_ns, stack + stack_size, CLONE_VM | CLONE_FILES | SIGCHLD, ns);
+		if (pid == -1) {
+			pr_perror("Can't clone");
+			return -1;
+		}
+		if (waitpid(pid, &status, 0) != pid) {
+			pr_perror("Unable to wait the %d process", pid);
+			return -1;
+		}
+		if (!WIFEXITED(status) || WEXITSTATUS(status)) {
+			pr_err("Can't dump nested user_ns: %x\n", status);
+			return -1;
+		}
+		munmap(stack, stack_size);
+		return 0;
+	} else {
+		if (__dump_user_ns(ns))
+			return -1;
+	}
 
 	return 0;
 }
@@ -808,10 +1066,31 @@ int collect_user_namespaces(bool for_dump)
 	return walk_namespaces(&user_ns_desc, collect_user_ns, NULL);
 }
 
-static int check_user_ns(int pid)
+static int collect_ns_hierarhy(bool for_dump)
 {
+	struct ns_id *ns;
+
+	if (!for_dump)
+		return 0;
+
+	for (ns = ns_ids; ns != NULL; ns = ns->next) {
+		if (ns->type == NS_CRIU)
+			continue;
+		if (set_ns_hookups(ns) < 0)
+			return -1;
+	}
+	return 0;
+}
+
+static int check_user_ns(struct ns_id *ns)
+{
+	UsernsEntry *e = ns->user.e;
+	pid_t pid = ns->ns_pid;
 	int status;
 	pid_t chld;
+
+	if (ns->type != NS_ROOT)
+		return 0;
 
 	chld = fork();
 	if (chld == -1) {
@@ -826,9 +1105,9 @@ static int check_user_ns(int pid)
 		gid_t gid;
 		int i;
 
-		uid = host_uid(0);
-		gid = host_gid(0);
-		if (uid == INVALID_ID || gid == INVALID_ID) {
+		uid = parent_userns_uid(e, 0);
+		gid = parent_userns_gid(e, 0);
+		if (uid == NS_INVALID_XID || gid == NS_INVALID_XID) {
 			pr_err("Unable to convert uid or gid\n");
 			return -1;
 		}
@@ -908,11 +1187,11 @@ static int check_user_ns(int pid)
 	return 0;
 }
 
-int dump_user_ns(pid_t pid, int ns_id)
+static int __dump_user_ns(struct ns_id *ns)
 {
 	int ret, exit_code = -1;
-	UsernsEntry *e = &userns_entry;
-	struct cr_img *img;
+	pid_t pid = ns->ns_pid;
+	UsernsEntry *e = ns->user.e;
 
 	ret = parse_id_map(pid, "uid_map", &e->uid_map);
 	if (ret < 0)
@@ -924,16 +1203,8 @@ int dump_user_ns(pid_t pid, int ns_id)
 		goto err;
 	e->n_gid_map = ret;
 
-	if (check_user_ns(pid))
+	if (check_user_ns(ns))
 		return -1;
-
-	img = open_image(CR_FD_USERNS, O_DUMP, ns_id);
-	if (!img)
-		goto err;
-	ret = pb_write_one(img, e, PB_USERNS);
-	close_image(img);
-	if (ret < 0)
-		goto err;
 
 	return 0;
 err:
@@ -948,16 +1219,29 @@ err:
 	return exit_code;
 }
 
+static int do_free_userns_map(struct ns_id *ns, void *arg)
+{
+	UsernsEntry *e = ns->user.e;
+
+	if (!e)
+		return 0;
+	if (e->n_uid_map > 0) {
+		xfree(e->uid_map[0]);
+		xfree(e->uid_map);
+	}
+	if (e->n_gid_map > 0) {
+		xfree(e->gid_map[0]);
+		xfree(e->gid_map);
+	}
+	if (e == userns_entry)
+		userns_entry = NULL;
+	ns->user.e = NULL;
+
+	return 0;
+}
 void free_userns_maps()
 {
-	if (userns_entry.n_uid_map > 0) {
-		xfree(userns_entry.uid_map[0]);
-		xfree(userns_entry.uid_map);
-	}
-	if (userns_entry.n_gid_map > 0) {
-		xfree(userns_entry.gid_map[0]);
-		xfree(userns_entry.gid_map);
-	}
+	walk_namespaces(&user_ns_desc, do_free_userns_map, NULL);
 }
 
 static int do_dump_namespaces(struct ns_id *ns)
@@ -1076,6 +1360,16 @@ static int write_id_map(pid_t pid, UidGidExtent **extents, int n, char *id_map)
 	int off = 0, i;
 	int fd;
 
+	fd = get_service_fd(CR_PROC_FD_OFF);
+	if (fd < 0)
+		return -1;
+	snprintf(buf, PAGE_SIZE, "%d/%s", pid, id_map);
+	fd = openat(fd, buf, O_WRONLY);
+	if (fd < 0) {
+		pr_perror("Can't open %s\n", buf);
+		return -1;
+	}
+
 	/*
 	 *  We can perform only a single write (that may contain multiple
 	 *  newline-delimited records) to a uid_map and a gid_map files.
@@ -1086,9 +1380,6 @@ static int write_id_map(pid_t pid, UidGidExtent **extents, int n, char *id_map)
 					extents[i]->lower_first,
 					extents[i]->count);
 
-	fd = open_proc_rw(pid, "%s", id_map);
-	if (fd < 0)
-		return -1;
 	if (write(fd, buf, off) != off) {
 		pr_perror("Unable to write into %s", id_map);
 		close(fd);
@@ -1212,8 +1503,6 @@ static int usernsd(int sk)
 
 		unsc_msg_pid_fd(&um, &pid, &fd);
 		pr_debug("uns: daemon calls %p (%d, %d, %x)\n", call, pid, fd, flags);
-
-		BUG_ON(fd < 0 && flags & UNS_FDOUT);
 
 		/*
 		 * Caller has sent us bare address of the routine it
@@ -1459,24 +1748,261 @@ int stop_usernsd(void)
 	return ret;
 }
 
-int prepare_userns(struct pstree_item *item)
+static int do_read_old_user_ns_img(struct ns_id *ns, void *arg)
 {
+	int ret, *count = arg;
 	struct cr_img *img;
 	UsernsEntry *e;
-	int ret;
 
-	img = open_image(CR_FD_USERNS, O_RSTR, item->ids->user_ns_id);
+	if (++*count > 1) {
+		pr_err("More then one user_ns, img format can't be old\n");
+		return -1;
+	}
+
+	img = open_image(CR_FD_USERNS, O_RSTR, ns->id);
 	if (!img)
 		return -1;
 	ret = pb_read_one(img, &e, PB_USERNS);
 	close_image(img);
 	if (ret < 0)
 		return -1;
+	ns->user.e = e;
+	userns_entry = e;
+	ns->type = NS_ROOT;
+	root_user_ns = ns;
+	return 0;
+}
 
-	if (write_id_map(item->pid->real, e->uid_map, e->n_uid_map, "uid_map"))
+static int read_old_user_ns_img(void)
+{
+	int ret, count = 0;
+	struct ns_id *ns;
+
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return 0;
+	/* If new format img has already been read */
+	if (root_user_ns)
+		return 0;
+	/* Old format img is only for root_user_ns. More or less is error */
+	ret = walk_namespaces(&user_ns_desc, do_read_old_user_ns_img, &count);
+	if (ret < 0)
 		return -1;
 
-	if (write_id_map(item->pid->real, e->gid_map, e->n_gid_map, "gid_map"))
+	for (ns = ns_ids; ns != NULL; ns = ns->next)
+		if (ns->nd != &user_ns_desc)
+			ns->user_ns = root_user_ns;
+	return 0;
+}
+
+static int dump_ns_with_hookups(int for_dump)
+{
+	struct cr_img *img;
+	struct ns_id *ns;
+	int ret = 0;
+	NsEntry e;
+
+	if (!for_dump)
+		return 0;
+
+	img = open_image(CR_FD_NS, O_DUMP);
+	if (!img)
+		return -1;
+
+	for (ns = ns_ids; ns != NULL; ns = ns->next) {
+		if (ns->nd != &user_ns_desc &&
+		    ns->nd != &pid_ns_desc &&
+		    ns->nd != &net_ns_desc)
+			continue;
+		if (ns->type == NS_CRIU ||
+		    !(root_ns_mask & ns->nd->cflag))
+			continue;
+
+		ns_entry__init(&e);
+		e.id = ns->id;
+		e.ns_cflag = ns->nd->cflag;
+
+		if (ns->parent) {
+			e.has_parent_id = true;
+			e.parent_id = ns->parent->id;
+		}
+		if (ns->user_ns) {
+			e.has_userns_id = true;
+			e.userns_id = ns->user_ns->id;
+		}
+		if (ns->nd == &user_ns_desc) {
+			e.user_ext = ns->user.e;
+		}
+
+		ret = pb_write_one(img, &e, PB_NS);
+		if (ret < 0) {
+			pr_err("Can't write ns.img\n");
+			break;
+		}
+	}
+
+	close_image(img);
+	return ret;
+}
+
+struct delayed_ns {
+	struct ns_id *ns;
+	u32 userns_id;
+	u32 parent_id;
+};
+
+int read_ns_with_hookups(void)
+{
+	struct ns_id *ns, *p_ns, *u_ns;
+	struct delayed_ns *d_ns = NULL;
+	NsEntry *e = NULL;
+	int ret = 0, nr_d = 0;
+	struct ns_desc *desc;
+	struct cr_img *img;
+
+	img = open_image(CR_FD_NS, O_RSTR);
+	if (!img)
+		return -1;
+	if (empty_image(img))
+		goto close;
+
+	while (1) {
+		ret = pb_read_one_eof(img, &e, PB_NS);
+		if (ret <= 0)
+			goto close;
+		ret = -1;
+		desc = &pid_ns_desc;
+		if (e->ns_cflag == CLONE_NEWUSER)
+			desc = &user_ns_desc;
+		else if (e->ns_cflag == CLONE_NEWNET)
+			desc = &net_ns_desc;
+
+		ns = rst_new_ns_id(e->id, -1, desc, NS_OTHER);
+		if (!ns) {
+			pr_err("Can't find ns %d\n", e->id);
+			goto close;
+		}
+
+		if (e->user_ext && e->ns_cflag == CLONE_NEWUSER) {
+			ns->user.e = dup_userns_entry(e->user_ext);
+			if (!ns->user.e) {
+				pr_err("Can't dup map\n");
+				goto close;
+			}
+		}
+
+		if (e->has_userns_id) {
+			if (e->ns_cflag == CLONE_NEWUSER) {
+				pr_err("Unexpected user_ns\n");
+				goto close;
+			}
+			u_ns = lookup_ns_by_id(e->userns_id, &user_ns_desc);
+			if (!u_ns) {
+				/* User_ns hasn't read yet; set aside this ns */
+				d_ns = xrealloc(d_ns, (nr_d + 1) * sizeof(*d_ns));
+				if (!d_ns)
+					goto close;
+				d_ns[nr_d].ns = ns;
+				d_ns[nr_d].parent_id = 0;
+				d_ns[nr_d++].userns_id = e->userns_id;
+			} else
+				ns->user_ns = u_ns;
+		}
+
+		if (e->has_parent_id) {
+			if (!(e->ns_cflag & (CLONE_NEWUSER|CLONE_NEWPID))) {
+				pr_err("Unexpected parent\n");
+				goto close;
+			}
+			p_ns = lookup_ns_by_id(e->parent_id, desc);
+			if (!p_ns) {
+				/* Parent ns may hasn't been read yet */
+				if (!nr_d || d_ns[nr_d-1].ns != ns) {
+					d_ns = xrealloc(d_ns, (nr_d + 1) * sizeof(*d_ns));
+					if (!d_ns)
+						goto close;
+					d_ns[nr_d].ns = ns;
+					d_ns[nr_d++].userns_id = 0;
+				}
+				d_ns[nr_d-1].parent_id = e->parent_id;
+			} else {
+				ns->parent = p_ns;
+				list_add(&ns->siblings, &p_ns->children);
+			}
+		} else if (e->ns_cflag == CLONE_NEWUSER) {
+			if (root_user_ns) {
+				pr_err("root_user_ns already set\n");
+				goto close;
+			}
+			ns->type = NS_ROOT;
+			root_user_ns = ns;
+			userns_entry = ns->user.e;
+		}
+
+		ns_entry__free_unpacked(e, NULL);
+	}
+close:
+	if (!ret) {
+		while (nr_d-- > 0) {
+			if (d_ns[nr_d].userns_id > 0) {
+				u_ns = lookup_ns_by_id(d_ns[nr_d].userns_id, &user_ns_desc);
+				if (!u_ns) {
+					pr_err("Can't find user_ns: %d\n", d_ns[nr_d].userns_id);
+					ret = -1;
+					break;
+				}
+				d_ns[nr_d].ns->user_ns = u_ns;
+			}
+			if (d_ns[nr_d].parent_id > 0) {
+				p_ns = lookup_ns_by_id(d_ns[nr_d].parent_id, d_ns[nr_d].ns->nd);
+				if (!p_ns) {
+					pr_err("Can't find parent\n");
+					ret = -1;
+					break;
+				}
+				d_ns[nr_d].ns->parent = p_ns;
+				list_add(&d_ns[nr_d].ns->siblings, &p_ns->children);
+			}
+		}
+	}
+	if (ret)
+		pr_err("Failed to read ns image\n");
+	xfree(d_ns);
+	close_image(img);
+	return ret;
+}
+
+static int mark_root_ns(uint32_t id, struct ns_desc *desc)
+{
+	struct ns_id *ns;
+
+	ns = lookup_ns_by_id(id, desc);
+	if (!ns) {
+		pr_err("Can't find root ns %u, %s\n", id, desc->str);
+		return -1;
+	}
+	ns->type = NS_ROOT;
+	return 0;
+}
+
+#define MARK_ROOT_NS(ids, name)	\
+	(ids->has_##name##_ns_id && mark_root_ns(ids->name##_ns_id, &name##_ns_desc) < 0)
+
+int set_ns_roots(void)
+{
+	TaskKobjIdsEntry *ids = root_item->ids;
+	/* Set root for all namespaces except user_ns, which is set in read_ns_with_hookups() */
+	if (MARK_ROOT_NS(ids, pid) || MARK_ROOT_NS(ids, net) || MARK_ROOT_NS(ids, ipc) ||
+	    MARK_ROOT_NS(ids, uts) || MARK_ROOT_NS(ids, mnt) || MARK_ROOT_NS(ids, cgroup))
+		return -1;
+	return 0;
+}
+
+int prepare_userns(pid_t real_pid, UsernsEntry *e)
+{
+	if (write_id_map(real_pid, e->uid_map, e->n_uid_map, "uid_map"))
+		return -1;
+
+	if (write_id_map(real_pid, e->gid_map, e->n_gid_map, "gid_map"))
 		return -1;
 
 	return 0;
@@ -1485,6 +2011,10 @@ int prepare_userns(struct pstree_item *item)
 int collect_namespaces(bool for_dump)
 {
 	int ret;
+
+	ret = collect_ns_hierarhy(for_dump);
+	if (ret < 0)
+		return ret;
 
 	ret = collect_user_namespaces(for_dump);
 	if (ret < 0)
@@ -1495,6 +2025,10 @@ int collect_namespaces(bool for_dump)
 		return ret;
 
 	ret = collect_net_namespaces(for_dump);
+	if (ret < 0)
+		return ret;
+
+	ret = dump_ns_with_hookups(for_dump);
 	if (ret < 0)
 		return ret;
 
@@ -1643,6 +2177,103 @@ err_out:
 	return ret;
 }
 
+enum {
+	NS__CREATED = 1,
+	NS__MAPS_POPULATED,
+	NS__RESTORED,
+	NS__EXIT_HELPER,
+	NS__ERROR,
+};
+
+struct ns_arg {
+	struct ns_id *me;
+	futex_t futex;
+	pid_t pid;
+};
+
+static int create_user_ns_hierarhy_fn(void *in_arg)
+{
+	char stack[128] __stack_aligned__;
+	struct ns_arg *arg = NULL, *p_arg = in_arg;
+	futex_t *p_futex = NULL, *futex = NULL;
+	int status, fd, ret = -1;
+	struct ns_id *me, *child;
+	pid_t pid = -1;
+
+	if (p_arg->me != root_user_ns)
+		p_futex = &p_arg->futex;
+	me = p_arg->me;
+
+	if (p_futex) {
+		/* Set self pid to allow parent restore user_ns maps */
+		p_arg->pid = get_self_real_pid();
+		futex_set_and_wake(p_futex, NS__CREATED);
+		fd = open("/proc/self/ns/user", O_RDONLY);
+		if (fd < 0) {
+			pr_err("Can't get self user ns");
+			goto out;
+		}
+		me->user.nsfd_id = fdstore_add(fd);
+		close(fd);
+		if (me->user.nsfd_id < 0) {
+			pr_err("Can't add fd to fdstore\n");
+			goto out;
+		}
+
+		futex_wait_while_lt(p_futex, NS__MAPS_POPULATED);
+		if (prepare_userns_creds()) {
+			pr_err("Can't prepare creds\n");
+			goto out;
+		}
+	}
+
+	arg = mmap(NULL, sizeof(*arg), PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (arg == MAP_FAILED) {
+		pr_perror("Failed to mmap arg");
+		goto out;
+	}
+	futex = &arg->futex;
+
+	list_for_each_entry(child, &me->children, siblings) {
+		arg->me = child;
+		futex_init(futex);
+
+		pid = clone(create_user_ns_hierarhy_fn, stack + 128, CLONE_NEWUSER | CLONE_FILES | SIGCHLD, arg);
+		if (pid < 0) {
+			pr_perror("Can't clone");
+			goto out;
+		}
+		futex_wait_while_lt(futex, NS__CREATED);
+		/* Get child real pid */
+		pid = arg->pid;
+		if (prepare_userns(pid, child->user.e) < 0) {
+			pr_err("Can't prepare child user_ns\n");
+			goto out;
+		}
+		futex_set_and_wake(futex, NS__MAPS_POPULATED);
+
+		errno = 0;
+		if (wait(&status) < 0 || !WIFEXITED(status) || WEXITSTATUS(status)) {
+			pr_perror("Child process waiting: %d\n", status);
+			goto out;
+		}
+	}
+
+	ret = 0;
+out:
+	if (p_futex)
+		futex_set_and_wake(p_futex, ret ? NS__ERROR : NS__RESTORED);
+	if (arg)
+		munmap(arg, sizeof(*arg));
+	return ret ? 1 : 0;
+}
+
+static int create_user_ns_hierarhy(void)
+{
+	struct ns_arg arg = { .me = root_user_ns };
+	return create_user_ns_hierarhy_fn(&arg);
+}
+
 int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 {
 	pid_t pid = vpid(item);
@@ -1651,7 +2282,8 @@ int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 	pr_info("Restoring namespaces %d flags 0x%lx\n",
 			vpid(item), clone_flags);
 
-	if ((clone_flags & CLONE_NEWUSER) && prepare_userns_creds())
+	if ((clone_flags & CLONE_NEWUSER) && (prepare_userns_creds() ||
+					      create_user_ns_hierarhy()))
 		return -1;
 
 	/*
@@ -1660,14 +2292,14 @@ int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 	 * tree (i.e. -- mnt_ns restoring)
 	 */
 
-	id = ns_per_id ? item->ids->net_ns_id : pid;
-	if ((clone_flags & CLONE_NEWNET) && prepare_net_ns(id))
-		return -1;
 	id = ns_per_id ? item->ids->uts_ns_id : pid;
 	if ((clone_flags & CLONE_NEWUTS) && prepare_utsns(id))
 		return -1;
 	id = ns_per_id ? item->ids->ipc_ns_id : pid;
 	if ((clone_flags & CLONE_NEWIPC) && prepare_ipc_ns(id))
+		return -1;
+
+	if (prepare_net_namespaces())
 		return -1;
 
 	/*
@@ -1694,6 +2326,9 @@ int prepare_namespace_before_tasks(void)
 	if (read_mnt_ns_img())
 		goto err_img;
 
+	if (read_old_user_ns_img())
+		goto err_img;
+
 	return 0;
 
 err_img:
@@ -1707,6 +2342,51 @@ err_netns:
 	stop_usernsd();
 err_unds:
 	return -1;
+}
+
+int __set_user_ns(struct ns_id *ns)
+{
+	int fd;
+
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return 0;
+
+	if (current->user_ns && current->user_ns->id == ns->id)
+		return 0;
+
+	fd = fdstore_get(ns->user.nsfd_id);
+	if (fd < 0) {
+		pr_perror("Can't get ns fd");
+		return -1;
+	}
+	if (setns(fd, CLONE_NEWUSER) < 0) {
+		pr_perror("Can't setns");
+		close(fd);
+		return -1;
+	}
+	current->user_ns = ns;
+	close(fd);
+
+	if (prepare_userns_creds() < 0) {
+		pr_err("Can't set creds\n");
+		return -1;
+	}
+	return 0;
+}
+
+int set_user_ns(u32 id)
+{
+	struct ns_id *ns;
+
+	if (current->user_ns && current->user_ns->id == id)
+		return 0;
+
+	ns = lookup_ns_by_id(id, &user_ns_desc);
+	if (!ns) {
+		pr_err("Can't find user_ns %u\n", id);
+		return -1;
+	}
+	return __set_user_ns(ns);
 }
 
 struct ns_desc pid_ns_desc = NS_DESC_ENTRY(CLONE_NEWPID, "pid");

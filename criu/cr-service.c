@@ -370,16 +370,23 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		opts.exec_cmd[req->n_exec_cmd] = NULL;
 	}
 
+	if (req->has_lazy_pages) {
+		opts.lazy_pages = req->lazy_pages;
+	}
+
 	if (req->ps) {
-		opts.use_page_server = true;
-		opts.addr = req->ps->address;
 		opts.port = htons((short)req->ps->port);
 
-		if (req->ps->has_fd) {
-			if (!opts.swrk_restore)
-				goto err;
+		if (!opts.lazy_pages) {
+			opts.use_page_server = true;
+			opts.addr = req->ps->address;
 
-			opts.ps_socket = req->ps->fd;
+			if (req->ps->has_fd) {
+				if (!opts.swrk_restore)
+					goto err;
+
+				opts.ps_socket = req->ps->fd;
+			}
 		}
 	}
 
@@ -727,7 +734,7 @@ static int start_page_server_req(int sk, CriuOpts *req)
 
 		pr_debug("Starting page server\n");
 
-		pid = cr_page_server(true, start_pipe[1]);
+		pid = cr_page_server(true, false, start_pipe[1]);
 		if (pid < 0)
 			goto out_ch;
 

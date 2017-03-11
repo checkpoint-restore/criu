@@ -1,8 +1,15 @@
-#
-# Import the build engine first
 __nmk_dir=$(CURDIR)/scripts/nmk/scripts/
 export __nmk_dir
 
+#
+# No need to try to remake our Makefiles
+Makefile: ;
+Makefile.%: ;
+scripts/%.mak: ;
+$(__nmk_dir)%.mk: ;
+
+#
+# Import the build engine
 include $(__nmk_dir)include.mk
 include $(__nmk_dir)macro.mk
 
@@ -11,11 +18,6 @@ export CFLAGS
 
 HOSTCFLAGS	?= $(CFLAGS)
 export HOSTCFLAGS
-
-#
-# Where we live.
-SRC_DIR	:= $(CURDIR)
-export SRC_DIR
 
 #
 # Architecture specific options.
@@ -72,6 +74,10 @@ ifeq ($(ARCH),arm)
         PROTOUFIX	:= y
 endif
 
+ifeq ($(ARCH),aarch64)
+	DEFINES		:= -DCONFIG_AARCH64
+endif
+
 ifeq ($(ARCH),x86)
         DEFINES		:= -DCONFIG_X86_64
 endif
@@ -85,7 +91,7 @@ ifeq ($(ARCH),ppc64)
                 error := $(error ppc64 big endian not yet supported)
         endif
 
-        DEFINES		:= -DCONFIG_PPC64
+        DEFINES		:= -DCONFIG_PPC64 -D__SANE_USERSPACE_TYPES__
 endif
 
 export PROTOUFIX DEFINES USERCFLAGS
@@ -105,6 +111,12 @@ export CFLAGS-GCOV
 ifneq ($(GCOV),)
         LDFLAGS         += -lgcov
         CFLAGS          += $(CFLAGS-GCOV)
+endif
+
+ifeq ($(ASAN),1)
+	CFLAGS-ASAN	:= -fsanitize=address
+	export		CFLAGS-ASAN
+	CFLAGS		+= $(CFLAGS-ASAN)
 endif
 
 ifneq ($(WERROR),0)
@@ -134,7 +146,7 @@ all: criu lib
 # Version headers.
 include Makefile.versions
 
-VERSION_HEADER		:= $(SRC_DIR)/criu/include/version.h
+VERSION_HEADER		:= criu/include/version.h
 GITID_FILE		:= .gitid
 GITID		:= $(shell if [ -d ".git" ]; then git describe --always; fi)
 
@@ -169,50 +181,52 @@ endif
 	$(Q) echo "#define CRIU_GITID \"$(GITID)\""				>> $@
 	$(Q) echo "#endif /* __CR_VERSION_H__ */"				>> $@
 
+criu-deps	+= $(VERSION_HEADER)
+
 #
 # Setup proper link for asm headers in common code.
 include/common/asm: include/common/arch/$(ARCH)/asm
 	$(call msg-gen, $@)
 	$(Q) ln -s ./arch/$(ARCH)/asm $@
-$(VERSION_HEADER): include/common/asm
 
-#
-# piegen tool might be disabled by hands. Don't use it until
-# you know what you're doing.
-ifneq ($(filter ia32 x86 ppc64,$(ARCH)),)
-        ifneq ($(PIEGEN),no)
-                piegen-y := y
-                export piegen-y
-        endif
-endif
+criu-deps	+= include/common/asm
 
 #
 # Configure variables.
-CONFIG_HEADER_REL := criu/include/config.h
-export CONFIG_HEADER := $(SRC_DIR)/$(CONFIG_HEADER_REL)
+export CONFIG_HEADER := criu/include/config.h
 ifeq ($(filter clean mrproper,$(MAKECMDGOALS)),)
-include $(SRC_DIR)/Makefile.config
+include Makefile.config
+else
+# To clean all files, enable make/build options here
+export CONFIG_COMPAT := y
 endif
 
 #
 # Protobuf images first, they are not depending
 # on anything else.
 $(eval $(call gen-built-in,images))
+criu-deps	+= images/built-in.o
 
 .PHONY: .FORCE
+
+#
+# Compel get used by CRIU, build it earlier
+include Makefile.compel
 
 #
 # Next the socket CR library
 #
 SOCCR_A := soccr/libsoccr.a
-SOCCR_CONFIG := $(SRC_DIR)/soccr/config.h
+SOCCR_CONFIG := soccr/config.h
 $(SOCCR_CONFIG): $(CONFIG_HEADER)
-	$(Q) test -f $@ || ln -s ../$(CONFIG_HEADER_REL) $@
+	$(Q) test -f $@ || ln -s ../$(CONFIG_HEADER) $@
+soccr/Makefile: ;
 soccr/%: $(SOCCR_CONFIG) .FORCE
 	$(Q) $(MAKE) $(build)=soccr $@
 soccr/built-in.o: $(SOCCR_CONFIG) .FORCE
 	$(Q) $(MAKE) $(build)=soccr all
 $(SOCCR_A): |soccr/built-in.o
+criu-deps	+= $(SOCCR_A)
 
 #
 # CRIU building done in own directory
@@ -222,9 +236,12 @@ $(SOCCR_A): |soccr/built-in.o
 #
 # But note that we're already included
 # the nmk so we can reuse it there.
-criu/%: images/built-in.o $(VERSION_HEADER) $(CONFIG_HEADER) .FORCE
+criu/Makefile: ;
+criu/Makefile.packages: ;
+criu/Makefile.crtools: ;
+criu/%: $(criu-deps) .FORCE
 	$(Q) $(MAKE) $(build)=criu $@
-criu: images/built-in.o $(SOCCR_A) $(VERSION_HEADER) $(CONFIG_HEADER)
+criu: $(criu-deps)
 	$(Q) $(MAKE) $(build)=criu all
 .PHONY: criu
 
@@ -232,37 +249,43 @@ criu: images/built-in.o $(SOCCR_A) $(VERSION_HEADER) $(CONFIG_HEADER)
 # Libraries next once criu it ready
 # (we might generate headers and such
 # when building criu itself).
+lib/Makefile: ;
 lib/%: criu .FORCE
 	$(Q) $(MAKE) $(build)=lib $@
 lib: criu
 	$(Q) $(MAKE) $(build)=lib all
 .PHONY: lib
 
-subclean:
+clean mrproper:
+	$(Q) $(MAKE) $(build)=images $@
+	$(Q) $(MAKE) $(build)=criu $@
+	$(Q) $(MAKE) $(build)=soccr $@
+	$(Q) $(MAKE) $(build)=lib $@
+	$(Q) $(MAKE) $(build)=compel $@
+	$(Q) $(MAKE) $(build)=compel/plugins $@
+	$(Q) $(MAKE) $(build)=lib $@
+.PHONY: clean mrproper
+
+clean-top:
 	$(Q) $(MAKE) -C Documentation clean
+	$(Q) $(MAKE) $(build)=test/compel clean
 	$(Q) $(RM) .gitid
-.PHONY: subclean
+.PHONY: clean-top
 
-clean: subclean
-	$(Q) $(MAKE) $(build)=images $@
-	$(Q) $(MAKE) $(build)=criu $@
-	$(Q) $(MAKE) $(build)=soccr $@
-	$(Q) $(MAKE) $(build)=lib $@
-.PHONY: clean
+clean: clean-top
 
-# mrproper depends on clean in nmk
-mrproper: subclean
-	$(Q) $(MAKE) $(build)=images $@
-	$(Q) $(MAKE) $(build)=criu $@
-	$(Q) $(MAKE) $(build)=soccr $@
-	$(Q) $(MAKE) $(build)=lib $@
+mrproper-top: clean-top
 	$(Q) $(RM) $(CONFIG_HEADER)
 	$(Q) $(RM) $(SOCCR_CONFIG)
 	$(Q) $(RM) $(VERSION_HEADER)
+	$(Q) $(RM) $(COMPEL_VERSION_HEADER)
 	$(Q) $(RM) include/common/asm
+	$(Q) $(RM) compel/include/asm
 	$(Q) $(RM) cscope.*
 	$(Q) $(RM) tags TAGS
-.PHONY: mrproper
+.PHONY: mrproper-top
+
+mrproper: mrproper-top
 
 #
 # Non-CRIU stuff.
@@ -300,8 +323,7 @@ endif
 tar-name := $(shell echo $(head-name) | sed -e 's/^v//g')
 criu-$(tar-name).tar.bz2:
 	git archive --format tar --prefix 'criu-$(tar-name)/' $(head-name) | bzip2 > $@
-dist tar: criu-$(tar-name).tar.bz2
-	@true
+dist tar: criu-$(tar-name).tar.bz2 ;
 .PHONY: dist tar
 
 tags:

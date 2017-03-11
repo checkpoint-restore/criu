@@ -9,7 +9,7 @@
 
 #include "int.h"
 #include "types.h"
-#include "syscall.h"
+#include <compel/plugins/std/syscall.h>
 #include "parasite.h"
 #include "config.h"
 #include "fcntl.h"
@@ -22,10 +22,7 @@
 
 #include "asm/parasite.h"
 #include "restorer.h"
-
-static int tsock = -1;
-
-static struct rt_sigframe *sigframe;
+#include "infect-pie.h"
 
 /*
  * PARASITE_CMD_DUMPPAGES is called many times and the parasite args contains
@@ -67,9 +64,10 @@ static int mprotect_vmas(struct parasite_dump_pages_args *args)
 
 static int dump_pages(struct parasite_dump_pages_args *args)
 {
-	int p, ret;
+	int p, ret, tsock;
 	struct iovec *iovs;
 
+	tsock = parasite_get_rpc_sock();
 	p = recv_fd(tsock);
 	if (p < 0)
 		return -1;
@@ -324,7 +322,7 @@ static int fill_fds_opts(struct parasite_drain_fd *fds, struct fd_opts *opts)
 
 static int drain_fds(struct parasite_drain_fd *args)
 {
-	int ret;
+	int ret, tsock;
 	struct fd_opts *opts;
 
 	/*
@@ -337,6 +335,7 @@ static int drain_fds(struct parasite_drain_fd *args)
 	if (ret)
 		return ret;
 
+	tsock = parasite_get_rpc_sock();
 	ret = send_fds(tsock, NULL, 0,
 		       args->fds, args->nr_fds, opts, sizeof(struct fd_opts));
 	if (ret)
@@ -405,7 +404,7 @@ static int get_proc_fd(void)
 
 static int parasite_get_proc_fd(void)
 {
-	int fd, ret;
+	int fd, ret, tsock;
 
 	fd = get_proc_fd();
 	if (fd < 0) {
@@ -413,6 +412,7 @@ static int parasite_get_proc_fd(void)
 		return -1;
 	}
 
+	tsock = parasite_get_rpc_sock();
 	ret = send_fd(tsock, NULL, 0, fd);
 	sys_close(fd);
 	return ret;
@@ -616,53 +616,7 @@ static int parasite_dump_cgroup(struct parasite_dump_cgroup_args *args)
 	return 0;
 }
 
-static int __parasite_daemon_reply_ack(unsigned int cmd, int err)
-{
-	struct ctl_msg m;
-	int ret;
-
-	m = ctl_msg_ack(cmd, err);
-	ret = sys_sendto(tsock, &m, sizeof(m), 0, NULL, 0);
-	if (ret != sizeof(m)) {
-		pr_err("Sent only %d bytes while %zu expected\n", ret, sizeof(m));
-		return -1;
-	}
-
-	pr_debug("__sent ack msg: %d %d %d\n",
-		 m.cmd, m.ack, m.err);
-
-	return 0;
-}
-
-static int __parasite_daemon_wait_msg(struct ctl_msg *m)
-{
-	int ret;
-
-	pr_debug("Daemon waits for command\n");
-
-	while (1) {
-		*m = (struct ctl_msg){ };
-		ret = sys_recvfrom(tsock, m, sizeof(*m), MSG_WAITALL, NULL, 0);
-		if (ret != sizeof(*m)) {
-			pr_err("Trimmed message received (%d/%d)\n",
-			       (int)sizeof(*m), ret);
-			return -1;
-		}
-
-		pr_debug("__fetched msg: %d %d %d\n",
-			 m->cmd, m->ack, m->err);
-		return 0;
-	}
-
-	return -1;
-}
-
-static noinline void fini_sigreturn(unsigned long new_sp)
-{
-	ARCH_RT_SIGRETURN(new_sp);
-}
-
-static void parasite_cleanup(void)
+void parasite_cleanup(void)
 {
 	if (mprotect_args) {
 		mprotect_args->add_prot = 0;
@@ -670,27 +624,7 @@ static void parasite_cleanup(void)
 	}
 }
 
-static int fini(void)
-{
-	unsigned long new_sp;
-
-	parasite_cleanup();
-
-	new_sp = (long)sigframe + RT_SIGFRAME_OFFSET(sigframe);
-	pr_debug("%ld: new_sp=%lx ip %lx\n", sys_gettid(),
-		  new_sp, RT_SIGFRAME_REGIP(sigframe));
-
-	sys_close(tsock);
-	log_set_fd(-1);
-
-	fini_sigreturn(new_sp);
-
-	BUG();
-
-	return -1;
-}
-
-static int parasite_daemon_cmd(int cmd, void *args)
+int parasite_daemon_cmd(int cmd, void *args)
 {
 	int ret;
 
@@ -743,103 +677,7 @@ static int parasite_daemon_cmd(int cmd, void *args)
 	return ret;
 }
 
-static noinline __used int noinline parasite_daemon(void *args)
-{
-	struct ctl_msg m;
-	int ret = -1;
-
-	pr_debug("Running daemon thread leader\n");
-
-	/* Reply we're alive */
-	if (__parasite_daemon_reply_ack(PARASITE_CMD_INIT_DAEMON, 0))
-		goto out;
-
-	ret = 0;
-
-	while (1) {
-		if (__parasite_daemon_wait_msg(&m))
-			break;
-
-		if (ret && m.cmd != PARASITE_CMD_FINI) {
-			pr_err("Command rejected\n");
-			continue;
-		}
-
-		if (m.cmd == PARASITE_CMD_FINI)
-			goto out;
-
-		ret = parasite_daemon_cmd(m.cmd, args);
-
-		if (__parasite_daemon_reply_ack(m.cmd, ret))
-			break;
-
-		if (ret) {
-			pr_err("Close the control socket for writing\n");
-			sys_shutdown(tsock, SHUT_WR);
-		}
-	}
-
-out:
-	fini();
-
-	return 0;
-}
-
-static noinline int unmap_itself(void *data)
-{
-	struct parasite_unmap_args *args = data;
-
-	sys_munmap(args->parasite_start, args->parasite_len);
-	/*
-	 * This call to sys_munmap must never return. Instead, the controlling
-	 * process must trap us on the exit from munmap.
-	 */
-
-	BUG();
-	return -1;
-}
-
-static noinline __used int parasite_init_daemon(void *data)
-{
-	struct parasite_init_args *args = data;
-	int ret;
-
-	args->sigreturn_addr = fini_sigreturn;
-	sigframe = (void*)(uintptr_t)args->sigframe;
-
-	ret = tsock = sys_socket(PF_UNIX, SOCK_SEQPACKET, 0);
-	if (tsock < 0) {
-		pr_err("Can't create socket: %d\n", tsock);
-		goto err;
-	}
-
-	ret = sys_connect(tsock, (struct sockaddr *)&args->h_addr, args->h_addr_len);
-	if (ret < 0) {
-		pr_err("Can't connect the control socket\n");
-		goto err;
-	}
-
-	futex_set_and_wake(&args->daemon_connected, 1);
-
-	ret = recv_fd(tsock);
-	if (ret >= 0) {
-		log_set_fd(ret);
-		log_set_loglevel(args->log_level);
-		ret = 0;
-	} else
-		goto err;
-
-	parasite_daemon(data);
-
-err:
-	futex_set_and_wake(&args->daemon_connected, ret);
-	fini();
-	BUG();
-
-	return -1;
-}
-
-static int parasite_trap_cmd(int cmd, void *args)
+int parasite_trap_cmd(int cmd, void *args)
 {
 	switch (cmd) {
 	case PARASITE_CMD_DUMP_THREAD:
@@ -848,22 +686,4 @@ static int parasite_trap_cmd(int cmd, void *args)
 
 	pr_err("Unknown command to parasite: %d\n", cmd);
 	return -EINVAL;
-}
-
-#ifndef __parasite_entry
-# define __parasite_entry
-#endif
-
-int __used __parasite_entry parasite_service(unsigned int cmd, void *args)
-{
-	pr_info("Parasite cmd %d/%x process\n", cmd, cmd);
-
-	switch (cmd) {
-	case PARASITE_CMD_INIT_DAEMON:
-		return parasite_init_daemon(args);
-	case PARASITE_CMD_UNMAP:
-		return unmap_itself(args);
-	}
-
-	return parasite_trap_cmd(cmd, args);
 }

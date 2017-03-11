@@ -34,6 +34,7 @@
 #include "kerndat.h"
 #include "util.h"
 #include "external.h"
+#include "fdstore.h"
 
 #include "protobuf.h"
 #include "images/netdev.pb-c.h"
@@ -635,7 +636,7 @@ static int dump_one_gre(struct ifinfomsg *ifi, char *kind,
 	return dump_unknown_device(ifi, kind, tb, fds);
 }
 
-static int dump_one_link(struct nlmsghdr *hdr, void *arg)
+static int dump_one_link(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
 	struct cr_imgset *fds = arg;
 	struct ifinfomsg *ifi;
@@ -682,7 +683,7 @@ unk:
 	return ret;
 }
 
-static int dump_one_nf(struct nlmsghdr *hdr, void *arg)
+static int dump_one_nf(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
 	struct cr_img *img = arg;
 
@@ -795,7 +796,7 @@ static int restore_nf_ct(int pid, int type)
 				goto out;
 
 		nlh->nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK|NLM_F_CREATE;
-		ret = do_rtnl_req(sk, nlh, nlh->nlmsg_len, NULL, NULL, NULL);
+		ret = do_rtnl_req(sk, nlh, nlh->nlmsg_len, NULL, NULL, NULL, NULL);
 		if (ret)
 			goto out;
 	}
@@ -844,7 +845,7 @@ static int dump_nf_ct(struct cr_imgset *fds, int type)
 
 	img = img_from_set(fds, type);
 
-	ret = do_rtnl_req(sk, &req, sizeof(req), dump_one_nf, NULL, img);
+	ret = do_rtnl_req(sk, &req, sizeof(req), dump_one_nf, NULL, NULL, img);
 	close(sk);
 out:
 	return ret;
@@ -875,13 +876,13 @@ static int dump_links(struct cr_imgset *fds)
 	req.nlh.nlmsg_seq = CR_NLMSG_SEQ;
 	req.g.rtgen_family = AF_PACKET;
 
-	ret = do_rtnl_req(sk, &req, sizeof(req), dump_one_link, NULL, fds);
+	ret = do_rtnl_req(sk, &req, sizeof(req), dump_one_link, NULL, NULL, fds);
 	close(sk);
 out:
 	return ret;
 }
 
-static int restore_link_cb(struct nlmsghdr *hdr, void *arg)
+static int restore_link_cb(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
 	pr_info("Got response on SETLINK =)\n");
 	return 0;
@@ -965,7 +966,7 @@ static int do_rtm_link_req(int msg_type, NetDeviceEntry *nde, int nlsk,
 	if (populate_newlink_req(&req, msg_type, nde, link_info, extras) < 0)
 		return -1;
 
-	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL, NULL);
+	return do_rtnl_req(nlsk, &req, req.h.nlmsg_len, restore_link_cb, NULL, NULL, NULL);
 }
 
 int restore_link_parms(NetDeviceEntry *nde, int nlsk)
@@ -1119,7 +1120,7 @@ static int userns_restore_one_link(void *arg, int fd, pid_t pid)
 
 	addattr_l(&req->h, sizeof(*req), IFLA_NET_NS_FD, &fd, sizeof(fd));
 
-	ret = do_rtnl_req(nlsk, req, req->h.nlmsg_len, restore_link_cb, NULL, NULL);
+	ret = do_rtnl_req(nlsk, req, req->h.nlmsg_len, restore_link_cb, NULL, NULL, NULL);
 	close(nlsk);
 
 out:
@@ -1670,36 +1671,167 @@ int dump_net_ns(int ns_id)
 	return ret;
 }
 
-int prepare_net_ns(int pid)
+static int prepare_net_ns(int nsid)
 {
 	int ret = 0;
 	NetnsEntry *netns = NULL;
 
 	if (!(opts.empty_ns & CLONE_NEWNET)) {
-		ret = restore_netns_conf(pid, &netns);
+		ret = restore_netns_conf(nsid, &netns);
 		if (!ret)
-			ret = restore_links(pid, &netns);
+			ret = restore_links(nsid, &netns);
 		if (netns)
 			netns_entry__free_unpacked(netns, NULL);
 
 		if (!ret)
-			ret = restore_ifaddr(pid);
+			ret = restore_ifaddr(nsid);
 		if (!ret)
-			ret = restore_route(pid);
+			ret = restore_route(nsid);
 		if (!ret)
-			ret = restore_rule(pid);
+			ret = restore_rule(nsid);
 		if (!ret)
-			ret = restore_iptables(pid);
+			ret = restore_iptables(nsid);
 	}
 
 	if (!ret)
-		ret = restore_nf_ct(pid, CR_FD_NETNF_CT);
+		ret = restore_nf_ct(nsid, CR_FD_NETNF_CT);
 	if (!ret)
-		ret = restore_nf_ct(pid, CR_FD_NETNF_EXP);
+		ret = restore_nf_ct(nsid, CR_FD_NETNF_EXP);
+
+	return ret;
+}
+
+static int open_net_ns(struct ns_id *nsid)
+{
+	int fd, id;
+
+	/* Pin one with a file descriptor */
+	fd = open_proc(PROC_SELF, "ns/net");
+	if (fd < 0)
+		return -1;
+
+	id = fdstore_add(fd);
+	close(fd);
+	if (id < 0) {
+		return -1;
+	}
+
+	nsid->net.nsfd_id = id;
+
+	return 0;
+}
+
+static int do_create_net_ns(struct ns_id *ns)
+{
+	if (unshare(CLONE_NEWNET)) {
+		pr_perror("Unable to create a new netns");
+		return -1;
+	}
+	if (prepare_net_ns(ns->id))
+		return -1;
+	if (open_net_ns(ns))
+		return -1;
+	return 0;
+}
+
+static int create_net_ns(void *arg)
+{
+	struct ns_id *uns, *ns = arg;
+	int ufd, ret;
+
+	uns = ns->user_ns;
+	ufd = fdstore_get(uns->user.nsfd_id);
+	if (ufd < 0) {
+		pr_err("Can't get user ns\n");
+		exit(1);
+	}
+	if (setns(ufd, CLONE_NEWUSER) < 0) {
+		pr_perror("Can't set user ns");
+		exit(2);
+	}
+	close(ufd);
+	ret = do_create_net_ns(ns) ? 3 : 0;
+	exit(ret);
+}
+
+int prepare_net_namespaces()
+{
+	char stack[128] __stack_aligned__;
+	struct ns_id *nsid;
+	int status;
+	pid_t pid;
+
+	if (!(root_ns_mask & CLONE_NEWNET))
+		return 0;
+
+	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
+		if (nsid->nd != &net_ns_desc)
+			continue;
+
+		if (root_user_ns && nsid->user_ns != root_user_ns) {
+			pid = clone(create_net_ns, stack + 128, SIGCHLD, nsid);
+			if (pid < 0) {
+				pr_perror("Can't clone");
+				goto err;
+			}
+			if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
+				pr_perror("Child process waiting %d", status);
+				goto err;
+			}
+			continue;
+		}
+
+		if (do_create_net_ns(nsid))
+			goto err;
+	}
 
 	close_service_fd(NS_FD_OFF);
 
-	return ret;
+	return 0;
+err:
+	return -1;
+}
+
+static int do_restore_task_net_ns(struct ns_id *nsid, struct pstree_item *current)
+{
+	int fd;
+
+	if (!(root_ns_mask & CLONE_NEWNET))
+		return 0;
+
+	fd = fdstore_get(nsid->net.nsfd_id);
+	if (fd < 0)
+		return -1;
+
+	if (setns(fd, CLONE_NEWNET)) {
+		pr_perror("Can't restore netns");
+		close(fd);
+		return -1;
+	}
+	close(fd);
+
+	return 0;
+}
+
+int restore_task_net_ns(struct pstree_item *current)
+{
+	if (current->ids && current->ids->has_net_ns_id) {
+		unsigned int id = current->ids->net_ns_id;
+		struct ns_id *nsid;
+
+		nsid = lookup_ns_by_id(id, &net_ns_desc);
+		if (nsid == NULL) {
+			pr_err("Can't find mount namespace %d\n", id);
+			return -1;
+		}
+
+		BUG_ON(nsid->type == NS_CRIU);
+
+		if (do_restore_task_net_ns(nsid, current))
+			return -1;
+	}
+
+	return 0;
 }
 
 int netns_keep_nsfd(void)
@@ -1915,6 +2047,7 @@ err_nl:
 	goto out;
 }
 
+static int netns_nr;
 static int collect_net_ns(struct ns_id *ns, void *oarg)
 {
 	bool for_dump = (oarg == (void *)1);
@@ -1924,6 +2057,8 @@ static int collect_net_ns(struct ns_id *ns, void *oarg)
 	ret = prep_ns_sockets(ns, for_dump);
 	if (ret)
 		return ret;
+
+	netns_nr++;
 
 	if (!for_dump)
 		return 0;
@@ -1938,6 +2073,78 @@ int collect_net_namespaces(bool for_dump)
 }
 
 struct ns_desc net_ns_desc = NS_DESC_ENTRY(CLONE_NEWNET, "net");
+
+static struct ns_id *get_root_netns()
+{
+	static struct ns_id *root_netns = NULL;
+
+	if (root_netns)
+		return root_netns;
+
+	if (root_item->ids == NULL)
+		return NULL;
+
+	root_netns = lookup_ns_by_id(root_item->ids->net_ns_id, &net_ns_desc);
+
+	return root_netns;
+}
+
+/*
+ * socket_diag doesn't report unbound and unconnected sockets,
+ * so we have to get their network namesapces explicitly
+ */
+struct ns_id *get_socket_ns(int lfd)
+{
+	struct ns_id *ns;
+	struct stat st;
+	int ns_fd;
+
+	ns_fd = ioctl(lfd, SIOCGSKNS);
+	if (ns_fd < 0) {
+		/* backward compatiblity with old kernels */
+		if (netns_nr == 1)
+			return get_root_netns();
+
+		pr_perror("Unable to get a socket net namespace");
+		return NULL;
+	}
+	if (fstat(ns_fd, &st)) {
+		pr_perror("Unable to stat a network namespace");
+		return NULL;
+	}
+
+	ns = lookup_ns_by_kid(st.st_ino, &net_ns_desc);
+	if (ns == NULL) {
+		pr_err("Unable to dump a socket from an external network namespace\n");
+		return NULL;
+	}
+
+	return ns;
+}
+
+int kerndat_socket_netns(void)
+{
+	int sk, ns_fd;
+
+	sk = socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (sk < 0) {
+		pr_perror("Unable to create socket");
+		return -1;
+	}
+	ns_fd = ioctl(sk, SIOCGSKNS);
+	if (ns_fd < 0) {
+		pr_warn("Unable to get a socket network namespace\n");
+		kdat.sk_ns = false;
+		close(sk);
+		return 0;
+	}
+	close(sk);
+	close(ns_fd);
+
+	kdat.sk_ns = true;
+
+	return 0;
+}
 
 static int move_to_bridge(struct external *ext, void *arg)
 {

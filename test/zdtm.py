@@ -27,6 +27,13 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 prev_line = None
 
 
+def alarm(*args):
+    print "==== ALARM ===="
+
+
+signal.signal(signal.SIGALRM, alarm)
+
+
 def traceit(f, e, a):
 	if e == "line":
 		lineno = f.f_lineno
@@ -676,10 +683,12 @@ join_ns_file = '/run/netns/zdtm_netns'
 class criu_cli:
 	@staticmethod
 	def run(action, args, fault = None, strace = [], preexec = None, nowait = False):
-		env = None
+		env = dict(os.environ, ASAN_OPTIONS = "log_path=asan.log:disable_coredump=0:detect_leaks=0")
+
 		if fault:
 			print "Forcing %s fault" % fault
-			env = dict(os.environ, CRIU_FAULT = fault)
+			env['CRIU_FAULT'] = fault
+
 		cr = subprocess.Popen(strace + [criu_bin, action] + args, env = env, preexec_fn = preexec)
 		if nowait:
 			return cr
@@ -771,6 +780,9 @@ class criu:
 		self.__iter = 0
 		self.__prev_dump_iter = None
 		self.__page_server = (opts['page_server'] and True or False)
+		self.__remote_lazy_pages = (opts['remote_lazy_pages'] and True or False)
+		self.__lazy_pages = (self.__remote_lazy_pages or
+				     opts['lazy_pages'] and True or False)
 		self.__restore_sibling = (opts['sibling'] and True or False)
 		self.__join_ns = (opts['join_ns'] and True or False)
 		self.__empty_ns = (opts['empty_ns'] and True or False)
@@ -781,9 +793,13 @@ class criu:
 		self.__mdedup = (opts['noauto_dedup'] and True or False)
 		self.__user = (opts['user'] and True or False)
 		self.__leave_stopped = (opts['stop'] and True or False)
+		self.__remote = (opts['remote'] and True or False)
 		self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
 		self.__lazy_pages_p = None
 		self.__page_server_p = None
+
+	def fini(self, opts):
+                return
 
 	def logs(self):
 		return self.__dump_path
@@ -904,6 +920,27 @@ class criu:
 
 		a_opts += self.__test.getdopts()
 
+		if self.__remote:
+			logdir = os.getcwd() + "/" + self.__dump_path + "/" + str(self.__iter)
+			print "Adding image cache"
+
+			cache_opts = [criu_bin, "image-cache", "--port", "12345", "-v4", "-o",
+				      logdir + "/image-cache.log", "-D", logdir]
+
+			subprocess.Popen(cache_opts).pid
+			time.sleep(1)
+
+			print "Adding image proxy"
+
+			proxy_opts = [criu_bin, "image-proxy", "--port", "12345", "--address",
+					"localhost", "-v4", "-o", logdir + "/image-proxy.log",
+					"-D", logdir]
+
+			subprocess.Popen(proxy_opts).pid
+			time.sleep(1)
+
+			a_opts += ["--remote"]
+
 		if self.__dedup:
 			a_opts += ["--auto-dedup"]
 
@@ -946,11 +983,24 @@ class criu:
 			r_opts += ['--empty-ns', 'net']
 			r_opts += ['--action-script', os.getcwd() + '/empty-netns-prep.sh']
 
+		if self.__remote:
+			r_opts += ["--remote"]
+
 		self.__prev_dump_iter = None
 		criu_dir = os.path.dirname(os.getcwd())
 		if os.getenv("GCOV"):
 			r_opts.append('--external')
 			r_opts.append('mnt[zdtm]:%s' % criu_dir)
+
+		if self.__lazy_pages:
+			lp_opts = []
+			if self.__remote_lazy_pages:
+				lp_opts += ['--page-server', "--port", "12345"]
+				ps_opts = ["--pidfile", "ps.pid",
+					   "--port", "12345", "--lazy-pages"]
+				self.__page_server_p = self.__criu_act("page-server", opts = ps_opts, nowait = True)
+			self.__lazy_pages_p = self.__criu_act("lazy-pages", opts = lp_opts, nowait = True)
+			r_opts += ["--lazy-pages"]
 
 		if self.__leave_stopped:
 			r_opts += ['--leave-stopped']
@@ -1328,6 +1378,7 @@ def do_run_test(tname, tdesc, flavs, opts):
 				if opts['join_ns']:
 					check_joinns_state(t)
 				t.stop()
+				cr_api.fini(opts)
 				try_run_hook(t, ["--clean"])
 		except test_fail_exc as e:
 			print_sep("Test %s FAIL at %s" % (tname, e.step), '#')
@@ -1408,8 +1459,9 @@ class launcher:
 		self.__show_progress(name)
 
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'stop', 'empty_ns',
-				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'rpc',
-				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup')
+				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'rpc', 'lazy_pages',
+				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
+				'remote_lazy_pages', 'remote')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
 		if self.__use_log:
@@ -1428,7 +1480,20 @@ class launcher:
 			self.wait()
 
 	def __wait_one(self, flags):
-		pid, status = os.waitpid(0, flags)
+		pid = -1
+		status = -1
+		signal.alarm(10)
+		while True:
+			try:
+			    pid, status = os.waitpid(0, flags)
+			except OSError, e:
+			    if e.errno == errno.EINTR:
+				subprocess.Popen(["ps", "axf"]).wait()
+				continue
+			    raise e
+			else:
+			    break
+		signal.alarm(0)
 		self.__runtest += 1
 		if pid != 0:
 			sub = self.__subs.pop(pid)
@@ -1653,6 +1718,11 @@ def run_tests(opts):
 			if opts['join_ns']:
 				if test_flag(tdesc, 'samens'):
 					l.skip(t, "samens test in the same namespace")
+					continue
+
+			if opts['lazy_pages'] or opts['remote_lazy_pages']:
+				if test_flag(tdesc, 'nolazy'):
+					l.skip(t, "lazy pages are not supported")
 					continue
 
 			test_flavs = tdesc.get('flavor', 'h ns uns').split()
@@ -1881,6 +1951,7 @@ rp.add_argument("--user", help = "Run CRIU as regular user", action = 'store_tru
 rp.add_argument("--rpc", help = "Run CRIU via RPC rather than CLI", action = 'store_true')
 
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
+rp.add_argument("--remote", help = "Use remote option for diskless C/R", action = 'store_true')
 rp.add_argument("-p", "--parallel", help = "Run test in parallel")
 rp.add_argument("--dry-run", help="Don't run tests, just pretend to", action='store_true')
 rp.add_argument("--script", help="Add script to get notified by criu")
@@ -1888,6 +1959,8 @@ rp.add_argument("-k", "--keep-img", help = "Whether or not to keep images after 
 		choices = ['always', 'never', 'failed'], default = 'failed')
 rp.add_argument("--report", help = "Generate summary report in directory")
 rp.add_argument("--keep-going", help = "Keep running tests in spite of failures", action = 'store_true')
+rp.add_argument("--lazy-pages", help = "restore pages on demand", action = 'store_true')
+rp.add_argument("--remote-lazy-pages", help = "simulate lazy migration", action = 'store_true')
 
 lp = sp.add_parser("list", help = "List tests")
 lp.set_defaults(action = list_tests)

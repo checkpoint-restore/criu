@@ -8,44 +8,21 @@
 #include "bitops.h"
 #include "asm/int.h"
 
+#include <compel/plugins/std/asm/syscall-types.h>
+
 #include "images/core.pb-c.h"
 
-typedef void rt_signalfn_t(int, siginfo_t *, void *);
-typedef rt_signalfn_t *rt_sighandler_t;
-
-typedef void rt_restorefn_t(void);
-typedef rt_restorefn_t *rt_sigrestore_t;
-
-#define _KNSIG           64
-# define _NSIG_BPW      64
-
-#define _KNSIG_WORDS     (_KNSIG / _NSIG_BPW)
-
-typedef struct {
-	unsigned long sig[_KNSIG_WORDS];
-} k_rtsigset_t;
-
-#define SA_RESTORER	0x04000000
-
-typedef struct {
-	rt_sighandler_t	rt_sa_handler;
-	unsigned long	rt_sa_flags;
-	rt_sigrestore_t	rt_sa_restorer;
-	k_rtsigset_t	rt_sa_mask;
-} rt_sigaction_t;
-
-typedef struct {
-	unsigned int	entry_number;
-	unsigned int	base_addr;
-	unsigned int	limit;
-	unsigned int	seg_32bit:1;
-	unsigned int	contents:2;
-	unsigned int	read_exec_only:1;
-	unsigned int	limit_in_pages:1;
-	unsigned int	seg_not_present:1;
-	unsigned int	useable:1;
-	unsigned int	lm:1;
-} user_desc_t;
+static inline int core_is_compat(CoreEntry *c)
+{
+	switch (c->thread_info->gpregs->mode) {
+		case USER_X86_REGS_MODE__NATIVE:
+			return 0;
+		case USER_X86_REGS_MODE__COMPAT:
+			return 1;
+		default:
+			return -1;
+	}
+}
 
 #define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__X86_64
 
@@ -55,5 +32,21 @@ typedef UserX86RegsEntry UserRegsEntry;
 
 static inline u64 encode_pointer(void *p) { return (u64)(long)p; }
 static inline void *decode_pointer(u64 v) { return (void*)(long)v; }
+
+#define AT_VECTOR_SIZE			44
+typedef uint64_t auxv_t;
+
+/*
+ * Linux preserves three TLS segments in GDT.
+ * Offsets in GDT differ between 32-bit and 64-bit machines.
+ * For 64-bit x86 those GDT offsets are the same
+ * for native and compat tasks.
+ */
+#define GDT_ENTRY_TLS_MIN		12
+#define GDT_ENTRY_TLS_MAX		14
+#define GDT_ENTRY_TLS_NUM		3
+typedef struct {
+	user_desc_t		desc[GDT_ENTRY_TLS_NUM];
+} tls_t;
 
 #endif /* __CR_ASM_TYPES_H__ */

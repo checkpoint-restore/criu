@@ -297,6 +297,8 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	ue->id		= id;
 	ue->ino		= sk->sd.ino;
+	ue->ns_id	= sk->sd.sk_ns->id;
+	ue->has_ns_id	= true;
 	ue->type	= sk->type;
 	ue->state	= sk->state;
 	ue->flags	= p->flags;
@@ -583,7 +585,7 @@ skip:
 }
 
 static int unix_collect_one(const struct unix_diag_msg *m,
-			    struct nlattr **tb)
+			    struct nlattr **tb, struct ns_id *ns)
 {
 	struct unix_sk_desc *d;
 	int ret = 0;
@@ -660,7 +662,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 		d->wqlen = rq->udiag_wqueue;
 	}
 
-	sk_collect_one(m->udiag_ino, AF_UNIX, &d->sd);
+	sk_collect_one(m->udiag_ino, AF_UNIX, &d->sd, ns);
 	list_add_tail(&d->list, &unix_sockets);
 	show_one_unix("Collected", d);
 
@@ -674,14 +676,14 @@ skip:
 	return ret;
 }
 
-int unix_receive_one(struct nlmsghdr *h, void *arg)
+int unix_receive_one(struct nlmsghdr *h, struct ns_id *ns, void *arg)
 {
 	struct unix_diag_msg *m = NLMSG_DATA(h);
 	struct nlattr *tb[UNIX_DIAG_MAX+1];
 
 	nlmsg_parse(h, sizeof(struct unix_diag_msg), tb, UNIX_DIAG_MAX, NULL);
 
-	return unix_collect_one(m, tb);
+	return unix_collect_one(m, tb, ns);
 }
 
 static int dump_external_sockets(struct unix_sk_desc *peer)
@@ -708,7 +710,6 @@ static int dump_external_sockets(struct unix_sk_desc *peer)
 				if (peer->type != SOCK_DGRAM) {
 					show_one_unix("Ext stream not supported", peer);
 					pr_err("Can't dump half of stream unix connection.\n");
-					return -1;
 				}
 
 				if (!peer->name) {
@@ -1089,6 +1090,9 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 	pr_info("Opening pair master (id %#x ino %#x peer %#x)\n",
 			ui->ue->id, ui->ue->ino, ui->ue->peer);
 
+	if (set_netns(ui->ue->ns_id))
+		return -1;
+
 	if (socketpair(PF_UNIX, ui->ue->type, 0, sk) < 0) {
 		pr_perror("Can't make socketpair");
 		return -1;
@@ -1143,6 +1147,9 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 
 	pr_info("Opening standalone socket (id %#x ino %#x peer %#x)\n",
 			ui->ue->id, ui->ue->ino, ui->ue->peer);
+
+	if (set_netns(ui->ue->ns_id))
+		return -1;
 
 	/*
 	 * Check if this socket was connected to criu service.
@@ -1246,7 +1253,6 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 					"option to allow restoring it.\n");
 			return -1;
 		}
-
 
 		sk = socket(PF_UNIX, ui->ue->type, 0);
 		if (sk < 0) {

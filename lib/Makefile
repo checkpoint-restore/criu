@@ -12,8 +12,8 @@ all-y	+= lib-c lib-py
 
 #
 # C language bindings.
+lib/c/Makefile: ;
 lib/c/%: .FORCE
-	$(call msg-gen, $@)
 	$(Q) $(MAKE) $(build)=lib/c $@
 
 cflags-so		+= $(CFLAGS) -rdynamic -Wl,-soname,$(CRIU_SO).$(CRIU_SO_VERSION_MAJOR)
@@ -27,6 +27,7 @@ lib-c: lib/c/$(CRIU_SO)
 
 #
 # Python bindings.
+lib/py/Makefile: ;
 lib/py/%: .FORCE
 	$(call msg-gen, $@)
 	$(Q) $(MAKE) $(build)=lib/py $@
@@ -40,6 +41,7 @@ clean-lib:
 .PHONY: clean-lib
 clean: clean-lib
 cleanup-y	+= lib/c/$(CRIU_SO) lib/c/criu.pc
+mrproper: clean
 
 install: lib-c lib-py crit/crit lib/c/criu.pc.in
 	$(E) "  INSTALL " lib

@@ -18,6 +18,7 @@ struct socket_desc {
 	unsigned int		family;
 	unsigned int		ino;
 	struct socket_desc	*next;
+	struct ns_id		*sk_ns;
 	int			already_dumped;
 };
 
@@ -30,7 +31,7 @@ extern void preload_socket_modules(void);
 
 extern bool socket_test_collect_bit(unsigned int family, unsigned int proto);
 
-extern int sk_collect_one(unsigned ino, int family, struct socket_desc *d);
+extern int sk_collect_one(unsigned ino, int family, struct socket_desc *d, struct ns_id *ns);
 struct ns_id;
 extern int collect_sockets(struct ns_id *);
 extern int collect_inet_sockets(void);
@@ -47,9 +48,9 @@ extern const struct fdtype_ops inet6_dump_ops;
 extern const struct fdtype_ops netlink_dump_ops;
 extern const struct fdtype_ops packet_dump_ops;
 
-extern int inet_collect_one(struct nlmsghdr *h, int family, int type);
-extern int unix_receive_one(struct nlmsghdr *h, void *);
-extern int netlink_receive_one(struct nlmsghdr *hdr, void *arg);
+extern int inet_collect_one(struct nlmsghdr *h, int family, int type, struct ns_id *ns);
+extern int unix_receive_one(struct nlmsghdr *h, struct ns_id *ns, void *);
+extern int netlink_receive_one(struct nlmsghdr *hdr, struct ns_id *ns, void *arg);
 
 extern int unix_sk_id_add(unsigned int ino);
 extern int unix_sk_ids_parse(char *optarg);
@@ -80,5 +81,13 @@ static inline int sk_decode_shutdown(int val)
 #ifndef NETLINK_SOCK_DIAG
 #define NETLINK_SOCK_DIAG NETLINK_INET_DIAG
 #endif
+
+extern int set_netns(uint32_t ns_id);
+
+#ifndef SIOCGSKNS
+#define SIOCGSKNS      0x894C          /* get socket network namespace */
+#endif
+
+extern int kerndat_socket_netns(void);
 
 #endif /* __CR_SOCKETS_H__ */

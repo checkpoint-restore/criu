@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 
 #include "types.h"
 #include "parasite-syscall.h"
@@ -16,9 +17,11 @@
 #include "kerndat.h"
 #include "vdso.h"
 #include "util.h"
-#include "log.h"
+#include "criu-log.h"
 #include "mem.h"
 #include "vma.h"
+#include <compel/compel.h>
+#include <compel/plugins/std/syscall.h>
 
 #ifdef LOG_PREFIX
 # undef LOG_PREFIX
@@ -27,6 +30,7 @@
 
 struct vdso_symtable vdso_sym_rt = VDSO_SYMTABLE_INIT;
 u64 vdso_pfn = VDSO_BAD_PFN;
+struct vdso_symtable vdso_compat_rt = VDSO_SYMTABLE_INIT;
 /*
  * The VMAs list might have proxy vdso/vvar areas left
  * from previous dump/restore cycle so we need to detect
@@ -46,7 +50,7 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 	struct vma_area *vma;
 	off_t off;
 
-	args = parasite_args(ctl, struct parasite_vdso_vma_entry);
+	args = compel_parasite_args(ctl, struct parasite_vdso_vma_entry);
 	if (kdat.pmap == PM_FULL) {
 		BUG_ON(vdso_pfn == VDSO_BAD_PFN);
 		fd = open_proc(pid, "pagemap");
@@ -100,10 +104,13 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		 */
 		args->start = vma->e->start;
 		args->len = vma_area_len(vma);
-		args->try_fill_symtable = (fd < 0) ? true : false;
+		if (!compel_mode_native(ctl))
+			args->try_fill_symtable = false;
+		else
+			args->try_fill_symtable = (fd < 0) ? true : false;
 		args->is_vdso = false;
 
-		if (parasite_execute_daemon(PARASITE_CMD_CHECK_VDSO_MARK, ctl)) {
+		if (compel_rpc_call_sync(PARASITE_CMD_CHECK_VDSO_MARK, ctl)) {
 			pr_err("Parasite failed to poke for mark\n");
 			goto err;
 		}
@@ -161,7 +168,12 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 				vma->e->status |= VMA_AREA_VDSO;
 			}
 		} else {
-			if (unlikely(vma_area_is(vma, VMA_AREA_VDSO))) {
+			/*
+			 * Compat vDSO mremap support is only after v4.8,
+			 * [vdso] vma name always stays after mremap.
+			 */
+			if (unlikely(vma_area_is(vma, VMA_AREA_VDSO)) &&
+					compel_mode_native(ctl)) {
 				pr_debug("Drop mishinted vDSO status at %lx\n",
 					 (long)vma->e->start);
 				vma->e->status &= ~VMA_AREA_VDSO;
@@ -214,15 +226,15 @@ err:
 	return exit_code;
 }
 
-static int vdso_fill_self_symtable(struct vdso_symtable *s)
+static int vdso_parse_maps(pid_t pid, struct vdso_symtable *s)
 {
+	int exit_code = -1;
 	char buf[512];
-	int ret, exit_code = -1;
 	FILE *maps;
 
 	*s = (struct vdso_symtable)VDSO_SYMTABLE_INIT;
 
-	maps = fopen_proc(PROC_SELF, "maps");
+	maps = fopen_proc(pid, "maps");
 	if (!maps)
 		return -1;
 
@@ -239,8 +251,7 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 		if (!has_vdso && !has_vvar)
 			continue;
 
-		ret = sscanf(buf, "%lx-%lx", &start, &end);
-		if (ret != 2) {
+		if (sscanf(buf, "%lx-%lx", &start, &end) != 2) {
 			pr_err("Can't find vDSO/VVAR bounds\n");
 			goto err;
 		}
@@ -252,10 +263,6 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 			}
 			s->vma_start = start;
 			s->vma_end = end;
-
-			ret = vdso_fill_symtable(start, end - start, s);
-			if (ret)
-				goto err;
 		} else {
 			if (s->vvar_start != VVAR_BAD_ADDR) {
 				pr_err("Got second VVAR entry\n");
@@ -266,6 +273,14 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 		}
 	}
 
+	exit_code = 0;
+err:
+	fclose(maps);
+	return exit_code;
+}
+
+static int validate_vdso_addr(struct vdso_symtable *s)
+{
 	/*
 	 * Validate its structure -- for new vDSO format the
 	 * structure must be like
@@ -284,28 +299,229 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 			if (s->vma_end != s->vvar_start &&
 			    s->vvar_end != s->vma_start) {
 				pr_err("Unexpected rt vDSO area bounds\n");
-				goto err;
+				return -1;
 			}
 		}
 	} else {
 		pr_err("Can't find rt vDSO\n");
-		goto err;
+		return -1;
 	}
+
+	return 0;
+}
+
+static int vdso_fill_self_symtable(struct vdso_symtable *s)
+{
+
+	if (vdso_parse_maps(PROC_SELF, s))
+		return -1;
+
+	if (vdso_fill_symtable(s->vma_start, s->vma_end - s->vma_start, s))
+		return -1;
+
+	if (validate_vdso_addr(s))
+		return -1;
 
 	pr_debug("rt [vdso] %lx-%lx [vvar] %lx-%lx\n",
 		 s->vma_start, s->vma_end,
 		 s->vvar_start, s->vvar_end);
 
-	exit_code = 0;
-err:
-	fclose(maps);
-	return exit_code;
+	return 0;
 }
+
+#ifdef CONFIG_COMPAT
+static void exit_on(int ret, int err_fd, char *reason)
+{
+	if (ret) {
+		syscall(__NR_write, err_fd, reason, strlen(reason));
+		syscall(__NR_exit, ret);
+	}
+}
+/*
+ * Because of restrictions of ARCH_MAP_VDSO_* API, new vDSO blob
+ * can be mapped only if there is no vDSO blob present for a process.
+ * This is a helper process, it unmaps 64-bit vDSO and maps 32-bit vDSO.
+ * Then it copies vDSO blob to shared with CRIU mapping.
+ *
+ * The purpose is to fill compat vdso's symtable (vdso_compat_rt).
+ * It's an optimization to fill symtable only once at CRIU restore
+ * for all restored tasks.
+ *
+ * @native		- 64-bit vDSO blob (for easy unmap)
+ * @pipe_fd		- to get size of compat blob from /proc/.../maps
+ * @err_fd		- to print error messages
+ * @vdso_buf, buf_size	- shared with CRIU buffer
+ *
+ * WARN: This helper shouldn't call pr_err() or any syscall with
+ *	 Glibc's wrapper function - it may very likely blow up.
+ */
+static void compat_vdso_helper(struct vdso_symtable *native, int pipe_fd,
+		int err_fd, void *vdso_buf, size_t buf_size)
+{
+	size_t vma_size;
+	void *vdso_addr;
+	long vdso_size;
+	long ret;
+
+	vma_size = native->vma_end - native->vma_start;
+	ret = syscall(__NR_munmap, native->vma_start, vma_size);
+	exit_on(ret, err_fd, "Error: Failed to unmap native vdso\n");
+
+	vma_size = native->vvar_end - native->vvar_start;
+	ret = syscall(__NR_munmap, native->vvar_start, vma_size);
+	exit_on(ret, err_fd, "Error: Failed to unmap native vvar\n");
+
+	ret = syscall(__NR_arch_prctl, ARCH_MAP_VDSO_32, native->vma_start);
+	if (ret < 0)
+		exit_on(ret, err_fd, "Error: ARCH_MAP_VDSO failed\n");
+
+	vdso_size = ret;
+	if (vdso_size > buf_size)
+		exit_on(-1, err_fd, "Error: Compatible vdso's size is bigger than reserved buf\n");
+
+	/* Stop so CRIU could parse smaps to find 32-bit vdso's size */
+	ret = syscall(__NR_kill, syscall(__NR_getpid), SIGSTOP);
+	exit_on(ret, err_fd, "Error: Can't stop myself with SIGSTOP (having a good time)\n");
+
+	ret = syscall(__NR_read, pipe_fd, &vdso_addr, sizeof(void *));
+	if (ret != sizeof(void *))
+		exit_on(-1, err_fd, "Error: Can't read size of mmaped vdso from pipe\n");
+
+	memcpy(vdso_buf, vdso_addr, vdso_size);
+
+	syscall(__NR_exit, 0);
+}
+
+static int vdso_mmap_compat(struct vdso_symtable *native,
+		struct vdso_symtable *compat, void *vdso_buf, size_t buf_size)
+{
+	pid_t pid;
+	int status, ret = -1;
+	int fds[2];
+
+	if (pipe(fds)) {
+		pr_perror("Failed to open pipe");
+		return -1;
+	}
+
+	pid = fork();
+	if (pid == 0) {
+		if (close(fds[1])) {
+			pr_perror("Failed to close pipe");
+			syscall(__NR_exit, 1);
+		}
+
+		compat_vdso_helper(native, fds[0], log_get_fd(),
+				vdso_buf, buf_size);
+
+		BUG();
+	}
+
+	if (close(fds[0])) {
+		pr_perror("Failed to close pipe");
+		goto out_kill;
+	}
+	waitpid(pid, &status, WUNTRACED);
+
+	if (WIFEXITED(status)) {
+		pr_err("Compat vdso helper exited with %d\n",
+				WEXITSTATUS(status));
+		goto out_kill;
+	}
+
+	if (!WIFSTOPPED(status)) {
+		pr_err("Compat vdso helper isn't stopped\n");
+		goto out_kill;
+	}
+
+	if (vdso_parse_maps(pid, compat))
+		goto out_kill;
+
+	if (validate_vdso_addr(compat))
+		goto out_kill;
+
+	if (kill(pid, SIGCONT)) {
+		pr_perror("Failed to kill(SIGCONT) for compat vdso helper\n");
+		goto out_kill;
+	}
+	if (write(fds[1], &compat->vma_start, sizeof(void *)) !=
+			sizeof(compat->vma_start)) {
+		pr_perror("Failed write to pipe\n");
+		goto out_kill;
+	}
+	waitpid(pid, &status, WUNTRACED);
+
+	if (WIFEXITED(status)) {
+		ret = WEXITSTATUS(status);
+		if (ret)
+			pr_err("Helper for mmaping compat vdso failed with %d\n", ret);
+		goto out_close;
+	}
+	pr_err("Compat vDSO helper didn't exit, status: %d\n", status);
+
+out_kill:
+	kill(pid, SIGKILL);
+out_close:
+	if (close(fds[1]))
+		pr_perror("Failed to close pipe");
+	return ret;
+}
+
+#define COMPAT_VDSO_BUF_SZ		(PAGE_SIZE*2)
+static int vdso_fill_compat_symtable(struct vdso_symtable *native,
+		struct vdso_symtable *compat)
+{
+	void *vdso_mmap;
+	int ret = -1;
+
+	vdso_mmap = mmap(NULL, COMPAT_VDSO_BUF_SZ, PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_ANON, -1, 0);
+	if (vdso_mmap == MAP_FAILED) {
+		pr_perror("Failed to mmap buf for compat vdso");
+		return -1;
+	}
+
+	if (vdso_mmap_compat(native, compat, vdso_mmap, COMPAT_VDSO_BUF_SZ)) {
+		pr_err("Failed to mmap compatible vdso with helper process\n");
+		goto out_unmap;
+	}
+
+	if (vdso_fill_symtable_compat((uintptr_t)vdso_mmap,
+				compat->vma_end - compat->vma_start, compat)) {
+		pr_err("Failed to parse mmaped compatible vdso blob\n");
+		goto out_unmap;
+	}
+
+	pr_debug("compat [vdso] %lx-%lx [vvar] %lx-%lx\n",
+		 compat->vma_start, compat->vma_end,
+		 compat->vvar_start, compat->vvar_end);
+	ret = 0;
+
+out_unmap:
+	if (munmap(vdso_mmap, COMPAT_VDSO_BUF_SZ))
+		pr_perror("Failed to unmap buf for compat vdso");
+	return ret;
+}
+
+#else
+static int vdso_fill_compat_symtable(struct vdso_symtable *native,
+		struct vdso_symtable *compat)
+{
+	return 0;
+}
+#endif
 
 int vdso_init(void)
 {
-	if (vdso_fill_self_symtable(&vdso_sym_rt))
+	if (vdso_fill_self_symtable(&vdso_sym_rt)) {
+		pr_err("Failed to fill self vdso symtable\n");
 		return -1;
+	}
+	if (kdat.has_compat_sigreturn &&
+			vdso_fill_compat_symtable(&vdso_sym_rt, &vdso_compat_rt)) {
+		pr_err("Failed to fill compat vdso symtable\n");
+		return -1;
+	}
 
 	if (kdat.pmap != PM_FULL)
 		pr_info("VDSO detection turned off\n");

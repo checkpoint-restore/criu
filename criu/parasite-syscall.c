@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 
+#include "common/compiler.h"
 #include "types.h"
 #include "protobuf.h"
 #include "images/sa.pb-c.h"
@@ -14,9 +15,7 @@
 #include "images/pagemap.pb-c.h"
 
 #include "imgset.h"
-#include "ptrace.h"
 #include "parasite-syscall.h"
-#include "parasite-blob.h"
 #include "parasite.h"
 #include "crtools.h"
 #include "namespaces.h"
@@ -30,7 +29,7 @@
 #include "proc_parse.h"
 #include "aio.h"
 #include "fault-injection.h"
-#include "syscall-codes.h"
+#include <compel/plugins/std/syscall-codes.h>
 #include "signal.h"
 #include "sigframe.h"
 
@@ -42,8 +41,11 @@
 #include "restorer.h"
 #include "pie/pie-relocs.h"
 
-#define MEMFD_FNAME	"CRIUMFD"
-#define MEMFD_FNAME_SZ	sizeof(MEMFD_FNAME)
+#include "infect.h"
+#include "infect-rpc.h"
+#include "parasite-blob.h"
+
+#include <compel/compel.h>
 
 unsigned long get_exec_start(struct vm_area_list *vmas)
 {
@@ -66,311 +68,6 @@ unsigned long get_exec_start(struct vm_area_list *vmas)
 		return vma_area->e->start;
 	}
 
-	return 0;
-}
-
-static inline int ptrace_get_regs(int pid, user_regs_struct_t *regs)
-{
-	struct iovec iov;
-
-	iov.iov_base = regs;
-	iov.iov_len = sizeof(user_regs_struct_t);
-	return ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, &iov);
-}
-
-static inline int ptrace_set_regs(int pid, user_regs_struct_t *regs)
-{
-	struct iovec iov;
-
-	iov.iov_base = regs;
-	iov.iov_len = sizeof(user_regs_struct_t);
-	return ptrace(PTRACE_SETREGSET, pid, NT_PRSTATUS, &iov);
-}
-
-static int get_thread_ctx(int pid, struct thread_ctx *ctx)
-{
-	if (ptrace(PTRACE_GETSIGMASK, pid, sizeof(k_rtsigset_t), &ctx->sigmask)) {
-		pr_perror("can't get signal blocking mask for %d", pid);
-		return -1;
-	}
-
-	if (ptrace_get_regs(pid, &ctx->regs)) {
-		pr_perror("Can't obtain registers (pid: %d)", pid);
-		return -1;
-	}
-
-	return 0;
-}
-
-static int restore_thread_ctx(int pid, struct thread_ctx *ctx)
-{
-	int ret = 0;
-
-	if (ptrace_set_regs(pid, &ctx->regs)) {
-		pr_perror("Can't restore registers (pid: %d)", pid);
-		ret = -1;
-	}
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &ctx->sigmask)) {
-		pr_perror("Can't block signals");
-		ret = -1;
-	}
-
-	return ret;
-}
-
-static int parasite_run(pid_t pid, int cmd, unsigned long ip, void *stack,
-		user_regs_struct_t *regs, struct thread_ctx *octx)
-{
-	k_rtsigset_t block;
-
-	ksigfillset(&block);
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &block)) {
-		pr_perror("Can't block signals for %d", pid);
-		goto err_sig;
-	}
-
-	parasite_setup_regs(ip, stack, regs);
-	if (ptrace_set_regs(pid, regs)) {
-		pr_perror("Can't set registers for %d", pid);
-		goto err_regs;
-	}
-
-	if (ptrace(cmd, pid, NULL, NULL)) {
-		pr_perror("Can't run parasite at %d", pid);
-		goto err_cont;
-	}
-
-	return 0;
-
-err_cont:
-	if (ptrace_set_regs(pid, &octx->regs))
-		pr_perror("Can't restore regs for %d", pid);
-err_regs:
-	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &octx->sigmask))
-		pr_perror("Can't restore sigmask for %d", pid);
-err_sig:
-	return -1;
-}
-
-/* we run at @regs->ip */
-static int parasite_trap(struct parasite_ctl *ctl, pid_t pid,
-				user_regs_struct_t *regs,
-				struct thread_ctx *octx)
-{
-	siginfo_t siginfo;
-	int status;
-	int ret = -1;
-
-	/*
-	 * Most ideas are taken from Tejun Heo's parasite thread
-	 * https://code.google.com/p/ptrace-parasite/
-	 */
-
-	if (wait4(pid, &status, __WALL, NULL) != pid) {
-		pr_perror("Waited pid mismatch (pid: %d)", pid);
-		goto err;
-	}
-
-	if (!WIFSTOPPED(status)) {
-		pr_err("Task is still running (pid: %d)\n", pid);
-		goto err;
-	}
-
-	if (ptrace(PTRACE_GETSIGINFO, pid, NULL, &siginfo)) {
-		pr_perror("Can't get siginfo (pid: %d)", pid);
-		goto err;
-	}
-
-	if (ptrace_get_regs(pid, regs)) {
-		pr_perror("Can't obtain registers (pid: %d)", pid);
-			goto err;
-	}
-
-	if (WSTOPSIG(status) != SIGTRAP || siginfo.si_code != ARCH_SI_TRAP) {
-		pr_debug("** delivering signal %d si_code=%d\n",
-			 siginfo.si_signo, siginfo.si_code);
-
-		pr_err("Unexpected %d task interruption, aborting\n", pid);
-		goto err;
-	}
-
-	/*
-	 * We've reached this point if int3 is triggered inside our
-	 * parasite code. So we're done.
-	 */
-	ret = 0;
-err:
-	if (restore_thread_ctx(pid, octx))
-		ret = -1;
-
-	return ret;
-}
-
-int __parasite_execute_syscall(struct parasite_ctl *ctl,
-		user_regs_struct_t *regs, const char *code_syscall)
-{
-	pid_t pid = ctl->rpid;
-	int err;
-	u8 code_orig[BUILTIN_SYSCALL_SIZE];
-
-	/*
-	 * Inject syscall instruction and remember original code,
-	 * we will need it to restore original program content.
-	 */
-	memcpy(code_orig, code_syscall, sizeof(code_orig));
-	if (ptrace_swap_area(pid, (void *)ctl->syscall_ip,
-			     (void *)code_orig, sizeof(code_orig))) {
-		pr_err("Can't inject syscall blob (pid: %d)\n", pid);
-		return -1;
-	}
-
-	err = parasite_run(pid, PTRACE_CONT, ctl->syscall_ip, 0, regs, &ctl->orig);
-	if (!err)
-		err = parasite_trap(ctl, pid, regs, &ctl->orig);
-
-	if (ptrace_poke_area(pid, (void *)code_orig,
-			     (void *)ctl->syscall_ip, sizeof(code_orig))) {
-		pr_err("Can't restore syscall blob (pid: %d)\n", ctl->rpid);
-		err = -1;
-	}
-
-	return err;
-}
-
-void *parasite_args_s(struct parasite_ctl *ctl, int args_size)
-{
-	BUG_ON(args_size > ctl->args_size);
-	return ctl->addr_args;
-}
-
-static int parasite_run_in_thread(pid_t pid, unsigned int cmd,
-					struct parasite_ctl *ctl,
-					struct thread_ctx *octx)
-{
-	void *stack = ctl->r_thread_stack;
-	user_regs_struct_t regs = octx->regs;
-	int ret;
-
-	*ctl->addr_cmd = cmd;
-
-	ret = parasite_run(pid, PTRACE_CONT, ctl->parasite_ip, stack, &regs, octx);
-	if (ret == 0)
-		ret = parasite_trap(ctl, pid, &regs, octx);
-	if (ret == 0)
-		ret = (int)REG_RES(regs);
-
-	if (ret)
-		pr_err("Parasite exited with %d\n", ret);
-
-	return ret;
-}
-
-static int __parasite_send_cmd(int sockfd, struct ctl_msg *m)
-{
-	int ret;
-
-	ret = send(sockfd, m, sizeof(*m), 0);
-	if (ret == -1) {
-		pr_perror("Failed to send command %d to daemon", m->cmd);
-		return -1;
-	} else if (ret != sizeof(*m)) {
-		pr_err("Message to daemon is trimmed (%d/%d)\n",
-		       (int)sizeof(*m), ret);
-		return -1;
-	}
-
-	pr_debug("Sent msg to daemon %d %d %d\n", m->cmd, m->ack, m->err);
-	return 0;
-}
-
-static int parasite_wait_ack(int sockfd, unsigned int cmd, struct ctl_msg *m)
-{
-	int ret;
-
-	pr_debug("Wait for ack %d on daemon socket\n", cmd);
-
-	while (1) {
-		memzero(m, sizeof(*m));
-
-		ret = recv(sockfd, m, sizeof(*m), MSG_WAITALL);
-		if (ret == -1) {
-			pr_perror("Failed to read ack");
-			return -1;
-		} else if (ret != sizeof(*m)) {
-			pr_err("Message reply from daemon is trimmed (%d/%d)\n",
-			       (int)sizeof(*m), ret);
-			return -1;
-		}
-		pr_debug("Fetched ack: %d %d %d\n",
-			 m->cmd, m->ack, m->err);
-
-		if (m->cmd != cmd || m->ack != cmd) {
-			pr_err("Communication error, this is not "
-			       "the ack we expected\n");
-			return -1;
-		}
-		return 0;
-	}
-
-	return -1;
-}
-
-int __parasite_wait_daemon_ack(unsigned int cmd,
-					struct parasite_ctl *ctl)
-{
-	struct ctl_msg m;
-
-	if (parasite_wait_ack(ctl->tsock, cmd, &m))
-		return -1;
-
-	if (m.err != 0) {
-		pr_err("Command %d for daemon failed with %d\n",
-		       cmd, m.err);
-		return -1;
-	}
-
-	return 0;
-}
-
-int __parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl)
-{
-	struct ctl_msg m;
-
-	m = ctl_msg_cmd(cmd);
-	return __parasite_send_cmd(ctl->tsock, &m);
-}
-
-int parasite_execute_daemon(unsigned int cmd, struct parasite_ctl *ctl)
-{
-	int ret;
-
-	ret = __parasite_execute_daemon(cmd, ctl);
-	if (!ret)
-		ret = __parasite_wait_daemon_ack(cmd, ctl);
-
-	return ret;
-}
-
-static int gen_parasite_saddr(struct sockaddr_un *saddr, int key)
-{
-	int sun_len;
-
-	saddr->sun_family = AF_UNIX;
-	snprintf(saddr->sun_path, UNIX_PATH_MAX,
-			"X/crtools-pr-%d", key);
-
-	sun_len = SUN_LEN(saddr);
-	*saddr->sun_path = '\0';
-
-	return sun_len;
-}
-
-int parasite_send_fd(struct parasite_ctl *ctl, int fd)
-{
-	if (send_fd(ctl->tsock, NULL, 0, fd) < 0) {
-		pr_perror("Can't send file descriptor");
-		return -1;
-	}
 	return 0;
 }
 
@@ -405,152 +102,17 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	exit(1);
 }
 
-static int setup_child_handler()
+static int alloc_groups_copy_creds(const struct pstree_item *item, CredsEntry *ce, struct parasite_dump_creds *c)
 {
-	struct sigaction sa = {
-		.sa_sigaction	= sigchld_handler,
-		.sa_flags	= SA_SIGINFO | SA_RESTART,
-	};
+	struct ns_id *ns = NULL;
+	int i;
 
-	sigemptyset(&sa.sa_mask);
-	sigaddset(&sa.sa_mask, SIGCHLD);
-	if (sigaction(SIGCHLD, &sa, NULL)) {
-		pr_perror("Unable to setup SIGCHLD handler");
-		return -1;
+	ns = lookup_ns_by_id(item->ids->user_ns_id, &user_ns_desc);
+	if (!ns) {
+		pr_err("Can't find ns\n");
+		return -ENOENT;
 	}
 
-	return 0;
-}
-
-static int restore_child_handler()
-{
-	struct sigaction sa = {
-		.sa_handler	= SIG_DFL,
-		.sa_flags	= SA_SIGINFO | SA_RESTART,
-	};
-
-	sigemptyset(&sa.sa_mask);
-	sigaddset(&sa.sa_mask, SIGCHLD);
-	if (sigaction(SIGCHLD, &sa, NULL)) {
-		pr_perror("Unable to setup SIGCHLD handler");
-		return -1;
-	}
-
-	return 0;
-}
-
-static int prepare_tsock(struct parasite_ctl *ctl, pid_t pid,
-		struct parasite_init_args *args, struct ns_id *net)
-{
-	static int ssock = -1;
-
-	pr_info("Putting tsock into pid %d\n", pid);
-	args->h_addr_len = gen_parasite_saddr(&args->h_addr, getpid());
-
-	if (ssock == -1) {
-		ssock = net->net.seqsk;
-		net->net.seqsk = -1;
-
-		if (bind(ssock, (struct sockaddr *)&args->h_addr, args->h_addr_len) < 0) {
-			pr_perror("Can't bind socket");
-			goto err;
-		}
-
-		if (listen(ssock, 1)) {
-			pr_perror("Can't listen on transport socket");
-			goto err;
-		}
-	}
-
-	/* Check a case when parasite can't initialize a command socket */
-	if (fault_injected(FI_PARASITE_CONNECT))
-		args->h_addr_len = gen_parasite_saddr(&args->h_addr, getpid() + 1);
-
-	/*
-	 * Set to -1 to prevent any accidental misuse. The
-	 * only valid user of it is accept_tsock().
-	 */
-	ctl->tsock = -ssock;
-	return 0;
-err:
-	close_safe(&ssock);
-	return -1;
-}
-
-static int accept_tsock(struct parasite_ctl *ctl)
-{
-	int sock;
-	int ask = -ctl->tsock; /* this '-' is explained above */
-
-	sock = accept(ask, NULL, 0);
-	if (sock < 0) {
-		pr_perror("Can't accept connection to the transport socket");
-		close(ask);
-		return -1;
-	}
-
-	ctl->tsock = sock;
-	return 0;
-}
-
-static int parasite_init_daemon(struct parasite_ctl *ctl, struct ns_id *net)
-{
-	struct parasite_init_args *args;
-	pid_t pid = ctl->rpid;
-	user_regs_struct_t regs;
-	struct ctl_msg m = { };
-
-	*ctl->addr_cmd = PARASITE_CMD_INIT_DAEMON;
-
-	args = parasite_args(ctl, struct parasite_init_args);
-
-	args->sigframe = (uintptr_t)ctl->rsigframe;
-	args->log_level = log_get_loglevel();
-
-	futex_set(&args->daemon_connected, 0);
-
-	if (prepare_tsock(ctl, pid, args, net))
-		goto err;
-
-	/* after this we can catch parasite errors in chld handler */
-	if (setup_child_handler())
-		goto err;
-
-	regs = ctl->orig.regs;
-	if (parasite_run(pid, PTRACE_CONT, ctl->parasite_ip, ctl->rstack, &regs, &ctl->orig))
-		goto err;
-
-	futex_wait_while_eq(&args->daemon_connected, 0);
-	if (futex_get(&args->daemon_connected) != 1) {
-		errno = -(int)futex_get(&args->daemon_connected);
-		pr_perror("Unable to connect a transport socket");
-		goto err;
-	}
-
-	if (accept_tsock(ctl) < 0)
-		goto err;
-
-	if (parasite_send_fd(ctl, log_get_fd()))
-		goto err;
-
-	pr_info("Wait for parasite being daemonized...\n");
-
-	if (parasite_wait_ack(ctl->tsock, PARASITE_CMD_INIT_DAEMON, &m)) {
-		pr_err("Can't switch parasite %d to daemon mode %d\n",
-		       pid, m.err);
-		goto err;
-	}
-
-	ctl->sigreturn_addr = args->sigreturn_addr;
-	ctl->daemonized = true;
-	pr_info("Parasite %d has been switched to daemon mode\n", pid);
-	return 0;
-err:
-	return -1;
-}
-
-static int alloc_groups_copy_creds(CredsEntry *ce, struct parasite_dump_creds *c)
-{
 	BUILD_BUG_ON(sizeof(ce->groups[0]) != sizeof(c->groups[0]));
 	BUILD_BUG_ON(sizeof(ce->cap_inh[0]) != sizeof(c->cap_inh[0]));
 	BUILD_BUG_ON(sizeof(ce->cap_prm[0]) != sizeof(c->cap_prm[0]));
@@ -571,36 +133,39 @@ static int alloc_groups_copy_creds(CredsEntry *ce, struct parasite_dump_creds *c
 	ce->n_groups	= c->ngroups;
 
 	ce->groups	= xmemdup(c->groups, sizeof(c->groups[0]) * c->ngroups);
+	for (i = 0; i < ce->n_groups; i++)
+		ce->groups[i] = root_userns_gid(ns, ce->groups[i]);
 
-	ce->uid		= c->uids[0];
-	ce->gid		= c->gids[0];
-	ce->euid	= c->uids[1];
-	ce->egid	= c->gids[1];
-	ce->suid	= c->uids[2];
-	ce->sgid	= c->gids[2];
-	ce->fsuid	= c->uids[3];
-	ce->fsgid	= c->gids[3];
+	ce->uid		= root_userns_uid(ns, c->uids[0]);
+	ce->gid		= root_userns_gid(ns, c->gids[0]);
+	ce->euid	= root_userns_uid(ns, c->uids[1]);
+	ce->egid	= root_userns_gid(ns, c->gids[1]);
+	ce->suid	= root_userns_uid(ns, c->uids[2]);
+	ce->sgid	= root_userns_gid(ns, c->gids[2]);
+	ce->fsuid	= root_userns_uid(ns, c->uids[3]);
+	ce->fsgid	= root_userns_gid(ns, c->gids[3]);
 
 	return ce->groups ? 0 : -ENOMEM;
 }
 
-int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEntry *core)
+int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, const struct pstree_item *item,
+					int pid, CoreEntry *core)
 {
 	ThreadCoreEntry *tc = core->thread_core;
 	struct parasite_dump_thread *args;
 	struct parasite_dump_creds *pc;
 	int ret;
 
-	args = parasite_args(ctl, struct parasite_dump_thread);
+	args = compel_parasite_args(ctl, struct parasite_dump_thread);
 
 	pc = args->creds;
 	pc->cap_last_cap = kdat.last_cap;
 
-	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_THREAD, ctl);
+	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_THREAD, ctl);
 	if (ret < 0)
 		return ret;
 
-	ret = alloc_groups_copy_creds(tc->creds, pc);
+	ret = alloc_groups_copy_creds(item, tc->creds, pc);
 	if (ret) {
 		pr_err("Can't copy creds for thread leader %d\n", pid);
 		return -1;
@@ -609,8 +174,8 @@ int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEn
 	return dump_thread_core(pid, core, args);
 }
 
-int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
-				struct pid *tid, CoreEntry *core)
+int parasite_dump_thread_seized(struct parasite_ctl *ctl, const struct pstree_item *item,
+				int id, struct pid *tid, CoreEntry *core)
 {
 	struct parasite_dump_thread *args;
 	pid_t pid = tid->real;
@@ -618,42 +183,48 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	CredsEntry *creds = tc->creds;
 	struct parasite_dump_creds *pc;
 	int ret;
-	struct thread_ctx octx;
+	struct parasite_thread_ctl *tctl;
 
 	BUG_ON(id == 0); /* Leader is dumped in dump_task_core_all */
 
-	args = parasite_args(ctl, struct parasite_dump_thread);
+	args = compel_parasite_args(ctl, struct parasite_dump_thread);
 
 	pc = args->creds;
 	pc->cap_last_cap = kdat.last_cap;
 
-	ret = get_thread_ctx(pid, &octx);
-	if (ret)
+	tctl = compel_prepare_thread(ctl, pid);
+	if (!tctl)
 		return -1;
 
 	tc->has_blk_sigset = true;
-	memcpy(&tc->blk_sigset, &octx.sigmask, sizeof(k_rtsigset_t));
+	memcpy(&tc->blk_sigset, compel_thread_sigmask(tctl), sizeof(k_rtsigset_t));
 
-	ret = parasite_run_in_thread(pid, PARASITE_CMD_DUMP_THREAD, ctl, &octx);
+	ret = compel_run_in_thread(tctl, PARASITE_CMD_DUMP_THREAD);
 	if (ret) {
 		pr_err("Can't init thread in parasite %d\n", pid);
-		return -1;
+		goto err_rth;
 	}
 
-	ret = alloc_groups_copy_creds(creds, pc);
+	ret = alloc_groups_copy_creds(item, creds, pc);
 	if (ret) {
 		pr_err("Can't copy creds for thread %d\n", pid);
-		return -1;
+		goto err_rth;
 	}
 
-	ret = get_task_regs(pid, octx.regs, core);
+	ret = compel_get_thread_regs(tctl, save_task_regs, core);
 	if (ret) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
-		return -1;
+		goto err_rth;
 	}
+
+	compel_release_thread(tctl);
 
 	tid->ns[0].virt = args->tid;
 	return dump_thread_core(pid, core, args);
+
+err_rth:
+	compel_release_thread(tctl);
+	return -1;
 }
 
 int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_imgset)
@@ -663,9 +234,9 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 	struct cr_img *img;
 	SaEntry se = SA_ENTRY__INIT;
 
-	args = parasite_args(ctl, struct parasite_dump_sa_args);
+	args = compel_parasite_args(ctl, struct parasite_dump_sa_args);
 
-	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_SIGACTS, ctl);
+	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_SIGACTS, ctl);
 	if (ret < 0)
 		return ret;
 
@@ -682,6 +253,8 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 		ASSIGN_TYPED(se.restorer, encode_pointer(args->sas[i].rt_sa_restorer));
 		BUILD_BUG_ON(sizeof(se.mask) != sizeof(args->sas[0].rt_sa_mask.sig));
 		memcpy(&se.mask, args->sas[i].rt_sa_mask.sig, sizeof(se.mask));
+		se.has_compat_sigaction = true;
+		se.compat_sigaction = !compel_mode_native(ctl);
 
 		if (pb_write_one(img, &se, PB_SIGACT) < 0)
 			return -1;
@@ -704,33 +277,17 @@ int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_item *i
 	struct parasite_dump_itimers_args *args;
 	int ret;
 
-	args = parasite_args(ctl, struct parasite_dump_itimers_args);
+	args = compel_parasite_args(ctl, struct parasite_dump_itimers_args);
 
-	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_ITIMERS, ctl);
+	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_ITIMERS, ctl);
 	if (ret < 0)
 		return ret;
 
-	encode_itimer(&args->real, core->tc->timers->real);
-	encode_itimer(&args->virt, core->tc->timers->virt);
-	encode_itimer(&args->prof, core->tc->timers->prof);
+	encode_itimer((&args->real), (core->tc->timers->real));			\
+	encode_itimer((&args->virt), (core->tc->timers->virt));			\
+	encode_itimer((&args->prof), (core->tc->timers->prof));			\
 
 	return 0;
-}
-
-static void encode_posix_timer(struct posix_timer *v, struct proc_posix_timer *vp, PosixTimerEntry *pte)
-{
-	pte->it_id = vp->spt.it_id;
-	pte->clock_id = vp->spt.clock_id;
-	pte->si_signo = vp->spt.si_signo;
-	pte->it_sigev_notify = vp->spt.it_sigev_notify;
-	pte->sival_ptr = encode_pointer(vp->spt.sival_ptr);
-
-	pte->overrun = v->overrun;
-
-	pte->isec = v->val.it_interval.tv_sec;
-	pte->insec = v->val.it_interval.tv_nsec;
-	pte->vsec = v->val.it_value.tv_sec;
-	pte->vnsec = v->val.it_value.tv_nsec;
 }
 
 static int core_alloc_posix_timers(TaskTimersEntry *tte, int n,
@@ -752,21 +309,40 @@ static int core_alloc_posix_timers(TaskTimersEntry *tte, int n,
 	return 0;
 }
 
+static void encode_posix_timer(struct posix_timer *v,
+		struct proc_posix_timer *vp, PosixTimerEntry *pte)
+{
+	pte->it_id = vp->spt.it_id;
+	pte->clock_id = vp->spt.clock_id;
+	pte->si_signo = vp->spt.si_signo;
+	pte->it_sigev_notify = vp->spt.it_sigev_notify;
+	pte->sival_ptr = encode_pointer(vp->spt.sival_ptr);
+
+	pte->overrun = v->overrun;
+
+	pte->isec = v->val.it_interval.tv_sec;
+	pte->insec = v->val.it_interval.tv_nsec;
+	pte->vsec = v->val.it_value.tv_sec;
+	pte->vnsec = v->val.it_value.tv_nsec;
+}
+
 int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 		struct parasite_ctl *ctl, struct pstree_item *item)
 {
 	CoreEntry *core = item->core[0];
 	TaskTimersEntry *tte = core->tc->timers;
 	PosixTimerEntry *pte;
-	struct parasite_dump_posix_timers_args * args;
 	struct proc_posix_timer *temp;
-	int i;
+	struct parasite_dump_posix_timers_args *args;
+	int args_size;
 	int ret = 0;
+	int i;
 
 	if (core_alloc_posix_timers(tte, proc_args->timer_n, &pte))
 		return -1;
 
-	args = parasite_args_s(ctl, posix_timers_dump_size(proc_args->timer_n));
+	args_size = posix_timers_dump_size(proc_args->timer_n);
+	args = compel_parasite_args_s(ctl, args_size);
 	args->timer_n = proc_args->timer_n;
 
 	i = 0;
@@ -775,7 +351,7 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 		i++;
 	}
 
-	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_POSIX_TIMERS, ctl);
+	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_POSIX_TIMERS, ctl);
 	if (ret < 0)
 		goto end_posix;
 
@@ -796,8 +372,8 @@ int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_mis
 {
 	struct parasite_dump_misc *ma;
 
-	ma = parasite_args(ctl, struct parasite_dump_misc);
-	if (parasite_execute_daemon(PARASITE_CMD_DUMP_MISC, ctl) < 0)
+	ma = compel_parasite_args(ctl, struct parasite_dump_misc);
+	if (compel_rpc_call_sync(PARASITE_CMD_DUMP_MISC, ctl) < 0)
 		return -1;
 
 	*misc = *ma;
@@ -808,11 +384,11 @@ struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd, in
 {
 	struct parasite_tty_args *p;
 
-	p = parasite_args(ctl, struct parasite_tty_args);
+	p = compel_parasite_args(ctl, struct parasite_tty_args);
 	p->fd = fd;
 	p->type = type;
 
-	if (parasite_execute_daemon(PARASITE_CMD_DUMP_TTY, ctl) < 0)
+	if (compel_rpc_call_sync(PARASITE_CMD_DUMP_TTY, ctl) < 0)
 		return NULL;
 
 	return p;
@@ -822,43 +398,45 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 		struct parasite_drain_fd *dfds, int nr_fds, int off,
 		int *lfds, struct fd_opts *opts)
 {
-	int ret = -1, size;
+	int ret = -1, size, sk;
 	struct parasite_drain_fd *args;
 
 	size = drain_fds_size(dfds);
-	args = parasite_args_s(ctl, size);
+	args = compel_parasite_args_s(ctl, size);
 	args->nr_fds = nr_fds;
 	memcpy(&args->fds, dfds->fds + off, sizeof(int) * nr_fds);
 
-	ret = __parasite_execute_daemon(PARASITE_CMD_DRAIN_FDS, ctl);
+	ret = compel_rpc_call(PARASITE_CMD_DRAIN_FDS, ctl);
 	if (ret) {
 		pr_err("Parasite failed to drain descriptors\n");
 		goto err;
 	}
 
-	ret = recv_fds(ctl->tsock, lfds, nr_fds, opts, sizeof(struct fd_opts));
+	sk = compel_rpc_sock(ctl);
+	ret = recv_fds(sk, lfds, nr_fds, opts, sizeof(struct fd_opts));
 	if (ret)
 		pr_err("Can't retrieve FDs from socket\n");
 
-	ret |= __parasite_wait_daemon_ack(PARASITE_CMD_DRAIN_FDS, ctl);
+	ret |= compel_rpc_sync(PARASITE_CMD_DRAIN_FDS, ctl);
 err:
 	return ret;
 }
 
 int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 {
-	int ret = -1, fd;
+	int ret = -1, fd, sk;
 
-	ret = __parasite_execute_daemon(PARASITE_CMD_GET_PROC_FD, ctl);
+	ret = compel_rpc_call(PARASITE_CMD_GET_PROC_FD, ctl);
 	if (ret) {
 		pr_err("Parasite failed to get proc fd\n");
 		return ret;
 	}
 
-	fd = recv_fd(ctl->tsock);
+	sk = compel_rpc_sock(ctl);
+	fd = recv_fd(sk);
 	if (fd < 0)
 		pr_err("Can't retrieve FD from socket\n");
-	if (__parasite_wait_daemon_ack(PARASITE_CMD_GET_PROC_FD, ctl)) {
+	if (compel_rpc_sync(PARASITE_CMD_GET_PROC_FD, ctl)) {
 		close_safe(&fd);
 		return -1;
 	}
@@ -868,442 +446,13 @@ int parasite_get_proc_fd_seized(struct parasite_ctl *ctl)
 
 /* This is officially the 50000'th line in the CRIU source code */
 
-static bool task_in_parasite(struct parasite_ctl *ctl, user_regs_struct_t *regs)
-{
-	void *addr = (void *) REG_IP(*regs);
-	return addr >= ctl->remote_map &&
-		addr < ctl->remote_map + ctl->map_length;
-}
-
-static int parasite_fini_seized(struct parasite_ctl *ctl)
-{
-	pid_t pid = ctl->rpid;
-	user_regs_struct_t regs;
-	int status, ret = 0;
-	enum trace_flags flag;
-
-	/* stop getting chld from parasite -- we're about to step-by-step it */
-	if (restore_child_handler())
-		return -1;
-
-	/* Start to trace syscalls for each thread */
-	if (ptrace(PTRACE_INTERRUPT, pid, NULL, NULL)) {
-		pr_perror("Unable to interrupt the process");
-		return -1;
-	}
-
-	pr_debug("Waiting for %d to trap\n", pid);
-	if (wait4(pid, &status, __WALL, NULL) != pid) {
-		pr_perror("Waited pid mismatch (pid: %d)", pid);
-		return -1;
-	}
-
-	pr_debug("Daemon %d exited trapping\n", pid);
-	if (!WIFSTOPPED(status)) {
-		pr_err("Task is still running (pid: %d)\n", pid);
-		return -1;
-	}
-
-	ret = ptrace_get_regs(pid, &regs);
-	if (ret) {
-		pr_perror("Unable to get registers");
-		return -1;
-	}
-
-	if (!task_in_parasite(ctl, &regs)) {
-		pr_err("The task is not in parasite code\n");
-		return -1;
-	}
-
-	ret = __parasite_execute_daemon(PARASITE_CMD_FINI, ctl);
-	close_safe(&ctl->tsock);
-	if (ret)
-		return -1;
-
-	/* Go to sigreturn as closer as we can */
-	ret = ptrace_stop_pie(pid, ctl->sigreturn_addr, &flag);
-	if (ret < 0)
-		return ret;
-
-	if (parasite_stop_on_syscall(1, __NR_rt_sigreturn, flag))
-		return -1;
-
-	if (ptrace_flush_breakpoints(pid))
-		return -1;
-
-	/*
-	 * All signals are unblocked now. The kernel notifies about leaving
-	 * syscall before starting to deliver signals. All parasite code are
-	 * executed with blocked signals, so we can sefly unmap a parasite blob.
-	 */
-
-	return 0;
-}
-
-static bool task_is_trapped(int status, pid_t pid)
-{
-	if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP)
-		return true;
-
-	pr_err("Task %d is in unexpected state: %x\n", pid, status);
-	if (WIFEXITED(status))
-		pr_err("Task exited with %d\n", WEXITSTATUS(status));
-	if (WIFSIGNALED(status))
-		pr_err("Task signaled with %d: %s\n",
-			WTERMSIG(status), strsignal(WTERMSIG(status)));
-	if (WIFSTOPPED(status))
-		pr_err("Task stopped with %d: %s\n",
-			WSTOPSIG(status), strsignal(WSTOPSIG(status)));
-	if (WIFCONTINUED(status))
-		pr_err("Task continued\n");
-
-	return false;
-}
-
-/*
- * Trap tasks on the exit from the specified syscall
- *
- * tasks - number of processes, which should be trapped
- * sys_nr - the required syscall number
- */
-int parasite_stop_on_syscall(int tasks, const int sys_nr, enum trace_flags trace)
-{
-	user_regs_struct_t regs;
-	int status, ret;
-	pid_t pid;
-
-	if (tasks > 1)
-		trace = TRACE_ALL;
-
-	/* Stop all threads on the enter point in sys_rt_sigreturn */
-	while (tasks) {
-		pid = wait4(-1, &status, __WALL, NULL);
-		if (pid == -1) {
-			pr_perror("wait4 failed");
-			return -1;
-		}
-
-		if (!task_is_trapped(status, pid))
-			return -1;
-
-		pr_debug("%d was trapped\n", pid);
-
-		if (trace == TRACE_EXIT) {
-			trace = TRACE_ENTER;
-			pr_debug("`- Expecting exit\n");
-			goto goon;
-		}
-		if (trace == TRACE_ENTER)
-			trace = TRACE_EXIT;
-
-		ret = ptrace_get_regs(pid, &regs);
-		if (ret) {
-			pr_perror("ptrace");
-			return -1;
-		}
-
-		pr_debug("%d is going to execute the syscall %lu\n", pid, REG_SYSCALL_NR(regs));
-		if (REG_SYSCALL_NR(regs) == sys_nr) {
-			/*
-			 * The process is going to execute the required syscall,
-			 * the next stop will be on the exit from this syscall
-			 */
-			ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
-			if (ret) {
-				pr_perror("ptrace");
-				return -1;
-			}
-
-			pid = wait4(pid, &status, __WALL, NULL);
-			if (pid == -1) {
-				pr_perror("wait4 failed");
-				return -1;
-			}
-
-			if (!task_is_trapped(status, pid))
-				return -1;
-
-			pr_debug("%d was stopped\n", pid);
-			tasks--;
-			continue;
-		}
-goon:
-		ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
-		if (ret) {
-			pr_perror("ptrace");
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
-int parasite_stop_daemon(struct parasite_ctl *ctl)
-{
-	if (ctl->daemonized) {
-		/*
-		 * Looks like a previous attempt failed, we should do
-		 * nothing in this case. parasite will try to cure itself.
-		 */
-		if (ctl->tsock < 0)
-			return -1;
-
-		if (parasite_fini_seized(ctl)) {
-			close_safe(&ctl->tsock);
-			return -1;
-		}
-	}
-
-	ctl->daemonized = false;
-
-	return 0;
-}
-
-int parasite_cure_remote(struct parasite_ctl *ctl)
-{
-	if (parasite_stop_daemon(ctl))
-		return -1;
-
-	if (!ctl->remote_map)
-		return 0;
-
-	/* Unseizing task with parasite -- it does it himself */
-	if (ctl->addr_cmd) {
-		struct parasite_unmap_args *args;
-
-		*ctl->addr_cmd = PARASITE_CMD_UNMAP;
-
-		args = parasite_args(ctl, struct parasite_unmap_args);
-		args->parasite_start = ctl->remote_map;
-		args->parasite_len = ctl->map_length;
-		if (parasite_unmap(ctl, ctl->parasite_ip))
-			return -1;
-	} else {
-		unsigned long ret;
-
-		syscall_seized(ctl, __NR_munmap, &ret,
-				(unsigned long)ctl->remote_map, ctl->map_length,
-				0, 0, 0, 0);
-		if (ret) {
-			pr_err("munmap for remote map %p, %lu returned %lu\n",
-					ctl->remote_map, ctl->map_length, ret);
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
-int parasite_cure_local(struct parasite_ctl *ctl)
-{
-	int ret = 0;
-
-	if (ctl->local_map) {
-		if (munmap(ctl->local_map, ctl->map_length)) {
-			pr_err("munmap failed (pid: %d)\n", ctl->rpid);
-			ret = -1;
-		}
-	}
-
-	free(ctl);
-	return ret;
-}
-
-int parasite_cure_seized(struct parasite_ctl *ctl)
-{
-	int ret;
-
-	ret = parasite_cure_remote(ctl);
-	if (!ret)
-		ret = parasite_cure_local(ctl);
-
-	return ret;
-}
-
-/*
- * parasite_unmap() is used for unmapping parasite and restorer blobs.
- * A blob can contain code for unmapping itself, so the porcess is
- * trapped on the exit from the munmap syscall.
- */
-int parasite_unmap(struct parasite_ctl *ctl, unsigned long addr)
-{
-	user_regs_struct_t regs = ctl->orig.regs;
-	pid_t pid = ctl->rpid;
-	int ret = -1;
-
-	ret = parasite_run(pid, PTRACE_SYSCALL, addr, ctl->rstack, &regs, &ctl->orig);
-	if (ret)
-		goto err;
-
-	ret = parasite_stop_on_syscall(1, __NR_munmap, TRACE_ENTER);
-
-	if (restore_thread_ctx(pid, &ctl->orig))
-		ret = -1;
-err:
-	return ret;
-}
-
-/* If vma_area_list is NULL, a place for injecting syscall will not be set. */
-struct parasite_ctl *parasite_prep_ctl(pid_t pid, unsigned long exec_start)
-{
-	struct parasite_ctl *ctl = NULL;
-
-	/*
-	 * Control block early setup.
-	 */
-	ctl = xzalloc(sizeof(*ctl));
-	if (!ctl) {
-		pr_err("Parasite control block allocation failed (pid: %d)\n", pid);
-		goto err;
-	}
-
-	ctl->tsock = -1;
-
-	if (get_thread_ctx(pid, &ctl->orig))
-		goto err;
-
-	ctl->rpid = pid;
-
-	BUILD_BUG_ON(PARASITE_START_AREA_MIN < BUILTIN_SYSCALL_SIZE + MEMFD_FNAME_SZ);
-
-	ctl->syscall_ip = exec_start;
-	pr_debug("Parasite syscall_ip at %p\n", (void *)ctl->syscall_ip);
-
-	return ctl;
-
-err:
-	xfree(ctl);
-	return NULL;
-}
-
-static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
-{
-	int fd;
-
-	ctl->remote_map = mmap_seized(ctl, NULL, size,
-				      PROT_READ | PROT_WRITE | PROT_EXEC,
-				      MAP_ANONYMOUS | MAP_SHARED, -1, 0);
-	if (!ctl->remote_map) {
-		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", ctl->rpid);
-		return -1;
-	}
-
-	ctl->map_length = round_up(size, page_size());
-
-	fd = open_proc_rw(ctl->rpid, "map_files/%p-%p",
-		 ctl->remote_map, ctl->remote_map + ctl->map_length);
-	if (fd < 0)
-		return -1;
-
-	ctl->local_map = mmap(NULL, size, PROT_READ | PROT_WRITE,
-			      MAP_SHARED | MAP_FILE, fd, 0);
-	close(fd);
-
-	if (ctl->local_map == MAP_FAILED) {
-		ctl->local_map = NULL;
-		pr_perror("Can't map remote parasite map");
-		return -1;
-	}
-
-	return 0;
-}
-
-static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
-{
-	void *where = (void *)ctl->syscall_ip + BUILTIN_SYSCALL_SIZE;
-	u8 orig_code[MEMFD_FNAME_SZ] = MEMFD_FNAME;
-	pid_t pid = ctl->rpid;
-	unsigned long sret = -ENOSYS;
-	int ret, fd, lfd;
-
-	if (fault_injected(FI_NO_MEMFD))
-		return 1;
-
-	BUILD_BUG_ON(sizeof(orig_code) < sizeof(long));
-
-	if (ptrace_swap_area(pid, where, (void *)orig_code, sizeof(orig_code))) {
-		pr_err("Can't inject memfd args (pid: %d)\n", pid);
-		return -1;
-	}
-
-	ret = syscall_seized(ctl, __NR_memfd_create, &sret,
-			     (unsigned long)where, 0, 0, 0, 0, 0);
-
-	if (ptrace_poke_area(pid, orig_code, where, sizeof(orig_code))) {
-		fd = (int)(long)sret;
-		if (fd >= 0)
-			syscall_seized(ctl, __NR_close, &sret, fd, 0, 0, 0, 0, 0);
-		pr_err("Can't restore memfd args (pid: %d)\n", pid);
-		return -1;
-	}
-
-	if (ret < 0)
-		return ret;
-
-	fd = (int)(long)sret;
-	if (fd == -ENOSYS)
-		return 1;
-	if (fd < 0)
-		return fd;
-
-	ctl->map_length = round_up(size, page_size());
-	lfd = open_proc_rw(ctl->rpid, "fd/%d", fd);
-	if (lfd < 0)
-		goto err_cure;
-
-	if (ftruncate(lfd, ctl->map_length) < 0) {
-		pr_perror("Fail to truncate memfd for parasite");
-		goto err_cure;
-	}
-
-	ctl->remote_map = mmap_seized(ctl, NULL, size,
-				      PROT_READ | PROT_WRITE | PROT_EXEC,
-				      MAP_FILE | MAP_SHARED, fd, 0);
-	if (!ctl->remote_map) {
-		pr_err("Can't rmap memfd for parasite blob\n");
-		goto err_curef;
-	}
-
-	ctl->local_map = mmap(NULL, size, PROT_READ | PROT_WRITE,
-			      MAP_SHARED | MAP_FILE, lfd, 0);
-	if (ctl->local_map == MAP_FAILED) {
-		ctl->local_map = NULL;
-		pr_perror("Can't lmap memfd for parasite blob");
-		goto err_curef;
-	}
-
-	syscall_seized(ctl, __NR_close, &sret, fd, 0, 0, 0, 0, 0);
-	close(lfd);
-
-	pr_info("Set up parasite blob using memfd\n");
-	return 0;
-
-err_curef:
-	close(lfd);
-err_cure:
-	syscall_seized(ctl, __NR_close, &sret, fd, 0, 0, 0, 0, 0);
-	return -1;
-}
-
-int parasite_map_exchange(struct parasite_ctl *ctl, unsigned long size)
-{
-	int ret;
-
-	ret = parasite_memfd_exchange(ctl, size);
-	if (ret == 1) {
-		pr_info("MemFD parasite doesn't work, goto legacy mmap\n");
-		ret = parasite_mmap_exchange(ctl, size);
-	}
-	return ret;
-}
-
 int parasite_dump_cgroup(struct parasite_ctl *ctl, struct parasite_dump_cgroup_args *cgroup)
 {
 	int ret;
 	struct parasite_dump_cgroup_args *ca;
 
-	ca = parasite_args(ctl, struct parasite_dump_cgroup_args);
-	ret = parasite_execute_daemon(PARASITE_CMD_DUMP_CGROUP, ctl);
+	ca = compel_parasite_args(ctl, struct parasite_dump_cgroup_args);
+	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_CGROUP, ctl);
 	if (ret) {
 		pr_err("Parasite failed to dump /proc/self/cgroup\n");
 		return ret;
@@ -1320,36 +469,17 @@ void parasite_ensure_args_size(unsigned long sz)
 		parasite_args_size = sz;
 }
 
-static int parasite_start_daemon(struct parasite_ctl *ctl, struct pstree_item *item)
+static int make_sigframe(void *arg, struct rt_sigframe *sf, struct rt_sigframe *rtsf, k_rtsigset_t *bs)
 {
-	pid_t pid = ctl->rpid;
-
-	/*
-	 * Get task registers before going daemon, since the
-	 * get_task_regs needs to call ptrace on _stopped_ task,
-	 * while in daemon it is not such.
-	 */
-
-	if (get_task_regs(pid, ctl->orig.regs, item->core[0])) {
-		pr_err("Can't obtain regs for thread %d\n", pid);
-		return -1;
-	}
-
-	if (construct_sigframe(ctl->sigframe, ctl->rsigframe, &ctl->orig.sigmask, item->core[0]))
-		return -1;
-
-	if (parasite_init_daemon(ctl, dmpi(item)->netns))
-		return -1;
-
-	return 0;
+	return construct_sigframe(sf, rtsf, bs, (CoreEntry *)arg);
 }
 
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		struct vm_area_list *vma_area_list)
 {
-	int ret;
 	struct parasite_ctl *ctl;
-	unsigned long p, map_exchange_size;
+	struct infect_ctx *ictx;
+	unsigned long p;
 
 	BUG_ON(item->threads[0].real != pid);
 
@@ -1359,102 +489,51 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		return NULL;
 	}
 
-	ctl = parasite_prep_ctl(pid, p);
+	ctl = compel_prepare_noctx(pid);
 	if (!ctl)
 		return NULL;
+
+	ictx = compel_infect_ctx(ctl);
+
+	ictx->open_proc = do_open_proc;
+	ictx->child_handler = sigchld_handler;
+	ictx->orig_handler.sa_handler = SIG_DFL;
+	ictx->orig_handler.sa_flags = SA_SIGINFO | SA_RESTART;
+	sigemptyset(&ictx->orig_handler.sa_mask);
+	sigaddset(&ictx->orig_handler.sa_mask, SIGCHLD);
+	ictx->sock = dmpi(item)->netns->net.seqsk;
+	ictx->save_regs = save_task_regs;
+	ictx->make_sigframe = make_sigframe;
+	ictx->regs_arg = item->core[0];
+	ictx->task_size = kdat.task_size;
+	ictx->syscall_ip = p;
+	pr_debug("Parasite syscall_ip at %#lx\n", p);
+
+	if (fault_injected(FI_NO_MEMFD))
+		ictx->flags |= INFECT_NO_MEMFD;
+	if (fault_injected(FI_PARASITE_CONNECT))
+		ictx->flags |= INFECT_FAIL_CONNECT;
+	if (fault_injected(FI_NO_BREAKPOINTS))
+		ictx->flags |= INFECT_NO_BREAKPOINTS;
+	if (kdat.has_compat_sigreturn)
+		ictx->flags |= INFECT_HAS_COMPAT_SIGRETURN;
+
+	ictx->log_fd = log_get_fd();
+
+	parasite_setup_c_header(ctl);
 
 	parasite_ensure_args_size(dump_pages_args_size(vma_area_list));
 	parasite_ensure_args_size(aio_rings_args_size(vma_area_list));
 
-	if (!arch_can_dump_task(ctl))
-		goto err_restore;
-	/*
-	 * Inject a parasite engine. Ie allocate memory inside alien
-	 * space and copy engine code there. Then re-map the engine
-	 * locally, so we will get an easy way to access engine memory
-	 * without using ptrace at all.
-	 */
-
-	ctl->args_size = round_up(parasite_args_size, PAGE_SIZE);
-	parasite_args_size = PARASITE_ARG_SIZE_MIN; /* reset for next task */
-	map_exchange_size = pie_size(parasite_blob) + ctl->args_size;
-	map_exchange_size += RESTORE_STACK_SIGFRAME + PARASITE_STACK_SIZE;
-	if (item->nr_threads > 1)
-		map_exchange_size += PARASITE_STACK_SIZE;
-
-	memcpy(&item->core[0]->tc->blk_sigset, &ctl->orig.sigmask, sizeof(k_rtsigset_t));
-
-	ret = parasite_map_exchange(ctl, map_exchange_size);
-	if (ret)
-		goto err_restore;
-
-	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
-	memcpy(ctl->local_map, parasite_blob, sizeof(parasite_blob));
-
-	ELF_RELOCS_APPLY_PARASITE(ctl->local_map, ctl->remote_map);
-
-	/* Setup the rest of a control block */
-	ctl->parasite_ip	= (unsigned long)parasite_sym(ctl->remote_map, __export_parasite_head_start);
-	ctl->addr_cmd		= parasite_sym(ctl->local_map, __export_parasite_cmd);
-	ctl->addr_args		= parasite_sym(ctl->local_map, __export_parasite_args);
-
-	p = pie_size(parasite_blob) + ctl->args_size;
-
-	ctl->rsigframe	= ctl->remote_map + p;
-	ctl->sigframe	= ctl->local_map  + p;
-
-	p += RESTORE_STACK_SIGFRAME;
-	p += PARASITE_STACK_SIZE;
-	ctl->rstack = ctl->remote_map + p;
-
-	if (item->nr_threads > 1) {
-		p += PARASITE_STACK_SIZE;
-		ctl->r_thread_stack = ctl->remote_map + p;
+	if (compel_infect(ctl, item->nr_threads, parasite_args_size) < 0) {
+		compel_cure(ctl);
+		return NULL;
 	}
 
-	if (parasite_start_daemon(ctl, item))
-		goto err_restore;
-
+	parasite_args_size = PARASITE_ARG_SIZE_MIN; /* reset for next task */
+	memcpy(&item->core[0]->tc->blk_sigset, compel_task_sigmask(ctl), sizeof(k_rtsigset_t));
 	dmpi(item)->parasite_ctl = ctl;
 
 	return ctl;
-
-err_restore:
-	parasite_cure_seized(ctl);
-	return NULL;
 }
 
-int ptrace_stop_pie(pid_t pid, void *addr, enum trace_flags *tf)
-{
-	int ret;
-
-	if (fault_injected(FI_NO_BREAKPOINTS)) {
-		pr_debug("Force no-breakpoints restore\n");
-		ret = 0;
-	} else
-		ret = ptrace_set_breakpoint(pid, addr);
-	if (ret < 0)
-		return ret;
-
-	if (ret > 0) {
-		/*
-		 * PIE will stop on a breakpoint, next
-		 * stop after that will be syscall enter.
-		 */
-		*tf = TRACE_EXIT;
-		return 0;
-	}
-
-	/*
-	 * No breakpoints available -- start tracing it
-	 * in a per-syscall manner.
-	 */
-	ret = ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
-	if (ret) {
-		pr_perror("Unable to restart the %d process", pid);
-		return -1;
-	}
-
-	*tf = TRACE_ENTER;
-	return 0;
-}

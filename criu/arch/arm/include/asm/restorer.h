@@ -4,7 +4,7 @@
 #include "asm/types.h"
 #include "images/core.pb-c.h"
 
-#include "sigframe.h"
+#include <compel/asm/sigframe.h>
 
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,	\
 			     thread_args, clone_restore_fn)		\
@@ -53,7 +53,7 @@
 		     : "memory")
 
 
-
+#define kdat_compat_sigreturn_test()			0
 
 int restore_gpregs(struct rt_sigframe *f, UserArmRegsEntry *r);
 int restore_nonsigframe_gpregs(UserArmRegsEntry *r);
@@ -72,14 +72,9 @@ static inline void restore_tls(tls_t *ptls) {
 	     );
 }
 
-static inline int ptrace_set_breakpoint(pid_t pid, void *addr)
-{
-	return 0;
-}
-
-static inline int ptrace_flush_breakpoints(pid_t pid)
-{
-	return 0;
-}
+static inline void *alloc_compat_syscall_stack(void) { return NULL; }
+static inline void free_compat_syscall_stack(void *stack32) { }
+static inline int
+arch_compat_rt_sigaction(void *stack, int sig, void *act) { return -1; }
 
 #endif

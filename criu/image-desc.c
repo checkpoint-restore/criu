@@ -99,17 +99,18 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY(USERNS,	"userns-%d"),
 	FD_ENTRY(NETNF_CT,	"netns-ct-%d"),
 	FD_ENTRY(NETNF_EXP,	"netns-exp-%d"),
+	FD_ENTRY(NS,		"ns"),
 
 	[CR_FD_STATS] = {
 		.fmt	= "stats-%s",
 		.magic	= STATS_MAGIC,
-		.oflags = O_SERVICE,
+		.oflags = O_SERVICE | O_FORCE_LOCAL,
 	},
 
 	[CR_FD_IRMAP_CACHE] = {
 		.fmt	= "irmap-cache",
 		.magic	= IRMAP_CACHE_MAGIC,
-		.oflags = O_SERVICE,
+		.oflags = O_SERVICE | O_FORCE_LOCAL,
 	},
 
 	[CR_FD_FILE_LOCKS_PID] = {

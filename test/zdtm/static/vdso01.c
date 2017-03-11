@@ -18,6 +18,47 @@
 const char *test_doc	= "Check if we can use vDSO using direct vDSO calls\n";
 const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
 
+#ifdef __i386__
+
+# define Ehdr_t		Elf32_Ehdr
+# define Sym_t		Elf32_Sym
+# define Phdr_t		Elf32_Phdr
+# define Word_t		Elf32_Word
+# define Dyn_t		Elf32_Dyn
+
+# define ELF_ST_TYPE	ELF32_ST_TYPE
+# define ELF_ST_BIND	ELF32_ST_BIND
+
+const char elf_ident[] = {
+	0x7f, 0x45, 0x4c, 0x46, 0x01, 0x01, 0x01, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+
+#else /* non-i386 */
+
+# define Ehdr_t		Elf64_Ehdr
+# define Sym_t		Elf64_Sym
+# define Phdr_t		Elf64_Phdr
+# define Word_t		Elf64_Word
+# define Dyn_t		Elf64_Dyn
+
+# ifndef ELF_ST_TYPE
+#  define ELF_ST_TYPE	ELF64_ST_TYPE
+# endif
+# ifndef ELF_ST_BIND
+#  define ELF_ST_BIND	ELF64_ST_BIND
+# endif
+
+/*
+ * See Elf specification for this magic values.
+ */
+const char elf_ident[] = {
+	0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+
+#endif
+
 typedef int (__vdso_clock_gettime_t)(clockid_t clock, struct timespec *ts);
 typedef long (__vdso_getcpu_t)(unsigned *cpu, unsigned *node, void *unused);
 typedef int (__vdso_gettimeofday_t)(struct timeval *tv, struct timezone *tz);
@@ -51,10 +92,12 @@ enum {
 	VDSO_SYMBOL_MAX
 };
 
-#define VDSO_SYMBOL_CLOCK_GETTIME_NAME	"__vdso_clock_gettime"
-#define VDSO_SYMBOL_GETCPU_NAME		"__vdso_getcpu"
-#define VDSO_SYMBOL_GETTIMEOFDAY_NAME	"__vdso_gettimeofday"
-#define VDSO_SYMBOL_TIME_NAME		"__vdso_time"
+const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
+	[VDSO_SYMBOL_CLOCK_GETTIME]	= "__vdso_clock_gettime",
+	[VDSO_SYMBOL_GETCPU]		= "__vdso_getcpu",
+	[VDSO_SYMBOL_GETTIMEOFDAY]	= "__vdso_gettimeofday",
+	[VDSO_SYMBOL_TIME]		= "__vdso_time",
+};
 
 struct vdso_symtable {
 	unsigned long		vma_start;
@@ -94,34 +137,19 @@ static unsigned long elf_hash(const unsigned char *name)
 
 static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 {
-	Elf64_Phdr *dynamic = NULL, *load = NULL;
-	Elf64_Ehdr *ehdr = (void *)mem;
-	Elf64_Dyn *dyn_strtab = NULL;
-	Elf64_Dyn *dyn_symtab = NULL;
-	Elf64_Dyn *dyn_strsz = NULL;
-	Elf64_Dyn *dyn_syment = NULL;
-	Elf64_Dyn *dyn_hash = NULL;
-	Elf64_Word *hash = NULL;
-	Elf64_Phdr *phdr;
-	Elf64_Dyn *d;
+	Phdr_t *dynamic = NULL, *load = NULL;
+	Ehdr_t *ehdr = (void *)mem;
+	Dyn_t *dyn_strtab = NULL;
+	Dyn_t *dyn_symtab = NULL;
+	Dyn_t *dyn_strsz = NULL;
+	Dyn_t *dyn_syment = NULL;
+	Dyn_t *dyn_hash = NULL;
+	Word_t *hash = NULL;
+	Phdr_t *phdr;
+	Dyn_t *d;
 
-	Elf64_Word *bucket, *chain;
-	Elf64_Word nbucket, nchain;
-
-	/*
-	 * See Elf specification for this magic values.
-	 */
-	const char elf_ident[] = {
-		0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	};
-
-	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
-		[VDSO_SYMBOL_CLOCK_GETTIME]	= VDSO_SYMBOL_CLOCK_GETTIME_NAME,
-		[VDSO_SYMBOL_GETCPU]		= VDSO_SYMBOL_GETCPU_NAME,
-		[VDSO_SYMBOL_GETTIMEOFDAY]	= VDSO_SYMBOL_GETTIMEOFDAY_NAME,
-		[VDSO_SYMBOL_TIME]		= VDSO_SYMBOL_TIME_NAME,
-	};
+	Word_t *bucket, *chain;
+	Word_t nbucket, nchain;
 
 	char *dynsymbol_names;
 	unsigned int i, j, k;
@@ -219,15 +247,15 @@ static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 		k = elf_hash((const unsigned char *)vdso_symbols[i]);
 
 		for (j = bucket[k % nbucket]; j < nchain && chain[j] != STN_UNDEF; j = chain[j]) {
-			Elf64_Sym *sym = (void *)&mem[dyn_symtab->d_un.d_ptr - load->p_vaddr];
+			Sym_t *sym = (void *)&mem[dyn_symtab->d_un.d_ptr - load->p_vaddr];
 			char *name;
 
 			sym = &sym[j];
 			if (__ptr_oob(sym, mem, size))
 				continue;
 
-			if (ELF64_ST_TYPE(sym->st_info) != STT_FUNC &&
-			    ELF64_ST_BIND(sym->st_info) != STB_GLOBAL)
+			if (ELF_ST_TYPE(sym->st_info) != STT_FUNC &&
+			    ELF_ST_BIND(sym->st_info) != STB_GLOBAL)
 				continue;
 
 			name = &dynsymbol_names[sym->st_name];
@@ -359,19 +387,37 @@ static int vdso_time_handler(void *func)
 	return 0;
 }
 
-int main(int argc, char *argv[])
+static int call_handlers(struct vdso_symtable *symtable)
 {
 	typedef int (handler_t)(void *func);
-
-	struct vdso_symtable symtable;
-	size_t i;
-
 	handler_t *handlers[VDSO_SYMBOL_MAX] = {
 		[VDSO_SYMBOL_CLOCK_GETTIME]	= vdso_clock_gettime_handler,
 		[VDSO_SYMBOL_GETCPU]		= vdso_getcpu_handler,
 		[VDSO_SYMBOL_GETTIMEOFDAY]	= vdso_gettimeofday_handler,
 		[VDSO_SYMBOL_TIME]		= vdso_time_handler,
 	};
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(symtable->symbols); i++) {
+		struct vdso_symbol *s = &symtable->symbols[i];
+		handler_t *func;
+
+		if (vdso_symbol_empty(s) || i > ARRAY_SIZE(handlers))
+			continue;
+		func = handlers[i];
+
+		if (func((void *)(s->offset + symtable->vma_start))) {
+			pr_perror("Handler error");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	struct vdso_symtable symtable;
 
 	test_init(argc, argv);
 
@@ -380,19 +426,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(symtable.symbols); i++) {
-		struct vdso_symbol *s = &symtable.symbols[i];
-		handler_t *func;
-
-		if (vdso_symbol_empty(s) || i > ARRAY_SIZE(handlers))
-			continue;
-		func = handlers[i];
-
-		if (func((void *)(s->offset + symtable.vma_start))) {
-			pr_perror("Handler error");
-			return -1;
-		}
-	}
+	if (call_handlers(&symtable))
+		return -1;
 
 	test_daemon();
 	test_waitsig();
@@ -400,18 +435,9 @@ int main(int argc, char *argv[])
 	/*
 	 * After restore the vDSO must remain in old place.
 	 */
-	for (i = 0; i < ARRAY_SIZE(symtable.symbols); i++) {
-		struct vdso_symbol *s = &symtable.symbols[i];
-		handler_t *func;
-
-		if (vdso_symbol_empty(s) || i > ARRAY_SIZE(handlers))
-			continue;
-		func = handlers[i];
-
-		if (func((void *)(s->offset + symtable.vma_start))) {
-			fail("Handler error");
-			return -1;
-		}
+	if (call_handlers(&symtable)) {
+		fail("Failed to call vdso handlers from symtable after C/R");
+		return -1;
 	}
 
 	pass();

@@ -12,6 +12,7 @@
 #include "images/sk-netlink.pb-c.h"
 #include "netlink_diag.h"
 #include "libnetlink.h"
+#include "namespaces.h"
 
 struct netlink_sk_desc {
 	struct socket_desc	sd;
@@ -24,7 +25,7 @@ struct netlink_sk_desc {
 	u8			protocol;
 };
 
-int netlink_receive_one(struct nlmsghdr *hdr, void *arg)
+int netlink_receive_one(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
 	struct nlattr *tb[NETLINK_DIAG_MAX+1];
 	struct netlink_diag_msg *m;
@@ -61,7 +62,7 @@ int netlink_receive_one(struct nlmsghdr *hdr, void *arg)
 		sd->gsize = 0;
 	}
 
-	return sk_collect_one(m->ndiag_ino, PF_NETLINK, &sd->sd);
+	return sk_collect_one(m->ndiag_ino, PF_NETLINK, &sd->sd, ns);
 }
 
 static bool can_dump_netlink_sk(int lfd)
@@ -94,6 +95,8 @@ static int dump_one_netlink_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (sk) {
 		BUG_ON(sk->sd.already_dumped);
 
+		ne.ns_id = sk->sd.sk_ns->id;
+		ne.has_ns_id = true;
 		ne.protocol = sk->protocol;
 		ne.portid = sk->portid;
 		ne.groups = sk->groups;
@@ -120,8 +123,17 @@ static int dump_one_netlink_fd(int lfd, u32 id, const struct fd_parms *p)
 		ne.dst_portid = sk->dst_portid;
 		ne.dst_group = sk->dst_group;
 	} else { /* unconnected and unbound socket */
+		struct ns_id *nsid;
 		int val;
 		socklen_t aux = sizeof(val);
+
+		if (root_ns_mask & CLONE_NEWNET) {
+			nsid = get_socket_ns(lfd);
+			if (nsid == NULL)
+				return -1;
+			ne.ns_id = nsid->id;
+			ne.has_ns_id = true;
+		}
 
 		if (getsockopt(lfd, SOL_SOCKET, SO_PROTOCOL, &val, &aux) < 0) {
 			pr_perror("Unable to get protocol for netlink socket");
@@ -166,6 +178,9 @@ static int open_netlink_sk(struct file_desc *d, int *new_fd)
 	nse = nsi->nse;
 
 	pr_info("Opening netlink socket id %#x\n", nse->id);
+
+	if (set_netns(nse->ns_id))
+		return -1;
 
 	sk = socket(PF_NETLINK, SOCK_RAW, nse->protocol);
 	if (sk < 0) {

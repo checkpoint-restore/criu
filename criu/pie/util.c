@@ -13,7 +13,7 @@
 #include "util-pie.h"
 
 #ifdef CR_NOGLIBC
-# include "syscall.h"
+# include <compel/plugins/std/syscall.h>
 # define __sys(foo)     sys_##foo
 #else
 # define __sys(foo)     foo

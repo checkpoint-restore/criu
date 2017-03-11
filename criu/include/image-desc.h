@@ -107,6 +107,7 @@ enum {
 	CR_FD_EVENTPOLL_TFD,
 
 	CR_FD_AUTOFS,
+	CR_FD_NS,
 
 	CR_FD_MAX
 };

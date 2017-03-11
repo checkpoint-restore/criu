@@ -34,10 +34,13 @@ struct kerndat_s {
 	unsigned long task_size;
 	bool ipv6;
 	bool has_loginuid;
+	bool has_compat_sigreturn;
+	bool sk_ns;
 	enum pagemap_func pmap;
 	unsigned int has_xtlocks;
 	unsigned long mmap_min_addr;
 	bool has_tcp_half_closed;
+	unsigned long uffd_features;
 };
 
 extern struct kerndat_s kdat;
@@ -59,5 +62,6 @@ enum {
 extern int kerndat_fs_virtualized(unsigned int which, u32 kdev);
 
 extern int kerndat_tcp_repair();
+extern int kerndat_uffd(bool need_uffd);
 
 #endif /* __CR_KERNDAT_H__ */

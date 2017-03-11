@@ -16,6 +16,7 @@
 #include "xmalloc.h"
 #include "images/inventory.pb-c.h"
 #include "images/pagemap.pb-c.h"
+#include "img-remote.h"
 
 bool ns_per_id = false;
 bool img_common_magic = true;
@@ -78,6 +79,12 @@ int check_img_inventory(void)
 		goto out_err;
 	}
 
+	if (!opts.check_only && he->has_check_only)
+		opts.check_only = he->check_only;
+
+	if (opts.check_only)
+		pr_msg("Checking mode enabled\n");
+
 	ret = 0;
 
 out_err:
@@ -122,6 +129,10 @@ int prepare_inventory(InventoryEntry *he)
 	he->has_ns_per_id = true;
 	he->has_lsmtype = true;
 	he->lsmtype = host_lsm_type();
+	if (opts.check_only) {
+		he->has_check_only = true;
+		he->check_only = true;
+	}
 
 	crt.i.pid->state = TASK_ALIVE;
 	crt.i.pid->real = getpid();
@@ -313,15 +324,55 @@ static int img_write_magic(struct cr_img *img, int oflags, int type)
 	return write_img(img, &imgset_template[type].magic);
 }
 
+int do_open_remote_image(int dfd, char *path, int flags)
+{
+	char *snapshot_id = NULL;
+	int ret;
+
+	/* When using namespaces, the current dir is changed so we need to
+	 * change to previous working dir and back to correctly open the image
+	 * proxy and cache sockets. */
+	int save = dirfd(opendir("."));
+	if (fchdir(get_service_fd(IMG_FD_OFF)) < 0) {
+		pr_debug("fchdir to dfd failed!\n");
+		return -1;
+	}
+
+	snapshot_id = get_snapshot_id_from_idx(dfd);
+
+	if (snapshot_id == NULL)
+		ret = -1;
+	else if (flags == O_RDONLY) {
+		pr_debug("do_open_remote_image RDONLY path=%s snapshot_id=%s\n",
+				  path, snapshot_id);
+		ret = read_remote_image_connection(snapshot_id, path);
+	} else {
+		pr_debug("do_open_remote_image WDONLY path=%s snapshot_id=%s\n",
+				  path, snapshot_id);
+		ret = write_remote_image_connection(snapshot_id, path, O_WRONLY);
+	}
+
+	if (fchdir(save) < 0) {
+		pr_debug("fchdir to save failed!\n");
+		return -1;
+	}
+	close(save);
+
+	return ret;
+}
+
 static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long oflags, char *path)
 {
 	int ret, flags;
 
-	flags = oflags & ~(O_NOBUF | O_SERVICE);
+	flags = oflags & ~(O_NOBUF | O_SERVICE | O_FORCE_LOCAL);
 
-	ret = openat(dfd, path, flags, CR_FD_PERM);
+	if (opts.remote && !(oflags & O_FORCE_LOCAL))
+		ret = do_open_remote_image(dfd, path, flags);
+	else
+		ret = openat(dfd, path, flags, CR_FD_PERM);
 	if (ret < 0) {
-		if (!(flags & O_CREAT) && (errno == ENOENT)) {
+		if (!(flags & O_CREAT) && (errno == ENOENT || ret == -ENOENT)) {
 			pr_info("No %s image\n", path);
 			img->_x.fd = EMPTY_IMG_FD;
 			goto skip_magic;
@@ -421,7 +472,9 @@ int open_image_dir(char *dir)
 	close(fd);
 	fd = ret;
 
-	if (opts.img_parent) {
+	if (opts.remote) {
+		init_snapshot_id(dir);
+	} else if (opts.img_parent) {
 		ret = symlinkat(opts.img_parent, fd, CR_PARENT_LINK);
 		if (ret < 0 && errno != EEXIST) {
 			pr_perror("Can't link parent snapshot");

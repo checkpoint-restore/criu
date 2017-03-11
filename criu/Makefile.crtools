@@ -1,4 +1,7 @@
 ccflags-y		+= -iquote criu/$(ARCH)
+ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
+CFLAGS_REMOVE_clone-noasan.o += $(CFLAGS-ASAN)
+
 obj-y			+= action-scripts.o
 obj-y			+= external.o
 obj-y			+= aio.o
@@ -6,11 +9,11 @@ obj-y			+= bfd.o
 obj-y			+= bitmap.o
 obj-y			+= cgroup.o
 obj-y			+= cgroup-props.o
+obj-y			+= clone-noasan.o
 obj-y			+= cr-check.o
 obj-y			+= cr-dedup.o
 obj-y			+= cr-dump.o
 obj-y			+= cr-errno.o
-obj-y			+= cr-exec.o
 obj-y			+= cr-restore.o
 obj-y			+= cr-service.o
 obj-y			+= crtools.o
@@ -26,6 +29,10 @@ obj-y			+= files-reg.o
 obj-y			+= fsnotify.o
 obj-y			+= image-desc.o
 obj-y			+= image.o
+obj-y			+= img-remote.o
+obj-y			+= img-proxy.o
+obj-y			+= img-cache.o
+obj-y			+= img-remote-proto.o
 obj-y			+= ipc_ns.o
 obj-y			+= irmap.o
 obj-y			+= kcmp-ids.o
@@ -44,8 +51,6 @@ obj-y			+= page-pipe.o
 obj-y			+= pagemap.o
 obj-y			+= page-xfer.o
 obj-y			+= parasite-syscall.o
-obj-y			+= pie/pie-relocs.o
-obj-y			+= pie-util-fd.o
 obj-y			+= pie-util.o
 obj-y			+= pipes.o
 obj-y			+= plugin.o
@@ -53,7 +58,6 @@ obj-y			+= proc_parse.o
 obj-y			+= protobuf-desc.o
 obj-y			+= protobuf.o
 obj-y			+= pstree.o
-obj-y			+= ptrace.o
 obj-y			+= rbtree.o
 obj-y			+= rst-malloc.o
 obj-y			+= seccomp.o
@@ -80,13 +84,16 @@ obj-y			+= uts_ns.o
 obj-y			+= path.o
 obj-y			+= autofs.o
 obj-y			+= fdstore.o
+obj-y			+= uffd.o
 
 ifeq ($(VDSO),y)
 obj-y			+= pie-util-vdso.o
 obj-y			+= vdso.o
+obj-y			+= pie-util-vdso-elf32.o
+CFLAGS_pie-util-vdso-elf32.o      += -DCONFIG_VDSO_32
 endif
 
-PROTOBUF_GEN := $(SRC_DIR)/scripts/protobuf-gen.sh
+PROTOBUF_GEN := scripts/protobuf-gen.sh
 
 $(obj)/protobuf-desc.d: $(obj)/protobuf-desc-gen.h
 

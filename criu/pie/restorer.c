@@ -17,11 +17,14 @@
 #include <sys/resource.h>
 #include <signal.h>
 
+#include "linux/userfaultfd.h"
+
 #include "int.h"
 #include "types.h"
 #include "common/compiler.h"
-#include "string.h"
-#include "syscall.h"
+#include <compel/plugins/std/syscall.h>
+#include <compel/plugins/std/log.h>
+#include <compel/ksigset.h>
 #include "signal.h"
 #include "config.h"
 #include "prctl.h"
@@ -30,6 +33,7 @@
 #include "image.h"
 #include "sk-inet.h"
 #include "vma.h"
+#include "uffd.h"
 
 #include "common/lock.h"
 #include "restorer.h"
@@ -41,6 +45,7 @@
 
 #include "shmem.h"
 #include "restorer.h"
+#include "namespaces.h"
 
 #ifndef PR_SET_PDEATHSIG
 #define PR_SET_PDEATHSIG 1
@@ -60,6 +65,28 @@ static pid_t *helpers;
 static int n_helpers;
 static pid_t *zombies;
 static int n_zombies;
+static enum faults fi_strategy;
+bool fault_injected(enum faults f)
+{
+	return __fault_injected(f, fi_strategy);
+}
+
+/*
+ * These are stubs for std compel plugin.
+ */
+int parasite_daemon_cmd(int cmd, void *args)
+{
+	return 0;
+}
+
+int parasite_trap_cmd(int cmd, void *args)
+{
+	return 0;
+}
+
+void parasite_cleanup(void)
+{
+}
 
 extern void cr_restore_rt (void) asm ("__cr_restore_rt")
 			__attribute__ ((visibility ("hidden")));
@@ -97,14 +124,14 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 static int lsm_set_label(char *label, int procfd)
 {
 	int ret = -1, len, lsmfd;
-	char path[LOG_SIMPLE_CHUNK];
+	char path[STD_LOG_SIMPLE_CHUNK];
 
 	if (!label)
 		return 0;
 
 	pr_info("restoring lsm profile %s\n", label);
 
-	simple_sprintf(path, "self/task/%ld/attr/current", sys_gettid());
+	std_sprintf(path, "self/task/%ld/attr/current", sys_gettid());
 
 	lsmfd = sys_openat(procfd, path, O_WRONLY, 0);
 	if (lsmfd < 0) {
@@ -164,28 +191,36 @@ static int restore_creds(struct thread_creds_args *args, int procfd)
 	 * to override the setresXid settings.
 	 */
 
-	ret = sys_setresuid(ce->uid, ce->euid, ce->suid);
-	if (ret) {
-		pr_err("Unable to set real, effective and saved user ID: %d\n", ret);
-		return -1;
+	if (ce->uid != NS_INVALID_XID || ce->euid != NS_INVALID_XID || ce->suid != NS_INVALID_XID) {
+		ret = sys_setresuid(ce->uid, ce->euid, ce->suid);
+		if (ret) {
+			pr_err("Unable to set real, effective and saved user ID: %d\n", ret);
+			return -1;
+		}
 	}
 
-	sys_setfsuid(ce->fsuid);
-	if (sys_setfsuid(-1) != ce->fsuid) {
-		pr_err("Unable to set fsuid\n");
-		return -1;
+	if (ce->fsuid != NS_INVALID_XID) {
+		sys_setfsuid(ce->fsuid);
+		if (sys_setfsuid(-1) != ce->fsuid) {
+			pr_err("Unable to set fsuid\n");
+			return -1;
+		}
 	}
 
-	ret = sys_setresgid(ce->gid, ce->egid, ce->sgid);
-	if (ret) {
-		pr_err("Unable to set real, effective and saved group ID: %d\n", ret);
-		return -1;
+	if (ce->gid != NS_INVALID_XID || ce->egid != NS_INVALID_XID || ce->sgid != NS_INVALID_XID) {
+		ret = sys_setresgid(ce->gid, ce->egid, ce->sgid);
+		if (ret) {
+			pr_err("Unable to set real, effective and saved group ID: %d\n", ret);
+			return -1;
+		}
 	}
 
-	sys_setfsgid(ce->fsgid);
-	if (sys_setfsgid(-1) != ce->fsgid) {
-		pr_err("Unable to set fsgid\n");
-		return -1;
+	if (ce->fsgid != NS_INVALID_XID) {
+		sys_setfsgid(ce->fsgid);
+		if (sys_setfsgid(-1) != ce->fsgid) {
+			pr_err("Unable to set fsgid\n");
+			return -1;
+		}
 	}
 
 	/*
@@ -424,9 +459,10 @@ static int restore_thread_common(struct thread_restore_args *args)
 	return 0;
 }
 
-static void noinline rst_sigreturn(unsigned long new_sp)
+static void noinline rst_sigreturn(unsigned long new_sp,
+		struct rt_sigframe *sigframe)
 {
-	ARCH_RT_SIGRETURN(new_sp);
+	ARCH_RT_SIGRETURN(new_sp, sigframe);
 }
 
 /*
@@ -485,7 +521,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 	futex_dec_and_wake(&thread_inprogress);
 
 	new_sp = (long)rt_sigframe + RT_SIGFRAME_OFFSET(rt_sigframe);
-	rst_sigreturn(new_sp);
+	rst_sigreturn(new_sp, rt_sigframe);
 
 core_restore_end:
 	pr_err("Restorer abnormal termination for %ld\n", sys_getpid());
@@ -717,8 +753,49 @@ static void rst_tcp_socks_all(struct task_restore_args *ta)
 		rst_tcp_repair_off(&ta->tcp_socks[i]);
 }
 
-static int vma_remap(unsigned long src, unsigned long dst, unsigned long len)
+
+
+
+static int enable_uffd(int uffd, unsigned long addr, unsigned long len)
 {
+	int rc;
+	struct uffdio_register uffdio_register;
+	unsigned long expected_ioctls;
+
+	/*
+	 * If uffd == -1, this means that userfaultfd is not enabled
+	 * or it is not available.
+	 */
+	if (uffd == -1)
+		return 0;
+
+	uffdio_register.range.start = addr;
+	uffdio_register.range.len = len;
+	uffdio_register.mode = UFFDIO_REGISTER_MODE_MISSING;
+	pr_info("lazy-pages: uffdio_register.range.start 0x%lx\n", (unsigned long) uffdio_register.range.start);
+	pr_info("lazy-pages: uffdio_register.len 0x%llx\n", uffdio_register.range.len);
+	rc = sys_ioctl(uffd, UFFDIO_REGISTER, (unsigned long) &uffdio_register);
+	pr_info("lazy-pages: ioctl UFFDIO_REGISTER rc %d\n", rc);
+	pr_info("lazy-pages: uffdio_register.range.start 0x%lx\n", (unsigned long) uffdio_register.range.start);
+	pr_info("lazy-pages: uffdio_register.len 0x%llx\n", uffdio_register.range.len);
+	if (rc != 0)
+		return -1;
+
+	expected_ioctls = (1 << _UFFDIO_WAKE) | (1 << _UFFDIO_COPY) | (1 << _UFFDIO_ZEROPAGE);
+
+	if ((uffdio_register.ioctls & expected_ioctls) != expected_ioctls) {
+		pr_err("lazy-pages: unexpected missing uffd ioctl for anon memory\n");
+	}
+
+	return 0;
+}
+
+
+static int vma_remap(VmaEntry *vma_entry, int uffd)
+{
+	unsigned long src = vma_premmaped_start(vma_entry);
+	unsigned long dst = vma_entry->start;
+	unsigned long len = vma_entry_len(vma_entry);
 	unsigned long guard = 0, tmp;
 
 	pr_info("Remap %lx->%lx len %lx\n", src, dst, len);
@@ -789,6 +866,18 @@ static int vma_remap(unsigned long src, unsigned long dst, unsigned long len)
 		pr_err("Unable to remap %lx -> %lx\n", src, dst);
 		return -1;
 	}
+
+	/*
+	 * If running in userfaultfd/lazy-pages mode pages with
+	 * MAP_ANONYMOUS and MAP_PRIVATE are remapped but without the
+	 * real content.
+	 * The function enable_uffd() marks the page(s) as userfaultfd
+	 * pages, so that the processes will hang until the memory is
+	 * injected via userfaultfd.
+	 */
+	if (vma_entry_can_be_lazy(vma_entry))
+		if (enable_uffd(uffd, dst, len) != 0)
+			return -1;
 
 	return 0;
 }
@@ -884,8 +973,6 @@ static void restore_posix_timers(struct task_restore_args *args)
 		sys_timer_settime((kernel_timer_t)rt->spt.it_id, 0, &rt->val, NULL);
 	}
 }
-static void *bootstrap_start;
-static unsigned int bootstrap_len;
 
 /*
  * sys_munmap must not return here. The control process must
@@ -897,10 +984,33 @@ static unsigned long vdso_rt_size;
 #define vdso_rt_size	(0)
 #endif
 
+static void *bootstrap_start;
+static unsigned int bootstrap_len;
+
 void __export_unmap(void)
 {
 	sys_munmap(bootstrap_start, bootstrap_len - vdso_rt_size);
 }
+
+#ifdef CONFIG_X86_64
+asm (
+	"	.pushsection .text\n"
+	"	.global	__export_unmap_compat\n"
+	"__export_unmap_compat:\n"
+	"	.code32\n"
+	"	mov bootstrap_start, %ebx\n"
+	"	mov bootstrap_len, %ecx\n"
+	"	movl $"__stringify(__NR32_munmap)", %eax\n"
+	"	int	$0x80\n"
+	"	.code64\n"
+	"	.popsection\n"
+);
+extern char __export_unmap_compat;
+#else
+void __export_unmap_compat(void)
+{
+}
+#endif
 
 /*
  * This function unmaps all VMAs, which don't belong to
@@ -1042,6 +1152,8 @@ long __export_restore_task(struct task_restore_args *args)
 	vdso_rt_size	= args->vdso_rt_size;
 #endif
 
+	fi_strategy = args->fault_strategy;
+
 	task_entries_local = args->task_entries;
 	helpers = args->helpers;
 	n_helpers = args->helpers_n;
@@ -1055,21 +1167,33 @@ long __export_restore_task(struct task_restore_args *args)
 	act.rt_sa_restorer = cr_restore_rt;
 	sys_sigaction(SIGCHLD, &act, NULL, sizeof(k_rtsigset_t));
 
-	ksigfillset(&to_block);
+	ksigemptyset(&to_block);
 	ksigaddset(&to_block, SIGCHLD);
 	ret = sys_sigprocmask(SIG_UNBLOCK, &to_block, NULL, sizeof(k_rtsigset_t));
 
-	log_set_fd(args->logfd);
-	log_set_loglevel(args->loglevel);
-	log_set_start(&args->logstart);
+	std_log_set_fd(args->logfd);
+	std_log_set_loglevel(args->loglevel);
+	std_log_set_start(&args->logstart);
 
 	pr_info("Switched to the restorer %d\n", my_pid);
 
-	if (vdso_do_park(&args->vdso_sym_rt, args->vdso_rt_parked_at, vdso_rt_size))
-		goto core_restore_end;
+	if (args->uffd > -1) {
+		pr_debug("lazy-pages: uffd %d\n", args->uffd);
+	}
+
+	if (!args->compatible_mode) {
+		/* Compatible vDSO will be mapped, not moved */
+		if (vdso_do_park(&args->vdso_sym_rt,
+				args->vdso_rt_parked_at, vdso_rt_size))
+			goto core_restore_end;
+	}
 
 	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len,
 				bootstrap_start, bootstrap_len, args->task_size))
+		goto core_restore_end;
+
+	/* Map compatible vdso */
+	if (args->compatible_mode && vdso_map_compat(args->vdso_rt_parked_at))
 		goto core_restore_end;
 
 	/* Shift private vma-s to the left */
@@ -1085,8 +1209,7 @@ long __export_restore_task(struct task_restore_args *args)
 		if (vma_entry->start > vma_entry->shmid)
 			break;
 
-		if (vma_remap(vma_premmaped_start(vma_entry),
-				vma_entry->start, vma_entry_len(vma_entry)))
+		if (vma_remap(vma_entry, args->uffd))
 			goto core_restore_end;
 	}
 
@@ -1103,9 +1226,18 @@ long __export_restore_task(struct task_restore_args *args)
 		if (vma_entry->start < vma_entry->shmid)
 			break;
 
-		if (vma_remap(vma_premmaped_start(vma_entry),
-				vma_entry->start, vma_entry_len(vma_entry)))
+		if (vma_remap(vma_entry, args->uffd))
 			goto core_restore_end;
+	}
+
+	if (args->uffd > -1) {
+		pr_debug("lazy-pages: closing uffd %d\n", args->uffd);
+		/*
+		 * All userfaultfd configuration has finished at this point.
+		 * Let's close the UFFD file descriptor, so that the restored
+		 * process does not have an opened UFFD FD for ever.
+		 */
+		sys_close(args->uffd);
 	}
 
 	/*
@@ -1132,16 +1264,11 @@ long __export_restore_task(struct task_restore_args *args)
 	/*
 	 * Proxify vDSO.
 	 */
-	for (i = 0; i < args->vmas_n; i++) {
-		if (vma_entry_is(&args->vmas[i], VMA_AREA_VDSO) ||
-		    vma_entry_is(&args->vmas[i], VMA_AREA_VVAR)) {
-			if (vdso_proxify("dumpee", &args->vdso_sym_rt,
-					 args->vdso_rt_parked_at,
-					 i, args->vmas, args->vmas_n))
-				goto core_restore_end;
-			break;
-		}
-	}
+	if (!args->check_only)
+		if (vdso_proxify(&args->vdso_sym_rt, args->vdso_rt_parked_at,
+			     args->vmas, args->vmas_n, args->compatible_mode,
+			     fault_injected(FI_VDSO_TRAMPOLINES)))
+			goto core_restore_end;
 #endif
 
 	/*
@@ -1317,7 +1444,7 @@ long __export_restore_task(struct task_restore_args *args)
 				continue;
 
 			new_sp = restorer_stack(thread_args[i].mz);
-			last_pid_len = vprint_num(last_pid_buf, sizeof(last_pid_buf), thread_args[i].pid - 1, &s);
+			last_pid_len = std_vprint_num(last_pid_buf, sizeof(last_pid_buf), thread_args[i].pid - 1, &s);
 			sys_lseek(fd, 0, SEEK_SET);
 			ret = sys_write(fd, s, last_pid_len);
 			if (ret < 0) {
@@ -1376,7 +1503,20 @@ long __export_restore_task(struct task_restore_args *args)
 		goto core_restore_end;
 	}
 
-	sys_sigaction(SIGCHLD, &args->sigchld_act, NULL, sizeof(k_rtsigset_t));
+	if (!args->compatible_mode) {
+		sys_sigaction(SIGCHLD, &args->sigchld_act,
+				NULL, sizeof(k_rtsigset_t));
+	} else {
+		void *stack = alloc_compat_syscall_stack();
+
+		if (!stack) {
+			pr_err("Failed to allocate 32-bit stack for sigaction\n");
+			goto core_restore_end;
+		}
+		arch_compat_rt_sigaction(stack, SIGCHLD,
+				(void*)&args->sigchld_act);
+		free_compat_syscall_stack(stack);
+	}
 
 	ret = restore_signals(args->siginfo, args->siginfo_n, true);
 	if (ret)
@@ -1410,6 +1550,13 @@ long __export_restore_task(struct task_restore_args *args)
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE_CREDS);
 
+	if (args->check_only) {
+		pr_info("Restore check was successful.\n");
+		futex_abort_and_wake(&task_entries_local->nr_in_progress);
+		return 0;
+	}
+
+
 	if (ret)
 		BUG();
 
@@ -1417,7 +1564,7 @@ long __export_restore_task(struct task_restore_args *args)
 	futex_wait_while_gt(&thread_inprogress, 1);
 
 	sys_close(args->proc_fd);
-	log_set_fd(-1);
+	std_log_set_fd(-1);
 
 	/*
 	 * The code that prepared the itimers makes shure the
@@ -1449,11 +1596,22 @@ long __export_restore_task(struct task_restore_args *args)
 	 * pure assembly since we don't need any additional
 	 * code insns from gcc.
 	 */
-	rst_sigreturn(new_sp);
+	rst_sigreturn(new_sp, rt_sigframe);
 
 core_restore_end:
 	futex_abort_and_wake(&task_entries_local->nr_in_progress);
 	pr_err("Restorer fail %ld\n", sys_getpid());
 	sys_exit_group(1);
 	return -1;
+}
+
+/*
+ * For most of the restorer's objects -fstack-protector is disabled.
+ * But we share some of them with CRIU, which may have it enabled.
+ */
+void __stack_chk_fail(void)
+{
+	pr_err("Restorer stack smash detected %ld\n", sys_getpid());
+	sys_exit_group(1);
+	BUG();
 }

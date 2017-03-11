@@ -2,10 +2,13 @@
 #include <unistd.h>
 
 #include "types.h"
+#include <compel/asm/processor-flags.h>
+
+#include <compel/asm/infect-types.h>
 #include "asm/restorer.h"
 #include "common/compiler.h"
-#include "ptrace.h"
-#include "asm/processor-flags.h"
+#include "asm/dump.h"
+#include <compel/ptrace.h>
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
@@ -15,113 +18,15 @@
 #include "elf.h"
 #include "parasite-syscall.h"
 #include "restorer.h"
-#include "errno.h"
-#include "kerndat.h"
 
-
-/*
- * Injected syscall instruction
- */
-const char code_syscall[] = {
-	0x00, 0x00, 0x00, 0xef,         /* SVC #0  */
-	0xf0, 0x01, 0xf0, 0xe7          /* UDF #32 */
-};
-
-static const int
-code_syscall_aligned = round_up(sizeof(code_syscall), sizeof(long));
-
-static inline __always_unused void __check_code_syscall(void)
-{
-	BUILD_BUG_ON(code_syscall_aligned != BUILTIN_SYSCALL_SIZE);
-	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
-}
-
-void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
-{
-	regs->ARM_pc = new_ip;
-	if (stack)
-		regs->ARM_sp = (unsigned long)stack;
-
-	/* Make sure flags are in known state */
-	regs->ARM_cpsr &= PSR_f | PSR_s | PSR_x | MODE32_BIT;
-}
-
-bool arch_can_dump_task(struct parasite_ctl *ctl)
-{
-	/*
-	 * TODO: Add proper check here
-	 */
-	return true;
-}
-
-int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
-		unsigned long arg1,
-		unsigned long arg2,
-		unsigned long arg3,
-		unsigned long arg4,
-		unsigned long arg5,
-		unsigned long arg6)
-{
-	user_regs_struct_t regs = ctl->orig.regs;
-	int err;
-
-	regs.ARM_r7 = (unsigned long)nr;
-	regs.ARM_r0 = arg1;
-	regs.ARM_r1 = arg2;
-	regs.ARM_r2 = arg3;
-	regs.ARM_r3 = arg4;
-	regs.ARM_r4 = arg5;
-	regs.ARM_r5 = arg6;
-
-	err = __parasite_execute_syscall(ctl, &regs, code_syscall);
-
-	*ret = regs.ARM_r0;
-	return err;
-}
-
-static int save_task_regs(CoreEntry *core,
-		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs);
+#include <compel/compel.h>
 
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))((src)->ARM_##e)
 
-#define PTRACE_GETVFPREGS 27
-int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
+int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
-	user_fpregs_struct_t vfp;
-	int ret = -1;
+	CoreEntry *core = x;
 
-	pr_info("Dumping GP/FPU registers for %d\n", pid);
-
-	if (ptrace(PTRACE_GETVFPREGS, pid, NULL, &vfp)) {
-		pr_perror("Can't obtain FPU registers for %d", pid);
-		goto err;
-	}
-
-	/* Did we come from a system call? */
-	if ((int)regs.ARM_ORIG_r0 >= 0) {
-		/* Restart the system call */
-		switch ((long)(int)regs.ARM_r0) {
-		case -ERESTARTNOHAND:
-		case -ERESTARTSYS:
-		case -ERESTARTNOINTR:
-			regs.ARM_r0 = regs.ARM_ORIG_r0;
-			regs.ARM_pc -= 4;
-			break;
-		case -ERESTART_RESTARTBLOCK:
-			regs.ARM_r0 = __NR_restart_syscall;
-			regs.ARM_pc -= 4;
-			break;
-		}
-	}
-
-	ret = save_task_regs(core, &regs, &vfp);
-err:
-	return ret;
-}
-
-static int save_task_regs(CoreEntry *core,
-		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
-{
 	// Save the ARM CPU state
 
 	assign_reg(core->ti_arm->gpregs, regs, r0);
@@ -205,24 +110,6 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 	aux->vfp.magic = VFP_MAGIC;
 	aux->vfp.size = VFP_STORAGE_SIZE;
 	return 0;
-}
-
-void *mmap_seized(struct parasite_ctl *ctl,
-		  void *addr, size_t length, int prot,
-		  int flags, int fd, off_t offset)
-{
-	unsigned long map;
-	int err;
-
-	if (offset & ~PAGE_MASK)
-		return 0;
-
-	err = syscall_seized(ctl, __NR_mmap2, &map,
-			(unsigned long)addr, length, prot, flags, fd, offset >> 12);
-	if (err < 0 || map > kdat.task_size)
-		map = 0;
-
-	return (void *)map;
 }
 
 int restore_gpregs(struct rt_sigframe *f, UserArmRegsEntry *r)

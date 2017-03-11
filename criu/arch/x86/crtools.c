@@ -1,246 +1,155 @@
 #include <string.h>
 #include <unistd.h>
 #include <elf.h>
-#include <sys/user.h>
 #include <sys/mman.h>
+#include <sys/syscall.h>
+#include <sys/auxv.h>
 
 #include "types.h"
-#include "asm/processor-flags.h"
+#include "log.h"
+#include "asm/parasite-syscall.h"
 #include "asm/restorer.h"
-#include "asm/fpu.h"
+#include <compel/asm/fpu.h>
+#include "asm/dump.h"
 
 #include "cr_options.h"
 #include "common/compiler.h"
 #include "restorer.h"
-#include "ptrace.h"
 #include "parasite-syscall.h"
-#include "log.h"
 #include "util.h"
 #include "cpu.h"
-#include "errno.h"
+#include <compel/plugins/std/syscall-codes.h>
+#include "kerndat.h"
+#include <compel/compel.h>
 
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
 
-/*
- * Injected syscall instruction
- */
-const char code_syscall[] = {
-	0x0f, 0x05,				/* syscall    */
-	0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc	/* int 3, ... */
-};
-
-static const int
-code_syscall_aligned = round_up(sizeof(code_syscall), sizeof(long));
-
-static inline __always_unused void __check_code_syscall(void)
+int kdat_compat_sigreturn_test(void)
 {
-	BUILD_BUG_ON(code_syscall_aligned != BUILTIN_SYSCALL_SIZE);
-	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
-}
-
-void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
-{
-	regs->ip = new_ip;
-	if (stack)
-		regs->sp = (unsigned long) stack;
-
-	/* Avoid end of syscall processing */
-	regs->orig_ax = -1;
-
-	/* Make sure flags are in known state */
-	regs->flags &= ~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF);
-}
-
-static int task_in_compat_mode(pid_t pid)
-{
-	unsigned long cs, ds;
+#ifdef CONFIG_COMPAT
+	unsigned long auxval;
+	int ret;
 
 	errno = 0;
-	cs = ptrace(PTRACE_PEEKUSER, pid, offsetof(user_regs_struct_t, cs), 0);
-	if (errno != 0) {
-		pr_perror("Can't get CS register for %d", pid);
-		return -1;
+	auxval = getauxval(AT_SYSINFO_EHDR);
+	if (!auxval || errno == ENOENT) {
+		pr_err("Failed to get auxval, err: %lu\n", auxval);
+		return 0;
 	}
-
-	errno = 0;
-	ds = ptrace(PTRACE_PEEKUSER, pid, offsetof(user_regs_struct_t, ds), 0);
-	if (errno != 0) {
-		pr_perror("Can't get DS register for %d", pid);
-		return -1;
-	}
-
-	/* It's x86-32 or x32 */
-	return cs != 0x33 || ds == 0x2b;
-}
-
-bool arch_can_dump_task(struct parasite_ctl *ctl)
-{
-	pid_t pid = ctl->rpid;
-
-	if (task_in_compat_mode(pid)) {
-		pr_err("Can't dump task %d running in 32-bit mode\n", pid);
-		return false;
-	}
-
-	return true;
-}
-
-int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
-		unsigned long arg1,
-		unsigned long arg2,
-		unsigned long arg3,
-		unsigned long arg4,
-		unsigned long arg5,
-		unsigned long arg6)
-{
-	user_regs_struct_t regs = ctl->orig.regs;
-	int err;
-
-	regs.ax  = (unsigned long)nr;
-	regs.di  = arg1;
-	regs.si  = arg2;
-	regs.dx  = arg3;
-	regs.r10 = arg4;
-	regs.r8  = arg5;
-	regs.r9  = arg6;
-
-	err = __parasite_execute_syscall(ctl, &regs, code_syscall);
-
-	*ret = regs.ax;
-	return err;
-}
-
-static int save_task_regs(CoreEntry *core,
-		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs);
-
-int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
-{
-	user_fpregs_struct_t xsave	= {  }, *xs = NULL;
-
-	struct iovec iov;
-	int ret = -1;
-
-	pr_info("Dumping GP/FPU registers for %d\n", pid);
-
-	/* Did we come from a system call? */
-	if ((int)regs.orig_ax >= 0) {
-		/* Restart the system call */
-		switch ((long)(int)regs.ax) {
-		case -ERESTARTNOHAND:
-		case -ERESTARTSYS:
-		case -ERESTARTNOINTR:
-			regs.ax = regs.orig_ax;
-			regs.ip -= 2;
-			break;
-		case -ERESTART_RESTARTBLOCK:
-			pr_warn("Will restore %d with interrupted system call\n", pid);
-			regs.ax = -EINTR;
-			break;
-		}
-	}
-
-#ifndef PTRACE_GETREGSET
-# define PTRACE_GETREGSET 0x4204
-#endif
-
-	if (!cpu_has_feature(X86_FEATURE_FPU))
-		goto out;
-
 	/*
-	 * FPU fetched either via fxsave or via xsave,
-	 * thus decode it accrodingly.
+	 * Mapping vDSO while have not unmap it yet:
+	 * this is restricted by API if ARCH_MAP_VDSO_* is supported.
 	 */
-
-	if (cpu_has_feature(X86_FEATURE_OSXSAVE)) {
-		iov.iov_base = &xsave;
-		iov.iov_len = sizeof(xsave);
-
-		if (ptrace(PTRACE_GETREGSET, pid, (unsigned int)NT_X86_XSTATE, &iov) < 0) {
-			pr_perror("Can't obtain FPU registers for %d", pid);
-			goto err;
-		}
-	} else {
-		if (ptrace(PTRACE_GETFPREGS, pid, NULL, &xsave)) {
-			pr_perror("Can't obtain FPU registers for %d", pid);
-			goto err;
-		}
-	}
-
-	xs = &xsave;
-out:
-	ret = save_task_regs(core, &regs, xs);
-err:
-	return ret;
+	ret = syscall(SYS_arch_prctl, ARCH_MAP_VDSO_32, 1);
+	if (ret == -1 && errno == EEXIST)
+		return 1;
+#endif
+	return 0;
 }
 
-static int save_task_regs(CoreEntry *core,
-		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
+int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
+	CoreEntry *core = x;
 	UserX86RegsEntry *gpregs	= core->thread_info->gpregs;
 
-#define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))(src)->e; } while (0)
-#define assign_array(dst, src, e)	memcpy(dst->e, &(src)->e, sizeof((src)->e))
+#define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
+#define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
 
-	assign_reg(gpregs, regs, r15);
-	assign_reg(gpregs, regs, r14);
-	assign_reg(gpregs, regs, r13);
-	assign_reg(gpregs, regs, r12);
-	assign_reg(gpregs, regs, bp);
-	assign_reg(gpregs, regs, bx);
-	assign_reg(gpregs, regs, r11);
-	assign_reg(gpregs, regs, r10);
-	assign_reg(gpregs, regs, r9);
-	assign_reg(gpregs, regs, r8);
-	assign_reg(gpregs, regs, ax);
-	assign_reg(gpregs, regs, cx);
-	assign_reg(gpregs, regs, dx);
-	assign_reg(gpregs, regs, si);
-	assign_reg(gpregs, regs, di);
-	assign_reg(gpregs, regs, orig_ax);
-	assign_reg(gpregs, regs, ip);
-	assign_reg(gpregs, regs, cs);
-	assign_reg(gpregs, regs, flags);
-	assign_reg(gpregs, regs, sp);
-	assign_reg(gpregs, regs, ss);
-	assign_reg(gpregs, regs, fs_base);
-	assign_reg(gpregs, regs, gs_base);
-	assign_reg(gpregs, regs, ds);
-	assign_reg(gpregs, regs, es);
-	assign_reg(gpregs, regs, fs);
-	assign_reg(gpregs, regs, gs);
+	if (user_regs_native(regs)) {
+		assign_reg(gpregs, regs->native, r15);
+		assign_reg(gpregs, regs->native, r14);
+		assign_reg(gpregs, regs->native, r13);
+		assign_reg(gpregs, regs->native, r12);
+		assign_reg(gpregs, regs->native, bp);
+		assign_reg(gpregs, regs->native, bx);
+		assign_reg(gpregs, regs->native, r11);
+		assign_reg(gpregs, regs->native, r10);
+		assign_reg(gpregs, regs->native, r9);
+		assign_reg(gpregs, regs->native, r8);
+		assign_reg(gpregs, regs->native, ax);
+		assign_reg(gpregs, regs->native, cx);
+		assign_reg(gpregs, regs->native, dx);
+		assign_reg(gpregs, regs->native, si);
+		assign_reg(gpregs, regs->native, di);
+		assign_reg(gpregs, regs->native, orig_ax);
+		assign_reg(gpregs, regs->native, ip);
+		assign_reg(gpregs, regs->native, cs);
+		assign_reg(gpregs, regs->native, flags);
+		assign_reg(gpregs, regs->native, sp);
+		assign_reg(gpregs, regs->native, ss);
+		assign_reg(gpregs, regs->native, fs_base);
+		assign_reg(gpregs, regs->native, gs_base);
+		assign_reg(gpregs, regs->native, ds);
+		assign_reg(gpregs, regs->native, es);
+		assign_reg(gpregs, regs->native, fs);
+		assign_reg(gpregs, regs->native, gs);
+		gpregs->mode = USER_X86_REGS_MODE__NATIVE;
+	} else {
+		assign_reg(gpregs, regs->compat, bx);
+		assign_reg(gpregs, regs->compat, cx);
+		assign_reg(gpregs, regs->compat, dx);
+		assign_reg(gpregs, regs->compat, si);
+		assign_reg(gpregs, regs->compat, di);
+		assign_reg(gpregs, regs->compat, bp);
+		assign_reg(gpregs, regs->compat, ax);
+		assign_reg(gpregs, regs->compat, ds);
+		assign_reg(gpregs, regs->compat, es);
+		assign_reg(gpregs, regs->compat, fs);
+		assign_reg(gpregs, regs->compat, gs);
+		assign_reg(gpregs, regs->compat, orig_ax);
+		assign_reg(gpregs, regs->compat, ip);
+		assign_reg(gpregs, regs->compat, cs);
+		assign_reg(gpregs, regs->compat, flags);
+		assign_reg(gpregs, regs->compat, sp);
+		assign_reg(gpregs, regs->compat, ss);
+		gpregs->mode = USER_X86_REGS_MODE__COMPAT;
+	}
+	gpregs->has_mode = true;
 
 	if (!fpregs)
 		return 0;
 
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, cwd);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, swd);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, twd);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, fop);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, rip);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, rdp);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, mxcsr);
-	assign_reg(core->thread_info->fpregs, &fpregs->i387, mxcsr_mask);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, cwd);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, swd);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, twd);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, fop);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, rip);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, rdp);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, mxcsr);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, mxcsr_mask);
 
 	/* Make sure we have enough space */
 	BUG_ON(core->thread_info->fpregs->n_st_space != ARRAY_SIZE(fpregs->i387.st_space));
 	BUG_ON(core->thread_info->fpregs->n_xmm_space != ARRAY_SIZE(fpregs->i387.xmm_space));
 
-	assign_array(core->thread_info->fpregs, &fpregs->i387, st_space);
-	assign_array(core->thread_info->fpregs, &fpregs->i387, xmm_space);
+	assign_array(core->thread_info->fpregs, fpregs->i387, st_space);
+	assign_array(core->thread_info->fpregs, fpregs->i387, xmm_space);
 
-	if (cpu_has_feature(X86_FEATURE_OSXSAVE)) {
+	if (compel_cpu_has_feature(X86_FEATURE_OSXSAVE)) {
 		BUG_ON(core->thread_info->fpregs->xsave->n_ymmh_space != ARRAY_SIZE(fpregs->ymmh.ymmh_space));
 
-		assign_reg(core->thread_info->fpregs->xsave, &fpregs->xsave_hdr, xstate_bv);
-		assign_array(core->thread_info->fpregs->xsave, &fpregs->ymmh, ymmh_space);
+		assign_reg(core->thread_info->fpregs->xsave, fpregs->xsave_hdr, xstate_bv);
+		assign_array(core->thread_info->fpregs->xsave, fpregs->ymmh, ymmh_space);
 	}
 
 #undef assign_reg
 #undef assign_array
 
 	return 0;
+}
+
+static void alloc_tls(ThreadInfoX86 *ti, void **mempool)
+{
+	int i;
+
+	ti->tls = xptr_pull_s(mempool, GDT_ENTRY_TLS_NUM*sizeof(UserDescT*));
+	ti->n_tls = GDT_ENTRY_TLS_NUM;
+	for (i = 0; i < GDT_ENTRY_TLS_NUM; i++) {
+		ti->tls[i] = xptr_pull(mempool, UserDescT);
+		user_desc_t__init(ti->tls[i]);
+	}
 }
 
 int arch_alloc_thread_info(CoreEntry *core)
@@ -251,12 +160,14 @@ int arch_alloc_thread_info(CoreEntry *core)
 	ThreadInfoX86 *ti = NULL;
 
 
-	with_fpu = cpu_has_feature(X86_FEATURE_FPU);
+	with_fpu = compel_cpu_has_feature(X86_FEATURE_FPU);
 
-	sz = sizeof(ThreadInfoX86) + sizeof(UserX86RegsEntry);
+	sz = sizeof(ThreadInfoX86) + sizeof(UserX86RegsEntry) +
+		GDT_ENTRY_TLS_NUM*sizeof(UserDescT) +
+		GDT_ENTRY_TLS_NUM*sizeof(UserDescT*);
 	if (with_fpu) {
 		sz += sizeof(UserX86FpregsEntry);
-		with_xsave = cpu_has_feature(X86_FEATURE_OSXSAVE);
+		with_xsave = compel_cpu_has_feature(X86_FEATURE_OSXSAVE);
 		if (with_xsave)
 			sz += sizeof(UserX86XsaveEntry);
 	}
@@ -269,6 +180,7 @@ int arch_alloc_thread_info(CoreEntry *core)
 	thread_info_x86__init(ti);
 	ti->gpregs = xptr_pull(&m, UserX86RegsEntry);
 	user_x86_regs_entry__init(ti->gpregs);
+	alloc_tls(ti, &m);
 
 	if (with_fpu) {
 		UserX86FpregsEntry *fpregs;
@@ -336,7 +248,7 @@ static bool valid_xsave_frame(CoreEntry *core)
 		return false;
 	}
 
-	if (cpu_has_feature(X86_FEATURE_OSXSAVE)) {
+	if (compel_cpu_has_feature(X86_FEATURE_OSXSAVE)) {
 		if (core->thread_info->fpregs->xsave &&
 		    core->thread_info->fpregs->xsave->n_ymmh_space < ARRAY_SIZE(x->ymmh.ymmh_space)) {
 			pr_err("Corruption in FPU ymmh_space area "
@@ -387,8 +299,12 @@ static void show_rt_xsave_frame(struct xsave_struct *x)
 
 int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 {
-	fpu_state_t *fpu_state = &sigframe->fpu_state;
-	struct xsave_struct *x = &fpu_state->xsave;
+	fpu_state_t *fpu_state = core_is_compat(core) ?
+		&sigframe->compat.fpu_state :
+		&sigframe->native.fpu_state;
+	struct xsave_struct *x = core_is_compat(core) ?
+		(void *)&fpu_state->fpu_state_ia32.xsave :
+		(void *)&fpu_state->fpu_state_64.xsave;
 
 	/*
 	 * If no FPU information provided -- we're restoring
@@ -420,7 +336,11 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 	assign_array(x->i387, core->thread_info->fpregs, st_space);
 	assign_array(x->i387, core->thread_info->fpregs, xmm_space);
 
-	if (cpu_has_feature(X86_FEATURE_OSXSAVE)) {
+	if (core_is_compat(core))
+		compel_convert_from_fxsr(&fpu_state->fpu_state_ia32.fregs_state.i387_ia32,
+					 &fpu_state->fpu_state_ia32.xsave.i387);
+
+	if (compel_cpu_has_feature(X86_FEATURE_OSXSAVE)) {
 		struct fpx_sw_bytes *fpx_sw = (void *)&x->i387.sw_reserved;
 		void *magic2;
 
@@ -441,7 +361,7 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 		/*
 		 * This should be at the end of xsave frame.
 		 */
-		magic2 = fpu_state->__pad + sizeof(struct xsave_struct);
+		magic2 = (void *)x + sizeof(struct xsave_struct);
 		*(u32 *)magic2 = FP_XSTATE_MAGIC2;
 	}
 
@@ -453,123 +373,66 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 	return 0;
 }
 
-void *mmap_seized(struct parasite_ctl *ctl,
-		  void *addr, size_t length, int prot,
-		  int flags, int fd, off_t offset)
+#define CPREG32(d)	f->compat.uc.uc_mcontext.d = r->d
+static void restore_compat_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 {
-	unsigned long map;
-	int err;
+	CPREG32(gs);
+	CPREG32(fs);
+	CPREG32(es);
+	CPREG32(ds);
 
-	err = syscall_seized(ctl, __NR_mmap, &map,
-			(unsigned long)addr, length, prot, flags, fd, offset);
-	if (err < 0)
-		return NULL;
+	CPREG32(di); CPREG32(si); CPREG32(bp); CPREG32(sp); CPREG32(bx);
+	CPREG32(dx); CPREG32(cx); CPREG32(ip); CPREG32(ax);
+	CPREG32(cs);
+	CPREG32(ss);
+	CPREG32(flags);
 
-	if (IS_ERR_VALUE(map)) {
-		if (map == -EACCES && (prot & PROT_WRITE) && (prot & PROT_EXEC))
-			pr_warn("mmap(PROT_WRITE | PROT_EXEC) failed for %d, "
-				"check selinux execmem policy\n", ctl->rpid);
-		return NULL;
-	}
-
-	return (void *)map;
+	f->is_native = false;
 }
+#undef CPREG32
+
+#define CPREG64(d, s)	f->native.uc.uc_mcontext.d = r->s
+static void restore_native_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
+{
+	CPREG64(rdi, di);
+	CPREG64(rsi, si);
+	CPREG64(rbp, bp);
+	CPREG64(rsp, sp);
+	CPREG64(rbx, bx);
+	CPREG64(rdx, dx);
+	CPREG64(rcx, cx);
+	CPREG64(rip, ip);
+	CPREG64(rax, ax);
+
+	CPREG64(r8, r8);
+	CPREG64(r9, r9);
+	CPREG64(r10, r10);
+	CPREG64(r11, r11);
+	CPREG64(r12, r12);
+	CPREG64(r13, r13);
+	CPREG64(r14, r14);
+	CPREG64(r15, r15);
+
+	CPREG64(cs, cs);
+
+	CPREG64(eflags, flags);
+
+	f->is_native = true;
+}
+#undef CPREG64
 
 int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 {
-#define CPREG1(d)	f->uc.uc_mcontext.d = r->d
-#define CPREG2(d, s)	f->uc.uc_mcontext.d = r->s
-
-#ifdef CONFIG_X86_64
-	CPREG1(r8);
-	CPREG1(r9);
-	CPREG1(r10);
-	CPREG1(r11);
-	CPREG1(r12);
-	CPREG1(r13);
-	CPREG1(r14);
-	CPREG1(r15);
-#endif
-
-	CPREG2(rdi, di);
-	CPREG2(rsi, si);
-	CPREG2(rbp, bp);
-	CPREG2(rbx, bx);
-	CPREG2(rdx, dx);
-	CPREG2(rax, ax);
-	CPREG2(rcx, cx);
-	CPREG2(rsp, sp);
-	CPREG2(rip, ip);
-	CPREG2(eflags, flags);
-
-	CPREG1(cs);
-	CPREG1(ss);
-
-#ifdef CONFIG_X86_32
-	CPREG1(gs);
-	CPREG1(fs);
-	CPREG1(es);
-	CPREG1(ds);
-#endif
-
+	switch (r->mode) {
+		case USER_X86_REGS_MODE__NATIVE:
+			restore_native_gpregs(f, r);
+			break;
+		case USER_X86_REGS_MODE__COMPAT:
+			restore_compat_gpregs(f, r);
+			break;
+		default:
+			pr_err("Can't prepare rt_sigframe: registers mode corrupted (%d)\n", r->mode);
+			return -1;
+	}
 	return 0;
 }
-
-/* Copied from the gdb header gdb/nat/x86-dregs.h */
-
-/* Debug registers' indices.  */
-#define DR_FIRSTADDR 0
-#define DR_LASTADDR  3
-#define DR_NADDR     4  /* The number of debug address registers.  */
-#define DR_STATUS    6  /* Index of debug status register (DR6).  */
-#define DR_CONTROL   7  /* Index of debug control register (DR7).  */
-
-#define DR_LOCAL_ENABLE_SHIFT   0 /* Extra shift to the local enable bit.  */
-#define DR_GLOBAL_ENABLE_SHIFT  1 /* Extra shift to the global enable bit.  */
-#define DR_ENABLE_SIZE          2 /* Two enable bits per debug register.  */
-
-/* Locally enable the break/watchpoint in the I'th debug register.  */
-#define X86_DR_LOCAL_ENABLE(i) (1 << (DR_LOCAL_ENABLE_SHIFT + DR_ENABLE_SIZE * (i)))
-
-int ptrace_set_breakpoint(pid_t pid, void *addr)
-{
-	int ret;
-
-	/* Set a breakpoint */
-	if (ptrace(PTRACE_POKEUSER, pid,
-			offsetof(struct user, u_debugreg[DR_FIRSTADDR]),
-			addr)) {
-		pr_perror("Unable to setup a breakpoint into %d", pid);
-		return -1;
-	}
-
-	/* Enable the breakpoint */
-	if (ptrace(PTRACE_POKEUSER, pid,
-			offsetof(struct user, u_debugreg[DR_CONTROL]),
-			X86_DR_LOCAL_ENABLE(DR_FIRSTADDR))) {
-		pr_perror("Unable to enable the breakpoint for %d", pid);
-		return -1;
-	}
-
-	ret = ptrace(PTRACE_CONT, pid, NULL, NULL);
-	if (ret) {
-		pr_perror("Unable to restart the  stopped tracee process %d", pid);
-		return -1;
-	}
-
-	return 1;
-}
-
-int ptrace_flush_breakpoints(pid_t pid)
-{
-	/* Disable the breakpoint */
-	if (ptrace(PTRACE_POKEUSER, pid,
-			offsetof(struct user, u_debugreg[DR_CONTROL]),
-			0)) {
-		pr_perror("Unable to disable the breakpoint for %d", pid);
-		return -1;
-	}
-
-	return 0;
-}
-

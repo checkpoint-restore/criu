@@ -1,14 +1,22 @@
-#!/bin/sh
+#!/bin/bash
+
+cd ../../
+set -m
+./scripts/travis/kexec.sh prep > kexec-prep.log 2>&1 &
+
 set -x -e
+
+cat /proc/cmdline
+cat /proc/self/mountinfo
 
 TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c0-dev libaio-dev
 		libprotobuf-dev protobuf-compiler python-ipaddr libcap-dev
-		libnl-3-dev gdb bash python-protobuf libnet-dev util-linux"
+		libnl-3-dev gcc-multilib libc6-dev-i386 gdb bash python-protobuf
+		libnet-dev util-linux
+		kexec-tools libssl-dev libelf-dev strace"
 
 travis_prep () {
 	[ -n "$SKIP_TRAVIS_PREP" ] && return
-
-	cd ../../
 
 	service apport stop
 
@@ -19,17 +27,30 @@ travis_prep () {
 			MAKE_VARS=CC=clang
 		fi
 	chmod a+x $HOME
+	pip install dropbox
 }
 
 travis_prep
 
-ulimit -c unlimited
-echo "|`pwd`/test/abrt.sh %P %p %s %e" > /proc/sys/kernel/core_pattern
 
 export GCOV
-make ${MAKE_VARS}
-make ${MAKE_VARS} -C test/zdtm
+make -j4 ${MAKE_VARS}
 
+./criu/criu check --extra --all || echo $?
+make -j4 ${MAKE_VARS} -C test/zdtm
+python test/zdtm.py run -t zdtm/static/env00
+
+date
+wait # for kexec.sh prep to finish
+cat kexec-prep.log
+./scripts/travis/kexec.sh
+date
+
+ulimit -c unlimited
+echo "|`pwd`/test/abrt.sh %P %p %s %e" > /proc/sys/kernel/core_pattern
+make -j4 ${MAKE_VARS} -C test/zdtm
+
+date
 ./criu/criu check
 ./criu/criu check --all || echo $?
 ./criu/criu cpuinfo dump
@@ -37,42 +58,72 @@ make ${MAKE_VARS} -C test/zdtm
 
 umask 0000
 export SKIP_PREP=1
-# The 3.19 Ubuntu kernel has a bug. When pagemap are read for a few vma-s
-# for one read call, it returns incorrect data.
-# https://github.com/xemul/criu/issues/207
-export CRIU_PMC_OFF=1
 
+chmod a+w -R .
 chmod 0777 test/
 chmod 0777 test/zdtm/static
 chmod 0777 test/zdtm/transition
 
-./test/zdtm.py run -a -p 2
-
+date
+./test/zdtm.py run -a -p 4 --keep-going
+date
 bash ./test/jenkins/criu-fault.sh
+date
 bash ./test/jenkins/criu-fcg.sh
+date
 bash ./test/jenkins/criu-inhfd.sh
+date
 
 make -C test/others/mnt-ext-dev/ run
-make -C test/others/exec/ run
+#make -C test/others/exec/ run
 
+date
 ./test/zdtm.py run -t zdtm/static/env00 --sibling
 
+date
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --dedup
+date
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --noauto-dedup
+date
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server
+date
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server --dedup
+date
 
 ./test/zdtm.py run -t zdtm/static/socket-tcp-local --norst
+date
 
 ip net add test
 ./test/zdtm.py run -t zdtm/static/env00 -f h --join-ns
 
+date
 # RPC testing
 ./test/zdtm.py run -t zdtm/static/env00 --rpc		# Basic
 ./test/zdtm.py run -t zdtm/static/ptrace_sig -f h --rpc # Error handling (crfail test)
 
+date
+./test/zdtm.py run -t zdtm/static/env00 --lazy-pages --pre 2
+./test/zdtm.py run -t zdtm/static/env00 --remote-lazy-pages
+
+date
+git clean -dxf test/zdtm
+make COMPAT_TEST=y -C test/zdtm/static/ env00
+./test/zdtm.py run -t zdtm/static/env00 -f h
+date
+
+dmesg
+date
+
+if [ -f /proc/lockdep ]; then
+	cat /proc/lockdep | grep WARNING && exit 1 || true
+fi
+
+cat /proc/sys/kernel/tainted
+[ "`cat /proc/sys/kernel/tainted`" = "0" ] ||	exit 1
+
 pip install flake8
 make lint
+date
 
 # Check that help output fits into 80 columns
 WIDTH=$(./criu/criu --help | wc --max-line-length)

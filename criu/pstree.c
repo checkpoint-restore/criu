@@ -9,13 +9,19 @@
 #include "rst-malloc.h"
 #include "common/lock.h"
 #include "namespaces.h"
+#include "cgroup.h"
+#include "ipc_ns.h"
+#include "uts_ns.h"
 #include "files.h"
 #include "tty.h"
 #include "mount.h"
 #include "dump.h"
 #include "util.h"
+#include "net.h"
+
 #include "protobuf.h"
 #include "images/pstree.pb-c.h"
+#include "crtools.h"
 
 struct pstree_item *root_item;
 static struct rb_root pid_root_rb;
@@ -217,6 +223,7 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 
 	item->pid->ns[0].virt = -1;
 	item->pid->real = -1;
+	item->pid->state = TASK_UNDEF;
 	item->born_sid = -1;
 	item->pid->item = item;
 	futex_init(&item->task_st);
@@ -455,6 +462,7 @@ struct pid *pstree_pid_by_virt(pid_t pid)
 
 static int read_pstree_ids(struct pstree_item *pi)
 {
+	pid_t pid = vpid(pi);
 	int ret;
 	struct cr_img *img;
 
@@ -469,7 +477,31 @@ static int read_pstree_ids(struct pstree_item *pi)
 		return ret;
 
 	if (pi->ids->has_mnt_ns_id) {
-		if (rst_add_ns_id(pi->ids->mnt_ns_id, pi, &mnt_ns_desc))
+		if (rst_add_ns_id(pi->ids->mnt_ns_id, pid, &mnt_ns_desc))
+			return -1;
+	}
+	if (pi->ids->has_net_ns_id) {
+		if (rst_add_ns_id(pi->ids->net_ns_id, pid, &net_ns_desc))
+			return -1;
+	}
+	if (pi->ids->has_user_ns_id) {
+		if (rst_add_ns_id(pi->ids->user_ns_id, pid, &user_ns_desc))
+			return -1;
+	}
+	if (pi->ids->has_pid_ns_id) {
+		if (rst_add_ns_id(pi->ids->pid_ns_id, pid, &pid_ns_desc))
+			return -1;
+	}
+	if (pi->ids->has_ipc_ns_id) {
+		if (rst_add_ns_id(pi->ids->ipc_ns_id, pid, &ipc_ns_desc))
+			return -1;
+	}
+	if (pi->ids->has_uts_ns_id) {
+		if (rst_add_ns_id(pi->ids->uts_ns_id, pid, &uts_ns_desc))
+			return -1;
+	}
+	if (pi->ids->has_cgroup_ns_id) {
+		if (rst_add_ns_id(pi->ids->cgroup_ns_id, pid, &cgroup_ns_desc))
 			return -1;
 	}
 
@@ -580,6 +612,8 @@ static int read_pstree_image(pid_t *pid_max)
 			goto err;
 	}
 
+	if (ret == 0)
+		ret = set_ns_roots();
 err:
 	close_image(img);
 	return ret;
@@ -860,8 +894,24 @@ static int prepare_pstree_kobj_ids(void)
 			 * be born in a fresh new mount namespace
 			 * which will be populated with all other
 			 * namespaces' entries.
+			 *
+			 * User namespaces are created in create_ns_hierarhy()
+			 * before the tasks, as their hierarhy does not correlated
+			 * with tasks hierarhy in any way.
 			 */
-			rsti(item)->clone_flags &= ~CLONE_NEWNS;
+			rsti(item)->clone_flags &= ~(CLONE_NEWNS | CLONE_NEWUSER);
+		/*
+		 * Net namespaces also do not correlated with task hierarhy,
+		 * so we create them manually in prepare_net_namespaces().
+		 * The second reason is that some kernel modules, such as network
+		 * packet generator, run kernel thread upon net-namespace creattion
+		 * taking the pid we've been requeting via LAST_PID_PATH interface
+		 * in fork_with_pid(), so that we can't restore a take with pid needed.
+		 *
+		 * The cgroup namespace is also unshared explicitly in the
+		 * move_in_cgroup(), so drop this flag here as well.
+		 */
+		rsti(item)->clone_flags &= ~(CLONE_NEWNET | CLONE_NEWCGROUP);
 
 		cflags &= CLONE_ALLNS;
 
@@ -946,6 +996,22 @@ int prepare_pstree(void)
 		ret = prepare_pstree_ids();
 
 	return ret;
+}
+
+int prepare_dummy_pstree(void)
+{
+	pid_t dummy = 0;
+
+	if (check_img_inventory() == -1)
+		return -1;
+
+	if (prepare_task_entries() == -1)
+		return -1;
+
+	if (read_pstree_image(&dummy) == -1)
+		return -1;
+
+	return 0;
 }
 
 bool restore_before_setsid(struct pstree_item *child)

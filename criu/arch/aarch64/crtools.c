@@ -4,10 +4,13 @@
 #include <linux/elf.h>
 
 #include "types.h"
+#include <compel/asm/processor-flags.h>
+
+#include <compel/asm/infect-types.h>
 #include "asm/restorer.h"
 #include "common/compiler.h"
-#include "ptrace.h"
-#include "asm/processor-flags.h"
+#include <compel/ptrace.h>
+#include "asm/dump.h"
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
@@ -16,103 +19,14 @@
 #include "util.h"
 #include "cpu.h"
 #include "restorer.h"
-
-
-/*
- * Injected syscall instruction
- */
-const char code_syscall[] = {
-	0x01, 0x00, 0x00, 0xd4,		/* SVC #0 */
-	0x00, 0x00, 0x20, 0xd4		/* BRK #0 */
-};
-
-static const int
-code_syscall_aligned = round_up(sizeof(code_syscall), sizeof(long));
-
-static inline void __always_unused __check_code_syscall(void)
-{
-	BUILD_BUG_ON(code_syscall_aligned != BUILTIN_SYSCALL_SIZE);
-	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
-}
-
-void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
-{
-	regs->pc = new_ip;
-	if (stack)
-		regs->sp = (unsigned long)stack;
-}
-
-bool arch_can_dump_task(struct parasite_ctl *ctl)
-{
-	/*
-	 * TODO: Add proper check here
-	 */
-	return true;
-}
-
-int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
-					unsigned long arg1,
-					unsigned long arg2,
-					unsigned long arg3,
-					unsigned long arg4,
-					unsigned long arg5,
-					unsigned long arg6)
-{
-	user_regs_struct_t regs = ctl->orig.regs;
-	int err;
-
-	regs.regs[8] = (unsigned long)nr;
-	regs.regs[0] = arg1;
-	regs.regs[1] = arg2;
-	regs.regs[2] = arg3;
-	regs.regs[3] = arg4;
-	regs.regs[4] = arg5;
-	regs.regs[5] = arg6;
-	regs.regs[6] = 0;
-	regs.regs[7] = 0;
-
-	err = __parasite_execute_syscall(ctl, &regs, code_syscall);
-
-	*ret = regs.regs[0];
-	return err;
-}
-
-static int save_task_regs(CoreEntry *core,
-		user_regs_struct_t *regs, user_fpregs_struct_t *fpsimd);
+#include <compel/compel.h>
 
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))(src)->e
 
-int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
-{
-	struct iovec iov;
-	user_fpregs_struct_t fpsimd;
-	int ret;
-
-	pr_info("Dumping GP/FPU registers for %d\n", pid);
-
-	iov.iov_base = &regs;
-	iov.iov_len = sizeof(user_regs_struct_t);
-	if ((ret = ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, &iov))) {
-		pr_perror("Failed to obtain CPU registers for %d", pid);
-		goto err;
-	}
-
-	iov.iov_base = &fpsimd;
-	iov.iov_len = sizeof(fpsimd);
-	if ((ret = ptrace(PTRACE_GETREGSET, pid, NT_PRFPREG, &iov))) {
-		pr_perror("Failed to obtain FPU registers for %d", pid);
-		goto err;
-	}
-
-	ret = save_task_regs(core, &regs, &fpsimd);
-err:
-	return ret;
-}
-
-static int save_task_regs(CoreEntry *core,
-		user_regs_struct_t *regs, user_fpregs_struct_t *fpsimd)
+int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpsimd)
 {
 	int i;
+	CoreEntry *core = x;
 
 	// Save the Aarch64 CPU state
 	for (i = 0; i < 31; ++i)
@@ -205,22 +119,6 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 	fpsimd->head.size = sizeof(*fpsimd);
 
 	return 0;
-}
-
-void *mmap_seized(
-		struct parasite_ctl *ctl,
-		void *addr, size_t length, int prot,
-		int flags, int fd, off_t offset)
-{
-	unsigned long map;
-	int err;
-
-	err = syscall_seized(ctl, __NR_mmap, &map,
-			(unsigned long)addr, length, prot, flags, fd, offset);
-	if (err < 0 || (long)map < 0)
-		map = 0;
-
-	return (void *)map;
 }
 
 int restore_gpregs(struct rt_sigframe *f, UserRegsEntry *r)

@@ -16,12 +16,13 @@
 #include "vma.h"
 #include "mem.h"
 #include "config.h"
-#include "syscall-codes.h"
+#include <compel/plugins/std/syscall-codes.h>
 #include "bitops.h"
 #include "log.h"
 #include "types.h"
 #include "page.h"
 #include "util.h"
+#include "pstree.h"
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
 
@@ -218,6 +219,8 @@ static void update_shmem_pmaps(struct shmem_info *si, u64 *map, VmaEntry *vma)
 		shmem_pfn = vma_pfn + DIV_ROUND_UP(vma->pgoff, PAGE_SIZE);
 		if (map[vma_pfn] & PME_SOFT_DIRTY)
 			set_pstate(si->pstate_map, shmem_pfn, PST_DIRTY);
+		else if (page_is_zero(map[vma_pfn]))
+			set_pstate(si->pstate_map, shmem_pfn, PST_ZERO);
 		else
 			set_pstate(si->pstate_map, shmem_pfn, PST_DUMP);
 	}
@@ -285,7 +288,7 @@ static int open_shmem_sysv(int pid, struct vma_area *vma)
 	VmaEntry *vme = vma->e;
 	struct shmem_info *si;
 	struct shmem_sysv_att *att;
-	uint64_t ret_fd;
+	int64_t ret_fd;
 
 	si = shmem_find(vme->shmid);
 	if (!si) {
@@ -448,7 +451,8 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si, VmaEntry *vi)
 		si->pid, si->fd);
 
 	pr_info("Opening shmem [%s] \n", path);
-	ret = open_proc_rw(si->pid, "fd/%d", si->fd);
+	pid = pstree_pid_by_virt(si->pid)->real;
+	ret = open_fd_of_real_pid(pid, si->fd, O_RDWR);
 	futex_inc_and_wake(&si->lock);
 	if (ret < 0)
 		return -1;
@@ -625,7 +629,7 @@ static int dump_pages(struct page_pipe *pp, struct page_xfer *xfer, void *addr)
 			return -1;
 		}
 
-	return page_xfer_dump_pages(xfer, pp, (unsigned long)addr);
+	return page_xfer_dump_pages(xfer, pp, (unsigned long)addr, true);
 }
 
 static int next_data_segment(int fd, unsigned long pfn,
@@ -712,9 +716,9 @@ again:
 		if (pgstate == PST_ZERO)
 			ret = 0;
 		else if (xfer.parent && page_in_parent(pgstate == PST_DIRTY))
-			ret = page_pipe_add_hole(pp, pgaddr);
+			ret = page_pipe_add_hole(pp, pgaddr, PP_HOLE_PARENT);
 		else
-			ret = page_pipe_add_page(pp, pgaddr);
+			ret = page_pipe_add_page(pp, pgaddr, 0);
 
 		if (ret == -EAGAIN) {
 			ret = dump_pages(pp, &xfer, addr);

@@ -9,7 +9,7 @@
 #include "int.h"
 #include "types.h"
 #include "common/compiler.h"
-#include "asm/fpu.h"
+#include <compel/asm/fpu.h>
 #include "common/lock.h"
 #include "util.h"
 #include "asm/restorer.h"
@@ -17,8 +17,8 @@
 #include "posix-timer.h"
 #include "timerfd.h"
 #include "shmem.h"
-#include "sigframe.h"
 #include "parasite-vdso.h"
+#include "fault-injection.h"
 
 #include <time.h>
 
@@ -110,6 +110,8 @@ struct task_restore_args {
 	unsigned int			loglevel;
 	struct timeval			logstart;
 
+	int				uffd;
+
 	/* threads restoration */
 	int				nr_threads;		/* number of threads */
 	thread_restore_fcall_t		clone_restore_fn;	/* helper address for clone() call */
@@ -175,12 +177,18 @@ struct task_restore_args {
 
 	int				seccomp_mode;
 
+	bool				compatible_mode;
+
+	bool				check_only;
+
 #ifdef CONFIG_VDSO
 	unsigned long			vdso_rt_size;
 	struct vdso_symtable		vdso_sym_rt;		/* runtime vdso symbols */
 	unsigned long			vdso_rt_parked_at;	/* safe place to keep vdso */
 #endif
 	void				**breakpoint;
+
+	enum faults			fault_strategy;
 } __aligned(64);
 
 /*
@@ -224,9 +232,7 @@ enum {
 	})
 
 
-/* the restorer_blob_offset__ prefix is added by gen_offsets.sh */
-#define __blob_offset(name)	restorer_blob_offset__ ## name
-#define _blob_offset(name)	__blob_offset(name)
-#define restorer_sym(rblob, name)	(void*)(rblob + _blob_offset(name))
+#define __r_sym(name)			restorer_sym ## name
+#define restorer_sym(rblob, name)	(void*)(rblob + __r_sym(name))
 
 #endif /* __CR_RESTORER_H__ */

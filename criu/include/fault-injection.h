@@ -11,6 +11,7 @@ enum faults {
 	FI_PARASITE_CONNECT,
 	FI_POST_RESTORE,
 	/* not fatal */
+	FI_VDSO_TRAMPOLINES = 127,
 	FI_CHECK_OPEN_HANDLE = 128,
 	FI_NO_MEMFD = 129,
 	FI_NO_BREAKPOINTS = 130,
@@ -18,10 +19,7 @@ enum faults {
 	FI_MAX,
 };
 
-extern enum faults fi_strategy;
-extern int fault_injection_init(void);
-
-static inline bool fault_injected(enum faults f)
+static inline bool __fault_injected(enum faults f, enum faults fi_strategy)
 {
 	/*
 	 * Temporary workaround for Xen guests. Breakpoints degrade
@@ -33,4 +31,18 @@ static inline bool fault_injected(enum faults f)
 
 	return fi_strategy == f;
 }
+
+#ifndef CR_NOGLIBC
+
+extern enum faults fi_strategy;
+#define fault_injected(f)	__fault_injected(f, fi_strategy)
+
+extern int fault_injection_init(void);
+
+#else /* CR_NOGLIBC */
+
+extern bool fault_injected(enum faults f);
+
+#endif
+
 #endif

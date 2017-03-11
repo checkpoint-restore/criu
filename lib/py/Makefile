@@ -2,6 +2,7 @@ all-y	+= libpy-images rpc_pb2.py
 
 .PHONY: .FORCE
 
+$(obj)/images/Makefile: ;
 $(obj)/images/%: .FORCE
 	$(Q) $(MAKE) $(build)=$(obj)/images $@
 
@@ -10,7 +11,7 @@ libpy-images:
 .PHONY: libpy-images
 
 rpc_pb2.py:
-	$(Q) protoc -I=$(SRC_DIR)/images/ --python_out=$(obj) $(SRC_DIR)/images/$(@:_pb2.py=.proto)
+	$(Q) protoc -I=images/ --python_out=$(obj) images/$(@:_pb2.py=.proto)
 
 cleanup-y	+= $(addprefix $(obj)/,rpc_pb2.py *.pyc)
 

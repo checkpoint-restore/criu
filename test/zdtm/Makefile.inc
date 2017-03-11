@@ -30,4 +30,12 @@ endif
 
 RM := rm -f --one-file-system
 
+ifeq ($(COMPAT_TEST),y)
+ifeq ($(ARCH),x86)
+        export USERCFLAGS += -m32
+        export CFLAGS += -m32
+        export LDFLAGS += -m32
+endif
+endif
+
 export E Q RM

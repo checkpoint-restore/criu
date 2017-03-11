@@ -12,7 +12,7 @@
 #include "int.h"
 #include "types.h"
 #include "page.h"
-#include "syscall.h"
+#include <compel/plugins/std/syscall.h>
 #include "image.h"
 #include "parasite-vdso.h"
 #include "vma.h"
@@ -68,27 +68,65 @@ int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned l
 	return ret;
 }
 
-int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
-		 unsigned long vdso_rt_parked_at, size_t index,
-		 VmaEntry *vmas, size_t nr_vmas)
+#if defined(CONFIG_X86_64) && defined(CONFIG_COMPAT)
+int vdso_map_compat(unsigned long map_at)
+{
+	int ret;
+
+	pr_debug("Mapping compatible vDSO at %lx\n", map_at);
+
+	ret = sys_arch_prctl(ARCH_MAP_VDSO_32, map_at);
+	if (ret < 0)
+		return ret;
+	return 0;
+}
+
+int __vdso_fill_symtable(uintptr_t mem, size_t size,
+		struct vdso_symtable *t, bool compat_vdso)
+{
+	if (compat_vdso)
+		return vdso_fill_symtable_compat(mem, size, t);
+	else
+		return vdso_fill_symtable(mem, size, t);
+}
+#else
+int vdso_map_compat(unsigned long __always_unused map_at)
+{
+	/* shouldn't be called on !CONFIG_COMPAT */
+	BUG();
+	return 0;
+}
+int __vdso_fill_symtable(uintptr_t mem, size_t size,
+		struct vdso_symtable *t, bool __always_unused compat_vdso)
+{
+	return vdso_fill_symtable(mem, size, t);
+}
+#endif
+
+int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
+		 VmaEntry *vmas, size_t nr_vmas,
+		 bool compat_vdso, bool force_trampolines)
 {
 	VmaEntry *vma_vdso = NULL, *vma_vvar = NULL;
 	struct vdso_symtable s = VDSO_SYMTABLE_INIT;
 	bool remap_rt = false;
+	unsigned int i;
 
-	/*
-	 * Figure out which kind of vdso tuple we get.
-	 */
-	if (vma_entry_is(&vmas[index], VMA_AREA_VDSO))
-		vma_vdso = &vmas[index];
-	else if (vma_entry_is(&vmas[index], VMA_AREA_VVAR))
-		vma_vvar = &vmas[index];
+	for (i = 0; i < nr_vmas; i++) {
+		if (vma_entry_is(&vmas[i], VMA_AREA_VDSO))
+			vma_vdso = &vmas[i];
+		else if (vma_entry_is(&vmas[i], VMA_AREA_VVAR))
+			vma_vvar = &vmas[i];
+	}
 
-	if (index < (nr_vmas - 1)) {
-		if (vma_entry_is(&vmas[index + 1], VMA_AREA_VDSO))
-			vma_vdso = &vmas[index + 1];
-		else if (vma_entry_is(&vmas[index + 1], VMA_AREA_VVAR))
-			vma_vvar = &vmas[index + 1];
+	if (!vma_vdso && !vma_vvar) {
+		pr_info("No VVAR, no vDSO in image\n");
+		/*
+		 * We don't have to unmap rt-vdso, rt-vvar as they will
+		 * be unmapped with restorer blob in the end,
+		 * see __export_unmap()
+		 */
+		return 0;
 	}
 
 	if (!vma_vdso) {
@@ -105,8 +143,8 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 	/*
 	 * Find symbols in vDSO zone read from image.
 	 */
-	if (vdso_fill_symtable((uintptr_t)vma_vdso->start,
-				vma_entry_len(vma_vdso), &s))
+	if (__vdso_fill_symtable((uintptr_t)vma_vdso->start,
+			vma_entry_len(vma_vdso), &s, compat_vdso))
 		return -1;
 
 	/*
@@ -155,35 +193,35 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 	 * by a caller code. So drop VMA_AREA_REGULAR from it and caller would
 	 * not touch it anymore.
 	 */
-	if (remap_rt) {
+	if (remap_rt && !force_trampolines) {
 		int ret = 0;
 
 		pr_info("Runtime vdso/vvar matches dumpee, remap inplace\n");
 
 		if (sys_munmap((void *)(uintptr_t)vma_vdso->start,
 					vma_entry_len(vma_vdso))) {
-			pr_err("Failed to unmap %s\n", who);
+			pr_err("Failed to unmap dumpee\n");
 			return -1;
 		}
 
 		if (vma_vvar) {
 			if (sys_munmap((void *)(uintptr_t)vma_vvar->start,
 						vma_entry_len(vma_vvar))) {
-				pr_err("Failed to unmap %s\n", who);
+				pr_err("Failed to unmap dumpee\n");
 				return -1;
 			}
 
 			if (vma_vdso->start < vma_vvar->start) {
-				ret  = vdso_remap(who, vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
+				ret  = vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
 				vdso_rt_parked_at += vdso_vma_size(sym_rt);
-				ret |= vdso_remap(who, vdso_rt_parked_at, vma_vvar->start, vvar_vma_size(sym_rt));
+				ret |= vdso_remap("rt-vvar", vdso_rt_parked_at, vma_vvar->start, vvar_vma_size(sym_rt));
 			} else {
-				ret  = vdso_remap(who, vdso_rt_parked_at, vma_vvar->start, vvar_vma_size(sym_rt));
+				ret  = vdso_remap("rt-vvar", vdso_rt_parked_at, vma_vvar->start, vvar_vma_size(sym_rt));
 				vdso_rt_parked_at += vvar_vma_size(sym_rt);
-				ret |= vdso_remap(who, vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
+				ret |= vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
 			}
 		} else
-			ret = vdso_remap(who, vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
+			ret = vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
 
 		return ret;
 	}

@@ -1,10 +1,6 @@
 #ifndef __CR_PARASITE_H__
 #define __CR_PARASITE_H__
 
-#define PARASITE_STACK_SIZE	(16 << 10)
-#define PARASITE_ARG_SIZE_MIN	( 1 << 12)
-#define PARASITE_START_AREA_MIN	(4096)
-
 #define PARASITE_MAX_SIZE	(64 << 10)
 
 #ifndef __ASSEMBLY__
@@ -17,6 +13,7 @@
 #include "image.h"
 #include "util-pie.h"
 #include "common/lock.h"
+#include "infect-rpc.h"
 
 #include "images/vma.pb-c.h"
 #include "images/tty.pb-c.h"
@@ -24,18 +21,7 @@
 #define __head __used __section(.head.text)
 
 enum {
-	PARASITE_CMD_IDLE		= 0,
-	PARASITE_CMD_ACK,
-
-	PARASITE_CMD_INIT_DAEMON,
-	PARASITE_CMD_DUMP_THREAD,
-	PARASITE_CMD_UNMAP,
-
-	/*
-	 * This must be greater than INITs.
-	 */
-	PARASITE_CMD_FINI,
-
+	PARASITE_CMD_DUMP_THREAD = PARASITE_USER_CMDS,
 	PARASITE_CMD_MPROTECT_VMAS,
 	PARASITE_CMD_DUMPPAGES,
 
@@ -51,35 +37,6 @@ enum {
 	PARASITE_CMD_DUMP_CGROUP,
 
 	PARASITE_CMD_MAX,
-};
-
-struct ctl_msg {
-	unsigned int	cmd;			/* command itself */
-	unsigned int	ack;			/* ack on command */
-	int		err;			/* error code on reply */
-};
-
-#define ctl_msg_cmd(_cmd)		\
-	(struct ctl_msg){.cmd = _cmd, }
-
-#define ctl_msg_ack(_cmd, _err)	\
-	(struct ctl_msg){.cmd = _cmd, .ack = _cmd, .err = _err, }
-
-struct parasite_init_args {
-	int			h_addr_len;
-	struct sockaddr_un	h_addr;
-
-	int			log_level;
-
-	u64			sigframe; /* pointer to sigframe */
-
-	void			*sigreturn_addr;
-	futex_t			daemon_connected;
-};
-
-struct parasite_unmap_args {
-	void			*parasite_start;
-	unsigned long		parasite_len;
 };
 
 struct parasite_vma_entry
@@ -272,11 +229,8 @@ struct parasite_dump_cgroup_args {
 	 *
 	 * The string is null terminated.
 	 */
-	char contents[PARASITE_ARG_SIZE_MIN];
+	char contents[1 << 12];
 };
-
-/* the parasite prefix is added by gen_offsets.sh */
-#define parasite_sym(pblob, name) ((void *)(pblob) + parasite_blob_offset__##name)
 
 #endif /* !__ASSEMBLY__ */
 

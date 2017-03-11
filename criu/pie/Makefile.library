@@ -1,12 +1,12 @@
-lib-y			+= log-simple.o
-lib-y			+= util-fd.o
+lib-name		:= pie.lib.a
+
+CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC -fpie
+LDFLAGS			+= -z noexecstack
+
 lib-y			+= util.o
-lib-y			+= string.o
 
 ifeq ($(VDSO),y)
-        lib-y		+= util-vdso.o
-        lib-y		+= parasite-vdso.o
-        lib-y		+= ./$(ARCH_DIR)/vdso-pie.o
+        lib-y		+= util-vdso.o parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o
 
         ifeq ($(SRCARCH),aarch64)
                 lib-y	+= ./$(ARCH_DIR)/intraprocedure.o
@@ -18,13 +18,14 @@ ifeq ($(VDSO),y)
 endif
 
 ifeq ($(SRCARCH),ppc64)
-        lib-y		+= ./$(ARCH_DIR)/memcpy_power7.o
-        lib-y		+= ./$(ARCH_DIR)/memcmp_64.o
         lib-y		+= ./$(ARCH_DIR)/misc.o
 endif
 
 ifeq ($(SRCARCH),x86)
-        lib-y		+= ./$(ARCH_DIR)/memcpy.o
+        ifeq ($(CONFIG_COMPAT),y)
+                lib-y	+= util-vdso-elf32.o
+        endif
+        CFLAGS_util-vdso-elf32.o	+= -DCONFIG_VDSO_32
 endif
 
 #
@@ -33,21 +34,12 @@ endif
 # applications, which is not the target of the
 # project.
 #
-iquotes			:= -iquote $(SRC_DIR)/$(PIE_DIR)/piegen
-iquotes			+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
-iquotes			+= -iquote $(SRC_DIR) -iquote $(SRC_DIR)/criu/include -iquote $(SRC_DIR)/include
 CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) $(iquotes)
+CFLAGS			:= $(filter-out $(CFLAGS-ASAN),$(CFLAGS))
+
 asflags-y		:= -D__ASSEMBLY__ $(iquotes)
+ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 
 ifeq ($(SRCARCH),arm)
 	ccflags-y	+= -marm
 endif
-
-ifneq ($(filter-out ia32,$(ARCH)),)
-        ccflags-y	+= -DCR_NOGLIBC -fpie -Wa,--noexecstack -fno-stack-protector
-else
-        ccflags-y	+= -DCR_NOGLIBC -fno-pic -Wa,--noexecstack -fno-stack-protector
-endif
-
-ccflags-y		+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
-ccflags-y		+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0

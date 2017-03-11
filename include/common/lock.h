@@ -15,7 +15,7 @@
 #define LOCK_BUG()	LOCK_BUG_ON(1)
 
 #ifdef CR_NOGLIBC
-# include "syscall.h"
+# include <compel/plugins/std/syscall.h>
 #else
 # include <unistd.h>
 # include <sys/syscall.h>

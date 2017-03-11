@@ -29,8 +29,7 @@ install:
 	@cp scripts/tools.mk $(dir)
 	@cp scripts/utils.mk $(dir)
 
-all:
-	@true
+all: ;
 
 clean:
 	$(call msg-clean, "nmk")

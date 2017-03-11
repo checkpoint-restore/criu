@@ -6,7 +6,7 @@
 
 #include "zdtmtst.h"
 
-#if defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__)
 
 #include "cpuid.h"
 
@@ -19,7 +19,7 @@ static int verify_cpu(void)
 
 	/* Do we have xsave? */
 	cpuid(1, &eax, &ebx, &ecx, &edx);
-	if (!(ecx & (1u << 26)))
+	if (!(ecx & (1u << 27)))
 		return -1;
 
 	/* Is YMM here? */

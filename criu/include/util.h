@@ -40,7 +40,6 @@ struct list_head;
 extern void pr_vma(unsigned int loglevel, const struct vma_area *vma_area);
 
 #define pr_info_vma(vma_area)	pr_vma(LOG_INFO, vma_area)
-#define pr_msg_vma(vma_area)	pr_vma(LOG_MSG, vma_area)
 
 #define pr_vma_list(level, head)				\
 	do {							\
@@ -190,6 +189,7 @@ extern int is_empty_dir(int dirfd);
 #define PSFDS	(sizeof("/proc/self/fd/2147483647"))
 
 extern int read_fd_link(int lfd, char *buf, size_t size);
+extern pid_t get_self_real_pid(void);
 
 #define USEC_PER_SEC	1000000L
 #define NSEC_PER_SEC    1000000000L
@@ -290,5 +290,23 @@ int setup_tcp_client(char *addr);
 
 #define LAST_PID_PATH		"sys/kernel/ns_last_pid"
 #define PID_MAX_PATH		"sys/kernel/pid_max"
+
+/*
+ * Helpers to organize asynchronous reading from a bunch
+ * of file descriptors.
+ */
+#include <sys/epoll.h>
+
+struct epoll_rfd {
+	int fd;
+	int (*revent)(struct epoll_rfd *);
+};
+
+extern int epoll_add_rfd(int epfd, struct epoll_rfd *);
+extern int epoll_del_rfd(int epfd, struct epoll_rfd *rfd);
+extern int epoll_run_rfds(int epfd, struct epoll_event *evs, int nr_fds, int tmo);
+extern int epoll_prepare(int nr_events, struct epoll_event **evs);
+
+extern int open_fd_of_real_pid(pid_t pid, int fd, int flags);
 
 #endif /* __CR_UTIL_H__ */
