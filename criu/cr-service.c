@@ -869,13 +869,6 @@ static int handle_feature_check(int sk, CriuReq * msg)
 	feat.has_lazy_pages = 1;
 	feat.lazy_pages = false;
 
-	/* Check if the requested feature check can be answered. */
-	if ((msg->features->has_mem_track != 1) ||
-	    (msg->features->has_lazy_pages != 1)) {
-		pr_warn("Feature checking for unknown feature.\n");
-		goto out;
-	}
-
 	pid = fork();
 	if (pid < 0) {
 		pr_perror("Can't fork");
