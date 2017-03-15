@@ -1,4 +1,5 @@
 include ../Makefile.inc
+.SUFFIXES:	# No implicit rules
 
 LIBDIR	= ../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
@@ -40,9 +41,15 @@ DEP	= $(SRC:%.c=%.d)
 PID	= $(TST:%=%.pid)
 OUT	= $(TST:%=%.out)
 
-%: %.c
-	$(Q)echo $@ >> .gitignore
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(LOADLIBES) $^ $(LDLIBS) -o $@
+%.o: %.c
+	@echo $@ >> .gitignore
+	$(E) " CC       " $@
+	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
+
+%: %.o
+	@echo $@ >> .gitignore
+	$(E) " LINK     " $@
+	$(Q)$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 all:	$(TST)
 install: all
@@ -74,7 +81,7 @@ wait_stop:
 		sleep 1; \
 	done
 
-$(TST):	$(LIB)
+$(TST):	| $(LIB)
 
 file_aio:	override LDLIBS += -lrt -pthread
 socket-tcp:	override CFLAGS += -D STREAM

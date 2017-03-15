@@ -1,4 +1,5 @@
 include ../Makefile.inc
+.SUFFIXES:	# No implicit rules
 
 LIBDIR	= ../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
@@ -313,9 +314,15 @@ OUT	= $(TST:%=%.out)
 STATE	= $(TST_STATE:%=%.state)
 STATE_OUT	= $(TST_STATE:%=%.out)
 
-%: %.c
-	$(Q)echo $@ >> .gitignore
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(LOADLIBES) $^ $(LDLIBS) -o $@
+%.o: %.c
+	@echo $@ >> .gitignore
+	$(E) " CC       " $@
+	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
+
+%: %.o
+	@echo $@ >> .gitignore
+	$(E) " LINK     " $@
+	$(Q)$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 all:	$(TST) criu-rtc.so
 install: all
@@ -390,7 +397,7 @@ wait_stop:
 		i=`expr $$i + 1`; \
 	done
 
-$(TST):	$(LIB)
+$(TST):	| $(LIB)
 
 aio00:			override LDLIBS += -laio
 different_creds:	override LDLIBS += -lcap
