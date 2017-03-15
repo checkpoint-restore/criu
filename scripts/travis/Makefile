@@ -6,9 +6,15 @@ after_success:
 	./travis-after_success
 .PHONY: after_success
 
+target-suffix =
+ifdef CLANG
+	target-suffix = -clang
+endif
+
 alpine:
-	$(MAKE) -C ../build alpine
+	$(MAKE) -C ../build $@$(target-suffix)
 	docker run --rm -it --privileged -v /lib/modules:/lib/modules criu-alpine ./test/zdtm.py run -t zdtm/static/env00
 
+
 %:
-	$(MAKE) -C ../build $@
+	$(MAKE) -C ../build $@$(target-suffix)
