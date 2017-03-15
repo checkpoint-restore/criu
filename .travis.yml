@@ -1,6 +1,7 @@
 language: c
 sudo: required
 dist: trusty
+cache: ccache
 services:
   - docker
 env:
@@ -16,6 +17,7 @@ env:
   - TR_ARCH=ppc64le     CLANG=1
   - TR_ARCH=alpine      CLANG=1
 script:
-  - sudo make -C scripts/travis $TR_ARCH
+  - sudo make CCACHE=1 -C scripts/travis $TR_ARCH
 after_success:
+  - ccache -s
   - make -C scripts/travis after_success
