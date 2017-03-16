@@ -291,10 +291,10 @@ def encode_flav(f):
 
 
 def decode_flav(i):
-	i = i - 128
-	if i in flavors:
+	try:
 		return flavors.keys()[i - 128]
-	return "unknown"
+	except:
+		return "unknown"
 
 
 def tail(path):
