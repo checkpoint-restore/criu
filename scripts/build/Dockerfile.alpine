@@ -1,5 +1,7 @@
 FROM alpine:3.5
 ARG CC=gcc
+ARG ENV1=FOOBAR
+
 RUN apk update && apk add \
                 build-base \
                 coreutils \
@@ -12,18 +14,20 @@ RUN apk update && apk add \
                 libnl3-dev \
                 pkgconfig \
                 libnet-dev \
+                ccache \
                 $CC
 
 COPY . /criu
 WORKDIR /criu
-RUN make mrproper && make -j $(nproc) CC=$CC
+ENV CC="ccache $CC" CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
+RUN mv .ccache /tmp; make mrproper; ccache -s; \
+	date; make -j $(nproc) CC="$CC"; date
 
-# to run tests
+# Run a test
 RUN apk add	py-yaml \
 		py-pip	\
 		ip6tables \
 		iptables \
-		iproute2
-
-RUN pip install protobuf
-RUN make -C test/zdtm/static env00
+		iproute2 \
+	&& pip install protobuf \
+	&& make -C test/zdtm/static env00

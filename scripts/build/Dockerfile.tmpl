@@ -1,4 +1,5 @@
 ARG CC=gcc
+ARG ENV1=FOOBAR
 
 RUN apt-get update && apt-get install -y \
                 build-essential \
@@ -16,15 +17,25 @@ RUN apt-get update && apt-get install -y \
                 pkg-config \
                 git-core \
 		libnet-dev \
+		ccache \
                 $CC
 
 COPY . /criu
 WORKDIR /criu
+ENV CC="ccache $CC" CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
 
-RUN make mrproper
-RUN make -j $(nproc) CC=$CC V=1 criu/parasite-syscall.o
-RUN make -j $(nproc) CC=$CC V=1
-RUN make mrproper
-RUN bash -c 'CLEAN="$(git clean -ndx --exclude=scripts/build --exclude=.config)"; echo "${CLEAN}"; test -z "${CLEAN}"; exit $?'
-RUN make -j $(nproc) CC=$CC -C test/zdtm
+RUN mv .ccache /tmp && make mrproper; ccache -s; \
+	date; \
+# Check single object build
+	make -j $(nproc) CC="$CC" criu/parasite-syscall.o; \
+# Compile criu
+	make -j $(nproc) CC="$CC"; \
+	date; \
+# Check that "make mrproper" works
+	make mrproper && ! git clean -ndx --exclude=scripts/build \
+	--exclude=.config --exclude=test | grep .
+
+# Compile tests
+RUN date; make -j $(nproc) CC="$CC" -C test/zdtm; date
+
 #RUN make test/compel/handle_binary && ./test/compel/handle_binary

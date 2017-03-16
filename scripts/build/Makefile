@@ -25,7 +25,10 @@ binfmt_misc:
 $(QEMU_ARCHES): qemu-user-static binfmt_misc
 
 $(TARGETS):
-	docker build  -t criu-$@ -f Dockerfile.$@ $(DB_CC) ../..
+	mkdir -p $(HOME)/.ccache
+	mv $(HOME)/.ccache ../../
+	docker build  -t criu-$@ -f Dockerfile.$@ $(DB_CC) $(DB_ENV) ../..
+	docker run criu-$@ tar c -C /tmp .ccache | tar x -C $(HOME)
 .PHONY: $(TARGETS)
 
 # Clang builds add some Docker build env
@@ -35,6 +38,7 @@ endef
 $(foreach t,$(TARGETS),$(eval $(call CLANG_DEP,$(t))))
 
 %-clang:	DB_CC=--build-arg CC=clang-3.8
+%-clang:	DB_ENV=--build-arg ENV1=CCACHE_CPP2
 alpine-clang:	DB_CC=--build-arg CC=clang
 aarch64-clang:	DB_CC=--build-arg CC=clang-3.6
 .PHONY: $(TARGETS_CLANG)
