@@ -60,4 +60,8 @@
 
 extern int ptrace_suspend_seccomp(pid_t pid);
 
+extern int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
+extern int ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes);
+extern int ptrace_swap_area(pid_t pid, void *dst, void *src, long bytes);
+
 #endif /* UAPI_COMPEL_PTRACE_H__ */
