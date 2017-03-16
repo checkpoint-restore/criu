@@ -1481,12 +1481,18 @@ class launcher:
 			self.__fail = True
 		if self.__file_report:
 			self.__file_report.close()
-		if self.__fail:
-			if opts['keep_going']:
+
+		if opts['keep_going']:
+			if self.__fail:
 				print_sep("%d TEST(S) FAILED (TOTAL %d/SKIPPED %d)"
 						% (len(self.__failed), self.__total, self.__nr_skip), "#")
 				for failed in self.__failed:
 					print " * %s(%s)" % (failed[0], failed[1])
+			else:
+				print_sep("ALL TEST(S) PASSED (TOTAL %d/SKIPPED %d)"
+						% (self.__total, self.__nr_skip), "#")
+
+		if self.__fail:
 			print_sep("FAIL", "#")
 			sys.exit(1)
 
