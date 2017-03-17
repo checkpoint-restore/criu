@@ -17,4 +17,6 @@ message netlink_sk_entry {
 	required fown_entry		fown		=  11;
 	required sk_opts_entry		opts		=  12;
 	optional uint32			ns_id		=  13;
+	// For netlink queued messages
+	// optional nl_sk_opts_entry	nl_opts		=  14;
 }
