@@ -4,6 +4,9 @@ enum remap_type {
   LINKED		= 0;
   GHOST 		= 1;
   PROCFS		= 2;
+  // Reserved for spfs manager
+  // SPFS		= 3;
+  // SPFS_LINKED	= 4;
 };
 
 message remap_file_path_entry {
