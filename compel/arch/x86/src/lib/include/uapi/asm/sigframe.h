@@ -150,7 +150,7 @@ struct rt_sigframe {
  * - compatible is in sys32_rt_sigreturn at arch/x86/ia32/ia32_signal.c
  * - native is in sys_rt_sigreturn at arch/x86/kernel/signal.c
  */
-#define RT_SIGFRAME_OFFSET(rt_sigframe)	((rt_sigframe->is_native) ? 8 : 4 )
+#define RT_SIGFRAME_OFFSET(rt_sigframe)	(((rt_sigframe)->is_native) ? 8 : 4 )
 
 #define USER32_CS		0x23
 
