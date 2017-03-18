@@ -564,8 +564,14 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 {
 	ssize_t written = 0;
 	size_t chunk = bytes ? bytes : 4096;
-	char *buffer = (char*) malloc(chunk);
+	char *buffer;
 	ssize_t ret;
+
+	buffer = xmalloc(chunk);
+	if (buffer == NULL) {
+		pr_perror("failed to allocate buffer to copy file");
+		return -1;
+	}
 
 	while (1) {
 		if (opts.remote) {
@@ -602,7 +608,7 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 		written += ret;
 	}
 err:
-	free(buffer);
+	xfree(buffer);
 	return ret;
 }
 
