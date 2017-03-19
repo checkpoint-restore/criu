@@ -194,20 +194,23 @@ int setup_TCP_server_socket(int port)
 	if (setsockopt(
 	    sockfd, SOL_SOCKET, SO_REUSEADDR, &sockopt, sizeof(sockopt)) == -1) {
 		pr_perror("Unable to set SO_REUSEADDR");
-		return -1;
+		goto err;
 	}
 
 	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
 		pr_perror("Unable to bind image socket");
-		return -1;
+		goto err;
 	}
 
 	if (listen(sockfd, DEFAULT_LISTEN)) {
 		pr_perror("Unable to listen image socket");
-		return -1;
+		goto err;
 	}
 
 	return sockfd;
+err:
+	close(sockfd);
+	return -1;
 }
 
 int setup_TCP_client_socket(char *hostname, int port)
@@ -225,7 +228,7 @@ int setup_TCP_client_socket(char *hostname, int port)
 	server = gethostbyname(hostname);
 	if (server == NULL) {
 		pr_perror("Unable to get host by name (%s)", hostname);
-		return -1;
+		goto err;
 	}
 
 	bzero((char *) &serv_addr, sizeof(serv_addr));
@@ -237,10 +240,13 @@ int setup_TCP_client_socket(char *hostname, int port)
 
 	if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
 		pr_perror("Unable to connect to remote %s", hostname);
-		return -1;
+		goto err;
 	}
 
 	return sockfd;
+err:
+	close(sockfd);
+	return -1;
 }
 
 int setup_UNIX_server_socket(char *path)
@@ -261,15 +267,18 @@ int setup_UNIX_server_socket(char *path)
 
 	if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
 		pr_perror("Unable to bind image socket");
-		return -1;
+		goto err;
 	}
 
 	if (listen(sockfd, 50) == -1) {
 		pr_perror("Unable to listen image socket");
-		return -1;
+		goto err;
 	}
 
 	return sockfd;
+err:
+	close(sockfd);
+	return -1;
 }
 
 int setup_UNIX_client_socket(char *path)
@@ -388,13 +397,16 @@ static struct wthread *new_worker(void)
 
 	if (!wt) {
 		pr_perror("Unable to allocate worker thread structure");
-		return NULL;
+		goto err;
 	}
 	if (sem_init(&(wt->wakeup_sem), 0, 0) != 0) {
 		pr_perror("Workers semaphore init failed");
-		return NULL;
+		goto err;
 	}
 	return wt;
+err:
+	free(wt);
+	return NULL;
 }
 
 static void add_worker(struct wthread *wt)
@@ -422,14 +434,9 @@ static struct rimage *new_remote_image(char *path, char *snapshot_id)
 	struct rimage *rimg = malloc(sizeof(struct rimage));
 	struct rbuf *buf = malloc(sizeof(struct rbuf));
 
-	if (rimg == NULL) {
-		pr_perror("Unable to allocate remote_image structures");
-		return NULL;
-	}
-
-	if (buf == NULL) {
-		pr_perror("Unable to allocate remote_buffer structures");
-		return NULL;
+	if (rimg == NULL || buf == NULL) {
+		pr_perror("Unable to allocate remote image structures");
+		goto err;
 	}
 
 	strncpy(rimg->path, path, PATHLEN -1 );
@@ -445,9 +452,13 @@ static struct rimage *new_remote_image(char *path, char *snapshot_id)
 
 	if (pthread_mutex_init(&(rimg->in_use), NULL) != 0) {
 		pr_perror("Remote image in_use mutex init failed");
-		return NULL;
+		goto err;
 	}
 	return rimg;
+err:
+	free(rimg);
+	free(buf);
+	return NULL;
 }
 
 /* Clears a remote image struct for reusing it. */
@@ -604,7 +615,7 @@ void *accept_local_image_connections(void *port)
 
 		if (read_header(wt->fd, wt->snapshot_id, wt->path, &(wt->flags)) < 0) {
 			pr_perror("Error reading local image header");
-			return NULL;
+			goto err;
 		}
 
 		pr_info("Received %s request for %s:%s\n",
@@ -626,18 +637,18 @@ void *accept_local_image_connections(void *port)
 		int fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
 		if (fd < 0) {
 			pr_perror("Can't open %s", LAST_PID_PATH);
+			goto err;
 		}
 
 		if (flock(fd, LOCK_EX)) {
-			close(fd);
 			pr_perror("Can't lock %s", LAST_PID_PATH);
-			return NULL;
+			goto err;
 		}
 
 		if (pthread_create(
 		    &tid, NULL, process_local_image_connection, (void *) wt)) {
 			pr_perror("Unable to create worker thread");
-			return NULL;
+			goto err;
 		}
 
 		if (flock(fd, LOCK_UN))
@@ -647,6 +658,10 @@ void *accept_local_image_connections(void *port)
 		wt->tid = tid;
 		add_worker(wt);
 	}
+err:
+	close(cli_fd);
+	free(wt);
+	return NULL;
 }
 
 /* Note: size is a limit on how much we want to read from the socket.  Zero means
