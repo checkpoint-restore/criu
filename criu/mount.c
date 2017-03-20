@@ -509,7 +509,7 @@ static int try_resolve_ext_mount(struct mount_info *info)
 	return 0;
 }
 
-static struct mount_info *find_widest_shared(struct mount_info *m)
+static struct mount_info *find_wider_shared(struct mount_info *m)
 {
 	struct mount_info *p;
 
@@ -560,7 +560,7 @@ static int validate_shared(struct mount_info *m)
 	 *    has the same set of children.
 	 */
 
-	t = find_widest_shared(m);
+	t = find_wider_shared(m);
 	if (!t)
 		/*
 		 * The current mount is the widest one in its shared group,
