@@ -1293,7 +1293,6 @@ int prepare_fds(struct pstree_item *me)
 
 	ret = open_fdinfos(me);
 
-	close_service_fd(TRANSPORT_FD_OFF);
 	if (rsti(me)->fdt)
 		futex_inc_and_wake(&rsti(me)->fdt->fdt_lock);
 out:
