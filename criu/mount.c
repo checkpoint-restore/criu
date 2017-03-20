@@ -2945,15 +2945,7 @@ int depopulate_roots_yard(int mntns_fd, bool only_ghosts)
 		return -1;
 	}
 
-	old_ns = open_proc(PROC_SELF, "ns/mnt");
-	if (old_ns < 0) {
-		pr_perror("`- Can't keep old ns");
-		close(old_cwd);
-		return -1;
-	}
-	if (setns(mntns_fd, CLONE_NEWNS) < 0) {
-		pr_perror("`- Can't switch");
-		close(old_ns);
+	if (switch_ns_by_fd(mntns_fd, &mnt_ns_desc, &old_ns)) {
 		close(old_cwd);
 		return -1;
 	}
@@ -2964,11 +2956,8 @@ int depopulate_roots_yard(int mntns_fd, bool only_ghosts)
 	if (__depopulate_roots_yard())
 		ret = -1;
 
-	if (setns(old_ns, CLONE_NEWNS) < 0) {
-		pr_perror("Fail to switch back!");
+	if (restore_ns(old_ns, &mnt_ns_desc))
 		ret = -1;
-	}
-	close(old_ns);
 
 	if (fchdir(old_cwd)) {
 		pr_perror("Unable to restore cwd");
