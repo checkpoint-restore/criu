@@ -31,6 +31,13 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 prev_line = None
 
 
+def alarm(*args):
+	print "==== ALARM ===="
+
+
+signal.signal(signal.SIGALRM, alarm)
+
+
 def traceit(f, e, a):
 	if e == "line":
 		lineno = f.f_lineno
@@ -1622,7 +1629,22 @@ class Launcher:
 			self.wait()
 
 	def __wait_one(self, flags):
-		pid, status = os.waitpid(0, flags)
+		pid = -1
+		status = -1
+		signal.alarm(10)
+		while True:
+			try:
+				pid, status = os.waitpid(0, flags)
+			except OSError, e:
+				if e.errno == errno.EINTR:
+					subprocess.Popen(["ps", "axf"]).wait()
+					continue
+				signal.alarm(0)
+				raise e
+			else:
+				break
+		signal.alarm(0)
+
 		self.__runtest += 1
 		if pid != 0:
 			sub = self.__subs.pop(pid)
