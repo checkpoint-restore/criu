@@ -78,9 +78,13 @@ int child(void)
 	gid_t gid_list2[ARRAY_SIZE(gid_list) + 1];
 	uid_t uid, euid, suid, fsuid;
 	gid_t gid, egid, sgid, fsgid;
-	int i, nr, ret;
+	int i, nr, flags, ret;
 
-	ret = unshare(CLONE_NEWUSER);
+	flags = CLONE_NEWUSER;
+#ifdef USERNS02
+	flags |= CLONE_NEWNET;
+#endif
+	ret = unshare(flags);
 	if (ret < 0) {
 		pr_perror("unshare");
 		futex_set_and_wake(futex, EMERGENCY_ABORT);
