@@ -4,6 +4,7 @@
 #include "common/compiler.h"
 #include "files.h"
 #include "common/list.h"
+#include "images/netdev.pb-c.h"
 
 #ifndef CLONE_NEWNS
 #define CLONE_NEWNS	0x00020000
@@ -78,7 +79,7 @@ struct netns_id {
 };
 
 struct net_link {
-	unsigned int		ifindex;
+	NetDeviceEntry		*nde;
 	bool			created;
 	struct list_head	node;
 };
@@ -127,6 +128,7 @@ struct ns_id {
 			int seqsk;	/* to talk to parasite daemons */
 			struct list_head ids;
 			struct list_head links;
+			NetnsEntry *netns;
 		} net;
 	};
 };

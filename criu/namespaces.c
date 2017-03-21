@@ -303,6 +303,7 @@ struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid,
 		if (nd == &net_ns_desc) {
 			INIT_LIST_HEAD(&nsid->net.ids);
 			INIT_LIST_HEAD(&nsid->net.links);
+			nsid->net.netns = NULL;
 		}
 	}
 
