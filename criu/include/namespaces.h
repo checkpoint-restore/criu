@@ -152,6 +152,7 @@ extern int read_ns_with_hookups(void);
 extern int set_ns_roots(void);
 extern int prepare_namespace_before_tasks(void);
 extern int prepare_namespace(struct pstree_item *item, unsigned long clone_flags);
+extern int prepare_userns_creds(void);
 
 extern int switch_ns(int pid, struct ns_desc *nd, int *rst);
 extern int switch_ns_by_fd(int nsfd, struct ns_desc *nd, int *rst);
