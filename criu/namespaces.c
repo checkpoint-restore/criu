@@ -1501,7 +1501,7 @@ int collect_namespaces(bool for_dump)
 	return 0;
 }
 
-static int prepare_userns_creds()
+static int prepare_userns_creds(void)
 {
 	/* UID and GID must be set after restoring /proc/PID/{uid,gid}_maps */
 	if (setuid(0) || setgid(0) || setgroups(0, NULL)) {
@@ -1517,7 +1517,7 @@ static int prepare_userns_creds()
 	 */
 	if (prctl(PR_SET_DUMPABLE, 1, 0)) {
 		pr_perror("Unable to set PR_SET_DUMPABLE");
-		exit(1);
+		return -1;
 	}
 
 	return 0;
