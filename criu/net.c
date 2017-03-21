@@ -1241,7 +1241,7 @@ static int veth_peer_info(NetDeviceEntry *nde, struct newlink_req *req,
 			struct net_link *link;
 
 			list_for_each_entry(link, &ns->net.links, node)
-				if (link->ifindex == nde->peer_ifindex && link->created) {
+				if (link->nde->ifindex == nde->peer_ifindex && link->created) {
 					pr_err("%d\n", nde->peer_ifindex);
 					req->h.nlmsg_type = RTM_SETLINK;
 					return 0;
@@ -1262,7 +1262,6 @@ static int veth_peer_info(NetDeviceEntry *nde, struct newlink_req *req,
 			if (link == NULL)
 				return -1;
 
-			link->ifindex = nde->ifindex;
 			link->created = true;
 			list_add(&link->node, &ns->net.links);
 		}
@@ -1394,7 +1393,7 @@ out:
 	return ret;
 }
 
-static int restore_one_macvlan(struct ns_id *ns, NetDeviceEntry *nde, int nlsk, int criu_nlsk)
+static int restore_one_macvlan(struct ns_id *ns, NetDeviceEntry *nde, int nlsk)
 {
 	struct newlink_extras extras = {
 		.link = -1,
@@ -1533,7 +1532,7 @@ skip:;
 	return 0;
 }
 
-static int restore_link(struct ns_id *ns, NetDeviceEntry *nde, int nlsk, int criu_nlsk)
+static int __restore_link(struct ns_id *ns, NetDeviceEntry *nde, int nlsk)
 {
 	pr_info("Restoring link %s type %d\n", nde->name, nde->type);
 
@@ -1550,7 +1549,7 @@ static int restore_link(struct ns_id *ns, NetDeviceEntry *nde, int nlsk, int cri
 	case ND_TYPE__BRIDGE:
 		return restore_one_link(ns, nde, nlsk, bridge_link_info, NULL);
 	case ND_TYPE__MACVLAN:
-		return restore_one_macvlan(ns, nde, nlsk, criu_nlsk);
+		return restore_one_macvlan(ns, nde, nlsk);
 	case ND_TYPE__SIT:
 		return restore_one_link(ns, nde, nlsk, sit_link_info, NULL);
 	default:
@@ -1561,9 +1560,9 @@ static int restore_link(struct ns_id *ns, NetDeviceEntry *nde, int nlsk, int cri
 	return -1;
 }
 
-static int restore_links(struct ns_id *ns, NetnsEntry **netns)
+static int read_links(struct ns_id *ns)
 {
-	int nlsk, criu_nlsk = -1, ret = -1, id = ns->id;
+	int ret = -1, id = ns->id;
 	struct cr_img *img;
 	NetDeviceEntry *nde;
 
@@ -1571,53 +1570,86 @@ static int restore_links(struct ns_id *ns, NetnsEntry **netns)
 	if (!img)
 		return -1;
 
-	nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-	if (nlsk < 0) {
-		pr_perror("Can't create nlk socket");
-		close_image(img);
-		return -1;
-	}
-
 	while (1) {
-		NetnsEntry **def_netns = netns;
+		struct net_link *link;
 
 		ret = pb_read_one_eof(img, &nde, PB_NETDEV);
 		if (ret <= 0)
 			break;
 
-		ret = restore_link(ns, nde, nlsk, criu_nlsk);
-		if (ret) {
-			pr_err("Can't restore link: %d\n", ret);
-			goto exit;
+		link = xmalloc(sizeof(*link));
+		if (link == NULL) {
+			ret = -1;
+			net_device_entry__free_unpacked(nde, NULL);
+			break;
 		}
 
-		/*
-		 * optimize restore of devices configuration except lo
-		 * lo is created with namespace and before default is set
-		 * so we can't optimize its restore
-		 */
-		if (nde->type == ND_TYPE__LOOPBACK)
-			def_netns = NULL;
+		link->nde = nde;
+		link->created = 0;
+		list_add(&link->node, &ns->net.links);
+	}
+	close_image(img);
 
-		if (nde->conf4)
-			ret = ipv4_conf_op(nde->name, nde->conf4, nde->n_conf4, CTL_WRITE, def_netns ? (*def_netns)->def_conf4 : NULL);
-		else if (nde->conf)
-			ret = ipv4_conf_op_old(nde->name, nde->conf, nde->n_conf, CTL_WRITE, def_netns ? (*def_netns)->def_conf : NULL);
-		if (ret)
-			goto exit;
+	return 0;
+}
 
-		if (nde->conf6)
-			ret = ipv6_conf_op(nde->name, nde->conf6, nde->n_conf6, CTL_WRITE, def_netns ? (*def_netns)->def_conf6 : NULL);
-exit:
-		net_device_entry__free_unpacked(nde, NULL);
-		if (ret)
-			break;
+static int restore_link(int nlsk, struct ns_id *ns, struct net_link *link)
+{
+	NetDeviceEntry *nde = link->nde;
+	NetnsEntry **def_netns = &ns->net.netns;
+	int ret;
+
+	ret = __restore_link(ns, nde, nlsk);
+	if (ret) {
+		pr_err("Can't restore link: %d\n", ret);
+		goto exit;
 	}
 
-	close(nlsk);
-	close_image(img);
+	/*
+	 * optimize restore of devices configuration except lo
+	 * lo is created with namespace and before default is set
+	 * so we can't optimize its restore
+	 */
+	if (nde->type == ND_TYPE__LOOPBACK)
+		def_netns = NULL;
+
+	if (nde->conf4)
+		ret = ipv4_conf_op(nde->name, nde->conf4, nde->n_conf4, CTL_WRITE, def_netns ? (*def_netns)->def_conf4 : NULL);
+	else if (nde->conf)
+		ret = ipv4_conf_op_old(nde->name, nde->conf, nde->n_conf, CTL_WRITE, def_netns ? (*def_netns)->def_conf : NULL);
+	if (ret)
+		goto exit;
+
+	if (nde->conf6)
+		ret = ipv6_conf_op(nde->name, nde->conf6, nde->n_conf6, CTL_WRITE, def_netns ? (*def_netns)->def_conf6 : NULL);
+exit:
 	return ret;
 }
+
+static int restore_links(struct ns_id *ns)
+{
+	struct net_link *link, *t;
+	int exit_code = -1, nlsk;
+
+	nlsk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+	if (nlsk < 0) {
+		pr_perror("Can't create nlk socket");
+		return -1;
+	}
+
+	list_for_each_entry_safe(link, t, &ns->net.links, node) {
+		if (restore_link(nlsk, ns, link))
+			goto out;
+		xfree(link);
+	}
+
+	exit_code = 0;
+out:
+	close(nlsk);
+
+	return exit_code;
+}
+
 
 static int run_ip_tool(char *arg1, char *arg2, char *arg3, char *arg4, int fdin, int fdout, unsigned flags)
 {
@@ -1913,12 +1945,13 @@ out:
 	return ret;
 }
 
-static int restore_netns_conf(int pid, NetnsEntry **netns)
+static int restore_netns_conf(struct ns_id *ns)
 {
+	NetnsEntry *netns;
 	int ret = 0;
 	struct cr_img *img;
 
-	img = open_image(CR_FD_NETNS, O_RSTR, pid);
+	img = open_image(CR_FD_NETNS, O_RSTR, ns->id);
 	if (!img)
 		return -1;
 
@@ -1926,35 +1959,37 @@ static int restore_netns_conf(int pid, NetnsEntry **netns)
 		/* Backward compatibility */
 		goto out;
 
-	ret = pb_read_one(img, netns, PB_NETNS);
+	ret = pb_read_one(img, &netns, PB_NETNS);
 	if (ret < 0) {
 		pr_err("Can not read netns object\n");
 		return -1;
 	}
 
-	if ((*netns)->def_conf4) {
-		ret = ipv4_conf_op("all", (*netns)->all_conf4, (*netns)->n_all_conf4, CTL_WRITE, NULL);
+	if ((netns)->def_conf4) {
+		ret = ipv4_conf_op("all", (netns)->all_conf4, (netns)->n_all_conf4, CTL_WRITE, NULL);
 		if (ret)
 			goto out;
-		ret = ipv4_conf_op("default", (*netns)->def_conf4, (*netns)->n_def_conf4, CTL_WRITE, NULL);
+		ret = ipv4_conf_op("default", (netns)->def_conf4, (netns)->n_def_conf4, CTL_WRITE, NULL);
 		if (ret)
 			goto out;
-	} else if ((*netns)->def_conf) {
+	} else if ((netns)->def_conf) {
 		/* Backward compatibility */
-		ret = ipv4_conf_op_old("all", (*netns)->all_conf, (*netns)->n_all_conf, CTL_WRITE, NULL);
+		ret = ipv4_conf_op_old("all", (netns)->all_conf, (netns)->n_all_conf, CTL_WRITE, NULL);
 		if (ret)
 			goto out;
-		ret = ipv4_conf_op_old("default", (*netns)->def_conf, (*netns)->n_def_conf, CTL_WRITE, NULL);
+		ret = ipv4_conf_op_old("default", (netns)->def_conf, (netns)->n_def_conf, CTL_WRITE, NULL);
 		if (ret)
 			goto out;
 	}
 
-	if ((*netns)->def_conf6) {
-		ret = ipv6_conf_op("all", (*netns)->all_conf6, (*netns)->n_all_conf6, CTL_WRITE, NULL);
+	if ((netns)->def_conf6) {
+		ret = ipv6_conf_op("all", (netns)->all_conf6, (netns)->n_all_conf6, CTL_WRITE, NULL);
 		if (ret)
 			goto out;
-		ret = ipv6_conf_op("default", (*netns)->def_conf6, (*netns)->n_def_conf6, CTL_WRITE, NULL);
+		ret = ipv6_conf_op("default", (netns)->def_conf6, (netns)->n_def_conf6, CTL_WRITE, NULL);
 	}
+
+	ns->net.netns = netns;
 out:
 	close_image(img);
 	return ret;
@@ -2099,7 +2134,7 @@ int dump_net_ns(struct ns_id *ns)
 }
 
 static int net_set_nsid(int rtsk, int fd, int nsid);
-static int restore_netns_ids(struct ns_id *ns, NetnsEntry *netns)
+static int restore_netns_ids(struct ns_id *ns)
 {
 	int i, sk, exit_code = -1;
 
@@ -2109,15 +2144,15 @@ static int restore_netns_ids(struct ns_id *ns, NetnsEntry *netns)
 		return -1;
 	}
 
-	for (i = 0; i < netns->n_nsids; i++) {
+	for (i = 0; i < ns->net.netns->n_nsids; i++) {
 		struct ns_id *tg_ns;
 		struct netns_id *id;
 
 		id = xmalloc(sizeof(*id));
 		if (!id)
 			goto out;
-		id->target_ns_id = netns->nsids[i]->target_ns_id;
-		id->netnsid_value = netns->nsids[i]->netnsid_value;
+		id->target_ns_id = ns->net.netns->nsids[i]->target_ns_id;
+		id->netnsid_value = ns->net.netns->nsids[i]->netnsid_value;
 		list_add(&id->node, &ns->net.ids);
 
 		tg_ns = lookup_ns_by_id(id->target_ns_id, &net_ns_desc);
@@ -2140,16 +2175,18 @@ out:
 static int prepare_net_ns(struct ns_id *ns)
 {
 	int ret = 0, nsid = ns->id;
-	NetnsEntry *netns = NULL;
 
 	if (!(opts.empty_ns & CLONE_NEWNET)) {
-		ret = restore_netns_conf(nsid, &netns);
+		ret = restore_netns_conf(ns);
 		if (!ret)
-			ret = restore_netns_ids(ns, netns);
+			ret = restore_netns_ids(ns);
 		if (!ret)
-			ret = restore_links(ns, &netns);
-		if (netns)
-			netns_entry__free_unpacked(netns, NULL);
+			ret = read_links(ns);
+		if (!ret)
+			ret = restore_links(ns);
+
+		if (ns->net.netns)
+			netns_entry__free_unpacked(ns->net.netns, NULL);
 
 		if (!ret)
 			ret = restore_ifaddr(nsid);
