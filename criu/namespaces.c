@@ -1537,7 +1537,7 @@ int collect_namespaces(bool for_dump)
 	return 0;
 }
 
-static int prepare_userns_creds(void)
+int prepare_userns_creds(void)
 {
 	/* UID and GID must be set after restoring /proc/PID/{uid,gid}_maps */
 	if (setuid(0) || setgid(0) || setgroups(0, NULL)) {
