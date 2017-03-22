@@ -645,6 +645,36 @@ static bool does_mnt_overmount(struct mount_info *m)
 	return false;
 }
 
+/*
+ * Say mount is external if it was explicitly specified as an
+ * external or it will be bind from such an explicit external
+ * mount, we set bind in propagate_mount and propagate_siblings
+ */
+
+static bool mnt_is_external(struct mount_info *m)
+{
+	struct mount_info *t;
+
+	while (m) {
+		if (m->external)
+			return 1;
+
+		if (!list_empty(&m->mnt_share))
+			list_for_each_entry(t, &m->mnt_share, mnt_share)
+				if (t->external)
+					return 1;
+
+		if (m->master_id <= 0 && !list_empty(&m->mnt_bind))
+			list_for_each_entry(t, &m->mnt_bind, mnt_bind)
+				if (issubpath(m->root, t->root) && t->external)
+					return 1;
+
+		m = m->mnt_master;
+	}
+
+	return 0;
+}
+
 static int validate_mounts(struct mount_info *info, bool for_dump)
 {
 	struct mount_info *m, *t;
@@ -657,7 +687,7 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 		if (m->shared_id && validate_shared(m))
 			return -1;
 
-		if (m->external)
+		if (mnt_is_external(m))
 			goto skip_fstype;
 
 		/*
@@ -913,9 +943,9 @@ static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 
 		/*
 		 * If we haven't already determined this mount is external,
-		 * then we don't know where it came from.
+		 * or bind of external, then we don't know where it came from.
 		 */
-		if (need_master && m->parent && !m->external) {
+		if (need_master && m->parent && !mnt_is_external(m)) {
 			pr_err("Mount %d %s (master_id: %d shared_id: %d) "
 			       "has unreachable sharing. Try --enable-external-masters.\n", m->mnt_id,
 				m->mountpoint, m->master_id, m->shared_id);
@@ -1248,7 +1278,7 @@ static int dump_one_fs(struct mount_info *mi)
 	struct mount_info *t;
 	bool first = true;
 
-	if (mi->is_ns_root || mi->need_plugin || mi->external || !mi->fstype->dump)
+	if (mi->is_ns_root || mi->need_plugin || mnt_is_external(mi) || !mi->fstype->dump)
 		return 0;
 
 	/* mnt_bind is a cycled list, so list_for_each can't be used here. */
@@ -1661,7 +1691,7 @@ skip_parent:
 	 * FIXME Currently non-root mounts can be restored
 	 * only if a proper root mount exists
 	 */
-	if (fsroot_mounted(mi) || mi->parent == root_yard_mp) {
+	if (fsroot_mounted(mi) || mi->parent == root_yard_mp || mi->external) {
 		list_for_each_entry(t, &mi->mnt_bind, mnt_bind) {
 			if (t->mounted)
 				continue;
@@ -1669,6 +1699,9 @@ skip_parent:
 				continue;
 			if (t->master_id > 0)
 				continue;
+			if (!issubpath(t->root, mi->root))
+				continue;
+			pr_debug("\t\tBind private %s\n", t->mountpoint);
 			t->bind = mi;
 			t->s_dev_rt = mi->s_dev_rt;
 		}
