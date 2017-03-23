@@ -710,8 +710,8 @@ static int prepare_pstree_ids(void)
 			parent = item->parent;
 			while (parent && vpid(parent) != item->sid) {
 				if (parent->born_sid != -1 && parent->born_sid != item->sid) {
-					pr_err("Can't determinate with which sid (%d or %d)"
-						"the process %d was born\n",
+					pr_err("Can't figure out which sid (%d or %d)"
+						"the process %d was born with\n",
 						parent->born_sid, item->sid, vpid(parent));
 					return -1;
 				}
