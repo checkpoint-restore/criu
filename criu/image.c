@@ -339,7 +339,7 @@ int do_open_remote_image(int dfd, char *path, int flags)
 	}
 
 	if (fchdir(get_service_fd(IMG_FD_OFF)) < 0) {
-		pr_perror("fchdir to dfd failed!\n");
+		pr_perror("fchdir to dfd failed!");
 		close(save);
 		return -1;
 	}

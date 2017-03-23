@@ -575,12 +575,12 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 		if (opts.remote) {
 			ret = read(fd_in, buffer, chunk);
 			if (ret < 0) {
-				pr_perror("Can't read from fd_in\n");
+				pr_perror("Can't read from fd_in");
 				ret = -1;
 				goto err;
 			}
 			if (write(fd_out, buffer, ret) != ret) {
-				pr_perror("Couldn't write all read bytes\n");
+				pr_perror("Couldn't write all read bytes");
 				ret = -1;
 				goto err;
 			}
