@@ -137,7 +137,7 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 
 	if (sk->type != SOCK_STREAM) {
 		pr_err("Can't dump %d inet socket %x. "
-				"Only can stream and dgram.\n",
+				"Only stream and dgram are supported.\n",
 				sk->type, sk->sd.ino);
 		return 0;
 	}
