@@ -47,7 +47,7 @@ int check_namespace_opts(void)
 {
 	errno = 22;
 	if (join_ns_flags & opts.empty_ns) {
-		pr_perror("Conflict flags: -join-ns and -empty-ns");
+		pr_err("Conflicting flags: --join-ns and --empty-ns\n");
 		return -1;
 	}
 	if (join_ns_flags & CLONE_NEWUSER)
@@ -90,12 +90,13 @@ static int check_ns_file(char *ns_file)
 	if (!check_int_str(ns_file)) {
 		pid = atoi(ns_file);
 		if (pid <= 0) {
-			pr_perror("Invalid join_ns pid %s", ns_file);
+			pr_err("Invalid join_ns pid %s\n", ns_file);
 			return -1;
 		}
 		proc_dir = open_pid_proc(pid);
 		if (proc_dir < 0) {
-			pr_perror("Invalid join_ns pid: /proc/%s not found", ns_file);
+			pr_err("Invalid join_ns pid: /proc/%s not found\n",
+					ns_file);
 			return -1;
 		}
 		return 0;
