@@ -555,7 +555,7 @@ static int open_core(int pid, CoreEntry **pcore)
 
 	img = open_image(CR_FD_CORE, O_RSTR, pid);
 	if (!img) {
-		pr_err("Can't open core data for %d", pid);
+		pr_err("Can't open core data for %d\n", pid);
 		return -1;
 	}
 
@@ -1717,7 +1717,7 @@ static int prepare_userns_hook(void)
 		return -1;
 
 	if (prepare_loginuid(INVALID_UID, LOG_ERROR) < 0) {
-		pr_err("Setting loginuid for CT init task failed, CAP_AUDIT_CONTROL?");
+		pr_err("Setting loginuid for CT init task failed, CAP_AUDIT_CONTROL?\n");
 		return -1;
 	}
 	return 0;
@@ -1730,7 +1730,7 @@ static void restore_origin_ns_hook(void)
 
 	/* not critical: it does not affect CT in any way */
 	if (prepare_loginuid(saved_loginuid, LOG_ERROR) < 0)
-		pr_err("Restore original /proc/self/loginuid failed");
+		pr_err("Restore original /proc/self/loginuid failed\n");
 }
 
 static int write_restored_pid(void)

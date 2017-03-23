@@ -422,12 +422,12 @@ static int add_cgroup_properties(const char *fpath, struct cgroup_dir *ncd,
 		const cgp_t *cgp = cgp_get_props(controller->controllers[i]);
 
 		if (dump_cg_props_array(fpath, ncd, cgp) < 0) {
-			pr_err("dumping known properties failed");
+			pr_err("dumping known properties failed\n");
 			return -1;
 		}
 
 		if (dump_cg_props_array(fpath, ncd, &cgp_global) < 0) {
-			pr_err("dumping global properties failed");
+			pr_err("dumping global properties failed\n");
 			return -1;
 		}
 	}
@@ -1069,7 +1069,7 @@ static int move_in_cgroup(CgSetEntry *se, bool setup_cgns)
 	pr_info("Move into %d\n", se->id);
 
 	if (setup_cgns && prepare_cgns(se) < 0) {
-		pr_err("failed preparing cgns");
+		pr_err("failed preparing cgns\n");
 		return -1;
 	}
 

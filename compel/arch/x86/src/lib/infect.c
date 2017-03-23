@@ -515,7 +515,7 @@ int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs)
 		return ret;
 	}
 
-	pr_err("PTRACE_GETREGSET read %zu bytes for pid %d, but native/compat regs sizes are %zu/%zu bytes",
+	pr_err("PTRACE_GETREGSET read %zu bytes for pid %d, but native/compat regs sizes are %zu/%zu bytes\n",
 			iov.iov_len, pid,
 			sizeof(regs->native), sizeof(regs->compat));
 	return -1;

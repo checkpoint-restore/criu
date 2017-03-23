@@ -68,13 +68,13 @@ int cpu_validate_cpuinfo(void)
                 goto error;
 
 	if (cpu_info->n_ppc64_entry != 1) {
-		pr_err("No PPC64 related entry in image");
+		pr_err("No PPC64 related entry in image\n");
 		goto error;
 	}
 	cpu_ppc64_entry = cpu_info->ppc64_entry[0];
 
 	if (cpu_ppc64_entry->endian != CURRENT_ENDIANNESS) {
-		pr_err("Bad endianness");
+		pr_err("Bad endianness\n");
 		goto error;
 	}
 

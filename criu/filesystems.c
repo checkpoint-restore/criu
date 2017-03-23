@@ -613,7 +613,7 @@ static bool btrfs_sb_equal(struct mount_info *a, struct mount_info *b)
 	bool equal;
 
 	if (!posa || !posb) {
-		pr_err("invalid btrfs options, no subvol argument");
+		pr_err("invalid btrfs options, no subvol argument\n");
 		return false;
 	}
 

@@ -1323,7 +1323,7 @@ static int make_parent_dirs_if_need(int mntns_root, char *path)
 
 	p = last_delim = strrchr(path, '/');
 	if (!p) {
-		pr_err("Path %s has no parent dir", path);
+		pr_err("Path %s has no parent dir\n", path);
 		return -1;
 	}
 	*p = '\0';

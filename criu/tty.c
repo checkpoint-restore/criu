@@ -2201,7 +2201,7 @@ int devpts_check_bindmount(struct mount_info *m)
 		return 0;
 
 	if (sscanf(m->root, "/%d", &index) != 1) {
-		pr_err("Unable to parse %s", m->root);
+		pr_err("Unable to parse %s\n", m->root);
 		return -1;
 	}
 
@@ -2234,7 +2234,8 @@ found:
 	}
 
 	if (master_mp->nsid->type != NS_ROOT) {
-		pr_err("The master for %s isn't from the root mntns", m->root);
+		pr_err("The master for %s isn't from the root mntns\n",
+				m->root);
 		return -1;
 	}
 

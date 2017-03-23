@@ -30,7 +30,8 @@ static inline void free_compat_syscall_stack(void *mem)
 	long int ret = sys_munmap(mem, PAGE_SIZE);
 
 	if (ret)
-		pr_err("munmap() of compat addr %p failed with %ld", mem, ret);
+		pr_err("munmap() of compat addr %p failed with %ld\n",
+				mem, ret);
 }
 
 #ifdef CONFIG_COMPAT

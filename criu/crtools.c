@@ -565,7 +565,8 @@ int main(int argc, char *argv[], char *envp[])
 			if (!strcmp("net", optarg))
 				opts.empty_ns |= CLONE_NEWNET;
 			else {
-				pr_err("Unsupported empty namespace: %s", optarg);
+				pr_err("Unsupported empty namespace: %s\n",
+						optarg);
 				return 1;
 			}
 			break;
