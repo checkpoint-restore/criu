@@ -15,10 +15,10 @@
 
 struct netlink_sk_desc {
 	struct socket_desc	sd;
-	u32                     portid;
+	u32			portid;
 	u32			*groups;
 	u32			gsize;
-	u32                     dst_portid;
+	u32			dst_portid;
 	u32			dst_group;
 	u8			state;
 	u8			protocol;

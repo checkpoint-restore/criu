@@ -73,8 +73,8 @@ void restore_tls(tls_t *ptls)
 
 		memcpy(stack32, desc, sizeof(user_desc_t));
 		asm volatile (
-		"       mov %1,%%eax                    \n"
-		"       mov %2,%%ebx                    \n"
+		"       mov %1,%%eax			\n"
+		"       mov %2,%%ebx			\n"
 		"	int $0x80			\n"
 		"	mov %%eax,%0			\n"
 		: "=g"(ret)

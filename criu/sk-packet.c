@@ -27,10 +27,10 @@ struct packet_sock_info {
 };
 
 struct packet_mreq_max {
-	int             mr_ifindex;
-	unsigned short  mr_type;
-	unsigned short  mr_alen;
-	unsigned char   mr_address[MAX_ADDR_LEN];
+	int		mr_ifindex;
+	unsigned short	mr_type;
+	unsigned short	mr_alen;
+	unsigned char	mr_address[MAX_ADDR_LEN];
 };
 
 struct packet_sock_desc {

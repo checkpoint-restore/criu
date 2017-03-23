@@ -239,7 +239,7 @@ static void xfree_tm_state(UserPpc64TmRegsEntry *tme)
 			xfree(tme->vsxstate->vsxregs);
 			xfree(tme->vsxstate);
 		}
-                if (tme->gpregs) {
+		if (tme->gpregs) {
 			if (tme->gpregs->gpr)
 				xfree(tme->gpregs->gpr);
 			xfree(tme->gpregs);
@@ -286,25 +286,25 @@ static int copy_tm_regs(user_regs_struct_t *regs, user_fpregs_struct_t *fpregs,
 			CoreEntry *core)
 {
 	UserPpc64TmRegsEntry *tme;
-        UserPpc64RegsEntry *gpregs = core->ti_ppc64->gpregs;
+	UserPpc64RegsEntry *gpregs = core->ti_ppc64->gpregs;
 
 	pr_debug("Copying TM registers\n");
-	        tme = xmalloc(sizeof(*tme));
-        if (!tme)
-                return -1;
+	tme = xmalloc(sizeof(*tme));
+	if (!tme)
+		return -1;
 
 	user_ppc64_tm_regs_entry__init(tme);
 
-        tme->gpregs = allocate_gp_regs();
-        if (!tme->gpregs)
-                goto out_free;
+	tme->gpregs = allocate_gp_regs();
+	if (!tme->gpregs)
+		goto out_free;
 
-        gpregs->has_tfhar       = true;
-        gpregs->tfhar           = fpregs->tm.tm_spr_regs.tfhar;
-        gpregs->has_texasr      = true;
-        gpregs->texasr          = fpregs->tm.tm_spr_regs.texasr;
-        gpregs->has_tfiar       = true;
-        gpregs->tfiar           = fpregs->tm.tm_spr_regs.tfiar;
+	gpregs->has_tfhar	= true;
+	gpregs->tfhar		= fpregs->tm.tm_spr_regs.tfhar;
+	gpregs->has_texasr	= true;
+	gpregs->texasr		= fpregs->tm.tm_spr_regs.texasr;
+	gpregs->has_tfiar	= true;
+	gpregs->tfiar		= fpregs->tm.tm_spr_regs.tfiar;
 
 
 	/* This is the checkpointed state, we must save it in place of the
@@ -315,32 +315,32 @@ static int copy_tm_regs(user_regs_struct_t *regs, user_fpregs_struct_t *fpregs,
 	copy_gp_regs(gpregs, &fpregs->tm.regs);
 
 	if (fpregs->tm.flags & USER_FPREGS_FL_FP) {
-                core->ti_ppc64->fpstate = copy_fp_regs(fpregs->tm.fpregs);
-                if (!core->ti_ppc64->fpstate)
-                        goto out_free;
-        }
+		core->ti_ppc64->fpstate = copy_fp_regs(fpregs->tm.fpregs);
+		if (!core->ti_ppc64->fpstate)
+			goto out_free;
+	}
 
 	if (fpregs->tm.flags & USER_FPREGS_FL_ALTIVEC) {
-                core->ti_ppc64->vrstate = copy_altivec_regs(fpregs->tm.vrregs);
-                if (!core->ti_ppc64->vrstate)
-                        goto out_free;
+		core->ti_ppc64->vrstate = copy_altivec_regs(fpregs->tm.vrregs);
+		if (!core->ti_ppc64->vrstate)
+			goto out_free;
 
-                /*
-                 * Force the MSR_VEC bit of the restored MSR otherwise the
-                 * kernel will not restore them from the signal frame.
-                 */
-                gpregs->msr |= MSR_VEC;
+		/*
+		 * Force the MSR_VEC bit of the restored MSR otherwise the
+		 * kernel will not restore them from the signal frame.
+		 */
+		gpregs->msr |= MSR_VEC;
 
 		if (fpregs->tm.flags & USER_FPREGS_FL_VSX) {
 			core->ti_ppc64->vsxstate = copy_vsx_regs(fpregs->tm.vsxregs);
 			if (!core->ti_ppc64->vsxstate)
 				goto out_free;
 			/*
-                         * Force the MSR_VSX bit of the restored MSR otherwise
-                         * the kernel will not restore them from the signal
-                         * frame.
-                         */
-                        gpregs->msr |= MSR_VSX;
+			 * Force the MSR_VSX bit of the restored MSR otherwise
+			 * the kernel will not restore them from the signal
+			 * frame.
+			 */
+			gpregs->msr |= MSR_VSX;
 		}
 	}
 
@@ -380,7 +380,7 @@ static int __copy_task_regs(user_regs_struct_t *regs,
 		fpstate = &(core->ti_ppc64->fpstate);
 		vrstate = &(core->ti_ppc64->vrstate);
 		vsxstate = &(core->ti_ppc64->vsxstate);
-        }
+	}
 
 	copy_gp_regs(gpregs, regs);
 	if (fpregs->flags & USER_FPREGS_FL_FP) {
@@ -392,22 +392,22 @@ static int __copy_task_regs(user_regs_struct_t *regs,
 		*vrstate = copy_altivec_regs(fpregs->vrregs);
 		if (!*vrstate)
 			return -1;
-                /*
-                 * Force the MSR_VEC bit of the restored MSR otherwise the
-                 * kernel will not restore them from the signal frame.
-                 */
-                gpregs->msr |= MSR_VEC;
+		/*
+		 * Force the MSR_VEC bit of the restored MSR otherwise the
+		 * kernel will not restore them from the signal frame.
+		 */
+		gpregs->msr |= MSR_VEC;
 
 		if (fpregs->flags & USER_FPREGS_FL_VSX) {
 			*vsxstate = copy_vsx_regs(fpregs->vsxregs);
 			if (!*vsxstate)
 				return -1;
-                        /*
-                         * Force the MSR_VSX bit of the restored MSR otherwise
-                         * the kernel will not restore them from the signal
-                         * frame.
-                         */
-                        gpregs->msr |= MSR_VSX;
+			/*
+			 * Force the MSR_VSX bit of the restored MSR otherwise
+			 * the kernel will not restore them from the signal
+			 * frame.
+			 */
+			gpregs->msr |= MSR_VSX;
 		}
 	}
 	return 0;
@@ -441,7 +441,7 @@ int arch_alloc_thread_info(CoreEntry *core)
 
 void arch_free_thread_info(CoreEntry *core)
 {
-        if (CORE_THREAD_ARCH_INFO(core)) {
+	if (CORE_THREAD_ARCH_INFO(core)) {
 		if (CORE_THREAD_ARCH_INFO(core)->fpstate) {
 			xfree(CORE_THREAD_ARCH_INFO(core)->fpstate->fpregs);
 			xfree(CORE_THREAD_ARCH_INFO(core)->fpstate);
@@ -455,11 +455,11 @@ void arch_free_thread_info(CoreEntry *core)
 			xfree(CORE_THREAD_ARCH_INFO(core)->vsxstate);
 		}
 		xfree_tm_state(CORE_THREAD_ARCH_INFO(core)->tmstate);
-                xfree(CORE_THREAD_ARCH_INFO(core)->gpregs->gpr);
-                xfree(CORE_THREAD_ARCH_INFO(core)->gpregs);
-                xfree(CORE_THREAD_ARCH_INFO(core));
-                CORE_THREAD_ARCH_INFO(core) = NULL;
-        }
+		xfree(CORE_THREAD_ARCH_INFO(core)->gpregs->gpr);
+		xfree(CORE_THREAD_ARCH_INFO(core)->gpregs);
+		xfree(CORE_THREAD_ARCH_INFO(core));
+		CORE_THREAD_ARCH_INFO(core) = NULL;
+	}
 }
 
 int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
