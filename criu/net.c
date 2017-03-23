@@ -1992,47 +1992,30 @@ static int create_net_ns(void *arg)
 
 int prepare_net_namespaces()
 {
-	int status, stack_size, ret = -1;
 	struct ns_id *nsid;
-	char *stack;
-	pid_t pid;
+	int ret = -1;
 
 	if (!(root_ns_mask & CLONE_NEWNET))
 		return 0;
-
-	stack_size = 2 * 1024 * 1024;
-	stack = mmap(NULL, stack_size, PROT_WRITE | PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	if (stack == MAP_FAILED) {
-		pr_perror("Can't allocate stack");
-		return -1;
-	}
 
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
 		if (nsid->nd != &net_ns_desc)
 			continue;
 
 		if (root_user_ns && nsid->user_ns != root_user_ns) {
-			pid = clone(create_net_ns, stack + stack_size, CLONE_VM | CLONE_FILES | SIGCHLD, nsid);
-			if (pid < 0) {
-				pr_perror("Can't clone");
+			if (call_in_child_process(create_net_ns, nsid) < 0)
 				goto err;
-			}
-			if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
-				pr_perror("Child process waiting %d", status);
-				goto err;
-			}
 		} else {
 			if (do_create_net_ns(nsid))
 				goto err;
-
 		}
-
 	}
 
 	close_service_fd(NS_FD_OFF);
 	ret = 0;
 err:
-	munmap(stack, stack_size);
+	if (ret)
+		pr_err("Can't create net_ns\n");
 
 	return ret;
 }

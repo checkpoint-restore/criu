@@ -1420,3 +1420,37 @@ int open_fd_of_real_pid(pid_t pid, int fd, int flags)
 		BUG();
 	return ret;
 }
+
+int call_in_child_process(int (*fn)(void *), void *arg)
+{
+	int size, status, ret = -1;
+	char *stack;
+	pid_t pid;
+
+	size = 2 * 1024 * 1024; /* 2Mb */
+	stack = mmap(NULL, size, PROT_WRITE | PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	if (stack == MAP_FAILED) {
+		pr_perror("Can't allocate stack");
+		return -1;
+	}
+	pid = clone(fn, stack + size, CLONE_VM | CLONE_FILES | SIGCHLD, arg);
+	if (pid == -1) {
+		pr_perror("Can't clone");
+		goto out_munmap;
+	}
+	errno = 0;
+	if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
+		pr_err("Can't wait or bad status: errno=%d, status=%d", errno, status);
+		goto out_close;
+	}
+	ret = 0;
+out_close:
+	/*
+	 * Child opened PROC_SELF for pid. If we create one more child
+	 * with the same pid later, it will try to reuse this /proc/self.
+	 */
+	close_pid_proc();
+out_munmap:
+	munmap(stack, size);
+	return ret;
+}

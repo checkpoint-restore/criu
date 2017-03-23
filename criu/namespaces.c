@@ -996,11 +996,8 @@ static int dump_user_ns(void *arg)
 
 int collect_user_ns(struct ns_id *ns, void *oarg)
 {
-	int status, stack_size;
 	struct ns_id *p_ns;
-	pid_t pid = -1;
 	UsernsEntry *e;
-	char *stack;
 
 	p_ns = ns->parent;
 
@@ -1024,32 +1021,9 @@ int collect_user_ns(struct ns_id *ns, void *oarg)
 		 * we need to enter its parent ns. As entered to user_ns
 		 * task has no a way back, we create a child for that.
 		 * NS_ROOT is dumped w/o clone(), it's xids maps is relatively
-		 * to NS_CRIU. We use CLONE_VM to make child share our memory,
-		 * and to allow us see allocated maps, he do. Child's open_proc()
-		 * may do changes about CRIU's internal files states in memory,
-		 * so pass CLONE_FILES to reflect that.
+		 * to NS_CRIU.
 		 */
-		stack_size = 2 * 1024 * 1024;
-		stack = mmap(NULL, stack_size, PROT_WRITE | PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-		if (stack == MAP_FAILED) {
-			pr_perror("Can't allocate stack");
-			return -1;
-		}
-		pid = clone(dump_user_ns, stack + stack_size, CLONE_VM | CLONE_FILES | SIGCHLD, ns);
-		if (pid == -1) {
-			pr_perror("Can't clone");
-			return -1;
-		}
-		if (waitpid(pid, &status, 0) != pid) {
-			pr_perror("Unable to wait the %d process", pid);
-			return -1;
-		}
-		if (!WIFEXITED(status) || WEXITSTATUS(status)) {
-			pr_err("Can't dump nested user_ns: %x\n", status);
-			return -1;
-		}
-		munmap(stack, stack_size);
-		return 0;
+		return call_in_child_process(dump_user_ns, ns);
 	} else {
 		if (__dump_user_ns(ns))
 			return -1;

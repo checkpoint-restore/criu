@@ -333,4 +333,6 @@ extern int epoll_prepare(int nr_events, struct epoll_event **evs);
 
 extern int open_fd_of_real_pid(pid_t pid, int fd, int flags);
 
+extern int call_in_child_process(int (*fn)(void *), void *arg);
+
 #endif /* __CR_UTIL_H__ */
