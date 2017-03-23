@@ -54,17 +54,19 @@ int read_remote_image_connection(char *snapshot_id, char *path)
 	int sockfd = setup_UNIX_client_socket(restoring ? DEFAULT_CACHE_SOCKET: DEFAULT_PROXY_SOCKET);
 
 	if (sockfd < 0) {
-		pr_perror("Error opening local connection for %s:%s", path, snapshot_id);
+		pr_err("Error opening local connection for %s:%s\n",
+				path, snapshot_id);
 		return -1;
 	}
 
 	if (write_header(sockfd, snapshot_id, path, O_RDONLY) < 0) {
-		pr_perror("Error writing header for %s:%s", path, snapshot_id);
+		pr_err("Error writing header for %s:%s\n", path, snapshot_id);
 		return -1;
 	}
 
 	if (read_reply_header(sockfd, &error) < 0) {
-		pr_perror("Error reading reply header for %s:%s", path, snapshot_id);
+		pr_err("Error reading reply header for %s:%s\n",
+				path, snapshot_id);
 		return -1;
 	}
 	if (!error || !strncmp(path, RESTORE_FINISH, sizeof(RESTORE_FINISH)))
@@ -74,7 +76,8 @@ int read_remote_image_connection(char *snapshot_id, char *path)
 		close(sockfd);
 		return -ENOENT;
 	}
-	pr_perror("Unexpected error returned: %d (%s:%s)\n", error, path, snapshot_id);
+	pr_err("Unexpected error returned: %d (%s:%s)\n",
+			error, path, snapshot_id);
 	close(sockfd);
 	return -1;
 }
@@ -87,7 +90,7 @@ int write_remote_image_connection(char *snapshot_id, char *path, int flags)
 		return -1;
 
 	if (write_header(sockfd, snapshot_id, path, flags) < 0) {
-		pr_perror("Error writing header for %s:%s", path, snapshot_id);
+		pr_err("Error writing header for %s:%s\n", path, snapshot_id);
 		return -1;
 	}
 	return sockfd;
@@ -99,7 +102,7 @@ int finish_remote_dump(void)
 	int fd = write_remote_image_connection(NULL_SNAPSHOT_ID, DUMP_FINISH, O_WRONLY);
 
 	if (fd == -1) {
-		pr_perror("Unable to open finish dump connection");
+		pr_err("Unable to open finish dump connection");
 		return -1;
 	}
 
@@ -113,7 +116,7 @@ int finish_remote_restore(void)
 	int fd = read_remote_image_connection(NULL_SNAPSHOT_ID, RESTORE_FINISH);
 
 	if (fd == -1) {
-		pr_perror("Unable to open finish restore connection");
+		pr_err("Unable to open finish restore connection\n");
 		return -1;
 	}
 
@@ -143,7 +146,7 @@ int skip_remote_bytes(int fd, unsigned long len)
 	}
 
 	if (curr != len) {
-		pr_perror("Unable to skip the current number of bytes: %lx instead of %lx",
+		pr_err("Unable to skip the current number of bytes: %lx instead of %lx\n",
 			curr, len);
 		return -1;
 	}
@@ -162,7 +165,7 @@ static int pull_snapshot_ids(void)
 	if (sockfd < 0 && errno == ENOENT)
 		return 0;
 	else if (sockfd < 0) {
-		pr_perror("Unable to open snapshot id read connection");
+		pr_err("Unable to open snapshot id read connection\n");
 		return -1;
 	}
 
@@ -172,7 +175,7 @@ static int pull_snapshot_ids(void)
 			close(sockfd);
 			return n;
 		} else if (n < 0) {
-			pr_perror("Unable to read remote snapshot ids");
+			pr_err("Unable to read remote snapshot ids\n");
 			close(sockfd);
 			return n;
 		}
@@ -198,7 +201,7 @@ int push_snapshot_id(void)
 	int sockfd = write_remote_image_connection(NULL_SNAPSHOT_ID, PARENT_IMG, O_APPEND);
 
 	if (sockfd < 0) {
-		pr_perror("Unable to open snapshot id push connection");
+		pr_err("Unable to open snapshot id push connection\n");
 		return -1;
 	}
 
@@ -240,7 +243,8 @@ int get_curr_snapshot_id_idx(void)
 		idx++;
 	}
 
-	pr_perror("Error, could not find current snapshot id (%s) fd", snapshot_id);
+	pr_err("Error, could not find current snapshot id (%s) fd\n",
+			snapshot_id);
 	return -1;
 }
 
@@ -263,7 +267,7 @@ char *get_snapshot_id_from_idx(int idx)
 		idx--;
 	}
 
-	pr_perror("Error, could not find snapshot id for idx %d", idx);
+	pr_err("Error, could not find snapshot id for idx %d\n", idx);
 	return NULL;
 }
 
