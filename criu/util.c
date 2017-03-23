@@ -568,10 +568,8 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 	ssize_t ret;
 
 	buffer = xmalloc(chunk);
-	if (buffer == NULL) {
-		pr_perror("failed to allocate buffer to copy file");
+	if (buffer == NULL)
 		return -1;
-	}
 
 	while (1) {
 		if (opts.remote) {
