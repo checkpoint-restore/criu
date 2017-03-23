@@ -19,12 +19,12 @@
 #include "image.h"
 
 LIST_HEAD(rimg_head);
-pthread_mutex_t rimg_lock;
+pthread_mutex_t rimg_lock = PTHREAD_MUTEX_INITIALIZER;
 
-pthread_mutex_t proxy_to_cache_lock;
+pthread_mutex_t proxy_to_cache_lock = PTHREAD_MUTEX_INITIALIZER;
 
 LIST_HEAD(workers_head);
-pthread_mutex_t workers_lock;
+pthread_mutex_t workers_lock = PTHREAD_MUTEX_INITIALIZER;
 sem_t workers_semph;
 
 struct rimage * (*wait_for_image) (struct wthread *wt);
@@ -69,21 +69,6 @@ static struct wthread *get_wt_by_name(const char *snapshot_id, const char *path)
 
 static int init_sync_structures(void)
 {
-	if (pthread_mutex_init(&rimg_lock, NULL) != 0) {
-		pr_perror("Remote image list mutex init failed");
-		return -1;
-	}
-
-	if (pthread_mutex_init(&proxy_to_cache_lock, NULL) != 0) {
-		pr_perror("Remote image connection mutex init failed");
-		return -1;
-	}
-
-	if (pthread_mutex_init(&workers_lock, NULL) != 0) {
-		pr_perror("Workers mutex init failed");
-		return -1;
-	}
-
 	if (sem_init(&workers_semph, 0, 0) != 0) {
 		pr_perror("Workers semaphore init failed");
 		return -1;
