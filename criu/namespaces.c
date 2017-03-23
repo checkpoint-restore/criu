@@ -896,7 +896,7 @@ static int check_user_ns(int pid)
 	}
 
 	if (waitpid(chld, &status, 0) != chld) {
-		pr_perror("Unable to wait the %d process", pid);
+		pr_perror("Unable to wait for PID %d", chld);
 		return -1;
 	}
 
