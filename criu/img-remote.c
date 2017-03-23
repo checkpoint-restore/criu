@@ -33,12 +33,11 @@ struct snapshot {
 
 struct snapshot *new_snapshot(char *snapshot_id)
 {
-	struct snapshot *s = malloc(sizeof(struct snapshot));
+	struct snapshot *s = xmalloc(sizeof(struct snapshot));
 
-	if (!s) {
-		pr_perror("Failed to allocate snapshot structure");
+	if (!s)
 		return NULL;
-	}
+
 	strncpy(s->snapshot_id, snapshot_id, PATHLEN - 1);
 	s->snapshot_id[PATHLEN - 1]= '\0';
 	return s;
@@ -180,7 +179,6 @@ static int pull_snapshot_ids(void)
 
 		s = new_snapshot(ls->snapshot_id);
 		if (!s) {
-			pr_perror("Unable create new snapshot structure");
 			close(sockfd);
 			return -1;
 		}
@@ -206,7 +204,6 @@ int push_snapshot_id(void)
 
 	rn.snapshot_id = xmalloc(sizeof(char) * PATHLEN);
 	if (!rn.snapshot_id) {
-		pr_perror("Unable to allocate snapshot id buffer");
 		close(sockfd);
 		return -1;
 	}
