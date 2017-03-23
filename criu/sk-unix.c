@@ -896,7 +896,7 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd, int *prev
 
 	*prev_cwd_fd = open(".", O_RDONLY);
 	if (*prev_cwd_fd < 0) {
-		pr_err("Can't open current dir\n");
+		pr_perror("Can't open current dir");
 		return -1;
 	}
 
@@ -905,7 +905,7 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd, int *prev
 			root = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
 		*prev_root_fd = open("/", O_RDONLY);
 		if (*prev_root_fd < 0) {
-			pr_err("Can't open current root\n");
+			pr_perror("Can't open current root");
 			goto err;
 		}
 
