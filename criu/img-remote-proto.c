@@ -436,7 +436,7 @@ static struct rimage *new_remote_image(char *path, char *snapshot_id)
 	rimg->curr_sent_bytes = 0;
 
 	if (pthread_mutex_init(&(rimg->in_use), NULL) != 0) {
-		pr_perror("Remote image in_use mutex init failed");
+		pr_err("Remote image in_use mutex init failed\n");
 		goto err;
 	}
 	return rimg;
@@ -590,7 +590,7 @@ void *accept_local_image_connections(void *port)
 		cli_fd = accept(fd, (struct sockaddr *) &cli_addr, &clilen);
 		if (cli_fd < 0) {
 			if (!finished)
-				pr_err("Unable to accept local image connection");
+				pr_perror("Unable to accept local image connection");
 			close(cli_fd);
 			return NULL;
 		}
@@ -599,7 +599,7 @@ void *accept_local_image_connections(void *port)
 		wt->fd = cli_fd;
 
 		if (read_header(wt->fd, wt->snapshot_id, wt->path, &(wt->flags)) < 0) {
-			pr_perror("Error reading local image header");
+			pr_err("Error reading local image header\n");
 			goto err;
 		}
 
@@ -620,10 +620,8 @@ void *accept_local_image_connections(void *port)
 		 * from restore.
 		 */
 		int fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-		if (fd < 0) {
-			pr_perror("Can't open %s", LAST_PID_PATH);
+		if (fd < 0)
 			goto err;
-		}
 
 		if (flock(fd, LOCK_EX)) {
 			pr_perror("Can't lock %s", LAST_PID_PATH);
