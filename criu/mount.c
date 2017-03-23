@@ -2901,7 +2901,6 @@ void cleanup_mnt_ns(void)
 int prepare_mnt_ns(void)
 {
 	int ret = -1, rst = -1;
-	struct mount_info *old;
 	struct ns_id ns = { .type = NS_CRIU, .ns_pid = PROC_SELF, .nd = &mnt_ns_desc };
 	struct ns_id *nsid;
 
@@ -2910,27 +2909,30 @@ int prepare_mnt_ns(void)
 
 	pr_info("Restoring mount namespace\n");
 
-	old = collect_mntinfo(&ns, false);
-	if (old == NULL)
-		return -1;
-
 	if (!opts.root) {
+		struct mount_info *old;
+
 		if (chdir("/")) {
 			pr_perror("chdir(\"/\") failed");
 			return -1;
 		}
 
+		old = collect_mntinfo(&ns, false);
+		if (old == NULL)
+			return -1;
 		/*
 		 * The new mount namespace is filled with the mountpoint
 		 * clones from the original one. We have to umount them
 		 * prior to recreating new ones.
 		 */
 		pr_info("Cleaning mount namespace\n");
-		if (mnt_tree_for_each_reverse(ns.mnt.mntinfo_tree, do_umount_one))
+		if (mnt_tree_for_each_reverse(ns.mnt.mntinfo_tree, do_umount_one)) {
+			free_mntinfo(old);
 			return -1;
-	}
+		}
 
-	free_mntinfo(old);
+		free_mntinfo(old);
+	}
 
 	ret = populate_mnt_ns();
 	if (ret)
