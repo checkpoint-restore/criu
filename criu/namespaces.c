@@ -103,7 +103,7 @@ static int check_ns_file(char *ns_file)
 
 	ret = access(ns_file, 0);
 	if (ret < 0) {
-		pr_perror("Can't access join-ns file: %s", ns_file);
+		pr_perror("Can't access join-ns file %s", ns_file);
 		return -1;
 	}
 	return 0;
@@ -1539,7 +1539,7 @@ static int get_join_ns_fd(struct join_ns *jn)
 
 	fd = open(pnsf, O_RDONLY);
 	if (fd < 0) {
-		pr_perror("Can't open ns file: %s", pnsf);
+		pr_perror("Can't open ns file %s", pnsf);
 		return -1;
 	}
 	jn->ns_fd = fd;
