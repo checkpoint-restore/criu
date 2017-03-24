@@ -1,4 +1,4 @@
-COMPEL_BIN		:= compel/compel-host
+COMPEL_BIN		:= ./compel/compel-host
 export COMPEL_BIN
 
 COMPEL_VERSION_HEADER	:= compel/include/version.h

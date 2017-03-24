@@ -1,7 +1,25 @@
-target		+= parasite restorer
+target		:= parasite restorer
 
-parasite-obj-y	+= parasite.o
-restorer-obj-y	+= restorer.o
+CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
+ccflags-y	+= $(COMPEL_UAPI_INCLUDES)
+ccflags-y	+= -DCR_NOGLIBC
+ccflags-y	+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
+ccflags-y	+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
+
+ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
+	CFLAGS		+= $(shell $(COMPEL_BIN) cflags)
+	LDFLAGS		+= $(shell $(COMPEL_BIN) ldflags)
+	compel_plugins	:= $(shell $(COMPEL_BIN) plugins)
+endif
+
+ifeq ($(SRCARCH),arm)
+	ccflags-y	+= -marm
+endif
+
+asflags-y	+= -D__ASSEMBLY__
+
+LDS		:= compel/arch/$(SRCARCH)/scripts/compel-pack.lds.S
+
 restorer-obj-y	+= ./$(ARCH_DIR)/restorer.o
 
 ifeq ($(ARCH),x86)
@@ -11,51 +29,20 @@ ifeq ($(ARCH),x86)
         endif
 endif
 
-#
-# We can't provide proper mount implementation
-# in parasite code -- it requires run-time rellocation
-# applications, which is not the target of the
-# project.
-#
-CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS))
-CFLAGS		:= $(filter-out $(CFLAGS-ASAN),$(CFLAGS))
+define gen-pie-rules
+$(1)-obj-y	+= $(1).o
+$(1)-obj-e	+= pie.lib.a
+$(1)-obj-e	+= $$(compel_plugins)
 
-ccflags-y	+= $(COMPEL_UAPI_INCLUDES)
-ccflags-y	+= -DCR_NOGLIBC
-ccflags-y	+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
-ccflags-y	+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
+# Dependency on compel linker script, to relink if it has changed
+$$(obj)/$(1).built-in.o: $$(LDS)
 
-ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
-        CFLAGS	+= $(shell $(COMPEL_BIN) cflags)
-	compel_std	:= $(shell $(COMPEL_BIN) plugins)
-endif
+$$(obj)/$(1)-blob.h: $$(obj)/$(1).built-in.o
+	$$(call msg-gen, $$@)
+	$$(Q) $$(COMPEL_BIN) hgen -f $$< -o $$@
 
-ifeq ($(SRCARCH),arm)
-        ccflags-y	+= -marm
-endif
+all-y		+= $$(obj)/$(1)-blob.h
+cleanup-y	+= $$(obj)/$(1)-blob.h
+endef
 
-asflags-y	+= -D__ASSEMBLY__
-
-BLOBS		+= $(obj)/restorer-blob.h $(obj)/parasite-blob.h
-LDS		:= compel/arch/$(SRCARCH)/scripts/compel-pack.lds.S
-
-.SECONDARY:
-
-target-name = $(patsubst criu/pie/%-blob.h,%,$(1))
-
-$(obj)/%.build-in.bin.o: $(LDS)
-$(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/pie.lib.a $(compel_std)
-	$(call msg-gen, $@)
-	$(Q) $(LD) $(shell $(COMPEL_BIN) ldflags) -o $@ $^
-
-$(obj)/%-blob.h: $(obj)/%.built-in.bin.o
-	$(call msg-gen, $@)
-	$(Q) $(COMPEL_BIN) hgen -f $< -o $@
-
-all-y += $(BLOBS)
-# blobs and pields are in cleanup, rather than in mrproper because
-# we want them to be re-generated after `make clean && make`
-cleanup-y += $(BLOBS)
-cleanup-y += $(obj)/*.bin
-cleanup-y += $(obj)/*.built-in.bin.o
-cleanup-y += $(obj)/*.built-in.bin
+$(foreach t,$(target),$(eval $(call gen-pie-rules,$(t))))
