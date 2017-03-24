@@ -7,7 +7,7 @@ ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 asflags-y		+= -Wstrict-prototypes
 asflags-y		+= -D__ASSEMBLY__ -nostdlib -fomit-frame-pointer
 asflags-y		+= -iquote $(obj)/include
-ldflags-y		+= -z noexecstack
+ldflags-y		+= -r -z noexecstack
 
 obj-y			+= cpu.o
 obj-y			+= crtools.o

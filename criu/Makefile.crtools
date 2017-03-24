@@ -1,6 +1,7 @@
 ccflags-y		+= -iquote criu/$(ARCH)
 ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 CFLAGS_REMOVE_clone-noasan.o += $(CFLAGS-ASAN)
+ldflags-y		+= -r
 
 obj-y			+= action-scripts.o
 obj-y			+= external.o

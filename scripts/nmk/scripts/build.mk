@@ -142,7 +142,7 @@ endif
 define gen-ld-target-rule
 $(1): $(3)
 	$$(call msg-link, $$@)
-	$$(Q) $$(LD) $(2) -r -o $$@ $(4)
+	$$(Q) $$(LD) $(2) -o $$@ $(4)
 endef
 
 define gen-ar-target-rule

@@ -26,7 +26,11 @@
 #define COMPEL_CFLAGS_PIE	CFLAGS_DEFAULT_SET "-fpie"
 #define COMPEL_CFLAGS_NOPIC	CFLAGS_DEFAULT_SET "-fno-pic"
 
+#ifdef NO_RELOCS
+#define COMPEL_LDFLAGS_COMMON	"-z noexecstack -T "
+#else
 #define COMPEL_LDFLAGS_COMMON	"-r -z noexecstack -T "
+#endif
 
 typedef struct {
 	const char	*arch;		// dir name under arch/
