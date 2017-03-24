@@ -47,7 +47,7 @@
 #include "eventpoll.h"
 #include "signalfd.h"
 #include "proc_parse.h"
-#include "restorer-blob.h"
+#include "pie/restorer-blob.h"
 #include "crtools.h"
 #include "namespaces.h"
 #include "mem.h"

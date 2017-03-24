@@ -43,7 +43,7 @@
 
 #include "infect.h"
 #include "infect-rpc.h"
-#include "parasite-blob.h"
+#include "pie/parasite-blob.h"
 
 #include <compel/compel.h>
 
