@@ -89,7 +89,7 @@ endif
 #
 # Prepare the unique entries.
 obj-y           := $(sort $(call uniq,$(obj-y)))
-lib-y           := $(filter-out $(obj-y),$(sort $(call uniq,$(lib-y))))
+lib-y           := $(filter-out $(obj-y),$(lib-y))
 
 #
 # Add subdir path
