@@ -34,30 +34,30 @@ ldflags-y		+= -z noexecstack
 #
 # Shmem plugin
 target			+= shmem
-shmem-obj-y		+= shmem/shmem.o
+shmem-lib-y		+= shmem/shmem.o
 
 #
 # STD plugin
 target			+= std
-std-obj-y		+= std/std.o
-std-obj-y		+= std/fds.o
-std-obj-y		+= std/log.o
-std-obj-y		+= std/string.o
-std-obj-y		+= std/infect.o
-std-obj-y		+= ./$(PLUGIN_ARCH_DIR)/std/parasite-head.o
+std-lib-y		+= std/std.o
+std-lib-y		+= std/fds.o
+std-lib-y		+= std/log.o
+std-lib-y		+= std/string.o
+std-lib-y		+= std/infect.o
+std-lib-y		+= ./$(PLUGIN_ARCH_DIR)/std/parasite-head.o
 
 #
 # FDS plugin
 target			+= fds
-fds-obj-y		+= fds/fds.o
+fds-lib-y		+= fds/fds.o
 
 ifeq ($(SRCARCH),x86)
-	std-obj-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcpy.o
+	std-lib-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcpy.o
 endif
 
 ifeq ($(SRCARCH),ppc64)
-	std-obj-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcpy.o
-	std-obj-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcmp.o
+	std-lib-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcpy.o
+	std-lib-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcmp.o
 endif
 
 include ./$(PLUGIN_ARCH_DIR)/std/syscalls/Makefile.syscalls
@@ -73,15 +73,15 @@ endef
 # Almost all plugins depen on syscall headers
 # and definitions so we have to order their
 # generation manually.
-$(foreach t,$(target),$(eval $(call syscall-priority,$(t)-obj-y,std-headers-deps)))
+$(foreach t,$(target),$(eval $(call syscall-priority,$(t)-lib-y,std-headers-deps)))
 
 #
 # FIXME syscall-types.h should be setup earlier
 #
-install: compel/plugins/std.built-in.o
+install: compel/plugins/std.lib.a compel/plugins/fds.lib.a
 	$(E) "  INSTALL " compel plugins
 	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)/compel/
-	$(Q) install -m 0644 compel/plugins/std.built-in.o $(DESTDIR)$(LIBEXECDIR)/compel/
+	$(Q) install -m 0644 $^ $(DESTDIR)$(LIBEXECDIR)/compel/
 	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)/compel/scripts
 	$(Q) install -m 0644 compel/arch/$(ARCH)/scripts/compel-pack.lds.S $(DESTDIR)$(LIBEXECDIR)/compel/scripts
 	$(E) "  INSTALL " compel plugins uapi
@@ -91,7 +91,7 @@ install: compel/plugins/std.built-in.o
 
 uninstall:
 	$(E) " UNINSTALL" compel plugins
-	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBEXECDIR)/compel/,std.built-in.o)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBEXECDIR)/compel/,*.lib.a)
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBEXECDIR)/compel/scripts/,compel-pack.lds.S)
 	$(E) " UNINSTALL" compel and plugins uapi
 	$(Q) $(RM) -rf $(addprefix $(DESTDIR)$(INCLUDEDIR)/,compel/plugins)

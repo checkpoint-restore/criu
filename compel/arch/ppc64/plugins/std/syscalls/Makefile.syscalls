@@ -12,7 +12,7 @@ sys-asm-types		:= $(obj)/include/uapi/std/asm/syscall-types.h
 sys-exec-tbl		 = $(PLUGIN_ARCH_DIR)/std/sys-exec-tbl.c
 
 sys-asm			:= ./$(PLUGIN_ARCH_DIR)/std/syscalls/syscalls.S
-std-obj-y		+= $(sys-asm:.S=).o
+std-lib-y		+= $(sys-asm:.S=).o
 
 $(sys-codes): $(sys-def)
 	$(E) "  GEN     " $@

@@ -15,7 +15,7 @@ sys-gen			:= $(PLUGIN_ARCH_DIR)/std/syscalls/gen-syscalls.pl
 sys-gen-tbl		:= $(PLUGIN_ARCH_DIR)/std/syscalls/gen-sys-exec-tbl.pl
 
 sys-asm			:= ./$(PLUGIN_ARCH_DIR)/std/syscalls/syscalls.S
-std-obj-y		+= $(sys-asm:.S=).o
+std-lib-y		+= $(sys-asm:.S=).o
 
 ifeq ($(ARCH),arm)
 arch_bits		:= 32

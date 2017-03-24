@@ -186,12 +186,14 @@ static void print_ldflags(bool compat)
 
 static void print_plugins(const char *list[])
 {
+	const char suffix[] = ".lib.a";
+
 	while (*list != NULL) {
 		if (uninst_root)
-			printf("%s/plugins/%s.built-in.o\n",
-					uninst_root, *list);
+			printf("%s/plugins/%s%s\n",
+					uninst_root, *list, suffix);
 		else
-			printf("%s/compel/%s.built-in.o\n", LIBEXECDIR, *list);
+			printf("%s/compel/%s%s\n", LIBEXECDIR, *list, suffix);
 		list++;
 	}
 }

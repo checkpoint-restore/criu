@@ -1,8 +1,12 @@
 OUTPUT_ARCH(powerpc:common64)
+EXTERN(__export_parasite_head_start)
+
 SECTIONS
 {
 	.text : {
 		*(.head.text)
+		ASSERT(DEFINED(__export_parasite_head_start),
+			"Symbol __export_parasite_head_start is missing");
 		*(.text*)
 		*(.compel.exit)
 		*(.compel.init)

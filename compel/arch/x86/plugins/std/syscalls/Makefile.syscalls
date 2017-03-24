@@ -1,4 +1,4 @@
-std-obj-y		+= ./$(PLUGIN_ARCH_DIR)/std/syscalls-64.o
+std-lib-y		+= ./$(PLUGIN_ARCH_DIR)/std/syscalls-64.o
 
 sys-proto-types		:= $(obj)/include/uapi/std/syscall-types.h
 sys-proto-generic	:= $(obj)/include/uapi/std/syscall.h
