@@ -1,7 +1,6 @@
 lib-name		:= pie.lib.a
 
 CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC -fpie
-LDFLAGS			+= -z noexecstack
 
 lib-y			+= util.o
 
@@ -34,10 +33,9 @@ endif
 # applications, which is not the target of the
 # project.
 #
-CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) $(iquotes)
-CFLAGS			:= $(filter-out $(CFLAGS-ASAN),$(CFLAGS))
+CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
 
-asflags-y		:= -D__ASSEMBLY__ $(iquotes)
+asflags-y		:= -D__ASSEMBLY__
 ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 
 ifeq ($(SRCARCH),arm)
