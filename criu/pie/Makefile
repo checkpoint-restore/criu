@@ -37,7 +37,7 @@ endif
 asflags-y	+= -D__ASSEMBLY__
 
 BLOBS		+= $(obj)/restorer-blob.h $(obj)/parasite-blob.h
-LDS		:= $(SRC_DIR)/compel/arch/$(SRCARCH)/scripts/compel-pack.lds.S
+LDS		:= compel/arch/$(SRCARCH)/scripts/compel-pack.lds.S
 
 .SECONDARY:
 
