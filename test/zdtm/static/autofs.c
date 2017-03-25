@@ -34,6 +34,7 @@ TEST_OPTION(dirname, string, "directory name", 1);
 #define INDIRECT_MNT_DIR		"mnt"
 
 int autofs_dev;
+task_waiter_t t;
 
 static char *xvstrcat(char *str, const char *fmt, va_list args)
 {
@@ -568,6 +569,7 @@ static int automountd(struct autofs_params *p, int control_fd)
 		goto err;
 	}
 	close(control_fd);
+	task_waiter_complete(&t, getpid());
 	return automountd_loop(pipes[0], autofs_path, p);
 
 err:
@@ -599,6 +601,7 @@ static int start_automounter(struct autofs_params *p)
 			close(control_fd[0]);
 			exit(automountd(p, control_fd[1]));
 	}
+	task_waiter_wait4(&t, pid);
 	p->pid = pid;
 
 	close(control_fd[1]);
@@ -876,6 +879,8 @@ int main(int argc, char **argv)
 	int ret = 0;
 
 	test_init(argc, argv);
+
+	task_waiter_init(&t);
 
 	if (mkdir(dirname, 0777) < 0) {
 		pr_perror("failed to create %s directory", dirname);
