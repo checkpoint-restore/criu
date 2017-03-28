@@ -956,8 +956,8 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 	if (connect(fd, (struct sockaddr *)&addr,
 				sizeof(addr.sun_family) +
 				peer->ue->name.len) < 0) {
-		revert_unix_sk_cwd(&cwd_fd, &root_fd);
 		pr_perror("Can't connect %#x socket", ui->ue->ino);
+		revert_unix_sk_cwd(&cwd_fd, &root_fd);
 		return -1;
 	}
 
