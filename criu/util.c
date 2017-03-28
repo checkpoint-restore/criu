@@ -1454,3 +1454,12 @@ out_munmap:
 	munmap(stack, size);
 	return ret;
 }
+
+/*
+ * In glibc 2.24, getpid() returns a parent PID, if a child was
+ * created with the CLONE_VM flag.
+ */
+int getpid()
+{
+       return syscall(__NR_getpid);
+}
