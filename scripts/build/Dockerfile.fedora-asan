@@ -1,0 +1,16 @@
+FROM fedora:latest
+ARG CC=gcc
+ARG ENV1=FOOBAR
+
+RUN dnf install -y git gcc make
+RUN dnf install -y protobuf-devel protobuf-c-devel libaio-devel libcap-devel libnl3-devel libnet-devel
+RUN dnf install -y python ccache libasan findutils tar python-yaml protobuf-python iptables iproute python-ipaddr procps-ng
+
+COPY . /criu
+WORKDIR /criu
+
+ENV CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
+RUN mv .ccache /tmp; make mrproper; ccache -s; \
+	date; make -j $(nproc) ASAN=1 CC="$CC"; date
+RUN make ASAN=1 -C test/zdtm -j $(nproc)
+

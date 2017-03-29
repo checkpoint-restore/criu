@@ -1,6 +1,6 @@
 QEMU_ARCHES := armv7hf aarch64 ppc64le # require qemu
 ARCHES := $(QEMU_ARCHES) x86_64
-TARGETS := $(ARCHES) alpine
+TARGETS := $(ARCHES) alpine fedora-asan
 TARGETS_CLANG := $(addsuffix $(TARGETS),-clang)
 
 all: $(TARGETS) $(TARGETS_CLANG)
