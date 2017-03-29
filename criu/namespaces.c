@@ -2196,9 +2196,15 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 		/* Set self pid to allow parent restore user_ns maps */
 		p_arg->pid = get_self_real_pid();
 		futex_set_and_wake(p_futex, NS__CREATED);
-		fd = open_proc(PROC_SELF, "ns/user");
-		if (fd < 0)
+		/*
+		 * Note we can't use open_proc() here after
+		 * clone() with CLONE_FILES but no CLONE_VM.
+		 */
+		fd = open("/proc/self/ns/user", O_RDONLY);
+		if (fd < 0) {
+			pr_perror("Can't get self user ns");
 			goto out;
+		}
 		me->user.nsfd_id = fdstore_add(fd);
 		close(fd);
 		if (me->user.nsfd_id < 0) {
