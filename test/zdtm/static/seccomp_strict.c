@@ -129,6 +129,7 @@ err:
 
 #else /* __NR_seccomp */
 
+#define TEST_SKIP_REASON "incompatible kernel (no seccomp)"
 #include "skip-me.c"
 
 #endif /* __NR_seccomp */
