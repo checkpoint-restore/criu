@@ -4,7 +4,7 @@ include ../Makefile.inc
 LIBDIR	= ../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
 LDLIBS	+= $(LIBDIR)/libzdtmtst.a
-override CPPFLAGS += -I$(LIBDIR)
+CPPFLAGS += -I$(LIBDIR)
 CFLAGS	= -g -O2 -Wall -Werror -fno-strict-aliasing
 CFLAGS	+= $(USERCFLAGS)
 
@@ -83,14 +83,14 @@ wait_stop:
 
 $(TST):	| $(LIB)
 
-file_aio:	override LDLIBS += -lrt -pthread
-socket-tcp:	override CFLAGS += -D STREAM
-socket-tcp6:	override CFLAGS += -D ZDTM_IPV6 -D STREAM
-ptrace.o:	override CFLAGS += -pthread
-ptrace:		override LDFLAGS += -pthread
-fork2:		override CFLAGS += -D FORK2
-thread-bomb.o:	override CFLAGS += -pthread
-thread-bomb:	override LDFLAGS += -pthread
+file_aio:	LDLIBS += -lrt -pthread
+socket-tcp:	CFLAGS += -D STREAM
+socket-tcp6:	CFLAGS += -D ZDTM_IPV6 -D STREAM
+ptrace.o:	CFLAGS += -pthread
+ptrace:		LDFLAGS += -pthread
+fork2:		CFLAGS += -D FORK2
+thread-bomb.o:	CFLAGS += -pthread
+thread-bomb:	LDFLAGS += -pthread
 
 %: %.sh
 	cp $< $@

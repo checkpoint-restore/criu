@@ -4,7 +4,7 @@ include ../Makefile.inc
 LIBDIR	= ../lib
 LIB	= $(LIBDIR)/libzdtmtst.a
 LDLIBS	+= $(LIBDIR)/libzdtmtst.a
-override CPPFLAGS += -I$(LIBDIR)
+CPPFLAGS += -I$(LIBDIR)
 CFLAGS	= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 CFLAGS	+= $(USERCFLAGS)
 
@@ -399,69 +399,71 @@ wait_stop:
 
 $(TST):	| $(LIB)
 
-aio00:			override LDLIBS += -laio
-different_creds:	override LDLIBS += -lcap
-futex.o:		override CFLAGS += -pthread
-futex:			override LDFLAGS += -pthread
-futex-rl.o:		override CFLAGS += -pthread
-futex-rl:		override LDFLAGS += -pthread
-jobctl00:		override LDLIBS += -lutil
-socket_listen:		override LDLIBS += -lrt -pthread
-socket_aio:		override LDLIBS += -lrt -pthread
-uptime_grow:	override LDLIBS += -lrt -pthread
-unlink_largefile:	override CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
-inotify_system_nodel:	override CFLAGS += -DNODEL
-pthread00:		override LDLIBS += -pthread
-pthread01:		override LDLIBS += -pthread
-pthread02:		override LDLIBS += -pthread
-different_creds:	override LDLIBS += -pthread
-sigpending:		override LDLIBS += -pthread
-sigaltstack:		override LDLIBS += -pthread
-seccomp_filter_tsync:		override LDLIBS += -pthread
-shm:			override CFLAGS += -DNEW_IPC_NS
-msgque:			override CFLAGS += -DNEW_IPC_NS
-sem:			override CFLAGS += -DNEW_IPC_NS
-posix_timers:		override LDLIBS += -lrt -pthread
-remap_dead_pid_root:	override CFLAGS += -DREMAP_PID_ROOT
-socket-tcp6: override CFLAGS += -D ZDTM_IPV6
-socket-tcpbuf6: override CFLAGS += -D ZDTM_IPV6
-socket-tcpbuf-local: override CFLAGS += -D ZDTM_TCP_LOCAL
-socket-tcpbuf6-local: override CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV6
-socket-tcp6-local: override CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV6
-socket-tcp-local: override CFLAGS += -D ZDTM_TCP_LOCAL
-socket-tcp-nfconntrack: override CFLAGS += -D ZDTM_TCP_LOCAL -DZDTM_CONNTRACK
-socket_listen6: override CFLAGS += -D ZDTM_IPV6
-socket-tcp6-closed: override CFLAGS += -D ZDTM_IPV6
-socket-tcp-closed-last-ack: override CFLAGS += -D ZDTM_TCP_LAST_ACK
-mnt_ext_manual: override CFLAGS += -D ZDTM_EXTMAP_MANUAL
-sigpending:		override LDLIBS += -lrt
-vdso01:			override LDLIBS += -lrt
-mntns_link_remap:	override CFLAGS += -DZDTM_LINK_REMAP
-mntns_shared_bind02:		override CFLAGS += -DSHARED_BIND02
-mntns_root_bind02:	override CFLAGS += -DROOT_BIND02
-maps02:		get_smaps_bits.o
-mlock_setuid:		get_smaps_bits.o
-inotify01:		override CFLAGS += -DINOTIFY01
-unlink_fstat01+:	override CFLAGS += -DUNLINK_OVER
-unlink_fstat04:		override CFLAGS += -DUNLINK_FSTAT04
-sk-freebind-false:	override CFLAGS += -DZDTM_FREEBIND_FALSE
-stopped01:	override CFLAGS += -DZDTM_STOPPED_KILL
-stopped02:	override CFLAGS += -DZDTM_STOPPED_TKILL
-stopped12:	override CFLAGS += -DZDTM_STOPPED_KILL -DZDTM_STOPPED_TKILL
-clone_fs:		override LDLIBS += -pthread
+aio00:			LDLIBS += -laio
+different_creds:	LDLIBS += -lcap
+futex.o:		CFLAGS += -pthread
+futex:			LDFLAGS += -pthread
+futex-rl.o:		CFLAGS += -pthread
+futex-rl:		LDFLAGS += -pthread
+jobctl00:		LDLIBS += -lutil
+socket_listen:		LDLIBS += -lrt -pthread
+socket_aio:		LDLIBS += -lrt -pthread
+uptime_grow:		LDLIBS += -lrt -pthread
+unlink_largefile:	CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
+inotify_system_nodel:	CFLAGS += -DNODEL
+pthread00:		LDLIBS += -pthread
+pthread01:		LDLIBS += -pthread
+pthread02:		LDLIBS += -pthread
+different_creds:	LDLIBS += -pthread
+sigpending:		LDLIBS += -pthread
+sigaltstack:		LDLIBS += -pthread
+seccomp_filter_tsync:	LDLIBS += -pthread
+shm:			CFLAGS += -DNEW_IPC_NS
+msgque:			CFLAGS += -DNEW_IPC_NS
+sem:			CFLAGS += -DNEW_IPC_NS
+posix_timers:		LDLIBS += -lrt -pthread
+remap_dead_pid_root:	CFLAGS += -DREMAP_PID_ROOT
+socket-tcp6:		CFLAGS += -D ZDTM_IPV6
+socket-tcpbuf6:		CFLAGS += -D ZDTM_IPV6
+socket-tcpbuf-local:	CFLAGS += -D ZDTM_TCP_LOCAL
+socket-tcpbuf6-local:	CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV6
+socket-tcp6-local:	CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV6
+socket-tcp-local:	CFLAGS += -D ZDTM_TCP_LOCAL
+socket-tcp-nfconntrack: CFLAGS += -D ZDTM_TCP_LOCAL -DZDTM_CONNTRACK
+socket_listen6:		CFLAGS += -D ZDTM_IPV6
+socket-tcp6-closed:	CFLAGS += -D ZDTM_IPV6
+socket-tcp-closed-last-ack:	CFLAGS += -D ZDTM_TCP_LAST_ACK
+mnt_ext_manual:		CFLAGS += -D ZDTM_EXTMAP_MANUAL
+sigpending:		LDLIBS += -lrt
+vdso01:			LDLIBS += -lrt
+mntns_link_remap:	CFLAGS += -DZDTM_LINK_REMAP
+mntns_shared_bind02:	CFLAGS += -DSHARED_BIND02
+mntns_root_bind02:	CFLAGS += -DROOT_BIND02
+maps02: get_smaps_bits.o
+mlock_setuid: get_smaps_bits.o
+inotify01:		CFLAGS += -DINOTIFY01
+unlink_fstat01+:	CFLAGS += -DUNLINK_OVER
+unlink_fstat04:		CFLAGS += -DUNLINK_FSTAT04
+sk-freebind-false:	CFLAGS += -DZDTM_FREEBIND_FALSE
+stopped01:		CFLAGS += -DZDTM_STOPPED_KILL
+stopped02:		CFLAGS += -DZDTM_STOPPED_TKILL
+stopped12:		CFLAGS += -DZDTM_STOPPED_KILL -DZDTM_STOPPED_TKILL
+clone_fs:		LDLIBS += -pthread
+netns_sub_veth:		CFLAGS += -I/usr/include/libnl3
+netns_sub_veth:		LDLIBS += -lnl-3 -l nl-route-3
 
-socket-tcp-fin-wait1:	override CFLAGS += -D ZDTM_TCP_FIN_WAIT1
-socket-tcp-fin-wait2:	override CFLAGS += -D ZDTM_TCP_FIN_WAIT2
-socket-tcp6-fin-wait1:	override CFLAGS += -D ZDTM_TCP_FIN_WAIT1 -D ZDTM_IPV6
-socket-tcp6-fin-wait2:	override CFLAGS += -D ZDTM_TCP_FIN_WAIT2 -D ZDTM_IPV6
-socket-tcp-close-wait:	override CFLAGS += -D ZDTM_TCP_CLOSE_WAIT
-socket-tcp6-close-wait:	override CFLAGS += -D ZDTM_TCP_CLOSE_WAIT -D ZDTM_IPV6
-socket-tcp-last-ack:	override CFLAGS += -D ZDTM_TCP_LAST_ACK
-socket-tcp6-last-ack:	override CFLAGS += -D ZDTM_TCP_LAST_ACK -D ZDTM_IPV6
-socket-tcp6-closing:	override CFLAGS += -D ZDTM_IPV6
-socket-tcp6-unconn:	override CFLAGS += -D ZDTM_IPV6
+socket-tcp-fin-wait1:	CFLAGS += -D ZDTM_TCP_FIN_WAIT1
+socket-tcp-fin-wait2:	CFLAGS += -D ZDTM_TCP_FIN_WAIT2
+socket-tcp6-fin-wait1:	CFLAGS += -D ZDTM_TCP_FIN_WAIT1 -D ZDTM_IPV6
+socket-tcp6-fin-wait2:	CFLAGS += -D ZDTM_TCP_FIN_WAIT2 -D ZDTM_IPV6
+socket-tcp-close-wait:	CFLAGS += -D ZDTM_TCP_CLOSE_WAIT
+socket-tcp6-close-wait:	CFLAGS += -D ZDTM_TCP_CLOSE_WAIT -D ZDTM_IPV6
+socket-tcp-last-ack:	CFLAGS += -D ZDTM_TCP_LAST_ACK
+socket-tcp6-last-ack:	CFLAGS += -D ZDTM_TCP_LAST_ACK -D ZDTM_IPV6
+socket-tcp6-closing:	CFLAGS += -D ZDTM_IPV6
+socket-tcp6-unconn:	CFLAGS += -D ZDTM_IPV6
 
-pty-console:		override CFLAGS += -D ZDTM_DEV_CONSOLE
+pty-console:		CFLAGS += -D ZDTM_DEV_CONSOLE
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
