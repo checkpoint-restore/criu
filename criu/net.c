@@ -1715,11 +1715,9 @@ int netns_keep_nsfd(void)
 	 * that before we leave the existing namespaces.
 	 */
 
-	ns_fd = open("/proc/self/ns/net", O_RDONLY | O_CLOEXEC);
-	if (ns_fd < 0) {
-		pr_perror("Can't cache net fd");
+	ns_fd = __open_proc(PROC_SELF, 0, O_RDONLY | O_CLOEXEC, "ns/net");
+	if (ns_fd < 0)
 		return -1;
-	}
 
 	ret = install_service_fd(NS_FD_OFF, ns_fd);
 	if (ret < 0)

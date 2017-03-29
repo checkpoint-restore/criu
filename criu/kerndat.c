@@ -294,9 +294,8 @@ int kerndat_get_dirty_track(void)
 		goto no_dt;
 
 	ret = -1;
-	pm2 = open("/proc/self/pagemap", O_RDONLY);
+	pm2 = open_proc(PROC_SELF, "pagemap");
 	if (pm2 < 0) {
-		pr_perror("Can't open pagemap file");
 		munmap(map, PAGE_SIZE);
 		return ret;
 	}
@@ -397,11 +396,9 @@ int kerndat_fdinfo_has_lock()
 	int fd, pfd = -1, exit_code = -1, len;
 	char buf[PAGE_SIZE];
 
-	fd = open("/proc/locks", O_RDONLY);
-	if (fd < 0) {
-		pr_perror("Unable to open /proc/locks");
+	fd = open_proc(PROC_GEN, "locks");
+	if (fd < 0)
 		return -1;
-	}
 
 	if (flock(fd, LOCK_SH)) {
 		pr_perror("Can't take a lock");

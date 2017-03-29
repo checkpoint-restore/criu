@@ -359,11 +359,9 @@ static int access_autofs_mount(struct mount_info *pm)
 	if (new_pid_ns < 0)
 		return -1;
 
-	old_pid_ns = open("/proc/self/ns/pid", O_RDONLY);
-	if (old_pid_ns < 0) {
-		pr_perror("Can't open /proc/self/ns/pid");
+	old_pid_ns = open_proc(PROC_SELF, "ns/pid");
+	if (old_pid_ns < 0)
 		goto close_new_pid_ns;
-	}
 
 	if (switch_ns(pm->nsid->ns_pid, &mnt_ns_desc, &old_mnt_ns)) {
 		pr_err("failed to switch to mount namespace\n");

@@ -244,11 +244,9 @@ static int check_fcntl(void)
 	u32 v[2];
 	int fd;
 
-	fd = open("/proc/self/comm", O_RDONLY);
-	if (fd < 0) {
-		pr_perror("Can't open self comm file");
+	fd = open_proc(PROC_SELF, "comm");
+	if (fd < 0)
 		return -1;
-	}
 
 	if (fcntl(fd, F_GETOWNER_UIDS, (long)v)) {
 		pr_perror("Can'r fetch file owner UIDs");
@@ -726,11 +724,9 @@ static unsigned long get_ring_len(unsigned long addr)
 	FILE *maps;
 	char buf[256];
 
-	maps = fopen("/proc/self/maps", "r");
-	if (!maps) {
-		pr_perror("No maps proc file");
+	maps = fopen_proc(PROC_SELF, "maps");
+	if (!maps)
 		return 0;
-	}
 
 	while (fgets(buf, sizeof(buf), maps)) {
 		unsigned long start, end;

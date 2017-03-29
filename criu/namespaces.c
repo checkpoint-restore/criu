@@ -238,16 +238,12 @@ int switch_ns(int pid, struct ns_desc *nd, int *rst)
 
 int switch_ns_by_fd(int nsfd, struct ns_desc *nd, int *rst)
 {
-	char buf[32];
 	int ret = -1;
 
 	if (rst) {
-		snprintf(buf, sizeof(buf), "/proc/self/ns/%s", nd->str);
-		*rst = open(buf, O_RDONLY);
-		if (*rst < 0) {
-			pr_perror("Can't open ns file");
+		*rst = open_proc(PROC_SELF, "ns/%s", nd->str);
+		if (*rst < 0)
 			goto err_ns;
-		}
 	}
 
 	ret = setns(nsfd, nd->cflag);
