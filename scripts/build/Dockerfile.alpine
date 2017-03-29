@@ -20,8 +20,8 @@ RUN apk update && apk add \
 COPY . /criu
 WORKDIR /criu
 ENV CC="ccache $CC" CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
-RUN mv .ccache /tmp; make mrproper; ccache -s; \
-	date; make -j $(nproc) CC="$CC"; date
+RUN mv .ccache /tmp && make mrproper && ccache -s && \
+	date && make -j $(nproc) CC="$CC" && date
 
 # Run a test
 RUN apk add	py-yaml \
