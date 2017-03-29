@@ -86,7 +86,11 @@ static bool is_header_supported(Elf_Ehdr *hdr)
 {
 	if (!arch_is_machine_supported(hdr->e_machine))
 		return false;
-	if (hdr->e_type != ET_REL || hdr->e_version != EV_CURRENT)
+	if ((hdr->e_type != ET_REL
+#ifdef NO_RELOCS
+		&& hdr->e_type != ET_EXEC
+#endif
+	    ) || hdr->e_version != EV_CURRENT)
 		return false;
 	return true;
 }
