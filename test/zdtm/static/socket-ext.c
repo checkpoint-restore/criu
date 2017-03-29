@@ -27,13 +27,19 @@ int main(int argc, char *argv[])
 	unsigned int addrlen;
 	task_waiter_t lock;
 
-	char path[PATH_MAX] = "/tmp/zdtm.unix.sock.XXXXXX";
+	char dir[] = "/tmp/zdtm.unix.sock.XXXXXX";
+	char *path;
 	pid_t pid;
 	int ret, sk;
 
-	mktemp(path);
+	if (mkdtemp(dir) < 0) {
+		pr_perror("mkdtemp(%s) failed", dir);
+		return 1;
+	}
 	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, path, sizeof(addr.sun_path));
+	snprintf(addr.sun_path, sizeof(addr.sun_path),
+			"%s/%s", dir, "sock");
+	path = addr.sun_path;
 	addrlen = sizeof(addr.sun_family) + strlen(path);
 
 	task_waiter_init(&lock);
@@ -56,6 +62,7 @@ int main(int argc, char *argv[])
 			pr_perror("Can't bind socket to %s", path);
 			return 1;
 		}
+		chmod(dir, 0777);
 		chmod(path, 0777);
 		test_msg("The external socket %s\n", path);
 		task_waiter_complete(&lock, 1);
@@ -88,6 +95,7 @@ int main(int argc, char *argv[])
 	test_waitsig();
 
 	unlink(path);
+	unlink(dir);
 
 	ret = send(sk, "H", 1, 0);
 	if (ret != 1) {
