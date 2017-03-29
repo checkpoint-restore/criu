@@ -1,4 +1,5 @@
 /lib/libzdtmtst.a
+/lib/.gitignore
 /static/.gitignore
 /transition/.gitignore
 

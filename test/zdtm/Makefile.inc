@@ -1,3 +1,5 @@
+MAKEFLAGS	+= -r
+
 ARCH ?= $(shell uname -m | sed          \
                 -e s/i.86/x86/          \
                 -e s/x86_64/x86/        \
@@ -18,6 +20,9 @@ endif
 
 SRCARCH ?= $(ARCH)
 
+CC	:= gcc
+CFLAGS	+= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
+CFLAGS	+= $(USERCFLAGS)
 CPPFLAGS += -iquote $(LIBDIR)/arch/$(SRCARCH)/include
 
 ifeq ($(strip $(V)),)
@@ -32,10 +37,57 @@ RM := rm -f --one-file-system
 
 ifeq ($(COMPAT_TEST),y)
 ifeq ($(ARCH),x86)
-        export USERCFLAGS += -m32
         export CFLAGS += -m32
         export LDFLAGS += -m32
 endif
 endif
 
-export E Q RM
+DEPEND.c = $(COMPILE.c) -MM -MP
+%.d:   %.c
+	$(E) " DEP      " $*.d
+	$(Q)$(DEPEND.c) $(OUTPUT_OPTION) $<
+
+%.o: %.c | %.d
+	$(E) " CC       " $@
+	$(Q)$(COMPILE.c) $(OUTPUT_OPTION) $<
+
+%: %.o $(LDLIBS)
+	@echo $@ >> .gitignore
+	$(E) " LINK     " $@
+	$(Q)$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+default: all
+.PHONY: default
+
+gitignore-clean:
+	$(RM) .gitignore
+.PHONY: gitignore-clean
+
+clean: gitignore-clean
+	$(RM) $(OBJ) $(TST) *~
+.PHONY: clean
+
+cleandep: clean
+	$(RM) $(DEP)
+.PHONY: cleandep
+
+cleanout:
+	$(RM) -r *.pid *.out* *.test* *.state
+.PHONY: cleanout
+
+%.cleanout: %
+	$(Q) $(RM) -r $<.pid* $<.out* *$<.test* $<.*.test $<.*.state $<.state chew_$<.test*
+
+realclean: cleandep cleanout
+.PHONY: realclean
+
+dep: $(DEP)
+.PHONY: dep
+
+no-deps-targets	:= clean cleandep cleanout realclean groups.cleanout
+
+ifeq ($(filter $(no-deps-targets), $(MAKECMDGOALS)),)
+-include $(DEP)
+endif
+
+.SECONDARY:

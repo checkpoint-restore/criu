@@ -1,8 +1,5 @@
-MAKEFLAGS	+= -r
 LIBDIR	:= .
-include ../Makefile.inc
 
-CFLAGS	:= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 CFLAGS	+= $(USERCFLAGS)
 
 LIB	:= libzdtmtst.a
@@ -18,43 +15,16 @@ LDLIBS	:= $(LIB)
 
 TARGETS	:= $(LIB) $(BIN)
 
+include ../Makefile.inc
+
 all:	$(TARGETS)
 .PHONY: all
 
-DEPEND.c = $(COMPILE.c) -MM -MP
-%.d:   %.c
-	$(E) " DEP      " $*.d
-	$(Q)$(DEPEND.c) $(OUTPUT_OPTION) $<
-
-%.o: %.c | %.d
-	$(E) " CC       " $@
-	$(Q)$(COMPILE.c) $(OUTPUT_OPTION) $<
-
-%: %.o $(LDLIBS)
-	$(E) " LINK     " $@
-	$(Q)$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+clean-more:
+	$(RM) $(TARGETS)
+.PHONY: clean-more
+clean: clean-more
 
 $(LIB):	$(LIBOBJ)
 	$(E) " AR       " $@
 	$(Q)ar rcs $@ $^
-
-dep: $(DEP)
-.PHONY: dep
-
-clean:
-	$(RM) $(OBJ) $(TARGETS)
-
-cleandep: clean
-	$(RM) $(DEP)
-
-cleanout: clean ;
-
-realclean:	clean cleandep
-
-.PHONY:	clean cleandep cleanout realclean
-
-no-deps-targets	:= clean cleandep cleanout realclean
-
-ifeq ($(filter $(no-deps-targets), $(MAKECMDGOALS)),)
--include $(DEP)
-endif

@@ -1,12 +1,7 @@
-include ../Makefile.inc
-.SUFFIXES:	# No implicit rules
-
-LIBDIR	= ../lib
-LIB	= $(LIBDIR)/libzdtmtst.a
-LDLIBS	+= $(LIBDIR)/libzdtmtst.a
+LIBDIR	:= ../lib
+LIB	:= $(LIBDIR)/libzdtmtst.a
+LDLIBS	+= $(LIB)
 CPPFLAGS += -I$(LIBDIR)
-CFLAGS	= -g -O2 -Wall -Werror -fno-strict-aliasing
-CFLAGS	+= $(USERCFLAGS)
 
 TST_NOFILE	=	\
 		ipc		\
@@ -41,15 +36,7 @@ DEP	= $(SRC:%.c=%.d)
 PID	= $(TST:%=%.pid)
 OUT	= $(TST:%=%.out)
 
-%.o: %.c
-	@echo $@ >> .gitignore
-	$(E) " CC       " $@
-	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
-
-%: %.o
-	@echo $@ >> .gitignore
-	$(E) " LINK     " $@
-	$(Q)$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+include ../Makefile.inc
 
 all:	$(TST)
 install: all
@@ -99,21 +86,4 @@ thread-bomb:	LDFLAGS += -pthread
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
 
-gitignore-clean:
-	$(RM) -f .gitignore
-
-clean:	gitignore-clean
-	$(RM) -f $(OBJ) $(TST) *~
-
-cleandep:	clean
-	$(RM) -f $(DEP)
-
-%.cleanout: %
-	$(Q) $(RM) -f -r $<.pid* $<.out* $<.test* chew_$<.test*
-
-cleanout:
-	$(RM) -f *.pid *.out* *.test chew*
-
-realclean:	cleandep cleanout
-
-.PHONY:	force clean cleandep cleanout realclean start check_start stop wait_stop
+.PHONY:	force start check_start stop wait_stop

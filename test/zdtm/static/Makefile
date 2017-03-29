@@ -1,12 +1,7 @@
-include ../Makefile.inc
-.SUFFIXES:	# No implicit rules
-
-LIBDIR	= ../lib
-LIB	= $(LIBDIR)/libzdtmtst.a
-LDLIBS	+= $(LIBDIR)/libzdtmtst.a
+LIBDIR	:= ../lib
+LIB	:= $(LIBDIR)/libzdtmtst.a
+LDLIBS	+= $(LIB)
 CPPFLAGS += -I$(LIBDIR)
-CFLAGS	= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
-CFLAGS	+= $(USERCFLAGS)
 
 TST_NOFILE	:=				\
 		busyloop00			\
@@ -314,15 +309,7 @@ OUT	= $(TST:%=%.out)
 STATE	= $(TST_STATE:%=%.state)
 STATE_OUT	= $(TST_STATE:%=%.out)
 
-%.o: %.c
-	@echo $@ >> .gitignore
-	$(E) " CC       " $@
-	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
-
-%: %.o
-	@echo $@ >> .gitignore
-	$(E) " LINK     " $@
-	$(Q)$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+include ../Makefile.inc
 
 all:	$(TST) criu-rtc.so
 install: all
@@ -449,7 +436,9 @@ stopped01:		CFLAGS += -DZDTM_STOPPED_KILL
 stopped02:		CFLAGS += -DZDTM_STOPPED_TKILL
 stopped12:		CFLAGS += -DZDTM_STOPPED_KILL -DZDTM_STOPPED_TKILL
 clone_fs:		LDLIBS += -pthread
-netns_sub_veth:		CFLAGS += -I/usr/include/libnl3
+# As generating dependencies won't work without proper includes,
+# we have to explicitly specify both .o and .d for this case:
+netns_sub_veth.o netns_sub_veth.d:	CPPFLAGS += -I/usr/include/libnl3
 netns_sub_veth:		LDLIBS += -lnl-3 -l nl-route-3
 
 socket-tcp-fin-wait1:	CFLAGS += -D ZDTM_TCP_FIN_WAIT1
@@ -468,31 +457,21 @@ pty-console:		CFLAGS += -D ZDTM_DEV_CONSOLE
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
 
-gitignore-clean:
-	$(RM) -f .gitignore
-
-clean:	gitignore-clean
-	$(RM) -f $(OBJ) $(TST) *~ criu-rtc.so criu-rtc.pb-c.c criu-rtc.pb-c.h get_smaps_bits.o
-
-cleandep:	clean
-	$(RM) -f $(DEP)
-
-cleanout:
-	$(RM) -f -r *.pid *.out* *.test* *.state
-
-%.cleanout: %
-	$(Q) $(RM) -f -r $<.pid* $<.out* *$<.test* $<.*.test $<.*.state $<.state
-
-realclean:	cleandep cleanout
+clean-more:
+	$(RM) criu-rtc.so criu-rtc.pb-c.c criu-rtc.pb-c.h get_smaps_bits.o
+.PHONY: clean-more
+clean: clean-more
 
 rtc.c: criu-rtc.so
 
 criu-rtc.pb-c.c: criu-rtc.proto
 	$(Q)echo $@ >> .gitignore
 	$(Q)echo $(@:%.c=%.h) >> .gitignore
-	protoc-c --proto_path=. --c_out=. criu-rtc.proto
+	$(E) " PBCC     " $@
+	$(Q)protoc-c --proto_path=. --c_out=. criu-rtc.proto
 
 criu-rtc.so: criu-rtc.c criu-rtc.pb-c.c
-	$(CC) -g -Wall -shared -nostartfiles criu-rtc.c criu-rtc.pb-c.c -o criu-rtc.so -iquote ../../../criu/include -fPIC $(filter-out -m32,$(USERCFLAGS))
+	$(E) " LD       " $@
+	$(Q)$(CC) -g -Wall -shared -nostartfiles criu-rtc.c criu-rtc.pb-c.c -o criu-rtc.so -iquote ../../../criu/include -fPIC $(filter-out -m32,$(USERCFLAGS))
 
-.PHONY:	force clean cleandep cleanout realclean start check_start stop wait_stop
+.PHONY:	force start check_start stop wait_stop
