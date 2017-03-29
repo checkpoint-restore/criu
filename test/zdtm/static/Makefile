@@ -387,9 +387,9 @@ $(TST):	| $(LIB)
 
 aio00:			LDLIBS += -laio
 different_creds:	LDLIBS += -lcap
-futex.o:		CFLAGS += -pthread
+futex:			CFLAGS += -pthread
 futex:			LDFLAGS += -pthread
-futex-rl.o:		CFLAGS += -pthread
+futex-rl:		CFLAGS += -pthread
 futex-rl:		LDFLAGS += -pthread
 jobctl00:		LDLIBS += -lutil
 socket_listen:		LDLIBS += -lrt -pthread
