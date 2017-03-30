@@ -1625,12 +1625,9 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 
 	pr_info("Collected tty ID %#x (%s)\n", info->tfe->id, info->driver->name);
 
-	if (list_empty(&all_ttys)) {
-		if (add_post_prepare_cb(tty_verify_active_pairs, NULL))
-			return -1;
-		if (add_post_prepare_cb(tty_setup_slavery, NULL))
-			return -1;
-	}
+	if (add_post_prepare_cb_once(tty_verify_active_pairs, NULL) ||
+	    add_post_prepare_cb_once(tty_setup_slavery, NULL))
+		return -1;
 
 	info->fdstore_id = -1;
 	list_add(&info->list, &all_ttys);
