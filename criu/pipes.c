@@ -372,9 +372,8 @@ int collect_one_pipe_ops(void *o, ProtobufCMessage *base, struct file_desc_ops *
 			list_add(&pi->pipe_list, &tmp->pipe_list);
 	}
 
-	if (list_empty(&pipes))
-		if (add_post_prepare_cb(mark_pipe_master, NULL))
-			return -1;
+	if (add_post_prepare_cb_once(mark_pipe_master, NULL))
+		return -1;
 
 	list_add_tail(&pi->list, &pipes);
 
