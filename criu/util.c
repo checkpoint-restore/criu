@@ -1423,6 +1423,7 @@ int open_fd_of_real_pid(pid_t pid, int fd, int flags)
 
 int call_in_child_process(int (*fn)(void *), void *arg)
 {
+	sigset_t blockmask, oldmask;
 	int size, status, ret = -1;
 	char *stack;
 	pid_t pid;
@@ -1433,10 +1434,19 @@ int call_in_child_process(int (*fn)(void *), void *arg)
 		pr_perror("Can't allocate stack");
 		return -1;
 	}
+
+	sigemptyset(&blockmask);
+	sigaddset(&blockmask, SIGCHLD);
+
+	if (sigprocmask(SIG_BLOCK, &blockmask, &oldmask) == -1) {
+		pr_perror("Can not set mask of blocked signals");
+		goto out_munmap;
+	}
+
 	pid = clone(fn, stack + size, CLONE_VM | CLONE_FILES | SIGCHLD, arg);
 	if (pid == -1) {
 		pr_perror("Can't clone");
-		goto out_munmap;
+		goto out_unblock;
 	}
 	errno = 0;
 	if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
@@ -1450,6 +1460,11 @@ out_close:
 	 * with the same pid later, it will try to reuse this /proc/self.
 	 */
 	close_pid_proc();
+out_unblock:
+	if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
+		pr_perror("Can not unset mask of blocked signals");
+		ret = -1;
+	}
 out_munmap:
 	munmap(stack, size);
 	return ret;
