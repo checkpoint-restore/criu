@@ -25,4 +25,17 @@ extern int cr_dedup(void);
 extern int check_add_feature(char *arg);
 extern void pr_check_features(const char *offset, const char *sep, int width);
 
+#define add_post_prepare_cb_once(actor, data)			\
+	({							\
+		static int __cb_called = 0;			\
+		int ret = 0;					\
+								\
+		if (!__cb_called) {				\
+			ret = add_post_prepare_cb(actor, data);	\
+			__cb_called = 1;			\
+		}						\
+								\
+		ret;						\
+	})
+
 #endif /* __CR_CRTOOLS_H__ */
