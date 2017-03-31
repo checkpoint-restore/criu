@@ -585,6 +585,9 @@ int add_shmem_area(pid_t pid, VmaEntry *vma, u64 *map)
 	struct shmem_info *si;
 	unsigned long size = vma->pgoff + (vma->end - vma->start);
 
+	if (vma_entry_is(vma, VMA_AREA_SYSVIPC))
+		pid = SYSVIPC_SHMEM_PID;
+
 	si = shmem_find(vma->shmid);
 	if (si) {
 		if (si->size < size) {
@@ -745,6 +748,8 @@ int cr_dump_shmem(void)
 	struct shmem_info *si;
 
 	for_each_shmem(i, si) {
+		if (si->pid == SYSVIPC_SHMEM_PID)
+			continue;
 		ret = dump_one_shmem(si);
 		if (ret)
 			goto out;
