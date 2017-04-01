@@ -2207,15 +2207,16 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 		p_futex = &p_arg->futex;
 	me = p_arg->me;
 
+	me->user.nsfd_id = store_self_ns(me);
+	if (me->user.nsfd_id < 0) {
+		pr_err("Can't add fd to fdstore\n");
+		goto out;
+	}
+
 	if (p_futex) {
 		/* Set self pid to allow parent restore user_ns maps */
 		p_arg->pid = get_self_real_pid();
 		futex_set_and_wake(p_futex, NS__CREATED);
-		me->user.nsfd_id = store_self_ns(me);
-		if (me->user.nsfd_id < 0) {
-			pr_err("Can't add fd to fdstore\n");
-			goto out;
-		}
 
 		futex_wait_while_lt(p_futex, NS__MAPS_POPULATED);
 		if (prepare_userns_creds()) {
