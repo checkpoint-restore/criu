@@ -15,7 +15,11 @@
 const char *test_doc	= "Check for /proc/self/ns path restore";
 const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
 
+#ifdef PROC_SELF01
+const char nspath[] = "/proc/self/ns/user";
+#else
 const char nspath[] = "/proc/self/ns/net";
+#endif
 
 int read_fd_link(int lfd, char *buf, size_t size)
 {
