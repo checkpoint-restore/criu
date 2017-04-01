@@ -2233,7 +2233,7 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 		arg->me = child;
 		futex_init(futex);
 
-		pid = clone(create_user_ns_hierarhy_fn, stack, CLONE_NEWUSER | CLONE_FILES | SIGCHLD, arg);
+		pid = clone(create_user_ns_hierarhy_fn, stack, CLONE_NEWUSER | CLONE_VM | CLONE_FILES | SIGCHLD, arg);
 		if (pid < 0) {
 			pr_perror("Can't clone");
 			goto out;
@@ -2250,8 +2250,10 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 		errno = 0;
 		if (wait(&status) < 0 || !WIFEXITED(status) || WEXITSTATUS(status)) {
 			pr_perror("Child process waiting: %d", status);
+			close_pid_proc();
 			goto out;
 		}
+		close_pid_proc();
 	}
 
 	ret = 0;
