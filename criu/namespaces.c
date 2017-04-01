@@ -2165,6 +2165,20 @@ err_out:
 	return ret;
 }
 
+int store_self_ns(struct ns_id *ns)
+{
+	int fd, id;
+
+	/* Pin one with a file descriptor */
+	fd = open_proc(PROC_SELF, "ns/%s", ns->nd->str);
+	if (fd < 0)
+		return -1;
+
+	id = fdstore_add(fd);
+	close(fd);
+	return id;
+}
+
 enum {
 	NS__CREATED = 1,
 	NS__MAPS_POPULATED,
@@ -2185,7 +2199,7 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 	futex_t *p_futex = NULL, *futex = NULL;
 	size_t map_size = 2 * 1024 * 1024;
 	void *map = MAP_FAILED, *stack;
-	int status, fd, ret = -1;
+	int status, ret = -1;
 	struct ns_id *me, *child;
 	pid_t pid = -1;
 
@@ -2197,17 +2211,7 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 		/* Set self pid to allow parent restore user_ns maps */
 		p_arg->pid = get_self_real_pid();
 		futex_set_and_wake(p_futex, NS__CREATED);
-		/*
-		 * Note we can't use open_proc() here after
-		 * clone() with CLONE_FILES but no CLONE_VM.
-		 */
-		fd = open("/proc/self/ns/user", O_RDONLY);
-		if (fd < 0) {
-			pr_perror("Can't get self user ns");
-			goto out;
-		}
-		me->user.nsfd_id = fdstore_add(fd);
-		close(fd);
+		me->user.nsfd_id = store_self_ns(me);
 		if (me->user.nsfd_id < 0) {
 			pr_err("Can't add fd to fdstore\n");
 			goto out;
