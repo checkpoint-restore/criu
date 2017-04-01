@@ -569,8 +569,23 @@ static int open_ns_fd(struct file_desc *d, int *new_fd)
 	struct ns_file_info *nfi = container_of(d, struct ns_file_info, d);
 	struct pstree_item *item, *t;
 	struct ns_desc *nd = NULL;
+	struct ns_id *ns;
+	int nsfd_id, fd;
 	char path[64];
-	int fd;
+
+	for (ns = ns_ids; ns != NULL; ns = ns->next) {
+		if (ns->id != nfi->nfe->ns_id)
+			continue;
+		/* Check for CLONE_XXX as we use fdstore only if flag is set */
+		if (ns->nd == &user_ns_desc && (root_ns_mask & CLONE_NEWUSER))
+			nsfd_id = ns->user.nsfd_id;
+		else if (ns->nd == &net_ns_desc && (root_ns_mask & CLONE_NEWNET))
+			nsfd_id = ns->net.nsfd_id;
+		else
+			break;
+		fd = fdstore_get(nsfd_id);
+		goto check_open;
+	}
 
 	/*
 	 * Find out who can open us.
@@ -587,6 +602,10 @@ static int open_ns_fd(struct file_desc *d, int *new_fd)
 		} else if (ids->net_ns_id == nfi->nfe->ns_id) {
 			item = t;
 			nd = &net_ns_desc;
+			break;
+		} else if (ids->user_ns_id == nfi->nfe->ns_id) {
+			item = t;
+			nd = &user_ns_desc;
 			break;
 		} else if (ids->ipc_ns_id == nfi->nfe->ns_id) {
 			item = t;
@@ -621,6 +640,7 @@ static int open_ns_fd(struct file_desc *d, int *new_fd)
 	path[sizeof(path) - 1] = '\0';
 
 	fd = open(path, nfi->nfe->flags);
+check_open:
 	if (fd < 0) {
 		pr_perror("Can't open file %s on restore", path);
 		return fd;
