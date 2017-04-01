@@ -2181,9 +2181,10 @@ struct ns_arg {
 
 static int create_user_ns_hierarhy_fn(void *in_arg)
 {
-	char stack[128] __stack_aligned__;
-	struct ns_arg *arg = NULL, *p_arg = in_arg;
+	struct ns_arg *arg, *p_arg = in_arg;
 	futex_t *p_futex = NULL, *futex = NULL;
+	size_t map_size = 2 * 1024 * 1024;
+	void *map = MAP_FAILED, *stack;
 	int status, fd, ret = -1;
 	struct ns_id *me, *child;
 	pid_t pid = -1;
@@ -2219,18 +2220,20 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 		}
 	}
 
-	arg = mmap(NULL, sizeof(*arg), PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	if (arg == MAP_FAILED) {
-		pr_perror("Failed to mmap arg");
+	map = mmap(NULL, map_size, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (map == MAP_FAILED) {
+		pr_perror("Failed to mmap");
 		goto out;
 	}
+	arg = map + map_size - sizeof(*arg);
+	stack = ((void *)arg) - sizeof(unsigned long);
 	futex = &arg->futex;
 
 	list_for_each_entry(child, &me->children, siblings) {
 		arg->me = child;
 		futex_init(futex);
 
-		pid = clone(create_user_ns_hierarhy_fn, stack + 128, CLONE_NEWUSER | CLONE_FILES | SIGCHLD, arg);
+		pid = clone(create_user_ns_hierarhy_fn, stack, CLONE_NEWUSER | CLONE_FILES | SIGCHLD, arg);
 		if (pid < 0) {
 			pr_perror("Can't clone");
 			goto out;
@@ -2255,8 +2258,8 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 out:
 	if (p_futex)
 		futex_set_and_wake(p_futex, ret ? NS__ERROR : NS__RESTORED);
-	if (arg)
-		munmap(arg, sizeof(*arg));
+	if (map != MAP_FAILED)
+		munmap(map, map_size);
 	return ret ? 1 : 0;
 }
 
