@@ -777,17 +777,10 @@ err:
 	return ret;
 }
 
-static int prepare_ipc_shm_pages(struct cr_img *img, const IpcShmEntry *shm)
+static int restore_content(void *data, struct cr_img *img, const IpcShmEntry *shm)
 {
-	void *data;
 	int ifd;
 	ssize_t size, off;
-
-	data = shmat(shm->desc->id, NULL, 0);
-	if (data == (void *)-1) {
-		pr_perror("Failed to attach IPC shared memory");
-		return -errno;
-	}
 
 	ifd = img_raw_fd(img);
 	size = round_up(shm->size, sizeof(u32));
@@ -803,11 +796,28 @@ static int prepare_ipc_shm_pages(struct cr_img *img, const IpcShmEntry *shm)
 
 		off += ret;
 	} while (off < size);
+
+	return 0;
+}
+
+static int prepare_ipc_shm_pages(struct cr_img *img, const IpcShmEntry *shm)
+{
+	int ret;
+	void *data;
+
+	data = shmat(shm->desc->id, NULL, 0);
+	if (data == (void *)-1) {
+		pr_perror("Failed to attach IPC shared memory");
+		return -errno;
+	}
+
+	ret = restore_content(data, img, shm);
+
 	if (shmdt(data)) {
 		pr_perror("Failed to detach IPC shared memory");
 		return -errno;
 	}
-	return 0;
+	return ret;
 }
 
 static int prepare_ipc_shm_seg(struct cr_img *img, const IpcShmEntry *shm)
