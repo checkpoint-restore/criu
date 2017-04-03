@@ -5,4 +5,5 @@ import "ipc-desc.proto";
 message ipc_shm_entry {
 	required ipc_desc_entry		desc	= 1;
 	required uint64			size	= 2;
+	optional bool			in_pagemaps = 3;
 }

@@ -492,6 +492,11 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 	return do_restore_shmem_content(addr, si->size, si->shmid);
 }
 
+int restore_sysv_shmem_content(void *addr, unsigned long size, unsigned long shmid)
+{
+	return do_restore_shmem_content(addr, round_up(size, PAGE_SIZE), shmid);
+}
+
 static int open_shmem(int pid, struct vma_area *vma)
 {
 	VmaEntry *vi = vma->e;
@@ -689,7 +694,7 @@ static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 		    next_data_segment(fd, pfn, &next_data_pnf, &next_hole_pfn))
 			goto err_xfer;
 
-		if (is_shmem_tracking_en()) {
+		if (si->pstate_map && is_shmem_tracking_en()) {
 			pgstate = get_pstate(si->pstate_map, pfn);
 			use_mc = pgstate == PST_DONT_DUMP;
 		}
@@ -754,6 +759,31 @@ static int dump_one_shmem(struct shmem_info *si)
 errc:
 	close(fd);
 err:
+	return ret;
+}
+
+int dump_one_sysv_shmem(void *addr, unsigned long size, unsigned long shmid)
+{
+	int fd, ret;
+	struct shmem_info *si, det;
+
+	si = shmem_find(shmid);
+	if (!si) {
+		pr_info("Detached shmem...\n");
+		det.pid = SYSVIPC_SHMEM_PID;
+		det.shmid = shmid;
+		det.size = round_up(size, PAGE_SIZE);
+		det.pstate_map = NULL;
+		si = &det;
+	}
+
+	fd = open_proc(PROC_SELF, "map_files/%lx-%lx",
+			(unsigned long)addr, (unsigned long)addr + si->size);
+	if (fd < 0)
+		return -1;
+
+	ret = do_dump_one_shmem(fd, addr, si);
+	close(fd);
 	return ret;
 }
 

@@ -338,15 +338,10 @@ static int ipc_sysctl_req(IpcVarEntry *e, int op)
 	return sysctl_op(req, nr, op, CLONE_NEWIPC);
 }
 
-/*
- * TODO: Function below should be later improved to locate and dump only dirty
- * pages via updated sys_mincore().
- */
-static int dump_ipc_shm_pages(struct cr_img *img, const IpcShmEntry *shm)
+static int dump_ipc_shm_pages(const IpcShmEntry *shm)
 {
+	int ret;
 	void *data;
-	int ifd;
-	ssize_t size, off;
 
 	data = shmat(shm->desc->id, NULL, SHM_RDONLY);
 	if (data == (void *)-1) {
@@ -354,32 +349,13 @@ static int dump_ipc_shm_pages(struct cr_img *img, const IpcShmEntry *shm)
 		return -errno;
 	}
 
-	/*
-	 * FIXME -- this just write the whole memory segment into the
-	 * image. In case the segment is huge this takes time. Need
-	 * to adopt the holes detection code (next_data_segment) from
-	 * shmem.c
-	 */
-	ifd = img_raw_fd(img);
-	size = round_up(shm->size, sizeof(u32));
-	off = 0;
-	do {
-		ssize_t ret;
-
-		ret = write(ifd, data + off, size - off);
-		if (ret <= 0) {
-			pr_perror("Failed to write IPC shared memory data");
-			return (int)ret;
-		}
-
-		off += ret;
-	} while (off < size);
+	ret = dump_one_sysv_shmem(data, shm->size, shm->desc->id);
 
 	if (shmdt(data)) {
 		pr_perror("Failed to detach IPC shared memory");
 		return -errno;
 	}
-	return 0;
+	return ret;
 }
 
 static int dump_ipc_shm_seg(struct cr_img *img, int id, const struct shmid_ds *ds)
@@ -390,6 +366,8 @@ static int dump_ipc_shm_seg(struct cr_img *img, int id, const struct shmid_ds *d
 
 	shm.desc = &desc;
 	shm.size = ds->shm_segsz;
+	shm.has_in_pagemaps = true;
+	shm.in_pagemaps = true;
 	fill_ipc_desc(id, shm.desc, &ds->shm_perm);
 	pr_info_ipc_shm(&shm);
 
@@ -398,7 +376,7 @@ static int dump_ipc_shm_seg(struct cr_img *img, int id, const struct shmid_ds *d
 		pr_err("Failed to write IPC shared memory segment\n");
 		return ret;
 	}
-	return dump_ipc_shm_pages(img, &shm);
+	return dump_ipc_shm_pages(&shm);
 }
 
 static int dump_ipc_shm(struct cr_img *img)
@@ -811,7 +789,10 @@ static int prepare_ipc_shm_pages(struct cr_img *img, const IpcShmEntry *shm)
 		return -errno;
 	}
 
-	ret = restore_content(data, img, shm);
+	if (shm->has_in_pagemaps && shm->in_pagemaps)
+		ret = restore_sysv_shmem_content(data, shm->size, shm->desc->id);
+	else
+		ret = restore_content(data, img, shm);
 
 	if (shmdt(data)) {
 		pr_perror("Failed to detach IPC shared memory");
