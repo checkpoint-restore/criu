@@ -457,12 +457,12 @@ static int shmem_wait_and_open(int pid, struct shmem_info *si, VmaEntry *vi)
 	return 0;
 }
 
-static int restore_shmem_content(void *addr, struct shmem_info *si)
+static int do_restore_shmem_content(void *addr, unsigned long size, unsigned long shmid)
 {
 	int ret = 0;
 	struct page_read pr;
 
-	ret = open_page_read(si->shmid, &pr, PR_SHMEM);
+	ret = open_page_read(shmid, &pr, PR_SHMEM);
 	if (ret <= 0)
 		return -1;
 
@@ -477,7 +477,7 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 		vaddr = (unsigned long)decode_pointer(pr.pe->vaddr);
 		nr_pages = pr.pe->nr_pages;
 
-		if (vaddr + nr_pages * PAGE_SIZE > si->size)
+		if (vaddr + nr_pages * PAGE_SIZE > size)
 			break;
 
 		pr.read_pages(&pr, vaddr, nr_pages, addr + vaddr, 0);
@@ -485,6 +485,11 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 
 	pr.close(&pr);
 	return ret;
+}
+
+static int restore_shmem_content(void *addr, struct shmem_info *si)
+{
+	return do_restore_shmem_content(addr, si->size, si->shmid);
 }
 
 static int open_shmem(int pid, struct vma_area *vma)
@@ -658,32 +663,18 @@ static int next_data_segment(int fd, unsigned long pfn,
 	return 0;
 }
 
-static int dump_one_shmem(struct shmem_info *si)
+static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 {
 	struct page_pipe *pp;
 	struct page_xfer xfer;
-	int err, ret = -1, fd;
-	void *addr = NULL;
+	int err, ret = -1;
 	unsigned long pfn, nrpages, next_data_pnf = 0, next_hole_pfn = 0;
-
-	pr_info("Dumping shared memory %ld\n", si->shmid);
-
-	fd = open_proc(si->pid, "map_files/%lx-%lx", si->start, si->end);
-	if (fd < 0)
-		goto err;
-
-	addr = mmap(NULL, si->size, PROT_READ, MAP_SHARED, fd, 0);
-	if (addr == MAP_FAILED) {
-		pr_err("Can't map shmem 0x%lx (0x%lx-0x%lx)\n",
-				si->shmid, si->start, si->end);
-		goto err;
-	}
 
 	nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
 
 	pp = create_page_pipe((nrpages + 1) / 2, NULL, PP_CHUNK_MODE);
 	if (!pp)
-		goto err_unmap;
+		goto err;
 
 	err = open_page_xfer(&xfer, CR_FD_SHMEM_PAGEMAP, si->shmid);
 	if (err)
@@ -735,10 +726,34 @@ err_xfer:
 	xfer.close(&xfer);
 err_pp:
 	destroy_page_pipe(pp);
-err_unmap:
-	munmap(addr,  si->size);
 err:
-	close_safe(&fd);
+	return ret;
+}
+
+static int dump_one_shmem(struct shmem_info *si)
+{
+	int fd, ret = -1;
+	void *addr;
+
+	pr_info("Dumping shared memory %ld\n", si->shmid);
+
+	fd = open_proc(si->pid, "map_files/%lx-%lx", si->start, si->end);
+	if (fd < 0)
+		goto err;
+
+	addr = mmap(NULL, si->size, PROT_READ, MAP_SHARED, fd, 0);
+	if (addr == MAP_FAILED) {
+		pr_err("Can't map shmem 0x%lx (0x%lx-0x%lx)\n",
+				si->shmid, si->start, si->end);
+		goto errc;
+	}
+
+	ret = do_dump_one_shmem(fd, addr, si);
+
+	munmap(addr, si->size);
+errc:
+	close(fd);
+err:
 	return ret;
 }
 
