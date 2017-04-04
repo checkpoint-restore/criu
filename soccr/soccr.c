@@ -564,11 +564,15 @@ static int send_fin(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
 		libnet_type,		/* injection type */
 		NULL,			/* network interface */
 		errbuf);		/* errbuf */
-	if (l == NULL)
+	if (l == NULL) {
+		loge("libnet_init failed (%s)\n", errbuf);
 		return -1;
+	}
 
-	if (setsockopt(l->fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)))
+	if (setsockopt(l->fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark))) {
+		logerr("Can't set SO_MARK (%d) for socket\n", mark);
 		goto err;
+	}
 
 	ret = libnet_build_tcp(
 		ntohs(sk->dst_addr->v4.sin_port),		/* source port */
