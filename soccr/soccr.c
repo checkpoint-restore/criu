@@ -76,7 +76,7 @@ void libsoccr_set_log(unsigned int level, void (*fn)(unsigned int level, const c
 	log = fn;
 }
 
-#define loge(msg, ...) do { if (log && (log_level >= SOCCR_LOG_ERR)) log(SOCCR_LOG_ERR, "Error: " msg, ##__VA_ARGS__); } while (0)
+#define loge(msg, ...) do { if (log && (log_level >= SOCCR_LOG_ERR)) log(SOCCR_LOG_ERR, "Error (%s:%d): " msg, __FILE__, __LINE__, ##__VA_ARGS__); } while (0)
 #define logerr(msg, ...) loge(msg ": %s\n", ##__VA_ARGS__, strerror(errno))
 #define logd(msg, ...) do { if (log && (log_level >= SOCCR_LOG_DBG)) log(SOCCR_LOG_DBG, "Debug: " msg, ##__VA_ARGS__); } while (0)
 
@@ -121,8 +121,10 @@ struct libsoccr_sk *libsoccr_pause(int fd)
 	struct libsoccr_sk *ret;
 
 	ret = malloc(sizeof(*ret));
-	if (!ret)
+	if (!ret) {
+		loge("Unable to allocate memory\n");
 		return NULL;
+	}
 
 	if (tcp_repair_on(fd) < 0) {
 		free(ret);
@@ -321,8 +323,10 @@ static int get_queue(int sk, int queue_id,
 		 * make sure there are len bytes for real
 		 */
 		buf = malloc(len + 1);
-		if (!buf)
+		if (!buf) {
+			loge("Unable to allocate memory\n");
 			goto err_buf;
+		}
 
 		ret = recv(sk, buf, len + 1, MSG_PEEK | MSG_DONTWAIT);
 		if (ret != len)
@@ -353,8 +357,10 @@ int libsoccr_save(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigne
 {
 	struct tcp_info ti;
 
-	if (!data || data_size < SOCR_DATA_MIN_SIZE)
+	if (!data || data_size < SOCR_DATA_MIN_SIZE) {
+		loge("Invalid input parameters\n");
 		return -1;
+	}
 
 	memset(data, 0, data_size);
 
@@ -443,16 +449,22 @@ static int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 	int onr = 0;
 	__u32 seq;
 
-	if (!data || data_size < SOCR_DATA_MIN_SIZE)
+	if (!data || data_size < SOCR_DATA_MIN_SIZE) {
+		loge("Invalid input parameters\n");
 		return -1;
+	}
 
-	if (!sk->dst_addr || !sk->src_addr)
+	if (!sk->dst_addr || !sk->src_addr) {
+		loge("Destination or/and source addresses aren't set\n");
 		return -1;
+	}
 
 	mstate = 1 << data->state;
 
-	if (data->state == TCP_LISTEN)
+	if (data->state == TCP_LISTEN) {
+		loge("Unable to handle listen sockets\n");
 		return -1;
+	}
 
 	if (sk->src_addr->sa.sa_family == AF_INET)
 		addr_size = sizeof(sk->src_addr->v4);
@@ -460,7 +472,7 @@ static int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 		addr_size = sizeof(sk->src_addr->v6);
 
 	if (bind(sk->fd, &sk->src_addr->sa, addr_size)) {
-		loge("Can't bind inet socket back\n");
+		logerr("Can't bind inet socket back");
 		return -1;
 	}
 
@@ -626,7 +638,7 @@ static int send_fin(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
 			l,			/* libnet handle */
 			0);			/* libnet id */
 	else {
-		loge("Unknown socket family");
+		loge("Unknown socket family\n");
 		goto err;
 	}
 	if (ret == -1) {
@@ -636,7 +648,7 @@ static int send_fin(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
 
 	ret = libnet_write(l);
 	if (ret == -1) {
-		loge("Unable to send a fin packet: %s", libnet_geterror(l));
+		loge("Unable to send a fin packet: %s\n", libnet_geterror(l));
 		goto err;
 	}
 
