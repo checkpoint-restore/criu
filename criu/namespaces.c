@@ -2264,16 +2264,15 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 			goto out;
 		}
 		futex_wait_while_lt(futex, NS__CREATED);
-		/* Get child real pid */
-		pid = arg->pid;
-		if (prepare_userns(pid, child->user.e) < 0) {
+		/* Use child real pid */
+		if (prepare_userns(arg->pid, child->user.e) < 0) {
 			pr_err("Can't prepare child user_ns\n");
 			goto out;
 		}
 		futex_set_and_wake(futex, NS__MAPS_POPULATED);
 
 		errno = 0;
-		if (wait(&status) < 0 || !WIFEXITED(status) || WEXITSTATUS(status)) {
+		if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status)) {
 			pr_perror("Child process waiting: %d", status);
 			close_pid_proc();
 			goto out;
