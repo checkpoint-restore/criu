@@ -36,7 +36,7 @@ int main(int argc, char **argv)
 		fail("Nodename doesn't match");
 		return 1;
 	}
-	if (strcmp(ZDTM_DOMAIN, after.__domainname)) {
+	if (strcmp(ZDTM_DOMAIN, after.domainname)) {
 		fail("Domainname doesn't match");
 		return 1;
 	}

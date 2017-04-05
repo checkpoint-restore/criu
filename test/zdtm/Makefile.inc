@@ -23,6 +23,7 @@ SRCARCH ?= $(ARCH)
 CC	:= gcc
 CFLAGS	+= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 CFLAGS	+= $(USERCFLAGS)
+CFLAGS	+= -D_GNU_SOURCE
 CPPFLAGS += -iquote $(LIBDIR)/arch/$(SRCARCH)/include
 
 ifeq ($(strip $(V)),)

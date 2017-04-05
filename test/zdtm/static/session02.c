@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <sys/mman.h>
 #include <sched.h>
 #include <unistd.h>
