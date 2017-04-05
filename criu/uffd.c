@@ -66,8 +66,6 @@ struct lazy_iov {
 	unsigned long len;
 };
 
-struct lazy_pages_info;
-
 struct lp_req {
 	unsigned long addr;	/* actual #PF (or background) destination */
 	unsigned long img_addr;	/* the corresponding address at the dump time */
