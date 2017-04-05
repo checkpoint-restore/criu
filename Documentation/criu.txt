@@ -24,6 +24,10 @@ on a different system, or both.
 OPTIONS
 -------
 
+Most of the true / false long options (the ones without arguments) can be
+prefixed with *--no-* to negate the option (example: *--display-stats*
+and *--no-display-stats*).
+
 Common options
 ~~~~~~~~~~~~~~
 Common options are applicable to any 'command'.

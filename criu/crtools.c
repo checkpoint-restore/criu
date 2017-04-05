@@ -211,6 +211,11 @@ bool deprecated_ok(char *what)
 
 int main(int argc, char *argv[], char *envp[])
 {
+
+#define BOOL_OPT(OPT_NAME, SAVE_TO) \
+		{OPT_NAME, no_argument, SAVE_TO, true},\
+		{"no-" OPT_NAME, no_argument, SAVE_TO, false}
+
 	pid_t pid = 0, tree_id = 0;
 	int ret = -1;
 	bool usage_error = true;
@@ -225,9 +230,9 @@ int main(int argc, char *argv[], char *envp[])
 		{ "pid",			required_argument,	0, 'p'	},
 		{ "leave-stopped",		no_argument,		0, 's'	},
 		{ "leave-running",		no_argument,		0, 'R'	},
-		{ "restore-detached",		no_argument,		0, 'd'	},
-		{ "restore-sibling",		no_argument,		0, 'S'	},
-		{ "daemon",			no_argument,		0, 'd'	},
+		BOOL_OPT("restore-detached", &opts.restore_detach),
+		BOOL_OPT("restore-sibling", &opts.restore_sibling),
+		BOOL_OPT("daemon", &opts.restore_detach),
 		{ "contents",			no_argument,		0, 'c'	},
 		{ "file",			required_argument,	0, 'f'	},
 		{ "fields",			required_argument,	0, 'F'	},
@@ -238,27 +243,27 @@ int main(int argc, char *argv[], char *envp[])
 		{ "root",			required_argument,	0, 'r'	},
 		{ USK_EXT_PARAM,		optional_argument,	0, 'x'	},
 		{ "help",			no_argument,		0, 'h'	},
-		{ SK_EST_PARAM,			no_argument,		0, 1042	},
+		BOOL_OPT(SK_EST_PARAM, &opts.tcp_established_ok),
 		{ "close",			required_argument,	0, 1043	},
-		{ "log-pid",			no_argument,		0, 1044	},
+		BOOL_OPT("log-pid", &opts.log_file_per_pid),
 		{ "version",			no_argument,		0, 'V'	},
-		{ "evasive-devices",		no_argument,		0, 1045	},
+		BOOL_OPT("evasive-devices", &opts.evasive_devices),
 		{ "pidfile",			required_argument,	0, 1046	},
 		{ "veth-pair",			required_argument,	0, 1047	},
 		{ "action-script",		required_argument,	0, 1049	},
-		{ LREMAP_PARAM,			no_argument,		0, 1041	},
-		{ OPT_SHELL_JOB,		no_argument,		0, 'j'	},
-		{ OPT_FILE_LOCKS,		no_argument,		0, 'l'	},
-		{ "page-server",		no_argument,		0, 1050	},
+		BOOL_OPT(LREMAP_PARAM, &opts.link_remap_ok),
+		BOOL_OPT(OPT_SHELL_JOB, &opts.shell_job),
+		BOOL_OPT(OPT_FILE_LOCKS, &opts.handle_file_locks),
+		BOOL_OPT("page-server", &opts.use_page_server),
 		{ "address",			required_argument,	0, 1051	},
 		{ "port",			required_argument,	0, 1052	},
 		{ "prev-images-dir",		required_argument,	0, 1053	},
 		{ "ms",				no_argument,		0, 1054	},
-		{ "track-mem",			no_argument,		0, 1055	},
-		{ "auto-dedup",			no_argument,		0, 1056	},
+		BOOL_OPT("track-mem", &opts.track_mem),
+		BOOL_OPT("auto-dedup", &opts.auto_dedup),
 		{ "libdir",			required_argument,	0, 'L'	},
 		{ "cpu-cap",			optional_argument,	0, 1057	},
-		{ "force-irmap",		no_argument,		0, 1058	},
+		BOOL_OPT("force-irmap", &opts.force_irmap),
 		{ "ext-mount-map",		required_argument,	0, 'M'	},
 		{ "exec-cmd",			no_argument,		0, 1059	},
 		{ "manage-cgroups",		optional_argument,	0, 1060	},
@@ -267,8 +272,8 @@ int main(int argc, char *argv[], char *envp[])
 		{ "feature",			required_argument,	0, 1063	},
 		{ "skip-mnt",			required_argument,	0, 1064 },
 		{ "enable-fs",			required_argument,	0, 1065 },
-		{ "enable-external-sharing", 	no_argument, 		0, 1066 },
-		{ "enable-external-masters", 	no_argument, 		0, 1067 },
+		{ "enable-external-sharing", 	no_argument, 		&opts.enable_external_sharing, true	},
+		{ "enable-external-masters", 	no_argument, 		&opts.enable_external_masters, true	},
 		{ "freeze-cgroup",		required_argument,	0, 1068 },
 		{ "ghost-limit",		required_argument,	0, 1069 },
 		{ "irmap-scan-path",		required_argument,	0, 1070 },
@@ -276,19 +281,21 @@ int main(int argc, char *argv[], char *envp[])
 		{ "timeout",			required_argument,	0, 1072 },
 		{ "external",			required_argument,	0, 1073	},
 		{ "empty-ns",			required_argument,	0, 1074	},
-		{ "extra",			no_argument,		0, 1077	},
-		{ "experimental",		no_argument,		0, 1078	},
+		BOOL_OPT("extra", &opts.check_extra_features),
+		BOOL_OPT("experimental", &opts.check_experimental_features),
 		{ "all",			no_argument,		0, 1079	},
 		{ "cgroup-props",		required_argument,	0, 1080	},
 		{ "cgroup-props-file",		required_argument,	0, 1081	},
 		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
-		{ SK_INFLIGHT_PARAM,		no_argument,		0, 1083	},
-		{ "deprecated",			no_argument,		0, 1084 },
-		{ "display-stats",		no_argument,		0, 1086 },
-		{ "weak-sysctls",		no_argument,		0, 1087 },
+		BOOL_OPT(SK_INFLIGHT_PARAM, &opts.tcp_skip_in_flight),
+		BOOL_OPT("deprecated", &opts.deprecated_ok),
+		BOOL_OPT("display-stats", &opts.display_stats),
+		BOOL_OPT("weak-sysctls", &opts.weak_sysctls),
 		{ "status-fd",			required_argument,	0, 1088 },
 		{ },
 	};
+
+#undef BOOL_OPT
 
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 	BUILD_BUG_ON(CTL_32 != SYSCTL_TYPE__CTL_32);
@@ -326,6 +333,8 @@ int main(int argc, char *argv[], char *envp[])
 		opt = getopt_long(argc, argv, short_opts, long_opts, &idx);
 		if (opt == -1)
 			break;
+		if (!opt)
+			continue;
 
 		switch (opt) {
 		case 's':
@@ -390,14 +399,6 @@ int main(int argc, char *argv[], char *envp[])
 			} else
 				log_level++;
 			break;
-		case 1041:
-			pr_info("Will allow link remaps on FS\n");
-			opts.link_remap_ok = true;
-			break;
-		case 1042:
-			pr_info("Will dump TCP connections\n");
-			opts.tcp_established_ok = true;
-			break;
 		case 1043: {
 			int fd;
 
@@ -406,12 +407,6 @@ int main(int argc, char *argv[], char *envp[])
 			close(fd);
 			break;
 		}
-		case 1044:
-			opts.log_file_per_pid = 1;
-			break;
-		case 1045:
-			opts.evasive_devices = true;
-			break;
 		case 1046:
 			opts.pidfile = optarg;
 			break;
@@ -433,9 +428,6 @@ int main(int argc, char *argv[], char *envp[])
 				return 1;
 
 			break;
-		case 1050:
-			opts.use_page_server = true;
-			break;
 		case 1051:
 			opts.addr = optarg;
 			break;
@@ -452,12 +444,6 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 1053:
 			opts.img_parent = optarg;
-			break;
-		case 1055:
-			opts.track_mem = true;
-			break;
-		case 1056:
-			opts.auto_dedup = true;
 			break;
 		case 1057:
 			if (parse_cpu_cap(&opts, optarg))
@@ -516,12 +502,6 @@ int main(int argc, char *argv[], char *envp[])
 			if (!add_fsname_auto(optarg))
 				return 1;
 			break;
-		case 1066:
-			opts.enable_external_sharing = true;
-			break;
-		case 1067:
-			opts.enable_external_masters = true;
-			break;
 		case 1068:
 			opts.freeze_cgroup = optarg;
 			break;
@@ -570,12 +550,6 @@ int main(int argc, char *argv[], char *envp[])
 				return 1;
 			}
 			break;
-		case 1077:
-			opts.check_extra_features = true;
-			break;
-		case 1078:
-			opts.check_experimental_features = true;
-			break;
 		case 1079:
 			opts.check_extra_features = true;
 			opts.check_experimental_features = true;
@@ -589,21 +563,6 @@ int main(int argc, char *argv[], char *envp[])
 		case 1082:
 			if (!cgp_add_dump_controller(optarg))
 				return 1;
-			break;
-		case 1083:
-			pr_msg("Will skip in-flight TCP connections\n");
-			opts.tcp_skip_in_flight = true;
-			break;
-		case 1084:
-			pr_msg("Turn deprecated stuff ON\n");
-			opts.deprecated_ok = true;
-			break;
-		case 1086:
-			opts.display_stats = true;
-			break;
-		case 1087:
-			pr_msg("Will skip non-existant sysctls on restore\n");
-			opts.weak_sysctls = true;
 			break;
 		case 1088:
 			if (sscanf(optarg, "%d", &opts.status_fd) != 1) {
@@ -623,6 +582,17 @@ int main(int argc, char *argv[], char *envp[])
 			goto usage;
 		}
 	}
+
+	if (opts.deprecated_ok)
+		pr_msg("Turn deprecated stuff ON\n");
+	if (opts.tcp_skip_in_flight)
+		pr_msg("Will skip in-flight TCP connections\n");
+	if (opts.tcp_established_ok)
+		pr_info("Will dump TCP connections\n");
+	if (opts.link_remap_ok)
+		pr_info("Will allow link remaps on FS\n");
+	if (opts.weak_sysctls)
+		pr_msg("Will skip non-existant sysctls on restore\n");
 
 	if (getenv("CRIU_DEPRECATED")) {
 		pr_msg("Turn deprecated stuff ON via env\n");
@@ -819,6 +789,11 @@ usage:
 	}
 
 	pr_msg("\n"
+
+"Most of the true / false long options (the ones without arguments) can be\n"
+"prefixed with --no- to negate the option (example: --display-stats and\n"
+"--no-display-stats).\n"
+"\n"
 "Dump/Restore options:\n"
 "\n"
 "* Generic:\n"
