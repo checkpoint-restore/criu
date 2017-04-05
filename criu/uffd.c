@@ -92,9 +92,11 @@ struct lazy_pages_info {
 	void *buf;
 };
 
+/* global lazy-pages daemon state */
 static LIST_HEAD(lpis);
 static LIST_HEAD(exiting_lpis);
 static LIST_HEAD(pending_lpis);
+static int epollfd;
 
 static int handle_uffd_event(struct epoll_rfd *lpfd);
 
@@ -1119,7 +1121,6 @@ close_uffd:
 int cr_lazy_pages(bool daemon)
 {
 	struct epoll_event *events;
-	int epollfd;
 	int nr_fds;
 	int lazy_sk;
 	int ret;
