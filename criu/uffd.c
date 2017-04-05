@@ -50,7 +50,6 @@
 #define lp_perror(lpi, fmt, arg...) pr_perror("%d-%d: " fmt, lpi->pid, lpi->lpfd.fd, ##arg)
 
 #define NEED_UFFD_API_FEATURES (UFFD_FEATURE_EVENT_FORK |	    \
-				UFFD_FEATURE_EVENT_EXIT |	    \
 				UFFD_FEATURE_EVENT_REMAP |	    \
 				UFFD_FEATURE_EVENT_UNMAP |	    \
 				UFFD_FEATURE_EVENT_REMOVE)
@@ -662,6 +661,20 @@ out:
 	return -1;
 }
 
+static int handle_exit(struct lazy_pages_info *lpi)
+{
+	lp_debug(lpi, "EXIT\n");
+	if (epoll_del_rfd(epollfd, &lpi->lpfd))
+		return -1;
+	free_lazy_iovs(lpi);
+	close(lpi->lpfd.fd);
+
+	/* keep it for summary */
+	list_move_tail(&lpi->l, &lpis);
+
+	return 0;
+}
+
 static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 {
 	struct uffdio_copy uffdio_copy;
@@ -677,11 +690,15 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	lp_debug(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
 	rc = ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy);
 	if (rc) {
-		/* real retval in ufdio_copy.copy */
-		lp_err(lpi, "UFFDIO_COPY failed: rc:%d copy:%Ld\n", rc,
-		       uffdio_copy.copy);
-		if (uffdio_copy.copy != -EEXIST)
+		if (errno == ENOSPC) {
+			handle_exit(lpi);
+			return 0;
+		}
+		if (uffdio_copy.copy != -EEXIST) {
+			lp_debug(lpi, "uffd_copy: rc:%d copy:%Ld, errno:%d\n",
+				 rc, uffdio_copy.copy, errno);
 			return -1;
+		}
 	} else if (uffdio_copy.copy != len) {
 		lp_err(lpi, "UFFDIO_COPY unexpected size %Ld\n", uffdio_copy.copy);
 		return -1;
@@ -848,29 +865,6 @@ static int handle_remap(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	return remap_lazy_iovs(lpi, from, to, len);
 }
 
-static int handle_exit(struct lazy_pages_info *lpi, struct uffd_msg *msg)
-{
-	lp_debug(lpi, "EXIT\n");
-	list_move(&lpi->l, &exiting_lpis);
-	return 1;
-}
-
-static int complete_exits(int epollfd)
-{
-	struct lazy_pages_info *lpi, *n;
-
-	list_for_each_entry_safe(lpi, n, &exiting_lpis, l) {
-		if (epoll_del_rfd(epollfd, &lpi->lpfd))
-			return -1;
-		free_lazy_iovs(lpi);
-		close(lpi->lpfd.fd);
-		/* keep it for summary */
-		list_move_tail(&lpi->l, &lpis);
-	}
-
-	return 0;
-}
-
 static int handle_fork(struct lazy_pages_info *parent_lpi, struct uffd_msg *msg)
 {
 	struct lazy_pages_info *lpi;
@@ -989,8 +983,6 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 		return handle_remove(lpi, &msg);
 	case UFFD_EVENT_REMAP:
 		return handle_remap(lpi, &msg);
-	case UFFD_EVENT_EXIT:
-		return handle_exit(lpi, &msg);
 	case UFFD_EVENT_FORK:
 		return handle_fork(lpi, &msg);
 	default:
@@ -1034,8 +1026,6 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 			goto out;
 		if (ret > 0) {
 			if (complete_forks(epollfd, &events, &nr_fds))
-				return -1;
-			if (complete_exits(epollfd))
 				return -1;
 			continue;
 		}
