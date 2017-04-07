@@ -2298,14 +2298,18 @@ static int create_user_ns_hierarhy(void)
 int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 {
 	pid_t pid = vpid(item);
-	int id;
+	sigset_t sig_mask;
+	int id, ret = -1;
 
 	pr_info("Restoring namespaces %d flags 0x%lx\n",
 			vpid(item), clone_flags);
 
+	if (block_sigmask(&sig_mask, SIGCHLD) < 0)
+		return -1;
+
 	if ((clone_flags & CLONE_NEWUSER) && (prepare_userns_creds() ||
 					      create_user_ns_hierarhy()))
-		return -1;
+		goto out;
 
 	/*
 	 * On netns restore we launch an IP tool, thus we
@@ -2315,22 +2319,27 @@ int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
 
 	id = ns_per_id ? item->ids->uts_ns_id : pid;
 	if ((clone_flags & CLONE_NEWUTS) && prepare_utsns(id))
-		return -1;
+		goto out;
 	id = ns_per_id ? item->ids->ipc_ns_id : pid;
 	if ((clone_flags & CLONE_NEWIPC) && prepare_ipc_ns(id))
-		return -1;
+		goto out;
 
 	if (prepare_net_namespaces())
-		return -1;
+		goto out;
 
 	/*
 	 * This one is special -- there can be several mount
 	 * namespaces and prepare_mnt_ns handles them itself.
 	 */
 	if (prepare_mnt_ns())
-		return -1;
+		goto out;
 
-	return 0;
+	ret = 0;
+out:
+	if (restore_sigmask(&sig_mask) < 0)
+		ret = -1;
+
+	return ret;
 }
 
 int prepare_namespace_before_tasks(void)
