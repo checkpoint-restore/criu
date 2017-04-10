@@ -26,6 +26,7 @@
 #include "namespaces.h"
 #include "net.h"
 #include "cgroup.h"
+#include "kerndat.h"
 
 #include "protobuf.h"
 #include "util.h"
@@ -801,6 +802,10 @@ static int set_ns_hookups(struct ns_id *ns)
 			goto out;
 		if (ns->parent->type == NS_CRIU) {
 			pr_err("Wrong determined NS_ROOT, or root_item has NS_OTHER user_ns\n");
+			goto out;
+		}
+		if (nd == &pid_ns_desc && !kdat.has_nspid) {
+			pr_err("Can't dump nested pid ns\n");
 			goto out;
 		}
 		list_add(&ns->siblings, &ns->parent->children);

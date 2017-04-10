@@ -848,6 +848,32 @@ out_unmap:
 	return ret;
 }
 
+int kerndat_has_nspid(void)
+{
+	struct bfd f;
+	int ret = -1;
+	char *str;
+
+	f.fd = open("/proc/self/status", O_RDONLY);
+	if (f.fd < 0) {
+		pr_perror("Can't open /proc/self/status");
+		return -1;
+	}
+	if (bfdopenr(&f))
+		return -1;
+	while ((str = breadline(&f)) != NULL) {
+		if (IS_ERR(str))
+			goto close;
+		if (!strncmp(str, "NSpid:", 6)) {
+			kdat.has_nspid = true;
+			break;
+		}
+	}
+	ret = 0;
+close:
+	bclose(&f);
+	return ret;
+}
 int kerndat_init(void)
 {
 	int ret;
@@ -904,6 +930,8 @@ int kerndat_init(void)
 		ret = kerndat_socket_netns();
 	if (!ret)
 		ret = kerndat_nsid();
+	if (!ret)
+		ret = kerndat_has_nspid();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
