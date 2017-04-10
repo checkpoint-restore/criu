@@ -4,6 +4,7 @@
 #include <compel/task-state.h>
 #include "stdbool.h"
 #include "rbtree.h"
+#include "log.h"
 
 /*
  * Task states, used in e.g. struct pid's state.
@@ -44,6 +45,22 @@ struct pid {
 		struct rb_node node;
 	} ns[1]; /* Must be at the end of struct pid */
 };
+
+#define equal_pid(a, b)							\
+({									\
+	int ___i, ___ret = true;					\
+	if (a->level == b->level) {					\
+		for (___i = 0; ___i < a->level; ___i++)			\
+			if (a->ns[___i].virt != b->ns[___i].virt) {	\
+				___ret = false;				\
+				___i = a->level; /* break */		\
+			}						\
+	} else {							\
+		pr_err("Wrong pid nesting level\n");			\
+		___ret = false;						\
+	}								\
+	___ret;								\
+})
 
 /*
  * When we have to restore a shared resource, we mush select which
