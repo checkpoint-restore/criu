@@ -191,32 +191,42 @@ void free_pstree(struct pstree_item *root_item)
 		list_del(&item->sibling);
 		pstree_free_cores(item);
 		xfree(item->threads);
+		xfree(item->pid);
 		xfree(item);
 		item = parent;
 	}
 }
 
-struct pstree_item *__alloc_pstree_item(bool rst)
+struct pstree_item *__alloc_pstree_item(bool rst, int level)
 {
 	struct pstree_item *item;
-	int sz;
+	int sz, p_sz;
 
+	p_sz = sizeof(struct pid) + (level - 1) * sizeof(((struct pid *)NULL)->ns[0]);
 	if (!rst) {
-		sz = sizeof(*item) + sizeof(struct dmp_info) + sizeof(struct pid);
+		sz = sizeof(*item) + sizeof(struct dmp_info);
 		item = xzalloc(sz);
 		if (!item)
 			return NULL;
-		item->pid = (void *)item + sizeof(*item) + sizeof(struct dmp_info);
+		item->pid = xmalloc(p_sz);
+		if (!item->pid) {
+			xfree(item);
+			return NULL;
+		}
 	} else {
-		sz = sizeof(*item) + sizeof(struct rst_info) + sizeof(struct pid);
+		sz = sizeof(*item) + sizeof(struct rst_info);
 		item = shmalloc(sz);
 		if (!item)
 			return NULL;
-
 		memset(item, 0, sz);
 		vm_area_list_init(&rsti(item)->vmas);
 		INIT_LIST_HEAD(&rsti(item)->vma_io);
-		item->pid = (void *)item + sizeof(*item) + sizeof(struct rst_info);
+
+		item->pid = shmalloc(p_sz);
+		if (!item->pid) {
+			shfree_last(item);
+			return NULL;
+		}
 	}
 
 	INIT_LIST_HEAD(&item->children);
@@ -228,6 +238,7 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 	item->born_sid = -1;
 	item->pid->item = item;
 	futex_init(&item->task_st);
+	item->pid->level = level;
 
 	return item;
 }
@@ -412,7 +423,7 @@ static struct pid *lookup_create_pid(pid_t pid, struct pid *pid_node)
 	if (!pid_node) {
 		struct pstree_item *item;
 
-		item = __alloc_pstree_item(true);
+		item = __alloc_pstree_item(true, 1);
 		if (item == NULL)
 			return NULL;
 
