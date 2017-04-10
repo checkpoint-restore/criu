@@ -309,7 +309,8 @@ struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid,
 			INIT_LIST_HEAD(&nsid->net.ids);
 			INIT_LIST_HEAD(&nsid->net.links);
 			nsid->net.netns = NULL;
-		}
+		} else if (nd == &pid_ns_desc)
+			nsid->pid.rb_root = RB_ROOT;
 	}
 
 	return nsid;
@@ -435,6 +436,7 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 		INIT_LIST_HEAD(&nsid->net.ids);
 		INIT_LIST_HEAD(&nsid->net.links);
 	} else if (nd == &pid_ns_desc) {
+		nsid->pid.rb_root = RB_ROOT;
 		if (type == NS_ROOT || (type == NS_CRIU && !top_pid_ns))
 			top_pid_ns = nsid;
 	}
