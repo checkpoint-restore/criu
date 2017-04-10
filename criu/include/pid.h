@@ -62,6 +62,11 @@ struct pid {
 	___ret;								\
 })
 
+static inline pid_t last_level_pid(struct pid *pid)
+{
+	return pid->ns[pid->level-1].virt;
+}
+
 /*
  * When we have to restore a shared resource, we mush select which
  * task should do it, and make other(s) wait for it. In order to
