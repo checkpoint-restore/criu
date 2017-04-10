@@ -57,6 +57,9 @@ def _marked_as_dev(field):
 def _marked_as_odev(field):
 	return field.GetOptions().Extensions[opts_pb2.criu].odev
 
+def _marked_as_dict(field):
+	return field.GetOptions().Extensions[opts_pb2.criu].dict
+
 mmap_prot_map = [
 	('PROT_READ',	0x1),
 	('PROT_WRITE',	0x2),
@@ -104,6 +107,25 @@ flags_maps = {
 	'mmap.flags' : mmap_flags_map,
 	'mmap.status' : mmap_status_map,
 	'rfile.flags' : rfile_flags_map,
+}
+
+gen_maps = {
+	'task_state' : { 1: 'Alive', 3: 'Zombie', 6: 'Stopped' },
+}
+
+sk_maps = {
+	'family'    : { 2: 'INET' },
+	'type'      : { 1: 'STREAM', 2: 'DGRAM' },
+	'state'     : { 1: 'ESTABLISHED', 7: 'CLOSE', 10: 'LISTEN' },
+	'proto'     : { 6: 'TCP' },
+}
+
+gen_rmaps = { k: {v2:k2 for k2,v2 in v.items()} for k,v in gen_maps.items() }
+sk_rmaps = { k: {v2:k2 for k2,v2 in v.items()} for k,v in sk_maps.items() }
+
+dict_maps = {
+	'gen' : ( gen_maps, gen_rmaps ),
+	'sk'  : ( sk_maps, sk_rmaps ),
 }
 
 def map_flags(value, flags_map):
@@ -168,6 +190,10 @@ def _pb2dict_cast(field, value, pretty = False, is_hex = False):
 				else:
 					return map_flags(value, flags_map)
 
+			dct = _marked_as_dict(field)
+			if dct:
+				return dict_maps[dct][0][field.name].get(value, cast(value))
+
 		return cast(value)
 	else:
 		raise Exception("Field(%s) has unsupported type %d" % (field.name, field.type))
@@ -224,6 +250,13 @@ def _dict2pb_cast(field, value):
 					pass # Try to use plain string cast
 				else:
 					return unmap_flags(value, flags_map)
+
+			dct = _marked_as_dict(field)
+			if dct:
+				ret = dict_maps[dct][1][field.name].get(value, None)
+				if ret == None:
+					ret = cast(value, 0)
+				return ret
 
 			# Some int or long fields might be stored as hex
 			# strings. See _pb2dict_cast.

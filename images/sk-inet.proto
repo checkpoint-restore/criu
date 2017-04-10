@@ -19,10 +19,10 @@ message inet_sk_entry {
 	 */
 	required uint32			id		=  1;
 	required uint32			ino		=  2;
-	required uint32			family		=  3;
-	required uint32			type		=  4;
-	required uint32			proto		=  5;
-	required uint32			state		=  6;
+	required uint32			family		=  3 [(criu).dict = "sk"];
+	required uint32			type		=  4 [(criu).dict = "sk"];
+	required uint32			proto		=  5 [(criu).dict = "sk"];
+	required uint32			state		=  6 [(criu).dict = "sk"];
 	required uint32			src_port	=  7;
 	required uint32			dst_port	=  8;
 	required uint32			flags		=  9 [(criu).hex = true];

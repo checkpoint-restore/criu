@@ -23,7 +23,7 @@ enum seccomp_mode {
 };
 
 message task_core_entry {
-	required uint32			task_state	= 1;
+	required uint32			task_state	= 1 [(criu).dict = "gen"];
 	required uint32			exit_code	= 2;
 
 	required uint32			personality	= 3;
