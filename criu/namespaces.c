@@ -434,8 +434,10 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 	if (nd == &net_ns_desc) {
 		INIT_LIST_HEAD(&nsid->net.ids);
 		INIT_LIST_HEAD(&nsid->net.links);
+	} else if (nd == &pid_ns_desc) {
+		if (type == NS_ROOT || (type == NS_CRIU && !top_pid_ns))
+			top_pid_ns = nsid;
 	}
-
 found:
 	if (ns_ret)
 		*ns_ret = nsid;
@@ -836,6 +838,7 @@ out:
 	return ret;
 }
 
+struct ns_id *top_pid_ns = NULL;
 struct ns_id *root_user_ns = NULL;
 /* Mapping NS_ROOT to NS_CRIU */
 UsernsEntry *userns_entry;
@@ -1944,6 +1947,13 @@ int read_ns_with_hookups(void)
 			ns->type = NS_ROOT;
 			root_user_ns = ns;
 			userns_entry = ns->user.e;
+		} else if (e->ns_cflag == CLONE_NEWPID) {
+			if (top_pid_ns) {
+				pr_err("top_pid_ns already set\n");
+				goto close;
+			}
+			ns->type = NS_ROOT;
+			top_pid_ns = ns;
 		}
 
 		ns_entry__free_unpacked(e, NULL);
@@ -1998,9 +2008,9 @@ static int mark_root_ns(uint32_t id, struct ns_desc *desc)
 int set_ns_roots(void)
 {
 	TaskKobjIdsEntry *ids = root_item->ids;
-	/* Set root for all namespaces except user_ns, which is set in read_ns_with_hookups() */
-	if (MARK_ROOT_NS(ids, pid) || MARK_ROOT_NS(ids, net) || MARK_ROOT_NS(ids, ipc) ||
-	    MARK_ROOT_NS(ids, uts) || MARK_ROOT_NS(ids, mnt) || MARK_ROOT_NS(ids, cgroup))
+	/* Set root for all namespaces except user and pid, which are set in read_ns_with_hookups() */
+	if (MARK_ROOT_NS(ids, net) || MARK_ROOT_NS(ids, ipc) || MARK_ROOT_NS(ids, uts) ||
+	    MARK_ROOT_NS(ids, mnt) || MARK_ROOT_NS(ids, cgroup))
 		return -1;
 	return 0;
 }
