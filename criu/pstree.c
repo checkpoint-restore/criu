@@ -531,10 +531,11 @@ static int read_pstree_ids(pid_t pid, TaskKobjIdsEntry **ids)
 
 static int read_pstree_image(pid_t *pid_max)
 {
+	struct pstree_item *pi, *parent;
 	TaskKobjIdsEntry *ids;
 	int ret = 0, i;
 	struct cr_img *img;
-	struct pstree_item *pi;
+	struct pid *pid;
 
 	pr_info("Reading image tree\n");
 
@@ -554,6 +555,18 @@ static int read_pstree_image(pid_t *pid_max)
 			break;
 
 		ret = -1;
+
+		parent = NULL;
+		if (e->ppid) {
+			pid = pstree_pid_by_virt(e->ppid);
+			if (!pid || pid->state == TASK_UNDEF || pid->state == TASK_THREAD) {
+				pr_err("Can't find a parent for %d\n", e->pid);
+				pstree_entry__free_unpacked(e, NULL);
+				break;
+			}
+			parent = pid->item;
+		}
+
 		pi = lookup_create_item(e->pid);
 		if (pi == NULL)
 			break;
@@ -583,7 +596,7 @@ static int read_pstree_image(pid_t *pid_max)
 			*pid_max = e->sid;
 		pi->pid->state = TASK_ALIVE;
 
-		if (e->ppid == 0) {
+		if (!parent) {
 			if (root_item) {
 				pr_err("Parent missed on non-root task "
 				       "with pid %d, image corruption!\n", e->pid);
@@ -592,18 +605,6 @@ static int read_pstree_image(pid_t *pid_max)
 			root_item = pi;
 			pi->parent = NULL;
 		} else {
-			struct pid *pid;
-			struct pstree_item *parent;
-
-			pid = pstree_pid_by_virt(e->ppid);
-			if (!pid || pid->state == TASK_UNDEF || pid->state == TASK_THREAD) {
-				pr_err("Can't find a parent for %d\n", vpid(pi));
-				pstree_entry__free_unpacked(e, NULL);
-				xfree(pi);
-				goto err;
-			}
-
-			parent = pid->item;
 			pi->parent = parent;
 			list_add(&pi->sibling, &parent->children);
 		}
