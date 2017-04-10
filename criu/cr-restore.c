@@ -1369,21 +1369,21 @@ static void restore_sid(void)
 	 * we can call setpgid() on custom values.
 	 */
 
-	if (vpid(current) == current->sid) {
-		pr_info("Restoring %d to %d sid\n", vpid(current), current->sid);
+	if (equal_pid(current->pid, current->sid)) {
+		pr_info("Restoring %d to %d sid\n", vpid(current), current->sid->ns[0].virt);
 		sid = setsid();
-		if (sid != current->sid) {
+		if (sid != last_level_pid(current->sid)) {
 			pr_perror("Can't restore sid (%d)", sid);
 			exit(1);
 		}
 	} else {
 		sid = getsid(getpid());
-		if (sid != current->sid) {
+		if (sid != last_level_pid(current->sid)) {
 			/* Skip the root task if it's not init */
 			if (current == root_item && vpid(root_item) != INIT_PID)
 				return;
 			pr_err("Requested sid %d doesn't match inherited %d\n",
-					current->sid, sid);
+					last_level_pid(current->sid), sid);
 			exit(1);
 		}
 	}
@@ -1401,7 +1401,7 @@ static void restore_pgid(void)
 	 * helpers are still with us.
 	 */
 
-	pid_t pgid, my_pgid = current->pgid;
+	pid_t pgid, my_pgid = last_level_pid(current->pgid);
 
 	pr_info("Restoring %d to %d pgid\n", vpid(current), my_pgid);
 
@@ -1427,7 +1427,7 @@ static void restore_pgid(void)
 
 	pr_info("\twill call setpgid, mine pgid is %d\n", pgid);
 	if (setpgid(0, my_pgid) != 0) {
-		pr_perror("Can't restore pgid (%d/%d->%d)", vpid(current), pgid, current->pgid);
+		pr_perror("Can't restore pgid (%d/%d->%d)", vpid(current), pgid, current->pgid->ns[0].virt);
 		exit(1);
 	}
 

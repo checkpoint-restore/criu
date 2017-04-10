@@ -1053,7 +1053,7 @@ out:
 		 * checkpoint complete process tree together with
 		 * the process which keeps the master peer.
 		 */
-		if (root_item->sid != vpid(root_item)) {
+		if (!equal_pid(root_item->sid, root_item->pid)) {
 			pr_debug("Restore inherited group %d\n",
 				 getpgid(getppid()));
 			if (tty_set_prgp(fd, getpgid(getppid())))
@@ -1223,7 +1223,7 @@ static struct pstree_item *find_first_sid(int sid)
 	struct pstree_item *item;
 
 	for_each_pstree_item(item) {
-		if (item->sid == sid)
+		if (item->sid->ns[0].virt == sid)
 			return item;
 	}
 
@@ -1304,7 +1304,7 @@ static int tty_find_restoring_task(struct tty_info *info)
 		 * for us.
 		 */
 		item = find_first_sid(info->tie->sid);
-		if (item && vpid(item) == item->sid) {
+		if (item && equal_pid(item->pid, item->sid)) {
 			pr_info("Set a control terminal %#x to %d\n",
 				info->tfe->id, info->tie->sid);
 			return prepare_ctl_tty(vpid(item),
