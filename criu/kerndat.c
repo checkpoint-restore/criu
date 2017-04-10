@@ -1133,6 +1133,33 @@ out:
 	return ret;
 }
 
+int kerndat_has_nspid(void)
+{
+	struct bfd f;
+	int ret = -1;
+	char *str;
+
+	f.fd = open("/proc/self/status", O_RDONLY);
+	if (f.fd < 0) {
+		pr_perror("Can't open /proc/self/status");
+		return -1;
+	}
+	if (bfdopenr(&f))
+		return -1;
+	while ((str = breadline(&f)) != NULL) {
+		if (IS_ERR(str))
+			goto close;
+		if (!strncmp(str, "NSpid:", 6)) {
+			kdat.has_nspid = true;
+			break;
+		}
+	}
+	ret = 0;
+close:
+	bclose(&f);
+	return ret;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -1276,6 +1303,10 @@ int kerndat_init(void)
 	}
 	if (!ret)
 		kerndat_has_pidfd_open();
+	if (!ret && kerndat_has_nspid()) {
+		pr_err("kerndat_has_nspid failed when initializing kerndat.\n");
+		ret = -1;
+	}
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
