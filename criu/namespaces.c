@@ -27,6 +27,7 @@
 #include "net.h"
 #include "cgroup.h"
 #include "fdstore.h"
+#include "kerndat.h"
 
 #include "protobuf.h"
 #include "util.h"
