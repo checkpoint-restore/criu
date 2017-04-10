@@ -497,22 +497,25 @@ static int read_pstree_ids(pid_t pid, TaskKobjIdsEntry **ids)
 
 	if (ret <= 0)
 		return ret;
+	ret = 0;
+#define ADD_OR_COPY_ID(ids, name)								\
+	if (!ret) {										\
+		if ((*ids)->has_##name##_ns_id)							\
+			ret = rst_add_ns_id((*ids)->name##_ns_id, pid, &name##_ns_desc);	\
+		else if (root_item && root_item->ids && root_item->ids->has_##name##_ns_id) {	\
+			(*ids)->has_##name##_ns_id = true;						\
+			(*ids)->name##_ns_id = root_item->ids->name##_ns_id;			\
+		}										\
+	}
+	ADD_OR_COPY_ID(ids, mnt);
+	ADD_OR_COPY_ID(ids, net);
+	ADD_OR_COPY_ID(ids, user);
+	ADD_OR_COPY_ID(ids, pid);
+	ADD_OR_COPY_ID(ids, ipc);
+	ADD_OR_COPY_ID(ids, uts);
+	ADD_OR_COPY_ID(ids, cgroup);
 
-	if ((*ids)->has_mnt_ns_id) {
-		if (rst_add_ns_id((*ids)->mnt_ns_id, pid, &mnt_ns_desc))
-			return -1;
-	}
-	if ((*ids)->has_net_ns_id) {
-		if (rst_add_ns_id((*ids)->net_ns_id, pid, &net_ns_desc))
-			return -1;
-	}
-	if ((*ids)->has_user_ns_id) {
-		if (rst_add_ns_id((*ids)->user_ns_id, pid, &user_ns_desc))
-			return -1;
-	}
-	if ((*ids)->has_pid_ns_id) {
-		if (rst_add_ns_id((*ids)->pid_ns_id, pid, &pid_ns_desc))
-			return -1;
+	if (!ret && (*ids)->has_pid_ns_id) {
 		if (!top_pid_ns) {
 			/*
 			 * If top_pid_ns is not set, this means that here is old dump,
@@ -522,20 +525,8 @@ static int read_pstree_ids(pid_t pid, TaskKobjIdsEntry **ids)
 			top_pid_ns = lookup_ns_by_id((*ids)->pid_ns_id, &pid_ns_desc);
 		}
 	}
-	if ((*ids)->has_ipc_ns_id) {
-		if (rst_add_ns_id((*ids)->ipc_ns_id, pid, &ipc_ns_desc))
-			return -1;
-	}
-	if ((*ids)->has_uts_ns_id) {
-		if (rst_add_ns_id((*ids)->uts_ns_id, pid, &uts_ns_desc))
-			return -1;
-	}
-	if ((*ids)->has_cgroup_ns_id) {
-		if (rst_add_ns_id((*ids)->cgroup_ns_id, pid, &cgroup_ns_desc))
-			return -1;
-	}
 
-	return 0;
+	return ret;
 }
 
 static int read_pstree_image(pid_t *pid_max)
