@@ -709,6 +709,17 @@ int dump_task_ns_ids(struct pstree_item *item)
 		return -1;
 	}
 
+	ids->has_user_ns_id = true;
+	ids->user_ns_id = get_ns_id(pid, &user_ns_desc, NULL);
+	if (!ids->user_ns_id) {
+		pr_err("Can't make userns id\n");
+		return -1;
+	}
+
+	/* Below namespaces do not present in dead task */
+	if (item->pid->state == TASK_DEAD)
+		return 0;
+
 	ids->has_net_ns_id = true;
 	ids->net_ns_id = __get_ns_id(pid, &net_ns_desc, NULL, &dmpi(item)->netns);
 	if (!ids->net_ns_id) {
@@ -734,13 +745,6 @@ int dump_task_ns_ids(struct pstree_item *item)
 	ids->mnt_ns_id = get_ns_id(pid, &mnt_ns_desc, NULL);
 	if (!ids->mnt_ns_id) {
 		pr_err("Can't make mntns id\n");
-		return -1;
-	}
-
-	ids->has_user_ns_id = true;
-	ids->user_ns_id = get_ns_id(pid, &user_ns_desc, NULL);
-	if (!ids->user_ns_id) {
-		pr_err("Can't make userns id\n");
 		return -1;
 	}
 

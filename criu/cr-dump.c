@@ -664,11 +664,11 @@ int get_task_ids(struct pstree_item *item)
 		ret = dump_task_kobj_ids(item);
 		if (ret)
 			goto err_free;
-
-		ret = dump_task_ns_ids(item);
-		if (ret)
-			goto err_free;
 	}
+
+	ret = dump_task_ns_ids(item);
+	if (ret)
+		goto err_free;
 
 	return 0;
 
@@ -679,9 +679,14 @@ err:
 	return -1;
 }
 
+static int do_dump_task_ids(const struct pstree_item *item, struct cr_img *img)
+{
+	return pb_write_one(img, item->ids, PB_IDS);
+}
+
 static int dump_task_ids(struct pstree_item *item, const struct cr_imgset *cr_imgset)
 {
-	return pb_write_one(img_from_set(cr_imgset, CR_FD_IDS), item->ids, PB_IDS);
+	return do_dump_task_ids(item, img_from_set(cr_imgset, CR_FD_IDS));
 }
 
 int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread *ti)
@@ -899,6 +904,14 @@ static int dump_one_zombie(const struct pstree_item *item,
 		goto err;
 
 	ret = pb_write_one(img, core, PB_CORE);
+	close_image(img);
+	if (ret)
+		goto err;
+
+	img = open_image(CR_FD_IDS, O_DUMP, vpid(item));
+	if (!img)
+		goto err;
+	ret = do_dump_task_ids(item, img);
 	close_image(img);
 err:
 	core_entry_free(core);
