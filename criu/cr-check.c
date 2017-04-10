@@ -1346,6 +1346,17 @@ static int check_pidfd_store(void)
 	return 0;
 }
 
+static int check_ns_pid(void)
+{
+	if (kerndat_has_nspid() < 0)
+		return -1;
+
+	if (!kdat.has_nspid)
+		return -1;
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1459,6 +1470,7 @@ int cr_check(void)
 		ret |= check_time_namespace();
 		ret |= check_newifindex();
 		ret |= check_pidfd_store();
+		ret |= check_ns_pid();
 	}
 
 	/*
@@ -1568,6 +1580,7 @@ static struct feature_list feature_list[] = {
 	{ "nftables", check_nftables_cr },
 	{ "has_ipt_legacy", check_ipt_legacy },
 	{ "pidfd_store", check_pidfd_store },
+	{ "ns_pid", check_ns_pid },
 	{ NULL, NULL },
 };
 
