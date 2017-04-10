@@ -870,7 +870,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 	}
 	tid->ns[0].virt = parasite_tid;
 
-	pstree_insert_pid(tid);
+	pstree_insert_pid(tid, item->ids->pid_ns_id);
 
 	img = open_image(CR_FD_CORE, O_DUMP, tid->ns[0].virt);
 	if (!img)
@@ -1341,7 +1341,7 @@ static int dump_one_task(struct pstree_item *item)
 	item->pid->ns[0].virt = misc.pid;
 	item->sid->ns[0].virt = misc.sid;
 	item->pgid->ns[0].virt = misc.pgid;
-	pstree_insert_pid(item->pid);
+	pstree_insert_pid(item->pid, item->ids->pid_ns_id);
 
 	pr_info("sid=%d pgid=%d pid=%d\n",
 		item->sid->ns[0].virt, item->pgid->ns[0].virt, vpid(item));
