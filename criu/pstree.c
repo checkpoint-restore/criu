@@ -408,6 +408,29 @@ static int prepare_pstree_for_shell_job(void)
 	return 0;
 }
 
+static struct pid *find_pid_or_place_in_hier(struct rb_node **root, pid_t pid, int level,
+					     struct rb_node **ret_parent, struct rb_node ***ret_place)
+{
+	struct rb_node *node = *root;
+	struct rb_node **new = root;
+	struct rb_node *parent = NULL;
+
+	while (node) {
+		struct pid *this = rb_entry(node, struct pid, ns[level].node);
+
+		parent = *new;
+		if (pid < this->ns[level].virt)
+			node = node->rb_left, new = &((*new)->rb_left);
+		else if (pid > this->ns[level].virt)
+			node = node->rb_right, new = &((*new)->rb_right);
+		else
+			return this;
+	}
+	*ret_parent = parent;
+	*ret_place = new;
+	return NULL;
+}
+
 /*
  * Try to find a pid node in the tree and insert a new one,
  * it is not there yet. If pid_node isn't set, pstree_item
@@ -415,21 +438,12 @@ static int prepare_pstree_for_shell_job(void)
  */
 static struct pid *lookup_create_pid(pid_t pid, struct pid *pid_node)
 {
-	struct rb_node *node = pid_root_rb.rb_node;
-	struct rb_node **new = &pid_root_rb.rb_node;
-	struct rb_node *parent = NULL;
+	struct rb_node **new = NULL, *parent = NULL;
+	struct pid *found;
 
-	while (node) {
-		struct pid *this = rb_entry(node, struct pid, ns[0].node);
-
-		parent = *new;
-		if (pid < this->ns[0].virt)
-			node = node->rb_left, new = &((*new)->rb_left);
-		else if (pid > this->ns[0].virt)
-			node = node->rb_right, new = &((*new)->rb_right);
-		else
-			return this;
-	}
+	found = find_pid_or_place_in_hier(&pid_root_rb.rb_node, pid, 0, &parent, &new);
+	if (found)
+		return found;
 
 	if (!pid_node) {
 		struct pstree_item *item;
