@@ -101,7 +101,7 @@ extern int parse_file_locks(void);
 extern int get_fd_mntid(int fd, int *mnt_id);
 
 struct pid;
-extern int parse_threads(int pid, struct pid **_t, int *_n);
+extern int parse_threads(int pid, struct pid ***_t, int *_n);
 
 int parse_children(pid_t pid, pid_t **_c, int *_n);
 

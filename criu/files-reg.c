@@ -973,8 +973,8 @@ int dead_pid_conflict(void)
 			 * process, this is handled during restore.
 			 */
 			item = node->item;
-			if (item->pid->real == item->threads[i].real ||
-			    item->threads[i].ns[0].virt != pid)
+			if (item->pid->real == item->threads[i]->real ||
+			    item->threads[i]->ns[0].virt != pid)
 				continue;
 		}
 

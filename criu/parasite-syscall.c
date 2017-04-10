@@ -487,7 +487,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	struct infect_ctx *ictx;
 	unsigned long p;
 
-	BUG_ON(item->threads[0].real != pid);
+	BUG_ON(item->threads[0]->real != pid);
 
 	p = get_exec_start(vma_area_list);
 	if (!p) {

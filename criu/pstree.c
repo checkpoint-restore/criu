@@ -149,7 +149,7 @@ int pstree_alloc_cores(struct pstree_item *item)
 		return -1;
 
 	for (i = 0; i < item->nr_threads; i++) {
-		if (item->threads[i].real == item->pid->real)
+		if (item->threads[i]->real == item->pid->real)
 			item->core[i] = core_entry_alloc(1, 1);
 		else
 			item->core[i] = core_entry_alloc(1, 0);
@@ -338,7 +338,7 @@ int dump_pstree(struct pstree_item *root_item)
 			goto err;
 
 		for (i = 0; i < item->nr_threads; i++)
-			e.threads[i] = item->threads[i].ns[0].virt;
+			e.threads[i] = item->threads[i]->ns[0].virt;
 
 		ret = pb_write_one(img, &e, PB_PSTREE);
 		xfree(e.threads);
@@ -604,23 +604,26 @@ static int read_pstree_image(pid_t *pid_max)
 		}
 
 		pi->nr_threads = e->n_threads;
-		pi->threads = xmalloc(e->n_threads * sizeof(struct pid));
+		pi->threads = xzalloc(e->n_threads * sizeof(struct pid *));
 		if (!pi->threads)
 			break;
 
 		for (i = 0; i < e->n_threads; i++) {
 			struct pid *node;
-			pi->threads[i].real = -1;
-			pi->threads[i].level = pi->pid->level;
-			pi->threads[i].ns[0].virt = e->threads[i];
-			pi->threads[i].state = TASK_THREAD;
-			pi->threads[i].item = NULL;
+			pi->threads[i] = xmalloc(sizeof(struct pid) + (pi->pid->level-1) * sizeof(node->ns[0]));
+			if (!pi->threads)
+				goto err;
+			pi->threads[i]->real = -1;
+			pi->threads[i]->level = pi->pid->level;
+			pi->threads[i]->ns[0].virt = e->threads[i];
+			pi->threads[i]->state = TASK_THREAD;
+			pi->threads[i]->item = NULL;
 			if (i == 0)
 				continue; /* A thread leader is in a tree already */
-			node = lookup_create_pid(pi->threads[i].ns[0].virt, &pi->threads[i]);
+			node = lookup_create_pid(pi->threads[i]->ns[0].virt, pi->threads[i]);
 
 			BUG_ON(node == NULL);
-			if (node != &pi->threads[i]) {
+			if (node != pi->threads[i]) {
 				pr_err("Unexpected task %d in a tree %d\n", e->threads[i], i);
 				return -1;
 			}

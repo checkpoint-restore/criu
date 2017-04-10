@@ -22,7 +22,7 @@ struct pstree_item {
 	pid_t			born_sid;
 
 	int			nr_threads;	/* number of threads */
-	struct pid		*threads;	/* array of threads */
+	struct pid		**threads;	/* array of threads */
 	CoreEntry		**core;
 	TaskKobjIdsEntry	*ids;
 	union {

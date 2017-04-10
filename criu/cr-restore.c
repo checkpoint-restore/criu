@@ -727,7 +727,7 @@ static int open_cores(int pid, CoreEntry *leader_core)
 		goto err;
 
 	for (i = 0; i < current->nr_threads; i++) {
-		tpid = current->threads[i].ns[0].virt;
+		tpid = current->threads[i]->ns[0].virt;
 
 		if (tpid == pid)
 			cores[i] = leader_core;
@@ -1666,14 +1666,14 @@ static int attach_to_tasks(bool root_seized)
 			continue;
 
 		if (item->nr_threads == 1) {
-			item->threads[0].real = item->pid->real;
+			item->threads[0]->real = item->pid->real;
 		} else {
 			if (parse_threads(item->pid->real, &item->threads, &item->nr_threads))
 				return -1;
 		}
 
 		for (i = 0; i < item->nr_threads; i++) {
-			pid_t pid = item->threads[i].real;
+			pid_t pid = item->threads[i]->real;
 
 			if (item != root_item || !root_seized || i != 0) {
 				if (ptrace(PTRACE_SEIZE, pid, 0, 0)) {
@@ -1723,14 +1723,14 @@ static int catch_tasks(bool root_seized, enum trace_flags *flag)
 			continue;
 
 		if (item->nr_threads == 1) {
-			item->threads[0].real = item->pid->real;
+			item->threads[0]->real = item->pid->real;
 		} else {
 			if (parse_threads(item->pid->real, &item->threads, &item->nr_threads))
 				return -1;
 		}
 
 		for (i = 0; i < item->nr_threads; i++) {
-			pid_t pid = item->threads[i].real;
+			pid_t pid = item->threads[i]->real;
 
 			if (ptrace(PTRACE_INTERRUPT, pid, 0, 0)) {
 				pr_perror("Can't interrupt the %d task", pid);
@@ -1764,7 +1764,7 @@ static int clear_breakpoints()
 		if (!task_alive(item))
 			continue;
 		for (i = 0; i < item->nr_threads; i++)
-			ret |= ptrace_flush_breakpoints(item->threads[i].real);
+			ret |= ptrace_flush_breakpoints(item->threads[i]->real);
 	}
 
 	return ret;
@@ -1808,13 +1808,13 @@ static void finalize_restore_detach(int status)
 			continue;
 
 		for (i = 0; i < item->nr_threads; i++) {
-			pid = item->threads[i].real;
+			pid = item->threads[i]->real;
 			if (pid < 0) {
 				BUG_ON(status >= 0);
 				break;
 			}
 
-			if (arch_set_thread_regs_nosigrt(&item->threads[i]))
+			if (arch_set_thread_regs_nosigrt(item->threads[i]))
 				pr_perror("Restoring regs for %d failed", pid);
 			if (ptrace(PTRACE_DETACH, pid, NULL, 0))
 				pr_perror("Unable to execute %d", pid);
@@ -2832,7 +2832,7 @@ static int prepare_signals(int pid, struct task_restore_args *ta, CoreEntry *lea
 	for (i = 0; i < current->nr_threads; i++) {
 		if (!current->core[i]->thread_core->signals_p)/*backward compatibility*/
 			ret = open_signal_image(CR_FD_PSIGNAL,
-					current->threads[i].ns[0].virt, &siginfo_priv_nr[i]);
+					current->threads[i]->ns[0].virt, &siginfo_priv_nr[i]);
 		else
 			ret = prepare_one_signal_queue(current->core[i]->thread_core->signals_p,
 										&siginfo_priv_nr[i]);
@@ -3298,7 +3298,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		struct rt_sigframe *sigframe;
 		k_rtsigset_t *blkset = NULL;
 
-		thread_args[i].pid = current->threads[i].ns[0].virt;
+		thread_args[i].pid = current->threads[i]->ns[0].virt;
 		thread_args[i].siginfo_n = siginfo_priv_nr[i];
 		thread_args[i].siginfo = task_args->siginfo;
 		thread_args[i].siginfo += siginfo_n;

@@ -724,15 +724,15 @@ int arch_set_thread_regs(struct pstree_item *item, bool with_threads)
 		    item->pid->state == TASK_ZOMBIE)
 			continue;
 		for (i = 0; i < item->nr_threads; i++) {
-			if (item->threads[i].state == TASK_DEAD ||
-			    item->threads[i].state == TASK_ZOMBIE)
+			if (item->threads[i]->state == TASK_DEAD ||
+			    item->threads[i]->state == TASK_ZOMBIE)
 				continue;
 			if (!with_threads && i > 0)
 				continue;
-			if (set_task_regs(item->threads[i].real,
+			if (set_task_regs(item->threads[i]->real,
 					  item->core[i])) {
 				pr_perror("Not set registers for task %d",
-					  item->threads[i].real);
+					  item->threads[i]->real);
 				return -1;
 			}
 		}
