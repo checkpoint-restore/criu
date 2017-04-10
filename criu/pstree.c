@@ -567,6 +567,15 @@ static int read_pstree_image(pid_t *pid_max)
 			parent = pid->item;
 		}
 
+		if (!ids) {
+			/* In not corrupted old image, only dead tasks don't have ids */
+			if (!parent || !parent->ids) {
+				pr_err("No root_item or its ids\n");
+				break;
+			}
+			ids = parent->ids;
+		}
+
 		pi = lookup_create_item(e->pid);
 		if (pi == NULL)
 			break;
@@ -866,16 +875,6 @@ static int prepare_pstree_kobj_ids(void)
 		struct pstree_item *parent = item->parent;
 		TaskKobjIdsEntry *ids;
 		unsigned long cflags;
-
-		if (!item->ids) {
-			if (item == root_item) {
-				pr_err("No IDS for root task.\n");
-				pr_err("Images currupted or too old criu was used for dump.\n");
-				return -1;
-			}
-
-			continue;
-		}
 
 		if (parent)
 			ids = parent->ids;
