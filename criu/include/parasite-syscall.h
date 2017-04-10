@@ -33,7 +33,7 @@ extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_d
 extern int parasite_dump_creds(struct parasite_ctl *ctl, struct _CredsEntry *ce);
 extern int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, const struct pstree_item *item, int pid, struct _CoreEntry *core);
 extern int parasite_dump_thread_seized(struct parasite_ctl *ctl, const struct pstree_item *item, int id,
-					struct pid *tid, struct _CoreEntry *core);
+					struct pid *tid, pid_t *parasite_tid, struct _CoreEntry *core);
 extern int dump_thread_core(int pid, CoreEntry *core,
 					const struct parasite_dump_thread *dt);
 

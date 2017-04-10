@@ -850,7 +850,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 {
 	struct pid *tid = item->threads[id];
 	CoreEntry *core = item->core[id];
-	pid_t pid = tid->real;
+	pid_t pid = tid->real, parasite_tid;
 	int ret = -1;
 	struct cr_img *img;
 
@@ -858,11 +858,13 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 	pr_info("Dumping core for thread (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parasite_dump_thread_seized(parasite_ctl, item, id, tid, core);
+	ret = parasite_dump_thread_seized(parasite_ctl, item, id, tid, &parasite_tid, core);
 	if (ret) {
 		pr_err("Can't dump thread for pid %d\n", pid);
 		goto err;
 	}
+	tid->ns[0].virt = parasite_tid;
+
 	pstree_insert_pid(tid);
 
 	img = open_image(CR_FD_CORE, O_DUMP, tid->ns[0].virt);
