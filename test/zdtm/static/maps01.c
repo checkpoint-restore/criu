@@ -11,10 +11,10 @@
 #include <linux/limits.h>
 #include "zdtmtst.h"
 
-#define MEM_SIZE (1L << 30)
-#define MEM_OFFSET (1L << 29)
+#define MEM_SIZE (1LU << 30)
+#define MEM_OFFSET (1LU << 29)
 #define MEM_OFFSET2 (MEM_SIZE - PAGE_SIZE)
-#define MEM_OFFSET3 (20 * PAGE_SIZE)
+#define MEM_OFFSET3 (20LU * PAGE_SIZE)
 
 const char *test_doc	= "Test shared memory";
 const char *test_author	= "Andrew Vagin <avagin@openvz.org";
@@ -35,29 +35,42 @@ int main(int argc, char ** argv)
 	m = mmap(NULL, MEM_SIZE, PROT_WRITE | PROT_READ,
 				MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
-	if (m == MAP_FAILED)
+	if (m == MAP_FAILED) {
+		pr_err("Failed to mmap %lu Mb shared anonymous R/W memory\n",
+				MEM_SIZE >> 20);
 		goto err;
+	}
 
 	p = mmap(NULL, MEM_SIZE, PROT_WRITE | PROT_READ,
 				MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
-	if (p == MAP_FAILED)
+	if (p == MAP_FAILED) {
+		pr_err("Failed to mmap %ld Mb shared anonymous R/W memory\n",
+				MEM_SIZE >> 20);
 		goto err;
+	}
 
 	p2 = mmap(NULL, MEM_OFFSET, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	if (p2 == MAP_FAILED)
+	if (p2 == MAP_FAILED) {
+		pr_err("Failed to mmap %lu Mb anonymous memory\n",
+				MEM_OFFSET >> 20);
 		goto err;
+	}
 
 	pid = test_fork();
 	if (pid < 0) {
+		pr_err("Fork failed with %d\n", pid);
 		goto err;
 	} else if (pid == 0) {
 		void *p3;
 
 		p3 = mmap(NULL, MEM_OFFSET3, PROT_READ | PROT_WRITE,
 					MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-		if (p3 == MAP_FAILED)
+		if (p3 == MAP_FAILED) {
+			pr_err("Failed to mmap %lu Mb anonymous R/W memory\n",
+					MEM_OFFSET3 >> 20);
 			goto err;
+		}
 
 		crc = ~0;
 		datagen(m + MEM_OFFSET, PAGE_SIZE, &crc);
