@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/bin/env python2
 
 # This file contains methods to deal with criu images.
 #
