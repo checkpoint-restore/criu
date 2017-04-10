@@ -60,6 +60,9 @@ def _marked_as_odev(field):
 def _marked_as_dict(field):
 	return field.GetOptions().Extensions[opts_pb2.criu].dict
 
+def _custom_conv(field):
+	return field.GetOptions().Extensions[opts_pb2.criu].conv
+
 mmap_prot_map = [
 	('PROT_READ',	0x1),
 	('PROT_WRITE',	0x2),
@@ -157,6 +160,33 @@ def encode_dev(field, value):
 	else:
 		return dev[0] << kern_minorbits | dev[1]
 
+def encode_base64(value):
+	return value.encode('base64')
+def decode_base64(value):
+	return value.decode('base64')
+
+def encode_unix(value):
+	return value.encode('quopri')
+def decode_unix(value):
+	return value.decode('quopri')
+
+encode = { 'unix_name': encode_unix }
+decode = { 'unix_name': decode_unix }
+
+def get_bytes_enc(field):
+	c = _custom_conv(field)
+	if c:
+		return encode[c]
+	else:
+		return encode_base64
+
+def get_bytes_dec(field):
+	c = _custom_conv(field)
+	if c:
+		return decode[c]
+	else:
+		return decode_base64
+
 def is_string(value):
 	return isinstance(value, unicode) or isinstance(value, str)
 
@@ -167,7 +197,7 @@ def _pb2dict_cast(field, value, pretty = False, is_hex = False):
 	if field.type == FD.TYPE_MESSAGE:
 		return pb2dict(value, pretty, is_hex)
 	elif field.type == FD.TYPE_BYTES:
-		return value.encode('base64')
+		return get_bytes_enc(field)(value)
 	elif field.type == FD.TYPE_ENUM:
 		return field.enum_type.values_by_number.get(value, None).name
 	elif field.type in _basic_cast:
@@ -233,7 +263,7 @@ def _dict2pb_cast(field, value):
 	# and non-repeated messages need special treatment
 	# in this case, and are hadled separately.
 	if field.type == FD.TYPE_BYTES:
-		return value.decode('base64')
+		return get_bytes_dec(field)(value)
 	elif field.type == FD.TYPE_ENUM:
 		return field.enum_type.values_by_name.get(value, None).number
 	elif field.type in _basic_cast:

@@ -9,6 +9,7 @@ message CRIU_Opts {
 	optional bool dev = 4; // Device major:minor packed
 	optional bool odev = 5; // ... in old format
 	optional string dict = 6;
+	optional string conv = 7;
 }
 
 extend google.protobuf.FieldOptions {

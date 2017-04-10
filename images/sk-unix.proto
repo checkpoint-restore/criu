@@ -37,7 +37,7 @@ message unix_sk_entry {
 	 * Abstract name may contain \0 at any point,
 	 * so we need to carry it as byte sequence...
 	 */
-	required bytes			name		= 11;
+	required bytes			name		= 11 [(criu).conv = "unix_name"];
 
 	optional sk_shutdown		shutdown	= 12;
 
