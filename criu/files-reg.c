@@ -525,7 +525,7 @@ static int collect_remap_dead_process(struct reg_file_info *rfi,
 {
 	struct pstree_item *helper;
 
-	helper = lookup_create_item(rfe->remap_id, root_item->ids->pid_ns_id);
+	helper = lookup_create_item((pid_t *)&rfe->remap_id, 1, root_item->ids->pid_ns_id);
 	if (!helper)
 		return -1;
 
