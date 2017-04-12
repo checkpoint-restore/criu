@@ -531,6 +531,14 @@ static long restore_self_exe_late(struct task_restore_args *args)
 	return ret;
 }
 
+#ifndef ARCH_HAS_SHMAT_HOOK
+unsigned long arch_shmat(int shmid, void *shmaddr,
+			int shmflg, unsigned long size)
+{
+	return sys_shmat(shmid, shmaddr, shmflg);
+}
+#endif
+
 static unsigned long restore_mapping(VmaEntry *vma_entry)
 {
 	int prot	= vma_entry->prot;
@@ -539,6 +547,8 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 
 	if (vma_entry_is(vma_entry, VMA_AREA_SYSVIPC)) {
 		int att_flags;
+		void *shmaddr = decode_pointer(vma_entry->start);
+		unsigned long shmsize = (vma_entry->end - vma_entry->start);
 		/*
 		 * See comment in open_shmem_sysv() for what SYSV_SHMEM_SKIP_FD
 		 * means and why we check for PROT_EXEC few lines below.
@@ -553,7 +563,7 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 			att_flags = SHM_RDONLY;
 
 		pr_info("Attach SYSV shmem %d at %"PRIx64"\n", (int)vma_entry->fd, vma_entry->start);
-		return sys_shmat(vma_entry->fd, decode_pointer(vma_entry->start), att_flags);
+		return arch_shmat(vma_entry->fd, shmaddr, att_flags, shmsize);
 	}
 
 	/*

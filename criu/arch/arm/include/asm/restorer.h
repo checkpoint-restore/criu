@@ -57,6 +57,9 @@
 
 int restore_gpregs(struct rt_sigframe *f, UserArmRegsEntry *r);
 int restore_nonsigframe_gpregs(UserArmRegsEntry *r);
+#define ARCH_HAS_SHMAT_HOOK
+unsigned long arch_shmat(int shmid, void *shmaddr,
+			int shmflg, unsigned long size);
 
 static inline void restore_tls(tls_t *ptls) {
 	asm (
