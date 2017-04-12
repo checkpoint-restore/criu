@@ -95,6 +95,8 @@ void criu_set_ghost_limit(unsigned int limit);
 int criu_add_irmap_path(char *path);
 int criu_add_inherit_fd(int fd, char *key);
 int criu_add_external(char *key);
+void criu_set_root_only(bool root_only);
+
 
 /*
  * The criu_notify_arg_t na argument is an opaque
@@ -206,6 +208,8 @@ int criu_local_add_cg_props_file(criu_opts *opts, char *path);
 int criu_local_add_cg_dump_controller(criu_opts *opts, char *name);
 int criu_local_add_inherit_fd(criu_opts *opts, int fd, char *key);
 int criu_local_add_external(criu_opts *opts, char *key);
+void criu_local_set_root_only(criu_opts *opts, bool root_only);
+
 
 void criu_local_set_notify_cb(criu_opts *opts, int (*cb)(char *action, criu_notify_arg_t na));
 

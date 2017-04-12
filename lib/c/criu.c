@@ -880,6 +880,18 @@ int criu_add_external(char *key)
 	return criu_local_add_external(global_opts, key);
 }
 
+void criu_local_set_root_only(criu_opts *opts, bool root_only)
+{
+	opts->rpc->has_root_only = true;
+	opts->rpc->root_only = root_only;
+}
+
+void criu_set_root_only(bool root_only)
+{
+	criu_local_set_root_only(global_opts, root_only);
+}
+
+
 static CriuResp *recv_resp(int socket_fd)
 {
 	unsigned char *buf = NULL;
