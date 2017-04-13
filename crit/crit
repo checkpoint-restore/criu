@@ -212,7 +212,42 @@ def explore_mems(opts):
 			print "\t%-36s%s%s" % (astr, prot, fn)
 
 
-explorers = { 'ps': explore_ps, 'fds': explore_fds, 'mems': explore_mems }
+def explore_rss(opts):
+	ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
+	for p in ps_img['entries']:
+		pid = p['pid']
+		vmas = pycriu.images.load(dinf(opts, 'mm-%d.img' % pid))['entries'][0]['vmas']
+		pms = pycriu.images.load(dinf(opts, 'pagemap-%d.img' % pid))['entries']
+
+		print "%d" % pid
+		vmi = 0
+		pvmi = -1
+		for pm in pms[1:]:
+			pstr = '\t%lx / %-8d' % (pm['vaddr'], pm['nr_pages'])
+			while vmas[vmi]['end'] <= pm['vaddr']:
+				vmi += 1
+
+			pme = pm['vaddr'] + (pm['nr_pages'] << 12)
+			vstr = ''
+			while vmas[vmi]['start'] < pme:
+				vma = vmas[vmi]
+				if vmi == pvmi:
+					vstr += ' ~'
+				else:
+					vstr += ' %08lx / %-8d' % (vma['start'], (vma['end'] - vma['start'])>>12)
+					if vma['status'] & ((1 << 6) | (1 << 7)):
+						vstr += ' ' + get_file_str(opts, {'type': 'REG', 'id': vma['shmid']})
+					pvmi = vmi
+				vstr += '\n\t%23s' % ''
+				vmi += 1
+
+			vmi -= 1
+
+			print '%-24s%s' % (pstr, vstr)
+
+
+
+explorers = { 'ps': explore_ps, 'fds': explore_fds, 'mems': explore_mems, 'rss': explore_rss }
 
 def explore(opts):
 	explorers[opts['what']](opts)
@@ -258,7 +293,7 @@ def main():
 	# Explore
 	x_parser = subparsers.add_parser('x', help = 'explore image dir')
 	x_parser.add_argument('dir')
-	x_parser.add_argument('what', choices = [ 'ps', 'fds', 'mems' ])
+	x_parser.add_argument('what', choices = [ 'ps', 'fds', 'mems', 'rss'])
 	x_parser.set_defaults(func=explore)
 
 	# Show
