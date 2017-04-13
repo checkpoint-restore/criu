@@ -1249,19 +1249,24 @@ static int mount_proc(void)
 	int fd, ret;
 	char proc_mountpoint[] = "crtools-proc.XXXXXX";
 
-	if (mkdtemp(proc_mountpoint) == NULL) {
-		pr_perror("mkdtemp failed %s", proc_mountpoint);
-		return -1;
+	if (root_ns_mask == 0)
+		fd = ret = open("/proc", O_DIRECTORY);
+	else {
+		if (mkdtemp(proc_mountpoint) == NULL) {
+			pr_perror("mkdtemp failed %s", proc_mountpoint);
+			return -1;
+		}
+
+		pr_info("Mount procfs in %s\n", proc_mountpoint);
+		if (mount("proc", proc_mountpoint, "proc", MS_MGC_VAL | MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL)) {
+			pr_perror("mount failed");
+			rmdir(proc_mountpoint);
+			return -1;
+		}
+
+		ret = fd = open_detach_mount(proc_mountpoint);
 	}
 
-	pr_info("Mount procfs in %s\n", proc_mountpoint);
-	if (mount("proc", proc_mountpoint, "proc", MS_MGC_VAL | MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL)) {
-		pr_perror("mount failed");
-		rmdir(proc_mountpoint);
-		return -1;
-	}
-
-	ret = fd = open_detach_mount(proc_mountpoint);
 	if (fd >= 0) {
 		ret = set_proc_fd(fd);
 		close(fd);
