@@ -113,6 +113,9 @@ class _criu_comm_bin(_criu_comm):
 					os._exit(0)
 			else:
 				exec_criu()
+		else:
+			if daemon:
+				os.waitpid(p, 0)
 
 		css[0].close()
 		self.swrk = struct.unpack('i', css[1].recv(4))[0]
