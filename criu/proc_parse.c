@@ -422,19 +422,29 @@ static int vma_get_mapfile(const char *fname, struct vma_area *vma, DIR *mfd,
 
 int parse_self_maps_lite(struct vm_area_list *vms)
 {
-	FILE *maps;
 	struct vma_area *prev = NULL;
+	struct bfd maps;
+	char *buf;
 
 	vm_area_list_init(vms);
 
-	maps = fopen_proc(PROC_SELF, "maps");
-	if (maps == NULL)
+	maps.fd = open_proc(PROC_SELF, "maps");
+	if (maps.fd < 0)
 		return -1;
 
-	while (fgets(buf, BUF_SIZE, maps) != NULL) {
+	if (bfdopenr(&maps))
+		return -1;
+
+	while (1) {
 		struct vma_area *vma;
 		char *end;
 		unsigned long s, e;
+
+		buf = breadline(&maps);
+		if (!buf)
+			break;
+		if (IS_ERR(buf))
+			goto err;
 
 		s = strtoul(buf, &end, 16);
 		e = strtoul(end + 1, NULL, 16);
@@ -448,10 +458,8 @@ int parse_self_maps_lite(struct vm_area_list *vms)
 			prev->e->end = e;
 		else {
 			vma = alloc_vma_area();
-			if (!vma) {
-				fclose(maps);
-				return -1;
-			}
+			if (!vma)
+				goto err;
 
 			vma->e->start = s;
 			vma->e->end = e;
@@ -463,8 +471,12 @@ int parse_self_maps_lite(struct vm_area_list *vms)
 		pr_debug("Parsed %"PRIx64"-%"PRIx64" vma\n", prev->e->start, prev->e->end);
 	}
 
-	fclose(maps);
+	bclose(&maps);
 	return 0;
+
+err:
+	bclose(&maps);
+	return -1;
 }
 
 #ifdef CONFIG_VDSO
