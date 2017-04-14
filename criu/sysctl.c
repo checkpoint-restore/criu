@@ -351,23 +351,15 @@ out:
 
 static int __nonuserns_sysctl_op(struct sysctl_req *req, size_t nr_req, int op)
 {
-	int dir, ret, exit_code = -1;;
-
-	dir = open("/proc/sys", O_RDONLY, O_DIRECTORY);
-	if (dir < 0) {
-		pr_perror("Can't open sysctl dir");
-		return -1;
-	}
+	int ret, exit_code = -1;;
 
 	while (nr_req--) {
-		int fd, flags;
+		int fd;
 
 		if (op == CTL_READ)
-			flags = O_RDONLY;
+			fd = open_proc(PROC_GEN, "sys/%s", req->name);
 		else
-			flags = O_WRONLY;
-
-		fd = openat(dir, req->name, flags);
+			fd = open_proc_rw(PROC_GEN, "sys/%s", req->name);
 		if (fd < 0) {
 			if (errno == ENOENT && (req->flags & CTL_FLAGS_OPTIONAL)) {
 				req++;
@@ -394,7 +386,6 @@ static int __nonuserns_sysctl_op(struct sysctl_req *req, size_t nr_req, int op)
 
 	exit_code = 0;
 out:
-	close(dir);
 	return exit_code;
 }
 
