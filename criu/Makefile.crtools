@@ -86,7 +86,9 @@ ifeq ($(VDSO),y)
 obj-y			+= pie-util-vdso.o
 obj-y			+= vdso.o
 obj-y			+= pie-util-vdso-elf32.o
-CFLAGS_pie-util-vdso-elf32.o      += -DCONFIG_VDSO_32
+CFLAGS_pie-util-vdso-elf32.o	+= -DCONFIG_VDSO_32
+obj-$(CONFIG_COMPAT)	+= vdso-compat.o
+CFLAGS_REMOVE_vdso-compat.o	+= $(CFLAGS-ASAN) $(CFLAGS-GCOV)
 endif
 
 PROTOBUF_GEN := scripts/protobuf-gen.sh
