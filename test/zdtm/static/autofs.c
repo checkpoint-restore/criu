@@ -220,18 +220,21 @@ static int check_fd(struct autofs_params *p)
 		ret++;
 	}
 	if (st.st_size != p->fd_stat.st_size) {
-		pr_err("%s: st_size differs: %ld != %ld\n", p->mountpoint,
-				st.st_size, p->fd_stat.st_size);
+		pr_err("%s: st_size differs: %lld != %lld\n", p->mountpoint,
+				(long long)st.st_size,
+				(long long)p->fd_stat.st_size);
 		ret++;
 	}
 	if (st.st_blksize != p->fd_stat.st_blksize) {
-		pr_err("%s: st_blksize differs %ld != %ld:\n", p->mountpoint,
-				(long)st.st_blksize, (long)p->fd_stat.st_blksize);
+		pr_err("%s: st_blksize differs %lld != %lld:\n", p->mountpoint,
+				(long long)st.st_blksize,
+				(long long)p->fd_stat.st_blksize);
 		ret++;
 	}
 	if (st.st_blocks != p->fd_stat.st_blocks) {
-		pr_err("%s: st_blocks differs: %ld != %ld\n", p->mountpoint,
-				st.st_blocks, p->fd_stat.st_blocks);
+		pr_err("%s: st_blocks differs: %lld != %lld\n", p->mountpoint,
+				(long long)st.st_blocks,
+				(long long)p->fd_stat.st_blocks);
 		ret++;
 	}
 

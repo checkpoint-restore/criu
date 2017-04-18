@@ -70,13 +70,15 @@ int main(int argc, char ** argv)
 	}
 
 	if (fst.st_size != fsize) {
-		fail("(via fstat): file size changed to %ld", fst.st_size);
+		fail("(via fstat): file size changed to %lld",
+			(long long)fst.st_size);
 		goto failed;
 	}
 
 	fst.st_size = lseek(fd, 0, SEEK_END);
 	if (fst.st_size != fsize) {
-		fail("(via lseek): file size changed to %ld", fst.st_size);
+		fail("(via lseek): file size changed to %lld",
+			(long long)fst.st_size);
 		goto failed;
 	}
 
