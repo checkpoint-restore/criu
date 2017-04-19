@@ -421,6 +421,40 @@ static int restore_compat_sigaction(int sig, SaEntry *e)
 }
 #endif
 
+static int prepare_sigactions_from_core(TaskCoreEntry *tc)
+{
+	int sig, i;
+
+	if (tc->n_sigactions != SIGMAX - 2) {
+		pr_err("Bad number of sigactions in the image (%d, want %d)\n",
+				(int)tc->n_sigactions, SIGMAX - 2);
+		return -1;
+	}
+
+	pr_info("Restore on-core sigactions for %d\n", vpid(current));
+
+	for (sig = 1, i = 0; sig <= SIGMAX; sig++) {
+		int ret;
+		SaEntry *e;
+		bool sigaction_is_compat;
+
+		if (sig == SIGKILL || sig == SIGSTOP)
+			continue;
+
+		e = tc->sigactions[i++];
+		sigaction_is_compat = e->has_compat_sigaction && e->compat_sigaction;
+		if (sigaction_is_compat)
+			ret = restore_compat_sigaction(sig, e);
+		else
+			ret = restore_native_sigaction(sig, e);
+
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
 /* Returns number of restored signals, -1 or negative errno on fail */
 static int restore_one_sigaction(int sig, struct cr_img *img, int pid)
 {
@@ -453,15 +487,12 @@ static int restore_one_sigaction(int sig, struct cr_img *img, int pid)
 	return ret;
 }
 
-static int prepare_sigactions(void)
+static int prepare_sigactions_from_image(void)
 {
 	int pid = vpid(current);
 	struct cr_img *img;
 	int sig, rst = 0;
 	int ret = 0;
-
-	if (!task_alive(current))
-		return 0;
 
 	pr_info("Restore sigacts for %d\n", pid);
 
@@ -484,10 +515,26 @@ static int prepare_sigactions(void)
 			SIGMAX - 3 /* KILL, STOP and CHLD */);
 
 	close_image(img);
+	return ret;
+}
+
+static int prepare_sigactions(CoreEntry *core)
+{
+	int ret;
+
+	if (!task_alive(current))
+		return 0;
+
+	if (core->tc->n_sigactions != 0)
+		ret = prepare_sigactions_from_core(core->tc);
+	else
+		ret = prepare_sigactions_from_image();
+
 	if (stack32) {
 		free_compat_syscall_stack(stack32);
 		stack32 = NULL;
 	}
+
 	return ret;
 }
 
@@ -1442,7 +1489,7 @@ static int restore_task_with_children(void *_arg)
 	if (prepare_mappings(current))
 		goto err;
 
-	if (prepare_sigactions() < 0)
+	if (prepare_sigactions(ca->core) < 0)
 		goto err;
 
 	if (fault_injected(FI_RESTORE_ROOT_ONLY)) {

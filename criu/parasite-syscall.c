@@ -215,12 +215,12 @@ err_rth:
 	return -1;
 }
 
-int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_imgset)
+int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct pstree_item *item)
 {
+	TaskCoreEntry *tc = item->core[0]->tc;
 	struct parasite_dump_sa_args *args;
 	int ret, sig;
-	struct cr_img *img;
-	SaEntry se = SA_ENTRY__INIT;
+	SaEntry *sa, **psa;
 
 	args = compel_parasite_args(ctl, struct parasite_dump_sa_args);
 
@@ -228,7 +228,14 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 	if (ret < 0)
 		return ret;
 
-	img = img_from_set(cr_imgset, CR_FD_SIGACT);
+	psa = xmalloc((SIGMAX - 2) * (sizeof(SaEntry *) + sizeof(SaEntry)));
+	if (!psa)
+		return -1;
+
+	sa = (SaEntry *)(psa + SIGMAX - 2);
+
+	tc->n_sigactions = SIGMAX - 2;
+	tc->sigactions = psa;
 
 	for (sig = 1; sig <= SIGMAX; sig++) {
 		int i = sig - 1;
@@ -236,16 +243,16 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct cr_imgset *cr_
 		if (sig == SIGSTOP || sig == SIGKILL)
 			continue;
 
-		ASSIGN_TYPED(se.sigaction, encode_pointer(args->sas[i].rt_sa_handler));
-		ASSIGN_TYPED(se.flags, args->sas[i].rt_sa_flags);
-		ASSIGN_TYPED(se.restorer, encode_pointer(args->sas[i].rt_sa_restorer));
-		BUILD_BUG_ON(sizeof(se.mask) != sizeof(args->sas[0].rt_sa_mask.sig));
-		memcpy(&se.mask, args->sas[i].rt_sa_mask.sig, sizeof(se.mask));
-		se.has_compat_sigaction = true;
-		se.compat_sigaction = !compel_mode_native(ctl);
+		sa_entry__init(sa);
+		ASSIGN_TYPED(sa->sigaction, encode_pointer(args->sas[i].rt_sa_handler));
+		ASSIGN_TYPED(sa->flags, args->sas[i].rt_sa_flags);
+		ASSIGN_TYPED(sa->restorer, encode_pointer(args->sas[i].rt_sa_restorer));
+		BUILD_BUG_ON(sizeof(sa->mask) != sizeof(args->sas[0].rt_sa_mask.sig));
+		memcpy(&sa->mask, args->sas[i].rt_sa_mask.sig, sizeof(sa->mask));
+		sa->has_compat_sigaction = true;
+		sa->compat_sigaction = !compel_mode_native(ctl);
 
-		if (pb_write_one(img, &se, PB_SIGACT) < 0)
-			return -1;
+		*(psa++) = sa++;
 	}
 
 	return 0;

@@ -1332,7 +1332,7 @@ static int dump_one_task(struct pstree_item *item)
 	if (ret)
 		goto err_cure;
 
-	ret = parasite_dump_sigacts_seized(parasite_ctl, cr_imgset);
+	ret = parasite_dump_sigacts_seized(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump sigactions (pid: %d) with parasite\n", pid);
 		goto err_cure;
