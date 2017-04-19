@@ -25,7 +25,7 @@ endif
 
 sys-exec-tbl		:= sys-exec-tbl.c
 
-$(sys-asm) $(sys-types) $(sys-codes) $(sys-proto): $(sys-gen) $(sys-def) $(sys-asm-common)
+$(sys-asm) $(sys-types) $(sys-codes) $(sys-proto): $(sys-gen) $(sys-def) $(sys-asm-common) $(sys-asm-types)
 	$(E) "  GEN     " $@
 	$(Q) perl				\
 		$(sys-gen)			\
