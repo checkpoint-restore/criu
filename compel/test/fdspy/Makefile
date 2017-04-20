@@ -22,7 +22,7 @@ parasite.h: parasite.po
 	$(COMPEL) hgen -o $@ -f $<
 
 parasite.po: parasite.o
-	ld $(shell $(COMPEL) ldflags) -o $@ $^ $(shell $(COMPEL) plugins) ../../plugins/fds.built-in.o
+	ld $(shell $(COMPEL) ldflags) -o $@ $^ $(shell $(COMPEL) plugins fds)
 
 parasite.o: parasite.c
 	$(CC) $(CFLAGS) -c $(shell $(COMPEL) cflags) -o $@ $^
