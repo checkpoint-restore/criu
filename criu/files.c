@@ -638,11 +638,10 @@ int restore_fown(int fd, FownEntry *fown)
 {
 	struct f_owner_ex owner;
 	uid_t uids[3];
-	pid_t pid = getpid();
 
 	if (fown->signum) {
 		if (fcntl(fd, F_SETSIG, fown->signum)) {
-			pr_perror("%d: Can't set signal", pid);
+			pr_perror("Can't set signal");
 			return -1;
 		}
 	}
@@ -652,12 +651,12 @@ int restore_fown(int fd, FownEntry *fown)
 		return 0;
 
 	if (getresuid(&uids[0], &uids[1], &uids[2])) {
-		pr_perror("%d: Can't get current UIDs", pid);
+		pr_perror("Can't get current UIDs");
 		return -1;
 	}
 
 	if (setresuid(fown->uid, fown->euid, uids[2])) {
-		pr_perror("%d: Can't set UIDs", pid);
+		pr_perror("Can't set UIDs");
 		return -1;
 	}
 
@@ -665,13 +664,12 @@ int restore_fown(int fd, FownEntry *fown)
 	owner.pid = fown->pid;
 
 	if (fcntl(fd, F_SETOWN_EX, &owner)) {
-		pr_perror("%d: Can't setup %d file owner pid",
-			  pid, fd);
+		pr_perror("Can't setup %d file owner pid", fd);
 		return -1;
 	}
 
 	if (setresuid(uids[0], uids[1], uids[2])) {
-		pr_perror("%d: Can't revert UIDs back", pid);
+		pr_perror("Can't revert UIDs back");
 		return -1;
 	}
 
