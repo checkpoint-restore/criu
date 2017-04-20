@@ -1542,8 +1542,12 @@ static int attach_to_tasks(bool root_seized)
 		if (!task_alive(item))
 			continue;
 
-		if (parse_threads(item->pid->real, &item->threads, &item->nr_threads))
-			return -1;
+		if (item->nr_threads == 1) {
+			item->threads[0].real = item->pid->real;
+		} else {
+			if (parse_threads(item->pid->real, &item->threads, &item->nr_threads))
+				return -1;
+		}
 
 		for (i = 0; i < item->nr_threads; i++) {
 			pid_t pid = item->threads[i].real;
@@ -1595,8 +1599,12 @@ static int catch_tasks(bool root_seized, enum trace_flags *flag)
 		if (!task_alive(item))
 			continue;
 
-		if (parse_threads(item->pid->real, &item->threads, &item->nr_threads))
-			return -1;
+		if (item->nr_threads == 1) {
+			item->threads[0].real = item->pid->real;
+		} else {
+			if (parse_threads(item->pid->real, &item->threads, &item->nr_threads))
+				return -1;
+		}
 
 		for (i = 0; i < item->nr_threads; i++) {
 			pid_t pid = item->threads[i].real;
