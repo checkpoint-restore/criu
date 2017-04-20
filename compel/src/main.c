@@ -125,7 +125,8 @@ static int usage(int rc) {
 
 	fprintf(out,
 "Usage:\n"
-"  compel [--compat] includes | cflags | ldflags | plugins\n"
+"  compel [--compat] includes | cflags | ldflags\n"
+"  compel plugins [PLUGIN_NAME ...]\n"
 "  compel [--compat] [--static] libs\n"
 "  compel -f FILE -o FILE [-p NAME] [-l N] hgen\n"
 "    -f, --file FILE		input (parasite object) file name\n"
@@ -188,18 +189,27 @@ static void print_ldflags(bool compat)
 	}
 }
 
-static void print_plugins(const char *list[])
+static void print_plugin(const char *name)
 {
 	const char suffix[] = ".lib.a";
 
-	while (*list != NULL) {
-		if (uninst_root)
-			printf("%s/plugins/%s%s\n",
-					uninst_root, *list, suffix);
-		else
-			printf("%s/compel/%s%s\n", LIBEXECDIR, *list, suffix);
-		list++;
-	}
+	if (uninst_root)
+		printf("%s/plugins/%s%s\n",
+				uninst_root, name, suffix);
+	else
+		printf("%s/compel/%s%s\n", LIBEXECDIR, name, suffix);
+}
+
+static void print_plugins(char *const list[])
+{
+	char *builtin_list[] = { "std", NULL };
+	char **p = builtin_list;
+
+	while (*p != NULL)
+		print_plugin(*p++);
+
+	while (*list != NULL)
+		print_plugin(*list++);
 }
 
 static int print_libs(bool is_static)
@@ -294,7 +304,6 @@ int main(int argc, char *argv[])
 	bool is_static = false;
 	int opt, idx;
 	char *action;
-	const char *plugins_list[] = { "std", NULL };
 
 	static const char short_opts[] = "csf:o:p:hVl:";
 	static struct option long_opts[] = {
@@ -372,9 +381,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!strcmp(action, "plugins")) {
-		/* TODO: add option to specify additional plugins
-		 * if/when we'll have any */
-		print_plugins(plugins_list);
+		print_plugins(argv + optind);
 		return 0;
 	}
 
