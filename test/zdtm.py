@@ -851,6 +851,8 @@ class criu:
 			status_fds = os.pipe()
 			s_args += ["--status-fd", str(status_fds[1])]
 
+		ns_last_pid = open("/proc/sys/kernel/ns_last_pid").read()
+
 		ret = self.__criu.run(action, s_args, self.__fault, strace, preexec, nowait)
 
 		if nowait:
@@ -873,6 +875,9 @@ class criu:
 				else:
 					# on restore we move only a log file, because we need images
 					os.rename(os.path.join(__ddir, log), os.path.join(__ddir, log + ".fail"))
+				# restore ns_last_pid to avoid a case when criu gets
+				# PID of one of restored processes.
+				open("/proc/sys/kernel/ns_last_pid", "w+").write(ns_last_pid)
 				# try again without faults
 				print "Run criu " + action
 				ret = self.__criu.run(action, s_args, False, strace, preexec)
