@@ -26,7 +26,7 @@
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
 
-int kdat_compat_sigreturn_test(void)
+int kdat_compatible_cr(void)
 {
 #ifdef CONFIG_COMPAT
 	unsigned long auxval;

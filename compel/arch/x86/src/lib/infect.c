@@ -406,7 +406,7 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 	if (ret < 0)
 		return false;
 
-	if (ret && !(ctl->ictx.flags & INFECT_HAS_COMPAT_SIGRETURN)) {
+	if (ret && !(ctl->ictx.flags & INFECT_COMPATIBLE)) {
 		pr_err("Can't dump task %d running in 32-bit mode\n", pid);
 		return false;
 	}

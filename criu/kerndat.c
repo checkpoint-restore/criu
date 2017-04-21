@@ -557,11 +557,11 @@ err:
 
 static int kerndat_compat_restore(void)
 {
-	int ret = kdat_compat_sigreturn_test();
+	int ret = kdat_compatible_cr();
 
 	if (ret < 0) /* failure */
 		return ret;
-	kdat.has_compat_sigreturn = !!ret;
+	kdat.compat_cr = !!ret;
 	return 0;
 }
 

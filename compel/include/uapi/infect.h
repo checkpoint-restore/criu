@@ -123,7 +123,7 @@ extern struct infect_ctx *compel_infect_ctx(struct parasite_ctl *);
 #define INFECT_NO_MEMFD		0x1	/* don't use memfd() */
 #define INFECT_FAIL_CONNECT	0x2	/* make parasite connect() fail */
 #define INFECT_NO_BREAKPOINTS	0x4	/* no breakpoints in pie tracking */
-#define INFECT_HAS_COMPAT_SIGRETURN 0x8
+#define INFECT_COMPATIBLE	0x8	/* can run parasite inside compat tasks */
 
 /*
  * There are several ways to describe a blob to compel

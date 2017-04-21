@@ -1058,7 +1058,7 @@ static int check_loginuid(void)
 static int check_compat_cr(void)
 {
 #ifdef CONFIG_COMPAT
-	if (kdat_compat_sigreturn_test())
+	if (kdat_compatible_cr())
 		return 0;
 	pr_warn("compat_cr is not supported. Requires kernel >= v4.9\n");
 #else

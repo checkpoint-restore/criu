@@ -455,7 +455,7 @@ int vdso_init(void)
 		pr_err("Failed to fill self vdso symtable\n");
 		return -1;
 	}
-	if (kdat.has_compat_sigreturn &&
+	if (kdat.compat_cr &&
 			vdso_fill_compat_symtable(&vdso_sym_rt, &vdso_compat_rt)) {
 		pr_err("Failed to fill compat vdso symtable\n");
 		return -1;

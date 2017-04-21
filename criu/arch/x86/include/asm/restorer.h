@@ -69,7 +69,7 @@ arch_compat_rt_sigaction(void *stack, int sig, void *act) { return -1; }
 # define ARCH_MAP_VDSO_32		0x2002
 #endif
 
-extern int kdat_compat_sigreturn_test(void);
+extern int kdat_compatible_cr(void);
 
 static inline void
 __setup_sas_compat(struct ucontext_ia32* uc, ThreadSasEntry *sas)
