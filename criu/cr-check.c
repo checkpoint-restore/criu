@@ -1057,9 +1057,13 @@ static int check_loginuid(void)
 
 static int check_compat_cr(void)
 {
+#ifdef CONFIG_COMPAT
 	if (kdat_compat_sigreturn_test())
 		return 0;
 	pr_warn("compat_cr is not supported. Requires kernel >= v4.9\n");
+#else
+	pr_warn("CRIU built without CONFIG_COMPAT - can't C/R ia32\n");
+#endif
 	return -1;
 }
 
