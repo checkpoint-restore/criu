@@ -19,12 +19,22 @@ export CFLAGS
 HOSTCFLAGS	?= $(CFLAGS)
 export HOSTCFLAGS
 
+UNAME-M := $(shell uname -m)
+
 #
-# Architecture specific options.
+# Supported Architectures
 ifneq ($(filter-out x86 arm aarch64 ppc64,$(ARCH)),)
         $(error "The architecture $(ARCH) isn't supported")
 endif
 
+# The PowerPC 64 bits architecture could be big or little endian.
+# They are handled in the same way.
+ifeq ($(UNAME-M),ppc64)
+        error := $(error ppc64 big endian is not yet supported)
+endif
+
+#
+# Architecture specific options.
 ifeq ($(ARCH),x86)
         LDARCH		:= i386:x86-64
         VDSO		:= y
@@ -42,9 +52,6 @@ endif
 LDARCH ?= $(SRCARCH)
 
 export LDARCH VDSO
-
-UNAME-M := $(shell uname -m)
-export UNAME-M
 
 ifeq ($(ARCH),arm)
         ARMV		:= $(shell echo $(UNAME-M) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
@@ -69,15 +76,7 @@ ifeq ($(ARCH),x86)
         DEFINES		:= -DCONFIG_X86_64
 endif
 
-#
-# The PowerPC 64 bits architecture could be big or little endian.
-# They are handled in the same way.
-#
 ifeq ($(ARCH),ppc64)
-        ifeq ($(UNAME-M),ppc64)
-                error := $(error ppc64 big endian not yet supported)
-        endif
-
         DEFINES		:= -DCONFIG_PPC64
 endif
 
