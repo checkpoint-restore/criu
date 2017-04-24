@@ -17,7 +17,7 @@ SUBARCH := $(shell uname -m | sed       \
                 -e s/ppc64.*/ppc64/     \
                 -e s/mips.*/mips/       \
                 -e s/sh[234].*/sh/      \
-                -e s/aarch64.*/arm64/)
+                -e s/aarch64.*/aarch64/)
 
 ARCH		?= $(SUBARCH)
 SRCARCH 	:= $(ARCH)
