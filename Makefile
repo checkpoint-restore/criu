@@ -13,11 +13,9 @@ $(__nmk_dir)%.mk: ;
 include $(__nmk_dir)include.mk
 include $(__nmk_dir)macro.mk
 
-CFLAGS		+= $(USERCFLAGS)
-export CFLAGS
-
-HOSTCFLAGS	?= $(CFLAGS)
-export HOSTCFLAGS
+ifeq ($(origin HOSTCFLAGS), undefined)
+        HOSTCFLAGS := $(CFLAGS) $(USERCFLAGS)
+endif
 
 UNAME-M := $(shell uname -m)
 
@@ -69,14 +67,12 @@ endif
 
 LDARCH ?= $(SRCARCH)
 export LDARCH VDSO
-export PROTOUFIX DEFINES USERCFLAGS
+export PROTOUFIX DEFINES
 
 #
 # Independent options for all tools.
 DEFINES			+= -D_FILE_OFFSET_BITS=64
 DEFINES			+= -D_GNU_SOURCE
-
-CFLAGS			+= $(USERCFLAGS)
 
 WARNINGS		:= -Wall -Wformat-security
 
@@ -111,7 +107,9 @@ ifeq ($(GMON),1)
 export GMON GMONLDOPT
 endif
 
-CFLAGS			+= $(WARNINGS) $(DEFINES) -iquote include/
+CFLAGS			+= $(USERCFLAGS) $(WARNINGS) $(DEFINES) -iquote include/
+HOSTCFLAGS		+= $(WARNINGS) $(DEFINES) -iquote include/
+export CFLAGS USERCLFAGS HOSTCFLAGS
 
 # Default target
 all: criu lib
