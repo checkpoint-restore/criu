@@ -21,7 +21,7 @@ export HOSTCFLAGS
 
 #
 # Architecture specific options.
-ifneq ($(filter-out x86 arm arm64 ppc64,$(ARCH)),)
+ifneq ($(filter-out x86 arm arm64 aarch64 ppc64,$(ARCH)),)
         $(error "The architecture $(ARCH) isn't supported")
 endif
 
@@ -35,7 +35,7 @@ ifeq ($(ARCH),arm)
         SRCARCH		:= arm
 endif
 
-ifeq ($(ARCH),arm64)
+ifneq ($(filter arm64 aarch64,$(ARCH)),)
         ARCH		:= aarch64
         SRCARCH		:= aarch64
         VDSO		:= y
