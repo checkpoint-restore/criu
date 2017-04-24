@@ -35,24 +35,6 @@ endif
 
 #
 # Architecture specific options.
-ifeq ($(ARCH),x86)
-        LDARCH		:= i386:x86-64
-        VDSO		:= y
-endif
-
-ifeq ($(ARCH),aarch64)
-        VDSO		:= y
-endif
-
-ifeq ($(ARCH),ppc64)
-        LDARCH		:= powerpc:common64
-        VDSO		:= y
-endif
-
-LDARCH ?= $(SRCARCH)
-
-export LDARCH VDSO
-
 ifeq ($(ARCH),arm)
         ARMV		:= $(shell echo $(UNAME-M) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
         DEFINES		:= -DCONFIG_ARMV$(ARMV)
@@ -69,17 +51,24 @@ ifeq ($(ARCH),arm)
 endif
 
 ifeq ($(ARCH),aarch64)
-	DEFINES		:= -DCONFIG_AARCH64
-endif
-
-ifeq ($(ARCH),x86)
-        DEFINES		:= -DCONFIG_X86_64
+        VDSO		:= y
+        DEFINES		:= -DCONFIG_AARCH64
 endif
 
 ifeq ($(ARCH),ppc64)
+        LDARCH		:= powerpc:common64
+        VDSO		:= y
         DEFINES		:= -DCONFIG_PPC64
 endif
 
+ifeq ($(ARCH),x86)
+        LDARCH		:= i386:x86-64
+        VDSO		:= y
+        DEFINES		:= -DCONFIG_X86_64
+endif
+
+LDARCH ?= $(SRCARCH)
+export LDARCH VDSO
 export PROTOUFIX DEFINES USERCFLAGS
 
 #
