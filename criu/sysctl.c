@@ -357,9 +357,9 @@ static int __nonuserns_sysctl_op(struct sysctl_req *req, size_t nr_req, int op)
 		int fd;
 
 		if (op == CTL_READ)
-			fd = open_proc(PROC_GEN, "sys/%s", req->name);
+			fd = do_open_proc(PROC_GEN, O_RDONLY, "sys/%s", req->name);
 		else
-			fd = open_proc_rw(PROC_GEN, "sys/%s", req->name);
+			fd = do_open_proc(PROC_GEN, O_RDWR, "sys/%s", req->name);
 		if (fd < 0) {
 			if (errno == ENOENT && (req->flags & CTL_FLAGS_OPTIONAL)) {
 				req++;
