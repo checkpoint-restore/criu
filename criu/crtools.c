@@ -287,6 +287,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "display-stats",		no_argument,		0, 1086 },
 		{ "weak-sysctls",		no_argument,		0, 1087 },
 		{ "status-fd",			required_argument,	0, 1088 },
+		{ "root-only",			no_argument,		0, 1089 },
 		{ },
 	};
 
@@ -611,6 +612,9 @@ int main(int argc, char *argv[], char *envp[])
 				return 1;
 			}
 			break;
+		case 1089:
+			opts.root_only = true;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -838,6 +842,7 @@ usage:
 "                        restore making it the parent of the restored process\n"
 "  --freeze-cgroup       use cgroup freezer to collect processes\n"
 "  --weak-sysctls        skip restoring sysctls that are not available\n"
+"  --root-only           dump only root task in a specified process tree\n"
 "\n"
 "* External resources support:\n"
 "  --external RES        dump objects from this list as external resources:\n"

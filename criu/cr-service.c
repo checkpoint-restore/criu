@@ -528,6 +528,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->orphan_pts_master)
 		opts.orphan_pts_master = true;
 
+	if (req->has_root_only)
+		opts.root_only = req->root_only;
+
 	if (check_namespace_opts())
 		goto err;
 

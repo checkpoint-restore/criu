@@ -117,6 +117,7 @@ struct cr_options {
 	bool			deprecated_ok;
 	bool			display_stats;
 	bool			weak_sysctls;
+	bool			root_only;
 	int			status_fd;
 	bool			orphan_pts_master;
 };
