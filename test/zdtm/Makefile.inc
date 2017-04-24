@@ -58,6 +58,7 @@ DEPEND.c = $(COMPILE.c) -MM -MP
 	$(Q)$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 default: all
+	@true
 .PHONY: default
 
 gitignore-clean:
