@@ -167,7 +167,7 @@ criu-deps	+= include/common/asm
 #
 # Configure variables.
 export CONFIG_HEADER := criu/include/config.h
-ifeq ($(filter clean mrproper,$(MAKECMDGOALS)),)
+ifeq ($(filter tags etags cscope clean mrproper,$(MAKECMDGOALS)),)
 include Makefile.config
 else
 # To clean all files, enable make/build options here
