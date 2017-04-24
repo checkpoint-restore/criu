@@ -21,40 +21,27 @@ export HOSTCFLAGS
 
 #
 # Architecture specific options.
-ifneq ($(filter-out x86 arm arm64 aarch64 ppc64,$(ARCH)),)
+ifneq ($(filter-out x86 arm aarch64 ppc64,$(ARCH)),)
         $(error "The architecture $(ARCH) isn't supported")
 endif
 
 ifeq ($(ARCH),x86)
-        SRCARCH		:= x86
         LDARCH		:= i386:x86-64
         VDSO		:= y
 endif
 
-ifeq ($(ARCH),arm)
-        SRCARCH		:= arm
-endif
-
-ifneq ($(filter arm64 aarch64,$(ARCH)),)
-        ARCH		:= aarch64
-        SRCARCH		:= aarch64
+ifeq ($(ARCH),aarch64)
         VDSO		:= y
 endif
 
 ifeq ($(ARCH),ppc64)
-        SRCARCH		:= ppc64
         LDARCH		:= powerpc:common64
         VDSO		:= y
 endif
 
 LDARCH ?= $(SRCARCH)
 
-export SRCARCH LDARCH VDSO
-
-SRCARCH			?= $(ARCH)
-LDARCH			?= $(SRCARCH)
-
-export SRCARCH LDARCH VDSO
+export LDARCH VDSO
 
 UNAME-M := $(shell uname -m)
 export UNAME-M
