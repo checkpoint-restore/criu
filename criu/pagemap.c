@@ -249,7 +249,6 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr,
 {
 	int fd = img_raw_fd(pr->pi);
 	ssize_t ret;
-	size_t curr = 0;
 
 	/*
 	 * Flush any pending async requests if any not to break the
@@ -259,15 +258,10 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr,
 		return -1;
 
 	pr_debug("\tpr%lu-%u Read page from self %lx/%"PRIx64"\n", pr->img_id, pr->id, pr->cvaddr, pr->pi_off);
-	while (1) {
-		ret = pread(fd, buf + curr, len - curr, pr->pi_off + curr);
-		if (ret < 1) {
-			pr_perror("Can't read mapping page %zd", ret);
-			return -1;
-		}
-		curr += ret;
-		if (curr == len)
-			break;
+	ret = pread(fd, buf, len, pr->pi_off);
+	if (ret != len) {
+		pr_perror("Can't read mapping page %zd", ret);
+		return -1;
 	}
 
 	if (opts.auto_dedup) {
@@ -405,6 +399,40 @@ static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr,
 		if (ret == 0 && pr->io_complete)
 			ret = pr->io_complete(pr, vaddr, nr);
 	}
+
+	pr->pi_off += len;
+
+	return ret;
+}
+
+static int maybe_read_page_img_cache(struct page_read *pr, unsigned long vaddr,
+				     int nr, void *buf, unsigned flags)
+{
+	unsigned long len = nr * PAGE_SIZE;
+	int fd = img_raw_fd(pr->pi);
+	int ret;
+	size_t curr = 0;
+
+	pr_debug("\tpr%lu-%u Read page from self %lx/%"PRIx64"\n", pr->img_id, pr->id, pr->cvaddr, pr->pi_off);
+	while (1) {
+		ret = read(fd, buf + curr, len - curr);
+		if (ret < 0) {
+			pr_perror("Can't read mapping page %d", ret);
+			return -1;
+		}
+		curr += ret;
+		if (curr == len)
+			break;
+	}
+
+	if (opts.auto_dedup) {
+		ret = punch_hole(pr, pr->pi_off, len, false);
+		if (ret == -1)
+			return -1;
+	}
+
+	if (ret == 0 && pr->io_complete)
+		ret = pr->io_complete(pr, vaddr, nr);
 
 	pr->pi_off += len;
 
@@ -812,7 +840,9 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	pr->id = ids++;
 	pr->img_id = img_id;
 
-	if (remote)
+	if (opts.remote)
+		pr->maybe_read_page = maybe_read_page_img_cache;
+	else if (remote)
 		pr->maybe_read_page = maybe_read_page_remote;
 	else {
 		pr->maybe_read_page = maybe_read_page_local;
