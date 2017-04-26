@@ -536,9 +536,9 @@ static int collect_remap_dead_process(struct reg_file_info *rfi,
 
 	init_pstree_helper(helper);
 
-	helper->sid->ns[0].virt = root_item->sid->ns[0].virt;
-	helper->pgid->ns[0].virt = root_item->pgid->ns[0].virt;
-	helper->pid->ns[0].virt = rfe->remap_id;
+	vsid(helper) = vsid(root_item);
+	vpgid(helper) = vpgid(root_item);
+	vpid(helper) = rfe->remap_id;
 	helper->parent = root_item;
 	helper->ids = root_item->ids;
 	list_add_tail(&helper->sibling, &root_item->children);
@@ -974,7 +974,7 @@ int dead_pid_conflict(void)
 			 */
 			item = node->item;
 			if (item->pid->real == item->threads[i]->real ||
-			    item->threads[i]->ns[0].virt != pid)
+			    vtid(item, i) != pid)
 				continue;
 		}
 

@@ -727,7 +727,7 @@ static int open_cores(int pid, CoreEntry *leader_core)
 		goto err;
 
 	for (i = 0; i < current->nr_threads; i++) {
-		tpid = current->threads[i]->ns[0].virt;
+		tpid = vtid(current, i);
 
 		if (tpid == pid)
 			cores[i] = leader_core;
@@ -1370,7 +1370,7 @@ static void restore_sid(void)
 	 */
 
 	if (equal_pid(current->pid, current->sid)) {
-		pr_info("Restoring %d to %d sid\n", vpid(current), current->sid->ns[0].virt);
+		pr_info("Restoring %d to %d sid\n", vpid(current), vsid(current));
 		sid = setsid();
 		if (sid != last_level_pid(current->sid)) {
 			pr_perror("Can't restore sid (%d)", sid);
@@ -1427,7 +1427,7 @@ static void restore_pgid(void)
 
 	pr_info("\twill call setpgid, mine pgid is %d\n", pgid);
 	if (setpgid(0, my_pgid) != 0) {
-		pr_perror("Can't restore pgid (%d/%d->%d)", vpid(current), pgid, current->pgid->ns[0].virt);
+		pr_perror("Can't restore pgid (%d/%d->%d)", vpid(current), pgid, vpgid(current));
 		exit(1);
 	}
 
@@ -2832,7 +2832,7 @@ static int prepare_signals(int pid, struct task_restore_args *ta, CoreEntry *lea
 	for (i = 0; i < current->nr_threads; i++) {
 		if (!current->core[i]->thread_core->signals_p)/*backward compatibility*/
 			ret = open_signal_image(CR_FD_PSIGNAL,
-					current->threads[i]->ns[0].virt, &siginfo_priv_nr[i]);
+					vtid(current, i), &siginfo_priv_nr[i]);
 		else
 			ret = prepare_one_signal_queue(current->core[i]->thread_core->signals_p,
 										&siginfo_priv_nr[i]);
@@ -3298,7 +3298,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		struct rt_sigframe *sigframe;
 		k_rtsigset_t *blkset = NULL;
 
-		thread_args[i].pid = current->threads[i]->ns[0].virt;
+		thread_args[i].pid = vtid(current, i);
 		thread_args[i].siginfo_n = siginfo_priv_nr[i];
 		thread_args[i].siginfo = task_args->siginfo;
 		thread_args[i].siginfo += siginfo_n;

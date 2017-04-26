@@ -1032,7 +1032,7 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl,
 	for (i = 0; i < item->nr_threads; i++) {
 		/* Leader is already dumped */
 		if (item->pid->real == item->threads[i]->real) {
-			item->threads[i]->ns[0].virt = vpid(item);
+			vtid(item, i) = vpid(item);
 			continue;
 		}
 		if (dump_task_thread(parasite_ctl, item, i))
@@ -1092,7 +1092,7 @@ static int fill_zombies_pids(struct pstree_item *item)
 		for (; i < nr; i++) {
 			if (ch[i] < 0)
 				continue;
-			child->pid->ns[0].virt = ch[i];
+			vpid(child) = ch[i];
 			ch[i] = -1;
 			break;
 		}
@@ -1125,7 +1125,7 @@ static int dump_zombies(void)
 
 		if (vpid(item) < 0) {
 			if (!pidns)
-				item->pid->ns[0].virt = item->pid->real;
+				vpid(item) = item->pid->real;
 			else if (root_item == item) {
 				pr_err("A root task is dead\n");
 				goto err;
@@ -1137,8 +1137,8 @@ static int dump_zombies(void)
 		if (parse_pid_stat(vpid(item), &pps_buf) < 0)
 			goto err;
 
-		item->sid->ns[0].virt = pps_buf.sid;
-		item->pgid->ns[0].virt = pps_buf.pgid;
+		vsid(item) = pps_buf.sid;
+		vpgid(item) = pps_buf.pgid;
 
 		BUG_ON(!list_empty(&item->children));
 		if (dump_one_zombie(item, &pps_buf) < 0)
@@ -1208,7 +1208,7 @@ static int pre_dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	item->pid->ns[0].virt = misc.pid;
+	vpid(item) = misc.pid;
 
 	mdc.pre_dump = true;
 	mdc.lazy = false;
@@ -1338,16 +1338,14 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure_imgset;
 	}
 
-	item->pid->ns[0].virt = misc.pid;
-	item->sid->ns[0].virt = misc.sid;
-	item->pgid->ns[0].virt = misc.pgid;
+	vpid(item) = misc.pid;
+	vsid(item) = misc.sid;
+	vpgid(item) = misc.pgid;
 	pstree_insert_pid(item->pid, item->ids->pid_ns_id);
 
-	pr_info("sid=%d pgid=%d pid=%d\n",
-		item->sid->ns[0].virt, item->pgid->ns[0].virt, vpid(item));
+	pr_info("sid=%d pgid=%d pid=%d\n", vsid(item), vpgid(item), vpid(item));
 
-
-	if (item->sid->ns[0].virt == 0) {
+	if (vsid(item) == 0) {
 		pr_err("A session leader of %d(%d) is outside of its pid namespace\n",
 			item->pid->real, vpid(item));
 		goto err_cure;

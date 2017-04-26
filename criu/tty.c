@@ -1223,7 +1223,7 @@ static struct pstree_item *find_first_sid(int sid)
 	struct pstree_item *item;
 
 	for_each_pstree_item(item) {
-		if (item->sid->ns[0].virt == sid)
+		if (vsid(item) == sid)
 			return item;
 	}
 
