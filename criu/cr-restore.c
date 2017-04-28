@@ -125,7 +125,7 @@ static inline int stage_participants(int next_stage)
 	switch (next_stage) {
 	case CR_STATE_FAIL:
 		return 0;
-	case CR_STATE_RESTORE_NS:
+	case CR_STATE_ROOT_TASK:
 	case CR_STATE_POST_RESTORE_NS:
 	case CR_STATE_RESTORE_SHARED:
 		return 1;
@@ -1517,7 +1517,7 @@ static int restore_task_with_children(void *_arg)
 
 	/* Wait prepare_userns */
 	if (current->parent == NULL &&
-			restore_finish_stage(task_entries, CR_STATE_RESTORE_NS) < 0)
+			restore_finish_stage(task_entries, CR_STATE_ROOT_TASK) < 0)
 		goto err;
 
 	/*
@@ -1900,7 +1900,7 @@ static int restore_root_task(struct pstree_item *init)
 	if (prepare_namespace_before_tasks())
 		return -1;
 
-	__restore_switch_stage_nw(CR_STATE_RESTORE_NS);
+	__restore_switch_stage_nw(CR_STATE_ROOT_TASK);
 
 	ret = fork_with_pid(init);
 	if (ret < 0)
