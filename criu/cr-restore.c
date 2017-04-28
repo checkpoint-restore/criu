@@ -210,6 +210,15 @@ static void restore_wait_other_tasks()
 				participants);
 }
 
+static int restore_finish_ns_stage(int from, int to)
+{
+	if (root_ns_mask)
+		return restore_finish_stage(task_entries, from);
+
+	/* Nobody waits for this stage change, just go ahead */
+	__restore_switch_stage_nw(to);
+	return 0;
+}
 
 static int crtools_prepare_shared(void)
 {
@@ -1516,7 +1525,7 @@ static int restore_task_with_children(void *_arg)
 
 	/* Wait prepare_userns */
 	if (current->parent == NULL &&
-			restore_finish_stage(task_entries, CR_STATE_ROOT_TASK) < 0)
+			restore_finish_ns_stage(CR_STATE_ROOT_TASK, CR_STATE_PREPARE_NAMESPACES) < 0)
 		goto err;
 
 	/*
@@ -1563,7 +1572,7 @@ static int restore_task_with_children(void *_arg)
 		if (prepare_namespace(current, ca->clone_flags))
 			goto err;
 
-		if (restore_finish_stage(task_entries, CR_STATE_PREPARE_NAMESPACES) < 0)
+		if (restore_finish_ns_stage(CR_STATE_PREPARE_NAMESPACES, CR_STATE_FORKING) < 0)
 			goto err;
 
 		if (root_prepare_shared())
@@ -1934,6 +1943,9 @@ static int restore_root_task(struct pstree_item *init)
 		}
 	}
 
+	if (!root_ns_mask)
+		goto skip_ns_bouncing;
+
 	/*
 	 * uid_map and gid_map must be filled from a parent user namespace.
 	 * prepare_userns_creds() must be called after filling mappings.
@@ -1977,7 +1989,11 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret)
 		goto out_kill;
 
-	ret = restore_switch_stage(CR_STATE_FORKING);
+	__restore_switch_stage(CR_STATE_FORKING);
+
+skip_ns_bouncing:
+
+	ret = restore_wait_inprogress_tasks();
 	if (ret < 0)
 		goto out_kill;
 
