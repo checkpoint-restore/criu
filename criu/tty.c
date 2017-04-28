@@ -114,6 +114,7 @@ struct tty_dump_info {
 	u32				id;
 	pid_t				sid;
 	pid_t				pgrp;
+	pid_t				pid_real;
 	int				fd;
 	int				mnt_id;
 	struct tty_driver		*driver;
@@ -1752,6 +1753,7 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_d
 	dinfo->id		= id;
 	dinfo->sid		= pti->sid;
 	dinfo->pgrp		= pti->pgrp;
+	dinfo->pid_real		= p->pid;
 	dinfo->fd		= p->fd;
 	dinfo->mnt_id		= p->mnt_id;
 	dinfo->driver		= driver;
@@ -2111,8 +2113,45 @@ static int tty_dump_queued_data(void)
 	return ret;
 }
 
+static int tty_verify_ctty(void)
+{
+	struct tty_dump_info *d, *p;
+
+	list_for_each_entry(d, &all_ttys, list) {
+		struct tty_dump_info *n = NULL;
+
+		if (d->driver->type != TTY_TYPE__CTTY)
+			continue;
+
+		list_for_each_entry(p, &all_ttys, list) {
+			if (!is_pty(p->driver)	||
+			    p->sid != d->sid	||
+			    p->pgrp != d->sid)
+				continue;
+			n = p;
+			break;
+		}
+
+		if (!n) {
+			pr_err("ctty inheritance detected sid/pgrp %d, "
+			       "no PTY peer with sid/pgrp needed\n",
+			       d->sid);
+			return -ENOENT;
+		} else if (n->pid_real != d->pid_real) {
+			pr_err("ctty inheritance detected sid/pgrp %d "
+			       "(ctty pid_real %d pty pid_real %d)\n",
+			       d->sid, d->pid_real, n->pid_real);
+			return -ENOENT;
+		}
+	}
+
+	return 0;
+}
+
 int tty_post_actions(void)
 {
+	if (tty_verify_ctty())
+		return -1;
 	if (tty_verify_active_pairs(NULL))
 		return -1;
 	else if (tty_dump_queued_data())
