@@ -2931,6 +2931,15 @@ static int rst_prep_creds(pid_t pid, CoreEntry *core, unsigned long *creds_pos)
 	return 0;
 }
 
+static void *restorer_munmap_addr(CoreEntry *core, void *restorer_blob)
+{
+#ifdef CONFIG_COMPAT
+	if (core_is_compat(core))
+		return restorer_sym(restorer_blob, arch_export_unmap_compat);
+#endif
+	return restorer_sym(restorer_blob, arch_export_unmap);
+}
+
 static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, unsigned long alen, CoreEntry *core)
 {
 	void *mem = MAP_FAILED;
@@ -3036,12 +3045,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 */
 	task_args->clone_restore_fn	= restorer_sym(mem, arch_export_restore_thread);
 	restore_task_exec_start		= restorer_sym(mem, arch_export_restore_task);
-	if (core_is_compat(core))
-		rsti(current)->munmap_restorer =
-			restorer_sym(mem, arch_export_unmap_compat);
-	else
-		rsti(current)->munmap_restorer =
-			restorer_sym(mem, arch_export_unmap);
+	rsti(current)->munmap_restorer	= restorer_munmap_addr(core, mem);
 
 	task_args->bootstrap_start = mem;
 	mem += restorer_len;
