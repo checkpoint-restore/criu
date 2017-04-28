@@ -25,6 +25,7 @@ restorer-obj-y	+= ./$(ARCH_DIR)/restorer.o
 ifeq ($(ARCH),x86)
         ifeq ($(CONFIG_COMPAT),y)
                 restorer-obj-y	+= ./$(ARCH_DIR)/call32.o
+                restorer-obj-y	+= ./$(ARCH_DIR)/restorer_unmap.o
                 restorer-obj-y	+= ./$(ARCH_DIR)/sigaction_compat_pie.o
         endif
 endif
