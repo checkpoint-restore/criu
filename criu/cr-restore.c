@@ -1584,30 +1584,37 @@ static int restore_task_with_children(void *_arg)
 		BUG();
 	}
 
+	timing_start(TIME_FORK);
+
 	if (create_children_and_session())
 		goto err;
 
+	timing_stop(TIME_FORK);
 
 	if (unmap_guard_pages(current))
 		goto err;
 
 	restore_pgid();
 
-	if (current->parent == NULL) {
-		/*
-		 * Wait when all tasks passed the CR_STATE_FORKING stage.
-		 * It means that all tasks entered into their namespaces.
-		 */
-		restore_wait_other_tasks();
-
-		fini_restore_mntns();
-	}
-
 	if (open_transport_socket())
 		return -1;
 
-	if (restore_finish_stage(task_entries, CR_STATE_FORKING) < 0)
-		goto err;
+	if (current->parent == NULL) {
+		/*
+		 * Wait when all tasks passed the CR_STATE_FORKING stage.
+		 * The stage was started by criu, but now it waits for
+		 * the CR_STATE_RESTORE to finish. See comment near the
+		 * CR_STATE_FORKING macro for details.
+		 *
+		 * It means that all tasks entered into their namespaces.
+		 */
+		restore_wait_other_tasks();
+		fini_restore_mntns();
+		__restore_switch_stage(CR_STATE_RESTORE);
+	} else {
+		if (restore_finish_stage(task_entries, CR_STATE_FORKING) < 0)
+			goto err;
+	}
 
 	if (restore_one_task(vpid(current), ca->core))
 		goto err;
@@ -1970,19 +1977,15 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret)
 		goto out_kill;
 
-	timing_start(TIME_FORK);
-
 	ret = restore_switch_stage(CR_STATE_FORKING);
 	if (ret < 0)
 		goto out_kill;
 
-	timing_stop(TIME_FORK);
-
-	ret = restore_switch_stage(CR_STATE_RESTORE);
-	if (ret < 0)
-		goto out_kill;
-
-	/* Zombies die after CR_STATE_RESTORE */
+	/*
+	 * Zombies die after CR_STATE_RESTORE which is switched
+	 * by root task, not by us. See comment before CR_STATE_FORKING
+	 * in the header for details.
+	 */
 	for_each_pstree_item(item) {
 		if (item->pid->state == TASK_DEAD)
 			task_entries->nr_threads--;

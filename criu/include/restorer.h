@@ -223,6 +223,21 @@ enum {
 	/*
 	 * All tasks fork and call open_transport_socket().
 	 * Stage is needed to make sure they all have the socket.
+	 * Also this stage is a sync point after which the
+	 * fini_restore_mntns() can be called.
+	 *
+	 * This stage is a little bit special. Normally all stages
+	 * are controlled by criu process, but when this stage
+	 * starts criu process starts waiting for the tasks to
+	 * finish it, but by the time it gets woken up the stage
+	 * finished is CR_STATE_RESTORE. The forking stage is
+	 * barrier-ed by the root task, this task is also the one
+	 * that switches the stage (into restoring).
+	 *
+	 * The above is done to lower the amount of context
+	 * switches from root task to criu and back, since the
+	 * separate forking stage is not needed by criu, it's
+	 * purely to make sure all tasks be in sync.
 	 */
 	CR_STATE_FORKING,
 	/*
