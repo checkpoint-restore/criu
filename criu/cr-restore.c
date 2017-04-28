@@ -120,7 +120,97 @@ static int prepare_rlimits(int pid, struct task_restore_args *, CoreEntry *core)
 static int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry *core);
 static int prepare_signals(int pid, struct task_restore_args *, CoreEntry *core);
 
-static void restore_wait_other_tasks();
+static inline int stage_participants(int next_stage)
+{
+	switch (next_stage) {
+	case CR_STATE_FAIL:
+		return 0;
+	case CR_STATE_RESTORE_NS:
+	case CR_STATE_POST_RESTORE_NS:
+	case CR_STATE_RESTORE_SHARED:
+		return 1;
+	case CR_STATE_FORKING:
+		return task_entries->nr_tasks + task_entries->nr_helpers;
+	case CR_STATE_RESTORE:
+		return task_entries->nr_threads + task_entries->nr_helpers;
+	case CR_STATE_RESTORE_SIGCHLD:
+		return task_entries->nr_threads;
+	case CR_STATE_RESTORE_CREDS:
+		return task_entries->nr_threads;
+	}
+
+	BUG();
+	return -1;
+}
+
+static inline int stage_current_participants(int next_stage)
+{
+	switch (next_stage) {
+	case CR_STATE_FORKING:
+		return 1;
+	case CR_STATE_RESTORE:
+		/*
+		 * Each thread has to be reported about this stage,
+		 * so if we want to wait all other tast, we have to
+		 * exclude all threads of the current process.
+		 * It is supposed that we will wait other tasks,
+		 * before creating threads of the current task.
+		 */
+		return current->nr_threads;
+	}
+
+	BUG();
+	return -1;
+}
+
+static int restore_wait_inprogress_tasks()
+{
+	int ret;
+	futex_t *np = &task_entries->nr_in_progress;
+
+	futex_wait_while_gt(np, 0);
+	ret = (int)futex_get(np);
+	if (ret < 0) {
+		set_cr_errno(get_task_cr_err());
+		return ret;
+	}
+
+	return 0;
+}
+
+static inline void __restore_switch_stage_nw(int next_stage)
+{
+	futex_set(&task_entries->nr_in_progress,
+			stage_participants(next_stage));
+	futex_set(&task_entries->start, next_stage);
+}
+
+static inline void __restore_switch_stage(int next_stage)
+{
+	if (next_stage != CR_STATE_COMPLETE)
+		futex_set(&task_entries->nr_in_progress,
+				stage_participants(next_stage));
+	futex_set_and_wake(&task_entries->start, next_stage);
+}
+
+static int restore_switch_stage(int next_stage)
+{
+	__restore_switch_stage(next_stage);
+	return restore_wait_inprogress_tasks();
+}
+
+/* Wait all tasks except the current one */
+static void restore_wait_other_tasks()
+{
+	int participants, stage;
+
+	stage = futex_get(&task_entries->start);
+	participants = stage_current_participants(stage);
+
+	futex_wait_while_gt(&task_entries->nr_in_progress,
+				participants);
+}
+
 
 static int crtools_prepare_shared(void)
 {
@@ -1532,97 +1622,6 @@ err:
 	if (current->parent == NULL)
 		futex_abort_and_wake(&task_entries->nr_in_progress);
 	exit(1);
-}
-
-static inline int stage_participants(int next_stage)
-{
-	switch (next_stage) {
-	case CR_STATE_FAIL:
-		return 0;
-	case CR_STATE_RESTORE_NS:
-	case CR_STATE_POST_RESTORE_NS:
-	case CR_STATE_RESTORE_SHARED:
-		return 1;
-	case CR_STATE_FORKING:
-		return task_entries->nr_tasks + task_entries->nr_helpers;
-	case CR_STATE_RESTORE:
-		return task_entries->nr_threads + task_entries->nr_helpers;
-	case CR_STATE_RESTORE_SIGCHLD:
-		return task_entries->nr_threads;
-	case CR_STATE_RESTORE_CREDS:
-		return task_entries->nr_threads;
-	}
-
-	BUG();
-	return -1;
-}
-
-static inline int stage_current_participants(int next_stage)
-{
-	switch (next_stage) {
-	case CR_STATE_FORKING:
-		return 1;
-	case CR_STATE_RESTORE:
-		/*
-		 * Each thread has to be reported about this stage,
-		 * so if we want to wait all other tast, we have to
-		 * exclude all threads of the current process.
-		 * It is supposed that we will wait other tasks,
-		 * before creating threads of the current task.
-		 */
-		return current->nr_threads;
-	}
-
-	BUG();
-	return -1;
-}
-
-static int restore_wait_inprogress_tasks()
-{
-	int ret;
-	futex_t *np = &task_entries->nr_in_progress;
-
-	futex_wait_while_gt(np, 0);
-	ret = (int)futex_get(np);
-	if (ret < 0) {
-		set_cr_errno(get_task_cr_err());
-		return ret;
-	}
-
-	return 0;
-}
-
-static inline void __restore_switch_stage_nw(int next_stage)
-{
-	futex_set(&task_entries->nr_in_progress,
-			stage_participants(next_stage));
-	futex_set(&task_entries->start, next_stage);
-}
-
-static inline void __restore_switch_stage(int next_stage)
-{
-	if (next_stage != CR_STATE_COMPLETE)
-		futex_set(&task_entries->nr_in_progress,
-				stage_participants(next_stage));
-	futex_set_and_wake(&task_entries->start, next_stage);
-}
-
-static int restore_switch_stage(int next_stage)
-{
-	__restore_switch_stage(next_stage);
-	return restore_wait_inprogress_tasks();
-}
-
-/* Wait all tasks except the current one */
-static void restore_wait_other_tasks()
-{
-	int participants, stage;
-
-	stage = futex_get(&task_entries->start);
-	participants = stage_current_participants(stage);
-
-	futex_wait_while_gt(&task_entries->nr_in_progress,
-				participants);
 }
 
 static int attach_to_tasks(bool root_seized)
