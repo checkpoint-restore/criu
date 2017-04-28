@@ -33,6 +33,7 @@ message fanotify_inode_mark_entry {
 
 message fanotify_mount_mark_entry {
 	required uint32		mnt_id		= 1;
+	optional string		path		= 2;
 }
 
 message fanotify_mark_entry {

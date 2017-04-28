@@ -180,9 +180,10 @@ static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_
 				path = xstrdup(buf);
 				if (path == NULL)
 					goto err;
-
-				f_handle->has_mnt_id = true;
-				f_handle->mnt_id = m->mnt_id;
+				if (root_ns_mask & CLONE_NEWNS) {
+					f_handle->has_mnt_id = true;
+					f_handle->mnt_id = m->mnt_id;
+				}
 				return path;
 			}
 		} else
@@ -425,6 +426,8 @@ static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 			pr_err("Can't find mnt_id 0x%x\n", fme->me->mnt_id);
 			goto out;
 		}
+		if (!(root_ns_mask & CLONE_NEWNS))
+			fme->me->path = m->mountpoint + 1;
 		fme->s_dev = m->s_dev;
 
 		pr_info("mark: s_dev %#08x mnt_id  %#08x mask %#08x\n",
@@ -621,18 +624,24 @@ static int restore_one_fanotify(int fd, struct fsnotify_mark_info *mark)
 	if (fme->type == MARK_TYPE__MOUNT) {
 		struct mount_info *m;
 		int mntns_root;
+		char *p = fme->me->path;
+		struct ns_id *nsid = NULL;
 
-		m = lookup_mnt_id(fme->me->mnt_id);
-		if (!m) {
-			pr_err("Can't find mount mnt_id 0x%x\n", fme->me->mnt_id);
-			return -1;
+		if (root_ns_mask & CLONE_NEWNS) {
+			m = lookup_mnt_id(fme->me->mnt_id);
+			if (!m) {
+				pr_err("Can't find mount mnt_id 0x%x\n", fme->me->mnt_id);
+				return -1;
+			}
+			nsid = m->nsid;
+			p = m->ns_mountpoint;
 		}
 
-		mntns_root = mntns_get_root_fd(m->nsid);
+		mntns_root = mntns_get_root_fd(nsid);
 
-		target = openat(mntns_root, m->ns_mountpoint, O_PATH);
+		target = openat(mntns_root, p, O_PATH);
 		if (target == -1) {
-			pr_perror("Unable to open %s", m->ns_mountpoint);
+			pr_perror("Unable to open %s", p);
 			goto err;
 		}
 
