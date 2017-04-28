@@ -207,7 +207,6 @@ enum {
 	 * will be used to clean up remap files.
 	 */
 	CR_STATE_PREPARE_NAMESPACES,
-	CR_STATE_RESTORE_SHARED,
 	CR_STATE_FORKING,
 	CR_STATE_RESTORE,
 	CR_STATE_RESTORE_SIGCHLD,
