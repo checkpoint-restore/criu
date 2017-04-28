@@ -72,24 +72,24 @@ union libsoccr_addr {
  * socket and given back into the library in two steps (see below).
  */
 struct libsoccr_sk_data {
-	__u32	state;
-	__u32	inq_len;
-	__u32	inq_seq;
-	__u32	outq_len;
-	__u32	outq_seq;
-	__u32	unsq_len;
-	__u32	opt_mask;
-	__u32	mss_clamp;
-	__u32	snd_wscale;
-	__u32	rcv_wscale;
-	__u32	timestamp;
+	uint32_t	state;
+	uint32_t	inq_len;
+	uint32_t	inq_seq;
+	uint32_t	outq_len;
+	uint32_t	outq_seq;
+	uint32_t	unsq_len;
+	uint32_t	opt_mask;
+	uint32_t	mss_clamp;
+	uint32_t	snd_wscale;
+	uint32_t	rcv_wscale;
+	uint32_t	timestamp;
 
-	__u32	flags; /* SOCCR_FLAGS_... below */
-	__u32	snd_wl1;
-	__u32	snd_wnd;
-	__u32	max_window;
-	__u32	rcv_wnd;
-	__u32	rcv_wup;
+	uint32_t	flags; /* SOCCR_FLAGS_... below */
+	uint32_t	snd_wl1;
+	uint32_t	snd_wnd;
+	uint32_t	max_window;
+	uint32_t	rcv_wnd;
+	uint32_t	rcv_wup;
 };
 
 /*
