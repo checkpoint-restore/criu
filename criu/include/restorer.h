@@ -206,7 +206,7 @@ enum {
 	 * Need to wait a mount namespace which
 	 * will be used to clean up remap files.
 	 */
-	CR_STATE_POST_RESTORE_NS,
+	CR_STATE_PREPARE_NAMESPACES,
 	CR_STATE_RESTORE_SHARED,
 	CR_STATE_FORKING,
 	CR_STATE_RESTORE,

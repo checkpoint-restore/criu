@@ -126,7 +126,7 @@ static inline int stage_participants(int next_stage)
 	case CR_STATE_FAIL:
 		return 0;
 	case CR_STATE_ROOT_TASK:
-	case CR_STATE_POST_RESTORE_NS:
+	case CR_STATE_PREPARE_NAMESPACES:
 	case CR_STATE_RESTORE_SHARED:
 		return 1;
 	case CR_STATE_FORKING:
@@ -1564,7 +1564,7 @@ static int restore_task_with_children(void *_arg)
 		if (prepare_namespace(current, ca->clone_flags))
 			goto err;
 
-		if (restore_finish_stage(task_entries, CR_STATE_POST_RESTORE_NS) < 0)
+		if (restore_finish_stage(task_entries, CR_STATE_PREPARE_NAMESPACES) < 0)
 			goto err;
 
 		if (root_prepare_shared())
@@ -1947,7 +1947,7 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret)
 		goto out_kill;
 
-	ret = restore_switch_stage(CR_STATE_POST_RESTORE_NS);
+	ret = restore_switch_stage(CR_STATE_PREPARE_NAMESPACES);
 	if (ret)
 		goto out_kill;
 
