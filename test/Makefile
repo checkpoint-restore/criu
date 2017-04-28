@@ -25,7 +25,7 @@ zdtm:
 
 zdtm-pre-dump:
 	./zdtm.py run --pre 2:1 -t zdtm/transition/fork -f uns
-.PHONY: zdtm
+.PHONY: zdtm-pre-dump
 
 zdtm-snapshot:
 	./zdtm.py run --pre 2:1 --snap -t zdtm/transition/fork -f uns
