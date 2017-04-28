@@ -1427,8 +1427,8 @@ static int restore_task_with_children(void *_arg)
 
 	/* Wait prepare_userns */
 	if (current->parent == NULL &&
-            restore_finish_stage(task_entries, CR_STATE_RESTORE_NS) < 0)
-			goto err;
+			restore_finish_stage(task_entries, CR_STATE_RESTORE_NS) < 0)
+		goto err;
 
 	/*
 	 * Call this _before_ forking to optimize cgroups
