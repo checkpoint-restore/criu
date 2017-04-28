@@ -1,13 +1,11 @@
+#include <errno.h>
+#include <libnet.h>
+#include <linux/sockios.h>
+#include <linux/types.h>
 #include <netinet/tcp.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <errno.h>
-#include <linux/sockios.h>
-#include <libnet.h>
-#include <assert.h>
-#include <errno.h>
-
 #include "soccr.h"
 
 #ifndef SIOCOUTQNSD
