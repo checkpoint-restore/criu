@@ -532,7 +532,6 @@ static char *get_mark_path(const char *who, struct file_remap *remap,
 		char *path = ".";
 		uint32_t mnt_id = f_handle->has_mnt_id ? f_handle->mnt_id : -1;
 
-
 		/* irmap cache is collected in the root namespaces. */
 		mntns_root = mntns_get_root_by_mnt_id(mnt_id);
 

@@ -2457,22 +2457,6 @@ out:
 	return exit_code;
 }
 
-static int rst_collect_local_mntns(enum ns_type typ)
-{
-	struct ns_id *nsid;
-
-	nsid = rst_new_ns_id(0, getpid(), &mnt_ns_desc, typ);
-	if (!nsid)
-		return -1;
-
-	mntinfo = collect_mntinfo(nsid, false);
-	if (!mntinfo)
-		return -1;
-
-	nsid->ns_populated = true;
-	return 0;
-}
-
 static int get_mp_root(MntEntry *me, struct mount_info *mi)
 {
 	char *ext = NULL;
@@ -2978,7 +2962,7 @@ int prepare_mnt_ns(void)
 	struct ns_id *nsid;
 
 	if (!(root_ns_mask & CLONE_NEWNS))
-		return rst_collect_local_mntns(NS_CRIU);
+		return 0;
 
 	pr_info("Restoring mount namespace\n");
 
@@ -3155,6 +3139,8 @@ set_root:
 
 int mntns_get_root_fd(struct ns_id *mntns)
 {
+	if (!(root_ns_mask & CLONE_NEWNS))
+		return __mntns_get_root_fd(0);
 	/*
 	 * All namespaces are restored from the root task and during the
 	 * CR_STATE_FORKING stage the root task has two file descriptors for
@@ -3205,10 +3191,12 @@ struct ns_id *lookup_nsid_by_mnt_id(int mnt_id)
 
 int mntns_get_root_by_mnt_id(int mnt_id)
 {
-	struct ns_id *mntns;
+	struct ns_id *mntns = NULL;
 
-	mntns = lookup_nsid_by_mnt_id(mnt_id);
-	BUG_ON(mntns == NULL);
+	if (root_ns_mask & CLONE_NEWNS) {
+		mntns = lookup_nsid_by_mnt_id(mnt_id);
+		BUG_ON(mntns == NULL);
+	}
 
 	return mntns_get_root_fd(mntns);
 }
