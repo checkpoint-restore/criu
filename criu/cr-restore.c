@@ -1942,11 +1942,6 @@ static int restore_root_task(struct pstree_item *init)
 		goto out_kill;
 
 	ret = restore_switch_stage(CR_STATE_POST_RESTORE_NS);
-	if (ret < 0)
-		goto out_kill;
-
-	pr_info("Wait until namespaces are created\n");
-	ret = restore_wait_inprogress_tasks();
 	if (ret)
 		goto out_kill;
 
