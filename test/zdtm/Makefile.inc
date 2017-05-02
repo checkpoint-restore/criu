@@ -89,7 +89,7 @@ dep: $(DEP)
 no-deps-targets	:= clean cleandep cleanout realclean groups.cleanout
 
 ifeq ($(filter $(no-deps-targets), $(MAKECMDGOALS)),)
--include $(DEP)
+-include $(wildcard $(DEP))
 endif
 
 .SECONDARY:
