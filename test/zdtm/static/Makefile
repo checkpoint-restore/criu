@@ -299,8 +299,9 @@ TST_STATE	=				\
 		conntracks			\
 		route_rules			\
 
+AUX_SRC	= get_smaps_bits.c
 
-SRC	= $(TST:%=%.c)
+SRC	= $(TST:%=%.c) $(AUX_SRC)
 OBJ	= $(SRC:%.c=%.o)
 DEP	= $(SRC:%.c=%.d)
 PID	= $(TST:%=%.pid)
@@ -454,7 +455,7 @@ $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
 
 clean-more:
-	$(RM) criu-rtc.so criu-rtc.pb-c.c criu-rtc.pb-c.h get_smaps_bits.o
+	$(RM) criu-rtc.so criu-rtc.pb-c.c criu-rtc.pb-c.h
 .PHONY: clean-more
 clean: clean-more
 
