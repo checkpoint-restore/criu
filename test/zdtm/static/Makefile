@@ -299,7 +299,7 @@ TST_STATE	=				\
 		conntracks			\
 		route_rules			\
 
-AUX_SRC	= get_smaps_bits.c
+AUX_SRC	= get_smaps_bits.c ofd_file_locks.c
 
 SRC	= $(TST:%=%.c) $(AUX_SRC)
 OBJ	= $(SRC:%.c=%.o)
@@ -385,6 +385,7 @@ $(TST):	| $(LIB)
 
 aio00:			LDLIBS += -laio
 different_creds:	LDLIBS += -lcap
+file_locks06 file_locks07 file_locks08:	ofd_file_locks.o
 futex:			CFLAGS += -pthread
 futex:			LDFLAGS += -pthread
 futex-rl:		CFLAGS += -pthread
