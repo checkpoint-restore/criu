@@ -1,3 +1,4 @@
+.SUFFIXES:
 MAKEFLAGS	+= -r
 
 ARCH ?= $(shell uname -m | sed          \
