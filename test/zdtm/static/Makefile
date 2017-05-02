@@ -314,9 +314,6 @@ all:	$(TST) criu-rtc.so
 install: all
 .PHONY: all install
 
-inotify_system_nodel.c: inotify_system.c
-	ln -sf inotify_system.c inotify_system_nodel.c
-
 $(TST_NOFILE:%=%.pid):	%.pid:	%
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out
 
