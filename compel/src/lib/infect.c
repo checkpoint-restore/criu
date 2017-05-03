@@ -52,7 +52,7 @@ static inline void close_safe(int *pfd)
 	}
 }
 
-static int parse_pid_status(int pid, struct seize_task_status *ss)
+static int parse_pid_status(int pid, struct seize_task_status *ss, void *data)
 {
 	char aux[128];
 	FILE *f;
@@ -107,7 +107,7 @@ int compel_stop_task(int pid)
 
 	ret = compel_interrupt_task(pid);
 	if (ret == 0)
-		ret = compel_wait_task(pid, -1, parse_pid_status, &ss);
+		ret = compel_wait_task(pid, -1, parse_pid_status, NULL, &ss, NULL);
 	return ret;
 }
 
@@ -192,8 +192,9 @@ static int skip_sigstop(int pid, int nr_signals)
  * up with someone else.
  */
 int compel_wait_task(int pid, int ppid,
-		int (*get_status)(int pid, struct seize_task_status *),
-		struct seize_task_status *ss)
+		int (*get_status)(int pid, struct seize_task_status *, void *),
+		void (*free_status)(int pid, struct seize_task_status *, void *),
+		struct seize_task_status *ss, void *data)
 {
 	siginfo_t si;
 	int status, nr_sigstop;
@@ -220,7 +221,7 @@ try_again:
 		wait_errno = errno;
 	}
 
-	ret2 = get_status(pid, ss);
+	ret2 = get_status(pid, ss, data);
 	if (ret2)
 		goto err;
 
@@ -271,6 +272,8 @@ try_again:
 		}
 
 		ret = 0;
+		if (free_status)
+			free_status(pid, ss, data);
 		goto try_again;
 	}
 
