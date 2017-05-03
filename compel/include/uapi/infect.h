@@ -16,10 +16,10 @@
 extern int compel_interrupt_task(int pid);
 
 struct seize_task_status {
-	char			state;
-	int			ppid;
 	unsigned long long	sigpnd;
 	unsigned long long	shdpnd;
+	char			state;
+	int			ppid;
 	int			seccomp_mode;
 };
 
