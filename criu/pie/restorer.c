@@ -426,7 +426,7 @@ static int restore_thread_common(struct thread_restore_args *args)
 {
 	sys_set_tid_address((int *)decode_pointer(args->clear_tid_addr));
 
-	if (args->has_futex && args->futex_rla_len) {
+	if (args->futex_rla_len) {
 		int ret;
 
 		ret = sys_set_robust_list(decode_pointer(args->futex_rla),

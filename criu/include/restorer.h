@@ -82,7 +82,6 @@ struct thread_restore_args {
 	UserRegsEntry			gpregs;
 	u64				clear_tid_addr;
 
-	bool				has_futex;
 	u64				futex_rla;
 	u32				futex_rla_len;
 

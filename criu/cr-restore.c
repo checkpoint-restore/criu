@@ -3237,7 +3237,6 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 		rst_reloc_creds(&thread_args[i], &creds_pos_next);
 
-		thread_args[i].has_futex	= true;
 		thread_args[i].futex_rla	= tcore->thread_core->futex_rla;
 		thread_args[i].futex_rla_len	= tcore->thread_core->futex_rla_len;
 		thread_args[i].pdeath_sig	= tcore->thread_core->pdeath_sig;
