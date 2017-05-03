@@ -8,4 +8,6 @@ extern void arch_free_thread_info(CoreEntry *core);
 
 #define core_put_tls(core, tls)
 
+#define get_task_futex_robust_list_compat(pid, info) -1
+
 #endif

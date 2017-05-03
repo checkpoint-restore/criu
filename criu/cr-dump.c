@@ -673,8 +673,18 @@ int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread
 	ThreadCoreEntry *tc = core->thread_core;
 
 	ret = collect_lsm_profile(pid, tc->creds);
-	if (!ret)
-		ret = get_task_futex_robust_list(pid, tc);
+	if (!ret) {
+		/*
+		 * XXX: It's possible to set two: 32-bit and 64-bit
+		 * futex list's heads. That makes about no sense, but
+		 * it's possible. Until we meet such application, dump
+		 * only one: native or compat futex's list pointer.
+		 */
+		if (!core_is_compat(core))
+			ret = get_task_futex_robust_list(pid, tc);
+		else
+			ret = get_task_futex_robust_list_compat(pid, tc);
+	}
 	if (!ret)
 		ret = dump_sched_info(pid, tc);
 	if (!ret) {

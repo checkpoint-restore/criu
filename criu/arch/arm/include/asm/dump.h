@@ -11,4 +11,6 @@ static inline void core_put_tls(CoreEntry *core, tls_t tls)
 	core->ti_arm->tls = tls;
 }
 
+#define get_task_futex_robust_list_compat(pid, info) -1
+
 #endif

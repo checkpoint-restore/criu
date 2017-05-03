@@ -7,6 +7,7 @@
 
 #include "types.h"
 #include "log.h"
+#include "asm/compat.h"
 #include "asm/parasite-syscall.h"
 #include "asm/restorer.h"
 #include <compel/asm/fpu.h>
@@ -435,4 +436,75 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 			return -1;
 	}
 	return 0;
+}
+
+struct syscall_args32 {
+	uint32_t nr, arg0, arg1, arg2, arg3, arg4, arg5;
+};
+
+static void do_full_int80(struct syscall_args32 *args)
+{
+	register unsigned long bp asm("bp") = args->arg5;
+	asm volatile ("int $0x80"
+		      : "+a" (args->nr),
+			"+b" (args->arg0), "+c" (args->arg1), "+d" (args->arg2),
+			"+S" (args->arg3), "+D" (args->arg4), "+r" (bp)
+			: : "r8", "r9", "r10", "r11");
+	args->arg5 = bp;
+}
+
+static int get_robust_list32(pid_t pid, uintptr_t head, uintptr_t len)
+{
+	struct syscall_args32 s = {
+		.nr	= __NR32_get_robust_list,
+		.arg0	= pid,
+		.arg1	= (uint32_t)head,
+		.arg2	= (uint32_t)len,
+	};
+
+	do_full_int80(&s);
+	return (int)s.nr;
+}
+
+static int set_robust_list32(uint32_t head, uint32_t len)
+{
+	struct syscall_args32 s = {
+		.nr	= __NR32_set_robust_list,
+		.arg0	= head,
+		.arg1	= len,
+	};
+
+	do_full_int80(&s);
+	return (int)s.nr;
+}
+
+int get_task_futex_robust_list_compat(pid_t pid, ThreadCoreEntry *info)
+{
+	void *mmap32;
+	int ret = -1;
+
+	mmap32 = alloc_compat_syscall_stack();
+	if (!mmap32)
+		return -1;
+
+	ret = get_robust_list32(pid, (uintptr_t)mmap32, (uintptr_t)mmap32 + 4);
+
+	if (ret == -ENOSYS) {
+		/* Check native get_task_futex_robust_list() for details. */
+		if (set_robust_list32(0, 0) == (uint32_t)-ENOSYS) {
+			info->futex_rla		= 0;
+			info->futex_rla_len	= 0;
+			ret = 0;
+		}
+	} else if (ret == 0) {
+		uint32_t *arg1		= (uint32_t*)mmap32;
+
+		info->futex_rla		= *arg1;
+		info->futex_rla_len	= *(arg1 + 1);
+		ret = 0;
+	}
+
+
+	free_compat_syscall_stack(mmap32);
+	return ret;
 }
