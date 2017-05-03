@@ -2,14 +2,10 @@
 #include "asm/restorer.h"
 #include <compel/asm/fpu.h>
 #include "asm/compat.h"
+#include <compel/plugins/std/syscall-codes.h>
 
 #ifdef CR_NOGLIBC
-# include <compel/plugins/std/syscall.h>
 # include <compel/plugins/std/string.h>
-#else
-# ifndef  __NR32_rt_sigaction
-#  define  __NR32_rt_sigaction 174
-# endif
 #endif
 #include "cpu.h"
 
