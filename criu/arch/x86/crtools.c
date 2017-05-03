@@ -438,21 +438,6 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 	return 0;
 }
 
-struct syscall_args32 {
-	uint32_t nr, arg0, arg1, arg2, arg3, arg4, arg5;
-};
-
-static void do_full_int80(struct syscall_args32 *args)
-{
-	register unsigned long bp asm("bp") = args->arg5;
-	asm volatile ("int $0x80"
-		      : "+a" (args->nr),
-			"+b" (args->arg0), "+c" (args->arg1), "+d" (args->arg2),
-			"+S" (args->arg3), "+D" (args->arg4), "+r" (bp)
-			: : "r8", "r9", "r10", "r11");
-	args->arg5 = bp;
-}
-
 static int get_robust_list32(pid_t pid, uintptr_t head, uintptr_t len)
 {
 	struct syscall_args32 s = {

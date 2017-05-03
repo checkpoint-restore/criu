@@ -3,9 +3,11 @@
 
 #include "types.h"
 #include "restorer.h"
+#include "asm/compat.h"
 #include "asm/restorer.h"
 #include <compel/asm/fpu.h>
 
+#include <compel/plugins/std/syscall-codes.h>
 #include <compel/plugins/std/string.h>
 #include <compel/plugins/std/syscall.h>
 #include "log.h"
@@ -33,6 +35,18 @@ int restore_nonsigframe_gpregs(UserX86RegsEntry *r)
 }
 
 #ifdef CONFIG_COMPAT
+
+int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
+{
+	struct syscall_args32 s = {
+		.nr	= __NR32_set_robust_list,
+		.arg0	= head_ptr,
+		.arg1	= len,
+	};
+
+	do_full_int80(&s);
+	return (int)s.nr;
+}
 
 static int prepare_stack32(void **stack32)
 {

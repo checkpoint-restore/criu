@@ -422,20 +422,40 @@ die:
 	return -1;
 }
 
+static int restore_robust_futex(struct thread_restore_args *args)
+{
+	uint32_t futex_len = args->futex_rla_len;
+	int ret;
+
+	if (!args->futex_rla_len)
+		return 0;
+
+	/*
+	 * XXX: We check here *task's* mode, not *thread's*.
+	 * But it's possible to write an application with mixed
+	 * threads (on x86): some in 32-bit mode, some in 64-bit.
+	 * Quite unlikely that such application exists at all.
+	 */
+	if (args->ta->compatible_mode) {
+		uint32_t futex = (uint32_t)args->futex_rla;
+		ret = set_compat_robust_list(futex, futex_len);
+	} else {
+		void *futex = decode_pointer(args->futex_rla);
+		ret = sys_set_robust_list(futex, futex_len);
+	}
+
+	if (ret)
+		pr_err("Failed to recover futex robust list: %d\n", ret);
+
+	return ret;
+}
+
 static int restore_thread_common(struct thread_restore_args *args)
 {
 	sys_set_tid_address((int *)decode_pointer(args->clear_tid_addr));
 
-	if (args->futex_rla_len) {
-		int ret;
-
-		ret = sys_set_robust_list(decode_pointer(args->futex_rla),
-					  args->futex_rla_len);
-		if (ret) {
-			pr_err("Failed to recover futex robust list: %d\n", ret);
-			return -1;
-		}
-	}
+	if (restore_robust_futex(args))
+		return -1;
 
 	restore_sched_info(&args->sp);
 
