@@ -1780,6 +1780,12 @@ int network_lock_internal()
 	if (kdat.ipv6)
 		ret |= iptables_restore(true, conf, sizeof(conf) - 1);
 
+	if (ret)
+		pr_err("Locking network failed: iptables-restore returned %d. "
+			"This may be connected to disabled "
+			"CONFIG_NETFILTER_XT_MARK kernel build config "
+			"option.\n", ret);
+
 	if (restore_ns(nsret, &net_ns_desc))
 		ret = -1;
 
