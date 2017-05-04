@@ -2172,6 +2172,9 @@ int dump_net_ns(struct ns_id *ns)
 			ret = dump_iptables(fds);
 		if (!ret)
 			ret = dump_netns_conf(ns, fds);
+	} else if (ns->type != NS_ROOT) {
+		pr_err("Unable to dump more than one netns if the --emptyns is set\n");
+		ret = -1;
 	}
 	if (!ret)
 		ret = dump_nf_ct(fds, CR_FD_NETNF_CT);
@@ -2328,8 +2331,13 @@ static int create_net_ns(void *arg)
 static int __prepare_net_namespaces(void *unused)
 {
 	struct ns_id *nsid;
-	int ret = -1;
+	int ret = -1, root_ns;
 
+	root_ns = open_proc(PROC_SELF, "ns/net");
+	if (root_ns < 0)
+		return -1;
+
+	/* Pin one with a file descriptor */
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
 		if (nsid->nd != &net_ns_desc)
 			continue;
@@ -2337,6 +2345,8 @@ static int __prepare_net_namespaces(void *unused)
 		if (root_user_ns && nsid->user_ns != root_user_ns) {
 			if (call_in_child_process(create_net_ns, nsid) < 0)
 				goto err;
+		} else if (nsid->type == NS_ROOT) {
+			nsid->net.ns_fd = root_ns;
 		} else {
 			if (do_create_net_ns(nsid))
 				goto err;

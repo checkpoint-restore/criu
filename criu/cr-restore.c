@@ -1760,10 +1760,23 @@ static int restore_task_with_children(void *_arg)
 			goto err;
 	}
 
-	/* Wait prepare_userns */
-	if (current->parent == NULL &&
-			restore_finish_ns_stage(CR_STATE_ROOT_TASK, CR_STATE_PREPARE_NAMESPACES) < 0)
-		goto err;
+	if (current->parent == NULL) {
+		/*
+		 * The root task has to be in its namespaces before executing
+		 * ACT_SETUP_NS scripts, so the root netns has to be created here
+		 */
+		if (root_ns_mask & CLONE_NEWNET) {
+			ret = unshare(CLONE_NEWNET);
+			if (ret) {
+				pr_perror("Can't unshare net-namespace");
+				goto err;
+			}
+		}
+
+		/* Wait prepare_userns */
+		if (restore_finish_ns_stage(CR_STATE_ROOT_TASK, CR_STATE_PREPARE_NAMESPACES) < 0)
+			goto err;
+	}
 
 	/*
 	 * Call this _before_ forking to optimize cgroups
