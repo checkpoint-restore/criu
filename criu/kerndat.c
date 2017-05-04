@@ -441,22 +441,19 @@ static int get_ipv6()
 	return 0;
 }
 
-int kerndat_loginuid(bool only_dump)
+int kerndat_loginuid(void)
 {
 	unsigned int saved_loginuid;
 	int ret;
 
-	kdat.has_loginuid = false;
+	kdat.luid = LUID_NONE;
 
 	/* No such file: CONFIG_AUDITSYSCALL disabled */
 	saved_loginuid = parse_pid_loginuid(PROC_SELF, &ret, true);
 	if (ret < 0)
 		return 0;
 
-	if (only_dump) {
-		kdat.has_loginuid = true;
-		return 0;
-	}
+	kdat.luid = LUID_READ;
 
 	/*
 	 * From kernel v3.13-rc2 it's possible to unset loginuid value,
@@ -469,7 +466,7 @@ int kerndat_loginuid(bool only_dump)
 	if (prepare_loginuid(saved_loginuid, LOG_WARN) < 0)
 		return 0;
 
-	kdat.has_loginuid = true;
+	kdat.luid = LUID_FULL;
 	return 0;
 }
 
@@ -585,7 +582,7 @@ int kerndat_init(void)
 	if (!ret)
 		ret = get_ipv6();
 	if (!ret)
-		ret = kerndat_loginuid(true);
+		ret = kerndat_loginuid();
 	if (!ret)
 		ret = kerndat_iptables_has_xtlocks();
 	if (!ret)
@@ -619,7 +616,7 @@ int kerndat_init_rst(void)
 	if (!ret)
 		ret = get_ipv6();
 	if (!ret)
-		ret = kerndat_loginuid(false);
+		ret = kerndat_loginuid();
 	if (!ret)
 		ret = kerndat_iptables_has_xtlocks();
 	if (!ret)

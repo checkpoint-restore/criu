@@ -1044,10 +1044,10 @@ static int check_userns(void)
 
 static int check_loginuid(void)
 {
-	if (kerndat_loginuid(false) < 0)
+	if (kerndat_loginuid() < 0)
 		return -1;
 
-	if (!kdat.has_loginuid) {
+	if (kdat.luid != LUID_FULL) {
 		pr_warn("Loginuid restore is OFF.\n");
 		return -1;
 	}

@@ -341,7 +341,7 @@ static int dump_pid_misc(pid_t pid, TaskCoreEntry *tc)
 {
 	int ret;
 
-	if (kdat.has_loginuid) {
+	if (kdat.luid != LUID_NONE) {
 		pr_info("dumping /proc/%d/loginuid\n", pid);
 
 		tc->has_loginuid = true;

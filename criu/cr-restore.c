@@ -762,7 +762,7 @@ static int prepare_proc_misc(pid_t pid, TaskCoreEntry *tc)
 	int ret;
 
 	/* loginuid value is critical to restore */
-	if (kdat.has_loginuid && tc->has_loginuid &&
+	if (kdat.luid == LUID_FULL && tc->has_loginuid &&
 			tc->loginuid != INVALID_UID) {
 		ret = prepare_loginuid(tc->loginuid, LOG_ERROR);
 		if (ret < 0)
@@ -1815,7 +1815,7 @@ static int prepare_userns_hook(void)
 {
 	int ret;
 
-	if (!kdat.has_loginuid)
+	if (kdat.luid != LUID_FULL)
 		return 0;
 	/*
 	 * Save old loginuid and set it to INVALID_UID:
@@ -1837,7 +1837,7 @@ static int prepare_userns_hook(void)
 
 static void restore_origin_ns_hook(void)
 {
-	if (!kdat.has_loginuid)
+	if (kdat.luid != LUID_FULL)
 		return;
 
 	/* not critical: it does not affect CT in any way */
