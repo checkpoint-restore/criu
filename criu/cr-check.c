@@ -1053,8 +1053,13 @@ static int check_uffd(void)
 		UFFD_FEATURE_EVENT_UNMAP |
 		UFFD_FEATURE_EVENT_REMOVE;
 
-	if (kerndat_uffd(true))
+	if (kerndat_uffd())
 		return -1;
+
+	if (!kdat.has_uffd) {
+		pr_err("UFFD is not supported\n");
+		return -1;
+	}
 
 	if ((kdat.uffd_features & features) != features) {
 		pr_err("Userfaultfd missing essential features\n");

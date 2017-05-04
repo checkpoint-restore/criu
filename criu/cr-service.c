@@ -900,7 +900,7 @@ static int handle_feature_check(int sk, CriuReq * msg)
 
 		if ((msg->features->has_lazy_pages == 1) &&
 		    (msg->features->lazy_pages == true)) {
-			ret = kerndat_uffd(true);
+			ret = kerndat_uffd();
 
 			/*
 			 * Not checking for specific UFFD features yet.
@@ -909,7 +909,7 @@ static int handle_feature_check(int sk, CriuReq * msg)
 			 * be extended in the future for a more detailed
 			 * UFFD feature check.
 			 */
-			if (ret)
+			if (ret || !kdat.has_uffd)
 				feat.lazy_pages = false;
 			else
 				feat.lazy_pages = true;

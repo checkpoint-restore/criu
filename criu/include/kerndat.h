@@ -49,6 +49,7 @@ struct kerndat_s {
 	bool has_tcp_half_closed;
 	bool stack_guard_gap_hidden;
 	int lsm;
+	bool has_uffd;
 	unsigned long uffd_features;
 };
 
@@ -71,6 +72,6 @@ enum {
 extern int kerndat_fs_virtualized(unsigned int which, u32 kdev);
 
 extern int kerndat_tcp_repair();
-extern int kerndat_uffd(bool need_uffd);
+extern int kerndat_uffd(void);
 
 #endif /* __CR_KERNDAT_H__ */
