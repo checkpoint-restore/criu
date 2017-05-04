@@ -2167,7 +2167,7 @@ int cr_restore_tasks(void)
 	if (init_stats(RESTORE_STATS))
 		goto err;
 
-	if (kerndat_init_rst())
+	if (kerndat_init())
 		goto err;
 
 	timing_start(TIME_RESTORE);

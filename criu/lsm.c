@@ -111,7 +111,7 @@ void kerndat_lsm(void)
 {
 	/* On restore, if someone passes --lsm-profile, we might end up doing
 	 * detection twice, once during flag parsing and once for
-	 * kerndat_init_rst(). Let's detect when we've already done detection
+	 * kerndat_init(). Let's detect when we've already done detection
 	 * and not do it again.
 	 */
 	if (name)

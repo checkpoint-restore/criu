@@ -589,40 +589,8 @@ int kerndat_init(void)
 		ret = kerndat_tcp_repair();
 	if (!ret)
 		ret = kerndat_compat_restore();
-
-	kerndat_lsm();
-	kerndat_mmap_min_addr();
-
-	return ret;
-}
-
-int kerndat_init_rst(void)
-{
-	int ret;
-
-	/*
-	 * Read TCP sysctls before anything else,
-	 * since the limits we're interested in are
-	 * not available inside namespaces.
-	 */
-
-	ret = check_pagemap();
-	if (!ret)
-		ret = get_last_cap();
 	if (!ret)
 		ret = kerndat_has_memfd_create();
-	if (!ret)
-		ret = get_task_size();
-	if (!ret)
-		ret = get_ipv6();
-	if (!ret)
-		ret = kerndat_loginuid();
-	if (!ret)
-		ret = kerndat_iptables_has_xtlocks();
-	if (!ret)
-		ret = kerndat_tcp_repair();
-	if (!ret)
-		ret = kerndat_compat_restore();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
