@@ -41,4 +41,14 @@ struct collect_image_info {
 
 extern int collect_image(struct collect_image_info *);
 
+static inline int collect_images(struct collect_image_info **array, unsigned size)
+{
+	int i;
+	for (i = 0; i < size; i++) {
+		if (collect_image(array[i]))
+			return -1;
+	}
+	return 0;
+}
+
 #endif /* __CR_PROTOBUF_H__ */
