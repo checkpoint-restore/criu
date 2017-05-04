@@ -115,4 +115,10 @@
 #define STATS_MAGIC		0x57093306 /* Ostashkov */
 #define IRMAP_CACHE_MAGIC	0x57004059 /* Ivanovo */
 
+/*
+ * Main magic for kerndat_s structure.
+ */
+
+#define KDAT_MAGIC		0x57023458 /* Torzhok */
+
 #endif /* __CR_MAGIC_H__ */

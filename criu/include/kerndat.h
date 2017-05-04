@@ -29,6 +29,7 @@ enum loginuid_func {
 };
 
 struct kerndat_s {
+	u32 magic1, magic2;
 	dev_t shmem_dev;
 	int last_cap;
 	u64 zero_page_pfn;
