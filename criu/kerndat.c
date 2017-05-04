@@ -29,6 +29,7 @@
 #include "sk-inet.h"
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/compel.h>
+#include "netfilter.h"
 
 struct kerndat_s kdat = {
 };
@@ -646,6 +647,9 @@ int kerndat_init(void)
 	ret = kerndat_try_load_cache();
 	if (ret <= 0)
 		return ret;
+
+	preload_socket_modules();
+	preload_netfilter_modules();
 
 	ret = check_pagemap();
 	if (!ret)

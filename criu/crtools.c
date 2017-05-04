@@ -25,11 +25,9 @@
 #include "crtools.h"
 #include "cr_options.h"
 #include "external.h"
-#include "sockets.h"
 #include "files.h"
 #include "sk-inet.h"
 #include "net.h"
-#include "netfilter.h"
 #include "version.h"
 #include "page-xfer.h"
 #include "tty.h"
@@ -700,9 +698,6 @@ int main(int argc, char *argv[], char *envp[])
 		pr_info("Will do snapshot from %s\n", opts.img_parent);
 
 	if (!strcmp(argv[optind], "dump")) {
-		preload_socket_modules();
-		preload_netfilter_modules();
-
 		if (!tree_id)
 			goto opt_pid_missing;
 		return cr_dump_tasks(tree_id);
@@ -716,7 +711,6 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	if (!strcmp(argv[optind], "restore")) {
-		preload_netfilter_modules();
 		if (tree_id)
 			pr_warn("Using -t with criu restore is obsoleted\n");
 
