@@ -313,6 +313,7 @@ struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid,
 		} else if (nd == &pid_ns_desc) {
 			nsid->pid.rb_root = RB_ROOT;
 			nsid->pid.nsfd_id = -1;
+			futex_init(&nsid->pid.helper_created);
 		}
 	}
 

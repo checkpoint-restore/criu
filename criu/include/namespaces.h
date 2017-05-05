@@ -153,6 +153,7 @@ struct ns_id {
 		struct {
 			struct rb_root rb_root;
 			int nsfd_id;
+			futex_t helper_created;
 		} pid;
 	};
 };
