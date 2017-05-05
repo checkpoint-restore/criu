@@ -1727,34 +1727,31 @@ int inherit_fd_fini()
 
 int open_transport_socket(void)
 {
-	struct fdt *fdt = rsti(current)->fdt;
 	pid_t pid = vpid(current);
 	struct sockaddr_un saddr;
-	int sock, slen;
-
-	if (!task_alive(current) || (fdt && fdt->pid != pid))
-		return 0;
+	int sock, slen, ret = -1;
 
 	sock = socket(PF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 	if (sock < 0) {
 		pr_perror("Can't create socket");
-		return -1;
+		goto out;
 	}
 
 	transport_name_gen(&saddr, &slen, pid);
 	if (bind(sock, (struct sockaddr *)&saddr, slen) < 0) {
 		pr_perror("Can't bind transport socket %s", saddr.sun_path + 1);
 		close(sock);
-		return -1;
+		goto out;
 	}
 
 	if (install_service_fd(TRANSPORT_FD_OFF, sock) < 0) {
 		close(sock);
-		return -1;
+		goto out;
 	}
 	close(sock);
-
-	return 0;
+	ret = 0;
+out:
+	return ret;
 }
 
 static int collect_one_file_entry(FileEntry *fe, u_int32_t id, ProtobufCMessage *base,
