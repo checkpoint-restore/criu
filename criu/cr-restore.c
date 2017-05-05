@@ -1738,8 +1738,9 @@ static int restore_task_with_children(void *_arg)
 		goto err;
 
 	pid = getpid();
-	if (vpid(current) != pid) {
-		pr_err("Pid %d do not match expected %d\n", pid, vpid(current));
+	if (last_level_pid(current->pid) != pid) {
+		pr_err("Pid %d do not match expected %d (task %d)\n",
+			pid, last_level_pid(current->pid), vpid(current));
 		set_task_cr_err(EEXIST);
 		goto err;
 	}
