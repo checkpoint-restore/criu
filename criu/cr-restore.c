@@ -1505,7 +1505,7 @@ static int setup_current_pid_ns(void)
 		pr_err("Can't add fd to fdstore\n");
 		return -1;
 	}
-	return 0;
+	return create_pid_ns_helper(ns);
 }
 
 /*
@@ -2071,6 +2071,10 @@ skip_ns_bouncing:
 			task_entries->nr_threads--;
 	}
 
+	ret = destroy_pid_ns_helpers();
+	if (ret < 0)
+		goto out_kill;
+
 	ret = restore_switch_stage(CR_STATE_RESTORE_SIGCHLD);
 	if (ret < 0)
 		goto out_kill;
@@ -2174,6 +2178,7 @@ skip_for_check:
 	return 0;
 
 out_kill:
+	destroy_pid_ns_helpers();
 	/*
 	 * The processes can be killed only when all of them have been created,
 	 * otherwise an external proccesses can be killed.

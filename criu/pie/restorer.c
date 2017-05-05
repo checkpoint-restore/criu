@@ -47,6 +47,11 @@
 #include "restorer.h"
 #include "namespaces.h"
 
+#define __sys(foo)	sys_##foo
+#define __sys_err(ret)	ret
+
+#include "../ns-common.c"
+
 #ifndef PR_SET_PDEATHSIG
 #define PR_SET_PDEATHSIG 1
 #endif
