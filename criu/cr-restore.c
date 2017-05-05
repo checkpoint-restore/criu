@@ -409,6 +409,20 @@ static int set_next_pid(struct ns_id *ns, struct pid *pid)
 	return __set_next_pid(pid->ns[0].virt);
 }
 
+static void wait_pid_ns_helper_prepared(struct ns_id *pid_ns, struct pid *pid)
+{
+	if (!(root_ns_mask & CLONE_NEWPID))
+		return;
+
+	if (last_level_pid(pid) == INIT_PID) {
+		pid_ns = pid_ns->parent;
+		if (!pid_ns)
+			return;
+	}
+
+	futex_wait_while_eq(&pid_ns->pid.helper_created, 0);
+}
+
 static rt_sigaction_t sigchld_act;
 /*
  * If parent's sigaction has blocked SIGKILL (which is non-sence),
@@ -1265,6 +1279,8 @@ static inline int fork_with_pid(struct pstree_item *item)
 	ca.fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
 	if (ca.fd < 0)
 		goto err;
+
+	wait_pid_ns_helper_prepared(pid_ns, item->pid);
 
 	if (flock(ca.fd, LOCK_EX)) {
 		pr_perror("%d: Can't lock %s", pid, LAST_PID_PATH);
