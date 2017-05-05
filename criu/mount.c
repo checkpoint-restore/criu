@@ -27,6 +27,7 @@
 #include "files-reg.h"
 #include "external.h"
 #include "clone-noasan.h"
+#include "fdstore.h"
 
 #include "images/mnt.pb-c.h"
 
@@ -3007,7 +3008,6 @@ void fini_restore_mntns(void)
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
 		close_safe(&nsid->mnt.ns_fd);
-		close_safe(&nsid->mnt.root_fd);
 		nsid->ns_populated = true;
 	}
 }
@@ -3212,7 +3212,7 @@ void cleanup_mnt_ns(void)
 
 int prepare_mnt_ns(void)
 {
-	int ret = -1, rst = -1;
+	int ret = -1, rst = -1, fd;
 	struct ns_id ns = { .type = NS_CRIU, .ns_pid = PROC_SELF, .nd = &mnt_ns_desc };
 	struct ns_id *nsid;
 
@@ -3299,10 +3299,17 @@ int prepare_mnt_ns(void)
 		if (cr_pivot_root(path))
 			goto err;
 
-		/* root_fd is used to restore file mappings */
-		nsid->mnt.root_fd = open_proc(PROC_SELF, "root");
-		if (nsid->mnt.root_fd < 0)
+		/* root fd is used to restore file mappings */
+		fd = open_proc(PROC_SELF, "root");
+		if (fd < 0)
 			goto err;
+		nsid->mnt.root_fd_id = fdstore_add(fd);
+		if (nsid->mnt.root_fd_id < 0) {
+			pr_err("Can't add root fd\n");
+			close(fd);
+			goto err;
+		}
+		close(fd);
 
 		/* And return back to regain the access to the roots yard */
 		if (setns(rst, CLONE_NEWNS)) {
@@ -3417,7 +3424,7 @@ int mntns_get_root_fd(struct ns_id *mntns)
 	if (!mntns->ns_populated) {
 		int fd;
 
-		fd = open_proc(vpid(root_item), "fd/%d", mntns->mnt.root_fd);
+		fd = fdstore_get(mntns->mnt.root_fd_id);
 		if (fd < 0)
 			return -1;
 

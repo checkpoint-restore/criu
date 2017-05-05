@@ -28,6 +28,7 @@
 #include "pstree.h"
 #include "external.h"
 #include "crtools.h"
+#include "fdstore.h"
 
 #include "protobuf.h"
 #include "images/sk-unix.pb-c.h"
@@ -1036,6 +1037,7 @@ static void revert_unix_sk_cwd(int *prev_cwd_fd, int *root_fd)
 static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd, int *prev_root_fd)
 {
 	static struct ns_id *root = NULL;
+	int fd;
 
 	*prev_cwd_fd = open(".", O_RDONLY);
 	if (*prev_cwd_fd < 0) {
@@ -1052,10 +1054,17 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd, int *prev
 			goto err;
 		}
 
-		if (fchdir(root->mnt.root_fd)) {
-			pr_perror("Unable to change current working dir");
+		fd = fdstore_get(root->mnt.root_fd_id);
+		if (fd < 0) {
+			pr_err("Can't get root fd\n");
 			goto err;
 		}
+		if (fchdir(fd)) {
+			pr_perror("Unable to change current working dir");
+			close(fd);
+			goto err;
+		}
+		close(fd);
 		if (chroot(".")) {
 			pr_perror("Unable to change root directory");
 			goto err;
