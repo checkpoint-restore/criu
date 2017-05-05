@@ -1064,6 +1064,9 @@ static int restore_one_helper(void)
 {
 	siginfo_t info;
 
+	if (prepare_fds(current))
+		return -1;
+
 	if (!child_death_expected()) {
 		/*
 		 * Restoree has no children that should die, during restore,
@@ -1108,7 +1111,7 @@ static int restore_one_helper(void)
 
 static int restore_one_task(int pid, CoreEntry *core)
 {
-	int ret;
+	int i, ret;
 
 	/* No more fork()-s => no more per-pid logs */
 
@@ -1118,6 +1121,10 @@ static int restore_one_task(int pid, CoreEntry *core)
 		ret = restore_one_zombie(core);
 	else if (current->pid->state == TASK_HELPER) {
 		ret = restore_one_helper();
+		close_image_dir();
+		close_proc();
+		for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++)
+			close_service_fd(i);
 	} else {
 		pr_err("Unknown state in code %d\n", (int)core->tc->task_state);
 		ret = -1;
@@ -1541,11 +1548,9 @@ static int restore_task_with_children(void *_arg)
 	if ( !(ca->clone_flags & CLONE_FILES))
 		close_safe(&ca->fd);
 
-	if (current->pid->state != TASK_HELPER) {
-		ret = clone_service_fd(rsti(current)->service_fd_id);
-		if (ret)
-			goto err;
-	}
+	ret = clone_service_fd(rsti(current)->service_fd_id);
+	if (ret)
+		goto err;
 
 	pid = getpid();
 	if (vpid(current) != pid) {
@@ -1641,6 +1646,9 @@ static int restore_task_with_children(void *_arg)
 		kill(getpid(), SIGKILL);
 	}
 
+	if (open_transport_socket())
+		goto err;
+
 	timing_start(TIME_FORK);
 
 	if (create_children_and_session())
@@ -1652,9 +1660,6 @@ static int restore_task_with_children(void *_arg)
 		goto err;
 
 	restore_pgid();
-
-	if (open_transport_socket())
-		return -1;
 
 	if (current->parent == NULL) {
 		/*
