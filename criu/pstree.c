@@ -1125,6 +1125,8 @@ static int prepare_pstree_kobj_ids(void)
 		 * move_in_cgroup(), so drop this flag here as well.
 		 */
 		rsti(item)->clone_flags &= ~(CLONE_NEWNET | CLONE_NEWCGROUP);
+		if (last_level_pid(item->pid) != INIT_PID)
+			rsti(item)->clone_flags &= ~CLONE_NEWPID;
 
 		cflags &= CLONE_ALLNS;
 
