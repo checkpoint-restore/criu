@@ -1672,6 +1672,7 @@ long __export_restore_task(struct task_restore_args *args)
 	futex_wait_while_gt(&thread_inprogress, 1);
 
 	sys_close(args->proc_fd);
+	sys_close(args->transport_fd);
 	std_log_set_fd(-1);
 
 	/*
