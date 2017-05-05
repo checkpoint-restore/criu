@@ -573,16 +573,21 @@ struct pstree_item *lookup_create_item(pid_t *pid, int level, uint32_t ns_id)
 	return node->item;
 }
 
-struct pid *pstree_pid_by_virt(pid_t pid)
+struct pid *__pstree_pid_by_virt(struct ns_id *ns, pid_t pid)
 {
-	struct rb_node *node = top_pid_ns->pid.rb_root.rb_node;
+	struct rb_node *node = ns->pid.rb_root.rb_node;
+	struct ns_id *i = ns;
+	int level = 0;
+
+	while ((i = i->parent) != NULL)
+		level++;
 
 	while (node) {
-		struct pid *this = rb_entry(node, struct pid, ns[0].node);
+		struct pid *this = rb_entry(node, struct pid, ns[level].node);
 
-		if (pid < this->ns[0].virt)
+		if (pid < this->ns[level].virt)
 			node = node->rb_left;
-		else if (pid > this->ns[0].virt)
+		else if (pid > this->ns[level].virt)
 			node = node->rb_right;
 		else
 			return this;
@@ -1232,11 +1237,11 @@ bool restore_before_setsid(struct pstree_item *child)
 	return false;
 }
 
-struct pstree_item *pstree_item_by_virt(pid_t virt)
+struct pstree_item *__pstree_item_by_virt(struct ns_id *ns, pid_t virt)
 {
 	struct pid *pid;
 
-	pid = pstree_pid_by_virt(virt);
+	pid = __pstree_pid_by_virt(ns, virt);
 	if (pid == NULL)
 		return NULL;
 	BUG_ON(pid->state == TASK_THREAD);

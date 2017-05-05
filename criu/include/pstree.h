@@ -96,7 +96,12 @@ extern int init_pstree_helper(struct pstree_item *ret);
 
 extern struct pstree_item *lookup_create_item(pid_t *pid, int level, uint32_t ns_id);
 extern void pstree_insert_pid(struct pid *pid_node, uint32_t ns_id);
-extern struct pid *pstree_pid_by_virt(pid_t pid);
+extern struct pid *__pstree_pid_by_virt(struct ns_id *ns, pid_t pid);
+static inline struct pid *pstree_pid_by_virt(pid_t pid)
+{
+	extern struct ns_id *top_pid_ns;
+	return __pstree_pid_by_virt(top_pid_ns, pid);
+}
 
 extern struct pstree_item *root_item;
 extern struct pstree_item *pstree_item_next(struct pstree_item *item);
@@ -110,7 +115,12 @@ extern int prepare_dummy_pstree(void);
 extern int dump_pstree(struct pstree_item *root_item);
 
 struct pstree_item *pstree_item_by_real(pid_t virt);
-struct pstree_item *pstree_item_by_virt(pid_t virt);
+extern struct pstree_item *__pstree_item_by_virt(struct ns_id *ns, pid_t virt);
+static inline struct pstree_item *pstree_item_by_virt(pid_t virt)
+{
+	extern struct ns_id *top_pid_ns;
+	return __pstree_item_by_virt(top_pid_ns, virt);
+}
 
 extern int pid_to_virt(pid_t pid);
 
