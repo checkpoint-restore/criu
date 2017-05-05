@@ -176,6 +176,16 @@ void pstree_free_cores(struct pstree_item *item)
 	}
 }
 
+void free_pstree_item(struct pstree_item *item)
+{
+	pstree_free_cores(item);
+	xfree(item->threads);
+	xfree(item->pid);
+	xfree(item->pgid);
+	xfree(item->sid);
+	xfree(item);
+}
+
 void free_pstree(struct pstree_item *root_item)
 {
 	struct pstree_item *item = root_item, *parent;
@@ -188,10 +198,7 @@ void free_pstree(struct pstree_item *root_item)
 
 		parent = item->parent;
 		list_del(&item->sibling);
-		pstree_free_cores(item);
-		xfree(item->threads);
-		xfree(item->pid);
-		xfree(item);
+		free_pstree_item(item);
 		item = parent;
 	}
 }
@@ -211,10 +218,7 @@ struct pstree_item *__alloc_pstree_item(bool rst, int level)
 		item->pgid = xmalloc(p_sz);
 		item->sid = xmalloc(p_sz);
 		if (!item->pid || !item->pgid || !item->sid) {
-			xfree(item->pid);
-			xfree(item->pgid);
-			xfree(item->sid);
-			xfree(item);
+			free_pstree_item(item);
 			return NULL;
 		}
 	} else {

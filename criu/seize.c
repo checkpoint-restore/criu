@@ -500,7 +500,7 @@ static int collect_children(struct pstree_item *item)
 			 * really wrong.
 			 */
 			ret = 0;
-			xfree(c);
+			free_pstree_item(c);
 			xfree(creds);
 			continue;
 		}
