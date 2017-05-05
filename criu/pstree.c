@@ -229,11 +229,13 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 	return item;
 }
 
-void init_pstree_helper(struct pstree_item *ret)
+int init_pstree_helper(struct pstree_item *ret)
 {
+	BUG_ON(!ret->parent);
 	ret->pid->state = TASK_HELPER;
 	rsti(ret)->clone_flags = CLONE_FILES | CLONE_FS;
 	task_entries->nr_helpers++;
+	return 0;
 }
 
 /* Deep first search on children */
@@ -675,7 +677,10 @@ static int prepare_pstree_ids(void)
 			helper->ids = root_item->ids;
 			list_add_tail(&helper->sibling, &helpers);
 		}
-		init_pstree_helper(helper);
+		if (init_pstree_helper(helper)) {
+			pr_err("Can't init helper\n");
+			return -1;
+		}
 
 		pr_info("Add a helper %d for restoring SID %d\n",
 				vpid(helper), helper->sid);
@@ -763,13 +768,16 @@ static int prepare_pstree_ids(void)
 			continue;
 
 		helper = pid->item;
-		init_pstree_helper(helper);
 
 		helper->sid = item->sid;
 		helper->pgid = item->pgid;
 		helper->pid->ns[0].virt = item->pgid;
 		helper->parent = item;
 		helper->ids = item->ids;
+		if (init_pstree_helper(helper)) {
+			pr_err("Can't init helper\n");
+			return -1;
+		}
 		list_add(&helper->sibling, &item->children);
 		rsti(item)->pgrp_leader = helper;
 
