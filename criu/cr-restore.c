@@ -1334,7 +1334,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	futex_abort_and_wake(&task_entries->nr_in_progress);
 }
 
-static int criu_signals_setup(void)
+int criu_signals_setup(void (*handler)(int, siginfo_t *, void *))
 {
 	int ret;
 	struct sigaction act;
@@ -1347,7 +1347,7 @@ static int criu_signals_setup(void)
 	}
 
 	act.sa_flags |= SA_NOCLDSTOP | SA_SIGINFO | SA_RESTART;
-	act.sa_sigaction = sigchld_handler;
+	act.sa_sigaction = handler;
 	sigemptyset(&act.sa_mask);
 	sigaddset(&act.sa_mask, SIGCHLD);
 
@@ -2277,7 +2277,7 @@ int cr_restore_tasks(void)
 	if (crtools_prepare_shared() < 0)
 		goto err;
 
-	if (criu_signals_setup() < 0)
+	if (criu_signals_setup(sigchld_handler) < 0)
 		goto err;
 
 	if (prepare_lazy_pages_socket() < 0)
