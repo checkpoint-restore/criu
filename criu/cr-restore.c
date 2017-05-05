@@ -402,11 +402,27 @@ int __set_next_pid(pid_t pid)
 	return len ? -1 : 0;
 }
 
-static int set_next_pid(struct ns_id *ns, struct pid *pid)
+static int set_next_pid(struct ns_id *pid_ns, struct pid *pid)
 {
-	if (pid->ns[0].virt == INIT_PID)
-		return 0;
-	return __set_next_pid(pid->ns[0].virt);
+	int i, sk, level = pid->level;
+
+	if (!(root_ns_mask & CLONE_NEWPID)) {
+		if (last_level_pid(pid) == INIT_PID)
+			return 0;
+		return __set_next_pid(last_level_pid(pid));
+	}
+
+	sk = get_service_fd(TRANSPORT_FD_OFF);
+
+	for (i = level - 1; i >= 0; i--, pid_ns = pid_ns->parent) {
+		if (i == level - 1 && last_level_pid(pid) == INIT_PID)
+			continue;
+		if (request_set_next_pid(pid_ns->id, pid->ns[i].virt, sk) < 0) {
+			pr_err("Can't request next pid\n");
+			return -1;
+		}
+	}
+	return 0;
 }
 
 static void wait_pid_ns_helper_prepared(struct ns_id *pid_ns, struct pid *pid)
