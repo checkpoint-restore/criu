@@ -534,13 +534,15 @@ static int collect_remap_dead_process(struct reg_file_info *rfi,
 		return 0;
 	}
 
-	init_pstree_helper(helper);
-
 	vsid(helper) = vsid(root_item);
 	vpgid(helper) = vpgid(root_item);
 	vpid(helper) = rfe->remap_id;
 	helper->parent = root_item;
 	helper->ids = root_item->ids;
+	if (init_pstree_helper(helper)) {
+		pr_err("Can't init helper\n");
+		return -1;
+	}
 	list_add_tail(&helper->sibling, &root_item->children);
 
 	pr_info("Added a helper for restoring /proc/%d\n", vpid(helper));
