@@ -17,6 +17,7 @@
 #include "posix-timer.h"
 #include "timerfd.h"
 #include "shmem.h"
+#include "namespaces.h"
 #include "parasite-vdso.h"
 #include "fault-injection.h"
 
@@ -78,7 +79,7 @@ struct thread_creds_args {
 struct thread_restore_args {
 	struct restore_mem_zone		*mz;
 
-	int				pid;
+	pid_t				pid[MAX_NS_NESTING];
 	UserRegsEntry			gpregs;
 	u64				clear_tid_addr;
 
@@ -179,6 +180,7 @@ struct task_restore_args {
 	auxv_t				mm_saved_auxv[AT_VECTOR_SIZE];
 	u32				mm_saved_auxv_size;
 	char				comm[TASK_COMM_LEN];
+	int				pid_ns_id[MAX_NS_NESTING];
 
 	/*
 	 * proc_fd is a handle to /proc that the restorer blob can use to open

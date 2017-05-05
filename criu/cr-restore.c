@@ -3311,12 +3311,13 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	struct vm_area_list self_vmas;
 	struct vm_area_list *vmas = &rsti(current)->vmas;
-	int i, siginfo_n;
+	int i, k, siginfo_n;
 
 	unsigned long creds_pos = 0;
 	unsigned long creds_pos_next;
 
 	sigset_t blockmask;
+	struct ns_id *pid_ns;
 
 	pr_info("Restore via sigreturn\n");
 
@@ -3502,6 +3503,12 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	task_args->sigchld_act	= sigchld_act;
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
+	pid_ns = lookup_ns_by_id(current->ids->pid_ns_id, &pid_ns_desc);
+	BUG_ON(!pid_ns);
+	for (i = current->pid->level - 1; i >= 0; i--, pid_ns = pid_ns->parent)
+		task_args->pid_ns_id[i] = pid_ns->id;
+	if (current->pid->level != MAX_NS_NESTING)
+		task_args->pid_ns_id[current->pid->level] = 0; /* Delimiter */
 
 	/*
 	 * Fill up per-thread data.
@@ -3513,14 +3520,15 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		struct rt_sigframe *sigframe;
 		k_rtsigset_t *blkset = NULL;
 
-		thread_args[i].pid = vtid(current, i);
+		for (k = 0; k < current->pid->level; k++)
+			thread_args[i].pid[k] = current->threads[i]->ns[k].virt;
 		thread_args[i].siginfo_n = siginfo_priv_nr[i];
 		thread_args[i].siginfo = task_args->siginfo;
 		thread_args[i].siginfo += siginfo_n;
 		siginfo_n += thread_args[i].siginfo_n;
 
 		/* skip self */
-		if (thread_args[i].pid == pid) {
+		if (thread_args[i].pid[0] == pid) {
 			task_args->t = thread_args + i;
 			tcore = core;
 			blkset = (void *)&tcore->tc->blk_sigset;
@@ -3530,15 +3538,15 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 				blkset = (void *)&tcore->thread_core->blk_sigset;
 		}
 
-		if ((tcore->tc || tcore->ids) && thread_args[i].pid != pid) {
+		if ((tcore->tc || tcore->ids) && thread_args[i].pid[0] != pid) {
 			pr_err("Thread has optional fields present %d\n",
-			       thread_args[i].pid);
+			       thread_args[i].pid[0]);
 			ret = -1;
 		}
 
 		if (ret < 0) {
 			pr_err("Can't read core data for thread %d\n",
-			       thread_args[i].pid);
+			       thread_args[i].pid[0]);
 			goto err;
 		}
 
@@ -3567,7 +3575,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		if (construct_sigframe(sigframe, sigframe, blkset, tcore))
 			goto err;
 
-		if (thread_args[i].pid != pid)
+		if (thread_args[i].pid[0] != pid)
 			core_entry__free_unpacked(tcore, NULL);
 
 		pr_info("Thread %4d stack %8p rt_sigframe %8p\n",
@@ -3625,7 +3633,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		"task_args->nr_threads: %d\n"
 		"task_args->clone_restore_fn: %p\n"
 		"task_args->thread_args: %p\n",
-		task_args, task_args->t->pid,
+		task_args, task_args->t->pid[0],
 		task_args->nr_threads,
 		task_args->clone_restore_fn,
 		task_args->thread_args);
