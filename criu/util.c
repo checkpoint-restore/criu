@@ -47,6 +47,7 @@
 #include "namespaces.h"
 #include "criu-log.h"
 
+#include "clone-noasan.h"
 #include "cr_options.h"
 #include "servicefd.h"
 #include "cr-service.h"
@@ -1380,4 +1381,33 @@ int epoll_prepare(int nr_fds, struct epoll_event **events)
 free_events:
 	xfree(*events);
 	return -1;
+}
+
+int call_in_child_process(int (*fn)(void *), void *arg)
+{
+	int status, ret = -1;
+	pid_t pid;
+	/*
+	 * Parent freezes till child exit, so child may use the same stack.
+	 * No SIGCHLD flag, so it's not need to block signal.
+	 */
+	pid = clone_noasan(fn, CLONE_VFORK | CLONE_VM | CLONE_FILES |
+			   CLONE_IO | CLONE_SIGHAND | CLONE_SYSVSEM, arg);
+	if (pid == -1) {
+		pr_perror("Can't clone");
+		return -1;
+	}
+	errno = 0;
+	if (waitpid(pid, &status, __WALL) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
+		pr_err("Can't wait or bad status: errno=%d, status=%d\n", errno, status);
+		goto out;
+	}
+	ret = 0;
+	/*
+	 * Child opened PROC_SELF for pid. If we create one more child
+	 * with the same pid later, it will try to reuse this /proc/self.
+	 */
+out:
+	close_pid_proc();
+	return ret;
 }
