@@ -423,6 +423,38 @@ static void wait_pid_ns_helper_prepared(struct ns_id *pid_ns, struct pid *pid)
 	futex_wait_while_eq(&pid_ns->pid.helper_created, 0);
 }
 
+static int set_pid_ns_for_children(struct ns_id *pid_ns, struct pid *pid)
+{
+	int fd, ret = 0;
+
+	if (!(root_ns_mask & CLONE_NEWPID))
+		return 0;
+
+	if (last_level_pid(pid) == INIT_PID)
+		return 0;
+
+	BUG_ON(!current);
+
+	if (current->pid_for_children_ns == pid_ns)
+		return 0;
+
+	fd = fdstore_get(pid_ns->pid.nsfd_id);
+	if (fd < 0) {
+		pr_err("Can't get pid_ns fd\n");
+		return -1;
+	}
+
+	if (setns(fd, CLONE_NEWPID) < 0) {
+		pr_perror("Can't set pid ns");
+		ret = -1;
+	} else	{
+		current->pid_for_children_ns = pid_ns;
+	}
+
+	close(fd);
+	return ret;
+}
+
 static rt_sigaction_t sigchld_act;
 /*
  * If parent's sigaction has blocked SIGKILL (which is non-sence),
@@ -1237,6 +1269,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 	pid_ns = lookup_ns_by_id(item->ids->pid_ns_id, &pid_ns_desc);
 	BUG_ON(!pid_ns);
+	item->pid_for_children_ns = pid_ns;
 
 	if (item->pid->state != TASK_HELPER) {
 		if (open_core(pid, &ca.core))
@@ -1281,6 +1314,9 @@ static inline int fork_with_pid(struct pstree_item *item)
 		goto err;
 
 	wait_pid_ns_helper_prepared(pid_ns, item->pid);
+
+	if (set_pid_ns_for_children(pid_ns, item->pid) < 0)
+		goto err_close;
 
 	if (flock(ca.fd, LOCK_EX)) {
 		pr_perror("%d: Can't lock %s", pid, LAST_PID_PATH);
