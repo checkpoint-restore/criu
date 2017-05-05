@@ -993,7 +993,7 @@ static int restore_one_zombie(CoreEntry *core)
 			signr = SIGABRT;
 		}
 
-		if (kill(vpid(current), signr) < 0)
+		if (kill(last_level_pid(current->pid), signr) < 0)
 			pr_perror("Can't kill myself, will just exit");
 
 		exit_code = 0;
