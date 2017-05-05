@@ -30,6 +30,7 @@
 
 #include "protobuf.h"
 #include "util.h"
+#include "util-pie.h"
 #include "images/ns.pb-c.h"
 #include "common/scm.h"
 #include "fdstore.h"
@@ -1515,7 +1516,32 @@ static void unsc_msg_pid_fd(struct unsc_msg *um, pid_t *pid, int *fd)
 
 static int usernsd(int sk)
 {
+	struct sockaddr_un addr;
+	int transport_fd;
+	socklen_t len;
+
 	pr_info("uns: Daemon started\n");
+
+	transport_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (transport_fd < 0) {
+		pr_perror("Can't create transport socket");
+		return -1;
+	}
+
+	addr.sun_family = AF_UNIX;
+	snprintf(addr.sun_path, UNIX_PATH_MAX, "x/criu-usernsd");
+	len = SUN_LEN(&addr);
+	*addr.sun_path = '\0';
+
+	if (bind(transport_fd, (struct sockaddr *)&addr, len) < 0) {
+		pr_perror("Can't bind transport sock");
+		return -1;
+	}
+
+	if (install_service_fd(TRANSPORT_FD_OFF, transport_fd) < 0) {
+		pr_perror("Can't install transport fd\n");
+		return -1;
+	}
 
 	while (1) {
 		struct unsc_msg um;
