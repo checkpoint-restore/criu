@@ -2325,13 +2325,10 @@ static int create_net_ns(void *arg)
 	exit(ret);
 }
 
-int prepare_net_namespaces()
+static int __prepare_net_namespaces(void *unused)
 {
 	struct ns_id *nsid;
 	int ret = -1;
-
-	if (!(root_ns_mask & CLONE_NEWNET))
-		return 0;
 
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
 		if (nsid->nd != &net_ns_desc)
@@ -2387,6 +2384,15 @@ err:
 		pr_err("Can't create net_ns\n");
 
 	return ret;
+}
+
+
+int prepare_net_namespaces(void)
+{
+	if (!(root_ns_mask & CLONE_NEWNET))
+		return 0;
+
+	return call_in_child_process(__prepare_net_namespaces, NULL);
 }
 
 static int do_restore_task_net_ns(struct ns_id *nsid, struct pstree_item *current)
