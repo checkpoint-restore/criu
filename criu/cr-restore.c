@@ -1255,6 +1255,120 @@ static void maybe_clone_parent(struct pstree_item *item,
 	}
 }
 
+static int call_clone_fn(void *arg)
+{
+	struct cr_clone_arg *ca = arg;
+	struct ns_id *pid_ns;
+	pid_t pid;
+	int fd;
+
+	pid_ns = lookup_ns_by_id(ca->item->ids->pid_ns_id, &pid_ns_desc);
+	BUG_ON(!pid_ns);
+
+	if (set_next_pid(pid_ns, ca->item->pid) < 0) {
+		pr_err("Can't set next pid\n");
+		return -1;
+	}
+
+	fd = fdstore_get(pid_ns->user_ns->user.nsfd_id);
+	if (fd < 0) {
+		pr_err("Can't get ns fd\n");
+		return -1;
+	}
+
+	if (setns(fd, CLONE_NEWUSER) < 0) {
+		pr_perror("Can't set user ns");
+		close(fd);
+		return -1;
+	}
+	close(fd);
+	ca->item->user_ns = pid_ns->user_ns;
+
+	if (ca->clone_flags & CLONE_FILES)
+		close_pid_proc();
+
+	pid = clone_noasan(restore_task_with_children, ca->clone_flags | CLONE_PARENT | SIGCHLD, ca);
+
+	if (ca->item == root_item) {
+		ca->item->pid->real = pid;
+		pr_debug("PID: real %d virt %d\n", pid, vpid(ca->item));
+	}
+
+	return pid > 0 ? 0 : -1;
+}
+
+static int do_fork_with_pid(struct pstree_item *item, struct ns_id *pid_ns, struct cr_clone_arg *ca)
+{
+	int status, i, sz, ret = 0;
+	struct pid *hlp_pid;
+	sigset_t sig_mask;
+	pid_t pid;
+
+	if (!(ca->clone_flags & CLONE_NEWPID) || !current || current->user_ns == pid_ns->user_ns) {
+		if (set_next_pid(pid_ns, item->pid) < 0) {
+			pr_err("Can't set next pid\n");
+			return -1;
+		}
+		if (ca->clone_flags & CLONE_FILES)
+			close_pid_proc();
+		pid = clone_noasan(restore_task_with_children, ca->clone_flags | SIGCHLD, ca);
+		if (item == root_item) {
+			item->pid->real = pid;
+			pr_debug("PID: real %d virt %d\n", pid, vpid(item));
+		}
+		return pid > 0 ? 0 : -1;
+	}
+
+	sz = sizeof(struct pid) + (item->pid->level - 2) * sizeof(((struct pid *)NULL)->ns[0]);
+	hlp_pid = xmalloc(sz);
+	if (!hlp_pid)
+		return -1;
+	memcpy(hlp_pid, item->pid, sz);
+	hlp_pid->level--;
+
+	for (i = 0; i < hlp_pid->level; i++) {
+		/*
+		 * Choose helper's pid[] as child's pid[] + 1.
+		 * This should guarantee the helper will not
+		 * occupy child's pids.
+		 */
+		hlp_pid->ns[i].virt++;
+		if (hlp_pid->ns[i].virt < 0)
+			hlp_pid->ns[i].virt = INIT_PID + 1;
+	}
+	if (set_next_pid(pid_ns->parent, hlp_pid) < 0) {
+		pr_err("Can't set next pid\n");
+		xfree(hlp_pid);
+		return -1;
+	}
+	xfree(hlp_pid);
+
+	if (ca->clone_flags & CLONE_FILES)
+		close_pid_proc();
+
+	if (block_sigmask(&sig_mask, SIGCHLD) < 0)
+		return -1;
+
+	pid = clone_noasan(call_clone_fn, SIGCHLD, ca);
+	if (pid < 0) {
+		pr_perror("Can't clone()");
+		ret = -1;
+		goto unblock;
+	}
+
+	errno = 0;
+	if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status)) {
+		pr_perror("Child process waiting: %d", status);
+		ret = -1;
+		goto unblock;
+	}
+
+unblock:
+	if (restore_sigmask(&sig_mask))
+		ret = -1;
+	return ret;
+}
+
 static inline int fork_with_pid(struct pstree_item *item)
 {
 	struct cr_clone_arg ca;
@@ -1323,25 +1437,10 @@ static inline int fork_with_pid(struct pstree_item *item)
 		goto err_close;
 	}
 
-	if (set_next_pid(pid_ns, item->pid) < 0) {
-		pr_err("Can't set next pid\n");
-		goto err_unlock;
-	}
-
-	if (ca.clone_flags & CLONE_FILES)
-		close_pid_proc();
-
-	ret = clone_noasan(restore_task_with_children, ca.clone_flags | SIGCHLD, &ca);
+	ret = do_fork_with_pid(item, pid_ns, &ca);
 	if (ret < 0) {
 		pr_perror("Can't fork for %d", pid);
 		goto err_unlock;
-	}
-
-
-	if (item == root_item) {
-		item->pid->real = ret;
-		pr_debug("PID: real %d virt %d\n",
-				item->pid->real, vpid(item));
 	}
 
 err_unlock:
