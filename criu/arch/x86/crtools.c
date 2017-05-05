@@ -1,9 +1,12 @@
+#include <signal.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <elf.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/auxv.h>
+#include <sys/wait.h>
 
 #include "types.h"
 #include "log.h"
@@ -27,17 +30,22 @@
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
 
-int kdat_compatible_cr(void)
-{
 #ifdef CONFIG_COMPAT
+static int has_arch_map_vdso(void)
+{
 	unsigned long auxval;
 	int ret;
 
 	errno = 0;
 	auxval = getauxval(AT_SYSINFO_EHDR);
-	if (!auxval || errno == ENOENT) {
-		pr_err("Failed to get auxval, err: %lu\n", auxval);
-		return 0;
+	if (!auxval) {
+		if (errno == ENOENT) { /* No vDSO - OK */
+			pr_warn("No SYSINFO_EHDR - no vDSO\n");
+			return 1;
+		} else { /* That can't happen, according to man */
+			pr_err("Failed to get auxval: errno %d\n", errno);
+			return -1;
+		}
 	}
 	/*
 	 * Mapping vDSO while have not unmap it yet:
@@ -46,9 +54,115 @@ int kdat_compatible_cr(void)
 	ret = syscall(SYS_arch_prctl, ARCH_MAP_VDSO_32, 1);
 	if (ret == -1 && errno == EEXIST)
 		return 1;
-#endif
 	return 0;
 }
+
+void *mmap_ia32(void *addr, size_t len, int prot,
+		int flags, int fildes, off_t off)
+{
+	struct syscall_args32 s;
+
+	s.nr    = __NR32_mmap2;
+	s.arg0  = (uint32_t)(uintptr_t)addr;
+	s.arg1  = (uint32_t)len;
+	s.arg2  = prot;
+	s.arg3  = flags;
+	s.arg4  = fildes;
+	s.arg5  = (uint32_t)off;
+
+	do_full_int80(&s);
+
+	return (void *)(uintptr_t)s.nr;
+}
+
+/*
+ * The idea of the test:
+ * From kernel's top-down allocator we assume here that
+ * 1. A = mmap(0, ...); munmap(A);
+ * 2. B = mmap(0, ...);
+ * results in A == B.
+ * ...but if we have 32-bit mmap() bug, then A will have only lower
+ * 4 bytes of 64-bit address allocated with mmap().
+ * That means, that the next mmap() will return B != A
+ * (as munmap(A) hasn't really unmapped A mapping).
+ *
+ * As mapping with lower 4 bytes of A may really exist, we run
+ * this test under fork().
+ *
+ * Another approach to test bug's presence would be to parse
+ * /proc/self/maps before and after 32-bit mmap(), but that would
+ * be soo slow.
+ */
+static void mmap_bug_test(void)
+{
+	void *map1, *map2;
+	int err;
+
+	map1 = mmap_ia32(0, PAGE_SIZE, PROT_NONE, MAP_ANON|MAP_PRIVATE, -1, 0);
+	/* 32-bit error, not sign-extended - can't use IS_ERR_VALUE() here */
+	err = (uintptr_t)map1 % PAGE_SIZE;
+	if (err) {
+		pr_err("ia32 mmap() failed: %d\n", err);
+		exit(1);
+	}
+
+	if (munmap(map1, PAGE_SIZE)) {
+		pr_err("Failed to unmap() 32-bit mapping: %m\n");
+		exit(1);
+	}
+
+	map2 = mmap_ia32(0, PAGE_SIZE, PROT_NONE, MAP_ANON|MAP_PRIVATE, -1, 0);
+	err = (uintptr_t)map2 % PAGE_SIZE;
+	if (err) {
+		pr_err("ia32 mmap() failed: %d\n", err);
+		exit(1);
+	}
+
+	if (map1 != map2)
+		exit(1);
+	exit(0);
+}
+
+/*
+ * Pre v4.12 kernels have a bug: for a process started as 64-bit
+ * 32-bit mmap() may return 8 byte pointer.
+ * Which is fatal for us: after 32-bit C/R a task will map 64-bit
+ * addresses, cut upper 4 bytes and try to use lower 4 bytes.
+ * This is a check if the bug was fixed in the kernel.
+ */
+static int has_32bit_mmap_bug(void)
+{
+	pid_t child = fork();
+	int stat;
+
+	if (child == 0)
+		mmap_bug_test();
+
+	if (waitpid(child, &stat, 0) != child) {
+		pr_err("Failed to wait for mmap test");
+		kill(child, SIGKILL);
+		return -1;
+	}
+
+	if (!WIFEXITED(stat) || WEXITSTATUS(stat) != 0)
+		return 1;
+	return 0;
+}
+
+int kdat_compatible_cr(void)
+{
+	if (!has_arch_map_vdso())
+		return 0;
+	if (has_32bit_mmap_bug())
+		return 0;
+	return 1;
+}
+#else
+int kdat_compatible_cr(void)
+{
+	return 0;
+}
+#endif
 
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
