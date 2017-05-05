@@ -339,6 +339,9 @@ int dump_pstree(struct pstree_item *root_item)
 		e.pgid		= vpgid(item);
 		e.sid		= vsid(item);
 		e.n_threads	= item->nr_threads;
+		e.has_pid	= true;
+		e.has_pgid	= true;
+		e.has_sid	= true;
 
 		e.threads = xmalloc(sizeof(e.threads[0]) * e.n_threads);
 		if (!e.threads)

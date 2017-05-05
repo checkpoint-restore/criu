@@ -1,9 +1,18 @@
 syntax = "proto2";
 
+message ns_tid {
+	repeated uint32 tid				= 1;
+}
+
 message pstree_entry {
-	required uint32			pid		= 1;
-	required uint32			ppid		= 2;
-	required uint32			pgid		= 3;
-	required uint32			sid		= 4;
+	optional uint32			pid		= 1;
+	required uint32			ppid		= 2;	/* Pid of parent in pid_ns NS_ROOT */
+	optional uint32			pgid		= 3;
+	optional uint32			sid		= 4;
 	repeated uint32			threads		= 5;
+
+	repeated uint32			ns_pid		= 6;
+	repeated uint32			ns_pgid		= 7;
+	repeated uint32			ns_sid		= 8;
+	repeated ns_tid			tids		= 9;
 }
