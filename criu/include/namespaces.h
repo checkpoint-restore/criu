@@ -152,6 +152,7 @@ struct ns_id {
 		} user;
 		struct {
 			struct rb_root rb_root;
+			int nsfd_id;
 		} pid;
 	};
 };
