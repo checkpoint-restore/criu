@@ -257,5 +257,12 @@ extern int add_ns_shared_cb(int (*actor)(void *data), void *data);
 
 extern struct ns_id *get_socket_ns(int lfd);
 extern struct ns_id *lookup_ns_by_kid(unsigned int kid, struct ns_desc *nd);
+/* Number of levels of pid_ns between NS_CRIU and NS_ROOT */
+static inline int pid_ns_root_off(void)
+{
+	if (root_ns_mask & CLONE_NEWPID)
+		return 1;
+	return 0;
+}
 
 #endif /* __CR_NS_H__ */

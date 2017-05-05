@@ -679,10 +679,11 @@ struct collect_image_info nsfile_cinfo = {
 /*
  * Same as dump_task_ns_ids(), but
  * a) doesn't keep IDs (don't need them)
- * b) generates them for mount and netns only
+ * b) generates them for mount, netns and pid_ns only
  *    mnt ones are needed for open_mount() in
  *    inotify pred-dump
  *    net ones are needed for parasite socket
+ *    pid is need for pid_ns_root_off()
  */
 
 int predump_task_ns_ids(struct pstree_item *item)
@@ -693,6 +694,9 @@ int predump_task_ns_ids(struct pstree_item *item)
 		return -1;
 
 	if (!get_ns_id(pid, &mnt_ns_desc, NULL))
+		return -1;
+
+	if (!get_ns_id(pid, &pid_ns_desc, NULL))
 		return -1;
 
 	return 0;
