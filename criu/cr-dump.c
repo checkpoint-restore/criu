@@ -803,9 +803,8 @@ err:
 	return ret;
 }
 
-static int collect_pstree_ids_predump(void)
+static int predump_criu_ns_ids(void)
 {
-	struct pstree_item *item;
 	struct pid pid;
 	struct {
 		struct pstree_item i;
@@ -820,8 +819,12 @@ static int collect_pstree_ids_predump(void)
 	crt.i.pid->state = TASK_ALIVE;
 	crt.i.pid->real = getpid();
 
-	if (predump_task_ns_ids(&crt.i))
-		return -1;
+	return predump_task_ns_ids(&crt.i);
+}
+
+static int collect_pstree_ids_predump()
+{
+	struct pstree_item *item;
 
 	for_each_pstree_item(item) {
 		if (item->pid->state == TASK_DEAD)
@@ -1602,9 +1605,17 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (setup_alarm_handler())
 		goto err;
 
+	/*
+	 * Pre-dump criu's and root_item's ns ids, as they are need
+	 * to discover root_item's pid_ns nesting.
+	 */
+	if (predump_criu_ns_ids() || predump_task_ns_ids(root_item))
+		goto err;
+
 	if (collect_pstree())
 		goto err;
 
+	/* Pre-dump other tasks ns ids */
 	if (collect_pstree_ids_predump())
 		goto err;
 
@@ -1806,6 +1817,8 @@ int cr_dump_tasks(pid_t pid)
 	if (setup_alarm_handler())
 		goto err;
 
+	if (predump_task_ns_ids(root_item))
+		goto err;
 	/*
 	 * The collect_pstree will also stop (PTRACE_SEIZE) the tasks
 	 * thus ensuring that they don't modify anything we collect
