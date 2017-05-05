@@ -1291,6 +1291,7 @@ int prepare_fds(struct pstree_item *me)
 		}
 	}
 
+	BUG_ON(current->pid->state == TASK_HELPER);
 	ret = open_fdinfos(me);
 
 	if (rsti(me)->fdt)
@@ -1430,8 +1431,6 @@ int shared_fdt_prepare(struct pstree_item *item)
 	rsti(item)->fdt = fdt;
 	rsti(item)->service_fd_id = fdt->nr;
 	fdt->nr++;
-	if (pid_rst_prio(vpid(item), fdt->pid))
-		fdt->pid = vpid(item);
 
 	return 0;
 }
