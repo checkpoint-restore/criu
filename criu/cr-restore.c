@@ -1491,6 +1491,23 @@ static int mount_proc(void)
 	return ret;
 }
 
+static int setup_current_pid_ns(void)
+{
+	struct ns_id *ns;
+
+	ns = lookup_ns_by_id(current->ids->pid_ns_id, &pid_ns_desc);
+	if (!ns) {
+		pr_err("Can't find pid_ns\n");
+		return -1;
+	}
+	ns->pid.nsfd_id = store_self_ns(ns);
+	if (ns->pid.nsfd_id < 0) {
+		pr_err("Can't add fd to fdstore\n");
+		return -1;
+	}
+	return 0;
+}
+
 /*
  * Tasks cannot change sid (session id) arbitrary, but can either
  * inherit one from ancestor, or create a new one with id equal to
@@ -1616,6 +1633,9 @@ static int restore_task_with_children(void *_arg)
 		if (root_prepare_shared())
 			goto err;
 	}
+
+	if ((ca->clone_flags & CLONE_NEWPID) && setup_current_pid_ns())
+		goto err;
 
 	if (restore_task_mnt_ns(current))
 		goto err;
