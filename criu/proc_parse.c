@@ -1037,7 +1037,8 @@ static int cap_parse(char *str, unsigned int *res)
 	return 0;
 }
 
-int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
+int parse_pid_status(pid_t pid, struct seize_task_status *ss,
+		     struct pstree_item *item, struct pid **thread)
 {
 	struct proc_status_creds *cr = container_of(ss, struct proc_status_creds, s);
 	struct bfd f;
