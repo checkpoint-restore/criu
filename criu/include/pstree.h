@@ -37,6 +37,8 @@ struct pstree_item {
 #define vpgid(item)	(item->pgid->ns[0].virt)
 #define vtid(item, i)	(item->threads[i]->ns[0].virt)
 
+#define PID_SIZE(level) (sizeof(struct pid) + (level-1) * sizeof(((struct pid *)NULL)->ns[0]))
+
 enum {
 	FDS_EVENT_BIT	= 0,
 };

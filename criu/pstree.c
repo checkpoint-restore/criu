@@ -208,7 +208,7 @@ struct pstree_item *__alloc_pstree_item(bool rst, int level)
 	struct pstree_item *item;
 	int sz, p_sz;
 
-	p_sz = sizeof(struct pid) + (level - 1) * sizeof(((struct pid *)NULL)->ns[0]);
+	p_sz = PID_SIZE(level);
 	if (!rst) {
 		sz = sizeof(*item) + sizeof(struct dmp_info);
 		item = xzalloc(sz);
