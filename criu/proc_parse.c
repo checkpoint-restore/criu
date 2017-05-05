@@ -1037,6 +1037,44 @@ static int cap_parse(char *str, unsigned int *res)
 	return 0;
 }
 
+static int get_ns_pid(char *str, struct pid **pid_ptr)
+{
+	pid_t pid[MAX_NS_NESTING];
+	int level, size, skip;
+	pid_t val;
+
+	skip = pid_ns_root_off();
+
+	level = 0;
+	while (sscanf(str, "%d%n", &val, &size) == 1) {
+		if (level == MAX_NS_NESTING) {
+			pr_err("Too nested hierarchy\n");
+			return -1;
+		}
+		str += size;
+		if (skip > 0) {
+			skip--;
+			continue;
+		}
+		pid[level++] = val;
+	}
+
+	if (level == 0) {
+		pr_err("Line can't be collected\n");
+		return -1;
+	}
+
+	(*pid_ptr) = xrealloc(*pid_ptr, PID_SIZE(level));
+	if (!*pid_ptr)
+		return -1;
+
+	(*pid_ptr)->level = level;
+	while (level-- > 0)
+		(*pid_ptr)->ns[level].virt = pid[level];
+
+	return 0;
+}
+
 int parse_pid_status(pid_t pid, struct seize_task_status *ss,
 		     struct pstree_item *item, struct pid **thread)
 {
@@ -1046,6 +1084,7 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss,
 	int ret = -1;
 	char *str;
 	bool parsed_seccomp = false;
+	int expected_done;
 
 	f.fd = open_proc(pid, "status");
 	if (f.fd < 0)
@@ -1057,7 +1096,7 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss,
 	if (bfdopenr(&f))
 		return -1;
 
-	while (done < 12) {
+	while (done < 14) {
 		str = breadline(&f);
 		if (str == NULL)
 			break;
@@ -1157,10 +1196,43 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss,
 			done++;
 			continue;
 		}
+		if (!strncmp(str, "NSpid:", 6)) {
+			if (get_ns_pid(str + 6, thread ? : &item->pid) < 0) {
+				pr_err("Can't get NSpid\n");
+				goto err_parse;
+			}
+			done++;
+			continue;
+		}
+		if (!strncmp(str, "NSpgid:", 7) && !thread) {
+			if (get_ns_pid(str + 7, &item->pgid) < 0) {
+				pr_err("Can't get NSpgid\n");
+				goto err_parse;
+			}
+			done++;
+			continue;
+		}
+		if (!strncmp(str, "NSsid:", 6) && !thread) {
+			if (get_ns_pid(str + 6, &item->sid) < 0) {
+				pr_err("Can't get NSsid\n");
+				goto err_parse;
+			}
+			done++;
+			continue;
+		}
 	}
 
-	/* seccomp is optional */
-	if (done >= 11 || (done == 10 && !parsed_seccomp))
+	if (!thread && (item->pid->level != item->sid->level ||
+			item->pid->level != item->pgid->level)) {
+		pr_err("Level mismatch\n");
+		goto err_parse;
+	}
+
+	/* seccomp and nspids are optional */
+	expected_done = (parsed_seccomp ? 11 : 10);
+	if (kdat.has_nspid)
+		expected_done += (thread ? 1 : 3);
+	if (done == expected_done)
 		ret = 0;
 
 err_parse:

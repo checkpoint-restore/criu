@@ -871,7 +871,16 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 		pr_err("Can't dump thread for pid %d\n", pid);
 		goto err;
 	}
-	tid->ns[0].virt = parasite_tid;
+
+	if (tid->ns[0].virt == -1)
+		tid->ns[0].virt = parasite_tid;
+	else {
+		/* It was collected in parse_pid_status() */
+		if (last_level_pid(tid) != parasite_tid) {
+			pr_err("Parasite and /proc/[pid]/status gave different tids\n");
+			goto err;
+		}
+	}
 
 	pstree_insert_pid(tid, item->ids->pid_ns_id);
 
@@ -1341,9 +1350,20 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure_imgset;
 	}
 
-	vpid(item) = misc.pid;
-	vsid(item) = misc.sid;
-	vpgid(item) = misc.pgid;
+	if (vpid(item) == -1) {
+		vpid(item) = misc.pid;
+		vsid(item) = misc.sid;
+		vpgid(item) = misc.pgid;
+	} else {
+		/* They were collected in parse_pid_status() */
+		if (last_level_pid(item->pid) != misc.pid ||
+		    last_level_pid(item->sid) != misc.sid ||
+		    last_level_pid(item->pgid) != misc.pgid) {
+			pr_err("Parasite and /proc/[pid]/status gave different pids\n");
+			goto err;
+		}
+	}
+
 	pstree_insert_pid(item->pid, item->ids->pid_ns_id);
 
 	pr_info("sid=%d pgid=%d pid=%d\n", vsid(item), vpgid(item), vpid(item));
