@@ -264,5 +264,6 @@ static inline int pid_ns_root_off(void)
 		return 1;
 	return 0;
 }
+extern int reserve_pid_ns_helpers(void);
 
 #endif /* __CR_NS_H__ */

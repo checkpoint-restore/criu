@@ -2444,5 +2444,42 @@ int set_user_ns(u32 id)
 	return __set_user_ns(ns);
 }
 
+static int do_reserve_pid_ns_helpers(struct ns_id *ns, void *oarg)
+{
+	struct pstree_item *helper;
+	struct ns_id *iter = ns;
+	pid_t pid[MAX_NS_NESTING], *p;
+	int i, level;
+
+	for (i = MAX_NS_NESTING-1; iter && i >= 0; i--, iter = iter->parent) {
+		pid[i] = get_free_pid(iter);
+		if (pid[i] < 0) {
+			pr_err("Can't find free pid\n");
+			return -1;
+		}
+	}
+
+	if (iter) {
+		pr_err("Too many pids levels\n");
+		return -1;
+	}
+
+	p = &pid[++i];
+	level = MAX_NS_NESTING - i;
+	helper = lookup_create_item(p, level, ns->id);
+	if (helper == NULL)
+		return -1;
+	ns->ns_pid = pid[MAX_NS_NESTING-1];
+	return 0;
+}
+
+int reserve_pid_ns_helpers(void)
+{
+	if (!(root_ns_mask & CLONE_NEWPID))
+		return 0;
+
+	return walk_namespaces(&pid_ns_desc, do_reserve_pid_ns_helpers, NULL);
+}
+
 struct ns_desc pid_ns_desc = NS_DESC_ENTRY(CLONE_NEWPID, "pid");
 struct ns_desc user_ns_desc = NS_DESC_ENTRY(CLONE_NEWUSER, "user");
