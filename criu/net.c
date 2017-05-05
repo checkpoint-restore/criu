@@ -1336,7 +1336,7 @@ static int userns_restore_one_link(void *arg, int fd, pid_t pid)
 	struct newlink_req *req = arg;
 	int ns_fd = get_service_fd(NS_FD_OFF), rst = -1;
 
-	if (!(root_ns_mask & CLONE_NEWUSER)) {
+	if (ns_fd > 0) {
 		if (switch_ns_by_fd(ns_fd, &net_ns_desc, &rst))
 			return -1;
 	}
