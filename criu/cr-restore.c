@@ -1258,27 +1258,22 @@ static inline int fork_with_pid(struct pstree_item *item)
 	ca.clone_flags = rsti(item)->clone_flags;
 
 	BUG_ON(ca.clone_flags & CLONE_VM);
+	BUG_ON(!!(ca.clone_flags & CLONE_NEWPID) != (last_level_pid(item->pid) == INIT_PID));
 
 	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ca.clone_flags);
 
-	if (!(ca.clone_flags & CLONE_NEWPID)) {
-		ca.fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-		if (ca.fd < 0)
-			goto err;
+	ca.fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
+	if (ca.fd < 0)
+		goto err;
 
-		if (flock(ca.fd, LOCK_EX)) {
-			close(ca.fd);
-			pr_perror("%d: Can't lock %s", pid, LAST_PID_PATH);
-			goto err;
-		}
+	if (flock(ca.fd, LOCK_EX)) {
+		pr_perror("%d: Can't lock %s", pid, LAST_PID_PATH);
+		goto err_close;
+	}
 
-		if (set_next_pid(pid_ns, item->pid) < 0) {
-			pr_err("Can't set next pid\n");
-			goto err_unlock;
-		}
-	} else {
-		ca.fd = -1;
-		BUG_ON(pid != INIT_PID);
+	if (set_next_pid(pid_ns, item->pid) < 0) {
+		pr_err("Can't set next pid\n");
+		goto err_unlock;
 	}
 
 	if (ca.clone_flags & CLONE_FILES)
@@ -1298,12 +1293,10 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 err_unlock:
-	if (ca.fd >= 0) {
-		if (flock(ca.fd, LOCK_UN))
-			pr_perror("%d: Can't unlock %s", pid, LAST_PID_PATH);
-
-		close(ca.fd);
-	}
+	if (flock(ca.fd, LOCK_UN))
+		pr_perror("%d: Can't unlock %s", pid, LAST_PID_PATH);
+err_close:
+	close(ca.fd);
 err:
 	if (ca.core)
 		core_entry__free_unpacked(ca.core, NULL);
