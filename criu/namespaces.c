@@ -1545,13 +1545,23 @@ static void usernsd_handler(int signal, siginfo_t *siginfo, void *data)
 	}
 }
 
-static int usernsd(int sk)
+static int usernsd_recv_transport(void *arg, int fd, pid_t pid)
+{
+	if (install_service_fd(TRANSPORT_FD_OFF, fd) < 0) {
+		pr_perror("Can't install transport fd\n");
+		close(fd);
+		return -1;
+	}
+
+	close(fd);
+	return 0;
+}
+
+int prep_usernsd_transport()
 {
 	struct sockaddr_un addr;
-	int transport_fd;
+	int transport_fd, ret;
 	socklen_t len;
-
-	pr_info("uns: Daemon started\n");
 
 	transport_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (transport_fd < 0) {
@@ -1566,13 +1576,17 @@ static int usernsd(int sk)
 
 	if (bind(transport_fd, (struct sockaddr *)&addr, len) < 0) {
 		pr_perror("Can't bind transport sock");
+		close(transport_fd);
 		return -1;
 	}
+	ret = userns_call(usernsd_recv_transport, 0, NULL, 0, transport_fd);
+	close(transport_fd);
+	return ret;
+}
 
-	if (install_service_fd(TRANSPORT_FD_OFF, transport_fd) < 0) {
-		pr_perror("Can't install transport fd\n");
-		return -1;
-	}
+static int usernsd(int sk)
+{
+	pr_info("uns: Daemon started\n");
 
 	if (criu_signals_setup(usernsd_handler) < 0) {
 		pr_err("Can't setup handler\n");
@@ -2546,7 +2560,7 @@ int reserve_pid_ns_helpers(void)
 	return walk_namespaces(&pid_ns_desc, do_reserve_pid_ns_helpers, NULL);
 }
 
-static int pid_ns_helper_sock(struct ns_id *ns)
+int pid_ns_helper_sock(struct ns_id *ns)
 {
 	struct sockaddr_un addr;
 	socklen_t len;
@@ -2610,9 +2624,9 @@ static int pid_ns_helper(struct ns_id *ns, int sk)
 	return -1;
 }
 
-static int do_create_pid_ns_helper(void *arg, int unused_fd, pid_t unused_pid)
+static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 {
-	int pid_ns_fd, mnt_ns_fd, sk, fd, i, lock_fd, transport_fd;
+	int pid_ns_fd, mnt_ns_fd, fd, i, lock_fd, transport_fd;
 	struct ns_id *ns, *tmp;
 	struct pid *pid;
 	pid_t child;
@@ -2620,29 +2634,25 @@ static int do_create_pid_ns_helper(void *arg, int unused_fd, pid_t unused_pid)
 	pid_ns_fd = open_proc(PROC_SELF, "ns/pid");
 	if (pid_ns_fd < 0) {
 		pr_perror("Can't open pid ns");
-		return -1;
+		goto err;
 	}
 	ns = *(struct ns_id **)arg;
 
 	fd = fdstore_get(ns->pid.nsfd_id);
 	if (fd < 0) {
 		pr_err("Can't get pid_ns fd\n");
-		return -1;
+		goto err;
 	}
 	if (setns(fd, CLONE_NEWPID) < 0) {
 		pr_perror("Can't setns");
-		return -1;
+		goto err;
 	}
 	close(fd);
-
-	sk = pid_ns_helper_sock(ns);
-	if (sk < 0)
-		return -1;
 
 	pid = __pstree_pid_by_virt(ns, ns->ns_pid);
 	if (!pid) {
 		pr_err("Can't find helper reserved pid\n");
-		return -1;
+		goto err;
 	}
 
 	tmp = ns->parent;
@@ -2653,22 +2663,23 @@ static int do_create_pid_ns_helper(void *arg, int unused_fd, pid_t unused_pid)
 
 	if (switch_ns(root_item->pid->real, &mnt_ns_desc, &mnt_ns_fd) < 0) {
 		pr_err("Can't set mnt_ns\n");
-		return -1;
+		goto err;
 	}
 
 	lock_fd = open("/proc/" LAST_PID_PATH, O_RDONLY);
-	if (lock_fd < 0)
-		return -1;
+	if (lock_fd < 0) {
+		pr_perror("Unable to open /proc/" LAST_PID_PATH);
+		goto err;
+	}
 
 	if (restore_ns(mnt_ns_fd, &mnt_ns_desc) < 0) {
 		pr_err("Can't restore ns\n");
-		return -1;
+		goto err;
 	}
 
 	if (flock(lock_fd, LOCK_EX)) {
 		close(lock_fd);
 		pr_perror("Can't lock %s", LAST_PID_PATH);
-		return -1;
 	}
 
 	transport_fd = get_service_fd(TRANSPORT_FD_OFF);
@@ -2682,7 +2693,7 @@ static int do_create_pid_ns_helper(void *arg, int unused_fd, pid_t unused_pid)
 			pr_err("Can't set next pid using helper\n");
 			flock(lock_fd, LOCK_UN);
 			close(lock_fd);
-			return -1;
+			goto err;
 		}
 	child = fork();
 	if (child < 0) {
@@ -2705,6 +2716,9 @@ static int do_create_pid_ns_helper(void *arg, int unused_fd, pid_t unused_pid)
 		return -1;
 	}
 	return 0;
+err:
+	close_safe(&sk);
+	return -1;
 }
 
 /*
@@ -2724,16 +2738,25 @@ static int do_create_pid_ns_helper(void *arg, int unused_fd, pid_t unused_pid)
  */
 int create_pid_ns_helper(struct ns_id *ns)
 {
+	int sk;
+
 	BUG_ON(getpid() != INIT_PID);
 
 	if (__set_next_pid(ns->ns_pid) < 0) {
 		pr_err("Can't set next fd\n");
 		return -1;
 	}
-	if (userns_call(do_create_pid_ns_helper, 0, &ns, sizeof(ns), -1) < 0) {
+
+	sk = pid_ns_helper_sock(ns);
+	if (sk < 0)
+		return -1;
+
+	if (userns_call(do_create_pid_ns_helper, 0, &ns, sizeof(ns), sk) < 0) {
 		pr_err("Can't create pid_ns helper\n");
+		close(sk);
 		return -1;
 	}
+	close(sk);
 	return 0;
 }
 

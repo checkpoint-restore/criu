@@ -1776,6 +1776,9 @@ static int restore_task_with_children(void *_arg)
 		/* Wait prepare_userns */
 		if (restore_finish_ns_stage(CR_STATE_ROOT_TASK, CR_STATE_PREPARE_NAMESPACES) < 0)
 			goto err;
+
+		if (prep_usernsd_transport())
+			goto err;
 	}
 
 	/*

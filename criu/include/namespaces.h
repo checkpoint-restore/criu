@@ -207,6 +207,7 @@ extern int prepare_userns(pid_t real_pid, UsernsEntry *e);
 extern int __set_user_ns(struct ns_id *ns);
 extern int set_user_ns(u32 id);
 extern int stop_usernsd(void);
+extern int prep_usernsd_transport(void);
 
 extern uid_t userns_uid(uid_t uid);
 extern gid_t userns_gid(gid_t gid);
@@ -270,5 +271,7 @@ extern int reserve_pid_ns_helpers(void);
 extern int create_pid_ns_helper(struct ns_id *ns);
 extern int destroy_pid_ns_helpers(void);
 extern int request_set_next_pid(int pid_ns_id, pid_t pid, int sk);
+
+extern int pid_ns_helper_sock(struct ns_id *ns);
 
 #endif /* __CR_NS_H__ */
