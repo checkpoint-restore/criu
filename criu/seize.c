@@ -679,7 +679,7 @@ static int parse_thread_status(int pid, struct seize_task_status *ss, void *thre
 static int collect_threads(struct pstree_item *item)
 {
 	struct pid **threads = NULL;
-	int nr_threads = 0, i = 0, ret, nr_inprogress, nr_stopped = 0;
+	int nr_threads = 0, i = 0, j, ret, nr_inprogress, nr_stopped = 0;
 	int level = item->pid->level, id;
 
 	ret = parse_threads(item->pid->real, &threads, &nr_threads);
@@ -704,6 +704,8 @@ static int collect_threads(struct pstree_item *item)
 		item->nr_threads = 1;
 		item->threads[0]->item = NULL;
 		item->threads[0]->level = level;
+		for (j = 0; j < level; j++)
+			item->threads[0]->ns[j].virt = -1;
 	}
 
 	nr_inprogress = 0;
@@ -730,6 +732,8 @@ static int collect_threads(struct pstree_item *item)
 		item->threads[id]->real = pid;
 		item->threads[id]->item = NULL;
 		item->threads[id]->level = level;
+		for (j = 0; j < level; j++)
+			item->threads[id]->ns[j].virt = -1;
 
 		ret = compel_wait_task(pid, item_ppid(item), parse_thread_status, NULL,
 				       &t_creds.s, &item->threads[id]);
