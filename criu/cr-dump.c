@@ -1455,7 +1455,7 @@ static int pre_dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie
 	vm_area_list_init(&vmas);
 
 	pr_info("========================================\n");
-	pr_info("Pre-dumping task (pid: %d)\n", pid);
+	pr_info("Pre-dumping task (pid: %d comm: %s)\n", pid, __task_comm_info(pid));
 	pr_info("========================================\n");
 
 	/*
@@ -1545,7 +1545,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	vm_area_list_init(&vmas);
 
 	pr_info("========================================\n");
-	pr_info("Dumping task (pid: %d)\n", pid);
+	pr_info("Dumping task (pid: %d comm: %s)\n", pid, __task_comm_info(pid));
 	pr_info("========================================\n");
 
 	if (item->pid->state == TASK_DEAD)
@@ -2113,7 +2113,7 @@ int cr_dump_tasks(pid_t pid)
 	int ret = -1;
 
 	pr_info("========================================\n");
-	pr_info("Dumping processes (pid: %d)\n", pid);
+	pr_info("Dumping processes (pid: %d comm: %s)\n", pid, __task_comm_info(pid));
 	pr_info("========================================\n");
 
 	/*

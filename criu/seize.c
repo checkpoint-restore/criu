@@ -24,6 +24,46 @@
 #include "xmalloc.h"
 #include "util.h"
 
+char *task_comm_info(pid_t pid, char *comm, size_t size)
+{
+	int ret = 0;
+
+	if (!pr_quelled(LOG_INFO)) {
+		int saved_errno = errno;
+		char path[32];
+		int fd;
+
+		snprintf(path, sizeof(path), "/proc/%d/comm", pid);
+		fd = open(path, O_RDONLY);
+		if (fd >= 0) {
+			ssize_t n = read(fd, comm, size);
+			if (n > 0)
+				comm[n - 1] = '\0';
+			else
+				ret = -1;
+			close(fd);
+		} else {
+			ret = -1;
+		}
+		errno = saved_errno;
+	}
+
+	if (ret || (pr_quelled(LOG_INFO) && comm[0]))
+		comm[0] = '\0';
+
+	return comm;
+}
+
+/*
+ * NOTE: Don't run simultaneously, it uses local static buffer!
+ */
+char *__task_comm_info(pid_t pid)
+{
+	static char comm[32];
+
+	return task_comm_info(pid, comm, sizeof(comm));
+}
+
 #define NR_ATTEMPTS 5
 
 static const char frozen[] = "FROZEN";
@@ -249,13 +289,13 @@ static int seize_cgroup_tree(char *root_path, enum freezer_state state)
 		if (ret == 0)
 			continue;
 		if (errno != ESRCH) {
-			pr_perror("Unexpected error");
+			pr_perror("Unexpected error for pid %d (comm %s)", pid, __task_comm_info(pid));
 			fclose(f);
 			return -1;
 		}
 
 		if (!compel_interrupt_task(pid)) {
-			pr_debug("SEIZE %d: success\n", pid);
+			pr_debug("SEIZE %d (comm %s): success\n", pid, __task_comm_info(pid));
 			processes_to_wait++;
 		} else if (state == FROZEN) {
 			char buf[] = "/proc/XXXXXXXXXX/exe";
@@ -272,7 +312,7 @@ static int seize_cgroup_tree(char *root_path, enum freezer_state state)
 			 * before it compete exit procedure. The caller simply
 			 * should wait a bit and try freezing again.
 			 */
-			pr_err("zombie found while seizing\n");
+			pr_err("zombie %d (comm %s) found while seizing\n", pid, __task_comm_info(pid));
 			fclose(f);
 			return -EAGAIN;
 		}
