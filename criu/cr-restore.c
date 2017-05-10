@@ -406,7 +406,7 @@ static int set_next_pid(struct ns_id *pid_ns, struct pid *pid)
 {
 	int i, sk, level = pid->level;
 
-	if (!(root_ns_mask & CLONE_NEWPID)) {
+	if (!(root_ns_mask & CLONE_NEWPID) || level == 1) {
 		if (last_level_pid(pid) == INIT_PID)
 			return 0;
 		return __set_next_pid(last_level_pid(pid));
