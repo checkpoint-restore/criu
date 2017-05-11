@@ -739,7 +739,7 @@ static int read_pstree_image(pid_t *pid_max)
 			ids = parent->ids;
 		}
 
-		if (!ids || !ids->has_pid_ns_id) {
+		if (!ids->has_pid_ns_id) {
 			/*
 			 * At least root_item must have ids, and pid_ns_id field
 			 * was populated since ids are introduced.
