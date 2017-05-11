@@ -84,6 +84,7 @@ __NR_get_robust_list	312		sys_get_robust_list	(int pid, struct robust_list_head 
 __NR_vmsplice		316		sys_vmsplice		(int fd, const struct iovec *iov, unsigned int nr_segs, unsigned int flags)
 __NR_signalfd		321		sys_signalfd		(int ufd, const k_rtsigset_t *sigmask, size_t sigsetsize)
 __NR_timerfd_settime	325		sys_timerfd_settime	(int ufd, int flags, const struct itimerspec *utmr, struct itimerspec *otmr)
+__NR_preadv		333		sys_preadv		(int fd, struct iovec *iov, unsigned long nr, loff_t off)
 __NR_rt_tgsigqueueinfo	335		sys_rt_tgsigqueueinfo	(pid_t tgid, pid_t pid, int sig, siginfo_t *uinfo)
 __NR_fanotify_init	338		sys_fanotify_init	(unsigned int flags, unsigned int event_f_flags)
 __NR_fanotify_mark	339		sys_fanotify_mark	(int fanotify_fd, unsigned int flag, uint32_t mask, int dfd, const char *pathname)
