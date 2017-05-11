@@ -2339,6 +2339,7 @@ int parse_threads(int pid, struct pid ***_t, int *_n)
 				while (--nr > 0)
 					xfree(t[nr-1]);
 				xfree(t);
+				return -1;
 			}
 			t[nr - 1]->ns[0].virt = -1;
 		}
