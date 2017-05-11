@@ -267,11 +267,13 @@ static void close_page_xfer(struct page_xfer *xfer)
 
 static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 {
+	u32 pages_id;
+
 	xfer->pmi = open_image(fd_type, O_DUMP, id);
 	if (!xfer->pmi)
 		return -1;
 
-	xfer->pi = open_pages_image(O_DUMP, xfer->pmi);
+	xfer->pi = open_pages_image(O_DUMP, xfer->pmi, &pages_id);
 	if (!xfer->pi) {
 		close_image(xfer->pmi);
 		return -1;

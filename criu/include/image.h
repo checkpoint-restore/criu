@@ -150,8 +150,8 @@ extern void close_image_dir(void);
 extern struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...);
 #define open_image(typ, flags, ...) open_image_at(-1, typ, flags, ##__VA_ARGS__)
 extern int open_image_lazy(struct cr_img *img);
-extern struct cr_img *open_pages_image(unsigned long flags, struct cr_img *pmi);
-extern struct cr_img *open_pages_image_at(int dfd, unsigned long flags, struct cr_img *pmi);
+extern struct cr_img *open_pages_image(unsigned long flags, struct cr_img *pmi, u32 *pages_id);
+extern struct cr_img *open_pages_image_at(int dfd, unsigned long flags, struct cr_img *pmi, u32 *pages_id);
 extern void up_page_ids_base(void);
 
 extern struct cr_img *img_from_fd(int fd); /* for cr-show mostly */
