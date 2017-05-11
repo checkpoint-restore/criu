@@ -104,4 +104,9 @@ static inline bool vma_area_is_private(struct vma_area *vma,
 	return vma_entry_is_private(vma->e, task_size);
 }
 
+static inline struct vma_area *vma_next(struct vma_area *vma)
+{
+	return list_entry(vma->list.next, struct vma_area, list);
+}
+
 #endif /* __CR_VMA_H__ */

@@ -724,7 +724,7 @@ static int restore_priv_vma_content(struct pstree_item *t)
 			while (va >= vma->e->end) {
 				if (vma->list.next == vmas)
 					goto err_addr;
-				vma = list_entry(vma->list.next, struct vma_area, list);
+				vma = vma_next(vma);
 			}
 
 			/*
