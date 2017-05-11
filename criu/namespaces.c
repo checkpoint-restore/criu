@@ -2683,6 +2683,7 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 	}
 
 	transport_fd = get_service_fd(TRANSPORT_FD_OFF);
+	BUG_ON(transport_fd < 0);
 	/*
 	 * Starting not from pid->level - 1, as it's helper has not created yet
 	 * (we're creating it in the moment), and the true pid for this level
@@ -2775,6 +2776,7 @@ static int do_destroy_pid_ns_helper(void *arg, int fd, pid_t pid)
 	}
 
 	sk = get_service_fd(TRANSPORT_FD_OFF);
+	BUG_ON(sk < 0);
 
 	for (ns = ns_ids; ns; ns = ns->next) {
 		if (ns->nd != &pid_ns_desc)

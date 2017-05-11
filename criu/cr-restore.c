@@ -413,6 +413,7 @@ static int set_next_pid(struct ns_id *pid_ns, struct pid *pid)
 	}
 
 	sk = get_service_fd(TRANSPORT_FD_OFF);
+	BUG_ON(sk < 0);
 
 	for (i = level - 1; i >= 0; i--, pid_ns = pid_ns->parent) {
 		if (i == level - 1 && last_level_pid(pid) == INIT_PID)
