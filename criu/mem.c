@@ -615,7 +615,7 @@ static int premap_private_vma(struct pstree_item *t,
 		 * This region was found in parent -- remap it to inherit physical
 		 * pages (if any) from it (and COW them later if required).
 		 */
-		vma->ppage_bitmap = p->page_bitmap;
+		vma->pvma = p;
 
 		addr = mremap(paddr, size, size,
 				MREMAP_FIXED | MREMAP_MAYMOVE, *tgt_addr);
@@ -742,8 +742,8 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 					vma->premmaped_addr);
 
 			set_bit(off, vma->page_bitmap);
-			if (vma->ppage_bitmap) { /* inherited vma */
-				clear_bit(off, vma->ppage_bitmap);
+			if (vma->pvma) { /* inherited vma */
+				clear_bit(off, vma->pvma->page_bitmap);
 
 				ret = pr->read_pages(pr, va, 1, buf, 0);
 				if (ret < 0)
@@ -800,13 +800,13 @@ err_read:
 		unsigned long size, i = 0;
 		void *addr = decode_pointer(vma->premmaped_addr);
 
-		if (vma->ppage_bitmap == NULL)
+		if (vma->pvma == NULL)
 			continue;
 
 		size = vma_entry_len(vma->e) / PAGE_SIZE;
 		while (1) {
 			/* Find all pages, which are not shared with this child */
-			i = find_next_bit(vma->ppage_bitmap, size, i);
+			i = find_next_bit(vma->pvma->page_bitmap, size, i);
 
 			if ( i >= size)
 				break;
