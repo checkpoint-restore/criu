@@ -279,7 +279,8 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr,
 	return 0;
 }
 
-static int enqueue_async_iov(struct page_read *pr, unsigned long len, void *buf)
+static int enqueue_async_iov(struct page_read *pr, void *buf,
+		unsigned long len, struct list_head *to)
 {
 	struct page_read_iov *pr_iov;
 	struct iovec *iov;
@@ -303,19 +304,19 @@ static int enqueue_async_iov(struct page_read *pr, unsigned long len, void *buf)
 	pr_iov->to = iov;
 	pr_iov->nr = 1;
 
-	list_add_tail(&pr_iov->l, &pr->async);
+	list_add_tail(&pr_iov->l, to);
 
 	return 0;
 }
 
-static int enqueue_async_page(struct page_read *pr, unsigned long vaddr,
-			      unsigned long len, void *buf)
+int pagemap_enqueue_iovec(struct page_read *pr, void *buf,
+			      unsigned long len, struct list_head *to)
 {
 	struct page_read_iov *cur_async = NULL;
 	struct iovec *iov;
 
-	if (!list_empty(&pr->async))
-		cur_async = list_entry(pr->async.prev, struct page_read_iov, l);
+	if (!list_empty(to))
+		cur_async = list_entry(to->prev, struct page_read_iov, l);
 
 	/*
 	 * We don't have any async requests or we have new read
@@ -324,7 +325,7 @@ static int enqueue_async_page(struct page_read *pr, unsigned long vaddr,
 	 * Start the new preadv request here.
 	 */
 	if (!cur_async || pr->pi_off != cur_async->end)
-		return enqueue_async_iov(pr, len, buf);
+		return enqueue_async_iov(pr, buf, len, to);
 
 	/*
 	 * This read is pure continuation of the previous one. Let's
@@ -339,7 +340,7 @@ static int enqueue_async_page(struct page_read *pr, unsigned long vaddr,
 		unsigned int n_iovs = cur_async->nr + 1;
 
 		if (n_iovs >= IOV_MAX)
-			return enqueue_async_iov(pr, len, buf);
+			return enqueue_async_iov(pr, buf, len, to);
 
 		iov = xrealloc(cur_async->to, n_iovs * sizeof(*iov));
 		if (!iov)
@@ -366,7 +367,7 @@ static int maybe_read_page(struct page_read *pr, unsigned long vaddr,
 	unsigned long len = nr * PAGE_SIZE;
 
 	if (flags & PR_ASYNC)
-		ret = enqueue_async_page(pr, vaddr, len, buf);
+		ret = pagemap_enqueue_iovec(pr, buf, len, &pr->async);
 	else
 		ret = read_local_page(pr, vaddr, len, buf);
 

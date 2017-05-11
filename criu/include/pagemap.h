@@ -95,6 +95,9 @@ extern int open_page_read(int pid, struct page_read *, int pr_flags);
 extern int open_page_read_at(int dfd, int pid, struct page_read *pr,
 		int pr_flags);
 
+int pagemap_enqueue_iovec(struct page_read *pr, void *buf,
+			      unsigned long len, struct list_head *to);
+
 extern int dedup_one_iovec(struct page_read *pr, unsigned long base,
 			   unsigned long len);
 
