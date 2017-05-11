@@ -55,6 +55,18 @@ struct vma_area {
 			struct vma_area	*pvma;		/* parent for inherited VMAs */
 			unsigned long	*page_bitmap;	/* existent pages */
 			unsigned long	premmaped_addr;	/* restore only */
+
+			/*
+			 * Some notes about pvma, page_bitmap and premmaped_addr bits
+			 * above.
+			 *
+			 * The pvma is set in prepare_cow_vmas() when we resolve which
+			 * VMAs _may_ inherit pages from each other.
+			 * The page_bitmap and premmaped_addr are set in prepare_mappings()
+			 * when the respective VMAs get mmap-ed or mremap-ed.
+			 * These VMAs are then inherited during fork_with_pid()-s
+			 * called from create_children_and_session().
+			 */
 		};
 	};
 };

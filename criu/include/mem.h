@@ -16,6 +16,7 @@ struct mem_dump_ctl {
 
 extern bool page_in_parent(bool dirty);
 extern int prepare_mm_pid(struct pstree_item *i);
+extern void prepare_cow_vmas(void);
 extern int do_task_reset_dirty_track(int pid);
 extern unsigned long dump_pages_args_size(struct vm_area_list *vmas);
 extern int parasite_dump_pages_seized(struct pstree_item *item,
