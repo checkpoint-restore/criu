@@ -2560,7 +2560,7 @@ int reserve_pid_ns_helpers(void)
 	return walk_namespaces(&pid_ns_desc, do_reserve_pid_ns_helpers, NULL);
 }
 
-int pid_ns_helper_sock(struct ns_id *ns)
+static int pid_ns_helper_sock(struct ns_id *ns)
 {
 	struct sockaddr_un addr;
 	socklen_t len;
