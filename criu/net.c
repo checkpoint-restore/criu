@@ -2428,21 +2428,19 @@ static int do_restore_task_net_ns(struct ns_id *nsid, struct pstree_item *curren
 
 int restore_task_net_ns(struct pstree_item *current)
 {
-	if (current->ids && current->ids->has_net_ns_id) {
-		unsigned int id = current->ids->net_ns_id;
-		struct ns_id *nsid;
+	unsigned int id = current->ids->net_ns_id;
+	struct ns_id *nsid;
 
-		nsid = lookup_ns_by_id(id, &net_ns_desc);
-		if (nsid == NULL) {
-			pr_err("Can't find mount namespace %d\n", id);
-			return -1;
-		}
-
-		BUG_ON(nsid->type == NS_CRIU);
-
-		if (do_restore_task_net_ns(nsid, current))
-			return -1;
+	nsid = lookup_ns_by_id(id, &net_ns_desc);
+	if (nsid == NULL) {
+		pr_err("Can't find mount namespace %d\n", id);
+		return -1;
 	}
+
+	BUG_ON(nsid->type == NS_CRIU);
+
+	if (do_restore_task_net_ns(nsid, current))
+		return -1;
 
 	return 0;
 }

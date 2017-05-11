@@ -2744,36 +2744,33 @@ static int do_restore_task_mnt_ns(struct ns_id *nsid, struct pstree_item *curren
 
 int restore_task_mnt_ns(struct pstree_item *current)
 {
+	unsigned int id = current->ids->mnt_ns_id;
+	struct ns_id *nsid;
+
 	if ((root_ns_mask & CLONE_NEWNS) == 0)
 		return 0;
+	/*
+	 * Regardless of the namespace a task wants to
+	 * live in, by that point they all will live in
+	 * root's one (see prepare_pstree_kobj_ids() +
+	 * get_clone_mask()). So if the current task's
+	 * target namespace is the root's one -- it's
+	 * already there, otherwise it will have to do
+	 * setns().
+	 */
+	if (current->parent && id == current->parent->ids->mnt_ns_id)
+		return 0;
 
-	if (current->ids && current->ids->has_mnt_ns_id) {
-		unsigned int id = current->ids->mnt_ns_id;
-		struct ns_id *nsid;
-
-		/*
-		 * Regardless of the namespace a task wants to
-		 * live in, by that point they all will live in
-		 * root's one (see prepare_pstree_kobj_ids() +
-		 * get_clone_mask()). So if the current task's
-		 * target namespace is the root's one -- it's
-		 * already there, otherwise it will have to do
-		 * setns().
-		 */
-		if (current->parent && id == current->parent->ids->mnt_ns_id)
-			return 0;
-
-		nsid = lookup_ns_by_id(id, &mnt_ns_desc);
-		if (nsid == NULL) {
-			pr_err("Can't find mount namespace %d\n", id);
-			return -1;
-		}
-
-		BUG_ON(nsid->type == NS_CRIU);
-
-		if (do_restore_task_mnt_ns(nsid, current))
-			return -1;
+	nsid = lookup_ns_by_id(id, &mnt_ns_desc);
+	if (nsid == NULL) {
+		pr_err("Can't find mount namespace %d\n", id);
+		return -1;
 	}
+
+	BUG_ON(nsid->type == NS_CRIU);
+
+	if (do_restore_task_mnt_ns(nsid, current))
+		return -1;
 
 	return 0;
 }

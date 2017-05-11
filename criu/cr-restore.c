@@ -961,7 +961,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (restore_task_net_ns(current))
 		return -1;
 
-	if (current->ids && set_user_ns(current->ids->user_ns_id) < 0)
+	if (current->ids->has_user_ns_id && set_user_ns(current->ids->user_ns_id) < 0)
 		return -1;
 
 	if (setup_uffd(pid, ta))
