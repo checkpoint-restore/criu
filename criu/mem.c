@@ -617,16 +617,6 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 	void *addr;
 	unsigned long nr_pages, size;
 
-	if (vma_area_is(vma, VMA_FILE_PRIVATE)) {
-		ret = vma->vm_open(vpid(t), vma);
-		if (ret < 0) {
-			pr_err("Can't fixup VMA's fd\n");
-			return -1;
-		}
-
-		vma->vm_open = NULL; /* prevent from 2nd open in prepare_vmas */
-	}
-
 	nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
 	vma->page_bitmap = xzalloc(BITS_TO_LONGS(nr_pages) * sizeof(long));
 	if (vma->page_bitmap == NULL)
@@ -653,6 +643,13 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		 */
 		if (vma_entry_is(vma->e, VMA_AREA_AIORING))
 			flag |= MAP_ANONYMOUS;
+		else if (vma_area_is(vma, VMA_FILE_PRIVATE)) {
+			ret = vma->vm_open(vpid(t), vma);
+			if (ret < 0) {
+				pr_err("Can't fixup VMA's fd\n");
+				return -1;
+			}
+		}
 
 		addr = mmap(*tgt_addr, size,
 				vma->e->prot | PROT_WRITE,
@@ -663,6 +660,9 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 			pr_perror("Unable to map ANON_VMA");
 			return -1;
 		}
+
+		if (vma_area_is(vma, VMA_FILE_PRIVATE))
+			close(vma->e->fd);
 	} else {
 		void *paddr;
 
@@ -696,7 +696,7 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 	}
 
 	if (vma_area_is(vma, VMA_FILE_PRIVATE))
-		close(vma->e->fd);
+		vma->vm_open = NULL; /* prevent from 2nd open in prepare_vmas */
 
 	*tgt_addr += size;
 	return 0;
