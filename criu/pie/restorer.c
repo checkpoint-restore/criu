@@ -624,7 +624,7 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
  * of tail. To set tail, we write to /dev/null and use the fact this
  * operation is synchronious for the device. Also, we unmap temporary
  * anonymous area, used to store content of ring buffer during restore
- * and mapped in map_private_vma().
+ * and mapped in premap_private_vma().
  */
 static int restore_aio_ring(struct rst_aio_ring *raio)
 {
@@ -1141,7 +1141,7 @@ long __export_restore_task(struct task_restore_args *args)
 	for (i = 0; i < args->vmas_n; i++) {
 		vma_entry = args->vmas + i;
 
-		if (!vma_entry_is_private(vma_entry, args->task_size))
+		if (!vma_entry_is(vma_entry, VMA_PREMMAPED))
 			continue;
 
 		if (vma_entry->end >= args->task_size)
@@ -1159,7 +1159,7 @@ long __export_restore_task(struct task_restore_args *args)
 	for (i = args->vmas_n - 1; i >= 0; i--) {
 		vma_entry = args->vmas + i;
 
-		if (!vma_entry_is_private(vma_entry, args->task_size))
+		if (!vma_entry_is(vma_entry, VMA_PREMMAPED))
 			continue;
 
 		if (vma_entry->start > args->task_size)
@@ -1182,7 +1182,7 @@ long __export_restore_task(struct task_restore_args *args)
 		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
 			continue;
 
-		if (vma_entry_is_private(vma_entry, args->task_size))
+		if (vma_entry_is(vma_entry, VMA_PREMMAPED))
 			continue;
 
 		va = restore_mapping(vma_entry);
