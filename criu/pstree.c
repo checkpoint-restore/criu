@@ -626,6 +626,7 @@ static int read_pstree_ids(pid_t pid, TaskKobjIdsEntry **ids)
 	ADD_OR_COPY_ID(ids, ipc);
 	ADD_OR_COPY_ID(ids, uts);
 	ADD_OR_COPY_ID(ids, cgroup);
+#undef ADD_OR_COPY_ID
 
 	if (!ret && (!(*ids)->has_pid_ns_id || !(*ids)->has_net_ns_id ||
 		     !(*ids)->ipc_ns_id || !(*ids)->uts_ns_id || !(*ids)->mnt_ns_id)) {
