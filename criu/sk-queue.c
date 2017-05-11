@@ -166,15 +166,14 @@ int sk_queue_post_actions(void)
 			}
 
 			if (!found) {
-				pr_err("ucred: Can't lookup process with pid %d\n",
-				       ue->pid);
-				ret = -ENOENT;
+				pr_warn("ucred: Can't find process with pid %d, ignoring packet\n",
+					ue->pid);
 				goto next;
-			} else {
-				pr_debug("ucred: Fixup ucred pids %d -> %d\n",
-					 ue->pid, vpid(item));
-				ue->pid = vpid(item);
 			}
+
+			pr_debug("ucred: Fixup ucred pids %d -> %d\n",
+				 ue->pid, vpid(item));
+			ue->pid = vpid(item);
 
 			ret = pb_write_one(img, pkt->entry, PB_SK_QUEUES);
 			if (ret < 0) {
