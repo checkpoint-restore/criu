@@ -615,7 +615,7 @@ static int read_pstree_ids(pid_t pid, TaskKobjIdsEntry **ids)
 		if ((*ids)->has_##name##_ns_id)							\
 			ret = rst_add_ns_id((*ids)->name##_ns_id, pid, &name##_ns_desc);	\
 		else if (root_item && root_item->ids && root_item->ids->has_##name##_ns_id) {	\
-			(*ids)->has_##name##_ns_id = true;						\
+			(*ids)->has_##name##_ns_id = true;					\
 			(*ids)->name##_ns_id = root_item->ids->name##_ns_id;			\
 		}										\
 	}
