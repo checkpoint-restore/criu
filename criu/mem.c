@@ -643,7 +643,8 @@ static int map_private_vma(struct pstree_item *t,
 	return 0;
 }
 
-static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, void *at)
+static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
+		void *at, struct page_read *pr)
 {
 	struct list_head *parent_vmas;
 	struct vma_area *pvma, *vma;
@@ -681,7 +682,7 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 	return ret;
 }
 
-static int restore_priv_vma_content(struct pstree_item *t)
+static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 {
 	struct vma_area *vma;
 	int ret = 0;
@@ -692,13 +693,8 @@ static int restore_priv_vma_content(struct pstree_item *t)
 	unsigned int nr_droped = 0;
 	unsigned int nr_compared = 0;
 	unsigned long va;
-	struct page_read pr;
 
 	vma = list_first_entry(vmas, struct vma_area, list);
-
-	ret = open_page_read(vpid(t), &pr, PR_TASK);
-	if (ret <= 0)
-		return -1;
 
 	/*
 	 * Read page contents.
@@ -706,12 +702,12 @@ static int restore_priv_vma_content(struct pstree_item *t)
 	while (1) {
 		unsigned long off, i, nr_pages;
 
-		ret = pr.advance(&pr);
+		ret = pr->advance(pr);
 		if (ret <= 0)
 			break;
 
-		va = (unsigned long)decode_pointer(pr.pe->vaddr);
-		nr_pages = pr.pe->nr_pages;
+		va = (unsigned long)decode_pointer(pr->pe->vaddr);
+		nr_pages = pr->pe->nr_pages;
 
 		for (i = 0; i < nr_pages; i++) {
 			unsigned char buf[PAGE_SIZE];
@@ -748,7 +744,7 @@ static int restore_priv_vma_content(struct pstree_item *t)
 			if (vma->ppage_bitmap) { /* inherited vma */
 				clear_bit(off, vma->ppage_bitmap);
 
-				ret = pr.read_pages(&pr, va, 1, buf, 0);
+				ret = pr->read_pages(pr, va, 1, buf, 0);
 				if (ret < 0)
 					goto err_read;
 
@@ -776,7 +772,7 @@ static int restore_priv_vma_content(struct pstree_item *t)
 
 				nr = min_t(int, nr_pages - i, (vma->e->end - va) / PAGE_SIZE);
 
-				ret = pr.read_pages(&pr, va, nr, p, PR_ASYNC);
+				ret = pr->read_pages(pr, va, nr, p, PR_ASYNC);
 				if (ret < 0)
 					goto err_read;
 
@@ -791,10 +787,10 @@ static int restore_priv_vma_content(struct pstree_item *t)
 	}
 
 err_read:
-	if (pr.sync(&pr))
+	if (pr->sync(pr))
 		return -1;
 
-	pr.close(&pr);
+	pr->close(pr);
 	if (ret < 0)
 		return ret;
 
@@ -846,6 +842,7 @@ int prepare_mappings(struct pstree_item *t)
 	int ret = 0;
 	void *addr;
 	struct vm_area_list *vmas;
+	struct page_read pr;
 
 	void *old_premmapped_addr = NULL;
 	unsigned long old_premmapped_len;
@@ -867,11 +864,19 @@ int prepare_mappings(struct pstree_item *t)
 	rsti(t)->premmapped_addr = addr;
 	rsti(t)->premmapped_len = vmas->priv_size;
 
-	ret = premap_priv_vmas(t, vmas, addr);
+	ret = open_page_read(vpid(t), &pr, PR_TASK);
+	if (ret <= 0)
+		return -1;
+
+	pr.advance(&pr); /* shift to the 1st iovec */
+
+	ret = premap_priv_vmas(t, vmas, addr, &pr);
 	if (ret < 0)
 		goto out;
 
-	ret = restore_priv_vma_content(t);
+	pr.reset(&pr);
+
+	ret = restore_priv_vma_content(t, &pr);
 	if (ret < 0)
 		goto out;
 
