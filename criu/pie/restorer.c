@@ -595,6 +595,10 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 	if (vma_entry_is(vma_entry, VMA_ANON_SHARED) && (vma_entry->fd != -1UL))
 		flags &= ~MAP_ANONYMOUS;
 
+	/* See comment in premap_private_vma() for this flag change */
+	if (vma_entry_is(vma_entry, VMA_AREA_AIORING))
+		flags |= MAP_ANONYMOUS;
+
 	/* A mapping of file with MAP_SHARED is up to date */
 	if (vma_entry->fd == -1 || !(vma_entry->flags & MAP_SHARED))
 		prot |= PROT_WRITE;
@@ -1082,7 +1086,7 @@ long __export_restore_task(struct task_restore_args *args)
 	int i;
 	VmaEntry *vma_entry;
 	unsigned long va;
-
+	struct restore_vma_io *rio;
 	struct rt_sigframe *rt_sigframe;
 	struct prctl_mm_map prctl_map;
 	unsigned long new_sp;
@@ -1179,7 +1183,8 @@ long __export_restore_task(struct task_restore_args *args)
 	for (i = 0; i < args->vmas_n; i++) {
 		vma_entry = args->vmas + i;
 
-		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR))
+		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR) &&
+				!vma_entry_is(vma_entry, VMA_AREA_AIORING))
 			continue;
 
 		if (vma_entry_is(vma_entry, VMA_PREMMAPED))
@@ -1192,6 +1197,49 @@ long __export_restore_task(struct task_restore_args *args)
 			goto core_restore_end;
 		}
 	}
+
+	/*
+	 * Now read the contents (if any)
+	 */
+
+	rio = args->vma_ios;
+	for (i = 0; i < args->vma_ios_n; i++) {
+		struct iovec *iovs = rio->iovs;
+		int nr = rio->nr_iovs;
+		ssize_t r;
+
+		while (nr) {
+			pr_debug("Preadv %lx:%d... (%d iovs)\n",
+					(unsigned long)iovs->iov_base,
+					(int)iovs->iov_len, nr);
+			r = sys_preadv(args->vma_ios_fd, iovs, nr, rio->off);
+			if (r < 0) {
+				pr_err("Can't read pages data (%d)\n", (int)r);
+				goto core_restore_end;
+			}
+
+			pr_debug("`- returned %ld\n", (long)r);
+			rio->off += r;
+			/* Advance the iovecs */
+			do {
+				if (iovs->iov_len <= r) {
+					pr_debug("   `- skip pagemap\n");
+					r -= iovs->iov_len;
+					iovs++;
+					nr--;
+					continue;
+				}
+
+				iovs->iov_base += r;
+				iovs->iov_len -= r;
+				break;
+			} while (nr > 0);
+		}
+
+		rio = ((void *)rio) + RIO_SIZE(rio->nr_iovs);
+	}
+
+	sys_close(args->vma_ios_fd);
 
 #ifdef CONFIG_VDSO
 	/*

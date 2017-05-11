@@ -710,8 +710,34 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 	return 0;
 }
 
+static inline bool vma_force_premap(struct vma_area *vma, struct list_head *head)
+{
+	/*
+	 * Growsdown VMAs always have one guard page at the
+	 * beginning and sometimes this page contains data.
+	 * In case the VMA is premmaped, we premmap one page
+	 * larger VMA. In case of in place restore we can only
+	 * do this if the VMA in question is not "guarded" by
+	 * some other VMA.
+	 */
+	if (vma->e->flags & MAP_GROWSDOWN) {
+		if (vma->list.prev != head) {
+			struct vma_area *prev;
+
+			prev = list_entry(vma->list.prev, struct vma_area, list);
+			if (prev->e->end == vma->e->start) {
+				pr_debug("Force premmap for 0x%"PRIx64":0x%"PRIx64"\n",
+						vma->e->start, vma->e->end);
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
-		void *at, struct page_read *pr)
+		void **at, struct page_read *pr)
 {
 	struct vma_area *vma;
 	unsigned long pstart = 0;
@@ -729,7 +755,14 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
 		if (!vma_area_is_private(vma, kdat.task_size))
 			continue;
 
-		ret = premap_private_vma(t, vma, &at);
+		if (vma->pvma == NULL && pr->pieok && !vma_force_premap(vma, &vmas->h))
+			/*
+			 * VMA in question is not shared with anyone. We'll
+			 * restore it with its contents in restorer.
+			 */
+			continue;
+
+		ret = premap_private_vma(t, vma, at);
 		if (ret < 0)
 			break;
 	}
@@ -742,6 +775,7 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 	struct vma_area *vma;
 	int ret = 0;
 	struct list_head *vmas = &rsti(t)->vmas.h;
+	struct list_head *vma_io = &rsti(t)->vma_io;
 
 	unsigned int nr_restored = 0;
 	unsigned int nr_shared = 0;
@@ -750,6 +784,7 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 	unsigned long va;
 
 	vma = list_first_entry(vmas, struct vma_area, list);
+	rsti(t)->pages_img_id = pr->pages_img_id;
 
 	/*
 	 * Read page contents.
@@ -790,6 +825,28 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 				pr_err("Trying to restore page for non-private VMA\n");
 				goto err_addr;
 			}
+
+			if (!vma_area_is(vma, VMA_PREMMAPED)) {
+				unsigned long len = min_t(unsigned long,
+						(nr_pages - i) * PAGE_SIZE,
+						vma->e->end - va);
+
+				if (pagemap_enqueue_iovec(pr, (void *)va, len, vma_io))
+					return -1;
+
+				pr->skip_pages(pr, len);
+
+				va += len;
+				len >>= PAGE_SHIFT;
+				nr_restored += len;
+				i += len - 1;
+				pr_debug("Enqueue page-read\n");
+				continue;
+			}
+
+			/*
+			 * Otherwise to the COW restore
+			 */
 
 			off = (va - vma->e->start) / PAGE_SIZE;
 			p = decode_pointer((off) * PAGE_SIZE +
@@ -925,7 +982,7 @@ int prepare_mappings(struct pstree_item *t)
 
 	pr.advance(&pr); /* shift to the 1st iovec */
 
-	ret = premap_priv_vmas(t, vmas, addr, &pr);
+	ret = premap_priv_vmas(t, vmas, &addr, &pr);
 	if (ret < 0)
 		goto out;
 
@@ -940,6 +997,23 @@ int prepare_mappings(struct pstree_item *t)
 		if (ret < 0)
 			pr_perror("Unable to unmap %p(%lx)",
 					old_premmapped_addr, old_premmapped_len);
+	}
+
+	/*
+	 * Not all VMAs were premmaped. Find out the unused tail of the
+	 * premapped area and unmap it.
+	 */
+	old_premmapped_len = addr - rsti(t)->premmapped_addr;
+	if (old_premmapped_len < rsti(t)->premmapped_len) {
+		unsigned long tail;
+
+		tail = rsti(t)->premmapped_len - old_premmapped_len;
+		ret = munmap(addr, tail);
+		if (ret < 0)
+			pr_perror("Unable to unmap %p(%lx)", addr, tail);
+		rsti(t)->premmapped_len = old_premmapped_len;
+		pr_info("Shrunk premap area to %p(%lx)\n",
+				rsti(t)->premmapped_addr, rsti(t)->premmapped_len);
 	}
 
 out:
@@ -995,6 +1069,18 @@ int open_vmas(struct pstree_item *t)
 	return 0;
 }
 
+static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
+{
+	struct cr_img *pages;
+
+	pages = open_image(CR_FD_PAGES, O_RSTR, rsti(t)->pages_img_id);
+	if (!pages)
+		return -1;
+
+	ta->vma_ios_fd = img_raw_fd(pages);
+	return pagemap_render_iovec(&rsti(t)->vma_io, ta);
+}
+
 int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 {
 	struct vma_area *vma;
@@ -1020,6 +1106,6 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 			vma_premmaped_start(vme) = vma->premmaped_addr;
 	}
 
-	return 0;
+	return prepare_vma_ios(t, ta);
 }
 

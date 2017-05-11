@@ -209,6 +209,7 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 
 		memset(item, 0, sz);
 		vm_area_list_init(&rsti(item)->vmas);
+		INIT_LIST_HEAD(&rsti(item)->vma_io);
 		item->pid = (void *)item + sizeof(*item) + sizeof(struct rst_info);
 	}
 

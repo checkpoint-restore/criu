@@ -101,6 +101,14 @@ struct thread_restore_args {
 
 typedef long (*thread_restore_fcall_t) (struct thread_restore_args *args);
 
+struct restore_vma_io {
+	int nr_iovs;
+	loff_t off;
+	struct iovec iovs[0];
+};
+
+#define RIO_SIZE(niovs)	(sizeof(struct restore_vma_io) + (niovs) * sizeof(struct iovec))
+
 struct task_restore_args {
 	struct thread_restore_args	*t;			/* thread group leader */
 
@@ -120,6 +128,10 @@ struct task_restore_args {
 	/* Below arrays get remapped from RM_PRIVATE in sigreturn_restore */
 	VmaEntry			*vmas;
 	unsigned int			vmas_n;
+
+	int				vma_ios_fd;
+	struct restore_vma_io		*vma_ios;
+	unsigned int			vma_ios_n;
 
 	struct restore_posix_timer	*posix_timers;
 	unsigned int			posix_timers_n;

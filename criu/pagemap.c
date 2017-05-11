@@ -10,7 +10,8 @@
 #include "cr_options.h"
 #include "servicefd.h"
 #include "pagemap.h"
-
+#include "restorer.h"
+#include "rst-malloc.h"
 #include "fault-injection.h"
 #include "xmalloc.h"
 #include "protobuf.h"
@@ -305,6 +306,32 @@ static int enqueue_async_iov(struct page_read *pr, void *buf,
 	pr_iov->nr = 1;
 
 	list_add_tail(&pr_iov->l, to);
+
+	return 0;
+}
+
+int pagemap_render_iovec(struct list_head *from, struct task_restore_args *ta)
+{
+	struct page_read_iov *piov;
+
+	ta->vma_ios = (struct restore_vma_io *)rst_mem_align_cpos(RM_PRIVATE);
+	ta->vma_ios_n = 0;
+
+	list_for_each_entry(piov, from, l) {
+		struct restore_vma_io *rio;
+
+		pr_info("`- render %d iovs (%p:%zd...)\n", piov->nr,
+				piov->to[0].iov_base, piov->to[0].iov_len);
+		rio = rst_mem_alloc(RIO_SIZE(piov->nr), RM_PRIVATE);
+		if (!rio)
+			return -1;
+
+		rio->nr_iovs = piov->nr;
+		rio->off = piov->from;
+		memcpy(rio->iovs, piov->to, piov->nr * sizeof(struct iovec));
+
+		ta->vma_ios_n++;
+	}
 
 	return 0;
 }
@@ -641,6 +668,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	pr->bunch.iov_len = 0;
 	pr->bunch.iov_base = NULL;
 	pr->pmes = NULL;
+	pr->pieok = false;
 
 	pr->pmi = open_image_at(dfd, i_typ, O_RSTR, (long)pid);
 	if (!pr->pmi)
@@ -673,6 +701,8 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	pr->sync = process_async_reads;
 	pr->seek_pagemap = seek_pagemap;
 	pr->id = ids++;
+	if (!pr->parent)
+		pr->pieok = true;
 
 	pr_debug("Opened page read %u (parent %u)\n",
 			pr->id, pr->parent ? pr->parent->id : 0);
