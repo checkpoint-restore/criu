@@ -627,6 +627,17 @@ static int read_pstree_ids(pid_t pid, TaskKobjIdsEntry **ids)
 	ADD_OR_COPY_ID(ids, uts);
 	ADD_OR_COPY_ID(ids, cgroup);
 
+	if (!ret && (!(*ids)->has_pid_ns_id || !(*ids)->has_net_ns_id ||
+		     !(*ids)->ipc_ns_id || !(*ids)->uts_ns_id || !(*ids)->mnt_ns_id)) {
+			/*
+			 * At least root_item must have the fields,
+			 * implemented before the img format became
+			 * stable (commit 2105e18eee70).
+			 */
+			pr_err("No task ids or always dumped ns ids\n");
+			ret = -1;
+	}
+
 	if (!ret && (*ids)->has_pid_ns_id) {
 		if (!top_pid_ns) {
 			/*
@@ -737,15 +748,6 @@ static int read_pstree_image(pid_t *pid_max)
 				break;
 			}
 			ids = parent->ids;
-		}
-
-		if (!ids->has_pid_ns_id) {
-			/*
-			 * At least root_item must have ids, and pid_ns_id field
-			 * was populated since ids are introduced.
-			 */
-			pr_err("No pid_ns id\n");
-			break;
 		}
 
 		pi = lookup_create_item((pid_t *)e->ns_pid, e->n_ns_pid, ids->pid_ns_id);
