@@ -550,6 +550,11 @@ static inline bool check_cow_vmas(struct vma_area *vma, struct vma_area *pvma)
 	return true;
 }
 
+static inline bool vma_inherited(struct vma_area *vma)
+{
+	return (vma->pvma != NULL && vma->pvma != VMA_COW_ROOT);
+}
+
 static void prepare_cow_vmas_for(struct vm_area_list *vmas, struct vm_area_list *pvmas)
 {
 	struct vma_area *vma, *pvma;
@@ -558,8 +563,11 @@ static void prepare_cow_vmas_for(struct vm_area_list *vmas, struct vm_area_list 
 	pvma = list_first_entry(&pvmas->h, struct vma_area, list);
 
 	while (1) {
-		if ((vma->e->start == pvma->e->start) && check_cow_vmas(vma, pvma))
+		if ((vma->e->start == pvma->e->start) && check_cow_vmas(vma, pvma)) {
 			vma->pvma = pvma;
+			if (pvma->pvma == NULL)
+				pvma->pvma = VMA_COW_ROOT;
+		}
 
 		/* <= here to shift from matching VMAs and ... */
 		while (vma->e->start <= pvma->e->start) {
@@ -630,7 +638,7 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		vma->e->start -= PAGE_SIZE;
 
 	size = vma_entry_len(vma->e);
-	if (vma->pvma == NULL) {
+	if (!vma_inherited(vma)) {
 		int flag = 0;
 		/*
 		 * The respective memory area was NOT found in the parent.
@@ -788,7 +796,7 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 					vma->premmaped_addr);
 
 			set_bit(off, vma->page_bitmap);
-			if (vma->pvma) { /* inherited vma */
+			if (vma_inherited(vma)) {
 				clear_bit(off, vma->pvma->page_bitmap);
 
 				ret = pr->read_pages(pr, va, 1, buf, 0);
@@ -846,7 +854,7 @@ err_read:
 		unsigned long size, i = 0;
 		void *addr = decode_pointer(vma->premmaped_addr);
 
-		if (vma->pvma == NULL)
+		if (!vma_inherited(vma))
 			continue;
 
 		size = vma_entry_len(vma->e) / PAGE_SIZE;
