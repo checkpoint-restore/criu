@@ -1207,54 +1207,26 @@ err:
 
 static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 {
-	struct pstree_item *pi;
-	pid_t pid = siginfo->si_pid;
-	int status;
-	int exit;
+	int status, pid, exit;
 
-	exit = (siginfo->si_code == CLD_EXITED);
-	status = siginfo->si_status;
-
-	/* skip scripts */
-	if (!current && root_item->pid->real != pid) {
-		pid = waitpid(root_item->pid->real, &status, WNOHANG);
-		if (pid <= 0)
-			return;
-		exit = WIFEXITED(status);
-		status = exit ? WEXITSTATUS(status) : WTERMSIG(status);
-	}
-
-	if (!current && siginfo->si_code == CLD_TRAPPED &&
-				siginfo->si_status == SIGCHLD) {
-		/* The root task is ptraced. Allow it to handle SIGCHLD */
-		ptrace(PTRACE_CONT, siginfo->si_pid, 0, SIGCHLD);
-		return;
-	}
-
-	if (!current || status)
-		goto err;
-
-	while (pid) {
+	while (1) {
 		pid = waitpid(-1, &status, WNOHANG);
 		if (pid <= 0)
 			return;
 
+		if (!current && WIFSTOPPED(status) &&
+					WSTOPSIG(status) == SIGCHLD) {
+			/* The root task is ptraced. Allow it to handle SIGCHLD */
+			ptrace(PTRACE_CONT, siginfo->si_pid, 0, SIGCHLD);
+			return;
+		}
+
 		exit = WIFEXITED(status);
 		status = exit ? WEXITSTATUS(status) : WTERMSIG(status);
-		if (status)
-			break;
 
-		/* Exited (with zero code) helpers are OK */
-		list_for_each_entry(pi, &current->children, sibling)
-			if (vpid(pi) == siginfo->si_pid)
-				break;
-
-		BUG_ON(&pi->sibling == &current->children);
-		if (pi->pid->state != TASK_HELPER)
-			break;
+		break;
 	}
 
-err:
 	if (exit)
 		pr_err("%d exited, status=%d\n", pid, status);
 	else
