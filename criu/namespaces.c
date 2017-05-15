@@ -55,8 +55,6 @@ static struct ns_desc *ns_desc_array[] = {
 };
 
 static unsigned int join_ns_flags;
-/* Creation of every helper are synchronized by userns_sync_lock */
-static int nr_pid_ns_helper_created = 0;
 
 int check_namespace_opts(void)
 {
@@ -1527,21 +1525,29 @@ static void unsc_msg_pid_fd(struct unsc_msg *um, pid_t *pid, int *fd)
 static void usernsd_handler(int signal, siginfo_t *siginfo, void *data)
 {
 	pid_t pid = siginfo->si_pid;
+	struct ns_id *ns;
+	struct pid *tpid;
 	int status;
-	int exit;
 
 	while (pid) {
 		pid = waitpid(-1, &status, WNOHANG);
 		if (pid <= 0)
 			return;
+		for (ns = ns_ids; ns; ns = ns->next) {
+			if (ns->nd != &pid_ns_desc)
+				continue;
+			tpid = __pstree_pid_by_virt(ns, ns->ns_pid);
+			if (tpid->real == pid) {
+				tpid->real = -1;
+				break;
+			}
+		}
 
-		exit = WIFEXITED(status);
-		status = exit ? WEXITSTATUS(status) : WTERMSIG(status);
-		if (status) {
-			futex_abort_and_wake(&task_entries->nr_in_progress);
-			pr_err("%d finished abnormal\n", pid);
-		} else
-			pr_info("%d exited normally\n", pid);
+		if (!ns)
+			pr_err("Spurious pid ns helper: pid=%d\n", pid);
+
+		pr_err("%d finished unexpected: status=%d\n", pid, status);
+		futex_abort_and_wake(&task_entries->nr_in_progress);
 	}
 }
 
@@ -2603,11 +2609,9 @@ static int pid_ns_helper(struct ns_id *ns, int sk)
 			break;
 		}
 
-		if (pid != 0) {
-			if (__set_next_pid(pid) < 0) {
-				pr_err("Can't set next pid\n");
-				answer = -1;
-			}
+		if (__set_next_pid(pid) < 0) {
+			pr_err("Can't set next pid\n");
+			answer = -1;
 		}
 
 		iov.iov_base = &answer;
@@ -2616,9 +2620,6 @@ static int pid_ns_helper(struct ns_id *ns, int sk)
 			pr_perror("Can't send answer");
 			break;
 		}
-
-		if (pid == 0)
-			return 0;
 	}
 
 	return -1;
@@ -2710,7 +2711,7 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 	futex_set_and_wake(&ns->pid.helper_created, 1);
 	flock(lock_fd, LOCK_UN);
 	close(lock_fd);
-	nr_pid_ns_helper_created++;
+	pid->real = child;
 
 	if (setns(pid_ns_fd, CLONE_NEWPID) < 0) {
 		pr_perror("Restore ns");
@@ -2761,42 +2762,43 @@ int create_pid_ns_helper(struct ns_id *ns)
 	return 0;
 }
 
-static int do_destroy_pid_ns_helper(void *arg, int fd, pid_t pid)
+static int do_destroy_pid_ns_helper(void *arg, int fd, pid_t unused)
 {
-	int i, sk, status, sig_blocked = true, nr_ok = 0, ret = 0;
+	int status, sig_blocked = true, ret = 0;
 	sigset_t sig_mask;
 	struct ns_id *ns;
-
-	if (!nr_pid_ns_helper_created)
-		return 0;
+	struct pid *pid;
 
 	if (block_sigmask(&sig_mask, SIGCHLD)) {
 		sig_blocked = false;
 		ret = -1;
 	}
 
-	sk = get_service_fd(TRANSPORT_FD_OFF);
-	BUG_ON(sk < 0);
-
 	for (ns = ns_ids; ns; ns = ns->next) {
 		if (ns->nd != &pid_ns_desc)
 			continue;
-		if (request_set_next_pid(ns->id, 0, sk) == 0)
-			nr_ok++;
-	}
+		pid = __pstree_pid_by_virt(ns, ns->ns_pid);
+		if (!pid) {
+			pr_err("Can't find pid_ns helper\n");
+			ret = -1;
+			continue;
+		}
+		if (pid->real <= 0)
+			continue;
 
-	if (nr_ok != nr_pid_ns_helper_created) {
-		pr_err("Not all pid_ns helpers killed\n");
-		ret = -1;
-	}
+		if (kill(pid->real, SIGKILL) < 0) {
+			pr_perror("Can't kill\n");
+			ret = -1;
+			continue;
+		}
 
-	for (i = 0; i < nr_ok; i++) {
-		if (waitpid(-1, &status, 0) < 0) {
+		if (waitpid(pid->real, &status, 0) != pid->real) {
 			pr_perror("Error during waiting pid_ns helper");
 			ret = -1;
+			continue;
 		}
+		pid->real = -1;
 	}
-	nr_pid_ns_helper_created = 0;
 
 	if (sig_blocked && restore_sigmask(&sig_mask))
 		ret = -1;
