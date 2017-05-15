@@ -600,7 +600,8 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 		flags |= MAP_ANONYMOUS;
 
 	/* A mapping of file with MAP_SHARED is up to date */
-	if (vma_entry->fd == -1 || !(vma_entry->flags & MAP_SHARED))
+	if ((vma_entry->fd == -1 || !(vma_entry->flags & MAP_SHARED)) &&
+			!(vma_entry->status & VMA_NO_PROT_WRITE))
 		prot |= PROT_WRITE;
 
 	pr_debug("\tmmap(%"PRIx64" -> %"PRIx64", %x %x %d)\n",
@@ -1261,7 +1262,8 @@ long __export_restore_task(struct task_restore_args *args)
 		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR)))
 			continue;
 
-		if (vma_entry->prot & PROT_WRITE)
+		if ((vma_entry->prot & PROT_WRITE) ||
+				(vma_entry->status & VMA_NO_PROT_WRITE))
 			continue;
 
 		sys_mprotect(decode_pointer(vma_entry->start),

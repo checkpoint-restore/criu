@@ -659,6 +659,13 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 			}
 		}
 
+		/*
+		 * All mappings here get PROT_WRITE regardless of whether we
+		 * put any data into it or not, because this area will get
+		 * mremap()-ed (branch below) so we MIGHT need to have WRITE 
+		 * bits there. Ideally we'd check for the whole COW-chain
+		 * having any data in.
+		 */
 		addr = mmap(*tgt_addr, size,
 				vma->e->prot | PROT_WRITE,
 				vma->e->flags | MAP_FIXED | flag,
@@ -755,14 +762,26 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
 		if (!vma_area_is_private(vma, kdat.task_size))
 			continue;
 
-		if (vma->pvma == NULL && pr->pieok && !vma_force_premap(vma, &vmas->h))
+		if (vma->pvma == NULL && pr->pieok && !vma_force_premap(vma, &vmas->h)) {
 			/*
 			 * VMA in question is not shared with anyone. We'll
 			 * restore it with its contents in restorer.
+			 * Now let's check whether we need to map it with
+			 * PROT_WRITE or not.
 			 */
+			do {
+				if (pr->pe->vaddr + pr->pe->nr_pages * PAGE_SIZE <= vma->e->start)
+					continue;
+				if (pr->pe->vaddr > vma->e->end)
+					vma->e->status |= VMA_NO_PROT_WRITE;
+				break;
+			} while (pr->advance(pr));
+
 			continue;
+		}
 
 		ret = premap_private_vma(t, vma, at);
+
 		if (ret < 0)
 			break;
 	}
@@ -830,6 +849,12 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 				unsigned long len = min_t(unsigned long,
 						(nr_pages - i) * PAGE_SIZE,
 						vma->e->end - va);
+
+				if (vma->e->status & VMA_NO_PROT_WRITE) {
+					pr_debug("VMA 0x%"PRIx64":0x%"PRIx64" RO %#lx:%lu IO\n",
+							vma->e->start, vma->e->end, va, nr_pages);
+					BUG();
+				}
 
 				if (pagemap_enqueue_iovec(pr, (void *)va, len, vma_io))
 					return -1;
