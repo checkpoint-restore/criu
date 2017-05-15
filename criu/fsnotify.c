@@ -30,6 +30,7 @@
 #include "filesystems.h"
 #include "image.h"
 #include "util.h"
+#include "crtools.h"
 #include "files.h"
 #include "files-reg.h"
 #include "file-ids.h"
@@ -909,6 +910,9 @@ static int collect_one_inotify_mark(void *o, ProtobufCMessage *msg, struct cr_im
 {
 	struct fsnotify_mark_info *mark = o;
 
+	if (!deprecated_ok("separate images for fsnotify marks"))
+		return -1;
+
 	mark->iwe = pb_msg(msg, InotifyWdEntry);
 	INIT_LIST_HEAD(&mark->list);
 	mark->remap = NULL;
@@ -936,6 +940,9 @@ struct collect_image_info inotify_mark_cinfo = {
 static int collect_one_fanotify_mark(void *o, ProtobufCMessage *msg, struct cr_img *i)
 {
 	struct fsnotify_mark_info *mark = o;
+
+	if (!deprecated_ok("separate images for fsnotify marks"))
+		return -1;
 
 	mark->fme = pb_msg(msg, FanotifyMarkEntry);
 	INIT_LIST_HEAD(&mark->list);
