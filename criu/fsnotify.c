@@ -773,18 +773,6 @@ static int __collect_inotify_mark(struct fsnotify_file_info *p, struct fsnotify_
 	return 0;
 }
 
-static int collect_inotify_mark(struct fsnotify_mark_info *mark)
-{
-	struct file_desc *d;
-
-	d = find_file_desc_raw(FD_TYPES__INOTIFY, mark->iwe->id);
-	if (d)
-		return __collect_inotify_mark(container_of(d, struct fsnotify_file_info, d), mark);
-
-	pr_err("Can't find inotify with id %#08x\n", mark->iwe->id);
-	return -1;
-}
-
 static int __collect_fanotify_mark(struct fsnotify_file_info *p,
 				struct fsnotify_mark_info *mark)
 {
@@ -793,18 +781,6 @@ static int __collect_fanotify_mark(struct fsnotify_file_info *p,
 		mark->remap = lookup_ghost_remap(mark->fme->s_dev,
 						 mark->fme->ie->i_ino);
 	return 0;
-}
-
-static int collect_fanotify_mark(struct fsnotify_mark_info *mark)
-{
-	struct file_desc *d;
-
-	d = find_file_desc_raw(FD_TYPES__FANOTIFY, mark->fme->id);
-	if (d)
-		return __collect_fanotify_mark(container_of(d, struct fsnotify_file_info, d), mark);
-
-	pr_err("Can't find fanotify with id %#08x\n", mark->fme->id);
-	return -1;
 }
 
 static int collect_one_inotify(void *o, ProtobufCMessage *msg, struct cr_img *img)
@@ -878,6 +854,7 @@ struct collect_image_info fanotify_cinfo = {
 static int collect_one_inotify_mark(void *o, ProtobufCMessage *msg, struct cr_img *i)
 {
 	struct fsnotify_mark_info *mark = o;
+	struct file_desc *d;
 
 	if (!deprecated_ok("separate images for fsnotify marks"))
 		return -1;
@@ -896,7 +873,13 @@ static int collect_one_inotify_mark(void *o, ProtobufCMessage *msg, struct cr_im
 	 */
 	mark->iwe->mask &= ~KERNEL_FS_EVENT_ON_CHILD;
 
-	return collect_inotify_mark(mark);
+	d = find_file_desc_raw(FD_TYPES__INOTIFY, mark->iwe->id);
+	if (!d) {
+		pr_err("Can't find inotify with id %#08x\n", mark->iwe->id);
+		return -1;
+	}
+
+	return __collect_inotify_mark(container_of(d, struct fsnotify_file_info, d), mark);
 }
 
 struct collect_image_info inotify_mark_cinfo = {
@@ -909,6 +892,7 @@ struct collect_image_info inotify_mark_cinfo = {
 static int collect_one_fanotify_mark(void *o, ProtobufCMessage *msg, struct cr_img *i)
 {
 	struct fsnotify_mark_info *mark = o;
+	struct file_desc *d;
 
 	if (!deprecated_ok("separate images for fsnotify marks"))
 		return -1;
@@ -917,7 +901,13 @@ static int collect_one_fanotify_mark(void *o, ProtobufCMessage *msg, struct cr_i
 	INIT_LIST_HEAD(&mark->list);
 	mark->remap = NULL;
 
-	return collect_fanotify_mark(mark);
+	d = find_file_desc_raw(FD_TYPES__FANOTIFY, mark->fme->id);
+	if (!d) {
+		pr_err("Can't find fanotify with id %#08x\n", mark->fme->id);
+		return -1;
+	}
+
+	return __collect_fanotify_mark(container_of(d, struct fsnotify_file_info, d), mark);
 }
 
 struct collect_image_info fanotify_mark_cinfo = {
