@@ -828,7 +828,7 @@ static int collect_fanotify_mark(struct fsnotify_mark_info *mark)
 
 	list_for_each_entry(p, &fanotify_info_head, list) {
 		if (p->ffe->id == mark->fme->id)
-			return __collect_inotify_mark(p, mark);
+			return __collect_fanotify_mark(p, mark);
 	}
 
 	pr_err("Can't find fanotify with id %#08x\n", mark->fme->id);
