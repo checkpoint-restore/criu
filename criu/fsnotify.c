@@ -61,7 +61,6 @@ struct fsnotify_mark_info {
 };
 
 struct fsnotify_file_info {
-	struct list_head		list;
 	union {
 		InotifyFileEntry	*ife;
 		FanotifyFileEntry	*ffe;
@@ -76,9 +75,6 @@ typedef struct {
 	u32 type;
 	u64 __handle[16];
 } fh_t;
-
-static LIST_HEAD(inotify_info_head);
-static LIST_HEAD(fanotify_info_head);
 
 /* Checks if file descriptor @lfd is inotify */
 int is_inotify_link(char *link)
@@ -760,31 +756,6 @@ static struct file_desc_ops fanotify_desc_ops = {
 	.open = open_fanotify_fd,
 };
 
-static struct fsnotify_file_info *find_inotify_info(unsigned id)
-{
-	struct fsnotify_file_info *p;
-	static struct fsnotify_file_info *last = NULL;
-
-	if (last && last->ife->id == id) {
-		/*
-		 * An optimization for clean dump image -- criu puts
-		 * wd-s for one inotify in one row, thus sometimes
-		 * we can avoid scanning the inotify_info_head.
-		 */
-		pr_debug("\t\tlast ify for %#08x found\n", id);
-		return last;
-	}
-
-	list_for_each_entry(p, &inotify_info_head, list)
-		if (p->ife->id == id) {
-			last = p;
-			return p;
-		}
-
-	pr_err("Can't find inotify with id %#08x\n", id);
-	return NULL;
-}
-
 static int __collect_inotify_mark(struct fsnotify_file_info *p, struct fsnotify_mark_info *mark)
 {
 	struct fsnotify_mark_info *m;
@@ -804,13 +775,14 @@ static int __collect_inotify_mark(struct fsnotify_file_info *p, struct fsnotify_
 
 static int collect_inotify_mark(struct fsnotify_mark_info *mark)
 {
-	struct fsnotify_file_info *p;
+	struct file_desc *d;
 
-	p = find_inotify_info(mark->iwe->id);
-	if (!p)
-		return -1;
+	d = find_file_desc_raw(FD_TYPES__INOTIFY, mark->iwe->id);
+	if (d)
+		return __collect_inotify_mark(container_of(d, struct fsnotify_file_info, d), mark);
 
-	return __collect_inotify_mark(p, mark);
+	pr_err("Can't find inotify with id %#08x\n", mark->iwe->id);
+	return -1;
 }
 
 static int __collect_fanotify_mark(struct fsnotify_file_info *p,
@@ -825,12 +797,11 @@ static int __collect_fanotify_mark(struct fsnotify_file_info *p,
 
 static int collect_fanotify_mark(struct fsnotify_mark_info *mark)
 {
-	struct fsnotify_file_info *p;
+	struct file_desc *d;
 
-	list_for_each_entry(p, &fanotify_info_head, list) {
-		if (p->ffe->id == mark->fme->id)
-			return __collect_fanotify_mark(p, mark);
-	}
+	d = find_file_desc_raw(FD_TYPES__FANOTIFY, mark->fme->id);
+	if (d)
+		return __collect_fanotify_mark(container_of(d, struct fsnotify_file_info, d), mark);
 
 	pr_err("Can't find fanotify with id %#08x\n", mark->fme->id);
 	return -1;
@@ -843,7 +814,6 @@ static int collect_one_inotify(void *o, ProtobufCMessage *msg, struct cr_img *im
 
 	info->ife = pb_msg(msg, InotifyFileEntry);
 	INIT_LIST_HEAD(&info->marks);
-	list_add(&info->list, &inotify_info_head);
 	pr_info("Collected id %#08x flags %#08x\n", info->ife->id, info->ife->flags);
 
 	for (i = 0; i < info->ife->n_wd; i++) {
@@ -878,7 +848,6 @@ static int collect_one_fanotify(void *o, ProtobufCMessage *msg, struct cr_img *i
 
 	info->ffe = pb_msg(msg, FanotifyFileEntry);
 	INIT_LIST_HEAD(&info->marks);
-	list_add(&info->list, &fanotify_info_head);
 	pr_info("Collected id %#08x flags %#08x\n", info->ffe->id, info->ffe->flags);
 
 	for (i = 0; i < info->ffe->n_mark; i++) {
