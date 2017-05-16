@@ -296,3 +296,13 @@ void test_waitsig(void)
 {
 	futex_wait_while(&sig_received, 0);
 }
+
+pid_t fork()
+{
+	return (pid_t)syscall(__NR_clone, SIGCHLD, 0, NULL, 0, NULL);
+}
+
+int getpid()
+{
+       return syscall(__NR_getpid);
+}
