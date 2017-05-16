@@ -2627,7 +2627,7 @@ static int pid_ns_helper(struct ns_id *ns, int sk)
 
 static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 {
-	int pid_ns_fd, i, transport_fd, saved_errno;
+	int pid_ns_fd, i, transport_fd, saved_errno, ret = -1;
 	struct pstree_item *ns_reaper;
 	struct ns_id *ns, *tmp;
 	struct pid *pid;
@@ -2636,14 +2636,14 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 	ns_reaper = *(struct pstree_item **)arg;
 	ns = lookup_ns_by_id(ns_reaper->ids->pid_ns_id, &pid_ns_desc);
 
-	if (switch_ns(ns_reaper->pid->real, &pid_ns_desc, &pid_ns_fd) < 0)
-		goto err;
-
 	pid = __pstree_pid_by_virt(ns, ns->ns_pid);
 	if (!pid) {
 		pr_err("Can't find helper reserved pid\n");
-		goto err;
+		goto close_sk;
 	}
+
+	if (switch_ns(ns_reaper->pid->real, &pid_ns_desc, &pid_ns_fd) < 0)
+		goto close_sk;
 
 	lock_last_pid();
 
@@ -2656,9 +2656,8 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 	 */
 	for (i = pid->level - 2, tmp = ns->parent; i >= 0; i--, tmp = tmp->parent)
 		if (request_set_next_pid(tmp->id, pid->ns[i].virt, transport_fd)) {
-			pr_err("Can't set next pid using helper\n");
 			unlock_last_pid();
-			goto err;
+			goto restore_ns;
 		}
 	child = fork();
 	if (!child)
@@ -2668,18 +2667,18 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 	if (child < 0) {
 		errno = saved_errno;
 		pr_perror("Can't fork");
-		goto err;
+		goto restore_ns;
 	}
-	close(sk);
 	futex_set_and_wake(&ns->pid.helper_created, 1);
 	pid->real = child;
 
+	ret = 0;
+restore_ns:
 	if (restore_ns(pid_ns_fd, &pid_ns_desc) < 0)
-		return -1;
-	return 0;
-err:
+		ret = -1;
+close_sk:
 	close_safe(&sk);
-	return -1;
+	return ret;
 }
 
 /*
