@@ -1351,12 +1351,12 @@ static int do_fork_with_pid(struct pstree_item *item, struct ns_id *pid_ns, stru
 		if (hlp_pid->ns[i].virt < 0)
 			hlp_pid->ns[i].virt = INIT_PID + 1;
 	}
-	if (set_next_pid(pid_ns->parent, hlp_pid) < 0) {
+	ret = set_next_pid(pid_ns->parent, hlp_pid);
+	xfree(hlp_pid);
+	if (ret) {
 		pr_err("Can't set next pid\n");
-		xfree(hlp_pid);
 		return -1;
 	}
-	xfree(hlp_pid);
 
 	if (ca->clone_flags & CLONE_FILES)
 		close_pid_proc();
