@@ -1305,12 +1305,6 @@ static int call_clone_fn(void *arg)
 		close_pid_proc();
 
 	pid = clone_noasan(restore_task_with_children, ca->clone_flags | CLONE_PARENT | SIGCHLD, ca);
-
-	if (ca->item == root_item) {
-		ca->item->pid->real = pid;
-		pr_debug("PID: real %d virt %d\n", pid, vpid(ca->item));
-	}
-
 	return pid > 0 ? 0 : -1;
 }
 
