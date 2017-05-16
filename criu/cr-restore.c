@@ -1244,7 +1244,6 @@ static int restore_one_task(int pid, CoreEntry *core)
 struct cr_clone_arg {
 	struct pstree_item *item;
 	unsigned long clone_flags;
-	int fd;
 
 	CoreEntry *core;
 };
@@ -1347,24 +1346,22 @@ static inline int fork_with_pid(struct pstree_item *item)
 	if (!(ca.clone_flags & CLONE_NEWPID)) {
 		char buf[32];
 		int len;
+		int fd;
 
-		ca.fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-		if (ca.fd < 0)
+		fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
+		if (fd < 0)
 			goto err;
 
-		if (flock(ca.fd, LOCK_EX)) {
-			close(ca.fd);
-			pr_perror("%d: Can't lock %s", pid, LAST_PID_PATH);
-			goto err;
-		}
+		lock_last_pid();
 
 		len = snprintf(buf, sizeof(buf), "%d", pid - 1);
-		if (write(ca.fd, buf, len) != len) {
+		if (write(fd, buf, len) != len) {
 			pr_perror("%d: Write %s to %s", pid, buf, LAST_PID_PATH);
+			close(fd);
 			goto err_unlock;
 		}
+		close(fd);
 	} else {
-		ca.fd = -1;
 		BUG_ON(pid != INIT_PID);
 	}
 
@@ -1396,12 +1393,8 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 err_unlock:
-	if (ca.fd >= 0) {
-		if (flock(ca.fd, LOCK_UN))
-			pr_perror("%d: Can't unlock %s", pid, LAST_PID_PATH);
-
-		close(ca.fd);
-	}
+	if (!(ca.clone_flags & CLONE_NEWPID))
+		unlock_last_pid();
 err:
 	if (ca.core)
 		core_entry__free_unpacked(ca.core, NULL);
@@ -1664,9 +1657,6 @@ static int restore_task_with_children(void *_arg)
 		pr_debug("PID: real %d virt %d\n",
 				current->pid->real, vpid(current));
 	}
-
-	if ( !(ca->clone_flags & CLONE_FILES))
-		close_safe(&ca->fd);
 
 	pid = getpid();
 	if (vpid(current) != pid) {
