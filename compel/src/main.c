@@ -103,7 +103,7 @@ err:
 	if (opts.fout)
 		fclose(opts.fout);
 	if (!ret)
-		printf("%s generated successfully.\n", opts.output_filename);
+		pr_info("%s generated successfully.\n", opts.output_filename);
 	return ret;
 }
 
