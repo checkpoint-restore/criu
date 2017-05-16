@@ -2627,30 +2627,17 @@ static int pid_ns_helper(struct ns_id *ns, int sk)
 
 static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 {
-	int pid_ns_fd, mnt_ns_fd, fd, i, lock_fd, transport_fd;
+	int pid_ns_fd, mnt_ns_fd, i, lock_fd, transport_fd;
 	struct pstree_item *ns_reaper;
 	struct ns_id *ns, *tmp;
 	struct pid *pid;
 	pid_t child;
 
-	pid_ns_fd = open_proc(PROC_SELF, "ns/pid");
-	if (pid_ns_fd < 0) {
-		pr_perror("Can't open pid ns");
-		goto err;
-	}
 	ns_reaper = *(struct pstree_item **)arg;
 	ns = lookup_ns_by_id(ns_reaper->ids->pid_ns_id, &pid_ns_desc);
 
-	fd = fdstore_get(ns->pid.nsfd_id);
-	if (fd < 0) {
-		pr_err("Can't get pid_ns fd\n");
+	if (switch_ns(ns_reaper->pid->real, &pid_ns_desc, &pid_ns_fd) < 0)
 		goto err;
-	}
-	if (setns(fd, CLONE_NEWPID) < 0) {
-		pr_perror("Can't setns");
-		goto err;
-	}
-	close(fd);
 
 	pid = __pstree_pid_by_virt(ns, ns->ns_pid);
 	if (!pid) {
@@ -2715,10 +2702,8 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 	close(lock_fd);
 	pid->real = child;
 
-	if (setns(pid_ns_fd, CLONE_NEWPID) < 0) {
-		pr_perror("Restore ns");
+	if (restore_ns(pid_ns_fd, &pid_ns_desc) < 0)
 		return -1;
-	}
 	return 0;
 err:
 	close_safe(&sk);
