@@ -1324,8 +1324,8 @@ static int do_fork_with_pid(struct pstree_item *item, struct ns_id *pid_ns, stru
 			close_pid_proc();
 		pid = clone_noasan(restore_task_with_children, ca->clone_flags | SIGCHLD, ca);
 		if (item == root_item) {
+			/* We want to use it before it's set in restore_task_with_children() */
 			item->pid->real = pid;
-			pr_debug("PID: real %d virt %d\n", pid, vpid(item));
 		}
 		return pid > 0 ? 0 : -1;
 	}
@@ -1720,13 +1720,10 @@ static int restore_task_with_children(void *_arg)
 
 	current = ca->item;
 
-	if (current != root_item) {
-		current->pid->real = get_self_real_pid();
-		pr_debug("PID: real %d virt %d\n",
-				current->pid->real, vpid(current));
-		if (current->pid->real < 0)
-			goto err;
-	}
+	current->pid->real = get_self_real_pid();
+	pr_debug("PID: real %d virt %d\n", current->pid->real, vpid(current));
+	if (current->pid->real < 0)
+		goto err;
 
 	if ( !(ca->clone_flags & CLONE_FILES))
 		close_safe(&ca->fd);
