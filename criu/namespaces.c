@@ -2645,12 +2645,6 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 		goto err;
 	}
 
-	tmp = ns->parent;
-	if (tmp) {
-		futex_t *f = &tmp->pid.helper_created;
-		futex_wait_while_eq(f, 0);
-	}
-
 	if (switch_ns(root_item->pid->real, &mnt_ns_desc, &mnt_ns_fd) < 0) {
 		pr_err("Can't set mnt_ns\n");
 		goto err;
@@ -2730,6 +2724,7 @@ int create_pid_ns_helper(struct ns_id *ns)
 	int sk;
 
 	BUG_ON(getpid() != INIT_PID);
+	BUG_ON(ns->parent && !futex_get(&ns->parent->pid.helper_created));
 
 	if (__set_next_pid(ns->ns_pid) < 0) {
 		pr_err("Can't set next fd\n");
