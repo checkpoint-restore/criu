@@ -32,7 +32,7 @@ __NR_setitimer		104		sys_setitimer		(int which, struct itimerval *in, struct iti
 __NR_getitimer		105		sys_getitimer		(int which, struct itimerval *it)
 __NR_wait4		114		sys_wait4		(pid_t pid, int *stat_addr, int options, struct rusage *ru)
 __NR_ipc		117		sys_ipc			(unsigned int call, int first, unsigned long second, unsigned long third, void *ptr, long fifth)
-__NR_clone		120		sys_clone		(unsigned long flags, void *child_stack, void *parent_tid, void *child_tid)
+__NR_clone		120		sys_clone		(unsigned long flags, void *child_stack, void *parent_tid, unsigned long newtls, void *child_tid)
 __NR_mprotect		125		sys_mprotect		(const void *addr, unsigned long len, unsigned long prot)
 __NR_getpgid		132		sys_getpgid		(pid_t pid)
 __NR_personality	136		sys_personality		(unsigned int personality)
