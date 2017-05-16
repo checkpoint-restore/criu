@@ -2762,7 +2762,7 @@ int create_pid_ns_helper(struct ns_id *ns)
 	return 0;
 }
 
-static int do_destroy_pid_ns_helper(void *arg, int fd, pid_t unused)
+static int do_destroy_pid_ns_helpers(void *arg, int fd, pid_t unused)
 {
 	int status, sig_blocked = true, ret = 0;
 	sigset_t sig_mask;
@@ -2811,7 +2811,7 @@ int destroy_pid_ns_helpers(void)
 	if (!(root_ns_mask & CLONE_NEWPID))
 		return 0;
 
-	if (userns_call(do_destroy_pid_ns_helper, 0, NULL, 0, -1) < 0) {
+	if (userns_call(do_destroy_pid_ns_helpers, 0, NULL, 0, -1) < 0) {
 		pr_err("Can't create pid_ns helper\n");
 		return -1;
 	}
