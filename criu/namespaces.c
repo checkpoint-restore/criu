@@ -2627,7 +2627,7 @@ static int pid_ns_helper(struct ns_id *ns, int sk)
 
 static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 {
-	int pid_ns_fd, mnt_ns_fd, i, lock_fd, transport_fd;
+	int pid_ns_fd, mnt_ns_fd, i, lock_fd, transport_fd, saved_errno;
 	struct pstree_item *ns_reaper;
 	struct ns_id *ns, *tmp;
 	struct pid *pid;
@@ -2681,19 +2681,20 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 			goto err;
 		}
 	child = fork();
-	if (child < 0) {
-		flock(lock_fd, LOCK_UN);
-		close(lock_fd);
-		pr_perror("Can't fork");
-		return -1;
-	} else if (!child) {
+	if (!child) {
 		close(lock_fd);
 		exit(pid_ns_helper(ns, sk));
 	}
-	close(sk);
-	futex_set_and_wake(&ns->pid.helper_created, 1);
+	saved_errno = errno;
 	flock(lock_fd, LOCK_UN);
 	close(lock_fd);
+	if (child < 0) {
+		errno = saved_errno;
+		pr_perror("Can't fork");
+		goto err;
+	}
+	close(sk);
+	futex_set_and_wake(&ns->pid.helper_created, 1);
 	pid->real = child;
 
 	if (restore_ns(pid_ns_fd, &pid_ns_desc) < 0)
