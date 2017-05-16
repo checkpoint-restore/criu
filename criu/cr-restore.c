@@ -1316,7 +1316,7 @@ static int call_clone_fn(void *arg)
 
 static int do_fork_with_pid(struct pstree_item *item, struct ns_id *pid_ns, struct cr_clone_arg *ca)
 {
-	int status, i, sz, ret = 0;
+	int status, i, ret = 0;
 	struct pid *hlp_pid;
 	sigset_t sig_mask;
 	pid_t pid;
@@ -1336,12 +1336,10 @@ static int do_fork_with_pid(struct pstree_item *item, struct ns_id *pid_ns, stru
 		return pid > 0 ? 0 : -1;
 	}
 
-	sz = sizeof(struct pid) + (item->pid->level - 2) * sizeof(((struct pid *)NULL)->ns[0]);
-	hlp_pid = xmalloc(sz);
+	hlp_pid = xmalloc(PID_SIZE(item->pid->level-1));
 	if (!hlp_pid)
 		return -1;
-	memcpy(hlp_pid, item->pid, sz);
-	hlp_pid->level--;
+	hlp_pid->level = item->pid->level - 1;
 
 	for (i = 0; i < hlp_pid->level; i++) {
 		/*
@@ -1349,7 +1347,7 @@ static int do_fork_with_pid(struct pstree_item *item, struct ns_id *pid_ns, stru
 		 * This should guarantee the helper will not
 		 * occupy child's pids.
 		 */
-		hlp_pid->ns[i].virt++;
+		hlp_pid->ns[i].virt = item->pid->ns[i].virt + 1;
 		if (hlp_pid->ns[i].virt < 0)
 			hlp_pid->ns[i].virt = INIT_PID + 1;
 	}
