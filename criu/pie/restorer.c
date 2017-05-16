@@ -1533,20 +1533,18 @@ long __export_restore_task(struct task_restore_args *args)
 				   CLONE_THREAD | CLONE_SYSVSEM | CLONE_FS;
 		long last_pid_len;
 		long parent_tid;
-		int i, fd;
+		int i, fd = -1;
 
-		fd = sys_openat(args->proc_fd, LAST_PID_PATH, O_RDWR, 0);
-		if (fd < 0) {
-			pr_err("can't open last pid fd %d\n", fd);
-			goto core_restore_end;
+		if (thread_args[0].pid[1] == 0) {
+			/* One level pid ns hierarhy */
+			fd = sys_openat(args->proc_fd, LAST_PID_PATH, O_RDWR, 0);
+			if (fd < 0) {
+				pr_err("can't open last pid fd %d\n", fd);
+				goto core_restore_end;
+			}
 		}
 
-		ret = sys_flock(fd, LOCK_EX);
-		if (ret) {
-			pr_err("Can't lock last_pid %d\n", fd);
-			sys_close(fd);
-			goto core_restore_end;
-		}
+		mutex_lock(&task_entries_local->last_pid_mutex);
 
 		for (i = 0; i < args->nr_threads; i++) {
 			char last_pid_buf[16], *s;
@@ -1554,13 +1552,14 @@ long __export_restore_task(struct task_restore_args *args)
 			if (thread_args[i].pid[0] == args->t->pid[0])
 				continue;
 
-			if (thread_args[i].pid[1] == 0) {
+			if (fd >= 0) {
 				/* One level pid ns hierarhy */
 				last_pid_len = std_vprint_num(last_pid_buf, sizeof(last_pid_buf), thread_args[i].pid[0] - 1, &s);
 				sys_lseek(fd, 0, SEEK_SET);
 				ret = sys_write(fd, s, last_pid_len);
 				if (ret < 0) {
 					pr_err("Can't set last_pid %ld/%s\n", ret, last_pid_buf);
+					mutex_unlock(&task_entries_local->last_pid_mutex);
 					sys_close(fd);
 					goto core_restore_end;
 				}
@@ -1570,7 +1569,7 @@ long __export_restore_task(struct task_restore_args *args)
 						break;
 					if (request_set_next_pid(args->pid_ns_id[k], thread_args[i].pid[k], args->transport_fd) < 0) {
 						pr_err("Can't request to set pid\n");
-						sys_close(fd);
+						mutex_unlock(&task_entries_local->last_pid_mutex);
 						goto core_restore_end;
 					}
 				}
@@ -1587,14 +1586,9 @@ long __export_restore_task(struct task_restore_args *args)
 			RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid, thread_args, args->clone_restore_fn);
 		}
 
-		ret = sys_flock(fd, LOCK_UN);
-		if (ret) {
-			pr_err("Can't unlock last_pid %ld\n", ret);
+		mutex_unlock(&task_entries_local->last_pid_mutex);
+		if (fd >= 0)
 			sys_close(fd);
-			goto core_restore_end;
-		}
-
-		sys_close(fd);
 	}
 
 	restore_rlims(args);

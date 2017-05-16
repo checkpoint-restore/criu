@@ -616,27 +616,11 @@ void *accept_local_image_connections(void *port)
 			prepare_fwd_rimg();
 		}
 
-		/* We need to flock the last pid file to avoid stealing pids
-		 * from restore.
-		 */
-		int fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-		if (fd < 0)
-			goto err;
-
-		if (flock(fd, LOCK_EX)) {
-			pr_perror("Can't lock %s", LAST_PID_PATH);
-			goto err;
-		}
-
 		if (pthread_create(
 		    &tid, NULL, process_local_image_connection, (void *) wt)) {
 			pr_perror("Unable to create worker thread");
 			goto err;
 		}
-
-		if (flock(fd, LOCK_UN))
-			pr_perror("Can't unlock %s", LAST_PID_PATH);
-		close(fd);
 
 		wt->tid = tid;
 		add_worker(wt);

@@ -1231,7 +1231,6 @@ static int restore_one_task(int pid, CoreEntry *core)
 struct cr_clone_arg {
 	struct pstree_item *item;
 	unsigned long clone_flags;
-	int fd;
 
 	CoreEntry *core;
 };
@@ -1432,19 +1431,12 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ca.clone_flags);
 
-	ca.fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-	if (ca.fd < 0)
-		goto err;
-
 	wait_pid_ns_helper_prepared(pid_ns, item->pid);
 
 	if (set_pid_ns_for_children(pid_ns, item->pid) < 0)
-		goto err_close;
+		goto err;
 
-	if (flock(ca.fd, LOCK_EX)) {
-		pr_perror("%d: Can't lock %s", pid, LAST_PID_PATH);
-		goto err_close;
-	}
+	lock_last_pid();
 
 	ret = do_fork_with_pid(item, pid_ns, &ca);
 	if (ret < 0) {
@@ -1453,10 +1445,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 err_unlock:
-	if (flock(ca.fd, LOCK_UN))
-		pr_perror("%d: Can't unlock %s", pid, LAST_PID_PATH);
-err_close:
-	close(ca.fd);
+	unlock_last_pid();
 err:
 	if (ca.core)
 		core_entry__free_unpacked(ca.core, NULL);
@@ -1724,9 +1713,6 @@ static int restore_task_with_children(void *_arg)
 	pr_debug("PID: real %d virt %d\n", current->pid->real, vpid(current));
 	if (current->pid->real < 0)
 		goto err;
-
-	if ( !(ca->clone_flags & CLONE_FILES))
-		close_safe(&ca->fd);
 
 	ret = clone_service_fd(rsti(current)->service_fd_id);
 	if (ret)
