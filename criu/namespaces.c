@@ -2581,6 +2581,7 @@ static int pid_ns_helper_sock(struct ns_id *ns)
 
 	if (bind(sk, (struct sockaddr *)&addr, len) < 0) {
 		pr_perror("Can't bind pid_ns sock");
+		close(sk);
 		return -1;
 	}
 
