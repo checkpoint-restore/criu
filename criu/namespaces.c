@@ -2628,6 +2628,7 @@ static int pid_ns_helper(struct ns_id *ns, int sk)
 static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 {
 	int pid_ns_fd, mnt_ns_fd, fd, i, lock_fd, transport_fd;
+	struct pstree_item *ns_reaper;
 	struct ns_id *ns, *tmp;
 	struct pid *pid;
 	pid_t child;
@@ -2637,7 +2638,8 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 		pr_perror("Can't open pid ns");
 		goto err;
 	}
-	ns = *(struct ns_id **)arg;
+	ns_reaper = *(struct pstree_item **)arg;
+	ns = lookup_ns_by_id(ns_reaper->ids->pid_ns_id, &pid_ns_desc);
 
 	fd = fdstore_get(ns->pid.nsfd_id);
 	if (fd < 0) {
@@ -2753,7 +2755,7 @@ int create_pid_ns_helper(struct ns_id *ns)
 	if (sk < 0)
 		return -1;
 
-	if (userns_call(do_create_pid_ns_helper, 0, &ns, sizeof(ns), sk) < 0) {
+	if (userns_call(do_create_pid_ns_helper, 0, &current, sizeof(current), sk) < 0) {
 		pr_err("Can't create pid_ns helper\n");
 		close(sk);
 		return -1;
