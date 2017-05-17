@@ -97,10 +97,14 @@ int main(int argc, char **argv)
 			return -1;
 		}
 		if (pid[i] == 0) {
-			if (userns && unshare(CLONE_NEWUSER))
+			if (userns && unshare(CLONE_NEWUSER)) {
+				task_waiter_complete(&lock, i);
 				return 1;
-			if (unshare(CLONE_NEWNET))
+			}
+			if (unshare(CLONE_NEWNET)) {
+				task_waiter_complete(&lock, i);
 				return 1;
+			}
 
 			task_waiter_complete(&lock, i);
 			test_waitsig();
