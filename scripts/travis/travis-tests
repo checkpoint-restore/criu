@@ -4,7 +4,7 @@ set -x -e
 TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c0-dev libaio-dev
 		libprotobuf-dev protobuf-compiler python-ipaddr libcap-dev
 		libnl-3-dev gcc-multilib libc6-dev-i386 gdb bash python-protobuf
-		libnet-dev util-linux asciidoc"
+		libnet-dev util-linux asciidoc xmlto"
 
 travis_prep () {
 	[ -n "$SKIP_TRAVIS_PREP" ] && return
@@ -31,7 +31,7 @@ travis_prep () {
 	fi
 
 	apt-get update -qq
-	apt-get install -qq $TRAVIS_PKGS
+	apt-get install -qq --no-install-recommends $TRAVIS_PKGS
 	chmod a+x $HOME
 }
 
