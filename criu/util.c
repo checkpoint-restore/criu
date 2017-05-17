@@ -47,6 +47,7 @@
 #include "namespaces.h"
 #include "criu-log.h"
 
+#include "clone-noasan.h"
 #include "cr_options.h"
 #include "servicefd.h"
 #include "cr-service.h"
@@ -1423,50 +1424,30 @@ int open_fd_of_real_pid(pid_t pid, int fd, int flags)
 
 int call_in_child_process(int (*fn)(void *), void *arg)
 {
-	sigset_t blockmask, oldmask;
-	int size, status, ret = -1;
-	char *stack;
+	int status, ret = -1;
 	pid_t pid;
-
-	size = 2 * 1024 * 1024; /* 2Mb */
-	stack = mmap(NULL, size, PROT_WRITE | PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-	if (stack == MAP_FAILED) {
-		pr_perror("Can't allocate stack");
-		return -1;
-	}
-
-	sigemptyset(&blockmask);
-	sigaddset(&blockmask, SIGCHLD);
-
-	if (sigprocmask(SIG_BLOCK, &blockmask, &oldmask) == -1) {
-		pr_perror("Can not set mask of blocked signals");
-		goto out_munmap;
-	}
-
-	pid = clone(fn, stack + size, CLONE_VM | CLONE_FILES | SIGCHLD, arg);
+	/*
+	 * Parent freezes till child exit, so child may use the same stack.
+	 * No SIGCHLD flag, so it's not need to block signal.
+	 */
+	pid = clone_noasan(fn, CLONE_VFORK | CLONE_VM | CLONE_FILES |
+			   CLONE_IO | CLONE_SIGHAND | CLONE_SYSVSEM, arg);
 	if (pid == -1) {
 		pr_perror("Can't clone");
-		goto out_unblock;
+		return -1;
 	}
 	errno = 0;
-	if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
+	if (waitpid(pid, &status, __WALL) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
 		pr_err("Can't wait or bad status: errno=%d, status=%d", errno, status);
-		goto out_close;
+		goto out;
 	}
 	ret = 0;
-out_close:
 	/*
 	 * Child opened PROC_SELF for pid. If we create one more child
 	 * with the same pid later, it will try to reuse this /proc/self.
 	 */
+out:
 	close_pid_proc();
-out_unblock:
-	if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
-		pr_perror("Can not unset mask of blocked signals");
-		ret = -1;
-	}
-out_munmap:
-	munmap(stack, size);
 	return ret;
 }
 
