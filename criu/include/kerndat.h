@@ -68,6 +68,7 @@ struct kerndat_s {
 	bool has_link_nsid;
 	bool has_nspid;
 	bool has_ns_get_userns;
+	bool has_ns_get_parent;
 };
 
 extern struct kerndat_s kdat;
@@ -92,5 +93,6 @@ extern int kerndat_tcp_repair();
 extern int kerndat_uffd(void);
 extern int kerndat_has_nspid(void);
 extern int kerndat_has_ns_get_userns(void);
+extern int kerndat_has_ns_get_parent(void);
 
 #endif /* __CR_KERNDAT_H__ */
