@@ -53,10 +53,11 @@ time make CC="$CC" -j4 -C test/zdtm
 
 umask 0000
 export SKIP_PREP=1
-# The 3.19 Ubuntu kernel has a bug. When pagemap are read for a few vma-s
-# for one read call, it returns incorrect data.
-# https://github.com/xemul/criu/issues/207
-export CRIU_PMC_OFF=1
+# The 3.19 kernel (from Ubuntu 14.04) has a bug. When /proc/PID/pagemap
+# is read for a few VMAs in one read call, incorrect data is returned.
+# See https://github.com/xemul/criu/issues/207
+# Kernel 4.4 (from Ubuntu 14.04.5 update) fixes this.
+uname -r | grep -q ^3\.19 && export CRIU_PMC_OFF=1
 
 chmod 0777 test/
 chmod 0777 test/zdtm/static
