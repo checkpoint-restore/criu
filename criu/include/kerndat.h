@@ -67,6 +67,7 @@ struct kerndat_s {
 	bool has_nsid;
 	bool has_link_nsid;
 	bool has_nspid;
+	bool has_ns_get_userns;
 };
 
 extern struct kerndat_s kdat;
@@ -90,5 +91,6 @@ extern int kerndat_fs_virtualized(unsigned int which, u32 kdev);
 extern int kerndat_tcp_repair();
 extern int kerndat_uffd(void);
 extern int kerndat_has_nspid(void);
+extern int kerndat_has_ns_get_userns(void);
 
 #endif /* __CR_KERNDAT_H__ */
