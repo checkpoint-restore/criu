@@ -1,1 +1,1 @@
-{'flavor': 'uns', 'flags': 'suid noauto'}
+{'flavor': 'uns', 'flags': 'suid', 'feature': 'ns_get_parent'}
