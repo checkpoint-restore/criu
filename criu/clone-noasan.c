@@ -1,5 +1,7 @@
 #include <sched.h>
 #include "common/compiler.h"
+#include "log.h"
+#include "common/bug.h"
 
 /*
  * ASan doesn't play nicely with clone if we use current stack for
@@ -19,15 +21,11 @@
  */
 int clone_noasan(int (*fn)(void *), int flags, void *arg)
 {
+	void *stack_ptr = (void *)round_down((unsigned long)&stack_ptr - 256, 16);
+	BUG_ON((flags & CLONE_VM) && !(flags & CLONE_VFORK));
 	/*
-	 * Reserve some space for clone() to locate arguments
-	 * and retcode in this place
+	 * Reserve some bytes for clone() internal needs
+	 * and use as stack the address above this area.
 	 */
-	char stack[128] __stack_aligned__;
-	char *stack_ptr = &stack[sizeof(stack)];
-	int ret;
-
-	ret = clone(fn, stack_ptr, flags, arg);
-	return ret;
+	return clone(fn, stack_ptr, flags, arg);
 }
-
