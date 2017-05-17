@@ -115,6 +115,7 @@ ip net add test
 
 # RPC testing
 ./test/zdtm.py run -t zdtm/static/env00 --rpc		# Basic
+./test/zdtm.py run -t zdtm/static/env00 --rpc --pre 2 --page-server
 ./test/zdtm.py run -t zdtm/static/ptrace_sig -f h --rpc # Error handling (crfail test)
 
 ./test/zdtm.py run --empty-ns -T zdtm/static/socket-tcp*-local --iter 2

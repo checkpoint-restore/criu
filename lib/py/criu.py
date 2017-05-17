@@ -277,6 +277,21 @@ class criu:
 
 		return resp.dump
 
+	def pre_dump(self):
+		"""
+		Checkpoint a process/tree identified by opts.pid.
+		"""
+		req 		= rpc.criu_req()
+		req.type	= rpc.PRE_DUMP
+		req.opts.MergeFrom(self.opts)
+
+		resp = self._send_req_and_recv_resp(req)
+
+		if not resp.success:
+			raise CRIUExceptionExternal(req.type, resp.type, resp.cr_errno)
+
+		return resp.dump
+
 	def restore(self):
 		"""
 		Restore a process/tree.

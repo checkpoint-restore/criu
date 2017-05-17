@@ -691,6 +691,14 @@ class criu_cli:
 		return cr.wait()
 
 
+class criu_rpc_process:
+	def wait(self):
+		return self.criu.wait_pid(self.pid)
+
+	def terminate(self):
+		os.kill(self.pid, signal.SIGTERM)
+
+
 class criu_rpc:
 	@staticmethod
 	def __set_opts(criu, args, ctx):
@@ -725,6 +733,25 @@ class criu_rpc:
 			if arg == '--external':
 				criu.opts.external.append(args.pop(0))
 				continue
+			if arg == '--status-fd':
+				fd = int(args.pop(0))
+				os.write(fd, "\0")
+				fcntl.fcntl(fd, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
+				continue
+			if arg == '--port':
+				criu.opts.ps.port = int(args.pop(0))
+				continue
+			if arg == '--address':
+				criu.opts.ps.address = args.pop(0)
+				continue
+			if arg == '--page-server':
+				continue
+			if arg == '--prev-images-dir':
+				criu.opts.parent_img = args.pop(0)
+				continue
+			if arg == '--track-mem':
+				criu.opts.track_mem = True
+				continue
 
 			raise test_fail_exc('RPC for %s required' % arg)
 
@@ -736,17 +763,18 @@ class criu_rpc:
 			raise test_fail_exc('RPC and SAT not supported')
 		if preexec:
 			raise test_fail_exc('RPC and PREEXEC not supported')
-		if nowait:
-			raise test_fail_exc("RPC and status-fd not supported")
 
 		ctx = {}  # Object used to keep info untill action is done
 		criu = crpc.criu()
 		criu.use_binary(criu_bin)
 		criu_rpc.__set_opts(criu, args, ctx)
+		p = None
 
 		try:
 			if action == 'dump':
 				criu.dump()
+			elif action == 'pre-dump':
+				criu.pre_dump()
 			elif action == 'restore':
 				if 'rd' not in ctx:
 					raise test_fail_exc('RPC Non-detached restore is impossible')
@@ -755,10 +783,15 @@ class criu_rpc:
 				pidf = ctx.get('pidf')
 				if pidf:
 					open(pidf, 'w').write('%d\n' % res.pid)
+			elif action == "page-server":
+				res = criu.page_server_chld()
+				p = criu_rpc_process()
+				p.pid = res.pid
+				p.criu = criu
 			else:
 				raise test_fail_exc('RPC for %s required' % action)
-		except crpc.CRIUExceptionExternal:
-			print "Fail"
+		except crpc.CRIUExceptionExternal, e:
+			print "Fail", e
 			ret = -1
 		else:
 			ret = 0
@@ -766,6 +799,10 @@ class criu_rpc:
 		imgd = ctx.get('imgd')
 		if imgd:
 			os.close(imgd)
+
+		if nowait and ret == 0:
+			return p
+
 		return ret
 
 
@@ -1022,11 +1059,11 @@ class criu:
 	def kill(self):
 		if self.__lazy_pages_p:
 			self.__lazy_pages_p.terminate()
-			print "criu lazy-pages exited with %s" & self.wait()
+			print "criu lazy-pages exited with %s" % self.__lazy_pages_p.wait()
 			self.__lazy_pages_p = None
 		if self.__page_server_p:
 			self.__page_server_p.terminate()
-			print "criu page-server exited with %s" & self.wait()
+			print "criu page-server exited with %s" % self.__page_server_p.wait()
 			self.__page_server_p = None
 
 
