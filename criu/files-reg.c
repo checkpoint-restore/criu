@@ -1624,6 +1624,16 @@ int open_reg_by_id(u32 id)
 	return open_reg_fd(fd);
 }
 
+static int borrow_filemap(int pid, struct vma_area *vma)
+{
+	struct vma_area *fvma = vma->fvma;
+
+	BUG_ON(!(fvma->e->status & VMA_NO_CLOSE));
+	vma->e->fd = fvma->e->fd;
+
+	return 0;
+}
+
 static int open_filemap(int pid, struct vma_area *vma)
 {
 	u32 flags;
@@ -1646,7 +1656,7 @@ static int open_filemap(int pid, struct vma_area *vma)
 	return 0;
 }
 
-int collect_filemap(struct vma_area *vma)
+int collect_filemap(struct vma_area *vma, struct vma_file_ctx *ctx)
 {
 	struct file_desc *fd;
 
@@ -1665,7 +1675,19 @@ int collect_filemap(struct vma_area *vma)
 		return -1;
 
 	vma->vmfd = fd;
-	vma->vm_open = open_filemap;
+	if (ctx->vma && ctx->flags == vma->e->flags && ctx->fd == fd) {
+		vma->vm_open = borrow_filemap;
+		vma->fvma = ctx->vma;
+		ctx->vma->e->status |= VMA_NO_CLOSE;
+		/* Change VMA so that next borrower sets NO_CLOSE on us */
+		ctx->vma = vma;
+	} else {
+		vma->vm_open = open_filemap;
+		ctx->flags = vma->e->fdflags;
+		ctx->fd = fd;
+		ctx->vma = vma;
+	}
+
 	return 0;
 }
 

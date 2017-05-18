@@ -40,7 +40,12 @@ extern struct file_remap *lookup_ghost_remap(u32 dev, u32 ino);
 
 extern struct file_desc *try_collect_special_file(u32 id, int optional);
 #define collect_special_file(id)	try_collect_special_file(id, 0)
-extern int collect_filemap(struct vma_area *);
+struct vma_file_ctx {
+	u32 flags;
+	struct file_desc *fd;
+	struct vma_area *vma;
+};
+extern int collect_filemap(struct vma_area *, struct vma_file_ctx *ctx);
 
 extern int collect_remaps_and_regfiles(void);
 

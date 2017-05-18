@@ -618,7 +618,8 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 			vma_entry->fd,
 			vma_entry->pgoff);
 
-	if (vma_entry->fd != -1)
+	if ((vma_entry->fd != -1) &&
+			!(vma_entry->status & VMA_NO_CLOSE))
 		sys_close(vma_entry->fd);
 
 	return addr;

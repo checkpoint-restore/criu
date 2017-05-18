@@ -450,6 +450,7 @@ int prepare_mm_pid(struct pstree_item *i)
 	int ret = -1, vn = 0;
 	struct cr_img *img;
 	struct rst_info *ri = rsti(i);
+	struct vma_file_ctx ctx = {};
 
 	img = open_image(CR_FD_MM, O_RSTR, pid);
 	if (!img)
@@ -509,7 +510,7 @@ int prepare_mm_pid(struct pstree_item *i)
 			ret = collect_shmem(pid, vma);
 		else if (vma_area_is(vma, VMA_FILE_PRIVATE) ||
 				vma_area_is(vma, VMA_FILE_SHARED))
-			ret = collect_filemap(vma);
+			ret = collect_filemap(vma, &ctx);
 		else if (vma_area_is(vma, VMA_AREA_SOCKET))
 			ret = collect_socket_map(vma);
 		else
@@ -676,7 +677,8 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 			return -1;
 		}
 
-		if (vma_area_is(vma, VMA_FILE_PRIVATE))
+		if (vma_area_is(vma, VMA_FILE_PRIVATE) &&
+				!vma_area_is(vma, VMA_NO_CLOSE))
 			close(vma->e->fd);
 	} else {
 		void *paddr;
