@@ -505,7 +505,7 @@ int prepare_remaps(void)
 	return ret;
 }
 
-static int clean_linked_remap(struct remap_info *ri)
+static int clean_one_remap(struct remap_info *ri)
 {
 	char path[PATH_MAX];
 	int mnt_id, ret, rmntns_root;
@@ -550,11 +550,11 @@ int try_clean_remaps(bool only_ghosts)
 
 	list_for_each_entry(ri, &remaps, list) {
 		if (ri->rfe->remap_type == REMAP_TYPE__GHOST)
-			ret |= clean_linked_remap(ri);
+			ret |= clean_one_remap(ri);
 		else if (only_ghosts)
 			continue;
 		else if (ri->rfe->remap_type == REMAP_TYPE__LINKED)
-			ret |= clean_linked_remap(ri);
+			ret |= clean_one_remap(ri);
 	}
 
 	return ret;
