@@ -623,14 +623,11 @@ struct file_remap *lookup_ghost_remap(u32 dev, u32 ino)
 {
 	struct ghost_file *gf;
 
-	mutex_lock(ghost_file_mutex);
 	list_for_each_entry(gf, &ghost_files, list) {
 		if (gf->ino == ino && (gf->dev == dev)) {
-			mutex_unlock(ghost_file_mutex);
 			return &gf->remap;
 		}
 	}
-	mutex_unlock(ghost_file_mutex);
 
 	return NULL;
 }
