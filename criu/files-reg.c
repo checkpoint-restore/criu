@@ -374,7 +374,7 @@ static int open_remap_linked(struct reg_file_info *rfi,
 	return 0;
 }
 
-static int open_remap_dead_process(struct reg_file_info *rfi,
+static int collect_remap_dead_process(struct reg_file_info *rfi,
 		RemapFilePathEntry *rfe)
 {
 	struct pstree_item *helper;
@@ -434,12 +434,21 @@ static int collect_one_remap(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 
 	ri->rfi = container_of(fdesc, struct reg_file_info, d);
 
-	if (rfe->remap_type == REMAP_TYPE__GHOST) {
+	switch (rfe->remap_type) {
+	case REMAP_TYPE__GHOST:
 		if (collect_remap_ghost(ri->rfi, ri->rfe))
 			return -1;
-	} else if (rfe->remap_type == REMAP_TYPE__LINKED) {
+		break;
+	case REMAP_TYPE__LINKED:
 		if (collect_remap_linked(ri->rfi, ri->rfe))
 			return -1;
+		break;
+	case REMAP_TYPE__PROCFS:
+		if (collect_remap_dead_process(ri->rfi, rfe) < 0)
+			return -1;
+		break;
+	default:
+		break;
 	}
 
 	list_add_tail(&ri->list, &remaps);
@@ -463,7 +472,7 @@ static int prepare_one_remap(struct remap_info *ri)
 		ret = open_remap_ghost(rfi, rfe);
 		break;
 	case REMAP_TYPE__PROCFS:
-		/* handled earlier by prepare_procfs_remaps */
+		/* handled earlier by collect_remap_dead_process */
 		ret = 0;
 		break;
 	default:
@@ -473,31 +482,6 @@ static int prepare_one_remap(struct remap_info *ri)
 
 out:
 	return ret;
-}
-
-/* We separate the preparation of PROCFS remaps because they allocate pstree
- * items, which need to be seen by the root task. We can't do all remaps here,
- * because the files haven't been loaded yet.
- */
-int prepare_procfs_remaps(void)
-{
-	struct remap_info *ri;
-
-	list_for_each_entry(ri, &remaps, list) {
-		RemapFilePathEntry *rfe = ri->rfe;
-		struct reg_file_info *rfi = ri->rfi;
-
-		switch (rfe->remap_type) {
-		case REMAP_TYPE__PROCFS:
-			if (open_remap_dead_process(rfi, rfe) < 0)
-				return -1;
-			break;
-		default:
-			continue;
-		}
-	}
-
-	return 0;
 }
 
 int prepare_remaps(void)
