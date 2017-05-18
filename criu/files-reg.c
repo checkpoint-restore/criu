@@ -67,6 +67,16 @@ static LIST_HEAD(ghost_files);
  */
 static mutex_t *remap_open_lock;
 
+static inline int init_remap_lock(void)
+{
+	remap_open_lock = shmalloc(sizeof(*remap_open_lock));
+	if (!remap_open_lock)
+		return -1;
+
+	mutex_init(remap_open_lock);
+	return 0;
+}
+
 static LIST_HEAD(remaps);
 
 /*
@@ -501,6 +511,10 @@ int prepare_remaps(void)
 {
 	struct remap_info *ri;
 	int ret = 0;
+
+	ret = init_remap_lock();
+	if (ret)
+		return ret;
 
 	list_for_each_entry(ri, &remaps, list) {
 		ret = prepare_one_remap(ri);
@@ -1722,16 +1736,6 @@ static struct collect_image_info reg_file_cinfo = {
 	.collect = collect_one_regfile,
 	.flags = COLLECT_SHARED,
 };
-
-int prepare_shared_reg_files(void)
-{
-	remap_open_lock = shmalloc(sizeof(*remap_open_lock));
-	if (!remap_open_lock)
-		return -1;
-
-	mutex_init(remap_open_lock);
-	return 0;
-}
 
 int collect_remaps_and_regfiles(void)
 {
