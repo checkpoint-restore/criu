@@ -41,13 +41,17 @@ void compat_vdso_helper(struct vdso_symtable *native, int pipe_fd,
 	long vdso_size;
 	long ret;
 
-	vma_size = native->vma_end - native->vma_start;
-	ret = syscall(__NR_munmap, native->vma_start, vma_size);
-	exit_on(ret, err_fd, "Error: Failed to unmap native vdso\n");
+	if (native->vma_start != VDSO_BAD_ADDR) {
+		vma_size = native->vma_end - native->vma_start;
+		ret = syscall(__NR_munmap, native->vma_start, vma_size);
+		exit_on(ret, err_fd, "Error: Failed to unmap native vdso\n");
+	}
 
-	vma_size = native->vvar_end - native->vvar_start;
-	ret = syscall(__NR_munmap, native->vvar_start, vma_size);
-	exit_on(ret, err_fd, "Error: Failed to unmap native vvar\n");
+	if (native->vvar_start != VVAR_BAD_ADDR) {
+		vma_size = native->vvar_end - native->vvar_start;
+		ret = syscall(__NR_munmap, native->vvar_start, vma_size);
+		exit_on(ret, err_fd, "Error: Failed to unmap native vvar\n");
+	}
 
 	ret = syscall(__NR_arch_prctl, ARCH_MAP_VDSO_32, native->vma_start);
 	if (ret < 0)
