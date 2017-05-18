@@ -59,7 +59,13 @@ struct ghost_file {
 static u32 ghost_file_ids = 1;
 static LIST_HEAD(ghost_files);
 
-static mutex_t *ghost_file_mutex;
+/*
+ * When opening remaps we first create a link on the remap
+ * target, then open one, then unlink. In case the remap
+ * source has more than one instance, these tree steps
+ * should be serialized with each other.
+ */
+static mutex_t *remap_open_lock;
 
 static LIST_HEAD(remaps);
 
@@ -1446,7 +1452,7 @@ int open_path(struct file_desc *d,
 			BUG();
 		}
 
-		mutex_lock(ghost_file_mutex);
+		mutex_lock(remap_open_lock);
 		if (rfi->remap->is_dir) {
 			/*
 			 * FIXME Can't make directory under new name.
@@ -1532,7 +1538,7 @@ ext:
 			rm_parent_dirs(mntns_root, rfi->path, level);
 		}
 
-		mutex_unlock(ghost_file_mutex);
+		mutex_unlock(remap_open_lock);
 	}
 	if (orig_path)
 		rfi->path = orig_path;
@@ -1719,11 +1725,11 @@ static struct collect_image_info reg_file_cinfo = {
 
 int prepare_shared_reg_files(void)
 {
-	ghost_file_mutex = shmalloc(sizeof(*ghost_file_mutex));
-	if (!ghost_file_mutex)
+	remap_open_lock = shmalloc(sizeof(*remap_open_lock));
+	if (!remap_open_lock)
 		return -1;
 
-	mutex_init(ghost_file_mutex);
+	mutex_init(remap_open_lock);
 	return 0;
 }
 
