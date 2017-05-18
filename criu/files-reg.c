@@ -259,6 +259,13 @@ static int collect_remap_ghost(struct reg_file_info *rfi,
 	if (!gf)
 		return -1;
 
+	/*
+	 * The rpath is shmalloc-ed because we create the ghost
+	 * file in root task context and generate its path there.
+	 * However the path should be visible by the criu task
+	 * in order to remove the ghost files from root FS (see
+	 * try_clean_remaps()).
+	 */
 	gf->remap.rpath = shmalloc(PATH_MAX);
 	if (!gf->remap.rpath)
 		return -1;
