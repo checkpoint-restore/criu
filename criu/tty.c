@@ -326,8 +326,11 @@ static mutex_t *tty_mutex;
 
 static bool tty_is_master(struct tty_info *info);
 
-int prepare_shared_tty(void)
+static int init_tty_mutex(void)
 {
+	if (tty_mutex)
+		return 0;
+
 	tty_mutex = shmalloc(sizeof(*tty_mutex));
 	if (!tty_mutex) {
 		pr_err("Can't create ptmx index mutex\n");
@@ -1636,6 +1639,13 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 	pr_info("Collected tty ID %#x (%s)\n", info->tfe->id, info->driver->name);
 
 	if (add_post_prepare_cb_once(prep_tty_restore, NULL))
+		return -1;
+
+	/*
+	 * Call it explicitly. Post-callbacks will be called after
+	 * namespaces preparation, while the latter needs this mutex.
+	 */
+	if (init_tty_mutex())
 		return -1;
 
 	info->fdstore_id = -1;

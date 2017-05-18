@@ -1505,11 +1505,9 @@ static int restore_task_with_children(void *_arg)
 	if (current->parent == NULL) {
 		int i;
 
-		if (prepare_shared_tty())
-			goto err;
-
 		if (fdstore_init())
 			goto err;
+
 		if (join_namespaces()) {
 			pr_perror("Join namespaces failed");
 			goto err;
