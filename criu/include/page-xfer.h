@@ -2,6 +2,11 @@
 #define __CR_PAGE_XFER__H__
 #include "pagemap.h"
 
+struct ps_info {
+	int pid;
+	unsigned short port;
+};
+
 extern int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd);
 
 /*

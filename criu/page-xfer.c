@@ -987,6 +987,19 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 	if (sk == -1)
 		return -1;
 no_server:
+
+	if (!daemon_mode && cfd >= 0) {
+		struct ps_info info = {.pid = getpid(), .port = opts.port};
+		int count;
+
+		count = write(cfd, &info, sizeof(info));
+		close_safe(&cfd);
+		if (count != sizeof(info)) {
+			pr_perror("Unable to write ps_info");
+			exit(1);
+		}
+	}
+
 	ret = run_tcp_server(daemon_mode, &ask, cfd, sk);
 	if (ret != 0)
 		return ret > 0 ? 0 : -1;
