@@ -1635,14 +1635,8 @@ static int open_filemap(int pid, struct vma_area *vma)
 	 * We open file w/o lseek, as mappings don't care about it
 	 */
 
-	BUG_ON(vma->vmfd == NULL);
-	if (vma->e->has_fdflags)
-		flags = vma->e->fdflags;
-	else if ((vma->e->prot & PROT_WRITE) &&
-			vma_area_is(vma, VMA_FILE_SHARED))
-		flags = O_RDWR;
-	else
-		flags = O_RDONLY;
+	BUG_ON((vma->vmfd == NULL) || !vma->e->has_fdflags);
+	flags = vma->e->fdflags;
 
 	ret = open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
 	if (ret < 0)
@@ -1655,6 +1649,16 @@ static int open_filemap(int pid, struct vma_area *vma)
 int collect_filemap(struct vma_area *vma)
 {
 	struct file_desc *fd;
+
+	if (!vma->e->has_fdflags) {
+		/* Make a wild guess for the fdflags */
+		vma->e->has_fdflags = true;
+		if ((vma->e->prot & PROT_WRITE) &&
+				vma_area_is(vma, VMA_FILE_SHARED))
+			vma->e->fdflags = O_RDWR;
+		else
+			vma->e->fdflags = O_RDONLY;
+	}
 
 	fd = collect_special_file(vma->e->shmid);
 	if (!fd)
