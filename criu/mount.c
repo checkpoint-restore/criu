@@ -41,7 +41,7 @@
 #undef	LOG_PREFIX
 #define LOG_PREFIX "mnt: "
 
-#define BINFMT_MISC_HOME "/proc/sys/fs/binfmt_misc"
+#define BINFMT_MISC_HOME "proc/sys/fs/binfmt_misc"
 #define CRTIME_MNT_ID 0
 
 /* A helper mount_info entry for the roots yard */
@@ -1193,15 +1193,41 @@ out:
 static __maybe_unused int add_cr_time_mount(struct mount_info *root, char *fsname, const char *path, unsigned int s_dev)
 {
 	struct mount_info *mi, *t, *parent;
+	bool add_slash = false;
+	int len;
+
+	if (!root->nsid) {
+		/* On restore we have fake top mount_info. Find real NS_ROOT */
+		list_for_each_entry(t, &root->children, siblings)
+			if (t->nsid->type == NS_ROOT) {
+				root = t;
+				break;
+			}
+		if (!root->nsid) {
+			pr_err("Can't find NS_ROOT\n");
+			return -1;
+		}
+	}
 
 	mi = mnt_entry_alloc();
 	if (!mi)
 		return -1;
-	mi->mountpoint = xmalloc(strlen(path) + 2);
+
+	len = strlen(root->mountpoint);
+	/* It may be "./" or "./path/to/dir" */
+	if (root->mountpoint[len - 1] != '/') {
+		add_slash = true;
+		len++;
+	}
+
+	mi->mountpoint = xmalloc(len + strlen(path) + 1);
 	if (!mi->mountpoint)
 		return -1;
 	mi->ns_mountpoint = mi->mountpoint;
-	sprintf(mi->mountpoint, ".%s", path);
+	if (!add_slash)
+		sprintf(mi->mountpoint, "%s%s", root->mountpoint, path);
+	else
+		sprintf(mi->mountpoint, "%s/%s", root->mountpoint, path);
 	mi->mnt_id = CRTIME_MNT_ID;
 	mi->flags = mi->sb_flags = 0;
 	mi->root = xstrdup("/");
@@ -3250,7 +3276,7 @@ int collect_mnt_namespaces(bool for_dump)
 		}
 
 		if (ns) {
-			ret = mount_cr_time_mount(ns, &s_dev, "binfmt_misc", BINFMT_MISC_HOME,
+			ret = mount_cr_time_mount(ns, &s_dev, "binfmt_misc", "/" BINFMT_MISC_HOME,
 						  "binfmt_misc");
 			if (ret == -EPERM)
 				pr_info("Can't mount binfmt_misc: EPERM. Running in user_ns?\n");
