@@ -336,6 +336,13 @@ def wait_pid_die(pid, who, tmo = 30):
 def test_flag(tdesc, flag):
 	return flag in tdesc.get('flags', '').split()
 
+
+def reset_pid(pid = 1):
+	fd = open('/proc/sys/kernel/ns_last_pid', 'w')
+	fd.write('%s' % pid)
+	fd.close()
+
+
 #
 # Exception thrown when something inside the test goes wrong,
 # e.g. test doesn't start, criu returns with non zero code or
