@@ -1416,9 +1416,11 @@ long __export_restore_task(struct task_restore_args *args)
 	 * up AIO rings.
 	 */
 
-	for (i = 0; i < args->rings_n; i++)
-		if (restore_aio_ring(&args->rings[i]) < 0)
-			goto core_restore_end;
+	if (!args->check_only) {
+		for (i = 0; i < args->rings_n; i++)
+			if (restore_aio_ring(&args->rings[i]) < 0)
+				goto core_restore_end;
+	}
 
 	/*
 	 * Finally restore madivse() bits
