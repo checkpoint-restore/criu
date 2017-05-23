@@ -23,6 +23,7 @@
 #include "kerndat.h"
 #include "restorer.h"
 #include "rst-malloc.h"
+#include "cr_options.h"
 
 #include "protobuf.h"
 #include "images/tcp-stream.pb-c.h"
@@ -349,6 +350,9 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 	if (read_tcp_queues(socr, &data, img))
 		goto err_c;
 
+	if (opts.check_only)
+		goto skip_for_check;
+
 	if (libsoccr_restore(socr, &data, sizeof(data)))
 		goto err_c;
 
@@ -364,6 +368,7 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 			goto err_c;
 	}
 
+skip_for_check:
 	tcp_stream_entry__free_unpacked(tse, NULL);
 	close_image(img);
 	return 0;

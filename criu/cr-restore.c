@@ -2348,8 +2348,9 @@ skip_ns_bouncing:
 	if (write_restored_pid())
 		goto out_kill;
 
-	/* Unlock network before disabling repair mode on sockets */
-	network_unlock();
+	if (!opts.check_only)
+		/* Unlock network before disabling repair mode on sockets */
+		network_unlock();
 
 	/*
 	 * Stop getting sigchld, after we resume the tasks they
