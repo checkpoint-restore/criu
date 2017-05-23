@@ -501,6 +501,8 @@ class zdtm_test:
 		return self.__getcropts() + self.__freezer.getropts() + self.__desc.get('ropts', '').split()
 
 	def gone(self, force = True):
+		if self.__pid == 0:
+			self.getpid()
 		if not self.auto_reap:
 			pid, status = os.waitpid(int(self.__pid), 0)
 			if pid != int(self.__pid):
