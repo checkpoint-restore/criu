@@ -845,6 +845,7 @@ class criu:
 		self.__remote = (opts['remote'] and True or False)
 		self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
 		self.__show_stats = (opts['show_stats'] and True or False)
+		self.__check_only = (opts['check_only'] and True or False)
 		self.__lazy_pages_p = None
 		self.__page_server_p = None
 
@@ -901,7 +902,10 @@ class criu:
 
 		with open(os.path.join(self.__ddir(), action + '.cropt'), 'w') as f:
 			f.write(' '.join(s_args) + '\n')
-		print "Run criu " + action
+		if '--check-only' in opts:
+			print "Run criu " + action + " in check-only mode"
+		else:
+			print "Run criu " + action
 
 		strace = []
 		if self.__sat:
@@ -938,6 +942,13 @@ class criu:
 				raise test_fail_exc("criu %s exited with %s" % (action, ret))
 			os.close(status_fds[0])
 			return ret
+
+		if '--check-only' in opts and action == "restore":
+			# Although the restored process never starts
+			# running in check-only mode, it sometimes takes
+			# some time for the process to disappear.
+			# Wait until it is gone.
+			self.__test.gone()
 
 		grep_errors(os.path.join(__ddir, log))
 		if ret != 0:
@@ -1031,6 +1042,9 @@ class criu:
 		if self.__empty_ns:
 			a_opts += ['--empty-ns', 'net']
 
+		if self.__check_only:
+			self.__criu_act(action, opts = a_opts + opts + ['--check-only'])
+
 		self.__criu_act(action, opts = a_opts + opts)
 		if self.__mdedup and self.__iter > 1:
 			self.__criu_act("dedup", opts = [])
@@ -1082,6 +1096,11 @@ class criu:
 
 		if self.__leave_stopped:
 			r_opts += ['--leave-stopped']
+
+		if self.__check_only:
+			self.__criu_act("restore", opts = r_opts + ["--restore-detached"] + ['--check-only'])
+			# sometimes the real restore fails with PID conflicts without this
+			reset_pid()
 
 		self.__criu_act("restore", opts = r_opts + ["--restore-detached"])
 		self.show_stats("restore")
@@ -1562,7 +1581,7 @@ class Launcher:
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'stop', 'empty_ns',
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'rpc', 'lazy_pages',
 				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
-				'remote_lazy_pages', 'show_stats', 'remote')
+				'remote_lazy_pages', 'show_stats', 'remote', 'check_only')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
 		if self.__use_log:
@@ -2117,6 +2136,7 @@ rp.add_argument("--lazy-pages", help = "restore pages on demand", action = 'stor
 rp.add_argument("--remote-lazy-pages", help = "simulate lazy migration", action = 'store_true')
 rp.add_argument("--title", help = "A test suite title", default = "criu")
 rp.add_argument("--show-stats", help = "Show criu statistics", action = 'store_true')
+rp.add_argument("--check-only", help = "Additionally try to dump/restore in --check-only mode", action = 'store_true')
 
 lp = sp.add_parser("list", help = "List tests")
 lp.set_defaults(action = list_tests)
