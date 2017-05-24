@@ -507,7 +507,7 @@ static struct pid *lookup_create_pid(pid_t *pid, int level, struct pid *pid_node
 	found = find_pid_or_place_in_hier(&ns->pid.rb_root.rb_node, pid[level-1], level-1, &parent, &new);
 	if (found) {
 		for (i = level - 2; i >= 0; i--)
-			if (pid[i] != found->ns[i].virt || !rb_parent(&found->ns[i].node)) {
+			if (pid[i] != found->ns[i].virt || RB_EMPTY_NODE(&found->ns[i].node)) {
 				pr_err("Wrong pid\n");
 				return NULL;
 			}
