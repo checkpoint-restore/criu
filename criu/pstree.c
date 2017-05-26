@@ -360,6 +360,15 @@ static int plant_ns_xid(uint32_t **ns_xid, size_t *n_ns_xid, int level, struct p
 	return 0;
 }
 
+int is_session_leader(struct pstree_item *item)
+{
+	if (vsid(item) == vpid(item)) {
+		BUG_ON(!equal_pid(item->pid, item->sid));
+		return 1;
+	}
+	return 0;
+}
+
 int dump_pstree(struct pstree_item *root_item)
 {
 	struct pstree_item *item = root_item;
@@ -380,7 +389,7 @@ int dump_pstree(struct pstree_item *root_item)
 	 * deeper in process tree, thus top-level checking for
 	 * leader is enough.
 	 */
-	if (!equal_pid(root_item->pid, root_item->sid)) {
+	if (!is_session_leader(root_item)) {
 		if (!opts.shell_job) {
 			pr_err("The root process %d is not a session leader. "
 			       "Consider using --" OPT_SHELL_JOB " option\n", vpid(item));
@@ -446,7 +455,7 @@ static int prepare_pstree_for_shell_job(void)
 	if (!opts.shell_job)
 		return 0;
 
-	if (equal_pid(root_item->sid, root_item->pid))
+	if (is_session_leader(root_item))
 		return 0;
 
 	/*
@@ -951,7 +960,7 @@ static int prepare_pstree_ids(void)
 		 * a session leader himself -- this is a simple case, we
 		 * just proceed in a normal way.
 		 */
-		if (equal_pid(item->sid, root_item->sid) || equal_pid(item->sid, item->pid))
+		if (equal_pid(item->sid, root_item->sid) || is_session_leader(item))
 			continue;
 
 		leader = pstree_item_by_virt(vsid(item));
@@ -1001,7 +1010,7 @@ static int prepare_pstree_ids(void)
 		list_for_each_entry_safe_continue(child, tmp, &root_item->children, sibling) {
 			if (!equal_pid(child->sid, helper->sid))
 				continue;
-			if (equal_pid(child->sid, child->pid))
+			if (is_session_leader(child))
 				continue;
 
 			pr_info("Attach %d to the temporary task %d\n",
@@ -1020,7 +1029,7 @@ static int prepare_pstree_ids(void)
 		if (item->pid->state == TASK_HELPER)
 			continue;
 
-		if (!equal_pid(item->sid, item->pid)) {
+		if (!is_session_leader(item)) {
 			struct pstree_item *parent;
 
 			if (equal_pid(item->parent->sid, item->sid))

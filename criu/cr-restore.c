@@ -1597,7 +1597,7 @@ static void restore_sid(void)
 	 * we can call setpgid() on custom values.
 	 */
 
-	if (equal_pid(current->pid, current->sid)) {
+	if (is_session_leader(current)) {
 		pr_info("Restoring %d to %d sid\n", vpid(current), vsid(current));
 		sid = setsid();
 		if (sid != last_level_pid(current->sid)) {
