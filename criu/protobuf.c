@@ -217,7 +217,7 @@ int collect_image(struct collect_image_info *cinfo)
 			break;
 		}
 
-		if (!cinfo->priv_size)
+		if (!cinfo->priv_size && !(cinfo->flags & COLLECT_NOFREE))
 			cr_pb_descs[cinfo->pb_type].free(msg, NULL);
 	}
 
