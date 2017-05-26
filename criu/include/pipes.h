@@ -50,7 +50,7 @@ struct pipe_info {
 	PipeEntry		*pe;
 	struct list_head	pipe_list;	/* All pipe_info with the same pipe_id
 						 * This is pure circular list without head */
-	struct list_head	list;		/* list head for fdinfo_list_entry-s */
+	struct list_head	list;		/* global list of pipes */
 	struct file_desc	d;
 	unsigned int		create : 1,
 				reopen : 1;
