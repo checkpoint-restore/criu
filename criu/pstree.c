@@ -290,19 +290,26 @@ int init_pstree_helper(struct pstree_item *ret)
 	return 0;
 }
 
-/* Deep first search on children */
-struct pstree_item *pstree_item_next(struct pstree_item *item)
+/* Search only root's subtree, possibly skipping descendants */
+struct pstree_item *pssubtree_item_next(struct pstree_item *item,
+		struct pstree_item *root, bool skip_descendants)
 {
-	if (!list_empty(&item->children))
+	if (!skip_descendants && !list_empty(&item->children))
 		return list_first_entry(&item->children, struct pstree_item, sibling);
 
-	while (item->parent) {
+	while (item->parent && item != root) {
 		if (item->sibling.next != &item->parent->children)
 			return list_entry(item->sibling.next, struct pstree_item, sibling);
 		item = item->parent;
 	}
 
 	return NULL;
+}
+
+/* Deep first search on children */
+struct pstree_item *pstree_item_next(struct pstree_item *item)
+{
+	return pssubtree_item_next(item, NULL, false);
 }
 
 /* Preorder traversal of pstree item */
