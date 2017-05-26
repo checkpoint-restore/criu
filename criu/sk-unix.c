@@ -1367,17 +1367,14 @@ static struct pprep_head resolve_unix_peers = {
 static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
 	struct unix_sk_info *ui = o;
-	static bool post_queued = false;
 	char *uname, *prefix = "";
 	int ulen;
 
 	ui->ue = pb_msg(base, UnixSkEntry);
 	ui->name_dir = (void *)ui->ue->name_dir;
 
-	if (ui->ue->peer && !post_queued) {
-		post_queued = true;
-		add_post_prepare_cb(&resolve_unix_peers);
-	}
+	if (ui->ue->peer)
+		add_post_prepare_cb_once(&resolve_unix_peers);
 
 	if (ui->ue->name.len) {
 		if (ui->ue->name.len > UNIX_PATH_MAX) {
