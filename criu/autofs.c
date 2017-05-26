@@ -531,6 +531,8 @@ typedef struct autofs_info_s {
 	AutofsEntry *entry;
 	char *mnt_path;
 	dev_t mnt_dev;
+	struct mount_info *mi;
+	struct pprep_head ph;
 } autofs_info_t;
 
 static int dup_pipe_info(struct pipe_info *pi, int flags,
@@ -927,9 +929,10 @@ static int autofs_create_pipe(struct pstree_item *task, autofs_info_t *i,
 	return autofs_create_fle(task, fe, &i->pi.d);
 }
 
-static int autofs_add_mount_info(void *data)
+static int autofs_add_mount_info(struct pprep_head *ph)
 {
-	struct mount_info *mi = data;
+	autofs_info_t *ai = container_of(ph, autofs_info_t, ph);
+	struct mount_info *mi = ai->mi;
 	autofs_info_t *info = mi->private;
 	AutofsEntry *entry = info->entry;
 	autofs_info_t *i;
@@ -1063,11 +1066,11 @@ int autofs_mount(struct mount_info *mi, const char *source, const
 
 	/* Otherwise we have to add shared object creation callback */
 	if (entry->fd != AUTOFS_CATATONIC_FD) {
-		ret = add_post_prepare_cb(autofs_add_mount_info, mi);
-		if (ret < 0)
-			goto free_info;
+		info->ph.actor = autofs_add_mount_info;
+		add_post_prepare_cb(&info->ph);
 	}
 
+	info->mi = mi;
 	mi->private = info;
 
 free_opts:
