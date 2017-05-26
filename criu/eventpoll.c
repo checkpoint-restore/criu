@@ -34,13 +34,6 @@ struct eventpoll_file_info {
 	struct file_desc		d;
 };
 
-struct eventpoll_tfd_file_info {
-	EventpollTfdEntry		*tdefe;
-	struct list_head		list;
-};
-
-static LIST_HEAD(eventpoll_tfds);
-
 /* Checks if file descriptor @lfd is eventfd */
 int is_eventpoll_link(char *link)
 {
@@ -188,7 +181,6 @@ static int eventpoll_retore_tfd(int fd, int id, EventpollTfdEntry *tdefe)
 
 static int eventpoll_post_open(struct file_desc *d, int fd)
 {
-	struct eventpoll_tfd_file_info *td_info;
 	struct eventpoll_file_info *info;
 	int i;
 
@@ -203,19 +195,6 @@ static int eventpoll_post_open(struct file_desc *d, int fd)
 			return -1;
 	}
 
-	list_for_each_entry(td_info, &eventpoll_tfds, list) {
-		if (epoll_not_ready_tfd(td_info->tdefe))
-			return 1;
-	}
-	list_for_each_entry(td_info, &eventpoll_tfds, list) {
-		if (td_info->tdefe->id != info->efe->id)
-			continue;
-
-		if (eventpoll_retore_tfd(fd, info->efe->id, td_info->tdefe))
-			return -1;
-
-	}
-
 	return 0;
 }
 
@@ -226,14 +205,31 @@ static struct file_desc_ops desc_ops = {
 
 static int collect_one_epoll_tfd(void *o, ProtobufCMessage *msg, struct cr_img *i)
 {
-	struct eventpoll_tfd_file_info *info = o;
+	EventpollTfdEntry *tfde;
+	struct file_desc *d;
+	struct eventpoll_file_info *ef;
+	EventpollFileEntry *efe;
+	int n_tfd;
 
 	if (!deprecated_ok("Epoll TFD image"))
 		return -1;
 
-	info->tdefe = pb_msg(msg, EventpollTfdEntry);
-	list_add(&info->list, &eventpoll_tfds);
-	pr_info_eventpoll_tfd("Collected ", info->tdefe);
+	tfde = pb_msg(msg, EventpollTfdEntry);
+	d = find_file_desc_raw(FD_TYPES__EVENTPOLL, tfde->id);
+	if (!d) {
+		pr_err("No epoll FD for %u\n", tfde->id);
+		return -1;
+	}
+
+	ef = container_of(d, struct eventpoll_file_info, d);
+	efe = ef->efe;
+
+	n_tfd = efe->n_tfd + 1;
+	if (xrealloc_safe(&efe->tfd, n_tfd * sizeof(EventpollTfdEntry *)))
+		return -1;
+
+	efe->tfd[efe->n_tfd] = tfde;
+	efe->n_tfd = n_tfd;
 
 	return 0;
 }
@@ -241,8 +237,8 @@ static int collect_one_epoll_tfd(void *o, ProtobufCMessage *msg, struct cr_img *
 struct collect_image_info epoll_tfd_cinfo = {
 	.fd_type = CR_FD_EVENTPOLL_TFD,
 	.pb_type = PB_EVENTPOLL_TFD,
-	.priv_size = sizeof(struct eventpoll_tfd_file_info),
 	.collect = collect_one_epoll_tfd,
+	.flags = COLLECT_NOFREE,
 };
 
 static int collect_one_epoll(void *o, ProtobufCMessage *msg, struct cr_img *i)
