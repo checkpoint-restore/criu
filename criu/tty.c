@@ -1568,10 +1568,7 @@ static int prep_tty_restore_cb(struct pprep_head *ph)
 	return 0;
 }
 
-static struct pprep_head prep_tty_restore = {
-	.actor = prep_tty_restore_cb,,
-};
-
+static MAKE_PPREP_HEAD(prep_tty_restore);
 
 static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 {

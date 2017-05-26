@@ -141,9 +141,7 @@ static int mark_pipe_master_cb(struct pprep_head *ph)
 	return 0;
 }
 
-static struct pprep_head mark_pipe_master = {
-	.actor = mark_pipe_master_cb,
-};
+static MAKE_PPREP_HEAD(mark_pipe_master);
 
 static struct pipe_data_rst *pd_hash_pipes[PIPE_DATA_HASH_SIZE];
 

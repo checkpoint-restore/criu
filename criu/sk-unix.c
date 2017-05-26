@@ -1360,9 +1360,7 @@ static void unlink_stale(struct unix_sk_info *ui)
 }
 
 static int resolve_unix_peers_cb(struct pprep_head *ph);
-static struct pprep_head resolve_unix_peers = {
-	.actor = resolve_unix_peers_cb,
-};
+static MAKE_PPREP_HEAD(resolve_unix_peers);
 
 static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 {

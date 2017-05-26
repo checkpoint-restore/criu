@@ -29,11 +29,16 @@ extern int cr_dedup(void);
 extern int check_add_feature(char *arg);
 extern void pr_check_features(const char *offset, const char *sep, int width);
 
-#define add_post_prepare_cb_once(phead) do {		\
-		static int __cb_called = 0;		\
-		if (!__cb_called)			\
-			add_post_prepare_cb(phead);	\
-		__cb_called = 1;			\
+#define PPREP_HEAD_INACTIVE	((struct pprep_head *)-1)
+
+#define add_post_prepare_cb_once(phead) do {		 \
+		if ((phead)->next == PPREP_HEAD_INACTIVE)\
+			add_post_prepare_cb(phead);	 \
 	} while (0)
+
+#define MAKE_PPREP_HEAD(name) struct pprep_head name = {	\
+			.next = PPREP_HEAD_INACTIVE,		\
+			.actor = name##_cb,			\
+	}
 
 #endif /* __CR_CRTOOLS_H__ */
