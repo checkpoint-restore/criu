@@ -1464,37 +1464,32 @@ static int resolve_unix_peer(struct pprep_head *ph)
 	struct unix_sk_info *ui, *peer;
 
 	ui = container_of(ph, struct unix_sk_info, peer_resolve);
+	if (ui->peer)
+		goto out;
 
-	{
-		if (ui->peer)
-			goto out;
+	BUG_ON(!ui->ue->peer);
 
-		BUG_ON(!ui->ue->peer);
-
-		peer = find_unix_sk_by_ino(ui->ue->peer);
-
-		if (!peer) {
-			pr_err("FATAL: Peer %#x unresolved for %#x\n",
-					ui->ue->peer, ui->ue->ino);
-			return -1;
-		}
-
-		set_peer(ui, peer);
-		if (!peer->queuer)
-			peer->queuer = ui->ue->ino;
-		if (ui == peer)
-			/* socket connected to self %) */
-			goto out;
-		if (peer->ue->peer != ui->ue->ino)
-			goto out;
-
-		pr_info("Connected %#x -> %#x (%#x) flags %#x\n",
-				ui->ue->ino, ui->ue->peer, peer->ue->ino, ui->flags);
-		set_peer(peer, ui);
-		/* socketpair or interconnected sockets */
-		interconnected_pair(ui, peer);
+	peer = find_unix_sk_by_ino(ui->ue->peer);
+	if (!peer) {
+		pr_err("FATAL: Peer %#x unresolved for %#x\n",
+				ui->ue->peer, ui->ue->ino);
+		return -1;
 	}
 
+	set_peer(ui, peer);
+	if (!peer->queuer)
+		peer->queuer = ui->ue->ino;
+	if (ui == peer)
+		/* socket connected to self %) */
+		goto out;
+	if (peer->ue->peer != ui->ue->ino)
+		goto out;
+
+	pr_info("Connected %#x -> %#x (%#x) flags %#x\n",
+			ui->ue->ino, ui->ue->peer, peer->ue->ino, ui->flags);
+	set_peer(peer, ui);
+	/* socketpair or interconnected sockets */
+	interconnected_pair(ui, peer);
 out:
 	return 0;
 }
