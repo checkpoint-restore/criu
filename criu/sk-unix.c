@@ -781,6 +781,7 @@ struct unix_sk_info {
 	char *name_dir;
 	unsigned flags;
 	struct unix_sk_info *peer;
+	struct pprep_head peer_resolve; /* XXX : union with the above? */
 	struct file_desc d;
 	struct list_head connected; /* List of sockets, connected to me */
 	struct list_head node; /* To link in peer's connected list  */
@@ -1359,8 +1360,7 @@ static void unlink_stale(struct unix_sk_info *ui)
 	revert_unix_sk_cwd(&cwd_fd, &root_fd);
 }
 
-static int resolve_unix_peers_cb(struct pprep_head *ph);
-static MAKE_PPREP_HEAD(resolve_unix_peers);
+static int resolve_unix_peer(struct pprep_head *ph);
 
 static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
@@ -1371,8 +1371,10 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	ui->ue = pb_msg(base, UnixSkEntry);
 	ui->name_dir = (void *)ui->ue->name_dir;
 
-	if (ui->ue->peer)
-		add_post_prepare_cb_once(&resolve_unix_peers);
+	if (ui->ue->peer) {
+		ui->peer_resolve.actor = resolve_unix_peer;
+		add_post_prepare_cb(&ui->peer_resolve);
+	}
 
 	if (ui->ue->name.len) {
 		if (ui->ue->name.len > UNIX_PATH_MAX) {
@@ -1457,15 +1459,17 @@ static void interconnected_pair(struct unix_sk_info *ui, struct unix_sk_info *pe
 	}
 }
 
-static int resolve_unix_peers_cb(struct pprep_head *ph)
+static int resolve_unix_peer(struct pprep_head *ph)
 {
 	struct unix_sk_info *ui, *peer;
 
-	list_for_each_entry(ui, &unix_sockets, list) {
+	ui = container_of(ph, struct unix_sk_info, peer_resolve);
+
+	{
 		if (ui->peer)
-			continue;
-		if (!ui->ue->peer)
-			continue;
+			goto out;
+
+		BUG_ON(!ui->ue->peer);
 
 		peer = find_unix_sk_by_ino(ui->ue->peer);
 
@@ -1480,28 +1484,18 @@ static int resolve_unix_peers_cb(struct pprep_head *ph)
 			peer->queuer = ui->ue->ino;
 		if (ui == peer)
 			/* socket connected to self %) */
-			continue;
+			goto out;
 		if (peer->ue->peer != ui->ue->ino)
-			continue;
+			goto out;
 
+		pr_info("Connected %#x -> %#x (%#x) flags %#x\n",
+				ui->ue->ino, ui->ue->peer, peer->ue->ino, ui->flags);
 		set_peer(peer, ui);
-
 		/* socketpair or interconnected sockets */
 		interconnected_pair(ui, peer);
 	}
 
-	pr_info("Unix sockets:\n");
-	list_for_each_entry(ui, &unix_sockets, list) {
-		struct fdinfo_list_entry *fle;
-
-		pr_info("\t%#x -> %#x (%#x) flags %#x\n", ui->ue->ino, ui->ue->peer,
-				ui->peer ? ui->peer->ue->ino : 0, ui->flags);
-		list_for_each_entry(fle, &ui->d.fd_info_head, desc_list)
-			pr_info("\t\tfd %d in pid %d\n",
-					fle->fe->fd, fle->pid);
-
-	}
-
+out:
 	return 0;
 }
 
