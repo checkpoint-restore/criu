@@ -140,6 +140,7 @@ TST_NOFILE	:=				\
 		session01			\
 		session02			\
 		session03			\
+		session04			\
 		socket-ext			\
 		unhashed_proc			\
 		cow00				\
