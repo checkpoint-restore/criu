@@ -40,13 +40,24 @@ struct syscall_args32 {
 
 static inline void do_full_int80(struct syscall_args32 *args)
 {
-	register unsigned long bp asm("bp") = args->arg5;
-	asm volatile ("int $0x80"
+	/*
+	 * r8-r11 registers are cleared during returning to userspace
+	 * from syscall - that's x86_64 ABI to avoid leaking kernel
+	 * pointers.
+	 *
+	 * Other than that - we can't use %rbp in clobbers as GCC's inline
+	 * assembly doesn't allow to do so. So, here is explicitly saving
+	 * %rbp before syscall and restoring it's value afterward.
+	 */
+	asm volatile ("pushq %%rbp\n\t"
+			"mov %6, %%ebp\n\t"
+			"int $0x80\n\t"
+			"mov %%ebp, %6\n\t"
+			"popq %%rbp\n\t"
 		      : "+a" (args->nr),
 			"+b" (args->arg0), "+c" (args->arg1), "+d" (args->arg2),
-			"+S" (args->arg3), "+D" (args->arg4), "+r" (bp)
+			"+S" (args->arg3), "+D" (args->arg4), "+g" (args->arg5)
 			: : "r8", "r9", "r10", "r11");
-	args->arg5 = bp;
 }
 
 
