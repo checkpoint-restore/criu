@@ -46,21 +46,27 @@ struct pid {
 	} ns[1]; /* Must be at the end of struct pid */
 };
 
-#define equal_pid(a, b)							\
-({									\
-	int ___i, ___ret = true;					\
-	if (a->level == b->level) {					\
-		for (___i = 0; ___i < a->level; ___i++)			\
-			if (a->ns[___i].virt != b->ns[___i].virt) {	\
-				___ret = false;				\
-				___i = a->level; /* break */		\
-			}						\
-	} else {							\
-		pr_err("Wrong pid nesting level\n");			\
-		___ret = false;						\
-	}								\
-	___ret;								\
-})
+static inline bool equal_pid(struct pid *a, struct pid *b)
+{
+	struct pid *t;
+	int i;
+
+	if (a->level > b->level) {
+		t = a;
+		a = b;
+		b = t;
+	}
+
+	for(i = 0; i < b->level; i++) {
+		if (i < a->level) {
+			if (a->ns[i].virt != b->ns[i].virt)
+				return false;
+		} else if (b->ns[i].virt != 0)
+			return false;
+	}
+
+	return true;
+}
 
 static inline pid_t last_level_pid(struct pid *pid)
 {
