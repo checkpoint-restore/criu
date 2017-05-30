@@ -21,6 +21,9 @@
 
 #include <sys/utsname.h>
 
+#include <sys/time.h>
+#include <sys/resource.h>
+
 #include "int.h"
 #include "page.h"
 #include "common/compiler.h"
@@ -246,6 +249,20 @@ static void print_kernel_version(void)
 		buf.release, buf.version, buf.machine);
 }
 
+static void rlimit_unlimit_nofile_self(void)
+{
+	struct rlimit new;
+
+	new.rlim_cur = kdat.sysctl_nr_open;
+	new.rlim_max = kdat.sysctl_nr_open;
+
+	if (prlimit(getpid(), RLIMIT_NOFILE, &new, NULL)) {
+		pr_perror("rlimir: Can't setup RLIMIT_NOFILE for self");
+		return;
+	} else
+		pr_debug("rlimit: RLIMIT_NOFILE unlimited for self\n");
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 
@@ -351,6 +368,24 @@ int main(int argc, char *argv[], char *envp[])
 		goto usage;
 
 	init_opts();
+
+	/*
+	 * Service fd engine implies that file descritprs
+	 * used won't be borrowed by the rest of the code
+	 * and default 1024 limit is not enough for high
+	 * loaded test/containers. Thus use kdat engine
+	 * to fetch current system level limit for numbers
+	 * of files allowed to open up and lift up own
+	 * limits.
+	 *
+	 * Note we have to do it before the service fd
+	 * get inited and we dont exit with errors here
+	 * because in worst scenario where clash of fd
+	 * happen we simply exit with explicit error
+	 * during real action stage.
+	 */
+	if (!kerndat_files_stat(true))
+		rlimit_unlimit_nofile_self();
 
 	if (init_service_fd())
 		return 1;
