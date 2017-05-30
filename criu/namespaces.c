@@ -2566,25 +2566,14 @@ int set_user_ns(u32 id)
 static int do_reserve_pid_ns_helpers(struct ns_id *ns, void *oarg)
 {
 	struct pstree_item *helper;
-	struct ns_id *iter = ns;
 	pid_t pid[MAX_NS_NESTING], *p;
-	int i, level;
+	int level;
 
-	for (i = MAX_NS_NESTING-1; iter && i >= 0; i--, iter = iter->parent) {
-		pid[i] = get_free_pid(iter);
-		if (pid[i] < 0) {
-			pr_err("Can't find free pid\n");
-			return -1;
-		}
-	}
-
-	if (iter) {
-		pr_err("Too many pids levels\n");
+	level = get_free_pids(ns, pid);
+	if (level <= 0)
 		return -1;
-	}
 
-	p = &pid[++i];
-	level = MAX_NS_NESTING - i;
+	p = &pid[MAX_NS_NESTING - level];
 	helper = lookup_create_item(p, level, ns->id);
 	if (helper == NULL)
 		return -1;
