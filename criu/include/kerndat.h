@@ -2,7 +2,6 @@
 #define __CR_KERNDAT_H__
 
 #include <stdbool.h>
-
 #include "int.h"
 #include "common/config.h"
 #ifdef CONFIG_VDSO
@@ -20,6 +19,7 @@ extern int kerndat_init(void);
 extern int kerndat_get_dirty_track(void);
 extern int kerndat_fdinfo_has_lock(void);
 extern int kerndat_loginuid(void);
+extern int kerndat_files_stat(bool early);
 
 enum pagemap_func {
 	PM_UNKNOWN,
@@ -69,6 +69,8 @@ struct kerndat_s {
 	bool has_nspid;
 	bool has_ns_get_userns;
 	bool has_ns_get_parent;
+	unsigned int sysctl_nr_open;
+	unsigned long files_stat_max_files;
 };
 
 extern struct kerndat_s kdat;
