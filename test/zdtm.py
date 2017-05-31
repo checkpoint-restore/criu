@@ -1709,6 +1709,11 @@ def run_tests(opts):
 					l.skip(t, "lazy pages are not supported")
 					continue
 
+			if opts['remote_lazy_pages']:
+				if test_flag(tdesc, 'noremotelazy'):
+					l.skip(t, "remote lazy pages are not supported")
+					continue
+
 			test_flavs = tdesc.get('flavor', 'h ns uns').split()
 			opts_flavs = (opts['flavor'] or 'h,ns,uns').split(',')
 			if opts_flavs != ['best']:
