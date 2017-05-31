@@ -62,6 +62,7 @@ message task_kobj_ids_entry {
 	optional uint32			mnt_ns_id	= 9;
 	optional uint32			user_ns_id	= 10;
 	optional uint32			cgroup_ns_id	= 11;
+	optional uint32			pid_for_children_ns_id = 12;
 }
 
 message thread_sas_entry {
