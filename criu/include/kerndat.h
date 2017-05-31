@@ -71,6 +71,7 @@ struct kerndat_s {
 	bool has_ns_get_parent;
 	unsigned int sysctl_nr_open;
 	unsigned long files_stat_max_files;
+	bool has_pid_for_children_ns;
 };
 
 extern struct kerndat_s kdat;
@@ -96,5 +97,6 @@ extern int kerndat_uffd(void);
 extern int kerndat_has_nspid(void);
 extern int kerndat_has_ns_get_userns(void);
 extern int kerndat_has_ns_get_parent(void);
+extern int kerndat_has_pid_for_children_ns(void);
 
 #endif /* __CR_KERNDAT_H__ */
