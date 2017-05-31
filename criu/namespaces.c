@@ -690,6 +690,25 @@ struct collect_image_info nsfile_cinfo = {
 	.collect = collect_one_nsfile,
 };
 
+static int get_pid_for_children_ns_id(pid_t pid, TaskKobjIdsEntry *ids)
+{
+	ids->has_pid_for_children_ns_id = false;
+
+	if (kdat.has_pid_for_children_ns) {
+		ids->pid_for_children_ns_id = __get_ns_id(pid, &pid_ns_desc, true,
+							  &ids->has_pid_for_children_ns_id, NULL);
+		if (!ids->pid_for_children_ns_id) {
+			pr_err("Can't make pid_for_children id\n");
+			return -1;
+		}
+		if (ids->pid_for_children_ns_id == UINT_MAX) {
+			pr_err("Just unshared pid namespaces are not supported yet\n");
+			return -1;
+		}
+	}
+	return 0;
+}
+
 /*
  * Same as dump_task_ns_ids(), but
  * a) doesn't keep IDs (don't need them)
@@ -774,6 +793,9 @@ int dump_task_ns_ids(struct pstree_item *item)
 		pr_err("Can't make cgroup id\n");
 		return -1;
 	}
+
+	if (get_pid_for_children_ns_id(pid, ids) < 0)
+		return -1;
 
 	return 0;
 }

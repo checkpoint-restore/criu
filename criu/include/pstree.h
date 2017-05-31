@@ -139,6 +139,7 @@ extern int pstree_alloc_cores(struct pstree_item *item);
 extern void pstree_free_cores(struct pstree_item *item);
 
 extern int collect_pstree_ids(void);
+extern int fixup_pid_for_children_ns(TaskKobjIdsEntry *ids);
 
 extern int preorder_pstree_traversal(struct pstree_item *item, int (*f)(struct pstree_item *));
 extern int __set_next_pid(pid_t pid);
