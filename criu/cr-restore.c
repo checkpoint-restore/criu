@@ -469,6 +469,29 @@ static int set_pid_for_children_ns(struct ns_id *pid_ns)
 	return ret;
 }
 
+static int restore_task_pfc_before_user_ns(void)
+{
+	struct ns_id *ns;
+	uint32_t id;
+
+	if (!(root_ns_mask & CLONE_NEWPID))
+		return 0;
+	/*
+	 * One-threaded tasks should restore pid_for_children ns before
+	 * user ns assignment, when it has highest capabilities.
+	 * Multi-threaded do that after -- in each thread.
+	 */
+	if (current->nr_threads == 1)
+		id = current->ids->pid_for_children_ns_id;
+	else
+		id = current->ids->pid_ns_id;
+
+	ns = lookup_ns_by_id(id, &pid_ns_desc);
+	BUG_ON(!ns);
+
+	return set_pid_for_children_ns(ns);
+}
+
 static int setup_child_task_namespaces(struct pstree_item *item, struct ns_id **ret_pid_ns)
 {
 	struct ns_id *pid_ns;
@@ -997,6 +1020,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	 * so a task namespace has to be restored after sockets.
 	 */
 	if (restore_task_net_ns(current))
+		return -1;
+
+	if (restore_task_pfc_before_user_ns())
 		return -1;
 
 	if (current->ids->has_user_ns_id && set_user_ns(current->ids->user_ns_id) < 0)
