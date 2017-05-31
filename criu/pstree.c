@@ -257,6 +257,28 @@ struct pstree_item *__alloc_pstree_item(bool rst, int level)
 	return item;
 }
 
+void add_child_task(struct pstree_item *child, struct pstree_item *parent)
+{
+	struct pstree_item *item;
+
+	if (vpid(child) != INIT_PID)
+		list_add_tail(&child->sibling, &parent->children);
+	else {
+		list_for_each_entry(item, &parent->children, sibling)
+			if (vpid(item) != INIT_PID ||
+			    item->pid->level >= child->pid->level)
+				break;
+		/* Add child before item */
+		list_add_tail(&child->sibling, &item->sibling);
+	}
+}
+
+void move_child_task(struct pstree_item *child, struct pstree_item *new_parent)
+{
+	list_del(&child->sibling);
+	add_child_task(child, new_parent);
+}
+
 int init_pstree_helper(struct pstree_item *ret)
 {
 	BUG_ON(!ret->parent);
@@ -790,7 +812,7 @@ static int read_pstree_image(pid_t *pid_max)
 			pi->parent = NULL;
 		} else {
 			pi->parent = parent;
-			list_add(&pi->sibling, &parent->children);
+			add_child_task(pi, parent);
 		}
 
 		pi->nr_threads = e->n_tids;
@@ -908,7 +930,7 @@ static int prepare_pstree_ids(void)
 			vpgid(helper) = vpgid(leader);
 			helper->ids = leader->ids;
 			helper->parent = leader;
-			list_add(&helper->sibling, &leader->children);
+			add_child_task(helper, leader);
 
 			pr_info("Attach %d to the task %d\n",
 					vpid(helper), vpid(leader));
@@ -944,7 +966,7 @@ static int prepare_pstree_ids(void)
 					vpid(child), vpid(helper));
 
 			child->parent = helper;
-			list_move(&child->sibling, &helper->children);
+			move_child_task(child, helper);
 		}
 	}
 
@@ -986,7 +1008,10 @@ static int prepare_pstree_ids(void)
 	}
 
 	/* All other helpers are session leaders for own sessions */
-	list_splice(&helpers, &root_item->children);
+	while (!list_empty(&helpers)) {
+		item = list_first_entry(&helpers, struct pstree_item, sibling);
+		move_child_task(item, root_item);
+	}
 
 	/* Add a process group leader if it is absent  */
 	for_each_pstree_item(item) {
@@ -1021,7 +1046,7 @@ static int prepare_pstree_ids(void)
 			pr_err("Can't init helper\n");
 			return -1;
 		}
-		list_add(&helper->sibling, &item->children);
+		add_child_task(helper, item);
 		rsti(item)->pgrp_leader = helper;
 
 		pr_info("Add a helper %d for restoring PGID %d\n",
