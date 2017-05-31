@@ -448,11 +448,8 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 	if (nd == &net_ns_desc) {
 		INIT_LIST_HEAD(&nsid->net.ids);
 		INIT_LIST_HEAD(&nsid->net.links);
-	} else if (nd == &pid_ns_desc) {
+	} else if (nd == &pid_ns_desc)
 		nsid->pid.rb_root = RB_ROOT;
-		if (type == NS_ROOT || (type == NS_CRIU && !top_pid_ns))
-			top_pid_ns = nsid;
-	}
 found:
 	if (ns_ret)
 		*ns_ret = nsid;

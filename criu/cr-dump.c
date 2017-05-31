@@ -822,6 +822,29 @@ static int predump_criu_ns_ids(void)
 	return predump_task_ns_ids(&crt.i);
 }
 
+static int set_top_pid_ns(void)
+{
+	struct ns_id *ns;
+
+	for (ns = ns_ids; ns != NULL; ns = ns->next) {
+		if (ns->nd != &pid_ns_desc)
+			continue;
+		if (ns->type == NS_ROOT) {
+			top_pid_ns = ns;
+			break;
+		}
+		if (ns->type == NS_CRIU)
+			top_pid_ns = ns;
+	}
+
+	if (!top_pid_ns) {
+		pr_err("Can't set top_pid_ns\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int collect_pstree_ids_predump()
 {
 	struct pstree_item *item;
@@ -834,7 +857,7 @@ static int collect_pstree_ids_predump()
 			return -1;
 	}
 
-	return 0;
+	return set_top_pid_ns();
 }
 
 int collect_pstree_ids(void)
@@ -845,7 +868,7 @@ int collect_pstree_ids(void)
 		if (get_task_ids(item))
 			return -1;
 
-	return 0;
+	return set_top_pid_ns();
 }
 
 static int collect_file_locks(void)
