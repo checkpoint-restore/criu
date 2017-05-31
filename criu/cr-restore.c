@@ -818,10 +818,23 @@ static int open_cores(int pid, CoreEntry *leader_core)
 	for (i = 0; i < current->nr_threads; i++) {
 		tpid = vtid(current, i);
 
-		if (tpid == pid)
+		if (tpid == pid) {
 			cores[i] = leader_core;
-		else if (open_core(tpid, &cores[i]))
+			continue;
+		}
+
+		if (open_core(tpid, &cores[i]))
 			goto err;
+		if (cores[i]->ids) {
+			/* We don't dump pid_ns_id of threads as it's same to group leader's */
+			cores[i]->ids->has_pid_ns_id = true;
+			cores[i]->ids->pid_ns_id = current->ids->pid_ns_id;
+			if (fixup_pid_for_children_ns(cores[i]->ids)) {
+				core_entry__free_unpacked(cores[i], NULL);
+				goto err;
+			}
+		} else
+			cores[i]->ids = current->ids;
 	}
 
 	current->core = cores;
