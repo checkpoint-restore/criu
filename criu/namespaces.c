@@ -443,6 +443,7 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 	nsid->ns_populated = true;
 	INIT_LIST_HEAD(&nsid->children);
 	INIT_LIST_HEAD(&nsid->siblings);
+	nsid->alternative = alternative;
 	nsid_add(nsid, nd, ns_next_id++, pid);
 	BUG_ON(nsid->id == UINT_MAX);
 
@@ -810,7 +811,7 @@ static int set_ns_hookups(struct ns_id *ns)
 	struct ns_id *u_ns;
 	int fd, ret = -1;
 
-	fd = open_proc(ns->ns_pid, "ns/%s", nd->str);
+	fd = open_proc(ns->ns_pid, "ns/%s", !ns->alternative ? nd->str : nd->alt_str);
 	if (fd < 0) {
 		pr_perror("Can't open %s, pid %d", nd->str, ns->ns_pid);
 		return -1;
