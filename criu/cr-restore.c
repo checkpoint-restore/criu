@@ -440,14 +440,11 @@ static void wait_pid_ns_helper_prepared(struct ns_id *pid_ns, struct pid *pid)
 	futex_wait_while_eq(&pid_ns->pid.helper_created, 0);
 }
 
-static int set_pid_ns_for_children(struct ns_id *pid_ns, struct pid *pid)
+static int set_pid_for_children_ns(struct ns_id *pid_ns)
 {
 	int fd, ret = 0;
 
 	if (!(root_ns_mask & CLONE_NEWPID))
-		return 0;
-
-	if (last_level_pid(pid) == INIT_PID)
 		return 0;
 
 	BUG_ON(!current);
@@ -490,7 +487,8 @@ static int setup_child_task_namespaces(struct pstree_item *item, struct ns_id **
 
 	wait_pid_ns_helper_prepared(pid_ns, item->pid);
 
-	if (set_pid_ns_for_children(pid_ns, item->pid) < 0)
+	if (last_level_pid(item->pid) != INIT_PID &&
+	    set_pid_for_children_ns(pid_ns) < 0)
 		return -1;
 
 	*ret_pid_ns = pid_ns;
