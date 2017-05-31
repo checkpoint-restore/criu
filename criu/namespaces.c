@@ -421,7 +421,7 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 
 	if (pid != getpid()) {
 		type = NS_OTHER;
-		if (pid == root_item->pid->real) {
+		if (pid == root_item->pid->real && !alternative) {
 			BUG_ON(root_ns_mask & nd->cflag);
 			pr_info("Will take %s namespace in the image\n", nd->str);
 			root_ns_mask |= nd->cflag;
@@ -444,6 +444,7 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 	INIT_LIST_HEAD(&nsid->children);
 	INIT_LIST_HEAD(&nsid->siblings);
 	nsid_add(nsid, nd, ns_next_id++, pid);
+	BUG_ON(nsid->id == UINT_MAX);
 
 	if (nd == &net_ns_desc) {
 		INIT_LIST_HEAD(&nsid->net.ids);
@@ -472,6 +473,8 @@ static unsigned int __get_ns_id(int pid, struct ns_desc *nd, bool alternative,
 
 	if (fstatat(proc_dir, ns_path, &st, 0)) {
 		if (errno == ENOENT) {
+			if (alternative)
+				return UINT_MAX;
 			/* The namespace is unsupported */
 			kid = 0;
 			goto out;
