@@ -800,6 +800,14 @@ int dump_task_ns_ids(struct pstree_item *item)
 	return 0;
 }
 
+int dump_thread_ids(pid_t pid, TaskKobjIdsEntry *ids)
+{
+	if (get_pid_for_children_ns_id(pid, ids) < 0)
+		return -1;
+
+	return 0;
+}
+
 static int set_ns_opt(int ns_fd, unsigned ioc, struct ns_id **ns, struct ns_desc *nd)
 {
 	int opt_fd, ret = -1;

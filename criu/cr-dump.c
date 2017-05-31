@@ -679,6 +679,18 @@ err:
 	return -1;
 }
 
+static int get_thread_ids(struct pstree_item *item, int id)
+{
+	CoreEntry *core = item->core[id];
+	core->ids = xmalloc(sizeof(*core->ids));
+	if (!core->ids)
+		return -1;
+
+	task_kobj_ids_entry__init(core->ids);
+
+	return dump_thread_ids(item->threads[id]->real, core->ids);
+}
+
 static int do_dump_task_ids(const struct pstree_item *item, struct cr_img *img)
 {
 	return pb_write_one(img, item->ids, PB_IDS);
@@ -863,10 +875,18 @@ static int collect_pstree_ids_predump()
 int collect_pstree_ids(void)
 {
 	struct pstree_item *item;
+	int i;
 
-	for_each_pstree_item(item)
+	for_each_pstree_item(item) {
 		if (get_task_ids(item))
 			return -1;
+		for (i = 0; i < item->nr_threads; i++) {
+			if (item->threads[i]->real == item->pid->real)
+				continue;
+			if (get_thread_ids(item, i))
+				return -1;
+		}
+	}
 
 	return set_top_pid_ns();
 }

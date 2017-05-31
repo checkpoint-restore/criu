@@ -3540,7 +3540,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 				blkset = (void *)&tcore->thread_core->blk_sigset;
 		}
 
-		if ((tcore->tc || tcore->ids) && thread_args[i].pid[0] != pid) {
+		if ((tcore->tc) && thread_args[i].pid[0] != pid) {
 			pr_err("Thread has optional fields present %d\n",
 			       thread_args[i].pid[0]);
 			ret = -1;
