@@ -90,13 +90,36 @@ int main(int argc, char *argv[], char *envp[])
 endef
 
 define FEATURE_TEST_X86_COMPAT
+#define __ALIGN         .align 4, 0x90
+#define ENTRY(name)             \
+        .globl name;            \
+        .type name, @function;  \
+        __ALIGN;                \
+        name:
 
-/* Test for glibc-devel.i686 presence */
-#include <gnu/stubs-32.h>
+#define END(sym)                \
+        .size sym, . - sym
 
-int main(int argc, char **argv)
-{
-        return 0;
-}
+#define __USER32_CS     0x23
+#define __USER_CS       0x33
 
+        .text
+
+ENTRY(call32_from_64)
+        /* Switch into compatibility mode */
+        pushq \$$__USER32_CS
+        pushq \$$1f
+        lretq
+1:
+        .code32
+        /* Run function and switch back */
+        call *%esi
+        jmp \$$__USER_CS,\$$1f
+        .code64
+1:
+END(call32_from_64)
+
+ENTRY(main)
+        nop
+END(main)
 endef
