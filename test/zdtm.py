@@ -1810,15 +1810,18 @@ def run_tests(opts):
 				launcher.skip(t, "manual run only")
 				continue
 
-			feat = tdesc.get('feature', None)
-			if feat:
+			feat_list = tdesc.get('feature', "")
+			for feat in feat_list.split():
 				if feat not in features:
 					print "Checking feature %s" % feat
 					features[feat] = criu.check(feat)
 
 				if not features[feat]:
 					launcher.skip(t, "no %s feature" % feat)
-					continue
+					feat_list = None
+					break
+			if feat_list is None:
+				continue
 
 			if self_checkskip(t):
 				launcher.skip(t, "checkskip failed")
