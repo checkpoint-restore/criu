@@ -1298,7 +1298,6 @@ static int call_clone_fn(void *arg)
 		return -1;
 	}
 	close(fd);
-	ca->item->user_ns = pid_ns->user_ns;
 
 	if (ca->clone_flags & CLONE_FILES)
 		close_pid_proc();
@@ -1384,14 +1383,17 @@ static inline int fork_with_pid(struct pstree_item *item)
 	pid_t pid = vpid(item);
 	struct ns_id *pid_ns;
 
-	if (item != root_item)
-		item->user_ns = current->user_ns;
-	else
-		item->user_ns = root_user_ns;
-
 	pid_ns = lookup_ns_by_id(item->ids->pid_ns_id, &pid_ns_desc);
 	BUG_ON(!pid_ns);
 	item->pid_for_children_ns = pid_ns;
+
+	if (item != root_item) {
+		if (last_level_pid(item->pid) == INIT_PID)
+			item->user_ns = pid_ns->user_ns;
+		else
+			item->user_ns = current->user_ns;
+	} else
+		item->user_ns = root_user_ns;
 
 	if (item->pid->state != TASK_HELPER) {
 		if (open_core(pid, &ca.core))
