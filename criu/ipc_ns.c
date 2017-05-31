@@ -943,4 +943,4 @@ int prepare_ipc_ns(int pid)
 	return 0;
 }
 
-struct ns_desc ipc_ns_desc = NS_DESC_ENTRY(CLONE_NEWIPC, "ipc");
+struct ns_desc ipc_ns_desc = NS_DESC_ENTRY(CLONE_NEWIPC, "ipc", NULL);

@@ -2778,5 +2778,5 @@ int destroy_pid_ns_helpers(void)
 	return 0;
 }
 
-struct ns_desc pid_ns_desc = NS_DESC_ENTRY(CLONE_NEWPID, "pid");
-struct ns_desc user_ns_desc = NS_DESC_ENTRY(CLONE_NEWUSER, "user");
+struct ns_desc pid_ns_desc = NS_DESC_ENTRY(CLONE_NEWPID, "pid", "pid_for_children");
+struct ns_desc user_ns_desc = NS_DESC_ENTRY(CLONE_NEWUSER, "user", NULL);

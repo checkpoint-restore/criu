@@ -68,4 +68,4 @@ out:
 	return ret;
 }
 
-struct ns_desc uts_ns_desc = NS_DESC_ENTRY(CLONE_NEWUTS, "uts");
+struct ns_desc uts_ns_desc = NS_DESC_ENTRY(CLONE_NEWUTS, "uts", NULL);
