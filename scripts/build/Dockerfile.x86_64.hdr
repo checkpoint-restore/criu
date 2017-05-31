@@ -1,5 +1,4 @@
 FROM ubuntu:trusty
 
 RUN apt-get update -qq && apt-get install -qq \
-                gcc-multilib \
-                libc6-dev-i386
+                gcc-multilib
