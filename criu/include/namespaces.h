@@ -56,6 +56,7 @@
 struct ns_desc {
 	unsigned int	cflag;
 	char		*str;
+	char		*alt_str;
 	size_t		len;
 };
 
