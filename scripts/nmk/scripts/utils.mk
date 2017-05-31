@@ -1,10 +1,18 @@
 ifndef ____nmk_defined__utils
 
 #
-# Usage: option = $(call try-cc,source-to-build,cc-options,cc-defines)
-try-cc = $(shell sh -c 'echo "$(1)" |					\
-        $(CC) $(3) -x c - $(2) -o /dev/null > /dev/null 2>&1 &&		\
+# Usage: option := $(call try-compile,language,source-to-build,cc-options,cc-defines)
+try-compile = $(shell sh -c 'echo "$(2)" |					\
+        $(CC) $(4) -x $(1) - $(3) -o /dev/null > /dev/null 2>&1 &&		\
         echo true || echo false')
+
+#
+# Usage: option := $(call try-cc,source-to-build,cc-options,cc-defines)
+try-cc = $(call try-compile,c,$(1),$(2),$(3))
+
+#
+# Usage: option := $(call try-cc,source-to-build,cc-options,cc-defines)
+try-asm = $(call try-compile,assembler-with-cpp,$(1),$(2),$(3))
 
 # pkg-config-check
 # Usage: ifeq ($(call pkg-config-check, library),y)
