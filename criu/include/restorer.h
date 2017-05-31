@@ -96,6 +96,7 @@ struct thread_restore_args {
 	unsigned int			siginfo_n;
 
 	int				pdeath_sig;
+	int				pfc_ns_fd;
 
 	struct thread_creds_args	*creds_args;
 } __aligned(64);
