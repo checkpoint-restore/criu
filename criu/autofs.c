@@ -859,28 +859,6 @@ static struct fdinfo_list_entry *autofs_pipe_le(struct pstree_item *master,
 	return ple;
 }
 
-static int autofs_create_fle(struct pstree_item *task, FdinfoEntry *fe,
-			     struct file_desc *desc)
-{
-	struct fdinfo_list_entry *le;
-	struct rst_info *rst_info = rsti(task);
-
-	le = shmalloc(sizeof(*le));
-	if (!le)
-		return -1;
-
-	fle_init(le, vpid(task), fe);
-
-	collect_task_fd(le, rst_info);
-
-	list_add_tail(&le->desc_list, &desc->fd_info_head);
-	le->desc = desc;
-
-	pr_info("autofs: added pipe fd %d, flags %#x to %d (with post_open)\n",
-			le->fe->fd, le->fe->flags, le->pid);
-	return 0;
-}
-
 static int autofs_open_pipefd(struct file_desc *d, int *new_fd)
 {
 	struct fdinfo_list_entry *fle = file_master(d);
@@ -933,7 +911,9 @@ static int autofs_create_pipe(struct pstree_item *task, autofs_info_t *i,
 	if (!fe)
 		return -1;
 
-	return autofs_create_fle(task, fe, &i->pi.d);
+	pr_info("autofs: adding pipe fd %d, flags %#x to %d (with post_open)\n",
+		fe->fd, fe->flags, vpid(task));
+	return collect_fd(vpid(task), fe, rsti(task));
 }
 
 static int autofs_add_mount_info(struct pprep_head *ph)
