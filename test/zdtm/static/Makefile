@@ -454,6 +454,8 @@ socket-tcp6-unconn:	CFLAGS += -D ZDTM_IPV6
 
 pty-console:		CFLAGS += -D ZDTM_DEV_CONSOLE
 
+shm-unaligned:		CFLAGS += -DZDTM_SHM_UNALIGNED
+
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
 
