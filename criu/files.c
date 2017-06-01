@@ -708,7 +708,7 @@ static struct fdinfo_list_entry *alloc_fle(int pid, FdinfoEntry *fe)
 	return fle;
 }
 
-static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
+int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 {
 	struct fdinfo_list_entry *le, *new_le;
 	struct file_desc *fdesc;
