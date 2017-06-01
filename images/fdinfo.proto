@@ -36,6 +36,9 @@ enum fd_types {
 	TUNF		= 15;
 	EXT		= 16;
 	TIMERFD		= 17;
+
+	/* Any number above the real used. Not stored to image */
+	AUTOFS_PIPE	= 65535;
 }
 
 message fdinfo_entry {
