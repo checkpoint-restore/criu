@@ -892,6 +892,7 @@ static int autofs_create_pipe(struct pstree_item *task, autofs_info_t *i,
 		return -1;
 	memcpy(ops, pi->d.ops, sizeof(*ops));
 	ops->open = autofs_open_pipefd;
+	ops->type = FD_TYPES__AUTOFS_PIPE;
 
 	pe = shmalloc(sizeof(*pe));
 	if (!pe)
@@ -910,6 +911,7 @@ static int autofs_create_pipe(struct pstree_item *task, autofs_info_t *i,
 	fe = dup_fdinfo(ple->fe, fd, flags);
 	if (!fe)
 		return -1;
+	fe->type = FD_TYPES__AUTOFS_PIPE;
 
 	pr_info("autofs: adding pipe fd %d, flags %#x to %d (with post_open)\n",
 		fe->fd, fe->flags, vpid(task));
