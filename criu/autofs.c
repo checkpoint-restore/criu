@@ -865,10 +865,9 @@ static int autofs_create_fle(struct pstree_item *task, FdinfoEntry *fe,
 	struct fdinfo_list_entry *le;
 	struct rst_info *rst_info = rsti(task);
 
-	le = shmalloc(sizeof(*le) + sizeof(int));
+	le = shmalloc(sizeof(*le));
 	if (!le)
 		return -1;
-	le = (void *)ALIGN((long)le, sizeof(int));
 
 	fle_init(le, vpid(task), fe);
 
