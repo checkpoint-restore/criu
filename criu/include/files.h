@@ -111,7 +111,6 @@ struct file_desc_ops {
 };
 
 int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info, bool ghost);
-void collect_task_fd(struct fdinfo_list_entry *new_fle, struct rst_info *ri);
 struct fdinfo_list_entry *collect_fd_to(int pid, FdinfoEntry *e,
 		struct rst_info *rst_info, struct file_desc *fdesc, bool fake);
 
