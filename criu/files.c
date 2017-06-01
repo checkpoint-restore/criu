@@ -124,7 +124,7 @@ struct fdinfo_list_entry *find_used_fd(struct pstree_item *task, int fd)
 	return NULL;
 }
 
-void collect_task_fd(struct fdinfo_list_entry *new_fle, struct rst_info *ri)
+static void collect_task_fd(struct fdinfo_list_entry *new_fle, struct rst_info *ri)
 {
 	struct fdinfo_list_entry *fle;
 
