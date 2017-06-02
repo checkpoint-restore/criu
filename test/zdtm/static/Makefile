@@ -82,6 +82,8 @@ TST_NOFILE	:=				\
 		socket-tcp-closed		\
 		socket-tcp-closed-last-ack	\
 		socket-tcp6-closed		\
+		socket-tcp-close0 		\
+		socket-tcp-close1 		\
 		socket-tcp-unconn		\
 		socket-tcp6-unconn		\
 		socket-tcp-syn-sent		\
