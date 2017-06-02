@@ -264,6 +264,9 @@ For example, the command line for the above example should look like this:
     The TCP stack on the client side is expected to handle the
     re-connect gracefully.
 
+*--tcp-close*::
+    Restore connected TCP sockets in closed state.
+
 *--evasive-devices*::
     Use any path to a device file if the original one is inaccessible.
 

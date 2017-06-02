@@ -8,6 +8,7 @@
 
 #include "../soccr/soccr.h"
 
+#include "cr_options.h"
 #include "util.h"
 #include "common/list.h"
 #include "log.h"
@@ -406,6 +407,11 @@ int restore_one_tcp(int fd, struct inet_sk_info *ii)
 	struct libsoccr_sk *sk;
 
 	pr_info("Restoring TCP connection\n");
+
+	if (opts.tcp_close &&
+		ii->ie->state != TCP_LISTEN && ii->ie->state != TCP_CLOSE) {
+		return 0;
+	}
 
 	sk = libsoccr_pause(fd);
 	if (!sk)

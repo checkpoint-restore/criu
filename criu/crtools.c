@@ -290,6 +290,7 @@ int main(int argc, char *argv[], char *envp[])
 		BOOL_OPT("display-stats", &opts.display_stats),
 		BOOL_OPT("weak-sysctls", &opts.weak_sysctls),
 		{ "status-fd",			required_argument,	0, 1088 },
+		{ SK_CLOSE_PARAM, 		no_argument,		0, 1089 },
 		{ },
 	};
 
@@ -568,6 +569,9 @@ int main(int argc, char *argv[], char *envp[])
 				return 1;
 			}
 			break;
+		case 1089:
+			opts.tcp_close = true;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -826,6 +830,7 @@ usage:
 "* Special resources support:\n"
 "     --" SK_EST_PARAM "  checkpoint/restore established TCP connections\n"
 "     --" SK_INFLIGHT_PARAM "   skip (ignore) in-flight TCP connections\n"
+"     --" SK_CLOSE_PARAM "        restore connected TCP sockets in closed state\n"
 "  -r|--root PATH        change the root filesystem (when run in mount namespace)\n"
 "  --evasive-devices     use any path to a device file if the original one\n"
 "                        is inaccessible\n"
