@@ -811,8 +811,14 @@ static int collect_child_pids(int state, unsigned int *n)
 	 * process and they have to be collected too.
 	 */
 
-	if (current == root_item) {
-		for_each_pstree_item(pi) {
+	if (last_level_pid(current->pid) == INIT_PID) {
+		for_each_pssubtree_item(pi, current) {
+			/* Skip items from sub-namespaces */
+			while (pi && pi->ids->pid_ns_id != current->ids->pid_ns_id)
+				pi = pssubtree_item_next(pi, current, true);
+			if (!pi)
+				break;
+
 			if (pi->pid->state != TASK_HELPER &&
 			    pi->pid->state != TASK_DEAD)
 				continue;

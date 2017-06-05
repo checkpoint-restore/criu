@@ -937,12 +937,166 @@ int get_free_pids(struct ns_id *ns, pid_t *pids)
 	return MAX_NS_NESTING - i - 1;
 }
 
-static int prepare_pstree_ids(void)
+static int can_inherit_sid(struct pstree_item *item)
 {
-	struct pstree_item *item, *child, *helper, *tmp;
+	struct pstree_item *parent;
+	parent = item->parent;
+	while (parent) {
+		/* parent will give the right sid to item */
+		if (vsid(item) == vsid(parent))
+			return 1;
+		/* non-leader can't give children sid different from it's own */
+		if (!is_session_leader(parent))
+			break;
+		/* some other ancestor can have the right pid for item */
+		parent = parent->parent;
+	}
+	return 0;
+}
+
+static struct pstree_item *get_helper(int sid, unsigned int id, struct list_head *helpers)
+{
+	struct pstree_item *helper;
+	list_for_each_entry(helper, helpers, sibling)
+		if (vsid(helper) == sid && helper->ids->pid_ns_id == id)
+			return helper;
+	return NULL;
+}
+
+static int handle_init_reparent(struct ns_id *ns, void *oarg)
+{
+	struct pstree_item *init, *item, *helper, *branch, *tmp;
 	LIST_HEAD(helpers);
 
+	init = __pstree_item_by_virt(ns, INIT_PID);
+
+	for_each_pssubtree_item(item, init) {
+skip:
+		if (!item)
+			break;
+
+		/* Skip pidns's reaper */
+		if (item == init)
+			continue;
+
+		/* Session leaders do setsid() */
+		if (is_session_leader(item)) {
+			/*
+			 * Stop on pidns init, it's descendants
+			 * will be handled from it's pidns.
+			 */
+			if (last_level_pid(item->pid) == INIT_PID)
+				goto skip_descendants;
+			continue;
+		}
+
+		if (can_inherit_sid(item))
+			goto skip_descendants;
+
+		helper = get_helper(vsid(item), ns->id, &helpers);
+		if (!helper) {
+			struct pstree_item *leader;
+			pid_t pid[MAX_NS_NESTING];
+			int level;
+
+			leader = pstree_item_by_virt(vsid(item));
+			BUG_ON(leader == NULL);
+
+			if (leader->pid->level > init->pid->level)
+				/*
+				 * If leader is in lower pidns, then item's branch
+				 * couldn't have been reparented to init from leader
+				 * - will manage item in other pidns
+				 *
+				 * FIXME One tricky case which does not fit these rule
+				 * is doing CLONE_PARENT after entering pidns and setsid.
+				 */
+				goto skip_descendants;
+
+			if (leader->pid->state == TASK_UNDEF) {
+				struct ns_id *leader_pid_ns = ns;
+				struct pstree_item *linit;
+				int i;
+
+				/*
+				 * Search a proper pidns where session leader helper
+				 * can be created (using the fact that all processes
+				 * of some session should be in pidns of leader or
+				 * some ancestor pidns)
+				 */
+				for (i = 0; i < init->pid->level - leader->pid->level; i++) {
+					BUG_ON(!leader_pid_ns->parent);
+					leader_pid_ns = leader_pid_ns->parent;
+				}
+				BUG_ON(!leader_pid_ns);
+				linit = __pstree_item_by_virt(leader_pid_ns, INIT_PID);
+				BUG_ON(!linit);
+
+				pr_info("Add a session leader helper %d\n", vsid(item));
+
+				memcpy(leader->sid, item->sid, PID_SIZE(leader->sid->level));
+				memcpy(leader->pgid, item->sid, PID_SIZE(leader->pgid->level));
+				leader->ids = linit->ids;
+				leader->parent = linit;
+
+				add_child_task(leader, leader->parent);
+				init_pstree_helper(leader);
+			}
+			BUG_ON(!is_session_leader(leader));
+
+			level = get_free_pids(ns, pid);
+			if (level <= 0)
+				return -1;
+
+			helper = lookup_create_item(&pid[MAX_NS_NESTING - level], level, ns->id);
+			if (helper == NULL)
+				return -1;
+
+			memcpy(helper->sid, item->sid, PID_SIZE(helper->sid->level));
+			memcpy(helper->pgid, leader->pgid, PID_SIZE(leader->pgid->level));
+			helper->ids = init->ids;
+			helper->parent = leader;
+
+			list_add_tail(&helper->sibling, &helpers);
+			init_pstree_helper(helper);
+
+			pr_info("Add a helper %d for restoring SID %d\n", vpid(helper), vsid(helper));
+		}
+
+		branch = item;
+		while (branch->parent && branch->parent != init)
+			branch = branch->parent;
+		pr_info("Attach %d to the temporary task %d\n", vpid(branch), vpid(helper));
+
+		if (branch->sibling.next == &init->children)
+			/* Last child of init */
+			item = NULL;
+		else
+			/* Skip the subtree that we're reparenting to helper */
+			item = list_entry(branch->sibling.next, struct pstree_item, sibling);
+
+		/* Re-reparent branch */
+		branch->parent = helper;
+		move_child_task(branch, helper);
+		goto skip;
+skip_descendants:
+		/* Descendants of non-leader should be fine, skip them */
+		item = pssubtree_item_next(item, init, true);
+		goto skip;
+	}
+
+	list_for_each_entry_safe(helper, tmp, &helpers, sibling) {
+		move_child_task(helper, helper->parent);
+		pr_info("Attach helper %d to the task %d\n", vpid(helper), vpid(helper->parent));
+	}
+	return 0;
+}
+
+static int prepare_pstree_ids(void)
+{
+	struct pstree_item *item, *helper;
 	pid_t current_pgid = getpgid(getpid());
+
 	if (!list_empty(&top_pid_ns->children))
 		return 0;
 
@@ -952,76 +1106,9 @@ static int prepare_pstree_ids(void)
 	 * immediately after forking children and all children will be
 	 * reparented to init.
 	 */
-	list_for_each_entry(item, &root_item->children, sibling) {
-		struct pstree_item *leader;
+	if (walk_namespaces(&pid_ns_desc, handle_init_reparent, NULL))
+		return -1;
 
-		/*
-		 * If a child belongs to the root task's session or it's
-		 * a session leader himself -- this is a simple case, we
-		 * just proceed in a normal way.
-		 */
-		if (equal_pid(item->sid, root_item->sid) || is_session_leader(item))
-			continue;
-
-		leader = pstree_item_by_virt(vsid(item));
-		BUG_ON(leader == NULL);
-		if (leader->pid->state != TASK_UNDEF) {
-			pid_t pid;
-
-			pid = get_free_pid(top_pid_ns);
-			if (pid < 0)
-				break;
-			helper = lookup_create_item(&pid, 1, item->ids->pid_ns_id);
-			if (helper == NULL)
-				return -1;
-
-			pr_info("Session leader %d\n", vsid(item));
-
-			vsid(helper) = vsid(item);
-			vpgid(helper) = vpgid(leader);
-			helper->ids = leader->ids;
-			helper->parent = leader;
-			add_child_task(helper, leader);
-
-			pr_info("Attach %d to the task %d\n",
-					vpid(helper), vpid(leader));
-		} else {
-			helper = leader;
-			vsid(helper) = vsid(item);
-			vpgid(helper) = vsid(item);
-			helper->parent = root_item;
-			helper->ids = root_item->ids;
-			list_add_tail(&helper->sibling, &helpers);
-		}
-		if (init_pstree_helper(helper)) {
-			pr_err("Can't init helper\n");
-			return -1;
-		}
-
-		pr_info("Add a helper %d for restoring SID %d\n",
-				vpid(helper), vsid(helper));
-
-		child = list_entry(item->sibling.prev, struct pstree_item, sibling);
-		item = child;
-
-		/*
-		 * Stack on helper task all children with target sid.
-		 */
-		list_for_each_entry_safe_continue(child, tmp, &root_item->children, sibling) {
-			if (!equal_pid(child->sid, helper->sid))
-				continue;
-			if (is_session_leader(child))
-				continue;
-
-			pr_info("Attach %d to the temporary task %d\n",
-					vpid(child), vpid(helper));
-
-			child->parent = helper;
-			move_child_task(child, helper);
-		}
-	}
-
-	/* Try to connect helpers to session leaders */
 	for_each_pstree_item(item) {
 		if (!item->parent) /* skip the root task */
 			continue;
@@ -1032,12 +1119,25 @@ static int prepare_pstree_ids(void)
 		if (!is_session_leader(item)) {
 			struct pstree_item *parent;
 
-			if (equal_pid(item->parent->sid, item->sid))
-				continue;
-
-			/* the task could fork a child before and after setsid() */
+			/* Lookup the leader, it could fork a child before and after setsid() */
 			parent = item->parent;
-			while (parent && !equal_pid(parent->pid, item->sid)) {
+			while (parent) {
+				/* Found leader */
+				if (equal_pid(parent->pid, item->sid))
+					break;
+
+				/* Inherited sid from parent */
+				if (equal_pid(parent->sid, item->sid)) {
+					parent = parent->parent;
+					continue;
+				}
+
+				/* Non-leader parent has different sid */
+				if (!is_session_leader(parent)) {
+					pr_err("Can't find a session leader for %d\n", vsid(item));
+					return -1;
+				}
+
 				if (parent->born_sid != -1 && parent->born_sid != vsid(item)) {
 					pr_err("Can't figure out which sid (%d or %d)"
 						"the process %d was born with\n",
@@ -1053,15 +1153,7 @@ static int prepare_pstree_ids(void)
 				pr_err("Can't find a session leader for %d\n", vsid(item));
 				return -1;
 			}
-
-			continue;
 		}
-	}
-
-	/* All other helpers are session leaders for own sessions */
-	while (!list_empty(&helpers)) {
-		item = list_first_entry(&helpers, struct pstree_item, sibling);
-		move_child_task(item, root_item);
 	}
 
 	/* Add a process group leader if it is absent  */
