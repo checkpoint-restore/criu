@@ -257,15 +257,21 @@ struct pstree_item *__alloc_pstree_item(bool rst, int level)
 	return item;
 }
 
+/*
+ * Link child task to parent and try to keep parent's children sorted:
+ * child reapers at the beginning of list, the less pid->level is first.
+ * This gives basic protection against deadlock, when a tasks is waiting
+ * for pid_ns child reaper creation, while it's in the end of the list.
+ */
 void add_child_task(struct pstree_item *child, struct pstree_item *parent)
 {
 	struct pstree_item *item;
 
-	if (vpid(child) != INIT_PID)
+	if (last_level_pid(child->pid) != INIT_PID)
 		list_add_tail(&child->sibling, &parent->children);
 	else {
 		list_for_each_entry(item, &parent->children, sibling)
-			if (vpid(item) != INIT_PID ||
+			if (last_level_pid(item->pid) != INIT_PID ||
 			    item->pid->level >= child->pid->level)
 				break;
 		/* Add child before item */
