@@ -102,12 +102,18 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		if (siginfo->si_pid == zombies[i])
 			return;
 
-	if (siginfo->si_code & CLD_EXITED)
-		r = " exited, status=";
-	else if (siginfo->si_code & CLD_KILLED)
-		r = " killed by signal ";
+	if (siginfo->si_code == CLD_EXITED)
+		r = "exited, status=";
+	else if (siginfo->si_code == CLD_KILLED)
+		r = "killed by signal";
+	else if (siginfo->si_code == CLD_DUMPED)
+		r = "terminated abnormally with";
+	else if (siginfo->si_code == CLD_TRAPPED)
+		r = "trapped with";
+	else if (siginfo->si_code == CLD_STOPPED)
+		r = "stopped with";
 	else
-		r = "disappeared with ";
+		r = "disappeared with";
 
 	pr_info("Task %d %s %d\n", siginfo->si_pid, r, siginfo->si_status);
 
