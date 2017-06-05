@@ -1592,8 +1592,6 @@ static void restore_sid(void)
 {
 	pid_t sid;
 
-	if (!list_empty(&top_pid_ns->children))
-		return;
 	/*
 	 * SID can only be reset to pid or inherited from parent.
 	 * Thus we restore it right here to let our kids inherit
