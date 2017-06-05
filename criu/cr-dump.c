@@ -1211,6 +1211,24 @@ err:
 	return ret;
 }
 
+static int assign_parasite_pids(struct pstree_item *item, struct parasite_dump_misc *misc)
+{
+	if (vpid(item) == -1) {
+		vpid(item) = misc->pid;
+		vsid(item) = misc->sid;
+		vpgid(item) = misc->pgid;
+	} else {
+		/* They were collected in parse_pid_status() */
+		if (last_level_pid(item->pid) != misc->pid ||
+		    last_level_pid(item->sid) != misc->sid ||
+		    last_level_pid(item->pgid) != misc->pgid) {
+			pr_err("Parasite and /proc/[pid]/status gave different pids\n");
+			return -1;
+		}
+	}
+	return 0;
+}
+
 static int pre_dump_one_task(struct pstree_item *item)
 {
 	pid_t pid = item->pid->real;
@@ -1266,7 +1284,8 @@ static int pre_dump_one_task(struct pstree_item *item)
 		goto err_cure;
 	}
 
-	vpid(item) = misc.pid;
+	if (assign_parasite_pids(item, &misc))
+		goto err;
 
 	mdc.pre_dump = true;
 	mdc.lazy = false;
@@ -1396,19 +1415,8 @@ static int dump_one_task(struct pstree_item *item)
 		goto err_cure_imgset;
 	}
 
-	if (vpid(item) == -1) {
-		vpid(item) = misc.pid;
-		vsid(item) = misc.sid;
-		vpgid(item) = misc.pgid;
-	} else {
-		/* They were collected in parse_pid_status() */
-		if (last_level_pid(item->pid) != misc.pid ||
-		    last_level_pid(item->sid) != misc.sid ||
-		    last_level_pid(item->pgid) != misc.pgid) {
-			pr_err("Parasite and /proc/[pid]/status gave different pids\n");
-			goto err;
-		}
-	}
+	if (assign_parasite_pids(item, &misc))
+		goto err;
 
 	pstree_insert_pid(item->pid, item->ids->pid_ns_id);
 
