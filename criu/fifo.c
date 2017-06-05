@@ -33,7 +33,6 @@ struct fifo_info {
 	struct file_desc	d;
 	FifoEntry		*fe;
 	bool			restore_data;
-	struct file_desc	*reg_d;
 };
 
 static LIST_HEAD(fifo_head);
@@ -114,29 +113,22 @@ out:
 static int open_fifo_fd(struct file_desc *d, int *new_fd)
 {
 	struct fifo_info *info = container_of(d, struct fifo_info, d);
+	struct file_desc *reg_d;
 	int fd;
 
-	fd = open_path(info->reg_d, do_open_fifo, info);
+	reg_d = find_file_desc_raw(FD_TYPES__REG, info->fe->id);
+	BUG_ON(!reg_d);
+
+	fd = open_path(reg_d, do_open_fifo, info);
 	if (fd < 0)
 		return -1;
 	*new_fd = fd;
 	return 0;
 }
 
-static void collect_fifo_fd(struct file_desc *d,
-		struct fdinfo_list_entry *fle, struct rst_info *ri)
-{
-	struct fifo_info *info;
-
-	info = container_of(d, struct fifo_info, d);
-	info->reg_d = collect_special_file(info->fe->id);
-	BUG_ON(info->reg_d == NULL);
-}
-
 static struct file_desc_ops fifo_desc_ops = {
 	.type		= FD_TYPES__FIFO,
 	.open		= open_fifo_fd,
-	.collect_fd	= collect_fifo_fd,
 };
 
 static int collect_one_fifo(void *o, ProtobufCMessage *base, struct cr_img *i)

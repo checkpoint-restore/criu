@@ -731,9 +731,6 @@ int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info, bool fake)
 		if (pid_rst_prio(new_le->pid, le->pid))
 			break;
 
-	if (fdesc->ops->collect_fd)
-		fdesc->ops->collect_fd(fdesc, new_le, rst_info);
-
 	collect_task_fd(new_le, rst_info);
 
 	list_add_tail(&new_le->desc_list, &le->desc_list);
