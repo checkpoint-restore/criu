@@ -904,6 +904,24 @@ struct ns_id *root_user_ns = NULL;
 /* Mapping NS_ROOT to NS_CRIU */
 UsernsEntry *userns_entry;
 
+bool is_subns(struct ns_id *sub_ns, struct ns_id *ns)
+{
+	if (!current)
+		return true;
+
+	while (sub_ns) {
+		if (sub_ns == ns)
+			return true;
+		sub_ns = sub_ns->parent;
+	}
+	return false;
+}
+
+bool can_access_userns(struct ns_id *user_ns)
+{
+	return is_subns(user_ns, current->user_ns);
+}
+
 unsigned int child_userns_xid(unsigned int id, UidGidExtent **map, int n)
 {
 	int i;

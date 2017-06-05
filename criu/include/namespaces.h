@@ -173,6 +173,8 @@ extern struct ns_id *root_user_ns;
 	}
 
 extern bool check_ns_proc(struct fd_link *link);
+extern bool is_subns(struct ns_id *sub_ns, struct ns_id *ns);
+extern bool can_access_userns(struct ns_id *user_ns);
 extern unsigned int child_userns_xid(unsigned int xid, UidGidExtent **map, int n);
 
 extern struct ns_desc pid_ns_desc;
