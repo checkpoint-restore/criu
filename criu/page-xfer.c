@@ -577,10 +577,19 @@ static struct page_xfer_job cxfer = {
 	.dst_id = ~0,
 };
 
+static struct pipe_read_dest pipe_read_dest = {
+	.sink_fd = -1,
+};
+
 static void page_server_close(void)
 {
 	if (cxfer.dst_id != ~0)
 		cxfer.loc_xfer.close(&cxfer.loc_xfer);
+	if (pipe_read_dest.sink_fd != -1) {
+		close(pipe_read_dest.sink_fd);
+		close(pipe_read_dest.p[0]);
+		close(pipe_read_dest.p[1]);
+	}
 }
 
 static int page_server_open(int sk, struct page_server_iov *pi)
@@ -684,43 +693,18 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 	return 0;
 }
 
-static bool can_send_pages(struct page_pipe_buf *ppb, struct iovec *iov,
-			   struct page_server_iov *pi)
-{
-	unsigned long len = pi->nr_pages * PAGE_SIZE;
-
-	if (!(ppb->flags & PPB_LAZY)) {
-		pr_err("Requested pages are not lazy\n");
-		return false;
-	}
-
-	if (iov->iov_len != len) {
-		pr_err("IOV len %zu does not match requested %lu\n",
-		       iov->iov_len, len);
-		return false;
-	}
-
-	if(pi->vaddr != encode_pointer(iov->iov_base)) {
-		pr_err("IOV start %p does not match requested addr %"PRIx64"\n",
-		       iov->iov_base, pi->vaddr);
-		return false;
-	}
-
-	return true;
-}
-
 static int page_server_get_pages(int sk, struct page_server_iov *pi)
 {
 	struct pstree_item *item;
 	struct page_pipe *pp;
-	struct page_pipe_buf *ppb;
-	struct iovec *iov;
+	unsigned long len;
 	int ret;
 
 	item = pstree_item_by_virt(pi->dst_id);
 	pp = dmpi(item)->mem_pp;
 
-	ret = page_pipe_split(pp, pi->vaddr, &pi->nr_pages);
+	ret = page_pipe_read(pp, &pipe_read_dest, pi->vaddr,
+			     &pi->nr_pages, PPB_LAZY);
 	if (ret)
 		return ret;
 
@@ -730,22 +714,16 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 		return send_psi(sk, PS_IOV_ZERO, 0, 0, 0);
 	}
 
-	ppb = list_first_entry(&pp->bufs, struct page_pipe_buf, l);
-	iov = &ppb->iov[0];
-
-	if (!can_send_pages(ppb, iov, pi))
-		return -1;
+	len = pi->nr_pages * PAGE_SIZE;
 
 	if (send_psi(sk, PS_IOV_ADD, pi->nr_pages, pi->vaddr, pi->dst_id))
 		return -1;
 
-	ret = splice(ppb->p[0], NULL, sk, NULL, iov->iov_len, SPLICE_F_MOVE);
-	if (ret != iov->iov_len)
+	ret = splice(pipe_read_dest.p[0], NULL, sk, NULL, len, SPLICE_F_MOVE);
+	if (ret != len)
 		return -1;
 
 	tcp_nodelay(sk, true);
-
-	page_pipe_destroy_ppb(ppb);
 
 	return 0;
 }
@@ -754,8 +732,9 @@ static int page_server_serve(int sk)
 {
 	int ret = -1;
 	bool flushed = false;
+	bool receiving_pages = !opts.lazy_pages;
 
-	if (!opts.lazy_pages) {
+	if (receiving_pages) {
 		/*
 		 * This socket only accepts data except one thing -- it
 		 * writes back the has_parent bit from time to time, so
@@ -772,6 +751,7 @@ static int page_server_serve(int sk)
 		cxfer.pipe_size = fcntl(cxfer.p[0], F_GETPIPE_SZ, 0);
 		pr_debug("Created xfer pipe size %u\n", cxfer.pipe_size);
 	} else {
+		pipe_read_dest_init(&pipe_read_dest);
 		tcp_cork(sk, true);
 	}
 
@@ -831,7 +811,6 @@ static int page_server_serve(int sk)
 			break;
 		}
 		case PS_IOV_GET:
-			flushed = true;
 			ret = page_server_get_pages(sk, &pi);
 			break;
 		default:
@@ -844,7 +823,7 @@ static int page_server_serve(int sk)
 			break;
 	}
 
-	if (!ret && !flushed) {
+	if (receiving_pages && !ret && !flushed) {
 		pr_err("The data were not flushed\n");
 		ret = -1;
 	}

@@ -474,6 +474,79 @@ int page_pipe_split(struct page_pipe *pp, unsigned long addr,
 	return 0;
 }
 
+int pipe_read_dest_init(struct pipe_read_dest *prd)
+{
+	int ret;
+
+	if (pipe(prd->p)) {
+		pr_perror("Cannot create pipe for reading from page-pipe");
+		return -1;
+	}
+
+	ret = fcntl(prd->p[0], F_SETPIPE_SZ, PIPE_MAX_SIZE * PAGE_SIZE);
+	if (ret < 0)
+		return -1;
+
+	prd->sink_fd = open("/dev/null", O_WRONLY);
+	if (prd->sink_fd < 0) {
+		pr_perror("Cannot open sink for reading from page-pipe");
+		return -1;
+	}
+
+	ret = fcntl(prd->p[0], F_GETPIPE_SZ, 0);
+	pr_debug("Created tee pipe size %d\n", ret);
+
+	return 0;
+}
+
+int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd,
+		   unsigned long addr, unsigned int *nr_pages,
+		   unsigned int ppb_flags)
+{
+	struct page_pipe_buf *ppb;
+	struct iovec *iov = NULL;
+	unsigned long skip = 0, len;
+	int ret;
+
+	/*
+	 * Get ppb that contains addr and count length of data between
+	 * the beginning of the pipe and addr. If no ppb is found, the
+	 * requested page is mapped to zero pfn
+	 */
+	ppb = get_ppb(pp, addr, &iov, &skip);
+	if (!ppb) {
+		*nr_pages = 0;
+		return 0;
+	}
+
+	if (!(ppb->flags & ppb_flags)) {
+		pr_err("PPB flags mismatch: %x %x\n", ppb_flags, ppb->flags);
+		return false;
+	}
+
+	/* clamp the request if it passes the end of iovec */
+	len = min((unsigned long)iov->iov_base + iov->iov_len - addr,
+		  (unsigned long)(*nr_pages) * PAGE_SIZE);
+	*nr_pages = len / PAGE_SIZE;
+
+	/* we should tee() the requested lenth + the beginning of the pipe */
+	len += skip;
+
+	ret = tee(ppb->p[0], prd->p[1], len, 0);
+	if (ret != len) {
+		pr_perror("tee: %d", ret);
+		return -1;
+	}
+
+	ret = splice(prd->p[0], NULL, prd->sink_fd, NULL, skip, 0);
+	if (ret != skip) {
+		pr_perror("splice: %d", ret);
+		return -1;
+	}
+
+	return 0;
+}
+
 void page_pipe_destroy_ppb(struct page_pipe_buf *ppb)
 {
 	list_del(&ppb->l);

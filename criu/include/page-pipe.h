@@ -138,4 +138,14 @@ extern int page_pipe_split(struct page_pipe *pp, unsigned long addr,
 
 extern void page_pipe_destroy_ppb(struct page_pipe_buf *ppb);
 
+struct pipe_read_dest {
+	int p[2];
+	int sink_fd;
+};
+
+extern int pipe_read_dest_init(struct pipe_read_dest *prd);
+extern int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd,
+			  unsigned long addr, unsigned int *nr_pages,
+			  unsigned int ppb_flags);
+
 #endif /* __CR_PAGE_PIPE_H__ */
