@@ -198,6 +198,7 @@ TST_NOFILE	:=				\
 		userns00			\
 		userns01			\
 		userns02			\
+		userns-leaked-sock		\
 		netns_sub_veth			\
 		pidns00				\
 		pidns01				\
