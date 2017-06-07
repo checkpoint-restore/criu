@@ -1413,14 +1413,14 @@ int open_fd_of_vpid(pid_t pid, int fd, int flags)
 	int ret;
 
 	item = pstree_pid_by_virt(pid)->item;
-	ret = sprintf(path, "%d/fd/%d", item->pid->real, fd);
+	ret = sprintf(path, "%d/fd/%d", item->pid->real, fd) + 1;
 	pr_info("Opening /proc/%s on the criu side\n", path);
 	if (flags == O_RDONLY)
-		ret = userns_call(fn_open_proc_r, UNS_FDOUT, path, ret + 1, -1);
+		ret = userns_call(fn_open_proc_r, UNS_FDOUT, path, ret, -1);
 	else if (flags == O_WRONLY)
-		ret = userns_call(fn_open_proc_w, UNS_FDOUT, path, ret + 1, -1);
+		ret = userns_call(fn_open_proc_w, UNS_FDOUT, path, ret, -1);
 	else if (flags == O_RDWR)
-		ret = userns_call(fn_open_proc_rw, UNS_FDOUT, path, ret + 1, -1);
+		ret = userns_call(fn_open_proc_rw, UNS_FDOUT, path, ret, -1);
 	else
 		BUG();
 	return ret;
