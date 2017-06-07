@@ -708,9 +708,21 @@ static struct fdinfo_list_entry *alloc_fle(int pid, FdinfoEntry *fe)
 	return fle;
 }
 
+static void collect_desc_fle(struct fdinfo_list_entry *new_le, struct file_desc *fdesc)
+{
+	struct fdinfo_list_entry *le;
+
+	new_le->desc = fdesc;
+
+	list_for_each_entry(le, &fdesc->fd_info_head, desc_list)
+		if (pid_rst_prio(new_le->pid, le->pid))
+			break;
+	list_add_tail(&new_le->desc_list, &le->desc_list);
+}
+
 int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info, bool fake)
 {
-	struct fdinfo_list_entry *le, *new_le;
+	struct fdinfo_list_entry *new_le;
 	struct file_desc *fdesc;
 
 	pr_info("Collect fdinfo pid=%d fd=%d id=%#x\n",
@@ -726,15 +738,8 @@ int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info, bool fake)
 		pr_err("No file for fd %d id %#x\n", e->fd, e->id);
 		return -1;
 	}
-	new_le->desc = fdesc;
-
-	list_for_each_entry(le, &fdesc->fd_info_head, desc_list)
-		if (pid_rst_prio(new_le->pid, le->pid))
-			break;
-
+	collect_desc_fle(new_le, fdesc);
 	collect_task_fd(new_le, rst_info);
-
-	list_add_tail(&new_le->desc_list, &le->desc_list);
 
 	return 0;
 }
