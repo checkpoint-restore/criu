@@ -1242,6 +1242,11 @@ static void maybe_clone_parent(struct pstree_item *item,
 	}
 }
 
+static bool needs_prep_creds(struct pstree_item *item)
+{
+	return (!item->parent && (root_ns_mask & CLONE_NEWUSER));
+}
+
 static inline int fork_with_pid(struct pstree_item *item)
 {
 	struct cr_clone_arg ca;
@@ -1636,6 +1641,9 @@ static int restore_task_with_children(void *_arg)
 		if (restore_finish_ns_stage(CR_STATE_ROOT_TASK, CR_STATE_PREPARE_NAMESPACES) < 0)
 			goto err;
 	}
+
+	if (needs_prep_creds(current) && (prepare_userns_creds()))
+		goto err;
 
 	/*
 	 * Call this _before_ forking to optimize cgroups
