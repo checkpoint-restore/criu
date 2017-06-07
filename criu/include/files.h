@@ -89,14 +89,6 @@ struct fdinfo_list_entry {
 	u8			stage:3;
 };
 
-static inline void fle_init(struct fdinfo_list_entry *fle, int pid, FdinfoEntry *fe)
-{
-	fle->pid = pid;
-	fle->fe = fe;
-	fle->received = 0;
-	fle->stage = FLE_INITIALIZED;
-}
-
 /* reports whether fd_a takes prio over fd_b */
 static inline int fdinfo_rst_prio(struct fdinfo_list_entry *fd_a, struct fdinfo_list_entry *fd_b)
 {

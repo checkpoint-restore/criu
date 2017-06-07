@@ -692,6 +692,14 @@ int rst_file_params(int fd, FownEntry *fown, int flags)
 	return 0;
 }
 
+static void fle_init(struct fdinfo_list_entry *fle, int pid, FdinfoEntry *fe)
+{
+	fle->pid = pid;
+	fle->fe = fe;
+	fle->received = 0;
+	fle->stage = FLE_INITIALIZED;
+}
+
 static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 {
 	struct fdinfo_list_entry *le, *new_le;
