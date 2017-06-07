@@ -20,6 +20,7 @@ struct file_desc;
 struct cr_imgset;
 struct rst_info;
 struct parasite_ctl;
+struct ns_id;
 
 struct fd_link {
 	union {
@@ -107,6 +108,12 @@ struct file_desc_ops {
 	 * so it shouldn't be saved for any post-actions.
 	 */
 	int			(*open)(struct file_desc *d, int *new_fd);
+	/*
+	 * Returns user_ns of file (currently it's not exported to userspace)
+	 * and minimal user_ns need for restore file (for example, socket
+	 * net_ns->user_ns, regulating setns() permittions).
+	 */
+	void			(*get_user_ns)(struct file_desc *, uint32_t *, struct ns_id **);
 	char *			(*name)(struct file_desc *, char *b, size_t s);
 };
 
