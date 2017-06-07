@@ -692,12 +692,19 @@ int rst_file_params(int fd, FownEntry *fown, int flags)
 	return 0;
 }
 
-static void fle_init(struct fdinfo_list_entry *fle, int pid, FdinfoEntry *fe)
+static struct fdinfo_list_entry *alloc_fle(int pid, FdinfoEntry *fe)
 {
+	struct fdinfo_list_entry *fle;
+
+	fle = shmalloc(sizeof(*fle));
+	if (!fle)
+		return NULL;
 	fle->pid = pid;
 	fle->fe = fe;
 	fle->received = 0;
 	fle->stage = FLE_INITIALIZED;
+
+	return fle;
 }
 
 static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
@@ -708,11 +715,9 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 	pr_info("Collect fdinfo pid=%d fd=%d id=%#x\n",
 		pid, e->fd, e->id);
 
-	new_le = shmalloc(sizeof(*new_le));
+	new_le = alloc_fle(pid, e);
 	if (!new_le)
 		return -1;
-
-	fle_init(new_le, pid, e);
 
 	fdesc = find_file_desc(e);
 	if (fdesc == NULL) {
