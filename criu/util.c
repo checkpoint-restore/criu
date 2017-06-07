@@ -52,6 +52,7 @@
 #include "servicefd.h"
 #include "cr-service.h"
 #include "files.h"
+#include "pstree.h"
 
 #include "cr-errno.h"
 
@@ -1405,12 +1406,14 @@ static int fn_open_proc_rw(void *path, int fd, pid_t pid)
 	return openat(get_service_fd(CR_PROC_FD_OFF), path, O_RDWR);
 }
 
-int open_fd_of_real_pid(pid_t pid, int fd, int flags)
+int open_fd_of_vpid(pid_t pid, int fd, int flags)
 {
+	struct pstree_item *item;
 	char path[64];
 	int ret;
 
-	ret = sprintf(path, "%d/fd/%d", pid, fd);
+	item = pstree_pid_by_virt(pid)->item;
+	ret = sprintf(path, "%d/fd/%d", item->pid->real, fd);
 	pr_info("Opening /proc/%s on the criu side\n", path);
 	if (flags == O_RDONLY)
 		ret = userns_call(fn_open_proc_r, UNS_FDOUT, path, ret + 1, -1);

@@ -331,7 +331,7 @@ extern int epoll_del_rfd(int epfd, struct epoll_rfd *rfd);
 extern int epoll_run_rfds(int epfd, struct epoll_event *evs, int nr_fds, int tmo);
 extern int epoll_prepare(int nr_events, struct epoll_event **evs);
 
-extern int open_fd_of_real_pid(pid_t pid, int fd, int flags);
+extern int open_fd_of_vpid(pid_t pid, int fd, int flags);
 
 extern int call_in_child_process(int (*fn)(void *), void *arg);
 
