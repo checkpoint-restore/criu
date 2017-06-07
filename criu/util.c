@@ -1411,6 +1411,7 @@ int open_fd_of_real_pid(pid_t pid, int fd, int flags)
 	int ret;
 
 	ret = sprintf(path, "%d/fd/%d", pid, fd);
+	pr_info("Opening /proc/%s on the criu side\n", path);
 	if (flags == O_RDONLY)
 		ret = userns_call(fn_open_proc_r, UNS_FDOUT, path, ret + 1, -1);
 	else if (flags == O_WRONLY)

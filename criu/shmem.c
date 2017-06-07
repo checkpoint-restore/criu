@@ -441,16 +441,11 @@ int collect_shmem(int pid, struct vma_area *vma)
 
 static int shmem_wait_and_open(struct shmem_info *si, VmaEntry *vi)
 {
-	char path[128];
 	int pid, ret;
 
 	pr_info("Waiting for the %lx shmem to appear\n", si->shmid);
 	futex_wait_while(&si->lock, 0);
 
-	snprintf(path, sizeof(path), "/proc/%d/fd/%d",
-		si->pid, si->fd);
-
-	pr_info("Opening shmem [%s] \n", path);
 	pid = pstree_pid_by_virt(si->pid)->real;
 	ret = open_fd_of_real_pid(pid, si->fd, O_RDWR);
 	futex_inc_and_wake(&si->lock);
