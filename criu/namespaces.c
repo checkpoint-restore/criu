@@ -903,10 +903,14 @@ out:
  * top_xxx_ns -- top namespaces of the dumped/restored tasks.
  * For not-hierarchical types this means namespace of root_item.
  * For hierarchical types this means the grand parent namespace,
- * which is ancestor of all others.
+ * which is ancestor of all others. That is, root_item may have
+ * a namespace different to top_user_ns, but currently it's not
+ * supported.
+ * top_xxx_ns may differ to NS_ROOT(i.e., to be NS_CRIU on dump),
+ * so the prefix "top" is used.
  */
 struct ns_id *top_pid_ns = NULL;
-struct ns_id *root_user_ns = NULL;
+struct ns_id *top_user_ns = NULL;
 struct ns_id *top_net_ns = NULL;
 /* Mapping NS_ROOT to NS_CRIU */
 UsernsEntry *userns_entry;
@@ -993,7 +997,7 @@ unsigned int target_userns_uid(struct ns_id *ns, unsigned int uid)
 {
 	if (!(root_ns_mask & CLONE_NEWUSER))
 		return uid;
-	if (ns == root_user_ns)
+	if (ns == top_user_ns)
 		return uid;
 	/* User ns max nesting level is only 32 */
 	uid = target_userns_uid(ns->parent, uid);
@@ -1005,7 +1009,7 @@ unsigned int target_userns_gid(struct ns_id *ns, unsigned int gid)
 {
 	if (!(root_ns_mask & CLONE_NEWUSER))
 		return gid;
-	if (ns == root_user_ns)
+	if (ns == top_user_ns)
 		return gid;
 	/* User ns max nesting level is only 32 */
 	gid = target_userns_gid(ns->parent, gid);
@@ -1017,7 +1021,7 @@ unsigned int root_userns_uid(struct ns_id *ns, unsigned int uid)
 {
 	if (!(root_ns_mask & CLONE_NEWUSER))
 		return uid;
-	while (ns != root_user_ns) {
+	while (ns != top_user_ns) {
 		uid = parent_userns_uid(ns->user.e, uid);
 		ns = ns->parent;
 	}
@@ -1029,7 +1033,7 @@ unsigned int root_userns_gid(struct ns_id *ns, unsigned int gid)
 {
 	if (!(root_ns_mask & CLONE_NEWUSER))
 		return gid;
-	while (ns != root_user_ns) {
+	while (ns != top_user_ns) {
 		gid = parent_userns_gid(ns->user.e, gid);
 		ns = ns->parent;
 	}
@@ -1128,7 +1132,7 @@ int collect_user_ns(struct ns_id *ns, void *oarg)
 	ns->user.e = e;
 	if (ns->type == NS_ROOT) {
 		userns_entry = e;
-		root_user_ns = ns;
+		top_user_ns = ns;
 	}
 	/*
 	 * User namespace is dumped before files to get uid and gid
@@ -1939,7 +1943,7 @@ static int do_read_old_user_ns_img(struct ns_id *ns, void *arg)
 	ns->user.e = e;
 	userns_entry = e;
 	ns->type = NS_ROOT;
-	root_user_ns = ns;
+	top_user_ns = ns;
 	return 0;
 }
 
@@ -1951,16 +1955,16 @@ static int read_old_user_ns_img(void)
 	if (!(root_ns_mask & CLONE_NEWUSER))
 		return 0;
 	/* If new format img has already been read */
-	if (root_user_ns)
+	if (top_user_ns)
 		return 0;
-	/* Old format img is only for root_user_ns. More or less is error */
+	/* Old format img is only for top_user_ns. More or less is error */
 	ret = walk_namespaces(&user_ns_desc, do_read_old_user_ns_img, &count);
 	if (ret < 0)
 		return -1;
 
 	for (ns = ns_ids; ns != NULL; ns = ns->next)
 		if (ns->nd != &user_ns_desc)
-			ns->user_ns = root_user_ns;
+			ns->user_ns = top_user_ns;
 	return 0;
 }
 
@@ -2099,12 +2103,12 @@ int read_ns_with_hookups(void)
 				list_add(&ns->siblings, &p_ns->children);
 			}
 		} else if (e->ns_cflag == CLONE_NEWUSER) {
-			if (root_user_ns) {
-				pr_err("root_user_ns already set\n");
+			if (top_user_ns) {
+				pr_err("top_user_ns already set\n");
 				goto close;
 			}
 			ns->type = NS_ROOT;
-			root_user_ns = ns;
+			top_user_ns = ns;
 			userns_entry = ns->user.e;
 		} else if (e->ns_cflag == CLONE_NEWPID) {
 			if (top_pid_ns) {
@@ -2397,7 +2401,7 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 	struct ns_id *me, *child;
 	pid_t pid = -1;
 
-	if (p_arg->me != root_user_ns)
+	if (p_arg->me != top_user_ns)
 		p_futex = &p_arg->futex;
 	me = p_arg->me;
 
@@ -2465,7 +2469,7 @@ out:
 
 static int create_user_ns_hierarhy(void)
 {
-	struct ns_arg arg = { .me = root_user_ns };
+	struct ns_arg arg = { .me = top_user_ns };
 	return create_user_ns_hierarhy_fn(&arg);
 }
 

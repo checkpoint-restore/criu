@@ -2342,7 +2342,7 @@ static int __prepare_net_namespaces(void *unused)
 		if (nsid->nd != &net_ns_desc)
 			continue;
 
-		if (root_user_ns && nsid->user_ns != root_user_ns) {
+		if (top_user_ns && nsid->user_ns != top_user_ns) {
 			if (call_in_child_process(create_net_ns, nsid) < 0)
 				goto err;
 		} else if (nsid->type == NS_ROOT) {

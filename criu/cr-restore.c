@@ -506,7 +506,7 @@ static int setup_child_task_namespaces(struct pstree_item *item, struct ns_id **
 		else
 			item->user_ns = current->user_ns;
 	} else
-		item->user_ns = root_user_ns;
+		item->user_ns = top_user_ns;
 
 	wait_pid_ns_helper_prepared(pid_ns, item->pid);
 
