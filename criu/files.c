@@ -704,6 +704,12 @@ static struct fdinfo_list_entry *alloc_fle(int pid, FdinfoEntry *fe)
 	fle->received = 0;
 	fle->fake = 0;
 	fle->stage = FLE_INITIALIZED;
+	fle->task = pstree_item_by_virt(pid);
+	if (!fle->task) {
+		pr_err("Can't find task with pid %d\n", pid);
+		shfree_last(fle);
+		return NULL;
+	}
 
 	return fle;
 }
