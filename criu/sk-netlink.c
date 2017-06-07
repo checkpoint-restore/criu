@@ -259,6 +259,7 @@ static int collect_one_netlink_sk(void *o, ProtobufCMessage *base, struct cr_img
 	struct netlink_sock_info *si = o;
 
 	si->nse = pb_msg(base, NetlinkSkEntry);
+	fixup_sock_net_ns_id(&si->nse->ns_id, &si->nse->has_ns_id);
 	return file_desc_add(&si->d, si->nse->id, &netlink_sock_desc_ops);
 }
 

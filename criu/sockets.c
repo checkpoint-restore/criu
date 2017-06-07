@@ -782,3 +782,11 @@ int set_netns(uint32_t ns_id)
 
 	return 0;
 }
+
+void fixup_sock_net_ns_id(uint32_t *ns_id, protobuf_c_boolean *has_ns_id)
+{
+	if (*has_ns_id)
+		return;
+	*has_ns_id = true;
+	*ns_id = top_net_ns->id;
+}

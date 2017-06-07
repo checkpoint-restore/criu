@@ -535,6 +535,7 @@ static int collect_one_inetsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	ii->port = port_add(ii, ii->ie->src_port);
 	if (ii->port == NULL)
 		return -1;
+	fixup_sock_net_ns_id(&ii->ie->ns_id, &ii->ie->has_ns_id);
 
 	return file_desc_add(&ii->d, ii->ie->id, &inet_desc_ops);
 }

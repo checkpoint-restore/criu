@@ -569,6 +569,7 @@ static int collect_one_packet_sk(void *o, ProtobufCMessage *base, struct cr_img 
 	struct packet_sock_info *si = o;
 
 	si->pse = pb_msg(base, PacketSockEntry);
+	fixup_sock_net_ns_id(&si->pse->ns_id, &si->pse->has_ns_id);
 	return file_desc_add(&si->d, si->pse->id, &packet_sock_desc_ops);
 }
 
