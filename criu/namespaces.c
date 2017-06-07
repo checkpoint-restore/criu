@@ -899,8 +899,15 @@ out:
 	return ret;
 }
 
+/*
+ * top_xxx_ns -- top namespaces of the dumped/restored tasks.
+ * For not-hierarchical types this means namespace of root_item.
+ * For hierarchical types this means the grand parent namespace,
+ * which is ancestor of all others.
+ */
 struct ns_id *top_pid_ns = NULL;
 struct ns_id *root_user_ns = NULL;
+struct ns_id *top_net_ns = NULL;
 /* Mapping NS_ROOT to NS_CRIU */
 UsernsEntry *userns_entry;
 
@@ -2141,7 +2148,7 @@ close:
 	return ret;
 }
 
-static int mark_root_ns(uint32_t id, struct ns_desc *desc)
+static int mark_root_ns(uint32_t id, struct ns_desc *desc, struct ns_id **ns_ret)
 {
 	struct ns_id *ns;
 
@@ -2151,18 +2158,23 @@ static int mark_root_ns(uint32_t id, struct ns_desc *desc)
 		return -1;
 	}
 	ns->type = NS_ROOT;
+
+	if (ns_ret)
+		*ns_ret = ns;
+
 	return 0;
 }
 
-#define MARK_ROOT_NS(ids, name)	\
-	(ids->has_##name##_ns_id && mark_root_ns(ids->name##_ns_id, &name##_ns_desc) < 0)
+#define MARK_ROOT_NS(ids, name, ns)	\
+	(ids->has_##name##_ns_id && mark_root_ns(ids->name##_ns_id, &name##_ns_desc, ns) < 0)
 
 int set_ns_roots(void)
 {
 	TaskKobjIdsEntry *ids = root_item->ids;
 	/* Set root for all namespaces except user and pid, which are set in read_ns_with_hookups() */
-	if (MARK_ROOT_NS(ids, net) || MARK_ROOT_NS(ids, ipc) || MARK_ROOT_NS(ids, uts) ||
-	    MARK_ROOT_NS(ids, mnt) || MARK_ROOT_NS(ids, cgroup))
+	if (MARK_ROOT_NS(ids, net, &top_net_ns) || MARK_ROOT_NS(ids, ipc, NULL) ||
+	    MARK_ROOT_NS(ids, uts, NULL) || MARK_ROOT_NS(ids, mnt, NULL) ||
+	    MARK_ROOT_NS(ids, cgroup, NULL))
 		return -1;
 	return 0;
 }

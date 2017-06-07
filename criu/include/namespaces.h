@@ -163,6 +163,7 @@ struct ns_id {
 extern struct ns_id *ns_ids;
 extern struct ns_id *top_pid_ns;
 extern struct ns_id *root_user_ns;
+extern struct ns_id *top_net_ns;
 
 #define NS_DESC_ENTRY(_cflag, _str, _alt_str)		\
 	{						\
