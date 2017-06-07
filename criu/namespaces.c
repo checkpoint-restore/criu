@@ -1922,16 +1922,11 @@ int stop_usernsd(void)
 	return ret;
 }
 
-static int do_read_old_user_ns_img(struct ns_id *ns, void *arg)
+static int do_read_old_user_ns_img(struct ns_id *ns)
 {
-	int ret, *count = arg;
 	struct cr_img *img;
 	UsernsEntry *e;
-
-	if (++*count > 1) {
-		pr_err("More then one user_ns, img format can't be old\n");
-		return -1;
-	}
+	int ret;
 
 	img = open_image(CR_FD_USERNS, O_RSTR, ns->id);
 	if (!img)
@@ -1942,30 +1937,18 @@ static int do_read_old_user_ns_img(struct ns_id *ns, void *arg)
 		return -1;
 	ns->user.e = e;
 	userns_entry = e;
-	ns->type = NS_ROOT;
-	top_user_ns = ns;
 	return 0;
 }
 
 static int read_old_user_ns_img(void)
 {
-	int ret, count = 0;
-	struct ns_id *ns;
-
 	if (!(root_ns_mask & CLONE_NEWUSER))
 		return 0;
 	/* If new format img has already been read */
-	if (top_user_ns)
+	if (top_user_ns->user.e)
 		return 0;
-	/* Old format img is only for top_user_ns. More or less is error */
-	ret = walk_namespaces(&user_ns_desc, do_read_old_user_ns_img, &count);
-	if (ret < 0)
-		return -1;
-
-	for (ns = ns_ids; ns != NULL; ns = ns->next)
-		if (ns->nd != &user_ns_desc)
-			ns->user_ns = top_user_ns;
-	return 0;
+	/* Old format img is only for top_user_ns */
+	return do_read_old_user_ns_img(top_user_ns);
 }
 
 static int dump_ns_with_hookups(int for_dump)
@@ -2175,11 +2158,27 @@ static int mark_root_ns(uint32_t id, struct ns_desc *desc, struct ns_id **ns_ret
 int set_ns_roots(void)
 {
 	TaskKobjIdsEntry *ids = root_item->ids;
+	struct ns_id *ns;
+
 	/* Set root for all namespaces except user and pid, which are set in read_ns_with_hookups() */
 	if (MARK_ROOT_NS(ids, net, &top_net_ns) || MARK_ROOT_NS(ids, ipc, NULL) ||
 	    MARK_ROOT_NS(ids, uts, NULL) || MARK_ROOT_NS(ids, mnt, NULL) ||
 	    MARK_ROOT_NS(ids, cgroup, NULL))
 		return -1;
+	if (!top_user_ns) {
+		/*
+		 * In old dumps or if !(root_ns_mask & CLONE_NEWUSER),
+		 * ns.img does not exist/contain user_ns.
+		 */
+		if (MARK_ROOT_NS(ids, user, &top_user_ns))
+			return -1;
+	}
+
+	/* Populate !(root_ns_mask & CLONE_NEWXXX) namespaces and fixup old dumps */
+	for (ns = ns_ids; ns != NULL; ns = ns->next)
+		if (ns->user_ns == NULL && ns->nd != &user_ns_desc)
+			ns->user_ns = top_user_ns;
+
 	return 0;
 }
 
