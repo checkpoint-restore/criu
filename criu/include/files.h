@@ -164,6 +164,7 @@ extern int rst_file_params(int fd, FownEntry *fown, int flags);
 
 extern void show_saved_files(void);
 
+extern int add_fake_fds_masters(void);
 extern int prepare_fds(struct pstree_item *me);
 extern int prepare_fd_pid(struct pstree_item *me);
 extern int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id);

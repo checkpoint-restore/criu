@@ -1893,3 +1893,34 @@ int prepare_files(void)
 	init_fdesc_hash();
 	return collect_image(&files_cinfo);
 }
+
+int add_fake_fds_masters(void)
+{
+	struct fdinfo_list_entry *fle;
+	struct file_desc *fdesc, *tmp;
+	FdinfoEntry *fe;
+	int fd;
+
+	list_for_each_entry_safe(fdesc, tmp, &fake_master_head, fake_master_list) {
+		fle = list_first_entry(&fdesc->fd_info_head,
+				       struct fdinfo_list_entry, desc_list);
+		/*
+		 * All masters are created in root_item for now.
+		 * Distribute them over pstree if someone reports,
+		 * their number is too big, or you want support
+		 * file->user_ns.
+		 */
+		fd = find_unused_fd(root_item, -1);
+		fe = dup_fdinfo(fle->fe, fd, fle->fe->flags);
+		if (!fe)
+			goto err;
+
+		if (collect_fd(vpid(root_item), fe, rsti(root_item), true))
+			goto err;
+	}
+	BUG_ON(!list_empty(&fake_master_head));
+	return 0;
+err:
+	pr_err("Can't prepare fds masters\n");
+	return -1;
+}

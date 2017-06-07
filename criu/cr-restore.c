@@ -375,6 +375,11 @@ static int root_prepare_shared(void)
 	if (ret)
 		goto err;
 
+	/* This func may add new files, so it must be called before post prepare */
+	ret = add_fake_fds_masters();
+	if (ret)
+		goto err;
+
 	ret = run_post_prepare();
 	if (ret)
 		goto err;
