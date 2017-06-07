@@ -1503,9 +1503,23 @@ static char *socket_d_name(struct file_desc *d, char *buf, size_t s)
 	return buf;
 }
 
+static void unix_get_user_ns(struct file_desc *desc, uint32_t *file_uns_id, struct ns_id **setns_uns)
+{
+	struct unix_sk_info *ui;
+	uint32_t net_ns_id;
+
+	ui = container_of(desc, struct unix_sk_info, d);
+	net_ns_id = ui->ue->ns_id;
+	if (ui->ue->uflags & USK_EXTERN)
+		*setns_uns = NULL;
+	else
+		sock_get_user_ns(net_ns_id, setns_uns);
+}
+
 static struct file_desc_ops unix_desc_ops = {
 	.type = FD_TYPES__UNIXSK,
 	.open = open_unix_sk,
+	.get_user_ns = unix_get_user_ns,
 	.name = socket_d_name,
 };
 

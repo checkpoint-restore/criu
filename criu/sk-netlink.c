@@ -249,9 +249,17 @@ err:
 	return -1;
 }
 
+static void netlink_get_user_ns(struct file_desc *desc, uint32_t *file_uns_id, struct ns_id **setns_uns)
+{
+	uint32_t net_ns_id;
+	net_ns_id = container_of(desc, struct netlink_sock_info, d)->nse->ns_id;
+	sock_get_user_ns(net_ns_id, setns_uns);
+}
+
 static struct file_desc_ops netlink_sock_desc_ops = {
 	.type = FD_TYPES__NETLINKSK,
 	.open = open_netlink_sk,
+	.get_user_ns = netlink_get_user_ns,
 };
 
 static int collect_one_netlink_sk(void *o, ProtobufCMessage *base, struct cr_img *i)

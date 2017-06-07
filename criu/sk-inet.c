@@ -509,9 +509,17 @@ int inet_collect_one(struct nlmsghdr *h, int family, int type, struct ns_id *ns)
 static int open_inet_sk(struct file_desc *d, int *new_fd);
 static int post_open_inet_sk(struct file_desc *d, int sk);
 
+static void inet_get_user_ns(struct file_desc *desc, uint32_t *file_uns_id, struct ns_id **setns_uns)
+{
+	uint32_t net_ns_id;
+	net_ns_id = container_of(desc, struct inet_sk_info, d)->ie->ns_id;
+	sock_get_user_ns(net_ns_id, setns_uns);
+}
+
 static struct file_desc_ops inet_desc_ops = {
 	.type = FD_TYPES__INETSK,
 	.open = open_inet_sk,
+	.get_user_ns = inet_get_user_ns,
 };
 
 static inline int tcp_connection(InetSkEntry *ie)

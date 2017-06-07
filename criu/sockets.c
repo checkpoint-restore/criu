@@ -790,3 +790,11 @@ void fixup_sock_net_ns_id(uint32_t *ns_id, protobuf_c_boolean *has_ns_id)
 	*has_ns_id = true;
 	*ns_id = top_net_ns->id;
 }
+
+void sock_get_user_ns(uint32_t sock_net_ns_id, struct ns_id **sock_user_ns)
+{
+	struct ns_id *net_ns_id;
+	net_ns_id = lookup_ns_by_id(sock_net_ns_id, &net_ns_desc);
+	BUG_ON(!net_ns_id);
+	*sock_user_ns = net_ns_id->user_ns;
+}

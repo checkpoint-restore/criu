@@ -559,9 +559,17 @@ err:
 	return -1;
 }
 
+static void packet_get_user_ns(struct file_desc *desc, uint32_t *file_uns_id, struct ns_id **setns_uns)
+{
+	uint32_t net_ns_id;
+	net_ns_id = container_of(desc, struct packet_sock_info, d)->pse->ns_id;
+	sock_get_user_ns(net_ns_id, setns_uns);
+}
+
 static struct file_desc_ops packet_sock_desc_ops = {
 	.type = FD_TYPES__PACKETSK,
 	.open = open_packet_sk,
+	.get_user_ns = packet_get_user_ns,
 };
 
 static int collect_one_packet_sk(void *o, ProtobufCMessage *base, struct cr_img *i)
