@@ -726,6 +726,7 @@ int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info, bool fake)
 		pr_err("No file for fd %d id %#x\n", e->fd, e->id);
 		return -1;
 	}
+	new_le->desc = fdesc;
 
 	list_for_each_entry(le, &fdesc->fd_info_head, desc_list)
 		if (pid_rst_prio(new_le->pid, le->pid))
@@ -734,7 +735,6 @@ int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info, bool fake)
 	collect_task_fd(new_le, rst_info);
 
 	list_add_tail(&new_le->desc_list, &le->desc_list);
-	new_le->desc = fdesc;
 
 	return 0;
 }
