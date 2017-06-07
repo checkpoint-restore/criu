@@ -913,7 +913,7 @@ static int autofs_create_pipe(struct pstree_item *task, autofs_info_t *i,
 
 	pr_info("autofs: adding pipe fd %d, flags %#x to %d (with post_open)\n",
 		fe->fd, fe->flags, vpid(task));
-	return collect_fd(vpid(task), fe, rsti(task));
+	return collect_fd(vpid(task), fe, rsti(task), false);
 }
 
 static int autofs_add_mount_info(struct pprep_head *ph)
