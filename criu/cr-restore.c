@@ -1346,6 +1346,11 @@ static void maybe_clone_parent(struct pstree_item *item,
 	}
 }
 
+static bool needs_prep_creds(struct pstree_item *item)
+{
+	struct pstree_item *parent = item->parent;
+	return (!parent || parent->ids->user_ns_id != item->ids->user_ns_id);
+}
 static int call_clone_fn(void *arg)
 {
 	struct cr_clone_arg *ca = arg;
@@ -1813,10 +1818,10 @@ static int restore_task_with_children(void *_arg)
 		/* Wait prepare_userns */
 		if (restore_finish_ns_stage(CR_STATE_ROOT_TASK, CR_STATE_PREPARE_NAMESPACES) < 0)
 			goto err;
-
-		if (prep_usernsd_transport())
-			goto err;
 	}
+
+	if (needs_prep_creds(current) && (prepare_userns_creds()))
+		goto err;
 
 	/*
 	 * Call this _before_ forking to optimize cgroups
@@ -1829,6 +1834,9 @@ static int restore_task_with_children(void *_arg)
 
 	/* Restore root task */
 	if (current->parent == NULL) {
+		if (prep_usernsd_transport())
+			goto err;
+
 		if (join_namespaces()) {
 			pr_perror("Join namespaces failed");
 			goto err;
