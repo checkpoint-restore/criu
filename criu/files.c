@@ -73,12 +73,17 @@ void file_desc_init(struct file_desc *d, u32 id, struct file_desc_ops *ops)
 
 	d->id	= id;
 	d->ops	= ops;
+	d->setns_userns = NULL;
 }
 
 int file_desc_add(struct file_desc *d, u32 id, struct file_desc_ops *ops)
 {
+	uint32_t file_user_ns;
 	file_desc_init(d, id, ops);
 	hlist_add_head(&d->hash, &file_desc_hash[id % FDESC_HASH_SIZE]);
+	if (d->ops->get_user_ns) {
+		d->ops->get_user_ns(d, &file_user_ns, &d->setns_userns);
+	}
 	return 0; /* this is to make tail-calls in collect_one_foo look nice */
 }
 

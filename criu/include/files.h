@@ -131,6 +131,7 @@ struct file_desc {
 	struct file_desc_ops	*ops;		/* Associated operations */
 	struct list_head	fake_master_list;/* To chain in the list of file_desc, which don't
 						    have a fle in a task, that having permissions */
+	struct ns_id		*setns_userns;	/* Minimal user_ns to be able to restore this file */
 };
 
 struct fdtype_ops {
