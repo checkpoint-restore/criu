@@ -87,6 +87,7 @@ struct fdinfo_list_entry {
 	FdinfoEntry		*fe;
 	u8			received:1;
 	u8			stage:3;
+	u8			fake:1;
 };
 
 /* reports whether fd_a takes prio over fd_b */
