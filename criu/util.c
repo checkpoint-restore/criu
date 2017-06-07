@@ -1410,19 +1410,26 @@ int open_fd_of_vpid(pid_t pid, int fd, int flags)
 {
 	struct pstree_item *item;
 	char path[64];
+	bool daemon;
 	int ret;
 
 	item = pstree_pid_by_virt(pid)->item;
+	daemon = !can_access_userns(item->user_ns);
 	ret = sprintf(path, "%d/fd/%d", item->pid->real, fd) + 1;
 	pr_info("Opening /proc/%s on the criu side\n", path);
+
+#define MAYBE_CALL_IN_DAEMON(func, path, len)	\
+	(daemon ? userns_call(func, UNS_FDOUT, path, len, -1) : func(path, -1, -1))
 	if (flags == O_RDONLY)
-		ret = userns_call(fn_open_proc_r, UNS_FDOUT, path, ret, -1);
+		ret = MAYBE_CALL_IN_DAEMON(fn_open_proc_r, path, ret);
 	else if (flags == O_WRONLY)
-		ret = userns_call(fn_open_proc_w, UNS_FDOUT, path, ret, -1);
+		ret = MAYBE_CALL_IN_DAEMON(fn_open_proc_w, path, ret);
 	else if (flags == O_RDWR)
-		ret = userns_call(fn_open_proc_rw, UNS_FDOUT, path, ret, -1);
+		ret = MAYBE_CALL_IN_DAEMON(fn_open_proc_rw, path, ret);
 	else
 		BUG();
+#undef MAYBE_CALL_IN_DAEMON
+
 	return ret;
 }
 
