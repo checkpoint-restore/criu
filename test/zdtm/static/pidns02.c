@@ -149,8 +149,15 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
-	if (kill(pid[1], SIGKILL))
-		pr_perror("Can't kill");
+	if (kill(pid[1], SIGKILL)) {
+		fail("Can't kill");
+		goto out;
+	}
+	ret = waitid(P_PID, pid[1], NULL, WEXITED|WNOWAIT);
+	if (ret) {
+		fail("Can't wait");
+		goto out;
+	}
 
 	test_daemon();
 	test_waitsig();
