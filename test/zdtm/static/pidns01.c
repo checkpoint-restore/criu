@@ -116,7 +116,7 @@ int main(int argc, char **argv)
 	}
 	futex_init(futex);
 
-	pid = clone(child_fn, stack + sizeof(stack), CLONE_NEWUSER|CLONE_NEWPID|CLONE_NEWNET, NULL);
+	pid = clone(child_fn, stack + sizeof(stack), CLONE_NEWUSER|CLONE_NEWPID|CLONE_NEWNET|SIGCHLD, NULL);
 	if (pid < 0) {
 		fail("clone");
 		return 1;
