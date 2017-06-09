@@ -113,6 +113,13 @@ static int child_fn(void)
 		goto err;
 	} else if (!pid)
 		exit(0);
+
+	ret = waitid(P_PID, pid, NULL, WEXITED|WNOWAIT);
+	if (ret) {
+		fail("Can't wait");
+		goto err;
+	}
+
 	futex_set_and_wake(futex, CHILD_PREPARED);
 	futex_wait_while_lt(futex, POST_RESTORE_CHECK);
 
