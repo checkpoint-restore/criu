@@ -89,7 +89,7 @@
 #define VMA_AREA_VVAR		(1 <<  12)
 #define VMA_AREA_AIORING	(1 <<  13)
 
-#define VMA_NO_CLOSE		(1 <<  28)
+#define VMA_CLOSE		(1 <<  28)
 #define VMA_NO_PROT_WRITE	(1 <<  29)
 #define VMA_PREMMAPED		(1 <<  30)
 #define VMA_UNSUPP		(1 <<  31)

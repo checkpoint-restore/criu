@@ -1624,14 +1624,58 @@ int open_reg_by_id(u32 id)
 	return open_reg_fd(fd);
 }
 
-static int borrow_filemap(int pid, struct vma_area *vma)
+struct filemap_ctx {
+	u32 flags;
+	struct file_desc *desc;
+	int fd;
+	/*
+	 * Whether or not to close the fd when we're about to
+	 * put a new one into ctx.
+	 *
+	 * True is used by premap, so that it just calls vm_open
+	 * in sequence, immediatelly mmap()s the file, then it
+	 * can be closed.
+	 *
+	 * False is used by open_vmas() which pre-opens the files
+	 * for restorer, and the latter mmap()s them and closes.
+	 *
+	 * ...
+	 */
+	bool close;
+	/* ...
+	 *
+	 * but closing all vmas won't work, as some of them share
+	 * the descriptor, so only the ones that terminate the
+	 * fd-sharing chain are marked with VMA_CLOSE flag, saying
+	 * restorer to close the vma's fd.
+	 *
+	 * Said that, this vma pointer references the previously
+	 * seen vma, so that once fd changes, this one gets the
+	 * closing flag.
+	 */
+	struct vma_area *vma;
+};
+
+static struct filemap_ctx ctx;
+
+void filemap_ctx_init(bool auto_close)
 {
-	struct vma_area *fvma = vma->fvma;
+	ctx.desc = NULL;	/* to fail the first comparison in open_ */
+	ctx.fd = -1;		/* not to close random fd in _fini */
+	ctx.vma = NULL;		/* not to put spurious VMA_CLOSE in _fini */
+				/* flags may remain any */
+	ctx.close = auto_close;
+}
 
-	BUG_ON(!(fvma->e->status & VMA_NO_CLOSE));
-	vma->e->fd = fvma->e->fd;
-
-	return 0;
+void filemap_ctx_fini(void)
+{
+	if (ctx.close) {
+		if (ctx.fd >= 0)
+			close(ctx.fd);
+	} else {
+		if (ctx.vma)
+			ctx.vma->e->status |= VMA_CLOSE;
+	}
 }
 
 static int open_filemap(int pid, struct vma_area *vma)
@@ -1648,15 +1692,24 @@ static int open_filemap(int pid, struct vma_area *vma)
 	BUG_ON((vma->vmfd == NULL) || !vma->e->has_fdflags);
 	flags = vma->e->fdflags;
 
-	ret = open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
-	if (ret < 0)
-		return ret;
+	if (ctx.flags != flags || ctx.desc != vma->vmfd) {
+		ret = open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
+		if (ret < 0)
+			return ret;
 
-	vma->e->fd = ret;
+		filemap_ctx_fini();
+
+		ctx.flags = flags;
+		ctx.desc = vma->vmfd;
+		ctx.fd = ret;
+	}
+
+	ctx.vma = vma;
+	vma->e->fd = ctx.fd;
 	return 0;
 }
 
-int collect_filemap(struct vma_area *vma, struct vma_file_ctx *ctx)
+int collect_filemap(struct vma_area *vma)
 {
 	struct file_desc *fd;
 
@@ -1675,19 +1728,7 @@ int collect_filemap(struct vma_area *vma, struct vma_file_ctx *ctx)
 		return -1;
 
 	vma->vmfd = fd;
-	if (ctx->vma && ctx->flags == vma->e->flags && ctx->fd == fd) {
-		vma->vm_open = borrow_filemap;
-		vma->fvma = ctx->vma;
-		ctx->vma->e->status |= VMA_NO_CLOSE;
-		/* Change VMA so that next borrower sets NO_CLOSE on us */
-		ctx->vma = vma;
-	} else {
-		vma->vm_open = open_filemap;
-		ctx->flags = vma->e->fdflags;
-		ctx->fd = fd;
-		ctx->vma = vma;
-	}
-
+	vma->vm_open = open_filemap;
 	return 0;
 }
 

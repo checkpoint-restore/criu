@@ -450,7 +450,6 @@ int prepare_mm_pid(struct pstree_item *i)
 	int ret = -1, vn = 0;
 	struct cr_img *img;
 	struct rst_info *ri = rsti(i);
-	struct vma_file_ctx ctx = {};
 
 	img = open_image(CR_FD_MM, O_RSTR, pid);
 	if (!img)
@@ -510,7 +509,7 @@ int prepare_mm_pid(struct pstree_item *i)
 			ret = collect_shmem(pid, vma);
 		else if (vma_area_is(vma, VMA_FILE_PRIVATE) ||
 				vma_area_is(vma, VMA_FILE_SHARED))
-			ret = collect_filemap(vma, &ctx);
+			ret = collect_filemap(vma);
 		else if (vma_area_is(vma, VMA_AREA_SOCKET))
 			ret = collect_socket_map(vma);
 		else
@@ -676,10 +675,6 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 			pr_perror("Unable to map ANON_VMA");
 			return -1;
 		}
-
-		if (vma_area_is(vma, VMA_FILE_PRIVATE) &&
-				!vma_area_is(vma, VMA_NO_CLOSE))
-			close(vma->e->fd);
 	} else {
 		void *paddr;
 
@@ -753,6 +748,8 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
 	int ret = 0;
 	LIST_HEAD(empty);
 
+	filemap_ctx_init(true);
+
 	list_for_each_entry(vma, &vmas->h, list) {
 		if (pstart > vma->e->start) {
 			ret = -1;
@@ -787,6 +784,8 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
 		if (ret < 0)
 			break;
 	}
+
+	filemap_ctx_fini();
 
 	return ret;
 }
@@ -1079,6 +1078,8 @@ int open_vmas(struct pstree_item *t)
 	struct vma_area *vma;
 	struct vm_area_list *vmas = &rsti(t)->vmas;
 
+	filemap_ctx_init(false);
+
 	list_for_each_entry(vma, &vmas->h, list) {
 		if (!vma_area_is(vma, VMA_AREA_REGULAR) || !vma->vm_open)
 			continue;
@@ -1091,7 +1092,18 @@ int open_vmas(struct pstree_item *t)
 			pr_err("`- Can't open vma\n");
 			return -1;
 		}
+
+		/*
+		 * File mappings have vm_open set to open_filemap which, in
+		 * turn, puts the VMA_CLOSE bit itself. For all the rest we
+		 * need to put it by hads, so that the restorer closes the fd
+		 */
+		if (!(vma_area_is(vma, VMA_FILE_PRIVATE) ||
+					vma_area_is(vma, VMA_FILE_SHARED)))
+			vma->e->status |= VMA_CLOSE;
 	}
+
+	filemap_ctx_fini();
 
 	return 0;
 }

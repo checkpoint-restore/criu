@@ -53,7 +53,6 @@ struct vma_area {
 			int (*vm_open)(int pid, struct vma_area *vma);
 			struct file_desc *vmfd;
 			struct vma_area	*pvma;		/* parent for inherited VMAs */
-			struct vma_area	*fvma;		/* vma from which to borrow a file */
 			unsigned long	*page_bitmap;	/* existent pages */
 			unsigned long	premmaped_addr;	/* restore only */
 
