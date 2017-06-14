@@ -438,12 +438,10 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 
 	/* We always do PR_ASAP mode here (FIXME?) */
 	ret = request_remote_pages(pr->pid, vaddr, nr);
-	if (ret < 0)
-		return ret;
-	if (flags & PR_ASYNC)
-		return page_server_start_async_read(buf, nr, read_page_complete, pr);
-	else
-		return page_server_start_sync_read(buf, nr, read_page_complete, pr);
+	if (!ret)
+		ret = page_server_start_read(buf, nr,
+				read_page_complete, pr, flags);
+	return ret;
 }
 
 static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,

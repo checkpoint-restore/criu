@@ -1069,7 +1069,7 @@ struct ps_async_read {
 
 static LIST_HEAD(async_reads);
 
-int page_server_start_async_read(void *buf, int nr_pages,
+static int page_server_start_async_read(void *buf, int nr_pages,
 		ps_async_read_complete complete, void *priv)
 {
 	struct ps_async_read *ar;
@@ -1201,7 +1201,7 @@ static int receive_remote_pages(int len, void *buf)
 	return 0;
 }
 
-int page_server_start_sync_read(void *buf, int nr,
+static int page_server_start_sync_read(void *buf, int nr,
 		ps_async_read_complete complete, void *priv)
 {
 	int ret, pid, new_nr;
@@ -1222,4 +1222,13 @@ int page_server_start_sync_read(void *buf, int nr,
 		ret = complete(pid, vaddr, nr, priv);
 
 	return ret;
+}
+
+int page_server_start_read(void *buf, int nr,
+		ps_async_read_complete complete, void *priv, unsigned flags)
+{
+	if (flags & PR_ASYNC)
+		return page_server_start_async_read(buf, nr, complete, priv);
+	else
+		return page_server_start_sync_read(buf, nr, complete, priv);
 }
