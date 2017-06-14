@@ -1186,56 +1186,15 @@ int request_remote_pages(int pid, unsigned long addr, int nr_pages)
 	return 0;
 }
 
-static int receive_remote_pages_info(int *nr_pages, unsigned long *addr, int *pid)
-{
-	struct page_server_iov pi;
-
-	if (recv(page_server_sk, &pi, sizeof(pi), MSG_WAITALL) != sizeof(pi)) {
-		pr_perror("Failed to receive page metadata");
-		return -1;
-	}
-
-	if (pi.cmd == PS_IOV_ZERO)
-		pr_warn("Unexpected ZERO page received for %d.%lx\n",
-				(int)pi.dst_id, (unsigned long)pi.vaddr);
-
-	*nr_pages = pi.nr_pages;
-	*addr = pi.vaddr;
-	*pid = pi.dst_id;
-
-	return 0;
-}
-
-static int receive_remote_pages(int len, void *buf)
-{
-	if (recv(page_server_sk, buf, len, MSG_WAITALL) != len) {
-		pr_perror("Failed to receive page data");
-		return -1;
-	}
-
-	return 0;
-}
-
 static int page_server_start_sync_read(void *buf, int nr,
 		ps_async_read_complete complete, void *priv)
 {
-	int ret, pid, new_nr;
-	unsigned long vaddr;
+	struct ps_async_read ar;
+	int ret = 1;
 
-	/*
-	 * Note, that for async remote page_read, the actual
-	 * transfer happens in the lazy-pages daemon
-	 */
-	ret = receive_remote_pages_info(&new_nr, &vaddr, &pid);
-	if (ret == 0) {
-		if (new_nr < 0 || new_nr > nr)
-			return -1;
-		ret = receive_remote_pages(nr * PAGE_SIZE, buf);
-	}
-
-	if (ret == 0)
-		ret = complete(pid, vaddr, nr, priv);
-
+	init_ps_async_read(&ar, buf, nr, complete, priv);
+	while (ret == 1)
+		ret = page_server_read(&ar, MSG_WAITALL);
 	return ret;
 }
 
