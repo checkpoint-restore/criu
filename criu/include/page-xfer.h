@@ -55,11 +55,10 @@ extern int check_parent_page_xfer(int fd_type, long id);
 
 /* async request/receive of remote pages */
 extern int request_remote_pages(int pid, unsigned long addr, int nr_pages);
-extern int receive_remote_pages_info(int *nr_pages, unsigned long *addr, int *pid);
-extern int receive_remote_pages(int len, void *buf);
 
 typedef int (*ps_async_read_complete)(int pid, unsigned long vaddr, int nr_pages, void *);
 extern int page_server_start_async_read(void *buf, int nr_pages,
 		ps_async_read_complete complete, void *priv);
+extern int page_server_start_sync_read(void *buf, int nr_pages, unsigned long *vaddr);
 
 #endif /* __CR_PAGE_XFER__H__ */
