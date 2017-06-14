@@ -442,12 +442,8 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 		return ret;
 	if (flags & PR_ASYNC)
 		return page_server_start_async_read(buf, nr, read_page_complete, pr);
-
-	ret = page_server_start_sync_read(buf, nr, &vaddr);
-	if (ret == 0 && pr->io_complete)
-		ret = pr->io_complete(pr, vaddr, nr);
-
-	return ret;
+	else
+		return page_server_start_sync_read(buf, nr, read_page_complete, pr);
 }
 
 static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,

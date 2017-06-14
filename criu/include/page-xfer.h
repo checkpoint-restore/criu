@@ -59,6 +59,7 @@ extern int request_remote_pages(int pid, unsigned long addr, int nr_pages);
 typedef int (*ps_async_read_complete)(int pid, unsigned long vaddr, int nr_pages, void *);
 extern int page_server_start_async_read(void *buf, int nr_pages,
 		ps_async_read_complete complete, void *priv);
-extern int page_server_start_sync_read(void *buf, int nr_pages, unsigned long *vaddr);
+extern int page_server_start_sync_read(void *buf, int nr_pages,
+		ps_async_read_complete complete, void *priv);
 
 #endif /* __CR_PAGE_XFER__H__ */

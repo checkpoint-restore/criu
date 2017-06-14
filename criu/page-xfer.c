@@ -1201,20 +1201,25 @@ static int receive_remote_pages(int len, void *buf)
 	return 0;
 }
 
-int page_server_start_sync_read(void *buf, int nr, unsigned long *vaddr)
+int page_server_start_sync_read(void *buf, int nr,
+		ps_async_read_complete complete, void *priv)
 {
 	int ret, pid, new_nr;
+	unsigned long vaddr;
 
 	/*
 	 * Note, that for async remote page_read, the actual
 	 * transfer happens in the lazy-pages daemon
 	 */
-	ret = receive_remote_pages_info(&new_nr, vaddr, &pid);
+	ret = receive_remote_pages_info(&new_nr, &vaddr, &pid);
 	if (ret == 0) {
 		if (new_nr < 0 || new_nr > nr)
 			return -1;
 		ret = receive_remote_pages(nr * PAGE_SIZE, buf);
 	}
+
+	if (ret == 0)
+		ret = complete(pid, vaddr, nr, priv);
 
 	return ret;
 }
