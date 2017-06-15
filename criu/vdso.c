@@ -466,7 +466,22 @@ static int vdso_fill_compat_symtable(struct vdso_maps *native,
 }
 #endif /* CONFIG_COMPAT */
 
-int vdso_init(void)
+int vdso_init_dump(void)
+{
+	if (vdso_parse_maps(PROC_SELF, &vdso_maps)) {
+		pr_err("Failed reading self/maps for filling vdso/vvar bounds\n");
+		return -1;
+	}
+
+	if (kdat.pmap != PM_FULL)
+		pr_info("VDSO detection turned off\n");
+	else if (vaddr_to_pfn(vdso_maps.vdso_start, &vdso_pfn))
+		return -1;
+
+	return 0;
+}
+
+int vdso_init_restore(void)
 {
 	if (vdso_parse_maps(PROC_SELF, &vdso_maps)) {
 		pr_err("Failed reading self/maps for filling vdso/vvar bounds\n");
@@ -482,11 +497,6 @@ int vdso_init(void)
 		pr_err("Failed to fill compat vdso symtable\n");
 		return -1;
 	}
-
-	if (kdat.pmap != PM_FULL)
-		pr_info("VDSO detection turned off\n");
-	else if (vaddr_to_pfn(vdso_maps.vdso_start, &vdso_pfn))
-		return -1;
 
 	return 0;
 }

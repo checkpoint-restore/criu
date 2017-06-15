@@ -1562,7 +1562,7 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (cpu_init())
 		goto err;
 
-	if (vdso_init())
+	if (vdso_init_dump())
 		goto err;
 
 	if (connect_to_page_server_to_send() < 0)
@@ -1738,7 +1738,7 @@ int cr_dump_tasks(pid_t pid)
 	if (cpu_init())
 		goto err;
 
-	if (vdso_init())
+	if (vdso_init_dump())
 		goto err;
 
 	if (cgp_init(opts.cgroup_props,

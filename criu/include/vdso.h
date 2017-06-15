@@ -13,7 +13,8 @@
 extern struct vdso_maps vdso_maps;
 extern struct vdso_maps vdso_maps_compat;
 
-extern int vdso_init(void);
+extern int vdso_init_dump(void);
+extern int vdso_init_restore(void);
 
 extern int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			       struct vm_area_list *vma_area_list);
@@ -25,7 +26,8 @@ extern void compat_vdso_helper(struct vdso_maps *native, int pipe_fd,
 
 #else /* CONFIG_VDSO */
 
-#define vdso_init()						(0)
+#define vdso_init_dump()					(0)
+#define vdso_init_restore()					(0)
 #define parasite_fixup_vdso(ctl, pid, vma_area_list)		(0)
 
 #endif /* CONFIG_VDSO */

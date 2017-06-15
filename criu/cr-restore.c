@@ -2205,7 +2205,7 @@ int cr_restore_tasks(void)
 	if (cpu_init() < 0)
 		goto err;
 
-	if (vdso_init())
+	if (vdso_init_restore())
 		goto err;
 
 	if (opts.cpu_cap & (CPU_CAP_INS | CPU_CAP_CPU)) {
