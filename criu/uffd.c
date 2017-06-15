@@ -63,6 +63,7 @@ struct lazy_iov {
 	unsigned long base;	/* run-time start address, tracks remaps */
 	unsigned long img_base;	/* start address at the dump time */
 	unsigned long len;
+	bool queued;
 };
 
 struct lp_req {
@@ -669,8 +670,9 @@ static int handle_exit(struct lazy_pages_info *lpi)
 		return -1;
 	free_lazy_iovs(lpi);
 	close(lpi->lpfd.fd);
+	lpi->lpfd.fd = 0;
 
-	/* keep it for summary */
+	/* keep it for tracking in-flight requests and for the summary */
 	list_move_tail(&lpi->l, &lpis);
 
 	return 0;
@@ -723,6 +725,14 @@ static int complete_page_fault(struct lazy_pages_info *lpi, unsigned long img_ad
 			break;
 		}
 	}
+
+	/*
+	 * The process may exit while we still have requests in
+	 * flight. We just drop the request and the received data in
+	 * this case to avoid making uffd unhappy
+	 */
+	if (list_empty(&lpi->iovs))
+	    return 0;
 
 	BUG_ON(!addr);
 
@@ -803,13 +813,41 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr,
 	return 0;
 }
 
+static struct lazy_iov *first_pending_iov(struct lazy_pages_info *lpi)
+{
+	struct lazy_iov *iov;
+
+	list_for_each_entry(iov, &lpi->iovs, l)
+		if (!iov->queued)
+			return iov;
+
+	return NULL;
+}
+
+static bool is_iov_queued(struct lazy_pages_info *lpi, struct lazy_iov *iov)
+{
+	struct lp_req *req;
+
+	list_for_each_entry(req, &lpi->reqs, l)
+		if (req->addr >= iov->base && req->addr < iov->base + iov->len)
+			return true;
+
+	return false;
+}
+
 static int handle_remaining_pages(struct lazy_pages_info *lpi)
 {
 	struct lazy_iov *iov;
 	struct lp_req *req;
 	int nr_pages, err;
 
-	iov = list_first_entry(&lpi->iovs, struct lazy_iov, l);
+	iov = first_pending_iov(lpi);
+	if (!iov)
+		return 0;
+
+	if (is_iov_queued(lpi, iov))
+		return 0;
+
 	nr_pages = iov->len / PAGE_SIZE;
 
 	req = xzalloc(sizeof(*req));
@@ -820,8 +858,9 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	req->img_addr = iov->img_base;
 	req->len = iov->len;
 	list_add(&req->l, &lpi->reqs);
+	iov->queued = true;
 
-	err = uffd_handle_pages(lpi, req->img_addr, nr_pages, 0);
+	err = uffd_handle_pages(lpi, req->img_addr, nr_pages, PR_ASYNC | PR_ASAP);
 	if (err < 0) {
 		lp_err(lpi, "Error during UFFD copy\n");
 		return -1;
@@ -1006,7 +1045,7 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 	return 0;
 }
 
-static int lazy_pages_summary(struct lazy_pages_info *lpi)
+static void lazy_pages_summary(struct lazy_pages_info *lpi)
 {
 	lp_debug(lpi, "UFFD transferred pages: (%ld/%ld)\n",
 		 lpi->copied_pages, lpi->total_pages);
@@ -1019,15 +1058,13 @@ static int lazy_pages_summary(struct lazy_pages_info *lpi)
 		return 1;
 	}
 #endif
-
-	return 0;
 }
 
 #define POLL_TIMEOUT 1000
 
 static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 {
-	struct lazy_pages_info *lpi;
+	struct lazy_pages_info *lpi, *n;
 	int poll_timeout = POLL_TIMEOUT;
 	int ret;
 
@@ -1047,9 +1084,16 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 			pr_debug("Start handling remaining pages\n");
 
 		poll_timeout = 0;
-		list_for_each_entry(lpi, &lpis, l) {
+		list_for_each_entry_safe(lpi, n, &lpis, l) {
+			if (list_empty(&lpi->iovs) && list_empty(&lpi->reqs)) {
+				lazy_pages_summary(lpi);
+				list_del(&lpi->l);
+				lpi_fini(lpi);
+				continue;
+			}
+
+			remaining = true;
 			if (!list_empty(&lpi->iovs)) {
-				remaining = true;
 				ret = handle_remaining_pages(lpi);
 				if (ret < 0)
 					goto out;
@@ -1060,9 +1104,6 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 		if (!remaining)
 			break;
 	}
-
-	list_for_each_entry(lpi, &lpis, l)
-		ret += lazy_pages_summary(lpi);
 
 out:
 	return ret;
