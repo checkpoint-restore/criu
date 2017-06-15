@@ -171,7 +171,7 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 					long delta_rt = sym_rt->vvar_start - sym_rt->vdso_start;
 					long delta_this = vma_vvar->start - vma_vdso->start;
 
-					remap_rt = (delta_rt ^ delta_this) < 0 ? false : true;
+					remap_rt = (delta_rt == delta_this);
 				}
 			} else
 				remap_rt = true;
