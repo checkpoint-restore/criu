@@ -220,6 +220,71 @@ class pagemap_handler:
 	def count(self, f):
 		return entry_handler(None).count(f) - 1
 
+# Special handler for ghost-file.img
+class ghost_file_handler:
+	def load(self, f, pretty = False, no_payload = False):
+		entries = []
+
+		gf = ghost_file_entry()
+		buf = f.read(4)
+		size, = struct.unpack('i', buf)
+		gf.ParseFromString(f.read(size))
+		g_entry = pb2dict.pb2dict(gf, pretty)
+
+		if gf.chunks:
+			entries.append(g_entry)
+			while True:
+				gc = ghost_chunk_entry()
+				buf = f.read(4)
+				if buf == '':
+					break
+				size, = struct.unpack('i', buf)
+				gc.ParseFromString(f.read(size))
+				entry = pb2dict.pb2dict(gc, pretty)
+				if no_payload:
+					f.seek(gc.len, os.SEEK_CUR)
+				else:
+					entry['extra'] = f.read(gc.len).encode('base64')
+				entries.append(entry)
+		else:
+			if no_payload:
+				f.seek(0, os.SEEK_END)
+			else:
+				g_entry['extra'] = f.read().encode('base64')
+			entries.append(g_entry)
+
+		return entries
+
+	def loads(self, s, pretty = False):
+		f = io.BytesIO(s)
+		return self.load(f, pretty)
+
+	def dump(self, entries, f):
+		pb = ghost_file_entry()
+		item = entries.pop(0)
+		pb2dict.dict2pb(item, pb)
+		pb_str = pb.SerializeToString()
+		size = len(pb_str)
+		f.write(struct.pack('i', size))
+		f.write(pb_str)
+
+		if pb.chunks:
+			for item in entries:
+				pb = ghost_chunk_entry()
+				pb2dict.dict2pb(item, pb)
+				pb_str = pb.SerializeToString()
+				size = len(pb_str)
+				f.write(struct.pack('i', size))
+				f.write(pb_str)
+				f.write(item['extra'].decode('base64'))
+		else:
+			f.write(item['extra'].decode('base64'))
+
+	def dumps(self, entries):
+		f = io.BytesIO('')
+		self.dump(entries, f)
+		return f.read()
+
 
 # In following extra handlers we use base64 encoding
 # to store binary data. Even though, the nature
@@ -255,19 +320,6 @@ class sk_queues_extra_handler:
 		f.seek(pload.length, os.SEEK_CUR)
 		return pload.length
 
-class ghost_file_extra_handler:
-	def load(self, f, pb):
-		data = f.read()
-		return data.encode('base64')
-
-	def dump(self, extra, f, pb):
-		data = extra.decode('base64')
-		f.write(data)
-
-	def skip(self, f, pb):
-		p = f.tell()
-		f.seek(0, os.SEEK_END)
-		return f.tell() - p
 
 class tcp_stream_extra_handler:
 	def load(self, f, pb):
@@ -404,7 +456,7 @@ handlers = {
 	'UTSNS'			: entry_handler(utsns_entry),
 	'IPC_VAR'		: entry_handler(ipc_var_entry),
 	'FS'			: entry_handler(fs_entry),
-	'GHOST_FILE'		: entry_handler(ghost_file_entry, ghost_file_extra_handler()),
+	'GHOST_FILE'		: ghost_file_handler(),
 	'MM'			: entry_handler(mm_entry),
 	'CGROUP'		: entry_handler(cgroup_entry),
 	'TCP_STREAM'		: entry_handler(tcp_stream_entry, tcp_stream_extra_handler()),
