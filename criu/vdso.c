@@ -421,6 +421,9 @@ static int vdso_fill_compat_symtable(struct vdso_symtable *native,
 	void *vdso_mmap;
 	int ret = -1;
 
+	if (!kdat.compat_cr)
+		return 0;
+
 	vdso_mmap = mmap(NULL, COMPAT_VDSO_BUF_SZ, PROT_READ | PROT_WRITE,
 			MAP_SHARED | MAP_ANON, -1, 0);
 	if (vdso_mmap == MAP_FAILED) {
@@ -464,8 +467,8 @@ int vdso_init(void)
 		pr_err("Failed to fill self vdso symtable\n");
 		return -1;
 	}
-	if (kdat.compat_cr &&
-			vdso_fill_compat_symtable(&vdso_sym_rt, &vdso_compat_rt)) {
+
+	if (vdso_fill_compat_symtable(&vdso_sym_rt, &vdso_compat_rt)) {
 		pr_err("Failed to fill compat vdso symtable\n");
 		return -1;
 	}
