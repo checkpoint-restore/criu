@@ -28,9 +28,10 @@
 #endif
 #define LOG_PREFIX "vdso: "
 
-struct vdso_symtable vdso_sym_rt = VDSO_SYMTABLE_INIT;
 u64 vdso_pfn = VDSO_BAD_PFN;
-struct vdso_symtable vdso_compat_rt = VDSO_SYMTABLE_INIT;
+struct vdso_symtable vdso_sym_rt	= VDSO_SYMTABLE_INIT;
+struct vdso_symtable vdso_compat_rt	= VDSO_SYMTABLE_INIT;
+
 /*
  * The VMAs list might have proxy vdso/vvar areas left
  * from previous dump/restore cycle so we need to detect
@@ -266,19 +267,19 @@ static int vdso_parse_maps(pid_t pid, struct vdso_symtable *s)
 		}
 
 		if (has_vdso) {
-			if (s->vma_start != VDSO_BAD_ADDR) {
+			if (s->vdso_start != VDSO_BAD_ADDR) {
 				pr_err("Got second vDSO entry\n");
 				goto err;
 			}
-			s->vma_start = start;
-			s->vma_end = end;
+			s->vdso_start = start;
+			s->vdso_size = end - start;
 		} else {
 			if (s->vvar_start != VVAR_BAD_ADDR) {
 				pr_err("Got second VVAR entry\n");
 				goto err;
 			}
 			s->vvar_start = start;
-			s->vvar_end = end;
+			s->vvar_size = end - start;
 		}
 	}
 
@@ -290,6 +291,8 @@ err:
 
 static int validate_vdso_addr(struct vdso_symtable *s)
 {
+	unsigned long vdso_end = s->vdso_start + s->vdso_size;
+	unsigned long vvar_end = s->vvar_start + s->vvar_size;
 	/*
 	 * Validate its structure -- for new vDSO format the
 	 * structure must be like
@@ -303,10 +306,10 @@ static int validate_vdso_addr(struct vdso_symtable *s)
 	 * 7fffc3504000-7fffc3506000 r-xp 00000000 00:00 0 [vdso]
 	 *
 	 */
-	if (s->vma_start != VDSO_BAD_ADDR) {
+	if (s->vdso_start != VDSO_BAD_ADDR) {
 		if (s->vvar_start != VVAR_BAD_ADDR) {
-			if (s->vma_end != s->vvar_start &&
-			    s->vvar_end != s->vma_start) {
+			if (vdso_end != s->vvar_start &&
+			    vvar_end != s->vdso_start) {
 				pr_err("Unexpected rt vDSO area bounds\n");
 				return -1;
 			}
@@ -325,15 +328,15 @@ static int vdso_fill_self_symtable(struct vdso_symtable *s)
 	if (vdso_parse_maps(PROC_SELF, s))
 		return -1;
 
-	if (vdso_fill_symtable(s->vma_start, s->vma_end - s->vma_start, s))
+	if (vdso_fill_symtable(s->vdso_start, s->vdso_size, s))
 		return -1;
 
 	if (validate_vdso_addr(s))
 		return -1;
 
 	pr_debug("rt [vdso] %lx-%lx [vvar] %lx-%lx\n",
-		 s->vma_start, s->vma_end,
-		 s->vvar_start, s->vvar_end);
+		 s->vdso_start, s->vdso_start + s->vdso_size,
+		 s->vvar_start, s->vvar_start + s->vvar_size);
 
 	return 0;
 }
@@ -391,8 +394,8 @@ static int vdso_mmap_compat(struct vdso_symtable *native,
 		pr_perror("Failed to kill(SIGCONT) for compat vdso helper\n");
 		goto out_kill;
 	}
-	if (write(fds[1], &compat->vma_start, sizeof(void *)) !=
-			sizeof(compat->vma_start)) {
+	if (write(fds[1], &compat->vdso_start, sizeof(void *)) !=
+			sizeof(compat->vdso_start)) {
 		pr_perror("Failed write to pipe\n");
 		goto out_kill;
 	}
@@ -437,14 +440,14 @@ static int vdso_fill_compat_symtable(struct vdso_symtable *native,
 	}
 
 	if (vdso_fill_symtable_compat((uintptr_t)vdso_mmap,
-				compat->vma_end - compat->vma_start, compat)) {
+				compat->vdso_size, compat)) {
 		pr_err("Failed to parse mmaped compatible vdso blob\n");
 		goto out_unmap;
 	}
 
 	pr_debug("compat [vdso] %lx-%lx [vvar] %lx-%lx\n",
-		 compat->vma_start, compat->vma_end,
-		 compat->vvar_start, compat->vvar_end);
+		 compat->vdso_start, compat->vdso_start + compat->vdso_size,
+		 compat->vvar_start, compat->vvar_start + compat->vvar_size);
 	ret = 0;
 
 out_unmap:
@@ -475,7 +478,7 @@ int vdso_init(void)
 
 	if (kdat.pmap != PM_FULL)
 		pr_info("VDSO detection turned off\n");
-	else if (vaddr_to_pfn(vdso_sym_rt.vma_start, &vdso_pfn))
+	else if (vaddr_to_pfn(vdso_sym_rt.vdso_start, &vdso_pfn))
 		return -1;
 
 	return 0;

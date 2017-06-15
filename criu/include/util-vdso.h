@@ -28,10 +28,10 @@ struct vdso_symbol {
 };
 
 struct vdso_symtable {
-	unsigned long		vma_start;
-	unsigned long		vma_end;
+	unsigned long		vdso_start;
+	unsigned long		vdso_size;
 	unsigned long		vvar_start;
-	unsigned long		vvar_end;
+	unsigned long		vvar_size;
 	struct vdso_symbol	symbols[VDSO_SYMBOL_MAX];
 };
 
@@ -39,10 +39,10 @@ struct vdso_symtable {
 
 #define VDSO_SYMTABLE_INIT						\
 	{								\
-		.vma_start	= VDSO_BAD_ADDR,			\
-		.vma_end	= VDSO_BAD_ADDR,			\
+		.vdso_start	= VDSO_BAD_ADDR,			\
+		.vdso_size	= VDSO_BAD_SIZE,			\
 		.vvar_start	= VVAR_BAD_ADDR,			\
-		.vvar_end	= VVAR_BAD_ADDR,			\
+		.vvar_size	= VVAR_BAD_SIZE,			\
 		.symbols		= {				\
 			[0 ... VDSO_SYMBOL_MAX - 1] =			\
 				(struct vdso_symbol)VDSO_SYMBOL_INIT,	\
@@ -76,17 +76,6 @@ struct vdso_symtable {
 #endif
 
 #endif /* CONFIG_VDSO_32 */
-
-/* Size of VMA associated with vdso */
-static inline unsigned long vdso_vma_size(struct vdso_symtable *t)
-{
-	return t->vma_end - t->vma_start;
-}
-
-static inline unsigned long vvar_vma_size(struct vdso_symtable *t)
-{
-	return t->vvar_end - t->vvar_start;
-}
 
 #if defined(CONFIG_VDSO_32)
 # define vdso_fill_symtable vdso_fill_symtable_compat

@@ -46,25 +46,25 @@ int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned l
 {
 	int ret;
 
-	BUG_ON((vdso_vma_size(sym_rt) + vvar_vma_size(sym_rt)) < park_size);
+	BUG_ON((sym_rt->vdso_size + sym_rt->vvar_size) < park_size);
 
 	if (sym_rt->vvar_start != VDSO_BAD_ADDR) {
-		if (sym_rt->vma_start < sym_rt->vvar_start) {
-			ret  = vdso_remap("rt-vdso", sym_rt->vma_start,
-					  park_at, vdso_vma_size(sym_rt));
-			park_at += vdso_vma_size(sym_rt);
+		if (sym_rt->vdso_start < sym_rt->vvar_start) {
+			ret  = vdso_remap("rt-vdso", sym_rt->vdso_start,
+					  park_at, sym_rt->vdso_size);
+			park_at += sym_rt->vdso_size;
 			ret |= vdso_remap("rt-vvar", sym_rt->vvar_start,
-					  park_at, vvar_vma_size(sym_rt));
+					  park_at, sym_rt->vvar_size);
 		} else {
 			ret  = vdso_remap("rt-vvar", sym_rt->vvar_start,
-					  park_at, vvar_vma_size(sym_rt));
-			park_at += vvar_vma_size(sym_rt);
-			ret |= vdso_remap("rt-vdso", sym_rt->vma_start,
-					  park_at, vdso_vma_size(sym_rt));
+					  park_at, sym_rt->vvar_size);
+			park_at += sym_rt->vvar_size;
+			ret |= vdso_remap("rt-vdso", sym_rt->vdso_start,
+					  park_at, sym_rt->vdso_size);
 		}
 	} else
-		ret = vdso_remap("rt-vdso", sym_rt->vma_start,
-				 park_at, vdso_vma_size(sym_rt));
+		ret = vdso_remap("rt-vdso", sym_rt->vdso_start,
+				 park_at, sym_rt->vdso_size);
 	return ret;
 }
 
@@ -157,7 +157,7 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 	 *    b) Symbols offsets must match
 	 *    c) Have same number of vDSO zones
 	 */
-	if (vma_entry_len(vma_vdso) == vdso_vma_size(sym_rt)) {
+	if (vma_entry_len(vma_vdso) == sym_rt->vdso_size) {
 		size_t i;
 
 		for (i = 0; i < ARRAY_SIZE(s.symbols); i++) {
@@ -167,9 +167,9 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 
 		if (i == ARRAY_SIZE(s.symbols)) {
 			if (vma_vvar && sym_rt->vvar_start != VVAR_BAD_ADDR) {
-				remap_rt = (vvar_vma_size(sym_rt) == vma_entry_len(vma_vvar));
+				remap_rt = (sym_rt->vvar_size == vma_entry_len(vma_vvar));
 				if (remap_rt) {
-					long delta_rt = sym_rt->vvar_start - sym_rt->vma_start;
+					long delta_rt = sym_rt->vvar_start - sym_rt->vdso_start;
 					long delta_this = vma_vvar->start - vma_vdso->start;
 
 					remap_rt = (delta_rt ^ delta_this) < 0 ? false : true;
@@ -212,16 +212,16 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 			}
 
 			if (vma_vdso->start < vma_vvar->start) {
-				ret  = vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
-				vdso_rt_parked_at += vdso_vma_size(sym_rt);
-				ret |= vdso_remap("rt-vvar", vdso_rt_parked_at, vma_vvar->start, vvar_vma_size(sym_rt));
+				ret  = vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, sym_rt->vdso_size);
+				vdso_rt_parked_at += sym_rt->vdso_size;
+				ret |= vdso_remap("rt-vvar", vdso_rt_parked_at, vma_vvar->start, sym_rt->vvar_size);
 			} else {
-				ret  = vdso_remap("rt-vvar", vdso_rt_parked_at, vma_vvar->start, vvar_vma_size(sym_rt));
-				vdso_rt_parked_at += vvar_vma_size(sym_rt);
-				ret |= vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
+				ret  = vdso_remap("rt-vvar", vdso_rt_parked_at, vma_vvar->start, sym_rt->vvar_size);
+				vdso_rt_parked_at += sym_rt->vvar_size;
+				ret |= vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, sym_rt->vdso_size);
 			}
 		} else
-			ret = vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
+			ret = vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, sym_rt->vdso_size);
 
 		return ret;
 	}
@@ -237,8 +237,8 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 	 * Don't forget to shift if vvar is before vdso.
 	 */
 	if (sym_rt->vvar_start != VDSO_BAD_ADDR &&
-	    sym_rt->vvar_start < sym_rt->vma_start)
-		vdso_rt_parked_at += vvar_vma_size(sym_rt);
+	    sym_rt->vvar_start < sym_rt->vdso_start)
+		vdso_rt_parked_at += sym_rt->vvar_size;
 
 	if (vdso_redirect_calls(vdso_rt_parked_at,
 				vma_vdso->start,
@@ -252,8 +252,8 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 	 * routine we could detect this vdso and do not dump it, since
 	 * it's auto-generated every new session if proxy required.
 	 */
-	sys_mprotect((void *)vdso_rt_parked_at,  vdso_vma_size(sym_rt), PROT_WRITE);
+	sys_mprotect((void *)vdso_rt_parked_at,  sym_rt->vdso_size, PROT_WRITE);
 	vdso_put_mark((void *)vdso_rt_parked_at, vma_vdso->start, vma_vvar ? vma_vvar->start : VVAR_BAD_ADDR);
-	sys_mprotect((void *)vdso_rt_parked_at,  vdso_vma_size(sym_rt), VDSO_PROT);
+	sys_mprotect((void *)vdso_rt_parked_at,  sym_rt->vdso_size, VDSO_PROT);
 	return 0;
 }

@@ -3089,9 +3089,9 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	/*
 	 * Figure out how much memory runtime vdso and vvar will need.
 	 */
-	vdso_rt_size = vdso_vma_size(&vdso_symtab_rt);
-	if (vdso_rt_size && vvar_vma_size(&vdso_symtab_rt))
-		vdso_rt_size += ALIGN(vvar_vma_size(&vdso_symtab_rt), PAGE_SIZE);
+	vdso_rt_size = vdso_symtab_rt.vdso_size;
+	if (vdso_rt_size && vdso_symtab_rt.vvar_size)
+		vdso_rt_size += ALIGN(vdso_symtab_rt.vvar_size, PAGE_SIZE);
 	task_args->bootstrap_len += vdso_rt_size;
 #endif
 
