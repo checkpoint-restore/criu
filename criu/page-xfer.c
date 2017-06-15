@@ -1069,6 +1069,16 @@ struct ps_async_read {
 
 static LIST_HEAD(async_reads);
 
+static void init_ps_async_read(struct ps_async_read *ar, void *buf,
+		int nr_pages, ps_async_read_complete complete, void *priv)
+{
+	ar->pages = buf;
+	ar->rb = 0;
+	ar->goal = sizeof(ar->pi) + nr_pages * PAGE_SIZE;
+	ar->complete = complete;
+	ar->priv = priv;
+}
+
 static int page_server_start_async_read(void *buf, int nr_pages,
 		ps_async_read_complete complete, void *priv)
 {
@@ -1078,12 +1088,7 @@ static int page_server_start_async_read(void *buf, int nr_pages,
 	if (ar == NULL)
 		return -1;
 
-	ar->pages = buf;
-	ar->rb = 0;
-	ar->goal = sizeof(ar->pi) + nr_pages * PAGE_SIZE;
-	ar->complete = complete;
-	ar->priv = priv;
-
+	init_ps_async_read(ar, buf, nr_pages, complete, priv);
 	list_add_tail(&ar->l, &async_reads);
 	return 0;
 }
@@ -1097,14 +1102,10 @@ static int page_server_start_async_read(void *buf, int nr_pages,
  * for sure the next time socket event will occur we'll get page data
  * related to info we've just received
  */
-static int page_server_async_read(struct epoll_rfd *f)
+static int page_server_read(struct ps_async_read *ar, int flags)
 {
-	struct ps_async_read *ar;
 	int ret, need;
 	void *buf;
-
-	BUG_ON(list_empty(&async_reads));
-	ar = list_first_entry(&async_reads, struct ps_async_read, l);
 
 	if (ar->rb < sizeof(ar->pi)) {
 		/* Header */
@@ -1116,7 +1117,7 @@ static int page_server_async_read(struct epoll_rfd *f)
 		need = ar->goal - ar->rb;
 	}
 
-	ret = recv(page_server_sk, buf, need, MSG_DONTWAIT);
+	ret = recv(page_server_sk, buf, need, flags);
 	if (ret < 0) {
 		pr_perror("Error reading async data from page server");
 		return -1;
@@ -1124,17 +1125,31 @@ static int page_server_async_read(struct epoll_rfd *f)
 
 	ar->rb += ret;
 	if (ar->rb < ar->goal)
-		return 0;
+		return 1;
 
 	/*
 	 * IO complete -- notify the caller and drop the request
 	 */
 	BUG_ON(ar->rb > ar->goal);
-	ret = ar->complete((int)ar->pi.dst_id, (unsigned long)ar->pi.vaddr,
+	return ar->complete((int)ar->pi.dst_id, (unsigned long)ar->pi.vaddr,
 				(int)ar->pi.nr_pages, ar->priv);
+}
 
-	list_del(&ar->l);
-	xfree(ar);
+static int page_server_async_read(struct epoll_rfd *f)
+{
+	struct ps_async_read *ar;
+	int ret;
+
+	BUG_ON(list_empty(&async_reads));
+	ar = list_first_entry(&async_reads, struct ps_async_read, l);
+	ret = page_server_read(ar, MSG_DONTWAIT);
+
+	if (ret > 0)
+		return 0;
+	if (!ret) {
+		list_del(&ar->l);
+		xfree(ar);
+	}
 
 	return ret;
 }
