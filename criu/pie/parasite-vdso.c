@@ -103,13 +103,48 @@ int __vdso_fill_symtable(uintptr_t mem, size_t size,
 }
 #endif
 
+/*
+ * Proxification strategy
+ *
+ *  - There might be two vDSO zones: vdso code and optionally vvar data
+ *  - To be able to use in-place remapping we need
+ *
+ *    a) Size and order of vDSO zones are to match
+ *    b) Symbols offsets must match
+ *    c) Have same number of vDSO zones
+ */
+static bool blobs_matches(VmaEntry *vdso_img, VmaEntry *vvar_img,
+		struct vdso_symtable *sym_img, struct vdso_symtable *sym_rt)
+{
+	size_t i;
+
+	if (vma_entry_len(vdso_img) != sym_rt->vdso_size)
+		return false;
+
+	for (i = 0; i < ARRAY_SIZE(sym_img->symbols); i++) {
+		if (sym_img->symbols[i].offset != sym_rt->symbols[i].offset)
+			return false;
+	}
+
+	if (vvar_img && sym_rt->vvar_start != VVAR_BAD_ADDR) {
+		long delta_rt = sym_rt->vvar_start - sym_rt->vdso_start;
+		long delta_img = vvar_img->start - vdso_img->start;
+
+		if (sym_rt->vvar_size != vma_entry_len(vvar_img))
+			return false;
+
+		return delta_rt == delta_img;
+	}
+
+	return true;
+}
+
 int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 		 VmaEntry *vmas, size_t nr_vmas,
 		 bool compat_vdso, bool force_trampolines)
 {
 	VmaEntry *vma_vdso = NULL, *vma_vvar = NULL;
 	struct vdso_symtable s = VDSO_SYMTABLE_INIT;
-	bool remap_rt = false;
 	unsigned int i;
 
 	for (i = 0; i < nr_vmas; i++) {
@@ -146,38 +181,6 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 			vma_entry_len(vma_vdso), &s, compat_vdso))
 		return -1;
 
-	/*
-	 * Proxification strategy
-	 *
-	 *  - There might be two vDSO zones: vdso code and optionally vvar data
-	 *  - To be able to use in-place remapping we need
-	 *
-	 *    a) Size and order of vDSO zones are to match
-	 *    b) Symbols offsets must match
-	 *    c) Have same number of vDSO zones
-	 */
-	if (vma_entry_len(vma_vdso) == sym_rt->vdso_size) {
-		size_t i;
-
-		for (i = 0; i < ARRAY_SIZE(s.symbols); i++) {
-			if (s.symbols[i].offset != sym_rt->symbols[i].offset)
-				break;
-		}
-
-		if (i == ARRAY_SIZE(s.symbols)) {
-			if (vma_vvar && sym_rt->vvar_start != VVAR_BAD_ADDR) {
-				remap_rt = (sym_rt->vvar_size == vma_entry_len(vma_vvar));
-				if (remap_rt) {
-					long delta_rt = sym_rt->vvar_start - sym_rt->vdso_start;
-					long delta_this = vma_vvar->start - vma_vdso->start;
-
-					remap_rt = (delta_rt == delta_this);
-				}
-			} else
-				remap_rt = true;
-		}
-	}
-
 	pr_debug("image [vdso] %lx-%lx [vvar] %lx-%lx\n",
 		 (unsigned long)vma_vdso->start, (unsigned long)vma_vdso->end,
 		 vma_vvar ? (unsigned long)vma_vvar->start : VVAR_BAD_ADDR,
@@ -192,7 +195,7 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 	 * by a caller code. So drop VMA_AREA_REGULAR from it and caller would
 	 * not touch it anymore.
 	 */
-	if (remap_rt && !force_trampolines) {
+	if (blobs_matches(vma_vdso, vma_vvar, &s, sym_rt) && !force_trampolines) {
 		int ret = 0;
 
 		pr_info("Runtime vdso/vvar matches dumpee, remap inplace\n");
