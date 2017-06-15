@@ -5,6 +5,9 @@
 
 #include "int.h"
 #include "config.h"
+#ifdef CONFIG_VDSO
+#include "util-vdso.h"
+#endif
 
 struct stat;
 
@@ -52,6 +55,12 @@ struct kerndat_s {
 	bool has_uffd;
 	unsigned long uffd_features;
 	bool has_thp_disable;
+#ifdef CONFIG_VDSO
+	struct vdso_symtable	vdso_sym;
+#ifdef CONFIG_COMPAT
+	struct vdso_symtable	vdso_sym_compat;
+#endif
+#endif
 };
 
 extern struct kerndat_s kdat;

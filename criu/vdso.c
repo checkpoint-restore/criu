@@ -457,13 +457,6 @@ out_unmap:
 		pr_perror("Failed to unmap buf for compat vdso");
 	return ret;
 }
-
-#else /* CONFIG_COMPAT */
-static int vdso_fill_compat_symtable(struct vdso_maps *native,
-		struct vdso_maps *compat)
-{
-	return 0;
-}
 #endif /* CONFIG_COMPAT */
 
 int vdso_init_dump(void)
@@ -481,7 +474,53 @@ int vdso_init_dump(void)
 	return 0;
 }
 
+/*
+ * Check vdso/vvar sized read from maps to kdat values.
+ * We do not read /proc/self/maps for compatible vdso as it's
+ * not parked as run-time vdso in restorer, but mapped with
+ * arch_prlctl(MAP_VDSO_32) API.
+ * By that reason we verify only native sizes.
+ */
+static int is_kdat_vdso_sym_valid(void)
+{
+	if (vdso_maps.sym.vdso_size != kdat.vdso_sym.vdso_size)
+		return false;
+	if (vdso_maps.sym.vvar_size != kdat.vdso_sym.vvar_size)
+		return false;
+
+	return true;
+}
+
 int vdso_init_restore(void)
+{
+	if (kdat.vdso_sym.vdso_size == VDSO_BAD_SIZE) {
+		pr_err("Kdat has empty vdso symtable\n");
+		return -1;
+	}
+
+	/* Already filled vdso_maps during kdat test */
+	if (vdso_maps.vdso_start != VDSO_BAD_ADDR)
+		return 0;
+
+	if (vdso_parse_maps(PROC_SELF, &vdso_maps)) {
+		pr_err("Failed reading self/maps for filling vdso/vvar bounds\n");
+		return -1;
+	}
+
+	if (!is_kdat_vdso_sym_valid()) {
+		pr_err("Kdat sizes of vdso/vvar differ to maps file \n");
+		return -1;
+	}
+
+	vdso_maps.sym = kdat.vdso_sym;
+#ifdef CONFIG_COMPAT
+	vdso_maps_compat.sym = kdat.vdso_sym_compat;
+#endif
+
+	return 0;
+}
+
+int kerndat_vdso_fill_symtable(void)
 {
 	if (vdso_parse_maps(PROC_SELF, &vdso_maps)) {
 		pr_err("Failed reading self/maps for filling vdso/vvar bounds\n");
@@ -492,11 +531,15 @@ int vdso_init_restore(void)
 		pr_err("Failed to fill self vdso symtable\n");
 		return -1;
 	}
+	kdat.vdso_sym = vdso_maps.sym;
 
+#ifdef CONFIG_COMPAT
 	if (vdso_fill_compat_symtable(&vdso_maps, &vdso_maps_compat)) {
 		pr_err("Failed to fill compat vdso symtable\n");
 		return -1;
 	}
+	kdat.vdso_sym_compat = vdso_maps_compat.sym;
+#endif
 
 	return 0;
 }
