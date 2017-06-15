@@ -196,6 +196,9 @@ TST_FILE	=				\
 		unlink_fstat01+			\
 		unlink_fstat02			\
 		unlink_fstat03			\
+		ghost_holes00			\
+		ghost_holes01			\
+		ghost_holes02			\
 		unlink_largefile		\
 		mtime_mmap			\
 		fifo				\
@@ -431,6 +434,8 @@ mlock_setuid: get_smaps_bits.o
 inotify01:		CFLAGS += -DINOTIFY01
 unlink_fstat01+:	CFLAGS += -DUNLINK_OVER
 unlink_fstat04:		CFLAGS += -DUNLINK_FSTAT04
+ghost_holes01:		CFLAGS += -DTAIL_HOLE
+ghost_holes02:		CFLAGS += -DHEAD_HOLE
 sk-freebind-false:	CFLAGS += -DZDTM_FREEBIND_FALSE
 stopped01:		CFLAGS += -DZDTM_STOPPED_KILL
 stopped02:		CFLAGS += -DZDTM_STOPPED_TKILL
