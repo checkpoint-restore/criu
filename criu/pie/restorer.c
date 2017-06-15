@@ -1134,6 +1134,26 @@ static int wait_zombies(struct task_restore_args *task_args)
 	return 0;
 }
 
+static bool vdso_needs_parking(struct task_restore_args *args)
+{
+	unsigned int i;
+
+	/* Compatible vDSO will be mapped, not moved */
+	if (args->compatible_mode)
+		return false;
+
+	/* Don't park rt-vdso or rt-vvar if dumpee doesn't have them */
+	for (i = 0; i < args->vmas_n; i++) {
+		VmaEntry *vma = &args->vmas[i];
+
+		if (vma_entry_is(vma, VMA_AREA_VDSO) ||
+				vma_entry_is(vma, VMA_AREA_VVAR))
+			return true;
+	}
+
+	return false;
+}
+
 /*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
@@ -1191,8 +1211,7 @@ long __export_restore_task(struct task_restore_args *args)
 		pr_debug("lazy-pages: uffd %d\n", args->uffd);
 	}
 
-	if (!args->compatible_mode) {
-		/* Compatible vDSO will be mapped, not moved */
+	if (vdso_needs_parking(args)) {
 		if (vdso_do_park(&args->vdso_sym_rt,
 				args->vdso_rt_parked_at, vdso_rt_size))
 			goto core_restore_end;

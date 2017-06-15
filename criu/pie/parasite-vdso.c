@@ -122,9 +122,8 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 	if (!vma_vdso && !vma_vvar) {
 		pr_info("No VVAR, no vDSO in image\n");
 		/*
-		 * We don't have to unmap rt-vdso, rt-vvar as they will
-		 * be unmapped with restorer blob in the end,
-		 * see __export_unmap()
+		 * We don't have to unmap rt-vdso, rt-vvar as we didn't
+		 * park them previously.
 		 */
 		return 0;
 	}
