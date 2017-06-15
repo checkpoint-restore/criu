@@ -327,8 +327,7 @@ static int validate_vdso_addr(struct vdso_maps *s)
 
 static int vdso_fill_self_symtable(struct vdso_maps *s)
 {
-
-	if (vdso_parse_maps(PROC_SELF, s))
+	if (s->vdso_start == VDSO_BAD_ADDR || s->sym.vdso_size == VDSO_BAD_SIZE)
 		return -1;
 
 	if (vdso_fill_symtable(s->vdso_start, s->sym.vdso_size, &s->sym))
@@ -469,6 +468,11 @@ static int vdso_fill_compat_symtable(struct vdso_maps *native,
 
 int vdso_init(void)
 {
+	if (vdso_parse_maps(PROC_SELF, &vdso_maps)) {
+		pr_err("Failed reading self/maps for filling vdso/vvar bounds\n");
+		return -1;
+	}
+
 	if (vdso_fill_self_symtable(&vdso_maps)) {
 		pr_err("Failed to fill self vdso symtable\n");
 		return -1;
