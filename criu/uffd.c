@@ -68,6 +68,7 @@ struct lazy_iov {
 struct lp_req {
 	unsigned long addr;	/* actual #PF (or background) destination */
 	unsigned long img_addr;	/* the corresponding address at the dump time */
+	unsigned long len;
 	struct list_head l;
 };
 
@@ -817,6 +818,7 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 
 	req->addr = iov->base;
 	req->img_addr = iov->img_base;
+	req->len = iov->len;
 	list_add(&req->l, &lpi->reqs);
 
 	err = uffd_handle_pages(lpi, req->img_addr, nr_pages, 0);
@@ -917,6 +919,17 @@ static int complete_forks(int epollfd, struct epoll_event **events, int *nr_fds)
 	return 0;
 }
 
+static bool is_page_queued(struct lazy_pages_info *lpi, unsigned long addr)
+{
+	struct lp_req *req;
+
+	list_for_each_entry(req, &lpi->reqs, l)
+		if (addr >= req->addr && addr < req->addr + req->len)
+			return true;
+
+	return false;
+}
+
 static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
 	struct lp_req *req;
@@ -928,9 +941,8 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	address = msg->arg.pagefault.address & ~(page_size() - 1);
 	lp_debug(lpi, "#PF at 0x%llx\n", address);
 
-	list_for_each_entry(req, &lpi->reqs, l)
-		if (req->addr == address)
-			return 0;
+	if (is_page_queued(lpi, address))
+		return 0;
 
 	iov = find_lazy_iov(lpi, address);
 	if (!iov)
@@ -941,6 +953,7 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 		return -1;
 	req->addr = address;
 	req->img_addr = iov->img_base + (address - iov->base);
+	req->len = PAGE_SIZE;
 	list_add(&req->l, &lpi->reqs);
 
 	ret = uffd_handle_pages(lpi, req->img_addr, 1, PR_ASYNC | PR_ASAP);
