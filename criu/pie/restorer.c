@@ -1212,7 +1212,7 @@ long __export_restore_task(struct task_restore_args *args)
 	}
 
 	if (vdso_needs_parking(args)) {
-		if (vdso_do_park(&args->vdso_sym_rt,
+		if (vdso_do_park(&args->vdso_maps_rt,
 				args->vdso_rt_parked_at, vdso_rt_size))
 			goto core_restore_end;
 	}
@@ -1345,7 +1345,7 @@ long __export_restore_task(struct task_restore_args *args)
 	/*
 	 * Proxify vDSO.
 	 */
-	if (vdso_proxify(&args->vdso_sym_rt, args->vdso_rt_parked_at,
+	if (vdso_proxify(&args->vdso_maps_rt.sym, args->vdso_rt_parked_at,
 		     args->vmas, args->vmas_n, args->compatible_mode,
 		     fault_injected(FI_VDSO_TRAMPOLINES)))
 		goto core_restore_end;

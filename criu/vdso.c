@@ -29,8 +29,8 @@
 #define LOG_PREFIX "vdso: "
 
 u64 vdso_pfn = VDSO_BAD_PFN;
-struct vdso_symtable vdso_sym_rt	= VDSO_SYMTABLE_INIT;
-struct vdso_symtable vdso_compat_rt	= VDSO_SYMTABLE_INIT;
+struct vdso_maps vdso_maps		= VDSO_MAPS_INIT;
+struct vdso_maps vdso_maps_compat	= VDSO_MAPS_INIT;
 
 /*
  * The VMAs list might have proxy vdso/vvar areas left
@@ -227,13 +227,13 @@ err:
 	return exit_code;
 }
 
-static int vdso_parse_maps(pid_t pid, struct vdso_symtable *s)
+static int vdso_parse_maps(pid_t pid, struct vdso_maps *s)
 {
 	int exit_code = -1;
 	char *buf;
 	struct bfd f;
 
-	*s = (struct vdso_symtable)VDSO_SYMTABLE_INIT;
+	*s = (struct vdso_maps)VDSO_MAPS_INIT;
 
 	f.fd = open_proc(pid, "maps");
 	if (f.fd < 0)
@@ -272,19 +272,19 @@ static int vdso_parse_maps(pid_t pid, struct vdso_symtable *s)
 				goto err;
 			}
 			s->vdso_start = start;
-			s->vdso_size = end - start;
+			s->sym.vdso_size = end - start;
 		} else {
 			if (s->vvar_start != VVAR_BAD_ADDR) {
 				pr_err("Got second VVAR entry\n");
 				goto err;
 			}
 			s->vvar_start = start;
-			s->vvar_size = end - start;
+			s->sym.vvar_size = end - start;
 		}
 	}
 
 	if (s->vdso_start != VDSO_BAD_ADDR && s->vvar_start != VVAR_BAD_ADDR)
-		s->vdso_before_vvar = (s->vdso_start < s->vvar_start);
+		s->sym.vdso_before_vvar = (s->vdso_start < s->vvar_start);
 
 	exit_code = 0;
 err:
@@ -292,10 +292,10 @@ err:
 	return exit_code;
 }
 
-static int validate_vdso_addr(struct vdso_symtable *s)
+static int validate_vdso_addr(struct vdso_maps *s)
 {
-	unsigned long vdso_end = s->vdso_start + s->vdso_size;
-	unsigned long vvar_end = s->vvar_start + s->vvar_size;
+	unsigned long vdso_end = s->vdso_start + s->sym.vdso_size;
+	unsigned long vvar_end = s->vvar_start + s->sym.vvar_size;
 	/*
 	 * Validate its structure -- for new vDSO format the
 	 * structure must be like
@@ -325,28 +325,28 @@ static int validate_vdso_addr(struct vdso_symtable *s)
 	return 0;
 }
 
-static int vdso_fill_self_symtable(struct vdso_symtable *s)
+static int vdso_fill_self_symtable(struct vdso_maps *s)
 {
 
 	if (vdso_parse_maps(PROC_SELF, s))
 		return -1;
 
-	if (vdso_fill_symtable(s->vdso_start, s->vdso_size, s))
+	if (vdso_fill_symtable(s->vdso_start, s->sym.vdso_size, &s->sym))
 		return -1;
 
 	if (validate_vdso_addr(s))
 		return -1;
 
 	pr_debug("rt [vdso] %lx-%lx [vvar] %lx-%lx\n",
-		 s->vdso_start, s->vdso_start + s->vdso_size,
-		 s->vvar_start, s->vvar_start + s->vvar_size);
+		 s->vdso_start, s->vdso_start + s->sym.vdso_size,
+		 s->vvar_start, s->vvar_start + s->sym.vvar_size);
 
 	return 0;
 }
 
 #ifdef CONFIG_COMPAT
-static int vdso_mmap_compat(struct vdso_symtable *native,
-		struct vdso_symtable *compat, void *vdso_buf, size_t buf_size)
+static int vdso_mmap_compat(struct vdso_maps *native,
+		struct vdso_maps *compat, void *vdso_buf, size_t buf_size)
 {
 	pid_t pid;
 	int status, ret = -1;
@@ -421,8 +421,8 @@ out_close:
 }
 
 #define COMPAT_VDSO_BUF_SZ		(PAGE_SIZE*2)
-static int vdso_fill_compat_symtable(struct vdso_symtable *native,
-		struct vdso_symtable *compat)
+static int vdso_fill_compat_symtable(struct vdso_maps *native,
+		struct vdso_maps *compat)
 {
 	void *vdso_mmap;
 	int ret = -1;
@@ -443,14 +443,14 @@ static int vdso_fill_compat_symtable(struct vdso_symtable *native,
 	}
 
 	if (vdso_fill_symtable_compat((uintptr_t)vdso_mmap,
-				compat->vdso_size, compat)) {
+				compat->sym.vdso_size, &compat->sym)) {
 		pr_err("Failed to parse mmaped compatible vdso blob\n");
 		goto out_unmap;
 	}
 
 	pr_debug("compat [vdso] %lx-%lx [vvar] %lx-%lx\n",
-		 compat->vdso_start, compat->vdso_start + compat->vdso_size,
-		 compat->vvar_start, compat->vvar_start + compat->vvar_size);
+		 compat->vdso_start, compat->vdso_start + compat->sym.vdso_size,
+		 compat->vvar_start, compat->vvar_start + compat->sym.vvar_size);
 	ret = 0;
 
 out_unmap:
@@ -460,8 +460,8 @@ out_unmap:
 }
 
 #else /* CONFIG_COMPAT */
-static int vdso_fill_compat_symtable(struct vdso_symtable *native,
-		struct vdso_symtable *compat)
+static int vdso_fill_compat_symtable(struct vdso_maps *native,
+		struct vdso_maps *compat)
 {
 	return 0;
 }
@@ -469,19 +469,19 @@ static int vdso_fill_compat_symtable(struct vdso_symtable *native,
 
 int vdso_init(void)
 {
-	if (vdso_fill_self_symtable(&vdso_sym_rt)) {
+	if (vdso_fill_self_symtable(&vdso_maps)) {
 		pr_err("Failed to fill self vdso symtable\n");
 		return -1;
 	}
 
-	if (vdso_fill_compat_symtable(&vdso_sym_rt, &vdso_compat_rt)) {
+	if (vdso_fill_compat_symtable(&vdso_maps, &vdso_maps_compat)) {
 		pr_err("Failed to fill compat vdso symtable\n");
 		return -1;
 	}
 
 	if (kdat.pmap != PM_FULL)
 		pr_info("VDSO detection turned off\n");
-	else if (vaddr_to_pfn(vdso_sym_rt.vdso_start, &vdso_pfn))
+	else if (vaddr_to_pfn(vdso_maps.vdso_start, &vdso_pfn))
 		return -1;
 
 	return 0;

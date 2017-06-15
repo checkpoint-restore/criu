@@ -3037,7 +3037,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	struct restore_mem_zone *mz;
 
 #ifdef CONFIG_VDSO
-	struct vdso_symtable vdso_symtab_rt;
+	struct vdso_maps vdso_maps_rt;
 	unsigned long vdso_rt_size = 0;
 #endif
 
@@ -3083,15 +3083,15 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 #ifdef CONFIG_VDSO
 	if (core_is_compat(core))
-		vdso_symtab_rt = vdso_compat_rt;
+		vdso_maps_rt = vdso_maps_compat;
 	else
-		vdso_symtab_rt = vdso_sym_rt;
+		vdso_maps_rt = vdso_maps;
 	/*
 	 * Figure out how much memory runtime vdso and vvar will need.
 	 */
-	vdso_rt_size = vdso_symtab_rt.vdso_size;
-	if (vdso_rt_size && vdso_symtab_rt.vvar_size)
-		vdso_rt_size += ALIGN(vdso_symtab_rt.vvar_size, PAGE_SIZE);
+	vdso_rt_size = vdso_maps_rt.sym.vdso_size;
+	if (vdso_rt_size && vdso_maps_rt.sym.vvar_size)
+		vdso_rt_size += ALIGN(vdso_maps_rt.sym.vvar_size, PAGE_SIZE);
 	task_args->bootstrap_len += vdso_rt_size;
 #endif
 
@@ -3308,7 +3308,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 */
 	mem += rst_mem_size;
 	task_args->vdso_rt_parked_at = (unsigned long)mem;
-	task_args->vdso_sym_rt = vdso_symtab_rt;
+	task_args->vdso_maps_rt = vdso_maps_rt;
 	task_args->vdso_rt_size = vdso_rt_size;
 #endif
 

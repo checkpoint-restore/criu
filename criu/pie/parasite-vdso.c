@@ -42,29 +42,29 @@ static int vdso_remap(char *who, unsigned long from, unsigned long to, size_t si
 }
 
 /* Park runtime vDSO in some safe place where it can be accessible from restorer */
-int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned long park_size)
+int vdso_do_park(struct vdso_maps *rt, unsigned long park_at, unsigned long park_size)
 {
 	int ret;
 
-	BUG_ON((sym_rt->vdso_size + sym_rt->vvar_size) < park_size);
+	BUG_ON((rt->sym.vdso_size + rt->sym.vvar_size) < park_size);
 
-	if (sym_rt->vvar_start != VVAR_BAD_ADDR) {
-		if (sym_rt->vdso_before_vvar) {
-			ret  = vdso_remap("rt-vdso", sym_rt->vdso_start,
-					  park_at, sym_rt->vdso_size);
-			park_at += sym_rt->vdso_size;
-			ret |= vdso_remap("rt-vvar", sym_rt->vvar_start,
-					  park_at, sym_rt->vvar_size);
+	if (rt->vvar_start != VVAR_BAD_ADDR) {
+		if (rt->sym.vdso_before_vvar) {
+			ret  = vdso_remap("rt-vdso", rt->vdso_start,
+					  park_at, rt->sym.vdso_size);
+			park_at += rt->sym.vdso_size;
+			ret |= vdso_remap("rt-vvar", rt->vvar_start,
+					  park_at, rt->sym.vvar_size);
 		} else {
-			ret  = vdso_remap("rt-vvar", sym_rt->vvar_start,
-					  park_at, sym_rt->vvar_size);
-			park_at += sym_rt->vvar_size;
-			ret |= vdso_remap("rt-vdso", sym_rt->vdso_start,
-					  park_at, sym_rt->vdso_size);
+			ret  = vdso_remap("rt-vvar", rt->vvar_start,
+					  park_at, rt->sym.vvar_size);
+			park_at += rt->sym.vvar_size;
+			ret |= vdso_remap("rt-vdso", rt->vdso_start,
+					  park_at, rt->sym.vdso_size);
 		}
 	} else
-		ret = vdso_remap("rt-vdso", sym_rt->vdso_start,
-				 park_at, sym_rt->vdso_size);
+		ret = vdso_remap("rt-vdso", rt->vdso_start,
+				 park_at, rt->sym.vdso_size);
 	return ret;
 }
 
@@ -126,7 +126,7 @@ static bool blobs_matches(VmaEntry *vdso_img, VmaEntry *vvar_img,
 			return false;
 	}
 
-	if (vvar_img && sym_rt->vvar_start != VVAR_BAD_ADDR) {
+	if (vvar_img && sym_rt->vvar_size != VVAR_BAD_SIZE) {
 		bool vdso_firstly = (vvar_img->start > vdso_img->start);
 
 		if (sym_rt->vvar_size != vma_entry_len(vvar_img))
@@ -237,7 +237,7 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 	/*
 	 * Don't forget to shift if vvar is before vdso.
 	 */
-	if (sym_rt->vvar_start != VDSO_BAD_ADDR && !sym_rt->vdso_before_vvar)
+	if (sym_rt->vvar_size != VDSO_BAD_SIZE && !sym_rt->vdso_before_vvar)
 		vdso_rt_parked_at += sym_rt->vvar_size;
 
 	if (vdso_redirect_calls(vdso_rt_parked_at,

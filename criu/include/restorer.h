@@ -193,7 +193,7 @@ struct task_restore_args {
 
 #ifdef CONFIG_VDSO
 	unsigned long			vdso_rt_size;
-	struct vdso_symtable		vdso_sym_rt;		/* runtime vdso symbols */
+	struct vdso_maps		vdso_maps_rt;		/* runtime vdso symbols */
 	unsigned long			vdso_rt_parked_at;	/* safe place to keep vdso */
 #endif
 	void				**breakpoint;

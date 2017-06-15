@@ -28,27 +28,36 @@ struct vdso_symbol {
 };
 
 struct vdso_symtable {
-	unsigned long		vdso_start;
 	unsigned long		vdso_size;
-	unsigned long		vvar_start;
 	unsigned long		vvar_size;
 	struct vdso_symbol	symbols[VDSO_SYMBOL_MAX];
 	bool			vdso_before_vvar; /* order of vdso/vvar pair */
+};
+
+struct vdso_maps {
+	unsigned long		vdso_start;
+	unsigned long		vvar_start;
+	struct vdso_symtable	sym;
 };
 
 #define VDSO_SYMBOL_INIT	{ .offset = VDSO_BAD_ADDR, }
 
 #define VDSO_SYMTABLE_INIT						\
 	{								\
-		.vdso_start	= VDSO_BAD_ADDR,			\
 		.vdso_size	= VDSO_BAD_SIZE,			\
-		.vvar_start	= VVAR_BAD_ADDR,			\
 		.vvar_size	= VVAR_BAD_SIZE,			\
 		.symbols		= {				\
 			[0 ... VDSO_SYMBOL_MAX - 1] =			\
 				(struct vdso_symbol)VDSO_SYMBOL_INIT,	\
 			},						\
 		.vdso_before_vvar	= false,			\
+	}
+
+#define VDSO_MAPS_INIT							\
+	{								\
+		.vdso_start	= VDSO_BAD_ADDR,			\
+		.vvar_start	= VVAR_BAD_ADDR,			\
+		.sym		= VDSO_SYMTABLE_INIT,			\
 	}
 
 #ifdef CONFIG_VDSO_32
