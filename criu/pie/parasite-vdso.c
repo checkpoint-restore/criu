@@ -48,8 +48,8 @@ int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned l
 
 	BUG_ON((sym_rt->vdso_size + sym_rt->vvar_size) < park_size);
 
-	if (sym_rt->vvar_start != VDSO_BAD_ADDR) {
-		if (sym_rt->vdso_start < sym_rt->vvar_start) {
+	if (sym_rt->vvar_start != VVAR_BAD_ADDR) {
+		if (sym_rt->vdso_before_vvar) {
 			ret  = vdso_remap("rt-vdso", sym_rt->vdso_start,
 					  park_at, sym_rt->vdso_size);
 			park_at += sym_rt->vdso_size;
@@ -127,13 +127,12 @@ static bool blobs_matches(VmaEntry *vdso_img, VmaEntry *vvar_img,
 	}
 
 	if (vvar_img && sym_rt->vvar_start != VVAR_BAD_ADDR) {
-		long delta_rt = sym_rt->vvar_start - sym_rt->vdso_start;
-		long delta_img = vvar_img->start - vdso_img->start;
+		bool vdso_firstly = (vvar_img->start > vdso_img->start);
 
 		if (sym_rt->vvar_size != vma_entry_len(vvar_img))
 			return false;
 
-		return delta_rt == delta_img;
+		return (vdso_firstly == sym_rt->vdso_before_vvar);
 	}
 
 	return true;
@@ -238,8 +237,7 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 	/*
 	 * Don't forget to shift if vvar is before vdso.
 	 */
-	if (sym_rt->vvar_start != VDSO_BAD_ADDR &&
-	    sym_rt->vvar_start < sym_rt->vdso_start)
+	if (sym_rt->vvar_start != VDSO_BAD_ADDR && !sym_rt->vdso_before_vvar)
 		vdso_rt_parked_at += sym_rt->vvar_size;
 
 	if (vdso_redirect_calls(vdso_rt_parked_at,

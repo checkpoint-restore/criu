@@ -33,6 +33,7 @@ struct vdso_symtable {
 	unsigned long		vvar_start;
 	unsigned long		vvar_size;
 	struct vdso_symbol	symbols[VDSO_SYMBOL_MAX];
+	bool			vdso_before_vvar; /* order of vdso/vvar pair */
 };
 
 #define VDSO_SYMBOL_INIT	{ .offset = VDSO_BAD_ADDR, }
@@ -47,6 +48,7 @@ struct vdso_symtable {
 			[0 ... VDSO_SYMBOL_MAX - 1] =			\
 				(struct vdso_symbol)VDSO_SYMBOL_INIT,	\
 			},						\
+		.vdso_before_vvar	= false,			\
 	}
 
 #ifdef CONFIG_VDSO_32

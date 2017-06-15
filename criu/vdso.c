@@ -283,6 +283,9 @@ static int vdso_parse_maps(pid_t pid, struct vdso_symtable *s)
 		}
 	}
 
+	if (s->vdso_start != VDSO_BAD_ADDR && s->vvar_start != VVAR_BAD_ADDR)
+		s->vdso_before_vvar = (s->vdso_start < s->vvar_start);
+
 	exit_code = 0;
 err:
 	bclose(&f);
