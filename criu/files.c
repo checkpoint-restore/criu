@@ -83,6 +83,13 @@ int file_desc_add(struct file_desc *d, u32 id, struct file_desc_ops *ops)
 	hlist_add_head(&d->hash, &file_desc_hash[id % FDESC_HASH_SIZE]);
 	if (d->ops->get_user_ns) {
 		d->ops->get_user_ns(d, &file_user_ns, &d->setns_userns);
+		/*
+		 * Hash file_desc in the fake_master_list. Later it will
+		 * be removed in collect_desc_fle() from there, if a fle
+		 * with enough permissions is found.
+		 */
+		if (d->setns_userns)
+			list_add(&d->fake_master_list, &fake_master_head);
 	}
 	return 0; /* this is to make tail-calls in collect_one_foo look nice */
 }
@@ -757,12 +764,49 @@ static struct fdinfo_list_entry *alloc_fle(int pid, FdinfoEntry *fe)
 static void collect_desc_fle(struct fdinfo_list_entry *new_le, struct file_desc *fdesc)
 {
 	struct fdinfo_list_entry *le;
+	struct ns_id *task_ns = NULL;
+	bool first = true;
 
 	new_le->desc = fdesc;
 
-	list_for_each_entry(le, &fdesc->fd_info_head, desc_list)
+	/*
+	 * First fle in fdesc->fd_info_head list (i.e., master)
+	 * must have enough permissions to restore file.
+	 * Sort the rest of list and cases by pid if it's possible
+	 * (this is a fix for epolls, which gives a little more
+	 * possibility, the master file is belonged to parent
+	 * process, and the parent more probably can restore epoll).
+	 */
+	list_for_each_entry(le, &fdesc->fd_info_head, desc_list) {
+		if (!fdesc->setns_userns || !first ||
+		    le->task->ids->user_ns_id == new_le->task->ids->user_ns_id)
+			goto compare_pid;
+
+		task_ns = lookup_ns_by_id(new_le->task->ids->user_ns_id, &user_ns_desc);
+		if (is_subns(fdesc->setns_userns, task_ns))
+			break;
+		task_ns = NULL;
+
+		if (list_empty(&fdesc->fake_master_list)) {
+			/* Current master has perms, leave it on the place */
+			first = false;
+			continue;
+		}
+compare_pid:
 		if (pid_rst_prio(new_le->pid, le->pid))
 			break;
+		first = false;
+	}
+
+	if (fdesc->setns_userns && list_empty(&fdesc->fd_info_head)) {
+		/* First fle is hashing */
+		task_ns = lookup_ns_by_id(new_le->task->ids->user_ns_id, &user_ns_desc);
+		if (!is_subns(fdesc->setns_userns, task_ns))
+			task_ns = NULL;
+	}
+	if (task_ns)
+		list_del_init(&fdesc->fake_master_list);
+
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 }
 
