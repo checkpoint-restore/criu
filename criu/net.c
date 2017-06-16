@@ -1560,7 +1560,7 @@ static int read_links(struct ns_id *ns)
 	}
 	close_image(img);
 
-	return 0;
+	return ret;
 }
 
 static int restore_link(int nlsk, struct ns_id *ns, struct net_link *link)
