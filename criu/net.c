@@ -1394,6 +1394,7 @@ static inline int dump_iptables(struct cr_imgset *fds)
 
 static int dump_netns_conf(struct cr_imgset *fds)
 {
+	void *buf, *o_buf;
 	int ret = -1;
 	int i;
 	NetnsEntry netns = NETNS_ENTRY__INIT;
@@ -1404,20 +1405,19 @@ static int dump_netns_conf(struct cr_imgset *fds)
 	char def_stable_secret[MAX_STR_CONF_LEN + 1] = {};
 	char all_stable_secret[MAX_STR_CONF_LEN + 1] = {};
 
+	o_buf = buf = xmalloc(
+			size4 * (sizeof(SysctlEntry*) + sizeof(SysctlEntry)) * 2 +
+			size6 * (sizeof(SysctlEntry*) + sizeof(SysctlEntry)) * 2
+		     );
+	if (!buf)
+		goto out;
+
 	netns.n_def_conf4 = size4;
 	netns.n_all_conf4 = size4;
-	netns.def_conf4 = xmalloc(sizeof(SysctlEntry *) * size4);
-	if (!netns.def_conf4)
-		goto err_free;
-	netns.all_conf4 = xmalloc(sizeof(SysctlEntry *) * size4);
-	if (!netns.all_conf4)
-		goto err_free;
-	def_confs4 = xmalloc(sizeof(SysctlEntry) * size4);
-	if (!def_confs4)
-		goto err_free;
-	all_confs4 = xmalloc(sizeof(SysctlEntry) * size4);
-	if (!all_confs4)
-		goto err_free;
+	netns.def_conf4 = xptr_pull_s(&buf, size4 * sizeof(SysctlEntry*));
+	netns.all_conf4 = xptr_pull_s(&buf, size4 * sizeof(SysctlEntry*));
+	def_confs4 = xptr_pull_s(&buf, size4 * sizeof(SysctlEntry));
+	all_confs4 = xptr_pull_s(&buf, size4 * sizeof(SysctlEntry));
 
 	for (i = 0; i < size4; i++) {
 		sysctl_entry__init(&def_confs4[i]);
@@ -1430,18 +1430,10 @@ static int dump_netns_conf(struct cr_imgset *fds)
 
 	netns.n_def_conf6 = size6;
 	netns.n_all_conf6 = size6;
-	netns.def_conf6 = xmalloc(sizeof(SysctlEntry *) * size6);
-	if (!netns.def_conf6)
-		goto err_free;
-	netns.all_conf6 = xmalloc(sizeof(SysctlEntry *) * size6);
-	if (!netns.all_conf6)
-		goto err_free;
-	def_confs6 = xmalloc(sizeof(SysctlEntry) * size6);
-	if (!def_confs6)
-		goto err_free;
-	all_confs6 = xmalloc(sizeof(SysctlEntry) * size6);
-	if (!all_confs6)
-		goto err_free;
+	netns.def_conf6 = xptr_pull_s(&buf, size6 * sizeof(SysctlEntry*));
+	netns.all_conf6 = xptr_pull_s(&buf, size6 * sizeof(SysctlEntry*));
+	def_confs6 = xptr_pull_s(&buf, size6 * sizeof(SysctlEntry));
+	all_confs6 = xptr_pull_s(&buf, size6 * sizeof(SysctlEntry));
 
 	for (i = 0; i < size6; i++) {
 		sysctl_entry__init(&def_confs6[i]);
@@ -1475,14 +1467,8 @@ static int dump_netns_conf(struct cr_imgset *fds)
 
 	ret = pb_write_one(img_from_set(fds, CR_FD_NETNS), &netns, PB_NETNS);
 err_free:
-	xfree(netns.def_conf4);
-	xfree(netns.all_conf4);
-	xfree(def_confs4);
-	xfree(all_confs4);
-	xfree(netns.def_conf6);
-	xfree(netns.all_conf6);
-	xfree(def_confs6);
-	xfree(all_confs6);
+	xfree(o_buf);
+out:
 	return ret;
 }
 
