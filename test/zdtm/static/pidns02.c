@@ -103,6 +103,7 @@ int main(int argc, char **argv)
 	int i, status, ret = -1;
 	pid_t pid[] = {-1, -1};
 	char *ns_pid, *tmp;
+	siginfo_t infop;
 
 	test_init(argc, argv);
 	futex = mmap(NULL, sizeof(*futex), PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -153,7 +154,7 @@ int main(int argc, char **argv)
 		fail("Can't kill");
 		goto out;
 	}
-	ret = waitid(P_PID, pid[1], NULL, WEXITED|WNOWAIT);
+	ret = waitid(P_PID, pid[1], &infop, WEXITED|WNOWAIT);
 	if (ret) {
 		fail("Can't wait");
 		goto out;

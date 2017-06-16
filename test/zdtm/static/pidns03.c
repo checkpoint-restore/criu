@@ -93,6 +93,7 @@ static int child_fn(void)
 {
 	long thread_retval;
 	pthread_t thread;
+	siginfo_t infop;
 	pid_t pid;
 	int ret;
 
@@ -114,7 +115,7 @@ static int child_fn(void)
 	} else if (!pid)
 		exit(0);
 
-	ret = waitid(P_PID, pid, NULL, WEXITED|WNOWAIT);
+	ret = waitid(P_PID, pid, &infop, WEXITED|WNOWAIT);
 	if (ret) {
 		fail("Can't wait");
 		goto err;
