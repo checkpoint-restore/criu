@@ -468,7 +468,7 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 		goto free;
 
 	i = 0;
-	list_for_each_entry(we, &wd_list.list, ify.node)
+	list_for_each_entry(we, &wd_list.list, ffy.node)
 		fe.mark[i++] = &we->ffy.e;
 	fe.n_mark = wd_list.n;
 
@@ -480,7 +480,7 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FANOTIFY_FILE), &fe, PB_FANOTIFY_FILE);
 free:
 	xfree(fe.mark);
-	list_for_each_entry_safe(we, tmp, &wd_list.list, ify.node)
+	list_for_each_entry_safe(we, tmp, &wd_list.list, ffy.node)
 		free_fanotify_mark_entry(we);
 	return ret;
 }
