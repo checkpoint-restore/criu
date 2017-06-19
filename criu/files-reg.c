@@ -1440,7 +1440,8 @@ static void rm_parent_dirs(int mntns_root, char *path, int count)
 	if (!count)
 		return;
 
-	while (count--) {
+	while (count > 0) {
+		count -= 1;
 		p = strrchr(path, '/');
 		if (p)
 			*p = '\0';
@@ -1575,7 +1576,7 @@ out_root:
 int open_path(struct file_desc *d,
 		int(*open_cb)(int mntns_root, struct reg_file_info *, void *), void *arg)
 {
-	int tmp, mntns_root, level;
+	int tmp, mntns_root, level = 0;
 	struct reg_file_info *rfi;
 	char *orig_path = NULL;
 	char path[PATH_MAX];
