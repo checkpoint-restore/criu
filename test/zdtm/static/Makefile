@@ -204,6 +204,7 @@ TST_NOFILE	:=				\
 		netns_sub			\
 		netns_sub_veth			\
 		unlink_multiple_largefiles	\
+		config_inotify_irmap		\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
