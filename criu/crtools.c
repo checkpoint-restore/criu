@@ -291,6 +291,7 @@ int main(int argc, char *argv[], char *envp[])
 		BOOL_OPT("weak-sysctls", &opts.weak_sysctls),
 		{ "status-fd",			required_argument,	0, 1088 },
 		{ SK_CLOSE_PARAM, 		no_argument,		0, 1089 },
+		{ "verbosity",			optional_argument,	0, 'v'	},
 		{ },
 	};
 
@@ -896,8 +897,8 @@ usage:
 "* Logging:\n"
 "  -o|--log-file FILE    log file name\n"
 "     --log-pid          enable per-process logging to separate FILE.pid files\n"
-"  -v[v...]            increase verbosity (can use multiple v)\n"
-"  -vNUM               set verbosity to NUM (higher level means more output):\n"
+"  -v[v...]|--verbosity  increase verbosity (can use multiple v)\n"
+"  -vNUM|--verbosity=NUM set verbosity to NUM (higher level means more output):\n"
 "                          -v1 - only errors and messages\n"
 "                          -v2 - also warnings (default level)\n"
 "                          -v3 - also information messages and timestamps\n"

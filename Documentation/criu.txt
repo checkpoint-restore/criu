@@ -32,11 +32,12 @@ Common options
 ~~~~~~~~~~~~~~
 Common options are applicable to any 'command'.
 
-*-v*[*v*...]::
+*-v*[*v*...], *--verbosity*::
     Increase verbosity up from the default level. Multiple *v* can be used,
-    each increasing verbosity by one level.
+    each increasing verbosity by one level. Using long option without argument
+    increases verbosity by one level.
 
-*-v*'num'::
+*-v*'num', *--verbosity*='num'::
     Set verbosity level to 'num'. The higher the level, the more output
     is produced.
     +
