@@ -738,8 +738,8 @@ class criu_cli:
 			print("Forcing %s fault" % fault)
 			env['CRIU_FAULT'] = fault
 
-		cr = subprocess.Popen(strace + [criu_bin, action] + args, env = env,
-				close_fds = False, preexec_fn = preexec)
+		cr = subprocess.Popen(strace + [criu_bin, action, "--no-default-config"] + args,
+				env = env, close_fds = False, preexec_fn = preexec)
 		if nowait:
 			return cr
 		return cr.wait()
@@ -1155,8 +1155,8 @@ class criu:
 
 	@staticmethod
 	def check(feature):
-		return criu_cli.run("check", ["-v0", "--feature", feature],
-				opts['criu_bin']) == 0
+		return criu_cli.run("check", ["--no-default-config", "-v0",
+				"--feature", feature], opts['criu_bin']) == 0
 
 	@staticmethod
 	def available():
