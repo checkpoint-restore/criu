@@ -162,12 +162,12 @@ static inline int stage_current_participants(int next_stage)
 	return -1;
 }
 
-static int restore_wait_inprogress_tasks()
+static int __restore_wait_inprogress_tasks(int participants)
 {
 	int ret;
 	futex_t *np = &task_entries->nr_in_progress;
 
-	futex_wait_while_gt(np, 0);
+	futex_wait_while_gt(np, participants);
 	ret = (int)futex_get(np);
 	if (ret < 0) {
 		set_cr_errno(get_task_cr_err());
@@ -175,6 +175,22 @@ static int restore_wait_inprogress_tasks()
 	}
 
 	return 0;
+}
+
+static int restore_wait_inprogress_tasks()
+{
+	return __restore_wait_inprogress_tasks(0);
+}
+
+/* Wait all tasks except the current one */
+static int restore_wait_other_tasks()
+{
+	int participants, stage;
+
+	stage = futex_get(&task_entries->start);
+	participants = stage_current_participants(stage);
+
+	return __restore_wait_inprogress_tasks(participants);
 }
 
 static inline void __restore_switch_stage_nw(int next_stage)
@@ -196,18 +212,6 @@ static int restore_switch_stage(int next_stage)
 {
 	__restore_switch_stage(next_stage);
 	return restore_wait_inprogress_tasks();
-}
-
-/* Wait all tasks except the current one */
-static void restore_wait_other_tasks()
-{
-	int participants, stage;
-
-	stage = futex_get(&task_entries->start);
-	participants = stage_current_participants(stage);
-
-	futex_wait_while_gt(&task_entries->nr_in_progress,
-				participants);
 }
 
 static int restore_finish_ns_stage(int from, int to)
@@ -1565,7 +1569,8 @@ static int restore_task_with_children(void *_arg)
 		 *
 		 * It means that all tasks entered into their namespaces.
 		 */
-		restore_wait_other_tasks();
+		if (restore_wait_other_tasks())
+			goto err;
 		fini_restore_mntns();
 		__restore_switch_stage(CR_STATE_RESTORE);
 	} else {
