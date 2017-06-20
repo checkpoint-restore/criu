@@ -53,6 +53,12 @@ The following levels are available:
     * *-v4*
         above plus lots of debug.
 
+*--config* 'file'::
+    Pass a specific configuration file to criu.
+
+*--no-default-config*::
+    Forbid parsing of default configuration files.
+
 *--pidfile* 'file'::
     Write root task, service or page-server pid into a 'file'.
 
@@ -615,6 +621,37 @@ cpuinfo check
 Fetches current CPU features (i.e. CPU the *criu* is running on) and test if
 they are compatible with the ones present in an image file.
 
+
+CONFIGURATION FILES
+-------------------
+Criu supports usage of configuration files to avoid the need of writing every
+option on command line, which is useful especially with repeated usage of
+same options. A specific configuration file can be passed with
+"*--config* 'file'" option. If no file is passed, default configuration files
+'/etc/criu/default.conf' and '$HOME/.criu/default.conf' are parsed (if
+present on the system). Default configuration file parsing can be forbidden
+with "*--no-default-config*" if needed. Parsed configuration files are merged
+with command line options, which allows overriding boolean options.
+
+Configuration file syntax
+~~~~~~~~~~~~~~~~~~~~~~~~~
+Comments are supported using \'#' sign. The rest of the line is ignored.
+Options are the same as command line options without the \'--' prefix, use
+one option per line (with corresponding argument if applicable, divided by
+whitespaces). If needed, the argument can be provided in double quotes (this
+should be needed only if the argument contains whitespaces). In case this type
+of argument contains a literal double quote as well, it can be escaped using
+the \'\' sign. Usage of commands is disallowed and all other escape sequences
+are interpreted literally.
+
+Example of configuration file to illustrate syntax:
+---------------
+$ cat ~/.criu/default.conf
+tcp-established
+work-dir "/home/USERNAME/criu/my \"work\" directory"
+#this is a comment
+no-restore-sibling   # this is another comment
+---------------
 
 EXAMPLES
 --------
