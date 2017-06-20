@@ -290,7 +290,7 @@ int main(int argc, char *argv[], char *envp[])
 		BOOL_OPT("display-stats", &opts.display_stats),
 		BOOL_OPT("weak-sysctls", &opts.weak_sysctls),
 		{ "status-fd",			required_argument,	0, 1088 },
-		{ SK_CLOSE_PARAM, 		no_argument,		0, 1089 },
+		BOOL_OPT(SK_CLOSE_PARAM, &opts.tcp_close),
 		{ "verbosity",			optional_argument,	0, 'v'	},
 		{ },
 	};
@@ -569,9 +569,6 @@ int main(int argc, char *argv[], char *envp[])
 				pr_err("Unable to parse a value of --status-fd\n");
 				return 1;
 			}
-			break;
-		case 1089:
-			opts.tcp_close = true;
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);

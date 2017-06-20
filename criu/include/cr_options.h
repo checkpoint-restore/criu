@@ -63,7 +63,7 @@ struct cr_options {
 	int			shell_job;
 	int			handle_file_locks;
 	int			tcp_established_ok;
-	bool			tcp_close;
+	int			tcp_close;
 	int			evasive_devices;
 	int			link_remap_ok;
 	int			log_file_per_pid;
