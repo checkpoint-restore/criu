@@ -890,7 +890,10 @@ class criu:
 
 	def __criu_act(self, action, opts = [], log = None, nowait = False):
 		if not log:
-			log = action + ".log"
+			log = action
+			if "--check-only" in opts:
+				log += ".chk"
+			log += ".log"
 
 		s_args = ["-o", log, "-D", self.__ddir(), "-v4"] + opts
 
