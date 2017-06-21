@@ -2349,14 +2349,16 @@ skip_ns_bouncing:
 	 * -------------------------------------------------------------
 	 * Below this line nothing should fail, because network is unlocked
 	 */
-	attach_to_tasks(root_seized);
+	if (!opts.check_only)
+		attach_to_tasks(root_seized);
 
 	ret = restore_switch_stage(CR_STATE_RESTORE_CREDS);
 	BUG_ON(ret);
 
 	timing_stop(TIME_RESTORE);
 
-	ret = catch_tasks(root_seized, &flag);
+	if (!opts.check_only)
+		ret = catch_tasks(root_seized, &flag);
 
 	pr_info("Restore finished successfully. Resuming tasks.\n");
 	__restore_switch_stage(CR_STATE_COMPLETE);
@@ -2384,9 +2386,22 @@ skip_for_check:
 
 	fini_cgroup();
 
-	if (!opts.check_only)
-		/* Detaches from processes and they continue run through sigreturn. */
+	/* Detaches from processes and they continue run through sigreturn. */
+	if (!opts.check_only) {
 		finalize_restore_detach(ret);
+	} else {
+		int status;
+
+		if (waitpid(root_item->pid->real, &status, 0) < 0) {
+			pr_perror("Unable to wait %d", root_item->pid->real);
+			goto out_kill;
+		}
+		if (status) {
+			pr_err("The root task exited with %d\n", status);
+			return 1;
+		}
+		return 0;
+	}
 
 	write_stats(RESTORE_STATS);
 
@@ -3641,6 +3656,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		thread_args[i].futex_rla	= tcore->thread_core->futex_rla;
 		thread_args[i].futex_rla_len	= tcore->thread_core->futex_rla_len;
 		thread_args[i].pdeath_sig	= tcore->thread_core->pdeath_sig;
+		thread_args[i].check_only	= opts.check_only;
 		if (tcore->thread_core->pdeath_sig > _KNSIG) {
 			pr_err("Pdeath signal is too big\n");
 			goto err;

@@ -943,13 +943,6 @@ class criu:
 			os.close(status_fds[0])
 			return ret
 
-		if '--check-only' in opts and action == "restore":
-			# Although the restored process never starts
-			# running in check-only mode, it sometimes takes
-			# some time for the process to disappear.
-			# Wait until it is gone.
-			self.__test.gone()
-
 		grep_errors(os.path.join(__ddir, log))
 		if ret != 0:
 			if self.__fault and int(self.__fault) < 128:

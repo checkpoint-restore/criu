@@ -98,6 +98,7 @@ struct thread_restore_args {
 	int				pdeath_sig;
 	int				pfc_ns_fd;
 
+	bool				check_only;
 	struct thread_creds_args	*creds_args;
 } __aligned(64);
 

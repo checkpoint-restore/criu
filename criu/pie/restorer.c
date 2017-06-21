@@ -502,6 +502,7 @@ static void noinline rst_sigreturn(unsigned long new_sp,
  */
 long __export_restore_thread(struct thread_restore_args *args)
 {
+	bool check_only = args->check_only;
 	struct rt_sigframe *rt_sigframe;
 	k_rtsigset_t to_block;
 	unsigned long new_sp;
@@ -564,6 +565,9 @@ long __export_restore_thread(struct thread_restore_args *args)
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE_CREDS);
 
 	futex_dec_and_wake(&thread_inprogress);
+
+	if (check_only)
+		restore_finish_stage(task_entries_local, CR_STATE_COMPLETE);
 
 	new_sp = (long)rt_sigframe + RT_SIGFRAME_OFFSET(rt_sigframe);
 	rst_sigreturn(new_sp, rt_sigframe);
@@ -1693,18 +1697,32 @@ long __export_restore_task(struct task_restore_args *args)
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE_CREDS);
 
-	if (args->check_only) {
-		pr_info("Restore check was successful.\n");
-		futex_abort_and_wake(&task_entries_local->nr_in_progress);
-		return 0;
-	}
-
-
 	if (ret)
 		BUG();
 
 	/* Wait until children stop to use args->task_entries */
 	futex_wait_while_gt(&thread_inprogress, 1);
+
+	if (args->check_only) {
+		pr_info("Restore check was successful.\n");
+		while (1) {
+			pid_t pid;
+			int status;
+
+			pid = sys_wait4(-1, &status, 0, NULL);
+			if (pid < 0) {
+				if (pid == -ECHILD)
+					break;
+				pr_err("Unable to wait a child: %d\n", pid);
+				goto core_restore_end;
+			}
+			if (status) {
+				pr_err("The %d process exited with %d\n", pid, status);
+				goto core_restore_end;
+			}
+		}
+		sys_exit_group(0);
+	}
 
 	sys_close(args->proc_fd);
 	sys_close(args->transport_fd);
