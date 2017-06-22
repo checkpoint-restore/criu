@@ -80,7 +80,8 @@ else
 		      -x socket_listen -x socket_listen6 -x cmdlinenv00
 		      -x socket_close_data01 -x file_read"
 fi
-./test/zdtm.py run -a -p 2 --lazy-pages $LAZY_EXCLUDE --keep-going --report report
+./test/zdtm.py run -a -p 2 --lazy-pages $LAZY_EXCLUDE
+./test/zdtm.py run -a -p 2 --remote-lazy-pages $LAZY_EXCLUDE
 
 bash ./test/jenkins/criu-fault.sh
 bash ./test/jenkins/criu-fcg.sh
