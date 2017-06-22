@@ -329,7 +329,7 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	ie.flags = p->flags;
 	ie.fown = (FownEntry *)&p->fown;
 
-	if (parse_fdinfo(lfd, FD_TYPES__INOTIFY, NULL, &ie))
+	if (parse_fdinfo(lfd, FD_TYPES__INOTIFY, &ie))
 		goto free;
 
 	for (i = 0; i < ie.n_wd; i++)
@@ -354,7 +354,7 @@ static int pre_dump_one_inotify(int pid, int lfd)
 	InotifyFileEntry ie = INOTIFY_FILE_ENTRY__INIT;
 	int i;
 
-	if (parse_fdinfo_pid(pid, lfd, FD_TYPES__INOTIFY, NULL, &ie))
+	if (parse_fdinfo_pid(pid, lfd, FD_TYPES__INOTIFY, &ie))
 		return -1;
 
 	for (i = 0; i < ie.n_wd; i++) {
@@ -430,7 +430,7 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 	fe.flags = p->flags;
 	fe.fown = (FownEntry *)&p->fown;
 
-	if (parse_fdinfo(lfd, FD_TYPES__FANOTIFY, NULL, &fe) < 0)
+	if (parse_fdinfo(lfd, FD_TYPES__FANOTIFY, &fe) < 0)
 		goto free;
 
 	for (i = 0; i < fe.n_mark; i++)
@@ -452,7 +452,7 @@ static int pre_dump_one_fanotify(int pid, int lfd)
 	FanotifyFileEntry fe = FANOTIFY_FILE_ENTRY__INIT;
 	int i;
 
-	if (parse_fdinfo_pid(pid, lfd, FD_TYPES__FANOTIFY, NULL, &fe))
+	if (parse_fdinfo_pid(pid, lfd, FD_TYPES__FANOTIFY, &fe))
 		return -1;
 
 	for (i = 0; i < fe.n_mark; i++) {

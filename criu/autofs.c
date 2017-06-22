@@ -92,7 +92,7 @@ static int autofs_check_fd_stat(struct stat *stat, int prgp, int fd,
 		return 0;
 	if (stat->st_ino != ino)
 		return 0;
-	if (parse_fdinfo_pid(prgp, fd, FD_TYPES__UND, NULL, &fdinfo))
+	if (parse_fdinfo_pid(prgp, fd, FD_TYPES__UND, &fdinfo))
 		return -1;
 
 	*mode = fdinfo.flags & O_WRONLY;

@@ -68,7 +68,7 @@ static int dump_one_timerfd(int lfd, u32 id, const struct fd_parms *p)
 {
 	TimerfdEntry tfe = TIMERFD_ENTRY__INIT;
 
-	if (parse_fdinfo(lfd, FD_TYPES__TIMERFD, NULL, &tfe))
+	if (parse_fdinfo(lfd, FD_TYPES__TIMERFD, &tfe))
 		return -1;
 
 	tfe.id = id;

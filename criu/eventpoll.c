@@ -60,7 +60,7 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	e.flags = p->flags;
 	e.fown = (FownEntry *)&p->fown;
 
-	if (parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, NULL, &e))
+	if (parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, &e))
 		goto out;
 
 	pr_info_eventpoll("Dumping ", &e);

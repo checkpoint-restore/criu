@@ -284,7 +284,7 @@ static int check_fdinfo_eventfd(void)
 		return -1;
 	}
 
-	ret = parse_fdinfo(fd, FD_TYPES__EVENTFD, NULL, &fe);
+	ret = parse_fdinfo(fd, FD_TYPES__EVENTFD, &fe);
 	close(fd);
 
 	if (ret) {
@@ -307,7 +307,7 @@ int check_mnt_id(void)
 	struct fdinfo_common fdinfo = { .mnt_id = -1 };
 	int ret;
 
-	ret = parse_fdinfo(get_service_fd(LOG_FD_OFF), FD_TYPES__UND, NULL, &fdinfo);
+	ret = parse_fdinfo(get_service_fd(LOG_FD_OFF), FD_TYPES__UND, &fdinfo);
 	if (ret < 0)
 		return -1;
 
@@ -333,7 +333,7 @@ static int check_fdinfo_signalfd(void)
 		return -1;
 	}
 
-	ret = parse_fdinfo(fd, FD_TYPES__SIGNALFD, NULL, &sfd);
+	ret = parse_fdinfo(fd, FD_TYPES__SIGNALFD, &sfd);
 	close(fd);
 
 	if (ret) {
@@ -369,7 +369,7 @@ static int check_fdinfo_eventpoll(void)
 		goto epoll_err;
 	}
 
-	ret = parse_fdinfo(efd, FD_TYPES__EVENTPOLL, NULL, &efe);
+	ret = parse_fdinfo(efd, FD_TYPES__EVENTPOLL, &efe);
 	if (ret) {
 		pr_err("Error parsing proc fdinfo\n");
 		goto epoll_err;
@@ -410,7 +410,7 @@ static int check_fdinfo_inotify(void)
 		return -1;
 	}
 
-	ret = parse_fdinfo(ifd, FD_TYPES__INOTIFY, NULL, &ify);
+	ret = parse_fdinfo(ifd, FD_TYPES__INOTIFY, &ify);
 	close(ifd);
 
 	if (ret < 0) {

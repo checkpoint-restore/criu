@@ -9,9 +9,6 @@
 #include "images/fsnotify.pb-c.h"
 #include "images/timerfd.pb-c.h"
 
-union fdinfo_entries {
-};
-
 struct fdinfo_common {
 	off64_t pos;
 	int flags;
@@ -19,9 +16,7 @@ struct fdinfo_common {
 	int owner;
 };
 
-extern int parse_fdinfo(int fd, int type,
-		int (*cb)(union fdinfo_entries *e, void *arg), void *arg);
-extern int parse_fdinfo_pid(int pid, int fd, int type,
-		int (*cb)(union fdinfo_entries *e, void *arg), void *arg);
+extern int parse_fdinfo(int fd, int type, void *arg);
+extern int parse_fdinfo_pid(int pid, int fd, int type, void *arg);
 
 #endif

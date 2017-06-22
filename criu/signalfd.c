@@ -28,7 +28,7 @@ static int dump_one_signalfd(int lfd, u32 id, const struct fd_parms *p)
 {
 	SignalfdEntry sfd = SIGNALFD_ENTRY__INIT;
 
-	if (parse_fdinfo(lfd, FD_TYPES__SIGNALFD, NULL, &sfd))
+	if (parse_fdinfo(lfd, FD_TYPES__SIGNALFD, &sfd))
 		return -1;
 
 	sfd.id = id;

@@ -47,7 +47,7 @@ static int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
 {
 	EventfdFileEntry efd = EVENTFD_FILE_ENTRY__INIT;
 
-	if (parse_fdinfo(lfd, FD_TYPES__EVENTFD, NULL, &efd))
+	if (parse_fdinfo(lfd, FD_TYPES__EVENTFD, &efd))
 		return -1;
 
 	efd.id = id;

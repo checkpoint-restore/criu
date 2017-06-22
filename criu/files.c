@@ -339,7 +339,7 @@ static int fill_fd_params(struct pid *owner_pid, int fd, int lfd,
 		return -1;
 	}
 
-	if (parse_fdinfo_pid(owner_pid->real, fd, FD_TYPES__UND, NULL, &fdinfo))
+	if (parse_fdinfo_pid(owner_pid->real, fd, FD_TYPES__UND, &fdinfo))
 		return -1;
 
 	p->fs_type	= fsbuf.f_type;
