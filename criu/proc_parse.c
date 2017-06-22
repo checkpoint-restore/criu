@@ -1547,11 +1547,6 @@ void free_fanotify_mark_entry(union fdinfo_entries *e)
 	xfree(e);
 }
 
-void free_event_poll_entry(union fdinfo_entries *e)
-{
-	xfree(e);
-}
-
 static void parse_fhandle_encoded(char *tok, FhEntry *fh)
 {
 	char *d = (char *)fh->handle;
@@ -1743,27 +1738,31 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 			continue;
 		}
 		if (fdinfo_field(str, "tfd")) {
-			union fdinfo_entries *e;
+			EventpollFileEntry *epfe = arg;
+			EventpollTfdEntry *e;
+			int i;
 
 			if (type != FD_TYPES__EVENTPOLL)
 				goto parse_err;
 
-			e = xmalloc(sizeof(union fdinfo_entries));
+			e = xmalloc(sizeof(EventpollTfdEntry));
 			if (!e)
 				goto out;
 
-			eventpoll_tfd_entry__init(&e->epl.e);
+			eventpoll_tfd_entry__init(e);
 
 			ret = sscanf(str, "tfd: %d events: %x data: %"PRIx64,
-					&e->epl.e.tfd, &e->epl.e.events, &e->epl.e.data);
+					&e->tfd, &e->events, &e->data);
 			if (ret != 3) {
-				free_event_poll_entry(e);
+				eventpoll_tfd_entry__free_unpacked(e, NULL);
 				goto parse_err;
 			}
-			ret = cb(e, arg);
-			if (ret)
+
+			i = epfe->n_tfd++;
+			if (xrealloc_safe(&epfe->tfd, epfe->n_tfd * sizeof(EventpollTfdEntry *)))
 				goto out;
 
+			epfe->tfd[i] = e;
 			entry_met = true;
 			continue;
 		}

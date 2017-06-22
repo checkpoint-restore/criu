@@ -25,21 +25,14 @@ struct fanotify_mark_entry {
 	};
 };
 
-struct eventpoll_tfd_entry {
-	EventpollTfdEntry e;
-	struct list_head node;
-};
-
 union fdinfo_entries {
 	struct inotify_wd_entry ify;
 	struct fanotify_mark_entry ffy;
-	struct eventpoll_tfd_entry epl;
 	TimerfdEntry tfy;
 };
 
 extern void free_inotify_wd_entry(union fdinfo_entries *e);
 extern void free_fanotify_mark_entry(union fdinfo_entries *e);
-extern void free_event_poll_entry(union fdinfo_entries *e);
 
 struct fdinfo_common {
 	off64_t pos;

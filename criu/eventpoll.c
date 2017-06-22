@@ -51,53 +51,28 @@ static void pr_info_eventpoll(char *action, EventpollFileEntry *e)
 	pr_info("%seventpoll: id %#08x flags %#04x\n", action, e->id, e->flags);
 }
 
-struct eventpoll_list {
-	struct list_head list;
-	int n;
-};
-
-static int dump_eventpoll_entry(union fdinfo_entries *e, void *arg)
-{
-	struct eventpoll_list *ep_list = (struct eventpoll_list *) arg;
-	EventpollTfdEntry *efd = &e->epl.e;
-
-	pr_info_eventpoll_tfd("Dumping: ", efd);
-
-	list_add_tail(&e->epl.node, &ep_list->list);
-	ep_list->n++;
-
-	return 0;
-}
-
 static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 {
 	EventpollFileEntry e = EVENTPOLL_FILE_ENTRY__INIT;
-	struct eventpoll_list ep_list = {LIST_HEAD_INIT(ep_list.list), 0};
-	union fdinfo_entries *te, *tmp;
 	int i, ret = -1;
 
 	e.id = id;
 	e.flags = p->flags;
 	e.fown = (FownEntry *)&p->fown;
 
-	if (parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, dump_eventpoll_entry, &ep_list))
+	if (parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, NULL, &e))
 		goto out;
-
-	e.tfd = xmalloc(sizeof(struct EventpollTfdEntry *) * ep_list.n);
-	if (!e.tfd)
-		goto out;
-
-	i = 0;
-	list_for_each_entry(te, &ep_list.list, epl.node)
-		e.tfd[i++] = &te->epl.e;
-	e.n_tfd = ep_list.n;
 
 	pr_info_eventpoll("Dumping ", &e);
 	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_EVENTPOLL_FILE),
 		     &e, PB_EVENTPOLL_FILE);
 out:
-	list_for_each_entry_safe(te, tmp, &ep_list.list, epl.node)
-		free_event_poll_entry(te);
+	for (i = 0; i < e.n_tfd; i++) {
+		if (!ret)
+			pr_info_eventpoll_tfd("Dumping: ", e.tfd[i]);
+		eventpoll_tfd_entry__free_unpacked(e.tfd[i], NULL);
+	}
+	xfree(e.tfd);
 
 	return ret;
 }

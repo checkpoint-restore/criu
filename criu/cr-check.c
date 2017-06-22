@@ -344,17 +344,11 @@ static int check_fdinfo_signalfd(void)
 	return 0;
 }
 
-static int check_one_epoll(union fdinfo_entries *e, void *arg)
-{
-	*(int *)arg = e->epl.e.tfd;
-	free_event_poll_entry(e);
-	return 0;
-}
-
 static int check_fdinfo_eventpoll(void)
 {
-	int efd, pfd[2], proc_fd = 0, ret = -1;
+	int efd, pfd[2], ret = -1;
 	struct epoll_event ev;
+	EventpollFileEntry efe = EVENTPOLL_FILE_ENTRY__INIT;
 
 	if (pipe(pfd)) {
 		pr_perror("Can't make pipe to watch");
@@ -375,20 +369,19 @@ static int check_fdinfo_eventpoll(void)
 		goto epoll_err;
 	}
 
-	ret = parse_fdinfo(efd, FD_TYPES__EVENTPOLL, check_one_epoll, &proc_fd);
+	ret = parse_fdinfo(efd, FD_TYPES__EVENTPOLL, NULL, &efe);
 	if (ret) {
 		pr_err("Error parsing proc fdinfo\n");
 		goto epoll_err;
 	}
 
-	if (pfd[0] != proc_fd) {
-		pr_err("TFD mismatch (or not met) %d want %d\n",
-				proc_fd, pfd[0]);
+	if (efe.n_tfd != 1 || efe.tfd[0]->tfd != pfd[0]) {
+		pr_err("TFD mismatch (or not met)\n");
 		ret = -1;
 		goto epoll_err;
 	}
 
-	pr_info("Epoll fdinfo works OK (%d vs %d)\n", pfd[0], proc_fd);
+	pr_info("Epoll fdinfo works OK\n");
 
 epoll_err:
 	close(efd);
