@@ -1715,17 +1715,14 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 			continue;
 
 		if (fdinfo_field(str, "eventfd-count")) {
-			eventfd_file_entry__init(&entry.efd);
+			EventfdFileEntry *efd = arg;
 
 			if (type != FD_TYPES__EVENTFD)
 				goto parse_err;
 			ret = sscanf(str, "eventfd-count: %"PRIx64,
-					&entry.efd.counter);
+					&efd->counter);
 			if (ret != 1)
 				goto parse_err;
-			ret = cb(&entry, arg);
-			if (ret)
-				goto out;
 
 			entry_met = true;
 			continue;

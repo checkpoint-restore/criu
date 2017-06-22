@@ -31,7 +31,6 @@ struct eventpoll_tfd_entry {
 };
 
 union fdinfo_entries {
-	EventfdFileEntry efd;
 	SignalfdEntry sfd;
 	struct inotify_wd_entry ify;
 	struct fanotify_mark_entry ffy;

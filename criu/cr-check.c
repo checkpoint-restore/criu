@@ -272,16 +272,11 @@ static int check_proc_stat(void)
 	return 0;
 }
 
-static int check_one_fdinfo(union fdinfo_entries *e, void *arg)
-{
-	*(int *)arg = (int)e->efd.counter;
-	return 0;
-}
-
 static int check_fdinfo_eventfd(void)
 {
 	int fd, ret;
-	int cnt = 13, proc_cnt = 0;
+	int cnt = 13;
+	EventfdFileEntry fe = EVENTFD_FILE_ENTRY__INIT;
 
 	fd = eventfd(cnt, 0);
 	if (fd < 0) {
@@ -289,7 +284,7 @@ static int check_fdinfo_eventfd(void)
 		return -1;
 	}
 
-	ret = parse_fdinfo(fd, FD_TYPES__EVENTFD, check_one_fdinfo, &proc_cnt);
+	ret = parse_fdinfo(fd, FD_TYPES__EVENTFD, NULL, &fe);
 	close(fd);
 
 	if (ret) {
@@ -297,13 +292,13 @@ static int check_fdinfo_eventfd(void)
 		return -1;
 	}
 
-	if (proc_cnt != cnt) {
+	if (fe.counter != cnt) {
 		pr_err("Counter mismatch (or not met) %d want %d\n",
-				proc_cnt, cnt);
+				(int)fe.counter, cnt);
 		return -1;
 	}
 
-	pr_info("Eventfd fdinfo works OK (%d vs %d)\n", cnt, proc_cnt);
+	pr_info("Eventfd fdinfo works OK (%d vs %d)\n", cnt, (int)fe.counter);
 	return 0;
 }
 

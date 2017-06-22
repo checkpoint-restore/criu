@@ -43,35 +43,20 @@ static void pr_info_eventfd(char *action, EventfdFileEntry *efe)
 		action, efe->id, efe->flags, efe->counter);
 }
 
-struct eventfd_dump_arg {
-	u32 id;
-	const struct fd_parms *p;
-	bool dumped;
-};
-
-static int dump_eventfd_entry(union fdinfo_entries *e, void *arg)
-{
-	struct eventfd_dump_arg *da = arg;
-
-	if (da->dumped) {
-		pr_err("Several counters in a file?\n");
-		return -1;
-	}
-
-	da->dumped = true;
-	e->efd.id = da->id;
-	e->efd.flags = da->p->flags;
-	e->efd.fown = (FownEntry *)&da->p->fown;
-
-	pr_info_eventfd("Dumping ", &e->efd);
-	return pb_write_one(img_from_set(glob_imgset, CR_FD_EVENTFD_FILE),
-			&e->efd, PB_EVENTFD_FILE);
-}
-
 static int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
 {
-	struct eventfd_dump_arg da = { .id = id, .p = p, };
-	return parse_fdinfo(lfd, FD_TYPES__EVENTFD, dump_eventfd_entry, &da);
+	EventfdFileEntry efd = EVENTFD_FILE_ENTRY__INIT;
+
+	if (parse_fdinfo(lfd, FD_TYPES__EVENTFD, NULL, &efd))
+		return -1;
+
+	efd.id = id;
+	efd.flags = p->flags;
+	efd.fown = (FownEntry *)&p->fown;
+
+	pr_info_eventfd("Dumping ", &efd);
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_EVENTFD_FILE),
+			&efd, PB_EVENTFD_FILE);
 }
 
 const struct fdtype_ops eventfd_dump_ops = {
