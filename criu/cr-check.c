@@ -302,11 +302,6 @@ static int check_fdinfo_eventfd(void)
 	return 0;
 }
 
-static int check_one_sfd(union fdinfo_entries *e, void *arg)
-{
-	return 0;
-}
-
 int check_mnt_id(void)
 {
 	struct fdinfo_common fdinfo = { .mnt_id = -1 };
@@ -328,6 +323,7 @@ static int check_fdinfo_signalfd(void)
 {
 	int fd, ret;
 	sigset_t mask;
+	SignalfdEntry sfd = SIGNALFD_ENTRY__INIT;
 
 	sigemptyset(&mask);
 	sigaddset(&mask, SIGUSR1);
@@ -337,7 +333,7 @@ static int check_fdinfo_signalfd(void)
 		return -1;
 	}
 
-	ret = parse_fdinfo(fd, FD_TYPES__SIGNALFD, check_one_sfd, NULL);
+	ret = parse_fdinfo(fd, FD_TYPES__SIGNALFD, NULL, &sfd);
 	close(fd);
 
 	if (ret) {

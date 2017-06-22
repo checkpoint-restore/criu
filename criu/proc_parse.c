@@ -1768,17 +1768,14 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 			continue;
 		}
 		if (fdinfo_field(str, "sigmask")) {
-			signalfd_entry__init(&entry.sfd);
+			SignalfdEntry *sfd = arg;
 
 			if (type != FD_TYPES__SIGNALFD)
 				goto parse_err;
 			ret = sscanf(str, "sigmask: %Lx",
-					(unsigned long long *)&entry.sfd.sigmask);
+					(unsigned long long *)&sfd->sigmask);
 			if (ret != 1)
 				goto parse_err;
-			ret = cb(&entry, arg);
-			if (ret)
-				goto out;
 
 			entry_met = true;
 			continue;

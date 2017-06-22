@@ -24,34 +24,19 @@ int is_signalfd_link(char *link)
 	return is_anon_link_type(link, "[signalfd]");
 }
 
-struct signalfd_dump_arg {
-	u32 id;
-	const struct fd_parms *p;
-	bool dumped;
-};
-
-static int dump_signalfd_entry(union fdinfo_entries *e, void *arg)
-{
-	struct signalfd_dump_arg *da = arg;
-
-	if (da->dumped) {
-		pr_err("Several counters in a file?\n");
-		return -1;
-	}
-
-	da->dumped = true;
-	e->sfd.id = da->id;
-	e->sfd.flags = da->p->flags;
-	e->sfd.fown = (FownEntry *)&da->p->fown;
-
-	return pb_write_one(img_from_set(glob_imgset, CR_FD_SIGNALFD),
-			&e->sfd, PB_SIGNALFD);
-}
-
 static int dump_one_signalfd(int lfd, u32 id, const struct fd_parms *p)
 {
-	struct signalfd_dump_arg da = { .id = id, .p = p, };
-	return parse_fdinfo(lfd, FD_TYPES__SIGNALFD, dump_signalfd_entry, &da);
+	SignalfdEntry sfd = SIGNALFD_ENTRY__INIT;
+
+	if (parse_fdinfo(lfd, FD_TYPES__SIGNALFD, NULL, &sfd))
+		return -1;
+
+	sfd.id = id;
+	sfd.flags = p->flags;
+	sfd.fown = (FownEntry *)&p->fown;
+
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_SIGNALFD),
+			&sfd, PB_SIGNALFD);
 }
 
 const struct fdtype_ops signalfd_dump_ops = {
