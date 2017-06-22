@@ -1534,12 +1534,6 @@ static void free_fhandle(FhEntry *fh)
 		xfree(fh->handle);
 }
 
-void free_inotify_wd_entry(union fdinfo_entries *e)
-{
-	free_fhandle(e->ify.e.f_handle);
-	xfree(e);
-}
-
 void free_fanotify_mark_entry(union fdinfo_entries *e)
 {
 	if (e->ffy.e.ie)
@@ -1867,21 +1861,27 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 			continue;
 		}
 		if (fdinfo_field(str, "inotify wd")) {
+			void *buf, *ob;
+			InotifyFileEntry *ie = arg;
 			InotifyWdEntry *ify;
-			union fdinfo_entries *e;
-			int hoff;
+			int hoff, i;
 
 			if (type != FD_TYPES__INOTIFY)
 				goto parse_err;
 
-			e = xmalloc(sizeof(*e));
-			if (!e)
-				goto parse_err;
-			ify = &e->ify.e;
+			ob = buf = xmalloc(sizeof(InotifyWdEntry) +
+					sizeof(FhEntry) +
+					FH_ENTRY_SIZES__min_entries * sizeof(uint64_t));
+			if (!buf)
+				goto out;
 
+			ify = xptr_pull(&buf, InotifyWdEntry);
 			inotify_wd_entry__init(ify);
-			ify->f_handle = &e->ify.f_handle;
+			ify->f_handle = xptr_pull(&buf, FhEntry);
 			fh_entry__init(ify->f_handle);
+			ify->f_handle->n_handle = FH_ENTRY_SIZES__min_entries;
+			ify->f_handle->handle = xptr_pull_s(&buf,
+					FH_ENTRY_SIZES__min_entries * sizeof(uint64_t));
 
 			ret = sscanf(str,
 					"inotify wd:%x ino:%"PRIx64" sdev:%x "
@@ -1893,22 +1893,19 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 					&ify->f_handle->bytes, &ify->f_handle->type,
 					&hoff);
 			if (ret != 7) {
-				free_inotify_wd_entry(e);
+				xfree(ob);
 				goto parse_err;
-			}
-
-			if (alloc_fhandle(ify->f_handle)) {
-				free_inotify_wd_entry(e);
-				goto out;
 			}
 
 			parse_fhandle_encoded(str + hoff, ify->f_handle);
 
-			ret = cb(e, arg);
-
-			if (ret)
+			i = ie->n_wd++;
+			if (xrealloc_safe(&ie->wd, ie->n_wd * sizeof(InotifyWdEntry *))) {
+				xfree(ob);
 				goto out;
+			}
 
+			ie->wd[i] = ify;
 			entry_met = true;
 			continue;
 		}

@@ -392,16 +392,10 @@ pipe_err:
 	return ret;
 }
 
-static int check_one_inotify(union fdinfo_entries *e, void *arg)
-{
-	*(int *)arg = e->ify.e.wd;
-	free_inotify_wd_entry(e);
-	return 0;
-}
-
 static int check_fdinfo_inotify(void)
 {
-	int ifd, wd, proc_wd = -1, ret;
+	int ifd, wd, ret;
+	InotifyFileEntry ify = INOTIFY_FILE_ENTRY__INIT;
 
 	ifd = inotify_init1(0);
 	if (ifd < 0) {
@@ -416,7 +410,7 @@ static int check_fdinfo_inotify(void)
 		return -1;
 	}
 
-	ret = parse_fdinfo(ifd, FD_TYPES__INOTIFY, check_one_inotify, &proc_wd);
+	ret = parse_fdinfo(ifd, FD_TYPES__INOTIFY, NULL, &ify);
 	close(ifd);
 
 	if (ret < 0) {
@@ -424,12 +418,12 @@ static int check_fdinfo_inotify(void)
 		return -1;
 	}
 
-	if (wd != proc_wd) {
-		pr_err("WD mismatch (or not met) %d want %d\n", proc_wd, wd);
+	if (ify.n_wd != 1 || ify.wd[0]->wd != wd) {
+		pr_err("WD mismatch (or not met)\n");
 		return -1;
 	}
 
-	pr_info("Inotify fdinfo works OK (%d vs %d)\n", wd, proc_wd);
+	pr_info("Inotify fdinfo works OK\n");
 	return 0;
 }
 

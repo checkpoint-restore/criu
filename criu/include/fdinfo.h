@@ -9,12 +9,6 @@
 #include "images/fsnotify.pb-c.h"
 #include "images/timerfd.pb-c.h"
 
-struct inotify_wd_entry {
-	InotifyWdEntry e;
-	FhEntry f_handle;
-	struct list_head node;
-};
-
 struct fanotify_mark_entry {
 	FanotifyMarkEntry e;
 	FhEntry f_handle;
@@ -26,12 +20,10 @@ struct fanotify_mark_entry {
 };
 
 union fdinfo_entries {
-	struct inotify_wd_entry ify;
 	struct fanotify_mark_entry ffy;
 	TimerfdEntry tfy;
 };
 
-extern void free_inotify_wd_entry(union fdinfo_entries *e);
 extern void free_fanotify_mark_entry(union fdinfo_entries *e);
 
 struct fdinfo_common {

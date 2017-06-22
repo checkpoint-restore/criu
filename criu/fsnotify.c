@@ -302,12 +302,8 @@ struct watch_list {
 	int n;
 };
 
-static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
+static int check_one_wd(InotifyWdEntry *we)
 {
-	struct watch_list *wd_list = (struct watch_list *) arg;
-	struct inotify_wd_entry *wd_entry = (struct inotify_wd_entry *) e;
-	InotifyWdEntry *we = &wd_entry->e;
-
 	pr_info("wd: wd %#08x s_dev %#08x i_ino %#16"PRIx64" mask %#08x\n",
 			we->wd, we->s_dev, we->i_ino, we->mask);
 	pr_info("\t[fhandle] bytes %#08x type %#08x __handle %#016"PRIx64":%#016"PRIx64"\n",
@@ -318,22 +314,15 @@ static int dump_inotify_entry(union fdinfo_entries *e, void *arg)
 		pr_warn_once("\t\tDetected FS_EVENT_ON_CHILD bit "
 			     "in mask (will be ignored on restore)\n");
 
-	if (check_open_handle(we->s_dev, we->i_ino, we->f_handle)) {
-		free_inotify_wd_entry(e);
+	if (check_open_handle(we->s_dev, we->i_ino, we->f_handle))
 		return -1;
-	}
-
-	list_add_tail(&wd_entry->node, &wd_list->list);
-	wd_list->n++;
 
 	return 0;
 }
 
 static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 {
-	struct watch_list wd_list = {.list = LIST_HEAD_INIT(wd_list.list), .n = 0};
 	InotifyFileEntry ie = INOTIFY_FILE_ENTRY__INIT;
-	union fdinfo_entries *we, *tmp;
 	int exit_code = -1, i, ret;
 
 	ret = fd_has_data(lfd);
@@ -346,17 +335,12 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 	ie.flags = p->flags;
 	ie.fown = (FownEntry *)&p->fown;
 
-	if (parse_fdinfo(lfd, FD_TYPES__INOTIFY, dump_inotify_entry, &wd_list))
+	if (parse_fdinfo(lfd, FD_TYPES__INOTIFY, NULL, &ie))
 		goto free;
 
-	ie.wd = xmalloc(sizeof(*ie.wd) * wd_list.n);
-	if (!ie.wd)
-		goto free;
-
-	i = 0;
-	list_for_each_entry(we, &wd_list.list, ify.node)
-		ie.wd[i++] = &we->ify.e;
-	ie.n_wd = wd_list.n;
+	for (i = 0; i < ie.n_wd; i++)
+		if (check_one_wd(ie.wd[i]))
+			goto free;
 
 	pr_info("id %#08x flags %#08x\n", ie.id, ie.flags);
 	if (pb_write_one(img_from_set(glob_imgset, CR_FD_INOTIFY_FILE), &ie, PB_INOTIFY_FILE))
@@ -364,27 +348,31 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 
 	exit_code = 0;
 free:
+	for (i = 0; i < ie.n_wd; i++)
+		xfree(ie.wd[i]);
 	xfree(ie.wd);
-	list_for_each_entry_safe(we, tmp, &wd_list.list, ify.node)
-		free_inotify_wd_entry(we);
 
 	return exit_code;
 }
 
-static int pre_dump_inotify_entry(union fdinfo_entries *e, void *arg)
-{
-	InotifyWdEntry *we = &e->ify.e;
-	int ret;
-
-	ret = irmap_queue_cache(we->s_dev, we->i_ino, we->f_handle);
-	free_inotify_wd_entry(e);
-
-	return ret;
-}
-
 static int pre_dump_one_inotify(int pid, int lfd)
 {
-	return parse_fdinfo_pid(pid, lfd, FD_TYPES__INOTIFY, pre_dump_inotify_entry, NULL);
+	InotifyFileEntry ie = INOTIFY_FILE_ENTRY__INIT;
+	int i;
+
+	if (parse_fdinfo_pid(pid, lfd, FD_TYPES__INOTIFY, NULL, &ie))
+		return -1;
+
+	for (i = 0; i < ie.n_wd; i++) {
+		InotifyWdEntry *we = ie.wd[i];
+
+		if (irmap_queue_cache(we->s_dev, we->i_ino, we->f_handle))
+			return -1;
+
+		xfree(we);
+	}
+
+	return 0;
 }
 
 const struct fdtype_ops inotify_dump_ops = {
