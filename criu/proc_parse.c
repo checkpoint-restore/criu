@@ -1613,8 +1613,6 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 		return -1;
 
 	while (1) {
-		union fdinfo_entries entry;
-
 		str = breadline(&f);
 		if (!str)
 			break;
@@ -1696,16 +1694,13 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 			continue;
 		}
 		if (fdinfo_field(str, "clockid")) {
-			timerfd_entry__init(&entry.tfy);
+			TimerfdEntry *tfe = arg;
 
 			if (type != FD_TYPES__TIMERFD)
 				goto parse_err;
-			ret = parse_timerfd(&f, str, &entry.tfy);
+			ret = parse_timerfd(&f, str, tfe);
 			if (ret)
 				goto parse_err;
-			ret = cb(&entry, arg);
-			if (ret)
-				goto out;
 
 			entry_met = true;
 			continue;

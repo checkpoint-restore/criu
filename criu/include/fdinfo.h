@@ -10,7 +10,6 @@
 #include "images/timerfd.pb-c.h"
 
 union fdinfo_entries {
-	TimerfdEntry tfy;
 };
 
 struct fdinfo_common {

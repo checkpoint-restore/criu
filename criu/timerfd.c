@@ -64,26 +64,21 @@ int is_timerfd_link(char *link)
 	return is_anon_link_type(link, "[timerfd]");
 }
 
-static int dump_timerfd_entry(union fdinfo_entries *e, void *arg)
-{
-	struct timerfd_dump_arg *da = arg;
-	TimerfdEntry *tfy = &e->tfy;
-
-	tfy->id		= da->id;
-	tfy->flags	= da->p->flags;
-	tfy->fown	= (FownEntry *)&da->p->fown;
-
-	pr_info("Dumping id %#x clockid %d it_value(%llu, %llu) it_interval(%llu, %llu)\n",
-		tfy->id, tfy->clockid, (unsigned long long)tfy->vsec, (unsigned long long)tfy->vnsec,
-		(unsigned long long)tfy->isec, (unsigned long long)tfy->insec);
-
-	return pb_write_one(img_from_set(glob_imgset, CR_FD_TIMERFD), &e->tfy, PB_TIMERFD);
-}
-
 static int dump_one_timerfd(int lfd, u32 id, const struct fd_parms *p)
 {
-	struct timerfd_dump_arg da = { .id = id, .p = p, };
-	return parse_fdinfo(lfd, FD_TYPES__TIMERFD, dump_timerfd_entry, &da);
+	TimerfdEntry tfe = TIMERFD_ENTRY__INIT;
+
+	if (parse_fdinfo(lfd, FD_TYPES__TIMERFD, NULL, &tfe))
+		return -1;
+
+	tfe.id = id;
+	tfe.flags = p->flags;
+	tfe.fown = (FownEntry *)&p->fown;
+	pr_info("Dumping id %#x clockid %d it_value(%llu, %llu) it_interval(%llu, %llu)\n",
+		tfe.id, tfe.clockid, (unsigned long long)tfe.vsec, (unsigned long long)tfe.vnsec,
+		(unsigned long long)tfe.isec, (unsigned long long)tfe.insec);
+
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_TIMERFD), &tfe, PB_TIMERFD);
 }
 
 const struct fdtype_ops timerfd_dump_ops = {
