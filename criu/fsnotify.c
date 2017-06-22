@@ -296,12 +296,6 @@ err:
 	return -1;
 }
 
-struct watch_list {
-	struct fsnotify_params fsn_params;
-	struct list_head list;
-	int n;
-};
-
 static int check_one_wd(InotifyWdEntry *we)
 {
 	pr_info("wd: wd %#08x s_dev %#08x i_ino %#16"PRIx64" mask %#08x\n",
@@ -381,11 +375,8 @@ const struct fdtype_ops inotify_dump_ops = {
 	.pre_dump	= pre_dump_one_inotify,
 };
 
-static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
+static int check_one_mark(FanotifyMarkEntry *fme)
 {
-	struct watch_list *wd_list = (struct watch_list *) arg;
-	FanotifyMarkEntry *fme = &e->ffy.e;
-
 	if (fme->type == MARK_TYPE__INODE) {
 
 		BUG_ON(!fme->ie);
@@ -398,7 +389,7 @@ static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 			fme->ie->f_handle->handle[0], fme->ie->f_handle->handle[1]);
 
 		if (check_open_handle(fme->s_dev, fme->ie->i_ino, fme->ie->f_handle))
-			goto out;
+			return -1;
 	}
 
 	if (fme->type == MARK_TYPE__MOUNT) {
@@ -409,7 +400,7 @@ static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 		m = lookup_mnt_id(fme->me->mnt_id);
 		if (!m) {
 			pr_err("Can't find mnt_id 0x%x\n", fme->me->mnt_id);
-			goto out;
+			return -1;
 		}
 		if (!(root_ns_mask & CLONE_NEWNS))
 			fme->me->path = m->mountpoint + 1;
@@ -420,20 +411,12 @@ static int dump_fanotify_entry(union fdinfo_entries *e, void *arg)
 
 	}
 
-	list_add_tail(&e->ffy.node, &wd_list->list);
-	wd_list->n++;
-
 	return 0;
-out:
-	free_fanotify_mark_entry(e);
-	return -1;
 }
 
 static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 {
-	struct watch_list wd_list = {.list = LIST_HEAD_INIT(wd_list.list), .n = 0};
 	FanotifyFileEntry fe = FANOTIFY_FILE_ENTRY__INIT;
-	union fdinfo_entries *we, *tmp;
 	int ret = -1, i;
 
 	ret = fd_has_data(lfd);
@@ -447,49 +430,43 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 	fe.flags = p->flags;
 	fe.fown = (FownEntry *)&p->fown;
 
-	if (parse_fdinfo(lfd, FD_TYPES__FANOTIFY,
-			 dump_fanotify_entry, &wd_list) < 0)
+	if (parse_fdinfo(lfd, FD_TYPES__FANOTIFY, NULL, &fe) < 0)
 		goto free;
 
-	fe.mark = xmalloc(sizeof(*fe.mark) * wd_list.n);
-	if (!fe.mark)
-		goto free;
-
-	i = 0;
-	list_for_each_entry(we, &wd_list.list, ffy.node)
-		fe.mark[i++] = &we->ffy.e;
-	fe.n_mark = wd_list.n;
+	for (i = 0; i < fe.n_mark; i++)
+		if (check_one_mark(fe.mark[i]))
+			goto free;
 
 	pr_info("id %#08x flags %#08x\n", fe.id, fe.flags);
 
-	fe.faflags = wd_list.fsn_params.faflags;
-	fe.evflags = wd_list.fsn_params.evflags;
-
 	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FANOTIFY_FILE), &fe, PB_FANOTIFY_FILE);
 free:
+	for (i = 0; i < fe.n_mark; i++)
+		xfree(fe.mark[i]);
 	xfree(fe.mark);
-	list_for_each_entry_safe(we, tmp, &wd_list.list, ffy.node)
-		free_fanotify_mark_entry(we);
-	return ret;
-}
-
-static int pre_dump_fanotify_entry(union fdinfo_entries *e, void *arg)
-{
-	FanotifyMarkEntry *fme = &e->ffy.e;
-	int ret = 0;
-
-	if (fme->type == MARK_TYPE__INODE)
-		ret = irmap_queue_cache(fme->s_dev, fme->ie->i_ino,
-				fme->ie->f_handle);
-
-	free_fanotify_mark_entry(e);
 	return ret;
 }
 
 static int pre_dump_one_fanotify(int pid, int lfd)
 {
-	struct fsnotify_params fsn_params = { };
-	return parse_fdinfo_pid(pid, lfd, FD_TYPES__FANOTIFY, pre_dump_fanotify_entry, &fsn_params);
+	FanotifyFileEntry fe = FANOTIFY_FILE_ENTRY__INIT;
+	int i;
+
+	if (parse_fdinfo_pid(pid, lfd, FD_TYPES__FANOTIFY, NULL, &fe))
+		return -1;
+
+	for (i = 0; i < fe.n_mark; i++) {
+		FanotifyMarkEntry *me = fe.mark[i];
+
+		if (me->type == MARK_TYPE__INODE &&
+				irmap_queue_cache(me->s_dev, me->ie->i_ino,
+					me->ie->f_handle))
+			return -1;
+
+		xfree(me);
+	}
+	xfree(fe.mark);
+	return 0;
 }
 
 const struct fdtype_ops fanotify_dump_ops = {

@@ -1520,27 +1520,6 @@ static char nybble(const char n)
 	return 0;
 }
 
-static int alloc_fhandle(FhEntry *fh)
-{
-	fh->n_handle = FH_ENTRY_SIZES__min_entries;
-	fh->handle = xmalloc(pb_repeated_size(fh, handle));
-
-	return fh->handle == NULL ? -1 : 0;
-}
-
-static void free_fhandle(FhEntry *fh)
-{
-	if (fh->handle)
-		xfree(fh->handle);
-}
-
-void free_fanotify_mark_entry(union fdinfo_entries *e)
-{
-	if (e->ffy.e.ie)
-		free_fhandle(e->ffy.ie.f_handle);
-	xfree(e);
-}
-
 static void parse_fhandle_encoded(char *tok, FhEntry *fh)
 {
 	char *d = (char *)fh->handle;
@@ -1774,89 +1753,107 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 			continue;
 		}
 		if (fdinfo_field(str, "fanotify flags")) {
-			struct fsnotify_params *p = arg;
+			FanotifyFileEntry *fe = arg;
 
 			if (type != FD_TYPES__FANOTIFY)
 				goto parse_err;
 
 			ret = sscanf(str, "fanotify flags:%x event-flags:%x",
-				     &p->faflags, &p->evflags);
+				     &fe->faflags, &fe->evflags);
 			if (ret != 2)
 				goto parse_err;
 			entry_met = true;
 			continue;
 		}
 		if (fdinfo_field(str, "fanotify ino")) {
-			union fdinfo_entries *e;
-			int hoff = 0;
+			void *buf, *ob;
+			FanotifyFileEntry *fe = arg;
+			FanotifyMarkEntry *me;
+			int hoff = 0, i;
 
 			if (type != FD_TYPES__FANOTIFY)
 				goto parse_err;
 
-			e = xmalloc(sizeof(*e));
-			if (!e)
-				goto parse_err;
+			ob = buf = xmalloc(sizeof(FanotifyMarkEntry) +
+					sizeof(FanotifyInodeMarkEntry) +
+					sizeof(FhEntry) +
+					FH_ENTRY_SIZES__min_entries * sizeof(uint64_t));
+			if (!buf)
+				goto out;
 
-			fanotify_mark_entry__init(&e->ffy.e);
-			fanotify_inode_mark_entry__init(&e->ffy.ie);
-			fh_entry__init(&e->ffy.f_handle);
-			e->ffy.e.ie = &e->ffy.ie;
-			e->ffy.ie.f_handle = &e->ffy.f_handle;
+			me = xptr_pull(&buf, FanotifyMarkEntry);
+			fanotify_mark_entry__init(me);
+			me->ie = xptr_pull(&buf, FanotifyInodeMarkEntry);
+			fanotify_inode_mark_entry__init(me->ie);
+			me->ie->f_handle = xptr_pull(&buf, FhEntry);
+			fh_entry__init(me->ie->f_handle);
+			me->ie->f_handle->n_handle = FH_ENTRY_SIZES__min_entries;
+			me->ie->f_handle->handle = xptr_pull_s(&buf,
+					FH_ENTRY_SIZES__min_entries * sizeof(uint64_t));
 
 			ret = sscanf(str,
 				     "fanotify ino:%"PRIx64" sdev:%x mflags:%x mask:%x ignored_mask:%x "
 				     "fhandle-bytes:%x fhandle-type:%x f_handle: %n",
-				     &e->ffy.ie.i_ino, &e->ffy.e.s_dev,
-				     &e->ffy.e.mflags, &e->ffy.e.mask, &e->ffy.e.ignored_mask,
-				     &e->ffy.f_handle.bytes, &e->ffy.f_handle.type,
+				     &me->ie->i_ino, &me->s_dev,
+				     &me->mflags, &me->mask, &me->ignored_mask,
+				     &me->ie->f_handle->bytes, &me->ie->f_handle->type,
 				     &hoff);
 			if (ret != 7 || hoff == 0) {
-				free_fanotify_mark_entry(e);
+				xfree(ob);
 				goto parse_err;
 			}
 
-			if (alloc_fhandle(&e->ffy.f_handle)) {
-				free_fanotify_mark_entry(e);
+			parse_fhandle_encoded(str + hoff, me->ie->f_handle);
+			me->type = MARK_TYPE__INODE;
+
+			i = fe->n_mark++;
+			if (xrealloc_safe(&fe->mark, fe->n_mark * sizeof(FanotifyMarkEntry *))) {
+				xfree(ob);
 				goto out;
 			}
-			parse_fhandle_encoded(str + hoff, &e->ffy.f_handle);
 
-			e->ffy.e.type = MARK_TYPE__INODE;
-			ret = cb(e, arg);
-
-
-			if (ret)
-				goto out;
-
+			fe->mark[i] = me;
 			entry_met = true;
 			continue;
 		}
 		if (fdinfo_field(str, "fanotify mnt_id")) {
-			union fdinfo_entries *e;
+			void *buf, *ob;
+			FanotifyFileEntry *fe = arg;
+			FanotifyMarkEntry *me;
+			int i;
 
 			if (type != FD_TYPES__FANOTIFY)
 				goto parse_err;
 
-			e = xmalloc(sizeof(*e));
-			if (!e)
-				goto parse_err;
 
-			fanotify_mark_entry__init(&e->ffy.e);
-			fanotify_mount_mark_entry__init(&e->ffy.me);
-			e->ffy.e.me = &e->ffy.me;
+			ob = buf = xmalloc(sizeof(FanotifyMarkEntry) +
+					sizeof(FanotifyMountMarkEntry));
+			if (!buf)
+				goto out;
+
+			me = xptr_pull(&buf, FanotifyMarkEntry);
+			fanotify_mark_entry__init(me);
+			me->me = xptr_pull(&buf, FanotifyMountMarkEntry);
+			fanotify_mount_mark_entry__init(me->me);
 
 			ret = sscanf(str,
 				     "fanotify mnt_id:%x mflags:%x mask:%x ignored_mask:%x",
-				     &e->ffy.e.me->mnt_id, &e->ffy.e.mflags,
-				     &e->ffy.e.mask, &e->ffy.e.ignored_mask);
-			if (ret != 4)
+				     &me->me->mnt_id, &me->mflags,
+				     &me->mask, &me->ignored_mask);
+			if (ret != 4) {
+				xfree(ob);
 				goto parse_err;
+			}
 
-			e->ffy.e.type = MARK_TYPE__MOUNT;
-			ret = cb(e, arg);
-			if (ret)
+			me->type = MARK_TYPE__MOUNT;
+
+			i = fe->n_mark++;
+			if (xrealloc_safe(&fe->mark, fe->n_mark * sizeof(FanotifyMarkEntry *))) {
+				xfree(ob);
 				goto out;
+			}
 
+			fe->mark[i] = me;
 			entry_met = true;
 			continue;
 		}
