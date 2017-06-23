@@ -22,3 +22,4 @@ script:
 after_success:
   - ccache -s
   - make -C scripts/travis after_success
+group: deprecated-2017Q2
