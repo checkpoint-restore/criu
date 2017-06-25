@@ -130,14 +130,13 @@ static void free_lazy_iovs(struct lazy_pages_info *lpi)
 
 static void lpi_fini(struct lazy_pages_info *lpi)
 {
-
 	if (!lpi)
 		return;
 	free(lpi->buf);
 	free_lazy_iovs(lpi);
 	if (lpi->lpfd.fd > 0)
 		close(lpi->lpfd.fd);
-	if (lpi->pr.close)
+	if (!lpi->parent && lpi->pr.close)
 		lpi->pr.close(&lpi->pr);
 	free(lpi);
 }
