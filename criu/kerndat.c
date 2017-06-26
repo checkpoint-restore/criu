@@ -563,6 +563,80 @@ static int kerndat_compat_restore(void)
 	return 0;
 }
 
+static int kerndat_detect_stack_guard_gap(void)
+{
+	int num, ret = -1, detected = 0;
+	unsigned long start, end;
+	char r, w, x, s;
+	char buf[1024];
+	FILE *maps;
+	void *mem;
+
+	mem = mmap(NULL, (3ul << 20), PROT_READ | PROT_WRITE,
+		   MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
+	if (mem == MAP_FAILED) {
+		pr_perror("Can't mmap stack area");
+		return -1;
+	}
+	munmap(mem, (3ul << 20));
+
+	mem = mmap(mem + (2ul << 20), (1ul << 20), PROT_READ | PROT_WRITE,
+		   MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | MAP_GROWSDOWN, -1, 0);
+	if (mem == MAP_FAILED) {
+		pr_perror("Can't mmap stack area");
+		return -1;
+	}
+
+	maps = fopen("/proc/self/maps", "r");
+	if (maps == NULL) {
+		munmap(mem, 4096);
+		return -1;
+	}
+
+	while (fgets(buf, sizeof(buf), maps)) {
+		num = sscanf(buf, "%lx-%lx %c%c%c%c",
+			     &start, &end, &r, &w, &x, &s);
+		if (num < 6) {
+			pr_err("Can't parse: %s\n", buf);
+			goto err;
+		}
+
+		/*
+		 * When reading /proc/$pid/[s]maps the
+		 * start/end addresses migh be cutted off
+		 * with PAGE_SIZE on kernels prior 4.12
+		 * (see kernel commit 1be7107fbe18ee).
+		 *
+		 * Same time there was semi-complete
+		 * patch released which hitted a number
+		 * of repos (Ubuntu, Fedora) where instead
+		 * of PAGE_SIZE the 1M gap is cutted off.
+		 */
+		if (start == (unsigned long)mem) {
+			kdat.stack_guard_gap_hidden = false;
+			detected = 1;
+			break;
+		} else if (start == ((unsigned long)mem + (1ul << 20))) {
+			pr_warn("Unsupported stack guard detected, confused but continue\n");
+			kdat.stack_guard_gap_hidden = true;
+			detected = 1;
+			break;
+		} else if (start == ((unsigned long)mem + PAGE_SIZE)) {
+			kdat.stack_guard_gap_hidden = true;
+			detected = 1;
+			break;
+		}
+	}
+
+	if (detected)
+		ret = 0;
+
+err:
+	munmap(mem, (1ul << 20));
+	fclose(maps);
+	return ret;
+}
+
 #define KERNDAT_CACHE_FILE	KDAT_RUNDIR"/criu.kdat"
 #define KERNDAT_CACHE_FILE_TMP	KDAT_RUNDIR"/.criu.kdat"
 
@@ -676,6 +750,8 @@ int kerndat_init(void)
 		ret = kerndat_compat_restore();
 	if (!ret)
 		ret = kerndat_has_memfd_create();
+	if (!ret)
+		ret = kerndat_detect_stack_guard_gap();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
