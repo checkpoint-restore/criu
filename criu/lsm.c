@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "kerndat.h"
 #include "config.h"
 #include "pstree.h"
 #include "util.h"
@@ -18,8 +19,6 @@
 #ifdef CONFIG_HAS_SELINUX
 #include <selinux/selinux.h>
 #endif
-
-static Lsmtype	lsmtype;
 
 static int apparmor_get_label(pid_t pid, char **profile_name)
 {
@@ -108,7 +107,7 @@ static int selinux_get_label(pid_t pid, char **output)
 void kerndat_lsm(void)
 {
 	if (access(AA_SECURITYFS_PATH, F_OK) == 0) {
-		lsmtype = LSMTYPE__APPARMOR;
+		kdat.lsm = LSMTYPE__APPARMOR;
 		return;
 	}
 
@@ -119,17 +118,17 @@ void kerndat_lsm(void)
 	 * well.
 	 */
 	if (access("/sys/fs/selinux", F_OK) == 0) {
-		lsmtype = LSMTYPE__SELINUX;
+		kdat.lsm = LSMTYPE__SELINUX;
 		return;
 	}
 #endif
 
-	lsmtype = LSMTYPE__NO_LSM;
+	kdat.lsm = LSMTYPE__NO_LSM;
 }
 
 Lsmtype host_lsm_type(void)
 {
-	return lsmtype;
+	return kdat.lsm;
 }
 
 int collect_lsm_profile(pid_t pid, CredsEntry *ce)
@@ -138,7 +137,7 @@ int collect_lsm_profile(pid_t pid, CredsEntry *ce)
 
 	ce->lsm_profile = NULL;
 
-	switch (lsmtype) {
+	switch (kdat.lsm) {
 	case LSMTYPE__NO_LSM:
 		ret = 0;
 		break;
@@ -167,7 +166,7 @@ extern Lsmtype image_lsm;
 
 int validate_lsm(char *lsm_profile)
 {
-	if (image_lsm == LSMTYPE__NO_LSM || image_lsm == lsmtype)
+	if (image_lsm == LSMTYPE__NO_LSM || image_lsm == kdat.lsm)
 		return 0;
 
 	/*
@@ -187,7 +186,7 @@ int render_lsm_profile(char *profile, char **val)
 {
 	*val = NULL;
 
-	switch (lsmtype) {
+	switch (kdat.lsm) {
 	case LSMTYPE__APPARMOR:
 		if (strcmp(profile, "unconfined") != 0 && asprintf(val, "changeprofile %s", profile) < 0) {
 			pr_err("allocating lsm profile failed\n");
@@ -226,14 +225,14 @@ int lsm_check_opts(void)
 	aux++;
 
 	if (strcmp(opts.lsm_profile, "apparmor") == 0) {
-		if (lsmtype != LSMTYPE__APPARMOR) {
+		if (kdat.lsm != LSMTYPE__APPARMOR) {
 			pr_err("apparmor LSM specified but apparmor not supported by kernel\n");
 			return -1;
 		}
 
 		opts.lsm_profile = aux;
 	} else if (strcmp(opts.lsm_profile, "selinux") == 0) {
-		if (lsmtype != LSMTYPE__SELINUX) {
+		if (kdat.lsm != LSMTYPE__SELINUX) {
 			pr_err("selinux LSM specified but selinux not supported by kernel\n");
 			return -1;
 		}
