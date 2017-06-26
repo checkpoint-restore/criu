@@ -25,6 +25,7 @@
 #include "kerndat.h"
 #include "vdso.h"
 #include "vma.h"
+#include "mem.h"
 #include "bfd.h"
 #include "proc_parse.h"
 #include "fdinfo.h"
@@ -637,7 +638,7 @@ static int vma_list_add(struct vma_area *vma_area,
 	}
 
 	/* Add a guard page only if here is enough space for it */
-	if ((vma_area->e->flags & MAP_GROWSDOWN) &&
+	if (vma_has_guard_gap_hidden(vma_area) &&
 	    *prev_end < vma_area->e->start)
 		vma_area->e->start -= PAGE_SIZE; /* Guard page */
 	*prev_end = vma_area->e->end;

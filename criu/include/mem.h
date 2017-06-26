@@ -9,11 +9,13 @@ struct parasite_ctl;
 struct vm_area_list;
 struct page_pipe;
 struct pstree_item;
+struct vma_area;
 
 struct mem_dump_ctl {
 	bool	pre_dump;
 };
 
+extern bool vma_has_guard_gap_hidden(struct vma_area *vma);
 extern bool page_in_parent(bool dirty);
 extern int prepare_mm_pid(struct pstree_item *i);
 extern void prepare_cow_vmas(void);

@@ -499,7 +499,7 @@ int prepare_mm_pid(struct pstree_item *i)
 
 		if (vma_area_is_private(vma, kdat.task_size)) {
 			ri->vmas.priv_size += vma_area_len(vma);
-			if (vma->e->flags & MAP_GROWSDOWN)
+			if (vma_has_guard_gap_hidden(vma))
 				ri->vmas.priv_size += PAGE_SIZE;
 		}
 
@@ -634,7 +634,7 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 	 * A grow-down VMA has a guard page, which protect a VMA below it.
 	 * So one more page is mapped here to restore content of the first page
 	 */
-	if (vma->e->flags & MAP_GROWSDOWN)
+	if (vma_has_guard_gap_hidden(vma))
 		vma->e->start -= PAGE_SIZE;
 
 	size = vma_entry_len(vma->e);
@@ -686,7 +686,7 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		 */
 
 		paddr = decode_pointer(vma->pvma->premmaped_addr);
-		if (vma->e->flags & MAP_GROWSDOWN)
+		if (vma_has_guard_gap_hidden(vma))
 			paddr -= PAGE_SIZE;
 
 		addr = mremap(paddr, size, size,
@@ -702,7 +702,7 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 	pr_debug("\tpremap %#016"PRIx64"-%#016"PRIx64" -> %016lx\n",
 		vma->e->start, vma->e->end, (unsigned long)addr);
 
-	if (vma->e->flags & MAP_GROWSDOWN) { /* Skip gurad page */
+	if (vma_has_guard_gap_hidden(vma)) { /* Skip gurad page */
 		vma->e->start += PAGE_SIZE;
 		vma->premmaped_addr += PAGE_SIZE;
 	}
@@ -717,7 +717,8 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 static inline bool vma_force_premap(struct vma_area *vma, struct list_head *head)
 {
 	/*
-	 * Growsdown VMAs always have one guard page at the
+	 * On kernels with 4K guard pages, growsdown VMAs
+	 * always have one guard page at the
 	 * beginning and sometimes this page contains data.
 	 * In case the VMA is premmaped, we premmap one page
 	 * larger VMA. In case of in place restore we can only
@@ -1046,6 +1047,11 @@ out:
 	return ret;
 }
 
+bool vma_has_guard_gap_hidden(struct vma_area *vma)
+{
+	return kdat.stack_guard_gap_hidden && (vma->e->flags & MAP_GROWSDOWN);
+}
+
 /*
  * A gard page must be unmapped after restoring content and
  * forking children to restore COW memory.
@@ -1054,6 +1060,9 @@ int unmap_guard_pages(struct pstree_item *t)
 {
 	struct vma_area *vma;
 	struct list_head *vmas = &rsti(t)->vmas.h;
+
+	if (!kdat.stack_guard_gap_hidden)
+		return 0;
 
 	list_for_each_entry(vma, vmas, list) {
 		if (!vma_area_is(vma, VMA_PREMMAPED))
