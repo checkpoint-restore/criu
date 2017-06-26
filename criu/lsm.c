@@ -20,7 +20,6 @@
 #endif
 
 static Lsmtype	lsmtype;
-static int	(*get_label)(pid_t, char **) = NULL;
 
 static int apparmor_get_label(pid_t pid, char **profile_name)
 {
@@ -109,7 +108,6 @@ static int selinux_get_label(pid_t pid, char **output)
 void kerndat_lsm(void)
 {
 	if (access(AA_SECURITYFS_PATH, F_OK) == 0) {
-		get_label = apparmor_get_label;
 		lsmtype = LSMTYPE__APPARMOR;
 		return;
 	}
@@ -121,13 +119,11 @@ void kerndat_lsm(void)
 	 * well.
 	 */
 	if (access("/sys/fs/selinux", F_OK) == 0) {
-		get_label = selinux_get_label;
 		lsmtype = LSMTYPE__SELINUX;
 		return;
 	}
 #endif
 
-	get_label = NULL;
 	lsmtype = LSMTYPE__NO_LSM;
 }
 
@@ -138,18 +134,32 @@ Lsmtype host_lsm_type(void)
 
 int collect_lsm_profile(pid_t pid, CredsEntry *ce)
 {
+	int ret;
+
 	ce->lsm_profile = NULL;
 
-	if (lsmtype == LSMTYPE__NO_LSM)
-		return 0;
-
-	if (get_label(pid, &ce->lsm_profile) < 0)
-		return -1;
+	switch (lsmtype) {
+	case LSMTYPE__NO_LSM:
+		ret = 0;
+		break;
+	case LSMTYPE__APPARMOR:
+		ret = apparmor_get_label(pid, &ce->lsm_profile);
+		break;
+#ifdef CONFIG_HAS_SELINUX
+	case LSMTYPE__SELINUX:
+		ret = selinux_get_label(pid, &ce->lsm_profile);
+		break;
+#endif
+	default:
+		BUG();
+		ret = -1;
+		break;
+	}
 
 	if (ce->lsm_profile)
 		pr_info("%d has lsm profile %s\n", pid, ce->lsm_profile);
 
-	return 0;
+	return ret;
 }
 
 // in inventory.c
