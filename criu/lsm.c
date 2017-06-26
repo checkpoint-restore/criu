@@ -21,7 +21,6 @@
 
 static Lsmtype	lsmtype;
 static int	(*get_label)(pid_t, char **) = NULL;
-static char	*name = NULL;
 
 static int apparmor_get_label(pid_t pid, char **profile_name)
 {
@@ -120,7 +119,6 @@ void kerndat_lsm(void)
 	if (access(AA_SECURITYFS_PATH, F_OK) == 0) {
 		get_label = apparmor_get_label;
 		lsmtype = LSMTYPE__APPARMOR;
-		name = "apparmor";
 		return;
 	}
 
@@ -133,14 +131,12 @@ void kerndat_lsm(void)
 	if (access("/sys/fs/selinux", F_OK) == 0) {
 		get_label = selinux_get_label;
 		lsmtype = LSMTYPE__SELINUX;
-		name = "selinux";
 		return;
 	}
 #endif
 
 	get_label = NULL;
 	lsmtype = LSMTYPE__NO_LSM;
-	name = "none";
 }
 
 Lsmtype host_lsm_type(void)
