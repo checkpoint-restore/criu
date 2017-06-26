@@ -33,5 +33,5 @@ int validate_lsm(char *profile);
  */
 int render_lsm_profile(char *profile, char **val);
 
-extern int parse_lsm_arg(char *arg);
+extern int lsm_check_opts(void);
 #endif /* __CR_LSM_H__ */

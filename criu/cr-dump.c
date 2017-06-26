@@ -1539,6 +1539,9 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (kerndat_init())
 		goto err;
 
+	if (lsm_check_opts())
+		goto err;
+
 	if (irmap_load_cache())
 		goto err;
 
@@ -1687,6 +1690,9 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	if (kerndat_init())
+		goto err;
+
+	if (lsm_check_opts())
 		goto err;
 
 	if (irmap_load_cache())

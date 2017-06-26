@@ -108,14 +108,6 @@ static int selinux_get_label(pid_t pid, char **output)
 
 void kerndat_lsm(void)
 {
-	/* On restore, if someone passes --lsm-profile, we might end up doing
-	 * detection twice, once during flag parsing and once for
-	 * kerndat_init(). Let's detect when we've already done detection
-	 * and not do it again.
-	 */
-	if (name)
-		return;
-
 	if (access(AA_SECURITYFS_PATH, F_OK) == 0) {
 		get_label = apparmor_get_label;
 		lsmtype = LSMTYPE__APPARMOR;
@@ -207,43 +199,42 @@ int render_lsm_profile(char *profile, char **val)
 	return 0;
 }
 
-int parse_lsm_arg(char *arg)
+int lsm_check_opts(void)
 {
 	char *aux;
 
-	kerndat_lsm();
+	if (!opts.lsm_supplied)
+		return 0;
 
-	aux = strchr(arg, ':');
+	aux = strchr(opts.lsm_profile, ':');
 	if (aux == NULL) {
-		pr_err("invalid argument %s for --lsm-profile\n", arg);
+		pr_err("invalid argument %s for --lsm-profile\n", opts.lsm_profile);
 		return -1;
 	}
 
 	*aux = '\0';
 	aux++;
 
-	if (strcmp(arg, "apparmor") == 0) {
+	if (strcmp(opts.lsm_profile, "apparmor") == 0) {
 		if (lsmtype != LSMTYPE__APPARMOR) {
 			pr_err("apparmor LSM specified but apparmor not supported by kernel\n");
 			return -1;
 		}
 
 		opts.lsm_profile = aux;
-	} else if (strcmp(arg, "selinux") == 0) {
+	} else if (strcmp(opts.lsm_profile, "selinux") == 0) {
 		if (lsmtype != LSMTYPE__SELINUX) {
 			pr_err("selinux LSM specified but selinux not supported by kernel\n");
 			return -1;
 		}
 
 		opts.lsm_profile = aux;
-	} else if (strcmp(arg, "none") == 0) {
+	} else if (strcmp(opts.lsm_profile, "none") == 0) {
 		opts.lsm_profile = NULL;
 	} else {
-		pr_err("unknown lsm %s\n", arg);
+		pr_err("unknown lsm %s\n", opts.lsm_profile);
 		return -1;
 	}
-
-	opts.lsm_supplied = true;
 
 	return 0;
 }

@@ -511,8 +511,8 @@ int main(int argc, char *argv[], char *envp[])
 				return -1;
 			break;
 		case 1071:
-			if (parse_lsm_arg(optarg) < 0)
-				return -1;
+			opts.lsm_profile = optarg;
+			opts.lsm_supplied = true;
 			break;
 		case 1072:
 			opts.timeout = atoi(optarg);
