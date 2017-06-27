@@ -1,26 +1,29 @@
 #
 # Installation paths.
 PREFIX		?= /usr/local
-BINDIR		:= $(PREFIX)/bin
-SBINDIR		:= $(PREFIX)/sbin
-MANDIR		:= $(PREFIX)/share/man
-LIBDIR		:= $(PREFIX)/lib
-INCLUDEDIR	:= $(PREFIX)/include
-LIBEXECDIR	:= $(PREFIX)/libexec
+BINDIR		?= $(PREFIX)/bin
+SBINDIR		?= $(PREFIX)/sbin
+MANDIR		?= $(PREFIX)/share/man
+INCLUDEDIR	?= $(PREFIX)/include
+LIBEXECDIR	?= $(PREFIX)/libexec
 RUNDIR		?= /run
 
 #
 # For recent Debian/Ubuntu with multiarch support.
 DEB_HOST_MULTIARCH := $(shell dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null)
 ifneq "$(DEB_HOST_MULTIARCH)" ""
-        LIBDIR			:= $(PREFIX)/lib/$(DEB_HOST_MULTIARCH)
+        LIBDIR			?= $(PREFIX)/lib/$(DEB_HOST_MULTIARCH)
 else
         #
         # For most other systems
         ifeq "$(shell uname -m)" "x86_64"
-                LIBDIR		:= $(PREFIX)/lib64
+                LIBDIR		?= $(PREFIX)/lib64
         endif
 endif
+
+#
+# LIBDIR falls back to the standard path.
+LIBDIR ?= $(PREFIX)/lib
 
 export PREFIX BINDIR SBINDIR MANDIR RUNDIR
 export LIBDIR INCLUDEDIR LIBEXECDIR
