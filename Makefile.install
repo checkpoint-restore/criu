@@ -1,6 +1,6 @@
 #
 # Installation paths.
-PREFIX		:= /usr/local
+PREFIX		?= /usr/local
 BINDIR		:= $(PREFIX)/bin
 SBINDIR		:= $(PREFIX)/sbin
 MANDIR		:= $(PREFIX)/share/man
