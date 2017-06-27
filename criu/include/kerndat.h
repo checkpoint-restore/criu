@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "int.h"
+#include "config.h"
 
 struct stat;
 
