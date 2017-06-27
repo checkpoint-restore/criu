@@ -299,7 +299,11 @@ void test_waitsig(void)
 
 pid_t fork()
 {
-	return (pid_t)syscall(__NR_clone, SIGCHLD, 0, NULL, 0, NULL);
+	/*
+	 * Two last arguments are swapped on different archs,
+	 * but we don't care as they are zero anyway.
+	 */
+	return (pid_t)syscall(__NR_clone, SIGCHLD, 0, 0, 0, 0);
 }
 
 int getpid()
