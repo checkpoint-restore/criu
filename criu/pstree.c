@@ -1416,6 +1416,9 @@ int prepare_dummy_pstree(void)
 	if (prepare_task_entries() == -1)
 		return -1;
 
+	if (read_ns_with_hookups())
+		return -1;
+
 	if (read_pstree_image(&dummy) == -1)
 		return -1;
 
