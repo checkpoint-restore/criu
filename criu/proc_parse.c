@@ -77,7 +77,7 @@ static char *buf = __buf.buf;
 #define AIO_FNAME	"/[aio]"
 
 /* check the @line starts with "%lx-%lx" format */
-static bool is_vma_range_fmt(char *line)
+static bool __is_vma_range_fmt(char *line)
 {
 #define ____is_vma_addr_char(__c)		\
 	(((__c) <= '9' && (__c) >= '0') ||	\
@@ -99,55 +99,54 @@ static bool is_vma_range_fmt(char *line)
 #undef ____is_vma_addr_char
 }
 
-static int parse_vmflags(char *buf, struct vma_area *vma_area)
+bool is_vma_range_fmt(char *line)
+{
+	return __is_vma_range_fmt(line);
+}
+
+static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf)
 {
 	char *tok;
 
 	if (!buf[0])
-		return 0;
+		return;
 
 	tok = strtok(buf, " \n");
 	if (!tok)
-		return 0;
+		return;
 
 #define _vmflag_match(_t, _s) (_t[0] == _s[0] && _t[1] == _s[1])
 
 	do {
 		/* mmap() block */
 		if (_vmflag_match(tok, "gd"))
-			vma_area->e->flags |= MAP_GROWSDOWN;
+			*flags |= MAP_GROWSDOWN;
 		else if (_vmflag_match(tok, "lo"))
-			vma_area->e->flags |= MAP_LOCKED;
+			*flags |= MAP_LOCKED;
 		else if (_vmflag_match(tok, "nr"))
-			vma_area->e->flags |= MAP_NORESERVE;
+			*flags |= MAP_NORESERVE;
 		else if (_vmflag_match(tok, "ht"))
-			vma_area->e->flags |= MAP_HUGETLB;
+			*flags |= MAP_HUGETLB;
 
 		/* madvise() block */
 		if (_vmflag_match(tok, "sr"))
-			vma_area->e->madv |= (1ul << MADV_SEQUENTIAL);
+			*madv |= (1ul << MADV_SEQUENTIAL);
 		else if (_vmflag_match(tok, "rr"))
-			vma_area->e->madv |= (1ul << MADV_RANDOM);
+			*madv |= (1ul << MADV_RANDOM);
 		else if (_vmflag_match(tok, "dc"))
-			vma_area->e->madv |= (1ul << MADV_DONTFORK);
+			*madv |= (1ul << MADV_DONTFORK);
 		else if (_vmflag_match(tok, "dd"))
-			vma_area->e->madv |= (1ul << MADV_DONTDUMP);
+			*madv |= (1ul << MADV_DONTDUMP);
 		else if (_vmflag_match(tok, "mg"))
-			vma_area->e->madv |= (1ul << MADV_MERGEABLE);
+			*madv |= (1ul << MADV_MERGEABLE);
 		else if (_vmflag_match(tok, "hg"))
-			vma_area->e->madv |= (1ul << MADV_HUGEPAGE);
+			*madv |= (1ul << MADV_HUGEPAGE);
 		else if (_vmflag_match(tok, "nh"))
-			vma_area->e->madv |= (1ul << MADV_NOHUGEPAGE);
+			*madv |= (1ul << MADV_NOHUGEPAGE);
 
 		/* vmsplice doesn't work for VM_IO and VM_PFNMAP mappings. */
-		if (_vmflag_match(tok, "io") || _vmflag_match(tok, "pf")) {
-			/*
-			 * VVAR area mapped by the kernel as
-			 * VM_IO | VM_PFNMAP| VM_DONTEXPAND | VM_DONTDUMP
-			 */
-			if (!vma_area_is(vma_area, VMA_AREA_VVAR))
-				vma_area->e->status |= VMA_UNSUPP;
-		}
+		if (_vmflag_match(tok, "io") || _vmflag_match(tok, "pf"))
+			*io_pf = 1;
 
 		/*
 		 * Anything else is just ignored.
@@ -155,11 +154,29 @@ static int parse_vmflags(char *buf, struct vma_area *vma_area)
 	} while ((tok = strtok(NULL, " \n")));
 
 #undef _vmflag_match
+}
+
+void parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf)
+{
+	__parse_vmflags(buf, flags, madv, io_pf);
+}
+
+static void parse_vma_vmflags(char *buf, struct vma_area *vma_area)
+{
+	int io_pf = 0;
+
+	__parse_vmflags(buf, &vma_area->e->flags, &vma_area->e->madv, &io_pf);
+
+	/*
+	 * vmsplice doesn't work for VM_IO and VM_PFNMAP mappings, the
+	 * only exception is VVAR area that mapped by the kernel as
+	 * VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP
+	 */
+	if (io_pf && !vma_area_is(vma_area, VMA_AREA_VVAR))
+		vma_area->e->status |= VMA_UNSUPP;
 
 	if (vma_area->e->madv)
 		vma_area->e->has_madv = true;
-
-	return 0;
 }
 
 static inline int is_anon_shmem_map(dev_t dev)
@@ -722,7 +739,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list,
 			goto err;
 		eof = (str == NULL);
 
-		if (!eof && !is_vma_range_fmt(str)) {
+		if (!eof && !__is_vma_range_fmt(str)) {
 			if (!strncmp(str, "Nonlinear", 9)) {
 				BUG_ON(!vma_area);
 				pr_err("Nonlinear mapping found %016"PRIx64"-%016"PRIx64"\n",
@@ -735,8 +752,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list,
 				goto err;
 			} else if (!strncmp(str, "VmFlags: ", 9)) {
 				BUG_ON(!vma_area);
-				if (parse_vmflags(&str[9], vma_area))
-					goto err;
+				parse_vma_vmflags(&str[9], vma_area);
 				continue;
 			} else
 				continue;
@@ -2491,7 +2507,7 @@ int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups)
 
 				nc->controllers[nc->n_controllers-1] = n;
 			}
-			
+
 skip:
 			if (!off)
 				break;
@@ -2598,4 +2614,3 @@ err:
 	xfree(ch);
 	return -1;
 }
-

@@ -105,4 +105,7 @@ extern int parse_threads(int pid, struct pid **_t, int *_n);
 
 int parse_children(pid_t pid, pid_t **_c, int *_n);
 
+extern bool is_vma_range_fmt(char *line);
+extern void parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf);
+
 #endif /* __CR_PROC_PARSE_H__ */
