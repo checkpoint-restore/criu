@@ -2555,6 +2555,9 @@ static int prepare_mm(pid_t pid, struct task_restore_args *args)
 		goto out;
 
 	args->fd_exe_link = exe_fd;
+
+	args->has_thp_enabled = rsti(current)->has_thp_enabled;
+
 	ret = 0;
 out:
 	return ret;

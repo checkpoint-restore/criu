@@ -127,6 +127,11 @@ static inline unsigned long pagemap_len(PagemapEntry *pe)
 	return pe->nr_pages * PAGE_SIZE;
 }
 
+static inline bool page_read_has_parent(struct page_read *pr)
+{
+	return pr->parent != NULL;
+}
+
 /* Pagemap flags */
 #define PE_PARENT	(1 << 0)	/* pages are in parent snapshot */
 #define PE_LAZY		(1 << 1)	/* pages can be lazily restored */

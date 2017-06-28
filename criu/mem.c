@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/syscall.h>
+#include <sys/prctl.h>
 
 #include "types.h"
 #include "cr_options.h"
@@ -27,6 +28,7 @@
 #include "files-reg.h"
 #include "pagemap-cache.h"
 #include "fault-injection.h"
+#include "prctl.h"
 #include <compel/compel.h>
 
 #include "protobuf.h"
@@ -1036,6 +1038,38 @@ err_addr:
 	return -1;
 }
 
+static int maybe_disable_thp(struct pstree_item *t, struct page_read *pr)
+{
+	struct _MmEntry *mm = rsti(t)->mm;
+
+	/*
+	 * There is no need to disable it if the page read doesn't
+	 * have parent. In this case VMA will be empty until
+	 * userfaultfd_register, so there would be no pages to
+	 * collapse. And, once we register the VMA with uffd,
+	 * khugepaged will skip it.
+	 */
+	if (!(opts.lazy_pages && page_read_has_parent(pr)))
+		return 0;
+
+	if (!kdat.has_thp_disable)
+		pr_warn("Disabling transparent huge pages. "
+			"It may affect performance!\n");
+
+	/*
+	 * temporarily disable THP to avoid collapse of pages
+	 * in the areas that will be monitored by uffd
+	 */
+	if (prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0)) {
+		pr_perror("Cannot disable THP");
+		return -1;
+	}
+	if (!(mm->has_thp_disabled && mm->thp_disabled))
+		rsti(t)->has_thp_enabled = true;
+
+	return 0;
+}
+
 int prepare_mappings(struct pstree_item *t)
 {
 	int ret = 0;
@@ -1065,6 +1099,9 @@ int prepare_mappings(struct pstree_item *t)
 
 	ret = open_page_read(vpid(t), &pr, PR_TASK);
 	if (ret <= 0)
+		return -1;
+
+	if (maybe_disable_thp(t, &pr))
 		return -1;
 
 	pr.advance(&pr); /* shift to the 1st iovec */
@@ -1216,4 +1253,3 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 
 	return prepare_vma_ios(t, ta);
 }
-

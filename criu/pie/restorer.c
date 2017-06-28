@@ -1244,6 +1244,14 @@ long __export_restore_task(struct task_restore_args *args)
 	}
 
 	if (args->uffd > -1) {
+		/* re-enable THP if we disabled it previously */
+		if (args->has_thp_enabled) {
+			if (sys_prctl(PR_SET_THP_DISABLE, 0, 0, 0, 0)) {
+				pr_err("Cannot re-enable THP\n");
+				goto core_restore_end;
+			}
+		}
+
 		pr_debug("lazy-pages: closing uffd %d\n", args->uffd);
 		/*
 		 * All userfaultfd configuration has finished at this point.
