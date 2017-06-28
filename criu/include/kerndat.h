@@ -51,6 +51,7 @@ struct kerndat_s {
 	int lsm;
 	bool has_uffd;
 	unsigned long uffd_features;
+	bool has_thp_disable;
 };
 
 extern struct kerndat_s kdat;

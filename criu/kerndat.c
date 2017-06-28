@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
+#include <sys/prctl.h>
 
 #include "int.h"
 #include "log.h"
@@ -31,6 +32,7 @@
 #include <compel/compel.h>
 #include "netfilter.h"
 #include "linux/userfaultfd.h"
+#include "prctl.h"
 
 struct kerndat_s kdat = {
 };
@@ -755,6 +757,75 @@ int kerndat_uffd(void)
 	return 0;
 }
 
+int kerndat_has_thp_disable(void)
+{
+	struct bfd f;
+	void *addr;
+	char *str;
+	int ret = -1;
+	bool vma_match = false;
+
+	if (prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0)) {
+		if (errno != EINVAL)
+			return -1;
+		pr_info("PR_SET_THP_DISABLE is not available\n");
+		return 0;
+	}
+
+	addr = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
+		    MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+	if (addr == MAP_FAILED) {
+		pr_perror("Can't mmap memory for THP disable test");
+		return -1;
+	}
+
+	if (prctl(PR_SET_THP_DISABLE, 0, 0, 0, 0))
+		return -1;
+
+	f.fd = open("/proc/self/smaps", O_RDONLY);
+	if (f.fd < 0) {
+		pr_perror("Can't open /proc/self/smaps");
+		goto out;
+	}
+	if (bfdopenr(&f))
+		goto out;
+
+	while ((str = breadline(&f)) != NULL) {
+		if (IS_ERR(str))
+			goto out;
+
+		if (is_vma_range_fmt(str)) {
+			unsigned long vma_addr;
+
+			if (sscanf(str, "%lx-", &vma_addr) != 1) {
+				pr_err("Can't parse: %s\n", str);
+				goto out;
+			}
+
+			if (vma_addr == (unsigned long)addr)
+				vma_match = true;
+		}
+
+		if (vma_match && !strncmp(str, "VmFlags: ", 9)) {
+			u32 flags = 0;
+			u64 madv = 0;
+			int io_pf = 0;
+
+			parse_vmflags(str, &flags, &madv, &io_pf);
+			kdat.has_thp_disable = !(madv & (1 << MADV_NOHUGEPAGE));
+			break;
+		}
+	}
+
+	ret = 0;
+
+out:
+	bclose(&f);
+	munmap(addr, PAGE_SIZE);
+
+	return ret;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -795,6 +866,8 @@ int kerndat_init(void)
 		ret = kerndat_detect_stack_guard_gap();
 	if (!ret)
 		ret = kerndat_uffd();
+	if (!ret)
+		ret = kerndat_has_thp_disable();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();

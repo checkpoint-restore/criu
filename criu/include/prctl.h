@@ -74,4 +74,12 @@ struct prctl_mm_map {
 # define PR_GET_TID_ADDRESS	40
 #endif
 
+#ifndef PR_SET_THP_DISABLE
+# define PR_SET_THP_DISABLE	41
+#endif
+
+#ifndef PR_GET_THP_DISABLE
+# define PR_GET_THP_DISABLE	42
+#endif
+
 #endif /* __CR_PRCTL_H__ */
