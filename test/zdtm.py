@@ -1643,6 +1643,10 @@ def run_tests(opts):
 				l.skip(t, "arch %s" % tdesc['arch'])
 				continue
 
+			if test_flag(tdesc, 'reqrst') and opts['norst']:
+				l.skip(t, "restore stage is required")
+				continue
+
 			if run_all and test_flag(tdesc, 'noauto'):
 				l.skip(t, "manual run only")
 				continue

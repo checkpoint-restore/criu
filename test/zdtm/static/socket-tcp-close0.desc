@@ -1,1 +1,1 @@
-{'dopts': '--tcp-established', 'ropts': '--tcp-close'}
+{'dopts': '--tcp-established', 'ropts': '--tcp-close', 'flags': 'reqrst '}
