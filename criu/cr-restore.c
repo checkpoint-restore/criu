@@ -1379,9 +1379,7 @@ static int call_clone_fn(void *arg)
 	}
 	close(fd);
 
-	if (ca->clone_flags & CLONE_FILES)
-		close_pid_proc();
-
+	close_pid_proc();
 	pid = clone_noasan(restore_task_with_children, ca->clone_flags | CLONE_PARENT | SIGCHLD, ca);
 	return pid > 0 ? 0 : -1;
 }
@@ -1398,8 +1396,7 @@ static int do_fork_with_pid(struct pstree_item *item, struct ns_id *pid_ns, stru
 			pr_err("Can't set next pid\n");
 			return -1;
 		}
-		if (ca->clone_flags & CLONE_FILES)
-			close_pid_proc();
+		close_pid_proc();
 		pid = clone_noasan(restore_task_with_children, ca->clone_flags | SIGCHLD, ca);
 		if (item == root_item) {
 			/* We want to use it before it's set in restore_task_with_children() */
@@ -1429,9 +1426,6 @@ static int do_fork_with_pid(struct pstree_item *item, struct ns_id *pid_ns, stru
 		pr_err("Can't set next pid\n");
 		return -1;
 	}
-
-	if (ca->clone_flags & CLONE_FILES)
-		close_pid_proc();
 
 	if (block_sigmask(&sig_mask, SIGCHLD) < 0)
 		return -1;
