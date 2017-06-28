@@ -1169,6 +1169,30 @@ static int restore_one_zombie(CoreEntry *core)
 	return -1;
 }
 
+static int setup_newborn_fds(struct pstree_item *me)
+{
+	if (clone_service_fd(rsti(me)->service_fd_id))
+		return -1;
+
+	if (!me->parent ||
+	    (rsti(me->parent)->fdt && !(rsti(me)->clone_flags & CLONE_FILES))) {
+		/*
+		 * When our parent has shared fd table, some of the table owners
+		 * may be already created. Files, they open, will be inherited
+		 * by current process, and here we close them. Also, service fds
+		 * of parent are closed here. And root_item closes the files,
+		 * that were inherited from criu process.
+		 */
+		if (close_old_fds())
+			return -1;
+	}
+
+	if (log_init_by_pid(vpid(me)))
+		return -1;
+
+	return 0;
+}
+
 static int check_core(CoreEntry *core, struct pstree_item *me)
 {
 	int ret = -1;
@@ -1774,12 +1798,7 @@ static int restore_task_with_children(void *_arg)
 	if (current->pid->real < 0)
 		goto err;
 
-	ret = clone_service_fd(rsti(current)->service_fd_id);
-	if (ret)
-		goto err;
-
-	ret = log_init_by_pid(vpid(current));
-	if (ret < 0)
+	if (setup_newborn_fds(current))
 		goto err;
 
 	pid = getpid();
@@ -1788,12 +1807,6 @@ static int restore_task_with_children(void *_arg)
 			pid, last_level_pid(current->pid), vpid(current));
 		set_task_cr_err(EEXIST);
 		goto err;
-	}
-
-	if (!(ca->clone_flags & CLONE_FILES)) {
-		ret = close_old_fds();
-		if (ret)
-			goto err;
 	}
 
 	if (current->parent == NULL) {
