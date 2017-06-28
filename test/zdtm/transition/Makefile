@@ -20,6 +20,7 @@ TST_NOFILE	=	\
 		socket-tcp      \
 		socket-tcp6     \
 		shmem		\
+		lazy-thp	\
 
 
 TST_FILE	=	\
