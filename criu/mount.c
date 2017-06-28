@@ -3033,9 +3033,11 @@ int prepare_mnt_ns(void)
 			goto err;
 		}
 
-		if (nsid->type == NS_ROOT) {
-			int fd;
+		fd = open_proc(PROC_SELF, "ns/mnt");
+		if (fd < 0)
+			goto err;
 
+		if (nsid->type == NS_ROOT) {
 			/*
 			 * We need to create a mount namespace which will be
 			 * used to clean up remap files
@@ -3044,9 +3046,6 @@ int prepare_mnt_ns(void)
 			 * namespace, because there are file descriptors
 			 * linked with it (e.g. to bind-mount slave pty-s).
 			 */
-			fd = open_proc(PROC_SELF, "ns/mnt");
-			if (fd < 0)
-				goto err;
 			if (setns(rst, CLONE_NEWNS)) {
 				pr_perror("Can't restore mntns back");
 				goto err;
@@ -3055,9 +3054,7 @@ int prepare_mnt_ns(void)
 			rst = fd;
 		} else {
 			/* Pin one with a file descriptor */
-			nsid->mnt.ns_fd = open_proc(PROC_SELF, "ns/mnt");
-			if (nsid->mnt.ns_fd < 0)
-				goto err;
+			nsid->mnt.ns_fd = fd;
 		}
 
 		/* Set its root */
