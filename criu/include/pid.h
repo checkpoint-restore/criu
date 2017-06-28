@@ -48,14 +48,10 @@ struct pid {
 
 static inline bool equal_pid(struct pid *a, struct pid *b)
 {
-	struct pid *t;
 	int i;
 
-	if (a->level > b->level) {
-		t = a;
-		a = b;
-		b = t;
-	}
+	if (a->level > b->level)
+		SWAP(a, b);
 
 	for(i = 0; i < b->level; i++) {
 		if (i < a->level) {
