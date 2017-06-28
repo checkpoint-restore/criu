@@ -28,6 +28,8 @@ enum sfd_type {
 	SERVICE_FD_MAX
 };
 
+struct pstree_item;
+
 extern int clone_service_fd(int id);
 extern int init_service_fd(void);
 extern int get_service_fd(enum sfd_type type);
@@ -36,6 +38,6 @@ extern int install_service_fd(enum sfd_type type, int fd);
 extern int close_service_fd(enum sfd_type type);
 extern bool is_service_fd(int fd, enum sfd_type type);
 extern bool is_any_service_fd(int fd);
-extern int service_fd_min_fd(void);
+extern int service_fd_min_fd(struct pstree_item *);
 
 #endif /* __CR_SERVICE_FD_H__ */

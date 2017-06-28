@@ -160,7 +160,7 @@ unsigned int find_unused_fd(struct pstree_item *task, int hint_fd)
 		goto out;
 	}
 
-	prev_fd = service_fd_min_fd() - 1;
+	prev_fd = service_fd_min_fd(task) - 1;
 	head = &rsti(task)->fds;
 
 	list_for_each_entry_reverse(fle, head, ps_list) {
@@ -926,7 +926,7 @@ int prepare_fd_pid(struct pstree_item *item)
 		if (ret <= 0)
 			break;
 
-		if (e->fd >= service_fd_min_fd()) {
+		if (e->fd >= service_fd_min_fd(item)) {
 			ret = -1;
 			pr_err("Too big FD number to restore %d\n", e->fd);
 			break;
