@@ -2,6 +2,7 @@
 #define __CR_ASM_VDSO_H__
 
 #include "asm/int.h"
+#include "common/compiler.h"
 #include "asm-generic/vdso.h"
 
 /*
