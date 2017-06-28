@@ -2728,7 +2728,7 @@ static int do_restore_task_mnt_ns(struct ns_id *nsid, struct pstree_item *curren
 {
 	int fd;
 
-	fd = open_proc(vpid(root_item), "fd/%d", nsid->mnt.ns_fd);
+	fd = fdstore_get(nsid->mnt.nsfd_id);
 	if (fd < 0)
 		return -1;
 
@@ -2785,7 +2785,6 @@ void fini_restore_mntns(void)
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
-		close_safe(&nsid->mnt.ns_fd);
 		nsid->ns_populated = true;
 	}
 }
@@ -3054,7 +3053,12 @@ int prepare_mnt_ns(void)
 		}
 
 		/* Pin one with a file descriptor */
-		nsid->mnt.ns_fd = fd;
+		nsid->mnt.nsfd_id = fdstore_add(fd);
+		close(fd);
+		if (nsid->mnt.nsfd_id < 0) {
+			pr_err("Can't add ns fd\n");
+			goto err;
+		}
 
 		/* Set its root */
 		path[0] = '/';
