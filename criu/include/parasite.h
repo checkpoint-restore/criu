@@ -124,6 +124,7 @@ struct parasite_dump_misc {
 	u32 umask;
 
 	int dumpable;
+	int thp_disabled;
 };
 
 /*

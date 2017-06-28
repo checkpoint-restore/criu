@@ -177,6 +177,7 @@ static int dump_misc(struct parasite_dump_misc *args)
 	args->umask = sys_umask(0);
 	sys_umask(args->umask); /* never fails */
 	args->dumpable = sys_prctl(PR_GET_DUMPABLE, 0, 0, 0, 0);
+	args->thp_disabled = sys_prctl(PR_GET_THP_DISABLE, 0, 0, 0, 0);
 
 	return 0;
 }
