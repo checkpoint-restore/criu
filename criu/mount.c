@@ -3050,12 +3050,11 @@ int prepare_mnt_ns(void)
 				pr_perror("Can't restore mntns back");
 				goto err;
 			}
-			nsid->mnt.ns_fd = rst;
-			rst = fd;
-		} else {
-			/* Pin one with a file descriptor */
-			nsid->mnt.ns_fd = fd;
+			SWAP(rst, fd);
 		}
+
+		/* Pin one with a file descriptor */
+		nsid->mnt.ns_fd = fd;
 
 		/* Set its root */
 		path[0] = '/';
