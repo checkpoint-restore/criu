@@ -1247,9 +1247,6 @@ static inline int fork_with_pid(struct pstree_item *item)
 		BUG_ON(pid != INIT_PID);
 	}
 
-	if (ca.clone_flags & CLONE_FILES)
-		close_pid_proc();
-
 	/*
 	 * Some kernel modules, such as netwrok packet generator
 	 * run kernel thread upon net-namespace creattion taking
@@ -1262,6 +1259,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	 * The cgroup namespace is also unshared explicitly in the
 	 * move_in_cgroup(), so drop this flag here as well.
 	 */
+	close_pid_proc();
 	ret = clone_noasan(restore_task_with_children,
 			(ca.clone_flags & ~(CLONE_NEWNET | CLONE_NEWCGROUP)) | SIGCHLD, &ca);
 	if (ret < 0) {
