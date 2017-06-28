@@ -171,7 +171,7 @@ err:
 	return -1;
 }
 
-int log_init_by_pid(void)
+int log_init_by_pid(pid_t pid)
 {
 	char path[PATH_MAX];
 
@@ -182,14 +182,14 @@ int log_init_by_pid(void)
 	reset_buf_off();
 
 	if (!opts.log_file_per_pid) {
-		buf_off += snprintf(buffer + buf_off, sizeof buffer - buf_off, "%6d: ", getpid());
+		buf_off += snprintf(buffer + buf_off, sizeof buffer - buf_off, "%6d: ", pid);
 		return 0;
 	}
 
 	if (!opts.output)
 		return 0;
 
-	snprintf(path, PATH_MAX, "%s.%d", opts.output, getpid());
+	snprintf(path, PATH_MAX, "%s.%d", opts.output, pid);
 
 	return log_init(path);
 }

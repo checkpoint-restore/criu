@@ -24,7 +24,7 @@
 
 extern int log_init(const char *output);
 extern void log_fini(void);
-extern int log_init_by_pid(void);
+extern int log_init_by_pid(pid_t pid);
 extern void log_closedir(void);
 extern int log_keep_err(void);
 extern char *log_first_err(void);

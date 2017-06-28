@@ -1550,16 +1550,16 @@ static int restore_task_with_children(void *_arg)
 	if (ret)
 		goto err;
 
+	ret = log_init_by_pid(vpid(current));
+	if (ret < 0)
+		goto err;
+
 	pid = getpid();
 	if (vpid(current) != pid) {
 		pr_err("Pid %d do not match expected %d\n", pid, vpid(current));
 		set_task_cr_err(EEXIST);
 		goto err;
 	}
-
-	ret = log_init_by_pid();
-	if (ret < 0)
-		goto err;
 
 	if (!(ca->clone_flags & CLONE_FILES)) {
 		ret = close_old_fds();
