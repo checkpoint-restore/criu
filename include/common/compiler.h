@@ -85,6 +85,13 @@
 	type __max2 = (y);			\
 	__max1 > __max2 ? __max1: __max2; })
 
+#define SWAP(x, y)				\
+	do {					\
+		typeof(x) ____val = x;		\
+		x = y;				\
+		y = ____val;			\
+	} while (0)
+
 #define is_log2(v)		(((v) & ((v) - 1)) == 0)
 
 #endif /* __CR_COMPILER_H__ */
