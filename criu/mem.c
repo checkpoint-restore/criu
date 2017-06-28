@@ -662,7 +662,7 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		/*
 		 * All mappings here get PROT_WRITE regardless of whether we
 		 * put any data into it or not, because this area will get
-		 * mremap()-ed (branch below) so we MIGHT need to have WRITE 
+		 * mremap()-ed (branch below) so we MIGHT need to have WRITE
 		 * bits there. Ideally we'd check for the whole COW-chain
 		 * having any data in.
 		 */
@@ -680,8 +680,8 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 
 		/*
 		 * The area in question can be COWed with the parent. Remap the
-		 * parent area. Note, that it has already being passed through 
-		 * the restore_priv_vma_content() call and thus may have some 
+		 * parent area. Note, that it has already being passed through
+		 * the restore_priv_vma_content() call and thus may have some
 		 * pages in it.
 		 */
 
