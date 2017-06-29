@@ -533,9 +533,9 @@ static struct pid *find_pid_or_place_in_hier(struct rb_node **root, pid_t pid, i
 static struct pid *lookup_create_pid(pid_t *pid, int level, struct pid *pid_node, int ns_id)
 {
 	struct rb_node **new = NULL, *parent = NULL;
-	int i, orig_level = level;
 	struct pid *found;
 	struct ns_id *ns;
+	int i;
 
 	ns = lookup_ns_by_id(ns_id, &pid_ns_desc);
 
@@ -561,11 +561,11 @@ static struct pid *lookup_create_pid(pid_t *pid, int level, struct pid *pid_node
 	if (!pid_node) {
 		struct pstree_item *item;
 
-		item = __alloc_pstree_item(true, orig_level);
+		item = __alloc_pstree_item(true, level);
 		if (item == NULL)
 			return NULL;
 
-		for (i = 0; i < orig_level; i++)
+		for (i = 0; i < level; i++)
 			item->pid->ns[i].virt = pid[i];
 		pid_node = item->pid;
 	}
