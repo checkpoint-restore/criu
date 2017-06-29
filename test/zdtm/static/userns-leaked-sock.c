@@ -127,7 +127,7 @@ int main(int argc, char **argv)
 
 	{
 		char stack;
-		pid = clone(child_fn, &stack - 256, CLONE_NEWUSER|CLONE_NEWNET|CLONE_NEWPID, (void *)(long)sk);
+		pid = clone(child_fn, &stack - 256, CLONE_NEWUSER|CLONE_NEWNET|CLONE_NEWPID|SIGCHLD, (void *)(long)sk);
 		if (pid == -1) {
 			fail("clone");
 			return 1;
