@@ -200,17 +200,12 @@ err_brk:
 int restore_sk_queue(int fd, unsigned int peer_id)
 {
 	struct sk_packet *pkt, *tmp;
-	int ret;
-	struct cr_img *img;
+	int ret = -1;
 
 	pr_info("Trying to restore recv queue for %u\n", peer_id);
 
 	if (restore_prepare_socket(fd))
-		return -1;
-
-	img = open_image(CR_FD_SK_QUEUES, O_RSTR);
-	if (!img)
-		return -1;
+		goto out;
 
 	list_for_each_entry_safe(pkt, tmp, &packets_list, list) {
 		SkPacketEntry *entry = pkt->entry;
@@ -233,21 +228,20 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 		xfree(pkt->data);
 		if (ret < 0) {
 			pr_perror("Failed to send packet");
-			goto err;
+			goto out;
 		}
 		if (ret != entry->length) {
 			pr_err("Restored skb trimmed to %d/%d\n",
 			       ret, (unsigned int)entry->length);
-			goto err;
+			ret = -1;
+			goto out;
 		}
 		list_del(&pkt->list);
 		sk_packet_entry__free_unpacked(entry, NULL);
 		xfree(pkt);
 	}
 
-	close_image(img);
-	return 0;
-err:
-	close_image(img);
-	return -1;
+	ret = 0;
+out:
+	return ret;
 }
