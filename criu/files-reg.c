@@ -866,6 +866,7 @@ static int create_link_remap(char *path, int len, int lfd,
 				const struct stat *st)
 {
 	char link_name[PATH_MAX], *tmp;
+	FileEntry fe = FILE_ENTRY__INIT;
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 	FownEntry fwn = FOWN_ENTRY__INIT;
 	int mntns_root;
@@ -924,7 +925,11 @@ again:
 	if (note_link_remap(link_name, nsid))
 		return -1;
 
-	return pb_write_one(img_from_set(glob_imgset, CR_FD_REG_FILES), &rfe, PB_REG_FILE);
+	fe.type = FD_TYPES__REG;
+	fe.id = rfe.id;
+	fe.reg = &rfe;
+
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
 }
 
 static int dump_linked_remap(char *path, int len, const struct stat *ost,
@@ -1249,7 +1254,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	struct ns_id *nsid;
 	struct cr_img *rimg;
 	char ext_id[64];
-
+	FileEntry fe = FILE_ENTRY__INIT;
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 
 	if (!p->link) {
@@ -1309,8 +1314,12 @@ ext:
 		rfe.size = p->stat.st_size;
 	}
 
-	rimg = img_from_set(glob_imgset, CR_FD_REG_FILES);
-	return pb_write_one(rimg, &rfe, PB_REG_FILE);
+	fe.type = FD_TYPES__REG;
+	fe.id = rfe.id;
+	fe.reg = &rfe;
+
+	rimg = img_from_set(glob_imgset, CR_FD_FILES);
+	return pb_write_one(rimg, &fe, PB_FILE);
 }
 
 const struct fdtype_ops regfile_dump_ops = {
@@ -1933,7 +1942,7 @@ static int collect_one_regfile(void *o, ProtobufCMessage *base, struct cr_img *i
 	return file_desc_add(&rfi->d, rfi->rfe->id, &reg_desc_ops);
 }
 
-static struct collect_image_info reg_file_cinfo = {
+struct collect_image_info reg_file_cinfo = {
 	.fd_type = CR_FD_REG_FILES,
 	.pb_type = PB_REG_FILE,
 	.priv_size = sizeof(struct reg_file_info),
@@ -1943,7 +1952,7 @@ static struct collect_image_info reg_file_cinfo = {
 
 int collect_remaps_and_regfiles(void)
 {
-	if (collect_image(&reg_file_cinfo))
+	if (!files_collected() && collect_image(&reg_file_cinfo))
 		return -1;
 
 	if (collect_image(&remap_cinfo))

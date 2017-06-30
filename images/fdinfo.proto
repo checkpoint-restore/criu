@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+import "regfile.proto";
+
 enum fd_types {
 	UND		= 0;
 	REG		= 1;
@@ -31,4 +33,5 @@ message fdinfo_entry {
 message file_entry {
 	required fd_types		type	= 1;
 	required uint32			id	= 2;
+	optional reg_file_entry		reg	= 3;
 }

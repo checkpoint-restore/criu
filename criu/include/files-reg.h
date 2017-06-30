@@ -44,6 +44,7 @@ extern int collect_filemap(struct vma_area *);
 extern void filemap_ctx_init(bool auto_close);
 extern void filemap_ctx_fini(void);
 
+extern struct collect_image_info reg_file_cinfo;
 extern int collect_remaps_and_regfiles(void);
 
 extern void delete_link_remaps(void);

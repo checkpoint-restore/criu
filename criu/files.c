@@ -1664,6 +1664,17 @@ int open_transport_socket(void)
 	return 0;
 }
 
+static int collect_one_file_entry(FileEntry *fe, u_int32_t id, ProtobufCMessage *base,
+		struct collect_image_info *cinfo)
+{
+	if (fe->id != id) {
+		pr_err("ID mismatch %u != %u\n", fe->id, id);
+		return -1;
+	}
+
+	return collect_entry(base, cinfo);
+}
+
 static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
 	int ret = 0;
@@ -1674,6 +1685,9 @@ static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
 	default:
 		pr_err("Unknown file type %d\n", fe->type);
 		return -1;
+	case FD_TYPES__REG:
+		ret = collect_one_file_entry(fe, fe->reg->id, &fe->reg->base, &reg_file_cinfo);
+		break;
 	}
 
 	return ret;
@@ -1684,6 +1698,7 @@ struct collect_image_info files_cinfo = {
 	.pb_type = PB_FILE,
 	.priv_size = 0,
 	.collect = collect_one_file,
+	.flags = COLLECT_NOFREE,
 };
 
 int prepare_files(void)
