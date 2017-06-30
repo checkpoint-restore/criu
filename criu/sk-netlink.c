@@ -78,6 +78,7 @@ static bool can_dump_netlink_sk(int lfd)
 static int dump_one_netlink_fd(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct netlink_sk_desc *sk;
+	FileEntry fe = FILE_ENTRY__INIT;
 	NetlinkSkEntry ne = NETLINK_SK_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 
@@ -137,7 +138,11 @@ static int dump_one_netlink_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
 
-	if (pb_write_one(img_from_set(glob_imgset, CR_FD_NETLINK_SK), &ne, PB_NETLINK_SK))
+	fe.type = FD_TYPES__NETLINKSK;
+	fe.id = ne.id;
+	fe.nlsk = &ne;
+
+	if (pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE))
 		goto err;
 
 	return 0;
