@@ -1481,5 +1481,10 @@ pid_t fork()
 	 * Two last arguments are swapped on different archs,
 	 * but we don't care as they are zero anyway.
 	 */
+#ifdef __s390x__
+	/* See kernel/fork.c: CONFIG_CLONE_BACKWARDS2 */
+	return (pid_t)syscall(__NR_clone, 0, SIGCHLD, NULL, 0, NULL);
+#else
 	return (pid_t)syscall(__NR_clone, SIGCHLD, 0, 0, 0, 0);
+#endif
 }
