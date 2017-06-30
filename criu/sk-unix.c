@@ -1360,7 +1360,19 @@ static void unlink_stale(struct unix_sk_info *ui)
 	revert_unix_sk_cwd(&cwd_fd, &root_fd);
 }
 
-static int resolve_unix_peer(struct pprep_head *ph);
+static int resolve_unix_peer(struct unix_sk_info *ui);
+
+static int post_prepare_unix_sk(struct pprep_head *ph)
+{
+	struct unix_sk_info *ui;
+
+	ui = container_of(ph, struct unix_sk_info, peer_resolve);
+	if (ui->ue->peer && resolve_unix_peer(ui))
+		return -1;
+	if (ui->name)
+		unlink_stale(ui);
+	return 0;
+}
 
 static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
@@ -1371,11 +1383,6 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	ui->ue = pb_msg(base, UnixSkEntry);
 	ui->name_dir = (void *)ui->ue->name_dir;
 
-	if (ui->ue->peer) {
-		ui->peer_resolve.actor = resolve_unix_peer;
-		add_post_prepare_cb(&ui->peer_resolve);
-	}
-
 	if (ui->ue->name.len) {
 		if (ui->ue->name.len > UNIX_PATH_MAX) {
 			pr_err("Bad unix name len %d\n", (int)ui->ue->name.len);
@@ -1383,8 +1390,6 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 		}
 
 		ui->name = (void *)ui->ue->name.data;
-
-		unlink_stale(ui);
 	} else
 		ui->name = NULL;
 
@@ -1420,6 +1425,11 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 		ui->ue->ino, ui->ue->peer,
 		prefix, ulen, uname,
 		ui->name_dir ? ui->name_dir : "-");
+
+	if (ui->ue->peer || ui->name) {
+		ui->peer_resolve.actor = post_prepare_unix_sk;
+		add_post_prepare_cb(&ui->peer_resolve);
+	}
 
 	list_add_tail(&ui->list, &unix_sockets);
 	return file_desc_add(&ui->d, ui->ue->id, &unix_desc_ops);
@@ -1459,11 +1469,10 @@ static void interconnected_pair(struct unix_sk_info *ui, struct unix_sk_info *pe
 	}
 }
 
-static int resolve_unix_peer(struct pprep_head *ph)
+static int resolve_unix_peer(struct unix_sk_info *ui)
 {
-	struct unix_sk_info *ui, *peer;
+	struct unix_sk_info *peer;
 
-	ui = container_of(ph, struct unix_sk_info, peer_resolve);
 	if (ui->peer)
 		goto out;
 
