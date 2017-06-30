@@ -255,7 +255,6 @@ static int crtools_prepare_shared(void)
  */
 
 static struct collect_image_info *cinfos[] = {
-	&pipe_cinfo,
 	&file_locks_cinfo,
 	&pipe_data_cinfo,
 	&fifo_data_cinfo,
@@ -265,6 +264,7 @@ static struct collect_image_info *cinfos[] = {
 static struct collect_image_info *cinfos_files[] = {
 	&unix_sk_cinfo,
 	&fifo_cinfo,
+	&pipe_cinfo,
 	&nsfile_cinfo,
 	&packet_sk_cinfo,
 	&netlink_sk_cinfo,

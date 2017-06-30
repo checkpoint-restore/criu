@@ -14,6 +14,7 @@ import "fsnotify.proto";
 import "ext-file.proto";
 import "sk-unix.proto";
 import "fifo.proto";
+import "pipe.proto";
 
 enum fd_types {
 	UND		= 0;
@@ -61,4 +62,5 @@ message file_entry {
 	optional ext_file_entry		ext	= 15;
 	optional unix_sk_entry		usk	= 16;
 	optional fifo_entry		fifo	= 17;
+	optional pipe_entry		pipe	= 18;
 }
