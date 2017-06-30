@@ -27,6 +27,7 @@ int is_signalfd_link(char *link)
 static int dump_one_signalfd(int lfd, u32 id, const struct fd_parms *p)
 {
 	SignalfdEntry sfd = SIGNALFD_ENTRY__INIT;
+	FileEntry fe = FILE_ENTRY__INIT;
 
 	if (parse_fdinfo(lfd, FD_TYPES__SIGNALFD, &sfd))
 		return -1;
@@ -35,8 +36,11 @@ static int dump_one_signalfd(int lfd, u32 id, const struct fd_parms *p)
 	sfd.flags = p->flags;
 	sfd.fown = (FownEntry *)&p->fown;
 
-	return pb_write_one(img_from_set(glob_imgset, CR_FD_SIGNALFD),
-			&sfd, PB_SIGNALFD);
+	fe.type = FD_TYPES__SIGNALFD;
+	fe.id = sfd.id;
+	fe.sgfd = &sfd;
+
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
 }
 
 const struct fdtype_ops signalfd_dump_ops = {
