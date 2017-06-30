@@ -62,7 +62,7 @@ static pid_t clone_child(int (*fn)(void *), int flags)
 
 static int child2(void *_arg)
 {
-	char buf[10];
+	char buf[sizeof(TEST_STRING)];
 
 	forked();
 	test_waitsig();
@@ -90,7 +90,7 @@ static int child3(void *_arg)
 
 static int child(void *_arg)
 {
-	char buf[10];
+	char buf[sizeof(TEST_STRING)];
 	pid_t pid, pid2;
 	int status;
 
