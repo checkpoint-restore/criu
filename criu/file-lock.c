@@ -426,11 +426,6 @@ int prepare_file_locks(int pid)
 	if (!opts.handle_file_locks)
 		return 0;
 
-	if (!(file_locks_cinfo.flags & COLLECT_HAPPENED)) {
-		pr_warn("Per-pid file locks are deprecated\n");
-		return -1;
-	}
-
 	return restore_file_locks(pid);
 
 }

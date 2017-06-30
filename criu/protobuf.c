@@ -186,7 +186,6 @@ int collect_image(struct collect_image_info *cinfo)
 	if (!img)
 		return -1;
 
-	cinfo->flags |= COLLECT_HAPPENED;
 	if (cinfo->flags & COLLECT_SHARED) {
 		o_alloc = shmalloc;
 		o_free = shfree_last;
@@ -210,6 +209,7 @@ int collect_image(struct collect_image_info *cinfo)
 			break;
 		}
 
+		cinfo->flags |= COLLECT_HAPPENED;
 		ret = cinfo->collect(obj, msg, img);
 		if (ret < 0) {
 			o_free(obj);
