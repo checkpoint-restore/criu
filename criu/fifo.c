@@ -41,7 +41,8 @@ static struct pipe_data_dump pd_fifo = { .img_type = CR_FD_FIFO_DATA, };
 
 static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 {
-	struct cr_img *img = img_from_set(glob_imgset, CR_FD_FIFO);
+	struct cr_img *img = img_from_set(glob_imgset, CR_FD_FILES);
+	FileEntry fe = FILE_ENTRY__INIT;
 	FifoEntry e = FIFO_ENTRY__INIT;
 
 	/*
@@ -58,7 +59,11 @@ static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 	e.id		= id;
 	e.pipe_id	= pipe_id(p);
 
-	if (pb_write_one(img, &e, PB_FIFO))
+	fe.type = FD_TYPES__FIFO;
+	fe.id = e.id;
+	fe.fifo = &e;
+
+	if (pb_write_one(img, &fe, PB_FILE))
 		return -1;
 
 	return dump_one_pipe_data(&pd_fifo, lfd, p);
