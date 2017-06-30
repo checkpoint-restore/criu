@@ -268,6 +268,7 @@ static int dump_tunfile(int lfd, u32 id, const struct fd_parms *p)
 {
 	int ret;
 	struct cr_img *img;
+	FileEntry fe = FILE_ENTRY__INIT;
 	TunfileEntry tfe = TUNFILE_ENTRY__INIT;
 	struct ifreq ifr;
 
@@ -306,8 +307,12 @@ static int dump_tunfile(int lfd, u32 id, const struct fd_parms *p)
 			return -1;
 	}
 
-	img = img_from_set(glob_imgset, CR_FD_TUNFILE);
-	return pb_write_one(img, &tfe, PB_TUNFILE);
+	fe.type = FD_TYPES__TUNF;
+	fe.id = tfe.id;
+	fe.tunf = &tfe;
+
+	img = img_from_set(glob_imgset, CR_FD_FILES);
+	return pb_write_one(img, &fe, PB_FILE);
 }
 
 const struct fdtype_ops tunfile_dump_ops = {
