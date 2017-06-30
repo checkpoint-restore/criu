@@ -13,7 +13,7 @@ static int dump_one_ext_file(int lfd, u32 id, const struct fd_parms *p)
 {
 	int ret;
 	struct cr_img *rimg;
-
+	FileEntry fe = FILE_ENTRY__INIT;
 	ExtFileEntry xfe = EXT_FILE_ENTRY__INIT;
 
 	ret = run_plugins(DUMP_EXT_FILE, lfd, id);
@@ -23,8 +23,12 @@ static int dump_one_ext_file(int lfd, u32 id, const struct fd_parms *p)
 	xfe.id		= id;
 	xfe.fown	= (FownEntry *)&p->fown;
 
-	rimg = img_from_set(glob_imgset, CR_FD_EXT_FILES);
-	return pb_write_one(rimg, &xfe, PB_EXT_FILE);
+	fe.type = FD_TYPES__EXT;
+	fe.id = xfe.id;
+	fe.ext = &xfe;
+
+	rimg = img_from_set(glob_imgset, CR_FD_FILES);
+	return pb_write_one(rimg, &fe, PB_FILE);
 }
 
 const struct fdtype_ops ext_dump_ops = {
