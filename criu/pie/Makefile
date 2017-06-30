@@ -16,6 +16,13 @@ ifeq ($(SRCARCH),arm)
 	ccflags-y	+= -marm
 endif
 
+# We assume that compel code does not change floating point registers.
+# On s390 gcc uses fprs to cache gprs. Therefore disable floating point
+# with -msoft-float.
+ifeq ($(SRCARCH),s390)
+	ccflags-y	+= -msoft-float
+endif
+
 asflags-y	+= -D__ASSEMBLY__
 
 LDS		:= compel/arch/$(SRCARCH)/scripts/compel-pack.lds.S

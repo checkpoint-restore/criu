@@ -105,6 +105,22 @@ static int dump_one_netlink_fd(int lfd, u32 id, const struct fd_parms *p)
 		 * On 64-bit sk->gsize is multiple to 8 bytes (sizeof(long)),
 		 * so remove the last 4 bytes if they are empty.
 		 */
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+		/*
+		 * Big endian swap: Ugly hack for zdtm/static/sk-netlink
+		 *
+		 * For big endian systems:
+		 *
+		 * - sk->groups[0] are bits 32-64
+		 * - sk->groups[1] are bits 0-32
+		 */
+		if (ne.n_groups == 2) {
+			uint32_t tmp = sk->groups[1];
+
+			sk->groups[1] = sk->groups[0];
+			sk->groups[0] = tmp;
+		}
+#endif
 		if (ne.n_groups && sk->groups[ne.n_groups - 1] == 0)
 			ne.n_groups -= 1;
 
