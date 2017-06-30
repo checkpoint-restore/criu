@@ -1773,8 +1773,8 @@ static char *mnt_fsname(struct mount_info *mi)
 
 static int apply_sb_flags(void *args, int fd, pid_t pid)
 {
+	unsigned long flags = *(unsigned long *) args;
 	int rst = -1, err = -1;
-	long flags = *(int *) args;
 	char path[PSFDS];
 
 	snprintf(path, sizeof(path), "/proc/self/fd/%d", fd);
@@ -1839,10 +1839,9 @@ static int do_new_mount(struct mount_info *mi)
 			pr_perror("Unable to open %s", mi->mountpoint);
 			return -1;
 		}
-
 		sflags |= MS_RDONLY;
 		if (userns_call(apply_sb_flags, 0,
-				&sflags, sizeof(int), fd)) {
+				&sflags, sizeof(sflags), fd)) {
 			pr_perror("Unable to apply mount falgs %d for %s",
 						mi->sb_flags, mi->mountpoint);
 			close(fd);
