@@ -27,3 +27,8 @@ message fdinfo_entry {
 	required fd_types	type	= 3;
 	required uint32		fd	= 4;
 }
+
+message file_entry {
+	required fd_types		type	= 1;
+	required uint32			id	= 2;
+}

@@ -93,6 +93,7 @@
 #define SECCOMP_MAGIC		0x64413049 /* Kostomuksha */
 #define BINFMT_MISC_MAGIC	0x67343323 /* Apatity */
 #define AUTOFS_MAGIC		0x49353943 /* Sochi */
+#define FILES_MAGIC		0x56303138 /* Toropets */
 
 #define IFADDR_MAGIC		RAW_IMAGE_MAGIC
 #define ROUTE_MAGIC		RAW_IMAGE_MAGIC

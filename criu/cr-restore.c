@@ -278,6 +278,9 @@ static struct collect_image_info *cinfos[] = {
 	&sk_queues_cinfo,
 };
 
+static struct collect_image_info *cinfos_files[] = {
+};
+
 /* These images are requered to restore namespaces */
 static struct collect_image_info *before_ns_cinfos[] = {
 	&tty_info_cinfo, /* Restore devpts content */
@@ -318,6 +321,10 @@ static int root_prepare_shared(void)
 		return -1;
 
 	if (collect_images(cinfos, ARRAY_SIZE(cinfos)))
+		return -1;
+
+	if (!files_collected() &&
+			collect_images(cinfos_files, ARRAY_SIZE(cinfos_files)))
 		return -1;
 
 	for_each_pstree_item(pi) {

@@ -1664,8 +1664,30 @@ int open_transport_socket(void)
 	return 0;
 }
 
+static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
+{
+	int ret = 0;
+	FileEntry *fe;
+
+	fe = pb_msg(base, FileEntry);
+	switch (fe->type) {
+	default:
+		pr_err("Unknown file type %d\n", fe->type);
+		return -1;
+	}
+
+	return ret;
+}
+
+struct collect_image_info files_cinfo = {
+	.fd_type = CR_FD_FILES,
+	.pb_type = PB_FILE,
+	.priv_size = 0,
+	.collect = collect_one_file,
+};
+
 int prepare_files(void)
 {
 	init_fdesc_hash();
-	return 0;
+	return collect_image(&files_cinfo);
 }
