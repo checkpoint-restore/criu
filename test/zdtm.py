@@ -1712,7 +1712,7 @@ def run_tests(opts):
 	finally:
 		l.finish()
 		if opts['join_ns']:
-			subprocess.Popen(["ip", "netns", "delete", "zdtm_netns"])
+			subprocess.Popen(["ip", "netns", "delete", "zdtm_netns"]).wait()
 
 
 sti_fmt = "%-40s%-10s%s"
