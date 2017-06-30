@@ -306,6 +306,7 @@ static bool needs_scope_id(uint32_t *src_addr)
 static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int family)
 {
 	struct inet_sk_desc *sk;
+	FileEntry fe = FILE_ENTRY__INIT;
 	InetSkEntry ie = INET_SK_ENTRY__INIT;
 	IpOptsEntry ipopts = IP_OPTS_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
@@ -419,7 +420,11 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 
 	ie.state = sk->state;
 
-	if (pb_write_one(img_from_set(glob_imgset, CR_FD_INETSK), &ie, PB_INET_SK))
+	fe.type = FD_TYPES__INETSK;
+	fe.id = ie.id;
+	fe.isk = &ie;
+
+	if (pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE))
 		goto err;
 err:
 	release_skopts(&skopts);
@@ -521,11 +526,6 @@ struct collect_image_info inet_sk_cinfo = {
 	.priv_size = sizeof(struct inet_sk_info),
 	.collect = collect_one_inetsk,
 };
-
-int collect_inet_sockets(void)
-{
-	return collect_image(&inet_sk_cinfo);
-}
 
 static int inet_validate_address(InetSkEntry *ie)
 {

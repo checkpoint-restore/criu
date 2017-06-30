@@ -230,7 +230,7 @@ static int crtools_prepare_shared(void)
 		return -1;
 
 	/* Connections are unlocked from criu */
-	if (collect_inet_sockets())
+	if (!files_collected() && collect_image(&inet_sk_cinfo))
 		return -1;
 
 	if (collect_binfmt_misc())
