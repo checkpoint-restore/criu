@@ -741,6 +741,21 @@ static inline bool vma_force_premap(struct vma_area *vma, struct list_head *head
 	return false;
 }
 
+/*
+ * Ensure for s390x that vma is below task size on restore system
+ */
+static int task_size_check(pid_t pid, VmaEntry *entry)
+{
+#ifdef __s390x__
+	if (entry->end <= kdat.task_size)
+		return 0;
+	pr_err("Can't restore high memory region %lx-%lx because kernel does only support vmas up to %lx\n", entry->start, entry->end, kdat.task_size);
+	return -1;
+#else
+	return 0;
+#endif
+}
+
 static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
 		void **at, struct page_read *pr)
 {
@@ -752,6 +767,10 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
 	filemap_ctx_init(true);
 
 	list_for_each_entry(vma, &vmas->h, list) {
+		if (task_size_check(vpid(t), vma->e)) {
+			ret = -1;
+			break;
+		}
 		if (pstart > vma->e->start) {
 			ret = -1;
 			pr_err("VMA-s are not sorted in the image file\n");

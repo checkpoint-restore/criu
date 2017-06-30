@@ -665,6 +665,22 @@ static int vma_list_add(struct vma_area *vma_area,
 	return 0;
 }
 
+/*
+ * On s390 we have old kernels where the global task size assumption of
+ * criu does not work. See also compel_task_size() for s390.
+ */
+static int task_size_check(pid_t pid, VmaEntry *entry)
+{
+#ifdef __s390x__
+	if (entry->end <= kdat.task_size)
+		return 0;
+	pr_err("Can't dump high memory region %lx-%lx of task %d because kernel commit ee71d16d22bb is missing\n", entry->start, entry->end, pid);
+	return -1;
+#else
+	return 0;
+#endif
+}
+
 int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list,
 					dump_filemap_t dump_filemap)
 {
@@ -749,6 +765,9 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list,
 		vma_area->e->end	= end;
 		vma_area->e->pgoff	= pgoff;
 		vma_area->e->prot	= PROT_NONE;
+
+		if (task_size_check(pid, vma_area->e))
+			goto err;
 
 		if (r == 'r')
 			vma_area->e->prot |= PROT_READ;
