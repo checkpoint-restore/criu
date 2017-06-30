@@ -1719,6 +1719,9 @@ static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
 	case FD_TYPES__INOTIFY:
 		ret = collect_one_file_entry(fe, fe->ify->id, &fe->ify->base, &inotify_cinfo);
 		break;
+	case FD_TYPES__FANOTIFY:
+		ret = collect_one_file_entry(fe, fe->ffy->id, &fe->ffy->base, &fanotify_cinfo);
+		break;
 	}
 
 	return ret;

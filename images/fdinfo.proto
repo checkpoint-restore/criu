@@ -54,4 +54,5 @@ message file_entry {
 	optional tunfile_entry		tunf	= 11;
 	optional timerfd_entry		tfd	= 12;
 	optional inotify_file_entry	ify	= 13;
+	optional fanotify_file_entry	ffy	= 14;
 }

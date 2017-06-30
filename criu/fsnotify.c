@@ -422,6 +422,7 @@ static int check_one_mark(FanotifyMarkEntry *fme)
 
 static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 {
+	FileEntry fle = FILE_ENTRY__INIT;
 	FanotifyFileEntry fe = FANOTIFY_FILE_ENTRY__INIT;
 	int ret = -1, i;
 
@@ -445,7 +446,11 @@ static int dump_one_fanotify(int lfd, u32 id, const struct fd_parms *p)
 
 	pr_info("id %#08x flags %#08x\n", fe.id, fe.flags);
 
-	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FANOTIFY_FILE), &fe, PB_FANOTIFY_FILE);
+	fle.type = FD_TYPES__FANOTIFY;
+	fle.id = fe.id;
+	fle.ffy = &fe;
+
+	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fle, PB_FILE);
 free:
 	for (i = 0; i < fe.n_mark; i++)
 		xfree(fe.mark[i]);
