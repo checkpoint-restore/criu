@@ -1725,6 +1725,9 @@ static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
 	case FD_TYPES__EXT:
 		ret = collect_one_file_entry(fe, fe->ext->id, &fe->ext->base, &ext_file_cinfo);
 		break;
+	case FD_TYPES__UNIXSK:
+		ret = collect_one_file_entry(fe, fe->usk->id, &fe->usk->base, &unix_sk_cinfo);
+		break;
 	}
 
 	return ret;

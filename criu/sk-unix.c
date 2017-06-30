@@ -175,8 +175,13 @@ static bool unix_sk_exception_lookup_id(unsigned int ino)
 static int write_unix_entry(struct unix_sk_desc *sk)
 {
 	int ret;
+	FileEntry fe = FILE_ENTRY__INIT;
 
-	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_UNIXSK), sk->ue, PB_UNIX_SK);
+	fe.type = FD_TYPES__UNIXSK;
+	fe.id = sk->ue->id;
+	fe.usk = sk->ue;
+
+	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
 
 	show_one_unix_img("Dumped", sk->ue);
 
@@ -739,6 +744,7 @@ int fix_external_unix_sockets(void)
 	pr_debug("Dumping external sockets\n");
 
 	list_for_each_entry(sk, &unix_sockets, list) {
+		FileEntry fe = FILE_ENTRY__INIT;
 		UnixSkEntry e = UNIX_SK_ENTRY__INIT;
 		FownEntry fown = FOWN_ENTRY__INIT;
 		SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
@@ -760,7 +766,11 @@ int fix_external_unix_sockets(void)
 		e.fown		= &fown;
 		e.opts		= &skopts;
 
-		if (pb_write_one(img_from_set(glob_imgset, CR_FD_UNIXSK), &e, PB_UNIX_SK))
+		fe.type = FD_TYPES__UNIXSK;
+		fe.id = e.id;
+		fe.usk = &e;
+
+		if (pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE))
 			goto err;
 
 		show_one_unix_img("Dumped extern", &e);
