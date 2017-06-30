@@ -54,14 +54,12 @@
 #define FDESC_HASH_SIZE	64
 static struct hlist_head file_desc_hash[FDESC_HASH_SIZE];
 
-int prepare_shared_fdinfo(void)
+static void init_fdesc_hash(void)
 {
 	int i;
 
 	for (i = 0; i < FDESC_HASH_SIZE; i++)
 		INIT_HLIST_HEAD(&file_desc_hash[i]);
-
-	return 0;
 }
 
 void file_desc_init(struct file_desc *d, u32 id, struct file_desc_ops *ops)
@@ -1663,5 +1661,11 @@ int open_transport_socket(void)
 	}
 	close(sock);
 
+	return 0;
+}
+
+int prepare_files(void)
+{
+	init_fdesc_hash();
 	return 0;
 }

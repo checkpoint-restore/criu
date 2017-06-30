@@ -222,7 +222,7 @@ static int restore_finish_ns_stage(int from, int to)
 
 static int crtools_prepare_shared(void)
 {
-	if (prepare_shared_fdinfo())
+	if (prepare_files())
 		return -1;
 
 	/* We might want to remove ghost files on failed restore */
