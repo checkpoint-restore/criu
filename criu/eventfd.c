@@ -46,6 +46,7 @@ static void pr_info_eventfd(char *action, EventfdFileEntry *efe)
 static int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
 {
 	EventfdFileEntry efd = EVENTFD_FILE_ENTRY__INIT;
+	FileEntry fe = FILE_ENTRY__INIT;
 
 	if (parse_fdinfo(lfd, FD_TYPES__EVENTFD, &efd))
 		return -1;
@@ -54,9 +55,12 @@ static int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
 	efd.flags = p->flags;
 	efd.fown = (FownEntry *)&p->fown;
 
+	fe.type = FD_TYPES__EVENTFD;
+	fe.id = efd.id;
+	fe.efd = &efd;
+
 	pr_info_eventfd("Dumping ", &efd);
-	return pb_write_one(img_from_set(glob_imgset, CR_FD_EVENTFD_FILE),
-			&efd, PB_EVENTFD_FILE);
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
 }
 
 const struct fdtype_ops eventfd_dump_ops = {
