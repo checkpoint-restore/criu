@@ -295,6 +295,17 @@ struct tty_driver *get_tty_driver(dev_t rdev, dev_t dev)
 			 * of kernel).
 			 */
 			return &vt_driver;
+#ifdef __s390x__
+		/*
+		 * On s390 we have the following consoles:
+		 * - tty3215    : ttyS0   , minor = 64, linemode console
+		 * - sclp_line  : ttyS0   , minor = 64, linemode console
+		 * - sclp_vt220 : ttysclp0, minor = 65, vt220 console
+		 * See also "drivers/s390/char"
+		 */
+		else if (minor == 64 || minor == 65)
+			return &vt_driver;
+#endif
 		/* Other minors points to UART serial ports */
 		break;
 	case USB_SERIAL_MAJOR:
