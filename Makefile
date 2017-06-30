@@ -21,7 +21,7 @@ UNAME-M := $(shell uname -m)
 
 #
 # Supported Architectures
-ifneq ($(filter-out x86 arm aarch64 ppc64,$(ARCH)),)
+ifneq ($(filter-out x86 arm aarch64 ppc64 s390,$(ARCH)),)
         $(error "The architecture $(ARCH) isn't supported")
 endif
 
@@ -63,6 +63,13 @@ ifeq ($(ARCH),x86)
         LDARCH		:= i386:x86-64
         VDSO		:= y
         DEFINES		:= -DCONFIG_X86_64
+endif
+
+ifeq ($(ARCH),s390)
+        ARCH		:= s390
+        SRCARCH		:= s390
+        VDSO		:= y
+        DEFINES		:= -DCONFIG_S390
 endif
 
 LDARCH ?= $(SRCARCH)
