@@ -52,6 +52,9 @@ static const flags_t flags = {
 #elif defined CONFIG_PPC64
 	.arch		= "ppc64",
 	.cflags		= COMPEL_CFLAGS_PIE,
+#elif defined CONFIG_S390
+	.arch		= "s390",
+	.cflags		= COMPEL_CFLAGS_PIE,
 #else
 #error "CONFIG_<ARCH> not defined, or unsupported ARCH"
 #endif

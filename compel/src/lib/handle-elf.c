@@ -542,6 +542,31 @@ int __handle_elf(void *mem, size_t size)
 				break;
 #endif
 
+#ifdef ELF_S390
+			/*
+			 * See also arch/s390/kernel/module.c/apply_rela():
+			 * A PLT reads the GOT (global offest table). We can handle it like
+			 * R_390_PC32DBL because we have linked statically.
+			 */
+			case R_390_PLT32DBL: /* PC relative on a PLT (predure link table) */
+				pr_debug("\t\t\t\tR_390_PLT32DBL   at 0x%-4lx val 0x%x\n", place, value32 + addend32);
+				*((int32_t *)where) = (value64 + addend64 - place) >> 1;
+				break;
+			case R_390_PC32DBL: /* PC relative on a symbol */
+				pr_debug("\t\t\t\tR_390_PC32DBL    at 0x%-4lx val 0x%x\n", place, value32 + addend32);
+				*((int32_t *)where) = (value64 + addend64 - place) >> 1;
+				break;
+			case R_390_64: /* 64 bit absolute address */
+				pr_debug("\t\t\t\tR_390_64         at 0x%-4lx val 0x%lx\n", place, (long)value64);
+				pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_LONG, "
+				       ".addend = %-8ld, .value = 0x%-16lx, }, /* R_390_64 */\n",
+				       (unsigned int)place, (long)addend64, (long)value64);
+				break;
+			case R_390_PC64: /* 64 bit relative address */
+				*((int64_t *)where) = value64 + addend64 - place;
+				pr_debug("\t\t\t\tR_390_PC64       at 0x%-4lx val 0x%lx\n", place, (long)value64);
+				break;
+#endif
 			default:
 				pr_err("Unsupported relocation of type %lu\n",
 					(unsigned long)ELF_R_TYPE(r->rel.r_info));

@@ -70,3 +70,11 @@ compel/$(LIBCOMPEL_SO): compel/$(LIBCOMPEL_A)
 compel-install-targets	+= compel/$(LIBCOMPEL_SO)
 compel-install-targets	+= compel/compel
 compel-install-targets	+= $(compel-plugins)
+
+# We assume that compel code does not change floating point registers.
+# On s390 gcc uses fprs to cache gprs. Therefore disable floating point
+# with -msoft-float.
+ifeq ($(ARCH),s390)
+CFLAGS += -msoft-float
+HOSTCFLAGS += -msoft-float
+endif
