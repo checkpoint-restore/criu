@@ -464,7 +464,8 @@ static unsigned int get_ns_id(int pid, struct ns_desc *nd, protobuf_c_boolean *s
 
 int dump_one_ns_file(int lfd, u32 id, const struct fd_parms *p)
 {
-	struct cr_img *img = img_from_set(glob_imgset, CR_FD_NS_FILES);
+	struct cr_img *img;
+	FileEntry fe = FILE_ENTRY__INIT;
 	NsFileEntry nfe = NS_FILE_ENTRY__INIT;
 	struct fd_link *link = p->link;
 	struct ns_id *nsid;
@@ -480,7 +481,12 @@ int dump_one_ns_file(int lfd, u32 id, const struct fd_parms *p)
 	nfe.ns_cflag	= link->ns_d->cflag;
 	nfe.flags	= p->flags;
 
-	return pb_write_one(img, &nfe, PB_NS_FILE);
+	fe.type = FD_TYPES__NS;
+	fe.id = nfe.id;
+	fe.nsf = &nfe;
+
+	img = img_from_set(glob_imgset, CR_FD_FILES);
+	return pb_write_one(img, &fe, PB_FILE);
 }
 
 const struct fdtype_ops nsfile_dump_ops = {
