@@ -172,6 +172,37 @@ err:
 	return ret;
 }
 
+int collect_entry(ProtobufCMessage *msg, struct collect_image_info *cinfo)
+{
+	void *obj;
+	void *(*o_alloc)(size_t size) = malloc;
+	void (*o_free)(void *ptr) = free;
+
+	if (cinfo->flags & COLLECT_SHARED) {
+		o_alloc = shmalloc;
+		o_free = shfree_last;
+	}
+
+	if (cinfo->priv_size) {
+		obj = o_alloc(cinfo->priv_size);
+		if (!obj)
+			return -1;
+	} else
+		obj = NULL;
+
+	cinfo->flags |= COLLECT_HAPPENED;
+	if (cinfo->collect(obj, msg, NULL) < 0) {
+		o_free(obj);
+		cr_pb_descs[cinfo->pb_type].free(msg, NULL);
+		return -1;
+	}
+
+	if (!cinfo->priv_size && !(cinfo->flags & COLLECT_NOFREE))
+		cr_pb_descs[cinfo->pb_type].free(msg, NULL);
+
+	return 0;
+}
+
 int collect_image(struct collect_image_info *cinfo)
 {
 	int ret;

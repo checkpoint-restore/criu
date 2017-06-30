@@ -40,6 +40,7 @@ struct collect_image_info {
 #define COLLECT_HAPPENED	0x4	/* image was opened and collected */
 
 extern int collect_image(struct collect_image_info *);
+extern int collect_entry(ProtobufCMessage *base, struct collect_image_info *cinfo);
 
 static inline int collect_images(struct collect_image_info **array, unsigned size)
 {
