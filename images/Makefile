@@ -4,6 +4,7 @@ proto-obj-y	+= core-x86.o
 proto-obj-y	+= core-arm.o
 proto-obj-y	+= core-aarch64.o
 proto-obj-y	+= core-ppc64.o
+proto-obj-y	+= core-s390.o
 proto-obj-y	+= cpuinfo.o
 proto-obj-y	+= inventory.o
 proto-obj-y	+= fdinfo.o

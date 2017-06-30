@@ -27,6 +27,10 @@ message cpuinfo_ppc64_entry {
 	repeated uint64		hwcap		= 2;
 }
 
+message cpuinfo_s390_entry {
+	repeated uint64		hwcap		= 2;
+}
+
 message cpuinfo_entry {
 	/*
 	 * Usually on SMP system there should be same CPUs
@@ -35,4 +39,5 @@ message cpuinfo_entry {
 	 */
 	repeated cpuinfo_x86_entry	x86_entry	= 1;
 	repeated cpuinfo_ppc64_entry	ppc64_entry	= 2;
+	repeated cpuinfo_s390_entry	s390_entry	= 3;
 }

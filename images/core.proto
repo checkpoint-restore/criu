@@ -4,6 +4,7 @@ import "core-x86.proto";
 import "core-arm.proto";
 import "core-aarch64.proto";
 import "core-ppc64.proto";
+import "core-s390.proto";
 
 import "rlimit.proto";
 import "timer.proto";
@@ -94,6 +95,7 @@ message core_entry {
 		ARM             = 2;
 		AARCH64		= 3;
 		PPC64		= 4;
+		S390		= 5;
 	}
 
 	required march			mtype		= 1;
@@ -101,6 +103,7 @@ message core_entry {
 	optional thread_info_arm	ti_arm		= 6;
 	optional thread_info_aarch64	ti_aarch64	= 8;
 	optional thread_info_ppc64	ti_ppc64	= 9;
+	optional thread_info_s390	ti_s390		= 10;
 
 	optional task_core_entry	tc		= 3;
 	optional task_kobj_ids_entry	ids		= 4;
