@@ -1,1 +1,1 @@
-{'flavor': 'h', 'flags': 'suid crlib'}
+{'flavor': 'h', 'flags': 'suid crlib','arch': 'x86_64 aarch64 arm ppc64'}
