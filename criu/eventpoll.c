@@ -53,6 +53,7 @@ static void pr_info_eventpoll(char *action, EventpollFileEntry *e)
 
 static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 {
+	FileEntry fe = FILE_ENTRY__INIT;
 	EventpollFileEntry e = EVENTPOLL_FILE_ENTRY__INIT;
 	int i, ret = -1;
 
@@ -63,9 +64,12 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	if (parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, &e))
 		goto out;
 
+	fe.type = FD_TYPES__EVENTPOLL;
+	fe.id = e.id;
+	fe.epfd = &e;
+
 	pr_info_eventpoll("Dumping ", &e);
-	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_EVENTPOLL_FILE),
-		     &e, PB_EVENTPOLL_FILE);
+	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
 out:
 	for (i = 0; i < e.n_tfd; i++) {
 		if (!ret)

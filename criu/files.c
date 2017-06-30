@@ -1704,6 +1704,9 @@ static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
 	case FD_TYPES__EVENTFD:
 		ret = collect_one_file_entry(fe, fe->efd->id, &fe->efd->base, &eventfd_cinfo);
 		break;
+	case FD_TYPES__EVENTPOLL:
+		ret = collect_one_file_entry(fe, fe->epfd->id, &fe->epfd->base, &epoll_cinfo);
+		break;
 	}
 
 	return ret;
