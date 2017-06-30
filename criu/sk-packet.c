@@ -146,6 +146,7 @@ static int dump_rings(PacketSockEntry *psk, struct packet_sock_desc *sd)
 
 static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 {
+	FileEntry fe = FILE_ENTRY__INIT;
 	PacketSockEntry psk = PACKET_SOCK_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 	struct packet_sock_desc *sd;
@@ -194,7 +195,11 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (ret)
 		goto out;
 
-	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_PACKETSK), &psk, PB_PACKET_SOCK);
+	fe.type = FD_TYPES__PACKETSK;
+	fe.id = psk.id;
+	fe.psk = &psk;
+
+	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
 out:
 	release_skopts(&skopts);
 	xfree(psk.rx_ring);

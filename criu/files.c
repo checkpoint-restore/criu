@@ -31,6 +31,7 @@
 #include "eventfd.h"
 #include "eventpoll.h"
 #include "fsnotify.h"
+#include "sk-packet.h"
 #include "mount.h"
 #include "signalfd.h"
 #include "namespaces.h"
@@ -1693,6 +1694,9 @@ static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
 		break;
 	case FD_TYPES__NS:
 		ret = collect_one_file_entry(fe, fe->nsf->id, &fe->nsf->base, &nsfile_cinfo);
+		break;
+	case FD_TYPES__PACKETSK:
+		ret = collect_one_file_entry(fe, fe->psk->id, &fe->psk->base, &packet_sk_cinfo);
 		break;
 	}
 
