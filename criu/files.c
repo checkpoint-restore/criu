@@ -178,11 +178,8 @@ void wait_fds_event(void)
 {
 	futex_t *f = &current->task_st;
 	int value;
-#if BITS_PER_LONG == 64
-	value = htole64(FDS_EVENT);
-#else
+
 	value = htole32(FDS_EVENT);
-#endif
 	futex_wait_if_cond(f, value, &);
 	clear_fds_event();
 }
