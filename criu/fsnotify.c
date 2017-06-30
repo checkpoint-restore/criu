@@ -317,6 +317,7 @@ static int check_one_wd(InotifyWdEntry *we)
 
 static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 {
+	FileEntry fe = FILE_ENTRY__INIT;
 	InotifyFileEntry ie = INOTIFY_FILE_ENTRY__INIT;
 	int exit_code = -1, i, ret;
 
@@ -337,8 +338,12 @@ static int dump_one_inotify(int lfd, u32 id, const struct fd_parms *p)
 		if (check_one_wd(ie.wd[i]))
 			goto free;
 
+	fe.type = FD_TYPES__INOTIFY;
+	fe.id = ie.id;
+	fe.ify = &ie;
+
 	pr_info("id %#08x flags %#08x\n", ie.id, ie.flags);
-	if (pb_write_one(img_from_set(glob_imgset, CR_FD_INOTIFY_FILE), &ie, PB_INOTIFY_FILE))
+	if (pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE))
 		goto free;
 
 	exit_code = 0;

@@ -10,6 +10,7 @@ import "eventpoll.proto";
 import "signalfd.proto";
 import "tun.proto";
 import "timerfd.proto";
+import "fsnotify.proto";
 
 enum fd_types {
 	UND		= 0;
@@ -52,4 +53,5 @@ message file_entry {
 	optional signalfd_entry		sgfd	= 10;
 	optional tunfile_entry		tunf	= 11;
 	optional timerfd_entry		tfd	= 12;
+	optional inotify_file_entry	ify	= 13;
 }
