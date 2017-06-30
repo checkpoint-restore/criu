@@ -1,3 +1,5 @@
+<p align="center"><img src="https://criu.org/w/images/1/1c/CRIU.svg" width="256px"/></p>
+
 ## CRIU (Checkpoint and Restore in Userspace)
 
 An utility to checkpoint/restore tasks. Using this tool, you can freeze a
