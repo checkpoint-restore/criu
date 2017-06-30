@@ -171,6 +171,7 @@ TST_NOFILE	:=				\
 		macvlan			\
 		cr_veth				\
 		sock_peercred			\
+		s390x_mmap_high			\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
