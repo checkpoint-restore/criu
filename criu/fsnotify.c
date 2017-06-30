@@ -57,6 +57,7 @@ struct fsnotify_mark_info {
 		InotifyWdEntry		*iwe;
 		FanotifyMarkEntry	*fme;
 	};
+	struct pprep_head		prep; /* XXX union with remap */
 	struct file_remap		*remap;
 };
 
@@ -721,6 +722,24 @@ static struct file_desc_ops fanotify_desc_ops = {
 	.open = open_fanotify_fd,
 };
 
+static int inotify_resolve_remap(struct pprep_head *ph)
+{
+	struct fsnotify_mark_info *m;
+
+	m = container_of(ph, struct fsnotify_mark_info, prep);
+	m->remap = lookup_ghost_remap(m->iwe->s_dev, m->iwe->i_ino);
+	return 0;
+}
+
+static int fanotify_resolve_remap(struct pprep_head *ph)
+{
+	struct fsnotify_mark_info *m;
+
+	m = container_of(ph, struct fsnotify_mark_info, prep);
+	m->remap = lookup_ghost_remap(m->fme->s_dev, m->fme->ie->i_ino);
+	return 0;
+}
+
 static int __collect_inotify_mark(struct fsnotify_file_info *p, struct fsnotify_mark_info *mark)
 {
 	struct fsnotify_mark_info *m;
@@ -734,7 +753,8 @@ static int __collect_inotify_mark(struct fsnotify_file_info *p, struct fsnotify_
 			break;
 
 	list_add_tail(&mark->list, &m->list);
-	mark->remap = lookup_ghost_remap(mark->iwe->s_dev, mark->iwe->i_ino);
+	mark->prep.actor = inotify_resolve_remap;
+	add_post_prepare_cb(&mark->prep);
 	return 0;
 }
 
@@ -742,9 +762,10 @@ static int __collect_fanotify_mark(struct fsnotify_file_info *p,
 				struct fsnotify_mark_info *mark)
 {
 	list_add(&mark->list, &p->marks);
-	if (mark->fme->type == MARK_TYPE__INODE)
-		mark->remap = lookup_ghost_remap(mark->fme->s_dev,
-						 mark->fme->ie->i_ino);
+	if (mark->fme->type == MARK_TYPE__INODE) {
+		mark->prep.actor = fanotify_resolve_remap;
+		add_post_prepare_cb(&mark->prep);
+	}
 	return 0;
 }
 
