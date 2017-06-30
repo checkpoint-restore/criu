@@ -24,3 +24,7 @@ Pages worth starting with are:
 * Send all bug reports to [mailing
 list](https://lists.openvz.org/mailman/listinfo/criu);
 * Spread the word about CRIU in [social networks](http://criu.org/Contacts);
+
+### Licence
+
+The project is licensed under GPLv2 (though files sitting in the lib/ directory are LGPLv2.1).
