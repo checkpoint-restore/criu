@@ -67,6 +67,7 @@ int is_timerfd_link(char *link)
 static int dump_one_timerfd(int lfd, u32 id, const struct fd_parms *p)
 {
 	TimerfdEntry tfe = TIMERFD_ENTRY__INIT;
+	FileEntry fe = FILE_ENTRY__INIT;
 
 	if (parse_fdinfo(lfd, FD_TYPES__TIMERFD, &tfe))
 		return -1;
@@ -78,7 +79,11 @@ static int dump_one_timerfd(int lfd, u32 id, const struct fd_parms *p)
 		tfe.id, tfe.clockid, (unsigned long long)tfe.vsec, (unsigned long long)tfe.vnsec,
 		(unsigned long long)tfe.isec, (unsigned long long)tfe.insec);
 
-	return pb_write_one(img_from_set(glob_imgset, CR_FD_TIMERFD), &tfe, PB_TIMERFD);
+	fe.type = FD_TYPES__TIMERFD;
+	fe.id = tfe.id;
+	fe.tfd = &tfe;
+
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
 }
 
 const struct fdtype_ops timerfd_dump_ops = {
