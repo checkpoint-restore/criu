@@ -1,7 +1,7 @@
 #include <unistd.h>
 
 #include "img-remote.h"
-#include "img-remote-proto.h"
+#include "img-remote.h"
 #include "criu-log.h"
 #include <pthread.h>
 #include <fcntl.h>
