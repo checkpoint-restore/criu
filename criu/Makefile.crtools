@@ -34,7 +34,6 @@ obj-y			+= image.o
 obj-y			+= img-remote.o
 obj-y			+= img-proxy.o
 obj-y			+= img-cache.o
-obj-y			+= img-remote-proto.o
 obj-y			+= ipc_ns.o
 obj-y			+= irmap.o
 obj-y			+= kcmp-ids.o
