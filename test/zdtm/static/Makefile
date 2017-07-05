@@ -172,6 +172,7 @@ TST_NOFILE	:=				\
 		helper_zombie_child		\
 		clone_fs			\
 		macvlan			\
+		sit				\
 		cr_veth				\
 		sock_peercred			\
 		s390x_mmap_high			\
