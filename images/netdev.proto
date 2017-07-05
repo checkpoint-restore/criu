@@ -4,6 +4,7 @@ import "macvlan.proto";
 import "opts.proto";
 import "tun.proto";
 import "sysctl.proto";
+import "sit.proto";
 
 enum nd_type {
 	LOOPBACK	= 1;
@@ -19,6 +20,7 @@ enum nd_type {
 	VENET		= 5; /* OpenVZ device */
 	BRIDGE		= 6;
 	MACVLAN		= 7;
+	SIT		= 8;
 }
 
 message net_device_entry {
@@ -39,6 +41,8 @@ message net_device_entry {
 	repeated sysctl_entry conf6	= 10;
 
 	optional macvlan_link_entry	macvlan		= 11;
+
+	optional sit_entry sit		= 15;
 }
 
 message netns_entry {

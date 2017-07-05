@@ -50,6 +50,30 @@
 #define IFLA_MACVLAN_FLAGS 2
 #endif
 
+enum {
+	IFLA_IPTUN_UNSPEC,
+	IFLA_IPTUN_LINK,
+	IFLA_IPTUN_LOCAL,
+	IFLA_IPTUN_REMOTE,
+	IFLA_IPTUN_TTL,
+	IFLA_IPTUN_TOS,
+	IFLA_IPTUN_ENCAP_LIMIT,
+	IFLA_IPTUN_FLOWINFO,
+	IFLA_IPTUN_FLAGS,
+	IFLA_IPTUN_PROTO,
+	IFLA_IPTUN_PMTUDISC,
+	IFLA_IPTUN_6RD_PREFIX,
+	IFLA_IPTUN_6RD_RELAY_PREFIX,
+	IFLA_IPTUN_6RD_PREFIXLEN,
+	IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
+	IFLA_IPTUN_ENCAP_TYPE,
+	IFLA_IPTUN_ENCAP_FLAGS,
+	IFLA_IPTUN_ENCAP_SPORT,
+	IFLA_IPTUN_ENCAP_DPORT,
+	__IFLA_IPTUN_MAX,
+};
+#define IFLA_IPTUN_MAX  (__IFLA_IPTUN_MAX - 1)
+
 static int ns_sysfs_fd = -1;
 
 int read_ns_sys_file(char *path, char *buf, int len)
@@ -635,6 +659,106 @@ static int dump_one_gre(struct ifinfomsg *ifi, char *kind,
 	return dump_unknown_device(ifi, kind, tb, fds);
 }
 
+static int dump_sit(NetDeviceEntry *nde, struct cr_imgset *imgset, struct nlattr **info)
+{
+	int ret;
+	struct nlattr *data[__IFLA_IPTUN_MAX];
+	SitEntry se = SIT_ENTRY__INIT;
+	/* There are for IP(v6) addresses kernel feeds to us */
+	uint32_t a_local, a_remote, rd_prefix[4], rl_prefix;
+
+	if (!info || !info[IFLA_INFO_DATA]) {
+		pr_err("no data for sit\n");
+		return -1;
+	}
+
+	pr_info("Some data for SIT provided\n");
+	ret = nla_parse_nested(data, IFLA_IPTUN_MAX, info[IFLA_INFO_DATA], NULL);
+	if (ret < 0) {
+		pr_err("failed ot parse sit data\n");
+		return -1;
+	}
+
+#define ENCODE_ENTRY(__type, __ifla, __proto)	do {			\
+		if (data[__ifla]) {					\
+			se.__proto = *(__type *)nla_data(data[__ifla]);	\
+			if (se.__proto)					\
+				se.has_##__proto = true;		\
+		}							\
+	} while (0)
+
+	if (data[IFLA_IPTUN_LOCAL]) {
+		a_local = *(u32 *)nla_data(data[IFLA_IPTUN_LOCAL]);
+		if (a_local != 0) {
+			se.n_local = 1;
+			se.local = &a_local;
+		}
+	}
+
+	if (data[IFLA_IPTUN_REMOTE]) {
+		a_remote = *(u32 *)nla_data(data[IFLA_IPTUN_REMOTE]);
+		if (a_remote != 0) {
+			se.n_remote = 1;
+			se.remote = &a_remote;
+		}
+	}
+
+	ENCODE_ENTRY(u32, IFLA_IPTUN_LINK,  link);
+	ENCODE_ENTRY(u8,  IFLA_IPTUN_TTL,   ttl);
+	ENCODE_ENTRY(u8,  IFLA_IPTUN_TOS,   tos);
+	ENCODE_ENTRY(u16, IFLA_IPTUN_FLAGS, flags);
+	ENCODE_ENTRY(u8,  IFLA_IPTUN_PROTO, proto);
+
+	if (data[IFLA_IPTUN_PMTUDISC]) {
+		u8 v;
+
+		v = *(u8 *)nla_data(data[IFLA_IPTUN_PMTUDISC]);
+		if (v)
+			se.pmtudisc = se.has_pmtudisc = true;
+	}
+
+	ENCODE_ENTRY(u16, IFLA_IPTUN_ENCAP_TYPE,  encap_type);
+	ENCODE_ENTRY(u16, IFLA_IPTUN_ENCAP_FLAGS, encap_flags);
+	ENCODE_ENTRY(u16, IFLA_IPTUN_ENCAP_SPORT, encap_sport);
+	ENCODE_ENTRY(u16, IFLA_IPTUN_ENCAP_DPORT, encap_dport);
+
+	if (data[IFLA_IPTUN_6RD_PREFIXLEN]) {
+		se.rd_prefixlen = *(u16 *)nla_data(data[IFLA_IPTUN_6RD_PREFIXLEN]);
+		if (!se.rd_prefixlen)
+			goto skip;
+
+		if (!data[IFLA_IPTUN_6RD_PREFIX]) {
+			pr_err("No 6rd prefix for sit device\n");
+			return -1;
+		}
+
+		se.has_rd_prefixlen = true;
+		memcpy(&rd_prefix, nla_data(data[IFLA_IPTUN_6RD_PREFIX]), sizeof(rd_prefix));
+		se.n_rd_prefix = 4;
+		se.rd_prefix = rd_prefix;
+
+		se.relay_prefixlen = *(u16 *)nla_data(data[IFLA_IPTUN_6RD_RELAY_PREFIXLEN]);
+		if (!se.relay_prefixlen)
+			goto skip;
+
+		if (!data[IFLA_IPTUN_6RD_RELAY_PREFIX]) {
+			pr_err("No 6rd relay prefix for sit device\n");
+			return -1;
+		}
+
+		se.has_relay_prefixlen = true;
+		memcpy(&rl_prefix, nla_data(data[IFLA_IPTUN_6RD_RELAY_PREFIX]), sizeof(rl_prefix));
+		se.n_relay_prefix = 1;
+		se.relay_prefix = &rl_prefix;
+skip:;
+	}
+
+#undef ENCODE_ENTRY
+
+	nde->sit = &se;
+	return write_netdev_img(nde, imgset, info);
+}
+
 static int dump_one_sit(struct ifinfomsg *ifi, char *kind,
 		struct nlattr **tb, struct cr_imgset *fds)
 {
@@ -656,8 +780,7 @@ static int dump_one_sit(struct ifinfomsg *ifi, char *kind,
 		return 0;
 	}
 
-	pr_warn("SIT device %s not supported natively\n", name);
-	return dump_unknown_device(ifi, kind, tb, fds);
+	return dump_one_netdev(ND_TYPE__SIT, ifi, tb, fds, dump_sit);
 }
 
 static int dump_one_link(struct nlmsghdr *hdr, void *arg)
