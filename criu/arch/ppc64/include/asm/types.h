@@ -29,7 +29,9 @@ static inline uint64_t encode_pointer(void *p) { return (uint64_t)p; }
  *	include/linux/mm_types.h
  */
 #define AT_VECTOR_SIZE_BASE	20
+#if !defined AT_VECTOR_SIZE_ARCH
 #define AT_VECTOR_SIZE_ARCH	6
+#endif
 #define AT_VECTOR_SIZE		(2*(AT_VECTOR_SIZE_ARCH + AT_VECTOR_SIZE_BASE + 1))
 
 typedef uint64_t auxv_t;
