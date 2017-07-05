@@ -1330,6 +1330,94 @@ out:
 	return ret;
 }
 
+static int sit_link_info(NetDeviceEntry *nde, struct newlink_req *req)
+{
+	struct rtattr *sit_data;
+	SitEntry *se = nde->sit;
+
+	if (!se) {
+		pr_err("Missing sit entry %d\n", nde->ifindex);
+		return -1;
+	}
+
+	addattr_l(&req->h, sizeof(*req), IFLA_INFO_KIND, "sit", 3);
+	sit_data = NLMSG_TAIL(&req->h);
+	addattr_l(&req->h, sizeof(*req), IFLA_INFO_DATA, NULL, 0);
+
+#define DECODE_ENTRY(__type, __ifla, __proto) do {				\
+			__type aux;						\
+			if (se->has_##__proto) {				\
+				aux = se->__proto;				\
+				addattr_l(&req->h, sizeof(*req), __ifla,	\
+						&aux, sizeof(__type));		\
+			}							\
+		} while (0)
+
+	if (se->n_local) {
+		if (se->n_local != 1) {
+			pr_err("Too long local addr for sit\n");
+			return -1;
+		}
+		addattr_l(&req->h, sizeof(*req), IFLA_IPTUN_LOCAL, se->local, sizeof(u32));
+	}
+
+	if (se->n_remote) {
+		if (se->n_remote != 1) {
+			pr_err("Too long remote addr for sit\n");
+			return -1;
+		}
+		addattr_l(&req->h, sizeof(*req), IFLA_IPTUN_REMOTE, se->remote, sizeof(u32));
+	}
+
+	DECODE_ENTRY(u32, IFLA_IPTUN_LINK,  link);
+	DECODE_ENTRY(u8,  IFLA_IPTUN_TTL,   ttl);
+	DECODE_ENTRY(u8,  IFLA_IPTUN_TOS,   tos);
+	DECODE_ENTRY(u16, IFLA_IPTUN_FLAGS, flags);
+	DECODE_ENTRY(u8,  IFLA_IPTUN_PROTO, proto);
+
+	if (se->has_pmtudisc && se->pmtudisc) {
+		u8 aux = 1;
+		addattr_l(&req->h, sizeof(*req), IFLA_IPTUN_PMTUDISC, &aux, sizeof(u8));
+	}
+
+	DECODE_ENTRY(u16, IFLA_IPTUN_ENCAP_TYPE,  encap_type);
+	DECODE_ENTRY(u16, IFLA_IPTUN_ENCAP_FLAGS, encap_flags);
+	DECODE_ENTRY(u16, IFLA_IPTUN_ENCAP_SPORT, encap_sport);
+	DECODE_ENTRY(u16, IFLA_IPTUN_ENCAP_DPORT, encap_dport);
+
+	if (!se->has_rd_prefixlen) {
+		u16 aux;
+
+		if (se->n_rd_prefix != 4) {
+			pr_err("Bad 6rd prefixlen for sit\n");
+			return -1;
+		}
+
+		aux = se->rd_prefixlen;
+		addattr_l(&req->h, sizeof(*req), IFLA_IPTUN_6RD_PREFIXLEN, &aux, sizeof(u16));
+		addattr_l(&req->h, sizeof(*req), IFLA_IPTUN_6RD_PREFIX, se->rd_prefix, 4 * sizeof(u32));
+
+		if (!se->has_relay_prefixlen)
+			goto skip;
+
+		if (se->n_relay_prefix != 1) {
+			pr_err("Bad 6rd relay prefixlen for sit\n");
+			return -1;
+		}
+
+		aux = se->relay_prefixlen;
+		addattr_l(&req->h, sizeof(*req), IFLA_IPTUN_6RD_RELAY_PREFIXLEN, &aux, sizeof(u16));
+		addattr_l(&req->h, sizeof(*req), IFLA_IPTUN_6RD_RELAY_PREFIX, se->relay_prefix, sizeof(u32));
+skip:;
+	}
+
+#undef DECODE_ENTRY
+
+	sit_data->rta_len = (void *)NLMSG_TAIL(&req->h) - (void *)sit_data;
+
+	return 0;
+}
+
 static int restore_link(NetDeviceEntry *nde, int nlsk, int criu_nlsk)
 {
 	pr_info("Restoring link %s type %d\n", nde->name, nde->type);
@@ -1348,6 +1436,8 @@ static int restore_link(NetDeviceEntry *nde, int nlsk, int criu_nlsk)
 		return restore_one_link(nde, nlsk, bridge_link_info, NULL);
 	case ND_TYPE__MACVLAN:
 		return restore_one_macvlan(nde, nlsk, criu_nlsk);
+	case ND_TYPE__SIT:
+		return restore_one_link(nde, nlsk, sit_link_info, NULL);
 	default:
 		pr_err("Unsupported link type %d\n", nde->type);
 		break;
