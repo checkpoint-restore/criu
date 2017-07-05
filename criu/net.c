@@ -635,6 +635,31 @@ static int dump_one_gre(struct ifinfomsg *ifi, char *kind,
 	return dump_unknown_device(ifi, kind, tb, fds);
 }
 
+static int dump_one_sit(struct ifinfomsg *ifi, char *kind,
+		struct nlattr **tb, struct cr_imgset *fds)
+{
+	char *name;
+
+	if (strcmp(kind, "sit")) {
+		pr_err("SIT device with %s kind\n", kind);
+		return -1;
+	}
+
+	name = (char *)RTA_DATA(tb[IFLA_IFNAME]);
+	if (!name) {
+		pr_err("sit device %d has no name\n", ifi->ifi_index);
+		return -1;
+	}
+
+	if (!strcmp(name, "sit0")) {
+		pr_info("found %s, ignoring\n", name);
+		return 0;
+	}
+
+	pr_warn("SIT device %s not supported natively\n", name);
+	return dump_unknown_device(ifi, kind, tb, fds);
+}
+
 static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 {
 	struct cr_imgset *fds = arg;
@@ -672,6 +697,9 @@ static int dump_one_link(struct nlmsghdr *hdr, void *arg)
 		break;
 	case ARPHRD_IPGRE:
 		ret = dump_one_gre(ifi, kind, tb, fds);
+		break;
+	case ARPHRD_SIT:
+		ret = dump_one_sit(ifi, kind, tb, fds);
 		break;
 	default:
 unk:
