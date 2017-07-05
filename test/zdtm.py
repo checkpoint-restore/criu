@@ -83,8 +83,9 @@ def add_to_report(path, tgt_name):
 			tgt_path = os.path.join(report_dir, tgt_name + ".%d" % att)
 			att += 1
 
+		ignore = shutil.ignore_patterns('*.socket')
 		if os.path.isdir(path):
-			shutil.copytree(path, tgt_path)
+			shutil.copytree(path, tgt_path, ignore = ignore)
 		else:
 			if not os.path.exists(os.path.dirname(tgt_path)):
 				os.mkdir(os.path.dirname(tgt_path))
