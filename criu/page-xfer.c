@@ -715,10 +715,8 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	 */
 
 	if (pi->nr_pages == 0) {
-		/* no iovs found means we've hit a zero page */
 		pr_debug("no iovs found, zero pages\n");
-		pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, 0);
-		return send_psi(sk, pi);
+		return -1;
 	}
 
 	pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
