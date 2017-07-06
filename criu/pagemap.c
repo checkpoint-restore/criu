@@ -462,6 +462,8 @@ static int read_page_complete(unsigned long img_id, unsigned long vaddr, int nr_
 
 	if (pr->io_complete)
 		ret = pr->io_complete(pr, vaddr, nr_pages);
+	else
+		pr_warn_once("Remote page read w/o io_complete!\n");
 
 	return ret;
 }
