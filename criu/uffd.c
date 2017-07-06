@@ -787,10 +787,8 @@ static int uffd_seek_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
 	ret = lpi->pr.seek_pagemap(&lpi->pr, address);
 	if (!ret) {
 		lp_err(lpi, "no pagemap covers %llx\n", address);
-		return ret;
+		return -1;
 	}
-
-	lpi->pr.skip_pages(&lpi->pr, address - lpi->pr.pe->vaddr);
 
 	return 0;
 }
