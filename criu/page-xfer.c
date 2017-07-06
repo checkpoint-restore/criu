@@ -127,14 +127,19 @@ static inline u32 decode_ps_flags(u32 cmd)
 	return cmd >> PS_CMD_BITS;
 }
 
-static inline int send_psi(int sk, struct page_server_iov *pi)
+static inline int send_psi_flags(int sk, struct page_server_iov *pi, int flags)
 {
-	if (write(sk, pi, sizeof(*pi)) != sizeof(*pi)) {
-		pr_perror("Can't write PSI %d to server", pi->cmd);
+	if (send(sk, pi, sizeof(*pi), flags) != sizeof(*pi)) {
+		pr_perror("Can't send PSI %d to server", pi->cmd);
 		return -1;
 	}
 
 	return 0;
+}
+
+static inline int send_psi(int sk, struct page_server_iov *pi)
+{
+	return send_psi_flags(sk, pi, 0);
 }
 
 /* page-server xfer */
@@ -1179,11 +1184,9 @@ int request_remote_pages(int pid, unsigned long addr, int nr_pages)
 		.dst_id		= pid,
 	};
 
-	/* We cannot use send_psi here because we have to use MSG_DONTWAIT */
-	if (send(page_server_sk, &pi, sizeof(pi), MSG_DONTWAIT) != sizeof(pi)) {
-		pr_perror("Can't write PSI to server");
+	/* XXX: why MSG_DONTWAIT here? */
+	if (send_psi_flags(page_server_sk, &pi, MSG_DONTWAIT))
 		return -1;
-	}
 
 	tcp_nodelay(page_server_sk, true);
 	return 0;
