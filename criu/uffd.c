@@ -481,7 +481,7 @@ static int remap_lazy_iovs(struct lazy_pages_info *lpi, unsigned long from,
 	list_for_each_entry_safe(iov, n, &lpi->iovs, l) {
 		unsigned long iov_end = iov->base + iov->len;
 
-		if (from > iov_end)
+		if (from >= iov_end)
 			continue;
 
 		if (len <= 0 || from + len < iov->base)
