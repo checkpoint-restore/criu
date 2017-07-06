@@ -388,7 +388,7 @@ static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr,
 	 * for us for urgent async read, just do the regular
 	 * cached read.
 	 */
-	if ((flags & (PR_ASYNC|PR_ASAP)) == PR_ASYNC && !opts.remote)
+	if ((flags & (PR_ASYNC|PR_ASAP)) == PR_ASYNC)
 		ret = pagemap_enqueue_iovec(pr, buf, len, &pr->async);
 	else {
 		ret = read_local_page(pr, vaddr, len, buf);
