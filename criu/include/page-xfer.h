@@ -22,6 +22,7 @@ struct page_xfer {
 	 * relative to some address. Used, e.g. by shmem.
 	 */
 	unsigned long offset;
+	bool transfer_lazy;
 
 	/* private data for every page-xfer engine */
 	union {
@@ -41,7 +42,7 @@ struct page_xfer {
 
 extern int open_page_xfer(struct page_xfer *xfer, int fd_type, long id);
 struct page_pipe;
-extern int page_xfer_dump_pages(struct page_xfer *, struct page_pipe *, bool dump_lazy);
+extern int page_xfer_dump_pages(struct page_xfer *, struct page_pipe *);
 extern int connect_to_page_server_to_send(void);
 extern int connect_to_page_server_to_recv(int epfd);
 extern int disconnect_from_page_server(void);

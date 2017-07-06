@@ -379,6 +379,7 @@ out:
 int open_page_xfer(struct page_xfer *xfer, int fd_type, long id)
 {
 	xfer->offset = 0;
+	xfer->transfer_lazy = true;
 
 	if (opts.use_page_server)
 		return open_page_server_xfer(xfer, fd_type, id);
@@ -433,8 +434,7 @@ static int dump_holes(struct page_xfer *xfer, struct page_pipe *pp,
 	return 0;
 }
 
-int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
-		bool dump_lazy)
+int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 {
 	struct page_pipe_buf *ppb;
 	unsigned int cur_hole = 0;
@@ -461,7 +461,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 					(unsigned int)(iov.iov_len / PAGE_SIZE));
 
 			if (ppb->flags & PPB_LAZY) {
-				if (!dump_lazy) {
+				if (!xfer->transfer_lazy) {
 					if (xfer->write_pagemap(xfer, &iov, PE_LAZY))
 						return -1;
 					continue;

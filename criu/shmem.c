@@ -640,7 +640,7 @@ static int dump_pages(struct page_pipe *pp, struct page_xfer *xfer)
 			return -1;
 		}
 
-	return page_xfer_dump_pages(xfer, pp, true);
+	return page_xfer_dump_pages(xfer, pp);
 }
 
 static int next_data_segment(int fd, unsigned long pfn,

@@ -275,7 +275,7 @@ static int drain_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
 	return 0;
 }
 
-static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer, bool lazy)
+static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer)
 {
 	int ret;
 
@@ -284,7 +284,7 @@ static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer, bool lazy)
 	 *           pre-dump action (see pre_dump_one_task)
 	 */
 	timing_start(TIME_MEMWRITE);
-	ret = page_xfer_dump_pages(xfer, pp, !lazy);
+	ret = page_xfer_dump_pages(xfer, pp);
 	timing_stop(TIME_MEMWRITE);
 
 	return ret;
@@ -346,6 +346,8 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, vpid(item));
 		if (ret < 0)
 			goto out_pp;
+
+		xfer.transfer_lazy = !mdc->lazy;
 	} else {
 		ret = check_parent_page_xfer(CR_FD_PAGEMAP, vpid(item));
 		if (ret < 0)
@@ -387,7 +389,7 @@ again:
 
 				ret = drain_pages(pp, ctl, args);
 				if (!ret)
-					ret = xfer_pages(pp, &xfer, mdc->lazy /* false actually */);
+					ret = xfer_pages(pp, &xfer);
 				if (!ret) {
 					page_pipe_reinit(pp);
 					goto again;
@@ -403,7 +405,7 @@ again:
 		       sizeof(struct iovec) * pp->nr_iovs);
 	ret = drain_pages(pp, ctl, args);
 	if (!ret && !mdc->pre_dump)
-		ret = xfer_pages(pp, &xfer, mdc->lazy);
+		ret = xfer_pages(pp, &xfer);
 	if (ret)
 		goto out_xfer;
 
