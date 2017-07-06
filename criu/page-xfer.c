@@ -127,17 +127,10 @@ static inline u32 decode_ps_flags(u32 cmd)
 	return cmd >> PS_CMD_BITS;
 }
 
-static inline int send_psi(int sk, u32 cmd, u32 nr_pages, u64 vaddr, u64 dst_id)
+static inline int send_psi(int sk, struct page_server_iov *pi)
 {
-	struct page_server_iov pi = {
-		.cmd		= cmd,
-		.nr_pages	= nr_pages,
-		.vaddr		= vaddr,
-		.dst_id		= dst_id,
-	};
-
-	if (write(sk, &pi, sizeof(pi)) != sizeof(pi)) {
-		pr_perror("Can't write PSI %d to server", cmd);
+	if (write(sk, pi, sizeof(*pi)) != sizeof(*pi)) {
+		pr_perror("Can't write PSI %d to server", pi->cmd);
 		return -1;
 	}
 
@@ -160,9 +153,14 @@ static int write_pages_to_server(struct page_xfer *xfer,
 
 static int write_pagemap_to_server(struct page_xfer *xfer, struct iovec *iov, u32 flags)
 {
-	return send_psi(xfer->sk, encode_ps_cmd(PS_IOV_ADD_F, flags),
-			iov->iov_len / PAGE_SIZE, encode_pointer(iov->iov_base),
-			xfer->dst_id);
+	struct page_server_iov pi = {
+		.cmd = encode_ps_cmd(PS_IOV_ADD_F, flags),
+		.nr_pages = iov->iov_len / PAGE_SIZE,
+		.vaddr = encode_pointer(iov->iov_base),
+		.dst_id = xfer->dst_id,
+	};
+
+	return send_psi(xfer->sk, &pi);
 }
 
 static void close_server_xfer(struct page_xfer *xfer)
@@ -173,6 +171,9 @@ static void close_server_xfer(struct page_xfer *xfer)
 static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 {
 	char has_parent;
+	struct page_server_iov pi = {
+		.cmd = PS_IOV_OPEN2,
+	};
 
 	xfer->sk = page_server_sk;
 	xfer->write_pagemap = write_pagemap_to_server;
@@ -181,7 +182,8 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 	xfer->dst_id = encode_pm(fd_type, id);
 	xfer->parent = NULL;
 
-	if (send_psi(xfer->sk, PS_IOV_OPEN2, 0, 0, xfer->dst_id)) {
+	pi.dst_id = xfer->dst_id;
+	if (send_psi(xfer->sk, &pi)) {
 		pr_perror("Can't write to page server");
 		return -1;
 	}
@@ -696,18 +698,23 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	if (ret)
 		return ret;
 
+	/*
+	 * The pi is reused for send_psi here, so .nr_pages, .vaddr and
+	 * .dst_id all remain intact.
+	 */
+
 	if (pi->nr_pages == 0) {
 		/* no iovs found means we've hit a zero page */
 		pr_debug("no iovs found, zero pages\n");
-		return send_psi(sk, encode_ps_cmd(PS_IOV_ADD_F, 0), 0, 0, 0);
+		pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, 0);
+		return send_psi(sk, pi);
 	}
 
-	len = pi->nr_pages * PAGE_SIZE;
-
-	if (send_psi(sk, encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT),
-				pi->nr_pages, pi->vaddr, pi->dst_id))
+	pi->cmd = encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT);
+	if (send_psi(sk, pi))
 		return -1;
 
+	len = pi->nr_pages * PAGE_SIZE;
 	ret = splice(pipe_read_dest.p[0], NULL, sk, NULL, len, SPLICE_F_MOVE);
 	if (ret != len)
 		return -1;
