@@ -1099,10 +1099,11 @@ static unsigned long task_entries_pos;
 
 static int wait_on_helpers_zombies(void)
 {
+	int level = current->pid->level;
 	struct pstree_item *pi;
 
 	list_for_each_entry(pi, &current->children, sibling) {
-		pid_t pid = vpid(pi);
+		pid_t pid = pi->pid->ns[level-1].virt;
 		int status;
 
 		switch (pi->pid->state) {
