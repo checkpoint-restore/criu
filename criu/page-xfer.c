@@ -41,9 +41,8 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 #define PS_IOV_OPEN	3
 #define PS_IOV_OPEN2	4
 #define PS_IOV_PARENT	5
-#define PS_IOV_ZERO	6
-#define PS_IOV_LAZY	7
-#define PS_IOV_GET	8
+#define PS_IOV_ADD_F	6
+#define PS_IOV_GET	7
 
 #define PS_IOV_FLUSH		0x1023
 #define PS_IOV_FLUSH_N_CLOSE	0x1024
@@ -161,18 +160,7 @@ static int write_pages_to_server(struct page_xfer *xfer,
 
 static int write_pagemap_to_server(struct page_xfer *xfer, struct iovec *iov, u32 flags)
 {
-	u32 cmd = 0;
-
-	if (flags & PE_PRESENT)
-		cmd = encode_ps_cmd(PS_IOV_ADD, flags);
-	else if (flags & PE_PARENT)
-		cmd = PS_IOV_HOLE;
-	else if (flags & PE_LAZY)
-		cmd = PS_IOV_LAZY;
-	else
-		BUG();
-
-	return send_psi(xfer->sk, cmd,
+	return send_psi(xfer->sk, encode_ps_cmd(PS_IOV_ADD_F, flags),
 			iov->iov_len / PAGE_SIZE, encode_pointer(iov->iov_base),
 			xfer->dst_id);
 }
@@ -711,12 +699,13 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	if (pi->nr_pages == 0) {
 		/* no iovs found means we've hit a zero page */
 		pr_debug("no iovs found, zero pages\n");
-		return send_psi(sk, PS_IOV_ZERO, 0, 0, 0);
+		return send_psi(sk, encode_ps_cmd(PS_IOV_ADD_F, 0), 0, 0, 0);
 	}
 
 	len = pi->nr_pages * PAGE_SIZE;
 
-	if (send_psi(sk, PS_IOV_ADD, pi->nr_pages, pi->vaddr, pi->dst_id))
+	if (send_psi(sk, encode_ps_cmd(PS_IOV_ADD_F, PE_PRESENT),
+				pi->nr_pages, pi->vaddr, pi->dst_id))
 		return -1;
 
 	ret = splice(pipe_read_dest.p[0], NULL, sk, NULL, len, SPLICE_F_MOVE);
@@ -782,15 +771,22 @@ static int page_server_serve(int sk)
 		case PS_IOV_PARENT:
 			ret = page_server_check_parent(sk, &pi);
 			break;
+		case PS_IOV_ADD_F:
 		case PS_IOV_ADD:
-			ret = page_server_add(sk, &pi, PE_PRESENT | decode_ps_flags(pi.cmd));
-			break;
 		case PS_IOV_HOLE:
-			ret = page_server_add(sk, &pi, PE_PARENT);
+		{
+			u32 flags;
+
+			if (likely(cmd == PS_IOV_ADD_F))
+				flags = decode_ps_flags(pi.cmd);
+			else if (cmd == PS_IOV_ADD)
+				flags = PE_PRESENT;
+			else    /* PS_IOV_HOLE */
+				flags = PE_PARENT;
+
+			ret = page_server_add(sk, &pi, flags);
 			break;
-		case PS_IOV_LAZY:
-			ret = page_server_add(sk, &pi, PE_LAZY);
-			break;
+		}
 		case PS_IOV_FLUSH:
 		case PS_IOV_FLUSH_N_CLOSE:
 		{
