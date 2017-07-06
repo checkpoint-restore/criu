@@ -538,10 +538,8 @@ static int check_parent_server_xfer(int fd_type, long id)
 	pi.cmd = PS_IOV_PARENT;
 	pi.dst_id = encode_pm(fd_type, id);
 
-	if (write(page_server_sk, &pi, sizeof(pi)) != sizeof(pi)) {
-		pr_perror("Can't write to page server");
+	if (send_psi(page_server_sk, &pi))
 		return -1;
-	}
 
 	tcp_nodelay(page_server_sk, true);
 
@@ -1046,10 +1044,8 @@ int disconnect_from_page_server(void)
 	else
 		pi.cmd = PS_IOV_FLUSH;
 
-	if (write(page_server_sk, &pi, sizeof(pi)) != sizeof(pi)) {
-		pr_perror("Can't write the fini command to server");
+	if (send_psi(page_server_sk, &pi))
 		goto out;
-	}
 
 	if (read(page_server_sk, &status, sizeof(status)) != sizeof(status)) {
 		pr_perror("The page server doesn't answer");
