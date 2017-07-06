@@ -421,11 +421,8 @@ static int maybe_read_page_img_cache(struct page_read *pr, unsigned long vaddr,
 			break;
 	}
 
-	if (opts.auto_dedup) {
-		ret = punch_hole(pr, pr->pi_off, len, false);
-		if (ret == -1)
-			return -1;
-	}
+	if (opts.auto_dedup)
+		pr_warn_once("Can't dedup from image cache\n");
 
 	if (ret == 0 && pr->io_complete)
 		ret = pr->io_complete(pr, vaddr, nr);
