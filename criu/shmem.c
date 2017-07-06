@@ -628,7 +628,7 @@ int add_shmem_area(pid_t pid, VmaEntry *vma, u64 *map)
 	return 0;
 }
 
-static int dump_pages(struct page_pipe *pp, struct page_xfer *xfer, void *addr)
+static int dump_pages(struct page_pipe *pp, struct page_xfer *xfer)
 {
 	struct page_pipe_buf *ppb;
 
@@ -640,7 +640,7 @@ static int dump_pages(struct page_pipe *pp, struct page_xfer *xfer, void *addr)
 			return -1;
 		}
 
-	return page_xfer_dump_pages(xfer, pp, (unsigned long)addr, true);
+	return page_xfer_dump_pages(xfer, pp, true);
 }
 
 static int next_data_segment(int fd, unsigned long pfn,
@@ -687,6 +687,8 @@ static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 	if (err)
 		goto err_pp;
 
+	xfer.offset = (unsigned long)addr;
+
 	for (pfn = 0; pfn < nrpages; pfn++) {
 		unsigned int pgstate = PST_DIRTY;
 		bool use_mc = true;
@@ -718,7 +720,7 @@ again:
 			ret = page_pipe_add_page(pp, pgaddr, 0);
 
 		if (ret == -EAGAIN) {
-			ret = dump_pages(pp, &xfer, addr);
+			ret = dump_pages(pp, &xfer);
 			if (ret)
 				goto err_xfer;
 			page_pipe_reinit(pp);
@@ -727,7 +729,7 @@ again:
 			goto err_xfer;
 	}
 
-	ret = dump_pages(pp, &xfer, addr);
+	ret = dump_pages(pp, &xfer);
 
 err_xfer:
 	xfer.close(&xfer);

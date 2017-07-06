@@ -284,7 +284,7 @@ static int xfer_pages(struct page_pipe *pp, struct page_xfer *xfer, bool lazy)
 	 *           pre-dump action (see pre_dump_one_task)
 	 */
 	timing_start(TIME_MEMWRITE);
-	ret = page_xfer_dump_pages(xfer, pp, 0, !lazy);
+	ret = page_xfer_dump_pages(xfer, pp, !lazy);
 	timing_stop(TIME_MEMWRITE);
 
 	return ret;

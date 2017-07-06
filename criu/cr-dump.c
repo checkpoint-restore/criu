@@ -1491,7 +1491,7 @@ static int cr_pre_dump_finish(int ret)
 			goto err;
 
 		mem_pp = dmpi(item)->mem_pp;
-		ret = page_xfer_dump_pages(&xfer, mem_pp, 0, true);
+		ret = page_xfer_dump_pages(&xfer, mem_pp, true);
 
 		xfer.close(&xfer);
 

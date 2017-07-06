@@ -17,6 +17,12 @@ struct page_xfer {
 	int (*write_pages)(struct page_xfer *self, int pipe, unsigned long len);
 	void (*close)(struct page_xfer *self);
 
+	/*
+	 * In case we need to dump pagemaps not as-is, but
+	 * relative to some address. Used, e.g. by shmem.
+	 */
+	unsigned long offset;
+
 	/* private data for every page-xfer engine */
 	union {
 		struct /* local */ {
@@ -35,8 +41,7 @@ struct page_xfer {
 
 extern int open_page_xfer(struct page_xfer *xfer, int fd_type, long id);
 struct page_pipe;
-extern int page_xfer_dump_pages(struct page_xfer *, struct page_pipe *,
-				unsigned long off, bool dump_lazy);
+extern int page_xfer_dump_pages(struct page_xfer *, struct page_pipe *, bool dump_lazy);
 extern int connect_to_page_server_to_send(void);
 extern int connect_to_page_server_to_recv(int epfd);
 extern int disconnect_from_page_server(void);
