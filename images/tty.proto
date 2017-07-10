@@ -81,4 +81,5 @@ message tty_file_entry {
 
 	required uint32			flags		= 3 [(criu).hex = true];
 	required fown_entry		fown		= 4;
+	optional uint32			regf_id		= 6;
 }

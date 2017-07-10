@@ -1626,7 +1626,8 @@ static int tty_info_setup(struct tty_info *info)
 	 * reg file rectord because they are inherited from
 	 * command line on restore.
 	 */
-	info->reg_d = try_collect_special_file(info->tfe->id, 1);
+	info->reg_d = try_collect_special_file( info->tfe->has_regf_id ?
+			info->tfe->regf_id : info->tfe->id, 1);
 	if (!info->reg_d) {
 		if (info->driver->type != TTY_TYPE__EXT_TTY) {
 			if (!deprecated_ok("TTY w/o regfile"))
@@ -1904,13 +1905,22 @@ static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 		return -1;
 	}
 
-	if (driver->type != TTY_TYPE__EXT_TTY && dump_one_reg_file(lfd, id, p))
-		return -1;
-
 	e.id		= id;
 	e.tty_info_id	= tty_gen_id(driver, index);
 	e.flags		= p->flags;
 	e.fown		= (FownEntry *)&p->fown;
+
+	if (driver->type != TTY_TYPE__EXT_TTY) {
+		u32 rf_id;
+
+		fd_id_generate_special(NULL, &rf_id);
+		if (dump_one_reg_file(lfd, rf_id, p))
+			return -1;
+
+		e.has_regf_id = true;
+		e.regf_id = rf_id;
+	}
+
 
 	/*
 	 * FIXME
