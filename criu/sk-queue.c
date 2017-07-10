@@ -201,6 +201,13 @@ static int send_one_pkt(int fd, struct sk_packet *pkt)
 {
 	int ret;
 	SkPacketEntry *entry = pkt->entry;
+	struct msghdr mh = {};
+	struct iovec iov;
+
+	mh.msg_iov = &iov;
+	mh.msg_iovlen = 1;
+	iov.iov_base = pkt->data;
+	iov.iov_len = entry->length;
 
 	/*
 	 * Don't try to use sendfile here, because it use sendpage() and
@@ -210,7 +217,7 @@ static int send_one_pkt(int fd, struct sk_packet *pkt)
 	 * boundaries messages should be saved.
 	 */
 
-	ret = write(fd, pkt->data, entry->length);
+	ret = sendmsg(fd, &mh, 0);
 	xfree(pkt->data);
 	if (ret < 0) {
 		pr_perror("Failed to send packet");
