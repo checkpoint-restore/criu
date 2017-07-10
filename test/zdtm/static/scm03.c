@@ -14,11 +14,30 @@ static int send_fd(int via, int fd1, int fd2)
 	struct msghdr h = {};
 	struct cmsghdr *ch;
 	struct iovec iov;
-	char buf[CMSG_SPACE(2 * sizeof(int))], c = '\0';
+#ifdef SEPARATE
+	char buf[2 * CMSG_SPACE(sizeof(int))];
+#else
+	char buf[CMSG_SPACE(2 * sizeof(int))];
+#endif
+	char c = '\0';
 	int *fdp;
 
 	h.msg_control = buf;
 	h.msg_controllen = sizeof(buf);
+#ifdef SEPARATE
+	ch = CMSG_FIRSTHDR(&h);
+	ch->cmsg_level = SOL_SOCKET;
+	ch->cmsg_type = SCM_RIGHTS;
+	ch->cmsg_len = CMSG_LEN(sizeof(int));
+	fdp = (int *)CMSG_DATA(ch);
+	fdp[0] = fd1;
+	ch = CMSG_NXTHDR(&h, ch);
+	ch->cmsg_level = SOL_SOCKET;
+	ch->cmsg_type = SCM_RIGHTS;
+	ch->cmsg_len = CMSG_LEN(sizeof(int));
+	fdp = (int *)CMSG_DATA(ch);
+	fdp[0] = fd2;
+#else
 	ch = CMSG_FIRSTHDR(&h);
 	ch->cmsg_level = SOL_SOCKET;
 	ch->cmsg_type = SCM_RIGHTS;
@@ -26,6 +45,7 @@ static int send_fd(int via, int fd1, int fd2)
 	fdp = (int *)CMSG_DATA(ch);
 	fdp[0] = fd1;
 	fdp[1] = fd2;
+#endif
 	h.msg_iov = &iov;
 	h.msg_iovlen = 1;
 	iov.iov_base = &c;
@@ -42,7 +62,8 @@ static int recv_fd(int via, int *fd1, int *fd2)
 	struct msghdr h = {};
 	struct cmsghdr *ch;
 	struct iovec iov;
-	char buf[CMSG_SPACE(2 * sizeof(int))], c;
+	char buf[CMSG_SPACE(2 * sizeof(int))];
+	char c;
 	int *fdp;
 
 	h.msg_control = buf;
@@ -55,6 +76,12 @@ static int recv_fd(int via, int *fd1, int *fd2)
 	if (recvmsg(via, &h, 0) <= 0)
 		return -1;
 
+	if (h.msg_flags & MSG_CTRUNC) {
+		test_msg("CTR\n");
+		return -2;
+	}
+
+	/* No 2 SCM-s here, kernel merges them upon send */
 	ch = CMSG_FIRSTHDR(&h);
 	if (h.msg_flags & MSG_TRUNC)
 		return -2;

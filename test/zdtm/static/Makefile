@@ -157,6 +157,7 @@ TST_NOFILE	:=				\
 		scm01				\
 		scm02				\
 		scm03				\
+		scm04				\
 		aio00				\
 		aio01				\
 		fd				\
@@ -444,6 +445,7 @@ sigpending:		LDLIBS += -lrt
 vdso01:			LDLIBS += -lrt
 scm01:			CFLAGS += -DKEEP_SENT_FD
 scm02:			CFLAGS += -DSEND_BOTH
+scm04:			CFLAGS += -DSEPARATE
 mntns_link_remap:	CFLAGS += -DZDTM_LINK_REMAP
 mntns_shared_bind02:	CFLAGS += -DSHARED_BIND02
 mntns_root_bind02:	CFLAGS += -DROOT_BIND02
