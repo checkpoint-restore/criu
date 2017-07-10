@@ -1370,14 +1370,15 @@ static void unlink_stale(struct unix_sk_info *ui)
 	revert_unix_sk_cwd(&cwd_fd, &root_fd);
 }
 
-static int resolve_unix_peer(struct unix_sk_info *ui);
+static void try_resolve_unix_peer(struct unix_sk_info *ui);
+static int fixup_unix_peer(struct unix_sk_info *ui);
 
 static int post_prepare_unix_sk(struct pprep_head *ph)
 {
 	struct unix_sk_info *ui;
 
 	ui = container_of(ph, struct unix_sk_info, peer_resolve);
-	if (ui->ue->peer && resolve_unix_peer(ui))
+	if (ui->ue->peer && fixup_unix_peer(ui))
 		return -1;
 	if (ui->name)
 		unlink_stale(ui);
@@ -1437,6 +1438,9 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 		ui->name_dir ? ui->name_dir : "-");
 
 	if (ui->ue->peer || ui->name) {
+		if (ui->ue->peer)
+			try_resolve_unix_peer(ui);
+
 		ui->peer_resolve.actor = post_prepare_unix_sk;
 		add_post_prepare_cb(&ui->peer_resolve);
 	}
@@ -1481,36 +1485,48 @@ static void interconnected_pair(struct unix_sk_info *ui, struct unix_sk_info *pe
 	}
 }
 
-static int resolve_unix_peer(struct unix_sk_info *ui)
+static int fixup_unix_peer(struct unix_sk_info *ui)
 {
-	struct unix_sk_info *peer;
+	struct unix_sk_info *peer = ui->peer;
 
-	if (ui->peer)
-		goto out;
-
-	BUG_ON(!ui->ue->peer);
-
-	peer = find_unix_sk_by_ino(ui->ue->peer);
 	if (!peer) {
 		pr_err("FATAL: Peer %#x unresolved for %#x\n",
 				ui->ue->peer, ui->ue->ino);
 		return -1;
 	}
 
-	set_peer(ui, peer);
-	if (ui == peer)
-		/* socket connected to self %) */
-		goto out;
-	if (peer->ue->peer != ui->ue->ino)
-		goto out;
+	if (peer != ui && peer->peer == ui &&
+			!(ui->flags & (USK_PAIR_MASTER | USK_PAIR_SLAVE))) {
+		pr_info("Connected %#x -> %#x (%#x) flags %#x\n",
+				ui->ue->ino, ui->ue->peer, peer->ue->ino, ui->flags);
+		/* socketpair or interconnected sockets */
+		interconnected_pair(ui, peer);
+	}
 
-	pr_info("Connected %#x -> %#x (%#x) flags %#x\n",
-			ui->ue->ino, ui->ue->peer, peer->ue->ino, ui->flags);
-	set_peer(peer, ui);
-	/* socketpair or interconnected sockets */
-	interconnected_pair(ui, peer);
-out:
 	return 0;
+}
+
+static void try_resolve_unix_peer(struct unix_sk_info *ui)
+{
+	struct unix_sk_info *peer;
+
+	if (ui->peer)
+		return;
+
+	BUG_ON(!ui->ue->peer);
+
+	if (ui->ue->peer == ui->ue->ino) {
+		/* socket connected to self %) */
+		set_peer(ui, ui);
+		return;
+	}
+
+	peer = find_unix_sk_by_ino(ui->ue->peer);
+	if (peer) {
+		set_peer(ui, peer);
+		if (peer->ue->peer == ui->ue->ino)
+			set_peer(peer, ui);
+	} /* else -- maybe later */
 }
 
 int unix_sk_id_add(unsigned int ino)
