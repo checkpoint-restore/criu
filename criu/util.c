@@ -784,14 +784,23 @@ out:
 	return ret;
 }
 
-int vaddr_to_pfn(unsigned long vaddr, u64 *pfn)
+/*
+ * Get PFN from pagemap file for virtual address vaddr.
+ * Optionally if fd >= 0, it's used as pagemap file descriptor
+ * (may be other task's pagemap)
+ */
+int vaddr_to_pfn(int fd, unsigned long vaddr, u64 *pfn)
 {
-	int fd, ret = -1;
+	int ret = -1;
 	off_t off;
+	bool close_fd = false;
 
-	fd = open_proc(PROC_SELF, "pagemap");
-	if (fd < 0)
-		return -1;
+	if (fd < 0) {
+		fd = open_proc(PROC_SELF, "pagemap");
+		if (fd < 0)
+			return -1;
+		close_fd = true;
+	}
 
 	off = (vaddr / page_size()) * sizeof(u64);
 	ret = pread(fd, pfn, sizeof(*pfn), off);
@@ -803,7 +812,9 @@ int vaddr_to_pfn(unsigned long vaddr, u64 *pfn)
 		ret = 0;
 	}
 
-	close(fd);
+	if (close_fd)
+		close(fd);
+
 	return ret;
 }
 

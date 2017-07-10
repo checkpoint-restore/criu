@@ -354,7 +354,7 @@ static int init_zero_page_pfn()
 		return -1;
 	}
 
-	ret = vaddr_to_pfn((unsigned long)addr, &kdat.zero_page_pfn);
+	ret = vaddr_to_pfn(-1, (unsigned long)addr, &kdat.zero_page_pfn);
 	munmap(addr, PAGE_SIZE);
 
 	if (kdat.zero_page_pfn == 0)
