@@ -140,6 +140,48 @@ static bool blobs_matches(VmaEntry *vdso_img, VmaEntry *vvar_img,
 	return true;
 }
 
+/*
+ * The easy case -- the vdso from an image has the same offsets,
+ * order and size as runtime vdso, so we simply remap runtime vdso
+ * to dumpee position without generating any proxy.
+ */
+static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
+		struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at)
+{
+	unsigned long rt_vvar_addr = vdso_rt_parked_at;
+	unsigned long rt_vdso_addr = vdso_rt_parked_at;
+	int ret;
+
+	pr_info("Runtime vdso/vvar matches dumpee, remap inplace\n");
+
+	if (sys_munmap((void *)vma_vdso->start, vma_entry_len(vma_vdso))) {
+		pr_err("Failed to unmap dumpee vdso\n");
+		return -1;
+	}
+
+	if (!vma_vvar) {
+		return vdso_remap("rt-vdso", rt_vdso_addr,
+				vma_vdso->start, sym_rt->vdso_size);
+	}
+
+	if (sys_munmap((void *)vma_vvar->start, vma_entry_len(vma_vvar))) {
+		pr_err("Failed to unmap dumpee vvar\n");
+		return -1;
+	}
+
+	if (vma_vdso->start < vma_vvar->start)
+		rt_vvar_addr = vdso_rt_parked_at + sym_rt->vdso_size;
+	else
+		rt_vdso_addr = vdso_rt_parked_at + sym_rt->vvar_size;
+
+	ret = vdso_remap("rt-vdso", rt_vdso_addr,
+			vma_vdso->start, sym_rt->vdso_size);
+	ret |= vdso_remap("rt-vvar", rt_vvar_addr,
+			vma_vvar->start, sym_rt->vvar_size);
+
+	return ret;
+}
+
 int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 		 VmaEntry *vmas, size_t nr_vmas,
 		 bool compat_vdso, bool force_trampolines)
@@ -187,46 +229,9 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 		 vma_vvar ? (unsigned long)vma_vvar->start : VVAR_BAD_ADDR,
 		 vma_vvar ? (unsigned long)vma_vvar->end : VVAR_BAD_ADDR);
 
-	/*
-	 * Easy case -- the vdso from image has same offsets, order and size
-	 * as runtime, so we simply remap runtime vdso to dumpee position
-	 * without generating any proxy.
-	 *
-	 * Note we may remap VVAR vdso as well which might not yet been mapped
-	 * by a caller code. So drop VMA_AREA_REGULAR from it and caller would
-	 * not touch it anymore.
-	 */
 	if (blobs_matches(vma_vdso, vma_vvar, &s, sym_rt) && !force_trampolines) {
-		int ret = 0;
-
-		pr_info("Runtime vdso/vvar matches dumpee, remap inplace\n");
-
-		if (sys_munmap((void *)(uintptr_t)vma_vdso->start,
-					vma_entry_len(vma_vdso))) {
-			pr_err("Failed to unmap dumpee\n");
-			return -1;
-		}
-
-		if (vma_vvar) {
-			if (sys_munmap((void *)(uintptr_t)vma_vvar->start,
-						vma_entry_len(vma_vvar))) {
-				pr_err("Failed to unmap dumpee\n");
-				return -1;
-			}
-
-			if (vma_vdso->start < vma_vvar->start) {
-				ret  = vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, sym_rt->vdso_size);
-				vdso_rt_parked_at += sym_rt->vdso_size;
-				ret |= vdso_remap("rt-vvar", vdso_rt_parked_at, vma_vvar->start, sym_rt->vvar_size);
-			} else {
-				ret  = vdso_remap("rt-vvar", vdso_rt_parked_at, vma_vvar->start, sym_rt->vvar_size);
-				vdso_rt_parked_at += sym_rt->vvar_size;
-				ret |= vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, sym_rt->vdso_size);
-			}
-		} else
-			ret = vdso_remap("rt-vdso", vdso_rt_parked_at, vma_vdso->start, sym_rt->vdso_size);
-
-		return ret;
+		return remap_rt_vdso(vma_vdso, vma_vvar,
+				sym_rt, vdso_rt_parked_at);
 	}
 
 	/*
