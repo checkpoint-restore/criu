@@ -41,32 +41,36 @@ static int vdso_remap(char *who, unsigned long from, unsigned long to, size_t si
 	return 0;
 }
 
-/* Park runtime vDSO in some safe place where it can be accessible from restorer */
-int vdso_do_park(struct vdso_maps *rt, unsigned long park_at, unsigned long park_size)
+/*
+ * Park runtime vDSO in some safe place where it can be accessible
+ * from the restorer
+ */
+int vdso_do_park(struct vdso_maps *rt, unsigned long park_at,
+		unsigned long park_size)
 {
-	unsigned long vvar_size;
+	unsigned long vvar_size = rt->sym.vvar_size;
+	unsigned long vdso_size = rt->sym.vdso_size;
+	unsigned long rt_vvar_park = park_at;
+	unsigned long rt_vdso_park = park_at;
 	int ret;
 
-	vvar_size = (rt->sym.vvar_size == VVAR_BAD_SIZE) ? 0 : rt->sym.vvar_size;
-	BUG_ON((rt->sym.vdso_size + vvar_size) < park_size);
 
-	if (rt->vvar_start != VVAR_BAD_ADDR) {
-		if (rt->sym.vdso_before_vvar) {
-			ret  = vdso_remap("rt-vdso", rt->vdso_start,
-					  park_at, rt->sym.vdso_size);
-			park_at += rt->sym.vdso_size;
-			ret |= vdso_remap("rt-vvar", rt->vvar_start,
-					  park_at, rt->sym.vvar_size);
-		} else {
-			ret  = vdso_remap("rt-vvar", rt->vvar_start,
-					  park_at, rt->sym.vvar_size);
-			park_at += rt->sym.vvar_size;
-			ret |= vdso_remap("rt-vdso", rt->vdso_start,
-					  park_at, rt->sym.vdso_size);
-		}
-	} else
-		ret = vdso_remap("rt-vdso", rt->vdso_start,
-				 park_at, rt->sym.vdso_size);
+	if (rt->vvar_start == VVAR_BAD_ADDR) {
+		BUG_ON(vdso_size < park_size);
+		return vdso_remap("rt-vdso", rt->vdso_start,
+				rt_vdso_park, vdso_size);
+	}
+
+	BUG_ON((vdso_size + vvar_size) < park_size);
+
+	if (rt->sym.vdso_before_vvar)
+		rt_vvar_park = park_at + vdso_size;
+	else
+		rt_vdso_park = park_at + vvar_size;
+
+	ret  = vdso_remap("rt-vdso", rt->vdso_start, rt_vdso_park, vdso_size);
+	ret |= vdso_remap("rt-vvar", rt->vvar_start, rt_vvar_park, vvar_size);
+
 	return ret;
 }
 
