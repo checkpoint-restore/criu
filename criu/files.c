@@ -89,7 +89,15 @@ struct file_desc *find_file_desc_raw(int type, u32 id)
 
 	chain = &file_desc_hash[id % FDESC_HASH_SIZE];
 	hlist_for_each_entry(d, chain, hash)
-		if (d->ops->type == type && d->id == id)
+		if ((d->id == id) &&
+				(d->ops->type == type || type == FD_TYPES__UND))
+			/*
+			 * Warning -- old CRIU might generate matching IDs
+			 * for different file types! So any code that uses
+			 * FD_TYPES__UND for fdesc search MUST make sure it's
+			 * dealing with the merged files images where all
+			 * descs are forced to have different IDs.
+			 */
 			return d;
 
 	return NULL;
