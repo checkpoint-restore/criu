@@ -761,26 +761,36 @@ static void collect_desc_fle(struct fdinfo_list_entry *new_le, struct file_desc 
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 }
 
-int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info, bool fake)
+struct fdinfo_list_entry *collect_fd_to(int pid, FdinfoEntry *e,
+		struct rst_info *rst_info, struct file_desc *fdesc, bool fake)
 {
 	struct fdinfo_list_entry *new_le;
+
+	new_le = alloc_fle(pid, e);
+	if (new_le) {
+		new_le->fake = (!!fake);
+		collect_desc_fle(new_le, fdesc);
+		collect_task_fd(new_le, rst_info);
+	}
+
+	return new_le;
+}
+
+int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info, bool fake)
+{
 	struct file_desc *fdesc;
 
 	pr_info("Collect fdinfo pid=%d fd=%d id=%#x\n",
 		pid, e->fd, e->id);
-
-	new_le = alloc_fle(pid, e);
-	if (!new_le)
-		return -1;
-	new_le->fake = (!!fake);
 
 	fdesc = find_file_desc(e);
 	if (fdesc == NULL) {
 		pr_err("No file for fd %d id %#x\n", e->fd, e->id);
 		return -1;
 	}
-	collect_desc_fle(new_le, fdesc);
-	collect_task_fd(new_le, rst_info);
+
+	if (!collect_fd_to(pid, e, rst_info, fdesc, fake))
+		return -1;
 
 	return 0;
 }
