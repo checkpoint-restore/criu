@@ -68,6 +68,27 @@ static enum vdso_check_t get_vdso_check_type(struct parasite_ctl *ctl)
 	return VDSO_CHECK_SYMS;
 }
 
+static int check_vdso_by_pfn(int pagemap_fd, struct vma_area *vma,
+			bool *has_vdso_pfn)
+{
+	u64 pfn = VDSO_BAD_PFN;
+
+	if (vaddr_to_pfn(pagemap_fd, vma->e->start, &pfn))
+		return -1;
+
+	if (!pfn) {
+		pr_err("Unexpected page frame number 0\n");
+		return -1;
+	}
+
+	if ((pfn == vdso_pfn && pfn != VDSO_BAD_PFN))
+		*has_vdso_pfn = true;
+	else
+		*has_vdso_pfn = false;
+
+	return 0;
+}
+
 /*
  * The VMAs list might have proxy vdso/vvar areas left
  * from previous dump/restore cycle so we need to detect
@@ -84,7 +105,6 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 	struct parasite_vdso_vma_entry *args;
 	int fd = -1, exit_code = -1;
 	enum vdso_check_t vcheck;
-	u64 pfn = VDSO_BAD_PFN;
 	struct vma_area *vma;
 
 	vcheck = get_vdso_check_type(ctl);
@@ -97,6 +117,8 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 	}
 
 	list_for_each_entry(vma, &vma_area_list->h, list) {
+		bool has_vdso_pfn = false;
+
 		if (!vma_area_is(vma, VMA_AREA_REGULAR))
 			continue;
 
@@ -168,25 +190,12 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		if (vcheck == VDSO_NO_CHECK)
 			continue;
 
-		/*
-		 * If we have an access to pagemap we can handle vDSO
-		 * status early. Otherwise, in worst scenario, where
-		 * the dumpee has been remapping vdso on its own and
-		 * the kernel version is < 3.16, the vdso won't be
-		 * detected via procfs status so we have to parse
-		 * symbols in parasite code.
-		 */
-		if (vcheck == VDSO_CHECK_PFN) {
-			if (vaddr_to_pfn(fd, vma->e->start, &pfn))
-				goto err;
-
-			if (!pfn) {
-				pr_err("Unexpected page fram number 0 for pid %d\n", pid);
-				goto err;
-			}
+		if (vcheck == VDSO_CHECK_PFN && check_vdso_by_pfn(fd, vma, &has_vdso_pfn) < 0) {
+			pr_err("Failed checking vdso by pfn for %d\n", pid);
+			goto err;
 		}
 
-		if ((pfn == vdso_pfn && pfn != VDSO_BAD_PFN) || args->is_vdso) {
+		if (has_vdso_pfn || args->is_vdso) {
 			if (!vma_area_is(vma, VMA_AREA_VDSO)) {
 				pr_debug("Restore vDSO status by pfn/symtable at %lx\n",
 					 (long)vma->e->start);
