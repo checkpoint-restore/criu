@@ -278,27 +278,20 @@ static u32 make_gen_id(const struct fd_parms *p)
 }
 
 int do_dump_gen_file(struct fd_parms *p, int lfd,
-		const struct fdtype_ops *ops, struct cr_img *img)
+		const struct fdtype_ops *ops, FdinfoEntry *e)
 {
-	FdinfoEntry e = FDINFO_ENTRY__INIT;
 	int ret = -1;
 
-	e.type	= ops->type;
-	e.id	= make_gen_id(p);
-	e.fd	= p->fd;
-	e.flags = p->fd_flags;
+	e->type	= ops->type;
+	e->id	= make_gen_id(p);
+	e->fd	= p->fd;
+	e->flags = p->fd_flags;
 
-	ret = fd_id_generate(p->pid, &e, p);
+	ret = fd_id_generate(p->pid, e, p);
 	if (ret == 1) /* new ID generated */
-		ret = ops->dump(lfd, e.id, p);
+		ret = ops->dump(lfd, e->id, p);
 
-	if (ret < 0)
-		return ret;
-
-	pr_info("fdinfo: type: %#2x flags: %#o/%#o pos: %#8"PRIx64" fd: %d\n",
-		ops->type, p->flags, (int)p->fd_flags, p->pos, p->fd);
-
-	return pb_write_one(img, &e, PB_FDINFO);
+	return ret;
 }
 
 int fill_fdlink(int lfd, const struct fd_parms *p, struct fd_link *link)
@@ -407,7 +400,7 @@ static const struct fdtype_ops *get_mem_dev_ops(struct fd_parms *p, int minor)
 	return ops;
 }
 
-static int dump_chrdev(struct fd_parms *p, int lfd, struct cr_img *img)
+static int dump_chrdev(struct fd_parms *p, int lfd, FdinfoEntry *e)
 {
 	struct fd_link *link_old = p->link;
 	int maj = major(p->stat.st_rdev);
@@ -436,19 +429,19 @@ static int dump_chrdev(struct fd_parms *p, int lfd, struct cr_img *img)
 		}
 
 		sprintf(more, "%d:%d", maj, minor(p->stat.st_rdev));
-		err = dump_unsupp_fd(p, lfd, img, "chr", more);
+		err = dump_unsupp_fd(p, lfd, "chr", more, e);
 		p->link = link_old;
 		return err;
 	}
 	}
 
-	err = do_dump_gen_file(p, lfd, ops, img);
+	err = do_dump_gen_file(p, lfd, ops, e);
 	p->link = link_old;
 	return err;
 }
 
 static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
-		       struct cr_img *img, struct parasite_ctl *ctl)
+		struct parasite_ctl *ctl, FdinfoEntry *e)
 {
 	struct fd_parms p = FD_PARMS_INIT;
 	const struct fdtype_ops *ops;
@@ -465,10 +458,10 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 	p.fd_ctl = ctl; /* Some dump_opts require this to talk to parasite */
 
 	if (S_ISSOCK(p.stat.st_mode))
-		return dump_socket(&p, lfd, img);
+		return dump_socket(&p, lfd, e);
 
 	if (S_ISCHR(p.stat.st_mode))
-		return dump_chrdev(&p, lfd, img);
+		return dump_chrdev(&p, lfd, e);
 
 	if (p.fs_type == ANON_INODE_FS_MAGIC) {
 		char link[32];
@@ -489,9 +482,9 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 		else if (is_timerfd_link(link))
 			ops = &timerfd_dump_ops;
 		else
-			return dump_unsupp_fd(&p, lfd, img, "anon", link);
+			return dump_unsupp_fd(&p, lfd, "anon", link, e);
 
-		return do_dump_gen_file(&p, lfd, ops, img);
+		return do_dump_gen_file(&p, lfd, ops, e);
 	}
 
 	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode)) {
@@ -500,12 +493,12 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 
 		p.link = &link;
 		if (link.name[1] == '/')
-			return do_dump_gen_file(&p, lfd, &regfile_dump_ops, img);
+			return do_dump_gen_file(&p, lfd, &regfile_dump_ops, e);
 
 		if (check_ns_proc(&link))
-			return do_dump_gen_file(&p, lfd, &nsfile_dump_ops, img);
+			return do_dump_gen_file(&p, lfd, &nsfile_dump_ops, e);
 
-		return dump_unsupp_fd(&p, lfd, img, "reg", link.name + 1);
+		return dump_unsupp_fd(&p, lfd, "reg", link.name + 1, e);
 	}
 
 	if (S_ISFIFO(p.stat.st_mode)) {
@@ -514,7 +507,7 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 		else
 			ops = &fifo_dump_ops;
 
-		return do_dump_gen_file(&p, lfd, ops, img);
+		return do_dump_gen_file(&p, lfd, ops, e);
 	}
 
 	/*
@@ -525,7 +518,7 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 	if (fill_fdlink(lfd, &p, &link))
 		memzero(&link, sizeof(link));
 
-	return dump_unsupp_fd(&p, lfd, img, "unknown", link.name + 1);
+	return dump_unsupp_fd(&p, lfd, "unknown", link.name + 1, e);
 }
 
 int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
@@ -564,9 +557,15 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 			goto err;
 
 		for (i = 0; i < nr_fds; i++) {
+			FdinfoEntry e = FDINFO_ENTRY__INIT;
+
 			ret = dump_one_file(item->pid, dfds->fds[i + off],
-						lfds[i], opts + i, img, ctl);
+						lfds[i], opts + i, ctl, &e);
 			close(lfds[i]);
+			if (ret)
+				break;
+
+			ret = pb_write_one(img, &e, PB_FDINFO);
 			if (ret)
 				break;
 		}

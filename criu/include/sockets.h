@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 
 #include "images/sk-opts.pb-c.h"
+#include "images/fdinfo.pb-c.h"
 
 struct fdinfo_list_entry;
 struct sk_opts_entry;
@@ -21,7 +22,7 @@ struct socket_desc {
 	int			already_dumped;
 };
 
-extern int dump_socket(struct fd_parms *p, int lfd, struct cr_img *);
+extern int dump_socket(struct fd_parms *p, int lfd, FdinfoEntry *);
 extern int dump_socket_opts(int sk, SkOptsEntry *soe);
 extern int restore_socket_opts(int sk, SkOptsEntry *soe);
 extern void release_skopts(SkOptsEntry *);

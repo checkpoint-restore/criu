@@ -84,11 +84,11 @@ struct collect_image_info ext_file_cinfo = {
 };
 
 int dump_unsupp_fd(struct fd_parms *p, int lfd,
-			  struct cr_img *img, char *more, char *info)
+		char *more, char *info, FdinfoEntry *e)
 {
 	int ret;
 
-	ret = do_dump_gen_file(p, lfd, &ext_dump_ops, img);
+	ret = do_dump_gen_file(p, lfd, &ext_dump_ops, e);
 	if (ret == 0)
 		return 0;
 	if (ret == -ENOTSUP)

@@ -135,7 +135,7 @@ struct cr_img;
 
 extern int do_dump_gen_file(struct fd_parms *p, int lfd,
 			    const struct fdtype_ops *ops,
-			    struct cr_img *);
+			    FdinfoEntry *e);
 struct parasite_drain_fd;
 int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 		struct parasite_drain_fd *dfds);
@@ -175,7 +175,7 @@ extern int shared_fdt_prepare(struct pstree_item *item);
 
 extern struct collect_image_info ext_file_cinfo;
 extern int dump_unsupp_fd(struct fd_parms *p, int lfd,
-			  struct cr_img *, char *more, char *info);
+		char *more, char *info, FdinfoEntry *);
 
 extern int inherit_fd_parse(char *optarg);
 extern int inherit_fd_add(int fd, char *key);
