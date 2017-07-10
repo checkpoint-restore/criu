@@ -154,6 +154,7 @@ TST_NOFILE	:=				\
 		remap_dead_pid			\
 		remap_dead_pid_root			\
 		scm00				\
+		scm01				\
 		aio00				\
 		aio01				\
 		fd				\
@@ -439,6 +440,7 @@ socket-tcp-closed-last-ack:	CFLAGS += -D ZDTM_TCP_LAST_ACK
 mnt_ext_manual:		CFLAGS += -D ZDTM_EXTMAP_MANUAL
 sigpending:		LDLIBS += -lrt
 vdso01:			LDLIBS += -lrt
+scm01:			CFLAGS += -DKEEP_SENT_FD
 mntns_link_remap:	CFLAGS += -DZDTM_LINK_REMAP
 mntns_shared_bind02:	CFLAGS += -DSHARED_BIND02
 mntns_root_bind02:	CFLAGS += -DROOT_BIND02
