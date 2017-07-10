@@ -974,7 +974,7 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 
 	revert_unix_sk_cwd(&cwd_fd, &root_fd);
 
-	if (peer->queuer == ui->ue->ino && restore_sk_queue(fd, peer->ue->id))
+	if (peer->queuer == ui->ue->id && restore_sk_queue(fd, peer->ue->id))
 		return -1;
 
 	return restore_sk_common(fd, ui);
@@ -1458,7 +1458,7 @@ static void set_peer(struct unix_sk_info *ui, struct unix_sk_info *peer)
 	ui->peer = peer;
 	list_add(&ui->node, &peer->connected);
 	if (!peer->queuer)
-		peer->queuer = ui->ue->ino;
+		peer->queuer = ui->ue->id;
 }
 
 static void interconnected_pair(struct unix_sk_info *ui, struct unix_sk_info *peer)
