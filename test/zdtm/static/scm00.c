@@ -91,12 +91,20 @@ int main(int argc, char **argv)
 
 #ifndef KEEP_SENT_FD
 	close(p[0]);
-
+#ifdef SEND_BOTH
+	if (send_fd(sk[0], p[1]) < 0) {
+		pr_perror("Can't send 2nd descriptor");
+		exit(1);
+	}
+	close(p[1]);
+	p[0] = p[1] = -1;
+#else
 	/* Swap pipe ends to make scm recv put pipe into different place */
 	dup2(p[1], p[0]);
 	close(p[1]);
 	p[1] = p[0];
 	p[0] = -1;
+#endif
 #endif
 
 	test_daemon();
@@ -107,6 +115,16 @@ int main(int argc, char **argv)
 		fail("Can't recv pipe back (%d)", p[0]);
 		goto out;
 	}
+
+#ifdef SEND_BOTH
+	test_msg("Recv 2nd end\n");
+	p[1] = recv_fd(sk[1]);
+	if (p[1] < 0) {
+		fail("Can't recv 2nd pipe back (%d)", p[1]);
+		goto out;
+	}
+#endif
+
 #ifdef KEEP_SENT_FD
 	if (rfd == p[0]) {
 		fail("Original descriptor not kept");

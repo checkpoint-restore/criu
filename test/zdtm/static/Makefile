@@ -155,6 +155,7 @@ TST_NOFILE	:=				\
 		remap_dead_pid_root			\
 		scm00				\
 		scm01				\
+		scm02				\
 		aio00				\
 		aio01				\
 		fd				\
@@ -441,6 +442,7 @@ mnt_ext_manual:		CFLAGS += -D ZDTM_EXTMAP_MANUAL
 sigpending:		LDLIBS += -lrt
 vdso01:			LDLIBS += -lrt
 scm01:			CFLAGS += -DKEEP_SENT_FD
+scm02:			CFLAGS += -DSEND_BOTH
 mntns_link_remap:	CFLAGS += -DZDTM_LINK_REMAP
 mntns_shared_bind02:	CFLAGS += -DSHARED_BIND02
 mntns_root_bind02:	CFLAGS += -DROOT_BIND02
