@@ -1760,6 +1760,11 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, struct tty_d
 
 	int ret = -1;
 
+	if (!p->fd_ctl) {
+		pr_err("No CTL for TTY dump, likely SCM case\n");
+		return -1;
+	}
+
 	/*
 	 * Make sure the structures the system provides us
 	 * correlates well with protobuf templates.
