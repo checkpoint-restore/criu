@@ -144,6 +144,7 @@ int predump_task_files(int pid);
 
 extern void file_desc_init(struct file_desc *d, u32 id, struct file_desc_ops *ops);
 extern int file_desc_add(struct file_desc *d, u32 id, struct file_desc_ops *ops);
+extern struct fdinfo_list_entry *try_file_master(struct file_desc *d);
 extern struct fdinfo_list_entry *file_master(struct file_desc *d);
 extern struct file_desc *find_file_desc_raw(int type, u32 id);
 

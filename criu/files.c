@@ -194,16 +194,27 @@ void wait_fds_event(void)
 	clear_fds_event();
 }
 
+struct fdinfo_list_entry *try_file_master(struct file_desc *d)
+{
+	if (list_empty(&d->fd_info_head))
+		return NULL;
+
+	return list_first_entry(&d->fd_info_head,
+			struct fdinfo_list_entry, desc_list);
+}
+
 struct fdinfo_list_entry *file_master(struct file_desc *d)
 {
-	if (list_empty(&d->fd_info_head)) {
+	struct fdinfo_list_entry *fle;
+
+	fle = try_file_master(d);
+	if (!fle) {
 		pr_err("Empty list on file desc id %#x(%d)\n", d->id,
 				d->ops ? d->ops->type : -1);
 		BUG();
 	}
 
-	return list_first_entry(&d->fd_info_head,
-			struct fdinfo_list_entry, desc_list);
+	return fle;
 }
 
 void show_saved_files(void)
