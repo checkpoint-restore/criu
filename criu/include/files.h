@@ -133,6 +133,7 @@ struct fdtype_ops {
 
 struct cr_img;
 
+extern int dump_my_file(int lfd, u32 *, int *type);
 extern int do_dump_gen_file(struct fd_parms *p, int lfd,
 			    const struct fdtype_ops *ops,
 			    FdinfoEntry *e);

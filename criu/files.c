@@ -529,6 +529,23 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 	return dump_unsupp_fd(&p, lfd, "unknown", link.name + 1, e);
 }
 
+int dump_my_file(int lfd, u32 *id, int *type)
+{
+	struct pid me = {};
+	struct fd_opts fo = {};
+	FdinfoEntry e = FDINFO_ENTRY__INIT;
+
+	me.real = getpid();
+	me.ns[0].virt = -1; /* FIXME */
+
+	if (dump_one_file(&me, lfd, lfd, &fo, NULL, &e))
+		return -1;
+
+	*id = e.id;
+	*type = e.type;
+	return 0;
+}
+
 int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 		struct parasite_drain_fd *dfds)
 {
