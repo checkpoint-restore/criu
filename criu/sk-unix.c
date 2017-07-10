@@ -1457,6 +1457,8 @@ static void set_peer(struct unix_sk_info *ui, struct unix_sk_info *peer)
 {
 	ui->peer = peer;
 	list_add(&ui->node, &peer->connected);
+	if (!peer->queuer)
+		peer->queuer = ui->ue->ino;
 }
 
 static void interconnected_pair(struct unix_sk_info *ui, struct unix_sk_info *peer)
@@ -1496,8 +1498,6 @@ static int resolve_unix_peer(struct unix_sk_info *ui)
 	}
 
 	set_peer(ui, peer);
-	if (!peer->queuer)
-		peer->queuer = ui->ue->ino;
 	if (ui == peer)
 		/* socket connected to self %) */
 		goto out;
