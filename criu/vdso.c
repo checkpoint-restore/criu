@@ -89,6 +89,26 @@ static int check_vdso_by_pfn(int pagemap_fd, struct vma_area *vma,
 	return 0;
 }
 
+static bool not_vvar_or_vdso(struct vma_area *vma)
+{
+	if (!vma_area_is(vma, VMA_AREA_REGULAR))
+		return true;
+
+	if (vma_area_is(vma, VMA_FILE_SHARED))
+		return true;
+
+	if (vma_area_is(vma, VMA_FILE_PRIVATE))
+		return true;
+
+	if (vma->e->start > kdat.task_size)
+		return true;
+
+	if (vma->e->flags & MAP_GROWSDOWN)
+		return true;
+
+	return false;
+}
+
 /*
  * The VMAs list might have proxy vdso/vvar areas left
  * from previous dump/restore cycle so we need to detect
@@ -119,12 +139,9 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 	list_for_each_entry(vma, &vma_area_list->h, list) {
 		bool has_vdso_pfn = false;
 
-		if (!vma_area_is(vma, VMA_AREA_REGULAR))
+		if (not_vvar_or_vdso(vma))
 			continue;
 
-		if (vma_area_is(vma, VMA_FILE_SHARED) ||
-				vma_area_is(vma, VMA_FILE_PRIVATE))
-			continue;
 		/*
 		 * It might be possible VVAR area from marked
 		 * vDSO zone, we need to detect it earlier than
@@ -144,12 +161,6 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		}
 
 		if ((vma->e->prot & VDSO_PROT) != VDSO_PROT)
-			continue;
-
-		if (vma->e->start > kdat.task_size)
-			continue;
-
-		if (vma->e->flags & MAP_GROWSDOWN)
 			continue;
 
 		/*
