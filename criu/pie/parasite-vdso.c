@@ -186,6 +186,42 @@ static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 	return ret;
 }
 
+/*
+ * The complex case -- we need to proxify calls. We redirect
+ * calls from dumpee vdso to runtime vdso, making dumpee
+ * to operate as proxy vdso.
+ */
+static int add_vdso_proxy(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
+		struct vdso_symtable *sym_img, struct vdso_symtable *sym_rt,
+		unsigned long rt_vdso_addr, bool compat_vdso)
+{
+	pr_info("Runtime vdso mismatches dumpee, generate proxy\n");
+
+	/*
+	 * Don't forget to shift if vvar is before vdso.
+	 */
+	if (sym_rt->vvar_size != VDSO_BAD_SIZE && !sym_rt->vdso_before_vvar)
+		rt_vdso_addr += sym_rt->vvar_size;
+
+	if (vdso_redirect_calls(rt_vdso_addr, vma_vdso->start,
+				sym_rt, sym_img, compat_vdso)) {
+		pr_err("Failed to proxify dumpee contents\n");
+		return -1;
+	}
+
+	/*
+	 * Put a special mark into runtime vdso, thus at next checkpoint
+	 * routine we could detect this vdso and do not dump it, since
+	 * it's auto-generated every new session if proxy required.
+	 */
+	sys_mprotect((void *)rt_vdso_addr,  sym_rt->vdso_size, PROT_WRITE);
+	vdso_put_mark((void *)rt_vdso_addr, vma_vdso->start,
+			vma_vvar ? vma_vvar->start : VVAR_BAD_ADDR);
+	sys_mprotect((void *)rt_vdso_addr,  sym_rt->vdso_size, VDSO_PROT);
+
+	return 0;
+}
+
 int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 		 VmaEntry *vmas, size_t nr_vmas,
 		 bool compat_vdso, bool force_trampolines)
@@ -238,33 +274,6 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 				sym_rt, vdso_rt_parked_at);
 	}
 
-	/*
-	 * Now complex case -- we need to proxify calls. We redirect
-	 * calls from dumpee vdso to runtime vdso, making dumpee
-	 * to operate as proxy vdso.
-	 */
-	pr_info("Runtime vdso mismatches dumpee, generate proxy\n");
-
-	/*
-	 * Don't forget to shift if vvar is before vdso.
-	 */
-	if (sym_rt->vvar_size != VDSO_BAD_SIZE && !sym_rt->vdso_before_vvar)
-		vdso_rt_parked_at += sym_rt->vvar_size;
-
-	if (vdso_redirect_calls(vdso_rt_parked_at,
-				vma_vdso->start,
-				sym_rt, &s, compat_vdso)) {
-		pr_err("Failed to proxify dumpee contents\n");
-		return -1;
-	}
-
-	/*
-	 * Put a special mark into runtime vdso, thus at next checkpoint
-	 * routine we could detect this vdso and do not dump it, since
-	 * it's auto-generated every new session if proxy required.
-	 */
-	sys_mprotect((void *)vdso_rt_parked_at,  sym_rt->vdso_size, PROT_WRITE);
-	vdso_put_mark((void *)vdso_rt_parked_at, vma_vdso->start, vma_vvar ? vma_vvar->start : VVAR_BAD_ADDR);
-	sys_mprotect((void *)vdso_rt_parked_at,  sym_rt->vdso_size, VDSO_PROT);
-	return 0;
+	return add_vdso_proxy(vma_vdso, vma_vvar, &s, sym_rt,
+			vdso_rt_parked_at, compat_vdso);
 }
