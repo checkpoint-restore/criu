@@ -1009,7 +1009,7 @@ static void restore_posix_timers(struct task_restore_args *args)
  * trap us on the exit from sys_munmap.
  */
 #ifdef CONFIG_VDSO
-static unsigned long vdso_rt_size;
+unsigned long vdso_rt_size = 0;
 #else
 #define vdso_rt_size	(0)
 #endif
