@@ -197,6 +197,34 @@ err_brk:
 	return ret;
 }
 
+static int send_one_pkt(int fd, struct sk_packet *pkt)
+{
+	int ret;
+	SkPacketEntry *entry = pkt->entry;
+
+	/*
+	 * Don't try to use sendfile here, because it use sendpage() and
+	 * all data are split on pages and a new skb is allocated for
+	 * each page. It creates a big overhead on SNDBUF.
+	 * sendfile() isn't suitable for DGRAM sockets, because message
+	 * boundaries messages should be saved.
+	 */
+
+	ret = write(fd, pkt->data, entry->length);
+	xfree(pkt->data);
+	if (ret < 0) {
+		pr_perror("Failed to send packet");
+		return -1;
+	}
+	if (ret != entry->length) {
+		pr_err("Restored skb trimmed to %d/%d\n",
+				ret, (unsigned int)entry->length);
+		return -1;
+	}
+
+	return 0;
+}
+
 int restore_sk_queue(int fd, unsigned int peer_id)
 {
 	struct sk_packet *pkt, *tmp;
@@ -216,26 +244,10 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 		pr_info("\tRestoring %d-bytes skb for %u\n",
 			(unsigned int)entry->length, peer_id);
 
-		/*
-		 * Don't try to use sendfile here, because it use sendpage() and
-		 * all data are split on pages and a new skb is allocated for
-		 * each page. It creates a big overhead on SNDBUF.
-		 * sendfile() isn't suitable for DGRAM sockets, because message
-		 * boundaries messages should be saved.
-		 */
+		ret = send_one_pkt(fd, pkt);
+		if (ret)
+			goto out;
 
-		ret = write(fd, pkt->data, entry->length);
-		xfree(pkt->data);
-		if (ret < 0) {
-			pr_perror("Failed to send packet");
-			goto out;
-		}
-		if (ret != entry->length) {
-			pr_err("Restored skb trimmed to %d/%d\n",
-			       ret, (unsigned int)entry->length);
-			ret = -1;
-			goto out;
-		}
 		list_del(&pkt->list);
 		sk_packet_entry__free_unpacked(entry, NULL);
 		xfree(pkt);
