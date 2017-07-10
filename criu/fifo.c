@@ -8,6 +8,7 @@
 #include "image.h"
 #include "files.h"
 #include "files-reg.h"
+#include "file-ids.h"
 #include "pipes.h"
 
 #include "fifo.h"
@@ -43,13 +44,16 @@ static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 	struct cr_img *img = img_from_set(glob_imgset, CR_FD_FILES);
 	FileEntry fe = FILE_ENTRY__INIT;
 	FifoEntry e = FIFO_ENTRY__INIT;
+	u32 rf_id;
+
+	fd_id_generate_special(NULL, &rf_id);
 
 	/*
 	 * It's a trick here, we use regular files dumping
 	 * code to save path to a fifo, then we reuse it
 	 * on restore.
 	 */
-	if (dump_one_reg_file(lfd, id, p))
+	if (dump_one_reg_file(lfd, rf_id, p))
 		return -1;
 
 	pr_info("Dumping fifo %d with id %#x pipe_id %#x\n",
@@ -57,6 +61,8 @@ static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 
 	e.id		= id;
 	e.pipe_id	= pipe_id(p);
+	e.has_regf_id	= true;
+	e.regf_id	= rf_id;
 
 	fe.type = FD_TYPES__FIFO;
 	fe.id = e.id;
@@ -116,8 +122,10 @@ static int open_fifo_fd(struct file_desc *d, int *new_fd)
 	struct file_desc *reg_d;
 	int fd;
 
-	reg_d = find_file_desc_raw(FD_TYPES__REG, info->fe->id);
-	BUG_ON(!reg_d);
+	reg_d = collect_special_file(info->fe->has_regf_id ?
+			info->fe->regf_id : info->fe->id);
+	if (!reg_d)
+		return -1;
 
 	fd = open_path(reg_d, do_open_fifo, info);
 	if (fd < 0)
