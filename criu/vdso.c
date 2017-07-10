@@ -82,11 +82,10 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 	struct vma_area *proxy_vdso_marked = NULL;
 	struct vma_area *proxy_vvar_marked = NULL;
 	struct parasite_vdso_vma_entry *args;
-	int fd = -1, ret, exit_code = -1;
+	int fd = -1, exit_code = -1;
 	enum vdso_check_t vcheck;
 	u64 pfn = VDSO_BAD_PFN;
 	struct vma_area *vma;
-	off_t off;
 
 	vcheck = get_vdso_check_type(ctl);
 	args = compel_parasite_args(ctl, struct parasite_vdso_vma_entry);
@@ -178,14 +177,9 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 		 * symbols in parasite code.
 		 */
 		if (vcheck == VDSO_CHECK_PFN) {
-			off = (vma->e->start / PAGE_SIZE) * sizeof(u64);
-			ret = pread(fd, &pfn, sizeof(pfn), off);
-			if (ret < 0 || ret != sizeof(pfn)) {
-				pr_perror("Can't read pme for pid %d", pid);
+			if (vaddr_to_pfn(fd, vma->e->start, &pfn))
 				goto err;
-			}
 
-			pfn = PME_PFRAME(pfn);
 			if (!pfn) {
 				pr_err("Unexpected page fram number 0 for pid %d\n", pid);
 				goto err;
