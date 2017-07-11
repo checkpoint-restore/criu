@@ -2307,23 +2307,16 @@ static int do_create_net_ns(struct ns_id *ns)
 static int create_net_ns(void *arg)
 {
 	struct ns_id *uns, *ns = arg;
-	int ufd, ret;
+	int ret;
 
 	uns = ns->user_ns;
-	ufd = fdstore_get(uns->user.nsfd_id);
-	if (ufd < 0) {
-		pr_err("Can't get user ns\n");
+	if (setns_from_fdstore(uns->user.nsfd_id, CLONE_NEWUSER))
 		exit(1);
-	}
-	if (setns(ufd, CLONE_NEWUSER) < 0) {
-		pr_perror("Can't set user ns");
-		exit(2);
-	}
+
 	if (prepare_userns_creds() < 0) {
 		pr_err("Can't prepare creds\n");
 		exit(3);
 	}
-	close(ufd);
 	ret = do_create_net_ns(ns) ? 3 : 0;
 	exit(ret);
 }
@@ -2407,23 +2400,10 @@ int prepare_net_namespaces(void)
 
 static int do_restore_task_net_ns(struct ns_id *nsid, struct pstree_item *current)
 {
-	int fd;
-
 	if (!(root_ns_mask & CLONE_NEWNET))
 		return 0;
 
-	fd = fdstore_get(nsid->net.nsfd_id);
-	if (fd < 0)
-		return -1;
-
-	if (setns(fd, CLONE_NEWNET)) {
-		pr_perror("Can't restore netns");
-		close(fd);
-		return -1;
-	}
-	close(fd);
-
-	return 0;
+	return setns_from_fdstore(nsid->net.nsfd_id, CLONE_NEWNET);
 }
 
 int restore_task_net_ns(struct pstree_item *current)

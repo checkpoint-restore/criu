@@ -2553,26 +2553,16 @@ err_unds:
 
 int __set_user_ns(struct ns_id *ns)
 {
-	int fd;
-
 	if (!(root_ns_mask & CLONE_NEWUSER))
 		return 0;
 
 	if (current->user_ns && current->user_ns->id == ns->id)
 		return 0;
 
-	fd = fdstore_get(ns->user.nsfd_id);
-	if (fd < 0) {
-		pr_err("Can't get ns fd\n");
+	if (setns_from_fdstore(ns->user.nsfd_id, CLONE_NEWUSER))
 		return -1;
-	}
-	if (setns(fd, CLONE_NEWUSER) < 0) {
-		pr_perror("Can't setns");
-		close(fd);
-		return -1;
-	}
+
 	current->user_ns = ns;
-	close(fd);
 
 	if (prepare_userns_creds() < 0) {
 		pr_err("Can't set creds\n");
@@ -2833,6 +2823,32 @@ int destroy_pid_ns_helpers(void)
 	}
 	return 0;
 }
+
+int __setns_from_fdstore(int fd_id, int nstype, const char *file, int line)
+{
+	int fd, saved_errno, ret;
+
+	fd = fdstore_get(fd_id);
+	if (fd < 0)
+		goto err;
+
+	ret = setns(fd, nstype);
+	saved_errno = errno;
+	close(fd);
+	if (ret) {
+		errno = saved_errno;
+		pr_perror("Can't set user ns");
+		goto err;
+	}
+
+	return 0;
+err:
+	pr_err("Can't set %s_ns from fdstore (called from %s: %d)\n",
+		ns_to_string(nstype), file, line);
+	return -1;
+}
+
+
 
 struct ns_desc pid_ns_desc = NS_DESC_ENTRY(CLONE_NEWPID, "pid", "pid_for_children");
 struct ns_desc user_ns_desc = NS_DESC_ENTRY(CLONE_NEWUSER, "user", NULL);

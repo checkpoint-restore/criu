@@ -447,8 +447,6 @@ static void wait_pid_ns_helper_prepared(struct ns_id *pid_ns, struct pid *pid)
 
 static int set_pid_for_children_ns(struct ns_id *pid_ns)
 {
-	int fd, ret = 0;
-
 	if (!(root_ns_mask & CLONE_NEWPID))
 		return 0;
 
@@ -457,21 +455,11 @@ static int set_pid_for_children_ns(struct ns_id *pid_ns)
 	if (current->pid_for_children_ns == pid_ns)
 		return 0;
 
-	fd = fdstore_get(pid_ns->pid.nsfd_id);
-	if (fd < 0) {
-		pr_err("Can't get pid_ns fd\n");
+	if (setns_from_fdstore(pid_ns->pid.nsfd_id, CLONE_NEWPID) < 0)
 		return -1;
-	}
 
-	if (setns(fd, CLONE_NEWPID) < 0) {
-		pr_perror("Can't set pid ns");
-		ret = -1;
-	} else	{
-		current->pid_for_children_ns = pid_ns;
-	}
-
-	close(fd);
-	return ret;
+	current->pid_for_children_ns = pid_ns;
+	return 0;
 }
 
 static int restore_task_pfc_before_user_ns(void)
@@ -1379,7 +1367,6 @@ static int call_clone_fn(void *arg)
 	struct cr_clone_arg *ca = arg;
 	struct ns_id *pid_ns;
 	pid_t pid;
-	int fd;
 
 	pid_ns = lookup_ns_by_id(ca->item->ids->pid_ns_id, &pid_ns_desc);
 	BUG_ON(!pid_ns);
@@ -1389,18 +1376,8 @@ static int call_clone_fn(void *arg)
 		return -1;
 	}
 
-	fd = fdstore_get(pid_ns->user_ns->user.nsfd_id);
-	if (fd < 0) {
-		pr_err("Can't get ns fd\n");
+	if (setns_from_fdstore(pid_ns->user_ns->user.nsfd_id, CLONE_NEWUSER))
 		return -1;
-	}
-
-	if (setns(fd, CLONE_NEWUSER) < 0) {
-		pr_perror("Can't set user ns");
-		close(fd);
-		return -1;
-	}
-	close(fd);
 
 	close_pid_proc();
 	pid = clone_noasan(restore_task_with_children, ca->clone_flags | CLONE_PARENT | SIGCHLD, ca);

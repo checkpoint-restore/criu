@@ -264,6 +264,11 @@ extern int __userns_call(const char *func_name, uns_call_t call, int flags,
 	__userns_call(__stringify(__call), __call, __flags,	\
 		      __arg, __arg_size, __fd)
 
+extern int __setns_from_fdstore(int fd_id, int nstype, const char *, int);
+
+#define setns_from_fdstore(fd_id, nstype)			\
+	__setns_from_fdstore(fd_id, nstype, __FILE__, __LINE__)
+
 extern int add_ns_shared_cb(int (*actor)(void *data), void *data);
 
 extern struct ns_id *get_socket_ns(int lfd);

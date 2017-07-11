@@ -2724,24 +2724,6 @@ int mntns_maybe_create_roots(void)
 	return create_mnt_roots();
 }
 
-static int do_restore_task_mnt_ns(struct ns_id *nsid, struct pstree_item *current)
-{
-	int fd;
-
-	fd = fdstore_get(nsid->mnt.nsfd_id);
-	if (fd < 0)
-		return -1;
-
-	if (setns(fd, CLONE_NEWNS)) {
-		pr_perror("Can't restore mntns");
-		close(fd);
-		return -1;
-	}
-	close(fd);
-
-	return 0;
-}
-
 int restore_task_mnt_ns(struct pstree_item *current)
 {
 	unsigned int id = current->ids->mnt_ns_id;
@@ -2769,10 +2751,7 @@ int restore_task_mnt_ns(struct pstree_item *current)
 
 	BUG_ON(nsid->type == NS_CRIU);
 
-	if (do_restore_task_mnt_ns(nsid, current))
-		return -1;
-
-	return 0;
+	return setns_from_fdstore(nsid->mnt.nsfd_id, CLONE_NEWNS);
 }
 
 void fini_restore_mntns(void)
