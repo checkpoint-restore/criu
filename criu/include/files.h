@@ -66,7 +66,16 @@ struct file_desc;
 
 enum {
 	FLE_INITIALIZED,
+	/*
+	 * FLE is open (via open() or socket() or etc syscalls), and
+	 * common file setting are set up (type-specific are not yet).
+	 * Most possible, the master was already served out.
+	 */
 	FLE_OPEN,
+	/*
+	 * File-type specific settings and preparations are finished,
+	 * and FLE is completely restored.
+	 */
 	FLE_RESTORED,
 };
 
