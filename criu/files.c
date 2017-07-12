@@ -407,8 +407,11 @@ static const struct fdtype_ops *get_mem_dev_ops(struct fd_parms *p, int minor)
 
 static int dump_chrdev(struct fd_parms *p, int lfd, struct cr_img *img)
 {
+	struct fd_link *link_old = p->link;
 	int maj = major(p->stat.st_rdev);
 	const struct fdtype_ops *ops;
+	struct fd_link link;
+	int err;
 
 	switch (maj) {
 	case MEM_MAJOR:
@@ -423,8 +426,6 @@ static int dump_chrdev(struct fd_parms *p, int lfd, struct cr_img *img)
 		char more[32];
 
 		if (is_tty(p->stat.st_rdev, p->stat.st_dev)) {
-			struct fd_link link;
-
 			if (fill_fdlink(lfd, p, &link))
 				return -1;
 			p->link = &link;
@@ -433,11 +434,15 @@ static int dump_chrdev(struct fd_parms *p, int lfd, struct cr_img *img)
 		}
 
 		sprintf(more, "%d:%d", maj, minor(p->stat.st_rdev));
-		return dump_unsupp_fd(p, lfd, img, "chr", more);
+		err = dump_unsupp_fd(p, lfd, img, "chr", more);
+		p->link = link_old;
+		return err;
 	}
 	}
 
-	return do_dump_gen_file(p, lfd, ops, img);
+	err = do_dump_gen_file(p, lfd, ops, img);
+	p->link = link_old;
+	return err;
 }
 
 static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
