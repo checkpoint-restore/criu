@@ -133,9 +133,6 @@ extern int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr,
 extern void debug_show_page_pipe(struct page_pipe *pp);
 void page_pipe_reinit(struct page_pipe *pp);
 
-extern int page_pipe_split(struct page_pipe *pp, unsigned long addr,
-			   unsigned int *nr_pages);
-
 extern void page_pipe_destroy_ppb(struct page_pipe_buf *ppb);
 
 struct pipe_read_dest {
