@@ -366,6 +366,14 @@ static int root_prepare_shared(void)
 	if (ret)
 		goto err;
 
+	/*
+	 * This should be called with all packets collected AND all
+	 * fdescs and fles prepared BUT post-prep-s not run.
+	 */
+	ret = prepare_scms();
+	if (ret)
+		goto err;
+
 	ret = run_post_prepare();
 	if (ret)
 		goto err;

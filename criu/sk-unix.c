@@ -795,6 +795,7 @@ struct unix_sk_info {
 	struct file_desc d;
 	struct list_head connected; /* List of sockets, connected to me */
 	struct list_head node; /* To link in peer's connected list  */
+	struct list_head scm_fles;
 
 	/*
 	 * For DGRAM sockets with queues, we should only restore the queue
@@ -804,6 +805,11 @@ struct unix_sk_info {
 	u32 queuer;
 	u8 bound:1;
 	u8 listen:1;
+};
+
+struct scm_fle {
+	struct list_head l;
+	struct fdinfo_list_entry *fle;
 };
 
 #define USK_PAIR_MASTER		0x1
@@ -819,6 +825,141 @@ static struct unix_sk_info *find_unix_sk_by_ino(int ino)
 	}
 
 	return NULL;
+}
+
+static struct unix_sk_info *find_queuer_for(int id)
+{
+	struct unix_sk_info *ui;
+
+	list_for_each_entry(ui, &unix_sockets, list) {
+		if (ui->queuer == id)
+			return ui;
+	}
+
+	return NULL;
+}
+
+static struct fdinfo_list_entry *get_fle_for_scm(struct file_desc *tgt,
+		struct pstree_item *owner)
+{
+	struct fdinfo_list_entry *fle;
+	FdinfoEntry *e = NULL;
+	int fd;
+
+	list_for_each_entry(fle, &tgt->fd_info_head, desc_list) {
+		if (fle->task == owner)
+			/*
+			 * Owner already has this file in its fdtable.
+			 * Just use one.
+			 */
+			return fle;
+
+		e = fle->fe; /* keep any for further reference */
+	}
+
+	/*
+	 * Some other task restores this file. Pretend that
+	 * we're another user of it.
+	 */
+	fd = find_unused_fd(owner, -1);
+	pr_info("`- will add SCM-only %d fd\n", fd);
+
+	if (e != NULL) {
+		e = dup_fdinfo(e, fd, 0);
+		if (!e) {
+			pr_err("Can't duplicate fdinfo for scm\n");
+			return NULL;
+		}
+	} else {
+		/*
+		 * This can happen if the file in question is
+		 * sent over the socket and closed. In this case
+		 * we need to ... invent a new one!
+		 */
+
+		e = xmalloc(sizeof(*e));
+		if (!e)
+			return NULL;
+
+		fdinfo_entry__init(e);
+		e->id = tgt->id;
+		e->type = tgt->ops->type;
+		e->fd = fd;
+		e->flags = 0;
+	}
+
+	/*
+	 * Make this fle fake, so that files collecting engine
+	 * closes them at the end.
+	 */
+	return collect_fd_to(vpid(owner), e, rsti(owner), tgt, true);
+}
+
+int unix_note_scm_rights(int id_for, uint32_t *file_ids, int *fds, int n_ids)
+{
+	struct unix_sk_info *ui;
+	struct pstree_item *owner;
+	int i;
+
+	ui = find_queuer_for(id_for);
+	if (!ui) {
+		pr_err("Can't find sender for %d\n", id_for);
+		return -1;
+	}
+
+	pr_info("Found queuer for %d -> %d\n", id_for, ui->ue->id);
+	/*
+	 * This is the task that will restore this socket
+	 */
+	owner = file_master(&ui->d)->task;
+
+	pr_info("-> will set up deps\n");
+	/*
+	 * The ui will send data to the rights receiver. Add a fake fle
+	 * for the file and a dependency.
+	 */
+	for (i = 0; i < n_ids; i++) {
+		struct file_desc *tgt;
+		struct scm_fle *sfle;
+
+		tgt = find_file_desc_raw(FD_TYPES__UND, file_ids[i]);
+		if (!tgt) {
+			pr_err("Can't find fdesc to send\n");
+			return -1;
+		}
+
+		pr_info("scm: add file %d -> %d\n", tgt->id, vpid(owner));
+		sfle = xmalloc(sizeof(*sfle));
+		if (!sfle)
+			return -1;
+
+		sfle->fle = get_fle_for_scm(tgt, owner);
+		if (!sfle->fle) {
+			pr_err("Can't request new fle for scm\n");
+			return -1;
+		}
+
+		list_add_tail(&sfle->l, &ui->scm_fles);
+		fds[i] = sfle->fle->fe->fd;
+	}
+
+	return 0;
+}
+
+static int chk_restored_scms(struct unix_sk_info *ui)
+{
+	struct scm_fle *sf, *n;
+
+	list_for_each_entry_safe(sf, n, &ui->scm_fles, l) {
+		if (sf->fle->stage < FLE_OPEN)
+			return 1;
+
+		/* Optimization for the next pass */
+		list_del(&sf->l);
+		xfree(sf);
+	}
+
+	return 0;
 }
 
 static int wake_connected_sockets(struct unix_sk_info *ui)
@@ -1306,11 +1447,17 @@ static int open_unix_sk(struct file_desc *d, int *new_fd)
 	struct unix_sk_info *ui;
 	int ret;
 
+	ui = container_of(d, struct unix_sk_info, d);
+
+	/* FIXME -- only queue restore may be postponed */
+	if (chk_restored_scms(ui)) {
+		pr_info("scm: Wait for tgt to restore\n");
+		return 1;
+	}
+
 	fle = file_master(d);
 	if (fle->stage >= FLE_OPEN)
 		return post_open_unix_sk(d, fle->fe->fd);
-
-	ui = container_of(d, struct unix_sk_info, d);
 
 	if (inherited_fd(d, new_fd)) {
 		ui->ue->uflags |= USK_INHERIT;
@@ -1410,6 +1557,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	ui->listen = 0;
 	INIT_LIST_HEAD(&ui->connected);
 	INIT_LIST_HEAD(&ui->node);
+	INIT_LIST_HEAD(&ui->scm_fles);
 	ui->flags = 0;
 
 	uname = ui->name;
