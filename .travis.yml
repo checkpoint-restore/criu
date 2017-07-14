@@ -13,6 +13,7 @@ env:
   - TR_ARCH=armv7hf
   - TR_ARCH=aarch64
   - TR_ARCH=ppc64le
+  - TR_ARCH=s390x
   - TR_ARCH=armv7hf     CLANG=1
   - TR_ARCH=aarch64     CLANG=1
   - TR_ARCH=ppc64le     CLANG=1
