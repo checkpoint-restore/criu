@@ -1585,29 +1585,36 @@ static void unsc_msg_pid_fd(struct unsc_msg *um, pid_t *pid, int *fd)
 	}
 }
 
+void warn_if_pid_ns_helper_exited(pid_t real_pid)
+{
+	struct ns_id *ns;
+	struct pid *pid;
+
+	for (ns = ns_ids; ns; ns = ns->next) {
+		if (ns->nd != &pid_ns_desc)
+			continue;
+		pid = __pstree_pid_by_virt(ns, ns->ns_pid);
+		if (pid->real == real_pid) {
+			pid->real = -1;
+			break;
+		}
+	}
+
+	if (ns)
+		pr_err("Spurious pid ns helper: pid=%d\n", real_pid);
+}
+
 static void usernsd_handler(int signal, siginfo_t *siginfo, void *data)
 {
 	pid_t pid = siginfo->si_pid;
-	struct ns_id *ns;
-	struct pid *tpid;
 	int status;
 
 	while (pid) {
 		pid = waitpid(-1, &status, WNOHANG);
 		if (pid <= 0)
 			return;
-		for (ns = ns_ids; ns; ns = ns->next) {
-			if (ns->nd != &pid_ns_desc)
-				continue;
-			tpid = __pstree_pid_by_virt(ns, ns->ns_pid);
-			if (tpid->real == pid) {
-				tpid->real = -1;
-				break;
-			}
-		}
 
-		if (!ns)
-			pr_err("Spurious pid ns helper: pid=%d\n", pid);
+		warn_if_pid_ns_helper_exited(pid);
 
 		pr_err("%d finished unexpected: status=%d\n", pid, status);
 		futex_abort_and_wake(&task_entries->nr_in_progress);

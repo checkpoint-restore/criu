@@ -283,6 +283,7 @@ static inline int pid_ns_root_off(void)
 extern int reserve_pid_ns_helpers(void);
 extern int create_pid_ns_helper(struct ns_id *ns);
 extern int destroy_pid_ns_helpers(void);
+extern void warn_if_pid_ns_helper_exited(pid_t real_pid);
 extern int request_set_next_pid(int pid_ns_id, pid_t pid, int sk);
 
 #endif /* __CR_NS_H__ */
