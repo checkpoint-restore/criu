@@ -1476,20 +1476,25 @@ int getpid()
        return syscall(__NR_getpid);
 }
 
+pid_t sys_clone_unified(unsigned long flags, void *child_stack, void *parent_tid,
+			void *child_tid, unsigned long newtls)
+{
+#ifdef __x86_64__
+	return (pid_t)syscall(__NR_clone, flags, child_stack, parent_tid, child_tid, newtls);
+#elif (__i386__ || __arm__ || __aarch64__ || __powerpc64__)
+	return (pid_t)syscall(__NR_clone, flags, child_stack, parent_tid, newtls, child_tid);
+#elif __s390x__
+	return (pid_t)syscall(__NR_clone, child_stack, flags, parent_tid, child_tid, newtls);
+#else
+#error "Unsupported architecture"
+#endif
+}
+
 /*
  * In glibc 2.24, fork() may fail when parent and child are
  * from different pid namespaces and have the same pid.
  */
 pid_t fork()
 {
-	/*
-	 * Two last arguments are swapped on different archs,
-	 * but we don't care as they are zero anyway.
-	 */
-#ifdef __s390x__
-	/* See kernel/fork.c: CONFIG_CLONE_BACKWARDS2 */
-	return (pid_t)syscall(__NR_clone, 0, SIGCHLD, NULL, 0, NULL);
-#else
-	return (pid_t)syscall(__NR_clone, SIGCHLD, 0, 0, 0, 0);
-#endif
+	return sys_clone_unified(SIGCHLD, 0, NULL, NULL, 0);
 }
