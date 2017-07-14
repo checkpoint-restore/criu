@@ -45,14 +45,61 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 #define PS_TYPE_BITS	8
 #define PS_TYPE_MASK	((1 << PS_TYPE_BITS) - 1)
 
+#define PS_TYPE_PID	(1)
+#define PS_TYPE_SHMEM	(2)
+/*
+ * XXX: When adding new types here check decode_pm_type for legacy
+ * numbers that can be met from older CRIUs
+ */
+
 static inline u64 encode_pm_id(int type, long id)
 {
+	if (type == CR_FD_PAGEMAP)
+		type = PS_TYPE_PID;
+	else if (type == CR_FD_SHMEM_PAGEMAP)
+		type = PS_TYPE_SHMEM;
+	else {
+		BUG();
+		return 0;
+	}
+
 	return ((u64)id) << PS_TYPE_BITS | type;
 }
 
 static int decode_pm_type(u64 dst_id)
 {
-	return dst_id & PS_TYPE_MASK;
+	int type;
+
+	/*
+	 * Magic numbers below came from the older CRIU versions that
+	 * errorneously used the changing CR_FD_* constants. The
+	 * changes were made when we merged images together and moved
+	 * the CR_FD_-s at the tail of the enum
+	 */
+	type = dst_id & PS_TYPE_MASK;
+	switch (type) {
+	case 10: /* 3.1 3.2 */
+	case 11: /* 1.3 1.4 1.5 1.6 1.7 1.8 2.* 3.0 */
+	case 16: /* 1.2 */
+	case 17: /* 1.0 1.1 */
+	case PS_TYPE_PID:
+		type = CR_FD_PAGEMAP;
+		break;
+	case 27: /* 1.3 */
+	case 28: /* 1.4 1.5 */
+	case 29: /* 1.6 1.7 */
+	case 32: /* 1.2 1.8 */
+	case 33: /* 1.0 1.1 3.1 3.2 */
+	case 34: /* 2.* 3.0 */
+	case PS_TYPE_SHMEM:
+		type = CR_FD_SHMEM_PAGEMAP;
+		break;
+	default:
+		type = -1;
+		break;
+	}
+
+	return type;
 }
 
 static long decode_pm_id(u64 dst_id)
@@ -435,6 +482,11 @@ static int page_server_check_parent(int sk, struct page_server_iov *pi)
 	type = decode_pm_type(pi->dst_id);
 	id = decode_pm_id(pi->dst_id);
 
+	if (type == -1) {
+		pr_err("Unknown pagemap type received\n");
+		return -1;
+	}
+
 	ret = check_parent_local_xfer(type, id);
 	if (ret < 0)
 		return -1;
@@ -502,6 +554,11 @@ static int page_server_open(int sk, struct page_server_iov *pi)
 
 	type = decode_pm_type(pi->dst_id);
 	id = decode_pm_id(pi->dst_id);
+	if (type == -1) {
+		pr_err("Unknown pagemap type received\n");
+		return -1;
+	}
+
 	pr_info("Opening %d/%ld\n", type, id);
 
 	page_server_close();
