@@ -5,24 +5,26 @@
 
 typedef uint32_t atomic_t;
 
-#define __ATOMIC_OP(op_name, op_type, op_string, op_barrier)		\
+#define __ATOMIC_OP(op_name, op_type, op_string)			\
 static inline op_type op_name(op_type val, op_type *ptr)		\
 {									\
-	op_type old;							\
+	op_type old, new;						\
 									\
 	asm volatile(							\
-		op_string "	%[old],%[val],%[ptr]\n"			\
-		op_barrier						\
-		: [old] "=d" (old), [ptr] "+Q" (*ptr)			\
-		: [val] "d" (val) : "cc", "memory");			\
+		"0:	lr	%[new],%[old]\n"			\
+		op_string "	%[new],%[val]\n"			\
+		"	cs	%[old],%[new],%[ptr]\n"			\
+		"	jl	0b"					\
+		: [old] "=d" (old), [new] "=&d" (new), [ptr] "+Q" (*ptr)\
+		: [val] "d" (val), "0" (*ptr) : "cc", "memory");	\
 	return old;							\
-}									\
+}
 
 #define __ATOMIC_OPS(op_name, op_type, op_string)			\
-	__ATOMIC_OP(op_name, op_type, op_string, "\n")			\
-	__ATOMIC_OP(op_name##_barrier, op_type, op_string, "bcr 14,0\n")
+	__ATOMIC_OP(op_name, op_type, op_string)			\
+	__ATOMIC_OP(op_name##_barrier, op_type, op_string)
 
-__ATOMIC_OPS(__atomic_add, uint32_t, "laa")
+__ATOMIC_OPS(__atomic_add, uint32_t, "ar")
 
 #undef __ATOMIC_OPS
 #undef __ATOMIC_OP
