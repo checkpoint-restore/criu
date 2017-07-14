@@ -1604,23 +1604,6 @@ void warn_if_pid_ns_helper_exited(pid_t real_pid)
 		pr_err("Spurious pid ns helper: pid=%d\n", real_pid);
 }
 
-static void usernsd_handler(int signal, siginfo_t *siginfo, void *data)
-{
-	pid_t pid = siginfo->si_pid;
-	int status;
-
-	while (pid) {
-		pid = waitpid(-1, &status, WNOHANG);
-		if (pid <= 0)
-			return;
-
-		warn_if_pid_ns_helper_exited(pid);
-
-		pr_err("%d finished unexpected: status=%d\n", pid, status);
-		futex_abort_and_wake(&task_entries->nr_in_progress);
-	}
-}
-
 static int usernsd_recv_transport(void *arg, int fd, pid_t pid)
 {
 	if (install_service_fd(TRANSPORT_FD_OFF, fd) < 0) {
@@ -1663,11 +1646,6 @@ int prep_usernsd_transport()
 static int usernsd(int sk)
 {
 	pr_info("uns: Daemon started\n");
-
-	if (criu_signals_setup(usernsd_handler) < 0) {
-		pr_err("Can't setup handler\n");
-		return -1;
-	}
 
 	while (1) {
 		struct unsc_msg um;
@@ -2713,7 +2691,7 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 			unlock_last_pid();
 			goto restore_ns;
 		}
-	child = fork();
+	child = sys_clone_unified(CLONE_PARENT|SIGCHLD, NULL, NULL, NULL, 0);
 	if (!child)
 		exit(pid_ns_helper(ns, sk));
 	saved_errno = errno;
@@ -2775,7 +2753,7 @@ int create_pid_ns_helper(struct ns_id *ns)
 	return 0;
 }
 
-static int do_destroy_pid_ns_helpers(void *arg, int fd, pid_t unused)
+static int do_destroy_pid_ns_helpers(void)
 {
 	int status, sig_blocked = true, ret = 0;
 	sigset_t sig_mask;
@@ -2824,11 +2802,7 @@ int destroy_pid_ns_helpers(void)
 	if (!(root_ns_mask & CLONE_NEWPID))
 		return 0;
 
-	if (userns_call(do_destroy_pid_ns_helpers, 0, NULL, 0, -1) < 0) {
-		pr_err("Can't create pid_ns helper\n");
-		return -1;
-	}
-	return 0;
+	return do_destroy_pid_ns_helpers();
 }
 
 int __setns_from_fdstore(int fd_id, int nstype, const char *file, int line)

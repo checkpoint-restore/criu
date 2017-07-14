@@ -1536,6 +1536,10 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		break;
 	}
 
+	/* criu destroys pid_ns helpers under blocked SIGCHLD, we mustn't catch them here */
+	if (!current)
+		warn_if_pid_ns_helper_exited(pid);
+
 	if (exit)
 		pr_err("%d exited, status=%d\n", pid, status);
 	else
