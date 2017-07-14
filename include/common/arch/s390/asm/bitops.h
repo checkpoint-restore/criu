@@ -107,13 +107,7 @@ static inline unsigned char __flogr(unsigned long word)
 		}
 		return bit;
 	} else {
-		register unsigned long bit asm("4") = word;
-		register unsigned long out asm("5");
-
-		asm volatile(
-			"       flogr   %[bit],%[bit]\n"
-			: [bit] "+d" (bit), [out] "=d" (out) : : "cc");
-		return bit;
+		return __builtin_clzl(word);
 	}
 }
 
