@@ -61,6 +61,9 @@ extern int open_pid_proc(pid_t pid);
 extern int close_pid_proc(void);
 extern int set_proc_fd(int fd);
 
+extern pid_t sys_clone_unified(unsigned long flags, void *child_stack, void *parent_tid,
+			       void *child_tid, unsigned long newtls);
+
 /*
  * Values for pid argument of the proc opening routines below.
  * SELF would open file under /proc/self

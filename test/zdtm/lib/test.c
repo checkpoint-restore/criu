@@ -296,3 +296,17 @@ void test_waitsig(void)
 {
 	futex_wait_while(&sig_received, 0);
 }
+
+pid_t sys_clone_unified(unsigned long flags, void *child_stack, void *parent_tid,
+			void *child_tid, unsigned long newtls)
+{
+#ifdef __x86_64__
+	return (pid_t)syscall(__NR_clone, flags, child_stack, parent_tid, child_tid, newtls);
+#elif (__i386__ || __arm__ || __aarch64__ ||__powerpc64__)
+	return (pid_t)syscall(__NR_clone, flags, child_stack, parent_tid, newtls, child_tid);
+#elif __s390x__
+	return (pid_t)syscall(__NR_clone, child_stack, flags, parent_tid, child_tid, newtls);
+#else
+#error "Unsupported architecture"
+#endif
+}
