@@ -193,15 +193,26 @@ static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
  */
 static int add_vdso_proxy(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 		struct vdso_symtable *sym_img, struct vdso_symtable *sym_rt,
-		unsigned long rt_vdso_addr, bool compat_vdso)
+		unsigned long vdso_rt_parked_at, bool compat_vdso)
 {
+	unsigned long rt_vvar_addr = vdso_rt_parked_at;
+	unsigned long rt_vdso_addr = vdso_rt_parked_at;
+	unsigned long orig_vvar_addr =
+		vma_vvar ? vma_vvar->start : VVAR_BAD_ADDR;
+
 	pr_info("Runtime vdso mismatches dumpee, generate proxy\n");
 
 	/*
 	 * Don't forget to shift if vvar is before vdso.
 	 */
-	if (sym_rt->vvar_size != VDSO_BAD_SIZE && !sym_rt->vdso_before_vvar)
-		rt_vdso_addr += sym_rt->vvar_size;
+	if (sym_rt->vvar_size == VVAR_BAD_SIZE) {
+		rt_vvar_addr = VVAR_BAD_ADDR;
+	} else {
+		if (sym_rt->vdso_before_vvar)
+			rt_vvar_addr += sym_rt->vdso_size;
+		else
+			rt_vdso_addr += sym_rt->vvar_size;
+	}
 
 	if (vdso_redirect_calls(rt_vdso_addr, vma_vdso->start,
 				sym_rt, sym_img, compat_vdso)) {
@@ -215,8 +226,8 @@ static int add_vdso_proxy(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 	 * it's auto-generated every new session if proxy required.
 	 */
 	sys_mprotect((void *)rt_vdso_addr,  sym_rt->vdso_size, PROT_WRITE);
-	vdso_put_mark((void *)rt_vdso_addr, vma_vdso->start,
-			vma_vvar ? vma_vvar->start : VVAR_BAD_ADDR);
+	vdso_put_mark((void *)rt_vdso_addr, rt_vvar_addr,
+			vma_vdso->start, orig_vvar_addr);
 	sys_mprotect((void *)rt_vdso_addr,  sym_rt->vdso_size, VDSO_PROT);
 
 	return 0;
