@@ -55,6 +55,7 @@ struct kerndat_s {
 	bool has_uffd;
 	unsigned long uffd_features;
 	bool has_thp_disable;
+	bool can_map_vdso;
 #ifdef CONFIG_VDSO
 	struct vdso_symtable	vdso_sym;
 #ifdef CONFIG_COMPAT

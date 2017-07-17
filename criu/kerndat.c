@@ -560,11 +560,16 @@ err:
 
 static int kerndat_compat_restore(void)
 {
-	int ret = kdat_compatible_cr();
+	int ret;
 
-	if (ret < 0) /* failure */
+	ret = kdat_can_map_vdso();
+	if (ret < 0)
 		return ret;
-	kdat.compat_cr = !!ret;
+	kdat.can_map_vdso = !!ret;
+
+	/* depends on kdat.can_map_vdso result */
+	kdat.compat_cr = kdat_compatible_cr();
+
 	return 0;
 }
 

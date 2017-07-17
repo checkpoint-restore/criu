@@ -1054,6 +1054,14 @@ static int check_uffd_noncoop(void)
 	return 0;
 }
 
+static int check_can_map_vdso(void)
+{
+	if (kdat_can_map_vdso() == 1)
+		return 0;
+	pr_warn("Do not have API to map vDSO - will use mremap() to restore vDSO\n");
+	return -1;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1157,6 +1165,7 @@ int cr_check(void)
 		ret |= check_tcp_halt_closed();
 		ret |= check_userns();
 		ret |= check_loginuid();
+		ret |= check_can_map_vdso();
 	}
 
 	/*
@@ -1208,6 +1217,7 @@ static struct feature_list feature_list[] = {
 	{ "compat_cr", check_compat_cr },
 	{ "uffd", check_uffd },
 	{ "uffd-noncoop", check_uffd_noncoop },
+	{ "can_map_vdso", check_can_map_vdso},
 	{ NULL, NULL },
 };
 
