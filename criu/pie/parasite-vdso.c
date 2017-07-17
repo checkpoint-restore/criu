@@ -214,6 +214,14 @@ static int add_vdso_proxy(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 			rt_vdso_addr += sym_rt->vvar_size;
 	}
 
+	/*
+	 * Note: we assume that after first migration with inserted
+	 * rt-vdso and trampoilines on the following migrations
+	 * number of vdso symbols will not decrease.
+	 * We don't save the content of original vdso under inserted
+	 * jumps, so we can't remove them if on the following migration
+	 * found that number of symbols in vdso has decreased.
+	 */
 	if (vdso_redirect_calls(rt_vdso_addr, vma_vdso->start,
 				sym_rt, sym_img, compat_vdso)) {
 		pr_err("Failed to proxify dumpee contents\n");
