@@ -55,7 +55,12 @@ static enum vdso_check_t get_vdso_check_type(struct parasite_ctl *ctl)
 	 * hint stays in /proc/../maps file and is correct.
 	 */
 	if (!compel_mode_native(ctl)) {
-		pr_info("Don't check vdso\n");
+		pr_info("Don't check vdso for compat task\n");
+		return VDSO_NO_CHECK;
+	}
+
+	if (kdat.vdso_hint_reliable) {
+		pr_info("vDSO hint is reliable - omit checking\n");
 		return VDSO_NO_CHECK;
 	}
 
