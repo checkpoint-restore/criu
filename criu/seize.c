@@ -732,6 +732,7 @@ static int collect_threads(struct pstree_item *item)
 		item->threads[id]->real = pid;
 		item->threads[id]->item = NULL;
 		item->threads[id]->level = level;
+		item->threads[id]->state = TASK_THREAD;
 		for (j = 0; j < level; j++)
 			item->threads[id]->ns[j].virt = -1;
 
