@@ -55,6 +55,7 @@ TST_NOFILE	:=				\
 		vdso00				\
 		vdso01				\
 		vdso02				\
+		vdso-proxy			\
 		utsname				\
 		pstree				\
 		sockets01			\
