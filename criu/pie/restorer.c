@@ -1134,13 +1134,9 @@ static int wait_zombies(struct task_restore_args *task_args)
 	return 0;
 }
 
-static bool vdso_needs_parking(struct task_restore_args *args)
+static bool vdso_unmapped(struct task_restore_args *args)
 {
 	unsigned int i;
-
-	/* Compatible vDSO will be mapped, not moved */
-	if (args->compatible_mode)
-		return false;
 
 	/* Don't park rt-vdso or rt-vvar if dumpee doesn't have them */
 	for (i = 0; i < args->vmas_n; i++) {
@@ -1148,10 +1144,19 @@ static bool vdso_needs_parking(struct task_restore_args *args)
 
 		if (vma_entry_is(vma, VMA_AREA_VDSO) ||
 				vma_entry_is(vma, VMA_AREA_VVAR))
-			return true;
+			return false;
 	}
 
-	return false;
+	return true;
+}
+
+static bool vdso_needs_parking(struct task_restore_args *args)
+{
+	/* Compatible vDSO will be mapped, not moved */
+	if (args->compatible_mode)
+		return false;
+
+	return !vdso_unmapped(args);
 }
 
 /*
@@ -1222,8 +1227,10 @@ long __export_restore_task(struct task_restore_args *args)
 		goto core_restore_end;
 
 	/* Map compatible vdso */
-	if (args->compatible_mode && vdso_map_compat(args->vdso_rt_parked_at))
-		goto core_restore_end;
+	if (!vdso_unmapped(args) && args->compatible_mode) {
+		if (vdso_map_compat(args->vdso_rt_parked_at))
+			goto core_restore_end;
+	}
 
 	/* Shift private vma-s to the left */
 	for (i = 0; i < args->vmas_n; i++) {
