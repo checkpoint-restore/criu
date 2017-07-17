@@ -621,3 +621,78 @@ int kerndat_vdso_fill_symtable(void)
 
 	return 0;
 }
+
+/*
+ * On x86 pre-v3.16 kernels can lose "[vdso]" hint
+ * in /proc/.../maps file after mremap()'ing vdso vma.
+ * Depends on kerndat_vdso_fill_symtable() - assuming that
+ * vdso_maps and vdso_maps_compat are filled.
+ */
+int kerndat_vdso_preserves_hint(void)
+{
+	struct vdso_maps vdso_maps_after;
+	int status, ret = -1;
+	pid_t child;
+
+	kdat.vdso_hint_reliable = 0;
+
+	if (vdso_maps.vdso_start == VDSO_BAD_ADDR)
+		return 0;
+
+	child = fork();
+	if (child < 0) {
+		pr_perror("fork() failed");
+		return -1;
+	}
+
+	if (child == 0) {
+		unsigned long vdso_addr = vdso_maps.vdso_start;
+		unsigned long vdso_size = vdso_maps.sym.vdso_size;
+		void *new_addr;
+
+		new_addr = mmap(0, vdso_size, PROT_NONE,
+				MAP_ANON | MAP_PRIVATE, -1, 0);
+		if (new_addr == MAP_FAILED)
+			exit(1);
+
+		child = getpid();
+		new_addr = (void *)syscall(SYS_mremap, vdso_addr, vdso_size,
+			vdso_size, MREMAP_MAYMOVE | MREMAP_FIXED, new_addr);
+		if (new_addr == MAP_FAILED)
+			syscall(SYS_exit, 2);
+		syscall(SYS_kill, child, SIGSTOP);
+		syscall(SYS_exit, 3);
+	}
+
+	waitpid(child, &status, WUNTRACED);
+	if (WIFEXITED(status)) {
+		int ret = WEXITSTATUS(status);
+
+		pr_err("Child unexpectedly exited with %d\n", ret);
+		goto out;
+	} else if (WIFSIGNALED(status)) {
+		int sig = WTERMSIG(status);
+
+		pr_err("Child unexpectedly signaled with %d: %s\n",
+				sig, strsignal(sig));
+		goto out;
+	} else if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGSTOP) {
+		pr_err("Child is unstoppable or was stopped by other means\n");
+		goto out_kill;
+	}
+
+	if (vdso_parse_maps(child, &vdso_maps_after)) {
+		pr_err("Failed parsing maps for child helper\n");
+		goto out_kill;
+	}
+
+	if (vdso_maps_after.vdso_start != VDSO_BAD_ADDR)
+		kdat.vdso_hint_reliable = 1;
+
+	ret = 0;
+out_kill:
+	kill(child, SIGKILL);
+	waitpid(child, &status, 0);
+out:
+	return ret;
+}
