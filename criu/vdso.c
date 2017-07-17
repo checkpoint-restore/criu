@@ -113,9 +113,16 @@ static bool not_vvar_or_vdso(struct vma_area *vma)
 	return false;
 }
 
+/* Contains addresses from vdso mark */
+struct vdso_quarter {
+	unsigned long orig_vdso;
+	unsigned long orig_vvar;
+	unsigned long rt_vdso;
+	unsigned long rt_vvar;
+};
+
 static void drop_rt_vdso(struct vm_area_list *vma_area_list,
-	unsigned long orig_vdso_addr, unsigned long orig_vvar_addr,
-	unsigned long rt_vvar_addr, struct vma_area *rt_vdso_marked)
+	struct vdso_quarter *addr, struct vma_area *rt_vdso_marked)
 {
 	struct vma_area *rt_vvar_marked = NULL;
 	struct vma_area *vma;
@@ -128,7 +135,7 @@ static void drop_rt_vdso(struct vm_area_list *vma_area_list,
 	 * and must be dropped from vma list.
 	 */
 	pr_debug("vdso: Found marked at %lx (orig vDSO at %lx VVAR at %lx)\n",
-		(long)rt_vdso_marked->e->start, orig_vdso_addr, orig_vvar_addr);
+		(long)rt_vdso_marked->e->start, addr->orig_vdso, addr->orig_vvar);
 
 	/*
 	 * Don't forget to restore the proxy vdso/vvar status, since
@@ -136,16 +143,16 @@ static void drop_rt_vdso(struct vm_area_list *vma_area_list,
 	 * Also BTW search for rt-vvar to remove it later.
 	 */
 	list_for_each_entry(vma, &vma_area_list->h, list) {
-		if (vma->e->start == orig_vdso_addr) {
+		if (vma->e->start == addr->orig_vdso) {
 			vma->e->status |= VMA_AREA_REGULAR | VMA_AREA_VDSO;
 			pr_debug("vdso: Restore orig vDSO status at %lx\n",
 					(long)vma->e->start);
-		} else if (vma->e->start == orig_vvar_addr) {
+		} else if (vma->e->start == addr->orig_vvar) {
 			vma->e->status |= VMA_AREA_REGULAR | VMA_AREA_VVAR;
 			pr_debug("vdso: Restore orig VVAR status at %lx\n",
 					(long)vma->e->start);
-		} else if (rt_vvar_addr != VVAR_BAD_ADDR &&
-				rt_vvar_addr == vma->e->start) {
+		} else if (addr->rt_vvar != VVAR_BAD_ADDR &&
+				addr->rt_vvar == vma->e->start) {
 			BUG_ON(rt_vvar_marked);
 			if (not_vvar_or_vdso(vma)) {
 				pr_warn("Mark in rt-vdso points to vma, that doesn't look like vvar - skipping unmap\n");
@@ -171,6 +178,79 @@ static void drop_rt_vdso(struct vm_area_list *vma_area_list,
 }
 
 /*
+ * I need to poke every potentially marked vma,
+ * otherwise if task never called for vdso functions
+ * page frame number won't be reported.
+ *
+ * Moreover, if page frame numbers are not accessible
+ * we have to scan the vma zone for vDSO elf structure
+ * which gonna be a slow way.
+ */
+static int check_if_vma_is_vdso(enum vdso_check_t vcheck, int pagemap_fd,
+	struct parasite_ctl *ctl, struct vma_area *vma,
+	struct vma_area **rt_vdso_marked, struct vdso_quarter *addr)
+{
+	struct parasite_vdso_vma_entry *args;
+	bool has_vdso_pfn = false;
+
+	args = compel_parasite_args(ctl, struct parasite_vdso_vma_entry);
+
+	if (not_vvar_or_vdso(vma))
+		return 0;
+
+	if ((vma->e->prot & VDSO_PROT) != VDSO_PROT)
+		return 0;
+
+	args->start = vma->e->start;
+	args->len = vma_area_len(vma);
+	args->try_fill_symtable = (vcheck == VDSO_CHECK_SYMS);
+	args->is_vdso = false;
+
+	if (compel_rpc_call_sync(PARASITE_CMD_CHECK_VDSO_MARK, ctl)) {
+		pr_err("Parasite failed to poke for mark\n");
+		return -1;
+	}
+
+	if (unlikely(args->is_marked)) {
+		if (*rt_vdso_marked) {
+			pr_err("Ow! Second vdso mark detected!\n");
+			return -1;
+		}
+		*rt_vdso_marked	= vma;
+		addr->orig_vdso	= args->orig_vdso_addr;
+		addr->orig_vvar	= args->orig_vvar_addr;
+		addr->rt_vvar	= args->rt_vvar_addr;
+		return 0;
+	}
+
+	if (vcheck == VDSO_NO_CHECK)
+		return 0;
+
+	if (vcheck == VDSO_CHECK_PFN) {
+		if (check_vdso_by_pfn(pagemap_fd, vma, &has_vdso_pfn) < 0) {
+			pr_err("Failed checking vdso by pfn\n");
+			return -1;
+		}
+	}
+
+	if (has_vdso_pfn || args->is_vdso) {
+		if (!vma_area_is(vma, VMA_AREA_VDSO)) {
+			pr_debug("Restore vDSO status by pfn/symtable at %lx\n",
+					(long)vma->e->start);
+			vma->e->status |= VMA_AREA_VDSO;
+		}
+	} else {
+		if (unlikely(vma_area_is(vma, VMA_AREA_VDSO))) {
+			pr_debug("Drop mishinted vDSO status at %lx\n",
+					(long)vma->e->start);
+			vma->e->status &= ~VMA_AREA_VDSO;
+		}
+	}
+
+	return 0;
+}
+
+/*
  * The VMAs list might have proxy vdso/vvar areas left
  * from previous dump/restore cycle so we need to detect
  * them and eliminated from the VMAs list, they will be
@@ -179,17 +259,18 @@ static void drop_rt_vdso(struct vm_area_list *vma_area_list,
 int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 			struct vm_area_list *vma_area_list)
 {
-	unsigned long orig_vdso_addr = VDSO_BAD_ADDR;
-	unsigned long orig_vvar_addr = VVAR_BAD_ADDR;
-	unsigned long rt_vvar_addr = VVAR_BAD_ADDR;
 	struct vma_area *rt_vdso_marked = NULL;
-	struct parasite_vdso_vma_entry *args;
-	int fd = -1, exit_code = -1;
+	struct vdso_quarter addr = {
+		.orig_vdso = VDSO_BAD_ADDR,
+		.orig_vvar = VVAR_BAD_ADDR,
+		.rt_vdso = VDSO_BAD_ADDR,
+		.rt_vvar = VVAR_BAD_ADDR,
+	};
 	enum vdso_check_t vcheck;
 	struct vma_area *vma;
+	int fd = -1;
 
 	vcheck = get_vdso_check_type(ctl);
-	args = compel_parasite_args(ctl, struct parasite_vdso_vma_entry);
 	if (vcheck == VDSO_CHECK_PFN) {
 		BUG_ON(vdso_pfn == VDSO_BAD_PFN);
 		fd = open_proc(pid, "pagemap");
@@ -198,79 +279,22 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 	}
 
 	list_for_each_entry(vma, &vma_area_list->h, list) {
-		bool has_vdso_pfn = false;
-
-		if (not_vvar_or_vdso(vma))
-			continue;
-
-		if ((vma->e->prot & VDSO_PROT) != VDSO_PROT)
-			continue;
-
-		/*
-		 * I need to poke every potentially marked vma,
-		 * otherwise if task never called for vdso functions
-		 * page frame number won't be reported.
-		 *
-		 * Moreover, if page frame numbers are not accessible
-		 * we have to scan the vma zone for vDSO elf structure
-		 * which gonna be a slow way.
-		 */
-		args->start = vma->e->start;
-		args->len = vma_area_len(vma);
-		args->try_fill_symtable = (vcheck == VDSO_CHECK_SYMS);
-		args->is_vdso = false;
-
-		if (compel_rpc_call_sync(PARASITE_CMD_CHECK_VDSO_MARK, ctl)) {
-			pr_err("Parasite failed to poke for mark\n");
-			goto err;
-		}
-
 		/*
 		 * Defer handling marked vdso until we walked over
 		 * all vmas and restore potentially remapped vDSO
 		 * area status.
 		 */
-		if (unlikely(args->is_marked)) {
-			if (rt_vdso_marked) {
-				pr_err("Ow! Second vdso mark detected!\n");
-				goto err;
-			}
-			rt_vdso_marked	= vma;
-			orig_vdso_addr	= args->orig_vdso_addr;
-			orig_vvar_addr	= args->orig_vvar_addr;
-			rt_vvar_addr	= args->rt_vvar_addr;
-			continue;
-		}
-
-		if (vcheck == VDSO_NO_CHECK)
-			continue;
-
-		if (vcheck == VDSO_CHECK_PFN && check_vdso_by_pfn(fd, vma, &has_vdso_pfn) < 0) {
-			pr_err("Failed checking vdso by pfn for %d\n", pid);
-			goto err;
-		}
-
-		if (has_vdso_pfn || args->is_vdso) {
-			if (!vma_area_is(vma, VMA_AREA_VDSO)) {
-				pr_debug("Restore vDSO status by pfn/symtable at %lx\n",
-					 (long)vma->e->start);
-				vma->e->status |= VMA_AREA_VDSO;
-			}
-		} else {
-			if (unlikely(vma_area_is(vma, VMA_AREA_VDSO))) {
-				pr_debug("Drop mishinted vDSO status at %lx\n",
-					 (long)vma->e->start);
-				vma->e->status &= ~VMA_AREA_VDSO;
-			}
+		if (check_if_vma_is_vdso(vcheck, fd, ctl, vma,
+					&rt_vdso_marked, &addr)) {
+			close_safe(&fd);
+			return -1;
 		}
 	}
 
-	drop_rt_vdso(vma_area_list, orig_vdso_addr, orig_vvar_addr,
-			rt_vvar_addr, rt_vdso_marked);
-	exit_code = 0;
-err:
+	drop_rt_vdso(vma_area_list, &addr, rt_vdso_marked);
+
 	close_safe(&fd);
-	return exit_code;
+	return 0;
 }
 
 static int vdso_parse_maps(pid_t pid, struct vdso_maps *s)
