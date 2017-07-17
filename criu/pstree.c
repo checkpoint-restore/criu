@@ -612,7 +612,11 @@ struct pstree_item *lookup_create_item(pid_t *pid, int level, uint32_t ns_id)
 	node = lookup_create_pid(pid, level, NULL, ns_id);
 	if (!node)
 		return NULL;
-	BUG_ON(node->state == TASK_THREAD);
+
+	if (node->state == TASK_THREAD) {
+		pr_err("The %d node is used for a thread\n", *pid);
+		return NULL;
+	}
 
 	return node->item;
 }
