@@ -13,6 +13,16 @@
 #include "log.h"
 #include "cpu.h"
 
+int arch_map_vdso(unsigned long map_at, bool compatible)
+{
+	int vdso_type = compatible ? ARCH_MAP_VDSO_32 : ARCH_MAP_VDSO_64;
+
+	pr_debug("Mapping %s vDSO at %lx\n",
+		compatible ? "compatible" : "native", map_at);
+
+	return sys_arch_prctl(vdso_type, map_at);
+}
+
 int restore_nonsigframe_gpregs(UserX86RegsEntry *r)
 {
 	long ret;

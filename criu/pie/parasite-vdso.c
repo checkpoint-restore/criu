@@ -74,19 +74,8 @@ int vdso_do_park(struct vdso_maps *rt, unsigned long park_at,
 	return ret;
 }
 
+/* XXX: move in arch/ */
 #if defined(CONFIG_X86_64) && defined(CONFIG_COMPAT)
-int vdso_map_compat(unsigned long map_at)
-{
-	int ret;
-
-	pr_debug("Mapping compatible vDSO at %lx\n", map_at);
-
-	ret = sys_arch_prctl(ARCH_MAP_VDSO_32, map_at);
-	if (ret < 0)
-		return ret;
-	return 0;
-}
-
 int __vdso_fill_symtable(uintptr_t mem, size_t size,
 		struct vdso_symtable *t, bool compat_vdso)
 {
@@ -96,12 +85,6 @@ int __vdso_fill_symtable(uintptr_t mem, size_t size,
 		return vdso_fill_symtable(mem, size, t);
 }
 #else
-int vdso_map_compat(unsigned long __always_unused map_at)
-{
-	/* shouldn't be called on !CONFIG_COMPAT */
-	BUG();
-	return 0;
-}
 int __vdso_fill_symtable(uintptr_t mem, size_t size,
 		struct vdso_symtable *t, bool __always_unused compat_vdso)
 {

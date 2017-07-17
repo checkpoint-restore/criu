@@ -572,14 +572,22 @@ int vdso_init_restore(void)
 	if (vdso_maps.vdso_start != VDSO_BAD_ADDR)
 		return 0;
 
-	if (vdso_parse_maps(PROC_SELF, &vdso_maps)) {
-		pr_err("Failed reading self/maps for filling vdso/vvar bounds\n");
-		return -1;
-	}
+	/*
+	 * Parsing self-maps here only to find vvar/vdso vmas in
+	 * criu's address space, for further remapping to restorer's
+	 * parking zone. Don't need to do this if map-vdso API
+	 * is present.
+	 */
+	if (!kdat.can_map_vdso) {
+		if (vdso_parse_maps(PROC_SELF, &vdso_maps)) {
+			pr_err("Failed reading self/maps for filling vdso/vvar bounds\n");
+			return -1;
+		}
 
-	if (!is_kdat_vdso_sym_valid()) {
-		pr_err("Kdat sizes of vdso/vvar differ to maps file \n");
-		return -1;
+		if (!is_kdat_vdso_sym_valid()) {
+			pr_err("Kdat sizes of vdso/vvar differ to maps file \n");
+			return -1;
+		}
 	}
 
 	vdso_maps.sym = kdat.vdso_sym;

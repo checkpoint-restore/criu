@@ -1156,6 +1156,9 @@ static bool vdso_needs_parking(struct task_restore_args *args)
 	if (args->compatible_mode)
 		return false;
 
+	if (args->can_map_vdso)
+		return false;
+
 	return !vdso_unmapped(args);
 }
 
@@ -1226,10 +1229,12 @@ long __export_restore_task(struct task_restore_args *args)
 				bootstrap_start, bootstrap_len, args->task_size))
 		goto core_restore_end;
 
-	/* Map compatible vdso */
-	if (!vdso_unmapped(args) && args->compatible_mode) {
-		if (vdso_map_compat(args->vdso_rt_parked_at))
+	/* Map vdso that wasn't parked */
+	if (!vdso_unmapped(args) && args->can_map_vdso) {
+		if (arch_map_vdso(args->vdso_rt_parked_at,
+				args->compatible_mode) < 0) {
 			goto core_restore_end;
+		}
 	}
 
 	/* Shift private vma-s to the left */

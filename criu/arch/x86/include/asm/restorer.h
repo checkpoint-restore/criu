@@ -76,6 +76,10 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 # define ARCH_MAP_VDSO_32		0x2002
 #endif
 
+#ifndef ARCH_MAP_VDSO_64
+# define ARCH_MAP_VDSO_64		0x2003
+#endif
+
 extern int kdat_compatible_cr(void);
 extern int kdat_can_map_vdso(void);
 
@@ -114,5 +118,6 @@ int restore_nonsigframe_gpregs(UserX86RegsEntry *r);
 int ptrace_set_breakpoint(pid_t pid, void *addr);
 int ptrace_flush_breakpoints(pid_t pid);
 
+extern int arch_map_vdso(unsigned long map_at, bool compatible);
 
 #endif
