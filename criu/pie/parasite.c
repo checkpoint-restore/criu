@@ -554,13 +554,15 @@ static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 			pr_err("vdso: Mark version mismatch!\n");
 			return -EINVAL;
 		}
-		args->is_marked = 1;
-		args->proxy_vdso_addr = m->orig_vdso_addr;
-		args->proxy_vvar_addr = m->orig_vvar_addr;
+		args->is_marked		= 1;
+		args->orig_vdso_addr	= m->orig_vdso_addr;
+		args->orig_vvar_addr	= m->orig_vvar_addr;
+		args->rt_vvar_addr	= m->rt_vvar_addr;
 	} else {
-		args->is_marked = 0;
-		args->proxy_vdso_addr = VDSO_BAD_ADDR;
-		args->proxy_vvar_addr = VVAR_BAD_ADDR;
+		args->is_marked		= 0;
+		args->orig_vdso_addr	= VDSO_BAD_ADDR;
+		args->orig_vvar_addr	= VVAR_BAD_ADDR;
+		args->rt_vvar_addr	= VVAR_BAD_ADDR;
 
 		if (args->try_fill_symtable) {
 			struct vdso_symtable t;
