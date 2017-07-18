@@ -47,6 +47,10 @@ message task_core_entry {
 
 	optional int32			oom_score_adj	= 14;
 	repeated sa_entry		sigactions	= 15;
+
+	// Reserved for TTY inheritance handling
+	// optional int32		tty_nr		= 16;
+	// optional int32		tty_pgrp	= 17;
 }
 
 message task_kobj_ids_entry {
