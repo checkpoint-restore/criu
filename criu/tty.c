@@ -1504,6 +1504,7 @@ static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg, struct c
 {
 	struct tty_info *info, *n;
 	TtyInfoEntry *tie;
+	struct tty_driver *driver;
 
 	tie = pb_msg(msg, TtyInfoEntry);
 
@@ -1529,11 +1530,19 @@ static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg, struct c
 		return -1;
 	}
 
+	driver = get_tty_driver(tie->rdev, tie->dev);
+	if (driver == NULL) {
+		pr_err("Unable to find a tty driver (rdev %#x dev %#x)\n",
+				tie->rdev, tie->dev);
+		return -1;
+	}
+
 	list_for_each_entry_safe(info, n, &collected_ttys, list) {
 		if (info->tfe->tty_info_id != tie->id)
 			continue;
 
 		info->tie = tie;
+		info->driver = driver;
 		list_move_tail(&info->list, &all_ttys);
 
 		if (tty_info_setup(info))
@@ -1578,12 +1587,6 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 static int tty_info_setup(struct tty_info *info)
 {
 	INIT_LIST_HEAD(&info->sibling);
-	info->driver = get_tty_driver(info->tie->rdev, info->tie->dev);
-	if (info->driver == NULL) {
-		pr_err("Unable to find a tty driver (rdev %#x dev %#x)\n",
-		       info->tie->rdev, info->tie->dev);
-		return -1;
-	}
 	info->create = tty_is_master(info);
 	info->inherit = false;
 	info->ctl_tty = NULL;
