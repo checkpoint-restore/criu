@@ -1734,6 +1734,9 @@ static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
 	case FD_TYPES__PIPE:
 		ret = collect_one_file_entry(fe, fe->pipe->id, &fe->pipe->base, &pipe_cinfo);
 		break;
+	case FD_TYPES__TTY:
+		ret = collect_one_file_entry(fe, fe->tty->id, &fe->tty->base, &tty_cinfo);
+		break;
 	}
 
 	return ret;

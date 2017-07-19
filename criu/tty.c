@@ -1919,8 +1919,15 @@ static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 	if (!tty_test_and_set(e.tty_info_id, tty_bitmap))
 		ret = dump_tty_info(lfd, e.tty_info_id, p, driver, index);
 
-	if (!ret)
-		ret = pb_write_one(img_from_set(glob_imgset, CR_FD_TTY_FILES), &e, PB_TTY_FILE);
+	if (!ret) {
+		FileEntry fe = FILE_ENTRY__INIT;
+
+		fe.type = FD_TYPES__TTY;
+		fe.id = e.id;
+		fe.tty = &e;
+		ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
+	}
+
 	return ret;
 }
 

@@ -283,7 +283,6 @@ static struct collect_image_info *cinfos_files[] = {
 
 /* These images are requered to restore namespaces */
 static struct collect_image_info *before_ns_cinfos[] = {
-	&tty_cinfo,
 	&tty_info_cinfo, /* Restore devpts content */
 	&tty_cdata,
 };
@@ -1513,6 +1512,8 @@ static int restore_task_with_children(void *_arg)
 		if (mount_proc())
 			goto err;
 
+		if (!files_collected() && collect_image(&tty_cinfo))
+			goto err;
 		if (collect_images(before_ns_cinfos, ARRAY_SIZE(before_ns_cinfos)))
 			goto err;
 
