@@ -1552,6 +1552,16 @@ static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg, struct c
 			return -1;
 	}
 
+	/*
+	 * The tty peers which have no @termios are hung up,
+	 * so don't mark them as active, we create them with
+	 * faked master and they are rather a rudiment which
+	 * can't be used. Most likely they appear if a user has
+	 * dumped program when it was closing a peer.
+	 */
+	if (is_pty(driver) && tie->termios)
+		tty_test_and_set(tie->id, tty_active_pairs);
+
 	return 0;
 }
 
@@ -1624,16 +1634,6 @@ static int tty_info_setup(struct tty_info *info)
 			}
 		}
 	}
-
-	/*
-	 * The tty peers which have no @termios are hung up,
-	 * so don't mark them as active, we create them with
-	 * faked master and they are rather a rudiment which
-	 * can't be used. Most likely they appear if a user has
-	 * dumped program when it was closing a peer.
-	 */
-	if (is_pty(info->driver) && info->tie->termios)
-		tty_test_and_set(info->tfe->tty_info_id, tty_active_pairs);
 
 	pr_info("Collected tty ID %#x (%s)\n", info->tfe->id, info->driver->name);
 
