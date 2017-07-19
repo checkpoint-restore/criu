@@ -726,12 +726,12 @@ err:
 	return ret ? -1 : 0;
 }
 
-static bool tty_is_master(struct tty_info *info)
+static bool __tty_is_master(struct tty_driver *driver)
 {
-	if (info->driver->subtype == TTY_SUBTYPE_MASTER)
+	if (driver->subtype == TTY_SUBTYPE_MASTER)
 		return true;
 
-	switch (info->driver->type) {
+	switch (driver->type) {
 	case TTY_TYPE__CONSOLE:
 	case TTY_TYPE__CTTY:
 		return true;
@@ -745,6 +745,11 @@ static bool tty_is_master(struct tty_info *info)
 	}
 
 	return false;
+}
+
+static bool tty_is_master(struct tty_info *info)
+{
+	return __tty_is_master(info->driver);
 }
 
 static bool tty_is_hung(struct tty_info *info)
@@ -1455,10 +1460,10 @@ static int verify_termios(u32 id, TermiosEntry *e)
 	return 0;
 }
 
-#define term_opts_missing_cmp(p, op)		\
-	(!(p)->tie->termios		op	\
-	 !(p)->tie->termios_locked	op	\
-	 !(p)->tie->winsize)
+#define term_opts_missing_cmp(tie, op)		\
+	(!(tie)->termios		op	\
+	 !(tie)->termios_locked		op	\
+	 !(tie)->winsize)
 
 #define term_opts_missing_any(p)		\
 	term_opts_missing_cmp(p, ||)
@@ -1466,33 +1471,28 @@ static int verify_termios(u32 id, TermiosEntry *e)
 #define term_opts_missing_all(p)		\
 	term_opts_missing_cmp(p, &&)
 
-static int verify_info(struct tty_info *info)
+static int verify_info(TtyInfoEntry *tie, struct tty_driver *driver)
 {
-	if (!info->driver) {
-		pr_err("Unknown driver master peer %#x\n", info->tfe->id);
-		return -1;
-	}
-
 	/*
 	 * Master peer must have all parameters present,
 	 * while slave peer must have either all parameters present
 	 * or don't have them at all.
 	 */
-	if (term_opts_missing_any(info)) {
-		if (tty_is_master(info)) {
-			pr_err("Corrupted master peer %#x\n", info->tfe->id);
+	if (term_opts_missing_any(tie)) {
+		if (__tty_is_master(driver)) {
+			pr_err("Corrupted master peer %#x\n", tie->id);
 			return -1;
-		} else if (!term_opts_missing_all(info)) {
-			pr_err("Corrupted slave peer %#x\n", info->tfe->id);
+		} else if (!term_opts_missing_all(tie)) {
+			pr_err("Corrupted slave peer %#x\n", tie->id);
 			return -1;
 		}
 	}
 
-	if (verify_termios(info->tfe->id, info->tie->termios_locked) ||
-	    verify_termios(info->tfe->id, info->tie->termios))
+	if (verify_termios(tie->id, tie->termios_locked) ||
+	    verify_termios(tie->id, tie->termios))
 		return -1;
 
-	if (info->tie->termios && info->tfe->tty_info_id > (MAX_TTYS << 1))
+	if (tie->termios && tie->id > (MAX_TTYS << 1))
 		return -1;
 
 	return 0;
@@ -1536,6 +1536,9 @@ static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg, struct c
 				tie->rdev, tie->dev);
 		return -1;
 	}
+
+	if (verify_info(tie, driver))
+		return -1;
 
 	list_for_each_entry_safe(info, n, &collected_ttys, list) {
 		if (info->tfe->tty_info_id != tie->id)
@@ -1592,9 +1595,6 @@ static int tty_info_setup(struct tty_info *info)
 	info->ctl_tty = NULL;
 	info->tty_data = NULL;
 	info->link = NULL;
-
-	if (verify_info(info))
-		return -1;
 
 	/*
 	 * The image might have no reg file record in old CRIU, so
