@@ -283,8 +283,8 @@ static struct collect_image_info *cinfos_files[] = {
 
 /* These images are requered to restore namespaces */
 static struct collect_image_info *before_ns_cinfos[] = {
-	&tty_info_cinfo, /* Restore devpts content */
 	&tty_cinfo,
+	&tty_info_cinfo, /* Restore devpts content */
 	&tty_cdata,
 };
 

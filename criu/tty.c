@@ -76,11 +76,6 @@
 #undef	LOG_PREFIX
 #define LOG_PREFIX "tty: "
 
-struct tty_info_entry {
-	struct list_head		list;
-	TtyInfoEntry			*tie;
-};
-
 struct tty_data_entry {
 	struct list_head		list;
 	TtyDataEntry			*tde;
@@ -128,7 +123,7 @@ struct tty_dump_info {
 };
 
 static bool stdin_isatty = false;
-static LIST_HEAD(all_tty_info_entries);
+static LIST_HEAD(collected_ttys);
 static LIST_HEAD(all_ttys);
 
 /*
@@ -1503,29 +1498,19 @@ static int verify_info(struct tty_info *info)
 	return 0;
 }
 
-static TtyInfoEntry *lookup_tty_info_entry(u32 id)
-{
-	struct tty_info_entry *e;
-
-	list_for_each_entry(e, &all_tty_info_entries, list) {
-		if (e->tie->id == id)
-			return e->tie;
-	}
-
-	return NULL;
-}
+static int tty_info_setup(struct tty_info *info);
 
 static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 {
-	struct tty_info_entry *info = obj;
+	struct tty_info *info, *n;
+	TtyInfoEntry *tie;
 
-	info->tie = pb_msg(msg, TtyInfoEntry);
+	tie = pb_msg(msg, TtyInfoEntry);
 
-	switch (info->tie->type) {
+	switch (tie->type) {
 	case TTY_TYPE__PTY:
-		if (!info->tie->pty) {
-			pr_err("No PTY data found (id %#x), corrupted image?\n",
-			       info->tie->id);
+		if (!tie->pty) {
+			pr_err("No PTY data found (id %#x), corrupted image?\n", tie->id);
 			return -1;
 		}
 		break;
@@ -1534,20 +1519,26 @@ static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg, struct c
 	case TTY_TYPE__SERIAL:
 	case TTY_TYPE__VT:
 	case TTY_TYPE__EXT_TTY:
-		if (info->tie->pty) {
-			pr_err("PTY data found (id %#x), corrupted image?\n",
-			       info->tie->id);
+		if (tie->pty) {
+			pr_err("PTY data found (id %#x), corrupted image?\n", tie->id);
 			return -1;
 		}
 		break;
 	default:
-		pr_err("Unexpected TTY type %d (id %#x)\n",
-		       info->tie->type, info->tie->id);
+		pr_err("Unexpected TTY type %d (id %#x)\n", tie->type, tie->id);
 		return -1;
 	}
 
-	INIT_LIST_HEAD(&info->list);
-	list_add(&info->list, &all_tty_info_entries);
+	list_for_each_entry_safe(info, n, &collected_ttys, list) {
+		if (info->tfe->tty_info_id != tie->id)
+			continue;
+
+		info->tie = tie;
+		list_move_tail(&info->list, &all_ttys);
+
+		if (tty_info_setup(info))
+			return -1;
+	}
 
 	return 0;
 }
@@ -1555,12 +1546,16 @@ static int collect_one_tty_info_entry(void *obj, ProtobufCMessage *msg, struct c
 struct collect_image_info tty_info_cinfo = {
 	.fd_type	= CR_FD_TTY_INFO,
 	.pb_type	= PB_TTY_INFO,
-	.priv_size	= sizeof(struct tty_info_entry),
 	.collect	= collect_one_tty_info_entry,
+	.flags		= COLLECT_NOFREE,
 };
 
 static int prep_tty_restore_cb(struct pprep_head *ph)
 {
+	if (!list_empty(&collected_ttys)) {
+		pr_err("Not all TTYs got its infos\n");
+		return -1;
+	}
 	if (tty_verify_active_pairs())
 		return -1;
 	if (tty_setup_slavery())
@@ -1575,14 +1570,13 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 	struct tty_info *info = obj;
 
 	info->tfe = pb_msg(msg, TtyFileEntry);
+	list_add_tail(&info->list, &collected_ttys);
 
-	info->tie = lookup_tty_info_entry(info->tfe->tty_info_id);
-	if (!info->tie) {
-		pr_err("No tty-info-id %#x found on id %#x\n",
-		       info->tfe->tty_info_id, info->tfe->id);
-		return -1;
-	}
+	return 0;
+}
 
+static int tty_info_setup(struct tty_info *info)
+{
 	INIT_LIST_HEAD(&info->sibling);
 	info->driver = get_tty_driver(info->tie->rdev, info->tie->dev);
 	if (info->driver == NULL) {
@@ -1650,7 +1644,6 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 		return -1;
 
 	info->fdstore_id = -1;
-	list_add(&info->list, &all_ttys);
 	return file_desc_add(&info->d, info->tfe->id, &tty_desc_ops);
 }
 
