@@ -1385,7 +1385,7 @@ static int sit_link_info(NetDeviceEntry *nde, struct newlink_req *req)
 	DECODE_ENTRY(u16, IFLA_IPTUN_ENCAP_SPORT, encap_sport);
 	DECODE_ENTRY(u16, IFLA_IPTUN_ENCAP_DPORT, encap_dport);
 
-	if (!se->has_rd_prefixlen) {
+	if (se->has_rd_prefixlen) {
 		u16 aux;
 
 		if (se->n_rd_prefix != 4) {
