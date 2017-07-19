@@ -3,8 +3,8 @@
 #undef LOG_PREFIX
 #define LOG_PREFIX "page-pipe: "
 
+#include "common/config.h"
 #include "page.h"
-#include "config.h"
 #include "util.h"
 #include "criu-log.h"
 #include "page-pipe.h"

@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <sys/resource.h>
 
+#include "common/config.h"
 #include "types.h"
 #include "int.h"
 #include "types.h"
@@ -13,7 +14,6 @@
 #include "common/lock.h"
 #include "util.h"
 #include "asm/restorer.h"
-#include "config.h"
 #include "posix-timer.h"
 #include "timerfd.h"
 #include "shmem.h"

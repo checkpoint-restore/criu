@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stdbool.h>
 
+#include "common/config.h"
 #include "common/list.h"
 #include "pid.h"
 #include "shmem.h"
@@ -15,7 +16,6 @@
 #include "rst-malloc.h"
 #include "vma.h"
 #include "mem.h"
-#include "config.h"
 #include <compel/plugins/std/syscall-codes.h>
 #include "bitops.h"
 #include "log.h"

@@ -3,7 +3,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "config.h"
+#include "common/config.h"
 #include "imgset.h"
 #include "kcmp.h"
 #include "pstree.h"

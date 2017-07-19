@@ -9,10 +9,10 @@
 #include <sys/stat.h>
 
 #include "int.h"
+#include "common/config.h"
 #include "common/compiler.h"
 #include "cgroup-props.h"
 #include "cr_options.h"
-#include "config.h"
 #include "xmalloc.h"
 #include "string.h"
 #include "util.h"

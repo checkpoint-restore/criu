@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 #include "int.h"
-#include "config.h"
+#include "common/config.h"
 #ifdef CONFIG_VDSO
 #include "util-vdso.h"
 #endif

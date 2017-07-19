@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 
+#include "common/config.h"
 #include "common/compiler.h"
 #include "types.h"
 #include "protobuf.h"
@@ -20,7 +21,6 @@
 #include "crtools.h"
 #include "namespaces.h"
 #include "kerndat.h"
-#include "config.h"
 #include "pstree.h"
 #include "posix-timer.h"
 #include "mem.h"

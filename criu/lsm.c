@@ -5,8 +5,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "common/config.h"
 #include "kerndat.h"
-#include "config.h"
 #include "pstree.h"
 #include "util.h"
 #include "cr_options.h"

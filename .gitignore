@@ -28,10 +28,8 @@ criu/arch/*/sys-exec-tbl*.c
 # x86 syscalls-table is not generated
 !criu/arch/x86/sys-exec-tbl.c
 criu/arch/*/syscalls*.S
-criu/include/config.h
 criu/include/syscall-codes*.h
 criu/include/syscall*.h
-soccr/config.h
 criu/include/version.h
 criu/pie/restorer-blob.h
 criu/pie/parasite-blob.h
@@ -42,3 +40,4 @@ scripts/build/qemu-user-static/*
 lib/.crit-setup.files
 compel/include/asm
 include/common/asm
+include/common/config.h

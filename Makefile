@@ -181,7 +181,7 @@ criu-deps	+= include/common/asm
 
 #
 # Configure variables.
-export CONFIG_HEADER := criu/include/config.h
+export CONFIG_HEADER := include/common/config.h
 ifeq ($(filter tags etags cscope clean mrproper,$(MAKECMDGOALS)),)
 include Makefile.config
 else
@@ -203,13 +203,10 @@ include Makefile.compel
 # Next the socket CR library
 #
 SOCCR_A := soccr/libsoccr.a
-SOCCR_CONFIG := soccr/config.h
-$(SOCCR_CONFIG): $(CONFIG_HEADER)
-	$(Q) test -f $@ || ln -s ../$(CONFIG_HEADER) $@
 soccr/Makefile: ;
-soccr/%: $(SOCCR_CONFIG) .FORCE
+soccr/%: $(CONFIG_HEADER) .FORCE
 	$(Q) $(MAKE) $(build)=soccr $@
-soccr/built-in.o: $(SOCCR_CONFIG) .FORCE
+soccr/built-in.o: $(CONFIG_HEADER) .FORCE
 	$(Q) $(MAKE) $(build)=soccr all
 $(SOCCR_A): |soccr/built-in.o
 criu-deps	+= $(SOCCR_A)
@@ -262,7 +259,6 @@ clean: clean-top
 
 mrproper-top: clean-top
 	$(Q) $(RM) $(CONFIG_HEADER)
-	$(Q) $(RM) $(SOCCR_CONFIG)
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(RM) $(COMPEL_VERSION_HEADER)
 	$(Q) $(RM) include/common/asm

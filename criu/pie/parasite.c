@@ -7,11 +7,11 @@
 #include <stdarg.h>
 #include <sys/ioctl.h>
 
+#include "common/config.h"
 #include "int.h"
 #include "types.h"
 #include <compel/plugins/std/syscall.h>
 #include "parasite.h"
-#include "config.h"
 #include "fcntl.h"
 #include "prctl.h"
 #include "common/lock.h"

@@ -19,6 +19,7 @@
 
 #include "linux/userfaultfd.h"
 
+#include "common/config.h"
 #include "int.h"
 #include "types.h"
 #include "common/compiler.h"
@@ -26,7 +27,6 @@
 #include <compel/plugins/std/log.h>
 #include <compel/ksigset.h>
 #include "signal.h"
-#include "config.h"
 #include "prctl.h"
 #include "criu-log.h"
 #include "util.h"

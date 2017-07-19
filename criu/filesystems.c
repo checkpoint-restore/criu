@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <sys/mount.h>
 
-#include "config.h"
+#include "common/config.h"
 #include "int.h"
 #include "common/compiler.h"
 #include "xmalloc.h"

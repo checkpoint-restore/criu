@@ -8,6 +8,7 @@
 
 #include "../soccr/soccr.h"
 
+#include "common/config.h"
 #include "cr_options.h"
 #include "util.h"
 #include "common/list.h"
@@ -19,7 +20,6 @@
 #include "image.h"
 #include "namespaces.h"
 #include "xmalloc.h"
-#include "config.h"
 #include "kerndat.h"
 #include "restorer.h"
 #include "rst-malloc.h"

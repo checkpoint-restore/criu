@@ -3,7 +3,7 @@
 
 #include "pid.h"
 #include "common/list.h"
-#include "config.h"
+#include "common/config.h"
 #include "asm/parasite-syscall.h"
 
 struct parasite_dump_thread;

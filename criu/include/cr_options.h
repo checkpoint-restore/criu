@@ -2,7 +2,7 @@
 #define __CR_OPTIONS_H__
 
 #include <stdbool.h>
-#include "config.h"
+#include "common/config.h"
 #include "common/list.h"
 
 /*

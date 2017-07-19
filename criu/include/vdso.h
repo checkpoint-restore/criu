@@ -4,7 +4,7 @@
 #include <sys/mman.h>
 #include <stdbool.h>
 
-#include "config.h"
+#include "common/config.h"
 
 #ifdef CONFIG_VDSO
 
