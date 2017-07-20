@@ -222,6 +222,10 @@ static int write_pages_loc(struct page_xfer *xfer,
 			pr_perror("Unable to spice data");
 			return -1;
 		}
+		if (ret == 0) {
+			pr_err("A pipe was closed unexpectedly");
+			return -1;
+		}
 		curr += ret;
 		if (curr == len)
 			break;
@@ -624,6 +628,10 @@ static int page_server_add(int sk, struct page_server_iov *pi)
 		chunk = splice(sk, NULL, cxfer.p[1], NULL, chunk, SPLICE_F_MOVE | SPLICE_F_NONBLOCK);
 		if (chunk < 0) {
 			pr_perror("Can't read from socket");
+			return -1;
+		}
+		if (chunk == 0) {
+			pr_err("A socket was closed unexpectedly");
 			return -1;
 		}
 
