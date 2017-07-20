@@ -1002,6 +1002,79 @@ out:
 	return ret;
 }
 
+/*
+ * Find if there are children which are zombies or helpers - processes
+ * which are expected to die during the restore.
+ */
+static bool child_death_expected(void)
+{
+	struct pstree_item *pi;
+
+	list_for_each_entry(pi, &current->children, sibling) {
+		switch (pi->pid->state) {
+		case TASK_DEAD:
+		case TASK_HELPER:
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/*
+ * Restore a helper process - artificially created by criu
+ * to restore attributes of process tree.
+ * - sessions for each leaders are dead
+ * - process groups with dead leaders
+ * - dead tasks for which /proc/<pid>/... is opened by restoring task
+ * - whatnot
+ */
+static int restore_one_helper(void)
+{
+	siginfo_t info;
+
+	if (!child_death_expected()) {
+		/*
+		 * Restoree has no children that should die, during restore,
+		 * wait for the next stage on futex.
+		 * The default SIGCHLD handler will handle an unexpected
+		 * child's death and abort the restore if someone dies.
+		 */
+		restore_finish_stage(task_entries, CR_STATE_RESTORE);
+		return 0;
+	}
+
+	/*
+	 * The restoree has children which will die - decrement itself from
+	 * nr. of tasks processing the stage and wait for anyone to die.
+	 * Tasks may die only when they're on the following stage.
+	 * If one dies earlier - that's unexpected - treat it as an error
+	 * and abort the restore.
+	 */
+	if (block_sigmask(NULL, SIGCHLD))
+		return -1;
+
+	/* Finish CR_STATE_RESTORE, but do not wait for the next stage. */
+	futex_dec_and_wake(&task_entries->nr_in_progress);
+
+	if (waitid(P_ALL, 0, &info, WEXITED | WNOWAIT)) {
+		pr_perror("Failed to wait\n");
+		return -1;
+	}
+
+	if (futex_get(&task_entries->start) == CR_STATE_RESTORE) {
+		pr_err("Child %d died too early\n", info.si_pid);
+		return -1;
+	}
+
+	if (wait_on_helpers_zombies()) {
+		pr_err("Failed to wait on helpers and zombies\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int restore_one_task(int pid, CoreEntry *core)
 {
 	int ret;
@@ -1013,23 +1086,7 @@ static int restore_one_task(int pid, CoreEntry *core)
 	else if (current->pid->state == TASK_DEAD)
 		ret = restore_one_zombie(core);
 	else if (current->pid->state == TASK_HELPER) {
-		sigset_t blockmask, oldmask;
-
-		sigemptyset(&blockmask);
-		sigaddset(&blockmask, SIGCHLD);
-
-		if (sigprocmask(SIG_BLOCK, &blockmask, &oldmask) == -1) {
-			pr_perror("Can not set mask of blocked signals");
-			return -1;
-		}
-
-		restore_finish_stage(task_entries, CR_STATE_RESTORE);
-		if (wait_on_helpers_zombies()) {
-			pr_err("failed to wait on helpers and zombies\n");
-			ret = -1;
-		} else {
-			ret = 0;
-		}
+		ret = restore_one_helper();
 	} else {
 		pr_err("Unknown state in code %d\n", (int)core->tc->task_state);
 		ret = -1;
