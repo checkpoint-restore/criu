@@ -3738,11 +3738,30 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		task_args->clone_restore_fn,
 		task_args->thread_args);
 
+	if (fault_injected(FI_HELPER_CHILD_DIE)) {
+		struct task_entries *t = task_args->task_entries;
+		bool must_die = current->parent->pid->state == TASK_HELPER;
+
+		if (must_die)
+			pr_info("fault-injected: restorer %d will die\n", pid);
+
+		/*
+		 * Restorer dies only when all helpers did current stage:
+		 * Begin: nr_in_progress = nr_tasks + nr_helpers
+		 * Exit on: nr_in_progress = nr_tasks
+		 */
+		futex_wait_while_gt(&t->nr_in_progress, t->nr_tasks);
+
+		if (must_die) {
+			pr_info("fault-injected: %d exiting\n", pid);
+			exit(1);
+		}
+	}
+
 	/*
 	 * An indirect call to task_restore, note it never returns
 	 * and restoring core is extremely destructive.
 	 */
-
 	JUMP_TO_RESTORER_BLOB(new_sp, restore_task_exec_start, task_args);
 
 err:
