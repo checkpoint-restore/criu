@@ -27,7 +27,7 @@ struct aux_context {
 
 struct rt_sigframe {
 	siginfo_t			info;
-	struct ucontext			uc;
+	ucontext_t			uc;
 	uint64_t			fp;
 	uint64_t			lr;
 };
