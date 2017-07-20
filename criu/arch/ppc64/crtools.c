@@ -259,7 +259,7 @@ static int put_tm_regs(struct rt_sigframe *f, UserPpc64TmRegsEntry *tme)
  *   For the case of getting a signal and simply returning from it,
  *   we don't need to re-copy them here.
  */
-	struct ucontext *tm_uc = &f->uc_transact;
+	ucontext_t *tm_uc = &f->uc_transact;
 
 	pr_debug("Restoring TM registers FP:%d VR:%d VSX:%d\n",
 		 !!(tme->fpstate), !!(tme->vrstate), !!(tme->vsxstate));

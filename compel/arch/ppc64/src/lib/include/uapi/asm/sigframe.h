@@ -28,12 +28,12 @@
 #define TRAMP_SIZE			6
 
 /*
- * ucontext defined in /usr/include/powerpc64le-linux-gnu/sys/ucontext.h
+ * ucontext_t defined in /usr/include/powerpc64le-linux-gnu/sys/ucontext.h
  */
 struct rt_sigframe {
         /* sys_rt_sigreturn requires the ucontext be the first field */
-        struct ucontext			uc;
-        struct ucontext			uc_transact; /* Transactional state	 */
+        ucontext_t			uc;
+        ucontext_t			uc_transact; /* Transactional state	 */
         unsigned long			_unused[2];
         unsigned int			tramp[TRAMP_SIZE];
         struct rt_siginfo		*pinfo;
