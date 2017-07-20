@@ -37,7 +37,7 @@ typedef struct {
  */
 struct ucontext_extended {
 	unsigned long     uc_flags;
-	struct ucontext  *uc_link;
+	ucontext_t       *uc_link;
 	stack_t           uc_stack;
 	_sigregs          uc_mcontext;
 	sigset_t          uc_sigmask;
