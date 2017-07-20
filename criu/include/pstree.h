@@ -33,6 +33,10 @@ struct pstree_item {
 	struct ns_id		*pid_for_children_ns;
 };
 
+extern struct pstree_item *current;
+
+#define nspid(item)	(item->pid->ns[current->pid->level - 1].virt)
+
 #define vpid(item)	(item->pid->ns[0].virt)
 #define vsid(item)	(item->sid->ns[0].virt)
 #define vpgid(item)	(item->pgid->ns[0].virt)
@@ -44,8 +48,6 @@ enum {
 	FDS_EVENT_BIT	= 0,
 };
 #define FDS_EVENT (1 << FDS_EVENT_BIT)
-
-extern struct pstree_item *current;
 
 struct rst_info;
 /* See alloc_pstree_item() for details */
