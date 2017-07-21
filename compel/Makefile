@@ -11,6 +11,7 @@ ccflags-y		+= -iquote compel/arch/$(ARCH)/src/lib/include
 ccflags-y		+= -iquote compel/include
 ccflags-y		+= -fno-strict-aliasing
 ccflags-y		+= -fPIC
+ccflags-y		+= $(CFLAGS_PIE)
 ldflags-y		+= -r
 
 #

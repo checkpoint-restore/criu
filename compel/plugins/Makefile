@@ -7,7 +7,9 @@ PLUGIN_ARCH_DIR		:= compel/arch/$(ARCH)/plugins
 #
 # CFLAGS, ASFLAGS, LDFLAGS
 
-#
+# Required for pie code
+ccflags-y		+= $(CFLAGS_PIE)
+
 # UAPI inclusion, referred as <compel/...>
 ccflags-y		+= -I compel/include/uapi
 asflags-y		+= -I compel/include/uapi

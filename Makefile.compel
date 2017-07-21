@@ -70,13 +70,3 @@ compel/$(LIBCOMPEL_SO): compel/$(LIBCOMPEL_A)
 compel-install-targets	+= compel/$(LIBCOMPEL_SO)
 compel-install-targets	+= compel/compel
 compel-install-targets	+= $(compel-plugins)
-
-#
-# Also ensure with -fno-optimize-sibling-calls that we don't create GOT
-# (Global Offset Table) relocations with gcc compilers that don't have
-# commit "S/390: Fix 64 bit sibcall".
-#
-ifeq ($(ARCH),s390)
-CFLAGS += -msoft-float -fno-optimize-sibling-calls
-HOSTCFLAGS += -msoft-float -fno-optimize-sibling-calls
-endif
