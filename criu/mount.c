@@ -3094,19 +3094,19 @@ int restore_task_mnt_ns(struct pstree_item *current)
 		return 0;
 
 	if (current->ids && current->ids->has_mnt_ns_id) {
+		struct pstree_item *parent = current->parent;
 		unsigned int id = current->ids->mnt_ns_id;
 		struct ns_id *nsid;
 
-		/*
-		 * Regardless of the namespace a task wants to
-		 * live in, by that point they all will live in
-		 * root's one (see prepare_pstree_kobj_ids() +
-		 * get_clone_mask()). So if the current task's
-		 * target namespace is the root's one -- it's
-		 * already there, otherwise it will have to do
-		 * setns().
+		/* Zombies and helpers can have ids == 0 so we skip them */
+		while (parent && !parent->ids)
+			parent = parent->parent;
+
+		/**
+		 * Our parent had restored the mount namespace before forking
+		 * us and if we have the same mntns we just stay there.
 		 */
-		if (current->parent && id == current->parent->ids->mnt_ns_id)
+		if (parent && id == parent->ids->mnt_ns_id)
 			return 0;
 
 		nsid = lookup_ns_by_id(id, &mnt_ns_desc);
