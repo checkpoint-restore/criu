@@ -711,10 +711,13 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	return 0;
 }
 
-static int complete_page_fault(struct lazy_pages_info *lpi, unsigned long img_addr, int nr)
+static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr)
 {
+	struct lazy_pages_info *lpi;
 	unsigned long addr = 0;
 	struct lp_req *req;
+
+	lpi = container_of(pr, struct lazy_pages_info, pr);
 
 	list_for_each_entry(req, &lpi->reqs, l) {
 		if (req->img_addr == img_addr) {
@@ -739,14 +742,6 @@ static int complete_page_fault(struct lazy_pages_info *lpi, unsigned long img_ad
 		return -1;
 
 	return drop_lazy_iovs(lpi, addr, nr * PAGE_SIZE);
-}
-
-static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr)
-{
-	struct lazy_pages_info *lpi;
-
-	lpi = container_of(pr, struct lazy_pages_info, pr);
-	return complete_page_fault(lpi, img_addr, nr);
 }
 
 static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
