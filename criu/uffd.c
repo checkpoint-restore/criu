@@ -377,7 +377,7 @@ static int split_iov(struct lazy_iov *iov, unsigned long addr, bool new_below)
 
 static int copy_iovs(struct lazy_pages_info *src, struct lazy_pages_info *dst)
 {
-	struct lazy_iov *iov, *new, *n;
+	struct lazy_iov *iov, *new;
 	int max_iov_len = 0;
 
 	list_for_each_entry(iov, &src->iovs, l) {
@@ -401,8 +401,7 @@ static int copy_iovs(struct lazy_pages_info *src, struct lazy_pages_info *dst)
 	return 0;
 
 free_iovs:
-	list_for_each_entry_safe(iov, n, &dst->iovs, l)
-		xfree(iov);
+	free_iovs(dst);
 	return -1;
 }
 
@@ -534,7 +533,7 @@ static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from,
 static int collect_iovs(struct lazy_pages_info *lpi)
 {
 	struct page_read *pr = &lpi->pr;
-	struct lazy_iov *iov, *n;
+	struct lazy_iov *iov;
 	MmEntry *mm;
 	int nr_pages = 0, n_vma = 0, max_iov_len = 0;
 	int ret = -1;
@@ -585,8 +584,7 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 	goto free_mm;
 
 free_iovs:
-	list_for_each_entry_safe(iov, n, &lpi->iovs, l)
-		xfree(iov);
+	free_iovs(lpi);
 free_mm:
 	mm_entry__free_unpacked(mm, NULL);
 
