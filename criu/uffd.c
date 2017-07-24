@@ -118,7 +118,7 @@ static struct lazy_pages_info *lpi_init(void)
 	return lpi;
 }
 
-static void free_lazy_iovs(struct lazy_pages_info *lpi)
+static void free_iovs(struct lazy_pages_info *lpi)
 {
 	struct lazy_iov *p, *n;
 
@@ -133,7 +133,7 @@ static void lpi_fini(struct lazy_pages_info *lpi)
 	if (!lpi)
 		return;
 	free(lpi->buf);
-	free_lazy_iovs(lpi);
+	free_iovs(lpi);
 	if (lpi->lpfd.fd > 0)
 		close(lpi->lpfd.fd);
 	if (!lpi->parent && lpi->pr.close)
@@ -336,8 +336,8 @@ static MmEntry *init_mm_entry(struct lazy_pages_info *lpi)
 	return mm;
 }
 
-static struct lazy_iov *find_lazy_iov(struct lazy_pages_info *lpi,
-				      unsigned long addr)
+static struct lazy_iov *find_iov(struct lazy_pages_info *lpi,
+				 unsigned long addr)
 {
 	struct lazy_iov *iov;
 
@@ -375,8 +375,7 @@ static int split_iov(struct lazy_iov *iov, unsigned long addr, bool new_below)
 	return 0;
 }
 
-static int copy_lazy_iovs(struct lazy_pages_info *src,
-			  struct lazy_pages_info *dst)
+static int copy_iovs(struct lazy_pages_info *src, struct lazy_pages_info *dst)
 {
 	struct lazy_iov *iov, *new, *n;
 	int max_iov_len = 0;
@@ -411,8 +410,7 @@ free_iovs:
  * Purge range (addr, addr + len) from lazy_iovs. The range may
  * cover several continuous IOVs.
  */
-static int drop_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
-			  int len)
+static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, int len)
 {
 	struct lazy_iov *iov, *n;
 
@@ -471,8 +469,8 @@ static int drop_lazy_iovs(struct lazy_pages_info *lpi, unsigned long addr,
 	return 0;
 }
 
-static int remap_lazy_iovs(struct lazy_pages_info *lpi, unsigned long from,
-			   unsigned long to, unsigned long len)
+static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from,
+		      unsigned long to, unsigned long len)
 {
 	unsigned long off = to - from;
 	struct lazy_iov *iov, *n, *p;
@@ -533,7 +531,7 @@ static int remap_lazy_iovs(struct lazy_pages_info *lpi, unsigned long from,
  * only inside a single VMA.
  * We assume here that pagemaps and VMAs are sorted.
  */
-static int collect_lazy_iovs(struct lazy_pages_info *lpi)
+static int collect_iovs(struct lazy_pages_info *lpi)
 {
 	struct page_read *pr = &lpi->pr;
 	struct lazy_iov *iov, *n;
@@ -645,7 +643,7 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 	 * Find the memory pages belonging to the restored process
 	 * so that it is trackable when all pages have been transferred.
 	 */
-	ret = collect_lazy_iovs(lpi);
+	ret = collect_iovs(lpi);
 	if (ret < 0)
 		goto out;
 	lpi->total_pages = ret;
@@ -667,7 +665,7 @@ static int handle_exit(struct lazy_pages_info *lpi)
 	lp_debug(lpi, "EXIT\n");
 	if (epoll_del_rfd(epollfd, &lpi->lpfd))
 		return -1;
-	free_lazy_iovs(lpi);
+	free_iovs(lpi);
 	close(lpi->lpfd.fd);
 	lpi->lpfd.fd = 0;
 
@@ -741,7 +739,7 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr
 	if (uffd_copy(lpi, addr, nr))
 		return -1;
 
-	return drop_lazy_iovs(lpi, addr, nr * PAGE_SIZE);
+	return drop_iovs(lpi, addr, nr * PAGE_SIZE);
 }
 
 static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
@@ -884,7 +882,7 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 		return -1;
 	}
 
-	return drop_lazy_iovs(lpi, unreg.start, unreg.len);
+	return drop_iovs(lpi, unreg.start, unreg.len);
 }
 
 static int handle_remap(struct lazy_pages_info *lpi, struct uffd_msg *msg)
@@ -895,7 +893,7 @@ static int handle_remap(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 
 	lp_debug(lpi, "REMAP: %lx -> %lx (%ld)\n", from , to, len);
 
-	return remap_lazy_iovs(lpi, from, to, len);
+	return remap_iovs(lpi, from, to, len);
 }
 
 static int handle_fork(struct lazy_pages_info *parent_lpi, struct uffd_msg *msg)
@@ -909,7 +907,7 @@ static int handle_fork(struct lazy_pages_info *parent_lpi, struct uffd_msg *msg)
 	if (!lpi)
 		return -1;
 
-	if (copy_lazy_iovs(parent_lpi, lpi))
+	if (copy_iovs(parent_lpi, lpi))
 		goto out;
 
 	lpi->pid = parent_lpi->pid;
@@ -975,7 +973,7 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	if (is_page_queued(lpi, address))
 		return 0;
 
-	iov = find_lazy_iov(lpi, address);
+	iov = find_iov(lpi, address);
 	if (!iov)
 		return uffd_zero(lpi, address, 1);
 
