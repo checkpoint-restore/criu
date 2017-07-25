@@ -20,6 +20,7 @@
 #include "util-pie.h"
 #include "namespaces.h"
 #include "seize.h"
+#include "string.h"
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"
@@ -1310,6 +1311,70 @@ static void add_freezer_state_for_restore(CgroupPropEntry *entry, char *path, si
 	freezer_path[path_len] = 0;
 }
 
+/*
+ * Filter out ifpriomap interfaces which have 0 as priority.
+ * As by default new ifpriomap has 0 as a priority for each
+ * interface, this will save up some write()'s.
+ * As this property is used rarely, this may save a whole bunch
+ * of syscalls, skipping all ifpriomap restore.
+ */
+static int filter_ifpriomap(char *out, char *line)
+{
+	char *next_line, *space;
+	bool written = false;
+	size_t len;
+
+	if (*line == '\0')
+		return 0;
+
+	do {
+		next_line = strchrnul(line, '\n');
+		len = next_line - line;
+
+		space = strchr(line, ' ');
+		if (!space) {
+			pr_err("Invalid value for ifpriomap: `%s'\n", line);
+			return -1;
+		}
+
+		if (!strtol(space, NULL, 10))
+			goto next;
+
+		/* Copying with last \n or \0 */
+		strncpy(out, line, len + 1);
+		out += len + 1;
+		written = true;
+next:
+		line = next_line + 1;
+	} while(*next_line != '\0');
+
+	if (written)
+		*(out - 1) = '\0';
+
+	return 0;
+}
+
+static int restore_cgroup_ifpriomap(CgroupPropEntry *cpe, char *path, int off)
+{
+	CgroupPropEntry priomap = *cpe;
+	int ret = -1;
+
+	priomap.value = xmalloc(strlen(cpe->value) + 1);
+	priomap.value[0] = '\0';
+
+	if (filter_ifpriomap(priomap.value, cpe->value))
+		goto out;
+
+	if (strlen(priomap.value))
+		ret = restore_cgroup_prop(&priomap, path, off, true, true);
+	else
+		ret = 0;
+
+out:
+	xfree(priomap.value);
+	return ret;
+}
+
 static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **ents,
 					 unsigned int n_ents)
 {
@@ -1325,7 +1390,6 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 		off2 += sprintf(path + off, "/%s", e->dir_name);
 		for (j = 0; j < e->n_properties; ++j) {
 			CgroupPropEntry *p = e->properties[j];
-			bool pm = false;
 
 			if (!strcmp(p->name, "freezer.state")) {
 				add_freezer_state_for_restore(p, path, off2);
@@ -1344,10 +1408,13 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 			 * The kernel can't handle it in one write()
 			 * Number of network interfaces on host may differ.
 			 */
-			if (strcmp(p->name, "net_prio.ifpriomap") == 0)
-				pm = true;
+			if (strcmp(p->name, "net_prio.ifpriomap") == 0) {
+				if (restore_cgroup_ifpriomap(p, path, off2))
+					return -1;
+				continue;
+			}
 
-			if (restore_cgroup_prop(p, path, off2, pm, pm) < 0)
+			if (restore_cgroup_prop(p, path, off2, false, false) < 0)
 				return -1;
 		}
 skip:
