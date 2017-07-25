@@ -1320,26 +1320,24 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 			goto skip; /* skip root cgroups */
 
 		off2 += sprintf(path + off, "/%s", e->dir_name);
-		if (e->n_properties > 0) {
-			for (j = 0; j < e->n_properties; ++j) {
-				if (!strcmp(e->properties[j]->name, "freezer.state")) {
-					add_freezer_state_for_restore(e->properties[j], path, off2);
-					continue; /* skip restore now */
-				}
+		for (j = 0; j < e->n_properties; ++j) {
+			CgroupPropEntry *p = e->properties[j];
 
-				/* Skip restoring special cpuset props now.
-				 * They were restored earlier, and can cause
-				 * the restore to fail if some other task has
-				 * entered the cgroup.
-				 */
-				if (is_special_property(e->properties[j]->name))
-					continue;
-
-				if (restore_cgroup_prop(e->properties[j], path, off2, false) < 0) {
-					return -1;
-				}
-
+			if (!strcmp(p->name, "freezer.state")) {
+				add_freezer_state_for_restore(p, path, off2);
+				continue; /* skip restore now */
 			}
+
+			/* Skip restoring special cpuset props now.
+			 * They were restored earlier, and can cause
+			 * the restore to fail if some other task has
+			 * entered the cgroup.
+			 */
+			if (is_special_property(p->name))
+				continue;
+
+			if (restore_cgroup_prop(p, path, off2, false) < 0)
+				return -1;
 		}
 skip:
 		if (prepare_cgroup_dir_properties(path, off2, e->children, e->n_children) < 0)
