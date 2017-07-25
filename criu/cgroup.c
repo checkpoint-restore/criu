@@ -1198,7 +1198,7 @@ static int restore_perms(int fd, const char *path, CgroupPerms *perms)
 }
 
 static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p,
-			       char *path, int off, bool split_lines)
+		char *path, int off, bool split_lines, bool skip_fails)
 {
 	int cg, fd, ret = -1;
 	CgroupPerms *perms = cg_prop_entry_p->perms;
@@ -1242,7 +1242,8 @@ static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p,
 
 			if (write(fd, line, len) != len) {
 				pr_perror("Failed writing %s to %s", line, path);
-				goto out;
+				if (!skip_fails)
+					goto out;
 			}
 			line = next_line + 1;
 		} while(*next_line != '\0');
@@ -1251,7 +1252,8 @@ static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p,
 
 		if (write(fd, cg_prop_entry_p->value, len) != len) {
 			pr_perror("Failed writing %s to %s", cg_prop_entry_p->value, path);
-			goto out;
+			if (!skip_fails)
+				goto out;
 		}
 	}
 
@@ -1275,7 +1277,8 @@ int restore_freezer_state(void)
 		return 0;
 
 	freezer_path_len = strlen(freezer_path);
-	return restore_cgroup_prop(freezer_state_entry, freezer_path, freezer_path_len, false);
+	return restore_cgroup_prop(freezer_state_entry, freezer_path,
+			freezer_path_len, false, false);
 }
 
 static void add_freezer_state_for_restore(CgroupPropEntry *entry, char *path, size_t path_len)
@@ -1322,7 +1325,7 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 		off2 += sprintf(path + off, "/%s", e->dir_name);
 		for (j = 0; j < e->n_properties; ++j) {
 			CgroupPropEntry *p = e->properties[j];
-			bool split = false;
+			bool pm = false;
 
 			if (!strcmp(p->name, "freezer.state")) {
 				add_freezer_state_for_restore(p, path, off2);
@@ -1337,11 +1340,14 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 			if (is_special_property(p->name))
 				continue;
 
-			/* The kernel can't handle it in one write() */
+			/*
+			 * The kernel can't handle it in one write()
+			 * Number of network interfaces on host may differ.
+			 */
 			if (strcmp(p->name, "net_prio.ifpriomap") == 0)
-				split = true;
+				pm = true;
 
-			if (restore_cgroup_prop(p, path, off2, split) < 0)
+			if (restore_cgroup_prop(p, path, off2, pm, pm) < 0)
 				return -1;
 		}
 skip:
@@ -1393,7 +1399,7 @@ static int restore_devices_list(char *paux, size_t off, CgroupPropEntry *pr)
 	dev_deny.name = "devices.deny";
 	dev_deny.value = "a";
 
-	ret = restore_cgroup_prop(&dev_deny, paux, off, false);
+	ret = restore_cgroup_prop(&dev_deny, paux, off, false, false);
 
 	/*
 	 * An emptry string here means nothing is allowed,
@@ -1406,7 +1412,7 @@ static int restore_devices_list(char *paux, size_t off, CgroupPropEntry *pr)
 	if (ret < 0)
 		return -1;
 
-	return restore_cgroup_prop(&dev_allow, paux, off, true);
+	return restore_cgroup_prop(&dev_allow, paux, off, true, false);
 }
 
 static int restore_special_property(char *paux, size_t off, CgroupPropEntry *pr)
@@ -1432,7 +1438,7 @@ static int restore_special_property(char *paux, size_t off, CgroupPropEntry *pr)
 		return restore_devices_list(paux, off, pr);
 	}
 
-	return restore_cgroup_prop(pr, paux, off, false);
+	return restore_cgroup_prop(pr, paux, off, false, false);
 }
 
 static int restore_special_props(char *paux, size_t off, CgroupDirEntry *e)
