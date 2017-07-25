@@ -1026,7 +1026,7 @@ static int check_compat_cr(void)
 		return 0;
 	pr_warn("compat_cr is not supported. Requires kernel >= v4.12\n");
 #else
-	pr_warn("CRIU built without CONFIG_COMPAT - can't C/R ia32\n");
+	pr_warn("CRIU built without CONFIG_COMPAT - can't C/R compatible tasks\n");
 #endif
 	return -1;
 }
