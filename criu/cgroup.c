@@ -1371,6 +1371,54 @@ int prepare_cgroup_properties(void)
 	return 0;
 }
 
+/*
+ * The devices cgroup must be restored in a special way:
+ * only the contents of devices.list can be read, and it is a whitelist
+ * of all the devices the cgroup is allowed to create. To re-create
+ * this whitelist, we firstly deny everything via devices.deny,
+ * and then write the list back into devices.allow.
+ *
+ * Further, we must have a write() call for each line, because the kernel
+ * only parses the first line of any write().
+ */
+static int restore_devices_list(char *paux, size_t off, CgroupPropEntry *pr)
+{
+	CgroupPropEntry dev_allow = *pr;
+	CgroupPropEntry dev_deny = *pr;
+	char *pos;
+	int ret;
+
+	dev_allow.name = "devices.allow";
+	dev_deny.name = "devices.deny";
+	dev_deny.value = "a";
+
+	ret = restore_cgroup_prop(&dev_deny, paux, off);
+
+	/*
+	 * An emptry string here means nothing is allowed,
+	 * and the kernel disallows writing an "" to devices.allow,
+	 * so let's just keep going.
+	 */
+	if (!strcmp(dev_allow.value, ""))
+		return 0;
+
+	if (ret < 0)
+		return -1;
+
+	pos = dev_allow.value;
+	while (*pos) {
+		int offset = next_device_entry(pos);
+
+		dev_allow.value = pos;
+		ret = restore_cgroup_prop(&dev_allow, paux, off);
+		if (ret < 0)
+			return -1;
+		pos += offset;
+	}
+
+	return 0;
+}
+
 static int restore_special_property(char *paux, size_t off, CgroupPropEntry *pr)
 {
 	/*
@@ -1385,64 +1433,13 @@ static int restore_special_property(char *paux, size_t off, CgroupPropEntry *pr)
 
 	if (!strcmp(pr->name, "devices.list")) {
 		/*
-		 * The devices cgroup must be restored in a special way:
-		 * only the contents of devices.list can be read, and it
-		 * is a whitelist of all the devices the cgroup is allowed
-		 * to create. To re-create this whitelist, we firstly deny
-		 * everything via devices.deny, and then write the list back
-		 * into devices.allow.
-		 *
-		 * Further, we must have a write() call for each line,
-		 * because the kernel only parses the first line of
-		 * any write().
-		 */
-		CgroupPropEntry *pe = pr;
-		char *old_val = pe->value, *old_name = pe->name;
-		int ret;
-		char *pos;
-
-		/*
 		 * A bit of a fudge here. These are write only by owner
 		 * by default, but the container engine could have changed
 		 * the perms. We should come up with a better way to
 		 * restore all of this stuff.
 		 */
-		pe->perms->mode = 0200;
-
-		pe->name = "devices.deny";
-		pe->value = "a";
-		ret = restore_cgroup_prop(pr, paux, off);
-		pe->name = old_name;
-		pe->value = old_val;
-
-		/*
-		 * An emptry string here means nothing is allowed,
-		 * and the kernel disallows writing an "" to devices.allow,
-		 * so let's just keep going.
-		 */
-		if (!strcmp(pe->value, ""))
-			return 0;
-
-		if (ret < 0)
-			return -1;
-
-		pe->name = "devices.allow";
-
-		pos = pe->value;
-		while (*pos) {
-			int offset = next_device_entry(pos);
-			pe->value = pos;
-			ret = restore_cgroup_prop(pe, paux, off);
-			if (ret < 0) {
-				pe->name = old_name;
-				pe->value = old_val;
-				return -1;
-			}
-			pos += offset;
-		}
-		pe->value = old_val;
-		pe->name = old_name;
-		return 0;
+		pr->perms->mode = 0200;
+		return restore_devices_list(paux, off, pr);
 	}
 
 	return restore_cgroup_prop(pr, paux, off);
