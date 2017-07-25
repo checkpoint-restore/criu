@@ -1322,6 +1322,7 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 		off2 += sprintf(path + off, "/%s", e->dir_name);
 		for (j = 0; j < e->n_properties; ++j) {
 			CgroupPropEntry *p = e->properties[j];
+			bool split = false;
 
 			if (!strcmp(p->name, "freezer.state")) {
 				add_freezer_state_for_restore(p, path, off2);
@@ -1336,7 +1337,11 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 			if (is_special_property(p->name))
 				continue;
 
-			if (restore_cgroup_prop(p, path, off2, false) < 0)
+			/* The kernel can't handle it in one write() */
+			if (strcmp(p->name, "net_prio.ifpriomap") == 0)
+				split = true;
+
+			if (restore_cgroup_prop(p, path, off2, split) < 0)
 				return -1;
 		}
 skip:
