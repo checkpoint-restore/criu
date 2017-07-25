@@ -106,17 +106,30 @@ define FEATURE_TEST_X86_COMPAT
         .text
 
 ENTRY(call32_from_64)
+        /* Push return address and 64-bit segment descriptor */
+        sub \$$4, %rsp
+        movl \$$__USER_CS,(%rsp)
+        sub \$$4, %rsp
+        /* Using rip-relative addressing to get rid of R_X86_64_32S relocs */
+        leaq 2f(%rip),%r12
+        movl %r12d,(%rsp)
+
         /* Switch into compatibility mode */
         pushq \$$__USER32_CS
-        pushq \$$1f
+        /* Using rip-relative addressing to get rid of R_X86_64_32S relocs */
+        leaq 1f(%rip), %r12
+        pushq %r12
         lretq
-1:
-        .code32
+
+1:	.code32
         /* Run function and switch back */
         call *%esi
-        jmp \$$__USER_CS,\$$1f
-        .code64
-1:
+        lret
+
+2:	.code64
+        /* Restore the stack */
+        mov (%rsp),%rsp
+        add \$$8, %rdi
 END(call32_from_64)
 
 ENTRY(main)
