@@ -115,7 +115,7 @@ int main(int argc, char **argv)
 	char buf[1024], path[PATH_MAX];
 	struct stat sb;
 
-	char *deny[] = {
+	char *dev_allow[] = {
 		"c *:* m",
 		"b *:* m",
 		"c 1:3 rwm",
@@ -136,8 +136,8 @@ int main(int argc, char **argv)
 
 	/* need to allow /dev/null for restore */
 	sprintf(path, "%s/devices/%s/devices.allow", dirname, cgname);
-	for (i = 0; i < ARRAY_SIZE(deny); i++) {
-		if (write_value(path, deny[i]) < 0)
+	for (i = 0; i < ARRAY_SIZE(dev_allow); i++) {
+		if (write_value(path, dev_allow[i]) < 0)
 			goto out;
 	}
 
@@ -148,8 +148,8 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	buf[0] = 0;
-	for (i = 0; i < ARRAY_SIZE(deny); i++) {
-		strcat(buf, deny[i]);
+	for (i = 0; i < ARRAY_SIZE(dev_allow); i++) {
+		strcat(buf, dev_allow[i]);
 		strcat(buf, "\n");
 	}
 
