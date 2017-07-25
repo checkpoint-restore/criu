@@ -1197,10 +1197,10 @@ static int restore_perms(int fd, const char *path, CgroupPerms *perms)
 	return 0;
 }
 
-static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
-			       char *path, int off)
+static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p,
+			       char *path, int off, bool split_lines)
 {
-	int cg, fd, len, ret = -1;
+	int cg, fd, ret = -1;
 	CgroupPerms *perms = cg_prop_entry_p->perms;
 
 	if (!cg_prop_entry_p->value) {
@@ -1231,10 +1231,28 @@ static int restore_cgroup_prop(const CgroupPropEntry * cg_prop_entry_p,
 		goto out;
 	}
 
-	len = strlen(cg_prop_entry_p->value);
-	if (write(fd, cg_prop_entry_p->value, len) != len) {
-		pr_perror("Failed writing %s to %s", cg_prop_entry_p->value, path);
-		goto out;
+	if (split_lines) {
+		char *line = cg_prop_entry_p->value;
+		char *next_line;
+		size_t len;
+
+		do {
+			next_line = strchrnul(line, '\n');
+			len = next_line - line;
+
+			if (write(fd, line, len) != len) {
+				pr_perror("Failed writing %s to %s", line, path);
+				goto out;
+			}
+			line = next_line + 1;
+		} while(*next_line != '\0');
+	} else {
+		size_t len = strlen(cg_prop_entry_p->value);
+
+		if (write(fd, cg_prop_entry_p->value, len) != len) {
+			pr_perror("Failed writing %s to %s", cg_prop_entry_p->value, path);
+			goto out;
+		}
 	}
 
 	ret = 0;
@@ -1257,7 +1275,7 @@ int restore_freezer_state(void)
 		return 0;
 
 	freezer_path_len = strlen(freezer_path);
-	return restore_cgroup_prop(freezer_state_entry, freezer_path, freezer_path_len);
+	return restore_cgroup_prop(freezer_state_entry, freezer_path, freezer_path_len, false);
 }
 
 static void add_freezer_state_for_restore(CgroupPropEntry *entry, char *path, size_t path_len)
@@ -1289,25 +1307,6 @@ static void add_freezer_state_for_restore(CgroupPropEntry *entry, char *path, si
 	freezer_path[path_len] = 0;
 }
 
-static int next_device_entry(char *buf)
-{
-	char *pos = buf;
-
-	while (1) {
-		if (*pos == '\n') {
-			*pos = '\0';
-			pos++;
-			break;
-		} else if (*pos == '\0') {
-			break;
-		}
-
-		pos++;
-	}
-
-	return pos - buf;
-}
-
 static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **ents,
 					 unsigned int n_ents)
 {
@@ -1336,7 +1335,7 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 				if (is_special_property(e->properties[j]->name))
 					continue;
 
-				if (restore_cgroup_prop(e->properties[j], path, off2) < 0) {
+				if (restore_cgroup_prop(e->properties[j], path, off2, false) < 0) {
 					return -1;
 				}
 
@@ -1385,14 +1384,13 @@ static int restore_devices_list(char *paux, size_t off, CgroupPropEntry *pr)
 {
 	CgroupPropEntry dev_allow = *pr;
 	CgroupPropEntry dev_deny = *pr;
-	char *pos;
 	int ret;
 
 	dev_allow.name = "devices.allow";
 	dev_deny.name = "devices.deny";
 	dev_deny.value = "a";
 
-	ret = restore_cgroup_prop(&dev_deny, paux, off);
+	ret = restore_cgroup_prop(&dev_deny, paux, off, false);
 
 	/*
 	 * An emptry string here means nothing is allowed,
@@ -1405,18 +1403,7 @@ static int restore_devices_list(char *paux, size_t off, CgroupPropEntry *pr)
 	if (ret < 0)
 		return -1;
 
-	pos = dev_allow.value;
-	while (*pos) {
-		int offset = next_device_entry(pos);
-
-		dev_allow.value = pos;
-		ret = restore_cgroup_prop(&dev_allow, paux, off);
-		if (ret < 0)
-			return -1;
-		pos += offset;
-	}
-
-	return 0;
+	return restore_cgroup_prop(&dev_allow, paux, off, true);
 }
 
 static int restore_special_property(char *paux, size_t off, CgroupPropEntry *pr)
@@ -1442,7 +1429,7 @@ static int restore_special_property(char *paux, size_t off, CgroupPropEntry *pr)
 		return restore_devices_list(paux, off, pr);
 	}
 
-	return restore_cgroup_prop(pr, paux, off);
+	return restore_cgroup_prop(pr, paux, off, false);
 }
 
 static int restore_special_props(char *paux, size_t off, CgroupDirEntry *e)
