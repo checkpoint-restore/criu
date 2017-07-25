@@ -1,0 +1,15 @@
+#!/bin/bash
+
+[ "$1" == "--clean" -o "$1" == "--pre-restore" ] || exit 0
+
+tname=$(mktemp -d cgclean.XXXXXX)
+mount -t cgroup none $tname -o "net_prio"
+
+echo "Cleaning $tname"
+
+set +e
+rmdir "$tname/zdtmtst"
+set -e
+
+umount "$tname"
+rmdir "$tname"
