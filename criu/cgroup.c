@@ -969,6 +969,17 @@ static const char *special_props[] = {
 	NULL,
 };
 
+bool is_special_property(const char *prop)
+{
+	size_t i = 0;
+
+	for (i = 0; special_props[i]; i++)
+		if (strcmp(prop, special_props[i]) == 0)
+			return true;
+
+	return false;
+}
+
 static int userns_move(void *arg, int fd, pid_t pid)
 {
 	char pidbuf[32];
@@ -1312,9 +1323,6 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 		off2 += sprintf(path + off, "/%s", e->dir_name);
 		if (e->n_properties > 0) {
 			for (j = 0; j < e->n_properties; ++j) {
-				int k;
-				bool special = false;
-
 				if (!strcmp(e->properties[j]->name, "freezer.state")) {
 					add_freezer_state_for_restore(e->properties[j], path, off2);
 					continue; /* skip restore now */
@@ -1325,14 +1333,7 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 				 * the restore to fail if some other task has
 				 * entered the cgroup.
 				 */
-				for (k = 0; special_props[k]; k++) {
-					if (!strcmp(e->properties[j]->name, special_props[k])) {
-						special = true;
-						break;
-					}
-				}
-
-				if (special)
+				if (is_special_property(e->properties[j]->name))
 					continue;
 
 				if (restore_cgroup_prop(e->properties[j], path, off2) < 0) {
@@ -1372,17 +1373,16 @@ int prepare_cgroup_properties(void)
 
 static int restore_special_props(char *paux, size_t off, CgroupDirEntry *e)
 {
-	int i, j;
+	int j;
 
 	pr_info("Restore special props\n");
 
-	for (i = 0; special_props[i]; i++) {
-		const char *name = special_props[i];
+	{
 
 		for (j = 0; j < e->n_properties; j++) {
 			CgroupPropEntry *prop = e->properties[j];
 
-			if (strcmp(name, prop->name) == 0) {
+			if (is_special_property(prop->name)) {
 				/* XXX: we can drop this hack and make
 				 * memory.swappiness and memory.oom_control
 				 * regular properties when we drop support for
