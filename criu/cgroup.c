@@ -1396,7 +1396,7 @@ static int restore_special_props(char *paux, size_t off, CgroupDirEntry *e)
 					continue;
 				}
 
-				if (!strcmp(e->properties[j]->name, "devices.list")) {
+				if (!strcmp(prop->name, "devices.list")) {
 					/* The devices cgroup must be restored in a
 					 * special way: only the contents of
 					 * devices.list can be read, and it is a
@@ -1410,7 +1410,7 @@ static int restore_special_props(char *paux, size_t off, CgroupDirEntry *e)
 					 * each line, because the kernel only parses
 					 * the first line of any write().
 					 */
-					CgroupPropEntry *pe = e->properties[j];
+					CgroupPropEntry *pe = prop;
 					char *old_val = pe->value, *old_name = pe->name;
 					int ret;
 					char *pos;
@@ -1426,7 +1426,7 @@ static int restore_special_props(char *paux, size_t off, CgroupDirEntry *e)
 
 					pe->name = "devices.deny";
 					pe->value = "a";
-					ret = restore_cgroup_prop(e->properties[j], paux, off);
+					ret = restore_cgroup_prop(prop, paux, off);
 					pe->name = old_name;
 					pe->value = old_val;
 
