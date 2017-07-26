@@ -786,9 +786,6 @@ static void rst_tcp_socks_all(struct task_restore_args *ta)
 		rst_tcp_repair_off(&ta->tcp_socks[i]);
 }
 
-
-
-
 static int enable_uffd(int uffd, unsigned long addr, unsigned long len)
 {
 	int rc;
@@ -805,14 +802,14 @@ static int enable_uffd(int uffd, unsigned long addr, unsigned long len)
 	uffdio_register.range.start = addr;
 	uffdio_register.range.len = len;
 	uffdio_register.mode = UFFDIO_REGISTER_MODE_MISSING;
-	pr_info("lazy-pages: uffdio_register.range.start 0x%lx\n", (unsigned long) uffdio_register.range.start);
-	pr_info("lazy-pages: uffdio_register.len 0x%llx\n", uffdio_register.range.len);
+
+	pr_info("lazy-pages: register: %lx, len %lx\n", addr, len);
+
 	rc = sys_ioctl(uffd, UFFDIO_REGISTER, (unsigned long) &uffdio_register);
-	pr_info("lazy-pages: ioctl UFFDIO_REGISTER rc %d\n", rc);
-	pr_info("lazy-pages: uffdio_register.range.start 0x%lx\n", (unsigned long) uffdio_register.range.start);
-	pr_info("lazy-pages: uffdio_register.len 0x%llx\n", uffdio_register.range.len);
-	if (rc != 0)
+	if (rc != 0) {
+		pr_err("lazy-pages: register %lx failed: rc:%d, \n", addr, rc);
 		return -1;
+	}
 
 	expected_ioctls = (1 << _UFFDIO_WAKE) | (1 << _UFFDIO_COPY) | (1 << _UFFDIO_ZEROPAGE);
 
