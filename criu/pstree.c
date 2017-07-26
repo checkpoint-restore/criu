@@ -1133,6 +1133,11 @@ static int prepare_pstree_ids(void)
 				if (equal_pid(parent->pid, item->sid))
 					break;
 
+				/* Shell job's root_task inherits sid from criu */
+				if (opts.shell_job && parent == root_item && !is_session_leader(root_item)
+						&& equal_pid(parent->sid, item->sid))
+					break;
+
 				/* Inherited sid from parent */
 				if (equal_pid(parent->sid, item->sid)) {
 					parent = parent->parent;
