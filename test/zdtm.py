@@ -364,6 +364,7 @@ class zdtm_test:
 		self._env = {}
 		self._deps = desc.get('deps', [])
 		self.auto_reap = True
+		self.__timeout = int(self.__desc.get('timeout') or 30)
 
 	def __make_action(self, act, env = None, root = None):
 		sys.stdout.flush()  # Not to let make's messages appear before ours
@@ -388,7 +389,7 @@ class zdtm_test:
 		return self.__name + '.pid'
 
 	def __wait_task_die(self):
-		wait_pid_die(int(self.__pid), self.__name)
+		wait_pid_die(int(self.__pid), self.__name, self.__timeout)
 
 	def __add_wperms(self):
 		# Add write perms for .out and .pid files
