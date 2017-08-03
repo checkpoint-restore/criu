@@ -27,7 +27,7 @@ TEST_OPTION(filename, string, "file name", 1);
 char file0[PATH_MAX];
 char file1[PATH_MAX];
 char file2[PATH_MAX];
-unsigned int inodes[3];
+unsigned long inodes[3];
 static mnt_info_t *m;
 dev_t dev;
 
@@ -72,91 +72,80 @@ static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 		pr_perror("Unable to open file %s", file1);
 		return -1;
 	}
-
 	fstat(*fd_2, &buf);
 	inodes[2] = buf.st_ino;
 
 	return 0;
 }
 
-static int check_file_locks()
+static int check_file_lock(int fd, char *expected_type,
+			   char *expected_option,
+			   unsigned int expected_dev,
+			   unsigned long expected_ino)
 {
-	FILE		*fp_locks = NULL;
-	char		buf[100];
+	char buf[100], fl_flag[16], fl_type[16], fl_option[16];
+	int found = 0, num, fl_owner;
+	FILE *fp_locks = NULL;
+	char path[PATH_MAX];
+	unsigned long i_no;
+	int maj, min;
 
-	long long	fl_id = 0;
-	char		fl_flag[10], fl_type[15], fl_option[10];
-	pid_t		fl_owner;
-	int		maj, min;
-	unsigned long	i_no;
-	long long	start;
-	char		end[32];
+	test_msg("check_file_lock: (fsname %s) expecting fd %d type %s option %s dev %u ino %lu\n",
+		 m->fsname, fd, expected_type, expected_option, expected_dev, expected_ino);
 
-	int		num;
-	int		count = 3;
-
-	fp_locks = fopen("/proc/locks", "r");
-	if (!fp_locks)
+	snprintf(path, sizeof(path), "/proc/self/fdinfo/%d", fd);
+	fp_locks = fopen(path, "r");
+	if (!fp_locks) {
+		pr_err("Can't open %s\n", path);
 		return -1;
-
-	test_msg("C: %d/%d/%d\n", inodes[0], inodes[1], inodes[2]);
+	}
 
 	while (fgets(buf, sizeof(buf), fp_locks)) {
+		if (strncmp(buf, "lock:\t", 6) != 0)
+			continue;
 		test_msg("c: %s", buf);
-
-		if (strstr(buf, "->"))
-			continue;
-
-		num = sscanf(buf,
-			"%lld:%s %s %s %d %x:%x:%ld %lld %s",
-			&fl_id, fl_flag, fl_type, fl_option,
-			&fl_owner, &maj, &min, &i_no, &start, end);
-
-		if (num < 10) {
-			pr_perror("Invalid lock info.");
-			break;
-		}
-
-		if (i_no != inodes[0] && i_no != inodes[1] && i_no != inodes[2])
-			continue;
-
-		if (!strcmp(m->fsname, "btrfs")) {
-			if (MKKDEV(major(maj), minor(min)) != dev)
-				continue;
-		} else {
-			if (makedev(maj, min) != dev)
-				continue;
-		}
-
-		if (!strcmp(fl_flag, "FLOCK") && !strcmp(fl_type, "ADVISORY")) {
-			if (!strcmp(fl_option, "READ"))
-				count--;
-			else if (!strcmp(fl_option, "WRITE"))
-				count--;
-		}
-
-		if (!strcmp(fl_flag, "FLOCK") &&
-		    !strcmp(fl_type, "MSNFS") &&
-		    !strcmp(fl_option, "READ"))
-			count--;
 
 		memset(fl_flag, 0, sizeof(fl_flag));
 		memset(fl_type, 0, sizeof(fl_type));
 		memset(fl_option, 0, sizeof(fl_option));
+
+		num = sscanf(buf, "%*s %*d:%s %s %s %d %02x:%02x:%ld %*d %*s",
+			     fl_flag, fl_type, fl_option, &fl_owner,
+			     &maj, &min, &i_no);
+		if (num < 7) {
+			pr_perror("Invalid lock info.");
+			break;
+		}
+
+		if (!strcmp(m->fsname, "btrfs")) {
+			if (MKKDEV(major(maj), minor(min)) != expected_dev)
+				continue;
+		} else {
+			if (makedev(maj, min) != expected_dev)
+				continue;
+		}
+
+		if (fl_owner != getpid())
+			continue;
+		if (i_no != expected_ino)
+			continue;
+		if (strcmp(fl_flag, "FLOCK"))
+			continue;
+		if (strcmp(fl_type, expected_type))
+			continue;
+		if (strcmp(fl_option, expected_option))
+			continue;
+		found++;
 	}
 
 	fclose(fp_locks);
 
-	/*
-	 * If we find all three matched file locks, count would be 0,
-	 * return 0 for success.
-	 */
-	return count;
+	return found == 1 ? 0 : -1;
 }
 
 int main(int argc, char **argv)
 {
-	int fd_0, fd_1, fd_2;
+	int fd_0, fd_1, fd_2, ret = 0;
 
 	test_init(argc, argv);
 
@@ -178,9 +167,20 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	if (check_file_locks())
-		fail("Flock file locks check failed");
-	else
+	if (check_file_lock(fd_0, "ADVISORY", "READ", dev, inodes[0])) {
+		fail("Failed on fd %d", fd_0);
+		ret |= 1;
+	}
+	if (check_file_lock(fd_1, "ADVISORY", "WRITE", dev, inodes[1])) {
+		fail("Failed on fd %d", fd_1);
+		ret |= 1;
+	}
+	if (check_file_lock(fd_2, "MSNFS", "READ", dev, inodes[2])) {
+		fail("Failed on fd %d", fd_2);
+		ret |= 1;
+	}
+
+	if (!ret)
 		pass();
 
 	close(fd_0);
@@ -190,5 +190,5 @@ int main(int argc, char **argv)
 	unlink(file1);
 	unlink(file2);
 
-	return 0;
+	return ret;
 }
