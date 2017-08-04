@@ -196,6 +196,7 @@ err:
 static int open_handle(unsigned int s_dev, unsigned long i_ino,
 		FhEntry *f_handle)
 {
+	struct mount_info *m;
 	int mntfd, fd = -1;
 	fh_t handle;
 
@@ -204,19 +205,23 @@ static int open_handle(unsigned int s_dev, unsigned long i_ino,
 	pr_debug("Opening fhandle %x:%Lx...\n",
 			s_dev, (unsigned long long)handle.__handle[0]);
 
-	mntfd = open_mount(s_dev);
-	if (mntfd < 0) {
-		pr_err("Mount root for %#08x not found\n", s_dev);
-		goto out;
-	}
+	for (m = mntinfo; m; m = m->next) {
+		if (m->s_dev != s_dev || !mnt_is_dir(m))
+			continue;
 
-	fd = userns_call(open_by_handle, UNS_FDOUT, &handle, sizeof(handle), mntfd);
-	if (fd < 0) {
-		pr_perror("Can't open file handle for %#08x:%#016lx",
-				s_dev, i_ino);
-	}
+		mntfd = __open_mountpoint(m, -1);
+		if (mntfd < 0) {
+			pr_err("Can't open mount for s_dev %x, continue\n", s_dev);
+			continue;
+		}
 
-	close(mntfd);
+		fd = userns_call(open_by_handle, UNS_FDOUT, &handle, sizeof(handle), mntfd);
+		if (fd >= 0) {
+			close(mntfd);
+			goto out;
+		}
+		close(mntfd);
+	}
 out:
 	return fd;
 }
