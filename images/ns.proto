@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+import "opts.proto";
+
 message ns_file_entry {
 	required uint32		id		= 1;
 	required uint32		ns_id		= 2;
@@ -20,7 +22,7 @@ message userns_entry {
 
 message ns_entry {
 	required uint32		id		= 1;
-	required uint32		ns_cflag	= 2;
+	required uint32		ns_cflag	= 2 [(criu).flags = "ns.ns_cflags"];
 	optional uint32		parent_id	= 3;
 	optional uint32		userns_id	= 4;
 	optional userns_entry	user_ext	= 5;

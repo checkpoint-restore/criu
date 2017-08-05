@@ -111,12 +111,23 @@ pmap_flags_map = [
 	('PE_PRESENT',	1 << 2),
 ];
 
+ns_cflags_map = [
+	('CLONE_NEWNS',	        0x00020000),
+	('CLONE_NEWCGROUP',	0x02000000),
+	('CLONE_NEWUTS',	0x04000000),
+	('CLONE_NEWIPC',	0x08000000),
+	('CLONE_NEWUSER',	0x10000000),
+	('CLONE_NEWPID',	0x20000000),
+	('CLONE_NEWNET',	0x40000000),
+];
+
 flags_maps = {
 	'mmap.prot' : mmap_prot_map,
 	'mmap.flags' : mmap_flags_map,
 	'mmap.status' : mmap_status_map,
 	'rfile.flags' : rfile_flags_map,
 	'pmap.flags' : pmap_flags_map,
+	'ns.ns_cflags': ns_cflags_map,
 }
 
 gen_maps = {
