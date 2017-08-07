@@ -393,7 +393,7 @@ static unsigned long max_mapped_addr(void)
 	}
 	fclose(fp);
 out:
-	return addr_max;
+	return addr_max - 1;
 }
 
 /*
@@ -454,7 +454,7 @@ static enum kernel_ts_level get_kernel_ts_level(void)
 	unsigned long criu_end_addr = max_mapped_addr();
 
 	/* Check for 5 levels */
-	if (criu_end_addr > TASK_SIZE_LEVEL_4)
+	if (criu_end_addr >= TASK_SIZE_LEVEL_4)
 		return KERNEL_TS_LEVEL_5;
 	else if (munmap((void *) TASK_SIZE_LEVEL_4, 0x1000) == 0)
 		return KERNEL_TS_LEVEL_5;
