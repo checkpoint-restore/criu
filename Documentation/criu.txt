@@ -478,7 +478,7 @@ are not adequate, but this can be suppressed by using *--cpu-cap=none*.
 *--lazy-pages*::
    Restore the processes without filling out the entire memory
    contents. When this option is used, *restore* sets up the
-   infrastucture required to fill memory pages either on demand when
+   infrastructure required to fill memory pages either on demand when
    the process accesses them or in the background without stopping the
    restored process.
    This option requires running *lazy-pages* daemon.
