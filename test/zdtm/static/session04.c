@@ -32,9 +32,21 @@ int current = 0;
 
 static void cleanup()
 {
+	int ret;
+
 	kill(processes[0].pid, SIGKILL);
 	/* It's enought to kill pidns init for others to die */
 	kill(processes[1].pid, SIGKILL);
+
+	while (1) {
+		ret = wait(NULL);
+		if (ret == -1) {
+			if (errno == ECHILD)
+				break;
+			pr_perror("wait");
+			exit(1);
+		}
+	}
 }
 
 enum commands
@@ -423,8 +435,8 @@ int main(int argc, char ** argv)
 	if (fail_cnt)
 		goto err;
 
+	cleanup();
 	pass();
-
 	return 0;
 err:
 	cleanup();
