@@ -1048,11 +1048,6 @@ static int check_compat_cr(void)
 
 static int check_uffd(void)
 {
-	unsigned long features = UFFD_FEATURE_EVENT_FORK |
-		UFFD_FEATURE_EVENT_REMAP |
-		UFFD_FEATURE_EVENT_UNMAP |
-		UFFD_FEATURE_EVENT_REMOVE;
-
 	if (kerndat_uffd())
 		return -1;
 
@@ -1061,8 +1056,21 @@ static int check_uffd(void)
 		return -1;
 	}
 
+	return 0;
+}
+
+static int check_uffd_noncoop(void)
+{
+	unsigned long features = UFFD_FEATURE_EVENT_FORK |
+		UFFD_FEATURE_EVENT_REMAP |
+		UFFD_FEATURE_EVENT_UNMAP |
+		UFFD_FEATURE_EVENT_REMOVE;
+
+	if (check_uffd())
+		return -1;
+
 	if ((kdat.uffd_features & features) != features) {
-		pr_err("Userfaultfd missing essential features\n");
+		pr_err("Non-cooperative UFFD is not supported\n");
 		return -1;
 	}
 
@@ -1181,6 +1189,7 @@ int cr_check(void)
 		ret |= check_autofs();
 		ret |= check_compat_cr();
 		ret |= check_uffd();
+		ret |= check_uffd_noncoop();
 	}
 
 	print_on_level(DEFAULT_LOGLEVEL, "%s\n", ret ? CHECK_MAYBE : CHECK_GOOD);
@@ -1222,7 +1231,8 @@ static struct feature_list feature_list[] = {
 	{ "autofs", check_autofs },
 	{ "tcp_half_closed", check_tcp_halt_closed },
 	{ "compat_cr", check_compat_cr },
-	{ "lazy_pages", check_uffd },
+	{ "uffd", check_uffd },
+	{ "uffd-noncoop", check_uffd_noncoop },
 	{ NULL, NULL },
 };
 
