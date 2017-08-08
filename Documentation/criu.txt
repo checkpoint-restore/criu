@@ -549,6 +549,12 @@ Launches *criu* in page server mode.
 *--port* 'number'::
     Page server port number.
 
+*--lazy-pages*::
+    Serve local memory dump to a remote *lazy-pages* daemon. In this
+    mode the *page-server* reads local memory dump and allows the
+    remote *lazy-pages* deamon to request memory pages in random
+    order.
+
 *lazy-pages*
 ~~~~~~~~~~~~
 Launches *criu* in lazy-pages daemon mode.
