@@ -1166,6 +1166,8 @@ int cr_check(void)
 		ret |= check_userns();
 		ret |= check_loginuid();
 		ret |= check_can_map_vdso();
+		ret |= check_uffd();
+		ret |= check_uffd_noncoop();
 	}
 
 	/*
