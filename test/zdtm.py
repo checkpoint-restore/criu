@@ -1655,6 +1655,15 @@ def run_tests(opts):
 		if subprocess.Popen(["ip", "netns", "exec", "zdtm_netns", "ip", "link", "set", "up", "dev", "lo"]).wait():
 			raise Exception("ip link set up dev lo")
 
+	if opts['lazy_pages'] or opts['remote_lazy_pages']:
+		uffd = criu.check("uffd")
+		uffd_noncoop = criu.check("uffd-noncoop")
+		if not uffd:
+			raise Exception("UFFD is not supported, cannot run with --lazy-pages")
+		if not uffd_noncoop:
+			# Most tests will work with 4.3 - 4.11
+			print "[WARNING] Non-cooperative UFFD is missing, some tests might spuriously fail"
+
 	l = launcher(opts, len(torun))
 	try:
 		for t in torun:
