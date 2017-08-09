@@ -652,7 +652,7 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 
 		execvp(cmd, argv);
 
-		pr_perror("exec failed");
+		pr_perror("exec(%s, ...) failed", cmd);
 out_chld:
 		_exit(1);
 	}
