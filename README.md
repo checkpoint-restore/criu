@@ -2,14 +2,14 @@
 
 ## CRIU -- A project to implement checkpoint/restore functionality for Linux
 
-CRIU (stands for Checkpoint and Restore in Userspace) is an utility to checkpoint/restore Linux tasks.
+CRIU (stands for Checkpoint and Restore in Userspace) is a utility to checkpoint/restore Linux tasks.
 
 Using this tool, you can freeze a running application (or part of it) and checkpoint 
 it to a hard drive as a collection of files. You can then use the files to restore and run the
 application from the point it was frozen at. The distinctive feature of the CRIU
 project is that it is mainly implemented in user space. There are some more projects
 doing C/R for Linux, and so far CRIU [appears to be](https://criu.org/Comparison_to_other_CR_projects) 
-the most feature-reach and up-to-date with the kernel.
+the most feature-rich and up-to-date with the kernel.
 
 The project [started](https://criu.org/History) as the way to do live migration for OpenVZ
 Linux containers, but later grew to more sophisticated and flexible tool. It is currently 
@@ -36,9 +36,9 @@ injection and libsoccr for TCP connections checkpoint-restore.
 
 True [live migration](https://criu.org/Live_migration) using CRIU is possible, but doing
 all the steps by hands might be complicated. The [phaul sub-project](https://criu.org/P.Haul)
-provides a Go library that incapsulates most of the complexity.
+provides a Go library that encapsulates most of the complexity.
 
-### Parasite code ijection
+### Parasite code injection
 
 In order to get state of the running process CRIU needs to make this process execute
 some code, that would fetch the required information. To make this happen without
@@ -47,13 +47,13 @@ technique, which is also available as a standalone library called [libcompel](ht
 
 ### TCP sockets checkpoint-restore
 
-One of the CRIu features is the ability to save and restore state of a TCP socket
+One of the CRIU features is the ability to save and restore state of a TCP socket
 without breaking the connection. This functionality is considered to be useful by
-tiself, and we have it available as the [libsoccr library](https://criu.org/Libsoccr).
+itself, and we have it available as the [libsoccr library](https://criu.org/Libsoccr).
 
 ## How to contribute
 
-CRIU project is (almost) the never ending story, because we have to always keep-up with the
+CRIU project is (almost) the never-ending story, because we have to always keep up with the
 Linux kernel supporting checkpoint and restore for all the features it provides. Thus we're
 looking for contributors of all kinds -- feedback, bug reports, testing, coding, writing, etc.
 Here are some useful hints to get involved.
