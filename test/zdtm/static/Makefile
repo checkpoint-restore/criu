@@ -182,6 +182,10 @@ ifneq ($(COMPAT_TEST),y)
 endif
 endif
 
+ifeq ($(SRCARCH),s390)
+        TST_NOFILE += s390x_regs_check
+endif
+
 TST_FILE	=				\
 		maps06				\
 		write_read00			\
@@ -461,6 +465,8 @@ socket-tcp6-unconn:	CFLAGS += -D ZDTM_IPV6
 pty-console:		CFLAGS += -D ZDTM_DEV_CONSOLE
 
 shm-unaligned:		CFLAGS += -DZDTM_SHM_UNALIGNED
+
+s390x_regs_check:	LDFLAGS += -pthread
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
