@@ -4,7 +4,6 @@
 #include "asm/restorer.h"
 
 #include "images/core.pb-c.h"
-
 /*
  * Load stack to %r15, return address in %r14 and argument 1 into %r2
  */
@@ -25,5 +24,4 @@
 #define core_get_tls(pcore, ptls)
 
 int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core);
-
 #endif

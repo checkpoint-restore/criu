@@ -68,11 +68,7 @@ endif
 #
 # CFLAGS_PIE:
 #
-# We assume that compel code does not change floating point registers.
-# On s390 gcc uses fprs to cache gprs. Therefore disable floating point
-# with -msoft-float.
-#
-# Also ensure with -fno-optimize-sibling-calls that we don't create GOT
+# Ensure with -fno-optimize-sibling-calls that we don't create GOT
 # (Global Offset Table) relocations with gcc compilers that don't have
 # commit "S/390: Fix 64 bit sibcall".
 ifeq ($(ARCH),s390)
@@ -80,7 +76,7 @@ ifeq ($(ARCH),s390)
         SRCARCH		:= s390
         VDSO		:= y
         DEFINES		:= -DCONFIG_S390
-        CFLAGS_PIE	:= -msoft-float -fno-optimize-sibling-calls
+        CFLAGS_PIE	:= -fno-optimize-sibling-calls
 endif
 export CFLAGS_PIE
 

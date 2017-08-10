@@ -22,6 +22,12 @@
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
+#include "ptrace.h"
+#include "pstree.h"
+
+#define NT_PRFPREG		2
+#define NT_S390_VXRS_LOW	0x309
+#define NT_S390_VXRS_HIGH	0x30a
 
 /*
  * Print general purpose and access registers
@@ -338,4 +344,107 @@ void arch_free_thread_info(CoreEntry *core)
 	free_vxrs_high_regs(CORE_THREAD_ARCH_INFO(core)->vxrs_high);
 	xfree(CORE_THREAD_ARCH_INFO(core));
 	CORE_THREAD_ARCH_INFO(core) = NULL;
+}
+
+/*
+ * Set regset for pid
+ */
+static int setregset(int pid, int set, const char *set_str, struct iovec *iov)
+{
+	if (ptrace(PTRACE_SETREGSET, pid, set, iov) == 0)
+		return 0;
+	pr_perror("Couldn't set %s registers for pid %d", set_str, pid);
+	return -1;
+}
+
+/*
+ * Set floating point registers for pid from fpregs
+ */
+static int set_fp_regs(pid_t pid, user_fpregs_struct_t *fpregs)
+{
+	struct iovec iov;
+
+	iov.iov_base = &fpregs->prfpreg;
+	iov.iov_len = sizeof(fpregs->prfpreg);
+	return setregset(pid, NT_PRFPREG, "PRFPREG", &iov);
+}
+
+/*
+ * Set vector registers
+ */
+static int set_vx_regs(pid_t pid, user_fpregs_struct_t *fpregs)
+{
+	struct iovec iov;
+
+	if (!(fpregs->flags & USER_FPREGS_VXRS))
+		return 0;
+
+	iov.iov_base = &fpregs->vxrs_low;
+	iov.iov_len = sizeof(fpregs->vxrs_low);
+	if (setregset(pid, NT_S390_VXRS_LOW, "S390_VXRS_LOW", &iov))
+		return -1;
+
+	iov.iov_base = &fpregs->vxrs_high;
+	iov.iov_len = sizeof(fpregs->vxrs_high);
+	return setregset(pid, NT_S390_VXRS_HIGH, "S390_VXRS_HIGH", &iov);
+}
+
+/*
+ * Restore registers for pid from core
+ */
+static int set_task_regs(pid_t pid, CoreEntry *core)
+{
+	UserS390VxrsHighEntry *cvxrs_high;
+	UserS390VxrsLowEntry *cvxrs_low;
+	UserS390FpregsEntry *cfpregs;
+	user_fpregs_struct_t fpregs;
+
+	memset(&fpregs, 0, sizeof(fpregs));
+	/* Floating point registers */
+	cfpregs = CORE_THREAD_ARCH_INFO(core)->fpregs;
+	if (!cfpregs)
+		return -1;
+	fpregs.prfpreg.fpc = cfpregs->fpc;
+	memcpy(fpregs.prfpreg.fprs, cfpregs->fprs, sizeof(fpregs.prfpreg.fprs));
+	if (set_fp_regs(pid, &fpregs) < 0)
+		return -1;
+	/* Vector registers (optional) */
+	cvxrs_low = CORE_THREAD_ARCH_INFO(core)->vxrs_low;
+	if (!cvxrs_low)
+		return 0;
+	cvxrs_high = CORE_THREAD_ARCH_INFO(core)->vxrs_high;
+	if (!cvxrs_high)
+		return -1;
+	fpregs.flags |= USER_FPREGS_VXRS;
+	memcpy(&fpregs.vxrs_low, cvxrs_low->regs, sizeof(fpregs.vxrs_low));
+	memcpy(&fpregs.vxrs_high, cvxrs_high->regs, sizeof(fpregs.vxrs_high));
+
+	return set_vx_regs(pid, &fpregs);
+}
+
+/*
+ * Restore vector and floating point registers for all threads
+ */
+int arch_set_thread_regs(struct pstree_item *item)
+{
+	int i;
+
+	for_each_pstree_item(item) {
+		if (item->pid->state == TASK_DEAD ||
+		    item->pid->state == TASK_ZOMBIE ||
+		    item->pid->state == TASK_HELPER)
+			continue;
+		for (i = 0; i < item->nr_threads; i++) {
+			if (item->threads[i]->state == TASK_DEAD ||
+			    item->threads[i]->state == TASK_ZOMBIE)
+				continue;
+			if (set_task_regs(item->threads[i]->real,
+					  item->core[i])) {
+				pr_perror("Not set registers for task %d",
+					  item->threads[i]->real);
+				return -1;
+			}
+		}
+	}
+	return 0;
 }

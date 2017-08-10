@@ -83,6 +83,15 @@
 #include "fault-injection.h"
 #include "dump.h"
 
+/*
+ * Architectures can overwrite this function to restore register sets that
+ * are not covered by ptrace_set/get_regs().
+ */
+int __attribute__((weak)) arch_set_thread_regs(struct pstree_item *item)
+{
+	return 0;
+}
+
 static char loc_buf[PAGE_SIZE];
 
 void free_mappings(struct vm_area_list *vma_area_list)
@@ -1641,6 +1650,7 @@ static int cr_dump_finish(int ret)
 		delete_link_remaps();
 		clean_cr_time_mounts();
 	}
+	arch_set_thread_regs(root_item);
 	pstree_switch_state(root_item,
 			    (ret || post_dump_ret) ?
 			    TASK_ALIVE : opts.final_state);

@@ -148,32 +148,6 @@ int get_vx_regs(pid_t pid, user_fpregs_struct_t *fpregs)
 	return 0;
 }
 
-/*
- * Set vector registers
- */
-int set_vx_regs(pid_t pid, user_fpregs_struct_t *fpregs)
-{
-	struct iovec iov;
-	int rc;
-
-	if (!(fpregs->flags & USER_FPREGS_VXRS))
-		return 0;
-
-	iov.iov_base = &fpregs->vxrs_low;
-	iov.iov_len = sizeof(fpregs->vxrs_low);
-	rc = ptrace(PTRACE_SETREGSET, pid, NT_S390_VXRS_LOW, &iov);
-	if (rc) {
-		pr_perror("Couldn't set VXRS_LOW registers\n");
-		return rc;
-	}
-
-	iov.iov_base = &fpregs->vxrs_high;
-	iov.iov_len = sizeof(fpregs->vxrs_high);
-	rc = ptrace(PTRACE_SETREGSET, pid, NT_S390_VXRS_HIGH, &iov);
-	if (rc)
-		pr_perror("Couldn't set VXRS_HIGH registers\n");
-	return rc;
-}
 
 /*
  * Prepare task registers for restart
