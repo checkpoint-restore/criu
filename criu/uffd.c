@@ -688,7 +688,7 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	lp_debug(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
 	rc = ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy);
 	if (rc) {
-		if (errno == ENOSPC) {
+		if (errno == ENOSPC || errno == ESRCH) {
 			handle_exit(lpi);
 			return 0;
 		}
