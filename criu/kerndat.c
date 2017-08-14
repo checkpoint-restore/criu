@@ -784,21 +784,21 @@ int kerndat_has_thp_disable(void)
 	f.fd = open("/proc/self/smaps", O_RDONLY);
 	if (f.fd < 0) {
 		pr_perror("Can't open /proc/self/smaps");
-		goto out;
+		goto out_unmap;
 	}
 	if (bfdopenr(&f))
-		goto out;
+		goto out_unmap;
 
 	while ((str = breadline(&f)) != NULL) {
 		if (IS_ERR(str))
-			goto out;
+			goto out_close;
 
 		if (is_vma_range_fmt(str)) {
 			unsigned long vma_addr;
 
 			if (sscanf(str, "%lx-", &vma_addr) != 1) {
 				pr_err("Can't parse: %s\n", str);
-				goto out;
+				goto out_close;
 			}
 
 			if (vma_addr == (unsigned long)addr)
@@ -818,8 +818,9 @@ int kerndat_has_thp_disable(void)
 
 	ret = 0;
 
-out:
+out_close:
 	bclose(&f);
+out_unmap:
 	munmap(addr, PAGE_SIZE);
 
 	return ret;
