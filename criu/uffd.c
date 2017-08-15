@@ -211,10 +211,46 @@ int lazy_pages_setup_zombie(int pid)
 	return 0;
 }
 
+int uffd_open(int flags, unsigned long *features)
+{
+	struct uffdio_api uffdio_api = { 0 };
+	int uffd;
+
+	uffd = syscall(SYS_userfaultfd, flags);
+	if (uffd == -1) {
+		pr_perror("Lazy pages are not available");
+		return -errno;
+	}
+
+	uffdio_api.api = UFFD_API;
+	if (features)
+		uffdio_api.features = *features;
+
+	if (ioctl(uffd, UFFDIO_API, &uffdio_api)) {
+		pr_perror("Failed to get uffd API");
+		goto err;
+	}
+
+	if (uffdio_api.api != UFFD_API) {
+		pr_err("Incompatible uffd API: expected %Lu, got %Lu\n",
+		       UFFD_API, uffdio_api.api);
+		goto err;
+	}
+
+	if (features)
+		*features = uffdio_api.features;
+
+	return uffd;
+
+err:
+	close(uffd);
+	return -1;
+}
+
 /* This function is used by 'criu restore --lazy-pages' */
 int setup_uffd(int pid, struct task_restore_args *task_args)
 {
-	struct uffdio_api uffdio_api;
+	unsigned long features = kdat.uffd_features & NEED_UFFD_API_FEATURES;
 
 	if (!opts.lazy_pages) {
 		task_args->uffd = -1;
@@ -225,24 +261,10 @@ int setup_uffd(int pid, struct task_restore_args *task_args)
 	 * Open userfaulfd FD which is passed to the restorer blob and
 	 * to a second process handling the userfaultfd page faults.
 	 */
-	task_args->uffd = syscall(SYS_userfaultfd, O_CLOEXEC | O_NONBLOCK);
+	task_args->uffd = uffd_open(O_CLOEXEC | O_NONBLOCK, &features);
 	if (task_args->uffd < 0) {
 		pr_perror("Unable to open an userfaultfd descriptor");
 		return -1;
-	}
-
-	/*
-	 * Check if the UFFD_API is the one which is expected
-	 */
-	uffdio_api.api = UFFD_API;
-	uffdio_api.features = kdat.uffd_features & NEED_UFFD_API_FEATURES;
-	if (ioctl(task_args->uffd, UFFDIO_API, &uffdio_api)) {
-		pr_err("Checking for UFFDIO_API failed.\n");
-		goto err;
-	}
-	if (uffdio_api.api != UFFD_API) {
-		pr_err("Result of looking up UFFDIO_API does not match: %Lu\n", uffdio_api.api);
-		goto err;
 	}
 
 	if (send_uffd(task_args->uffd, pid) < 0)

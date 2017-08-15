@@ -33,6 +33,7 @@
 #include "netfilter.h"
 #include "linux/userfaultfd.h"
 #include "prctl.h"
+#include "uffd.h"
 
 struct kerndat_s kdat = {
 };
@@ -719,18 +720,18 @@ unl:
 
 int kerndat_uffd(void)
 {
-	struct uffdio_api uffdio_api;
 	int uffd;
 
-	uffd = syscall(SYS_userfaultfd, 0);
+	uffd = uffd_open(0, &kdat.uffd_features);
 
 	/*
-	 * uffd == -1 is probably enough to not use lazy-restore
-	 * on this system. Additionally checking for ENOSYS
-	 * makes sure it is actually not implemented.
+	 * uffd == -ENOSYS means userfaultfd is not supported on this
+	 * system and we just happily return with kdat.has_uffd = false.
+	 * Error other than -ENOSYS would mean "Houston, Houston, we
+	 * have a problem!"
 	 */
-	if (uffd == -1) {
-		if (errno == ENOSYS)
+	if (uffd < 0) {
+		if (uffd == -ENOSYS)
 			return 0;
 
 		pr_err("Lazy pages are not available\n");
@@ -739,21 +740,12 @@ int kerndat_uffd(void)
 
 	kdat.has_uffd = true;
 
-	uffdio_api.api = UFFD_API;
-	uffdio_api.features = 0;
-	if (ioctl(uffd, UFFDIO_API, &uffdio_api)) {
-		pr_perror("Failed to get uffd API");
-		return -1;
-	}
-	if (uffdio_api.api != UFFD_API) {
-		pr_err("Incompatible uffd API: expected %Lu, got %Lu\n",
-		       UFFD_API, uffdio_api.api);
-		return -1;
-	}
-
-	kdat.uffd_features = uffdio_api.features;
-
+	/*
+	 * we have to close the uffd and reopen in later in restorer
+	 * to enable non-cooperative features
+	 */
 	close(uffd);
+
 	return 0;
 }
 

@@ -2,6 +2,8 @@
 #define __CR_UFFD_H_
 
 struct task_restore_args;
+
+extern int uffd_open(int flags, unsigned long *features);
 extern int setup_uffd(int pid, struct task_restore_args *task_args);
 extern int lazy_pages_setup_zombie(int pid);
 extern int prepare_lazy_pages_socket(void);
