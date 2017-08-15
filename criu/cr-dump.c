@@ -1553,9 +1553,6 @@ int cr_pre_dump_tasks(pid_t pid)
 	if (cr_plugin_init(CR_PLUGIN_STAGE__PRE_DUMP))
 		goto err;
 
-	if (kerndat_init())
-		goto err;
-
 	if (lsm_check_opts())
 		goto err;
 
@@ -1730,9 +1727,6 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	if (cr_plugin_init(CR_PLUGIN_STAGE__DUMP))
-		goto err;
-
-	if (kerndat_init())
 		goto err;
 
 	if (lsm_check_opts())

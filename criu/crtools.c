@@ -47,6 +47,7 @@
 #include "fault-injection.h"
 #include "lsm.h"
 #include "proc_parse.h"
+#include "kerndat.h"
 
 #include "setproctitle.h"
 #include "sysctl.h"
@@ -314,6 +315,9 @@ int main(int argc, char *argv[], char *envp[])
 	init_opts();
 
 	if (init_service_fd())
+		return 1;
+
+	if (kerndat_init())
 		return 1;
 
 	if (!strcmp(argv[1], "swrk")) {
