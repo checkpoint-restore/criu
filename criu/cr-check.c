@@ -1064,9 +1064,6 @@ static int check_can_map_vdso(void)
 
 static int check_sk_netns(void)
 {
-	if (kerndat_socket_netns() < 0)
-		return -1;
-
 	if (!kdat.sk_ns)
 		return -1;
 
@@ -1226,9 +1223,6 @@ static int check_tun_netns(void)
 
 static int check_nsid(void)
 {
-	if (kerndat_nsid() < 0)
-		return -1;
-
 	if (!kdat.has_nsid) {
 		pr_warn("NSID isn't supported\n");
 		return -1;
@@ -1239,9 +1233,6 @@ static int check_nsid(void)
 
 static int check_link_nsid(void)
 {
-	if (kerndat_link_nsid() < 0)
-		return -1;
-
 	if (!kdat.has_link_nsid) {
 		pr_warn("NSID isn't supported\n");
 		return -1;
