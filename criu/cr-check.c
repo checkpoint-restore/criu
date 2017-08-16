@@ -50,7 +50,7 @@
 #include "libnetlink.h"
 #include "net.h"
 #include "restorer.h"
-#include "linux/userfaultfd.h"
+#include "uffd.h"
 
 static char *feature_name(int (*func)());
 
@@ -1043,15 +1043,10 @@ static int check_uffd(void)
 
 static int check_uffd_noncoop(void)
 {
-	unsigned long features = UFFD_FEATURE_EVENT_FORK |
-		UFFD_FEATURE_EVENT_REMAP |
-		UFFD_FEATURE_EVENT_UNMAP |
-		UFFD_FEATURE_EVENT_REMOVE;
-
 	if (check_uffd())
 		return -1;
 
-	if ((kdat.uffd_features & features) != features) {
+	if (!uffd_noncooperative()) {
 		pr_err("Non-cooperative UFFD is not supported\n");
 		return -1;
 	}

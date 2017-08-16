@@ -211,6 +211,13 @@ int lazy_pages_setup_zombie(int pid)
 	return 0;
 }
 
+bool uffd_noncooperative(void)
+{
+	unsigned long features = NEED_UFFD_API_FEATURES;
+
+	return (kdat.uffd_features & features) == features;
+}
+
 int uffd_open(int flags, unsigned long *features)
 {
 	struct uffdio_api uffdio_api = { 0 };

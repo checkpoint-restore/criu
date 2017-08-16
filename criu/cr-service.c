@@ -40,6 +40,7 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 #include "common/scm.h"
+#include "uffd.h"
 
 #include "setproctitle.h"
 
@@ -891,14 +892,7 @@ static int handle_feature_check(int sk, CriuReq * msg)
 
 		if ((msg->features->has_lazy_pages == 1) &&
 		    (msg->features->lazy_pages == true))
-			/*
-			 * Not checking for specific UFFD features yet.
-			 * If no error is returned it is probably
-			 * enough for basic UFFD functionality. This can
-			 * be extended in the future for a more detailed
-			 * UFFD feature check.
-			 */
-			feat.lazy_pages = kdat.has_uffd;
+			feat.lazy_pages = kdat.has_uffd && uffd_noncooperative();
 
 		resp.features = &feat;
 		resp.type = msg->type;
