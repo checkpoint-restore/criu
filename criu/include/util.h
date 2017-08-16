@@ -290,4 +290,25 @@ int setup_tcp_client(char *addr);
 #define LAST_PID_PATH		"sys/kernel/ns_last_pid"
 #define PID_MAX_PATH		"sys/kernel/pid_max"
 
+#define block_sigmask(saved_mask, sig_mask)	({					\
+		sigset_t ___blocked_mask;						\
+		int ___ret = 0;								\
+		sigemptyset(&___blocked_mask);						\
+		sigaddset(&___blocked_mask, sig_mask);					\
+		if (sigprocmask(SIG_BLOCK, &___blocked_mask, saved_mask) == -1) {	\
+			pr_perror("Can not set mask of blocked signals");		\
+			___ret = -1;							\
+		}									\
+		___ret;									\
+	})
+
+#define restore_sigmask(saved_mask)	({						\
+		int ___ret = 0;								\
+		if (sigprocmask(SIG_SETMASK, saved_mask, NULL) == -1) {			\
+			pr_perror("Can not unset mask of blocked signals");		\
+			___ret = -1;							\
+		}									\
+		___ret;									\
+	})
+
 #endif /* __CR_UTIL_H__ */
