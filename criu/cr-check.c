@@ -1064,9 +1064,6 @@ static int check_can_map_vdso(void)
 
 static int check_sk_netns(void)
 {
-	if (kerndat_socket_netns() < 0)
-		return -1;
-
 	if (!kdat.sk_ns)
 		return -1;
 
@@ -1075,9 +1072,6 @@ static int check_sk_netns(void)
 
 static int check_ns_pid(void)
 {
-	if (kerndat_has_nspid() < 0)
-		return -1;
-
 	if (!kdat.has_nspid)
 		return -1;
 
@@ -1086,9 +1080,6 @@ static int check_ns_pid(void)
 
 static int check_ns_get_userns(void)
 {
-	if (kerndat_has_ns_get_userns() < 0)
-		return -1;
-
 	if (!kdat.has_ns_get_userns)
 		return -1;
 
@@ -1097,9 +1088,6 @@ static int check_ns_get_userns(void)
 
 static int check_ns_get_parent(void)
 {
-	if (kerndat_has_ns_get_parent() < 0)
-		return -1;
-
 	if (!kdat.has_ns_get_parent)
 		return -1;
 
@@ -1108,9 +1096,6 @@ static int check_ns_get_parent(void)
 
 static int check_pid_for_children_ns(void)
 {
-	if (kerndat_has_pid_for_children_ns() < 0)
-		return -1;
-
 	if (!kdat.has_pid_for_children_ns)
 		return -1;
 
@@ -1259,9 +1244,6 @@ static int check_tun(void)
 
 static int check_nsid(void)
 {
-	if (kerndat_nsid() < 0)
-		return -1;
-
 	if (!kdat.has_nsid) {
 		pr_warn("NSID isn't supported\n");
 		return -1;
@@ -1272,9 +1254,6 @@ static int check_nsid(void)
 
 static int check_link_nsid(void)
 {
-	if (kerndat_link_nsid() < 0)
-		return -1;
-
 	if (!kdat.has_link_nsid) {
 		pr_warn("NSID isn't supported\n");
 		return -1;
