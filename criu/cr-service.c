@@ -886,22 +886,11 @@ static int handle_feature_check(int sk, CriuReq * msg)
 		setproctitle("feature-check --rpc");
 
 		if ((msg->features->has_mem_track == 1) &&
-		    (msg->features->mem_track == true)) {
-
-			feat.mem_track = true;
-			ret = kerndat_get_dirty_track();
-
-			if (ret)
-				feat.mem_track = false;
-
-			if (!kdat.has_dirty_track)
-				feat.mem_track = false;
-		}
+		    (msg->features->mem_track == true))
+			feat.mem_track = kdat.has_dirty_track;
 
 		if ((msg->features->has_lazy_pages == 1) &&
-		    (msg->features->lazy_pages == true)) {
-			ret = kerndat_uffd();
-
+		    (msg->features->lazy_pages == true))
 			/*
 			 * Not checking for specific UFFD features yet.
 			 * If no error is returned it is probably
@@ -909,11 +898,7 @@ static int handle_feature_check(int sk, CriuReq * msg)
 			 * be extended in the future for a more detailed
 			 * UFFD feature check.
 			 */
-			if (ret || !kdat.has_uffd)
-				feat.lazy_pages = false;
-			else
-				feat.lazy_pages = true;
-		}
+			feat.lazy_pages = kdat.has_uffd;
 
 		resp.features = &feat;
 		resp.type = msg->type;

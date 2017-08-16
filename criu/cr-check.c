@@ -676,9 +676,6 @@ static int check_ptrace_dump_seccomp_filters(void)
 
 static int check_mem_dirty_track(void)
 {
-	if (kerndat_get_dirty_track() < 0)
-		return -1;
-
 	if (!kdat.has_dirty_track) {
 		pr_warn("Dirty tracking is OFF. Memory snapshot will not work.\n");
 		return -1;
@@ -772,9 +769,6 @@ static int check_aio_remap(void)
 
 static int check_fdinfo_lock(void)
 {
-	if (kerndat_fdinfo_has_lock())
-		return -1;
-
 	if (!kdat.has_fdinfo_lock) {
 		pr_err("fdinfo doesn't contain the lock field\n");
 		return -1;
@@ -931,12 +925,6 @@ out:
 
 static int check_tcp_halt_closed(void)
 {
-	int ret;
-
-	ret = kerndat_tcp_repair();
-	if (ret < 0)
-		return -1;
-
 	if (!kdat.has_tcp_half_closed) {
 		pr_err("TCP_REPAIR can't be enabled for half-closed sockets\n");
 		return -1;
@@ -1023,9 +1011,6 @@ static int check_userns(void)
 
 static int check_loginuid(void)
 {
-	if (kerndat_loginuid() < 0)
-		return -1;
-
 	if (kdat.luid != LUID_FULL) {
 		pr_warn("Loginuid restore is OFF.\n");
 		return -1;
@@ -1048,9 +1033,6 @@ static int check_compat_cr(void)
 
 static int check_uffd(void)
 {
-	if (kerndat_uffd())
-		return -1;
-
 	if (!kdat.has_uffd) {
 		pr_err("UFFD is not supported\n");
 		return -1;
