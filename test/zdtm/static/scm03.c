@@ -22,6 +22,7 @@ static int send_fd(int via, int fd1, int fd2)
 	char c = '\0';
 	int *fdp;
 
+	memset(buf, 0, sizeof(buf));
 	h.msg_control = buf;
 	h.msg_controllen = sizeof(buf);
 #ifdef SEPARATE
