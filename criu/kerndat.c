@@ -722,6 +722,7 @@ int kerndat_uffd(void)
 {
 	int uffd;
 
+	kdat.uffd_features = 0;
 	uffd = uffd_open(0, &kdat.uffd_features);
 
 	/*
