@@ -8,7 +8,8 @@ int main(int argc, char **argv)
 		if (read(0, &i, sizeof(i)) != sizeof(i))
 			break;
 
-		write(1, &i, sizeof(i));
+		if (write(1, &i, sizeof(i)) != sizeof(i))
+			break;
 	}
 
 	return 0;

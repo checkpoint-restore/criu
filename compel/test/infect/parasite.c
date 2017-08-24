@@ -1,6 +1,7 @@
 #include <errno.h>
 
 #include <compel/plugins/std.h>
+#include <infect-rpc.h>
 
 /*
  * Stubs for std compel plugin.

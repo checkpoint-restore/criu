@@ -87,7 +87,9 @@ static inline int chk(int fd, int val)
 {
 	int v = 0;
 
-	read(fd, &v, sizeof(v));
+	if (read(fd, &v, sizeof(v)) != sizeof(v))
+		return 0;
+
 	printf("%d, want %d\n", v, val);
 	return v == val;
 }
@@ -118,8 +120,12 @@ int main(int argc, char **argv)
 	/*
 	 * Tell the little guy some numbers
 	 */
-	i = 1;  write(p_in[1], &i, sizeof(i));
-	i = 42; write(p_in[1], &i, sizeof(i));
+	i = 1;
+	if (write(p_in[1], &i, sizeof(i)) != sizeof(i))
+		return 1;
+	i = 42;
+	if (write(p_in[1], &i, sizeof(i)) != sizeof(i))
+		return 1;
 
 	printf("Checking the victim alive\n");
 	pass = chk(p_out[0], 1);
@@ -138,8 +144,12 @@ int main(int argc, char **argv)
 	/*
 	 * Tell the victim some more stuff to check it's alive
 	 */
-	i = 1234; write(p_in[1], &i, sizeof(i));
-	i = 4096; write(p_in[1], &i, sizeof(i));
+	i = 1234;
+	if (write(p_in[1], &i, sizeof(i)) != sizeof(i))
+		return 1;
+	i = 4096;
+	if (write(p_in[1], &i, sizeof(i)) != sizeof(i))
+		return 1;
 
 	/*
 	 * Stop the victim and check the infection went well
