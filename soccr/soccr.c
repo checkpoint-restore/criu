@@ -374,10 +374,10 @@ int libsoccr_save(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigne
 	sk->flags |= SK_FLAG_FREE_SQ | SK_FLAG_FREE_RQ;
 
 	if (get_queue(sk->fd, TCP_RECV_QUEUE, &data->inq_seq, data->inq_len, &sk->recv_queue))
-		return -4;
+		return -5;
 
 	if (get_queue(sk->fd, TCP_SEND_QUEUE, &data->outq_seq, data->outq_len, &sk->send_queue))
-		return -5;
+		return -6;
 
 	return sizeof(struct libsoccr_sk_data);
 }

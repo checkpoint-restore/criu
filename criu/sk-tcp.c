@@ -113,8 +113,10 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	struct libsoccr_sk_data data;
 
 	ret = libsoccr_save(socr, &data, sizeof(data));
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("libsoccr_save() failed with %d\n", ret);
 		goto err_r;
+	}
 	if (ret != sizeof(data)) {
 		pr_err("This libsocr is not supported (%d vs %d)\n",
 				ret, (int)sizeof(data));
