@@ -834,11 +834,13 @@ class criu:
 	def fini(self):
 		if self.__lazy_pages_p:
 			ret = self.__lazy_pages_p.wait()
+		        grep_errors(os.path.join(self.__ddir(), "lazy-pages.log"))
 			self.__lazy_pages_p = None
 			if ret:
 				raise test_fail_exc("criu lazy-pages exited with %s" % ret)
 		if self.__page_server_p:
 			ret = self.__page_server_p.wait()
+		        grep_errors(os.path.join(self.__ddir(), "page-server.log"))
 			self.__page_server_p = None
 			if ret:
 				raise test_fail_exc("criu page-server exited with %s" % ret)
@@ -1003,6 +1005,7 @@ class criu:
 
 		if self.__page_server_p:
 			ret = self.__page_server_p.wait()
+		        grep_errors(os.path.join(self.__ddir(), "page-server.log"))
 			self.__page_server_p = None
 			if ret:
 				raise test_fail_exc("criu page-server exited with %d" % ret)
@@ -1060,10 +1063,12 @@ class criu:
 		if self.__lazy_pages_p:
 			self.__lazy_pages_p.terminate()
 			print "criu lazy-pages exited with %s" % self.__lazy_pages_p.wait()
+		        grep_errors(os.path.join(self.__ddir(), "lazy-pages.log"))
 			self.__lazy_pages_p = None
 		if self.__page_server_p:
 			self.__page_server_p.terminate()
 			print "criu page-server exited with %s" % self.__page_server_p.wait()
+		        grep_errors(os.path.join(self.__ddir(), "page-server.log"))
 			self.__page_server_p = None
 
 
