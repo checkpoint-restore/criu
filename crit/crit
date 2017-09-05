@@ -89,8 +89,32 @@ def explore_ps(opts):
 	print "%7s%7s%7s   %s" % ('PID', 'PGID', 'SID', 'COMM')
 	show_ps(psr, opts)
 
+files_img = None
+
+def ftype_find_in_files(opts, ft, fid):
+	global files_img
+
+	if files_img is None:
+		try:
+			files_img = pycriu.images.load(dinf(opts, "files.img"))['entries']
+		except:
+			files_img = []
+
+	if len(files_img) == 0:
+		return None
+
+	for f in files_img:
+		if f['id'] == fid:
+			return f
+
+	return None
+
 
 def ftype_find_in_image(opts, ft, fid, img):
+	f = ftype_find_in_files(opts, ft, fid)
+	if f:
+		return f[ft['field']]
+
 	if ft['img'] == None:
 		ft['img'] = pycriu.images.load(dinf(opts, img))['entries']
 	for f in ft['img']:
@@ -111,13 +135,13 @@ def ftype_unix(opts, ft, fid):
 	if not ux:
 		return 'unix[?]'
 
-	n = ux['name'] and ' %s' % ux['name'].decode('base64') or ''
+	n = ux['name'] and ' %s' % ux['name'] or ''
 	return 'unix[%d (%d)%s]' % (ux['ino'], ux['peer'], n)
 
 file_types = {
-	'REG':		{'get': ftype_reg,	'img': None},
-	'PIPE':		{'get': ftype_pipe,	'img': None},
-	'UNIXSK':	{'get': ftype_unix,	'img': None},
+	'REG':		{'get': ftype_reg,	'img': None,	'field': 'reg'},
+	'PIPE':		{'get': ftype_pipe,	'img': None,	'field': 'pipe'},
+	'UNIXSK':	{'get': ftype_unix,	'img': None,	'field': 'usk'},
 }
 
 def ftype_gen(opts, ft, fid):
