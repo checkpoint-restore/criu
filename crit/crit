@@ -49,20 +49,22 @@ def info(opts):
 	json.dump(infs, sys.stdout, indent = 4)
 	print
 
+def get_task_id(p, val):
+	return p[val] if val in p else p['ns_' + val][0]
 #
 # Explorers
 #
 
 class ps_item:
 	def __init__(self, p, core):
-		self.pid = p['pid']
+		self.pid = get_task_id(p, 'pid')
 		self.ppid = p['ppid']
 		self.p = p
 		self.core = core
 		self.kids = []
 
 def show_ps(p, opts, depth = 0):
-	print "%7d%7d%7d   %s%s" % (p.pid, p.p['pgid'], p.p['sid'],
+	print "%7d%7d%7d   %s%s" % (p.pid, get_task_id(p.p, 'pgid'), get_task_id(p.p, 'sid'),
 			' ' * (4 * depth), p.core['tc']['comm'])
 	for kid in p.kids:
 		show_ps(kid, opts, depth + 1)
@@ -71,7 +73,7 @@ def explore_ps(opts):
 	pss = { }
 	ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
 	for p in ps_img['entries']:
-		core = pycriu.images.load(dinf(opts, 'core-%d.img' % p['pid']))
+		core = pycriu.images.load(dinf(opts, 'core-%d.img' % get_task_id(p, 'pid')))
 		ps = ps_item(p, core['entries'][0])
 		pss[ps.pid] = ps
 
@@ -162,7 +164,7 @@ def get_file_str(opts, fd):
 def explore_fds(opts):
 	ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
 	for p in ps_img['entries']:
-		pid = p['pid']
+		pid = get_task_id(p, 'pid')
 		idi = pycriu.images.load(dinf(opts, 'ids-%s.img' % pid))
 		fdt = idi['entries'][0]['files_id']
 		fdi = pycriu.images.load(dinf(opts, 'fdinfo-%d.img' % fdt))
@@ -194,7 +196,7 @@ def explore_mems(opts):
 	ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
 	vids = vma_id()
 	for p in ps_img['entries']:
-		pid = p['pid']
+		pid = get_task_id(p, 'pid')
 		mmi = pycriu.images.load(dinf(opts, 'mm-%d.img' % pid))['entries'][0]
 
 		print "%d" % pid
@@ -239,7 +241,7 @@ def explore_mems(opts):
 def explore_rss(opts):
 	ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
 	for p in ps_img['entries']:
-		pid = p['pid']
+		pid = get_task_id(p, 'pid')
 		vmas = pycriu.images.load(dinf(opts, 'mm-%d.img' % pid))['entries'][0]['vmas']
 		pms = pycriu.images.load(dinf(opts, 'pagemap-%d.img' % pid))['entries']
 
