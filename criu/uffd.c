@@ -80,6 +80,7 @@ struct lazy_pages_info {
 	struct list_head reqs;
 
 	struct lazy_pages_info *parent;
+	unsigned num_children;
 
 	struct page_read pr;
 
@@ -136,7 +137,9 @@ static void lpi_fini(struct lazy_pages_info *lpi)
 	free_iovs(lpi);
 	if (lpi->lpfd.fd > 0)
 		close(lpi->lpfd.fd);
-	if (!lpi->parent && lpi->pr.close)
+	if (lpi->parent)
+		lpi->parent->num_children--;
+	if (!lpi->parent && !lpi->num_children && lpi->pr.close)
 		lpi->pr.close(&lpi->pr);
 	free(lpi);
 }
@@ -946,6 +949,8 @@ static int handle_fork(struct lazy_pages_info *parent_lpi, struct uffd_msg *msg)
 	list_add_tail(&lpi->l, &pending_lpis);
 
 	dup_page_read(&lpi->parent->pr, &lpi->pr);
+
+	lpi->parent->num_children++;
 
 	return 1;
 
