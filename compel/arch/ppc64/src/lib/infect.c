@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/user.h>
+#include <sys/mman.h>
 #include <stdint.h>
 #include <errno.h>
 #include <compel/plugins/std/syscall-codes.h>
@@ -9,6 +10,7 @@
 #include "errno.h"
 #include "log.h"
 #include "common/bug.h"
+#include "common/page.h"
 #include "infect.h"
 #include "infect-priv.h"
 
@@ -458,7 +460,18 @@ int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
  *
  * NOTE: 32bit tasks are not supported.
  */
-#define TASK_SIZE_USER64	(0x0000400000000000UL)
-#define TASK_SIZE		TASK_SIZE_USER64
+#define TASK_SIZE_64TB  (0x0000400000000000UL)
+#define TASK_SIZE_512TB (0x0002000000000000UL)
 
-unsigned long compel_task_size(void) { return TASK_SIZE; }
+#define TASK_SIZE_MIN TASK_SIZE_64TB
+#define TASK_SIZE_MAX TASK_SIZE_512TB
+
+unsigned long compel_task_size(void)
+{
+	unsigned long task_size;
+
+	for (task_size = TASK_SIZE_MIN; task_size < TASK_SIZE_MAX; task_size <<= 1)
+		if (munmap((void *)task_size, page_size()))
+			break;
+	return task_size;
+}
