@@ -18,7 +18,7 @@ fi
 	       --lazy-pages $LAZY_EXCLUDE || fail
 
 # lazy restore from "remote" dump
-./test/zdtm.py run --all --keep-going --report report --parallel 4 \
+./test/zdtm.py run --all --keep-going --report report --parallel 2 \
 	       --remote-lazy-pages $LAZY_EXCLUDE || fail
 
 # During pre-dump + lazy-pages we leave VM_NOHUGEPAGE set
