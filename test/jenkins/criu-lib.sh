@@ -36,7 +36,7 @@ function fail()
 	uname -a
 	ps axf > ps.log
 	cat /sys/kernel/debug/tracing/trace > trace.log
-	tar -czf /home/`basename $0`-${GIT_COMMIT}-$(date +%m%d%H%M).tar.gz .
+	tar -czf /home/`basename $0`-${BUILD_NUMBER}-${GIT_COMMIT}-$(date +%m%d%H%M).tar.gz .
 	tar -czf report.tar.gz -C test/ report
 	exit 1
 }
