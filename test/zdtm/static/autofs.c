@@ -460,7 +460,7 @@ static int automountd_loop(int pipe, const char *mountpoint, struct autofs_param
 {
 	union autofs_v5_packet_union *packet;
 	ssize_t bytes;
-	size_t psize = sizeof(*packet) + 1;
+	size_t psize = sizeof(*packet);
 	int err = 0;
 
 	packet = malloc(psize);
@@ -473,7 +473,7 @@ static int automountd_loop(int pipe, const char *mountpoint, struct autofs_param
 	siginterrupt(SIGUSR2, 1);
 
 	while (!stop && !err) {
-		memset(packet, 0, sizeof(*packet));
+		memset(packet, 0, psize);
 
 		bytes = read(pipe, packet, psize);
 		if (bytes < 0) {
@@ -483,12 +483,9 @@ static int automountd_loop(int pipe, const char *mountpoint, struct autofs_param
 			}
 			continue;
 		}
-		if (bytes == psize) {
-			pr_err("read more that expected\n");
-			return -EINVAL;
-		}
-		if (bytes != sizeof(*packet)) {
-			pr_err("read less than expected: %zd\n", bytes);
+		if (bytes != psize) {
+			pr_err("read less than expected: %zd < %zd\n",
+					bytes, psize);
 			return -EINVAL;
 		}
 		err = automountd_serve(mountpoint, param, packet);
