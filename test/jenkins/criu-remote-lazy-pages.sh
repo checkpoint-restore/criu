@@ -1,4 +1,4 @@
-# Check lazy-pages
+# Check remote-lazy-pages
 set -e
 source `dirname $0`/criu-lib.sh
 prep
@@ -13,13 +13,13 @@ else
 		      -x socket_close_data01 -x file_read"
 fi
 
-# lazy restore from images
+# lazy restore from "remote" dump
 ./test/zdtm.py run --all --keep-going --report report --parallel 4 \
-	       --lazy-pages $LAZY_EXCLUDE || fail
+	       --remote-lazy-pages $LAZY_EXCLUDE -x maps04 || fail
 
 # During pre-dump + lazy-pages we leave VM_NOHUGEPAGE set
 LAZY_EXCLUDE="$LAZY_EXCLUDE -x maps02"
 
-# lazy restore from images with pre-dumps
+# lazy restore from "remote" dump with pre-dumps
 ./test/zdtm.py run --all --keep-going --report report --parallel 4 \
-	       --lazy-pages --pre 2 $LAZY_EXCLUDE || fail
+	       --remote-lazy-pages --pre 2 $LAZY_EXCLUDE || fail
