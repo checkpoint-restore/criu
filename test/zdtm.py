@@ -880,8 +880,11 @@ class criu:
 			print "Removing %s" % self.__dump_path
 			shutil.rmtree(self.__dump_path)
 
-	def __ddir(self):
-		return os.path.join(self.__dump_path, "%d" % self.__iter)
+	def __ddir(self, check_only = False):
+		check_only_str = ""
+		if check_only:
+			check_only_str = ".check"
+		return os.path.join(self.__dump_path, "%d%s" % (self.__iter, check_only_str))
 
 	def set_user_id(self):
 		# Numbers should match those in zdtm_test
@@ -889,17 +892,18 @@ class criu:
 		os.setresuid(18943, 18943, 18943)
 
 	def __criu_act(self, action, opts = [], log = None, nowait = False):
+		check_only = '--check-only' in opts
 		if not log:
 			log = action
-			if "--check-only" in opts:
+			if check_only:
 				log += ".chk"
 			log += ".log"
 
-		s_args = ["-o", log, "-D", self.__ddir(), "-v4"] + opts
+		s_args = ["-o", log, "-D", self.__ddir(check_only), "-v4"] + opts
 
 		with open(os.path.join(self.__ddir(), action + '.cropt'), 'w') as f:
 			f.write(' '.join(s_args) + '\n')
-		if '--check-only' in opts:
+		if check_only:
 			print "Run criu " + action + " in check-only mode"
 		else:
 			print "Run criu " + action
@@ -921,7 +925,7 @@ class criu:
 		else:
 			preexec = self.__user and self.set_user_id or None
 
-		__ddir = self.__ddir()
+		__ddir = self.__ddir(check_only)
 
 		status_fds = None
 		if nowait:
@@ -981,6 +985,9 @@ class criu:
 		self.__iter += 1
 		os.mkdir(self.__ddir())
 		os.chmod(self.__ddir(), 0777)
+		if self.__check_only:
+			os.mkdir(self.__ddir(True))
+			os.chmod(self.__ddir(True), 0777)
 
 		a_opts = ["-t", self.__test.getpid()]
 		if self.__prev_dump_iter:
