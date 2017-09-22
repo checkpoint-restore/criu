@@ -2131,6 +2131,9 @@ static int write_restored_pid(void)
 {
 	int pid;
 
+	if (opts.check_only)
+		return 0;
+
 	if (!opts.pidfile)
 		return 0;
 
