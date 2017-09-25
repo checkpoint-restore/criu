@@ -198,8 +198,8 @@ struct reg_set *reg_set_vec[] = {
 void util_hexdump_grp(const char *tag, const void *data, int grp,
 		      int count, int indent)
 {
+	char str[1024], *ptr = str;
 	const char *buf = data;
-	char str[1024], *ptr;
 	int i, first = 1;
 
 	for (i = 0; i < count; i++) {
