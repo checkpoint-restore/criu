@@ -1548,7 +1548,7 @@ static inline int restore_iptables(int pid)
 		goto ipt6;
 	}
 
-	ret = run_iptables_tool("iptables-restore", img_raw_fd(img), -1);
+	ret = run_iptables_tool("iptables-restore -w", img_raw_fd(img), -1);
 	close_image(img);
 	if (ret)
 		return ret;
@@ -1559,7 +1559,7 @@ ipt6:
 	if (empty_image(img))
 		goto out;
 
-	ret = run_iptables_tool("ip6tables-restore", img_raw_fd(img), -1);
+	ret = run_iptables_tool("ip6tables-restore -w", img_raw_fd(img), -1);
 out:
 	close_image(img);
 
