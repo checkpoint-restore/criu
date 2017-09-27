@@ -56,6 +56,51 @@
 
 #define VMA_OPT_LEN	128
 
+static int xatol_base(const char *string, long *number, int base)
+{
+	char *endptr;
+	long nr;
+
+	errno = 0;
+	nr = strtol(string, &endptr, base);
+	if ((errno == ERANGE && (nr == LONG_MAX || nr == LONG_MIN))
+			|| (errno != 0 && nr == 0)) {
+		pr_perror("failed to convert string '%s'", string);
+		return -EINVAL;
+	}
+
+	if ((endptr == string) || (*endptr != '\0')) {
+		pr_err("String is not a number: '%s'\n", string);
+		return -EINVAL;
+	}
+	*number = nr;
+	return 0;
+}
+
+int xatol(const char *string, long *number)
+{
+	return xatol_base(string, number, 10);
+}
+
+
+int xatoi(const char *string, int *number)
+{
+	long tmp;
+	int err;
+
+	err = xatol(string, &tmp);
+	if (err)
+		return err;
+
+	if (tmp > INT_MAX || tmp < INT_MIN) {
+		pr_err("value %#lx (%ld) is out of int range\n", tmp, tmp);
+		return -ERANGE;
+	}
+
+	*number = (int)tmp;
+	return 0;
+}
+
 /*
  * This function reallocates passed str pointer.
  * It means:

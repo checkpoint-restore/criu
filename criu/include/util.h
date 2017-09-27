@@ -276,6 +276,9 @@ void tcp_cork(int sk, bool on);
 
 const char *ns_to_string(unsigned int ns);
 
+int xatol(const char *string, long *number);
+int xatoi(const char *string, int *number);
+
 char *xstrcat(char *str, const char *fmt, ...)
 	__attribute__ ((__format__ (__printf__, 2, 3)));
 char *xsprintf(const char *fmt, ...)
