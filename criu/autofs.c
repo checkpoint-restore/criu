@@ -149,7 +149,9 @@ static int autofs_find_pipe_read_end(int pgrp, long ino, int *read_fd)
 			goto out;
 		}
 
-		fd = atoi(de->d_name);
+		ret = xatoi(de->d_name, &fd);
+		if (ret)
+			goto out;
 
 		found = autofs_check_fd_stat(&buf, pgrp, fd, ino, &mode);
 		if (found < 0)
@@ -223,19 +225,20 @@ static int parse_options(char *options, AutofsEntry *entry, long *pipe_ino)
 
 	for (i = 0; i < nr_opts; i++) {
 		char *opt = opts[i];
+		int err = 0;
 
 		if (!strncmp(opt, "fd=", strlen("fd=")))
-			entry->fd = atoi(opt + strlen("fd="));
+			err = xatoi(opt + strlen("fd="), &entry->fd);
 		else if (!strncmp(opt, "pipe_ino=", strlen("pipe_ino=")))
-			*pipe_ino = atoi(opt + strlen("pipe_ino="));
+			err = xatol(opt + strlen("pipe_ino="), pipe_ino);
 		else if (!strncmp(opt, "pgrp=", strlen("pgrp=")))
-			entry->pgrp = atoi(opt + strlen("pgrp="));
+			err = xatoi(opt + strlen("pgrp="), &entry->pgrp);
 		else if (!strncmp(opt, "timeout=", strlen("timeout=")))
-			entry->timeout = atoi(opt + strlen("timeout="));
+			err = xatoi(opt + strlen("timeout="), &entry->timeout);
 		else if (!strncmp(opt, "minproto=", strlen("minproto=")))
-			entry->minproto = atoi(opt + strlen("minproto="));
+			err = xatoi(opt + strlen("minproto="), &entry->minproto);
 		else if (!strncmp(opt, "maxproto=", strlen("maxproto=")))
-			entry->maxproto = atoi(opt + strlen("maxproto="));
+			err = xatoi(opt + strlen("maxproto="), &entry->maxproto);
 		else if (!strcmp(opt, "indirect"))
 			entry->mode = AUTOFS_MODE_INDIRECT;
 		else if (!strcmp(opt, "offset"))
@@ -243,9 +246,12 @@ static int parse_options(char *options, AutofsEntry *entry, long *pipe_ino)
 		else if (!strcmp(opt, "direct"))
 			entry->mode = AUTOFS_MODE_DIRECT;
 		else if (!strncmp(opt, "uid=", strlen("uid=")))
-			entry->uid = atoi(opt + strlen("uid="));
+			err = xatoi(opt + strlen("uid="), &entry->uid);
 		else if (!strncmp(opt, "gid=", strlen("gid=")))
-			entry->gid = atoi(opt + strlen("gid="));
+			err = xatoi(opt + strlen("gid="), &entry->gid);
+
+		if (err)
+			return -1;
 	}
 
 	for (i = 0; i < nr_opts; i++)
@@ -308,7 +314,9 @@ static int autofs_revisit_options(struct mount_info *pm)
 
 		while ((token = strsep(&str, " ")) != NULL) {
 			if (mnt_id == -1) {
-				mnt_id = atoi(token);
+				ret = xatoi(token, &mnt_id);
+				if (ret)
+					goto close_proc;
 				if (mnt_id != pm->mnt_id)
 					break;
 			} else if (strstr(token, "pipe_ino=")) {
