@@ -1103,8 +1103,11 @@ static int open_fdinfos(struct pstree_item *me)
 			st = fle->stage;
 			BUG_ON(st == FLE_RESTORED);
 			ret = open_fd(fle);
-			if (ret == -1)
+			if (ret == -1) {
+				pr_err("Unable to open fd=%d id=%#x\n",
+					fle->fe->fd, fle->fe->id);
 				goto splice;
+			}
 			if (st != fle->stage || ret == 0)
 				progress = true;
 			if (ret == 0) {
