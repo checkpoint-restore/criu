@@ -391,7 +391,10 @@ static void child_func(void)
 static int ptrace_attach(pid_t pid)
 {
 	if (ptrace(PTRACE_ATTACH, pid, 0, 0) == 0) {
-		wait(NULL);
+		if (waitpid(pid, NULL, __WALL) < 0) {
+			pr_perror("Waiting for thread %d failed", pid);
+			return -1;
+		}
 		return 0;
 	}
 	pr_perror("Attach to thread %d failed", pid);
