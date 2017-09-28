@@ -21,8 +21,8 @@
 #include <netinet/in.h>
 #include <sys/prctl.h>
 #include <sched.h>
-#include <linux/aio_abi.h>
 #include <sys/mount.h>
+#include <linux/aio_abi.h>
 
 #include "../soccr/soccr.h"
 
