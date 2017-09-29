@@ -13,9 +13,9 @@ int setfsgid(uid_t fsgid);
 int main(int argc, char **argv)
 {
 	int pid, s_p[2], f_p[2], r_p[3];
-	const __uid_t w_ruid = 1, w_euid = 2, w_suid = 3, w_fsuid = w_euid;
-	const __uid_t w_rgid = 5, w_egid = 6, w_sgid = 7, w_fsgid = 8;
-	__uid_t rid, eid, sid, fsid;
+	const uid_t w_ruid = 1, w_euid = 2, w_suid = 3, w_fsuid = w_euid;
+	const gid_t w_rgid = 5, w_egid = 6, w_sgid = 7, w_fsgid = 8;
+	uid_t rid, eid, sid, fsid;
 	char res = 'x';
 
 	test_init(argc, argv);
