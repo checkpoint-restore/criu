@@ -19,7 +19,7 @@ const char *test_author = "Stanislav Kinsbursky <skinsbursky@openvz.org>";
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <wait.h>
+#include <sys/wait.h>
 #include <netinet/tcp.h>
 
 static int port = 8880;

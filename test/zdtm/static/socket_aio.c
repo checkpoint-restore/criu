@@ -16,7 +16,7 @@ const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 #include <errno.h>
 #include <stdlib.h>
 #include <aio.h>
-#include <wait.h>
+#include <sys/wait.h>
 #include <netinet/tcp.h>
 
 static int port = 8880;

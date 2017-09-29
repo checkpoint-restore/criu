@@ -18,7 +18,7 @@ const char *test_author = "Pavel Emelyanov <xemul@parallels.com<>\n";
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
-#include <wait.h>
+#include <sys/wait.h>
 
 static int port = 8880;
 static char buf[8];
