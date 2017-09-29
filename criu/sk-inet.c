@@ -246,7 +246,14 @@ static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p, int 
 	sk->sd.ino = p->stat.st_ino;
 
 	if (proto == IPPROTO_TCP) {
-		struct tcp_info info;
+		struct {
+			__u8    tcpi_state;
+			__u8    tcpi_ca_state;
+			__u8    tcpi_retransmits;
+			__u8    tcpi_probes;
+			__u8    tcpi_backoff;
+			__u8    tcpi_options;
+		} info;
 
 		aux = sizeof(info);
 		ret = getsockopt(lfd, SOL_TCP, TCP_INFO, &info, &aux);

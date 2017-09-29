@@ -157,7 +157,18 @@ void libsoccr_release(struct libsoccr_sk *sk)
 	free(sk);
 }
 
-static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, struct tcp_info *ti)
+struct soccr_tcp_info {
+        __u8    tcpi_state;
+        __u8    tcpi_ca_state;
+        __u8    tcpi_retransmits;
+        __u8    tcpi_probes;
+        __u8    tcpi_backoff;
+        __u8    tcpi_options;
+        __u8    tcpi_snd_wscale : 4, tcpi_rcv_wscale : 4;
+};
+
+static int refresh_sk(struct libsoccr_sk *sk,
+			struct libsoccr_sk_data *data, struct soccr_tcp_info *ti)
 {
 	int size;
 	socklen_t olen = sizeof(*ti);
@@ -215,7 +226,8 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 	return 0;
 }
 
-static int get_stream_options(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, struct tcp_info *ti)
+static int get_stream_options(struct libsoccr_sk *sk,
+		struct libsoccr_sk_data *data, struct soccr_tcp_info *ti)
 {
 	int ret;
 	socklen_t auxl;
@@ -353,7 +365,7 @@ err_recv:
 
 int libsoccr_save(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigned data_size)
 {
-	struct tcp_info ti;
+	struct soccr_tcp_info ti;
 
 	if (!data || data_size < SOCR_DATA_MIN_SIZE) {
 		loge("Invalid input parameters\n");

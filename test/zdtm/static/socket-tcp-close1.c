@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <netinet/tcp.h>
 #include <netinet/in.h>
+#include <linux/types.h>
 
 #include "zdtmtst.h"
 
@@ -13,7 +14,9 @@ static int port = 8880;
 static int check_socket_state(int sk, int state)
 {
 	int err;
-	struct tcp_info info;
+	struct {
+		__u8    tcpi_state;
+	} info;
 	socklen_t len = sizeof(info);
 
 	err = getsockopt(sk, IPPROTO_TCP, TCP_INFO, (void *)&info, &len);
