@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	filepath = malloc(strlen(filename) + 1);
+	filepath = malloc(strlen(filename) + 2);
 	sprintf(filepath, "/%s", filename);
 
 	pipe(pipe_prep);
