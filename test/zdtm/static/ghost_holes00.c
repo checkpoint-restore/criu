@@ -19,6 +19,11 @@ TEST_OPTION(filename, string, "file name", 1);
 #define BUFSIZE	4096
 static unsigned char buf4k[BUFSIZE];
 
+#ifndef SEEK_DATA
+#define SEEK_DATA	3
+#define SEEK_HOLE	4
+#endif
+
 #ifdef HEAD_HOLE
 #define HH	1
 #else

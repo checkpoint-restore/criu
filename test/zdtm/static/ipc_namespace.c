@@ -12,9 +12,9 @@
 
 #define CLONE_NEWIPC		0x08000000
 
-extern int msgctl (int __msqid, int __cmd, struct msqid_ds *__buf) __THROW;
-extern int semctl (int __semid, int __semnum, int __cmd, ...) __THROW;
-extern int shmctl (int __shmid, int __cmd, struct shmid_ds *__buf) __THROW;
+extern int msgctl (int __msqid, int __cmd, struct msqid_ds *__buf);
+extern int semctl (int __semid, int __semnum, int __cmd, ...);
+extern int shmctl (int __shmid, int __cmd, struct shmid_ds *__buf);
 
 struct ipc_ids {
 	int in_use;						/* TODO: Check for 0 */

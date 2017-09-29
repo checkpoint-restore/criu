@@ -10,6 +10,14 @@
 #include "zdtmtst.h"
 #include "fs.h"
 
+#ifndef LOCK_MAND
+#define LOCK_MAND 32
+#endif
+
+#ifndef LOCK_READ
+#define LOCK_READ 64
+#endif
+
 const char *test_doc	= "Check that flock locks are restored";
 const char *test_author	= "Qiang Huang <h.huangqiang@huawei.com>";
 
