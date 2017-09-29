@@ -39,7 +39,7 @@ static int bind_and_listen(struct sockaddr_un *addr)
 		return -1;
 	}
 
-	if (bind(sk, addr, sizeof(*addr))) {
+	if (bind(sk, (struct sockaddr *) addr, sizeof(*addr))) {
 		fail("bind %s", addr->sun_path);
 		close(sk);
 		return -1;

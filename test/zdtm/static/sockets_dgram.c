@@ -102,38 +102,38 @@ int main(int argc, char *argv[])
 	name_bound_conn.sun_family = AF_UNIX;
 	strncpy(name_bound_conn.sun_path, path, sizeof(name_bound_conn.sun_path));
 
-	ret = bind(sk_dgram_bound_server, &name_bound, sizeof(name_bound));
+	ret = bind(sk_dgram_bound_server, (struct sockaddr *) &name_bound, sizeof(name_bound));
 	if (ret) {
 		fail("bind");
 		exit(1);
 	}
 
-	ret = bind(sk_dgram_conn_server, &name_conn, sizeof(name_conn));
+	ret = bind(sk_dgram_conn_server, (struct sockaddr *) &name_conn, sizeof(name_conn));
 	if (ret) {
 		fail("bind");
 		exit(1);
 	}
 
-	ret = connect(sk_dgram_conn_client, &name_conn, sizeof(name_conn));
+	ret = connect(sk_dgram_conn_client, (struct sockaddr *) &name_conn, sizeof(name_conn));
 	if (ret) {
 		fail("connect");
 		exit(1);
 	}
 
-	ret = connect(sk_dgram_conn_client2, &name_conn, sizeof(name_conn));
+	ret = connect(sk_dgram_conn_client2, (struct sockaddr *) &name_conn, sizeof(name_conn));
 	if (ret) {
 		fail("connect");
 		exit(1);
 	}
 
-	ret = bind(sk_dgram_bound_conn, &name_bound_conn, sizeof(name_bound_conn));
+	ret = bind(sk_dgram_bound_conn, (struct sockaddr *) &name_bound_conn, sizeof(name_bound_conn));
 	if (ret) {
 		fail("bind");
 		exit(1);
 	}
 
 	/* Note, it's already bound, so make it more idiotic! */
-	ret = connect(sk_dgram_bound_conn, &name_bound_conn, sizeof(name_bound_conn));
+	ret = connect(sk_dgram_bound_conn, (struct sockaddr *) &name_bound_conn, sizeof(name_bound_conn));
 	if (ret) {
 		fail("connect");
 		exit(1);
@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
 
 	memset(buf, 0, sizeof(buf));
 	sendto(sk_dgram_bound_client, SK_DATA_BOUND, sizeof(SK_DATA_BOUND), 0,
-	       &name_bound, sizeof(name_bound));
+	       (struct sockaddr *) &name_bound, sizeof(name_bound));
 	read(sk_dgram_bound_server, &buf, sizeof(buf));
 	if (strcmp(buf, SK_DATA_BOUND)) {
 		fail("data corrupted\n");
@@ -172,7 +172,7 @@ int main(int argc, char *argv[])
 
 	memset(buf, 0, sizeof(buf));
 	sendto(sk_dgram_bound_client, SK_DATA_BOUND, sizeof(SK_DATA_BOUND), 0,
-	       &name_bound, sizeof(name_bound));
+	       (struct sockaddr *) &name_bound, sizeof(name_bound));
 	read(sk_dgram_bound_server, &buf, sizeof(buf));
 	if (strcmp(buf, SK_DATA_BOUND)) {
 		fail("data corrupted\n");

@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ret = bind(sock[0], &addr, addrlen);
+	ret = bind(sock[0], (struct sockaddr *) &addr, addrlen);
 	if (ret) {
 		fail("bind\n");
 		exit(1);
@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
 	test_daemon();
 	test_waitsig();
 
-	if (connect(sock[1], &addr, addrlen)) {
+	if (connect(sock[1], (struct sockaddr *) &addr, addrlen)) {
 		fail("connect\n");
 		exit(1);
 	}

@@ -23,7 +23,7 @@ static int do_bind(int sk)
 	addr.sa_family = AF_PACKET;
 	strcpy(addr.sa_data, "lo");
 
-	return bind(sk, &addr, sizeof(addr));
+	return bind(sk, (struct sockaddr *) &addr, sizeof(addr));
 }
 
 static int check_socket_binding(int sk, char *dev)

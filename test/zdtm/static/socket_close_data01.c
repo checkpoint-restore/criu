@@ -30,7 +30,7 @@ static int client(const char *iter)
 	addr.sun_family = AF_UNIX;
 	strcpy(addr.sun_path, filename);
 
-	if (connect(sk, (void *)&addr, sizeof(struct sockaddr_un)) < 0) {
+	if (connect(sk, (struct sockaddr *) &addr, sizeof(struct sockaddr_un)) < 0) {
 		pr_perror("connect failed %s", iter);
 		return 1;
 	}

@@ -42,15 +42,15 @@ int main(int argc, char **argv)
 	memcpy(addr.sun_path, SK_SRV, sizeof(SK_SRV));
 	addrlen = sizeof(addr.sun_family) + sizeof(SK_SRV);
 
-	if (bind(srv, &addr, addrlen)) {
+	if (bind(srv, (struct sockaddr *) &addr, addrlen)) {
 		fail("bind\n");
 		exit(1);
 	}
-	if (connect(clnt1, &addr, addrlen)) {
+	if (connect(clnt1, (struct sockaddr *) &addr, addrlen)) {
 		fail("connect\n");
 		exit(1);
 	}
-	if (connect(clnt2, &addr, addrlen)) {
+	if (connect(clnt2, (struct sockaddr *) &addr, addrlen)) {
 		fail("connect\n");
 		exit(1);
 	}

@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ret = bind(ssk_icon[0], &addr, addrlen);
+	ret = bind(ssk_icon[0], (struct sockaddr *) &addr, addrlen);
 	if (ret) {
 		fail("bind\n");
 		exit(1);
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ret = connect(ssk_icon[2], &addr, addrlen);
+	ret = connect(ssk_icon[2], (struct sockaddr *) &addr, addrlen);
 	if (ret) {
 		fail("connect\n");
 		exit(1);
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ret = connect(ssk_icon[1], &addr, addrlen);
+	ret = connect(ssk_icon[1], (struct sockaddr *) &addr, addrlen);
 	if (ret) {
 		fail("connect\n");
 		exit(1);

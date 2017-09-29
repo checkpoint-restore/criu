@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 			pr_perror("Can't create socket");
 			return 1;
 		}
-		ret = bind(sk, &addr, addrlen);
+		ret = bind(sk, (struct sockaddr *) &addr, addrlen);
 		if (ret < 0) {
 			pr_perror("Can't bind socket to %s", path);
 			return 1;
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ret = connect(sk, &addr, addrlen);
+	ret = connect(sk, (struct sockaddr *) &addr, addrlen);
 	if (ret < 0) {
 		pr_perror("Can't connect socket");
 		return 1;
