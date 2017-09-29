@@ -56,7 +56,7 @@ int child_fn(void *arg)
 	struct sockaddr_un addr;
 	socklen_t len = sizeof(addr);
 
-	if (getsockname(orig_sk, &addr, &len) < 0) {
+	if (getsockname(orig_sk, (struct sockaddr *) &addr, &len) < 0) {
 		pr_perror("getsockname()");
 		goto err;
 	}
