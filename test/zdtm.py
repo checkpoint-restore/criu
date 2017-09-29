@@ -1530,16 +1530,25 @@ class launcher:
 
 def all_tests(opts):
 	desc = eval(open(opts['set'] + '.desc').read())
-	lst = subprocess.Popen(['find', desc['dir'], '-type', 'f', '-executable'],
-			stdout = subprocess.PIPE)
+
+	files = []
+	mask = stat.S_IFREG | stat.S_IXUSR
+	for d in os.walk(desc['dir']):
+		for f in d[2]:
+			fp = os.path.join(d[0], f)
+			st = os.lstat(fp)
+			if (st.st_mode & mask) != mask:
+				continue
+			if stat.S_IFMT(st.st_mode) in [stat.S_IFLNK, stat.S_IFSOCK]:
+				continue
+			files.append(fp)
 	excl = map(lambda x: os.path.join(desc['dir'], x), desc['exclude'])
 	tlist = filter(lambda x:
 			not x.endswith('.checkskip') and
 			not x.endswith('.hook') and
 			x not in excl,
-			map(lambda x: x.strip(), lst.stdout.readlines())
+			map(lambda x: x.strip(), files)
 			)
-	lst.wait()
 	return tlist
 
 
