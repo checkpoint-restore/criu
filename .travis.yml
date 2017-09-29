@@ -8,7 +8,7 @@ env:
   - TR_ARCH=local       GCOV=1
   - TR_ARCH=local       CLANG=1
   - TR_ARCH=alpine
-  - TR_ARCH=asan
+  - TR_ARCH=fedora-asan
   - TR_ARCH=x86_64
   - TR_ARCH=x86_64      CLANG=1
   - TR_ARCH=armv7hf
@@ -20,9 +20,11 @@ env:
   - TR_ARCH=ppc64le     CLANG=1
   - TR_ARCH=alpine      CLANG=1
   - TR_ARCH=docker-test
+  - TR_ARCH=fedora-rawhide
 matrix:
   allow_failures:
     - env: TR_ARCH=docker-test
+    - env: TR_ARCH=fedora-rawhide
 script:
   - sudo make CCACHE=1 -C scripts/travis $TR_ARCH
 after_success:

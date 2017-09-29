@@ -1,0 +1,14 @@
+FROM fedora:rawhide
+
+ARG CC=gcc
+
+RUN dnf install -y git gcc make
+RUN dnf install -y protobuf-devel protobuf-c-devel libaio-devel libcap-devel libnl3-devel libnet-devel
+RUN dnf install -y python ccache libasan findutils tar python-yaml protobuf-python iptables iproute python-ipaddr procps-ng
+
+COPY . /criu
+WORKDIR /criu
+RUN make mrproper && make -j $(nproc)
+
+RUN pip install protobuf
+RUN make -C test/zdtm/static env00

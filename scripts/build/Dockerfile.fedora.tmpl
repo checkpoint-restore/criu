@@ -1,4 +1,3 @@
-FROM fedora:latest
 ARG CC=gcc
 ARG ENV1=FOOBAR
 
@@ -10,7 +9,7 @@ COPY . /criu
 WORKDIR /criu
 
 ENV CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
-RUN mv .ccache /tmp && make mrproper && ccache -s && \
-	date && make -j $(nproc) ASAN=1 CC="$CC" && date
-RUN make ASAN=1 -C test/zdtm -j $(nproc)
+RUN mv .ccache /tmp && make mrproper && ccache -s && ccache -z && \
+	date && make -j $(nproc) CC="$CC" && date && ccache -s
+RUN make -C test/zdtm -j $(nproc)
 
