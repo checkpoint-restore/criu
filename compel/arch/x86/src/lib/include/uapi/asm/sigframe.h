@@ -130,7 +130,7 @@ struct rt_sigframe {
 #define RT_SIGFRAME_UC_SIGMASK(rt_sigframe)				\
 	((rt_sigframe->is_native)			?		\
 	(&rt_sigframe->native.uc.uc_sigmask) :				\
-	(&rt_sigframe->compat.uc.uc_sigmask))
+	((k_rtsigset_t *)(void *)&rt_sigframe->compat.uc.uc_sigmask))
 
 #define RT_SIGFRAME_REGIP(rt_sigframe)					\
 	((rt_sigframe->is_native)			?		\

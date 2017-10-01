@@ -1126,7 +1126,7 @@ static int save_regs_plain(void *to, user_regs_struct_t *r, user_fpregs_struct_t
 
 #ifndef RT_SIGFRAME_UC_SIGMASK
 #define RT_SIGFRAME_UC_SIGMASK(sigframe)				\
-	(k_rtsigset_t*)&RT_SIGFRAME_UC(sigframe)->uc_sigmask
+	(k_rtsigset_t*)(void *)&RT_SIGFRAME_UC(sigframe)->uc_sigmask
 #endif
 
 static int make_sigframe_plain(void *from, struct rt_sigframe *f, struct rt_sigframe *rtf, k_rtsigset_t *b)
