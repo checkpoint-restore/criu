@@ -10,7 +10,7 @@ COPY . /criu
 WORKDIR /criu
 
 ENV CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
-RUN mv .ccache /tmp; make mrproper; ccache -s; \
-	date; make -j $(nproc) ASAN=1 CC="$CC"; date
+RUN mv .ccache /tmp && make mrproper && ccache -s && \
+	date && make -j $(nproc) ASAN=1 CC="$CC" && date
 RUN make ASAN=1 -C test/zdtm -j $(nproc)
 
