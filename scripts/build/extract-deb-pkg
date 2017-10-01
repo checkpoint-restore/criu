@@ -1,10 +1,36 @@
-#'http://mirror.yandex.ru/debian/pool/main/q/qemu/qemu-user-static_2.5%2Bdfsg-5_amd64.deb'
+#!/bin/bash
+
 set -e
-test -d $1 && exit
-mkdir $1
-cd $1
-pkg=`curl http://mirror.yandex.ru/ubuntu/dists/xenial/universe/binary-amd64/Packages.gz | zcat | grep "Filename.*$1" | awk '{ print $2 }'`
-wget "http://mirror.yandex.ru/ubuntu/$pkg"
-pkg=`basename $pkg`
-ar vx $pkg
-tar -xJvf data.tar.xz
+set -u
+set -o pipefail
+MIRROR="https://mirrors.kernel.org/ubuntu"
+PKGS="$MIRROR/dists/xenial/universe/binary-amd64/Packages.gz"
+
+if [ $# -ne 1 ]; then
+	echo "Usage: $0 package-name" 1>&2
+	exit 1
+fi
+
+if [ -d "$1" ]; then
+	echo "Directory $1 already exists -- exiting"
+	exit 0
+fi
+
+if ! pkg=$(curl -sSL "$PKGS" | zgrep "Filename.*$1" | awk '{ print $2 }'); then
+	echo "ERROR: no packages matching $1" 1>&2
+	exit 1
+fi
+
+if [ "$(wc -w <<< "$pkg")" -gt 1 ]; then
+	echo "$pkg" 1>&2
+	echo "ERROR: more than one match for $1" 1>&2
+	exit 1
+fi
+
+mkdir "$1"
+cd "$1"
+
+wget "$MIRROR/$pkg"
+pkg=$(basename "$pkg")
+ar vx "$pkg"
+tar xJvf data.tar.xz
