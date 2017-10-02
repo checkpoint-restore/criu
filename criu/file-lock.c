@@ -270,6 +270,80 @@ static int lock_ofd_check_fd(int lfd, struct file_lock *fl)
 	return 1;
 }
 
+static int lease_check_fd(int fd, int file_flags, struct file_lock *fl)
+{
+	int file_lease_type, err;
+	int lease_type = fl->fl_ltype & (~LEASE_BREAKING);
+
+	if ((file_flags & O_ACCMODE) != O_RDONLY) {
+		/*
+		 * Write OFD conflicts with any lease not associated
+		 * with it, therefore there is can't be other lease
+		 * or OFD for this file.
+		 */
+		return 1;
+	}
+
+	file_lease_type = fcntl(fd, F_GETLEASE);
+	if (file_lease_type < 0) {
+		pr_err("Can't get lease type\n");
+		return -1;
+	}
+
+	/*
+	 * Only read OFDs can be present for the file. If
+	 * read and write OFDs with at least one lease had
+	 * presented, it would have conflicted.
+	 */
+	if (fl->fl_ltype & LEASE_BREAKING) {
+		/*
+		 * Only read leases are possible for read OFDs
+		 * and they all should be in breaking state,
+		 * because the current one is.
+		 */
+		int compatible_type = file_lease_type;
+
+		if (compatible_type != F_UNLCK) {
+			pr_err("Lease doesn't conflicts but breaks\n");
+			return -1;
+		}
+		/*
+		 * Due to activated breaking sequence we can't
+		 * get actual lease type with F_GETLEASE.
+		 * The err == 0 after lease upgrade means, that
+		 * there is already read lease on OFD. Otherwise
+		 * it would fail, because current read lease is
+		 * still set and breaking.
+		 */
+		err = fcntl(fd, F_SETLEASE, F_RDLCK);
+		if (err < 0) {
+			if (errno != EAGAIN) {
+				pr_perror("Can't set lease (fd %i)", fd);
+				return -1;
+			}
+			return 0;
+		}
+		return 1;
+	} else {
+		/*
+		 * The file can have only non-breaking read
+		 * leases, because otherwise the current one
+		 * also would have broke.
+		 */
+		if (lease_type != F_RDLCK) {
+			pr_err("Incorrect lease type\n");
+			return -1;
+		}
+
+		if (file_lease_type == F_UNLCK)
+			return 0;
+		if (file_lease_type == F_RDLCK)
+			return 1;
+		pr_err("Invalid file lease type\n");
+		return -1;
+	}
+}
+
 int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 {
 	struct file_lock *fl;
@@ -299,8 +373,17 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 			if (fl->fl_owner != pid->real)
 				continue;
 		} else if (fl->fl_kind == FL_LEASE) {
-			pr_err("Leases are not supported for kernel <= v4.0");
-			return -1;
+			if (fl->owners_fd >= 0)
+				continue;
+			if (fl->fl_owner != pid->real &&
+					fl->real_owner != -1)
+				continue;
+
+			ret = lease_check_fd(lfd, p->flags, fl);
+			if (ret < 0)
+				return ret;
+			if (ret == 0)
+				continue;
 		} else /* fl->fl_kind == FL_FLOCK || fl->fl_kind == FL_OFD */ {
 			int ret;
 
