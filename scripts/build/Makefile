@@ -37,11 +37,9 @@ $(1)-clang: $(1)
 endef
 $(foreach t,$(TARGETS),$(eval $(call CLANG_DEP,$(t))))
 
-%-clang:	DB_CC=--build-arg CC=clang-3.8
+%-clang:	DB_CC=--build-arg CC=clang
 %-clang:	DB_ENV=--build-arg ENV1=CCACHE_CPP2
-alpine-clang:	DB_CC=--build-arg CC=clang
-aarch64-clang:	DB_CC=--build-arg CC=clang
-ppc64le-clang:	DB_CC=--build-arg CC=clang
+s390x-clang:	DB_CC=--build-arg CC=clang-3.8
 .PHONY: $(TARGETS_CLANG)
 
 clean:
