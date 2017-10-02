@@ -20,8 +20,8 @@ RUN apk update && apk add \
 COPY . /criu
 WORKDIR /criu
 ENV CC="ccache $CC" CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
-RUN mv .ccache /tmp && make mrproper && ccache -s && \
-	date && make -j $(nproc) CC="$CC" && date
+RUN mv .ccache /tmp && make mrproper && ccache -s && ccache -z &&\
+	date && make -j $(nproc) CC="$CC" && date && ccache -s
 
 # Run a test
 RUN apk add	py-yaml \
@@ -29,5 +29,8 @@ RUN apk add	py-yaml \
 		ip6tables \
 		iptables \
 		iproute2 \
-	&& pip install protobuf \
-	&& make -C test/zdtm/static env00
+		tar \
+		bash
+
+RUN pip install protobuf ipaddr
+RUN make -C test/zdtm
