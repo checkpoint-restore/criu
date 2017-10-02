@@ -1,4 +1,4 @@
-FROM ubuntu:trusty
+FROM ubuntu:zesty
 
 RUN apt-get update -qq && apt-get install -qq \
                 gcc-multilib
