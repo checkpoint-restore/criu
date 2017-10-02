@@ -10,6 +10,7 @@
 #define FL_POSIX	1
 #define FL_FLOCK	2
 #define FL_OFD		4
+#define FL_LEASE	8
 
 /* for posix fcntl() and lockf() */
 #ifndef F_RDLCK
