@@ -249,6 +249,10 @@ TST_FILE	=				\
 		sockets00			\
 		sockets03			\
 		sockets_dgram			\
+		file_lease00			\
+		file_lease01			\
+		file_lease02			\
+		file_lease03			\
 		file_locks00			\
 		file_locks01			\
 		file_locks02			\
