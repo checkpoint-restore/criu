@@ -551,11 +551,18 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 	InotifyWdEntry *iwe = info->iwe;
 	int ret = -1, target = -1;
 	char buf[PSFDS], *path;
+	uint32_t mask;
 
 	path = get_mark_path("inotify", info->remap, iwe->f_handle,
 			     iwe->i_ino, iwe->s_dev, buf, &target);
 	if (!path)
 		goto err;
+
+	mask = iwe->mask & IN_ALL_EVENTS;
+	if (iwe->mask & ~IN_ALL_EVENTS) {
+		pr_info("\t\tfilter event mask %#x -> %#x\n",
+			iwe->mask, mask);
+	}
 
 	/*
 	 * FIXME The kernel allocates wd-s sequentially,
@@ -565,7 +572,7 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 	while (1) {
 		int wd;
 
-		wd = inotify_add_watch(inotify_fd, path, iwe->mask);
+		wd = inotify_add_watch(inotify_fd, path, mask);
 		if (wd < 0) {
 			pr_perror("Can't add watch for 0x%x with 0x%x", inotify_fd, iwe->wd);
 			break;
