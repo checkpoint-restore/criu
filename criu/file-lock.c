@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <signal.h>
 #include <unistd.h>
 #include <sys/file.h>
 #include <fcntl.h>
@@ -19,6 +20,8 @@
 #include "proc_parse.h"
 #include "servicefd.h"
 #include "file-lock.h"
+#include "pstree.h"
+#include "files-reg.h"
 
 struct file_lock_rst {
 	FileLockEntry *fle;
@@ -103,6 +106,8 @@ int dump_file_locks(void)
 
 			continue;
 		}
+		if (fl->fl_kind == FL_LEASE && !fl->updated)
+			continue;
 
 		file_lock_entry__init(&fle);
 		fle.pid = fl->real_owner;
@@ -333,6 +338,73 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 	return 0;
 }
 
+int correct_file_leases_type(struct pid *pid, int fd, int lfd)
+{
+	struct file_lock *fl;
+	int target_type;
+
+	list_for_each_entry(fl, &file_lock_list, list) {
+		/* owners_fd should be set before usage */
+		if (fl->fl_owner != pid->real || fl->owners_fd != fd)
+			continue;
+
+		fl->updated = true;
+		if (fl->fl_kind == FL_LEASE &&
+			(fl->fl_ltype & LEASE_BREAKING)) {
+			/*
+			 * Set lease type to actual 'target lease type'
+			 * instead of 'READ' returned by procfs.
+			 */
+			target_type = fcntl(lfd, F_GETLEASE);
+			if (target_type < 0) {
+				perror("Can't get lease type\n");
+				return -1;
+			}
+			fl->fl_ltype &= ~O_ACCMODE;
+			fl->fl_ltype |= target_type;
+			break;
+		}
+	}
+	return 0;
+}
+
+static int open_break_cb(int ns_root_fd, struct reg_file_info *rfi, void *arg)
+{
+	int fd, flags = *(int *)arg | O_NONBLOCK;
+
+	fd = openat(ns_root_fd, rfi->path, flags);
+	if (fd >= 0) {
+		pr_err("Conflicting lease wasn't found\n");
+		close(fd);
+		return -1;
+	} else if (errno != EWOULDBLOCK) {
+		pr_perror("Can't break lease\n");
+		return -1;
+	}
+	return 0;
+}
+
+static int break_lease(int lease_type, struct file_desc *desc)
+{
+	int target_type = lease_type & (~LEASE_BREAKING);
+	int break_flags;
+
+	/*
+	 * Flags for open call chosen in a way to even
+	 * 'target lease type' returned by fcntl(F_GETLEASE)
+	 * and lease type from the image.
+	 */
+	if (target_type == F_UNLCK) {
+		break_flags = O_WRONLY;
+	} else if (target_type == F_RDLCK) {
+		break_flags = O_RDONLY;
+	} else {
+		pr_err("Incorrect target lease type\n");
+		return -1;
+	}
+	return open_path(desc, open_break_cb, (void *)&break_flags);
+}
+
 static int set_file_lease(int fd, int type)
 {
 	int old_fsuid, ret;
@@ -355,6 +427,90 @@ static int set_file_lease(int fd, int type)
 
 	setfsuid(old_fsuid);
 	return ret;
+}
+
+static int restore_lease_prebreaking_state(int fd, int fd_type)
+{
+	int access_flags = fd_type & O_ACCMODE;
+	int lease_type = (access_flags == O_RDONLY) ? F_RDLCK : F_WRLCK;
+
+	return set_file_lease(fd, lease_type);
+}
+
+static struct fdinfo_list_entry *find_fd_unordered(struct pstree_item *task,
+							int fd)
+{
+	struct list_head *head = &rsti(task)->fds;
+	struct fdinfo_list_entry *fle;
+
+	list_for_each_entry_reverse(fle, head, ps_list) {
+		if (fle->fe->fd == fd)
+			return fle;
+	}
+	return NULL;
+}
+
+static int restore_breaking_file_lease(FileLockEntry *fle)
+{
+	struct fdinfo_list_entry *fdle;
+	int ret;
+
+	fdle = find_fd_unordered(current, fle->fd);
+	if (fdle == NULL) {
+		pr_err("Can't get file description\n");
+		return -1;
+	}
+
+	ret = restore_lease_prebreaking_state(fle->fd, fdle->desc->ops->type);
+	if (ret)
+		return ret;
+
+	/*
+	 * It could be broken by 2 types of open call:
+	 * 1. non-blocking: It failed because of the lease.
+	 * 2. blocking: It had been blocked at the moment
+	 * of dumping, otherwise lease wouldn't be broken.
+	 * Thus, it was canceled by CRIU.
+	 *
+	 * There are no files or leases in image, which will
+	 * conflict with each other. Therefore we should explicitly
+	 * break leases. Restoring can be done in any order.
+	 */
+	return break_lease(fle->type, fdle->desc);
+}
+
+static int restore_file_lease(FileLockEntry *fle)
+{
+	sigset_t blockmask, oldmask;
+	int signum_fcntl, signum, ret;
+
+	if (fle->type & LEASE_BREAKING) {
+		signum_fcntl = fcntl(fle->fd, F_GETSIG);
+		signum = signum_fcntl ? signum_fcntl : SIGIO;
+		if (signum_fcntl < 0) {
+			pr_perror("Can't get file i/o signum\n");
+			return -1;
+		}
+		if (sigemptyset(&blockmask) ||
+			sigaddset(&blockmask, signum) ||
+			sigprocmask(SIG_BLOCK, &blockmask, &oldmask)) {
+			pr_perror("Can't block file i/o signal\n");
+			return -1;
+		}
+
+		ret = restore_breaking_file_lease(fle);
+
+		if (sigprocmask(SIG_SETMASK, &oldmask, NULL)) {
+			pr_perror("Can't restore sigmask\n");
+			ret = -1;
+		}
+		return ret;
+	} else {
+		ret = set_file_lease(fle->fd, fle->type);
+		if (ret < 0)
+			pr_perror("Can't restore non breaking lease");
+		return ret;
+	}
 }
 
 static int restore_file_lock(FileLockEntry *fle)
@@ -428,11 +584,9 @@ static int restore_file_lock(FileLockEntry *fle)
 				"start: %8"PRIx64", len: %8"PRIx64"\n",
 			fle->flag, fle->type, fle->pid, fle->fd,
 			fle->start, fle->len);
-		ret = set_file_lease(fle->fd, fle->type);
-		if (ret < 0) {
-			pr_perror("Can't set lease!\n");
+		ret = restore_file_lease(fle);
+		if (ret < 0)
 			goto err;
-		}
 	} else {
 		pr_err("Unknown file lock style!\n");
 		goto err;
