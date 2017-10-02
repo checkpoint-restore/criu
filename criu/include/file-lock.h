@@ -38,6 +38,9 @@
 #define LOCK_WRITE	128	/* which allows concurrent write operations */
 #define LOCK_RW		192	/* which allows concurrent read & write ops */
 
+/* for leases */
+#define LEASE_BREAKING	4
+
 struct file_lock {
 	long long	fl_id;
 	int		fl_kind;
@@ -53,6 +56,8 @@ struct file_lock {
 
 	int		real_owner;
 	int		owners_fd;
+
+	bool		updated;	/* used to remove duplicate leases */
 };
 
 extern struct list_head file_lock_list;
@@ -65,6 +70,7 @@ extern struct collect_image_info file_locks_cinfo;
 
 struct pid;
 struct fd_parms;
+extern int correct_file_leases_type(struct pid *, int fd, int lfd);
 extern int note_file_lock(struct pid *, int fd, int lfd, struct fd_parms *);
 extern int dump_file_locks(void);
 

@@ -486,6 +486,9 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 	if (note_file_lock(pid, fd, lfd, &p))
 		return -1;
 
+	if (correct_file_leases_type(pid, fd, lfd))
+		return -1;
+
 	p.fd_ctl = ctl; /* Some dump_opts require this to talk to parasite */
 
 	if (S_ISSOCK(p.stat.st_mode))
