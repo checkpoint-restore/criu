@@ -2014,6 +2014,8 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 		fl->fl_kind = FL_FLOCK;
 	else if (!strcmp(fl_flag, "OFDLCK"))
 		fl->fl_kind = FL_OFD;
+	else if (!strcmp(fl_flag, "LEASE"))
+		fl->fl_kind = FL_LEASE;
 	else
 		fl->fl_kind = FL_UNKNOWN;
 
@@ -2030,6 +2032,9 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 			pr_err("Unknown lock option!\n");
 			return -1;
 		}
+	} else if (fl->fl_kind == FL_LEASE && !strcmp(fl_type, "BREAKING")) {
+		pr_err("Breaking leases are not supported (%d): %s\n",
+			num, buf);
 	} else {
 		if (!strcmp(fl_option, "UNLCK")) {
 			fl->fl_ltype |= F_UNLCK;

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/fsuid.h>
 #include <sys/sysmacros.h>
 
 #include "cr_options.h"
@@ -292,6 +293,9 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 			 */
 			if (fl->fl_owner != pid->real)
 				continue;
+		} else if (fl->fl_kind == FL_LEASE) {
+			pr_err("Leases are not supported for kernel <= v4.0");
+			return -1;
 		} else /* fl->fl_kind == FL_FLOCK || fl->fl_kind == FL_OFD */ {
 			int ret;
 
@@ -327,6 +331,30 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 	}
 
 	return 0;
+}
+
+static int set_file_lease(int fd, int type)
+{
+	int old_fsuid, ret;
+	struct stat st;
+
+	if (fstat(fd, &st)) {
+		pr_perror("Can't get file stat (%i)\n", fd);
+		return -1;
+	}
+
+	/*
+	 * An unprivileged process may take out a lease only if
+	 * uid of the file matches the fsuid of the process.
+	 */
+	old_fsuid = setfsuid(st.st_uid);
+
+	ret = fcntl(fd, F_SETLEASE, type);
+	if (ret < 0)
+		pr_perror("Can't set lease\n");
+
+	setfsuid(old_fsuid);
+	return ret;
 }
 
 static int restore_file_lock(FileLockEntry *fle)
@@ -393,6 +421,16 @@ static int restore_file_lock(FileLockEntry *fle)
 		ret = fcntl(fle->fd, F_OFD_SETLK, &flk);
 		if (ret < 0) {
 			pr_err("Can not set ofd lock!\n");
+			goto err;
+		}
+	} else if (fle->flag & FL_LEASE) {
+		pr_info("(lease)flag: %d, type: %d, pid: %d, fd: %d, "
+				"start: %8"PRIx64", len: %8"PRIx64"\n",
+			fle->flag, fle->type, fle->pid, fle->fd,
+			fle->start, fle->len);
+		ret = set_file_lease(fle->fd, fle->type);
+		if (ret < 0) {
+			pr_perror("Can't set lease!\n");
 			goto err;
 		}
 	} else {
