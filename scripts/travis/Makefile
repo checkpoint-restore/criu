@@ -20,7 +20,7 @@ $(TARGETS):
 	echo 'DOCKER_OPTS="--storage-driver=devicemapper"' > /etc/default/docker
 	restart docker
 	$(MAKE) -C ../build $@$(target-suffix)
-	docker run --rm -it --privileged -v /lib/modules:/lib/modules criu-$@ ./scripts/travis/asan.sh $(ZDTM_OPTIONS)
+	docker run --rm -it --privileged -v /lib/modules:/lib/modules --tmpfs /run criu-$@ ./scripts/travis/asan.sh $(ZDTM_OPTIONS)
 
 docker-test:
 	./docker-test.sh
