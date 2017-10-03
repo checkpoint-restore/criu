@@ -1,4 +1,4 @@
-FROM ppc64le/ubuntu:zesty
+FROM ppc64le/ubuntu:xenial
 
 ENV QEMU_CPU POWER8
 COPY scripts/build/qemu-user-static/usr/bin/qemu-ppc64le-static /usr/bin/qemu-ppc64le-static
