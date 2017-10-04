@@ -1431,11 +1431,10 @@ class launcher:
 		self.__runtest += 1
 		self.__nr_skip += 1
 
-		if self.__junit_test_cases != None:
+		if self.__junit_test_cases is not None:
 			tc = TestCase(name)
 			tc.add_skipped_info(reason)
-			if self.__junit_test_cases != None:
-				self.__junit_test_cases.append(tc)
+			self.__junit_test_cases.append(tc)
 		if self.__file_report:
 			testline = "ok %d - %s # SKIP %s" % (self.__runtest, name, reason)
 			print >> self.__file_report, testline
@@ -1481,7 +1480,7 @@ class launcher:
 		if pid != 0:
 			sub = self.__subs.pop(pid)
 			tc = None
-			if self.__junit_test_cases != None:
+			if self.__junit_test_cases is not None:
 				tc = TestCase(sub['name'], elapsed_sec=time.time() - sub['start'])
 				self.__junit_test_cases.append(tc)
 			if status != 0:
