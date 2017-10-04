@@ -56,12 +56,14 @@ time make CC="$CC" -j4 -C test/zdtm
 
 [ -f "$CCACHE_LOGFILE" ] && cat $CCACHE_LOGFILE
 
+# umask has to be called before a first criu run, so that .gcda (coverage data)
+# files are created with read-write permissions for all.
+umask 0000
 ./criu/criu check
 ./criu/criu check --all || echo $?
 ./criu/criu cpuinfo dump
 ./criu/criu cpuinfo check
 
-umask 0000
 export SKIP_PREP=1
 # The 3.19 kernel (from Ubuntu 14.04) has a bug. When /proc/PID/pagemap
 # is read for a few VMAs in one read call, incorrect data is returned.
