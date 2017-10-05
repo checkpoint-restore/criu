@@ -188,7 +188,8 @@ endif
 
 ifeq ($(SRCARCH),s390)
         TST_NOFILE +=	s390x_regs_check	\
-			s390x_gs_threads
+			s390x_gs_threads	\
+			s390x_runtime_instr
 endif
 
 TST_FILE	=				\

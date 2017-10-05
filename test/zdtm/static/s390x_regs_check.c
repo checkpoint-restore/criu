@@ -227,6 +227,36 @@ struct reg_set reg_set_gs_bc = {
 };
 
 /*
+ * s390 runtime-instrumentation control block
+ */
+#define NT_S390_RI_CB		0x30d
+
+struct ri_cb {
+	uint64_t regs[8];
+};
+
+struct ri_cb ri_cb_data = {
+	.regs = {
+			0x000002aa13aae000,
+			0x000002aa13aad000,
+			0x000002aa13aadfff,
+			0xe0a1000400000000,
+			0x0000000000000000,
+			0x0000000000004e20,
+			0x0000000000003479,
+			0x0000000000000000,
+	}
+};
+
+struct reg_set reg_set_ri_cb = {
+	.name		= "RI_CB",
+	.nr		= NT_S390_RI_CB,
+	.data		= &ri_cb_data,
+	.len		= sizeof(ri_cb_data),
+	.optional	= true,
+};
+
+/*
  * Vector with all regsets
  */
 struct reg_set *reg_set_vec[] = {
@@ -235,6 +265,7 @@ struct reg_set *reg_set_vec[] = {
 	&reg_set_vxrs_high,
 	&reg_set_gs_cb,
 	&reg_set_gs_bc,
+	&reg_set_ri_cb,
 	NULL,
 };
 
