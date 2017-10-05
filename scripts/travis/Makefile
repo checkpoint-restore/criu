@@ -21,5 +21,8 @@ asan:
 	$(MAKE) -C ../build fedora-asan
 	docker run --rm -it --privileged -v /lib/modules:/lib/modules criu-fedora-asan ./scripts/travis/asan.sh
 
+docker-test:
+	./docker-test.sh
+
 %:
 	$(MAKE) -C ../build $@$(target-suffix)

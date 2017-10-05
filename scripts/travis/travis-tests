@@ -48,6 +48,9 @@ echo "|`pwd`/test/abrt.sh %P %p %s %e" > /proc/sys/kernel/core_pattern
 
 export GCOV
 time make CC="$CC" -j4
+
+[ -n "$SKIP_TRAVIS_TEST" ] && return
+
 time make CC="$CC" -j4 -C test/zdtm
 
 [ -f "$CCACHE_LOGFILE" ] && cat $CCACHE_LOGFILE
