@@ -2193,6 +2193,9 @@ static int restore_netns_ids(struct ns_id *ns)
 {
 	int i, sk, exit_code = -1;
 
+	if (!ns->net.netns)
+		return 0;
+
 	sk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (sk < 0) {
 		pr_perror("Can't open rtnl sock for net dump");
