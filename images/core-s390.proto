@@ -30,10 +30,16 @@ message user_s390_fpregs_entry {
 	repeated uint64			fprs		= 2;
 }
 
+message user_s390_gs_cb_entry {
+	repeated uint64			regs		= 1;
+}
+
 message thread_info_s390 {
 	required uint64				clear_tid_addr	= 1[(criu).hex = true];
 	required user_s390_regs_entry		gpregs		= 2[(criu).hex = true];
 	required user_s390_fpregs_entry		fpregs		= 3[(criu).hex = true];
 	optional user_s390_vxrs_low_entry	vxrs_low	= 4[(criu).hex = true];
 	optional user_s390_vxrs_high_entry	vxrs_high	= 5[(criu).hex = true];
+	optional user_s390_gs_cb_entry		gs_cb		= 6[(criu).hex = true];
+	optional user_s390_gs_cb_entry		gs_bc		= 7[(criu).hex = true];
 }

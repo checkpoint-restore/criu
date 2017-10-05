@@ -38,12 +38,18 @@ struct prfpreg {
 };
 
 #define USER_FPREGS_VXRS	0x000000001
+/* Guarded-storage control block */
+#define USER_GS_CB		0x000000002
+/* Guarded-storage broadcast control block */
+#define USER_GS_BC		0x000000004
 
 typedef struct {
 	uint32_t	flags;
 	struct prfpreg	prfpreg;
 	uint64_t	vxrs_low[16];
 	vector128_t	vxrs_high[16];
+	uint64_t	gs_cb[4];
+	uint64_t	gs_bc[4];
 } user_fpregs_struct_t;
 
 typedef struct {

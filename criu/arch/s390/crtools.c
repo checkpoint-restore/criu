@@ -24,10 +24,13 @@
 #include "images/creds.pb-c.h"
 #include "ptrace.h"
 #include "pstree.h"
+#include "image.h"
 
 #define NT_PRFPREG		2
 #define NT_S390_VXRS_LOW	0x309
 #define NT_S390_VXRS_HIGH	0x30a
+#define NT_S390_GS_CB		0x30b
+#define NT_S390_GS_BC		0x30c
 
 /*
  * Print general purpose and access registers
@@ -47,24 +50,18 @@ static void print_core_gpregs(const char *msg, UserS390RegsEntry *gpregs)
 }
 
 /*
- * Print floating point and vector registers
+ * Print vector registers
  */
-static void print_core_fp_regs(const char *msg, CoreEntry *core)
+static void print_core_vx_regs(CoreEntry *core)
 {
 	UserS390VxrsHighEntry *vxrs_high;
 	UserS390VxrsLowEntry *vxrs_low;
-	UserS390FpregsEntry *fpregs;
 	int i;
 
 	vxrs_high = CORE_THREAD_ARCH_INFO(core)->vxrs_high;
 	vxrs_low = CORE_THREAD_ARCH_INFO(core)->vxrs_low;
-	fpregs = CORE_THREAD_ARCH_INFO(core)->fpregs;
 
-	pr_debug("%s: Floating point registers\n", msg);
-	pr_debug("       fpc %08x\n", fpregs->fpc);
-	for (i = 0; i < 16; i++)
-		pr_debug("       f%02d %016lx\n", i, fpregs->fprs[i]);
-	if (!vxrs_low) {
+	if (vxrs_low == NULL) {
 		pr_debug("       No VXRS\n");
 		return;
 	}
@@ -73,6 +70,60 @@ static void print_core_fp_regs(const char *msg, CoreEntry *core)
 	for (i = 0; i < 32; i += 2)
 		pr_debug(" vx_high%02d %016lx %016lx\n", i / 2,
 			 vxrs_high->regs[i], vxrs_high->regs[i + 1]);
+}
+
+/*
+ * Print guarded-storage control block
+ */
+static void print_core_gs_cb(CoreEntry *core)
+{
+	UserS390GsCbEntry *gs_cb;
+	int i;
+
+	gs_cb = CORE_THREAD_ARCH_INFO(core)->gs_cb;
+	if (!gs_cb) {
+		pr_debug("       No GS_CB\n");
+		return;
+	}
+	for (i = 0; i < 4; i++)
+		pr_debug("       gs_cb%d %lx\n", i, gs_cb->regs[i]);
+}
+
+/*
+ * Print guarded-storage broadcast control block
+ */
+static void print_core_gs_bc(CoreEntry *core)
+{
+	UserS390GsCbEntry *gs_bc;
+	int i;
+
+	gs_bc = CORE_THREAD_ARCH_INFO(core)->gs_bc;
+
+	if (!gs_bc) {
+		pr_debug("       No GS_BC\n");
+		return;
+	}
+	for (i = 0; i < 4; i++)
+		pr_debug("       gs_bc%d %lx\n", i, gs_bc->regs[i]);
+}
+
+/*
+ * Print architecture registers
+ */
+static void print_core_fp_regs(const char *msg, CoreEntry *core)
+{
+	UserS390FpregsEntry *fpregs;
+	int i;
+
+	fpregs = CORE_THREAD_ARCH_INFO(core)->fpregs;
+
+	pr_debug("%s: Floating point registers\n", msg);
+	pr_debug("       fpc %08x\n", fpregs->fpc);
+	for (i = 0; i < 16; i++)
+		pr_debug("       f%02d %016lx\n", i, fpregs->fprs[i]);
+	print_core_vx_regs(core);
+	print_core_gs_cb(core);
+	print_core_gs_bc(core);
 }
 
 /*
@@ -144,14 +195,49 @@ static void free_vxrs_high_regs(UserS390VxrsHighEntry *vxrs_high)
 }
 
 /*
+ * Allocate guarded-storage control block (GS_CB and GS_BC)
+ */
+static UserS390GsCbEntry *allocate_gs_cb(void)
+{
+	UserS390GsCbEntry *gs_cb;
+
+	gs_cb = xmalloc(sizeof(*gs_cb));
+	if (!gs_cb)
+		return NULL;
+	user_s390_gs_cb_entry__init(gs_cb);
+
+	gs_cb->n_regs = 4;
+	gs_cb->regs = xzalloc(4 * sizeof(uint64_t));
+	if (!gs_cb->regs)
+		goto fail_free_gs_cb;
+	return gs_cb;
+
+fail_free_gs_cb:
+	xfree(gs_cb);
+	return NULL;
+}
+
+/*
+ * Free Guareded Storage control blocks
+ */
+static void free_gs_cb(UserS390GsCbEntry *gs_cb)
+{
+	if (gs_cb) {
+		xfree(gs_cb->regs);
+		xfree(gs_cb);
+	}
+}
+/*
  * Copy internal structures into Google Protocol Buffers
  */
 int save_task_regs(void *arg, user_regs_struct_t *u, user_fpregs_struct_t *f)
 {
-	UserS390VxrsHighEntry *vxrs_high;
-	UserS390VxrsLowEntry *vxrs_low;
-	UserS390FpregsEntry *fpregs;
-	UserS390RegsEntry *gpregs;
+	UserS390VxrsHighEntry *vxrs_high = NULL;
+	UserS390VxrsLowEntry *vxrs_low = NULL;
+	UserS390FpregsEntry *fpregs = NULL;
+	UserS390RegsEntry *gpregs = NULL;
+	UserS390GsCbEntry *gs_cb = NULL;
+	UserS390GsCbEntry *gs_bc = NULL;
 	CoreEntry *core = arg;
 
 	gpregs = CORE_THREAD_ARCH_INFO(core)->gpregs;
@@ -163,14 +249,28 @@ int save_task_regs(void *arg, user_regs_struct_t *u, user_fpregs_struct_t *f)
 		if (!vxrs_low)
 			return -1;
 		vxrs_high = allocate_vxrs_high_regs();
-		if (!vxrs_high) {
-			free_vxrs_low_regs(vxrs_low);
-			return -1;
-		}
+		if (!vxrs_high)
+			goto fail_free_vxrs_low;
 		memcpy(vxrs_low->regs, &f->vxrs_low, sizeof(f->vxrs_low));
 		memcpy(vxrs_high->regs, &f->vxrs_high, sizeof(f->vxrs_high));
 		CORE_THREAD_ARCH_INFO(core)->vxrs_low = vxrs_low;
 		CORE_THREAD_ARCH_INFO(core)->vxrs_high = vxrs_high;
+	}
+	/* Guarded-storage control block */
+	if (f->flags & USER_GS_CB) {
+		gs_cb = allocate_gs_cb();
+		if (!gs_cb)
+			goto fail_free_gs_cb;
+		memcpy(gs_cb->regs, &f->gs_cb, sizeof(f->gs_cb));
+		CORE_THREAD_ARCH_INFO(core)->gs_cb = gs_cb;
+	}
+	/* Guarded-storage broadcast control block */
+	if (f->flags & USER_GS_BC) {
+		gs_bc = allocate_gs_cb();
+		if (!gs_bc)
+			goto fail_free_gs_bc;
+		memcpy(gs_bc->regs, &f->gs_bc, sizeof(f->gs_bc));
+		CORE_THREAD_ARCH_INFO(core)->gs_bc = gs_bc;
 	}
 	/* General purpose registers */
 	memcpy(gpregs->gprs, u->prstatus.gprs, sizeof(u->prstatus.gprs));
@@ -184,6 +284,13 @@ int save_task_regs(void *arg, user_regs_struct_t *u, user_fpregs_struct_t *f)
 	fpregs->fpc = f->prfpreg.fpc;
 	memcpy(fpregs->fprs, f->prfpreg.fprs, sizeof(f->prfpreg.fprs));
 	return 0;
+fail_free_gs_cb:
+	free_gs_cb(gs_cb);
+fail_free_gs_bc:
+	free_gs_cb(gs_bc);
+fail_free_vxrs_low:
+	free_vxrs_low_regs(vxrs_low);
+	return -1;
 }
 
 /*
@@ -225,7 +332,6 @@ int restore_fpu(struct rt_sigframe *f, CoreEntry *core)
 		memcpy(&dst_ext->vxrs_high, vxrs_high->regs,
 		       sizeof(dst_ext->vxrs_high));
 	}
-	print_core_fp_regs("restore_fp_regs", core);
 	return 0;
 }
 
@@ -342,6 +448,8 @@ void arch_free_thread_info(CoreEntry *core)
 	free_fp_regs(CORE_THREAD_ARCH_INFO(core)->fpregs);
 	free_vxrs_low_regs(CORE_THREAD_ARCH_INFO(core)->vxrs_low);
 	free_vxrs_high_regs(CORE_THREAD_ARCH_INFO(core)->vxrs_high);
+	free_gs_cb(CORE_THREAD_ARCH_INFO(core)->gs_cb);
+	free_gs_cb(CORE_THREAD_ARCH_INFO(core)->gs_bc);
 	xfree(CORE_THREAD_ARCH_INFO(core));
 	CORE_THREAD_ARCH_INFO(core) = NULL;
 }
@@ -390,6 +498,52 @@ static int set_vx_regs(pid_t pid, user_fpregs_struct_t *fpregs)
 }
 
 /*
+ * Set guarded-storage control block
+ */
+static int set_gs_cb(pid_t pid, user_fpregs_struct_t *fpregs)
+{
+	struct iovec iov;
+
+	if (fpregs->flags & USER_GS_CB) {
+		iov.iov_base = &fpregs->gs_cb;
+		iov.iov_len = sizeof(fpregs->gs_cb);
+		if (setregset(pid, NT_S390_GS_CB, "S390_GS_CB", &iov))
+			return -1;
+	}
+
+	if (!(fpregs->flags & USER_GS_BC))
+		return 0;
+	iov.iov_base = &fpregs->gs_bc;
+	iov.iov_len = sizeof(fpregs->gs_bc);
+	return setregset(pid, NT_S390_GS_BC, "S390_GS_BC", &iov);
+}
+
+/*
+ * Restore registers not present in sigreturn signal frame
+ */
+static int set_task_regs_nosigrt(pid_t pid, CoreEntry *core)
+{
+	user_fpregs_struct_t fpregs;
+	UserS390GsCbEntry *cgs_cb;
+	UserS390GsCbEntry *cgs_bc;
+
+	memset(&fpregs, 0, sizeof(fpregs));
+	/* Guarded-storage control block (optional) */
+	cgs_cb = CORE_THREAD_ARCH_INFO(core)->gs_cb;
+	if (cgs_cb != NULL) {
+		fpregs.flags |= USER_GS_CB;
+		memcpy(&fpregs.gs_cb, cgs_cb->regs, sizeof(fpregs.gs_cb));
+	}
+	/* Guarded-storage broadcast control block (optional) */
+	cgs_bc = CORE_THREAD_ARCH_INFO(core)->gs_bc;
+	if (cgs_bc != NULL) {
+		fpregs.flags |= USER_GS_BC;
+		memcpy(&fpregs.gs_bc, cgs_bc->regs, sizeof(fpregs.gs_bc));
+	}
+	return set_gs_cb(pid, &fpregs);
+}
+
+/*
  * Restore registers for pid from core
  */
 static int set_task_regs(pid_t pid, CoreEntry *core)
@@ -410,33 +564,41 @@ static int set_task_regs(pid_t pid, CoreEntry *core)
 		return -1;
 	/* Vector registers (optional) */
 	cvxrs_low = CORE_THREAD_ARCH_INFO(core)->vxrs_low;
-	if (!cvxrs_low)
-		return 0;
-	cvxrs_high = CORE_THREAD_ARCH_INFO(core)->vxrs_high;
-	if (!cvxrs_high)
-		return -1;
-	fpregs.flags |= USER_FPREGS_VXRS;
-	memcpy(&fpregs.vxrs_low, cvxrs_low->regs, sizeof(fpregs.vxrs_low));
-	memcpy(&fpregs.vxrs_high, cvxrs_high->regs, sizeof(fpregs.vxrs_high));
-
-	return set_vx_regs(pid, &fpregs);
+	if (cvxrs_low != NULL) {
+		cvxrs_high = CORE_THREAD_ARCH_INFO(core)->vxrs_high;
+		if (!cvxrs_high)
+			return -1;
+		fpregs.flags |= USER_FPREGS_VXRS;
+		memcpy(&fpregs.vxrs_low, cvxrs_low->regs,
+				sizeof(fpregs.vxrs_low));
+		memcpy(&fpregs.vxrs_high, cvxrs_high->regs,
+				sizeof(fpregs.vxrs_high));
+		if (set_vx_regs(pid, &fpregs) < 0)
+			return -1;
+	}
+	return set_task_regs_nosigrt(pid, core);
 }
 
 /*
- * Restore vector and floating point registers for all threads
+ * Restore registers for all threads:
+ * - Floating point registers
+ * - Vector registers
+ * - Guarded-storage control block
+ * - Guarded-storage broadcast control block
  */
-int arch_set_thread_regs(struct pstree_item *item)
+int arch_set_thread_regs(struct pstree_item *item, bool with_threads)
 {
 	int i;
 
 	for_each_pstree_item(item) {
 		if (item->pid->state == TASK_DEAD ||
-		    item->pid->state == TASK_ZOMBIE ||
-		    item->pid->state == TASK_HELPER)
+		    item->pid->state == TASK_ZOMBIE)
 			continue;
 		for (i = 0; i < item->nr_threads; i++) {
 			if (item->threads[i].state == TASK_DEAD ||
 			    item->threads[i].state == TASK_ZOMBIE)
+				continue;
+			if (!with_threads && i > 0)
 				continue;
 			if (set_task_regs(item->threads[i].real,
 					  item->core[i])) {
@@ -446,5 +608,45 @@ int arch_set_thread_regs(struct pstree_item *item)
 			}
 		}
 	}
+	return 0;
+}
+
+static int open_core(int pid, CoreEntry **pcore)
+{
+	struct cr_img *img;
+	int ret;
+
+	img = open_image(CR_FD_CORE, O_RSTR, pid);
+	if (!img) {
+		pr_err("Can't open core data for %d\n", pid);
+		return -1;
+	}
+	ret = pb_read_one(img, pcore, PB_CORE);
+	close_image(img);
+
+	return ret <= 0 ? -1 : 0;
+}
+
+/*
+ * Restore all registers not present in sigreturn signal frame
+ *
+ * - Guarded-storage control block
+ * - Guarded-storage broadcast control block
+ */
+int arch_set_thread_regs_nosigrt(struct pid *pid)
+{
+	CoreEntry *core;
+
+	core = xmalloc(sizeof(*core));
+	if (open_core(pid->ns[0].virt, &core) < 0) {
+		pr_perror("Cannot open core for virt pid %d", pid->ns[0].virt);
+		return -1;
+	}
+
+	if (set_task_regs_nosigrt(pid->real, core) < 0) {
+		pr_perror("Set register for pid %d", pid->real);
+		return -1;
+	}
+	print_core_fp_regs("restore_fp_regs", core);
 	return 0;
 }
