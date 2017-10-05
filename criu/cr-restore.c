@@ -121,6 +121,15 @@ static int prepare_rlimits(int pid, struct task_restore_args *, CoreEntry *core)
 static int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry *core);
 static int prepare_signals(int pid, struct task_restore_args *, CoreEntry *core);
 
+/*
+ * Architectures can overwrite this function to restore registers that are not
+ * present in the sigreturn signal frame.
+ */
+int __attribute__((weak)) arch_set_thread_regs_nosigrt(struct pid *pid)
+{
+	return 0;
+}
+
 static inline int stage_participants(int next_stage)
 {
 	switch (next_stage) {
@@ -1812,6 +1821,8 @@ static void finalize_restore_detach(int status)
 				break;
 			}
 
+			if (arch_set_thread_regs_nosigrt(&item->threads[i]))
+				pr_perror("Restoring regs for %d failed", pid);
 			if (ptrace(PTRACE_DETACH, pid, NULL, 0))
 				pr_perror("Unable to execute %d", pid);
 		}

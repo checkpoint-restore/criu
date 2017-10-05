@@ -86,8 +86,13 @@
 /*
  * Architectures can overwrite this function to restore register sets that
  * are not covered by ptrace_set/get_regs().
+ *
+ * with_threads = false: Only the register sets of the tasks are restored
+ * with_threads = true : The register sets of the tasks with all their threads
+ *			 are restored
  */
-int __attribute__((weak)) arch_set_thread_regs(struct pstree_item *item)
+int __attribute__((weak)) arch_set_thread_regs(struct pstree_item *item,
+					       bool with_threads)
 {
 	return 0;
 }
@@ -1468,6 +1473,12 @@ static int cr_pre_dump_finish(int ret)
 {
 	struct pstree_item *item;
 
+	/*
+	 * Restore registers for tasks only. The threads have not been
+	 * infected. Therefore, the thread register sets have not been changed.
+	 */
+	if (arch_set_thread_regs(root_item, false) < 0)
+		goto err;
 	pstree_switch_state(root_item, TASK_ALIVE);
 
 	timing_stop(TIME_FROZEN);
@@ -1680,7 +1691,8 @@ static int cr_dump_finish(int ret)
 	if (!ret && opts.lazy_pages)
 		ret = cr_lazy_mem_dump();
 
-	arch_set_thread_regs(root_item);
+	if (arch_set_thread_regs(root_item, true) < 0)
+		return -1;
 	pstree_switch_state(root_item,
 			    (ret || post_dump_ret) ?
 			    TASK_ALIVE : opts.final_state);
