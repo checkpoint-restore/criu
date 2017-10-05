@@ -33,8 +33,7 @@ export SKIP_TRAVIS_TEST=1
 
 cd ../../
 
-touch /usr/sbin/criu
-mount --bind criu/criu /usr/sbin/criu
+make install
 
 docker info
 
