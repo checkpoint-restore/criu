@@ -31,6 +31,7 @@
 #define NT_S390_VXRS_HIGH	0x30a
 #define NT_S390_GS_CB		0x30b
 #define NT_S390_GS_BC		0x30c
+#define NT_S390_RI_CB		0x30d
 
 /*
  * Print general purpose and access registers
@@ -108,6 +109,22 @@ static void print_core_gs_bc(CoreEntry *core)
 }
 
 /*
+ * Print runtime-instrumentation control block
+ */
+static void print_core_ri_cb(CoreEntry *core)
+{
+	UserS390RiEntry *ri_cb;
+	int i;
+
+	ri_cb = CORE_THREAD_ARCH_INFO(core)->ri_cb;
+	if (!ri_cb) {
+		pr_debug("       No RI_CB\n");
+		return;
+	}
+	for (i = 0; i < 8; i++)
+		pr_debug("       ri_cb%d %lx\n", i, ri_cb->regs[i]);
+}
+/*
  * Print architecture registers
  */
 static void print_core_fp_regs(const char *msg, CoreEntry *core)
@@ -124,6 +141,7 @@ static void print_core_fp_regs(const char *msg, CoreEntry *core)
 	print_core_vx_regs(core);
 	print_core_gs_cb(core);
 	print_core_gs_bc(core);
+	print_core_ri_cb(core);
 }
 
 /*
@@ -227,6 +245,42 @@ static void free_gs_cb(UserS390GsCbEntry *gs_cb)
 		xfree(gs_cb);
 	}
 }
+
+/*
+ * Allocate runtime-instrumentation control block
+ */
+static UserS390RiEntry *allocate_ri_cb(void)
+{
+	UserS390RiEntry *ri_cb;
+
+	ri_cb = xmalloc(sizeof(*ri_cb));
+	if (!ri_cb)
+		return NULL;
+	user_s390_ri_entry__init(ri_cb);
+
+	ri_cb->ri_on = 0;
+	ri_cb->n_regs = 8;
+	ri_cb->regs = xzalloc(8 * sizeof(uint64_t));
+	if (!ri_cb->regs)
+		goto fail_free_ri_cb;
+	return ri_cb;
+
+fail_free_ri_cb:
+	xfree(ri_cb);
+	return NULL;
+}
+
+/*
+ * Free runtime-instrumentation control block
+ */
+static void free_ri_cb(UserS390RiEntry *ri_cb)
+{
+	if (ri_cb) {
+		xfree(ri_cb->regs);
+		xfree(ri_cb);
+	}
+}
+
 /*
  * Copy internal structures into Google Protocol Buffers
  */
@@ -238,6 +292,7 @@ int save_task_regs(void *arg, user_regs_struct_t *u, user_fpregs_struct_t *f)
 	UserS390RegsEntry *gpregs = NULL;
 	UserS390GsCbEntry *gs_cb = NULL;
 	UserS390GsCbEntry *gs_bc = NULL;
+	UserS390RiEntry *ri_cb = NULL;
 	CoreEntry *core = arg;
 
 	gpregs = CORE_THREAD_ARCH_INFO(core)->gpregs;
@@ -272,6 +327,17 @@ int save_task_regs(void *arg, user_regs_struct_t *u, user_fpregs_struct_t *f)
 		memcpy(gs_bc->regs, &f->gs_bc, sizeof(f->gs_bc));
 		CORE_THREAD_ARCH_INFO(core)->gs_bc = gs_bc;
 	}
+	/* Runtime-instrumentation control block */
+	if (f->flags & USER_RI_CB) {
+		ri_cb = allocate_ri_cb();
+		if (!ri_cb)
+			goto fail_free_ri_cb;
+		memcpy(ri_cb->regs, &f->ri_cb, sizeof(f->ri_cb));
+		CORE_THREAD_ARCH_INFO(core)->ri_cb = ri_cb;
+		/* We need to remember that the RI bit was on */
+		if (f->flags & USER_RI_ON)
+			ri_cb->ri_on = 1;
+	}
 	/* General purpose registers */
 	memcpy(gpregs->gprs, u->prstatus.gprs, sizeof(u->prstatus.gprs));
 	gpregs->psw_mask = u->prstatus.psw.mask;
@@ -284,6 +350,8 @@ int save_task_regs(void *arg, user_regs_struct_t *u, user_fpregs_struct_t *f)
 	fpregs->fpc = f->prfpreg.fpc;
 	memcpy(fpregs->fprs, f->prfpreg.fprs, sizeof(f->prfpreg.fprs));
 	return 0;
+fail_free_ri_cb:
+	free_ri_cb(ri_cb);
 fail_free_gs_cb:
 	free_gs_cb(gs_cb);
 fail_free_gs_bc:
@@ -450,6 +518,7 @@ void arch_free_thread_info(CoreEntry *core)
 	free_vxrs_high_regs(CORE_THREAD_ARCH_INFO(core)->vxrs_high);
 	free_gs_cb(CORE_THREAD_ARCH_INFO(core)->gs_cb);
 	free_gs_cb(CORE_THREAD_ARCH_INFO(core)->gs_bc);
+	free_ri_cb(CORE_THREAD_ARCH_INFO(core)->ri_cb);
 	xfree(CORE_THREAD_ARCH_INFO(core));
 	CORE_THREAD_ARCH_INFO(core) = NULL;
 }
@@ -519,6 +588,49 @@ static int set_gs_cb(pid_t pid, user_fpregs_struct_t *fpregs)
 }
 
 /*
+ * Set runtime-instrumentation control block
+ */
+static int set_ri_cb(pid_t pid, user_fpregs_struct_t *fpregs)
+{
+	struct iovec iov;
+
+	if (!(fpregs->flags & USER_RI_CB))
+		return 0;
+
+	iov.iov_base = &fpregs->ri_cb;
+	iov.iov_len = sizeof(fpregs->ri_cb);
+	return setregset(pid, NT_S390_RI_CB, "S390_RI_CB", &iov);
+}
+
+/*
+ * Set runtime-instrumentation bit
+ *
+ * The CPU collects information when the RI bit of the PSW is set.
+ * The RI control block is not part of the signal frame. Therefore during
+ * sigreturn it is not set. If the RI control block is present, the CPU
+ * writes into undefined storage. Hence, we have disabled the RI bit in
+ * the sigreturn PSW and set this bit after sigreturn by modifying the PSW
+ * of the task.
+ */
+static int set_ri_bit(pid_t pid)
+{
+	user_regs_struct_t regs;
+	struct iovec iov;
+	psw_t *psw;
+
+	iov.iov_base = &regs.prstatus;
+	iov.iov_len = sizeof(regs.prstatus);
+	if (ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, &iov) < 0) {
+		pr_perror("Fail to activate RI bit");
+		return -1;
+	}
+	psw = &regs.prstatus.psw;
+	psw->mask |= PSW_MASK_RI;
+
+	return ptrace(PTRACE_SETREGSET, pid, NT_PRSTATUS, &iov);
+}
+
+/*
  * Restore registers not present in sigreturn signal frame
  */
 static int set_task_regs_nosigrt(pid_t pid, CoreEntry *core)
@@ -526,6 +638,8 @@ static int set_task_regs_nosigrt(pid_t pid, CoreEntry *core)
 	user_fpregs_struct_t fpregs;
 	UserS390GsCbEntry *cgs_cb;
 	UserS390GsCbEntry *cgs_bc;
+	UserS390RiEntry *cri_cb;
+	int ret = 0;
 
 	memset(&fpregs, 0, sizeof(fpregs));
 	/* Guarded-storage control block (optional) */
@@ -540,7 +654,21 @@ static int set_task_regs_nosigrt(pid_t pid, CoreEntry *core)
 		fpregs.flags |= USER_GS_BC;
 		memcpy(&fpregs.gs_bc, cgs_bc->regs, sizeof(fpregs.gs_bc));
 	}
-	return set_gs_cb(pid, &fpregs);
+	if (set_gs_cb(pid, &fpregs) < 0)
+		return -1;
+	/* Runtime-instrumentation control block (optional) */
+	cri_cb = CORE_THREAD_ARCH_INFO(core)->ri_cb;
+	if (cri_cb != NULL) {
+		fpregs.flags |= USER_RI_CB;
+		memcpy(&fpregs.ri_cb, cri_cb->regs, sizeof(fpregs.ri_cb));
+		if (set_ri_cb(pid, &fpregs) < 0)
+			return -1;
+		if (cri_cb->ri_on) {
+			fpregs.flags |= USER_RI_ON;
+			ret = set_ri_bit(pid);
+		}
+	}
+	return ret;
 }
 
 /*
@@ -585,6 +713,7 @@ static int set_task_regs(pid_t pid, CoreEntry *core)
  * - Vector registers
  * - Guarded-storage control block
  * - Guarded-storage broadcast control block
+ * - Runtime-instrumentation control block
  */
 int arch_set_thread_regs(struct pstree_item *item, bool with_threads)
 {
@@ -632,6 +761,7 @@ static int open_core(int pid, CoreEntry **pcore)
  *
  * - Guarded-storage control block
  * - Guarded-storage broadcast control block
+ * - Runtime-instrumentation control block
  */
 int arch_set_thread_regs_nosigrt(struct pid *pid)
 {

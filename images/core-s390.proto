@@ -34,6 +34,11 @@ message user_s390_gs_cb_entry {
 	repeated uint64			regs		= 1;
 }
 
+message user_s390_ri_entry {
+	required uint32			ri_on		= 1;
+	repeated uint64			regs		= 2;
+}
+
 message thread_info_s390 {
 	required uint64				clear_tid_addr	= 1[(criu).hex = true];
 	required user_s390_regs_entry		gpregs		= 2[(criu).hex = true];
@@ -42,4 +47,5 @@ message thread_info_s390 {
 	optional user_s390_vxrs_high_entry	vxrs_high	= 5[(criu).hex = true];
 	optional user_s390_gs_cb_entry		gs_cb		= 6[(criu).hex = true];
 	optional user_s390_gs_cb_entry		gs_bc		= 7[(criu).hex = true];
+	optional user_s390_ri_entry		ri_cb		= 8[(criu).hex = true];
 }
