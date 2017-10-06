@@ -209,6 +209,18 @@ static int refresh_sk(struct libsoccr_sk *sk,
 
 	data->unsq_len = size;
 
+	if (data->state == TCP_CLOSE) {
+		/* A connection could be reseted. In thise case a sent queue
+		 * may contain some data. A user can't read this data, so let's
+		 * ignore them. Otherwise we will need to add a logic whether
+		 * the send queue contains a fin packet or not and decide whether
+		 * a fin or reset packet has to be sent to restore a state
+		 */
+
+		data->unsq_len = 0;
+		data->outq_len = 0;
+	}
+
 	/* Don't account the fin packet. It doesn't countain real data. */
 	if ((1 << data->state) & (SNDQ_FIRST_FIN | SNDQ_SECOND_FIN)) {
 		if (data->outq_len)
