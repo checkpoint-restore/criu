@@ -63,6 +63,7 @@ TST_NOFILE	:=				\
 		sockets_spair			\
 		socket_queues			\
 		socket-tcp			\
+		socket-tcp-reseted		\
 		socket-tcp6			\
 		socket-tcp-local		\
 		socket-tcp-nfconntrack		\
