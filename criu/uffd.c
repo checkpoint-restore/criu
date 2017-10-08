@@ -914,6 +914,15 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	 */
 	if (msg->event == UFFD_EVENT_REMOVE &&
 	    ioctl(lpi->lpfd.fd, UFFDIO_UNREGISTER, &unreg)) {
+		/*
+		 * The kernel returns -ENOMEM when unregister is
+		 * called after the process has gone
+		 */
+		if (errno == ENOMEM) {
+			handle_exit(lpi);
+			return 0;
+		}
+
 		pr_perror("Failed to unregister (%llx - %llx)", unreg.start,
 			  unreg.start + unreg.len);
 		return -1;
