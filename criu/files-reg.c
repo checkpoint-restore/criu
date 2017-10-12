@@ -1609,7 +1609,7 @@ int open_path(struct file_desc *d,
 	if (rfi->remap) {
 		if (fault_injected(FI_RESTORE_OPEN_LINK_REMAP)) {
 			pr_info("fault: Open link-remap failure!\n");
-			BUG();
+			kill(getpid(), SIGKILL);
 		}
 
 		mutex_lock(remap_open_lock);

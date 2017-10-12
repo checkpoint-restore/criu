@@ -1286,7 +1286,7 @@ static int dump_one_task(struct pstree_item *item)
 
 	if (fault_injected(FI_DUMP_EARLY)) {
 		pr_info("fault: CRIU sudden detach\n");
-		BUG();
+		kill(getpid(), SIGKILL);
 	}
 
 	if (root_ns_mask & CLONE_NEWPID && root_item == item) {

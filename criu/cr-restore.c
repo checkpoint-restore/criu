@@ -1615,7 +1615,7 @@ static int restore_task_with_children(void *_arg)
 
 	if (fault_injected(FI_RESTORE_ROOT_ONLY)) {
 		pr_info("fault: Restore root task failure!\n");
-		BUG();
+		kill(getpid(), SIGKILL);
 	}
 
 	timing_start(TIME_FORK);
