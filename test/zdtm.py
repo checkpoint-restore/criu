@@ -1153,6 +1153,11 @@ def check_visible_state(test, state, opts):
 
 		old_maps = state[1][pid]
 		new_maps = new[1][pid]
+		if os.getenv("COMPAT_TEST"):
+			# the vsyscall vma isn't unmapped from x32 processes
+			vsyscall = "ffffffffff600000-ffffffffff601000 ['r-xp']"
+			if vsyscall in new_maps and vsyscall not in old_maps:
+				new_maps.remove(vsyscall)
 		if old_maps != new_maps:
 			print "%s: Old maps lost: %s" % (pid, old_maps - new_maps)
 			print "%s: New maps appeared: %s" % (pid, new_maps - old_maps)
