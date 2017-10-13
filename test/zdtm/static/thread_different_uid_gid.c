@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <grp.h>
 #include <pwd.h>
 #include <syscall.h>
 
@@ -81,8 +80,6 @@ int main(int argc, char **argv)
 
 	int ret;
 	cap_t newcaps;
-	struct group *group;
-	struct passwd *user;
 	pthread_t diff_cred_thread;
 	test_init(argc, argv);
 	int maingroup;
@@ -115,31 +112,10 @@ int main(int argc, char **argv)
 	}
 
 	test_msg("Main thread runs as UID: %d; GID: %d\n", getuid(), getgid());
-	group = getgrnam("nogroup");
-	group = (group) ? group : getgrnam("nobody");
-	if (!group) {
-		pr_perror("Failed to get nogroup/nobody GID\n");
-		exit(1);
-	}
-	user = getpwnam("nobody");
-	if (!user) {
-		pr_perror("Failed to get nobody UID\n");
-		exit(1);
-	}
-	gid = group->gr_gid;
-	uid = user->pw_uid;
-	group = getgrnam("mail");
-	if (!group) {
-		pr_perror("Failed to get mail GID\n");
-		exit(1);
-	}
-	user = getpwnam("mail");
-	if (!user) {
-		pr_perror("Failed to get mail UID\n");
-		exit(1);
-	}
-	maingroup = group->gr_gid;
-	mainuser = user->pw_uid;
+	gid = 99;
+	uid = 99;
+	maingroup = 8;
+	mainuser = 12;
 
 	test_msg("Creating thread with different UID/GID\n");
 	ret = pthread_create(&diff_cred_thread, NULL, &chg_uid_gid, NULL);
