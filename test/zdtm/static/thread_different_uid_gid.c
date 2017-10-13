@@ -25,6 +25,7 @@ unsigned int gid;
 unsigned int uid;
 pthread_mutex_t mutex  = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  cond   = PTHREAD_COND_INITIALIZER;
+task_waiter_t t;
 
 int done = 0;
 
@@ -70,6 +71,8 @@ void *chg_uid_gid(void *arg)
 	test_msg("Now aux thread runs as UID: %d; GID: %d\n", uid, gid);
 
 	test_msg("Child thread is waiting for main thread's signal\n");
+	task_waiter_complete(&t, 1);
+
 	pthread_mutex_lock(&mutex);
 	while (!done) {
 		pthread_cond_wait(&cond, &mutex);
@@ -89,14 +92,12 @@ int main(int argc, char **argv)
 	int ret;
 
 	test_init(argc, argv);
+	task_waiter_init(&t);
 
 	if (getuid() != 0) {
 		fail("Test is expected to be run with root privileges\n");
 		exit(1);
 	}
-
-	test_daemon();
-	test_msg("Test daemonized\n");
 
 	test_msg("Acquiring CAP_SETGID and CAP_SETUID...\n");
 
@@ -124,8 +125,7 @@ int main(int argc, char **argv)
 
 	test_msg("Creating thread with different UID/GID\n");
 	ret = pthread_create(&diff_cred_thread, NULL, &chg_uid_gid, NULL);
-
-	sleep(5);
+	task_waiter_wait4(&t, 1);
 
 	test_msg("Relinquishing root privileges\n");
 	ret = syscall(SYS_setresgid, maingroup, maingroup, maingroup);
@@ -142,6 +142,7 @@ int main(int argc, char **argv)
 	}
 	test_msg("Main thread is waiting for signal\n");
 
+	test_daemon();
 	test_waitsig();
 
 	if (gid == getgid() || uid == getuid()) {
