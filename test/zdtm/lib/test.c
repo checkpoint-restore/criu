@@ -20,9 +20,23 @@
 #include "ns.h"
 
 futex_t sig_received;
+static struct {
+	futex_t stage;
+} *test_shared_state;
+
+enum {
+	TEST_INIT_STAGE = 0,
+	TEST_RUNNING_STAGE,
+	TEST_FINI_STAGE,
+	TEST_FAIL_STAGE,
+};
+
+static int parent;
 
 static void sig_hand(int signo)
 {
+	if (parent)
+		futex_set_and_wake(&test_shared_state->stage, TEST_FAIL_STAGE);
 	futex_set_and_wake(&sig_received, signo);
 }
 
@@ -208,16 +222,26 @@ void test_init(int argc, char **argv)
 	setup_outfile();
 	redir_stdfds();
 
+	test_shared_state = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
+	if (test_shared_state == MAP_FAILED) {
+		pr_perror("Unable to map a shared memory");
+		exit(1);
+	}
+
+	futex_init(&test_shared_state->stage);
+	futex_set(&test_shared_state->stage, TEST_INIT_STAGE);
+
 	pid = fork();
 	if (pid < 0) {
 		pr_perror("Daemonizing failed");
 		exit(1);
 	}
 
+	parent = 1;
 	if (pid) {	/* parent will exit when the child is ready */
-		test_waitsig();
+		futex_wait_while(&test_shared_state->stage, TEST_INIT_STAGE);
 
-		if (futex_get(&sig_received) == SIGCHLD) {
+		if (futex_get(&test_shared_state->stage) == TEST_FAIL_STAGE) {
 			int ret;
 			if (waitpid(pid, &ret, 0) != pid) {
 				pr_perror("Unable to wait %d", pid);
@@ -239,6 +263,7 @@ void test_init(int argc, char **argv)
 
 		_exit(0);
 	}
+	parent = 0;
 
 	if (setsid() < 0) {
 		pr_perror("Can't become session group leader");
@@ -259,21 +284,7 @@ void test_init(int argc, char **argv)
 
 void test_daemon()
 {
-	pid_t ppid;
-
-	ppid = getppid();
-	if (ppid <= 1) {
-		pr_perror("Test orphaned");
-		goto out;
-	}
-
-	if (kill(ppid, SIGTERM))
-		goto out;
-	return;
-out:
-	/* kill out our process group for safety */
-	kill(0, SIGKILL);
-	exit(1);
+	futex_set_and_wake(&test_shared_state->stage, TEST_RUNNING_STAGE);
 }
 
 int test_go(void)
