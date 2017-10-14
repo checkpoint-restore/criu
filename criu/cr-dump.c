@@ -1834,15 +1834,21 @@ int cr_dump_tasks(pid_t pid)
 	if (dump_pstree(root_item))
 		goto err;
 
+	/*
+	 * TODO: cr_dump_shmem has to be called before dump_namespaces(),
+	 * because page_ids is a global variable and it is used to dump
+	 * ipc shared memory, but an ipc namespace is dumped in a child
+	 * process.
+	 */
+	ret = cr_dump_shmem();
+	if (ret)
+		goto err;
+
 	if (root_ns_mask)
 		if (dump_namespaces(root_item, root_ns_mask) < 0)
 			goto err;
 
 	ret = dump_cgroups();
-	if (ret)
-		goto err;
-
-	ret = cr_dump_shmem();
 	if (ret)
 		goto err;
 
