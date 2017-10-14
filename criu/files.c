@@ -674,6 +674,9 @@ int restore_fown(int fd, FownEntry *fown)
 		return -1;
 	}
 
+	if (prctl(PR_SET_DUMPABLE, 1, 0))
+		pr_perror("Unable to set PR_SET_DUMPABLE");
+
 	return 0;
 }
 
