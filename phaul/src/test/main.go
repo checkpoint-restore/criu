@@ -146,13 +146,13 @@ func main() {
 	pid, _ := strconv.Atoi(os.Args[1])
 	fds, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_STREAM, 0)
 	if err != nil {
-		fmt.Printf("Can't make socketpair\n")
+		fmt.Printf("Can't make socketpair: %v\n", err)
 		return
 	}
 
 	err = prepareImages()
 	if err != nil {
-		fmt.Printf("Can't prepare dirs for images\n")
+		fmt.Printf("Can't prepare dirs for images: %v\n", err)
 		return
 	}
 
@@ -180,8 +180,7 @@ func main() {
 	fmt.Printf("Migrate\n")
 	err = cln.Migrate()
 	if err != nil {
-		fmt.Printf("Failed: ")
-		fmt.Print(err)
+		fmt.Printf("Failed: %v\n", err)
 		return
 	}
 
