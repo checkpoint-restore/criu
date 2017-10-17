@@ -3,12 +3,13 @@ package criu
 import (
 	"errors"
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"os"
 	"os/exec"
-	"rpc"
 	"strconv"
 	"syscall"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/checkpoint-restore/criu/lib/go/src/rpc"
 )
 
 type Criu struct {

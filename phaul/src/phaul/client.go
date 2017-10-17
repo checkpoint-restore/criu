@@ -1,11 +1,12 @@
 package phaul
 
 import (
-	"criu"
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
-	"rpc"
-	"stats"
+	"github.com/checkpoint-restore/criu/lib/go/src/criu"
+	"github.com/checkpoint-restore/criu/lib/go/src/rpc"
+	"github.com/checkpoint-restore/criu/phaul/src/stats"
 )
 
 const minPagesWritten uint64 = 64

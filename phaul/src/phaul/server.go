@@ -1,10 +1,11 @@
 package phaul
 
 import (
-	"criu"
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
-	"rpc"
+	"github.com/checkpoint-restore/criu/lib/go/src/criu"
+	"github.com/checkpoint-restore/criu/lib/go/src/rpc"
 )
 
 type PhaulServer struct {
