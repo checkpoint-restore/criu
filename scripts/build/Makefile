@@ -1,4 +1,4 @@
-QEMU_ARCHES := armv7hf aarch64 ppc64le s390x # require qemu
+QEMU_ARCHES := armv7hf aarch64 ppc64le s390x fedora-rawhide-aarch64 # require qemu
 ARCHES := $(QEMU_ARCHES) x86_64 fedora-asan fedora-rawhide
 TARGETS := $(ARCHES) alpine
 TARGETS_CLANG := $(addsuffix $(TARGETS),-clang)
@@ -38,8 +38,6 @@ endef
 $(foreach t,$(TARGETS),$(eval $(call CLANG_DEP,$(t))))
 
 %-clang:	DB_CC=--build-arg CC=clang
-Dockerfile.fedora-asan: override DOCKER_TMPL=Dockerfile.fedora.tmpl
-Dockerfile.fedora-rawhide: override DOCKER_TMPL=Dockerfile.fedora.tmpl
 %-clang:	DB_ENV=--build-arg ENV1=CCACHE_CPP2
 s390x-clang:	DB_CC=--build-arg CC=clang-3.8
 .PHONY: $(TARGETS_CLANG)
