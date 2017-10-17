@@ -1,7 +1,7 @@
 all: test piggie
 
 test: stats
-	go build -o test test
+	make -C src/test
 
 stats:
 	mkdir -p src/stats/
@@ -9,3 +9,9 @@ stats:
 
 piggie: piggie.c
 	gcc piggie.c -o piggie
+
+clean:
+	rm -rf test_images/
+
+run_test:
+	unshare -fpm --mount-proc ./test.sh
