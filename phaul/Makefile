@@ -1,7 +1,7 @@
 all: test piggie
 
 test: stats
-	GOPATH=$(shell pwd):$(shell pwd)/../lib/go/:/usr/share/gocode go build -o test test
+	go build -o test test
 
 stats:
 	mkdir -p src/stats/

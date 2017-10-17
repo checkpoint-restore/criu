@@ -1,9 +1,10 @@
 package phaul
 
 import (
-	"github.com/golang/protobuf/proto"
 	"os"
-	"stats"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/checkpoint-restore/criu/phaul/src/stats"
 )
 
 /* FIXME: report stats from CriuResp */
