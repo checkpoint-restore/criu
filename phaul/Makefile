@@ -1,6 +1,6 @@
 all: test piggie
 
-test: stats
+test:
 	make -C src/test
 
 stats:
@@ -13,5 +13,5 @@ piggie: piggie.c
 clean:
 	rm -rf test_images/
 
-run_test:
+run_test: piggie test
 	unshare -fpm --mount-proc ./test.sh
