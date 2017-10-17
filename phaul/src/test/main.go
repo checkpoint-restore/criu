@@ -177,7 +177,7 @@ func main() {
 			Memfd: fds[0],
 			Wdir:  images_dir + "/local"})
 	if err != nil {
-		fmt.Printf("Unable to run a client: %v\n", err);
+		fmt.Printf("Unable to run a client: %v\n", err)
 		os.Exit(1)
 	}
 
