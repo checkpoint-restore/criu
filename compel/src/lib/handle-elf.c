@@ -517,6 +517,8 @@ int __handle_elf(void *mem, size_t size)
 				 */
 				*((int32_t *)where) = value32 + addend32 - place;
 				break;
+			case R_X86_64_GOTPCRELX:
+			case R_X86_64_REX_GOTPCRELX:
 			case R_X86_64_GOTPCREL: /* SymbolOffsetInGot + GOT + Addend - Place  (4 bytes) */
 				pr_debug("\t\t\t\tR_X86_64_GOTPCREL at 0x%-4lx val 0x%x\n", place, value32);
 				pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_LONG | COMPEL_TYPE_GOTPCREL, "

@@ -5,6 +5,14 @@
 
 #define ELF_X86_64
 
+#ifndef R_X86_64_GOTPCRELX
+# define R_X86_64_GOTPCRELX			41
+#endif
+
+#ifndef R_X86_64_REX_GOTPCRELX
+# define R_X86_64_REX_GOTPCRELX			42
+#endif
+
 #define __handle_elf				handle_elf_x86_64
 #define arch_is_machine_supported(e_machine)	(e_machine == EM_X86_64)
 
