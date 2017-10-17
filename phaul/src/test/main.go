@@ -147,12 +147,13 @@ func main() {
 	fds, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_STREAM, 0)
 	if err != nil {
 		fmt.Printf("Can't make socketpair: %v\n", err)
-		return
+		os.Exit(1)
 	}
 
 	err = prepareImages()
 	if err != nil {
 		fmt.Printf("Can't prepare dirs for images: %v\n", err)
+		os.Exit(1)
 		return
 	}
 
@@ -162,6 +163,8 @@ func main() {
 		Memfd: fds[1],
 		Wdir:  images_dir + "/remote"})
 	if err != nil {
+		fmt.Printf("Unable to run a server: %v", err)
+		os.Exit(1)
 		return
 	}
 
@@ -174,14 +177,15 @@ func main() {
 			Memfd: fds[0],
 			Wdir:  images_dir + "/local"})
 	if err != nil {
-		return
+		fmt.Printf("Unable to run a client: %v\n", err);
+		os.Exit(1)
 	}
 
 	fmt.Printf("Migrate\n")
 	err = cln.Migrate()
 	if err != nil {
 		fmt.Printf("Failed: %v\n", err)
-		return
+		os.Exit(1)
 	}
 
 	fmt.Printf("SUCCESS!\n")
