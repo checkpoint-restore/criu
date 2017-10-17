@@ -2,6 +2,7 @@ package phaul
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/checkpoint-restore/criu/lib/go/src/criu"
@@ -9,9 +10,10 @@ import (
 )
 
 type PhaulServer struct {
-	cfg  PhaulConfig
-	imgs *images
-	cr   *criu.Criu
+	cfg     PhaulConfig
+	imgs    *images
+	cr      *criu.Criu
+	process *os.Process
 }
 
 /*
@@ -55,10 +57,28 @@ func (s *PhaulServer) StartIter() error {
 		opts.ParentImg = proto.String(prev_p)
 	}
 
-	return s.cr.StartPageServer(opts)
+	pid, _, err := s.cr.StartPageServerChld(opts)
+	if err != nil {
+		return err
+	}
+
+	s.process, err = os.FindProcess(pid)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *PhaulServer) StopIter() error {
+	state, err := s.process.Wait()
+	if err != nil {
+		return nil
+	}
+
+	if !state.Success() {
+		return fmt.Errorf("page-server failed: %s", s)
+	}
 	return nil
 }
 

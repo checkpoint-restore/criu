@@ -73,6 +73,21 @@ func (c *Criu) sendAndRecv(req_b []byte) ([]byte, int, error) {
 }
 
 func (c *Criu) doSwrk(req_type rpc.CriuReqType, opts *rpc.CriuOpts, nfy CriuNotify) error {
+	resp, err := c.doSwrkWithResp(req_type, opts, nfy)
+	if err != nil {
+		return err
+	}
+	resp_type := resp.GetType()
+	if resp_type != req_type {
+		return errors.New("unexpected responce")
+	}
+
+	return nil
+}
+
+func (c *Criu) doSwrkWithResp(req_type rpc.CriuReqType, opts *rpc.CriuOpts, nfy CriuNotify) (*rpc.CriuResp, error) {
+	var resp *rpc.CriuResp
+
 	req := rpc.CriuReq{
 		Type: &req_type,
 		Opts: opts,
@@ -85,7 +100,7 @@ func (c *Criu) doSwrk(req_type rpc.CriuReqType, opts *rpc.CriuOpts, nfy CriuNoti
 	if c.swrk_cmd == nil {
 		err := c.Prepare()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		defer c.Cleanup()
@@ -94,34 +109,31 @@ func (c *Criu) doSwrk(req_type rpc.CriuReqType, opts *rpc.CriuOpts, nfy CriuNoti
 	for {
 		req_b, err := proto.Marshal(&req)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		resp_b, resp_s, err := c.sendAndRecv(req_b)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		resp := &rpc.CriuResp{}
+		resp = &rpc.CriuResp{}
 		err = proto.Unmarshal(resp_b[:resp_s], resp)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if !resp.GetSuccess() {
-			return fmt.Errorf("operation failed (msg:%s err:%d)",
+			return resp, fmt.Errorf("operation failed (msg:%s err:%d)",
 				resp.GetCrErrmsg(), resp.GetCrErrno())
 		}
 
 		resp_type := resp.GetType()
-		if resp_type == req_type {
+		if resp_type != rpc.CriuReqType_NOTIFY {
 			break
 		}
-		if resp_type != rpc.CriuReqType_NOTIFY {
-			return errors.New("unexpected responce")
-		}
 		if nfy == nil {
-			return errors.New("unexpected notify")
+			return resp, errors.New("unexpected notify")
 		}
 
 		notify := resp.GetNotify()
@@ -149,7 +161,7 @@ func (c *Criu) doSwrk(req_type rpc.CriuReqType, opts *rpc.CriuOpts, nfy CriuNoti
 		}
 
 		if err != nil {
-			return err
+			return resp, err
 		}
 
 		req = rpc.CriuReq{
@@ -158,7 +170,7 @@ func (c *Criu) doSwrk(req_type rpc.CriuReqType, opts *rpc.CriuOpts, nfy CriuNoti
 		}
 	}
 
-	return nil
+	return resp, nil
 }
 
 func (c *Criu) Dump(opts rpc.CriuOpts, nfy CriuNotify) error {
@@ -175,4 +187,13 @@ func (c *Criu) PreDump(opts rpc.CriuOpts, nfy CriuNotify) error {
 
 func (c *Criu) StartPageServer(opts rpc.CriuOpts) error {
 	return c.doSwrk(rpc.CriuReqType_PAGE_SERVER, &opts, nil)
+}
+
+func (c *Criu) StartPageServerChld(opts rpc.CriuOpts) (int, int, error) {
+	resp, err := c.doSwrkWithResp(rpc.CriuReqType_PAGE_SERVER_CHLD, &opts, nil)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return int(resp.Ps.GetPid()), int(resp.Ps.GetPort()), nil
 }
