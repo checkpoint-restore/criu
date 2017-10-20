@@ -2132,18 +2132,27 @@ static bool can_mount_now(struct mount_info *mi)
 
 shared:
 	if (mi->parent->shared_id) {
-		struct mount_info *p = mi->parent, *n;
+		struct mount_info *n;
 
-		if (mi->parent->shared_id == mi->shared_id) {
-			int rlen = strlen(mi->root);
-			list_for_each_entry(n, &p->mnt_share, mnt_share)
-				if (strlen(n->root) < rlen && !n->mounted)
-					return false;
-		} else {
-			list_for_each_entry(n, &p->mnt_share, mnt_share)
-				if (!n->mounted)
-					return false;
-		}
+		list_for_each_entry(n, &mi->parent->mnt_share, mnt_share)
+			/*
+			 * All mounts from mi's parent shared group which
+			 * have mi's 'sibling' should receive it through
+			 * mount propagation, so all such mounts in parent
+			 * shared group should be mounted beforehand.
+			 */
+			if (!n->mounted) {
+				char path[PATH_MAX], *mp;
+				struct mount_info *c;
+
+				mp = mnt_get_sibling_path(mi, n, path, sizeof(path));
+				if (mp == NULL)
+					continue;
+
+				list_for_each_entry(c, &n->children, siblings)
+					if (mounts_equal(mi, c) && !strcmp(mp, c->mountpoint))
+						return false;
+			}
 	}
 
 	return true;
