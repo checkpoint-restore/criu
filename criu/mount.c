@@ -688,7 +688,7 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 			return -1;
 
 		if (mnt_is_external(m))
-			goto skip_fstype;
+			continue;
 
 		/*
 		 * Mountpoint can point to / of an FS. In that case this FS
@@ -737,13 +737,6 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 					return -1;
 				}
 			}
-		}
-skip_fstype:
-		if (does_mnt_overmount(m) &&
-		    !list_empty(&m->parent->mnt_share)) {
-			pr_err("Unable to handle mounts under %d:%s\n",
-					m->mnt_id, m->mountpoint);
-			return -1;
 		}
 	}
 
@@ -1685,12 +1678,21 @@ static int propagate_mount(struct mount_info *mi)
 		char path[PATH_MAX], *mp;
 		bool found = false;
 
+		/*
+		 * If a mount from parent's shared group is not yet mounted
+		 * it shouldn't have 'sibling' in it - see can_mount_now()
+		 */
+		if (!t->mounted)
+			continue;
+
 		mp = mnt_get_sibling_path(mi, t, path, sizeof(path));
 		if (mp == NULL)
 			continue;
 
 		list_for_each_entry(c, &t->children, siblings) {
 			if (mounts_equal(mi, c) && !strcmp(mp, c->mountpoint)) {
+				/* Should not propagate the same mount twice */
+				BUG_ON(c->mounted);
 				pr_debug("\t\tPropagate %s\n", c->mountpoint);
 
 				/*
@@ -2287,7 +2289,7 @@ static int try_remap_mount(struct mount_info *m)
 	if (!does_mnt_overmount(m))
 		return 0;
 
-	BUG_ON(!m->parent || !list_empty(&m->parent->mnt_share));
+	BUG_ON(!m->parent);
 
 	r = xmalloc(sizeof(struct mnt_remap_entry));
 	if (!r)
