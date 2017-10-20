@@ -3429,7 +3429,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	if (current->parent == NULL) {
 		/* Wait when all tasks restored all files */
 		if (restore_wait_other_tasks())
-			goto err;
+			goto err_nv;
 	}
 
 	/*
