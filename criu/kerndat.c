@@ -8,7 +8,6 @@
 #include <errno.h>
 #include <sys/syscall.h>
 #include <sys/sysmacros.h>
-#include <sys/sysmacros.h>
 #include <stdint.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
