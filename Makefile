@@ -195,8 +195,6 @@ endif
 $(eval $(call gen-built-in,images))
 criu-deps	+= images/built-in.o
 
-.PHONY: .FORCE
-
 #
 # Compel get used by CRIU, build it earlier
 include Makefile.compel

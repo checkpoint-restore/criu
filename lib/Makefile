@@ -2,8 +2,6 @@ CRIU_SO			:= libcriu.so
 UAPI_HEADERS		:= lib/c/criu.h images/rpc.proto
 PYTHON_BIN ?= python2
 
-.PHONY: .FORCE
-
 #
 # File to keep track of files installed by setup.py
 CRIT_SETUP_FILES	:= lib/.crit-setup.files
