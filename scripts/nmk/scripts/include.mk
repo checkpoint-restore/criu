@@ -4,6 +4,8 @@ ifndef ____nmk_defined__msg
         include $(__nmk_dir)msg.mk
 endif
 
+.PHONY: all help test docs clean install .FORCE
+
 #
 # Common vars.
 SUBARCH := $(shell uname -m | sed       \

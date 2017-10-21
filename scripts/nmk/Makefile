@@ -5,8 +5,6 @@ include $(__nmk_dir)include.mk
 
 MAKEFLAGS := -r -R --no-print-directory
 
-.PHONY: all help test docs clean install .FORCE
-
 help:
 	@echo '    Targets:'
 	@echo '      install dir=<dir>  - Install scripts into directory <dir>'
