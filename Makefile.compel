@@ -28,6 +28,7 @@ LIBCOMPEL_SO		:= libcompel.so
 LIBCOMPEL_A		:= libcompel.a
 export LIBCOMPEL_SO LIBCOMPEL_A
 criu-deps		+= compel/$(LIBCOMPEL_A)
+criu-deps		+= $(compel-plugins)
 
 #
 # Compel itself.

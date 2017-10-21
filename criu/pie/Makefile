@@ -37,7 +37,7 @@ $(1)-obj-e	+= pie.lib.a
 $(1)-obj-e	+= $$(compel_plugins)
 
 # Dependency on compel linker script, to relink if it has changed
-$$(obj)/$(1).built-in.o: $$(LDS)
+$$(obj)/$(1).built-in.o: $$(LDS) $$(compel_plugins)
 
 $$(obj)/$(1)-blob.h: $$(obj)/$(1).built-in.o
 	$$(call msg-gen, $$@)
