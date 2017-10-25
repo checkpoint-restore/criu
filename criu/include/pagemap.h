@@ -76,7 +76,7 @@ struct page_read {
 	struct iovec bunch;		/* record consequent neighbour
 					   iovecs to punch together */
 	unsigned id;			/* for logging */
-	int pid;			/* PID of the process */
+	unsigned long img_id;		/* pagemap image file ID */
 
 	PagemapEntry **pmes;
 	int nr_pmes;
@@ -102,8 +102,8 @@ struct page_read {
  *  0 -- no images
  *  1 -- opened
  */
-extern int open_page_read(int pid, struct page_read *, int pr_flags);
-extern int open_page_read_at(int dfd, int pid, struct page_read *pr,
+extern int open_page_read(unsigned long id, struct page_read *, int pr_flags);
+extern int open_page_read_at(int dfd, unsigned long id, struct page_read *pr,
 		int pr_flags);
 
 struct task_restore_args;

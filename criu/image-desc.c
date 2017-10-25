@@ -27,8 +27,8 @@
 struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY(INVENTORY,	"inventory"),
 	FD_ENTRY(FDINFO,	"fdinfo-%u"),
-	FD_ENTRY(PAGEMAP,	"pagemap-%ld"),
-	FD_ENTRY(SHMEM_PAGEMAP,	"pagemap-shmem-%ld"),
+	FD_ENTRY(PAGEMAP,	"pagemap-%lu"),
+	FD_ENTRY(SHMEM_PAGEMAP,	"pagemap-shmem-%lu"),
 	FD_ENTRY(REG_FILES,	"reg-files"),
 	FD_ENTRY(EXT_FILES,	"ext-files"),
 	FD_ENTRY(NS_FILES,	"ns-files"),

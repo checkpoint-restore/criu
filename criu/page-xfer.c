@@ -60,7 +60,7 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
  * numbers that can be met from older CRIUs
  */
 
-static inline u64 encode_pm(int type, long id)
+static inline u64 encode_pm(int type, unsigned long id)
 {
 	if (type == CR_FD_PAGEMAP)
 		type = PS_TYPE_PID;
@@ -74,7 +74,7 @@ static inline u64 encode_pm(int type, long id)
 	return ((u64)id) << PS_TYPE_BITS | type;
 }
 
-static int decode_pm(u64 dst_id, long *id)
+static int decode_pm(u64 dst_id, unsigned long *id)
 {
 	int type;
 
@@ -173,7 +173,7 @@ static void close_server_xfer(struct page_xfer *xfer)
 	xfer->sk = -1;
 }
 
-static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
+static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, unsigned long img_id)
 {
 	char has_parent;
 	struct page_server_iov pi = {
@@ -184,7 +184,7 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 	xfer->write_pagemap = write_pagemap_to_server;
 	xfer->write_pages = write_pages_to_server;
 	xfer->close = close_server_xfer;
-	xfer->dst_id = encode_pm(fd_type, id);
+	xfer->dst_id = encode_pm(fd_type, img_id);
 	xfer->parent = NULL;
 
 	pi.dst_id = xfer->dst_id;
@@ -321,11 +321,11 @@ static void close_page_xfer(struct page_xfer *xfer)
 	close_image(xfer->pmi);
 }
 
-static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
+static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, unsigned long img_id)
 {
 	u32 pages_id;
 
-	xfer->pmi = open_image(fd_type, O_DUMP, id);
+	xfer->pmi = open_image(fd_type, O_DUMP, img_id);
 	if (!xfer->pmi)
 		return -1;
 
@@ -358,7 +358,7 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 			return -1;
 		}
 
-		ret = open_page_read_at(pfd, id, xfer->parent, pr_flags);
+		ret = open_page_read_at(pfd, img_id, xfer->parent, pr_flags);
 		if (ret <= 0) {
 			pr_perror("No parent image found, though parent directory is set");
 			xfree(xfer->parent);
@@ -376,15 +376,15 @@ out:
 	return 0;
 }
 
-int open_page_xfer(struct page_xfer *xfer, int fd_type, long id)
+int open_page_xfer(struct page_xfer *xfer, int fd_type, unsigned long img_id)
 {
 	xfer->offset = 0;
 	xfer->transfer_lazy = true;
 
 	if (opts.use_page_server)
-		return open_page_server_xfer(xfer, fd_type, id);
+		return open_page_server_xfer(xfer, fd_type, img_id);
 	else
-		return open_page_local_xfer(xfer, fd_type, id);
+		return open_page_local_xfer(xfer, fd_type, img_id);
 }
 
 static int page_xfer_dump_hole(struct page_xfer *xfer,
@@ -492,7 +492,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
  *	 0 - if a parent image doesn't exist
  *	-1 - in error cases
  */
-int check_parent_local_xfer(int fd_type, int id)
+int check_parent_local_xfer(int fd_type, unsigned long img_id)
 {
 	char path[PATH_MAX];
 	struct stat st;
@@ -502,7 +502,7 @@ int check_parent_local_xfer(int fd_type, int id)
 	if (pfd < 0 && errno == ENOENT)
 		return 0;
 
-	snprintf(path, sizeof(path), imgset_template[fd_type].fmt, id);
+	snprintf(path, sizeof(path), imgset_template[fd_type].fmt, img_id);
 	ret = fstatat(pfd, path, &st, 0);
 	if (ret == -1 && errno != ENOENT) {
 		pr_perror("Unable to stat %s", path);
@@ -518,7 +518,7 @@ int check_parent_local_xfer(int fd_type, int id)
 static int page_server_check_parent(int sk, struct page_server_iov *pi)
 {
 	int type, ret;
-	long id;
+	unsigned long id;
 
 	type = decode_pm(pi->dst_id, &id);
 	if (type == -1) {
@@ -538,13 +538,13 @@ static int page_server_check_parent(int sk, struct page_server_iov *pi)
 	return 0;
 }
 
-static int check_parent_server_xfer(int fd_type, long id)
+static int check_parent_server_xfer(int fd_type, unsigned long img_id)
 {
 	struct page_server_iov pi = {};
 	int has_parent;
 
 	pi.cmd = PS_IOV_PARENT;
-	pi.dst_id = encode_pm(fd_type, id);
+	pi.dst_id = encode_pm(fd_type, img_id);
 
 	if (send_psi(page_server_sk, &pi))
 		return -1;
@@ -559,12 +559,12 @@ static int check_parent_server_xfer(int fd_type, long id)
 	return has_parent;
 }
 
-int check_parent_page_xfer(int fd_type, long id)
+int check_parent_page_xfer(int fd_type, unsigned long img_id)
 {
 	if (opts.use_page_server)
-		return check_parent_server_xfer(fd_type, id);
+		return check_parent_server_xfer(fd_type, img_id);
 	else
-		return check_parent_local_xfer(fd_type, id);
+		return check_parent_local_xfer(fd_type, img_id);
 }
 
 struct page_xfer_job {
@@ -596,7 +596,7 @@ static void page_server_close(void)
 static int page_server_open(int sk, struct page_server_iov *pi)
 {
 	int type;
-	long id;
+	unsigned long id;
 
 	type = decode_pm(pi->dst_id, &id);
 	if (type == -1) {
@@ -604,7 +604,7 @@ static int page_server_open(int sk, struct page_server_iov *pi)
 		return -1;
 	}
 
-	pr_info("Opening %d/%ld\n", type, id);
+	pr_info("Opening %d/%lu\n", type, id);
 
 	page_server_close();
 
@@ -1177,13 +1177,13 @@ int connect_to_page_server_to_recv(int epfd)
 	return epoll_add_rfd(epfd, &ps_rfd);
 }
 
-int request_remote_pages(int pid, unsigned long addr, int nr_pages)
+int request_remote_pages(unsigned long img_id, unsigned long addr, int nr_pages)
 {
 	struct page_server_iov pi = {
 		.cmd		= PS_IOV_GET,
 		.nr_pages	= nr_pages,
 		.vaddr		= addr,
-		.dst_id		= pid,
+		.dst_id		= img_id,
 	};
 
 	/* XXX: why MSG_DONTWAIT here? */

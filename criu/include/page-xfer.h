@@ -40,14 +40,14 @@ struct page_xfer {
 	struct page_read *parent;
 };
 
-extern int open_page_xfer(struct page_xfer *xfer, int fd_type, long id);
+extern int open_page_xfer(struct page_xfer *xfer, int fd_type, unsigned long id);
 struct page_pipe;
 extern int page_xfer_dump_pages(struct page_xfer *, struct page_pipe *);
 extern int connect_to_page_server_to_send(void);
 extern int connect_to_page_server_to_recv(int epfd);
 extern int disconnect_from_page_server(void);
 
-extern int check_parent_page_xfer(int fd_type, long id);
+extern int check_parent_page_xfer(int fd_type, unsigned long id);
 
 /*
  * The post-copy migration makes it necessary to receive pages from
@@ -60,9 +60,9 @@ extern int check_parent_page_xfer(int fd_type, long id);
  */
 
 /* async request/receive of remote pages */
-extern int request_remote_pages(int pid, unsigned long addr, int nr_pages);
+extern int request_remote_pages(unsigned long img_id, unsigned long addr, int nr_pages);
 
-typedef int (*ps_async_read_complete)(int pid, unsigned long vaddr, int nr_pages, void *);
+typedef int (*ps_async_read_complete)(unsigned long img_id, unsigned long vaddr, int nr_pages, void *);
 extern int page_server_start_read(void *buf, int nr_pages,
 		ps_async_read_complete complete, void *priv, unsigned flags);
 

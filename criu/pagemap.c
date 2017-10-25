@@ -54,7 +54,7 @@ static int punch_hole(struct page_read *pr, unsigned long off,
 	struct iovec * bunch = &pr->bunch;
 
 	if (!cleanup && can_extend_bunch(bunch, off, len)) {
-		pr_debug("pr%d-%d:Extend bunch len from %zu to %lu\n", pr->pid,
+		pr_debug("pr%lu-%u:Extend bunch len from %zu to %lu\n", pr->img_id,
 			 pr->id, bunch->iov_len, bunch->iov_len + len);
 		bunch->iov_len += len;
 	} else {
@@ -69,7 +69,7 @@ static int punch_hole(struct page_read *pr, unsigned long off,
 		}
 		bunch->iov_base = (void *)off;
 		bunch->iov_len = len;
-		pr_debug("pr%d-%d:New bunch/%p/%zu/\n", pr->pid, pr->id, bunch->iov_base, bunch->iov_len);
+		pr_debug("pr%lu-%u:New bunch/%p/%zu/\n", pr->img_id, pr->id, bunch->iov_base, bunch->iov_len);
 	}
 	return 0;
 }
@@ -201,7 +201,7 @@ static int read_parent_page(struct page_read *pr, unsigned long vaddr,
 	do {
 		int p_nr;
 
-		pr_debug("\tpr%d-%u Read from parent\n", pr->pid, pr->id);
+		pr_debug("\tpr%lu-%u Read from parent\n", pr->img_id, pr->id);
 		ret = ppr->seek_pagemap(ppr, vaddr);
 		if (ret <= 0) {
 			pr_err("Missing %lx in parent pagemap\n", vaddr);
@@ -249,7 +249,7 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr,
 	if (pr->sync(pr))
 		return -1;
 
-	pr_debug("\tpr%d-%u Read page from self %lx/%"PRIx64"\n", pr->pid, pr->id, pr->cvaddr, pr->pi_off);
+	pr_debug("\tpr%lu-%u Read page from self %lx/%"PRIx64"\n", pr->img_id, pr->id, pr->cvaddr, pr->pi_off);
 	while (1) {
 		ret = pread(fd, buf + curr, len - curr, pr->pi_off + curr);
 		if (ret < 1) {
@@ -402,14 +402,14 @@ static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr,
 	return ret;
 }
 
-static int read_page_complete(int pid, unsigned long vaddr, int nr_pages, void *priv)
+static int read_page_complete(unsigned long img_id, unsigned long vaddr, int nr_pages, void *priv)
 {
 	int ret = 0;
 	struct page_read *pr = priv;
 
-	if (pr->pid != pid) {
-		pr_err("Out of order read completed (want %d have %d)\n",
-				pr->pid, pid);
+	if (pr->img_id != img_id) {
+		pr_err("Out of order read completed (want %lu have %lu)\n",
+				pr->img_id, img_id);
 		return -1;
 	}
 
@@ -425,7 +425,7 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 	int ret;
 
 	/* We always do PR_ASAP mode here (FIXME?) */
-	ret = request_remote_pages(pr->pid, vaddr, nr);
+	ret = request_remote_pages(pr->img_id, vaddr, nr);
 	if (!ret)
 		ret = page_server_start_read(buf, nr,
 				read_page_complete, pr, flags);
@@ -435,7 +435,7 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
 			     void *buf, unsigned flags)
 {
-	pr_info("pr%d-%u Read %lx %u pages\n", pr->pid, pr->id, vaddr, nr);
+	pr_info("pr%lu-%u Read %lx %u pages\n", pr->img_id, pr->id, vaddr, nr);
 	pagemap_bound_check(pr->pe, vaddr, nr);
 
 	if (pagemap_in_parent(pr->pe)) {
@@ -591,7 +591,7 @@ static void reset_pagemap(struct page_read *pr)
 		reset_pagemap(pr->parent);
 }
 
-static int try_open_parent(int dfd, int pid, struct page_read *pr, int pr_flags)
+static int try_open_parent(int dfd, unsigned long id, struct page_read *pr, int pr_flags)
 {
 	int pfd, ret;
 	struct page_read *parent = NULL;
@@ -604,7 +604,7 @@ static int try_open_parent(int dfd, int pid, struct page_read *pr, int pr_flags)
 	if (!parent)
 		goto err_cl;
 
-	ret = open_page_read_at(pfd, pid, parent, pr_flags);
+	ret = open_page_read_at(pfd, id, parent, pr_flags);
 	if (ret < 0)
 		goto err_free;
 
@@ -696,7 +696,7 @@ free_pagemaps:
 	return -1;
 }
 
-int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
+int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int pr_flags)
 {
 	int flags, i_typ;
 	static unsigned ids = 1;
@@ -736,7 +736,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	pr->pmes = NULL;
 	pr->pieok = false;
 
-	pr->pmi = open_image_at(dfd, i_typ, O_RSTR, (long)pid);
+	pr->pmi = open_image_at(dfd, i_typ, O_RSTR, img_id);
 	if (!pr->pmi)
 		return -1;
 
@@ -745,7 +745,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 		return 0;
 	}
 
-	if (try_open_parent(dfd, pid, pr, pr_flags)) {
+	if (try_open_parent(dfd, img_id, pr, pr_flags)) {
 		close_image(pr->pmi);
 		return -1;
 	}
@@ -770,7 +770,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	pr->reset = reset_pagemap;
 	pr->io_complete = NULL; /* set up by the client if needed */
 	pr->id = ids++;
-	pr->pid = pid;
+	pr->img_id = img_id;
 
 	if (remote)
 		pr->maybe_read_page = maybe_read_page_remote;
@@ -787,9 +787,9 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	return 1;
 }
 
-int open_page_read(int pid, struct page_read *pr, int pr_flags)
+int open_page_read(unsigned long img_id, struct page_read *pr, int pr_flags)
 {
-	return open_page_read_at(get_service_fd(IMG_FD_OFF), pid, pr, pr_flags);
+	return open_page_read_at(get_service_fd(IMG_FD_OFF), img_id, pr, pr_flags);
 }
 
 
