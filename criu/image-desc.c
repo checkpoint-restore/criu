@@ -69,7 +69,7 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY(TCP_STREAM,	"tcp-stream-%x"),
 	FD_ENTRY(MNTS,		"mountpoints-%u"),
 	FD_ENTRY(NETDEV,	"netdev-%u"),
-	FD_ENTRY(NETNS,		"netns-%d"),
+	FD_ENTRY(NETNS,		"netns-%u"),
 	FD_ENTRY_F(IFADDR,	"ifaddr-%d", O_NOBUF),
 	FD_ENTRY_F(ROUTE,	"route-%d", O_NOBUF),
 	FD_ENTRY_F(ROUTE6,	"route6-%d", O_NOBUF),
