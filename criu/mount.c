@@ -1438,7 +1438,7 @@ static int dump_mnt_ns(struct ns_id *ns, struct mount_info *pms)
 	struct mount_info *pm;
 	int ret = -1;
 	struct cr_img *img;
-	int ns_id = ns->id;
+	unsigned int ns_id = ns->id;
 
 	pr_info("Dumping mountpoints\n");
 	img = open_image(CR_FD_MNTS, O_DUMP, ns_id);
