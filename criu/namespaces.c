@@ -437,7 +437,7 @@ static unsigned int __get_ns_id(int pid, struct ns_desc *nd, protobuf_c_boolean 
 	if (proc_dir < 0)
 		return 0;
 
-	sprintf(ns_path, "ns/%s", nd->str);
+	snprintf(ns_path, sizeof(ns_path), "ns/%s", nd->str);
 
 	if (fstatat(proc_dir, ns_path, &st, 0)) {
 		if (errno == ENOENT) {
