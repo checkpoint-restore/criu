@@ -16,6 +16,7 @@ enum faults {
 	FI_NO_MEMFD = 129,
 	FI_NO_BREAKPOINTS = 130,
 	FI_PARTIAL_PAGES = 131,
+	FI_HUGE_ANON_SHMEM_ID = 132,
 	FI_MAX,
 };
 
@@ -31,6 +32,8 @@ static inline bool __fault_injected(enum faults f, enum faults fi_strategy)
 
 	return fi_strategy == f;
 }
+
+#define FI_HUGE_ANON_SHMEM_ID_BASE	(0xfffffffflu)
 
 #ifndef CR_NOGLIBC
 

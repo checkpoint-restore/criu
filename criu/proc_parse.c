@@ -40,6 +40,7 @@
 #include "cgroup-props.h"
 #include "timerfd.h"
 #include "path.h"
+#include "fault-injection.h"
 
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
@@ -310,8 +311,12 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma,
 		vma->e->status |= VMA_ANON_SHARED;
 		vma->e->shmid = vfi->ino;
 
-		if (!strncmp(fname, "/SYSV", 5))
+		if (!strncmp(fname, "/SYSV", 5)) {
 			vma->e->status |= VMA_AREA_SYSVIPC;
+		} else {
+			if (fault_injected(FI_HUGE_ANON_SHMEM_ID))
+				vma->e->shmid += FI_HUGE_ANON_SHMEM_ID_BASE;
+		}
 
 		return 0;
 	}
@@ -598,6 +603,9 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area,
 			if (!strncmp(file_path, "/SYSV", 5)) {
 				pr_info("path: %s\n", file_path);
 				vma_area->e->status |= VMA_AREA_SYSVIPC;
+			} else {
+				if (fault_injected(FI_HUGE_ANON_SHMEM_ID))
+					vma_area->e->shmid += FI_HUGE_ANON_SHMEM_ID_BASE;
 			}
 		} else {
 			if (vma_area->e->flags & MAP_PRIVATE)
