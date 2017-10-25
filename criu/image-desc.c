@@ -77,7 +77,7 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY_F(IPTABLES,	"iptables-%d", O_NOBUF),
 	FD_ENTRY_F(IP6TABLES,	"ip6tables-%d", O_NOBUF),
 	FD_ENTRY_F(TMPFS_IMG,	"tmpfs-%d.tar.gz", O_NOBUF),
-	FD_ENTRY_F(TMPFS_DEV,	"tmpfs-dev-%d.tar.gz", O_NOBUF),
+	FD_ENTRY_F(TMPFS_DEV,	"tmpfs-dev-%u.tar.gz", O_NOBUF),
 	FD_ENTRY_F(AUTOFS,	"autofs-%u", O_NOBUF),
 	FD_ENTRY(BINFMT_MISC_OLD, "binfmt-misc-%d"),
 	FD_ENTRY(BINFMT_MISC,	"binfmt-misc"),
