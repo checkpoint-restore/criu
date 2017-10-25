@@ -96,7 +96,7 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY(TIMERFD,	"timerfd"),
 	FD_ENTRY(CPUINFO,	"cpuinfo"),
 	FD_ENTRY(SECCOMP,	"seccomp"),
-	FD_ENTRY(USERNS,	"userns-%d"),
+	FD_ENTRY(USERNS,	"userns-%u"),
 	FD_ENTRY(NETNF_CT,	"netns-ct-%d"),
 	FD_ENTRY(NETNF_EXP,	"netns-exp-%d"),
 	FD_ENTRY(FILES,		"files"),
