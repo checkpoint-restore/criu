@@ -213,7 +213,7 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
 		}
 
 		sigframe->native.uc.uc_mcontext.fpstate = (void *)addr;
-	} else if (!sigframe->is_native) {
+	} else {
 		sigframe->compat.uc.uc_mcontext.fpstate =
 			(uint32_t)(unsigned long)(void *)&fpu_state->fpu_state_ia32;
 	}
