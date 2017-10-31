@@ -11,6 +11,16 @@ union sockaddr_inet {
 
 int tcp_init_server(int family, int *port)
 {
+	struct zdtm_tcp_opts opts = {
+		.reuseaddr = true,
+		.reuseport = false,
+	};
+
+	return tcp_init_server_with_opts(family, port, &opts);
+}
+
+int tcp_init_server_with_opts(int family, int *port, struct zdtm_tcp_opts *opts)
+{
 	union sockaddr_inet addr;
 	int sock;
 	int yes = 1, ret;
@@ -25,13 +35,20 @@ int tcp_init_server(int family, int *port)
 	} else
 		return -1;
 
-	sock = socket(family, SOCK_STREAM, IPPROTO_TCP);
+	sock = socket(family, SOCK_STREAM | opts->flags, IPPROTO_TCP);
 	if (sock == -1) {
 		pr_perror("socket() failed");
 		return -1;
 	}
 
-	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1 ) {
+	if (opts->reuseport &&
+	    setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(int)) == -1) {
+		pr_perror("");
+		return -1;
+	}
+
+	if (opts->reuseaddr &&
+	    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1 ) {
 		pr_perror("setsockopt() error");
 		return -1;
 	}

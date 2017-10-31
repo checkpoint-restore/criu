@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #define INPROGRESS ".inprogress"
 
@@ -140,5 +141,13 @@ extern void task_waiter_complete_current(task_waiter_t *t);
 extern int tcp_init_server(int family, int *port);
 extern int tcp_accept_server(int sock);
 extern int tcp_init_client(int family, char *servIP, unsigned short servPort);
+
+struct zdtm_tcp_opts {
+	bool reuseaddr;
+	bool reuseport;
+	int flags;
+};
+
+extern int tcp_init_server_with_opts(int family, int *port, struct zdtm_tcp_opts *opts);
 
 #endif /* _VIMITESU_H_ */

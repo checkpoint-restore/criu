@@ -66,6 +66,7 @@ TST_NOFILE	:=				\
 		socket-tcp-reseted		\
 		socket-tcp6			\
 		socket-tcp-local		\
+		socket-tcp-reuseport		\
 		socket-tcp-nfconntrack		\
 		socket-tcp6-local		\
 		socket-tcpbuf			\
