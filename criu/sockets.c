@@ -524,6 +524,10 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	soe->reuseaddr = val ? true : false;
 	soe->has_reuseaddr = true;
 
+	ret |= dump_opt(sk, SOL_SOCKET, SO_REUSEPORT, &val);
+	soe->so_reuseport = val ? true : false;
+	soe->has_so_reuseport = true;
+
 	ret |= dump_opt(sk, SOL_SOCKET, SO_PASSCRED, &val);
 	soe->has_so_passcred = true;
 	soe->so_passcred = val ? true : false;

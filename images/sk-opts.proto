@@ -21,6 +21,7 @@ message sk_opts_entry {
 	optional string		so_bound_dev	= 15;
 
 	repeated fixed64	so_filter	= 16;
+	optional bool		so_reuseport	= 17;
 }
 
 enum sk_shutdown {

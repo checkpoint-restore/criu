@@ -586,14 +586,18 @@ static int post_open_inet_sk(struct file_desc *d, int sk)
 	}
 
 	/* SO_REUSEADDR is set for all sockets */
-	if (ii->ie->opts->reuseaddr)
+	if (ii->ie->opts->reuseaddr && ii->ie->opts->so_reuseport)
 		return 0;
 
 	if (atomic_read(&ii->port->users))
 		return 1;
 
 	val = ii->ie->opts->reuseaddr;
-	if (restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &val))
+	if (!val && restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &val))
+		return -1;
+
+	val = ii->ie->opts->so_reuseport;
+	if (!val && restore_opt(sk, SOL_SOCKET, SO_REUSEPORT, &val))
 		return -1;
 
 	return 0;
@@ -652,6 +656,8 @@ static int open_inet_sk(struct file_desc *d, int *new_fd)
 	 * The origin value of SO_REUSEADDR will be restored in post_open.
 	 */
 	if (restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &yes))
+		goto err;
+	if (restore_opt(sk, SOL_SOCKET, SO_REUSEPORT, &yes))
 		goto err;
 
 	if (tcp_connection(ie)) {
