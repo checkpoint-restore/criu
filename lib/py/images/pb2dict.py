@@ -131,7 +131,10 @@ sk_maps = {
 			17: 'PACKET' },
 	'type'      : { 1: 'STREAM', 2: 'DGRAM' },
 	'state'     : { 1: 'ESTABLISHED', 7: 'CLOSE', 10: 'LISTEN' },
-	'proto'     : { 6: 'TCP' },
+	'proto'     : {   0: 'IP',
+			  6: 'TCP',
+			 17: 'UDP',
+			136: 'UDPLITE' },
 }
 
 gen_rmaps = { k: {v2:k2 for k2,v2 in v.items()} for k,v in gen_maps.items() }
