@@ -293,9 +293,10 @@ int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 		unsigned long arg6)
 {
 	user_regs_struct_t regs = ctl->orig.regs;
+	bool native = user_regs_native(&regs);
 	int err;
 
-	if (user_regs_native(&regs)) {
+	if (native) {
 		user_regs_struct64 *r = &regs.native;
 
 		r->ax  = (uint64_t)nr;
@@ -321,7 +322,9 @@ int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 		err = compel_execute_syscall(ctl, &regs, code_int_80);
 	}
 
-	*ret = get_user_reg(&regs, ax);
+	*ret = native ?
+		(long)get_user_reg(&regs, ax) :
+		(int)get_user_reg(&regs, ax);
 	return err;
 }
 
@@ -344,6 +347,13 @@ void *remote_mmap(struct parasite_ctl *ctl,
 				"check selinux execmem policy\n", ctl->rpid);
 		return NULL;
 	}
+
+	/*
+	 * For compat tasks the address in foreign process
+	 * must lay inside 4 bytes.
+	 */
+	if (compat_task)
+		map &= 0xfffffffful;
 
 	return (void *)map;
 }
