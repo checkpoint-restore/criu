@@ -580,16 +580,33 @@ static int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 	return 0;
 }
 
+/* IPv4-Mapped IPv6 Addresses */
+static int ipv6_addr_mapped(union libsoccr_addr *addr)
+{
+	return (addr->v6.sin6_addr.s6_addr32[2] == htonl(0x0000ffff));
+}
+
 static int send_fin(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
 		unsigned data_size, uint8_t flags)
 {
-	int ret, exit_code = -1;
+	uint32_t src_v4 = sk->src_addr->v4.sin_addr.s_addr;
+	uint32_t dst_v4 = sk->dst_addr->v4.sin_addr.s_addr;
+	int ret, exit_code = -1, family;
 	char errbuf[LIBNET_ERRBUF_SIZE];
 	int mark = SOCCR_MARK;;
 	int libnet_type;
 	libnet_t *l;
 
-	if (sk->dst_addr->sa.sa_family == AF_INET6)
+	family = sk->dst_addr->sa.sa_family;
+
+	if (family == AF_INET6 && ipv6_addr_mapped(sk->dst_addr)) {
+		/* TCP over IPv4 */
+		family = AF_INET;
+		dst_v4 = sk->dst_addr->v6.sin6_addr.s6_addr32[3];
+		src_v4 = sk->src_addr->v6.sin6_addr.s6_addr32[3];
+	}
+
+	if (family == AF_INET6)
 		libnet_type = LIBNET_RAW6;
 	else
 		libnet_type = LIBNET_RAW4;
@@ -627,7 +644,7 @@ static int send_fin(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
 		goto err;
 	}
 
-	if (sk->dst_addr->sa.sa_family == AF_INET6) {
+	if (family == AF_INET6) {
 		struct libnet_in6_addr src, dst;
 
 		memcpy(&dst, &sk->dst_addr->v6.sin6_addr, sizeof(dst));
@@ -644,7 +661,7 @@ static int send_fin(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
 			0,		/* payload size */
 			l,		/* libnet handle */
 			0);		/* libnet id */
-	} else if (sk->dst_addr->sa.sa_family == AF_INET)
+	} else if (family == AF_INET)
 		ret = libnet_build_ipv4(
 			LIBNET_IPV4_H + LIBNET_TCP_H + 20,	/* length */
 			0,			/* TOS */
@@ -653,8 +670,8 @@ static int send_fin(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
 			64,			/* TTL */
 			IPPROTO_TCP,		/* protocol */
 			0,			/* checksum */
-			sk->dst_addr->v4.sin_addr.s_addr,	/* source IP */
-			sk->src_addr->v4.sin_addr.s_addr,	/* destination IP */
+			dst_v4,			/* source IP */
+			src_v4,			/* destination IP */
 			NULL,			/* payload */
 			0,			/* payload size */
 			l,			/* libnet handle */
