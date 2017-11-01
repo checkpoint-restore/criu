@@ -124,7 +124,7 @@ gen_maps = {
 }
 
 sk_maps = {
-	'family'    : { 2: 'INET' },
+	'family'    : { 2: 'INET', 10: 'INET6'},
 	'type'      : { 1: 'STREAM', 2: 'DGRAM' },
 	'state'     : { 1: 'ESTABLISHED', 7: 'CLOSE', 10: 'LISTEN' },
 	'proto'     : { 6: 'TCP' },
