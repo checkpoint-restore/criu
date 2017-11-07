@@ -30,7 +30,7 @@ int main(int argc, char **argv)
 {
 	struct iocb iocb, *iocbp = &iocb;
 	volatile struct aio_ring *ring;
-	unsigned long ctx = 0;
+	aio_context_t ctx = 0;
 	struct io_event event;
 	unsigned tail[2], head[2];
 	unsigned nr[2];
