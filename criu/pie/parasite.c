@@ -6,6 +6,7 @@
 #include <sys/mount.h>
 #include <stdarg.h>
 #include <sys/ioctl.h>
+#include <sys/uio.h>
 
 #include "common/config.h"
 #include "int.h"
@@ -66,6 +67,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 {
 	int p, ret, tsock;
 	struct iovec *iovs;
+	int off, nr_segs, nr_pages;
 
 	tsock = parasite_get_rpc_sock();
 	p = recv_fd(tsock);
@@ -73,11 +75,30 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 		return -1;
 
 	iovs = pargs_iovs(args);
-	ret = sys_vmsplice(p, &iovs[args->off], args->nr_segs,
-				SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
-	if (ret != PAGE_SIZE * args->nr_pages) {
+	nr_pages = 0;
+	off = 0;
+	nr_segs = args->nr_segs;
+	if (nr_segs > UIO_MAXIOV)
+		nr_segs = UIO_MAXIOV;
+	while (1) {
+		ret = sys_vmsplice(p, &iovs[args->off + off], nr_segs,
+					SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
+		if (ret < 0) {
+			sys_close(p);
+			pr_err("Can't splice pages to pipe (%d/%d/%d)\n",
+						ret, nr_segs, args->off + off);
+			return -1;
+		}
+		nr_pages += ret;
+		off += nr_segs;
+		if (off == args->nr_segs)
+			break;
+		if (off + nr_segs > args->nr_segs)
+			nr_segs = args->nr_segs - off;
+	}
+	if (nr_pages != args->nr_pages * PAGE_SIZE) {
 		sys_close(p);
-		pr_err("Can't splice pages to pipe (%d/%d)\n", ret, args->nr_pages);
+		pr_err("Can't splice all pages to pipe (%d/%d)\n", nr_pages, args->nr_pages);
 		return -1;
 	}
 

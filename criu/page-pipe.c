@@ -207,14 +207,8 @@ static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *pp
 			return 1; /* need to add another buf */
 	}
 
-	if (ppb->nr_segs) {
-		if (iov_grow_page(&ppb->iov[ppb->nr_segs - 1], addr))
+	if (ppb->nr_segs && iov_grow_page(&ppb->iov[ppb->nr_segs - 1], addr))
 			goto out;
-
-		if (ppb->nr_segs == UIO_MAXIOV)
-			/* XXX -- shrink pipe back? */
-			return 1;
-	}
 
 	pr_debug("Add iov to page pipe (%u iovs, %u/%u total)\n",
 			ppb->nr_segs, pp->free_iov, pp->nr_iovs);
