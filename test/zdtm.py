@@ -672,6 +672,7 @@ test_classes = {'zdtm': zdtm_test, 'inhfd': inhfd_test, 'groups': groups_test}
 #
 
 criu_bin = "../criu/criu"
+crit_bin = "../crit/crit"
 join_ns_file = '/run/netns/zdtm_netns'
 
 
@@ -789,6 +790,7 @@ class criu:
 		self.__user = (opts['user'] and True or False)
 		self.__leave_stopped = (opts['stop'] and True or False)
 		self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
+		self.__show_stats = (opts['show_stats'] and True or False)
 		self.__lazy_pages_p = None
 		self.__page_server_p = None
 
@@ -907,6 +909,14 @@ class criu:
 			else:
 				raise test_fail_exc("CRIU %s" % action)
 
+	def show_stats(self, action):
+		if not self.__show_stats:
+			return
+
+		subprocess.Popen([crit_bin, "show",
+				os.path.join(self.__dump_path,
+				str(self.__iter), "stats-%s" % action)]).wait()
+
 	def dump(self, action, opts = []):
 		self.__iter += 1
 		os.mkdir(self.__ddir())
@@ -947,6 +957,8 @@ class criu:
 		self.__criu_act(action, opts = a_opts + opts)
 		if self.__mdedup and self.__iter > 1:
 			self.__criu_act("dedup", opts = [])
+
+		self.show_stats("dump")
 
 		if self.__leave_stopped:
 			pstree_check_stopped(self.__test.getpid())
@@ -991,6 +1003,7 @@ class criu:
 			r_opts += ['--leave-stopped']
 
 		self.__criu_act("restore", opts = r_opts + ["--restore-detached"])
+		self.show_stats("restore")
 
 		if self.__leave_stopped:
 			pstree_check_stopped(self.__test.getpid())
@@ -1465,7 +1478,8 @@ class Launcher:
 
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'stop', 'empty_ns',
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'rpc', 'lazy_pages',
-				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup', 'remote_lazy_pages')
+				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
+				'remote_lazy_pages', 'show_stats')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
 		if self.__use_log:
@@ -2000,6 +2014,7 @@ rp.add_argument("--ignore-taint", help = "Don't care about a non-zero kernel tai
 rp.add_argument("--lazy-pages", help = "restore pages on demand", action = 'store_true')
 rp.add_argument("--remote-lazy-pages", help = "simulate lazy migration", action = 'store_true')
 rp.add_argument("--title", help = "A test suite title", default = "criu")
+rp.add_argument("--show-stats", help = "Show criu statistics", action = 'store_true')
 
 lp = sp.add_parser("list", help = "List tests")
 lp.set_defaults(action = list_tests)
