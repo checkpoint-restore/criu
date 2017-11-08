@@ -9,6 +9,7 @@
 #include "criu-log.h"
 #include "page-pipe.h"
 #include "fcntl.h"
+#include "stats.h"
 
 /* can existing iov accumulate the page? */
 static inline bool iov_grow_page(struct iovec *iov, unsigned long addr)
@@ -34,12 +35,14 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp)
 	ppb = xmalloc(sizeof(*ppb));
 	if (!ppb)
 		return NULL;
+	cnt_add(CNT_PAGE_PIPE_BUFS, 1);
 
 	if (pipe(ppb->p)) {
 		xfree(ppb);
 		pr_perror("Can't make pipe for page-pipe");
 		return NULL;
 	}
+	cnt_add(CNT_PAGE_PIPES, 1);
 
 	ppb->pipe_size = fcntl(ppb->p[0], F_GETPIPE_SZ, 0) / PAGE_SIZE;
 	pp->nr_pipes++;

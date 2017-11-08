@@ -14,6 +14,8 @@ message dump_stats_entry {
 	optional uint32			irmap_resolve		= 8;
 
 	required uint64			pages_lazy		= 9;
+	optional uint64			page_pipes		= 10;
+	optional uint64			page_pipe_bufs		= 11;
 }
 
 message restore_stats_entry {
