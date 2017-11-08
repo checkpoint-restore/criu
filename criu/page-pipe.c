@@ -28,6 +28,41 @@ static inline void iov_init(struct iovec *iov, unsigned long addr)
 	iov->iov_len = PAGE_SIZE;
 }
 
+static int __ppb_resize_pipe(struct page_pipe_buf *ppb, unsigned long new_size)
+{
+	int ret;
+
+	ret = fcntl(ppb->p[0], F_SETPIPE_SZ, new_size * PAGE_SIZE);
+	if (ret < 0)
+		return -1;
+
+	ret /= PAGE_SIZE;
+	BUG_ON(ret < ppb->pipe_size);
+
+	pr_debug("Grow pipe %x -> %x\n", ppb->pipe_size, ret);
+	ppb->pipe_size = ret;
+
+	return 0;
+}
+
+static inline int ppb_resize_pipe(struct page_pipe_buf *ppb)
+{
+	unsigned long new_size = ppb->pipe_size << 1;
+	int ret;
+
+	if (ppb->pages_in < ppb->pipe_size)
+		return 0;
+
+	if (new_size > PIPE_MAX_SIZE)
+		return 1;
+
+	ret = __ppb_resize_pipe(ppb, new_size);
+	if (ret < 0)
+		return 1; /* need to add another buf */
+
+	return 0;
+}
+
 static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp)
 {
 	struct page_pipe_buf *ppb;
@@ -67,23 +102,6 @@ static void ppb_init(struct page_pipe_buf *ppb, unsigned int pages_in,
 	ppb->nr_segs = nr_segs;
 	ppb->flags = flags;
 	ppb->iov = iov;
-}
-
-static int ppb_resize_pipe(struct page_pipe_buf *ppb, unsigned long new_size)
-{
-	int ret;
-
-	ret = fcntl(ppb->p[0], F_SETPIPE_SZ, new_size * PAGE_SIZE);
-	if (ret < 0)
-		return -1;
-
-	ret /= PAGE_SIZE;
-	BUG_ON(ret < ppb->pipe_size);
-
-	pr_debug("Grow pipe %x -> %x\n", ppb->pipe_size, ret);
-	ppb->pipe_size = ret;
-
-	return 0;
 }
 
 static int page_pipe_grow(struct page_pipe *pp, unsigned int flags)
@@ -195,17 +213,8 @@ static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *pp
 	if (ppb->flags != flags)
 		return 1;
 
-	if (ppb->pages_in == ppb->pipe_size) {
-		unsigned long new_size = ppb->pipe_size << 1;
-		int ret;
-
-		if (new_size > PIPE_MAX_SIZE)
-			return 1;
-
-		ret = ppb_resize_pipe(ppb, new_size);
-		if (ret < 0)
-			return 1; /* need to add another buf */
-	}
+	if (ppb_resize_pipe(ppb) == 1)
+		return 1;
 
 	if (ppb->nr_segs && iov_grow_page(&ppb->iov[ppb->nr_segs - 1], addr))
 			goto out;
