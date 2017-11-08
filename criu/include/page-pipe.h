@@ -93,6 +93,7 @@ struct kernel_pipe_buffer {
 struct page_pipe_buf {
 	int p[2];		/* pipe with pages */
 	unsigned int pipe_size;	/* how many pages can be fit into pipe */
+	unsigned int pipe_off;	/* where this buf is started in a pipe */
 	unsigned int pages_in;	/* how many pages are there */
 	unsigned int nr_segs;	/* how many iov-s are busy */
 #define PPB_LAZY (1 << 0)

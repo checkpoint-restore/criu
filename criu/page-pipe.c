@@ -50,7 +50,7 @@ static inline int ppb_resize_pipe(struct page_pipe_buf *ppb)
 	unsigned long new_size = ppb->pipe_size << 1;
 	int ret;
 
-	if (ppb->pages_in < ppb->pipe_size)
+	if (ppb->pages_in + ppb->pipe_off < ppb->pipe_size)
 		return 0;
 
 	if (new_size > PIPE_MAX_SIZE)
@@ -63,7 +63,7 @@ static inline int ppb_resize_pipe(struct page_pipe_buf *ppb)
 	return 0;
 }
 
-static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp)
+static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp, struct page_pipe_buf *prev)
 {
 	struct page_pipe_buf *ppb;
 
@@ -72,15 +72,25 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp)
 		return NULL;
 	cnt_add(CNT_PAGE_PIPE_BUFS, 1);
 
-	if (pipe(ppb->p)) {
-		xfree(ppb);
-		pr_perror("Can't make pipe for page-pipe");
-		return NULL;
-	}
-	cnt_add(CNT_PAGE_PIPES, 1);
+	ppb->pipe_off = 0;
 
-	ppb->pipe_size = fcntl(ppb->p[0], F_GETPIPE_SZ, 0) / PAGE_SIZE;
-	pp->nr_pipes++;
+	if (prev && ppb_resize_pipe(prev) == 0) {
+		/* The previous pipe isn't full and we can continue to use it. */
+		ppb->p[0] = prev->p[0];
+		ppb->p[1] = prev->p[1];
+		ppb->pipe_off = prev->pages_in + prev->pipe_off;
+		ppb->pipe_size = prev->pipe_size;
+	} else {
+		if (pipe(ppb->p)) {
+			xfree(ppb);
+			pr_perror("Can't make pipe for page-pipe");
+			return NULL;
+		}
+		cnt_add(CNT_PAGE_PIPES, 1);
+
+		ppb->pipe_size = fcntl(ppb->p[0], F_GETPIPE_SZ, 0) / PAGE_SIZE;
+		pp->nr_pipes++;
+	}
 
 	list_add_tail(&ppb->l, &pp->bufs);
 
@@ -89,8 +99,11 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp)
 
 static void ppb_destroy(struct page_pipe_buf *ppb)
 {
-	close(ppb->p[0]);
-	close(ppb->p[1]);
+	/* Check whether a pipe is shared with another ppb */
+	if (ppb->pipe_off == 0) {
+		close(ppb->p[0]);
+		close(ppb->p[1]);
+	}
 	xfree(ppb);
 }
 
@@ -106,7 +119,7 @@ static void ppb_init(struct page_pipe_buf *ppb, unsigned int pages_in,
 
 static int page_pipe_grow(struct page_pipe *pp, unsigned int flags)
 {
-	struct page_pipe_buf *ppb;
+	struct page_pipe_buf *ppb, *prev = NULL;
 	struct iovec *free_iov;
 
 	pr_debug("Will grow page pipe (iov off is %u)\n", pp->free_iov);
@@ -120,7 +133,10 @@ static int page_pipe_grow(struct page_pipe *pp, unsigned int flags)
 	if ((pp->flags & PP_CHUNK_MODE) && (pp->nr_pipes == NR_PIPES_PER_CHUNK))
 		return -EAGAIN;
 
-	ppb = ppb_alloc(pp);
+	/* don't allow to reuse a pipe in the PP_CHUNK_MODE mode */
+	if (!(pp->flags & PP_CHUNK_MODE) && !list_empty(&pp->bufs))
+		prev = list_entry(pp->bufs.prev, struct page_pipe_buf, l);
+	ppb = ppb_alloc(pp, prev);
 	if (!ppb)
 		return -1;
 
@@ -374,6 +390,7 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd,
 		  (unsigned long)(*nr_pages) * PAGE_SIZE);
 	*nr_pages = len / PAGE_SIZE;
 
+	skip += ppb->pipe_off * PAGE_SIZE;
 	/* we should tee() the requested lenth + the beginning of the pipe */
 	len += skip;
 
