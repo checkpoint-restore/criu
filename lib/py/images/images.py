@@ -1,5 +1,3 @@
-#!/bin/env python2
-
 # This file contains methods to deal with criu images.
 #
 # According to http://criu.org/Images, criu images can be described
