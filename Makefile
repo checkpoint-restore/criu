@@ -350,6 +350,10 @@ docker-build:
 	$(MAKE) -C scripts/build/ x86_64 
 .PHONY: docker-build
 
+phaul-test:
+	docker run --rm -it --privileged criu-x86_64 ./scripts/travis/phaul
+.PHONY: phaul-test
+
 docker-test:
 	docker run --rm -it --privileged criu-x86_64 ./test/zdtm.py run -a -x tcp6 -x tcpbuf6 -x static/rtc -x cgroup
 .PHONY: docker-test

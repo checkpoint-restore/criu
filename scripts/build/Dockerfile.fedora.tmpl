@@ -49,4 +49,3 @@ ENV CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
 RUN mv .ccache /tmp && make mrproper && ccache -sz  && \
 	date && make -j $(nproc) CC="$CC" && date && ccache -s
 RUN make -C test/zdtm -j $(nproc)
-
