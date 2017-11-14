@@ -30,7 +30,8 @@ RUN apk add	py-yaml \
 		iptables \
 		iproute2 \
 		tar \
-		bash
+		bash\
+		go
 
 RUN pip install protobuf ipaddr
 RUN make -C test/zdtm

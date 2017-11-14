@@ -120,15 +120,6 @@ ip net add test
 
 ./test/zdtm.py run --empty-ns -T zdtm/static/socket-tcp*-local --iter 2
 
-(
-	mkdir -p src/github.com/xemul
-	ln -s ../../../ src/github.com/xemul/criu
-	export GOPATH=`pwd`
-	export PATH=`pwd`/criu:$PATH
-	cd src/github.com/xemul/criu
-	make -C phaul run_test
-)
-
 pip install flake8
 make lint
 
