@@ -1084,6 +1084,7 @@ out:
 struct ps_async_read {
 	unsigned long rb; /* read bytes */
 	unsigned long goal;
+	unsigned long nr_pages;
 
 	struct page_server_iov pi;
 	void *pages;
@@ -1096,14 +1097,20 @@ struct ps_async_read {
 
 static LIST_HEAD(async_reads);
 
+static inline void async_read_set_goal(struct ps_async_read *ar, int nr_pages)
+{
+	ar->goal = sizeof(ar->pi) + nr_pages * PAGE_SIZE;
+	ar->nr_pages = nr_pages;
+}
+
 static void init_ps_async_read(struct ps_async_read *ar, void *buf,
 		int nr_pages, ps_async_read_complete complete, void *priv)
 {
 	ar->pages = buf;
 	ar->rb = 0;
-	ar->goal = sizeof(ar->pi) + nr_pages * PAGE_SIZE;
 	ar->complete = complete;
 	ar->priv = priv;
+	async_read_set_goal(ar, nr_pages);
 }
 
 static int page_server_start_async_read(void *buf, int nr_pages,
@@ -1139,6 +1146,9 @@ static int page_server_read(struct ps_async_read *ar, int flags)
 		buf = ((void *)&ar->pi) + ar->rb;
 		need = sizeof(ar->pi) - ar->rb;
 	} else {
+		/* page-serer may return less pages than we asked for */
+		if (ar->pi.nr_pages < ar->nr_pages)
+			async_read_set_goal(ar, ar->pi.nr_pages);
 		/* Page(s) data itself */
 		buf = ar->pages + (ar->rb - sizeof(ar->pi));
 		need = ar->goal - ar->rb;
