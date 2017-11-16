@@ -460,6 +460,8 @@ static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, int len)
 			addr = start;
 		}
 
+		iov->queued = false;
+
 		/*
 		 * The range completely fits into the current IOV.
 		 * If addr equals iov_base we just "drop" the
