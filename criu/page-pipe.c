@@ -428,8 +428,8 @@ void debug_show_page_pipe(struct page_pipe *pp)
 	pr_debug("* %u pipes %u/%u iovs:\n",
 			pp->nr_pipes, pp->free_iov, pp->nr_iovs);
 	list_for_each_entry(ppb, &pp->bufs, l) {
-		pr_debug("\tbuf %u pages, %u iovs, flags: %x :\n",
-			 ppb->pages_in, ppb->nr_segs, ppb->flags);
+		pr_debug("\tbuf %u pages, %u iovs, flags: %x pipe_off: %x :\n",
+			 ppb->pages_in, ppb->nr_segs, ppb->flags, ppb->pipe_off);
 		for (i = 0; i < ppb->nr_segs; i++) {
 			iov = &ppb->iov[i];
 			pr_debug("\t\t%p %lu\n", iov->iov_base,
