@@ -7,6 +7,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/checkpoint-restore/criu/lib/go/src/criu"
 	"github.com/checkpoint-restore/criu/lib/go/src/rpc"
+	"path/filepath"
 )
 
 type PhaulServer struct {
@@ -54,7 +55,15 @@ func (s *PhaulServer) StartIter() error {
 
 	opts.ImagesDirFd = proto.Int32(int32(img_dir.Fd()))
 	if prev_p != "" {
-		opts.ParentImg = proto.String(prev_p)
+		p, err := filepath.Abs(img_dir.Name())
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(p, prev_p)
+		if err != nil {
+			return err
+		}
+		opts.ParentImg = proto.String(rel)
 	}
 
 	pid, _, err := s.cr.StartPageServerChld(opts)
