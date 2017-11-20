@@ -648,7 +648,6 @@ static void zombie_prepare_signals(void)
 		(1 << SIGPOLL)	|\
 		(1 << SIGIO)	|\
 		(1 << SIGSYS)	|\
-		(1 << SIGUNUSED)|\
 		(1 << SIGSTKFLT)|\
 		(1 << SIGPWR)	 \
 	)
