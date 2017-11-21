@@ -1788,6 +1788,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 			}
 
 			fl->real_owner = fdinfo->owner;
+			fl->fl_holder = pid;
 			fl->owners_fd = fd;
 			list_add_tail(&fl->list, &file_lock_list);
 		}
@@ -2080,8 +2081,6 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 		pr_err("Invalid file lock info (%d): %s\n", num, buf);
 		return -1;
 	}
-
-	fl->updated = false;
 
 	if (!strcmp(fl_flag, "POSIX"))
 		fl->fl_kind = FL_POSIX;
