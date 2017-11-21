@@ -7,7 +7,7 @@
 
 #define BREAK_SIGNUM SIGIO
 
-const char *test_doc = "Check multiple fds on OFD with breaking leases";
+const char *test_doc = "Check leases with no fds in owner process";
 const char *test_author = "Pavel Begunkov <asml.silence@gmail.com>";
 
 char *filename;
@@ -80,7 +80,7 @@ err:
 
 int main(int argc, char **argv)
 {
-	int fd = -1, fd_dup = -1;
+	int fd = -1;
 	int status, ret = -1;
 	struct sigaction act = {};
 	pid_t pid;
@@ -111,14 +111,7 @@ int main(int argc, char **argv)
 		close(fd);
 		return 0;
 	}
-
-	ret = fd_dup = dup(fd);
-	if (fd_dup < 0) {
-		pr_perror("Can't dup fd\n");
-		goto done;
-	}
-
-	ret = 0;
+	close(fd);
 
 	test_daemon();
 	test_waitsig();
@@ -128,18 +121,11 @@ int main(int argc, char **argv)
 
 	if (ret < 0 || !WIFEXITED(status) || WEXITSTATUS(status))
 		fail();
-	if (sigaction_error)
+	else if (sigaction_error)
 		fail("Ghost signal\n");
-	else if (check_lease_type(fd, F_UNLCK))
-		fail("Lease type doesn't match\n");
 	else
 		pass();
-
 done:
-	if (fd >= 0)
-		close(fd);
-	if (fd_dup >= 0)
-		close(fd_dup);
 	unlink(filename);
 	return ret;
 }
