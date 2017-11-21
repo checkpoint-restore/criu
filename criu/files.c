@@ -477,8 +477,13 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 	if (note_file_lock(pid, fd, lfd, &p))
 		return -1;
 
-	if (correct_file_leases_type(pid, fd, lfd))
-		return -1;
+	/* Lease can be set only on regular file */
+	if (S_ISREG(p.stat.st_mode)) {
+		int ret = correct_file_leases_type(pid, fd, lfd);
+
+		if (ret < 0)
+			return ret;
+	}
 
 	p.fd_ctl = ctl; /* Some dump_opts require this to talk to parasite */
 
