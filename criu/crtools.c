@@ -713,7 +713,7 @@ int main(int argc, char *argv[], char *envp[])
 	libsoccr_set_log(log_level, soccr_print_on_level);
 	compel_log_init(vprint_on_level, log_get_loglevel());
 
-	pr_debug("Version: %s (gitid %s)\n", CRIU_VERSION, CRIU_GITID);
+	pr_info("Version: %s (gitid %s)\n", CRIU_VERSION, CRIU_GITID);
 	if (opts.deprecated_ok)
 		pr_debug("DEPRECATED ON\n");
 
