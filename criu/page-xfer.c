@@ -1221,7 +1221,7 @@ int connect_to_page_server_to_recv(int epfd)
 		return -1;
 
 	ps_rfd.fd = page_server_sk;
-	ps_rfd.revent = page_server_async_read;
+	ps_rfd.read_event = page_server_async_read;
 
 	return epoll_add_rfd(epfd, &ps_rfd);
 }

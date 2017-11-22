@@ -326,7 +326,13 @@ int setup_tcp_client(char *addr);
 
 struct epoll_rfd {
 	int fd;
-	int (*revent)(struct epoll_rfd *);
+	/*
+	 * EPOLLIN notification. The data is available for read in
+	 * rfd->fd.
+	 * @return 0 to resume polling, 1 to stop polling or a
+	 * negative error code
+	 */
+	int (*read_event)(struct epoll_rfd *);
 };
 
 extern int epoll_add_rfd(int epfd, struct epoll_rfd *);

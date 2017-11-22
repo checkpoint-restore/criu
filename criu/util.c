@@ -1362,7 +1362,7 @@ int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout
 			struct epoll_rfd *rfd;
 
 			rfd = (struct epoll_rfd *)evs[i].data.ptr;
-			ret = rfd->revent(rfd);
+			ret = rfd->read_event(rfd);
 			if (ret < 0)
 				goto out;
 			if (ret > 0)

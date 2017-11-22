@@ -114,7 +114,7 @@ static struct lazy_pages_info *lpi_init(void)
 	INIT_LIST_HEAD(&lpi->iovs);
 	INIT_LIST_HEAD(&lpi->reqs);
 	INIT_LIST_HEAD(&lpi->l);
-	lpi->lpfd.revent = handle_uffd_event;
+	lpi->lpfd.read_event = handle_uffd_event;
 
 	return lpi;
 }
