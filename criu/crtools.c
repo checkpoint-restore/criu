@@ -208,6 +208,28 @@ bool deprecated_ok(char *what)
 	return false;
 }
 
+static void soccr_print_on_level(unsigned int loglevel, const char *format, ...)
+{
+	va_list args;
+	int lv;
+
+	switch (loglevel) {
+	case SOCCR_LOG_DBG:
+		lv = LOG_DEBUG;
+		break;
+	case SOCCR_LOG_ERR:
+		lv = LOG_ERROR;
+		break;
+	default:
+		lv = LOG_INFO;
+		break;
+	}
+
+	va_start(args, format);
+	vprint_on_level(lv, format, args);
+	va_end(args);
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 
@@ -688,7 +710,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (log_init(opts.output))
 		return 1;
-	libsoccr_set_log(log_level, print_on_level);
+	libsoccr_set_log(log_level, soccr_print_on_level);
 	compel_log_init(vprint_on_level, log_get_loglevel());
 
 	pr_debug("Version: %s (gitid %s)\n", CRIU_VERSION, CRIU_GITID);
