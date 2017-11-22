@@ -1191,6 +1191,12 @@ static int page_server_async_read(struct epoll_rfd *f)
 	return ret;
 }
 
+static int page_server_hangup_event(struct epoll_rfd *rfd)
+{
+	pr_err("Remote side closed connection\n");
+	return -1;
+}
+
 static struct epoll_rfd ps_rfd;
 
 int connect_to_page_server_to_recv(int epfd)
@@ -1200,6 +1206,7 @@ int connect_to_page_server_to_recv(int epfd)
 
 	ps_rfd.fd = page_server_sk;
 	ps_rfd.read_event = page_server_async_read;
+	ps_rfd.hangup_event = page_server_hangup_event;
 
 	return epoll_add_rfd(epfd, &ps_rfd);
 }
