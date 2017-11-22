@@ -56,6 +56,8 @@
 
 #define LAZY_PAGES_SOCK_NAME	"lazy-pages.socket"
 
+#define LAZY_PAGES_RESTORE_FINISHED	0x52535446	/* ReSTore Finished */
+
 static mutex_t *lazy_sock_mutex;
 
 struct lazy_iov {
@@ -99,6 +101,8 @@ static LIST_HEAD(lpis);
 static LIST_HEAD(exiting_lpis);
 static LIST_HEAD(pending_lpis);
 static int epollfd;
+static bool restore_finished;
+static struct epoll_rfd lazy_sk_rfd;
 
 static int handle_uffd_event(struct epoll_rfd *lpfd);
 
@@ -1121,6 +1125,10 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 			continue;
 		}
 
+		/* don't start backround fetch before restore is finished */
+		if (!restore_finished)
+			continue;
+
 		if (poll_timeout)
 			pr_debug("Start handling remaining pages\n");
 
@@ -1151,6 +1159,29 @@ out:
 
 }
 
+int lazy_pages_finish_restore(void)
+{
+	uint32_t fin = LAZY_PAGES_RESTORE_FINISHED;
+	int fd, ret;
+
+	if (!opts.lazy_pages)
+		return 0;
+
+	fd = get_service_fd(LAZY_PAGES_SK_OFF);
+	if (fd < 0) {
+		pr_err("No lazy-pages socket\n");
+		return -1;
+	}
+
+	ret = send(fd, &fin, sizeof(fin), 0);
+	if (ret != sizeof(fin))
+		pr_perror("Failed sending restore finished indication");
+
+	close(fd);
+
+	return ret < 0 ? ret : 0;
+}
+
 static int prepare_lazy_socket(void)
 {
 	int listen;
@@ -1166,6 +1197,44 @@ static int prepare_lazy_socket(void)
 	}
 
 	return listen;
+}
+
+static int lazy_sk_read_event(struct epoll_rfd *rfd)
+{
+	uint32_t fin;
+	int ret;
+
+	ret = recv(rfd->fd, &fin, sizeof(fin), 0);
+	/*
+	 * epoll sets POLLIN | POLLHUP for the EOF case, so we get short
+	 * read just befor hangup_event
+	 */
+	if (!ret)
+		return 0;
+
+	if (ret != sizeof(fin)) {
+		pr_perror("Failed getting restore finished inidication");
+		return -1;
+	}
+
+	if (fin != LAZY_PAGES_RESTORE_FINISHED) {
+		pr_err("Unexpected response: %x\n", fin);
+		return -1;
+	}
+
+	restore_finished = true;
+
+	return 0;
+}
+
+static int lazy_sk_hangup_event(struct epoll_rfd *rfd)
+{
+	if (!restore_finished) {
+		pr_err("Restorer unexpectedly closed the connection\n");
+		return -1;
+	}
+
+	return 0;
 }
 
 static int prepare_uffds(int listen, int epollfd)
@@ -1193,7 +1262,12 @@ static int prepare_uffds(int listen, int epollfd)
 			goto close_uffd;
 	}
 
-	close_safe(&client);
+	lazy_sk_rfd.fd = client;
+	lazy_sk_rfd.read_event = lazy_sk_read_event;
+	lazy_sk_rfd.hangup_event = lazy_sk_hangup_event;
+	if (epoll_add_rfd(epollfd, &lazy_sk_rfd))
+		goto close_uffd;
+
 	close(listen);
 	return 0;
 
@@ -1243,7 +1317,12 @@ int cr_lazy_pages(bool daemon)
 	if (close_status_fd())
 		return -1;
 
-	nr_fds = task_entries->nr_tasks + (opts.use_page_server ? 1 : 0);
+	/*
+	 * we poll nr_tasks userfault fds, UNIX socket between lazy-pages
+	 * daemon and the cr-restore, and, optionally TCP socket for
+	 * remote pages
+	 */
+	nr_fds = task_entries->nr_tasks + (opts.use_page_server ? 2 : 1);
 	epollfd = epoll_prepare(nr_fds, &events);
 	if (epollfd < 0)
 		return -1;

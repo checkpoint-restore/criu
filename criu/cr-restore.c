@@ -2363,6 +2363,9 @@ skip_ns_bouncing:
 	if (!opts.check_only)
 		ret = catch_tasks(root_seized, &flag);
 
+	if (lazy_pages_finish_restore())
+		goto out_kill;
+
 	pr_info("Restore finished successfully. Resuming tasks.\n");
 	__restore_switch_stage(CR_STATE_COMPLETE);
 
