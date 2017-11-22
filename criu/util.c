@@ -1300,7 +1300,6 @@ int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout
 	bool have_a_break = false;
 
 	while (1) {
-		/* FIXME -- timeout should decrease over time...  */
 		ret = epoll_wait(epollfd, evs, nr_fds, timeout);
 		if (ret <= 0) {
 			if (ret < 0)
