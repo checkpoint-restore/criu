@@ -1105,6 +1105,7 @@ static void lazy_pages_summary(struct lazy_pages_info *lpi)
 static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 {
 	struct lazy_pages_info *lpi, *n;
+	/* FIXME -- timeout should decrease over time...  */
 	int poll_timeout = POLL_TIMEOUT;
 	int ret;
 
