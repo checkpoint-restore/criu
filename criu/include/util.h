@@ -329,6 +329,14 @@ struct epoll_rfd {
 	 * negative error code
 	 */
 	int (*read_event)(struct epoll_rfd *);
+
+	/*
+	 * EPOLLHUP | EPOLLRDHUP notification. The remote side has
+	 * close the connection for rfd->fd.
+	 * @return 0 to resume polling, 1 to stop polling or a
+	 * negative error code
+	 */
+	int (*hangup_event)(struct epoll_rfd *);
 };
 
 extern int epoll_add_rfd(int epfd, struct epoll_rfd *);

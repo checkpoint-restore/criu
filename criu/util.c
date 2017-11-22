@@ -1274,7 +1274,7 @@ int epoll_add_rfd(int epfd, struct epoll_rfd *rfd)
 {
 	struct epoll_event ev;
 
-	ev.events = EPOLLIN;
+	ev.events = EPOLLIN | EPOLLRDHUP;
 	ev.data.ptr = rfd;
 	if (epoll_ctl(epfd, EPOLL_CTL_ADD, rfd->fd, &ev) == -1) {
 		pr_perror("epoll_ctl failed");
@@ -1294,6 +1294,24 @@ int epoll_del_rfd(int epfd, struct epoll_rfd *rfd)
 	return 0;
 }
 
+static int epoll_hangup_event(int epollfd, struct epoll_rfd *rfd)
+{
+	int ret = 0;
+
+	if (rfd->hangup_event) {
+		ret = rfd->hangup_event(rfd);
+		if (ret < 0)
+			return ret;
+	}
+
+	if (epoll_del_rfd(epollfd, rfd))
+		return -1;
+
+	close_safe(&rfd->fd);
+
+	return ret;
+}
+
 int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout)
 {
 	int ret, i, nr_events;
@@ -1310,13 +1328,26 @@ int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout
 		nr_events = ret;
 		for (i = 0; i < nr_events; i++) {
 			struct epoll_rfd *rfd;
+			uint32_t events;
 
 			rfd = (struct epoll_rfd *)evs[i].data.ptr;
-			ret = rfd->read_event(rfd);
-			if (ret < 0)
-				goto out;
-			if (ret > 0)
-				have_a_break = true;
+			events = evs[i].events;
+
+			if (events & EPOLLIN) {
+				ret = rfd->read_event(rfd);
+				if (ret < 0)
+					goto out;
+				if (ret > 0)
+					have_a_break = true;
+			}
+
+			if (events & (EPOLLHUP | EPOLLRDHUP)) {
+				ret = epoll_hangup_event(epollfd, rfd);
+				if (ret < 0)
+					goto out;
+				if (ret > 0)
+					have_a_break = true;
+			}
 		}
 
 		if (have_a_break)
