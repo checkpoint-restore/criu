@@ -695,8 +695,8 @@ static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
 
 	ctl->map_length = round_up(size, page_size());
 
-	fd = ctl->ictx.open_proc(ctl->rpid, O_RDWR, "map_files/%p-%p",
-		 ctl->remote_map, ctl->remote_map + ctl->map_length);
+	fd = ctl->ictx.open_proc(ctl->rpid, O_RDWR, "map_files/%lx-%lx",
+		 (long)ctl->remote_map, (long)ctl->remote_map + ctl->map_length);
 	if (fd < 0)
 		return -1;
 
