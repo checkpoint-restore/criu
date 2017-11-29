@@ -42,26 +42,26 @@ int main(int argc, char **argv)
 
 		pid = fork();
 		if (pid == 0) {
-			if (write(fds[1], &fd, sizeof(fd)) != sizeof(fd)) {
-				pr_perror("write");
-				return 1;
-			}
 			if (unshare(CLONE_NEWNS)) {
 				pr_perror("unshare");
 				return 1;
 			}
 			prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
+			if (write(fds[1], &fd, sizeof(fd)) != sizeof(fd)) {
+				pr_perror("write");
+				return 1;
+			}
 			while (1)
 				sleep(1);
 			return 1;
 		}
 		pid = fork();
 		if (pid == 0) {
+			prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
 			if (write(fds[1], &fd, sizeof(fd)) != sizeof(fd)) {
 				pr_perror("write");
 				return 1;
 			}
-			prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
 			while (1)
 				sleep(1);
 			return 1;
