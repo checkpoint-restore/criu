@@ -23,7 +23,6 @@ int main(int argc, char **argv)
 	mode_t mode = S_IFIFO | 0700;
 	uint8_t buf[BUF_SIZE];
 	uint32_t crc;
-	int ret;;
 
 	test_init(argc, argv);
 
@@ -46,8 +45,7 @@ int main(int argc, char **argv)
 
 	crc = ~0;
 	datagen(buf, BUF_SIZE, &crc);
-	ret = write(fd, buf, BUF_SIZE);
-	if (ret != BUF_SIZE) {
+	if (write_data(fd, buf, BUF_SIZE)) {
 		pr_perror("write() failed");
 		return 1;
 	}
@@ -57,8 +55,7 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	ret = read(fd_ro, buf, BUF_SIZE);
-	if (ret != BUF_SIZE) {
+	if (read_data(fd_ro, buf, BUF_SIZE)) {
 		pr_perror("read() failed");
 		return 1;
 	}
