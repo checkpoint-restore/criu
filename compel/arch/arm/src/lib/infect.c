@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <compel/plugins/std/syscall-codes.h>
