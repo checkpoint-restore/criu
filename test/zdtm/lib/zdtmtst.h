@@ -55,6 +55,8 @@ extern int datasum(const uint8_t *buffer, unsigned length, uint32_t *crc);
 /* streaming helpers */
 extern int set_nonblock(int fd, int on);
 extern int pipe_in2out(int infd, int outfd, uint8_t *buffer, int length);
+extern int read_data(int fd, unsigned char *buf, int len);
+extern int write_data(int fd, const unsigned char *buf, int len);
 
 /* command line args */
 struct long_opt {
