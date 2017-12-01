@@ -466,8 +466,6 @@ close_ifd:
 err:
 	if (gfe)
 		ghost_file_entry__free_unpacked(gfe, NULL);
-	xfree(gf->remap.rpath);
-	shfree_last(gf);
 	return -1;
 }
 
