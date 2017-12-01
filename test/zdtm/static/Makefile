@@ -205,6 +205,7 @@ TST_NOFILE	:=				\
 		pidns02				\
 		pidns03				\
 		config_inotify_irmap		\
+		pipe03				\
 #		jobctl00			\
 
 include ../Makefile.inc
