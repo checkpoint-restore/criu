@@ -28,6 +28,7 @@ struct inet_sk_desc {
 	unsigned int		src_addr[4];
 	unsigned int		dst_addr[4];
 	unsigned short		shutdown;
+	bool			cork;
 
 	int rfd;
 	int cpt_reuseaddr;
