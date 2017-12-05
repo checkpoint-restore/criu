@@ -40,7 +40,7 @@ docker info
 
 criu --version
 
-docker run --security-opt=seccomp:unconfined --name cr -d alpine /bin/sh -c 'i=0; while true; do echo $i; i=$(expr $i + 1); sleep 1; done'
+docker run --tmpfs /tmp --tmpfs /run --read-only --security-opt=seccomp:unconfined --name cr -d alpine /bin/sh -c 'i=0; while true; do echo $i; i=$(expr $i + 1); sleep 1; done'
 
 sleep 1
 for i in `seq 50`; do
