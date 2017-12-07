@@ -222,7 +222,7 @@ static int write_pages_loc(struct page_xfer *xfer,
 			return -1;
 		}
 		if (ret == 0) {
-			pr_err("A pipe was closed unexpectedly");
+			pr_err("A pipe was closed unexpectedly\n");
 			return -1;
 		}
 		curr += ret;
@@ -682,7 +682,7 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 			return -1;
 		}
 		if (chunk == 0) {
-			pr_err("A socket was closed unexpectedly");
+			pr_err("A socket was closed unexpectedly\n");
 			return -1;
 		}
 

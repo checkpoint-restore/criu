@@ -59,7 +59,7 @@ int kdat_can_map_vdso(void)
 	}
 
 	if (waitpid(child, &stat, 0) != child) {
-		pr_err("Failed to wait for arch_prctl() test");
+		pr_err("Failed to wait for arch_prctl() test\n");
 		kill(child, SIGKILL);
 		return -1;
 	}
@@ -154,7 +154,7 @@ static int has_32bit_mmap_bug(void)
 		mmap_bug_test();
 
 	if (waitpid(child, &stat, 0) != child) {
-		pr_err("Failed to wait for mmap test");
+		pr_err("Failed to wait for mmap test\n");
 		kill(child, SIGKILL);
 		return -1;
 	}

@@ -25,7 +25,7 @@ int compel_cpuid(compel_cpuinfo_t *info)
 	info->hwcap[1] = getauxval(AT_HWCAP2);
 
 	if (!info->hwcap[0]) {
-		pr_err("Can't read the hardware capabilities");
+		pr_err("Can't read the hardware capabilities\n");
 		return -1;
 	}
 

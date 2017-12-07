@@ -103,7 +103,7 @@ int cpu_validate_cpuinfo(void)
 		goto error;
 
 	if (cpu_info->n_s390_entry != 1) {
-		pr_err("No S390 related entry in image");
+		pr_err("No S390 related entry in image\n");
 		goto error;
 	}
 	cpu_s390_entry = cpu_info->s390_entry[0];
