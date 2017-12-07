@@ -1484,7 +1484,7 @@ int call_in_child_process(int (*fn)(void *), void *arg)
 	}
 	errno = 0;
 	if (waitpid(pid, &status, __WALL) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
-		pr_err("Can't wait or bad status: errno=%d, status=%d", errno, status);
+		pr_err("Can't wait or bad status: errno=%d, status=%d\n", errno, status);
 		goto out;
 	}
 	ret = 0;

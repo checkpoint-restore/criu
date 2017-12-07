@@ -1234,7 +1234,7 @@ static int veth_peer_info(struct net_link *link, struct newlink_req *req,
 		return 0;
 	}
 out:
-	pr_err("Unknown peer net namespace");
+	pr_err("Unknown peer net namespace\n");
 	return -1;
 }
 
@@ -1694,7 +1694,7 @@ static int restore_links()
 		if (nrcreated == nrlinks)
 			break;
 		if (nrcreated == 0) {
-			pr_err("Unable to restore network links");
+			pr_err("Unable to restore network links\n");
 			return -1;
 		}
 	}
