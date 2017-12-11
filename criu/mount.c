@@ -1135,6 +1135,41 @@ static __maybe_unused bool mnt_is_overmounted(struct mount_info *mi)
 	return false;
 }
 
+/*
+ * __umount_children_overmounts() assumes that the mountpoint and
+ * it's ancestors have no sibling-overmounts, so we can see children
+ * of these mount. Unmount our children-overmounts now.
+ */
+static __maybe_unused int __umount_children_overmounts(struct mount_info *mi)
+{
+	struct mount_info *c, *m = mi;
+
+	/*
+	 * Our children-overmount can itself have children-overmount
+	 * which covers it, so find deepest children-overmount which
+	 * is visible for us now.
+	 */
+again:
+	list_for_each_entry(c, &m->children, siblings) {
+		if (!strcmp(c->mountpoint, m->mountpoint)) {
+			m = c;
+			goto again;
+		}
+	}
+
+	/* Unmout children-overmounts in the order of visibility */
+	while (m != mi) {
+		if (umount2(m->mountpoint, MNT_DETACH)) {
+			pr_perror("Unable to umount child-overmount %s", m->mountpoint);
+			return -1;
+		}
+		BUG_ON(!m->parent);
+		m = m->parent;
+	}
+
+	return 0;
+}
+
 #define MNT_UNREACHABLE INT_MIN
 int open_mountpoint(struct mount_info *pm)
 {
