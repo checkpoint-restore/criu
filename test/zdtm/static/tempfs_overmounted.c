@@ -19,17 +19,49 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	mkdir(dirname, 0700);
-	if (mount("none", dirname, "tmpfs", 0, "") < 0) {
+	if (chdir(dirname)) {
+		pr_perror("chdir");
+		return 1;
+	}
+
+	mkdir("a", 0777);
+	mkdir("a/b", 0777);
+
+	mount(NULL, "/", NULL, MS_PRIVATE, "");
+	if (mount("none", "a/b", "tmpfs", 0, "") < 0) {
 		fail("Can't mount tmpfs");
 		return 1;
 	}
-	if (mount("none", dirname, "tmpfs", 0, "") < 0) {
+	if (mount("none", "a/b", "tmpfs", 0, "") < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
+	mkdir("a/b/c", 0777);
+	if (mount("none", "a/b/c", "tmpfs", 0, "") < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
+	if (mount("none", "a", "tmpfs", 0, "") < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
+	if (mount("none", "a", "tmpfs", 0, "") < 0) {
+		fail("Can't mount tmpfs");
+		return 1;
+	}
+	mkdir("a/b", 0777);
+	if (mount("none", "a/b", "tmpfs", 0, "") < 0) {
 		fail("Can't mount tmpfs");
 		return 1;
 	}
 
 	test_daemon();
 	test_waitsig();
+
+	if (umount("a/b") || umount("a") || umount("a") || umount("a/b/c") || umount("a/b") || umount("a/b")) {
+		pr_err("umount");
+		return 1;
+	}
 
 	pass();
 	return 0;
