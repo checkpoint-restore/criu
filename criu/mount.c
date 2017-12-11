@@ -1140,7 +1140,7 @@ static __maybe_unused bool mnt_is_overmounted(struct mount_info *mi)
  * it's ancestors have no sibling-overmounts, so we can see children
  * of these mount. Unmount our children-overmounts now.
  */
-static __maybe_unused int __umount_children_overmounts(struct mount_info *mi)
+static int __umount_children_overmounts(struct mount_info *mi)
 {
 	struct mount_info *c, *m = mi;
 
@@ -1166,6 +1166,70 @@ again:
 		BUG_ON(!m->parent);
 		m = m->parent;
 	}
+
+	return 0;
+}
+
+/* Makes the mountpoint visible except for children-overmounts. */
+static int __umount_overmounts(struct mount_info *m)
+{
+	struct mount_info *t, *ovm;
+	int ovm_len, ovm_len_min = 0;
+
+	/* Root mount has no sibling-overmounts */
+	if (!m->parent)
+		return 0;
+
+	/*
+	 * If parent is sibling-overmounted we are not visible
+	 * too, so first try to unmount overmounts for parent.
+	 */
+	if (__umount_overmounts(m->parent))
+		return -1;
+
+	/* Unmount sibling-overmounts in visibility order */
+next:
+	ovm = NULL;
+	ovm_len = strlen(m->mountpoint) + 1;
+	list_for_each_entry(t, &m->parent->children, siblings) {
+		if (m == t)
+			continue;
+		if (issubpath(m->mountpoint, t->mountpoint)) {
+			int t_len = strlen(t->mountpoint);
+
+			if (t_len < ovm_len && t_len > ovm_len_min) {
+				ovm = t;
+				ovm_len = t_len;
+			}
+		}
+	}
+
+	if (ovm) {
+		ovm_len_min = ovm_len;
+
+		/* Our sibling-overmount can have children-overmount covering it */
+		if (__umount_children_overmounts(ovm))
+			return -1;
+
+		if (umount2(ovm->mountpoint, MNT_DETACH)) {
+			pr_perror("Unable to umount %s", ovm->mountpoint);
+			return -1;
+		}
+
+		goto next;
+	}
+
+	return 0;
+}
+
+/* Make our mountpoint fully visible */
+static __maybe_unused int umount_overmounts(struct mount_info *m)
+{
+	if (__umount_overmounts(m))
+		return -1;
+
+	if (__umount_children_overmounts(m))
+		return -1;
 
 	return 0;
 }
