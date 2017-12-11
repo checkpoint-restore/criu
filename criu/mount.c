@@ -630,7 +630,7 @@ static struct mount_info *find_fsroot_mount_for(struct mount_info *bm)
 	return NULL;
 }
 
-static bool does_mnt_overmount(struct mount_info *m)
+static bool mnt_needs_remap(struct mount_info *m)
 {
 	struct mount_info *t;
 
@@ -643,6 +643,14 @@ static bool does_mnt_overmount(struct mount_info *m)
 		if (issubpath(t->mountpoint, m->mountpoint))
 			return true;
 	}
+
+	/*
+	 * If we are children-overmount and parent is remapped, we should be
+	 * remapped too, else fixup_remap_mounts() won't be able to move parent
+	 * to it's real place, it will move child instead.
+	 */
+	if (!strcmp(m->parent->mountpoint, m->mountpoint))
+		return mnt_needs_remap(m->parent);
 
 	return false;
 }
@@ -2498,7 +2506,7 @@ static int try_remap_mount(struct mount_info *m)
 {
 	struct mnt_remap_entry *r;
 
-	if (!does_mnt_overmount(m))
+	if (!mnt_needs_remap(m))
 		return 0;
 
 	BUG_ON(!m->parent);
