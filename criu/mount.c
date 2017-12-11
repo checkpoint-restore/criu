@@ -1097,6 +1097,44 @@ static char *get_clean_mnt(struct mount_info *mi, char *mnt_path_tmp, char *mnt_
 	return mnt_path;
 }
 
+/*
+ * Our children mount can have same mountpoint as it's parent,
+ * call these - children-overmount.
+ * Sibling mount's mountpoint can be a subpath of our mountpoint
+ * call these - sibling-overmount.
+ * In both above cases our mountpoint is not visible from the
+ * root of our mount namespace as it is covered by other mount.
+ * mnt_is_overmounted() checks if mount is not visible.
+ */
+static __maybe_unused bool mnt_is_overmounted(struct mount_info *mi)
+{
+	struct mount_info *t, *c, *m = mi;
+
+	while (m->parent) {
+		/* Check there is no sibling-overmount */
+		list_for_each_entry(t, &m->parent->children, siblings) {
+			if (m == t)
+				continue;
+			if (issubpath(m->mountpoint, t->mountpoint))
+				return true;
+		}
+
+		/*
+		 * If parent has sibling-overmount we are not visible too,
+		 * note that children-overmounts for parent are already
+		 * checked as our sibling overmounts.
+		 */
+		m = m->parent;
+	}
+
+	/* Check there is no children-overmount */
+	list_for_each_entry(c, &mi->children, siblings)
+		if (!strcmp(c->mountpoint, mi->mountpoint))
+			return true;
+
+	return false;
+}
+
 #define MNT_UNREACHABLE INT_MIN
 int open_mountpoint(struct mount_info *pm)
 {
