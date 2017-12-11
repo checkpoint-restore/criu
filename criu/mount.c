@@ -2507,7 +2507,7 @@ static int try_remap_mount(struct mount_info *m)
 		return -1;
 
 	r->mi = m;
-	list_add(&r->node, &mnt_remap_list);
+	list_add_tail(&r->node, &mnt_remap_list);
 
 	return 0;
 }
