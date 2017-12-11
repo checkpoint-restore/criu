@@ -446,10 +446,10 @@ static void mnt_resort_siblings(struct mount_info *tree)
 
 		depth = mnt_depth(m);
 		list_for_each_entry(p, &list, siblings)
-			if (mnt_depth(p) <= depth)
+			if (mnt_depth(p) < depth)
 				break;
 
-		list_add(&m->siblings, &p->siblings);
+		list_add_tail(&m->siblings, &p->siblings);
 		mnt_resort_siblings(m);
 	}
 
