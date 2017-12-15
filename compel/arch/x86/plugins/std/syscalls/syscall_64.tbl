@@ -96,7 +96,7 @@ __NR_seccomp			317		sys_seccomp		(unsigned int op, unsigned int flags, const cha
 __NR_vmsplice			278		sys_vmsplice		(int fd, const struct iovec *iov, unsigned long nr_segs, unsigned int flags)
 __NR_timerfd_settime		286		sys_timerfd_settime	(int ufd, int flags, const struct itimerspec *utmr, struct itimerspec *otmr)
 __NR_signalfd4			289		sys_signalfd		(int fd, k_rtsigset_t *mask, size_t sizemask, int flags)
-__NR_preadv			295		sys_preadv		(int fd, struct iovec *iov, unsigned long nr, loff_t off)
+__NR_preadv			295		sys_preadv_raw		(int fd, struct iovec *iov, unsigned long nr, unsigned long pos_l, unsigned long pos_h)
 __NR_rt_tgsigqueueinfo		297		sys_rt_tgsigqueueinfo	(pid_t tgid, pid_t pid, int sig, siginfo_t *info)
 __NR_fanotify_init		300		sys_fanotify_init	(unsigned int flags, unsigned int event_f_flags)
 __NR_fanotify_mark		301		sys_fanotify_mark	(int fanotify_fd, unsigned int flags, uint64_t mask, int dfd, const char *pathname)
