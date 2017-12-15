@@ -104,5 +104,5 @@ __NR_io_getevents	229		sys_io_getevents	(aio_context_t ctx_id, long min_nr, long
 __NR_io_submit		230		sys_io_submit		(aio_context_t ctx_id, long nr, struct iocb **iocbpp)
 __NR_ipc		117		sys_ipc			(unsigned int call, int first, unsigned long second, unsigned long third, const void *ptr, long fifth)
 __NR_gettimeofday	78		sys_gettimeofday	(struct timeval *tv, struct timezone *tz)
-__NR_preadv		320		sys_preadv		(int fd, struct iovec *iov, unsigned long nr, loff_t off)
+__NR_preadv		320		sys_preadv_raw		(int fd, struct iovec *iov, unsigned long nr, unsigned long pos_l, unsigned long pos_h)
 __NR_userfaultfd	364		sys_userfaultfd		(int flags)
