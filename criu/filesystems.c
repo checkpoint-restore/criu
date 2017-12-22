@@ -387,7 +387,7 @@ static int tmpfs_dump(struct mount_info *pm)
 
 	fd = open_mountpoint(pm);
 	if (fd < 0)
-		return fd;
+		return MNT_UNREACHABLE;
 
 	/* if fd happens to be 0 here, we need to move it to something
 	 * non-zero, because cr_system_userns closes STDIN_FILENO as we are not

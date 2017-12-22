@@ -12,6 +12,8 @@ struct ns_id;
 
 #define MOUNT_INVALID_DEV	(0)
 
+#define MNT_UNREACHABLE INT_MIN
+
 struct mount_info {
 	int			mnt_id;
 	int			parent_mnt_id;
