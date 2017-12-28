@@ -34,8 +34,6 @@ extern int devpts_restore(struct mount_info *pm);
 extern int tty_prep_fds(void);
 extern void tty_fini_fds(void);
 
-extern int tty_restore_ctl_terminal(struct file_desc *d, int fd);
-
 extern int devpts_check_bindmount(struct mount_info *m);
 
 #define OPT_SHELL_JOB	"shell-job"

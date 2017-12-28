@@ -1139,7 +1139,7 @@ static int open_fd(struct fdinfo_list_entry *fle)
 		ret = receive_fd(fle);
 		if (ret != 0)
 			return ret;
-		goto fixup_ctty;
+		goto out;
 	}
 
 	/*
@@ -1160,16 +1160,9 @@ static int open_fd(struct fdinfo_list_entry *fle)
 		if (setup_and_serve_out(fle, new_fd) < 0)
 			return -1;
 	}
-fixup_ctty:
-	if (ret == 0) {
-		if (fle->fe->fd == get_service_fd(CTL_TTY_OFF)) {
-			ret = tty_restore_ctl_terminal(fle->desc, fle->fe->fd);
-			if (ret == -1)
-				return ret;
-		}
-
+out:
+	if (ret == 0)
 		fle->stage = FLE_RESTORED;
-	}
 	return ret;
 }
 

@@ -38,6 +38,7 @@ enum fd_types {
 	TIMERFD		= 17;
 
 	/* Any number above the real used. Not stored to image */
+	CTL_TTY		= 65534;
 	AUTOFS_PIPE	= 65535;
 }
 
