@@ -151,5 +151,7 @@ struct zdtm_tcp_opts {
 };
 
 extern int tcp_init_server_with_opts(int family, int *port, struct zdtm_tcp_opts *opts);
+extern pid_t sys_clone_unified(unsigned long flags, void *child_stack, void *parent_tid,
+			       void *child_tid, unsigned long newtls);
 
 #endif /* _VIMITESU_H_ */
