@@ -854,7 +854,7 @@ int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id)
 	e->fd		= reserve_service_fd(CTL_TTY_OFF);
 	e->type		= FD_TYPES__TTY;
 
-	if (collect_fd(pid, e, rst_info, false)) {
+	if (collect_fd(pid, e, rst_info, true)) {
 		xfree(e);
 		return -1;
 	}
