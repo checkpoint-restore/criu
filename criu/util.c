@@ -474,16 +474,6 @@ int service_fd_min_fd(struct pstree_item *item)
 
 static DECLARE_BITMAP(sfd_map, SERVICE_FD_MAX);
 
-int reserve_service_fd(enum sfd_type type)
-{
-	int sfd = __get_service_fd(type, service_fd_id);
-
-	BUG_ON((int)type <= SERVICE_FD_MIN || (int)type >= SERVICE_FD_MAX);
-
-	set_bit(type, sfd_map);
-	return sfd;
-}
-
 int install_service_fd(enum sfd_type type, int fd)
 {
 	int sfd = __get_service_fd(type, service_fd_id);
