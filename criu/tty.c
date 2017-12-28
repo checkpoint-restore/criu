@@ -733,7 +733,6 @@ out:
 	close(slave);
 err:
 	pty_free_fake_reg(&fake);
-	close(fd);
 	return ret ? -1 : 0;
 }
 
