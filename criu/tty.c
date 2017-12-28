@@ -686,15 +686,13 @@ static int tty_set_prgp(int fd, int group)
 	return 0;
 }
 
-int tty_restore_ctl_terminal(struct file_desc *d, int fd)
+static int tty_restore_ctl_terminal(struct file_desc *d)
 {
 	struct tty_info *info = container_of(d, struct tty_info, d);
 	struct tty_driver *driver = info->driver;
 	struct reg_file_info *fake = NULL;
 	struct file_desc *slave_d;
 	int slave = -1, ret = -1, index = -1;
-
-	BUG_ON(!is_service_fd(fd, CTL_TTY_OFF));
 
 	if (driver->type == TTY_TYPE__EXT_TTY) {
 		slave = -1;
@@ -1229,14 +1227,9 @@ static struct pstree_item *find_first_sid(int sid)
 	return NULL;
 }
 
-static int prepare_ctl_tty(struct pstree_item *item, u32 ctl_tty_id)
+static int add_fake_fle(struct pstree_item *item, u32 desc_id)
 {
 	FdinfoEntry *e;
-
-	if (!ctl_tty_id)
-		return 0;
-
-	pr_info("Requesting for ctl tty %#x into service fd\n", ctl_tty_id);
 
 	e = xmalloc(sizeof(*e));
 	if (!e)
@@ -1244,8 +1237,8 @@ static int prepare_ctl_tty(struct pstree_item *item, u32 ctl_tty_id)
 
 	fdinfo_entry__init(e);
 
-	e->id		= ctl_tty_id;
-	e->fd		= reserve_service_fd(CTL_TTY_OFF);
+	e->id		= desc_id;
+	e->fd		= find_unused_fd(item, -1);
 	e->type		= FD_TYPES__TTY;
 
 	if (collect_fd(vpid(item), e, rsti(item), true)) {
@@ -1253,7 +1246,103 @@ static int prepare_ctl_tty(struct pstree_item *item, u32 ctl_tty_id)
 		return -1;
 	}
 
+	return e->fd;
+}
+
+struct ctl_tty {
+	struct file_desc desc;
+	struct fdinfo_list_entry *real_tty;
+};
+
+static int ctl_tty_open(struct file_desc *d, int *new_fd)
+{
+	struct fdinfo_list_entry *fle;
+	int ret;
+
+	fle = container_of(d, struct ctl_tty, desc)->real_tty;
+	if (fle->stage != FLE_RESTORED)
+		return 1;
+
+	ret = tty_restore_ctl_terminal(fle->desc);
+	if (!ret) {
+		/*
+		 * Generic engine expects we return a new_fd.
+		 * Return this one just to return something.
+		 */
+		*new_fd = dup(fle->fe->fd);
+		if (*new_fd < 0) {
+			pr_perror("dup() failed");
+			ret = -1;
+		} else
+			ret = 0;
+	}
+	return ret;
+}
+
+/*
+ * This is a fake type to handle ctl tty. The problem
+ * is sometimes we need to do tty_set_sid() from slave
+ * fle, while generic file engine allows to call open
+ * method for file masters only. So, this type allows
+ * to add fake masters, which will call open for slave
+ * fles of type FD_TYPES__TTY indirectly.
+ */
+static struct file_desc_ops ctl_tty_desc_ops = {
+	.type		= FD_TYPES__CTL_TTY,
+	.open		= ctl_tty_open,
+};
+
+static int prepare_ctl_tty(struct pstree_item *item, u32 ctl_tty_id)
+{
+	struct fdinfo_list_entry *fle;
+	struct ctl_tty *ctl_tty;
+	FdinfoEntry *e;
+	int fd;
+
+	if (!ctl_tty_id)
+		return 0;
+
+	pr_info("Requesting for ctl tty %#x into service fd\n", ctl_tty_id);
+
+	/* Add a fake fle to make generic engine deliver real tty desc to task */
+	fd = add_fake_fle(item, ctl_tty_id);
+	if (fd < 0)
+		return -1;
+
+	fle = find_used_fd(item, fd);
+	BUG_ON(!fle);
+	/*
+	 * Add a fake ctl_tty depending on the above fake fle, which will
+	 * actually restore the session.
+	 */
+	ctl_tty	= xmalloc(sizeof(*ctl_tty));
+	e	= xmalloc(sizeof(*e));
+
+	if (!ctl_tty || !e)
+		goto err;
+
+	ctl_tty->real_tty = fle;
+
+	/*
+	 * Use the same ctl_tty_id id for ctl_tty as it's unique among
+	 * FD_TYPES__CTL_TTY (as it's unique for FD_TYPES__TTY type).
+	 */
+	file_desc_add(&ctl_tty->desc, ctl_tty_id, &ctl_tty_desc_ops);
+
+	fdinfo_entry__init(e);
+
+	e->id		= ctl_tty_id;
+	e->fd		= find_unused_fd(item, -1);
+	e->type		= FD_TYPES__CTL_TTY;
+
+	if (collect_fd(vpid(item), e, rsti(item), true))
+		goto err;
+
 	return 0;
+err:
+	xfree(ctl_tty);
+	xfree(e);
+	return -1;
 }
 
 static int tty_find_restoring_task(struct tty_info *info)
