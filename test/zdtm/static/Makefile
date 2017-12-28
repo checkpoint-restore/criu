@@ -10,6 +10,7 @@ TST_NOFILE	:=				\
 		caps00				\
 		wait00				\
 		zombie00			\
+		zombie01			\
 		fpu00				\
 		fpu01				\
 		arm-neon00			\
