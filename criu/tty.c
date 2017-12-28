@@ -1229,6 +1229,33 @@ static struct pstree_item *find_first_sid(int sid)
 	return NULL;
 }
 
+static int prepare_ctl_tty(struct pstree_item *item, u32 ctl_tty_id)
+{
+	FdinfoEntry *e;
+
+	if (!ctl_tty_id)
+		return 0;
+
+	pr_info("Requesting for ctl tty %#x into service fd\n", ctl_tty_id);
+
+	e = xmalloc(sizeof(*e));
+	if (!e)
+		return -1;
+
+	fdinfo_entry__init(e);
+
+	e->id		= ctl_tty_id;
+	e->fd		= reserve_service_fd(CTL_TTY_OFF);
+	e->type		= FD_TYPES__TTY;
+
+	if (collect_fd(vpid(item), e, rsti(item), true)) {
+		xfree(e);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int tty_find_restoring_task(struct tty_info *info)
 {
 	struct pstree_item *item;
@@ -1306,9 +1333,7 @@ static int tty_find_restoring_task(struct tty_info *info)
 		if (item && vpid(item) == item->sid) {
 			pr_info("Set a control terminal %#x to %d\n",
 				info->tfe->id, info->tie->sid);
-			return prepare_ctl_tty(vpid(item),
-					       rsti(item),
-					       info->tfe->id);
+			return prepare_ctl_tty(item, info->tfe->id);
 		}
 
 		goto notask;

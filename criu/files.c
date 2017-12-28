@@ -835,33 +835,6 @@ int dup_fle(struct pstree_item *task, struct fdinfo_list_entry *ple,
 	return collect_fd(vpid(task), e, rsti(task), false);
 }
 
-int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id)
-{
-	FdinfoEntry *e;
-
-	if (!ctl_tty_id)
-		return 0;
-
-	pr_info("Requesting for ctl tty %#x into service fd\n", ctl_tty_id);
-
-	e = xmalloc(sizeof(*e));
-	if (!e)
-		return -1;
-
-	fdinfo_entry__init(e);
-
-	e->id		= ctl_tty_id;
-	e->fd		= reserve_service_fd(CTL_TTY_OFF);
-	e->type		= FD_TYPES__TTY;
-
-	if (collect_fd(pid, e, rst_info, true)) {
-		xfree(e);
-		return -1;
-	}
-
-	return 0;
-}
-
 int prepare_fd_pid(struct pstree_item *item)
 {
 	int ret = 0;
