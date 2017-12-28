@@ -963,6 +963,9 @@ static int restore_one_zombie(CoreEntry *core)
 
 	pr_info("Restoring zombie with %d code\n", exit_code);
 
+	if (prepare_fds(current))
+		return -1;
+
 	if (inherit_fd_fini() < 0)
 		return -1;
 
