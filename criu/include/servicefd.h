@@ -10,7 +10,6 @@ enum sfd_type {
 	IMG_FD_OFF,
 	PROC_FD_OFF,	/* fd with /proc for all proc_ calls */
 	PROC_PID_FD_OFF,
-	CTL_TTY_OFF,
 	SELF_STDIN_OFF,
 	CR_PROC_FD_OFF, /* some other's proc fd.
 			 *  For dump -- target ns' proc
@@ -33,7 +32,6 @@ struct pstree_item;
 extern int clone_service_fd(int id);
 extern int init_service_fd(void);
 extern int get_service_fd(enum sfd_type type);
-extern int reserve_service_fd(enum sfd_type type);
 extern int install_service_fd(enum sfd_type type, int fd);
 extern int close_service_fd(enum sfd_type type);
 extern bool is_service_fd(int fd, enum sfd_type type);
