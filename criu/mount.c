@@ -3314,8 +3314,6 @@ int __mntns_get_root_fd(pid_t pid)
 	if (mntns_root_pid == pid) /* The required root is already opened */
 		return get_service_fd(ROOT_FD_OFF);
 
-	close_service_fd(ROOT_FD_OFF);
-
 	if (!(root_ns_mask & CLONE_NEWNS)) {
 		/*
 		 * If criu and tasks we dump live in the same mount
@@ -3354,7 +3352,6 @@ int __mntns_get_root_fd(pid_t pid)
 	}
 
 	fd = openat(pfd, "root", O_RDONLY | O_DIRECTORY, 0);
-	close_pid_proc();
 	if (fd < 0) {
 		pr_perror("Can't open the task root");
 		return -1;
