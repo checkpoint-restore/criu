@@ -1035,7 +1035,7 @@ static int restore_one_zombie(CoreEntry *core)
 
 static int setup_newborn_fds(struct pstree_item *me)
 {
-	if (clone_service_fd(rsti(me)->service_fd_id))
+	if (clone_service_fd(me))
 		return -1;
 
 	if (!me->parent ||
