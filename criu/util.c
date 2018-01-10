@@ -542,30 +542,34 @@ int close_service_fd(enum sfd_type type)
 	return 0;
 }
 
+static void move_service_fd(struct pstree_item *me, int type, int new_id, int new_base)
+{
+	int old = get_service_fd(type);
+	int new = __get_service_fd(type, new_id);
+	int ret;
+
+	if (old < 0)
+		return;
+	ret = dup2(old, new);
+	if (ret == -1) {
+		if (errno != EBADF)
+			pr_perror("Unable to clone %d->%d", old, new);
+	} else if (!(rsti(me)->clone_flags & CLONE_FILES))
+		close(old);
+}
+
 int clone_service_fd(struct pstree_item *me)
 {
-	int id, i, ret = -1;
+	int id, new_base, i, ret = -1;
 
+	new_base = service_fd_base;
 	id = rsti(me)->service_fd_id;
 
 	if (service_fd_id == id)
 		return 0;
 
-	for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++) {
-		int old = get_service_fd(i);
-		int new = __get_service_fd(i, id);
-
-		if (old < 0)
-			continue;
-		ret = dup2(old, new);
-		if (ret == -1) {
-			if (errno == EBADF)
-				continue;
-			pr_perror("Unable to clone %d->%d", old, new);
-		}
-		if (ret >= 0 && !(rsti(me)->clone_flags & CLONE_FILES))
-			close(old);
-	}
+	for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++)
+		move_service_fd(me, i, id, new_base);
 
 	service_fd_id = id;
 	ret = 0;
