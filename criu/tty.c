@@ -125,6 +125,7 @@ struct tty_dump_info {
 static bool stdin_isatty = false;
 static LIST_HEAD(collected_ttys);
 static LIST_HEAD(all_ttys);
+static int self_stdin_fdid = -1;
 
 /*
  * Usually an application has not that many ttys opened.
@@ -1000,9 +1001,9 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 			return -1;
 		}
 
-		fd = dup(get_service_fd(SELF_STDIN_OFF));
+		fd = fdstore_get(self_stdin_fdid);
 		if (fd < 0) {
-			pr_perror("Can't dup SELF_STDIN_OFF");
+			pr_err("Can't get self_stdin_fdid\n");
 			return -1;
 		}
 
@@ -2330,17 +2331,13 @@ int tty_prep_fds(void)
 	else
 		stdin_isatty = true;
 
-	if (install_service_fd(SELF_STDIN_OFF, STDIN_FILENO) < 0) {
-		pr_err("Can't dup stdin to SELF_STDIN_OFF\n");
+	self_stdin_fdid = fdstore_add(STDIN_FILENO);
+	if (self_stdin_fdid < 0) {
+		pr_err("Can't place stdin fd to fdstore\n");
 		return -1;
 	}
 
 	return 0;
-}
-
-void tty_fini_fds(void)
-{
-	close_service_fd(SELF_STDIN_OFF);
 }
 
 static int open_pty(void *arg, int flags)
