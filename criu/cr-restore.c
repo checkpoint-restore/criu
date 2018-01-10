@@ -2282,6 +2282,9 @@ int cr_restore_tasks(void)
 	if (prepare_pstree() < 0)
 		goto err;
 
+	if (fdstore_init())
+		goto err;
+
 	if (crtools_prepare_shared() < 0)
 		goto err;
 
