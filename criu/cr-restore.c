@@ -383,6 +383,23 @@ err:
 	return ret;
 }
 
+/* This actually populates and occupies ROOT_FD_OFF sfd */
+static int populate_root_fd_off(void)
+{
+	struct ns_id *mntns = NULL;
+	int ret;
+
+        if (root_ns_mask & CLONE_NEWNS) {
+                mntns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
+                BUG_ON(!mntns);
+        }
+
+	ret = mntns_get_root_fd(mntns);
+	if (ret < 0)
+		pr_err("Can't get root fd\n");
+	return ret >= 0 ? 0 : -1;
+}
+
 static rt_sigaction_t sigchld_act;
 /*
  * If parent's sigaction has blocked SIGKILL (which is non-sence),
@@ -1650,6 +1667,9 @@ static int restore_task_with_children(void *_arg)
 			goto err;
 
 		if (root_prepare_shared())
+			goto err;
+
+		if (populate_root_fd_off())
 			goto err;
 	}
 
