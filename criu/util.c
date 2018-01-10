@@ -545,7 +545,7 @@ int close_service_fd(enum sfd_type type)
 static void move_service_fd(struct pstree_item *me, int type, int new_id, int new_base)
 {
 	int old = get_service_fd(type);
-	int new = __get_service_fd(type, new_id);
+	int new = new_base - type - SERVICE_FD_MAX * new_id;
 	int ret;
 
 	if (old < 0)
@@ -558,24 +558,73 @@ static void move_service_fd(struct pstree_item *me, int type, int new_id, int ne
 		close(old);
 }
 
+static int choose_service_fd_base(struct pstree_item *me)
+{
+	int nr, real_nr, fdt_nr = 1, id = rsti(me)->service_fd_id;
+
+	if (rsti(me)->fdt) {
+		/* The base is set by owner of fdt (id 0) */
+		if (id != 0)
+			return service_fd_base;
+		fdt_nr = rsti(me)->fdt->nr;
+	}
+	/* Now find process's max used fd number */
+	if (!list_empty(&rsti(me)->fds))
+		nr = list_entry(rsti(me)->fds.prev,
+				struct fdinfo_list_entry, ps_list)->fe->fd;
+	else
+		nr = -1;
+
+	nr = max(nr, inh_fd_max);
+	/*
+	 * Service fds go after max fd near right border of alignment:
+	 *
+	 * ...|max_fd|max_fd+1|...|sfd first|...|sfd last (aligned)|
+	 *
+	 * So, they take maximum numbers of area allocated by kernel.
+	 * See linux alloc_fdtable() for details.
+	 */
+	nr += (SERVICE_FD_MAX - SERVICE_FD_MIN) * fdt_nr;
+	nr += 16; /* Safety pad */
+	real_nr = nr;
+
+	nr /= (1024 / sizeof(void *));
+	nr = 1 << (32 - __builtin_clz(nr));
+	nr *= (1024 / sizeof(void *));
+
+	if (nr > service_fd_rlim_cur) {
+		/* Right border is bigger, than rlim. OK, then just aligned value is enough */
+		nr = round_down(service_fd_rlim_cur, (1024 / sizeof(void *)));
+		if (nr < real_nr) {
+			pr_err("Can't chose service_fd_base: %d %d\n", nr, real_nr);
+			return -1;
+		}
+	}
+
+	return nr;
+}
+
 int clone_service_fd(struct pstree_item *me)
 {
 	int id, new_base, i, ret = -1;
 
-	new_base = service_fd_base;
+	new_base = choose_service_fd_base(me);
 	id = rsti(me)->service_fd_id;
 
-	if (service_fd_id == id)
+	if (new_base == -1)
+		return -1;
+	if (service_fd_base == new_base && service_fd_id == id)
 		return 0;
 
 	/* Dup sfds in memmove() style: they may overlap */
-	if (get_service_fd(LOG_FD_OFF) > __get_service_fd(LOG_FD_OFF, id))
+	if (get_service_fd(LOG_FD_OFF) > new_base - LOG_FD_OFF - SERVICE_FD_MAX * id)
 		for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++)
 			move_service_fd(me, i, id, new_base);
 	else
 		for (i = SERVICE_FD_MAX - 1; i > SERVICE_FD_MIN; i--)
 			move_service_fd(me, i, id, new_base);
 
+	service_fd_base = new_base;
 	service_fd_id = id;
 	ret = 0;
 
