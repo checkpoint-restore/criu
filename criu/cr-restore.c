@@ -1181,6 +1181,7 @@ static int restore_one_task(int pid, CoreEntry *core)
 		ret = restore_one_zombie(core);
 	else if (current->pid->state == TASK_HELPER) {
 		ret = restore_one_helper();
+		sfds_protected = false;
 		close_image_dir();
 		close_proc();
 		for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++)
@@ -1708,6 +1709,8 @@ static int restore_task_with_children(void *_arg)
 
 	if (populate_pid_proc())
 		goto err;
+
+	sfds_protected = true;
 
 	if (unmap_guard_pages(current))
 		goto err;
@@ -3436,6 +3439,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	if (restore_fs(current))
 		goto err;
 
+	sfds_protected = false;
 	close_image_dir();
 	close_proc();
 	close_service_fd(TRANSPORT_FD_OFF);
