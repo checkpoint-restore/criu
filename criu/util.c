@@ -1407,3 +1407,21 @@ out:
 	close_pid_proc();
 	return ret;
 }
+
+#ifdef __GLIBC__
+#include <execinfo.h>
+void print_stack_trace(pid_t pid)
+{
+	void *array[10];
+	char **strings;
+	size_t size, i;
+
+	size = backtrace(array, 10);
+	strings = backtrace_symbols(array, size);
+
+	for (i = 0; i < size; i++)
+		pr_err("stack %d#%zu: %s\n", pid, i, strings[i]);
+
+	free(strings);
+}
+#endif

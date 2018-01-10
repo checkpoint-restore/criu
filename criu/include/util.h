@@ -348,6 +348,11 @@ extern int epoll_run_rfds(int epfd, struct epoll_event *evs, int nr_fds, int tmo
 extern int epoll_prepare(int nr_events, struct epoll_event **evs);
 
 extern int call_in_child_process(int (*fn)(void *), void *arg);
+#ifdef __GLIBC__
+extern void print_stack_trace(pid_t pid);
+#else
+static inline void print_stack_trace(pid_t pid) {}
+#endif
 
 #define block_sigmask(saved_mask, sig_mask)	({					\
 		sigset_t ___blocked_mask;						\
