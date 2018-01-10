@@ -1248,7 +1248,7 @@ int prepare_fds(struct pstree_item *me)
 	 * set than its parent
 	 */
 	close_service_fd(CGROUP_YARD);
-	close_pid_proc(); /* flush any proc cached fds we may have */
+	set_proc_self_fd(-1); /* flush any proc cached fds we may have */
 
 	if (rsti(me)->fdt) {
 		struct fdt *fdt = rsti(me)->fdt;
