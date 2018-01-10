@@ -173,6 +173,7 @@ TST_NOFILE	:=				\
 		aio00				\
 		aio01				\
 		fd				\
+		fd01				\
 		apparmor				\
 		seccomp_strict			\
 		seccomp_filter			\
