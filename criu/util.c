@@ -434,7 +434,11 @@ int do_open_proc(pid_t pid, int flags, const char *fmt, ...)
 	return openat(dirfd, path, flags);
 }
 
-static int service_fd_rlim_cur;
+/* Max potentially possible fd to be open by criu process */
+int service_fd_rlim_cur;
+/* Base of current process service fds set */
+static int service_fd_base;
+/* Id of current process in shared fdt */
 static int service_fd_id = 0;
 
 int init_service_fd(void)
@@ -452,14 +456,15 @@ int init_service_fd(void)
 	}
 
 	service_fd_rlim_cur = (int)rlimit.rlim_cur;
-	BUG_ON(service_fd_rlim_cur < SERVICE_FD_MAX);
+	service_fd_base = service_fd_rlim_cur;
+	BUG_ON(service_fd_base < SERVICE_FD_MAX);
 
 	return 0;
 }
 
 static int __get_service_fd(enum sfd_type type, int service_fd_id)
 {
-	return service_fd_rlim_cur - type - SERVICE_FD_MAX * service_fd_id;
+	return service_fd_base - type - SERVICE_FD_MAX * service_fd_id;
 }
 
 int service_fd_min_fd(struct pstree_item *item)
