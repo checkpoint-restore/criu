@@ -778,7 +778,5 @@ int set_netns(uint32_t ns_id)
 	last_ns_id = ns_id;
 	close(nsfd);
 
-	close_pid_proc();
-
 	return 0;
 }
