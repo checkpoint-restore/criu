@@ -400,6 +400,15 @@ static int populate_root_fd_off(void)
 	return ret >= 0 ? 0 : -1;
 }
 
+static int populate_pid_proc(void)
+{
+	if (open_pid_proc(vpid(current)) < 0) {
+		pr_err("Can't open PROC_SELF\n");
+		return -1;
+	}
+	return 0;
+}
+
 static rt_sigaction_t sigchld_act;
 /*
  * If parent's sigaction has blocked SIGKILL (which is non-sence),
@@ -1696,6 +1705,9 @@ static int restore_task_with_children(void *_arg)
 		goto err;
 
 	timing_stop(TIME_FORK);
+
+	if (populate_pid_proc())
+		goto err;
 
 	if (unmap_guard_pages(current))
 		goto err;
