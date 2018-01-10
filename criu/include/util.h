@@ -37,6 +37,8 @@
 struct vma_area;
 struct list_head;
 
+extern int service_fd_rlim_cur;
+
 extern void pr_vma(unsigned int loglevel, const struct vma_area *vma_area);
 
 #define pr_info_vma(vma_area)	pr_vma(LOG_INFO, vma_area)
