@@ -1205,9 +1205,6 @@ static int setup_newborn_fds(struct pstree_item *me)
 			return -1;
 	}
 
-	if (log_init_by_pid(vpid(me)))
-		return -1;
-
 	return 0;
 }
 
@@ -1815,9 +1812,6 @@ static int restore_task_with_children(void *_arg)
 	if (current->pid->real < 0)
 		goto err;
 
-	if (setup_newborn_fds(current))
-		goto err;
-
 	pid = getpid();
 	if (last_level_pid(current->pid) != pid) {
 		pr_err("Pid %d do not match expected %d (task %d)\n",
@@ -1825,6 +1819,9 @@ static int restore_task_with_children(void *_arg)
 		set_task_cr_err(EEXIST);
 		goto err;
 	}
+
+	if (log_init_by_pid(vpid(current)))
+		return -1;
 
 	if (current->parent == NULL) {
 		/*
@@ -1894,6 +1891,9 @@ static int restore_task_with_children(void *_arg)
 		if (populate_root_fd_off())
 			goto err;
 	}
+
+	if (setup_newborn_fds(current))
+		goto err;
 
 	if ((ca->clone_flags & CLONE_NEWPID) && setup_current_pid_ns())
 		goto err;
