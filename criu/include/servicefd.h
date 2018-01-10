@@ -30,7 +30,7 @@ struct pstree_item;
 extern bool sfds_protected;
 
 extern void set_proc_self_fd(int fd);
-extern int clone_service_fd(int id);
+extern int clone_service_fd(struct pstree_item *me);
 extern int init_service_fd(void);
 extern int get_service_fd(enum sfd_type type);
 extern int install_service_fd(enum sfd_type type, int fd);

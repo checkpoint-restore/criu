@@ -542,9 +542,11 @@ int close_service_fd(enum sfd_type type)
 	return 0;
 }
 
-int clone_service_fd(int id)
+int clone_service_fd(struct pstree_item *me)
 {
-	int ret = -1, i;
+	int id, i, ret = -1;
+
+	id = rsti(me)->service_fd_id;
 
 	if (service_fd_id == id)
 		return 0;
