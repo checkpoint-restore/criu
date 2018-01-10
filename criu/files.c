@@ -1455,6 +1455,8 @@ struct inherit_fd {
 	dev_t inh_rdev;
 };
 
+int inh_fd_max = -1;
+
 /*
  * Return 1 if inherit fd has been closed or reused, 0 otherwise.
  *
@@ -1550,6 +1552,9 @@ int inherit_fd_add(int fd, char *key)
 	inh = xmalloc(sizeof *inh);
 	if (inh == NULL)
 		return -1;
+
+	if (fd > inh_fd_max)
+		inh_fd_max = fd;
 
 	inh->inh_id = key;
 	inh->inh_fd = fd;
