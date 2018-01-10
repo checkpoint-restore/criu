@@ -563,6 +563,8 @@ int clone_service_fd(struct pstree_item *me)
 				continue;
 			pr_perror("Unable to clone %d->%d", old, new);
 		}
+		if (ret >= 0 && !(rsti(me)->clone_flags & CLONE_FILES))
+			close(old);
 	}
 
 	service_fd_id = id;
