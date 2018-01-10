@@ -92,6 +92,8 @@ struct fdinfo_list_entry {
 	u8			fake:1;
 };
 
+extern int inh_fd_max;
+
 /* reports whether fd_a takes prio over fd_b */
 static inline int fdinfo_rst_prio(struct fdinfo_list_entry *fd_a, struct fdinfo_list_entry *fd_b)
 {
