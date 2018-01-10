@@ -296,7 +296,7 @@ static pid_t open_proc_pid = PROC_NONE;
 static pid_t open_proc_self_pid;
 static int open_proc_self_fd = -1;
 
-static inline void set_proc_self_fd(int fd)
+void set_proc_self_fd(int fd)
 {
 	if (open_proc_self_fd >= 0)
 		close(open_proc_self_fd);

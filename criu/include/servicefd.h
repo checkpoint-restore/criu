@@ -28,6 +28,7 @@ enum sfd_type {
 
 struct pstree_item;
 
+extern void set_proc_self_fd(int fd);
 extern int clone_service_fd(int id);
 extern int init_service_fd(void);
 extern int get_service_fd(enum sfd_type type);
