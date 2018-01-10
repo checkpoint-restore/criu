@@ -2204,9 +2204,6 @@ static int restore_root_task(struct pstree_item *init)
 	if (prepare_userns_hook())
 		return -1;
 
-	if (fdstore_init())
-		return -1;
-
 	if (prepare_namespace_before_tasks())
 		return -1;
 
@@ -2531,6 +2528,9 @@ int cr_restore_tasks(void)
 		goto err;
 
 	if (prepare_pstree() < 0)
+		goto err;
+
+	if (fdstore_init())
 		goto err;
 
 	if (crtools_prepare_shared() < 0)
