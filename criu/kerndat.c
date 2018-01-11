@@ -887,6 +887,8 @@ int kerndat_init(void)
 	if (!ret)
 		ret = kerndat_nsid();
 	if (!ret)
+		ret = kerndat_link_nsid();
+	if (!ret)
 		ret = kerndat_has_memfd_create();
 	if (!ret)
 		ret = kerndat_detect_stack_guard_gap();
