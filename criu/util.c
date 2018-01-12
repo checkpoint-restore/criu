@@ -473,12 +473,27 @@ int service_fd_min_fd(struct pstree_item *item)
 }
 
 static DECLARE_BITMAP(sfd_map, SERVICE_FD_MAX);
+/*
+ * Variable for marking areas of code, where service fds modifications
+ * are prohibited. It's used to safe them from reusing their numbers
+ * by ordinary files. See install_service_fd() and close_service_fd().
+ */
+bool sfds_protected = false;
+
+static void sfds_protection_bug(enum sfd_type type)
+{
+	pr_err("Service fd %u is being modified in protected context\n", type);
+	print_stack_trace(current ? vpid(current) : 0);
+	BUG();
+}
 
 int install_service_fd(enum sfd_type type, int fd)
 {
 	int sfd = __get_service_fd(type, service_fd_id);
 
 	BUG_ON((int)type <= SERVICE_FD_MIN || (int)type >= SERVICE_FD_MAX);
+	if (sfds_protected && !test_bit(type, sfd_map))
+		sfds_protection_bug(type);
 
 	if (dup3(fd, sfd, O_CLOEXEC) != sfd) {
 		pr_perror("Dup %d -> %d failed", fd, sfd);
@@ -507,6 +522,9 @@ int criu_get_image_dir(void)
 int close_service_fd(enum sfd_type type)
 {
 	int fd;
+
+	if (sfds_protected)
+		sfds_protection_bug(type);
 
 	fd = get_service_fd(type);
 	if (fd < 0)
