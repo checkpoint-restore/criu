@@ -27,6 +27,7 @@ enum sfd_type {
 };
 
 struct pstree_item;
+extern bool sfds_protected;
 
 extern void set_proc_self_fd(int fd);
 extern int clone_service_fd(int id);
