@@ -1347,7 +1347,7 @@ static void convert_path_from_another_mp(char *src, char *dst, int dlen,
 	 * Absolute path to the mount point + difference between source
 	 * and destination roots + path relative to the mountpoint.
 	 */
-	snprintf(dst, dlen, "%s/%s/%s",
+	snprintf(dst, dlen, "./%s/%s/%s",
 				dmi->ns_mountpoint + 1,
 				smi->root + strlen(dmi->root),
 				src + off);
