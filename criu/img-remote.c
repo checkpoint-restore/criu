@@ -49,7 +49,7 @@ int local_req_fd;
 LIST_HEAD(snapshot_head);
 
 /* A snapshot is a dump or pre-dump operation. Each snapshot is identified by an
- * ID which corresponds to the working directory specefied by the user.
+ * ID which corresponds to the working directory specified by the user.
  */
 struct snapshot {
 	char snapshot_id[PATHLEN];
@@ -531,7 +531,7 @@ static void *process_local_read(struct wthread *wt)
 	struct rimage *rimg = NULL;
 	int64_t ret;
 	/* TODO - split wait_for_image
-	 * in cache - improve the parent stuf
+	 * in cache - improve the parent stuff
 	 * in proxy - do not wait for anything, return no file
 	 */
 	rimg = wait_for_image(wt);
