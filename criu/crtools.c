@@ -843,7 +843,7 @@ usage:
 "  cpuinfo dump   writes cpu information into image file\n"
 "  cpuinfo check  validates cpu information read from image file\n"
 "  image-proxy    launch dump-side proxy to sent images\n"
-"  image-cache    launch restore-side cache to reveive images\n"
+"  image-cache    launch restore-side cache to receive images\n"
 	);
 
 	if (usage_error) {
