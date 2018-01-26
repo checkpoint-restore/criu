@@ -196,6 +196,10 @@ again:
 		if (!b->sz)
 			return NULL;
 
+		if (b->sz == BUFSIZE) {
+			pr_err("The bfd buffer is too small\n");
+			ERR_PTR(-EIO);
+		}
 		/*
 		 * Last bytes may lack the \n at the
 		 * end, need to report this as full
