@@ -630,7 +630,7 @@ static int parasite_dump_cgroup(struct parasite_dump_cgroup_args *args)
 		return -1;
 	}
 
-	if (len == sizeof(*args)) {
+	if (len == sizeof(args->contents)) {
 		pr_warn("/proc/self/cgroup was bigger than the page size\n");
 		return -1;
 	}
