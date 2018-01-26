@@ -197,7 +197,7 @@ int kerndat_files_stat(bool early)
 				buf[ret] = '\0';
 				max_files = atol(buf);
 			}
-			ret = read(fd2, buf, sizeof(buf));
+			ret = read(fd2, buf, sizeof(buf) - 1);
 			if (ret > 0) {
 				buf[ret] = '\0';
 				nr_open = atol(buf);
