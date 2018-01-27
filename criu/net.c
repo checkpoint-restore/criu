@@ -3062,7 +3062,7 @@ int kerndat_link_nsid()
 
 	if (status) {
 		pr_warn("NSID isn't reported for network links\n");
-		return -1;
+		return 0;
 	}
 
 	kdat.has_link_nsid = true;
