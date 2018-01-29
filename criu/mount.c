@@ -1310,7 +1310,7 @@ err:
 
 int open_mountpoint(struct mount_info *pm)
 {
-	int fd, cwd_fd, ns_old = -1;
+	int fd = -1, cwd_fd, ns_old = -1;
 
 	/* No overmounts and children - the entire mount is visible */
 	if (list_empty(&pm->children) && !mnt_is_overmounted(pm))
