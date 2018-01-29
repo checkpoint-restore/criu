@@ -1367,7 +1367,7 @@ int open_mountpoint(struct mount_info *pm)
 				| CLONE_SYSVSEM, &ca);
 		if (pid == -1) {
 			pr_perror("Can't clone helper process");
-			return -1;
+			goto err;
 		}
 
 		errno = 0;
@@ -1375,7 +1375,7 @@ int open_mountpoint(struct mount_info *pm)
 				|| WEXITSTATUS(status)) {
 			pr_err("Can't wait or bad status: errno=%d, status=%d\n",
 				errno, status);
-			return -1;
+			goto err;
 		}
 	}
 
