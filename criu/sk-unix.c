@@ -54,6 +54,8 @@
 #define USK_CALLBACK	(1 << 2)
 #define USK_INHERIT	(1 << 3)
 
+#define FAKE_INO	0
+
 typedef struct {
 	char			*dir;
 	unsigned int		udiag_vfs_dev;
@@ -1123,6 +1125,11 @@ static int post_open_standalone(struct file_desc *d, int fd)
 	if (!peer || ui->is_connected)
 		goto restore_sk_common;
 
+	if (ui->ue->ino == FAKE_INO) {
+		BUG_ON(ui->queuer);
+		goto restore_queue;
+	}
+
 	/* Skip external sockets */
 	if (!list_empty(&peer->d.fd_info_head))
 		if (peer_is_not_prepared(peer))
@@ -1148,6 +1155,7 @@ static int post_open_standalone(struct file_desc *d, int fd)
 
 	revert_unix_sk_cwd(&cwd_fd, &root_fd);
 
+restore_queue:
 	if (peer->queuer == ui &&
 	    !(peer->ue->uflags & USK_EXTERN) &&
 	    restore_unix_queue(fd, peer))
@@ -1364,8 +1372,39 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui, int *new_fd)
 	return (fle_peer->stage != FLE_RESTORED);
 }
 
+/*
+ * When sks[0]'s fle requires to create socketpair, and sks[1] is also
+ * somebody's fle, this makes file engine to make note the second_end
+ * is also open.
+ */
+static int setup_second_end(int *sks, struct fdinfo_list_entry *second_end)
+{
+	int ret;
+
+	if (sks[0] == second_end->fe->fd) {
+		/*
+		 * Below setup_and_serve_out() will reuse this fd,
+		 * so this dups it in something else.
+		 */
+		ret = dup(sks[0]);
+		if (ret < 0) {
+			pr_perror("Can't dup()");
+			return -1;
+		}
+		close(sks[0]);
+		sks[0] = ret;
+	}
+
+	if (setup_and_serve_out(second_end, sks[1])) {
+		pr_err("Can't send pair slave\n");
+		return -1;
+	}
+	return 0;
+}
+
 static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 {
+	struct unix_sk_info *queuer = ui->queuer;
 	struct fdinfo_list_entry *fle;
 	int sk;
 
@@ -1374,6 +1413,10 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 	fle = file_master(&ui->d);
 	if (fle->stage == FLE_OPEN)
 		return post_open_standalone(&ui->d, fle->fe->fd);
+
+	/* Fake socket will be restored by its peer */
+	if (!(ui->ue->uflags & USK_EXTERN) && ui->ue->ino == FAKE_INO)
+		return 1;
 
 	if (set_netns(ui->ue->ns_id))
 		return -1;
@@ -1396,7 +1439,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 
 		close(sks[1]);
 		sk = sks[0];
-	} else if ((ui->ue->state == TCP_ESTABLISHED) && !ui->ue->peer) {
+	} else if (ui->ue->state == TCP_ESTABLISHED && queuer && queuer->ue->ino == FAKE_INO) {
 		int ret, sks[2];
 
 		if (ui->ue->type != SOCK_STREAM) {
@@ -1417,16 +1460,9 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 			return -1;
 		}
 
-		/*
-		 * Restore queue at the one end,
-		 * before closing the second one.
-		 */
-		if (restore_unix_queue(sks[1], ui)) {
-			pr_perror("Can't restore socket queue");
+		if (setup_second_end(sks, file_master(&queuer->d)))
 			return -1;
-		}
 
-		close(sks[1]);
 		sk = sks[0];
 	} else if (ui->ue->type == SOCK_DGRAM && !ui->queuer) {
 		struct sockaddr_un addr;
@@ -1695,6 +1731,67 @@ static void set_peer(struct unix_sk_info *ui, struct unix_sk_info *peer)
 	list_add(&ui->node, &peer->connected);
 	if (!peer->queuer)
 		peer->queuer = ui;
+}
+
+static int add_fake_queuer(struct unix_sk_info *ui)
+{
+	struct unix_sk_info *peer;
+	struct pstree_item *task;
+	UnixSkEntry *peer_ue;
+	SkOptsEntry *skopts;
+	FownEntry *fown;
+
+	if (ui->ue->ino == FAKE_INO)
+		return 0;
+
+	peer = xzalloc(sizeof(struct unix_sk_info) +
+			sizeof(UnixSkEntry) +
+			sizeof(SkOptsEntry) +
+			sizeof(FownEntry));
+	if (peer == NULL)
+		return -1;
+
+	peer_ue = (void *) peer + sizeof(struct unix_sk_info);
+	skopts = (void *) peer_ue + sizeof(UnixSkEntry);
+	fown = (void *) skopts + sizeof(SkOptsEntry);
+	memcpy(skopts, ui->ue->opts, sizeof(SkOptsEntry));
+	memcpy(fown, ui->ue->fown, sizeof(FownEntry));
+	memcpy(peer_ue, ui->ue, sizeof(UnixSkEntry));
+	peer_ue->opts = skopts;
+	peer_ue->file_perms = NULL;
+	peer_ue->fown = fown;
+	peer_ue->name.len = 0;
+	peer_ue->name_dir = NULL;
+
+	if (init_unix_sk_info(peer, peer_ue))
+		return -1;
+
+	peer_ue->id = find_unused_file_desc_id();
+	set_peer(peer, ui);
+
+	/* Note, that this fake fdesc has no ino */
+	peer->ue->ino = FAKE_INO;
+	file_desc_add(&peer->d, peer_ue->id, &unix_desc_ops);
+	list_del_init(&peer->d.fake_master_list);
+	list_add(&peer->list, &unix_sockets);
+	task = file_master(&ui->d)->task;
+
+	return (get_fle_for_task(&peer->d, task, true) == NULL);
+}
+
+int add_fake_unix_queuers(void)
+{
+	struct unix_sk_info *ui;
+
+	list_for_each_entry(ui, &unix_sockets, list) {
+		if ((ui->ue->uflags & USK_EXTERN) || ui->queuer)
+			continue;
+		if (!(ui->ue->state == TCP_ESTABLISHED && !ui->peer))
+			continue;
+		if (add_fake_queuer(ui))
+			return -1;
+	}
+	return 0;
 }
 
 /* This function is called from post prepare only */
