@@ -1247,6 +1247,30 @@ done:
 	return ret;
 }
 
+static int post_open_interconnected_master(struct unix_sk_info *ui)
+{
+	struct fdinfo_list_entry *fle, *fle_peer;
+	struct unix_sk_info *peer = ui->peer;
+
+	fle = file_master(&ui->d);
+	fle_peer = file_master(&peer->d);
+	BUG_ON(fle->task != fle_peer->task); /* See interconnected_pair() */
+
+	if (restore_sk_queue(fle->fe->fd, peer->ue->id))
+		return -1;
+
+	if (restore_sk_queue(fle_peer->fe->fd, ui->ue->id))
+		return -1;
+
+	if (restore_sk_common(fle->fe->fd, ui))
+		return -1;
+
+	if (restore_sk_common(fle_peer->fe->fd, peer))
+		return -1;
+
+	return 0;
+}
+
 static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 {
 	struct fdinfo_list_entry *fle, *fle_peer;
@@ -1257,6 +1281,9 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 			ui->ue->id, ui->ue->ino, ui->ue->peer);
 
 	fle = file_master(&ui->d);
+	if (fle->stage == FLE_OPEN)
+		return post_open_interconnected_master(ui);
+
 	fle_peer = file_master(&peer->d);
 
 	BUG_ON(fle->task != fle_peer->task); /* See interconnected_pair() */
@@ -1289,25 +1316,14 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 	}
 	sk[1] = fle_peer->fe->fd;
 
-	if (restore_sk_queue(sk[0], peer->ue->id))
-		return -1;
-	if (restore_sk_queue(sk[1], ui->ue->id))
-		return -1;
-
 	if (bind_unix_sk(sk[0], ui))
-		return -1;
-
-	if (restore_sk_common(sk[0], ui))
 		return -1;
 
 	if (bind_unix_sk(sk[1], peer))
 		return -1;
 
-	if (restore_sk_common(sk[1], peer))
-		return -1;
-
 	*new_fd = sk[0];
-	return 0;
+	return 1;
 }
 
 static int open_unixsk_pair_slave(struct unix_sk_info *ui, int *new_fd)
