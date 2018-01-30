@@ -57,6 +57,8 @@ static struct hlist_head file_desc_hash[FDESC_HASH_SIZE];
 /* file_desc's, which fle is not owned by a process, that is able to open them */
 static LIST_HEAD(fake_master_head);
 
+static u32 max_file_desc_id = 0;
+
 static void init_fdesc_hash(void)
 {
 	int i;
@@ -79,6 +81,10 @@ int file_desc_add(struct file_desc *d, u32 id, struct file_desc_ops *ops)
 {
 	file_desc_init(d, id, ops);
 	hlist_add_head(&d->hash, &file_desc_hash[id % FDESC_HASH_SIZE]);
+
+	if (id > max_file_desc_id)
+		max_file_desc_id = id;
+
 	return 0; /* this is to make tail-calls in collect_one_foo look nice */
 }
 
@@ -106,6 +112,11 @@ struct file_desc *find_file_desc_raw(int type, u32 id)
 static inline struct file_desc *find_file_desc(FdinfoEntry *fe)
 {
 	return find_file_desc_raw(fe->type, fe->id);
+}
+
+u32 find_unused_file_desc_id(void)
+{
+	return max_file_desc_id + 1;
 }
 
 struct fdinfo_list_entry *find_used_fd(struct pstree_item *task, int fd)
