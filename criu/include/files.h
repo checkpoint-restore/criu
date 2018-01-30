@@ -152,6 +152,7 @@ extern struct fdinfo_list_entry *try_file_master(struct file_desc *d);
 extern struct fdinfo_list_entry *file_master(struct file_desc *d);
 extern struct file_desc *find_file_desc_raw(int type, u32 id);
 
+extern int setup_and_serve_out(struct fdinfo_list_entry *fle, int new_fd);
 extern int recv_desc_from_peer(struct file_desc *d, int *fd);
 extern int send_desc_to_peer(int fd, struct file_desc *d);
 extern int restore_fown(int fd, FownEntry *fown);

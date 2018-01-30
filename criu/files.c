@@ -1069,7 +1069,7 @@ out:
 	return ret;
 }
 
-static int setup_and_serve_out(struct fdinfo_list_entry *fle, int new_fd)
+int setup_and_serve_out(struct fdinfo_list_entry *fle, int new_fd)
 {
 	struct file_desc *d = fle->desc;
 	pid_t pid = fle->pid;
