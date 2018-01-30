@@ -842,8 +842,8 @@ static struct unix_sk_info *find_queuer_for(int id)
 	return NULL;
 }
 
-static struct fdinfo_list_entry *get_fle_for_scm(struct file_desc *tgt,
-		struct pstree_item *owner)
+static struct fdinfo_list_entry *get_fle_for_task(struct file_desc *tgt,
+		struct pstree_item *owner, bool force_master)
 {
 	struct fdinfo_list_entry *fle;
 	FdinfoEntry *e = NULL;
@@ -865,7 +865,7 @@ static struct fdinfo_list_entry *get_fle_for_scm(struct file_desc *tgt,
 	 * we're another user of it.
 	 */
 	fd = find_unused_fd(owner, -1);
-	pr_info("`- will add SCM-only %d fd\n", fd);
+	pr_info("`- will add fake %d fd\n", fd);
 
 	if (e != NULL) {
 		e = dup_fdinfo(e, fd, 0);
@@ -895,7 +895,7 @@ static struct fdinfo_list_entry *get_fle_for_scm(struct file_desc *tgt,
 	 * Make this fle fake, so that files collecting engine
 	 * closes them at the end.
 	 */
-	return collect_fd_to(vpid(owner), e, rsti(owner), tgt, true, false);
+	return collect_fd_to(vpid(owner), e, rsti(owner), tgt, true, force_master);
 }
 
 int unix_note_scm_rights(int id_for, uint32_t *file_ids, int *fds, int n_ids)
@@ -936,7 +936,7 @@ int unix_note_scm_rights(int id_for, uint32_t *file_ids, int *fds, int n_ids)
 		if (!sfle)
 			return -1;
 
-		sfle->fle = get_fle_for_scm(tgt, owner);
+		sfle->fle = get_fle_for_task(tgt, owner, false);
 		if (!sfle->fle) {
 			pr_err("Can't request new fle for scm\n");
 			return -1;
