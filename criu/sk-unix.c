@@ -1249,11 +1249,17 @@ done:
 
 static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 {
-	int sk[2];
+	struct fdinfo_list_entry *fle, *fle_peer;
 	struct unix_sk_info *peer = ui->peer;
+	int sk[2];
 
 	pr_info("Opening pair master (id %#x ino %#x peer %#x)\n",
 			ui->ue->id, ui->ue->ino, ui->ue->peer);
+
+	fle = file_master(&ui->d);
+	fle_peer = file_master(&peer->d);
+
+	BUG_ON(fle->task != fle_peer->task); /* See interconnected_pair() */
 
 	if (set_netns(ui->ue->ns_id))
 		return -1;
@@ -1628,10 +1634,32 @@ static void set_peer(struct unix_sk_info *ui, struct unix_sk_info *peer)
 		peer->queuer = ui->ue->id;
 }
 
-static void interconnected_pair(struct unix_sk_info *ui, struct unix_sk_info *peer)
+/* This function is called from post prepare only */
+static int interconnected_pair(struct unix_sk_info *ui, struct unix_sk_info *peer)
 {
+	struct fdinfo_list_entry *fle, *fle_peer;
+
 	ui->flags |= USK_PAIR_MASTER;
 	peer->flags |= USK_PAIR_SLAVE;
+
+	fle = file_master(&ui->d);
+	fle_peer = file_master(&peer->d);
+
+	/*
+	 * Since queue restore is delayed, every socket of the pair
+	 * should have another end to send the queue packets.
+	 * To fit that, we make the both file_master's to be owned
+	 * by the only task.
+	 * This function is called from run_post_prepare() and
+	 * after add_fake_fds_masters(), so we must not add masters,
+	 * which fle->task has no permissions to restore. But
+	 * it has permissions on ui, so it has permissions on peer.
+	 */
+	if (fle->task != fle_peer->task &&
+	    !get_fle_for_task(&peer->d, fle->task, true))
+		return -1;
+
+	return 0;
 }
 
 static int fixup_unix_peer(struct unix_sk_info *ui)
@@ -1649,7 +1677,8 @@ static int fixup_unix_peer(struct unix_sk_info *ui)
 		pr_info("Connected %#x -> %#x (%#x) flags %#x\n",
 				ui->ue->ino, ui->ue->peer, peer->ue->ino, ui->flags);
 		/* socketpair or interconnected sockets */
-		interconnected_pair(ui, peer);
+		if (interconnected_pair(ui, peer))
+			return -1;
 	}
 
 	return 0;
