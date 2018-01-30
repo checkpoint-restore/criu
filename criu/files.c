@@ -760,11 +760,9 @@ static struct fdinfo_list_entry *alloc_fle(int pid, FdinfoEntry *fe)
 	return fle;
 }
 
-static void collect_desc_fle(struct fdinfo_list_entry *new_le, struct file_desc *fdesc)
+static void __collect_desc_fle(struct fdinfo_list_entry *new_le, struct file_desc *fdesc)
 {
 	struct fdinfo_list_entry *le;
-
-	new_le->desc = fdesc;
 
 	list_for_each_entry(le, &fdesc->fd_info_head, desc_list)
 		if (pid_rst_prio(new_le->pid, le->pid))
@@ -772,15 +770,29 @@ static void collect_desc_fle(struct fdinfo_list_entry *new_le, struct file_desc 
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 }
 
+static void collect_desc_fle(struct fdinfo_list_entry *new_le,
+			     struct file_desc *fdesc, bool force_master)
+{
+	new_le->desc = fdesc;
+
+	if (!force_master)
+		__collect_desc_fle(new_le, fdesc);
+	else {
+		/* Link as first entry */
+		list_add(&new_le->desc_list, &fdesc->fd_info_head);
+	}
+}
+
 struct fdinfo_list_entry *collect_fd_to(int pid, FdinfoEntry *e,
-		struct rst_info *rst_info, struct file_desc *fdesc, bool fake)
+		struct rst_info *rst_info, struct file_desc *fdesc,
+		bool fake, bool force_master)
 {
 	struct fdinfo_list_entry *new_le;
 
 	new_le = alloc_fle(pid, e);
 	if (new_le) {
 		new_le->fake = (!!fake);
-		collect_desc_fle(new_le, fdesc);
+		collect_desc_fle(new_le, fdesc, force_master);
 		collect_task_fd(new_le, rst_info);
 	}
 
@@ -800,7 +812,7 @@ int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info, bool fake)
 		return -1;
 	}
 
-	if (!collect_fd_to(pid, e, rst_info, fdesc, fake))
+	if (!collect_fd_to(pid, e, rst_info, fdesc, fake, false))
 		return -1;
 
 	return 0;

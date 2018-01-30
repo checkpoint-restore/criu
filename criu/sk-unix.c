@@ -895,7 +895,7 @@ static struct fdinfo_list_entry *get_fle_for_scm(struct file_desc *tgt,
 	 * Make this fle fake, so that files collecting engine
 	 * closes them at the end.
 	 */
-	return collect_fd_to(vpid(owner), e, rsti(owner), tgt, true);
+	return collect_fd_to(vpid(owner), e, rsti(owner), tgt, true, false);
 }
 
 int unix_note_scm_rights(int id_for, uint32_t *file_ids, int *fds, int n_ids)
