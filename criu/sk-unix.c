@@ -1607,24 +1607,19 @@ static int post_prepare_unix_sk(struct pprep_head *ph)
 	return 0;
 }
 
-static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
+static int init_unix_sk_info(struct unix_sk_info *ui, UnixSkEntry *ue)
 {
-	struct unix_sk_info *ui = o;
-	char *uname, *prefix = "";
-	int ulen;
-
-	ui->ue = pb_msg(base, UnixSkEntry);
-	ui->name_dir = (void *)ui->ue->name_dir;
-
-	if (ui->ue->name.len) {
-		if (ui->ue->name.len > UNIX_PATH_MAX) {
-			pr_err("Bad unix name len %d\n", (int)ui->ue->name.len);
+	ui->ue = ue;
+	if (ue->name.len) {
+		if (ue->name.len > UNIX_PATH_MAX) {
+			pr_err("Bad unix name len %d\n", (int)ue->name.len);
 			return -1;
 		}
 
-		ui->name = (void *)ui->ue->name.data;
+		ui->name = (void *)ue->name.data;
 	} else
 		ui->name = NULL;
+	ui->name_dir = (void *)ue->name_dir;
 
 	ui->queuer = NULL;
 	ui->peer = NULL;
@@ -1636,6 +1631,18 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	INIT_LIST_HEAD(&ui->node);
 	INIT_LIST_HEAD(&ui->scm_fles);
 	ui->flags = 0;
+
+	return 0;
+}
+
+static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
+{
+	struct unix_sk_info *ui = o;
+	char *uname, *prefix = "";
+	int ulen;
+
+	if (init_unix_sk_info(ui, pb_msg(base, UnixSkEntry)))
+		return -1;
 
 	uname = ui->name;
 	ulen = ui->ue->name.len;
