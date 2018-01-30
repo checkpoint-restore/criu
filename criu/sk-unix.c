@@ -1251,7 +1251,7 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 {
 	struct fdinfo_list_entry *fle, *fle_peer;
 	struct unix_sk_info *peer = ui->peer;
-	int sk[2];
+	int sk[2], tmp;
 
 	pr_info("Opening pair master (id %#x ino %#x peer %#x)\n",
 			ui->ue->id, ui->ue->ino, ui->ue->peer);
@@ -1269,6 +1269,26 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 		return -1;
 	}
 
+	if (sk[0] == fle_peer->fe->fd) {
+		/*
+		 * Below setup_and_serve_out() will reuse this fd,
+		 * so this dups it in something else.
+		 */
+		tmp = dup(sk[0]);
+		if (tmp < 0) {
+			pr_perror("Can't dup()");
+			return -1;
+		}
+		close(sk[0]);
+		sk[0] = tmp;
+	}
+
+	if (setup_and_serve_out(fle_peer, sk[1])) {
+		pr_err("Can't send pair slave\n");
+		return -1;
+	}
+	sk[1] = fle_peer->fe->fd;
+
 	if (restore_sk_queue(sk[0], peer->ue->id))
 		return -1;
 	if (restore_sk_queue(sk[1], ui->ue->id))
@@ -1280,12 +1300,11 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 	if (restore_sk_common(sk[0], ui))
 		return -1;
 
-	if (send_desc_to_peer(sk[1], &peer->d)) {
-		pr_err("Can't send pair slave\n");
+	if (bind_unix_sk(sk[1], peer))
 		return -1;
-	}
 
-	close(sk[1]);
+	if (restore_sk_common(sk[1], peer))
+		return -1;
 
 	*new_fd = sk[0];
 	return 0;
@@ -1293,23 +1312,14 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 
 static int open_unixsk_pair_slave(struct unix_sk_info *ui, int *new_fd)
 {
-	int sk, ret;
+	struct fdinfo_list_entry *fle_peer;
 
-	ret = recv_desc_from_peer(&ui->d, &sk);
-	if (ret != 0) {
-		if (ret != 1)
-			pr_err("Can't recv pair slave\n");
-		return ret;
-	}
-
-	if (bind_unix_sk(sk, ui))
-		return -1;
-
-	if (restore_sk_common(sk, ui))
-		return -1;
-
-	*new_fd = sk;
-	return 0;
+	fle_peer = file_master(&ui->peer->d);
+	/*
+	 * All the work is made in master. Slave just says it's restored
+	 * after it sees the master is restored.
+	 */
+	return (fle_peer->stage != FLE_RESTORED);
 }
 
 static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
