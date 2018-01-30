@@ -102,11 +102,10 @@ static int dump_scm_rights(struct cmsghdr *ch, SkPacketEntry *pe)
 			return -1;
 
 		/*
-		 * Unix sent over Unix or Epoll with some other sh*t
-		 * sent over unix (maybe with this very unix polled)
-		 * are tricky and not supported for now. (XXX -- todo)
+		 * Unix sent over Unix are tricky and not supported
+		 * for now. (XXX -- todo).
 		 */
-		if (ftyp == FD_TYPES__UNIXSK || ftyp == FD_TYPES__EVENTPOLL) {
+		if (ftyp == FD_TYPES__UNIXSK) {
 			pr_err("Can't dump send %d (unix/epoll) fd\n", ftyp);
 			return -1;
 		}
