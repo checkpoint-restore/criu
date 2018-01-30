@@ -1464,7 +1464,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 			return -1;
 
 		sk = sks[0];
-	} else if (ui->ue->type == SOCK_DGRAM && !ui->queuer) {
+	} else if (ui->ue->type == SOCK_DGRAM && queuer && queuer->ue->ino == FAKE_INO) {
 		struct sockaddr_un addr;
 		int sks[2];
 
@@ -1483,21 +1483,18 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		 * to sks[0] (see unix_dgram_connect()->unix_may_send()).
 		 * The below is hack: we use that connect with AF_UNSPEC
 		 * clears socket's peer.
+		 * Note, that connect hack flushes receive queue,
+		 * so restore_unix_queue() must be after it.
 		 */
 		if (connect(sk, (struct sockaddr *)&addr, sizeof(addr.sun_family))) {
 			pr_perror("Can't clear socket's peer");
 			return -1;
 		}
 
-		/*
-		 * This must be after the connect() hack, because
-		 * connect() flushes receive queue.
-		 */
-		if (restore_unix_queue(sks[1], ui)) {
-			pr_perror("Can't restore socket queue");
+		if (setup_second_end(sks, file_master(&queuer->d)))
 			return -1;
-		}
-		close(sks[1]);
+
+		sk = sks[0];
 	} else {
 		if (ui->ue->uflags & USK_CALLBACK) {
 			sk = run_plugins(RESTORE_UNIX_SK, ui->ue->ino);
@@ -1786,7 +1783,8 @@ int add_fake_unix_queuers(void)
 	list_for_each_entry(ui, &unix_sockets, list) {
 		if ((ui->ue->uflags & USK_EXTERN) || ui->queuer)
 			continue;
-		if (!(ui->ue->state == TCP_ESTABLISHED && !ui->peer))
+		if (!(ui->ue->state == TCP_ESTABLISHED && !ui->peer) &&
+		     ui->ue->type != SOCK_DGRAM)
 			continue;
 		if (add_fake_queuer(ui))
 			return -1;
