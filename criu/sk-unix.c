@@ -1630,22 +1630,8 @@ static void set_peer(struct unix_sk_info *ui, struct unix_sk_info *peer)
 
 static void interconnected_pair(struct unix_sk_info *ui, struct unix_sk_info *peer)
 {
-	struct fdinfo_list_entry *fle, *fle_peer;
-	/*
-	 * Select who will restore the pair. Check is identical to
-	 * the one in pipes.c and makes sure tasks wait for each other
-	 * in pids sorting order (ascending).
-	 */
-	fle = file_master(&ui->d);
-	fle_peer = file_master(&peer->d);
-
-	if (fdinfo_rst_prio(fle, fle_peer)) {
-		ui->flags |= USK_PAIR_MASTER;
-		peer->flags |= USK_PAIR_SLAVE;
-	} else {
-		peer->flags |= USK_PAIR_MASTER;
-		ui->flags |= USK_PAIR_SLAVE;
-	}
+	ui->flags |= USK_PAIR_MASTER;
+	peer->flags |= USK_PAIR_SLAVE;
 }
 
 static int fixup_unix_peer(struct unix_sk_info *ui)
