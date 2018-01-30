@@ -1123,6 +1123,9 @@ static int post_open_standalone(struct file_desc *d, int fd)
 	BUG_ON((ui->flags & (USK_PAIR_MASTER | USK_PAIR_SLAVE)) ||
 			(ui->ue->uflags & (USK_CALLBACK | USK_INHERIT)));
 
+	if (chk_restored_scms(ui))
+		return 1;
+
 	peer = ui->peer;
 	if (!peer || ui->is_connected)
 		goto restore_sk_common;
@@ -1291,6 +1294,9 @@ static int post_open_interconnected_master(struct unix_sk_info *ui)
 	fle = file_master(&ui->d);
 	fle_peer = file_master(&peer->d);
 	BUG_ON(fle->task != fle_peer->task); /* See interconnected_pair() */
+
+	if (chk_restored_scms(ui) || chk_restored_scms(peer))
+		return 0;
 
 	if (restore_unix_queue(fle->fe->fd, peer))
 		return -1;
@@ -1562,12 +1568,6 @@ static int open_unix_sk(struct file_desc *d, int *new_fd)
 	int ret;
 
 	ui = container_of(d, struct unix_sk_info, d);
-
-	/* FIXME -- only queue restore may be postponed */
-	if (chk_restored_scms(ui)) {
-		pr_info("scm: Wait for tgt to restore\n");
-		return 1;
-	}
 
 	if (inherited_fd(d, new_fd)) {
 		ui->ue->uflags |= USK_INHERIT;

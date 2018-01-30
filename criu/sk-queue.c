@@ -100,15 +100,6 @@ static int dump_scm_rights(struct cmsghdr *ch, SkPacketEntry *pe)
 
 		if (dump_my_file(fds[i], &scme->rights[i], &ftyp))
 			return -1;
-
-		/*
-		 * Unix sent over Unix are tricky and not supported
-		 * for now. (XXX -- todo).
-		 */
-		if (ftyp == FD_TYPES__UNIXSK) {
-			pr_err("Can't dump send %d (unix/epoll) fd\n", ftyp);
-			return -1;
-		}
 	}
 
 	i = pe->n_scm++;
