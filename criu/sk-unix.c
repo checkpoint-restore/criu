@@ -805,7 +805,7 @@ struct unix_sk_info {
 	 * once although it may be open by more than one tid. This is the peer
 	 * that should do the queueing.
 	 */
-	u32 queuer;
+	struct unix_sk_info *queuer;
 	u8 bound:1;
 	u8 listen:1;
 };
@@ -835,7 +835,7 @@ static struct unix_sk_info *find_queuer_for(int id)
 	struct unix_sk_info *ui;
 
 	list_for_each_entry(ui, &unix_sockets, list) {
-		if (ui->queuer == id)
+		if (ui->queuer->ue->id == id)
 			return ui;
 	}
 
@@ -1126,7 +1126,7 @@ static int post_open_standalone(struct file_desc *d, int fd)
 
 	revert_unix_sk_cwd(&cwd_fd, &root_fd);
 
-	if (peer->queuer == ui->ue->id && restore_sk_queue(fd, peer->ue->id))
+	if (peer->queuer == ui && restore_sk_queue(fd, peer->ue->id))
 		return -1;
 
 	return restore_sk_common(fd, ui);
@@ -1598,7 +1598,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	} else
 		ui->name = NULL;
 
-	ui->queuer = 0;
+	ui->queuer = NULL;
 	ui->peer = NULL;
 	ui->bound = 0;
 	ui->listen = 0;
@@ -1657,7 +1657,7 @@ static void set_peer(struct unix_sk_info *ui, struct unix_sk_info *peer)
 	ui->peer = peer;
 	list_add(&ui->node, &peer->connected);
 	if (!peer->queuer)
-		peer->queuer = ui->ue->id;
+		peer->queuer = ui;
 }
 
 /* This function is called from post prepare only */
