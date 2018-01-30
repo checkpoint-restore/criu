@@ -347,6 +347,18 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	sk_encode_shutdown(ue, sk->shutdown);
 
+	/*
+	 * If a stream listening socket has non-zero rqueue, this
+	 * means there are in-flight connections waiting to get
+	 * accept()-ed. We handle them separately with the "icons"
+	 * (i stands for in-flight, cons -- for connections) things.
+	 */
+	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM &&
+				sk->state == TCP_LISTEN)) {
+		if (dump_sk_queue(lfd, id))
+			goto err;
+	}
+
 	if (ue->peer) {
 		peer = (struct unix_sk_desc *)lookup_socket(ue->peer, PF_UNIX, 0);
 		if (IS_ERR_OR_NULL(peer)) {
@@ -444,17 +456,6 @@ dump:
 	if (dump_socket_opts(lfd, skopts))
 		goto err;
 
-	/*
-	 * If a stream listening socket has non-zero rqueue, this
-	 * means there are in-flight connections waiting to get
-	 * accept()-ed. We handle them separately with the "icons"
-	 * (i stands for in-flight, cons -- for connections) things.
-	 */
-	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM &&
-				sk->state == TCP_LISTEN))
-		if (dump_sk_queue(lfd, id))
-			goto err;
-
 	pr_info("Dumping unix socket at %d\n", p->fd);
 	show_one_unix("Dumping", sk);
 
@@ -478,6 +479,7 @@ dump:
 
 		if (write_unix_entry(psk))
 			return -1;
+		psk->sd.already_dumped = 1;
 	}
 
 	return 0;
