@@ -1088,7 +1088,7 @@ err:
 	return -1;
 }
 
-static int post_open_unix_sk(struct file_desc *d, int fd)
+static int post_open_standalone(struct file_desc *d, int fd)
 {
 	struct unix_sk_info *ui;
 	struct unix_sk_info *peer;
@@ -1308,10 +1308,14 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui, int *new_fd)
 
 static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 {
+	struct fdinfo_list_entry *fle;
 	int sk;
 
 	pr_info("Opening standalone socket (id %#x ino %#x peer %#x)\n",
 			ui->ue->id, ui->ue->ino, ui->ue->peer);
+	fle = file_master(&ui->d);
+	if (fle->stage == FLE_OPEN)
+		return post_open_standalone(&ui->d, fle->fe->fd);
 
 	if (set_netns(ui->ue->ns_id))
 		return -1;
@@ -1459,7 +1463,6 @@ out:
 
 static int open_unix_sk(struct file_desc *d, int *new_fd)
 {
-	struct fdinfo_list_entry *fle;
 	struct unix_sk_info *ui;
 	int ret;
 
@@ -1470,10 +1473,6 @@ static int open_unix_sk(struct file_desc *d, int *new_fd)
 		pr_info("scm: Wait for tgt to restore\n");
 		return 1;
 	}
-
-	fle = file_master(d);
-	if (fle->stage >= FLE_OPEN)
-		return post_open_unix_sk(d, fle->fe->fd);
 
 	if (inherited_fd(d, new_fd)) {
 		ui->ue->uflags |= USK_INHERIT;
