@@ -806,8 +806,14 @@ struct unix_sk_info {
 	 * that should do the queueing.
 	 */
 	struct unix_sk_info *queuer;
+	/*
+	 * These bits are set by task-owner of this unix_sk_info.
+	 * Another tasks can only read them.
+	 */
 	u8 bound:1;
 	u8 listen:1;
+	u8 is_connected:1;
+	u8 peer_queue_restored:1; /* Set in 1 after we restore peer's queue */
 };
 
 struct scm_fle {
@@ -985,6 +991,20 @@ static bool peer_is_not_prepared(struct unix_sk_info *peer)
 		return (!peer->listen);
 }
 
+static int restore_unix_queue(int fd, struct unix_sk_info *peer)
+{
+	struct pstree_item *task;
+
+	if (restore_sk_queue(fd, peer->ue->id))
+		return -1;
+	if (peer->queuer)
+		peer->queuer->peer_queue_restored = true;
+
+	task = file_master(&peer->d)->task;
+	set_fds_event(vpid(task));
+	return 0;
+}
+
 static int shutdown_unix_sk(int sk, struct unix_sk_info *ui)
 {
 	int how;
@@ -1100,7 +1120,8 @@ static int post_open_standalone(struct file_desc *d, int fd)
 			(ui->ue->uflags & (USK_CALLBACK | USK_INHERIT)));
 
 	peer = ui->peer;
-	BUG_ON(peer == NULL);
+	if (!peer || ui->is_connected)
+		goto restore_sk_common;
 
 	/* Skip external sockets */
 	if (!list_empty(&peer->d.fd_info_head))
@@ -1123,12 +1144,17 @@ static int post_open_standalone(struct file_desc *d, int fd)
 		revert_unix_sk_cwd(&cwd_fd, &root_fd);
 		return -1;
 	}
+	ui->is_connected = true;
 
 	revert_unix_sk_cwd(&cwd_fd, &root_fd);
 
-	if (peer->queuer == ui && restore_sk_queue(fd, peer->ue->id))
+	if (peer->queuer == ui &&
+	    !(peer->ue->uflags & USK_EXTERN) &&
+	    restore_unix_queue(fd, peer))
 		return -1;
-
+restore_sk_common:
+	if (ui->queuer && !ui->queuer->peer_queue_restored)
+		return 1;
 	return restore_sk_common(fd, ui);
 }
 
@@ -1256,10 +1282,10 @@ static int post_open_interconnected_master(struct unix_sk_info *ui)
 	fle_peer = file_master(&peer->d);
 	BUG_ON(fle->task != fle_peer->task); /* See interconnected_pair() */
 
-	if (restore_sk_queue(fle->fe->fd, peer->ue->id))
+	if (restore_unix_queue(fle->fe->fd, peer))
 		return -1;
 
-	if (restore_sk_queue(fle_peer->fe->fd, ui->ue->id))
+	if (restore_unix_queue(fle_peer->fe->fd, ui))
 		return -1;
 
 	if (restore_sk_common(fle->fe->fd, ui))
@@ -1395,7 +1421,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		 * Restore queue at the one end,
 		 * before closing the second one.
 		 */
-		if (restore_sk_queue(sks[1], ui->ue->id)) {
+		if (restore_unix_queue(sks[1], ui)) {
 			pr_perror("Can't restore socket queue");
 			return -1;
 		}
@@ -1431,7 +1457,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		 * This must be after the connect() hack, because
 		 * connect() flushes receive queue.
 		 */
-		if (restore_sk_queue(sks[1], ui->ue->id)) {
+		if (restore_unix_queue(sks[1], ui)) {
 			pr_perror("Can't restore socket queue");
 			return -1;
 		}
@@ -1475,11 +1501,13 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		wake_connected_sockets(ui);
 	}
 
-	if (ui->peer) {
+	if (ui->peer || ui->queuer) {
 		/*
-		 * We need to connect() to the peer, but the
+		 * 1)We need to connect() to the peer, but the
 		 * guy might have not bind()-ed himself, so
 		 * let's postpone this.
+		 * 2)Queuer won't be able to connect, if we do
+		 * shutdown, so postpone it.
 		 */
 		*new_fd = sk;
 		return 1;
@@ -1602,6 +1630,8 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	ui->peer = NULL;
 	ui->bound = 0;
 	ui->listen = 0;
+	ui->is_connected = 0;
+	ui->peer_queue_restored = 0;
 	INIT_LIST_HEAD(&ui->connected);
 	INIT_LIST_HEAD(&ui->node);
 	INIT_LIST_HEAD(&ui->scm_fles);
