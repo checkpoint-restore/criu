@@ -1055,7 +1055,7 @@ int disconnect_from_page_server(void)
 		return 0;
 
 	pr_info("Disconnect from the page server %s:%u\n",
-			opts.addr, (int)ntohs(opts.port));
+			opts.addr, opts.port);
 
 	if (opts.ps_socket != -1)
 		/*

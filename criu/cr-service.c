@@ -377,7 +377,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	if (req->ps) {
-		opts.port = htons((short)req->ps->port);
+		opts.port = (short)req->ps->port;
 
 		if (!opts.lazy_pages) {
 			opts.use_page_server = true;
