@@ -1275,7 +1275,7 @@ static int get_sockaddr_in(struct sockaddr_in *addr, char *host)
 		return -1;
 	}
 
-	addr->sin_port = opts.port;
+	addr->sin_port = htons(opts.port);
 	return 0;
 }
 
@@ -1285,7 +1285,7 @@ int setup_tcp_server(char *type)
 	struct sockaddr_in saddr;
 	socklen_t slen = sizeof(saddr);
 
-	pr_info("Starting %s server on port %u\n", type, (int)ntohs(opts.port));
+	pr_info("Starting %s server on port %u\n", type, opts.port);
 
 	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (sk < 0) {
@@ -1375,7 +1375,7 @@ int setup_tcp_client(char *addr)
 	struct sockaddr_in saddr;
 	int sk;
 
-	pr_info("Connecting to server %s:%u\n", addr, (int)ntohs(opts.port));
+	pr_info("Connecting to server %s:%u\n", addr, opts.port);
 
 	if (get_sockaddr_in(&saddr, addr))
 		return -1;

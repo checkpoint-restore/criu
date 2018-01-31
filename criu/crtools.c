@@ -719,7 +719,7 @@ int main(int argc, char *argv[], char *envp[])
 			opts.addr = optarg;
 			break;
 		case 1052:
-			opts.port = htons(atoi(optarg));
+			opts.port = atoi(optarg);
 			if (!opts.port)
 				goto bad_arg;
 			break;
