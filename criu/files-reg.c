@@ -166,7 +166,6 @@ static int copy_chunk_from_file(int fd, int img, off_t off, size_t len)
 	}
 
 	xfree(buf);
-
 	return 0;
 }
 
@@ -231,7 +230,6 @@ static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
 	}
 
 	xfree(buf);
-
 	return 0;
 }
 
@@ -268,6 +266,7 @@ static int mkreg_ghost(char *path, GhostFileEntry *gfe, struct cr_img *img)
 	if (gfe->chunks) {
 		if (!gfe->has_size) {
 			pr_err("Corrupted ghost image -> no size\n");
+			close(gfd);
 			return -1;
 		}
 
