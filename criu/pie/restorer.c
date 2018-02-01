@@ -554,6 +554,12 @@ long __export_restore_thread(struct thread_restore_args *args)
 	if (restore_thread_common(args))
 		goto core_restore_end;
 
+	ret = sys_prctl(PR_SET_NAME, (unsigned long) &args->comm, 0, 0, 0);
+	if (ret) {
+		pr_err("Unable to set a thread name: %d\n", ret);
+		goto core_restore_end;
+	}
+
 	pr_info("%ld: Restored\n", sys_gettid());
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE);

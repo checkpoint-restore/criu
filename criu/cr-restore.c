@@ -3461,6 +3461,11 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		if (construct_sigframe(sigframe, sigframe, blkset, tcore))
 			goto err;
 
+		if (thread_args[i].comm)
+			strncpy(thread_args[i].comm, tcore->thread_core->comm, TASK_COMM_LEN);
+		else
+			strncpy(thread_args[i].comm, core->tc->comm, TASK_COMM_LEN);
+
 		if (thread_args[i].pid != pid)
 			core_entry__free_unpacked(tcore, NULL);
 

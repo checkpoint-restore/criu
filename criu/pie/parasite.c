@@ -172,16 +172,28 @@ static int dump_thread_common(struct parasite_dump_thread *ti)
 
 	arch_get_tls(&ti->tls);
 	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &ti->tid_addr, 0, 0, 0);
-	if (ret)
+	if (ret) {
+		pr_err("Unable to get the clear_child_tid address: %d\n", ret);
 		goto out;
+	}
 
 	ret = sys_sigaltstack(NULL, &ti->sas);
-	if (ret)
+	if (ret) {
+		pr_err("Unable to get signal stack context: %d\n", ret);
 		goto out;
+	}
 
 	ret = sys_prctl(PR_GET_PDEATHSIG, (unsigned long)&ti->pdeath_sig, 0, 0, 0);
-	if (ret)
+	if (ret) {
+		pr_err("Unable to get the parent death signal: %d\n", ret);
 		goto out;
+	}
+
+	ret = sys_prctl(PR_GET_NAME, (unsigned long) &ti->comm, 0, 0, 0);
+	if (ret) {
+		pr_err("Unable to get the thread name: %d\n", ret);
+		goto out;
+	}
 
 	ret = dump_creds(ti->creds);
 out:
