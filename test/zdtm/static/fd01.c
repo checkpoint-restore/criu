@@ -22,10 +22,18 @@ int main(int argc, char **argv)
 	unsigned int i, max_nr, flags;
 	int fd, status, ret;
 	struct rlimit rlim;
+	futex_t *futex;
 	char buf[16];
 	pid_t pid;
 
 	test_init(argc, argv);
+
+	futex = mmap(NULL, sizeof(*futex), PROT_WRITE | PROT_READ, MAP_ANONYMOUS|MAP_SHARED, -1, 0);
+	if (futex == MAP_FAILED) {
+		fail("mmap");
+		exit(1);
+	}
+	futex_init(futex);
 
 	fd = open("/proc/sys/fs/nr_open", O_RDONLY);
 	if (fd < 0) {
@@ -86,7 +94,7 @@ int main(int argc, char **argv)
 			fail("fork");
 			exit(1);
 		} else if (!pid) {
-			pause();
+			futex_wait_while(futex, 0);
 			exit(0);
 		}
 	}
@@ -95,9 +103,12 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	/* Cleanup */
-	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-		if (kill(pid, SIGTERM) == 0)
-			waitpid(-1, &status, 0); /* Ignore errors */
+	futex_set_and_wake(futex, 1);
+	while (wait(&status) > 0) {
+		if (!WIFEXITED(status) || WEXITSTATUS(status)) {
+			fail("Wrong exit status: %d", status);
+			exit(1);
+		}
 	}
 
 	pass();
