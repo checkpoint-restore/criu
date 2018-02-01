@@ -166,10 +166,12 @@ static int copy_chunk_from_file(int fd, int img, off_t off, size_t len)
 			ret = pread(fd, buf, min_t(size_t, BUFSIZE, len), off);
 			if (ret <= 0) {
 				pr_perror("Can't read from ghost file");
+				xfree(buf);
 				return -1;
 			}
 			if (write(img, buf, ret) != ret) {
 				pr_perror("Can't write to image");
+				xfree(buf);
 				return -1;
 			}
 			off += ret;
@@ -185,7 +187,6 @@ static int copy_chunk_from_file(int fd, int img, off_t off, size_t len)
 	}
 
 	xfree(buf);
-
 	return 0;
 }
 
@@ -245,10 +246,12 @@ static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
 			ret = read(img, buf, min_t(size_t, BUFSIZE, len));
 			if (ret <= 0) {
 				pr_perror("Can't read from image");
+				xfree(buf);
 				return -1;
 			}
 			if (pwrite(fd, buf, ret, off) != ret) {
 				pr_perror("Can't write to file");
+				xfree(buf);
 				return -1;
 			}
 		} else {
@@ -268,7 +271,6 @@ static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
 	}
 
 	xfree(buf);
-
 	return 0;
 }
 
@@ -305,6 +307,7 @@ static int mkreg_ghost(char *path, GhostFileEntry *gfe, struct cr_img *img)
 	if (gfe->chunks) {
 		if (!gfe->has_size) {
 			pr_err("Corrupted ghost image -> no size\n");
+			close(gfd);
 			return -1;
 		}
 
