@@ -86,6 +86,8 @@ message thread_core_entry {
 
 	optional seccomp_mode		seccomp_mode	= 11;
 	optional uint32			seccomp_filter	= 12;
+
+	optional string			comm		= 13;
 }
 
 message task_rlimits_entry {
