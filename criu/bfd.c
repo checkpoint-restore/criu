@@ -91,7 +91,7 @@ static void buf_put(struct xbuf *xb)
 static int bfdopen(struct bfd *f, bool writable)
 {
 	if (buf_get(&f->b)) {
-		close(f->fd);
+		close_safe(&f->fd);
 		return -1;
 	}
 
