@@ -769,6 +769,7 @@ static int kerndat_try_load_cache(void)
 	ret = read(fd, &kdat, sizeof(kdat));
 	if (ret < 0) {
 		pr_perror("Can't read kdat cache");
+		close(fd);
 		return -1;
 	}
 
