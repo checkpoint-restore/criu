@@ -29,13 +29,13 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	snprintf(dir_a, sizeof(dir_a), "%s/a", dirname);
-	snprintf(dir_d, sizeof(dir_d), "%s/d", dirname);
+	ssprintf(dir_a, "%s/a", dirname);
+	ssprintf(dir_d, "%s/d", dirname);
 	mkdir(dir_a, 0700);
 	mkdir(dir_d, 0700);
 
-	snprintf(dir_b, sizeof(dir_a), "%s/b", dir_a);
-	snprintf(dir_c, sizeof(dir_c), "%s/c", dir_b);
+	ssprintf(dir_b, "%s/b", dir_a);
+	ssprintf(dir_c, "%s/c", dir_b);
 	mkdir(dir_b, 0700);
 	mkdir(dir_c, 0700);
 
@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	snprintf(dir_a_c, sizeof(dir_a_c), "%s/c", dir_a);
+	ssprintf(dir_a_c, "%s/c", dir_a);
 
 	if (mount(dir_d, dir_a_c, NULL, MS_BIND, NULL)) {
 		pr_perror("Unable to bind mount %s to %s", dir_d, dir_a_c);

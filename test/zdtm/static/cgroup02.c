@@ -39,14 +39,14 @@ int mount_and_add(const char *controller, const char *prefix, const char *path)
 		goto err_rd;
 	}
 
-	sprintf(paux, "%s/%s", subdir, prefix);
+	ssprintf(paux, "%s/%s", subdir, prefix);
 	mkdir(paux, 0600);
 
-	sprintf(paux, "%s/%s/%s", subdir, prefix, path);
+	ssprintf(paux, "%s/%s/%s", subdir, prefix, path);
 	mkdir(paux, 0600);
 
 	l = sprintf(aux, "%d", getpid());
-	sprintf(paux, "%s/%s/%s/tasks", subdir, prefix, path);
+	ssprintf(paux, "%s/%s/%s/tasks", subdir, prefix, path);
 
 	cgfd = open(paux, O_WRONLY);
 	if (cgfd < 0) {
@@ -78,7 +78,7 @@ bool test_exists(char *mountinfo_line, char *path)
 	sscanf(mountinfo_line, "%*d %*d %*d:%*d %*s %s", aux);
 	test_msg("found cgroup at %s\n", aux);
 
-	sprintf(paux, "%s/%s", aux, path);
+	ssprintf(paux, "%s/%s", aux, path);
 	if (stat(paux, &st)) {
 		return false;
 	}

@@ -42,8 +42,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	snprintf(f1, sizeof(f1), "%s/devices", d1);
-	snprintf(f2, sizeof(f2), "%s/devices", d2);
+	ssprintf(f1, "%s/devices", d1);
+	ssprintf(f2, "%s/devices", d2);
 
 	if (mount("zdtm_d1", d1, "tmpfs", 0, NULL)) {
 		pr_perror("mount");

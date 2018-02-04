@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #define INPROGRESS ".inprogress"
 
@@ -153,5 +154,14 @@ struct zdtm_tcp_opts {
 extern int tcp_init_server_with_opts(int family, int *port, struct zdtm_tcp_opts *opts);
 extern pid_t sys_clone_unified(unsigned long flags, void *child_stack, void *parent_tid,
 			       void *child_tid, unsigned long newtls);
+
+#define ssprintf(s, fmt, ...) ({ 						\
+	int ___ret;								\
+										\
+	___ret = snprintf(s, sizeof(s), fmt, ##__VA_ARGS__);			\
+	if (___ret >= sizeof(s))						\
+		abort();								\
+	___ret;									\
+})
 
 #endif /* _VIMITESU_H_ */

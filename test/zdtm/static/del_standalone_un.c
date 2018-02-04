@@ -25,7 +25,7 @@ static int fill_sock_name(struct sockaddr_un *name, const char *filename)
 		return -1;
 
 	name->sun_family = AF_LOCAL;
-	sprintf(name->sun_path, "%s/%s", cwd, filename);
+	ssprintf(name->sun_path, "%s/%s", cwd, filename);
 	return 0;
 }
 

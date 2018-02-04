@@ -19,13 +19,13 @@ TEST_OPTION(dirname, string, "directory name", 1);
 int main(int argc, char **argv)
 {
 	int ret = 1;
-	char buf[1024], test_dir[PATH_MAX], fname[PATH_MAX];
+	char test_dir[PATH_MAX], fname[PATH_MAX];
 
 	test_init(argc, argv);
 
 	mkdir(dirname, 0700);
 
-	snprintf(test_dir, sizeof(test_dir), "%s/%s", dirname, TEST_DIR);
+	ssprintf(test_dir, "%s/%s", dirname, TEST_DIR);
 	mkdir(test_dir, 0700);
 
 	if (mount("", test_dir, "tmpfs", 0, NULL)) {
@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	snprintf(fname, sizeof(buf), "%s/\\\t \\\\ \\tt", test_dir);
+	ssprintf(fname, "%s/\\\t \\\\ \\tt", test_dir);
 	if (mkdir(fname, 0700)) {
 		pr_perror("mkdir");
 		return 1;

@@ -38,11 +38,11 @@ int mount_and_add(const char *controller, const char *path)
 		goto err_rd;
 	}
 
-	sprintf(paux, "%s/%s", subdir, path);
+	ssprintf(paux, "%s/%s", subdir, path);
 	mkdir(paux, 0600);
 
 	l = sprintf(aux, "%d", getpid());
-	sprintf(paux, "%s/%s/tasks", subdir, path);
+	ssprintf(paux, "%s/%s/tasks", subdir, path);
 
 	cgfd = open(paux, O_WRONLY);
 	if (cgfd < 0) {
