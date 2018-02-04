@@ -1075,9 +1075,16 @@ static int criu_connect(criu_opts *opts, bool d)
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_LOCAL;
 
-	strncpy(addr.sun_path, opts->service_address, sizeof(addr.sun_path));
+	addr_len = strlen(opts->service_address);
+	if (addr_len >= sizeof(addr.sun_path)) {
+		fprintf(stderr, "The service address %s is too long",
+					opts->service_address);
+		close(fd);
+		return -1;
+	}
+	memcpy(addr.sun_path, opts->service_address, addr_len);
 
-	addr_len = strlen(opts->service_address) + sizeof(addr.sun_family);
+	addr_len += sizeof(addr.sun_family);
 
 	ret = connect(fd, (struct sockaddr *) &addr, addr_len);
 	if (ret < 0) {

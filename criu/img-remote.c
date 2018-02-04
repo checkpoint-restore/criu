@@ -380,8 +380,10 @@ static int64_t read_header(int fd, char *snapshot_id, char *path, int *flags)
 	int ret = pb_read_obj(fd, (void **)&li, PB_LOCAL_IMAGE);
 
 	if (ret > 0) {
-		strncpy(snapshot_id, li->snapshot_id, PATHLEN);
-		strncpy(path, li->name, PATHLEN);
+		strncpy(snapshot_id, li->snapshot_id, PATHLEN - 1);
+		snapshot_id[PATHLEN - 1] = 0;
+		strncpy(path, li->name, PATHLEN - 1);
+		path[PATHLEN - 1] = 0;
 		*flags = li->open_mode;
 	}
 	free(li);
