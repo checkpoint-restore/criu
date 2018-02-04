@@ -143,7 +143,7 @@ int main(int argc, char **argv)
 	close(fd);
 
 	/* Disable one of the entries */
-	sprintf(path, "%s/%s", dirname, NAME[0]);
+	ssprintf(path, "%s/%s", dirname, NAME[0]);
 	fd = open(path, O_WRONLY);
 	if (fd < 0 || write(fd, "0", 1) != 1) {
 		fail("Can't disable %s\n", path);

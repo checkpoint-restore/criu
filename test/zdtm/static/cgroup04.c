@@ -59,19 +59,19 @@ int mount_and_add(const char *controller, const char *path, const char *prop, co
 		goto err_rd;
 	}
 
-	sprintf(paux, "%s/%s", subdir, path);
+	ssprintf(paux, "%s/%s", subdir, path);
 	mkdir(paux, 0600);
 
-	sprintf(paux, "%s/%s/%s", subdir, path, prop);
+	ssprintf(paux, "%s/%s/%s", subdir, path, prop);
 	if (write_value(paux, value) < 0)
 		goto err_rs;
 
 	sprintf(aux, "%d", getpid());
-	sprintf(paux, "%s/%s/tasks", subdir, path);
+	ssprintf(paux, "%s/%s/tasks", subdir, path);
 	if (write_value(paux, aux) < 0)
 		goto err_rs;
 
-	sprintf(paux, "%s/%s/special_prop_check", subdir, path);
+	ssprintf(paux, "%s/%s/special_prop_check", subdir, path);
 	mkdir(paux, 0600);
 
 	return 0;

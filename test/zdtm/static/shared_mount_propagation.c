@@ -35,17 +35,17 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	snprintf(dir_a, sizeof(dir_a), "%s/a", dirname);
-	snprintf(dir_d, sizeof(dir_d), "%s/d", dirname);
-	snprintf(dir_e, sizeof(dir_e), "%s/e", dirname);
-	snprintf(dir_f, sizeof(dir_f), "%s/f", dirname);
+	ssprintf(dir_a, "%s/a", dirname);
+	ssprintf(dir_d, "%s/d", dirname);
+	ssprintf(dir_e, "%s/e", dirname);
+	ssprintf(dir_f, "%s/f", dirname);
 	mkdir(dir_a, 0700);
 	mkdir(dir_d, 0700);
 	mkdir(dir_e, 0700);
 	mkdir(dir_f, 0700);
 
-	snprintf(dir_b, sizeof(dir_a), "%s/b", dir_a);
-	snprintf(dir_c, sizeof(dir_c), "%s/c", dir_b);
+	ssprintf(dir_b, "%s/b", dir_a);
+	ssprintf(dir_c, "%s/c", dir_b);
 	mkdir(dir_b, 0700);
 	mkdir(dir_c, 0700);
 
@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	snprintf(test_file, sizeof(test_file), "%s/file", dir_f);
+	ssprintf(test_file, "%s/file", dir_f);
 	fd = open(test_file, O_CREAT | O_WRONLY | O_EXCL, 0600);
 	if (fd < 0) {
 		pr_perror("Unable to open %s", test_file);
@@ -75,10 +75,9 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	snprintf(test_bind_file1, sizeof(test_bind_file1), "%s/file", dir_c);
-	snprintf(test_bind_file2, sizeof(test_bind_file2), "%s/b/c/file", dir_d);
-	snprintf(test_bind_file3, sizeof(test_bind_file3), "%s/c/file", dir_e);
-
+	ssprintf(test_bind_file1, "%s/file", dir_c);
+	ssprintf(test_bind_file2, "%s/b/c/file", dir_d);
+	ssprintf(test_bind_file3, "%s/c/file", dir_e);
 
 	if (access(test_file, F_OK)) {
 		pr_perror("%s doesn't exist", test_file);

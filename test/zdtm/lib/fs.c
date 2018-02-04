@@ -75,7 +75,8 @@ mnt_info_t *get_cwd_mnt_info(void)
 
 				strncpy(m->root, root, sizeof(m->root));
 				strncpy(m->mountpoint, mountpoint, sizeof(m->mountpoint));
-				strncpy(m->fsname, fsname, sizeof(m->fsname));
+				strncpy(m->fsname, fsname, sizeof(m->fsname) - 1);
+				m->fsname[sizeof(m->fsname) - 1] = 0;
 			}
 		}
 
