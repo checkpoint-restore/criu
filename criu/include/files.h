@@ -25,7 +25,7 @@ struct fd_link {
 	union {
 		/* Link info for generic file (path) */
 		struct {
-			char	name[PATH_MAX + 1];
+			char	name[PATH_MAX];
 			size_t	len;
 		};
 

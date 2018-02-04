@@ -440,7 +440,7 @@ static int open_packet_sk_spkt(PacketSockEntry *pse, int *new_fd)
 			goto err;
 		}
 
-		strncpy(addr_spkt.sa_data, req.ifr_name, sa_data_size);
+		memcpy(addr_spkt.sa_data, req.ifr_name, sa_data_size);
 		addr_spkt.sa_data[sa_data_size - 1] = 0;
 
 		if (bind(sk, &addr_spkt, sizeof(addr_spkt)) < 0) {

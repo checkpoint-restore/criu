@@ -2560,7 +2560,8 @@ static int fixup_remap_mounts()
 		char path[PATH_MAX];
 		int len;
 
-		strncpy(path, m->mountpoint, PATH_MAX);
+		strncpy(path, m->mountpoint, PATH_MAX - 1);
+		path[PATH_MAX - 1] = 0;
 		len = print_ns_root(m->nsid, 0, path, PATH_MAX);
 		path[len] = '/';
 

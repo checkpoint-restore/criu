@@ -238,7 +238,10 @@ static int resolve_rel_name(struct unix_sk_desc *sk, const struct fd_parms *p)
 		}
 		dir[ret] = 0;
 
-		snprintf(path, sizeof(path), ".%s/%s", dir, sk->name);
+		if (snprintf(path, sizeof(path), ".%s/%s", dir, sk->name) >= sizeof(path)) {
+			pr_err("The path .%s/%s is too long", dir, sk->name);
+			goto err;
+		}
 		if (fstatat(mntns_root, path, &st, 0)) {
 			if (errno == ENOENT)
 				continue;
