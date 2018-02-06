@@ -245,7 +245,7 @@ static int open_netlink_sk(struct file_desc *d, int *new_fd)
 	*new_fd = sk;
 	return 0;
 err:
-	close(sk);
+	close_safe(&sk);
 	return -1;
 }
 
