@@ -1143,13 +1143,15 @@ const char *ns_to_string(unsigned int ns)
 void tcp_cork(int sk, bool on)
 {
 	int val = on ? 1 : 0;
-	setsockopt(sk, SOL_TCP, TCP_CORK, &val, sizeof(val));
+	if (setsockopt(sk, SOL_TCP, TCP_CORK, &val, sizeof(val)))
+		pr_perror("Unable to restore TCP_CORK (%d)", val);
 }
 
 void tcp_nodelay(int sk, bool on)
 {
 	int val = on ? 1 : 0;
-	setsockopt(sk, SOL_TCP, TCP_NODELAY, &val, sizeof(val));
+	if (setsockopt(sk, SOL_TCP, TCP_NODELAY, &val, sizeof(val)))
+		pr_perror("Unable to restore TCP_NODELAY (%d)", val);
 }
 
 static inline void pr_xsym(unsigned char *data, size_t len, int pos)
