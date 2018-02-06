@@ -771,17 +771,21 @@ int criu_local_add_cg_props_file(criu_opts *opts, char *path)
 
 int criu_local_add_cg_dump_controller(criu_opts *opts, char *name)
 {
-	char **new;
+	char **new, *ctrl_name;
 	size_t nr;
+
+	ctrl_name = strdup(name);
+	if (!ctrl_name)
+		return -ENOMEM;
 
 	nr = opts->rpc->n_cgroup_dump_controller + 1;
 	new = realloc(opts->rpc->cgroup_dump_controller, nr * sizeof(char *));
-	if (!new)
+	if (!new) {
+		free(ctrl_name);
 		return -ENOMEM;
+	}
 
-	new[opts->rpc->n_cgroup_dump_controller] = strdup(name);
-	if (!new[opts->rpc->n_cgroup_dump_controller])
-		return -ENOMEM;
+	new[opts->rpc->n_cgroup_dump_controller] = ctrl_name;
 
 	opts->rpc->n_cgroup_dump_controller = nr;
 	opts->rpc->cgroup_dump_controller = new;
