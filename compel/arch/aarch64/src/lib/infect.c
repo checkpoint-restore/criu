@@ -57,7 +57,8 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
 	return 0;
 }
 
-int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save, void *arg)
+int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
+		  void *arg, __maybe_unused unsigned long flags)
 {
 	struct iovec iov;
 	user_fpregs_struct_t fpsimd;

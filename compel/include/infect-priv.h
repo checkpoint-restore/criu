@@ -58,7 +58,8 @@ extern void *remote_mmap(struct parasite_ctl *ctl,
 		void *addr, size_t length, int prot,
 		int flags, int fd, off_t offset);
 extern bool arch_can_dump_task(struct parasite_ctl *ctl);
-extern int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save, void *arg);
+extern int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
+			void *arg, unsigned long flags);
 extern int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s);
 extern int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
 				     user_regs_struct_t *regs,
