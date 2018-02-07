@@ -737,6 +737,22 @@ err:
 	return ret;
 }
 
+int __attribute__((weak)) kdat_x86_has_ptrace_fpu_xsave_bug(void)
+{
+	return 0;
+}
+
+static int kerndat_x86_has_ptrace_fpu_xsave_bug(void)
+{
+	int ret = kdat_x86_has_ptrace_fpu_xsave_bug();
+
+	if (ret < 0)
+		return ret;
+
+	kdat.x86_has_ptrace_fpu_xsave_bug = !!ret;
+	return 0;
+}
+
 #define KERNDAT_CACHE_FILE	KDAT_RUNDIR"/criu.kdat"
 #define KERNDAT_CACHE_FILE_TMP	KDAT_RUNDIR"/.criu.kdat"
 
@@ -974,6 +990,8 @@ int kerndat_init(void)
 		ret = kerndat_socket_netns();
 	if (!ret)
 		ret = kerndat_nsid();
+	if (!ret)
+		ret = kerndat_x86_has_ptrace_fpu_xsave_bug();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
