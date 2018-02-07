@@ -225,12 +225,35 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
 	((user_regs_native(pregs)) ? (int64_t)((pregs)->native.name) :	\
 				(int32_t)((pregs)->compat.name))
 
+static int get_task_xsave(pid_t pid, user_fpregs_struct_t *xsave)
+{
+	struct iovec iov;
+
+	iov.iov_base = xsave;
+	iov.iov_len = sizeof(*xsave);
+
+	if (ptrace(PTRACE_GETREGSET, pid, (unsigned int)NT_X86_XSTATE, &iov) < 0) {
+		pr_perror("Can't obtain FPU registers for %d", pid);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int get_task_fpregs(pid_t pid, user_fpregs_struct_t *xsave)
+{
+	if (ptrace(PTRACE_GETFPREGS, pid, NULL, xsave)) {
+		pr_perror("Can't obtain FPU registers for %d", pid);
+		return -1;
+	}
+
+	return 0;
+}
+
 int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 		  void *arg, __maybe_unused unsigned long flags)
 {
-	user_fpregs_struct_t xsave	= {  }, *xs = NULL;
-
-	struct iovec iov;
+	user_fpregs_struct_t xsave = { }, *xs = NULL;
 	int ret = -1;
 
 	pr_info("Dumping general registers for %d in %s mode\n", pid,
@@ -264,18 +287,11 @@ int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
 
 	if (compel_cpu_has_feature(X86_FEATURE_OSXSAVE)) {
-		iov.iov_base = &xsave;
-		iov.iov_len = sizeof(xsave);
-
-		if (ptrace(PTRACE_GETREGSET, pid, (unsigned int)NT_X86_XSTATE, &iov) < 0) {
-			pr_perror("Can't obtain FPU registers for %d", pid);
+		if (get_task_xsave(pid, &xsave))
 			goto err;
-		}
 	} else {
-		if (ptrace(PTRACE_GETFPREGS, pid, NULL, &xsave)) {
-			pr_perror("Can't obtain FPU registers for %d", pid);
+		if (get_task_fpregs(pid, &xsave))
 			goto err;
-		}
 	}
 
 	xs = &xsave;
