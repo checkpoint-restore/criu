@@ -13,6 +13,7 @@ TST_NOFILE	:=				\
 		zombie01			\
 		fpu00				\
 		fpu01				\
+		fpu02				\
 		arm-neon00			\
 		futex				\
 		futex-rl			\
