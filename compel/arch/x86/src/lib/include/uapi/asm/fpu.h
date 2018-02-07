@@ -8,6 +8,7 @@
 #include <compel/common/compiler.h>
 
 #define FP_MIN_ALIGN_BYTES		64
+#define FXSAVE_ALIGN_BYTES		16
 
 #define FP_XSTATE_MAGIC1		0x46505853U
 #define FP_XSTATE_MAGIC2		0x46505845U
@@ -61,7 +62,7 @@ struct i387_fxsave_struct {
 		uint32_t		sw_reserved[12];
 	};
 
-} __aligned(16);
+} __aligned(FXSAVE_ALIGN_BYTES);
 
 struct xsave_hdr_struct {
 	uint64_t			xstate_bv;
@@ -86,7 +87,7 @@ struct xsave_struct_ia32 {
 	struct i387_fxsave_struct	i387;
 	struct xsave_hdr_struct		xsave_hdr;
 	struct ymmh_struct		ymmh;
-} __packed;
+} __aligned(FXSAVE_ALIGN_BYTES) __packed;
 
 typedef struct {
 	/*
@@ -123,8 +124,8 @@ typedef struct {
 	union {
 		struct xsave_struct_ia32	xsave;
 		uint8_t				__pad[sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE];
-	} __packed;
-}  __packed fpu_state_ia32_t;
+	} __aligned(FXSAVE_ALIGN_BYTES) __packed;
+} __aligned(FXSAVE_ALIGN_BYTES) __packed fpu_state_ia32_t;
 
 /*
  * This one is used in restorer.
