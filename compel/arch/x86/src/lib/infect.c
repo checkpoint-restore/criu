@@ -251,7 +251,7 @@ static int get_task_fpregs(pid_t pid, user_fpregs_struct_t *xsave)
 }
 
 int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
-		  void *arg, __maybe_unused unsigned long flags)
+		  void *arg, unsigned long flags)
 {
 	user_fpregs_struct_t xsave = { }, *xs = NULL;
 	int ret = -1;
@@ -286,13 +286,23 @@ int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
 
-	if (compel_cpu_has_feature(X86_FEATURE_OSXSAVE)) {
-		if (get_task_xsave(pid, &xsave))
-			goto err;
+	if (!compel_cpu_has_feature(X86_FEATURE_OSXSAVE)) {
+		ret = get_task_fpregs(pid, &xsave);
+	} else if (unlikely(flags & INFECT_X86_PTRACE_MXCSR_BUG)) {
+		/*
+		 * get_task_fpregs() will fill FP state,
+		 * get_task_xsave() will overwrite rightly sse/mmx/etc
+		 */
+		pr_warn("Skylake xsave fpu bug workaround used\n");
+		ret = get_task_fpregs(pid, &xsave);
+		if (!ret)
+			ret = get_task_xsave(pid, &xsave);
 	} else {
-		if (get_task_fpregs(pid, &xsave))
-			goto err;
+		ret = get_task_xsave(pid, &xsave);
 	}
+
+	if (ret)
+		goto err;
 
 	xs = &xsave;
 out:
