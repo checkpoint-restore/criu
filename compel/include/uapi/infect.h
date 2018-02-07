@@ -123,12 +123,16 @@ struct infect_ctx {
 
 extern struct infect_ctx *compel_infect_ctx(struct parasite_ctl *);
 
-#define INFECT_NO_MEMFD		0x1	/* don't use memfd() */
-#define INFECT_FAIL_CONNECT	0x2	/* make parasite connect() fail */
-#define INFECT_NO_BREAKPOINTS	0x4	/* no breakpoints in pie tracking */
-#define INFECT_COMPATIBLE	0x8	/* can run parasite inside compat tasks */
+/* Don't use memfd() */
+#define INFECT_NO_MEMFD			(1UL << 0)
+/* Make parasite connect() fail */
+#define INFECT_FAIL_CONNECT		(1UL << 1)
+/* No breakpoints in pie tracking */
+#define INFECT_NO_BREAKPOINTS		(1UL << 2)
+/* Can run parasite inside compat tasks */
+#define INFECT_COMPATIBLE		(1UL << 3)
 /* Workaround for ptrace bug on Skylake CPUs with kernels older than v4.14 */
-#define INFECT_X86_PTRACE_MXCSR_BUG	0x10
+#define INFECT_X86_PTRACE_MXCSR_BUG	(1UL << 4)
 
 /*
  * There are several ways to describe a blob to compel
