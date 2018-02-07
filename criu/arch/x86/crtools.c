@@ -3,10 +3,12 @@
 #include <string.h>
 #include <unistd.h>
 #include <elf.h>
+#include <sched.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/auxv.h>
 #include <sys/wait.h>
+#include <sys/ptrace.h>
 
 #include "types.h"
 #include "log.h"
@@ -30,6 +32,7 @@
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
 
+/* XXX: Move all kerndat features to per-arch kerndat .c */
 int kdat_can_map_vdso(void)
 {
 	pid_t child;
@@ -187,6 +190,78 @@ int kdat_compatible_cr(void)
 	return 0;
 }
 #endif
+
+static int kdat_x86_has_ptrace_fpu_xsave_bug_child(void *arg)
+{
+	ptrace(PTRACE_TRACEME, 0, 0, 0);
+	kill(getpid(), SIGSTOP);
+	pr_err("Continue after SIGSTOP.. Urr what?\n");
+	_exit(1);
+}
+
+/*
+ * Pre v4.14 kernels have a bug on Skylake CPUs:
+ * copyout_from_xsaves() creates fpu state for
+ *   ptrace(PTRACE_GETREGSET, pid, NT_X86_XSTATE, &iov)
+ * without MXCSR and MXCSR_FLAGS if there is SSE/YMM state, but no FP state.
+ * That is xfeatures had either/both XFEATURE_MASK_{SSE,YMM} set, but not
+ * XFEATURE_MASK_FP.
+ * But we *really* need to C/R MXCSR & MXCSR_FLAGS if SSE/YMM active,
+ * as mxcsr store part of the state.
+ */
+int kdat_x86_has_ptrace_fpu_xsave_bug(void)
+{
+	user_fpregs_struct_t xsave = { };
+	struct iovec iov;
+	char stack[PAGE_SIZE];
+	int flags = CLONE_VM | CLONE_FILES | CLONE_UNTRACED | SIGCHLD;
+	int ret = -1;
+	pid_t child;
+	int stat;
+
+	/* OSXSAVE can't be changed during boot. */
+	if (!compel_cpu_has_feature(X86_FEATURE_OSXSAVE))
+		return 0;
+
+	child = clone(kdat_x86_has_ptrace_fpu_xsave_bug_child,
+		stack + ARRAY_SIZE(stack), flags, 0);
+	if (child < 0) {
+		pr_perror("%s(): failed to clone()", __func__);
+		return -1;
+	}
+
+	if (waitpid(child, &stat, WUNTRACED) != child) {
+		/*
+		 * waitpid() may end with ECHILD if SIGCHLD == SIG_IGN,
+		 * and the child has stopped already.
+		 */
+		pr_perror("Failed to wait for %s() test\n", __func__);
+		goto out_kill;
+	}
+
+	if (!WIFSTOPPED(stat)) {
+		pr_err("Born child is unstoppable! (might be dead)\n");
+		goto out_kill;
+	}
+
+	iov.iov_base = &xsave;
+	iov.iov_len = sizeof(xsave);
+
+	if (ptrace(PTRACE_GETREGSET, child, (unsigned)NT_X86_XSTATE, &iov) < 0) {
+		pr_perror("Can't obtain FPU registers for %d", child);
+		goto out_kill;
+	}
+	/*
+	 * MXCSR should be never 0x0: e.g., it should contain either:
+	 * R+/R-/RZ/RN to determine rounding model.
+	 */
+	ret = !xsave.i387.mxcsr;
+
+out_kill:
+	kill(child, SIGKILL);
+	waitpid(child, &stat, 0);
+	return ret;
+}
 
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
