@@ -72,7 +72,7 @@ static int grow_remap(struct rst_mem_type_s *t, int flag, unsigned long size)
 			/*
 			 * Anon shared memory cannot grow with
 			 * mremap, anon-shmem file size doesn't
-			 * chage and memory access generates
+			 * change and memory access generates
 			 * SIGBUS. We should truncate the guy,
 			 * but for now we don't need it.
 			 */

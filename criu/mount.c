@@ -554,12 +554,12 @@ static int validate_shared(struct mount_info *m)
 	/*
 	 * Check that all mounts in one shared group has the same set of
 	 * children. Only visible children are accounted. A non-root bind-mount
-	 * doesn't see children out of its root and it's excpected case.
+	 * doesn't see children out of its root and it's expected case.
 	 *
 	 * Here is a few conditions:
 	 * 1. t is wider than m
 	 * 2. We search a wider mount in the same direction, so when we
-	 *    enumirate all mounts, we can't be sure that all of them
+	 *    enumerate all mounts, we can't be sure that all of them
 	 *    has the same set of children.
 	 */
 
@@ -572,7 +572,7 @@ static int validate_shared(struct mount_info *m)
 		 */
 		return 0;
 
-	/* Search a child, which is visiable in both mounts. */
+	/* Search a child, which is visible in both mounts. */
 	list_for_each_entry(ct, &t->children, siblings) {
 		struct mount_info *cm;
 
@@ -1047,7 +1047,7 @@ int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 	}
 
 	if (pm->s_dev_rt == MOUNT_INVALID_DEV) {
-		pr_err("Resolving over unvalid device for %#x %s %s\n",
+		pr_err("Resolving over invalid device for %#x %s %s\n",
 		       pm->s_dev, pm->fstype->name, pm->ns_mountpoint);
 		goto err;
 	}
@@ -1673,7 +1673,7 @@ err:
  * _fn_f  - pre-order traversal function
  * _fn_f  - post-order traversal function
  * _plist - a postpone list. _el is added to this list, if _fn_f returns
- *	    a positive value, and all lower elements are not enumirated.
+ *	    a positive value, and all lower elements are not enumerated.
  */
 #define MNT_TREE_WALK(_r, _el, _fn_f, _fn_r, _plist, _prgs) do {		\
 		struct mount_info *_mi = _r;					\
@@ -1857,7 +1857,7 @@ static int propagate_siblings(struct mount_info *mi)
 
 	/*
 	 * Find all mounts, which must be bind-mounted from this one
-	 * to inherite shared group or master id
+	 * to inherit shared group or master id
 	 */
 	list_for_each_entry(t, &mi->mnt_share, mnt_share) {
 		if (t->mounted)
@@ -2064,7 +2064,7 @@ static int do_new_mount(struct mount_info *mi)
 		sflags |= MS_RDONLY;
 		if (userns_call(apply_sb_flags, 0,
 				&sflags, sizeof(sflags), fd)) {
-			pr_perror("Unable to apply mount falgs %d for %s",
+			pr_perror("Unable to apply mount flags %d for %s",
 						mi->sb_flags, mi->mountpoint);
 			close(fd);
 			return -1;
@@ -2334,8 +2334,8 @@ static bool can_mount_now(struct mount_info *mi)
 	/*
 	 * We're the slave peer:
 	 *   - Make sure the master peer is already mounted
-	 *   - Make sure all children is mounted as well to
-	 *     eliminame mounts duplications
+	 *   - Make sure all children are mounted as well to
+	 *     eliminate mounts duplications
 	 */
 	if (mi->master_id > 0) {
 		struct mount_info *c;
@@ -2470,7 +2470,7 @@ static int do_umount_one(struct mount_info *mi)
 }
 
 /*
- * If a mount overmounts other mounts, it is restored separetly in the roots
+ * If a mount overmounts other mounts, it is restored separately in the roots
  * yard and then moved to the right place.
  *
  * mnt_remap_entry is created for each such mount and it's added into
@@ -3036,7 +3036,7 @@ static int populate_roots_yard(void)
 
 	/*
 	 * mnt_remap_list is filled in find_remap_mounts() and
-	 * contains mounts which has to be restored separatly
+	 * contains mounts which has to be restored separately
 	 */
 	list_for_each_entry(r, &mnt_remap_list, node) {
 		if (mkdirpat(AT_FDCWD, r->mi->mountpoint, 0755)) {
@@ -3253,7 +3253,7 @@ int prepare_mnt_ns(void)
 	if (rst < 0)
 		return -1;
 
-	/* resotre non-root namespaces */
+	/* restore non-root namespaces */
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
 		char path[PATH_MAX];
 
@@ -3439,7 +3439,7 @@ struct ns_id *lookup_nsid_by_mnt_id(int mnt_id)
 	 * Kernel before 3.15 doesn't show mnt_id for file descriptors.
 	 * mnt_id isn't saved for files, if mntns isn't dumped.
 	 * In both these cases we have only one root, so here
-	 * is not matter which mount will be restured.
+	 * is not matter which mount will be restored.
 	 */
 	if (mnt_id == -1)
 		mi = mntinfo;

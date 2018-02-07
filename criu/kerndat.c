@@ -703,7 +703,7 @@ static int kerndat_detect_stack_guard_gap(void)
 
 		/*
 		 * When reading /proc/$pid/[s]maps the
-		 * start/end addresses migh be cutted off
+		 * start/end addresses might be cutted off
 		 * with PAGE_SIZE on kernels prior 4.12
 		 * (see kernel commit 1be7107fbe18ee).
 		 *

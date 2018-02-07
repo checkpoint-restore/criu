@@ -1548,7 +1548,7 @@ static int prepare_userns_creds(void)
 	/*
 	 * This flag is dropped after entering userns, but is
 	 * required to access files in /proc, so put one here
-	 * temoprarily. It will be set to proper value at the
+	 * temporarily. It will be set to proper value at the
 	 * very end.
 	 */
 	if (prctl(PR_SET_DUMPABLE, 1, 0)) {

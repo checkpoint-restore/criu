@@ -160,7 +160,7 @@ static inline int stage_current_participants(int next_stage)
 	case CR_STATE_RESTORE:
 		/*
 		 * Each thread has to be reported about this stage,
-		 * so if we want to wait all other tast, we have to
+		 * so if we want to wait all other tasks, we have to
 		 * exclude all threads of the current process.
 		 * It is supposed that we will wait other tasks,
 		 * before creating threads of the current task.
@@ -295,7 +295,7 @@ static struct collect_image_info *cinfos_files[] = {
 	&ext_file_cinfo,
 };
 
-/* These images are requered to restore namespaces */
+/* These images are required to restore namespaces */
 static struct collect_image_info *before_ns_cinfos[] = {
 	&tty_info_cinfo, /* Restore devpts content */
 	&tty_cdata,
@@ -415,7 +415,7 @@ static int populate_pid_proc(void)
 
 static rt_sigaction_t sigchld_act;
 /*
- * If parent's sigaction has blocked SIGKILL (which is non-sence),
+ * If parent's sigaction has blocked SIGKILL (which is non-sense),
  * this parent action is non-valid and shouldn't be inherited.
  * Used to mark parent_act* no more valid.
  */
@@ -2508,8 +2508,10 @@ static inline int decode_posix_timer(PosixTimerEntry *pte,
 	}
 
 	if (pte->vsec == 0 && pte->vnsec == 0) {
-		// Remaining time was too short. Set it to
-		// interval to make the timer armed and work.
+		/*
+		 * Remaining time was too short. Set it to
+		 * interval to make the timer armed and work.
+		 */
 		pt->val.it_value.tv_sec = pte->isec;
 		pt->val.it_value.tv_nsec = pte->insec;
 	} else {

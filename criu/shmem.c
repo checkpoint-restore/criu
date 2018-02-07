@@ -31,7 +31,7 @@
 #endif
 
 /*
- * Hash table and routines for keeping shmid -> shmem_xinfo mappings 
+ * Hash table and routines for keeping shmid -> shmem_xinfo mappings
  */
 
 /*
@@ -66,7 +66,7 @@ struct shmem_info {
 			int		fd;
 
 			/*
-			 * 0. lock is initilized to zero
+			 * 0. lock is initialized to zero
 			 * 1. the master opens a descriptor and set lock to 1
 			 * 2. slaves open their descriptors and increment lock
 			 * 3. the master waits all slaves on lock. After that
@@ -272,7 +272,7 @@ int fixup_sysv_shmems(void)
 			}
 
 			/*
-			 * See comment in open_shmem_sysv() about this PROT_EXEC 
+			 * See comment in open_shmem_sysv() about this PROT_EXEC
 			 */
 			if (si->want_write)
 				att->first->prot |= PROT_EXEC;
@@ -324,7 +324,7 @@ static int open_shmem_sysv(int pid, struct vma_area *vma)
 	 * whether to create the segment rw or ro, but the
 	 * first vma can have different protection. So the
 	 * segment ro-ness is marked with PROT_EXEC bit in
-	 * the first vma. Unfortunatelly, we only know this
+	 * the first vma. Unfortunately, we only know this
 	 * after we scan all the vmas, so this bit is set
 	 * at the end in fixup_sysv_shmems().
 	 */

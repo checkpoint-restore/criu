@@ -808,7 +808,7 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 /*
  * Seek for the requested address in the pagemap. If it is found, the
  * subsequent call to pr->page_read will bring us the data. If the
- * address is not found in the pagemap, but no error occured, the
+ * address is not found in the pagemap, but no error occurred, the
  * address should be mapped to zero pfn.
  *
  * Returns 0 for zero pages, 1 for "real" pages and negative value on
@@ -1213,7 +1213,7 @@ static int lazy_sk_read_event(struct epoll_rfd *rfd)
 		return 0;
 
 	if (ret != sizeof(fin)) {
-		pr_perror("Failed getting restore finished inidication");
+		pr_perror("Failed getting restore finished indication");
 		return -1;
 	}
 

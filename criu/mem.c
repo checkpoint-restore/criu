@@ -734,7 +734,7 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 	pr_debug("\tpremap %#016"PRIx64"-%#016"PRIx64" -> %016lx\n",
 		vma->e->start, vma->e->end, (unsigned long)addr);
 
-	if (vma_has_guard_gap_hidden(vma)) { /* Skip gurad page */
+	if (vma_has_guard_gap_hidden(vma)) { /* Skip guard page */
 		vma->e->start += PAGE_SIZE;
 		vma->premmaped_addr += PAGE_SIZE;
 	}
@@ -851,7 +851,7 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 
 	unsigned int nr_restored = 0;
 	unsigned int nr_shared = 0;
-	unsigned int nr_droped = 0;
+	unsigned int nr_dropped = 0;
 	unsigned int nr_compared = 0;
 	unsigned int nr_lazy = 0;
 	unsigned long va;
@@ -1019,7 +1019,7 @@ err_read:
 				return -1;
 			}
 			i++;
-			nr_droped++;
+			nr_dropped++;
 		}
 	}
 
@@ -1029,7 +1029,7 @@ err_read:
 
 	pr_info("nr_restored_pages: %d\n", nr_restored);
 	pr_info("nr_shared_pages:   %d\n", nr_shared);
-	pr_info("nr_droped_pages:   %d\n", nr_droped);
+	pr_info("nr_dropped_pages:   %d\n", nr_dropped);
 	pr_info("nr_lazy:           %d\n", nr_lazy);
 
 	return 0;
@@ -1152,7 +1152,7 @@ bool vma_has_guard_gap_hidden(struct vma_area *vma)
 }
 
 /*
- * A gard page must be unmapped after restoring content and
+ * A guard page must be unmapped after restoring content and
  * forking children to restore COW memory.
  */
 int unmap_guard_pages(struct pstree_item *t)
@@ -1204,7 +1204,7 @@ int open_vmas(struct pstree_item *t)
 		/*
 		 * File mappings have vm_open set to open_filemap which, in
 		 * turn, puts the VMA_CLOSE bit itself. For all the rest we
-		 * need to put it by hads, so that the restorer closes the fd
+		 * need to put it by hands, so that the restorer closes the fd
 		 */
 		if (!(vma_area_is(vma, VMA_FILE_PRIVATE) ||
 					vma_area_is(vma, VMA_FILE_SHARED)))

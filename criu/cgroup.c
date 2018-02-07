@@ -396,7 +396,7 @@ static int dump_cg_props_array(const char *fpath, struct cgroup_dir *ncd, const 
 			}
 
 			if (asprintf(&new, "%d", disable) < 0) {
-				pr_err("couldn't aloocate new oom value\n");
+				pr_err("couldn't allocate new oom value\n");
 				free_cgroup_prop(prop);
 				free_all_cgroup_props(ncd);
 				return -1;

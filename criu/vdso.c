@@ -167,14 +167,14 @@ static void drop_rt_vdso(struct vm_area_list *vma_area_list,
 		}
 	}
 
-	pr_debug("vdso: Droppping marked vdso at %lx\n",
+	pr_debug("vdso: Dropping marked vdso at %lx\n",
 			(long)rt_vdso_marked->e->start);
 	list_del(&rt_vdso_marked->list);
 	xfree(rt_vdso_marked);
 	vma_area_list->nr--;
 
 	if (rt_vvar_marked) {
-		pr_debug("vdso: Droppping marked vvar at %lx\n",
+		pr_debug("vdso: Dropping marked vvar at %lx\n",
 				(long)rt_vvar_marked->e->start);
 		list_del(&rt_vvar_marked->list);
 		xfree(rt_vvar_marked);

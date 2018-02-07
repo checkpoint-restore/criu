@@ -630,7 +630,7 @@ static void init_compat_pagemap_entry(PagemapEntry *pe)
 	/*
 	 * pagemap image generated with older version will either
 	 * contain a hole because the pages are in the parent
-	 * shanpshot or a pagemap that should be marked with
+	 * snapshot or a pagemap that should be marked with
 	 * PE_PRESENT
 	 */
 	if (pe->has_in_parent && pe->in_parent)

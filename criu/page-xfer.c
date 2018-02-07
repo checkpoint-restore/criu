@@ -81,7 +81,7 @@ static int decode_pm(u64 dst_id, unsigned long *id)
 
 	/*
 	 * Magic numbers below came from the older CRIU versions that
-	 * errorneously used the changing CR_FD_* constants. The
+	 * erroneously used the changing CR_FD_* constants. The
 	 * changes were made when we merged images together and moved
 	 * the CR_FD_-s at the tail of the enum
 	 */
@@ -665,7 +665,7 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 		/*
 		 * Splicing into a pipe may end up blocking if pipe is "full",
 		 * and we need the SPLICE_F_NONBLOCK flag here. At the same time
-		 * splcing from UNIX socket with this flag aborts splice with
+		 * splicing from UNIX socket with this flag aborts splice with
 		 * the EAGAIN if there's no data in it (TCP looks at the socket
 		 * O_NONBLOCK flag _only_ and waits for data), so before doing
 		 * the non-blocking splice we need to explicitly wait.

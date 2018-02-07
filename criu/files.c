@@ -249,7 +249,7 @@ void show_saved_files(void)
  *
  * This is here only to support the Linux Kernel between versions
  * 3.18 and 4.2. After that, this workaround is not needed anymore,
- * but it will work properly on both a kernel with and withouth the bug.
+ * but it will work properly on both a kernel with and without the bug.
  *
  * When a process has a file open in an OverlayFS directory,
  * the information in /proc/<pid>/fd/<fd> and /proc/<pid>/fdinfo/<fd>
@@ -1118,7 +1118,7 @@ static int open_fd(struct fdinfo_list_entry *fle)
 
 	/*
 	 * Open method returns the following values:
-	 * 0  -- restore is successefuly finished;
+	 * 0  -- restore is successfully finished;
 	 * 1  -- restore is in process or can't be started
 	 *       yet, because of it depends on another fles,
 	 *       so the method should be called once again;

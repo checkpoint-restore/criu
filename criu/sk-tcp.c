@@ -31,7 +31,7 @@
 static LIST_HEAD(cpt_tcp_repair_sockets);
 static LIST_HEAD(rst_tcp_repair_sockets);
 
-static int tcp_repair_establised(int fd, struct inet_sk_desc *sk)
+static int tcp_repair_established(int fd, struct inet_sk_desc *sk)
 {
 	int ret;
 	struct libsoccr_sk *socr;
@@ -223,7 +223,7 @@ int dump_one_tcp(int fd, struct inet_sk_desc *sk)
 
 	pr_info("Dumping TCP connection\n");
 
-	if (tcp_repair_establised(fd, sk))
+	if (tcp_repair_established(fd, sk))
 		return -1;
 
 	if (dump_tcp_conn_state(sk))
@@ -387,7 +387,7 @@ int prepare_tcp_socks(struct task_restore_args *ta)
 
 		/*
 		 * rst_tcp_repair_sockets contains all sockets, so we need to
-		 * select sockets which restored in a current porcess.
+		 * select sockets which restored in a current process.
 		 */
 		if (ii->sk_fd == -1)
 			continue;

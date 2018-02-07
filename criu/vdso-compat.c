@@ -66,7 +66,7 @@ void compat_vdso_helper(struct vdso_maps *native, int pipe_fd,
 
 	ret = syscall(__NR_read, pipe_fd, &vdso_addr, sizeof(void *));
 	if (ret != sizeof(void *))
-		exit_on(-1, err_fd, "Error: Can't read size of mmaped vdso from pipe\n");
+		exit_on(-1, err_fd, "Error: Can't read size of mapped vdso from pipe\n");
 
 	memcpy(vdso_buf, vdso_addr, vdso_size);
 

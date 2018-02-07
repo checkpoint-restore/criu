@@ -264,7 +264,7 @@ static int cgp_parse_stream(char *stream, size_t len)
 		}
 
 		if (!eat_word(&stream, &len, "\"strategy\":", 11, true)) {
-			pr_err("Expected \'stategy:\' keyword in controller's %s stream\n",
+			pr_err("Expected \'strategy:\' keyword in controller's %s stream\n",
 			       cgp_entry->cgp.name);
 			goto err_parse;
 		}

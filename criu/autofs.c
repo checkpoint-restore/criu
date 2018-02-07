@@ -345,7 +345,7 @@ free_str:
 
 /*
  * To access the mount point we have to set proper mount namespace.
- * But, unfortunatelly, we have to set proper pid namespace as well,
+ * But, unfortunately, we have to set proper pid namespace as well,
  * because otherwise autofs driver won't find the autofs master.
  */
 static int access_autofs_mount(struct mount_info *pm)
@@ -642,7 +642,7 @@ static int autofs_mnt_set_pipefd(const autofs_info_t *i, int mnt_fd)
 {
 	struct autofs_dev_ioctl param;
 
-	/* Restore pipe and pgrp only for non-cataonic mounts */
+	/* Restore pipe and pgrp only for non-catatonic mounts */
 	if (i->entry->fd == AUTOFS_CATATONIC_FD)
 		return 0;
 
@@ -828,7 +828,7 @@ static autofs_info_t *autofs_create_info(const struct mount_info *mi,
 	memcpy(i->entry, info->entry, sizeof(*info->entry));
 	i->mnt_dev = info->mnt_dev;
 
-	/* We need mountpoint to be able to opne mount in autofs_post_open()
+	/* We need mountpoint to be able to open mount in autofs_post_open()
 	 * callback. And this have to be internal path, because process cwd
 	 * will be changed already. That's why ns_mountpoint is used. */
 	strcpy(i->mnt_path, mi->ns_mountpoint);

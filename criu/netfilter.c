@@ -19,7 +19,7 @@ static char buf[512];
 
 /*
  * Need to configure simple netfilter rules for blocking connections
- * ANy brave soul to write it using xtables-devel?
+ * Any brave soul to write it using xtables-devel?
  */
 
 #define NF_CONN_CMD	"%s %s -t filter %s %s --protocol tcp " \

@@ -54,7 +54,7 @@ int fdstore_init(void)
 	 * This socket is connected to itself, so all messages are queued to
 	 * its receive queue. Here we are going to use this socket to store
 	 * file descriptors. For that we need to send a file descriptor in
-	 * a queue and remeber its sequence number. Then we can set SO_PEEK_OFF
+	 * a queue and remember its sequence number. Then we can set SO_PEEK_OFF
 	 * to get a file descriptor without dequeuing it.
 	 */
 	if (bind(sk, (struct sockaddr *) &addr, addrlen)) {

@@ -1098,7 +1098,7 @@ static int dump_zombies(void)
 		return -1;
 
 	/*
-	 * We dump zombies separately becase for pid-ns case
+	 * We dump zombies separately because for pid-ns case
 	 * we'd have to resolve their pids w/o parasite via
 	 * target ns' proc.
 	 */
@@ -1669,18 +1669,18 @@ static int cr_dump_finish(int ret)
 	 *  - error happened during checkpoint: just clean up
 	 *    everything and continue execution of the dumpee;
 	 *
-	 *  - dump successed but post-dump script returned
+	 *  - dump succeeded but post-dump script returned
 	 *    some ret code: same as in previous scenario --
 	 *    just clean up everything and continue execution,
 	 *    we will return script ret code back to criu caller
 	 *    and it's up to a caller what to do with running instance
 	 *    of the dumpee -- either kill it, or continue running;
 	 *
-	 *  - dump successed but -R option passed, pointing that
+	 *  - dump succeeded but -R option passed, pointing that
 	 *    we're asked to continue execution of the dumpee. It's
 	 *    assumed that a user will use post-dump script to keep
 	 *    consistency of the FS and other resources, we simply
-	 *    start rollback procedure and cleanup everyhting.
+	 *    start rollback procedure and cleanup everything.
 	 */
 	if (ret || post_dump_ret || opts.final_state == TASK_ALIVE) {
 		network_unlock();
