@@ -292,7 +292,7 @@ static int dump_tunfile(int lfd, u32 id, const struct fd_parms *p)
 
 		/*
 		 * Otherwise this is just opened file with not yet attached
-		 * tun device. Go agead an write the respective entry.
+		 * tun device. Go ahead an write the respective entry.
 		 */
 	} else {
 		tfe.netdev = ifr.ifr_name;

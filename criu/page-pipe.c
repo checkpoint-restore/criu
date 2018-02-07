@@ -391,7 +391,7 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd,
 	*nr_pages = len / PAGE_SIZE;
 
 	skip += ppb->pipe_off * PAGE_SIZE;
-	/* we should tee() the requested lenth + the beginning of the pipe */
+	/* we should tee() the requested length + the beginning of the pipe */
 	len += skip;
 
 	ret = tee(ppb->p[0], prd->p[1], len, 0);

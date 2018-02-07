@@ -56,7 +56,7 @@ class _criu_comm_sk(_criu_comm):
 
 class _criu_comm_fd(_criu_comm):
 	"""
-	Commnunication class for file descriptor.
+	Communication class for file descriptor.
 	"""
 	def __init__(self, fd):
 		self.comm_type = self.COMM_FD
@@ -164,7 +164,7 @@ class CRIUExceptionExternal(CRIUException):
 		s = "%s failed: " % (rpc.criu_req_type.Name(self.typ), )
 
 		if self.typ != self.resp_typ:
-			s += "Unxecpected response type %d: " % (self.resp_typ, )
+			s += "Unexpected response type %d: " % (self.resp_typ, )
 
 		s += "Error(%d): " % (self.errno, )
 

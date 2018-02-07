@@ -242,7 +242,7 @@ int parse_aufs_branches(struct mount_info *mi)
 
 		fclose(fp);
 		/*
-		 * Log branch information for extenal utitilies that
+		 * Log branch information for external utitilies that
 		 * want to recreate the process's AUFS filesystem
 		 * before calling criu restore.
 		 *

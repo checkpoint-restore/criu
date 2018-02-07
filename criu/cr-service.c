@@ -559,7 +559,7 @@ static int dump_using_req(int sk, CriuOpts *req)
 	/*
 	 * FIXME -- cr_dump_tasks() may return code from custom
 	 * scripts, that can be positive. However, right now we
-	 * don't have ability to push scripts via RPC, so psitive
+	 * don't have ability to push scripts via RPC, so positive
 	 * ret values are impossible here.
 	 */
 	if (cr_dump_tasks(req->pid))
@@ -899,7 +899,7 @@ static int handle_feature_check(int sk, CriuReq * msg)
 		/*
 		 * If this point is reached the information about the features
 		 * is transmitted from the forked CRIU process (here).
-		 * If an error occured earlier, the feature check response will be
+		 * If an error occurred earlier, the feature check response will be
 		 * be send from the parent process.
 		 */
 		ret = send_criu_msg(sk, &resp);

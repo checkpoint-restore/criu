@@ -6,17 +6,17 @@ enum faults fi_strategy;
 int fault_injection_init()
 {
 	char *val;
-	int strat;
+	int start;
 
 	val = getenv("CRIU_FAULT");
 	if (val == NULL)
 		return 0;
 
-	strat = atoi(val);
+	start = atoi(val);
 
-	if (strat <= 0 || strat >= FI_MAX)
+	if (start <= 0 || start >= FI_MAX)
 		return -1;
 
-	fi_strategy = strat;
+	fi_strategy = start;
 	return 0;
 }

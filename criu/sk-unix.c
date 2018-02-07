@@ -403,8 +403,8 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 			/*
 			 * Usually this doesn't happen, however it's possible if
 			 * socket was shut down before connect() (see sockets03.c test).
-			 * On restore we will shutdown both end (iow socktes will be in
-			 * matched state). This shoudn't be a problem, since kernel seems
+			 * On restore we will shutdown both end (iow sockets will be in
+			 * matched state). This shouldn't be a problem, since kernel seems
 			 * to check both ends on read()/write(). Thus mismatched sockets behave
 			 * the same way as matched.
 			 */

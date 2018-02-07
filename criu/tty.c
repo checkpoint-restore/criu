@@ -2150,7 +2150,7 @@ static int tty_do_dump_queued_data(struct tty_dump_info *dinfo)
 			 ret, (int)off, dinfo->driver->name, dinfo->id);
 
 		if (off >= size) {
-			pr_err("The tty (%s %#x) queued data overrflow %zu bytes limit\n",
+			pr_err("The tty (%s %#x) queued data overflow %zu bytes limit\n",
 			       dinfo->driver->name, dinfo->id, size);
 			off = size;
 			break;

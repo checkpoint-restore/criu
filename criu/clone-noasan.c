@@ -13,7 +13,7 @@
  * We need a real stack for clone().
  *
  * To workaround this we add clone_noasan() not-instrumented wrapper for
- * clone(). Unfortunately we can't use __attrbute__((no_sanitize_addresss))
+ * clone(). Unfortunately we can't use __attribute__((no_sanitize_address))
  * for this because of bug in GCC > 6:
  *         https://gcc.gnu.org/bugzilla/show_bug.cgi?id=69863
  *

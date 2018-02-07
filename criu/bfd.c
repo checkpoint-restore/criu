@@ -219,7 +219,7 @@ again:
 
 	/*
 	 * small optimization -- we've scanned b->sz
-	 * symols already, no need to re-scan them after
+	 * symbols already, no need to re-scan them after
 	 * the buffer refill.
 	 */
 	ss = b->sz;

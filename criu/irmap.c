@@ -5,7 +5,7 @@
  * so that we can restore inotify/fanotify-s.
  *
  * Scanning _is_ slow, so we limit it with hints, which are
- * heurisitical known places where notifies are typically put.
+ * heuristically known places where notifies are typically put.
  */
 
 #include <stdbool.h>

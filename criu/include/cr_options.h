@@ -12,7 +12,7 @@
 #define CPU_CAP_ALL		(-1u)
 #define CPU_CAP_FPU		(1u)		/* Only FPU capability required */
 #define CPU_CAP_CPU		(2u)		/* Strict CPU capability required */
-#define CPU_CAP_INS		(4u)		/* Instructions CPU capatibility */
+#define CPU_CAP_INS (4u)			/* Instructions CPU capability */
 #define CPU_CAP_DEFAULT		(CPU_CAP_FPU)
 
 struct cg_root_opt {
@@ -95,7 +95,7 @@ struct cr_options {
 	bool			autodetect_ext_mounts;
 	int			enable_external_sharing;
 	int			enable_external_masters;
-	bool			aufs;		/* auto-deteced, not via cli */
+	bool			aufs;		/* auto-detected, not via cli */
 	bool			overlayfs;
 #ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
 	bool			has_binfmt_misc; /* auto-detected */

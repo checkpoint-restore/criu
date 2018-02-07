@@ -142,7 +142,7 @@ static int seize_cgroup_tree(char *root_path, const char *state)
 			if (stat(buf, &st) == -1 && errno == ENOENT)
 				continue;
 			/*
-			 * fails when meets a zombie, or eixting process:
+			 * fails when meets a zombie, or exiting process:
 			 * there is a small race in a kernel -- the process
 			 * may start exiting and we are trying to freeze it
 			 * before it compete exit procedure. The caller simply
@@ -350,7 +350,7 @@ static int freeze_processes(void)
 		nr_attempts = (10 * 1000000) / step_ms;
 	}
 
-	pr_debug("freezing processes: %lu attempst with %lu ms steps\n",
+	pr_debug("freezing processes: %lu attempts with %lu ms steps\n",
 		 nr_attempts, step_ms);
 
 	snprintf(path, sizeof(path), "%s/freezer.state", opts.freeze_cgroup);
