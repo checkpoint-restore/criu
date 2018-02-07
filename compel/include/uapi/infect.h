@@ -96,6 +96,8 @@ struct rt_sigframe;
 
 typedef int (*open_proc_fn)(int pid, int mode, const char *fmt, ...)
 	__attribute__ ((__format__ (__printf__, 3, 4)));
+typedef int (*save_regs_t)(void *, user_regs_struct_t *, user_fpregs_struct_t *);
+typedef int (*make_sigframe_t)(void *, struct rt_sigframe *, struct rt_sigframe *, k_rtsigset_t *);
 
 struct infect_ctx {
 	int	sock;
@@ -103,8 +105,8 @@ struct infect_ctx {
 	/*
 	 * Regs manipulation context.
 	 */
-	int (*save_regs)(void *, user_regs_struct_t *, user_fpregs_struct_t *);
-	int (*make_sigframe)(void *, struct rt_sigframe *, struct rt_sigframe *, k_rtsigset_t *);
+	save_regs_t		save_regs;
+	make_sigframe_t		make_sigframe;
 	void *regs_arg;
 
 	unsigned long		task_size;
@@ -151,7 +153,6 @@ struct parasite_blob_desc {
 
 extern struct parasite_blob_desc *compel_parasite_blob_desc(struct parasite_ctl *);
 
-typedef int (*save_regs_t)(void *, user_regs_struct_t *, user_fpregs_struct_t *);
 extern int compel_get_thread_regs(struct parasite_thread_ctl *, save_regs_t, void *);
 
 extern void compel_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *elf_relocs, size_t nr_relocs);
