@@ -40,8 +40,10 @@ int kdat_can_map_vdso(void)
 	 * it for criu accidentally.
 	 */
 	child = fork();
-	if (child < 0)
+	if (child < 0) {
+		pr_perror("%s(): failed to fork()", __func__);
 		return -1;
+	}
 
 	if (child == 0) {
 		int ret;
@@ -149,6 +151,11 @@ static int has_32bit_mmap_bug(void)
 {
 	pid_t child = fork();
 	int stat;
+
+	if (child < 0) {
+		pr_perror("%s(): failed to fork()", __func__);
+		return -1;
+	}
 
 	if (child == 0)
 		mmap_bug_test();
