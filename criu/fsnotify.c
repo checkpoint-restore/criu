@@ -686,7 +686,7 @@ static int open_inotify_fd(struct file_desc *d, int *new_fd)
 		pr_info("\tRestore 0x%x wd for %#08x\n", wd_info->iwe->wd, wd_info->iwe->id);
 		if (restore_one_inotify(tmp, wd_info)) {
 			close_safe(&tmp);
-			break;
+			return -1;
 		}
 		pr_info("\t 0x%x wd for %#08x is restored\n", wd_info->iwe->wd, wd_info->iwe->id);
 	}
@@ -723,7 +723,7 @@ static int open_fanotify_fd(struct file_desc *d, int *new_fd)
 		pr_info("\tRestore fanotify for %#08x\n", mark->fme->id);
 		if (restore_one_fanotify(ret, mark)) {
 			close_safe(&ret);
-			break;
+			return -1;
 		}
 	}
 
