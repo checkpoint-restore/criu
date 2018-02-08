@@ -419,8 +419,10 @@ int restore_one_tcp(int fd, struct inet_sk_info *ii)
 	if (!sk)
 		return -1;
 
-	if (restore_tcp_conn_state(fd, sk, ii))
+	if (restore_tcp_conn_state(fd, sk, ii)) {
+		libsoccr_release(sk);
 		return -1;
+	}
 
 	return 0;
 }
