@@ -1163,8 +1163,10 @@ void fini_cgroup(void)
 		return;
 
 	close_service_fd(CGROUP_YARD);
-	umount2(cg_yard, MNT_DETACH);
-	rmdir(cg_yard);
+	if (umount2(cg_yard, MNT_DETACH))
+		pr_perror("Unable to umount %s", cg_yard);
+	if (rmdir(cg_yard))
+		pr_perror("Unable to remove %s", cg_yard);
 	xfree(cg_yard);
 	cg_yard = NULL;
 }
