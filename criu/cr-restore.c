@@ -1361,7 +1361,8 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		if (!current && WIFSTOPPED(status) &&
 					WSTOPSIG(status) == SIGCHLD) {
 			/* The root task is ptraced. Allow it to handle SIGCHLD */
-			ptrace(PTRACE_CONT, siginfo->si_pid, 0, SIGCHLD);
+			if (ptrace(PTRACE_CONT, pid, 0, SIGCHLD))
+				pr_perror("Unable to resume %d", pid);
 			return;
 		}
 
