@@ -2667,6 +2667,7 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 
 	ns_reaper = *(struct pstree_item **)arg;
 	ns = lookup_ns_by_id(ns_reaper->ids->pid_ns_id, &pid_ns_desc);
+	BUG_ON(ns == NULL);
 
 	pid = __pstree_pid_by_virt(ns, ns->ns_pid);
 	if (!pid) {
