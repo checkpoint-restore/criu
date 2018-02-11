@@ -104,6 +104,11 @@ static int read_one_priomap(char *prop_line, struct ifpriomap_t *out)
 	len = space - prop_line;
 
 	out->ifname = malloc(len + 1);
+	if (!out->ifname) {
+		pr_perror("malloc() failed\n");
+		return -1;
+	}
+
 	strncpy(out->ifname, prop_line, len);
 	out->ifname[len] = '\0'; /* poor man's strlcpy() */
 	out->prio = (uint32_t)strtol(space + 1, NULL, 10);
