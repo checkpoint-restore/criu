@@ -360,8 +360,7 @@ int do_open_remote_image(int dfd, char *path, int flags)
 
 	if (fchdir(save) < 0) {
 		pr_perror("fchdir to save failed");
-		close(save);
-		return -1;
+		ret = -1;
 	}
 	close(save);
 
