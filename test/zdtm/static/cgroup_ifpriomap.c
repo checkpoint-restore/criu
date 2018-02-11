@@ -42,12 +42,12 @@ static int mount_cg(const char *controller)
 		pr_perror("Can't make dir");
 		return -1;
 	}
-	if (mkdir(mnt_point, 0700) < 0) {
+	if (mkdir(mnt_point, 0700) < 0 && errno != EEXIST) {
 		pr_perror("Can't make dir `%s'", mnt_point);
 		return -1;
 	}
 	if (mount("none", mnt_point, "cgroup", 0, controller)) {
-		pr_perror("Can't mount cgroups");
+		pr_perror("Can't mount `%s' cgroup", controller);
 		goto err_rm;
 	}
 	if (mkdir(subdir, 0700) < 0 && errno != EEXIST) {
@@ -224,20 +224,107 @@ static int compare_maps(void)
 	return 0;
 }
 
+static ssize_t parse_cgroup_line(FILE *fcgroup, size_t *buf_sz, char **buf)
+{
+	ssize_t line_sz;
+
+	/* Reading cgroup mount nr */
+	errno = 0;
+	line_sz = getdelim(buf, buf_sz, ':', fcgroup);
+	if (errno) {
+		pr_perror("failed to read from file");
+		return -1;
+	}
+
+	if (line_sz == -1) /* EOF */
+		return 0;
+
+	/* Reading mounted controller name */
+	errno = 0;
+	line_sz = getdelim(buf, buf_sz, ':', fcgroup);
+	if (line_sz == -1) { /* no EOF here */
+		pr_perror("failed to read from file");
+		return -1;
+	}
+
+	/*
+	 * Reading the rest of the line.
+	 * It's zdtm's test, no need to optimize = use fgetc()
+	 */
+	do {
+		int c = fgetc(fcgroup);
+
+		if (c == '\n' || c == EOF)
+			break;
+	} while (true);
+
+	return line_sz;
+}
+
+/*
+ * Controller's name may differ depending on the kernel's config:
+ * `net_prio' if only CONFIG_CGROUP_NET_PRIO is set
+ * `net_cls,net_prio' if also CONFIG_CGROUP_NET_CLASSID is set
+ */
+static int get_controller_name(char **name)
+{
+	FILE *self_cgroup = fopen("/proc/self/cgroup", "r");
+	size_t buf_sz = 0;
+	int ret = -1;
+
+	*name = NULL;
+	if (!self_cgroup) {
+		pr_perror("failed to open self/cgroup");
+		return -1;
+	}
+
+	do {
+		ssize_t len = parse_cgroup_line(self_cgroup, &buf_sz, name);
+
+		if (len < 0) {
+			free(*name);
+			goto out_close;
+		}
+
+		if (len == 0) /* EOF */
+			break;
+
+		if (strstr(*name, "net_prio")) {
+			/* erasing ':' delimiter */
+			(*name)[len-1] = '\0';
+			ret = 0;
+			goto out_close;
+		}
+	} while(1);
+
+	/* self/cgroup has no mount for net_prio - try to map it */
+	*name = "net_prio";
+	ret = 0;
+
+out_close:
+	fclose(self_cgroup);
+	return ret;
+}
+
 int main(int argc, char **argv)
 {
 	char subdir[PATH_MAX];
 	char path[PATH_MAX];
 	int ret = -1;
+	char *controller_name;
 
 	srand(time(NULL));
 
 	test_init(argc, argv);
 
-	if (mount_cg("net_prio") < 0)
+	if (get_controller_name(&controller_name))
 		return -1;
 
-	sprintf(path, "%s/net_prio/%s/net_prio.ifpriomap", dirname, cgname);
+	if (mount_cg(controller_name) < 0)
+		return -1;
+
+	sprintf(path, "%s/%s/%s/net_prio.ifpriomap",
+		dirname, controller_name, cgname);
 
 	if (read_map(path, maps, PRIOMAPS_SZ))
 		goto out_umount;
@@ -266,6 +353,7 @@ out_umount:
 	sprintf(subdir, "%s/%s/%s", dirname, "net_prio", cgname);
 	rmdir(subdir);
 	umount_cg("net_prio");
+	free(controller_name);
 
 	return ret;
 }
