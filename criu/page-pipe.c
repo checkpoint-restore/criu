@@ -10,6 +10,7 @@
 #include "page-pipe.h"
 #include "fcntl.h"
 #include "stats.h"
+#include "cr_options.h"
 
 /* can existing iov accumulate the page? */
 static inline bool iov_grow_page(struct iovec *iov, unsigned long addr)
@@ -63,8 +64,39 @@ static inline int ppb_resize_pipe(struct page_pipe_buf *ppb)
 	return 0;
 }
 
-static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp, struct page_pipe_buf *prev)
+static struct page_pipe_buf *pp_prev_ppb(struct page_pipe *pp,
+					 unsigned int ppb_flags)
 {
+	int type = 0;
+
+	/* don't allow to reuse a pipe in the PP_CHUNK_MODE mode */
+	if (pp->flags & PP_CHUNK_MODE)
+		return NULL;
+
+	if (list_empty(&pp->bufs))
+		return NULL;
+
+	if (ppb_flags & PPB_LAZY && opts.lazy_pages)
+		type = 1;
+
+	return pp->prev[type];
+}
+
+static void pp_update_prev_ppb(struct page_pipe *pp, struct page_pipe_buf *ppb,
+			       unsigned int ppb_flags)
+{
+	int type = 0;
+
+	if (ppb_flags & PPB_LAZY && opts.lazy_pages)
+		type = 1;
+
+	pp->prev[type] = ppb;
+}
+
+static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp,
+				       unsigned int ppb_flags)
+{
+	struct page_pipe_buf *prev = pp_prev_ppb(pp, ppb_flags);
 	struct page_pipe_buf *ppb;
 
 	ppb = xmalloc(sizeof(*ppb));
@@ -94,6 +126,8 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp, struct page_pipe_bu
 
 	list_add_tail(&ppb->l, &pp->bufs);
 
+	pp_update_prev_ppb(pp, ppb, ppb_flags);
+
 	return ppb;
 }
 
@@ -119,7 +153,7 @@ static void ppb_init(struct page_pipe_buf *ppb, unsigned int pages_in,
 
 static int page_pipe_grow(struct page_pipe *pp, unsigned int flags)
 {
-	struct page_pipe_buf *ppb, *prev = NULL;
+	struct page_pipe_buf *ppb;
 	struct iovec *free_iov;
 
 	pr_debug("Will grow page pipe (iov off is %u)\n", pp->free_iov);
@@ -133,10 +167,7 @@ static int page_pipe_grow(struct page_pipe *pp, unsigned int flags)
 	if ((pp->flags & PP_CHUNK_MODE) && (pp->nr_pipes == NR_PIPES_PER_CHUNK))
 		return -EAGAIN;
 
-	/* don't allow to reuse a pipe in the PP_CHUNK_MODE mode */
-	if (!(pp->flags & PP_CHUNK_MODE) && !list_empty(&pp->bufs))
-		prev = list_entry(pp->bufs.prev, struct page_pipe_buf, l);
-	ppb = ppb_alloc(pp, prev);
+	ppb = ppb_alloc(pp, flags);
 	if (!ppb)
 		return -1;
 

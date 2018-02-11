@@ -102,12 +102,23 @@ struct page_pipe_buf {
 	struct list_head l;	/* links into page_pipe->bufs */
 };
 
+/*
+ * Page pipe buffers with different flags cannot share the same pipe.
+ * We track the last ppb that was used for each type separately in the
+ * prev[] array in the struct page_pipe (below).
+ * Currently we have 2 types: the buffers that are always stored in
+ * the images and the buffers that are lazily migrated
+ */
+#define PP_PIPE_TYPES	2
+
 #define PP_HOLE_PARENT (1 << 0)
 
 struct page_pipe {
 	unsigned int nr_pipes;	/* how many page_pipe_bufs in there */
 	struct list_head bufs;	/* list of bufs */
 	struct list_head free_bufs;	/* list of bufs */
+	struct page_pipe_buf *prev[PP_PIPE_TYPES];	/* last ppb of each type
+							   for pipe sharing */
 	unsigned int nr_iovs;	/* number of iovs */
 	unsigned int free_iov;	/* first free iov */
 	struct iovec *iovs;	/* iovs. They are provided into create_page_pipe
