@@ -61,7 +61,9 @@ extern void print_on_level(unsigned int loglevel, const char *format, ...)
 		       __FILE__, __LINE__, ##__VA_ARGS__)
 
 #define pr_warn_once(fmt, ...)						\
-	print_once(LOG_WARN, fmt, ##__VA_ARGS__)
+       print_once(LOG_WARN,						\
+			"Warn  (%s:%d): " LOG_PREFIX fmt,		\
+			__FILE__, __LINE__, ##__VA_ARGS__)
 
 #define pr_debug(fmt, ...)						\
 	print_on_level(LOG_DEBUG,					\
