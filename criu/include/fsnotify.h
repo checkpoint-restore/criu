@@ -8,6 +8,10 @@
 
 #define KERNEL_FS_EVENT_ON_CHILD 0x08000000
 
+#ifndef INOTIFY_IOC_SETNEXTWD
+#define INOTIFY_IOC_SETNEXTWD  _IOW('I', 0, __s32)
+#endif
+
 extern int is_inotify_link(char *link);
 extern int is_fanotify_link(char *link);
 extern const struct fdtype_ops inotify_dump_ops;
