@@ -71,6 +71,7 @@ struct kerndat_s {
 	unsigned int sysctl_nr_open;
 	unsigned long files_stat_max_files;
 	bool x86_has_ptrace_fpu_xsave_bug;
+	bool has_inotify_setnextwd;
 };
 
 extern struct kerndat_s kdat;

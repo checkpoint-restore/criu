@@ -12,6 +12,8 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
 #include <sys/prctl.h>
+#include <sys/inotify.h>
+
 
 #include "common/config.h"
 #include "int.h"
@@ -33,6 +35,7 @@
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/compel.h>
 #include "netfilter.h"
+#include "fsnotify.h"
 #include "linux/userfaultfd.h"
 #include "prctl.h"
 #include "uffd.h"
@@ -738,6 +741,29 @@ err:
 	return ret;
 }
 
+int kerndat_has_inotify_setnextwd(void)
+{
+	int ret = 0;
+	int fd;
+
+	fd = inotify_init();
+	if (fd < 0) {
+		pr_perror("Can't create inotify");
+		return -1;
+	}
+
+	if (ioctl(fd, INOTIFY_IOC_SETNEXTWD, 0x10)) {
+		if (errno != ENOTTY) {
+			pr_perror("Can't call ioctl");
+			ret = -1;
+		}
+	} else
+		kdat.has_inotify_setnextwd = true;
+
+	close(fd);
+	return ret;
+}
+
 int __attribute__((weak)) kdat_x86_has_ptrace_fpu_xsave_bug(void)
 {
 	return 0;
@@ -1001,6 +1027,8 @@ int kerndat_init(void)
 		ret = kerndat_nsid();
 	if (!ret)
 		ret = kerndat_x86_has_ptrace_fpu_xsave_bug();
+	if (!ret)
+		ret = kerndat_has_inotify_setnextwd();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
