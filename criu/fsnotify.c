@@ -35,6 +35,7 @@
 #include "files-reg.h"
 #include "file-ids.h"
 #include "criu-log.h"
+#include "kerndat.h"
 #include "common/list.h"
 #include "common/lock.h"
 #include "irmap.h"
@@ -569,11 +570,13 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 			iwe->mask, mask);
 	}
 
-	/*
-	 * FIXME The kernel allocates wd-s sequentially,
-	 * this is suboptimal, but the kernel doesn't
-	 * provide and API for this yet :(
-	 */
+	if (kdat.has_inotify_setnextwd) {
+		if (ioctl(inotify_fd, INOTIFY_IOC_SETNEXTWD, iwe->wd)) {
+			pr_perror("Can't set next inotify wd");
+			return -1;
+		}
+	}
+
 	while (1) {
 		int wd;
 
@@ -588,6 +591,9 @@ static int restore_one_inotify(int inotify_fd, struct fsnotify_mark_info *info)
 			pr_err("Unsorted watch 0x%x found for 0x%x with 0x%x\n", wd, inotify_fd, iwe->wd);
 			break;
 		}
+
+		if (kdat.has_inotify_setnextwd)
+			return -1;
 
 		inotify_rm_watch(inotify_fd, wd);
 	}
