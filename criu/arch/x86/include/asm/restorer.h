@@ -80,11 +80,6 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 # define ARCH_MAP_VDSO_64		0x2003
 #endif
 
-/* XXX: Introduce per-arch kerndat header */
-extern int kdat_compatible_cr(void);
-extern int kdat_can_map_vdso(void);
-extern int kdat_x86_has_ptrace_fpu_xsave_bug(void);
-
 static inline void
 __setup_sas_compat(struct ucontext_ia32* uc, ThreadSasEntry *sas)
 {

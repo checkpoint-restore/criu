@@ -48,8 +48,6 @@
 		  "r"(&thread_args[i])		/* %6 */		\
 		: "memory","0","3","4","5","6","7","14","15")
 
-#define kdat_compatible_cr()			0
-#define kdat_can_map_vdso()			0
 #define arch_map_vdso(map, compat)		-1
 
 int restore_gpregs(struct rt_sigframe *f, UserPpc64RegsEntry *r);
