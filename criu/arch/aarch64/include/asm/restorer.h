@@ -52,8 +52,6 @@
 			: "sp", "x0", "memory")
 
 
-#define kdat_compatible_cr()			0
-#define kdat_can_map_vdso()			0
 #define arch_map_vdso(map, compat)		-1
 
 int restore_gpregs(struct rt_sigframe *f, UserAarch64RegsEntry *r);
