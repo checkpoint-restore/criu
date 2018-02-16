@@ -272,11 +272,21 @@ int main(int argc, char *argv[], char *envp[])
 	if (!strcmp(argv[optind], "page-server"))
 		return cr_page_server(opts.daemon_mode, false, -1) != 0;
 
-	if (!strcmp(argv[optind], "image-cache"))
+	if (!strcmp(argv[optind], "image-cache")) {
+		if (!opts.port)
+			goto opt_port_missing;
 		return image_cache(opts.daemon_mode, DEFAULT_CACHE_SOCKET, opts.port);
+	}
 
-	if (!strcmp(argv[optind], "image-proxy"))
+	if (!strcmp(argv[optind], "image-proxy")) {
+		if (!opts.addr) {
+			pr_msg("Error: address not specified\n");
+			return 1;
+		}
+		if (!opts.port)
+			goto opt_port_missing;
 		return image_proxy(opts.daemon_mode, DEFAULT_PROXY_SOCKET, opts.addr, opts.port);
+	}
 
 	if (!strcmp(argv[optind], "service"))
 		return cr_service(opts.daemon_mode);
@@ -479,6 +489,10 @@ usage:
 	);
 
 	return 0;
+
+opt_port_missing:
+	pr_msg("Error: port not specified\n");
+	return 1;
 
 opt_pid_missing:
 	pr_msg("Error: pid not specified\n");
