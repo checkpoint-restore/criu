@@ -495,6 +495,10 @@ class zdtm_test:
 	def getropts(self):
 		return self.__getcropts() + self.__freezer.getropts() + self.__desc.get('ropts', '').split()
 
+	def unlink_pidfile(self):
+		self.__pid = 0
+		os.unlink(self.__pidfile())
+
 	def gone(self, force = True):
 		if self.__pid == 0:
 			self.getpid()
@@ -827,6 +831,7 @@ class criu:
 		self.__remote_lazy_pages = (opts['remote_lazy_pages'] and True or False)
 		self.__lazy_pages = (self.__remote_lazy_pages or
 				     opts['lazy_pages'] and True or False)
+		self.__lazy_migrate = (opts['lazy_migrate'] and True or False)
 		self.__restore_sibling = (opts['sibling'] and True or False)
 		self.__join_ns = (opts['join_ns'] and True or False)
 		self.__empty_ns = (opts['empty_ns'] and True or False)
@@ -843,8 +848,11 @@ class criu:
 		self.__check_only = (opts['check_only'] and True or False)
 		self.__lazy_pages_p = None
 		self.__page_server_p = None
+		self.__dump_process = None
 
 	def fini(self):
+		if self.__lazy_migrate:
+			ret = self.__dump_process.wait()
 		if self.__lazy_pages_p:
 			ret = self.__lazy_pages_p.wait()
 		        grep_errors(os.path.join(self.__ddir(), "lazy-pages.log"))
@@ -857,6 +865,12 @@ class criu:
 			self.__page_server_p = None
 			if ret:
 				raise test_fail_exc("criu page-server exited with %s" % ret)
+		if self.__dump_process:
+			ret = self.__dump_process.wait()
+		        grep_errors(os.path.join(self.__ddir(), "dump.log"))
+			self.__dump_process = None
+			if ret:
+				raise test_fail_exc("criu dump exited with %s" % ret)
                 return
 
 	def logs(self):
@@ -1046,7 +1060,11 @@ class criu:
 		if self.__check_only:
 			self.__criu_act(action, opts = a_opts + opts + ['--check-only'])
 
-		self.__criu_act(action, opts = a_opts + opts)
+		nowait = False
+		if self.__lazy_migrate:
+			a_opts += ["--lazy-pages", "--port", "12345"]
+			nowait = True
+		self.__dump_process = self.__criu_act(action, opts = a_opts + opts, nowait = nowait)
 		if self.__mdedup and self.__iter > 1:
 			self.__criu_act("dedup", opts = [])
 
@@ -1085,10 +1103,11 @@ class criu:
 			r_opts.append('--external')
 			r_opts.append('mnt[zdtm]:%s' % criu_dir)
 
-		if self.__lazy_pages:
+		if self.__lazy_pages or self.__lazy_migrate:
 			lp_opts = []
-			if self.__remote_lazy_pages:
+			if self.__remote_lazy_pages or self.__lazy_migrate:
 				lp_opts += ['--page-server', "--port", "12345"]
+			if self.__remote_lazy_pages:
 				ps_opts = ["--pidfile", "ps.pid",
 					   "--port", "12345", "--lazy-pages"]
 				self.__page_server_p = self.__criu_act("page-server", opts = ps_opts, nowait = True)
@@ -1130,6 +1149,11 @@ class criu:
 			print "criu page-server exited with %s" % self.__page_server_p.wait()
 		        grep_errors(os.path.join(self.__ddir(), "page-server.log"))
 			self.__page_server_p = None
+		if self.__dump_process:
+			self.__dump_process.terminate()
+			print "criu dump exited with %s" % self.__dump_process.wait()
+		        grep_errors(os.path.join(self.__ddir(), "dump.log"))
+			self.__dump_process = None
 
 
 def try_run_hook(test, args):
@@ -1195,7 +1219,10 @@ def cr(cr_api, test, opts):
 		else:
 			try_run_hook(test, ["--pre-dump"])
 			cr_api.dump("dump")
-			test.gone()
+			if not opts['lazy_migrate']:
+				test.gone()
+			else:
+				test.unlink_pidfile()
 			sbs('pre-restore')
 			try_run_hook(test, ["--pre-restore"])
 			cr_api.restore()
@@ -1581,7 +1608,7 @@ class Launcher:
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'stop', 'empty_ns',
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'rpc', 'lazy_pages',
 				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
-				'remote_lazy_pages', 'show_stats', 'remote', 'check_only')
+				'remote_lazy_pages', 'show_stats', 'remote', 'check_only', 'lazy_migrate')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
 		if self.__use_log:
@@ -1826,7 +1853,7 @@ def run_tests(opts):
 		if subprocess.Popen(["ip", "netns", "exec", "zdtm_netns", "ip", "link", "set", "up", "dev", "lo"]).wait():
 			raise Exception("ip link set up dev lo")
 
-	if opts['lazy_pages'] or opts['remote_lazy_pages']:
+	if opts['lazy_pages'] or opts['remote_lazy_pages'] or opts['lazy_migrate']:
 		uffd = criu.check("uffd")
 		uffd_noncoop = criu.check("uffd-noncoop")
 		if not uffd:
@@ -1887,7 +1914,7 @@ def run_tests(opts):
 					launcher.skip(t, "samens test in the same namespace")
 					continue
 
-			if opts['lazy_pages'] or opts['remote_lazy_pages']:
+			if opts['lazy_pages'] or opts['remote_lazy_pages'] or opts['lazy_migrate']:
 				if test_flag(tdesc, 'nolazy'):
 					launcher.skip(t, "lazy pages are not supported")
 					continue
@@ -2133,6 +2160,7 @@ rp.add_argument("--report", help = "Generate summary report in directory")
 rp.add_argument("--keep-going", help = "Keep running tests in spite of failures", action = 'store_true')
 rp.add_argument("--ignore-taint", help = "Don't care about a non-zero kernel taint flag", action = 'store_true')
 rp.add_argument("--lazy-pages", help = "restore pages on demand", action = 'store_true')
+rp.add_argument("--lazy-migrate", help = "restore pages on demand", action = 'store_true')
 rp.add_argument("--remote-lazy-pages", help = "simulate lazy migration", action = 'store_true')
 rp.add_argument("--title", help = "A test suite title", default = "criu")
 rp.add_argument("--show-stats", help = "Show criu statistics", action = 'store_true')
