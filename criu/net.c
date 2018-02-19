@@ -2708,8 +2708,10 @@ struct ns_id *get_socket_ns(int lfd)
 	}
 	if (fstat(ns_fd, &st)) {
 		pr_perror("Unable to stat a network namespace");
+		close(ns_fd);
 		return NULL;
 	}
+	close(ns_fd);
 
 	ns = lookup_ns_by_kid(st.st_ino, &net_ns_desc);
 	if (ns == NULL) {
