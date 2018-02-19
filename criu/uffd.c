@@ -38,6 +38,7 @@
 #include "page-xfer.h"
 #include "common/lock.h"
 #include "rst-malloc.h"
+#include "fdstore.h"
 #include "util.h"
 
 #undef  LOG_PREFIX
@@ -103,6 +104,8 @@ static LIST_HEAD(pending_lpis);
 static int epollfd;
 static bool restore_finished;
 static struct epoll_rfd lazy_sk_rfd;
+/* socket for communication with lazy-pages daemon */
+static int lazy_pages_sk_id = -1;
 
 static int handle_uffd_event(struct epoll_rfd *lpfd);
 
@@ -173,7 +176,7 @@ static int send_uffd(int sendfd, int pid)
 	if (sendfd < 0)
 		return -1;
 
-	fd = get_service_fd(LAZY_PAGES_SK_OFF);
+	fd = fdstore_get(lazy_pages_sk_id);
 	if (fd < 0) {
 		pr_err("%s: get_service_fd\n", __func__);
 		return -1;
@@ -292,8 +295,7 @@ err:
 
 int prepare_lazy_pages_socket(void)
 {
-	int fd, new_fd;
-	int len;
+	int fd, len, ret = -1;
 	struct sockaddr_un sun;
 
 	if (!opts.lazy_pages)
@@ -311,19 +313,22 @@ int prepare_lazy_pages_socket(void)
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
 		return -1;
 
-	new_fd = install_service_fd(LAZY_PAGES_SK_OFF, fd);
-	close(fd);
-	if (new_fd < 0)
-		return -1;
-
 	len = offsetof(struct sockaddr_un, sun_path) + strlen(sun.sun_path);
-	if (connect(new_fd, (struct sockaddr *) &sun, len) < 0) {
+	if (connect(fd, (struct sockaddr *) &sun, len) < 0) {
 		pr_perror("connect to %s failed", sun.sun_path);
-		close(new_fd);
-		return -1;
+		goto out;
 	}
 
-	return 0;
+	lazy_pages_sk_id = fdstore_add(fd);
+	if (lazy_pages_sk_id < 0) {
+		pr_perror("Can't add fd to fdstore");
+		goto out;
+	}
+
+	ret = 0;
+out:
+	close(fd);
+	return ret;
 }
 
 static int server_listen(struct sockaddr_un *saddr)
@@ -1167,7 +1172,7 @@ int lazy_pages_finish_restore(void)
 	if (!opts.lazy_pages)
 		return 0;
 
-	fd = get_service_fd(LAZY_PAGES_SK_OFF);
+	fd = fdstore_get(lazy_pages_sk_id);
 	if (fd < 0) {
 		pr_err("No lazy-pages socket\n");
 		return -1;
