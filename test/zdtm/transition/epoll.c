@@ -175,8 +175,8 @@ int main(int argc, char **argv)
 
 	test_waitsig();
 
-	killall();
 	for (i = 0; i < scale; i++) {
+		kill(pids[i], SIGUSR2);
 		if (waitpid(pids[i], &rv, 0) < 0) {
 			fail("waitpid error: %m\n");
 			counter++;
