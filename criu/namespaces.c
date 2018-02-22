@@ -1716,6 +1716,7 @@ int __userns_call(const char *func_name, uns_call_t call, int flags,
 	int ret, res, sk;
 	bool async = flags & UNS_ASYNC;
 	struct unsc_msg um;
+	uns_call_t rcall;
 
 	if (unlikely(arg_size > MAX_UNSFD_MSG_SIZE)) {
 		pr_err("uns: message size exceeded\n");
@@ -1726,7 +1727,7 @@ int __userns_call(const char *func_name, uns_call_t call, int flags,
 		return call(arg, fd, getpid());
 
 	sk = get_service_fd(USERNSD_SK);
-	pr_debug("uns: calling %s (%d, %x)\n", func_name, fd, flags);
+	pr_debug("uns: calling %s[%p] (%d, %x)\n", func_name, call, fd, flags);
 
 	if (!async)
 		/*
@@ -1762,7 +1763,7 @@ int __userns_call(const char *func_name, uns_call_t call, int flags,
 
 	/* Get the response back */
 
-	unsc_msg_init(&um, &call, &res, NULL, 0, 0);
+	unsc_msg_init(&um, &rcall, &res, NULL, 0, 0);
 	ret = recvmsg(sk, &um.h, 0);
 	if (ret <= 0) {
 		pr_perror("uns: recv resp error");
@@ -1776,6 +1777,9 @@ int __userns_call(const char *func_name, uns_call_t call, int flags,
 		unsc_msg_pid_fd(&um, NULL, &ret);
 	else
 		ret = res;
+
+	pr_debug("uns: call %s[%p] returned %d\n", func_name, rcall, ret);
+	BUG_ON(rcall != call);
 out:
 	if (!async)
 		mutex_unlock(&task_entries->userns_sync_lock);

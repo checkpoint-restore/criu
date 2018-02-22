@@ -1860,8 +1860,10 @@ static int restore_task_with_children(void *_arg)
 
 	/* Restore root task */
 	if (current->parent == NULL) {
-		if (prep_usernsd_transport())
+		if (prep_usernsd_transport()) {
+			pr_err("Failed to prepare usernsd transport\n");
 			goto err;
+		}
 
 		if (join_namespaces()) {
 			pr_perror("Join namespaces failed");
