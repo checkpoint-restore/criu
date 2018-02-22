@@ -16,6 +16,8 @@ message dump_stats_entry {
 	required uint64			pages_lazy		= 9;
 	optional uint64			page_pipes		= 10;
 	optional uint64			page_pipe_bufs		= 11;
+
+	optional uint64			dump_uptime		= 12;
 }
 
 message restore_stats_entry {

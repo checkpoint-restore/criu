@@ -7,6 +7,7 @@ enum {
 	TIME_MEMDUMP,
 	TIME_MEMWRITE,
 	TIME_IRMAP_RESOLVE,
+	TIME_DUMP_UPTIME,
 
 	DUMP_TIME_NR_STATS,
 };
@@ -20,6 +21,7 @@ enum {
 
 extern void timing_start(int t);
 extern void timing_stop(int t);
+extern int timing_uptime(int t);
 
 enum {
 	CNT_PAGES_SCANNED,

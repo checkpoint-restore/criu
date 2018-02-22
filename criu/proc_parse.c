@@ -2713,7 +2713,7 @@ err:
 	return -1;
 }
 
-__maybe_unused int parse_uptime(struct timeval *_tv)
+int parse_uptime(struct timeval *_tv)
 {
 	unsigned long sec, csec;
 	FILE *f;
