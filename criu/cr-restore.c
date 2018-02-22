@@ -2244,14 +2244,18 @@ static int restore_root_task(struct pstree_item *init)
 	if (prepare_userns_hook())
 		return -1;
 
-	if (prepare_namespace_before_tasks())
+	if (prepare_namespace_before_tasks()) {
+		pr_err("Failed to prepare namespace before tasks\n");
 		return -1;
+	}
 
 	__restore_switch_stage_nw(CR_STATE_ROOT_TASK);
 
 	ret = fork_with_pid(init);
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("Failed to fork init task\n");
 		goto out;
+	}
 
 	restore_origin_ns_hook();
 
@@ -2285,21 +2289,28 @@ static int restore_root_task(struct pstree_item *init)
 	 * uid_map and gid_map must be filled from a parent user namespace.
 	 * prepare_userns_creds() must be called after filling mappings.
 	 */
-	if ((root_ns_mask & CLONE_NEWUSER) && prepare_userns(init->pid->real, userns_entry))
+	if ((root_ns_mask & CLONE_NEWUSER) && prepare_userns(init->pid->real, userns_entry)) {
+		pr_err("Failed to prepare userns\n");
 		goto out_destroy;
+	}
 
 	pr_info("Wait until namespaces are created\n");
 	ret = restore_wait_inprogress_tasks();
-	if (ret)
+	if (ret) {
+		pr_err("Failed to wait inprogress tasks\n");
 		goto out_destroy;
+	}
 
 	ret = run_scripts(ACT_SETUP_NS);
 	if (ret)
 		goto out_destroy;
 
 	ret = restore_switch_stage(CR_STATE_PREPARE_NAMESPACES);
-	if (ret)
+	if (ret) {
+		pr_err("Failed to switch restore stage to " \
+		       "CR_STATE_PREPARE_NAMESPACES\n");
 		goto out_destroy;
+	}
 
 	if (root_ns_mask & CLONE_NEWNS) {
 		mnt_ns_fd = open_proc(init->pid->real, "ns/mnt");
@@ -2329,8 +2340,10 @@ static int restore_root_task(struct pstree_item *init)
 skip_ns_bouncing:
 
 	ret = restore_wait_inprogress_tasks();
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("Failed to wait inprogress tasks\n");
 		goto out_destroy;
+	}
 
 	/*
 	 * Zombies die after CR_STATE_RESTORE which is switched
@@ -2347,23 +2360,30 @@ skip_ns_bouncing:
 		goto out_kill;
 
 	ret = restore_switch_stage(CR_STATE_RESTORE_SIGCHLD);
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("Failed to switch restore stage to " \
+		       "CR_STATE_RESTORE_SIGCHLD\n");
 		goto out_kill;
+	}
 
 	ret = stop_usernsd();
 	if (ret < 0)
 		goto out_kill;
 
 	ret = move_veth_to_bridge();
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("Failed to move veth to bridge\n");
 		goto out_kill;
+	}
 
 	ret = prepare_cgroup_properties();
 	if (ret < 0)
 		goto out_kill;
 
-	if (fault_injected(FI_POST_RESTORE))
+	if (fault_injected(FI_POST_RESTORE)) {
+		pr_err("Post restore fault injected\n");
 		goto out_kill;
+	}
 
 	ret = run_scripts(ACT_POST_RESTORE);
 	if (ret != 0) {
@@ -2377,8 +2397,10 @@ skip_ns_bouncing:
 	 * There is no need to call try_clean_remaps() after this point,
 	 * as restore went OK and all ghosts were removed by the openers.
 	 */
-	if (depopulate_roots_yard(mnt_ns_fd, false))
+	if (depopulate_roots_yard(mnt_ns_fd, false)) {
+		pr_err("Failed to depopulate roots yard\n");
 		goto out_kill;
+	}
 
 	close_safe(&mnt_ns_fd);
 
