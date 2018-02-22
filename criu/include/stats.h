@@ -1,6 +1,8 @@
 #ifndef __CR_STATS_H__
 #define __CR_STATS_H__
 
+#include "images/stats.pb-c.h"
+
 enum {
 	TIME_FREEZING,
 	TIME_FROZEN,
@@ -22,6 +24,8 @@ enum {
 extern void timing_start(int t);
 extern void timing_stop(int t);
 extern int timing_uptime(int t);
+
+extern StatsEntry *get_parent_stats(void);
 
 enum {
 	CNT_PAGES_SCANNED,
