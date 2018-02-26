@@ -705,8 +705,7 @@ static int dump_sit(NetDeviceEntry *nde, struct cr_imgset *imgset, struct nlattr
 #define ENCODE_ENTRY(__type, __ifla, __proto)	do {			\
 		if (data[__ifla]) {					\
 			se.__proto = *(__type *)nla_data(data[__ifla]);	\
-			if (se.__proto)					\
-				se.has_##__proto = true;		\
+			se.has_##__proto = true;			\
 		}							\
 	} while (0)
 
