@@ -40,7 +40,11 @@ int main(int argc, char ** argv)
 
 	mkdir(dirname, 0700);
 #endif
+#ifndef UNLINK_FSTAT041
 	fd = open(filename, O_RDWR | O_CREAT | O_TRUNC, 0644);
+#else
+	fd = open(dirname, O_RDWR | O_TMPFILE, 0644);
+#endif
 	if (fd < 0) {
 		pr_perror("can't open %s", filename);
 		exit(1);
@@ -58,10 +62,12 @@ int main(int argc, char ** argv)
 		goto failed;
 	}
 
+#ifndef UNLINK_FSTAT041
 	if (unlink(filename) < 0) {
 		pr_perror("can't unlink %s", filename);
 		goto failed;
 	}
+#endif
 	/* Change file size */
 	if (fst.st_size != 0) {
 		pr_perror("%s file size eq %ld", filename, (long)fst.st_size);
