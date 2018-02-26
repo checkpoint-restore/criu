@@ -307,6 +307,7 @@ TST_DIR		=				\
 		cgroup_ifpriomap		\
 		cgroup_stray		\
 		unlink_fstat04			\
+		unlink_fstat041			\
 		mntns_remap			\
 		mntns_open			\
 		mntns_link_remap		\
@@ -489,6 +490,7 @@ mlock_setuid: get_smaps_bits.o
 inotify01:		CFLAGS += -DINOTIFY01
 unlink_fstat01+:	CFLAGS += -DUNLINK_OVER
 unlink_fstat04:		CFLAGS += -DUNLINK_FSTAT04
+unlink_fstat041:		CFLAGS += -DUNLINK_FSTAT041 -DUNLINK_FSTAT04
 ghost_holes01:		CFLAGS += -DTAIL_HOLE
 ghost_holes02:		CFLAGS += -DHEAD_HOLE
 sk-freebind-false:	CFLAGS += -DZDTM_FREEBIND_FALSE
