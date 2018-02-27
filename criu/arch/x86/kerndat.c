@@ -178,8 +178,14 @@ int kdat_compatible_cr(void)
 
 static int kdat_x86_has_ptrace_fpu_xsave_bug_child(void *arg)
 {
-	ptrace(PTRACE_TRACEME, 0, 0, 0);
-	kill(getpid(), SIGSTOP);
+	if (ptrace(PTRACE_TRACEME, 0, 0, 0)) {
+		pr_perror("%d: ptrace(PTRACE_TRACEME) failed", getpid());
+		_exit(1);
+	}
+
+	if (kill(getpid(), SIGSTOP))
+		pr_perror("%d: failed to kill myself", getpid());
+
 	pr_err("Continue after SIGSTOP.. Urr what?\n");
 	_exit(1);
 }
@@ -243,7 +249,10 @@ int kdat_x86_has_ptrace_fpu_xsave_bug(void)
 	ret = !xsave.i387.mxcsr;
 
 out_kill:
-	kill(child, SIGKILL);
-	waitpid(child, &stat, 0);
+	if (kill(child, SIGKILL))
+		pr_perror("Failed to kill my own child");
+	if (waitpid(child, &stat, 0) < 0)
+		pr_perror("Failed wait for a dead child");
+
 	return ret;
 }
