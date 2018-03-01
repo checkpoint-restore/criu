@@ -20,6 +20,13 @@ travis_prep () {
 		CC=clang
 	fi
 
+	[ -n "$GCOV" ] && {
+		apt-add-repository -y "ppa:ubuntu-toolchain-r/test"
+		apt-get update -yq
+		apt-get -yq --no-install-suggests --no-install-recommends --force-yes install g++-7
+		CC=gcc-7
+	}
+
 	# ccache support, only enable for non-GCOV case
 	if [ "$CCACHE" = "1" -a -z "$GCOV" ]; then
 		# ccache is installed by default, need to set it up
@@ -99,7 +106,7 @@ bash ./test/jenkins/criu-inhfd.sh
 
 make -C test/others/mnt-ext-dev/ run
 #make -C test/others/exec/ run
-make -C test/others/make/ run
+make -C test/others/make/ run CC="$CC"
 
 ./test/zdtm.py run -t zdtm/static/env00 --sibling
 
