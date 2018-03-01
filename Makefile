@@ -91,7 +91,7 @@ DEFINES			+= -D_GNU_SOURCE
 
 WARNINGS		:= -Wall -Wformat-security
 
-CFLAGS-GCOV		:= --coverage -fno-exceptions -fno-inline
+CFLAGS-GCOV		:= --coverage -fno-exceptions -fno-inline -fprofile-update=atomic
 export CFLAGS-GCOV
 
 ifneq ($(GCOV),)
