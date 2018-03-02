@@ -20,6 +20,7 @@
 #include "namespaces.h"
 #include "xmalloc.h"
 #include "kerndat.h"
+#include "sockets.h"
 
 #include "images/tun.pb-c.h"
 
@@ -304,6 +305,8 @@ static int dump_tunfile(int lfd, u32 id, const struct fd_parms *p)
 			pr_err("No net_ns for tun device\n");
 			return -1;
 		}
+		tfe.has_ns_id = true;
+		tfe.ns_id = ns->id;
 	}
 
 	if (dump_one_reg_file(lfd, id, p))
@@ -356,7 +359,7 @@ struct tunfile_info {
 
 static int tunfile_open(struct file_desc *d, int *new_fd)
 {
-	int fd;
+	int fd, ns_id;
 	struct tunfile_info *ti;
 	struct ifreq ifr;
 	struct tun_link *tl;
@@ -364,6 +367,10 @@ static int tunfile_open(struct file_desc *d, int *new_fd)
 	ti = container_of(d, struct tunfile_info, d);
 	fd = open_reg_by_id(ti->tfe->id);
 	if (fd < 0)
+		return -1;
+
+	ns_id = ti->tfe->has_ns_id ? ti->tfe->ns_id : top_net_ns->id;
+	if (set_netns(ns_id))
 		return -1;
 
 	if (!ti->tfe->netdev)
