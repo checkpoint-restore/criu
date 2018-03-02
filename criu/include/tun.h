@@ -15,5 +15,6 @@ struct net_link;
 extern int restore_one_tun(struct net_link *link, int nlsk);
 extern struct collect_image_info tunfile_cinfo;
 extern int check_tun_cr(int no_tun_err);
+extern int check_tun_netns_cr(bool *result);
 
 #endif /* __CR_TUN_H__ */

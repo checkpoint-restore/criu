@@ -1209,6 +1209,13 @@ static int check_tun(void)
 	return check_tun_cr(-1);
 }
 
+static int check_tun_netns(void)
+{
+	bool has = false;
+	check_tun_netns_cr(&has);
+	return has ? 0 : -1;
+}
+
 static int check_nsid(void)
 {
 	if (kerndat_nsid() < 0)
@@ -1246,6 +1253,7 @@ static struct feature_list feature_list[] = {
 	{ "aio_remap", check_aio_remap },
 	{ "timerfd", check_timerfd },
 	{ "tun", check_tun },
+	{ "tun_ns", check_tun_netns },
 	{ "userns", check_userns },
 	{ "fdinfo_lock", check_fdinfo_lock },
 	{ "seccomp_suspend", check_ptrace_suspend_seccomp },

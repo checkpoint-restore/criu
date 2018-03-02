@@ -29,6 +29,7 @@
 #include "sk-inet.h"
 #include "sockets.h"
 #include "net.h"
+#include "tun.h"
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/compel.h>
 #include "netfilter.h"
@@ -933,6 +934,11 @@ out_unmap:
 	return ret;
 }
 
+static int kerndat_tun_netns(void)
+{
+	return check_tun_netns_cr(&kdat.tun_ns);
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -969,6 +975,8 @@ int kerndat_init(void)
 		ret = kerndat_compat_restore();
 	if (!ret)
 		ret = kerndat_socket_netns();
+	if (!ret)
+		ret = kerndat_tun_netns();
 	if (!ret)
 		ret = kerndat_nsid();
 	if (!ret)

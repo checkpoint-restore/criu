@@ -19,6 +19,7 @@
 #include "net.h"
 #include "namespaces.h"
 #include "xmalloc.h"
+#include "kerndat.h"
 
 #include "images/tun.pb-c.h"
 
@@ -68,6 +69,25 @@ int check_tun_cr(int no_tun_err)
 
 	close(fd);
 	return ret;
+}
+
+int check_tun_netns_cr(bool *result)
+{
+	bool val;
+	int tun;
+
+	tun = open(TUN_DEV_GEN_PATH, O_RDONLY);
+	if (tun < 0) {
+		pr_perror("Unable to create tun");
+		return -1;
+	}
+	check_has_netns_ioc(tun, &val, "tun");
+	close(tun);
+
+	if (result)
+		*result = val;
+
+	return 0;
 }
 
 static LIST_HEAD(tun_links);
