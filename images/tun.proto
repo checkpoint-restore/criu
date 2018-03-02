@@ -6,6 +6,7 @@ message tunfile_entry {
 	required uint32		id		= 1;
 	optional string		netdev		= 2;
 	optional bool		detached	= 3;
+	optional uint32		ns_id		= 4;
 };
 
 message tun_link_entry {
