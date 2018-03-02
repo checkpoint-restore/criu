@@ -2714,26 +2714,30 @@ struct ns_id *get_socket_ns(int lfd)
 	return ns;
 }
 
+void check_has_netns_ioc(int fd, bool *kdat_val, const char *name)
+{
+	int ns_fd;
+
+	ns_fd = ioctl(fd, SIOCGSKNS);
+	*kdat_val = (ns_fd >= 0);
+
+	if (ns_fd < 0)
+		pr_warn("Unable to get %s network namespace\n", name);
+	else
+		close(ns_fd);
+}
+
 int kerndat_socket_netns(void)
 {
-	int sk, ns_fd;
+	int sk;
 
 	sk = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (sk < 0) {
 		pr_perror("Unable to create socket");
 		return -1;
 	}
-	ns_fd = ioctl(sk, SIOCGSKNS);
-	if (ns_fd < 0) {
-		pr_warn("Unable to get a socket network namespace\n");
-		kdat.sk_ns = false;
-		close(sk);
-		return 0;
-	}
+	check_has_netns_ioc(sk, &kdat.sk_ns, "socket");
 	close(sk);
-	close(ns_fd);
-
-	kdat.sk_ns = true;
 
 	return 0;
 }
