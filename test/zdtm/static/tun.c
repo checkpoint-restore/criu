@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
+#include <sched.h>
 
 #include "zdtmtst.h"
 
@@ -118,7 +119,10 @@ int main(int argc, char **argv)
 	char addr[ETH_ALEN], a2[ETH_ALEN];
 
 	test_init(argc, argv);
-
+#ifdef TUN_NS
+	unshare(CLONE_NEWNET);
+	system("ip link set up dev lo");
+#endif
 	/* fd[0] -- opened file */
 	fds[0] = __open_tun();
 	if (fds[0] < 0) {
