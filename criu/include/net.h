@@ -48,5 +48,6 @@ extern int move_veth_to_bridge(void);
 extern int kerndat_link_nsid(void);
 extern int net_get_nsid(int rtsk, int fd, int *nsid);
 extern int kerndat_nsid(void);
+extern void check_has_netns_ioc(int fd, bool *kdat_val, const char *name);
 
 #endif /* __CR_NET_H__ */
