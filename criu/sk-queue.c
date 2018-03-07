@@ -211,6 +211,8 @@ static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags)
 			continue;
 		}
 
+		pr_err("cmsg: len %lu type %d level %d\n",
+		       (unsigned long)ch->cmsg_len, ch->cmsg_type, ch->cmsg_level);
 		pr_err("Control messages in queue, not supported\n");
 		return -1;
 	}
