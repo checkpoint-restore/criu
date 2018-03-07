@@ -55,6 +55,7 @@
 #include "tty.h"
 #include "net.h"
 #include "sk-packet.h"
+#include "sk-queue.h"
 #include "cpu.h"
 #include "elf.h"
 #include "cgroup.h"
@@ -2311,6 +2312,9 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	if (tty_post_actions())
+		goto err;
+
+	if (sk_queue_post_actions())
 		goto err;
 
 	if (inventory_save_uptime(&he))

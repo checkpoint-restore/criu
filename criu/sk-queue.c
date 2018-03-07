@@ -33,7 +33,10 @@
 struct sk_packet {
 	struct list_head list;
 	SkPacketEntry *entry;
-	char *data;
+	union {
+		char *data;
+		size_t data_off;
+	};
 	unsigned scm_len;
 	int *scm;
 };
@@ -136,6 +139,103 @@ static int dump_scm_rights(struct cmsghdr *ch, SkPacketEntry *pe)
  */
 #define CMSG_MAX_SIZE 2048
 
+int sk_queue_post_actions(void)
+{
+	struct sk_packet *pkt, *t;
+	struct cr_img *img;
+	int ret = 0;
+
+	img = img_from_set(glob_imgset, CR_FD_SK_QUEUES);
+
+	list_for_each_entry_safe(pkt, t, &packets_list, list) {
+		if (!pkt->entry->ucred) {
+			pr_err("ucred: corruption on id_for %x\n",
+			       pkt->entry->id_for);
+			ret = -1;
+		}
+
+		if (!ret) {
+			struct pstree_item *item, *found = NULL;
+			SkUcredEntry *ue = pkt->entry->ucred;
+
+			for_each_pstree_item(item) {
+				if (item->pid->real == ue->pid) {
+					found = item;
+					break;
+				}
+			}
+
+			if (!found) {
+				pr_err("ucred: Can't lookup process with pid %d\n",
+				       ue->pid);
+				ret = -ENOENT;
+				goto next;
+			} else {
+				pr_debug("ucred: Fixup ucred pids %d -> %d\n",
+					 ue->pid, vpid(item));
+				ue->pid = vpid(item);
+			}
+
+			ret = pb_write_one(img, pkt->entry, PB_SK_QUEUES);
+			if (ret < 0) {
+				ret = -EIO;
+				goto next;
+			}
+
+			ret = write_img_buf(img, (char *)pkt + pkt->data_off, pkt->entry->length);
+			if (ret < 0) {
+				ret = -EIO;
+				goto next;
+			}
+		}
+
+next:
+		list_del(&pkt->list);
+		xfree(pkt);
+	}
+	return ret;
+}
+
+static int queue_packet_entry(SkPacketEntry *entry, void *data, size_t len)
+{
+	struct sk_packet *pkt;
+	size_t sum = 0;
+
+	sum += sizeof(*pkt);
+	sum += sizeof(*pkt->entry);
+	sum += sizeof(*pkt->entry->ucred);
+	sum += len;
+
+	pkt = xmalloc(sum);
+
+	if (pkt) {
+		SkPacketEntry *pe = (void *)pkt + sizeof(*pkt);
+		SkUcredEntry *ue = (void *)pe + sizeof(*pe);
+		void *p = (void *)ue + sizeof(*ue);
+
+		sk_packet_entry__init(pe);
+		sk_ucred_entry__init(ue);
+
+		pkt->entry = pe;
+		pkt->data_off = p - (void *)pkt;
+		list_add_tail(&pkt->list, &packets_list);
+
+		pe->id_for = entry->id_for;
+		pe->length = entry->length;
+		pe->ucred = ue;
+		ue->uid = entry->ucred->uid;
+		ue->gid = entry->ucred->gid;
+		ue->pid = entry->ucred->pid;
+
+		memcpy(p, data, len);
+		pr_debug("ucred: Queued ucred packet id_for %x\n",
+			 pkt->entry->id_for);
+		return 0;
+	}
+
+	return -ENOMEM;
+}
+
 static int dump_sk_creds(struct ucred *ucred, SkPacketEntry *pe, int flags)
 {
 	SkUcredEntry *ent;
@@ -147,13 +247,22 @@ static int dump_sk_creds(struct ucred *ucred, SkPacketEntry *pe, int flags)
 	sk_ucred_entry__init(ent);
 	ent->uid = userns_uid(ucred->uid);
 	ent->gid = userns_gid(ucred->gid);
+	ent->pid = ucred->pid;
+
+	if (pe->ucred)
+		pr_warn("ucred: ucred already assigned\n");
+	pe->ucred = ent;
+
 	if (flags & SK_QUEUE_REAL_PID) {
 		/*
 		 * It is impossible to convert pid from real to virt,
-		 * because virt pid-s are known for dumped task only
+		 * because virt pid-s are known for dumped task only.
+		 * Thus defer the image writing, we will do it at the
+		 * end, where all processes are collected already.
 		 */
-		pr_err("ucred-s for unix sockets aren't supported yet\n");
-		goto out;
+		pr_debug("ucred: Detected ucreds on id_for %x (uid %d gid %d pid %d)\n",
+			 pe->id_for, ent->uid, ent->gid, ent->pid);
+		return 1;
 	} else {
 		int pidns = root_ns_mask & CLONE_NEWPID;
 		char path[64];
@@ -173,13 +282,11 @@ static int dump_sk_creds(struct ucred *ucred, SkPacketEntry *pe, int flags)
 			pr_err("Unable to dump ucred for a dead process %d\n", ucred->pid);
 			goto out;
 		}
-		ent->pid = ucred->pid;
 	}
-
-	pe->ucred = ent;
 
 	return 0;
 out:
+	pe->ucred = NULL;
 	xfree(ent);
 	return -1;
 }
@@ -188,6 +295,7 @@ static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags)
 {
 	struct cmsghdr *ch;
 	int n_rights = 0;
+	int ret = 0;
 
 	for (ch = CMSG_FIRSTHDR(mh); ch; ch = CMSG_NXTHDR(mh, ch)) {
 		if (ch->cmsg_type == SCM_RIGHTS) {
@@ -212,7 +320,8 @@ static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags)
 			    ch->cmsg_type == SCM_CREDENTIALS) {
 				struct ucred *ucred = (struct ucred *)CMSG_DATA(ch);
 
-				if (dump_sk_creds(ucred, pe, flags))
+				ret |= dump_sk_creds(ucred, pe, flags);
+				if (ret < 0)
 					return -1;
 				continue;
 			} else if (ch->cmsg_type == SCM_TIMESTAMP ||
@@ -231,7 +340,7 @@ static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe, int flags)
 		return -1;
 	}
 
-	return 0;
+	return ret;
 }
 
 static void release_cmsg(SkPacketEntry *pe)
@@ -342,8 +451,16 @@ int dump_sk_queue(int sock_fd, int sock_id, int flags)
 			goto err_set_sock;
 		}
 
-		if (dump_packet_cmsg(&msg, &pe, flags))
+		ret = dump_packet_cmsg(&msg, &pe, flags);
+		if (ret < 0)
 			goto err_set_sock;
+
+		if (ret > 0) {
+			ret = -1;
+			if (queue_packet_entry(&pe, data, pe.length))
+				goto err_set_sock;
+			continue;
+		}
 
 		ret = pb_write_one(img_from_set(glob_imgset, CR_FD_SK_QUEUES), &pe, PB_SK_QUEUES);
 		if (ret < 0) {
