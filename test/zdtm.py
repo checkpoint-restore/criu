@@ -959,7 +959,8 @@ class criu:
 				grep_errors(os.path.join(__ddir, log))
 				if ret == 0:
 					return
-			if self.__test.blocking() or (self.__sat and action == 'restore'):
+			rst_succeeded = os.access(os.path.join(__ddir, "restore-succeeded"), os.F_OK)
+			if self.__test.blocking() or (self.__sat and action == 'restore' and rst_succeeded):
 				raise test_fail_expected_exc(action)
 			else:
 				raise test_fail_exc("CRIU %s" % action)
