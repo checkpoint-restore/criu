@@ -380,4 +380,6 @@ static inline void print_stack_trace(pid_t pid) {}
 		___ret;									\
 	})
 
+extern void print_versions(void);
+
 #endif /* __CR_UTIL_H__ */

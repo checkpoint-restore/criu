@@ -307,6 +307,8 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		goto err;
 	}
 
+	print_versions();
+
 	/* checking flags from client */
 	if (req->has_leave_running && req->leave_running)
 		opts.final_state = TASK_ALIVE;
