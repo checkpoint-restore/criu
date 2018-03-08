@@ -235,20 +235,6 @@ static void soccr_print_on_level(unsigned int loglevel, const char *format, ...)
 	va_end(args);
 }
 
-static void print_kernel_version(void)
-{
-	struct utsname buf;
-
-	if (uname(&buf) < 0) {
-		pr_perror("Reading kernel version failed!");
-		/* This pretty unlikely, just keep on running. */
-		return;
-	}
-
-	pr_info("Running on %s %s %s %s %s\n", buf.nodename, buf.sysname,
-		buf.release, buf.version, buf.machine);
-}
-
 static void rlimit_unlimit_nofile_self(void)
 {
 	struct rlimit new;
@@ -764,9 +750,7 @@ int main(int argc, char *argv[], char *envp[])
 	libsoccr_set_log(log_level, soccr_print_on_level);
 	compel_log_init(vprint_on_level, log_get_loglevel());
 
-	pr_info("Version: %s (gitid %s)\n", CRIU_VERSION, CRIU_GITID);
-
-	print_kernel_version();
+	print_versions();
 
 	if (opts.deprecated_ok)
 		pr_debug("DEPRECATED ON\n");

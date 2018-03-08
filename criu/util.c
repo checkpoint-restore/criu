@@ -34,6 +34,7 @@
 #include <netinet/tcp.h>
 #include <sched.h>
 #include <ctype.h>
+#include <sys/utsname.h>
 
 #include "bitops.h"
 #include "page.h"
@@ -53,6 +54,7 @@
 #include "cr-service.h"
 #include "files.h"
 #include "pstree.h"
+#include "version.h"
 
 #include "cr-errno.h"
 
@@ -1512,3 +1514,19 @@ void print_stack_trace(pid_t pid)
 	free(strings);
 }
 #endif
+
+void print_versions(void)
+{
+	struct utsname buf;
+
+	pr_info("Version: %s (gitid %s)\n", CRIU_VERSION, CRIU_GITID);
+
+	if (uname(&buf) < 0) {
+		pr_perror("Reading kernel version failed!");
+		/* This pretty unlikely, just keep on running. */
+		return;
+	}
+
+	pr_info("Running on %s %s %s %s %s\n", buf.nodename, buf.sysname,
+		buf.release, buf.version, buf.machine);
+}
