@@ -536,6 +536,11 @@ static int send_one_pkt(int fd, struct sk_packet *pkt)
 		ucred->uid = entry->ucred->uid;
 		ucred->gid = entry->ucred->gid;
 		mh.msg_controllen = CMSG_SPACE(sizeof(struct ucred));
+
+		pr_debug("\tsend creds pid %d uid %d gid %d\n",
+			 entry->ucred->pid,
+			 entry->ucred->uid,
+			 entry->ucred->gid);
 	}
 	ret = sendmsg(fd, &mh, 0);
 	xfree(pkt->data);
