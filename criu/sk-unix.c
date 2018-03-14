@@ -1102,9 +1102,12 @@ static bool peer_is_not_prepared(struct unix_sk_info *peer)
 		return (!peer->listen);
 }
 
-static int restore_unix_queue(int fd, struct unix_sk_info *peer)
+static int restore_unix_queue(int fd, SkOptsEntry *soe, struct unix_sk_info *peer)
 {
 	struct pstree_item *task;
+
+	if (restore_socket_bufsz(fd, soe))
+		return -1;
 
 	if (restore_sk_queue(fd, peer->ue->id))
 		return -1;
@@ -1335,7 +1338,7 @@ static int post_open_standalone(struct file_desc *d, int fd)
 restore_queue:
 	if (peer->queuer == ui &&
 	    !(peer->ue->uflags & USK_EXTERN) &&
-	    restore_unix_queue(fd, peer))
+	    restore_unix_queue(fd, ui->ue->opts, peer))
 		return -1;
 restore_sk_common:
 	if (ui->queuer && !ui->queuer->peer_queue_restored)
@@ -1637,10 +1640,10 @@ static int post_open_interconnected_master(struct unix_sk_info *ui)
 	if (chk_restored_scms(ui) || chk_restored_scms(peer))
 		return 0;
 
-	if (restore_unix_queue(fle->fe->fd, peer))
+	if (restore_unix_queue(fle->fe->fd, ui->ue->opts, peer))
 		return -1;
 
-	if (restore_unix_queue(fle_peer->fe->fd, ui))
+	if (restore_unix_queue(fle_peer->fe->fd, peer->ue->opts, ui))
 		return -1;
 
 	if (restore_sk_common(fle->fe->fd, ui))
