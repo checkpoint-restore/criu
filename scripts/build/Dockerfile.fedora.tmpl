@@ -23,6 +23,12 @@ RUN dnf install -y \
 	python-yaml \
 	tar
 
+# Replace coreutils-single with "traditional" coreutils
+# to fix the following error on Fedora 28/rawhide while
+# running under QEMU:
+# > sh: /usr/bin/sort: /usr/bin/coreutils: bad interpreter: No such file or directory
+RUN dnf install -y --allowerasing coreutils
+
 COPY . /criu
 WORKDIR /criu
 
