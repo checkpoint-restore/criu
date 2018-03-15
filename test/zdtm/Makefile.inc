@@ -21,6 +21,16 @@ endif
 
 SRCARCH ?= $(ARCH)
 
+ifeq ($(ARCH),arm)
+	ARMV := $(shell echo $(UNAME-M) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
+
+	ifeq ($(ARMV),6)
+		USERCFLAGS += -march=armv6
+	else ifeq ($(ARMV),7)
+		USERCFLAGS += -march=armv7-a
+	endif
+endif
+
 CC	:= gcc
 CFLAGS	+= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 CFLAGS	+= $(USERCFLAGS)
