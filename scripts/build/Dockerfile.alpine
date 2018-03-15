@@ -3,34 +3,34 @@ ARG CC=gcc
 ARG ENV1=FOOBAR
 
 RUN apk update && apk add \
-                build-base \
-                coreutils \
-                git \
-                protobuf-c-dev \
-                protobuf-dev \
-                python \
-                libaio-dev \
-                libcap-dev \
-                libnl3-dev \
-                pkgconfig \
-                libnet-dev \
-                ccache \
-                $CC
+	$CC \
+	build-base \
+	ccache \
+	coreutils \
+	git \
+	libaio-dev \
+	libcap-dev \
+	libnet-dev \
+	libnl3-dev \
+	pkgconfig \
+	protobuf-c-dev \
+	protobuf-dev \
+	python
 
 COPY . /criu
 WORKDIR /criu
 ENV CC="ccache $CC" CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
-RUN mv .ccache /tmp && make mrproper && ccache -s && ccache -z &&\
+RUN mv .ccache /tmp && make mrproper && ccache -sz && \
 	date && make -j $(nproc) CC="$CC" && date && ccache -s
 
-# Run a test
-RUN apk add	py-yaml \
-		py-pip	\
-		ip6tables \
-		iptables \
-		iproute2 \
-		tar \
-		bash
+RUN apk add \
+	py-yaml \
+	py-pip	\
+	ip6tables \
+	iptables \
+	iproute2 \
+	tar \
+	bash
 
 RUN pip install protobuf ipaddr
 RUN make -C test/zdtm

@@ -1,15 +1,33 @@
 ARG CC=gcc
 ARG ENV1=FOOBAR
 
-RUN dnf install -y git gcc make
-RUN dnf install -y protobuf-devel protobuf-c-devel libaio-devel libcap-devel libnl3-devel libnet-devel
-RUN dnf install -y python ccache libasan findutils tar python-yaml protobuf-python iptables iproute python-ipaddr procps-ng
+RUN dnf install -y \
+	ccache \
+	findutils \
+	gcc \
+	git \
+	iproute \
+	iptables \
+	libaio-devel \
+	libasan \
+	libcap-devel \
+	libnet-devel \
+	libnl3-devel \
+	make \
+	procps-ng \
+	protobuf-c-devel \
+	protobuf-devel \
+	protobuf-python \
+	python \
+	python-ipaddr \
+	python-yaml \
+	tar
 
 COPY . /criu
 WORKDIR /criu
 
 ENV CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
-RUN mv .ccache /tmp && make mrproper && ccache -s && ccache -z && \
+RUN mv .ccache /tmp && make mrproper && ccache -sz  && \
 	date && make -j $(nproc) CC="$CC" && date && ccache -s
 RUN make -C test/zdtm -j $(nproc)
 
