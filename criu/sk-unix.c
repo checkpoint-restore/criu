@@ -1786,7 +1786,7 @@ int add_fake_unix_queuers(void)
 	struct unix_sk_info *ui;
 
 	list_for_each_entry(ui, &unix_sockets, list) {
-		if ((ui->ue->uflags & USK_EXTERN) || ui->queuer)
+		if ((ui->ue->uflags & (USK_EXTERN | USK_CALLBACK)) || ui->queuer)
 			continue;
 		if (!(ui->ue->state == TCP_ESTABLISHED && !ui->peer) &&
 		     ui->ue->type != SOCK_DGRAM)
