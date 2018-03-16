@@ -1281,6 +1281,49 @@ restore_sk_common:
 	return restore_sk_common(fd, ui);
 }
 
+static int bind_deleted_unix_sk(int sk, struct unix_sk_info *ui,
+					struct sockaddr_un *addr)
+{
+	char temp[PATH_MAX];
+	int ret;
+
+	pr_info("found duplicate unix socket bound at %s\n", addr->sun_path);
+
+	ret = snprintf(temp, sizeof(temp),
+			"%s-%s-%d", addr->sun_path, "criu-temp", getpid());
+	/* this shouldn't happen, since sun_addr is only 108 chars long */
+	if (ret < 0 || ret >= sizeof(temp)) {
+		pr_err("snprintf of %s failed?\n", addr->sun_path);
+		return -1;;
+	}
+
+	ret = rename(addr->sun_path, temp);
+	if (ret < 0) {
+		pr_perror("couldn't move socket for binding");
+		return -1;
+	}
+
+	ret = bind(sk, (struct sockaddr *)addr,
+			sizeof(addr->sun_family) + ui->ue->name.len);
+	if (ret < 0) {
+		pr_perror("Can't bind socket after move");
+		return -1;;
+	}
+
+	ret = rename(temp, addr->sun_path);
+	if (ret < 0) {
+		pr_perror("couldn't move socket back");
+		return -1;
+	}
+
+	/* we've handled the deleted-ness of this
+	 * socket and we don't want to delete it later
+	 * since it's not /this/ socket.
+	 */
+	ui->ue->deleted = false;
+	return 0;
+}
+
 static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 {
 	struct sockaddr_un addr;
@@ -1314,42 +1357,8 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 				sizeof(addr.sun_family) + ui->ue->name.len);
 		if (ret < 0) {
 			if (ui->ue->has_deleted && ui->ue->deleted && errno == EADDRINUSE) {
-				char temp[PATH_MAX];
-
-				pr_info("found duplicate unix socket bound at %s\n", addr.sun_path);
-
-				ret = snprintf(temp, sizeof(temp), "%s-%s-%d", addr.sun_path, "criu-temp", getpid());
-				/* this shouldn't happen, since sun_addr is only 108 chars long */
-				if (ret < 0 || ret >= sizeof(temp)) {
-					pr_err("snprintf of %s failed?\n", addr.sun_path);
+				if (bind_deleted_unix_sk(sk, ui, &addr))
 					goto done;
-				}
-
-				ret = rename(addr.sun_path, temp);
-				if (ret < 0) {
-					pr_perror("couldn't move socket for binding");
-					goto done;
-				}
-
-				ret = bind(sk, (struct sockaddr *)&addr,
-						sizeof(addr.sun_family) + ui->ue->name.len);
-				if (ret < 0) {
-					pr_perror("Can't bind socket after move");
-					goto done;
-				}
-
-				ret = rename(temp, addr.sun_path);
-				if (ret < 0) {
-					pr_perror("couldn't move socket back");
-					goto done;
-				}
-
-				/* we've handled the deleted-ness of this
-				 * socket and we don't want to delete it later
-				 * since it's not /this/ socket.
-				 */
-				ui->ue->deleted = false;
-
 			} else {
 				pr_perror("Can't bind socket");
 				goto done;
