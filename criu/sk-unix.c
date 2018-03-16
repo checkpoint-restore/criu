@@ -29,6 +29,7 @@
 #include "external.h"
 #include "crtools.h"
 #include "fdstore.h"
+#include "fdinfo.h"
 #include "kerndat.h"
 
 #include "protobuf.h"
@@ -57,12 +58,6 @@
 
 #define FAKE_INO	0
 
-typedef struct {
-	char			*dir;
-	unsigned int		udiag_vfs_dev;
-	unsigned int		udiag_vfs_ino;
-} rel_name_desc_t;
-
 struct unix_sk_desc {
 	struct socket_desc	sd;
 	unsigned int		type;
@@ -72,9 +67,12 @@ struct unix_sk_desc {
 	unsigned int		wqlen;
 	unsigned int		namelen;
 	char			*name;
-	rel_name_desc_t		*rel_name;
 	unsigned int		nr_icons;
 	unsigned int		*icons;
+
+	unsigned int		vfs_dev;
+	unsigned int		vfs_ino;
+
 	unsigned char		shutdown;
 	bool			deleted;
 
@@ -225,9 +223,8 @@ int kerndat_socket_unix_file(void)
 	return 0;
 }
 
-static int resolve_rel_name(struct unix_sk_desc *sk, const struct fd_parms *p)
+static int resolve_rel_name(u32 id, struct unix_sk_desc *sk, const struct fd_parms *p, char **pdir)
 {
-	rel_name_desc_t *rel_name = sk->rel_name;
 	const char *dirs[] = { "cwd", "root" };
 	struct pstree_item *task;
 	int mntns_root, i;
@@ -277,13 +274,13 @@ static int resolve_rel_name(struct unix_sk_desc *sk, const struct fd_parms *p)
 			goto err;
 		}
 
-		if ((st.st_ino == rel_name->udiag_vfs_ino) &&
-		    phys_stat_dev_match(st.st_dev, rel_name->udiag_vfs_dev, ns, &path[1])) {
-			rel_name->dir = xstrdup(dir);
-			if (!rel_name->dir)
+		if ((st.st_ino == sk->vfs_ino) &&
+		    phys_stat_dev_match(st.st_dev, sk->vfs_dev, ns, &path[1])) {
+			*pdir = xstrdup(dir);
+			if (!*pdir)
 				return -ENOMEM;
 
-			pr_debug("Resolved relative socket name to dir %s\n", rel_name->dir);
+			pr_debug("Resolved relative socket name to dir %s\n", *pdir);
 			sk->mode = st.st_mode;
 			sk->uid	= st.st_uid;
 			sk->gid	= st.st_gid;
@@ -292,10 +289,12 @@ static int resolve_rel_name(struct unix_sk_desc *sk, const struct fd_parms *p)
 	}
 
 err:
-	pr_err("Can't resolve name for socket %#x\n", rel_name->udiag_vfs_ino);
+	pr_err("Can't resolve name for socket %#x\n", id);
 	return -ENOENT;
 }
 
+static int unix_resolve_name(u32 id, struct unix_sk_desc *d,
+				UnixSkEntry *ue, const struct fd_parms *p);
 static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct unix_sk_desc *sk, *peer;
@@ -348,11 +347,8 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	ue->opts	= skopts;
 	ue->uflags	= 0;
 
-	if (sk->rel_name) {
-		if (resolve_rel_name(sk, p))
-			goto err;
-		ue->name_dir = sk->rel_name->dir;
-	}
+	if (unix_resolve_name(id, sk, ue, p))
+		goto err;
 
 	/*
 	 * Check if this socket is connected to criu service.
@@ -527,12 +523,87 @@ const struct fdtype_ops unix_dump_ops = {
 	.dump		= dump_one_unix_fd,
 };
 
+static int unix_resolve_name(u32 id, struct unix_sk_desc *d,
+				UnixSkEntry *ue, const struct fd_parms *p)
+{
+	char *name = d->name;
+	bool deleted = false;
+	char rpath[PATH_MAX];
+	struct ns_id *ns;
+	struct stat st;
+	int mntns_root;
+	int ret;
+
+	if (d->namelen == 0 || name[0] == '\0')
+		return 0;
+
+	ns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
+	if (!ns) {
+		ret = -ENOENT;
+		goto out;
+	}
+
+	mntns_root = mntns_get_root_fd(ns);
+	if (mntns_root < 0) {
+		ret = -ENOENT;
+		goto out;
+	}
+
+	if (name[0] != '/') {
+		/*
+		 * Relative names are be resolved later at first
+		 * dump attempt.
+		 */
+
+		ret = resolve_rel_name(id, d, p, &ue->name_dir);
+		if (ret < 0)
+			goto out;
+		goto postprone;
+	}
+
+	snprintf(rpath, sizeof(rpath), ".%s", name);
+	if (fstatat(mntns_root, rpath, &st, 0)) {
+		if (errno != ENOENT) {
+			pr_warn("Can't stat socket %#x(%s), skipping: %m (err %d)\n",
+				id, rpath, errno);
+			goto skip;
+		}
+
+		pr_info("unix: Dropping path %s for unlinked sk %#x\n",
+			name, id);
+		deleted = true;
+	} else if ((st.st_ino != d->vfs_ino) ||
+		   !phys_stat_dev_match(st.st_dev, d->vfs_dev, ns, name)) {
+		pr_info("unix: Dropping path %s for unlinked bound "
+			"sk %#x.%#x real %#x.%#x\n",
+			name, (int)st.st_dev, (int)st.st_ino,
+			(int)d->vfs_dev, (int)d->vfs_ino);
+		deleted = true;
+	}
+
+	d->mode = st.st_mode;
+	d->uid	= st.st_uid;
+	d->gid	= st.st_gid;
+
+	d->deleted = deleted;
+
+postprone:
+	return 0;
+
+out:
+	xfree(name);
+	return ret;
+skip:
+	ret = 1;
+	goto out;
+}
+
 /*
  * Returns: < 0 on error, 0 if OK, 1 to skip the socket
  */
 static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg *m, struct nlattr **tb)
 {
-	int len, ret;
+	int len;
 	char *name;
 
 	len = nla_len(tb[UNIX_DIAG_NAME]);
@@ -543,87 +614,25 @@ static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg 
 	memcpy(name, nla_data(tb[UNIX_DIAG_NAME]), len);
 	name[len] = '\0';
 
-	if (name[0] != '\0') {
+	if (name[0]) {
 		struct unix_diag_vfs *uv;
-		bool deleted = false;
-		char rpath[PATH_MAX];
-		struct ns_id *ns;
-		struct stat st;
-		int mntns_root;
 
 		if (!tb[UNIX_DIAG_VFS]) {
 			pr_err("Bound socket w/o inode %#x\n", m->udiag_ino);
 			goto skip;
 		}
 
-		ns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
-		if (!ns) {
-			ret = -ENOENT;
-			goto out;
-		}
-
-		mntns_root = mntns_get_root_fd(ns);
-		if (mntns_root < 0) {
-			ret = -ENOENT;
-			goto out;
-		}
-
 		uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
-		if (name[0] != '/') {
-			/*
-			 * Relative names are be resolved later at first
-			 * dump attempt.
-			 */
-			rel_name_desc_t *rel_name = xzalloc(sizeof(*rel_name));
-			if (!rel_name) {
-				ret = -ENOMEM;
-				goto out;
-			}
-			rel_name->udiag_vfs_dev = uv->udiag_vfs_dev;
-			rel_name->udiag_vfs_ino = uv->udiag_vfs_ino;
-
-			d->rel_name = rel_name;
-			goto postprone;
-		}
-
-		snprintf(rpath, sizeof(rpath), ".%s", name);
-		if (fstatat(mntns_root, rpath, &st, 0)) {
-			if (errno != ENOENT) {
-				pr_warn("Can't stat socket %#x(%s), skipping: %m (err %d)\n",
-					m->udiag_ino, rpath, errno);
-				goto skip;
-			}
-
-			pr_info("unix: Dropping path %s for unlinked sk %#x\n",
-				name, m->udiag_ino);
-			deleted = true;
-		} else if ((st.st_ino != uv->udiag_vfs_ino) ||
-			   !phys_stat_dev_match(st.st_dev, uv->udiag_vfs_dev, ns, name)) {
-			pr_info("unix: Dropping path %s for unlinked bound "
-				"sk %#x.%#x real %#x.%#x\n",
-				name, (int)st.st_dev, (int)st.st_ino,
-				(int)uv->udiag_vfs_dev, (int)uv->udiag_vfs_ino);
-			deleted = true;
-		}
-
-		d->mode = st.st_mode;
-		d->uid	= st.st_uid;
-		d->gid	= st.st_gid;
-
-		d->deleted = deleted;
+		d->vfs_dev = uv->udiag_vfs_dev;
+		d->vfs_ino = uv->udiag_vfs_ino;
 	}
 
-postprone:
 	d->namelen = len;
 	d->name = name;
 	return 0;
-
-out:
-	xfree(name);
-	return ret;
 skip:
-	ret = 1;
-	goto out;
+	xfree(name);
+	return 1;
 }
 
 static int unix_collect_one(const struct unix_diag_msg *m,
