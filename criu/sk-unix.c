@@ -29,6 +29,7 @@
 #include "external.h"
 #include "crtools.h"
 #include "fdstore.h"
+#include "kerndat.h"
 
 #include "protobuf.h"
 #include "images/sk-unix.pb-c.h"
@@ -194,6 +195,34 @@ static int write_unix_entry(struct unix_sk_desc *sk)
 	sk->ue = NULL;
 
 	return ret;
+}
+
+#ifndef SIOCUNIXFILE
+#define SIOCUNIXFILE (SIOCPROTOPRIVATE + 0) /* open a socket file with O_PATH */
+#endif
+
+int kerndat_socket_unix_file(void)
+{
+	int sk, fd;
+
+	sk = socket(AF_UNIX, SOCK_DGRAM, 0);
+	if (sk < 0) {
+		pr_perror("Unable to create socket");
+		return -1;
+	}
+	fd = ioctl(sk, SIOCUNIXFILE);
+	if (fd < 0 && errno != ENOENT) {
+		pr_warn("Unable to open a socket file: %m\n");
+		kdat.sk_unix_file = false;
+		close(sk);
+		return 0;
+	}
+	close(sk);
+	close(fd);
+
+	kdat.sk_unix_file = true;
+
+	return 0;
 }
 
 static int resolve_rel_name(struct unix_sk_desc *sk, const struct fd_parms *p)

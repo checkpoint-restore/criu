@@ -1070,6 +1070,14 @@ static int check_sk_netns(void)
 	return 0;
 }
 
+static int check_sk_unix_file(void)
+{
+	if (!kdat.sk_unix_file)
+		return -1;
+
+	return 0;
+}
+
 static int check_ns_pid(void)
 {
 	if (!kdat.has_nspid)
@@ -1294,6 +1302,7 @@ static struct feature_list feature_list[] = {
 	{ "uffd-noncoop", check_uffd_noncoop },
 	{ "can_map_vdso", check_can_map_vdso},
 	{ "sk_ns", check_sk_netns },
+	{ "sk_unix_file", check_sk_unix_file },
 	{ "nsid", check_nsid },
 	{ "link_nsid", check_link_nsid},
 	{ "ns_pid", check_ns_pid},
