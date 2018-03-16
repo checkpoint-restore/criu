@@ -223,6 +223,27 @@ int kerndat_socket_unix_file(void)
 	return 0;
 }
 
+static int get_mnt_id(int lfd, int *mnt_id)
+{
+	struct fdinfo_common fdinfo = { .mnt_id = -1 };
+	int ret, fd;
+
+	fd = ioctl(lfd, SIOCUNIXFILE);
+	if (fd < 0) {
+		pr_perror("Unable to get a socker file descriptor");
+		return -1;
+	}
+
+	ret = parse_fdinfo(fd, FD_TYPES__UND, &fdinfo);
+	close(fd);
+	if (ret < 0)
+		return -1;
+
+	*mnt_id = fdinfo.mnt_id;
+
+	return 0;
+}
+
 static int resolve_rel_name(u32 id, struct unix_sk_desc *sk, const struct fd_parms *p, char **pdir)
 {
 	const char *dirs[] = { "cwd", "root" };
@@ -293,7 +314,7 @@ err:
 	return -ENOENT;
 }
 
-static int unix_resolve_name(u32 id, struct unix_sk_desc *d,
+static int unix_resolve_name(int lfd, u32 id, struct unix_sk_desc *d,
 				UnixSkEntry *ue, const struct fd_parms *p);
 static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 {
@@ -347,7 +368,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	ue->opts	= skopts;
 	ue->uflags	= 0;
 
-	if (unix_resolve_name(id, sk, ue, p))
+	if (unix_resolve_name(lfd, id, sk, ue, p))
 		goto err;
 
 	/*
@@ -523,7 +544,7 @@ const struct fdtype_ops unix_dump_ops = {
 	.dump		= dump_one_unix_fd,
 };
 
-static int unix_resolve_name(u32 id, struct unix_sk_desc *d,
+static int unix_resolve_name(int lfd, u32 id, struct unix_sk_desc *d,
 				UnixSkEntry *ue, const struct fd_parms *p)
 {
 	char *name = d->name;
@@ -532,12 +553,22 @@ static int unix_resolve_name(u32 id, struct unix_sk_desc *d,
 	struct ns_id *ns;
 	struct stat st;
 	int mntns_root;
-	int ret;
+	int ret, mnt_id;
 
 	if (d->namelen == 0 || name[0] == '\0')
 		return 0;
 
-	ns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
+	if (kdat.sk_unix_file && (root_ns_mask & CLONE_NEWNS)) {
+		if (get_mnt_id(lfd, &mnt_id))
+			return -1;
+		ue->mnt_id = mnt_id;
+		ue->has_mnt_id = mnt_id;
+	}
+
+	if (ue->mnt_id >= 0)
+		ns = lookup_nsid_by_mnt_id(ue->mnt_id);
+	else
+		ns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
 	if (!ns) {
 		ret = -ENOENT;
 		goto out;
@@ -1083,12 +1114,17 @@ static int restore_sk_common(int fd, struct unix_sk_info *ui)
 	return 0;
 }
 
-static void revert_unix_sk_cwd(int *prev_cwd_fd, int *root_fd)
+static int revert_unix_sk_cwd(int *prev_cwd_fd, int *root_fd, int *ns_fd)
 {
+	int ret = 0;
+
+	if (*ns_fd >= 0 && restore_ns(*ns_fd, &mnt_ns_desc))
+		ret = -1;
 	if (*root_fd >= 0) {
 		if (fchdir(*root_fd) || chroot("."))
 			pr_perror("Can't revert root directory");
 		close_safe(root_fd);
+		ret = -1;
 	}
 	if (prev_cwd_fd && *prev_cwd_fd >= 0) {
 		if (fchdir(*prev_cwd_fd))
@@ -1097,13 +1133,37 @@ static void revert_unix_sk_cwd(int *prev_cwd_fd, int *root_fd)
 			pr_debug("Reverted working dir\n");
 		close(*prev_cwd_fd);
 		*prev_cwd_fd = -1;
+		ret = -1;
 	}
+
+	return ret;
 }
 
-static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd, int *prev_root_fd)
+static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd,
+			    int *prev_root_fd, int *prev_mntns_fd)
 {
-	static struct ns_id *root = NULL;
+	static struct ns_id *root = NULL, *ns;
 	int fd;
+
+	if (prev_mntns_fd && ui->name[0] && ui->ue->mnt_id >= 0) {
+		struct ns_id *mntns = lookup_nsid_by_mnt_id(ui->ue->mnt_id);
+		int ns_fd;
+
+		if (mntns == NULL) {
+			pr_err("Unable to find the %d mount\n", ui->ue->mnt_id);
+			return -1;
+		}
+
+		ns_fd = fdstore_get(mntns->mnt.nsfd_id);
+		if (ns_fd < 0)
+			return -1;
+
+		if (switch_ns_by_fd(ns_fd, &mnt_ns_desc, prev_mntns_fd))
+			return -1;
+
+		set_proc_self_fd(-1);
+		close(ns_fd);
+	}
 
 	*prev_cwd_fd = open(".", O_RDONLY);
 	if (*prev_cwd_fd < 0) {
@@ -1112,15 +1172,23 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd, int *prev
 	}
 
 	if (prev_root_fd && (root_ns_mask & CLONE_NEWNS)) {
-		if (root == NULL)
-			root = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
+		if (ui->ue->mnt_id >= 0) {
+			ns = lookup_nsid_by_mnt_id(ui->ue->mnt_id);
+			if (ns == NULL)
+				goto err;
+		} else {
+			if (root == NULL)
+				root = lookup_ns_by_id(root_item->ids->mnt_ns_id,
+									&mnt_ns_desc);
+			ns = root;
+		}
 		*prev_root_fd = open("/", O_RDONLY);
 		if (*prev_root_fd < 0) {
 			pr_perror("Can't open current root");
 			goto err;
 		}
 
-		fd = fdstore_get(root->mnt.root_fd_id);
+		fd = fdstore_get(ns->mnt.root_fd_id);
 		if (fd < 0) {
 			pr_err("Can't get root fd\n");
 			goto err;
@@ -1159,7 +1227,7 @@ static int post_open_standalone(struct file_desc *d, int fd)
 	struct unix_sk_info *ui;
 	struct unix_sk_info *peer;
 	struct sockaddr_un addr;
-	int cwd_fd = -1, root_fd = -1;
+	int cwd_fd = -1, root_fd = -1, ns_fd = -1;
 
 	ui = container_of(d, struct unix_sk_info, d);
 	BUG_ON((ui->flags & (USK_PAIR_MASTER | USK_PAIR_SLAVE)) ||
@@ -1188,19 +1256,19 @@ static int post_open_standalone(struct file_desc *d, int fd)
 
 	pr_info("\tConnect %#x to %#x\n", ui->ue->ino, peer->ue->ino);
 
-	if (prep_unix_sk_cwd(peer, &cwd_fd, NULL))
+	if (prep_unix_sk_cwd(peer, &cwd_fd, NULL, &ns_fd))
 		return -1;
 
 	if (connect(fd, (struct sockaddr *)&addr,
 				sizeof(addr.sun_family) +
 				peer->ue->name.len) < 0) {
 		pr_perror("Can't connect %#x socket", ui->ue->ino);
-		revert_unix_sk_cwd(&cwd_fd, &root_fd);
+		revert_unix_sk_cwd(&cwd_fd, &root_fd, &ns_fd);
 		return -1;
 	}
 	ui->is_connected = true;
 
-	revert_unix_sk_cwd(&cwd_fd, &root_fd);
+	revert_unix_sk_cwd(&cwd_fd, &root_fd, &ns_fd);
 
 restore_queue:
 	if (peer->queuer == ui &&
@@ -1216,7 +1284,7 @@ restore_sk_common:
 static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 {
 	struct sockaddr_un addr;
-	int cwd_fd = -1, root_fd = -1;
+	int cwd_fd = -1, root_fd = -1, ns_fd = -1;
 	int ret = -1;
 
 	if (ui->ue->name.len == 0)
@@ -1238,10 +1306,10 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 	addr.sun_family = AF_UNIX;
 	memcpy(&addr.sun_path, ui->name, ui->ue->name.len);
 
-	if (prep_unix_sk_cwd(ui, &cwd_fd, NULL))
-		return -1;
-
 	if (ui->ue->name.len) {
+		if (ui->name[0] && prep_unix_sk_cwd(ui, &cwd_fd, NULL, &ns_fd))
+			return -1;
+
 		ret = bind(sk, (struct sockaddr *)&addr,
 				sizeof(addr.sun_family) + ui->ue->name.len);
 		if (ret < 0) {
@@ -1324,7 +1392,7 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 
 	ret = 0;
 done:
-	revert_unix_sk_cwd(&cwd_fd, &root_fd);
+	revert_unix_sk_cwd(&cwd_fd, &root_fd, &ns_fd);
 	return ret;
 }
 
@@ -1665,12 +1733,12 @@ static struct file_desc_ops unix_desc_ops = {
  */
 static void unlink_stale(struct unix_sk_info *ui)
 {
-	int ret, cwd_fd = -1, root_fd = -1;
+	int ret, cwd_fd = -1, root_fd = -1, ns_fd = -1;
 
 	if (ui->name[0] == '\0' || (ui->ue->uflags & USK_EXTERN))
 		return;
 
-	if (prep_unix_sk_cwd(ui, &cwd_fd, &root_fd))
+	if (prep_unix_sk_cwd(ui, &cwd_fd, &root_fd, NULL))
 		return;
 
 	ret = unlinkat(AT_FDCWD, ui->name, 0) ? -1 : 0;
@@ -1680,7 +1748,7 @@ static void unlink_stale(struct unix_sk_info *ui)
 			ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
 			ui->name_dir ? ui->name_dir : "-");
 	}
-	revert_unix_sk_cwd(&cwd_fd, &root_fd);
+	revert_unix_sk_cwd(&cwd_fd, &root_fd, &ns_fd);
 }
 
 static void try_resolve_unix_peer(struct unix_sk_info *ui);
