@@ -1004,6 +1004,8 @@ int kerndat_init(void)
 	if (!ret)
 		ret = kerndat_tun_netns();
 	if (!ret)
+		ret = kerndat_socket_unix_file();
+	if (!ret)
 		ret = kerndat_nsid();
 	if (!ret)
 		ret = kerndat_link_nsid();

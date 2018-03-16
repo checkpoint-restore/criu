@@ -93,5 +93,6 @@ extern int set_netns(uint32_t ns_id);
 #endif
 
 extern int kerndat_socket_netns(void);
+extern int kerndat_socket_unix_file(void);
 
 #endif /* __CR_SOCKETS_H__ */
