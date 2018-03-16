@@ -768,48 +768,63 @@ int unix_receive_one(struct nlmsghdr *h, struct ns_id *ns, void *arg)
 	return unix_collect_one(m, tb, ns);
 }
 
+static int __dump_external_socket(struct unix_sk_desc *sk,
+					struct unix_sk_desc *peer)
+{
+	int ret;
+
+	ret = run_plugins(DUMP_UNIX_SK, sk->fd, sk->sd.ino);
+	if (ret < 0 && ret != -ENOTSUP)
+		return -1;
+
+	if (ret == 0) {
+		sk->ue->uflags |= USK_CALLBACK;
+		return 0;
+	}
+
+	if (unix_sk_exception_lookup_id(sk->sd.ino)) {
+		pr_debug("found exception for unix name-less external socket.\n");
+		return 0;
+	}
+
+	/* Legacy -x|--ext-unix-sk option handling */
+	if (!opts.ext_unix_sk) {
+		show_one_unix("Runaway socket", peer);
+		pr_err("External socket is used. "
+		       "Consider using --" USK_EXT_PARAM " option.\n");
+		return -1;
+	}
+
+	if (peer->type != SOCK_DGRAM) {
+		show_one_unix("Ext stream not supported", peer);
+		pr_err("Can't dump half of stream unix connection.\n");
+		return -1;
+	}
+
+	if (!peer->name) {
+		show_one_unix("Ext dgram w/o name", peer);
+		pr_err("Can't dump name-less external socket.\n");
+		pr_err("%d\n", sk->fd);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int dump_external_sockets(struct unix_sk_desc *peer)
 {
 	struct unix_sk_desc *sk;
-	int ret;
 
 	while (!list_empty(&peer->peer_list)) {
 		sk = list_first_entry(&peer->peer_list, struct unix_sk_desc, peer_node);
 
-		ret = run_plugins(DUMP_UNIX_SK, sk->fd, sk->sd.ino);
-		if (ret == -ENOTSUP) {
-			if (unix_sk_exception_lookup_id(sk->sd.ino)) {
-				pr_debug("found exception for unix name-less external socket.\n");
-			} else {
-				/* Legacy -x|--ext-unix-sk option handling */
-				if (!opts.ext_unix_sk) {
-					show_one_unix("Runaway socket", peer);
-					pr_err("External socket is used. "
-							"Consider using --" USK_EXT_PARAM " option.\n");
-					return -1;
-				}
-
-				if (peer->type != SOCK_DGRAM) {
-					show_one_unix("Ext stream not supported", peer);
-					pr_err("Can't dump half of stream unix connection.\n");
-					return -1;
-				}
-
-				if (!peer->name) {
-					show_one_unix("Ext dgram w/o name", peer);
-					pr_err("Can't dump name-less external socket.\n");
-					pr_err("%d\n", sk->fd);
-					return -1;
-				}
-			}
-		} else if (ret < 0)
+		if (__dump_external_socket(sk, peer))
 			return -1;
-		else
-			sk->ue->uflags |= USK_CALLBACK;
 
 		if (write_unix_entry(sk))
 			return -1;
 		close_safe(&sk->fd);
+
 		list_del_init(&sk->peer_node);
 	}
 
