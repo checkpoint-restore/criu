@@ -282,6 +282,7 @@ class userns_flavor(ns_flavor):
 
 
 flavors = {'h': host_flavor, 'ns': ns_flavor, 'uns': userns_flavor}
+flavors_codes = dict(zip(xrange(len(flavors)), sorted(flavors.keys())))
 
 #
 # Helpers
@@ -289,11 +290,11 @@ flavors = {'h': host_flavor, 'ns': ns_flavor, 'uns': userns_flavor}
 
 
 def encode_flav(f):
-	return (flavors.keys().index(f) + 128)
+	return sorted(flavors.keys()).index(f) + 128
 
 
 def decode_flav(i):
-	return flavors.get(i - 128, "unknown")
+	return flavors_codes.get(i - 128, "unknown")
 
 
 def tail(path):
