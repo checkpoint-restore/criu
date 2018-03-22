@@ -848,7 +848,7 @@ static struct unix_sk_info *find_queuer_for(int id)
 	struct unix_sk_info *ui;
 
 	list_for_each_entry(ui, &unix_sockets, list) {
-		if (ui->queuer->ue->id == id)
+		if (ui->queuer && ui->queuer->ue->id == id)
 			return ui;
 	}
 
