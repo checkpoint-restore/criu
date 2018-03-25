@@ -856,7 +856,7 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr,
 	return 0;
 }
 
-static struct lazy_iov *first_pending_iov(struct lazy_pages_info *lpi)
+static struct lazy_iov *pick_next_range(struct lazy_pages_info *lpi)
 {
 	return list_first_entry(&lpi->iovs, struct lazy_iov, l);
 }
@@ -866,7 +866,7 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	struct lazy_iov *iov;
 	int nr_pages, err;
 
-	iov = first_pending_iov(lpi);
+	iov = pick_next_range(lpi);
 	if (!iov)
 		return 0;
 
