@@ -59,6 +59,15 @@
 
 #define LAZY_PAGES_RESTORE_FINISHED	0x52535446	/* ReSTore Finished */
 
+/*
+ * Backround transfer parameters.
+ * The default xfer length is arbitraty set to 64Kbytes
+ * The limit of 4Mbytes matches the maximal chunk size we can have in
+ * a pipe in the page-server
+ */
+#define DEFAULT_XFER_LEN (64 << 10)
+#define MAX_XFER_LEN (4 << 20)
+
 static mutex_t *lazy_sock_mutex;
 
 struct lazy_iov {
@@ -80,6 +89,7 @@ struct lazy_pages_info {
 
 	struct page_read pr;
 
+	unsigned long xfer_len;	/* in pages */
 	unsigned long total_pages;
 	unsigned long copied_pages;
 
@@ -115,6 +125,7 @@ static struct lazy_pages_info *lpi_init(void)
 	INIT_LIST_HEAD(&lpi->reqs);
 	INIT_LIST_HEAD(&lpi->l);
 	lpi->lpfd.read_event = handle_uffd_event;
+	lpi->xfer_len = DEFAULT_XFER_LEN;
 
 	return lpi;
 }
@@ -861,18 +872,44 @@ static struct lazy_iov *pick_next_range(struct lazy_pages_info *lpi)
 	return list_first_entry(&lpi->iovs, struct lazy_iov, l);
 }
 
+/*
+ * This is very simple heurstics for backgroud transfer control.
+ * The idea is to transfer larger chunks when there is no page faults
+ * and drop the backgroud transfer size each time #PF occurs to some
+ * default value. The default is empirically set to 64Kbytes
+ */
+static void update_xfer_len(struct lazy_pages_info *lpi, bool pf)
+{
+	if (pf)
+		lpi->xfer_len = DEFAULT_XFER_LEN;
+	else
+		lpi->xfer_len += DEFAULT_XFER_LEN;
+
+	if (lpi->xfer_len > MAX_XFER_LEN)
+		lpi->xfer_len = MAX_XFER_LEN;
+}
+
 static int xfer_pages(struct lazy_pages_info *lpi)
 {
 	struct lazy_iov *iov;
-	int nr_pages, err;
+	unsigned int nr_pages;
+	unsigned long len;
+	int err;
 
 	iov = pick_next_range(lpi);
 	if (!iov)
 		return 0;
 
+	len = min(iov->end - iov->start, lpi->xfer_len);
+
+	iov = extract_range(iov, iov->start, iov->start + len);
+	if (!iov)
+		return -1;
 	list_move(&iov->l, &lpi->reqs);
 
 	nr_pages = (iov->end - iov->start) / PAGE_SIZE;
+
+	update_xfer_len(lpi, false);
 
 	err = uffd_handle_pages(lpi, iov->img_start, nr_pages, PR_ASYNC | PR_ASAP);
 	if (err < 0) {
@@ -1019,6 +1056,8 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 		return -1;
 
 	list_move(&iov->l, &lpi->reqs);
+
+	update_xfer_len(lpi, true);
 
 	ret = uffd_handle_pages(lpi, iov->img_start, 1, PR_ASYNC | PR_ASAP);
 	if (ret < 0) {
