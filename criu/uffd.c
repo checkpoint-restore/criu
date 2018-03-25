@@ -78,6 +78,7 @@ struct lp_req {
 
 struct lazy_pages_info {
 	int pid;
+	bool exited;
 
 	struct list_head iovs;
 	struct list_head reqs;
@@ -709,6 +710,7 @@ static int handle_exit(struct lazy_pages_info *lpi)
 	free_iovs(lpi);
 	close(lpi->lpfd.fd);
 	lpi->lpfd.fd = 0;
+	lpi->exited = true;
 
 	/* keep it for tracking in-flight requests and for the summary */
 	list_move_tail(&lpi->l, &lpis);
@@ -767,6 +769,14 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr
 
 	lpi = container_of(pr, struct lazy_pages_info, pr);
 
+	/*
+	 * The process may exit while we still have requests in
+	 * flight. We just drop the request and the received data in
+	 * this case to avoid making uffd unhappy
+	 */
+	if (lpi->exited)
+		return 0;
+
 	list_for_each_entry(req, &lpi->reqs, l) {
 		if (req->img_addr == img_addr) {
 			addr = req->addr;
@@ -775,14 +785,6 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr
 			break;
 		}
 	}
-
-	/*
-	 * The process may exit while we still have requests in
-	 * flight. We just drop the request and the received data in
-	 * this case to avoid making uffd unhappy
-	 */
-	if (list_empty(&lpi->iovs))
-	    return 0;
 
 	BUG_ON(!addr);
 
