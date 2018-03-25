@@ -63,9 +63,9 @@ static mutex_t *lazy_sock_mutex;
 
 struct lazy_iov {
 	struct list_head l;
-	unsigned long base;	/* run-time start address, tracks remaps */
+	unsigned long start;	/* run-time start address, tracks remaps */
 	unsigned long end;	/* run-time end address, tracks remaps */
-	unsigned long img_base;	/* start address at the dump time */
+	unsigned long img_start;	/* start address at the dump time */
 	bool queued;
 };
 
@@ -384,7 +384,7 @@ static struct lazy_iov *find_iov(struct lazy_pages_info *lpi,
 	struct lazy_iov *iov;
 
 	list_for_each_entry(iov, &lpi->iovs, l)
-		if (addr >= iov->base && addr < iov->end)
+		if (addr >= iov->start && addr < iov->end)
 			return iov;
 
 	return NULL;
@@ -398,8 +398,8 @@ static int split_iov(struct lazy_iov *iov, unsigned long addr)
 	if (!new)
 		return -1;
 
-	new->base = addr;
-	new->img_base = iov->img_base + addr - iov->base;
+	new->start = addr;
+	new->img_start = iov->img_start + addr - iov->start;
 	new->end = iov->end;
 	iov->end = addr;
 	list_add(&new->l, &iov->l);
@@ -417,14 +417,14 @@ static int copy_iovs(struct lazy_pages_info *src, struct lazy_pages_info *dst)
 		if (!new)
 			return -1;
 
-		new->base = iov->base;
-		new->img_base = iov->img_base;
+		new->start = iov->start;
+		new->img_start = iov->img_start;
 		new->end = iov->end;
 
 		list_add_tail(&new->l, &dst->iovs);
 
-		if (new->end - new->base > max_iov_len)
-			max_iov_len = new->end - new->base;
+		if (new->end - new->start > max_iov_len)
+			max_iov_len = new->end - new->start;
 	}
 
 	if (posix_memalign(&dst->buf, PAGE_SIZE, max_iov_len))
@@ -446,7 +446,7 @@ static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, int len)
 	struct lazy_iov *iov, *n;
 
 	list_for_each_entry_safe(iov, n, &lpi->iovs, l) {
-		unsigned long start = iov->base;
+		unsigned long start = iov->start;
 		unsigned long end = iov->end;
 
 		if (len <= 0 || addr + len < start)
@@ -464,15 +464,15 @@ static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, int len)
 
 		/*
 		 * The range completely fits into the current IOV.
-		 * If addr equals iov_base we just "drop" the
+		 * If addr equals iov_start we just "drop" the
 		 * beginning of the IOV. Otherwise, we make the IOV to
 		 * end at addr, and add a new IOV start starts at
 		 * addr + len.
 		 */
 		if (addr + len < end) {
 			if (addr == start) {
-				iov->base += len;
-				iov->img_base += len;
+				iov->start += len;
+				iov->img_start += len;
 			} else {
 				if (split_iov(iov, addr + len))
 					return -1;
@@ -483,7 +483,7 @@ static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, int len)
 
 		/*
 		 * The range spawns beyond the end of the current IOV.
-		 * If addr equals iov_base we just "drop" the entire
+		 * If addr equals iov_start we just "drop" the entire
 		 * IOV.  Otherwise, we cut the beginning of the IOV
 		 * and continue to the next one with the updated range
 		 */
@@ -512,15 +512,15 @@ static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from,
 		if (from >= iov->end)
 			continue;
 
-		if (len <= 0 || from + len < iov->base)
+		if (len <= 0 || from + len < iov->start)
 			break;
 
-		if (from < iov->base) {
-			len -= (iov->base - from);
-			from = iov->base;
+		if (from < iov->start) {
+			len -= (iov->start - from);
+			from = iov->start;
 		}
 
-		if (from > iov->base) {
+		if (from > iov->start) {
 			if (split_iov(iov, from))
 				return -1;
 			list_safe_reset_next(iov, n, l);
@@ -533,22 +533,22 @@ static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from,
 			list_safe_reset_next(iov, n, l);
 		}
 
-		/* here we have iov->base = from, iov->end <= from + len */
+		/* here we have iov->start = from, iov->end <= from + len */
 		from = iov->end;
-		len -= iov->end - iov->base;
-		iov->base += off;
+		len -= iov->end - iov->start;
+		iov->start += off;
 		iov->end += off;
 		list_move_tail(&iov->l, &remaps);
 	}
 
 	list_for_each_entry_safe(iov, n, &remaps, l) {
 		list_for_each_entry(p, &lpi->iovs, l) {
-			if (iov->base < p->base) {
+			if (iov->start < p->start) {
 				list_move_tail(&iov->l, &p->l);
 				break;
 			}
 			if (list_is_last(&p->l, &lpi->iovs) &&
-			    iov->base > p->base) {
+			    iov->start > p->start) {
 				list_move(&iov->l, &p->l);
 				break;
 			}
@@ -598,9 +598,9 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 				goto free_iovs;
 
 			len = min_t(uint64_t, end, vma->end) - start;
-			iov->base = start;
-			iov->img_base = start;
-			iov->end = iov->base + len;
+			iov->start = start;
+			iov->img_start = start;
+			iov->end = iov->start + len;
 			list_add_tail(&iov->l, &lpi->iovs);
 
 			if (len > max_iov_len)
@@ -861,7 +861,7 @@ static bool is_iov_queued(struct lazy_pages_info *lpi, struct lazy_iov *iov)
 	struct lp_req *req;
 
 	list_for_each_entry(req, &lpi->reqs, l)
-		if (req->addr >= iov->base && req->addr < iov->end)
+		if (req->addr >= iov->start && req->addr < iov->end)
 			return true;
 
 	return false;
@@ -884,9 +884,9 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	if (!req)
 		return -1;
 
-	req->addr = iov->base;
-	req->img_addr = iov->img_base;
-	req->len = iov->end - iov->base;
+	req->addr = iov->start;
+	req->img_addr = iov->img_start;
+	req->len = iov->end - iov->start;
 	list_add(&req->l, &lpi->reqs);
 	iov->queued = true;
 
@@ -1034,7 +1034,7 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	if (!req)
 		return -1;
 	req->addr = address;
-	req->img_addr = iov->img_base + (address - iov->base);
+	req->img_addr = iov->img_start + (address - iov->start);
 	req->len = PAGE_SIZE;
 	list_add(&req->l, &lpi->reqs);
 
