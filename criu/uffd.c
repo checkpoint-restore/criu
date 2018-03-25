@@ -64,8 +64,8 @@ static mutex_t *lazy_sock_mutex;
 struct lazy_iov {
 	struct list_head l;
 	unsigned long base;	/* run-time start address, tracks remaps */
+	unsigned long end;	/* run-time end address, tracks remaps */
 	unsigned long img_base;	/* start address at the dump time */
-	unsigned long len;
 	bool queued;
 };
 
@@ -384,7 +384,7 @@ static struct lazy_iov *find_iov(struct lazy_pages_info *lpi,
 	struct lazy_iov *iov;
 
 	list_for_each_entry(iov, &lpi->iovs, l)
-		if (addr >= iov->base && addr < iov->base + iov->len)
+		if (addr >= iov->base && addr < iov->end)
 			return iov;
 
 	return NULL;
@@ -400,8 +400,8 @@ static int split_iov(struct lazy_iov *iov, unsigned long addr)
 
 	new->base = addr;
 	new->img_base = iov->img_base + addr - iov->base;
-	new->len = iov->len - (addr - iov->base);
-	iov->len -= new->len;
+	new->end = iov->end;
+	iov->end = addr;
 	list_add(&new->l, &iov->l);
 
 	return 0;
@@ -419,12 +419,12 @@ static int copy_iovs(struct lazy_pages_info *src, struct lazy_pages_info *dst)
 
 		new->base = iov->base;
 		new->img_base = iov->img_base;
-		new->len = iov->len;
+		new->end = iov->end;
 
 		list_add_tail(&new->l, &dst->iovs);
 
-		if (new->len > max_iov_len)
-			max_iov_len = new->len;
+		if (new->end - new->base > max_iov_len)
+			max_iov_len = new->end - new->base;
 	}
 
 	if (posix_memalign(&dst->buf, PAGE_SIZE, max_iov_len))
@@ -447,7 +447,7 @@ static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, int len)
 
 	list_for_each_entry_safe(iov, n, &lpi->iovs, l) {
 		unsigned long start = iov->base;
-		unsigned long end = start + iov->len;
+		unsigned long end = iov->end;
 
 		if (len <= 0 || addr + len < start)
 			break;
@@ -473,11 +473,10 @@ static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, int len)
 			if (addr == start) {
 				iov->base += len;
 				iov->img_base += len;
-				iov->len -= len;
 			} else {
 				if (split_iov(iov, addr + len))
 					return -1;
-				iov->len -= len;
+				iov->end = addr;
 			}
 			break;
 		}
@@ -492,7 +491,7 @@ static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, int len)
 			list_del(&iov->l);
 			xfree(iov);
 		} else {
-			iov->len -= (end - addr);
+			iov->end = addr;
 		}
 
 		len -= (end - addr);
@@ -510,9 +509,7 @@ static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from,
 	LIST_HEAD(remaps);
 
 	list_for_each_entry_safe(iov, n, &lpi->iovs, l) {
-		unsigned long iov_end = iov->base + iov->len;
-
-		if (from >= iov_end)
+		if (from >= iov->end)
 			continue;
 
 		if (len <= 0 || from + len < iov->base)
@@ -530,16 +527,17 @@ static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from,
 			continue;
 		}
 
-		if (from + len < iov_end) {
+		if (from + len < iov->end) {
 			if (split_iov(iov, from + len))
 				return -1;
 			list_safe_reset_next(iov, n, l);
 		}
 
-		/* here we have iov->base = from, iov_end <= from + len */
-		from = iov_end;
-		len -= iov->len;
+		/* here we have iov->base = from, iov->end <= from + len */
+		from = iov->end;
+		len -= iov->end - iov->base;
 		iov->base += off;
+		iov->end += off;
 		list_move_tail(&iov->l, &remaps);
 	}
 
@@ -602,7 +600,7 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 			len = min_t(uint64_t, end, vma->end) - start;
 			iov->base = start;
 			iov->img_base = start;
-			iov->len = len;
+			iov->end = iov->base + len;
 			list_add_tail(&iov->l, &lpi->iovs);
 
 			if (len > max_iov_len)
@@ -863,7 +861,7 @@ static bool is_iov_queued(struct lazy_pages_info *lpi, struct lazy_iov *iov)
 	struct lp_req *req;
 
 	list_for_each_entry(req, &lpi->reqs, l)
-		if (req->addr >= iov->base && req->addr < iov->base + iov->len)
+		if (req->addr >= iov->base && req->addr < iov->end)
 			return true;
 
 	return false;
@@ -882,17 +880,17 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	if (is_iov_queued(lpi, iov))
 		return 0;
 
-	nr_pages = iov->len / PAGE_SIZE;
-
 	req = xzalloc(sizeof(*req));
 	if (!req)
 		return -1;
 
 	req->addr = iov->base;
 	req->img_addr = iov->img_base;
-	req->len = iov->len;
+	req->len = iov->end - iov->base;
 	list_add(&req->l, &lpi->reqs);
 	iov->queued = true;
+
+	nr_pages = req->len / PAGE_SIZE;
 
 	err = uffd_handle_pages(lpi, req->img_addr, nr_pages, PR_ASYNC | PR_ASAP);
 	if (err < 0) {
