@@ -861,7 +861,7 @@ static struct lazy_iov *pick_next_range(struct lazy_pages_info *lpi)
 	return list_first_entry(&lpi->iovs, struct lazy_iov, l);
 }
 
-static int handle_remaining_pages(struct lazy_pages_info *lpi)
+static int xfer_pages(struct lazy_pages_info *lpi)
 {
 	struct lazy_iov *iov;
 	int nr_pages, err;
@@ -1121,7 +1121,7 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 
 			remaining = true;
 			if (!list_empty(&lpi->iovs)) {
-				ret = handle_remaining_pages(lpi);
+				ret = xfer_pages(lpi);
 				if (ret < 0)
 					goto out;
 				break;
