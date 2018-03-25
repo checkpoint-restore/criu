@@ -1124,13 +1124,10 @@ static void lazy_pages_summary(struct lazy_pages_info *lpi)
 #endif
 }
 
-#define POLL_TIMEOUT 1000
-
 static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 {
 	struct lazy_pages_info *lpi, *n;
-	/* FIXME -- timeout should decrease over time...  */
-	int poll_timeout = POLL_TIMEOUT;
+	int poll_timeout = -1;
 	int ret;
 
 	for (;;) {
@@ -1140,19 +1137,13 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 		if (ret > 0) {
 			if (complete_forks(epollfd, &events, &nr_fds))
 				return -1;
-			continue;
+			if (!restore_finished)
+				continue;
 		}
-
-		/* don't start backround fetch before restore is finished */
-		if (!restore_finished)
-			continue;
-
-		if (poll_timeout)
-			pr_debug("Start handling remaining pages\n");
 
 		poll_timeout = 0;
 		list_for_each_entry_safe(lpi, n, &lpis, l) {
-			if (!list_empty(&lpi->iovs)) {
+			if (!list_empty(&lpi->iovs) && list_empty(&lpi->reqs)) {
 				ret = xfer_pages(lpi);
 				if (ret < 0)
 					goto out;
@@ -1240,7 +1231,7 @@ static int lazy_sk_read_event(struct epoll_rfd *rfd)
 
 	restore_finished = true;
 
-	return 0;
+	return 1;
 }
 
 static int lazy_sk_hangup_event(struct epoll_rfd *rfd)
