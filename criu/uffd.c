@@ -390,7 +390,7 @@ static struct lazy_iov *find_iov(struct lazy_pages_info *lpi,
 	return NULL;
 }
 
-static int split_iov(struct lazy_iov *iov, unsigned long addr, bool new_below)
+static int split_iov(struct lazy_iov *iov, unsigned long addr)
 {
 	struct lazy_iov *new;
 
@@ -398,21 +398,11 @@ static int split_iov(struct lazy_iov *iov, unsigned long addr, bool new_below)
 	if (!new)
 		return -1;
 
-	if (new_below) {
-		new->base = iov->base;
-		new->img_base = iov->img_base;
-		new->len = addr - iov->base;
-		iov->base = addr;
-		iov->img_base += new->len;
-		iov->len -= new->len;
-		list_add_tail(&new->l, &iov->l);
-	} else {
-		new->base = addr;
-		new->img_base = iov->img_base + addr - iov->base;
-		new->len = iov->len - (addr - iov->base);
-		iov->len -= new->len;
-		list_add(&new->l, &iov->l);
-	}
+	new->base = addr;
+	new->img_base = iov->img_base + addr - iov->base;
+	new->len = iov->len - (addr - iov->base);
+	iov->len -= new->len;
+	list_add(&new->l, &iov->l);
 
 	return 0;
 }
@@ -485,7 +475,7 @@ static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, int len)
 				iov->img_base += len;
 				iov->len -= len;
 			} else {
-				if (split_iov(iov, addr + len, false))
+				if (split_iov(iov, addr + len))
 					return -1;
 				iov->len -= len;
 			}
@@ -533,14 +523,18 @@ static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from,
 			from = iov->base;
 		}
 
-		if (from > iov->base)
-			if (split_iov(iov, from, true))
+		if (from > iov->base) {
+			if (split_iov(iov, from))
 				return -1;
-		if (from + len < iov_end)
-			if (split_iov(iov, from + len, false))
-				return -1;
+			list_safe_reset_next(iov, n, l);
+			continue;
+		}
 
-		list_safe_reset_next(iov, n, l);
+		if (from + len < iov_end) {
+			if (split_iov(iov, from + len))
+				return -1;
+			list_safe_reset_next(iov, n, l);
+		}
 
 		/* here we have iov->base = from, iov_end <= from + len */
 		from = iov_end;
