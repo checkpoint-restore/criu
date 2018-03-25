@@ -965,6 +965,9 @@ static int complete_forks(int epollfd, struct epoll_event **events, int *nr_fds)
 {
 	struct lazy_pages_info *lpi, *n;
 
+	if (list_empty(&pending_lpis))
+		return 0;
+
 	list_for_each_entry(lpi, &pending_lpis, l)
 		(*nr_fds)++;
 
