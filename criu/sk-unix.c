@@ -117,7 +117,7 @@ struct unix_sk_listen_icon {
 
 static struct unix_sk_listen_icon *unix_listen_icons[SK_HASH_SIZE];
 
-static struct unix_sk_listen_icon *lookup_unix_listen_icons(int peer_ino)
+static struct unix_sk_listen_icon *lookup_unix_listen_icons(unsigned int peer_ino)
 {
 	struct unix_sk_listen_icon *ic;
 
@@ -717,8 +717,8 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 	}
 
 	if (tb[UNIX_DIAG_ICONS]) {
-		int len = nla_len(tb[UNIX_DIAG_ICONS]);
-		int i;
+		unsigned int len = nla_len(tb[UNIX_DIAG_ICONS]);
+		unsigned int i;
 
 		d->icons = xmalloc(len);
 		if (!d->icons)
@@ -733,7 +733,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 		 */
 		for (i = 0; i < d->nr_icons; i++) {
 			struct unix_sk_listen_icon *e, **chain;
-			int n;
+			unsigned int n;
 
 			e = xzalloc(sizeof(*e));
 			if (!e)
