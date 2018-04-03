@@ -202,6 +202,7 @@ TST_NOFILE	:=				\
 		pipe03				\
 		netns_sub			\
 		netns_sub_veth			\
+		unlink_multiple_largefiles	\
 #		jobctl00			\
 
 include ../Makefile.inc
