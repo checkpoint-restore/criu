@@ -213,6 +213,7 @@ TST_NOFILE	:=				\
 		pidns03				\
 		config_inotify_irmap		\
 		pipe03				\
+		unlink_multiple_largefiles	\
 #		jobctl00			\
 
 include ../Makefile.inc
