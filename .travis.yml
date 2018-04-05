@@ -29,6 +29,7 @@ matrix:
     - env: TR_ARCH=fedora-rawhide
     - env: TR_ARCH=fedora-rawhide-aarch64
     - env: TR_ARCH=s390x
+    - env: TR_ARCH=local        GCOV=1
 script:
   - sudo make CCACHE=1 -C scripts/travis $TR_ARCH
 after_success:
