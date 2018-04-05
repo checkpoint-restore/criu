@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
 	char *slavename;
 	struct stat st;
 
-	uid_t new_uid = 33333;
+	uid_t new_uid = 13333;
 	gid_t new_gid = 44444;
 
 	test_init(argc, argv);

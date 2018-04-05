@@ -350,7 +350,7 @@ int ns_init(int argc, char **argv)
 	exit(1);
 }
 
-#define UID_MAP "0 100000 100000\n100000 200000 50000"
+#define UID_MAP "0 20000 20000\n100000 200000 50000"
 #define GID_MAP "0 400000 50000\n50000 500000 100000"
 void ns_create(int argc, char **argv)
 {
