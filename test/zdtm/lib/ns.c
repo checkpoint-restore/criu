@@ -19,6 +19,8 @@
 #include "zdtmtst.h"
 #include "ns.h"
 
+int criu_status_in = -1, criu_status_in_peer = -1, criu_status_out = -1;
+
 extern int pivot_root(const char *new_root, const char *put_old);
 static int prepare_mntns(void)
 {
@@ -248,6 +250,11 @@ int ns_init(int argc, char **argv)
 	ret = fcntl(status_pipe, F_SETFD, FD_CLOEXEC);
 	if (ret == -1) {
 		fprintf(stderr, "fcntl failed %m\n");
+		exit(1);
+	}
+
+	if (init_notify()) {
+		fprintf(stderr, "Can't init pre-dump notification: %m");
 		exit(1);
 	}
 

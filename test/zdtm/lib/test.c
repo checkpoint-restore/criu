@@ -33,11 +33,14 @@ enum {
 
 static int parent;
 
+extern int criu_status_in, criu_status_in_peer, criu_status_out;
+
 static void sig_hand(int signo)
 {
 	if (parent)
 		futex_set_and_wake(&test_shared_state->stage, TEST_FAIL_STAGE);
 	futex_set_and_wake(&sig_received, signo);
+	close(criu_status_in);
 }
 
 static char *outfile;
@@ -111,6 +114,63 @@ void test_ext_init(int argc, char **argv)
 		exit(1);
 }
 
+#define PIPE_RD 0
+#define PIPE_WR 1
+
+int init_notify(void)
+{
+	char *val;
+	int ret;
+	int p[2];
+
+	val = getenv("ZDTM_NOTIFY_FDIN");
+	if (!val)
+		return 0;
+	criu_status_in = atoi(val);
+
+	val = getenv("ZDTM_NOTIFY_FDOUT");
+	if (!val)
+		return -1;
+	criu_status_out = atoi(val);
+
+	if (pipe(p)) {
+		fprintf(stderr, "Unable to create a pipe: %m\n");
+		return -1;
+	}
+	criu_status_in_peer = p[PIPE_WR];
+
+	ret = dup2(p[PIPE_RD], criu_status_in);
+	if (ret < 0) {
+		fprintf(stderr, "dup2() failed: %m\n");
+		close(p[PIPE_RD]);
+		close(p[PIPE_WR]);
+		return -1;
+	}
+	close(p[PIPE_RD]);
+
+	if (pipe(p)) {
+		fprintf(stderr, "Unable to create a pipe: %m\n");
+		goto err_pipe_in;
+	}
+	close(p[PIPE_RD]);
+
+	ret = dup2(p[PIPE_WR], criu_status_out);
+	if (ret < 0) {
+		fprintf(stderr, "dup2() failed: %m\n");
+		goto err_pipe_out;
+	}
+
+	close(p[PIPE_WR]);
+	return 0;
+err_pipe_out:
+	close(p[PIPE_RD]);
+	close(p[PIPE_WR]);
+err_pipe_in:
+	close(criu_status_in);
+	close(criu_status_in_peer);
+	return -1;
+}
+
 int write_pidfile(int pid)
 {
 	int fd = -1;
@@ -172,6 +232,9 @@ void test_init(int argc, char **argv)
 			redir_stdfds();
 			ns_init(argc, argv);
 		}
+	} else if (init_notify()) {
+		fprintf(stderr, "Can't init pre-dump notification: %m");
+		exit(1);
 	}
 
 	val = getenv("ZDTM_GROUPS");
@@ -295,6 +358,43 @@ int test_go(void)
 void test_waitsig(void)
 {
 	futex_wait_while(&sig_received, 0);
+}
+
+int test_wait_pre_dump(void)
+{
+	int ret;
+
+	if (criu_status_in < 0) {
+		pr_err("Fd criu_status_in is not initialized\n");
+		return -1;
+	}
+
+	if (read(criu_status_in, &ret, sizeof(ret)) != sizeof(ret)) {
+		if (errno != EBADF || !futex_get(&sig_received))
+			pr_perror("Can't wait pre-dump\n");
+		return -1;
+	}
+	pr_err("pre-dump\n");
+
+	return 0;
+}
+
+int test_wait_pre_dump_ack(void)
+{
+	int ret = 0;
+
+	if (criu_status_out < 0) {
+		pr_err("Fd criu_status_out is not initialized\n");
+		return -1;
+	}
+
+	pr_err("pre-dump-ack\n");
+	if (write(criu_status_out, &ret, sizeof(ret)) != sizeof(ret)) {
+		pr_perror("Can't reply to pre-dump notify");
+		return -1;
+	}
+
+	return 0;
 }
 
 pid_t sys_clone_unified(unsigned long flags, void *child_stack, void *parent_tid,

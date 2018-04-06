@@ -12,4 +12,6 @@ extern int ns_init(int argc, char **argv);
 extern void test_waitsig(void);
 extern void parseargs(int, char **);
 
+extern int init_notify(void);
+
 #endif
