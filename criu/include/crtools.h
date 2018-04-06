@@ -12,6 +12,7 @@
 
 extern int check_img_inventory(void);
 extern int write_img_inventory(InventoryEntry *he);
+extern void prepare_inventory_pre_dump(InventoryEntry *he);
 extern int prepare_inventory(InventoryEntry *he);
 struct pprep_head {
 	int (*actor)(struct pprep_head *);

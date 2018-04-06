@@ -2715,7 +2715,7 @@ err:
 
 #define CSEC_PER_SEC 100
 
-__maybe_unused int parse_uptime(uint64_t *upt)
+int parse_uptime(uint64_t *upt)
 {
 	unsigned long sec, csec;
 	FILE *f;
