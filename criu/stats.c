@@ -213,37 +213,6 @@ void write_stats(int what)
 		display_stats(what, &stats);
 }
 
-__maybe_unused StatsEntry *get_parent_stats(void)
-{
-	struct cr_img *img;
-	StatsEntry *se;
-	int dir;
-
-	dir = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
-	if (dir == -1) {
-		pr_warn("Failed to open parent directory");
-		return NULL;
-	}
-
-	img = open_image_at(dir, CR_FD_STATS, O_RSTR, "dump");
-	if (!img) {
-		pr_warn("Failed to open parent dump stats");
-		close(dir);
-		return NULL;
-	}
-
-	if (pb_read_one(img, &se, PB_STATS) < 0) {
-		pr_warn("Failed to read parent dump stats");
-		close_image(img);
-		close(dir);
-		return NULL;
-	}
-
-	close_image(img);
-	close(dir);
-	return se;
-}
-
 int init_stats(int what)
 {
 	if (what == DUMP_STATS) {
