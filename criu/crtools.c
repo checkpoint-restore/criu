@@ -56,8 +56,6 @@
 #include "sysctl.h"
 #include "img-remote.h"
 
-#include "../soccr/soccr.h"
-
 struct cr_options opts;
 char **global_conf = NULL;
 char **user_conf = NULL;
@@ -212,28 +210,6 @@ bool deprecated_ok(char *what)
 	pr_err("Use the --deprecated option or set CRIU_DEPRECATED environment.\n");
 	pr_err("For details visit https://criu.org/Deprecation\n");
 	return false;
-}
-
-static void soccr_print_on_level(unsigned int loglevel, const char *format, ...)
-{
-	va_list args;
-	int lv;
-
-	switch (loglevel) {
-	case SOCCR_LOG_DBG:
-		lv = LOG_DEBUG;
-		break;
-	case SOCCR_LOG_ERR:
-		lv = LOG_ERROR;
-		break;
-	default:
-		lv = LOG_INFO;
-		break;
-	}
-
-	va_start(args, format);
-	vprint_on_level(lv, format, args);
-	va_end(args);
 }
 
 static void rlimit_unlimit_nofile_self(void)
@@ -963,8 +939,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (log_init(opts.output))
 		return 1;
-	libsoccr_set_log(log_level, soccr_print_on_level);
-	compel_log_init(vprint_on_level, log_get_loglevel());
 
 	print_versions();
 
