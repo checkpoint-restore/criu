@@ -20,6 +20,9 @@
 #include "rst-malloc.h"
 #include "common/lock.h"
 #include "string.h"
+#include "../soccr/soccr.h"
+#include "compel/log.h"
+
 
 #define DEFAULT_LOGFD		STDERR_FILENO
 /* Enable timestamps if verbosity is increased from default */
@@ -199,9 +202,34 @@ void log_fini(void)
 	close_service_fd(LOG_FD_OFF);
 }
 
+static void soccr_print_on_level(unsigned int loglevel, const char *format, ...)
+{
+	va_list args;
+	int lv;
+
+	switch (loglevel) {
+	case SOCCR_LOG_DBG:
+		lv = LOG_DEBUG;
+		break;
+	case SOCCR_LOG_ERR:
+		lv = LOG_ERROR;
+		break;
+	default:
+		lv = LOG_INFO;
+		break;
+	}
+
+	va_start(args, format);
+	vprint_on_level(lv, format, args);
+	va_end(args);
+}
+
 void log_set_loglevel(unsigned int level)
 {
 	current_loglevel = level;
+
+	libsoccr_set_log(level, soccr_print_on_level);
+	compel_log_init(vprint_on_level, level);
 }
 
 unsigned int log_get_loglevel(void)
