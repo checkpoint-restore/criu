@@ -1472,6 +1472,7 @@ static int setup_alarm_handler()
 
 static int cr_pre_dump_finish(int ret)
 {
+	InventoryEntry he = INVENTORY_ENTRY__INIT;
 	struct pstree_item *item;
 
 	/*
@@ -1480,6 +1481,8 @@ static int cr_pre_dump_finish(int ret)
 	 */
 	if (arch_set_thread_regs(root_item, false) < 0)
 		goto err;
+
+	prepare_inventory_pre_dump(&he);
 	pstree_switch_state(root_item, TASK_ALIVE);
 
 	timing_stop(TIME_FROZEN);
@@ -1525,6 +1528,9 @@ err:
 		ret = -1;
 
 	if (bfd_flush_images())
+		ret = -1;
+
+	if (write_img_inventory(&he))
 		ret = -1;
 
 	if (ret)

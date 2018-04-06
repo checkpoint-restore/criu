@@ -16,6 +16,7 @@
 #include "xmalloc.h"
 #include "images/inventory.pb-c.h"
 #include "images/pagemap.pb-c.h"
+#include "proc_parse.h"
 
 bool ns_per_id = false;
 bool img_common_magic = true;
@@ -103,6 +104,16 @@ int write_img_inventory(InventoryEntry *he)
 	xfree(he->root_ids);
 	close_image(img);
 	return 0;
+}
+
+void prepare_inventory_pre_dump(InventoryEntry *he)
+{
+	pr_info("Perparing image inventory for pre-dump (version %u)\n", CRTOOLS_IMAGES_V1);
+
+	he->img_version = CRTOOLS_IMAGES_V1_1;
+
+	if (!parse_uptime(&he->dump_uptime))
+		he->has_dump_uptime = true;
 }
 
 int prepare_inventory(InventoryEntry *he)
