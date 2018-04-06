@@ -2629,3 +2629,28 @@ err:
 	xfree(ch);
 	return -1;
 }
+
+#define CSEC_PER_SEC 100
+
+__maybe_unused int parse_uptime(uint64_t *upt)
+{
+	unsigned long sec, csec;
+	FILE *f;
+
+	f = fopen("/proc/uptime", "r");
+	if (!f) {
+		pr_perror("Failed to fopen /proc/uptime");
+		return -1;
+	}
+
+	if (fscanf(f, "%lu.%2lu", &sec, &csec) != 2) {
+		pr_perror("Failed to parse /proc/uptime");
+		fclose(f);
+		return -1;
+	}
+
+	*upt = sec * USEC_PER_SEC + csec * (USEC_PER_SEC / CSEC_PER_SEC);
+
+	fclose(f);
+	return 0;
+}
