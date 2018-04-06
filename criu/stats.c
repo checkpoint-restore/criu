@@ -213,7 +213,7 @@ void write_stats(int what)
 		display_stats(what, &stats);
 }
 
-StatsEntry *get_parent_stats(void)
+__maybe_unused StatsEntry *get_parent_stats(void)
 {
 	struct cr_img *img;
 	StatsEntry *se;

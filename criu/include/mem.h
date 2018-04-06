@@ -4,9 +4,6 @@
 #include <stdbool.h>
 #include "int.h"
 #include "vma.pb-c.h"
-#include "pid.h"
-#include "proc_parse.h"
-#include "stats.pb-c.h"
 
 struct parasite_ctl;
 struct vm_area_list;
@@ -15,10 +12,8 @@ struct pstree_item;
 struct vma_area;
 
 struct mem_dump_ctl {
-	bool			pre_dump;
-	bool			lazy;
-	struct proc_pid_stat	*stat;
-	StatsEntry		*parent_se;
+	bool	pre_dump;
+	bool	lazy;
 };
 
 extern bool vma_has_guard_gap_hidden(struct vma_area *vma);
