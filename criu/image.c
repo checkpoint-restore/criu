@@ -116,7 +116,7 @@ void prepare_inventory_pre_dump(InventoryEntry *he)
 		he->has_dump_uptime = true;
 }
 
-__maybe_unused InventoryEntry *get_parent_inventory(void)
+InventoryEntry *get_parent_inventory(void)
 {
 	struct cr_img *img;
 	InventoryEntry *ie;
