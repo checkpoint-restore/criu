@@ -727,8 +727,6 @@ int main(int argc, char *argv[], char *envp[])
 	if (log_init(opts.output))
 		return 1;
 
-	print_versions();
-
 	if (opts.deprecated_ok)
 		pr_debug("DEPRECATED ON\n");
 

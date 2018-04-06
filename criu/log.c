@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/utsname.h>
 
 #include <fcntl.h>
 
@@ -20,6 +21,8 @@
 #include "rst-malloc.h"
 #include "common/lock.h"
 #include "string.h"
+#include "version.h"
+
 #include "../soccr/soccr.h"
 #include "compel/log.h"
 
@@ -135,6 +138,22 @@ char *log_first_err(void)
 	return first_err->s;
 }
 
+static void print_versions(void)
+{
+	struct utsname buf;
+
+	pr_info("Version: %s (gitid %s)\n", CRIU_VERSION, CRIU_GITID);
+
+	if (uname(&buf) < 0) {
+		pr_perror("Reading kernel version failed!");
+		/* This pretty unlikely, just keep on running. */
+		return;
+	}
+
+	pr_info("Running on %s %s %s %s %s\n", buf.nodename, buf.sysname,
+		buf.release, buf.version, buf.machine);
+}
+
 int log_init(const char *output)
 {
 	int new_logfd, fd;
@@ -166,6 +185,8 @@ int log_init(const char *output)
 	close(new_logfd);
 	if (fd < 0)
 		goto err;
+
+	print_versions();
 
 	return 0;
 
