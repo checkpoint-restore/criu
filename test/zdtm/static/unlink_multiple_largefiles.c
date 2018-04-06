@@ -83,21 +83,21 @@ void check_extent_map(struct fiemap *map)
 	for (i = 0; i < map->fm_mapped_extents; i++) {
 		test_msg("Extent %d, start %llx, length %llx\n",
 			i,
-			map->fm_extents[i].fe_logical,
-			map->fm_extents[i].fe_length);
+			(long long) map->fm_extents[i].fe_logical,
+			(long long) map->fm_extents[i].fe_length);
 
 		if (i == 0)
 			holesize = map->fm_extents[i].fe_logical;
 		datasize += map->fm_extents[i].fe_length;
 	}
 	if (holesize != FSIZE) {
-		pr_err("Unexpected hole size %llx != %llx\n", holesize,
-				(unsigned long long) FSIZE);
+		pr_err("Unexpected hole size %llx != %llx\n",
+			  (long long) holesize, (unsigned long long) FSIZE);
 		exit(1);
 	}
 	if (datasize != BUFSIZE) {
-		pr_err("Unexpected data size %llx != %llx\n", datasize,
-				(unsigned long long) BUFSIZE);
+		pr_err("Unexpected data size %llx != %llx\n",
+			  (long long) datasize, (unsigned long long) BUFSIZE);
 		exit(1);
 	}
 }
