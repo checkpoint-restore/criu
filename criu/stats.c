@@ -9,8 +9,6 @@
 #include "stats.h"
 #include "util.h"
 #include "image.h"
-#include "pid.h"
-#include "proc_parse.h"
 #include "images/stats.pb-c.h"
 
 struct timing {
@@ -97,23 +95,7 @@ void timing_stop(int t)
 	timeval_accumulate(&tm->start, &now, &tm->total);
 }
 
-int timing_uptime(int t)
-{
-	struct timing *tm;
-
-	tm = get_timing(t);
-	return parse_uptime(&tm->total);
-}
-
 static void encode_time(int t, u_int32_t *to)
-{
-	struct timing *tm;
-
-	tm = get_timing(t);
-	*to = tm->total.tv_sec * USEC_PER_SEC + tm->total.tv_usec;
-}
-
-static void encode_time_64(int t, u_int64_t *to)
 {
 	struct timing *tm;
 
@@ -131,8 +113,6 @@ static void display_stats(int what, StatsEntry *stats)
 		pr_msg("Memory write time: %d us\n", stats->dump->memwrite_time);
 		if (stats->dump->has_irmap_resolve)
 			pr_msg("IRMAP resolve time: %d us\n", stats->dump->irmap_resolve);
-		if (stats->dump->has_dump_uptime)
-			pr_msg("Memory dump time-stamp: %" PRIu64 " us\n", stats->dump->dump_uptime);
 		pr_msg("Memory pages scanned: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_scanned,
 				stats->dump->pages_scanned);
 		pr_msg("Memory pages skipped from parent: %" PRIu64 " (0x%" PRIx64 ")\n",
@@ -175,8 +155,6 @@ void write_stats(int what)
 		encode_time(TIME_MEMWRITE, &ds_entry.memwrite_time);
 		ds_entry.has_irmap_resolve = true;
 		encode_time(TIME_IRMAP_RESOLVE, &ds_entry.irmap_resolve);
-		ds_entry.has_dump_uptime = true;
-		encode_time_64(TIME_DUMP_UPTIME, &ds_entry.dump_uptime);
 
 		ds_entry.pages_scanned = dstats->counts[CNT_PAGES_SCANNED];
 		ds_entry.pages_skipped_parent = dstats->counts[CNT_PAGES_SKIPPED_PARENT];
