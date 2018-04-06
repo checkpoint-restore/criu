@@ -2712,27 +2712,3 @@ err:
 	xfree(ch);
 	return -1;
 }
-
-__maybe_unused int parse_uptime(struct timeval *_tv)
-{
-	unsigned long sec, csec;
-	FILE *f;
-
-	f = fopen("/proc/uptime", "r");
-	if (!f) {
-		pr_perror("Failed to fopen /proc/uptime");
-		return -1;
-	}
-
-	if (fscanf(f, "%lu.%2lu", &sec, &csec) != 2) {
-		pr_perror("Failed to parse /proc/uptime");
-		fclose(f);
-		return -1;
-	}
-
-	_tv->tv_sec = sec;
-	_tv->tv_usec = csec * (USEC_PER_SEC / 100);
-
-	fclose(f);
-	return 0;
-}
