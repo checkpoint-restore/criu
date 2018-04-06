@@ -20,6 +20,7 @@ import fcntl
 import errno
 import datetime
 import yaml
+import struct
 import criu as crpc
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -415,6 +416,10 @@ class zdtm_test:
 		if not self.__freezer.kernel:
 			env['ZDTM_THREAD_BOMB'] = "5"
 
+		if test_flag(self.__desc, 'pre-dump-notify'):
+			env['ZDTM_NOTIFY_FDIN'] = "100"
+			env['ZDTM_NOTIFY_FDOUT'] = "101"
+
 		if not test_flag(self.__desc, 'suid'):
 			# Numbers should match those in criu
 			env['ZDTM_UID'] = "18943"
@@ -459,6 +464,27 @@ class zdtm_test:
 			self.gone(sig == signal.SIGKILL)
 
 		self.__flavor.fini()
+
+	def pre_dump_notify(self):
+		env = self._env
+
+		if 'ZDTM_NOTIFY_FDIN' not in env:
+			return
+
+		if self.__pid == 0:
+			self.getpid()
+
+		notify_fdout_path = "/proc/%s/fd/%s" % (self.__pid, env['ZDTM_NOTIFY_FDOUT'])
+		notify_fdin_path = "/proc/%s/fd/%s" % (self.__pid, env['ZDTM_NOTIFY_FDIN'])
+
+		print "Send pre-dump notify to %s" % (self.__pid)
+		with open(notify_fdout_path) as fdout:
+			with open(notify_fdin_path, "w") as fdin:
+				fdin.write(struct.pack("i", 0))
+				fdin.flush()
+				print "Wait pre-dump notify reply"
+				ret = struct.unpack('i', fdout.read(4))
+				print "Completed pre-dump notify with %d" % (ret)
 
 	def stop(self):
 		self.__freezer.thaw()
@@ -1213,6 +1239,7 @@ def cr(cr_api, test, opts):
 			else:
 				cr_api.dump("pre-dump")
 				try_run_hook(test, ["--post-pre-dump"])
+				test.pre_dump_notify()
 			time.sleep(pres[1])
 
 		sbs('pre-dump')

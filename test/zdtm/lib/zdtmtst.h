@@ -41,6 +41,10 @@ extern void test_msg(const char *format, ...)
 extern int test_go(void);
 /* sleep until SIGTERM is delivered */
 extern void test_waitsig(void);
+/* sleep until zdtm notifies about predump */
+extern int test_wait_pre_dump(void);
+/* notify zdtm that we finished action after predump */
+extern int test_wait_pre_dump_ack(void);
 
 #include <stdint.h>
 
