@@ -768,6 +768,9 @@ class criu_rpc:
 			if arg == '--track-mem':
 				criu.opts.track_mem = True
 				continue
+			if arg == '--tcp-established':
+				criu.opts.tcp_established = True
+				continue
 
 			raise test_fail_exc('RPC for %s required' % arg)
 
