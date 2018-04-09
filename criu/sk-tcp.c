@@ -292,7 +292,7 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 		goto err_c;
 	}
 
-	data.state = ii->ie->state;;
+	data.state = ii->ie->state;
 	data.inq_len = tse->inq_len;
 	data.inq_seq = tse->inq_seq;
 	data.outq_len = tse->outq_len;

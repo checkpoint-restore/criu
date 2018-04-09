@@ -51,7 +51,7 @@ int main(int argc, char ** argv)
 
 	for (i = 0; i < TEST_SIZE; i++) {
 		int *addr;
-		addr = start + i * 3 * 4096;;
+		addr = start + i * 3 * 4096;
 		if (addr[0] != i * 2)
 			fail();
 		addr = start + (i * 3  + 1) * 4096;

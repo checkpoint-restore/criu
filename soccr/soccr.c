@@ -593,7 +593,7 @@ static int send_fin(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
 	uint32_t dst_v4 = sk->dst_addr->v4.sin_addr.s_addr;
 	int ret, exit_code = -1, family;
 	char errbuf[LIBNET_ERRBUF_SIZE];
-	int mark = SOCCR_MARK;;
+	int mark = SOCCR_MARK;
 	int libnet_type;
 	libnet_t *l;
 

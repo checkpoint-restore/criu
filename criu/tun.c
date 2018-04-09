@@ -375,7 +375,7 @@ static int tunfile_open(struct file_desc *d, int *new_fd)
 
 	if (!ti->tfe->netdev)
 		/* just-opened tun file */
-		goto ok;;
+		goto ok;
 
 	tl = find_tun_link(ti->tfe->netdev);
 	if (!tl) {

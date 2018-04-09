@@ -374,7 +374,7 @@ static int restore_signals(siginfo_t *ptr, int nr, bool group)
 		if (ret) {
 			pr_err("Unable to send siginfo %d %x with code %d\n",
 					info->si_signo, info->si_code, ret);
-			return -1;;
+			return -1;
 		}
 	}
 

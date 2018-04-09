@@ -116,7 +116,7 @@ static unsigned long put_trampoline(unsigned long at, struct vdso_symtable *sym)
 static inline void put_trampoline_call(unsigned long at, unsigned long to,
 				       unsigned long tr)
 {
-    uint32_t *addr = (uint32_t *)at;;
+    uint32_t *addr = (uint32_t *)at;
 
     *addr++ = 0x7C0802a6;					/* mflr	r0 */
     *addr++ = 0x48000001 | ((long)(tr-at-4) & 0x3fffffc);	/* bl tr */

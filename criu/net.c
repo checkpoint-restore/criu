@@ -2459,7 +2459,7 @@ static int iptables_restore(bool ipv6, char *buf, int size)
 	int pfd[2], ret = -1;
 	char *cmd4[] = {"iptables-restore", "-w", "--noflush", NULL};
 	char *cmd6[] = {"ip6tables-restore", "-w", "--noflush", NULL};
-	char **cmd = ipv6 ? cmd6 : cmd4;;
+	char **cmd = ipv6 ? cmd6 : cmd4;
 
 	if (pipe(pfd) < 0) {
 		pr_perror("Unable to create pipe");

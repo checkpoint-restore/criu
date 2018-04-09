@@ -285,7 +285,7 @@ int form_request_add()
 			((char *)rtap) + sizeof(struct rtattr));
 	req.nl.nlmsg_len = NLMSG_ALIGN(req.nl.nlmsg_len) + RTA_ALIGN(rtap->rta_len);
 
-	rtap = NLMSG_TAIL(&req.nl);;
+	rtap = NLMSG_TAIL(&req.nl);
 	rtap->rta_type = RTA_OIF;//Output interface index
 	rtap->rta_len = RTA_LENGTH(sizeof(int));
 	memcpy(((char *)rtap) + sizeof(struct rtattr),

@@ -202,7 +202,7 @@ int main(int argc, char ** argv)
 
 	test_init(argc, argv);
 
-	testcases[0].master.pid = getpid();;
+	testcases[0].master.pid = getpid();
 	if (child(0))
 		goto err;
 

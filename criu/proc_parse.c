@@ -1645,7 +1645,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 	struct bfd f;
 	char *str;
 	bool entry_met = false;
-	int ret, exit_code = -1;;
+	int ret, exit_code = -1;
 
 	f.fd = open_proc(pid, "fdinfo/%d", fd);
 	if (f.fd < 0)
