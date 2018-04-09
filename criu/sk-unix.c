@@ -1309,7 +1309,7 @@ static int bind_deleted_unix_sk(int sk, struct unix_sk_info *ui,
 	/* this shouldn't happen, since sun_addr is only 108 chars long */
 	if (ret < 0 || ret >= sizeof(temp)) {
 		pr_err("snprintf of %s failed?\n", addr->sun_path);
-		return -1;;
+		return -1;
 	}
 
 	ret = rename(addr->sun_path, temp);
@@ -1322,7 +1322,7 @@ static int bind_deleted_unix_sk(int sk, struct unix_sk_info *ui,
 			sizeof(addr->sun_family) + ui->ue->name.len);
 	if (ret < 0) {
 		pr_perror("Can't bind socket after move");
-		return -1;;
+		return -1;
 	}
 
 	ret = rename(temp, addr->sun_path);

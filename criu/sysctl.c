@@ -351,7 +351,7 @@ out:
 
 static int __nonuserns_sysctl_op(struct sysctl_req *req, size_t nr_req, int op)
 {
-	int ret, exit_code = -1;;
+	int ret, exit_code = -1;
 
 	while (nr_req--) {
 		int fd;

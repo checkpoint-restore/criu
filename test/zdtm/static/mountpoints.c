@@ -56,7 +56,7 @@ int ns_child(void *_arg)
 	test_waitsig();
 
 	if (pid) {
-		int status = 1;;
+		int status = 1;
 		kill(pid, SIGTERM);
 		wait(&status);
 		if (status)

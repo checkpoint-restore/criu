@@ -607,7 +607,7 @@ void pstree_insert_pid(struct pid *pid_node, uint32_t ns_id)
 
 struct pstree_item *lookup_create_item(pid_t *pid, int level, uint32_t ns_id)
 {
-	struct pid *node;;
+	struct pid *node;
 
 	node = lookup_create_pid(pid, level, NULL, ns_id);
 	if (!node)

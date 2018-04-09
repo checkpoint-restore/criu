@@ -76,7 +76,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	addr.nl_pid = getpid();;
+	addr.nl_pid = getpid();
 	addr.nl_groups = 1 << (UDEV_MONITOR_TEST - 1);
 	if (connect(csk, (struct sockaddr *) &addr, sizeof(struct sockaddr_nl))) {
 		pr_perror("connect");
@@ -98,7 +98,7 @@ int main(int argc, char ** argv)
 	msg.msg_iovlen  = 1;
 
 	iov.iov_base    = (void *) &req;
-	iov.iov_len     = sizeof(req);;
+	iov.iov_len     = sizeof(req);
 
 	if (sendmsg(csk, &msg, 0) < 0) {
 		pr_perror("Can't send request message");
@@ -134,7 +134,7 @@ int main(int argc, char ** argv)
 	msg.msg_iovlen  = 1;
 
 	iov.iov_base    = (void *) &req;
-	iov.iov_len     = sizeof(req);;
+	iov.iov_len     = sizeof(req);
 
 	if (sendmsg(dsk, &msg, 0) < 0) {
 		pr_perror("Can't send request message");
