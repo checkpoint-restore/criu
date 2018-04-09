@@ -828,7 +828,7 @@ static int dump_one_link(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 	nlmsg_parse(hdr, sizeof(struct ifinfomsg), tb, IFLA_MAX, NULL);
 	pr_info("\tLD: Got link %d, type %d\n", ifi->ifi_index, ifi->ifi_type);
 
-	if (ifi->ifi_type == ARPHRD_LOOPBACK) 
+	if (ifi->ifi_type == ARPHRD_LOOPBACK)
 		return dump_one_netdev(ND_TYPE__LOOPBACK, ifi, tb, ns, fds, NULL);
 
 	kind = link_kind(ifi, tb);
