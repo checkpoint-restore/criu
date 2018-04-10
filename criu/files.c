@@ -606,7 +606,7 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 		goto err;
 
 	ret = 0; /* Don't fail if nr_fds == 0 */
-	for (off = 0; off < dfds->nr_fds; off += nr_fds) {
+	for (off = 0; ret == 0 && off < dfds->nr_fds; off += nr_fds) {
 		if (nr_fds + off > dfds->nr_fds)
 			nr_fds = dfds->nr_fds - off;
 
@@ -620,7 +620,6 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 
 			ret = dump_one_file(item->pid, dfds->fds[i + off],
 						lfds[i], opts + i, ctl, &e);
-			close(lfds[i]);
 			if (ret)
 				break;
 
@@ -628,6 +627,9 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 			if (ret)
 				break;
 		}
+
+		for (i = 0; i < nr_fds; i++)
+			close(lfds[i]);
 	}
 
 	pr_info("----------------------------------------\n");
