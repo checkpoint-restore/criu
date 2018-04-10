@@ -591,7 +591,10 @@ static int choose_service_fd_base(struct pstree_item *me)
 	real_nr = nr;
 
 	nr /= (1024 / sizeof(void *));
-	nr = 1 << (32 - __builtin_clz(nr));
+	if (nr)
+		nr = 1 << (32 - __builtin_clz(nr));
+	else
+		nr = 1;
 	nr *= (1024 / sizeof(void *));
 
 	if (nr > service_fd_rlim_cur) {
