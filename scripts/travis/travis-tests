@@ -97,8 +97,8 @@ LAZY_EXCLUDE="$LAZY_EXCLUDE -x maps04"
 
 LAZY_TESTS=.*\(maps0\|uffd-events\|lazy-thp\|futex\|fork\).*
 
-./test/zdtm.py run -p 2 -T $LAZY_TESTS --lazy-pages $LAZY_EXCLUDE
-./test/zdtm.py run -p 2 -T $LAZY_TESTS --remote-lazy-pages $LAZY_EXCLUDE
+# ./test/zdtm.py run -p 2 -T $LAZY_TESTS --lazy-pages $LAZY_EXCLUDE
+# ./test/zdtm.py run -p 2 -T $LAZY_TESTS --remote-lazy-pages $LAZY_EXCLUDE
 
 bash ./test/jenkins/criu-fault.sh
 bash ./test/jenkins/criu-fcg.sh
