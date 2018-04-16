@@ -419,6 +419,14 @@ static void merge_iov_lists(struct list_head *src, struct list_head *dst)
 {
 	struct lazy_iov *iov, *p, *n;
 
+	if (list_empty(src))
+		return;
+
+	if (list_empty(dst)) {
+		iov = list_first_entry(src, struct lazy_iov, l);
+		list_move(&iov->l, dst);
+	}
+
 	list_for_each_entry_safe(iov, n, src, l) {
 		list_for_each_entry(p, dst, l) {
 			if (iov->start < p->start) {
