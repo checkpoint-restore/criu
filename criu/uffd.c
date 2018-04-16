@@ -839,6 +839,7 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr
 {
 	struct lazy_pages_info *lpi;
 	unsigned long addr = 0;
+	int req_pages;
 	struct lazy_iov *req;
 
 	lpi = container_of(pr, struct lazy_pages_info, pr);
@@ -863,6 +864,14 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr
 	/* the request may be already gone because if uname/remove */
 	if (!addr)
 		return 0;
+
+	/*
+	 * by the time we get the pages from the remote source, parts
+	 * of the request may already be gone because of
+	 * UFFD_EVENT_{REMAP,REMOVE,UNMAP}
+	 */
+	req_pages = (req->end - req->start) / PAGE_SIZE;
+	nr = min(nr, req_pages);
 
 	return uffd_copy(lpi, addr, nr);
 }
