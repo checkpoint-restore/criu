@@ -415,6 +415,25 @@ static int split_iov(struct lazy_iov *iov, unsigned long addr)
 	return 0;
 }
 
+static void merge_iov_lists(struct list_head *src, struct list_head *dst)
+{
+	struct lazy_iov *iov, *p, *n;
+
+	list_for_each_entry_safe(iov, n, src, l) {
+		list_for_each_entry(p, dst, l) {
+			if (iov->start < p->start) {
+				list_move_tail(&iov->l, &p->l);
+				break;
+			}
+			if (list_is_last(&p->l, dst) &&
+			    iov->start > p->start) {
+				list_move(&iov->l, &p->l);
+				break;
+			}
+		}
+	}
+}
+
 static int copy_iovs(struct lazy_pages_info *src, struct lazy_pages_info *dst)
 {
 	struct lazy_iov *iov, *new;
@@ -530,14 +549,14 @@ static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from,
 		      unsigned long to, unsigned long len)
 {
 	unsigned long off = to - from;
-	struct lazy_iov *iov, *n, *p;
+	struct lazy_iov *iov, *n;
 	LIST_HEAD(remaps);
 
 	list_for_each_entry_safe(iov, n, &lpi->iovs, l) {
 		if (from >= iov->end)
 			continue;
 
-		if (len <= 0 || from + len < iov->start)
+		if (len <= 0 || from + len <= iov->start)
 			break;
 
 		if (from < iov->start) {
@@ -566,19 +585,7 @@ static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from,
 		list_move_tail(&iov->l, &remaps);
 	}
 
-	list_for_each_entry_safe(iov, n, &remaps, l) {
-		list_for_each_entry(p, &lpi->iovs, l) {
-			if (iov->start < p->start) {
-				list_move_tail(&iov->l, &p->l);
-				break;
-			}
-			if (list_is_last(&p->l, &lpi->iovs) &&
-			    iov->start > p->start) {
-				list_move(&iov->l, &p->l);
-				break;
-			}
-		}
-	}
+	merge_iov_lists(&remaps, &lpi->iovs);
 
 	return 0;
 }
