@@ -1062,7 +1062,7 @@ static int complete_forks(int epollfd, struct epoll_event **events, int *nr_fds)
 	struct lazy_pages_info *lpi, *n;
 
 	if (list_empty(&pending_lpis))
-		return 0;
+		return 1;
 
 	list_for_each_entry(lpi, &pending_lpis, l)
 		(*nr_fds)++;
@@ -1195,11 +1195,14 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 			goto out;
 		if (ret > 0) {
 			ret = complete_forks(epollfd, &events, &nr_fds);
-			if (ret)
+			if (ret < 0)
 				goto out;
 			if (!restore_finished)
 				continue;
 		}
+
+		/* make sure we return success if there is nothing to xfer */
+		ret = 0;
 
 		poll_timeout = 0;
 		list_for_each_entry_safe(lpi, n, &lpis, l) {
