@@ -1150,8 +1150,9 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 		if (ret < 0)
 			goto out;
 		if (ret > 0) {
-			if (complete_forks(epollfd, &events, &nr_fds))
-				return -1;
+			ret = complete_forks(epollfd, &events, &nr_fds);
+			if (ret)
+				goto out;
 			if (!restore_finished)
 				continue;
 		}
