@@ -97,6 +97,7 @@ struct lazy_pages_info {
 
 	struct list_head l;
 
+	unsigned long buf_size;
 	void *buf;
 };
 
@@ -445,7 +446,6 @@ static void merge_iov_lists(struct list_head *src, struct list_head *dst)
 static int copy_iovs(struct lazy_pages_info *src, struct lazy_pages_info *dst)
 {
 	struct lazy_iov *iov, *new;
-	int max_iov_len = 0;
 
 	list_for_each_entry(iov, &src->iovs, l) {
 		new = xzalloc(sizeof(*new));
@@ -457,12 +457,10 @@ static int copy_iovs(struct lazy_pages_info *src, struct lazy_pages_info *dst)
 		new->end = iov->end;
 
 		list_add_tail(&new->l, &dst->iovs);
-
-		if (new->end - new->start > max_iov_len)
-			max_iov_len = new->end - new->start;
 	}
 
-	if (posix_memalign(&dst->buf, PAGE_SIZE, max_iov_len))
+	dst->buf_size = src->buf_size;
+	if (posix_memalign(&dst->buf, PAGE_SIZE, dst->buf_size))
 		goto free_iovs;
 
 	return 0;
@@ -653,7 +651,8 @@ static int collect_iovs(struct lazy_pages_info *lpi)
 		}
 	}
 
-	if (posix_memalign(&lpi->buf, PAGE_SIZE, max_iov_len))
+	lpi->buf_size = max_iov_len;
+	if (posix_memalign(&lpi->buf, PAGE_SIZE, lpi->buf_size))
 		goto free_iovs;
 
 	ret = nr_pages;
