@@ -443,11 +443,11 @@ static void merge_iov_lists(struct list_head *src, struct list_head *dst)
 	}
 }
 
-static int copy_iovs(struct lazy_pages_info *src, struct lazy_pages_info *dst)
+static int __copy_iov_list(struct list_head *src, struct list_head *dst)
 {
 	struct lazy_iov *iov, *new;
 
-	list_for_each_entry(iov, &src->iovs, l) {
+	list_for_each_entry(iov, src, l) {
 		new = xzalloc(sizeof(*new));
 		if (!new)
 			return -1;
@@ -456,8 +456,26 @@ static int copy_iovs(struct lazy_pages_info *src, struct lazy_pages_info *dst)
 		new->img_start = iov->img_start;
 		new->end = iov->end;
 
-		list_add_tail(&new->l, &dst->iovs);
+		list_add_tail(&new->l, dst);
 	}
+
+
+	return 0;
+}
+
+static int copy_iovs(struct lazy_pages_info *src, struct lazy_pages_info *dst)
+{
+	if (__copy_iov_list(&src->iovs, &dst->iovs))
+		goto free_iovs;
+
+	if (__copy_iov_list(&src->reqs, &dst->reqs))
+		goto free_iovs;
+
+	/*
+	 * The IOVs aready in flight for the parent process need to be
+	 * transferred again for the child process
+	 */
+	merge_iov_lists(&dst->reqs, &src->iovs);
 
 	dst->buf_size = src->buf_size;
 	if (posix_memalign(&dst->buf, PAGE_SIZE, dst->buf_size))
@@ -474,11 +492,11 @@ free_iovs:
  * Purge range (addr, addr + len) from lazy_iovs. The range may
  * cover several continuous IOVs.
  */
-static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, int len)
+static int __drop_iovs(struct list_head *iovs, unsigned long addr, int len)
 {
 	struct lazy_iov *iov, *n;
 
-	list_for_each_entry_safe(iov, n, &lpi->iovs, l) {
+	list_for_each_entry_safe(iov, n, iovs, l) {
 		unsigned long start = iov->start;
 		unsigned long end = iov->end;
 
@@ -532,6 +550,18 @@ static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, int len)
 	return 0;
 }
 
+static int drop_iovs(struct lazy_pages_info *lpi, unsigned long addr, int len)
+{
+	if (__drop_iovs(&lpi->iovs, addr, len))
+		return -1;
+
+	if (__drop_iovs(&lpi->reqs, addr, len))
+		return -1;
+
+	return 0;
+}
+
+
 static struct lazy_iov *extract_range(struct lazy_iov *iov,
 				      unsigned long start,
 				      unsigned long end)
@@ -551,14 +581,15 @@ static struct lazy_iov *extract_range(struct lazy_iov *iov,
 	return list_entry(iov->l.next, struct lazy_iov, l);
 }
 
-static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from,
-		      unsigned long to, unsigned long len)
+static int __remap_iovs(struct list_head *iovs,	unsigned long from,
+			unsigned long to, unsigned long len)
 {
-	unsigned long off = to - from;
-	struct lazy_iov *iov, *n;
 	LIST_HEAD(remaps);
 
-	list_for_each_entry_safe(iov, n, &lpi->iovs, l) {
+	unsigned long off = to - from;
+	struct lazy_iov *iov, *n;
+
+	list_for_each_entry_safe(iov, n, iovs, l) {
 		if (from >= iov->end)
 			continue;
 
@@ -591,7 +622,19 @@ static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from,
 		list_move_tail(&iov->l, &remaps);
 	}
 
-	merge_iov_lists(&remaps, &lpi->iovs);
+	merge_iov_lists(&remaps, iovs);
+
+	return 0;
+}
+
+static int remap_iovs(struct lazy_pages_info *lpi, unsigned long from,
+		      unsigned long to, unsigned long len)
+{
+	if (__remap_iovs(&lpi->iovs, from, to, len))
+		return -1;
+
+	if (__remap_iovs(&lpi->reqs, from, to, len))
+		return -1;
 
 	return 0;
 }
@@ -817,7 +860,9 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr
 		}
 	}
 
-	BUG_ON(!addr);
+	/* the request may be already gone because if uname/remove */
+	if (!addr)
+		return 0;
 
 	return uffd_copy(lpi, addr, nr);
 }
