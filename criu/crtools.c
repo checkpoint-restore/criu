@@ -343,6 +343,9 @@ int main(int argc, char *argv[], char *envp[])
 	BUILD_BUG_ON(PAGE_SIZE != PAGE_IMAGE_SIZE);
 	BUILD_BUG_ON(CTL_32 != SYSCTL_TYPE__CTL_32);
 	BUILD_BUG_ON(__CTL_STR != SYSCTL_TYPE__CTL_STR);
+	/* We use it for fd overlap handling in clone_service_fd() */
+	BUG_ON(get_service_fd(SERVICE_FD_MIN+1) <
+	       get_service_fd(SERVICE_FD_MAX-1));
 
 	if (fault_injection_init())
 		return 1;
