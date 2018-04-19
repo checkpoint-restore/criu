@@ -3,8 +3,6 @@ export __nmk_dir
 
 include $(__nmk_dir)include.mk
 
-MAKEFLAGS := -r -R --no-print-directory
-
 help:
 	@echo '    Targets:'
 	@echo '      install dir=<dir>  - Install scripts into directory <dir>'
