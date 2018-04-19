@@ -54,14 +54,13 @@ ifeq ($(ARCH),x86)
 endif
 endif
 
-DEPEND.c = $(COMPILE.c) -MM -MP
-%.d:   %.c
-	$(E) " DEP      " $*.d
-	$(Q)$(DEPEND.c) $(OUTPUT_OPTION) $<
+%.d: %.c
+	$(E) " DEP      " $@
+	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -MM -MP -c $< -o $@
 
 %.o: %.c | %.d
 	$(E) " CC       " $@
-	$(Q)$(COMPILE.c) $(OUTPUT_OPTION) $<
+	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 %: %.o $(LDLIBS)
 	@echo $@ >> .gitignore
