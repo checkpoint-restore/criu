@@ -278,11 +278,11 @@ docs:
 .PHONY: docs
 
 zdtm: all
-	$(Q) MAKEFLAGS= $(MAKE) -C test/zdtm all
+	$(Q) $(MAKE) -C test/zdtm all
 .PHONY: zdtm
 
 test: zdtm
-	$(Q) MAKEFLAGS= $(MAKE) -C test
+	$(Q) $(MAKE) -C test
 .PHONY: test
 
 #
