@@ -1318,15 +1318,26 @@ static int wait_exiting_children(void)
  */
 static int restore_one_helper(void)
 {
+	int i;
+
 	if (prepare_fds(current))
 		return -1;
 
-	return wait_exiting_children();
+	if (wait_exiting_children())
+		return -1;
+
+	sfds_protected = false;
+	close_image_dir();
+	close_proc();
+	for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++)
+		close_service_fd(i);
+
+	return 0;
 }
 
 static int restore_one_task(int pid, CoreEntry *core)
 {
-	int i, ret;
+	int ret;
 
 	/* No more fork()-s => no more per-pid logs */
 
@@ -1336,11 +1347,6 @@ static int restore_one_task(int pid, CoreEntry *core)
 		ret = restore_one_zombie(core);
 	else if (current->pid->state == TASK_HELPER) {
 		ret = restore_one_helper();
-		sfds_protected = false;
-		close_image_dir();
-		close_proc();
-		for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++)
-			close_service_fd(i);
 	} else {
 		pr_err("Unknown state in code %d\n", (int)core->tc->task_state);
 		ret = -1;
