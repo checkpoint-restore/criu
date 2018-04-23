@@ -43,7 +43,6 @@ enum {
 };
 
 static int scripts_mode = SCRIPTS_NONE;
-static int rpc_sk;
 static LIST_HEAD(scripts);
 
 static int run_shell_scripts(const char *action)
@@ -103,9 +102,12 @@ static int run_shell_scripts(const char *action)
 int rpc_send_fd(enum script_actions act, int fd)
 {
 	const char *action = action_names[act];
+	int rpc_sk;
 
 	if (scripts_mode != SCRIPTS_RPC)
 		return -1;
+
+	rpc_sk = get_service_fd(RPC_SK_OFF);
 
 	pr_debug("\tRPC\n");
 	return send_criu_rpc_script(act, (char *)action, rpc_sk, fd);
@@ -122,7 +124,10 @@ int run_scripts(enum script_actions act)
 		return 0;
 
 	if (scripts_mode == SCRIPTS_RPC) {
+		int rpc_sk;
+
 		pr_debug("\tRPC\n");
+		rpc_sk = get_service_fd(RPC_SK_OFF);
 		ret = send_criu_rpc_script(act, (char *)action, rpc_sk, -1);
 		goto out;
 	}
@@ -161,7 +166,8 @@ int add_rpc_notify(int sk)
 	BUG_ON(scripts_mode == SCRIPTS_SHELL);
 	scripts_mode = SCRIPTS_RPC;
 
-	rpc_sk = install_service_fd(RPC_SK_OFF, sk);
+	if (install_service_fd(RPC_SK_OFF, sk) < 0)
+		return -1;
 
 	return 0;
 }
