@@ -38,4 +38,12 @@ struct f_owner_ex {
 # define O_PATH		010000000
 #endif
 
+#ifndef __O_TMPFILE
+#define __O_TMPFILE     020000000
+#endif
+
+#ifndef O_TMPFILE
+#define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
+#endif
+
 #endif /* __CR_ASM_GENERIC_FCNTL_H__ */
