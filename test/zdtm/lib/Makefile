@@ -16,6 +16,7 @@ LDLIBS	:= $(LIB)
 TARGETS	:= $(LIB) $(BIN)
 
 include ../Makefile.inc
+include $(DEP)
 
 all:	$(TARGETS)
 .PHONY: all

@@ -364,6 +364,8 @@ OUT	= $(TST:%=%.out)
 STATE	= $(TST_STATE:%=%.state)
 STATE_OUT	= $(TST_STATE:%=%.out)
 
+include $(DEP)
+
 all:	$(TST) criu-rtc.so
 install: all
 .PHONY: all install
