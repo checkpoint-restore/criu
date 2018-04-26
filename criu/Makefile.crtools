@@ -83,6 +83,7 @@ obj-y			+= path.o
 obj-y			+= autofs.o
 obj-y			+= fdstore.o
 obj-y			+= uffd.o
+obj-y			+= config.o
 
 ifeq ($(VDSO),y)
 obj-y			+= pie-util-vdso.o
