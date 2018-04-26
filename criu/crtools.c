@@ -232,6 +232,35 @@ static void rlimit_unlimit_nofile_self(void)
 		pr_debug("rlimit: RLIMIT_NOFILE unlimited for self\n");
 }
 
+static int early_init(void)
+{
+	/*
+	 * Service fd engine implies that file descritprs
+	 * used won't be borrowed by the rest of the code
+	 * and default 1024 limit is not enough for high
+	 * loaded test/containers. Thus use kdat engine
+	 * to fetch current system level limit for numbers
+	 * of files allowed to open up and lift up own
+	 * limits.
+	 *
+	 * Note we have to do it before the service fd
+	 * get inited and we dont exit with errors here
+	 * because in worst scenario where clash of fd
+	 * happen we simply exit with explicit error
+	 * during real action stage.
+	 */
+	if (!kerndat_files_stat(true))
+		rlimit_unlimit_nofile_self();
+
+	if (init_service_fd())
+		return 1;
+
+	if (kerndat_init())
+		return 1;
+
+	return 0;
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 #define PARSING_GLOBAL_CONF	1
@@ -349,33 +378,13 @@ int main(int argc, char *argv[], char *envp[])
 
 	init_opts();
 
-	/*
-	 * Service fd engine implies that file descritprs
-	 * used won't be borrowed by the rest of the code
-	 * and default 1024 limit is not enough for high
-	 * loaded test/containers. Thus use kdat engine
-	 * to fetch current system level limit for numbers
-	 * of files allowed to open up and lift up own
-	 * limits.
-	 *
-	 * Note we have to do it before the service fd
-	 * get inited and we dont exit with errors here
-	 * because in worst scenario where clash of fd
-	 * happen we simply exit with explicit error
-	 * during real action stage.
-	 */
-	if (!kerndat_files_stat(true))
-		rlimit_unlimit_nofile_self();
-
-	if (init_service_fd())
-		return 1;
-
-	if (kerndat_init())
-		return 1;
-
 	if (!strcmp(argv[1], "swrk")) {
 		if (argc < 3)
 			goto usage;
+
+		if (early_init())
+			return -1;
+
 		/*
 		 * This is to start criu service worker from libcriu calls.
 		 * The usage is "criu swrk <fd>" and is not for CLI/scripts.
@@ -669,6 +678,9 @@ int main(int argc, char *argv[], char *envp[])
 			goto usage;
 		}
 	}
+
+	if (early_init())
+		return -1;
 
 	if (opts.deprecated_ok)
 		pr_msg("Turn deprecated stuff ON\n");
