@@ -299,6 +299,12 @@ static int detect_pid_reuse(struct pstree_item *item,
 	unsigned long long tps; /* ticks per second */
 	int ret;
 
+	if (!parent_ie) {
+		pr_err("Pid-reuse detection failed: no parent inventory, " \
+		       "check warnings in get_parent_stats\n");
+		return -1;
+	}
+
 	tps = sysconf(_SC_CLK_TCK);
 	if (tps == -1) {
 		pr_perror("Failed to get clock ticks via sysconf");
@@ -310,12 +316,6 @@ static int detect_pid_reuse(struct pstree_item *item,
 		ret = parse_pid_stat(item->pid->real, pps);
 		if (ret < 0)
 			return -1;
-	}
-
-	if (!parent_ie) {
-		pr_err("Pid-reuse detection failed: no parent inventory, " \
-		       "check warnings in get_parent_stats\n");
-		return -1;
 	}
 
 	dump_ticks = parent_ie->dump_uptime/(USEC_PER_SEC/tps);
