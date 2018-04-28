@@ -300,7 +300,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 	struct page_pipe *pp;
 	struct vma_area *vma_area;
 	struct page_xfer xfer = { .parent = NULL };
-	int ret = -1;
+	int ret, exit_code = -1;
 	unsigned cpp_flags = 0;
 	unsigned long pmc_size;
 
@@ -323,7 +323,6 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 			 pmc_size * PAGE_SIZE))
 		return -1;
 
-	ret = -1;
 	if (!(mdc->pre_dump || mdc->lazy))
 		/*
 		 * Chunk mode pushes pages portion by portion. This mode
@@ -416,6 +415,9 @@ again:
 	 */
 
 	ret = task_reset_dirty_track(item->pid->real);
+	if (ret)
+		goto out_xfer;
+	exit_code = 0;
 out_xfer:
 	if (!mdc->pre_dump)
 		xfer.close(&xfer);
@@ -427,7 +429,7 @@ out_pp:
 out:
 	pmc_fini(&pmc);
 	pr_info("----------------------------------------\n");
-	return ret;
+	return exit_code;
 }
 
 int parasite_dump_pages_seized(struct pstree_item *item,
