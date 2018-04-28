@@ -113,14 +113,20 @@ int write_img_inventory(InventoryEntry *he)
 	return 0;
 }
 
-void prepare_inventory_pre_dump(InventoryEntry *he)
+int invertory_save_uptime(InventoryEntry *he)
 {
-	pr_info("Perparing image inventory for pre-dump (version %u)\n", CRTOOLS_IMAGES_V1);
+	if (!opts.track_mem)
+		return 0;
 
-	he->img_version = CRTOOLS_IMAGES_V1_1;
+	/*
+	 * dump_uptime is used to detect whether a process was handled
+	 * before or it is a new process with the same pid.
+	 */
+	if (parse_uptime(&he->dump_uptime))
+		return -1;
 
-	if (!parse_uptime(&he->dump_uptime))
-		he->has_dump_uptime = true;
+	he->has_dump_uptime = true;
+	return 0;
 }
 
 InventoryEntry *get_parent_inventory(void)

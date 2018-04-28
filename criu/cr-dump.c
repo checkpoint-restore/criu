@@ -1574,10 +1574,14 @@ static int cr_pre_dump_finish(int ret)
 	 * Restore registers for tasks only. The threads have not been
 	 * infected. Therefore, the thread register sets have not been changed.
 	 */
-	if (arch_set_thread_regs(root_item, false) < 0)
+	ret = arch_set_thread_regs(root_item, false);
+	if (ret)
 		goto err;
 
-	prepare_inventory_pre_dump(&he);
+	ret = invertory_save_uptime(&he);
+	if (ret)
+		goto err;
+
 	pstree_switch_state(root_item, TASK_ALIVE);
 
 	timing_stop(TIME_FROZEN);
@@ -2005,6 +2009,10 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	ret = tty_post_actions();
+	if (ret)
+		goto err;
+
+	ret = invertory_save_uptime(&he);
 	if (ret)
 		goto err;
 
