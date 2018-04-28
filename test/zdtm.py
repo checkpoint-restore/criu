@@ -1147,7 +1147,7 @@ def cr(cr_api, test, opts):
 		pres = iter_parm(opts['pre'], 0)
 		for p in pres[0]:
 			if opts['snaps']:
-				cr_api.dump("dump", opts = ["--leave-running"])
+				cr_api.dump("dump", opts = ["--leave-running", "--track-mem"])
 			else:
 				cr_api.dump("pre-dump")
 				try_run_hook(test, ["--post-pre-dump"])
