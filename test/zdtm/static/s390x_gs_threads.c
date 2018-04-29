@@ -7,8 +7,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "lock.h"
 #include "zdtmtst.h"
+#include "lock.h"
 
 #define NR_THREADS	4
 #define GS_ENABLE	0
