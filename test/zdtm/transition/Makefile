@@ -38,7 +38,6 @@ PID	= $(TST:%=%.pid)
 OUT	= $(TST:%=%.out)
 
 include ../Makefile.inc
-include $(DEP)
 
 all:	$(TST)
 install: all
