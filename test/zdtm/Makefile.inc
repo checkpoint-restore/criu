@@ -98,6 +98,9 @@ dep: $(DEP)
 
 no-deps-targets	:= clean cleandep cleanout realclean groups.cleanout
 
+ifeq ($(strip $(DEP)),)
+$(error No DEP defined in sub-make)
+endif
 ifeq ($(filter $(no-deps-targets), $(MAKECMDGOALS)),)
 -include $(wildcard $(DEP))
 endif
