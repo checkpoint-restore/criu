@@ -1066,6 +1066,11 @@ out:
 	return -1;
 }
 
+/*
+ * We may exit epoll_run_rfds() loop because of non-fork() event. In
+ * such case we return 1 rather than 0 to let the caller know that no
+ * fork() events were pending
+ */
 static int complete_forks(int epollfd, struct epoll_event **events, int *nr_fds)
 {
 	struct lazy_pages_info *lpi, *n;
@@ -1206,7 +1211,7 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 			ret = complete_forks(epollfd, &events, &nr_fds);
 			if (ret < 0)
 				goto out;
-			if (!restore_finished)
+			if (!restore_finished || !ret)
 				continue;
 		}
 
