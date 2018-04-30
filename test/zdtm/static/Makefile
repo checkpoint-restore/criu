@@ -217,8 +217,6 @@ TST_NOFILE	:=				\
 		unlink_multiple_largefiles	\
 #		jobctl00			\
 
-include ../Makefile.inc
-
 ifneq ($(SRCARCH),arm)
 ifneq ($(COMPAT_TEST),y)
         TST_NOFILE += maps03
@@ -376,6 +374,8 @@ PID	= $(TST:%=%.pid)
 OUT	= $(TST:%=%.out)
 STATE	= $(TST_STATE:%=%.state)
 STATE_OUT	= $(TST_STATE:%=%.out)
+
+include ../Makefile.inc
 
 all:	$(TST) criu-rtc.so
 install: all
