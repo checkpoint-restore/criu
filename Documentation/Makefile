@@ -69,7 +69,7 @@ clean:
 	$(call msg-clean, "Documentation")
 	$(Q) rm -f $(XMLS) $(MANS) $(PSS) $(PDFS) $(FOOTER)
 
-install: $(MANS)
+install: check $(MANS)
 	$(E) "  INSTALL " $(MAN8S)
 	$(Q) mkdir -p $(DESTDIR)$(MAN8DIR)
 	$(Q) install -m 644 $(MAN8S) $(DESTDIR)$(MAN8DIR)
