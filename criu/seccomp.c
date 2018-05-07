@@ -151,19 +151,18 @@ static int collect_filter(struct seccomp_entry *entry)
 			}
 		}
 
-		if (!meta)
-			meta = &meta_buf;
+		if (meta) {
+			meta->filter_off = i;
 
-		meta->flags = 0;
-		meta->filter_off = i;
-
-		if (ptrace(PTRACE_SECCOMP_GET_METADATA, entry->tid_real, sizeof(meta), meta) < 0) {
-			if (errno == EIO) {
-				meta = NULL;
-			} else {
-				pr_perror("Can't fetch seccomp metadataon tid_real %d pos %zu",
-					  entry->tid_real, i);
-				return -1;
+			if (ptrace(PTRACE_SECCOMP_GET_METADATA, entry->tid_real, sizeof(*meta), meta) < 0) {
+				if (errno == EIO) {
+					/* Old kernel, no METADATA support */
+					meta = NULL;
+				} else {
+					pr_perror("Can't fetch seccomp metadata on tid_real %d pos %zu",
+						  entry->tid_real, i);
+					return -1;
+				}
 			}
 		}
 
