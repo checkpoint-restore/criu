@@ -4,7 +4,6 @@
 #include <sys/types.h>
 
 #include <compel/compel.h>
-#include "images/seccomp.pb-c.h"
 
 #define PROC_TASK_COMM_LEN	32
 #define PROC_TASK_COMM_LEN_FMT	"(%31s"
@@ -62,12 +61,6 @@ struct proc_pid_stat {
 	unsigned long		env_start;
 	unsigned long		env_end;
 	int			exit_code;
-};
-
-struct seccomp_info {
-	SeccompFilter filter;
-	int id;
-	struct seccomp_info *prev;
 };
 
 #define PROC_CAP_SIZE	2
