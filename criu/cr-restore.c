@@ -914,6 +914,23 @@ static int open_cores(int pid, CoreEntry *leader_core)
 
 	current->core = cores;
 
+	/*
+	 * Walk over all threads and if one them is having
+	 * active seccomp mode we will suspend filtering
+	 * on the whole group until restore complete.
+	 *
+	 * Otherwise any criu code which might use same syscall
+	 * if present inside a filter chain would take filter
+	 * action and might break restore procedure.
+	 */
+	for (i = 0; i < current->nr_threads; i++) {
+		ThreadCoreEntry *thread_core = cores[i]->thread_core;
+		if (thread_core->seccomp_mode != SECCOMP_MODE_DISABLED) {
+			rsti(current)->has_seccomp = true;
+			break;
+		}
+	}
+
 	return 0;
 err:
 	xfree(cores);
@@ -1531,10 +1548,14 @@ static inline int fork_with_pid(struct pstree_item *item)
 			return -1;
 		}
 
-		if (item->pid->state != TASK_DEAD)
-			rsti(item)->has_seccomp = ca.core->thread_core->seccomp_mode != SECCOMP_MODE_DISABLED;
-		else
-			rsti(item)->has_seccomp = false;
+		/*
+		 * By default we assume that seccomp is not
+		 * used at all (especially on dead task). Later
+		 * we will walk over all threads and check in
+		 * details if filter is present setting up
+		 * this flag as appropriate.
+		 */
+		rsti(item)->has_seccomp = false;
 
 		if (unlikely(item == root_item))
 			maybe_clone_parent(item, &ca);

@@ -587,17 +587,6 @@ long __export_restore_thread(struct thread_restore_args *args)
 		sys_close(fd);
 	}
 
-	/*
-	 * Make sure it's before creds, since it's privileged
-	 * operation bound to uid 0 in current user ns.
-	 */
-	if (restore_seccomp(args))
-		goto core_restore_end;
-
-	ret = restore_creds(args->creds_args, args->ta->proc_fd);
-	if (ret)
-		goto core_restore_end;
-
 	ret = restore_dumpable_flag(&args->ta->mm);
 	if (ret)
 		goto core_restore_end;
@@ -612,6 +601,16 @@ long __export_restore_thread(struct thread_restore_args *args)
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE_SIGCHLD);
 	restore_pdeath_sig(args);
 
+	/*
+	 * Make sure it's before creds, since it's privileged
+	 * operation bound to uid 0 in current user ns.
+	 */
+	if (restore_seccomp(args))
+		goto core_restore_end;
+
+	ret = restore_creds(args->creds_args, args->ta->proc_fd);
+	if (ret)
+		goto core_restore_end;
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE_CREDS);
 
 	futex_dec_and_wake(&thread_inprogress);
