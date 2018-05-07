@@ -4,6 +4,7 @@
 #include <linux/seccomp.h>
 #include <linux/filter.h>
 
+#include "images/seccomp.pb-c.h"
 #include "images/core.pb-c.h"
 
 #ifndef SECCOMP_MODE_DISABLED
@@ -25,6 +26,12 @@
 #ifndef SECCOMP_FILTER_FLAG_TSYNC
 #define SECCOMP_FILTER_FLAG_TSYNC 1
 #endif
+
+struct seccomp_info {
+	struct seccomp_info	*prev;
+	int			id;
+	SeccompFilter		filter;
+};
 
 extern int collect_seccomp_filters(void);
 extern int prepare_seccomp_filters(void);
