@@ -26,7 +26,8 @@ static int next_filter_id = 0;
 static struct seccomp_info **filters = NULL;
 
 static struct seccomp_info *find_inherited(struct pstree_item *parent,
-					   struct sock_filter *filter, int len)
+					   struct sock_filter *filter,
+					   int len, struct seccomp_metadata *meta)
 {
 	struct seccomp_info *info;
 
@@ -38,6 +39,12 @@ static struct seccomp_info *find_inherited(struct pstree_item *parent,
 
 		if (len != info->filter.filter.len)
 			continue;
+		if (!!meta ^ !!info->filter.has_flags)
+			continue;
+		if (info->filter.has_flags && meta) {
+			if (info->filter.flags != meta->flags)
+				continue;
+		}
 		if (!memcmp(filter, info->filter.filter.data, len))
 			return info;
 	}
@@ -47,6 +54,7 @@ static struct seccomp_info *find_inherited(struct pstree_item *parent,
 
 static int collect_filter_for_pstree(struct pstree_item *item)
 {
+	struct seccomp_metadata meta_buf, *meta = &meta_buf;
 	struct seccomp_info *infos = NULL, *cursor;
 	int info_count, i, ret = -1;
 	struct sock_filter buf[BPF_MAXINSNS];
@@ -75,7 +83,29 @@ static int collect_filter_for_pstree(struct pstree_item *item)
 			}
 		}
 
-		inherited = find_inherited(item->parent, buf, len);
+		if (!meta)
+			meta = &meta_buf;
+
+		meta->flags = 0;
+		meta->filter_off = i;
+
+		if (ptrace(PTRACE_SECCOMP_GET_METADATA, item->pid->real, sizeof(meta), meta) < 0) {
+			if (errno == EIO) {
+				/*
+				 * No PTRACE_SECCOMP_GET_METADATA support in
+				 * kernel detected, thus simply ignore. Moving
+				 * it into kerndat is preferred but not
+				 * required.
+				 */
+				meta = NULL;
+			} else {
+				pr_perror("couldn't fetch seccomp metadata: pid %d pos %d",
+					  item->pid->real, i);
+				goto out;
+			}
+		}
+
+		inherited = find_inherited(item->parent, buf, len, meta);
 		if (inherited) {
 			bool found = false;
 
@@ -98,6 +128,11 @@ static int collect_filter_for_pstree(struct pstree_item *item)
 		if (!info)
 			goto out;
 		seccomp_filter__init(&info->filter);
+
+		if (meta) {
+			info->filter.has_flags = true;
+			info->filter.flags = meta->flags;
+		}
 
 		info->filter.filter.len = len * sizeof(struct sock_filter);
 		info->filter.filter.data = xmalloc(info->filter.filter.len);
