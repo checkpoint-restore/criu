@@ -18,6 +18,9 @@
 #include "protobuf.h"
 #include "images/seccomp.pb-c.h"
 
+#undef	LOG_PREFIX
+#define LOG_PREFIX "seccomp: "
+
 /* populated on dump during collect_seccomp_filters() */
 static int next_filter_id = 0;
 static struct seccomp_info **filters = NULL;
