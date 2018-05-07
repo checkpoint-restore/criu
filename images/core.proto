@@ -40,8 +40,9 @@ message task_core_entry {
 
 	optional signal_queue_entry	signals_s	= 10;
 
-	optional seccomp_mode		seccomp_mode	= 11;
-	optional uint32			seccomp_filter	= 12;
+	/* These two are deprecated, should be per-thread */
+	optional seccomp_mode	old_seccomp_mode	= 11;
+	optional uint32		old_seccomp_filter	= 12;
 
 	optional uint32			loginuid	= 13;
 
@@ -82,6 +83,9 @@ message thread_core_entry {
 
 	optional signal_queue_entry	signals_p	= 9;
 	optional creds_entry		creds		= 10;
+
+	optional seccomp_mode		seccomp_mode	= 11;
+	optional uint32			seccomp_filter	= 12;
 }
 
 message task_rlimits_entry {

@@ -21,6 +21,8 @@
 #undef	LOG_PREFIX
 #define LOG_PREFIX "seccomp: "
 
+static SeccompEntry *seccomp_img_entry;
+
 /* populated on dump during collect_seccomp_filters() */
 static int next_filter_id = 0;
 static struct seccomp_info **filters = NULL;
@@ -233,10 +235,8 @@ int collect_seccomp_filters(void)
 	return 0;
 }
 
-/* Populated on restore by prepare_seccomp_filters */
-static SeccompEntry *se;
-
-int prepare_seccomp_filters(void)
+/* The seccomp_img_entry will be shared between all children */
+int seccomp_read_image(void)
 {
 	struct cr_img *img;
 	int ret;
@@ -245,66 +245,129 @@ int prepare_seccomp_filters(void)
 	if (!img)
 		return -1;
 
-	ret = pb_read_one_eof(img, &se, PB_SECCOMP);
+	ret = pb_read_one_eof(img, &seccomp_img_entry, PB_SECCOMP);
 	close_image(img);
 	if (ret <= 0)
 		return 0; /* there were no filters */
 
-	BUG_ON(!se);
+	BUG_ON(!seccomp_img_entry);
 
 	return 0;
 }
 
-int seccomp_filters_get_rst_pos(CoreEntry *core, struct task_restore_args *ta)
+/* seccomp_img_entry will be freed per-children after forking */
+static void free_seccomp_filters(void)
 {
-	SeccompFilter *sf = NULL;
-	struct sock_fprog *arr = NULL;
-	void *filter_data = NULL;
-	int ret = -1, i, n_filters;
-	size_t filter_size = 0;
+	if (seccomp_img_entry) {
+		seccomp_entry__free_unpacked(seccomp_img_entry, NULL);
+		seccomp_img_entry = NULL;
+	}
+}
 
-	ta->seccomp_filters_n = 0;
+void seccomp_rst_reloc(struct thread_restore_args *args)
+{
+	size_t j, off;
 
-	if (!core->tc->has_seccomp_filter)
-		return 0;
+	if (!args->seccomp_filters_n)
+		return;
 
-	ta->seccomp_filters = (struct sock_fprog *)rst_mem_align_cpos(RM_PRIVATE);
+	args->seccomp_filters = rst_mem_remap_ptr(args->seccomp_filters_pos, RM_PRIVATE);
+	args->seccomp_filters_data = (void *)args->seccomp_filters +
+			args->seccomp_filters_n * sizeof(struct thread_seccomp_filter);
 
-	BUG_ON(core->tc->seccomp_filter > se->n_seccomp_filters);
-	sf = se->seccomp_filters[core->tc->seccomp_filter];
+	for (j = off = 0; j < args->seccomp_filters_n; j++) {
+		struct thread_seccomp_filter *f = &args->seccomp_filters[j];
 
-	while (1) {
-		ta->seccomp_filters_n++;
-		filter_size += sf->filter.len;
+		f->sock_fprog.filter = args->seccomp_filters_data + off;
+		off += f->sock_fprog.len * sizeof(struct sock_filter);
+	}
+}
 
-		if (!sf->has_prev)
-			break;
+int seccomp_prepare_threads(struct pstree_item *item, struct task_restore_args *ta)
+{
+	struct thread_restore_args *args_array = (struct thread_restore_args *)(&ta[1]);
+	size_t i, j, nr_filters, filters_size, rst_size, off;
 
-		sf = se->seccomp_filters[sf->prev];
+	for (i = 0; i < item->nr_threads; i++) {
+		ThreadCoreEntry *thread_core = item->core[i]->thread_core;
+		struct thread_restore_args *args = &args_array[i];
+		SeccompFilter *sf;
+
+		args->seccomp_mode		= SECCOMP_MODE_DISABLED;
+		args->seccomp_filters_pos	= 0;
+		args->seccomp_filters_n		= 0;
+		args->seccomp_filters		= NULL;
+		args->seccomp_filters_data	= NULL;
+
+		if (thread_core->has_seccomp_mode)
+			args->seccomp_mode = thread_core->seccomp_mode;
+
+		if (args->seccomp_mode != SECCOMP_MODE_FILTER)
+			continue;
+
+		if (thread_core->seccomp_filter >= seccomp_img_entry->n_seccomp_filters) {
+			pr_err("Corrupted filter index on tid %d (%u > %zu)\n",
+			       item->threads[i].ns[0].virt, thread_core->seccomp_filter,
+			       seccomp_img_entry->n_seccomp_filters);
+			return -1;
+		}
+
+		sf = seccomp_img_entry->seccomp_filters[thread_core->seccomp_filter];
+		if (sf->filter.len % (sizeof(struct sock_filter))) {
+			pr_err("Corrupted filter len on tid %d (index %u)\n",
+			       item->threads[i].ns[0].virt,
+			       thread_core->seccomp_filter);
+			return -1;
+		}
+		filters_size = sf->filter.len;
+		nr_filters = 1;
+
+		while (sf->has_prev) {
+			if (sf->prev >= seccomp_img_entry->n_seccomp_filters) {
+				pr_err("Corrupted filter index on tid %d (%u > %zu)\n",
+				       item->threads[i].ns[0].virt, sf->prev,
+				       seccomp_img_entry->n_seccomp_filters);
+				return -1;
+			}
+
+			sf = seccomp_img_entry->seccomp_filters[sf->prev];
+			if (sf->filter.len % (sizeof(struct sock_filter))) {
+				pr_err("Corrupted filter len on tid %d (index %u)\n",
+				       item->threads[i].ns[0].virt, sf->prev);
+				return -1;
+			}
+			filters_size += sf->filter.len;
+			nr_filters++;
+		}
+
+		args->seccomp_filters_n = nr_filters;
+
+		rst_size = filters_size + nr_filters * sizeof(struct thread_seccomp_filter);
+		args->seccomp_filters_pos = rst_mem_align_cpos(RM_PRIVATE);
+		args->seccomp_filters = rst_mem_alloc(rst_size, RM_PRIVATE);
+		if (!args->seccomp_filters) {
+			pr_err("Can't allocate %zu bytes for filters on tid %d\n",
+			       rst_size, item->threads[i].ns[0].virt);
+			return -ENOMEM;
+		}
+		args->seccomp_filters_data = (void *)args->seccomp_filters +
+			nr_filters * sizeof(struct thread_seccomp_filter);
+
+		sf = seccomp_img_entry->seccomp_filters[thread_core->seccomp_filter];
+		for (j = off = 0; j < nr_filters; j++) {
+			struct thread_seccomp_filter *f = &args->seccomp_filters[j];
+
+			f->sock_fprog.len	= sf->filter.len / sizeof(struct sock_filter);
+			f->sock_fprog.filter	= args->seccomp_filters_data + off;
+			f->flags		= sf->flags;
+
+			memcpy(f->sock_fprog.filter, sf->filter.data, sf->filter.len);
+
+			off += sf->filter.len;
+			sf = seccomp_img_entry->seccomp_filters[sf->prev];
+		}
 	}
 
-	n_filters = ta->seccomp_filters_n;
-	arr = rst_mem_alloc(sizeof(struct sock_fprog) * n_filters + filter_size, RM_PRIVATE);
-	if (!arr)
-		goto out;
-
-	filter_data = &arr[n_filters];
-	sf = se->seccomp_filters[core->tc->seccomp_filter];
-	for (i = 0; i < n_filters; i++) {
-		struct sock_fprog *fprog = &arr[i];
-
-		BUG_ON(sf->filter.len % sizeof(struct sock_filter));
-		fprog->len = sf->filter.len / sizeof(struct sock_filter);
-
-		memcpy(filter_data, sf->filter.data, sf->filter.len);
-
-		filter_data += sf->filter.len;
-		sf = se->seccomp_filters[sf->prev];
-	}
-
-	ret = 0;
-
-out:
-	seccomp_entry__free_unpacked(se, NULL);
-	return ret;
+	free_seccomp_filters();
+	return 0;
 }

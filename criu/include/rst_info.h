@@ -60,6 +60,11 @@ struct rst_info {
 	 * restorer blob.
 	 */
 	bool			has_seccomp;
+	/*
+	 * To be compatible with old images where filters
+	 * are bound to group leader and we need to use tsync flag.
+	 */
+	bool			has_old_seccomp_filter;
 
 	bool			has_thp_enabled;
 
