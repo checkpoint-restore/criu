@@ -763,12 +763,12 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 	creds = dmpi(item)->pi_creds;
 	if (creds->s.seccomp_mode != SECCOMP_MODE_DISABLED) {
 		pr_info("got seccomp mode %d for %d\n", creds->s.seccomp_mode, vpid(item));
-		core->tc->has_seccomp_mode = true;
-		core->tc->seccomp_mode = creds->s.seccomp_mode;
+		core->tc->has_old_seccomp_mode = true;
+		core->tc->old_seccomp_mode = creds->s.seccomp_mode;
 
 		if (creds->s.seccomp_mode == SECCOMP_MODE_FILTER) {
-			core->tc->has_seccomp_filter = true;
-			core->tc->seccomp_filter = creds->last_filter;
+			core->tc->has_old_seccomp_filter = true;
+			core->tc->old_seccomp_filter = creds->last_filter;
 		}
 	}
 
