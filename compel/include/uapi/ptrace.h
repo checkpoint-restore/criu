@@ -8,6 +8,7 @@
  * so there is no way they can be used together. Let's rely on libc one.
  */
 #include <sys/ptrace.h>
+#include <stdint.h>
 
 #include <compel/asm/breakpoints.h>
 
@@ -48,6 +49,16 @@
 #ifndef PTRACE_SECCOMP_GET_FILTER
 #define PTRACE_SECCOMP_GET_FILTER	0x420c
 #endif
+
+#ifndef PTRACE_SECCOMP_GET_METADATA
+# define PTRACE_SECCOMP_GET_METADATA	0x420d
+
+struct seccomp_metadata {
+	uint64_t	filter_off;	/* Input: which filter */
+	uint64_t	flags;		/* Output: filter's flags */
+};
+
+#endif /* PTRACE_SECCOMP_GET_METADATA */
 
 #ifdef PTRACE_EVENT_STOP
 # if PTRACE_EVENT_STOP == 7 /* Bad value from Linux 3.1-3.3, fixed in 3.4 */
