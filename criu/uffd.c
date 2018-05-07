@@ -475,7 +475,7 @@ static int copy_iovs(struct lazy_pages_info *src, struct lazy_pages_info *dst)
 	 * The IOVs aready in flight for the parent process need to be
 	 * transferred again for the child process
 	 */
-	merge_iov_lists(&dst->reqs, &src->iovs);
+	merge_iov_lists(&dst->reqs, &dst->iovs);
 
 	dst->buf_size = src->buf_size;
 	if (posix_memalign(&dst->buf, PAGE_SIZE, dst->buf_size))
