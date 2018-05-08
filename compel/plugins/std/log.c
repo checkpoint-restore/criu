@@ -143,6 +143,7 @@ int std_vprint_num(char *buf, int blen, int num, char **ps)
 	char *s;
 
 	s = &buf[blen - 1];
+	*s-- = 0; /* make sure the returned string is NULL terminated */
 
 	if (num < 0) {
 		neg = 1;
@@ -166,15 +167,14 @@ int std_vprint_num(char *buf, int blen, int num, char **ps)
 done:
 	s++;
 	*ps = s;
-	return blen - (s - buf);
+	return blen - (s - buf) - 1;
 }
 
 static void print_num(int num, struct simple_buf *b)
 {
 	char buf[12], *s;
 
-	buf[11] = '\0';
-	std_vprint_num(buf, sizeof(buf) - 1, num, &s);
+	std_vprint_num(buf, sizeof(buf), num, &s);
 	print_string(s, b);
 }
 
