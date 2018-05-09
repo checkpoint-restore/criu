@@ -12,44 +12,6 @@
 extern char **global_conf;
 extern char **user_conf;
 
-#define HELP_PASSED			1
-#define DEFAULT_CONFIGS_FORBIDDEN	2
-
-static int passed_help_or_defaults_forbidden(int argc, char *argv[])
-{
-	/*
-	 * Check for --help / -h on commandline before parsing, otherwise
-	 * the help message won't be displayed if there is an error in
-	 * configuration file syntax. Checks are kept in parser in case of
-	 * option being put in the configuration file itself.
-	 *
-	 * Check also whether default configfiles are forbidden to lower
-	 * number of argv iterations, but checks for help have higher priority.
-	 */
-	int i, ret = 0;
-	for (i = 0; i < argc; i++) {
-		if ((!strcmp(argv[i], "--help")) || (!strcmp(argv[i], "-h")))
-			return HELP_PASSED;
-		if (!strcmp(argv[i], "--no-default-config"))
-			ret = DEFAULT_CONFIGS_FORBIDDEN;
-	}
-	return ret;
-}
-
-static char * specific_config_passed(char *args[], int argc)
-{
-	int i;
-	for (i = 0; i < argc; i++) {
-		if (!strcmp(args[i], "--config")) {
-			/* getopt takes next string as required argument automatically */
-			return args[i + 1];
-		} else if (strstr(args[i], "--config=") != NULL) {
-			return args[i] + strlen("--config=");
-		}
-	}
-	return NULL;
-}
-
 static int count_elements(char **to_count)
 {
 	int count = 0;
@@ -160,13 +122,13 @@ static char ** parse_config(char *filepath)
 	return configuration;
 }
 
-static void init_configuration(int argc, char *argv[], int defaults_forbidden)
+static void init_configuration(int argc, char *argv[], bool no_default_config,
+			       char *cfg_file)
 {
-	char *specific_conf = specific_config_passed(argv, argc);
 	char local_filepath[PATH_MAX + 1];
 	char *home_dir = getenv("HOME");
 
-	if ((specific_conf == NULL) && (!defaults_forbidden)) {
+	if ((cfg_file == NULL) && (!no_default_config)) {
 		global_conf = parse_config(GLOBAL_CONFIG_DIR DEFAULT_CONFIG_FILENAME);
 		if (!home_dir) {
 			pr_info("Unable to get $HOME directory, local configuration file will not be used.");
@@ -175,10 +137,10 @@ static void init_configuration(int argc, char *argv[], int defaults_forbidden)
 					home_dir, USER_CONFIG_DIR, DEFAULT_CONFIG_FILENAME);
 			user_conf = parse_config(local_filepath);
 		}
-	} else if (specific_conf != NULL) {
-		global_conf = parse_config(specific_conf);
+	} else if (cfg_file != NULL) {
+		global_conf = parse_config(cfg_file);
 		if (global_conf == NULL) {
-			pr_err("Can't access configuration file %s.\n", specific_conf);
+			pr_err("Can't access configuration file %s.\n", cfg_file);
 			exit(1);
 		}
 	}
@@ -187,15 +149,40 @@ static void init_configuration(int argc, char *argv[], int defaults_forbidden)
 int init_config(int argc, char **argv, int *global_cfg_argc, int *user_cfg_argc,
 		bool *usage_error)
 {
-	int help_or_configs;
+	bool no_default_config = false;
+	char *cfg_file = NULL;
+	int i;
 
-	help_or_configs = passed_help_or_defaults_forbidden(argc, argv);
-	if (help_or_configs == 1) {
-		*usage_error = false;
-		return 1;
+	/*
+	 * We are runnning before getopt(), so we need to pre-parse
+	 * the command line.
+	 *
+	 * Check for --help / -h on commandline before parsing, otherwise
+	 * the help message won't be displayed if there is an error in
+	 * configuration file syntax. Checks are kept in parser in case of
+	 * option being put in the configuration file itself.
+	 *
+	 * Check also whether default configfiles are forbidden to lower
+	 * number of argv iterations, but checks for help have higher priority.
+	 */
+	for (i = 0; i < argc; i++) {
+		if ((!strcmp(argv[i], "--help")) || (!strcmp(argv[i], "-h"))) {
+			*usage_error = false;
+			return 1;
+		} else if (!strcmp(argv[i], "--no-default-config")) {
+			no_default_config = true;
+		} else if (!strcmp(argv[i], "--config")) {
+			/*
+			 * getopt takes next string as required
+			 * argument automatically, we do the same
+			 */
+			cfg_file = argv[i + 1];
+		} else if (strstr(argv[i], "--config=") != NULL) {
+			cfg_file = argv[i] + strlen("--config=");
+		}
 	}
 
-	init_configuration(argc, argv, (help_or_configs == DEFAULT_CONFIGS_FORBIDDEN));
+	init_configuration(argc, argv, no_default_config, cfg_file);
 	if (global_conf != NULL)
 		*global_cfg_argc = count_elements(global_conf);
 	if (user_conf != NULL)
