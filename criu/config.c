@@ -57,7 +57,12 @@ static char ** parse_config(char *filepath)
 			}
 			configuration = tmp_conf;
 		}
-		while (sscanf(line + offset, "%m[^ \t\n]s", &configuration[i]) == 1) {
+		while (1) {
+			while ((isspace(*(line + offset)) && (*(line + offset) != '\n'))) offset++;
+
+			if (sscanf(line + offset, "%m[^ \t\n]s", &configuration[i]) != 1)
+				break;
+
 			if (configuration[i][0] == '#') {
 				if (sscanf(line, "%*[^\n]") != 0) {
 					pr_err("Error while reading configuration file %s\n", filepath);
@@ -113,7 +118,6 @@ static char ** parse_config(char *filepath)
 				configuration[i] = tmp_string;
 			}
 			i++;
-			while ((isspace(*(line + offset)) && (*(line + offset) != '\n'))) offset++;
 		}
 		line = NULL;
 	}
