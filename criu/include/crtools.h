@@ -32,8 +32,9 @@ extern int cr_lazy_pages(bool daemon);
 extern int check_add_feature(char *arg);
 extern void pr_check_features(const char *offset, const char *sep, int width);
 
-extern void init_config(int argc, char **argv,
-			int *global_cfg_argc, int *user_cfg_argc);
+extern int init_config(int argc, char **argv,
+		       int *global_cfg_argc, int *user_cfg_argc,
+		       bool *usage_error);
 
 #define PPREP_HEAD_INACTIVE	((struct pprep_head *)-1)
 
