@@ -24,6 +24,7 @@ env:
   - TR_ARCH=fedora-rawhide-aarch64
   - TR_ARCH=phaul-test
   - TR_ARCH=local       GCOV=1
+  - TR_ARCH=centos
 matrix:
   allow_failures:
     - env: TR_ARCH=docker-test
