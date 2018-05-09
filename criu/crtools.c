@@ -274,7 +274,7 @@ int main(int argc, char *argv[], char *envp[])
 	bool has_exec_cmd = false;
 	bool has_sub_command;
 	int opt = 0, idx;
-	int first_count = 1, second_count = 1;
+	int global_cfg_argc = 0, user_cfg_argc = 0;
 	int state = PARSING_GLOBAL_CONF;
 	int log_level = DEFAULT_LOGLEVEL;
 	char *imgs_dir = ".";
@@ -397,17 +397,17 @@ int main(int argc, char *argv[], char *envp[])
 		return cr_service_work(atoi(argv[2]));
 	}
 
-	init_config(argc, argv, &first_count, &second_count);
+	init_config(argc, argv, &global_cfg_argc, &user_cfg_argc);
 
 	while (1) {
 		idx = -1;
 
 		switch (state) {
 		case PARSING_GLOBAL_CONF:
-			opt = getopt_long(first_count, global_conf, short_opts, long_opts, &idx);
+			opt = getopt_long(global_cfg_argc, global_conf, short_opts, long_opts, &idx);
 			break;
 		case PARSING_USER_CONF:
-			opt = getopt_long(second_count, user_conf, short_opts, long_opts, &idx);
+			opt = getopt_long(user_cfg_argc, user_conf, short_opts, long_opts, &idx);
 			break;
 		case PARSING_ARGV:
 			opt = getopt_long(argc, argv, short_opts, long_opts, &idx);
