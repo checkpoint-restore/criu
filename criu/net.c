@@ -1965,6 +1965,48 @@ out:
 	return ret;
 }
 
+/*
+ * iptables-restore is executed from a target userns and it may have not enough
+ * rights to open /run/xtables.lock. Here we try to workaround this problem.
+ */
+static int prepare_xtable_lock()
+{
+	int fd;
+
+	fd = open("/run/xtables.lock", O_RDONLY);
+	if (fd >= 0) {
+		close(fd);
+		return 0;
+	}
+
+	/*
+	 * __prepare_net_namespaces is executed in a separate process,
+	 * so a mount namespace can be changed.
+	 */
+	if (unshare(CLONE_NEWNS)) {
+		pr_perror("Unable to create a mount namespace");
+		return -1;
+	}
+
+	if (mount(NULL, "/",  NULL, MS_SLAVE | MS_REC, NULL)) {
+		pr_perror("Unable to conver mounts to slave mounts");
+		return -1;
+	}
+	/*
+	 * /run/xtables.lock may not exist, so we can't just bind-mount a file
+	 * over it.
+	 * A new mount will not be propagated to the host mount namespace,
+	 * because we are in another userns.
+	 */
+
+	if (mount("criu-xtable-lock", "/run", "tmpfs", 0, NULL)) {
+		pr_perror("Unable to mount tmpfs into /run");
+		return -1;
+	}
+
+	return 0;
+}
+
 static inline int restore_iptables(int pid)
 {
 	int ret = -1;
@@ -2310,6 +2352,9 @@ static int __prepare_net_namespaces(void *unused)
 {
 	struct ns_id *nsid;
 	int root_ns;
+
+	if (prepare_xtable_lock())
+		return -1;
 
 	root_ns = open_proc(PROC_SELF, "ns/net");
 	if (root_ns < 0)
