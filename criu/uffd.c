@@ -845,7 +845,7 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr
 {
 	struct lazy_pages_info *lpi;
 	unsigned long addr = 0;
-	int req_pages;
+	int req_pages, ret;
 	struct lazy_iov *req;
 
 	lpi = container_of(pr, struct lazy_pages_info, pr);
@@ -861,25 +861,39 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr
 	list_for_each_entry(req, &lpi->reqs, l) {
 		if (req->img_start == img_addr) {
 			addr = req->start;
-			list_del(&req->l);
-			xfree(req);
 			break;
 		}
 	}
 
-	/* the request may be already gone because if uname/remove */
+	/* the request may be already gone because if unmap/remove */
 	if (!addr)
 		return 0;
 
 	/*
-	 * by the time we get the pages from the remote source, parts
-	 * of the request may already be gone because of
-	 * UFFD_EVENT_{REMAP,REMOVE,UNMAP}
+	 * By the time we get the pages from the remote source, parts
+	 * of the request may already be gone because of unmap/remove
+	 * OTOH, the remote side may send less pages than we requested.
+	 * Make sure we are not trying to uffd_copy more memory than
+	 * we should.
 	 */
 	req_pages = (req->end - req->start) / PAGE_SIZE;
 	nr = min(nr, req_pages);
 
-	return uffd_copy(lpi, addr, nr);
+	ret = uffd_copy(lpi, addr, nr);
+	if (ret < 0)
+		return ret;
+
+	/* recheck if the process exited, it may be detected in uffd_copy */
+	if (lpi->exited)
+		return 0;
+
+	/*
+	 * Since the completed request length may differ from the
+	 * actual data we've received we re-insert the request to IOVs
+	 * list and let drop_iovs do the range math, free memory etc.
+	 */
+	iov_list_insert(req, &lpi->iovs);
+	return drop_iovs(lpi, addr, nr * PAGE_SIZE);
 }
 
 static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
