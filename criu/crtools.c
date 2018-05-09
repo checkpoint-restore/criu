@@ -397,7 +397,10 @@ int main(int argc, char *argv[], char *envp[])
 		return cr_service_work(atoi(argv[2]));
 	}
 
-	init_config(argc, argv, &global_cfg_argc, &user_cfg_argc);
+	ret = init_config(argc, argv, &global_cfg_argc, &user_cfg_argc,
+			  &usage_error);
+	if (ret)
+		goto usage;
 
 	while (1) {
 		idx = -1;
