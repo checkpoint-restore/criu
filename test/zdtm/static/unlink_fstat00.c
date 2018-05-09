@@ -9,6 +9,14 @@
 
 #include "zdtmtst.h"
 
+#ifndef __O_TMPFILE
+#define __O_TMPFILE 020000000
+#endif
+
+#ifndef O_TMPFILE
+#define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
+#endif
+
 const char *test_doc	= "Open, unlink, change size, seek, migrate, check size";
 
 #ifdef UNLINK_FSTAT04
