@@ -184,16 +184,15 @@ static void init_configuration(int argc, char *argv[], int defaults_forbidden)
 	}
 }
 
-void init_config(int argc, char **argv, int *global_cfg_argc, int *user_cfg_argc)
+int init_config(int argc, char **argv, int *global_cfg_argc, int *user_cfg_argc,
+		bool *usage_error)
 {
 	int help_or_configs;
-	bool usage_error;
 
 	help_or_configs = passed_help_or_defaults_forbidden(argc, argv);
 	if (help_or_configs == 1) {
-		usage_error = false;
-		printf("goto usage: %d\n", usage_error);
-		return;
+		*usage_error = false;
+		return 1;
 	}
 
 	init_configuration(argc, argv, (help_or_configs == DEFAULT_CONFIGS_FORBIDDEN));
@@ -201,4 +200,6 @@ void init_config(int argc, char **argv, int *global_cfg_argc, int *user_cfg_argc
 		*global_cfg_argc = count_elements(global_conf);
 	if (user_conf != NULL)
 		*user_cfg_argc = count_elements(user_conf);
+
+	return 0;
 }
