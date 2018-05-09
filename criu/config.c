@@ -60,8 +60,10 @@ static char ** parse_config(char *filepath)
 		while (1) {
 			while ((isspace(*(line + offset)) && (*(line + offset) != '\n'))) offset++;
 
-			if (sscanf(line + offset, "%m[^ \t\n]s", &configuration[i]) != 1)
+			if (sscanf(line + offset, "%m[^ \t\n]s", &configuration[i]) != 1) {
+				configuration[i] = NULL;
 				break;
+			}
 
 			if (configuration[i][0] == '#') {
 				if (sscanf(line, "%*[^\n]") != 0) {
