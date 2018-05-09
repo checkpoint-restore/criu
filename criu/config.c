@@ -184,7 +184,7 @@ static void init_configuration(int argc, char *argv[], int defaults_forbidden)
 	}
 }
 
-void init_config(int argc, char **argv, int *first_count, int *second_count)
+void init_config(int argc, char **argv, int *global_cfg_argc, int *user_cfg_argc)
 {
 	int help_or_configs;
 	bool usage_error;
@@ -198,7 +198,7 @@ void init_config(int argc, char **argv, int *first_count, int *second_count)
 
 	init_configuration(argc, argv, (help_or_configs == DEFAULT_CONFIGS_FORBIDDEN));
 	if (global_conf != NULL)
-		*first_count = count_elements(global_conf);
+		*global_cfg_argc = count_elements(global_conf);
 	if (user_conf != NULL)
-		*second_count = count_elements(user_conf);
+		*user_cfg_argc = count_elements(user_conf);
 }
