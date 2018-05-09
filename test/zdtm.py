@@ -155,7 +155,7 @@ class host_flavor:
 
 
 class ns_flavor:
-	__root_dirs = ["/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev", "/dev/pts", "/dev/net", "/tmp", "/usr", "/proc"]
+	__root_dirs = ["/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev", "/dev/pts", "/dev/net", "/tmp", "/usr", "/proc", "/run"]
 
 	def __init__(self, opts):
 		self.name = "ns"
