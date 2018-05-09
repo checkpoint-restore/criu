@@ -416,31 +416,37 @@ static int split_iov(struct lazy_iov *iov, unsigned long addr)
 	return 0;
 }
 
+static void iov_list_insert(struct lazy_iov *new, struct list_head *dst)
+{
+	struct lazy_iov *iov;
+
+	if (list_empty(dst)) {
+		list_move(&new->l, dst);
+		return;
+	}
+
+	list_for_each_entry(iov, dst, l) {
+		if (new->start < iov->start) {
+			list_move_tail(&new->l, &iov->l);
+			break;
+		}
+		if (list_is_last(&iov->l, dst) &&
+		    new->start > iov->start) {
+			list_move(&new->l, &iov->l);
+			break;
+		}
+	}
+}
+
 static void merge_iov_lists(struct list_head *src, struct list_head *dst)
 {
-	struct lazy_iov *iov, *p, *n;
+	struct lazy_iov *iov, *n;
 
 	if (list_empty(src))
 		return;
 
-	if (list_empty(dst)) {
-		iov = list_first_entry(src, struct lazy_iov, l);
-		list_move(&iov->l, dst);
-	}
-
-	list_for_each_entry_safe(iov, n, src, l) {
-		list_for_each_entry(p, dst, l) {
-			if (iov->start < p->start) {
-				list_move_tail(&iov->l, &p->l);
-				break;
-			}
-			if (list_is_last(&p->l, dst) &&
-			    iov->start > p->start) {
-				list_move(&iov->l, &p->l);
-				break;
-			}
-		}
-	}
+	list_for_each_entry_safe(iov, n, src, l)
+		iov_list_insert(iov, dst);
 }
 
 static int __copy_iov_list(struct list_head *src, struct list_head *dst)
