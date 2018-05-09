@@ -1,5 +1,5 @@
 QEMU_ARCHES := armv7hf aarch64 ppc64le s390x fedora-rawhide-aarch64 # require qemu
-ARCHES := $(QEMU_ARCHES) x86_64 fedora-asan fedora-rawhide
+ARCHES := $(QEMU_ARCHES) x86_64 fedora-asan fedora-rawhide centos
 TARGETS := $(ARCHES) alpine
 TARGETS_CLANG := $(addsuffix $(TARGETS),-clang)
 
