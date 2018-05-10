@@ -67,7 +67,8 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 {
 	int p, ret, tsock;
 	struct iovec *iovs;
-	int off, nr_segs, nr_pages;
+	int off, nr_segs;
+	unsigned long spliced_bytes = 0;
 
 	tsock = parasite_get_rpc_sock();
 	p = recv_fd(tsock);
@@ -75,7 +76,6 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 		return -1;
 
 	iovs = pargs_iovs(args);
-	nr_pages = 0;
 	off = 0;
 	nr_segs = args->nr_segs;
 	if (nr_segs > UIO_MAXIOV)
@@ -89,16 +89,16 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 						ret, nr_segs, args->off + off);
 			return -1;
 		}
-		nr_pages += ret;
+		spliced_bytes += ret;
 		off += nr_segs;
 		if (off == args->nr_segs)
 			break;
 		if (off + nr_segs > args->nr_segs)
 			nr_segs = args->nr_segs - off;
 	}
-	if (nr_pages != args->nr_pages * PAGE_SIZE) {
+	if (spliced_bytes != args->nr_pages * PAGE_SIZE) {
 		sys_close(p);
-		pr_err("Can't splice all pages to pipe (%d/%d)\n", nr_pages, args->nr_pages);
+		pr_err("Can't splice all pages to pipe (%lu/%d)\n", spliced_bytes, args->nr_pages);
 		return -1;
 	}
 
