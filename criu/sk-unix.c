@@ -37,7 +37,7 @@
 #include "images/sk-unix.pb-c.h"
 
 #undef	LOG_PREFIX
-#define LOG_PREFIX "sk unix: "
+#define LOG_PREFIX "unix: "
 
 /*
  * By-default, when dumping a unix socket, we should dump its peer
