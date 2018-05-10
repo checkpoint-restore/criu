@@ -98,7 +98,8 @@ int __attribute__((weak)) arch_set_thread_regs(struct pstree_item *item,
 	return 0;
 }
 
-static char loc_buf[PAGE_SIZE];
+#define PERSONALITY_LENGTH	9
+static char loc_buf[PERSONALITY_LENGTH];
 
 void free_mappings(struct vm_area_list *vma_area_list)
 {
