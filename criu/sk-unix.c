@@ -1764,7 +1764,7 @@ static void unlink_stale(struct unix_sk_info *ui)
 		return;
 
 	ret = unlinkat(AT_FDCWD, ui->name, 0) ? -1 : 0;
-	if (ret < 0) {
+	if (ret < 0 && errno != ENOENT) {
 		pr_warn("Can't unlink stale socket %#x peer %#x (name %s dir %s)\n",
 			ui->ue->ino, ui->ue->peer,
 			ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
