@@ -245,7 +245,7 @@ static int get_mnt_id(int lfd, int *mnt_id)
 	return 0;
 }
 
-static int resolve_rel_name(u32 id, struct unix_sk_desc *sk, const struct fd_parms *p, char **pdir)
+static int resolve_rel_name(uint32_t id, struct unix_sk_desc *sk, const struct fd_parms *p, char **pdir)
 {
 	const char *dirs[] = { "cwd", "root" };
 	struct pstree_item *task;
@@ -315,9 +315,9 @@ err:
 	return -ENOENT;
 }
 
-static int unix_resolve_name(int lfd, u32 id, struct unix_sk_desc *d,
+static int unix_resolve_name(int lfd, uint32_t id, struct unix_sk_desc *d,
 				UnixSkEntry *ue, const struct fd_parms *p);
-static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
+static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 {
 	struct unix_sk_desc *sk, *peer;
 	UnixSkEntry *ue;
@@ -545,7 +545,7 @@ const struct fdtype_ops unix_dump_ops = {
 	.dump		= dump_one_unix_fd,
 };
 
-static int unix_resolve_name(int lfd, u32 id, struct unix_sk_desc *d,
+static int unix_resolve_name(int lfd, uint32_t id, struct unix_sk_desc *d,
 				UnixSkEntry *ue, const struct fd_parms *p)
 {
 	char *name = d->name;
@@ -711,7 +711,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			goto err;
 
 		memcpy(d->icons, nla_data(tb[UNIX_DIAG_ICONS]), len);
-		d->nr_icons = len / sizeof(u32);
+		d->nr_icons = len / sizeof(uint32_t);
 
 		/*
 		 * Remember these sockets, we will need them
