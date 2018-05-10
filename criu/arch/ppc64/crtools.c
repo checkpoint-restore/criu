@@ -23,6 +23,9 @@
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
 
+unsigned __page_size = 0;
+unsigned __page_shift = 0;
+
 static UserPpc64FpstateEntry *copy_fp_regs(uint64_t *fpregs)
 {
 	UserPpc64FpstateEntry *fpe;
