@@ -1848,11 +1848,11 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 }
 
 struct collect_image_info unix_sk_cinfo = {
-	.fd_type = CR_FD_UNIXSK,
-	.pb_type = PB_UNIX_SK,
-	.priv_size = sizeof(struct unix_sk_info),
-	.collect = collect_one_unixsk,
-	.flags = COLLECT_SHARED,
+	.fd_type	= CR_FD_UNIXSK,
+	.pb_type	= PB_UNIX_SK,
+	.priv_size	= sizeof(struct unix_sk_info),
+	.collect	= collect_one_unixsk,
+	.flags		= COLLECT_SHARED,
 };
 
 static void set_peer(struct unix_sk_info *ui, struct unix_sk_info *peer)
