@@ -1,6 +1,9 @@
 #ifndef __CR_ASM_PAGE_H__
 #define __CR_ASM_PAGE_H__
 
+#define ARCH_HAS_LONG_PAGES
+
+#ifndef CR_NOGLIBC
 #include <unistd.h>
 
 #ifndef PAGE_SHIFT
@@ -18,4 +21,10 @@
 #define PAGE_PFN(addr)	((addr) / PAGE_SIZE)
 #define page_size()	sysconf(_SC_PAGESIZE)
 
+#else /* CR_NOGLIBC */
+
+extern unsigned page_size(void);
+#define PAGE_SIZE page_size()
+
+#endif /* CR_NOGLIBC */
 #endif /* __CR_ASM_PAGE_H__ */

@@ -36,6 +36,7 @@
 #include "uffd.h"
 
 #include "common/lock.h"
+#include "common/page.h"
 #include "restorer.h"
 #include "aio.h"
 #include "seccomp.h"
@@ -69,6 +70,18 @@ bool fault_injected(enum faults f)
 {
 	return __fault_injected(f, fi_strategy);
 }
+
+#ifdef ARCH_HAS_LONG_PAGES
+/*
+ * XXX: Make it compel's std plugin global variable. Drop parasite_size().
+ * Hint: compel on aarch64 shall learn relocs for that.
+ */
+static unsigned __page_size;
+unsigned page_size(void)
+{
+	return __page_size;
+}
+#endif
 
 /*
  * These are stubs for std compel plugin.
@@ -1198,6 +1211,9 @@ long __export_restore_task(struct task_restore_args *args)
 	zombies = args->zombies;
 	n_zombies = args->zombies_n;
 	*args->breakpoint = rst_sigreturn;
+#ifdef ARCH_HAS_LONG_PAGES
+	__page_size = args->page_size;
+#endif
 
 	ksigfillset(&act.rt_sa_mask);
 	act.rt_sa_handler = sigchld_handler;
