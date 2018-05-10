@@ -30,10 +30,11 @@
 #define DEFAULT_LOGFD		STDERR_FILENO
 /* Enable timestamps if verbosity is increased from default */
 #define LOG_TIMESTAMP		(DEFAULT_LOGLEVEL + 1)
+#define LOG_BUF_LEN		(8*1024)
 
 static unsigned int current_loglevel = DEFAULT_LOGLEVEL;
 
-static char buffer[PAGE_SIZE * 2];
+static char buffer[LOG_BUF_LEN];
 static char buf_off = 0;
 
 static struct timeval start;
