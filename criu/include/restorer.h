@@ -209,6 +209,9 @@ struct task_restore_args {
 	void				**breakpoint;
 
 	enum faults			fault_strategy;
+#ifdef ARCH_HAS_LONG_PAGES
+	unsigned			page_size;
+#endif
 } __aligned(64);
 
 /*

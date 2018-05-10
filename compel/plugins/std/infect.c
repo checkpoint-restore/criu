@@ -3,6 +3,7 @@
 #include "common/scm.h"
 #include "common/compiler.h"
 #include "common/lock.h"
+#include "common/page.h"
 
 #define pr_err(fmt, ...)	print_on_level(1, fmt, ##__VA_ARGS__)
 #define pr_info(fmt, ...)	print_on_level(3, fmt, ##__VA_ARGS__)
@@ -18,6 +19,19 @@
 static int tsock = -1;
 
 static struct rt_sigframe *sigframe;
+
+#ifdef ARCH_HAS_LONG_PAGES
+/*
+ * XXX: Make it compel's std plugin global variable. Drop parasite_size().
+ * Hint: compel on aarch64 shall learn relocs for that.
+ */
+static unsigned __page_size;
+
+unsigned __attribute((weak)) page_size(void)
+{
+	return __page_size;
+}
+#endif
 
 int parasite_get_rpc_sock(void)
 {
@@ -142,6 +156,9 @@ static noinline __used int parasite_init_daemon(void *data)
 
 	args->sigreturn_addr = (uint64_t)(uintptr_t)fini_sigreturn;
 	sigframe = (void*)(uintptr_t)args->sigframe;
+#ifdef ARCH_HAS_LONG_PAGES
+	__page_size = args->page_size;
+#endif
 
 	ret = tsock = sys_socket(PF_UNIX, SOCK_SEQPACKET, 0);
 	if (tsock < 0) {

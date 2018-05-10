@@ -38,6 +38,9 @@ struct parasite_init_args {
 	uint64_t			sigreturn_addr;
 	uint64_t			sigframe; /* pointer to sigframe */
 	futex_t				daemon_connected;
+#ifdef ARCH_HAS_LONG_PAGES
+	uint32_t			page_size;
+#endif
 };
 
 struct parasite_unmap_args {

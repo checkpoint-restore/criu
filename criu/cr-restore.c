@@ -3650,6 +3650,9 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	task_args->premmapped_len = rsti(current)->premmapped_len;
 
 	task_args->task_size = kdat.task_size;
+#ifdef ARCH_HAS_LONG_PAGES
+	task_args->page_size = PAGE_SIZE;
+#endif
 
 	RST_MEM_FIXUP_PPTR(task_args->vmas);
 	RST_MEM_FIXUP_PPTR(task_args->rings);
