@@ -324,17 +324,18 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 	SkOptsEntry *skopts;
 	FilePermsEntry *perms;
 	FownEntry *fown;
+	void *m;
 
-	ue = xmalloc(sizeof(UnixSkEntry) +
-			sizeof(SkOptsEntry) +
-			sizeof(FilePermsEntry) +
-			sizeof(FownEntry));
-	if (ue == NULL)
-		return -1;
-
-	skopts = (void *) ue + sizeof(UnixSkEntry);
-	perms = (void *) skopts + sizeof(SkOptsEntry);
-	fown = (void *) perms + sizeof(FilePermsEntry);
+	m = xmalloc(sizeof(UnixSkEntry) +
+		    sizeof(SkOptsEntry) +
+		    sizeof(FilePermsEntry) +
+		    sizeof(FownEntry));
+	if (!m)
+		return -ENOMEM;
+	ue	= xptr_pull(&m, UnixSkEntry);
+	skopts	= xptr_pull(&m, SkOptsEntry);
+	perms	= xptr_pull(&m, FilePermsEntry);
+	fown	= xptr_pull(&m, FownEntry);
 
 	unix_sk_entry__init(ue);
 	sk_opts_entry__init(skopts);
