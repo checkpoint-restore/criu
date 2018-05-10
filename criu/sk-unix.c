@@ -1742,10 +1742,10 @@ static void unix_get_user_ns(struct file_desc *desc, uint32_t *file_uns_id, stru
 }
 
 static struct file_desc_ops unix_desc_ops = {
-	.type = FD_TYPES__UNIXSK,
-	.open = open_unix_sk,
-	.get_user_ns = unix_get_user_ns,
-	.name = socket_d_name,
+	.type		= FD_TYPES__UNIXSK,
+	.open		= open_unix_sk,
+	.get_user_ns	= unix_get_user_ns,
+	.name		= socket_d_name,
 };
 
 /*
