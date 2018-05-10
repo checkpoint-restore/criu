@@ -4,26 +4,36 @@
 #define ARCH_HAS_LONG_PAGES
 
 #ifndef CR_NOGLIBC
-#include <unistd.h>
+#include <string.h> /* ffsl() */
+#include <unistd.h> /* _SC_PAGESIZE */
+
+extern unsigned __page_size;
+extern unsigned __page_shift;
+
+static inline unsigned page_size(void)
+{
+	if (!__page_size)
+		__page_size = sysconf(_SC_PAGESIZE);
+	return __page_size;
+}
+
+static inline unsigned page_shift(void)
+{
+	if (!__page_shift)
+		__page_shift = (ffsl(page_size()) - 1);
+	return __page_shift;
+}
 
 /*
- * Default config for Pseries is to use 64K pages.
- * See kernel file arch/powerpc/configs/pseries_*defconfig
+ * Don't add ifdefs for PAGE_SIZE: if any header defines it as a constant
+ * on ppc64, then we need refrain using PAGE_SIZE in criu and use
+ * page_size() across sources (as it may differ on ppc64).
  */
-#ifndef PAGE_SHIFT
-# define PAGE_SHIFT	16
-#endif
-
-#ifndef PAGE_SIZE
-# define PAGE_SIZE	(1UL << PAGE_SHIFT)
-#endif
-
-#ifndef PAGE_MASK
-# define PAGE_MASK	(~(PAGE_SIZE - 1))
-#endif
+#define PAGE_SIZE	page_size()
+#define PAGE_MASK	(~(PAGE_SIZE - 1))
+#define PAGE_SHIFT	page_shift()
 
 #define PAGE_PFN(addr)	((addr) / PAGE_SIZE)
-#define page_size()	sysconf(_SC_PAGESIZE)
 
 #else /* CR_NOGLIBC */
 
