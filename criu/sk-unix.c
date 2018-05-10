@@ -1806,16 +1806,21 @@ static int init_unix_sk_info(struct unix_sk_info *ui, UnixSkEntry *ue)
 		ui->name = NULL;
 	ui->name_dir = (void *)ue->name_dir;
 
-	ui->queuer = NULL;
-	ui->peer = NULL;
-	ui->bound = 0;
-	ui->listen = 0;
-	ui->is_connected = 0;
+	ui->flags		= 0;
+	ui->peer		= NULL;
+	ui->queuer		= NULL;
+	ui->bound		= 0;
+	ui->listen		= 0;
+	ui->is_connected	= 0;
 	ui->peer_queue_restored = 0;
+
+	memzero(&ui->peer_resolve, sizeof(ui->peer_resolve));
+	memzero(&ui->d, sizeof(ui->d));
+
+	INIT_LIST_HEAD(&ui->list);
 	INIT_LIST_HEAD(&ui->connected);
 	INIT_LIST_HEAD(&ui->node);
 	INIT_LIST_HEAD(&ui->scm_fles);
-	ui->flags = 0;
 
 	return 0;
 }
