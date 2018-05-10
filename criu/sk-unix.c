@@ -1445,16 +1445,20 @@ static int post_open_interconnected_master(struct unix_sk_info *ui)
 	return 0;
 }
 
+static void pr_info_opening(const char *prefix, struct unix_sk_info *ui, struct fdinfo_list_entry *fle)
+{
+	pr_info("Opening %s (stage %d id %#x ino %#x peer %#x)\n",
+		prefix, fle->stage, ui->ue->id, ui->ue->ino, ui->ue->peer);
+}
+
 static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 {
 	struct fdinfo_list_entry *fle, *fle_peer;
 	struct unix_sk_info *peer = ui->peer;
 	int sk[2], tmp;
 
-	pr_info("Opening pair master (id %#x ino %#x peer %#x)\n",
-			ui->ue->id, ui->ue->ino, ui->ue->peer);
-
 	fle = file_master(&ui->d);
+	pr_info_opening("master", ui, fle);
 	if (fle->stage == FLE_OPEN)
 		return post_open_interconnected_master(ui);
 
@@ -1505,6 +1509,7 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui, int *new_fd)
 	struct fdinfo_list_entry *fle_peer;
 
 	fle_peer = file_master(&ui->peer->d);
+	pr_info_opening("slave", ui, fle_peer);
 	/*
 	 * All the work is made in master. Slave just says it's restored
 	 * after it sees the master is restored.
@@ -1548,9 +1553,8 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 	struct fdinfo_list_entry *fle;
 	int sk;
 
-	pr_info("Opening standalone socket (id %#x ino %#x peer %#x)\n",
-			ui->ue->id, ui->ue->ino, ui->ue->peer);
 	fle = file_master(&ui->d);
+	pr_info_opening("standalone", ui, fle);
 	if (fle->stage == FLE_OPEN)
 		return post_open_standalone(&ui->d, fle->fe->fd);
 
