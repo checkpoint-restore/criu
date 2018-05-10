@@ -397,20 +397,38 @@ int main(int argc, char *argv[], char *envp[])
 		goto usage;
 
 	while (1) {
+		char **_argv = NULL;
+		int _argc = 0;
+
 		idx = -1;
 
 		switch (state) {
 		case PARSING_GLOBAL_CONF:
-			opt = getopt_long(global_cfg_argc, global_conf, short_opts, long_opts, &idx);
+			_argc = global_cfg_argc;
+			_argv = global_conf;
 			break;
 		case PARSING_USER_CONF:
-			opt = getopt_long(user_cfg_argc, user_conf, short_opts, long_opts, &idx);
+			_argc = user_cfg_argc;
+			_argv = user_conf;
 			break;
 		case PARSING_ARGV:
-			opt = getopt_long(argc, argv, short_opts, long_opts, &idx);
+			_argc = argc;
+			_argv = argv;
 			break;
+		default:
+			BUG();
 		}
+		opt = getopt_long(_argc, _argv, short_opts, long_opts, &idx);
 		if (opt == -1) {
+			switch (state) {
+			case PARSING_GLOBAL_CONF:
+			case PARSING_USER_CONF:
+				if (optind < _argc) {
+					pr_err("Unknown config parameter: %s\n", _argv[optind]);
+					return -1;
+				}
+				break;
+			}
 			if (state < PARSING_ARGV) {
 				state++;
 				optind = 0;
