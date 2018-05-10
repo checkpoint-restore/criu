@@ -125,6 +125,8 @@ static __inline__ int atomic_sub_return(int a, atomic_t *v)
 	return t;
 }
 
+/* true if the result is 0, or false for all other cases. */
+#define atomic_dec_and_test(v) (atomic_sub_return(1, v) == 0)
 #define atomic_dec_return(v)  (atomic_sub_return(1, v))
 
 #define atomic_cmpxchg(v, o, n) (cmpxchg(&((v)->counter), (o), (n)))
