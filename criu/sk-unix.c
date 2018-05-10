@@ -879,32 +879,32 @@ err:
 }
 
 struct unix_sk_info {
-	UnixSkEntry *ue;
-	struct list_head list;
-	char *name;
-	char *name_dir;
-	unsigned flags;
-	struct unix_sk_info *peer;
-	struct pprep_head peer_resolve; /* XXX : union with the above? */
-	struct file_desc d;
-	struct list_head connected; /* List of sockets, connected to me */
-	struct list_head node; /* To link in peer's connected list  */
-	struct list_head scm_fles;
+	UnixSkEntry		*ue;
+	struct list_head	list;
+	char			*name;
+	char			*name_dir;
+	unsigned		flags;
+	struct unix_sk_info	*peer;
+	struct pprep_head	peer_resolve; /* XXX : union with the above? */
+	struct file_desc	d;
+	struct list_head	connected; /* List of sockets, connected to me */
+	struct list_head	node; /* To link in peer's connected list  */
+	struct list_head	scm_fles;
 
 	/*
 	 * For DGRAM sockets with queues, we should only restore the queue
 	 * once although it may be open by more than one tid. This is the peer
 	 * that should do the queueing.
 	 */
-	struct unix_sk_info *queuer;
+	struct unix_sk_info	*queuer;
 	/*
 	 * These bits are set by task-owner of this unix_sk_info.
 	 * Another tasks can only read them.
 	 */
-	u8 bound:1;
-	u8 listen:1;
-	u8 is_connected:1;
-	u8 peer_queue_restored:1; /* Set in 1 after we restore peer's queue */
+	uint8_t			bound:1;
+	uint8_t			listen:1;
+	uint8_t			is_connected:1;
+	uint8_t			peer_queue_restored:1; /* Set in 1 after we restore peer's queue */
 };
 
 struct scm_fle {
