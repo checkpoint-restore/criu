@@ -61,15 +61,15 @@
 #define SIGEV_THREAD_ID 4       /* deliver to thread */
 #endif
 
+#define BUF_SIZE	4096	/* Good enough value - can be changed */
+
 struct buffer {
-	char buf[PAGE_SIZE];
+	char buf[BUF_SIZE];
 	char end; /* '\0' */
 };
 
 static struct buffer __buf;
 static char *buf = __buf.buf;
-
-#define BUF_SIZE sizeof(__buf.buf)
 
 /*
  * This is how AIO ring buffers look like in proc
