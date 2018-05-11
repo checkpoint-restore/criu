@@ -2664,7 +2664,7 @@ int collect_net_namespaces(bool for_dump)
 
 struct ns_desc net_ns_desc = NS_DESC_ENTRY(CLONE_NEWNET, "net");
 
-static struct ns_id *get_root_netns()
+struct ns_id *net_get_root_ns()
 {
 	static struct ns_id *root_netns = NULL;
 
@@ -2693,7 +2693,7 @@ struct ns_id *get_socket_ns(int lfd)
 	if (ns_fd < 0) {
 		/* backward compatiblity with old kernels */
 		if (netns_nr == 1)
-			return get_root_netns();
+			return net_get_root_ns();
 
 		pr_perror("Unable to get a socket net namespace");
 		return NULL;

@@ -762,7 +762,14 @@ int set_netns(uint32_t ns_id)
 	if (ns_id == last_ns_id)
 		return 0;
 
-	ns = lookup_ns_by_id(ns_id, &net_ns_desc);
+	/*
+	 * The 0 ns_id means that it was not set. We need
+	 * this to be compatible with old images.
+	 */
+	if (ns_id == 0)
+		ns = net_get_root_ns();
+	else
+		ns = lookup_ns_by_id(ns_id, &net_ns_desc);
 	if (ns == NULL) {
 		pr_err("Unable to find a network namespace\n");
 		return -1;

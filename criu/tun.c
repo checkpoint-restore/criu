@@ -369,7 +369,7 @@ static int tunfile_open(struct file_desc *d, int *new_fd)
 	if (fd < 0)
 		return -1;
 
-	ns_id = ti->tfe->has_ns_id ? ti->tfe->ns_id : top_net_ns->id;
+	ns_id = ti->tfe->ns_id;
 	if (set_netns(ns_id))
 		return -1;
 
