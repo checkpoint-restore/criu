@@ -29,11 +29,26 @@ int main(int argc, char *argv[])
 	char *path;
 	pid_t pid;
 	int ret, sk;
+	char *val;
+
+	unsetenv("ZDTM_GROUPS");
+	val = getenv("ZDTM_GID");
+	if (val && (setgid(atoi(val)) == -1)) {
+		fprintf(stderr, "Can't set gid: %m");
+		exit(1);
+	}
+
+	val = getenv("ZDTM_UID");
+	if (val && (setuid(atoi(val)) == -1)) {
+		fprintf(stderr, "Can't set uid: %m");
+		exit(1);
+	}
 
 	if (mkdtemp(dir) < 0) {
 		pr_perror("mkdtemp(%s) failed", dir);
 		return 1;
 	}
+	chmod(dir, 0777);
 	addr.sun_family = AF_UNIX;
 	snprintf(addr.sun_path, sizeof(addr.sun_path),
 			"%s/%s", dir, "sock");
@@ -92,8 +107,14 @@ int main(int argc, char *argv[])
 	test_daemon();
 	test_waitsig();
 
-	unlink(path);
-	unlink(dir);
+	if (unlink(path)) {
+		pr_perror("Unable to remove %s\n", path);
+		return 1;
+	}
+	if (rmdir(dir)) {
+		pr_perror("Unable to remove %s", dir);
+		return 1;
+	}
 
 	ret = send(sk, "H", 1, 0);
 	if (ret != 1) {
