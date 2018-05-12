@@ -384,15 +384,27 @@ static int tmpfs_dump(struct mount_info *pm)
 	int ret = -1, fd = -1, userns_pid = -1;
 	char tmpfs_path[PSFDS];
 	struct cr_img *img;
+	int tmp_fds[3], ntmp_fds = 0, i;
 
 	fd = open_mountpoint(pm);
 	if (fd < 0)
 		return MNT_UNREACHABLE;
 
-	/* if fd happens to be 0 here, we need to move it to something
-	 * non-zero, because cr_system_userns closes STDIN_FILENO as we are not
-	 * interested in passing stdin to tar.
+	/*
+	 * fd should not be one of standard descriptors, because
+	 * cr_system_userns will override them.
 	 */
+	for (i = 0; i < 3; i++) {
+		if (fd > 2)
+			break;
+		tmp_fds[ntmp_fds++] = fd;
+		fd = dup(fd);
+		if (fd < 0) {
+			pr_perror("Unable to duplicate a file descriptor");
+			goto out;
+		}
+	}
+
 	if (move_fd_from(&fd, STDIN_FILENO) < 0)
 		goto out;
 
@@ -427,6 +439,8 @@ static int tmpfs_dump(struct mount_info *pm)
 
 	close_image(img);
 out:
+	for (i = 0; i < ntmp_fds; i++)
+		close(tmp_fds[i]);
 	close_safe(&fd);
 	return ret;
 }
