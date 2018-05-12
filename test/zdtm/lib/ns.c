@@ -98,6 +98,11 @@ static int prepare_mntns(void)
 		return -1;
 	}
 
+	if (mount("zdtm_run", "/run", "tmpfs", 0, NULL)) {
+		fprintf(stderr, "Unable to mount /run: %m\n");
+		return -1;
+	}
+
 	if (umount2("./old", MNT_DETACH)) {
 		fprintf(stderr, "umount(./old) failed: %m\n");
 		return -1;
