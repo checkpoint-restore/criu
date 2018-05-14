@@ -108,6 +108,7 @@ int64_t write_remote_header(int fd, char *snapshot_id, char *path, int open_mode
 int setup_TCP_server_socket(int port);
 int setup_TCP_client_socket(char *hostname, int port);
 int setup_UNIX_server_socket(char *path);
+void socket_set_non_blocking(int fd);
 
 /* Called by restore to get the fd correspondent to a particular path.  This call
  * will block until the connection is received.
