@@ -472,8 +472,6 @@ static struct rimage *new_remote_image(char *path, char *snapshot_id)
 	buf->nbytes = 0;
 	INIT_LIST_HEAD(&(rimg->buf_head));
 	list_add_tail(&(buf->l), &(rimg->buf_head));
-	rimg->curr_sent_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
-	rimg->curr_sent_bytes = 0;
 
 	if (pthread_mutex_init(&(rimg->in_use), NULL) != 0) {
 		pr_err("Remote image in_use mutex init failed\n");
@@ -500,8 +498,6 @@ static struct rimage *clear_remote_image(struct rimage *rimg)
 
 	list_entry(rimg->buf_head.next, struct rbuf, l)->nbytes = 0;
 	rimg->size = 0;
-	rimg->curr_sent_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
-	rimg->curr_sent_bytes = 0;
 
 	pthread_mutex_unlock(&(rimg->in_use));
 
@@ -671,18 +667,43 @@ err:
 	return NULL;
 }
 
+
+int64_t recv_image(int fd, struct rimage *rimg, uint64_t size, int flags, bool close_fd)
+{
+	int ret;
+	struct roperation *op = malloc(sizeof(struct roperation));
+	bzero(op, sizeof(struct roperation));
+	op->fd = fd;
+	op->rimg = rimg;
+	op->size = size;
+	op->flags = flags;
+	op->close_fd = close_fd;
+	op->curr_recv_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
+	while ((ret = recv_image_async(op)) < 0)
+		if (ret != EAGAIN && ret != EWOULDBLOCK)
+			return -1;
+	return ret;
+}
+
 /* Note: size is a limit on how much we want to read from the socket.  Zero means
  * read until the socket is closed.
  */
-int64_t recv_image(int fd, struct rimage *rimg, uint64_t size, int flags, bool close_fd)
+int64_t recv_image_async(struct roperation *op)
 {
-	struct rbuf *curr_buf = NULL;
+	int fd = op->fd;
+	struct rimage *rimg = op->rimg;
+	uint64_t size = op->size;
+	int flags = op->flags;
+	bool close_fd = op->close_fd;
+	struct rbuf *curr_buf = op->curr_recv_buf;
 	int n;
 
-	if (flags == O_APPEND)
-		curr_buf = list_entry(rimg->buf_head.prev, struct rbuf, l);
-	else
-		curr_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
+	if (curr_buf == NULL) {
+		if (flags == O_APPEND)
+			curr_buf = list_entry(rimg->buf_head.prev, struct rbuf, l);
+		else
+			curr_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
+	}
 
 	while (1) {
 		n = read(fd,
@@ -714,6 +735,8 @@ int64_t recv_image(int fd, struct rimage *rimg, uint64_t size, int flags, bool c
 					close(fd);
 				return rimg->size;
 			}
+		} else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			return errno;
 		} else {
 			pr_perror("Read on %s:%s socket failed",
 				rimg->path, rimg->snapshot_id);
@@ -726,37 +749,59 @@ int64_t recv_image(int fd, struct rimage *rimg, uint64_t size, int flags, bool c
 
 int64_t send_image(int fd, struct rimage *rimg, int flags, bool close_fd)
 {
+	int ret;
+	struct roperation *op = malloc(sizeof(struct roperation));
+	bzero(op, sizeof(struct roperation));
+	op->fd = fd;
+	op->rimg = rimg;
+	op->flags = flags;
+	op->close_fd = close_fd;
+	op->curr_sent_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
+	while ((ret = send_image_async(op)) < 0)
+		if (ret != EAGAIN && ret != EWOULDBLOCK)
+			return -1;
+	return ret;
+}
 
-	int n, nblocks = 0;
+int64_t send_image_async(struct roperation *op)
+{
+	int fd = op->fd;
+	struct rimage *rimg = op->rimg;
+	int flags = op->flags;
+	bool close_fd = op->close_fd;
+	int n;
 
 	if (flags != O_APPEND) {
-		rimg->curr_sent_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
-		rimg->curr_sent_bytes = 0;
+		op->curr_sent_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
+		op->curr_sent_bytes = 0;
 	}
 
 	while (1) {
 		n = send(
 		    fd,
-		    rimg->curr_sent_buf->buffer + rimg->curr_sent_bytes,
-		    min(BUF_SIZE, rimg->curr_sent_buf->nbytes) - rimg->curr_sent_bytes,
+		    op->curr_sent_buf->buffer + op->curr_sent_bytes,
+		    min(BUF_SIZE, op->curr_sent_buf->nbytes) - op->curr_sent_bytes,
 		    MSG_NOSIGNAL);
 		if (n > -1) {
-			rimg->curr_sent_bytes += n;
-			if (rimg->curr_sent_bytes == BUF_SIZE) {
-				rimg->curr_sent_buf =
-				    list_entry(rimg->curr_sent_buf->l.next, struct rbuf, l);
-				nblocks++;
-				rimg->curr_sent_bytes = 0;
-			} else if (rimg->curr_sent_bytes == rimg->curr_sent_buf->nbytes) {
+			op->curr_sent_bytes += n;
+			if (op->curr_sent_bytes == BUF_SIZE) {
+				op->curr_sent_buf =
+				    list_entry(op->curr_sent_buf->l.next, struct rbuf, l);
+				op->nblocks++;
+				op->curr_sent_bytes = 0;
+			} else if (op->curr_sent_bytes == op->curr_sent_buf->nbytes) {
 				if (close_fd)
 					close(fd);
-				return nblocks*BUF_SIZE + rimg->curr_sent_buf->nbytes;
+				return op->nblocks*BUF_SIZE + op->curr_sent_buf->nbytes;
 			}
 		} else if (errno == EPIPE || errno == ECONNRESET) {
 			pr_warn("Connection for %s:%s was closed early than expected\n",
 				rimg->path, rimg->snapshot_id);
 			return 0;
-		} else {
+		} else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			return errno;
+		}
+		else {
 			pr_perror("Write on %s:%s socket failed",
 				rimg->path, rimg->snapshot_id);
 			return -1;
