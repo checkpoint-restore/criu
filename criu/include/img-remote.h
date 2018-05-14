@@ -32,32 +32,31 @@ struct rbuf {
 };
 
 struct rimage {
+  /* Path and snapshot id identify the image. */
 	char path[PATHLEN];
 	char snapshot_id[PATHLEN];
+	/* List anchor. */
 	struct list_head l;
+	/* List of buffers that compose the image. */
 	struct list_head buf_head;
-	uint64_t size; /* number of bytes */
-	pthread_mutex_t in_use; /* Only one operation at a time, per image. */
-};
-
-struct wthread {
-	pthread_t tid;
-	struct list_head l;
-	/* Client fd. */
-	int fd;
-	/* The path and snapshot_id identify the request handled by this thread. */
-	char path[PATHLEN];
-	char snapshot_id[PATHLEN];
-	int flags;
-	/* This semph is used to wake this thread if the image is in memory.*/
-	sem_t wakeup_sem;
+	/* Number of bytes. */
+	uint64_t size;
+	/* Note: forward (send) operation only. Buffer to start forwarding. */
+	struct rbuf *curr_fwd_buf;
+	/* Note: forward (send) operation only. Number of fwd bytes in 'curr_fw_buf'. */
+	uint64_t curr_fwd_bytes;
 };
 
 /* Structure that describes the state of a remote operation on remote images. */
 struct roperation {
+	/* List anchor. */
+	struct list_head l;
 	/* File descriptor being used. */
 	int fd;
-	/* Remote image being used. */
+  /* Path and snapshot id identify the required image. */
+  char path[PATHLEN];
+	char snapshot_id[PATHLEN];
+	/* Remote image being used (may be null if the operation is pending). */
 	struct rimage *rimg;
 	/* Flags for the operation. */
 	int flags;
@@ -66,37 +65,23 @@ struct roperation {
 	/* Note: recv operation only. How much bytes should be received. */
 	uint64_t size;
 	/* Note: recv operation only. Buffer being writen. */
-	struct rbuf *curr_recv_buf;
-	/* Note: send operation only. Number of blocks already sent. */
-	int nblocks;
+	struct rbuf *curr_recv_buf; // TODO - needed? Could be replaced by list.last!
 	/* Note: send operation only. Pointer to buffer being sent. */
 	struct rbuf *curr_sent_buf;
 	/* Note: send operation only. Number of bytes sent in 'curr_send_buf. */
 	uint64_t curr_sent_bytes;
 };
 
-/* This variable is used to indicate when the dump is finished. */
-extern bool finished;
 /* This is the proxy to cache TCP socket FD. */
 extern int proxy_to_cache_fd;
 /* This the unix socket used to fulfill local requests. */
 extern int local_req_fd;
+/* True if we are running the cache/restore, false if proxy/dump. */
+extern bool restoring;
 
-int init_daemon(bool background, struct rimage *(*wfi)(struct wthread*));
-
-void join_workers(void);
-void unlock_workers(void);
-
-void prepare_recv_rimg(void);
-void finalize_recv_rimg(struct rimage *rimg);
-struct rimage *prepare_remote_image(char *path, char *namesapce, int flags);
+void accept_image_connections();
 struct rimage *get_rimg_by_name(const char *snapshot_id, const char *path);
-bool is_receiving(void);
 
-void *accept_local_image_connections(void *ptr);
-void *accept_remote_image_connections(void *ptr);
-
-int64_t forward_image(struct rimage *rimg);
 int64_t send_image(int fd, struct rimage *rimg, int flags, bool image_check);
 int64_t send_image_async(struct roperation *op);
 int64_t recv_image(int fd, struct rimage *rimg, uint64_t size, int flags, bool image_check);
