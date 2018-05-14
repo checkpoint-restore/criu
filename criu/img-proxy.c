@@ -12,7 +12,7 @@ int image_proxy(bool background, char *local_proxy_path, char *fwd_host, unsigne
 {
 	pr_info("CRIU to Proxy Path: %s, Cache Address %s:%hu\n",
 		local_proxy_path, fwd_host, fwd_port);
-    restoring = false;
+	restoring = false;
 
 	local_req_fd = setup_UNIX_server_socket(local_proxy_path);
 	if (local_req_fd < 0) {
@@ -31,17 +31,17 @@ int image_proxy(bool background, char *local_proxy_path, char *fwd_host, unsigne
 		}
 	}
 
-    pr_info("Proxy is connected to Cache through fd %d\n", proxy_to_cache_fd);
+	pr_info("Proxy is connected to Cache through fd %d\n", proxy_to_cache_fd);
 
-    if (background) {
+	if (background) {
 		if (daemon(1, 0) == -1) {
 			pr_perror("Can't run service server in the background");
 			return -1;
 		}
 	}
 
-    // TODO - local_req_fd and proxy_to_cache_fd send as args.
-    accept_image_connections();
+	// TODO - local_req_fd and proxy_to_cache_fd send as args.
+	accept_image_connections();
 	pr_info("Finished image proxy.");
 	return 0;
 }

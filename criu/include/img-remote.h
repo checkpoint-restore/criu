@@ -32,7 +32,7 @@ struct rbuf {
 };
 
 struct rimage {
-  /* Path and snapshot id identify the image. */
+	/* Path and snapshot id identify the image. */
 	char path[PATHLEN];
 	char snapshot_id[PATHLEN];
 	/* List anchor. */
@@ -53,8 +53,8 @@ struct roperation {
 	struct list_head l;
 	/* File descriptor being used. */
 	int fd;
-  /* Path and snapshot id identify the required image. */
-  char path[PATHLEN];
+	/* Path and snapshot id identify the required image. */
+	char path[PATHLEN];
 	char snapshot_id[PATHLEN];
 	/* Remote image being used (may be null if the operation is pending). */
 	struct rimage *rimg;
