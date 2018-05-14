@@ -36,10 +36,6 @@ struct rimage {
 	char snapshot_id[PATHLEN];
 	struct list_head l;
 	struct list_head buf_head;
-	/* Used to track already sent buffers when the image is appended. */
-	struct rbuf *curr_sent_buf;
-	/* Similar to the previous field. Number of bytes sent in 'curr_sent_buf'. */
-	int curr_sent_bytes;
 	uint64_t size; /* number of bytes */
 	pthread_mutex_t in_use; /* Only one operation at a time, per image. */
 };
@@ -55,6 +51,28 @@ struct wthread {
 	int flags;
 	/* This semph is used to wake this thread if the image is in memory.*/
 	sem_t wakeup_sem;
+};
+
+/* Structure that describes the state of a remote operation on remote images. */
+struct roperation {
+	/* File descriptor being used. */
+	int fd;
+	/* Remote image being used. */
+	struct rimage *rimg;
+	/* Flags for the operation. */
+	int flags;
+	/* If fd should be closed when the operation is done. */
+	bool close_fd;
+	/* Note: recv operation only. How much bytes should be received. */
+	uint64_t size;
+	/* Note: recv operation only. Buffer being writen. */
+	struct rbuf *curr_recv_buf;
+	/* Note: send operation only. Number of blocks already sent. */
+	int nblocks;
+	/* Note: send operation only. Pointer to buffer being sent. */
+	struct rbuf *curr_sent_buf;
+	/* Note: send operation only. Number of bytes sent in 'curr_send_buf. */
+	uint64_t curr_sent_bytes;
 };
 
 /* This variable is used to indicate when the dump is finished. */
@@ -80,7 +98,9 @@ void *accept_remote_image_connections(void *ptr);
 
 int64_t forward_image(struct rimage *rimg);
 int64_t send_image(int fd, struct rimage *rimg, int flags, bool image_check);
+int64_t send_image_async(struct roperation *op);
 int64_t recv_image(int fd, struct rimage *rimg, uint64_t size, int flags, bool image_check);
+int64_t recv_image_async(struct roperation *op);
 
 int64_t read_remote_header(int fd, char *snapshot_id, char *path, int *open_mode, uint64_t *size);
 int64_t write_remote_header(int fd, char *snapshot_id, char *path, int open_mode, uint64_t size);
