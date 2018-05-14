@@ -125,6 +125,8 @@ int image_cache(bool background, char *local_cache_path, unsigned short cache_wr
 		return -1;
 	}
 
+	socket_set_non_blocking(local_req_fd);
+
 	if (init_daemon(background, wait_for_image)) {
 		pr_perror("Unable to initialize daemon");
 		return -1;
