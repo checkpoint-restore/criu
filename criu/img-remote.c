@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/epoll.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include "xmalloc.h"
@@ -24,6 +25,7 @@
 #include "image.h"
 
 #define PB_LOCAL_IMAGE_SIZE PATHLEN
+#define EPOLL_MAX_EVENTS 50
 
 static char *snapshot_id;
 bool restoring = true;
@@ -236,6 +238,8 @@ err:
 	return -1;
 }
 
+
+
 int setup_TCP_client_socket(char *hostname, int port)
 {
 	int sockfd;
@@ -272,10 +276,33 @@ err:
 	return -1;
 }
 
+int event_set(int epoll_fd, int op, int fd, uint32_t events, void *data)
+{
+	struct epoll_event event;
+	event.events = events;
+	event.data.ptr = data;
+	// TODO - check if this is okay to send a stack allocated object!
+	return epoll_ctl(epoll_fd, op, fd, &event);
+}
+
+void socket_set_non_blocking(int fd)
+{
+	int flags = fcntl(fd, F_GETFL, NULL);
+
+	if (flags < 0) {
+		pr_perror("Failed to obtain flags from fd %d", fd);
+		return;
+        }
+	flags |= O_NONBLOCK;
+
+	if (fcntl(fd, F_SETFL, flags) < 0)
+		pr_perror("Failed to set flags for fd %d", fd);
+}
+
 int setup_UNIX_server_socket(char *path)
 {
 	struct sockaddr_un addr;
-	int sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+	int sockfd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
 	if (sockfd < 0) {
 		pr_perror("Unable to open image socket");
@@ -611,59 +638,111 @@ static void *process_local_image_connection(void *ptr)
 	return NULL;
 }
 
+void handle_local_accept(int fd)
+{
+	struct wthread *wt = NULL;
+	int cli_fd;
+	pthread_t tid;
+	struct sockaddr_in cli_addr;
+	socklen_t clilen = sizeof(cli_addr);
+
+	cli_fd = accept(fd, (struct sockaddr *) &cli_addr, &clilen);
+	if (cli_fd < 0) {
+		pr_perror("Unable to accept local image connection");
+		goto err;
+	}
+
+	wt = new_worker();
+	wt->fd = cli_fd;
+
+	if (read_header(wt->fd, wt->snapshot_id, wt->path, &(wt->flags)) < 0) {
+		pr_err("Error reading local image header\n");
+		goto err;
+	}
+
+	/* These function calls are used to avoid other threads from
+	 * thinking that there are no more images are coming.
+	 */
+	if (wt->flags != O_RDONLY) {
+		prepare_recv_rimg();
+		prepare_fwd_rimg();
+	}
+
+	pr_info("Received %s request for %s:%s\n",
+			wt->flags == O_RDONLY ? "read" :
+			wt->flags == O_APPEND ? "append" : "write",
+			wt->path, wt->snapshot_id);
+
+
+	if (pthread_create(
+		    &tid, NULL, process_local_image_connection, (void *) wt)) {
+		pr_perror("Unable to create worker thread");
+		goto err;
+	}
+	wt->tid = tid;
+	add_worker(wt);
+	return;
+err:
+	close(cli_fd);
+	free(wt);
+}
+
 
 void *accept_local_image_connections(void *port)
 {
 	int fd = *((int *) port);
-	int cli_fd;
-	struct sockaddr_in cli_addr;
+	int epoll_fd;
+	struct epoll_event *events;
+	int ret;
 
-	socklen_t clilen = sizeof(cli_addr);
-	pthread_t tid;
-	struct wthread *wt;
+	epoll_fd = epoll_create(EPOLL_MAX_EVENTS);
+	if (epoll_fd < 0) {
+		pr_perror("Unable to open epoll");
+		return NULL;
+	}
+
+	events = calloc(EPOLL_MAX_EVENTS, sizeof(struct epoll_event));
+	if (events == NULL) {
+		pr_perror("Failed to allocated epoll events");
+		goto end;
+	}
+
+	ret = event_set(epoll_fd, EPOLL_CTL_ADD, fd, EPOLLIN, &fd);
+	if (ret) {
+		pr_perror("Failed to set event for epoll");
+		goto end;
+	}
 
 	while (1) {
-		cli_fd = accept(fd, (struct sockaddr *) &cli_addr, &clilen);
-		if (cli_fd < 0) {
-			if (!finished)
-				pr_perror("Unable to accept local image connection");
-			close(cli_fd);
-			return NULL;
+		int n_events = epoll_wait(epoll_fd, events, EPOLL_MAX_EVENTS, -1);
+		if (n_events < 0) {
+			pr_perror("Failed to epoll wait");
+			goto end;
 		}
 
-		wt = new_worker();
-		wt->fd = cli_fd;
-
-		if (read_header(wt->fd, wt->snapshot_id, wt->path, &(wt->flags)) < 0) {
-			pr_err("Error reading local image header\n");
-			goto err;
+		for (int i = 0; i < n_events; i++) {
+			if (events[i].data.ptr == &fd) {
+				if ( events[i].events & EPOLLHUP ||
+				     events[i].events & EPOLLERR) {
+					if (!finished)
+						pr_perror("Unable to accept more local image connections");
+					goto end;
+				}
+				// accept
+				pr_perror("Calling accept %d", i);
+				handle_local_accept(fd);
+			}
+			else {
+				// TODO - handle write/read
+				pr_perror("Event on unexpected file descripor");
+				goto end;
+			}
 		}
-
-		pr_info("Received %s request for %s:%s\n",
-		    wt->flags == O_RDONLY ? "read" :
-			wt->flags == O_APPEND ? "append" : "write",
-		    wt->path, wt->snapshot_id);
-
-		/* These function calls are used to avoid other threads from
-		 * thinking that there are no more images are coming.
-		 */
-		if (wt->flags != O_RDONLY) {
-			prepare_recv_rimg();
-			prepare_fwd_rimg();
-		}
-
-		if (pthread_create(
-		    &tid, NULL, process_local_image_connection, (void *) wt)) {
-			pr_perror("Unable to create worker thread");
-			goto err;
-		}
-
-		wt->tid = tid;
-		add_worker(wt);
 	}
-err:
-	close(cli_fd);
-	free(wt);
+end:
+	close(epoll_fd);
+	close(fd);
+	free(events);
 	return NULL;
 }
 
@@ -682,6 +761,7 @@ int64_t recv_image(int fd, struct rimage *rimg, uint64_t size, int flags, bool c
 	while ((ret = recv_image_async(op)) < 0)
 		if (ret != EAGAIN && ret != EWOULDBLOCK)
 			return -1;
+	free(op);
 	return ret;
 }
 
