@@ -60,6 +60,8 @@ int image_proxy(bool background, char *local_proxy_path, char *fwd_host, unsigne
 		return -1;
 	}
 
+	socket_set_non_blocking(local_req_fd);
+
 	if (opts.ps_socket != -1) {
 		proxy_to_cache_fd = opts.ps_socket;
 		pr_info("Re-using ps socket %d\n", proxy_to_cache_fd);
