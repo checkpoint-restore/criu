@@ -273,7 +273,7 @@ enum {
 	 * almost ready and what's left is:
 	 *   pick up zombies and helpers
 	 *   restore sigchild handlers used to detect restore errors
-	 *   restore credentials
+	 *   restore credentials, seccomp, dumpable and pdeath_sig
 	 */
 	CR_STATE_RESTORE,
 	/*
@@ -288,6 +288,8 @@ enum {
 	 * credentials are restored. Otherwise someone can attach to a
 	 * process, which are not restored credentials yet and execute
 	 * some code.
+	 * Seccomp needs to be restored after creds.
+	 * Dumpable and pdeath signal are restored after seccomp.
 	 */
 	CR_STATE_RESTORE_CREDS,
 	CR_STATE_COMPLETE
