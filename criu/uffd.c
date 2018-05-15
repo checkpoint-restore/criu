@@ -150,7 +150,7 @@ static void lpi_fini(struct lazy_pages_info *lpi)
 {
 	if (!lpi)
 		return;
-	free(lpi->buf);
+	xfree(lpi->buf);
 	free_iovs(lpi);
 	if (lpi->lpfd.fd > 0)
 		close(lpi->lpfd.fd);
@@ -158,7 +158,7 @@ static void lpi_fini(struct lazy_pages_info *lpi)
 		lpi->parent->num_children--;
 	if (!lpi->parent && !lpi->num_children && lpi->pr.close)
 		lpi->pr.close(&lpi->pr);
-	free(lpi);
+	xfree(lpi);
 }
 
 static int prepare_sock_addr(struct sockaddr_un *saddr)
