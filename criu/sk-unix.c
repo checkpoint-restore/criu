@@ -216,7 +216,7 @@ int kerndat_socket_unix_file(void)
 		return 0;
 	}
 	close(sk);
-	close(fd);
+	close_safe(&fd);
 
 	kdat.sk_unix_file = true;
 
