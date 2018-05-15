@@ -85,7 +85,7 @@ struct lazy_pages_info {
 	struct list_head reqs;
 
 	struct lazy_pages_info *parent;
-	unsigned num_children;
+	unsigned ref_cnt;
 
 	struct page_read pr;
 
@@ -127,6 +127,7 @@ static struct lazy_pages_info *lpi_init(void)
 	INIT_LIST_HEAD(&lpi->l);
 	lpi->lpfd.read_event = handle_uffd_event;
 	lpi->xfer_len = DEFAULT_XFER_LEN;
+	lpi->ref_cnt = 1;
 
 	return lpi;
 }
@@ -146,6 +147,20 @@ static void free_iovs(struct lazy_pages_info *lpi)
 	}
 }
 
+static void lpi_fini(struct lazy_pages_info *lpi);
+
+static inline void lpi_put(struct lazy_pages_info *lpi)
+{
+	lpi->ref_cnt--;
+	if (!lpi->ref_cnt)
+		lpi_fini(lpi);
+}
+
+static inline void lpi_get(struct lazy_pages_info *lpi)
+{
+	lpi->ref_cnt++;
+}
+
 static void lpi_fini(struct lazy_pages_info *lpi)
 {
 	if (!lpi)
@@ -155,11 +170,12 @@ static void lpi_fini(struct lazy_pages_info *lpi)
 	if (lpi->lpfd.fd > 0)
 		close(lpi->lpfd.fd);
 	if (lpi->parent)
-		lpi->parent->num_children--;
-	if (!lpi->parent && !lpi->num_children && lpi->pr.close)
+		lpi_put(lpi->parent);
+	if (!lpi->parent && lpi->pr.close)
 		lpi->pr.close(&lpi->pr);
 	xfree(lpi);
 }
+
 
 static int prepare_sock_addr(struct sockaddr_un *saddr)
 {
@@ -1077,7 +1093,7 @@ static int handle_fork(struct lazy_pages_info *parent_lpi, struct uffd_msg *msg)
 
 	dup_page_read(&lpi->parent->pr, &lpi->pr);
 
-	lpi->parent->num_children++;
+	lpi_get(lpi->parent);
 
 	return 1;
 
@@ -1251,7 +1267,7 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 			if (list_empty(&lpi->reqs)) {
 				lazy_pages_summary(lpi);
 				list_del(&lpi->l);
-				lpi_fini(lpi);
+				lpi_put(lpi);
 			}
 		}
 
