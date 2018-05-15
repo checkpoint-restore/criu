@@ -69,8 +69,9 @@ static void sbuf_log_init(struct simple_buf *b)
 		n = std_vprint_num(pbuf, sizeof(pbuf), (unsigned)now.tv_usec, &s);
 		pad_num(&s, &n, 6);
 		memcpy(b->bp, s, n);
-		b->bp[n] = ')';
-		b->bp += n + 1;
+		b->bp[n++] = ')';
+		b->bp[n++] = ' ';
+		b->bp += n;
 	}
 
 	n = std_vprint_num(pbuf, sizeof(pbuf), sys_gettid(), &s);
