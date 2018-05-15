@@ -789,7 +789,7 @@ static int handle_exit(struct lazy_pages_info *lpi)
 		return -1;
 	free_iovs(lpi);
 	close(lpi->lpfd.fd);
-	lpi->lpfd.fd = 0;
+	lpi->lpfd.fd = -lpi->lpfd.fd;
 	lpi->exited = true;
 
 	/* keep it for tracking in-flight requests and for the summary */
