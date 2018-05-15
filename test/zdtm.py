@@ -214,16 +214,19 @@ class ns_flavor:
 				rdev = os.stat(name).st_rdev
 
 		name = self.root + name
-		os.mknod(name, stat.S_IFCHR, rdev)
-		os.chmod(name, 0666)
+		if not os.access(name, os.F_OK):
+			os.mknod(name, stat.S_IFCHR, rdev)
+			os.chmod(name, 0666)
 
 	def __construct_root(self):
 		for dir in self.__root_dirs:
-			os.mkdir(self.root + dir)
-			os.chmod(self.root + dir, 0777)
+			if not os.access(self.root + dir, os.F_OK):
+				os.mkdir(self.root + dir)
+				os.chmod(self.root + dir, 0777)
 
 		for ldir in ["/bin", "/sbin", "/lib", "/lib64"]:
-			os.symlink(".." + ldir, self.root + "/usr" + ldir)
+			if not os.access(self.root + "/usr" + ldir, os.F_OK):
+				os.symlink(".." + ldir, self.root + "/usr" + ldir)
 
 		self.__mknod("tty", os.makedev(5, 0))
 		self.__mknod("null", os.makedev(1, 3))
