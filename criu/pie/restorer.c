@@ -1602,6 +1602,8 @@ long __export_restore_task(struct task_restore_args *args)
 
 		for (i = 0; i < args->nr_threads; i++) {
 			char last_pid_buf[16], *s;
+			pid_t pid = 0;
+
 			/* skip self */
 			if (thread_args[i].pid[0] == args->t->pid[0]) {
 				self_thread = i;
@@ -1610,7 +1612,8 @@ long __export_restore_task(struct task_restore_args *args)
 
 			if (fd >= 0) {
 				/* One level pid ns hierarhy */
-				last_pid_len = std_vprint_num(last_pid_buf, sizeof(last_pid_buf), thread_args[i].pid[0] - 1, &s);
+				pid = thread_args[i].pid[0];
+				last_pid_len = std_vprint_num(last_pid_buf, sizeof(last_pid_buf), pid - 1, &s);
 				sys_lseek(fd, 0, SEEK_SET);
 				ret = sys_write(fd, s, last_pid_len);
 				if (ret < 0) {
@@ -1623,7 +1626,8 @@ long __export_restore_task(struct task_restore_args *args)
 				for (k = 0; k < MAX_NS_NESTING; k++) {
 					if (thread_args[i].pid[k] == 0)
 						break;
-					if (request_set_next_pid(args->pid_ns_id[k], thread_args[i].pid[k], args->transport_fd) < 0) {
+					pid = thread_args[i].pid[k];
+					if (request_set_next_pid(args->pid_ns_id[k], pid, args->transport_fd) < 0) {
 						pr_err("Can't request to set pid\n");
 						mutex_unlock(&task_entries_local->last_pid_mutex);
 						goto core_restore_end;
@@ -1640,6 +1644,10 @@ long __export_restore_task(struct task_restore_args *args)
 			 */
 
 			RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid, thread_args, args->clone_restore_fn);
+			if (ret != pid) {
+				pr_err("Unable to create a thread: %ld", ret);
+				goto core_restore_end;
+			}
 		}
 
 		mutex_unlock(&task_entries_local->last_pid_mutex);
