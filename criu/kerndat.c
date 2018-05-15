@@ -973,6 +973,9 @@ int kerndat_init(void)
 	if (ret <= 0)
 		return ret;
 
+	/* kerndat_try_load_cache can leave some trash in kdat */
+	memset(&kdat, 0, sizeof(kdat));
+
 	preload_socket_modules();
 	preload_netfilter_modules();
 
