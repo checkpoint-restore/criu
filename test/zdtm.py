@@ -1728,6 +1728,7 @@ def grep_errors(fname):
 		else:
 			if print_next:
 				print_next = print_error(l)
+				before = []
 	if not first:
 		print_sep("ERROR OVER", "-", 60)
 
