@@ -602,7 +602,7 @@ struct roperation* handle_accept_cache_read(
 
 void forward_remote_image(struct roperation* rop)
 {
-	uint64_t ret = 0;
+	int64_t ret = 0;
 
 	// Set blocking during the setup.
 	socket_set_blocking(rop->fd);
@@ -616,7 +616,7 @@ void forward_remote_image(struct roperation* rop)
 		return;
 	}
 
-	pr_info("[fd=%d] Fowarding %s request for %s:%s (%lu bytes\n",
+	pr_info("[fd=%d] Fowarding %s request for %s:%s (%" PRIu64 " bytes\n",
 		rop->fd,
 		rop->flags == O_RDONLY ? "read" :
 			rop->flags == O_APPEND ? "append" : "write",
@@ -636,7 +636,7 @@ void handle_remote_accept(int fd)
 	char snapshot_id[PATHLEN];
 	int flags;
 	uint64_t size = 0;
-	uint64_t ret;
+	int64_t ret;
 	struct roperation* rop = NULL;
 
 	// Set blocking during the setup.
@@ -657,7 +657,7 @@ void handle_remote_accept(int fd)
 	// Go back to non-blocking
 	socket_set_non_blocking(fd);
 
-	pr_info("[fd=%d] Received %s request for %s:%s with %lu bytes\n",
+	pr_info("[fd=%d] Received %s request for %s:%s with %" PRIu64 " bytes\n",
 		fd,
 		flags == O_RDONLY ? "read" :
 			flags == O_APPEND ? "append" : "write",
@@ -833,12 +833,12 @@ void handle_roperation(struct epoll_event *event, struct roperation *rop)
 
 	// Operation is finished.
 	if (ret < 0) {
-		pr_perror("Unable to %s %s:%s (returned %ld)",
+		pr_perror("Unable to %s %s:%s (returned %" PRId64 ")",
 				event->events & EPOLLOUT ? "send" : "receive",
 				rop->rimg->path, rop->rimg->snapshot_id, ret);
 		goto err;
 	} else {
-		pr_info("[fd=%d] Finished %s %s:%s to CRIU (size %ld)\n",
+		pr_info("[fd=%d] Finished %s %s:%s to CRIU (size %" PRIu64 ")\n",
 				rop->fd,
 				event->events & EPOLLOUT ? "sending" : "receiving",
 				rop->rimg->path, rop->rimg->snapshot_id, rop->rimg->size);
@@ -928,13 +928,15 @@ void accept_image_connections() {
 	}
 
 	while (1) {
-		int n_events = epoll_wait(epoll_fd, events, EPOLL_MAX_EVENTS, 250);
+		int n_events, i;
+
+		n_events = epoll_wait(epoll_fd, events, EPOLL_MAX_EVENTS, 250);
 		if (n_events < 0) {
 			pr_perror("Failed to epoll wait");
 			goto end;
 		}
 
-		for (int i = 0; i < n_events; i++) {
+		for (i = 0; i < n_events; i++) {
 			// Accept from local dump/restore?
 			if (events[i].data.ptr == &local_req_fd) {
 				if ( events[i].events & EPOLLHUP ||
