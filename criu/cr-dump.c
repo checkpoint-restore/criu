@@ -1483,9 +1483,6 @@ static int cr_pre_dump_finish(int ret)
 
 	timing_stop(TIME_FROZEN);
 
-	if (ret < 0)
-		goto err;
-
 	pr_info("Pre-dumping tasks' memory\n");
 	for_each_pstree_item(item) {
 		struct parasite_ctl *ctl = dmpi(item)->parasite_ctl;
