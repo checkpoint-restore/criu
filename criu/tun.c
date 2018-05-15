@@ -371,7 +371,7 @@ static int tunfile_open(struct file_desc *d, int *new_fd)
 
 	ns_id = ti->tfe->ns_id;
 	if (set_netns(ns_id))
-		return -1;
+		goto err;
 
 	if (!ti->tfe->netdev)
 		/* just-opened tun file */
