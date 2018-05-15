@@ -431,16 +431,8 @@ static int restore_seccomp_filter(pid_t tid, struct thread_restore_args *args)
 
 static int restore_seccomp(struct thread_restore_args *args)
 {
-	pid_t tid;
+	pid_t tid = sys_gettid();
 	int ret;
-
-	tid = args->pid;
-
-	if (tid != sys_gettid()) {
-		pr_err("seccomp: Unexpected tid %d != %d\n",
-		       tid, (pid_t)sys_gettid());
-		return -1;
-	}
 
 	switch (args->seccomp_mode) {
 	case SECCOMP_MODE_DISABLED:
