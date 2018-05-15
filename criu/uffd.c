@@ -1231,6 +1231,8 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 			ret = complete_forks(epollfd, &events, &nr_fds);
 			if (ret < 0)
 				goto out;
+			if (restore_finished)
+				poll_timeout = 0;
 			if (!restore_finished || !ret)
 				continue;
 		}
@@ -1238,7 +1240,6 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 		/* make sure we return success if there is nothing to xfer */
 		ret = 0;
 
-		poll_timeout = 0;
 		list_for_each_entry_safe(lpi, n, &lpis, l) {
 			if (!list_empty(&lpi->iovs) && list_empty(&lpi->reqs)) {
 				ret = xfer_pages(lpi);
