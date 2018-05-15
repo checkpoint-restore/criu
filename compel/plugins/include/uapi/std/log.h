@@ -1,7 +1,7 @@
 #ifndef COMPEL_PLUGIN_STD_LOG_H__
 #define COMPEL_PLUGIN_STD_LOG_H__
 
-#define STD_LOG_SIMPLE_CHUNK	79
+#define STD_LOG_SIMPLE_CHUNK	256
 
 extern void std_log_set_fd(int fd);
 extern void std_log_set_loglevel(unsigned int level);
