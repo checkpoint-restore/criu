@@ -636,8 +636,16 @@ int clone_service_fd(struct pstree_item *me)
 
 bool is_any_service_fd(int fd)
 {
-	return fd > __get_service_fd(SERVICE_FD_MAX, service_fd_id) &&
-		fd < __get_service_fd(SERVICE_FD_MIN, service_fd_id);
+	int sfd_min_fd = __get_service_fd(SERVICE_FD_MAX, service_fd_id);
+	int sfd_max_fd = __get_service_fd(SERVICE_FD_MIN, service_fd_id);
+
+	if (fd > sfd_min_fd && fd < sfd_max_fd) {
+		int type = SERVICE_FD_MAX - (fd - sfd_min_fd);
+		if (type > SERVICE_FD_MIN && type < SERVICE_FD_MAX)
+			return !!test_bit(type, sfd_map);
+	}
+
+	return false;
 }
 
 bool is_service_fd(int fd, enum sfd_type type)
