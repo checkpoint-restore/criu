@@ -22,9 +22,11 @@ RUN yum install -y \
 	protobuf-devel \
 	protobuf-python \
 	python \
-	python-ipaddr \
+	python-ipaddress \
+	python2-future \
 	python-yaml \
-	tar
+	tar \
+	which
 
 COPY . /criu
 WORKDIR /criu

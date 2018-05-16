@@ -26,11 +26,12 @@ RUN mv .ccache /tmp && make mrproper && ccache -sz && \
 RUN apk add \
 	py-yaml \
 	py-pip	\
+	py2-future \
 	ip6tables \
 	iptables \
 	iproute2 \
 	tar \
 	bash
 
-RUN pip install protobuf ipaddr
+RUN pip install protobuf ipaddress
 RUN make -C test/zdtm

@@ -2,7 +2,7 @@
 set -x -e
 
 TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c0-dev libaio-dev
-		libprotobuf-dev protobuf-compiler python-ipaddr libcap-dev
+		libprotobuf-dev protobuf-compiler libcap-dev
 		libnl-3-dev gcc-multilib gdb bash python-protobuf
 		libnet-dev util-linux asciidoc xmlto libnl-route-3-dev"
 
@@ -45,7 +45,9 @@ travis_prep () {
 
 	apt-get update -qq
 	apt-get install -qq --no-install-recommends $TRAVIS_PKGS
-	pip install junit-xml
+	# travis is based on 14.04 and that does not have python
+	# packages for future and ipaddress (16.04 has those packages)
+	pip install junit-xml future ipaddress
 	chmod a+x $HOME
 }
 
