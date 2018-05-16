@@ -9,7 +9,7 @@ import signal
 import sys
 import struct
 
-import rpc_pb2 as rpc
+import pycriu.rpc_pb2 as rpc
 
 class _criu_comm:
 	"""
