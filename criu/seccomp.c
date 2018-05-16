@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <ptrace.h>
 
 #include "common/config.h"
 #include "imgset.h"
