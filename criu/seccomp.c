@@ -287,7 +287,7 @@ static int collect_filters(struct pstree_item *item)
 
 	for (i = 0; i < item->nr_threads; i++) {
 		entry = seccomp_find_entry(item->threads[i]->real);
-		if (!leader) {
+		if (!entry) {
 			pr_err("Can't collect filter on tid_real %d\n",
 			       item->pid->real);
 			return -1;
