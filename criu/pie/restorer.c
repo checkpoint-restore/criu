@@ -559,13 +559,13 @@ long __export_restore_thread(struct thread_restore_args *args)
 	 * operation bound to uid 0 in current user ns.
 	 */
 	if (restore_seccomp(args))
-		goto core_restore_end;
+		BUG();
 
 	ret = restore_creds(args->creds_args, args->ta->proc_fd);
 	ret = ret || restore_dumpable_flag(&args->ta->mm);
 	ret = ret || restore_pdeath_sig(args);
 	if (ret)
-		goto core_restore_end;
+		BUG();
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE_CREDS);
 
