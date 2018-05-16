@@ -21,7 +21,7 @@ import errno
 import datetime
 import yaml
 import struct
-import criu as crpc
+import pycriu as crpc
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
