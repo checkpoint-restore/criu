@@ -127,7 +127,7 @@ HOSTCFLAGS		+= $(WARNINGS) $(DEFINES) -iquote include/
 export CFLAGS USERCLFAGS HOSTCFLAGS
 
 # Default target
-all: criu lib
+all: criu lib crit
 .PHONY: all
 
 #
@@ -228,14 +228,22 @@ criu: $(criu-deps)
 	$(Q) $(MAKE) $(build)=criu all
 .PHONY: criu
 
+crit/Makefile: ;
+crit/%: criu .FORCE
+	$(Q) $(MAKE) $(build)=crit $@
+crit: criu
+	$(Q) $(MAKE) $(build)=crit all
+.PHONY: crit
+
+
 #
-# Libraries next once criu it ready
+# Libraries next once crit it ready
 # (we might generate headers and such
 # when building criu itself).
 lib/Makefile: ;
-lib/%: criu .FORCE
+lib/%: crit .FORCE
 	$(Q) $(MAKE) $(build)=lib $@
-lib: criu
+lib: crit
 	$(Q) $(MAKE) $(build)=lib all
 .PHONY: lib
 
@@ -247,6 +255,7 @@ clean mrproper:
 	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 	$(Q) $(MAKE) $(build)=lib $@
+	$(Q) $(MAKE) $(build)=crit $@
 .PHONY: clean mrproper
 
 clean-top:
