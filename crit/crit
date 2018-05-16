@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+from __future__ import print_function
 import argparse
 import sys
 import json
@@ -8,7 +9,7 @@ import pycriu
 
 def inf(opts):
 	if opts['in']:
-		return open(opts['in'], 'r')
+		return open(opts['in'], 'rb')
 	else:
 		return sys.stdin
 
@@ -27,9 +28,9 @@ def decode(opts):
 	try:
 		img = pycriu.images.load(inf(opts), opts['pretty'], opts['nopl'])
 	except pycriu.images.MagicException as exc:
-		print >>sys.stderr, "Unknown magic %#x.\n"\
+		print("Unknown magic %#x.\n"\
 				"Maybe you are feeding me an image with "\
-				"raw data(i.e. pages.img)?" % exc.magic
+				"raw data(i.e. pages.img)?" % exc.magic, file=sys.stderr)
 		sys.exit(1)
 
 	if opts['pretty']:
@@ -47,7 +48,7 @@ def encode(opts):
 def info(opts):
 	infs = pycriu.images.info(inf(opts))
 	json.dump(infs, sys.stdout, indent = 4)
-	print
+	print()
 
 def get_task_id(p, val):
 	return p[val] if val in p else p['ns_' + val][0]
@@ -64,8 +65,8 @@ class ps_item:
 		self.kids = []
 
 def show_ps(p, opts, depth = 0):
-	print "%7d%7d%7d   %s%s" % (p.pid, get_task_id(p.p, 'pgid'), get_task_id(p.p, 'sid'),
-			' ' * (4 * depth), p.core['tc']['comm'])
+	print("%7d%7d%7d   %s%s" % (p.pid, get_task_id(p.p, 'pgid'), get_task_id(p.p, 'sid'),
+			' ' * (4 * depth), p.core['tc']['comm']))
 	for kid in p.kids:
 		show_ps(kid, opts, depth + 1)
 
@@ -88,7 +89,7 @@ def explore_ps(opts):
 		pp = pss[p.ppid]
 		pp.kids.append(p)
 
-	print "%7s%7s%7s   %s" % ('PID', 'PGID', 'SID', 'COMM')
+	print("%7s%7s%7s   %s" % ('PID', 'PGID', 'SID', 'COMM'))
 	show_ps(psr, opts)
 
 files_img = None
@@ -169,13 +170,13 @@ def explore_fds(opts):
 		fdt = idi['entries'][0]['files_id']
 		fdi = pycriu.images.load(dinf(opts, 'fdinfo-%d.img' % fdt))
 
-		print "%d" % pid
+		print("%d" % pid)
 		for fd in fdi['entries']:
-			print "\t%7d: %s" % (fd['fd'], get_file_str(opts, fd))
+			print("\t%7d: %s" % (fd['fd'], get_file_str(opts, fd)))
 
 		fdi = pycriu.images.load(dinf(opts, 'fs-%d.img' % pid))['entries'][0]
-		print "\t%7s: %s" % ('cwd', get_file_str(opts, {'type': 'REG', 'id': fdi['cwd_id']}))
-		print "\t%7s: %s" % ('root', get_file_str(opts, {'type': 'REG', 'id': fdi['root_id']}))
+		print("\t%7s: %s" % ('cwd', get_file_str(opts, {'type': 'REG', 'id': fdi['cwd_id']})))
+		print("\t%7s: %s" % ('root', get_file_str(opts, {'type': 'REG', 'id': fdi['root_id']})))
 
 
 class vma_id:
@@ -199,8 +200,8 @@ def explore_mems(opts):
 		pid = get_task_id(p, 'pid')
 		mmi = pycriu.images.load(dinf(opts, 'mm-%d.img' % pid))['entries'][0]
 
-		print "%d" % pid
-		print "\t%-36s    %s" % ('exe', get_file_str(opts, {'type': 'REG', 'id': mmi['exe_file_id']}))
+		print("%d" % pid)
+		print("\t%-36s    %s" % ('exe', get_file_str(opts, {'type': 'REG', 'id': mmi['exe_file_id']})))
 
 		for vma in mmi['vmas']:
 			st = vma['status']
@@ -235,7 +236,7 @@ def explore_mems(opts):
 			prot += vma['prot'] & 0x4 and 'x' or '-'
 
 			astr = '%08lx-%08lx' % (vma['start'], vma['end'])
-			print "\t%-36s%s%s" % (astr, prot, fn)
+			print("\t%-36s%s%s" % (astr, prot, fn))
 
 
 def explore_rss(opts):
@@ -245,7 +246,7 @@ def explore_rss(opts):
 		vmas = pycriu.images.load(dinf(opts, 'mm-%d.img' % pid))['entries'][0]['vmas']
 		pms = pycriu.images.load(dinf(opts, 'pagemap-%d.img' % pid))['entries']
 
-		print "%d" % pid
+		print("%d" % pid)
 		vmi = 0
 		pvmi = -1
 		for pm in pms[1:]:
@@ -269,7 +270,7 @@ def explore_rss(opts):
 
 			vmi -= 1
 
-			print '%-24s%s' % (pstr, vstr)
+			print('%-24s%s' % (pstr, vstr))
 
 
 

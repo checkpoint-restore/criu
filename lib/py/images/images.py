@@ -43,11 +43,11 @@ import struct
 import os
 import sys
 import json
-import pb2dict
+from . import pb2dict
 import array
 
-import magic
-from pb import *
+from . import magic
+from .pb import *
 
 #
 # Predefined hardcoded constants
@@ -91,7 +91,7 @@ class entry_handler:
 			# Read payload
 			pb = self.payload()
 			buf = f.read(4)
-			if buf == '':
+			if buf == b'':
 				break
 			size, = struct.unpack('i', buf)
 			pb.ParseFromString(f.read(size))

@@ -1,6 +1,9 @@
 from google.protobuf.descriptor import FieldDescriptor as FD
 import opts_pb2
-import ipaddr
+from builtins import str
+from past.builtins import long
+from ipaddress import IPv4Address
+from ipaddress import IPv6Address
 import socket
 import collections
 import os
@@ -39,7 +42,7 @@ _basic_cast = {
 
 	FD.TYPE_BOOL		: bool,
 
-	FD.TYPE_STRING		: unicode
+	FD.TYPE_STRING		: str
 }
 
 def _marked_as_hex(field):
@@ -98,11 +101,11 @@ mmap_status_map = [
 ];
 
 rfile_flags_map = [
-	('O_WRONLY',	01),
-	('O_RDWR',	02),
-	('O_APPEND',	02000),
-	('O_DIRECT',	040000),
-	('O_LARGEFILE',	0100000),
+	('O_WRONLY',	0o1),
+	('O_RDWR',	0o2),
+	('O_APPEND',	0o2000),
+	('O_DIRECT',	0o40000),
+	('O_LARGEFILE',	0o100000),
 ];
 
 pmap_flags_map = [
@@ -161,8 +164,8 @@ sk_maps = {
 			136: 'UDPLITE' },
 }
 
-gen_rmaps = { k: {v2:k2 for k2,v2 in v.items()} for k,v in gen_maps.items() }
-sk_rmaps = { k: {v2:k2 for k2,v2 in v.items()} for k,v in sk_maps.items() }
+gen_rmaps = { k: {v2:k2 for k2,v2 in list(v.items())} for k,v in list(gen_maps.items()) }
+sk_rmaps = { k: {v2:k2 for k2,v2 in list(v.items())} for k,v in list(sk_maps.items()) }
 
 dict_maps = {
 	'gen' : ( gen_maps, gen_rmaps ),
@@ -170,8 +173,8 @@ dict_maps = {
 }
 
 def map_flags(value, flags_map):
-	bs = map(lambda x: x[0], filter(lambda x: value & x[1], flags_map))
-	value &= ~sum(map(lambda x: x[1], flags_map))
+	bs = [x[0] for x in [x for x in flags_map if value & x[1]]]
+	value &= ~sum([x[1] for x in flags_map])
 	if value:
 		bs.append("0x%x" % value)
 	return " | ".join(bs)
@@ -181,7 +184,7 @@ def unmap_flags(value, flags_map):
 		return 0
 
 	bd = dict(flags_map)
-	return sum(map(lambda x: int(str(bd.get(x, x)), 0), map(lambda x: x.strip(), value.split('|'))))
+	return sum([int(str(bd.get(x, x)), 0) for x in [x.strip() for x in value.split('|')]])
 
 kern_minorbits = 20 # This is how kernel encodes dev_t in new format
 
@@ -192,7 +195,7 @@ def decode_dev(field, value):
 		return "%d:%d" % (value >> kern_minorbits, value & ((1 << kern_minorbits) - 1))
 
 def encode_dev(field, value):
-	dev = map(lambda x: int(x), value.split(':'))
+	dev = [int(x) for x in value.split(':')]
 	if _marked_as_odev(field):
 		return os.makedev(dev[0], dev[1])
 	else:
@@ -226,7 +229,7 @@ def get_bytes_dec(field):
 		return decode_base64
 
 def is_string(value):
-	return isinstance(value, unicode) or isinstance(value, str)
+	return isinstance(value, str)
 
 def _pb2dict_cast(field, value, pretty = False, is_hex = False):
 	if not is_hex:
@@ -278,13 +281,13 @@ def pb2dict(pb, pretty = False, is_hex = False):
 			if pretty and _marked_as_ip(field):
 				if len(value) == 1:
 					v = socket.ntohl(value[0])
-					addr = ipaddr.IPv4Address(v)
+					addr = IPv4Address(v)
 				else:
 					v = 0 +	(socket.ntohl(value[0]) << (32 * 3)) + \
 						(socket.ntohl(value[1]) << (32 * 2)) + \
 						(socket.ntohl(value[2]) << (32 * 1)) + \
 						(socket.ntohl(value[3]))
-					addr = ipaddr.IPv6Address(v)
+					addr = IPv6Address(v)
 
 				d_val.append(addr.compressed)
 			else:

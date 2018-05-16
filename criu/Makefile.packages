@@ -6,6 +6,7 @@ REQ-RPM-PKG-NAMES	+= protobuf-devel
 REQ-RPM-PKG-NAMES	+= protobuf-python
 REQ-RPM-PKG-NAMES	+= libnl3-devel
 REQ-RPM-PKG-NAMES	+= libcap-devel
+REQ-RPM-PKG-NAMES	+= $(PYTHON)-future
 
 REQ-RPM-PKG-TEST-NAMES  += libaio-devel
 
@@ -17,7 +18,19 @@ REQ-DEB-PKG-NAMES	+= python-protobuf
 REQ-DEB-PKG-NAMES	+= libnl-3-dev
 REQ-DEB-PKG-NAMES	+= libcap-dev
 
-REQ-DEB-PKG-TEST-NAMES  += libaio-dev
+REQ-DEB-PKG-TEST-NAMES	+= python-yaml
+REQ-DEB-PKG-TEST-NAMES	+= libaio-dev
+
+ifeq ($(PYTHON),python3)
+REQ-DEB-PKG-NAMES	+= $(PYTHON)-future
+REQ-DEB-PKG-TEST-NAMES	+= libaio-dev
+
+REQ-RPM-PKG-TEST-NAMES	+= $(PYTHON)-PyYAML
+else
+REQ-DEB-PKG-NAMES	+= python-future
+
+REQ-RPM-PKG-TEST-NAMES	+= $(PYTHON)-pyyaml
+endif
 
 export LIBS		+= -lrt -lpthread -lprotobuf-c -ldl -lnl-3 -lsoccr -Lsoccr/ -lnet
 
