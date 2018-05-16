@@ -20,7 +20,7 @@ import fcntl
 import errno
 import datetime
 import yaml
-import criu as crpc
+import pycriu as crpc
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
