@@ -17,11 +17,15 @@ RUN dnf install -y \
 	procps-ng \
 	protobuf-c-devel \
 	protobuf-devel \
-	protobuf-python \
-	python \
-	python-ipaddr \
+	python2-protobuf \
+	python2 \
+	# Starting with Fedora 28 this is python2-ipaddress
+	python-ipaddress \
+	# Starting with Fedora 28 this is python2-pyyaml
 	python-yaml \
-	tar
+	python2-future \
+	tar \
+	which
 
 # Replace coreutils-single with "traditional" coreutils
 # to fix the following error on Fedora 28/rawhide while

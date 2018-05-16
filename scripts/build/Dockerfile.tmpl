@@ -19,7 +19,8 @@ RUN apt-get update && apt-get install -y \
 	pkg-config \
 	protobuf-c-compiler \
 	protobuf-compiler \
-	python-minimal
+	python-minimal \
+	python-future
 
 COPY . /criu
 WORKDIR /criu
