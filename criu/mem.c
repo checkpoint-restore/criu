@@ -323,7 +323,7 @@ static int detect_pid_reuse(struct pstree_item *item,
 	if (pps->start_time >= dump_ticks) {
 		/* Print "*" if unsure */
 		pr_warn("Pid reuse%s detected for pid %d\n",
-			pps_buf.start_time == dump_ticks ? "*" : "",
+			pps->start_time == dump_ticks ? "*" : "",
 			item->pid->real);
 		return 1;
 	}
