@@ -1554,8 +1554,8 @@ long __export_restore_task(struct task_restore_args *args)
 			 */
 
 			RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid, thread_args, args->clone_restore_fn);
-			if (ret != thread_args[i].pid - 1) {
-				pr_err("Unable to create a thread: %ld", ret);
+			if (ret != thread_args[i].pid) {
+				pr_err("Unable to create a thread: %ld\n", ret);
 				goto core_restore_end;
 			}
 		}
