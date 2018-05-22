@@ -52,13 +52,17 @@
 
 #ifndef PTRACE_SECCOMP_GET_METADATA
 # define PTRACE_SECCOMP_GET_METADATA	0x420d
+#endif /* PTRACE_SECCOMP_GET_METADATA */
 
-struct seccomp_metadata {
+/*
+ * struct seccomp_metadata is not yet
+ * settled down well in headers so use
+ * own identical definition for a while.
+ */
+typedef struct {
 	uint64_t	filter_off;	/* Input: which filter */
 	uint64_t	flags;		/* Output: filter's flags */
-};
-
-#endif /* PTRACE_SECCOMP_GET_METADATA */
+} seccomp_metadata_t;
 
 #ifdef PTRACE_EVENT_STOP
 # if PTRACE_EVENT_STOP == 7 /* Bad value from Linux 3.1-3.3, fixed in 3.4 */

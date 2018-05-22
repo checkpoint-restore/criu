@@ -131,7 +131,7 @@ int seccomp_dump_thread(pid_t tid_real, ThreadCoreEntry *thread_core)
 
 static int collect_filter(struct seccomp_entry *entry)
 {
-	struct seccomp_metadata meta_buf, *meta = &meta_buf;
+	seccomp_metadata_t meta_buf, *meta = &meta_buf;
 	struct seccomp_filter_chain *chain, *prev;
 	struct sock_filter buf[BPF_MAXINSNS];
 	size_t i;
