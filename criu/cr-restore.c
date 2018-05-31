@@ -2254,8 +2254,8 @@ out_kill:
 		struct pstree_item *pi;
 
 		for_each_pstree_item(pi)
-			if (vpid(pi) > 0)
-				kill(vpid(pi), SIGKILL);
+			if (pi->pid->real > 0)
+				kill(pi->pid->real, SIGKILL);
 	}
 
 out:
