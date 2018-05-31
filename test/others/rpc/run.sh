@@ -15,11 +15,6 @@ function title_print {
 
 }
 
-function start_server {
-	title_print "Start service server"
-	${CRIU} service -v4 -W build -o service.log --address criu_service.socket -d --pidfile pidfile
-}
-
 function stop_server {
 	title_print "Shutdown service server"
 	kill -SIGTERM $(cat build/pidfile)
@@ -77,8 +72,6 @@ function test_errno {
 }
 
 trap 'echo "FAIL"; stop_server' EXIT
-
-start_server
 
 test_c
 test_py

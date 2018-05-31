@@ -7,7 +7,11 @@ LDLIBS +=  -lprotobuf-c
 run: all
 	mkdir -p build
 	chmod a+rwx build
+	@# need to start the criu daemon here to access the pidfile
+	sudo -g '#1000' -u '#1000' ./criu service -v4 -W build -o service.log --address criu_service.socket -d --pidfile pidfile
+	chmod a+rw build/pidfile
 	sudo -g '#1000' -u '#1000' ./run.sh
+	sudo -g '#1000' -u '#1000' ./version.py
 
 criu: ../../../criu/criu
 	cp ../../../criu/criu $@
