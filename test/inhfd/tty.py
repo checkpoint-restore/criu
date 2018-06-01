@@ -6,7 +6,7 @@ def child_prep(fd):
 
 def create_fds():
 	(fd1, fd2) = pty.openpty()
-	return (os.fdopen(fd2, "w"), os.fdopen(fd1, "r"))
+	return (os.fdopen(fd2, "wb"), os.fdopen(fd1, "rb"))
 
 def filename(pipef):
 	st = os.fstat(pipef.fileno())

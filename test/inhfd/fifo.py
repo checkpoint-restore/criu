@@ -8,8 +8,8 @@ def create_fds():
 		raise Exception("Unable to mount tmpfs")
 	tfifo = os.path.join(tdir, "test_fifo")
 	os.mkfifo(tfifo)
-	fd2 = open(tfifo, "w+")
-	fd1 = open(tfifo, "r")
+	fd2 = open(tfifo, "w+b", buffering=0)
+	fd1 = open(tfifo, "rb")
 	os.system("umount -l %s" % tdir)
 	os.rmdir(tdir)
 
