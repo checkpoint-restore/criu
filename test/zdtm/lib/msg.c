@@ -64,6 +64,6 @@ skip:
 	off += vsnprintf(buf + off, sizeof(buf) - off, format, arg);
 	va_end(arg);
 
-	fprintf(stderr, "%s", buf);
+	write(2, buf, off);
 	errno = __errno;
 }
