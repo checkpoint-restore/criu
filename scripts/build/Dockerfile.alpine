@@ -31,7 +31,10 @@ RUN apk add \
 	iptables \
 	iproute2 \
 	tar \
-	bash
+	bash \
+	go \
+	e2fsprogs \
+	asciidoc xmlto
 
-RUN pip install protobuf ipaddress
+RUN pip install protobuf ipaddress junit_xml
 RUN make -C test/zdtm
