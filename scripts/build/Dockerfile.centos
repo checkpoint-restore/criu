@@ -24,10 +24,14 @@ RUN yum install -y \
 	python \
 	python-ipaddress \
 	python2-future \
+	python2-junit_xml \
 	python-yaml \
 	python-six \
 	tar \
-	which
+	which \
+	e2fsprogs \
+	python2-pip \
+	asciidoc xmlto
 
 COPY . /criu
 WORKDIR /criu
