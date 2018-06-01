@@ -1,6 +1,6 @@
 #!/bin/env python2
 
-import py as pycriu
+import pycriu
 import sys
 import os
 import subprocess
