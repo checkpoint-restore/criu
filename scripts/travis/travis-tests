@@ -84,7 +84,7 @@ chmod 0777 test/
 chmod 0777 test/zdtm/static
 chmod 0777 test/zdtm/transition
 
-./test/zdtm.py run -a -p 2
+./test/zdtm.py run -a -p 2 --keep-going $ZDTM_OPTS
 
 KERN_MAJ=`uname -r | cut -d. -f1`
 KERN_MIN=`uname -r | cut -d. -f2`
@@ -99,14 +99,16 @@ LAZY_EXCLUDE="$LAZY_EXCLUDE -x maps04"
 
 LAZY_TESTS=.*\(maps0\|uffd-events\|lazy-thp\|futex\|fork\).*
 
-./test/zdtm.py run -p 2 -T $LAZY_TESTS --lazy-pages $LAZY_EXCLUDE
-./test/zdtm.py run -p 2 -T $LAZY_TESTS --remote-lazy-pages $LAZY_EXCLUDE
+./test/zdtm.py run -p 2 -T $LAZY_TESTS --lazy-pages $LAZY_EXCLUDE $ZDTM_OPTS
+./test/zdtm.py run -p 2 -T $LAZY_TESTS --remote-lazy-pages $LAZY_EXCLUDE $ZDTM_OPTS
 
 bash ./test/jenkins/criu-fault.sh
 bash ./test/jenkins/criu-fcg.sh
 bash ./test/jenkins/criu-inhfd.sh
 
-make -C test/others/mnt-ext-dev/ run
+if [ -z "$SKIP_EXT_DEV_TEST" ]; then
+	make -C test/others/mnt-ext-dev/ run
+fi
 #make -C test/others/exec/ run
 make -C test/others/make/ run CC="$CC"
 
