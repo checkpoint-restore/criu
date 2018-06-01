@@ -38,6 +38,7 @@
 # }
 #
 import io
+import base64
 import google
 import struct
 import os
@@ -48,6 +49,10 @@ import array
 
 from . import magic
 from .pb import *
+
+if "encodebytes" not in dir(base64):
+	base64.encodebytes = base64.encodestring
+	base64.decodebytes = base64.decodestring
 
 #
 # Predefined hardcoded constants
@@ -185,7 +190,7 @@ class pagemap_handler:
 		pb = pagemap_head()
 		while True:
 			buf = f.read(4)
-			if buf == '':
+			if buf == b'':
 				break
 			size, = struct.unpack('i', buf)
 			pb.ParseFromString(f.read(size))
@@ -242,13 +247,13 @@ class ghost_file_handler:
 				if no_payload:
 					f.seek(gc.len, os.SEEK_CUR)
 				else:
-					entry['extra'] = f.read(gc.len).encode('base64')
+					entry['extra'] = base64.encodebytes(f.read(gc.len))
 				entries.append(entry)
 		else:
 			if no_payload:
 				f.seek(0, os.SEEK_END)
 			else:
-				g_entry['extra'] = f.read().encode('base64')
+				g_entry['extra'] = base64.encodebytes(f.read())
 			entries.append(g_entry)
 
 		return entries
@@ -274,9 +279,9 @@ class ghost_file_handler:
 				size = len(pb_str)
 				f.write(struct.pack('i', size))
 				f.write(pb_str)
-				f.write(item['extra'].decode('base64'))
+				f.write(base64.decodebytes(item['extra']))
 		else:
-			f.write(item['extra'].decode('base64'))
+			f.write(base64.decodebytes(item['extra']))
 
 	def dumps(self, entries):
 		f = io.BytesIO('')
@@ -294,10 +299,10 @@ class pipes_data_extra_handler:
 	def load(self, f, pload):
 		size = pload.bytes
 		data = f.read(size)
-		return data.encode('base64')
+		return base64.encodebytes(data)
 
 	def dump(self, extra, f, pload):
-		data = extra.decode('base64')
+		data = base64.decodebytes(extra)
 		f.write(data)
 
 	def skip(self, f, pload):
@@ -308,10 +313,10 @@ class sk_queues_extra_handler:
 	def load(self, f, pload):
 		size = pload.length
 		data = f.read(size)
-		return data.encode('base64')
+		return base64.encodebytes(data)
 
 	def dump(self, extra, f, pb):
-		data = extra.decode('base64')
+		data = base64.decodebytes(extra)
 		f.write(data)
 
 	def skip(self, f, pload):
@@ -326,14 +331,14 @@ class tcp_stream_extra_handler:
 		inq	= f.read(pb.inq_len)
 		outq	= f.read(pb.outq_len)
 
-		d['inq']	= inq.encode('base64')
-		d['outq']	= outq.encode('base64')
+		d['inq']	= base64.encodebytes(inq)
+		d['outq']	= base64.encodebytes(outq)
 
 		return d
 
 	def dump(self, extra, f, pb):
-		inq	= extra['inq'].decode('base64')
-		outq	= extra['outq'].decode('base64')
+		inq	= base64.decodebytes(extra['inq'])
+		outq	= base64.decodebytes(extra['outq'])
 
 		f.write(inq)
 		f.write(outq)
@@ -388,7 +393,7 @@ class ipc_msg_queue_handler:
 			data = f.read(msg.msize)
 			f.seek(rounded - msg.msize, 1)
 			messages.append(pb2dict.pb2dict(msg))
-			messages.append(data.encode('base64'))
+			base64.encodebytes(messages.append(data))
 		return messages
 
 	def dump(self, extra, f, pb):
@@ -401,7 +406,7 @@ class ipc_msg_queue_handler:
 			f.write(struct.pack('i', size))
 			f.write(msg_str)
 			rounded = round_up(msg.msize, sizeof_u64)
-			data = extra[i + 1].decode('base64')
+			data = base64.decodebytes(extra[i + 1])
 			f.write(data[:msg.msize])
 			f.write('\0' * (rounded - msg.msize))
 
@@ -428,12 +433,12 @@ class ipc_shm_handler:
 		data = f.read(size)
 		rounded = round_up(size, sizeof_u32)
 		f.seek(rounded - size, 1)
-		return data.encode('base64')
+		return base64.encodebytes(data)
 
 	def dump(self, extra, f, pb):
 		entry = pb2dict.pb2dict(pb)
 		size = entry['size']
-		data = extra.decode('base64')
+		data = base64.decodebytes(extra)
 		rounded = round_up(size, sizeof_u32)
 		f.write(data[:size])
 		f.write('\0' * (rounded - size))
@@ -589,6 +594,6 @@ def dumps(img):
 	Same as dump(), but takes only an image and returns
 	a string.
 	"""
-	f = io.BytesIO('')
+	f = io.BytesIO(b'')
 	dump(img, f)
 	return f.getvalue()

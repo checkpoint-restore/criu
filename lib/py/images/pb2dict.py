@@ -1,12 +1,10 @@
 from google.protobuf.descriptor import FieldDescriptor as FD
 import opts_pb2
-from builtins import str
-from past.builtins import long
-from ipaddress import IPv4Address
+from ipaddress import IPv4Address, ip_address
 from ipaddress import IPv6Address
 import socket
 import collections
-import os
+import os, six
 
 # pb2dict and dict2pb are methods to convert pb to/from dict.
 # Inspired by:
@@ -27,14 +25,14 @@ import os
 
 
 _basic_cast = {
-	FD.TYPE_FIXED64		: long,
+	FD.TYPE_FIXED64		: int,
 	FD.TYPE_FIXED32		: int,
-	FD.TYPE_SFIXED64	: long,
+	FD.TYPE_SFIXED64	: int,
 	FD.TYPE_SFIXED32	: int,
 
-	FD.TYPE_INT64		: long,
-	FD.TYPE_UINT64		: long,
-	FD.TYPE_SINT64		: long,
+	FD.TYPE_INT64		: int,
+	FD.TYPE_UINT64		: int,
+	FD.TYPE_SINT64		: int,
 
 	FD.TYPE_INT32		: int,
 	FD.TYPE_UINT32		: int,
@@ -229,7 +227,7 @@ def get_bytes_dec(field):
 		return decode_base64
 
 def is_string(value):
-	return isinstance(value, str)
+	return isinstance(value, six.string_types)
 
 def _pb2dict_cast(field, value, pretty = False, is_hex = False):
 	if not is_hex:
@@ -243,7 +241,7 @@ def _pb2dict_cast(field, value, pretty = False, is_hex = False):
 		return field.enum_type.values_by_number.get(value, None).name
 	elif field.type in _basic_cast:
 		cast = _basic_cast[field.type]
-		if pretty and (cast == int or cast == long):
+		if pretty and (cast == int):
 			if is_hex:
 				# Fields that have (criu).hex = true option set
 				# should be stored in hex string format.
@@ -309,7 +307,7 @@ def _dict2pb_cast(field, value):
 		return field.enum_type.values_by_name.get(value, None).number
 	elif field.type in _basic_cast:
 		cast = _basic_cast[field.type]
-		if (cast == int or cast == long) and is_string(value):
+		if (cast == int) and is_string(value):
 			if _marked_as_dev(field):
 				return encode_dev(field, value)
 
@@ -349,7 +347,7 @@ def dict2pb(d, pb):
 		if field.label == FD.LABEL_REPEATED:
 			pb_val = getattr(pb, field.name, None)
 			if is_string(value[0]) and _marked_as_ip(field):
-				val = ipaddr.IPAddress(value[0])
+				val = ip_address(value[0])
 				if val.version == 4:
 					pb_val.append(socket.htonl(int(val)))
 				elif val.version == 6:
