@@ -1252,7 +1252,7 @@ class criu:
 
         if self.__remote:
             logdir = os.getcwd() + "/" + self.__dump_path + "/" + str(self.__iter)
-            print "Adding image cache"
+            print("Adding image cache")
 
             cache_opts = [self.__criu_bin, "image-cache", "--port", "12345", "-v4", "-o",
                       logdir + "/image-cache.log", "-D", logdir]
@@ -1260,7 +1260,7 @@ class criu:
             subprocess.Popen(cache_opts).pid
             time.sleep(1)
 
-            print "Adding image proxy"
+            print("Adding image proxy")
 
             proxy_opts = [self.__criu_bin, "image-proxy", "--port", "12345", "--address",
                     "localhost", "-v4", "-o", logdir + "/image-proxy.log",
