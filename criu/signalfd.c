@@ -52,7 +52,7 @@ static void sigset_fill(sigset_t *to, unsigned long long from)
 {
 	int sig;
 
-	pr_info("\tCalculating sigmask for %Lx\n", from);
+	pr_info("\tCalculating sigmask for %llx\n", from);
 	sigemptyset(to);
 	for (sig = 1; sig < NSIG; sig++)
 		if (from & (1ULL << (sig - 1))) {

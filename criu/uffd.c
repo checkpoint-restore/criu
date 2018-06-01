@@ -1031,7 +1031,7 @@ static int handle_remove(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	unreg.start = msg->arg.remove.start;
 	unreg.len = msg->arg.remove.end - msg->arg.remove.start;
 
-	lp_debug(lpi, "%s: %Lx(%Lx)\n",
+	lp_debug(lpi, "%s: %llx(%llx)\n",
 		 msg->event == UFFD_EVENT_REMOVE ? "REMOVE" : "UNMAP",
 		 unreg.start, unreg.len);
 
