@@ -32,7 +32,7 @@ prev_line = None
 
 
 def alarm(*args):
-	print "==== ALARM ===="
+	print("==== ALARM ====")
 
 
 signal.signal(signal.SIGALRM, alarm)
@@ -480,14 +480,14 @@ class zdtm_test:
 		notify_fdout_path = "/proc/%s/fd/%s" % (self.__pid, env['ZDTM_NOTIFY_FDOUT'])
 		notify_fdin_path = "/proc/%s/fd/%s" % (self.__pid, env['ZDTM_NOTIFY_FDIN'])
 
-		print "Send pre-dump notify to %s" % (self.__pid)
+		print("Send pre-dump notify to %s" % (self.__pid))
 		with open(notify_fdout_path) as fdout:
 			with open(notify_fdin_path, "w") as fdin:
 				fdin.write(struct.pack("i", 0))
 				fdin.flush()
-				print "Wait pre-dump notify reply"
+				print("Wait pre-dump notify reply")
 				ret = struct.unpack('i', fdout.read(4))
-				print "Completed pre-dump notify with %d" % (ret)
+				print("Completed pre-dump notify with %d" % (ret))
 
 	def stop(self):
 		self.__freezer.thaw()
@@ -500,7 +500,7 @@ class zdtm_test:
 				print_sep(self.__name + '.out.inprogress')
 				print(open(self.__name + '.out.inprogress').read())
 				print_sep(self.__name + '.out.inprogress')
-			raise test_fail_exc("result check")
+			raise test_fail_exc("result check: %s" % list(map(lambda s: s.strip(), res.split())) + res)
 
 	def getpid(self):
 		if self.__pid == 0:
@@ -1635,7 +1635,7 @@ class Launcher:
 		while True:
 			try:
 				pid, status = os.waitpid(0, flags)
-			except OSError, e:
+			except OSError as e:
 				if e.errno == errno.EINTR:
 					subprocess.Popen(["ps", "axf"]).wait()
 					continue
