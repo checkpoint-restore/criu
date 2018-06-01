@@ -1855,7 +1855,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 
 			if (type != FD_TYPES__SIGNALFD)
 				goto parse_err;
-			ret = sscanf(str, "sigmask: %Lx",
+			ret = sscanf(str, "sigmask: %llx",
 					(unsigned long long *)&sfd->sigmask);
 			if (ret != 1)
 				goto parse_err;

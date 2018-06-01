@@ -203,7 +203,7 @@ static int open_handle(unsigned int s_dev, unsigned long i_ino,
 
 	decode_handle(&handle, f_handle);
 
-	pr_debug("Opening fhandle %x:%Lx...\n",
+	pr_debug("Opening fhandle %x:%llx...\n",
 			s_dev, (unsigned long long)handle.__handle[0]);
 
 	for (m = mntinfo; m; m = m->next) {
