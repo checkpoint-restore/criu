@@ -545,7 +545,7 @@ class inhfd_test:
 		self.__dump_opts = None
 
 	def start(self):
-		self.__message = "".join([random.choice(string.ascii_letters) for _ in range(16)])
+		self.__message = b"".join([random.choice(string.ascii_letters).encode() for _ in range(16)])
 		(self.__my_file, peer_file) = self.__fdtyp.create_fds()
 
 		# Check FDs returned for inter-connection
@@ -561,9 +561,14 @@ class inhfd_test:
 
 			getattr(self.__fdtyp, "child_prep", lambda fd: None)(peer_file)
 
+			try:
+				os.unlink(self.__name + ".out")
+			except Exception as e:
+				print(e)
+			fd = os.open(self.__name + ".out", os.O_WRONLY | os.O_APPEND | os.O_CREAT)
+			os.dup2(fd, 1)
+			os.dup2(fd, 2)
 			os.close(0)
-			os.close(1)
-			os.close(2)
 			self.__my_file.close()
 			os.close(start_pipe[0])
 			os.close(start_pipe[1])
@@ -573,6 +578,8 @@ class inhfd_test:
 				print("Unable to read a peer file: %s" % e)
 				sys.exit(1)
 
+			if data != self.__message:
+				print("%r %r" % (data, self.__message))
 			sys.exit(data == self.__message and 42 or 2)
 
 		os.close(start_pipe[1])
@@ -586,6 +593,8 @@ class inhfd_test:
 		self.__my_file.write(self.__message)
 		self.__my_file.flush()
 		pid, status = os.waitpid(self.__peer_pid, 0)
+		print(open(self.__name + ".out").read())
+		self.__peer_pid = 0
 		if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 42:
 			raise test_fail_exc("test failed with %d" % status)
 
@@ -610,7 +619,10 @@ class inhfd_test:
 
 	def getropts(self):
 		(self.__my_file, self.__peer_file) = self.__fdtyp.create_fds()
-		return ["--restore-sibling", "--inherit-fd", "fd[%d]:%s" % (self.__peer_file.fileno(), self.__peer_file_name)]
+		fd = self.__peer_file.fileno()
+		fdflags = fcntl.fcntl(fd, fcntl.F_GETFD) & ~fcntl.FD_CLOEXEC
+		fcntl.fcntl(fd, fcntl.F_SETFD, fdflags)
+		return ["--restore-sibling", "--inherit-fd", "fd[%d]:%s" % (fd, self.__peer_file_name)]
 
 	def print_output(self):
 		pass
@@ -695,7 +707,8 @@ class criu_cli:
 			print("Forcing %s fault" % fault)
 			env['CRIU_FAULT'] = fault
 
-		cr = subprocess.Popen(strace + [criu_bin, action] + args, env = env, preexec_fn = preexec)
+		cr = subprocess.Popen(strace + [criu_bin, action] + args, env = env,
+				close_fds = False, preexec_fn = preexec)
 		if nowait:
 			return cr
 		return cr.wait()
@@ -745,7 +758,7 @@ class criu_rpc:
 				continue
 			if arg == '--status-fd':
 				fd = int(args.pop(0))
-				os.write(fd, "\0")
+				os.write(fd, b"\0")
 				fcntl.fcntl(fd, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
 				continue
 			if arg == '--port':
@@ -932,7 +945,10 @@ class criu:
 		status_fds = None
 		if nowait:
 			status_fds = os.pipe()
-			s_args += ["--status-fd", str(status_fds[1])]
+			fd = status_fds[1]
+			fdflags = fcntl.fcntl(fd, fcntl.F_GETFD)
+			fcntl.fcntl(fd, fcntl.F_SETFD, fdflags & ~fcntl.FD_CLOEXEC)
+			s_args += ["--status-fd", str(fd)]
 
 		ns_last_pid = open("/proc/sys/kernel/ns_last_pid").read()
 
@@ -940,7 +956,7 @@ class criu:
 
 		if nowait:
 			os.close(status_fds[1])
-			if os.read(status_fds[0], 1) != '\0':
+			if os.read(status_fds[0], 1) != b'\0':
 				ret = ret.wait()
 				raise test_fail_exc("criu %s exited with %s" % (action, ret))
 			os.close(status_fds[0])
