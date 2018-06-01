@@ -191,7 +191,7 @@ class ns_flavor:
 
 	def __copy_libs(self, binary):
 		ldd = subprocess.Popen(["ldd", binary], stdout = subprocess.PIPE)
-		xl = re.compile('^(linux-gate.so|linux-vdso(64)?.so|not a dynamic)')
+		xl = re.compile('^(linux-gate.so|linux-vdso(64)?.so|not a dynamic|.*\s*ldd\s)')
 
 		# This Mayakovsky-style code gets list of libraries a binary
 		# needs minus vdso and gate .so-s
