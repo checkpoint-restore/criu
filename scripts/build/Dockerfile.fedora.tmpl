@@ -23,15 +23,24 @@ RUN dnf install -y \
 	python-ipaddress \
 	# Starting with Fedora 28 this is python2-pyyaml
 	python-yaml \
+	python3-pip \
 	python2-future \
+	python3-PyYAML \
+	python3-future \
+	python3-protobuf \
+	python3-junit_xml \
 	tar \
-	which
+	which \
+	e2fsprogs \
+	asciidoc xmlto
 
 # Replace coreutils-single with "traditional" coreutils
 # to fix the following error on Fedora 28/rawhide while
 # running under QEMU:
 # > sh: /usr/bin/sort: /usr/bin/coreutils: bad interpreter: No such file or directory
 RUN dnf install -y --allowerasing coreutils
+
+RUN ln -sf python3 /usr/bin/python
 
 COPY . /criu
 WORKDIR /criu
