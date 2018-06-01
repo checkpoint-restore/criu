@@ -25,6 +25,7 @@ RUN yum install -y \
 	python-ipaddress \
 	python2-future \
 	python-yaml \
+	python-six \
 	tar \
 	which
 
