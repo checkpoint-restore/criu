@@ -33,9 +33,9 @@ function mount_tmpfs_to_dump()
 
 function fail()
 {
+	set +e
 	uname -a
-	ps axf > ps.log
-	cat /sys/kernel/debug/tracing/trace > trace.log
+	ps axf --width 256 > ps.log
 	tar -czf /home/`basename $0`-${BUILD_NUMBER}-${GIT_COMMIT}-$(date +%m%d%H%M).tar.gz .
 	tar -czf report.tar.gz -C test/ report
 	exit 1
