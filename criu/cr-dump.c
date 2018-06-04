@@ -1985,9 +1985,11 @@ int cr_dump_tasks(pid_t pid)
 	if (ret)
 		goto err;
 
-	if (root_ns_mask)
-		if (dump_namespaces(root_item, root_ns_mask) < 0)
+	if (root_ns_mask) {
+		ret = dump_namespaces(root_item, root_ns_mask);
+		if (ret)
 			goto err;
+	}
 
 	ret = dump_cgroups();
 	if (ret)
