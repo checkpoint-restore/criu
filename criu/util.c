@@ -1268,38 +1268,49 @@ void print_data(unsigned long addr, unsigned char *data, size_t size)
 	}
 }
 
-static int get_sockaddr_in(struct sockaddr_in *addr, char *host)
+static int get_sockaddr_in(struct sockaddr_storage *addr, char *host)
 {
 	memset(addr, 0, sizeof(*addr));
-	addr->sin_family = AF_INET;
 
-	if (!host)
-		addr->sin_addr.s_addr = INADDR_ANY;
-	else if (!inet_aton(host, &addr->sin_addr)) {
+	if (!host) {
+ 		((struct sockaddr_in *)addr)->sin_addr.s_addr = INADDR_ANY;
+		addr->ss_family = AF_INET;
+	} else if (inet_pton(AF_INET, host, &((struct sockaddr_in *)addr)->sin_addr)) {
+		addr->ss_family = AF_INET;
+	} else if (inet_pton(AF_INET6, host, &((struct sockaddr_in6 *)addr)->sin6_addr)) {
+		addr->ss_family = AF_INET6;
+	} else {
 		pr_perror("Bad server address");
 		return -1;
 	}
 
-	addr->sin_port = htons(opts.port);
+	if (addr->ss_family == AF_INET6) {
+		((struct sockaddr_in6 *)addr)->sin6_port = htons(opts.port);
+	} else if (addr->ss_family == AF_INET) {
+		((struct sockaddr_in *)addr)->sin_port = htons(opts.port);
+	}
+
 	return 0;
 }
 
 int setup_tcp_server(char *type)
 {
 	int sk = -1;
-	struct sockaddr_in saddr;
+	struct sockaddr_storage saddr;
 	socklen_t slen = sizeof(saddr);
+
+	if (get_sockaddr_in(&saddr, opts.addr)) {
+		return -1;
+	}
 
 	pr_info("Starting %s server on port %u\n", type, opts.port);
 
-	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	sk = socket(saddr.ss_family, SOCK_STREAM, IPPROTO_TCP);
+
 	if (sk < 0) {
 		pr_perror("Can't init %s server", type);
 		return -1;
 	}
-
-	if (get_sockaddr_in(&saddr, opts.addr))
-		goto out;
 
 	if (bind(sk, (struct sockaddr *)&saddr, slen)) {
 		pr_perror("Can't bind %s server", type);
@@ -1318,7 +1329,12 @@ int setup_tcp_server(char *type)
 			goto out;
 		}
 
-		opts.port = ntohs(saddr.sin_port);
+		if (saddr.ss_family == AF_INET6) {
+			opts.port = ntohs(((struct sockaddr_in *)&saddr)->sin_port);
+		} else if (saddr.ss_family == AF_INET) {
+			opts.port = ntohs(((struct sockaddr_in6 *)&saddr)->sin6_port);
+		}
+
 		pr_info("Using %u port\n", opts.port);
 	}
 
@@ -1377,7 +1393,7 @@ out:
 
 int setup_tcp_client(char *addr)
 {
-	struct sockaddr_in saddr;
+	struct sockaddr_storage saddr;
 	int sk;
 
 	pr_info("Connecting to server %s:%u\n", addr, opts.port);
@@ -1385,7 +1401,7 @@ int setup_tcp_client(char *addr)
 	if (get_sockaddr_in(&saddr, addr))
 		return -1;
 
-	sk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	sk = socket(saddr.ss_family, SOCK_STREAM, IPPROTO_TCP);
 	if (sk < 0) {
 		pr_perror("Can't create socket");
 		return -1;
