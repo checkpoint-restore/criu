@@ -814,32 +814,44 @@ static int handle_exit(struct lazy_pages_info *lpi)
 	return 0;
 }
 
-static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op,
-			       unsigned long len, unsigned long rc_len, int rc)
+static bool uffd_recoverable_error(int mcopy_rc)
 {
-	if (rc) {
-		if (errno == ENOSPC || errno == ESRCH) {
-			handle_exit(lpi);
-			return 0;
-		}
-		if (rc_len != -EEXIST) {
-			lp_perror(lpi, "%s: rc:%d copy:%ld, errno:%d",
-				 op, rc, rc_len, errno);
-			return -1;
-		}
-	} else if (rc_len != len) {
-		lp_err(lpi, "%s unexpected size %ld\n", op, rc_len);
+	if (errno == EAGAIN || errno == ENOENT || errno == EEXIST)
+		return true;
+
+	if (mcopy_rc == -ENOENT || mcopy_rc == -EEXIST)
+		return true;
+
+	return false;
+}
+
+static int uffd_check_op_error(struct lazy_pages_info *lpi, const char *op,
+			       int *nr_pages, long mcopy_rc)
+{
+	if (errno == ENOSPC || errno == ESRCH) {
+		handle_exit(lpi);
+		return 0;
+	}
+
+	if (!uffd_recoverable_error(mcopy_rc)) {
+		lp_perror(lpi, "%s: mcopy_rc:%ld", op, mcopy_rc);
 		return -1;
 	}
+
+	lp_debug(lpi, "%s: mcopy_rc:%ld, errno:%d\n", op, mcopy_rc, errno);
+
+	if (mcopy_rc <= 0)
+		*nr_pages = 0;
+	else
+		*nr_pages = mcopy_rc / PAGE_SIZE;
 
 	return 0;
 }
 
-static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
+static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int *nr_pages)
 {
 	struct uffdio_copy uffdio_copy;
-	unsigned long len = nr_pages * page_size();
-	int rc;
+	unsigned long len = *nr_pages * page_size();
 
 	uffdio_copy.dst = address;
 	uffdio_copy.src = (unsigned long)lpi->buf;
@@ -848,11 +860,11 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	uffdio_copy.copy = 0;
 
 	lp_debug(lpi, "uffd_copy: 0x%llx/%ld\n", uffdio_copy.dst, len);
-	rc = ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy);
-	if (uffd_check_op_error(lpi, "copy", len, uffdio_copy.copy, rc))
+	if (ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy) &&
+	    uffd_check_op_error(lpi, "copy", nr_pages, uffdio_copy.copy))
 		return -1;
 
-	lpi->copied_pages += nr_pages;
+	lpi->copied_pages += *nr_pages;
 
 	return 0;
 }
@@ -895,7 +907,7 @@ static int uffd_io_complete(struct page_read *pr, unsigned long img_addr, int nr
 	req_pages = (req->end - req->start) / PAGE_SIZE;
 	nr = min(nr, req_pages);
 
-	ret = uffd_copy(lpi, addr, nr);
+	ret = uffd_copy(lpi, addr, &nr);
 	if (ret < 0)
 		return ret;
 
@@ -916,15 +928,15 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 {
 	struct uffdio_zeropage uffdio_zeropage;
 	unsigned long len = page_size() * nr_pages;
-	int rc;
 
 	uffdio_zeropage.range.start = address;
 	uffdio_zeropage.range.len = len;
 	uffdio_zeropage.mode = 0;
 
 	lp_debug(lpi, "zero page at 0x%llx\n", address);
-	rc = ioctl(lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage);
-	if (uffd_check_op_error(lpi, "zero", len, uffdio_zeropage.zeropage, rc))
+	if (ioctl(lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage) &&
+	    uffd_check_op_error(lpi, "zero", &nr_pages,
+				uffdio_zeropage.zeropage))
 		return -1;
 
 	return 0;
