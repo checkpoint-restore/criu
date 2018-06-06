@@ -27,7 +27,7 @@ if [ ! -d "/proc/$CRTOOLS_INIT_PID" ]; then
 fi
 
 NS_ENTER=/bin/nsenter
-[ ! -x $NSENTER ] || NS_ENTER=/usr/bin/nsenter
+[ ! -x $NS_ENTER ] || NS_ENTER=/usr/bin/nsenter
 
 if [ ! -x $NS_ENTER ]; then
 	echo "$NS_ENTER binary not found"
