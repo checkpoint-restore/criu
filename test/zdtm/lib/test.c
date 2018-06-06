@@ -40,7 +40,8 @@ static void sig_hand(int signo)
 	if (parent)
 		futex_set_and_wake(&test_shared_state->stage, TEST_FAIL_STAGE);
 	futex_set_and_wake(&sig_received, signo);
-	close(criu_status_in);
+	if (criu_status_in >= 0)
+		close(criu_status_in);
 }
 
 static char *outfile;
