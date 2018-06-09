@@ -1758,11 +1758,11 @@ static struct file_desc_ops unix_desc_ops = {
  * Make FS clean from sockets we're about to
  * restore. See for how we bind them for details
  */
-static void unlink_stale(struct unix_sk_info *ui)
+static void unlink_sk(struct unix_sk_info *ui)
 {
 	int ret, cwd_fd = -1, root_fd = -1, ns_fd = -1;
 
-	if (ui->name[0] == '\0' || (ui->ue->uflags & USK_EXTERN))
+	if (!ui->name || ui->name[0] == '\0' || (ui->ue->uflags & USK_EXTERN))
 		return;
 
 	if (prep_unix_sk_cwd(ui, &cwd_fd, &root_fd, NULL))
@@ -1770,10 +1770,15 @@ static void unlink_stale(struct unix_sk_info *ui)
 
 	ret = unlinkat(AT_FDCWD, ui->name, 0) ? -1 : 0;
 	if (ret < 0 && errno != ENOENT) {
-		pr_warn("Can't unlink stale socket %#x peer %#x (name %s dir %s)\n",
+		pr_warn("Can't unlink socket %#x peer %#x (name %s dir %s)\n",
 			ui->ue->ino, ui->ue->peer,
 			ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
 			ui->name_dir ? ui->name_dir : "-");
+	} else if (ret == 0) {
+		pr_debug("Unlinked socket %#x peer %#x (name %s dir %s)\n",
+			 ui->ue->ino, ui->ue->peer,
+			 ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
+			 ui->name_dir ? ui->name_dir : "-");
 	}
 	revert_unix_sk_cwd(ui, &cwd_fd, &root_fd, &ns_fd);
 }
@@ -1788,8 +1793,7 @@ static int post_prepare_unix_sk(struct pprep_head *ph)
 	ui = container_of(ph, struct unix_sk_info, peer_resolve);
 	if (ui->ue->peer && fixup_unix_peer(ui))
 		return -1;
-	if (ui->name)
-		unlink_stale(ui);
+	unlink_sk(ui);
 	return 0;
 }
 
