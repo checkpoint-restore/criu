@@ -74,6 +74,9 @@ struct unix_sk_desc {
 	unsigned char		shutdown;
 	bool			deleted;
 
+	bool			bindmount;
+	unsigned int		mnt_id;
+
 	mode_t			mode;
 	uid_t			uid;
 	gid_t			gid;
@@ -381,6 +384,9 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 	if (unix_resolve_name(lfd, id, sk, ue, p))
 		goto err;
 
+	if (sk->bindmount)
+		ue->uflags |= UNIX_UFLAGS__BINDMOUNT;
+
 	/*
 	 * Check if this socket is connected to criu service.
 	 * Dump it like closed one and mark it for restore.
@@ -568,11 +574,16 @@ static int unix_resolve_name(int lfd, uint32_t id, struct unix_sk_desc *d,
 	if (d->namelen == 0 || name[0] == '\0')
 		return 0;
 
-	if (kdat.sk_unix_file && (root_ns_mask & CLONE_NEWNS)) {
-		if (get_mnt_id(lfd, &mnt_id))
-			return -1;
-		ue->mnt_id = mnt_id;
-		ue->has_mnt_id = mnt_id;
+	if (!d->bindmount) {
+		if (kdat.sk_unix_file && (root_ns_mask & CLONE_NEWNS)) {
+			if (get_mnt_id(lfd, &mnt_id))
+				return -1;
+			ue->mnt_id = mnt_id;
+			ue->has_mnt_id = mnt_id;
+		}
+	} else {
+		ue->mnt_id = d->mnt_id;
+		ue->has_mnt_id = true;
 	}
 
 	if (ue->mnt_id >= 0)
@@ -693,6 +704,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 	INIT_LIST_HEAD(&d->peer_list);
 	INIT_LIST_HEAD(&d->peer_node);
 	d->fd = -1;
+	d->mnt_id = -1;
 
 	if (tb[UNIX_DIAG_SHUTDOWN])
 		d->shutdown = nla_get_u8(tb[UNIX_DIAG_SHUTDOWN]);
@@ -886,6 +898,75 @@ int fix_external_unix_sockets(void)
 	return 0;
 err:
 	return -1;
+}
+
+int collect_unix_bindmounts(void)
+{
+	struct mount_info *mi;
+	struct stat st = {};
+	int ns_old = -1;
+	int ret = 0;
+
+	pr_debug("Collecting unix bindmounts\n");
+
+	for (mi = mntinfo; mi; mi = mi->next) {
+		if (list_empty(&mi->mnt_bind))
+			continue;
+
+		if (switch_ns(mi->nsid->ns_pid, &mnt_ns_desc, &ns_old) < 0) {
+			pr_err("Can't switch ns to mnt_id %d", mi->mnt_id);
+			if (restore_ns(ns_old, &mnt_ns_desc)) {
+				pr_err("Can't switch mount ns back from mnt_id %d\n", mi->mnt_id);
+				return -1;
+			}
+			return -1;
+		}
+
+		if (stat(mi->mountpoint, &st)) {
+			pr_warn("Can't stat on %s: %m\n", mi->mountpoint);
+			if (restore_ns(ns_old, &mnt_ns_desc)) {
+				pr_err("Can't switch mount ns back from mnt_id %d\n", mi->mnt_id);
+				return -1;
+			}
+			continue;
+		}
+
+		if (S_ISSOCK(st.st_mode)) {
+			struct unix_sk_desc *sk;
+
+			list_for_each_entry(sk, &unix_sockets, list) {
+				if (sk->vfs_ino == (int)st.st_ino &&
+				    sk->vfs_dev == (int)st.st_dev) {
+					pr_debug("Found sock s_dev %#x ino %d bindmounted mnt_id %d %s\n",
+						 (int)st.st_dev, (int)st.st_ino, mi->mnt_id, mi->mountpoint);
+					if (sk->bindmount) {
+						pr_err("Many bindings for sockets are not yet supported %d at %s\n",
+						       (int)st.st_ino, mi->mountpoint);
+						ret = -1;
+					} else {
+						sk->mnt_id = mi->mnt_id;
+						sk->bindmount = true;
+					}
+					if (sk->type != SOCK_DGRAM && sk->state != TCP_CLOSE) {
+						pr_err("Unsupported bindmounted socket ino %d at %s\n",
+						       (int)st.st_ino, mi->mountpoint);
+						ret = -1;
+					}
+					break;
+				}
+			}
+		}
+
+		if (restore_ns(ns_old, &mnt_ns_desc)) {
+			pr_err("Can't switch mount ns back from %d\n", mi->nsid->ns_pid);
+			return -1;
+		}
+
+		if (ret)
+			break;
+	}
+
+	return ret;
 }
 
 struct unix_sk_info {

@@ -1876,6 +1876,9 @@ int cr_dump_tasks(pid_t pid)
 	if (collect_namespaces(true) < 0)
 		goto err;
 
+	if (collect_unix_bindmounts() < 0)
+		goto err;
+
 	glob_imgset = cr_glob_imgset_open(O_DUMP);
 	if (!glob_imgset)
 		goto err;

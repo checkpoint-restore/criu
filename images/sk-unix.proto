@@ -18,6 +18,7 @@ enum unix_uflags {
 	SERVICE		= 2;
 	CALLBACK	= 4;
 	INHERIT		= 8;
+	BINDMOUNT	= 16;
 }
 
 message unix_sk_entry {
