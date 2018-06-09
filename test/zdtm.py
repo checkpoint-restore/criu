@@ -467,7 +467,7 @@ class zdtm_test:
 				print_sep(self.__name + '.out.inprogress')
 				print(open(self.__name + '.out.inprogress').read())
 				print_sep(self.__name + '.out.inprogress')
-			raise test_fail_exc("result check: %s" % list(map(lambda s: s.strip(), res.split())) + res)
+			raise test_fail_exc("result check")
 
 	def getpid(self):
 		if self.__pid == 0:
