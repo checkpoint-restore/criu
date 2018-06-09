@@ -2130,16 +2130,20 @@ static int init_unix_sk_info(struct unix_sk_info *ui, UnixSkEntry *ue)
 	return 0;
 }
 
-int unix_prepare_root_shared(void)
+int unix_prepare_shared(void)
 {
-	struct unix_sk_info *ui;
-
 	mutex_ghost = shmalloc(sizeof(*mutex_ghost));
 	if (!mutex_ghost) {
 		pr_err("ghost: Can't allocate mutex\n");
 		return -ENOMEM;
 	}
 	mutex_init(mutex_ghost);
+	return 0;
+}
+
+int unix_prepare_root_shared(void)
+{
+	struct unix_sk_info *ui;
 
 	pr_debug("ghost: Resolving addresses\n");
 
