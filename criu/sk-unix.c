@@ -121,7 +121,7 @@ static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 		int i;
 
 		for (i = 0; i < sk->nr_icons; i++)
-			pr_debug("\t\ticon: %4d\n", sk->icons[i]);
+			pr_debug("\t\ticon: %#x\n", sk->icons[i]);
 	}
 }
 
@@ -141,7 +141,7 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 	if (sk->type != SOCK_STREAM &&
 	    sk->type != SOCK_DGRAM &&
 	    sk->type != SOCK_SEQPACKET) {
-		pr_err("Unsupported type (%d) on socket %x.\n"
+		pr_err("Unsupported type (%d) on socket %#x.\n"
 				"Only stream/dgram/seqpacket are supported.\n",
 				sk->type, sk->sd.ino);
 		return 0;
@@ -153,7 +153,7 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 	case TCP_CLOSE:
 		break;
 	default:
-		pr_err("Unknown state %d for unix socket %x\n",
+		pr_err("Unknown state %d for unix socket %#x\n",
 				sk->state, sk->sd.ino);
 		return 0;
 	}
@@ -269,7 +269,7 @@ static int resolve_rel_name(uint32_t id, struct unix_sk_desc *sk, const struct f
 		return -ENOENT;
 	}
 
-	pr_debug("Resolving relative name %s for socket %x\n",
+	pr_debug("Resolving relative name %s for socket %#x\n",
 		 sk->name, sk->sd.ino);
 
 	for (i = 0; i < ARRAY_SIZE(dirs); i++) {
@@ -458,7 +458,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 			 * to check both ends on read()/write(). Thus mismatched sockets behave
 			 * the same way as matched.
 			 */
-			pr_warn("Shutdown mismatch %u:%d -> %u:%d\n",
+			pr_warn("Shutdown mismatch %#x:%d -> %#x:%d\n",
 					ue->ino, ue->shutdown, peer->sd.ino, peer->shutdown);
 		}
 	} else if (ue->state == TCP_ESTABLISHED) {
@@ -493,7 +493,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 		/* e->sk_desc is _never_ NULL */
 		if (e->sk_desc->state != TCP_LISTEN) {
 			pr_err("In-flight connection on "
-				"non-listening socket %d\n", ue->ino);
+				"non-listening socket %#x\n", ue->ino);
 			goto err;
 		}
 
@@ -730,7 +730,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			e->next = *chain;
 			*chain = e;
 
-			pr_debug("\t\tCollected icon %d\n", d->icons[i]);
+			pr_debug("\t\tCollected icon %#x\n", d->icons[i]);
 
 			e->peer_ino	= n;
 			e->sk_desc	= d;
@@ -1004,11 +1004,11 @@ int unix_note_scm_rights(int id_for, uint32_t *file_ids, int *fds, int n_ids)
 
 	ui = find_queuer_for(id_for);
 	if (!ui) {
-		pr_err("Can't find sender for %d\n", id_for);
+		pr_err("Can't find sender for %#x\n", id_for);
 		return -1;
 	}
 
-	pr_info("Found queuer for %d -> %d\n", id_for, ui->ue->id);
+	pr_info("Found queuer for %#x -> %#x\n", id_for, ui->ue->id);
 	/*
 	 * This is the task that will restore this socket
 	 */
@@ -1029,7 +1029,7 @@ int unix_note_scm_rights(int id_for, uint32_t *file_ids, int *fds, int n_ids)
 			return -1;
 		}
 
-		pr_info("scm: add file %d -> %d\n", tgt->id, vpid(owner));
+		pr_info("scm: add file %#x -> %d\n", tgt->id, vpid(owner));
 		sfle = xmalloc(sizeof(*sfle));
 		if (!sfle)
 			return -1;
@@ -1587,13 +1587,13 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		int ret, sks[2];
 
 		if (ui->ue->type != SOCK_STREAM) {
-			pr_err("Non-stream socket %x in established state\n",
+			pr_err("Non-stream socket %#x in established state\n",
 					ui->ue->ino);
 			return -1;
 		}
 
 		if (ui->ue->shutdown != SK_SHUTDOWN__BOTH) {
-			pr_err("Wrong shutdown/peer state for %x\n",
+			pr_err("Wrong shutdown/peer state for %#x\n",
 					ui->ue->ino);
 			return -1;
 		}
