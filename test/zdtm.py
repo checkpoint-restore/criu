@@ -485,8 +485,8 @@ class zdtm_test:
 		notify_fdin_path = "/proc/%s/fd/%s" % (self.__pid, env['ZDTM_NOTIFY_FDIN'])
 
 		print("Send pre-dump notify to %s" % (self.__pid))
-		with open(notify_fdout_path) as fdout:
-			with open(notify_fdin_path, "w") as fdin:
+		with open(notify_fdout_path, "rb") as fdout:
+			with open(notify_fdin_path, "wb") as fdin:
 				fdin.write(struct.pack("i", 0))
 				fdin.flush()
 				print("Wait pre-dump notify reply")
@@ -504,7 +504,7 @@ class zdtm_test:
 				print_sep(self.__name + '.out.inprogress')
 				print(open(self.__name + '.out.inprogress').read())
 				print_sep(self.__name + '.out.inprogress')
-			raise test_fail_exc("result check: %s" % list(map(lambda s: s.strip(), res.split())) + res)
+			raise test_fail_exc("result check")
 
 	def getpid(self):
 		if self.__pid == 0:
