@@ -91,6 +91,9 @@ struct unix_sk_desc {
 
 static LIST_HEAD(unix_sockets);
 
+static int unix_resolve_name(int lfd, uint32_t id, struct unix_sk_desc *d,
+			     UnixSkEntry *ue, const struct fd_parms *p);
+
 struct unix_sk_listen_icon {
 	unsigned int			peer_ino;
 	struct unix_sk_desc		*sk_desc;
@@ -314,8 +317,6 @@ err:
 	return -ENOENT;
 }
 
-static int unix_resolve_name(int lfd, uint32_t id, struct unix_sk_desc *d,
-				UnixSkEntry *ue, const struct fd_parms *p);
 static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 {
 	struct unix_sk_desc *sk, *peer;
