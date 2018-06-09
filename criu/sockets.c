@@ -39,6 +39,50 @@
 #define SO_GET_FILTER	SO_ATTACH_FILTER
 #endif
 
+const char *socket_type_name(unsigned int type)
+{
+       static const char *types[] = {
+               [SOCK_STREAM]           = __stringify_1(SOCK_STREAM),
+               [SOCK_DGRAM]            = __stringify_1(SOCK_DGRAM),
+               [SOCK_RAW]              = __stringify_1(SOCK_RAW),
+               [SOCK_SEQPACKET]        = __stringify_1(SOCK_SEQPACKET),
+               [SOCK_PACKET]           = __stringify_1(SOCK_PACKET),
+       };
+       size_t i;
+
+       for (i = 0; i < ARRAY_SIZE(types); i++) {
+               if (type == i)
+                       return types[i];
+       }
+
+       return "UNKNOWN";
+}
+
+const char *tcp_state_name(unsigned int state)
+{
+       static const char *states[] = {
+               [TCP_ESTABLISHED]       = __stringify_1(TCP_ESTABLISHED),
+               [TCP_SYN_SENT]          = __stringify_1(TCP_SYN_SENT),
+               [TCP_SYN_RECV]          = __stringify_1(TCP_SYN_RECV),
+               [TCP_FIN_WAIT1]         = __stringify_1(TCP_FIN_WAIT1),
+               [TCP_FIN_WAIT2]         = __stringify_1(TCP_FIN_WAIT2),
+               [TCP_TIME_WAIT]         = __stringify_1(TCP_TIME_WAIT),
+               [TCP_CLOSE]             = __stringify_1(TCP_CLOSE),
+               [TCP_CLOSE_WAIT]        = __stringify_1(TCP_CLOSE_WAIT),
+               [TCP_LAST_ACK]          = __stringify_1(TCP_LAST_ACK),
+               [TCP_LISTEN]            = __stringify_1(TCP_LISTEN),
+               [TCP_CLOSING]           = __stringify_1(TCP_CLOSING),
+       };
+       size_t i;
+
+       for (i = 0; i < ARRAY_SIZE(states); i++) {
+               if (state == i)
+                       return states[i];
+       }
+
+       return "UNKNOWN";
+}
+
 struct sock_diag_greq {
 	u8	family;
 	u8	protocol;
