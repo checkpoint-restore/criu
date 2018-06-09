@@ -117,20 +117,20 @@ static struct unix_sk_listen_icon *lookup_unix_listen_icons(int peer_ino)
 
 static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 {
-	pr_debug("\t%s: ino %#x peer_ino %#x family %4d type %4d state %2d name %s\n",
+	pr_debug("\t%s: ino %d peer_ino %d family %4d type %4d state %2d name %s\n",
 		act, sk->sd.ino, sk->peer_ino, sk->sd.family, sk->type, sk->state, sk->name);
 
 	if (sk->nr_icons) {
 		int i;
 
 		for (i = 0; i < sk->nr_icons; i++)
-			pr_debug("\t\ticon: %#x\n", sk->icons[i]);
+			pr_debug("\t\ticon: %d\n", sk->icons[i]);
 	}
 }
 
 static void show_one_unix_img(const char *act, const UnixSkEntry *e)
 {
-	pr_info("\t%s: id %#x ino %#x peer %#x type %d state %d name %d bytes\n",
+	pr_info("\t%s: id %#x ino %d peer %d type %d state %d name %d bytes\n",
 		act, e->id, e->ino, e->peer, e->type, e->state, (int)e->name.len);
 }
 
@@ -144,7 +144,7 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 	if (sk->type != SOCK_STREAM &&
 	    sk->type != SOCK_DGRAM &&
 	    sk->type != SOCK_SEQPACKET) {
-		pr_err("Unsupported type (%d) on socket %#x.\n"
+		pr_err("Unsupported type (%d) on socket %d.\n"
 				"Only stream/dgram/seqpacket are supported.\n",
 				sk->type, sk->sd.ino);
 		return 0;
@@ -156,7 +156,7 @@ static int can_dump_unix_sk(const struct unix_sk_desc *sk)
 	case TCP_CLOSE:
 		break;
 	default:
-		pr_err("Unknown state %d for unix socket %#x\n",
+		pr_err("Unknown state %d for unix socket %d\n",
 				sk->state, sk->sd.ino);
 		return 0;
 	}
@@ -272,7 +272,7 @@ static int resolve_rel_name(uint32_t id, struct unix_sk_desc *sk, const struct f
 		return -ENOENT;
 	}
 
-	pr_debug("Resolving relative name %s for socket %#x\n",
+	pr_debug("Resolving relative name %s for socket %d\n",
 		 sk->name, sk->sd.ino);
 
 	for (i = 0; i < ARRAY_SIZE(dirs); i++) {
@@ -345,7 +345,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 
 	sk = (struct unix_sk_desc *)lookup_socket(p->stat.st_ino, PF_UNIX, 0);
 	if (IS_ERR_OR_NULL(sk)) {
-		pr_err("Unix socket %#x not found\n", (int)p->stat.st_ino);
+		pr_err("Unix socket %d not found\n", (int)p->stat.st_ino);
 		goto err;
 	}
 
@@ -413,7 +413,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 	if (ue->peer) {
 		peer = (struct unix_sk_desc *)lookup_socket(ue->peer, PF_UNIX, 0);
 		if (IS_ERR_OR_NULL(peer)) {
-			pr_err("Unix socket %#x without peer %#x\n",
+			pr_err("Unix socket %d without peer %d\n",
 					ue->ino, ue->peer);
 			goto err;
 		}
@@ -424,7 +424,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 		 */
 		if (peer->peer_ino != ue->ino) {
 			if (!peer->name) {
-				pr_err("Unix socket %#x with unreachable peer %#x (%#x/%s)\n",
+				pr_err("Unix socket %d with unreachable peer %d (%d/%s)\n",
 				       ue->ino, ue->peer, peer->peer_ino, peer->name);
 				goto err;
 			}
@@ -459,7 +459,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 			 * to check both ends on read()/write(). Thus mismatched sockets behave
 			 * the same way as matched.
 			 */
-			pr_warn("Shutdown mismatch %#x:%d -> %#x:%d\n",
+			pr_warn("Shutdown mismatch %d:%d -> %d:%d\n",
 					ue->ino, ue->shutdown, peer->sd.ino, peer->shutdown);
 		}
 	} else if (ue->state == TCP_ESTABLISHED) {
@@ -478,7 +478,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 				goto dump;
 			}
 
-			pr_err("Dangling connection %#x\n", ue->ino);
+			pr_err("Dangling connection %d\n", ue->ino);
 			goto err;
 		}
 
@@ -494,13 +494,13 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 		/* e->sk_desc is _never_ NULL */
 		if (e->sk_desc->state != TCP_LISTEN) {
 			pr_err("In-flight connection on "
-				"non-listening socket %#x\n", ue->ino);
+				"non-listening socket %d\n", ue->ino);
 			goto err;
 		}
 
 		ue->peer = e->sk_desc->sd.ino;
 
-		pr_debug("\t\tFixed inflight socket %#x peer %#x)\n",
+		pr_debug("\t\tFixed inflight socket %d peer %d)\n",
 				ue->ino, ue->peer);
 	}
 dump:
@@ -608,7 +608,7 @@ static int unix_resolve_name(int lfd, uint32_t id, struct unix_sk_desc *d,
 	} else if ((st.st_ino != d->vfs_ino) ||
 		   !phys_stat_dev_match(st.st_dev, d->vfs_dev, ns, name)) {
 		pr_info("unix: Dropping path %s for unlinked bound "
-			"sk %#x.%#x real %#x.%#x\n",
+			"sk %#x.%d real %#x.%d\n",
 			name, (int)st.st_dev, (int)st.st_ino,
 			(int)d->vfs_dev, (int)d->vfs_ino);
 		deleted = true;
@@ -651,7 +651,7 @@ static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg 
 		struct unix_diag_vfs *uv;
 
 		if (!tb[UNIX_DIAG_VFS]) {
-			pr_err("Bound socket w/o inode %#x\n", m->udiag_ino);
+			pr_err("Bound socket w/o inode %d\n", m->udiag_ino);
 			goto skip;
 		}
 
@@ -731,7 +731,7 @@ static int unix_collect_one(const struct unix_diag_msg *m,
 			e->next = *chain;
 			*chain = e;
 
-			pr_debug("\t\tCollected icon %#x\n", d->icons[i]);
+			pr_debug("\t\tCollected icon %d\n", d->icons[i]);
 
 			e->peer_ino	= n;
 			e->sk_desc	= d;
@@ -1113,7 +1113,7 @@ static int shutdown_unix_sk(int sk, struct unix_sk_info *ui)
 		return -1;
 	}
 
-	pr_debug("Socket %#x is shut down %d\n", ue->ino, how);
+	pr_debug("Socket %d is shut down %d\n", ue->ino, how);
 	return 0;
 }
 
@@ -1271,7 +1271,7 @@ static int post_open_standalone(struct file_desc *d, int fd)
 	addr.sun_family = AF_UNIX;
 	memcpy(&addr.sun_path, peer->name, peer->ue->name.len);
 
-	pr_info("\tConnect %#x to %#x\n", ui->ue->ino, peer->ue->ino);
+	pr_info("\tConnect %d to %d\n", ui->ue->ino, peer->ue->ino);
 
 	if (prep_unix_sk_cwd(peer, &cwd_fd, NULL, &ns_fd))
 		return -1;
@@ -1279,7 +1279,7 @@ static int post_open_standalone(struct file_desc *d, int fd)
 	if (connect(fd, (struct sockaddr *)&addr,
 				sizeof(addr.sun_family) +
 				peer->ue->name.len) < 0) {
-		pr_perror("Can't connect %#x socket", ui->ue->ino);
+		pr_perror("Can't connect %d socket", ui->ue->ino);
 		revert_unix_sk_cwd(peer, &cwd_fd, &root_fd, &ns_fd);
 		return -1;
 	}
@@ -1448,7 +1448,7 @@ static int post_open_interconnected_master(struct unix_sk_info *ui)
 
 static void pr_info_opening(const char *prefix, struct unix_sk_info *ui, struct fdinfo_list_entry *fle)
 {
-	pr_info("Opening %s (stage %d id %#x ino %#x peer %#x)\n",
+	pr_info("Opening %s (stage %d id %#x ino %d peer %d)\n",
 		prefix, fle->stage, ui->ue->id, ui->ue->ino, ui->ue->peer);
 }
 
@@ -1588,13 +1588,13 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		int ret, sks[2];
 
 		if (ui->ue->type != SOCK_STREAM) {
-			pr_err("Non-stream socket %#x in established state\n",
+			pr_err("Non-stream socket %d in established state\n",
 					ui->ue->ino);
 			return -1;
 		}
 
 		if (ui->ue->shutdown != SK_SHUTDOWN__BOTH) {
-			pr_err("Wrong shutdown/peer state for %#x\n",
+			pr_err("Wrong shutdown/peer state for %d\n",
 					ui->ue->ino);
 			return -1;
 		}
@@ -1670,7 +1670,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		return -1;
 
 	if (ui->ue->state == TCP_LISTEN) {
-		pr_info("\tPutting %#x into listen state\n", ui->ue->ino);
+		pr_info("\tPutting %d into listen state\n", ui->ue->ino);
 		if (listen(sk, ui->ue->backlog) < 0) {
 			pr_perror("Can't make usk listen");
 			return -1;
@@ -1770,12 +1770,12 @@ static void unlink_sk(struct unix_sk_info *ui)
 
 	ret = unlinkat(AT_FDCWD, ui->name, 0) ? -1 : 0;
 	if (ret < 0 && errno != ENOENT) {
-		pr_warn("Can't unlink socket %#x peer %#x (name %s dir %s)\n",
+		pr_warn("Can't unlink socket %d peer %d (name %s dir %s)\n",
 			ui->ue->ino, ui->ue->peer,
 			ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
 			ui->name_dir ? ui->name_dir : "-");
 	} else if (ret == 0) {
-		pr_debug("Unlinked socket %#x peer %#x (name %s dir %s)\n",
+		pr_debug("Unlinked socket %d peer %d (name %s dir %s)\n",
 			 ui->ue->ino, ui->ue->peer,
 			 ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
 			 ui->name_dir ? ui->name_dir : "-");
@@ -1860,7 +1860,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 		uname = "-";
 	}
 
-	pr_info(" `- Got %#x peer %#x (name %s%.*s dir %s)\n",
+	pr_info(" `- Got %d peer %d (name %s%.*s dir %s)\n",
 		ui->ue->ino, ui->ue->peer,
 		prefix, ulen, uname,
 		ui->name_dir ? ui->name_dir : "-");
@@ -1988,14 +1988,14 @@ static int fixup_unix_peer(struct unix_sk_info *ui)
 	struct unix_sk_info *peer = ui->peer;
 
 	if (!peer) {
-		pr_err("FATAL: Peer %#x unresolved for %#x\n",
+		pr_err("FATAL: Peer %d unresolved for %d\n",
 				ui->ue->peer, ui->ue->ino);
 		return -1;
 	}
 
 	if (peer != ui && peer->peer == ui &&
 			!(ui->flags & (USK_PAIR_MASTER | USK_PAIR_SLAVE))) {
-		pr_info("Connected %#x -> %#x (%#x) flags %#x\n",
+		pr_info("Connected %d -> %d (%d) flags %#x\n",
 				ui->ue->ino, ui->ue->peer, peer->ue->ino, ui->flags);
 		/* socketpair or interconnected sockets */
 		if (interconnected_pair(ui, peer))
