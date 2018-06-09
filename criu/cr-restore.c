@@ -384,6 +384,10 @@ static int root_prepare_shared(void)
 	if (ret)
 		goto err;
 
+	ret = unix_prepare_root_shared();
+	if (ret)
+		goto err;
+
 	ret = add_fake_unix_queuers();
 	if (ret)
 		goto err;
