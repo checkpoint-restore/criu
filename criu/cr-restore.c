@@ -273,7 +273,6 @@ static struct collect_image_info *cinfos[] = {
 };
 
 static struct collect_image_info *cinfos_files[] = {
-	&unix_sk_cinfo,
 	&fifo_cinfo,
 	&pipe_cinfo,
 	&nsfile_cinfo,
@@ -297,6 +296,7 @@ static struct collect_image_info *cinfos_files[] = {
 static struct collect_image_info *before_ns_cinfos[] = {
 	&tty_info_cinfo, /* Restore devpts content */
 	&tty_cdata,
+	&unix_sk_cinfo,
 };
 
 static struct pprep_head *post_prepare_heads = NULL;
