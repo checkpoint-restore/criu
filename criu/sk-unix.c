@@ -2122,9 +2122,9 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 		uname = "-";
 	}
 
-	pr_info(" `- Got %d peer %d (name %s%.*s dir %s)\n",
-		ui->ue->ino, ui->ue->peer,
-		prefix, ulen, uname,
+	pr_info(" `- Got id %#x ino %d type %s state %s peer %d (name %s%.*s dir %s)\n",
+		ui->ue->id, ui->ue->ino, socket_type_name(ui->ue->type),
+		tcp_state_name(ui->ue->state), ui->ue->peer, prefix, ulen, uname,
 		ui->name_dir ? ui->name_dir : "-");
 
 	if (ui->ue->peer || ui->name) {
