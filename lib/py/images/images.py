@@ -393,7 +393,7 @@ class ipc_msg_queue_handler:
 			data = f.read(msg.msize)
 			f.seek(rounded - msg.msize, 1)
 			messages.append(pb2dict.pb2dict(msg))
-			base64.encodebytes(messages.append(data))
+			messages.append(base64.encodebytes(data))
 		return messages
 
 	def dump(self, extra, f, pb):
