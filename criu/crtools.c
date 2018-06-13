@@ -356,6 +356,7 @@ int main(int argc, char *argv[], char *envp[])
 		BOOL_OPT("remote", &opts.remote),
 		{ "config",			required_argument,	0, 1089},
 		{ "no-default-config",		no_argument,		0, 1090},
+		{ "ps-socket",			required_argument,	0, 1091},
 		{ },
 	};
 
@@ -683,6 +684,9 @@ int main(int argc, char *argv[], char *envp[])
 		case 1089:
 			break;
 		case 1090:
+			break;
+		case 1091:
+			opts.ps_socket = atoi(optarg);
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
