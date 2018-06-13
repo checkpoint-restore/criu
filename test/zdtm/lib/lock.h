@@ -23,8 +23,8 @@ typedef struct {
 #define FUTEX_ABORT_FLAG	(0x80000000)
 #define FUTEX_ABORT_RAW		(-1U)
 
-static inline int sys_futex(unsigned int *uaddr, int op, unsigned int val, const struct timespec *timeout,
-                 int *uaddr2, unsigned int val3)
+static inline int sys_futex(uint32_t *uaddr, int op, uint32_t val, const struct timespec *timeout,
+                 uint32_t *uaddr2, uint32_t val3)
 {
 	return syscall(__NR_futex, uaddr, op, val, timeout, uaddr2, val3);
 }
@@ -142,11 +142,11 @@ static void inline mutex_lock(mutex_t *m)
 	uint32_t c;
 	int ret;
 
-	while ((c = atomic_inc(&m->raw))) {
+	while ((c = atomic_inc(&m->raw)) != 0) {
 		ret = sys_futex(&m->raw, FUTEX_WAIT, c + 1, NULL, NULL, 0);
 		if (ret < 0)
 			pr_perror("futex");
-		BUG_ON(ret < 0 && errno != -EWOULDBLOCK);
+		BUG_ON(ret < 0 && errno != EWOULDBLOCK);
 	}
 }
 
