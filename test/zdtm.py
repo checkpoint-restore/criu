@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # vim: noet ts=8 sw=8 sts=8
 from __future__ import absolute_import, division, print_function, unicode_literals
-from builtins import (str, open, range, zip, int)
+from builtins import (str, open, range, zip, int, input)
 
 import argparse
 import glob
@@ -1150,7 +1150,7 @@ def init_sbs():
 
 def sbs(what):
 	if do_sbs:
-		raw_input("Pause at %s. Press any key to continue." % what)
+		input("Pause at %s. Press Enter to continue." % what)
 
 
 #
