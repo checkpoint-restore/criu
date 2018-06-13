@@ -33,7 +33,7 @@ static inline int atomic_add_return(int i, atomic_t *v)
 "	add	%w0, %w0, %w3\n"
 "	stlxr	%w1, %w0, %2\n"
 "	cbnz	%w1, 1b"
-	: "=&r" (result), "=&r" (tmp), "+Q" (v)
+	: "=&r" (result), "=&r" (tmp), "+Q" (*v)
 	: "Ir" (i)
 	: "cc", "memory");
 
@@ -51,7 +51,7 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 "	sub	%w0, %w0, %w3\n"
 "	stlxr	%w1, %w0, %2\n"
 "	cbnz	%w1, 1b"
-	: "=&r" (result), "=&r" (tmp), "+Q" (v)
+	: "=&r" (result), "=&r" (tmp), "+Q" (*v)
 	: "Ir" (i)
 	: "cc", "memory");
 
