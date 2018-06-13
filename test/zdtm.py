@@ -693,14 +693,12 @@ test_classes = {'zdtm': zdtm_test, 'inhfd': inhfd_test, 'groups': groups_test}
 # CRIU when launched using CLI
 #
 
-criu_bin = "../criu/criu"
-crit_bin = "../crit/crit"
 join_ns_file = '/run/netns/zdtm_netns'
 
 
 class criu_cli:
 	@staticmethod
-	def run(action, args, fault = None, strace = [], preexec = None, nowait = False):
+	def run(action, args, criu_bin, fault = None, strace = [], preexec = None, nowait = False):
 		env = dict(os.environ, ASAN_OPTIONS = "log_path=asan.log:disable_coredump=0:detect_leaks=0")
 
 		if fault:
@@ -782,7 +780,7 @@ class criu_rpc:
 			raise test_fail_exc('RPC for %s required' % arg)
 
 	@staticmethod
-	def run(action, args, fault = None, strace = [], preexec = None, nowait = False):
+	def run(action, args, criu_bin, fault = None, strace = [], preexec = None, nowait = False):
 		if fault:
 			raise test_fail_exc('RPC and FAULT not supported')
 		if strace:
@@ -858,6 +856,8 @@ class criu:
 		self.__lazy_pages_p = None
 		self.__page_server_p = None
 		self.__dump_process = None
+		self.__criu_bin = opts['criu_bin']
+		self.__crit_bin = opts['crit_bin']
 
 	def fini(self):
 		if self.__lazy_migrate:
@@ -952,7 +952,7 @@ class criu:
 
 		ns_last_pid = open("/proc/sys/kernel/ns_last_pid").read()
 
-		ret = self.__criu.run(action, s_args, self.__fault, strace, preexec, nowait)
+		ret = self.__criu.run(action, s_args, self.__criu_bin, self.__fault, strace, preexec, nowait)
 
 		if nowait:
 			os.close(status_fds[1])
@@ -979,7 +979,7 @@ class criu:
 				open("/proc/sys/kernel/ns_last_pid", "w+").write(ns_last_pid)
 				# try again without faults
 				print("Run criu " + action)
-				ret = self.__criu.run(action, s_args, False, strace, preexec)
+				ret = self.__criu.run(action, s_args, self.__criu_bin, False, strace, preexec)
 				grep_errors(os.path.join(__ddir, log))
 				if ret == 0:
 					return
@@ -993,7 +993,7 @@ class criu:
 		if not self.__show_stats:
 			return
 
-		subprocess.Popen([crit_bin, "show",
+		subprocess.Popen([self.__crit_bin, "show",
 				os.path.join(self.__dump_path,
 				str(self.__iter), "stats-%s" % action)]).wait()
 
@@ -1097,12 +1097,13 @@ class criu:
 
 	@staticmethod
 	def check(feature):
-		return criu_cli.run("check", ["-v0", "--feature", feature]) == 0
+		return criu_cli.run("check", ["-v0", "--feature", feature],
+				opts['criu_bin']) == 0
 
 	@staticmethod
 	def available():
-		if not os.access(criu_bin, os.X_OK):
-			print("CRIU binary not built")
+		if not os.access(opts['criu_bin'], os.X_OK):
+			print("CRIU binary not found at %s" % opts['criu_bin'])
 			sys.exit(1)
 
 	def kill(self):
@@ -1574,7 +1575,8 @@ class Launcher:
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'stop', 'empty_ns',
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'rpc', 'lazy_pages',
 				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
-				'remote_lazy_pages', 'show_stats', 'lazy_migrate')
+				'remote_lazy_pages', 'show_stats', 'lazy_migrate',
+				'criu_bin', 'crit_bin')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
 		if self.__use_log:
@@ -2116,6 +2118,8 @@ rp.add_argument("--lazy-migrate", help = "restore pages on demand", action = 'st
 rp.add_argument("--remote-lazy-pages", help = "simulate lazy migration", action = 'store_true')
 rp.add_argument("--title", help = "A test suite title", default = "criu")
 rp.add_argument("--show-stats", help = "Show criu statistics", action = 'store_true')
+rp.add_argument("--criu-bin", help = "Path to criu binary", default = '../criu/criu')
+rp.add_argument("--crit-bin", help = "Path to crit binary", default = '../crit/crit')
 
 lp = sp.add_parser("list", help = "List tests")
 lp.set_defaults(action = list_tests)
