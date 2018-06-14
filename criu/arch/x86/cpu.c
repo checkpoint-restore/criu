@@ -231,7 +231,8 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 		 !compel_cpu_has_feature(__bit))
 		if (__mismatch_fpu_bit(X86_FEATURE_FPU)		||
 		    __mismatch_fpu_bit(X86_FEATURE_FXSR)	||
-		    __mismatch_fpu_bit(X86_FEATURE_OSXSAVE)) {
+		    __mismatch_fpu_bit(X86_FEATURE_OSXSAVE)	||
+		    __mismatch_fpu_bit(X86_FEATURE_XSAVES)) {
 			pr_err("FPU feature required by image "
 			       "is not supported on host.\n");
 			return -1;
