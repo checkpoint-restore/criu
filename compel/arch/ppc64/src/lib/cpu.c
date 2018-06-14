@@ -40,3 +40,21 @@ bool compel_cpu_has_feature(unsigned int feature)
 	}
 	return compel_test_cpu_cap(&rt_info, feature);
 }
+
+void compel_cpu_clear_feature(unsigned int feature)
+{
+	if (!rt_info_done) {
+		compel_cpuid(&rt_info);
+		rt_info_done = true;
+	}
+	return compel_clear_cpu_cap(&rt_info, feature);
+}
+
+void compel_cpu_copy_cpuinfo(compel_cpuinfo_t *c)
+{
+	if (!rt_info_done) {
+		compel_cpuid(&rt_info);
+		rt_info_done = true;
+	}
+	memcpy(c, &rt_info, sizeof(rt_info));
+}
