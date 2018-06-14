@@ -38,3 +38,8 @@ int cpuinfo_check(void)
 {
 	return -ENOTSUP;
 }
+
+int cpu_parse_option(const char *opt)
+{
+	return -ENOTSUP;
+}
