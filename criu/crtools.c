@@ -150,6 +150,11 @@ static int parse_cpu_cap(struct cr_options *opts, const char *optarg)
 		} else if (!strncmp(optarg, "ins", 3)) {
 			____cpu_set_cap(opts, CPU_CAP_INS, inverse);
 			optarg += 3;
+		} else if (!strncmp(optarg, "op=", 3)) {
+			int pos = cpu_parse_option(&optarg[3]);
+			if (pos <= 0)
+				goto Esyntax;
+			optarg += pos + 3;
 		} else
 			goto Esyntax;
 	}

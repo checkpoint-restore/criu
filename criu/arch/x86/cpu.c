@@ -416,3 +416,27 @@ int cpuinfo_check(void)
 
 	return 0;
 }
+
+int cpu_parse_option(const char *opt)
+{
+	static struct {
+		const char	*name;
+		unsigned int	feature;
+	} filters[] = {
+		{
+			.name		= "noxsaves",
+			.feature	= X86_FEATURE_XSAVES,
+		},
+	};
+
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(filters); i++) {
+		if (strncmp(opt, filters[i].name, strlen(filters[i].name)))
+			continue;
+		compel_cpu_clear_feature(filters[i].feature);
+		return strlen(filters[i].name);
+	}
+
+	return -1;
+}
