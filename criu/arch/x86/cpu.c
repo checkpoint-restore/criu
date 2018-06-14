@@ -48,10 +48,14 @@ int cpu_init(void)
 		}
 	}
 
-	pr_debug("fpu:%d fxsr:%d xsave:%d\n",
+	pr_debug("fpu:%d fxsr:%d xsave:%d xsaveopt:%d xsavec:%d xgetbv1:%d xsaves:%d\n",
 		 !!compel_cpu_has_feature(X86_FEATURE_FPU),
 		 !!compel_cpu_has_feature(X86_FEATURE_FXSR),
-		 !!compel_cpu_has_feature(X86_FEATURE_OSXSAVE));
+		 !!compel_cpu_has_feature(X86_FEATURE_OSXSAVE),
+		 !!compel_cpu_has_feature(X86_FEATURE_XSAVEOPT),
+		 !!compel_cpu_has_feature(X86_FEATURE_XSAVEC),
+		 !!compel_cpu_has_feature(X86_FEATURE_XGETBV1),
+		 !!compel_cpu_has_feature(X86_FEATURE_XSAVES));
 
 	return 0;
 }
