@@ -26,7 +26,7 @@ int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe,
 			return -1;
 		}
 
-		sigframe->native.uc.uc_mcontext.fpstate = (void *)addr;
+		sigframe->native.uc.uc_mcontext.fpstate = (uint64_t)addr;
 	} else if (!sigframe->is_native) {
 		sigframe->compat.uc.uc_mcontext.fpstate =
 			(uint32_t)(unsigned long)(void *)&fpu_state->fpu_state_ia32;
