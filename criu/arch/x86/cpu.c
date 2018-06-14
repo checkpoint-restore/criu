@@ -45,8 +45,7 @@ static int cpu_has_unsupported_features(void)
 
 int cpu_init(void)
 {
-	if (compel_cpuid(&rt_cpu_info))
-		return -1;
+	compel_cpu_copy_cpuinfo(&rt_cpu_info);
 
 	BUILD_BUG_ON(sizeof(struct xsave_struct) != XSAVE_SIZE);
 	BUILD_BUG_ON(sizeof(struct i387_fxsave_struct) != FXSAVE_SIZE);
