@@ -250,7 +250,12 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 		    __mismatch_fpu_bit(X86_FEATURE_OSXSAVE)	||
 		    __mismatch_fpu_bit(X86_FEATURE_XSAVES)) {
 			pr_err("FPU feature required by image "
-			       "is not supported on host.\n");
+			       "is not supported on host "
+			       "(fpu:%d fxsr:%d osxsave:%d xsaves:%d)\n",
+			       __mismatch_fpu_bit(X86_FEATURE_FPU),
+			       __mismatch_fpu_bit(X86_FEATURE_FXSR),
+			       __mismatch_fpu_bit(X86_FEATURE_OSXSAVE),
+			       __mismatch_fpu_bit(X86_FEATURE_XSAVES));
 			return -1;
 		} else
 			return 0;
