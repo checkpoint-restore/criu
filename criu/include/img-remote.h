@@ -16,14 +16,9 @@
 #define NULL_SNAPSHOT_ID "null"
 #define DEFAULT_CACHE_SOCKET "img-cache.sock"
 #define DEFAULT_PROXY_SOCKET "img-proxy.sock"
-#define DEFAULT_CACHE_PORT 9996
-#define DEFAULT_CACHE_HOST "localhost"
 
 #define DEFAULT_LISTEN 50
-#ifndef PAGESIZE
-#define PAGESIZE 4096
-#endif
-#define BUF_SIZE PAGESIZE
+#define BUF_SIZE 4096
 
 struct rbuf {
 	char buffer[BUF_SIZE];
