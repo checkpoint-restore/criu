@@ -8,5 +8,6 @@ extern int cpu_dump_cpuinfo(void);
 extern int cpu_validate_cpuinfo(void);
 extern int cpuinfo_dump(void);
 extern int cpuinfo_check(void);
+extern int cpu_parse_option(const char *opt);
 
 #endif /* __CR_CPU_H__ */

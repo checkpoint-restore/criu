@@ -140,3 +140,8 @@ int cpuinfo_check(void)
 
 	return 0;
 }
+
+int cpu_parse_option(const char *opt)
+{
+	return -1;
+}
