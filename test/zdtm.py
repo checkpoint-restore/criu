@@ -1236,7 +1236,7 @@ def get_visible_state(test):
 				cmaps.append(m)
 				last += 1
 
-		maps[pid] = set(map(lambda x: '%x-%x %s' % (x[0], x[1], x[2:]), cmaps))
+		maps[pid] = set(map(lambda x: '%x-%x %s' % (x[0], x[1], " ".join(x[2:])), cmaps))
 
 		cmounts = []
 		try:
@@ -1265,7 +1265,7 @@ def check_visible_state(test, state, opts):
 		new_maps = new[1][pid]
 		if os.getenv("COMPAT_TEST"):
 			# the vsyscall vma isn't unmapped from x32 processes
-			vsyscall = "ffffffffff600000-ffffffffff601000 ['r-xp']"
+			vsyscall = u"ffffffffff600000-ffffffffff601000 r-xp"
 			if vsyscall in new_maps and vsyscall not in old_maps:
 				new_maps.remove(vsyscall)
 		if old_maps != new_maps:
