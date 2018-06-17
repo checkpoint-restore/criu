@@ -57,17 +57,7 @@ static inline void clear_bit(int nr, volatile unsigned long *addr)
  */
 static inline unsigned long __ffs(unsigned long word)
 {
-	int p = 0;
-
-	for (; p < 8*sizeof(word); ++p) {
-		if (word & 1) {
-			break;
-		}
-
-		word >>= 1;
-	}
-
-	return p;
+	return __builtin_ffsl(word) - 1;
 }
 
 #define BITOP_WORD(nr)		((nr) / BITS_PER_LONG)
