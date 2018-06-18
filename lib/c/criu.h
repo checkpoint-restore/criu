@@ -168,6 +168,7 @@ void criu_local_set_service_fd(criu_opts *opts, int fd);
 void criu_local_set_pid(criu_opts *opts, int pid);
 void criu_local_set_images_dir_fd(criu_opts *opts, int fd); /* must be set for dump/restore */
 void criu_local_set_parent_images(criu_opts *opts, char *path);
+void criu_local_set_service_binary(criu_opts *opts, const char *path);
 void criu_local_set_work_dir_fd(criu_opts *opts, int fd);
 void criu_local_set_leave_running(criu_opts *opts, bool leave_running);
 void criu_local_set_ext_unix_sk(criu_opts *opts, bool ext_unix_sk);
