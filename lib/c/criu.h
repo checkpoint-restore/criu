@@ -43,7 +43,7 @@ enum criu_cg_mode {
 
 void criu_set_service_address(char *path);
 void criu_set_service_fd(int fd);
-void criu_set_service_binary(char *path);
+void criu_set_service_binary(const char *path);
 
 /*
  * You can choose if you want libcriu to connect to service socket
