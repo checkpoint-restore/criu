@@ -27,7 +27,7 @@ struct criu_opts {
 	union {
 		char		*service_address;
 		int		service_fd;
-		char		*service_binary;
+		const char	*service_binary;
 	};
 	int			swrk_pid;
 };
@@ -68,7 +68,7 @@ void criu_set_service_fd(int fd)
 	criu_local_set_service_fd(global_opts, fd);
 }
 
-void criu_local_set_service_binary(criu_opts *opts, char *path)
+void criu_local_set_service_binary(criu_opts *opts, const char *path)
 {
 	if (path)
 		opts->service_binary = path;
@@ -76,7 +76,7 @@ void criu_local_set_service_binary(criu_opts *opts, char *path)
 		opts->service_binary = CR_DEFAULT_SERVICE_BIN;
 }
 
-void criu_set_service_binary(char *path)
+void criu_set_service_binary(const char *path)
 {
 	criu_local_set_service_binary(global_opts, path);
 }
