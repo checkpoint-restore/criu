@@ -1723,7 +1723,7 @@ class Launcher:
 					print(testline, file=self.__file_report)
 
 			if sub['log']:
-				print(open(sub['log']).read())
+				print(open(sub['log']).read().encode('ascii', 'ignore'))
 				os.unlink(sub['log'])
 
 			return True
