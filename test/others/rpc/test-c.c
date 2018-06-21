@@ -3,7 +3,8 @@
 #include <stdbool.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
+#include <string.h>
 #include <stdio.h>
 #include <dirent.h>
 #include <unistd.h>
