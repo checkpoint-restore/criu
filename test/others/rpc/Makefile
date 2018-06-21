@@ -9,6 +9,8 @@ run: all
 	chmod a+rwx build
 	@# need to start the criu daemon here to access the pidfile
 	sudo -g '#1000' -u '#1000' ./criu service -v4 -W build -o service.log --address criu_service.socket -d --pidfile pidfile
+	# Give the criu daemon some time to start up
+	sleep 0.5
 	chmod a+rw build/pidfile
 	sudo -g '#1000' -u '#1000' ./run.sh
 	sudo -g '#1000' -u '#1000' ./version.py
