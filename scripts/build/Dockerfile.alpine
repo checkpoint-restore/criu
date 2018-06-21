@@ -4,6 +4,7 @@ ARG ENV1=FOOBAR
 
 RUN apk update && apk add \
 	$CC \
+	bash \
 	build-base \
 	ccache \
 	coreutils \
@@ -15,7 +16,8 @@ RUN apk update && apk add \
 	pkgconfig \
 	protobuf-c-dev \
 	protobuf-dev \
-	python
+	python \
+	sudo
 
 COPY . /criu
 WORKDIR /criu
@@ -35,6 +37,9 @@ RUN apk add \
 	go \
 	e2fsprogs \
 	asciidoc xmlto
+
+# The rpc test cases are running as user #1000, let's add the user
+RUN adduser -u 1000 -D test
 
 RUN pip install protobuf ipaddress junit_xml
 RUN make -C test/zdtm
