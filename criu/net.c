@@ -1251,7 +1251,17 @@ static int veth_link_info(struct ns_id *ns, struct net_link *link, struct newlin
 	peer_data = NLMSG_TAIL(&req->h);
 	memset(&ifm, 0, sizeof(ifm));
 
-	ifm.ifi_index = nde->peer_ifindex;
+	/*
+	 * Peer index might lay on the node root net namespace,
+	 * where the device index may be already borrowed by
+	 * some other device, so we should ignore it.
+	 *
+	 * Still if peer is laying in some other net-namespace,
+	 * we should recreate the device index as well as the
+	 * as we do for the master peer end.
+	 */
+	if (nde->has_peer_nsid)
+		ifm.ifi_index = nde->peer_ifindex;
 	addattr_l(&req->h, sizeof(*req), VETH_INFO_PEER, &ifm, sizeof(ifm));
 
 	veth_peer_info(link, req, ns, ns_fd);
