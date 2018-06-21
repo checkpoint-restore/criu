@@ -27,6 +27,7 @@ RUN yum install -y \
 	python2-junit_xml \
 	python-yaml \
 	python-six \
+	sudo \
 	tar \
 	which \
 	e2fsprogs \
