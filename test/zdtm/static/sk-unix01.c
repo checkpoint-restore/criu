@@ -78,6 +78,18 @@ static int sk_alloc_connect(int type, struct sockaddr_un *addr)
 	return sk;
 }
 
+#define write_int(__f, __p)					\
+	({							\
+		ssize_t __r = write(__f, __p, sizeof(*(__p)));	\
+		(__r == sizeof(*(__p))) ? 0 : -1;		\
+	})
+
+#define read_int(__f, __p)					\
+	({							\
+		ssize_t __r = read(__f, __p, sizeof(*(__p)));	\
+		(__r == sizeof(*(__p))) ? 0 : -1;		\
+	})
+
 int main(int argc, char **argv)
 {
 	int c1 = 1, c2 = 0, c3 = 3, c4 = 0;
@@ -310,10 +322,8 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	if (write(sk_dgram[1], &c1, 1) != 1	||
-	    read(sk_dgram[0], &c2, 1) != 1	||
-	    write(sk_dgram[3], &c3, 1) != 1	||
-	    read(sk_dgram[2], &c4, 1) != 1) {
+	if (write_int(sk_dgram[1], &c1)	|| read_int(sk_dgram[0], &c2) ||
+	    write_int(sk_dgram[3], &c3)	|| read_int(sk_dgram[2], &c4)) {
 		fail("Unable to send/receive a message on dgram");
 		return 1;
 	}
@@ -324,8 +334,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (write(sk_dgram_pair[1], &c9, 1) != 1 ||
-	    read(sk_dgram_pair[0], &c10, 1) != 1) {
+	if (write_int(sk_dgram_pair[1], &c9) ||
+	    read_int(sk_dgram_pair[0], &c10)) {
 		fail("Unable to send/receive a message on paired dgram");
 		return 1;
 	}
@@ -336,10 +346,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (write(sk_st[2], &c5, 1) != 1	||
-	    read(sk_st[1], &c6, 1) != 1		||
-	    write(sk_st[4], &c7, 1) != 1	||
-	    read(sk_st[3], &c8, 1) != 1) {
+	if (write_int(sk_st[2], &c5) || read_int(sk_st[1], &c6) ||
+	    write_int(sk_st[4], &c7) || read_int(sk_st[3], &c8)) {
 		fail("Unable to send/receive a message on stream");
 		return 1;
 	}
