@@ -1303,7 +1303,7 @@ def get_visible_state(test):
 
 		cmounts = []
 		try:
-			r = re.compile("^\S+\s\S+\s\S+\s(\S+)\s(\S+)")
+			r = re.compile("^\S+\s\S+\s\S+\s(\S+)\s(\S+)\s\S+\s[^-]*?(shared)?[^-]*?(master)?[^-]*?-")
 			for m in open("/proc/%s/root/proc/%s/mountinfo" % (test.getpid(), pid)):
 				cmounts.append(r.match(m).groups())
 		except IOError as e:
