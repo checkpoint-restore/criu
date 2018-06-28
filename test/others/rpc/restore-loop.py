@@ -19,6 +19,11 @@ s.connect(args['socket'])
 req			= rpc.criu_req()
 req.type		= rpc.RESTORE
 req.opts.images_dir_fd	= os.open(args['dir'], os.O_DIRECTORY)
+# As the dumped process is running with setsid this should not
+# be necessary. There seems to be a problem for this testcase
+# in combination with alpine's setsid.
+# The dump is now done with -j and the restore also.
+req.opts.shell_job      = True
 
 # Send request
 s.send(req.SerializeToString())
