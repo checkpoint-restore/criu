@@ -112,6 +112,7 @@ fi
 #make -C test/others/exec/ run
 make -C test/others/make/ run CC="$CC"
 make -C test/others/shell-job/ run
+make -C test/others/rpc/ run
 
 ./test/zdtm.py run -t zdtm/static/env00 --sibling
 
