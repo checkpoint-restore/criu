@@ -1206,6 +1206,9 @@ int cr_service(bool daemon_mode)
 	if (setup_sigchld_handler())
 		goto err;
 
+	if (close_status_fd())
+		return -1;
+
 	while (1) {
 		int sk;
 
