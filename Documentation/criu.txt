@@ -549,6 +549,12 @@ Launches *criu* in page server mode.
 *--port* 'number'::
     Page server port number.
 
+*--ps-socket* 'fd'::
+    Use provided file descriptor as socket for incoming connection.
+    In this case --address and --port are ignored.
+    Useful for intercepting page-server traffic e.g. to add encryption
+    or authentication.
+
 *--lazy-pages*::
     Serve local memory dump to a remote *lazy-pages* daemon. In this
     mode the *page-server* reads local memory dump and allows the
