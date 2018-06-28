@@ -1069,6 +1069,7 @@ usage:
 "Page/Service server options:\n"
 "  --address ADDR        address of server or service\n"
 "  --port PORT           port of page serve or service\n"
+"  --ps-socket FD        use specified FD as page server socket\n"
 "  -d|--daemon           run in the background after creating socket\n"
 "  --status-fd FD        write \\0 to the FD and close it once process is ready\n"
 "                        to handle requests\n"
