@@ -5,12 +5,11 @@
 # but the bash version on Ubuntu has probably the following bug:
 # https://lists.gnu.org/archive/html/bug-bash/2017-07/msg00039.html
 
-import os
 import sys
 
-
-f=open(sys.argv[1])
+f = open(sys.argv[1])
 r = f.read(1)
+f.close()
 
 if r == '\0':
 	sys.exit(0)
