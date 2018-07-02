@@ -835,7 +835,10 @@ static int kerndat_try_load_cache(void)
 
 	fd = open(KERNDAT_CACHE_FILE, O_RDONLY);
 	if (fd < 0) {
-		pr_warn("Can't load %s\n", KERNDAT_CACHE_FILE);
+		if(ENOENT == errno)
+			pr_debug("File %s does not exist\n", KERNDAT_CACHE_FILE);
+		else
+			pr_warn("Can't load %s\n", KERNDAT_CACHE_FILE);
 		return 1;
 	}
 
