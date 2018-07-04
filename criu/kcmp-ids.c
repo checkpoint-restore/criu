@@ -2,8 +2,13 @@
 #include <stdlib.h>
 #include <sys/syscall.h>
 
+#include "log.h"
+#include "xmalloc.h"
+
+#include "common/compiler.h"
+#include "common/bug.h"
+
 #include "rbtree.h"
-#include "util.h"
 #include "kcmp-ids.h"
 
 /*
@@ -52,7 +57,7 @@ struct kid_entry {
 	struct rb_root	subtree_root;
 	struct rb_node	subtree_node;
 
-	u32		subid;	/* subid is always unique */
+	uint32_t	subid;	/* subid is always unique */
 	struct kid_elem	elem;
 } __aligned(sizeof(long));
 
@@ -79,7 +84,7 @@ err:
 	return e;
 }
 
-static u32 kid_generate_sub(struct kid_tree *tree, struct kid_entry *e,
+static uint32_t kid_generate_sub(struct kid_tree *tree, struct kid_entry *e,
 		struct kid_elem *elem, int *new_id)
 {
 	struct rb_node *node = e->subtree_root.rb_node;
@@ -119,7 +124,7 @@ static u32 kid_generate_sub(struct kid_tree *tree, struct kid_entry *e,
 	return sub->subid;
 }
 
-u32 kid_generate_gen(struct kid_tree *tree,
+uint32_t kid_generate_gen(struct kid_tree *tree,
 		struct kid_elem *elem, int *new_id)
 {
 	struct rb_node *node = tree->root.rb_node;

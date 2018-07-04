@@ -1,6 +1,8 @@
 #ifndef __CR_KCMP_IDS_H__
 #define __CR_KCMP_IDS_H__
 
+#include <stdint.h>
+
 #include "kcmp.h"
 
 struct kid_tree {
@@ -23,7 +25,7 @@ struct kid_elem {
 	unsigned idx;
 };
 
-extern u32 kid_generate_gen(struct kid_tree *tree,
-			    struct kid_elem *elem, int *new_id);
+extern uint32_t kid_generate_gen(struct kid_tree *tree,
+				 struct kid_elem *elem, int *new_id);
 
 #endif /* __CR_KCMP_IDS_H__ */
