@@ -12,6 +12,7 @@
 #include <sys/ioctl.h>
 #include <sys/epoll.h>
 
+#include "types.h"
 #include "crtools.h"
 #include "common/compiler.h"
 #include "imgset.h"
@@ -22,6 +23,7 @@
 #include "util.h"
 #include "log.h"
 #include "pstree.h"
+#include "parasite.h"
 
 #include "protobuf.h"
 #include "images/eventpoll.pb-c.h"
@@ -55,7 +57,9 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 {
 	FileEntry fe = FILE_ENTRY__INIT;
 	EventpollFileEntry e = EVENTPOLL_FILE_ENTRY__INIT;
-	int i, ret = -1;
+	EventpollTfdEntry **tfd_cpy = NULL;
+	size_t i, j, k, n_tfd_cpy;
+	int ret = -1;
 
 	e.id = id;
 	e.flags = p->flags;
@@ -68,14 +72,51 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	fe.id = e.id;
 	fe.epfd = &e;
 
+	n_tfd_cpy = e.n_tfd;
+	tfd_cpy = xmemdup(e.tfd, sizeof(e.tfd[0]) * e.n_tfd);
+	if (!tfd_cpy)
+		goto out;
+
+	/*
+	 * Handling dup'ed or transferred target
+	 * files is tricky: we need to use kcmp
+	 * to find out where file came from. Until
+	 * it's implemented lets use simplier approach
+	 * just check the targets are blonging to the
+	 * pid's file set.
+	 */
+	if (p->dfds) {
+		for (i = j = 0; i < e.n_tfd; i++) {
+			for (k = 0; k < p->dfds->nr_fds; k++) {
+				if (p->dfds->fds[k] == e.tfd[i]->tfd)
+					break;
+			}
+
+			if (k >= p->dfds->nr_fds) {
+				pr_warn("Escaped/closed fd descriptor %d on pid %d, ignoring\n",
+					e.tfd[i]->tfd, p->pid);
+				continue;
+			}
+
+			e.tfd[j++] = e.tfd[i];
+		}
+		e.n_tfd = j; /* New amount of "semi-valid" fds */
+	}
+
 	pr_info_eventpoll("Dumping ", &e);
 	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
-out:
-	for (i = 0; i < e.n_tfd; i++) {
-		if (!ret)
+	if (!ret) {
+		for (i = 0; i < e.n_tfd; i++)
 			pr_info_eventpoll_tfd("Dumping: ", e.tfd[i]);
-		eventpoll_tfd_entry__free_unpacked(e.tfd[i], NULL);
 	}
+
+	/* Restore former values to free resources */
+	memcpy(e.tfd, tfd_cpy, sizeof(e.tfd[0]) * n_tfd_cpy);
+	e.n_tfd = n_tfd_cpy;
+out:
+	for (i = 0; i < e.n_tfd; i++)
+		eventpoll_tfd_entry__free_unpacked(e.tfd[i], NULL);
+	xfree(tfd_cpy);
 	xfree(e.tfd);
 
 	return ret;
