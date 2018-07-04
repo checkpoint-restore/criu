@@ -29,4 +29,8 @@ struct kid_elem {
 extern uint32_t kid_generate_gen(struct kid_tree *tree,
 				 struct kid_elem *elem, int *new_id);
 
+extern struct kid_elem *kid_lookup_epoll_tfd(struct kid_tree *tree,
+					     struct kid_elem *elem,
+					     kcmp_epoll_slot_t *slot);
+
 #endif /* __CR_KCMP_IDS_H__ */
