@@ -303,9 +303,12 @@ static int fixup_overlayfs(struct fd_parms *p, struct fd_link *link)
  * The kcmp-ids.c engine does this trick, see comments in it for more info.
  */
 
-static u32 make_gen_id(const struct fd_parms *p)
+uint32_t make_gen_id(uint32_t st_dev, uint32_t st_ino, uint64_t pos)
 {
-	return ((u32)p->stat.st_dev) ^ ((u32)p->stat.st_ino) ^ ((u32)p->pos);
+	uint32_t pos_hi = pos >> 32;
+	uint32_t pos_low = pos & 0xffffffff;
+
+	return st_dev ^ st_ino ^ pos_hi ^ pos_low;
 }
 
 int do_dump_gen_file(struct fd_parms *p, int lfd,
@@ -314,7 +317,9 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	int ret = -1;
 
 	e->type	= ops->type;
-	e->id	= make_gen_id(p);
+	e->id	= make_gen_id((uint32_t)p->stat.st_dev,
+			      (uint32_t)p->stat.st_ino,
+			      (uint64_t)p->pos);
 	e->fd	= p->fd;
 	e->flags = p->fd_flags;
 
