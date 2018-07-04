@@ -154,4 +154,3 @@ uint32_t kid_generate_gen(struct kid_tree *tree,
 	return e->subid;
 
 }
-
