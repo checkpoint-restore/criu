@@ -19,7 +19,7 @@
 #include "irmap.h"
 #include "files.h"
 
-static DECLARE_KCMP_TREE(fd_tree, KCMP_FILE);
+DECLARE_KCMP_TREE(fd_tree, KCMP_FILE);
 
 #define FDID_BITS	5
 #define FDID_SIZE	(1 << FDID_BITS)
