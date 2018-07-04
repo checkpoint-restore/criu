@@ -309,8 +309,8 @@ static int eventpoll_post_open(struct file_desc *d, int fd)
 }
 
 static struct file_desc_ops desc_ops = {
-	.type = FD_TYPES__EVENTPOLL,
-	.open = eventpoll_open,
+	.type		= FD_TYPES__EVENTPOLL,
+	.open		= eventpoll_open,
 };
 
 static int collect_one_epoll_tfd(void *o, ProtobufCMessage *msg, struct cr_img *i)
@@ -345,10 +345,10 @@ static int collect_one_epoll_tfd(void *o, ProtobufCMessage *msg, struct cr_img *
 }
 
 struct collect_image_info epoll_tfd_cinfo = {
-	.fd_type = CR_FD_EVENTPOLL_TFD,
-	.pb_type = PB_EVENTPOLL_TFD,
-	.collect = collect_one_epoll_tfd,
-	.flags = COLLECT_NOFREE,
+	.fd_type	= CR_FD_EVENTPOLL_TFD,
+	.pb_type	= PB_EVENTPOLL_TFD,
+	.collect	= collect_one_epoll_tfd,
+	.flags		= COLLECT_NOFREE,
 };
 
 static int collect_one_epoll(void *o, ProtobufCMessage *msg, struct cr_img *i)
@@ -361,8 +361,8 @@ static int collect_one_epoll(void *o, ProtobufCMessage *msg, struct cr_img *i)
 }
 
 struct collect_image_info epoll_cinfo = {
-	.fd_type = CR_FD_EVENTPOLL_FILE,
-	.pb_type = PB_EVENTPOLL_FILE,
-	.priv_size = sizeof(struct eventpoll_file_info),
-	.collect = collect_one_epoll,
+	.fd_type	= CR_FD_EVENTPOLL_FILE,
+	.pb_type	= PB_EVENTPOLL_FILE,
+	.priv_size	= sizeof(struct eventpoll_file_info),
+	.collect	= collect_one_epoll,
 };
