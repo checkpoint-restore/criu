@@ -63,6 +63,7 @@ struct fd_parms {
 }
 
 extern int fill_fdlink(int lfd, const struct fd_parms *p, struct fd_link *link);
+extern uint32_t make_gen_id(uint32_t st_dev, uint32_t st_ino, uint64_t pos);
 
 struct file_desc;
 
