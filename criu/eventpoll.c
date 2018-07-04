@@ -44,10 +44,10 @@ int is_eventpoll_link(char *link)
 	return is_anon_link_type(link, "[eventpoll]");
 }
 
-static void pr_info_eventpoll_tfd(char *action, EventpollTfdEntry *e)
+static void pr_info_eventpoll_tfd(char *action, uint32_t id, EventpollTfdEntry *e)
 {
-	pr_info("%seventpoll-tfd: tfd %8d events %#08x data %#016"PRIx64"\n",
-		action, e->tfd, e->events, e->data);
+	pr_info("%seventpoll-tfd: id %#08x tfd %8d events %#08x data %#016"PRIx64"\n",
+		action, id, e->tfd, e->events, e->data);
 }
 
 static void pr_info_eventpoll(char *action, EventpollFileEntry *e)
@@ -196,7 +196,7 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
 	if (!ret) {
 		for (i = 0; i < e.n_tfd; i++)
-			pr_info_eventpoll_tfd("Dumping: ", e.tfd[i]);
+			pr_info_eventpoll_tfd("Dumping: ", e.id, e.tfd[i]);
 	}
 
 	/* Restore former values to free resources */
@@ -277,7 +277,7 @@ static int eventpoll_retore_tfd(int fd, int id, EventpollTfdEntry *tdefe)
 {
 	struct epoll_event event;
 
-	pr_info_eventpoll_tfd("Restore ", tdefe);
+	pr_info_eventpoll_tfd("Restore ", id, tdefe);
 
 	event.events	= tdefe->events;
 	event.data.u64	= tdefe->data;
