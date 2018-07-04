@@ -24,6 +24,8 @@
 #include "log.h"
 #include "pstree.h"
 #include "parasite.h"
+#include "kerndat.h"
+#include "kcmp.h"
 
 #include "protobuf.h"
 #include "images/eventpoll.pb-c.h"
@@ -53,12 +55,81 @@ static void pr_info_eventpoll(char *action, EventpollFileEntry *e)
 	pr_info("%seventpoll: id %#08x flags %#04x\n", action, e->id, e->flags);
 }
 
+static int tfd_cmp(const void *a, const void *b)
+{
+	if (((int *)a)[0] > ((int *)b)[0])
+		return 1;
+	if (((int *)a)[0] < ((int *)b)[0])
+		return -1;
+	return 0;
+}
+
+/*
+ * fds in fd_parms are sorted so we can use binary search
+ * for better performance.
+ */
+static int find_tfd(pid_t pid, int efd, int fds[], size_t nr_fds, int tfd)
+{
+	kcmp_epoll_slot_t slot = {
+		.efd	= efd,
+		.tfd	= tfd,
+		.toff	= 0,
+	};
+	int *tfd_found;
+	size_t i;
+
+	pr_debug("find_tfd: pid %d efd %d tfd %d\n", pid, efd, tfd);
+
+	/*
+	 * Optimistic case: the target fd belongs to us
+	 * and wasn't dup'ed.
+	 */
+	tfd_found = bsearch(&tfd, fds, nr_fds, sizeof(int), tfd_cmp);
+	if (tfd_found) {
+		if (kdat.has_kcmp_epoll_tfd) {
+			if (syscall(SYS_kcmp, pid, pid, KCMP_EPOLL_TFD, tfd, &slot) == 0) {
+				pr_debug("find_tfd (kcmp-yes): bsearch match pid %d efd %d tfd %d\n",
+					 pid, efd, tfd);
+				return tfd;
+			}
+		} else {
+			pr_debug("find_tfd (kcmp-no): bsearch match pid %d efd %d tfd %d\n",
+				 pid, efd, tfd);
+			return tfd;
+		}
+	}
+
+	/*
+	 * Pessimistic case: the file has been dup'ed, we have to walk
+	 * over all files and find one which is suitable via series of
+	 * the kcmp syscalls.
+	 */
+
+	if (!kdat.has_kcmp_epoll_tfd) {
+		pr_debug("find_tfd (kcmp-no): no match pid %d efd %d tfd %d\n",
+			 pid, efd, tfd);
+		return -1;
+	}
+
+	for (i = 0; i < nr_fds; i++) {
+		if (syscall(SYS_kcmp, pid, pid, KCMP_EPOLL_TFD, fds[i], &slot) == 0) {
+			pr_debug("find_tfd (kcmp-yes): nsearch match pid %d efd %d tfd %d -> %d\n",
+				 pid, efd, tfd, fds[i]);
+			return fds[i];
+		}
+	}
+
+	pr_debug("find_tfd (kcmp-yes): no match pid %d efd %d tfd %d\n",
+		 pid, efd, tfd);
+	return -1;
+}
+
 static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 {
 	FileEntry fe = FILE_ENTRY__INIT;
 	EventpollFileEntry e = EVENTPOLL_FILE_ENTRY__INIT;
 	EventpollTfdEntry **tfd_cpy = NULL;
-	size_t i, j, k, n_tfd_cpy;
+	size_t i, j, n_tfd_cpy;
 	int ret = -1;
 
 	e.id = id;
@@ -87,21 +158,18 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	 */
 	if (p->dfds) {
 		for (i = j = 0; i < e.n_tfd; i++) {
-			for (k = 0; k < p->dfds->nr_fds; k++) {
-				if (p->dfds->fds[k] == e.tfd[i]->tfd)
-					break;
-			}
-
-			if (k >= p->dfds->nr_fds) {
+			int tfd = find_tfd(p->pid, p->fd, p->dfds->fds,
+					   p->dfds->nr_fds, e.tfd[i]->tfd);
+			if (tfd == -1) {
 				pr_warn("Escaped/closed fd descriptor %d on pid %d, ignoring\n",
 					e.tfd[i]->tfd, p->pid);
 				continue;
 			}
-
-			e.tfd[j++] = e.tfd[i];
+			e.tfd[j++]->tfd = tfd;
 		}
-		e.n_tfd = j; /* New amount of "semi-valid" fds */
-	}
+		e.n_tfd = j; /* New amount of "valid" fds */
+	} else
+		pr_warn_once("Unix SCM files are not verified\n");
 
 	pr_info_eventpoll("Dumping ", &e);
 	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
