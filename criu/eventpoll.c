@@ -129,9 +129,8 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 {
 	FileEntry fe = FILE_ENTRY__INIT;
 	EventpollFileEntry e = EVENTPOLL_FILE_ENTRY__INIT;
-	EventpollTfdEntry **tfd_cpy = NULL;
-	ssize_t i, j, n_tfd_cpy;
 	uint32_t *toff = NULL;
+	ssize_t i, j;
 	int ret = -1;
 
 	e.id = id;
@@ -144,11 +143,6 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	fe.type = FD_TYPES__EVENTPOLL;
 	fe.id = e.id;
 	fe.epfd = &e;
-
-	n_tfd_cpy = e.n_tfd;
-	tfd_cpy = xmemdup(e.tfd, sizeof(e.tfd[0]) * e.n_tfd);
-	if (!tfd_cpy)
-		goto out;
 
 	/*
 	 * In regular case there is no so many dup'ed
@@ -178,17 +172,16 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	 * pid's file set.
 	 */
 	if (p->dfds) {
-		for (i = j = 0; i < e.n_tfd; i++) {
+		for (i = 0; i < e.n_tfd; i++) {
 			int tfd = find_tfd(p->pid, p->fd, p->dfds->fds,
 					   p->dfds->nr_fds, e.tfd[i]->tfd, toff[i]);
 			if (tfd == -1) {
-				pr_warn("Escaped/closed fd descriptor %d on pid %d, ignoring\n",
+				pr_err("Escaped/closed fd descriptor %d on pid %d\n",
 					e.tfd[i]->tfd, p->pid);
-				continue;
+				goto out;
 			}
-			e.tfd[j++]->tfd = tfd;
+			e.tfd[i]->tfd = tfd;
 		}
-		e.n_tfd = j; /* New amount of "valid" fds */
 	} else
 		pr_warn_once("Unix SCM files are not verified\n");
 
@@ -199,13 +192,9 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 			pr_info_eventpoll_tfd("Dumping: ", e.id, e.tfd[i]);
 	}
 
-	/* Restore former values to free resources */
-	memcpy(e.tfd, tfd_cpy, sizeof(e.tfd[0]) * n_tfd_cpy);
-	e.n_tfd = n_tfd_cpy;
 out:
 	for (i = 0; i < e.n_tfd; i++)
 		eventpoll_tfd_entry__free_unpacked(e.tfd[i], NULL);
-	xfree(tfd_cpy);
 	xfree(e.tfd);
 	xfree(toff);
 
