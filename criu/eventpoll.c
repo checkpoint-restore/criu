@@ -25,13 +25,35 @@
 #include "pstree.h"
 #include "parasite.h"
 #include "kerndat.h"
-#include "kcmp.h"
+#include "file-ids.h"
+#include "kcmp-ids.h"
 
 #include "protobuf.h"
 #include "images/eventpoll.pb-c.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "epoll: "
+
+static LIST_HEAD(dinfo_list);
+
+typedef struct {
+	uint32_t			tfd;
+	uint32_t			off;
+	uint32_t			idx;
+} toff_t;
+
+struct eventpoll_dinfo {
+	struct list_head		list;
+
+	FileEntry			*fe;
+	EventpollFileEntry		*e;
+
+	toff_t				*toff;
+	FownEntry			fown;
+
+	pid_t				pid;
+	int				efd;
+};
 
 struct eventpoll_file_info {
 	EventpollFileEntry		*efe;
@@ -55,6 +77,113 @@ static void pr_info_eventpoll(char *action, EventpollFileEntry *e)
 	pr_info("%seventpoll: id %#08x flags %#04x\n", action, e->id, e->flags);
 }
 
+static int queue_dinfo(FileEntry **fe, EventpollFileEntry **e, toff_t **toff, const struct fd_parms *p)
+{
+	struct eventpoll_dinfo *dinfo;
+
+	pr_info_eventpoll("Queueing ", *e);
+
+	dinfo = xmalloc(sizeof(*dinfo));
+	if (!dinfo)
+		return -ENOMEM;
+
+	memcpy(&dinfo->fown, &p->fown, sizeof(dinfo->fown));
+
+	INIT_LIST_HEAD(&dinfo->list);
+
+	dinfo->fe	= *fe;
+	dinfo->e	= *e;
+	dinfo->toff	= *toff;
+	dinfo->e->fown	= &dinfo->fown;
+	dinfo->pid	= p->pid;
+	dinfo->efd	= p->fd;
+
+	*fe	= NULL;
+	*e	= NULL;
+	*toff	= NULL;
+
+	list_add_tail(&dinfo->list, &dinfo_list);
+	return 0;
+}
+
+static void dequeue_dinfo(struct eventpoll_dinfo *dinfo)
+{
+	ssize_t i;
+
+	for (i = 0; i < dinfo->e->n_tfd; i++)
+		eventpoll_tfd_entry__free_unpacked(dinfo->e->tfd[i], NULL);
+
+	xfree(dinfo->fe);
+	xfree(dinfo->e->tfd);
+	xfree(dinfo->e);
+	xfree(dinfo->toff);
+
+	list_del(&dinfo->list);
+
+	xfree(dinfo);
+}
+
+int flush_eventpoll_dinfo_queue(void)
+{
+	struct eventpoll_dinfo *dinfo, *t;
+	ssize_t i;
+
+	list_for_each_entry_safe(dinfo, t, &dinfo_list, list) {
+		EventpollFileEntry *e = dinfo->e;
+
+		for (i = 0; i < e->n_tfd; i++) {
+			EventpollTfdEntry *tfde = e->tfd[i];
+			struct kid_elem ke = {
+				.pid	= dinfo->pid,
+				.genid	= make_gen_id(tfde->dev,
+						      tfde->inode,
+						      tfde->pos),
+				.idx	= tfde->tfd,
+			};
+			kcmp_epoll_slot_t slot = {
+				.efd	= dinfo->efd,
+				.tfd	= tfde->tfd,
+				.toff	= dinfo->toff[i].off,
+			};
+			struct kid_elem *t = kid_lookup_epoll_tfd(&fd_tree, &ke, &slot);
+			if (!t) {
+				pr_debug("kid_lookup_epoll: no match pid %d efd %d tfd %d toff %u\n",
+					 dinfo->pid, dinfo->efd, tfde->tfd, dinfo->toff[i].off);
+				goto err;
+			}
+
+			pr_debug("kid_lookup_epoll: rbsearch match pid %d efd %d tfd %d toff %u -> %d\n",
+				 dinfo->pid, dinfo->efd, tfde->tfd, dinfo->toff[i].off, t->idx);
+
+			/* Make sure the pid matches */
+			if (t->pid != dinfo->pid) {
+				pr_debug("kid_lookup_epoll: pid mismatch %d %d efd %d tfd %d toff %u\n",
+					 dinfo->pid, t->pid, dinfo->efd, tfde->tfd, dinfo->toff[i].off);
+				goto err;
+			}
+
+			tfde->tfd = t->idx;
+		}
+
+		pr_info_eventpoll("Dumping ", e);
+		if (pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), dinfo->fe, PB_FILE))
+			goto err;
+
+		for (i = 0; i < e->n_tfd; i++)
+			pr_info_eventpoll_tfd("Dumping: ", e->id, e->tfd[i]);
+
+		dequeue_dinfo(dinfo);
+	}
+
+	return 0;
+
+err:
+	list_for_each_entry_safe(dinfo, t, &dinfo_list, list)
+		dequeue_dinfo(dinfo);
+
+	return -1;
+}
+
 static int tfd_cmp(const void *a, const void *b)
 {
 	if (((int *)a)[0] > ((int *)b)[0])
@@ -64,12 +193,25 @@ static int tfd_cmp(const void *a, const void *b)
 	return 0;
 }
 
+static int toff_cmp(const void *a, const void *b)
+{
+	if (((toff_t *)a)[0].tfd > ((toff_t *)b)[0].tfd)
+		return 1;
+	if (((toff_t *)a)[0].tfd < ((toff_t *)b)[0].tfd)
+		return -1;
+	if (((toff_t *)a)[0].idx > ((toff_t *)b)[0].idx)
+		return 1;
+	if (((toff_t *)a)[0].idx < ((toff_t *)b)[0].idx)
+		return -1;
+	return 0;
+}
+
 /*
  * fds in fd_parms are sorted so we can use binary search
  * for better performance.
  */
-static int find_tfd(pid_t pid, int efd, int fds[], size_t nr_fds, int tfd,
-		    unsigned int toff)
+static int find_tfd_bsearch(pid_t pid, int efd, int fds[], size_t nr_fds,
+			    int tfd, unsigned int toff)
 {
 	kcmp_epoll_slot_t slot = {
 		.efd	= efd,
@@ -77,9 +219,8 @@ static int find_tfd(pid_t pid, int efd, int fds[], size_t nr_fds, int tfd,
 		.toff	= toff,
 	};
 	int *tfd_found;
-	size_t i;
 
-	pr_debug("find_tfd: pid %d efd %d tfd %d toff %u\n", pid, efd, tfd, toff);
+	pr_debug("find_tfd_bsearch: pid %d efd %d tfd %d toff %u\n", pid, efd, tfd, toff);
 
 	/*
 	 * Optimistic case: the target fd belongs to us
@@ -89,60 +230,50 @@ static int find_tfd(pid_t pid, int efd, int fds[], size_t nr_fds, int tfd,
 	if (tfd_found) {
 		if (kdat.has_kcmp_epoll_tfd) {
 			if (syscall(SYS_kcmp, pid, pid, KCMP_EPOLL_TFD, tfd, &slot) == 0) {
-				pr_debug("find_tfd (kcmp-yes): bsearch match pid %d efd %d tfd %d toff %u\n",
+				pr_debug("find_tfd_bsearch (kcmp-yes): bsearch match pid %d efd %d tfd %d toff %u\n",
 					 pid, efd, tfd, toff);
 				return tfd;
 			}
 		} else {
-			pr_debug("find_tfd (kcmp-no): bsearch match pid %d efd %d tfd %d toff %u\n",
+			pr_debug("find_tfd_bsearch (kcmp-no): bsearch match pid %d efd %d tfd %d toff %u\n",
 				 pid, efd, tfd, toff);
 			return tfd;
 		}
 	}
 
-	/*
-	 * Pessimistic case: the file has been dup'ed, we have to walk
-	 * over all files and find one which is suitable via series of
-	 * the kcmp syscalls.
-	 */
-
-	if (!kdat.has_kcmp_epoll_tfd) {
-		pr_debug("find_tfd (kcmp-no): no match pid %d efd %d tfd %d toff %u\n",
-			 pid, efd, tfd, toff);
-		return -1;
-	}
-
-	for (i = 0; i < nr_fds; i++) {
-		if (syscall(SYS_kcmp, pid, pid, KCMP_EPOLL_TFD, fds[i], &slot) == 0) {
-			pr_debug("find_tfd (kcmp-yes): nsearch match pid %d efd %d tfd %d toff %u -> %d\n",
-				 pid, efd, tfd, toff, fds[i]);
-			return fds[i];
-		}
-	}
-
-	pr_debug("find_tfd (kcmp-yes): no match pid %d efd %d tfd %d toff %u\n",
+	pr_debug("find_tfd_bsearch: no match pid %d efd %d tfd %d toff %u\n",
 		 pid, efd, tfd, toff);
 	return -1;
 }
 
 static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 {
-	FileEntry fe = FILE_ENTRY__INIT;
-	EventpollFileEntry e = EVENTPOLL_FILE_ENTRY__INIT;
-	uint32_t *toff = NULL;
-	ssize_t i, j;
+	toff_t *toff_base, *toff = NULL;
+	EventpollFileEntry *e = NULL;
+	FileEntry *fe = NULL;
 	int ret = -1;
+	ssize_t i;
 
-	e.id = id;
-	e.flags = p->flags;
-	e.fown = (FownEntry *)&p->fown;
+	e = xmalloc(sizeof(*e));
+	if (!e)
+		goto out;
+	eventpoll_file_entry__init(e);
 
-	if (parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, &e))
+	fe = xmalloc(sizeof(*fe));
+	if (!fe)
+		goto out;
+	file_entry__init(fe);
+
+	e->id		= id;
+	e->flags	= p->flags;
+	e->fown		= (FownEntry *)&p->fown;
+
+	if (parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, e))
 		goto out;
 
-	fe.type = FD_TYPES__EVENTPOLL;
-	fe.id = e.id;
-	fe.epfd = &e;
+	fe->type	= FD_TYPES__EVENTPOLL;
+	fe->id		= e->id;
+	fe->epfd	= e;
 
 	/*
 	 * In regular case there is no so many dup'ed
@@ -150,16 +281,25 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	 * lets rather walk over members with O(n^2)
 	 */
 	if (p->dfds) {
-		toff = xzalloc(sizeof(*toff) * e.n_tfd);
+		toff = xmalloc(sizeof(*toff) * e->n_tfd);
 		if (!toff)
 			goto out;
-		for (i = 1; i < e.n_tfd; i++) {
-			for (j = i - 1; j < e.n_tfd && j >= 0; j--) {
-				if (e.tfd[i]->tfd == e.tfd[j]->tfd) {
-					toff[i] = toff[j] + 1;
-					break;
-				}
-			}
+		for (i = 0; i < e->n_tfd; i++) {
+			toff[i].idx	= i;
+			toff[i].tfd	= e->tfd[i]->tfd;
+			toff[i].off	= 0;
+		}
+
+		qsort(toff, e->n_tfd, sizeof(*toff), toff_cmp);
+
+		toff_base = NULL;
+		for (i = 1; i < e->n_tfd; i++) {
+			if (toff[i].tfd == toff[i - 1].tfd) {
+				if (!toff_base)
+					toff_base = &toff[i - 1];
+				toff[i].off = toff[i].idx - toff_base->idx;
+			} else
+				toff_base = NULL;
 		}
 	}
 
@@ -172,30 +312,36 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	 * pid's file set.
 	 */
 	if (p->dfds) {
-		for (i = 0; i < e.n_tfd; i++) {
-			int tfd = find_tfd(p->pid, p->fd, p->dfds->fds,
-					   p->dfds->nr_fds, e.tfd[i]->tfd, toff[i]);
+		for (i = 0; i < e->n_tfd; i++) {
+			int tfd = find_tfd_bsearch(p->pid, p->fd, p->dfds->fds,
+						   p->dfds->nr_fds, e->tfd[i]->tfd, toff[i].off);
 			if (tfd == -1) {
-				pr_err("Escaped/closed fd descriptor %d on pid %d\n",
-					e.tfd[i]->tfd, p->pid);
+				if (kdat.has_kcmp_epoll_tfd) {
+					ret = queue_dinfo(&fe, &e, &toff, p);
+				} else {
+					pr_err("Escaped/closed fd descriptor %d on pid %d\n",
+					       e->tfd[i]->tfd, p->pid);
+				}
 				goto out;
 			}
-			e.tfd[i]->tfd = tfd;
 		}
 	} else
 		pr_warn_once("Unix SCM files are not verified\n");
 
-	pr_info_eventpoll("Dumping ", &e);
-	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
+	pr_info_eventpoll("Dumping ", e);
+	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), fe, PB_FILE);
 	if (!ret) {
-		for (i = 0; i < e.n_tfd; i++)
-			pr_info_eventpoll_tfd("Dumping: ", e.id, e.tfd[i]);
+		for (i = 0; i < e->n_tfd; i++)
+			pr_info_eventpoll_tfd("Dumping: ", e->id, e->tfd[i]);
 	}
 
 out:
-	for (i = 0; i < e.n_tfd; i++)
-		eventpoll_tfd_entry__free_unpacked(e.tfd[i], NULL);
-	xfree(e.tfd);
+	for (i = 0; e && i < e->n_tfd; i++)
+		eventpoll_tfd_entry__free_unpacked(e->tfd[i], NULL);
+	xfree(fe);
+	if (e)
+		xfree(e->tfd);
+	xfree(e);
 	xfree(toff);
 
 	return ret;
