@@ -1078,6 +1078,14 @@ static int check_sk_unix_file(void)
 	return 0;
 }
 
+static int check_kcmp_epoll(void)
+{
+	if (!kdat.has_kcmp_epoll_tfd)
+		return -1;
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1185,6 +1193,7 @@ int cr_check(void)
 		ret |= check_uffd();
 		ret |= check_uffd_noncoop();
 		ret |= check_sk_netns();
+		ret |= check_kcmp_epoll();
 	}
 
 	/*
@@ -1269,6 +1278,7 @@ static struct feature_list feature_list[] = {
 	{ "sk_unix_file", check_sk_unix_file },
 	{ "nsid", check_nsid },
 	{ "link_nsid", check_link_nsid},
+	{ "kcmp_epoll", check_kcmp_epoll},
 	{ NULL, NULL },
 };
 
