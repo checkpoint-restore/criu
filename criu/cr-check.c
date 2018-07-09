@@ -22,7 +22,6 @@
 #include <sys/prctl.h>
 #include <sched.h>
 #include <sys/mount.h>
-#include <linux/aio_abi.h>
 
 #include "../soccr/soccr.h"
 
@@ -51,6 +50,7 @@
 #include "net.h"
 #include "restorer.h"
 #include "uffd.h"
+#include "aio.h"
 
 static char *feature_name(int (*func)());
 
