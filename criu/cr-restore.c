@@ -1287,7 +1287,11 @@ static void maybe_clone_parent(struct pstree_item *item,
 
 static bool needs_prep_creds(struct pstree_item *item)
 {
-	return (!item->parent && (root_ns_mask & CLONE_NEWUSER));
+	/*
+	 * Before the 4.13 kernel, it was impossible to set
+	 * an exe_file if uid or gid isn't zero.
+	 */
+	return (!item->parent && ((root_ns_mask & CLONE_NEWUSER) || getuid()));
 }
 
 static inline int fork_with_pid(struct pstree_item *item)
