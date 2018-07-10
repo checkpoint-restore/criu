@@ -512,104 +512,6 @@ static int try_resolve_ext_mount(struct mount_info *info)
 	return 0;
 }
 
-static struct mount_info *find_wider_shared(struct mount_info *m)
-{
-	struct mount_info *p;
-
-	/*
-	 * Try to find a mount, which is wider or equal.
-	 * A is wider than B, if A->root is a subpath of B->root.
-	 */
-	list_for_each_entry(p, &m->mnt_share, mnt_share)
-		if (issubpath(m->root, p->root))
-			return p;
-
-	return NULL;
-}
-
-static struct mount_info *find_shared_peer(struct mount_info *m,
-		struct mount_info *ct, char *ct_mountpoint)
-{
-	struct mount_info *cm;
-
-	list_for_each_entry(cm, &m->children, siblings) {
-		if (strcmp(ct_mountpoint, cm->mountpoint))
-			continue;
-
-		if (!mounts_equal(cm, ct))
-			break;
-
-		return cm;
-	}
-
-	return NULL;
-}
-
-static int validate_shared(struct mount_info *m)
-{
-	struct mount_info *t, *ct;
-	char buf[PATH_MAX], *sibling_path;
-	LIST_HEAD(children);
-
-	/*
-	 * Check that all mounts in one shared group has the same set of
-	 * children. Only visible children are accounted. A non-root bind-mount
-	 * doesn't see children out of its root and it's expected case.
-	 *
-	 * Here is a few conditions:
-	 * 1. t is wider than m
-	 * 2. We search a wider mount in the same direction, so when we
-	 *    enumerate all mounts, we can't be sure that all of them
-	 *    has the same set of children.
-	 */
-
-	t = find_wider_shared(m);
-	if (!t)
-		/*
-		 * The current mount is the widest one in its shared group,
-		 * all others will be compared to it or with some other,
-		 * which will be compared to it.
-		 */
-		return 0;
-
-	/* Search a child, which is visible in both mounts. */
-	list_for_each_entry(ct, &t->children, siblings) {
-		struct mount_info *cm;
-
-		if (ct->is_ns_root || ct->mnt_id == CRTIME_MNT_ID)
-			continue;
-
-		sibling_path = mnt_get_sibling_path(ct, m, buf, sizeof(buf));
-		if (sibling_path == NULL)
-			continue;
-
-		cm = find_shared_peer(m, ct, sibling_path);
-		if (!cm)
-			goto err;
-
-		/*
-		 * Keep this one aside. At the end of t's children scan we should
-		 * move _all_ m's children here (the list_empty check below).
-		 */
-		list_move(&cm->siblings, &children);
-	}
-
-	/* Now all real mounts should be moved */
-	list_for_each_entry(ct, &m->children, siblings) {
-		if (ct->mnt_id != CRTIME_MNT_ID)
-			goto err;
-	}
-
-	list_splice(&children, &m->children);
-	return 0;
-
-err:
-	list_splice(&children, &m->children);
-	pr_err("%d:%s and %d:%s have different set of mounts\n",
-			m->mnt_id, m->mountpoint, t->mnt_id, t->mountpoint);
-	return -1;
-}
-
 /*
  * Find the mount_info from which the respective bind-mount
  * can be created. It can be either an FS-root mount, or the
@@ -721,9 +623,6 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 		if (m->parent == NULL || m->is_ns_root)
 			/* root mount can be any */
 			continue;
-
-		if (m->shared_id && validate_shared(m))
-			return -1;
 
 		if (validate_children_collision(m))
 			return -1;
@@ -2880,8 +2779,7 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 		 * to ->root can confuse mnt_is_external and other functions
 		 * which expect to see the path in the file system to the root
 		 * of these mount (mounts_equal, mnt_build_ids_tree,
-		 * find_wider_shared, find_fsroot_mount_for,
-		 * find_best_external_match, etc.)
+		 * find_fsroot_mount_for, find_best_external_match, etc.)
 		 */
 		me->root = NO_ROOT_MOUNT;
 	}
