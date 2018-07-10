@@ -337,6 +337,7 @@ TST_DIR		=				\
 		sk-unix-mntns			\
 		sk-unix01			\
 		unsupported_children_collision  \
+		shared_slave_mount_children	\
 
 TST_DIR_FILE	=				\
 		chroot				\
