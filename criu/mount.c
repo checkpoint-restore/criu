@@ -2010,7 +2010,7 @@ static int propagate_siblings(struct mount_info *mi)
 
 static int propagate_mount(struct mount_info *mi)
 {
-	struct mount_info *t;
+	struct mount_info *p;
 
 	propagate_siblings(mi);
 
@@ -2019,47 +2019,21 @@ static int propagate_mount(struct mount_info *mi)
 
 	umount_from_slaves(mi);
 
-	/* Propagate this mount to everyone from a parent group */
-
-	list_for_each_entry(t, &mi->parent->mnt_share, mnt_share) {
-		struct mount_info *c;
-		char path[PATH_MAX], *mp;
-		bool found = false;
+	/* Mark mounts in propagation group mounted */
+	list_for_each_entry(p, &mi->mnt_propagate, mnt_propagate) {
+		/* Should not propagate the same mount twice */
+		BUG_ON(p->mounted);
+		pr_debug("\t\tPropagate %s\n", p->mountpoint);
 
 		/*
-		 * If a mount from parent's shared group is not yet mounted
-		 * it shouldn't have 'sibling' in it - see can_mount_now()
+		 * When a mount is propagated, the result mount
+		 * is always shared. If we want to get a private
+		 * mount, we need to convert it.
 		 */
-		if (!t->mounted)
-			continue;
-
-		mp = mnt_get_sibling_path(mi, t, path, sizeof(path));
-		if (mp == NULL)
-			continue;
-
-		list_for_each_entry(c, &t->children, siblings) {
-			if (mounts_equal(mi, c) && !strcmp(mp, c->mountpoint)) {
-				/* Should not propagate the same mount twice */
-				BUG_ON(c->mounted);
-				pr_debug("\t\tPropagate %s\n", c->mountpoint);
-
-				/*
-				 * When a mount is propagated, the result mount
-				 * is always shared. If we want to get a private
-				 * mount, we need to convert it.
-				 */
-				restore_shared_options(c, !c->shared_id, 0, 0);
-
-				c->mounted = true;
-				propagate_siblings(c);
-				umount_from_slaves(c);
-				found = true;
-			}
-		}
-		if (!found) {
-			pr_err("Unable to find %s\n", mp);
-			return -1;
-		}
+		restore_shared_options(p, !p->shared_id, 0, 0);
+		p->mounted = true;
+		propagate_siblings(p);
+		umount_from_slaves(p);
 	}
 
 skip_parent:
@@ -2068,6 +2042,8 @@ skip_parent:
 	 * only if a proper root mount exists
 	 */
 	if (fsroot_mounted(mi) || mi->parent == root_yard_mp || mi->external) {
+		struct mount_info *t;
+
 		list_for_each_entry(t, &mi->mnt_bind, mnt_bind) {
 			if (t->mounted)
 				continue;
