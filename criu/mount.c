@@ -685,6 +685,34 @@ static bool mnt_is_external(struct mount_info *m)
 	return 0;
 }
 
+/*
+ * Having two children whith same mountpoint is unsupported. That can happen in
+ * case of mount propagation inside of shared mounts, in that case it is hard
+ * to find out mount propagation siblings and which of these mounts is above
+ * (visible) and which is beneath (hidden). It would've broken mount restore
+ * order in can_mount_now and also visibility assumptions in open_mountpoint.
+ *
+ * Anyway after kernel v4.11 such mounts will be impossible.
+ */
+static int validate_children_collision(struct mount_info *mnt)
+{
+	struct mount_info *chi, *chj;
+
+	list_for_each_entry(chi, &mnt->children, siblings) {
+		list_for_each_entry(chj, &mnt->children, siblings) {
+			if (chj == chi)
+				break;
+			if (!strcmp(chj->mountpoint, chi->mountpoint)) {
+				pr_err("Mount %d has two children with same "
+				       "mountpoint: %d %d\n",
+				       mnt->mnt_id, chj->mnt_id, chi->mnt_id);
+				return -1;
+			}
+		}
+	}
+	return 0;
+}
+
 static int validate_mounts(struct mount_info *info, bool for_dump)
 {
 	struct mount_info *m, *t;
@@ -695,6 +723,9 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 			continue;
 
 		if (m->shared_id && validate_shared(m))
+			return -1;
+
+		if (validate_children_collision(m))
 			return -1;
 
 		if (mnt_is_external(m))
