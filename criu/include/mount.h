@@ -65,6 +65,7 @@ struct mount_info {
 	struct list_head	mnt_slave_list;	/* list of slave mounts */
 	struct list_head	mnt_slave;	/* slave list entry */
 	struct mount_info	*mnt_master;	/* slave is on master->mnt_slave_list */
+	struct list_head	mnt_propagate;	/* circular list of mounts which propagate from each other */
 
 	struct list_head	postpone;
 

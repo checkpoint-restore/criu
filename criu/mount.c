@@ -931,6 +931,74 @@ static int resolve_external_mounts(struct mount_info *info)
 	return 0;
 }
 
+static int root_path_from_parent(struct mount_info *m, char *buf, int size)
+{
+	bool head_slash = false, tail_slash = false;
+	int p_len = strlen(m->parent->mountpoint),
+	    m_len = strlen(m->mountpoint),
+	    len;
+
+	if (!m->parent)
+		return -1;
+
+	len = snprintf(buf, size, "%s", m->parent->root);
+	if (len >= size)
+		return -1;
+
+	BUG_ON(len <= 0);
+	if (buf[len-1] == '/')
+		tail_slash = true;
+
+	size -= len;
+	buf += len;
+
+	len = m_len - p_len;
+	BUG_ON(len < 0);
+	if (len) {
+		if (m->mountpoint[p_len] == '/')
+			head_slash = true;
+
+		len = snprintf(buf, size, "%s%s",
+			       (!tail_slash && !head_slash) ? "/" : "",
+			       m->mountpoint + p_len + (tail_slash && head_slash));
+		if (len >= size)
+			return -1;
+	}
+
+	return 0;
+}
+
+static int same_propagation_group(struct mount_info *a, struct mount_info *b) {
+	char root_path_a[PATH_MAX], root_path_b[PATH_MAX];
+
+	/*
+	 * If mounts are in same propagation group:
+	 * 1) Their parents should be different
+	 * 2) Their parents should be together in same shared group
+	 */
+	if (!a->parent || !b->parent || a->parent == b->parent ||
+	    a->parent->shared_id != b->parent->shared_id)
+		return 0;
+
+	if (root_path_from_parent(a, root_path_a, PATH_MAX)) {
+		pr_err("Failed to get root path for mount %d\n", a->mnt_id);
+		return -1;
+	}
+
+	if (root_path_from_parent(b, root_path_b, PATH_MAX)) {
+		pr_err("Failed to get root path for mount %d\n", b->mnt_id);
+		return -1;
+	}
+
+	/*
+	 * 3) Their mountpoints relative to the root of the superblock of their
+	 * parent's share should be equal
+	 */
+	if (!strcmp(root_path_a, root_path_b))
+		return 1;
+	return 0;
+}
+
 static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 {
 	struct mount_info *m, *t;
@@ -998,6 +1066,35 @@ static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 					pr_debug("\tThe mount %3d is bind for %3d (@%s -> @%s)\n",
 						 t->mnt_id, m->mnt_id,
 						 t->mountpoint, m->mountpoint);
+				}
+			}
+		}
+	}
+
+	/* Search propagation groups */
+	for (m = info; m; m = m->next) {
+		struct mount_info *sparent;
+
+		if (!list_empty(&m->mnt_propagate))
+			continue;
+
+		if (!m->parent || !m->parent->shared_id)
+			continue;
+
+		list_for_each_entry(sparent, &m->parent->mnt_share, mnt_share) {
+			struct mount_info *schild;
+
+			list_for_each_entry(schild, &sparent->children, siblings) {
+				int ret;
+
+				ret = same_propagation_group(m, schild);
+				if (ret < 0)
+					return -1;
+				else if (ret) {
+					BUG_ON(!mounts_equal(m, schild));
+					pr_debug("\tMount %3d is in same propagation group with %3d (@%s ~ @%s)\n",
+						 m->mnt_id, schild->mnt_id, m->mountpoint, schild->mountpoint);
+					list_add(&schild->mnt_propagate, &m->mnt_propagate);
 				}
 			}
 		}
@@ -2700,6 +2797,7 @@ struct mount_info *mnt_entry_alloc()
 		INIT_LIST_HEAD(&new->mnt_slave_list);
 		INIT_LIST_HEAD(&new->mnt_share);
 		INIT_LIST_HEAD(&new->mnt_bind);
+		INIT_LIST_HEAD(&new->mnt_propagate);
 		INIT_LIST_HEAD(&new->postpone);
 	}
 	return new;
