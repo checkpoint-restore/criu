@@ -336,6 +336,7 @@ TST_DIR		=				\
 		del_standalone_un		\
 		sk-unix-mntns			\
 		sk-unix01			\
+		unsupported_children_collision  \
 
 TST_DIR_FILE	=				\
 		chroot				\
