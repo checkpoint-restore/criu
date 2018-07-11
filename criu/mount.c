@@ -1325,10 +1325,18 @@ int ns_open_mountpoint(void *arg)
 	if (umount_overmounts(mi))
 		goto err;
 
-	/* Save fd which we opened for parent due to CLONE_FILES flag */
-	*fd = get_clean_fd(mi);
-	if (*fd < 0)
+	/*
+	 * Save fd which we opened for parent due to CLONE_FILES flag
+	 *
+	 * Mount can still have children in it, but we don't need to clean it
+	 * explicitly as when last process exits mntns all mounts in it are
+	 * cleaned from their children, and we are exactly the last process.
+	 */
+	*fd = open(mi->mountpoint, O_DIRECTORY|O_RDONLY);
+	if (*fd < 0) {
+		pr_perror("Unable to open %s", mi->mountpoint);
 		goto err;
+	}
 
 	return 0;
 err:
@@ -1367,18 +1375,22 @@ int open_mountpoint(struct mount_info *pm)
 
 	if (!mnt_is_overmounted(pm)) {
 		pr_info("\tmount has children %s\n", pm->mountpoint);
-
 		fd = get_clean_fd(pm);
-		if (fd < 0)
-			goto err;
-	} else {
+	}
+
+	/*
+	 * Mount is overmounted or probably we can't create a temporary
+	 * direcotry for a cleaned mount
+	 */
+	if (fd < 0) {
 		int pid, status;
 		struct clone_arg ca = {
 			.mi = pm,
 			.fd = &fd
 		};
 
-		pr_info("\tmount is overmounted %s\n", pm->mountpoint);
+		pr_info("\tmount is overmounted or has children %s\n",
+				pm->mountpoint);
 
 		/*
 		 * We are overmounted - not accessible in a regular way. We
