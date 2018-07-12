@@ -270,7 +270,7 @@ define collect-deps
 endef
 
 ifneq ($(MAKECMDGOALS),)
-        ifneq ($(MAKECMDGOALS),clean)
+        ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
                 $(foreach goal,$(MAKECMDGOALS),$(eval $(call collect-deps,$(goal))))
                 deps-y := $(call uniq,$(deps-y))
                 ifneq ($(deps-y),)
