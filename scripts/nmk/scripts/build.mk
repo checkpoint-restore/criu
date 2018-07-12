@@ -111,7 +111,7 @@ builtin-name	:= $(strip $(builtin-name))
 
 #
 # Link flags.
-ld_flags	:= $(strip $(LDFLAGS) $(ldflags-y))
+ldflags-y	:= $(strip $(LDFLAGS) $(ldflags-y))
 
 #
 # $(obj) related rules.
@@ -162,7 +162,7 @@ endef
 ifdef builtin-target
         $(eval $(call gen-ld-target-rule,                               \
                         $(builtin-target),                              \
-                        $(ld_flags),                                    \
+                        $(ldflags-y),                                    \
                         $(obj-y) $(__nmk-makefile-deps),                       \
                         $(obj-y) $(call objectify,$(obj-e))))
 endif
@@ -181,7 +181,7 @@ define gen-custom-target-rule
         ifneq ($($(1)-obj-y),)
                 $(eval $(call gen-ld-target-rule,                       \
                                 $(obj)/$(1).built-in.o,                 \
-                                $(ld_flags) $(LDFLAGS_$(1)),            \
+                                $(ldflags-y) $(LDFLAGS_$(1)),            \
                                 $(call objectify,$($(1)-obj-y))         \
                                 $(__nmk-makefile-deps),                        \
                                 $(call objectify,$($(1)-obj-y))         \
