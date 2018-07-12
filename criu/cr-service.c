@@ -1207,7 +1207,7 @@ int cr_service(bool daemon_mode)
 		goto err;
 
 	if (close_status_fd())
-		return -1;
+		goto err;
 
 	while (1) {
 		int sk;
