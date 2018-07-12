@@ -24,6 +24,10 @@ host-lib-y		+= src/lib/log.o
 
 lib-y			+= arch/$(ARCH)/src/lib/cpu.o
 lib-y			+= arch/$(ARCH)/src/lib/infect.o
+lib-y			+= arch/$(ARCH)/src/lib/handle-elf.o
+host-lib-y		+= arch/$(ARCH)/src/lib/handle-elf.o
+lib-y			+= src/lib/handle-elf.o
+host-lib-y		+= src/lib/handle-elf.o
 lib-y			+= src/lib/infect-rpc.o
 lib-y			+= src/lib/infect-util.o
 lib-y			+= src/lib/infect.o
@@ -36,8 +40,6 @@ HOSTCFLAGS		+= -DNO_RELOCS
 endif
 
 obj-y			+= src/main.o
-obj-y			+= arch/$(ARCH)/src/lib/handle-elf.o
-obj-y			+= src/lib/handle-elf.o
 
 host-ccflags-y		+= $(ccflags-y)
 
