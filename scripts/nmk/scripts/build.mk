@@ -277,20 +277,22 @@ define collect-target-deps
         endif
 endef
 define collect-deps
-        ifneq ($(filter-out %.d,$(1)),)
-                ifneq ($(filter %.o %.i %.s,$(1)),)
-                        deps-y += $(addsuffix .d,$(basename $(1)))
-                endif
-        endif
-        $(eval $(call collect-builtin-deps,$(builtin-target),$(1)))
-        $(eval $(call collect-lib-deps,$(lib-target),$(1)))
-        $(foreach t,$(hostprogs-y),$(eval $(call collect-hostprogs-deps,$(t),$(1))))
-        $(foreach t,$(target),$(eval $(call collect-target-deps,$(t),$(1))))
-        ifneq ($(filter all $(filter-out $(builtin-target) $(lib-target), $(all-y)) $(hostprogs-y),$(1)),)
-                deps-y += $(obj-y:.o=.d)
-                deps-y += $(lib-y:.o=.d)
+        ifneq ($(filter all,$(1)),)
+                $(eval $(call collect-builtin-deps,$(builtin-target),$(builtin-target)))
+                $(eval $(call collect-lib-deps,$(lib-target),$(lib-target)))
                 $(foreach t,$(hostprogs-y),$(eval $(call collect-hostprogs-deps,$(t),$(t))))
                 $(foreach t,$(target),$(eval $(call collect-target-deps,$(t),$(t))))
+        else
+                ifneq ($(filter-out %.d $(builtin-target) $(lib-target) $(hostprogs-y) $(target),$(1)),)
+                        ifneq ($(filter %.o %.i %.s,$(1)),)
+                                deps-y += $(addsuffix .d,$(basename $(1)))
+                        endif
+                else
+                        $(eval $(call collect-builtin-deps,$(builtin-target),$(1)))
+                        $(eval $(call collect-lib-deps,$(lib-target),$(1)))
+                        $(foreach t,$(hostprogs-y),$(eval $(call collect-hostprogs-deps,$(t),$(1))))
+                        $(foreach t,$(target),$(eval $(call collect-target-deps,$(t),$(1))))
+                endif
         endif
 endef
 
