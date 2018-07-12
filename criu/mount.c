@@ -833,12 +833,13 @@ static int resolve_external_mounts(struct mount_info *info)
 static int root_path_from_parent(struct mount_info *m, char *buf, int size)
 {
 	bool head_slash = false, tail_slash = false;
-	int p_len = strlen(m->parent->mountpoint),
-	    m_len = strlen(m->mountpoint),
-	    len;
+	int p_len, m_len, len;
 
 	if (!m->parent)
 		return -1;
+
+	p_len = strlen(m->parent->mountpoint),
+	m_len = strlen(m->mountpoint),
 
 	len = snprintf(buf, size, "%s", m->parent->root);
 	if (len >= size)
