@@ -162,8 +162,8 @@ endef
 ifdef builtin-target
         $(eval $(call gen-ld-target-rule,                               \
                         $(builtin-target),                              \
-                        $(ldflags-y),                                    \
-                        $(obj-y) $(__nmk-makefile-deps),                       \
+                        $(ldflags-y),                                   \
+                        $(obj-y) $(__nmk-makefile-deps),                \
                         $(obj-y) $(call objectify,$(obj-e))))
 endif
 
@@ -171,7 +171,7 @@ ifdef lib-target
         $(eval $(call gen-ar-target-rule,                               \
                         $(lib-target),                                  \
                         $(ARFLAGS) $(arflags-y),                        \
-                        $(lib-y) $(__nmk-makefile-deps),                       \
+                        $(lib-y) $(__nmk-makefile-deps),                \
                         $(lib-y) $(call objectify,$(lib-e))))
 endif
 
@@ -181,9 +181,9 @@ define gen-custom-target-rule
         ifneq ($($(1)-obj-y),)
                 $(eval $(call gen-ld-target-rule,                       \
                                 $(obj)/$(1).built-in.o,                 \
-                                $(ldflags-y) $(LDFLAGS_$(1)),            \
+                                $(ldflags-y) $(LDFLAGS_$(1)),           \
                                 $(call objectify,$($(1)-obj-y))         \
-                                $(__nmk-makefile-deps),                        \
+                                $(__nmk-makefile-deps),                 \
                                 $(call objectify,$($(1)-obj-y))         \
                                 $(call objectify,$($(1)-obj-e))))
                 all-y += $(obj)/$(1).built-in.o
@@ -196,7 +196,7 @@ define gen-custom-target-rule
                                 $(obj)/$(1).lib.a,                      \
                                 $(ARFLAGS) $($(1)-arflags-y),           \
                                 $(call objectify,$($(1)-lib-y))         \
-                                $(__nmk-makefile-deps),                        \
+                                $(__nmk-makefile-deps),                 \
                                 $(call objectify,$($(1)-lib-y)))        \
                                 $(call objectify,$($(1)-lib-e)))
                 all-y += $(obj)/$(1).lib.a
