@@ -27,8 +27,6 @@ compel-plugins		+= compel/plugins/std.lib.a compel/plugins/fds.lib.a
 LIBCOMPEL_SO		:= libcompel.so
 LIBCOMPEL_A		:= libcompel.a
 export LIBCOMPEL_SO LIBCOMPEL_A
-criu-deps		+= compel/$(LIBCOMPEL_A)
-criu-deps		+= $(compel-plugins)
 
 #
 # Compel itself.
@@ -37,6 +35,12 @@ compel/%: $(compel-deps) $(compel-plugins) .FORCE
 	$(Q) $(MAKE) $(build)=compel $@
 
 criu-deps		+= compel/compel-host-bin
+
+#
+# Make sure the host program is ready after the
+# library and plugins are built.
+compel/compel-host-bin: | compel/$(LIBCOMPEL_A) $(compel-plugins)
+$(COMPEL_BIN): compel/compel-host-bin
 
 #
 # Plugins
