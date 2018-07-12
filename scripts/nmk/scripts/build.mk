@@ -260,6 +260,12 @@ define collect-hostprogs-deps
                 deps-y += $(addprefix $(obj)/,$($(1)-objs:.o=.d))
         endif
 endef
+define collect-target-deps
+        ifeq ($(1),$(2))
+                deps-y += $(call objectify,$($(t)-lib-y:.o=.d))
+                deps-y += $(call objectify,$($(t)-obj-y:.o=.d))
+        endif
+endef
 define collect-deps
         ifneq ($(filter-out %.d,$(1)),)
                 ifneq ($(filter %.o %.i %.s,$(1)),)
@@ -273,11 +279,12 @@ define collect-deps
                 deps-y += $(lib-y:.o=.d)
         endif
         $(foreach t,$(hostprogs-y),$(eval $(call collect-hostprogs-deps,$(t),$(1))))
+        $(foreach t,$(target),$(eval $(call collect-target-deps,$(t),$(1))))
         ifneq ($(filter all $(filter-out $(builtin-target) $(lib-target), $(all-y)) $(hostprogs-y),$(1)),)
                 deps-y += $(obj-y:.o=.d)
                 deps-y += $(lib-y:.o=.d)
-                deps-y += $(foreach t,$(target),$(call objectify,$($(t)-lib-y:.o=.d)) $(call objectify,$($(t)-obj-y:.o=.d)))
                 $(foreach t,$(hostprogs-y),$(eval $(call collect-hostprogs-deps,$(t),$(t))))
+                $(foreach t,$(target),$(eval $(call collect-target-deps,$(t),$(t))))
         endif
 endef
 
