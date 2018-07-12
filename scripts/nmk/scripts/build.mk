@@ -6,17 +6,25 @@ ifndef ____nmk_defined__build
 src		:= $(obj)
 src-makefile	:= $(call objectify,$(makefile))
 obj-y		:=
+obj-e		:=
+builtin-name	:=
+builtin-target	:=
 lib-y		:=
+lib-e		:=
+lib-name	:=
+lib-target	:=
+hostprogs-y	:=
+libso-y		:=
+ld_flags	:=
+ldflags-so	:=
+arflags-y	:=
 target          :=
 deps-y		:=
 all-y		:=
-builtin-name	:=
-lib-name	:=
-ld_flags	:=
 cleanup-y	:=
 mrproper-y	:=
+target		:=
 objdirs		:=
-libso-y	        :=
 
 MAKECMDGOALS := $(call uniq,$(MAKECMDGOALS))
 
@@ -112,7 +120,6 @@ $(eval $(call gen-cc-rules,$(obj)/%,$(obj)/%))
 #
 # Prepare targets.
 ifneq ($(lib-y),)
-        lib-target :=
         ifneq ($(lib-name),)
                 lib-target := $(obj)/$(lib-name)
         else
@@ -125,7 +132,6 @@ ifneq ($(lib-y),)
 endif
 
 ifneq ($(obj-y),)
-        builtin-target :=
         ifneq ($(builtin-name),)
                 builtin-target := $(obj)/$(builtin-name)
         else
