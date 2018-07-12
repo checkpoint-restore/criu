@@ -261,7 +261,7 @@ define collect-deps
         ifeq ($(lib-target),$(1))
                 deps-y += $(lib-y:.o=.d)
         endif
-        ifneq ($(filter all $(all-y) $(hostprogs-y),$(1)),)
+        ifneq ($(filter all $(filter-out $(builtin-target) $(lib-target), $(all-y)) $(hostprogs-y),$(1)),)
                 deps-y += $(obj-y:.o=.d)
                 deps-y += $(lib-y:.o=.d)
                 deps-y += $(foreach t,$(target),$(call objectify,$($(t)-lib-y:.o=.d)) $(call objectify,$($(t)-obj-y:.o=.d)))
