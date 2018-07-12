@@ -583,8 +583,8 @@ struct roperation* handle_accept_cache_read(
 		if (write_reply_header(cli_fd, 0) < 0) {
 			pr_perror("Error writing reply header for %s:%s",
 				path, snapshot_id);
-			free(rop);
 			close(rop->fd);
+			free(rop);
 		}
 		rop_set_rimg(rop, rimg);
 		return rop;
@@ -594,8 +594,8 @@ struct roperation* handle_accept_cache_read(
 		pr_info("No image %s:%s.\n", path, snapshot_id);
 		if (write_reply_header(cli_fd, ENOENT) < 0)
 			pr_perror("Error writing reply header for unexisting image");
-		free(rop);
 		close(cli_fd);
+		free(rop);
 	}
 	return NULL;
 }
