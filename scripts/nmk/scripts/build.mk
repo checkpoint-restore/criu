@@ -255,6 +255,16 @@ $(foreach t,$(libso-y),$(eval $(call gen-so-link-rules,$(t))))
 
 #
 # Figure out if the target we're building needs deps to include.
+define collect-builtin-deps
+        ifeq ($(1),$(2))
+                deps-y += $(obj-y:.o=.d)
+        endif
+endef
+define collect-lib-deps
+        ifeq ($(1),$(2))
+                deps-y += $(lib-y:.o=.d)
+        endif
+endef
 define collect-hostprogs-deps
         ifeq ($(1),$(2))
                 deps-y += $(addprefix $(obj)/,$($(1)-objs:.o=.d))
@@ -272,12 +282,8 @@ define collect-deps
                         deps-y += $(addsuffix .d,$(basename $(1)))
                 endif
         endif
-        ifeq ($(builtin-target),$(1))
-                deps-y += $(obj-y:.o=.d)
-        endif
-        ifeq ($(lib-target),$(1))
-                deps-y += $(lib-y:.o=.d)
-        endif
+        $(eval $(call collect-builtin-deps,$(builtin-target),$(1)))
+        $(eval $(call collect-lib-deps,$(lib-target),$(1)))
         $(foreach t,$(hostprogs-y),$(eval $(call collect-hostprogs-deps,$(t),$(1))))
         $(foreach t,$(target),$(eval $(call collect-target-deps,$(t),$(1))))
         ifneq ($(filter all $(filter-out $(builtin-target) $(lib-target), $(all-y)) $(hostprogs-y),$(1)),)
