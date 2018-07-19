@@ -12,7 +12,16 @@
 #define LOG_PREFIX "cpu: "
 
 static compel_cpuinfo_t rt_info;
-static bool rt_info_done = false;
+
+static void fetch_rt_cpuinfo(void)
+{
+	static bool rt_info_done = false;
+
+	if (!rt_info_done) {
+		compel_cpuid(&rt_info);
+		rt_info_done = true;
+	}
+}
 
 /*
  * Although we spell it out in here, the Processor Trace
@@ -438,28 +447,19 @@ int compel_cpuid(compel_cpuinfo_t *c)
 
 bool compel_cpu_has_feature(unsigned int feature)
 {
-	if (!rt_info_done) {
-		compel_cpuid(&rt_info);
-		rt_info_done = true;
-	}
+	fetch_rt_cpuinfo();
 	return compel_test_cpu_cap(&rt_info, feature);
 }
 
 bool compel_fpu_has_feature(unsigned int feature)
 {
-	if (!rt_info_done) {
-		compel_cpuid(&rt_info);
-		rt_info_done = true;
-	}
+	fetch_rt_cpuinfo();
 	return compel_test_fpu_cap(&rt_info, feature);
 }
 
 uint32_t compel_fpu_feature_size(unsigned int feature)
 {
-	if (!rt_info_done) {
-		compel_cpuid(&rt_info);
-		rt_info_done = true;
-	}
+	fetch_rt_cpuinfo();
 	if (feature >= FIRST_EXTENDED_XFEATURE &&
 	    feature < XFEATURE_MAX)
 		return rt_info.xstate_sizes[feature];
@@ -468,10 +468,7 @@ uint32_t compel_fpu_feature_size(unsigned int feature)
 
 uint32_t compel_fpu_feature_offset(unsigned int feature)
 {
-	if (!rt_info_done) {
-		compel_cpuid(&rt_info);
-		rt_info_done = true;
-	}
+	fetch_rt_cpuinfo();
 	if (feature >= FIRST_EXTENDED_XFEATURE &&
 	    feature < XFEATURE_MAX)
 		return rt_info.xstate_offsets[feature];
@@ -480,18 +477,12 @@ uint32_t compel_fpu_feature_offset(unsigned int feature)
 
 void compel_cpu_clear_feature(unsigned int feature)
 {
-	if (!rt_info_done) {
-		compel_cpuid(&rt_info);
-		rt_info_done = true;
-	}
+	fetch_rt_cpuinfo();
 	return compel_clear_cpu_cap(&rt_info, feature);
 }
 
 void compel_cpu_copy_cpuinfo(compel_cpuinfo_t *c)
 {
-	if (!rt_info_done) {
-		compel_cpuid(&rt_info);
-		rt_info_done = true;
-	}
+	fetch_rt_cpuinfo();
 	memcpy(c, &rt_info, sizeof(rt_info));
 }
