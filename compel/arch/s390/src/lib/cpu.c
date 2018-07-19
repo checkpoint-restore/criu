@@ -17,6 +17,7 @@ static bool rt_info_done = false;
 
 void compel_set_cpu_cap(compel_cpuinfo_t *c, unsigned int feature) { }
 void compel_clear_cpu_cap(compel_cpuinfo_t *c, unsigned int feature) { }
+int compel_test_fpu_cap(compel_cpuinfo_t *info, unsigned int feature) { return 0; }
 int compel_test_cpu_cap(compel_cpuinfo_t *c, unsigned int feature) { return 0; }
 
 int compel_cpuid(compel_cpuinfo_t *info)
