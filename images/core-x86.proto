@@ -40,8 +40,29 @@ message user_x86_regs_entry {
 }
 
 message user_x86_xsave_entry {
+	/* standart xsave features */
 	required uint64			xstate_bv	=  1;
+
+	/* AVX components: 16x 256-bit ymm registers, hi 128 bits */
 	repeated uint32			ymmh_space	=  2;
+
+	/* MPX components */
+	repeated uint64			bndreg_state	=  3;
+	repeated uint64			bndcsr_state	=  4;
+
+	/* AVX512 components: k0-k7, ZMM_Hi256, Hi16_ZMM  */
+	repeated uint64			opmask_reg	=  5;
+	repeated uint64			zmm_upper	=  6;
+	repeated uint64			hi16_zmm	=  7;
+
+	/* Protected keys */
+	repeated uint32			pkru		=  8;
+
+	/*
+	 * Processor trace (PT) and hardware duty cycling (HDC)
+	 * are supervisor state components and only managed by
+	 * xsaves/xrstors on cpl=0, so ignore them.
+	 */
 }
 
 message user_x86_fpregs_entry {
