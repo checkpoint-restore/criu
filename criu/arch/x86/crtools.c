@@ -13,6 +13,9 @@
 #undef LOG_PREFIX
 #define LOG_PREFIX "x86: "
 
+#define XSAVE_PB_NELEMS(__s, __obj, __member)		\
+	(sizeof(__s) / sizeof(*(__obj)->__member))
+
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	CoreEntry *core = x;
@@ -147,49 +150,49 @@ static void alloc_tls(ThreadInfoX86 *ti, void **mempool)
 static int alloc_xsave_extends(UserX86XsaveEntry *xsave)
 {
 	if (compel_fpu_has_feature(XFEATURE_YMM)) {
-		xsave->n_ymmh_space	= 64;
+		xsave->n_ymmh_space	= XSAVE_PB_NELEMS(struct ymmh_struct, xsave, ymmh_space);
 		xsave->ymmh_space	= xzalloc(pb_repeated_size(xsave, ymmh_space));
 		if (!xsave->ymmh_space)
 			goto err;
 	}
 
 	if (compel_fpu_has_feature(XFEATURE_BNDREGS)) {
-		xsave->n_bndreg_state	= 4 * 2;
+		xsave->n_bndreg_state	= XSAVE_PB_NELEMS(struct mpx_bndreg_state, xsave, bndreg_state);
 		xsave->bndreg_state	= xzalloc(pb_repeated_size(xsave, bndreg_state));
 		if (!xsave->bndreg_state)
 			goto err;
 	}
 
 	if (compel_fpu_has_feature(XFEATURE_BNDCSR)) {
-		xsave->n_bndcsr_state	= 2;
+		xsave->n_bndcsr_state	= XSAVE_PB_NELEMS(struct mpx_bndcsr_state, xsave, bndcsr_state);
 		xsave->bndcsr_state	= xzalloc(pb_repeated_size(xsave, bndcsr_state));
 		if (!xsave->bndcsr_state)
 			goto err;
 	}
 
 	if (compel_fpu_has_feature(XFEATURE_OPMASK)) {
-		xsave->n_opmask_reg	= 8;
+		xsave->n_opmask_reg	= XSAVE_PB_NELEMS(struct avx_512_opmask_state, xsave, opmask_reg);
 		xsave->opmask_reg	= xzalloc(pb_repeated_size(xsave, opmask_reg));
 		if (!xsave->opmask_reg)
 			goto err;
 	}
 
 	if (compel_fpu_has_feature(XFEATURE_ZMM_Hi256)) {
-		xsave->n_zmm_upper	= 16 * 4;
+		xsave->n_zmm_upper	= XSAVE_PB_NELEMS(struct avx_512_zmm_uppers_state, xsave, zmm_upper);
 		xsave->zmm_upper	= xzalloc(pb_repeated_size(xsave, zmm_upper));
 		if (!xsave->zmm_upper)
 			goto err;
 	}
 
 	if (compel_fpu_has_feature(XFEATURE_Hi16_ZMM)) {
-		xsave->n_hi16_zmm	= 16 * 8;
+		xsave->n_hi16_zmm	= XSAVE_PB_NELEMS(struct avx_512_hi16_state, xsave, hi16_zmm);
 		xsave->hi16_zmm		= xzalloc(pb_repeated_size(xsave, hi16_zmm));
 		if (!xsave->hi16_zmm)
 			goto err;
 	}
 
 	if (compel_fpu_has_feature(XFEATURE_PKRU)) {
-		xsave->n_pkru		= 2;
+		xsave->n_pkru		= XSAVE_PB_NELEMS(struct pkru_state, xsave, pkru);
 		xsave->pkru		= xzalloc(pb_repeated_size(xsave, pkru));
 		if (!xsave->pkru)
 			goto err;
