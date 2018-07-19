@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include <compel/asm/fpu.h>
+
 /*
  * Adopted from linux kernel and enhanced from Intel/AMD manuals.
  * Note these bits are not ABI for linux kernel but they _are_
@@ -277,6 +279,7 @@ enum cpuid_leafs {
 #define X86_FEATURE_HWP_ACT_WINDOW	(14*32+ 9) /* HWP Activity Window */
 #define X86_FEATURE_HWP_EPP		(14*32+10) /* HWP Energy Perf. Preference */
 #define X86_FEATURE_HWP_PKG_REQ		(14*32+11) /* HWP Package Level Request */
+#define X86_FEATURE_HDC			(14*32+13) /* HDC base registers present */
 
 /* AMD SVM Feature Identification, CPUID level 0x8000000a (EDX), word 15 */
 #define X86_FEATURE_NPT			(15*32+ 0) /* Nested Page Table support */
@@ -318,6 +321,7 @@ enum {
 };
 
 struct cpuinfo_x86 {
+	/* cpu context */
 	uint8_t			x86_family;
 	uint8_t			x86_vendor;
 	uint8_t			x86_model;
@@ -328,6 +332,17 @@ struct cpuinfo_x86 {
 	int			cpuid_level;
 	char			x86_vendor_id[16];
 	char			x86_model_id[64];
+
+	/* fpu context */
+	uint64_t		xfeatures_mask;
+	uint32_t		xsave_size_max;
+	uint32_t		xsave_size;
+	uint32_t		xstate_offsets[XFEATURE_MAX];
+	uint32_t		xstate_sizes[XFEATURE_MAX];
+
+	uint32_t		xsaves_size;
+	uint32_t		xstate_comp_offsets[XFEATURE_MAX];
+	uint32_t		xstate_comp_sizes[XFEATURE_MAX];
 };
 
 typedef struct cpuinfo_x86 compel_cpuinfo_t;
