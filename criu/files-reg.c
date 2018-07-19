@@ -1005,18 +1005,9 @@ int dead_pid_conflict(void)
 		if (!node)
 			continue;
 
-		if (node->state != TASK_THREAD) {
-			struct pstree_item *item;
-
-			/*
-			 * If the dead PID was given to a main thread of another
-			 * process, this is handled during restore.
-			 */
-			item = node->item;
-			if (item->pid->real == item->threads[i].real ||
-			    item->threads[i].ns[0].virt != pid)
-				continue;
-		}
+		/* Main thread */
+		if (node->state != TASK_THREAD)
+			continue;
 
 		pr_err("Conflict with a dead task with the same PID as of this thread (virt %d, real %d).\n",
 			node->ns[0].virt, node->real);
