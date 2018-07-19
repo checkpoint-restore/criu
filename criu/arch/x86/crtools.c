@@ -336,14 +336,13 @@ static void show_rt_xsave_frame(struct xsave_struct *x)
 	pr_debug("xsave runtime structure\n");
 	pr_debug("-----------------------\n");
 
-	pr_debug("cwd:%x swd:%x twd:%x fop:%x mxcsr:%x mxcsr_mask:%x\n",
+	pr_debug("cwd:%#x swd:%#x twd:%#x fop:%#x mxcsr:%#x mxcsr_mask:%#x\n",
 		 (int)i387->cwd, (int)i387->swd, (int)i387->twd,
 		 (int)i387->fop, (int)i387->mxcsr, (int)i387->mxcsr_mask);
 
-	pr_debug("magic1:%x extended_size:%x xstate_bv:%lx xstate_size:%x\n",
+	pr_debug("magic1:%#x extended_size:%u xstate_bv:%#lx xstate_size:%u\n",
 		 fpx->magic1, fpx->extended_size, (long)fpx->xstate_bv, fpx->xstate_size);
-
-	pr_debug("xstate_bv: %lx\n", (long)xsave_hdr->xstate_bv);
+	pr_debug("xstate_bv: %#lx\n", (long)xsave_hdr->xstate_bv);
 
 	pr_debug("-----------------------\n");
 }
