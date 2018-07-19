@@ -97,6 +97,8 @@ int cpu_dump_cpuinfo(void)
 	cpu_x86_info.capability_ver = 2;
 	cpu_x86_info.n_capability = ARRAY_SIZE(rt_cpu_info.x86_capability);
 	cpu_x86_info.capability = (void *)rt_cpu_info.x86_capability;
+	cpu_x86_info.has_xfeatures_mask = true;
+	cpu_x86_info.xfeatures_mask = rt_cpu_info.xfeatures_mask;
 
 	if (rt_cpu_info.x86_model_id[0])
 		cpu_x86_info.model_id = rt_cpu_info.x86_model_id;
@@ -264,6 +266,17 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 	}
 
 	/*
+	 * Make sure the xsave features are at least not less
+	 * than current cpu supports.
+	 */
+	if (cpu_info->xfeatures_mask > rt_cpu_info.xfeatures_mask) {
+		uint64_t m = cpu_info->xfeatures_mask & ~rt_cpu_info.xfeatures_mask;
+		pr_err("CPU xfeatures has unsupported bits (%#llx)\n",
+		       (unsigned long long)m);
+		return -1;
+	}
+
+	/*
 	 * Capability on instructions level only.
 	 */
 	if (opts.cpu_cap == CPU_CAP_INS)
@@ -352,6 +365,17 @@ static compel_cpuinfo_t *img_to_cpuinfo(CpuinfoX86Entry *img_x86_entry)
 
 	memcpy(cpu_info->x86_vendor_id, rt_cpu_info.x86_model_id, sizeof(cpu_info->x86_vendor_id));
 	strncpy(cpu_info->x86_model_id, img_x86_entry->model_id, sizeof(cpu_info->x86_model_id) - 1);
+
+	/*
+	 * For old images where no xfeatures_mask present we
+	 * simply fetch runtime cpu mask because later we will
+	 * do either instruction capability check, either strict
+	 * check for capabilities.
+	 */
+	if (!img_x86_entry->has_xfeatures_mask) {
+		cpu_info->xfeatures_mask = rt_cpu_info.xfeatures_mask;
+	} else
+		cpu_info->xfeatures_mask = img_x86_entry->xfeatures_mask;
 
 	return cpu_info;
 }
