@@ -287,6 +287,7 @@ void arch_free_thread_info(CoreEntry *core)
 
 static bool valid_xsave_frame(CoreEntry *core)
 {
+	UserX86XsaveEntry *xsave = core->thread_info->fpregs->xsave;
 	struct xsave_struct *x = NULL;
 
 	if (core->thread_info->fpregs->n_st_space < ARRAY_SIZE(x->i387.st_space)) {
@@ -306,13 +307,62 @@ static bool valid_xsave_frame(CoreEntry *core)
 	}
 
 	if (compel_cpu_has_feature(X86_FEATURE_OSXSAVE)) {
-		if (core->thread_info->fpregs->xsave &&
-		    core->thread_info->fpregs->xsave->n_ymmh_space < ARRAY_SIZE(x->ymmh.ymmh_space)) {
-			pr_err("Corruption in FPU ymmh_space area "
-			       "(got %li but %li expected)\n",
-			       (long)core->thread_info->fpregs->xsave->n_ymmh_space,
-			       (long)ARRAY_SIZE(x->ymmh.ymmh_space));
-			return false;
+		if (xsave) {
+			size_t i;
+			struct {
+				const char	*name;
+				size_t		expected;
+				size_t		obtained;
+				void		*ptr;
+			} features[] = {
+				{
+					.name		= __stringify_1(XFEATURE_YMM),
+					.expected	= XSAVE_PB_NELEMS(struct ymmh_struct, xsave, ymmh_space),
+					.obtained	= xsave->n_ymmh_space,
+					.ptr		= xsave->ymmh_space,
+				}, {
+					.name		= __stringify_1(XFEATURE_BNDREGS),
+					.expected	= XSAVE_PB_NELEMS(struct mpx_bndreg_state, xsave, bndreg_state),
+					.obtained	= xsave->n_bndreg_state,
+					.ptr		= xsave->bndreg_state,
+				}, {
+					.name		= __stringify_1(XFEATURE_BNDCSR),
+					.expected	= XSAVE_PB_NELEMS(struct mpx_bndcsr_state, xsave, bndcsr_state),
+					.obtained	= xsave->n_bndcsr_state,
+					.ptr		= xsave->bndcsr_state,
+				}, {
+					.name		= __stringify_1(XFEATURE_OPMASK),
+					.expected	= XSAVE_PB_NELEMS(struct avx_512_opmask_state, xsave, opmask_reg),
+					.obtained	= xsave->n_opmask_reg,
+					.ptr		= xsave->opmask_reg,
+				}, {
+					.name		= __stringify_1(XFEATURE_ZMM_Hi256),
+					.expected	= XSAVE_PB_NELEMS(struct avx_512_zmm_uppers_state, xsave, zmm_upper),
+					.obtained	= xsave->n_zmm_upper,
+					.ptr		= xsave->zmm_upper,
+				}, {
+					.name		= __stringify_1(XFEATURE_Hi16_ZMM),
+					.expected	= XSAVE_PB_NELEMS(struct avx_512_hi16_state, xsave, hi16_zmm),
+					.obtained	= xsave->n_hi16_zmm,
+					.ptr		= xsave->hi16_zmm,
+				}, {
+					.name		= __stringify_1(XFEATURE_PKRU),
+					.expected	= XSAVE_PB_NELEMS(struct pkru_state, xsave, pkru),
+					.obtained	= xsave->n_pkru,
+					.ptr		= xsave->pkru,
+				},
+			};
+
+			for (i = 0; i < ARRAY_SIZE(features); i++) {
+				if (!features[i].ptr && i > 0)
+					continue;
+
+				if (features[i].expected > features[i].obtained) {
+					pr_err("Corruption in %s area (expected %zu but %zu obtained)\n",
+					       features[i].name, features[i].expected, features[i].obtained);
+					return false;
+				}
+			}
 		}
 	} else {
 		/*
@@ -320,13 +370,13 @@ static bool valid_xsave_frame(CoreEntry *core)
 		 * on must have X86_FEATURE_OSXSAVE feature until explicitly
 		 * stated in options.
 		 */
-		if (core->thread_info->fpregs->xsave) {
+		if (xsave) {
 			if (opts.cpu_cap & CPU_CAP_FPU) {
 				pr_err("FPU xsave area present, "
 				       "but host cpu doesn't support it\n");
 				return false;
 			} else
-				pr_warn_once("FPU is about to restore ignoring ymm state!\n");
+				pr_warn_once("FPU is about to restore ignoring xsave state!\n");
 		}
 	}
 
