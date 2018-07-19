@@ -46,6 +46,15 @@ uint32_t compel_fpu_feature_size(unsigned int feature)
 	return 0;
 }
 
+uint32_t compel_fpu_feature_offset(unsigned int feature)
+{
+	if (!rt_info_done) {
+		compel_cpuid(&rt_info);
+		rt_info_done = true;
+	}
+	return 0;
+}
+
 void compel_cpu_clear_feature(unsigned int feature)
 {
 	if (!rt_info_done) {
