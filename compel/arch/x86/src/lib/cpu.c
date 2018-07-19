@@ -454,6 +454,18 @@ bool compel_fpu_has_feature(unsigned int feature)
 	return compel_test_fpu_cap(&rt_info, feature);
 }
 
+uint32_t compel_fpu_feature_size(unsigned int feature)
+{
+	if (!rt_info_done) {
+		compel_cpuid(&rt_info);
+		rt_info_done = true;
+	}
+	if (feature >= FIRST_EXTENDED_XFEATURE &&
+	    feature < XFEATURE_MAX)
+		return rt_info.xstate_sizes[feature];
+	return 0;
+}
+
 void compel_cpu_clear_feature(unsigned int feature)
 {
 	if (!rt_info_done) {
