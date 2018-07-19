@@ -700,6 +700,8 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 
+	log_set_loglevel(log_level);
+
 	if (early_init())
 		return -1;
 
@@ -796,7 +798,6 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
-	log_set_loglevel(log_level);
 
 	if (log_init(opts.output))
 		return 1;
