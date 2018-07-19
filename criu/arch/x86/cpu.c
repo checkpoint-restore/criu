@@ -32,15 +32,8 @@ static compel_cpuinfo_t rt_cpu_info;
 static int cpu_has_unsupported_features(void)
 {
 	/*
-	 * We don't support yet compacted xsave format so
-	 * exit early if present.
+	 * Put any unsupported features here.
 	 */
-	if (compel_cpu_has_feature(X86_FEATURE_XSAVES)) {
-		pr_warn("Unsupported compact xsave frame on runtime cpu present\n");
-		pr_warn("FIXME: Dazen and confused, but proceed for development reason\n");
-		return 0;
-	}
-
 	return 0;
 }
 
