@@ -10,6 +10,9 @@
 
 #include "asm/compat.h"
 
+#undef LOG_PREFIX
+#define LOG_PREFIX "x86: "
+
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	CoreEntry *core = x;
