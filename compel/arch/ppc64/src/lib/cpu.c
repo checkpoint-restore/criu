@@ -42,6 +42,15 @@ bool compel_cpu_has_feature(unsigned int feature)
 	return compel_test_cpu_cap(&rt_info, feature);
 }
 
+bool compel_fpu_has_feature(unsigned int feature)
+{
+	if (!rt_info_done) {
+		compel_cpuid(&rt_info);
+		rt_info_done = true;
+	}
+	return compel_test_fpu_cap(&rt_info, feature);
+}
+
 void compel_cpu_clear_feature(unsigned int feature)
 {
 	if (!rt_info_done) {
