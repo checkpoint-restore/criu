@@ -1739,6 +1739,9 @@ int prepare_namespace_before_tasks(void)
 	if (read_mnt_ns_img())
 		goto err_img;
 
+	if (read_net_ns_img())
+		goto err_img;
+
 	return 0;
 
 err_img:

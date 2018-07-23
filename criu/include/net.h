@@ -50,5 +50,6 @@ extern int net_get_nsid(int rtsk, int fd, int *nsid);
 extern struct ns_id *net_get_root_ns();
 extern int kerndat_nsid(void);
 extern void check_has_netns_ioc(int fd, bool *kdat_val, const char *name);
+extern int read_net_ns_img();
 
 #endif /* __CR_NET_H__ */

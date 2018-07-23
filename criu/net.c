@@ -2048,25 +2048,46 @@ out:
 	return ret;
 }
 
+int read_net_ns_img(void)
+{
+	struct ns_id *ns;
+
+	for (ns = ns_ids; ns != NULL; ns = ns->next) {
+		struct cr_img *img;
+		int ret;
+
+		if (ns->nd != &net_ns_desc)
+			continue;
+
+		img = open_image(CR_FD_NETNS, O_RSTR, ns->id);
+		if (!img)
+			return -1;
+
+		if (empty_image(img)) {
+			/* Backward compatibility */
+			close_image(img);
+			continue;
+		}
+
+		ret = pb_read_one(img, &ns->net.netns, PB_NETNS);
+		close_image(img);
+		if (ret < 0) {
+			pr_err("Can not read netns object\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static int restore_netns_conf(struct ns_id *ns)
 {
-	NetnsEntry *netns;
+	NetnsEntry *netns = ns->net.netns;
 	int ret = 0;
-	struct cr_img *img;
 
-	img = open_image(CR_FD_NETNS, O_RSTR, ns->id);
-	if (!img)
-		return -1;
-
-	if (empty_image(img))
+	if (ns->net.netns == NULL)
 		/* Backward compatibility */
 		goto out;
-
-	ret = pb_read_one(img, &netns, PB_NETNS);
-	if (ret < 0) {
-		pr_err("Can not read netns object\n");
-		return -1;
-	}
 
 	if ((netns)->def_conf4) {
 		ret = ipv4_conf_op("all", (netns)->all_conf4, (netns)->n_all_conf4, CTL_WRITE, NULL);
@@ -2094,7 +2115,6 @@ static int restore_netns_conf(struct ns_id *ns)
 
 	ns->net.netns = netns;
 out:
-	close_image(img);
 	return ret;
 }
 
