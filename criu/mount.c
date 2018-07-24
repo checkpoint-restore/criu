@@ -2355,7 +2355,7 @@ static bool can_mount_now(struct mount_info *mi)
 	 *   - Make sure all children of master's share are
 	 *   mounted as well to eliminate mounts duplications
 	 */
-	if (mi->master_id > 0) {
+	if (mi->mnt_master) {
 		struct mount_info *c, *s;
 
 		if (mi->bind == NULL)
