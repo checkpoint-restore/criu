@@ -1674,7 +1674,11 @@ static int restore_task_with_children(void *_arg)
 		 * ACT_SETUP_NS scripts, so the root netns has to be created here
 		 */
 		if (root_ns_mask & CLONE_NEWNET) {
-			ret = unshare(CLONE_NEWNET);
+			struct ns_id *ns = net_get_root_ns();
+			if (ns->ext_key)
+				ret = net_set_ext(ns);
+			else
+				ret = unshare(CLONE_NEWNET);
 			if (ret) {
 				pr_perror("Can't unshare net-namespace");
 				goto err;
