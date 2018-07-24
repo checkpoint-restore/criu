@@ -94,6 +94,7 @@ __NR_set_robust_list		273		sys_set_robust_list	(struct robust_list_head *head, s
 __NR_get_robust_list		274		sys_get_robust_list	(int pid, struct robust_list_head **head_ptr, size_t *len_ptr)
 __NR_seccomp			317		sys_seccomp		(unsigned int op, unsigned int flags, const char *uargs)
 __NR_vmsplice			278		sys_vmsplice		(int fd, const struct iovec *iov, unsigned long nr_segs, unsigned int flags)
+__NR_fallocate			285		sys_fallocate		(int fd, int mode, loff_t offset, loff_t len)
 __NR_timerfd_settime		286		sys_timerfd_settime	(int ufd, int flags, const struct itimerspec *utmr, struct itimerspec *otmr)
 __NR_signalfd4			289		sys_signalfd		(int fd, k_rtsigset_t *mask, size_t sizemask, int flags)
 __NR_preadv			295		sys_preadv_raw		(int fd, struct iovec *iov, unsigned long nr, unsigned long pos_l, unsigned long pos_h)
