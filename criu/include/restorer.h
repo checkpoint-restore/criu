@@ -202,6 +202,7 @@ struct task_restore_args {
 	bool				compatible_mode;
 
 	bool				can_map_vdso;
+	bool				auto_dedup;
 #ifdef CONFIG_VDSO
 	unsigned long			vdso_rt_size;
 	struct vdso_maps		vdso_maps_rt;		/* runtime vdso symbols */

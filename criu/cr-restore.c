@@ -3501,6 +3501,8 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	task_args->nr_threads		= current->nr_threads;
 	task_args->thread_args		= thread_args;
 
+	task_args->auto_dedup		= opts.auto_dedup;
+
 	/*
 	 * Make root and cwd restore _that_ late not to break any
 	 * attempts to open files by paths above (e.g. /proc).
