@@ -121,9 +121,11 @@ static char ** parse_config(char *filepath)
 			}
 			i++;
 		}
+		free(line);
 		line = NULL;
 	}
 
+	free(line);
 	fclose(configfile);
 	return configuration;
 }
