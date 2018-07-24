@@ -2075,6 +2075,7 @@ int read_net_ns_img(void)
 			pr_err("Can not read netns object\n");
 			return -1;
 		}
+		ns->ext_key = ns->net.netns->ext_key;
 	}
 
 	return 0;
@@ -2198,6 +2199,22 @@ static int dump_netns_ids(int rtsk, struct ns_id *ns)
 			(void *)&arg);
 }
 
+int net_set_ext(struct ns_id *ns)
+{
+	int fd, ret;
+
+	fd = inherit_fd_lookup_id(ns->ext_key);
+	if (fd < 0) {
+		pr_err("Unable to find an external netns: %s\n", ns->ext_key);
+		return -1;
+	}
+
+	ret = switch_ns_by_fd(fd, &net_ns_desc, NULL);
+	close(fd);
+
+	return ret;
+}
+
 int dump_net_ns(struct ns_id *ns)
 {
 	struct cr_imgset *fds;
@@ -2208,7 +2225,14 @@ int dump_net_ns(struct ns_id *ns)
 		return -1;
 
 	ret = mount_ns_sysfs();
-	if (!(opts.empty_ns & CLONE_NEWNET)) {
+	if (ns->ext_key) {
+		NetnsEntry netns = NETNS_ENTRY__INIT;
+
+		netns.ext_key = ns->ext_key;
+		ret = pb_write_one(img_from_set(fds, CR_FD_NETNS), &netns, PB_NETNS);
+		if (ret)
+			goto out;
+	} else if (!(opts.empty_ns & CLONE_NEWNET)) {
 		int sk;
 
 		sk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
@@ -2252,6 +2276,7 @@ int dump_net_ns(struct ns_id *ns)
 	if (!ret)
 		ret = dump_nf_ct(fds, CR_FD_NETNF_EXP);
 
+out:
 	close(ns_sysfs_fd);
 	ns_sysfs_fd = -1;
 
@@ -2305,7 +2330,7 @@ static int prepare_net_ns_first_stage(struct ns_id *ns)
 {
 	int ret = 0;
 
-	if (opts.empty_ns & CLONE_NEWNET)
+	if (ns->ext_key || (opts.empty_ns & CLONE_NEWNET))
 		return 0;
 
 	ret = restore_netns_conf(ns);
@@ -2321,7 +2346,7 @@ static int prepare_net_ns_second_stage(struct ns_id *ns)
 {
 	int ret = 0, nsid = ns->id;
 
-	if (!(opts.empty_ns & CLONE_NEWNET)) {
+	if (!(opts.empty_ns & CLONE_NEWNET) && !ns->ext_key) {
 		if (ns->net.netns)
 			netns_entry__free_unpacked(ns->net.netns, NULL);
 
@@ -2369,7 +2394,14 @@ static int open_net_ns(struct ns_id *nsid)
 
 static int do_create_net_ns(struct ns_id *ns)
 {
-	if (unshare(CLONE_NEWNET)) {
+	int ret;
+
+	if (ns->ext_key)
+		ret = net_set_ext(ns);
+	else
+		ret = unshare(CLONE_NEWNET);
+
+	if (ret) {
 		pr_perror("Unable to create a new netns");
 		return -1;
 	}
@@ -2716,9 +2748,18 @@ static int netns_nr;
 static int collect_net_ns(struct ns_id *ns, void *oarg)
 {
 	bool for_dump = (oarg == (void *)1);
+	char id[64], *val;
 	int ret;
 
 	pr_info("Collecting netns %d/%d\n", ns->id, ns->ns_pid);
+
+	snprintf(id, sizeof(id), "net[%u]", ns->kid);
+	val = external_lookup_by_key(id);
+	if (!IS_ERR_OR_NULL(val)) {
+		pr_debug("The %s netns is external\n", id);
+		ns->ext_key = val;
+	}
+
 	ret = prep_ns_sockets(ns, for_dump);
 	if (ret)
 		return ret;
