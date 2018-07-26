@@ -131,26 +131,26 @@ InventoryEntry *get_parent_inventory(void)
 
 	dir = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
 	if (dir == -1) {
-		pr_warn("Failed to open parent directory");
+		pr_warn("Failed to open parent directory\n");
 		return NULL;
 	}
 
 	img = open_image_at(dir, CR_FD_INVENTORY, O_RSTR);
 	if (!img) {
-		pr_warn("Failed to open parent pre-dump inventory image");
+		pr_warn("Failed to open parent pre-dump inventory image\n");
 		close(dir);
 		return NULL;
 	}
 
 	if (pb_read_one(img, &ie, PB_INVENTORY) < 0) {
-		pr_warn("Failed to read parent pre-dump inventory entry");
+		pr_warn("Failed to read parent pre-dump inventory entry\n");
 		close_image(img);
 		close(dir);
 		return NULL;
 	}
 
 	if (!ie->has_dump_uptime) {
-		pr_warn("Parent pre-dump inventory has no uptime");
+		pr_warn("Parent pre-dump inventory has no uptime\n");
 		inventory_entry__free_unpacked(ie, NULL);
 		ie = NULL;
 	}
