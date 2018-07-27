@@ -1408,7 +1408,7 @@ static int bind_on_deleted(int sk, struct unix_sk_info *ui)
 	bool renamed = false;
 	int ret;
 
-	if (ui->ue->name.len >= sizeof(UNIX_PATH_MAX)) {
+	if (ui->ue->name.len >= UNIX_PATH_MAX) {
 		pr_err("ghost: Too long name for socket id %#x ino %d name %s\n",
 		       ui->ue->id, ui->ue->ino, ui->name);
 		return -ENOSPC;
