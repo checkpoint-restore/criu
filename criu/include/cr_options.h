@@ -50,8 +50,6 @@ struct irmap_path_opt {
 
 struct cr_options {
 	int			final_state;
-	char			*show_dump_file;
-	char			*show_fmt;
 	int			check_extra_features;
 	int			check_experimental_features;
 	bool			show_pages_content;
