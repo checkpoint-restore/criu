@@ -378,6 +378,7 @@ help:
 
 lint:
 	flake8 --config=scripts/flake8.cfg test/zdtm.py
+	flake8 --config=scripts/flake8.cfg test/others/rpc/config_file.py
 
 include Makefile.install
 
