@@ -149,12 +149,6 @@ static char ** parse_config(char *filepath)
 	return configuration;
 }
 
-#define PARSING_GLOBAL_CONF	1
-#define PARSING_USER_CONF	2
-#define PARSING_ENV_CONF	3
-#define PARSING_CMDLINE_CONF	4
-#define PARSING_ARGV		5
-
 static int next_config(char **argv, char ***_argv, bool no_default_config,
 		int state, char *cfg_file)
 {
@@ -162,7 +156,7 @@ static int next_config(char **argv, char ***_argv, bool no_default_config,
 	char *home_dir = NULL;
 	char *cfg_from_env = NULL;
 
-	if (state > PARSING_ARGV)
+	if (state >= PARSING_LAST)
 		return 0;
 
 	switch(state) {
@@ -196,6 +190,11 @@ static int next_config(char **argv, char ***_argv, bool no_default_config,
 			break;
 		case PARSING_ARGV:
 			*_argv = argv;
+			break;
+		case PARSING_RPC_CONF:
+			if (!rpc_cfg_file)
+				break;
+			*_argv = parse_config(rpc_cfg_file);
 			break;
 		default:
 			break;
@@ -403,9 +402,9 @@ static int parse_join_ns(const char *ptr)
  * correct, '1' if something failed and '2' if the CRIU help text should
  * be displayed.
  */
-int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
+int parse_options(int argc, char **argv, bool *usage_error,
+		bool *has_exec_cmd, int state)
 {
-	int state = PARSING_GLOBAL_CONF;
 	int ret;
 	int opt = -1;
 	int idx;
@@ -517,7 +516,6 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 					free(_argv[i]);
 				}
 				free(_argv);
-				;
 			}
 			/* This needs to be reset for a new getopt() run */
 			_argc = 0;
