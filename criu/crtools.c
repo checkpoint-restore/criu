@@ -175,10 +175,10 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	if (opts.imgs_dir == NULL)
-		opts.imgs_dir = ".";
+		SET_CHAR_OPTS(imgs_dir, ".");
 
 	if (opts.work_dir == NULL)
-		opts.work_dir = opts.imgs_dir;
+		SET_CHAR_OPTS(work_dir, opts.imgs_dir);
 
 	if (optind >= argc) {
 		pr_msg("Error: command is required\n");

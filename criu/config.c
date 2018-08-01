@@ -567,7 +567,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 			opts.show_pages_content	= true;
 			break;
 		case 'r':
-			opts.root = optarg;
+			SET_CHAR_OPTS(root, optarg);
 			break;
 		case 'd':
 			opts.restore_detach = true;
@@ -576,13 +576,13 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 			opts.restore_sibling = true;
 			break;
 		case 'D':
-			opts.imgs_dir = optarg;
+			SET_CHAR_OPTS(imgs_dir, optarg);
 			break;
 		case 'W':
-			opts.work_dir = optarg;
+			SET_CHAR_OPTS(work_dir, optarg);
 			break;
 		case 'o':
-			opts.output = optarg;
+			SET_CHAR_OPTS(output, optarg);
 			break;
 		case 'J':
 			if (parse_join_ns(optarg))
@@ -607,7 +607,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 			break;
 		}
 		case 1046:
-			opts.pidfile = optarg;
+			SET_CHAR_OPTS(pidfile, optarg);
 			break;
 		case 1047:
 			{
@@ -627,7 +627,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 				return 1;
 			break;
 		case 1051:
-			opts.addr = optarg;
+			SET_CHAR_OPTS(addr, optarg);
 			break;
 		case 1052:
 			opts.port = atoi(optarg);
@@ -641,7 +641,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 			opts.handle_file_locks = true;
 			break;
 		case 1053:
-			opts.img_parent = optarg;
+			SET_CHAR_OPTS(img_parent, optarg);
 			break;
 		case 1057:
 			if (parse_cpu_cap(&opts, optarg))
@@ -654,6 +654,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 			pr_err("--ms is deprecated; see \"Check options\" of criu --help\n");
 			return 1;
 		case 'L':
+			SET_CHAR_OPTS(libdir, optarg);
 			opts.libdir = optarg;
 			break;
 		case 1059:
@@ -701,7 +702,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 				return 1;
 			break;
 		case 1068:
-			opts.freeze_cgroup = optarg;
+			SET_CHAR_OPTS(freeze_cgroup, optarg);
 			break;
 		case 1069:
 			opts.ghost_limit = parse_size(optarg);
@@ -711,7 +712,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 				return -1;
 			break;
 		case 1071:
-			opts.lsm_profile = optarg;
+			SET_CHAR_OPTS(lsm_profile, optarg);
 			opts.lsm_supplied = true;
 			break;
 		case 1072:
@@ -756,10 +757,10 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 			opts.check_experimental_features = true;
 			break;
 		case 1080:
-			opts.cgroup_props = optarg;
+			SET_CHAR_OPTS(cgroup_props, optarg);
 			break;
 		case 1081:
-			opts.cgroup_props_file = optarg;
+			SET_CHAR_OPTS(cgroup_props_file, optarg);
 			break;
 		case 1082:
 			if (!cgp_add_dump_controller(optarg))

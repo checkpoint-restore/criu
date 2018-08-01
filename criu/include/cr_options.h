@@ -6,6 +6,12 @@
 #include "common/config.h"
 #include "common/list.h"
 
+#define SET_CHAR_OPTS(__dest, __src) \
+	do { \
+		free(opts.__dest); \
+		opts.__dest = xstrdup(__src); \
+	} while(0)
+
 /*
  * CPU capability options.
  */
