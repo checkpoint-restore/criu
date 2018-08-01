@@ -101,6 +101,7 @@ int main(int argc, char *argv[], char *envp[])
 	bool usage_error = true;
 	bool has_exec_cmd = false;
 	bool has_sub_command;
+	int state = PARSING_GLOBAL_CONF;
 
 	BUILD_BUG_ON(CTL_32 != SYSCTL_TYPE__CTL_32);
 	BUILD_BUG_ON(__CTL_STR != SYSCTL_TYPE__CTL_STR);
@@ -120,7 +121,7 @@ int main(int argc, char *argv[], char *envp[])
 	init_opts();
 
 
-	ret = parse_options(argc, argv, &usage_error, &has_exec_cmd);
+	ret = parse_options(argc, argv, &usage_error, &has_exec_cmd, state);
 
 	if (ret == 1)
 		return 1;

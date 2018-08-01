@@ -6,6 +6,15 @@
 #include "common/config.h"
 #include "common/list.h"
 
+/* Configuration and CLI parsing order defines */
+#define PARSING_GLOBAL_CONF	1
+#define PARSING_USER_CONF	2
+#define PARSING_ENV_CONF	3
+#define PARSING_CMDLINE_CONF	4
+#define PARSING_ARGV		5
+#define PARSING_RPC_CONF	6
+#define PARSING_LAST		7
+
 #define SET_CHAR_OPTS(__dest, __src) \
 	do { \
 		free(opts.__dest); \
@@ -132,8 +141,9 @@ struct cr_options {
 };
 
 extern struct cr_options opts;
+char *rpc_cfg_file;
 
-extern int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd);
+extern int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, int state);
 extern void init_opts();
 
 #endif /* __CR_OPTIONS_H__ */
