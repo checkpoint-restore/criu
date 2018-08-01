@@ -160,6 +160,7 @@ static int next_config(char **argv, char ***_argv, bool no_default_config,
 {
 	char local_filepath[PATH_MAX + 1];
 	char *home_dir = NULL;
+	char *cfg_from_env = NULL;
 
 	if (state > PARSING_ARGV)
 		return 0;
@@ -183,6 +184,10 @@ static int next_config(char **argv, char ***_argv, bool no_default_config,
 			}
 			break;
 		case PARSING_ENV_CONF:
+			cfg_from_env = getenv("CRIU_CONFIG_FILE");
+			if (!cfg_from_env)
+				break;
+			*_argv = parse_config(cfg_from_env);
 			break;
 		case PARSING_CMDLINE_CONF:
 			if (!cfg_file)
