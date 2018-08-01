@@ -354,8 +354,6 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 {
 	int state = PARSING_GLOBAL_CONF;
 	int global_cfg_argc = 0, user_cfg_argc = 0;
-	/* remove pid, unused */
-	pid_t pid = 0;
 	int ret;
 	int opt;
 	int idx;
@@ -368,6 +366,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:v::x::Vr:jJ:lW:L:M:";
 	static struct option long_opts[] = {
 		{ "tree",			required_argument,	0, 't'	},
+		/* The pid option is unused and never evaluated. */
 		{ "pid",			required_argument,	0, 'p'	},
 		{ "leave-stopped",		no_argument,		0, 's'	},
 		{ "leave-running",		no_argument,		0, 'R'	},
@@ -507,11 +506,6 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 			if (optarg && unix_sk_ids_parse(optarg) < 0)
 				return 1;
 			opts.ext_unix_sk = true;
-			break;
-		case 'p':
-			pid = atoi(optarg);
-			if (pid <= 0)
-				goto bad_arg;
 			break;
 		case 't':
 			opts.tree_id = atoi(optarg);
