@@ -23,6 +23,8 @@ run: all
 	chmod a+rw build/pidfile
 	sudo -g '#1000' -u '#1000' ./run.sh
 	sudo -g '#1000' -u '#1000' ./version.py
+	# run the configuration file via RPC test cases
+	./config_file.py build
 
 criu: ../../../criu/criu
 	cp ../../../criu/criu $@
