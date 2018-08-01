@@ -261,7 +261,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
 
 	if (req->parent_img)
-		opts.img_parent = req->parent_img;
+		SET_CHAR_OPTS(img_parent, req->parent_img);
 
 	if (open_image_dir(images_dir_path) < 0) {
 		pr_perror("Can't open images directory");
@@ -292,9 +292,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			goto err;
 		}
 
-		opts.output = req->log_file;
+		SET_CHAR_OPTS(output, req->log_file);
 	} else
-		opts.output = DEFAULT_LOG_FILENAME;
+		SET_CHAR_OPTS(output, DEFAULT_LOG_FILENAME);
 
 	log_set_loglevel(req->log_level);
 	if (log_init(opts.output) == -1) {
@@ -325,7 +325,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	if (req->root)
-		opts.root = req->root;
+		SET_CHAR_OPTS(root, req->root);
 
 	if (req->has_rst_sibling) {
 		if (!opts.swrk_restore) {
@@ -381,7 +381,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 		if (!opts.lazy_pages) {
 			opts.use_page_server = true;
-			opts.addr = req->ps->address;
+			SET_CHAR_OPTS(addr, req->ps->address);
 
 			if (req->ps->has_fd) {
 				if (!opts.swrk_restore)
@@ -485,16 +485,16 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	if (req->freeze_cgroup)
-		opts.freeze_cgroup = req->freeze_cgroup;
+		SET_CHAR_OPTS(freeze_cgroup, req->freeze_cgroup);
 
 	if (req->has_timeout)
 		opts.timeout = req->timeout;
 
 	if (req->cgroup_props)
-		opts.cgroup_props = req->cgroup_props;
+		SET_CHAR_OPTS(cgroup_props, req->cgroup_props);
 
 	if (req->cgroup_props_file)
-		opts.cgroup_props_file = req->cgroup_props_file;
+		SET_CHAR_OPTS(cgroup_props_file, req->cgroup_props_file);
 
 	for (i = 0; i < req->n_cgroup_dump_controller; i++) {
 		if (!cgp_add_dump_controller(req->cgroup_dump_controller[i]))
@@ -1158,7 +1158,7 @@ int cr_service(bool daemon_mode)
 
 		if (opts.addr == NULL) {
 			pr_warn("Binding to local dir address!\n");
-			opts.addr = CR_DEFAULT_SERVICE_ADDRESS;
+			SET_CHAR_OPTS(addr, CR_DEFAULT_SERVICE_ADDRESS);
 		}
 
 		strcpy(server_addr.sun_path, opts.addr);

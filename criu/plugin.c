@@ -203,12 +203,12 @@ int cr_plugin_init(int stage)
 	if (opts.libdir == NULL) {
 		path = getenv("CRIU_LIBS_DIR");
 		if (path)
-			opts.libdir = path;
+			SET_CHAR_OPTS(libdir, path);
 		else {
 			if (access(CR_PLUGIN_DEFAULT, F_OK))
 				return 0;
 
-			opts.libdir = CR_PLUGIN_DEFAULT;
+			SET_CHAR_OPTS(libdir, CR_PLUGIN_DEFAULT);
 		}
 	}
 

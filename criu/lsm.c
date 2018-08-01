@@ -230,15 +230,16 @@ int lsm_check_opts(void)
 			return -1;
 		}
 
-		opts.lsm_profile = aux;
+		SET_CHAR_OPTS(lsm_profile, aux);
 	} else if (strcmp(opts.lsm_profile, "selinux") == 0) {
 		if (kdat.lsm != LSMTYPE__SELINUX) {
 			pr_err("selinux LSM specified but selinux not supported by kernel\n");
 			return -1;
 		}
 
-		opts.lsm_profile = aux;
+		SET_CHAR_OPTS(lsm_profile, aux);
 	} else if (strcmp(opts.lsm_profile, "none") == 0) {
+		xfree(opts.lsm_profile);
 		opts.lsm_profile = NULL;
 	} else {
 		pr_err("unknown lsm %s\n", opts.lsm_profile);
