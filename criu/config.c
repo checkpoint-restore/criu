@@ -31,9 +31,6 @@
 
 struct cr_options opts;
 
-char **global_conf = NULL;
-char **user_conf = NULL;
-
 static int count_elements(char **to_count)
 {
 	int count = 0;
@@ -152,37 +149,60 @@ static char ** parse_config(char *filepath)
 	return configuration;
 }
 
-static void init_configuration(int argc, char *argv[], bool no_default_config,
-			       char *cfg_file)
+#define PARSING_GLOBAL_CONF	1
+#define PARSING_USER_CONF	2
+#define PARSING_ENV_CONF	3
+#define PARSING_CMDLINE_CONF	4
+#define PARSING_ARGV		5
+
+static int next_config(char **argv, char ***_argv, bool no_default_config,
+		int state, char *cfg_file)
 {
 	char local_filepath[PATH_MAX + 1];
-	char *home_dir = getenv("HOME");
+	char *home_dir = NULL;
 
-	if ((cfg_file == NULL) && (!no_default_config)) {
-		global_conf = parse_config(GLOBAL_CONFIG_DIR DEFAULT_CONFIG_FILENAME);
-		if (!home_dir) {
-			pr_info("Unable to get $HOME directory, local configuration file will not be used.");
-		} else {
-			snprintf(local_filepath, PATH_MAX, "%s/%s%s",
-					home_dir, USER_CONFIG_DIR, DEFAULT_CONFIG_FILENAME);
-			user_conf = parse_config(local_filepath);
-		}
-	} else if (cfg_file != NULL) {
-		global_conf = parse_config(cfg_file);
-		if (global_conf == NULL) {
-			pr_err("Can't access configuration file %s.\n", cfg_file);
-			exit(1);
-		}
+	if (state > PARSING_ARGV)
+		return 0;
+
+	switch(state) {
+		case PARSING_GLOBAL_CONF:
+			if (no_default_config)
+				break;
+			*_argv = parse_config(GLOBAL_CONFIG_DIR DEFAULT_CONFIG_FILENAME);
+			break;
+		case PARSING_USER_CONF:
+			if (no_default_config)
+				break;
+			home_dir = getenv("HOME");
+			if (!home_dir) {
+				pr_info("Unable to get $HOME directory, local configuration file will not be used.");
+			} else {
+				snprintf(local_filepath, PATH_MAX, "%s/%s%s",
+						home_dir, USER_CONFIG_DIR, DEFAULT_CONFIG_FILENAME);
+				*_argv = parse_config(local_filepath);
+			}
+			break;
+		case PARSING_ENV_CONF:
+			break;
+		case PARSING_CMDLINE_CONF:
+			if (!cfg_file)
+				break;
+			*_argv = parse_config(cfg_file);
+			break;
+		case PARSING_ARGV:
+			*_argv = argv;
+			break;
+		default:
+			break;
 	}
+
+	return ++state;
 }
 
-static int init_config(int argc, char **argv, int *global_cfg_argc, int *user_cfg_argc,
-		bool *usage_error)
+static int pre_parse(int argc, char **argv, bool *usage_error, bool *no_default_config,
+		char **cfg_file)
 {
-	bool no_default_config = false;
-	char *cfg_file = NULL;
 	int i;
-
 	/*
 	 * We are runnning before getopt(), so we need to pre-parse
 	 * the command line.
@@ -200,23 +220,19 @@ static int init_config(int argc, char **argv, int *global_cfg_argc, int *user_cf
 			*usage_error = false;
 			return 1;
 		} else if (!strcmp(argv[i], "--no-default-config")) {
-			no_default_config = true;
+			*no_default_config = true;
 		} else if (!strcmp(argv[i], "--config")) {
 			/*
 			 * getopt takes next string as required
 			 * argument automatically, we do the same
 			 */
-			cfg_file = argv[i + 1];
+			*cfg_file = argv[i + 1];
+			*no_default_config = true;
 		} else if (strstr(argv[i], "--config=") != NULL) {
-			cfg_file = argv[i] + strlen("--config=");
+			*cfg_file = argv[i] + strlen("--config=");
+			*no_default_config = true;
 		}
 	}
-
-	init_configuration(argc, argv, no_default_config, cfg_file);
-	if (global_conf != NULL)
-		*global_cfg_argc = count_elements(global_conf);
-	if (user_conf != NULL)
-		*user_cfg_argc = count_elements(user_conf);
 
 	return 0;
 }
@@ -374,10 +390,6 @@ static int parse_join_ns(const char *ptr)
 	return 0;
 }
 
-#define PARSING_GLOBAL_CONF	1
-#define PARSING_USER_CONF	2
-#define PARSING_ARGV		3
-
 /*
  * parse_options() is the point where the getopt parsing happens. The CLI
  * parsing as well as the configuration file parsing happens here.
@@ -389,10 +401,13 @@ static int parse_join_ns(const char *ptr)
 int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 {
 	int state = PARSING_GLOBAL_CONF;
-	int global_cfg_argc = 0, user_cfg_argc = 0;
 	int ret;
-	int opt;
+	int opt = -1;
 	int idx;
+	bool no_default_config = false;
+	char *cfg_file = NULL;
+	char **_argv = NULL;
+	int _argc = 0;
 
 
 #define BOOL_OPT(OPT_NAME, SAVE_TO) \
@@ -480,54 +495,55 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 
 #undef BOOL_OPT
 
+	ret = pre_parse(argc, argv, usage_error, &no_default_config,
+			&cfg_file);
 
-
-	ret = init_config(argc, argv, &global_cfg_argc, &user_cfg_argc,
-			  usage_error);
 	if (ret)
 		return 2;
 
 	while (1) {
-		char **_argv = NULL;
-		int _argc = 0;
-
 		idx = -1;
-
-		switch (state) {
-		case PARSING_GLOBAL_CONF:
-			_argc = global_cfg_argc;
-			_argv = global_conf;
-			break;
-		case PARSING_USER_CONF:
-			_argc = user_cfg_argc;
-			_argv = user_conf;
-			break;
-		case PARSING_ARGV:
-			_argc = argc;
-			_argv = argv;
-			break;
-		default:
-			BUG();
-		}
-		opt = getopt_long(_argc, _argv, short_opts, long_opts, &idx);
+		/* Only if opt is -1 we are going to the next configuration input */
 		if (opt == -1) {
-			switch (state) {
-			case PARSING_GLOBAL_CONF:
-			case PARSING_USER_CONF:
-				if (optind < _argc) {
-					pr_err("Unknown config parameter: %s\n", _argv[optind]);
-					return -1;
+			/* Do not free any memory if it points to argv */
+			if (state != PARSING_ARGV + 1) {
+				int i;
+				for (i=1; i < _argc; i++) {
+					free(_argv[i]);
 				}
-				break;
+				free(_argv);
+				;
 			}
-			if (state < PARSING_ARGV) {
-				state++;
-				optind = 0;
+			/* This needs to be reset for a new getopt() run */
+			_argc = 0;
+			_argv = NULL;
+
+			state = next_config(argv, &_argv, no_default_config, state, cfg_file);
+
+			/* if next_config() returns 0 it means no more configs found */
+			if (state == 0)
+				break;
+
+			if (!_argv)
 				continue;
-			} else {
-				break;
-			}
+
+			_argc = count_elements(_argv);
+			optind = 0;
 		}
+
+		opt = getopt_long(_argc, _argv, short_opts, long_opts, &idx);
+
+		/*
+		 * The end of the current _argv has been reached,
+		 * let's go to the next _argv
+		 */
+		if (opt == -1)
+			continue;
+
+		/*
+		 * If opt == 0 then getopt will directly fill out the corresponding
+		 * field in CRIU's opts structure.
+		 */
 		if (!opt)
 			continue;
 
