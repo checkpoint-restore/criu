@@ -29,6 +29,8 @@
 
 #include "common/xmalloc.h"
 
+struct cr_options opts;
+
 char **global_conf = NULL;
 char **user_conf = NULL;
 
@@ -217,6 +219,40 @@ static int init_config(int argc, char **argv, int *global_cfg_argc, int *user_cf
 		*user_cfg_argc = count_elements(user_conf);
 
 	return 0;
+}
+
+void init_opts(void)
+{
+	memset(&opts, 0, sizeof(opts));
+
+	/* Default options */
+	opts.final_state = TASK_DEAD;
+	INIT_LIST_HEAD(&opts.ext_mounts);
+	INIT_LIST_HEAD(&opts.inherit_fds);
+	INIT_LIST_HEAD(&opts.external);
+	INIT_LIST_HEAD(&opts.join_ns);
+	INIT_LIST_HEAD(&opts.new_cgroup_roots);
+	INIT_LIST_HEAD(&opts.irmap_scan_paths);
+
+	opts.cpu_cap = CPU_CAP_DEFAULT;
+	opts.manage_cgroups = CG_MODE_DEFAULT;
+	opts.ps_socket = -1;
+	opts.ghost_limit = DEFAULT_GHOST_LIMIT;
+	opts.timeout = DEFAULT_TIMEOUT;
+	opts.empty_ns = 0;
+	opts.status_fd = -1;
+	opts.log_level = DEFAULT_LOGLEVEL;
+}
+
+bool deprecated_ok(char *what)
+{
+	if (opts.deprecated_ok)
+		return true;
+
+	pr_err("Deprecated functionality (%s) rejected.\n", what);
+	pr_err("Use the --deprecated option or set CRIU_DEPRECATED environment.\n");
+	pr_err("For details visit https://criu.org/Deprecation\n");
+	return false;
 }
 
 static int parse_cpu_cap(struct cr_options *opts, const char *optarg)
