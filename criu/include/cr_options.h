@@ -1,6 +1,7 @@
 #ifndef __CR_OPTIONS_H__
 #define __CR_OPTIONS_H__
 
+#include <sys/types.h>
 #include <stdbool.h>
 #include "common/config.h"
 #include "common/list.h"
@@ -122,10 +123,14 @@ struct cr_options {
 	int			status_fd;
 	bool			orphan_pts_master;
 	int			remote;
+	pid_t			tree_id;
+	int			log_level;
+	char			*imgs_dir;
 };
 
 extern struct cr_options opts;
 
-extern void init_opts(void);
+extern int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd);
+extern void init_opts();
 
 #endif /* __CR_OPTIONS_H__ */
