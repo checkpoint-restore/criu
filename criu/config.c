@@ -515,12 +515,6 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd)
 		case 'c':
 			opts.show_pages_content	= true;
 			break;
-		case 'f':
-			opts.show_dump_file = optarg;
-			break;
-		case 'F':
-			opts.show_fmt = optarg;
-			break;
 		case 'r':
 			opts.root = optarg;
 			break;
