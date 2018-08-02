@@ -320,7 +320,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	 *  * apply_config(rpc_conf)
 	 */
 	if (opts.imgs_dir && imgs_changed_by_rpc_conf)
-		strncpy(images_dir_path, opts.imgs_dir, PATH_MAX);
+		strncpy(images_dir_path, opts.imgs_dir, PATH_MAX - 1);
 	else
 		sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
 
@@ -340,7 +340,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	/* chdir to work dir */
 	if (opts.work_dir && work_changed_by_rpc_conf)
-		strncpy(work_dir_path, opts.work_dir, PATH_MAX);
+		strncpy(work_dir_path, opts.work_dir, PATH_MAX - 1);
 	else if (req->has_work_dir_fd)
 		sprintf(work_dir_path, "/proc/%d/fd/%d", ids.pid, req->work_dir_fd);
 	else
