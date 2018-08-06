@@ -412,18 +412,18 @@ err:
 }
 
 static inline void ghost_path(char *path, int plen,
-		struct reg_file_info *rfi, RemapFilePathEntry *rfe)
+		struct reg_file_info *rfi, RemapFilePathEntry *rpe)
 {
-	snprintf(path, plen, "%s.cr.%x.ghost", rfi->path, rfe->remap_id);
+	snprintf(path, plen, "%s.cr.%x.ghost", rfi->path, rpe->remap_id);
 }
 
 static int collect_remap_ghost(struct reg_file_info *rfi,
-		RemapFilePathEntry *rfe)
+		RemapFilePathEntry *rpe)
 {
 	struct ghost_file *gf;
 
 	list_for_each_entry(gf, &ghost_files, list)
-		if (gf->id == rfe->remap_id)
+		if (gf->id == rpe->remap_id)
 			goto gf_found;
 
 	/*
@@ -432,7 +432,7 @@ static int collect_remap_ghost(struct reg_file_info *rfi,
 	 * issues with cross-device links.
 	 */
 
-	pr_info("Opening ghost file %#x for %s\n", rfe->remap_id, rfi->path);
+	pr_info("Opening ghost file %#x for %s\n", rpe->remap_id, rfi->path);
 
 	gf = shmalloc(sizeof(*gf));
 	if (!gf)
@@ -449,7 +449,7 @@ static int collect_remap_ghost(struct reg_file_info *rfi,
 	if (!gf->remap.rpath)
 		return -1;
 	gf->remap.rpath[0] = 0;
-	gf->id = rfe->remap_id;
+	gf->id = rpe->remap_id;
 	list_add_tail(&gf->list, &ghost_files);
 
 gf_found:
@@ -459,7 +459,7 @@ gf_found:
 }
 
 static int open_remap_ghost(struct reg_file_info *rfi,
-					RemapFilePathEntry *rfe)
+					RemapFilePathEntry *rpe)
 {
 	struct ghost_file *gf = container_of(rfi->remap, struct ghost_file, remap);
 	GhostFileEntry *gfe = NULL;
@@ -468,7 +468,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	if (rfi->remap->rpath[0])
 		return 0;
 
-	img = open_image(CR_FD_GHOST_FILE, O_RSTR, rfe->remap_id);
+	img = open_image(CR_FD_GHOST_FILE, O_RSTR, rpe->remap_id);
 	if (!img)
 		goto err;
 
@@ -487,7 +487,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	if (S_ISDIR(gfe->mode))
 		strncpy(gf->remap.rpath, rfi->path, PATH_MAX);
 	else
-		ghost_path(gf->remap.rpath, PATH_MAX, rfi, rfe);
+		ghost_path(gf->remap.rpath, PATH_MAX, rfi, rpe);
 
 	if (create_ghost(gf, gfe, img))
 		goto close_ifd;
@@ -510,15 +510,15 @@ err:
 }
 
 static int collect_remap_linked(struct reg_file_info *rfi,
-		RemapFilePathEntry *rfe)
+		RemapFilePathEntry *rpe)
 {
 	struct file_remap *rm;
 	struct file_desc *rdesc;
 	struct reg_file_info *rrfi;
 
-	rdesc = find_file_desc_raw(FD_TYPES__REG, rfe->remap_id);
+	rdesc = find_file_desc_raw(FD_TYPES__REG, rpe->remap_id);
 	if (!rdesc) {
-		pr_err("Can't find target file %x\n", rfe->remap_id);
+		pr_err("Can't find target file %x\n", rpe->remap_id);
 		return -1;
 	}
 
@@ -538,8 +538,7 @@ static int collect_remap_linked(struct reg_file_info *rfi,
 	return 0;
 }
 
-static int open_remap_linked(struct reg_file_info *rfi,
-		RemapFilePathEntry *rfe)
+static int open_remap_linked(struct reg_file_info *rfi)
 {
 	if (root_ns_mask & CLONE_NEWUSER) {
 		int rfd;
@@ -591,47 +590,47 @@ static int collect_remap_dead_process(struct reg_file_info *rfi,
 
 struct remap_info {
 	struct list_head list;
-	RemapFilePathEntry *rfe;
+	RemapFilePathEntry *rpe;
 	struct reg_file_info *rfi;
 };
 
 static int collect_one_remap(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 {
 	struct remap_info *ri = obj;
-	RemapFilePathEntry *rfe;
+	RemapFilePathEntry *rpe;
 	struct file_desc *fdesc;
 
-	ri->rfe = rfe = pb_msg(msg, RemapFilePathEntry);
+	ri->rpe = rpe = pb_msg(msg, RemapFilePathEntry);
 
-	if (!rfe->has_remap_type) {
-		rfe->has_remap_type = true;
+	if (!rpe->has_remap_type) {
+		rpe->has_remap_type = true;
 		/* backward compatibility with images */
-		if (rfe->remap_id & REMAP_GHOST) {
-			rfe->remap_id &= ~REMAP_GHOST;
-			rfe->remap_type = REMAP_TYPE__GHOST;
+		if (rpe->remap_id & REMAP_GHOST) {
+			rpe->remap_id &= ~REMAP_GHOST;
+			rpe->remap_type = REMAP_TYPE__GHOST;
 		} else
-			rfe->remap_type = REMAP_TYPE__LINKED;
+			rpe->remap_type = REMAP_TYPE__LINKED;
 	}
 
-	fdesc = find_file_desc_raw(FD_TYPES__REG, rfe->orig_id);
+	fdesc = find_file_desc_raw(FD_TYPES__REG, rpe->orig_id);
 	if (fdesc == NULL) {
-		pr_err("Remap for non existing file %#x\n", rfe->orig_id);
+		pr_err("Remap for non existing file %#x\n", rpe->orig_id);
 		return -1;
 	}
 
 	ri->rfi = container_of(fdesc, struct reg_file_info, d);
 
-	switch (rfe->remap_type) {
+	switch (rpe->remap_type) {
 	case REMAP_TYPE__GHOST:
-		if (collect_remap_ghost(ri->rfi, ri->rfe))
+		if (collect_remap_ghost(ri->rfi, ri->rpe))
 			return -1;
 		break;
 	case REMAP_TYPE__LINKED:
-		if (collect_remap_linked(ri->rfi, ri->rfe))
+		if (collect_remap_linked(ri->rfi, ri->rpe))
 			return -1;
 		break;
 	case REMAP_TYPE__PROCFS:
-		if (collect_remap_dead_process(ri->rfi, rfe) < 0)
+		if (collect_remap_dead_process(ri->rfi, rpe) < 0)
 			return -1;
 		break;
 	default:
@@ -646,24 +645,24 @@ static int collect_one_remap(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 static int prepare_one_remap(struct remap_info *ri)
 {
 	int ret = -1;
-	RemapFilePathEntry *rfe = ri->rfe;
+	RemapFilePathEntry *rpe = ri->rpe;
 	struct reg_file_info *rfi = ri->rfi;
 
-	pr_info("Configuring remap %#x -> %#x\n", rfi->rfe->id, rfe->remap_id);
+	pr_info("Configuring remap %#x -> %#x\n", rfi->rfe->id, rpe->remap_id);
 
-	switch (rfe->remap_type) {
+	switch (rpe->remap_type) {
 	case REMAP_TYPE__LINKED:
-		ret = open_remap_linked(rfi, rfe);
+		ret = open_remap_linked(rfi);
 		break;
 	case REMAP_TYPE__GHOST:
-		ret = open_remap_ghost(rfi, rfe);
+		ret = open_remap_ghost(rfi, rpe);
 		break;
 	case REMAP_TYPE__PROCFS:
 		/* handled earlier by collect_remap_dead_process */
 		ret = 0;
 		break;
 	default:
-		pr_err("unknown remap type %u\n", rfe->remap_type);
+		pr_err("unknown remap type %u\n", rpe->remap_type);
 		goto out;
 	}
 
@@ -733,11 +732,11 @@ int try_clean_remaps(bool only_ghosts)
 	int ret = 0;
 
 	list_for_each_entry(ri, &remaps, list) {
-		if (ri->rfe->remap_type == REMAP_TYPE__GHOST)
+		if (ri->rpe->remap_type == REMAP_TYPE__GHOST)
 			ret |= clean_one_remap(ri);
 		else if (only_ghosts)
 			continue;
-		else if (ri->rfe->remap_type == REMAP_TYPE__LINKED)
+		else if (ri->rpe->remap_type == REMAP_TYPE__LINKED)
 			ret |= clean_one_remap(ri);
 	}
 
