@@ -821,6 +821,16 @@ class criu_rpc:
 			if arg == '--tcp-established':
 				criu.opts.tcp_established = True
 				continue
+			if arg == '--restore-sibling':
+				criu.opts.rst_sibling = True
+				continue
+			if arg == "--inherit-fd":
+				inhfd = criu.opts.inherit_fd.add()
+				key = args.pop(0)
+				fd, key = key.split(":", 1)
+				inhfd.fd = int(fd[3:-1])
+				inhfd.key = key
+				continue
 
 			raise test_fail_exc('RPC for %s required' % arg)
 
