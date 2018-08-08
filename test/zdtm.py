@@ -569,6 +569,10 @@ class zdtm_test:
 			subprocess.check_call(["make", "-C", "zdtm/"])
 		subprocess.check_call(["flock", "zdtm_mount_cgroups.lock", "./zdtm_mount_cgroups"])
 
+	@staticmethod
+	def cleanup():
+		subprocess.check_call(["flock", "zdtm_mount_cgroups.lock", "./zdtm_umount_cgroups"])
+
 
 class inhfd_test:
 	def __init__(self, name, desc, flavor, freezer):
@@ -672,6 +676,10 @@ class inhfd_test:
 
 	@staticmethod
 	def available():
+		pass
+
+	@staticmethod
+	def cleanup():
 		pass
 
 
@@ -2226,3 +2234,6 @@ for tst in test_classes.values():
 	tst.available()
 
 opts['action'](opts)
+
+for tst in test_classes.values():
+	tst.cleanup()
