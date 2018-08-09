@@ -1250,6 +1250,22 @@ static int check_link_nsid(void)
 	return 0;
 }
 
+static int check_external_net_ns(void)
+{
+	/*
+	 * This is obviously not a real check. This only exists, so that
+	 * CRIU clients/users can check if this CRIU version supports the
+	 * external network namespace feature. Theoretically the CRIU client
+	 * or user could also parse the version, but especially for CLI users
+	 * version comparison in the shell is not easy.
+	 * This feature check does not exist for RPC as RPC has a special
+	 * version call which does not require string parsing and the external
+	 * network namespace feature is available for all CRIU versions newer
+	 * than 3.9.
+	 */
+	return 0;
+}
+
 struct feature_list {
 	char *name;
 	int (*func)();
@@ -1279,6 +1295,7 @@ static struct feature_list feature_list[] = {
 	{ "nsid", check_nsid },
 	{ "link_nsid", check_link_nsid},
 	{ "kcmp_epoll", check_kcmp_epoll},
+	{ "external_net_ns", check_external_net_ns},
 	{ NULL, NULL },
 };
 
