@@ -126,15 +126,7 @@ int run_scripts(enum script_actions act)
 		return 0;
 
 	if (scripts_mode == SCRIPTS_RPC) {
-		int rpc_sk;
-
-		pr_debug("\tRPC\n");
-		rpc_sk = get_service_fd(RPC_SK_OFF);
-		if (rpc_sk < 0) {
-			ret = -1;
-			goto out;
-		}
-		ret = send_criu_rpc_script(act, (char *)action, rpc_sk, -1);
+		ret = rpc_send_fd(act, -1);
 		goto out;
 	}
 
