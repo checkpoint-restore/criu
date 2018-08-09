@@ -1717,7 +1717,7 @@ static int run_ip_tool(char *arg1, char *arg2, char *arg3, char *arg4, int fdin,
 	char *ip_tool_cmd;
 	int ret;
 
-	pr_debug("\tRunning ip %s %s %s %s\n", arg1, arg2, arg3 ? : "\0", arg4 ? : "\0");
+	pr_debug("\tRunning ip %s %s %s %s\n", arg1, arg2, arg3 ? : "", arg4 ? : "");
 
 	ip_tool_cmd = getenv("CR_IP_TOOL");
 	if (!ip_tool_cmd)
@@ -1727,7 +1727,7 @@ static int run_ip_tool(char *arg1, char *arg2, char *arg3, char *arg4, int fdin,
 				(char *[]) { "ip", arg1, arg2, arg3, arg4, NULL }, flags);
 	if (ret) {
 		if (!(flags & CRS_CAN_FAIL))
-			pr_err("IP tool failed on %s %s %s %s\n", arg1, arg2, arg3 ? : "\0", arg4 ? : "\0");
+			pr_err("IP tool failed on %s %s %s %s\n", arg1, arg2, arg3 ? : "", arg4 ? : "");
 		return -1;
 	}
 
