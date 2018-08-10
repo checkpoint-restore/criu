@@ -1351,7 +1351,7 @@ void *compel_parasite_args_p(struct parasite_ctl *ctl)
 	return ctl->addr_args;
 }
 
-void *compel_parasite_args_s(struct parasite_ctl *ctl, int args_size)
+void *compel_parasite_args_s(struct parasite_ctl *ctl, unsigned long args_size)
 {
 	BUG_ON(args_size > ctl->args_size);
 	return compel_parasite_args_p(ctl);
