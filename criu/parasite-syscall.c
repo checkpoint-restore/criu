@@ -162,7 +162,8 @@ int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEn
 	return dump_thread_core(pid, core, args);
 }
 
-int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
+int parasite_dump_thread_seized(struct parasite_thread_ctl *tctl,
+				struct parasite_ctl *ctl, int id,
 				struct pid *tid, CoreEntry *core)
 {
 	struct parasite_dump_thread *args;
@@ -171,7 +172,6 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 	CredsEntry *creds = tc->creds;
 	struct parasite_dump_creds *pc;
 	int ret;
-	struct parasite_thread_ctl *tctl;
 
 	BUG_ON(id == 0); /* Leader is dumped in dump_task_core_all */
 
@@ -179,10 +179,6 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 	pc = args->creds;
 	pc->cap_last_cap = kdat.last_cap;
-
-	tctl = compel_prepare_thread(ctl, pid);
-	if (!tctl)
-		return -1;
 
 	tc->has_blk_sigset = true;
 	memcpy(&tc->blk_sigset, compel_thread_sigmask(tctl), sizeof(k_rtsigset_t));
@@ -468,12 +464,39 @@ static int make_sigframe(void *arg, struct rt_sigframe *sf, struct rt_sigframe *
 	return construct_sigframe(sf, rtsf, bs, (CoreEntry *)arg);
 }
 
+static int parasite_prepare_threads(struct parasite_ctl *ctl,
+				    struct pstree_item *item)
+{
+	struct parasite_thread_ctl **thread_ctls;
+	int i;
+
+	thread_ctls = xzalloc(sizeof(*thread_ctls) * item->nr_threads);
+	if (!thread_ctls)
+		return -1;
+
+	for (i = 0; i < item->nr_threads; i++) {
+		struct pid *tid = &item->threads[i];
+
+		if (item->pid->real == tid->real)
+			continue;
+
+		thread_ctls[i] = compel_prepare_thread(ctl, tid->real);
+		if (!thread_ctls[i])
+			return -1;
+	}
+
+	dmpi(item)->thread_ctls = thread_ctls;
+
+	return 0;
+}
+
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		struct vm_area_list *vma_area_list)
 {
 	struct parasite_ctl *ctl;
 	struct infect_ctx *ictx;
 	unsigned long p;
+	int ret;
 
 	BUG_ON(item->threads[0].real != pid);
 
@@ -485,6 +508,10 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	ctl = compel_prepare_noctx(pid);
 	if (!ctl)
+		return NULL;
+
+	ret = parasite_prepare_threads(ctl, item);
+	if (ret)
 		return NULL;
 
 	ictx = compel_infect_ctx(ctl);
@@ -532,4 +559,3 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 
 	return ctl;
 }
-

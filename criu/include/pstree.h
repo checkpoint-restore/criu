@@ -56,6 +56,7 @@ struct dmp_info {
 	struct ns_id *netns;
 	struct page_pipe *mem_pp;
 	struct parasite_ctl *parasite_ctl;
+	struct parasite_thread_ctl **thread_ctls;
 };
 
 static inline struct dmp_info *dmpi(const struct pstree_item *i)

@@ -21,6 +21,7 @@ struct parasite_dump_cgroup_args;
 struct rt_sigframe;
 
 struct parasite_ctl;
+struct parasite_thread_ctl;
 
 extern int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct pstree_item *);
 extern int parasite_dump_itimers_seized(struct parasite_ctl *ctl, struct pstree_item *);
@@ -32,8 +33,9 @@ extern int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc
 extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc);
 extern int parasite_dump_creds(struct parasite_ctl *ctl, struct _CredsEntry *ce);
 extern int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, struct _CoreEntry *core);
-extern int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
-					struct pid *tid, struct _CoreEntry *core);
+extern int parasite_dump_thread_seized(struct parasite_thread_ctl *tctl,
+				       struct parasite_ctl *ctl, int id,
+				       struct pid *tid, struct _CoreEntry *core);
 extern int dump_thread_core(int pid, CoreEntry *core,
 					const struct parasite_dump_thread *dt);
 
