@@ -52,7 +52,4 @@ extern int parasite_dump_cgroup(struct parasite_ctl *ctl, struct parasite_dump_c
 
 extern struct parasite_tty_args *parasite_dump_tty(struct parasite_ctl *ctl, int fd, int type);
 
-extern int parasite_init_threads_seized(struct parasite_ctl *ctl, struct pstree_item *item);
-extern int parasite_fini_threads_seized(struct parasite_ctl *ctl);
-
 #endif /* __CR_PARASITE_SYSCALL_H__ */
