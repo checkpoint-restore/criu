@@ -142,6 +142,20 @@ bool page_in_parent(bool dirty)
 	return __page_in_parent(dirty);
 }
 
+static bool is_stack(struct pstree_item *item, unsigned long vaddr)
+{
+	int i;
+
+	for (i = 0; i < item->nr_threads; i++) {
+		uint64_t sp = dmpi(item)->thread_sp[i];
+
+		if (!((sp ^ vaddr) & PAGE_MASK))
+			return true;
+	}
+
+	return false;
+}
+
 /*
  * This routine finds out what memory regions to grab from the
  * dumpee. The iovs generated are then fed into vmsplice to
@@ -151,7 +165,7 @@ bool page_in_parent(bool dirty)
  * the memory contents is present in the pagent image set.
  */
 
-static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u64 *off, bool has_parent)
+static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct page_pipe *pp, u64 *map, u64 *off, bool has_parent)
 {
 	u64 *at = &map[PAGE_PFN(*off)];
 	unsigned long pfn, nr_to_scan;
@@ -169,7 +183,7 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 
 		vaddr = vma->e->start + *off + pfn * PAGE_SIZE;
 
-		if (vma_entry_can_be_lazy(vma->e))
+		if (vma_entry_can_be_lazy(vma->e) && !is_stack(item, vaddr))
 			ppb_flags |= PPB_LAZY;
 
 		/*
@@ -358,7 +372,7 @@ static int generate_vma_iovs(struct pstree_item *item, struct vma_area *vma,
 		return add_shmem_area(item->pid->real, vma->e, map);
 
 again:
-	ret = generate_iovs(vma, pp, map, &off, has_parent);
+	ret = generate_iovs(item,vma, pp, map, &off, has_parent);
 	if (ret == -EAGAIN) {
 		BUG_ON(!(pp->flags & PP_CHUNK_MODE));
 
