@@ -841,6 +841,7 @@ static int collect_file_locks(void)
 static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 				const struct pstree_item *item, int id)
 {
+	struct parasite_thread_ctl *tctl = dmpi(item)->thread_ctls[id];
 	struct pid *tid = &item->threads[id];
 	CoreEntry *core = item->core[id];
 	pid_t pid = tid->real;
@@ -851,7 +852,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 	pr_info("Dumping core for thread (pid: %d)\n", pid);
 	pr_info("----------------------------------------\n");
 
-	ret = parasite_dump_thread_seized(parasite_ctl, id, tid, core);
+	ret = parasite_dump_thread_seized(tctl, parasite_ctl, id, tid, core);
 	if (ret) {
 		pr_err("Can't dump thread for pid %d\n", pid);
 		goto err;
