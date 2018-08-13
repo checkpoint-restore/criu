@@ -468,24 +468,34 @@ static int parasite_prepare_threads(struct parasite_ctl *ctl,
 				    struct pstree_item *item)
 {
 	struct parasite_thread_ctl **thread_ctls;
+	uint64_t *thread_sp;
 	int i;
 
 	thread_ctls = xzalloc(sizeof(*thread_ctls) * item->nr_threads);
 	if (!thread_ctls)
 		return -1;
 
+	thread_sp = xzalloc(sizeof(*thread_sp) * item->nr_threads);
+	if (!thread_sp)
+		return -1;
+
 	for (i = 0; i < item->nr_threads; i++) {
 		struct pid *tid = &item->threads[i];
 
-		if (item->pid->real == tid->real)
+		if (item->pid->real == tid->real) {
+			thread_sp[i] = compel_get_leader_sp(ctl);
 			continue;
+		}
 
 		thread_ctls[i] = compel_prepare_thread(ctl, tid->real);
 		if (!thread_ctls[i])
 			return -1;
+
+		thread_sp[i] = compel_get_thread_sp(thread_ctls[i]);
 	}
 
 	dmpi(item)->thread_ctls = thread_ctls;
+	dmpi(item)->thread_sp = thread_sp;
 
 	return 0;
 }
