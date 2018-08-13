@@ -77,12 +77,12 @@ int main(int argc, char **argv)
 				break;
 
 			if (!WIFEXITED(status)) {
-				fail("Task %d didn't exit", wpid);
+				fail("Task %d didn't exit with status %d", wpid, status);
 				goto out;
 			}
 
 			if (WEXITSTATUS(status) != 0) {
-				fail("Task %d exited with wrong code", wpid);
+				fail("Task %d exited with wrong status %d", wpid, status);
 				goto out;
 			}
 		}
