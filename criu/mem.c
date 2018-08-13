@@ -330,6 +330,50 @@ static int detect_pid_reuse(struct pstree_item *item,
 	return 0;
 }
 
+static int generate_vma_iovs(struct pstree_item *item, struct vma_area *vma,
+			     struct page_pipe *pp, struct page_xfer *xfer,
+			     struct parasite_dump_pages_args *args,
+			     struct parasite_ctl *ctl, pmc_t *pmc,
+			     bool has_parent, bool pre_dump)
+{
+	u64 off = 0;
+	u64 *map;
+	int ret;
+
+	if (!vma_area_is_private(vma, kdat.task_size) &&
+				!vma_area_is(vma, VMA_ANON_SHARED))
+		return 0;
+
+	if (vma_entry_is(vma->e, VMA_AREA_AIORING)) {
+		if (pre_dump)
+			return 0;
+		has_parent = false;
+	}
+
+	map = pmc_get_map(pmc, vma);
+	if (!map)
+		return -1;
+
+	if (vma_area_is(vma, VMA_ANON_SHARED))
+		return add_shmem_area(item->pid->real, vma->e, map);
+
+again:
+	ret = generate_iovs(vma, pp, map, &off, has_parent);
+	if (ret == -EAGAIN) {
+		BUG_ON(!(pp->flags & PP_CHUNK_MODE));
+
+		ret = drain_pages(pp, ctl, args);
+		if (!ret)
+			ret = xfer_pages(pp, xfer);
+		if (!ret) {
+			page_pipe_reinit(pp);
+			goto again;
+		}
+	}
+
+	return ret;
+}
+
 static int __parasite_dump_pages_seized(struct pstree_item *item,
 		struct parasite_dump_pages_args *args,
 		struct vm_area_list *vma_area_list,
@@ -344,6 +388,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 	unsigned cpp_flags = 0;
 	unsigned long pmc_size;
 	int possible_pid_reuse = 0;
+	bool has_parent;
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, item->pid->real);
@@ -409,41 +454,10 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 	 * Step 1 -- generate the pagemap
 	 */
 	args->off = 0;
+	has_parent = !!xfer.parent && !possible_pid_reuse;
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
-		bool has_parent = !!xfer.parent;
-		u64 off = 0;
-		u64 *map;
-
-		if (!vma_area_is_private(vma_area, kdat.task_size) &&
-				!vma_area_is(vma_area, VMA_ANON_SHARED))
-			continue;
-		if (vma_entry_is(vma_area->e, VMA_AREA_AIORING)) {
-			if (mdc->pre_dump)
-				continue;
-			has_parent = false;
-		}
-
-		map = pmc_get_map(&pmc, vma_area);
-		if (!map)
-			goto out_xfer;
-		if (vma_area_is(vma_area, VMA_ANON_SHARED))
-			ret = add_shmem_area(item->pid->real, vma_area->e, map);
-		else {
-again:
-			ret = generate_iovs(vma_area, pp, map, &off,
-				has_parent && !possible_pid_reuse);
-			if (ret == -EAGAIN) {
-				BUG_ON(!(pp->flags & PP_CHUNK_MODE));
-
-				ret = drain_pages(pp, ctl, args);
-				if (!ret)
-					ret = xfer_pages(pp, &xfer);
-				if (!ret) {
-					page_pipe_reinit(pp);
-					goto again;
-				}
-			}
-		}
+		ret = generate_vma_iovs(item, vma_area, pp, &xfer, args, ctl,
+					&pmc, has_parent, mdc->pre_dump);
 		if (ret < 0)
 			goto out_xfer;
 	}
