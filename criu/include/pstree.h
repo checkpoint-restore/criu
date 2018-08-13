@@ -57,6 +57,7 @@ struct dmp_info {
 	struct page_pipe *mem_pp;
 	struct parasite_ctl *parasite_ctl;
 	struct parasite_thread_ctl **thread_ctls;
+	uint64_t *thread_sp;
 };
 
 static inline struct dmp_info *dmpi(const struct pstree_item *i)
