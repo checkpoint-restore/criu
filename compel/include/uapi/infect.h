@@ -165,4 +165,7 @@ extern void compel_relocs_apply(void *mem, void *vbase, size_t size, compel_relo
 
 extern unsigned long compel_task_size(void);
 
+extern uint64_t compel_get_leader_sp(struct parasite_ctl *ctl);
+extern uint64_t compel_get_thread_sp(struct parasite_thread_ctl *tctl);
+
 #endif

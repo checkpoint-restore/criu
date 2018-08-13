@@ -20,6 +20,7 @@ typedef struct user_fpsimd_state	user_fpregs_struct_t;
 
 #define REG_RES(r)			((uint64_t)(r).regs[0])
 #define REG_IP(r)			((uint64_t)(r).pc)
+#define REG_SP(r)			((uint64_t)((r).sp))
 #define REG_SYSCALL_NR(r)		((uint64_t)(r).regs[8])
 
 #define user_regs_native(pregs)			true
