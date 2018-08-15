@@ -149,7 +149,7 @@ int main(int argc, char *argv[])
 	test_init(argc, argv);
 	/* Enable guarded-storage */
 	if (syscall(__NR_guarded_storage, GS_ENABLE) != 0) {
-		if (errno == ENOSYS) {
+		if (errno == ENOSYS || errno == EOPNOTSUPP) {
 			test_daemon();
 			test_waitsig();
 			skip("No guarded storage support");
