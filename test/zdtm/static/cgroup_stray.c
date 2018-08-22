@@ -94,7 +94,7 @@ static bool pid_in_cgroup(pid_t pid, const char *controller, const char *path) {
 		/* chop off trailing \n */
 		buf[strlen(buf)-1] = '\0';
 
-		/* skip heirarchy no. */
+		/* skip hierarchy no. */
 		pos = strstr(buf, ":");
 		if (!pos) {
 			pr_err("invalid /proc/pid/cgroups file");

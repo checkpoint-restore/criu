@@ -120,7 +120,7 @@ static int list_tun_link(NetDeviceEntry *nde)
 	strlcpy(tl->name, nde->name, sizeof(tl->name));
 	/*
 	 * Keep tun-flags not only for persistency fixup (see
-	 * commend below), but also for TUNSETIFF -- we must
+	 * comment below), but also for TUNSETIFF -- we must
 	 * open the device with the same flags it should live
 	 * with (i.e. -- with which it was created.
 	 */

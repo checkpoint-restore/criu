@@ -208,7 +208,7 @@ static int pre_parse(int argc, char **argv, bool *usage_error, bool *no_default_
 {
 	int i;
 	/*
-	 * We are runnning before getopt(), so we need to pre-parse
+	 * We are running before getopt(), so we need to pre-parse
 	 * the command line.
 	 *
 	 * Check for --help / -h on commandline before parsing, otherwise

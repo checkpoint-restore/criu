@@ -255,7 +255,7 @@ static int restore_creds(struct thread_creds_args *args, int procfd)
 
 	/*
 	 * Fourth -- trim bset. This can only be done while
-	 * having the CAP_SETPCAP capablity.
+	 * having the CAP_SETPCAP capability.
 	 */
 
 	for (b = 0; b < CR_CAP_SIZE; b++) {
@@ -995,7 +995,7 @@ static int timerfd_arm(struct task_restore_args *args)
 
 			t->val.it_value.tv_sec += (time_t)ts.tv_sec;
 
-			pr_debug("Ajust id %#x it_value(%llu, %llu) -> it_value(%llu, %llu)\n",
+			pr_debug("Adjust id %#x it_value(%llu, %llu) -> it_value(%llu, %llu)\n",
 				 t->id, (unsigned long long)ts.tv_sec,
 				 (unsigned long long)ts.tv_nsec,
 				 (unsigned long long)t->val.it_value.tv_sec,
@@ -1499,7 +1499,7 @@ long __export_restore_task(struct task_restore_args *args)
 	/*
 	 * New kernel interface with @PR_SET_MM_MAP will become
 	 * more widespread once kernel get deployed over the world.
-	 * Thus lets be opportunistic and use new inteface as a try.
+	 * Thus lets be opportunistic and use new interface as a try.
 	 */
 	prctl_map = (struct prctl_mm_map) {
 		.start_code	= args->mm.mm_start_code,
@@ -1719,7 +1719,7 @@ long __export_restore_task(struct task_restore_args *args)
 	std_log_set_fd(-1);
 
 	/*
-	 * The code that prepared the itimers makes shure the
+	 * The code that prepared the itimers makes sure that the
 	 * code below doesn't fail due to bad timing values.
 	 */
 

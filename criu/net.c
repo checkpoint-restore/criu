@@ -2180,7 +2180,7 @@ static int collect_netns_id(struct ns_id *ns, void *oarg)
 	if (!netns_id)
 		return -1;
 
-	pr_debug("Fount the %d id for %d in %d\n", nsid, ns->id, arg->ns->id);
+	pr_debug("Found the %d id for %d in %d\n", nsid, ns->id, arg->ns->id);
 	netns_id->target_ns_id = ns->id;
 	netns_id->netnsid_value = nsid;
 
@@ -2555,7 +2555,7 @@ int netns_keep_nsfd(void)
 }
 
 /*
- * If we want to modify iptables, we need to recevied the current
+ * If we want to modify iptables, we need to received the current
  * configuration, change it and load a new one into the kernel.
  * iptables can change or add only one rule.
  * iptables-restore allows to make a few changes for one iteration,
@@ -2807,7 +2807,7 @@ struct ns_id *get_socket_ns(int lfd)
 
 	ns_fd = ioctl(lfd, SIOCGSKNS);
 	if (ns_fd < 0) {
-		/* backward compatiblity with old kernels */
+		/* backward compatibility with old kernels */
 		if (netns_nr == 1)
 			return net_get_root_ns();
 

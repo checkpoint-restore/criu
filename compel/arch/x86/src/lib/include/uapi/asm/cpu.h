@@ -11,7 +11,7 @@
  * for us, so make sure they are at proper position between
  * versions.
  *
- * In particular since we aready used leaf 11 we have
+ * In particular since we already used leaf 11 we have
  * to keep it here, since it's an ABI now.
  */
 enum cpuid_leafs {

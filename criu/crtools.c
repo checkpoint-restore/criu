@@ -78,7 +78,7 @@ static int early_init(void)
 	 * limits.
 	 *
 	 * Note we have to do it before the service fd
-	 * get inited and we dont exit with errors here
+	 * get inited and we don't exit with errors here
 	 * because in worst scenario where clash of fd
 	 * happen we simply exit with explicit error
 	 * during real action stage.

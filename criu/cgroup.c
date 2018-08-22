@@ -1471,7 +1471,7 @@ static int restore_devices_list(char *paux, size_t off, CgroupPropEntry *pr)
 	ret = restore_cgroup_prop(&dev_deny, paux, off, false, false);
 
 	/*
-	 * An emptry string here means nothing is allowed,
+	 * An empty string here means nothing is allowed,
 	 * and the kernel disallows writing an "" to devices.allow,
 	 * so let's just keep going.
 	 */

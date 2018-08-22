@@ -171,7 +171,7 @@ static int binfmt_misc_dump(struct mount_info *pm)
 			continue;
 
 		if (!img) {
-			/* Create image only if an extry exists, i.e. here */
+			/* Create image only if an entry exists, i.e. here */
 			img = open_image(CR_FD_BINFMT_MISC, O_DUMP);
 			if (!img)
 				goto out;

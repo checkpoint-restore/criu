@@ -8,7 +8,7 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that special charecters in paths are handled correctly";
+const char *test_doc	= "Check that special characters in paths are handled correctly";
 const char *test_author	= "Andrew Vagin <avagin@virtuozzo.com>";
 
 char *dirname;

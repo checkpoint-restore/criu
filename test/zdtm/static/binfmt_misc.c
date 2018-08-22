@@ -20,7 +20,7 @@ const char *test_author	= "Kirill Tkhai <ktkhai@odin.com";
 char *dirname = "binfmt_misc.dir";
 TEST_OPTION(dirname, string, "binfmt_misc mount directory name", 1);
 char *filename;
-TEST_OPTION(filename, string, "file name prefix (prefix_magic, prefix, extention)", 1);
+TEST_OPTION(filename, string, "file name prefix (prefix_magic, prefix, extension)", 1);
 
 char NAME[2][PATH_MAX];
 
@@ -105,7 +105,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	snprintf(NAME[0], PATH_MAX, "%s_magic", filename);
-	snprintf(NAME[1], PATH_MAX, "%s_extention", filename);
+	snprintf(NAME[1], PATH_MAX, "%s_extension", filename);
 
 	if (mkdir(dirname, 0777)) {
 		fail("mkdir");

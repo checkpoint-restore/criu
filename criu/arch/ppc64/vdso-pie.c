@@ -70,7 +70,7 @@ static unsigned long put_trampoline(unsigned long at, struct vdso_symtable *sym)
 		pr_debug("Checking '%s' at %lx\n", sym->symbols[i].name,
 			 sym->symbols[i].offset);
 
-		/* find the nearest followin symbol we are interested in */
+		/* find the nearest following symbol we are interested in */
 		for (j=0; j < ARRAY_SIZE(sym->symbols); j++) {
 			if (i==j || vdso_symbol_empty(&sym->symbols[j]))
 				continue;

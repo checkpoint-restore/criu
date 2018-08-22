@@ -152,7 +152,7 @@ struct parasite_dump_creds {
 	 * FIXME -- this structure is passed to parasite code
 	 * through parasite args area so in parasite_dump_creds()
 	 * call we check for size of this data fits the size of
-	 * the area. Unfortunatelly, we _actually_ use more bytes
+	 * the area. Unfortunately, we _actually_ use more bytes
 	 * than the sizeof() -- we put PARASITE_MAX_GROUPS int-s
 	 * in there, so the size check is not correct.
 	 *
@@ -187,7 +187,7 @@ static inline void copy_sas(ThreadSasEntry *dst, const stack_t *src)
  * 1) struct parasite_drain_fd + all descriptors should fit into one page
  * 2) The value should be a multiple of CR_SCM_MAX_FD, because descriptors
  *    are transferred with help of send_fds and recv_fds.
- * 3) criu should work with a defaul value of the file limit (1024)
+ * 3) criu should work with a default value of the file limit (1024)
  */
 #define PARASITE_MAX_FDS	CR_SCM_MAX_FD * 3
 

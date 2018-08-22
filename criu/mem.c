@@ -642,7 +642,7 @@ static inline bool check_cow_vmas(struct vma_area *vma, struct vma_area *pvma)
 	 * memcmp'aring the contents.
 	 */
 
-	/* ... coinside by start/stop pair (start is checked by caller) */
+	/* ... coincide by start/stop pair (start is checked by caller) */
 	if (vma->e->end != pvma->e->end)
 		return false;
 	/* ... both be private (and thus have space in premmaped area) */
@@ -650,7 +650,7 @@ static inline bool check_cow_vmas(struct vma_area *vma, struct vma_area *pvma)
 		return false;
 	if (!vma_area_is_private(pvma, kdat.task_size))
 		return false;
-	/* ... have growsdown and anon flags coinside */
+	/* ... have growsdown and anon flags coincide */
 	if ((vma->e->flags ^ pvma->e->flags) & (MAP_GROWSDOWN | MAP_ANONYMOUS))
 		return false;
 	/* ... belong to the same file if being filemap */

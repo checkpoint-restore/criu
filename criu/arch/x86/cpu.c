@@ -280,7 +280,7 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 	 */
 	if (memcmp(cpu_info->x86_capability, rt_cpu_info.x86_capability,
 		   sizeof(cpu_info->x86_capability))) {
-		pr_err("CPU capabilites do not match run time\n");
+		pr_err("CPU capabilities do not match run time\n");
 		return -1;
 	}
 
@@ -335,7 +335,7 @@ static compel_cpuinfo_t *img_to_cpuinfo(CpuinfoX86Entry *img_x86_entry)
 
 	/*
 	 * Copy caps from image and fill the left ones from
-	 * run-time infomation for easier compatibility testing.
+	 * run-time information for easier compatibility testing.
 	 */
 	size = sizeof(img_x86_entry->capability[0]) * img_x86_entry->n_capability;
 	memcpy(cpu_info->x86_capability, img_x86_entry->capability, size);

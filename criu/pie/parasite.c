@@ -581,7 +581,7 @@ static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 	if (is_vdso_mark(m)) {
 		/*
 		 * Make sure we don't meet some corrupted entry
-		 * where signature matches but verions is not!
+		 * where signature matches but versions do not!
 		 */
 		if (m->version != VDSO_MARK_CUR_VERSION) {
 			pr_err("vdso: Mark version mismatch!\n");

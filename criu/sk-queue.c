@@ -126,7 +126,7 @@ static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe)
 			if (n_rights) {
 				/*
 				 * Even if user is sending more than one cmsg with
-				 * rights, kernel merges them alltogether on recv.
+				 * rights, kernel merges them altogether on recv.
 				 */
 				pr_err("Unexpected 2nd SCM_RIGHTS from the kernel\n");
 				return -1;

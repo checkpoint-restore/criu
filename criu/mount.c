@@ -584,7 +584,7 @@ static bool mnt_is_external(struct mount_info *m)
 }
 
 /*
- * Having two children whith same mountpoint is unsupported. That can happen in
+ * Having two children with same mountpoint is unsupported. That can happen in
  * case of mount propagation inside of shared mounts, in that case it is hard
  * to find out mount propagation siblings and which of these mounts is above
  * (visible) and which is beneath (hidden). It would've broken mount restore
@@ -1359,7 +1359,7 @@ int open_mountpoint(struct mount_info *pm)
 	 * namespace so that we can safely get rid of overmounts and get an
 	 * access to the mount.
 	 * In both cases we can't do the thing from criu's mount namespace, so
-	 * we need to switch to mount's mount namespace, and later swtich back.
+	 * we need to switch to mount's mount namespace, and later switch back.
 	 */
 	cwd_fd = open(".", O_DIRECTORY);
 	if (cwd_fd < 0) {
@@ -1377,7 +1377,7 @@ int open_mountpoint(struct mount_info *pm)
 
 	/*
 	 * Mount is overmounted or probably we can't create a temporary
-	 * direcotry for a cleaned mount
+	 * directory for a cleaned mount
 	 */
 	if (fd < 0) {
 		int pid, status;
@@ -1707,7 +1707,7 @@ err:
 
 /*
  * _fn_f  - pre-order traversal function
- * _fn_f  - post-order traversal function
+ * _fn_r  - post-order traversal function
  * _plist - a postpone list. _el is added to this list, if _fn_f returns
  *	    a positive value, and all lower elements are not enumerated.
  */
@@ -2784,7 +2784,7 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 	if (me->ext_mount) {
 		me->ext_key = me->root;
 		/*
-		 * Puting the id of external mount which is provided by user,
+		 * Putting the id of external mount which is provided by user,
 		 * to ->root can confuse mnt_is_external and other functions
 		 * which expect to see the path in the file system to the root
 		 * of these mount (mounts_equal, mnt_build_ids_tree,

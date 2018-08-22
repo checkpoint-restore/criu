@@ -13,8 +13,8 @@ criu_bin='../../criu/criu'
 def mix(nr_tasks, nr_pipes):
 	# Returned is the list of combinations.
 	# Each combination is the lists of pipe descriptors.
-	# Each pipe descriptor is a 2-elemtn tuple, that contains values 
-	# for R and W ends of pipes, each being a bit-field denoting in 
+	# Each pipe descriptor is a 2-elemtn tuple, that contains values
+	# for R and W ends of pipes, each being a bit-field denoting in
 	# which tasks the respective end should be opened or not.
 
 	# First -- make a full set of combinations for a single pipe.
@@ -240,7 +240,7 @@ def run(comb, opts):
 			# Kick the test to check its state
 			s.sendto(res, '\0CRIUPCSK')
 		except:
-			# Restore might have failed or smth else happenned
+			# Restore might have failed or smth else happened
 			os.kill(pid, signal.SIGKILL)
 		s.close()
 

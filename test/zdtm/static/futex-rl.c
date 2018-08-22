@@ -84,7 +84,7 @@ int main(int argc, char **argv)
 	task_waiter_init(&args->waiter);
 	args->result = 0;
 
-	test_msg("Createing thread\n");
+	test_msg("Creating thread\n");
 	if (pthread_create(&thread, NULL, thread_fn, (void *)args)) {
 		fail("Can't create thread\n");
 		exit(1);

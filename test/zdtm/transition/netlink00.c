@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
 		pr_perror("bind failed");
 		goto out;
 	}
-	//Preperation:
+	//Preparation:
 	form_request_del();
 	send_request();
 	recv_reply();

@@ -422,7 +422,7 @@ int main(int argc, char *argv[])
 	test_init(argc, argv);
 
 	if (vdso_fill_self_symtable(&symtable)) {
-		pr_perror("Faied to parse vdso");
+		pr_perror("Failed to parse vdso");
 		return -1;
 	}
 

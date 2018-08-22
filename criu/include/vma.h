@@ -42,7 +42,7 @@ struct vma_area {
 			char		*aufs_fpath;	/* full path from global root */
 
 			/*
-			 * When several subsequent vmas have the same 
+			 * When several subsequent vmas have the same
 			 * dev:ino pair all 'tail' ones set this to true
 			 * and the vmst points to the head's stat buf.
 			 */
@@ -93,8 +93,8 @@ extern int parse_self_maps_lite(struct vm_area_list *vms);
 /*
  * vma_premmaped_start() can be used only in restorer.
  * In other cases vma_area->premmaped_addr must be used.
- * This hack is required, because vma_area isn't tranfered in restorer and
- * shmid is used to determing which vma-s are cowed.
+ * This hack is required, because vma_area isn't transferred in restorer and
+ * shmid is used to determine which vma-s are cowed.
  */
 #define vma_premmaped_start(vma)	((vma)->shmid)
 

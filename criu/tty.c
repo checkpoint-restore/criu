@@ -546,7 +546,7 @@ static int do_open_tty_reg(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 	fd = do_open_reg_noseek_flags(ns_root_fd, rfi, arg);
 	if (fd >= 0) {
 		/*
-		 * Peers might have differend modes set
+		 * Peers might have different modes set
 		 * after creation before we've dumped
 		 * them. So simply setup mode from image
 		 * the regular file engine will check
@@ -883,7 +883,7 @@ static int restore_tty_params(int fd, struct tty_info *info)
 
 /*
  * When we restore queued data we don't exit if error happened:
- * the terminals never was a transport with guaranted delivery,
+ * the terminals never was a transport with guaranteed delivery,
  * it's up to application which uses it to guaratee the data
  * integrity.
  */
@@ -2208,7 +2208,7 @@ static void tty_dinfo_free(struct tty_dump_info *dinfo)
  * checkpoint procedure -- it's tail optimization, we trying
  * to defer this procedure until everything else passed
  * successfully because in real it is time consuming on
- * its own which might require writting data back to the
+ * its own which might require writing data back to the
  * former peers if case something go wrong.
  *
  * Moreover when we gather PTYs peers into own list we

@@ -307,7 +307,7 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	 * Handling dup'ed or transferred target
 	 * files is tricky: we need to use kcmp
 	 * to find out where file came from. Until
-	 * it's implemented lets use simplier approach
+	 * it's implemented lets use simpler approach
 	 * just check the targets are blonging to the
 	 * pid's file set.
 	 */

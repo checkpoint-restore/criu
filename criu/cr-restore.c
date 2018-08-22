@@ -1365,7 +1365,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 	/*
-	 * Some kernel modules, such as netwrok packet generator
+	 * Some kernel modules, such as network packet generator
 	 * run kernel thread upon net-namespace creattion taking
 	 * the @pid we've been requeting via LAST_PID_PATH interface
 	 * so that we can't restore a take with pid needed.
@@ -2279,7 +2279,7 @@ skip_ns_bouncing:
 out_kill:
 	/*
 	 * The processes can be killed only when all of them have been created,
-	 * otherwise an external proccesses can be killed.
+	 * otherwise an external processes can be killed.
 	 */
 	if (root_ns_mask & CLONE_NEWPID) {
 		int status;

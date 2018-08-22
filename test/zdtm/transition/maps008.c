@@ -18,7 +18,7 @@ const char *test_doc = "ps tree with anon shared vmas for dedup";
 /*
  * 1. ps tree with non triavial anon shmem vmas is created first.
  * 2. Each process gets its portion of shmem vmas.
- * 3. Each process continiously datagens its portion until
+ * 3. Each process continuously datagens its portion until
  *    criu dump is finished.
  * 4. Each process datachecks all its shmem portions after restore.
  * 5. Contents of anon shmem vmas are checked for equality in

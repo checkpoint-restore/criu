@@ -192,7 +192,7 @@ static int seize_cgroup_tree(char *root_path, const char *state)
 
 /*
  * A freezer cgroup can contain tasks which will not be dumped
- * and we need to wait them, because the are interupted them by ptrace.
+ * and we need to wait them, because the are interrupted them by ptrace.
  */
 static int freezer_wait_processes()
 {

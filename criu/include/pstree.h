@@ -65,7 +65,7 @@ static inline struct dmp_info *dmpi(const struct pstree_item *i)
 	return (struct dmp_info *)(i + 1);
 }
 
-/* ids is alocated and initialized for all alive tasks */
+/* ids is allocated and initialized for all alive tasks */
 static inline int shared_fdtable(struct pstree_item *item)
 {
 	return (item->parent &&

@@ -13,8 +13,8 @@ if [ -e $tname/${name}_magic ]; then
 	echo -1 > $tname/${name}_magic
 fi
 
-if [ -e $tname/${name}_extention ]; then
-	echo -1 > $tname/${name}_extention
+if [ -e $tname/${name}_extension ]; then
+	echo -1 > $tname/${name}_extension
 fi
 set -e
 

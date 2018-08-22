@@ -194,7 +194,7 @@ class sock:
 		self.sk_type = sock_type
 		# Sockets that haven't yet been accept()-ed are in the
 		# state, but user cannot operate on them. Also this
-		# invisibility contributes to state descriptionm since
+		# invisibility contributes to state description since
 		# connection to not accepted socket is not the same
 		# as connection to accepted one.
 		self.visible = True
@@ -240,7 +240,7 @@ class sock:
 	def get_send_action(self, to, st):
 		# However, if peer has a message from us at
 		# the queue tail, sending a new one doesn't
-		# really make sence
+		# really make sense
 		want_msg = True
 		if len(to.inqueue) != 0:
 			lmsg = to.inqueue[-1]
@@ -412,8 +412,8 @@ class state:
 
 	# Generates textual description of a state. Different states
 	# may have same descriptions, e.g. if we have two sockets and
-	# only one of them is in listen state, we don't care which 
-	# one in which. At the same time really different states 
+	# only one of them is in listen state, we don't care which
+	# one in which. At the same time really different states
 	# shouldn't map to the same string.
 	def describe(self):
 		sks = map(lambda x: x.describe(self), self.sockets)
@@ -457,7 +457,7 @@ fail_desc = {
 }
 
 def chk_real_state(st):
-	# Befor enything else -- check that we still have
+	# Before enything else -- check that we still have
 	# all the sockets at hands
 	for sk in st.sockets:
 		if not sk.visible:
@@ -567,7 +567,7 @@ def chk_real_state(st):
 			print 'FAIL: Connectivity %d -> %d lost' % \
 					(sk.sk_id, sk.peer)
 			return CHK_FAIL_CONNECT
-	
+
 		# If sockets are not connected the recv above
 		# would generate exception and the check would
 		# fail. But just in case we've screwed the queues
@@ -594,7 +594,7 @@ def chk_state(st, opts):
 	# pid!=0 branch, but for simplicity we fork the kid which has the
 	# same set of sockets we do, then dump it. Then restore and notify
 	# via dgram socket to check its state. Current task still has all
-	# the same sockets :) so we close them not to produce bind() name 
+	# the same sockets :) so we close them not to produce bind() name
 	# conflicts on restore
 
 	pid = os.fork()
@@ -730,7 +730,7 @@ p.add_argument("--keep", help = "Don't stop on error", action = 'store_true')
 opts = p.parse_args()
 opts.depth = int(opts.depth)
 
-# XXX: does it make any sence to mix two types in one go?
+# XXX: does it make any sense to mix two types in one go?
 if opts.stream and opts.dgram:
 	print 'Choose only one type'
 	sys.exit(1)

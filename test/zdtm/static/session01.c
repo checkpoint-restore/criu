@@ -252,7 +252,7 @@ int main(int argc, char ** argv)
 		if (ret < 0)
 			goto err;
 		futex_set(&testcases[i].futex, 0);
-		test_msg("The process %d initilized\n", ret);
+		test_msg("The process %d initialized\n", ret);
 	}
 
 	test_daemon();

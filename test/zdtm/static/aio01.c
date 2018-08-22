@@ -91,7 +91,7 @@ int main(int argc, char **argv)
 	test_msg("tail=%u, head=%u, nr=%u\n", tail[1], head[1], nr[1]);
 
 	if (tail[0] != tail[1] || head[0] != head[1] || nr[0] != nr[1]) {
-		fail("missmatch");
+		fail("mismatch");
 		return 1;
 	}
 

@@ -93,7 +93,7 @@ static void reset_buf_off(void)
 }
 
 /*
- * Keeping the very first error messsage for RPC to report back.
+ * Keeping the very first error message for RPC to report back.
  */
 struct str_and_lock {
 	mutex_t l;

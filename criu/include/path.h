@@ -4,7 +4,7 @@
 #include "namespaces.h"
 #include "pstree.h"
 
-/* Asolute paths are used on dump and relative paths are used on restore */
+/* Absolute paths are used on dump and relative paths are used on restore */
 static inline int is_root(char *p)
 {
 	return (!strcmp(p, "/"));

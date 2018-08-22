@@ -617,7 +617,7 @@ files '/etc/criu/default.conf' and '$HOME/.criu/default.conf' are parsed (if
 present on the system). If the environment variable CRIU_CONFIG_FILE is set,
 it will also be parsed.
 
-The options parsed to CRIU via CLI, RPC or configuration file are evaluated
+The options passed to CRIU via CLI, RPC or configuration file are evaluated
 in the following order:
 
     - apply_config(/etc/criu/default.conf)

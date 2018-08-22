@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
 	test_msg("[NOTE]\tMappings before:\n");
 	nr_before = parse_maps(vmas_before);
 	if (nr_before < 0) {
-		pr_perror("Faied to parse maps");
+		pr_perror("Failed to parse maps");
 		return -1;
 	}
 
@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
 	test_msg("[NOTE]\tMappings after:\n");
 	nr_after = parse_maps(vmas_after);
 	if (nr_after < 0) {
-		pr_perror("Faied to parse maps");
+		pr_perror("Failed to parse maps");
 		return -1;
 	}
 

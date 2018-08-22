@@ -1586,7 +1586,7 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 	 * Order binding for sake of ghost sockets. We might rename
 	 * existing socket to some temp name, bind ghost, delete it,
 	 * and finally move the former back, thus while we're doing
-	 * this stuff we should not be interruped by connection
+	 * this stuff we should not be interrupted by connection
 	 * from another sockets.
 	 *
 	 * FIXME: Probably wort make it per address rather for

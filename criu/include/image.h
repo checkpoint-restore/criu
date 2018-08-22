@@ -45,7 +45,7 @@
  *  	contents modification especially when tasks are
  *  	migrating between different kernel versions
  *  - heap
- *  	"heap" area in application, currently for inforamtion only
+ *  	"heap" area in application, currently for information only
  *  - file private
  *  	stands for privately memory mapped files
  *  - file shared

@@ -31,7 +31,7 @@ int check_prot(int src_prot, int dst_prot)
 {
 	if (RW_PROT(src_prot) != RW_PROT(dst_prot))
 		return 0;
-	/* If exec bit will be enabled may depend on NX capablity of CPUs of
+	/* If exec bit will be enabled may depend on NX capability of CPUs of
 	 * source and destination nodes. In any case, migrated mapping should
 	 * not have less permissions than newly created one
 	 **
