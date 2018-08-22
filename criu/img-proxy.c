@@ -2,7 +2,6 @@
 
 #include "img-remote.h"
 #include "criu-log.h"
-#include <pthread.h>
 #include <fcntl.h>
 #include <sys/socket.h>
 #include "cr_options.h"

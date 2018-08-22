@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 #include "common/list.h"
-#include <pthread.h>
-#include <semaphore.h>
 
 #ifndef IMAGE_REMOTE_H
 #define	IMAGE_REMOTE_H

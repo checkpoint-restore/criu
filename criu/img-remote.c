@@ -16,9 +16,7 @@
 #include "common/compiler.h"
 #include "cr_options.h"
 
-#include <semaphore.h>
 #include "sys/un.h"
-#include <pthread.h>
 #include <sys/file.h>
 
 #include "protobuf.h"
