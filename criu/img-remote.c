@@ -864,22 +864,7 @@ err:
 	free(rop);
 }
 
-void check_pending_forwards()
-{
-	struct roperation *rop = NULL;
-	struct rimage *rimg = NULL;
-
-	list_for_each_entry(rop, &rop_forwarding, l) {
-		rimg = get_rimg_by_name(rop->snapshot_id, rop->path);
-		if (rimg != NULL) {
-			rop_set_rimg(rop, rimg);
-			forward_remote_image(rop);
-			return;
-		}
-	}
-}
-
-void check_pending_reads()
+void check_pending()
 {
 	struct roperation *rop = NULL;
 	struct rimage *rimg = NULL;
@@ -888,7 +873,12 @@ void check_pending_reads()
 		rimg = get_rimg_by_name(rop->snapshot_id, rop->path);
 		if (rimg != NULL) {
 			rop_set_rimg(rop, rimg);
-			event_set(epoll_fd, EPOLL_CTL_ADD, rop->fd, EPOLLOUT, rop);
+			if (restoring) {
+				event_set(epoll_fd, EPOLL_CTL_ADD, rop->fd, EPOLLOUT, rop);
+			} else {
+				forward_remote_image(rop);
+				return;
+			}
 		}
 	}
 }
@@ -958,10 +948,8 @@ void accept_image_connections() {
 		}
 
 		// Check if there are any pending operations
-		if (restoring)
-			check_pending_reads();
-		else if (!forwarding)
-			check_pending_forwards();
+		if (restoring || !forwarding)
+			check_pending();
 
 		// Check if we can close the tcp socket (this will unblock the cache
 		// to answer "no image" to restore).
