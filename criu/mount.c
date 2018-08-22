@@ -77,17 +77,13 @@ int ext_mount_parse_auto(char *key)
 	opts.autodetect_ext_mounts = true;
 
 	if (*key == ':') {
-		while (1) {
-			key++;
-			if (*key == '\0')
-				break;
-			else if (*key == 'm')
-				opts.enable_external_masters = true;
-			else if (*key == 's')
-				opts.enable_external_sharing = true;
-			else
-				return -1;
-		}
+		key++;
+		if (*key == 'm')
+			opts.enable_external_masters = true;
+		else if (*key == 's')
+			opts.enable_external_sharing = true;
+		else if (*key != '\0')
+			return -1;
 	}
 
 	return 0;
