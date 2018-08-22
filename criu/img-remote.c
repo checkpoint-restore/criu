@@ -28,18 +28,18 @@
 // List of images already in memory.
 LIST_HEAD(rimg_head);
 
-// List of local operations currently in-progess.
+// List of local operations currently in-progress.
 LIST_HEAD(rop_inprogress);
 
 // List of local operations pending (reads on the restore side for images that
 // still haven't arrived).
-
 LIST_HEAD(rop_pending);
+
 // List of images waiting to be forwarded. The head of the list is currently
 // being forwarded.
 LIST_HEAD(rop_forwarding);
 
-// List of snapshots (useful when doing incremental restores/dumps
+// List of snapshots (useful when doing incremental restores/dumps)
 LIST_HEAD(snapshot_head);
 
 // Snapshot id (setup at launch time by dump or restore).
@@ -367,7 +367,7 @@ static void rop_set_rimg(struct roperation* rop, struct rimage* rimg)
 		rop->curr_recv_buf = list_entry(rimg->buf_head.prev, struct rbuf, l);
 	}
 	else {
-		// Writes or reads are simple. Just do it from the beginnig.
+		// Writes or reads are simple. Just do it from the beginning.
 		rop->curr_recv_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
 		rop->curr_sent_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
 		rop->curr_sent_bytes = 0;
@@ -538,7 +538,7 @@ void forward_remote_image(struct roperation* rop)
 		return;
 	}
 
-	pr_info("[fd=%d] Fowarding %s request for %s:%s (%" PRIu64 " bytes\n",
+	pr_info("[fd=%d] Forwarding %s request for %s:%s (%" PRIu64 " bytes\n",
 		rop->fd,
 		rop->flags == O_RDONLY ? "read" :
 			rop->flags == O_APPEND ? "append" : "write",

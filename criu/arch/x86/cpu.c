@@ -297,7 +297,7 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 	if (opts.cpu_cap & CPU_CAP_CPU) {
 		if (memcmp(cpu_info->x86_capability, rt_cpu_info.x86_capability,
 			   sizeof(cpu_info->x86_capability))) {
-			pr_err("CPU capabilites do not match run time\n");
+			pr_err("CPU capabilities do not match run time\n");
 			return -1;
 		}
 	}

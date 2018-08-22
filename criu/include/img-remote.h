@@ -56,7 +56,7 @@ struct roperation {
 	bool close_fd;
 	/* Note: recv operation only. How much bytes should be received. */
 	uint64_t size;
-	/* Note: recv operation only. Buffer being writen. */
+	/* Note: recv operation only. Buffer being written. */
 	struct rbuf *curr_recv_buf; // TODO - needed? Could be replaced by list.last!
 	/* Note: send operation only. Pointer to buffer being sent. */
 	struct rbuf *curr_sent_buf;
@@ -148,7 +148,7 @@ char *get_snapshot_id_from_idx(int idx);
  */
 int push_snapshot_id();
 
-/* Returns the snapshot id index that preceeds the current snapshot_id. */
+/* Returns the snapshot id index that precedes the current snapshot_id. */
 int get_curr_parent_snapshot_id_idx();
 
 #endif
