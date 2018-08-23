@@ -477,7 +477,7 @@ static int parasite_prepare_threads(struct parasite_ctl *ctl,
 
 	thread_sp = xzalloc(sizeof(*thread_sp) * item->nr_threads);
 	if (!thread_sp)
-		return -1;
+		goto free_ctls;
 
 	for (i = 0; i < item->nr_threads; i++) {
 		struct pid *tid = &item->threads[i];
@@ -489,7 +489,7 @@ static int parasite_prepare_threads(struct parasite_ctl *ctl,
 
 		thread_ctls[i] = compel_prepare_thread(ctl, tid->real);
 		if (!thread_ctls[i])
-			return -1;
+			goto free_sp;
 
 		thread_sp[i] = compel_get_thread_sp(thread_ctls[i]);
 	}
@@ -498,6 +498,12 @@ static int parasite_prepare_threads(struct parasite_ctl *ctl,
 	dmpi(item)->thread_sp = thread_sp;
 
 	return 0;
+
+free_sp:
+	xfree(thread_sp);
+free_ctls:
+	xfree(thread_ctls);
+	return -1;
 }
 
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
