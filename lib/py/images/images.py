@@ -39,11 +39,8 @@
 #
 import io
 import base64
-import google
 import struct
 import os
-import sys
-import json
 from . import pb2dict
 import array
 

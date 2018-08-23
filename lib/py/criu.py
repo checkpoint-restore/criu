@@ -2,11 +2,8 @@
 
 import socket
 import errno
-import subprocess
 import fcntl
 import os
-import signal
-import sys
 import struct
 
 import pycriu.rpc_pb2 as rpc

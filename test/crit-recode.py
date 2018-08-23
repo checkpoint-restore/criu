@@ -5,7 +5,6 @@ import pycriu
 import sys
 import os
 import subprocess
-import json
 
 find = subprocess.Popen(['find', 'test/dump/', '-size', '+0', '-name', '*.img'],
 		stdout = subprocess.PIPE)
