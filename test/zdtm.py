@@ -2213,7 +2213,8 @@ if opts.get('sat', False):
 if opts['debug']:
 	sys.settrace(traceit)
 
-criu.available()
+if opts['action'] == 'run':
+	criu.available()
 for tst in test_classes.values():
 	tst.available()
 
