@@ -67,7 +67,6 @@ struct cr_options {
 	int			final_state;
 	int			check_extra_features;
 	int			check_experimental_features;
-	bool			show_pages_content;
 	union {
 		int		restore_detach;
 		bool		daemon_mode;

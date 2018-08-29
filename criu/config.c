@@ -418,19 +418,14 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		{OPT_NAME, no_argument, SAVE_TO, true},\
 		{"no-" OPT_NAME, no_argument, SAVE_TO, false}
 
-	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:v::x::Vr:jJ:lW:L:M:";
+	static const char short_opts[] = "dSsR:t:hD:o:v::x::Vr:jJ:lW:L:M:";
 	static struct option long_opts[] = {
 		{ "tree",			required_argument,	0, 't'	},
-		/* The pid option is unused and never evaluated. */
-		{ "pid",			required_argument,	0, 'p'	},
 		{ "leave-stopped",		no_argument,		0, 's'	},
 		{ "leave-running",		no_argument,		0, 'R'	},
 		BOOL_OPT("restore-detached", &opts.restore_detach),
 		BOOL_OPT("restore-sibling", &opts.restore_sibling),
 		BOOL_OPT("daemon", &opts.restore_detach),
-		{ "contents",			no_argument,		0, 'c'	},
-		{ "file",			required_argument,	0, 'f'	},
-		{ "fields",			required_argument,	0, 'F'	},
 		{ "images-dir",			required_argument,	0, 'D'	},
 		{ "work-dir",			required_argument,	0, 'W'	},
 		{ "log-file",			required_argument,	0, 'o'	},
@@ -565,9 +560,6 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			opts.tree_id = atoi(optarg);
 			if (opts.tree_id <= 0)
 				goto bad_arg;
-			break;
-		case 'c':
-			opts.show_pages_content	= true;
 			break;
 		case 'r':
 			SET_CHAR_OPTS(root, optarg);
