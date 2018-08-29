@@ -2235,6 +2235,12 @@ static int do_bind_mount(struct mount_info *mi)
 		mnt_path = mnt_fd_path;
 	}
 
+	if (unix_prepare_bindmount(mi)) {
+		pr_err("Failed to prepare bindmount on unix at %s\n",
+				mi->mountpoint);
+		goto err;
+	}
+
 	if (cut_root[0] == 0) /* This case is handled by mi->bind->fd */
 		goto skip_overmount_check;
 
@@ -2616,12 +2622,6 @@ static int try_remap_mount(struct mount_info *m)
 	struct mnt_remap_entry *r;
 
 	if (!mnt_needs_remap(m))
-
-	if (unix_prepare_bindmount(mi)) {
-		pr_err("Failed to prepare bindmount on unix at %s\n",
-		       mi->mountpoint);
-		goto err;
-	}
 
 		return 0;
 
