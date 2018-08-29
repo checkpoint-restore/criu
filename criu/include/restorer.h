@@ -110,6 +110,8 @@ struct thread_restore_args {
 	void				*seccomp_filters_data;
 	unsigned int			seccomp_filters_n;
 	bool				seccomp_force_tsync;
+
+	char				comm[TASK_COMM_LEN];
 } __aligned(64);
 
 typedef long (*thread_restore_fcall_t) (struct thread_restore_args *args);
@@ -202,6 +204,7 @@ struct task_restore_args {
 	bool				compatible_mode;
 
 	bool				can_map_vdso;
+	bool				auto_dedup;
 #ifdef CONFIG_VDSO
 	unsigned long			vdso_rt_size;
 	struct vdso_maps		vdso_maps_rt;		/* runtime vdso symbols */

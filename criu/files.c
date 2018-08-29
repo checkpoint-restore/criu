@@ -139,13 +139,17 @@ static void collect_task_fd(struct fdinfo_list_entry *new_fle, struct rst_info *
 {
 	struct fdinfo_list_entry *fle;
 
-	/* fles in fds list are ordered by fd */
-	list_for_each_entry(fle, &ri->fds, ps_list) {
-		if (new_fle->fe->fd < fle->fe->fd)
+	/*
+	 * fles in fds list are ordered by fd. Fds are restored from img files
+	 * in ascending order, so it is faster to insert them from the end of
+	 * the list.
+	 */
+	list_for_each_entry_reverse(fle, &ri->fds, ps_list) {
+		if (fle->fe->fd < new_fle->fe->fd)
 			break;
 	}
 
-	list_add_tail(&new_fle->ps_list, &fle->ps_list);
+	list_add(&new_fle->ps_list, &fle->ps_list);
 }
 
 unsigned int find_unused_fd(struct pstree_item *task, int hint_fd)
@@ -303,9 +307,12 @@ static int fixup_overlayfs(struct fd_parms *p, struct fd_link *link)
  * The kcmp-ids.c engine does this trick, see comments in it for more info.
  */
 
-static u32 make_gen_id(const struct fd_parms *p)
+uint32_t make_gen_id(uint32_t st_dev, uint32_t st_ino, uint64_t pos)
 {
-	return ((u32)p->stat.st_dev) ^ ((u32)p->stat.st_ino) ^ ((u32)p->pos);
+	uint32_t pos_hi = pos >> 32;
+	uint32_t pos_low = pos & 0xffffffff;
+
+	return st_dev ^ st_ino ^ pos_hi ^ pos_low;
 }
 
 int do_dump_gen_file(struct fd_parms *p, int lfd,
@@ -314,7 +321,9 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	int ret = -1;
 
 	e->type	= ops->type;
-	e->id	= make_gen_id(p);
+	e->id	= make_gen_id((uint32_t)p->stat.st_dev,
+			      (uint32_t)p->stat.st_ino,
+			      (uint64_t)p->pos);
 	e->fd	= p->fd;
 	e->flags = p->fd_flags;
 
@@ -475,7 +484,8 @@ static int dump_chrdev(struct fd_parms *p, int lfd, FdinfoEntry *e)
 }
 
 static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
-		struct parasite_ctl *ctl, FdinfoEntry *e)
+		struct parasite_ctl *ctl, FdinfoEntry *e,
+		struct parasite_drain_fd *dfds)
 {
 	struct fd_parms p = FD_PARMS_INIT;
 	const struct fdtype_ops *ops;
@@ -498,6 +508,7 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 	}
 
 	p.fd_ctl = ctl; /* Some dump_opts require this to talk to parasite */
+	p.dfds = dfds; /* epoll needs to verify if target fd exist */
 
 	if (S_ISSOCK(p.stat.st_mode))
 		return dump_socket(&p, lfd, e);
@@ -572,7 +583,7 @@ int dump_my_file(int lfd, u32 *id, int *type)
 	me.real = getpid();
 	me.ns[0].virt = -1; /* FIXME */
 
-	if (dump_one_file(&me, lfd, lfd, &fo, NULL, &e))
+	if (dump_one_file(&me, lfd, lfd, &fo, NULL, &e, NULL))
 		return -1;
 
 	*id = e.id;
@@ -619,7 +630,7 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 			FdinfoEntry e = FDINFO_ENTRY__INIT;
 
 			ret = dump_one_file(item->pid, dfds->fds[i + off],
-						lfds[i], opts + i, ctl, &e);
+						lfds[i], opts + i, ctl, &e, dfds);
 			if (ret)
 				break;
 
@@ -778,10 +789,10 @@ static void __collect_desc_fle(struct fdinfo_list_entry *new_le, struct file_des
 {
 	struct fdinfo_list_entry *le;
 
-	list_for_each_entry(le, &fdesc->fd_info_head, desc_list)
-		if (pid_rst_prio(new_le->pid, le->pid))
+	list_for_each_entry_reverse(le, &fdesc->fd_info_head, desc_list)
+		if (pid_rst_prio_eq(le->pid, new_le->pid))
 			break;
-	list_add_tail(&new_le->desc_list, &le->desc_list);
+	list_add(&new_le->desc_list, &le->desc_list);
 }
 
 static void collect_desc_fle(struct fdinfo_list_entry *new_le,

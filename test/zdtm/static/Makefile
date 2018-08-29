@@ -120,6 +120,7 @@ TST_NOFILE	:=				\
 		file_fown			\
 		proc-self			\
 		eventfs00			\
+		epoll				\
 		signalfd00			\
 		inotify_irmap			\
 		fanotify00			\
@@ -204,6 +205,7 @@ TST_NOFILE	:=				\
 		netns_sub			\
 		netns_sub_veth			\
 		unlink_multiple_largefiles	\
+		config_inotify_irmap		\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
@@ -334,6 +336,10 @@ TST_DIR		=				\
 		del_standalone_un		\
 		sk-unix-mntns			\
 		sk-unix01			\
+		unsupported_children_collision  \
+		shared_slave_mount_children	\
+		non_uniform_share_propagation	\
+		private_bind_propagation	\
 
 TST_DIR_FILE	=				\
 		chroot				\

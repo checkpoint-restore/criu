@@ -10,6 +10,12 @@
 
 #include "asm/compat.h"
 
+#undef LOG_PREFIX
+#define LOG_PREFIX "x86: "
+
+#define XSAVE_PB_NELEMS(__s, __obj, __member)		\
+	(sizeof(__s) / sizeof(*(__obj)->__member))
+
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	CoreEntry *core = x;
@@ -17,6 +23,21 @@ int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpre
 
 #define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
 #define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
+#define assign_xsave(feature, xsave, member, area)					\
+	do {										\
+		if (compel_fpu_has_feature(feature)) {					\
+			uint32_t off = compel_fpu_feature_offset(feature);		\
+			void *from = &area[off];					\
+			size_t size = pb_repeated_size(xsave, member);			\
+			size_t xsize = (size_t)compel_fpu_feature_size(feature);	\
+			if (xsize != size) {						\
+				pr_err("%s reported %zu bytes (expecting %zu)\n",	\
+					# feature, xsize, size);			\
+				return -1;						\
+			}								\
+			memcpy(xsave->member, from, size);				\
+		}									\
+	} while (0)
 
 	if (user_regs_native(regs)) {
 		assign_reg(gpregs, regs->native, r15);
@@ -89,14 +110,27 @@ int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpre
 	assign_array(core->thread_info->fpregs, fpregs->i387, xmm_space);
 
 	if (compel_cpu_has_feature(X86_FEATURE_OSXSAVE)) {
-		BUG_ON(core->thread_info->fpregs->xsave->n_ymmh_space != ARRAY_SIZE(fpregs->ymmh.ymmh_space));
+		UserX86XsaveEntry *xsave = core->thread_info->fpregs->xsave;
+		uint8_t *extended_state_area = (void *)fpregs;
 
-		assign_reg(core->thread_info->fpregs->xsave, fpregs->xsave_hdr, xstate_bv);
-		assign_array(core->thread_info->fpregs->xsave, fpregs->ymmh, ymmh_space);
+		/*
+		 * xcomp_bv is designated for compacted format but user
+		 * space never use it, thus we can simply ignore.
+		 */
+		assign_reg(xsave, fpregs->xsave_hdr, xstate_bv);
+
+		assign_xsave(XFEATURE_YMM,	xsave, ymmh_space,	extended_state_area);
+		assign_xsave(XFEATURE_BNDREGS,	xsave, bndreg_state,	extended_state_area);
+		assign_xsave(XFEATURE_BNDCSR,	xsave, bndcsr_state,	extended_state_area);
+		assign_xsave(XFEATURE_OPMASK,	xsave, opmask_reg,	extended_state_area);
+		assign_xsave(XFEATURE_ZMM_Hi256,xsave, zmm_upper,	extended_state_area);
+		assign_xsave(XFEATURE_Hi16_ZMM,	xsave, hi16_zmm,	extended_state_area);
+		assign_xsave(XFEATURE_PKRU,	xsave, pkru,		extended_state_area);
 	}
 
 #undef assign_reg
 #undef assign_array
+#undef assign_xsave
 
 	return 0;
 }
@@ -111,6 +145,62 @@ static void alloc_tls(ThreadInfoX86 *ti, void **mempool)
 		ti->tls[i] = xptr_pull(mempool, UserDescT);
 		user_desc_t__init(ti->tls[i]);
 	}
+}
+
+static int alloc_xsave_extends(UserX86XsaveEntry *xsave)
+{
+	if (compel_fpu_has_feature(XFEATURE_YMM)) {
+		xsave->n_ymmh_space	= XSAVE_PB_NELEMS(struct ymmh_struct, xsave, ymmh_space);
+		xsave->ymmh_space	= xzalloc(pb_repeated_size(xsave, ymmh_space));
+		if (!xsave->ymmh_space)
+			goto err;
+	}
+
+	if (compel_fpu_has_feature(XFEATURE_BNDREGS)) {
+		xsave->n_bndreg_state	= XSAVE_PB_NELEMS(struct mpx_bndreg_state, xsave, bndreg_state);
+		xsave->bndreg_state	= xzalloc(pb_repeated_size(xsave, bndreg_state));
+		if (!xsave->bndreg_state)
+			goto err;
+	}
+
+	if (compel_fpu_has_feature(XFEATURE_BNDCSR)) {
+		xsave->n_bndcsr_state	= XSAVE_PB_NELEMS(struct mpx_bndcsr_state, xsave, bndcsr_state);
+		xsave->bndcsr_state	= xzalloc(pb_repeated_size(xsave, bndcsr_state));
+		if (!xsave->bndcsr_state)
+			goto err;
+	}
+
+	if (compel_fpu_has_feature(XFEATURE_OPMASK)) {
+		xsave->n_opmask_reg	= XSAVE_PB_NELEMS(struct avx_512_opmask_state, xsave, opmask_reg);
+		xsave->opmask_reg	= xzalloc(pb_repeated_size(xsave, opmask_reg));
+		if (!xsave->opmask_reg)
+			goto err;
+	}
+
+	if (compel_fpu_has_feature(XFEATURE_ZMM_Hi256)) {
+		xsave->n_zmm_upper	= XSAVE_PB_NELEMS(struct avx_512_zmm_uppers_state, xsave, zmm_upper);
+		xsave->zmm_upper	= xzalloc(pb_repeated_size(xsave, zmm_upper));
+		if (!xsave->zmm_upper)
+			goto err;
+	}
+
+	if (compel_fpu_has_feature(XFEATURE_Hi16_ZMM)) {
+		xsave->n_hi16_zmm	= XSAVE_PB_NELEMS(struct avx_512_hi16_state, xsave, hi16_zmm);
+		xsave->hi16_zmm		= xzalloc(pb_repeated_size(xsave, hi16_zmm));
+		if (!xsave->hi16_zmm)
+			goto err;
+	}
+
+	if (compel_fpu_has_feature(XFEATURE_PKRU)) {
+		xsave->n_pkru		= XSAVE_PB_NELEMS(struct pkru_state, xsave, pkru);
+		xsave->pkru		= xzalloc(pb_repeated_size(xsave, pkru));
+		if (!xsave->pkru)
+			goto err;
+	}
+
+	return 0;
+err:
+	return -1;
 }
 
 int arch_alloc_thread_info(CoreEntry *core)
@@ -165,9 +255,7 @@ int arch_alloc_thread_info(CoreEntry *core)
 			xsave = fpregs->xsave = xptr_pull(&m, UserX86XsaveEntry);
 			user_x86_xsave_entry__init(xsave);
 
-			xsave->n_ymmh_space = 64;
-			xsave->ymmh_space = xzalloc(pb_repeated_size(xsave, ymmh_space));
-			if (!xsave->ymmh_space)
+			if (alloc_xsave_extends(xsave))
 				goto err;
 		}
 	}
@@ -182,8 +270,16 @@ void arch_free_thread_info(CoreEntry *core)
 	if (!core->thread_info)
 		return;
 
-	if (core->thread_info->fpregs->xsave)
+	if (core->thread_info->fpregs->xsave) {
 		xfree(core->thread_info->fpregs->xsave->ymmh_space);
+		xfree(core->thread_info->fpregs->xsave->pkru);
+		xfree(core->thread_info->fpregs->xsave->hi16_zmm);
+		xfree(core->thread_info->fpregs->xsave->zmm_upper);
+		xfree(core->thread_info->fpregs->xsave->opmask_reg);
+		xfree(core->thread_info->fpregs->xsave->bndcsr_state);
+		xfree(core->thread_info->fpregs->xsave->bndreg_state);
+	}
+
 	xfree(core->thread_info->fpregs->st_space);
 	xfree(core->thread_info->fpregs->xmm_space);
 	xfree(core->thread_info);
@@ -191,6 +287,7 @@ void arch_free_thread_info(CoreEntry *core)
 
 static bool valid_xsave_frame(CoreEntry *core)
 {
+	UserX86XsaveEntry *xsave = core->thread_info->fpregs->xsave;
 	struct xsave_struct *x = NULL;
 
 	if (core->thread_info->fpregs->n_st_space < ARRAY_SIZE(x->i387.st_space)) {
@@ -210,13 +307,62 @@ static bool valid_xsave_frame(CoreEntry *core)
 	}
 
 	if (compel_cpu_has_feature(X86_FEATURE_OSXSAVE)) {
-		if (core->thread_info->fpregs->xsave &&
-		    core->thread_info->fpregs->xsave->n_ymmh_space < ARRAY_SIZE(x->ymmh.ymmh_space)) {
-			pr_err("Corruption in FPU ymmh_space area "
-			       "(got %li but %li expected)\n",
-			       (long)core->thread_info->fpregs->xsave->n_ymmh_space,
-			       (long)ARRAY_SIZE(x->ymmh.ymmh_space));
-			return false;
+		if (xsave) {
+			size_t i;
+			struct {
+				const char	*name;
+				size_t		expected;
+				size_t		obtained;
+				void		*ptr;
+			} features[] = {
+				{
+					.name		= __stringify_1(XFEATURE_YMM),
+					.expected	= XSAVE_PB_NELEMS(struct ymmh_struct, xsave, ymmh_space),
+					.obtained	= xsave->n_ymmh_space,
+					.ptr		= xsave->ymmh_space,
+				}, {
+					.name		= __stringify_1(XFEATURE_BNDREGS),
+					.expected	= XSAVE_PB_NELEMS(struct mpx_bndreg_state, xsave, bndreg_state),
+					.obtained	= xsave->n_bndreg_state,
+					.ptr		= xsave->bndreg_state,
+				}, {
+					.name		= __stringify_1(XFEATURE_BNDCSR),
+					.expected	= XSAVE_PB_NELEMS(struct mpx_bndcsr_state, xsave, bndcsr_state),
+					.obtained	= xsave->n_bndcsr_state,
+					.ptr		= xsave->bndcsr_state,
+				}, {
+					.name		= __stringify_1(XFEATURE_OPMASK),
+					.expected	= XSAVE_PB_NELEMS(struct avx_512_opmask_state, xsave, opmask_reg),
+					.obtained	= xsave->n_opmask_reg,
+					.ptr		= xsave->opmask_reg,
+				}, {
+					.name		= __stringify_1(XFEATURE_ZMM_Hi256),
+					.expected	= XSAVE_PB_NELEMS(struct avx_512_zmm_uppers_state, xsave, zmm_upper),
+					.obtained	= xsave->n_zmm_upper,
+					.ptr		= xsave->zmm_upper,
+				}, {
+					.name		= __stringify_1(XFEATURE_Hi16_ZMM),
+					.expected	= XSAVE_PB_NELEMS(struct avx_512_hi16_state, xsave, hi16_zmm),
+					.obtained	= xsave->n_hi16_zmm,
+					.ptr		= xsave->hi16_zmm,
+				}, {
+					.name		= __stringify_1(XFEATURE_PKRU),
+					.expected	= XSAVE_PB_NELEMS(struct pkru_state, xsave, pkru),
+					.obtained	= xsave->n_pkru,
+					.ptr		= xsave->pkru,
+				},
+			};
+
+			for (i = 0; i < ARRAY_SIZE(features); i++) {
+				if (!features[i].ptr && i > 0)
+					continue;
+
+				if (features[i].expected > features[i].obtained) {
+					pr_err("Corruption in %s area (expected %zu but %zu obtained)\n",
+					       features[i].name, features[i].expected, features[i].obtained);
+					return false;
+				}
+			}
 		}
 	} else {
 		/*
@@ -224,13 +370,13 @@ static bool valid_xsave_frame(CoreEntry *core)
 		 * on must have X86_FEATURE_OSXSAVE feature until explicitly
 		 * stated in options.
 		 */
-		if (core->thread_info->fpregs->xsave) {
+		if (xsave) {
 			if (opts.cpu_cap & CPU_CAP_FPU) {
 				pr_err("FPU xsave area present, "
 				       "but host cpu doesn't support it\n");
 				return false;
 			} else
-				pr_warn_once("FPU is about to restore ignoring ymm state!\n");
+				pr_warn_once("FPU is about to restore ignoring xsave state!\n");
 		}
 	}
 
@@ -246,14 +392,13 @@ static void show_rt_xsave_frame(struct xsave_struct *x)
 	pr_debug("xsave runtime structure\n");
 	pr_debug("-----------------------\n");
 
-	pr_debug("cwd:%x swd:%x twd:%x fop:%x mxcsr:%x mxcsr_mask:%x\n",
+	pr_debug("cwd:%#x swd:%#x twd:%#x fop:%#x mxcsr:%#x mxcsr_mask:%#x\n",
 		 (int)i387->cwd, (int)i387->swd, (int)i387->twd,
 		 (int)i387->fop, (int)i387->mxcsr, (int)i387->mxcsr_mask);
 
-	pr_debug("magic1:%x extended_size:%x xstate_bv:%lx xstate_size:%x\n",
+	pr_debug("magic1:%#x extended_size:%u xstate_bv:%#lx xstate_size:%u\n",
 		 fpx->magic1, fpx->extended_size, (long)fpx->xstate_bv, fpx->xstate_size);
-
-	pr_debug("xstate_bv: %lx\n", (long)xsave_hdr->xstate_bv);
+	pr_debug("xstate_bv: %#lx\n", (long)xsave_hdr->xstate_bv);
 
 	pr_debug("-----------------------\n");
 }
@@ -284,6 +429,24 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 
 #define assign_reg(dst, src, e)		do { dst.e = (__typeof__(dst.e))src->e; } while (0)
 #define assign_array(dst, src, e)	memcpy(dst.e, (src)->e, sizeof(dst.e))
+#define assign_xsave(feature, xsave, member, area)					\
+	do {										\
+		if (compel_fpu_has_feature(feature)) {					\
+			uint32_t off = compel_fpu_feature_offset(feature);		\
+			void *to = &area[off];						\
+			void *from = xsave->member;					\
+			size_t size = pb_repeated_size(xsave, member);			\
+			size_t xsize = (size_t)compel_fpu_feature_size(feature);	\
+			if (xsize != size) {						\
+				pr_err("%s reported %zu bytes (expecting %zu)\n",	\
+					# feature, xsize, size);			\
+				return -1;						\
+			}								\
+			xstate_bv |= (1UL << feature);					\
+			xstate_size += xsize;						\
+			memcpy(to, from, size);						\
+		}									\
+	} while (0)
 
 	assign_reg(x->i387, core->thread_info->fpregs, cwd);
 	assign_reg(x->i387, core->thread_info->fpregs, swd);
@@ -303,26 +466,40 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 
 	if (compel_cpu_has_feature(X86_FEATURE_OSXSAVE)) {
 		struct fpx_sw_bytes *fpx_sw = (void *)&x->i387.sw_reserved;
+		size_t xstate_size = XSAVE_YMM_OFFSET;
+		uint32_t xstate_bv = 0;
 		void *magic2;
 
-		x->xsave_hdr.xstate_bv	= XSTATE_FP | XSTATE_SSE | XSTATE_YMM;
+		xstate_bv = XFEATURE_MASK_FP | XFEATURE_MASK_SSE;
 
 		/*
 		 * fpregs->xsave pointer might not present on image so we
-		 * simply clear out all ymm registers.
+		 * simply clear out everything.
 		 */
-		if (core->thread_info->fpregs->xsave)
-			assign_array(x->ymmh, core->thread_info->fpregs->xsave, ymmh_space);
+		if (core->thread_info->fpregs->xsave) {
+			UserX86XsaveEntry *xsave = core->thread_info->fpregs->xsave;
+			uint8_t *extended_state_area = (void *)x;
+
+			assign_xsave(XFEATURE_YMM,	xsave, ymmh_space,	extended_state_area);
+			assign_xsave(XFEATURE_BNDREGS,	xsave, bndreg_state,	extended_state_area);
+			assign_xsave(XFEATURE_BNDCSR,	xsave, bndcsr_state,	extended_state_area);
+			assign_xsave(XFEATURE_OPMASK,	xsave, opmask_reg,	extended_state_area);
+			assign_xsave(XFEATURE_ZMM_Hi256,xsave, zmm_upper,	extended_state_area);
+			assign_xsave(XFEATURE_Hi16_ZMM,	xsave, hi16_zmm,	extended_state_area);
+			assign_xsave(XFEATURE_PKRU,	xsave, pkru,		extended_state_area);
+		}
+
+		x->xsave_hdr.xstate_bv	= xstate_bv;
 
 		fpx_sw->magic1		= FP_XSTATE_MAGIC1;
-		fpx_sw->xstate_bv	= XSTATE_FP | XSTATE_SSE | XSTATE_YMM;
-		fpx_sw->xstate_size	= sizeof(struct xsave_struct);
-		fpx_sw->extended_size	= sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE;
+		fpx_sw->xstate_bv	= xstate_bv;
+		fpx_sw->xstate_size	= xstate_size;
+		fpx_sw->extended_size	= xstate_size + FP_XSTATE_MAGIC2_SIZE;
 
 		/*
 		 * This should be at the end of xsave frame.
 		 */
-		magic2 = (void *)x + sizeof(struct xsave_struct);
+		magic2 = (void *)x + xstate_size;
 		*(u32 *)magic2 = FP_XSTATE_MAGIC2;
 	}
 
@@ -330,6 +507,7 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 
 #undef assign_reg
 #undef assign_array
+#undef assign_xsave
 
 	return 0;
 }

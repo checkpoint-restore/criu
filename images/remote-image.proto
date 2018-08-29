@@ -1,0 +1,22 @@
+syntax = "proto2";
+
+message local_image_entry {
+	required string name		= 1;
+	required string snapshot_id	= 2;
+	required uint32 open_mode	= 3;
+}
+
+message remote_image_entry {
+	required string name		= 1;
+	required string snapshot_id	= 2;
+	required uint32 open_mode	= 3;
+	required uint64 size		= 4;
+}
+
+message local_image_reply_entry {
+	required uint32 error           = 1;
+}
+
+message snapshot_id_entry {
+	required string snapshot_id	= 1;
+}

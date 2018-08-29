@@ -56,7 +56,7 @@ extern int compel_cure(struct parasite_ctl *ctl);
 	})
 
 extern void *compel_parasite_args_p(struct parasite_ctl *ctl);
-extern void *compel_parasite_args_s(struct parasite_ctl *ctl, int args_size);
+extern void *compel_parasite_args_s(struct parasite_ctl *ctl, unsigned long args_size);
 
 extern int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 		unsigned long arg1,
@@ -164,5 +164,8 @@ extern int compel_get_thread_regs(struct parasite_thread_ctl *, save_regs_t, voi
 extern void compel_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *elf_relocs, size_t nr_relocs);
 
 extern unsigned long compel_task_size(void);
+
+extern uint64_t compel_get_leader_sp(struct parasite_ctl *ctl);
+extern uint64_t compel_get_thread_sp(struct parasite_thread_ctl *tctl);
 
 #endif

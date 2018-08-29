@@ -51,7 +51,7 @@ clean_root:
 .PHONY: clean_root
 
 clean: clean_root
-	$(RM) zdtm_ct zdtm-tst-list umount2
+	$(RM) zdtm_ct zdtm-tst-list umount2 zdtm_test_config.conf
 	$(Q) $(RM) *.log
 	$(Q) $(RM) -r ./dump/
 	$(Q) $(MAKE) -C zdtm cleandep clean cleanout

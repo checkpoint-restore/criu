@@ -15,6 +15,8 @@ message cpuinfo_x86_entry {
 	repeated uint32			capability	= 6;
 
 	optional string			model_id	= 7;
+
+	optional uint64			xfeatures_mask	= 8;
 }
 
 message cpuinfo_ppc64_entry {

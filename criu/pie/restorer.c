@@ -3,7 +3,6 @@
 
 #include <linux/securebits.h>
 #include <linux/capability.h>
-#include <linux/aio_abi.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/file.h>
@@ -50,6 +49,15 @@
 #ifndef PR_SET_PDEATHSIG
 #define PR_SET_PDEATHSIG 1
 #endif
+
+#ifndef FALLOC_FL_KEEP_SIZE
+#define FALLOC_FL_KEEP_SIZE     0x01
+#endif
+
+#ifndef FALLOC_FL_PUNCH_HOLE
+#define FALLOC_FL_PUNCH_HOLE    0x02
+#endif
+
 
 #define sys_prctl_safe(opcode, val1, val2, val3)			\
 	({								\
@@ -545,6 +553,12 @@ long __export_restore_thread(struct thread_restore_args *args)
 	if (restore_thread_common(args))
 		goto core_restore_end;
 
+	ret = sys_prctl(PR_SET_NAME, (unsigned long) &args->comm, 0, 0, 0);
+	if (ret) {
+		pr_err("Unable to set a thread name: %d\n", ret);
+		goto core_restore_end;
+	}
+
 	pr_info("%ld: Restored\n", sys_gettid());
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE);
@@ -647,6 +661,14 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 			!(vma_entry->status & VMA_NO_PROT_WRITE))
 		prot |= PROT_WRITE;
 
+	/* TODO: Drop MAP_LOCKED bit and restore it after reading memory.
+	 *
+	 * Code below tries to limit memory usage by running fallocate()
+	 * after each preadv() to avoid doubling memory usage (once in
+	 * image files, once in process). Unfortunately, MAP_LOCKED defeats
+	 * that mechanism as it causes the process to be charged for memory
+	 * immediately upon mmap, not later upon preadv().
+	 */
 	pr_debug("\tmmap(%"PRIx64" -> %"PRIx64", %x %x %d)\n",
 			vma_entry->start, vma_entry->end,
 			prot, flags, (int)vma_entry->fd);
@@ -1368,6 +1390,15 @@ long __export_restore_task(struct task_restore_args *args)
 			}
 
 			pr_debug("`- returned %ld\n", (long)r);
+			/* If the file is open for writing, then it means we should punch holes
+			 * in it. */
+			if (r > 0 && args->auto_dedup) {
+				int fr = sys_fallocate(args->vma_ios_fd, FALLOC_FL_KEEP_SIZE|FALLOC_FL_PUNCH_HOLE,
+					rio->off, r);
+				if (fr < 0) {
+					pr_debug("Failed to punch holes with fallocate: %d\n", fr);
+				}
+			}
 			rio->off += r;
 			/* Advance the iovecs */
 			do {
@@ -1551,20 +1582,16 @@ long __export_restore_task(struct task_restore_args *args)
 				   CLONE_THREAD | CLONE_SYSVSEM | CLONE_FS;
 		long last_pid_len;
 		long parent_tid;
-		int i, fd;
+		int i, fd = -1;
 
+		/* One level pid ns hierarhy */
 		fd = sys_openat(args->proc_fd, LAST_PID_PATH, O_RDWR, 0);
 		if (fd < 0) {
 			pr_err("can't open last pid fd %d\n", fd);
 			goto core_restore_end;
 		}
 
-		ret = sys_flock(fd, LOCK_EX);
-		if (ret) {
-			pr_err("Can't lock last_pid %d\n", fd);
-			sys_close(fd);
-			goto core_restore_end;
-		}
+		mutex_lock(&task_entries_local->last_pid_mutex);
 
 		for (i = 0; i < args->nr_threads; i++) {
 			char last_pid_buf[16], *s;
@@ -1580,6 +1607,7 @@ long __export_restore_task(struct task_restore_args *args)
 			if (ret < 0) {
 				pr_err("Can't set last_pid %ld/%s\n", ret, last_pid_buf);
 				sys_close(fd);
+				mutex_unlock(&task_entries_local->last_pid_mutex);
 				goto core_restore_end;
 			}
 
@@ -1593,18 +1621,14 @@ long __export_restore_task(struct task_restore_args *args)
 			RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid, thread_args, args->clone_restore_fn);
 			if (ret != thread_args[i].pid) {
 				pr_err("Unable to create a thread: %ld\n", ret);
+				mutex_unlock(&task_entries_local->last_pid_mutex);
 				goto core_restore_end;
 			}
 		}
 
-		ret = sys_flock(fd, LOCK_UN);
-		if (ret) {
-			pr_err("Can't unlock last_pid %ld\n", ret);
+		mutex_unlock(&task_entries_local->last_pid_mutex);
+		if (fd >= 0)
 			sys_close(fd);
-			goto core_restore_end;
-		}
-
-		sys_close(fd);
 	}
 
 	restore_rlims(args);

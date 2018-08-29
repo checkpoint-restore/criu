@@ -4,10 +4,27 @@ all: test-c rpc_pb2.py criu
 CFLAGS += -g -Werror -Wall -I.
 LDLIBS +=  -lprotobuf-c
 
+PYTHON ?= python
+
 run: all
 	mkdir -p build
 	chmod a+rwx build
+	rm -f build/status
+	sudo -g '#1000' -u '#1000' mkfifo build/status
+	@# Need to start the criu daemon here to access the pidfile.
+	@# The script read.py is used to wait until 'criu service'
+	@# is ready. As 'read -n 1' in some releases has a bug and does
+	@# not read correctly a \0, using python is a workaround.
+	sudo -g '#1000' -u '#1000' -- bash -c "exec 200<>build/status; \
+		./criu service -v4 -W build --address criu_service.socket \
+		-d --pidfile pidfile -o service.log --status-fd 200; \
+		$(PYTHON) read.py build/status"
+	rm -f build/status
+	chmod a+rw build/pidfile
 	sudo -g '#1000' -u '#1000' ./run.sh
+	sudo -g '#1000' -u '#1000' ./version.py
+	# run the configuration file via RPC test cases
+	./config_file.py build
 
 criu: ../../../criu/criu
 	cp ../../../criu/criu $@

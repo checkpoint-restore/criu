@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# Lets delete all test controllers after executing tests.
+
+cat /proc/self/cgroup | grep -q zdtmtst.defaultroot || exit 0
+
+tdir=`mktemp -d zdtm.XXXXXX`
+for i in "zdtmtst" "zdtmtst.defaultroot"; do
+	mount -t cgroup -o none,name=$i zdtm $tdir || { rmdir $tdir; exit 1; }
+	# remove a fake group if exists
+	if [ -d "$tdir/holder" ]; then
+		rmdir $tdir/holder || { umount -l $tdir && rmdir $tdir; exit 1; }
+	fi
+	umount -l $tdir || exit 1;
+done
+rmdir $tdir

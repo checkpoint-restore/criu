@@ -242,7 +242,11 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	char images_dir_path[PATH_MAX];
 	char work_dir_path[PATH_MAX];
 	char status_fd[PATH_MAX];
+	bool output_changed_by_rpc_conf = false;
+	bool work_changed_by_rpc_conf = false;
+	bool imgs_changed_by_rpc_conf = false;
 	int i;
+	bool dummy = false;
 
 	if (getsockopt(sk, SOL_SOCKET, SO_PEERCRED, &ids, &ids_len)) {
 		pr_perror("Can't get socket options");
@@ -257,11 +261,71 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	BUG_ON(st.st_ino == -1);
 	service_sk_ino = st.st_ino;
 
-	/* open images_dir */
-	sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
+	/*
+	 * Evaluate an additional configuration file if specified.
+	 * This needs to happen twice, because it is needed early to detect
+	 * things like work_dir, imgs_dir and logfile. The second parsing
+	 * of the optional RPC configuration file happens at the end and
+	 * overwrites all options set via RPC.
+	 */
+	if (req->config_file) {
+		char *tmp_output = NULL;
+		char *tmp_work = NULL;
+		char *tmp_imgs = NULL;
+
+		if (opts.output)
+			tmp_output = xstrdup(opts.output);
+		if (opts.work_dir)
+			tmp_work = xstrdup(opts.work_dir);
+		if (opts.imgs_dir)
+			tmp_imgs = xstrdup(opts.imgs_dir);
+		xfree(opts.output);
+		xfree(opts.work_dir);
+		xfree(opts.imgs_dir);
+		opts.output = NULL;
+		opts.work_dir = NULL;
+		opts.imgs_dir = NULL;
+		rpc_cfg_file = req->config_file;
+		i = parse_options(0, NULL, &dummy, &dummy, PARSING_RPC_CONF);
+		pr_warn("parse_options returns %d\n", i);
+		if (i) {
+			xfree(tmp_output);
+			xfree(tmp_work);
+			xfree(tmp_imgs);
+			goto err;
+		}
+		if (tmp_output && opts.output && !strncmp(tmp_output, opts.output, PATH_MAX))
+			output_changed_by_rpc_conf = true;
+		if (tmp_work && opts.work_dir && !strncmp(tmp_work, opts.work_dir, PATH_MAX))
+			work_changed_by_rpc_conf = true;
+		if (tmp_imgs && opts.imgs_dir && !strncmp(tmp_imgs, opts.imgs_dir, PATH_MAX))
+			imgs_changed_by_rpc_conf = true;
+		xfree(tmp_output);
+		xfree(tmp_work);
+		xfree(tmp_imgs);
+	}
+
+	/*
+	 * open images_dir
+	 * This assumes that if opts.imgs_dir is set we have a value
+	 * from the configuration file parser. The test to see that
+	 * imgs_changed_by_rpc_conf is true is used to make sure the value
+	 * is not the same as from one of the other configuration files.
+	 * The idea is that only the RPC configuration file is able to
+	 * overwrite RPC settings:
+	 *  * apply_config(global_conf)
+	 *  * apply_config(user_conf)
+	 *  * apply_config(environment variable)
+	 *  * apply_rpc_options()
+	 *  * apply_config(rpc_conf)
+	 */
+	if (opts.imgs_dir && imgs_changed_by_rpc_conf)
+		strncpy(images_dir_path, opts.imgs_dir, PATH_MAX - 1);
+	else
+		sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
 
 	if (req->parent_img)
-		opts.img_parent = req->parent_img;
+		SET_CHAR_OPTS(img_parent, req->parent_img);
 
 	if (open_image_dir(images_dir_path) < 0) {
 		pr_perror("Can't open images directory");
@@ -275,7 +339,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	/* chdir to work dir */
-	if (req->has_work_dir_fd)
+	if (opts.work_dir && work_changed_by_rpc_conf)
+		strncpy(work_dir_path, opts.work_dir, PATH_MAX - 1);
+	else if (req->has_work_dir_fd)
 		sprintf(work_dir_path, "/proc/%d/fd/%d", ids.pid, req->work_dir_fd);
 	else
 		strcpy(work_dir_path, images_dir_path);
@@ -286,15 +352,16 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	/* initiate log file in work dir */
-	if (req->log_file) {
+	if (req->log_file && !(opts.output  && output_changed_by_rpc_conf)) {
 		if (strchr(req->log_file, '/')) {
 			pr_perror("No subdirs are allowed in log_file name");
 			goto err;
 		}
 
-		opts.output = req->log_file;
-	} else
-		opts.output = DEFAULT_LOG_FILENAME;
+		SET_CHAR_OPTS(output, req->log_file);
+	} else if (!opts.output) {
+		SET_CHAR_OPTS(output, DEFAULT_LOG_FILENAME);
+	}
 
 	log_set_loglevel(req->log_level);
 	if (log_init(opts.output) == -1) {
@@ -325,7 +392,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	if (req->root)
-		opts.root = req->root;
+		SET_CHAR_OPTS(root, req->root);
 
 	if (req->has_rst_sibling) {
 		if (!opts.swrk_restore) {
@@ -381,7 +448,10 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 		if (!opts.lazy_pages) {
 			opts.use_page_server = true;
-			opts.addr = req->ps->address;
+			if (req->ps->address)
+				SET_CHAR_OPTS(addr, req->ps->address);
+			else
+				opts.addr = NULL;
 
 			if (req->ps->has_fd) {
 				if (!opts.swrk_restore)
@@ -485,16 +555,16 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	if (req->freeze_cgroup)
-		opts.freeze_cgroup = req->freeze_cgroup;
+		SET_CHAR_OPTS(freeze_cgroup, req->freeze_cgroup);
 
 	if (req->has_timeout)
 		opts.timeout = req->timeout;
 
 	if (req->cgroup_props)
-		opts.cgroup_props = req->cgroup_props;
+		SET_CHAR_OPTS(cgroup_props, req->cgroup_props);
 
 	if (req->cgroup_props_file)
-		opts.cgroup_props_file = req->cgroup_props_file;
+		SET_CHAR_OPTS(cgroup_props_file, req->cgroup_props_file);
 
 	for (i = 0; i < req->n_cgroup_dump_controller; i++) {
 		if (!cgp_add_dump_controller(req->cgroup_dump_controller[i]))
@@ -538,6 +608,16 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	if (check_namespace_opts())
 		goto err;
+
+	/* Evaluate additional configuration file a second time to overwrite
+	 * all RPC settings. */
+	if (req->config_file) {
+		rpc_cfg_file = req->config_file;
+		i = parse_options(0, NULL, &dummy, &dummy, PARSING_RPC_CONF);
+		if (i)
+			goto err;
+	}
+	log_set_loglevel(opts.log_level);
 
 	return 0;
 
@@ -1158,7 +1238,7 @@ int cr_service(bool daemon_mode)
 
 		if (opts.addr == NULL) {
 			pr_warn("Binding to local dir address!\n");
-			opts.addr = CR_DEFAULT_SERVICE_ADDRESS;
+			SET_CHAR_OPTS(addr, CR_DEFAULT_SERVICE_ADDRESS);
 		}
 
 		strcpy(server_addr.sun_path, opts.addr);
@@ -1204,6 +1284,9 @@ int cr_service(bool daemon_mode)
 	}
 
 	if (setup_sigchld_handler())
+		goto err;
+
+	if (close_status_fd())
 		goto err;
 
 	while (1) {

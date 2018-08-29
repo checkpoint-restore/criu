@@ -6,17 +6,25 @@ ifndef ____nmk_defined__build
 src		:= $(obj)
 src-makefile	:= $(call objectify,$(makefile))
 obj-y		:=
+obj-e		:=
+builtin-name	:=
+builtin-target	:=
 lib-y		:=
+lib-e		:=
+lib-name	:=
+lib-target	:=
+hostprogs-y	:=
+libso-y		:=
+ld_flags	:=
+ldflags-so	:=
+arflags-y	:=
 target          :=
 deps-y		:=
 all-y		:=
-builtin-name	:=
-lib-name	:=
-ld_flags	:=
 cleanup-y	:=
 mrproper-y	:=
+target		:=
 objdirs		:=
-libso-y	        :=
 
 MAKECMDGOALS := $(call uniq,$(MAKECMDGOALS))
 
@@ -103,7 +111,7 @@ builtin-name	:= $(strip $(builtin-name))
 
 #
 # Link flags.
-ld_flags	:= $(strip $(LDFLAGS) $(ldflags-y))
+ldflags-y	:= $(strip $(LDFLAGS) $(ldflags-y))
 
 #
 # $(obj) related rules.
@@ -112,7 +120,6 @@ $(eval $(call gen-cc-rules,$(obj)/%,$(obj)/%))
 #
 # Prepare targets.
 ifneq ($(lib-y),)
-        lib-target :=
         ifneq ($(lib-name),)
                 lib-target := $(obj)/$(lib-name)
         else
@@ -125,7 +132,6 @@ ifneq ($(lib-y),)
 endif
 
 ifneq ($(obj-y),)
-        builtin-target :=
         ifneq ($(builtin-name),)
                 builtin-target := $(obj)/$(builtin-name)
         else
@@ -156,8 +162,8 @@ endef
 ifdef builtin-target
         $(eval $(call gen-ld-target-rule,                               \
                         $(builtin-target),                              \
-                        $(ld_flags),                                    \
-                        $(obj-y) $(__nmk-makefile-deps),                       \
+                        $(ldflags-y),                                   \
+                        $(obj-y) $(__nmk-makefile-deps),                \
                         $(obj-y) $(call objectify,$(obj-e))))
 endif
 
@@ -165,7 +171,7 @@ ifdef lib-target
         $(eval $(call gen-ar-target-rule,                               \
                         $(lib-target),                                  \
                         $(ARFLAGS) $(arflags-y),                        \
-                        $(lib-y) $(__nmk-makefile-deps),                       \
+                        $(lib-y) $(__nmk-makefile-deps),                \
                         $(lib-y) $(call objectify,$(lib-e))))
 endif
 
@@ -175,9 +181,9 @@ define gen-custom-target-rule
         ifneq ($($(1)-obj-y),)
                 $(eval $(call gen-ld-target-rule,                       \
                                 $(obj)/$(1).built-in.o,                 \
-                                $(ld_flags) $(LDFLAGS_$(1)),            \
+                                $(ldflags-y) $(LDFLAGS_$(1)),           \
                                 $(call objectify,$($(1)-obj-y))         \
-                                $(__nmk-makefile-deps),                        \
+                                $(__nmk-makefile-deps),                 \
                                 $(call objectify,$($(1)-obj-y))         \
                                 $(call objectify,$($(1)-obj-e))))
                 all-y += $(obj)/$(1).built-in.o
@@ -190,7 +196,7 @@ define gen-custom-target-rule
                                 $(obj)/$(1).lib.a,                      \
                                 $(ARFLAGS) $($(1)-arflags-y),           \
                                 $(call objectify,$($(1)-lib-y))         \
-                                $(__nmk-makefile-deps),                        \
+                                $(__nmk-makefile-deps),                 \
                                 $(call objectify,$($(1)-lib-y)))        \
                                 $(call objectify,$($(1)-lib-e)))
                 all-y += $(obj)/$(1).lib.a
@@ -249,28 +255,49 @@ $(foreach t,$(libso-y),$(eval $(call gen-so-link-rules,$(t))))
 
 #
 # Figure out if the target we're building needs deps to include.
+define collect-builtin-deps
+        ifeq ($(1),$(2))
+                deps-y += $(obj-y:.o=.d)
+        endif
+endef
+define collect-lib-deps
+        ifeq ($(1),$(2))
+                deps-y += $(lib-y:.o=.d)
+        endif
+endef
+define collect-hostprogs-deps
+        ifeq ($(1),$(2))
+                deps-y += $(addprefix $(obj)/,$($(1)-objs:.o=.d))
+        endif
+endef
+define collect-target-deps
+        ifeq ($(1),$(2))
+                deps-y += $(call objectify,$($(t)-lib-y:.o=.d))
+                deps-y += $(call objectify,$($(t)-obj-y:.o=.d))
+        endif
+endef
 define collect-deps
-        ifneq ($(filter-out %.d,$(1)),)
-                ifneq ($(filter %.o %.i %.s,$(1)),)
-                        deps-y += $(addsuffix .d,$(basename $(1)))
+        ifneq ($(filter all,$(1)),)
+                $(eval $(call collect-builtin-deps,$(builtin-target),$(builtin-target)))
+                $(eval $(call collect-lib-deps,$(lib-target),$(lib-target)))
+                $(foreach t,$(hostprogs-y),$(eval $(call collect-hostprogs-deps,$(t),$(t))))
+                $(foreach t,$(target),$(eval $(call collect-target-deps,$(t),$(t))))
+        else
+                ifneq ($(filter-out %.d $(builtin-target) $(lib-target) $(hostprogs-y) $(target),$(1)),)
+                        ifneq ($(filter %.o %.i %.s,$(1)),)
+                                deps-y += $(addsuffix .d,$(basename $(1)))
+                        endif
+                else
+                        $(eval $(call collect-builtin-deps,$(builtin-target),$(1)))
+                        $(eval $(call collect-lib-deps,$(lib-target),$(1)))
+                        $(foreach t,$(hostprogs-y),$(eval $(call collect-hostprogs-deps,$(t),$(1))))
+                        $(foreach t,$(target),$(eval $(call collect-target-deps,$(t),$(1))))
                 endif
-        endif
-        ifeq ($(builtin-target),$(1))
-                deps-y += $(obj-y:.o=.d)
-        endif
-        ifeq ($(lib-target),$(1))
-                deps-y += $(lib-y:.o=.d)
-        endif
-        ifneq ($(filter all $(all-y) $(hostprogs-y),$(1)),)
-                deps-y += $(obj-y:.o=.d)
-                deps-y += $(lib-y:.o=.d)
-                deps-y += $(foreach t,$(target),$(call objectify,$($(t)-lib-y:.o=.d)) $(call objectify,$($(t)-obj-y:.o=.d)))
-                deps-y += $(foreach t,$(hostprogs-y),$(addprefix $(obj)/,$($(t)-objs:.o=.d)))
         endif
 endef
 
 ifneq ($(MAKECMDGOALS),)
-        ifneq ($(MAKECMDGOALS),clean)
+        ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
                 $(foreach goal,$(MAKECMDGOALS),$(eval $(call collect-deps,$(goal))))
                 deps-y := $(call uniq,$(deps-y))
                 ifneq ($(deps-y),)

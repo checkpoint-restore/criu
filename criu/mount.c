@@ -512,104 +512,6 @@ static int try_resolve_ext_mount(struct mount_info *info)
 	return 0;
 }
 
-static struct mount_info *find_wider_shared(struct mount_info *m)
-{
-	struct mount_info *p;
-
-	/*
-	 * Try to find a mount, which is wider or equal.
-	 * A is wider than B, if A->root is a subpath of B->root.
-	 */
-	list_for_each_entry(p, &m->mnt_share, mnt_share)
-		if (issubpath(m->root, p->root))
-			return p;
-
-	return NULL;
-}
-
-static struct mount_info *find_shared_peer(struct mount_info *m,
-		struct mount_info *ct, char *ct_mountpoint)
-{
-	struct mount_info *cm;
-
-	list_for_each_entry(cm, &m->children, siblings) {
-		if (strcmp(ct_mountpoint, cm->mountpoint))
-			continue;
-
-		if (!mounts_equal(cm, ct))
-			break;
-
-		return cm;
-	}
-
-	return NULL;
-}
-
-static int validate_shared(struct mount_info *m)
-{
-	struct mount_info *t, *ct;
-	char buf[PATH_MAX], *sibling_path;
-	LIST_HEAD(children);
-
-	/*
-	 * Check that all mounts in one shared group has the same set of
-	 * children. Only visible children are accounted. A non-root bind-mount
-	 * doesn't see children out of its root and it's expected case.
-	 *
-	 * Here is a few conditions:
-	 * 1. t is wider than m
-	 * 2. We search a wider mount in the same direction, so when we
-	 *    enumerate all mounts, we can't be sure that all of them
-	 *    has the same set of children.
-	 */
-
-	t = find_wider_shared(m);
-	if (!t)
-		/*
-		 * The current mount is the widest one in its shared group,
-		 * all others will be compared to it or with some other,
-		 * which will be compared to it.
-		 */
-		return 0;
-
-	/* Search a child, which is visible in both mounts. */
-	list_for_each_entry(ct, &t->children, siblings) {
-		struct mount_info *cm;
-
-		if (ct->is_ns_root || ct->mnt_id == CRTIME_MNT_ID)
-			continue;
-
-		sibling_path = mnt_get_sibling_path(ct, m, buf, sizeof(buf));
-		if (sibling_path == NULL)
-			continue;
-
-		cm = find_shared_peer(m, ct, sibling_path);
-		if (!cm)
-			goto err;
-
-		/*
-		 * Keep this one aside. At the end of t's children scan we should
-		 * move _all_ m's children here (the list_empty check below).
-		 */
-		list_move(&cm->siblings, &children);
-	}
-
-	/* Now all real mounts should be moved */
-	list_for_each_entry(ct, &m->children, siblings) {
-		if (ct->mnt_id != CRTIME_MNT_ID)
-			goto err;
-	}
-
-	list_splice(&children, &m->children);
-	return 0;
-
-err:
-	list_splice(&children, &m->children);
-	pr_err("%d:%s and %d:%s have different set of mounts\n",
-			m->mnt_id, m->mountpoint, t->mnt_id, t->mountpoint);
-	return -1;
-}
-
 /*
  * Find the mount_info from which the respective bind-mount
  * can be created. It can be either an FS-root mount, or the
@@ -685,6 +587,34 @@ static bool mnt_is_external(struct mount_info *m)
 	return 0;
 }
 
+/*
+ * Having two children whith same mountpoint is unsupported. That can happen in
+ * case of mount propagation inside of shared mounts, in that case it is hard
+ * to find out mount propagation siblings and which of these mounts is above
+ * (visible) and which is beneath (hidden). It would've broken mount restore
+ * order in can_mount_now and also visibility assumptions in open_mountpoint.
+ *
+ * Anyway after kernel v4.11 such mounts will be impossible.
+ */
+static int validate_children_collision(struct mount_info *mnt)
+{
+	struct mount_info *chi, *chj;
+
+	list_for_each_entry(chi, &mnt->children, siblings) {
+		list_for_each_entry(chj, &mnt->children, siblings) {
+			if (chj == chi)
+				break;
+			if (!strcmp(chj->mountpoint, chi->mountpoint)) {
+				pr_err("Mount %d has two children with same "
+				       "mountpoint: %d %d\n",
+				       mnt->mnt_id, chj->mnt_id, chi->mnt_id);
+				return -1;
+			}
+		}
+	}
+	return 0;
+}
+
 static int validate_mounts(struct mount_info *info, bool for_dump)
 {
 	struct mount_info *m, *t;
@@ -694,7 +624,7 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 			/* root mount can be any */
 			continue;
 
-		if (m->shared_id && validate_shared(m))
+		if (validate_children_collision(m))
 			return -1;
 
 		if (mnt_is_external(m))
@@ -900,6 +830,75 @@ static int resolve_external_mounts(struct mount_info *info)
 	return 0;
 }
 
+static int root_path_from_parent(struct mount_info *m, char *buf, int size)
+{
+	bool head_slash = false, tail_slash = false;
+	int p_len, m_len, len;
+
+	if (!m->parent)
+		return -1;
+
+	p_len = strlen(m->parent->mountpoint),
+	m_len = strlen(m->mountpoint),
+
+	len = snprintf(buf, size, "%s", m->parent->root);
+	if (len >= size)
+		return -1;
+
+	BUG_ON(len <= 0);
+	if (buf[len-1] == '/')
+		tail_slash = true;
+
+	size -= len;
+	buf += len;
+
+	len = m_len - p_len;
+	BUG_ON(len < 0);
+	if (len) {
+		if (m->mountpoint[p_len] == '/')
+			head_slash = true;
+
+		len = snprintf(buf, size, "%s%s",
+			       (!tail_slash && !head_slash) ? "/" : "",
+			       m->mountpoint + p_len + (tail_slash && head_slash));
+		if (len >= size)
+			return -1;
+	}
+
+	return 0;
+}
+
+static int same_propagation_group(struct mount_info *a, struct mount_info *b) {
+	char root_path_a[PATH_MAX], root_path_b[PATH_MAX];
+
+	/*
+	 * If mounts are in same propagation group:
+	 * 1) Their parents should be different
+	 * 2) Their parents should be together in same shared group
+	 */
+	if (!a->parent || !b->parent || a->parent == b->parent ||
+	    a->parent->shared_id != b->parent->shared_id)
+		return 0;
+
+	if (root_path_from_parent(a, root_path_a, PATH_MAX)) {
+		pr_err("Failed to get root path for mount %d\n", a->mnt_id);
+		return -1;
+	}
+
+	if (root_path_from_parent(b, root_path_b, PATH_MAX)) {
+		pr_err("Failed to get root path for mount %d\n", b->mnt_id);
+		return -1;
+	}
+
+	/*
+	 * 3) Their mountpoints relative to the root of the superblock of their
+	 * parent's share should be equal
+	 */
+	if (!strcmp(root_path_a, root_path_b))
+		return 1;
+	return 0;
+}
+
 static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 {
 	struct mount_info *m, *t;
@@ -967,6 +966,35 @@ static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 					pr_debug("\tThe mount %3d is bind for %3d (@%s -> @%s)\n",
 						 t->mnt_id, m->mnt_id,
 						 t->mountpoint, m->mountpoint);
+				}
+			}
+		}
+	}
+
+	/* Search propagation groups */
+	for (m = info; m; m = m->next) {
+		struct mount_info *sparent;
+
+		if (!list_empty(&m->mnt_propagate))
+			continue;
+
+		if (!m->parent || !m->parent->shared_id)
+			continue;
+
+		list_for_each_entry(sparent, &m->parent->mnt_share, mnt_share) {
+			struct mount_info *schild;
+
+			list_for_each_entry(schild, &sparent->children, siblings) {
+				int ret;
+
+				ret = same_propagation_group(m, schild);
+				if (ret < 0)
+					return -1;
+				else if (ret) {
+					BUG_ON(!mounts_equal(m, schild));
+					pr_debug("\tMount %3d is in same propagation group with %3d (@%s ~ @%s)\n",
+						 m->mnt_id, schild->mnt_id, m->mountpoint, schild->mountpoint);
+					list_add(&schild->mnt_propagate, &m->mnt_propagate);
 				}
 			}
 		}
@@ -1298,10 +1326,18 @@ int ns_open_mountpoint(void *arg)
 	if (umount_overmounts(mi))
 		goto err;
 
-	/* Save fd which we opened for parent due to CLONE_FILES flag */
-	*fd = get_clean_fd(mi);
-	if (*fd < 0)
+	/*
+	 * Save fd which we opened for parent due to CLONE_FILES flag
+	 *
+	 * Mount can still have children in it, but we don't need to clean it
+	 * explicitly as when last process exits mntns all mounts in it are
+	 * cleaned from their children, and we are exactly the last process.
+	 */
+	*fd = open(mi->mountpoint, O_DIRECTORY|O_RDONLY);
+	if (*fd < 0) {
+		pr_perror("Unable to open %s", mi->mountpoint);
 		goto err;
+	}
 
 	return 0;
 err:
@@ -1340,18 +1376,22 @@ int open_mountpoint(struct mount_info *pm)
 
 	if (!mnt_is_overmounted(pm)) {
 		pr_info("\tmount has children %s\n", pm->mountpoint);
-
 		fd = get_clean_fd(pm);
-		if (fd < 0)
-			goto err;
-	} else {
+	}
+
+	/*
+	 * Mount is overmounted or probably we can't create a temporary
+	 * direcotry for a cleaned mount
+	 */
+	if (fd < 0) {
 		int pid, status;
 		struct clone_arg ca = {
 			.mi = pm,
 			.fd = &fd
 		};
 
-		pr_info("\tmount is overmounted %s\n", pm->mountpoint);
+		pr_info("\tmount is overmounted or has children %s\n",
+				pm->mountpoint);
 
 		/*
 		 * We are overmounted - not accessible in a regular way. We
@@ -1882,7 +1922,7 @@ static int propagate_siblings(struct mount_info *mi)
 
 static int propagate_mount(struct mount_info *mi)
 {
-	struct mount_info *t;
+	struct mount_info *p;
 
 	propagate_siblings(mi);
 
@@ -1891,47 +1931,21 @@ static int propagate_mount(struct mount_info *mi)
 
 	umount_from_slaves(mi);
 
-	/* Propagate this mount to everyone from a parent group */
-
-	list_for_each_entry(t, &mi->parent->mnt_share, mnt_share) {
-		struct mount_info *c;
-		char path[PATH_MAX], *mp;
-		bool found = false;
+	/* Mark mounts in propagation group mounted */
+	list_for_each_entry(p, &mi->mnt_propagate, mnt_propagate) {
+		/* Should not propagate the same mount twice */
+		BUG_ON(p->mounted);
+		pr_debug("\t\tPropagate %s\n", p->mountpoint);
 
 		/*
-		 * If a mount from parent's shared group is not yet mounted
-		 * it shouldn't have 'sibling' in it - see can_mount_now()
+		 * When a mount is propagated, the result mount
+		 * is always shared. If we want to get a private
+		 * mount, we need to convert it.
 		 */
-		if (!t->mounted)
-			continue;
-
-		mp = mnt_get_sibling_path(mi, t, path, sizeof(path));
-		if (mp == NULL)
-			continue;
-
-		list_for_each_entry(c, &t->children, siblings) {
-			if (mounts_equal(mi, c) && !strcmp(mp, c->mountpoint)) {
-				/* Should not propagate the same mount twice */
-				BUG_ON(c->mounted);
-				pr_debug("\t\tPropagate %s\n", c->mountpoint);
-
-				/*
-				 * When a mount is propagated, the result mount
-				 * is always shared. If we want to get a private
-				 * mount, we need to convert it.
-				 */
-				restore_shared_options(c, !c->shared_id, 0, 0);
-
-				c->mounted = true;
-				propagate_siblings(c);
-				umount_from_slaves(c);
-				found = true;
-			}
-		}
-		if (!found) {
-			pr_err("Unable to find %s\n", mp);
-			return -1;
-		}
+		restore_shared_options(p, !p->shared_id, 0, 0);
+		p->mounted = true;
+		propagate_siblings(p);
+		umount_from_slaves(p);
 	}
 
 skip_parent:
@@ -1940,6 +1954,8 @@ skip_parent:
 	 * only if a proper root mount exists
 	 */
 	if (fsroot_mounted(mi) || mi->parent == root_yard_mp || mi->external) {
+		struct mount_info *t;
+
 		list_for_each_entry(t, &mi->mnt_bind, mnt_bind) {
 			if (t->mounted)
 				continue;
@@ -2328,53 +2344,99 @@ static bool can_mount_now(struct mount_info *mi)
 	if (rst_mnt_is_root(mi))
 		return true;
 
+	/* Parent should be mounted already, that's how mnt_tree_for_each works */
+	BUG_ON(mi->parent && !mi->parent->mounted);
+
 	if (mi->external)
 		goto shared;
 
 	/*
 	 * We're the slave peer:
 	 *   - Make sure the master peer is already mounted
-	 *   - Make sure all children are mounted as well to
-	 *     eliminate mounts duplications
+	 *   - Make sure all children of master's share are
+	 *   mounted as well to eliminate mounts duplications
 	 */
-	if (mi->master_id > 0) {
-		struct mount_info *c;
+	if (mi->mnt_master) {
+		struct mount_info *c, *s;
 
 		if (mi->bind == NULL)
 			return false;
 
-		list_for_each_entry(c, &mi->bind->children, siblings) {
+		list_for_each_entry(c, &mi->mnt_master->children, siblings)
 			if (!c->mounted)
 				return false;
-		}
+
+		list_for_each_entry(s, &mi->mnt_master->mnt_share, mnt_share)
+			list_for_each_entry(c, &s->children, siblings)
+				if (!c->mounted)
+					return false;
 	}
 
 	if (!fsroot_mounted(mi) && (mi->bind == NULL && !mi->need_plugin))
 		return false;
 
 shared:
-	if (mi->parent->shared_id) {
-		struct mount_info *n;
+	/* Mount only after all parents of our propagation group mounted */
+	if (!list_empty(&mi->mnt_propagate)) {
+		struct mount_info *p;
 
-		list_for_each_entry(n, &mi->parent->mnt_share, mnt_share)
-			/*
-			 * All mounts from mi's parent shared group which
-			 * have mi's 'sibling' should receive it through
-			 * mount propagation, so all such mounts in parent
-			 * shared group should be mounted beforehand.
-			 */
-			if (!n->mounted) {
-				char path[PATH_MAX], *mp;
-				struct mount_info *c;
+		list_for_each_entry(p, &mi->mnt_propagate, mnt_propagate) {
+			BUG_ON(!p->parent);
+			if (!p->parent->mounted)
+				return false;
+		}
+	}
 
-				mp = mnt_get_sibling_path(mi, n, path, sizeof(path));
-				if (mp == NULL)
+	/*
+	 * Mount only after all children of share, which shouldn't
+	 * (but can if wrong order) propagate to us, are mounted
+	 */
+	if (mi->shared_id) {
+		struct mount_info *s, *c, *p, *t;
+		LIST_HEAD(mi_notprop);
+		bool can = true;
+
+		/* Add all children of the shared group */
+		list_for_each_entry(s, &mi->mnt_share, mnt_share) {
+			list_for_each_entry(c, &s->children, siblings) {
+				char root_path[PATH_MAX];
+				int ret;
+
+				ret = root_path_from_parent(c, root_path, PATH_MAX);
+				BUG_ON(ret);
+
+				/* Mount is out of our root */
+				if (!issubpath(root_path, mi->root))
 					continue;
 
-				list_for_each_entry(c, &n->children, siblings)
-					if (mounts_equal(mi, c) && !strcmp(mp, c->mountpoint))
-						return false;
+				list_add(&c->mnt_notprop, &mi_notprop);
 			}
+		}
+
+		/* Delete all members of our children's propagation groups */
+		list_for_each_entry(c, &mi->children, siblings) {
+			list_for_each_entry(p, &c->mnt_propagate, mnt_propagate) {
+				list_del_init(&p->mnt_notprop);
+			}
+		}
+
+		/* Delete all members of our propagation group */
+		list_for_each_entry(p, &mi->mnt_propagate, mnt_propagate) {
+			list_del_init(&p->mnt_notprop);
+		}
+
+		/* Delete self */
+		list_del_init(&mi->mnt_notprop);
+
+		/* Check not propagated mounts mounted and cleanup list */
+		list_for_each_entry_safe(p, t, &mi_notprop, mnt_notprop) {
+			if (!p->mounted)
+				can = false;
+			list_del_init(&p->mnt_notprop);
+		}
+
+		if (!can)
+			return false;
 	}
 
 	return true;
@@ -2665,6 +2727,8 @@ struct mount_info *mnt_entry_alloc()
 		INIT_LIST_HEAD(&new->mnt_slave_list);
 		INIT_LIST_HEAD(&new->mnt_share);
 		INIT_LIST_HEAD(&new->mnt_bind);
+		INIT_LIST_HEAD(&new->mnt_propagate);
+		INIT_LIST_HEAD(&new->mnt_notprop);
 		INIT_LIST_HEAD(&new->postpone);
 	}
 	return new;
@@ -2728,8 +2792,7 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 		 * to ->root can confuse mnt_is_external and other functions
 		 * which expect to see the path in the file system to the root
 		 * of these mount (mounts_equal, mnt_build_ids_tree,
-		 * find_wider_shared, find_fsroot_mount_for,
-		 * find_best_external_match, etc.)
+		 * find_fsroot_mount_for, find_best_external_match, etc.)
 		 */
 		me->root = NO_ROOT_MOUNT;
 	}

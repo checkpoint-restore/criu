@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e -x
+
+export CC=gcc
+export PATH=`pwd`/criu:$PATH &&
+cd phaul/
+mkdir -p src/github.com/xemul/criu &&
+ln -s ../../../../ src/github.com/xemul/criu/phaul &&
+export GOPATH=`pwd` &&
+cd src/github.com/xemul/criu/phaul &&
+make run_test

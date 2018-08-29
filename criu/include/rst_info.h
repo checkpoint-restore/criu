@@ -11,6 +11,7 @@ struct task_entries {
 	futex_t start;
 	atomic_t cr_err;
 	mutex_t userns_sync_lock;
+	mutex_t last_pid_mutex;
 };
 
 struct fdt {
@@ -70,5 +71,17 @@ struct rst_info {
 
 	void			*breakpoint;
 };
+
+extern struct task_entries *task_entries;
+
+static inline void lock_last_pid(void)
+{
+	mutex_lock(&task_entries->last_pid_mutex);
+}
+
+static inline void unlock_last_pid(void)
+{
+	mutex_unlock(&task_entries->last_pid_mutex);
+}
 
 #endif /* __CR_RST_INFO_H__ */

@@ -170,6 +170,7 @@ struct parasite_dump_thread {
 	tls_t				tls;
 	stack_t				sas;
 	int				pdeath_sig;
+	char				comm[TASK_COMM_LEN];
 	struct parasite_dump_creds	creds[0];
 };
 

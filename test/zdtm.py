@@ -354,6 +354,9 @@ class test_fail_exc(Exception):
 	def __init__(self, step):
 		self.step = step
 
+	def __str__(self):
+		return str(self.step)
+
 
 class test_fail_expected_exc(Exception):
 	def __init__(self, cr_action):
@@ -393,7 +396,8 @@ class zdtm_test:
 				preexec_fn = self.__freezer and self.__freezer.attach or None)
 		if act == "pid":
 			try_run_hook(self, ["--post-start"])
-		s.wait()
+		if s.wait():
+			raise test_fail_exc(str(s_args))
 
 		if self.__freezer:
 			self.__freezer.freeze()
@@ -565,6 +569,10 @@ class zdtm_test:
 			subprocess.check_call(["make", "-C", "zdtm/"])
 		subprocess.check_call(["flock", "zdtm_mount_cgroups.lock", "./zdtm_mount_cgroups"])
 
+	@staticmethod
+	def cleanup():
+		subprocess.check_call(["flock", "zdtm_mount_cgroups.lock", "./zdtm_umount_cgroups"])
+
 
 class inhfd_test:
 	def __init__(self, name, desc, flavor, freezer):
@@ -670,6 +678,10 @@ class inhfd_test:
 	def available():
 		pass
 
+	@staticmethod
+	def cleanup():
+		pass
+
 
 class groups_test(zdtm_test):
 	def __init__(self, name, desc, flavor, freezer):
@@ -738,8 +750,8 @@ class criu_cli:
 			print("Forcing %s fault" % fault)
 			env['CRIU_FAULT'] = fault
 
-		cr = subprocess.Popen(strace + [criu_bin, action] + args, env = env,
-				close_fds = False, preexec_fn = preexec)
+		cr = subprocess.Popen(strace + [criu_bin, action, "--no-default-config"] + args,
+				env = env, close_fds = False, preexec_fn = preexec)
 		if nowait:
 			return cr
 		return cr.wait()
@@ -808,6 +820,16 @@ class criu_rpc:
 				continue
 			if arg == '--tcp-established':
 				criu.opts.tcp_established = True
+				continue
+			if arg == '--restore-sibling':
+				criu.opts.rst_sibling = True
+				continue
+			if arg == "--inherit-fd":
+				inhfd = criu.opts.inherit_fd.add()
+				key = args.pop(0)
+				fd, key = key.split(":", 1)
+				inhfd.fd = int(fd[3:-1])
+				inhfd.key = key
 				continue
 
 			raise test_fail_exc('RPC for %s required' % arg)
@@ -884,6 +906,7 @@ class criu:
 		self.__mdedup = (opts['noauto_dedup'] and True or False)
 		self.__user = (opts['user'] and True or False)
 		self.__leave_stopped = (opts['stop'] and True or False)
+		self.__remote = (opts['remote'] and True or False)
 		self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
 		self.__show_stats = (opts['show_stats'] and True or False)
 		self.__lazy_pages_p = None
@@ -1052,6 +1075,27 @@ class criu:
 
 		a_opts += self.__test.getdopts()
 
+		if self.__remote:
+			logdir = os.getcwd() + "/" + self.__dump_path + "/" + str(self.__iter)
+			print("Adding image cache")
+
+			cache_opts = [self.__criu_bin, "image-cache", "--port", "12345", "-v4", "-o",
+				      logdir + "/image-cache.log", "-D", logdir]
+
+			subprocess.Popen(cache_opts).pid
+			time.sleep(1)
+
+			print("Adding image proxy")
+
+			proxy_opts = [self.__criu_bin, "image-proxy", "--port", "12345", "--address",
+					"localhost", "-v4", "-o", logdir + "/image-proxy.log",
+					"-D", logdir]
+
+			subprocess.Popen(proxy_opts).pid
+			time.sleep(1)
+
+			a_opts += ["--remote"]
+
 		if self.__dedup:
 			a_opts += ["--auto-dedup"]
 
@@ -1101,6 +1145,9 @@ class criu:
 			r_opts += ['--empty-ns', 'net']
 			r_opts += ['--action-script', os.getcwd() + '/empty-netns-prep.sh']
 
+		if self.__remote:
+			r_opts += ["--remote"]
+
 		self.__prev_dump_iter = None
 		criu_dir = os.path.dirname(os.getcwd())
 		if os.getenv("GCOV"):
@@ -1130,8 +1177,8 @@ class criu:
 
 	@staticmethod
 	def check(feature):
-		return criu_cli.run("check", ["-v0", "--feature", feature],
-				opts['criu_bin']) == 0
+		return criu_cli.run("check", ["--no-default-config", "-v0",
+				"--feature", feature], opts['criu_bin']) == 0
 
 	@staticmethod
 	def available():
@@ -1274,7 +1321,7 @@ def get_visible_state(test):
 
 		cmounts = []
 		try:
-			r = re.compile("^\S+\s\S+\s\S+\s(\S+)\s(\S+)")
+			r = re.compile("^\S+\s\S+\s\S+\s(\S+)\s(\S+)\s\S+\s[^-]*?(shared)?[^-]*?(master)?[^-]*?-")
 			for m in open("/proc/%s/root/proc/%s/mountinfo" % (test.getpid(), pid)):
 				cmounts.append(r.match(m).groups())
 		except IOError as e:
@@ -1609,7 +1656,7 @@ class Launcher:
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'stop', 'empty_ns',
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'rpc', 'lazy_pages',
 				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
-				'remote_lazy_pages', 'show_stats', 'lazy_migrate',
+				'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'remote',
 				'criu_bin', 'crit_bin')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
@@ -2154,6 +2201,7 @@ rp.add_argument("--user", help = "Run CRIU as regular user", action = 'store_tru
 rp.add_argument("--rpc", help = "Run CRIU via RPC rather than CLI", action = 'store_true')
 
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
+rp.add_argument("--remote", help = "Use remote option for diskless C/R", action = 'store_true')
 rp.add_argument("-p", "--parallel", help = "Run test in parallel")
 rp.add_argument("--dry-run", help="Don't run tests, just pretend to", action='store_true')
 rp.add_argument("--script", help="Add script to get notified by criu")
@@ -2196,3 +2244,6 @@ for tst in test_classes.values():
 	tst.available()
 
 opts['action'](opts)
+
+for tst in test_classes.values():
+	tst.cleanup()

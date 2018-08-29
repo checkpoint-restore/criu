@@ -22,7 +22,6 @@
 #include <sys/prctl.h>
 #include <sched.h>
 #include <sys/mount.h>
-#include <linux/aio_abi.h>
 
 #include "../soccr/soccr.h"
 
@@ -51,6 +50,7 @@
 #include "net.h"
 #include "restorer.h"
 #include "uffd.h"
+#include "aio.h"
 
 static char *feature_name(int (*func)());
 
@@ -1026,7 +1026,7 @@ static int check_compat_cr(void)
 		return 0;
 	pr_warn("compat_cr is not supported. Requires kernel >= v4.12\n");
 #else
-	pr_warn("CRIU built without CONFIG_COMPAT - can't C/R ia32\n");
+	pr_warn("CRIU built without CONFIG_COMPAT - can't C/R compatible tasks\n");
 #endif
 	return -1;
 }
@@ -1073,6 +1073,14 @@ static int check_sk_netns(void)
 static int check_sk_unix_file(void)
 {
 	if (!kdat.sk_unix_file)
+		return -1;
+
+	return 0;
+}
+
+static int check_kcmp_epoll(void)
+{
+	if (!kdat.has_kcmp_epoll_tfd)
 		return -1;
 
 	return 0;
@@ -1185,6 +1193,7 @@ int cr_check(void)
 		ret |= check_uffd();
 		ret |= check_uffd_noncoop();
 		ret |= check_sk_netns();
+		ret |= check_kcmp_epoll();
 	}
 
 	/*
@@ -1241,6 +1250,22 @@ static int check_link_nsid(void)
 	return 0;
 }
 
+static int check_external_net_ns(void)
+{
+	/*
+	 * This is obviously not a real check. This only exists, so that
+	 * CRIU clients/users can check if this CRIU version supports the
+	 * external network namespace feature. Theoretically the CRIU client
+	 * or user could also parse the version, but especially for CLI users
+	 * version comparison in the shell is not easy.
+	 * This feature check does not exist for RPC as RPC has a special
+	 * version call which does not require string parsing and the external
+	 * network namespace feature is available for all CRIU versions newer
+	 * than 3.9.
+	 */
+	return 0;
+}
+
 struct feature_list {
 	char *name;
 	int (*func)();
@@ -1269,6 +1294,8 @@ static struct feature_list feature_list[] = {
 	{ "sk_unix_file", check_sk_unix_file },
 	{ "nsid", check_nsid },
 	{ "link_nsid", check_link_nsid},
+	{ "kcmp_epoll", check_kcmp_epoll},
+	{ "external_net_ns", check_external_net_ns},
 	{ NULL, NULL },
 };
 

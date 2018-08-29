@@ -40,6 +40,7 @@
 #include "prctl.h"
 #include "uffd.h"
 #include "vdso.h"
+#include "kcmp.h"
 
 struct kerndat_s kdat = {
 };
@@ -764,6 +765,51 @@ int kerndat_has_inotify_setnextwd(void)
 	return ret;
 }
 
+int has_kcmp_epoll_tfd(void)
+{
+	kcmp_epoll_slot_t slot = { };
+	int ret = -1, efd, tfd;
+	pid_t pid = getpid();
+	struct epoll_event ev;
+	int pipefd[2];
+
+	efd = epoll_create(1);
+	if (efd < 0) {
+		pr_perror("Can't create epoll");
+		return -1;
+	}
+
+	memset(&ev, 0xff, sizeof(ev));
+	ev.events = EPOLLIN | EPOLLOUT;
+
+	if (pipe(pipefd)) {
+		pr_perror("Can't create pipe");
+		close(efd);
+		return -1;
+	}
+
+	tfd = pipefd[0];
+	if (epoll_ctl(efd, EPOLL_CTL_ADD, tfd, &ev)) {
+		pr_perror("Can't add event");
+		goto out;
+	}
+
+	slot.efd = efd;
+	slot.tfd = tfd;
+
+	if (syscall(SYS_kcmp, pid, pid, KCMP_EPOLL_TFD, tfd, &slot) == 0)
+		kdat.has_kcmp_epoll_tfd = true;
+	else
+		kdat.has_kcmp_epoll_tfd = false;
+	ret = 0;
+
+out:
+	close(pipefd[0]);
+	close(pipefd[1]);
+	close(efd);
+	return ret;
+}
+
 int __attribute__((weak)) kdat_x86_has_ptrace_fpu_xsave_bug(void)
 {
 	return 0;
@@ -789,7 +835,10 @@ static int kerndat_try_load_cache(void)
 
 	fd = open(KERNDAT_CACHE_FILE, O_RDONLY);
 	if (fd < 0) {
-		pr_warn("Can't load %s\n", KERNDAT_CACHE_FILE);
+		if(ENOENT == errno)
+			pr_debug("File %s does not exist\n", KERNDAT_CACHE_FILE);
+		else
+			pr_warn("Can't load %s\n", KERNDAT_CACHE_FILE);
 		return 1;
 	}
 
@@ -1034,6 +1083,8 @@ int kerndat_init(void)
 		ret = kerndat_x86_has_ptrace_fpu_xsave_bug();
 	if (!ret)
 		ret = kerndat_has_inotify_setnextwd();
+	if (!ret)
+		ret = has_kcmp_epoll_tfd();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();

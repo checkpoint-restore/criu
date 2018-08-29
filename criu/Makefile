@@ -13,6 +13,12 @@ ifeq ($(filter clean mrproper,$(MAKECMDGOALS)),)
 endif
 
 #
+# Configuration file paths
+CONFIG-DEFINES		+= -DGLOBAL_CONFIG_DIR='"/etc/criu/"'
+CONFIG-DEFINES		+= -DDEFAULT_CONFIG_FILENAME='"default.conf"'
+CONFIG-DEFINES		+= -DUSER_CONFIG_DIR='".criu/"'
+
+#
 # General flags.
 ccflags-y		+= -fno-strict-aliasing
 ccflags-y		+= -iquote criu/include
@@ -22,6 +28,7 @@ ccflags-y		+= -iquote $(ARCH_DIR)/include
 ccflags-y		+= -iquote .
 ccflags-y		+= -I/usr/include/libnl3
 ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
+ccflags-y		+= $(CONFIG-DEFINES)
 
 export ccflags-y
 

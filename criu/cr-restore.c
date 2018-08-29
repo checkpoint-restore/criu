@@ -31,6 +31,7 @@
 #include "cr_options.h"
 #include "servicefd.h"
 #include "image.h"
+#include "img-remote.h"
 #include "util.h"
 #include "util-pie.h"
 #include "criu-log.h"
@@ -1243,7 +1244,6 @@ static int restore_one_task(int pid, CoreEntry *core)
 struct cr_clone_arg {
 	struct pstree_item *item;
 	unsigned long clone_flags;
-	int fd;
 
 	CoreEntry *core;
 };
@@ -1286,7 +1286,11 @@ static void maybe_clone_parent(struct pstree_item *item,
 
 static bool needs_prep_creds(struct pstree_item *item)
 {
-	return (!item->parent && (root_ns_mask & CLONE_NEWUSER));
+	/*
+	 * Before the 4.13 kernel, it was impossible to set
+	 * an exe_file if uid or gid isn't zero.
+	 */
+	return (!item->parent && ((root_ns_mask & CLONE_NEWUSER) || getuid()));
 }
 
 static inline int fork_with_pid(struct pstree_item *item)
@@ -1342,24 +1346,22 @@ static inline int fork_with_pid(struct pstree_item *item)
 	if (!(ca.clone_flags & CLONE_NEWPID)) {
 		char buf[32];
 		int len;
+		int fd;
 
-		ca.fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-		if (ca.fd < 0)
+		fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
+		if (fd < 0)
 			goto err;
 
-		if (flock(ca.fd, LOCK_EX)) {
-			close(ca.fd);
-			pr_perror("%d: Can't lock %s", pid, LAST_PID_PATH);
-			goto err;
-		}
+		lock_last_pid();
 
 		len = snprintf(buf, sizeof(buf), "%d", pid - 1);
-		if (write(ca.fd, buf, len) != len) {
+		if (write(fd, buf, len) != len) {
 			pr_perror("%d: Write %s to %s", pid, buf, LAST_PID_PATH);
+			close(fd);
 			goto err_unlock;
 		}
+		close(fd);
 	} else {
-		ca.fd = -1;
 		BUG_ON(pid != INIT_PID);
 	}
 
@@ -1391,12 +1393,8 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 err_unlock:
-	if (ca.fd >= 0) {
-		if (flock(ca.fd, LOCK_UN))
-			pr_perror("%d: Can't unlock %s", pid, LAST_PID_PATH);
-
-		close(ca.fd);
-	}
+	if (!(ca.clone_flags & CLONE_NEWPID))
+		unlock_last_pid();
 err:
 	if (ca.core)
 		core_entry__free_unpacked(ca.core, NULL);
@@ -1660,9 +1658,6 @@ static int restore_task_with_children(void *_arg)
 				current->pid->real, vpid(current));
 	}
 
-	if ( !(ca->clone_flags & CLONE_FILES))
-		close_safe(&ca->fd);
-
 	pid = getpid();
 	if (vpid(current) != pid) {
 		pr_err("Pid %d do not match expected %d\n", pid, vpid(current));
@@ -1679,7 +1674,11 @@ static int restore_task_with_children(void *_arg)
 		 * ACT_SETUP_NS scripts, so the root netns has to be created here
 		 */
 		if (root_ns_mask & CLONE_NEWNET) {
-			ret = unshare(CLONE_NEWNET);
+			struct ns_id *ns = net_get_root_ns();
+			if (ns->ext_key)
+				ret = net_set_ext(ns);
+			else
+				ret = unshare(CLONE_NEWNET);
 			if (ret) {
 				pr_perror("Can't unshare net-namespace");
 				goto err;
@@ -2324,6 +2323,7 @@ int prepare_task_entries(void)
 	task_entries->nr_helpers = 0;
 	futex_set(&task_entries->start, CR_STATE_FAIL);
 	mutex_init(&task_entries->userns_sync_lock);
+	mutex_init(&task_entries->last_pid_mutex);
 
 	return 0;
 }
@@ -2389,6 +2389,11 @@ int cr_restore_tasks(void)
 		goto err;
 
 	ret = restore_root_task(root_item);
+
+	if (opts.remote && (finish_remote_restore() < 0)) {
+		pr_err("Finish remote restore failed.\n");
+		goto err;
+	}
 err:
 	cr_plugin_fini(CR_PLUGIN_STAGE__RESTORE, ret);
 	return ret;
@@ -3228,7 +3233,8 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	if (current->parent == NULL) {
 		/* Wait when all tasks restored all files */
-		restore_wait_other_tasks();
+		if (restore_wait_other_tasks())
+			goto err_nv;
 	}
 
 	/*
@@ -3461,6 +3467,11 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		if (construct_sigframe(sigframe, sigframe, blkset, tcore))
 			goto err;
 
+		if (tcore->thread_core->comm)
+			strncpy(thread_args[i].comm, tcore->thread_core->comm, TASK_COMM_LEN);
+		else
+			strncpy(thread_args[i].comm, core->tc->comm, TASK_COMM_LEN);
+
 		if (thread_args[i].pid != pid)
 			core_entry__free_unpacked(tcore, NULL);
 
@@ -3494,6 +3505,8 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 */
 	task_args->nr_threads		= current->nr_threads;
 	task_args->thread_args		= thread_args;
+
+	task_args->auto_dedup		= opts.auto_dedup;
 
 	/*
 	 * Make root and cwd restore _that_ late not to break any

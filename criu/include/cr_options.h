@@ -1,9 +1,25 @@
 #ifndef __CR_OPTIONS_H__
 #define __CR_OPTIONS_H__
 
+#include <sys/types.h>
 #include <stdbool.h>
 #include "common/config.h"
 #include "common/list.h"
+
+/* Configuration and CLI parsing order defines */
+#define PARSING_GLOBAL_CONF	1
+#define PARSING_USER_CONF	2
+#define PARSING_ENV_CONF	3
+#define PARSING_CMDLINE_CONF	4
+#define PARSING_ARGV		5
+#define PARSING_RPC_CONF	6
+#define PARSING_LAST		7
+
+#define SET_CHAR_OPTS(__dest, __src) \
+	do { \
+		free(opts.__dest); \
+		opts.__dest = xstrdup(__src); \
+	} while(0)
 
 /*
  * CPU capability options.
@@ -49,8 +65,6 @@ struct irmap_path_opt {
 
 struct cr_options {
 	int			final_state;
-	char			*show_dump_file;
-	char			*show_fmt;
 	int			check_extra_features;
 	int			check_experimental_features;
 	bool			show_pages_content;
@@ -121,10 +135,16 @@ struct cr_options {
 	int			weak_sysctls;
 	int			status_fd;
 	bool			orphan_pts_master;
+	int			remote;
+	pid_t			tree_id;
+	int			log_level;
+	char			*imgs_dir;
 };
 
 extern struct cr_options opts;
+char *rpc_cfg_file;
 
-extern void init_opts(void);
+extern int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, int state);
+extern void init_opts();
 
 #endif /* __CR_OPTIONS_H__ */
