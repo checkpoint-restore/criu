@@ -54,11 +54,6 @@
  * as "external" and require the --ext-unix-sk option.
  */
 
-#define USK_EXTERN	(1 << 0)
-#define USK_SERVICE	(1 << 1)
-#define USK_CALLBACK	(1 << 2)
-#define USK_INHERIT	(1 << 3)
-
 #define FAKE_INO	0
 
 struct unix_sk_desc {
@@ -393,7 +388,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 	if (unlikely(ue->peer == service_sk_ino)) {
 		ue->state = TCP_CLOSE;
 		ue->peer = 0;
-		ue->uflags |= USK_SERVICE;
+		ue->uflags |= UNIX_UFLAGS__SERVICE;
 	}
 
 	if (sk->namelen && *sk->name) {
@@ -528,7 +523,7 @@ dump:
 	 *  Postpone writing the entry if a peer isn't found yet.
 	 *  It's required, because we may need to modify the entry.
 	 *  For example, if a socket is external and is dumped by
-	 *  a callback, the USK_CALLBACK flag must be set.
+	 *  a callback, the UNIX_UFLAGS__CALLBACK flag must be set.
 	 */
 	if (list_empty(&sk->peer_node) && write_unix_entry(sk))
 		return -1;
@@ -793,7 +788,7 @@ static int __dump_external_socket(struct unix_sk_desc *sk,
 		return -1;
 
 	if (ret == 0) {
-		sk->ue->uflags |= USK_CALLBACK;
+		sk->ue->uflags |= UNIX_UFLAGS__CALLBACK;
 		return 0;
 	}
 
@@ -870,7 +865,7 @@ int fix_external_unix_sockets(void)
 		e.state		= TCP_LISTEN;
 		e.name.data	= (void *)sk->name;
 		e.name.len	= (size_t)sk->namelen;
-		e.uflags	= USK_EXTERN;
+		e.uflags	= UNIX_UFLAGS__EXTERN;
 		e.peer		= 0;
 		e.fown		= &fown;
 		e.opts		= &skopts;
@@ -1269,7 +1264,7 @@ static int post_open_standalone(struct file_desc *d, int fd)
 
 	ui = container_of(d, struct unix_sk_info, d);
 	BUG_ON((ui->flags & (USK_PAIR_MASTER | USK_PAIR_SLAVE)) ||
-			(ui->ue->uflags & (USK_CALLBACK | USK_INHERIT)));
+			(ui->ue->uflags & (UNIX_UFLAGS__CALLBACK | UNIX_UFLAGS__INHERIT)));
 
 	if (chk_restored_scms(ui))
 		return 1;
@@ -1337,7 +1332,7 @@ static int post_open_standalone(struct file_desc *d, int fd)
 
 restore_queue:
 	if (peer->queuer == ui &&
-	    !(peer->ue->uflags & USK_EXTERN) &&
+	    !(peer->ue->uflags & UNIX_UFLAGS__EXTERN) &&
 	    restore_unix_queue(fd, ui->ue->opts, peer))
 		return -1;
 restore_sk_common:
@@ -1785,7 +1780,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		return post_open_standalone(&ui->d, fle->fe->fd);
 
 	/* Fake socket will be restored by its peer */
-	if (!(ui->ue->uflags & USK_EXTERN) && ui->ue->ino == FAKE_INO)
+	if (!(ui->ue->uflags & UNIX_UFLAGS__EXTERN) && ui->ue->ino == FAKE_INO)
 		return 1;
 
 	if (set_netns(ui->ue->ns_id))
@@ -1796,7 +1791,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 	 * If so, put response, that dumping and restoring
 	 * was successful.
 	 */
-	if (ui->ue->uflags & USK_SERVICE) {
+	if (ui->ue->uflags & UNIX_UFLAGS__SERVICE) {
 		int sks[2];
 
 		if (socketpair(PF_UNIX, ui->ue->type, 0, sks)) {
@@ -1866,7 +1861,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 
 		sk = sks[0];
 	} else {
-		if (ui->ue->uflags & USK_CALLBACK) {
+		if (ui->ue->uflags & UNIX_UFLAGS__CALLBACK) {
 			sk = run_plugins(RESTORE_UNIX_SK, ui->ue->ino);
 			if (sk >= 0)
 				goto out;
@@ -1876,7 +1871,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		 * Connect to external sockets requires
 		 * special option to be passed.
 		 */
-		if (ui->peer && (ui->peer->ue->uflags & USK_EXTERN) &&
+		if (ui->peer && (ui->peer->ue->uflags & UNIX_UFLAGS__EXTERN) &&
 				!(opts.ext_unix_sk)) {
 			pr_err("External socket found in image. "
 					"Consider using the --" USK_EXT_PARAM
@@ -1935,7 +1930,7 @@ static int open_unix_sk(struct file_desc *d, int *new_fd)
 	ui = container_of(d, struct unix_sk_info, d);
 
 	if (inherited_fd(d, new_fd)) {
-		ui->ue->uflags |= USK_INHERIT;
+		ui->ue->uflags |= UNIX_UFLAGS__INHERIT;
 		ret = *new_fd >= 0 ? 0 : -1;
 	} else if (ui->flags & USK_PAIR_MASTER)
 		ret = open_unixsk_pair_master(ui, new_fd);
@@ -1976,7 +1971,7 @@ static int unlink_sk(struct unix_sk_info *ui)
 {
 	int ret = 0, cwd_fd = -1, root_fd = -1, ns_fd = -1;
 
-	if (!ui->name || ui->name[0] == '\0' || (ui->ue->uflags & USK_EXTERN))
+	if (!ui->name || ui->name[0] == '\0' || (ui->ue->uflags & UNIX_UFLAGS__EXTERN))
 		return 0;
 
 	if (prep_unix_sk_cwd(ui, &cwd_fd, &root_fd, NULL))
@@ -2209,7 +2204,7 @@ int add_fake_unix_queuers(void)
 	struct unix_sk_info *ui;
 
 	list_for_each_entry(ui, &unix_sockets, list) {
-		if ((ui->ue->uflags & (USK_EXTERN | USK_CALLBACK)) || ui->queuer)
+		if ((ui->ue->uflags & (UNIX_UFLAGS__EXTERN | UNIX_UFLAGS__CALLBACK)) || ui->queuer)
 			continue;
 		if (!(ui->ue->state == TCP_ESTABLISHED && !ui->peer) &&
 		     ui->ue->type != SOCK_DGRAM)

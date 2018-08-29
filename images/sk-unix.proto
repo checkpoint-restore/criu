@@ -10,6 +10,16 @@ message file_perms_entry {
 	required uint32			gid		= 3;
 }
 
+/*
+ * Bitmask for unix_sk_entry::uflags
+ */
+enum unix_uflags {
+	EXTERN		= 1;
+	SERVICE		= 2;
+	CALLBACK	= 4;
+	INHERIT		= 8;
+}
+
 message unix_sk_entry {
 	/*
 	 * Few words about why we need both -- id and ino.
