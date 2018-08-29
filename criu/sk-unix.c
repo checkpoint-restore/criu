@@ -977,7 +977,10 @@ struct unix_sk_info {
 	char			*name;
 	char			*name_dir;
 	unsigned		flags;
-	int			fdstore_id;
+	union {
+		int		fdstore_id;
+		int		fdstore_mnt_id[2];
+	};
 	struct unix_sk_info	*peer;
 	struct pprep_head	peer_resolve; /* XXX : union with the above? */
 	struct file_desc	d;
@@ -1011,6 +1014,8 @@ struct scm_fle {
 #define USK_PAIR_MASTER		0x1
 #define USK_PAIR_SLAVE		0x2
 #define USK_GHOST_FDSTORE	0x4	/* bound but removed address */
+#define USK_BINDMOUNT		0x8	/* socket is pre-openeded for bindmount reason */
+#define USK_NOCWD		0x10	/* no cwd switch */
 
 static struct unix_sk_info *find_unix_sk_by_ino(int ino)
 {
@@ -1233,6 +1238,9 @@ static int revert_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd, int *ro
 {
 	int ret = 0;
 
+	if (ui->flags & USK_NOCWD)
+		return 0;
+
 	if (*ns_fd >= 0 && restore_ns(*ns_fd, &mnt_ns_desc))
 		ret = -1;
 	if (*root_fd >= 0) {
@@ -1259,6 +1267,9 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd,
 {
 	static struct ns_id *root = NULL, *ns;
 	int fd;
+
+	if (ui->flags & USK_NOCWD)
+		return 0;
 
 	if (prev_mntns_fd && ui->name[0] && ui->ue->mnt_id >= 0) {
 		struct ns_id *mntns = lookup_nsid_by_mnt_id(ui->ue->mnt_id);
@@ -1835,12 +1846,68 @@ static int setup_second_end(int *sks, struct fdinfo_list_entry *second_end)
 	return 0;
 }
 
+static int break_connected(struct unix_sk_info *ui, int sk)
+{
+	if (ui->ue->type == SOCK_DGRAM) {
+		struct sockaddr_un addr = { .sun_family = AF_UNSPEC };
+		/*
+		 * socketpair() assigns sks[1] as a peer of sks[0]
+		 * (and vice versa). But in this case (not zero peer)
+		 * it's impossible for other sockets to connect
+		 * to sks[0] (see unix_dgram_connect()->unix_may_send()).
+		 * The below is hack: we use that connect with AF_UNSPEC
+		 * clears socket's peer.
+		 * Note, that connect hack flushes receive queue,
+		 * so restore_unix_queue() must be after it.
+		 */
+		if (connect(sk, (struct sockaddr *)&addr, sizeof(addr.sun_family))) {
+			pr_perror("Can't clear socket id %#x peer", ui->ue->id);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static int make_socket(struct unix_sk_info *ui, int sks[2], bool pair, bool disjoin_master)
+{
+	if (unlikely(ui->flags & USK_BINDMOUNT)) {
+		sks[0] = fdstore_get(ui->fdstore_mnt_id[0]);
+		sks[1] = fdstore_get(ui->fdstore_mnt_id[1]);
+		if (sks[0] < 0 || sks[1] < 0) {
+			pr_err("bindmount: Can't fetch id %#x socketpair from the store\n",
+			       ui->ue->id);
+			return -1;
+		}
+	} else {
+		int ret;
+
+		sks[0] = sks[1] = -1;
+		if (!pair) {
+			ret = socket(PF_UNIX, ui->ue->type, 0);
+			sks[0] = ret;
+		} else
+			ret = socketpair(PF_UNIX, ui->ue->type, 0, sks);
+
+		if (ret < 0) {
+			pr_perror("Can't create %s id %#x\n",
+				  pair ? "socketpair" : "socket",
+				  ui->ue->id);
+			return -1;
+		}
+	}
+
+	if (disjoin_master && pair)
+		return break_connected(ui, sks[0]);
+
+	return 0;
+}
+
 static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 {
 	struct unix_sk_info *queuer = ui->queuer;
 	struct unix_sk_info *peer = ui->peer;
 	struct fdinfo_list_entry *fle, *fle_peer;
-	int sk;
+	int sks[2];
 
 	fle = file_master(&ui->d);
 	pr_info_opening("standalone", ui, fle);
@@ -1875,21 +1942,14 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 	 * was successful.
 	 */
 	if (ui->ue->uflags & UNIX_UFLAGS__SERVICE) {
-		int sks[2];
-
-		if (socketpair(PF_UNIX, ui->ue->type, 0, sks)) {
-			pr_perror("Can't create socketpair");
+		if (make_socket(ui, sks, true, false))
 			return -1;
-		}
 
 		if (send_criu_dump_resp(sks[1], true, true) == -1)
 			return -1;
 
 		close(sks[1]);
-		sk = sks[0];
 	} else if (ui->ue->state == TCP_ESTABLISHED && queuer && queuer->ue->ino == FAKE_INO) {
-		int ret, sks[2];
-
 		if (ui->ue->type != SOCK_STREAM) {
 			pr_err("Non-stream socket %d in established state\n",
 					ui->ue->ino);
@@ -1902,51 +1962,21 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 			return -1;
 		}
 
-		ret = socketpair(PF_UNIX, ui->ue->type, 0, sks);
-		if (ret < 0) {
-			pr_perror("Can't create socketpair");
+		if (make_socket(ui, sks, true, false))
 			return -1;
-		}
 
 		if (setup_second_end(sks, file_master(&queuer->d)))
 			return -1;
-
-		sk = sks[0];
 	} else if (ui->ue->type == SOCK_DGRAM && queuer && queuer->ue->ino == FAKE_INO) {
-		struct sockaddr_un addr;
-		int sks[2];
-
-		if (socketpair(PF_UNIX, ui->ue->type, 0, sks) < 0) {
-			pr_perror("Can't create socketpair");
+		if (make_socket(ui, sks, true, true))
 			return -1;
-		}
-
-		sk = sks[0];
-		addr.sun_family = AF_UNSPEC;
-
-		/*
-		 * socketpair() assigns sks[1] as a peer of sks[0]
-		 * (and vice versa). But in this case (not zero peer)
-		 * it's impossible for other sockets to connect
-		 * to sks[0] (see unix_dgram_connect()->unix_may_send()).
-		 * The below is hack: we use that connect with AF_UNSPEC
-		 * clears socket's peer.
-		 * Note, that connect hack flushes receive queue,
-		 * so restore_unix_queue() must be after it.
-		 */
-		if (connect(sk, (struct sockaddr *)&addr, sizeof(addr.sun_family))) {
-			pr_perror("Can't clear socket's peer");
-			return -1;
-		}
 
 		if (setup_second_end(sks, file_master(&queuer->d)))
 			return -1;
-
-		sk = sks[0];
 	} else {
 		if (ui->ue->uflags & UNIX_UFLAGS__CALLBACK) {
-			sk = run_plugins(RESTORE_UNIX_SK, ui->ue->ino);
-			if (sk >= 0)
+			sks[0] = run_plugins(RESTORE_UNIX_SK, ui->ue->ino);
+			if (sks[0] >= 0)
 				goto out;
 		}
 
@@ -1962,23 +1992,24 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 			return -1;
 		}
 
-		sk = socket(PF_UNIX, ui->ue->type, 0);
-		if (sk < 0) {
-			pr_perror("Can't make unix socket");
+		pr_debug("socketpair instead of plain socket\n");
+		if (make_socket(ui, sks, false, true))
+			return -1;
+		close(sks[1]);
+	}
+
+	if (!(ui->ue->uflags & UNIX_UFLAGS__BINDMOUNT)) {
+		if (bind_unix_sk(sks[0], ui)) {
+			close(sks[0]);
 			return -1;
 		}
 	}
 
-	if (bind_unix_sk(sk, ui)) {
-		close(sk);
-		return -1;
-	}
-
 	if (ui->ue->state == TCP_LISTEN) {
 		pr_info("\tPutting %d into listen state\n", ui->ue->ino);
-		if (listen(sk, ui->ue->backlog) < 0) {
+		if (listen(sks[0], ui->ue->backlog) < 0) {
 			pr_perror("Can't make usk listen");
-			close(sk);
+			close(sks[0]);
 			return -1;
 		}
 		ui->listen = 1;
@@ -1993,15 +2024,15 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		 * 2)Queuer won't be able to connect, if we do
 		 * shutdown, so postpone it.
 		 */
-		*new_fd = sk;
+		*new_fd = sks[0];
 		return 1;
 	}
 
 out:
-	if (restore_sk_common(sk, ui))
+	if (restore_sk_common(sks[0], ui))
 		return -1;
 
-	*new_fd = sk;
+	*new_fd = sks[0];
 	return 0;
 }
 
@@ -2108,7 +2139,8 @@ static int init_unix_sk_info(struct unix_sk_info *ui, UnixSkEntry *ue)
 	ui->name_dir = (void *)ue->name_dir;
 
 	ui->flags		= 0;
-	ui->fdstore_id		= -1;
+	ui->fdstore_mnt_id[0]	= -1; /* fdstore_id in union */
+	ui->fdstore_mnt_id[1]	= -1;
 	ui->ghost_dir_pos	= 0;
 	ui->peer		= NULL;
 	ui->queuer		= NULL;
@@ -2221,8 +2253,24 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 		list_add_tail(&ui->ghost_node, &unix_ghost_addr);
 	}
 
-	if (ui->ue->uflags & UNIX_UFLAGS__BINDMOUNT)
+	if (ui->ue->uflags & UNIX_UFLAGS__BINDMOUNT) {
+		/*
+		 * Make sure it is supported socket!
+		 */
+		if ((ui->ue->uflags & ~UNIX_UFLAGS__BINDMOUNT) ||
+		    (ui->ue->type != SOCK_DGRAM) ||
+		    (ui->ue->state != TCP_CLOSE)) {
+			pr_err("bindmount: Unsupported socket id %#x "
+			       "(expect %x:%s:%s got %x:%s:%s)\n",
+			       ui->ue->id, UNIX_UFLAGS__BINDMOUNT,
+			       ___socket_type_name(SOCK_DGRAM),
+			       ___tcp_state_name(TCP_CLOSE),
+			       ui->ue->uflags, ___socket_type_name(ui->ue->type),
+			       ___tcp_state_name(ui->ue->state));
+			return -1;
+		}
 		list_add_tail(&ui->mnt_list, &unix_mnt_sockets);
+	}
 
 	list_add_tail(&ui->list, &unix_sockets);
 	return file_desc_add(&ui->d, ui->ue->id, &unix_desc_ops);
@@ -2235,6 +2283,119 @@ struct collect_image_info unix_sk_cinfo = {
 	.collect	= collect_one_unixsk,
 	.flags		= COLLECT_SHARED,
 };
+
+int unix_prepare_bindmount(struct mount_info *mi)
+{
+	int prev_cwd_fd = -1, prev_root_fd = -1;
+	int ret = -1, sks[2] = { -1, -1 };
+	struct unix_sk_info *ui;
+	char path[PATH_MAX];
+
+	list_for_each_entry(ui, &unix_mnt_sockets, mnt_list) {
+		if (ui->ue->mnt_id == mi->mnt_id) {
+			char type_name[64], state_name[64];
+			pr_info("bindmount: id %#x ino %d type %s state %s queuer %p peer %d (name %.*s dir %s)\n",
+				ui->ue->id, ui->ue->ino,
+				__socket_type_name(ui->ue->type, type_name),
+				__tcp_state_name(ui->ue->state, state_name),
+				ui->queuer, ui->ue->peer,
+				(int)ui->ue->name.len, ui->ue->name.data,
+				ui->name_dir ? ui->name_dir : "-");
+			break;
+		}
+	}
+
+	if (&ui->mnt_list == &unix_mnt_sockets)
+		return 0;
+
+	/*
+	 * Mark it as bindmount so when need to use we
+	 * would fetch it from the fdstore, and point
+	 * out that no need to cwd change since we
+	 * already opened it in proper place.
+	 */
+	ui->flags |= USK_BINDMOUNT | USK_NOCWD;
+
+	if (rst_get_mnt_root(mi->mnt_id, path, sizeof(path)) < 0) {
+		pr_err("bindmount: Can't setup mnt_root for %s\n", mi->ns_mountpoint);
+		return -1;
+	}
+
+	prev_cwd_fd = open(".", O_RDONLY);
+	if (prev_cwd_fd < 0) {
+		pr_perror("bindmount: Can't save current cwd");
+		goto out;
+	}
+
+	prev_root_fd = open("/", O_RDONLY);
+	if (prev_root_fd < 0) {
+		pr_perror("bindmount: Can't save current root");
+		goto out;
+	}
+
+	if (chdir(path)) {
+		pr_perror("bindmount: Can't chdir to %s", path);
+		goto out;
+	} else if (chroot(".")) {
+		pr_perror("bindmount: Can't chroot");
+		goto out;
+	}
+
+	if (ui->name_dir && chdir(ui->name_dir)) {
+		pr_perror("bindmount: Can't chdir to %s", ui->name_dir);
+		goto out;
+	}
+
+	if (set_netns(ui->ue->ns_id))
+		return -1;
+
+	/*
+	 * We support only DGRAM sockets for now so it is safe
+	 * to preallocate socket pair here and later the
+	 * open_unixsk_standalone helper will simply fetch the
+	 * peers, closing the ends it doesn't need.
+	 */
+	if (socketpair(PF_UNIX, ui->ue->type, 0, sks)) {
+		pr_perror("bindmount: Can't create socketpair id %#x",
+			  ui->ue->id);
+		goto out;
+	}
+
+	if (bind_unix_sk(sks[0], ui))
+		goto out;
+
+	ui->fdstore_mnt_id[0] = fdstore_add(sks[0]);
+	ui->fdstore_mnt_id[1] = fdstore_add(sks[1]);
+	if (ui->fdstore_mnt_id[0] < 0 || ui->fdstore_mnt_id[1] < 0) {
+		pr_err("bindmount: Can't add socketpair id %#x into fdstore\n",
+		        ui->ue->id);
+		goto out;
+	}
+
+	if (fchdir(prev_root_fd)) {
+		pr_perror("bindmount: Can't revert root directory");
+		goto out;
+	} else if (chroot(".")) {
+		pr_perror("bindmount: Can't revert chroot ");
+		goto out;
+	} else if (fchdir(prev_cwd_fd)) {
+		pr_perror("bindmount: Can't revert working dir");
+		goto out;
+	}
+
+	ret = 0;
+out:
+	close_safe(&prev_cwd_fd);
+	close_safe(&prev_root_fd);
+	close_safe(&sks[0]);
+	close_safe(&sks[1]);
+
+	if (ret == 0)
+		pr_debug("bindmount: Standalone socket moved into fdstore (id %#x ino %d peer %d)\n",
+			 ui->ue->id, ui->ue->ino, ui->ue->peer);
+
+	return ret;
+}
 
 static void set_peer(struct unix_sk_info *ui, struct unix_sk_info *peer)
 {

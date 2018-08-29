@@ -28,6 +28,7 @@
 #include "clone-noasan.h"
 #include "fdstore.h"
 
+#include "sockets.h"
 #include "images/mnt.pb-c.h"
 
 /*
@@ -2615,6 +2616,13 @@ static int try_remap_mount(struct mount_info *m)
 	struct mnt_remap_entry *r;
 
 	if (!mnt_needs_remap(m))
+
+	if (unix_prepare_bindmount(mi)) {
+		pr_err("Failed to prepare bindmount on unix at %s\n",
+		       mi->mountpoint);
+		goto err;
+	}
+
 		return 0;
 
 	BUG_ON(!m->parent);
