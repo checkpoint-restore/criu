@@ -92,6 +92,10 @@ int cpu_dump_cpuinfo(void)
 	cpu_x86_info.capability = (void *)rt_cpu_info.x86_capability;
 	cpu_x86_info.has_xfeatures_mask = true;
 	cpu_x86_info.xfeatures_mask = rt_cpu_info.xfeatures_mask;
+	cpu_x86_info.has_xsave_size = true;
+	cpu_x86_info.xsave_size = rt_cpu_info.xsave_size;
+	cpu_x86_info.has_xsave_size_max = true;
+	cpu_x86_info.xsave_size_max = rt_cpu_info.xsave_size_max;
 
 	if (rt_cpu_info.x86_model_id[0])
 		cpu_x86_info.model_id = rt_cpu_info.x86_model_id;
@@ -259,13 +263,24 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 	}
 
 	/*
-	 * Make sure the xsave features are at least not less
-	 * than current cpu supports.
+	 * Make sure the xsave features are compatible. We already hit the
+	 * issue with libc where we've checkpointed the container on old
+	 * machine but restored on more modern one and libc fetched new
+	 * xsave frame size directly by xsave instruction with greedy
+	 * feature mask causing programs to misbehave.
 	 */
-	if (cpu_info->xfeatures_mask > rt_cpu_info.xfeatures_mask) {
+	if (cpu_info->xfeatures_mask != rt_cpu_info.xfeatures_mask) {
 		uint64_t m = cpu_info->xfeatures_mask & ~rt_cpu_info.xfeatures_mask;
 		pr_err("CPU xfeatures has unsupported bits (%#llx)\n",
 		       (unsigned long long)m);
+		return -1;
+	} else if (cpu_info->xsave_size != rt_cpu_info.xsave_size) {
+		pr_err("CPU xsave size mismatch (%u/%u)\n",
+		       cpu_info->xsave_size, rt_cpu_info.xsave_size);
+		return -1;
+	} else if (cpu_info->xsave_size_max != rt_cpu_info.xsave_size_max) {
+		pr_err("CPU xsave max size mismatch (%u/%u)\n",
+		       cpu_info->xsave_size_max, rt_cpu_info.xsave_size_max);
 		return -1;
 	}
 
@@ -369,6 +384,18 @@ static compel_cpuinfo_t *img_to_cpuinfo(CpuinfoX86Entry *img_x86_entry)
 		cpu_info->xfeatures_mask = rt_cpu_info.xfeatures_mask;
 	} else
 		cpu_info->xfeatures_mask = img_x86_entry->xfeatures_mask;
+
+	/*
+	 * Same for other fields.
+	 */
+	if (!img_x86_entry->has_xsave_size)
+		cpu_info->xsave_size = rt_cpu_info.xsave_size;
+	else
+		cpu_info->xsave_size = img_x86_entry->xsave_size;
+	if (!img_x86_entry->has_xsave_size_max)
+		cpu_info->xsave_size_max = rt_cpu_info.xsave_size_max;
+	else
+		cpu_info->xsave_size_max = img_x86_entry->xsave_size_max;
 
 	return cpu_info;
 }

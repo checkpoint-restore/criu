@@ -17,6 +17,8 @@ message cpuinfo_x86_entry {
 	optional string			model_id	= 7;
 
 	optional uint64			xfeatures_mask	= 8;
+	optional uint32			xsave_size	= 9;
+	optional uint32			xsave_size_max	= 10;
 }
 
 message cpuinfo_ppc64_entry {
