@@ -22,7 +22,7 @@
 #include "protobuf.h"
 #include "image.h"
 
-#define PB_LOCAL_IMAGE_SIZE PATHLEN
+#define PB_LOCAL_IMAGE_SIZE PATH_MAX
 #define EPOLL_MAX_EVENTS 50
 
 // List of images already in memory.
@@ -70,7 +70,7 @@ struct epoll_event *events;
  * ID which corresponds to the working directory specified by the user.
  */
 struct snapshot {
-	char snapshot_id[PATHLEN];
+	char snapshot_id[PATH_MAX];
 	struct list_head l;
 };
 
@@ -81,8 +81,8 @@ struct snapshot *new_snapshot(char *snapshot_id)
 	if (!s)
 		return NULL;
 
-	strncpy(s->snapshot_id, snapshot_id, PATHLEN - 1);
-	s->snapshot_id[PATHLEN - 1]= '\0';
+	strncpy(s->snapshot_id, snapshot_id, PATH_MAX - 1);
+	s->snapshot_id[PATH_MAX - 1]= '\0';
 	return s;
 }
 
@@ -96,8 +96,8 @@ struct rimage *get_rimg_by_name(const char *snapshot_id, const char *path)
 	struct rimage *rimg = NULL;
 
 	list_for_each_entry(rimg, &rimg_head, l) {
-		if (!strncmp(rimg->path, path, PATHLEN) &&
-			!strncmp(rimg->snapshot_id, snapshot_id, PATHLEN)) {
+		if (!strncmp(rimg->path, path, PATH_MAX) &&
+			!strncmp(rimg->snapshot_id, snapshot_id, PATH_MAX)) {
 			return rimg;
 		}
 	}
@@ -110,8 +110,8 @@ struct roperation *get_rop_by_name(
 	struct roperation *rop = NULL;
 
 	list_for_each_entry(rop, head, l) {
-		if (!strncmp(rop->path, path, PATHLEN) &&
-			!strncmp(rop->snapshot_id, snapshot_id, PATHLEN)) {
+		if (!strncmp(rop->path, path, PATH_MAX) &&
+			!strncmp(rop->snapshot_id, snapshot_id, PATH_MAX)) {
 			return rop;
 		}
 	}
@@ -343,10 +343,10 @@ static int64_t read_header(int fd, char *snapshot_id, char *path, int *flags)
 	int ret = pb_read_obj(fd, (void **)&li, PB_LOCAL_IMAGE);
 
 	if (ret > 0) {
-		strncpy(snapshot_id, li->snapshot_id, PATHLEN - 1);
-		snapshot_id[PATHLEN - 1] = 0;
-		strncpy(path, li->name, PATHLEN - 1);
-		path[PATHLEN - 1] = 0;
+		strncpy(snapshot_id, li->snapshot_id, PATH_MAX - 1);
+		snapshot_id[PATH_MAX - 1] = 0;
+		strncpy(path, li->name, PATH_MAX - 1);
+		path[PATH_MAX - 1] = 0;
 		*flags = li->open_mode;
 	}
 	free(li);
@@ -370,8 +370,8 @@ int64_t read_remote_header(int fd, char *snapshot_id, char *path, int *flags, ui
 	int ret = pb_read_obj(fd, (void **)&ri, PB_REMOTE_IMAGE);
 
 	if (ret > 0) {
-		strncpy(snapshot_id, ri->snapshot_id, PATHLEN);
-		strncpy(path, ri->name, PATHLEN);
+		strncpy(snapshot_id, ri->snapshot_id, PATH_MAX);
+		strncpy(path, ri->name, PATH_MAX);
 		*flags = ri->open_mode;
 		*size = ri->size;
 	}
@@ -389,10 +389,10 @@ static struct rimage *new_remote_image(char *path, char *snapshot_id)
 		goto err;
 	}
 
-	strncpy(rimg->path, path, PATHLEN -1 );
-	strncpy(rimg->snapshot_id, snapshot_id, PATHLEN - 1);
-	rimg->path[PATHLEN - 1] = '\0';
-	rimg->snapshot_id[PATHLEN - 1] = '\0';
+	strncpy(rimg->path, path, PATH_MAX -1 );
+	strncpy(rimg->snapshot_id, snapshot_id, PATH_MAX - 1);
+	rimg->path[PATH_MAX - 1] = '\0';
+	rimg->snapshot_id[PATH_MAX - 1] = '\0';
 	INIT_LIST_HEAD(&(rimg->buf_head));
 	list_add_tail(&(buf->l), &(rimg->buf_head));
 	rimg->curr_fwd_buf = buf;
@@ -413,10 +413,10 @@ static struct roperation *new_remote_operation(
 		pr_perror("Unable to allocate remote operation structures");
 		return NULL;
 	}
-	strncpy(rop->path, path, PATHLEN -1 );
-	strncpy(rop->snapshot_id, snapshot_id, PATHLEN - 1);
-	rop->path[PATHLEN - 1] = '\0';
-	rop->snapshot_id[PATHLEN - 1] = '\0';
+	strncpy(rop->path, path, PATH_MAX -1 );
+	strncpy(rop->snapshot_id, snapshot_id, PATH_MAX - 1);
+	rop->path[PATH_MAX - 1] = '\0';
+	rop->snapshot_id[PATH_MAX - 1] = '\0';
 	rop->fd = cli_fd;
 	rop->flags = flags;
 	rop->close_fd = close_fd;
@@ -630,8 +630,8 @@ void forward_remote_image(struct roperation* rop)
 
 void handle_remote_accept(int fd)
 {
-	char path[PATHLEN];
-	char snapshot_id[PATHLEN];
+	char path[PATH_MAX];
+	char snapshot_id[PATH_MAX];
 	int flags;
 	uint64_t size = 0;
 	int64_t ret;
@@ -677,8 +677,8 @@ err:
 void handle_local_accept(int fd)
 {
 	int cli_fd;
-	char path[PATHLEN];
-	char snapshot_id[PATHLEN];
+	char path[PATH_MAX];
+	char snapshot_id[PATH_MAX];
 	int flags = 0;
 	struct sockaddr_in cli_addr;
 	socklen_t clilen = sizeof(cli_addr);
@@ -1226,12 +1226,12 @@ int push_snapshot_id(void)
 		return -1;
 	}
 
-	rn.snapshot_id = xmalloc(sizeof(char) * PATHLEN);
+	rn.snapshot_id = xmalloc(sizeof(char) * PATH_MAX);
 	if (!rn.snapshot_id) {
 		close(sockfd);
 		return -1;
 	}
-	strncpy(rn.snapshot_id, snapshot_id, PATHLEN);
+	strncpy(rn.snapshot_id, snapshot_id, PATH_MAX);
 
 	n = pb_write_obj(sockfd, &rn, PB_SNAPSHOT_ID);
 
@@ -1259,7 +1259,7 @@ int get_curr_snapshot_id_idx(void)
 		pull_snapshot_ids();
 
 	list_for_each_entry(si, &snapshot_head, l) {
-	if (!strncmp(si->snapshot_id, snapshot_id, PATHLEN))
+	if (!strncmp(si->snapshot_id, snapshot_id, PATH_MAX))
 			return idx;
 		idx++;
 	}
