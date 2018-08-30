@@ -261,28 +261,28 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 		} else
 			return 0;
 #undef __mismatch_fpu_bit
-	}
 
-	/*
-	 * Make sure the xsave features are compatible. We already hit the
-	 * issue with libc where we've checkpointed the container on old
-	 * machine but restored on more modern one and libc fetched new
-	 * xsave frame size directly by xsave instruction with greedy
-	 * feature mask causing programs to misbehave.
-	 */
-	if (cpu_info->xfeatures_mask != rt_cpu_info.xfeatures_mask) {
-		uint64_t m = cpu_info->xfeatures_mask & ~rt_cpu_info.xfeatures_mask;
-		pr_err("CPU xfeatures has unsupported bits (%#llx)\n",
-		       (unsigned long long)m);
-		return -1;
-	} else if (cpu_info->xsave_size != rt_cpu_info.xsave_size) {
-		pr_err("CPU xsave size mismatch (%u/%u)\n",
-		       cpu_info->xsave_size, rt_cpu_info.xsave_size);
-		return -1;
-	} else if (cpu_info->xsave_size_max != rt_cpu_info.xsave_size_max) {
-		pr_err("CPU xsave max size mismatch (%u/%u)\n",
-		       cpu_info->xsave_size_max, rt_cpu_info.xsave_size_max);
-		return -1;
+		/*
+		 * Make sure the xsave features are compatible. We already hit the
+		 * issue with libc where we've checkpointed the container on old
+		 * machine but restored on more modern one and libc fetched new
+		 * xsave frame size directly by xsave instruction with greedy
+		 * feature mask causing programs to misbehave.
+		 */
+		if (cpu_info->xfeatures_mask > rt_cpu_info.xfeatures_mask) {
+			uint64_t m = cpu_info->xfeatures_mask & ~rt_cpu_info.xfeatures_mask;
+			pr_err("CPU xfeatures has unsupported bits (%#llx)\n",
+			       (unsigned long long)m);
+			return -1;
+		} else if (cpu_info->xsave_size != rt_cpu_info.xsave_size) {
+			pr_err("CPU xsave size mismatch (%u/%u)\n",
+			       cpu_info->xsave_size, rt_cpu_info.xsave_size);
+			return -1;
+		} else if (cpu_info->xsave_size_max != rt_cpu_info.xsave_size_max) {
+			pr_err("CPU xsave max size mismatch (%u/%u)\n",
+			       cpu_info->xsave_size_max, rt_cpu_info.xsave_size_max);
+			return -1;
+		}
 	}
 
 	/*
