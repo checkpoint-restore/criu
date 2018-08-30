@@ -322,7 +322,7 @@ For example, the command line for the above example should look like this:
     - *all* for all above set.
 
 +
-By default the option is set to the combination of *fpu* and *cpu*.
+By default the option is set to *fpu* and *ins*.
 
 *--cgroup-root* ['controller':]/'newroot'::
     Change the root for the controller that will be dumped. By default, *criu*

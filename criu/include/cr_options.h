@@ -30,7 +30,7 @@
 #define CPU_CAP_INS		(1u << 2)	/* Instructions CPU capability */
 #define CPU_CAP_IMAGE		(1u << 3)	/* Write capability on dump and read on restore*/
 #define CPU_CAP_ALL		(CPU_CAP_FPU | CPU_CAP_CPU | CPU_CAP_INS)
-#define CPU_CAP_DEFAULT		(CPU_CAP_FPU | CPU_CAP_CPU)
+#define CPU_CAP_DEFAULT		(CPU_CAP_FPU | CPU_CAP_INS)
 
 struct cg_root_opt {
 	struct list_head node;
