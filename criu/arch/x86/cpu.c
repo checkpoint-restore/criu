@@ -78,24 +78,25 @@ int cpu_dump_cpuinfo(void)
 	if (!img)
 		return -1;
 
-	cpu_info.x86_entry = &cpu_x86_info_ptr;
-	cpu_info.n_x86_entry = 1;
+	cpu_info.x86_entry		= &cpu_x86_info_ptr;
+	cpu_info.n_x86_entry		= 1;
 
-	cpu_x86_info.vendor_id = (rt_cpu_info.x86_vendor == X86_VENDOR_INTEL) ?
+	cpu_x86_info.vendor_id		= (rt_cpu_info.x86_vendor == X86_VENDOR_INTEL) ?
 		CPUINFO_X86_ENTRY__VENDOR__INTEL :
 		CPUINFO_X86_ENTRY__VENDOR__AMD;
-	cpu_x86_info.cpu_family = rt_cpu_info.x86_family;
-	cpu_x86_info.model = rt_cpu_info.x86_model;
-	cpu_x86_info.stepping = rt_cpu_info.x86_mask;
-	cpu_x86_info.capability_ver = 2;
-	cpu_x86_info.n_capability = ARRAY_SIZE(rt_cpu_info.x86_capability);
-	cpu_x86_info.capability = (void *)rt_cpu_info.x86_capability;
-	cpu_x86_info.has_xfeatures_mask = true;
-	cpu_x86_info.xfeatures_mask = rt_cpu_info.xfeatures_mask;
-	cpu_x86_info.has_xsave_size = true;
-	cpu_x86_info.xsave_size = rt_cpu_info.xsave_size;
-	cpu_x86_info.has_xsave_size_max = true;
-	cpu_x86_info.xsave_size_max = rt_cpu_info.xsave_size_max;
+
+	cpu_x86_info.cpu_family		= rt_cpu_info.x86_family;
+	cpu_x86_info.model		= rt_cpu_info.x86_model;
+	cpu_x86_info.stepping		= rt_cpu_info.x86_mask;
+	cpu_x86_info.capability_ver	= 2;
+	cpu_x86_info.n_capability	= ARRAY_SIZE(rt_cpu_info.x86_capability);
+	cpu_x86_info.capability		= (void *)rt_cpu_info.x86_capability;
+	cpu_x86_info.has_xfeatures_mask	= true;
+	cpu_x86_info.xfeatures_mask	= rt_cpu_info.xfeatures_mask;
+	cpu_x86_info.has_xsave_size	= true;
+	cpu_x86_info.xsave_size		= rt_cpu_info.xsave_size;
+	cpu_x86_info.has_xsave_size_max	= true;
+	cpu_x86_info.xsave_size_max	= rt_cpu_info.xsave_size_max;
 
 	if (rt_cpu_info.x86_model_id[0])
 		cpu_x86_info.model_id = rt_cpu_info.x86_model_id;
@@ -321,9 +322,9 @@ static compel_cpuinfo_t *img_to_cpuinfo(CpuinfoX86Entry *img_x86_entry)
 
 	if (img_x86_entry->vendor_id != CPUINFO_X86_ENTRY__VENDOR__INTEL &&
 	    img_x86_entry->vendor_id != CPUINFO_X86_ENTRY__VENDOR__AMD) {
-			pr_err("Image carries unknown vendor %u\n",
-			       (unsigned)img_x86_entry->vendor_id);
-			return NULL;
+		pr_err("Image carries unknown vendor %u\n",
+		       (unsigned)img_x86_entry->vendor_id);
+		return NULL;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(ncapints); i++) {
