@@ -9,7 +9,6 @@
 #ifndef IMAGE_REMOTE_H
 #define	IMAGE_REMOTE_H
 
-#define PATHLEN PATH_MAX
 #define DUMP_FINISH "DUMP_FINISH"
 #define RESTORE_FINISH "RESTORE_FINISH"
 #define PARENT_IMG "parent"
@@ -28,8 +27,8 @@ struct rbuf {
 
 struct rimage {
 	/* Path and snapshot id identify the image. */
-	char path[PATHLEN];
-	char snapshot_id[PATHLEN];
+	char path[PATH_MAX];
+	char snapshot_id[PATH_MAX];
 	/* List anchor. */
 	struct list_head l;
 	/* List of buffers that compose the image. */
@@ -49,8 +48,8 @@ struct roperation {
 	/* File descriptor being used. */
 	int fd;
 	/* Path and snapshot id identify the required image. */
-	char path[PATHLEN];
-	char snapshot_id[PATHLEN];
+	char path[PATH_MAX];
+	char snapshot_id[PATH_MAX];
 	/* Remote image being used (may be null if the operation is pending). */
 	struct rimage *rimg;
 	/* Flags for the operation. */
