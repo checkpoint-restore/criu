@@ -287,8 +287,10 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 	/*
 	 * Capability on instructions level only.
 	 */
-	if (opts.cpu_cap & CPU_CAP_INS)
-		return cpu_validate_ins_features(cpu_info);
+	if (opts.cpu_cap & CPU_CAP_INS) {
+		if (cpu_validate_ins_features(cpu_info))
+			return -1;
+	}
 
 	/*
 	 * Strict capability mode. Everything must match.
