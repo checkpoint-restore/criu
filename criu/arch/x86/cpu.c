@@ -258,8 +258,7 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 			       __mismatch_fpu_bit(X86_FEATURE_OSXSAVE),
 			       __mismatch_fpu_bit(X86_FEATURE_XSAVES));
 			return -1;
-		} else
-			return 0;
+		}
 #undef __mismatch_fpu_bit
 
 		/*
