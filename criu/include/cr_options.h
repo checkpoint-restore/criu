@@ -24,11 +24,11 @@
 /*
  * CPU capability options.
  */
-#define CPU_CAP_NONE		(0u)
-#define CPU_CAP_ALL		(-1u)
-#define CPU_CAP_FPU		(1u)		/* Only FPU capability required */
-#define CPU_CAP_CPU		(2u)		/* Strict CPU capability required */
-#define CPU_CAP_INS (4u)			/* Instructions CPU capability */
+#define CPU_CAP_NONE		(0u << 0)	/* Don't check capability at all */
+#define CPU_CAP_FPU		(1u << 0)	/* Only FPU capability required */
+#define CPU_CAP_CPU		(1u << 1)	/* Strict CPU capability required */
+#define CPU_CAP_INS		(1u << 2)	/* Instructions CPU capability */
+#define CPU_CAP_ALL		(CPU_CAP_FPU | CPU_CAP_CPU | CPU_CAP_INS)
 #define CPU_CAP_DEFAULT		(CPU_CAP_FPU)
 
 struct cg_root_opt {

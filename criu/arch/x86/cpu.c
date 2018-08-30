@@ -236,7 +236,7 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 	if (cpu_has_unsupported_features())
 		return -1;
 
-	if (opts.cpu_cap == CPU_CAP_FPU) {
+	if (opts.cpu_cap & CPU_CAP_FPU) {
 		/*
 		 * If we're requested to check FPU only ignore
 		 * any other bit. It's up to a user if the
@@ -288,7 +288,7 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 	/*
 	 * Capability on instructions level only.
 	 */
-	if (opts.cpu_cap == CPU_CAP_INS)
+	if (opts.cpu_cap & CPU_CAP_INS)
 		return cpu_validate_ins_features(cpu_info);
 
 	/*
@@ -458,7 +458,7 @@ int cpuinfo_check(void)
 	 * still allow to check instructions only
 	 * and etc.
 	 */
-	if (!opts.cpu_cap)
+	if (opts.cpu_cap == CPU_CAP_NONE)
 		opts.cpu_cap = CPU_CAP_ALL;
 
 	if (cpu_validate_cpuinfo())
