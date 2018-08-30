@@ -312,9 +312,17 @@ For example, the command line for the above example should look like this:
 
 *--cpu-cap* ['cap'[,'cap'...]]::
     Specify CPU capabilities to write to an image file. The argument is a
-    comma-separated list of *none*, *fpu*, *cpu*, *ins*, *all*. If the
-    argument is omitted or set to *none*, capabilities will not be written,
-    which is the default behavior.
+    comma-separated list of:
++
+    - *none* to ignore capabilities at all; the image will not be produced
+      on dump, neither any check performed on restore;
+    - *fpu* to check if FPU module is compatible;
+    - *ins* to check if CPU supports all instructions required;
+    - *cpu* to check if CPU capabilities are exactly matching;
+    - *all* for all above set.
+
++
+By default the option is set to the combination of *fpu* and *cpu*.
 
 *--cgroup-root* ['controller':]/'newroot'::
     Change the root for the controller that will be dumped. By default, *criu*
