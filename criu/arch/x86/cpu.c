@@ -7,7 +7,6 @@
 #include <sys/types.h>
 
 #include "bitops.h"
-#include "asm/types.h"
 #include "asm/cpu.h"
 #include <compel/asm/fpu.h>
 #include <compel/cpu.h>
@@ -112,7 +111,7 @@ int cpu_dump_cpuinfo(void)
 
 #define __ins_bit(__l, __v)	(1u << ((__v) - 32u * (__l)))
 
-static u32 x86_ins_capability_mask[NCAPINTS] = {
+static uint32_t x86_ins_capability_mask[NCAPINTS] = {
 	[CPUID_1_EDX] =
 		__ins_bit(CPUID_1_EDX, X86_FEATURE_FPU)				|
 		__ins_bit(CPUID_1_EDX, X86_FEATURE_TSC)				|
@@ -215,8 +214,8 @@ static int cpu_validate_ins_features(compel_cpuinfo_t *cpu_info)
 	size_t i;
 
 	for (i = 0; i < ARRAY_SIZE(cpu_info->x86_capability); i++) {
-		u32 s = cpu_info->x86_capability[i] & x86_ins_capability_mask[i];
-		u32 d = rt_cpu_info.x86_capability[i] & x86_ins_capability_mask[i];
+		uint32_t s = cpu_info->x86_capability[i] & x86_ins_capability_mask[i];
+		uint32_t d = rt_cpu_info.x86_capability[i] & x86_ins_capability_mask[i];
 
 		/*
 		 * Destination might be more feature rich
