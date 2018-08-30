@@ -511,8 +511,10 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			goto err;
 	}
 
-	if (req->has_cpu_cap)
+	if (req->has_cpu_cap) {
 		opts.cpu_cap = req->cpu_cap;
+		opts.cpu_cap |= CPU_CAP_IMAGE;
+	}
 
 	/*
 	 * FIXME: For backward compatibility we setup

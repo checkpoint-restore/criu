@@ -2364,7 +2364,7 @@ int cr_restore_tasks(void)
 	if (vdso_init_restore())
 		goto err;
 
-	if (opts.cpu_cap & (CPU_CAP_INS | CPU_CAP_CPU)) {
+	if (opts.cpu_cap & CPU_CAP_IMAGE) {
 		if (cpu_validate_cpuinfo())
 			goto err;
 	}

@@ -1791,7 +1791,7 @@ int cr_dump_tasks(pid_t pid)
 	if (prepare_inventory(&he))
 		goto err;
 
-	if (opts.cpu_cap & (CPU_CAP_CPU | CPU_CAP_INS)) {
+	if (opts.cpu_cap & CPU_CAP_IMAGE) {
 		if (cpu_dump_cpuinfo())
 			goto err;
 	}
