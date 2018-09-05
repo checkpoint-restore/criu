@@ -2294,13 +2294,14 @@ int unix_prepare_bindmount(struct mount_info *mi)
 	list_for_each_entry(ui, &unix_mnt_sockets, mnt_list) {
 		if (ui->ue->mnt_id == mi->mnt_id) {
 			char type_name[64], state_name[64];
-			pr_info("bindmount: id %#x ino %d type %s state %s queuer %p peer %d (name %.*s dir %s)\n",
+			pr_info("bindmount: id %#x ino %d type %s state %s (queuer id %#x ino %d) peer %d (name %.*s dir %s)\n",
 				ui->ue->id, ui->ue->ino,
 				__socket_type_name(ui->ue->type, type_name),
 				__tcp_state_name(ui->ue->state, state_name),
-				ui->queuer, ui->ue->peer,
-				(int)ui->ue->name.len, ui->ue->name.data,
-				ui->name_dir ? ui->name_dir : "-");
+				ui->queuer ? ui->queuer->ue->id : -1,
+				ui->queuer ? ui->queuer->ue->ino : -1,
+				ui->ue->peer, (int)ui->ue->name.len,
+				ui->ue->name.data, ui->name_dir ? ui->name_dir : "-");
 			break;
 		}
 	}
