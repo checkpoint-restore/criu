@@ -1875,6 +1875,8 @@ static int make_socket(struct unix_sk_info *ui, int sks[2], bool pair, bool disj
 	if (unlikely(ui->flags & USK_BINDMOUNT)) {
 		sks[0] = fdstore_get(ui->fdstore_mnt_id[0]);
 		sks[1] = fdstore_get(ui->fdstore_mnt_id[1]);
+		pr_debug("bindmount: Fetch socket pair id %#x ino %d\n",
+			 ui->ue->id, ui->ue->ino);
 		if (sks[0] < 0 || sks[1] < 0) {
 			pr_err("bindmount: Can't fetch id %#x socketpair from the store\n",
 			       ui->ue->id);
@@ -1885,10 +1887,15 @@ static int make_socket(struct unix_sk_info *ui, int sks[2], bool pair, bool disj
 
 		sks[0] = sks[1] = -1;
 		if (!pair) {
+			pr_debug("Create socket id %#x ino %d\n",
+				 ui->ue->id, ui->ue->ino);
 			ret = socket(PF_UNIX, ui->ue->type, 0);
 			sks[0] = ret;
-		} else
+		} else {
+			pr_debug("Create socket pair id %#x ino %d\n",
+				 ui->ue->id, ui->ue->ino);
 			ret = socketpair(PF_UNIX, ui->ue->type, 0, sks);
+		}
 
 		if (ret < 0) {
 			pr_perror("Can't create %s id %#x\n",
