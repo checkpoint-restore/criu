@@ -1850,6 +1850,8 @@ static int break_connected(struct unix_sk_info *ui, int sk)
 {
 	if (ui->ue->type == SOCK_DGRAM) {
 		struct sockaddr_un addr = { .sun_family = AF_UNSPEC };
+		pr_debug("Break connected id %#x ino %d\n",
+			 ui->ue->id, ui->ue->ino);
 		/*
 		 * socketpair() assigns sks[1] as a peer of sks[0]
 		 * (and vice versa). But in this case (not zero peer)
