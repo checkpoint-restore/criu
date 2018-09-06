@@ -2,6 +2,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sched.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -25,12 +26,16 @@ int main(int argc, char **argv)
 	int sk = -1, skc = -1, ret = 1, fd;
 	struct sockaddr_un addr;
 	unsigned int addrlen;
+	task_waiter_t t;
 	struct stat st;
+	int status;
+	pid_t pid;
 
 	char buf[] = "123456";
 	char rbuf[sizeof(buf)];
 
 	test_init(argc, argv);
+	task_waiter_init(&t);
 
 	mkdir(dirname, 0700);
 	if (mount("none", dirname, "tmpfs", 0, NULL)) {
@@ -47,7 +52,7 @@ int main(int argc, char **argv)
 	fd = open(path_bind, O_RDONLY | O_CREAT);
 	if (fd < 0) {
 		pr_perror("Can't open %s", path_bind);
-		goto err;
+		return 1;
 	}
 	close(fd);
 
@@ -58,76 +63,108 @@ int main(int argc, char **argv)
 	sk = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (sk < 0) {
 		pr_perror("Can't create socket %s", path_unix);
-		goto err;
+		return 1;
 	}
 
 	ret = bind(sk, (struct sockaddr *)&addr, addrlen);
 	if (ret) {
 		pr_perror("Can't bind socket %s", path_unix);
-		goto err;
+		return 1;
 	}
 
 	if (stat(path_unix, &st) == 0) {
 		test_msg("path %s st.st_ino %#lx st.st_mode 0%o (sock %d)\n",
 			 path_unix, (unsigned long)st.st_ino,
 			 (int)st.st_mode, !!S_ISSOCK(st.st_mode));
-	} else
+	} else {
 		pr_perror("Can't stat on %s", path_unix);
+		return 1;
+	}
 
 	if (mount(path_unix, path_bind, NULL, MS_BIND | MS_REC, NULL)) {
 		pr_perror("Unable to bindmount %s -> %s", path_unix, path_bind);
-		goto err;
+		return 1;
 	}
 
 	if (stat(path_unix, &st) == 0) {
 		test_msg("path %s st.st_dev %#x st.st_rdev %#x st.st_ino %#lx st.st_mode 0%o (sock %d)\n",
 			 path_unix, (int)st.st_dev, (int)st.st_rdev, (unsigned long)st.st_ino,
 			 (int)st.st_mode, !!S_ISSOCK(st.st_mode));
-	} else
+	} else {
 		pr_perror("Can't stat on %s", path_unix);
+		return 1;
+	}
 
 	if (stat(path_bind, &st) == 0) {
 		test_msg("path %s st.st_dev %#x st.st_rdev %#x st.st_ino %#lx st.st_mode 0%o (sock %d)\n",
 			 path_bind, (int)st.st_dev, (int)st.st_rdev, (unsigned long)st.st_ino,
 			 (int)st.st_mode, !!S_ISSOCK(st.st_mode));
-	} else
+	} else {
 		pr_perror("Can't stat on %s", path_bind);
+		return 1;
+	}
+
+	pid = test_fork();
+	if (pid < 0) {
+		pr_perror("Can't fork");
+		return 1;
+	} else if (pid == 0) {
+		skc = socket(AF_UNIX, SOCK_DGRAM, 0);
+		if (skc < 0) {
+			pr_perror("Can't create client socket");
+			_exit(1);
+		}
+
+		addr.sun_family = AF_UNIX;
+		sstrncpy(addr.sun_path, path_bind);
+		addrlen = sizeof(addr.sun_family) + strlen(path_bind);
+
+		ret = connect(skc, (struct sockaddr *)&addr, addrlen);
+		if (ret) {
+			pr_perror("Can't connect\n");
+			_exit(1);
+		} else
+			test_msg("Connected to %s", addr.sun_path);
+
+		task_waiter_complete(&t, 1);
+		task_waiter_wait4(&t, 2);
+
+		ret = sendto(skc, buf, sizeof(buf), 0, (struct sockaddr *)&addr, addrlen);
+		if (ret != (int)sizeof(buf)) {
+			pr_perror("Can't send data on client");
+			_exit(1);
+		}
+
+		close(skc);
+		_exit(0);
+	}
+
+	task_waiter_wait4(&t, 1);
 
 	test_daemon();
 	test_waitsig();
 
-	skc = socket(AF_UNIX, SOCK_DGRAM, 0);
-	if (skc < 0) {
-		pr_perror("Can't create client socket");
-		goto err;
-	}
-
-	addr.sun_family = AF_UNIX;
-	sstrncpy(addr.sun_path, path_bind);
-	addrlen = sizeof(addr.sun_family) + strlen(path_bind);
-
-	ret = sendto(skc, buf, sizeof(buf), 0, (struct sockaddr *)&addr, addrlen);
-	if (ret != (int)sizeof(buf)) {
-		pr_perror("Can't send data on client");
-		ret = 1;
-		goto err;
-	}
+	task_waiter_complete(&t, 2);
 
 	ret = read(sk, rbuf, sizeof(rbuf));
 	if (ret < 0) {
-		pr_perror("Can't read data");
-		ret = 1;
+		fail("Can't read data");
 		goto err;
 	}
 
 	if (ret != sizeof(buf) || memcmp(buf, rbuf, sizeof(buf))) {
-		pr_err("Data mismatch");
-		ret = 1;
+		fail("Data mismatch");
 		goto err;
 	}
 
-	pass();
-	ret = 0;
+	ret = wait(&status);
+	if (ret == -1 || !WIFEXITED(status) || WEXITSTATUS(status)) {
+		kill(pid, SIGKILL);
+		fail("Unable to wait child");
+	} else {
+		ret = 0;
+		pass();
+	}
 
 err:
 	umount2(path_bind, MNT_DETACH);
@@ -135,5 +172,6 @@ err:
 	unlink(path_bind);
 	unlink(path_unix);
 	close(sk);
-	return ret;
+
+	return ret ? 1 : 0;
 }
