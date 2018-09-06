@@ -363,6 +363,8 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		SET_CHAR_OPTS(output, DEFAULT_LOG_FILENAME);
 	}
 
+	/* This is needed later to correctly set the log_level */
+	opts.log_level = req->log_level;
 	log_set_loglevel(req->log_level);
 	if (log_init(opts.output) == -1) {
 		pr_perror("Can't initiate log");
