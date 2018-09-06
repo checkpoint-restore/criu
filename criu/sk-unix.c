@@ -2097,7 +2097,9 @@ static int unlink_sk(struct unix_sk_info *ui)
 {
 	int ret = 0, cwd_fd = -1, root_fd = -1, ns_fd = -1;
 
-	if (!ui->name || ui->name[0] == '\0' || (ui->ue->uflags & UNIX_UFLAGS__EXTERN))
+	if (!ui->name || ui->name[0] == '\0' ||
+	    (ui->flags & USK_BINDMOUNT) ||
+	    (ui->ue->uflags & UNIX_UFLAGS__EXTERN))
 		return 0;
 
 	if (prep_unix_sk_cwd(ui, &cwd_fd, &root_fd, NULL))
