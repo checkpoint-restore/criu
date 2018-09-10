@@ -2476,6 +2476,11 @@ static int do_mount_one(struct mount_info *mi)
 	pr_debug("\tMounting %s @%s (%d)\n", mi->fstype->name, mi->mountpoint, mi->need_plugin);
 
 	if (rst_mnt_is_root(mi)) {
+		if (opts.root == NULL) {
+			pr_err("The --root option is required to restore a mount namespace\n");
+			return -1;
+		}
+
 		/* do_mount_root() is called from populate_mnt_ns() */
 		if (mount(opts.root, mi->mountpoint, NULL, MS_BIND | MS_REC, NULL))
 			return -1;
