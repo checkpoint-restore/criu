@@ -1355,7 +1355,7 @@ static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t uid, 
 
 	if (!( (errno == EPERM || errno == EOVERFLOW) && (root_ns_mask & CLONE_NEWUSER) )) {
 		errno_save = errno;
-		pr_warn("Can't link %s -> %s", opath, npath);
+		pr_warn("Can't link %s -> %s\n", opath, npath);
 		errno = errno_save;
 		return ret;
 	}

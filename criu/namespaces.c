@@ -52,7 +52,7 @@ int check_namespace_opts(void)
 		return -1;
 	}
 	if (join_ns_flags & CLONE_NEWUSER)
-		pr_warn("join-ns with user-namespace is not fully tested and dangerous");
+		pr_warn("join-ns with user-namespace is not fully tested and dangerous\n");
 
 	errno = 0;
 	return 0;

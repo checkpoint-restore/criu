@@ -235,7 +235,7 @@ int main(int argc, char *argv[], char *envp[])
 			opts.restore_detach &&
 			opts.final_state == TASK_STOPPED &&
 			opts.shell_job)
-		pr_warn("Stopped and detached shell job will get SIGHUP from OS.");
+		pr_warn("Stopped and detached shell job will get SIGHUP from OS.\n");
 
 	if (chdir(opts.work_dir)) {
 		pr_perror("Can't change directory to %s", opts.work_dir);

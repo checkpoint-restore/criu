@@ -2289,7 +2289,7 @@ out_kill:
 			kill(root_item->pid->real, SIGKILL);
 
 		if (waitpid(root_item->pid->real, &status, 0) < 0)
-			pr_warn("Unable to wait %d: %s",
+			pr_warn("Unable to wait %d: %s\n",
 				root_item->pid->real, strerror(errno));
 	} else {
 		struct pstree_item *pi;
