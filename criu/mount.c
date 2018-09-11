@@ -3359,8 +3359,7 @@ int prepare_mnt_ns(void)
 		}
 
 		/* Set its root */
-		path[0] = '/';
-		print_ns_root(nsid, 0, path + 1, sizeof(path) - 1);
+		print_ns_root(nsid, 0, path, sizeof(path) - 1);
 		if (cr_pivot_root(path))
 			goto err;
 
