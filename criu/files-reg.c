@@ -323,7 +323,13 @@ static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_im
 		goto err;
 	}
 
-	snprintf(path + ret, sizeof(path) - ret, "/%s", gf->remap.rpath);
+	/* Add a '/' only if we have no at the end */
+	if (path[root_len-1] != '/') {
+		path[root_len++] = '/';
+		path[root_len] = '\0';
+	}
+
+	snprintf(path + root_len, sizeof(path) - root_len, "%s", gf->remap.rpath);
 	ret = -1;
 again:
 	if (S_ISFIFO(gfe->mode)) {
@@ -358,7 +364,7 @@ again:
 		goto err;
 	}
 
-	strcpy(gf->remap.rpath, path + root_len + 1);
+	strcpy(gf->remap.rpath, path + root_len);
 	pr_debug("Remap rpath is %s\n", gf->remap.rpath);
 
 	ret = -1;
