@@ -206,12 +206,10 @@ int vaddr_to_pfn(int fd, unsigned long vaddr, u64 *pfn);
  */
 static inline bool strstartswith2(const char *str, const char *sub, char *end)
 {
-	const char *osub = sub;
-
 	while (1) {
 		if (*sub == '\0') /* end of sub -- match */ {
 			if (end) {
-				if (sub == osub + 1) /* pure root */
+				if (*(sub-1) == '/') /* "/", "./" or "path/" */
 					*end = '/';
 				else
 					*end = *str;
