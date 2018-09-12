@@ -164,7 +164,7 @@ int add_rpc_notify(int sk)
 	BUG_ON(scripts_mode == SCRIPTS_SHELL);
 	scripts_mode = SCRIPTS_RPC;
 
-	if (install_service_fd(RPC_SK_OFF, sk) < 0)
+	if (install_service_fd(RPC_SK_OFF, dup(sk)) < 0)
 		return -1;
 
 	return 0;

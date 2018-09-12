@@ -1297,8 +1297,6 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 
 		if (install_service_fd(CR_PROC_FD_OFF, pfd) < 0)
 			goto err_cure_imgset;
-
-		close(pfd);
 	}
 
 	ret = parasite_fixup_vdso(parasite_ctl, pid, &vmas);

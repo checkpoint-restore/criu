@@ -314,7 +314,6 @@ static inline int set_proc_pid_fd(int pid, int fd)
 
 	open_proc_pid = pid;
 	ret = install_service_fd(PROC_PID_FD_OFF, fd);
-	close(fd);
 
 	return ret;
 }
@@ -348,7 +347,7 @@ void close_proc()
 
 int set_proc_fd(int fd)
 {
-	if (install_service_fd(PROC_FD_OFF, fd) < 0)
+	if (install_service_fd(PROC_FD_OFF, dup(fd)) < 0)
 		return -1;
 	return 0;
 }
@@ -365,7 +364,6 @@ static int open_proc_sfd(char *path)
 	}
 
 	ret = install_service_fd(PROC_FD_OFF, fd);
-	close(fd);
 	if (ret < 0)
 		return -1;
 
@@ -502,10 +500,12 @@ int install_service_fd(enum sfd_type type, int fd)
 
 	if (dup3(fd, sfd, O_CLOEXEC) != sfd) {
 		pr_perror("Dup %d -> %d failed", fd, sfd);
+		close(fd);
 		return -1;
 	}
 
 	set_bit(type, sfd_map);
+	close(fd);
 	return sfd;
 }
 

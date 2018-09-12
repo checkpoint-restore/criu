@@ -472,7 +472,8 @@ int open_image_dir(char *dir)
 	}
 
 	ret = install_service_fd(IMG_FD_OFF, fd);
-	close(fd);
+	if (ret < 0)
+		return -1;
 	fd = ret;
 
 	if (opts.img_parent) {

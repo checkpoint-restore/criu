@@ -1764,11 +1764,8 @@ int open_transport_socket(void)
 		goto out;
 	}
 
-	if (install_service_fd(TRANSPORT_FD_OFF, sock) < 0) {
-		close(sock);
+	if (install_service_fd(TRANSPORT_FD_OFF, sock) < 0)
 		goto out;
-	}
-	close(sock);
 	ret = 0;
 out:
 	return ret;

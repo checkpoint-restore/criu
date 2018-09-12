@@ -1427,11 +1427,9 @@ static int start_usernsd(void)
 	if (install_service_fd(USERNSD_SK, sk[0]) < 0) {
 		kill(usernsd_pid, SIGKILL);
 		waitpid(usernsd_pid, NULL, 0);
-		close(sk[0]);
 		return -1;
 	}
 
-	close(sk[0]);
 	return 0;
 }
 

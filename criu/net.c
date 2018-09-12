@@ -2549,7 +2549,6 @@ int netns_keep_nsfd(void)
 		pr_err("Can't install ns net reference\n");
 	else
 		pr_info("Saved netns fd for links restore\n");
-	close(ns_fd);
 
 	return ret >= 0 ? 0 : -1;
 }

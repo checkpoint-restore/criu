@@ -1671,7 +1671,6 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 	}
 
 	ret = install_service_fd(CGROUP_YARD, i);
-	close(i);
 	if (ret < 0)
 		goto err;
 

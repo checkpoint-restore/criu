@@ -3398,7 +3398,6 @@ static int mntns_set_root_fd(pid_t pid, int fd)
 	ret = install_service_fd(ROOT_FD_OFF, fd);
 	if (ret >= 0)
 		mntns_root_pid = pid;
-	close(fd);
 
 	return ret;
 }

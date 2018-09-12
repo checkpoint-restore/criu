@@ -78,7 +78,6 @@ int fdstore_init(void)
 	}
 
 	ret = install_service_fd(FDSTORE_SK_OFF, sk);
-	close(sk);
 	if (ret < 0)
 		return -1;
 
