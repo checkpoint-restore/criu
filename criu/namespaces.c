@@ -857,7 +857,6 @@ static int check_user_ns(int pid)
 		struct __user_cap_header_struct hdr;
 		uid_t uid;
 		gid_t gid;
-		int i;
 
 		uid = host_uid(0);
 		gid = host_gid(0);
@@ -899,10 +898,6 @@ static int check_user_ns(int pid)
 			pr_perror("capset");
 			return -1;
 		}
-
-		close_old_fds();
-		for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++)
-			close_service_fd(i);
 
 		/*
 		 * Check that we are able to enter into other namespaces
