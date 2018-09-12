@@ -44,6 +44,7 @@
 #include "autofs.h"
 #include "parasite.h"
 #include "parasite-syscall.h"
+#include "kerndat.h"
 
 #include "protobuf.h"
 #include "util.h"
@@ -898,7 +899,7 @@ int prepare_fd_pid(struct pstree_item *item)
 		if (ret <= 0)
 			break;
 
-		if (e->fd >= service_fd_min_fd(item)) {
+		if (e->fd >= kdat.sysctl_nr_open) {
 			ret = -1;
 			pr_err("Too big FD number to restore %d\n", e->fd);
 			break;
