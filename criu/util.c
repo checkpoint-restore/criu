@@ -454,8 +454,6 @@ int init_service_fd(void)
 	}
 
 	service_fd_rlim_cur = (int)rlimit.rlim_cur;
-	service_fd_base = service_fd_rlim_cur;
-	BUG_ON(service_fd_base < SERVICE_FD_MAX);
 
 	return 0;
 }
@@ -476,6 +474,7 @@ int service_fd_min_fd(struct pstree_item *item)
 }
 
 static DECLARE_BITMAP(sfd_map, SERVICE_FD_MAX);
+static int sfd_arr[SERVICE_FD_MAX];
 /*
  * Variable for marking areas of code, where service fds modifications
  * are prohibited. It's used to safe them from reusing their numbers
@@ -498,6 +497,12 @@ int install_service_fd(enum sfd_type type, int fd)
 	if (sfds_protected && !test_bit(type, sfd_map))
 		sfds_protection_bug(type);
 
+	if (service_fd_base == 0) {
+		sfd_arr[type] = fd;
+		set_bit(type, sfd_map);
+		return fd;
+	}
+
 	if (dup3(fd, sfd, O_CLOEXEC) != sfd) {
 		pr_perror("Dup %d -> %d failed", fd, sfd);
 		close(fd);
@@ -515,6 +520,9 @@ int get_service_fd(enum sfd_type type)
 
 	if (!test_bit(type, sfd_map))
 		return -1;
+
+	if (service_fd_base == 0)
+		return sfd_arr[type];
 
 	return __get_service_fd(type, service_fd_id);
 }
