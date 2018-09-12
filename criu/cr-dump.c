@@ -1468,10 +1468,11 @@ static int setup_alarm_handler()
 	return 0;
 }
 
-static int cr_pre_dump_finish(int ret)
+static int cr_pre_dump_finish(int status)
 {
 	InventoryEntry he = INVENTORY_ENTRY__INIT;
 	struct pstree_item *item;
+	int ret;
 
 	/*
 	 * Restore registers for tasks only. The threads have not been
@@ -1488,6 +1489,11 @@ static int cr_pre_dump_finish(int ret)
 	pstree_switch_state(root_item, TASK_ALIVE);
 
 	timing_stop(TIME_FROZEN);
+
+	if (status < 0) {
+		ret = status;
+		goto err;
+	}
 
 	pr_info("Pre-dumping tasks' memory\n");
 	for_each_pstree_item(item) {
