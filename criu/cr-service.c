@@ -371,6 +371,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		goto err;
 	}
 
+	if (kerndat_init())
+		return 1;
+
 	if (log_keep_err()) {
 		pr_perror("Can't tune log");
 		goto err;
