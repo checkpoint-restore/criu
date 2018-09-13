@@ -1086,6 +1086,13 @@ static int check_kcmp_epoll(void)
 	return 0;
 }
 
+static int check_net_diag_raw(void)
+{
+	check_sock_diag();
+	return (socket_test_collect_bit(AF_INET, IPPROTO_RAW) &&
+		socket_test_collect_bit(AF_INET6, IPPROTO_RAW)) ? 0 : -1;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1194,6 +1201,7 @@ int cr_check(void)
 		ret |= check_uffd_noncoop();
 		ret |= check_sk_netns();
 		ret |= check_kcmp_epoll();
+		ret |= check_net_diag_raw();
 	}
 
 	/*
@@ -1292,6 +1300,7 @@ static struct feature_list feature_list[] = {
 	{ "can_map_vdso", check_can_map_vdso},
 	{ "sk_ns", check_sk_netns },
 	{ "sk_unix_file", check_sk_unix_file },
+	{ "net_diag_raw", check_net_diag_raw },
 	{ "nsid", check_nsid },
 	{ "link_nsid", check_link_nsid},
 	{ "kcmp_epoll", check_kcmp_epoll},
