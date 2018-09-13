@@ -271,7 +271,7 @@ static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p,
 
 	sk->sd.ino = p->stat.st_ino;
 
-	if (proto == IPPROTO_TCP) {
+	if (type != SOCK_RAW && proto == IPPROTO_TCP) {
 		struct {
 			__u8    tcpi_state;
 			__u8    tcpi_ca_state;
