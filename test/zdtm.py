@@ -1132,7 +1132,7 @@ class criu:
 		if self.__lazy_pages or self.__lazy_migrate:
 			lp_opts = []
 			if self.__remote_lazy_pages or self.__lazy_migrate:
-				lp_opts += ['--page-server', "--port", "12345"]
+				lp_opts += ['--page-server', "--port", "12345", "--address", "127.0.0.1"]
 			if self.__remote_lazy_pages:
 				ps_opts = ["--pidfile", "ps.pid",
 					   "--port", "12345", "--lazy-pages"]
