@@ -109,8 +109,14 @@ static void show_one_inet_img(const char *act, const InetSkEntry *e)
 		src_addr);
 }
 
-static int can_dump_ipproto(int ino, int proto)
+static int can_dump_ipproto(int ino, int proto, int type)
 {
+	/* Raw sockets may have any protocol inside */
+	if (type == SOCK_RAW) {
+		pr_err("Unsupported raw socket %x\n", ino);
+		return 0;
+	}
+
 	/* Make sure it's a proto we support */
 	switch (proto) {
 	case IPPROTO_IP:
@@ -338,14 +344,17 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	InetSkEntry ie = INET_SK_ENTRY__INIT;
 	IpOptsEntry ipopts = IP_OPTS_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
-	int ret = -1, err = -1, proto, aux;
+	int ret = -1, err = -1, proto, aux, type;
 
 	ret = do_dump_opt(lfd, SOL_SOCKET, SO_PROTOCOL,
 					&proto, sizeof(proto));
 	if (ret)
 		goto err;
 
-	if (!can_dump_ipproto(p->stat.st_ino, proto))
+	if (do_dump_opt(lfd, SOL_SOCKET, SO_TYPE, &type, sizeof(type)))
+		goto err;
+
+	if (!can_dump_ipproto(p->stat.st_ino, proto, type))
 		goto err;
 
 	sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino, family, proto);
