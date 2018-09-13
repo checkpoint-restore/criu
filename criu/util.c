@@ -1245,7 +1245,8 @@ void print_data(unsigned long addr, unsigned char *data, size_t size)
 	}
 }
 
-static int get_sockaddr_in(struct sockaddr_storage *addr, char *host)
+static int get_sockaddr_in(struct sockaddr_storage *addr, char *host,
+			unsigned short port)
 {
 	memset(addr, 0, sizeof(*addr));
 
@@ -1262,31 +1263,38 @@ static int get_sockaddr_in(struct sockaddr_storage *addr, char *host)
 	}
 
 	if (addr->ss_family == AF_INET6) {
-		((struct sockaddr_in6 *)addr)->sin6_port = htons(opts.port);
+		((struct sockaddr_in6 *)addr)->sin6_port = htons(port);
 	} else if (addr->ss_family == AF_INET) {
-		((struct sockaddr_in *)addr)->sin_port = htons(opts.port);
+		((struct sockaddr_in *)addr)->sin_port = htons(port);
 	}
 
 	return 0;
 }
 
-int setup_tcp_server(char *type)
+int setup_tcp_server(char *type, char *addr, unsigned short *port)
 {
 	int sk = -1;
+	int sockopt = 1;
 	struct sockaddr_storage saddr;
 	socklen_t slen = sizeof(saddr);
 
-	if (get_sockaddr_in(&saddr, opts.addr)) {
+	if (get_sockaddr_in(&saddr, addr, (*port))) {
 		return -1;
 	}
 
-	pr_info("Starting %s server on port %u\n", type, opts.port);
+	pr_info("Starting %s server on port %u\n", type, *port);
 
 	sk = socket(saddr.ss_family, SOCK_STREAM, IPPROTO_TCP);
 
 	if (sk < 0) {
 		pr_perror("Can't init %s server", type);
 		return -1;
+	}
+
+	if (setsockopt(
+		sk, SOL_SOCKET, SO_REUSEADDR, &sockopt, sizeof(sockopt)) == -1) {
+		pr_perror("Unable to set SO_REUSEADDR");
+		goto out;
 	}
 
 	if (bind(sk, (struct sockaddr *)&saddr, slen)) {
@@ -1300,19 +1308,19 @@ int setup_tcp_server(char *type)
 	}
 
 	/* Get socket port in case of autobind */
-	if (opts.port == 0) {
+	if ((*port) == 0) {
 		if (getsockname(sk, (struct sockaddr *)&saddr, &slen)) {
 			pr_perror("Can't get %s server name", type);
 			goto out;
 		}
 
 		if (saddr.ss_family == AF_INET6) {
-			opts.port = ntohs(((struct sockaddr_in6 *)&saddr)->sin6_port);
+			(*port) = ntohs(((struct sockaddr_in *)&saddr)->sin_port);
 		} else if (saddr.ss_family == AF_INET) {
-			opts.port = ntohs(((struct sockaddr_in *)&saddr)->sin_port);
+			(*port) = ntohs(((struct sockaddr_in6 *)&saddr)->sin6_port);
 		}
 
-		pr_info("Using %u port\n", opts.port);
+		pr_info("Using %u port\n", (*port));
 	}
 
 	return sk;
@@ -1375,7 +1383,7 @@ int setup_tcp_client(char *addr)
 
 	pr_info("Connecting to server %s:%u\n", addr, opts.port);
 
-	if (get_sockaddr_in(&saddr, addr))
+	if (get_sockaddr_in(&saddr, addr, opts.port))
 		return -1;
 
 	sk = socket(saddr.ss_family, SOCK_STREAM, IPPROTO_TCP);
