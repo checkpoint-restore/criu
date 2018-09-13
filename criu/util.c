@@ -30,6 +30,7 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sched.h>
@@ -1376,28 +1377,66 @@ out:
 	return -1;
 }
 
-int setup_tcp_client(char *addr)
+int setup_tcp_client(char *hostname)
 {
 	struct sockaddr_storage saddr;
-	int sk;
+	struct addrinfo addr_criteria, *addr_list, *p;
+	char ipstr[INET6_ADDRSTRLEN];
+	int sk = -1;
+	void *ip;
 
-	pr_info("Connecting to server %s:%u\n", addr, opts.port);
+	memset(&addr_criteria, 0, sizeof(addr_criteria));
+	addr_criteria.ai_family = AF_UNSPEC;
+	addr_criteria.ai_socktype = SOCK_STREAM;
+	addr_criteria.ai_protocol = IPPROTO_TCP;
 
-	if (get_sockaddr_in(&saddr, addr, opts.port))
-		return -1;
-
-	sk = socket(saddr.ss_family, SOCK_STREAM, IPPROTO_TCP);
-	if (sk < 0) {
-		pr_perror("Can't create socket");
-		return -1;
+	/*
+	 * addr_list contains a list of addrinfo structures that corresponding
+	 * to the criteria specified in hostname and addr_criteria.
+	 */
+	if (getaddrinfo(hostname, NULL, &addr_criteria, &addr_list)) {
+		pr_perror("Failed to resolve hostname: %s", hostname);
+		goto out;
 	}
 
-	if (connect(sk, (struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
-		pr_perror("Can't connect to server");
-		close(sk);
-		return -1;
+	/*
+	 * Iterate through addr_list and try to connect. The loop stops if the
+	 * connection is successful or we reach the end of the list.
+	 */
+	for(p = addr_list; p != NULL; p = p->ai_next) {
+
+		if (p->ai_family == AF_INET) {
+			struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+			ip = &(ipv4->sin_addr);
+		} else {
+			struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
+			ip = &(ipv6->sin6_addr);
+		}
+
+		inet_ntop(p->ai_family, ip, ipstr, sizeof(ipstr));
+		pr_info("Connecting to server %s:%u\n", ipstr, opts.port);
+
+		if (get_sockaddr_in(&saddr, ipstr, opts.port))
+			goto out;
+
+		sk = socket(saddr.ss_family, SOCK_STREAM, IPPROTO_TCP);
+		if (sk < 0) {
+			pr_perror("Can't create socket");
+			goto out;
+		}
+
+		if (connect(sk, (struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
+			pr_info("Can't connect to server %s:%u\n", ipstr, opts.port);
+			close(sk);
+			sk = -1;
+		} else {
+			/* Connected successfully */
+			break;
+		}
 	}
 
+out:
+	freeaddrinfo(addr_list);
 	return sk;
 }
 

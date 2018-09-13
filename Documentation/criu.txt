@@ -558,7 +558,7 @@ Launches *criu* in page server mode.
     It isn't supposed to use --daemon and --status-fd together.
 
 *--address* 'address'::
-    Page server IP address.
+    Page server IP address or hostname.
 
 *--port* 'number'::
     Page server port number.
