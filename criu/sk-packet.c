@@ -22,6 +22,9 @@
 #include "images/fdinfo.pb-c.h"
 #include "namespaces.h"
 
+#undef  LOG_PREFIX
+#define LOG_PREFIX "packet: "
+
 struct packet_sock_info {
 	PacketSockEntry *pse;
 	struct file_desc d;

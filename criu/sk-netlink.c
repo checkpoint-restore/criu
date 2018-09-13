@@ -14,6 +14,9 @@
 #include "libnetlink.h"
 #include "namespaces.h"
 
+#undef  LOG_PREFIX
+#define LOG_PREFIX "netlink: "
+
 struct netlink_sk_desc {
 	struct socket_desc	sd;
 	u32			portid;

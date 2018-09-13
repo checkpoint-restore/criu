@@ -27,6 +27,8 @@
 #include "protobuf.h"
 #include "images/tcp-stream.pb-c.h"
 
+#undef  LOG_PREFIX
+#define LOG_PREFIX "tcp: "
 
 static LIST_HEAD(cpt_tcp_repair_sockets);
 static LIST_HEAD(rst_tcp_repair_sockets);

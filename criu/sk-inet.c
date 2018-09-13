@@ -28,6 +28,9 @@
 #include "util.h"
 #include "namespaces.h"
 
+#undef  LOG_PREFIX
+#define LOG_PREFIX "inet: "
+
 #define PB_ALEN_INET	1
 #define PB_ALEN_INET6	4
 

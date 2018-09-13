@@ -29,6 +29,9 @@
 #include "util.h"
 #include "fdstore.h"
 
+#undef  LOG_PREFIX
+#define LOG_PREFIX "sockets: "
+
 #ifndef SOCK_DIAG_BY_FAMILY
 #define SOCK_DIAG_BY_FAMILY 20
 #endif
