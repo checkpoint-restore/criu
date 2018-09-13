@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 #include "cr_options.h"
+#include "util.h"
 
 int accept_proxy_to_cache(int sockfd)
 {
@@ -31,7 +32,7 @@ int image_cache(bool background, char *local_cache_path, unsigned short cache_wr
 		proxy_to_cache_fd = opts.ps_socket;
 		pr_info("Re-using ps socket %d\n", proxy_to_cache_fd);
 	} else {
-		proxy_to_cache_fd = setup_TCP_server_socket(cache_write_port);
+		proxy_to_cache_fd = setup_tcp_server("image cache", NULL, &cache_write_port);
 		if (proxy_to_cache_fd < 0) {
 			pr_perror("Unable to open proxy to cache TCP socket");
 			return -1;
