@@ -840,7 +840,7 @@ int inet_bind(int sk, struct inet_sk_info *ii)
 	 * sockets could not be bound to them in this moment
 	 * without setting IP_FREEBIND.
 	 */
-	if (ii->ie->family == AF_INET6) {
+	if (ii->ie->family == AF_INET6 && ii->ie->type != SOCK_RAW) {
 		int yes = 1;
 
 		if (restore_opt(sk, SOL_IP, IP_FREEBIND, &yes))
