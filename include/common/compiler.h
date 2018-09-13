@@ -8,6 +8,7 @@
  */
 
 #define ARRAY_SIZE(x)		(sizeof(x) / sizeof((x)[0]))
+#define NELEMS_AS_ARRAY(x,y)	(sizeof(x) / sizeof((y)[0]))
 #define BUILD_BUG_ON(condition)	((void)sizeof(char[1 - 2*!!(condition)]))
 
 #define ASSIGN_TYPED(a, b)	do { (a) = (typeof(a))(b); } while (0)
