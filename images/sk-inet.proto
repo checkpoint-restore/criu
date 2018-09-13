@@ -4,11 +4,16 @@ import "opts.proto";
 import "fown.proto";
 import "sk-opts.proto";
 
+message ip_opts_raw_entry {
+	optional bool			hdrincl		= 1;
+	optional bool			nodefrag	= 2;
+	optional bool			checksum	= 3;
+	repeated uint32			icmpv_filter	= 4;
+}
+
 message ip_opts_entry {
-	optional bool		freebind	= 1;
-	// For raw sockets support
-	// optional bool	hdrincl		= 2;
-	// optional bool	nodefrag	= 3;
+	optional bool			freebind	= 1;
+	optional ip_opts_raw_entry	raw		= 2;
 }
 
 message inet_sk_entry {

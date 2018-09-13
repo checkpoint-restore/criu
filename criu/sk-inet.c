@@ -11,6 +11,8 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <stdlib.h>
+#include <linux/icmp.h>
+#include <linux/icmpv6.h>
 
 #include "../soccr/soccr.h"
 
@@ -112,10 +114,8 @@ static void show_one_inet_img(const char *act, const InetSkEntry *e)
 static int can_dump_ipproto(int ino, int proto, int type)
 {
 	/* Raw sockets may have any protocol inside */
-	if (type == SOCK_RAW) {
-		pr_err("Unsupported raw socket %x\n", ino);
-		return 0;
-	}
+	if (type == SOCK_RAW)
+		return 1;
 
 	/* Make sure it's a proto we support */
 	switch (proto) {
@@ -307,12 +307,76 @@ err:
 	return NULL;
 }
 
-static int dump_ip_opts(int sk, IpOptsEntry *ioe)
+static int ip_raw_opts_alloc(int family, int proto, IpOptsRawEntry *r)
+{
+	if (proto == IPPROTO_ICMP || proto == IPPROTO_ICMPV6) {
+		if (family == AF_INET6)
+			r->n_icmpv_filter = NELEMS_AS_ARRAY(struct icmp6_filter,
+							    r->icmpv_filter);
+		else
+			r->n_icmpv_filter = NELEMS_AS_ARRAY(struct icmp_filter,
+							    r->icmpv_filter);
+		r->icmpv_filter = xmalloc(pb_repeated_size(r, icmpv_filter));
+		pr_debug("r->n_icmpv_filter %d size %d\n",
+			 (int)r->n_icmpv_filter,
+			 (int)pb_repeated_size(r, icmpv_filter));
+		if (!r->icmpv_filter)
+			return -ENOMEM;
+	}
+	return 0;
+}
+
+static void ip_raw_opts_free(IpOptsRawEntry *r)
+{
+	r->n_icmpv_filter = 0;
+	xfree(r->icmpv_filter);
+}
+
+static int dump_ip_raw_opts(int sk, int family, int proto, IpOptsRawEntry *r)
 {
 	int ret = 0;
 
-	ret |= dump_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
-	ioe->has_freebind = ioe->freebind;
+	ret = ip_raw_opts_alloc(family, proto, r);
+	if (ret)
+		return ret;
+
+	if (family == AF_INET6) {
+		ret |= dump_opt(sk, SOL_IPV6, IPV6_HDRINCL, &r->hdrincl);
+
+		if (proto == IPPROTO_ICMPV6)
+			ret |= do_dump_opt(sk, SOL_ICMPV6, ICMPV6_FILTER,
+					   r->icmpv_filter,
+					   pb_repeated_size(r, icmpv_filter));
+	} else {
+		ret |= dump_opt(sk, SOL_IP, IP_HDRINCL, &r->hdrincl);
+		ret |= dump_opt(sk, SOL_IP, IP_NODEFRAG, &r->nodefrag);
+		r->has_nodefrag = !!r->nodefrag;
+
+		if (proto == IPPROTO_ICMP)
+			ret |= do_dump_opt(sk, SOL_RAW, ICMP_FILTER,
+					   r->icmpv_filter,
+					   pb_repeated_size(r, icmpv_filter));
+	}
+	r->has_hdrincl = !!r->hdrincl;
+
+	return ret;
+}
+
+static int dump_ip_opts(int sk, int family, int type, int proto, IpOptsEntry *ioe)
+{
+	int ret = 0;
+
+	if (type == SOCK_RAW) {
+		/*
+		 * Raw sockets might need allocate more space
+		 * and fetch additional options.
+		 */
+		ret |= dump_ip_raw_opts(sk, family, proto, ioe->raw);
+	} else {
+		/* Due to kernel code we can use SOL_IP instead of SOL_IPV6 */
+		ret |= dump_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
+		ioe->has_freebind = ioe->freebind;
+	}
 
 	return ret;
 }
@@ -342,6 +406,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	FileEntry fe = FILE_ENTRY__INIT;
 	InetSkEntry ie = INET_SK_ENTRY__INIT;
 	IpOptsEntry ipopts = IP_OPTS_ENTRY__INIT;
+	IpOptsRawEntry ipopts_raw = IP_OPTS_RAW_ENTRY__INIT;
 	SkOptsEntry skopts = SK_OPTS_ENTRY__INIT;
 	int ret = -1, err = -1, proto, aux, type;
 
@@ -356,7 +421,10 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	if (!can_dump_ipproto(p->stat.st_ino, proto, type))
 		goto err;
 
-	sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino, family, proto);
+	if (type == SOCK_RAW)
+		sk = (struct inet_sk_desc *)lookup_socket_ino(p->stat.st_ino, family);
+	else
+		sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino, family, proto);
 	if (IS_ERR(sk))
 		goto err;
 	if (!sk) {
@@ -366,21 +434,23 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	}
 
 	sk->cork = false;
-	switch (proto) {
-	case IPPROTO_UDP:
-	case IPPROTO_UDPLITE:
-		if (dump_opt(lfd, SOL_UDP, UDP_CORK, &aux))
-			return -1;
-		if (aux) {
-			sk->cork = true;
-			/*
-			 * FIXME: it is possible to dump a corked socket with
-			 * the empty send queue.
-			 */
-			pr_err("Can't dump corked dgram socket %x\n", sk->sd.ino);
-			goto err;
+	if (type != SOCK_RAW) {
+		switch (proto) {
+		case IPPROTO_UDP:
+		case IPPROTO_UDPLITE:
+			if (dump_opt(lfd, SOL_UDP, UDP_CORK, &aux))
+				return -1;
+			if (aux) {
+				sk->cork = true;
+				/*
+				 * FIXME: it is possible to dump a corked socket with
+				 * the empty send queue.
+				 */
+				pr_err("Can't dump corked dgram socket %x\n", sk->sd.ino);
+				goto err;
+			}
+			break;
 		}
-		break;
 	}
 
 	if (!can_dump_inet_sk(sk))
@@ -405,6 +475,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	ie.fown		= (FownEntry *)&p->fown;
 	ie.opts		= &skopts;
 	ie.ip_opts	= &ipopts;
+	ie.ip_opts->raw	= &ipopts_raw;
 
 	ie.n_src_addr = PB_ALEN_INET;
 	ie.n_dst_addr = PB_ALEN_INET;
@@ -451,7 +522,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	memcpy(ie.src_addr, sk->src_addr, pb_repeated_size(&ie, src_addr));
 	memcpy(ie.dst_addr, sk->dst_addr, pb_repeated_size(&ie, dst_addr));
 
-	if (dump_ip_opts(lfd, &ipopts))
+	if (dump_ip_opts(lfd, family, type, proto, &ipopts))
 		goto err;
 
 	if (dump_socket_opts(lfd, &skopts))
@@ -465,7 +536,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 
 	switch (proto) {
 	case IPPROTO_TCP:
-		err = dump_one_tcp(lfd, sk);
+		err = (type != SOCK_RAW) ? dump_one_tcp(lfd, sk) : 0;
 		break;
 	case IPPROTO_UDP:
 	case IPPROTO_UDPLITE:
@@ -482,9 +553,14 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	fe.id = ie.id;
 	fe.isk = &ie;
 
+	/* Unchain not need field back */
+	if (type != SOCK_RAW)
+		ie.ip_opts->raw = NULL;
+
 	if (pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE))
 		goto err;
 err:
+	ip_raw_opts_free(&ipopts_raw);
 	release_skopts(&skopts);
 	xfree(ie.src_addr);
 	xfree(ie.dst_addr);
@@ -654,13 +730,37 @@ static int post_open_inet_sk(struct file_desc *d, int sk)
 	return 0;
 }
 
-int restore_ip_opts(int sk, IpOptsEntry *ioe)
+static int restore_ip_raw_opts(int sk, int family, int proto, IpOptsRawEntry *r)
+{
+	int ret = 0;
+
+	if (r->icmpv_filter) {
+		if (proto == IPPROTO_ICMP || proto == IPPROTO_ICMPV6) {
+			ret |= do_restore_opt(sk, family == AF_INET6 ? SOL_ICMPV6 : SOL_RAW,
+					      family == AF_INET6 ? ICMPV6_FILTER : ICMP_FILTER,
+					      r->icmpv_filter, pb_repeated_size(r, icmpv_filter));
+		}
+	}
+
+	if (r->has_nodefrag)
+		ret |= restore_opt(sk, SOL_IP, IP_NODEFRAG, &r->nodefrag);
+	if (r->has_hdrincl)
+		ret |= restore_opt(sk, family == AF_INET6 ? SOL_IPV6 : SOL_IP,
+				   family == AF_INET6 ? IPV6_HDRINCL : IP_HDRINCL,
+				   &r->hdrincl);
+
+	return ret;
+}
+
+int restore_ip_opts(int sk, int family, int proto, IpOptsEntry *ioe)
 {
 	int ret = 0;
 
 	if (ioe->has_freebind)
 		ret |= restore_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
 
+	if (ioe->raw)
+		ret |= restore_ip_raw_opts(sk, family, proto, ioe->raw);
 	return ret;
 }
 static int open_inet_sk(struct file_desc *d, int *new_fd)
@@ -683,7 +783,7 @@ static int open_inet_sk(struct file_desc *d, int *new_fd)
 		return -1;
 	}
 
-	if ((ie->type != SOCK_STREAM) && (ie->type != SOCK_DGRAM)) {
+	if ((ie->type != SOCK_STREAM) && (ie->type != SOCK_DGRAM) && (ie->type != SOCK_RAW)) {
 		pr_err("Unsupported socket type: %d\n", ie->type);
 		return -1;
 	}
@@ -763,7 +863,7 @@ done:
 	if (rst_file_params(sk, ie->fown, ie->flags))
 		goto err;
 
-	if (ie->ip_opts && restore_ip_opts(sk, ie->ip_opts))
+	if (ie->ip_opts && restore_ip_opts(sk, ie->family, ie->proto, ie->ip_opts))
 		goto err;
 
 	if (restore_socket_opts(sk, ie->opts))
