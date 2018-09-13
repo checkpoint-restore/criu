@@ -1107,11 +1107,12 @@ static int pull_snapshot_ids(void)
 	sockfd = read_remote_image_connection(NULL_SNAPSHOT_ID, PARENT_IMG);
 
 	/* The connection was successful but there is not file. */
-	if (sockfd < 0 && errno == ENOENT)
+	if (sockfd < 0) {
+		if (errno != ENOENT) {
+			pr_err("Unable to open snapshot id read connection\n");
+			return -1;
+		}
 		return 0;
-	else if (sockfd < 0) {
-		pr_err("Unable to open snapshot id read connection\n");
-		return -1;
 	}
 
 	while (1) {
