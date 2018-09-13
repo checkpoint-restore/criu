@@ -291,6 +291,9 @@ void preload_socket_modules(void)
 	req.r.i.sdiag_protocol = IPPROTO_UDP; /* UDLITE is merged with UDP */
 	probe_diag(nl, &req, -ENOENT);
 
+	req.r.i.sdiag_protocol = IPPROTO_RAW;
+	probe_diag(nl, &req, -ENOENT);
+
 	close(nl);
 	pr_info("Done probing\n");
 }
