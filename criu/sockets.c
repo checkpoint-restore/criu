@@ -141,9 +141,11 @@ enum socket_cl_bits
 	INET_TCP_CL_BIT,
 	INET_UDP_CL_BIT,
 	INET_UDPLITE_CL_BIT,
+	INET_RAW_CL_BIT,
 	INET6_TCP_CL_BIT,
 	INET6_UDP_CL_BIT,
 	INET6_UDPLITE_CL_BIT,
+	INET6_RAW_CL_BIT,
 	UNIX_CL_BIT,
 	PACKET_CL_BIT,
 	_MAX_CL_BIT,
@@ -169,6 +171,8 @@ enum socket_cl_bits get_collect_bit_nr(unsigned int family, unsigned int proto)
 			return INET_UDP_CL_BIT;
 		if (proto == IPPROTO_UDPLITE)
 			return INET_UDPLITE_CL_BIT;
+		if (proto == IPPROTO_RAW)
+			return INET_RAW_CL_BIT;
 	}
 	if (family == AF_INET6) {
 		if (proto == IPPROTO_TCP)
@@ -177,6 +181,8 @@ enum socket_cl_bits get_collect_bit_nr(unsigned int family, unsigned int proto)
 			return INET6_UDP_CL_BIT;
 		if (proto == IPPROTO_UDPLITE)
 			return INET6_UDPLITE_CL_BIT;
+		if (proto == IPPROTO_RAW)
+			return INET6_RAW_CL_BIT;
 	}
 
 	pr_err("Unknown pair family %d proto %d\n", family, proto);
@@ -686,6 +692,9 @@ static int inet_receive_one(struct nlmsghdr *h, struct ns_id *ns, void *arg)
 	case IPPROTO_UDPLITE:
 		type = SOCK_DGRAM;
 		break;
+	case IPPROTO_RAW:
+		type = SOCK_RAW;
+		break;
 	default:
 		BUG_ON(1);
 		return -1;
@@ -761,6 +770,18 @@ int collect_sockets(struct ns_id *ns)
 	if (tmp)
 		err = tmp;
 
+	/* Collect IPv4 RAW sockets */
+	req.r.i.sdiag_family	= AF_INET;
+	req.r.i.sdiag_protocol	= IPPROTO_RAW;
+	req.r.i.idiag_ext	= 0;
+	req.r.i.idiag_states	= -1; /* All */
+	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, ns, &req.r.i);
+	if (tmp) {
+		pr_warn("The current kernel doesn't support ipv4 raw_diag module\n");
+		if (tmp != -ENOENT)
+			err = tmp;
+	}
+
 	/* Collect IPv6 TCP sockets */
 	req.r.i.sdiag_family	= AF_INET6;
 	req.r.i.sdiag_protocol	= IPPROTO_TCP;
@@ -791,6 +812,18 @@ int collect_sockets(struct ns_id *ns)
 	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, ns, &req.r.i);
 	if (tmp)
 		err = tmp;
+
+	/* Collect IPv6 RAW sockets */
+	req.r.i.sdiag_family	= AF_INET6;
+	req.r.i.sdiag_protocol	= IPPROTO_RAW;
+	req.r.i.idiag_ext	= 0;
+	req.r.i.idiag_states	= -1; /* All */
+	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, ns, &req.r.i);
+	if (tmp) {
+		pr_warn("The current kernel doesn't support ipv6 raw_diag module\n");
+		if (tmp != -ENOENT)
+			err = tmp;
+	}
 
 	req.r.p.sdiag_family	= AF_PACKET;
 	req.r.p.sdiag_protocol	= 0;
