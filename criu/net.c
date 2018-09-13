@@ -1914,17 +1914,44 @@ out:
 
 static int restore_ip_dump(int type, int pid, char *cmd)
 {
-	int ret = -1;
+	int ret = -1, sockfd, n, written;
+	FILE *tmp_file;
 	struct cr_img *img;
+	char buf[1024];
 
 	img = open_image(type, O_RSTR, pid);
 	if (empty_image(img)) {
 		close_image(img);
 		return 0;
 	}
+	sockfd = img_raw_fd(img);
+	tmp_file = tmpfile();
+	if (!tmp_file) {
+		pr_perror("Failed to open tmpfile");
+		return -1;
+	}
+
+	while ((n = read(sockfd, buf, 1024)) > 0) {
+		written = fwrite(buf, sizeof(char), n, tmp_file);
+		if (written < n) {
+			pr_perror("Failed to write to tmpfile "
+				  "[written: %d; total: %d]", written, n);
+			return -1;
+		}
+	}
+
+	if (fseek(tmp_file, 0, SEEK_SET)) {
+		pr_perror("Failed to set file position to beginning of tmpfile");
+		return -1;
+	}
+
 	if (img) {
-		ret = run_ip_tool(cmd, "restore", NULL, NULL, img_raw_fd(img), -1, 0);
+		ret = run_ip_tool(cmd, "restore", NULL, NULL, fileno(tmp_file), -1, 0);
 		close_image(img);
+	}
+
+	if(fclose(tmp_file)) {
+		pr_perror("Failed to close tmpfile");
 	}
 
 	return ret;
