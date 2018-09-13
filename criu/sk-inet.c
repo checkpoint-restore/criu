@@ -84,10 +84,11 @@ static void show_one_inet(const char *act, const struct inet_sk_desc *sk)
 		pr_perror("Failed to translate address");
 	}
 
-	pr_debug("\t%s: ino %#8x family %4d type %4d port %8d "
-		"state %2d src_addr %s\n",
-		act, sk->sd.ino, sk->sd.family, sk->type, sk->src_port,
-		sk->state, src_addr);
+	pr_debug("\t%s: ino %#8x family %-10s type %-14s port %8d "
+		"state %-16s src_addr %s\n", act, sk->sd.ino,
+		___socket_family_name(sk->sd.family),
+		___socket_type_name(sk->type), sk->src_port,
+		___tcp_state_name(sk->state), src_addr);
 }
 
 static void show_one_inet_img(const char *act, const InetSkEntry *e)
@@ -99,10 +100,13 @@ static void show_one_inet_img(const char *act, const InetSkEntry *e)
 		pr_perror("Failed to translate address");
 	}
 
-	pr_debug("\t%s: family %d type %d proto %d port %d "
-		"state %d src_addr %s\n",
-		act, e->family, e->type, e->proto, e->src_port,
-		e->state, src_addr);
+	pr_debug("\t%s: family %-10s type %-14s proto %-16s port %d "
+		"state %-16s src_addr %s\n", act,
+		___socket_family_name(e->family),
+		___socket_type_name(e->type),
+		___socket_proto_name(e->proto),
+		e->src_port, ___tcp_state_name(e->state),
+		src_addr);
 }
 
 static int can_dump_ipproto(int ino, int proto)
