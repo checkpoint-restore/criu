@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 #include "cr_options.h"
+#include "util.h"
 
 int image_proxy(bool background, char *local_proxy_path, char *fwd_host, unsigned short fwd_port)
 {
@@ -22,7 +23,7 @@ int image_proxy(bool background, char *local_proxy_path, char *fwd_host, unsigne
 		proxy_to_cache_fd = opts.ps_socket;
 		pr_info("Re-using ps socket %d\n", proxy_to_cache_fd);
 	} else {
-		proxy_to_cache_fd = setup_TCP_client_socket(fwd_host, fwd_port);
+		proxy_to_cache_fd = setup_tcp_client(fwd_host, fwd_port);
 		if (proxy_to_cache_fd < 0) {
 			pr_perror("Unable to open proxy to cache TCP socket");
 			return -1; // TODO - should close other sockets.

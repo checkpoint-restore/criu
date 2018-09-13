@@ -82,7 +82,6 @@ int64_t recv_image_async(struct roperation *op);
 int64_t read_remote_header(int fd, char *snapshot_id, char *path, int *open_mode, uint64_t *size);
 int64_t write_remote_header(int fd, char *snapshot_id, char *path, int open_mode, uint64_t size);
 
-int setup_TCP_client_socket(char *hostname, int port);
 int setup_UNIX_server_socket(char *path);
 void socket_set_non_blocking(int fd);
 

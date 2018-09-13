@@ -291,7 +291,7 @@ void print_data(unsigned long addr, unsigned char *data, size_t size);
 
 int setup_tcp_server(char *type, char *addr, unsigned short *port);
 int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk);
-int setup_tcp_client(char *hostname);
+int setup_tcp_client(char *hostname, unsigned short port);
 
 #define LAST_PID_PATH		"sys/kernel/ns_last_pid"
 #define PID_MAX_PATH		"sys/kernel/pid_max"

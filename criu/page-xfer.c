@@ -1054,7 +1054,7 @@ static int connect_to_page_server(void)
 		goto out;
 	}
 
-	page_server_sk = setup_tcp_client(opts.addr);
+	page_server_sk = setup_tcp_client(opts.addr, opts.port);
 	if (page_server_sk == -1)
 		return -1;
 out:
