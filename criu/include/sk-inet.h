@@ -16,6 +16,18 @@
 #define TCP_REPAIR_OPTIONS	22
 #endif
 
+#ifndef IP_HDRINCL
+# define IP_HDRINCL		3
+#endif
+
+#ifndef IP_NODEFRAG
+# define IP_NODEFRAG		22
+#endif
+
+#ifndef IPV6_HDRINCL
+# define IPV6_HDRINCL		36
+#endif
+
 struct inet_sk_desc {
 	struct socket_desc	sd;
 	unsigned int		type;
