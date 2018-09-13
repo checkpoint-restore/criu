@@ -13,6 +13,7 @@ pipeline {
 	stages {
 		stage('Build') {
 			steps {
+				sh 'git clean -dxf'
 				sh 'make'
 				sh 'make -C test/zdtm'
 			}
