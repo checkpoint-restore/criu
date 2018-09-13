@@ -220,7 +220,8 @@ static int dump_sockaddr(union libsoccr_addr *sa, u32 *pb_port, u32 *pb_addr)
 	return -1;
 }
 
-static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p, int proto)
+static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p,
+					 int proto, int family, int type)
 {
 	struct inet_sk_desc *sk;
 	union libsoccr_addr address;
@@ -238,10 +239,8 @@ static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p, int 
 	if (!sk)
 		goto err;
 
-	ret  = do_dump_opt(lfd, SOL_SOCKET, SO_DOMAIN, &sk->sd.family, sizeof(sk->sd.family));
-	ret |= do_dump_opt(lfd, SOL_SOCKET, SO_TYPE, &sk->type, sizeof(sk->type));
-	if (ret)
-		goto err;
+	sk->sd.family = family;
+	sk->type = type;
 
 	if (sk->sd.family == AF_INET)
 		aux = sizeof(struct sockaddr_in);
@@ -361,7 +360,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	if (IS_ERR(sk))
 		goto err;
 	if (!sk) {
-		sk = gen_uncon_sk(lfd, p, proto);
+		sk = gen_uncon_sk(lfd, p, proto, family, type);
 		if (!sk)
 			goto err;
 	}
