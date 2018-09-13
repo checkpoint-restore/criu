@@ -108,13 +108,10 @@ def add_to_output(path):
 	if not report_dir:
 		return
 
-	fdi = open(path, "r")
-	fdo = open(os.path.join(report_dir, "output"), "a")
-	while True:
-		buf = fdi.read(1 << 20)
-		if not buf:
-			break
-		fdo.write(buf)
+	output_path = os.path.join(report_dir, "output")
+	with open(path, "r") as fdi, open(output_path, "a") as fdo:
+		for line in fdi:
+			fdo.write(line)
 
 
 prev_crash_reports = set(glob.glob("/tmp/zdtm-core-*.txt"))
@@ -131,7 +128,8 @@ def check_core_files():
 	for i in reports:
 		add_to_report(i, os.path.basename(i))
 		print_sep(i)
-		print(open(i).read())
+		with open(i, "r") as report:
+			print(report.read())
 		print_sep(i)
 
 	return True
@@ -318,7 +316,8 @@ def tail(path):
 
 
 def rpidfile(path):
-	return open(path).readline().strip()
+	with open(path) as fd:
+		return fd.readline().strip()
 
 
 def wait_pid_die(pid, who, tmo = 30):
@@ -502,7 +501,8 @@ class zdtm_test:
 		if 'PASS' not in list(map(lambda s: s.strip(), res.split())):
 			if os.access(self.__name + '.out.inprogress', os.F_OK):
 				print_sep(self.__name + '.out.inprogress')
-				print(open(self.__name + '.out.inprogress').read())
+				with open(self.__name + '.out.inprogress') as fd:
+					print(fd.read())
 				print_sep(self.__name + '.out.inprogress')
 			raise test_fail_exc("result check")
 
@@ -547,7 +547,8 @@ class zdtm_test:
 	def print_output(self):
 		if os.access(self.__name + '.out', os.R_OK):
 			print("Test output: " + "=" * 32)
-			print(open(self.__name + '.out').read())
+			with open(self.__name + '.out') as output:
+				print(output.read())
 			print(" <<< " + "=" * 32)
 
 	def static(self):
@@ -634,7 +635,8 @@ class inhfd_test:
 		self.__my_file.write(self.__message)
 		self.__my_file.flush()
 		pid, status = os.waitpid(self.__peer_pid, 0)
-		print(open(self.__name + ".out").read())
+		with open(self.__name + ".out") as output:
+			print(output.read())
 		self.__peer_pid = 0
 		if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 42:
 			raise test_fail_exc("test failed with %d" % status)
@@ -688,7 +690,8 @@ class groups_test(zdtm_test):
 		zdtm_test.__init__(self, 'zdtm/lib/groups', desc, flavor, freezer)
 		if flavor.ns:
 			self.__real_name = name
-			self.__subs = map(lambda x: x.strip(), open(name).readlines())
+			with open(name) as fd:
+				self.__subs = map(lambda x: x.strip(), fd.readlines())
 			print("Subs:\n%s" % '\n'.join(self.__subs))
 		else:
 			self.__real_name = ''
@@ -861,7 +864,8 @@ class criu_rpc:
 				res = criu.restore()
 				pidf = ctx.get('pidf')
 				if pidf:
-					open(pidf, 'w').write('%d\n' % res.pid)
+					with open(pidf, 'w') as fd:
+						fd.write('%d\n' % res.pid)
 			elif action == "page-server":
 				res = criu.page_server_chld()
 				p = criu_rpc_process()
@@ -1005,7 +1009,8 @@ class criu:
 			fcntl.fcntl(fd, fcntl.F_SETFD, fdflags & ~fcntl.FD_CLOEXEC)
 			s_args += ["--status-fd", str(fd)]
 
-		ns_last_pid = open("/proc/sys/kernel/ns_last_pid").read()
+		with open("/proc/sys/kernel/ns_last_pid") as ns_last_pid_fd:
+			ns_last_pid = ns_last_pid_fd.read()
 
 		ret = self.__criu.run(action, s_args, self.__criu_bin, self.__fault, strace, preexec, nowait)
 
@@ -1031,7 +1036,8 @@ class criu:
 					os.rename(os.path.join(__ddir, log), os.path.join(__ddir, log + ".fail"))
 				# restore ns_last_pid to avoid a case when criu gets
 				# PID of one of restored processes.
-				open("/proc/sys/kernel/ns_last_pid", "w+").write(ns_last_pid)
+				with open("/proc/sys/kernel/ns_last_pid", "w+") as fd:
+					fd.write(ns_last_pid)
 				# try again without faults
 				print("Run criu " + action)
 				ret = self.__criu.run(action, s_args, self.__criu_bin, False, strace, preexec)
@@ -1276,7 +1282,8 @@ def get_visible_state(test):
 
 		cmaps = [[0, 0, ""]]
 		last = 0
-		for mp in open("/proc/%s/root/proc/%s/maps" % (test.getpid(), pid)):
+		mapsfd = open("/proc/%s/root/proc/%s/maps" % (test.getpid(), pid))
+		for mp in mapsfd:
 			m = list(map(lambda x: int('0x' + x, 0), mp.split()[0].split('-')))
 
 			m.append(mp.split()[1])
@@ -1291,14 +1298,16 @@ def get_visible_state(test):
 			else:
 				cmaps.append(m)
 				last += 1
+		mapsfd.close()
 
 		maps[pid] = set(map(lambda x: '%x-%x %s' % (x[0], x[1], " ".join(x[2:])), cmaps))
 
 		cmounts = []
 		try:
 			r = re.compile("^\S+\s\S+\s\S+\s(\S+)\s(\S+)\s\S+\s[^-]*?(shared)?[^-]*?(master)?[^-]*?-")
-			for m in open("/proc/%s/root/proc/%s/mountinfo" % (test.getpid(), pid)):
-				cmounts.append(r.match(m).groups())
+			with open("/proc/%s/root/proc/%s/mountinfo" % (test.getpid(), pid)) as mountinfo:
+				for m in mountinfo:
+					cmounts.append(r.match(m).groups())
 		except IOError as e:
 			if e.errno != errno.EINVAL:
 				raise e
@@ -1589,7 +1598,8 @@ class Launcher:
 			print(u"# Timestamp: " + now.strftime("%Y-%m-%d %H:%M") + " (GMT+1)", file=self.__file_report)
 			print(u"# ", file=self.__file_report)
 			print(u"1.." + str(nr_tests), file=self.__file_report)
-		self.__taint = open("/proc/sys/kernel/tainted").read()
+		with open("/proc/sys/kernel/tainted") as taintfd:
+			self.__taint = taintfd.read()
 		if int(self.__taint, 0) != 0:
 			print("The kernel is tainted: %r" % self.__taint)
 			if not opts["ignore_taint"]:
@@ -1618,7 +1628,8 @@ class Launcher:
 		if len(self.__subs) >= self.__max:
 			self.wait()
 
-		taint = open("/proc/sys/kernel/tainted").read()
+		with open("/proc/sys/kernel/tainted") as taintfd:
+			taint = taintfd.read()
 		if self.__taint != taint:
 			raise Exception("The kernel is tainted: %r (%r)" % (taint, self.__taint))
 
@@ -1680,7 +1691,8 @@ class Launcher:
 				self.__failed.append([sub['name'], failed_flavor])
 				if self.__file_report:
 					testline = u"not ok %d - %s # flavor %s" % (self.__runtest, sub['name'], failed_flavor)
-					output = open(sub['log']).read()
+					with open(sub['log']) as sublog:
+						output = sublog.read()
 					details = {'output': output}
 					tc.add_error_info(output = output)
 					print(testline, file=self.__file_report)
@@ -1693,7 +1705,8 @@ class Launcher:
 					print(testline, file=self.__file_report)
 
 			if sub['log']:
-				print(open(sub['log']).read().encode('ascii', 'ignore'))
+				with open(sub['log']) as sublog:
+					print(sublog.read().encode('ascii', 'ignore'))
 				os.unlink(sub['log'])
 
 			return True
@@ -1724,6 +1737,7 @@ class Launcher:
 		if self.__file_report:
 			ts = TestSuite(opts['title'], self.__junit_test_cases, os.getenv("NODE_NAME"))
 			self.__junit_file.write(TestSuite.to_xml_string([ts]))
+			self.__junit_file.close()
 			self.__file_report.close()
 
 		if opts['keep_going']:
@@ -1742,7 +1756,8 @@ class Launcher:
 
 
 def all_tests(opts):
-	desc = eval(open(opts['set'] + '.desc').read())
+	with open(opts['set'] + '.desc') as fd:
+		desc = eval(fd.read())
 
 	files = []
 	mask = stat.S_IFREG | stat.S_IXUSR
@@ -1772,7 +1787,8 @@ default_test = {}
 def get_test_desc(tname):
 	d_path = tname + '.desc'
 	if os.access(d_path, os.F_OK) and os.path.getsize(d_path) > 0:
-		return eval(open(d_path).read())
+		with open(d_path) as fd:
+			return eval(fd.read())
 
 	return default_test
 
@@ -1806,22 +1822,23 @@ def grep_errors(fname):
 	first = True
 	print_next = False
 	before = []
-	for l in open(fname):
-		before.append(l)
-		if len(before) > 5:
-			before.pop(0)
-		if "Error" in l:
-			if first:
-				print_fname(fname, 'log')
-				print_sep("grep Error", "-", 60)
-				first = False
-			for i in before:
-				print_next = print_error(i)
-			before = []
-		else:
-			if print_next:
-				print_next = print_error(l)
+	with open(fname) as fd:
+		for l in fd:
+			before.append(l)
+			if len(before) > 5:
+				before.pop(0)
+			if "Error" in l:
+				if first:
+					print_fname(fname, 'log')
+					print_sep("grep Error", "-", 60)
+					first = False
+				for i in before:
+					print_next = print_error(i)
 				before = []
+			else:
+				if print_next:
+					print_next = print_error(l)
+					before = []
 	if not first:
 		print_sep("ERROR OVER", "-", 60)
 
@@ -1850,7 +1867,8 @@ def run_tests(opts):
 			print("No such file")
 			return
 
-		torun = map(lambda x: x.strip(), open(opts['from']))
+		with open(opts['from']) as fd:
+			torun = map(lambda x: x.strip(), fd)
 		opts['keep_going'] = False
 		run_all = True
 	else:
