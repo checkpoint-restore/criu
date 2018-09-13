@@ -426,24 +426,32 @@ static int restore_socket_filter(int sk, SkOptsEntry *soe)
 
 static struct socket_desc *sockets[SK_HASH_SIZE];
 
-struct socket_desc *lookup_socket(unsigned ino, int family, int proto)
+struct socket_desc *lookup_socket_ino(unsigned int ino, int family)
 {
 	struct socket_desc *sd;
 
-	if (!socket_test_collect_bit(family, proto)) {
-		pr_err("Sockets (family %d, proto %d) are not collected\n",
-								family, proto);
-		return ERR_PTR(-EINVAL);
-	}
+	pr_debug("Searching for socket %#x family %d\n", ino, family);
 
-	pr_debug("\tSearching for socket %x (family %d.%d)\n", ino, family, proto);
-	for (sd = sockets[ino % SK_HASH_SIZE]; sd; sd = sd->next)
+	for (sd = sockets[ino % SK_HASH_SIZE]; sd; sd = sd->next) {
 		if (sd->ino == ino) {
 			BUG_ON(sd->family != family);
 			return sd;
 		}
+	}
 
 	return NULL;
+}
+
+
+struct socket_desc *lookup_socket(unsigned int ino, int family, int proto)
+{
+	if (!socket_test_collect_bit(family, proto)) {
+		pr_err("Sockets (family %d proto %d) are not collected\n",
+		       family, proto);
+		return ERR_PTR(-EINVAL);
+	}
+
+	return lookup_socket_ino(ino, family);
 }
 
 int sk_collect_one(unsigned ino, int family, struct socket_desc *d, struct ns_id *ns)
