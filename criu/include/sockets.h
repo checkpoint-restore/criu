@@ -1,6 +1,7 @@
 #ifndef __CR_SOCKETS_H__
 #define __CR_SOCKETS_H__
 
+#include <alloca.h>
 #include <stdbool.h>
 #include <sys/socket.h>
 
@@ -96,7 +97,26 @@ extern int set_netns(uint32_t ns_id);
 extern int kerndat_socket_netns(void);
 extern int kerndat_socket_unix_file(void);
 
-extern const char *tcp_state_name(unsigned int state);
-extern const char *socket_type_name(unsigned int type);
+extern const char *tcp_state_name(unsigned int state, char *nm, size_t size);
+extern const char *socket_type_name(unsigned int type, char *nm, size_t size);
+extern const char *socket_family_name(unsigned int family, char *nm, size_t size);
+extern const char *socket_proto_name(unsigned int proto, char *nm, size_t size);
+
+#define __tcp_state_name(state, a)	tcp_state_name(state, a, sizeof(a))
+#define __socket_type_name(type, a)	socket_type_name(type, a, sizeof(a))
+#define __socket_family_name(family, a)	socket_family_name(family, a, sizeof(a))
+#define __socket_proto_name(proto, a)	socket_proto_name(proto, a, sizeof(a))
+
+#define __socket_info_helper(__h, __v)				\
+	({							\
+		char *__nm = alloca(32);			\
+		const char *__r = __h(__v, __nm, 32);		\
+		__r;						\
+	})
+
+#define ___tcp_state_name(state)	__socket_info_helper(tcp_state_name, state)
+#define ___socket_type_name(type)	__socket_info_helper(socket_type_name, type)
+#define ___socket_family_name(family)	__socket_info_helper(socket_family_name, family)
+#define ___socket_proto_name(proto)	__socket_info_helper(socket_proto_name, proto)
 
 #endif /* __CR_SOCKETS_H__ */

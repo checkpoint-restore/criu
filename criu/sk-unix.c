@@ -2060,9 +2060,12 @@ int unix_prepare_root_shared(void)
 	pr_debug("ghost: Resolving addresses\n");
 
 	list_for_each_entry(ui, &unix_ghost_addr, ghost_node) {
+		char tp_name[32];
+		char st_name[32];
+
 		pr_debug("ghost: id %#x type %s state %s ino %d peer %d address %s\n",
-			 ui->ue->id, socket_type_name(ui->ue->type),
-			 tcp_state_name(ui->ue->state),
+			 ui->ue->id, __socket_type_name(ui->ue->type, tp_name),
+			 __tcp_state_name(ui->ue->state, st_name),
 			 ui->ue->ino, ui->peer ? ui->peer->ue->ino : 0,
 			 ui->name);
 
@@ -2109,9 +2112,9 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	}
 
 	pr_info(" `- Got id %#x ino %d type %s state %s peer %d (name %s%.*s dir %s)\n",
-		ui->ue->id, ui->ue->ino, socket_type_name(ui->ue->type),
-		tcp_state_name(ui->ue->state), ui->ue->peer, prefix, ulen, uname,
-		ui->name_dir ? ui->name_dir : "-");
+		ui->ue->id, ui->ue->ino, ___socket_type_name(ui->ue->type),
+		___tcp_state_name(ui->ue->state), ui->ue->peer, prefix, ulen,
+		uname, ui->name_dir ? ui->name_dir : "-");
 
 	if (ui->ue->peer || ui->name) {
 		if (ui->ue->peer)

@@ -42,48 +42,81 @@
 #define SO_GET_FILTER	SO_ATTACH_FILTER
 #endif
 
-const char *socket_type_name(unsigned int type)
+static const char *__socket_const_name(char *dst, size_t len, const char **a, size_t n, unsigned int v)
 {
-       static const char *types[] = {
-               [SOCK_STREAM]           = __stringify_1(SOCK_STREAM),
-               [SOCK_DGRAM]            = __stringify_1(SOCK_DGRAM),
-               [SOCK_RAW]              = __stringify_1(SOCK_RAW),
-               [SOCK_SEQPACKET]        = __stringify_1(SOCK_SEQPACKET),
-               [SOCK_PACKET]           = __stringify_1(SOCK_PACKET),
-       };
-       size_t i;
-
-       for (i = 0; i < ARRAY_SIZE(types); i++) {
-               if (type == i)
-                       return types[i];
-       }
-
-       return "UNKNOWN";
+	if (v < n) {
+		const char *name = a[v];
+		if (name)
+			return name;
+	}
+	snprintf(dst, len, "%u", v);
+	return dst;
 }
 
-const char *tcp_state_name(unsigned int state)
+const char *socket_proto_name(unsigned int proto, char *nm, size_t size)
 {
-       static const char *states[] = {
-               [TCP_ESTABLISHED]       = __stringify_1(TCP_ESTABLISHED),
-               [TCP_SYN_SENT]          = __stringify_1(TCP_SYN_SENT),
-               [TCP_SYN_RECV]          = __stringify_1(TCP_SYN_RECV),
-               [TCP_FIN_WAIT1]         = __stringify_1(TCP_FIN_WAIT1),
-               [TCP_FIN_WAIT2]         = __stringify_1(TCP_FIN_WAIT2),
-               [TCP_TIME_WAIT]         = __stringify_1(TCP_TIME_WAIT),
-               [TCP_CLOSE]             = __stringify_1(TCP_CLOSE),
-               [TCP_CLOSE_WAIT]        = __stringify_1(TCP_CLOSE_WAIT),
-               [TCP_LAST_ACK]          = __stringify_1(TCP_LAST_ACK),
-               [TCP_LISTEN]            = __stringify_1(TCP_LISTEN),
-               [TCP_CLOSING]           = __stringify_1(TCP_CLOSING),
-       };
-       size_t i;
+	static const char *protos[] = {
+		[IPPROTO_IP]		= __stringify_1(IPPROTO_IP),
+		[IPPROTO_ICMP]		= __stringify_1(IPPROTO_ICMP),
+		[IPPROTO_IGMP]		= __stringify_1(IPPROTO_IGMP),
+		[IPPROTO_IPIP]		= __stringify_1(IPPROTO_IPIP),
+		[IPPROTO_TCP]		= __stringify_1(IPPROTO_TCP),
+		[IPPROTO_EGP]		= __stringify_1(IPPROTO_EGP),
+		[IPPROTO_UDP]		= __stringify_1(IPPROTO_UDP),
+		[IPPROTO_DCCP]		= __stringify_1(IPPROTO_DCCP),
+		[IPPROTO_IPV6]		= __stringify_1(IPPROTO_IPV6),
+		[IPPROTO_RSVP]		= __stringify_1(IPPROTO_RSVP),
+		[IPPROTO_GRE]		= __stringify_1(IPPROTO_GRE),
+		[IPPROTO_ESP]		= __stringify_1(IPPROTO_ESP),
+		[IPPROTO_AH]		= __stringify_1(IPPROTO_AH),
+		[IPPROTO_UDPLITE]	= __stringify_1(IPPROTO_UDPLITE),
+		[IPPROTO_RAW]		= __stringify_1(IPPROTO_RAW),
+	};
+	return __socket_const_name(nm, size, protos, ARRAY_SIZE(protos), proto);
+}
 
-       for (i = 0; i < ARRAY_SIZE(states); i++) {
-               if (state == i)
-                       return states[i];
-       }
+const char *socket_family_name(unsigned int family, char *nm, size_t size)
+{
+	static const char *families[] = {
+		[AF_UNIX]		= __stringify_1(AF_UNIX),
+		[AF_INET]		= __stringify_1(AF_INET),
+		[AF_BRIDGE]		= __stringify_1(AF_BRIDGE),
+		[AF_INET6]		= __stringify_1(AF_INET6),
+		[AF_KEY]		= __stringify_1(AF_KEY),
+		[AF_NETLINK]		= __stringify_1(AF_NETLINK),
+		[AF_PACKET]		= __stringify_1(AF_PACKET),
+	};
+	return __socket_const_name(nm, size, families, ARRAY_SIZE(families), family);
+}
 
-       return "UNKNOWN";
+const char *socket_type_name(unsigned int type, char *nm, size_t size)
+{
+	static const char *types[] = {
+		[SOCK_STREAM]		= __stringify_1(SOCK_STREAM),
+		[SOCK_DGRAM]		= __stringify_1(SOCK_DGRAM),
+		[SOCK_RAW]		= __stringify_1(SOCK_RAW),
+		[SOCK_SEQPACKET]	= __stringify_1(SOCK_SEQPACKET),
+		[SOCK_PACKET]		= __stringify_1(SOCK_PACKET),
+	};
+	return __socket_const_name(nm, size, types, ARRAY_SIZE(types), type);
+}
+
+const char *tcp_state_name(unsigned int state, char *nm, size_t size)
+{
+	static const char *states[] = {
+		[TCP_ESTABLISHED]	= __stringify_1(TCP_ESTABLISHED),
+		[TCP_SYN_SENT]		= __stringify_1(TCP_SYN_SENT),
+		[TCP_SYN_RECV]		= __stringify_1(TCP_SYN_RECV),
+		[TCP_FIN_WAIT1]		= __stringify_1(TCP_FIN_WAIT1),
+		[TCP_FIN_WAIT2]		= __stringify_1(TCP_FIN_WAIT2),
+		[TCP_TIME_WAIT]		= __stringify_1(TCP_TIME_WAIT),
+		[TCP_CLOSE]		= __stringify_1(TCP_CLOSE),
+		[TCP_CLOSE_WAIT]	= __stringify_1(TCP_CLOSE_WAIT),
+		[TCP_LAST_ACK]		= __stringify_1(TCP_LAST_ACK),
+		[TCP_LISTEN]		= __stringify_1(TCP_LISTEN),
+		[TCP_CLOSING]		= __stringify_1(TCP_CLOSING),
+	};
+	return __socket_const_name(nm, size, states, ARRAY_SIZE(states), state);
 }
 
 struct sock_diag_greq {
