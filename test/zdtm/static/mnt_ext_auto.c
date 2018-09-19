@@ -66,7 +66,10 @@ int main(int argc, char ** argv)
 	}
 	mkdir(src, 755);
 
-	unshare(CLONE_NEWNS);
+	if (unshare(CLONE_NEWNS)) {
+		pr_perror("unshare");
+		return 1;
+	}
 	mkdir(dst, 755);
 	if (mount(src, dst, NULL, MS_BIND, NULL)) {
 		pr_perror("bind");
