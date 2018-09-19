@@ -120,7 +120,10 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 #ifdef TUN_NS
-	unshare(CLONE_NEWNET);
+	if (unshare(CLONE_NEWNET)) {
+		pr_perror("unshare");
+		return 1;
+	}
 	system("ip link set up dev lo");
 #endif
 	/* fd[0] -- opened file */
