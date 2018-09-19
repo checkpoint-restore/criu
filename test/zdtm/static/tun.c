@@ -32,33 +32,28 @@ static int __open_tun(void)
 
 	fd = open(TUN_DEVICE, O_RDWR);
 	if (fd < 0)
-		pr_perror("Can't open tun file");
+		pr_perror("Can't open tun file %s", TUN_DEVICE);
 
 	return fd;
 }
 
-static int set_tun_queue(int fd, unsigned flags)
+static int set_tun_queue(int fd, const char *name, unsigned flags)
 {
-	struct ifreq ifr;
-
-	memset(&ifr, 0, sizeof(ifr));
-	ifr.ifr_flags = flags;
+	struct ifreq ifr = { .ifr_flags = flags, };
 
 	if (ioctl(fd, TUNSETQUEUE, &ifr) < 0) {
-		pr_perror("Can't set queue");
+		pr_perror("Can't set queue on %s", name);
 		return -1;
 	}
 
 	return 0;
 }
 
-static int __attach_tun(int fd, char *name, unsigned flags)
+static int __attach_tun(int fd, const char *name, unsigned flags)
 {
-	struct ifreq ifr;
+	struct ifreq ifr = { .ifr_flags = flags, };
 
-	memset(&ifr, 0, sizeof(ifr));
-	strcpy(ifr.ifr_name, name);
-	ifr.ifr_flags = flags;
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name)-1);
 
 	if (ioctl(fd, TUNSETIFF, &ifr) < 0) {
 		if (!(flags & IFF_TUN_EXCL))
@@ -69,7 +64,7 @@ static int __attach_tun(int fd, char *name, unsigned flags)
 	return fd;
 }
 
-static int open_tun(char *name, unsigned flags)
+static int open_tun(const char *name, unsigned flags)
 {
 	int fd;
 
@@ -80,9 +75,9 @@ static int open_tun(char *name, unsigned flags)
 	return __attach_tun(fd, name, flags);
 }
 
-static void check_tun(int fd, char *name, unsigned flags)
+static void check_tun(int fd, const char *name, unsigned flags)
 {
-	struct ifreq ifr;
+	struct ifreq ifr = { };
 
 	if (ioctl(fd, TUNGETIFF, &ifr) > 0) {
 		any_fail = 1;
@@ -100,12 +95,12 @@ static void check_tun(int fd, char *name, unsigned flags)
 	}
 }
 
-static int dev_get_hwaddr(int fd, char *a)
+static int dev_get_hwaddr(int fd, const char *name, char *a)
 {
-	struct ifreq ifr;
+	struct ifreq ifr = { };
 
 	if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
-		pr_perror("Can't get hwaddr");
+		pr_perror("Can't get hwaddr on %s", name);
 		return -1;
 	}
 
@@ -130,55 +125,55 @@ int main(int argc, char **argv)
 	fds[0] = __open_tun();
 	if (fds[0] < 0) {
 		pr_perror("No file 0");
-		return -1;
+		return 1;
 	}
 
 	/* fd[1] -- opened file with tun device */
 	fds[1] = open_tun("tunx0", IFF_TUN);
 	if (fds[1] < 0) {
 		pr_perror("No file 1");
-		return -1;
+		return 1;
 	}
 
 	/* fd[2] and [3] -- two-queued device, with 3 detached */
 	fds[2] = open_tun("tunx1", IFF_TUN | IFF_MULTI_QUEUE);
 	if (fds[2] < 0) {
 		pr_perror("No file 2");
-		return -1;
+		return 1;
 	}
 
 	fds[3] = open_tun("tunx1", IFF_TUN | IFF_MULTI_QUEUE);
 	if (fds[3] < 0) {
 		pr_perror("No file 3");
-		return -1;
+		return 1;
 	}
 
-	ret = set_tun_queue(fds[3], IFF_DETACH_QUEUE);
+	ret = set_tun_queue(fds[3], "tunx1", IFF_DETACH_QUEUE);
 	if (ret < 0)
-		return -1;
+		return 1;
 
 	/* special case -- persistent device */
 	ret = open_tun("tunx2", IFF_TUN);
 	if (ret < 0) {
 		pr_perror("No persistent device");
-		return -1;
+		return 1;
 	}
 
 	if (ioctl(ret, TUNSETPERSIST, 1) < 0) {
 		pr_perror("Can't make persistent");
-		return -1;
+		return 1;
 	}
 
 	/* and one tap in fd[4] */
 	fds[4] = open_tun("tapx0", IFF_TAP);
 	if (fds[4] < 0) {
 		pr_perror("No tap");
-		return -1;
+		return 1;
 	}
 
-	if (dev_get_hwaddr(fds[4], addr) < 0) {
+	if (dev_get_hwaddr(fds[4], "tapx0", addr) < 0) {
 		pr_perror("No hwaddr for tap?");
-		return -1;
+		return 1;
 	}
 
 	close(ret);
@@ -200,13 +195,13 @@ int main(int argc, char **argv)
 	check_tun(fds[2], "tunx1", IFF_TUN | IFF_MULTI_QUEUE);
 	check_tun(fds[3], "tunx1", IFF_TUN | IFF_MULTI_QUEUE);
 
-	ret = set_tun_queue(fds[2], IFF_DETACH_QUEUE);
+	ret = set_tun_queue(fds[2], "tunx1", IFF_DETACH_QUEUE);
 	if (ret < 0) {
 		any_fail = 1;
 		fail("Queue not attached");
 	}
 
-	ret = set_tun_queue(fds[3], IFF_ATTACH_QUEUE);
+	ret = set_tun_queue(fds[3], "tunx1", IFF_ATTACH_QUEUE);
 	if (ret < 0) {
 		any_fail = 1;
 		fail("Queue not detached");
@@ -226,7 +221,7 @@ int main(int argc, char **argv)
 	}
 
 	check_tun(fds[4], "tapx0", IFF_TAP);
-	if (dev_get_hwaddr(fds[4], a2) < 0) {
+	if (dev_get_hwaddr(fds[4], "tapx0", a2) < 0) {
 		pr_perror("No hwaddr for tap? (2)");
 		any_fail = 1;
 	} else if (memcmp(addr, a2, sizeof(addr))) {
