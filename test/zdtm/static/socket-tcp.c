@@ -76,7 +76,8 @@ int main(int argc, char **argv)
 		return 1;
 	if (system("iptables -w -A INPUT -i lo -p tcp -m state --state NEW,ESTABLISHED -j ACCEPT"))
 		return 1;
-	system("iptables -A INPUT -j DROP");
+	if (system("iptables -A INPUT -j DROP"))
+		return 1;
 #endif
 
 #ifdef ZDTM_TCP_LOCAL
