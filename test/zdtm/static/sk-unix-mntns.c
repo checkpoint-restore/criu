@@ -53,7 +53,10 @@ int main(int argc, char *argv[])
 	}
 
 	if (pid == 0) {
-		unshare(CLONE_NEWNS);
+		if (unshare(CLONE_NEWNS)) {
+			pr_perror("unshare");
+			return 1;
+		}
 		if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL)) {
 			pr_perror("mount");
 			return 1;
