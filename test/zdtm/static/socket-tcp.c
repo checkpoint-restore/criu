@@ -68,7 +68,10 @@ int main(int argc, char **argv)
 	socklen_t optlen;
 
 #ifdef ZDTM_CONNTRACK
-	unshare(CLONE_NEWNET);
+	if (unshare(CLONE_NEWNET)) {
+		pr_perror("unshare");
+		return 1;
+	}
 	if (system("ip link set up dev lo"))
 		return 1;
 	if (system("iptables -w -A INPUT -i lo -p tcp -m state --state NEW,ESTABLISHED -j ACCEPT"))
