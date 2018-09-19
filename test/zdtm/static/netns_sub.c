@@ -100,7 +100,10 @@ int main(int argc, char **argv)
 	}
 	if (pid1 == 0) {
 		close(sk);
-		unshare(CLONE_NEWNET);
+		if (unshare(CLONE_NEWNET)) {
+			pr_perror("unshare");
+			return 1;
+		}
 		sk = create_socket(1);
 		if (sk < 0)
 			return 1;
@@ -159,7 +162,10 @@ int main(int argc, char **argv)
 		return -1;
 	}
 	if (pid2 == 0) {
-		unshare(CLONE_NEWNET);
+		if (unshare(CLONE_NEWNET)) {
+			pr_perror("unshare");
+			return 1;
+		}
 		sk = create_socket(2);
 		if (sk < 0)
 			return 1;
