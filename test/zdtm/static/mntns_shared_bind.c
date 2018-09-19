@@ -70,7 +70,10 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	if (pid == 0) {
-		unshare(CLONE_NEWNS);
+		if (unshare(CLONE_NEWNS)) {
+			pr_perror("unshare");
+			return 1;
+		}
 		if (mount(path, bpath, NULL, MS_BIND, NULL)) {
 			pr_perror("mount");
 			return 1;
