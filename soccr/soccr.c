@@ -526,7 +526,7 @@ static int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 
 	if (connect(sk->fd, &sk->dst_addr->sa, addr_size) == -1 &&
 						errno != EINPROGRESS) {
-		loge("Can't connect inet socket back\n");
+		logerr("Can't connect inet socket back");
 		return -1;
 	}
 
