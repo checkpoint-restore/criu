@@ -2,8 +2,11 @@ import os
 
 
 def create_fds():
-	(fd1, fd2) = os.pipe()
-	return (os.fdopen(fd2, "wb"), os.fdopen(fd1, "rb"))
+	pipes = []
+	for i in range(10):
+		(fd1, fd2) = os.pipe()
+		pipes.append((os.fdopen(fd2, "wb"), os.fdopen(fd1, "rb")))
+	return pipes
 
 
 def filename(pipef):

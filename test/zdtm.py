@@ -580,28 +580,35 @@ class inhfd_test:
 		self.__name = os.path.basename(name)
 		print("Load %s" % name)
 		self.__fdtyp = imp.load_source(self.__name, name)
-		self.__my_file = None
 		self.__peer_pid = 0
-		self.__peer_file = None
-		self.__peer_file_name = None
-		self.__dump_opts = None
+		self.__files = None
+		self.__peer_file_names = []
+		self.__dump_opts = []
+
+	def __get_message(self, i):
+		return b"".join([random.choice(string.ascii_letters).encode() for _ in range(10)]) + b"%06d" % i
 
 	def start(self):
-		self.__message = b"".join([random.choice(string.ascii_letters).encode() for _ in range(16)])
-		(self.__my_file, peer_file) = self.__fdtyp.create_fds()
+		self.__files = self.__fdtyp.create_fds()
 
 		# Check FDs returned for inter-connection
-		self.__my_file.write(self.__message)
-		self.__my_file.flush()
-		if peer_file.read(16) != self.__message:
-			raise test_fail_exc("FDs screwup")
+		i = 0
+		for my_file, peer_file in self.__files:
+			msg = self.__get_message(i)
+			my_file.write(msg)
+			my_file.flush()
+			data = peer_file.read(len(msg))
+			if data != msg:
+				raise test_fail_exc("FDs screwup: %r %r" % (msg, data))
+			i += 1
 
 		start_pipe = os.pipe()
 		self.__peer_pid = os.fork()
 		if self.__peer_pid == 0:
 			os.setsid()
 
-			getattr(self.__fdtyp, "child_prep", lambda fd: None)(peer_file)
+			for _, peer_file in self.__files:
+				getattr(self.__fdtyp, "child_prep", lambda fd: None)(peer_file)
 
 			try:
 				os.unlink(self.__name + ".out")
@@ -611,29 +618,45 @@ class inhfd_test:
 			os.dup2(fd, 1)
 			os.dup2(fd, 2)
 			os.close(0)
-			self.__my_file.close()
+			for my_file, _ in self.__files:
+				my_file.close()
 			os.close(start_pipe[0])
 			os.close(start_pipe[1])
-			try:
-				data = peer_file.read(16)
-			except Exception as e:
-				print("Unable to read a peer file: %s" % e)
-				sys.exit(1)
+			i = 0
+			for _, peer_file in self.__files:
+				msg = self.__get_message(i)
+				my_file.close()
+				try:
+					data = peer_file.read(16)
+				except Exception as e:
+					print("Unable to read a peer file: %s" % e)
+					sys.exit(1)
 
-			if data != self.__message:
-				print("%r %r" % (data, self.__message))
-			sys.exit(data == self.__message and 42 or 2)
+				if data != msg:
+					print("%r %r" % (data, msg))
+				i += 1
+			sys.exit(data == msg and 42 or 2)
 
 		os.close(start_pipe[1])
 		os.read(start_pipe[0], 12)
 		os.close(start_pipe[0])
 
-		self.__peer_file_name = self.__fdtyp.filename(peer_file)
-		self.__dump_opts = self.__fdtyp.dump_opts(peer_file)
+		for _, peer_file in self.__files:
+			self.__peer_file_names.append(self.__fdtyp.filename(peer_file))
+			self.__dump_opts += self.__fdtyp.dump_opts(peer_file)
+
+		self.__fds = set(os.listdir("/proc/%s/fd" % self.__peer_pid))
 
 	def stop(self):
-		self.__my_file.write(self.__message)
-		self.__my_file.flush()
+		fds = set(os.listdir("/proc/%s/fd" % self.__peer_pid))
+		if fds != self.__fds:
+			raise test_fail_exc("File descriptors mismatch: %s %s" % (fds, self.__fds))
+		i = 0
+		for my_file, _ in self.__files:
+			msg = self.__get_message(i)
+			my_file.write(msg)
+			my_file.flush()
+			i += 1
 		pid, status = os.waitpid(self.__peer_pid, 0)
 		with open(self.__name + ".out") as output:
 			print(output.read())
@@ -654,18 +677,22 @@ class inhfd_test:
 	def gone(self, force = True):
 		os.waitpid(self.__peer_pid, 0)
 		wait_pid_die(self.__peer_pid, self.__name)
-		self.__my_file = None
-		self.__peer_file = None
+		self.__files = None
 
 	def getdopts(self):
 		return self.__dump_opts
 
 	def getropts(self):
-		(self.__my_file, self.__peer_file) = self.__fdtyp.create_fds()
-		fd = self.__peer_file.fileno()
-		fdflags = fcntl.fcntl(fd, fcntl.F_GETFD) & ~fcntl.FD_CLOEXEC
-		fcntl.fcntl(fd, fcntl.F_SETFD, fdflags)
-		return ["--restore-sibling", "--inherit-fd", "fd[%d]:%s" % (fd, self.__peer_file_name)]
+		self.__files = self.__fdtyp.create_fds()
+		ropts = ["--restore-sibling"]
+		for i in range(len(self.__files)):
+			my_file, peer_file = self.__files[i]
+			fd = peer_file.fileno()
+			fdflags = fcntl.fcntl(fd, fcntl.F_GETFD) & ~fcntl.FD_CLOEXEC
+			fcntl.fcntl(fd, fcntl.F_SETFD, fdflags)
+			peer_file_name = self.__peer_file_names[i]
+			ropts.extend(["--inherit-fd", "fd[%d]:%s" % (fd, peer_file_name)])
+		return ropts
 
 	def print_output(self):
 		pass

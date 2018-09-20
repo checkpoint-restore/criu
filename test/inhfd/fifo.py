@@ -28,7 +28,7 @@ def create_fds():
 	global id_str
 	id_str = "file[%x:%x]" % (mnt_id, os.fstat(fd1.fileno()).st_ino)
 
-	return (fd2, fd1)
+	return [(fd2, fd1)]
 
 
 def filename(pipef):
