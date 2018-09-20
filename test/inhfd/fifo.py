@@ -1,6 +1,8 @@
-import os, tempfile
+import os
+import tempfile
 
 id_str = ""
+
 
 def create_fds():
 	tdir = tempfile.mkdtemp("zdtm.inhfd.XXXXXX")
@@ -15,10 +17,10 @@ def create_fds():
 
 	mnt_id = -1
 	with open("/proc/self/fdinfo/%d" % fd1.fileno()) as f:
-		for l in f:
-			l = l.split()
-			if l[0] == "mnt_id:":
-				mnt_id = int(l[1])
+		for line in f:
+			line = line.split()
+			if line[0] == "mnt_id:":
+				mnt_id = int(line[1])
 				break
 		else:
 			raise Exception("Unable to find mnt_id")
@@ -28,8 +30,10 @@ def create_fds():
 
 	return (fd2, fd1)
 
+
 def filename(pipef):
 	return id_str
 
+
 def dump_opts(sockf):
-	return [ "--external", id_str ]
+	return ["--external", id_str]
