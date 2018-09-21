@@ -100,6 +100,7 @@ static LIST_HEAD(tun_links);
 struct tun_link {
 	char name[IFNAMSIZ];
 	struct list_head l;
+	unsigned ns_id;
 	union {
 		struct {
 			unsigned flags;
@@ -112,7 +113,7 @@ struct tun_link {
 	};
 };
 
-static int list_tun_link(NetDeviceEntry *nde)
+static int list_tun_link(NetDeviceEntry *nde, unsigned ns_id)
 {
 	struct tun_link *tl;
 
@@ -128,22 +129,24 @@ static int list_tun_link(NetDeviceEntry *nde)
 	 * with (i.e. -- with which it was created.
 	 */
 	tl->rst.flags = nde->tun->flags;
+	tl->ns_id = ns_id;
 	list_add_tail(&tl->l, &tun_links);
 	return 0;
 }
 
-static struct tun_link *find_tun_link(char *name)
+static struct tun_link *find_tun_link(char *name, unsigned int ns_id)
 {
 	struct tun_link *tl;
 
-	list_for_each_entry(tl, &tun_links, l)
-		if (!strcmp(tl->name, name))
+	list_for_each_entry(tl, &tun_links, l) {
+		if (!strcmp(tl->name, name) &&
+		    tl->ns_id == ns_id)
 			return tl;
-
+	}
 	return NULL;
 }
 
-static struct tun_link *__dump_tun_link_fd(int fd, char *name, unsigned flags)
+static struct tun_link *__dump_tun_link_fd(int fd, char *name, unsigned ns_id, unsigned flags)
 {
 	struct tun_link *tl;
 	struct sock_fprog flt;
@@ -152,6 +155,7 @@ static struct tun_link *__dump_tun_link_fd(int fd, char *name, unsigned flags)
 	if (!tl)
 		goto err;
 	strlcpy(tl->name, name, sizeof(tl->name));
+	tl->ns_id = ns_id;
 
 	if (ioctl(fd, TUNGETVNETHDRSZ, &tl->dmp.vnethdr) < 0) {
 		pr_perror("Can't dump vnethdr size for %s", name);
@@ -193,16 +197,16 @@ err:
 	return NULL;
 }
 
-static struct tun_link *dump_tun_link_fd(int fd, char *name, unsigned flags)
+static struct tun_link *dump_tun_link_fd(int fd, char *name, unsigned ns_id, unsigned flags)
 {
 	struct tun_link *tl;
 
-	tl = find_tun_link(name);
+	tl = find_tun_link(name, ns_id);
 	if (tl)
 		return tl;
 
-	tl = __dump_tun_link_fd(fd, name, flags);
-	if (tl)
+	tl = __dump_tun_link_fd(fd, name, ns_id, flags);
+	if (tl) {
 		/*
 		 * Keep this in list till links dumping code starts.
 		 * We can't let it dump all this stuff itself, since
@@ -213,7 +217,7 @@ static struct tun_link *dump_tun_link_fd(int fd, char *name, unsigned flags)
 		 * will attach to the device and get the needed stuff.
 		 */
 		list_add(&tl->l, &tun_links);
-
+	}
 	return tl;
 }
 
@@ -252,12 +256,12 @@ err:
 	return -1;
 }
 
-static struct tun_link *get_tun_link_fd(char *name, unsigned flags)
+static struct tun_link *get_tun_link_fd(char *name, unsigned ns_id, unsigned flags)
 {
 	struct tun_link *tl;
 	int fd;
 
-	tl = find_tun_link(name);
+	tl = find_tun_link(name, ns_id);
 	if (tl)
 		return tl;
 
@@ -283,7 +287,7 @@ static struct tun_link *get_tun_link_fd(char *name, unsigned flags)
 	if (fd < 0)
 		return NULL;
 
-	tl = __dump_tun_link_fd(fd, name, flags);
+	tl = __dump_tun_link_fd(fd, name, ns_id, flags);
 	close(fd);
 
 	return tl;
@@ -339,7 +343,7 @@ static int dump_tunfile(int lfd, u32 id, const struct fd_parms *p)
 			tfe.detached = true;
 		}
 
-		if (dump_tun_link_fd(lfd, tfe.netdev, ifr.ifr_flags) == NULL)
+		if (dump_tun_link_fd(lfd, tfe.netdev, tfe.ns_id, ifr.ifr_flags) == NULL)
 			return -1;
 	}
 
@@ -382,7 +386,7 @@ static int tunfile_open(struct file_desc *d, int *new_fd)
 		/* just-opened tun file */
 		goto ok;
 
-	tl = find_tun_link(ti->tfe->netdev);
+	tl = find_tun_link(ti->tfe->netdev, ns_id);
 	if (!tl) {
 		pr_err("No tun device for file %s\n", ti->tfe->netdev);
 		goto err;
@@ -469,7 +473,7 @@ int dump_tun_link(NetDeviceEntry *nde, struct cr_imgset *fds, struct nlattr **in
 	if (ret < 0)
 		return ret;
 
-	tl = get_tun_link_fd(nde->name, tle.flags);
+	tl = get_tun_link_fd(nde->name, nde->peer_nsid, tle.flags);
 	if (!tl)
 		return ret;
 
@@ -480,7 +484,7 @@ int dump_tun_link(NetDeviceEntry *nde, struct cr_imgset *fds, struct nlattr **in
 	return write_netdev_img(nde, fds, info);
 }
 
-int restore_one_tun(struct net_link *link, int nlsk)
+int restore_one_tun(struct ns_id *ns, struct net_link *link, int nlsk)
 {
 	NetDeviceEntry *nde = link->nde;
 	int fd, ret = -1, aux;
@@ -536,7 +540,7 @@ int restore_one_tun(struct net_link *link, int nlsk)
 		goto out;
 	}
 
-	ret = list_tun_link(nde);
+	ret = list_tun_link(nde, ns->id);
 out:
 	close(fd);
 	return ret;

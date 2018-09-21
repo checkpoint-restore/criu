@@ -1524,7 +1524,7 @@ static int __restore_link(struct ns_id *ns, struct net_link *link, int nlsk)
 	case ND_TYPE__VETH:
 		return restore_one_link(ns, link, nlsk, veth_link_info, NULL);
 	case ND_TYPE__TUN:
-		return restore_one_tun(link, nlsk);
+		return restore_one_tun(ns, link, nlsk);
 	case ND_TYPE__BRIDGE:
 		return restore_one_link(ns, link, nlsk, bridge_link_info, NULL);
 	case ND_TYPE__MACVLAN:
