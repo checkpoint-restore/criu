@@ -52,6 +52,7 @@ else:
 print 'Dumping myself using page-server'
 req.type		= rpc.DUMP
 req.opts.ps.port	= resp.ps.port
+req.opts.ps.address     = "127.0.0.1"
 req.opts.log_file	= 'dump.log'
 req.opts.leave_running	= True
 
