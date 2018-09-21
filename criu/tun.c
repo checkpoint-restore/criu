@@ -369,13 +369,14 @@ static int tunfile_open(struct file_desc *d, int *new_fd)
 	struct tun_link *tl;
 
 	ti = container_of(d, struct tunfile_info, d);
-	fd = open_reg_by_id(ti->tfe->id);
-	if (fd < 0)
-		return -1;
 
 	ns_id = ti->tfe->ns_id;
 	if (set_netns(ns_id))
-		goto err;
+		return -1;
+
+	fd = open_reg_by_id(ti->tfe->id);
+	if (fd < 0)
+		return -1;
 
 	if (!ti->tfe->netdev)
 		/* just-opened tun file */
