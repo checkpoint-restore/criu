@@ -24,6 +24,9 @@
 
 #include "images/tun.pb-c.h"
 
+#undef	LOG_PREFIX
+#define LOG_PREFIX "tun: "
+
 #ifndef IFF_PERSIST
 #define IFF_PERSIST 0x0800
 #endif
