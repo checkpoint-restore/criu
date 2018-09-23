@@ -124,7 +124,7 @@ def wrap_restore():
 
 
 def get_varg(args):
-	for i in xrange(1, len(sys.argv)):
+	for i in range(1, len(sys.argv)):
 		if not sys.argv[i] in args:
 			continue
 
