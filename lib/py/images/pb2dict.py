@@ -68,14 +68,14 @@ mmap_prot_map = [
 	('PROT_READ',	0x1),
 	('PROT_WRITE',	0x2),
 	('PROT_EXEC',	0x4),
-];
+]
 
 mmap_flags_map = [
 	('MAP_SHARED',	0x1),
 	('MAP_PRIVATE',	0x2),
 	('MAP_ANON',	0x20),
 	('MAP_GROWSDOWN',	0x0100),
-];
+]
 
 mmap_status_map = [
 	('VMA_AREA_NONE',	0 << 0),
@@ -96,7 +96,7 @@ mmap_status_map = [
 	('VMA_AREA_AIORING',	1 << 13),
 
 	('VMA_UNSUPP',		1 << 31),
-];
+]
 
 rfile_flags_map = [
 	('O_WRONLY',	0o1),
@@ -104,13 +104,13 @@ rfile_flags_map = [
 	('O_APPEND',	0o2000),
 	('O_DIRECT',	0o40000),
 	('O_LARGEFILE',	0o100000),
-];
+]
 
 pmap_flags_map = [
 	('PE_PARENT',	1 << 0),
 	('PE_LAZY',	1 << 1),
 	('PE_PRESENT',	1 << 2),
-];
+]
 
 flags_maps = {
 	'mmap.prot' : mmap_prot_map,
