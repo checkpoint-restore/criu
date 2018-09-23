@@ -12,7 +12,7 @@ dst = os.getenv("TCP_DST", "127.0.0.1")
 sport = os.getenv("TCP_SPORT", "12345")
 dport = os.getenv("TCP_DPORT", "54321")
 
-print sys.argv[1]
+print(sys.argv[1])
 args = [sys.argv[1],
         "--addr", src, "--port", sport, "--seq", "555",
         "--next",
@@ -41,7 +41,7 @@ m.update(str2)
 str2 = m.hexdigest()
 
 if str2 != eval(s):
-    print "FAIL", repr(str2), repr(s)
+    print("FAIL", repr(str2), repr(s))
     sys.exit(5);
 
 s = p1.stdout.read()
@@ -51,7 +51,7 @@ str1 = m.hexdigest()
 
 s = p2.stdout.read()
 if str1 != eval(s):
-    print "FAIL", repr(str1), s
+    print("FAIL", repr(str1), s)
     sys.exit(5);
 
 if p1.wait():
@@ -59,4 +59,4 @@ if p1.wait():
 if p2.wait():
     sys.exit(1)
 
-print "PASS"
+print("PASS")

@@ -15,7 +15,7 @@ s = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
 s.connect(args['socket'])
 
 # Start page-server
-print 'Starting page-server'
+print('Starting page-server')
 req			= rpc.criu_req()
 req.type		= rpc.PAGE_SERVER
 req.opts.log_file	= 'page-server.log'
@@ -29,7 +29,7 @@ MAX_MSG_SIZE = 1024
 resp.ParseFromString(s.recv(MAX_MSG_SIZE))
 
 if resp.type != rpc.PAGE_SERVER:
-	print 'Unexpected msg type'
+	print('Unexpected msg type')
 	sys.exit(1)
 else:
 	if resp.success:
@@ -38,18 +38,18 @@ else:
 			os.kill(resp.ps.pid, 0)
 		except OSError as err:
 			if err.errno == errno.ESRCH:
-				print 'No process with page-server pid %d' %(resp.ps.pid)
+				print('No process with page-server pid %d' %(resp.ps.pid))
 			else:
-				print 'Can\'t check that process %d exists' %(resp.ps.pid)
+				print('Can\'t check that process %d exists' %(resp.ps.pid))
 				sys.exit(1)
-		print 'Success, page-server pid %d started on port %u' %(resp.ps.pid, resp.ps.port)
+		print('Success, page-server pid %d started on port %u' %(resp.ps.pid, resp.ps.port))
 	else:
-		print 'Failed to start page-server'
+		print('Failed to start page-server')
 		sys.exit(1)
 
 
 # Perform self-dump
-print 'Dumping myself using page-server'
+print('Dumping myself using page-server')
 req.type		= rpc.DUMP
 req.opts.ps.port	= resp.ps.port
 req.opts.ps.address     = "127.0.0.1"
@@ -64,11 +64,11 @@ s.send(req.SerializeToString())
 resp.ParseFromString(s.recv(MAX_MSG_SIZE))
 
 if resp.type != rpc.DUMP:
-	print 'Unexpected msg type'
+	print('Unexpected msg type')
 	sys.exit(1)
 else:
 	if resp.success:
-		print 'Success'
+		print('Success')
 	else:
-		print 'Fail'
+		print('Fail')
 		sys.exit(1)

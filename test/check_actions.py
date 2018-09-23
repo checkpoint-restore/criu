@@ -34,7 +34,7 @@ if actions:
 
 if errors:
 	for x in errors:
-		print x
+		print(x)
 	sys.exit(1)
 
-print 'PASS'
+print('PASS')

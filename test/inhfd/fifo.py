@@ -13,7 +13,7 @@ def create_fds():
 	os.system("umount -l %s" % tdir)
 	os.rmdir(tdir)
 
-	mnt_id = -1;
+	mnt_id = -1
 	with open("/proc/self/fdinfo/%d" % fd1.fileno()) as f:
 		for l in f:
 			l = l.split()

@@ -43,5 +43,5 @@ else:
 		if resp.version.HasField('name'):
 			print('CRIU name %s' % resp.version.name)
 	else:
-		print 'Fail'
+		print('Fail')
 		sys.exit(-1)

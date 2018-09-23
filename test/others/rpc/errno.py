@@ -48,7 +48,7 @@ class test:
 			raise Exception('Unexpected cr_errno ' + str(resp.cr_errno))
 
 	def no_process(self):
-		print 'Try to dump unexisting process'
+		print('Try to dump unexisting process')
 		# Get pid of non-existing process.
 		# Suppose max_pid is not taken by any process.
 		with open("/proc/sys/kernel/pid_max", "r") as f:
@@ -70,10 +70,10 @@ class test:
 
 		self.check_resp(resp, rpc.DUMP, errno.ESRCH)
 
-		print 'Success'
+		print('Success')
 
 	def process_exists(self):
-		print 'Try to restore process which pid is already taken by other process'
+		print('Try to restore process which pid is already taken by other process')
 
 		# Perform self-dump
 		req = self.get_base_req()
@@ -95,10 +95,10 @@ class test:
 
 		self.check_resp(resp, rpc.RESTORE, errno.EEXIST)
 
-		print 'Success'
+		print('Success')
 
 	def bad_options(self):
-		print 'Try to send criu invalid opts'
+		print('Try to send criu invalid opts')
 
 		# Subdirs are not allowed in log_file
 		req = self.get_base_req()
@@ -110,10 +110,10 @@ class test:
 
 		self.check_resp(resp, rpc.DUMP, errno.EBADRQC)
 
-		print 'Success'
+		print('Success')
 
 	def bad_request(self):
-		print 'Try to send criu invalid request type'
+		print('Try to send criu invalid request type')
 
 		req = self.get_base_req()
 		req.type = rpc.NOTIFY
@@ -123,7 +123,7 @@ class test:
 
 		self.check_resp(resp, rpc.EMPTY, None)
 
-		print 'Success'
+		print('Success')
 
 	def run(self):
 		self.no_process()

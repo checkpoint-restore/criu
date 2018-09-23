@@ -34,7 +34,7 @@ def mix(nr_tasks, nr_pipes):
 # Called by a test sub-process. It just closes the not needed ends
 # of pipes and sleeps waiting for death.
 def make_pipes(task_nr, nr_pipes, pipes, comb, status_pipe):
-	print '\t\tMake pipes for %d' % task_nr
+	print('\t\tMake pipes for %d' % task_nr)
 	# We need to make sure that pipes have their
 	# ends according to comb for task_nr
 
@@ -134,7 +134,7 @@ def check_pipes(kids, pipes, comb):
 # and waits for a signal (unix socket message) to start checking
 # the kids' FD tables.
 def make_comb(comb, opts, status_pipe):
-	print '\tMake pipes'
+	print('\tMake pipes')
 	# 1st -- make needed pipes
 	pipes = []
 	for p in xrange(0, opts.pipes):
@@ -168,7 +168,7 @@ def make_comb(comb, opts, status_pipe):
 
 	ex_code = 1
 	if k_res == '0' * opts.tasks:
-		print '\tWait for C/R'
+		print('\tWait for C/R')
 		cmd_sk = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM, 0)
 		cmd_sk.bind('\0CRIUPCSK')
 
@@ -178,12 +178,12 @@ def make_comb(comb, opts, status_pipe):
 		os.close(status_pipe)
 		v = cmd_sk.recv(16)
 		if v == '0':
-			print '\tCheck pipes'
+			print('\tCheck pipes')
 			res = check_pipes(kids, pipes, comb)
 			if res == None:
 				ex_code = 0
 			else:
-				print '\tFAIL %s' % res
+				print('\tFAIL %s' % res)
 
 	# Just kill kids, all checks are done by us, we don't need'em any more
 	for t in kids:
@@ -194,27 +194,27 @@ def make_comb(comb, opts, status_pipe):
 
 
 def cr_test(pid):
-	print 'C/R test'
+	print('C/R test')
 	img_dir = 'pimg_%d' % pid
 	try:
 		os.mkdir(img_dir)
 		subprocess.check_call([criu_bin, 'dump', '-t', '%d' % pid, '-D', img_dir, '-o', 'dump.log', '-v4', '-j'])
 	except:
-		print '`- dump fail'
+		print('`- dump fail')
 		return False
 
 	try:
 		os.waitpid(pid, 0)
 		subprocess.check_call([criu_bin, 'restore', '-D', img_dir, '-o', 'rst.log', '-v4', '-j', '-d', '-S'])
 	except:
-		print '`- restore fail'
+		print('`- restore fail')
 		return False
 
 	return True
 
 
 def run(comb, opts):
-	print 'Checking %r' % comb
+	print('Checking %r' % comb)
 	cpipe = os.pipe()
 	pid = os.fork()
 	if pid == 0:
@@ -230,7 +230,7 @@ def run(comb, opts):
 	if res == '0':
 		res = cr_test(pid)
 
-		print 'Wake up test'
+		print('Wake up test')
 		s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM, 0)
 		if res:
 			res = '0'
@@ -249,7 +249,7 @@ def run(comb, opts):
 	if os.WIFEXITED(st):
 		st = os.WEXITSTATUS(st)
 
-	print 'Done (%d, pid == %d)' % (st, pid)
+	print('Done (%d, pid == %d)' % (st, pid))
 	return st == 0
 
 
@@ -264,7 +264,7 @@ pipe_combs = mix(opts.tasks, opts.pipes)
 
 for comb in pipe_combs:
 	if not run(comb, opts):
-		print 'FAIL'
+		print('FAIL')
 		break
 else:
-	print 'PASS'
+	print('PASS')

@@ -31,17 +31,17 @@ MAX_MSG_SIZE	= 1024
 resp.ParseFromString(s.recv(MAX_MSG_SIZE))
 
 if resp.type != rpc.DUMP:
-	print 'Unexpected msg type'
+	print('Unexpected msg type')
 	sys.exit(-1)
 else:
 	if resp.success:
-		print 'Success'
+		print('Success')
 	else:
-		print 'Fail'
+		print('Fail')
 		sys.exit(-1)
 
 	if resp.dump.restored:
-		print 'Restored'
+		print('Restored')
 
 # Connect to service socket
 s = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
@@ -77,5 +77,5 @@ else:
 		if resp.version.HasField('name'):
 			print('CRIU name %s' % resp.version.name)
 	else:
-		print 'Fail'
+		print('Fail')
 		sys.exit(-1)

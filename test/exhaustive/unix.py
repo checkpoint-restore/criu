@@ -471,10 +471,10 @@ def chk_real_state(st):
 		try:
 			s_st = os.fstat(rsk.fileno())
 		except:
-			print 'FAIL: Socket %d lost' % sk.sk_id
+			print('FAIL: Socket %d lost' % sk.sk_id)
 			return CHK_FAIL_SOCKET
 		if not stat.S_ISSOCK(s_st.st_mode):
-			print 'FAIL: Not a socket %d at %d' % (sk.sk_id, rsk.fileno())
+			print('FAIL: Not a socket %d at %d' % (sk.sk_id, rsk.fileno()))
 			return CHK_FAIL_STAT
 
 	# First -- check the listen states and names
@@ -485,16 +485,16 @@ def chk_real_state(st):
 		rsk = st.real_sockets[sk.sk_id]
 		r_listen = rsk.getsockopt(socket.SOL_SOCKET, socket.SO_ACCEPTCONN)
 		if (sk.listen and r_listen == 0) or (not sk.listen and r_listen == 1):
-			print "FAIL: Socket %d listen %d, expected %d" % \
-					(sk.sk_id, r_listen, sk.listen and 1 or 0)
+			print("FAIL: Socket %d listen %d, expected %d"
+					% (sk.sk_id, r_listen, sk.listen and 1 or 0))
 			return CHK_FAIL_LISTEN
 
 		if sk.name:
 		 	r_name = rsk.getsockname()
 		 	w_name = sock.real_name_for(sk.name)
 		 	if r_name != w_name:
-		 		print 'FAIL: Socket %d name mismatch [%s], want [%s]' % \
-		 				(sk.sk_id, r_name, w_name)
+				print('FAIL: Socket %d name mismatch [%s], want [%s]'
+						% (sk.sk_id, r_name, w_name))
 		 		return CHK_FAIL_NAME
 
 	# Second -- check (accept) pending connections
@@ -513,10 +513,10 @@ def chk_real_state(st):
 			try:
 				acc.do(st)
 			except:
-				print 'FAIL: Cannot accept pending connection for %d' % sk.sk_id
+				print('FAIL: Cannot accept pending connection for %d' % sk.sk_id)
 				return CHK_FAIL_ACCEPT
 
-			print '  `- did %s' % acc.show()
+			print('  `- did %s' % acc.show())
 
 	# Third -- check inqueues
 	for sk in st.sockets:
@@ -531,18 +531,18 @@ def chk_real_state(st):
 			try:
 				r_msg, m_from = rsk.recvfrom(128)
 			except:
-				print 'FAIL: No message in queue for %d' % sk.sk_id
+				print('FAIL: No message in queue for %d' % sk.sk_id)
 				return CHK_FAIL_RECV_0
 
 			w_msg = act_sendmsg.msgval(msg[1])
 			if r_msg != w_msg:
-				print 'FAIL: Message misorder: %s want %s (from %d)' % \
-						(r_msg, w_msg, msg[0])
+				print('FAIL: Message misorder: %s want %s (from %d)'
+						%(r_msg, w_msg, msg[0]))
 				return CHK_FAIL_RECV_MIX
 
 			# TODO -- check sender
-			print '  `- recvd %d.%d msg %s -> %d' % \
-					(msg[0], msg[1], m_from, sk.sk_id)
+			print('  `- recvd %d.%d msg %s -> %d'
+					% (msg[0], msg[1], m_from, sk.sk_id))
 
 	# Finally, after all sockets are visible and all inqueues are
 	# drained -- check the sockets connectivity
@@ -563,8 +563,7 @@ def chk_real_state(st):
 			rsk.send(msgv)
 			rmsg = psk.recv(128)
 		except:
-			print 'FAIL: Connectivity %d -> %d lost' % \
-					(sk.sk_id, sk.peer)
+			print('FAIL: Connectivity %d -> %d lost' % (sk.sk_id, sk.peer))
 			return CHK_FAIL_CONNECT
 
 		# If sockets are not connected the recv above
@@ -573,17 +572,17 @@ def chk_real_state(st):
 		# the hard way -- also check for the message being
 		# delivered for real
 		if rmsg != msgv:
-			print 'FAIL: Connectivity %d -> %d not verified' % \
-					(sk.sk_id, sk.peer)
+			print('FAIL: Connectivity %d -> %d not verified'
+					% (sk.sk_id, sk.peer))
 			return CHK_FAIL_CONNECT2
 
-		print '  `- checked %d -> %d with %s' % (sk.sk_id, sk.peer, msgv)
+		print('  `- checked %d -> %d with %s' % (sk.sk_id, sk.peer, msgv))
 
 	return CHK_PASS
 
 
 def chk_state(st, opts):
-	print "Will check state"
+	print("Will check state")
 
 	sigsk_name = "\0" + "CRSIGSKC"
 	signal_sk = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM, 0)
@@ -606,25 +605,25 @@ def chk_state(st, opts):
 	for rsk in st.real_sockets.values():
 		rsk.close()
 
-	print "`- dump"
+	print("`- dump")
 	img_path = "sti_" + st.describe()
 	try:
 		os.mkdir(img_path)
 		subprocess.check_call([criu_bin, "dump", "-t", "%d" % pid, "-D", img_path, "-v4", "-o", "dump.log", "-j"])
 	except:
-		print "Dump failed"
+		print("Dump failed")
 		os.kill(pid, signal.SIGKILL)
 		return CHK_FAIL_DUMP
 
-	print "`- restore"
+	print("`- restore")
 	try:
 		os.waitpid(pid, 0)
 		subprocess.check_call([criu_bin, "restore", "-D", img_path, "-v4", "-o", "rst.log", "-j", "-d", "-S"])
 	except:
-		print "Restore failed"
+		print("Restore failed")
 		return CHK_FAIL_RESTORE
 
-	print "`- check"
+	print("`- check")
 	signal_sk = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM, 0)
 	try:
 		signal_sk.sendto('check', sigsk_name)
@@ -636,11 +635,11 @@ def chk_state(st, opts):
 	if os.WIFEXITED(status):
 		status = os.WEXITSTATUS(status)
 		if status != CHK_PASS:
-			print "`- exited with %d" % status
+			print("`- exited with %d" % status)
 			return status
 	elif os.WIFSIGNALED(status):
 		status = os.WTERMSIG(status)
-		print "`- killed with %d" % status
+		print("`- killed with %d" % status)
 		return CHK_FAIL_KILLED
 	else:
 	 	return CHK_FAIL_UNKNOWN
@@ -649,7 +648,7 @@ def chk_state(st, opts):
 
 
 def run_state(st, opts):
-	print "Will run state"
+	print("Will run state")
 	pid = os.fork()
 	if pid != 0:
 		wpid, status = os.wait()
@@ -685,9 +684,9 @@ def proceed(st, seen, failed, opts, depth = 0):
 		# using less steps and it's better to proceed as we have
 		# depth to move forward and generate more states.
 		seen[desc] = len(st.steps)
-		print '%s' % desc
+		print('%s' % desc)
 		for s in st.steps:
-			print '\t%s' % s.show()
+			print('\t%s' % s.show())
 
 		if not opts.gen:
 			ret = run_state(st, opts)
@@ -731,7 +730,7 @@ opts.depth = int(opts.depth)
 
 # XXX: does it make any sense to mix two types in one go?
 if opts.stream and opts.dgram:
-	print 'Choose only one type'
+	print('Choose only one type')
 	sys.exit(1)
 
 if opts.stream:
@@ -739,7 +738,7 @@ if opts.stream:
 elif opts.dgram:
 	sk_type = socket.SOCK_DGRAM
 else:
-	print 'Choose some type'
+	print('Choose some type')
 	sys.exit(1)
 
 st = state(int(opts.sockets), sk_type)
@@ -748,8 +747,8 @@ failed = set()
 proceed(st, seen, failed, opts)
 
 if len(failed) == 0:
-	print 'PASS (%d states)' % len(seen)
+	print('PASS (%d states)' % len(seen))
 else:
-	print 'FAIL %d/%d' % (len(failed), len(seen))
+	print('FAIL %d/%d' % (len(failed), len(seen)))
 	for f in failed:
-		print "\t%-50s: %s" % (f[0], fail_desc.get(f[1], 'unknown reason %d' % f[1]))
+		print("\t%-50s: %s" % (f[0], fail_desc.get(f[1], 'unknown reason %d' % f[1])))

@@ -14,10 +14,10 @@ def mount(src, dst, shared, private, slave):
 	else:
 		cmd += " -t tmpfs none '%s'" % (dst)
 
-	print cmd
+	print(cmd)
 	ret = os.system(cmd)
 	if ret:
-		print "failed"
+		print("failed")
 
 root = tempfile.mkdtemp(prefix = "root.mount", dir = "/tmp")
 mount(None, root, 1, 0, 0)
