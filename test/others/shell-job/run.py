@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 import os, pty, sys, subprocess
-import termios, fcntl, time, signal
+import termios, fcntl, time
 
 cr_bin = "../../../criu/criu"
 
@@ -62,4 +62,3 @@ pid, status = os.wait()
 if status != 0:
     print("A child process exited with %d" % status)
     sys.exit(1)
-

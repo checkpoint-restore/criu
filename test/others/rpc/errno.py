@@ -1,7 +1,7 @@
 #!/usr/bin/python2
 # Test criu errno
 
-import socket, os, imp, sys, errno
+import socket, os, errno
 import rpc_pb2 as rpc
 import argparse
 

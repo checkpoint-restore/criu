@@ -1,6 +1,5 @@
 #!/bin/env python2
-import os, sys
-import struct
+import sys
 
 # This program parses criu magic.h file and produces
 # magic.py with all *_MAGIC constants except RAW and V1.

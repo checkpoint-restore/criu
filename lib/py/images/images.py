@@ -39,16 +39,13 @@
 #
 import io
 import base64
-import google
 import struct
 import os
-import sys
-import json
-from . import pb2dict
 import array
 
 from . import magic
-from .pb import *
+from . import pb
+from . import pb2dict
 
 if "encodebytes" not in dir(base64):
 	base64.encodebytes = base64.encodestring
@@ -187,16 +184,16 @@ class pagemap_handler:
 	def load(self, f, pretty = False, no_payload = False):
 		entries = []
 
-		pb = pagemap_head()
+		pbuff = pb.pagemap_head()
 		while True:
 			buf = f.read(4)
 			if buf == b'':
 				break
 			size, = struct.unpack('i', buf)
-			pb.ParseFromString(f.read(size))
-			entries.append(pb2dict.pb2dict(pb, pretty))
+			pbuff.ParseFromString(f.read(size))
+			entries.append(pb2dict.pb2dict(pbuff, pretty))
 
-			pb = pagemap_entry()
+			pbuff = pb.pagemap_entry()
 
 		return entries
 
@@ -205,15 +202,15 @@ class pagemap_handler:
 		return self.load(f, pretty)
 
 	def dump(self, entries, f):
-		pb = pagemap_head()
+		pbuff = pb.pagemap_head()
 		for item in entries:
-			pb2dict.dict2pb(item, pb)
-			pb_str = pb.SerializeToString()
+			pb2dict.dict2pb(item, pbuff)
+			pb_str = pbuff.SerializeToString()
 			size = len(pb_str)
 			f.write(struct.pack('i', size))
 			f.write(pb_str)
 
-			pb = pagemap_entry()
+			pbuff = pb.pagemap_entry()
 
 	def dumps(self, entries):
 		f = io.BytesIO('')
@@ -228,7 +225,7 @@ class ghost_file_handler:
 	def load(self, f, pretty = False, no_payload = False):
 		entries = []
 
-		gf = ghost_file_entry()
+		gf = pb.ghost_file_entry()
 		buf = f.read(4)
 		size, = struct.unpack('i', buf)
 		gf.ParseFromString(f.read(size))
@@ -237,7 +234,7 @@ class ghost_file_handler:
 		if gf.chunks:
 			entries.append(g_entry)
 			while True:
-				gc = ghost_chunk_entry()
+				gc = pb.ghost_chunk_entry()
 				buf = f.read(4)
 				if buf == '':
 					break
@@ -263,19 +260,19 @@ class ghost_file_handler:
 		return self.load(f, pretty)
 
 	def dump(self, entries, f):
-		pb = ghost_file_entry()
+		pbuff = pb.ghost_file_entry()
 		item = entries.pop(0)
-		pb2dict.dict2pb(item, pb)
-		pb_str = pb.SerializeToString()
+		pb2dict.dict2pb(item, pbuff)
+		pb_str = pbuff.SerializeToString()
 		size = len(pb_str)
 		f.write(struct.pack('i', size))
 		f.write(pb_str)
 
-		if pb.chunks:
+		if pbuff.chunks:
 			for item in entries:
-				pb = ghost_chunk_entry()
-				pb2dict.dict2pb(item, pb)
-				pb_str = pb.SerializeToString()
+				pbuff = pb.ghost_chunk_entry()
+				pb2dict.dict2pb(item, pbuff)
+				pb_str = pbuff.SerializeToString()
 				size = len(pb_str)
 				f.write(struct.pack('i', size))
 				f.write(pb_str)
@@ -387,7 +384,7 @@ class ipc_msg_queue_handler:
 			if buf == '':
 				break
 			size, = struct.unpack('i', buf)
-			msg = ipc_msg()
+			msg = pb.ipc_msg()
 			msg.ParseFromString(f.read(size))
 			rounded = round_up(msg.msize, sizeof_u64)
 			data = f.read(msg.msize)
@@ -399,7 +396,7 @@ class ipc_msg_queue_handler:
 	def dump(self, extra, f, pb):
 		entry = pb2dict.pb2dict(pb)
 		for i in range (0, len(extra), 2):
-			msg = ipc_msg()
+			msg = pb.ipc_msg()
 			pb2dict.dict2pb(extra[i], msg)
 			msg_str = msg.SerializeToString()
 			size = len(msg_str)
@@ -418,7 +415,7 @@ class ipc_msg_queue_handler:
 			if buf == '':
 				break
 			size, = struct.unpack('i', buf)
-			msg = ipc_msg()
+			msg = pb.ipc_msg()
 			msg.ParseFromString(f.read(size))
 			rounded = round_up(msg.msize, sizeof_u64)
 			f.seek(rounded, os.SEEK_CUR)
@@ -452,65 +449,65 @@ class ipc_shm_handler:
 
 
 handlers = {
-	'INVENTORY'		: entry_handler(inventory_entry),
-	'CORE'			: entry_handler(core_entry),
-	'IDS'			: entry_handler(task_kobj_ids_entry),
-	'CREDS'			: entry_handler(creds_entry),
-	'UTSNS'			: entry_handler(utsns_entry),
-	'IPC_VAR'		: entry_handler(ipc_var_entry),
-	'FS'			: entry_handler(fs_entry),
+	'INVENTORY'		: entry_handler(pb.inventory_entry),
+	'CORE'			: entry_handler(pb.core_entry),
+	'IDS'			: entry_handler(pb.task_kobj_ids_entry),
+	'CREDS'			: entry_handler(pb.creds_entry),
+	'UTSNS'			: entry_handler(pb.utsns_entry),
+	'IPC_VAR'		: entry_handler(pb.ipc_var_entry),
+	'FS'			: entry_handler(pb.fs_entry),
 	'GHOST_FILE'		: ghost_file_handler(),
-	'MM'			: entry_handler(mm_entry),
-	'CGROUP'		: entry_handler(cgroup_entry),
-	'TCP_STREAM'		: entry_handler(tcp_stream_entry, tcp_stream_extra_handler()),
-	'STATS'			: entry_handler(stats_entry),
+	'MM'			: entry_handler(pb.mm_entry),
+	'CGROUP'		: entry_handler(pb.cgroup_entry),
+	'TCP_STREAM'		: entry_handler(pb.tcp_stream_entry, tcp_stream_extra_handler()),
+	'STATS'			: entry_handler(pb.stats_entry),
 	'PAGEMAP'		: pagemap_handler(), # Special one
-	'PSTREE'		: entry_handler(pstree_entry),
-	'REG_FILES'		: entry_handler(reg_file_entry),
-	'NS_FILES'		: entry_handler(ns_file_entry),
-	'EVENTFD_FILE'		: entry_handler(eventfd_file_entry),
-	'EVENTPOLL_FILE'	: entry_handler(eventpoll_file_entry),
-	'EVENTPOLL_TFD'		: entry_handler(eventpoll_tfd_entry),
-	'SIGNALFD'		: entry_handler(signalfd_entry),
-	'TIMERFD'		: entry_handler(timerfd_entry),
-	'INOTIFY_FILE'		: entry_handler(inotify_file_entry),
-	'INOTIFY_WD'		: entry_handler(inotify_wd_entry),
-	'FANOTIFY_FILE'		: entry_handler(fanotify_file_entry),
-	'FANOTIFY_MARK'		: entry_handler(fanotify_mark_entry),
-	'VMAS'			: entry_handler(vma_entry),
-	'PIPES'			: entry_handler(pipe_entry),
-	'FIFO'			: entry_handler(fifo_entry),
-	'SIGACT'		: entry_handler(sa_entry),
-	'NETLINK_SK'		: entry_handler(netlink_sk_entry),
-	'REMAP_FPATH'		: entry_handler(remap_file_path_entry),
-	'MNTS'			: entry_handler(mnt_entry),
-	'TTY_FILES'		: entry_handler(tty_file_entry),
-	'TTY_INFO'		: entry_handler(tty_info_entry),
-	'TTY_DATA'		: entry_handler(tty_data_entry),
-	'RLIMIT'		: entry_handler(rlimit_entry),
-	'TUNFILE'		: entry_handler(tunfile_entry),
-	'EXT_FILES'		: entry_handler(ext_file_entry),
-	'IRMAP_CACHE'		: entry_handler(irmap_cache_entry),
-	'FILE_LOCKS'		: entry_handler(file_lock_entry),
-	'FDINFO'		: entry_handler(fdinfo_entry),
-	'UNIXSK'		: entry_handler(unix_sk_entry),
-	'INETSK'		: entry_handler(inet_sk_entry),
-	'PACKETSK'		: entry_handler(packet_sock_entry),
-	'ITIMERS'		: entry_handler(itimer_entry),
-	'POSIX_TIMERS'		: entry_handler(posix_timer_entry),
-	'NETDEV'		: entry_handler(net_device_entry),
-	'PIPES_DATA'		: entry_handler(pipe_data_entry, pipes_data_extra_handler()),
-	'FIFO_DATA'		: entry_handler(pipe_data_entry, pipes_data_extra_handler()),
-	'SK_QUEUES'		: entry_handler(sk_packet_entry, sk_queues_extra_handler()),
-	'IPCNS_SHM'		: entry_handler(ipc_shm_entry, ipc_shm_handler()),
-	'IPCNS_SEM'		: entry_handler(ipc_sem_entry, ipc_sem_set_handler()),
-	'IPCNS_MSG'		: entry_handler(ipc_msg_entry, ipc_msg_queue_handler()),
-	'NETNS'			: entry_handler(netns_entry),
-	'USERNS'		: entry_handler(userns_entry),
-	'SECCOMP'		: entry_handler(seccomp_entry),
-	'AUTOFS'		: entry_handler(autofs_entry),
-	'FILES'                 : entry_handler(file_entry),
-	'CPUINFO'		: entry_handler(cpuinfo_entry),
+	'PSTREE'		: entry_handler(pb.pstree_entry),
+	'REG_FILES'		: entry_handler(pb.reg_file_entry),
+	'NS_FILES'		: entry_handler(pb.ns_file_entry),
+	'EVENTFD_FILE'		: entry_handler(pb.eventfd_file_entry),
+	'EVENTPOLL_FILE'	: entry_handler(pb.eventpoll_file_entry),
+	'EVENTPOLL_TFD'		: entry_handler(pb.eventpoll_tfd_entry),
+	'SIGNALFD'		: entry_handler(pb.signalfd_entry),
+	'TIMERFD'		: entry_handler(pb.timerfd_entry),
+	'INOTIFY_FILE'		: entry_handler(pb.inotify_file_entry),
+	'INOTIFY_WD'		: entry_handler(pb.inotify_wd_entry),
+	'FANOTIFY_FILE'		: entry_handler(pb.fanotify_file_entry),
+	'FANOTIFY_MARK'		: entry_handler(pb.fanotify_mark_entry),
+	'VMAS'			: entry_handler(pb.vma_entry),
+	'PIPES'			: entry_handler(pb.pipe_entry),
+	'FIFO'			: entry_handler(pb.fifo_entry),
+	'SIGACT'		: entry_handler(pb.sa_entry),
+	'NETLINK_SK'		: entry_handler(pb.netlink_sk_entry),
+	'REMAP_FPATH'		: entry_handler(pb.remap_file_path_entry),
+	'MNTS'			: entry_handler(pb.mnt_entry),
+	'TTY_FILES'		: entry_handler(pb.tty_file_entry),
+	'TTY_INFO'		: entry_handler(pb.tty_info_entry),
+	'TTY_DATA'		: entry_handler(pb.tty_data_entry),
+	'RLIMIT'		: entry_handler(pb.rlimit_entry),
+	'TUNFILE'		: entry_handler(pb.tunfile_entry),
+	'EXT_FILES'		: entry_handler(pb.ext_file_entry),
+	'IRMAP_CACHE'		: entry_handler(pb.irmap_cache_entry),
+	'FILE_LOCKS'		: entry_handler(pb.file_lock_entry),
+	'FDINFO'		: entry_handler(pb.fdinfo_entry),
+	'UNIXSK'		: entry_handler(pb.unix_sk_entry),
+	'INETSK'		: entry_handler(pb.inet_sk_entry),
+	'PACKETSK'		: entry_handler(pb.packet_sock_entry),
+	'ITIMERS'		: entry_handler(pb.itimer_entry),
+	'POSIX_TIMERS'		: entry_handler(pb.posix_timer_entry),
+	'NETDEV'		: entry_handler(pb.net_device_entry),
+	'PIPES_DATA'		: entry_handler(pb.pipe_data_entry, pipes_data_extra_handler()),
+	'FIFO_DATA'		: entry_handler(pb.pipe_data_entry, pipes_data_extra_handler()),
+	'SK_QUEUES'		: entry_handler(pb.sk_packet_entry, sk_queues_extra_handler()),
+	'IPCNS_SHM'		: entry_handler(pb.ipc_shm_entry, ipc_shm_handler()),
+	'IPCNS_SEM'		: entry_handler(pb.ipc_sem_entry, ipc_sem_set_handler()),
+	'IPCNS_MSG'		: entry_handler(pb.ipc_msg_entry, ipc_msg_queue_handler()),
+	'NETNS'			: entry_handler(pb.netns_entry),
+	'USERNS'		: entry_handler(pb.userns_entry),
+	'SECCOMP'		: entry_handler(pb.seccomp_entry),
+	'AUTOFS'		: entry_handler(pb.autofs_entry),
+	'FILES'                 : entry_handler(pb.file_entry),
+	'CPUINFO'		: entry_handler(pb.cpuinfo_entry),
 	}
 
 def __rhandler(f):

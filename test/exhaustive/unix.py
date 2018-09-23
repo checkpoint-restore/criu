@@ -4,7 +4,6 @@ import sys
 import os
 import socket
 import argparse
-import time
 import subprocess
 import signal
 import fcntl

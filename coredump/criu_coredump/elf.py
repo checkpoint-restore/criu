@@ -1,11 +1,11 @@
 # Define structures and constants for generating elf file.
-from ctypes import *
+import ctypes
 
-Elf64_Half	= c_uint16	# typedef uint16_t Elf64_Half;
-Elf64_Word	= c_uint32	# typedef uint32_t Elf64_Word;
-Elf64_Addr	= c_uint64	# typedef uint64_t Elf64_Addr;
-Elf64_Off	= c_uint64	# typedef uint64_t Elf64_Off;
-Elf64_Xword	= c_uint64	# typedef uint64_t Elf64_Xword;
+Elf64_Half	= ctypes.c_uint16	# typedef uint16_t Elf64_Half;
+Elf64_Word	= ctypes.c_uint32	# typedef uint32_t Elf64_Word;
+Elf64_Addr	= ctypes.c_uint64	# typedef uint64_t Elf64_Addr;
+Elf64_Off	= ctypes.c_uint64	# typedef uint64_t Elf64_Off;
+Elf64_Xword	= ctypes.c_uint64	# typedef uint64_t Elf64_Xword;
 
 # Elf64_Ehdr related constants.
 
@@ -43,9 +43,9 @@ EM_X86_64	= 62		# #define EM_X86_64       62              /* AMD x86-64 architec
 # Legal values for e_version (version).
 EV_CURRENT	= 1		# #define EV_CURRENT      1               /* Current version */
 
-class Elf64_Ehdr(Structure):			# typedef struct
+class Elf64_Ehdr(ctypes.Structure):			# typedef struct
 	_fields_ = [				# {
-	("e_ident",	c_ubyte*EI_NIDENT),	#   unsigned char e_ident[EI_NIDENT];
+	("e_ident",	ctypes.c_ubyte*EI_NIDENT),	#   unsigned char e_ident[EI_NIDENT];
 	("e_type",	Elf64_Half),		#   Elf64_Half e_type;
 	("e_machine",	Elf64_Half),		#   Elf64_Half e_machine;
 	("e_version",	Elf64_Word),		#   Elf64_Word e_version;
@@ -73,7 +73,7 @@ PF_X	= 1		# #define PF_X            (1 << 0)        /* Segment is executable */
 PF_W	= 1 << 1	# #define PF_W            (1 << 1)        /* Segment is writable */
 PF_R	= 1 << 2	# #define PF_R            (1 << 2)        /* Segment is readable */
 
-class Elf64_Phdr(Structure):			# typedef struct
+class Elf64_Phdr(ctypes.Structure):			# typedef struct
 	_fields_ = [				# {
 	("p_type",	Elf64_Word),		#   Elf64_Word p_type;
 	("p_flags",	Elf64_Word),		#   Elf64_Word p_flags;
@@ -88,14 +88,14 @@ class Elf64_Phdr(Structure):			# typedef struct
 
 # Elf64_auxv_t related constants.
 
-class _Elf64_auxv_t_U(Union):
+class _Elf64_auxv_t_U(ctypes.Union):
 	_fields_ = [
-	("a_val", c_uint64)
+	("a_val", ctypes.c_uint64)
 	]
 
-class Elf64_auxv_t(Structure):			# typedef struct
+class Elf64_auxv_t(ctypes.Structure):			# typedef struct
 	_fields_ = [				# {
-	("a_type",	c_uint64),		#   uint64_t a_type;              /* Entry type */
+	("a_type",	ctypes.c_uint64),		#   uint64_t a_type;              /* Entry type */
 	("a_un",	_Elf64_auxv_t_U)	#   union
 						#     {
 						#       uint64_t a_val;           /* Integer value */
@@ -118,7 +118,7 @@ NT_FILE		= 0x46494c45	# #define NT_FILE         0x46494c45      /* Contains info
 #									     files */
 NT_X86_XSTATE	= 0x202		# #define NT_X86_XSTATE   0x202           /* x86 extended state using xsave */
 
-class Elf64_Nhdr(Structure):		# typedef struct
+class Elf64_Nhdr(ctypes.Structure):		# typedef struct
 	_fields_ = [			# {
 	("n_namesz",	Elf64_Word),	#   Elf64_Word n_namesz;                  /* Length of the note's name.  */
 	("n_descsz",	Elf64_Word),	#   Elf64_Word n_descsz;                  /* Length of the note's descriptor.  */
@@ -128,7 +128,7 @@ class Elf64_Nhdr(Structure):		# typedef struct
 
 # Elf64_Shdr related constants.
 
-class Elf64_Shdr(Structure):		# typedef struct
+class Elf64_Shdr(ctypes.Structure):		# typedef struct
 	_fields_ = [			# {
 	("sh_name",	Elf64_Word),	#   Elf64_Word    sh_name;                /* Section name (string tbl index) */
 	("sh_type",	Elf64_Word),	#   Elf64_Word    sh_type;                /* Section type */
@@ -146,73 +146,73 @@ class Elf64_Shdr(Structure):		# typedef struct
 # elf_prstatus related constants.
 
 # Signal info.
-class elf_siginfo(Structure):		# struct elf_siginfo
+class elf_siginfo(ctypes.Structure):		# struct elf_siginfo
 	_fields_ = [			#   {
-	("si_signo",	c_int),		#     int si_signo;                       /* Signal number.  */
-	("si_code",	c_int),		#     int si_code;                        /* Extra code.  */
-	("si_errno",	c_int)		#     int si_errno;                       /* Errno.  */
+	("si_signo",	ctypes.c_int),		#     int si_signo;                       /* Signal number.  */
+	("si_code",	ctypes.c_int),		#     int si_code;                        /* Extra code.  */
+	("si_errno",	ctypes.c_int)		#     int si_errno;                       /* Errno.  */
 	]				#   };
 
 # A time value that is accurate to the nearest
 # microsecond but also has a range of years.
-class timeval(Structure):		# struct timeval
+class timeval(ctypes.Structure):		# struct timeval
 	_fields_ = [			#   {
-	("tv_sec",	c_long),	#     __time_t tv_sec;            /* Seconds.  */
-	("tv_usec",	c_long)		#     __suseconds_t tv_usec;      /* Microseconds.  */
+	("tv_sec",	ctypes.c_long),	#     __time_t tv_sec;            /* Seconds.  */
+	("tv_usec",	ctypes.c_long)		#     __suseconds_t tv_usec;      /* Microseconds.  */
 	]				#   };
 
-class user_regs_struct(Structure):		# struct user_regs_struct
+class user_regs_struct(ctypes.Structure):		# struct user_regs_struct
 	_fields_ = [				# {
-	("r15",		c_ulonglong),		#   __extension__ unsigned long long int r15;
-	("r14",		c_ulonglong),		#   __extension__ unsigned long long int r14;
-	("r13",		c_ulonglong),		#   __extension__ unsigned long long int r13;
-	("r12",		c_ulonglong),		#   __extension__ unsigned long long int r12;
-	("rbp",		c_ulonglong),		#   __extension__ unsigned long long int rbp;
-	("rbx",		c_ulonglong),		#   __extension__ unsigned long long int rbx;
-	("r11",		c_ulonglong),		#   __extension__ unsigned long long int r11;
-	("r10",		c_ulonglong),		#   __extension__ unsigned long long int r10;
-	("r9",		c_ulonglong),		#   __extension__ unsigned long long int r9;
-	("r8",		c_ulonglong),		#   __extension__ unsigned long long int r8;
-	("rax",		c_ulonglong),		#   __extension__ unsigned long long int rax;
-	("rcx",		c_ulonglong),		#   __extension__ unsigned long long int rcx;
-	("rdx",		c_ulonglong),		#   __extension__ unsigned long long int rdx;
-	("rsi",		c_ulonglong),		#   __extension__ unsigned long long int rsi;
-	("rdi",		c_ulonglong),		#   __extension__ unsigned long long int rdi;
-	("orig_rax",	c_ulonglong),		#   __extension__ unsigned long long int orig_rax;
-	("rip",		c_ulonglong),		#   __extension__ unsigned long long int rip;
-	("cs",		c_ulonglong),		#   __extension__ unsigned long long int cs;
-	("eflags",	c_ulonglong),		#   __extension__ unsigned long long int eflags;
-	("rsp",		c_ulonglong),		#   __extension__ unsigned long long int rsp;
-	("ss",		c_ulonglong),		#   __extension__ unsigned long long int ss;
-	("fs_base",	c_ulonglong),		#   __extension__ unsigned long long int fs_base;
-	("gs_base",	c_ulonglong),		#   __extension__ unsigned long long int gs_base;
-	("ds",		c_ulonglong),		#   __extension__ unsigned long long int ds;
-	("es",		c_ulonglong),		#   __extension__ unsigned long long int es;
-	("fs",		c_ulonglong),		#   __extension__ unsigned long long int fs;
-	("gs",		c_ulonglong)		#   __extension__ unsigned long long int gs;
+	("r15",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int r15;
+	("r14",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int r14;
+	("r13",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int r13;
+	("r12",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int r12;
+	("rbp",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int rbp;
+	("rbx",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int rbx;
+	("r11",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int r11;
+	("r10",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int r10;
+	("r9",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int r9;
+	("r8",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int r8;
+	("rax",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int rax;
+	("rcx",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int rcx;
+	("rdx",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int rdx;
+	("rsi",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int rsi;
+	("rdi",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int rdi;
+	("orig_rax",	ctypes.c_ulonglong),		#   __extension__ unsigned long long int orig_rax;
+	("rip",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int rip;
+	("cs",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int cs;
+	("eflags",	ctypes.c_ulonglong),		#   __extension__ unsigned long long int eflags;
+	("rsp",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int rsp;
+	("ss",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int ss;
+	("fs_base",	ctypes.c_ulonglong),		#   __extension__ unsigned long long int fs_base;
+	("gs_base",	ctypes.c_ulonglong),		#   __extension__ unsigned long long int gs_base;
+	("ds",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int ds;
+	("es",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int es;
+	("fs",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int fs;
+	("gs",		ctypes.c_ulonglong)		#   __extension__ unsigned long long int gs;
 	]					# };
 
-#elf_greg_t	= c_ulonglong
-#ELF_NGREG = sizeof(user_regs_struct)/sizeof(elf_greg_t)
+#elf_greg_t	= ctypes.c_ulonglong
+#ELF_NGREG = ctypes.sizeof(user_regs_struct)/ctypes.sizeof(elf_greg_t)
 #elf_gregset_t = elf_greg_t*ELF_NGREG
 elf_gregset_t = user_regs_struct
 
-class elf_prstatus(Structure):		# struct elf_prstatus
+class elf_prstatus(ctypes.Structure):		# struct elf_prstatus
 	_fields_ = [			#   {
 	("pr_info",	elf_siginfo),	#     struct elf_siginfo pr_info;         /* Info associated with signal.  */
-	("pr_cursig",	c_short),	#     short int pr_cursig;                /* Current signal.  */
-	("pr_sigpend",	c_ulong),	#     unsigned long int pr_sigpend;       /* Set of pending signals.  */
-	("pr_sighold",	c_ulong),	#     unsigned long int pr_sighold;       /* Set of held signals.  */
-	("pr_pid",	c_int),		#     __pid_t pr_pid;
-	("pr_ppid",	c_int),		#     __pid_t pr_ppid;
-	("pr_pgrp",	c_int),		#     __pid_t pr_pgrp;
-	("pr_sid",	c_int),		#     __pid_t pr_sid;
+	("pr_cursig",	ctypes.c_short),	#     short int pr_cursig;                /* Current signal.  */
+	("pr_sigpend",	ctypes.c_ulong),	#     unsigned long int pr_sigpend;       /* Set of pending signals.  */
+	("pr_sighold",	ctypes.c_ulong),	#     unsigned long int pr_sighold;       /* Set of held signals.  */
+	("pr_pid",	ctypes.c_int),		#     __pid_t pr_pid;
+	("pr_ppid",	ctypes.c_int),		#     __pid_t pr_ppid;
+	("pr_pgrp",	ctypes.c_int),		#     __pid_t pr_pgrp;
+	("pr_sid",	ctypes.c_int),		#     __pid_t pr_sid;
 	("pr_utime",	timeval),	#     struct timeval pr_utime;            /* User time.  */
 	("pr_stime",	timeval),	#     struct timeval pr_stime;            /* System time.  */
 	("pr_cutime",	timeval),	#     struct timeval pr_cutime;           /* Cumulative user time.  */
 	("pr_cstime",	timeval),	#     struct timeval pr_cstime;           /* Cumulative system time.  */
 	("pr_reg",	elf_gregset_t),	#     elf_gregset_t pr_reg;               /* GP registers.  */
-	("pr_fpvalid",	c_int)		#     int pr_fpvalid;                     /* True if math copro being used.  */
+	("pr_fpvalid",	ctypes.c_int)		#     int pr_fpvalid;                     /* True if math copro being used.  */
 	]				#   };
 
 
@@ -220,43 +220,43 @@ class elf_prstatus(Structure):		# struct elf_prstatus
 
 ELF_PRARGSZ	= 80			# #define ELF_PRARGSZ     (80)    /* Number of chars for args.  */
 
-class elf_prpsinfo(Structure):			# struct elf_prpsinfo
+class elf_prpsinfo(ctypes.Structure):			# struct elf_prpsinfo
 	_fields_ = [				#   {
-	("pr_state",	c_byte),		#     char pr_state;                      /* Numeric process state.  */
-	("pr_sname",	c_char),		#     char pr_sname;                      /* Char for pr_state.  */
-	("pr_zomb",	c_byte),		#     char pr_zomb;                       /* Zombie.  */
-	("pr_nice",	c_byte),		#     char pr_nice;                       /* Nice val.  */
-	("pr_flag",	c_ulong),		#     unsigned long int pr_flag;          /* Flags.  */
+	("pr_state",	ctypes.c_byte),		#     char pr_state;                      /* Numeric process state.  */
+	("pr_sname",	ctypes.c_char),		#     char pr_sname;                      /* Char for pr_state.  */
+	("pr_zomb",	ctypes.c_byte),		#     char pr_zomb;                       /* Zombie.  */
+	("pr_nice",	ctypes.c_byte),		#     char pr_nice;                       /* Nice val.  */
+	("pr_flag",	ctypes.c_ulong),		#     unsigned long int pr_flag;          /* Flags.  */
 						# #if __WORDSIZE == 32
 						#     unsigned short int pr_uid;
 						#     unsigned short int pr_gid;
 						# #else
-	("pr_uid",	c_uint),		#     unsigned int pr_uid;
-	("pr_gid",	c_uint),		#     unsigned int pr_gid;
+	("pr_uid",	ctypes.c_uint),		#     unsigned int pr_uid;
+	("pr_gid",	ctypes.c_uint),		#     unsigned int pr_gid;
 						# #endif
-	("pr_pid",	c_int),			#     int pr_pid, pr_ppid, pr_pgrp, pr_sid;
-	("pr_ppid",	c_int),
-	("pr_pgrp",	c_int),
-	("pr_sid",	c_int),
+	("pr_pid",	ctypes.c_int),			#     int pr_pid, pr_ppid, pr_pgrp, pr_sid;
+	("pr_ppid",	ctypes.c_int),
+	("pr_pgrp",	ctypes.c_int),
+	("pr_sid",	ctypes.c_int),
 						#     /* Lots missing */
-	("pr_fname",	c_char*16),		#     char pr_fname[16];                  /* Filename of executable.  */
-	("pr_psargs",	c_char*ELF_PRARGSZ)	#     char pr_psargs[ELF_PRARGSZ];        /* Initial part of arg list.  */
+	("pr_fname",	ctypes.c_char*16),		#     char pr_fname[16];                  /* Filename of executable.  */
+	("pr_psargs",	ctypes.c_char*ELF_PRARGSZ)	#     char pr_psargs[ELF_PRARGSZ];        /* Initial part of arg list.  */
 	]					#   };
 
 
-class user_fpregs_struct(Structure):		# struct user_fpregs_struct
+class user_fpregs_struct(ctypes.Structure):		# struct user_fpregs_struct
 	_fields_ = [				# {
-	("cwd",		c_ushort),		#   unsigned short int    cwd;
-	("swd",		c_ushort),		#   unsigned short int    swd;
-	("ftw",		c_ushort),		#   unsigned short int    ftw;
-	("fop",		c_ushort),		#   unsigned short int    fop;
-	("rip",		c_ulonglong),		#   __extension__ unsigned long long int rip;
-	("rdp",		c_ulonglong),		#   __extension__ unsigned long long int rdp;
-	("mxcsr",	c_uint),		#   unsigned int          mxcsr;
-	("mxcr_mask",	c_uint),		#   unsigned int          mxcr_mask;
-	("st_space",	c_uint*32),		#   unsigned int          st_space[32];   /* 8*16 bytes for each FP-reg = 128 bytes */
-	("xmm_space",	c_uint*64),		#   unsigned int          xmm_space[64];  /* 16*16 bytes for each XMM-reg = 256 bytes */
-	("padding",	c_uint*24),		#   unsigned int          padding[24];
+	("cwd",		ctypes.c_ushort),		#   unsigned short int    cwd;
+	("swd",		ctypes.c_ushort),		#   unsigned short int    swd;
+	("ftw",		ctypes.c_ushort),		#   unsigned short int    ftw;
+	("fop",		ctypes.c_ushort),		#   unsigned short int    fop;
+	("rip",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int rip;
+	("rdp",		ctypes.c_ulonglong),		#   __extension__ unsigned long long int rdp;
+	("mxcsr",	ctypes.c_uint),		#   unsigned int          mxcsr;
+	("mxcr_mask",	ctypes.c_uint),		#   unsigned int          mxcr_mask;
+	("st_space",	ctypes.c_uint*32),		#   unsigned int          st_space[32];   /* 8*16 bytes for each FP-reg = 128 bytes */
+	("xmm_space",	ctypes.c_uint*64),		#   unsigned int          xmm_space[64];  /* 16*16 bytes for each XMM-reg = 256 bytes */
+	("padding",	ctypes.c_uint*24),		#   unsigned int          padding[24];
 	]					# };
 
 
@@ -266,79 +266,79 @@ elf_fpregset_t = user_fpregs_struct
 # siginfo_t related constants.
 
 _SI_MAX_SIZE	= 128
-_SI_PAD_SIZE	= (_SI_MAX_SIZE/sizeof(c_int)) - 4
+_SI_PAD_SIZE	= (_SI_MAX_SIZE/ctypes.sizeof(ctypes.c_int)) - 4
 
 					#          /* kill().  */
-class _siginfo_t_U_kill(Structure):	#         struct
+class _siginfo_t_U_kill(ctypes.Structure):	#         struct
 	_fields_ = [			#           {
-	("si_pid",	c_int),		#             __pid_t si_pid;     /* Sending process ID.  */
-	("si_uid",	c_uint)		#             __uid_t si_uid;     /* Real user ID of sending process.  */
+	("si_pid",	ctypes.c_int),		#             __pid_t si_pid;     /* Sending process ID.  */
+	("si_uid",	ctypes.c_uint)		#             __uid_t si_uid;     /* Real user ID of sending process.  */
 	]				#           } _kill;
 
 
 
 # Type for data associated with a signal.
-class sigval_t(Union):			# typedef union sigval
+class sigval_t(ctypes.Union):			# typedef union sigval
 	_fields_ = [			#   {
-	("sival_int", c_int),		#     int sival_int;
-	("sical_ptr", c_void_p),	#     void *sival_ptr;
+	("sival_int", ctypes.c_int),		#     int sival_int;
+	("sical_ptr", ctypes.c_void_p),	#     void *sival_ptr;
 	]				#   } sigval_t;
 
 					#         /* POSIX.1b timers.  */
-class _siginfo_t_U_timer(Structure):	#         struct
+class _siginfo_t_U_timer(ctypes.Structure):	#         struct
 	_fields_ = [			#           {
-	("si_tid",	c_int),		#             int si_tid;         /* Timer ID.  */
-	("si_overrun",	c_int),		#             int si_overrun;     /* Overrun count.  */
+	("si_tid",	ctypes.c_int),		#             int si_tid;         /* Timer ID.  */
+	("si_overrun",	ctypes.c_int),		#             int si_overrun;     /* Overrun count.  */
 	("si_sigval",	sigval_t)	#             sigval_t si_sigval; /* Signal value.  */
 	]				#           } _timer;
 
 
 						#         /* POSIX.1b signals.  */
-class _siginfo_t_U_rt(Structure):		#         struct
+class _siginfo_t_U_rt(ctypes.Structure):		#         struct
 	_fields_ = [				#           {
-	("si_pid",	c_int),			#             __pid_t si_pid;     /* Sending process ID.  */
-	("si_uid",	c_uint),		#             __uid_t si_uid;     /* Real user ID of sending process.  */
+	("si_pid",	ctypes.c_int),			#             __pid_t si_pid;     /* Sending process ID.  */
+	("si_uid",	ctypes.c_uint),		#             __uid_t si_uid;     /* Real user ID of sending process.  */
 	("si_sigval",	sigval_t)		#             sigval_t si_sigval; /* Signal value.  */
 	]					#           } _rt;
 
 
 						#         /* SIGCHLD.  */
-class _siginfo_t_U_sigchld(Structure):		#         struct
+class _siginfo_t_U_sigchld(ctypes.Structure):		#         struct
 	_fields_ = [				#           {
-	("si_pid",	c_int),			#             __pid_t si_pid;     /* Which child.  */
-	("si_uid",	c_uint),		#             __uid_t si_uid;     /* Real user ID of sending process.  */
-	("si_status",	c_int),			#             int si_status;      /* Exit value or signal.  */
-	("si_utime",	c_long),		#             __sigchld_clock_t si_utime;
-	("si_stime",	c_long)			#             __sigchld_clock_t si_stime;
+	("si_pid",	ctypes.c_int),			#             __pid_t si_pid;     /* Which child.  */
+	("si_uid",	ctypes.c_uint),		#             __uid_t si_uid;     /* Real user ID of sending process.  */
+	("si_status",	ctypes.c_int),			#             int si_status;      /* Exit value or signal.  */
+	("si_utime",	ctypes.c_long),		#             __sigchld_clock_t si_utime;
+	("si_stime",	ctypes.c_long)			#             __sigchld_clock_t si_stime;
 	]					#           } _sigchld;
 
 						#         /* SIGILL, SIGFPE, SIGSEGV, SIGBUS.  */
-class _siginfo_t_U_sigfault(Structure):		#         struct
+class _siginfo_t_U_sigfault(ctypes.Structure):		#         struct
 	_fields_ = [				#           {
-	("si_addr",	c_void_p),		#             void *si_addr;      /* Faulting insn/memory ref.  */
-	("si_addr_lsb",	c_short)		#             short int si_addr_lsb;      /* Valid LSB of the reported address.  */
+	("si_addr",	ctypes.c_void_p),		#             void *si_addr;      /* Faulting insn/memory ref.  */
+	("si_addr_lsb",	ctypes.c_short)		#             short int si_addr_lsb;      /* Valid LSB of the reported address.  */
 	]					#           } _sigfault;
 
 						#         /* SIGPOLL.  */
-class _siginfo_t_U_sigpoll(Structure):		#         struct
+class _siginfo_t_U_sigpoll(ctypes.Structure):		#         struct
 	_fields_ = [				#           {
-	("si_band",	c_long),		#             long int si_band;   /* Band event for SIGPOLL.  */
-	("si_fd",	c_int)			#             int si_fd;
+	("si_band",	ctypes.c_long),		#             long int si_band;   /* Band event for SIGPOLL.  */
+	("si_fd",	ctypes.c_int)			#             int si_fd;
 	]					#           } _sigpoll;
 
 
 						# 	        /* SIGSYS.  */
-class _siginfo_t_U_sigsys(Structure):		#         struct
+class _siginfo_t_U_sigsys(ctypes.Structure):		#         struct
 	_fields_ = [				#           {
-	("_call_addr",	c_void_p),		#             void *_call_addr;   /* Calling user insn.  */
-	("_syscall",	c_int),			#             int _syscall;       /* Triggering system call number.  */
-	("_arch",	c_uint)			#             unsigned int _arch; /* AUDIT_ARCH_* of syscall.  */
+	("_call_addr",	ctypes.c_void_p),		#             void *_call_addr;   /* Calling user insn.  */
+	("_syscall",	ctypes.c_int),			#             int _syscall;       /* Triggering system call number.  */
+	("_arch",	ctypes.c_uint)			#             unsigned int _arch; /* AUDIT_ARCH_* of syscall.  */
 	]					#           } _sigsys;
 
 
-class _siginfo_t_U(Union):			#     union
+class _siginfo_t_U(ctypes.Union):			#     union
 	_fields_ = [				#       {
-	("_pad",	c_int*_SI_PAD_SIZE),	#         int _pad[__SI_PAD_SIZE];
+	("_pad",	ctypes.c_int*_SI_PAD_SIZE),	#         int _pad[__SI_PAD_SIZE];
 						#
 						#          /* kill().  */
 	("_kill",	_siginfo_t_U_kill),	#         struct
@@ -396,12 +396,12 @@ class _siginfo_t_U(Union):			#     union
 						#           } _sigsys;
 	]					#       } _sifields;
 
-class siginfo_t(Structure):		# typedef struct
+class siginfo_t(ctypes.Structure):		# typedef struct
 	_fields_ = [			#   {
-	("si_signo",	c_int),		#     int si_signo;               /* Signal number.  */
-	("si_errno",	c_int),		#     int si_errno;               /* If non-zero, an errno value associated with
+	("si_signo",	ctypes.c_int),		#     int si_signo;               /* Signal number.  */
+	("si_errno",	ctypes.c_int),		#     int si_errno;               /* If non-zero, an errno value associated with
 					#                                    this signal, as defined in <errno.h>.  */
-	("si_code",	c_int),		#     int si_code;                /* Signal code.  */
+	("si_code",	ctypes.c_int),		#     int si_code;                /* Signal code.  */
 					#
 	("_sifields",	_siginfo_t_U)	#     union
 					#       {
@@ -467,30 +467,30 @@ class siginfo_t(Structure):		# typedef struct
 
 # xsave related.
 
-class ymmh_struct(Structure):		# struct ymmh_struct {
+class ymmh_struct(ctypes.Structure):		# struct ymmh_struct {
 	_fields_ = [
-	("ymmh_space",	64*c_uint)	#         u32                             ymmh_space[64];
+	("ymmh_space",	64*ctypes.c_uint)	#         u32                             ymmh_space[64];
 	]				# } __packed;
 
 
-class xsave_hdr_struct(Structure):	# struct xsave_hdr_struct {
+class xsave_hdr_struct(ctypes.Structure):	# struct xsave_hdr_struct {
 	_fields_ = [
-	("xstate_bv",	c_ulonglong),	#         u64                             xstate_bv;
-	("reserved1",	c_ulonglong*2),	#         u64                             reserved1[2];
-	("reserved2",	c_ulonglong*5)	#         u64                             reserved2[5];
+	("xstate_bv",	ctypes.c_ulonglong),	#         u64                             xstate_bv;
+	("reserved1",	ctypes.c_ulonglong*2),	#         u64                             reserved1[2];
+	("reserved2",	ctypes.c_ulonglong*5)	#         u64                             reserved2[5];
 	]				# } __packed;
 
 
-class i387_fxsave_struct(Structure):	# struct i387_fxsave_struct {
+class i387_fxsave_struct(ctypes.Structure):	# struct i387_fxsave_struct {
 	_fields_ = [
-	("cwd",		c_ushort),	#         u16                             cwd; /* Control Word                    */
-	("swd",		c_ushort),	#         u16                             swd; /* Status Word                     */
-	("twd",		c_ushort),	#         u16                             twd; /* Tag Word                        */
-	("fop",		c_ushort),	#         u16                             fop; /* Last Instruction Opcode         */
+	("cwd",		ctypes.c_ushort),	#         u16                             cwd; /* Control Word                    */
+	("swd",		ctypes.c_ushort),	#         u16                             swd; /* Status Word                     */
+	("twd",		ctypes.c_ushort),	#         u16                             twd; /* Tag Word                        */
+	("fop",		ctypes.c_ushort),	#         u16                             fop; /* Last Instruction Opcode         */
 					#         union {
 					#                 struct {
-	("rip",		c_ulonglong),	#                         u64             rip; /* Instruction Pointer             */
-	("rdp",		c_ulonglong),	#                         u64             rdp; /* Data Pointer                    */
+	("rip",		ctypes.c_ulonglong),	#                         u64             rip; /* Instruction Pointer             */
+	("rdp",		ctypes.c_ulonglong),	#                         u64             rdp; /* Data Pointer                    */
 					#                 };
 					#                 struct {
 					#                         u32             fip; /* FPU IP Offset                   */
@@ -499,26 +499,26 @@ class i387_fxsave_struct(Structure):	# struct i387_fxsave_struct {
 					#                         u32             fos; /* FPU Operand Selector            */
 					#                 };
 					#         };
-	("mxcsr",	c_uint),	#         u32                             mxcsr;          /* MXCSR Register State */
-	("mxcsr_mask",	c_uint),	#         u32                             mxcsr_mask;     /* MXCSR Mask           */
+	("mxcsr",	ctypes.c_uint),	#         u32                             mxcsr;          /* MXCSR Register State */
+	("mxcsr_mask",	ctypes.c_uint),	#         u32                             mxcsr_mask;     /* MXCSR Mask           */
 					#
 					#         /* 8*16 bytes for each FP-reg = 128 bytes                               */
-	("st_space",	c_uint*32),	#         u32                             st_space[32];
+	("st_space",	ctypes.c_uint*32),	#         u32                             st_space[32];
 #
 					#         /* 16*16 bytes for each XMM-reg = 256 bytes                             */
-	("xmm_space",	c_uint*64),	#         u32                             xmm_space[64];
+	("xmm_space",	ctypes.c_uint*64),	#         u32                             xmm_space[64];
 					#
-	("padding",	c_uint*12),	#         u32                             padding[12];
+	("padding",	ctypes.c_uint*12),	#         u32                             padding[12];
 					#
 					#         union {
-	("padding1",	c_uint*12)	#                 u32                     padding1[12];
+	("padding1",	ctypes.c_uint*12)	#                 u32                     padding1[12];
 					#                 u32                     sw_reserved[12];
 					#         };
 					#
 	]				# } __aligned(16);
 
 
-class elf_xsave_struct(Structure):		# struct xsave_struct {
+class elf_xsave_struct(ctypes.Structure):		# struct xsave_struct {
 	_fields_ = [
 	("i387",	i387_fxsave_struct),	#         struct i387_fxsave_struct       i387;
 	("xsave_hdr",	xsave_hdr_struct),	#         struct xsave_hdr_struct         xsave_hdr;
