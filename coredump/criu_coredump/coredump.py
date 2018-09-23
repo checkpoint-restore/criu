@@ -625,7 +625,7 @@ class coredump_generator:
 		off = 0# in pages
 		for m in pagemap[1:]:
 			found = False
-			for i in xrange(m["nr_pages"]):
+			for i in range(m["nr_pages"]):
 				if m["vaddr"] + i*PAGESIZE == page_no*PAGESIZE:
 					found = True
 					break

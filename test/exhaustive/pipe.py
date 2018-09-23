@@ -19,13 +19,13 @@ def mix(nr_tasks, nr_pipes):
 
 	# First -- make a full set of combinations for a single pipe.
 	max_idx = 1 << nr_tasks
-	pipe_mix = [[(r, w)] for r in xrange(0, max_idx) for w in xrange(0, max_idx)]
+	pipe_mix = [[(r, w)] for r in range(0, max_idx) for w in range(0, max_idx)]
 
 	# Now, for every pipe throw another one into the game making
 	# all possible combinations of what was seen before with the
 	# newbie.
 	pipes_mix = pipe_mix
-	for t in xrange(1, nr_pipes):
+	for t in range(1, nr_pipes):
 		pipes_mix = [ o + n for o in pipes_mix for n in pipe_mix ]
 
 	return pipes_mix
@@ -38,7 +38,7 @@ def make_pipes(task_nr, nr_pipes, pipes, comb, status_pipe):
 	# We need to make sure that pipes have their
 	# ends according to comb for task_nr
 
-	for i in xrange(0, nr_pipes):
+	for i in range(0, nr_pipes):
 		# Read end
 		if not (comb[i][0] & (1 << task_nr)):
 			os.close(pipes[i][0])
@@ -137,13 +137,13 @@ def make_comb(comb, opts, status_pipe):
 	print('\tMake pipes')
 	# 1st -- make needed pipes
 	pipes = []
-	for p in xrange(0, opts.pipes):
+	for p in range(0, opts.pipes):
 		pipes.append(os.pipe())
 
 	# Fork the kids that'll make pipes
 	kc_pipe = os.pipe()
 	kids = []
-	for t in xrange(0, opts.tasks):
+	for t in range(0, opts.tasks):
 		pid = os.fork()
 		if pid == 0:
 			os.close(status_pipe)
