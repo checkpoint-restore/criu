@@ -13,7 +13,8 @@ message ip_opts_raw_entry {
 
 message ip_opts_entry {
 	optional bool			freebind	= 1;
-	optional ip_opts_raw_entry	raw		= 2;
+	// Fields 2 and 3 are reserved for vz7 use
+	optional ip_opts_raw_entry	raw		= 4;
 }
 
 message inet_sk_entry {
