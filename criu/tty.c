@@ -136,7 +136,7 @@ static int self_stdin_fdid = -1;
  * Pretty acceptable trade off in a sake of simplicity.
  */
 
-#define MAX_TTYS	1024
+#define MAX_TTYS	1088
 
 /*
  * Custom indices should be even numbers just in case if we
@@ -147,8 +147,9 @@ static int self_stdin_fdid = -1;
 #define CONSOLE_INDEX	1002
 #define VT_INDEX	1004
 #define CTTY_INDEX	1006
-#define ETTY_INDEX	1008
 #define STTY_INDEX	1010
+#define ETTY_INDEX	1012
+#define ETTY_INDEX_MAX	1076
 #define INDEX_ERR	(MAX_TTYS + 1)
 
 static DECLARE_BITMAP(tty_bitmap, (MAX_TTYS << 1));
@@ -187,6 +188,20 @@ static int ptm_fd_get_index(int fd, const struct fd_parms *p)
 static int pty_get_index(struct tty_info *ti)
 {
 	return ti->tie->pty->index;
+}
+
+static int ext_fd_get_index(int fd, const struct fd_parms *p)
+{
+	static int index;
+
+	index++;
+
+	if (index + ETTY_INDEX > ETTY_INDEX_MAX) {
+		pr_err("Too many external terminals\n");
+		return INDEX_ERR;
+	}
+
+	return index + ETTY_INDEX;
 }
 
 static int pty_open_ptmx(struct tty_info *info);
@@ -229,6 +244,7 @@ static struct tty_driver ext_driver = {
 	.name			= "ext",
 	.index			= ETTY_INDEX,
 	.open			= open_ext_tty,
+	.fd_get_index		= ext_fd_get_index,
 };
 
 static struct tty_driver serial_driver = {
