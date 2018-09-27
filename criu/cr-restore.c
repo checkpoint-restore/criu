@@ -884,9 +884,6 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (collect_zombie_pids(ta) < 0)
 		return -1;
 
-	if (inherit_fd_fini() < 0)
-		return -1;
-
 	if (prepare_proc_misc(pid, core->tc))
 		return -1;
 
@@ -1017,9 +1014,6 @@ static int restore_one_zombie(CoreEntry *core)
 	pr_info("Restoring zombie with %d code\n", exit_code);
 
 	if (prepare_fds(current))
-		return -1;
-
-	if (inherit_fd_fini() < 0)
 		return -1;
 
 	if (lazy_pages_setup_zombie(vpid(current)))
@@ -2407,6 +2401,9 @@ int cr_restore_tasks(void)
 		goto err;
 
 	if (fdstore_init())
+		goto err;
+
+	if (inherit_fd_move_to_fdstore())
 		goto err;
 
 	if (crtools_prepare_shared() < 0)

@@ -45,6 +45,7 @@
 #include "parasite.h"
 #include "parasite-syscall.h"
 #include "kerndat.h"
+#include "fdstore.h"
 
 #include "protobuf.h"
 #include "util.h"
@@ -1049,10 +1050,6 @@ static int send_fd_to_self(int fd, struct fdinfo_list_entry *fle)
 	if (fd == dfd)
 		return 0;
 
-	/* make sure we won't clash with an inherit fd */
-	if (inherit_fd_resolve_clash(dfd) < 0)
-		return -1;
-
 	BUG_ON(dfd == get_service_fd(TRANSPORT_FD_OFF));
 
 	pr_info("\t\t\tGoing to dup %d into %d\n", fd, dfd);
@@ -1240,8 +1237,6 @@ splice:
 	return ret;
 }
 
-static struct inherit_fd *inherit_fd_lookup_fd(int fd, const char *caller);
-
 int close_old_fds(void)
 {
 	DIR *dir;
@@ -1262,8 +1257,7 @@ int close_old_fds(void)
 			return -1;
 		}
 
-		if ((!is_any_service_fd(fd)) && (dirfd(dir) != fd) &&
-		    !inherit_fd_lookup_fd(fd, __FUNCTION__))
+		if ((!is_any_service_fd(fd)) && (dirfd(dir) != fd))
 			close_safe(&fd);
 	}
 
@@ -1487,48 +1481,10 @@ struct inherit_fd {
 	struct list_head inh_list;
 	char *inh_id;		/* file identifier */
 	int inh_fd;		/* criu's descriptor to inherit */
-	dev_t inh_dev;
-	ino_t inh_ino;
-	mode_t inh_mode;
-	dev_t inh_rdev;
+	int inh_fd_id;
 };
 
 int inh_fd_max = -1;
-
-/*
- * Return 1 if inherit fd has been closed or reused, 0 otherwise.
- *
- * Some parts of the file restore engine can close an inherit fd
- * explicitly by close() or implicitly by dup2() to reuse that descriptor.
- * In some specific functions (for example, send_fd_to_self()), we
- * check for clashes at the beginning of the function and, therefore,
- * these specific functions will not reuse an inherit fd.  However, to
- * avoid adding a ton of clash detect and resolve code everywhere we close()
- * and/or dup2(), we just make sure that when we're dup()ing or close()ing
- * our inherit fd we're still dealing with the same fd that we inherited.
- */
-static int inherit_fd_reused(struct inherit_fd *inh)
-{
-	struct stat sbuf;
-
-	if (fstat(inh->inh_fd, &sbuf) == -1) {
-		if (errno == EBADF) {
-			pr_debug("Inherit fd %s -> %d has been closed\n",
-				inh->inh_id, inh->inh_fd);
-			return 1;
-		}
-		pr_perror("Can't fstat inherit fd %d", inh->inh_fd);
-		return -1;
-	}
-
-	if (inh->inh_dev != sbuf.st_dev || inh->inh_ino != sbuf.st_ino ||
-	    inh->inh_mode != sbuf.st_mode || inh->inh_rdev != sbuf.st_rdev) {
-		pr_info("Inherit fd %s -> %d has been reused\n",
-			inh->inh_id, inh->inh_fd);
-		return 1;
-	}
-	return 0;
-}
 
 /*
  * We can't print diagnostics messages in this function because the
@@ -1596,10 +1552,6 @@ int inherit_fd_add(int fd, char *key)
 
 	inh->inh_id = key;
 	inh->inh_fd = fd;
-	inh->inh_dev = sbuf.st_dev;
-	inh->inh_ino = sbuf.st_ino;
-	inh->inh_mode = sbuf.st_mode;
-	inh->inh_rdev = sbuf.st_rdev;
 	list_add_tail(&inh->inh_list, &opts.inherit_fds);
 	return 0;
 }
@@ -1618,6 +1570,20 @@ void inherit_fd_log(void)
 	}
 }
 
+int inherit_fd_move_to_fdstore(void)
+{
+	struct inherit_fd *inh;
+
+	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
+		inh->inh_fd_id = fdstore_add(inh->inh_fd);
+		if (inh->inh_fd_id < 0)
+			return -1;
+		close_safe(&inh->inh_fd);
+	}
+
+	return 0;
+}
+
 /*
  * Look up the inherit fd list by a file identifier.
  */
@@ -1629,11 +1595,9 @@ int inherit_fd_lookup_id(char *id)
 	ret = -1;
 	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
 		if (!strcmp(inh->inh_id, id)) {
-			if (!inherit_fd_reused(inh)) {
-				ret = inh->inh_fd;
-				pr_debug("Found id %s (fd %d) in inherit fd list\n",
-					id, ret);
-			}
+			ret = fdstore_get(inh->inh_fd_id);
+			pr_debug("Found id %s (fd %d) in inherit fd list\n",
+				id, ret);
 			break;
 		}
 	}
@@ -1656,94 +1620,10 @@ bool inherited_fd(struct file_desc *d, int *fd_p)
 	if (fd_p == NULL)
 		return true;
 
-	*fd_p = dup(i_fd);
-	if (*fd_p < 0)
-		pr_perror("Inherit fd DUP failed");
-	else
-		pr_info("File %s will be restored from fd %d dumped "
+	*fd_p = i_fd;
+	pr_info("File %s will be restored from fd %d dumped "
 				"from inherit fd %d\n", id_str, *fd_p, i_fd);
 	return true;
-}
-
-/*
- * Look up the inherit fd list by a file descriptor.
- */
-static struct inherit_fd *inherit_fd_lookup_fd(int fd, const char *caller)
-{
-	struct inherit_fd *ret;
-	struct inherit_fd *inh;
-
-	ret = NULL;
-	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
-		if (inh->inh_fd == fd) {
-			if (!inherit_fd_reused(inh)) {
-				ret = inh;
-				pr_debug("Found fd %d (id %s) in inherit fd list (caller %s)\n",
-					fd, inh->inh_id, caller);
-			}
-			break;
-		}
-	}
-	return ret;
-}
-
-/*
- * If the specified fd clashes with an inherit fd,
- * move the inherit fd.
- */
-int inherit_fd_resolve_clash(int fd)
-{
-	int newfd;
-	struct inherit_fd *inh;
-
-	inh = inherit_fd_lookup_fd(fd, __FUNCTION__);
-	if (inh == NULL)
-		return 0;
-
-	newfd = dup(fd);
-	if (newfd == -1) {
-		pr_perror("Can't dup inherit fd %d", fd);
-		return -1;
-	}
-
-	if (close(fd) == -1) {
-		close(newfd);
-		pr_perror("Can't close inherit fd %d", fd);
-		return -1;
-	}
-
-	inh->inh_fd = newfd;
-	pr_debug("Inherit fd %d moved to %d to resolve clash\n", fd, inh->inh_fd);
-	return 0;
-}
-
-/*
- * Close all inherit fds.
- */
-int inherit_fd_fini()
-{
-	int reused;
-	struct inherit_fd *inh;
-
-	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
-		if (inh->inh_fd < 0) {
-			pr_err("File %s in inherit fd list has invalid fd %d\n",
-				inh->inh_id, inh->inh_fd);
-			return -1;
-		}
-
-		reused = inherit_fd_reused(inh);
-		if (reused < 0)
-			return -1;
-
-		if (!reused) {
-			pr_debug("Closing inherit fd %d -> %s\n", inh->inh_fd,
-				inh->inh_id);
-			if (close_safe(&inh->inh_fd) < 0)
-				return -1;
-		}
-	}
-	return 0;
 }
 
 int open_transport_socket(void)

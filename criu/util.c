@@ -242,10 +242,6 @@ int reopen_fd_as_safe(char *file, int line, int new_fd, int old_fd, bool allow_r
 	int tmp;
 
 	if (old_fd != new_fd) {
-		/* make sure we won't clash with an inherit fd */
-		if (inherit_fd_resolve_clash(new_fd) < 0)
-			return -1;
-
 		if (!allow_reuse_fd) {
 			if (fcntl(new_fd, F_GETFD) != -1 || errno != EBADF) {
 				pr_err("fd %d already in use (called at %s:%d)\n",

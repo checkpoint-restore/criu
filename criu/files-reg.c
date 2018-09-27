@@ -1583,6 +1583,7 @@ int open_path(struct file_desc *d,
 	struct reg_file_info *rfi;
 	char *orig_path = NULL;
 	char path[PATH_MAX];
+	int inh_fd = -1;
 
 	if (inherited_fd(d, &tmp))
 		return tmp;
@@ -1592,6 +1593,7 @@ int open_path(struct file_desc *d,
 	if (rfi->rfe->ext) {
 		tmp = inherit_fd_lookup_id(rfi->rfe->name);
 		if (tmp >= 0) {
+			inh_fd = tmp;
 			mntns_root = open_pid_proc(PROC_SELF);
 			snprintf(path, sizeof(path), "fd/%d", tmp);
 			orig_path = rfi->path;
@@ -1650,8 +1652,10 @@ ext:
 	tmp = open_cb(mntns_root, rfi, arg);
 	if (tmp < 0) {
 		pr_perror("Can't open file %s", rfi->path);
+		close_safe(&inh_fd);
 		return -1;
 	}
+	close_safe(&inh_fd);
 
 	if ((rfi->rfe->has_size || rfi->rfe->has_mode) &&
 	    !rfi->size_mode_checked) {
