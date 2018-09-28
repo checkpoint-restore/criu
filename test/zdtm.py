@@ -1159,6 +1159,9 @@ class criu:
 		if self.__dedup:
 			r_opts += ["--auto-dedup"]
 
+		if self.__dedup:
+			r_opts += ["--auto-dedup"]
+
 		self.__prev_dump_iter = None
 		criu_dir = os.path.dirname(os.getcwd())
 		if os.getenv("GCOV"):
