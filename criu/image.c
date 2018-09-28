@@ -398,7 +398,7 @@ int do_open_remote_image(int dfd, char *path, int flags)
 				  path, snapshot_id);
 		ret = read_remote_image_connection(snapshot_id, path);
 	} else {
-		pr_debug("do_open_remote_image WDONLY path=%s snapshot_id=%s\n",
+		pr_debug("do_open_remote_image WRONLY path=%s snapshot_id=%s\n",
 				  path, snapshot_id);
 		ret = write_remote_image_connection(snapshot_id, path, O_WRONLY);
 	}
