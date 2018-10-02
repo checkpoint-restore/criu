@@ -1271,6 +1271,23 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd,
 	if (ui->flags & USK_NOCWD)
 		return 0;
 
+	/*
+	 * To change mount namespace we should have fs->user = 1
+	 * (see fs/namespace.c:mntns_install) but this is not
+	 * usually possible since main criu process already may
+	 * has forked() with CLONE_FS | CLONE_FILES and fs->user
+	 * is a way bigger.
+	 *
+	 * For now simply switch to old scheme where all sockets
+	 * are restored in root mount namespace.
+	 *
+	 * FIXME: Need to revisit later.
+	 */
+	if (prev_mntns_fd && ui->name[0] && ui->ue->mnt_id >= 0) {
+		*prev_mntns_fd = -1;
+		prev_mntns_fd = NULL;
+	}
+
 	if (prev_mntns_fd && ui->name[0] && ui->ue->mnt_id >= 0) {
 		struct ns_id *mntns = lookup_nsid_by_mnt_id(ui->ue->mnt_id);
 		int ns_fd;
