@@ -7,3 +7,5 @@ else
 		      -x socket_listen -x socket_listen6 -x cmdlinenv00
 		      -x socket_close_data01 -x file_read"
 fi
+
+LAZY_EXCLUDE="$LAZY_EXCLUDE -x maps04"
