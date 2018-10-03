@@ -91,13 +91,13 @@ class entry_handler:
 			entry = {}
 
 			# Read payload
-			pb = self.payload()
+			pbuff = self.payload()
 			buf = f.read(4)
 			if buf == b'':
 				break
 			size, = struct.unpack('i', buf)
-			pb.ParseFromString(f.read(size))
-			entry = pb2dict.pb2dict(pb, pretty)
+			pbuff.ParseFromString(f.read(size))
+			entry = pb2dict.pb2dict(pbuff, pretty)
 
 			# Read extra
 			if self.extra_handler:
@@ -112,10 +112,10 @@ class entry_handler:
 							num /= 1024.0
 						return "%.1fYB" % num
 
-					pl_size = self.extra_handler.skip(f, pb)
+					pl_size = self.extra_handler.skip(f, pbuff)
 					entry['extra'] = '... <%s>' % human_readable(pl_size)
 				else:
-					entry['extra'] = self.extra_handler.load(f, pb)
+					entry['extra'] = self.extra_handler.load(f, pbuff)
 
 			entries.append(entry)
 
@@ -138,16 +138,16 @@ class entry_handler:
 			extra = entry.pop('extra', None)
 
 			# Write payload
-			pb = self.payload()
-			pb2dict.dict2pb(entry, pb)
-			pb_str = pb.SerializeToString()
+			pbuff = self.payload()
+			pb2dict.dict2pb(entry, pbuff)
+			pb_str = pbuff.SerializeToString()
 			size = len(pb_str)
 			f.write(struct.pack('i', size))
 			f.write(pb_str)
 
 			# Write extra
 			if self.extra_handler and extra:
-				self.extra_handler.dump(extra, f, pb)
+				self.extra_handler.dump(extra, f, pbuff)
 
 	def dumps(self, entries):
 		"""
@@ -312,7 +312,7 @@ class sk_queues_extra_handler:
 		data = f.read(size)
 		return base64.encodebytes(data)
 
-	def dump(self, extra, f, pb):
+	def dump(self, extra, f, _unused):
 		data = base64.decodebytes(extra)
 		f.write(data)
 
@@ -322,31 +322,31 @@ class sk_queues_extra_handler:
 
 
 class tcp_stream_extra_handler:
-	def load(self, f, pb):
+	def load(self, f, pbuff):
 		d = {}
 
-		inq	= f.read(pb.inq_len)
-		outq	= f.read(pb.outq_len)
+		inq	= f.read(pbuff.inq_len)
+		outq	= f.read(pbuff.outq_len)
 
 		d['inq']	= base64.encodebytes(inq)
 		d['outq']	= base64.encodebytes(outq)
 
 		return d
 
-	def dump(self, extra, f, pb):
+	def dump(self, extra, f, _unused):
 		inq	= base64.decodebytes(extra['inq'])
 		outq	= base64.decodebytes(extra['outq'])
 
 		f.write(inq)
 		f.write(outq)
 
-	def skip(self, f, pb):
+	def skip(self, f, pbuff):
 		f.seek(0, os.SEEK_END)
-		return pb.inq_len + pb.outq_len
+		return pbuff.inq_len + pbuff.outq_len
 
 class ipc_sem_set_handler:
-	def load(self, f, pb):
-		entry = pb2dict.pb2dict(pb)
+	def load(self, f, pbuff):
+		entry = pb2dict.pb2dict(pbuff)
 		size = sizeof_u16 * entry['nsems']
 		rounded = round_up(size, sizeof_u64)
 		s = array.array('H')
@@ -356,8 +356,8 @@ class ipc_sem_set_handler:
 		f.seek(rounded - size, 1)
 		return s.tolist()
 
-	def dump(self, extra, f, pb):
-		entry = pb2dict.pb2dict(pb)
+	def dump(self, extra, f, pbuff):
+		entry = pb2dict.pb2dict(pbuff)
 		size = sizeof_u16 * entry['nsems']
 		rounded = round_up(size, sizeof_u64)
 		s = array.array('H')
@@ -369,22 +369,22 @@ class ipc_sem_set_handler:
 		f.write(s.tostring())
 		f.write('\0' * (rounded - size))
 
-	def skip(self, f, pb):
-		entry = pb2dict.pb2dict(pb)
+	def skip(self, f, pbuff):
+		entry = pb2dict.pb2dict(pbuff)
 		size = sizeof_u16 * entry['nsems']
 		f.seek(round_up(size, sizeof_u64), os.SEEK_CUR)
 		return size
 
 class ipc_msg_queue_handler:
-	def load(self, f, pb):
-		entry = pb2dict.pb2dict(pb)
+	def load(self, f, pbuff):
+		entry = pb2dict.pb2dict(pbuff)
 		messages = []
 		for x in range (0, entry['qnum']):
 			buf = f.read(4)
 			if buf == '':
 				break
 			size, = struct.unpack('i', buf)
-			msg = pb.ipc_msg()
+			msg = pbuff.ipc_msg()
 			msg.ParseFromString(f.read(size))
 			rounded = round_up(msg.msize, sizeof_u64)
 			data = f.read(msg.msize)
@@ -393,10 +393,10 @@ class ipc_msg_queue_handler:
 			messages.append(base64.encodebytes(data))
 		return messages
 
-	def dump(self, extra, f, pb):
-		entry = pb2dict.pb2dict(pb)
+	def dump(self, extra, f, pbuff):
+		entry = pb2dict.pb2dict(pbuff)
 		for i in range (0, len(extra), 2):
-			msg = pb.ipc_msg()
+			msg = pbuff.ipc_msg()
 			pb2dict.dict2pb(extra[i], msg)
 			msg_str = msg.SerializeToString()
 			size = len(msg_str)
@@ -407,15 +407,15 @@ class ipc_msg_queue_handler:
 			f.write(data[:msg.msize])
 			f.write('\0' * (rounded - msg.msize))
 
-	def skip(self, f, pb):
-		entry = pb2dict.pb2dict(pb)
+	def skip(self, f, pbuff):
+		entry = pb2dict.pb2dict(pbuff)
 		pl_len = 0
 		for x in range (0, entry['qnum']):
 			buf = f.read(4)
 			if buf == '':
 				break
 			size, = struct.unpack('i', buf)
-			msg = pb.ipc_msg()
+			msg = pbuff.ipc_msg()
 			msg.ParseFromString(f.read(size))
 			rounded = round_up(msg.msize, sizeof_u64)
 			f.seek(rounded, os.SEEK_CUR)
@@ -424,24 +424,24 @@ class ipc_msg_queue_handler:
 		return pl_len
 
 class ipc_shm_handler:
-	def load(self, f, pb):
-		entry = pb2dict.pb2dict(pb)
+	def load(self, f, pbuff):
+		entry = pb2dict.pb2dict(pbuff)
 		size = entry['size']
 		data = f.read(size)
 		rounded = round_up(size, sizeof_u32)
 		f.seek(rounded - size, 1)
 		return base64.encodebytes(data)
 
-	def dump(self, extra, f, pb):
-		entry = pb2dict.pb2dict(pb)
+	def dump(self, extra, f, pbuff):
+		entry = pb2dict.pb2dict(pbuff)
 		size = entry['size']
 		data = base64.decodebytes(extra)
 		rounded = round_up(size, sizeof_u32)
 		f.write(data[:size])
 		f.write('\0' * (rounded - size))
 
-	def skip(self, f, pb):
-		entry = pb2dict.pb2dict(pb)
+	def skip(self, f, pbuff):
+		entry = pb2dict.pb2dict(pbuff)
 		size = entry['size']
 		rounded = round_up(size, sizeof_u32)
 		f.seek(rounded, os.SEEK_CUR)
