@@ -438,9 +438,14 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 			size_t size = pb_repeated_size(xsave, member);			\
 			size_t xsize = (size_t)compel_fpu_feature_size(feature);	\
 			if (xsize != size) {						\
-				pr_err("%s reported %zu bytes (expecting %zu)\n",	\
-					# feature, xsize, size);			\
-				return -1;						\
+				if (size) {						\
+					pr_err("%s reported %zu bytes (expecting %zu)\n",\
+						# feature, xsize, size);		\
+						return -1;				\
+				} else {						\
+					pr_debug("%s is not present in image, ignore\n",\
+						 # feature);				\
+				}							\
 			}								\
 			xstate_bv |= (1UL << feature);					\
 			xstate_size += xsize;						\
