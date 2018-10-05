@@ -46,9 +46,8 @@ typedef union cr_siginfo cr_siginfo_t;
 
 #define siginf_body(s) (&((cr_siginfo_t *)(s))->_info._sifields)
 
-#ifdef __i386__
 /*
- * On x86_32 kernel puts only relevant union member when signal arrives,
+ * The kernel puts only relevant union member when signal arrives,
  * leaving _si_fields to be filled with junk from stack. Check only
  * first 12 bytes:
  *	// POSIX.1b signals.
@@ -61,9 +60,6 @@ typedef union cr_siginfo cr_siginfo_t;
  * Look at __copy_siginfo_to_user32() for more information.
  */
 # define _si_fields_sz 12
-#else
-# define _si_fields_sz (sizeof(siginfo_t) - offsetof(cr_siginfo_t, _info._sifields))
-#endif
 #define siginfo_filled (offsetof(cr_siginfo_t, _info._sifields) + _si_fields_sz)
 
 static pthread_mutex_t exit_lock;
