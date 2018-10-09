@@ -384,7 +384,7 @@ class ipc_msg_queue_handler:
 			if buf == '':
 				break
 			size, = struct.unpack('i', buf)
-			msg = pbuff.ipc_msg()
+			msg = pb.ipc_msg()
 			msg.ParseFromString(f.read(size))
 			rounded = round_up(msg.msize, sizeof_u64)
 			data = f.read(msg.msize)
@@ -396,7 +396,7 @@ class ipc_msg_queue_handler:
 	def dump(self, extra, f, pbuff):
 		entry = pb2dict.pb2dict(pbuff)
 		for i in range (0, len(extra), 2):
-			msg = pbuff.ipc_msg()
+			msg = pb.ipc_msg()
 			pb2dict.dict2pb(extra[i], msg)
 			msg_str = msg.SerializeToString()
 			size = len(msg_str)
@@ -415,7 +415,7 @@ class ipc_msg_queue_handler:
 			if buf == '':
 				break
 			size, = struct.unpack('i', buf)
-			msg = pbuff.ipc_msg()
+			msg = pb.ipc_msg()
 			msg.ParseFromString(f.read(size))
 			rounded = round_up(msg.msize, sizeof_u64)
 			f.seek(rounded, os.SEEK_CUR)
