@@ -712,17 +712,36 @@ exit:
 	return success ? 0 : 1;
 }
 
-static int check(int sk)
+static int check(int sk, CriuOpts *req)
 {
+	int pid, status;
 	CriuResp resp = CRIU_RESP__INIT;
 
 	resp.type = CRIU_REQ_TYPE__CHECK;
 
-	setproctitle("check --rpc");
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("Can't fork");
+		goto out;
+	}
 
-	if (!cr_check())
-		resp.success = true;
+	if (pid == 0) {
+		setproctitle("check --rpc");
 
+		if (setup_opts_from_req(sk, req))
+			exit(1);
+
+		exit(!!cr_check());
+	}
+	if (waitpid(pid, &status, 0) != pid) {
+		pr_perror("Unable to wait %d", pid);
+		goto out;
+	}
+	if (status)
+		goto out;
+
+	resp.success = true;
+out:
 	return send_criu_msg(sk, &resp);
 }
 
@@ -1122,7 +1141,7 @@ more:
 		ret = restore_using_req(sk, msg->opts);
 		break;
 	case CRIU_REQ_TYPE__CHECK:
-		ret = check(sk);
+		ret = check(sk, msg->opts);
 		break;
 	case CRIU_REQ_TYPE__PRE_DUMP:
 		ret = pre_dump_loop(sk, msg);
