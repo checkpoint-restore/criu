@@ -971,6 +971,9 @@ static int handle_feature_check(int sk, CriuReq * msg)
 	}
 
 	if (pid == 0) {
+		/* kerndat_init() is called from setup_opts_from_req() */
+		if (setup_opts_from_req(sk, msg->opts))
+			exit(1);
 
 		setproctitle("feature-check --rpc");
 
@@ -994,7 +997,7 @@ static int handle_feature_check(int sk, CriuReq * msg)
 		 * be send from the parent process.
 		 */
 		ret = send_criu_msg(sk, &resp);
-		exit(ret);
+		exit(!!ret);
 	}
 	if (waitpid(pid, &status, 0) != pid) {
 		pr_perror("Unable to wait %d", pid);
