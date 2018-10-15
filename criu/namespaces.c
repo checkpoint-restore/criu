@@ -862,27 +862,27 @@ static int check_user_ns(int pid)
 		gid = host_gid(0);
 		if (uid == INVALID_ID || gid == INVALID_ID) {
 			pr_err("Unable to convert uid or gid\n");
-			return -1;
+			exit(1);
 		}
 
 		if (prctl(PR_SET_KEEPCAPS, 1)) {
 			pr_perror("Unable to set PR_SET_KEEPCAPS");
-			return -1;
+			exit(1);
 		}
 
 		if (setresgid(gid, gid, gid)) {
 			pr_perror("Unable to set group ID");
-			return -1;
+			exit(1);
 		}
 
 		if (setgroups(0, NULL) < 0) {
 			pr_perror("Unable to drop supplementary groups");
-			return -1;
+			exit(1);
 		}
 
 		if (setresuid(uid, uid, uid)) {
 			pr_perror("Unable to set user ID");
-			return -1;
+			exit(1);
 		}
 
 		hdr.version = _LINUX_CAPABILITY_VERSION_3;
@@ -890,13 +890,13 @@ static int check_user_ns(int pid)
 
 		if (capget(&hdr, data) < 0) {
 			pr_perror("capget");
-			return -1;
+			exit(1);
 		}
 		data[0].effective = data[0].permitted;
 		data[1].effective = data[1].permitted;
 		if (capset(&hdr, data) < 0) {
 			pr_perror("capset");
-			return -1;
+			exit(1);
 		}
 
 		/*
@@ -906,20 +906,20 @@ static int check_user_ns(int pid)
 		 */
 
 		if (switch_ns(pid, &user_ns_desc, NULL))
-			exit(-1);
+			exit(1);
 
 		if ((root_ns_mask & CLONE_NEWNET) &&
 		    switch_ns(pid, &net_ns_desc, NULL))
-			exit(-1);
+			exit(1);
 		if ((root_ns_mask & CLONE_NEWUTS) &&
 		    switch_ns(pid, &uts_ns_desc, NULL))
-			exit(-1);
+			exit(1);
 		if ((root_ns_mask & CLONE_NEWIPC) &&
 		    switch_ns(pid, &ipc_ns_desc, NULL))
-			exit(-1);
+			exit(1);
 		if ((root_ns_mask & CLONE_NEWNS) &&
 		    switch_ns(pid, &mnt_ns_desc, NULL))
-			exit(-1);
+			exit(1);
 		exit(0);
 	}
 
