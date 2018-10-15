@@ -753,10 +753,11 @@ cout:
 		exit(ret);
 	}
 
-	wait(&status);
-	if (!WIFEXITED(status))
+	if (waitpid(pid, &status, 0) != pid) {
+		pr_perror("Unable to wait %d", pid);
 		goto out;
-	if (WEXITSTATUS(status) != 0)
+	}
+	if (status != 0)
 		goto out;
 
 	success = true;
@@ -842,7 +843,10 @@ out_ch:
 	close(start_pipe[1]);
 
 	if (daemon_mode) {
-		wait(&ret);
+		if (waitpid(pid, &ret, 0) != pid) {
+			pr_perror("Unable to wait %d", pid);
+			goto out;
+		}
 		if (WIFEXITED(ret)) {
 			if (WEXITSTATUS(ret)) {
 				pr_err("Child exited with an error\n");
@@ -990,20 +994,14 @@ static int handle_feature_check(int sk, CriuReq * msg)
 		 * be send from the parent process.
 		 */
 		ret = send_criu_msg(sk, &resp);
-
 		exit(ret);
 	}
-
-	ret = waitpid(pid, &status,  0);
-	if (ret == -1)
+	if (waitpid(pid, &status, 0) != pid) {
+		pr_perror("Unable to wait %d", pid);
 		goto out;
-
-	if (WIFEXITED(status) && !WEXITSTATUS(status))
-		/*
-		 * The child process exited was able to send the answer.
-		 * Nothing more to do here.
-		 */
-		return 0;
+	}
+	if (status != 0)
+		goto out;
 
 	/*
 	 * The child process was not able to send an answer. Tell
@@ -1070,7 +1068,10 @@ cout:
 		exit(ret);
 	}
 
-	wait(&status);
+	if (waitpid(pid, &status, 0) != pid) {
+		pr_perror("Unable to wait %d", pid);
+		goto out;
+	}
 	if (!WIFEXITED(status))
 		goto out;
 	switch (WEXITSTATUS(status)) {
