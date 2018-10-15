@@ -7,6 +7,7 @@
 #include <linux/sem.h>
 #include <linux/shm.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include "zdtmtst.h"
 
@@ -237,6 +238,8 @@ static int rand_ipc_sysctl(char *name, unsigned int val)
 	return 0;
 }
 
+#define MAX_MNI (1<<15)
+
 static int rand_ipc_sem(void)
 {
 	int fd;
@@ -249,8 +252,8 @@ static int rand_ipc_sem(void)
 		pr_perror("Can't open %s", name);
 		return fd;
 	}
-	sprintf(buf, "%d %d %d %d\n", (unsigned)lrand48(), (unsigned)lrand48(),
-				      (unsigned)lrand48(), (unsigned)lrand48());
+	sprintf(buf, "%d %d %d %d\n", (unsigned) lrand48(), (unsigned) lrand48(),
+				      (unsigned) lrand48(), (unsigned) lrand48() % MAX_MNI);
 	ret = write(fd, buf, 128);
 	if (ret < 0) {
 		pr_perror("Can't write %s: %d", name, errno);
@@ -259,8 +262,6 @@ static int rand_ipc_sem(void)
 	close(fd);
 	return 0;
 }
-
-#define INT_MAX ((int)(~0U>>1))
 
 static int rand_ipc_ns(void)
 {
@@ -272,7 +273,7 @@ static int rand_ipc_ns(void)
 	if (!ret)
 		ret = rand_ipc_sysctl("/proc/sys/kernel/msgmnb", (unsigned)lrand48());
 	if (!ret)
-		ret = rand_ipc_sysctl("/proc/sys/kernel/msgmni", (unsigned)lrand48());
+		ret = rand_ipc_sysctl("/proc/sys/kernel/msgmni", (unsigned)lrand48() % MAX_MNI);
 	if (!ret)
 		ret = rand_ipc_sysctl("/proc/sys/kernel/auto_msgmni", 0);
 	if (!ret && (unsigned)lrand48() % 2)
@@ -286,7 +287,7 @@ static int rand_ipc_ns(void)
 	if (!ret)
 		ret = rand_ipc_sysctl("/proc/sys/kernel/shmall", (unsigned)lrand48());
 	if (!ret)
-		ret = rand_ipc_sysctl("/proc/sys/kernel/shmmni", (unsigned)lrand48());
+		ret = rand_ipc_sysctl("/proc/sys/kernel/shmmni", (unsigned)lrand48() % MAX_MNI);
 	if (!ret)
 		ret = rand_ipc_sysctl("/proc/sys/kernel/shm_rmid_forced", (unsigned)lrand48() & 1);
 
