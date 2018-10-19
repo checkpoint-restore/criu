@@ -496,7 +496,7 @@ static int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 #ifndef TCPOPT_RESTORE_IGNORE_CANT_CONNECT_INET_SOCKET_BACK_ERROR
 		return -1;
 #else
-        return 0;
+		return 0;
 #endif
 	}
 
