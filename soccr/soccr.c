@@ -492,8 +492,12 @@ static int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 
 	if (connect(sk->fd, &sk->dst_addr->sa, addr_size) == -1 &&
 						errno != EINPROGRESS) {
-		loge("Can't connect inet socket back\n");
+		logerr("Can't connect inet socket back");
+#ifndef TCPOPT_RESTORE_IGNORE_CANT_CONNECT_INET_SOCKET_BACK_ERROR
 		return -1;
+#else
+        return 0;
+#endif
 	}
 
 	if (data->state == TCP_SYN_SENT && tcp_repair_on(sk->fd))
