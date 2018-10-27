@@ -109,7 +109,7 @@ static int check_file_lock(int fd, char *expected_type,
 		memset(fl_type, 0, sizeof(fl_type));
 		memset(fl_option, 0, sizeof(fl_option));
 
-		num = sscanf(buf, "%*s %*d:%s %s %s %d %02x:%02x:%ld %*d %*s",
+		num = sscanf(buf, "%*s %*d:%s %s %s %d %x:%x:%ld %*d %*s",
 			     fl_flag, fl_type, fl_option, &fl_owner,
 			     &maj, &min, &i_no);
 		if (num < 7) {
