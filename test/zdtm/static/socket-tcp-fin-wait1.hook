@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 import sys
 
 sys.path.append("../crit")
@@ -13,13 +13,13 @@ if sys.argv[1] in ["--pre-dump", "--post-restore"]:
     pid = os.getenv("ZDTM_TEST_PID")
     try:
         subprocess.Popen(["nsenter", "-t", pid, "-n", "ss", "-t", "-a", "-n"]).wait()
-    except OSError, e:
+    except OSError as e:
         pass
 
 if sys.argv[1] != "--post-restore":
     sys.exit(0)
 
-print "Check TCP images"
+print("Check TCP images")
 
 def get_sockets(image_dir):
     fname = os.path.join(image_dir, "inetsk.img")
@@ -34,7 +34,7 @@ def get_sockets(image_dir):
         f = open(os.path.join(image_dir, "inetsk.img"))
         ids = pycriu.images.load(f)
         tcp_img = os.path.join(image_dir, "tcp-stream-%x.img" % int(s["ino"]))
-        print tcp_img
+        print(tcp_img)
         if os.access(tcp_img, os.F_OK):
             f = open(tcp_img)
             tcp = pycriu.images.load(f)
@@ -65,6 +65,6 @@ for d in os.listdir(path):
     sockets_str = json.dumps(sockets, sys.stdout, indent=8, sort_keys=True)
     prev_str = json.dumps(prev, sys.stdout, indent=8, sort_keys=True)
 
-    print "\n".join(difflib.unified_diff(prev_str.split("\n"), sockets_str.split("\n")))
+    print("\n".join(difflib.unified_diff(prev_str.split("\n"), sockets_str.split("\n"))))
 
 sys.exit(exit_code)
