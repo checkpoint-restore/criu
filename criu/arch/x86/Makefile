@@ -15,5 +15,4 @@ obj-y			+= kerndat.o
 obj-y			+= sigframe.o
 ifeq ($(CONFIG_COMPAT),y)
         obj-y		+= sigaction_compat.o
-        obj-y		+= call32.o
 endif

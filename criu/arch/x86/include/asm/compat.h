@@ -60,11 +60,6 @@ static inline void do_full_int80(struct syscall_args32 *args)
 			: : "r8", "r9", "r10", "r11");
 }
 
-
-#ifdef CONFIG_COMPAT
-extern unsigned long call32_from_64(void *stack, void *func);
-#endif
-
 #ifndef CR_NOGLIBC
 # undef sys_mmap
 # undef sys_munmap
