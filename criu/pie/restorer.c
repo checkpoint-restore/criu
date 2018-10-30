@@ -1263,11 +1263,19 @@ long __export_restore_task(struct task_restore_args *args)
 	act.rt_sa_handler = sigchld_handler;
 	act.rt_sa_flags = SA_SIGINFO | SA_RESTORER | SA_RESTART;
 	act.rt_sa_restorer = cr_restore_rt;
-	sys_sigaction(SIGCHLD, &act, NULL, sizeof(k_rtsigset_t));
+	ret = sys_sigaction(SIGCHLD, &act, NULL, sizeof(k_rtsigset_t));
+	if (ret) {
+		pr_err("Failed to set SIGCHLD %ld\n", ret);
+		goto core_restore_end;
+	}
 
 	ksigemptyset(&to_block);
 	ksigaddset(&to_block, SIGCHLD);
 	ret = sys_sigprocmask(SIG_UNBLOCK, &to_block, NULL, sizeof(k_rtsigset_t));
+	if (ret) {
+		pr_err("Failed to unblock SIGCHLD %ld\n", ret);
+		goto core_restore_end;
+	}
 
 	std_log_set_fd(args->logfd);
 	std_log_set_loglevel(args->loglevel);
@@ -1663,7 +1671,7 @@ long __export_restore_task(struct task_restore_args *args)
 	}
 
 	if (!args->compatible_mode) {
-		sys_sigaction(SIGCHLD, &args->sigchld_act,
+		ret = sys_sigaction(SIGCHLD, &args->sigchld_act,
 				NULL, sizeof(k_rtsigset_t));
 	} else {
 		void *stack = alloc_compat_syscall_stack();
@@ -1672,9 +1680,13 @@ long __export_restore_task(struct task_restore_args *args)
 			pr_err("Failed to allocate 32-bit stack for sigaction\n");
 			goto core_restore_end;
 		}
-		arch_compat_rt_sigaction(stack, SIGCHLD,
+		ret = arch_compat_rt_sigaction(stack, SIGCHLD,
 				(void*)&args->sigchld_act);
 		free_compat_syscall_stack(stack);
+	}
+	if (ret) {
+		pr_err("Failed to restore SIGCHLD: %ld\n", ret);
+		goto core_restore_end;
 	}
 
 	ret = restore_signals(args->siginfo, args->siginfo_n, true);
