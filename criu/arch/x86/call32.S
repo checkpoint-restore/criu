@@ -23,6 +23,13 @@
 /*
  * @rdi: Stack to use
  * @esi: Pointer to function for calling
+ *
+ * Note: .code32 in this function doesn't guarantee that is will
+ *       be place under 4GB by linker.
+ *       Linker script would guarantee that, but it would break
+ *       -fpie address randomization. In the end, the caller is
+ *       responible for placing/checking that the code is
+ *       accessible in 32-bit mode.
  */
 ENTRY(call32_from_64)
 	/* Callee-saving registers due to ABI */
