@@ -39,7 +39,9 @@ injection and libsoccr for TCP connections checkpoint-restore.
 
 True [live migration](https://criu.org/Live_migration) using CRIU is possible, but doing
 all the steps by hands might be complicated. The [phaul sub-project](https://criu.org/P.Haul)
-provides a Go library that encapsulates most of the complexity.
+provides a Go library that encapsulates most of the complexity. This library and the Go bindings
+for CRIU are stored in the [go-criu](https://github.com/checkpoint-restore/go-criu) repository.
+
 
 ### Parasite code injection
 
