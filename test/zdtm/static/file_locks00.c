@@ -22,7 +22,7 @@ char file1[PATH_MAX];
 static int lock_reg(int fd, int cmd, int type, int whence,
 		off_t offset, off_t len)
 {
-	struct flock64 lock;
+	struct flock lock;
 
 	lock.l_type   = type;     /* F_RDLCK, F_WRLCK, F_UNLCK */
 	lock.l_whence = whence;   /* SEEK_SET, SEEK_CUR, SEEK_END */
@@ -40,7 +40,7 @@ static int lock_reg(int fd, int cmd, int type, int whence,
 
 static int check_read_lock(int fd, int whence, off_t offset, off_t len)
 {
-	struct flock64 lock;
+	struct flock lock;
 	int ret;
 
 	lock.l_type   = F_RDLCK;  /* F_RDLCK, F_WRLCK, F_UNLCK */
@@ -67,7 +67,7 @@ static int check_read_lock(int fd, int whence, off_t offset, off_t len)
 
 static int check_write_lock(int fd, int whence, off_t offset, off_t len)
 {
-	struct flock64 lock;
+	struct flock lock;
 
 	int ret;
 	pid_t ppid = getppid();

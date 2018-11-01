@@ -14,7 +14,7 @@
  * from procfs and checking them after restoring.
  */
 
-extern int check_lock_exists(const char *filename, struct flock64 *lck);
-extern int check_file_lock_restored(int pid, int fd, struct flock64 *lck);
+extern int check_lock_exists(const char *filename, struct flock *lck);
+extern int check_file_lock_restored(int pid, int fd, struct flock *lck);
 
 #endif /* ZDTM_OFD_FILE_LOCKS_H_ */
