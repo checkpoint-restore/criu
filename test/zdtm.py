@@ -1726,7 +1726,8 @@ class Launcher:
 					details = {'output': output}
 					tc.add_error_info(output = output)
 					print(testline, file=self.__file_report)
-					print("%s" % yaml.dump(details, explicit_start=True, explicit_end=True, default_style='|'), file=self.__file_report)
+					print("%s" % yaml.safe_dump(details, explicit_start=True,
+						explicit_end=True, default_style='|'), file=self.__file_report)
 				if sub['log']:
 					add_to_output(sub['log'])
 			else:
