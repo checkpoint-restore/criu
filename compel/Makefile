@@ -64,10 +64,10 @@ install: compel/compel compel/$(LIBCOMPEL_SO) compel/$(LIBCOMPEL_A)
 	$(Q) install -m 0644 compel/$(LIBCOMPEL_A) $(DESTDIR)$(LIBDIR)
 	$(E) "  INSTALL " compel uapi
 	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)/compel/asm
-	$(Q) cp -fr compel/include/uapi/*.h $(DESTDIR)$(INCLUDEDIR)/compel/
-	$(Q) cp -fr compel/include/uapi/asm/*.h $(DESTDIR)$(INCLUDEDIR)/compel/asm/
+	$(Q) cp compel/include/uapi/*.h $(DESTDIR)$(INCLUDEDIR)/compel/
+	$(Q) cp compel/include/uapi/asm/*.h $(DESTDIR)$(INCLUDEDIR)/compel/asm/
 	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)/compel/common/asm
-	$(Q) cp -fr include/common/compiler.h $(DESTDIR)$(INCLUDEDIR)/compel/common/
+	$(Q) cp include/common/compiler.h $(DESTDIR)$(INCLUDEDIR)/compel/common/
 .PHONY: install
 
 uninstall:
