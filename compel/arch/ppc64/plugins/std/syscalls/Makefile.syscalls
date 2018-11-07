@@ -51,6 +51,7 @@ $(sys-exec-tbl): $(sys-def) $(sys-codes) $(sys-proto)
 
 $(sys-asm-types): $(PLUGIN_ARCH_DIR)/include/asm/syscall-types.h
 	$(call msg-gen, $@)
+	$(MKDIR) $(dir $(sys-asm-types))
 	$(Q) ln -s ../../../../../../$(PLUGIN_ARCH_DIR)/include/asm/syscall-types.h $(sys-asm-types)
 
 std-headers-deps	+= $(sys-asm) $(sys-codes) $(sys-proto) $(sys-asm-types)

@@ -110,6 +110,7 @@ $(eval $(call map,gen-rule-sys-exec-tbl,$(sys-bits)))
 
 $(sys-asm-types): $(PLUGIN_ARCH_DIR)/include/asm/syscall-types.h
 	$(call msg-gen, $@)
+	$(MKDIR) $(dir $(sys-asm-types))
 	$(Q) ln -s ../../../../../../$(PLUGIN_ARCH_DIR)/include/asm/syscall-types.h $(sys-asm-types)
 
 std-headers-deps	+= $(call sys-codes,$(sys-bits))
