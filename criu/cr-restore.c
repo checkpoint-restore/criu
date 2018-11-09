@@ -844,7 +844,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 
 	args_len = round_up(sizeof(*ta) + sizeof(struct thread_restore_args) *
 			current->nr_threads, page_size());
-	ta = mmap(NULL, args_len, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, 0, 0);
+	ta = mmap(NULL, args_len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
 	if (!ta)
 		return -1;
 
@@ -2767,7 +2767,7 @@ static int prepare_restorer_blob(void)
 	restorer_len = pie_size(restorer);
 	restorer = mmap(NULL, restorer_len,
 			PROT_READ | PROT_WRITE | PROT_EXEC,
-			MAP_PRIVATE | MAP_ANON, 0, 0);
+			MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	if (restorer == MAP_FAILED) {
 		pr_perror("Can't map restorer code");
 		return -1;
@@ -3333,7 +3333,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	/* VMA we need for stacks and sigframes for threads */
 	if (mmap(mem, memzone_size, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANON | MAP_FIXED, 0, 0) != mem) {
+			MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, 0, 0) != mem) {
 		pr_err("Can't mmap section for restore code\n");
 		goto err;
 	}

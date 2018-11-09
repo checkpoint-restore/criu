@@ -47,7 +47,7 @@ static int pipe_data_read(struct cr_img *img, struct pipe_data_rst *r)
 	 */
 
 	r->data = mmap(NULL, bytes, PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_ANON, 0, 0);
+			MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (r->data == MAP_FAILED) {
 		pr_perror("Can't map mem for pipe buffers");
 		return -1;

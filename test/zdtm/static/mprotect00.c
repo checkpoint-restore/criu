@@ -87,7 +87,7 @@ int main(int argc, char ** argv)
 		exit(1);
 	}
 
-	ptr = mmap(NULL, pagesize * (NUM_MPROTS + 1), PROT_NONE, MAP_PRIVATE | MAP_ANON, 0, 0);
+	ptr = mmap(NULL, pagesize * (NUM_MPROTS + 1), PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	if (ptr == MAP_FAILED) {
 		pr_perror("calloc failed");
 		return -1;

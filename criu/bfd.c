@@ -43,7 +43,7 @@ static int buf_get(struct xbuf *xb)
 		int i;
 
 		mem = mmap(NULL, BUFBATCH * BUFSIZE, PROT_READ | PROT_WRITE,
-				MAP_PRIVATE | MAP_ANON, 0, 0);
+				MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 		if (mem == MAP_FAILED) {
 			pr_perror("No buf");
 			return -1;

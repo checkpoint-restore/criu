@@ -746,7 +746,7 @@ static int check_aio_remap(void)
 	if (!len)
 		return -1;
 
-	naddr = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, 0, 0);
+	naddr = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
 	if (naddr == MAP_FAILED) {
 		pr_perror("Can't find place for new AIO ring");
 		return -1;
