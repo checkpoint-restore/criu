@@ -40,7 +40,7 @@ int main(int argc, char **argv)
 
 	pids = (int *)mmap(NULL, sizeof(int) * nr_threads,
 			PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_ANON, 0, 0);
+			MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (pids == MAP_FAILED) {
 		pr_perror("Can't map");
 		exit(1);

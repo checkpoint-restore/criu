@@ -103,7 +103,7 @@ static void mmap_bug_test(void)
 	void *map1, *map2;
 	int err;
 
-	map1 = mmap_ia32(0, PAGE_SIZE, PROT_NONE, MAP_ANON|MAP_PRIVATE, -1, 0);
+	map1 = mmap_ia32(0, PAGE_SIZE, PROT_NONE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
 	/* 32-bit error, not sign-extended - can't use IS_ERR_VALUE() here */
 	err = (uintptr_t)map1 % PAGE_SIZE;
 	if (err) {
@@ -116,7 +116,7 @@ static void mmap_bug_test(void)
 		exit(1);
 	}
 
-	map2 = mmap_ia32(0, PAGE_SIZE, PROT_NONE, MAP_ANON|MAP_PRIVATE, -1, 0);
+	map2 = mmap_ia32(0, PAGE_SIZE, PROT_NONE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
 	err = (uintptr_t)map2 % PAGE_SIZE;
 	if (err) {
 		pr_err("ia32 mmap() failed: %d\n", err);

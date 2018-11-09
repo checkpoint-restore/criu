@@ -23,7 +23,7 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	mem = mmap(NULL, MEM_PAGES * PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, 0, 0);
+	mem = mmap(NULL, MEM_PAGES * PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	if (mem == MAP_FAILED)
 		return 1;
 

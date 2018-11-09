@@ -13,7 +13,7 @@ void *shmem_create(unsigned long size)
 	struct shmem_plugin_msg spi;
 
 	mem = (void *)sys_mmap(NULL, size, PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_ANON, 0, 0);
+			MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (mem == MAP_FAILED)
 		return NULL;
 
