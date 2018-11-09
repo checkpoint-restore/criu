@@ -6,7 +6,6 @@
 #include <signal.h>
 #include <string.h>
 #include <utime.h>
-#include <dirent.h>
 #include <limits.h>
 #include <sys/stat.h>
 #include <sys/types.h>
