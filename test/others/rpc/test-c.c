@@ -6,7 +6,6 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
-#include <dirent.h>
 #include <unistd.h>
 
 #define MAX_MSG_SIZE 1024

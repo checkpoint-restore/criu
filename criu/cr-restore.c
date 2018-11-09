@@ -4,7 +4,6 @@
 #include <limits.h>
 #include <unistd.h>
 #include <errno.h>
-#include <dirent.h>
 #include <string.h>
 
 #include <fcntl.h>
