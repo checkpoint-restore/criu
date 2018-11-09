@@ -1,4 +1,3 @@
-#include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -14,7 +13,6 @@
 #include <sys/stat.h>
 #include <sys/vfs.h>
 #include <sys/time.h>
-#include <sys/resource.h>
 #include <sys/wait.h>
 
 
