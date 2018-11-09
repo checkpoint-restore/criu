@@ -24,7 +24,6 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <sys/vfs.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
