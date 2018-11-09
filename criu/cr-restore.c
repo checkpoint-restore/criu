@@ -38,7 +38,6 @@
 #include "sk-packet.h"
 #include "common/lock.h"
 #include "files.h"
-#include "files-reg.h"
 #include "pipes.h"
 #include "fifo.h"
 #include "sk-inet.h"
@@ -67,7 +66,6 @@
 #include "plugin.h"
 #include "cgroup.h"
 #include "timerfd.h"
-#include "file-lock.h"
 #include "action-scripts.h"
 #include "shmem.h"
 #include <compel/compel.h>
