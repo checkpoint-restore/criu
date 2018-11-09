@@ -12,7 +12,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/inotify.h>
-#include <sys/vfs.h>
 #include <linux/magic.h>
 #include <sys/wait.h>
 #include <poll.h>
