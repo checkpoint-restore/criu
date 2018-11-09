@@ -21,7 +21,6 @@
 #include <sys/prctl.h>
 #include <sched.h>
 
-#include <sys/sendfile.h>
 
 #include "types.h"
 #include <compel/ptrace.h>

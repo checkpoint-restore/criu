@@ -8,7 +8,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
-#include <sys/sendfile.h>
 
 #include "common/list.h"
 #include "imgset.h"
