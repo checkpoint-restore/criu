@@ -37,8 +37,6 @@
 #include "irmap.h"
 #include "kerndat.h"
 #include "proc_parse.h"
-#include <sys/un.h>
-#include <sys/socket.h>
 #include "common/scm.h"
 #include "uffd.h"
 

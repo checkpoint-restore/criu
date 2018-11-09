@@ -9,7 +9,6 @@
 #include <sys/signalfd.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
-#include <sys/socket.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <linux/if.h>
