@@ -121,7 +121,7 @@ static void chew_some_file(int num)
 	char chew_file[PATH_MAX];
 
 	buf = mmap(NULL, FILE_SIZE, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANON, 0, 0);
+			MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	rv = MMAP_FAILED;
 	if (buf == MAP_FAILED)
 		goto out_exit;
