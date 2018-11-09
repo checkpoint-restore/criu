@@ -17,7 +17,6 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 
-#include <sys/sendfile.h>
 
 #include <sched.h>
 #include <sys/resource.h>
