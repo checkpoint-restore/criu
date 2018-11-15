@@ -154,6 +154,30 @@ static unsigned short csum(unsigned short *ptr, int nbytes)
 	return answer;
 }
 
+/*
+ * Just create IPv6/IPv6 sockets with any protos
+ * to make sure criu won't BUG on unknown proto.
+ */
+static void raw_socks_storm(void)
+{
+	int sk4[IPPROTO_MAX];
+	int sk6[IPPROTO_MAX];
+	size_t i;
+
+
+	for (i = 1; i < ARRAY_SIZE(sk4); i++) {
+		sk4[i] = socket(PF_INET, SOCK_RAW | SOCK_NONBLOCK, i);
+		if (sk4[i] >= 0)
+			test_msg("Created IPv4 proto %zd: %d\n", i, sk4[i]);
+	}
+
+	for (i = 1; i < ARRAY_SIZE(sk6); i++) {
+		sk6[i] = socket(PF_INET6, SOCK_RAW | SOCK_NONBLOCK, i);
+		if (sk6[i] >= 0)
+			test_msg("Created IPv6 proto %zd: %d\n", i, sk6[i]);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	const char string_data[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -339,6 +363,8 @@ int main(int argc, char *argv[])
 		pr_err("Can't fork\n");
 		exit(1);
 	}
+
+	raw_socks_storm();
 
 	test_daemon();
 	test_waitsig();
