@@ -330,6 +330,7 @@ static void ip_raw_opts_free(IpOptsRawEntry *r)
 {
 	r->n_icmpv_filter = 0;
 	xfree(r->icmpv_filter);
+	r->icmpv_filter = NULL;
 }
 
 static int dump_ip_raw_opts(int sk, int family, int proto, IpOptsRawEntry *r)
@@ -340,6 +341,11 @@ static int dump_ip_raw_opts(int sk, int family, int proto, IpOptsRawEntry *r)
 	if (ret)
 		return ret;
 
+	/*
+	 * Either fill icmpv_filter if match or free
+	 * so it won't fetch zeros to image.
+	 */
+
 	if (family == AF_INET6) {
 		ret |= dump_opt(sk, SOL_IPV6, IPV6_HDRINCL, &r->hdrincl);
 
@@ -347,6 +353,8 @@ static int dump_ip_raw_opts(int sk, int family, int proto, IpOptsRawEntry *r)
 			ret |= do_dump_opt(sk, SOL_ICMPV6, ICMPV6_FILTER,
 					   r->icmpv_filter,
 					   pb_repeated_size(r, icmpv_filter));
+		else
+			ip_raw_opts_free(r);
 	} else {
 		ret |= dump_opt(sk, SOL_IP, IP_HDRINCL, &r->hdrincl);
 		ret |= dump_opt(sk, SOL_IP, IP_NODEFRAG, &r->nodefrag);
@@ -356,6 +364,8 @@ static int dump_ip_raw_opts(int sk, int family, int proto, IpOptsRawEntry *r)
 			ret |= do_dump_opt(sk, SOL_RAW, ICMP_FILTER,
 					   r->icmpv_filter,
 					   pb_repeated_size(r, icmpv_filter));
+		else
+			ip_raw_opts_free(r);
 	}
 	r->has_hdrincl = !!r->hdrincl;
 
