@@ -997,7 +997,8 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 				goto err;
 			}
 
-			unlock_pty(master);
+			if (unlock_pty(master))
+				goto err;
 
 			if (opts.orphan_pts_master &&
 			    rpc_send_fd(ACT_ORPHAN_PTS_MASTER, master) == 0) {
@@ -1036,7 +1037,8 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 			goto err;
 		}
 
-		unlock_pty(master);
+		if (unlock_pty(master))
+			goto err;
 
 		fd = open_tty_reg(slave->reg_d, slave->tfe->flags);
 		if (fd < 0) {
@@ -1103,7 +1105,8 @@ static int pty_open_ptmx(struct tty_info *info)
 		return -1;
 	}
 
-	unlock_pty(master);
+	if (unlock_pty(master))
+		goto err;
 
 	if (restore_tty_params(master, info))
 		goto err;
