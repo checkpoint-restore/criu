@@ -137,7 +137,6 @@ static inline int stage_participants(int next_stage)
 	case CR_STATE_RESTORE:
 		return task_entries->nr_threads + task_entries->nr_helpers;
 	case CR_STATE_RESTORE_SIGCHLD:
-		return task_entries->nr_threads;
 	case CR_STATE_RESTORE_CREDS:
 		return task_entries->nr_threads;
 	}
