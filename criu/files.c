@@ -426,21 +426,14 @@ static const struct fdtype_ops *get_mem_dev_ops(struct fd_parms *p, int minor)
 {
 	const struct fdtype_ops *ops = NULL;
 
-	switch (minor) {
-	case 11:
-		/*
-		 * If /dev/kmsg is opened in write-only mode the file position
-		 * should not be set up upon restore, kernel doesn't allow that.
-		 */
-		if ((p->flags & O_ACCMODE) == O_WRONLY && p->pos == 0)
-			p->pos = -1ULL;
-		/*
-		 * Fallthrough.
-		 */
-	default:
-		ops = &regfile_dump_ops;
-		break;
-	};
+	/*
+	 * If /dev/kmsg is opened in write-only mode the file position
+	 * should not be set up upon restore, kernel doesn't allow that.
+	 */
+	if (minor == 11 && (p->flags & O_ACCMODE) == O_WRONLY && p->pos == 0)
+		p->pos = -1ULL;
+
+	ops = &regfile_dump_ops;
 
 	return ops;
 }
