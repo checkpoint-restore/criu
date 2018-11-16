@@ -371,6 +371,10 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		goto err;
 	}
 
+	if (req->config_file) {
+		pr_debug("Overwriting RPC settings with values from %s\n", req->config_file);
+	}
+
 	if (kerndat_init())
 		return 1;
 
