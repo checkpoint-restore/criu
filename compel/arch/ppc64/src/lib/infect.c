@@ -22,6 +22,9 @@
 #define NT_PPC_TM_SPR   0x10c           /* TM Special Purpose Registers */
 #endif
 
+unsigned __page_size = 0;
+unsigned __page_shift = 0;
+
 /*
  * Injected syscall instruction
  */
