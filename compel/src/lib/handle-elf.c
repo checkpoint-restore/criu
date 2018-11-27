@@ -18,6 +18,8 @@
 #include "piegen.h"
 #include "log.h"
 
+piegen_opt_t opts = {};
+
 /* Check if pointer is out-of-bound */
 static bool __ptr_oob(const uintptr_t ptr, const uintptr_t start, const size_t size)
 {
