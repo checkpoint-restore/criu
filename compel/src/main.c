@@ -60,7 +60,6 @@ static const flags_t flags = {
 #endif
 };
 
-piegen_opt_t opts = {};
 const char *uninst_root;
 
 static int piegen(void)
