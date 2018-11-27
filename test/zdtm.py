@@ -1740,7 +1740,7 @@ class Launcher:
 
 			if sub['log']:
 				with open(sub['log']) as sublog:
-					print(sublog.read().encode('ascii', 'ignore'))
+					print("%s" % sublog.read().encode('ascii', 'ignore').decode('utf-8'))
 				os.unlink(sub['log'])
 
 			return True
