@@ -23,6 +23,7 @@ const char *test_author = "Andrey Vagin <avagin@openvz.org";
 #include <signal.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
+#include <signal.h>
 
 static int port = 8880;
 
@@ -43,6 +44,7 @@ int main(int argc, char **argv)
 #endif
 
 	test_init(argc, argv);
+	signal(SIGPIPE, SIG_IGN);
 
 	sk = socket(ZDTM_FAMILY, SOCK_STREAM, 0);
 	if (sk < 0) {
