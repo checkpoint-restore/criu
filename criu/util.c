@@ -495,6 +495,8 @@ int install_service_fd(enum sfd_type type, int fd)
 		sfds_protection_bug(type);
 
 	if (service_fd_base == 0) {
+		if (test_bit(type, sfd_map))
+			close(sfd_arr[type]);
 		sfd_arr[type] = fd;
 		set_bit(type, sfd_map);
 		return fd;
