@@ -11,6 +11,9 @@
 #include "infect.h"
 #include "infect-priv.h"
 
+unsigned __page_size = 0;
+unsigned __page_shift = 0;
+
 /*
  * Injected syscall instruction
  */
