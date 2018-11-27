@@ -5,6 +5,7 @@
 #include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 #ifdef ZDTM_IPV4V6
 #define ZDTM_FAMILY AF_INET
@@ -38,6 +39,7 @@ int main(int argc, char **argv)
 	char cmd[4096], buf[10];
 
 	test_init(argc, argv);
+	signal(SIGPIPE, SIG_IGN);
 
 	if ((fd_s = tcp_init_server(ZDTM_SRV_FAMILY, &port)) < 0) {
 		pr_err("initializing server failed\n");
