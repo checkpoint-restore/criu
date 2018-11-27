@@ -23,13 +23,6 @@ const size_t test_elf_buf_size = 4096;
 extern int handle_binary(void *mem, size_t size);
 extern void run_tests(void *mem);
 
-/* To shut down error printing on tests for failures */
-piegen_opt_t opts = {
-	.fout		= NULL,
-	.ferr		= NULL,
-	.fdebug		= NULL,
-};
-
 int launch_test(void *mem, int expected_ret, const char *test_fmt, ...)
 {
 	static unsigned test_nr = 1;
