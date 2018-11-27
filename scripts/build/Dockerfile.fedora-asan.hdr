@@ -1,2 +1,2 @@
-FROM fedora:27
+FROM fedora:29
 ENV ASAN=1
