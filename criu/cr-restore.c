@@ -2134,7 +2134,7 @@ static int restore_root_task(struct pstree_item *init)
 			goto out_kill;
 	}
 
-	if (opts.empty_ns & CLONE_NEWNET) {
+	if (root_ns_mask & opts.empty_ns & CLONE_NEWNET) {
 		/*
 		 * Local TCP connections were locked by network_lock_internal()
 		 * on dump and normally should have been C/R-ed by respectively
