@@ -87,8 +87,10 @@ install: compel/plugins/std.lib.a compel/plugins/fds.lib.a
 	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)/compel/scripts
 	$(Q) install -m 0644 compel/arch/$(ARCH)/scripts/compel-pack.lds.S $(DESTDIR)$(LIBEXECDIR)/compel/scripts
 	$(E) "  INSTALL " compel plugins uapi
-	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)/compel/plugins
-	$(Q) cp -frL compel/plugins/include/uapi/* $(DESTDIR)$(INCLUDEDIR)/compel/plugins/
+	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)/compel/plugins/std/asm
+	$(Q) cp -fL compel/plugins/include/uapi/*.h $(DESTDIR)$(INCLUDEDIR)/compel/plugins/
+	$(Q) cp -fL compel/plugins/include/uapi/std/*.h $(DESTDIR)$(INCLUDEDIR)/compel/plugins/std/
+	$(Q) cp -fL compel/plugins/include/uapi/std/asm/*.h $(DESTDIR)$(INCLUDEDIR)/compel/plugins/std/asm/
 .PHONY: install
 
 uninstall:
