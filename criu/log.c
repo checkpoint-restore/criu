@@ -51,7 +51,7 @@ static void timediff(struct timeval *from, struct timeval *to)
 		to->tv_usec -= from->tv_usec;
 	else {
 		to->tv_sec--;
-		to->tv_usec += 1000000 - from->tv_usec;
+		to->tv_usec += USEC_PER_SEC - from->tv_usec;
 	}
 }
 
