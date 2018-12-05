@@ -1641,8 +1641,10 @@ static int cr_lazy_mem_dump(void)
 	ret = cr_page_server(false, true, -1);
 
 	for_each_pstree_item(item) {
-		destroy_page_pipe(dmpi(item)->mem_pp);
-		compel_cure_local(dmpi(item)->parasite_ctl);
+		if (item->pid->state != TASK_DEAD) {
+			destroy_page_pipe(dmpi(item)->mem_pp);
+			compel_cure_local(dmpi(item)->parasite_ctl);
+		}
 	}
 
 	if (ret)
