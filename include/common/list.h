@@ -216,9 +216,6 @@ static inline void list_splice_tail_init(struct list_head *list,
 #define list_for_each(pos, head)				\
 	for (pos = (head)->next; pos != (head); pos = pos->next)
 
-#define __list_for_each(pos, head)				\
-	for (pos = (head)->next; pos != (head); pos = pos->next)
-
 #define list_for_each_prev(pos, head)				\
 	for (pos = (head)->prev; pos != (head); pos = pos->prev)
 
