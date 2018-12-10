@@ -238,6 +238,11 @@ int main(int argc, char *argv[], char *envp[])
 		if (!opts.tree_id)
 			goto opt_pid_missing;
 
+		if (opts.lazy_pages) {
+			pr_err("Cannot pre-dump with --lazy-pages\n");
+			return 1;
+		}
+
 		return cr_pre_dump_tasks(opts.tree_id) != 0;
 	}
 
