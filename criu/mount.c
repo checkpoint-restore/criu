@@ -3179,7 +3179,7 @@ static int populate_mnt_ns(void)
 	return ret;
 }
 
-int __depopulate_roots_yard(void)
+static int __depopulate_roots_yard(void)
 {
 	int ret = 0;
 
