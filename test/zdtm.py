@@ -1145,7 +1145,7 @@ class criu:
 			a_opts += ['--empty-ns', 'net']
 
 		nowait = False
-		if self.__lazy_migrate:
+		if self.__lazy_migrate and action == "dump":
 			a_opts += ["--lazy-pages", "--port", "12345"]
 			nowait = True
 		self.__dump_process = self.__criu_act(action, opts = a_opts + opts, nowait = nowait)
