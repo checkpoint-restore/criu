@@ -1150,7 +1150,7 @@ static int get_clean_fd(struct mount_info *mi)
  * root of our mount namespace as it is covered by other mount.
  * mnt_is_overmounted() checks if mount is not visible.
  */
-static bool mnt_is_overmounted(struct mount_info *mi)
+bool mnt_is_overmounted(struct mount_info *mi)
 {
 	struct mount_info *t, *c, *m = mi;
 
