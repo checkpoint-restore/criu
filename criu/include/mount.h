@@ -70,6 +70,8 @@ struct mount_info {
 
 	struct list_head	postpone;
 
+	int			is_overmounted;
+
 	void			*private;	/* associated filesystem data */
 };
 
