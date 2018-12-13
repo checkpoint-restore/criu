@@ -143,5 +143,6 @@ extern int check_mnt_id(void);
 
 extern int remount_readonly_mounts(void);
 extern int try_remount_writable(struct mount_info *mi, bool ns);
+extern bool mnt_is_overmounted(struct mount_info *mi);
 
 #endif /* __CR_MOUNT_H__ */
