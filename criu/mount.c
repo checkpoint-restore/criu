@@ -3006,7 +3006,7 @@ int mntns_maybe_create_roots(void)
 	return create_mnt_roots();
 }
 
-static int do_restore_task_mnt_ns(struct ns_id *nsid, struct pstree_item *current)
+static int do_restore_task_mnt_ns(struct ns_id *nsid)
 {
 	int fd;
 
@@ -3053,7 +3053,7 @@ int restore_task_mnt_ns(struct pstree_item *current)
 
 		BUG_ON(nsid->type == NS_CRIU);
 
-		if (do_restore_task_mnt_ns(nsid, current))
+		if (do_restore_task_mnt_ns(nsid))
 			return -1;
 	}
 
