@@ -343,6 +343,7 @@ TST_DIR		=				\
 		shared_slave_mount_children	\
 		non_uniform_share_propagation	\
 		private_bind_propagation	\
+		ghost_on_rofs			\
 
 TST_DIR_FILE	=				\
 		chroot				\
