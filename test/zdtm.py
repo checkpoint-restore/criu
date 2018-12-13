@@ -1366,7 +1366,7 @@ def get_visible_state(test):
 
 		cmounts = []
 		try:
-			r = re.compile(r"^\S+\s\S+\s\S+\s(\S+)\s(\S+)\s\S+\s[^-]*?(shared)?[^-]*?(master)?[^-]*?-")
+			r = re.compile(r"^\S+\s\S+\s\S+\s(\S+)\s(\S+)\s(\S+)\s[^-]*?(shared)?[^-]*?(master)?[^-]*?-")
 			with open("/proc/%s/root/proc/%s/mountinfo" % (test.getpid(), pid)) as mountinfo:
 				for m in mountinfo:
 					cmounts.append(r.match(m).groups())
