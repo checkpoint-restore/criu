@@ -34,8 +34,16 @@ def setup_config_file(content):
 
 
 def cleanup_config_file(path):
-	del os.environ['CRIU_CONFIG_FILE']
+	if os.environ.get('CRIU_CONFIG_FILE', None) is not None:
+		del os.environ['CRIU_CONFIG_FILE']
 	os.unlink(path)
+
+
+def cleanup_output(path):
+	for f in (does_not_exist, log_file):
+		f = os.path.join(path, f)
+		if os.access(f, os.F_OK):
+			os.unlink(f)
 
 
 def setup_criu_dump_request():
@@ -155,6 +163,9 @@ def test_rpc_with_configuration_file_overwriting_rpc():
 	content = 'log-file ' + log + '\n'
 	content += 'no-tcp-established\nno-shell-job'
 	path = setup_config_file(content)
+	# Only set the configuration file via RPC;
+	# not via environment variable
+	del os.environ['CRIU_CONFIG_FILE']
 	req = setup_criu_dump_request()
 	req.opts.config_file = path
 	_, s = setup_swrk()
@@ -169,14 +180,13 @@ parser.add_argument('dir', type = str, help = "Directory where CRIU images shoul
 
 args = vars(parser.parse_args())
 
-try:
-	# optional cleanup
-	os.unlink(os.path.join(args['dir'], does_not_exist))
-	os.unlink(os.path.join(args['dir'], log_file))
-except OSError:
-	pass
+cleanup_output(args['dir'])
 
 test_broken_configuration_file()
+cleanup_output(args['dir'])
 test_rpc_without_configuration_file()
+cleanup_output(args['dir'])
 test_rpc_with_configuration_file()
+cleanup_output(args['dir'])
 test_rpc_with_configuration_file_overwriting_rpc()
+cleanup_output(args['dir'])
