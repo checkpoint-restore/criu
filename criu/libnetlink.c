@@ -12,7 +12,7 @@
 
 static int nlmsg_receive(char *buf, int len,
 		int (*cb)(struct nlmsghdr *, struct ns_id *ns, void *),
-		int (*err_cb)(int, void *), struct ns_id *ns, void *arg)
+		int (*err_cb)(int, struct ns_id *, void *), struct ns_id *ns, void *arg)
 {
 	struct nlmsghdr *hdr;
 
@@ -22,7 +22,7 @@ static int nlmsg_receive(char *buf, int len,
 		if (hdr->nlmsg_type == NLMSG_DONE) {
 			int *len = (int *)NLMSG_DATA(hdr);
 			if (*len < 0)
-				return err_cb(*len, arg);
+				return err_cb(*len, ns, arg);
 			return 0;
 		}
 		if (hdr->nlmsg_type == NLMSG_ERROR) {
@@ -36,7 +36,7 @@ static int nlmsg_receive(char *buf, int len,
 			if (err->error == 0)
 				return 0;
 
-			return err_cb(err->error, arg);
+			return err_cb(err->error, ns, arg);
 		}
 		if (cb(hdr, ns, arg))
 			return -1;
@@ -45,7 +45,7 @@ static int nlmsg_receive(char *buf, int len,
 	return 1;
 }
 
-static int rtnl_return_err(int err, void *arg)
+static int rtnl_return_err(int err, struct ns_id *ns, void *arg)
 {
 	errno = -err;
 	pr_perror("ERROR %d reported by netlink", err);
@@ -54,7 +54,7 @@ static int rtnl_return_err(int err, void *arg)
 
 int do_rtnl_req(int nl, void *req, int size,
 		int (*receive_callback)(struct nlmsghdr *h, struct ns_id *ns, void *),
-		int (*error_callback)(int err, void *), struct ns_id *ns, void *arg)
+		int (*error_callback)(int err, struct ns_id *ns, void *arg), struct ns_id *ns, void *arg)
 {
 	struct msghdr msg;
 	struct sockaddr_nl nladdr;
