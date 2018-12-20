@@ -743,6 +743,18 @@ static int collect_err(int err, struct ns_id *ns, void *arg)
 	 */
 	if (err == -ENOENT) {
 		pr_debug("%s: %d\n", msg, err);
+		/*
+		 * Unlike other modules RAW sockets are
+		 * always optional and not commonly used.
+		 * Currently we warn user about lack of
+		 * a particular module support in "check"
+		 * procedure. Thus don't fail on lack of
+		 * RAW diags in a regular dump. If we meet
+		 * a raw socket we will simply fail on dump
+		 * procedure because it won't be resolved.
+		 */
+		if (gr->protocol == IPPROTO_RAW)
+			return 0;
 		return -ENOENT;
 	}
 
