@@ -45,10 +45,14 @@ static int nlmsg_receive(char *buf, int len,
 	return 1;
 }
 
+/*
+ * Default errror handler: just point our an error
+ * and pass up to caller.
+ */
 static int rtnl_return_err(int err, struct ns_id *ns, void *arg)
 {
 	errno = -err;
-	pr_perror("ERROR %d reported by netlink", err);
+	pr_perror("%d reported by netlink", err);
 	return err;
 }
 
