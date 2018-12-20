@@ -731,13 +731,20 @@ static int collect_err(int err, struct ns_id *ns, void *arg)
 	char family[32], proto[32];
 	char msg[256];
 
+	snprintf(msg, sizeof(msg),
+		 "Sockects collect procedure family %s proto %s",
+		 socket_family_name(gr->family, family, sizeof(family)),
+		 socket_proto_name(gr->protocol, proto, sizeof(proto)));
+
 	/*
 	 * If module is not compiled or unloaded,
 	 * we should simply pass error up to a caller
 	 * which then warn a user.
 	 */
-	if (err == -ENOENT)
+	if (err == -ENOENT) {
+		pr_debug("%s: %d\n", msg, err);
 		return -ENOENT;
+	}
 
 	/*
 	 * Diag modules such as unix, packet, netlink
@@ -746,23 +753,20 @@ static int collect_err(int err, struct ns_id *ns, void *arg)
 	if (err == -EINVAL) {
 		if (gr->family == AF_UNIX ||
 		    gr->family == AF_PACKET ||
-		    gr->family == AF_NETLINK)
+		    gr->family == AF_NETLINK) {
+			pr_debug("%s: %d\n", msg, err);
 			return -EINVAL;
+		}
 	}
 
 	/*
 	 * Rest is more serious, just print enough information.
 	 * In case if everything is OK -- point as well.
 	 */
-	snprintf(msg, sizeof(msg),
-		 "Sockects collect procedure family %s proto %s\n",
-		 socket_family_name(gr->family, family, sizeof(family)),
-		 socket_proto_name(gr->protocol, proto, sizeof(proto)));
-
 	if (!err)
 		pr_info("%s: OK\n", msg);
 	else
-		pr_err("%s: %s\n", msg, strerror(-err));
+		pr_err("%s: %d: %s\n", msg, err, strerror(-err));
 
 	return err;
 }
