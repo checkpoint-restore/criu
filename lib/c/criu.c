@@ -25,7 +25,7 @@ struct criu_opts {
 	int			(*notify)(char *action, criu_notify_arg_t na);
 	enum criu_service_comm	service_comm;
 	union {
-		char		*service_address;
+		const char	*service_address;
 		int		service_fd;
 		const char	*service_binary;
 	};
@@ -45,7 +45,7 @@ void criu_set_service_comm(enum criu_service_comm comm)
 	criu_local_set_service_comm(global_opts, comm);
 }
 
-void criu_local_set_service_address(criu_opts *opts, char *path)
+void criu_local_set_service_address(criu_opts *opts, const char *path)
 {
 	if (path)
 		opts->service_address = path;
@@ -53,7 +53,7 @@ void criu_local_set_service_address(criu_opts *opts, char *path)
 		opts->service_address = CR_DEFAULT_SERVICE_ADDRESS;
 }
 
-void criu_set_service_address(char *path)
+void criu_set_service_address(const char *path)
 {
 	criu_local_set_service_address(global_opts, path);
 }
@@ -293,12 +293,12 @@ void criu_set_images_dir_fd(int fd)
 	criu_local_set_images_dir_fd(global_opts, fd);
 }
 
-void criu_local_set_parent_images(criu_opts *opts, char *path)
+void criu_local_set_parent_images(criu_opts *opts, const char *path)
 {
 	opts->rpc->parent_img = strdup(path);
 }
 
-void criu_set_parent_images(char *path)
+void criu_set_parent_images(const char *path)
 {
 	criu_local_set_parent_images(global_opts, path);
 }
@@ -515,12 +515,12 @@ void criu_set_log_level(int log_level)
 	criu_local_set_log_level(global_opts, log_level);
 }
 
-void criu_local_set_root(criu_opts *opts, char *root)
+void criu_local_set_root(criu_opts *opts, const char *root)
 {
 	opts->rpc->root = strdup(root);
 }
 
-void criu_set_root(char *root)
+void criu_set_root(const char *root)
 {
 	criu_local_set_root(global_opts, root);
 }
@@ -547,12 +547,12 @@ void criu_set_manage_cgroups_mode(enum criu_cg_mode mode)
 	criu_local_set_manage_cgroups_mode(global_opts, mode);
 }
 
-void criu_local_set_freeze_cgroup(criu_opts *opts, char *name)
+void criu_local_set_freeze_cgroup(criu_opts *opts, const char *name)
 {
-	opts->rpc->freeze_cgroup = name;
+	opts->rpc->freeze_cgroup = strdup(name);
 }
 
-void criu_set_freeze_cgroup(char *name)
+void criu_set_freeze_cgroup(const char *name)
 {
 	criu_local_set_freeze_cgroup(global_opts, name);
 }
@@ -600,12 +600,12 @@ void criu_set_ext_masters(bool val)
 	criu_local_set_ext_masters(global_opts, val);
 }
 
-void criu_local_set_log_file(criu_opts *opts, char *log_file)
+void criu_local_set_log_file(criu_opts *opts, const char *log_file)
 {
 	opts->rpc->log_file = strdup(log_file);
 }
 
-void criu_set_log_file(char *log_file)
+void criu_set_log_file(const char *log_file)
 {
 	criu_local_set_log_file(global_opts, log_file);
 }
@@ -652,7 +652,7 @@ int criu_set_exec_cmd(int argc, char *argv[])
 	return criu_local_set_exec_cmd(global_opts, argc, argv);
 }
 
-int criu_local_add_ext_mount(criu_opts *opts, char *key, char *val)
+int criu_local_add_ext_mount(criu_opts *opts, const char *key, const char *val)
 {
 	int nr;
 	ExtMountMap **a, *m;
@@ -689,12 +689,12 @@ er:
 	return -ENOMEM;
 }
 
-int criu_add_ext_mount(char *key, char *val)
+int criu_add_ext_mount(const char *key, const char *val)
 {
 	return criu_local_add_ext_mount(global_opts, key, val);
 }
 
-int criu_local_add_cg_root(criu_opts *opts, char *ctrl, char *path)
+int criu_local_add_cg_root(criu_opts *opts, const char *ctrl, const char *path)
 {
 	int nr;
 	CgroupRoot **a, *root;
@@ -735,12 +735,12 @@ er:
 	return -ENOMEM;
 }
 
-int criu_add_cg_root(char *ctrl, char *path)
+int criu_add_cg_root(const char *ctrl, const char *path)
 {
 	return criu_local_add_cg_root(global_opts, ctrl, path);
 }
 
-int criu_local_add_veth_pair(criu_opts *opts, char *in, char *out)
+int criu_local_add_veth_pair(criu_opts *opts, const char *in, const char *out)
 {
 	int nr;
 	CriuVethPair **a, *p;
@@ -777,12 +777,12 @@ er:
 	return -ENOMEM;
 }
 
-int criu_add_veth_pair(char *in, char *out)
+int criu_add_veth_pair(const char *in, const char *out)
 {
 	return criu_local_add_veth_pair(global_opts, in, out);
 }
 
-int criu_local_add_enable_fs(criu_opts *opts, char *fs)
+int criu_local_add_enable_fs(criu_opts *opts, const char *fs)
 {
 	int nr;
 	char *str = NULL;
@@ -813,13 +813,13 @@ err:
 	return -ENOMEM;
 }
 
-int criu_add_enable_fs(char *fs)
+int criu_add_enable_fs(const char *fs)
 {
 	return criu_local_add_enable_fs(global_opts, fs);
 }
 
 
-int criu_local_add_skip_mnt(criu_opts *opts, char *mnt)
+int criu_local_add_skip_mnt(criu_opts *opts, const char *mnt)
 {
 	int nr;
 	char *str = NULL;
@@ -850,7 +850,7 @@ err:
 	return -ENOMEM;
 }
 
-int criu_local_add_irmap_path(criu_opts *opts, char *path)
+int criu_local_add_irmap_path(criu_opts *opts, const char *path)
 {
 	int nr;
 	char *my_path;
@@ -882,7 +882,7 @@ err:
 	return -ENOMEM;
 }
 
-int criu_local_add_cg_props(criu_opts *opts, char *stream)
+int criu_local_add_cg_props(criu_opts *opts, const char *stream)
 {
 	char *new;
 
@@ -895,7 +895,7 @@ int criu_local_add_cg_props(criu_opts *opts, char *stream)
 	return 0;
 }
 
-int criu_local_add_cg_props_file(criu_opts *opts, char *path)
+int criu_local_add_cg_props_file(criu_opts *opts, const char *path)
 {
 	char *new;
 
@@ -908,7 +908,7 @@ int criu_local_add_cg_props_file(criu_opts *opts, char *path)
 	return 0;
 }
 
-int criu_local_add_cg_dump_controller(criu_opts *opts, char *name)
+int criu_local_add_cg_dump_controller(criu_opts *opts, const char *name)
 {
 	char **new, *ctrl_name;
 	size_t nr;
@@ -932,7 +932,7 @@ int criu_local_add_cg_dump_controller(criu_opts *opts, char *name)
 	return 0;
 }
 
-int criu_add_skip_mnt(char *mnt)
+int criu_add_skip_mnt(const char *mnt)
 {
 	return criu_local_add_skip_mnt(global_opts, mnt);
 }
@@ -948,12 +948,12 @@ void criu_set_ghost_limit(unsigned int limit)
 	criu_local_set_ghost_limit(global_opts, limit);
 }
 
-int criu_add_irmap_path(char *path)
+int criu_add_irmap_path(const char *path)
 {
 	return criu_local_add_irmap_path(global_opts, path);
 }
 
-int criu_local_add_inherit_fd(criu_opts *opts, int fd, char *key)
+int criu_local_add_inherit_fd(criu_opts *opts, int fd, const char *key)
 {
 	int nr;
 	InheritFd **a, *f;
@@ -989,12 +989,12 @@ er:
 	return -ENOMEM;
 }
 
-int criu_add_inherit_fd(int fd, char *key)
+int criu_add_inherit_fd(int fd, const char *key)
 {
 	return criu_local_add_inherit_fd(global_opts, fd, key);
 }
 
-int criu_local_add_external(criu_opts *opts, char *key)
+int criu_local_add_external(criu_opts *opts, const char *key)
 {
 	int nr;
 	char **a, *e = NULL;
@@ -1018,7 +1018,7 @@ err:
 	return -ENOMEM;
 }
 
-int criu_add_external(char *key)
+int criu_add_external(const char *key)
 {
 	return criu_local_add_external(global_opts, key);
 }
@@ -1516,7 +1516,7 @@ int criu_local_restore_child(criu_opts *opts)
 {
 	int sk, ret = -1;
 	enum criu_service_comm saved_comm;
-	char *saved_comm_data;
+	const char *saved_comm_data;
 	bool save_comm;
 	CriuReq req	= CRIU_REQ__INIT;
 	CriuResp *resp	= NULL;
