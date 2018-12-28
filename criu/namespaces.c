@@ -46,7 +46,7 @@ static unsigned int join_ns_flags;
 
 int check_namespace_opts(void)
 {
-	errno = 22;
+	errno = EINVAL;
 	if (join_ns_flags & opts.empty_ns) {
 		pr_err("Conflicting flags: --join-ns and --empty-ns\n");
 		return -1;
@@ -71,7 +71,7 @@ static int check_int_str(char *str)
 		return 0;
 	}
 
-	errno = 22;
+	errno = EINVAL;
 	val = strtol(str, &endptr, 10);
 	if ((errno == ERANGE) || (endptr == str)
 			|| (*endptr != '\0')
