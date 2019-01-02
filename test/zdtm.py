@@ -584,9 +584,14 @@ class inhfd_test:
 		self.__files = None
 		self.__peer_file_names = []
 		self.__dump_opts = []
+		self.__messages = {}
 
 	def __get_message(self, i):
-		return b"".join([random.choice(string.ascii_letters).encode() for _ in range(10)]) + b"%06d" % i
+		m = self.__messages.get(i, None)
+		if not m:
+			m = b"".join([random.choice(string.ascii_letters).encode() for _ in range(10)]) + b"%06d" % i
+		self.__messages[i] = m
+		return m
 
 	def start(self):
 		self.__files = self.__fdtyp.create_fds()
