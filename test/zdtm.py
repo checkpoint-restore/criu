@@ -622,7 +622,9 @@ class inhfd_test:
 			fd = os.open(self.__name + ".out", os.O_WRONLY | os.O_APPEND | os.O_CREAT)
 			os.dup2(fd, 1)
 			os.dup2(fd, 2)
-			os.close(0)
+			os.close(fd)
+			fd = os.open("/dev/null", os.O_RDONLY)
+			os.dup2(fd, 0)
 			for my_file, _ in self.__files:
 				my_file.close()
 			os.close(start_pipe[0])
