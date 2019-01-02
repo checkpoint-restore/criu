@@ -1634,7 +1634,11 @@ int open_path(struct file_desc *d,
 		tmp = inherit_fd_lookup_id(rfi->rfe->name);
 		if (tmp >= 0) {
 			inh_fd = tmp;
-			mntns_root = open_pid_proc(PROC_SELF);
+			/* 
+			 * PROC_SELF isn't used, because only service
+			 * descriptors can be used here.
+			 */
+			mntns_root = open_pid_proc(getpid());
 			snprintf(path, sizeof(path), "fd/%d", tmp);
 			orig_path = rfi->path;
 			rfi->path = path;
