@@ -12,7 +12,7 @@ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 add-apt-repository \
    "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
    $(lsb_release -cs) \
-   stable"
+   stable test"
 
 
 apt-get update -qq
@@ -50,6 +50,8 @@ for i in `seq 50`; do
 	docker exec cr ps axf &&
 	docker checkpoint create cr checkpoint$i &&
 	sleep 1 &&
+	docker ps &&
+	(docker exec cr true && exit 1 || exit 0) &&
 	docker start --checkpoint checkpoint$i cr 2>&1 | tee log || {
 		cat "`cat log | grep 'log file:' | sed 's/log file:\s*//'`" || true
 		docker logs cr || true
