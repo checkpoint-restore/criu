@@ -30,7 +30,6 @@ $(TARGETS):
 	docker run --env-file docker.env --rm -it --privileged -v /lib/modules:/lib/modules --tmpfs /run criu-$@ scripts/travis/travis-tests
 
 fedora-asan:
-	ip6tables -L -n
 	echo "$$DOCKER_JSON" > /etc/docker/daemon.json
 	systemctl restart docker
 	$(MAKE) -C ../build $@$(target-suffix)
