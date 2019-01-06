@@ -639,8 +639,6 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->orphan_pts_master)
 		opts.orphan_pts_master = true;
 
-	if (check_namespace_opts())
-		goto err;
 
 	/* Evaluate additional configuration file a second time to overwrite
 	 * all RPC settings. */
@@ -650,7 +648,10 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		if (i)
 			goto err;
 	}
+
 	log_set_loglevel(opts.log_level);
+	if (check_options())
+		goto err;
 
 	return 0;
 

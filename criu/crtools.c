@@ -110,31 +110,8 @@ int main(int argc, char *argv[], char *envp[])
 		return cr_service_work(atoi(argv[2]));
 	}
 
-	if (opts.deprecated_ok)
-		pr_msg("Turn deprecated stuff ON\n");
-	if (opts.tcp_skip_in_flight)
-		pr_msg("Will skip in-flight TCP connections\n");
-	if (opts.tcp_established_ok)
-		pr_info("Will dump TCP connections\n");
-	if (opts.link_remap_ok)
-		pr_info("Will allow link remaps on FS\n");
-	if (opts.weak_sysctls)
-		pr_msg("Will skip non-existant sysctls on restore\n");
-
-	if (getenv("CRIU_DEPRECATED")) {
-		pr_msg("Turn deprecated stuff ON via env\n");
-		opts.deprecated_ok = true;
-	}
-
-	if (check_namespace_opts()) {
-		pr_msg("Error: namespace flags conflict\n");
+	if (check_options())
 		return 1;
-	}
-
-	if (!opts.restore_detach && opts.restore_sibling) {
-		pr_msg("--restore-sibling only makes sense with --restore-detach\n");
-		return 1;
-	}
 
 	if (opts.imgs_dir == NULL)
 		SET_CHAR_OPTS(imgs_dir, ".");
