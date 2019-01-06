@@ -803,3 +803,36 @@ bad_arg:
 				long_opts[idx].name, optarg);
 	return 1;
 }
+
+int check_options()
+{
+	if (opts.tcp_established_ok)
+		pr_info("Will dump/restore TCP connections\n");
+	if (opts.tcp_skip_in_flight)
+		pr_info("Will skip in-flight TCP connections\n");
+	if (opts.tcp_close)
+		pr_info("Will drop all TCP connections on restore\n");
+	if (opts.link_remap_ok)
+		pr_info("Will allow link remaps on FS\n");
+	if (opts.weak_sysctls)
+		pr_info("Will skip non-existant sysctls on restore\n");
+
+	if (opts.deprecated_ok)
+		pr_info("Turn deprecated stuff ON\n");
+	else if (getenv("CRIU_DEPRECATED")) {
+		pr_info("Turn deprecated stuff ON via env\n");
+		opts.deprecated_ok = true;
+	}
+
+	if (!opts.restore_detach && opts.restore_sibling) {
+		pr_err("--restore-sibling only makes sense with --restore-detach\n");
+		return 1;
+	}
+
+	if (check_namespace_opts()) {
+		pr_err("Error: namespace flags conflict\n");
+		return 1;
+	}
+
+	return 0;
+}
