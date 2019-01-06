@@ -321,6 +321,17 @@ void criu_set_tcp_skip_in_flight(bool tcp_skip_in_flight)
 	criu_local_set_tcp_skip_in_flight(global_opts, tcp_skip_in_flight);
 }
 
+void criu_local_set_tcp_close(criu_opts *opts, bool tcp_close)
+{
+	opts->rpc->has_tcp_close	= true;
+	opts->rpc->tcp_close		= tcp_close;
+}
+
+void criu_set_tcp_close(bool tcp_close)
+{
+	criu_local_set_tcp_close(global_opts, tcp_close);
+}
+
 void criu_local_set_weak_sysctls(criu_opts *opts, bool val)
 {
 	opts->rpc->has_weak_sysctls = true;

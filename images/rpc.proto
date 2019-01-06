@@ -112,6 +112,7 @@ message criu_opts {
 	optional int32			status_fd		= 49;
 	optional bool			orphan_pts_master	= 50;
 	optional string			config_file		= 51;
+	optional bool			tcp_close		= 52;
 }
 
 message criu_dump_resp {
