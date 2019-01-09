@@ -39,7 +39,7 @@ struct rt_sigframe {
 			"svc #0						\n"	\
 			:							\
 			: "r"(new_sp)						\
-			: "sp", "x8", "memory")
+			: "x8", "memory")
 
 /* cr_sigcontext is copied from arch/arm64/include/uapi/asm/sigcontext.h */
 struct cr_sigcontext {
