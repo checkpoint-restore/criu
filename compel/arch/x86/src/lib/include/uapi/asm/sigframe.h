@@ -162,7 +162,7 @@ struct rt_sigframe {
 		     "syscall					    \n"	\
 		     :							\
 		     : "r"(new_sp)					\
-		     : "rax","rsp","memory")
+		     : "rax","memory")
 #define ARCH_RT_SIGRETURN_COMPAT(new_sp)				\
 	asm volatile(							\
 		"pushq $"__stringify(USER32_CS)"		\n"	\
@@ -176,7 +176,7 @@ struct rt_sigframe {
 		".code64					\n"	\
 		:							\
 		: "rdi"(new_sp)						\
-		: "eax","esp", "r8", "r9", "r10", "r11", "memory")
+		: "eax", "r8", "r9", "r10", "r11", "memory")
 
 #define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)				\
 do {									\

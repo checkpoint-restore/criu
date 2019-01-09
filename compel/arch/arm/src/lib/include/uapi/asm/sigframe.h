@@ -73,7 +73,7 @@ struct rt_sigframe {
 		     "svc #0					    \n"	\
 		     :							\
 		     : "r"(new_sp)					\
-		     : "sp","memory")
+		     : "memory")
 
 #define RT_SIGFRAME_UC(rt_sigframe)		(&rt_sigframe->sig.uc)
 #define RT_SIGFRAME_REGIP(rt_sigframe)		(rt_sigframe)->sig.uc.uc_mcontext.arm_ip
