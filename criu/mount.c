@@ -3263,13 +3263,10 @@ int depopulate_roots_yard(int mntns_fd, bool only_ghosts)
 
 void cleanup_mnt_ns(void)
 {
-	char path[PATH_MAX], *root = opts.root ? : "/";
-
 	if (mnt_roots == NULL)
 		return;
 
-	snprintf(path, sizeof(path), "%s/%s", root, mnt_roots);
-	if (rmdir(path))
+	if (rmdir(mnt_roots))
 		pr_perror("Can't remove the directory %s", mnt_roots);
 }
 
