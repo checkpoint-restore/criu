@@ -14,6 +14,18 @@ struct ns_id;
 
 #define MNT_UNREACHABLE INT_MIN
 
+/*
+ * We have remounted these mount writable temporary, and we
+ * should return it back to readonly at the end of file restore.
+ */
+#define REMOUNTED_RW 1
+/*
+ * We have remounted these mount writable in service mount namespace,
+ * thus we shouldn't return it back to readonly, as service mntns
+ * will be destroyed anyway.
+ */
+#define REMOUNTED_RW_SERVICE 2
+
 struct mount_info {
 	int			mnt_id;
 	int			parent_mnt_id;
@@ -71,6 +83,7 @@ struct mount_info {
 	struct list_head	postpone;
 
 	int			is_overmounted;
+	int			remounted_rw;
 
 	void			*private;	/* associated filesystem data */
 };
@@ -127,5 +140,8 @@ struct ns_id;
 extern struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump);
 
 extern int check_mnt_id(void);
+
+extern int remount_readonly_mounts(void);
+extern int try_remount_writable(struct mount_info *mi, bool ns);
 
 #endif /* __CR_MOUNT_H__ */

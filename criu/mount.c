@@ -3677,3 +3677,146 @@ void clean_cr_time_mounts(void)
 }
 
 struct ns_desc mnt_ns_desc = NS_DESC_ENTRY(CLONE_NEWNS, "mnt");
+
+static int call_helper_process(int (*call)(void *), void *arg)
+{
+	int pid, status;
+
+	pid = clone_noasan(call, CLONE_VFORK | CLONE_VM | CLONE_FILES |
+			   CLONE_IO | CLONE_SIGHAND | CLONE_SYSVSEM, arg);
+	if (pid == -1) {
+		pr_perror("Can't clone helper process");
+		return -1;
+	}
+
+	errno = 0;
+	if (waitpid(pid, &status, __WALL) != pid) {
+		pr_perror("Unable to wait %d", pid);
+		return -1;
+	}
+
+	if (status) {
+		pr_err("Bad child exit status: %d\n", status);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int ns_remount_writable(void *arg)
+{
+	struct mount_info *mi = (struct mount_info *)arg;
+	struct ns_id *ns = mi->nsid;
+
+	if (do_restore_task_mnt_ns(ns))
+		return 1;
+	pr_debug("Switched to mntns %u:%u/n", ns->id, ns->kid);
+
+	if (mount(NULL, mi->ns_mountpoint, NULL, MS_REMOUNT | MS_BIND |
+		  (mi->flags & ~(MS_PROPAGATE | MS_RDONLY)), NULL) == -1) {
+		pr_perror("Failed to remount %d:%s writable", mi->mnt_id, mi->mountpoint);
+		return 1;
+	}
+	return 0;
+}
+
+int try_remount_writable(struct mount_info *mi, bool ns)
+{
+	int remounted = REMOUNTED_RW;
+
+	/* Don't remount if we are in host mntns to be on the safe side */
+	if (!(root_ns_mask & CLONE_NEWNS))
+		return 0;
+
+	if (!ns)
+		remounted = REMOUNTED_RW_SERVICE;
+
+	if (mi->flags & MS_RDONLY && !(mi->remounted_rw & remounted)) {
+		if (mnt_is_overmounted(mi)) {
+			pr_err("The mount %d is overmounted so paths are invisible\n", mi->mnt_id);
+			return -1;
+		}
+
+		/* There should be no ghost files on mounts with ro sb */
+		if (mi->sb_flags & MS_RDONLY) {
+			pr_err("The mount %d has readonly sb\n", mi->mnt_id);
+			return -1;
+		}
+
+		pr_info("Remount %d:%s writable\n", mi->mnt_id, mi->mountpoint);
+		if (!ns) {
+			if (mount(NULL, mi->mountpoint, NULL, MS_REMOUNT | MS_BIND |
+				  (mi->flags & ~(MS_PROPAGATE | MS_RDONLY)), NULL) == -1) {
+				pr_perror("Failed to remount %d:%s writable", mi->mnt_id, mi->mountpoint);
+				return -1;
+			}
+		} else {
+			if (call_helper_process(ns_remount_writable, mi))
+				return -1;
+		}
+		mi->remounted_rw |= remounted;
+	}
+
+	return 0;
+}
+
+static int __remount_readonly_mounts(struct ns_id *ns)
+{
+	struct mount_info *mi;
+	bool mntns_set = false;
+
+	for (mi = mntinfo; mi; mi = mi->next) {
+		if (ns && mi->nsid != ns)
+			continue;
+
+		if (!(mi->remounted_rw && REMOUNTED_RW))
+			continue;
+
+		/*
+		 * Lets enter the mount namespace lazily, only if we've found the
+		 * mount which should be remounted readonly. These saves us
+		 * from entering mntns if we have no mounts to remount in it.
+		 */
+		if (ns && !mntns_set) {
+			if (do_restore_task_mnt_ns(ns))
+				return -1;
+			mntns_set = true;
+			pr_debug("Switched to mntns %u:%u/n", ns->id, ns->kid);
+		}
+
+		pr_info("Remount %d:%s back to readonly\n", mi->mnt_id, mi->mountpoint);
+		if (mount(NULL, mi->ns_mountpoint, NULL,
+			  MS_REMOUNT | MS_BIND | (mi->flags & ~MS_PROPAGATE),
+			  NULL)) {
+			pr_perror("Failed to restore %d:%s mount flags %x",
+				  mi->mnt_id, mi->mountpoint, mi->flags);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static int ns_remount_readonly_mounts(void *arg)
+{
+	struct ns_id *nsid;
+
+	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next) {
+		if (nsid->nd != &mnt_ns_desc)
+			continue;
+
+		if (__remount_readonly_mounts(nsid))
+			return 1;
+	}
+
+	return 0;
+}
+
+int remount_readonly_mounts(void)
+{
+	/*
+	 * Need a helper process because the root task can share fs via
+	 * CLONE_FS and we would not be able to enter mount namespaces
+	 */
+	return call_helper_process(ns_remount_readonly_mounts, NULL);
+}

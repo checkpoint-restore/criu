@@ -3250,6 +3250,9 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		/* Wait when all tasks restored all files */
 		if (restore_wait_other_tasks())
 			goto err_nv;
+		if (root_ns_mask & CLONE_NEWNS &&
+		    remount_readonly_mounts())
+			goto err_nv;
 	}
 
 	/*
