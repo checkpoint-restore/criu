@@ -3,7 +3,6 @@ include $(__nmk_dir)include.mk
 include $(__nmk_dir)macro.mk
 
 ASCIIDOC	:= asciidoc
-A2X		:= a2x
 XMLTO		:= xmlto
 
 FOOTER		:= footer.txt
@@ -29,7 +28,7 @@ pdf: $(PDFS)
 .PHONY: all ps pdf check
 
 check:
-	$(Q) for B in $(ASCIIDOC) $(A2X) $(XMLTO); do	\
+	$(Q) for B in $(ASCIIDOC) $(XMLTO); do	\
 		$$B --version > /dev/null || exit 1;	\
 	done
 

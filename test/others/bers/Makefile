@@ -9,7 +9,6 @@ endif
 export E Q
 
 ASCIIDOC	:= asciidoc
-A2X		:= a2x
 XMLTO		:= xmlto
 
 SRC		+= bers.txt
