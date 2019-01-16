@@ -2,8 +2,13 @@ __nmk_dir ?= ../scripts/nmk/scripts/
 include $(__nmk_dir)include.mk
 include $(__nmk_dir)macro.mk
 
+ifneq ($(USE_ASCIIDOCTOR),)
+ASCIIDOC	:= asciidoctor
+XMLTO		:=
+else
 ASCIIDOC	:= asciidoc
 XMLTO		:= xmlto
+endif
 
 FOOTER		:= footer.txt
 SRC1		+= crit.txt
@@ -44,13 +49,21 @@ $(FOOTER): ../Makefile.versions
 
 %.1: %.txt $(FOOTER) custom.xsl
 	$(call msg-gen, $@)
+ifneq ($(USE_ASCIIDOCTOR),)
+	$(Q) $(ASCIIDOC) -b manpage -d manpage -o $@ $<
+else
 	$(Q) $(ASCIIDOC) -b docbook -d manpage -o $(patsubst %.1,%.xml,$@) $<
 	$(Q) $(XMLTO) man -m custom.xsl $(patsubst %.1,%.xml,$@) 2>/dev/null
+endif
 
 %.8: %.txt $(FOOTER) custom.xsl
 	$(call msg-gen, $@)
+ifneq ($(USE_ASCIIDOCTOR),)
+	$(Q) $(ASCIIDOC) -b manpage -d manpage -o $@ $<
+else
 	$(Q) $(ASCIIDOC) -b docbook -d manpage -o $(patsubst %.8,%.xml,$@) $<
 	$(Q) $(XMLTO) man -m custom.xsl $(patsubst %.8,%.xml,$@) 2>/dev/null
+endif
 
 %.ps: %.1
 	$(call msg-gen, $@)
