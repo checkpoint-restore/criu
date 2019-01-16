@@ -1,5 +1,10 @@
+ifneq ($(USE_ASCIIDOCTOR),)
+ASCIIDOC       := asciidoctor
+XMLTO          :=
+else
 ASCIIDOC	:= asciidoc
 XMLTO		:= xmlto
+endif
 PS2PDF		:= ps2pdf
 
 SRC		+= nmk.txt
@@ -25,8 +30,12 @@ check:
 
 %.8: %.txt
 	$(call msg-gen, $@)
+ifneq ($(USE_ASCIIDOCTOR),)
+	$(Q) $(ASCIIDOC) -b manpage -d manpage -o $@ $<
+else
 	$(Q) $(ASCIIDOC) -b docbook -d manpage -o $(patsubst %.8,%.xml,$@) $<
 	$(Q) $(XMLTO) man --skip-validation $(patsubst %.8,%.xml,$@) 2>/dev/null
+endif
 
 %.ps: %.8
 	$(call msg-gen, $@)
