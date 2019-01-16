@@ -1,5 +1,4 @@
 ASCIIDOC	:= asciidoc
-A2X		:= a2x
 XMLTO		:= xmlto
 PS2PDF		:= ps2pdf
 
@@ -20,7 +19,7 @@ all: check $(MANS)
 .PHONY: all ps pdf check clean
 
 check:
-	$(Q) for B in $(ASCIIDOC) $(A2X) $(XMLTO); do	\
+	$(Q) for B in $(ASCIIDOC) $(XMLTO); do	\
 		$$B --version > /dev/null || exit 1;	\
 	done
 
