@@ -45,7 +45,6 @@
 #include "cgroup.h"
 #include "cpu.h"
 #include "fault-injection.h"
-#include "lsm.h"
 #include "proc_parse.h"
 #include "kerndat.h"
 
