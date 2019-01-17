@@ -268,9 +268,6 @@ For example, the command line for the above example should look like this:
     The TCP stack on the client side is expected to handle the
     re-connect gracefully.
 
-*--tcp-close*::
-    Restore connected TCP sockets in closed state.
-
 *--evasive-devices*::
     Use any path to a device file if the original one is inaccessible.
 
@@ -438,6 +435,9 @@ The 'mode' may be one of the following:
     Restore previously dumped established TCP connections. This implies that
     the network has been locked between *dump* and *restore* phases so other
     side of a connection simply notice a kind of lag.
+
+*--tcp-close*::
+    Restore connected TCP sockets in closed state.
 
 *--veth-pair* 'IN'*=*'OUT'::
     Correspondence between outside and inside names of veth devices.
