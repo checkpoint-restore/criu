@@ -172,7 +172,7 @@ In other words, do not use it unless really needed.
 *--external* 'type'*[*'id'*]:*'value'::
     Dump an instance of an external resource. The generic syntax is
     'type' of resource, followed by resource 'id' (enclosed in literal
-    square brackets), and optional 'value' (prepended by a literal semicolon).
+    square brackets), and optional 'value' (prepended by a literal colon).
     The following resource types are currently supported: *mnt*, *dev*,
     *file*, *tty*, *unix*. Syntax depends on type.
     Note to restore external resources, either *--external* or *--inherit-fd*
@@ -186,7 +186,7 @@ In other words, do not use it unless really needed.
     Dump all external bind mounts, autodetecting those. Optional 'flags'
     can contain *m* to also dump external master mounts, *s* to also
     dump external shared mounts (default behavior is to abort dumping
-    if such mounts are found). If 'flags' are not provided, semicolon
+    if such mounts are found). If 'flags' are not provided, colon
     is optional.
 
 *--external dev[*'major'*/*'minor'*]:*'name'::
@@ -379,7 +379,7 @@ usually need to be escaped from shell.
 *--external* 'type'*[*'id'*]:*'value'::
     Restore an instance of an external resource. The generic syntax is
     'type' of resource, followed by resource 'id' (enclosed in literal
-    square brackets), and optional 'value' (prepended by a literal semicolon).
+    square brackets), and optional 'value' (prepended by a literal colon).
     The following resource types are currently supported: *mnt*, *dev*,
     *veth*, *macvlan*. Syntax depends on type. Note to restore external
     resources dealing with opened file descriptors (such as dumped with
@@ -572,7 +572,7 @@ Launches *criu* in page server mode.
 *--lazy-pages*::
     Serve local memory dump to a remote *lazy-pages* daemon. In this
     mode the *page-server* reads local memory dump and allows the
-    remote *lazy-pages* deamon to request memory pages in random
+    remote *lazy-pages* daemon to request memory pages in random
     order.
 
 *lazy-pages*
@@ -582,7 +582,7 @@ Launches *criu* in lazy-pages daemon mode.
 The *lazy-pages* daemon is responsible for managing user-level demand
 paging for the restored processes. It gets information required to
 fill the process memory pages from the *restore* and from the
-checkpont directory. When a restored process access certain memory
+checkpoint directory. When a restored process access certain memory
 page for the first time, the *lazy-pages* daemon injects its contents
 into the process address space. The memory pages that are not yet
 requested by the restored processes are injected in the background.
