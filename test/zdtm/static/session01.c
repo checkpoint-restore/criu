@@ -102,14 +102,14 @@ static int child(const int c)
 		goto err;
 
 	if (t->pid == t->sid) {
-		if (getpid() != getsid(getpid()))
+		if (getpid() != getsid(0))
 			if (setsid() < 0)
 				goto err;
 		if (fork_children(t, 1))
 			goto err;
 	}
 	if (t->pid == t->pgid) {
-		if (getpid() != getpgid(getpid()))
+		if (getpid() != getpgid(0))
 			if (setpgid(getpid(), getpid()) < 0) {
 				pr_perror("setpgid() failed");
 				goto err;
@@ -129,7 +129,7 @@ static int child(const int c)
 			break;
 		if (t->pgid != testcases[i].pid)
 			continue;
-		if (getpgid(getpid()) != testcases[i].master.pid)
+		if (getpgid(0) != testcases[i].master.pid)
 			if (setpgid(getpid(), testcases[i].master.pid) < 0) {
 				pr_perror("setpgid() failed (%d) (%d)", c, i);
 				goto err;
@@ -161,7 +161,7 @@ static int child(const int c)
 
 	/* Save the master copy */
 	t->master.ppid	= getppid();
-	t->master.sid	= getsid(getpid());
+	t->master.sid	= getsid(0);
 
 	futex_set_and_wake(&t->futex, c);
 
@@ -169,8 +169,8 @@ static int child(const int c)
 
 	check("pid", t->master.pid,	getpid());
 	check("ppid", t->master.ppid,	getppid());
-	check("sid", t->master.sid,	getsid(getpid()));
-	check("pgid", t->master.pgid,	getpgid(getpid()));
+	check("sid", t->master.sid,	getsid(0));
+	check("pgid", t->master.pgid,	getpgid(0));
 
 	futex_set_and_wake(&t->futex, c);
 
