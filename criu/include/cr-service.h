@@ -3,7 +3,7 @@
 
 #include "images/rpc.pb-c.h"
 
-extern int cr_service(bool deamon_mode);
+extern int cr_service(bool daemon_mode);
 int cr_service_work(int sk);
 
 extern int send_criu_dump_resp(int socket_fd, bool success, bool restored);
