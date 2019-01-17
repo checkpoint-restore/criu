@@ -1488,7 +1488,7 @@ static void restore_sid(void)
 			exit(1);
 		}
 	} else {
-		sid = getsid(getpid());
+		sid = getsid(0);
 		if (sid != current->sid) {
 			/* Skip the root task if it's not init */
 			if (current == root_item && vpid(root_item) != INIT_PID)
@@ -1593,7 +1593,7 @@ static int create_children_and_session(void)
 		if (!restore_before_setsid(child))
 			continue;
 
-		BUG_ON(child->born_sid != -1 && getsid(getpid()) != child->born_sid);
+		BUG_ON(child->born_sid != -1 && getsid(0) != child->born_sid);
 
 		ret = fork_with_pid(child);
 		if (ret < 0)
