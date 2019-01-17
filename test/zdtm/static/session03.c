@@ -177,7 +177,7 @@ static void handle_command()
 		}
 		break;
 	case TEST_SETSID:
-		if (getsid(getpid()) == getpid())
+		if (getsid(0) == getpid())
 			break;
 		test_msg("%3d: setsid()\n", current);
 		if(setsid() == -1) {
