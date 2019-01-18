@@ -1068,10 +1068,15 @@ out:
 		 * the process which keeps the master peer.
 		 */
 		if (root_item->sid != vpid(root_item)) {
-			pr_debug("Restore inherited group %d\n",
-				 getpgid(getppid()));
-			if (tty_set_prgp(fd, getpgid(getppid())))
-				goto err;
+			if (root_item->pgid == vpid(root_item)) {
+				if (tty_set_prgp(fd, root_item->pgid))
+					goto err;
+			} else {
+				pr_debug("Restore inherited group %d\n",
+					getpgid(getppid()));
+				if (tty_set_prgp(fd, getpgid(getppid())))
+					goto err;
+			}
 		}
 	}
 

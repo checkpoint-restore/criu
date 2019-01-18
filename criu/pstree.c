@@ -367,22 +367,31 @@ static int prepare_pstree_for_shell_job(pid_t pid)
 	 */
 
 	old_sid = root_item->sid;
-	old_gid = root_item->pgid;
 
-	pr_info("Migrating process tree (GID %d->%d SID %d->%d)\n",
-		old_gid, current_gid, old_sid, current_sid);
+	pr_info("Migrating process tree (SID %d->%d)\n",
+		old_sid, current_sid);
 
 	for_each_pstree_item(pi) {
-		if (pi->pgid == old_gid)
-			pi->pgid = current_gid;
 		if (pi->sid == old_sid)
 			pi->sid = current_sid;
 	}
 
-	if (lookup_create_item(current_sid) == NULL)
-		return -1;
-	if (lookup_create_item(current_gid) == NULL)
-		return -1;
+	old_gid = root_item->pgid;
+	if (old_gid != vpid(root_item)) {
+		if (lookup_create_item(current_sid) == NULL)
+			return -1;
+
+		pr_info("Migrating process tree (GID %d->%d)\n",
+			old_gid, current_gid);
+
+		for_each_pstree_item(pi) {
+			if (pi->pgid == old_gid)
+				pi->pgid = current_gid;
+		}
+
+		if (lookup_create_item(current_gid) == NULL)
+			return -1;
+	}
 
 	return 0;
 }
