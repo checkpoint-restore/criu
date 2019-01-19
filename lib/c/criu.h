@@ -56,6 +56,7 @@ void criu_set_service_comm(enum criu_service_comm);
  * the list down below. 0 on success, -1 on fail.
  */
 int criu_init_opts(void);
+void criu_free_opts(void);
 
 void criu_set_pid(int pid);
 void criu_set_images_dir_fd(int fd); /* must be set for dump/restore */
@@ -159,6 +160,7 @@ int criu_dump_iters(int (*more)(criu_predump_info pi));
 typedef struct criu_opts criu_opts;
 
 int criu_local_init_opts(criu_opts **opts);
+void criu_local_free_opts(criu_opts *opts);
 
 void criu_local_set_service_address(criu_opts *opts, char *path);
 void criu_local_set_service_fd(criu_opts *opts, int fd);
