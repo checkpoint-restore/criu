@@ -81,6 +81,128 @@ void criu_set_service_binary(const char *path)
 	criu_local_set_service_binary(global_opts, path);
 }
 
+void criu_local_free_opts(criu_opts *opts)
+{
+	int i;
+
+	if (!opts)
+		return;
+	if (!opts->rpc)
+		return;
+
+	if (opts->rpc->exec_cmd) {
+		for (i = 0; i < opts->rpc->n_exec_cmd; i++) {
+			free(opts->rpc->exec_cmd[i]);
+		}
+		free(opts->rpc->exec_cmd);
+	}
+	opts->rpc->n_exec_cmd = 0;
+
+	if(opts->rpc->unix_sk_ino) {
+		for (i = 0; i < opts->rpc->n_unix_sk_ino; i++) {
+			free(opts->rpc->unix_sk_ino[i]);
+		}
+		free(opts->rpc->unix_sk_ino);
+	}
+	opts->rpc->n_unix_sk_ino = 0;
+
+	if(opts->rpc->ext_mnt) {
+		for (i = 0; i < opts->rpc->n_ext_mnt; i++) {
+			if (opts->rpc->ext_mnt[i]) {
+				free(opts->rpc->ext_mnt[i]->val);
+				free(opts->rpc->ext_mnt[i]->key);
+				free(opts->rpc->ext_mnt[i]);
+			}
+		}
+		free(opts->rpc->ext_mnt);
+	}
+	opts->rpc->n_ext_mnt = 0;
+
+	if(opts->rpc->cg_root) {
+		for (i = 0; i < opts->rpc->n_cg_root; i++) {
+			if (opts->rpc->cg_root[i]) {
+				free(opts->rpc->cg_root[i]->ctrl);
+				free(opts->rpc->cg_root[i]->path);
+				free(opts->rpc->cg_root[i]);
+			}
+		}
+		free(opts->rpc->cg_root);
+	}
+	opts->rpc->n_cg_root = 0;
+
+	if(opts->rpc->veths) {
+		for (i = 0; i < opts->rpc->n_veths; i++) {
+			if (opts->rpc->veths[i]) {
+				free(opts->rpc->veths[i]->if_in);
+				free(opts->rpc->veths[i]->if_out);
+				free(opts->rpc->veths[i]);
+			}
+		}
+		free(opts->rpc->veths);
+	}
+	opts->rpc->n_veths = 0;
+
+	if(opts->rpc->enable_fs) {
+		for (i = 0; i < opts->rpc->n_enable_fs; i++) {
+			free(opts->rpc->enable_fs[i]);
+		}
+		free(opts->rpc->enable_fs);
+	}
+	opts->rpc->n_enable_fs = 0;
+
+	if(opts->rpc->skip_mnt) {
+		for (i = 0; i < opts->rpc->n_skip_mnt; i++) {
+			free(opts->rpc->skip_mnt[i]);
+		}
+		free(opts->rpc->skip_mnt);
+	}
+	opts->rpc->n_skip_mnt = 0;
+
+	if(opts->rpc->irmap_scan_paths) {
+		for (i = 0; i < opts->rpc->n_irmap_scan_paths; i++) {
+			free(opts->rpc->irmap_scan_paths[i]);
+		}
+		free(opts->rpc->irmap_scan_paths);
+	}
+	opts->rpc->n_irmap_scan_paths = 0;
+
+	if(opts->rpc->cgroup_dump_controller) {
+		for (i = 0; i < opts->rpc->n_cgroup_dump_controller; i++) {
+			free(opts->rpc->cgroup_dump_controller[i]);
+		}
+		free(opts->rpc->cgroup_dump_controller);
+	}
+	opts->rpc->n_cgroup_dump_controller = 0;
+
+	if(opts->rpc->inherit_fd) {
+		for (i = 0; i < opts->rpc->n_inherit_fd; i++) {
+			if (opts->rpc->inherit_fd[i]) {
+				free(opts->rpc->inherit_fd[i]->key);
+				free(opts->rpc->inherit_fd[i]);
+			}
+		}
+		free(opts->rpc->inherit_fd);
+	}
+	opts->rpc->n_inherit_fd = 0;
+
+	if(opts->rpc->external) {
+		for (i = 0; i < opts->rpc->n_external; i++) {
+			free(opts->rpc->external[i]);
+		}
+		free(opts->rpc->external);
+	}
+	opts->rpc->n_external = 0;
+
+	free(opts->rpc->cgroup_props_file);
+	free(opts->rpc->cgroup_props);
+	free(opts->rpc->parent_img);
+	free(opts->rpc->root);
+	free(opts->rpc->freeze_cgroup);
+	free(opts->rpc->log_file);
+	free(opts->rpc);
+	free(opts);
+}
+
 int criu_local_init_opts(criu_opts **o)
 {
 	criu_opts *opts = NULL;
@@ -88,13 +210,8 @@ int criu_local_init_opts(criu_opts **o)
 
 	opts = *o;
 
-	if (opts) {
-		if (opts->rpc)
-			criu_opts__free_unpacked(opts->rpc, NULL);
-
-		free(opts);
-		opts = NULL;
-	}
+	criu_local_free_opts(opts);
+	*o = NULL;
 
 	rpc = malloc(sizeof(CriuOpts));
 	if (rpc == NULL) {
@@ -107,7 +224,7 @@ int criu_local_init_opts(criu_opts **o)
 	opts = malloc(sizeof(criu_opts));
 	if (opts == NULL) {
 		perror("Can't allocate memory for criu opts");
-		criu_opts__free_unpacked(rpc, NULL);
+		criu_local_free_opts(opts);
 		return -1;
 	}
 
@@ -125,6 +242,12 @@ int criu_local_init_opts(criu_opts **o)
 int criu_init_opts(void)
 {
 	return criu_local_init_opts(&global_opts);
+}
+
+void criu_free_opts(void)
+{
+	criu_local_free_opts(global_opts);
+	global_opts = NULL;
 }
 
 void criu_local_set_notify_cb(criu_opts *opts, int (*cb)(char *action, criu_notify_arg_t na))
@@ -1134,8 +1257,10 @@ again:
 			ret = opts->notify((*resp)->notify->script, (*resp)->notify);
 
 		ret = send_notify_ack(fd, ret);
-		if (!ret)
+		if (!ret) {
+			criu_resp__free_unpacked(*resp, NULL);
 			goto again;
+		}
 		else
 			goto exit;
 	}
