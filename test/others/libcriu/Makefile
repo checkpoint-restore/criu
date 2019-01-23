@@ -5,9 +5,11 @@ TESTS += test_iters
 TESTS += test_errno
 
 all: $(TESTS)
+.PHONY: all
 
 run: all
 	./run.sh
+.PHONY: run
 
 define genb
 $(1): $(1).o lib.o
@@ -21,6 +23,4 @@ $(foreach t, $(TESTS), $(eval $(call genb, $(t))))
 
 clean:
 	rm -rf $(TESTS) $(TESTS:%=%.o) lib.o
-
 .PHONY: clean
-.PHONY: all
