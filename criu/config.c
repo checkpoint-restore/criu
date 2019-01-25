@@ -40,20 +40,91 @@ static int count_elements(char **to_count)
 	return count;
 }
 
+/* Parse one statement in configuration file */
+int parse_statement(int i, char *line, char **configuration)
+{
+	int offset = 0, len = 0;
+	bool was_newline = true;
+	char *tmp_string, *quoted, *quotedptr;
+
+	while (1) {
+		/* Ignore white-space */
+		while ((isspace(*(line + offset)) && (*(line + offset) != '\n'))) offset++;
+
+		/* Read a single word. A word is everything
+		 * that doesn't contain white-space characters. */
+		if (sscanf(line + offset, "%m[^ \t\n]s", &configuration[i]) != 1) {
+			configuration[i] = NULL;
+			break;
+		}
+
+		/* Ignore comments - everything between '#' and '\n' */
+		if (configuration[i][0] == '#') {
+			configuration[i] = NULL;
+			break;
+		}
+
+		if ((configuration[i][0] == '\"') && (strchr(line + offset + 1, '"'))) {
+			/* Handle empty strings which strtok ignores */
+			if (!strcmp(configuration[i], "\"\"")) {
+				configuration[i] = "";
+				offset += strlen("\"\"");
+			} else if ((configuration[i] = strtok_r(line + offset, "\"", &quotedptr))) {
+				/* Handle escaping of quotes in quoted string */
+				while (configuration[i][strlen(configuration[i]) - 1] == '\\') {
+					offset++;
+					len = strlen(configuration[i]);
+					configuration[i][len - 1] = '"';
+					if (*quotedptr == '"') {
+						quotedptr++;
+						break;
+					}
+					quoted = strtok_r(NULL, "\"", &quotedptr);
+					tmp_string = xmalloc(len + strlen(quoted) + 1);
+					if (tmp_string == NULL)
+						return -1;
+
+					memmove(tmp_string, configuration[i], len);
+					memmove(tmp_string + len, quoted, strlen(quoted) + 1);
+					configuration[i] = tmp_string;
+				}
+				offset += 2;
+			}
+		}
+
+		offset += strlen(configuration[i]);
+
+		if (was_newline) {
+			was_newline = false;
+			len = strlen(configuration[i]);
+			tmp_string = xrealloc(configuration[i], len + strlen("--") + 1);
+			if (tmp_string == NULL)
+				return -1;
+
+			memmove(tmp_string + strlen("--"), tmp_string, len + 1);
+			memmove(tmp_string, "--", strlen("--"));
+			configuration[i] = tmp_string;
+		}
+		i++;
+	}
+
+	return i;
+}
+
+/* Parse a configuration file */
 static char ** parse_config(char *filepath)
 {
 #define DEFAULT_CONFIG_SIZE	10
 	FILE* configfile = fopen(filepath, "r");
 	int config_size = DEFAULT_CONFIG_SIZE;
-	int i = 1, len = 0, offset;
-	size_t limit = 0;
-	bool was_newline;
-	char *tmp_string, *line = NULL, *quoted, *quotedptr;
-	char **configuration, **tmp_conf;
+	int i = 1;
+	size_t line_size = 0;
+	char *line = NULL;
+	char **configuration;
 
-	if (!configfile) {
+	if (!configfile)
 		return NULL;
-	}
+
 	configuration = xmalloc(config_size * sizeof(char *));
 	if (configuration == NULL) {
 		fclose(configfile);
@@ -64,85 +135,28 @@ static char ** parse_config(char *filepath)
 	 */
 	configuration[0] = "criu";
 
-	while ((len = getline(&line, &limit, configfile)) != -1) {
-		offset = 0;
-		was_newline = true;
+	while (getline(&line, &line_size, configfile) != -1) {
+		/* Extend configuration buffer if necessary */
 		if (i >= config_size - 1) {
 			config_size *= 2;
-			tmp_conf = xrealloc(configuration, config_size * sizeof(char *));
-			if (tmp_conf == NULL) {
+			configuration = xrealloc(configuration, config_size * sizeof(char *));
+			if (configuration == NULL) {
 				fclose(configfile);
 				exit(1);
 			}
-			configuration = tmp_conf;
 		}
-		while (1) {
-			while ((isspace(*(line + offset)) && (*(line + offset) != '\n'))) offset++;
 
-			if (sscanf(line + offset, "%m[^ \t\n]s", &configuration[i]) != 1) {
-				configuration[i] = NULL;
-				break;
-			}
-
-			if (configuration[i][0] == '#') {
-				if (sscanf(line, "%*[^\n]") != 0) {
-					pr_err("Error while reading configuration file %s\n", filepath);
-					fclose(configfile);
-					exit(1);
-				}
-				configuration[i] = NULL;
-				break;
-			}
-			if ((configuration[i][0] == '\"') && (strchr(line + offset + 1, '"'))) {
-				/*
-				 * Handle empty strings which strtok ignores
-				 */
-				if (!strcmp(configuration[i], "\"\"")) {
-					configuration[i] = "";
-					offset += strlen("\"\"");
-				} else if ((configuration[i] = strtok_r(line + offset, "\"", &quotedptr))) {
-					/*
-					 * Handle escaping of quotes in quoted string
-					 */
-					while (configuration[i][strlen(configuration[i]) - 1] == '\\') {
-						offset++;
-						len = strlen(configuration[i]);
-						configuration[i][len - 1] = '"';
-						if (*quotedptr == '"') {
-							quotedptr++;
-							break;
-						}
-						quoted = strtok_r(NULL, "\"", &quotedptr);
-						tmp_string = xmalloc(len + strlen(quoted) + 1);
-						if (tmp_string == NULL) {
-							fclose(configfile);
-							exit(1);
-						}
-						memmove(tmp_string, configuration[i], len);
-						memmove(tmp_string + len, quoted, strlen(quoted) + 1);
-						configuration[i] = tmp_string;
-					}
-					offset += 2;
-				}
-			}
-			offset += strlen(configuration[i]);
-			if (was_newline) {
-				was_newline = false;
-				len = strlen(configuration[i]);
-				tmp_string = xrealloc(configuration[i], len + strlen("--") + 1);
-				if (tmp_string == NULL) {
-					fclose(configfile);
-					exit(1);
-				}
-				memmove(tmp_string + strlen("--"), tmp_string, len + 1);
-				memmove(tmp_string, "--", strlen("--"));
-				configuration[i] = tmp_string;
-			}
-			i++;
+		i = parse_statement(i, line, configuration);
+		if (i < 0) {
+			fclose(configfile);
+			exit(1);
 		}
+
 		free(line);
 		line = NULL;
 	}
+	/* Initialize the last element */
+	configuration[i] = NULL;
 
 	free(line);
 	fclose(configfile);
