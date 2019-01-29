@@ -359,16 +359,14 @@ static void rop_set_rimg(struct roperation* rop, struct rimage* rimg)
 		if (rop->fd == proxy_to_cache_fd) {
 			rop->curr_sent_buf = rimg->curr_fwd_buf;
 			rop->curr_sent_bytes = rimg->curr_fwd_bytes;
-		}
-		// For local appends, just write at the end.
-		else {
+		} else {
+			// For local appends, just write at the end.
 			rop->curr_sent_buf = list_entry(rimg->buf_head.prev, struct rbuf, l);
 			rop->curr_sent_bytes = rop->curr_sent_buf->nbytes;
 		}
 		// On the receiver size, we just append
 		rop->curr_recv_buf = list_entry(rimg->buf_head.prev, struct rbuf, l);
-	}
-	else {
+	} else {
 		// Writes or reads are simple. Just do it from the beginning.
 		rop->curr_recv_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
 		rop->curr_sent_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
@@ -405,8 +403,7 @@ struct roperation* handle_accept_write(
 			pr_perror("Error preparing remote image");
 			goto err;
 		}
-	}
-	else {
+	} else {
 		list_del(&(rimg->l));
 		if (flags == O_APPEND)
 			clear_remote_image(rimg);
@@ -512,9 +509,8 @@ struct roperation* handle_accept_cache_read(
 		}
 		rop_set_rimg(rop, rimg);
 		return rop;
-	}
-	// The file does not exist.
-	else if (finished_remote) {
+	} else if (finished_remote) {
+		// The file does not exist.
 		pr_info("No image %s:%s.\n", path, snapshot_id);
 		if (write_reply_header(cli_fd, ENOENT) < 0)
 			pr_perror("Error writing reply header for unexisting image");
@@ -630,13 +626,11 @@ void handle_local_accept(int fd)
 	// Write/Append case (only possible in img-proxy).
 	if (flags != O_RDONLY) {
 		rop = handle_accept_proxy_write(cli_fd, snapshot_id, path, flags);
-	}
-	// Read case while restoring (img-cache).
-	else if (restoring) {
+	} else if (restoring) {
+		// Read case while restoring (img-cache).
 		rop = handle_accept_cache_read(cli_fd, snapshot_id, path, flags);
-	}
-	// Read case while dumping (img-proxy).
-	else {
+	} else {
+		// Read case while dumping (img-proxy).
 		rop = handle_accept_proxy_read(cli_fd, snapshot_id, path, flags);
 	}
 
@@ -671,8 +665,8 @@ void finish_proxy_read(struct roperation* rop)
 
 		forwarding = false;
 
-	// If there are images waiting to be forwarded, forward the next.
-	if (!list_empty(&rop_forwarding)) {
+		// If there are images waiting to be forwarded, forward the next.
+		if (!list_empty(&rop_forwarding)) {
 			forward_remote_image(list_entry(rop_forwarding.next, struct roperation, l));
 		}
 	}
@@ -684,9 +678,8 @@ void finish_proxy_write(struct roperation* rop)
 	if (!strncmp(rop->path, DUMP_FINISH, sizeof(DUMP_FINISH))) {
 		// TODO - couldn't we handle the DUMP_FINISH in inside handle_accept_proxy_write?
 		finish_local();
-	}
-	// Normal image received, forward it.
-	else {
+	} else {
+		// Normal image received, forward it.
 		struct roperation *rop_to_forward = new_remote_operation(
 			rop->path, rop->snapshot_id, proxy_to_cache_fd, rop->flags, false);
 
@@ -696,7 +689,7 @@ void finish_proxy_write(struct roperation* rop)
 		rop_set_rimg(rop_to_forward, rop->rimg);
 		if (list_empty(&rop_forwarding)) {
 			forward_remote_image(rop_to_forward);
-	}
+		}
 		list_add_tail(&(rop_to_forward->l), &rop_forwarding);
 	}
 }
@@ -773,14 +766,11 @@ void handle_roperation(struct epoll_event *event, struct roperation *rop)
 		// Cached side (finished receiving forwarded image)
 		if (restoring) {
 			finish_cache_write(rop);
-		}
-		// Proxy side (finished receiving local image)
-		else {
+		} else {
+			// Proxy side (finished receiving local image)
 			finish_proxy_write(rop);
 		}
-	}
-	// If send operation if finished
-	else {
+	} else {
 		// Proxy side (Finished forwarding image or reading it locally).
 		if (!restoring)
 			finish_proxy_read(rop);
@@ -853,19 +843,17 @@ void accept_image_connections() {
 		for (i = 0; i < n_events; i++) {
 			// Accept from local dump/restore?
 			if (events[i].data.ptr == &local_req_fd) {
-				if ( events[i].events & EPOLLHUP ||
+				if (events[i].events & EPOLLHUP ||
 					events[i].events & EPOLLERR) {
 					if (!finished_local)
 						pr_perror("Unable to accept more local image connections");
 					goto end;
 				}
 				handle_local_accept(local_req_fd);
-			}
-			else if (restoring && !forwarding && events[i].data.ptr == &proxy_to_cache_fd) {
+			} else if (restoring && !forwarding && events[i].data.ptr == &proxy_to_cache_fd) {
 				event_set(epoll_fd, EPOLL_CTL_DEL, proxy_to_cache_fd, 0, 0);
 				handle_remote_accept(proxy_to_cache_fd);
-			}
-			else {
+			} else {
 				struct roperation *rop =
 					(struct roperation*)events[i].data.ptr;
 				event_set(epoll_fd, EPOLL_CTL_DEL, rop->fd, 0, 0);
@@ -973,22 +961,19 @@ int64_t send_image_async(struct roperation *op)
 				list_entry(op->curr_sent_buf->l.next, struct rbuf, l);
 			op->curr_sent_bytes = 0;
 			return n;
-		}
-		else if (op->curr_sent_bytes == op->curr_sent_buf->nbytes) {
+		} else if (op->curr_sent_bytes == op->curr_sent_buf->nbytes) {
 			if (close_fd)
 				close(fd);
 			return 0;
 		}
 		return n;
-	}
-	else if (errno == EPIPE || errno == ECONNRESET) {
+	} else if (errno == EPIPE || errno == ECONNRESET) {
 		pr_warn("Connection for %s:%s was closed early than expected\n",
 			rimg->path, rimg->snapshot_id);
 		return 0;
 	} else if (errno == EAGAIN || errno == EWOULDBLOCK) {
 		return errno;
-	}
-	else {
+	} else {
 		pr_perror("Write on %s:%s socket failed",
 			rimg->path, rimg->snapshot_id);
 		return -1;
@@ -1016,9 +1001,9 @@ int read_remote_image_connection(char *snapshot_id, char *path)
 				path, snapshot_id);
 		return -1;
 	}
-	if (!error || !strncmp(path, RESTORE_FINISH, sizeof(RESTORE_FINISH)))
+	if (!error || !strncmp(path, RESTORE_FINISH, sizeof(RESTORE_FINISH))) {
 		return sockfd;
-	else if (error == ENOENT) {
+	} else if (error == ENOENT) {
 		pr_info("Image does not exist (%s:%s)\n", path, snapshot_id);
 		close(sockfd);
 		return -ENOENT;
@@ -1186,13 +1171,13 @@ int get_curr_snapshot_id_idx(void)
 		pull_snapshot_ids();
 
 	list_for_each_entry(si, &snapshot_head, l) {
-	if (!strncmp(si->snapshot_id, snapshot_id, PATH_MAX))
+		if (!strncmp(si->snapshot_id, snapshot_id, PATH_MAX))
 			return idx;
 		idx++;
 	}
 
 	pr_err("Error, could not find current snapshot id (%s) fd\n",
-			snapshot_id);
+		snapshot_id);
 	return -1;
 }
 
