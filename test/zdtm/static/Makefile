@@ -208,6 +208,7 @@ TST_NOFILE	:=				\
 		netns_sub_veth			\
 		unlink_multiple_largefiles	\
 		config_inotify_irmap		\
+		thp_disable			\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
@@ -500,6 +501,7 @@ mntns_shared_bind02:	CFLAGS += -DSHARED_BIND02
 mntns_root_bind02:	CFLAGS += -DROOT_BIND02
 maps02: get_smaps_bits.o
 mlock_setuid: get_smaps_bits.o
+thp_disable: get_smaps_bits.o
 inotify01:		CFLAGS += -DINOTIFY01
 unlink_fstat01+:	CFLAGS += -DUNLINK_OVER
 unlink_fstat04:		CFLAGS += -DUNLINK_FSTAT04
