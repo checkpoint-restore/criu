@@ -8,20 +8,6 @@
 #include "cr_options.h"
 #include "util.h"
 
-int accept_proxy_to_cache(int sockfd)
-{
-	struct sockaddr_in cli_addr;
-	socklen_t clilen = sizeof(cli_addr);
-	int proxy_fd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-
-	if (proxy_fd < 0) {
-		pr_perror("Unable to accept remote image connection from image proxy");
-		return -1;
-	}
-
-	return proxy_fd;
-}
-
 int image_cache(bool background, char *local_cache_path, unsigned short cache_write_port)
 {
 	pr_info("Proxy to Cache Port %d, CRIU to Cache Path %s\n",
@@ -38,9 +24,12 @@ int image_cache(bool background, char *local_cache_path, unsigned short cache_wr
 			return -1;
 		}
 		// Wait to accept connection from proxy.
-		proxy_to_cache_fd = accept_proxy_to_cache(proxy_to_cache_fd);
-		if (proxy_to_cache_fd < 0)
+		proxy_to_cache_fd = accept(proxy_to_cache_fd, NULL, 0);
+		if (proxy_to_cache_fd < 0) {
+			pr_perror("Unable to accept remote image connection"
+				  " from image proxy");
 			return -1; // TODO - should close other sockets.
+		}
 	}
 
 	pr_info("Cache is connected to Proxy through fd %d\n", proxy_to_cache_fd);
