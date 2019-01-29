@@ -10,6 +10,8 @@
 
 int image_cache(bool background, char *local_cache_path, unsigned short cache_write_port)
 {
+	int tmp;
+
 	pr_info("Proxy to Cache Port %d, CRIU to Cache Path %s\n",
 			cache_write_port, local_cache_path);
 	restoring = true;
@@ -24,12 +26,14 @@ int image_cache(bool background, char *local_cache_path, unsigned short cache_wr
 			return -1;
 		}
 		// Wait to accept connection from proxy.
-		proxy_to_cache_fd = accept(proxy_to_cache_fd, NULL, 0);
-		if (proxy_to_cache_fd < 0) {
+		tmp = accept(proxy_to_cache_fd, NULL, 0);
+		if (tmp < 0) {
 			pr_perror("Unable to accept remote image connection"
 				  " from image proxy");
-			return -1; // TODO - should close other sockets.
+			close(proxy_to_cache_fd);
+			return -1;
 		}
+		proxy_to_cache_fd = tmp;
 	}
 
 	pr_info("Cache is connected to Proxy through fd %d\n", proxy_to_cache_fd);
@@ -37,7 +41,8 @@ int image_cache(bool background, char *local_cache_path, unsigned short cache_wr
 	local_req_fd = setup_UNIX_server_socket(local_cache_path);
 	if (local_req_fd < 0) {
 		pr_perror("Unable to open cache to proxy UNIX socket");
-		return -1; // TODO - should close other sockets.
+		close(proxy_to_cache_fd);
+		return -1;
 
 	}
 

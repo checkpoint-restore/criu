@@ -26,7 +26,8 @@ int image_proxy(bool background, char *local_proxy_path, char *fwd_host, unsigne
 		proxy_to_cache_fd = setup_tcp_client(fwd_host, fwd_port);
 		if (proxy_to_cache_fd < 0) {
 			pr_perror("Unable to open proxy to cache TCP socket");
-			return -1; // TODO - should close other sockets.
+			close(local_req_fd);
+			return -1;
 		}
 	}
 
