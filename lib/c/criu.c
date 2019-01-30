@@ -193,6 +193,11 @@ void criu_local_free_opts(criu_opts *opts)
 	}
 	opts->rpc->n_external = 0;
 
+	if(opts->rpc->ps) {
+		free(opts->rpc->ps->address);
+		free(opts->rpc->ps);
+	}
+
 	free(opts->rpc->cgroup_props_file);
 	free(opts->rpc->cgroup_props);
 	free(opts->rpc->parent_img);
@@ -1016,6 +1021,32 @@ err:
 int criu_add_external(char *key)
 {
 	return criu_local_add_external(global_opts, key);
+}
+
+int criu_local_set_page_server_address_port(criu_opts *opts, const char *address, int port)
+{
+	opts->rpc->ps = malloc(sizeof(CriuPageServerInfo));
+	if (opts->rpc->ps) {
+		criu_page_server_info__init(opts->rpc->ps);
+
+		opts->rpc->ps->address = strdup(address);
+		if (!opts->rpc->ps->address) {
+			free(opts->rpc->ps);
+			opts->rpc->ps = NULL;
+			goto out;
+		}
+
+		opts->rpc->ps->has_port = true;
+		opts->rpc->ps->port = port;
+	}
+
+out:
+	return -ENOMEM;
+}
+
+int criu_set_page_server_address_port(const char *address, int port)
+{
+	return criu_local_set_page_server_address_port(global_opts, address, port);
 }
 
 static CriuResp *recv_resp(int socket_fd)
