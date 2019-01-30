@@ -24,7 +24,6 @@
 #include "protobuf.h"
 #include "image.h"
 
-#define PB_LOCAL_IMAGE_SIZE PATH_MAX
 #define EPOLL_MAX_EVENTS 50
 
 // List of images already in memory.
