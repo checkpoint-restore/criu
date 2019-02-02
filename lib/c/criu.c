@@ -35,6 +35,20 @@ struct criu_opts {
 static criu_opts *global_opts;
 static int saved_errno;
 
+void criu_free_service(criu_opts *opts)
+{
+	switch(opts->service_comm) {
+		case CRIU_COMM_SK:
+			free((void*)(opts->service_address));
+			break;
+        case CRIU_COMM_BIN:
+			free((void*)(opts->service_binary));
+			break;
+        default:
+			break;
+	}
+}
+
 void criu_local_set_service_comm(criu_opts *opts, enum criu_service_comm comm)
 {
 	opts->service_comm = comm;
@@ -47,10 +61,11 @@ void criu_set_service_comm(enum criu_service_comm comm)
 
 void criu_local_set_service_address(criu_opts *opts, const char *path)
 {
+	criu_free_service(opts);
 	if (path)
-		opts->service_address = path;
+		opts->service_address = strdup(path);
 	else
-		opts->service_address = CR_DEFAULT_SERVICE_ADDRESS;
+		opts->service_address = strdup(CR_DEFAULT_SERVICE_ADDRESS);
 }
 
 void criu_set_service_address(const char *path)
@@ -60,6 +75,7 @@ void criu_set_service_address(const char *path)
 
 void criu_local_set_service_fd(criu_opts *opts, int fd)
 {
+	criu_free_service(opts);
 	opts->service_fd = fd;
 }
 
@@ -70,10 +86,11 @@ void criu_set_service_fd(int fd)
 
 void criu_local_set_service_binary(criu_opts *opts, const char *path)
 {
+	criu_free_service(opts);
 	if (path)
-		opts->service_binary = path;
+		opts->service_binary = strdup(path);
 	else
-		opts->service_binary = CR_DEFAULT_SERVICE_BIN;
+		opts->service_binary = strdup(CR_DEFAULT_SERVICE_BIN);
 }
 
 void criu_set_service_binary(const char *path)
@@ -205,6 +222,7 @@ void criu_local_free_opts(criu_opts *opts)
 	free(opts->rpc->freeze_cgroup);
 	free(opts->rpc->log_file);
 	free(opts->rpc);
+	criu_free_service(opts);
 	free(opts);
 }
 
@@ -237,7 +255,7 @@ int criu_local_init_opts(criu_opts **o)
 	opts->notify	= NULL;
 
 	opts->service_comm	= CRIU_COMM_BIN;
-	opts->service_address	= CR_DEFAULT_SERVICE_BIN;
+	opts->service_binary	= strdup(CR_DEFAULT_SERVICE_BIN);
 
 	*o = opts;
 
