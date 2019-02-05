@@ -770,7 +770,7 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 		pr_flags |= PR_REMOTE;
 	ret = open_page_read(lpi->pid, &lpi->pr, pr_flags);
 	if (ret <= 0) {
-		ret = -1;
+		lp_err(lpi, "Failed to open pagemap\n");
 		goto out;
 	}
 
