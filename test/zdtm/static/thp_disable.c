@@ -10,7 +10,7 @@
 const char *test_doc	= "Test prctl(THP_DISABLE) behaviour";
 const char *test_author	= "Mike Rapoport <rppt@linux.ibm.com>";
 
-#define MEM_SIZE (8192)
+#define MEM_SIZE (2 << 20)
 
 int main(int argc, char **argv)
 {
