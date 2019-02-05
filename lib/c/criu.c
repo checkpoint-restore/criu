@@ -59,18 +59,23 @@ void criu_set_service_comm(enum criu_service_comm comm)
 	criu_local_set_service_comm(global_opts, comm);
 }
 
-void criu_local_set_service_address(criu_opts *opts, const char *path)
+int criu_local_set_service_address(criu_opts *opts, const char *path)
 {
 	criu_free_service(opts);
-	if (path)
+	if (path) {
 		opts->service_address = strdup(path);
-	else
+	} else {
 		opts->service_address = strdup(CR_DEFAULT_SERVICE_ADDRESS);
+	}
+	if(opts->service_address == NULL) {
+		return -ENOMEM;
+	}
+	return 0;
 }
 
-void criu_set_service_address(const char *path)
+int criu_set_service_address(const char *path)
 {
-	criu_local_set_service_address(global_opts, path);
+	return criu_local_set_service_address(global_opts, path);
 }
 
 void criu_local_set_service_fd(criu_opts *opts, int fd)
@@ -84,18 +89,23 @@ void criu_set_service_fd(int fd)
 	criu_local_set_service_fd(global_opts, fd);
 }
 
-void criu_local_set_service_binary(criu_opts *opts, const char *path)
+int criu_local_set_service_binary(criu_opts *opts, const char *path)
 {
 	criu_free_service(opts);
-	if (path)
+	if (path) {
 		opts->service_binary = strdup(path);
-	else
+	} else {
 		opts->service_binary = strdup(CR_DEFAULT_SERVICE_BIN);
+	}
+	if(opts->service_binary == NULL) {
+		return -ENOMEM;
+	}
+	return 0;
 }
 
-void criu_set_service_binary(const char *path)
+int criu_set_service_binary(const char *path)
 {
-	criu_local_set_service_binary(global_opts, path);
+	return criu_local_set_service_binary(global_opts, path);
 }
 
 void criu_local_free_opts(criu_opts *opts)
@@ -257,6 +267,12 @@ int criu_local_init_opts(criu_opts **o)
 	opts->service_comm	= CRIU_COMM_BIN;
 	opts->service_binary	= strdup(CR_DEFAULT_SERVICE_BIN);
 
+	if(opts->service_binary == NULL) {
+		perror("Can't allocate memory for criu service setting");
+		criu_local_free_opts(opts);
+		return -1;
+	}
+
 	*o = opts;
 
 	return 0;
@@ -311,14 +327,18 @@ void criu_set_images_dir_fd(int fd)
 	criu_local_set_images_dir_fd(global_opts, fd);
 }
 
-void criu_local_set_parent_images(criu_opts *opts, const char *path)
+int criu_local_set_parent_images(criu_opts *opts, const char *path)
 {
 	opts->rpc->parent_img = strdup(path);
+	if(opts->rpc->parent_img == NULL) {
+		return -ENOMEM;
+	}
+	return 0;
 }
 
-void criu_set_parent_images(const char *path)
+int criu_set_parent_images(const char *path)
 {
-	criu_local_set_parent_images(global_opts, path);
+	return criu_local_set_parent_images(global_opts, path);
 }
 
 void criu_local_set_track_mem(criu_opts *opts, bool track_mem)
@@ -533,14 +553,18 @@ void criu_set_log_level(int log_level)
 	criu_local_set_log_level(global_opts, log_level);
 }
 
-void criu_local_set_root(criu_opts *opts, const char *root)
+int criu_local_set_root(criu_opts *opts, const char *root)
 {
 	opts->rpc->root = strdup(root);
+	if(opts->rpc->root == NULL) {
+		return -ENOMEM;
+	}
+	return 0;
 }
 
-void criu_set_root(const char *root)
+int criu_set_root(const char *root)
 {
-	criu_local_set_root(global_opts, root);
+	return criu_local_set_root(global_opts, root);
 }
 
 void criu_local_set_manage_cgroups(criu_opts *opts, bool manage)
@@ -565,14 +589,18 @@ void criu_set_manage_cgroups_mode(enum criu_cg_mode mode)
 	criu_local_set_manage_cgroups_mode(global_opts, mode);
 }
 
-void criu_local_set_freeze_cgroup(criu_opts *opts, const char *name)
+int criu_local_set_freeze_cgroup(criu_opts *opts, const char *name)
 {
 	opts->rpc->freeze_cgroup = strdup(name);
+	if(opts->rpc->freeze_cgroup == NULL) {
+		return -ENOMEM;
+	}
+	return 0;
 }
 
-void criu_set_freeze_cgroup(const char *name)
+int criu_set_freeze_cgroup(const char *name)
 {
-	criu_local_set_freeze_cgroup(global_opts, name);
+	return criu_local_set_freeze_cgroup(global_opts, name);
 }
 
 void criu_local_set_timeout(criu_opts *opts, unsigned int timeout)
@@ -618,14 +646,18 @@ void criu_set_ext_masters(bool val)
 	criu_local_set_ext_masters(global_opts, val);
 }
 
-void criu_local_set_log_file(criu_opts *opts, const char *log_file)
+int criu_local_set_log_file(criu_opts *opts, const char *log_file)
 {
 	opts->rpc->log_file = strdup(log_file);
+	if(opts->rpc->log_file == NULL) {
+		return -ENOMEM;
+	}
+	return 0;
 }
 
-void criu_set_log_file(const char *log_file)
+int criu_set_log_file(const char *log_file)
 {
-	criu_local_set_log_file(global_opts, log_file);
+	return criu_local_set_log_file(global_opts, log_file);
 }
 
 void criu_local_set_cpu_cap(criu_opts *opts, unsigned int cap)
