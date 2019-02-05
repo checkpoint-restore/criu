@@ -41,9 +41,9 @@ enum criu_cg_mode {
 	CRIU_CG_MODE_DEFAULT,
 };
 
-void criu_set_service_address(const char *path);
+int criu_set_service_address(const char *path);
 void criu_set_service_fd(int fd);
-void criu_set_service_binary(const char *path);
+int criu_set_service_binary(const char *path);
 
 /*
  * You can choose if you want libcriu to connect to service socket
@@ -60,7 +60,7 @@ void criu_free_opts(void);
 
 void criu_set_pid(int pid);
 void criu_set_images_dir_fd(int fd); /* must be set for dump/restore */
-void criu_set_parent_images(const char *path);
+int criu_set_parent_images(const char *path);
 void criu_set_work_dir_fd(int fd);
 void criu_set_leave_running(bool leave_running);
 void criu_set_ext_unix_sk(bool ext_unix_sk);
@@ -77,12 +77,12 @@ void criu_set_auto_dedup(bool auto_dedup);
 void criu_set_force_irmap(bool force_irmap);
 void criu_set_link_remap(bool link_remap);
 void criu_set_log_level(int log_level);
-void criu_set_log_file(const char *log_file);
+int criu_set_log_file(const char *log_file);
 void criu_set_cpu_cap(unsigned int cap);
-void criu_set_root(const char *root);
+int criu_set_root(const char *root);
 void criu_set_manage_cgroups(bool manage);
 void criu_set_manage_cgroups_mode(enum criu_cg_mode mode);
-void criu_set_freeze_cgroup(const char *name);
+int criu_set_freeze_cgroup(const char *name);
 void criu_set_timeout(unsigned int timeout);
 void criu_set_auto_ext_mnt(bool val);
 void criu_set_ext_sharing(bool val);
@@ -163,7 +163,7 @@ typedef struct criu_opts criu_opts;
 int criu_local_init_opts(criu_opts **opts);
 void criu_local_free_opts(criu_opts *opts);
 
-void criu_local_set_service_address(criu_opts *opts, const char *path);
+int criu_local_set_service_address(criu_opts *opts, const char *path);
 void criu_local_set_service_fd(criu_opts *opts, int fd);
 void criu_local_set_service_comm(criu_opts *opts, enum criu_service_comm);
 
@@ -171,8 +171,8 @@ void criu_local_set_service_fd(criu_opts *opts, int fd);
 
 void criu_local_set_pid(criu_opts *opts, int pid);
 void criu_local_set_images_dir_fd(criu_opts *opts, int fd); /* must be set for dump/restore */
-void criu_local_set_parent_images(criu_opts *opts, const char *path);
-void criu_local_set_service_binary(criu_opts *opts, const char *path);
+int criu_local_set_parent_images(criu_opts *opts, const char *path);
+int criu_local_set_service_binary(criu_opts *opts, const char *path);
 void criu_local_set_work_dir_fd(criu_opts *opts, int fd);
 void criu_local_set_leave_running(criu_opts *opts, bool leave_running);
 void criu_local_set_ext_unix_sk(criu_opts *opts, bool ext_unix_sk);
@@ -189,12 +189,12 @@ void criu_local_set_auto_dedup(criu_opts *opts, bool auto_dedup);
 void criu_local_set_force_irmap(criu_opts *opts, bool force_irmap);
 void criu_local_set_link_remap(criu_opts *opts, bool link_remap);
 void criu_local_set_log_level(criu_opts *opts, int log_level);
-void criu_local_set_log_file(criu_opts *opts, const char *log_file);
+int criu_local_set_log_file(criu_opts *opts, const char *log_file);
 void criu_local_set_cpu_cap(criu_opts *opts, unsigned int cap);
-void criu_local_set_root(criu_opts *opts, const char *root);
+int criu_local_set_root(criu_opts *opts, const char *root);
 void criu_local_set_manage_cgroups(criu_opts *opts, bool manage);
 void criu_local_set_manage_cgroups_mode(criu_opts *opts, enum criu_cg_mode mode);
-void criu_local_set_freeze_cgroup(criu_opts *opts, const char *name);
+int criu_local_set_freeze_cgroup(criu_opts *opts, const char *name);
 void criu_local_set_timeout(criu_opts *opts, unsigned int timeout);
 void criu_local_set_auto_ext_mnt(criu_opts *opts, bool val);
 void criu_local_set_ext_sharing(criu_opts *opts, bool val);
