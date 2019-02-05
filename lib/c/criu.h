@@ -46,12 +46,6 @@ void criu_set_service_fd(int fd);
 int criu_set_service_binary(const char *path);
 
 /*
- * You can choose if you want libcriu to connect to service socket
- * by itself, use provided file descriptor or spawn swrk by itself
- */
-void criu_set_service_comm(enum criu_service_comm);
-
-/*
  * Set opts to defaults. _Must_ be called first before using any functions from
  * the list down below. 0 on success, -1 on fail.
  */
@@ -165,7 +159,6 @@ void criu_local_free_opts(criu_opts *opts);
 
 int criu_local_set_service_address(criu_opts *opts, const char *path);
 void criu_local_set_service_fd(criu_opts *opts, int fd);
-void criu_local_set_service_comm(criu_opts *opts, enum criu_service_comm);
 
 void criu_local_set_service_fd(criu_opts *opts, int fd);
 

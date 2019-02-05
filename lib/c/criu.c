@@ -49,19 +49,10 @@ void criu_free_service(criu_opts *opts)
 	}
 }
 
-void criu_local_set_service_comm(criu_opts *opts, enum criu_service_comm comm)
-{
-	opts->service_comm = comm;
-}
-
-void criu_set_service_comm(enum criu_service_comm comm)
-{
-	criu_local_set_service_comm(global_opts, comm);
-}
-
 int criu_local_set_service_address(criu_opts *opts, const char *path)
 {
 	criu_free_service(opts);
+	opts->service_comm = CRIU_COMM_SK;
 	if (path) {
 		opts->service_address = strdup(path);
 	} else {
@@ -81,6 +72,7 @@ int criu_set_service_address(const char *path)
 void criu_local_set_service_fd(criu_opts *opts, int fd)
 {
 	criu_free_service(opts);
+	opts->service_comm = CRIU_COMM_FD;
 	opts->service_fd = fd;
 }
 
@@ -92,6 +84,7 @@ void criu_set_service_fd(int fd)
 int criu_local_set_service_binary(criu_opts *opts, const char *path)
 {
 	criu_free_service(opts);
+	opts->service_comm = CRIU_COMM_BIN;
 	if (path) {
 		opts->service_binary = strdup(path);
 	} else {
