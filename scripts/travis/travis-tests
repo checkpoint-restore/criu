@@ -88,7 +88,7 @@ chmod 0777 test/zdtm/transition
 
 KERN_MAJ=`uname -r | cut -d. -f1`
 KERN_MIN=`uname -r | cut -d. -f2`
-if [ $KERN_MAJ -ge "4" ] && [ $KERN_MIN -ge "11" ]; then
+if [ $KERN_MAJ -ge "4" ] && [ $KERN_MIN -ge "18" ]; then
 	LAZY_EXCLUDE="-x cmdlinenv00 -x maps007"
 else
 	LAZY_EXCLUDE="-x maps007 -x fork -x fork2 -x uffd-events -x cgroupns
