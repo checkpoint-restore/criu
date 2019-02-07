@@ -2057,6 +2057,9 @@ int read_net_ns_img(void)
 {
 	struct ns_id *ns;
 
+	if (!(root_ns_mask & CLONE_NEWNET))
+		return 0;
+
 	for (ns = ns_ids; ns != NULL; ns = ns->next) {
 		struct cr_img *img;
 		int ret;
