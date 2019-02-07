@@ -277,7 +277,6 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 		rpc_cfg_file = req->config_file;
 		i = parse_options(0, NULL, &dummy, &dummy, PARSING_RPC_CONF);
-		pr_warn("parse_options returns %d\n", i);
 		if (i) {
 			xfree(tmp_output);
 			xfree(tmp_work);
