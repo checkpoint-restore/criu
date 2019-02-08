@@ -491,14 +491,13 @@ static int try_resolve_ext_mount(struct mount_info *info)
 			int len;
 
 			len = strlen(val) + sizeof("dev[]");
-			source = xmalloc(len);
+			source = xrealloc(info->source, len);
 			if (source == NULL)
 				return -1;
 
 			snprintf(source, len, "dev[%s]", val);
 			info->fstype = fstype_auto();
 			BUG_ON(info->fstype->code != FSTYPE__AUTO);
-			xfree(info->source);
 			info->source = source;
 			return 1;
 		}
