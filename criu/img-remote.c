@@ -28,21 +28,21 @@
 		     (f) == O_APPEND ? "append" : "write")
 
 // List of images already in memory.
-LIST_HEAD(rimg_head);
+static LIST_HEAD(rimg_head);
 
 // List of local operations currently in-progress.
-LIST_HEAD(rop_inprogress);
+static LIST_HEAD(rop_inprogress);
 
 // List of local operations pending (reads on the restore side for images that
 // still haven't arrived).
-LIST_HEAD(rop_pending);
+static LIST_HEAD(rop_pending);
 
 // List of images waiting to be forwarded. The head of the list is currently
 // being forwarded.
-LIST_HEAD(rop_forwarding);
+static LIST_HEAD(rop_forwarding);
 
 // List of snapshots (useful when doing incremental restores/dumps)
-LIST_HEAD(snapshot_head);
+static LIST_HEAD(snapshot_head);
 
 // Snapshot id (setup at launch time by dump or restore).
 static char *snapshot_id;
@@ -51,22 +51,24 @@ static char *snapshot_id;
 bool restoring = true;
 
 // True if the proxy to cache socket is being used (receiving or sending).
-bool forwarding = false;
+static bool forwarding = false;
 
 // True if the local dump or restore is finished.
-bool finished_local = false;
+static bool finished_local = false;
 
 // True if the communication between the proxy and cache can be closed.
-bool finished_remote = false;
+static bool finished_remote = false;
 
 // Proxy to cache socket fd; Local dump or restore servicing fd.
 int proxy_to_cache_fd;
 int local_req_fd;
 
 // Epoll fd and event array.
-int epoll_fd;
-struct epoll_event *events;
+static int epoll_fd;
+static struct epoll_event *events;
 
+static int64_t recv_image_async(struct roperation *op);
+static int64_t send_image_async(struct roperation *op);
 
 /* A snapshot is a dump or pre-dump operation. Each snapshot is identified by an
  * ID which corresponds to the working directory specified by the user.
@@ -76,7 +78,7 @@ struct snapshot {
 	struct list_head l;
 };
 
-struct snapshot *new_snapshot(char *snapshot_id)
+static struct snapshot *new_snapshot(char *snapshot_id)
 {
 	struct snapshot *s = xmalloc(sizeof(struct snapshot));
 
@@ -88,7 +90,7 @@ struct snapshot *new_snapshot(char *snapshot_id)
 	return s;
 }
 
-void add_snapshot(struct snapshot *snapshot)
+static inline void add_snapshot(struct snapshot *snapshot)
 {
 	list_add_tail(&(snapshot->l), &snapshot_head);
 }
@@ -106,8 +108,8 @@ struct rimage *get_rimg_by_name(const char *snapshot_id, const char *path)
 	return NULL;
 }
 
-struct roperation *get_rop_by_name(
-	struct list_head *head, const char *snapshot_id, const char *path)
+static inline struct roperation *get_rop_by_name(struct list_head *head,
+	const char *snapshot_id, const char *path)
 {
 	struct roperation *rop = NULL;
 
@@ -120,7 +122,7 @@ struct roperation *get_rop_by_name(
 	return NULL;
 }
 
-int event_set(int epoll_fd, int op, int fd, uint32_t events, void *data)
+static int event_set(int epoll_fd, int op, int fd, uint32_t events, void *data)
 {
 	int ret;
 	struct epoll_event event;
@@ -133,7 +135,7 @@ int event_set(int epoll_fd, int op, int fd, uint32_t events, void *data)
 	return ret;
 }
 
-void socket_set_non_blocking(int fd)
+static inline void socket_set_non_blocking(int fd)
 {
 	int flags = fcntl(fd, F_GETFL, NULL);
 
@@ -147,7 +149,7 @@ void socket_set_non_blocking(int fd)
 		pr_perror("Failed to set flags for fd %d", fd);
 }
 
-void socket_set_blocking(int fd)
+static inline void socket_set_blocking(int fd)
 {
 	int flags = fcntl(fd, F_GETFL, NULL);
 
@@ -216,7 +218,7 @@ static int setup_UNIX_client_socket(char *path)
 	return sockfd;
 }
 
-static int64_t pb_write_obj(int fd, void *obj, int type)
+static inline int64_t pb_write_obj(int fd, void *obj, int type)
 {
 	struct cr_img img;
 
@@ -225,7 +227,7 @@ static int64_t pb_write_obj(int fd, void *obj, int type)
 	return pb_write_one(&img, obj, type);
 }
 
-static int64_t pb_read_obj(int fd, void **pobj, int type)
+static inline int64_t pb_read_obj(int fd, void **pobj, int type)
 {
 	struct cr_img img;
 
@@ -234,7 +236,8 @@ static int64_t pb_read_obj(int fd, void **pobj, int type)
 	return do_pb_read_one(&img, pobj, type, true);
 }
 
-static int64_t write_header(int fd, char *snapshot_id, char *path, int flags)
+static inline int64_t write_header(int fd, char *snapshot_id, char *path,
+	int flags)
 {
 	LocalImageEntry li = LOCAL_IMAGE_ENTRY__INIT;
 
@@ -244,7 +247,7 @@ static int64_t write_header(int fd, char *snapshot_id, char *path, int flags)
 	return pb_write_obj(fd, &li, PB_LOCAL_IMAGE);
 }
 
-static int64_t write_reply_header(int fd, int error)
+static inline int64_t write_reply_header(int fd, int error)
 {
 	LocalImageReplyEntry lir = LOCAL_IMAGE_REPLY_ENTRY__INIT;
 
@@ -252,7 +255,8 @@ static int64_t write_reply_header(int fd, int error)
 	return pb_write_obj(fd, &lir, PB_LOCAL_IMAGE_REPLY);
 }
 
-int64_t write_remote_header(int fd, char *snapshot_id, char *path, int flags, uint64_t size)
+static inline int64_t write_remote_header(int fd, char *snapshot_id,
+	char *path, int flags, uint64_t size)
 {
 	RemoteImageEntry ri = REMOTE_IMAGE_ENTRY__INIT;
 
@@ -263,7 +267,8 @@ int64_t write_remote_header(int fd, char *snapshot_id, char *path, int flags, ui
 	return pb_write_obj(fd, &ri, PB_REMOTE_IMAGE);
 }
 
-static int64_t read_header(int fd, char *snapshot_id, char *path, int *flags)
+static inline int64_t read_header(int fd, char *snapshot_id, char *path,
+	int *flags)
 {
 	LocalImageEntry *li;
 	int ret = pb_read_obj(fd, (void **)&li, PB_LOCAL_IMAGE);
@@ -279,7 +284,7 @@ static int64_t read_header(int fd, char *snapshot_id, char *path, int *flags)
 	return ret;
 }
 
-static int64_t read_reply_header(int fd, int *error)
+static inline int64_t read_reply_header(int fd, int *error)
 {
 	LocalImageReplyEntry *lir;
 	int ret = pb_read_obj(fd, (void **)&lir, PB_LOCAL_IMAGE_REPLY);
@@ -290,7 +295,8 @@ static int64_t read_reply_header(int fd, int *error)
 	return ret;
 }
 
-int64_t read_remote_header(int fd, char *snapshot_id, char *path, int *flags, uint64_t *size)
+static inline int64_t read_remote_header(int fd, char *snapshot_id, char *path,
+	int *flags, uint64_t *size)
 {
 	RemoteImageEntry *ri;
 	int ret = pb_read_obj(fd, (void **)&ri, PB_REMOTE_IMAGE);
@@ -330,8 +336,8 @@ err:
 	return NULL;
 }
 
-static struct roperation *new_remote_operation(
-	char *path, char *snapshot_id, int cli_fd, int flags, bool close_fd)
+static struct roperation *new_remote_operation(char *path,
+	char *snapshot_id, int cli_fd, int flags, bool close_fd)
 {
 	struct roperation *rop = calloc(1, sizeof(struct roperation));
 
@@ -350,7 +356,7 @@ static struct roperation *new_remote_operation(
 	return rop;
 }
 
-static void rop_set_rimg(struct roperation* rop, struct rimage* rimg)
+static inline void rop_set_rimg(struct roperation *rop, struct rimage *rimg)
 {
 	rop->rimg = rimg;
 	rop->size = rimg->size;
@@ -371,12 +377,11 @@ static void rop_set_rimg(struct roperation* rop, struct rimage* rimg)
 		rop->curr_recv_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
 		rop->curr_sent_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
 		rop->curr_sent_bytes = 0;
-
 	}
 }
 
 /* Clears a remote image struct for reusing it. */
-static struct rimage *clear_remote_image(struct rimage *rimg)
+static inline struct rimage *clear_remote_image(struct rimage *rimg)
 {
 	while (!list_is_singular(&(rimg->buf_head))) {
 		struct rbuf *buf = list_entry(rimg->buf_head.prev, struct rbuf, l);
@@ -391,8 +396,8 @@ static struct rimage *clear_remote_image(struct rimage *rimg)
 	return rimg;
 }
 
-struct roperation* handle_accept_write(
-	int cli_fd, char* snapshot_id, char* path, int flags, bool close_fd, uint64_t size)
+static struct roperation *handle_accept_write(int cli_fd, char *snapshot_id,
+	char *path, int flags, bool close_fd, uint64_t size)
 {
 	struct roperation *rop = NULL;
 	struct rimage *rimg = get_rimg_by_name(snapshot_id, path);
@@ -424,14 +429,14 @@ err:
 	return NULL;
 }
 
-struct roperation* handle_accept_proxy_write(
-	int cli_fd, char* snapshot_id, char* path, int flags)
+static inline struct roperation *handle_accept_proxy_write(int cli_fd,
+	char *snapshot_id, char *path, int flags)
 {
 	return handle_accept_write(cli_fd, snapshot_id, path, flags, true, 0);
 }
 
-struct roperation* handle_accept_proxy_read(
-	int cli_fd, char* snapshot_id, char* path, int flags)
+static struct roperation *handle_accept_proxy_read(int cli_fd,
+	char *snapshot_id, char *path, int flags)
 {
 	struct roperation *rop = NULL;
 	struct rimage *rimg    = NULL;
@@ -468,7 +473,7 @@ err:
 	return NULL;
 }
 
-void finish_local()
+static inline void finish_local()
 {
 	int ret;
 	finished_local = true;
@@ -478,8 +483,8 @@ void finish_local()
 	}
 }
 
-struct roperation* handle_accept_cache_read(
-	int cli_fd, char* snapshot_id, char* path, int flags)
+static struct roperation *handle_accept_cache_read(int cli_fd,
+	char *snapshot_id, char *path, int flags)
 {
 	struct rimage     *rimg = NULL;
 	struct roperation *rop   = NULL;
@@ -520,7 +525,7 @@ struct roperation* handle_accept_cache_read(
 	return NULL;
 }
 
-void forward_remote_image(struct roperation* rop)
+static void forward_remote_image(struct roperation *rop)
 {
 	int64_t ret = 0;
 
@@ -547,7 +552,7 @@ void forward_remote_image(struct roperation* rop)
 	event_set(epoll_fd, EPOLL_CTL_ADD, rop->fd, EPOLLOUT, rop);
 }
 
-void handle_remote_accept(int fd)
+static void handle_remote_accept(int fd)
 {
 	char path[PATH_MAX];
 	char snapshot_id[PATH_MAX];
@@ -590,7 +595,7 @@ err:
 	close(fd);
 }
 
-void handle_local_accept(int fd)
+static void handle_local_accept(int fd)
 {
 	int cli_fd;
 	char path[PATH_MAX];
@@ -646,7 +651,7 @@ err:
 	close(cli_fd);
 }
 
-void finish_proxy_read(struct roperation* rop)
+static inline void finish_proxy_read(struct roperation *rop)
 {
 	// If finished forwarding image
 	if (rop->fd == proxy_to_cache_fd) {
@@ -663,7 +668,7 @@ void finish_proxy_read(struct roperation* rop)
 	}
 }
 
-void finish_proxy_write(struct roperation* rop)
+static inline void finish_proxy_write(struct roperation *rop)
 {
 	// No more local images are comming. Close local socket.
 	if (!strncmp(rop->path, DUMP_FINISH, sizeof(DUMP_FINISH))) {
@@ -685,7 +690,7 @@ void finish_proxy_write(struct roperation* rop)
 	}
 }
 
-void finish_cache_write(struct roperation* rop)
+static void finish_cache_write(struct roperation *rop)
 {
 	struct roperation *prop = get_rop_by_name(
 	&rop_pending, rop->snapshot_id, rop->path);
@@ -717,7 +722,8 @@ void finish_cache_write(struct roperation* rop)
 	}
 }
 
-void handle_roperation(struct epoll_event *event, struct roperation *rop)
+static void handle_roperation(struct epoll_event *event,
+	struct roperation *rop)
 {
 	int64_t ret = (EPOLLOUT & event->events) ?
 		send_image_async(rop) :
@@ -768,7 +774,7 @@ err:
 	free(rop);
 }
 
-void check_pending()
+static void check_pending()
 {
 	struct roperation *rop = NULL;
 	struct rimage *rimg = NULL;
@@ -879,7 +885,7 @@ end:
 /* Note: size is a limit on how much we want to read from the socket.  Zero means
  * read until the socket is closed.
  */
-int64_t recv_image_async(struct roperation *op)
+static int64_t recv_image_async(struct roperation *op)
 {
 	int fd = op->fd;
 	struct rimage *rimg = op->rimg;
@@ -930,7 +936,7 @@ int64_t recv_image_async(struct roperation *op)
 	return n;
 }
 
-int64_t send_image_async(struct roperation *op)
+static int64_t send_image_async(struct roperation *op)
 {
 	int fd = op->fd;
 	struct rimage *rimg = op->rimg;
