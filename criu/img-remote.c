@@ -296,8 +296,8 @@ int64_t read_remote_header(int fd, char *snapshot_id, char *path, int *flags, ui
 	int ret = pb_read_obj(fd, (void **)&ri, PB_REMOTE_IMAGE);
 
 	if (ret > 0) {
-		strncpy(snapshot_id, ri->snapshot_id, PATH_MAX);
-		strncpy(path, ri->name, PATH_MAX);
+		strncpy(snapshot_id, ri->snapshot_id, PATH_MAX - 1);
+		strncpy(path, ri->name, PATH_MAX - 1);
 		*flags = ri->open_mode;
 		*size = ri->size;
 	}
