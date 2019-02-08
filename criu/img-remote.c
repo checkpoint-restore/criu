@@ -24,6 +24,9 @@
 
 #define EPOLL_MAX_EVENTS 50
 
+#define strflags(f) ((f) == O_RDONLY ? "read" : \
+		     (f) == O_APPEND ? "append" : "write")
+
 // List of images already in memory.
 LIST_HEAD(rimg_head);
 
@@ -534,11 +537,8 @@ void forward_remote_image(struct roperation* rop)
 	}
 
 	pr_info("[fd=%d] Forwarding %s request for %s:%s (%" PRIu64 " bytes\n",
-		rop->fd,
-		rop->flags == O_RDONLY ? "read" :
-			rop->flags == O_APPEND ? "append" : "write",
-		rop->path, rop->snapshot_id, rop->size);
-
+		rop->fd, strflags(rop->flags), rop->path, rop->snapshot_id,
+		rop->size);
 
 	// Go back to non-blocking
 	socket_set_non_blocking(rop->fd);
@@ -575,10 +575,7 @@ void handle_remote_accept(int fd)
 	socket_set_non_blocking(fd);
 
 	pr_info("[fd=%d] Received %s request for %s:%s with %" PRIu64 " bytes\n",
-		fd,
-		flags == O_RDONLY ? "read" :
-			flags == O_APPEND ? "append" : "write",
-		path, snapshot_id, size);
+		fd, strflags(flags), path, snapshot_id, size);
 
 
 	forwarding = true;
@@ -615,10 +612,7 @@ void handle_local_accept(int fd)
 	}
 
 	pr_info("[fd=%d] Received %s request for %s:%s\n",
-			cli_fd,
-			flags == O_RDONLY ? "read" :
-			flags == O_APPEND ? "append" : "write",
-			path, snapshot_id);
+		cli_fd, strflags(flags), path, snapshot_id);
 
 	// Write/Append case (only possible in img-proxy).
 	if (flags != O_RDONLY) {
@@ -704,10 +698,7 @@ void finish_cache_write(struct roperation* rop)
 
 	if (prop != NULL) {
 		pr_info("\t[fd=%d] Resuming pending %s for %s:%s\n",
-			prop->fd,
-			prop->flags == O_APPEND ?
-				"append" : prop->flags == O_RDONLY ?
-					"read" : "write",
+			prop->fd, strflags(prop->flags),
 			prop->snapshot_id, prop->path);
 
 		// Write header for pending image.
