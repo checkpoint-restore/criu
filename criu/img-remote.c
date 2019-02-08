@@ -551,7 +551,7 @@ void handle_remote_accept(int fd)
 {
 	char path[PATH_MAX];
 	char snapshot_id[PATH_MAX];
-	int flags;
+	int flags = 0;
 	uint64_t size = 0;
 	int64_t ret;
 	struct roperation* rop = NULL;
