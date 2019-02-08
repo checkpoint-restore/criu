@@ -76,16 +76,7 @@ extern bool restoring;
 void accept_image_connections();
 struct rimage *get_rimg_by_name(const char *snapshot_id, const char *path);
 
-int64_t send_image(int fd, struct rimage *rimg, int flags, bool image_check);
-int64_t send_image_async(struct roperation *op);
-int64_t recv_image(int fd, struct rimage *rimg, uint64_t size, int flags, bool image_check);
-int64_t recv_image_async(struct roperation *op);
-
-int64_t read_remote_header(int fd, char *snapshot_id, char *path, int *open_mode, uint64_t *size);
-int64_t write_remote_header(int fd, char *snapshot_id, char *path, int open_mode, uint64_t size);
-
 int setup_UNIX_server_socket(char *path);
-void socket_set_non_blocking(int fd);
 
 /* Called by restore to get the fd correspondent to a particular path.  This call
  * will block until the connection is received.
