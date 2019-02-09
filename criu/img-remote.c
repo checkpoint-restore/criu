@@ -315,13 +315,11 @@ static inline int64_t read_remote_header(int fd, char *snapshot_id, char *path,
 
 static struct rimage *new_remote_image(char *path, char *snapshot_id)
 {
-	struct rimage *rimg = calloc(1, sizeof(struct rimage));
-	struct rbuf *buf = calloc(1, sizeof(struct rbuf));
+	struct rimage *rimg = xzalloc(sizeof(struct rimage));
+	struct rbuf *buf = xzalloc(sizeof(struct rbuf));
 
-	if (rimg == NULL || buf == NULL) {
-		pr_perror("Unable to allocate remote image structures");
+	if (rimg == NULL || buf == NULL)
 		goto err;
-	}
 
 	strncpy(rimg->path, path, PATH_MAX -1 );
 	strncpy(rimg->snapshot_id, snapshot_id, PATH_MAX - 1);
@@ -333,20 +331,19 @@ static struct rimage *new_remote_image(char *path, char *snapshot_id)
 
 	return rimg;
 err:
-	free(rimg);
-	free(buf);
+	xfree(rimg);
+	xfree(buf);
 	return NULL;
 }
 
 static struct roperation *new_remote_operation(char *path,
 	char *snapshot_id, int cli_fd, int flags, bool close_fd)
 {
-	struct roperation *rop = calloc(1, sizeof(struct roperation));
+	struct roperation *rop = xzalloc(sizeof(struct roperation));
 
-	if (rop == NULL) {
-		pr_perror("Unable to allocate remote operation structures");
+	if (rop == NULL)
 		return NULL;
-	}
+
 	strncpy(rop->path, path, PATH_MAX -1 );
 	strncpy(rop->snapshot_id, snapshot_id, PATH_MAX - 1);
 	rop->path[PATH_MAX - 1] = '\0';
@@ -389,7 +386,7 @@ static inline struct rimage *clear_remote_image(struct rimage *rimg)
 		struct rbuf *buf = list_entry(rimg->buf_head.prev, struct rbuf, l);
 
 		list_del(rimg->buf_head.prev);
-		free(buf);
+		xfree(buf);
 	}
 
 	list_entry(rimg->buf_head.next, struct rbuf, l)->nbytes = 0;
@@ -426,8 +423,8 @@ static struct roperation *handle_accept_write(int cli_fd, char *snapshot_id,
 	rop->size = size;
 	return rop;
 err:
-	free(rimg);
-	free(rop);
+	xfree(rimg);
+	xfree(rop);
 	return NULL;
 }
 
@@ -512,7 +509,7 @@ static struct roperation *handle_accept_cache_read(int cli_fd,
 			pr_perror("Error writing reply header for %s:%s",
 				path, snapshot_id);
 			close(rop->fd);
-			free(rop);
+			xfree(rop);
 		}
 		rop_set_rimg(rop, rimg);
 		return rop;
@@ -522,7 +519,7 @@ static struct roperation *handle_accept_cache_read(int cli_fd,
 		if (write_reply_header(cli_fd, ENOENT) < 0)
 			pr_perror("Error writing reply header for unexisting image");
 		close(cli_fd);
-		free(rop);
+		xfree(rop);
 	}
 	return NULL;
 }
@@ -713,7 +710,7 @@ static void finish_cache_write(struct roperation *rop)
 			pr_perror("Error writing reply header for %s:%s",
 				prop->path, prop->snapshot_id);
 			close(prop->fd);
-			free(prop);
+			xfree(prop);
 			return;
 		}
 
@@ -773,7 +770,7 @@ static void handle_roperation(struct epoll_event *event,
 		// Nothing to be done when a read is finished on the cache side.
 	}
 err:
-	free(rop);
+	xfree(rop);
 }
 
 static void check_pending()
@@ -909,9 +906,8 @@ static int64_t recv_image_async(struct roperation *op)
 		curr_buf->nbytes += n;
 		rimg->size += n;
 		if (curr_buf->nbytes == BUF_SIZE) {
-			struct rbuf *buf = malloc(sizeof(struct rbuf));
+			struct rbuf *buf = xmalloc(sizeof(struct rbuf));
 			if (buf == NULL) {
-				pr_perror("Unable to allocate remote_buffer structures");
 				if (close_fd)
 					close(fd);
 				return -1;
