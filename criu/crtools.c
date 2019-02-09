@@ -125,11 +125,6 @@ int main(int argc, char *argv[], char *envp[])
 		goto usage;
 	}
 
-	if (!strcmp(argv[optind], "exec")) {
-		pr_msg("The \"exec\" action is deprecated by the Compel library.\n");
-		return -1;
-	}
-
 	has_sub_command = (argc - optind) > 1;
 
 	if (has_exec_cmd) {
@@ -238,12 +233,6 @@ int main(int argc, char *argv[], char *envp[])
 		return ret != 0;
 	}
 
-	if (!strcmp(argv[optind], "show")) {
-		pr_msg("The \"show\" action is deprecated by the CRIT utility.\n");
-		pr_msg("To view an image use the \"crit decode -i $name --pretty\" command.\n");
-		return -1;
-	}
-
 	if (!strcmp(argv[optind], "lazy-pages"))
 		return cr_lazy_pages(opts.daemon_mode) != 0;
 
@@ -284,6 +273,17 @@ int main(int argc, char *argv[], char *envp[])
 			return cpuinfo_dump();
 		else if (!strcmp(argv[optind + 1], "check"))
 			return cpuinfo_check();
+	}
+
+	if (!strcmp(argv[optind], "exec")) {
+		pr_msg("The \"exec\" action is deprecated by the Compel library.\n");
+		return -1;
+	}
+
+	if (!strcmp(argv[optind], "show")) {
+		pr_msg("The \"show\" action is deprecated by the CRIT utility.\n");
+		pr_msg("To view an image use the \"crit decode -i $name --pretty\" command.\n");
+		return -1;
 	}
 
 	pr_msg("Error: unknown command: %s\n", argv[optind]);
