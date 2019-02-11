@@ -826,7 +826,9 @@ void accept_image_connections() {
 		int n_events, i;
 
 		n_events = epoll_wait(epoll_fd, events, EPOLL_MAX_EVENTS, 250);
-		if (n_events < 0) {
+
+		/* epoll_wait isn't restarted after interrupted by a signal */
+		if (n_events < 0 && errno != EINTR) {
 			pr_perror("Failed to epoll wait");
 			goto end;
 		}
