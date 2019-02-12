@@ -105,13 +105,17 @@ The following levels are available:
         *pre-restore*:::
             run prior to beginning a *restore*
 
+        *post-restore*:::
+            run upon *restore* completion
+
         *pre-resume*:::
             run when all processes and resources are
             restored but tasks are stopped waiting for
             final kick to run. Must not fail.
 
-        *post-restore*:::
-            run upon *restore* completion
+        *post-resume*:::
+            called at the very end, when everything is
+            restored and processes were resumed
 
         *network-lock*:::
             run to lock network in a target network namespace
@@ -120,10 +124,19 @@ The following levels are available:
             run to unlock network in a target network namespace
 
         *setup-namespaces*:::
-            run once root task just been created
+            run once root task has just been created
             with required namespaces. Note it is an early stage
-            of restore, when nothing is restored yet except for namespaces
-            themselves
+            of restore, when nothing is restored yet, except for
+            namespaces themselves
+
+        *post-setup-namespaces*:::
+            called after the namespaces are configured
+
+        *orphan-pts-master*:::
+            called after master pty is opened and unlocked. This
+            hook can be used only in the RPC mode, and the
+            notification message contains a file descriptor for
+            the master pty
 
 *-V*, *--version*::
     Print program version and exit.
