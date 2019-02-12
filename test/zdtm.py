@@ -1052,7 +1052,10 @@ class criu:
 			os.close(status_fds[1])
 			if os.read(status_fds[0], 1) != b'\0':
 				ret = ret.wait()
-				raise test_fail_exc("criu %s exited with %s" % (action, ret))
+				if self.__test.blocking():
+					raise test_fail_expected_exc(action)
+				else:
+					raise test_fail_exc("criu %s exited with %s" % (action, ret))
 			os.close(status_fds[0])
 			return ret
 
