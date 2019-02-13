@@ -1260,8 +1260,7 @@ void print_data(unsigned long addr, unsigned char *data, size_t size)
 	}
 }
 
-static int get_sockaddr_in(struct sockaddr_storage *addr, char *host,
-			unsigned short port)
+static int get_sockaddr_in(struct sockaddr_storage *addr, char *host)
 {
 	memset(addr, 0, sizeof(*addr));
 
@@ -1278,26 +1277,26 @@ static int get_sockaddr_in(struct sockaddr_storage *addr, char *host,
 	}
 
 	if (addr->ss_family == AF_INET6) {
-		((struct sockaddr_in6 *)addr)->sin6_port = htons(port);
+		((struct sockaddr_in6 *)addr)->sin6_port = htons(opts.port);
 	} else if (addr->ss_family == AF_INET) {
-		((struct sockaddr_in *)addr)->sin_port = htons(port);
+		((struct sockaddr_in *)addr)->sin_port = htons(opts.port);
 	}
 
 	return 0;
 }
 
-int setup_tcp_server(char *type, char *addr, unsigned short *port)
+int setup_tcp_server(char *type)
 {
 	int sk = -1;
 	int sockopt = 1;
 	struct sockaddr_storage saddr;
 	socklen_t slen = sizeof(saddr);
 
-	if (get_sockaddr_in(&saddr, addr, (*port))) {
+	if (get_sockaddr_in(&saddr, opts.addr)) {
 		return -1;
 	}
 
-	pr_info("Starting %s server on port %u\n", type, *port);
+	pr_info("Starting %s server on port %u\n", type, opts.port);
 
 	sk = socket(saddr.ss_family, SOCK_STREAM, IPPROTO_TCP);
 
@@ -1323,19 +1322,19 @@ int setup_tcp_server(char *type, char *addr, unsigned short *port)
 	}
 
 	/* Get socket port in case of autobind */
-	if ((*port) == 0) {
+	if (opts.port == 0) {
 		if (getsockname(sk, (struct sockaddr *)&saddr, &slen)) {
 			pr_perror("Can't get %s server name", type);
 			goto out;
 		}
 
 		if (saddr.ss_family == AF_INET6) {
-			(*port) = ntohs(((struct sockaddr_in *)&saddr)->sin_port);
+			opts.port = ntohs(((struct sockaddr_in *)&saddr)->sin_port);
 		} else if (saddr.ss_family == AF_INET) {
-			(*port) = ntohs(((struct sockaddr_in6 *)&saddr)->sin6_port);
+			opts.port = ntohs(((struct sockaddr_in6 *)&saddr)->sin6_port);
 		}
 
-		pr_info("Using %u port\n", (*port));
+		pr_info("Using %u port\n", opts.port);
 	}
 
 	return sk;
@@ -1391,7 +1390,7 @@ out:
 	return -1;
 }
 
-int setup_tcp_client(char *hostname, unsigned short port)
+int setup_tcp_client(void)
 {
 	struct sockaddr_storage saddr;
 	struct addrinfo addr_criteria, *addr_list, *p;
@@ -1406,10 +1405,10 @@ int setup_tcp_client(char *hostname, unsigned short port)
 
 	/*
 	 * addr_list contains a list of addrinfo structures that corresponding
-	 * to the criteria specified in hostname and addr_criteria.
+	 * to the criteria specified in opts.addr and addr_criteria.
 	 */
-	if (getaddrinfo(hostname, NULL, &addr_criteria, &addr_list)) {
-		pr_perror("Failed to resolve hostname: %s", hostname);
+	if (getaddrinfo(opts.addr, NULL, &addr_criteria, &addr_list)) {
+		pr_perror("Failed to resolve hostname: %s", opts.addr);
 		goto out;
 	}
 
@@ -1428,9 +1427,9 @@ int setup_tcp_client(char *hostname, unsigned short port)
 		}
 
 		inet_ntop(p->ai_family, ip, ipstr, sizeof(ipstr));
-		pr_info("Connecting to server %s:%u\n", ipstr, port);
+		pr_info("Connecting to server %s:%u\n", ipstr, opts.port);
 
-		if (get_sockaddr_in(&saddr, ipstr, port))
+		if (get_sockaddr_in(&saddr, ipstr))
 			goto out;
 
 		sk = socket(saddr.ss_family, SOCK_STREAM, IPPROTO_TCP);
@@ -1440,7 +1439,7 @@ int setup_tcp_client(char *hostname, unsigned short port)
 		}
 
 		if (connect(sk, (struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
-			pr_info("Can't connect to server %s:%u\n", ipstr, port);
+			pr_info("Can't connect to server %s:%u\n", ipstr, opts.port);
 			close(sk);
 			sk = -1;
 		} else {
