@@ -1,10 +1,8 @@
 #include <unistd.h>
 
-#include "img-remote.h"
-#include "criu-log.h"
-#include <fcntl.h>
-#include <sys/socket.h>
 #include "cr_options.h"
+#include "criu-log.h"
+#include "img-remote.h"
 #include "util.h"
 
 int image_proxy(bool background, char *local_proxy_path)
