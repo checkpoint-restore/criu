@@ -39,17 +39,17 @@ struct list_head;
 
 extern int service_fd_rlim_cur;
 
-extern void pr_vma(const struct vma_area *vma_area);
+extern void pr_vma(unsigned int loglevel, const struct vma_area *vma_area);
 
-#define pr_info_vma(vma_area)	pr_vma(vma_area)
+#define pr_info_vma(vma_area)	pr_vma(LOG_INFO, vma_area)
 
-#define pr_vma_list(head)					\
+#define pr_vma_list(level, head)				\
 	do {							\
 		struct vma_area *vma;				\
 		list_for_each_entry(vma, head, list)		\
-			pr_vma(vma);				\
+			pr_vma(level, vma);			\
 	} while (0)
-#define pr_info_vma_list(head)	pr_vma_list(head)
+#define pr_info_vma_list(head)	pr_vma_list(LOG_INFO, head)
 
 extern int move_fd_from(int *img_fd, int want_fd);
 extern int close_safe(int *fd);
@@ -177,7 +177,7 @@ extern int cr_system(int in, int out, int err, char *cmd, char *const argv[], un
 extern int cr_system_userns(int in, int out, int err, char *cmd,
 				char *const argv[], unsigned flags, int userns_pid);
 extern int cr_daemon(int nochdir, int noclose, int close_fd);
-extern int status_ready(void);
+extern int close_status_fd(void);
 extern int is_root_user(void);
 
 extern void set_proc_self_fd(int fd);
@@ -290,9 +290,11 @@ char *xstrcat(char *str, const char *fmt, ...)
 char *xsprintf(const char *fmt, ...)
 	__attribute__ ((__format__ (__printf__, 1, 2)));
 
-int setup_tcp_server(char *type, char *addr, unsigned short *port);
+void print_data(unsigned long addr, unsigned char *data, size_t size);
+
+int setup_tcp_server(char *type);
 int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk);
-int setup_tcp_client(char *hostname, unsigned short port);
+int setup_tcp_client(void);
 
 #define LAST_PID_PATH		"sys/kernel/ns_last_pid"
 #define PID_MAX_PATH		"sys/kernel/pid_max"
