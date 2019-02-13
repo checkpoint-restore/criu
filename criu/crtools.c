@@ -242,18 +242,20 @@ int main(int argc, char *argv[], char *envp[])
 		return cr_page_server(opts.daemon_mode, false, -1) != 0;
 
 	if (!strcmp(argv[optind], "image-cache")) {
-		if (!opts.port)
+		if (opts.ps_socket == -1 && !opts.port)
 			goto opt_port_missing;
 		return image_cache(opts.daemon_mode, DEFAULT_CACHE_SOCKET);
 	}
 
 	if (!strcmp(argv[optind], "image-proxy")) {
-		if (!opts.addr) {
-			pr_msg("Error: address not specified\n");
-			return 1;
+		if (opts.ps_socket == -1) {
+			if (!opts.addr) {
+				pr_msg("Error: address not specified\n");
+				return 1;
+			}
+			if (!opts.port)
+				goto opt_port_missing;
 		}
-		if (!opts.port)
-			goto opt_port_missing;
 		return image_proxy(opts.daemon_mode, DEFAULT_PROXY_SOCKET);
 	}
 
