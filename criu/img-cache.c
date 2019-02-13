@@ -9,19 +9,19 @@
 #include "cr_options.h"
 #include "util.h"
 
-int image_cache(bool background, char *local_cache_path, unsigned short cache_write_port)
+int image_cache(bool background, char *local_cache_path)
 {
 	int tmp;
 
-	pr_info("Proxy to Cache Port %d, CRIU to Cache Path %s\n",
-			cache_write_port, local_cache_path);
+	pr_info("Proxy to Cache Port %u, CRIU to Cache Path %s\n",
+			opts.port, local_cache_path);
 	restoring = true;
 
 	if (opts.ps_socket != -1) {
 		proxy_to_cache_fd = opts.ps_socket;
 		pr_info("Re-using ps socket %d\n", proxy_to_cache_fd);
 	} else {
-		proxy_to_cache_fd = setup_tcp_server("image cache", NULL, &cache_write_port);
+		proxy_to_cache_fd = setup_tcp_server("image cache");
 		if (proxy_to_cache_fd < 0) {
 			pr_perror("Unable to open proxy to cache TCP socket");
 			return -1;
