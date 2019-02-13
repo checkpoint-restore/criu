@@ -1,28 +1,16 @@
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <sys/types.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include "xmalloc.h"
-#include "criu-log.h"
-#include "img-remote.h"
-#include "images/remote-image.pb-c.h"
-#include "protobuf-desc.h"
-#include <fcntl.h>
-#include "servicefd.h"
-#include "common/compiler.h"
+#include <sys/un.h>
+#include <unistd.h>
+
 #include "cr_options.h"
-
-#include <semaphore.h>
-#include "sys/un.h"
-#include <pthread.h>
-#include <sys/file.h>
-
-#include "protobuf.h"
+#include "img-remote.h"
 #include "image.h"
+#include "images/remote-image.pb-c.h"
+#include "protobuf.h"
+#include "servicefd.h"
+#include "xmalloc.h"
 
 #define EPOLL_MAX_EVENTS 50
 
