@@ -7,10 +7,10 @@
 #include "cr_options.h"
 #include "util.h"
 
-int image_proxy(bool background, char *local_proxy_path, char *fwd_host, unsigned short fwd_port)
+int image_proxy(bool background, char *local_proxy_path)
 {
-	pr_info("CRIU to Proxy Path: %s, Cache Address %s:%hu\n",
-		local_proxy_path, fwd_host, fwd_port);
+	pr_info("CRIU to Proxy Path: %s, Cache Address %s:%u\n",
+		local_proxy_path, opts.addr, opts.port);
 	restoring = false;
 
 	local_req_fd = setup_UNIX_server_socket(local_proxy_path);
@@ -23,7 +23,7 @@ int image_proxy(bool background, char *local_proxy_path, char *fwd_host, unsigne
 		proxy_to_cache_fd = opts.ps_socket;
 		pr_info("Re-using ps socket %d\n", proxy_to_cache_fd);
 	} else {
-		proxy_to_cache_fd = setup_tcp_client(fwd_host, fwd_port);
+		proxy_to_cache_fd = setup_tcp_client();
 		if (proxy_to_cache_fd < 0) {
 			pr_perror("Unable to open proxy to cache TCP socket");
 			close(local_req_fd);
