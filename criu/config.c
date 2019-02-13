@@ -842,6 +842,10 @@ int check_options()
 		return 1;
 	}
 
+	if (opts.ps_socket != -1 && (opts.addr || opts.port))
+		pr_warn("Using --address or --port in "
+			"combination with --ps-socket is obsolete\n");
+
 	if (check_namespace_opts()) {
 		pr_err("Error: namespace flags conflict\n");
 		return 1;
