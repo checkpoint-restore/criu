@@ -203,7 +203,7 @@ static int __userns_sysctl_op(void *arg, int proc_fd, pid_t pid)
 	sigset_t blockmask, oldmask;
 	pid_t worker;
 
-	// fix up the pointer
+	/* fix up the pointer */
 	req = userns_req->reqs = (struct sysctl_req *) &userns_req[1];
 
 	/* For files in the IPC/UTS namespaces, restoring is more complicated

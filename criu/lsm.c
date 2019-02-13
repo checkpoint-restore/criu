@@ -161,7 +161,7 @@ int collect_lsm_profile(pid_t pid, CredsEntry *ce)
 	return ret;
 }
 
-// in inventory.c
+/* in inventory.c */
 extern Lsmtype image_lsm;
 
 int validate_lsm(char *lsm_profile)

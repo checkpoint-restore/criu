@@ -13,43 +13,43 @@
 #define strflags(f) ((f) == O_RDONLY ? "read" : \
 		     (f) == O_APPEND ? "append" : "write")
 
-// List of images already in memory.
+/* List of images already in memory. */
 static LIST_HEAD(rimg_head);
 
-// List of local operations currently in-progress.
+/* List of local operations currently in-progress. */
 static LIST_HEAD(rop_inprogress);
 
-// List of local operations pending (reads on the restore side for images that
-// still haven't arrived).
+/* List of local operations pending (reads on the restore side for images
+ * that still haven't arrived). */
 static LIST_HEAD(rop_pending);
 
-// List of images waiting to be forwarded. The head of the list is currently
-// being forwarded.
+/* List of images waiting to be forwarded. The head of the list is currently
+ * being forwarded. */
 static LIST_HEAD(rop_forwarding);
 
-// List of snapshots (useful when doing incremental restores/dumps)
+/* List of snapshots (useful when doing incremental restores/dumps) */
 static LIST_HEAD(snapshot_head);
 
-// Snapshot id (setup at launch time by dump or restore).
+/* Snapshot id (setup at launch time by dump or restore). */
 static char *snapshot_id;
 
-// True if restoring (cache := true; proxy := false).
+/* True if restoring (cache := true; proxy := false). */
 bool restoring = true;
 
-// True if the proxy to cache socket is being used (receiving or sending).
+/* True if the proxy to cache socket is being used (receiving or sending). */
 static bool forwarding = false;
 
-// True if the local dump or restore is finished.
+/* True if the local dump or restore is finished. */
 static bool finished_local = false;
 
-// True if the communication between the proxy and cache can be closed.
+/* True if the communication between the proxy and cache can be closed. */
 static bool finished_remote = false;
 
-// Proxy to cache socket fd; Local dump or restore servicing fd.
+/* Proxy to cache socket fd; Local dump or restore servicing fd. */
 int proxy_to_cache_fd;
 int local_req_fd;
 
-// Epoll fd and event array.
+/* Epoll fd and event array. */
 static int epoll_fd;
 static struct epoll_event *events;
 
@@ -344,19 +344,19 @@ static inline void rop_set_rimg(struct roperation *rop, struct rimage *rimg)
 	rop->rimg = rimg;
 	rop->size = rimg->size;
 	if (rop->flags == O_APPEND) {
-		// Image forward on append must start where the last fwd finished.
+		/* Image forward on append must start where the last fwd finished. */
 		if (rop->fd == proxy_to_cache_fd) {
 			rop->curr_sent_buf = rimg->curr_fwd_buf;
 			rop->curr_sent_bytes = rimg->curr_fwd_bytes;
 		} else {
-			// For local appends, just write at the end.
+			/* For local appends, just write at the end. */
 			rop->curr_sent_buf = list_entry(rimg->buf_head.prev, struct rbuf, l);
 			rop->curr_sent_bytes = rop->curr_sent_buf->nbytes;
 		}
-		// On the receiver size, we just append
+		/* On the receiver size, we just append */
 		rop->curr_recv_buf = list_entry(rimg->buf_head.prev, struct rbuf, l);
 	} else {
-		// Writes or reads are simple. Just do it from the beginning.
+		/* Writes or reads are simple. Just do it from the beginning. */
 		rop->curr_recv_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
 		rop->curr_sent_buf = list_entry(rimg->buf_head.next, struct rbuf, l);
 		rop->curr_sent_bytes = 0;
@@ -426,7 +426,7 @@ static struct roperation *handle_accept_proxy_read(int cli_fd,
 
 	rimg = get_rimg_by_name(snapshot_id, path);
 
-	// Check if we already have the image.
+	/* Check if we already have the image. */
 	if (rimg == NULL) {
 		pr_info("No image %s:%s.\n", path, snapshot_id);
 		if (write_reply_header(cli_fd, ENOENT) < 0) {
@@ -472,7 +472,7 @@ static struct roperation *handle_accept_cache_read(int cli_fd,
 	struct rimage     *rimg = NULL;
 	struct roperation *rop   = NULL;
 
-	// Check if this is the restore finish message.
+	/* Check if this is the restore finish message. */
 	if (!strncmp(path, RESTORE_FINISH, sizeof(RESTORE_FINISH))) {
 		close(cli_fd);
 		finish_local();
@@ -486,7 +486,7 @@ static struct roperation *handle_accept_cache_read(int cli_fd,
 		return NULL;
 	}
 
-	// Check if we already have the image.
+	/* Check if we already have the image. */
 	rimg = get_rimg_by_name(snapshot_id, path);
 	if (rimg != NULL && rimg->size > 0) {
 		if (write_reply_header(cli_fd, 0) < 0) {
@@ -498,7 +498,7 @@ static struct roperation *handle_accept_cache_read(int cli_fd,
 		rop_set_rimg(rop, rimg);
 		return rop;
 	} else if (finished_remote) {
-		// The file does not exist.
+		/* The file does not exist. */
 		pr_info("No image %s:%s.\n", path, snapshot_id);
 		if (write_reply_header(cli_fd, ENOENT) < 0)
 			pr_perror("Error writing reply header for unexisting image");
@@ -512,7 +512,7 @@ static void forward_remote_image(struct roperation *rop)
 {
 	int64_t ret = 0;
 
-	// Set blocking during the setup.
+	/* Set blocking during the setup. */
 	socket_set_blocking(rop->fd);
 
 	ret = write_remote_header(
@@ -528,7 +528,7 @@ static void forward_remote_image(struct roperation *rop)
 		rop->fd, strflags(rop->flags), rop->path, rop->snapshot_id,
 		rop->size);
 
-	// Go back to non-blocking
+	/* Go back to non-blocking */
 	socket_set_non_blocking(rop->fd);
 
 	forwarding = true;
@@ -544,7 +544,7 @@ static void handle_remote_accept(int fd)
 	int64_t ret;
 	struct roperation* rop = NULL;
 
-	// Set blocking during the setup.
+	/* Set blocking during the setup. */
 	socket_set_blocking(fd);
 
 	ret = read_remote_header(fd, snapshot_id, path, &flags, &size);
@@ -559,7 +559,7 @@ static void handle_remote_accept(int fd)
 		return;
 	}
 
-	// Go back to non-blocking
+	/* Go back to non-blocking */
 	socket_set_non_blocking(fd);
 
 	pr_info("[fd=%d] Received %s request for %s:%s with %" PRIu64 " bytes\n",
@@ -602,18 +602,18 @@ static void handle_local_accept(int fd)
 	pr_info("[fd=%d] Received %s request for %s:%s\n",
 		cli_fd, strflags(flags), path, snapshot_id);
 
-	// Write/Append case (only possible in img-proxy).
+	/* Write/Append case (only possible in img-proxy). */
 	if (flags != O_RDONLY) {
 		rop = handle_accept_proxy_write(cli_fd, snapshot_id, path, flags);
 	} else if (restoring) {
-		// Read case while restoring (img-cache).
+		/* Read case while restoring (img-cache). */
 		rop = handle_accept_cache_read(cli_fd, snapshot_id, path, flags);
 	} else {
-		// Read case while dumping (img-proxy).
+		/* Read case while dumping (img-proxy). */
 		rop = handle_accept_proxy_read(cli_fd, snapshot_id, path, flags);
 	}
 
-	// If we have an operation. Check if we are ready to start or not.
+	/* If we have an operation. Check if we are ready to start or not. */
 	if (rop != NULL) {
 		if (rop->rimg != NULL) {
 			list_add_tail(&(rop->l), &rop_inprogress);
@@ -636,15 +636,15 @@ err:
 
 static inline void finish_proxy_read(struct roperation *rop)
 {
-	// If finished forwarding image
+	/* If finished forwarding image */
 	if (rop->fd == proxy_to_cache_fd) {
-		// Update fwd buffer and byte count on rimg.
+		/* Update fwd buffer and byte count on rimg. */
 		rop->rimg->curr_fwd_buf = rop->curr_sent_buf;
 		rop->rimg->curr_fwd_bytes = rop->curr_sent_bytes;
 
 		forwarding = false;
 
-		// If there are images waiting to be forwarded, forward the next.
+		/* If there are images waiting to be forwarded, forward the next. */
 		if (!list_empty(&rop_forwarding)) {
 			forward_remote_image(list_entry(rop_forwarding.next, struct roperation, l));
 		}
@@ -653,16 +653,17 @@ static inline void finish_proxy_read(struct roperation *rop)
 
 static inline void finish_proxy_write(struct roperation *rop)
 {
-	// No more local images are comming. Close local socket.
+	/* No more local images are comming. Close local socket. */
 	if (!strncmp(rop->path, DUMP_FINISH, sizeof(DUMP_FINISH))) {
-		// TODO - couldn't we handle the DUMP_FINISH in inside handle_accept_proxy_write?
+		/* TODO - couldn't we handle the DUMP_FINISH in inside
+		 * handle_accept_proxy_write? */
 		finish_local();
 	} else {
-		// Normal image received, forward it.
+		/* Normal image received, forward it. */
 		struct roperation *rop_to_forward = new_remote_operation(
 			rop->path, rop->snapshot_id, proxy_to_cache_fd, rop->flags, false);
 
-		// Add image to list of images.
+		/* Add image to list of images. */
 		list_add_tail(&(rop->rimg->l), &rimg_head);
 
 		rop_set_rimg(rop_to_forward, rop->rimg);
@@ -681,7 +682,7 @@ static void finish_cache_write(struct roperation *rop)
 	forwarding = false;
 	event_set(epoll_fd, EPOLL_CTL_ADD, proxy_to_cache_fd, EPOLLIN, &proxy_to_cache_fd);
 
-	// Add image to list of images.
+	/* Add image to list of images. */
 	list_add_tail(&(rop->rimg->l), &rimg_head);
 
 	if (prop != NULL) {
@@ -689,7 +690,7 @@ static void finish_cache_write(struct roperation *rop)
 			prop->fd, strflags(prop->flags),
 			prop->snapshot_id, prop->path);
 
-		// Write header for pending image.
+		/* Write header for pending image. */
 		if (write_reply_header(prop->fd, 0) < 0) {
 			pr_perror("Error writing reply header for %s:%s",
 				prop->path, prop->snapshot_id);
@@ -722,10 +723,10 @@ static void handle_roperation(struct epoll_event *event,
 		return;
 	}
 
-	// Remove rop from list (either in progress or forwarding).
+	/* Remove rop from list (either in progress or forwarding). */
 	list_del(&(rop->l));
 
-	// Operation is finished.
+	/* Operation is finished. */
 	if (ret < 0) {
 		pr_perror("Unable to %s %s:%s (returned %" PRId64 ")",
 				event->events & EPOLLOUT ? "send" : "receive",
@@ -738,20 +739,20 @@ static void handle_roperation(struct epoll_event *event,
 				rop->rimg->path, rop->rimg->snapshot_id, rop->rimg->size);
 	}
 
-	// If receive operation is finished
+	/* If receive operation is finished */
 	if (event->events & EPOLLIN) {
-		// Cached side (finished receiving forwarded image)
+		/* Cached side (finished receiving forwarded image) */
 		if (restoring) {
 			finish_cache_write(rop);
 		} else {
-			// Proxy side (finished receiving local image)
+			/* Proxy side (finished receiving local image) */
 			finish_proxy_write(rop);
 		}
 	} else {
-		// Proxy side (Finished forwarding image or reading it locally).
+		/* Proxy side (Finished forwarding image or reading it locally). */
 		if (!restoring)
 			finish_proxy_read(rop);
-		// Nothing to be done when a read is finished on the cache side.
+		/* Nothing to be done when a read is finished on the cache side. */
 	}
 err:
 	xfree(rop);
@@ -797,8 +798,8 @@ void accept_image_connections() {
 		goto end;
 	}
 
-	// Only if we are restoring (cache-side) we need to add the remote sock to
-	// the epoll.
+	/* Only if we are restoring (cache-side) we need to add the remote sock to
+	 * the epoll. */
 	if (restoring) {
 		ret = event_set(epoll_fd, EPOLL_CTL_ADD, proxy_to_cache_fd,
 			EPOLLIN, &proxy_to_cache_fd);
@@ -820,7 +821,7 @@ void accept_image_connections() {
 		}
 
 		for (i = 0; i < n_events; i++) {
-			// Accept from local dump/restore?
+			/* Accept from local dump/restore? */
 			if (events[i].data.ptr == &local_req_fd) {
 				if (events[i].events & EPOLLHUP ||
 					events[i].events & EPOLLERR) {
@@ -840,12 +841,12 @@ void accept_image_connections() {
 			}
 		}
 
-		// Check if there are any pending operations
+		/* Check if there are any pending operations */
 		if (restoring || !forwarding)
 			check_pending();
 
-		// Check if we can close the tcp socket (this will unblock the cache
-		// to answer "no image" to restore).
+		/* Check if we can close the tcp socket (this will unblock the cache
+		 * to answer "no image" to restore). */
 		if (!restoring &&
 				finished_local &&
 				!finished_remote &&
@@ -854,7 +855,7 @@ void accept_image_connections() {
 			finished_remote = true;
 		}
 
-		// If both local and remote sockets are closed, leave.
+		/* If both local and remote sockets are closed, leave. */
 		if (finished_local && finished_remote) {
 			pr_info("Finished both local and remote, exiting\n");
 			goto end;
@@ -867,8 +868,8 @@ end:
 }
 
 
-/* Note: size is a limit on how much we want to read from the socket.  Zero means
- * read until the socket is closed.
+/* Note: size is a limit on how much we want to read from the socket.
+ * Zero means read until the socket is closed.
  */
 static int64_t recv_image_async(struct roperation *op)
 {

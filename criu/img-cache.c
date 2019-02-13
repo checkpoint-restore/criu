@@ -22,7 +22,7 @@ int image_cache(bool background, char *local_cache_path)
 			pr_perror("Unable to open proxy to cache TCP socket");
 			return -1;
 		}
-		// Wait to accept connection from proxy.
+		/* Wait to accept connection from proxy. */
 		tmp = accept(proxy_to_cache_fd, NULL, 0);
 		if (tmp < 0) {
 			pr_perror("Unable to accept remote image connection"

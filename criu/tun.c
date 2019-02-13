@@ -6,7 +6,7 @@
 #include <sys/ioctl.h>
 #include <sched.h>
 
-// MAO required on Centos 6 (linux-3.18.1 kernel)
+/* MAO required on Centos 6 (linux-3.18.1 kernel) */
 #include <linux/filter.h>
 
 #include "cr_options.h"

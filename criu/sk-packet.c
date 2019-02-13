@@ -430,7 +430,7 @@ static int open_packet_sk_spkt(PacketSockEntry *pse, int *new_fd)
 	memset(&addr_spkt, 0, sizeof(addr_spkt));
 	addr_spkt.sa_family = AF_PACKET;
 
-	// if the socket was bound to any device
+	/* if the socket was bound to any device */
 	if (pse->ifindex > 0) {
 		const size_t sa_data_size = sizeof(addr_spkt.sa_data);
 		struct ifreq req;
