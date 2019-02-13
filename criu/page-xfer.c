@@ -1449,7 +1449,7 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 		goto no_server;
 	}
 
-	sk = setup_tcp_server("page", opts.addr, &opts.port);
+	sk = setup_tcp_server("page");
 	if (sk == -1)
 		return -1;
 no_server:
@@ -1495,7 +1495,7 @@ static int connect_to_page_server(void)
 		goto out;
 	}
 
-	page_server_sk = setup_tcp_client(opts.addr, opts.port);
+	page_server_sk = setup_tcp_client();
 	if (page_server_sk == -1)
 		return -1;
 
