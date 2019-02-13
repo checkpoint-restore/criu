@@ -1272,7 +1272,8 @@ static int get_sockaddr_in(struct sockaddr_storage *addr, char *host)
 	} else if (inet_pton(AF_INET6, host, &((struct sockaddr_in6 *)addr)->sin6_addr)) {
 		addr->ss_family = AF_INET6;
 	} else {
-		pr_perror("Bad server address");
+		pr_err("Invalid server address \"%s\". "
+		"The address must be in IPv4 or IPv6 format.\n", host);
 		return -1;
 	}
 
