@@ -232,7 +232,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (!strcmp(argv[optind], "image-cache")) {
 		if (!opts.port)
 			goto opt_port_missing;
-		return image_cache(opts.daemon_mode, DEFAULT_CACHE_SOCKET, opts.port);
+		return image_cache(opts.daemon_mode, DEFAULT_CACHE_SOCKET);
 	}
 
 	if (!strcmp(argv[optind], "image-proxy")) {
@@ -242,7 +242,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 		if (!opts.port)
 			goto opt_port_missing;
-		return image_proxy(opts.daemon_mode, DEFAULT_PROXY_SOCKET, opts.addr, opts.port);
+		return image_proxy(opts.daemon_mode, DEFAULT_PROXY_SOCKET);
 	}
 
 	if (!strcmp(argv[optind], "service"))
