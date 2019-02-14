@@ -209,6 +209,7 @@ TST_NOFILE	:=				\
 		unlink_multiple_largefiles	\
 		config_inotify_irmap		\
 		thp_disable			\
+		pid_file			\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
