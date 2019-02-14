@@ -1178,6 +1178,9 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms,
 		 */
 		if (pid != 0) {
 			bool is_dead = strip_deleted(link);
+			mntns_root = mntns_get_root_fd(nsid);
+			if (mntns_root < 0)
+				return -1;
 
 			/* /proc/<pid> will be "/proc/1 (deleted)" when it is
 			 * dead, but a path like /proc/1/mountinfo won't have
@@ -1189,7 +1192,7 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms,
 			 */
 			if (!is_dead) {
 				*end = 0;
-				is_dead = access(rpath, F_OK);
+				is_dead = faccessat(mntns_root, rpath, F_OK, 0);
 				*end = '/';
 			}
 
