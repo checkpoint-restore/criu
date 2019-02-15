@@ -107,7 +107,7 @@ int write_img_inventory(InventoryEntry *he)
 	return 0;
 }
 
-int invertory_save_uptime(InventoryEntry *he)
+int inventory_save_uptime(InventoryEntry *he)
 {
 	if (!opts.track_mem)
 		return 0;
