@@ -1482,7 +1482,7 @@ static int cr_pre_dump_finish(int status)
 	if (ret)
 		goto err;
 
-	ret = invertory_save_uptime(&he);
+	ret = inventory_save_uptime(&he);
 	if (ret)
 		goto err;
 
@@ -1899,7 +1899,7 @@ int cr_dump_tasks(pid_t pid)
 	if (ret)
 		goto err;
 
-	ret = invertory_save_uptime(&he);
+	ret = inventory_save_uptime(&he);
 	if (ret)
 		goto err;
 
