@@ -1,3 +1,4 @@
+#include <poll.h>
 #include "zdtmtst.h"
 
 #ifdef ZDTM_IPV4V6
@@ -26,9 +27,11 @@ const char *test_author = "Radostin Stoyanov <rstoyanov1@gmail.com>";
 
 int main(int argc, char **argv)
 {
+	struct pollfd poll_set[1];
 	int port = 9990;
 	int fd_s, fd_c, fd;
 	int flags;
+	int ret;
 
 	test_init(argc, argv);
 
@@ -64,12 +67,20 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	memset(poll_set, '\0', sizeof(poll_set));
+	poll_set[0].fd = fd_s;
+	poll_set[0].events = POLLIN;
+	ret = poll(poll_set, 1, -1);
+	if (ret < 0) {
+		pr_perror("poll() failed");
+		return 1;
+	}
+
 	fd = tcp_accept_server(fd_s);
 	if (fd < 0) {
 		fail("Unable to accept a new connection");
 		return 1;
 	}
-
 	close(fd);
 
 	close(fd_c);
