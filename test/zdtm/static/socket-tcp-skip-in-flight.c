@@ -30,7 +30,6 @@ int main(int argc, char **argv)
 	struct pollfd poll_set[1];
 	int port = 9990;
 	int fd_s, fd_c, fd;
-	int flags;
 	int ret;
 
 	test_init(argc, argv);
@@ -39,9 +38,8 @@ int main(int argc, char **argv)
 	if (fd_s < 0)
 		return -1;
 
-	flags = fcntl(fd_s, F_GETFL, 0);
-	if (fcntl(fd_s, F_SETFL, flags | O_NONBLOCK)) {
-		pr_perror("Unable to set O_NONBLOCK");
+	if (set_nonblock(fd_s, true)) {
+		pr_perror("setting O_NONBLOCK failed");
 		return -1;
 	}
 
