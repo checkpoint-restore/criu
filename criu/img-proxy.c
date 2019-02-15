@@ -39,6 +39,6 @@ int image_proxy(bool background, char *local_proxy_path)
 
 	/* TODO - local_req_fd and proxy_to_cache_fd send as args. */
 	accept_image_connections();
-	pr_info("Finished image proxy.");
+	pr_info("Finished image proxy\n");
 	return 0;
 }
