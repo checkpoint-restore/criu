@@ -224,6 +224,7 @@ void criu_local_free_opts(criu_opts *opts)
 	free(opts->rpc->root);
 	free(opts->rpc->freeze_cgroup);
 	free(opts->rpc->log_file);
+	free(opts->rpc->lsm_profile);
 	free(opts->rpc);
 	criu_free_service(opts);
 	free(opts);
@@ -594,6 +595,20 @@ int criu_local_set_freeze_cgroup(criu_opts *opts, const char *name)
 int criu_set_freeze_cgroup(const char *name)
 {
 	return criu_local_set_freeze_cgroup(global_opts, name);
+}
+
+int criu_local_set_lsm_profile(criu_opts *opts, const char *name)
+{
+	opts->rpc->lsm_profile = strdup(name);
+	if(opts->rpc->lsm_profile == NULL) {
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+int criu_set_lsm_profile(const char *name)
+{
+	return criu_local_set_lsm_profile(global_opts, name);
 }
 
 void criu_local_set_timeout(criu_opts *opts, unsigned int timeout)
