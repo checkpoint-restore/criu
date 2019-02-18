@@ -589,6 +589,11 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->freeze_cgroup)
 		SET_CHAR_OPTS(freeze_cgroup, req->freeze_cgroup);
 
+	if (req->lsm_profile) {
+		opts.lsm_supplied = true;
+		SET_CHAR_OPTS(lsm_profile, req->lsm_profile);
+	}
+
 	if (req->has_timeout)
 		opts.timeout = req->timeout;
 
