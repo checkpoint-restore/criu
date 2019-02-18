@@ -331,6 +331,11 @@ def main():
 
 	opts = vars(parser.parse_args())
 
+	if not opts:
+		sys.stderr.write(parser.format_usage())
+		sys.stderr.write("crit: error: too few arguments\n")
+		sys.exit(1)
+
 	opts["func"](opts)
 
 if __name__ == '__main__':
