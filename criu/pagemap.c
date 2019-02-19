@@ -150,8 +150,7 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 
 	do {
 		unsigned long start = pr->pe->vaddr;
-		unsigned long len = pr->pe->nr_pages * PAGE_SIZE;
-		unsigned long end = start + len;
+		unsigned long end = start + pagemap_len(pr->pe);
 
 		if (vaddr < pr->cvaddr)
 			break;
