@@ -57,7 +57,7 @@ extern int check_parent_page_xfer(int fd_type, unsigned long id);
 /*
  * The post-copy migration makes it necessary to receive pages from
  * remote dump. The protocol we use for that is quite simple:
- * - lazy-pages sedns request containing PS_IOV_GET(nr_pages, vaddr, pid)
+ * - lazy-pages sends request containing PS_IOV_GET(nr_pages, vaddr, pid)
  * - dump-side page server responds with PS_IOV_ADD(nr_pages, vaddr,
      pid) or PS_IOV_ADD(0, 0, 0) if it failed to locate the required
      pages
