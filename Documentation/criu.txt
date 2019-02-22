@@ -568,8 +568,8 @@ Launches *criu* in page server mode.
 *--daemon*::
     Runs page server as a daemon (background process).
 
-*--status_fd*::
-    Write \\0 to the FD and close it once page-server is ready to handle
+*--status-fd*::
+    Write \0 to the FD and close it once page-server is ready to handle
     requests. The status-fd allows to not daemonize a process and get its
     exit code at the end.
     It isn't supposed to use --daemon and --status-fd together.
