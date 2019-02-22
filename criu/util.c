@@ -1131,9 +1131,9 @@ int setup_tcp_server(char *type, char *addr, unsigned short *port)
 		}
 
 		if (saddr.ss_family == AF_INET6) {
-			(*port) = ntohs(((struct sockaddr_in *)&saddr)->sin_port);
-		} else if (saddr.ss_family == AF_INET) {
 			(*port) = ntohs(((struct sockaddr_in6 *)&saddr)->sin6_port);
+		} else if (saddr.ss_family == AF_INET) {
+			(*port) = ntohs(((struct sockaddr_in *)&saddr)->sin_port);
 		}
 
 		pr_info("Using %u port\n", (*port));
