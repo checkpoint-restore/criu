@@ -60,7 +60,7 @@ static bool finished_local = false;
 static bool finished_remote = false;
 
 // Proxy to cache socket fd; Local dump or restore servicing fd.
-int proxy_to_cache_fd;
+int remote_sk;
 int local_req_fd;
 
 // Epoll fd and event array.
@@ -359,7 +359,7 @@ static inline void rop_set_rimg(struct roperation *rop, struct rimage *rimg)
 	rop->size = rimg->size;
 	if (rop->flags == O_APPEND) {
 		// Image forward on append must start where the last fwd finished.
-		if (rop->fd == proxy_to_cache_fd) {
+		if (rop->fd == remote_sk) {
 			rop->curr_sent_buf = rimg->curr_fwd_buf;
 			rop->curr_sent_bytes = rimg->curr_fwd_bytes;
 		} else {
@@ -651,7 +651,7 @@ err:
 static inline void finish_proxy_read(struct roperation *rop)
 {
 	// If finished forwarding image
-	if (rop->fd == proxy_to_cache_fd) {
+	if (rop->fd == remote_sk) {
 		// Update fwd buffer and byte count on rimg.
 		rop->rimg->curr_fwd_buf = rop->curr_sent_buf;
 		rop->rimg->curr_fwd_bytes = rop->curr_sent_bytes;
@@ -674,7 +674,7 @@ static inline void finish_proxy_write(struct roperation *rop)
 	} else {
 		// Normal image received, forward it.
 		struct roperation *rop_to_forward = new_remote_operation(
-			rop->path, rop->snapshot_id, proxy_to_cache_fd, rop->flags, false);
+			rop->path, rop->snapshot_id, remote_sk, rop->flags, false);
 
 		// Add image to list of images.
 		list_add_tail(&(rop->rimg->l), &rimg_head);
@@ -693,7 +693,7 @@ static void finish_cache_write(struct roperation *rop)
 	&rop_pending, rop->snapshot_id, rop->path);
 
 	forwarding = false;
-	event_set(epoll_fd, EPOLL_CTL_ADD, proxy_to_cache_fd, EPOLLIN, &proxy_to_cache_fd);
+	event_set(epoll_fd, EPOLL_CTL_ADD, remote_sk, EPOLLIN, &remote_sk);
 
 	// Add image to list of images.
 	list_add_tail(&(rop->rimg->l), &rimg_head);
@@ -814,8 +814,8 @@ void accept_image_connections() {
 	// Only if we are restoring (cache-side) we need to add the remote sock to
 	// the epoll.
 	if (restoring) {
-		ret = event_set(epoll_fd, EPOLL_CTL_ADD, proxy_to_cache_fd,
-			EPOLLIN, &proxy_to_cache_fd);
+		ret = event_set(epoll_fd, EPOLL_CTL_ADD, remote_sk,
+			EPOLLIN, &remote_sk);
 		if (ret) {
 			pr_perror("Failed to add proxy to cache fd to epoll");
 			goto end;
@@ -843,9 +843,9 @@ void accept_image_connections() {
 					goto end;
 				}
 				handle_local_accept(local_req_fd);
-			} else if (restoring && !forwarding && events[i].data.ptr == &proxy_to_cache_fd) {
-				event_set(epoll_fd, EPOLL_CTL_DEL, proxy_to_cache_fd, 0, 0);
-				handle_remote_accept(proxy_to_cache_fd);
+			} else if (restoring && !forwarding && events[i].data.ptr == &remote_sk) {
+				event_set(epoll_fd, EPOLL_CTL_DEL, remote_sk, 0, 0);
+				handle_remote_accept(remote_sk);
 			} else {
 				struct roperation *rop =
 					(struct roperation*)events[i].data.ptr;
@@ -864,7 +864,7 @@ void accept_image_connections() {
 				finished_local &&
 				!finished_remote &&
 				list_empty(&rop_forwarding)) {
-			close(proxy_to_cache_fd);
+			close(remote_sk);
 			finished_remote = true;
 		}
 
