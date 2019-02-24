@@ -1116,6 +1116,24 @@ int fd_has_data(int lfd)
 	return ret;
 }
 
+void fd_set_nonblocking(int fd, bool on)
+{
+	int flags = fcntl(fd, F_GETFL, NULL);
+
+	if (flags < 0) {
+		pr_perror("Failed to obtain flags from fd %d", fd);
+		return;
+	}
+
+	if (on)
+		flags |= O_NONBLOCK;
+	else
+		flags &= (~O_NONBLOCK);
+
+	if (fcntl(fd, F_SETFL, flags) < 0)
+		pr_perror("Failed to set flags for fd %d", fd);
+}
+
 int make_yard(char *path)
 {
 	if (mount("none", path, "tmpfs", 0, NULL)) {
