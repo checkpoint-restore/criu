@@ -61,7 +61,7 @@ static bool finished_remote = false;
 
 // Proxy to cache socket fd; Local dump or restore servicing fd.
 int remote_sk;
-int local_req_fd;
+int local_sk;
 
 // Epoll fd and event array.
 static int epoll_fd;
@@ -474,7 +474,7 @@ static inline void finish_local()
 {
 	int ret;
 	finished_local = true;
-	ret = event_set(epoll_fd, EPOLL_CTL_DEL, local_req_fd, 0, 0);
+	ret = event_set(epoll_fd, EPOLL_CTL_DEL, local_sk, 0, 0);
 	if (ret) {
 		pr_perror("Failed to del local fd from epoll");
 	}
@@ -805,7 +805,7 @@ void accept_image_connections() {
 		goto end;
 	}
 
-	ret = event_set(epoll_fd, EPOLL_CTL_ADD, local_req_fd, EPOLLIN, &local_req_fd);
+	ret = event_set(epoll_fd, EPOLL_CTL_ADD, local_sk, EPOLLIN, &local_sk);
 	if (ret) {
 		pr_perror("Failed to add local fd to epoll");
 		goto end;
@@ -835,14 +835,14 @@ void accept_image_connections() {
 
 		for (i = 0; i < n_events; i++) {
 			// Accept from local dump/restore?
-			if (events[i].data.ptr == &local_req_fd) {
+			if (events[i].data.ptr == &local_sk) {
 				if (events[i].events & EPOLLHUP ||
 					events[i].events & EPOLLERR) {
 					if (!finished_local)
 						pr_perror("Unable to accept more local image connections");
 					goto end;
 				}
-				handle_local_accept(local_req_fd);
+				handle_local_accept(local_sk);
 			} else if (restoring && !forwarding && events[i].data.ptr == &remote_sk) {
 				event_set(epoll_fd, EPOLL_CTL_DEL, remote_sk, 0, 0);
 				handle_remote_accept(remote_sk);
@@ -876,7 +876,7 @@ void accept_image_connections() {
 	}
 end:
 	close(epoll_fd);
-	close(local_req_fd);
+	close(local_sk);
 	free(events);
 }
 
