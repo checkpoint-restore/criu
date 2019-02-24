@@ -39,8 +39,8 @@ int image_cache(bool background, char *local_cache_path)
 
 	pr_info("Cache is connected to Proxy through fd %d\n", remote_sk);
 
-	local_req_fd = setup_UNIX_server_socket(local_cache_path);
-	if (local_req_fd < 0) {
+	local_sk = setup_UNIX_server_socket(local_cache_path);
+	if (local_sk < 0) {
 		pr_perror("Unable to open cache to proxy UNIX socket");
 		close(remote_sk);
 		return -1;
