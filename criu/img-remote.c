@@ -135,34 +135,6 @@ static int event_set(int epoll_fd, int op, int fd, uint32_t events, void *data)
 	return ret;
 }
 
-static inline void socket_set_non_blocking(int fd)
-{
-	int flags = fcntl(fd, F_GETFL, NULL);
-
-	if (flags < 0) {
-		pr_perror("Failed to obtain flags from fd %d", fd);
-		return;
-	}
-	flags |= O_NONBLOCK;
-
-	if (fcntl(fd, F_SETFL, flags) < 0)
-		pr_perror("Failed to set flags for fd %d", fd);
-}
-
-static inline void socket_set_blocking(int fd)
-{
-	int flags = fcntl(fd, F_GETFL, NULL);
-
-	if (flags < 0) {
-		pr_perror("Failed to obtain flags from fd %d", fd);
-		return;
-	}
-	flags &= (~O_NONBLOCK);
-
-	if (fcntl(fd, F_SETFL, flags) < 0)
-		pr_perror("Failed to set flags for fd %d", fd);
-}
-
 int setup_UNIX_server_socket(char *path)
 {
 	struct sockaddr_un addr;
@@ -527,7 +499,7 @@ static void forward_remote_image(struct roperation *rop)
 	int64_t ret = 0;
 
 	// Set blocking during the setup.
-	socket_set_blocking(rop->fd);
+	fd_set_nonblocking(rop->fd, false);
 
 	ret = write_remote_header(
 		rop->fd, rop->snapshot_id, rop->path, rop->flags, rop->size);
@@ -543,7 +515,7 @@ static void forward_remote_image(struct roperation *rop)
 		rop->size);
 
 	// Go back to non-blocking
-	socket_set_non_blocking(rop->fd);
+	fd_set_nonblocking(rop->fd, true);
 
 	forwarding = true;
 	event_set(epoll_fd, EPOLL_CTL_ADD, rop->fd, EPOLLOUT, rop);
@@ -559,7 +531,7 @@ static void handle_remote_accept(int fd)
 	struct roperation* rop = NULL;
 
 	// Set blocking during the setup.
-	socket_set_blocking(fd);
+	fd_set_nonblocking(fd, false);
 
 	ret = read_remote_header(fd, snapshot_id, path, &flags, &size);
 	if (ret < 0) {
@@ -574,7 +546,7 @@ static void handle_remote_accept(int fd)
 	}
 
 	// Go back to non-blocking
-	socket_set_non_blocking(fd);
+	fd_set_nonblocking(fd, true);
 
 	pr_info("[fd=%d] Received %s request for %s:%s with %" PRIu64 " bytes\n",
 		fd, strflags(flags), path, snapshot_id, size);
@@ -640,7 +612,7 @@ static void handle_local_accept(int fd)
 		} else {
 			list_add_tail(&(rop->l), &rop_pending);
 		}
-		socket_set_non_blocking(rop->fd);
+		fd_set_nonblocking(rop->fd, false);
 	}
 
 	return;
