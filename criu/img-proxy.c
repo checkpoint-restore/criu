@@ -13,8 +13,8 @@ int image_proxy(bool background, char *local_proxy_path)
 		local_proxy_path, opts.addr, opts.port);
 	restoring = false;
 
-	local_req_fd = setup_UNIX_server_socket(local_proxy_path);
-	if (local_req_fd < 0) {
+	local_sk = setup_UNIX_server_socket(local_proxy_path);
+	if (local_sk < 0) {
 		pr_perror("Unable to open CRIU to proxy UNIX socket");
 		return -1;
 	}
@@ -26,7 +26,7 @@ int image_proxy(bool background, char *local_proxy_path)
 		remote_sk = setup_tcp_client();
 		if (remote_sk < 0) {
 			pr_perror("Unable to open proxy to cache TCP socket");
-			close(local_req_fd);
+			close(local_sk);
 			return -1;
 		}
 	}
@@ -40,7 +40,7 @@ int image_proxy(bool background, char *local_proxy_path)
 		}
 	}
 
-	// TODO - local_req_fd and remote_sk send as args.
+	// TODO - local_sk and remote_sk send as args.
 	accept_image_connections();
 	pr_info("Finished image proxy.");
 	return 0;
