@@ -65,7 +65,7 @@ struct roperation {
 };
 
 /* This is the proxy to cache TCP socket FD. */
-extern int proxy_to_cache_fd;
+extern int remote_sk;
 /* This the unix socket used to fulfill local requests. */
 extern int local_req_fd;
 /* True if we are running the cache/restore, false if proxy/dump. */
