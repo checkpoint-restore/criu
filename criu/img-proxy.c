@@ -21,18 +21,18 @@ int image_proxy(bool background, char *local_proxy_path)
 	}
 
 	if (opts.ps_socket != -1) {
-		proxy_to_cache_fd = opts.ps_socket;
-		pr_info("Re-using ps socket %d\n", proxy_to_cache_fd);
+		remote_sk = opts.ps_socket;
+		pr_info("Re-using ps socket %d\n", remote_sk);
 	} else {
-		proxy_to_cache_fd = setup_tcp_client();
-		if (proxy_to_cache_fd < 0) {
+		remote_sk = setup_tcp_client();
+		if (remote_sk < 0) {
 			pr_perror("Unable to open proxy to cache TCP socket");
 			close(local_req_fd);
 			return -1;
 		}
 	}
 
-	pr_info("Proxy is connected to Cache through fd %d\n", proxy_to_cache_fd);
+	pr_info("Proxy is connected to Cache through fd %d\n", remote_sk);
 
 	if (background) {
 		if (daemon(1, 0) == -1) {
@@ -41,7 +41,7 @@ int image_proxy(bool background, char *local_proxy_path)
 		}
 	}
 
-	// TODO - local_req_fd and proxy_to_cache_fd send as args.
+	// TODO - local_req_fd and remote_sk send as args.
 	accept_image_connections();
 	pr_info("Finished image proxy.");
 	return 0;
