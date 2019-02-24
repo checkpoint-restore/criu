@@ -274,6 +274,7 @@ static inline int sk_wait_data(int sk)
 	return poll(&pfd, 1, -1);
 }
 
+void fd_set_nonblocking(int fd, bool on);
 void tcp_nodelay(int sk, bool on);
 void tcp_cork(int sk, bool on);
 
