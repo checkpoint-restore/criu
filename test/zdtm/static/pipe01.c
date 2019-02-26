@@ -108,8 +108,8 @@ int main(int argc, char ** argv)
 		if (ret == 0)
 			break;
 		if (ret == -1) {
-			goto err;
 			pr_perror("read() failed");
+			goto err;
 		}
 		size -= ret;
 
