@@ -66,8 +66,8 @@ if resp.type != rpc.VERSION:
 else:
 	if resp.success:
 		print('RPC: Success')
-		print('CRIU major %d' % resp.version.major)
-		print('CRIU minor %d' % resp.version.minor)
+		print('CRIU major %d' % resp.version.major_number)
+		print('CRIU minor %d' % resp.version.minor_number)
 		if resp.version.HasField('gitid'):
 			print('CRIU gitid %s' % resp.version.gitid)
 		if resp.version.HasField('sublevel'):
