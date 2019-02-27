@@ -7,10 +7,9 @@
 #ifndef IMAGE_REMOTE_H
 #define	IMAGE_REMOTE_H
 
-#define DUMP_FINISH "DUMP_FINISH"
-#define RESTORE_FINISH "RESTORE_FINISH"
+#define FINISH 0
 #define PARENT_IMG "parent"
-#define NULL_SNAPSHOT_ID "null"
+#define NULL_SNAPSHOT_ID 0
 #define DEFAULT_CACHE_SOCKET "img-cache.sock"
 #define DEFAULT_PROXY_SOCKET "img-proxy.sock"
 

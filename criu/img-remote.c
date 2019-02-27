@@ -458,13 +458,6 @@ static struct roperation *handle_accept_cache_read(int cli_fd,
 	struct rimage     *rimg = NULL;
 	struct roperation *rop   = NULL;
 
-	// Check if this is the restore finish message.
-	if (!strncmp(path, RESTORE_FINISH, sizeof(RESTORE_FINISH))) {
-		close(cli_fd);
-		finish_local();
-		return NULL;
-	}
-
 	rop = new_remote_operation(path, snapshot_id, cli_fd, flags, true);
 	if (rop == NULL) {
 		pr_perror("Error preparing remote operation");
@@ -585,6 +578,12 @@ static void handle_local_accept(int fd)
 		goto err;
 	}
 
+	if (snapshot_id[0] == NULL_SNAPSHOT_ID && path[0] == FINISH) {
+		close(cli_fd);
+		finish_local();
+		return;
+	}
+
 	pr_info("[fd=%d] Received %s request for %s:%s\n",
 		cli_fd, strflags(flags), path, snapshot_id);
 
@@ -639,24 +638,18 @@ static inline void finish_proxy_read(struct roperation *rop)
 
 static inline void finish_proxy_write(struct roperation *rop)
 {
-	// No more local images are comming. Close local socket.
-	if (!strncmp(rop->path, DUMP_FINISH, sizeof(DUMP_FINISH))) {
-		// TODO - couldn't we handle the DUMP_FINISH in inside handle_accept_proxy_write?
-		finish_local();
-	} else {
-		// Normal image received, forward it.
-		struct roperation *rop_to_forward = new_remote_operation(
-			rop->path, rop->snapshot_id, remote_sk, rop->flags, false);
+	// Normal image received, forward it.
+	struct roperation *rop_to_forward = new_remote_operation(
+		rop->path, rop->snapshot_id, remote_sk, rop->flags, false);
 
-		// Add image to list of images.
-		list_add_tail(&(rop->rimg->l), &rimg_head);
+	// Add image to list of images.
+	list_add_tail(&(rop->rimg->l), &rimg_head);
 
-		rop_set_rimg(rop_to_forward, rop->rimg);
-		if (list_empty(&rop_forwarding)) {
-			forward_remote_image(rop_to_forward);
-		}
-		list_add_tail(&(rop_to_forward->l), &rop_forwarding);
+	rop_set_rimg(rop_to_forward, rop->rimg);
+	if (list_empty(&rop_forwarding)) {
+		forward_remote_image(rop_to_forward);
 	}
+	list_add_tail(&(rop_to_forward->l), &rop_forwarding);
 }
 
 static void finish_cache_write(struct roperation *rop)
@@ -965,9 +958,11 @@ int read_remote_image_connection(char *snapshot_id, char *path)
 				path, snapshot_id);
 		return -1;
 	}
-	if (!error || !strncmp(path, RESTORE_FINISH, sizeof(RESTORE_FINISH))) {
+
+	if (!error || (snapshot_id[0] == NULL_SNAPSHOT_ID && path[0] != FINISH))
 		return sockfd;
-	} else if (error == ENOENT) {
+
+	if (error == ENOENT) {
 		pr_info("Image does not exist (%s:%s)\n", path, snapshot_id);
 		close(sockfd);
 		return -ENOENT;
@@ -995,7 +990,7 @@ int write_remote_image_connection(char *snapshot_id, char *path, int flags)
 int finish_remote_dump(void)
 {
 	pr_info("Dump side is calling finish\n");
-	int fd = write_remote_image_connection(NULL_SNAPSHOT_ID, DUMP_FINISH, O_WRONLY);
+	int fd = write_remote_image_connection(NULL_SNAPSHOT_ID, FINISH, O_WRONLY);
 
 	if (fd == -1) {
 		pr_err("Unable to open finish dump connection");
@@ -1009,7 +1004,7 @@ int finish_remote_dump(void)
 int finish_remote_restore(void)
 {
 	pr_info("Restore side is calling finish\n");
-	int fd = read_remote_image_connection(NULL_SNAPSHOT_ID, RESTORE_FINISH);
+	int fd = read_remote_image_connection(NULL_SNAPSHOT_ID, FINISH);
 
 	if (fd == -1) {
 		pr_err("Unable to open finish restore connection\n");
