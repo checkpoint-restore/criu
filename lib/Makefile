@@ -1,4 +1,5 @@
 CRIU_SO			:= libcriu.so
+CRIU_A			:= libcriu.a
 UAPI_HEADERS		:= lib/c/criu.h images/rpc.proto
 
 #
@@ -19,8 +20,12 @@ ldflags-so		+= -lprotobuf-c
 lib/c/$(CRIU_SO): lib/c/built-in.o
 	$(call msg-link, $@)
 	$(Q) $(CC) -shared $(cflags-so) -o $@ $^ $(ldflags-so) $(LDFLAGS)
+lib/c/$(CRIU_A): lib/c/built-in.o
+	$(call msg-link, $@)
+	$(Q) $(AR) rcs $@ $^
 lib-c: lib/c/$(CRIU_SO)
-.PHONY: lib-c
+lib-a: lib/c/$(CRIU_A)
+.PHONY: lib-c lib-a
 
 #
 # Python bindings.
