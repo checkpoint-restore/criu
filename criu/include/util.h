@@ -375,4 +375,6 @@ static inline void print_stack_trace(pid_t pid) {}
 		___ret;									\
 	})
 
+int do_read_notification(int fd);
+
 #endif /* __CR_UTIL_H__ */

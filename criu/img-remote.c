@@ -940,11 +940,20 @@ static int64_t send_image_async(struct roperation *op)
 	struct rimage *rimg = op->rimg;
 	bool close_fd = op->close_fd;
 	int n;
+	int flags = 0;
 
-	n = write(
+#ifdef MSG_ZEROCOPY
+	flags |= MSG_ZEROCOPY;
+#endif
+
+	n = send(
 		fd,
 		op->curr_sent_buf->buffer + op->curr_sent_bytes,
-		min(BUF_SIZE, op->curr_sent_buf->nbytes) - op->curr_sent_bytes);
+		min(BUF_SIZE, op->curr_sent_buf->nbytes) - op->curr_sent_bytes,
+		flags);
+
+	if (do_read_notification(fd))
+		return -1;
 
 	if (n > -1) {
 		op->curr_sent_bytes += n;

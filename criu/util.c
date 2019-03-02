@@ -23,6 +23,7 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
+#include <linux/errqueue.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -1286,6 +1287,39 @@ static int get_sockaddr_in(struct sockaddr_storage *addr, char *host)
 	return 0;
 }
 
+int do_read_notification(int fd)
+{
+#ifdef MSG_ZEROCOPY
+	struct sock_extended_err *serr;
+	struct cmsghdr *cm;
+	struct msghdr msg = {};
+	char control[100];
+	int ret;
+
+	msg.msg_control = control;
+	msg.msg_controllen = sizeof(control);
+
+	ret = recvmsg(fd, &msg, MSG_DONTWAIT | MSG_ERRQUEUE);
+	if (ret == -1 && errno == EAGAIN)
+		return 0;
+	if (ret == -1)
+		pr_perror("recvmsg notification");
+	if (msg.msg_flags & MSG_CTRUNC)
+		pr_perror("recvmsg notification: truncated");
+
+	cm = CMSG_FIRSTHDR(&msg);
+	if (!cm || cm->cmsg_level != SOL_IP ||
+	    (cm->cmsg_type != IP_RECVERR && cm->cmsg_type != IPV6_RECVERR))
+		pr_perror("cmsg: wrong type");
+
+	serr = (void *) CMSG_DATA(cm);
+	if (serr->ee_errno != 0 || serr->ee_origin != SO_EE_ORIGIN_ZEROCOPY)
+		pr_perror("serr: wrong type");
+
+#endif
+	return 0;
+}
+
 int setup_tcp_server(char *type)
 {
 	int sk = -1;
@@ -1311,6 +1345,13 @@ int setup_tcp_server(char *type)
 		pr_perror("Unable to set SO_REUSEADDR");
 		goto out;
 	}
+
+#ifdef SO_ZEROCOPY
+	if (setsockopt(sk, SOL_SOCKET, SO_ZEROCOPY, &sockopt, sizeof(sockopt))) {
+		pr_perror("Unable to set zerocopy");
+		goto out;
+	}
+#endif
 
 	if (bind(sk, (struct sockaddr *)&saddr, slen)) {
 		pr_perror("Can't bind %s server", type);

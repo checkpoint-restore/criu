@@ -136,12 +136,21 @@ static inline int send_psi_flags(int sk, struct page_server_iov *pi, int flags)
 		return -1;
 	}
 
+#ifdef MSG_ZEROCOPY
+	if (flags & MSG_ZEROCOPY && do_read_notification(sk))
+		return -1;
+#endif
+
 	return 0;
 }
 
 static inline int send_psi(int sk, struct page_server_iov *pi)
 {
-	return send_psi_flags(sk, pi, 0);
+	int flags = 0;
+#ifdef MSG_ZEROCOPY
+	flags |= MSG_ZEROCOPY;
+#endif
+	return send_psi_flags(sk, pi, flags);
 }
 
 /* page-server xfer */
@@ -1242,6 +1251,10 @@ int connect_to_page_server_to_recv(int epfd)
 
 int request_remote_pages(unsigned long img_id, unsigned long addr, int nr_pages)
 {
+	int flags = MSG_DONTWAIT;
+#ifdef MSG_ZEROCOPY
+	flags |= MSG_ZEROCOPY;
+#endif
 	struct page_server_iov pi = {
 		.cmd		= PS_IOV_GET,
 		.nr_pages	= nr_pages,
@@ -1250,7 +1263,7 @@ int request_remote_pages(unsigned long img_id, unsigned long addr, int nr_pages)
 	};
 
 	/* XXX: why MSG_DONTWAIT here? */
-	if (send_psi_flags(page_server_sk, &pi, MSG_DONTWAIT))
+	if (send_psi_flags(page_server_sk, &pi, flags))
 		return -1;
 
 	tcp_nodelay(page_server_sk, true);
