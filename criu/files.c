@@ -1479,10 +1479,6 @@ struct inherit_fd {
 
 int inh_fd_max = -1;
 
-/*
- * We can't print diagnostics messages in this function because the
- * log file isn't initialized yet.
- */
 int inherit_fd_parse(char *optarg)
 {
 	char *cp = NULL;
