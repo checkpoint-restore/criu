@@ -6,7 +6,7 @@ UAPI_HEADERS		:= lib/c/criu.h images/rpc.proto
 # File to keep track of files installed by setup.py
 CRIT_SETUP_FILES	:= lib/.crit-setup.files
 
-all-y	+= lib-c lib-py
+all-y	+= lib-c lib-a lib-py
 
 #
 # C language bindings.
