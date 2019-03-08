@@ -1,0 +1,119 @@
+COMPEL(1)
+==========
+include::footer.txt[]
+
+NAME
+----
+compel - Execute parasitic code within another process.
+
+SYNOPSIS
+--------
+*compel* 'hgen' ['option' ...]
+
+*compel* 'plugins' ['PLUGIN_NAME' ...]
+
+*compel* ['--compat'] 'includes' | 'cflags' | 'ldflags'
+
+*compel* ['--compat'] ['--static'] 'libs'
+
+DESCRIPTION
+------------
+*compel* is a utility to execute arbitrary code, also called parasite code,
+in the context of a foreign process. The parasitic code, once compiled with
+compel flags and packed, can be executed in the context of other tasks. Currently
+there is only one way to load the parasitic blob into victim task using libcompel.a,
+called c-header.
+
+ARGUMENTS
+----------
+
+Positional Arguments
+~~~~~~~~~~~~~~~~~~~~
+
+*hgen*::
+    create a header from the .po file, which is the parasite binary.
+
+*plugins*::
+    prints the plugins available.
+
+*ldflags*::
+    prints the ldflags available to compel during linking of parasite code.
+
+*cflags*::
+    prints the compel cflags to be used during compilation of parasitic code.
+
+*includes*::
+    prints list of standard include directories.
+
+*libs*::
+    prints list of static or dynamic libraries that compel can link with.
+
+OPTIONS
+--------
+*-f*, *--file* 'FILE'::
+    Path to the binary file, 'FILE', which *compel* must turn into a header
+
+*-o*, *--output* 'FILE'::
+    Path to the header file, 'FILE', where compel must write the resulting header.
+
+*-p*, *--prefix* 'NAME'::
+	  Specify prefix for var names
+
+*-l*, *--log-level* 'NUM'::
+    Default log level of compel.
+
+*-h*, *--help*::
+    Prints usage and exits.
+
+*-V*, *--version*::
+    Prints version number of compel.
+
+SOURCE EXAMPLES
+----------------
+
+Parasitic Code
+~~~~~~~~~~~~~~
+
+*#include <compel/plugins/std.h>*
+
+*int parasite_trap_cmd(int cmd, void *args);* //gets called by compel_run_in_thread()
+
+*int parasite_daemon_cmd(int cmd, void *arg);* // gets called by compel_rpc_call() and compel_rpc_call_sync()
+
+*void parasite_cleanup(void);* //gets called on parasite unload by compel_cure()
+
+Infecting code
+~~~~~~~~~~~~~~
+The parasitic code is compiled and converted to a header using *compel*, and included here.
+
+*#include <compel/compel.h>*
+
+*#include "parasite.h"*
+
+Following steps are perfomed to infect the victim process:
+
+    - stop the task: *int compel_stop_task(int pid);*
+    - prepare infection handler: *struct parasite_ctl *compel_prepare(int pid);*
+    - execute system call: *int compel_syscall(ctl, int syscall_nr, long *ret, int arg ...);*
+    - infect victim: *int compel_infect(ctl, nr_thread, size_of_args_area);*
+    - cure the victim: *int compel_cure(ctl);* //ctl pointer is freed by this call
+    - Resume victim: *int compel_resume_task(pid, orig_state, state);*
+
+*ctl* must be configured with blob information by calling *PREFIX_setup_c_header()*, with ctl as its argument.
+*PREFIX* is the argument given to *-p* when calling hgen, else it is deduced from file name.
+
+
+EXAMPLES
+---------
+To generate a header file(.h) from a parasite binary file(.po) use:
+
+----------
+    compel hgen -f parasite.po -o parasite.h
+----------
+
+'parasite.po' file is obtained by compiling the parasite source with compel flags and
+linking it with the compel plugins.
+
+AUTHOR
+------
+The CRIU team.
