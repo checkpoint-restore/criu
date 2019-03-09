@@ -29,39 +29,11 @@ static inline void iov_init(struct iovec *iov, unsigned long addr)
 	iov->iov_len = PAGE_SIZE;
 }
 
-static int __ppb_resize_pipe(struct page_pipe_buf *ppb, unsigned long new_size)
+static inline bool ppb_pipe_is_full(struct page_pipe_buf *ppb)
 {
-	int ret;
-
-	ret = fcntl(ppb->p[0], F_SETPIPE_SZ, new_size * PAGE_SIZE);
-	if (ret < 0)
-		return -1;
-
-	ret /= PAGE_SIZE;
-	BUG_ON(ret < ppb->pipe_size);
-
-	pr_debug("Grow pipe %x -> %x\n", ppb->pipe_size, ret);
-	ppb->pipe_size = ret;
-
-	return 0;
-}
-
-static inline int ppb_resize_pipe(struct page_pipe_buf *ppb)
-{
-	unsigned long new_size = ppb->pipe_size << 1;
-	int ret;
-
 	if (ppb->pages_in + ppb->pipe_off < ppb->pipe_size)
-		return 0;
-
-	if (new_size > PIPE_MAX_SIZE)
-		return 1;
-
-	ret = __ppb_resize_pipe(ppb, new_size);
-	if (ret < 0)
-		return 1; /* need to add another buf */
-
-	return 0;
+		return false;
+	return true;
 }
 
 static struct page_pipe_buf *pp_prev_ppb(struct page_pipe *pp,
@@ -106,7 +78,7 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp,
 
 	ppb->pipe_off = 0;
 
-	if (prev && ppb_resize_pipe(prev) == 0) {
+	if (prev && !ppb_pipe_is_full(prev)) {
 		/* The previous pipe isn't full and we can continue to use it. */
 		ppb->p[0] = prev->p[0];
 		ppb->p[1] = prev->p[1];
@@ -120,7 +92,12 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp,
 		}
 		cnt_add(CNT_PAGE_PIPES, 1);
 
-		ppb->pipe_size = fcntl(ppb->p[0], F_GETPIPE_SZ, 0) / PAGE_SIZE;
+		if (fcntl(ppb->p[0], F_SETPIPE_SZ, PIPE_MAX_SIZE * PAGE_SIZE) < 0) {
+			xfree(ppb);
+			pr_perror("Can't allocate pipe");
+			return NULL;
+		}
+		ppb->pipe_size = PIPE_MAX_SIZE;
 		pp->nr_pipes++;
 	}
 
@@ -260,7 +237,7 @@ static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *pp
 	if (ppb->flags != flags)
 		return 1;
 
-	if (ppb_resize_pipe(ppb) == 1)
+	if (ppb_pipe_is_full(ppb))
 		return 1;
 
 	if (ppb->nr_segs && iov_grow_page(&ppb->iov[ppb->nr_segs - 1], addr))
