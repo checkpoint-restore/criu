@@ -49,7 +49,6 @@ static int run_shell_scripts(const char *action)
 {
 	int retval = 0;
 	struct script *script;
-	char image_dir[PATH_MAX];
 	static unsigned env_set = 0;
 
 #define ENV_IMGDIR	0x1
@@ -61,6 +60,7 @@ static int run_shell_scripts(const char *action)
 	}
 
 	if (!(env_set & ENV_IMGDIR)) {
+		char image_dir[PATH_MAX];
 		sprintf(image_dir, "/proc/%ld/fd/%d", (long) getpid(), get_service_fd(IMG_FD_OFF));
 		if (setenv("CRTOOLS_IMAGE_DIR", image_dir, 1)) {
 			pr_perror("Can't set CRTOOLS_IMAGE_DIR=%s", image_dir);
@@ -71,10 +71,10 @@ static int run_shell_scripts(const char *action)
 
 	if (!(env_set & ENV_ROOTPID) && root_item) {
 		int pid;
-		char root_item_pid[16];
 
 		pid = root_item->pid->real;
 		if (pid != -1) {
+			char root_item_pid[16];
 			snprintf(root_item_pid, sizeof(root_item_pid), "%d", pid);
 			if (setenv("CRTOOLS_INIT_PID", root_item_pid, 1)) {
 				pr_perror("Can't set CRTOOLS_INIT_PID=%s", root_item_pid);
