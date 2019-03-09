@@ -2327,21 +2327,6 @@ int prepare_dummy_task_state(struct pstree_item *pi)
 	return 0;
 }
 
-static void rlimit_unlimit_nofile_self(void)
-{
-	struct rlimit new;
-
-	new.rlim_cur = kdat.sysctl_nr_open;
-	new.rlim_max = kdat.sysctl_nr_open;
-
-	if (prlimit(getpid(), RLIMIT_NOFILE, &new, NULL)) {
-		pr_perror("rlimir: Can't setup RLIMIT_NOFILE for self");
-		return;
-	} else
-		pr_debug("rlimit: RLIMIT_NOFILE unlimited for self\n");
-	service_fd_rlim_cur = kdat.sysctl_nr_open;
-}
-
 int cr_restore_tasks(void)
 {
 	int ret = -1;
@@ -2361,7 +2346,7 @@ int cr_restore_tasks(void)
 	 * happen we simply exit with explicit error
 	 * during real action stage.
 	 */
-	rlimit_unlimit_nofile_self();
+	rlimit_unlimit_nofile();
 
 	if (cr_plugin_init(CR_PLUGIN_STAGE__RESTORE))
 		return -1;

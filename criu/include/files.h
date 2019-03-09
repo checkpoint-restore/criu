@@ -204,4 +204,6 @@ extern int open_transport_socket(void);
 extern int set_fds_event(pid_t virt);
 extern void wait_fds_event(void);
 
+void rlimit_unlimit_nofile(void);
+
 #endif /* __CR_FILES_H__ */

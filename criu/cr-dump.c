@@ -1578,6 +1578,8 @@ int cr_pre_dump_tasks(pid_t pid)
 		opts.final_state = TASK_ALIVE;
 	}
 
+	rlimit_unlimit_nofile();
+
 	if (init_stats(DUMP_STATS))
 		goto err;
 

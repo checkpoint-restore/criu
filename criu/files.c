@@ -5,9 +5,11 @@
 #include <linux/limits.h>
 #include <linux/major.h>
 
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/prctl.h>
 #include <sys/mman.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -1730,4 +1732,20 @@ int prepare_files(void)
 {
 	init_fdesc_hash();
 	return collect_image(&files_cinfo);
+}
+
+void rlimit_unlimit_nofile(void)
+{
+	struct rlimit new;
+
+	new.rlim_cur = kdat.sysctl_nr_open;
+	new.rlim_max = kdat.sysctl_nr_open;
+
+	if (prlimit(getpid(), RLIMIT_NOFILE, &new, NULL)) {
+		pr_perror("rlimit: Can't setup RLIMIT_NOFILE");
+		return;
+	}
+
+	pr_debug("rlimit: RLIMIT_NOFILE unlimited\n");
+	service_fd_rlim_cur = kdat.sysctl_nr_open;
 }
