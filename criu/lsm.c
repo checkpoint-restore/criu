@@ -62,45 +62,41 @@ static int apparmor_get_label(pid_t pid, char **profile_name)
 static int selinux_get_label(pid_t pid, char **output)
 {
 	security_context_t ctx;
-	char *pos, *last;
+	char *pos;
 	int i;
+	int ret = -1;
 
 	if (getpidcon_raw(pid, &ctx) < 0) {
 		pr_perror("getting selinux profile failed");
 		return -1;
 	}
 
-	*output = NULL;
+	*output = xstrdup((char *)ctx);
+	if (!*output)
+		goto err;
 
 	/*
-	 * Since SELinux attributes can be finer grained than at the task
-	 * level, and we currently don't try to dump any of these other bits,
-	 * let's only allow unconfined profiles, which look something like:
+	 * Make sure it is a valid SELinux label. It should look like this:
 	 *
 	 *	unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
 	 */
 	pos = (char*)ctx;
 	for (i = 0; i < 3; i++) {
-		last = pos;
 		pos = strstr(pos, ":");
 		if (!pos) {
 			pr_err("Invalid selinux context %s\n", (char *)ctx);
-			freecon(ctx);
-			return -1;
+			xfree(*output);
+			goto err;
 		}
 
 		*pos = 0;
-		if (!strstartswith(last, "unconfined_")) {
-			pr_err("Non unconfined selinux contexts not supported %s\n", last);
-			freecon(ctx);
-			return -1;
-		}
-
 		pos++;
 	}
-	freecon(ctx);
 
-	return 0;
+	ret = 0;
+err:
+	freecon(ctx);
+	return ret;
 }
 #endif
 
