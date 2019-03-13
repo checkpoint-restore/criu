@@ -95,7 +95,7 @@ struct ucontext_ia32 {
 	compat_stack_t		uc_stack;
 	struct rt_sigcontext_32	uc_mcontext;
 	k_rtsigset_t		uc_sigmask; /* mask last for extensibility */
-} __packed;
+};
 
 struct rt_sigframe_ia32 {
 	uint32_t		pretcode;

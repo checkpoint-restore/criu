@@ -17,7 +17,7 @@
 		     : "g"(new_sp),					\
 		       "g"(restore_task_exec_start),			\
 		       "g"(task_args)					\
-		     : "rsp", "rdi", "rsi", "rbx", "rax", "memory")
+		     : "rdi", "rsi", "rbx", "rax", "memory")
 
 static inline void core_get_tls(CoreEntry *pcore, tls_t *ptls)
 {

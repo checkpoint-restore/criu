@@ -12,7 +12,9 @@
 
 #define FP_XSTATE_MAGIC1		0x46505853U
 #define FP_XSTATE_MAGIC2		0x46505845U
+#ifndef FP_XSTATE_MAGIC2_SIZE
 #define FP_XSTATE_MAGIC2_SIZE		sizeof(FP_XSTATE_MAGIC2)
+#endif
 
 #define XSTATE_FP			0x1
 #define XSTATE_SSE			0x2
@@ -261,7 +263,7 @@ struct xsave_struct_ia32 {
 		struct ymmh_struct	ymmh;
 		uint8_t			extended_state_area[EXTENDED_STATE_AREA_SIZE];
 	};
-} __aligned(FXSAVE_ALIGN_BYTES) __packed;
+} __aligned(FXSAVE_ALIGN_BYTES);
 
 typedef struct {
 	/*
@@ -286,7 +288,7 @@ struct user_i387_ia32_struct {
 	uint32_t			foo;		/* FPU Operand Pointer Offset	*/
 	uint32_t			fos;		/* FPU Operand Pointer Selector	*/
 	uint32_t			st_space[20];   /* 8*10 bytes for each FP-reg = 80 bytes */
-} __packed;
+};
 
 typedef struct {
 	struct {
@@ -294,12 +296,12 @@ typedef struct {
 
 		/* Software status information [not touched by FSAVE]:		*/
 		uint32_t			status;
-	} __packed fregs_state;
+	} fregs_state;
 	union {
 		struct xsave_struct_ia32	xsave;
 		uint8_t				__pad[sizeof(struct xsave_struct) + FP_XSTATE_MAGIC2_SIZE];
-	} __aligned(FXSAVE_ALIGN_BYTES) __packed;
-} __aligned(FXSAVE_ALIGN_BYTES) __packed fpu_state_ia32_t;
+	} __aligned(FXSAVE_ALIGN_BYTES);
+} __aligned(FXSAVE_ALIGN_BYTES) fpu_state_ia32_t;
 
 /*
  * This one is used in restorer.
