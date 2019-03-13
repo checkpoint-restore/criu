@@ -98,7 +98,7 @@ int dump_content(const char *path, char **dump)
 int main(int argc, char **argv)
 {
 	char buf[MAX_REG_STR + 1];
-	char path[PATH_MAX];
+	char path[PATH_MAX*2 + 1];
 	char *dump[2];
 	int i, fd, len;
 
