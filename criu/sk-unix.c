@@ -437,8 +437,8 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 		 */
 		if (peer->peer_ino != ue->ino) {
 			if (!peer->name) {
-				pr_err("Unix socket %d with unreachable peer %d (%d/%s)\n",
-				       ue->ino, ue->peer, peer->peer_ino, peer->name);
+				pr_err("Unix socket %d with unreachable peer %d (%d)\n",
+				       ue->ino, ue->peer, peer->peer_ino);
 				goto err;
 			}
 		}
