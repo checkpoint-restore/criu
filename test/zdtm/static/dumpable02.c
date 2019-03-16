@@ -143,8 +143,8 @@ int main(int argc, char **argv)
 			return 1;
 		}
 
-		ret = execl(argv[0], "dumpable_server", NULL);
-		pr_perror("could not execv %s as a dumpable_server", argv[0]);
+		execl(argv[0], "dumpable_server", NULL);
+		pr_perror("could not execv %s as a dumpable_server\nError No: %d", argv[0], errno);
 		return 1;
 	}
 
