@@ -455,7 +455,7 @@ void *remote_mmap(struct parasite_ctl *ctl,
 	if (ptrace_poke_area(pid, &arg_struct, where, sizeof(arg_struct))) {
 		pr_err("Can't restore mmap args (pid: %d)\n", pid);
 		if (map != 0) {
-			err = compel_syscall(ctl, __NR_munmap, NULL, map,
+			compel_syscall(ctl, __NR_munmap, NULL, map,
 					     length, 0, 0, 0, 0);
 			map = 0;
 		}
