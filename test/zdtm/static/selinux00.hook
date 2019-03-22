@@ -1,0 +1,32 @@
+#!/bin/sh
+
+# This script configures SELinux in such a way to enable the
+# test 'selinux00' to be able to dyntransition from one
+# SELinux context to another, as well as CRIU to change the
+# context of a restored process.
+# If a new enough selinux-policy is installed which includes
+# https://github.com/fedora-selinux/selinux-policy/commit/2d537cabbb2df614ea598ac20873c653cbf271a8
+# then the boolean 'unconfined_dyntrans_all' will be changed
+# to enable this test. If that boolean is not available,
+# this just does 'setenforce 0'.
+
+# also see selinux00.checkskip
+
+getsebool unconfined_dyntrans_all > /dev/null 2>&1
+RESULT=$?
+BOOLEAN=0
+
+if [ "$RESULT" = "0" ]; then
+	BOOLEAN=1
+fi
+
+[ "$1" = "--post-restore" ] && {
+	if [ "$BOOLEAN" = "1" ]; then
+		setsebool -P unconfined_dyntrans_all `cat /tmp/zdtm.selinux.state`
+	else
+		setenforce `cat /tmp/zdtm.selinux.state`
+		rm -f /tmp/zdtm.selinux.state
+	fi
+}
+
+exit 0
