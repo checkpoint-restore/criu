@@ -210,6 +210,7 @@ TST_NOFILE	:=				\
 		config_inotify_irmap		\
 		thp_disable			\
 		pid_file			\
+		selinux00			\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
