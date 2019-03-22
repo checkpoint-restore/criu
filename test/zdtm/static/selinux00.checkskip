@@ -1,0 +1,25 @@
+#!/bin/bash
+
+test -d /sys/fs/selinux || exit 1
+
+# See selinux00.hook for details
+
+getsebool unconfined_dyntrans_all > /dev/null 2>&1
+RESULT=$?
+BOOLEAN=0
+
+if [ "$RESULT" = "0" ]; then
+	BOOLEAN=1
+fi
+
+if [ "$BOOLEAN" = "1" ]; then
+	getsebool unconfined_dyntrans_all | grep off -q
+	RESULT=$?
+	echo $RESULT > /tmp/zdtm.selinux.state
+	if [ "$RESULT" = "0" ]; then
+		setsebool -P unconfined_dyntrans_all 1
+	fi
+else
+	cat /sys/fs/selinux/enforce > /tmp/zdtm.selinux.state
+	setenforce 0
+fi
