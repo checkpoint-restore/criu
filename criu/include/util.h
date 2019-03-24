@@ -290,8 +290,6 @@ char *xstrcat(char *str, const char *fmt, ...)
 char *xsprintf(const char *fmt, ...)
 	__attribute__ ((__format__ (__printf__, 1, 2)));
 
-void print_data(unsigned long addr, unsigned char *data, size_t size);
-
 int setup_tcp_server(char *type, char *addr, unsigned short *port);
 int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk);
 int setup_tcp_client(char *hostname);
