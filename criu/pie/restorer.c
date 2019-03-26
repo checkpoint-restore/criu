@@ -43,6 +43,7 @@
 
 #include "images/creds.pb-c.h"
 #include "images/mm.pb-c.h"
+#include "images/inventory.pb-c.h"
 
 #include "shmem.h"
 #include "restorer.h"
@@ -179,7 +180,8 @@ static int lsm_set_label(char *label, int procfd)
 	return 0;
 }
 
-static int restore_creds(struct thread_creds_args *args, int procfd)
+static int restore_creds(struct thread_creds_args *args, int procfd,
+			 int lsm_type)
 {
 	CredsEntry *ce = &args->creds;
 	int b, i, ret;
@@ -296,8 +298,16 @@ static int restore_creds(struct thread_creds_args *args, int procfd)
 		return -1;
 	}
 
-	if (lsm_set_label(args->lsm_profile, procfd) < 0)
-		return -1;
+	if (lsm_type != LSMTYPE__SELINUX) {
+		/*
+		 * SELinux does not support setting the process context for
+		 * threaded processes. So this is skipped if running with
+		 * SELinux and instead the process context is set before the
+		 * threads are created.
+		 */
+		if (lsm_set_label(args->lsm_profile, procfd) < 0)
+			return -1;
+	}
 	return 0;
 }
 
@@ -576,7 +586,8 @@ long __export_restore_thread(struct thread_restore_args *args)
 	if (restore_seccomp(args))
 		BUG();
 
-	ret = restore_creds(args->creds_args, args->ta->proc_fd);
+	ret = restore_creds(args->creds_args, args->ta->proc_fd,
+			    args->ta->lsm_type);
 	ret = ret || restore_dumpable_flag(&args->ta->mm);
 	ret = ret || restore_pdeath_sig(args);
 	if (ret)
@@ -1556,6 +1567,14 @@ long __export_restore_task(struct task_restore_args *args)
 	if (ret)
 		goto core_restore_end;
 
+	/* SELinux (1) process context needs to be set before creating threads. */
+	if (args->lsm_type == LSMTYPE__SELINUX) {
+		/* Only for SELinux */
+		if (lsm_set_label(args->t->creds_args->lsm_profile,
+				  args->proc_fd) < 0)
+			goto core_restore_end;
+	}
+
 	/*
 	 * We need to prepare a valid sigframe here, so
 	 * after sigreturn the kernel will pick up the
@@ -1713,7 +1732,8 @@ long __export_restore_task(struct task_restore_args *args)
 	 * turning off TCP repair is CAP_SYS_NED_ADMIN protected,
 	 * thus restore* creds _after_ all of the above.
 	 */
-	ret = restore_creds(args->t->creds_args, args->proc_fd);
+	ret = restore_creds(args->t->creds_args, args->proc_fd,
+			    args->lsm_type);
 	ret = ret || restore_dumpable_flag(&args->mm);
 	ret = ret || restore_pdeath_sig(args->t);
 
