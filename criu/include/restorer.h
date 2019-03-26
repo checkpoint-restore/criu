@@ -216,6 +216,7 @@ struct task_restore_args {
 #ifdef ARCH_HAS_LONG_PAGES
 	unsigned			page_size;
 #endif
+	int				lsm_type;
 } __aligned(64);
 
 /*

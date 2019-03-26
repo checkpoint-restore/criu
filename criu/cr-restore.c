@@ -3528,6 +3528,13 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	task_args->auto_dedup		= opts.auto_dedup;
 
 	/*
+	 * In the restorer we need to know if it is SELinux or not. For SELinux
+	 * we must change the process context before creating threads. For
+	 * Apparmor we can change each thread after they have been created.
+	 */
+	task_args->lsm_type		= kdat.lsm;
+
+	/*
 	 * Make root and cwd restore _that_ late not to break any
 	 * attempts to open files by paths above (e.g. /proc).
 	 */
