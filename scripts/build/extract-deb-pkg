@@ -4,7 +4,7 @@ set -e
 set -u
 set -o pipefail
 MIRROR="https://mirrors.kernel.org/ubuntu"
-PKGS="$MIRROR/dists/xenial/universe/binary-amd64/Packages.gz"
+PKGS="$MIRROR/dists/bionic/universe/binary-amd64/Packages.gz"
 
 if [ $# -ne 1 ]; then
 	echo "Usage: $0 package-name" 1>&2
