@@ -114,6 +114,7 @@ message criu_opts {
 	optional string			config_file		= 51;
 	optional bool			tcp_close		= 52;
 	optional string			lsm_profile		= 53;
+/*	optional bool			check_mounts		= 128;	*/
 }
 
 message criu_dump_resp {
