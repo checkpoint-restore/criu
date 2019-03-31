@@ -73,6 +73,7 @@ obj-y			+= string.o
 obj-y			+= sysctl.o
 obj-y			+= sysfs_parse.o
 obj-y			+= timerfd.o
+obj-$(CONFIG_GNUTLS)	+= tls.o
 obj-y			+= tty.o
 obj-y			+= tun.o
 obj-y			+= util.o

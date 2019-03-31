@@ -138,6 +138,11 @@ struct cr_options {
 	pid_t			tree_id;
 	int			log_level;
 	char			*imgs_dir;
+	char			*tls_cacert;
+	char			*tls_cacrl;
+	char			*tls_cert;
+	char			*tls_key;
+	int			tls;
 };
 
 extern struct cr_options opts;
