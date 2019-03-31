@@ -594,6 +594,33 @@ Launches *criu* in page server mode.
     remote *lazy-pages* daemon to request memory pages in random
     order.
 
+*--tls-cacert* 'file'::
+    Specifies the path to a trusted Certificate Authority (CA) certificate
+    file to be used for verification of a client or server certificate.
+    The 'file' must be in PEM format. When this option is used only the
+    specified CA is used for verification. Otherwise, the system's trusted CAs
+    and, if present, '/etc/pki/CA/cacert.pem' will be used.
+
+*--tls-cacrl* 'file'::
+    Specifies a path to a Certificate Revocation List (CRL) 'file' which
+    contains a list of revoked certificates that should no longer be trusted.
+    The 'file' must be in PEM format. When this option is not specified, the
+    file, if present, '/etc/pki/CA/cacrl.pem' will be used.
+
+*--tls-cert* 'file'::
+    Specifies a path to a file that contains a X.509 certificate to present
+    to the remote entity. The 'file' must be in PEM format. When this option
+    is not specified, the default location ('/etc/pki/criu/cert.pem') will be
+    used.
+
+*--tls-key* 'file'::
+    Specifies a path to a file that contains TLS private key. The 'file' must
+    be in PEM format. When this option is not the default location
+    ('/etc/pki/criu/private/key.pem') will be used.
+
+*--tls*::
+    Use TLS to secure remote connections.
+
 *lazy-pages*
 ~~~~~~~~~~~~
 Launches *criu* in lazy-pages daemon mode.

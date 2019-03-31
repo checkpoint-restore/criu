@@ -1,5 +1,5 @@
 # here is a workaround for a bug in libnl-3:
-# 6a8d90f5fec4 "attr: Allow attribute type 0" 
+# 6a8d90f5fec4 "attr: Allow attribute type 0"
 WRAPFLAGS		+= -Wl,--wrap=nla_parse,--wrap=nlmsg_parse
 
 ARCH_DIR		:= criu/arch/$(SRCARCH)
@@ -14,6 +14,7 @@ endif
 
 #
 # Configuration file paths
+CONFIG-DEFINES		+= -DSYSCONFDIR='"/etc"'
 CONFIG-DEFINES		+= -DGLOBAL_CONFIG_DIR='"/etc/criu/"'
 CONFIG-DEFINES		+= -DDEFAULT_CONFIG_FILENAME='"default.conf"'
 CONFIG-DEFINES		+= -DUSER_CONFIG_DIR='".criu/"'

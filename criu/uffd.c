@@ -37,6 +37,7 @@
 #include "page-xfer.h"
 #include "common/lock.h"
 #include "rst-malloc.h"
+#include "tls.h"
 #include "fdstore.h"
 #include "util.h"
 
@@ -1468,6 +1469,8 @@ int cr_lazy_pages(bool daemon)
 	}
 
 	ret = handle_requests(epollfd, events, nr_fds);
+
+	tls_terminate_session();
 
 	return ret;
 }
