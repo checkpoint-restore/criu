@@ -511,6 +511,11 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		BOOL_OPT("remote", &opts.remote),
 		{ "config",			required_argument,	0, 1089},
 		{ "no-default-config",		no_argument,		0, 1090},
+		{ "tls-cacert",			required_argument,	0, 1092},
+		{ "tls-cacrl",			required_argument,	0, 1093},
+		{ "tls-cert",			required_argument,	0, 1094},
+		{ "tls-key",			required_argument,	0, 1095},
+		BOOL_OPT("tls", &opts.tls),
 		{ },
 	};
 
@@ -797,6 +802,18 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		case 1091:
 			opts.ps_socket = atoi(optarg);
 			break;
+		case 1092:
+			SET_CHAR_OPTS(tls_cacert, optarg);
+			break;
+		case 1093:
+			SET_CHAR_OPTS(tls_cacrl, optarg);
+			break;
+		case 1094:
+			SET_CHAR_OPTS(tls_cert, optarg);
+			break;
+		case 1095:
+			SET_CHAR_OPTS(tls_key, optarg);
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -857,6 +874,13 @@ int check_options()
 			return 1;
 		}
 	}
+
+#ifndef CONFIG_GNUTLS
+	if (opts.tls) {
+		pr_err("CRIU was built without TLS support\n");
+		return 1;
+	}
+#endif
 
 	if (check_namespace_opts()) {
 		pr_err("Error: namespace flags conflict\n");
