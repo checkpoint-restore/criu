@@ -114,6 +114,12 @@ message criu_opts {
 	optional string			config_file		= 51;
 	optional bool			tcp_close		= 52;
 	optional string			lsm_profile		= 53;
+	optional string			tls_cacert		= 54;
+	optional string			tls_cacrl		= 55;
+	optional string			tls_cert		= 56;
+	optional string			tls_key			= 57;
+	optional bool			tls			= 58;
+	optional bool			tls_no_cn_verify	= 59;
 /*	optional bool			check_mounts		= 128;	*/
 }
 
