@@ -84,6 +84,7 @@ obj-y			+= autofs.o
 obj-y			+= fdstore.o
 obj-y			+= uffd.o
 obj-y			+= config.o
+obj-y			+= servicefd.o
 
 ifeq ($(VDSO),y)
 obj-y			+= pie-util-vdso.o

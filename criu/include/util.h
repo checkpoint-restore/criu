@@ -180,6 +180,8 @@ extern int cr_daemon(int nochdir, int noclose, int *keep_fd, int close_fd);
 extern int close_status_fd(void);
 extern int is_root_user(void);
 
+extern void set_proc_self_fd(int fd);
+
 static inline bool dir_dots(const struct dirent *de)
 {
 	return !strcmp(de->d_name, ".") || !strcmp(de->d_name, "..");
