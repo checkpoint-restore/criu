@@ -608,6 +608,19 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			goto err;
 	}
 
+	if (req->tls_cacert)
+		SET_CHAR_OPTS(tls_cacert, req->tls_cacert);
+	if (req->tls_cacrl)
+		SET_CHAR_OPTS(tls_cacrl, req->tls_cacrl);
+	if (req->tls_cert)
+		SET_CHAR_OPTS(tls_cert, req->tls_cert);
+	if (req->tls_key)
+		SET_CHAR_OPTS(tls_key, req->tls_key);
+	if (req->tls)
+		opts.tls = req->tls;
+	if (req->tls_no_cn_verify)
+		opts.tls_no_cn_verify = req->tls_no_cn_verify;
+
 	if (req->has_auto_ext_mnt)
 		opts.autodetect_ext_mounts = req->auto_ext_mnt;
 
