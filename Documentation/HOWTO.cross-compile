@@ -29,3 +29,11 @@ This HOWTO explains how to cross-compile CRIU on x86
 13. Compile CRIU:
 
      ARCH=<target arch> CROSS_COMPILE=$TARGET- CFLAGS=`pkg-config --cflags libprotobuf-c` LDFLAGS="`pkg-config --libs libprotobuf-c`" make
+
+Special notes for Android NDK cross compile:
+
+1, Android NDK doesn't have some headers required by CRIU build, they are <aio.h>, <sys/fanotify.h>
+
+2, Android NDK doesn't have some function required by CRIU build, they are aio*, fanotify_init, fanotify_mark, povit_root, index.
+
+3, in order to pass build with Android NDK, you implement them yourself, and link them to CRIU.
