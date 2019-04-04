@@ -378,6 +378,8 @@ Esyntax:
 	return -1;
 }
 
+extern char *index(const char *s, int c);
+
 static size_t parse_size(char *optarg)
 {
 	if (index(optarg, 'K'))
