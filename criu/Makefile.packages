@@ -32,7 +32,7 @@ REQ-DEB-PKG-NAMES	+= python-future
 REQ-RPM-PKG-TEST-NAMES	+= $(PYTHON)-pyyaml
 endif
 
-export LIBS		+= -lrt -lpthread -lprotobuf-c -ldl -lnl-3 -lsoccr -Lsoccr/ -lnet
+export LIBS		+= -lprotobuf-c -ldl -lnl-3 -lsoccr -Lsoccr/ -lnet
 
 check-packages-failed:
 	$(warning Can not find some of the required libraries)
