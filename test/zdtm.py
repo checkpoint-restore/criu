@@ -18,7 +18,6 @@ import sys
 import linecache
 import random
 import string
-import imp
 import fcntl
 import errno
 import datetime
@@ -575,11 +574,23 @@ class zdtm_test:
 		subprocess.check_call(["flock", "zdtm_mount_cgroups.lock", "./zdtm_umount_cgroups"])
 
 
+def load_module_from_file(name, path):
+	if sys.version_info[0] == 3 and sys.version_info[1] >= 5:
+		import importlib.util
+		spec = importlib.util.spec_from_file_location(name, path)
+		mod = importlib.util.module_from_spec(spec)
+		spec.loader.exec_module(mod)
+	else:
+		import imp
+		mod = imp.load_source(name, path)
+	return mod
+
+
 class inhfd_test:
 	def __init__(self, name, desc, flavor, freezer):
 		self.__name = os.path.basename(name)
 		print("Load %s" % name)
-		self.__fdtyp = imp.load_source(self.__name, name)
+		self.__fdtyp = load_module_from_file(self.__name, name)
 		self.__peer_pid = 0
 		self.__files = None
 		self.__peer_file_names = []
