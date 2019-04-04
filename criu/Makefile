@@ -26,7 +26,7 @@ ccflags-y		+= -iquote include
 ccflags-y		+= -iquote images
 ccflags-y		+= -iquote $(ARCH_DIR)/include
 ccflags-y		+= -iquote .
-ccflags-y		+= -I/usr/include/libnl3
+ccflags-y		+= $(shell pkg-config --cflags libnl-3.0)
 ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 ccflags-y		+= $(CONFIG-DEFINES)
 
