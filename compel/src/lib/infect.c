@@ -33,8 +33,10 @@
 #include "common/scm.h"
 #include "common/scm-code.c"
 
+#ifndef UNIX_PATH_MAX
 #define UNIX_PATH_MAX (sizeof(struct sockaddr_un) - \
 			(size_t)((struct sockaddr_un *) 0)->sun_path)
+#endif
 
 #define PARASITE_STACK_SIZE	(16 << 10)
 
