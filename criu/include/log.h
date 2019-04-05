@@ -30,6 +30,8 @@ extern void print_on_level(unsigned int loglevel, const char *format, ...)
 # define LOG_PREFIX
 #endif
 
+void flush_early_log_buffer(int fd);
+
 #define print_once(loglevel, fmt, ...)					\
 	do {								\
 		static bool __printed;					\

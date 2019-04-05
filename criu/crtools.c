@@ -95,8 +95,10 @@ int main(int argc, char *argv[], char *envp[])
 		return cr_service_work(atoi(argv[2]));
 	}
 
-	if (check_options())
+	if (check_options()) {
+		flush_early_log_buffer(STDERR_FILENO);
 		return 1;
+	}
 
 	if (opts.imgs_dir == NULL)
 		SET_CHAR_OPTS(imgs_dir, ".");
