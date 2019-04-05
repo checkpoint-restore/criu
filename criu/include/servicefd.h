@@ -1,7 +1,13 @@
 #ifndef __CR_SERVICE_FD_H__
 #define __CR_SERVICE_FD_H__
 
+#include <stdio.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+
+#include "criu-log.h"
 
 enum sfd_type {
 	SERVICE_FD_MIN,
@@ -28,6 +34,19 @@ enum sfd_type {
 struct pstree_item;
 extern bool sfds_protected;
 
+
+#define sfd_verify_target(_type, _old_fd, _new_fd)			\
+	({								\
+		int __ret = 0;						\
+		if (fcntl(_new_fd, F_GETFD) != -1 && errno != EBADF) {	\
+			pr_err("%s busy target %d -> %d\n",		\
+			       sfd_type_name(_type), _old_fd, _new_fd);	\
+			__ret = -1;					\
+		}							\
+		__ret;							\
+	})
+
+extern const char *sfd_type_name(enum sfd_type type);
 extern int init_service_fd(void);
 extern int get_service_fd(enum sfd_type type);
 extern bool is_any_service_fd(int fd);
