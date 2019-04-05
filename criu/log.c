@@ -170,7 +170,7 @@ struct early_log_hdr {
 	uint16_t len;
 };
 
-static void flush_early_log_buffer(int fd)
+void flush_early_log_buffer(int fd)
 {
 	unsigned int pos = 0;
 	int ret;
