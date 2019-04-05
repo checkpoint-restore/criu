@@ -10,8 +10,6 @@
 #include "common/compiler.h"
 #include "common/list.h"
 
-#include "criu-log.h"
-
 #include "util.h"
 #include "bitops.h"
 #include "pstree.h"
@@ -39,6 +37,31 @@ static int sfd_arr[SERVICE_FD_MAX];
  * by ordinary files. See install_service_fd() and close_service_fd().
  */
 bool sfds_protected = false;
+
+const char *sfd_type_name(enum sfd_type type)
+{
+	static const char *names[] = {
+		[SERVICE_FD_MIN]	= __stringify_1(SERVICE_FD_MIN),
+		[LOG_FD_OFF]		= __stringify_1(LOG_FD_OFF),
+		[IMG_FD_OFF]		= __stringify_1(IMG_FD_OFF),
+		[PROC_FD_OFF]		= __stringify_1(PROC_FD_OFF),
+		[PROC_PID_FD_OFF]	= __stringify_1(PROC_PID_FD_OFF),
+		[CR_PROC_FD_OFF]	= __stringify_1(CR_PROC_FD_OFF),
+		[ROOT_FD_OFF]		= __stringify_1(ROOT_FD_OFF),
+		[CGROUP_YARD]		= __stringify_1(CGROUP_YARD),
+		[USERNSD_SK]		= __stringify_1(USERNSD_SK),
+		[NS_FD_OFF]		= __stringify_1(NS_FD_OFF),
+		[TRANSPORT_FD_OFF]	= __stringify_1(TRANSPORT_FD_OFF),
+		[RPC_SK_OFF]		= __stringify_1(RPC_SK_OFF),
+		[FDSTORE_SK_OFF]	= __stringify_1(FDSTORE_SK_OFF),
+		[SERVICE_FD_MAX]	= __stringify_1(SERVICE_FD_MAX),
+	};
+
+	if (type < ARRAY_SIZE(names))
+		return names[type];
+
+	return "UNKNOWN";
+}
 
 int init_service_fd(void)
 {
@@ -107,7 +130,8 @@ int service_fd_min_fd(struct pstree_item *item)
 
 static void sfds_protection_bug(enum sfd_type type)
 {
-	pr_err("Service fd %u is being modified in protected context\n", type);
+	pr_err("Service fd %s is being modified in protected context\n",
+	       sfd_type_name(type));
 	print_stack_trace(current ? vpid(current) : 0);
 	BUG();
 }
@@ -128,8 +152,14 @@ int install_service_fd(enum sfd_type type, int fd)
 		return fd;
 	}
 
+	if (!test_bit(type, sfd_map)) {
+		if (sfd_verify_target(type, fd, sfd))
+			return -1;
+	}
+
 	if (dup3(fd, sfd, O_CLOEXEC) != sfd) {
-		pr_perror("Dup %d -> %d failed", fd, sfd);
+		pr_perror("%s dup %d -> %d failed",
+			  sfd_type_name(type), fd, sfd);
 		close(fd);
 		return -1;
 	}
@@ -166,10 +196,14 @@ static void move_service_fd(struct pstree_item *me, int type, int new_id, int ne
 	if (old < 0)
 		return;
 
+	if (!test_bit(type, sfd_map))
+		sfd_verify_target(type, old, new);
+
 	ret = dup2(old, new);
 	if (ret == -1) {
 		if (errno != EBADF)
-			pr_perror("Unable to clone %d->%d", old, new);
+			pr_perror("%s unable to clone %d->%d",
+				  sfd_type_name(type), old, new);
 	} else if (!(rsti(me)->clone_flags & CLONE_FILES))
 		close(old);
 }
