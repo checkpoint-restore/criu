@@ -493,6 +493,37 @@ int cr_system(int in, int out, int err, char *cmd, char *const argv[], unsigned 
 	return cr_system_userns(in, out, err, cmd, argv, flags, -1);
 }
 
+static int close_fds(int minfd)
+{
+	DIR *dir;
+	struct dirent *de;
+	int fd, ret, dfd;
+
+	dir = opendir("/proc/self/fd");
+	if (dir == NULL)
+		pr_perror("Can't open /proc/self/fd");
+	dfd = dirfd(dir);
+
+	while ((de = readdir(dir))) {
+		if (dir_dots(de))
+			continue;
+
+		ret = sscanf(de->d_name, "%d", &fd);
+		if (ret != 1) {
+			pr_err("Can't parse %s\n", de->d_name);
+			return -1;
+		}
+		if (dfd == fd)
+			continue;
+		if (fd < minfd)
+			continue;
+		close(fd);
+	}
+	closedir(dir);
+
+	return 0;
+}
+
 int cr_system_userns(int in, int out, int err, char *cmd,
 			char *const argv[], unsigned flags, int userns_pid)
 {
@@ -555,6 +586,8 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 
 		if (reopen_fd_as_nocheck(STDERR_FILENO, err))
 			goto out_chld;
+
+		close_fds(STDERR_FILENO + 1);
 
 		execvp(cmd, argv);
 
