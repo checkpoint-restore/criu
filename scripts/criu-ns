@@ -57,7 +57,7 @@ else:
 
 
 def run_criu():
-	print sys.argv
+	print(sys.argv)
 	os.execlp('criu', *['criu'] + sys.argv[1:])
 
 
@@ -155,7 +155,7 @@ def set_pidns(tpid, pid_idx):
 			if ls[1] != tpid:
 				raise OSError(errno.ESRCH, 'No such pid')
 
-			print 'Replace pid %s with %s' % (tpid, ls[2])
+			print('Replace pid {} with {}'.format(tpid, ls[2]))
 			sys.argv[pid_idx] = ls[2]
 			break
 		else:
@@ -234,7 +234,7 @@ if action == 'restore':
 elif action == 'dump' or action == 'pre-dump':
 	res = wrap_dump()
 else:
-	print 'Unsupported action %s for nswrap' % action
+	print('Unsupported action {} for nswrap'.format(action))
 	res = -1
 
 sys.exit(res)
