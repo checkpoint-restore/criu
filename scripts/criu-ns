@@ -227,6 +227,18 @@ def wrap_dump():
 	return status
 
 
+if len(sys.argv) == 1:
+	print("""
+Usage:
+  {0} dump|pre-dump -t PID [<options>]
+  {0} restore [<options>]
+\nCommands:
+  dump           checkpoint a process/tree identified by pid
+  pre-dump       pre-dump task(s) minimizing their frozen time
+  restore        restore a process/tree
+""".format(sys.argv[0]))
+	exit(1)
+
 action = sys.argv[1]
 
 if action == 'restore':
