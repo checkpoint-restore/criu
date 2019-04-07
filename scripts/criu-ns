@@ -74,11 +74,11 @@ def wrap_restore():
 		os.close(r_pipe)
 
 		# Mount new /proc
-		if _mount(None, "/", None, MS_SLAVE|MS_REC, None) != 0:
+		if _mount(None, b"/", None, MS_SLAVE|MS_REC, None) != 0:
 			_errno = ctypes.get_errno()
 			raise OSError(_errno, errno.errorcode[_errno])
 
-		if _mount('proc', '/proc', 'proc', 0, None) != 0:
+		if _mount(b'proc', b'/proc', b'proc', 0, None) != 0:
 			_errno = ctypes.get_errno()
 			raise OSError(_errno, errno.errorcode[_errno])
 
@@ -98,7 +98,7 @@ def wrap_restore():
 				status = -251
 				break
 
-		os.write(w_pipe, "%d" % status)
+		os.write(w_pipe, b"%d" % status)
 		os.close(w_pipe)
 
 		if status != 0:
