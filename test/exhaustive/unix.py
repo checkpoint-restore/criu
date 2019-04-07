@@ -415,7 +415,7 @@ class state:
 	# one in which. At the same time really different states
 	# shouldn't map to the same string.
 	def describe(self):
-		sks = map(lambda x: x.describe(self), self.sockets)
+		sks = [x.describe(self) for x in self.sockets]
 		sks = sorted(sks)
 		return '_'.join(sks)
 
