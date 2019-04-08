@@ -13,6 +13,8 @@ struct simple_buf {
 	void (*flush)(struct simple_buf *b);
 };
 
+int print_ts_diffs = 1;
+
 static int logfd = -1;
 static int cur_loglevel = COMPEL_DEFAULT_LOGLEVEL;
 static struct timeval start;
@@ -41,6 +43,7 @@ static inline void pad_num(char **s, int *n, int nr)
 
 static void sbuf_log_init(struct simple_buf *b)
 {
+	static struct timeval last_t;
 	char pbuf[12], *s;
 	int n;
 
@@ -51,11 +54,19 @@ static void sbuf_log_init(struct simple_buf *b)
 	 */
 	b->bp = b->buf;
 
-	if (start.tv_sec != 0) {
+	if (start.tv_sec != 0 || print_ts_diffs) {
 		struct timeval now;
 
 		sys_gettimeofday(&now, NULL);
-		timediff(&start, &now);
+		struct timeval *pivot = print_ts_diffs ? &last_t : &start;
+		struct timeval curr = now;
+		timediff(pivot, &now);
+		if (now.tv_sec == curr.tv_sec && now.tv_usec == curr.tv_usec) {
+			// first entry will be zero
+			now.tv_sec = 0;
+			now.tv_usec = 0;
+		}
+		if (print_ts_diffs) last_t = curr;
 
 		/* Seconds */
 		n = std_vprint_num(pbuf, sizeof(pbuf), (unsigned)now.tv_sec, &s);
