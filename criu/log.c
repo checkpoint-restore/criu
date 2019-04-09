@@ -353,7 +353,7 @@ static void early_vprint(const char *format, unsigned int loglevel, va_list para
 void vprint_on_level(unsigned int loglevel, const char *format, va_list params)
 {
 	int fd, size, ret, off = 0;
-	int __errno = errno;
+	int _errno = errno;
 
 	if (unlikely(loglevel == LOG_MSG)) {
 		fd = STDOUT_FILENO;
@@ -388,7 +388,7 @@ void vprint_on_level(unsigned int loglevel, const char *format, va_list params)
 	if (loglevel == LOG_ERROR)
 		log_note_err(buffer + buf_off);
 
-	errno =  __errno;
+	errno =  _errno;
 }
 
 void print_on_level(unsigned int loglevel, const char *format, ...)
