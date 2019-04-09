@@ -20,6 +20,13 @@
 #include "infect-priv.h"
 #include "log.h"
 
+#ifndef NT_X86_XSTATE
+#define NT_X86_XSTATE	0x202		/* x86 extended state using xsave */
+#endif
+#ifndef NT_PRSTATUS
+#define NT_PRSTATUS	1		/* Contains copy of prstatus struct */
+#endif
+
 /*
  * Injected syscall instruction
  */
