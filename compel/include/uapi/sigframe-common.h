@@ -52,7 +52,7 @@ struct rt_ucontext {
 	rt_stack_t		uc_stack;
 	struct rt_sigcontext	uc_mcontext;
 	k_rtsigset_t		uc_sigmask;	/* mask last for extensibility */
-	int                     __unused[32 - (sizeof (k_rtsigset_t) / sizeof (int))];
+	int                     _unused[32 - (sizeof (k_rtsigset_t) / sizeof (int))];
 	unsigned long           uc_regspace[128] __attribute__((aligned(8)));
 };
 
