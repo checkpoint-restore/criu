@@ -4,9 +4,9 @@ ifndef ____nmk_defined__tools
 # System tools shorthands
 RM		:= rm -f
 HOSTLD		?= ld
-LD		:= $(CROSS_COMPILE)$(HOSTLD)
+LD		?= $(CROSS_COMPILE)$(HOSTLD)
 HOSTCC		?= gcc
-CC		:= $(CROSS_COMPILE)$(HOSTCC)
+CC		?= $(CROSS_COMPILE)$(HOSTCC)
 CPP		:= $(CC) -E
 AS		:= $(CROSS_COMPILE)as
 AR		:= $(CROSS_COMPILE)ar
