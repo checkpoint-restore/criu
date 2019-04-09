@@ -40,7 +40,7 @@ void test_msg(const char *format, ...)
 	va_list arg;
 	int off = 0;
 	char buf[TEST_MSG_BUFFER_SIZE];
-	int __errno = errno;
+	int _errno = errno;
 	struct timeval tv;
 	struct tm *tm;
 
@@ -65,5 +65,5 @@ skip:
 	va_end(arg);
 
 	write(2, buf, off);
-	errno = __errno;
+	errno = _errno;
 }
