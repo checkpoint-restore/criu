@@ -68,8 +68,12 @@ struct vdso_maps {
 #define Word_t		Elf32_Word
 #define Dyn_t		Elf32_Dyn
 
+#ifndef ELF_ST_TYPE
 #define ELF_ST_TYPE	ELF32_ST_TYPE
+#endif
+#ifndef ELF_ST_BIND
 #define ELF_ST_BIND	ELF32_ST_BIND
+#endif
 
 #else /* CONFIG_VDSO_32 */
 
