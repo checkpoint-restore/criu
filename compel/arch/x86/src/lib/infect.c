@@ -116,7 +116,7 @@ void compel_convert_from_fxsr(struct user_i387_ia32_struct *env,
 			      struct i387_fxsave_struct *fxsave)
 {
 	struct fpxreg *from = (struct fpxreg *)&fxsave->st_space[0];
-	struct fpreg *to = (struct fpreg *)&env->st_space[0];
+	struct fpreg *to = (struct fpreg *)env->st_space;
 	int i;
 
 	env->cwd = fxsave->cwd | 0xffff0000u;

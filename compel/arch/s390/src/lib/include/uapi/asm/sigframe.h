@@ -72,4 +72,9 @@ struct rt_sigframe {
 #define RT_SIGFRAME_REGIP(rt_sigframe) (rt_sigframe)->uc.uc_mcontext.regs.psw.addr
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe)	(1)
 
+#define rt_sigframe_erase_sigset(sigframe)				\
+	memset(&sigframe->uc.uc_sigmask, 0, sizeof(k_rtsigset_t))
+#define rt_sigframe_copy_sigset(sigframe, from)				\
+	memcpy(&sigframe->uc.uc_sigmask, from, sizeof(k_rtsigset_t))
+
 #endif /* UAPI_COMPEL_ASM_SIGFRAME_H__ */
