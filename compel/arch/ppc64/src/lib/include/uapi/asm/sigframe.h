@@ -63,6 +63,11 @@ struct rt_sigframe {
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe)	(1)
 #define RT_SIGFRAME_FPU(rt_sigframe)		(&(rt_sigframe)->uc.uc_mcontext)
 
+#define rt_sigframe_erase_sigset(sigframe)				\
+	memset(&sigframe->uc.uc_sigmask, 0, sizeof(k_rtsigset_t))
+#define rt_sigframe_copy_sigset(sigframe, from)				\
+	memcpy(&sigframe->uc.uc_sigmask, from, sizeof(k_rtsigset_t))
+
 #define MSR_TMA (1UL<<34)	/* bit 29 Trans Mem state: Transactional */
 #define MSR_TMS (1UL<<33)	/* bit 30 Trans Mem state: Suspended */
 #define MSR_TM  (1UL<<32)	/* bit 31 Trans Mem Available */

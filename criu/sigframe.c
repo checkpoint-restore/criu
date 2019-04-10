@@ -18,18 +18,11 @@ static inline void setup_sas(struct rt_sigframe* sigframe, ThreadSasEntry *sas)
 }
 #endif
 
-#ifndef RT_SIGFRAME_UC_SIGMASK
-#define RT_SIGFRAME_UC_SIGMASK(sigframe)				\
-	(k_rtsigset_t*)&RT_SIGFRAME_UC(sigframe)->uc_sigmask
-#endif
-
 int construct_sigframe(struct rt_sigframe *sigframe,
 				     struct rt_sigframe *rsigframe,
 				     k_rtsigset_t *blkset,
 				     CoreEntry *core)
 {
-	k_rtsigset_t *blk_sigset;
-
 	/*
 	 * Copy basic register set in the first place: this will set
 	 * rt_sigframe type: native/compat.
@@ -37,11 +30,10 @@ int construct_sigframe(struct rt_sigframe *sigframe,
 	if (restore_gpregs(sigframe, CORE_THREAD_ARCH_INFO(core)->gpregs))
 		return -1;
 
-	blk_sigset = RT_SIGFRAME_UC_SIGMASK(sigframe);
 	if (blkset)
-		memcpy(blk_sigset, blkset, sizeof(k_rtsigset_t));
+		rt_sigframe_copy_sigset(sigframe, blkset);
 	else
-		memset(blk_sigset, 0, sizeof(k_rtsigset_t));
+		rt_sigframe_erase_sigset(sigframe);
 
 	if (restore_fpu(sigframe, core))
 		return -1;
