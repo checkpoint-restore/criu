@@ -61,6 +61,30 @@ time make CC="$CC" -j4
 
 [ -n "$SKIP_TRAVIS_TEST" ] && return
 
+if [ "${COMPAT_TEST}x" = "yx" ] ; then
+	# Dirty hack to keep both ia32 & x86_64 shared libs on a machine:
+	# headers are probably not compatible, so apt-get doesn't allow
+	# installing both versions, while we need one for CRIU and one
+	# for 32-bit tests. A better way would involve launching docker..
+	# But it would require making zdtm.py aware of docker and launching
+	# tests inside the CT.
+	INCOMPATIBLE_LIBS="libaio-dev libcap-dev libnl-3-dev libnl-route-3-dev"
+	IA32_PKGS=""
+	REFUGE=64-refuge
+
+	mkdir "$REFUGE"
+	for i in $INCOMPATIBLE_LIBS ; do
+		for j in $(dpkg --listfiles $i | grep '\.so$') ; do
+			cp "$j" "$REFUGE/"
+		done
+		IA32_PKGS="$IA32_PKGS $i:i386"
+	done
+	apt-get remove $INCOMPATIBLE_LIBS
+	apt-get install --no-install-recommends $IA32_PKGS
+	mkdir -p /usr/lib/x86_64-linux-gnu/
+	mv "$REFUGE"/* /usr/lib/x86_64-linux-gnu/
+fi
+
 time make CC="$CC" -j4 -C test/zdtm
 
 [ -f "$CCACHE_LOGFILE" ] && cat $CCACHE_LOGFILE
