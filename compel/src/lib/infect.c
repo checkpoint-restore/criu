@@ -1130,15 +1130,9 @@ static int save_regs_plain(void *to, user_regs_struct_t *r, user_fpregs_struct_t
 	return 0;
 }
 
-#ifndef RT_SIGFRAME_UC_SIGMASK
-#define RT_SIGFRAME_UC_SIGMASK(sigframe)				\
-	(k_rtsigset_t*)(void *)&RT_SIGFRAME_UC(sigframe)->uc_sigmask
-#endif
-
 static int make_sigframe_plain(void *from, struct rt_sigframe *f, struct rt_sigframe *rtf, k_rtsigset_t *b)
 {
 	struct plain_regs_struct *prs = from;
-	k_rtsigset_t *blk_sigset;
 
 	/*
 	 * Make sure it's zeroified.
@@ -1148,11 +1142,8 @@ static int make_sigframe_plain(void *from, struct rt_sigframe *f, struct rt_sigf
 	if (sigreturn_prep_regs_plain(f, &prs->regs, &prs->fpregs))
 		return -1;
 
-	blk_sigset = RT_SIGFRAME_UC_SIGMASK(f);
 	if (b)
-		memcpy(blk_sigset, b, sizeof(k_rtsigset_t));
-	else
-		memset(blk_sigset, 0, sizeof(k_rtsigset_t));
+		rt_sigframe_copy_sigset(f, b);
 
 	if (RT_SIGFRAME_HAS_FPU(f)) {
 		if (sigreturn_prep_fpu_frame_plain(f, rtf))

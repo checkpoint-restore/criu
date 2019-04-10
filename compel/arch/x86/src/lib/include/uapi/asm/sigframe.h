@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include <compel/asm/fpu.h>
 #include <compel/plugins/std/syscall-codes.h>
@@ -75,6 +76,7 @@ struct rt_sigcontext_32 {
 
 typedef uint32_t			compat_uptr_t;
 typedef uint32_t			compat_size_t;
+typedef uint32_t			compat_sigset_word;
 
 typedef struct compat_siginfo {
 	int	si_signo;
@@ -89,12 +91,20 @@ typedef struct compat_sigaltstack {
 	compat_size_t		ss_size;
 } compat_stack_t;
 
+#define _COMPAT_NSIG		64
+#define _COMPAT_NSIG_BPW	32
+#define _COMPAT_NSIG_WORDS	(_COMPAT_NSIG / _COMPAT_NSIG_BPW)
+
+typedef struct {
+	compat_sigset_word	sig[_COMPAT_NSIG_WORDS];
+} compat_sigset_t;
+
 struct ucontext_ia32 {
 	unsigned int		uc_flags;
 	unsigned int		uc_link;
 	compat_stack_t		uc_stack;
 	struct rt_sigcontext_32	uc_mcontext;
-	k_rtsigset_t		uc_sigmask; /* mask last for extensibility */
+	compat_sigset_t		uc_sigmask; /* mask last for extensibility */
 };
 
 struct rt_sigframe_ia32 {
@@ -127,10 +137,28 @@ struct rt_sigframe {
 	bool is_native;
 };
 
-#define RT_SIGFRAME_UC_SIGMASK(rt_sigframe)				\
-	((rt_sigframe->is_native)			?		\
-	(&rt_sigframe->native.uc.uc_sigmask) :				\
-	((k_rtsigset_t *)(void *)&rt_sigframe->compat.uc.uc_sigmask))
+static inline
+void rt_sigframe_copy_sigset(struct rt_sigframe *to, k_rtsigset_t *from)
+{
+	size_t sz = sizeof(k_rtsigset_t);
+
+	BUILD_BUG_ON(sz != sizeof(compat_sigset_t));
+	if (to->is_native)
+		memcpy(&to->native.uc.uc_sigmask, from, sz);
+	else
+		memcpy(&to->compat.uc.uc_sigmask, from, sz);
+}
+
+static inline
+void rt_sigframe_erase_sigset(struct rt_sigframe *sigframe)
+{
+	size_t sz = sizeof(k_rtsigset_t);
+
+	if (sigframe->is_native)
+		memset(&sigframe->native.uc.uc_sigmask, 0, sz);
+	else
+		memset(&sigframe->compat.uc.uc_sigmask, 0, sz);
+}
 
 #define RT_SIGFRAME_REGIP(rt_sigframe)					\
 	((rt_sigframe->is_native)			?		\

@@ -61,4 +61,9 @@ struct cr_sigcontext {
 #define RT_SIGFRAME_FPU(rt_sigframe)		(&RT_SIGFRAME_AUX_CONTEXT(rt_sigframe)->fpsimd)
 #define RT_SIGFRAME_OFFSET(rt_sigframe)		0
 
+#define rt_sigframe_erase_sigset(sigframe)				\
+	memset(&sigframe->uc.uc_sigmask, 0, sizeof(k_rtsigset_t))
+#define rt_sigframe_copy_sigset(sigframe, from)				\
+	memcpy(&sigframe->uc.uc_sigmask, from, sizeof(k_rtsigset_t))
+
 #endif /* UAPI_COMPEL_ASM_SIGFRAME_H__ */
