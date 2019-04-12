@@ -1,6 +1,7 @@
 #include <stdarg.h>
 
 #include "common/bitsperlong.h"
+#include "piegen.h"
 #include <compel/plugins/std/syscall.h>
 #include <compel/plugins/std/string.h>
 #include <compel/plugins/std/log.h>
@@ -60,7 +61,7 @@ static void sbuf_log_init(struct simple_buf *b)
 		sys_gettimeofday(&now, NULL);
 		struct timeval curr = now;
 		timediff(&start, &now);
-		if (print_ts_diffs) {
+		if (opts.relative_timestamps) {
 			start = curr;
 			if (is_first_call) {
 				// first entry will be zero
