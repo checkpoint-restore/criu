@@ -139,6 +139,7 @@ struct cr_options {
 	pid_t			tree_id;
 	int			log_level;
 	char			*imgs_dir;
+	int         relative_timestamps;
 };
 
 extern struct cr_options opts;

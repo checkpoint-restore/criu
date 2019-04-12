@@ -341,6 +341,7 @@ usage:
 "                        a capability, use ^CAP. Empty argument implies all\n"
 "     --exec-cmd         execute the command specified after '--' on successful\n"
 "                        restore making it the parent of the restored process\n"
+"  --relative-timestamps print time passed since last log message instead of program start\n"
 "  --freeze-cgroup       use cgroup freezer to collect processes\n"
 "  --weak-sysctls        skip restoring sysctls that are not available\n"
 "  --lazy-pages          restore pages on demand\n"

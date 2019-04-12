@@ -43,7 +43,7 @@ static inline void pad_num(char **s, int *n, int nr)
 
 static void sbuf_log_init(struct simple_buf *b)
 {
-	static struct timeval last_t;
+	static int is_first_call = 1;
 	char pbuf[12], *s;
 	int n;
 
@@ -58,15 +58,17 @@ static void sbuf_log_init(struct simple_buf *b)
 		struct timeval now;
 
 		sys_gettimeofday(&now, NULL);
-		struct timeval *pivot = print_ts_diffs ? &last_t : &start;
 		struct timeval curr = now;
-		timediff(pivot, &now);
-		if (now.tv_sec == curr.tv_sec && now.tv_usec == curr.tv_usec) {
-			// first entry will be zero
-			now.tv_sec = 0;
-			now.tv_usec = 0;
+		timediff(&start, &now);
+		if (print_ts_diffs) {
+			start = curr;
+			if (is_first_call) {
+				// first entry will be zero
+				now.tv_sec = 0;
+				now.tv_usec = 0;
+				is_first_call = 0;
+			}
 		}
-		if (print_ts_diffs) last_t = curr;
 
 		/* Seconds */
 		n = std_vprint_num(pbuf, sizeof(pbuf), (unsigned)now.tv_sec, &s);

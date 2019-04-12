@@ -26,7 +26,6 @@
 #include "../soccr/soccr.h"
 #include "compel/log.h"
 
-int print_ts_diffs = 1;
 
 #define DEFAULT_LOGFD		STDERR_FILENO
 /* Enable timestamps if verbosity is increased from default */
@@ -68,19 +67,22 @@ static void timediff(struct timeval *from, struct timeval *to)
 
 static void print_ts(void)
 {
-	static struct timeval last_t;
+	static int is_first_call = 1;
 	struct timeval t;
 
 	gettimeofday(&t, NULL);
-	struct timeval *pivot = print_ts_diffs ? &last_t : &start;
 	struct timeval curr = t;
-	timediff(pivot, &t);
-	if (t.tv_sec == curr.tv_sec && t.tv_usec == curr.tv_usec) {
-		// first entry will be zero
-		t.tv_sec = 0;
-		t.tv_usec = 0;
+	timediff(&start, &t);
+	if (opts.relative_timestamps) {
+		start = curr;
+		if (is_first_call) {
+			// first entry will be zero
+			t.tv_sec = 0;
+			t.tv_usec = 0;
+			is_first_call = 0;
+		}
 	}
-	if (print_ts_diffs) last_t = curr;
+
 	snprintf(buffer, TS_BUF_OFF,
 			"(%02u.%06u)", (unsigned)t.tv_sec, (unsigned)t.tv_usec);
 	buffer[TS_BUF_OFF - 1] = ' '; /* kill the '\0' produced by snprintf */
