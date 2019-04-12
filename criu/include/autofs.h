@@ -20,70 +20,70 @@ int autofs_mount(struct mount_info *mi, const char *source, const
 
 #include <string.h>
 
-#define AUTOFS_DEVICE_NAME             "autofs"
+#define AUTOFS_DEVICE_NAME		"autofs"
 
 #define AUTOFS_DEV_IOCTL_VERSION_MAJOR 1
 #define AUTOFS_DEV_IOCTL_VERSION_MINOR 0
 
-#define AUTOFS_DEVID_LEN               16
+#define AUTOFS_DEVID_LEN		16
 
-#define AUTOFS_DEV_IOCTL_SIZE          sizeof(struct autofs_dev_ioctl)
+#define AUTOFS_DEV_IOCTL_SIZE		sizeof(struct autofs_dev_ioctl)
 
 /*
  * An ioctl interface for autofs mount point control.
  */
 
 struct args_protover {
-	__u32   version;
+	__u32	version;
 };
 
 struct args_protosubver {
-	__u32   sub_version;
+	__u32	sub_version;
 };
 
 struct args_openmount {
-	__u32   devid;
+	__u32	devid;
 };
 
 struct args_ready {
-	__u32   token;
+	__u32	token;
 };
 
 struct args_fail {
-	__u32   token;
-	__s32   status;
+	__u32	token;
+	__s32	status;
 };
 
 struct args_setpipefd {
-	__s32   pipefd;
+	__s32	pipefd;
 };
 
 struct args_timeout {
-	__u64   timeout;
+	__u64	timeout;
 };
 
 struct args_requester {
-	__u32   uid;
-	__u32   gid;
+	__u32	uid;
+	__u32	gid;
 };
 
 struct args_expire {
-	__u32   how;
+	__u32	how;
 };
 
 
 struct args_askumount {
-	__u32   may_umount;
+	__u32	may_umount;
 };
 
 struct args_ismountpoint {
 	union {
 		struct args_in {
-			__u32   type;
+			__u32	type;
 		} in;
 		struct args_out {
-			__u32   devid;
-			__u32   magic;
+			__u32	devid;
+			__u32	magic;
 		} out;
 	};
 };
@@ -98,24 +98,24 @@ struct args_ismountpoint {
 struct autofs_dev_ioctl {
 	__u32 ver_major;
 	__u32 ver_minor;
-	__u32 size;             /* total size of data passed in
+	__u32 size;		/* total size of data passed in
 				 * including this struct */
-	__s32 ioctlfd;          /* automount command fd */
+	__s32 ioctlfd;		/* automount command fd */
 
 	/* Command parameters */
 
 	union {
-		struct args_protover            protover;
-		struct args_protosubver         protosubver;
-		struct args_openmount           openmount;
-		struct args_ready               ready;
-		struct args_fail                fail;
-		struct args_setpipefd           setpipefd;
-		struct args_timeout             timeout;
-		struct args_requester           requester;
-		struct args_expire              expire;
-		struct args_askumount           askumount;
-		struct args_ismountpoint        ismountpoint;
+		struct args_protover		protover;
+		struct args_protosubver		protosubver;
+		struct args_openmount		openmount;
+		struct args_ready		ready;
+		struct args_fail		fail;
+		struct args_setpipefd		setpipefd;
+		struct args_timeout		timeout;
+		struct args_requester		requester;
+		struct args_expire		expire;
+		struct args_askumount		askumount;
+		struct args_ismountpoint	ismountpoint;
 	};
 
 	char path[0];

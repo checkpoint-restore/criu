@@ -10,7 +10,7 @@
 #endif
 
 #ifndef SO_PEEK_OFF
-#define SO_PEEK_OFF            42
+#define SO_PEEK_OFF		42
 #endif
 
 #include "common/scm.h"

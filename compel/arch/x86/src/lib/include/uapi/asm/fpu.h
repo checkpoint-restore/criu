@@ -149,7 +149,7 @@ struct xsave_hdr_struct {
  * The high 128 bits are stored here.
  */
 struct ymmh_struct {
-	uint32_t                        ymmh_space[64];
+	uint32_t			ymmh_space[64];
 } __packed;
 
 /* Intel MPX support: */

@@ -222,5 +222,5 @@ int __wrap_nlmsg_parse(struct nlmsghdr *nlh, int hdrlen, struct nlattr *tb[],
 
 int32_t nla_get_s32(const struct nlattr *nla)
 {
-        return *(const int32_t *) nla_data(nla);
+	return *(const int32_t *) nla_data(nla);
 }

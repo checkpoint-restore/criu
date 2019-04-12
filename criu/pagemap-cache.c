@@ -119,7 +119,7 @@ static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 	 * is to walk page tables less.
 	 */
 	if (!pagemap_cache_disabled &&
-            len < PMC_SIZE && (vma->e->start - low) < PMC_SIZE_GAP) {
+	    len < PMC_SIZE && (vma->e->start - low) < PMC_SIZE_GAP) {
 		size_t size_cov = len;
 		size_t nr_vmas = 1;
 
