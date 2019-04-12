@@ -7,9 +7,9 @@
 
 #ifndef CONFIG_HAS_PTRACE_PEEKSIGINFO
 struct ptrace_peeksiginfo_args {
-        __u64 off;	/* from which siginfo to start */
-        __u32 flags;
-        __u32 nr;	/* how may siginfos to take */
+	__u64 off;	/* from which siginfo to start */
+	__u32 flags;
+	__u32 nr;	/* how may siginfos to take */
 };
 #endif
 

@@ -468,7 +468,7 @@ err:
 }
 
 #ifndef SO_GET_FILTER
-#define SO_GET_FILTER           SO_ATTACH_FILTER
+#define SO_GET_FILTER		SO_ATTACH_FILTER
 #endif
 
 static int check_so_gets(void)

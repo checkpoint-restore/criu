@@ -92,7 +92,7 @@ static inline int sk_decode_shutdown(int val)
 extern int set_netns(uint32_t ns_id);
 
 #ifndef SIOCGSKNS
-#define SIOCGSKNS      0x894C          /* get socket network namespace */
+#define SIOCGSKNS	0x894C		/* get socket network namespace */
 #endif
 
 extern int kerndat_socket_netns(void);

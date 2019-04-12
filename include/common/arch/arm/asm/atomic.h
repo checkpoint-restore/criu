@@ -29,9 +29,9 @@ static inline int atomic_cmpxchg(atomic_t *ptr, int old, int new)
 		"teq	%1, %4\n"
 		"it	eq\n"
 		"strexeq %0, %5, [%3]\n"
-		    : "=&r" (res), "=&r" (oldval), "+Qo" (ptr->counter)
-		    : "r" (&ptr->counter), "Ir" (old), "r" (new)
-		    : "cc");
+			: "=&r" (res), "=&r" (oldval), "+Qo" (ptr->counter)
+			: "r" (&ptr->counter), "Ir" (old), "r" (new)
+			: "cc");
 	} while (res);
 
 	smp_mb();
@@ -47,13 +47,13 @@ static inline int atomic_cmpxchg(atomic_t *ptr, int old, int new)
 
 static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 {
-        int ret;
+	int ret;
 
-        ret = v->counter;
-        if (ret == old)
-                v->counter = new;
+	ret = v->counter;
+	if (ret == old)
+		v->counter = new;
 
-        return ret;
+	return ret;
 }
 
 #else
@@ -88,7 +88,7 @@ static inline int atomic_add_return(int i, atomic_t *v)
 "	teq	%1, #0\n"
 "	bne	1b\n"
 	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)
-        : "r" (&v->counter), "Ir" (i)
+	: "r" (&v->counter), "Ir" (i)
 	: "cc");
 
 	smp_mb();

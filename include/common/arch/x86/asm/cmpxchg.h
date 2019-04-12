@@ -17,7 +17,7 @@
  */
 #define __xchg_op(ptr, arg, op, lock)					\
 	({								\
-	        __typeof__ (*(ptr)) __ret = (arg);			\
+		__typeof__ (*(ptr)) __ret = (arg);			\
 		switch (sizeof(*(ptr))) {				\
 		case __X86_CASE_B:					\
 			asm volatile (lock #op "b %b0, %1\n"		\

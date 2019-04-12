@@ -6,11 +6,11 @@
 
 #define PAGE_ALLOC_COSTLY_ORDER 3 /* from the kernel source code */
 struct kernel_pipe_buffer {
-        struct page *page;
-        unsigned int offset, len;
-        const struct pipe_buf_operations *ops;
-        unsigned int flags;
-        unsigned long private;
+	struct page *page;
+	unsigned int offset, len;
+	const struct pipe_buf_operations *ops;
+	unsigned int flags;
+	unsigned long private;
 };
 
 /*

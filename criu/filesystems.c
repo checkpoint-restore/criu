@@ -58,7 +58,7 @@ static int parse_binfmt_misc_entry(struct bfd *f, BinfmtMiscEntry *bme)
 		char *str;
 
 		str = breadline(f);
-                if (IS_ERR(str))
+		if (IS_ERR(str))
 			return -1;
 		if (!str)
 			break;

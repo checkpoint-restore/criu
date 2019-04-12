@@ -41,10 +41,10 @@ void criu_free_service(criu_opts *opts)
 		case CRIU_COMM_SK:
 			free((void*)(opts->service_address));
 			break;
-        case CRIU_COMM_BIN:
+	case CRIU_COMM_BIN:
 			free((void*)(opts->service_binary));
 			break;
-        default:
+	default:
 			break;
 	}
 }

@@ -29,7 +29,7 @@
 struct sk_packet {
 	struct list_head	list;
 	SkPacketEntry		*entry;
-	char        		*data;
+	char			*data;
 	unsigned		scm_len;
 	int			*scm;
 };
