@@ -12,18 +12,18 @@ struct packet_diag_req {
 	__u32	pdiag_cookie[2];
 };
 
-#define PACKET_SHOW_INFO        0x00000001 /* Basic packet_sk information */
-#define PACKET_SHOW_MCLIST      0x00000002 /* A set of packet_diag_mclist-s */
+#define PACKET_SHOW_INFO	0x00000001 /* Basic packet_sk information */
+#define PACKET_SHOW_MCLIST	0x00000002 /* A set of packet_diag_mclist-s */
 #define PACKET_SHOW_RING_CFG	0x00000004 /* Rings configuration parameters */
 #define PACKET_SHOW_FANOUT	0x00000008
 
 struct packet_diag_msg {
-	__u8    pdiag_family;
-	__u8    pdiag_type;
-	__u16   pdiag_num;
+	__u8	pdiag_family;
+	__u8	pdiag_type;
+	__u16	pdiag_num;
 
-	__u32   pdiag_ino;
-	__u32   pdiag_cookie[2];
+	__u32	pdiag_ino;
+	__u32	pdiag_cookie[2];
 };
 
 enum {
@@ -37,18 +37,18 @@ enum {
 };
 
 struct packet_diag_info {
-	__u32   pdi_index;
-	__u32   pdi_version;
-	__u32   pdi_reserve;
-	__u32   pdi_copy_thresh;
-	__u32   pdi_tstamp;
-	__u32   pdi_flags;
+	__u32	pdi_index;
+	__u32	pdi_version;
+	__u32	pdi_reserve;
+	__u32	pdi_copy_thresh;
+	__u32	pdi_tstamp;
+	__u32	pdi_flags;
 
-#define PDI_RUNNING     0x1
-#define PDI_AUXDATA     0x2
-#define PDI_ORIGDEV     0x4
-#define PDI_VNETHDR     0x8
-#define PDI_LOSS        0x10
+#define PDI_RUNNING	0x1
+#define PDI_AUXDATA	0x2
+#define PDI_ORIGDEV	0x4
+#define PDI_VNETHDR	0x8
+#define PDI_LOSS	0x10
 };
 
 #ifndef MAX_ADDR_LEN
@@ -56,21 +56,21 @@ struct packet_diag_info {
 #endif
 
 struct packet_diag_mclist {
-	__u32   pdmc_index;
-	__u32   pdmc_count;
-	__u16   pdmc_type;
-	__u16   pdmc_alen;
-	__u8    pdmc_addr[MAX_ADDR_LEN];
+	__u32	pdmc_index;
+	__u32	pdmc_count;
+	__u16	pdmc_type;
+	__u16	pdmc_alen;
+	__u8	pdmc_addr[MAX_ADDR_LEN];
 };
 
 struct packet_diag_ring {
-	__u32   pdr_block_size;
-	__u32   pdr_block_nr;
-	__u32   pdr_frame_size;
-	__u32   pdr_frame_nr;
-	__u32   pdr_retire_tmo;
-	__u32   pdr_sizeof_priv;
-	__u32   pdr_features;
+	__u32	pdr_block_size;
+	__u32	pdr_block_nr;
+	__u32	pdr_frame_size;
+	__u32	pdr_frame_nr;
+	__u32	pdr_retire_tmo;
+	__u32	pdr_sizeof_priv;
+	__u32	pdr_features;
 };
 
 #endif /* __CR_PACKET_DIAG_H__ */

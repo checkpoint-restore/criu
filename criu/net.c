@@ -344,7 +344,7 @@ static int ipv6_conf_op(char *tgt, SysctlEntry **conf, int n, int op, SysctlEntr
  * the kernel, simply write DEVCONFS_UNUSED
  * into the image so we would skip it.
  */
-#define DEVCONFS_UNUSED        (-1u)
+#define DEVCONFS_UNUSED		(-1u)
 
 static int ipv4_conf_op_old(char *tgt, int *conf, int n, int op, int *def_conf)
 {
@@ -2765,7 +2765,7 @@ static int prep_ns_sockets(struct ns_id *ns, bool for_dump)
 		freecon(ctx);
 		if (ret < 0) {
 			pr_perror("Setting SELinux socket context for PID %d failed",
-                                  root_item->pid->real);
+				  root_item->pid->real);
 			goto err_sq;
 		}
 	}
@@ -3019,22 +3019,22 @@ int move_veth_to_bridge(void)
 #ifndef NETNSA_MAX
 /* Attributes of RTM_NEWNSID/RTM_GETNSID messages */
 enum {
-        NETNSA_NONE,
+	NETNSA_NONE,
 #define NETNSA_NSID_NOT_ASSIGNED -1
-        NETNSA_NSID,
-        NETNSA_PID,
-        NETNSA_FD,
-        __NETNSA_MAX,
+	NETNSA_NSID,
+	NETNSA_PID,
+	NETNSA_FD,
+	__NETNSA_MAX,
 };
 
-#define NETNSA_MAX              (__NETNSA_MAX - 1)
+#define NETNSA_MAX		(__NETNSA_MAX - 1)
 #endif
 
 static struct nla_policy rtnl_net_policy[NETNSA_MAX + 1] = {
-        [NETNSA_NONE]           = { .type = NLA_UNSPEC },
-        [NETNSA_NSID]           = { .type = NLA_S32 },
-        [NETNSA_PID]            = { .type = NLA_U32 },
-        [NETNSA_FD]             = { .type = NLA_U32 },
+	[NETNSA_NONE]		= { .type = NLA_UNSPEC },
+	[NETNSA_NSID]		= { .type = NLA_S32 },
+	[NETNSA_PID]		= { .type = NLA_U32 },
+	[NETNSA_FD]		= { .type = NLA_U32 },
 };
 
 static int nsid_cb(struct nlmsghdr *msg, struct ns_id *ns, void *arg)
