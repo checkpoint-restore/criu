@@ -25,12 +25,12 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 }
 #endif /* !CONFIG_COMPAT */
 
-#define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,      \
-			     thread_args, clone_restore_fn)             \
+#define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,	\
+			     thread_args, clone_restore_fn)		\
 	asm volatile(							\
 		     "clone_emul:				\n"	\
 		     "movq %2, %%rsi				\n"	\
-		     "subq $16, %%rsi			        \n"	\
+		     "subq $16, %%rsi				\n"	\
 		     "movq %6, %%rdi				\n"	\
 		     "movq %%rdi, 8(%%rsi)			\n"	\
 		     "movq %5, %%rdi				\n"	\
@@ -39,16 +39,16 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 		     "movq %3, %%rdx				\n"	\
 		     "movq %4, %%r10				\n"	\
 		     "movl $"__stringify(__NR_clone)", %%eax	\n"	\
-		     "syscall				        \n"	\
+		     "syscall					\n"	\
 									\
-		     "testq %%rax,%%rax			        \n"	\
+		     "testq %%rax,%%rax				\n"	\
 		     "jz thread_run				\n"	\
 									\
 		     "movq %%rax, %0				\n"	\
 		     "jmp clone_end				\n"	\
 									\
 		     "thread_run:				\n"	\
-		     "xorq %%rbp, %%rbp			        \n"	\
+		     "xorq %%rbp, %%rbp				\n"	\
 		     "popq %%rax				\n"	\
 		     "popq %%rdi				\n"	\
 		     "callq *%%rax				\n"	\

@@ -158,13 +158,13 @@ void libsoccr_release(struct libsoccr_sk *sk)
 }
 
 struct soccr_tcp_info {
-        __u8    tcpi_state;
-        __u8    tcpi_ca_state;
-        __u8    tcpi_retransmits;
-        __u8    tcpi_probes;
-        __u8    tcpi_backoff;
-        __u8    tcpi_options;
-        __u8    tcpi_snd_wscale : 4, tcpi_rcv_wscale : 4;
+	__u8	tcpi_state;
+	__u8	tcpi_ca_state;
+	__u8	tcpi_retransmits;
+	__u8	tcpi_probes;
+	__u8	tcpi_backoff;
+	__u8	tcpi_options;
+	__u8	tcpi_snd_wscale : 4, tcpi_rcv_wscale : 4;
 };
 
 static int refresh_sk(struct libsoccr_sk *sk,

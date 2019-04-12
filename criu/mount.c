@@ -2325,8 +2325,8 @@ out:
 	 * mi->shared_id && !shared - create a new shared group
 	 */
 	if (restore_shared_options(mi, private,
-	                           mi->shared_id && !shared,
-	                           mi->master_id && !master))
+				   mi->shared_id && !shared,
+				   mi->master_id && !master))
 		return -1;
 
 	mi->mounted = true;

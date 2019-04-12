@@ -4,12 +4,12 @@
 
 static inline int ptrace_set_breakpoint(pid_t pid, void *addr)
 {
-        return 0;
+	return 0;
 }
 
 static inline int ptrace_flush_breakpoints(pid_t pid)
 {
-        return 0;
+	return 0;
 }
 
 #endif

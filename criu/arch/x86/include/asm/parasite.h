@@ -28,8 +28,8 @@ static int arch_get_user_desc(user_desc_t *desc)
 	 * };
 	 */
 	asm volatile (
-	"       mov %0,%%eax                    \n"
-	"       mov %1,%%rbx                    \n"
+	"	mov %0,%%eax			\n"
+	"	mov %1,%%rbx			\n"
 	"	int $0x80			\n"
 	"	mov %%eax,%0			\n"
 	: "+m"(ret)

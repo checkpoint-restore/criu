@@ -481,15 +481,15 @@ int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
 /* Copied from the gdb header gdb/nat/x86-dregs.h */
 
 /* Debug registers' indices.  */
-#define DR_FIRSTADDR 0
-#define DR_LASTADDR  3
-#define DR_NADDR     4  /* The number of debug address registers.  */
-#define DR_STATUS    6  /* Index of debug status register (DR6).  */
-#define DR_CONTROL   7  /* Index of debug control register (DR7).  */
+#define DR_FIRSTADDR	0
+#define DR_LASTADDR	3
+#define DR_NADDR	4  /* The number of debug address registers.  */
+#define DR_STATUS	6  /* Index of debug status register (DR6).  */
+#define DR_CONTROL	7  /* Index of debug control register (DR7).  */
 
-#define DR_LOCAL_ENABLE_SHIFT   0 /* Extra shift to the local enable bit.  */
-#define DR_GLOBAL_ENABLE_SHIFT  1 /* Extra shift to the global enable bit.  */
-#define DR_ENABLE_SIZE          2 /* Two enable bits per debug register.  */
+#define DR_LOCAL_ENABLE_SHIFT	0 /* Extra shift to the local enable bit.  */
+#define DR_GLOBAL_ENABLE_SHIFT	1 /* Extra shift to the global enable bit.  */
+#define DR_ENABLE_SIZE		2 /* Two enable bits per debug register.  */
 
 /* Locally enable the break/watchpoint in the I'th debug register.  */
 #define X86_DR_LOCAL_ENABLE(i) (1 << (DR_LOCAL_ENABLE_SHIFT + DR_ENABLE_SIZE * (i)))

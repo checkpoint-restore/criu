@@ -8,7 +8,7 @@
  */
 
 typedef struct {
-        int counter;
+	int counter;
 } atomic_t;
 
 #include "common/arch/ppc64/asm/cmpxchg.h"
