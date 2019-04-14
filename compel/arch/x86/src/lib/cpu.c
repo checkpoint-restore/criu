@@ -269,7 +269,8 @@ int compel_cpuid(compel_cpuinfo_t *c)
 
 	if (!strcmp(c->x86_vendor_id, "GenuineIntel")) {
 		c->x86_vendor = X86_VENDOR_INTEL;
-	} else if (!strcmp(c->x86_vendor_id, "AuthenticAMD")) {
+	} else if (!strcmp(c->x86_vendor_id, "AuthenticAMD") ||
+		!strcmp(c->x86_vendor_id, "HygonGenuine")) {
 		c->x86_vendor = X86_VENDOR_AMD;
 	} else {
 		pr_err("Unsupported CPU vendor %s\n",
