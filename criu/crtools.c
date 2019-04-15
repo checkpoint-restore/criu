@@ -20,9 +20,6 @@
 
 #include <sys/utsname.h>
 
-#include <sys/time.h>
-#include <sys/resource.h>
-
 #include "int.h"
 #include "page.h"
 #include "common/compiler.h"
@@ -49,79 +46,6 @@
 
 #include "setproctitle.h"
 #include "sysctl.h"
-
-static void rlimit_unlimit_nofile(void)
-{
-	struct rlimit new;
-
-	new.rlim_cur = kdat.sysctl_nr_open;
-	new.rlim_max = kdat.sysctl_nr_open;
-
-	if (prlimit(getpid(), RLIMIT_NOFILE, &new, NULL)) {
-		pr_perror("rlimit: Can't setup RLIMIT_NOFILE for self");
-		return;
-	} else
-		pr_debug("rlimit: RLIMIT_NOFILE unlimited for self\n");
-
-	service_fd_rlim_cur = kdat.sysctl_nr_open;
-}
-
-static int early_init(const char *cmd)
-{
-	static const char *nofile_cmds[] = {
-		"swrk", "service",
-		"dump", "pre-dump",
-		"restore",
-	};
-	size_t i;
-
-	/*
-	 * Service fd engine implies that file descriptors
-	 * used won't be borrowed by the rest of the code
-	 * and default 1024 limit is not enough for high
-	 * loaded test/containers. Thus use kdat engine
-	 * to fetch current system level limit for numbers
-	 * of files allowed to open up and lift up own
-	 * limits.
-	 *
-	 * Note we have to do it before the service fd
-	 * get inited and we dont exit with errors here
-	 * because in worst scenario where clash of fd
-	 * happen we simply exit with explicit error
-	 * during real action stage.
-	 *
-	 * Same time raising limits cause kernel fdtable
-	 * to bloat so we do this only on the @nofile_cmds:
-	 *
-	 *  - on dump criu needs additional files for sfd,
-	 *    thus if container already has many files opened
-	 *    we need to have at least not less space when
-	 *    fetching fds from a target process;
-	 *
-	 *  - on pre-dump we might need a lot of pipes to
-	 *    fetch huge number of pages to dump;
-	 *
-	 *  - on restore we still need to raise limits since
-	 *    there is no guarantee that on dump we've not
-	 *    been hitting fd limit already;
-	 *
-	 *  - swrk and service obtain requests on the fly,
-	 *    thus we don't know if on of above will be
-	 *    there thus raise limits.
-	 */
-	for (i = 0; i < ARRAY_SIZE(nofile_cmds); i++) {
-		if (strcmp(nofile_cmds[i], cmd))
-			continue;
-		if (!kerndat_files_stat(true))
-			rlimit_unlimit_nofile();
-		break;
-	}
-
-	if (init_service_fd())
-		return 1;
-
-	return 0;
-}
 
 int main(int argc, char *argv[], char *envp[])
 {
@@ -157,9 +81,6 @@ int main(int argc, char *argv[], char *envp[])
 		goto usage;
 
 	log_set_loglevel(opts.log_level);
-
-	if (early_init(argv[optind]))
-		return -1;
 
 	if (!strcmp(argv[1], "swrk")) {
 		if (argc < 3)

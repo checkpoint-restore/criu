@@ -2330,6 +2330,9 @@ int cr_restore_tasks(void)
 {
 	int ret = -1;
 
+	if (init_service_fd())
+		return 1;
+
 	if (cr_plugin_init(CR_PLUGIN_STAGE__RESTORE))
 		return -1;
 
