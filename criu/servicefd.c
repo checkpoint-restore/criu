@@ -68,6 +68,20 @@ int init_service_fd(void)
 	struct rlimit64 rlimit;
 
 	/*
+	 * Service fd engine implies that file descriptors used won't be
+	 * borrowed by the rest of the code and default 1024 limit is not
+	 * enough for high loaded test/containers. Thus use kdat engine to
+	 * fetch current system level limit for numbers of files allowed to
+	 * open up and lift up own limits.
+	 *
+	 * Note we have to do it before the service fd get initialized and we
+	 * don't exit with errors here because in worst scenario where clash of
+	 * fd happen we simply exit with explicit error during real action
+	 * stage.
+	 */
+	rlimit_unlimit_nofile();
+
+	/*
 	 * Service FDs are those that most likely won't
 	 * conflict with any 'real-life' ones
 	 */

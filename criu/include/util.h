@@ -350,6 +350,8 @@ extern int epoll_del_rfd(int epfd, struct epoll_rfd *rfd);
 extern int epoll_run_rfds(int epfd, struct epoll_event *evs, int nr_fds, int tmo);
 extern int epoll_prepare(int nr_events, struct epoll_event **evs);
 
+extern void rlimit_unlimit_nofile(void);
+
 extern int call_in_child_process(int (*fn)(void *), void *arg);
 #ifdef __GLIBC__
 extern void print_stack_trace(pid_t pid);

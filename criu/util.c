@@ -20,12 +20,15 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sched.h>
 #include <ctype.h>
 
+#include "kerndat.h"
 #include "page.h"
 #include "util.h"
 #include "image.h"
@@ -1347,6 +1350,23 @@ out:
 	close_pid_proc();
 	return ret;
 }
+
+void rlimit_unlimit_nofile(void)
+{
+	struct rlimit new;
+
+	new.rlim_cur = kdat.sysctl_nr_open;
+	new.rlim_max = kdat.sysctl_nr_open;
+
+	if (prlimit(getpid(), RLIMIT_NOFILE, &new, NULL)) {
+		pr_perror("rlimit: Can't setup RLIMIT_NOFILE for self");
+		return;
+	} else
+		pr_debug("rlimit: RLIMIT_NOFILE unlimited for self\n");
+
+	service_fd_rlim_cur = kdat.sysctl_nr_open;
+}
+
 
 #ifdef __GLIBC__
 #include <execinfo.h>
