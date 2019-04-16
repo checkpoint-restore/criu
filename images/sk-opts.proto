@@ -22,6 +22,7 @@ message sk_opts_entry {
 
 	repeated fixed64	so_filter	= 16;
 	optional bool		so_reuseport	= 17;
+	optional bool		so_broadcast	= 18;
 }
 
 enum sk_shutdown {

@@ -566,6 +566,11 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 		pr_debug("\tset no_check for socket\n");
 		ret |= restore_opt(sk, SOL_SOCKET, SO_NO_CHECK, &val);
 	}
+	if (soe->has_so_broadcast && soe->so_broadcast) {
+		val = 1;
+		pr_debug("\tset broadcast for socket\n");
+		ret |= restore_opt(sk, SOL_SOCKET, SO_BROADCAST, &val);
+	}
 
 	tv.tv_sec = soe->so_snd_tmo_sec;
 	tv.tv_usec = soe->so_snd_tmo_usec;
@@ -646,6 +651,10 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	ret |= dump_opt(sk, SOL_SOCKET, SO_NO_CHECK, &val);
 	soe->has_so_no_check = true;
 	soe->so_no_check = val ? true : false;
+
+	ret |= dump_opt(sk, SOL_SOCKET, SO_BROADCAST, &val);
+	soe->has_so_broadcast = true;
+	soe->so_broadcast = val ? true : false;
 
 	ret |= dump_bound_dev(sk, soe);
 	ret |= dump_socket_filter(sk, soe);

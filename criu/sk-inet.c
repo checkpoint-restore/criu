@@ -742,6 +742,10 @@ static int post_open_inet_sk(struct file_desc *d, int sk)
 	if (!val && restore_opt(sk, SOL_SOCKET, SO_REUSEPORT, &val))
 		return -1;
 
+	val = ii->ie->opts->so_broadcast;
+	if (!val && restore_opt(sk, SOL_SOCKET, SO_BROADCAST, &val))
+		return -1;
+
 	return 0;
 }
 
