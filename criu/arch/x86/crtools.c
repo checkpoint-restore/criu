@@ -354,7 +354,7 @@ static bool valid_xsave_frame(CoreEntry *core)
 			};
 
 			for (i = 0; i < ARRAY_SIZE(features); i++) {
-				if (!features[i].ptr && i > 0)
+				if (!features[i].ptr)
 					continue;
 
 				if (features[i].expected > features[i].obtained) {
