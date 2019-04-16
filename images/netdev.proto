@@ -71,4 +71,6 @@ message netns_entry {
 
 	repeated netns_id nsids		= 7;
 	optional string	ext_key		= 8;
+
+	repeated sysctl_entry core_conf	= 9;
 }

@@ -339,6 +339,61 @@ static int ipv6_conf_op(char *tgt, SysctlEntry **conf, int n, int op, SysctlEntr
 			devconfs6, def_conf);
 }
 
+static char *coreconfs[] = {
+	"somaxconn",
+};
+
+static int core_conf_op(SysctlEntry **conf, int n, int op)
+{
+	struct sysctl_req req[ARRAY_SIZE(coreconfs)];
+	char path[ARRAY_SIZE(coreconfs)][256];
+	SysctlEntry *rconf[ARRAY_SIZE(coreconfs)] = { };
+	int ret = 0;
+	int i, ri;
+
+	if (n > ARRAY_SIZE(coreconfs))
+		pr_warn("The image contains unknown sysctl-s\n");
+
+	for (i = 0, ri = 0; i < ARRAY_SIZE(coreconfs); i++) {
+		if (i >= n) {
+			pr_warn("Skip %s\n", coreconfs[i]);
+			continue;
+		}
+
+		if (conf[i]->type != SYSCTL_TYPE__CTL_32)
+			continue;
+		if (op == CTL_WRITE && !conf[i]->has_iarg)
+			continue;
+
+		snprintf(path[i], sizeof(path[i]), "net/core/%s", coreconfs[i]);
+		req[ri].name = path[i];
+		req[ri].type = CTL_32;
+		req[ri].arg = &conf[i]->iarg;
+		if (op == CTL_READ || opts.weak_sysctls)
+			req[ri].flags = CTL_FLAGS_OPTIONAL;
+		else
+			req[ri].flags = 0;
+
+		rconf[ri] = conf[i];
+		ri++;
+	}
+
+	ret = sysctl_op(req, ri, op, CLONE_NEWNET);
+	if (ret < 0) {
+		pr_err("Failed to %s\n", (op == CTL_READ ? "read" : "write"));
+		return ret;
+	}
+
+	if (op == CTL_READ) {
+		for (i = 0; i < ri; i++) {
+			if (req[i].flags & CTL_FLAGS_HAS)
+				rconf[i]->has_iarg = true;
+		}
+	}
+
+	return ret;
+}
+
 /*
  * I case if some entry is missing in
  * the kernel, simply write DEVCONFS_UNUSED
@@ -1832,6 +1887,8 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 	char all_stable_secret[MAX_STR_CONF_LEN + 1] = {};
 	NetnsId	*ids;
 	struct netns_id *p;
+	int core_size = ARRAY_SIZE(coreconfs);
+	SysctlEntry *core_confs = NULL;
 
 	i = 0;
 	list_for_each_entry(p, &ns->net.ids, node)
@@ -1840,7 +1897,8 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 	o_buf = buf = xmalloc(
 			i * (sizeof(NetnsId*) + sizeof(NetnsId)) +
 			size4 * (sizeof(SysctlEntry*) + sizeof(SysctlEntry)) * 2 +
-			size6 * (sizeof(SysctlEntry*) + sizeof(SysctlEntry)) * 2
+			size6 * (sizeof(SysctlEntry*) + sizeof(SysctlEntry)) * 2 +
+			core_size * (sizeof(SysctlEntry*) + sizeof(SysctlEntry))
 		     );
 	if (!buf)
 		goto out;
@@ -1896,6 +1954,16 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 		}
 	}
 
+	netns.n_core_conf = core_size;
+	netns.core_conf = xptr_pull_s(&buf, core_size * sizeof(SysctlEntry*));
+	core_confs = xptr_pull_s(&buf, core_size * sizeof(SysctlEntry));
+
+	for (i = 0; i < core_size; i++) {
+		sysctl_entry__init(&core_confs[i]);
+		netns.core_conf[i] = &core_confs[i];
+		netns.core_conf[i]->type = CTL_32;
+	}
+
 	ret = ipv4_conf_op("default", netns.def_conf4, size4, CTL_READ, NULL);
 	if (ret < 0)
 		goto err_free;
@@ -1907,6 +1975,10 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 	if (ret < 0)
 		goto err_free;
 	ret = ipv6_conf_op("all", netns.all_conf6, size6, CTL_READ, NULL);
+	if (ret < 0)
+		goto err_free;
+
+	ret = core_conf_op(netns.core_conf, core_size, CTL_READ);
 	if (ret < 0)
 		goto err_free;
 
@@ -2146,6 +2218,12 @@ static int restore_netns_conf(struct ns_id *ns)
 		if (ret)
 			goto out;
 		ret = ipv6_conf_op("default", (netns)->def_conf6, (netns)->n_def_conf6, CTL_WRITE, NULL);
+	}
+
+	if ((netns)->core_conf) {
+		ret = core_conf_op((netns)->core_conf, (netns)->n_core_conf, CTL_WRITE);
+		if (ret)
+			goto out;
 	}
 
 	ns->net.netns = netns;
