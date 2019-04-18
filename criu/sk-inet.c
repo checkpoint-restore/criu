@@ -894,9 +894,14 @@ done:
 	    (ie->proto == IPPROTO_UDP ||
 	     ie->proto == IPPROTO_UDPLITE)) {
 		if (shutdown(sk, sk_decode_shutdown(ie->shutdown))) {
-			pr_perror("Can't shutdown socket into %d",
-				  sk_decode_shutdown(ie->shutdown));
-			goto err;
+			if (ie->state != TCP_CLOSE && errno != ENOTCONN) {
+				pr_perror("Can't shutdown socket into %d",
+					  sk_decode_shutdown(ie->shutdown));
+				goto err;
+			} else {
+				pr_debug("Called shutdown on closed socket, "
+					 "proto %d ino %x", ie->proto, ie->ino);
+			}
 		}
 	}
 
