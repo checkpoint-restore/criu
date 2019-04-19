@@ -4,6 +4,7 @@
 #include "int.h"
 #include "images/core.pb-c.h"
 
+extern struct mount_info *host_mountinfo;
 struct pstree_item;
 struct parasite_dump_cgroup_args;
 extern u32 root_cg_set;

@@ -24,6 +24,7 @@
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"
+#include "mount.h"
 
 /*
  * This structure describes set of controller groups
@@ -51,6 +52,13 @@ static u32 cg_set_ids = 1;
 
 static LIST_HEAD(cgroups);
 static unsigned int n_cgroups;
+
+/*
+ * Should be preinitialized for cgroup_mountinfo_contains, these is to be able
+ * to test if cgroup mounts on host contain the specified options. Currently
+ * only to check 'xattr' option.
+ */
+struct mount_info *host_mountinfo;
 
 static CgSetEntry *find_rst_set_by_id(u32 id)
 {
@@ -542,6 +550,84 @@ static int add_freezer_state(struct cg_controller *controller)
 	return 0;
 }
 
+static int __cgroup_mountinfo_contains(char **opts, unsigned int n_opts)
+{
+	struct mount_info *mi;
+
+	BUG_ON(!host_mountinfo);
+
+	for (mi = host_mountinfo; mi != NULL; mi = mi->next) {
+		if (strcmp(mi->fsname, "cgroup"))
+			continue;
+
+		if (!cgroup_contains(opts, n_opts, mi->options, NULL))
+			continue;
+
+		return 1;
+	}
+
+	return 0;
+}
+
+/*
+ * Test if there is a cgroup mount which contains the options provided.
+ *
+ * These takes different types of options, so that it can be used for both yet
+ * un-parsed options and already parsed once.
+ *
+ * signle_attrs   - an array of strings with single option per string,
+ * n_single_attrs - length of the array,
+ * multiple_attrs - a string with multiple options divided by ','.
+ */
+
+static int cgroup_mountinfo_contains(char **sopts, unsigned int n_sopts, char *mopts)
+{
+	unsigned int n_mopts = 0, n_opts, i;
+	char **opts, *c;
+	int ret = -ENOMEM;
+
+	if (mopts && mopts[0] != '\0') {
+		c = mopts;
+		while (c) {
+			n_mopts++;
+			/*
+			 * These ++c is valid on first iteration
+			 * as first character should not be  ','.
+			 */
+			c = strchr(++c, ',');
+		}
+	}
+
+	n_opts = n_sopts + n_mopts;
+	if (!n_opts)
+		return 0;
+
+	opts = xmalloc(sizeof(char *) * n_opts);
+	if (!opts)
+		return -ENOMEM;
+
+	mopts = xstrdup(mopts);
+	if (!mopts)
+		goto err;
+
+	for (i = n_mopts-1; i > 0; i--) {
+		c = strrchr(mopts, ',');
+		c[0] = '\0';
+		opts[i] = ++c;
+	}
+	opts[0] = mopts;
+
+	for (i = 0; i < n_sopts; i++)
+		opts[n_mopts + i] = sopts[i];
+
+	ret = __cgroup_mountinfo_contains(opts, n_opts);
+
+	xfree(mopts);
+err:
+	xfree(opts);
+	return ret;
+}
+
 static int collect_cgroups(struct list_head *ctls)
 {
 	struct cg_ctl *cc;
@@ -553,6 +639,7 @@ static int collect_cgroups(struct list_head *ctls)
 		char prefix[] = ".criu.cgmounts.XXXXXX";
 		struct cg_controller *cg;
 		struct cg_root_opt *o;
+		int has_xattr = 0;
 
 		current_controller = NULL;
 
@@ -586,10 +673,22 @@ static int collect_cgroups(struct list_head *ctls)
 		if (!opts.manage_cgroups)
 			continue;
 
+		/*
+		 * If we do a second mount of the same hierarchy on the system
+		 * we do have to take 'xattr' mount option into consideration
+		 * to prevent warnings about it's missmatch spamming in dmesg.
+		 */
+		snprintf(mopts, sizeof(mopts), "xattr,%s", cc->name);
+		has_xattr = cgroup_mountinfo_contains(NULL, 0, mopts);
+		if (has_xattr < 0) {
+			pr_err("Failed to check xattr in host mountinfo\n");
+			return -1;
+		}
+
 		if (strstartswith(cc->name, "name="))
-			snprintf(mopts, sizeof(mopts), "none,%s", cc->name);
+			snprintf(mopts, sizeof(mopts), "none,%s%s", has_xattr ? "xattr," : "", cc->name);
 		else
-			snprintf(mopts, sizeof(mopts), "%s", cc->name);
+			snprintf(mopts, sizeof(mopts), "%s%s", has_xattr ? "xattr," : "", cc->name);
 
 		if (mkdtemp(prefix) == NULL) {
 			pr_perror("can't make dir for cg mounts");
@@ -1679,6 +1778,10 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 
 	paux[off++] = '/';
 
+	host_mountinfo = parse_mountinfo(1, NULL, 0);
+	if (!host_mountinfo)
+		goto err;
+
 	for (i = 0; i < ce->n_controllers; i++) {
 		int ctl_off = off, yard_off;
 		char opt[128], *yard;
@@ -1700,6 +1803,22 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 				pr_perror("\tCan't make controller dir %s", paux);
 				goto err;
 			}
+
+			/*
+			 * If we do a second mount of the same hierarchy on the system
+			 * we do have to take 'xattr' mount option into consideration
+			 * to prevent warnings about it's missmatch spamming in dmesg.
+			 */
+			ret = cgroup_mountinfo_contains(ctrl->cnames, ctrl->n_cnames, "xattr");
+			if (ret < 0) {
+				pr_err("Failed to check xattr in host mountinfo\n");
+				goto err;
+			}
+			if (ret) {
+				int ooff = strlen(opt);
+				snprintf(opt + ooff, sizeof(opt) - ooff, ",xattr");
+			}
+
 			if (mount("none", paux, "cgroup", 0, opt) < 0) {
 				pr_perror("\tCan't mount controller dir %s", paux);
 				goto err;
@@ -1717,9 +1836,19 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 			goto err;
 	}
 
+	if (host_mountinfo) {
+		free_mntinfo(host_mountinfo);
+		host_mountinfo = NULL;
+	}
+
 	return 0;
 
 err:
+	if (host_mountinfo) {
+		free_mntinfo(host_mountinfo);
+		host_mountinfo = NULL;
+	}
+
 	fini_cgroup();
 	return -1;
 }

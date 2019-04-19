@@ -1669,7 +1669,7 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 	return 0;
 }
 
-static void free_mntinfo(struct mount_info *pms)
+void free_mntinfo(struct mount_info *pms)
 {
 	while (pms) {
 		struct mount_info *pm;
