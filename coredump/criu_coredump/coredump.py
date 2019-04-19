@@ -163,7 +163,8 @@ class coredump_generator:
 			self.mms[pid]		= self._img_open_and_strip("mm", True, pid)
 			self.pagemaps[pid]	= self._img_open_and_strip("pagemap", False, pid)
 
-		self.reg_files	= self._img_open_and_strip("reg-files", False)
+		files		= self._img_open_and_strip("reg-files", False)
+		self.reg_files	= [ x["reg"] for x in files if x["type"]=="REG" ]
 
 		for pid in self.pstree:
 			self.coredumps[pid] = self._gen_coredump(pid)
