@@ -1427,7 +1427,7 @@ int cr_lazy_pages(bool daemon)
 		return -1;
 
 	if (daemon) {
-		ret = cr_daemon(1, 0, &lazy_sk, -1);
+		ret = cr_daemon(1, 0, -1);
 		if (ret == -1) {
 			pr_err("Can't run in the background\n");
 			return -1;

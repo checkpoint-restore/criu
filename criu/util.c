@@ -643,7 +643,7 @@ int close_status_fd(void)
 	return close_safe(&opts.status_fd);
 }
 
-int cr_daemon(int nochdir, int noclose, int *keep_fd, int close_fd)
+int cr_daemon(int nochdir, int noclose, int close_fd)
 {
 	int pid;
 
@@ -665,16 +665,6 @@ int cr_daemon(int nochdir, int noclose, int *keep_fd, int close_fd)
 
 		if (close_fd != -1)
 			close(close_fd);
-
-		if ((*keep_fd != -1) && (*keep_fd != 3)) {
-			fd = dup2(*keep_fd, 3);
-			if (fd < 0) {
-				pr_perror("Dup2 failed");
-				return -1;
-			}
-			close(*keep_fd);
-			*keep_fd = fd;
-		}
 
 		fd = open("/dev/null", O_RDWR);
 		if (fd < 0) {
@@ -1144,7 +1134,7 @@ int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
 	socklen_t clen = sizeof(caddr);
 
 	if (daemon_mode) {
-		ret = cr_daemon(1, 0, ask, cfd);
+		ret = cr_daemon(1, 0, cfd);
 		if (ret == -1) {
 			pr_err("Can't run in the background\n");
 			goto out;
