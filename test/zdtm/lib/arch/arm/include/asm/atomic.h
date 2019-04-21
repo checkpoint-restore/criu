@@ -25,8 +25,8 @@ static inline unsigned int atomic_add_return(int i, atomic_t *v)
 "	strex	%1, %0, [%3]\n"
 "	teq	%1, #0\n"
 "	bne	1b\n"
-	: "=&r" (result), "=&r" (tmp), "+Qo" (v)
-        : "r" (&v), "Ir" (i)
+	: "=&r" (result), "=&r" (tmp), "+Qo" (*v)
+        : "r" (v), "Ir" (i)
 	: "cc");
 
 	smp_mb();
@@ -47,8 +47,8 @@ static inline unsigned int atomic_sub_return(int i, atomic_t *v)
 "	strex	%1, %0, [%3]\n"
 "	teq	%1, #0\n"
 "	bne	1b\n"
-	: "=&r" (result), "=&r" (tmp), "+Qo" (v)
-	: "r" (&v), "Ir" (i)
+	: "=&r" (result), "=&r" (tmp), "+Qo" (*v)
+	: "r" (v), "Ir" (i)
 	: "cc");
 
 	smp_mb();
