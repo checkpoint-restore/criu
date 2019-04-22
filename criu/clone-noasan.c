@@ -21,7 +21,7 @@
  */
 int clone_noasan(int (*fn)(void *), int flags, void *arg)
 {
-	void *stack_ptr = (void *)round_down((unsigned long)&stack_ptr - 256, 16);
+	void *stack_ptr = (void *)round_down((unsigned long)&stack_ptr - 1024, 16);
 	BUG_ON((flags & CLONE_VM) && !(flags & CLONE_VFORK));
 	/*
 	 * Reserve some bytes for clone() internal needs

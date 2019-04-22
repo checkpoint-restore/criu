@@ -28,9 +28,9 @@ static char buf[8];
 
 int main(int argc, char **argv)
 {
-	int ret, sk1, sk2;
+	int ret, sk1, sk2, sk3, sk4;
 	socklen_t len = sizeof(struct sockaddr_in);
-	struct sockaddr_in addr1, addr2, addr;
+	struct sockaddr_in addr1, addr2, addr3, addr4, addr;
 
 	test_init(argc, argv);
 
@@ -71,6 +71,62 @@ int main(int argc, char **argv)
 	ret = connect(sk2, (struct sockaddr *)&addr1, len);
 	if (ret < 0) {
 		pr_perror("Can't connect");
+		return 1;
+	}
+
+	sk3 = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDPLITE);
+	if (sk3 < 0) {
+		pr_perror("Can't create socket");
+		return 1;
+	}
+
+	memset(&addr3, 0, sizeof(addr3));
+	addr3.sin_family = AF_INET;
+	addr3.sin_addr.s_addr = inet_addr("127.0.0.1");
+	addr3.sin_port = htons(port + 2);
+
+	ret = bind(sk3, (struct sockaddr *)&addr3, len);
+	if (ret < 0) {
+		pr_perror("Can't bind socket");
+		return 1;
+	}
+
+	sk4 = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDPLITE);
+	if (sk4 < 0) {
+		pr_perror("Can't create socket");
+		return 1;
+	}
+
+	memset(&addr4, 0, sizeof(addr4));
+	addr4.sin_family = AF_INET;
+	addr4.sin_addr.s_addr = inet_addr("0.0.0.0");
+	addr4.sin_port = htons(0);
+
+	ret = bind(sk4, (struct sockaddr *)&addr4, len);
+	if (ret < 0) {
+		pr_perror("Can't bind socket");
+		return 1;
+	}
+
+	ret = connect(sk4, (struct sockaddr *)&addr3, len);
+	if (ret < 0) {
+		pr_perror("Can't connect");
+		return 1;
+	}
+
+	ret = connect(sk3, (struct sockaddr *)&addr4, len);
+	if (ret < 0) {
+		pr_perror("Can't connect");
+		return 1;
+	}
+
+	if (shutdown(sk4, SHUT_RDWR)) {
+		pr_perror("Can't shutdown socket");
+		return 1;
+	}
+
+	if (shutdown(sk3, SHUT_RDWR)) {
+		pr_perror("Can't shutdown socket");
 		return 1;
 	}
 
