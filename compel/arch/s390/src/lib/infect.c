@@ -493,7 +493,7 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 	if (psw->mask & PSW_MASK_RI) {
 		if (get_ri_cb(pid, &fpregs) < 0) {
 			pr_perror("Can't dump process with RI bit active");
-			return -1;
+			return false;
 		}
 	}
 	/* We don't support 24 and 31 bit mode - only 64 bit */
