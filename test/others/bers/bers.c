@@ -138,7 +138,7 @@ static int create_files(shared_data_t *shared, int *fd, size_t nr_files)
 	char path[PATH_MAX];
 	size_t i;
 
-	memset(fd, 0xff, sizeof(fd));
+	memset(fd, 0xff, sizeof(*fd) * MAX_CHUNK);
 
 	pr_info("\tCreating %lu files\n", shared->opt_files);
 
