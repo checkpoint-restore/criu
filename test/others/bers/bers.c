@@ -93,7 +93,6 @@ static int sys_gettid(void)
 static void dirtify_memory(unsigned long *chunks, size_t nr_chunks,
 			   size_t chunk_size, int mode, const size_t nr_pages)
 {
-	void *page;
 	size_t i;
 
 	pr_trace("filling memory\n");
@@ -115,7 +114,7 @@ static void dirtify_memory(unsigned long *chunks, size_t nr_chunks,
 static void dirtify_files(int *fd, size_t nr_files, size_t size)
 {
 	size_t buf[8192];
-	size_t i, j, c;
+	size_t i;
 
 	/*
 	 * Note we don't write any _sane_ data here, the only
@@ -265,7 +264,6 @@ int main(int argc, char *argv[])
 	char workdir[PATH_MAX];
 	int opt, idx, pidfd;
 	char pidbuf[32];
-	int status;
 	pid_t pid;
 	size_t i;
 

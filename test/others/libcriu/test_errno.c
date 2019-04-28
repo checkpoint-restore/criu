@@ -56,7 +56,7 @@ static int no_process(void)
 	size_t len;
 	ssize_t count;
 	char *buf = NULL;
-	int pid, fd, ret;
+	int pid, ret;
 
 	printf("--- Try to dump unexisting process\n");
 
