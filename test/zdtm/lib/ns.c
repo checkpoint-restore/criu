@@ -325,11 +325,11 @@ int ns_init(int argc, char **argv)
 		exit(1);
 	}
 	ret = read(fd, buf, sizeof(buf) - 1);
-	buf[ret] = '\0';
 	if (ret == -1) {
 		fprintf(stderr, "read() failed: %m\n");
 		exit(1);
 	}
+	buf[ret] = '\0';
 
 	pid = atoi(buf);
 	fprintf(stderr, "kill(%d, SIGTERM)\n", pid);
