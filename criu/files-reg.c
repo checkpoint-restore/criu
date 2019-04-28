@@ -1745,12 +1745,10 @@ ext:
 		}
 
 		if (rfi->rfe->has_mode && (st.st_mode != rfi->rfe->mode)) {
-			if (st.st_mode != rfi->rfe->mode) {
-				pr_err("File %s has bad mode 0%o (expect 0%o)\n",
-				       rfi->path, (int)st.st_mode,
-				       rfi->rfe->mode);
-				return -1;
-			}
+			pr_err("File %s has bad mode 0%o (expect 0%o)\n",
+			       rfi->path, (int)st.st_mode,
+			       rfi->rfe->mode);
+			return -1;
 		}
 
 		/*
