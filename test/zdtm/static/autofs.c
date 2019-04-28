@@ -49,6 +49,7 @@ static char *xvstrcat(char *str, const char *fmt, va_list args)
 		if (new) {
 			va_copy(tmp, args);
 			ret = vsnprintf(new + offset, delta, fmt, tmp);
+			va_end(tmp);
 			if (ret >= delta) {
 				/* NOTE: vsnprintf returns the amount of bytes
 				 *                                  * to allocate. */
