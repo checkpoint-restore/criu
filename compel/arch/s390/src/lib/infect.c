@@ -148,10 +148,8 @@ int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
 		memcpy(&dst_ext->vxrs_high, &fpregs->vxrs_high,
 		       sizeof(fpregs->vxrs_high));
 	} else {
-		memset(&dst_ext->vxrs_low, 0,
-		       sizeof(sizeof(fpregs->vxrs_low)));
-		memset(&dst_ext->vxrs_high, 0,
-		       sizeof(sizeof(fpregs->vxrs_high)));
+		memset(&dst_ext->vxrs_low, 0, sizeof(dst_ext->vxrs_low));
+		memset(&dst_ext->vxrs_high, 0, sizeof(dst_ext->vxrs_high));
 	}
 	return 0;
 }
