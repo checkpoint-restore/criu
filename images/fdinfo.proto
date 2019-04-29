@@ -47,6 +47,7 @@ message fdinfo_entry {
 	required uint32		flags	= 2;
 	required fd_types	type	= 3;
 	required uint32		fd	= 4;
+	optional string		xattr_security_selinux = 5;
 }
 
 message file_entry {
