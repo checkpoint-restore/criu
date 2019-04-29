@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 
 #include "common/config.h"
@@ -11,10 +12,12 @@
 #include "util.h"
 #include "cr_options.h"
 #include "lsm.h"
+#include "fdstore.h"
 
 #include "protobuf.h"
 #include "images/inventory.pb-c.h"
 #include "images/creds.pb-c.h"
+#include "images/fdinfo.pb-c.h"
 
 #ifdef CONFIG_HAS_SELINUX
 #include <selinux/selinux.h>
@@ -124,6 +127,59 @@ static int selinux_get_sockcreate_label(pid_t pid, char **output)
 	fclose(f);
 	return 0;
 }
+
+int reset_setsockcreatecon()
+{
+	return setsockcreatecon_raw(NULL);
+}
+
+int run_setsockcreatecon(FdinfoEntry *e)
+{
+	char *ctx = NULL;
+
+	/* Currently this only works for SELinux. */
+	if (kdat.lsm != LSMTYPE__SELINUX)
+		return 0;
+
+	ctx = e->xattr_security_selinux;
+	/* Writing to the FD using fsetxattr() did not work for some reason. */
+	return setsockcreatecon_raw(ctx);
+}
+
+int dump_xattr_security_selinux(int fd, FdinfoEntry *e)
+{
+	char *ctx = NULL;
+	int len;
+	int ret;
+
+	/* Currently this only works for SELinux. */
+	if (kdat.lsm != LSMTYPE__SELINUX)
+		return 0;
+
+	/* Get the size of the xattr. */
+	len = fgetxattr(fd, "security.selinux", ctx, 0);
+	if (len == -1) {
+		pr_err("Reading xattr %s to FD %d failed\n", ctx, fd);
+		return -1;
+	}
+
+	ctx = xmalloc(len);
+	if (!ctx) {
+		pr_err("xmalloc to read xattr for FD %d failed\n", fd);
+		return -1;
+	}
+
+	ret = fgetxattr(fd, "security.selinux", ctx, len);
+	if (len != ret) {
+		pr_err("Reading xattr %s to FD %d failed\n", ctx, fd);
+		return -1;
+	}
+
+	e->xattr_security_selinux = ctx;
+
+	return 0;
+}
+
 #endif
 
 void kerndat_lsm(void)

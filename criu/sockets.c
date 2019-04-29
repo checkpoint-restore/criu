@@ -22,6 +22,7 @@
 #include "util-pie.h"
 #include "sk-packet.h"
 #include "namespaces.h"
+#include "lsm.h"
 #include "net.h"
 #include "xmalloc.h"
 #include "fs-magic.h"
@@ -662,6 +663,9 @@ int dump_socket(struct fd_parms *p, int lfd, FdinfoEntry *e)
 {
 	int family;
 	const struct fdtype_ops *ops;
+
+	if (dump_xattr_security_selinux(lfd, e))
+		return -1;
 
 	if (dump_opt(lfd, SOL_SOCKET, SO_DOMAIN, &family))
 		return -1;
