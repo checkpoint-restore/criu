@@ -23,12 +23,17 @@
 #include "files.h"
 #include "image.h"
 #include "log.h"
+#include "lsm.h"
+#include "kerndat.h"
+#include "pstree.h"
 #include "rst-malloc.h"
 #include "sockets.h"
 #include "sk-inet.h"
 #include "protobuf.h"
 #include "util.h"
 #include "namespaces.h"
+
+#include "images/inventory.pb-c.h"
 
 #undef  LOG_PREFIX
 #define LOG_PREFIX "inet: "
@@ -804,11 +809,17 @@ static int open_inet_sk(struct file_desc *d, int *new_fd)
 	if (set_netns(ie->ns_id))
 		return -1;
 
+	if (run_setsockcreatecon(fle->fe))
+		return -1;
+
 	sk = socket(ie->family, ie->type, ie->proto);
 	if (sk < 0) {
 		pr_perror("Can't create inet socket");
 		return -1;
 	}
+
+	if (reset_setsockcreatecon())
+		return -1;
 
 	if (ie->v6only) {
 		if (restore_opt(sk, SOL_IPV6, IPV6_V6ONLY, &yes) == -1)
@@ -895,6 +906,7 @@ done:
 	}
 
 	*new_fd = sk;
+
 	return 1;
 err:
 	close(sk);
