@@ -1698,11 +1698,11 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 			pr_debug("\tMaking controller dir %s (%s)\n", paux, opt);
 			if (mkdir(paux, 0700)) {
 				pr_perror("\tCan't make controller dir %s", paux);
-				return -1;
+				goto err;
 			}
 			if (mount("none", paux, "cgroup", 0, opt) < 0) {
 				pr_perror("\tCan't mount controller dir %s", paux);
-				return -1;
+				goto err;
 			}
 		}
 
