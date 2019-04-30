@@ -211,6 +211,8 @@ TST_NOFILE	:=				\
 		thp_disable			\
 		pid_file			\
 		selinux00			\
+		selinux01			\
+		selinux02			\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
@@ -513,6 +515,7 @@ unlink_fstat041:		CFLAGS += -DUNLINK_FSTAT041 -DUNLINK_FSTAT04
 ghost_holes01:		CFLAGS += -DTAIL_HOLE
 ghost_holes02:		CFLAGS += -DHEAD_HOLE
 sk-freebind-false:	CFLAGS += -DZDTM_FREEBIND_FALSE
+selinux02:		CFLAGS += -DUSING_SOCKCREATE
 stopped01:		CFLAGS += -DZDTM_STOPPED_KILL
 stopped02:		CFLAGS += -DZDTM_STOPPED_TKILL
 stopped12:		CFLAGS += -DZDTM_STOPPED_KILL -DZDTM_STOPPED_TKILL
