@@ -845,9 +845,16 @@ int check_options()
 		return 1;
 	}
 
-	if (opts.ps_socket != -1 && (opts.addr || opts.port))
-		pr_warn("Using --address or --port in "
-			"combination with --ps-socket is obsolete\n");
+	if (opts.ps_socket != -1) {
+		if (opts.addr || opts.port)
+			pr_warn("Using --address or --port in "
+				"combination with --ps-socket is obsolete\n");
+		if (opts.ps_socket <= STDERR_FILENO && opts.daemon_mode) {
+			pr_err("Standard file descriptors will be closed"
+				" in daemon mode\n");
+			return 1;
+		}
+	}
 
 	if (check_namespace_opts()) {
 		pr_err("Error: namespace flags conflict\n");
