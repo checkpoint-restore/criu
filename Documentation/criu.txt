@@ -440,6 +440,8 @@ The 'mode' may be one of the following:
     *strict*::: Restore all cgroups and their properties from the scratch,
                 requiring them to not present in the system.
 
+    *ignore*::: Don't deal with cgroups and pretend that they don't exist.
+
 *--cgroup-root* ['controller'*:*]/'newroot'::
     Change the root cgroup the controller will be installed into. No controller
     means that root is the default for all controllers not specified.
