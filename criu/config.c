@@ -368,6 +368,8 @@ static int parse_manage_cgroups(struct cr_options *opts, const char *optarg)
 		opts->manage_cgroups = CG_MODE_FULL;
 	} else if (!strcmp(optarg, "strict")) {
 		opts->manage_cgroups = CG_MODE_STRICT;
+	} else if (!strcmp(optarg, "ignore")) {
+		opts->manage_cgroups = CG_MODE_IGNORE;
 	} else
 		goto Esyntax;
 
