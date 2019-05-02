@@ -11,6 +11,10 @@
 #define exit_group(code)	\
 	syscall(__NR_exit_group, code)
 
+static pthread_attr_t attr;
+/* Having in mind setup with 64 Kb large pages */
+static const size_t stack_size = 64 * 1024;
+
 static void *thread_fn(void *arg)
 {
 	pthread_t t, p, *self;
@@ -24,14 +28,27 @@ static void *thread_fn(void *arg)
 	self = malloc(sizeof(*self));
 	*self = pthread_self();
 
-	pthread_create(&t, NULL, thread_fn, self);
+	pthread_create(&t, &attr, thread_fn, self);
 	return NULL;
 }
 
 int main(int argc, char **argv)
 {
-	char *val;
 	int max_nr = 1024, i;
+	char *val;
+	int err;
+
+	err = pthread_attr_init(&attr);
+	if (err) {
+		pr_err("pthread_attr_init(): %d\n", err);
+		exit(1);
+	}
+
+	err = pthread_attr_setstacksize(&attr, stack_size);
+	if (err) {
+		pr_err("pthread_attr_setstacksize(): %d\n", err);
+		exit(1);
+	}
 
 	val = getenv("ZDTM_THREAD_BOMB");
 	if (val)
@@ -43,7 +60,11 @@ int main(int argc, char **argv)
 
 	for (i = 0; i < max_nr; i++) {
 		pthread_t p;
-		pthread_create(&p, NULL, thread_fn, NULL);
+		err = pthread_create(&p, &attr, thread_fn, NULL);
+		if (err) {
+			pr_err("pthread_create(): %d\n", err);
+			exit(1);
+		}
 	}
 
 	test_daemon();
