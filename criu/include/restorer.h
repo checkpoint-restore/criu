@@ -69,8 +69,10 @@ struct thread_creds_args {
 	unsigned int			secbits;
 	char				*lsm_profile;
 	unsigned int			*groups;
+	char				*lsm_sockcreate;
 
 	unsigned long			mem_lsm_profile_pos;
+	unsigned long			mem_lsm_sockcreate_pos;
 	unsigned long			mem_groups_pos;
 
 	unsigned long			mem_pos_next;
