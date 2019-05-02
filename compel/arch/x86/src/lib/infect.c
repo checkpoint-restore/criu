@@ -375,10 +375,13 @@ void *remote_mmap(struct parasite_ctl *ctl,
 	if (err < 0)
 		return NULL;
 
+	if (map == -EACCES && (prot & PROT_WRITE) && (prot & PROT_EXEC)) {
+		pr_warn("mmap(PROT_WRITE | PROT_EXEC) failed for %d, "
+			"check selinux execmem policy\n", ctl->rpid);
+		return NULL;
+	}
 	if (IS_ERR_VALUE(map)) {
-		if (map == -EACCES && (prot & PROT_WRITE) && (prot & PROT_EXEC))
-			pr_warn("mmap(PROT_WRITE | PROT_EXEC) failed for %d, "
-				"check selinux execmem policy\n", ctl->rpid);
+		pr_err("remote mmap() failed: %s\n", strerror(-map));
 		return NULL;
 	}
 
