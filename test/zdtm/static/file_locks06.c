@@ -26,7 +26,7 @@ int init_lock(int *fd, struct flock *lck)
 	lck->l_len = 0;
 	lck->l_pid = 0;
 
-	if (fcntl(*fd, F_OFD_SETLK, lck) < 0) {
+	if (zdtm_fcntl(*fd, F_OFD_SETLK, lck) < 0) {
 		pr_perror("Can't set ofd lock");
 		return -1;
 	}

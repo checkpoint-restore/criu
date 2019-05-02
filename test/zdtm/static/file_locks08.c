@@ -28,7 +28,7 @@ int init_file_lock(int *fd, struct flock *lck)
 	lck->l_len = 0; /* lock whole file */
 	lck->l_pid = 0; /* should be 0 for ofd lock */
 
-	if (fcntl(*fd, F_OFD_SETLKW, lck) < 0) {
+	if (zdtm_fcntl(*fd, F_OFD_SETLKW, lck) < 0) {
 		pr_perror("Can't set ofd lock");
 		return -1;
 	}
