@@ -149,7 +149,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	sys_exit_group(1);
 }
 
-static int lsm_set_label(char *label, int procfd)
+static int lsm_set_label(char *label, char *type, int procfd)
 {
 	int ret = -1, len, lsmfd;
 	char path[STD_LOG_SIMPLE_CHUNK];
@@ -157,9 +157,9 @@ static int lsm_set_label(char *label, int procfd)
 	if (!label)
 		return 0;
 
-	pr_info("restoring lsm profile %s\n", label);
+	pr_info("restoring lsm profile (%s) %s\n", type, label);
 
-	std_sprintf(path, "self/task/%ld/attr/current", sys_gettid());
+	std_sprintf(path, "self/task/%ld/attr/%s", sys_gettid(), type);
 
 	lsmfd = sys_openat(procfd, path, O_WRONLY, 0);
 	if (lsmfd < 0) {
@@ -305,9 +305,14 @@ static int restore_creds(struct thread_creds_args *args, int procfd,
 		 * SELinux and instead the process context is set before the
 		 * threads are created.
 		 */
-		if (lsm_set_label(args->lsm_profile, procfd) < 0)
+		if (lsm_set_label(args->lsm_profile, "current", procfd) < 0)
 			return -1;
 	}
+
+	/* Also set the sockcreate label for all threads */
+	if (lsm_set_label(args->lsm_sockcreate, "sockcreate", procfd) < 0)
+		return -1;
+
 	return 0;
 }
 
@@ -1571,7 +1576,7 @@ long __export_restore_task(struct task_restore_args *args)
 	if (args->lsm_type == LSMTYPE__SELINUX) {
 		/* Only for SELinux */
 		if (lsm_set_label(args->t->creds_args->lsm_profile,
-				  args->proc_fd) < 0)
+				  "current", args->proc_fd) < 0)
 			goto core_restore_end;
 	}
 
