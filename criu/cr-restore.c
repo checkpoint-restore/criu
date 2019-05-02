@@ -2994,6 +2994,8 @@ static void rst_reloc_creds(struct thread_restore_args *thread_args,
 
 	if (args->lsm_profile)
 		args->lsm_profile = rst_mem_remap_ptr(args->mem_lsm_profile_pos, RM_PRIVATE);
+	if (args->lsm_sockcreate)
+		args->lsm_sockcreate = rst_mem_remap_ptr(args->mem_lsm_sockcreate_pos, RM_PRIVATE);
 	if (args->groups)
 		args->groups = rst_mem_remap_ptr(args->mem_groups_pos, RM_PRIVATE);
 
@@ -3057,6 +3059,40 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 	} else {
 		args->lsm_profile = NULL;
 		args->mem_lsm_profile_pos = 0;
+	}
+
+	if (ce->lsm_sockcreate) {
+		char *rendered = NULL;
+		char *profile;
+
+		profile = ce->lsm_sockcreate;
+
+		if (validate_lsm(profile) < 0)
+			return ERR_PTR(-EINVAL);
+
+		if (profile && render_lsm_profile(profile, &rendered)) {
+			return ERR_PTR(-EINVAL);
+		}
+		if (rendered) {
+			size_t lsm_sockcreate_len;
+			char *lsm_sockcreate;
+
+			args->mem_lsm_sockcreate_pos = rst_mem_align_cpos(RM_PRIVATE);
+			lsm_sockcreate_len = strlen(rendered);
+			lsm_sockcreate = rst_mem_alloc(lsm_sockcreate_len + 1, RM_PRIVATE);
+			if (!lsm_sockcreate) {
+				xfree(rendered);
+				return ERR_PTR(-ENOMEM);
+			}
+
+			args = rst_mem_remap_ptr(this_pos, RM_PRIVATE);
+			args->lsm_sockcreate = lsm_sockcreate;
+			strncpy(args->lsm_sockcreate, rendered, lsm_sockcreate_len);
+			xfree(rendered);
+		}
+	} else {
+		args->lsm_sockcreate = NULL;
+		args->mem_lsm_sockcreate_pos = 0;
 	}
 
 	/*
