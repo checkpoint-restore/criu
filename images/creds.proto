@@ -20,4 +20,5 @@ message creds_entry {
 	repeated uint32	groups	= 14;
 
 	optional string lsm_profile = 15;
+	optional string lsm_sockcreate = 16;
 }

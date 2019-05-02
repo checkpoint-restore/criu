@@ -98,6 +98,32 @@ err:
 	freecon(ctx);
 	return ret;
 }
+
+/*
+ * selinux_get_sockcreate_label reads /proc/PID/attr/sockcreate
+ * to see if the PID has a special label specified for sockets.
+ * Most of the time this will be empty and the process will use
+ * the process context also for sockets.
+ */
+static int selinux_get_sockcreate_label(pid_t pid, char **output)
+{
+	FILE *f;
+
+	f = fopen_proc(pid, "attr/sockcreate");
+	if (!f)
+		return -1;
+
+	fscanf(f, "%ms", output);
+	/*
+	 * No need to check the result of fscanf(). If there is something
+	 * in /proc/PID/attr/sockcreate it will be copied to *output. If
+	 * there is nothing it will stay NULL. So whatever fscanf() does
+	 * it should be correct.
+	 */
+
+	fclose(f);
+	return 0;
+}
 #endif
 
 void kerndat_lsm(void)
@@ -132,6 +158,7 @@ int collect_lsm_profile(pid_t pid, CredsEntry *ce)
 	int ret;
 
 	ce->lsm_profile = NULL;
+	ce->lsm_sockcreate = NULL;
 
 	switch (kdat.lsm) {
 	case LSMTYPE__NO_LSM:
@@ -143,6 +170,9 @@ int collect_lsm_profile(pid_t pid, CredsEntry *ce)
 #ifdef CONFIG_HAS_SELINUX
 	case LSMTYPE__SELINUX:
 		ret = selinux_get_label(pid, &ce->lsm_profile);
+		if (ret)
+			break;
+		ret = selinux_get_sockcreate_label(pid, &ce->lsm_sockcreate);
 		break;
 #endif
 	default:
@@ -153,6 +183,8 @@ int collect_lsm_profile(pid_t pid, CredsEntry *ce)
 
 	if (ce->lsm_profile)
 		pr_info("%d has lsm profile %s\n", pid, ce->lsm_profile);
+	if (ce->lsm_sockcreate)
+		pr_info("%d has lsm sockcreate label %s\n", pid, ce->lsm_sockcreate);
 
 	return ret;
 }
