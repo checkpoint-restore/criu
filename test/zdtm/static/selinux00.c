@@ -83,6 +83,31 @@ int checkprofile()
 	return 0;
 }
 
+int check_sockcreate()
+{
+	char *output = NULL;
+	FILE *f = fopen("/proc/self/attr/sockcreate", "r");
+	int ret = fscanf(f, "%ms", &output);
+	fclose(f);
+
+	if (ret >= 1) {
+		free(output);
+		/* sockcreate should be empty, if fscanf found something
+		 * it is wrong.*/
+		fail("sockcreate should be empty\n");
+		return -1;
+	}
+
+	if (output) {
+		free(output);
+		/* Same here, output should still be NULL. */
+		fail("sockcreate should be empty\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	test_init(argc, argv);
@@ -95,11 +120,20 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
+	if (check_sockcreate())
+		return -1;
+
 	if (setprofile())
+		return -1;
+
+	if (check_sockcreate())
 		return -1;
 
 	test_daemon();
 	test_waitsig();
+
+	if (check_sockcreate())
+		return -1;
 
 	if (checkprofile() == 0)
 		pass();
