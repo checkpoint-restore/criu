@@ -8,7 +8,7 @@ const char *test_doc	= "Compare mappings before/after C/R for vdso/vvar presence
 const char *test_author	= "Dmitry Safonov <dsafonov@virtuozzo.com>";
 
 #define BUILD_BUG_ON(condition)	((void)sizeof(char[1 - 2*!!(condition)]))
-#define VDSO_BAD_ADDR		(-1ul)
+#define VSYSCALL_START 0xffffffffff600000ULL
 /*
  * Use constant MAX_VMAS - to minimize the risk of allocating a new
  * mapping or changing the size of existent VMA with realloc()
@@ -55,6 +55,18 @@ static int parse_maps(struct vm_area *vmas)
 
 		v->start = strtoull(buf, &end, 16);
 		v->end = strtoull(end + 1, NULL, 16);
+
+#if defined(__i386__)
+		/*
+		 * XXX: ia32 is being restored from x86_64 and leaves
+		 * emulated vsyscall "mapping". Hopefully, will be done
+		 * per-process, ignore for now.
+		 */
+		if (v->start == VSYSCALL_START) {
+			i--;
+			continue;
+		}
+#endif
 		v->is_vvar_or_vdso |= strstr(buf, "[vdso]") != NULL;
 		v->is_vvar_or_vdso |= strstr(buf, "[vvar]") != NULL;
 		test_msg("[NOTE]\tVMA: [%#" PRIx64 ", %#" PRIx64 "]\n",
