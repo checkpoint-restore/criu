@@ -45,7 +45,7 @@ int init_file_locks(void)
 	}
 
 	for (i = 0; i < FILE_NUM; ++i)
-		if (fcntl(fds[i], F_OFD_SETLKW, &lcks[i]) < 0) {
+		if (zdtm_fcntl(fds[i], F_OFD_SETLKW, &lcks[i]) < 0) {
 			pr_perror("Can't set ofd lock");
 			return -1;
 		}
