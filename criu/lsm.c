@@ -33,8 +33,8 @@ static int apparmor_get_label(pid_t pid, char **profile_name)
 		return -1;
 
 	if (fscanf(f, "%ms", profile_name) != 1) {
-		fclose(f);
 		pr_perror("err scanfing");
+		fclose(f);
 		return -1;
 	}
 
@@ -111,19 +111,23 @@ err:
 static int selinux_get_sockcreate_label(pid_t pid, char **output)
 {
 	FILE *f;
+	int ret;
 
 	f = fopen_proc(pid, "attr/sockcreate");
 	if (!f)
 		return -1;
 
-	fscanf(f, "%ms", output);
-	/*
-	 * No need to check the result of fscanf(). If there is something
-	 * in /proc/PID/attr/sockcreate it will be copied to *output. If
-	 * there is nothing it will stay NULL. So whatever fscanf() does
-	 * it should be correct.
-	 */
-
+	ret = fscanf(f, "%ms", output);
+	if (ret == -1 && errno != 0) {
+		pr_perror("Unable to parse /proc/%d/attr/sockcreate", pid);
+		/*
+		 * Only if the error indicator is set it is a real error.
+		 * -1 could also be EOF, which would mean that sockcreate
+		 * was just empty, which is the most common case.
+		 */
+		fclose(f);
+		return -1;
+	}
 	fclose(f);
 	return 0;
 }
