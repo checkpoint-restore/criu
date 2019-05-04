@@ -940,23 +940,23 @@ class criu:
 		self.__dump_path = None
 		self.__iter = 0
 		self.__prev_dump_iter = None
-		self.__page_server = (opts['page_server'] and True or False)
-		self.__remote_lazy_pages = (opts['remote_lazy_pages'] and True or False)
+		self.__page_server = bool(opts['page_server'])
+		self.__remote_lazy_pages = bool(opts['remote_lazy_pages'])
 		self.__lazy_pages = (self.__remote_lazy_pages or
-				     opts['lazy_pages'] and True or False)
-		self.__lazy_migrate = (opts['lazy_migrate'] and True or False)
-		self.__restore_sibling = (opts['sibling'] and True or False)
-		self.__join_ns = (opts['join_ns'] and True or False)
-		self.__empty_ns = (opts['empty_ns'] and True or False)
-		self.__fault = (opts['fault'])
+				     bool(opts['lazy_pages']))
+		self.__lazy_migrate = bool(opts['lazy_migrate'])
+		self.__restore_sibling = bool(opts['sibling'])
+		self.__join_ns = bool(opts['join_ns'])
+		self.__empty_ns = bool(opts['empty_ns'])
+		self.__fault = opts['fault']
 		self.__script = opts['script']
-		self.__sat = (opts['sat'] and True or False)
-		self.__dedup = (opts['dedup'] and True or False)
-		self.__mdedup = (opts['noauto_dedup'] and True or False)
-		self.__user = (opts['user'] and True or False)
-		self.__leave_stopped = (opts['stop'] and True or False)
+		self.__sat = bool(opts['sat'])
+		self.__dedup = bool(opts['dedup'])
+		self.__mdedup = bool(opts['noauto_dedup'])
+		self.__user = bool(opts['user'])
+		self.__leave_stopped = bool(opts['stop'])
 		self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
-		self.__show_stats = (opts['show_stats'] and True or False)
+		self.__show_stats = bool(opts['show_stats'])
 		self.__lazy_pages_p = None
 		self.__page_server_p = None
 		self.__dump_process = None
