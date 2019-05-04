@@ -1010,7 +1010,7 @@ class criu:
         self.__mdedup = bool(opts['noauto_dedup'])
         self.__user = bool(opts['user'])
         self.__leave_stopped = bool(opts['stop'])
-        self.__remote = (opts['remote'] and True or False)
+        self.__remote = bool(opts['remote'])
         self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
         self.__show_stats = bool(opts['show_stats'])
         self.__lazy_pages_p = None
