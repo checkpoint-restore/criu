@@ -134,7 +134,15 @@ static int selinux_get_sockcreate_label(pid_t pid, char **output)
 
 int reset_setsockcreatecon()
 {
-	return setsockcreatecon_raw(NULL);
+	/* Currently this only works for SELinux. */
+	if (kdat.lsm != LSMTYPE__SELINUX)
+		return 0;
+
+	if (setsockcreatecon_raw(NULL)) {
+		pr_perror("Unable to reset socket SELinux context");
+		return -1;
+	}
+	return 0;
 }
 
 int run_setsockcreatecon(FdinfoEntry *e)
@@ -147,7 +155,11 @@ int run_setsockcreatecon(FdinfoEntry *e)
 
 	ctx = e->xattr_security_selinux;
 	/* Writing to the FD using fsetxattr() did not work for some reason. */
-	return setsockcreatecon_raw(ctx);
+	if (setsockcreatecon_raw(ctx)) {
+		pr_perror("Unable to set the %s socket SELinux context", ctx);
+		return -1;
+	}
+	return 0;
 }
 
 int dump_xattr_security_selinux(int fd, FdinfoEntry *e)
