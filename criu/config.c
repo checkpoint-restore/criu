@@ -515,6 +515,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		{ "tls-cert",			required_argument,	0, 1094},
 		{ "tls-key",			required_argument,	0, 1095},
 		BOOL_OPT("tls", &opts.tls),
+		{"tls-no-cn-verify",		no_argument,		&opts.tls_no_cn_verify, true},
 		{ },
 	};
 

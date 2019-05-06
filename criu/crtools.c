@@ -432,6 +432,7 @@ usage:
 "  --tls-cert FILE       path to TLS certificate file\n"
 "  --tls-key FILE        path to TLS private key file\n"
 "  --tls                 use TLS to secure remote connection\n"
+"  --tls-no-cn-verify    do not verify common name in server certificate\n"
 "\n"
 "Configuration file options:\n"
 "  --config FILEPATH     pass a specific configuration file\n"

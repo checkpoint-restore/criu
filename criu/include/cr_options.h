@@ -143,6 +143,7 @@ struct cr_options {
 	char			*tls_cert;
 	char			*tls_key;
 	int			tls;
+	int			tls_no_cn_verify;
 };
 
 extern struct cr_options opts;
