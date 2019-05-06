@@ -206,8 +206,12 @@ static int tls_x509_verify_peer_cert(void)
 {
 	int ret;
 	unsigned status;
+	const char *hostname = NULL;
 
-	ret = gnutls_certificate_verify_peers3(session, opts.addr, &status);
+	if (!opts.tls_no_cn_verify)
+		hostname = opts.addr;
+
+	ret = gnutls_certificate_verify_peers3(session, hostname, &status);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tls_perror("Unable to verify TLS peer", ret);
 		return -1;
