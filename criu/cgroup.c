@@ -1102,6 +1102,31 @@ static int userns_move(void *arg, int fd, pid_t pid)
 		close(fd);
 	}
 
+	if (fd < 0 && !pr_quelled(LOG_DEBUG)) {
+		int tmp = fd;
+
+		pr_err("Failed to openat %s at cgyard fd %d, will check upper dirs\n", (char *)arg, cg);
+		while (1) {
+			char *c;
+
+			c = strrchr(arg, '/');
+			if (!c)
+				break;
+			c[0] = '\0';
+
+			fd = openat(cg, arg, O_PATH);
+			if (fd < 0) {
+				pr_perror("Failed to openat %s too\n", (char *)arg);
+			} else {
+				pr_err("First successful openat for %s\n", (char *)arg);
+				close(fd);
+				break;
+			}
+		}
+
+		fd = tmp;
+	}
+
 	if (err < 0) {
 		pr_perror("Can't move %s into %s (%d/%d)", pidbuf, (char *)arg, err, fd);
 		return -1;
