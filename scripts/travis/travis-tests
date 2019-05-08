@@ -2,8 +2,8 @@
 set -x -e
 
 TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c0-dev libaio-dev
-		libprotobuf-dev protobuf-compiler libcap-dev
-		libnl-3-dev gcc-multilib gdb bash python-protobuf
+		libgnutls28-dev libgnutls30 libprotobuf-dev protobuf-compiler
+		libcap-dev libnl-3-dev gcc-multilib gdb bash python-protobuf
 		libnet-dev util-linux asciidoctor libnl-route-3-dev"
 
 travis_prep () {
@@ -125,6 +125,7 @@ LAZY_TESTS=.*\(maps0\|uffd-events\|lazy-thp\|futex\|fork\).*
 
 ./test/zdtm.py run -p 2 -T $LAZY_TESTS --lazy-pages $LAZY_EXCLUDE $ZDTM_OPTS
 ./test/zdtm.py run -p 2 -T $LAZY_TESTS --remote-lazy-pages $LAZY_EXCLUDE $ZDTM_OPTS
+./test/zdtm.py run -p 2 -T $LAZY_TESTS --remote-lazy-pages --tls $LAZY_EXCLUDE $ZDTM_OPTS
 
 bash ./test/jenkins/criu-fault.sh
 bash ./test/jenkins/criu-fcg.sh

@@ -9,6 +9,7 @@ RUN apk update && apk add \
 	ccache \
 	coreutils \
 	git \
+	gnutls-dev \
 	libaio-dev \
 	libcap-dev \
 	libnet-dev \
