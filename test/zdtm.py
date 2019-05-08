@@ -961,6 +961,7 @@ class criu:
 		self.__lazy_pages_p = None
 		self.__page_server_p = None
 		self.__dump_process = None
+		self.__tls = self.__tls_options() if opts['tls'] else []
 		self.__criu_bin = opts['criu_bin']
 		self.__crit_bin = opts['crit_bin']
 
@@ -1008,6 +1009,13 @@ class criu:
 		if self.__dump_path:
 			print("Removing %s" % self.__dump_path)
 			shutil.rmtree(self.__dump_path)
+
+	def __tls_options(self):
+		pki_dir = os.path.dirname(os.path.abspath(__file__)) + "/pki"
+		return ["--tls", "--tls-no-cn-verify",
+			"--tls-key", pki_dir + "/key.pem",
+			"--tls-cert", pki_dir + "/cert.pem",
+			"--tls-cacert", pki_dir + "/cacert.pem"]
 
 	def __ddir(self):
 		return os.path.join(self.__dump_path, "%d" % self.__iter)
@@ -1142,12 +1150,12 @@ class criu:
 		if self.__page_server:
 			print("Adding page server")
 
-			ps_opts = ["--port", "12345"]
+			ps_opts = ["--port", "12345"] + self.__tls
 			if self.__dedup:
 				ps_opts += ["--auto-dedup"]
 
 			self.__page_server_p = self.__criu_act("page-server", opts = ps_opts, nowait = True)
-			a_opts += ["--page-server", "--address", "127.0.0.1", "--port", "12345"]
+			a_opts += ["--page-server", "--address", "127.0.0.1", "--port", "12345"] + self.__tls
 
 		a_opts += self.__test.getdopts()
 
@@ -1189,7 +1197,7 @@ class criu:
 
 		nowait = False
 		if self.__lazy_migrate and action == "dump":
-			a_opts += ["--lazy-pages", "--port", "12345"]
+			a_opts += ["--lazy-pages", "--port", "12345"] + self.__tls
 			nowait = True
 		self.__dump_process = self.__criu_act(action, opts = a_opts + opts, nowait = nowait)
 		if self.__mdedup and self.__iter > 1:
@@ -1237,10 +1245,12 @@ class criu:
 		if self.__lazy_pages or self.__lazy_migrate:
 			lp_opts = []
 			if self.__remote_lazy_pages or self.__lazy_migrate:
-				lp_opts += ['--page-server', "--port", "12345", "--address", "127.0.0.1"]
+				lp_opts += ["--page-server", "--port", "12345",
+					    "--address", "127.0.0.1"] + self.__tls
+
 			if self.__remote_lazy_pages:
 				ps_opts = ["--pidfile", "ps.pid",
-					   "--port", "12345", "--lazy-pages"]
+					   "--port", "12345", "--lazy-pages"] + self.__tls
 				self.__page_server_p = self.__criu_act("page-server", opts = ps_opts, nowait = True)
 			self.__lazy_pages_p = self.__criu_act("lazy-pages", opts = lp_opts, nowait = True)
 			r_opts += ["--lazy-pages"]
@@ -1741,7 +1751,7 @@ class Launcher:
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'stop', 'empty_ns',
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'rpc', 'lazy_pages',
 				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
-				'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'remote',
+				'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'remote', 'tls',
 				'criu_bin', 'crit_bin')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
@@ -2306,6 +2316,7 @@ rp.add_argument("--ignore-taint", help = "Don't care about a non-zero kernel tai
 rp.add_argument("--lazy-pages", help = "restore pages on demand", action = 'store_true')
 rp.add_argument("--lazy-migrate", help = "restore pages on demand", action = 'store_true')
 rp.add_argument("--remote-lazy-pages", help = "simulate lazy migration", action = 'store_true')
+rp.add_argument("--tls", help = "use TLS for migration", action = 'store_true')
 rp.add_argument("--title", help = "A test suite title", default = "criu")
 rp.add_argument("--show-stats", help = "Show criu statistics", action = 'store_true')
 rp.add_argument("--criu-bin", help = "Path to criu binary", default = '../criu/criu')
