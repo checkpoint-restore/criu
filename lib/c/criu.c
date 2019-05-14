@@ -252,6 +252,7 @@ int criu_local_init_opts(criu_opts **o)
 	if (opts == NULL) {
 		perror("Can't allocate memory for criu opts");
 		criu_local_free_opts(opts);
+		free(rpc);
 		return -1;
 	}
 
