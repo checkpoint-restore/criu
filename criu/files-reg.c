@@ -1553,6 +1553,9 @@ static int rfi_remap(struct reg_file_info *rfi, int *level)
 	}
 
 	mi = lookup_mnt_id(rfi->rfe->mnt_id);
+	if (mi == NULL)
+		return -1;
+
 	if (rfi->rfe->mnt_id == rfi->remap->rmnt_id) {
 		/* Both links on the same mount point */
 		tmi = mi;
@@ -1562,6 +1565,8 @@ static int rfi_remap(struct reg_file_info *rfi, int *level)
 	}
 
 	rmi = lookup_mnt_id(rfi->remap->rmnt_id);
+	if (rmi == NULL)
+		return -1;
 
 	/*
 	 * Find the common bind-mount. We know that one mount point was
