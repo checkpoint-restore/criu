@@ -149,7 +149,7 @@ static bool is_stack(struct pstree_item *item, unsigned long vaddr)
 	for (i = 0; i < item->nr_threads; i++) {
 		uint64_t sp = dmpi(item)->thread_sp[i];
 
-		if (!((sp ^ vaddr) & PAGE_MASK))
+		if (!((sp ^ vaddr) & ~PAGE_MASK))
 			return true;
 	}
 
