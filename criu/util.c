@@ -500,8 +500,10 @@ static int close_fds(int minfd)
 	int fd, ret, dfd;
 
 	dir = opendir("/proc/self/fd");
-	if (dir == NULL)
+	if (dir == NULL) {
 		pr_perror("Can't open /proc/self/fd");
+		return -1;
+	}
 	dfd = dirfd(dir);
 
 	while ((de = readdir(dir))) {
