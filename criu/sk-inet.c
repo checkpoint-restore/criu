@@ -573,7 +573,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 		ie.ip_opts->raw = NULL;
 
 	if (pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE))
-		goto err;
+		err = -1;
 err:
 	ip_raw_opts_free(&ipopts_raw);
 	release_skopts(&skopts);
