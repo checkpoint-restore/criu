@@ -823,7 +823,7 @@ static int open_inet_sk(struct file_desc *d, int *new_fd)
 	}
 
 	if (reset_setsockcreatecon())
-		return -1;
+		goto err;
 
 	if (ie->v6only) {
 		if (restore_opt(sk, SOL_IPV6, IPV6_V6ONLY, &yes) == -1)
