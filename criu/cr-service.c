@@ -1302,7 +1302,8 @@ int cr_service(bool daemon_mode)
 			SET_CHAR_OPTS(addr, CR_DEFAULT_SERVICE_ADDRESS);
 		}
 
-		strcpy(server_addr.sun_path, opts.addr);
+		strncpy(server_addr.sun_path, opts.addr,
+				sizeof(server_addr.sun_path) - 1);
 
 		server_addr_len = strlen(server_addr.sun_path)
 				+ sizeof(server_addr.sun_family);
