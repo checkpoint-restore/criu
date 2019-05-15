@@ -273,7 +273,6 @@ try_again:
 			goto err;
 		}
 
-		ret = 0;
 		if (free_status)
 			free_status(pid, ss, data);
 		goto try_again;
