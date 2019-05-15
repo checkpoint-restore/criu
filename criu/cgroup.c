@@ -818,6 +818,7 @@ static int dump_controllers(CgroupEntry *cg)
 		if (ce->n_dirs > 0)
 			if (dump_cg_dirs(&cur->heads, cur->n_heads, &ce->dirs, 0) < 0) {
 				xfree(cg->controllers);
+				cg->controllers = NULL;
 				return -1;
 			}
 		cg->controllers[i++] = ce++;
