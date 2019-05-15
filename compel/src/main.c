@@ -135,6 +135,7 @@ static int usage(int rc) {
 "    -o, --output FILE		output (header) file name\n"
 "    -p, --prefix NAME		prefix for var names\n"
 "    -l, --log-level NUM		log level (default: %d)\n"
+"    -r, --relative-timestamps		print time passed since last log message instead of program start\n"
 "  compel -h|--help\n"
 "  compel -V|--version\n"
 , COMPEL_DEFAULT_LOGLEVEL
@@ -317,16 +318,19 @@ int main(int argc, char *argv[])
 		{ "help",	no_argument,		0, 'h' },
 		{ "version",	no_argument,		0, 'V' },
 		{ "log-level",	required_argument,	0, 'l' },
+		{ "relative-timestamps", no_argument, 0, 'r'},
 		{ },
 	};
 
 	uninst_root = getenv("COMPEL_UNINSTALLED_ROOTDIR");
 
+	opts.relative_timestamps = 0;
 	while (1) {
 		idx = -1;
 		opt = getopt_long(argc, argv, short_opts, long_opts, &idx);
-		if (opt == -1)
+		if (opt == -1) {
 			break;
+		}
 		switch (opt) {
 		case 'c':
 			compat = true;
@@ -345,6 +349,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'l':
 			log_level = atoi(optarg);
+			break;
+		case 'r':
+			opts.relative_timestamps = 1;
 			break;
 		case 'h':
 			return usage(0);

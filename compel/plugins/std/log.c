@@ -1,6 +1,7 @@
 #include <stdarg.h>
 
 #include "common/bitsperlong.h"
+#include "piegen.h"
 #include <compel/plugins/std/syscall.h>
 #include <compel/plugins/std/string.h>
 #include <compel/plugins/std/log.h>
@@ -12,6 +13,8 @@ struct simple_buf {
 	int prefix_len;
 	void (*flush)(struct simple_buf *b);
 };
+
+int print_ts_diffs = 1;
 
 static int logfd = -1;
 static int cur_loglevel = COMPEL_DEFAULT_LOGLEVEL;
@@ -41,6 +44,7 @@ static inline void pad_num(char **s, int *n, int nr)
 
 static void sbuf_log_init(struct simple_buf *b)
 {
+	static int is_first_call = 1;
 	char pbuf[12], *s;
 	int n;
 
@@ -51,11 +55,21 @@ static void sbuf_log_init(struct simple_buf *b)
 	 */
 	b->bp = b->buf;
 
-	if (start.tv_sec != 0) {
+	if (start.tv_sec != 0 || print_ts_diffs) {
 		struct timeval now;
 
 		sys_gettimeofday(&now, NULL);
+		struct timeval curr = now;
 		timediff(&start, &now);
+		if (opts.relative_timestamps) {
+			start = curr;
+			if (is_first_call) {
+				// first entry will be zero
+				now.tv_sec = 0;
+				now.tv_usec = 0;
+				is_first_call = 0;
+			}
+		}
 
 		/* Seconds */
 		n = std_vprint_num(pbuf, sizeof(pbuf), (unsigned)now.tv_sec, &s);

@@ -67,10 +67,22 @@ static void timediff(struct timeval *from, struct timeval *to)
 
 static void print_ts(void)
 {
+	static int is_first_call = 1;
 	struct timeval t;
 
 	gettimeofday(&t, NULL);
+	struct timeval curr = t;
 	timediff(&start, &t);
+	if (opts.relative_timestamps) {
+		start = curr;
+		if (is_first_call) {
+			// first entry will be zero
+			t.tv_sec = 0;
+			t.tv_usec = 0;
+			is_first_call = 0;
+		}
+	}
+
 	snprintf(buffer, TS_BUF_OFF,
 			"(%02u.%06u)", (unsigned)t.tv_sec, (unsigned)t.tv_usec);
 	buffer[TS_BUF_OFF - 1] = ' '; /* kill the '\0' produced by snprintf */
