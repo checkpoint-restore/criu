@@ -878,6 +878,12 @@ void split(char *str, char token, char ***out, int *n)
 		cur++;
 	}
 
+	if (*n == 0) {
+		/* This can only happen if str == NULL */
+		*out = NULL;
+		*n = -1;
+		return;
+	}
 
 	*out = xmalloc((*n) * sizeof(char *));
 	if (!*out) {
@@ -1088,7 +1094,7 @@ int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
 		ret = cr_daemon(1, 0, cfd);
 		if (ret == -1) {
 			pr_err("Can't run in the background\n");
-			goto out;
+			goto err;
 		}
 		if (ret > 0) { /* parent task, daemon started */
 			close_safe(&sk);
@@ -1109,10 +1115,11 @@ int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
 		return -1;
 
 	if (sk >= 0) {
-		ret = *ask = accept(sk, (struct sockaddr *)&caddr, &clen);
-		if (*ask < 0)
+		*ask = accept(sk, (struct sockaddr *)&caddr, &clen);
+		if (*ask < 0) {
 			pr_perror("Can't accept connection to server");
-		else
+			goto err;
+		} else
 			pr_info("Accepted connection from %s:%u\n",
 					inet_ntoa(caddr.sin_addr),
 					(int)ntohs(caddr.sin_port));
@@ -1120,7 +1127,7 @@ int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
 	}
 
 	return 0;
-out:
+err:
 	close(sk);
 	return -1;
 }
