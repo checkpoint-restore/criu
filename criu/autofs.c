@@ -110,8 +110,10 @@ static int autofs_kernel_pipe_alive(int pgrp, int fd, int ino)
 		return -1;
 
 	if (stat(path, &buf) < 0) {
-		if (errno == ENOENT)
+		if (errno == ENOENT) {
+			xfree(path);
 			return 0;
+		}
 		pr_perror("Failed to stat %s", path);
 		return -1;
 	}
@@ -208,6 +210,7 @@ static int parse_options(char *options, AutofsEntry *entry, long *pipe_ino)
 {
 	char **opts;
 	int nr_opts, i;
+	int parse_error = 0;
 
 	entry->fd = AUTOFS_OPT_UNKNOWN;
 	entry->timeout = AUTOFS_OPT_UNKNOWN;
@@ -250,13 +253,18 @@ static int parse_options(char *options, AutofsEntry *entry, long *pipe_ino)
 		else if (!strncmp(opt, "gid=", strlen("gid=")))
 			err = xatoi(opt + strlen("gid="), &entry->gid);
 
-		if (err)
-			return -1;
+		if (err) {
+			parse_error = 1;
+			break;
+		}
 	}
 
 	for (i = 0; i < nr_opts; i++)
 		xfree(opts[i]);
 	xfree(opts);
+
+	if (parse_error)
+		return -1;
 
 	if (entry->fd == AUTOFS_OPT_UNKNOWN) {
 		pr_err("Failed to find fd option\n");
@@ -716,6 +724,7 @@ static int autofs_create_dentries(const struct mount_info *mi, char *mnt_path)
 			return -1;
 		if (mkdir(path, 0555) < 0) {
 			pr_perror("Failed to create autofs dentry %s", path);
+			free(path);
 			return -1;
 		}
 		free(path);
@@ -967,6 +976,7 @@ static int autofs_add_mount_info(struct pprep_head *ph)
 static int autofs_restore_entry(struct mount_info *mi, AutofsEntry **entry)
 {
 	struct cr_img *img;
+	int ret;
 
 	img = open_image(CR_FD_AUTOFS, O_RSTR, mi->s_dev);
 	if (!img)
@@ -976,10 +986,11 @@ static int autofs_restore_entry(struct mount_info *mi, AutofsEntry **entry)
 		return -1;
 	}
 
-	if (pb_read_one_eof(img, entry, PB_AUTOFS) < 0)
-		return -1;
+	ret = pb_read_one_eof(img, entry, PB_AUTOFS);
 
 	close_image(img);
+	if (ret < 0)
+		return -1;
 	return 0;
 }
 
