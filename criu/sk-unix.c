@@ -1208,14 +1208,14 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd,
 	if (prev_root_fd && (root_ns_mask & CLONE_NEWNS)) {
 		if (ui->ue->mnt_id >= 0) {
 			ns = lookup_nsid_by_mnt_id(ui->ue->mnt_id);
-			if (ns == NULL)
-				goto err;
 		} else {
 			if (root == NULL)
 				root = lookup_ns_by_id(root_item->ids->mnt_ns_id,
 									&mnt_ns_desc);
 			ns = root;
 		}
+		if (ns == NULL)
+			goto err;
 		*prev_root_fd = open("/", O_RDONLY);
 		if (*prev_root_fd < 0) {
 			pr_perror("Can't open current root");
