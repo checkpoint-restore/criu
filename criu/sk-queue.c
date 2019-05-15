@@ -273,6 +273,8 @@ err_set_sock:
 		pr_perror("setsockopt failed on restore");
 		ret = -1;
 	}
+	if (pe.scm)
+		release_cmsg(&pe);
 err_brk:
 	xfree(data);
 	return ret;
