@@ -866,8 +866,6 @@ int criu_local_add_enable_fs(criu_opts *opts, const char *fs)
 err:
 	if (str)
 		free(str);
-	if (ptr)
-		free(ptr);
 
 	return -ENOMEM;
 }
@@ -903,8 +901,6 @@ int criu_local_add_skip_mnt(criu_opts *opts, const char *mnt)
 err:
 	if (str)
 		free(str);
-	if (ptr)
-		free(ptr);
 
 	return -ENOMEM;
 }
