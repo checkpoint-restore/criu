@@ -678,11 +678,13 @@ static int init_pagemaps(struct page_read *pr)
 
 		pr->nr_pmes++;
 		if (pr->nr_pmes >= nr_pmes) {
+			PagemapEntry **new;
 			nr_pmes += nr_realloc;
-			pr->pmes = xrealloc(pr->pmes,
+			new = xrealloc(pr->pmes,
 					    nr_pmes * sizeof(*pr->pmes));
-			if (!pr->pmes)
+			if (!new)
 				goto free_pagemaps;
+			pr->pmes = new;
 		}
 	}
 
