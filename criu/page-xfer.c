@@ -1007,7 +1007,6 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 			return -1;
 
 	if (opts.ps_socket != -1) {
-		ret = 0;
 		ask = opts.ps_socket;
 		pr_info("Re-using ps socket %d\n", ask);
 		goto no_server;
