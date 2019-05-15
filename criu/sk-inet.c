@@ -579,6 +579,7 @@ err:
 	release_skopts(&skopts);
 	xfree(ie.src_addr);
 	xfree(ie.dst_addr);
+	xfree(ie.ifname);
 	return err;
 }
 
