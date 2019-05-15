@@ -1542,7 +1542,6 @@ static int bind_on_deleted(int sk, struct unix_sk_info *ui)
 		     pos = strrchr(path, '/')) {
 			*pos = '\0';
 			if (rmdir(path)) {
-				ret = - errno;
 				pr_perror("ghost: Can't remove directory %s on id %#x ino %d",
 					  path, ui->ue->id, ui->ue->ino);
 				return -1;
