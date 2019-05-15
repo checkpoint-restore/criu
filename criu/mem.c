@@ -594,7 +594,6 @@ int prepare_mm_pid(struct pstree_item *i)
 		if (!vma)
 			break;
 
-		ret = 0;
 		ri->vmas.nr++;
 		if (!img)
 			vma->e = ri->mm->vmas[vn++];
@@ -603,6 +602,7 @@ int prepare_mm_pid(struct pstree_item *i)
 			if (ret <= 0) {
 				xfree(vma);
 				close_image(img);
+				img = NULL;
 				break;
 			}
 		}
@@ -629,6 +629,8 @@ int prepare_mm_pid(struct pstree_item *i)
 			break;
 	}
 
+	if (img)
+		close_image(img);
 	return ret;
 }
 
