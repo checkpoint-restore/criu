@@ -1247,6 +1247,8 @@ int close_old_fds(void)
 		ret = sscanf(de->d_name, "%d", &fd);
 		if (ret != 1) {
 			pr_err("Can't parse %s\n", de->d_name);
+			closedir(dir);
+			close_pid_proc();
 			return -1;
 		}
 
