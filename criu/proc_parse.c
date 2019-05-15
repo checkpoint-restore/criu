@@ -2277,6 +2277,7 @@ int parse_threads(int pid, struct pid **_t, int *_n)
 			tmp = xrealloc(t, nr * sizeof(struct pid));
 			if (!tmp) {
 				xfree(t);
+				closedir(dir);
 				return -1;
 			}
 			t = tmp;
