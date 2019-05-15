@@ -490,6 +490,7 @@ static void free_pagemaps(struct page_read *pr)
 		pagemap_entry__free_unpacked(pr->pmes[i], NULL);
 
 	xfree(pr->pmes);
+	pr->pmes = NULL;
 }
 
 static void advance_piov(struct page_read_iov *piov, ssize_t len)
