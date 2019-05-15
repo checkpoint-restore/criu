@@ -735,6 +735,7 @@ static struct collect_image_info remap_cinfo = {
 static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_dev)
 {
 	struct cr_img *img;
+	int exit_code = -1;
 	GhostFileEntry gfe = GHOST_FILE_ENTRY__INIT;
 	Timeval atim = TIMEVAL__INIT, mtim = TIMEVAL__INIT;
 
@@ -771,7 +772,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 	}
 
 	if (pb_write_one(img, &gfe, PB_GHOST_FILE))
-		return -1;
+		goto err_out;
 
 	if (S_ISREG(st->st_mode)) {
 		int fd, ret;
@@ -785,7 +786,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 		fd = open(lpath, O_RDONLY);
 		if (fd < 0) {
 			pr_perror("Can't open ghost original file");
-			return -1;
+			goto err_out;
 		}
 
 		if (gfe.chunks)
@@ -794,11 +795,13 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 			ret = copy_file(fd, img_raw_fd(img), st->st_size);
 		close(fd);
 		if (ret)
-			return -1;
+			goto err_out;
 	}
 
+	exit_code = 0;
+err_out:
 	close_image(img);
-	return 0;
+	return exit_code;
 }
 
 struct file_remap *lookup_ghost_remap(u32 dev, u32 ino)
