@@ -1511,8 +1511,6 @@ long __export_restore_task(struct task_restore_args *args)
 		}
 	}
 
-	ret = 0;
-
 	/*
 	 * Tune up the task fields.
 	 */
