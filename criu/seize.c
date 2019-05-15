@@ -627,6 +627,7 @@ static int collect_threads(struct pstree_item *item)
 {
 	struct seccomp_entry *task_seccomp_entry;
 	struct pid *threads = NULL;
+	struct pid *tmp = NULL;
 	int nr_threads = 0, i = 0, ret, nr_inprogress, nr_stopped = 0;
 
 	task_seccomp_entry = seccomp_find_entry(item->pid->real);
@@ -643,9 +644,11 @@ static int collect_threads(struct pstree_item *item)
 	}
 
 	/* The number of threads can't be less than already frozen */
-	item->threads = xrealloc(item->threads, nr_threads * sizeof(struct pid));
-	if (item->threads == NULL)
-		return -1;
+	tmp = xrealloc(item->threads, nr_threads * sizeof(struct pid));
+	if (tmp == NULL)
+		goto err;
+
+	item->threads = tmp;
 
 	if (item->nr_threads == 0) {
 		item->threads[0].real = item->pid->real;
