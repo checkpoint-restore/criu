@@ -92,6 +92,7 @@ out_close:
 int write_img_inventory(InventoryEntry *he)
 {
 	struct cr_img *img;
+	int ret;
 
 	pr_info("Writing image inventory (version %u)\n", CRTOOLS_IMAGES_V1);
 
@@ -99,11 +100,12 @@ int write_img_inventory(InventoryEntry *he)
 	if (!img)
 		return -1;
 
-	if (pb_write_one(img, he, PB_INVENTORY) < 0)
-		return -1;
+	ret = pb_write_one(img, he, PB_INVENTORY);
 
 	xfree(he->root_ids);
 	close_image(img);
+	if (ret < 0)
+		return -1;
 	return 0;
 }
 
