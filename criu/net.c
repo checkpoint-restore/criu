@@ -1941,13 +1941,13 @@ static int restore_ip_dump(int type, int pid, char *cmd)
 		if (written < n) {
 			pr_perror("Failed to write to tmpfile "
 				  "[written: %d; total: %d]", written, n);
-			return -1;
+			goto close;
 		}
 	}
 
 	if (fseek(tmp_file, 0, SEEK_SET)) {
 		pr_perror("Failed to set file position to beginning of tmpfile");
-		return -1;
+		goto close;
 	}
 
 	if (img) {
@@ -1955,6 +1955,7 @@ static int restore_ip_dump(int type, int pid, char *cmd)
 		close_image(img);
 	}
 
+close:
 	if(fclose(tmp_file)) {
 		pr_perror("Failed to close tmpfile");
 	}
@@ -2059,6 +2060,7 @@ static inline int restore_iptables(int pid)
 		return -1;
 	if (empty_image(img)) {
 		ret = 0;
+		close_image(img);
 		goto ipt6;
 	}
 
