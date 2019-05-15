@@ -1888,13 +1888,16 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		}
 	}
 
-	if (bind_unix_sk(sk, ui))
+	if (bind_unix_sk(sk, ui)) {
+		close(sk);
 		return -1;
+	}
 
 	if (ui->ue->state == TCP_LISTEN) {
 		pr_info("\tPutting %d into listen state\n", ui->ue->ino);
 		if (listen(sk, ui->ue->backlog) < 0) {
 			pr_perror("Can't make usk listen");
+			close(sk);
 			return -1;
 		}
 		ui->listen = 1;
