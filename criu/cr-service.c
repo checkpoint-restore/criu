@@ -1156,7 +1156,7 @@ int cr_service_work(int sk)
 	CriuReq *msg = 0;
 
 more:
-	if (recv_criu_msg(sk, &msg) == -1) {
+	if (recv_criu_msg(sk, &msg) != 0) {
 		pr_perror("Can't recv request");
 		goto err;
 	}
