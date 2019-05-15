@@ -89,6 +89,7 @@ static int selinux_get_label(pid_t pid, char **output)
 		if (!pos) {
 			pr_err("Invalid selinux context %s\n", (char *)ctx);
 			xfree(*output);
+			*output = NULL;
 			goto err;
 		}
 
