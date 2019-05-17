@@ -17,8 +17,6 @@ ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
 	compel_plugins	:= $(shell $(COMPEL_BIN) plugins)
 endif
 
-asflags-y	+= -D__ASSEMBLY__
-
 LDS		:= compel/arch/$(SRCARCH)/scripts/compel-pack.lds.S
 
 restorer-obj-y	+= ./$(ARCH_DIR)/restorer.o
