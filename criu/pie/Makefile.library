@@ -38,8 +38,3 @@ CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
 asflags-y		:= -D__ASSEMBLY__
 ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 ccflags-y		+= $(CFLAGS_PIE)
-
-ifeq ($(SRCARCH),arm)
-	ccflags-y	+= -marm
-endif
-

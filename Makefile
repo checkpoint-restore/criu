@@ -46,6 +46,13 @@ ifeq ($(ARCH),arm)
         endif
 
         PROTOUFIX	:= y
+	# For simplicity - compile code in Arm mode without interwork.
+	# We could choose Thumb mode as default instead - but a dirty
+	# experiment shows that with 90Kb PIEs Thumb code doesn't save
+	# even one page. So, let's stick so far to Arm mode as it's more
+	# universal around all different Arm variations, until someone
+	# will find any use for Thumb mode. -dima
+        CFLAGS_PIE	:= -marm
 endif
 
 ifeq ($(ARCH),aarch64)
