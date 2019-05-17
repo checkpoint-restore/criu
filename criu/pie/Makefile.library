@@ -34,6 +34,4 @@ ifeq ($(SRCARCH),x86)
 endif
 
 CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
-
-ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 ccflags-y		+= $(CFLAGS_PIE)

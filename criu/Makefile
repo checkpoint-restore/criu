@@ -7,9 +7,8 @@ PIE_DIR			:= criu/pie
 export ARCH_DIR PIE_DIR
 
 ifeq ($(filter clean mrproper,$(MAKECMDGOALS)),)
-	COMPEL_UAPI_INCLUDES	:= $(shell $(COMPEL_BIN) includes)
-	export COMPEL_UAPI_INCLUDES
-	COMPEL_LIBS		:= $(shell $(COMPEL_BIN) --static libs)
+        CFLAGS		+= $(shell $(COMPEL_BIN) includes)
+        COMPEL_LIBS	:= $(shell $(COMPEL_BIN) --static libs)
 endif
 
 #
@@ -20,17 +19,14 @@ CONFIG-DEFINES		+= -DUSER_CONFIG_DIR='".criu/"'
 
 #
 # General flags.
-ccflags-y		+= -fno-strict-aliasing
-ccflags-y		+= -iquote criu/include
-ccflags-y		+= -iquote include
-ccflags-y		+= -iquote images
-ccflags-y		+= -iquote $(ARCH_DIR)/include
-ccflags-y		+= -iquote .
-ccflags-y		+= $(shell pkg-config --cflags libnl-3.0)
-ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
-ccflags-y		+= $(CONFIG-DEFINES)
-
-export ccflags-y
+CFLAGS			+= -fno-strict-aliasing
+CFLAGS			+= -iquote criu/include
+CFLAGS			+= -iquote include
+CFLAGS			+= -iquote images
+CFLAGS			+= -iquote $(ARCH_DIR)/include
+CFLAGS			+= -iquote .
+CFLAGS			+= $(shell pkg-config --cflags libnl-3.0)
+CFLAGS			+= $(CONFIG-DEFINES)
 
 ifeq ($(GMON),1)
 	CFLAGS		+= -pg
