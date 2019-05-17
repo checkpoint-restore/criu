@@ -1,3 +1,7 @@
+# Recipes to compile PIEs: parastie and restorer
+# Compel will deal with converting the result binaries
+# to a C array to be used in CRIU.
+
 target		:= parasite restorer
 
 CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
