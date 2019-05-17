@@ -72,14 +72,6 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 		     : "r"(ret)					\
 		     : "memory")
 
-#ifndef ARCH_MAP_VDSO_32
-# define ARCH_MAP_VDSO_32		0x2002
-#endif
-
-#ifndef ARCH_MAP_VDSO_64
-# define ARCH_MAP_VDSO_64		0x2003
-#endif
-
 static inline void
 __setup_sas_compat(struct ucontext_ia32* uc, ThreadSasEntry *sas)
 {

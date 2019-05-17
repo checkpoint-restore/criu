@@ -23,5 +23,29 @@
 	"__kernel_sigreturn",			\
 	"__kernel_rt_sigreturn"
 
+#ifndef ARCH_MAP_VDSO_32
+# define ARCH_MAP_VDSO_32		0x2002
+#endif
+
+#ifndef ARCH_MAP_VDSO_64
+# define ARCH_MAP_VDSO_64		0x2003
+#endif
+
+#if defined(CONFIG_COMPAT) && !defined(__ASSEMBLY__)
+struct vdso_symtable;
+extern int vdso_fill_symtable(uintptr_t mem, size_t size,
+			      struct vdso_symtable *t);
+extern int vdso_fill_symtable_compat(uintptr_t mem, size_t size,
+				     struct vdso_symtable *t);
+
+static inline int __vdso_fill_symtable(uintptr_t mem, size_t size,
+			struct vdso_symtable *t, bool compat_vdso)
+{
+	if (compat_vdso)
+		return vdso_fill_symtable_compat(mem, size, t);
+	else
+		return vdso_fill_symtable(mem, size, t);
+}
+#endif
 
 #endif /* __CR_ASM_VDSO_H__ */
