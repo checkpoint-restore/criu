@@ -6,7 +6,7 @@
 
 lib-name		:= pie.lib.a
 
-CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC -fpie
+CFLAGS			+= -DCR_NOGLIBC
 
 lib-y			+= util.o
 
