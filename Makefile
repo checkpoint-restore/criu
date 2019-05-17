@@ -85,6 +85,8 @@ ifeq ($(ARCH),s390)
         DEFINES		:= -DCONFIG_S390
         CFLAGS_PIE	:= -fno-optimize-sibling-calls
 endif
+
+CFLAGS_PIE		+= -DCR_NOGLIBC
 export CFLAGS_PIE
 
 LDARCH ?= $(SRCARCH)

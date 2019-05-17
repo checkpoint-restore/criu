@@ -6,8 +6,6 @@
 
 lib-name		:= pie.lib.a
 
-CFLAGS			+= -DCR_NOGLIBC
-
 lib-y			+= util.o
 
 ifeq ($(VDSO),y)
