@@ -11,7 +11,6 @@ ccflags-y	+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 ccflags-y	+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
 
 ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
-	CFLAGS		+= $(shell $(COMPEL_BIN) cflags)
 	LDFLAGS		+= $(shell $(COMPEL_BIN) ldflags)
 	compel_plugins	:= $(shell $(COMPEL_BIN) plugins)
 endif

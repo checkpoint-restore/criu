@@ -9,6 +9,7 @@ export ARCH_DIR PIE_DIR
 ifeq ($(filter clean mrproper,$(MAKECMDGOALS)),)
         CFLAGS		+= $(shell $(COMPEL_BIN) includes)
         COMPEL_LIBS	:= $(shell $(COMPEL_BIN) --static libs)
+        CFLAGS_PIE	+= $(shell $(COMPEL_BIN) cflags)
 endif
 
 #
