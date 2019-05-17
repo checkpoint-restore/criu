@@ -9,15 +9,7 @@ lib-name		:= pie.lib.a
 lib-y			+= util.o
 
 ifeq ($(VDSO),y)
-        lib-y		+= util-vdso.o parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o
-
-        ifeq ($(SRCARCH),aarch64)
-                lib-y	+= ./$(ARCH_DIR)/intraprocedure.o
-        endif
-
-        ifeq ($(SRCARCH),ppc64)
-                lib-y	+= ./$(ARCH_DIR)/vdso-trampoline.o
-        endif
+        lib-y		+= util-vdso.o
 endif
 
 ifeq ($(SRCARCH),ppc64)
