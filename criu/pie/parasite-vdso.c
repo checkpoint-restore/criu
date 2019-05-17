@@ -74,18 +74,8 @@ int vdso_do_park(struct vdso_maps *rt, unsigned long park_at,
 	return ret;
 }
 
-/* XXX: move in arch/ */
-#if defined(CONFIG_X86_64) && defined(CONFIG_COMPAT)
-int __vdso_fill_symtable(uintptr_t mem, size_t size,
-		struct vdso_symtable *t, bool compat_vdso)
-{
-	if (compat_vdso)
-		return vdso_fill_symtable_compat(mem, size, t);
-	else
-		return vdso_fill_symtable(mem, size, t);
-}
-#else
-int __vdso_fill_symtable(uintptr_t mem, size_t size,
+#ifndef CONFIG_COMPAT
+static int __vdso_fill_symtable(uintptr_t mem, size_t size,
 		struct vdso_symtable *t, bool __always_unused compat_vdso)
 {
 	return vdso_fill_symtable(mem, size, t);

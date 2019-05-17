@@ -75,6 +75,8 @@ struct vdso_maps {
 #define ELF_ST_BIND	ELF32_ST_BIND
 #endif
 
+# define vdso_fill_symtable vdso_fill_symtable_compat
+
 #else /* CONFIG_VDSO_32 */
 
 #define Ehdr_t		Elf64_Ehdr
@@ -92,17 +94,6 @@ struct vdso_maps {
 
 #endif /* CONFIG_VDSO_32 */
 
-#if defined(CONFIG_VDSO_32)
-# define vdso_fill_symtable vdso_fill_symtable_compat
-#endif
-
 extern int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t);
-#if defined(CONFIG_X86_64) && defined(CONFIG_COMPAT)
-#ifndef ARCH_MAP_VDSO_32
-# define ARCH_MAP_VDSO_32	0x2002
-#endif
-extern int vdso_fill_symtable_compat(uintptr_t mem, size_t size,
-		struct vdso_symtable *t);
-#endif
 
 #endif /* __CR_UTIL_VDSO_H__ */
