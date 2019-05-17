@@ -29,7 +29,7 @@ asflags-y		+= -iquote $(PLUGIN_ARCH_DIR)
 
 # General flags for assembly
 asflags-y		+= -fpie -Wstrict-prototypes
-asflags-y		+= -D__ASSEMBLY__ -nostdlib -fomit-frame-pointer
+asflags-y		+= -nostdlib -fomit-frame-pointer
 asflags-y		+= -fno-stack-protector
 ldflags-y		+= -z noexecstack
 

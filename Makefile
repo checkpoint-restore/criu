@@ -129,9 +129,10 @@ ifeq ($(GMON),1)
 export GMON GMONLDOPT
 endif
 
+AFLAGS			+= -D__ASSEMBLY__
 CFLAGS			+= $(USERCFLAGS) $(WARNINGS) $(DEFINES) -iquote include/
 HOSTCFLAGS		+= $(WARNINGS) $(DEFINES) -iquote include/
-export CFLAGS USERCLFAGS HOSTCFLAGS
+export AFLAGS CFLAGS USERCLFAGS HOSTCFLAGS
 
 # Default target
 all: criu lib crit
