@@ -1,5 +1,4 @@
 ccflags-y		+= -iquote criu/$(ARCH)
-ccflags-y		+= $(COMPEL_UAPI_INCLUDES)
 CFLAGS_REMOVE_clone-noasan.o += $(CFLAGS-ASAN)
 CFLAGS_kerndat.o	+= -DKDAT_MAGIC_2=${shell echo $${SOURCE_DATE_EPOCH:-$$(date +%s)}} -DKDAT_RUNDIR=\"$(RUNDIR)\"
 ldflags-y		+= -r

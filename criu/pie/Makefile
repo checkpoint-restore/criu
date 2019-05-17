@@ -5,7 +5,6 @@
 target		:= parasite restorer
 
 CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
-ccflags-y	+= $(COMPEL_UAPI_INCLUDES)
 ccflags-y	+= $(CFLAGS_PIE)
 ccflags-y	+= -DCR_NOGLIBC
 ccflags-y	+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
