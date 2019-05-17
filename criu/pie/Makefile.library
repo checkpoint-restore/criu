@@ -1,3 +1,9 @@
+# PIE library is a static library that's going to be linked into
+# *both* CRIU binary and PIEs (parasite/restorer).
+# Please, make sure that you're including here only objects
+# those will be used in CRIU too. For objects files only for PIEs
+# edit their separate recipes criu/pie/Makefile
+
 lib-name		:= pie.lib.a
 
 CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC -fpie
@@ -27,12 +33,6 @@ ifeq ($(SRCARCH),x86)
         CFLAGS_util-vdso-elf32.o	+= -DCONFIG_VDSO_32
 endif
 
-#
-# We can't provide proper mount implementation
-# in parasite code -- it requires run-time rellocation
-# applications, which is not the target of the
-# project.
-#
 CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
 
 asflags-y		:= -D__ASSEMBLY__
