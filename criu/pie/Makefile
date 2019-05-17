@@ -25,6 +25,18 @@ ifeq ($(ARCH),x86)
         endif
 endif
 
+ifeq ($(VDSO),y)
+        restorer-obj-y		+= parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o
+
+        ifeq ($(SRCARCH),aarch64)
+                restorer-obj-y	+= ./$(ARCH_DIR)/intraprocedure.o
+        endif
+
+        ifeq ($(SRCARCH),ppc64)
+                restorer-obj-y	+= ./$(ARCH_DIR)/vdso-trampoline.o
+        endif
+endif
+
 define gen-pie-rules
 $(1)-obj-y	+= $(1).o
 $(1)-obj-e	+= pie.lib.a
