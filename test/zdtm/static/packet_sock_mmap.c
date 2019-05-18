@@ -47,6 +47,7 @@ static void check_map_is_there(unsigned long addr, int sk)
 		sscanf(line, "%lx-%*x %*s %*s %x:%x %d %*s", &start, &maj, &min, &ino);
 		if ((start == addr) && ss.st_dev == makedev(maj, min) && ss.st_ino == ino) {
 			pass();
+			fclose(f);
 			return;
 		}
 	}

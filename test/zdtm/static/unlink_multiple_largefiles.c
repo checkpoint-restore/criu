@@ -31,7 +31,7 @@ void create_check_pattern(char *buf, size_t count, unsigned char seed)
 struct fiemap *read_fiemap(int fd)
 {
 	test_msg("Obtaining fiemap for fd %d\n", fd);
-	struct fiemap *fiemap;
+	struct fiemap *fiemap, *tmp;
 	int extents_size;
 
 	fiemap = malloc(sizeof(struct fiemap));
@@ -48,16 +48,19 @@ struct fiemap *read_fiemap(int fd)
 
 	if (ioctl(fd, FS_IOC_FIEMAP, fiemap) < 0) {
 		pr_perror("FIEMAP ioctl failed");
+		free(fiemap);
 		return NULL;
 	}
 
 	extents_size = sizeof(struct fiemap_extent) * fiemap->fm_mapped_extents;
 
-	fiemap = realloc(fiemap,sizeof(struct fiemap) + extents_size);
-	if (fiemap == NULL) {
+	tmp = realloc(fiemap, sizeof(struct fiemap) + extents_size);
+	if (tmp == NULL) {
+		free(fiemap);
 		pr_perror("Cannot resize fiemap");
 		return NULL;
 	}
+	fiemap = tmp;
 	memset(fiemap->fm_extents, 0, extents_size);
 
 	fiemap->fm_extent_count = fiemap->fm_mapped_extents;
@@ -65,6 +68,7 @@ struct fiemap *read_fiemap(int fd)
 
 	if (ioctl(fd, FS_IOC_FIEMAP, fiemap) < 0) {
 		pr_perror("fiemap ioctl() failed");
+		free(fiemap);
 		return NULL;
 	}
 	test_msg("Debugkillme: %x\n", fiemap->fm_mapped_extents);

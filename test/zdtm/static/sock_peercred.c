@@ -67,6 +67,7 @@ int main(int argc, char **argv)
 	socklen_t len;
 	char *stack;
 	pid_t pid;
+	int exit_code = 1;
 
 	test_init(argc, argv);
 
@@ -78,7 +79,7 @@ int main(int argc, char **argv)
 	stack = malloc(2 * STACK_SIZE);
 	if (!stack) {
 		pr_err("malloc\n");
-		return 1;
+		goto out;
 	}
 
 	/* Find unused fd */
@@ -89,18 +90,18 @@ int main(int argc, char **argv)
 
 	if (fd == INT_MAX) {
 		pr_err("INT_MAX happens...\n");
-		return 1;
+		goto out;
 	}
 
 	pid = clone(child_func, stack + STACK_SIZE, CLONE_FILES|SIGCHLD, (void *)(unsigned long)fd);
 	if (pid == -1) {
 		pr_perror("clone");
-		return 1;
+		goto out;
 	}
 
 	if (wait(&status) == -1 || status) {
 		pr_perror("wait error: status=%d\n", status);
-		return 1;
+		goto out;
 	}
 
 	test_daemon();
@@ -109,15 +110,18 @@ int main(int argc, char **argv)
 	len = sizeof(ucred);
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &len) < 0) {
 		fail("Can't getsockopt()");
-		return 1;
+		goto out;
 	}
 
 	if (ucred.pid != pid || ucred.gid != getuid() + UID_INC ||
 			        ucred.gid != getgid() + GID_INC) {
 		fail("Wrong pid, uid or gid\n");
-		return 1;
+		goto out;
 	}
 
 	pass();
-	return 0;
+	exit_code = 0;
+ out:
+	free(stack);
+	return exit_code;
 }

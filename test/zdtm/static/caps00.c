@@ -47,6 +47,7 @@ int main(int argc, char **argv)
 	if (f) {
 		if (fscanf(f, "%d", &cap_last_cap) != 1) {
 			pr_perror("Unable to read cal_last_cap");
+			fclose(f);
 			return 1;
 		}
 		fclose(f);

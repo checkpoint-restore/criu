@@ -312,7 +312,7 @@ static int autofs_open_mount(int devid, const char *mountpoint)
 {
 	struct autofs_dev_ioctl *param;
 	size_t size;
-	int fd;
+	int ret;
 
 	size = sizeof(struct autofs_dev_ioctl) + strlen(mountpoint) + 1;
 	param = malloc(size);
@@ -325,13 +325,14 @@ static int autofs_open_mount(int devid, const char *mountpoint)
 
 	if (ioctl(autofs_dev, AUTOFS_DEV_IOCTL_OPENMOUNT, param) < 0) {
 		pr_perror("failed to open autofs mount %s", mountpoint);
-		return -errno;
+		ret = -errno;
+		goto out;
 	}
 
-	fd = param->ioctlfd;
+	ret = param->ioctlfd;
+out:
 	free(param);
-
-	return fd;
+	return ret;
 }
 
 static int autofs_report_result(int token, int devid, const char *mountpoint,

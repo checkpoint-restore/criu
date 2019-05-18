@@ -147,9 +147,11 @@ int main(int argc, char **argv)
 			test_waitsig();
 			skip("RI not supported");
 			pass();
+			free(buf);
 			return 0;
 		}
 		fail("Fail with error %d", errno);
+		free(buf);
 		return -1;
 	}
 	/* Set buffer for RI */
