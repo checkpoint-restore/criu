@@ -73,13 +73,13 @@ static int parse_maps(struct vm_area *vmas)
 				v->start, v->end);
 	}
 
-	if (i == MAX_VMAS) {
-		pr_err("Number of VMAs is bigger than reserved array's size\n");
+	if (fclose(maps)) {
+		pr_err("Failed to close maps file: %m\n");
 		return -1;
 	}
 
-	if (fclose(maps)) {
-		pr_err("Failed to close maps file: %m\n");
+	if (i == MAX_VMAS) {
+		pr_err("Number of VMAs is bigger than reserved array's size\n");
 		return -1;
 	}
 
