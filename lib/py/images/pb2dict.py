@@ -4,7 +4,7 @@ from ipaddress import IPv4Address, ip_address
 from ipaddress import IPv6Address
 import socket
 import collections
-import os, six
+import os
 
 # pb2dict and dict2pb are methods to convert pb to/from dict.
 # Inspired by:
@@ -216,7 +216,10 @@ def get_bytes_dec(field):
 		return decode_base64
 
 def is_string(value):
-	return isinstance(value, six.string_types)
+	# Python 3 compatibility
+	if not hasattr(__builtins__, "basestring"):
+		basestring = (str, bytes)
+	return isinstance(value, basestring)
 
 def _pb2dict_cast(field, value, pretty = False, is_hex = False):
 	if not is_hex:
