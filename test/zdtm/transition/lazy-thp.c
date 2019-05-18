@@ -57,5 +57,7 @@ int main(int argc, char ** argv)
 	}
 
 	pass();
+	free(org);
+	free(mem);
 	return 0;
 }
