@@ -153,6 +153,7 @@ static void sfds_protection_bug(enum sfd_type type)
 int install_service_fd(enum sfd_type type, int fd)
 {
 	int sfd = __get_service_fd(type, service_fd_id);
+	int tmp;
 
 	BUG_ON((int)type <= SERVICE_FD_MIN || (int)type >= SERVICE_FD_MAX);
 	if (sfds_protected && !test_bit(type, sfd_map))
@@ -166,14 +167,17 @@ int install_service_fd(enum sfd_type type, int fd)
 		return fd;
 	}
 
-	if (!test_bit(type, sfd_map)) {
-		if (sfd_verify_target(type, fd, sfd))
-			return -1;
-	}
-
-	if (dup3(fd, sfd, O_CLOEXEC) != sfd) {
+	if (!test_bit(type, sfd_map))
+		tmp = fcntl(fd, F_DUPFD, sfd);
+	else
+		tmp = dup3(fd, sfd, O_CLOEXEC);
+	if (tmp < 0) {
 		pr_perror("%s dup %d -> %d failed",
 			  sfd_type_name(type), fd, sfd);
+		close(fd);
+		return -1;
+	} else if (tmp != sfd) {
+		pr_err("%s busy target %d -> %d\n", sfd_type_name(type), fd, sfd);
 		close(fd);
 		return -1;
 	}
@@ -201,25 +205,30 @@ int close_service_fd(enum sfd_type type)
 	return 0;
 }
 
-static void move_service_fd(struct pstree_item *me, int type, int new_id, int new_base)
+static int move_service_fd(struct pstree_item *me, int type, int new_id, int new_base)
 {
 	int old = get_service_fd(type);
 	int new = new_base - type - SERVICE_FD_MAX * new_id;
 	int ret;
 
 	if (old < 0)
-		return;
+		return 0;
 
 	if (!test_bit(type, sfd_map))
-		sfd_verify_target(type, old, new);
-
-	ret = dup2(old, new);
+		ret = fcntl(old, F_DUPFD, new);
+	else
+		ret = dup2(old, new);
 	if (ret == -1) {
-		if (errno != EBADF)
-			pr_perror("%s unable to clone %d->%d",
-				  sfd_type_name(type), old, new);
+		pr_perror("%s unable to clone %d->%d",
+			  sfd_type_name(type), old, new);
+		return -1;
+	} else if (ret != new) {
+		pr_err("%s busy target %d -> %d\n", sfd_type_name(type), old, new);
+		return -1;
 	} else if (!(rsti(me)->clone_flags & CLONE_FILES))
 		close(old);
+
+	return 0;
 }
 
 static int choose_service_fd_base(struct pstree_item *me)
