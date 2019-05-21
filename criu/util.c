@@ -230,19 +230,19 @@ int reopen_fd_as_safe(char *file, int line, int new_fd, int old_fd, bool allow_r
 	int tmp;
 
 	if (old_fd != new_fd) {
-		if (!allow_reuse_fd) {
-			if (fcntl(new_fd, F_GETFD) != -1 || errno != EBADF) {
-				pr_err("fd %d already in use (called at %s:%d)\n",
-					new_fd, file, line);
-				return -1;
-			}
-		}
-
-		tmp = dup2(old_fd, new_fd);
+		if (!allow_reuse_fd)
+			tmp = fcntl(old_fd, F_DUPFD, new_fd);
+		else
+			tmp = dup2(old_fd, new_fd);
 		if (tmp < 0) {
 			pr_perror("Dup %d -> %d failed (called at %s:%d)",
 				  old_fd, new_fd, file, line);
 			return tmp;
+		} else if (tmp != new_fd) {
+			close(tmp);
+			pr_err("fd %d already in use (called at %s:%d)\n",
+				new_fd, file, line);
+			return -1;
 		}
 
 		/* Just to have error message if failed */
