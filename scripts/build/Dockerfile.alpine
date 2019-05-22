@@ -36,7 +36,7 @@ RUN apk add \
 	bash \
 	go \
 	e2fsprogs \
-	asciidoc xmlto
+	asciidoctor
 
 # The rpc test cases are running as user #1000, let's add the user
 RUN adduser -u 1000 -D test
