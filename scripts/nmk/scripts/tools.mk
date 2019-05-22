@@ -35,6 +35,8 @@ CTAGS		:= ctags
 export RM HOSTLD LD HOSTCC CC CPP AS AR STRIP OBJCOPY OBJDUMP
 export NM SH MAKE MKDIR AWK PERL PYTHON SH CSCOPE
 
+export USE_ASCIIDOCTOR ?= $(shell which asciidoctor 2>/dev/null)
+
 #
 # Footer.
 ____nmk_defined__tools = y

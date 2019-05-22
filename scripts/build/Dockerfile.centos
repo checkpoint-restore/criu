@@ -32,7 +32,7 @@ RUN yum install -y \
 	which \
 	e2fsprogs \
 	python2-pip \
-	asciidoc xmlto
+	rubygem-asciidoctor
 
 COPY . /criu
 WORKDIR /criu
