@@ -11,6 +11,7 @@
 #include "image.h"
 #include "cr_options.h"
 #include "kerndat.h"
+#include "stats.h"
 #include "page-pipe.h"
 #include "page-xfer.h"
 #include "rst-malloc.h"
@@ -676,6 +677,7 @@ static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 	struct page_xfer xfer;
 	int err, ret = -1;
 	unsigned long pfn, nrpages, next_data_pnf = 0, next_hole_pfn = 0;
+	unsigned long pages[2] = {};
 
 	nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
 
@@ -693,6 +695,7 @@ static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 		unsigned int pgstate = PST_DIRTY;
 		bool use_mc = true;
 		unsigned long pgaddr;
+		int st = -1;
 
 		if (pfn >= next_hole_pfn &&
 		    next_data_segment(fd, pfn, &next_data_pnf, &next_hole_pfn))
@@ -714,10 +717,13 @@ static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 again:
 		if (pgstate == PST_ZERO)
 			ret = 0;
-		else if (xfer.parent && page_in_parent(pgstate == PST_DIRTY))
+		else if (xfer.parent && page_in_parent(pgstate == PST_DIRTY)) {
 			ret = page_pipe_add_hole(pp, pgaddr, PP_HOLE_PARENT);
-		else
+			st = 0;
+		} else {
 			ret = page_pipe_add_page(pp, pgaddr, 0);
+			st = 1;
+		}
 
 		if (ret == -EAGAIN) {
 			ret = dump_pages(pp, &xfer);
@@ -727,7 +733,14 @@ again:
 			goto again;
 		} else if (ret)
 			goto err_xfer;
+
+		if (st >= 0)
+			pages[st]++;
 	}
+
+	cnt_add(CNT_SHPAGES_SCANNED, nrpages);
+	cnt_add(CNT_SHPAGES_SKIPPED_PARENT, pages[0]);
+	cnt_add(CNT_SHPAGES_WRITTEN, pages[1]);
 
 	ret = dump_pages(pp, &xfer);
 

@@ -165,6 +165,13 @@ void write_stats(int what)
 		ds_entry.page_pipe_bufs = dstats->counts[CNT_PAGE_PIPE_BUFS];
 		ds_entry.has_page_pipe_bufs = true;
 
+		ds_entry.shpages_scanned = dstats->counts[CNT_SHPAGES_SCANNED];
+		ds_entry.has_shpages_scanned = true;
+		ds_entry.shpages_skipped_parent = dstats->counts[CNT_SHPAGES_SKIPPED_PARENT];
+		ds_entry.has_shpages_skipped_parent = true;
+		ds_entry.shpages_written = dstats->counts[CNT_SHPAGES_WRITTEN];
+		ds_entry.has_shpages_written = true;
+
 		name = "dump";
 	} else if (what == RESTORE_STATS) {
 		stats.restore = &rs_entry;
