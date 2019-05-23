@@ -1098,13 +1098,32 @@ class criu:
 			else:
 				raise test_fail_exc("CRIU %s" % action)
 
+	def __stats_file(self, action):
+		return os.path.join(self.__ddir(), "stats-%s" % action)
+
 	def show_stats(self, action):
 		if not self.__show_stats:
 			return
 
-		subprocess.Popen([self.__crit_bin, "show",
-				os.path.join(self.__dump_path,
-				str(self.__iter), "stats-%s" % action)]).wait()
+		subprocess.Popen([self.__crit_bin, "show", self.__stats_file(action)]).wait()
+
+	def check_pages_counts(self):
+		stats_written = -1
+		with open(self.__stats_file("dump"), 'rb') as stfile:
+			stats = crpc.images.load(stfile)
+			stent = stats['entries'][0]['dump']
+			stats_written = int(stent['shpages_written']) + int(stent['pages_written'])
+
+		real_written = 0
+		for f in os.listdir(self.__ddir()):
+			if f.startswith('pages-'):
+				real_written += os.path.getsize(os.path.join(self.__ddir(), f))
+
+		r_pages = real_written / 4096
+		r_off = real_written % 4096
+		if (stats_written != r_pages) or (r_off != 0):
+			print("ERROR: bad page counts, stats = %d real = %d(%d)" % (stats_written, r_pages, r_off))
+			raise test_fail_exc("page counts mismatch")
 
 	def dump(self, action, opts = []):
 		self.__iter += 1
@@ -1152,6 +1171,7 @@ class criu:
 			self.__criu_act("dedup", opts = [])
 
 		self.show_stats("dump")
+		self.check_pages_counts()
 
 		if self.__leave_stopped:
 			pstree_check_stopped(self.__test.getpid())
