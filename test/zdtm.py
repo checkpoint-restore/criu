@@ -1108,6 +1108,9 @@ class criu:
 		subprocess.Popen([self.__crit_bin, "show", self.__stats_file(action)]).wait()
 
 	def check_pages_counts(self):
+		if not os.access(self.__stats_file("dump"), os.R_OK):
+			return
+
 		stats_written = -1
 		with open(self.__stats_file("dump"), 'rb') as stfile:
 			stats = crpc.images.load(stfile)
