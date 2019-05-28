@@ -343,6 +343,7 @@ static int copy_file(int fd_in, int fd_out, size_t bytes)
 
 		written += ret;
 	}
+	ret = 0;
 err:
 	xfree(buffer);
 	return ret;
