@@ -217,9 +217,11 @@ def get_bytes_dec(field):
 
 def is_string(value):
 	# Python 3 compatibility
-	if not hasattr(__builtins__, "basestring"):
-		basestring = (str, bytes)
-	return isinstance(value, basestring)
+	if "basestring" in __builtins__:
+		string_types = basestring
+	else:
+		string_types = (str, bytes)
+	return isinstance(value, string_types)
 
 def _pb2dict_cast(field, value, pretty = False, is_hex = False):
 	if not is_hex:
