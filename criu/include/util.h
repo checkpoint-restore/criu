@@ -163,7 +163,6 @@ static inline dev_t kdev_to_odev(u32 kdev)
 	return makedev(major, minor);
 }
 
-extern int copy_file(int fd_in, int fd_out, size_t bytes);
 extern int is_anon_link_type(char *link, char *type);
 
 #define is_hex_digit(c)				\

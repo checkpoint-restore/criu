@@ -296,6 +296,58 @@ static int copy_file_from_chunks(struct cr_img *img, int fd, size_t file_size)
 	}
 }
 
+static int copy_file(int fd_in, int fd_out, size_t bytes)
+{
+	ssize_t written = 0;
+	size_t chunk = bytes ? bytes : 4096;
+	char *buffer;
+	ssize_t ret;
+
+	buffer = xmalloc(chunk);
+	if (buffer == NULL) {
+		pr_perror("failed to allocate buffer to copy file");
+		return -1;
+	}
+
+	while (1) {
+		if (opts.remote) {
+			ret = read(fd_in, buffer, chunk);
+			if (ret < 0) {
+				pr_perror("Can't read from fd_in\n");
+				ret = -1;
+				goto err;
+			}
+			if (write(fd_out, buffer, ret) != ret) {
+				pr_perror("Couldn't write all read bytes\n");
+				ret = -1;
+				goto err;
+			}
+		} else
+			ret = sendfile(fd_out, fd_in, NULL, chunk);
+
+		if (ret < 0) {
+			pr_perror("Can't send data to ghost file");
+			ret = -1;
+			goto err;
+		}
+
+		if (ret == 0) {
+			if (bytes && (written != bytes)) {
+				pr_err("Ghost file size mismatch %zu/%zu\n",
+						written, bytes);
+				ret = -1;
+				goto err;
+			}
+			break;
+		}
+
+		written += ret;
+	}
+err:
+	xfree(buffer);
+	return ret;
+}
+
 static int mkreg_ghost(char *path, GhostFileEntry *gfe, struct cr_img *img)
 {
 	int gfd, ret;
