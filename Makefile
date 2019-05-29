@@ -56,19 +56,16 @@ ifeq ($(ARCH),arm)
 endif
 
 ifeq ($(ARCH),aarch64)
-        VDSO		:= y
         DEFINES		:= -DCONFIG_AARCH64
 endif
 
 ifeq ($(ARCH),ppc64)
         LDARCH		:= powerpc:common64
-        VDSO		:= y
         DEFINES		:= -DCONFIG_PPC64 -D__SANE_USERSPACE_TYPES__
 endif
 
 ifeq ($(ARCH),x86)
         LDARCH		:= i386:x86-64
-        VDSO		:= y
         DEFINES		:= -DCONFIG_X86_64
 endif
 
@@ -81,7 +78,6 @@ endif
 ifeq ($(ARCH),s390)
         ARCH		:= s390
         SRCARCH		:= s390
-        VDSO		:= y
         DEFINES		:= -DCONFIG_S390
         CFLAGS_PIE	:= -fno-optimize-sibling-calls
 endif
@@ -90,7 +86,7 @@ CFLAGS_PIE		+= -DCR_NOGLIBC
 export CFLAGS_PIE
 
 LDARCH ?= $(SRCARCH)
-export LDARCH VDSO
+export LDARCH
 export PROTOUFIX DEFINES
 
 #

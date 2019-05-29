@@ -573,7 +573,6 @@ err_io:
 #undef __tty_ioctl
 }
 
-#ifdef CONFIG_VDSO
 static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 {
 	struct vdso_mark *m = (void *)args->start;
@@ -609,13 +608,6 @@ static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 
 	return 0;
 }
-#else
-static inline int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
-{
-	pr_err("Unexpected VDSO check command\n");
-	return -1;
-}
-#endif
 
 static int parasite_dump_cgroup(struct parasite_dump_cgroup_args *args)
 {

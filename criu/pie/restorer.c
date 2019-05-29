@@ -1081,11 +1081,7 @@ static void restore_posix_timers(struct task_restore_args *args)
  * sys_munmap must not return here. The control process must
  * trap us on the exit from sys_munmap.
  */
-#ifdef CONFIG_VDSO
 unsigned long vdso_rt_size = 0;
-#else
-#define vdso_rt_size	(0)
-#endif
 
 void *bootstrap_start = NULL;
 unsigned int bootstrap_len = 0;
@@ -1259,9 +1255,7 @@ long __export_restore_task(struct task_restore_args *args)
 	bootstrap_start = args->bootstrap_start;
 	bootstrap_len	= args->bootstrap_len;
 
-#ifdef CONFIG_VDSO
 	vdso_rt_size	= args->vdso_rt_size;
-#endif
 
 	fi_strategy = args->fault_strategy;
 
@@ -1446,7 +1440,6 @@ long __export_restore_task(struct task_restore_args *args)
 
 	sys_close(args->vma_ios_fd);
 
-#ifdef CONFIG_VDSO
 	/*
 	 * Proxify vDSO.
 	 */
@@ -1454,7 +1447,6 @@ long __export_restore_task(struct task_restore_args *args)
 		     args->vmas, args->vmas_n, args->compatible_mode,
 		     fault_injected(FI_VDSO_TRAMPOLINES)))
 		goto core_restore_end;
-#endif
 
 	/*
 	 * Walk though all VMAs again to drop PROT_WRITE
