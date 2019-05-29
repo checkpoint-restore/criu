@@ -29,4 +29,4 @@ ifeq ($(SRCARCH),arm)
 endif
 
 CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
-ccflags-y		+= $(CFLAGS_PIE)
+CFLAGS		+= $(CFLAGS_PIE)
