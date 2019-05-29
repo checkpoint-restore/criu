@@ -25,6 +25,7 @@ endif
 
 ifeq ($(SRCARCH),arm)
         lib-y		+= ./$(ARCH_DIR)/aeabi-helpers.o
+        lib-y		+= ./$(ARCH_DIR)/pie-cacheflush.o
 endif
 
 CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
