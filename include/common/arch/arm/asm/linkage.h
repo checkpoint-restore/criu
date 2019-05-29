@@ -19,6 +19,10 @@
 #define END(sym)		\
 	.size sym, . - sym
 
+#define ALIAS(sym_new, sym_old)	\
+	.globl sym_new;		\
+	.set sym_new, sym_old
+
 #endif  /* __ASSEMBLY__ */
 
 #endif /* __CR_LINKAGE_H__ */

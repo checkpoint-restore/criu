@@ -23,5 +23,9 @@ ifeq ($(SRCARCH),x86)
         CFLAGS_util-vdso-elf32.o	+= -DCONFIG_VDSO_32
 endif
 
+ifeq ($(SRCARCH),arm)
+        lib-y		+= ./$(ARCH_DIR)/aeabi-helpers.o
+endif
+
 CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
 ccflags-y		+= $(CFLAGS_PIE)

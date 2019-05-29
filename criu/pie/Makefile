@@ -10,8 +10,8 @@ ccflags-y	+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 ccflags-y	+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
 
 ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
-	LDFLAGS		+= $(shell $(COMPEL_BIN) ldflags)
-	compel_plugins	:= $(shell $(COMPEL_BIN) plugins)
+        LDFLAGS		+= $(shell $(COMPEL_BIN) ldflags)
+        compel_plugins	:= $(shell $(COMPEL_BIN) plugins)
 endif
 
 LDS		:= compel/arch/$(SRCARCH)/scripts/compel-pack.lds.S
