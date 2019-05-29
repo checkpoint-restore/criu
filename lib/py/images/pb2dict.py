@@ -5,6 +5,12 @@ from ipaddress import IPv6Address
 import socket
 import collections
 import os
+import base64
+import quopri
+
+if "encodebytes" not in dir(base64):
+	base64.encodebytes = base64.encodestring
+	base64.decodebytes = base64.decodestring
 
 # pb2dict and dict2pb are methods to convert pb to/from dict.
 # Inspired by:
@@ -189,14 +195,14 @@ def encode_dev(field, value):
 		return dev[0] << kern_minorbits | dev[1]
 
 def encode_base64(value):
-	return value.encode('base64')
+	return base64.encodebytes(value)
 def decode_base64(value):
-	return value.decode('base64')
+	return base64.decodebytes(value)
 
 def encode_unix(value):
-	return value.encode('quopri')
+	return quopri.encodestring(value)
 def decode_unix(value):
-	return value.decode('quopri')
+	return quopri.decodestring(value)
 
 encode = { 'unix_name': encode_unix }
 decode = { 'unix_name': decode_unix }
