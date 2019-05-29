@@ -242,7 +242,7 @@ static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 		const char * symbol = vdso_symbols[i];
 		k = elf_hash((const unsigned char *)symbol);
 
-		for (j = bucket[k % nbucket]; j < nchain && chain[j] != STN_UNDEF; j = chain[j]) {
+		for (j = bucket[k % nbucket]; j < nchain && j != STN_UNDEF; j = chain[j]) {
 			addr = mem + dyn_symtab->d_un.d_ptr - load->p_vaddr;
 			Sym_t *sym;
 			char *name;
