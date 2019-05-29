@@ -582,7 +582,7 @@ static pid_t fork_and_ptrace_attach(int (*child_setup)(void))
 	return pid;
 }
 
-static int check_ptrace_peeksiginfo()
+static int check_ptrace_peeksiginfo(void)
 {
 	struct ptrace_peeksiginfo_args arg;
 	siginfo_t siginfo;
@@ -609,6 +609,177 @@ static int check_ptrace_peeksiginfo()
 
 	kill(pid, SIGKILL);
 	return ret;
+}
+
+struct special_mapping {
+	const char	*name;
+	void		*addr;
+	size_t		size;
+};
+
+static int parse_special_maps(struct special_mapping *vmas, size_t nr)
+{
+	FILE *maps;
+	char buf[256];
+	int ret = 0;
+
+	maps = fopen_proc(PROC_SELF, "maps");
+	if (!maps)
+		return -1;
+
+	while (fgets(buf, sizeof(buf), maps)) {
+		unsigned long start, end;
+		int r, tail;
+		size_t i;
+
+		r = sscanf(buf, "%lx-%lx %*s %*s %*s %*s %n\n",
+				&start, &end, &tail);
+		if (r != 2) {
+			fclose(maps);
+			pr_err("Bad maps format %d.%d (%s)\n", r, tail, buf + tail);
+			return -1;
+		}
+
+		for (i = 0; i < nr; i++) {
+			if (strcmp(buf + tail, vmas[i].name) != 0)
+				continue;
+			if (vmas[i].addr != MAP_FAILED) {
+				pr_err("Special mapping meet twice: %s\n", vmas[i].name);
+				ret = -1;
+				goto out;
+			}
+			vmas[i].addr = (void *)start;
+			vmas[i].size = end - start;
+		}
+	}
+
+out:
+	fclose(maps);
+	return ret;
+}
+
+static void dummy_sighandler(int sig)
+{
+}
+
+/*
+ * The idea of test is checking if the kernel correctly tracks positions
+ * of special_mappings: vdso/vvar/sigpage/...
+ * Per-architecture commits added handling for mremap() somewhere between
+ * v4.8...v4.14. If the kernel doesn't have one of those patches,
+ * a process will crash after receiving a signal (we use SIGUSR1 for
+ * the test here). That's because after processing a signal the kernel
+ * needs a "landing" to return to userspace, which is based on vdso/sigpage.
+ * If the kernel doesn't track the position of mapping - we land in the void.
+ * And we definitely mremap() support by the fact that those special_mappings
+ * are subjects for ASLR. (See #288 as a reference)
+ */
+static void check_special_mapping_mremap_child(struct special_mapping *vmas,
+					       size_t nr)
+{
+	size_t i, parking_size = 0;
+	void *parking_lot;
+	pid_t self = getpid();
+
+	for (i = 0; i < nr; i++) {
+		if (vmas[i].addr != MAP_FAILED)
+			parking_size += vmas[i].size;
+	}
+
+	if (signal(SIGUSR1, dummy_sighandler) == SIG_ERR) {
+		pr_perror("signal() failed");
+		exit(1);
+	}
+
+	parking_lot = mmap(NULL, parking_size, PROT_NONE,
+			   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (parking_lot == MAP_FAILED) {
+		pr_perror("mmap(%zu) failed", parking_size);
+		exit(1);
+	}
+
+	for (i = 0; i < nr; i++) {
+		unsigned long ret;
+
+		if (vmas[i].addr == MAP_FAILED)
+			continue;
+
+		ret = syscall(__NR_mremap, (unsigned long)vmas[i].addr,
+			      vmas[i].size, vmas[i].size,
+			      MREMAP_FIXED | MREMAP_MAYMOVE,
+			      (unsigned long)parking_lot);
+		if (ret != (unsigned long)parking_lot)
+			syscall(__NR_exit, 1);
+		parking_lot += vmas[i].size;
+	}
+
+	syscall(__NR_kill, self, SIGUSR1);
+	syscall(__NR_exit, 0);
+}
+
+static int check_special_mapping_mremap(void)
+{
+	struct special_mapping special_vmas[] = {
+		{
+			.name = "[vvar]\n",
+			.addr = MAP_FAILED,
+		},
+		{
+			.name = "[vdso]\n",
+			.addr = MAP_FAILED,
+		},
+		{
+			.name = "[sigpage]\n",
+			.addr = MAP_FAILED,
+		},
+		/* XXX: { .name = "[uprobes]\n" }, */
+		/*
+		 * Not subjects for ASLR, skipping:
+		 * { .name = "[vectors]\n", },
+		 * { .name = "[vsyscall]\n" },
+		 */
+	};
+	size_t vmas_nr = ARRAY_SIZE(special_vmas);
+	pid_t child;
+	int stat;
+
+	if (parse_special_maps(special_vmas, vmas_nr))
+		return -1;
+
+	child = fork();
+	if (child < 0) {
+		pr_perror("%s(): failed to fork()", __func__);
+		return -1;
+	}
+
+	if (child == 0)
+		check_special_mapping_mremap_child(special_vmas, vmas_nr);
+
+	if (waitpid(child, &stat, 0) != child) {
+		if (errno == ECHILD) {
+			pr_err("BUG: Someone waited for the child already\n");
+			return -1;
+		}
+		/* Probably, we're interrupted with a signal - cleanup */
+		pr_err("Failed to wait for a child %d\n", errno);
+		kill(child, SIGKILL);
+		return -1;
+	}
+
+	if (WIFSIGNALED(stat)) {
+		pr_err("Child killed by signal %d\n", WTERMSIG(stat));
+		pr_err("Your kernel probably lacks the support for mremapping special mappings\n");
+		return -1;
+	} else if (WIFEXITED(stat)) {
+		if (WEXITSTATUS(stat) == 0)
+			return 0;
+		pr_err("Child exited with %d\n", WEXITSTATUS(stat));
+		return -1;
+	}
+
+	pr_err("BUG: waitpid() returned stat=%d\n", stat);
+	/* We're not killing the child here - it's predestined to die anyway. */
+	return -1;
 }
 
 static int check_ptrace_suspend_seccomp(void)
@@ -1172,6 +1343,7 @@ int cr_check(void)
 	CHECK_CAT1(check_ipc());
 	CHECK_CAT1(check_sigqueuinfo());
 	CHECK_CAT1(check_ptrace_peeksiginfo());
+	CHECK_CAT1(check_special_mapping_mremap());
 
 	/*
 	 * Category 2 - required for specific cases.
