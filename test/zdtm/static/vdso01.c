@@ -246,7 +246,7 @@ static int vdso_fill_symtable(char *mem, size_t size, struct vdso_symtable *t)
 	for (i = 0; i < ARRAY_SIZE(vdso_symbols); i++) {
 		k = elf_hash((const unsigned char *)vdso_symbols[i]);
 
-		for (j = bucket[k % nbucket]; j < nchain && chain[j] != STN_UNDEF; j = chain[j]) {
+		for (j = bucket[k % nbucket]; j < nchain && j != STN_UNDEF; j = chain[j]) {
 			Sym_t *sym = (void *)&mem[dyn_symtab->d_un.d_ptr - load->p_vaddr];
 			char *name;
 
