@@ -2,9 +2,6 @@
 #define __CR_PARASITE_VDSO_H__
 
 #include "common/config.h"
-
-#ifdef CONFIG_VDSO
-
 #include "util-vdso.h"
 #include "images/vma.pb-c.h"
 
@@ -94,11 +91,5 @@ extern int vdso_proxify(struct vdso_symtable *sym_rt,
 extern int vdso_redirect_calls(unsigned long base_to, unsigned long base_from,
 			struct vdso_symtable *to, struct vdso_symtable *from,
 			bool compat_vdso);
-
-#else /* CONFIG_VDSO */
-#define vdso_do_park(sym_rt, park_at, park_size)		(0)
-#define vdso_map_compat(map_at)					(0)
-
-#endif /* CONFIG_VDSO */
 
 #endif /* __CR_PARASITE_VDSO_H__ */

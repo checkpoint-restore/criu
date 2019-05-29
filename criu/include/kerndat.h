@@ -5,9 +5,7 @@
 #include "int.h"
 #include "common/config.h"
 #include "asm/kerndat.h"
-#ifdef CONFIG_VDSO
 #include "util-vdso.h"
-#endif
 
 struct stat;
 
@@ -61,11 +59,9 @@ struct kerndat_s {
 	bool has_thp_disable;
 	bool can_map_vdso;
 	bool vdso_hint_reliable;
-#ifdef CONFIG_VDSO
 	struct vdso_symtable	vdso_sym;
 #ifdef CONFIG_COMPAT
 	struct vdso_symtable	vdso_sym_compat;
-#endif
 #endif
 	bool has_nsid;
 	bool has_link_nsid;

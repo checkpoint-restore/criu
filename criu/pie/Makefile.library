@@ -7,14 +7,7 @@
 lib-name		:= pie.lib.a
 
 lib-y			+= util.o
-
-ifeq ($(VDSO),y)
-        lib-y		+= util-vdso.o
-endif
-
-ifeq ($(SRCARCH),ppc64)
-        lib-y		+= ./$(ARCH_DIR)/misc.o
-endif
+lib-y			+= util-vdso.o
 
 ifeq ($(SRCARCH),x86)
         ifeq ($(CONFIG_COMPAT),y)
