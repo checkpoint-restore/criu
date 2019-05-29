@@ -127,11 +127,17 @@ static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 {
 	unsigned long rt_vvar_addr = vdso_rt_parked_at;
 	unsigned long rt_vdso_addr = vdso_rt_parked_at;
+	void *remap_addr;
 	int ret;
 
 	pr_info("Runtime vdso/vvar matches dumpee, remap inplace\n");
 
-	if (sys_munmap((void *)vma_vdso->start, vma_entry_len(vma_vdso))) {
+	/*
+	 * Ugly casts for 32bit platforms, which don't like uint64_t
+	 * cast to (void *)
+	 */
+	remap_addr = (void *)(uintptr_t)vma_vdso->start;
+	if (sys_munmap(remap_addr, vma_entry_len(vma_vdso))) {
 		pr_err("Failed to unmap dumpee vdso\n");
 		return -1;
 	}
@@ -141,7 +147,8 @@ static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 				vma_vdso->start, sym_rt->vdso_size);
 	}
 
-	if (sys_munmap((void *)vma_vvar->start, vma_entry_len(vma_vvar))) {
+	remap_addr = (void *)(uintptr_t)vma_vvar->start;
+	if (sys_munmap(remap_addr, vma_entry_len(vma_vvar))) {
 		pr_err("Failed to unmap dumpee vvar\n");
 		return -1;
 	}
