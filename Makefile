@@ -35,7 +35,7 @@ endif
 # Architecture specific options.
 ifeq ($(ARCH),arm)
         ARMV		:= $(shell echo $(UNAME-M) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
-        DEFINES		:= -DCONFIG_ARMV$(ARMV)
+        DEFINES		:= -DCONFIG_ARMV$(ARMV) -DCONFIG_VDSO_32
 
         ifeq ($(ARMV),6)
                 USERCFLAGS += -march=armv6
