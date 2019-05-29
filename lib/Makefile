@@ -42,7 +42,7 @@ clean-lib:
 	$(Q) $(MAKE) $(build)=lib/py clean
 .PHONY: clean-lib
 clean: clean-lib
-cleanup-y	+= lib/c/$(CRIU_SO) lib/c/criu.pc
+cleanup-y	+= lib/c/$(CRIU_SO) lib/c/$(CRIU_A) lib/c/criu.pc
 mrproper: clean
 
 install: lib-c lib-py crit/crit lib/c/criu.pc.in
