@@ -3231,10 +3231,8 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	struct thread_restore_args *thread_args;
 	struct restore_mem_zone *mz;
 
-#ifdef CONFIG_VDSO
 	struct vdso_maps vdso_maps_rt;
 	unsigned long vdso_rt_size = 0;
-#endif
 
 	struct vm_area_list self_vmas;
 	struct vm_area_list *vmas = &rsti(current)->vmas;
@@ -3285,7 +3283,6 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	pr_info("%d threads require %ldK of memory\n",
 			current->nr_threads, KBYTES(task_args->bootstrap_len));
 
-#ifdef CONFIG_VDSO
 	if (core_is_compat(core))
 		vdso_maps_rt = vdso_maps_compat;
 	else
@@ -3297,7 +3294,6 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	if (vdso_rt_size && vdso_maps_rt.sym.vvar_size)
 		vdso_rt_size += ALIGN(vdso_maps_rt.sym.vvar_size, PAGE_SIZE);
 	task_args->bootstrap_len += vdso_rt_size;
-#endif
 
 	/*
 	 * Restorer is a blob (code + args) that will get mapped in some
@@ -3512,7 +3508,6 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	}
 
-#ifdef CONFIG_VDSO
 	/*
 	 * Restorer needs own copy of vdso parameters. Runtime
 	 * vdso must be kept non intersecting with anything else,
@@ -3524,7 +3519,6 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	task_args->vdso_maps_rt = vdso_maps_rt;
 	task_args->vdso_rt_size = vdso_rt_size;
 	task_args->can_map_vdso = kdat.can_map_vdso;
-#endif
 
 	new_sp = restorer_stack(task_args->t->mz);
 

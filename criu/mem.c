@@ -101,7 +101,6 @@ static inline bool __page_in_parent(bool dirty)
 
 bool should_dump_page(VmaEntry *vmae, u64 pme)
 {
-#ifdef CONFIG_VDSO
 	/*
 	 * vDSO area must be always dumped because on restore
 	 * we might need to generate a proxy.
@@ -117,7 +116,7 @@ bool should_dump_page(VmaEntry *vmae, u64 pme)
 	 */
 	if (vma_entry_is(vmae, VMA_AREA_VVAR))
 		return false;
-#endif
+
 	/*
 	 * Optimisation for private mapping pages, that haven't
 	 * yet being COW-ed

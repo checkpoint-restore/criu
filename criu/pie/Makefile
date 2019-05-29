@@ -16,6 +16,7 @@ endif
 
 LDS		:= compel/arch/$(SRCARCH)/scripts/compel-pack.lds.S
 
+restorer-obj-y	+= parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o
 restorer-obj-y	+= ./$(ARCH_DIR)/restorer.o
 
 ifeq ($(ARCH),x86)
@@ -25,16 +26,12 @@ ifeq ($(ARCH),x86)
         endif
 endif
 
-ifeq ($(VDSO),y)
-        restorer-obj-y		+= parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o
+ifeq ($(SRCARCH),aarch64)
+        restorer-obj-y	+= ./$(ARCH_DIR)/intraprocedure.o
+endif
 
-        ifeq ($(SRCARCH),aarch64)
-                restorer-obj-y	+= ./$(ARCH_DIR)/intraprocedure.o
-        endif
-
-        ifeq ($(SRCARCH),ppc64)
-                restorer-obj-y	+= ./$(ARCH_DIR)/vdso-trampoline.o
-        endif
+ifeq ($(SRCARCH),ppc64)
+        restorer-obj-y	+= ./$(ARCH_DIR)/vdso-trampoline.o
 endif
 
 define gen-pie-rules
