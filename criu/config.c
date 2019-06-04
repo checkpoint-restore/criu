@@ -416,6 +416,22 @@ static int parse_join_ns(const char *ptr)
 	return 0;
 }
 
+static int parse_keep_on_exec(char *optarg)
+{
+	size_t size = sizeof(opts.keep_on_exec[0]) * (opts.nr_keep_on_exec + 1);
+	int fd = atoi(optarg);
+
+	if (xrealloc_safe(&opts.keep_on_exec, size))
+		return -ENOMEM;
+
+	opts.keep_on_exec[opts.nr_keep_on_exec++] = fd;
+	qsort(opts.keep_on_exec, opts.nr_keep_on_exec,
+	      sizeof(opts.keep_on_exec[0]),
+	      qsort_cmp_int_array);
+
+	return 0;
+}
+
 /*
  * parse_options() is the point where the getopt parsing happens. The CLI
  * parsing as well as the configuration file parsing happens here.
@@ -511,6 +527,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		BOOL_OPT("remote", &opts.remote),
 		{ "config",			required_argument,	0, 1089},
 		{ "no-default-config",		no_argument,		0, 1090},
+		{ "keep-on-exec",		required_argument,	0, 1092},
 		{ },
 	};
 
@@ -796,6 +813,12 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			break;
 		case 1091:
 			opts.ps_socket = atoi(optarg);
+			break;
+		case 1092:
+			if (parse_keep_on_exec(optarg)) {
+				pr_err("Unable to parse value for --keep-on-exec\n");
+				return 1;
+			}
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);

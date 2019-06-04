@@ -90,6 +90,8 @@ struct cr_options {
 	struct list_head	inherit_fds;
 	struct list_head	external;
 	struct list_head	join_ns;
+	int			*keep_on_exec;
+	size_t			nr_keep_on_exec;
 	char			*libdir;
 	int			use_page_server;
 	unsigned short		port;

@@ -138,6 +138,13 @@ The following levels are available:
             notification message contains a file descriptor for
             the master pty
 
+*--keep-on-exec* 'fd'::
+    Keep 'fd' file descriptor when executing service programs and scripts
+    during certain stages. When *criu* is executed it inherits opened file
+    descriptors or a caller (if they are present). Sometimes it is needed
+    to pass such descriptors to the *--action-script* scripts, otherwise
+    they get closed for security reason.
+
 *-V*, *--version*::
     Print program version and exit.
 

@@ -378,4 +378,6 @@ static inline void print_stack_trace(pid_t pid) {}
 		___ret;									\
 	})
 
+extern int qsort_cmp_int_array(const void *__a, const void *__b);
+
 #endif /* __CR_UTIL_H__ */

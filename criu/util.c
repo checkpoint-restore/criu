@@ -515,6 +515,20 @@ int cr_system(int in, int out, int err, char *cmd, char *const argv[], unsigned 
 	return cr_system_userns(in, out, err, cmd, argv, flags, -1);
 }
 
+static bool should_keep_on_exec(int fd)
+{
+	if (!opts.nr_keep_on_exec)
+		return false;
+
+	if (bsearch(&fd, opts.keep_on_exec,
+		    opts.nr_keep_on_exec,
+		    sizeof(opts.keep_on_exec[0]),
+		    qsort_cmp_int_array))
+	    return true;
+
+	return false;
+}
+
 static int close_fds(int minfd)
 {
 	DIR *dir;
@@ -540,6 +554,8 @@ static int close_fds(int minfd)
 		if (dfd == fd)
 			continue;
 		if (fd < minfd)
+			continue;
+		if (should_keep_on_exec(fd))
 			continue;
 		close(fd);
 	}
@@ -1339,6 +1355,13 @@ void rlimit_unlimit_nofile(void)
 		pr_debug("rlimit: RLIMIT_NOFILE unlimited for self\n");
 
 	service_fd_rlim_cur = kdat.sysctl_nr_open;
+}
+
+int qsort_cmp_int_array(const void *__a, const void *__b)
+{
+	int a = ((int *)__a)[0];
+	int b = ((int *)__b)[0];
+	return a == b ? 0 : (a < b ? -1 : 1);
 }
 
 
