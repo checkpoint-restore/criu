@@ -45,12 +45,13 @@ clean: clean-lib
 cleanup-y	+= lib/c/$(CRIU_SO) lib/c/$(CRIU_A) lib/c/criu.pc
 mrproper: clean
 
-install: lib-c lib-py crit/crit lib/c/criu.pc.in
+install: lib-c lib-a lib-py crit/crit lib/c/criu.pc.in
 	$(E) "  INSTALL " lib
 	$(Q) mkdir -p $(DESTDIR)$(LIBDIR)
 	$(Q) install -m 755 lib/c/$(CRIU_SO) $(DESTDIR)$(LIBDIR)/$(CRIU_SO).$(CRIU_SO_VERSION_MAJOR).$(CRIU_SO_VERSION_MINOR)
 	$(Q) ln -fns $(CRIU_SO).$(CRIU_SO_VERSION_MAJOR).$(CRIU_SO_VERSION_MINOR) $(DESTDIR)$(LIBDIR)/$(CRIU_SO).$(CRIU_SO_VERSION_MAJOR)
 	$(Q) ln -fns $(CRIU_SO).$(CRIU_SO_VERSION_MAJOR).$(CRIU_SO_VERSION_MINOR) $(DESTDIR)$(LIBDIR)/$(CRIU_SO)
+	$(Q) install -m 755 lib/c/$(CRIU_A) $(DESTDIR)$(LIBDIR)/$(CRIU_A)
 	$(Q) mkdir -p $(DESTDIR)$(INCLUDEDIR)/criu/
 	$(Q) install -m 644 $(UAPI_HEADERS) $(DESTDIR)$(INCLUDEDIR)/criu/
 	$(E) "  INSTALL " pkgconfig/criu.pc
@@ -65,6 +66,7 @@ uninstall:
 	$(E) " UNINSTALL" $(CRIU_SO)
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/,$(CRIU_SO).$(CRIU_SO_VERSION_MAJOR))
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/,$(CRIU_SO))
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/,$(CRIU_A))
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBDIR)/,$(CRIU_SO).$(CRIU_SO_VERSION_MAJOR).$(CRIU_SO_VERSION_MINOR))
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/criu/,$(notdir $(UAPI_HEADERS)))
 	$(E) " UNINSTALL" pkgconfig/criu.pc
