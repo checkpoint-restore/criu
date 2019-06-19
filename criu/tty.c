@@ -600,6 +600,9 @@ static int __pty_open_ptmx_index(int index, int flags,
 
 	memset(fds, 0xff, sizeof(fds));
 
+	if (init_tty_mutex())
+		return -1;
+
 	mutex_lock(tty_mutex);
 
 	for (i = 0; i < ARRAY_SIZE(fds); i++) {
