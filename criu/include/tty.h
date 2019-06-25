@@ -32,6 +32,7 @@ struct mount_info;
 extern int devpts_restore(struct mount_info *pm);
 
 extern int tty_prep_fds(void);
+extern int tty_init_restore(void);
 
 extern int devpts_check_bindmount(struct mount_info *m);
 
