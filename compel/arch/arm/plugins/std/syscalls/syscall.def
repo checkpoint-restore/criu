@@ -111,3 +111,4 @@ preadv_raw			69	361	(int fd, struct iovec *iov, unsigned long nr, unsigned long 
 userfaultfd			282	388	(int flags)
 fallocate			47	352	(int fd, int mode, loff_t offset, loff_t len)
 cacheflush			!	983042	(void *start, void *end, int flags)
+ppoll				73	336	(struct pollfd *fds, unsigned int nfds, const struct timespec *tmo, const sigset_t *sigmask, size_t sigsetsize)
