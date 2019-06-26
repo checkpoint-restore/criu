@@ -107,3 +107,4 @@ __NR_ipc		117		sys_ipc			(unsigned int call, int first, unsigned long second, un
 __NR_gettimeofday	78		sys_gettimeofday	(struct timeval *tv, struct timezone *tz)
 __NR_preadv		320		sys_preadv_raw		(int fd, struct iovec *iov, unsigned long nr, unsigned long pos_l, unsigned long pos_h)
 __NR_userfaultfd	364		sys_userfaultfd		(int flags)
+__NR_ppoll		281		sys_ppoll		(struct pollfd *fds, unsigned int nfds, const struct timespec *tmo, const sigset_t *sigmask, size_t sigsetsize)
