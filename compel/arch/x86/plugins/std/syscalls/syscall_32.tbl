@@ -95,3 +95,4 @@ __NR_kcmp		349		sys_kcmp		(pid_t pid1, pid_t pid2, int type, unsigned long idx1,
 __NR_seccomp		354		sys_seccomp		(unsigned int op, unsigned int flags, const char *uargs)
 __NR_memfd_create	356		sys_memfd_create	(const char *name, unsigned int flags)
 __NR_userfaultfd	374		sys_userfaultfd		(int flags)
+__NR_ppoll		309		sys_ppoll		(struct pollfd *fds, unsigned int nfds, const struct timespec *tmo, const sigset_t *sigmask, size_t sigsetsize)

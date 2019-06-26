@@ -726,6 +726,40 @@ static int collect_zombie_pids(struct task_restore_args *ta)
 	return collect_child_pids(TASK_DEAD, &ta->zombies_n);
 }
 
+static int collect_inotify_fds(struct task_restore_args *ta)
+{
+	struct list_head *list = &rsti(current)->fds;
+	struct fdt *fdt = rsti(current)->fdt;
+	struct fdinfo_list_entry *fle;
+
+	/* Check we are an fdt-restorer */
+	if (fdt && fdt->pid != vpid(current))
+		return 0;
+
+	ta->inotify_fds = (int *)rst_mem_align_cpos(RM_PRIVATE);
+
+	list_for_each_entry(fle, list, ps_list) {
+		struct file_desc *d = fle->desc;
+		int *inotify_fd;
+
+		if (d->ops->type != FD_TYPES__INOTIFY)
+			continue;
+
+		if (fle != file_master(d))
+			continue;
+
+		inotify_fd = rst_mem_alloc(sizeof(*inotify_fd), RM_PRIVATE);
+		if (!inotify_fd)
+			return -1;
+
+		ta->inotify_fds_n++;
+		*inotify_fd = fle->fe->fd;
+
+		pr_debug("Collect inotify fd %d to cleanup later\n", *inotify_fd);
+	}
+	return 0;
+}
+
 static int open_core(int pid, CoreEntry **pcore)
 {
 	int ret;
@@ -878,6 +912,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (collect_zombie_pids(ta) < 0)
+		return -1;
+
+	if (collect_inotify_fds(ta) < 0)
 		return -1;
 
 	if (prepare_proc_misc(pid, core->tc, ta))
@@ -3411,6 +3448,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	RST_MEM_FIXUP_PPTR(task_args->helpers);
 	RST_MEM_FIXUP_PPTR(task_args->zombies);
 	RST_MEM_FIXUP_PPTR(task_args->vma_ios);
+	RST_MEM_FIXUP_PPTR(task_args->inotify_fds);
 
 	task_args->compatible_mode = core_is_compat(core);
 	/*

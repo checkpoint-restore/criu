@@ -38,6 +38,7 @@ struct siginfo;
 struct msghdr;
 struct rusage;
 struct iocb;
+struct pollfd;
 
 typedef unsigned long aio_context_t;
 
