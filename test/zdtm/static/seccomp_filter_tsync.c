@@ -34,6 +34,8 @@ const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
 
 pthread_mutex_t getpid_wait;
 
+static int magic = 1234;
+
 int get_seccomp_mode(pid_t pid)
 {
 	FILE *f;
@@ -65,7 +67,7 @@ int filter_syscall(int syscall_nr, unsigned int flags)
 	struct sock_filter filter[] = {
 		BPF_STMT(BPF_LD+BPF_W+BPF_ABS, offsetof(struct seccomp_data, nr)),
 		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, syscall_nr, 0, 1),
-		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_KILL),
+		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ERRNO | (SECCOMP_RET_DATA & magic)),
 		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW),
 	};
 
@@ -84,14 +86,19 @@ int filter_syscall(int syscall_nr, unsigned int flags)
 
 void *wait_and_getpid(void *arg)
 {
+	int ret;
+
 	pthread_mutex_lock(&getpid_wait);
 	pthread_mutex_unlock(&getpid_wait);
 	pthread_mutex_destroy(&getpid_wait);
 
-	/* we expect the tg to get killed by the seccomp filter that was
-	 * installed via TSYNC */
-	ptrace(PTRACE_TRACEME);
-	pthread_exit((void *)1);
+	/* we expect seccomp to exit with
+	 * an error and set errno = magic */
+	ret = ptrace(PTRACE_TRACEME);
+	if (ret == -1 && errno == magic)
+		return (void *)0;
+
+	return ((void *)1);
 }
 
 int main(int argc, char ** argv)
@@ -159,12 +166,6 @@ int main(int argc, char ** argv)
 			exit(1);
 		}
 
-		/* Here we're abusing pthread exit slightly: if the thread gets
-		 * to call pthread_exit, the value of p is one, but if it gets
-		 * killed pthread_join doesn't set a value since the thread
-		 * didn't, so the value is null; we exit 0 to indicate success
-		 * as usual.
-		 */
 		syscall(__NR_exit, p);
 	}
 
