@@ -385,13 +385,12 @@ static unsigned int mnt_depth(struct mount_info *m)
 	return depth;
 }
 
-static void mnt_resort_siblings(struct mount_info *tree)
+static void __mnt_resort_children(struct mount_info *parent)
 {
-	struct mount_info *m, *p;
 	LIST_HEAD(list);
 
 	/*
-	 * Put siblings of each node in an order they can be (u)mounted
+	 * Put children mounts in an order they can be (u)mounted
 	 * I.e. if we have mounts on foo/bar/, foo/bar/foobar/ and foo/
 	 * we should put them in the foo/bar/foobar/, foo/bar/, foo/ order.
 	 * Otherwise we will not be able to (u)mount them in a sequence.
@@ -403,11 +402,12 @@ static void mnt_resort_siblings(struct mount_info *tree)
 	 * to contain hundreds (or more) elements.
 	 */
 
-	pr_info("\tResorting siblings on %d\n", tree->mnt_id);
-	while (!list_empty(&tree->children)) {
+	pr_info("\tResorting children of %d in mount order\n", parent->mnt_id);
+	while (!list_empty(&parent->children)) {
+		struct mount_info *m, *p;
 		unsigned int depth;
 
-		m = list_first_entry(&tree->children, struct mount_info, siblings);
+		m = list_first_entry(&parent->children, struct mount_info, siblings);
 		list_del(&m->siblings);
 
 		depth = mnt_depth(m);
@@ -416,10 +416,31 @@ static void mnt_resort_siblings(struct mount_info *tree)
 				break;
 
 		list_add_tail(&m->siblings, &p->siblings);
-		mnt_resort_siblings(m);
 	}
 
-	list_splice(&list, &tree->children);
+	list_splice(&list, &parent->children);
+}
+
+static struct mount_info *mnt_subtree_next(struct mount_info *mi,
+					   struct mount_info *root);
+
+static void resort_siblings(struct mount_info *root,
+			    void (*resort_children)(struct mount_info *)) {
+	struct mount_info *mi = root;
+	while (1) {
+		/*
+		 * Explanation: sorting the children of the tree like these is
+		 * safe and does not break the tree search in mnt_subtree_next
+		 * (DFS-next search), as we sort children before calling next
+		 * on parent and thus before DFS-next ever touches them, so
+		 * from the perspective of DFS-next all children look like they
+		 * are already sorted.
+		 */
+		resort_children(mi);
+		mi = mnt_subtree_next(mi, root);
+		if (!mi)
+			break;
+	}
 }
 
 static void mnt_tree_show(struct mount_info *tree, int off)
@@ -980,7 +1001,7 @@ static struct mount_info *mnt_build_tree(struct mount_info *list)
 	if (!tree)
 		return NULL;
 
-	mnt_resort_siblings(tree);
+	resort_siblings(tree, __mnt_resort_children);
 	pr_info("Done:\n");
 	mnt_tree_show(tree, 0);
 	return tree;
@@ -3820,4 +3841,22 @@ int remount_readonly_mounts(void)
 	 * CLONE_FS and we would not be able to enter mount namespaces
 	 */
 	return call_helper_process(ns_remount_readonly_mounts, NULL);
+}
+
+static struct mount_info *mnt_subtree_next(struct mount_info *mi,
+					   struct mount_info *root)
+{
+	if (!list_empty(&mi->children))
+		return list_entry(mi->children.next,
+				  struct mount_info, siblings);
+
+	while (mi->parent && mi != root) {
+		if (mi->siblings.next == &mi->parent->children)
+			mi = mi->parent;
+		else
+			return list_entry(mi->siblings.next,
+					  struct mount_info, siblings);
+	}
+
+	return NULL;
 }
