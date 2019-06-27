@@ -997,8 +997,8 @@ class criu:
         self.__prev_dump_iter = None
         self.__page_server = bool(opts['page_server'])
         self.__remote_lazy_pages = bool(opts['remote_lazy_pages'])
-        self.__lazy_pages = (self.__remote_lazy_pages or
-                             bool(opts['lazy_pages']))
+        self.__lazy_pages = (self.__remote_lazy_pages
+                             or bool(opts['lazy_pages']))
         self.__lazy_migrate = bool(opts['lazy_migrate'])
         self.__restore_sibling = bool(opts['sibling'])
         self.__join_ns = bool(opts['join_ns'])
@@ -1167,8 +1167,8 @@ class criu:
                     return
             rst_succeeded = os.access(
                 os.path.join(__ddir, "restore-succeeded"), os.F_OK)
-            if self.__test.blocking() or (self.__sat and action == 'restore' and
-                                          rst_succeeded):
+            if self.__test.blocking() or (self.__sat and action == 'restore'
+                                          and rst_succeeded):
                 raise test_fail_expected_exc(action)
             else:
                 raise test_fail_exc("CRIU %s" % action)
@@ -1199,8 +1199,8 @@ class criu:
             if f.startswith('pages-'):
                 real_written += os.path.getsize(os.path.join(self.__ddir(), f))
 
-        r_pages = real_written / mmap.PAGESIZE
-        r_off = real_written % mmap.PAGESIZE
+        r_pages = real_written / 4096
+        r_off = real_written % 4096
         if (stats_written != r_pages) or (r_off != 0):
             print("ERROR: bad page counts, stats = %d real = %d(%d)" %
                   (stats_written, r_pages, r_off))
@@ -1236,14 +1236,13 @@ class criu:
         a_opts += self.__test.getdopts()
 
         if self.__remote:
-            logdir = (
-                os.getcwd() + "/" + self.__dump_path + "/" + str(self.__iter)
-            )
+            logdir = os.getcwd() + "/" + self.__dump_path + "/" + str(
+                self.__iter)
             print("Adding image cache")
 
             cache_opts = [
-                self.__criu_bin, "image-cache", "--port", "12345",
-                "-v4", "-o", logdir + "/image-cache.log", "-D", logdir
+                self.__criu_bin, "image-cache", "--port", "12345", "-v4", "-o",
+                logdir + "/image-cache.log", "-D", logdir
             ]
 
             subprocess.Popen(cache_opts).pid
@@ -1253,8 +1252,8 @@ class criu:
 
             proxy_opts = [
                 self.__criu_bin, "image-proxy", "--port", "12345", "--address",
-                "localhost", "-v4", "-o", logdir + "/image-proxy.log",
-                "-D", logdir
+                "localhost", "-v4", "-o", logdir + "/image-proxy.log", "-D",
+                logdir
             ]
 
             subprocess.Popen(proxy_opts).pid
@@ -1864,7 +1863,7 @@ class Launcher:
               'stop', 'empty_ns', 'fault', 'keep_img', 'report', 'snaps',
               'sat', 'script', 'rpc', 'lazy_pages', 'join_ns', 'dedup', 'sbs',
               'freezecg', 'user', 'dry_run', 'noauto_dedup',
-              'remote_lazy_pages', 'show_stats', 'lazy_migrate', "remote",
+              'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'remote',
               'tls', 'criu_bin', 'crit_bin')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
@@ -2457,7 +2456,8 @@ rp.add_argument("--iters",
 rp.add_argument("--fault", help="Test fault injection")
 rp.add_argument(
     "--sat",
-    help="Generate criu strace-s for sat tool (restore is fake, images are kept)",
+    help=
+    "Generate criu strace-s for sat tool (restore is fake, images are kept)",
     action='store_true')
 rp.add_argument(
     "--sbs",
