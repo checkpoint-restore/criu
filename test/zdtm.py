@@ -997,8 +997,8 @@ class criu:
         self.__prev_dump_iter = None
         self.__page_server = bool(opts['page_server'])
         self.__remote_lazy_pages = bool(opts['remote_lazy_pages'])
-        self.__lazy_pages = (self.__remote_lazy_pages
-                             or bool(opts['lazy_pages']))
+        self.__lazy_pages = (self.__remote_lazy_pages or
+                             bool(opts['lazy_pages']))
         self.__lazy_migrate = bool(opts['lazy_migrate'])
         self.__restore_sibling = bool(opts['sibling'])
         self.__join_ns = bool(opts['join_ns'])
@@ -1167,8 +1167,8 @@ class criu:
                     return
             rst_succeeded = os.access(
                 os.path.join(__ddir, "restore-succeeded"), os.F_OK)
-            if self.__test.blocking() or (self.__sat and action == 'restore'
-                                          and rst_succeeded):
+            if self.__test.blocking() or (self.__sat and action == 'restore' and
+                                          rst_succeeded):
                 raise test_fail_expected_exc(action)
             else:
                 raise test_fail_exc("CRIU %s" % action)
