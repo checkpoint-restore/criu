@@ -39,6 +39,8 @@ static long sys_gettid(void) { return syscall(__NR_gettid); }
 static futex_t *wait_rdy;
 static futex_t *wait_run;
 
+static int magic = 1234;
+
 int get_seccomp_mode(pid_t pid)
 {
 	FILE *f;
@@ -70,7 +72,7 @@ int filter_syscall(int syscall_nr, unsigned int flags)
 	struct sock_filter filter[] = {
 		BPF_STMT(BPF_LD+BPF_W+BPF_ABS, offsetof(struct seccomp_data, nr)),
 		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, syscall_nr, 0, 1),
-		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_KILL),
+		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ERRNO | (SECCOMP_RET_DATA & magic)),
 		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW),
 	};
 
@@ -87,9 +89,9 @@ int filter_syscall(int syscall_nr, unsigned int flags)
 	return 0;
 }
 
-void tigger_ptrace(void) { ptrace(PTRACE_TRACEME); }
-void trigger_prctl(void) { prctl(PR_SET_PDEATHSIG, 9, 0, 0, 0); }
-void trigger_mincore(void) { mincore(NULL, 0, NULL); }
+int tigger_ptrace(void) { return ptrace(PTRACE_TRACEME); }
+int trigger_prctl(void) { return prctl(PR_SET_PDEATHSIG, 9, 0, 0, 0); }
+int trigger_mincore(void) { return mincore(NULL, 0, NULL); }
 
 #define gen_param(__syscall_nr, __trigger)		\
 {							\
@@ -101,7 +103,7 @@ void trigger_mincore(void) { mincore(NULL, 0, NULL); }
 struct {
 	char		*syscall_name;
 	unsigned int	syscall_nr;
-	void		(*trigger)(void);
+	int		(*trigger)(void);
 } pthread_seccomp_params[] = {
 	gen_param(__NR_ptrace, tigger_ptrace),
 	gen_param(__NR_prctl, trigger_prctl),
@@ -112,6 +114,7 @@ struct {
 
 void *thread_main(void *arg)
 {
+	int ret;
 	size_t nr = (long) arg;
 
 	if (filter_syscall(pthread_seccomp_params[nr].syscall_nr, 0) < 0)
@@ -128,10 +131,12 @@ void *thread_main(void *arg)
 		 nr, pthread_seccomp_params[nr].syscall_name,
 		 sys_gettid());
 
-	pthread_seccomp_params[nr].trigger();
+	ret = pthread_seccomp_params[nr].trigger();
+	if (ret == -1 && errno == magic)
+		return (void *)0;
 
 	test_msg("Abnormal exit %zu thread %lu\n", nr, sys_gettid());
-	pthread_exit((void *)1);
+	return (void *)1;
 }
 
 int main(int argc, char ** argv)
@@ -167,7 +172,7 @@ int main(int argc, char ** argv)
 
 	if (pid == 0) {
 		pthread_t thread[ARRAY_SIZE(pthread_seccomp_params)];
-		void *p = NULL;
+		void *ret;
 
 		zdtm_seccomp = 1;
 
@@ -180,10 +185,13 @@ int main(int argc, char ** argv)
 
 		for (i = 0; i < ARRAY_SIZE(pthread_seccomp_params); i++) {
 			test_msg("Waiting thread %zu\n", i);
-			if (pthread_join(thread[i], &p) != 0) {
+			if (pthread_join(thread[i], &ret) != 0) {
 				pr_perror("pthread_join");
 				exit(1);
 			}
+
+			if (ret != 0)
+				syscall(__NR_exit, 1);
 		}
 
 		syscall(__NR_exit, 0);
