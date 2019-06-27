@@ -27,21 +27,21 @@ MAX_MSG_SIZE = 1024
 resp.ParseFromString(s.recv(MAX_MSG_SIZE))
 
 if resp.type != rpc.VERSION:
-	print('RPC: Unexpected msg type')
-	sys.exit(-1)
+    print('RPC: Unexpected msg type')
+    sys.exit(-1)
 else:
-	if resp.success:
-		print('RPC: Success')
-		print('CRIU major %d' % resp.version.major_number)
-		print('CRIU minor %d' % resp.version.minor_number)
-		if resp.version.HasField('gitid'):
-			print('CRIU gitid %s' % resp.version.gitid)
-		if resp.version.HasField('sublevel'):
-			print('CRIU sublevel %s' % resp.version.sublevel)
-		if resp.version.HasField('extra'):
-			print('CRIU extra %s' % resp.version.extra)
-		if resp.version.HasField('name'):
-			print('CRIU name %s' % resp.version.name)
-	else:
-		print('Fail')
-		sys.exit(-1)
+    if resp.success:
+        print('RPC: Success')
+        print('CRIU major %d' % resp.version.major_number)
+        print('CRIU minor %d' % resp.version.minor_number)
+        if resp.version.HasField('gitid'):
+            print('CRIU gitid %s' % resp.version.gitid)
+        if resp.version.HasField('sublevel'):
+            print('CRIU sublevel %s' % resp.version.sublevel)
+        if resp.version.HasField('extra'):
+            print('CRIU extra %s' % resp.version.extra)
+        if resp.version.HasField('name'):
+            print('CRIU name %s' % resp.version.name)
+    else:
+        print('Fail')
+        sys.exit(-1)
