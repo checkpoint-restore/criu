@@ -2456,8 +2456,7 @@ rp.add_argument("--iters",
 rp.add_argument("--fault", help="Test fault injection")
 rp.add_argument(
     "--sat",
-    help=
-    "Generate criu strace-s for sat tool (restore is fake, images are kept)",
+    help="Generate criu strace-s for sat tool (restore is fake, images are kept)",
     action='store_true')
 rp.add_argument(
     "--sbs",
