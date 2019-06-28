@@ -11,8 +11,8 @@ import pycriu.rpc_pb2 as rpc
 
 class _criu_comm:
     """
-	Base class for communication classes.
-	"""
+    Base class for communication classes.
+    """
     COMM_SK = 0
     COMM_FD = 1
     COMM_BIN = 2
@@ -22,22 +22,22 @@ class _criu_comm:
 
     def connect(self, daemon):
         """
-		Connect to criu and return socket object.
-		daemon -- is for whether or not criu should daemonize if executing criu from binary(comm_bin).
-		"""
+        Connect to criu and return socket object.
+        daemon -- is for whether or not criu should daemonize if executing criu from binary(comm_bin).
+        """
         pass
 
     def disconnect(self):
         """
-		Disconnect from criu.
-		"""
+        Disconnect from criu.
+        """
         pass
 
 
 class _criu_comm_sk(_criu_comm):
     """
-	Communication class for unix socket.
-	"""
+    Communication class for unix socket.
+    """
 
     def __init__(self, sk_path):
         self.comm_type = self.COMM_SK
@@ -55,8 +55,8 @@ class _criu_comm_sk(_criu_comm):
 
 class _criu_comm_fd(_criu_comm):
     """
-	Communication class for file descriptor.
-	"""
+    Communication class for file descriptor.
+    """
 
     def __init__(self, fd):
         self.comm_type = self.COMM_FD
@@ -74,8 +74,8 @@ class _criu_comm_fd(_criu_comm):
 
 class _criu_comm_bin(_criu_comm):
     """
-	Communication class for binary.
-	"""
+    Communication class for binary.
+    """
 
     def __init__(self, bin_path):
         self.comm_type = self.COMM_BIN
@@ -139,8 +139,8 @@ class _criu_comm_bin(_criu_comm):
 
 class CRIUException(Exception):
     """
-	Exception class for handling and storing criu errors.
-	"""
+    Exception class for handling and storing criu errors.
+    """
     typ = None
     _str = None
 
@@ -150,8 +150,8 @@ class CRIUException(Exception):
 
 class CRIUExceptionInternal(CRIUException):
     """
-	Exception class for handling and storing internal errors.
-	"""
+    Exception class for handling and storing internal errors.
+    """
 
     def __init__(self, typ, s):
         self.typ = typ
@@ -161,8 +161,8 @@ class CRIUExceptionInternal(CRIUException):
 
 class CRIUExceptionExternal(CRIUException):
     """
-	Exception class for handling and storing criu RPC errors.
-	"""
+    Exception class for handling and storing criu RPC errors.
+    """
 
     def __init__(self, req_typ, resp_typ, errno):
         self.typ = req_typ
@@ -196,8 +196,8 @@ class CRIUExceptionExternal(CRIUException):
 
 class criu:
     """
-	Call criu through RPC.
-	"""
+    Call criu through RPC.
+    """
     opts = None  #CRIU options in pb format
 
     _comm = None  #Communication method
@@ -209,26 +209,26 @@ class criu:
 
     def use_sk(self, sk_name):
         """
-		Access criu using unix socket which that belongs to criu service daemon.
-		"""
+        Access criu using unix socket which that belongs to criu service daemon.
+        """
         self._comm = _criu_comm_sk(sk_name)
 
     def use_fd(self, fd):
         """
-		Access criu using provided fd.
-		"""
+        Access criu using provided fd.
+        """
         self._comm = _criu_comm_fd(fd)
 
     def use_binary(self, bin_name):
         """
-		Access criu by execing it using provided path to criu binary.
-		"""
+        Access criu by execing it using provided path to criu binary.
+        """
         self._comm = _criu_comm_bin(bin_name)
 
     def _send_req_and_recv_resp(self, req):
         """
-		As simple as send request and receive response.
-		"""
+        As simple as send request and receive response.
+        """
         # In case of self-dump we need to spawn criu swrk detached
         # from our current process, as criu has a hard time separating
         # process resources from its own if criu is located in a same
@@ -262,8 +262,8 @@ class criu:
 
     def check(self):
         """
-		Checks whether the kernel support is up-to-date.
-		"""
+        Checks whether the kernel support is up-to-date.
+        """
         req = rpc.criu_req()
         req.type = rpc.CHECK
 
@@ -274,8 +274,8 @@ class criu:
 
     def dump(self):
         """
-		Checkpoint a process/tree identified by opts.pid.
-		"""
+        Checkpoint a process/tree identified by opts.pid.
+        """
         req = rpc.criu_req()
         req.type = rpc.DUMP
         req.opts.MergeFrom(self.opts)
@@ -289,8 +289,8 @@ class criu:
 
     def pre_dump(self):
         """
-		Checkpoint a process/tree identified by opts.pid.
-		"""
+        Checkpoint a process/tree identified by opts.pid.
+        """
         req = rpc.criu_req()
         req.type = rpc.PRE_DUMP
         req.opts.MergeFrom(self.opts)
@@ -304,8 +304,8 @@ class criu:
 
     def restore(self):
         """
-		Restore a process/tree.
-		"""
+        Restore a process/tree.
+        """
         req = rpc.criu_req()
         req.type = rpc.RESTORE
         req.opts.MergeFrom(self.opts)
