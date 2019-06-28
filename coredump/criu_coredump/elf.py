@@ -120,9 +120,9 @@ NT_FPREGSET = 2  # #define NT_FPREGSET     2               /* Contains copy of f
 NT_PRPSINFO = 3  # #define NT_PRPSINFO     3               /* Contains copy of prpsinfo struct */
 NT_AUXV = 6  # #define NT_AUXV         6               /* Contains copy of auxv array */
 NT_SIGINFO = 0x53494749  # #define NT_SIGINFO      0x53494749      /* Contains copy of siginfo_t,
-#									     size might increase */
+#                                         size might increase */
 NT_FILE = 0x46494c45  # #define NT_FILE         0x46494c45      /* Contains information about mapped
-#									     files */
+#                                         files */
 NT_X86_XSTATE = 0x202  # #define NT_X86_XSTATE   0x202           /* x86 extended state using xsave */
 
 
@@ -259,7 +259,7 @@ class user_regs_struct(ctypes.Structure):  # struct user_regs_struct
     ]  # };
 
 
-#elf_greg_t	= ctypes.c_ulonglong
+#elf_greg_t    = ctypes.c_ulonglong
 #ELF_NGREG = ctypes.sizeof(user_regs_struct)/ctypes.sizeof(elf_greg_t)
 #elf_gregset_t = elf_greg_t*ELF_NGREG
 elf_gregset_t = user_regs_struct
@@ -450,7 +450,7 @@ class _siginfo_t_U_sigpoll(ctypes.Structure):  #         struct
     ]  #           } _sigpoll;
 
 
-    # 	        /* SIGSYS.  */
+    #             /* SIGSYS.  */
 class _siginfo_t_U_sigsys(ctypes.Structure):  #         struct
     _fields_ = [  #           {
         ("_call_addr", ctypes.c_void_p
@@ -515,7 +515,7 @@ class _siginfo_t_U(ctypes.Union):  #     union
         #             int si_fd;
         #           } _sigpoll;
         #
-        # 	        /* SIGSYS.  */
+        #             /* SIGSYS.  */
         ("_sigsys", _siginfo_t_U_sigpoll)  #         struct
         #           {
         #             void *_call_addr;   /* Calling user insn.  */
@@ -587,7 +587,7 @@ class siginfo_t(ctypes.Structure):  # typedef struct
         #             int si_fd;
         #           } _sigpoll;
         #
-        # 	        /* SIGSYS.  */
+        #             /* SIGSYS.  */
         #         struct
         #           {
         #             void *_call_addr;   /* Calling user insn.  */

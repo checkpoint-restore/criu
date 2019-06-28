@@ -9,24 +9,24 @@
 #
 # On my x86_64 systems with fresh kernel ~3.17 core dump looks like:
 #
-#	1) Elf file header;
-#	2) PT_NOTE program header describing notes section;
-#	3) PT_LOAD program headers for (almost?) each vma;
-#	4) NT_PRPSINFO note with elf_prpsinfo inside;
-#	5) An array of notes for each thread of the process:
-#		NT_PRSTATUS note with elf_prstatus inside;
-#		NT_FPREGSET note with elf_fpregset inside;
-#		NT_X86_XSTATE note with x86 extended state using xsave;
-#		NT_SIGINFO note with siginfo_t inside;
-#	6) NT_AUXV note with auxv;
-#	7) NT_FILE note with mapped files;
-#	8) VMAs themselves;
+#    1) Elf file header;
+#    2) PT_NOTE program header describing notes section;
+#    3) PT_LOAD program headers for (almost?) each vma;
+#    4) NT_PRPSINFO note with elf_prpsinfo inside;
+#    5) An array of notes for each thread of the process:
+#        NT_PRSTATUS note with elf_prstatus inside;
+#        NT_FPREGSET note with elf_fpregset inside;
+#        NT_X86_XSTATE note with x86 extended state using xsave;
+#        NT_SIGINFO note with siginfo_t inside;
+#    6) NT_AUXV note with auxv;
+#    7) NT_FILE note with mapped files;
+#    8) VMAs themselves;
 #
 # Or, you can represent it in less details as:
-#	1) Elf file header;
-#	2) Program table;
-#	3) Notes;
-#	4) VMAs contents;
+#    1) Elf file header;
+#    2) Program table;
+#    3) Notes;
+#    4) VMAs contents;
 #
 import io
 import elf
@@ -65,9 +65,9 @@ class elf_note:
 
 class coredump:
     """
-	A class to keep elf core dump components inside and
-	functions to properly write them to file.
-	"""
+    A class to keep elf core dump components inside and
+    functions to properly write them to file.
+    """
     ehdr = None  # Elf ehdr;
     phdrs = []  # Array of Phdrs;
     notes = []  # Array of elf_notes;
@@ -77,8 +77,8 @@ class coredump:
 
     def write(self, f):
         """
-		Write core dump to file f.
-		"""
+        Write core dump to file f.
+        """
         buf = io.BytesIO()
         buf.write(self.ehdr)
 
@@ -117,8 +117,8 @@ class coredump:
 
 class coredump_generator:
     """
-	Generate core dump from criu images.
-	"""
+    Generate core dump from criu images.
+    """
     coredumps = {}  # coredumps by pid;
 
     pstree = {}  # process info by pid;
@@ -129,8 +129,8 @@ class coredump_generator:
 
     def _img_open_and_strip(self, name, single=False, pid=None):
         """
-		Load criu image and strip it from magic and redundant list.
-		"""
+        Load criu image and strip it from magic and redundant list.
+        """
         path = self._imgs_dir + "/" + name
         if pid:
             path += "-" + str(pid)
@@ -146,8 +146,8 @@ class coredump_generator:
 
     def __call__(self, imgs_dir):
         """
-		Parse criu images stored in directory imgs_dir to fill core dumps.
-		"""
+        Parse criu images stored in directory imgs_dir to fill core dumps.
+        """
         self._imgs_dir = imgs_dir
         pstree = self._img_open_and_strip("pstree")
 
@@ -171,9 +171,9 @@ class coredump_generator:
 
     def write(self, coredumps_dir, pid=None):
         """
-		Write core dumpt to cores_dir directory. Specify pid to choose
-		core dump of only one process.
-		"""
+        Write core dumpt to cores_dir directory. Specify pid to choose
+        core dump of only one process.
+        """
         for p in self.coredumps:
             if pid and p != pid:
                 continue
@@ -182,8 +182,8 @@ class coredump_generator:
 
     def _gen_coredump(self, pid):
         """
-		Generate core dump for pid.
-		"""
+        Generate core dump for pid.
+        """
         cd = coredump()
 
         # Generate everything backwards so it is easier to calculate offset.
@@ -196,8 +196,8 @@ class coredump_generator:
 
     def _gen_ehdr(self, pid, phdrs):
         """
-		Generate elf header for process pid with program headers phdrs.
-		"""
+        Generate elf header for process pid with program headers phdrs.
+        """
         ehdr = elf.Elf64_Ehdr()
 
         ctypes.memset(ctypes.addressof(ehdr), 0, ctypes.sizeof(ehdr))
@@ -223,8 +223,8 @@ class coredump_generator:
 
     def _gen_phdrs(self, pid, notes, vmas):
         """
-		Generate program headers for process pid.
-		"""
+        Generate program headers for process pid.
+        """
         phdrs = []
 
         offset = ctypes.sizeof(elf.Elf64_Ehdr())
@@ -272,8 +272,8 @@ class coredump_generator:
 
     def _gen_prpsinfo(self, pid):
         """
-		Generate NT_PRPSINFO note for process pid.
-		"""
+        Generate NT_PRPSINFO note for process pid.
+        """
         pstree = self.pstree[pid]
         core = self.cores[pid]
 
@@ -324,8 +324,8 @@ class coredump_generator:
 
     def _gen_prstatus(self, pid, tid):
         """
-		Generate NT_PRSTATUS note for thread tid of process pid.
-		"""
+        Generate NT_PRSTATUS note for thread tid of process pid.
+        """
         core = self.cores[tid]
         regs = core["thread_info"]["gpregs"]
         pstree = self.pstree[pid]
@@ -382,8 +382,8 @@ class coredump_generator:
 
     def _gen_fpregset(self, pid, tid):
         """
-		Generate NT_FPREGSET note for thread tid of process pid.
-		"""
+        Generate NT_FPREGSET note for thread tid of process pid.
+        """
         core = self.cores[tid]
         regs = core["thread_info"]["fpregs"]
 
@@ -402,7 +402,7 @@ class coredump_generator:
             *regs["st_space"])
         fpregset.xmm_space = (ctypes.c_uint * len(regs["xmm_space"]))(
             *regs["xmm_space"])
-        #fpregset.padding	= regs["padding"] unused
+        #fpregset.padding    = regs["padding"] unused
 
         nhdr = elf.Elf64_Nhdr()
         nhdr.n_namesz = 5
@@ -418,8 +418,8 @@ class coredump_generator:
 
     def _gen_x86_xstate(self, pid, tid):
         """
-		Generate NT_X86_XSTATE note for thread tid of process pid.
-		"""
+        Generate NT_X86_XSTATE note for thread tid of process pid.
+        """
         core = self.cores[tid]
         fpregs = core["thread_info"]["fpregs"]
 
@@ -459,8 +459,8 @@ class coredump_generator:
 
     def _gen_siginfo(self, pid, tid):
         """
-		Generate NT_SIGINFO note for thread tid of process pid.
-		"""
+        Generate NT_SIGINFO note for thread tid of process pid.
+        """
         siginfo = elf.siginfo_t()
         # FIXME zeroify everything for now
         ctypes.memset(ctypes.addressof(siginfo), 0, ctypes.sizeof(siginfo))
@@ -479,8 +479,8 @@ class coredump_generator:
 
     def _gen_auxv(self, pid):
         """
-		Generate NT_AUXV note for thread tid of process pid.
-		"""
+        Generate NT_AUXV note for thread tid of process pid.
+        """
         mm = self.mms[pid]
         num_auxv = len(mm["mm_saved_auxv"]) / 2
 
@@ -506,8 +506,8 @@ class coredump_generator:
 
     def _gen_files(self, pid):
         """
-		Generate NT_FILE note for process pid.
-		"""
+        Generate NT_FILE note for process pid.
+        """
         mm = self.mms[pid]
 
         class mmaped_file_info:
@@ -597,8 +597,8 @@ class coredump_generator:
 
     def _gen_notes(self, pid):
         """
-		Generate notes for core dump of process pid.
-		"""
+        Generate notes for core dump of process pid.
+        """
         notes = []
 
         notes.append(self._gen_prpsinfo(pid))
@@ -622,8 +622,8 @@ class coredump_generator:
 
     def _get_page(self, pid, page_no):
         """
-		Try to find memory page page_no in pages.img image for process pid.
-		"""
+        Try to find memory page page_no in pages.img image for process pid.
+        """
         pagemap = self.pagemaps[pid]
 
         # First entry is pagemap_head, we will need it later to open
@@ -654,8 +654,8 @@ class coredump_generator:
 
     def _gen_mem_chunk(self, pid, vma, size):
         """
-		Obtain vma contents for process pid.
-		"""
+        Obtain vma contents for process pid.
+        """
         f = None
 
         if size == 0:
@@ -749,8 +749,8 @@ class coredump_generator:
 
     def _gen_cmdline(self, pid):
         """
-		Generate full command with arguments.
-		"""
+        Generate full command with arguments.
+        """
         mm = self.mms[pid]
 
         vma = {}
@@ -768,8 +768,8 @@ class coredump_generator:
 
     def _get_vma_dump_size(self, vma):
         """
-		Calculate amount of vma to put into core dump.
-		"""
+        Calculate amount of vma to put into core dump.
+        """
         if vma["status"] & status["VMA_AREA_VVAR"] or \
            vma["status"] & status["VMA_AREA_VSYSCALL"] or \
            vma["status"] & status["VMA_AREA_VDSO"]:
@@ -791,8 +791,8 @@ class coredump_generator:
 
     def _get_vma_flags(self, vma):
         """
-		Convert vma flags int elf flags.
-		"""
+        Convert vma flags int elf flags.
+        """
         flags = 0
 
         if vma['prot'] & prot["PROT_READ"]:
@@ -808,8 +808,8 @@ class coredump_generator:
 
     def _gen_vmas(self, pid):
         """
-		Generate vma contents for core dump for process pid.
-		"""
+        Generate vma contents for core dump for process pid.
+        """
         mm = self.mms[pid]
 
         class vma_class:
