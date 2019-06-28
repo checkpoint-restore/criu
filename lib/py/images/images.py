@@ -12,8 +12,8 @@
 # SIZE       ::= "32 bit integer, equals the PAYLOAD length"
 #
 # Images v1.1 NOTE: MAGIC now consist of 2 32 bit integers, first one is
-#	MAGIC_COMMON or MAGIC_SERVICE and the second one is same as MAGIC
-#	in images V1.0. We don't keep "first" magic in json images.
+#    MAGIC_COMMON or MAGIC_SERVICE and the second one is same as MAGIC
+#    in images V1.0. We don't keep "first" magic in json images.
 #
 # In order to convert images to human-readable format, we use dict(json).
 # Using json not only allows us to easily read\write images, but also
@@ -23,18 +23,18 @@
 # Using dict(json) format, criu images can be described like:
 #
 # {
-#	'magic' : 'FOO',
-#	'entries' : [
-#		entry,
-#		...
-#	]
+#    'magic' : 'FOO',
+#    'entries' : [
+#        entry,
+#        ...
+#    ]
 # }
 #
 # Entry, in its turn, could be described as:
 #
 # {
-#	pb_msg,
-#	'extra' : extra_msg
+#    pb_msg,
+#    'extra' : extra_msg
 # }
 #
 import io
@@ -72,23 +72,23 @@ class MagicException(Exception):
 # format to/from dict(json).
 class entry_handler:
     """
-	Generic class to handle loading/dumping criu images
-	entries from/to bin format to/from dict(json).
-	"""
+    Generic class to handle loading/dumping criu images
+    entries from/to bin format to/from dict(json).
+    """
 
     def __init__(self, payload, extra_handler=None):
         """
-		Sets payload class and extra handler class.
-		"""
+        Sets payload class and extra handler class.
+        """
         self.payload = payload
         self.extra_handler = extra_handler
 
     def load(self, f, pretty=False, no_payload=False):
         """
-		Convert criu image entries from binary format to dict(json).
-		Takes a file-like object and returnes a list with entries in
-		dict(json) format.
-		"""
+        Convert criu image entries from binary format to dict(json).
+        Takes a file-like object and returnes a list with entries in
+        dict(json) format.
+        """
         entries = []
 
         while True:
@@ -128,17 +128,17 @@ class entry_handler:
 
     def loads(self, s, pretty=False):
         """
-		Same as load(), but takes a string as an argument.
-		"""
+        Same as load(), but takes a string as an argument.
+        """
         f = io.BytesIO(s)
         return self.load(f, pretty)
 
     def dump(self, entries, f):
         """
-		Convert criu image entries from dict(json) format to binary.
-		Takes a list of entries and a file-like object to write entries
-		in binary format to.
-		"""
+        Convert criu image entries from dict(json) format to binary.
+        Takes a list of entries and a file-like object to write entries
+        in binary format to.
+        """
         for entry in entries:
             extra = entry.pop('extra', None)
 
@@ -156,17 +156,17 @@ class entry_handler:
 
     def dumps(self, entries):
         """
-		Same as dump(), but doesn't take file-like object and just
-		returns a string.
-		"""
+        Same as dump(), but doesn't take file-like object and just
+        returns a string.
+        """
         f = io.BytesIO('')
         self.dump(entries, f)
         return f.read()
 
     def count(self, f):
         """
-		Counts the number of top-level object in the image file
-		"""
+        Counts the number of top-level object in the image file
+        """
         entries = 0
 
         while True:
@@ -183,10 +183,10 @@ class entry_handler:
 # Special handler for pagemap.img
 class pagemap_handler:
     """
-	Special entry handler for pagemap.img, which is unique in a way
-	that it has a header of pagemap_head type followed by entries
-	of pagemap_entry type.
-	"""
+    Special entry handler for pagemap.img, which is unique in a way
+    that it has a header of pagemap_head type followed by entries
+    of pagemap_entry type.
+    """
 
     def load(self, f, pretty=False, no_payload=False):
         entries = []
@@ -547,10 +547,10 @@ def __rhandler(f):
 
 def load(f, pretty=False, no_payload=False):
     """
-	Convert criu image from binary format to dict(json).
-	Takes a file-like object to read criu image from.
-	Returns criu image in dict(json) format.
-	"""
+    Convert criu image from binary format to dict(json).
+    Takes a file-like object to read criu image from.
+    Returns criu image in dict(json) format.
+    """
     image = {}
 
     m, handler = __rhandler(f)
@@ -574,18 +574,18 @@ def info(f):
 
 def loads(s, pretty=False):
     """
-	Same as load(), but takes a string.
-	"""
+    Same as load(), but takes a string.
+    """
     f = io.BytesIO(s)
     return load(f, pretty)
 
 
 def dump(img, f):
     """
-	Convert criu image from dict(json) format to binary.
-	Takes an image in dict(json) format and file-like
-	object to write to.
-	"""
+    Convert criu image from dict(json) format to binary.
+    Takes an image in dict(json) format and file-like
+    object to write to.
+    """
     m = img['magic']
     magic_val = magic.by_name[img['magic']]
 
@@ -609,9 +609,9 @@ def dump(img, f):
 
 def dumps(img):
     """
-	Same as dump(), but takes only an image and returns
-	a string.
-	"""
+    Same as dump(), but takes only an image and returns
+    a string.
+    """
     f = io.BytesIO(b'')
     dump(img, f)
     return f.getvalue()

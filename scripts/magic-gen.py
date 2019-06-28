@@ -15,8 +15,8 @@ def main(argv):
     out = open(magic_py, 'w+')
 
     # all_magic is used to parse constructions like:
-    # #define PAGEMAP_MAGIC		0x56084025
-    # #define SHMEM_PAGEMAP_MAGIC	PAGEMAP_MAGIC
+    # #define PAGEMAP_MAGIC          0x56084025
+    # #define SHMEM_PAGEMAP_MAGIC    PAGEMAP_MAGIC
     all_magic = {}
     # and magic is used to store only unique magic.
     magic = {}

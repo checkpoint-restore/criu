@@ -311,9 +311,9 @@ def _pb2dict_cast(field, value, pretty=False, is_hex=False):
 
 def pb2dict(pb, pretty=False, is_hex=False):
     """
-	Convert protobuf msg to dictionary.
-	Takes a protobuf message and returns a dict.
-	"""
+    Convert protobuf msg to dictionary.
+    Takes a protobuf message and returns a dict.
+    """
     d = collections.OrderedDict() if pretty else {}
     for field, value in pb.ListFields():
         if field.label == FD.LABEL_REPEATED:
@@ -382,9 +382,9 @@ def _dict2pb_cast(field, value):
 
 def dict2pb(d, pb):
     """
-	Convert dictionary to protobuf msg.
-	Takes dict and protobuf message to be merged into.
-	"""
+    Convert dictionary to protobuf msg.
+    Takes dict and protobuf message to be merged into.
+    """
     for field in pb.DESCRIPTOR.fields:
         if field.name not in d:
             continue
