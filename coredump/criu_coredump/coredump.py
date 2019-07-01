@@ -645,8 +645,7 @@ class coredump_generator:
                 ppid = self.pstree[pid]["ppid"]
                 return self._get_page(ppid, page_no)
             else:
-                with open(self._imgs_dir + "/" + "pages-" + str(pages_id) +
-                          ".img") as f:
+                with open(self._imgs_dir + "/pages-%s.img" % pages_id) as f:
                     f.seek(off * PAGESIZE)
                     return f.read(PAGESIZE)
 
