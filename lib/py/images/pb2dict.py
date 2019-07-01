@@ -212,8 +212,8 @@ def decode_dev(field, value):
     if _marked_as_odev(field):
         return "%d:%d" % (os.major(value), os.minor(value))
     else:
-        return "%d:%d" % (value >> kern_minorbits, value &
-                          ((1 << kern_minorbits) - 1))
+        return "%d:%d" % (value >> kern_minorbits,
+                          value & ((1 << kern_minorbits) - 1))
 
 
 def encode_dev(field, value):
