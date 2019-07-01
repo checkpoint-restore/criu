@@ -294,7 +294,7 @@ def _pb2dict_cast(field, value, pretty=False, is_hex=False):
             if flags:
                 try:
                     flags_map = flags_maps[flags]
-                except:
+                except Exception:
                     return "0x%x" % value  # flags are better seen as hex anyway
                 else:
                     return map_flags(value, flags_map)
@@ -324,9 +324,9 @@ def pb2dict(pb, pretty=False, is_hex=False):
                     addr = IPv4Address(v)
                 else:
                     v = 0 + (socket.ntohl(value[0]) << (32 * 3)) + \
-                     (socket.ntohl(value[1]) << (32 * 2)) + \
-                     (socket.ntohl(value[2]) << (32 * 1)) + \
-                     (socket.ntohl(value[3]))
+                            (socket.ntohl(value[1]) << (32 * 2)) + \
+                            (socket.ntohl(value[2]) << (32 * 1)) + \
+                            (socket.ntohl(value[3]))
                     addr = IPv6Address(v)
 
                 d_val.append(addr.compressed)
@@ -358,7 +358,7 @@ def _dict2pb_cast(field, value):
             if flags:
                 try:
                     flags_map = flags_maps[flags]
-                except:
+                except Exception:
                     pass  # Try to use plain string cast
                 else:
                     return unmap_flags(value, flags_map)
@@ -366,7 +366,7 @@ def _dict2pb_cast(field, value):
             dct = _marked_as_dict(field)
             if dct:
                 ret = dict_maps[dct][1][field.name].get(value, None)
-                if ret == None:
+                if ret is None:
                     ret = cast(value, 0)
                 return ret
 
@@ -397,14 +397,10 @@ def dict2pb(d, pb):
                     pb_val.append(socket.htonl(int(val)))
                 elif val.version == 6:
                     ival = int(val)
-                    pb_val.append(socket.htonl((ival >> (32 * 3))
-                                               & 0xFFFFFFFF))
-                    pb_val.append(socket.htonl((ival >> (32 * 2))
-                                               & 0xFFFFFFFF))
-                    pb_val.append(socket.htonl((ival >> (32 * 1))
-                                               & 0xFFFFFFFF))
-                    pb_val.append(socket.htonl((ival >> (32 * 0))
-                                               & 0xFFFFFFFF))
+                    pb_val.append(socket.htonl((ival >> (32 * 3)) & 0xFFFFFFFF))
+                    pb_val.append(socket.htonl((ival >> (32 * 2)) & 0xFFFFFFFF))
+                    pb_val.append(socket.htonl((ival >> (32 * 1)) & 0xFFFFFFFF))
+                    pb_val.append(socket.htonl((ival >> (32 * 0)) & 0xFFFFFFFF))
                 else:
                     raise Exception("Unknown IP address version %d" %
                                     val.version)
