@@ -2062,7 +2062,7 @@ def grep_errors(fname):
             before.append(l)
             if len(before) > 5:
                 before.pop(0)
-            if "Error" in l:
+            if "Error" in l or "Warn" in l:
                 if first:
                     print_fname(fname, 'log')
                     print_sep("grep Error", "-", 60)
