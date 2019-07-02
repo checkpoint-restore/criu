@@ -318,7 +318,7 @@ static int detect_pid_reuse(struct pstree_item *item,
 
 	if (!parent_ie) {
 		pr_err("Pid-reuse detection failed: no parent inventory, " \
-		       "check warnings in get_parent_stats\n");
+		       "check warnings in get_parent_inventory\n");
 		return -1;
 	}
 
