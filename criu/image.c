@@ -125,6 +125,18 @@ int inventory_save_uptime(InventoryEntry *he)
 	return 0;
 }
 
+/*
+ * This function is intended to get an inventory image from previous (parent)
+ * dump iteration. We use dump_uptime from the image in detect_pid_reuse().
+ *
+ * You see that these function never fails by itself, it only prints warnings
+ * to better understand reasons why we don't found a proper image, failing here
+ * is too early. We get to detect_pid_reuse() only if we have a parent pagemap
+ * and that's the proper place to fail: we know that there is a parent pagemap
+ * but we don't have (can't access, etc) parent inventory => can't detect
+ * pid-reuse => fail.
+ */
+
 InventoryEntry *get_parent_inventory(void)
 {
 	struct cr_img *img;
@@ -133,7 +145,15 @@ InventoryEntry *get_parent_inventory(void)
 
 	dir = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
 	if (dir == -1) {
-		pr_warn("Failed to open parent directory\n");
+		/*
+		 * We print the warning below to be notified that we had some
+		 * unexpected problem on open. For instance we have a parent
+		 * directory but have no access. Having no parent inventory
+		 * when also having no parent directory is an expected case of
+		 * first dump iteration.
+		 */
+		if (errno != ENOENT)
+			pr_warn("Failed to open parent directory\n");
 		return NULL;
 	}
 
