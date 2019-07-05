@@ -192,27 +192,7 @@ class ns_flavor:
             os.rename(dst, tfname)
 
     def __copy_libs(self, binary):
-        ldd = subprocess.Popen(["ldd", binary], stdout=subprocess.PIPE)
-        xl = re.compile(
-            r'^(linux-gate.so|linux-vdso(64)?.so|not a dynamic|.*\s*ldd\s)')
-
-        # This Mayakovsky-style code gets list of libraries a binary
-        # needs minus vdso and gate .so-s
-        libs = map(
-            lambda x: x[1] == '=>' and x[2] or x[0],
-            map(
-                lambda x: str(x).split(),
-                filter(
-                    lambda x: not xl.match(x),
-                    map(
-                        lambda x: str(x).strip(),
-                        filter(lambda x: str(x).startswith('\t'),
-                               ldd.stdout.read().decode(
-                                   'ascii').splitlines())))))
-
-        ldd.wait()
-
-        for lib in libs:
+        for lib in ldd(binary):
             if not os.access(lib, os.F_OK):
                 raise test_fail_exc("Can't find lib %s required by %s" %
                                     (lib, binary))
@@ -310,6 +290,27 @@ flavors_codes = dict(zip(range(len(flavors)), sorted(flavors.keys())))
 #
 # Helpers
 #
+
+
+def ldd(filename):
+    """
+    Return a list of shared libraries required by an executable
+    and filter vdso and gate .so-s
+    """
+    regex = re.compile(r'^(linux-gate.so|linux-vdso(64)?.so|not a dynamic|.*\s*ldd\s)')
+    p = subprocess.Popen(["ldd", filename], stdout=subprocess.PIPE)
+    result = p.stdout.readlines()
+    libs = []
+    for line in result:
+        line = str(line.decode("ascii"))
+        if not line.startswith("\t") or regex.match(line.strip()):
+            continue
+        x = line.split()
+        if len(x) > 3 and "=>" == x[1]:
+            libs.append(x[2])
+        else:
+            libs.append(x[0])
+    return libs
 
 
 def encode_flav(f):
