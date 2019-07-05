@@ -18,8 +18,6 @@ struct vm_area_list {
 	unsigned long		shared_longest; /* nr of pages in longest shared VMA */
 };
 
-#define VM_AREA_LIST(name)	struct vm_area_list name = { .h = LIST_HEAD_INIT(name.h), .nr = 0, }
-
 static inline void vm_area_list_init(struct vm_area_list *vml)
 {
 	memset(vml, 0, sizeof(*vml));
