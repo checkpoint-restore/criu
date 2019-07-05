@@ -126,7 +126,7 @@ int collect_mappings(pid_t pid, struct vm_area_list *vma_area_list,
 		goto err;
 
 	pr_info("Collected, longest area occupies %lu pages\n",
-			vma_area_list->priv_longest);
+		vma_area_list->nr_priv_pages_longest);
 	pr_info_vma_list(&vma_area_list->h);
 
 	pr_info("----------------------------------------\n");
