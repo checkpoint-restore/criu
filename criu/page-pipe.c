@@ -298,14 +298,12 @@ int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr,
 		       unsigned int flags)
 {
 	if (pp->free_hole >= pp->nr_holes) {
-		pp->holes = xrealloc(pp->holes,
-				(pp->nr_holes + PP_HOLES_BATCH) * sizeof(struct iovec));
-		if (!pp->holes)
+		size_t new_size = (pp->nr_holes + PP_HOLES_BATCH) * sizeof(struct iovec);
+		if (xrealloc_safe(&pp->holes, new_size))
 			return -1;
 
-		pp->hole_flags = xrealloc(pp->hole_flags,
-					  (pp->nr_holes + PP_HOLES_BATCH) * sizeof(unsigned int));
-		if(!pp->hole_flags)
+		new_size = (pp->nr_holes + PP_HOLES_BATCH) * sizeof(unsigned int);
+		if (xrealloc_safe(&pp->hole_flags, new_size))
 			return -1;
 
 		pp->nr_holes += PP_HOLES_BATCH;
