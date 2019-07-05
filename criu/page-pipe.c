@@ -187,26 +187,18 @@ struct page_pipe *create_page_pipe(unsigned int nr_segs, struct iovec *iovs, uns
 	if (!pp)
 		return NULL;
 
+	INIT_LIST_HEAD(&pp->free_bufs);
+	INIT_LIST_HEAD(&pp->bufs);
+	pp->nr_iovs = nr_segs;
 	pp->flags = flags;
 
 	if (!iovs) {
 		iovs = xmalloc(sizeof(*iovs) * nr_segs);
 		if (!iovs)
 			goto err_free_pp;
-
 		pp->flags |= PP_OWN_IOVS;
 	}
-
-	pp->nr_pipes = 0;
-	INIT_LIST_HEAD(&pp->bufs);
-	INIT_LIST_HEAD(&pp->free_bufs);
-	pp->nr_iovs = nr_segs;
 	pp->iovs = iovs;
-	pp->free_iov = 0;
-
-	pp->nr_holes = 0;
-	pp->free_hole = 0;
-	pp->holes = NULL;
 
 	if (page_pipe_grow(pp, 0))
 		goto err_free_iovs;
