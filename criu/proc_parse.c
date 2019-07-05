@@ -705,12 +705,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list,
 	DIR *map_files_dir = NULL;
 	struct bfd f;
 
-	vma_area_list->nr = 0;
-	vma_area_list->nr_aios = 0;
-	vma_area_list->priv_longest = 0;
-	vma_area_list->priv_size = 0;
-	vma_area_list->shared_longest = 0;
-	INIT_LIST_HEAD(&vma_area_list->h);
+	vm_area_list_init(vma_area_list);
 
 	f.fd = open_proc(pid, "smaps");
 	if (f.fd < 0)
