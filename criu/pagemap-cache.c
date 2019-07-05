@@ -56,7 +56,7 @@ int pmc_init(pmc_t *pmc, pid_t pid, const struct list_head *vma_head, size_t siz
 		goto err;
 
 	if (pagemap_cache_disabled)
-		pr_debug("The pagemap cache is disabled\n");
+		pr_warn_once("The pagemap cache is disabled\n");
 
 	if (kdat.pmap == PM_DISABLED) {
 		/*
