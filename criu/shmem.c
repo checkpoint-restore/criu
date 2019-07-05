@@ -234,7 +234,7 @@ int collect_sysv_shmem(unsigned long shmid, unsigned long size)
 	 * Tasks will not modify this object, so don't
 	 * shmalloc() as we do it for anon shared mem
 	 */
-	si = malloc(sizeof(*si));
+	si = xmalloc(sizeof(*si));
 	if (!si)
 		return -1;
 
