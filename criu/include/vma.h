@@ -7,6 +7,7 @@
 #include "images/vma.pb-c.h"
 
 #include <sys/mman.h>
+#include <string.h>
 
 struct vm_area_list {
 	struct list_head	h;
@@ -21,11 +22,8 @@ struct vm_area_list {
 
 static inline void vm_area_list_init(struct vm_area_list *vml)
 {
+	memset(vml, 0, sizeof(*vml));
 	INIT_LIST_HEAD(&vml->h);
-	vml->nr = 0;
-	vml->priv_size = 0;
-	vml->priv_longest = 0;
-	vml->shared_longest = 0;
 }
 
 struct file_desc;
