@@ -389,7 +389,7 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd,
 	struct page_pipe_buf *ppb;
 	struct iovec *iov = NULL;
 	unsigned long skip = 0, len;
-	int ret;
+	ssize_t ret;
 
 	/*
 	 * Get ppb that contains addr and count length of data between
@@ -418,13 +418,13 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd,
 
 	ret = tee(ppb->p[0], prd->p[1], len, 0);
 	if (ret != len) {
-		pr_perror("tee: %d", ret);
+		pr_perror("tee: %zd", ret);
 		return -1;
 	}
 
 	ret = splice(prd->p[0], NULL, prd->sink_fd, NULL, skip, 0);
 	if (ret != skip) {
-		pr_perror("splice: %d", ret);
+		pr_perror("splice: %zd", ret);
 		return -1;
 	}
 
