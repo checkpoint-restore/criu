@@ -197,8 +197,7 @@ static int expand_shmem(struct shmem_info *si, unsigned long new_size)
 
 	BUG_ON(new_map_size < map_size);
 
-	si->pstate_map = xrealloc(si->pstate_map, new_map_size);
-	if (!si->pstate_map)
+	if (xrealloc_safe(&si->pstate_map, new_map_size))
 		return -1;
 	memzero(si->pstate_map + nr_map_items, new_map_size - map_size);
 	return 0;
