@@ -179,11 +179,12 @@ static void set_pstate(unsigned long *pstate_map, unsigned long pfn,
 
 static int expand_shmem(struct shmem_info *si, unsigned long new_size)
 {
-	unsigned long nr_pages, nr_map_items, map_size,
-				nr_new_map_items, new_map_size, old_size;
+	unsigned long nr_pages, nr_map_items, map_size;
+	unsigned long nr_new_map_items, new_map_size, old_size;
 
 	old_size = si->size;
 	si->size = new_size;
+
 	if (!is_shmem_tracking_en())
 		return 0;
 
