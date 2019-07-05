@@ -104,8 +104,6 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp,
 		return NULL;
 	cnt_add(CNT_PAGE_PIPE_BUFS, 1);
 
-	ppb->pipe_off = 0;
-
 	if (prev && ppb_resize_pipe(prev) == 0) {
 		/* The previous pipe isn't full and we can continue to use it. */
 		ppb->p[0] = prev->p[0];
@@ -120,6 +118,7 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp,
 		}
 		cnt_add(CNT_PAGE_PIPES, 1);
 
+		ppb->pipe_off = 0;
 		ppb->pipe_size = fcntl(ppb->p[0], F_GETPIPE_SZ, 0) / PAGE_SIZE;
 		pp->nr_pipes++;
 	}
