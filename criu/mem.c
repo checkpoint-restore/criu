@@ -81,7 +81,7 @@ unsigned long dump_pages_args_size(struct vm_area_list *vmas)
 	/* In the worst case I need one iovec for each page */
 	return sizeof(struct parasite_dump_pages_args) +
 		vmas->nr * sizeof(struct parasite_vma_entry) +
-		(vmas->priv_size + 1) * sizeof(struct iovec);
+		(vmas->nr_priv_pages + 1) * sizeof(struct iovec);
 }
 
 static inline bool __page_is_zero(u64 pme)
@@ -414,14 +414,14 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 	timing_start(TIME_MEMDUMP);
 
 	pr_debug("   Private vmas %lu/%lu pages\n",
-			vma_area_list->priv_longest, vma_area_list->priv_size);
+		 vma_area_list->nr_priv_pages_longest, vma_area_list->nr_priv_pages);
 
 	/*
 	 * Step 0 -- prepare
 	 */
 
-	pmc_size = max(vma_area_list->priv_longest,
-		vma_area_list->shared_longest);
+	pmc_size = max(vma_area_list->nr_priv_pages_longest,
+		       vma_area_list->nr_shared_pages_longest);
 	if (pmc_init(&pmc, item->pid->real, &vma_area_list->h,
 			 pmc_size * PAGE_SIZE))
 		return -1;
@@ -433,7 +433,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 		 * use, i.e. on non-lazy non-predump.
 		 */
 		cpp_flags |= PP_CHUNK_MODE;
-	pp = create_page_pipe(vma_area_list->priv_size,
+	pp = create_page_pipe(vma_area_list->nr_priv_pages,
 					    mdc->lazy ? NULL : pargs_iovs(args),
 					    cpp_flags);
 	if (!pp)
@@ -612,9 +612,9 @@ int prepare_mm_pid(struct pstree_item *i)
 		list_add_tail(&vma->list, &ri->vmas.h);
 
 		if (vma_area_is_private(vma, kdat.task_size)) {
-			ri->vmas.priv_size += vma_area_len(vma);
+			ri->vmas.rst_priv_size += vma_area_len(vma);
 			if (vma_has_guard_gap_hidden(vma))
-				ri->vmas.priv_size += PAGE_SIZE;
+				ri->vmas.rst_priv_size += PAGE_SIZE;
 		}
 
 		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vma->e->start, vma->e->end);
@@ -1171,17 +1171,17 @@ int prepare_mappings(struct pstree_item *t)
 		goto out;
 
 	/* Reserve a place for mapping private vma-s one by one */
-	addr = mmap(NULL, vmas->priv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+	addr = mmap(NULL, vmas->rst_priv_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	if (addr == MAP_FAILED) {
 		ret = -1;
-		pr_perror("Unable to reserve memory (%lu bytes)", vmas->priv_size);
+		pr_perror("Unable to reserve memory (%lu bytes)", vmas->rst_priv_size);
 		goto out;
 	}
 
 	old_premmapped_addr = rsti(t)->premmapped_addr;
 	old_premmapped_len = rsti(t)->premmapped_len;
 	rsti(t)->premmapped_addr = addr;
-	rsti(t)->premmapped_len = vmas->priv_size;
+	rsti(t)->premmapped_len = vmas->rst_priv_size;
 
 	ret = open_page_read(vpid(t), &pr, PR_TASK);
 	if (ret <= 0)

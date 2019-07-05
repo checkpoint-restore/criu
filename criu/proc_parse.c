@@ -660,14 +660,15 @@ static int vma_list_add(struct vma_area *vma_area,
 		unsigned long pages;
 
 		pages = vma_area_len(vma_area) / PAGE_SIZE;
-		vma_area_list->priv_size += pages;
-		vma_area_list->priv_longest = max(vma_area_list->priv_longest, pages);
+		vma_area_list->nr_priv_pages += pages;
+		vma_area_list->nr_priv_pages_longest =
+			max(vma_area_list->nr_priv_pages_longest, pages);
 	} else if (vma_area_is(vma_area, VMA_ANON_SHARED)) {
 		unsigned long pages;
 
 		pages = vma_area_len(vma_area) / PAGE_SIZE;
-		vma_area_list->shared_longest =
-			max(vma_area_list->shared_longest, pages);
+		vma_area_list->nr_shared_pages_longest =
+			max(vma_area_list->nr_shared_pages_longest, pages);
 	}
 
 	*prev_vfi = *vfi;
