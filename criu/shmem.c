@@ -43,8 +43,8 @@
 #define SHMEM_HASH_SIZE	32
 static struct hlist_head shmems_hash[SHMEM_HASH_SIZE];
 
-#define for_each_shmem(_i, _si)				\
-	for (i = 0; i < SHMEM_HASH_SIZE; i++)			\
+#define for_each_shmem(_i, _si)					\
+	for (_i = 0; _i < SHMEM_HASH_SIZE; _i++)		\
 		hlist_for_each_entry(_si, &shmems_hash[_i], h)
 
 struct shmem_info {
