@@ -1,6 +1,6 @@
 CRIU_SO			:= libcriu.so
 CRIU_A			:= libcriu.a
-UAPI_HEADERS		:= lib/c/criu.h images/rpc.proto
+UAPI_HEADERS		:= lib/c/criu.h images/rpc.proto criu/include/version.h
 
 #
 # File to keep track of files installed by setup.py

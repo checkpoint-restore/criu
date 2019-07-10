@@ -21,8 +21,10 @@
 
 #include <stdbool.h>
 
+#include "version.h"
+
 #ifdef __GNUG__
-       extern "C" {
+	extern "C" {
 #endif
 
 enum criu_service_comm {
