@@ -126,6 +126,7 @@ struct parasite_dump_misc {
 
 	int dumpable;
 	int thp_disabled;
+	int child_subreaper;
 };
 
 /*

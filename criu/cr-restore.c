@@ -806,9 +806,12 @@ static int prepare_oom_score_adj(int value)
 	return ret;
 }
 
-static int prepare_proc_misc(pid_t pid, TaskCoreEntry *tc)
+static int prepare_proc_misc(pid_t pid, TaskCoreEntry *tc, struct task_restore_args *args)
 {
 	int ret;
+
+	if (tc->has_child_subreaper)
+		args->child_subreaper = tc->child_subreaper;
 
 	/* loginuid value is critical to restore */
 	if (kdat.luid == LUID_FULL && tc->has_loginuid &&
@@ -877,7 +880,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (collect_zombie_pids(ta) < 0)
 		return -1;
 
-	if (prepare_proc_misc(pid, core->tc))
+	if (prepare_proc_misc(pid, core->tc, ta))
 		return -1;
 
 	/*
