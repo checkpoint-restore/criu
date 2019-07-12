@@ -52,6 +52,10 @@
 #define PR_SET_PDEATHSIG 1
 #endif
 
+#ifndef PR_SET_CHILD_SUBREAPER
+#define PR_SET_CHILD_SUBREAPER 36
+#endif
+
 #ifndef FALLOC_FL_KEEP_SIZE
 #define FALLOC_FL_KEEP_SIZE     0x01
 #endif
@@ -1231,6 +1235,14 @@ static bool vdso_needs_parking(struct task_restore_args *args)
 	return !vdso_unmapped(args);
 }
 
+static inline int restore_child_subreaper(int child_subreaper)
+{
+	if (child_subreaper)
+		return sys_prctl(PR_SET_CHILD_SUBREAPER, child_subreaper, 0, 0, 0);
+	else
+		return 0;
+}
+
 /*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
@@ -1731,6 +1743,7 @@ long __export_restore_task(struct task_restore_args *args)
 			    args->lsm_type);
 	ret = ret || restore_dumpable_flag(&args->mm);
 	ret = ret || restore_pdeath_sig(args->t);
+	ret = ret || restore_child_subreaper(args->child_subreaper);
 
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
 

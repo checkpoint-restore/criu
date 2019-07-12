@@ -51,6 +51,8 @@ message task_core_entry {
 	// Reserved for tty inheritance
 	//optional int32		tty_nr		= 16;
 	//optional int32		tty_pgrp	= 17;
+
+	optional int32			child_subreaper	= 18;
 }
 
 message task_kobj_ids_entry {
