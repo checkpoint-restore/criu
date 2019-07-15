@@ -1960,6 +1960,7 @@ long __export_restore_task(struct task_restore_args *args)
 			}
 			if (ret != thread_args[i].pid) {
 				pr_err("Unable to create a thread: %ld\n", ret);
+				sys_close(fd);
 				mutex_unlock(&task_entries_local->last_pid_mutex);
 				goto core_restore_end;
 			}
