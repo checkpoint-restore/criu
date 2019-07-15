@@ -35,16 +35,17 @@ struct tpacket_req3 {
 static void check_map_is_there(unsigned long addr, int sk)
 {
 	FILE *f;
-	char line[64];
+	char line[4096];
 	struct stat ss;
 
 	fstat(sk, &ss);
 	f = fopen("/proc/self/maps", "r");
 	while (fgets(line, sizeof(line), f) != NULL) {
+		unsigned long long ino;
 		unsigned long start;
-		int maj, min, ino;
+		int maj, min;
 
-		sscanf(line, "%lx-%*x %*s %*s %x:%x %d %*s", &start, &maj, &min, &ino);
+		sscanf(line, "%lx-%*x %*s %*s %x:%x %llu %*s", &start, &maj, &min, &ino);
 		if ((start == addr) && ss.st_dev == makedev(maj, min) && ss.st_ino == ino) {
 			pass();
 			fclose(f);
