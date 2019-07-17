@@ -11,7 +11,7 @@ REQ-RPM-PKG-NAMES	+= $(PYTHON)-future
 REQ-RPM-PKG-TEST-NAMES  += libaio-devel
 
 REQ-DEB-PKG-NAMES	+= libprotobuf-dev
-REQ-DEB-PKG-NAMES	+= libprotobuf-c0-dev
+REQ-DEB-PKG-NAMES	+= libprotobuf-c-dev
 REQ-DEB-PKG-NAMES	+= protobuf-c-compiler
 REQ-DEB-PKG-NAMES	+= protobuf-compiler
 REQ-DEB-PKG-NAMES	+= python-protobuf
