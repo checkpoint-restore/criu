@@ -328,10 +328,18 @@ static int restore_creds(struct thread_creds_args *args, int procfd,
 
 static inline int restore_pdeath_sig(struct thread_restore_args *ta)
 {
-	if (ta->pdeath_sig)
-		return sys_prctl(PR_SET_PDEATHSIG, ta->pdeath_sig, 0, 0, 0);
-	else
+	int ret;
+
+	if (!ta->pdeath_sig)
 		return 0;
+
+	ret = sys_prctl(PR_SET_PDEATHSIG, ta->pdeath_sig, 0, 0, 0);
+	if (ret) {
+		pr_err("Unable to set PR_SET_PDEATHSIG(%d): %d\n", ta->pdeath_sig, ret);
+		return -1;
+	}
+
+	return 0;
 }
 
 static int restore_dumpable_flag(MmEntry *mme)
@@ -1237,10 +1245,18 @@ static bool vdso_needs_parking(struct task_restore_args *args)
 
 static inline int restore_child_subreaper(int child_subreaper)
 {
-	if (child_subreaper)
-		return sys_prctl(PR_SET_CHILD_SUBREAPER, child_subreaper, 0, 0, 0);
-	else
+	int ret;
+
+	if (!child_subreaper)
 		return 0;
+
+	ret = sys_prctl(PR_SET_CHILD_SUBREAPER, child_subreaper, 0, 0, 0);
+	if (ret) {
+		pr_err("Unable to set PR_SET_CHILD_SUBREAPER(%d): %d\n", child_subreaper, ret);
+		return -1;
+	}
+
+	return 0;
 }
 
 /*
@@ -1364,8 +1380,10 @@ long __export_restore_task(struct task_restore_args *args)
 	if (args->uffd > -1) {
 		/* re-enable THP if we disabled it previously */
 		if (args->has_thp_enabled) {
-			if (sys_prctl(PR_SET_THP_DISABLE, 0, 0, 0, 0)) {
-				pr_err("Cannot re-enable THP\n");
+			int ret;
+			ret = sys_prctl(PR_SET_THP_DISABLE, 0, 0, 0, 0);
+			if (ret) {
+				pr_err("Cannot re-enable THP: %d\n", ret);
 				goto core_restore_end;
 			}
 		}
