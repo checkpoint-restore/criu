@@ -1,7 +1,7 @@
 #!/bin/sh
 set -x -e
 
-TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c0-dev libaio-dev
+TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev
 		libgnutls28-dev libgnutls30 libprotobuf-dev protobuf-compiler
 		libcap-dev libnl-3-dev gcc-multilib gdb bash python-protobuf
 		libnet-dev util-linux asciidoctor libnl-route-3-dev"
