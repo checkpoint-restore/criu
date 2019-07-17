@@ -23,6 +23,7 @@ import errno
 import datetime
 import yaml
 import struct
+import mmap
 import pycriu as crpc
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -1199,8 +1200,8 @@ class criu:
             if f.startswith('pages-'):
                 real_written += os.path.getsize(os.path.join(self.__ddir(), f))
 
-        r_pages = real_written / 4096
-        r_off = real_written % 4096
+        r_pages = real_written / mmap.PAGESIZE
+        r_off = real_written % mmap.PAGESIZE
         if (stats_written != r_pages) or (r_off != 0):
             print("ERROR: bad page counts, stats = %d real = %d(%d)" %
                   (stats_written, r_pages, r_off))
