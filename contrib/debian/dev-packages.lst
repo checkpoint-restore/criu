@@ -1,7 +1,7 @@
 # Required packages for development in Debian
 build-essential
 libprotobuf-dev
-libprotobuf-c0-dev
+libprotobuf-c-dev
 protobuf-c-compiler
 protobuf-compiler
 python-protobuf
