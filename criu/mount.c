@@ -1568,29 +1568,16 @@ err:
 	return -1;
 }
 
-static __maybe_unused int add_cr_time_mount(struct mount_info *root, char *fsname, const char *path, unsigned int s_dev,
-					    bool rst)
+static __maybe_unused struct mount_info *add_cr_time_mount(struct mount_info *root, char *fsname, const char *path,
+							   unsigned int s_dev, bool rst)
 {
 	struct mount_info *mi, *t, *parent;
 	bool add_slash = false;
 	int len;
 
-	if (!root->nsid) {
-		/* On restore we have fake top mount_info. Find real NS_ROOT */
-		list_for_each_entry(t, &root->children, siblings)
-			if (t->nsid->type == NS_ROOT) {
-				root = t;
-				break;
-			}
-		if (!root->nsid) {
-			pr_err("Can't find NS_ROOT\n");
-			return -1;
-		}
-	}
-
 	mi = mnt_entry_alloc(rst);
 	if (!mi)
-		return -1;
+		return NULL;
 
 	len = strlen(root->mountpoint);
 	/* It may be "./" or "./path/to/dir" */
@@ -1637,11 +1624,11 @@ static __maybe_unused int add_cr_time_mount(struct mount_info *root, char *fsnam
 	mi->parent_mnt_id = parent->mnt_id;
 	list_add(&mi->siblings, &parent->children);
 	pr_info("Add cr-time mountpoint %s with parent %s(%u)\n", mi->mountpoint, parent->mountpoint, parent->mnt_id);
-	return 0;
+	return mi;
 
 err:
 	mnt_entry_free(mi);
-	return -1;
+	return NULL;
 }
 
 /* Returns 1 in case of success, -errno in case of mount fail, and 0 on other errors */
@@ -2204,15 +2191,6 @@ static int do_new_mount(struct mount_info *mi)
 	if (tp->restore && tp->restore(mi))
 		return -1;
 
-	if (mi->mnt_id == CRTIME_MNT_ID) {
-		/* C-r time mountpoint, umount it */
-		if (umount(mi->mountpoint) < 0) {
-			pr_perror("Can't umount %s", mi->mountpoint);
-			return -1;
-		}
-		goto out;
-	}
-
 	if (remount_ro) {
 		int fd;
 
@@ -2242,7 +2220,7 @@ static int do_new_mount(struct mount_info *mi)
 	BUG_ON(mi->master_id);
 	if (restore_shared_options(mi, !mi->shared_id, mi->shared_id, 0))
 		return -1;
-out:
+
 	mi->mounted = true;
 
 	return 0;
@@ -3384,7 +3362,7 @@ static int merge_mount_trees(struct mount_info *root_yard)
 /*
  * All nested mount namespaces are restore as sub-trees of the root namespace.
  */
-static int populate_roots_yard(void)
+static int populate_roots_yard(struct mount_info *cr_time)
 {
 	struct mnt_remap_entry *r;
 	char path[PATH_MAX];
@@ -3415,11 +3393,17 @@ static int populate_roots_yard(void)
 		}
 	}
 
+	if (cr_time && mkdirpat(AT_FDCWD, cr_time->mountpoint, 0755)) {
+		pr_perror("Unable to create %s", cr_time->mountpoint);
+		return -1;
+	}
+
 	return 0;
 }
 
 static int populate_mnt_ns(void)
 {
+	struct mount_info *cr_time = NULL;
 	int ret;
 
 	root_yard_mp = mnt_entry_alloc(true);
@@ -3436,8 +3420,8 @@ static int populate_mnt_ns(void)
 #ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
 	if (!opts.has_binfmt_misc && !list_empty(&binfmt_misc_list)) {
 		/* Add to mount tree. Generic code will mount it later */
-		ret = add_cr_time_mount(root_yard_mp, "binfmt_misc", BINFMT_MISC_HOME, 0, true);
-		if (ret)
+		cr_time = add_cr_time_mount(root_yard_mp, "binfmt_misc", "binfmt_misc", 0, true);
+		if (!cr_time)
 			return -1;
 	}
 #endif
@@ -3453,7 +3437,7 @@ static int populate_mnt_ns(void)
 	if (find_remap_mounts(root_yard_mp))
 		return -1;
 
-	if (populate_roots_yard())
+	if (populate_roots_yard(cr_time))
 		return -1;
 
 	if (mount_clean_path())
@@ -3887,8 +3871,8 @@ int collect_mnt_namespaces(bool for_dump)
 			} else if (ret == 0) {
 				ret = -1;
 				goto err;
-			} else if (ret > 0 && add_cr_time_mount(ns->mnt.mntinfo_tree, "binfmt_misc", BINFMT_MISC_HOME,
-								s_dev, false) < 0) {
+			} else if (ret > 0 && !add_cr_time_mount(ns->mnt.mntinfo_tree, "binfmt_misc", BINFMT_MISC_HOME,
+								 s_dev, false)) {
 				ret = -1;
 				goto err;
 			}
