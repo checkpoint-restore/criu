@@ -1264,6 +1264,32 @@ static inline int restore_child_subreaper(int child_subreaper)
 	return 0;
 }
 
+static int map_vdso(struct task_restore_args *args, bool compatible)
+{
+	struct vdso_maps *rt = &args->vdso_maps_rt;
+	int err;
+
+	err = arch_map_vdso(args->vdso_rt_parked_at, compatible);
+	if (err < 0) {
+		pr_err("Failed to map vdso %d\n", err);
+		return err;
+	}
+
+	if (rt->sym.vdso_before_vvar) {
+		rt->vdso_start = args->vdso_rt_parked_at;
+		/* kernel may provide only vdso */
+		if (rt->sym.vvar_size != VVAR_BAD_SIZE)
+			rt->vvar_start = rt->vdso_start + rt->sym.vdso_size;
+		else
+			rt->vvar_start = VVAR_BAD_ADDR;
+	} else {
+		rt->vvar_start = args->vdso_rt_parked_at;
+		rt->vdso_start = rt->vvar_start + rt->sym.vvar_size;
+	}
+
+	return 0;
+}
+
 /*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
@@ -1356,15 +1382,8 @@ long __export_restore_task(struct task_restore_args *args)
 		goto core_restore_end;
 
 	/* Map vdso that wasn't parked */
-	if (args->can_map_vdso) {
-		int err = arch_map_vdso(args->vdso_rt_parked_at,
-					args->compatible_mode);
-
-		if (err < 0) {
-			pr_err("Failed to map vdso %d\n", err);
-			goto core_restore_end;
-		}
-	}
+	if (args->can_map_vdso && (map_vdso(args, args->compatible_mode) < 0))
+		goto core_restore_end;
 
 	/* Shift private vma-s to the left */
 	for (i = 0; i < args->vmas_n; i++) {
@@ -1496,10 +1515,9 @@ long __export_restore_task(struct task_restore_args *args)
 	/*
 	 * Proxify vDSO.
 	 */
-	if (vdso_proxify(&args->vdso_maps_rt.sym, &has_vdso_proxy,
-		     args->vdso_rt_parked_at,
-		     args->vmas, args->vmas_n, args->compatible_mode,
-		     fault_injected(FI_VDSO_TRAMPOLINES)))
+	if (vdso_proxify(&args->vdso_maps_rt,  &has_vdso_proxy,
+			 args->vmas, args->vmas_n, args->compatible_mode,
+		         fault_injected(FI_VDSO_TRAMPOLINES)))
 		goto core_restore_end;
 
 	/* unmap rt-vdso with restorer blob after restore's finished */
