@@ -25,7 +25,7 @@
 #define LOG_PREFIX "vdso: "
 
 /* Updates @from on success */
-static int vdso_remap(char *who, unsigned long *from, unsigned long to, size_t size)
+static int remap_one(char *who, unsigned long *from, unsigned long to, size_t size)
 {
 	unsigned long addr;
 
@@ -41,37 +41,38 @@ static int vdso_remap(char *who, unsigned long *from, unsigned long to, size_t s
 	return 0;
 }
 
+static int park_at(struct vdso_maps *rt, unsigned long vdso, unsigned long vvar)
+{
+	int ret;
+
+	ret = remap_one("rt-vdso", &rt->vdso_start, vdso, rt->sym.vdso_size);
+
+	if (ret || !vvar)
+		return ret;
+
+	return remap_one("rt-vvar", &rt->vvar_start, vvar, rt->sym.vvar_size);
+}
+
 /*
  * Park runtime vDSO in some safe place where it can be accessible
  * from the restorer
  */
-int vdso_do_park(struct vdso_maps *rt, unsigned long park_at,
-		unsigned long park_size)
+int vdso_do_park(struct vdso_maps *rt, unsigned long addr, unsigned long space)
 {
 	unsigned long vvar_size = rt->sym.vvar_size;
 	unsigned long vdso_size = rt->sym.vdso_size;
-	unsigned long rt_vvar_park = park_at;
-	unsigned long rt_vdso_park = park_at;
-	int ret;
-
 
 	if (rt->vvar_start == VVAR_BAD_ADDR) {
-		BUG_ON(vdso_size < park_size);
-		return vdso_remap("rt-vdso", &rt->vdso_start,
-				rt_vdso_park, vdso_size);
+		BUG_ON(vdso_size < space);
+		return park_at(rt, addr, 0);
 	}
 
-	BUG_ON((vdso_size + vvar_size) < park_size);
+	BUG_ON((vdso_size + vvar_size) < space);
 
 	if (rt->sym.vdso_before_vvar)
-		rt_vvar_park = park_at + vdso_size;
+		return park_at(rt, addr, addr + vvar_size);
 	else
-		rt_vdso_park = park_at + vvar_size;
-
-	ret  = vdso_remap("rt-vdso", &rt->vdso_start, rt_vdso_park, vdso_size);
-	ret |= vdso_remap("rt-vvar", &rt->vvar_start, rt_vvar_park, vvar_size);
-
-	return ret;
+		return park_at(rt, addr + vdso_size, addr);
 }
 
 #ifndef CONFIG_COMPAT
@@ -147,7 +148,6 @@ static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 			 struct vdso_maps *rt)
 {
 	void *remap_addr;
-	int ret;
 
 	pr_info("Runtime vdso/vvar matches dumpee, remap inplace\n");
 
@@ -161,10 +161,8 @@ static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 		return -1;
 	}
 
-	if (!vma_vvar) {
-		return vdso_remap("rt-vdso", &rt->vdso_start,
-				vma_vdso->start, rt->sym.vdso_size);
-	}
+	if (!vma_vvar)
+		return park_at(rt, vma_vdso->start, 0);
 
 	remap_addr = (void *)(uintptr_t)vma_vvar->start;
 	if (sys_munmap(remap_addr, vma_entry_len(vma_vvar))) {
@@ -172,12 +170,7 @@ static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 		return -1;
 	}
 
-	ret = vdso_remap("rt-vdso", &rt->vdso_start,
-			vma_vdso->start, rt->sym.vdso_size);
-	ret |= vdso_remap("rt-vvar", &rt->vvar_start,
-			vma_vvar->start, rt->sym.vvar_size);
-
-	return ret;
+	return park_at(rt, vma_vdso->start, vma_vvar->start);
 }
 
 /*
