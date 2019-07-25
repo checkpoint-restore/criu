@@ -476,6 +476,23 @@ static int restore_seccomp(struct thread_restore_args *args)
 		return 0;
 		break;
 	case SECCOMP_MODE_STRICT:
+		/*
+		 * Disable gettimeofday() from vdso: it may use TSC
+		 * which is restricted by kernel:
+		 *
+		 * static long seccomp_set_mode_strict(void)
+		 * {
+		 * [..]
+		 * #ifdef TIF_NOTSC
+		 *	disable_TSC();
+		 * #endif
+		 * [..]
+		 *
+		 * XXX: It may need to be fixed in kernel under
+		 * PTRACE_O_SUSPEND_SECCOMP, but for now just get timings
+		 * with a raw syscall instead of vdso.
+		 */
+		std_log_set_gettimeofday(NULL);
 		ret = sys_prctl(PR_SET_SECCOMP, SECCOMP_MODE_STRICT, 0, 0, 0);
 		if (ret < 0) {
 			pr_err("seccomp: SECCOMP_MODE_STRICT returned %d on tid %d\n",
