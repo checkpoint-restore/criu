@@ -38,6 +38,7 @@ struct vdso_maps {
 	unsigned long		vdso_start;
 	unsigned long		vvar_start;
 	struct vdso_symtable	sym;
+	bool			compatible;
 };
 
 #define VDSO_SYMBOL_INIT	{ .offset = VDSO_BAD_ADDR, }
