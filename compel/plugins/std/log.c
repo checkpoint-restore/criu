@@ -16,6 +16,7 @@ struct simple_buf {
 static int logfd = -1;
 static int cur_loglevel = COMPEL_DEFAULT_LOGLEVEL;
 static struct timeval start;
+static gettimeofday_t __std_gettimeofday;
 
 static void sbuf_log_flush(struct simple_buf *b);
 
@@ -54,7 +55,7 @@ static void sbuf_log_init(struct simple_buf *b)
 	if (start.tv_sec != 0) {
 		struct timeval now;
 
-		sys_gettimeofday(&now, NULL);
+		std_gettimeofday(&now, NULL);
 		timediff(&start, &now);
 
 		/* Seconds */
@@ -128,6 +129,19 @@ void std_log_set_loglevel(enum __compel_log_levels level)
 void std_log_set_start(struct timeval *s)
 {
 	start = *s;
+}
+
+void std_log_set_gettimeofday(gettimeofday_t gtod)
+{
+	__std_gettimeofday = gtod;
+}
+
+int std_gettimeofday(struct timeval *tv, struct timezone *tz)
+{
+	if (__std_gettimeofday != NULL)
+		return __std_gettimeofday(tv, tz);
+
+	return sys_gettimeofday(tv, tz);
 }
 
 static void print_string(const char *msg, struct simple_buf *b)
