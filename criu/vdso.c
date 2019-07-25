@@ -597,7 +597,8 @@ int vdso_init_restore(void)
 
 	vdso_maps.sym = kdat.vdso_sym;
 #ifdef CONFIG_COMPAT
-	vdso_maps_compat.sym = kdat.vdso_sym_compat;
+	vdso_maps_compat.sym		= kdat.vdso_sym_compat;
+	vdso_maps_compat.compatible	= true;
 #endif
 
 	return 0;
@@ -621,7 +622,8 @@ int kerndat_vdso_fill_symtable(void)
 		pr_err("Failed to fill compat vdso symtable\n");
 		return -1;
 	}
-	kdat.vdso_sym_compat = vdso_maps_compat.sym;
+	vdso_maps_compat.compatible	= true;
+	kdat.vdso_sym_compat		= vdso_maps_compat.sym;
 #endif
 
 	return 0;
