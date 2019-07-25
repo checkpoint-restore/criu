@@ -12,7 +12,8 @@
 #include "int.h"
 #include "types.h"
 #include "page.h"
-#include <compel/plugins/std/syscall.h>
+#include "compel/plugins/std/syscall.h"
+#include "compel/plugins/std/log.h"
 #include "image.h"
 #include "parasite-vdso.h"
 #include "vma.h"
@@ -43,14 +44,62 @@ static int remap_one(char *who, unsigned long *from, unsigned long to, size_t si
 
 static int park_at(struct vdso_maps *rt, unsigned long vdso, unsigned long vvar)
 {
+	unsigned long vvar_size = rt->sym.vvar_size;
+	unsigned long vdso_size = rt->sym.vdso_size;
 	int ret;
 
-	ret = remap_one("rt-vdso", &rt->vdso_start, vdso, rt->sym.vdso_size);
-
-	if (ret || !vvar)
+	ret = remap_one("rt-vdso", &rt->vdso_start, vdso, vdso_size);
+	if (ret)
 		return ret;
 
-	return remap_one("rt-vvar", &rt->vvar_start, vvar, rt->sym.vvar_size);
+	std_log_set_gettimeofday(NULL); /* stop using vdso for timings */
+
+	if (vvar)
+		ret = remap_one("rt-vvar", &rt->vvar_start, vvar, vvar_size);
+
+	if (!ret)
+		vdso_update_gtod_addr(rt);
+
+	return ret;
+}
+
+void vdso_update_gtod_addr(struct vdso_maps *rt)
+{
+	struct vdso_symbol *gtod_sym;
+	void *gtod;
+
+	if (rt->vdso_start == VDSO_BAD_ADDR) {
+		pr_debug("No rt-vdso - no fast gettimeofday()\n");
+		return;
+	}
+
+	if (VDSO_SYMBOL_GTOD < 0) {
+		pr_debug("Arch doesn't support gettimeofday() from vdso\n");
+		return;
+	}
+
+	/*
+	 * XXX: Don't enable vdso timings for compatible applications.
+	 * We would need to temporary map 64-bit vdso for timings in restorer
+	 * and remap it with compatible at the end of restore.
+	 * And vdso proxification should be done much later.
+	 * Also, restorer should have two sets of vdso_maps in arguments.
+	 */
+	if (rt->compatible) {
+		pr_debug("compat mode: using syscall for gettimeofday()\n");
+		return;
+	}
+
+	gtod_sym = &rt->sym.symbols[VDSO_SYMBOL_GTOD];
+	if (gtod_sym->offset == VDSO_BAD_ADDR) {
+		pr_debug("No gettimeofday() on rt-vdso\n");
+		return;
+	}
+
+	gtod = (void*)(rt->vdso_start + gtod_sym->offset);
+	pr_info("Using gettimeofday() on vdso at %p\n", gtod);
+
+	std_log_set_gettimeofday(gtod);
 }
 
 /*

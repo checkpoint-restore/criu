@@ -13,6 +13,7 @@
  * inside the text page which should not be used as is from user space.
  */
 #define VDSO_SYMBOL_MAX		10
+#define VDSO_SYMBOL_GTOD	5
 #define ARCH_VDSO_SYMBOLS			\
 	"__kernel_clock_getres",		\
 	"__kernel_clock_gettime",		\

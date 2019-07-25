@@ -12,7 +12,8 @@
  * This is a minimal amount of symbols
  * we should support at the moment.
  */
-#define VDSO_SYMBOL_MAX	6
+#define VDSO_SYMBOL_MAX		6
+#define VDSO_SYMBOL_GTOD	2
 
 /*
  * XXX: we don't patch __kernel_vsyscall as it's too small:

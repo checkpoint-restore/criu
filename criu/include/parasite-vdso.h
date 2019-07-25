@@ -81,6 +81,7 @@ static inline bool is_vdso_mark(void *addr)
 	return false;
 }
 
+extern void vdso_update_gtod_addr(struct vdso_maps *rt);
 extern int vdso_do_park(struct vdso_maps *rt, unsigned long park_at,
 			unsigned long park_size);
 extern int vdso_map_compat(unsigned long map_at);
