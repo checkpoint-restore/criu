@@ -24,19 +24,19 @@
 #endif
 #define LOG_PREFIX "vdso: "
 
-
-static int vdso_remap(char *who, unsigned long from, unsigned long to, size_t size)
+/* Updates @from on success */
+static int vdso_remap(char *who, unsigned long *from, unsigned long to, size_t size)
 {
 	unsigned long addr;
 
-	pr_debug("Remap %s %lx -> %lx\n", who, from, to);
+	pr_debug("Remap %s %lx -> %lx\n", who, *from, to);
 
-	addr = sys_mremap(from, size, size, MREMAP_MAYMOVE | MREMAP_FIXED, to);
+	addr = sys_mremap(*from, size, size, MREMAP_MAYMOVE | MREMAP_FIXED, to);
 	if (addr != to) {
-		pr_err("Unable to remap %lx -> %lx %lx\n",
-		       from, to, addr);
+		pr_err("Unable to remap %lx -> %lx %lx\n", *from, to, addr);
 		return -1;
 	}
+	*from = addr;
 
 	return 0;
 }
@@ -57,7 +57,7 @@ int vdso_do_park(struct vdso_maps *rt, unsigned long park_at,
 
 	if (rt->vvar_start == VVAR_BAD_ADDR) {
 		BUG_ON(vdso_size < park_size);
-		return vdso_remap("rt-vdso", rt->vdso_start,
+		return vdso_remap("rt-vdso", &rt->vdso_start,
 				rt_vdso_park, vdso_size);
 	}
 
@@ -68,8 +68,8 @@ int vdso_do_park(struct vdso_maps *rt, unsigned long park_at,
 	else
 		rt_vdso_park = park_at + vvar_size;
 
-	ret  = vdso_remap("rt-vdso", rt->vdso_start, rt_vdso_park, vdso_size);
-	ret |= vdso_remap("rt-vvar", rt->vvar_start, rt_vvar_park, vvar_size);
+	ret  = vdso_remap("rt-vdso", &rt->vdso_start, rt_vdso_park, vdso_size);
+	ret |= vdso_remap("rt-vvar", &rt->vvar_start, rt_vvar_park, vvar_size);
 
 	return ret;
 }
@@ -144,10 +144,8 @@ static bool blobs_matches(VmaEntry *vdso_img, VmaEntry *vvar_img,
  * to dumpee position without generating any proxy.
  */
 static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
-		struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at)
+			 struct vdso_maps *rt)
 {
-	unsigned long rt_vvar_addr = vdso_rt_parked_at;
-	unsigned long rt_vdso_addr = vdso_rt_parked_at;
 	void *remap_addr;
 	int ret;
 
@@ -164,8 +162,8 @@ static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 	}
 
 	if (!vma_vvar) {
-		return vdso_remap("rt-vdso", rt_vdso_addr,
-				vma_vdso->start, sym_rt->vdso_size);
+		return vdso_remap("rt-vdso", &rt->vdso_start,
+				vma_vdso->start, rt->sym.vdso_size);
 	}
 
 	remap_addr = (void *)(uintptr_t)vma_vvar->start;
@@ -174,15 +172,10 @@ static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 		return -1;
 	}
 
-	if (vma_vdso->start < vma_vvar->start)
-		rt_vvar_addr = vdso_rt_parked_at + sym_rt->vdso_size;
-	else
-		rt_vdso_addr = vdso_rt_parked_at + sym_rt->vvar_size;
-
-	ret = vdso_remap("rt-vdso", rt_vdso_addr,
-			vma_vdso->start, sym_rt->vdso_size);
-	ret |= vdso_remap("rt-vvar", rt_vvar_addr,
-			vma_vvar->start, sym_rt->vvar_size);
+	ret = vdso_remap("rt-vdso", &rt->vdso_start,
+			vma_vdso->start, rt->sym.vdso_size);
+	ret |= vdso_remap("rt-vvar", &rt->vvar_start,
+			vma_vvar->start, rt->sym.vvar_size);
 
 	return ret;
 }
@@ -193,27 +186,13 @@ static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
  * to operate as proxy vdso.
  */
 static int add_vdso_proxy(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
-		struct vdso_symtable *sym_img, struct vdso_symtable *sym_rt,
-		unsigned long vdso_rt_parked_at, bool compat_vdso)
+		struct vdso_symtable *sym_img, struct vdso_maps *rt,
+		bool compat_vdso)
 {
-	unsigned long rt_vvar_addr = vdso_rt_parked_at;
-	unsigned long rt_vdso_addr = vdso_rt_parked_at;
 	unsigned long orig_vvar_addr =
 		vma_vvar ? vma_vvar->start : VVAR_BAD_ADDR;
 
 	pr_info("Runtime vdso mismatches dumpee, generate proxy\n");
-
-	/*
-	 * Don't forget to shift if vvar is before vdso.
-	 */
-	if (sym_rt->vvar_size == VVAR_BAD_SIZE) {
-		rt_vvar_addr = VVAR_BAD_ADDR;
-	} else {
-		if (sym_rt->vdso_before_vvar)
-			rt_vvar_addr += sym_rt->vdso_size;
-		else
-			rt_vdso_addr += sym_rt->vvar_size;
-	}
 
 	/*
 	 * Note: we assume that after first migration with inserted
@@ -223,8 +202,8 @@ static int add_vdso_proxy(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 	 * jumps, so we can't remove them if on the following migration
 	 * found that number of symbols in vdso has decreased.
 	 */
-	if (vdso_redirect_calls(rt_vdso_addr, vma_vdso->start,
-				sym_rt, sym_img, compat_vdso)) {
+	if (vdso_redirect_calls(rt->vdso_start, vma_vdso->start,
+				&rt->sym, sym_img, compat_vdso)) {
 		pr_err("Failed to proxify dumpee contents\n");
 		return -1;
 	}
@@ -234,16 +213,15 @@ static int add_vdso_proxy(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 	 * routine we could detect this vdso and do not dump it, since
 	 * it's auto-generated every new session if proxy required.
 	 */
-	sys_mprotect((void *)rt_vdso_addr,  sym_rt->vdso_size, PROT_WRITE);
-	vdso_put_mark((void *)rt_vdso_addr, rt_vvar_addr,
-			vma_vdso->start, orig_vvar_addr);
-	sys_mprotect((void *)rt_vdso_addr,  sym_rt->vdso_size, VDSO_PROT);
+	sys_mprotect((void *)rt->vdso_start, rt->sym.vdso_size, PROT_WRITE);
+	vdso_put_mark((void *)rt->vdso_start, rt->vvar_start,
+		      vma_vdso->start, orig_vvar_addr);
+	sys_mprotect((void *)rt->vdso_start, rt->sym.vdso_size, VDSO_PROT);
 
 	return 0;
 }
 
-int vdso_proxify(struct vdso_symtable *sym_rt, bool *added_proxy,
-		 unsigned long vdso_rt_parked_at,
+int vdso_proxify(struct vdso_maps *rt, bool *added_proxy,
 		 VmaEntry *vmas, size_t nr_vmas,
 		 bool compat_vdso, bool force_trampolines)
 {
@@ -291,12 +269,9 @@ int vdso_proxify(struct vdso_symtable *sym_rt, bool *added_proxy,
 		 vma_vvar ? (unsigned long)vma_vvar->end : VVAR_BAD_ADDR);
 
 	*added_proxy = false;
-	if (blobs_matches(vma_vdso, vma_vvar, &s, sym_rt) && !force_trampolines) {
-		return remap_rt_vdso(vma_vdso, vma_vvar,
-				sym_rt, vdso_rt_parked_at);
-	}
+	if (blobs_matches(vma_vdso, vma_vvar, &s, &rt->sym) && !force_trampolines)
+		return remap_rt_vdso(vma_vdso, vma_vvar, rt);
 
 	*added_proxy = true;
-	return add_vdso_proxy(vma_vdso, vma_vvar, &s, sym_rt,
-			vdso_rt_parked_at, compat_vdso);
+	return add_vdso_proxy(vma_vdso, vma_vvar, &s, rt, compat_vdso);
 }
