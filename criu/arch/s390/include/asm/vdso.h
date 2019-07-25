@@ -8,7 +8,8 @@
  * This is a minimal amount of symbols
  * we should support at the moment.
  */
-#define VDSO_SYMBOL_MAX	4
+#define VDSO_SYMBOL_MAX		4
+#define VDSO_SYMBOL_GTOD	0
 
 /*
  * This definition is used in pie/util-vdso.c to initialize the vdso symbol
