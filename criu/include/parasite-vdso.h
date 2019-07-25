@@ -84,8 +84,7 @@ static inline bool is_vdso_mark(void *addr)
 extern int vdso_do_park(struct vdso_maps *rt, unsigned long park_at,
 			unsigned long park_size);
 extern int vdso_map_compat(unsigned long map_at);
-extern int vdso_proxify(struct vdso_symtable *sym_rt, bool *added_proxy,
-			unsigned long vdso_rt_parked_at,
+extern int vdso_proxify(struct vdso_maps *rt, bool *added_proxy,
 			VmaEntry *vmas, size_t nr_vmas,
 			bool compat_vdso, bool force_trampolines);
 extern int vdso_redirect_calls(unsigned long base_to, unsigned long base_from,
