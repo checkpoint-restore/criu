@@ -1402,6 +1402,8 @@ long __export_restore_task(struct task_restore_args *args)
 	if (args->can_map_vdso && (map_vdso(args, args->compatible_mode) < 0))
 		goto core_restore_end;
 
+	vdso_update_gtod_addr(&args->vdso_maps_rt);
+
 	/* Shift private vma-s to the left */
 	for (i = 0; i < args->vmas_n; i++) {
 		vma_entry = args->vmas + i;
