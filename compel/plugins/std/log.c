@@ -120,7 +120,7 @@ void std_log_set_fd(int fd)
 	logfd = fd;
 }
 
-void std_log_set_loglevel(unsigned int level)
+void std_log_set_loglevel(enum __compel_log_levels level)
 {
 	cur_loglevel = level;
 }

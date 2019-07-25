@@ -1,10 +1,12 @@
 #ifndef COMPEL_PLUGIN_STD_LOG_H__
 #define COMPEL_PLUGIN_STD_LOG_H__
 
+#include "compel/loglevels.h"
+
 #define STD_LOG_SIMPLE_CHUNK	256
 
 extern void std_log_set_fd(int fd);
-extern void std_log_set_loglevel(unsigned int level);
+extern void std_log_set_loglevel(enum __compel_log_levels level);
 extern void std_log_set_start(struct timeval *tv);
 extern int std_vprint_num(char *buf, int blen, int num, char **ps);
 extern void std_sprintf(char output[STD_LOG_SIMPLE_CHUNK], const char *format, ...)
