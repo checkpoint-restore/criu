@@ -1215,32 +1215,37 @@ static int wait_zombies(struct task_restore_args *task_args)
 	return 0;
 }
 
-static bool vdso_unmapped(struct task_restore_args *args)
+static bool can_restore_vdso(struct task_restore_args *args)
 {
+	struct vdso_maps *rt = &args->vdso_maps_rt;
+	bool had_vdso = false, had_vvar = false;
 	unsigned int i;
 
-	/* Don't park rt-vdso or rt-vvar if dumpee doesn't have them */
 	for (i = 0; i < args->vmas_n; i++) {
 		VmaEntry *vma = &args->vmas[i];
 
-		if (vma_entry_is(vma, VMA_AREA_VDSO) ||
-				vma_entry_is(vma, VMA_AREA_VVAR))
-			return false;
+		if (vma_entry_is(vma, VMA_AREA_VDSO))
+			had_vdso = true;
+		if (vma_entry_is(vma, VMA_AREA_VVAR))
+			had_vvar = true;
 	}
 
+	if (had_vdso && (rt->vdso_start == VDSO_BAD_ADDR)) {
+		pr_err("Task had vdso, restorer doesn't\n");
+		return false;
+	}
+
+	/*
+	 * There is a use-case for restoring vvar alone: valgrind (see #488).
+	 * On the other side, we expect that vvar is touched by application
+	 * only from vdso. So, we can put a stale page and proceed restore
+	 * if kernel doesn't provide vvar [but provides vdso, if needede.
+	 * Just warn aloud that we don't like it.
+	 */
+	if (had_vvar && (rt->vvar_start == VVAR_BAD_ADDR))
+		pr_warn("Can't restore vvar - continuing regardless\n");
+
 	return true;
-}
-
-static bool vdso_needs_parking(struct task_restore_args *args)
-{
-	/* Compatible vDSO will be mapped, not moved */
-	if (args->compatible_mode)
-		return false;
-
-	if (args->can_map_vdso)
-		return false;
-
-	return !vdso_unmapped(args);
 }
 
 static inline int restore_child_subreaper(int child_subreaper)
@@ -1279,6 +1284,7 @@ long __export_restore_task(struct task_restore_args *args)
 	k_rtsigset_t to_block;
 	pid_t my_pid = sys_getpid();
 	rt_sigaction_t act;
+	bool has_vdso_proxy;
 
 	bootstrap_start = args->bootstrap_start;
 	bootstrap_len	= args->bootstrap_len;
@@ -1325,7 +1331,21 @@ long __export_restore_task(struct task_restore_args *args)
 		pr_debug("lazy-pages: uffd %d\n", args->uffd);
 	}
 
-	if (vdso_needs_parking(args)) {
+	/*
+	 * Park vdso/vvar in a safe place if architecture doesn't support
+	 * mapping them with arch_prctl().
+	 * Always preserve/map rt-vdso pair if it's possible, regardless
+	 * it's presence in original task: vdso will be used for fast
+	 * getttimeofday() in restorer's log timings.
+	 */
+	if (!args->can_map_vdso) {
+		/* It's already checked in kdat, but let's check again */
+		if (args->compatible_mode) {
+			pr_err("Compatible mode without vdso map support\n");
+			goto core_restore_end;
+		}
+		if (!can_restore_vdso(args))
+			goto core_restore_end;
 		if (vdso_do_park(&args->vdso_maps_rt,
 				args->vdso_rt_parked_at, vdso_rt_size))
 			goto core_restore_end;
@@ -1336,9 +1356,12 @@ long __export_restore_task(struct task_restore_args *args)
 		goto core_restore_end;
 
 	/* Map vdso that wasn't parked */
-	if (!vdso_unmapped(args) && args->can_map_vdso) {
-		if (arch_map_vdso(args->vdso_rt_parked_at,
-				args->compatible_mode) < 0) {
+	if (args->can_map_vdso) {
+		int err = arch_map_vdso(args->vdso_rt_parked_at,
+					args->compatible_mode);
+
+		if (err < 0) {
+			pr_err("Failed to map vdso %d\n", err);
 			goto core_restore_end;
 		}
 	}
@@ -1473,10 +1496,15 @@ long __export_restore_task(struct task_restore_args *args)
 	/*
 	 * Proxify vDSO.
 	 */
-	if (vdso_proxify(&args->vdso_maps_rt.sym, args->vdso_rt_parked_at,
+	if (vdso_proxify(&args->vdso_maps_rt.sym, &has_vdso_proxy,
+		     args->vdso_rt_parked_at,
 		     args->vmas, args->vmas_n, args->compatible_mode,
 		     fault_injected(FI_VDSO_TRAMPOLINES)))
 		goto core_restore_end;
+
+	/* unmap rt-vdso with restorer blob after restore's finished */
+	if (!has_vdso_proxy)
+		vdso_rt_size = 0;
 
 	/*
 	 * Walk though all VMAs again to drop PROT_WRITE

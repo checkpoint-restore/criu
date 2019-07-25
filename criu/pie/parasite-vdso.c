@@ -242,7 +242,8 @@ static int add_vdso_proxy(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 	return 0;
 }
 
-int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
+int vdso_proxify(struct vdso_symtable *sym_rt, bool *added_proxy,
+		 unsigned long vdso_rt_parked_at,
 		 VmaEntry *vmas, size_t nr_vmas,
 		 bool compat_vdso, bool force_trampolines)
 {
@@ -289,11 +290,13 @@ int vdso_proxify(struct vdso_symtable *sym_rt, unsigned long vdso_rt_parked_at,
 		 vma_vvar ? (unsigned long)vma_vvar->start : VVAR_BAD_ADDR,
 		 vma_vvar ? (unsigned long)vma_vvar->end : VVAR_BAD_ADDR);
 
+	*added_proxy = false;
 	if (blobs_matches(vma_vdso, vma_vvar, &s, sym_rt) && !force_trampolines) {
 		return remap_rt_vdso(vma_vdso, vma_vvar,
 				sym_rt, vdso_rt_parked_at);
 	}
 
+	*added_proxy = true;
 	return add_vdso_proxy(vma_vdso, vma_vvar, &s, sym_rt,
 			vdso_rt_parked_at, compat_vdso);
 }
