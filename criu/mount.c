@@ -48,6 +48,8 @@
 /* A helper mount_info entry for the roots yard */
 static struct mount_info *root_yard_mp = NULL;
 
+static LIST_HEAD(delayed_unbindable);
+
 int ext_mount_add(char *key, char *val)
 {
 	char *e_str;
@@ -1844,10 +1846,25 @@ static int restore_shared_options(struct mount_info *mi, bool private, bool shar
 			mi->mnt_id, mi->mountpoint, private, shared, slave);
 
 	if (mi->flags & MS_UNBINDABLE) {
-		if (shared || slave)
+		if (shared || slave) {
 			pr_warn("%s has both unbindable and sharing, ignoring unbindable\n", mi->mountpoint);
-		else
-			return mount(NULL, mi->mountpoint, NULL, MS_UNBINDABLE, NULL);
+		} else {
+			if (!mnt_is_overmounted(mi)) {
+				/* Someone may still want to bind from us, let them do it. */
+				pr_debug("Temporary leave unbindable mount %s as private\n", mi->mountpoint);
+				if (mount(NULL, mi->mountpoint, NULL, MS_PRIVATE, NULL)) {
+					pr_perror("Unable to make %d private", mi->mnt_id);
+					return -1;
+				}
+				list_add(&mi->mnt_unbindable, &delayed_unbindable);
+				return 0;
+			}
+			if (mount(NULL, mi->mountpoint, NULL, MS_UNBINDABLE, NULL)) {
+				pr_perror("Unable to make %d unbindable", mi->mnt_id);
+				return -1;
+			}
+			return 0;
+		}
 	}
 
 	if (private && mount(NULL, mi->mountpoint, NULL, MS_PRIVATE, NULL)) {
@@ -2477,6 +2494,16 @@ static int do_close_one(struct mount_info *mi)
 	return 0;
 }
 
+static int set_unbindable(struct mount_info *mi)
+{
+	if (mount(NULL, mi->mountpoint, NULL, MS_UNBINDABLE, NULL)) {
+		pr_perror("Failed setting unbindable flag on %d", mi->mnt_id);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int do_mount_one(struct mount_info *mi)
 {
 	int ret;
@@ -2776,6 +2803,7 @@ struct mount_info *mnt_entry_alloc()
 		INIT_LIST_HEAD(&new->mnt_bind);
 		INIT_LIST_HEAD(&new->mnt_propagate);
 		INIT_LIST_HEAD(&new->mnt_notprop);
+		INIT_LIST_HEAD(&new->mnt_unbindable);
 		INIT_LIST_HEAD(&new->postpone);
 	}
 	return new;
@@ -3251,6 +3279,19 @@ static int populate_mnt_ns(void)
 
 	ret = mnt_tree_for_each(root_yard_mp, do_mount_one);
 	mnt_tree_for_each(root_yard_mp, do_close_one);
+
+	if (ret == 0) {
+		struct mount_info *mi;
+
+		/*
+		 * Mounts in delayed_unbindable list were temporary mounted as
+		 * private instead of unbindable so that do_mount_one can bind
+		 * from them, now we are ready to fix it.
+		 */
+		list_for_each_entry(mi, &delayed_unbindable, mnt_unbindable)
+			if (set_unbindable(mi))
+				return -1;
+	}
 
 	if (ret == 0 && fixup_remap_mounts())
 		return -1;
