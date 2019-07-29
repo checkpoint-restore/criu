@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 
 import socket, os, sys, errno
 import rpc_pb2 as rpc

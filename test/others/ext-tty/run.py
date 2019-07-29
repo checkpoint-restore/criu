@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 import subprocess
 import os, sys, time, signal, pty
 
