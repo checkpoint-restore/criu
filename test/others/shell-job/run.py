@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 import os, pty, sys, subprocess
 import termios, fcntl, time
 
@@ -9,11 +9,11 @@ os.chdir(os.getcwd())
 
 def create_pty():
     (fd1, fd2) = pty.openpty()
-    return (os.fdopen(fd1, "w+"), os.fdopen(fd2, "w+"))
+    return (os.fdopen(fd1, "wb"), os.fdopen(fd2, "wb"))
 
 
 if not os.access("work", os.X_OK):
-    os.mkdir("work", 0755)
+    os.mkdir("work", 0o755)
 
 open("running", "w").close()
 m, s = create_pty()

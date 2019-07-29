@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 
 import socket
 import sys
@@ -7,11 +7,14 @@ import subprocess
 
 print('Connecting to CRIU in swrk mode to check the version:')
 
-css = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
-swrk = subprocess.Popen(['./criu', "swrk", "%d" % css[0].fileno()])
-css[0].close()
+s1, s2 = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
 
-s = css[1]
+kwargs = {}
+if sys.version_info.major == 3:
+    kwargs["pass_fds"] = [s2.fileno()]
+
+swrk = subprocess.Popen(['./criu', "swrk", "%d" % s2.fileno()], **kwargs)
+s2.close()
 
 # Create criu msg, set it's type to dump request
 # and set dump options. Checkout more options in protobuf/rpc.proto
@@ -19,12 +22,12 @@ req = rpc.criu_req()
 req.type = rpc.VERSION
 
 # Send request
-s.send(req.SerializeToString())
+s1.send(req.SerializeToString())
 
 # Recv response
 resp = rpc.criu_resp()
 MAX_MSG_SIZE = 1024
-resp.ParseFromString(s.recv(MAX_MSG_SIZE))
+resp.ParseFromString(s1.recv(MAX_MSG_SIZE))
 
 if resp.type != rpc.VERSION:
     print('RPC: Unexpected msg type')

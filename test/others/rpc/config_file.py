@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 
 import os
 import socket
@@ -15,10 +15,15 @@ does_not_exist = 'does-not.exist'
 
 def setup_swrk():
     print('Connecting to CRIU in swrk mode.')
-    css = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
-    swrk = subprocess.Popen(['./criu', "swrk", "%d" % css[0].fileno()])
-    css[0].close()
-    return swrk, css[1]
+    s1, s2 = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+
+    kwargs = {}
+    if sys.version_info.major == 3:
+        kwargs["pass_fds"] = [s1.fileno()]
+
+    swrk = subprocess.Popen(['./criu', "swrk", "%d" % s1.fileno()], **kwargs)
+    s1.close()
+    return swrk, s2
 
 
 def setup_config_file(content):
