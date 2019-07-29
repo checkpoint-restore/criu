@@ -2327,7 +2327,7 @@ out:
 	if (restore_shared_options(mi, private,
 				   mi->shared_id && !shared,
 				   mi->master_id && !master))
-		return -1;
+		goto err;
 
 	mi->mounted = true;
 	exit_code = 0;
