@@ -37,6 +37,7 @@ RUN dnf install -y \
 RUN dnf install -y --allowerasing coreutils
 
 RUN ln -sf python3 /usr/bin/python
+ENV PYTHON=python3
 
 COPY . /criu
 WORKDIR /criu
