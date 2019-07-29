@@ -2,6 +2,7 @@ QEMU_ARCHES := armv7hf aarch64 ppc64le s390x fedora-rawhide-aarch64 # require qe
 ARCHES := $(QEMU_ARCHES) x86_64 fedora-asan fedora-rawhide centos
 TARGETS := $(ARCHES) alpine
 TARGETS_CLANG := $(addsuffix $(TARGETS),-clang)
+CONTAINER_RUNTIME := docker
 
 all: $(TARGETS) $(TARGETS_CLANG)
 .PHONY: all
@@ -27,8 +28,8 @@ $(QEMU_ARCHES): qemu-user-static binfmt_misc
 $(TARGETS):
 	mkdir -p $(HOME)/.ccache
 	mv $(HOME)/.ccache ../../
-	docker build  -t criu-$@ -f Dockerfile.$@ $(DB_CC) $(DB_ENV) ../..
-	docker run criu-$@ tar c -C /tmp .ccache | tar x -C $(HOME)
+	$(CONTAINER_RUNTIME) build  -t criu-$@ -f Dockerfile.$@ $(DB_CC) $(DB_ENV) ../..
+	$(CONTAINER_RUNTIME) run criu-$@ tar c -C /tmp .ccache | tar x -C $(HOME)
 .PHONY: $(TARGETS)
 
 # Clang builds add some Docker build env
