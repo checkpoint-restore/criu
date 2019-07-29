@@ -38,5 +38,8 @@ fedora-asan:
 docker-test:
 	./docker-test.sh
 
+podman-test:
+	./podman-test.sh
+
 %:
 	$(MAKE) -C ../build $@$(target-suffix)
