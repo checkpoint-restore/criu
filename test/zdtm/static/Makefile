@@ -380,6 +380,7 @@ TST_DIR		=				\
 		opath_file			\
 		symlink				\
 		symlink01			\
+		unbindable			\
 
 TST_DIR_FILE	=				\
 		chroot				\
