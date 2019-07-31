@@ -1,20 +1,13 @@
 #!/usr/bin/python
 
-import socket
 import sys
 import rpc_pb2 as rpc
-import subprocess
+
+from setup_swrk import setup_swrk
 
 print('Connecting to CRIU in swrk mode to check the version:')
 
-s1, s2 = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
-
-kwargs = {}
-if sys.version_info.major == 3:
-    kwargs["pass_fds"] = [s2.fileno()]
-
-swrk = subprocess.Popen(['./criu', "swrk", "%d" % s2.fileno()], **kwargs)
-s2.close()
+swrk, s1 = setup_swrk()
 
 # Create criu msg, set it's type to dump request
 # and set dump options. Checkout more options in protobuf/rpc.proto
