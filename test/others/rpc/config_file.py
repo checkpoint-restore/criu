@@ -1,29 +1,16 @@
 #!/usr/bin/python
 
 import os
-import socket
 import sys
 import rpc_pb2 as rpc
 import argparse
-import subprocess
 from tempfile import mkstemp
 import time
 
+from setup_swrk import setup_swrk
+
 log_file = 'config_file_test.log'
 does_not_exist = 'does-not.exist'
-
-
-def setup_swrk():
-    print('Connecting to CRIU in swrk mode.')
-    s1, s2 = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET)
-
-    kwargs = {}
-    if sys.version_info.major == 3:
-        kwargs["pass_fds"] = [s1.fileno()]
-
-    swrk = subprocess.Popen(['./criu', "swrk", "%d" % s1.fileno()], **kwargs)
-    s1.close()
-    return swrk, s2
 
 
 def setup_config_file(content):
