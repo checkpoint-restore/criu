@@ -263,7 +263,7 @@ def get_bytes_dec(field):
 def is_string(value):
     # Python 3 compatibility
     if "basestring" in __builtins__:
-        string_types = basestring
+        string_types = basestring  # noqa: F821
     else:
         string_types = (str, bytes)
     return isinstance(value, string_types)
