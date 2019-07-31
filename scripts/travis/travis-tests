@@ -163,7 +163,9 @@ ip net add test
 
 make -C test/others/shell-job
 
-pip install flake8
+if ! [ -x "$(command -v flake8)" ]; then
+	pip install flake8
+fi
 make lint
 
 # Check that help output fits into 80 columns
