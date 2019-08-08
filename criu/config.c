@@ -517,6 +517,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		{ "tls-key",			required_argument,	0, 1095},
 		BOOL_OPT("tls", &opts.tls),
 		{"tls-no-cn-verify",		no_argument,		&opts.tls_no_cn_verify, true},
+		{ "cgroup-yard",		required_argument,	0, 1096 },
 		{ },
 	};
 
@@ -814,6 +815,9 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			break;
 		case 1095:
 			SET_CHAR_OPTS(tls_key, optarg);
+			break;
+		case 1096:
+			SET_CHAR_OPTS(cgroup_yard, optarg);
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);

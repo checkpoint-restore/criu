@@ -106,6 +106,7 @@ struct cr_options {
 	char			*cgroup_props;
 	char			*cgroup_props_file;
 	struct list_head	new_cgroup_roots;
+	char			*cgroup_yard;
 	bool			autodetect_ext_mounts;
 	int			enable_external_sharing;
 	int			enable_external_masters;
