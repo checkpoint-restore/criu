@@ -104,6 +104,8 @@ int main(int argc, char **argv)
 			pr_perror("unshare");
 			return 1;
 		}
+		if (system("ip link set up dev lo"))
+			return 1;
 		sk = create_socket(1);
 		if (sk < 0)
 			return 1;
@@ -166,6 +168,8 @@ int main(int argc, char **argv)
 			pr_perror("unshare");
 			return 1;
 		}
+		if (system("ip link set up dev lo"))
+			return 1;
 		sk = create_socket(2);
 		if (sk < 0)
 			return 1;

@@ -50,6 +50,8 @@ int main(int argc, char **argv)
 			if (unshare(CLONE_NEWNET))
 				return 1;
 
+			if (system("ip link set up dev lo"))
+				return 1;
 			task_waiter_complete(&lock, i);
 			test_waitsig();
 
