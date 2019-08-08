@@ -987,6 +987,19 @@ int criu_local_add_cg_dump_controller(criu_opts *opts, const char *name)
 	return 0;
 }
 
+int criu_local_add_cg_yard(criu_opts *opts, const char *path)
+{
+	char *new;
+
+	new = strdup(path);
+	if (!new)
+		return -ENOMEM;
+
+	free(opts->rpc->cgroup_yard);
+	opts->rpc->cgroup_yard = new;
+	return 0;
+}
+
 int criu_add_skip_mnt(const char *mnt)
 {
 	return criu_local_add_skip_mnt(global_opts, mnt);
