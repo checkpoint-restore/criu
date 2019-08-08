@@ -266,10 +266,33 @@ For example, the command line for the above example should look like this:
     discovered automatically (usually via */proc*). This option is
     useful when one needs *criu* to skip some controllers.
 
-*--cgroup-props-ignore-default*::
-    When combined with *--cgroup-props*, makes *criu* substitute
-    a predefined controller property with the new one shipped. If the option
-    is not used, the predefined properties are merged with the provided ones.
+*--cgroup-yard* 'path'::
+    Instead of trying to mount cgroups in CRIU, provide a path to a directory
+    with already created cgroup yard. Useful if you don't want to grant
+    CAP_SYS_ADMIN to CRIU. For every cgroup mount there should be exactly one
+    directory. If there is only one controller in this mount, the dir's name
+    should be just the name of the controller. If there are multiple controllers
+    comounted, the directory name should have them be separated by a comma.
++
+For example, if */proc/cgroups* looks like this:
++
+----------
+#subsys_name hierarchy num_cgroups enabled
+cpu          1         1           1
+devices      2         2           1
+freezer      2         2           1
+----------
++
+then you can create the cgroup yard by the following commands:
++
+----------
+mkdir private_yard
+cd private_yard
+mkdir cpu
+mount -t cgroup -o cpu none cpu
+mkdir devices,freezer
+mount -t cgroup -o devices,freezer none devices,freezer
+----------
 
 *--tcp-established*::
     Checkpoint established TCP connections.
@@ -441,6 +464,11 @@ The 'mode' may be one of the following:
                 requiring them to not present in the system.
 
     *ignore*::: Don't deal with cgroups and pretend that they don't exist.
+
+*--cgroup-yard* 'path'::
+    Instead of trying to mount cgroups in CRIU, provide a path to a directory
+    with already created cgroup yard. For more information look in the *dump*
+    section.
 
 *--cgroup-root* ['controller'*:*]/'newroot'::
     Change the root cgroup the controller will be installed into. No controller
