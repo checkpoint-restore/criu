@@ -207,6 +207,7 @@ int criu_local_add_irmap_path(criu_opts *opts, const char *path);
 int criu_local_add_cg_props(criu_opts *opts, const char *stream);
 int criu_local_add_cg_props_file(criu_opts *opts, const char *path);
 int criu_local_add_cg_dump_controller(criu_opts *opts, const char *name);
+int criu_local_add_cg_yard(criu_opts *opts, const char *path);
 int criu_local_add_inherit_fd(criu_opts *opts, int fd, const char *key);
 int criu_local_add_external(criu_opts *opts, const char *key);
 int criu_local_set_page_server_address_port(criu_opts *opts, const char *address, int port);

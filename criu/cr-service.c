@@ -608,6 +608,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			goto err;
 	}
 
+	if (req->cgroup_yard)
+		SET_CHAR_OPTS(cgroup_yard, req->cgroup_yard);
+
 	if (req->tls_cacert)
 		SET_CHAR_OPTS(tls_cacert, req->tls_cacert);
 	if (req->tls_cacrl)
