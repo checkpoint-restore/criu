@@ -1417,7 +1417,7 @@ int cr_lazy_pages(bool daemon)
 	int lazy_sk;
 	int ret;
 
-	if (kerndat_uffd() || !kdat.has_uffd)
+	if (!kdat.has_uffd)
 		return -1;
 
 	if (prepare_dummy_pstree())
