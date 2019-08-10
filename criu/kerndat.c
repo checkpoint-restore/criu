@@ -157,7 +157,7 @@ static void kerndat_mmap_min_addr(void)
 		 (unsigned long)kdat.mmap_min_addr);
 }
 
-int kerndat_files_stat(bool early)
+static int kerndat_files_stat(bool early)
 {
 	static const uint32_t NR_OPEN_DEFAULT = 1024 * 1024;
 	static const uint64_t MAX_FILES_DEFAULT = 8192;
@@ -348,7 +348,7 @@ int kerndat_fs_virtualized(unsigned int which, u32 kdev)
  * this functionality under CONFIG_MEM_SOFT_DIRTY option.
  */
 
-int kerndat_get_dirty_track(void)
+static int kerndat_get_dirty_track(void)
 {
 	char *map;
 	int pm2;
@@ -471,7 +471,7 @@ static int get_task_size(void)
 	return 0;
 }
 
-int kerndat_fdinfo_has_lock()
+static int kerndat_fdinfo_has_lock()
 {
 	int fd, pfd = -1, exit_code = -1, len;
 	char buf[PAGE_SIZE];
@@ -521,7 +521,7 @@ static int get_ipv6()
 	return 0;
 }
 
-int kerndat_loginuid(void)
+static int kerndat_loginuid(void)
 {
 	unsigned int saved_loginuid;
 	int ret;
@@ -742,7 +742,7 @@ err:
 	return ret;
 }
 
-int kerndat_has_inotify_setnextwd(void)
+static int kerndat_has_inotify_setnextwd(void)
 {
 	int ret = 0;
 	int fd;
@@ -765,7 +765,7 @@ int kerndat_has_inotify_setnextwd(void)
 	return ret;
 }
 
-int has_kcmp_epoll_tfd(void)
+static int has_kcmp_epoll_tfd(void)
 {
 	kcmp_epoll_slot_t slot = { };
 	int ret = -1, efd, tfd;
@@ -907,7 +907,7 @@ unl:
 	}
 }
 
-int kerndat_uffd(void)
+static int kerndat_uffd(void)
 {
 	int uffd;
 

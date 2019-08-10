@@ -15,10 +15,6 @@ struct stat;
  */
 
 extern int kerndat_init(void);
-extern int kerndat_get_dirty_track(void);
-extern int kerndat_fdinfo_has_lock(void);
-extern int kerndat_loginuid(void);
-extern int kerndat_files_stat(bool early);
 
 enum pagemap_func {
 	PM_UNKNOWN,
@@ -89,8 +85,5 @@ enum {
  * a new (likely virtuzlized) fs instance.
  */
 extern int kerndat_fs_virtualized(unsigned int which, u32 kdev);
-
-extern int kerndat_tcp_repair();
-extern int kerndat_uffd(void);
 
 #endif /* __CR_KERNDAT_H__ */
