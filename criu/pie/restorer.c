@@ -1293,13 +1293,16 @@ static int map_vdso(struct task_restore_args *args, bool compatible)
 		return err;
 	}
 
+	/* kernel may provide only vdso */
+	if (rt->sym.vvar_size == VVAR_BAD_SIZE) {
+		rt->vdso_start = args->vdso_rt_parked_at;
+		rt->vvar_start = VVAR_BAD_ADDR;
+		return 0;
+	}
+
 	if (rt->sym.vdso_before_vvar) {
 		rt->vdso_start = args->vdso_rt_parked_at;
-		/* kernel may provide only vdso */
-		if (rt->sym.vvar_size != VVAR_BAD_SIZE)
-			rt->vvar_start = rt->vdso_start + rt->sym.vdso_size;
-		else
-			rt->vvar_start = VVAR_BAD_ADDR;
+		rt->vvar_start = rt->vdso_start + rt->sym.vdso_size;
 	} else {
 		rt->vvar_start = args->vdso_rt_parked_at;
 		rt->vdso_start = rt->vvar_start + rt->sym.vvar_size;
