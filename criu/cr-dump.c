@@ -783,8 +783,6 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 
 	img = img_from_set(cr_imgset, CR_FD_CORE);
 	ret = pb_write_one(img, core, PB_CORE);
-	if (ret < 0)
-		goto err;
 
 err:
 	pr_info("----------------------------------------\n");
