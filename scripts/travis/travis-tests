@@ -100,7 +100,7 @@ umask 0000
 export SKIP_PREP=1
 # The 3.19 kernel (from Ubuntu 14.04) has a bug. When /proc/PID/pagemap
 # is read for a few VMAs in one read call, incorrect data is returned.
-# See https://github.com/xemul/criu/issues/207
+# See https://github.com/checkpoint-restore/criu/issues/207
 # Kernel 4.4 (from Ubuntu 14.04.5 update) fixes this.
 uname -r | grep -q ^3\.19 && export CRIU_PMC_OFF=1
 
