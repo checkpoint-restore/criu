@@ -1327,17 +1327,24 @@ static int fd_poll(int inotify_fd)
  */
 #define EVENT_BUFF_SIZE ((sizeof(struct inotify_event) + PATH_MAX))
 
+/* We can get interrupted in poll, so try some more */
+#define MAX_POLL_RETRY 5
+
 /*
  * Read all available events from inotify queue
  */
 static int cleanup_inotify_events(int inotify_fd)
 {
 	char buf[EVENT_BUFF_SIZE * 8];
-	int ret;
+	int ret, retry = 0;
 
-	while (1) {
+	while (retry < MAX_POLL_RETRY) {
 		ret = fd_poll(inotify_fd);
 		if (ret < 0) {
+			if (ret == -EINTR) {
+				retry++;
+				continue;
+			}
 			pr_err("Failed to poll from inotify fd: %d\n", ret);
 			return -1;
 		} else if (ret == 0) {
@@ -1349,6 +1356,11 @@ static int cleanup_inotify_events(int inotify_fd)
 			pr_err("Failed to read inotify events\n");
 			return -1;
 		}
+	}
+
+	if (retry == MAX_POLL_RETRY) {
+		pr_err("Can't cleanup inotify events due to max retry\n");
+		return -1;
 	}
 
 	return 0;
