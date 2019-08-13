@@ -25,7 +25,7 @@
 /*
  * It's a workaround for a kernel bug. In the 3.19 kernel when pagemap are read
  * for a few vma-s for one read call, it returns incorrect data.
- * https://github.com/xemul/criu/issues/207
+ * https://github.com/checkpoint-restore/criu/issues/207
 */
 static bool pagemap_cache_disabled;
 
