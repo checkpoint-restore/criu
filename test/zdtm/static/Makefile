@@ -319,7 +319,8 @@ TST_DIR		=				\
 		cgroup03			\
 		cgroup04			\
 		cgroup_ifpriomap		\
-		cgroup_stray		\
+		cgroup_stray			\
+		cgroup_yard			\
 		unlink_fstat04			\
 		unlink_fstat041			\
 		mntns_remap			\
