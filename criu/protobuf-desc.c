@@ -37,6 +37,7 @@
 #include "images/creds.pb-c.h"
 #include "images/timer.pb-c.h"
 #include "images/utsns.pb-c.h"
+#include "images/timens.pb-c.h"
 #include "images/ipc-var.pb-c.h"
 #include "images/ipc-shm.pb-c.h"
 #include "images/ipc-msg.pb-c.h"
