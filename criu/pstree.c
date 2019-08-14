@@ -814,6 +814,8 @@ static unsigned long get_clone_mask(TaskKobjIdsEntry *i,
 		mask |= CLONE_NEWIPC;
 	if (i->uts_ns_id != p->uts_ns_id)
 		mask |= CLONE_NEWUTS;
+	if (i->time_ns_id != p->time_ns_id)
+		mask |= CLONE_NEWTIME;
 	if (i->mnt_ns_id != p->mnt_ns_id)
 		mask |= CLONE_NEWNS;
 	if (i->user_ns_id != p->user_ns_id)

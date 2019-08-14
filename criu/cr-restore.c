@@ -76,6 +76,7 @@
 #include "fdstore.h"
 #include "string.h"
 #include "memfd.h"
+#include "timens.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
@@ -1406,7 +1407,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	if (kdat.has_clone3_set_tid) {
 		ret = clone3_with_pid_noasan(restore_task_with_children,
 				&ca, (ca.clone_flags &
-					~(CLONE_NEWNET | CLONE_NEWCGROUP)),
+					~(CLONE_NEWNET | CLONE_NEWCGROUP | CLONE_NEWTIME)),
 				SIGCHLD, pid);
 	} else {
 		/*
@@ -1424,7 +1425,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 		close_pid_proc();
 		ret = clone_noasan(restore_task_with_children,
 				(ca.clone_flags &
-				 ~(CLONE_NEWNET | CLONE_NEWCGROUP)) | SIGCHLD,
+				 ~(CLONE_NEWNET | CLONE_NEWCGROUP | CLONE_NEWTIME)) | SIGCHLD,
 				&ca);
 	}
 
@@ -1743,6 +1744,11 @@ static int restore_task_with_children(void *_arg)
 				pr_perror("Can't unshare net-namespace");
 				goto err;
 			}
+		}
+
+		if (root_ns_mask & CLONE_NEWTIME) {
+			if (prepare_timens(current->ids->time_ns_id))
+				goto err;
 		}
 
 		/* Wait prepare_userns */

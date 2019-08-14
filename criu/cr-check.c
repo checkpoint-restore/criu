@@ -1266,6 +1266,16 @@ static int check_kcmp_epoll(void)
 	return 0;
 }
 
+static int check_time_namespace(void)
+{
+	if (!kdat.has_timens) {
+		pr_err("Time namespaces are not supported\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int check_net_diag_raw(void)
 {
 	check_sock_diag();
@@ -1384,6 +1394,7 @@ int cr_check(void)
 		ret |= check_kcmp_epoll();
 		ret |= check_net_diag_raw();
 		ret |= check_clone3_set_tid();
+		ret |= check_time_namespace();
 	}
 
 	/*
@@ -1486,6 +1497,7 @@ static struct feature_list feature_list[] = {
 	{ "nsid", check_nsid },
 	{ "link_nsid", check_link_nsid},
 	{ "kcmp_epoll", check_kcmp_epoll},
+	{ "timens", check_time_namespace},
 	{ "external_net_ns", check_external_net_ns},
 	{ "clone3_set_tid", check_clone3_set_tid},
 	{ NULL, NULL },
