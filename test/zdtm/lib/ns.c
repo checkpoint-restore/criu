@@ -15,6 +15,8 @@
 #include <signal.h>
 #include <sched.h>
 #include <sys/socket.h>
+#include <time.h>
+#include <sys/prctl.h>
 
 #include "zdtmtst.h"
 #include "ns.h"
@@ -207,6 +209,39 @@ write_out:
 	write(STDERR_FILENO, buf, MIN(len, sizeof(buf)));
 }
 
+#ifndef CLONE_NEWTIME
+#define CLONE_NEWTIME   0x00000080      /* New time namespace */
+#endif
+
+static inline int _settime(clockid_t clk_id, time_t offset)
+{
+	int fd, len;
+	char buf[4096];
+
+	if (clk_id == CLOCK_MONOTONIC_COARSE || clk_id == CLOCK_MONOTONIC_RAW)
+		clk_id = CLOCK_MONOTONIC;
+
+	len = snprintf(buf, sizeof(buf), "%d %ld 0", clk_id, offset);
+
+	fd = open("/proc/self/timens_offsets", O_WRONLY);
+	if (fd < 0) {
+		fprintf(stderr, "open(/proc/self/timens_offsets): %m");
+		return -1;
+	}
+
+	if (write(fd, buf, len) != len) {
+		fprintf(stderr, "write(/proc/self/timens_offsets): %m");
+		return -1;
+	}
+
+	if (close(fd)) {
+		fprintf(stderr, "close(/proc/self/timens_offsets): %m");
+		return -1;
+	}
+
+	return 0;
+}
+
 #define STATUS_FD 255
 static int ns_exec(void *_arg)
 {
@@ -218,6 +253,7 @@ static int ns_exec(void *_arg)
 
 	setsid();
 
+	prctl(PR_SET_DUMPABLE, 1, 0, 0, 0);
 	ret = dup2(args->status_pipe[1], STATUS_FD);
 	if (ret < 0) {
 		fprintf(stderr, "dup2() failed: %m\n");
@@ -236,6 +272,35 @@ static int ns_exec(void *_arg)
 	return -1;
 }
 
+static int create_timens(void)
+{
+	int fd;
+
+	if (unshare(CLONE_NEWTIME)) {
+		if (errno == EINVAL) {
+			fprintf(stderr, "timens isn't supported\n");
+			return 0;
+		} else {
+			fprintf(stderr, "unshare(CLONE_NEWTIME) failed: %m");
+			exit(1);
+		}
+	}
+
+	if (_settime(CLOCK_MONOTONIC, 10 * 24 * 60 * 60))
+		exit(1);
+	if (_settime(CLOCK_BOOTTIME, 20 * 24 * 60 * 60))
+		exit(1);
+
+	fd = open("/proc/self/ns/time_for_children", O_RDONLY);
+	if (fd < 0)
+		exit(1);
+	if (setns(fd, 0))
+		exit(1);
+	close(fd);
+
+	return 0;
+}
+
 int ns_init(int argc, char **argv)
 {
 	struct sigaction sa = {
@@ -252,6 +317,9 @@ int ns_init(int argc, char **argv)
 		fprintf(stderr, "fcntl failed %m\n");
 		exit(1);
 	}
+
+	if (create_timens())
+		exit(1);
 
 	if (init_notify()) {
 		fprintf(stderr, "Can't init pre-dump notification: %m");
