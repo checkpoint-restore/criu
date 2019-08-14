@@ -1,0 +1,7 @@
+{
+'flavor': 'h',
+'flags': 'suid',
+# We create the external cgroup yard in working directory during --pre-dump
+# hook. We have to go up a few directories to find the yard.
+'opts': '--manage-cgroups --cgroup-yard ../../../../../../external_yard'
+}
