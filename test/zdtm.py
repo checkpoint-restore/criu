@@ -2047,7 +2047,7 @@ def print_sep(title, sep="=", width=80):
 
 def print_error(line):
     line = line.rstrip()
-    print(line)
+    print(line.encode('utf-8'))
     if line.endswith('>'):  # combine pie output
         return True
     return False
@@ -2057,7 +2057,7 @@ def grep_errors(fname):
     first = True
     print_next = False
     before = []
-    with open(fname) as fd:
+    with open(fname, errors='replace') as fd:
         for l in fd:
             before.append(l)
             if len(before) > 5:
