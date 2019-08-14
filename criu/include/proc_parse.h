@@ -102,4 +102,6 @@ extern bool is_vma_range_fmt(char *line);
 extern void parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf);
 extern int parse_uptime(uint64_t *upt);
 
+extern int parse_timens_offsets(struct timespec *boff, struct timespec *moff);
+
 #endif /* __CR_PROC_PARSE_H__ */

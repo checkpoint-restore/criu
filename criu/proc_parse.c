@@ -1472,6 +1472,44 @@ static bool should_skip_mount(const char *mountpoint)
 	return false;
 }
 
+int parse_timens_offsets(struct timespec *boff, struct timespec *moff)
+{
+	int exit_code = -1;
+	FILE *f;
+
+	f = fopen_proc(PROC_SELF, "timens_offsets");
+	if (!f) {
+		pr_perror("Unable to open /proc/self/timens_offsets");
+		goto out;
+	}
+	while (fgets(buf, BUF_SIZE, f)) {
+		int64_t sec, nsec;
+		int clockid;
+
+		if (sscanf(buf, "%d %"PRId64" %"PRId64"\n", &clockid, &sec, &nsec) != 3) {
+			pr_err("Unable to parse: %s\n", buf);
+			goto out;
+		}
+		switch (clockid) {
+		case CLOCK_MONOTONIC:
+			moff->tv_sec = sec;
+			moff->tv_nsec = nsec;
+			break;
+		case CLOCK_BOOTTIME:
+			boff->tv_sec = sec;
+			boff->tv_nsec = nsec;
+			break;
+		default:
+			pr_err("Unknown clockid: %d\n", clockid);
+			goto out;
+		}
+	}
+	exit_code = 0;
+out:
+	fclose(f);
+	return exit_code;
+}
+
 struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 {
 	struct mount_info *list = NULL;

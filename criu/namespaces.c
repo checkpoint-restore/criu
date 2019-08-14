@@ -20,6 +20,7 @@
 #include "imgset.h"
 #include "uts_ns.h"
 #include "ipc_ns.h"
+#include "timens.h"
 #include "mount.h"
 #include "pstree.h"
 #include "namespaces.h"
@@ -39,6 +40,7 @@ static struct ns_desc *ns_desc_array[] = {
 	&pid_ns_desc,
 	&user_ns_desc,
 	&mnt_ns_desc,
+	&time_ns_desc,
 	&cgroup_ns_desc,
 };
 
@@ -157,6 +159,9 @@ int join_ns_add(const char *type, char *ns_file, char *extra_opts)
 	} else if (!strncmp(type, "uts", 4)) {
 		jn->nd = &uts_ns_desc;
 		join_ns_flags |= CLONE_NEWUTS;
+	} else if (!strncmp(type, "time", 5)) {
+		jn->nd = &time_ns_desc;
+		join_ns_flags |= CLONE_NEWTIME;
 	} else if (!strncmp(type, "ipc", 4)) {
 		jn->nd = &ipc_ns_desc;
 		join_ns_flags |= CLONE_NEWIPC;
@@ -568,6 +573,10 @@ static int open_ns_fd(struct file_desc *d, int *new_fd)
 			item = t;
 			nd = &cgroup_ns_desc;
 			break;
+		} else if (ids->time_ns_id == nfi->nfe->ns_id) {
+			item = t;
+			nd = &time_ns_desc;
+			break;
 		}
 	}
 
@@ -668,6 +677,13 @@ int dump_task_ns_ids(struct pstree_item *item)
 	ids->uts_ns_id = get_ns_id(pid, &uts_ns_desc, NULL);
 	if (!ids->uts_ns_id) {
 		pr_err("Can't make utsns id\n");
+		return -1;
+	}
+
+	ids->has_time_ns_id = true;
+	ids->time_ns_id = get_ns_id(pid, &time_ns_desc, NULL);
+	if (!ids->time_ns_id) {
+		pr_err("Can't make timens id\n");
 		return -1;
 	}
 
@@ -914,6 +930,9 @@ static int check_user_ns(int pid)
 		if ((root_ns_mask & CLONE_NEWUTS) &&
 		    switch_ns(pid, &uts_ns_desc, NULL))
 			exit(1);
+		if ((root_ns_mask & CLONE_NEWTIME) &&
+		    switch_ns(pid, &time_ns_desc, NULL))
+			exit(1);
 		if ((root_ns_mask & CLONE_NEWIPC) &&
 		    switch_ns(pid, &ipc_ns_desc, NULL))
 			exit(1);
@@ -1001,6 +1020,11 @@ static int do_dump_namespaces(struct ns_id *ns)
 		pr_info("Dump UTS namespace %d via %d\n",
 				ns->id, ns->ns_pid);
 		ret = dump_uts_ns(ns->id);
+		break;
+	case CLONE_NEWTIME:
+		pr_info("Dump TIME namespace %d via %d\n",
+				ns->id, ns->ns_pid);
+		ret = dump_time_ns(ns->id);
 		break;
 	case CLONE_NEWIPC:
 		pr_info("Dump IPC namespace %d via %d\n",

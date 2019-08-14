@@ -67,6 +67,7 @@ enum {
 	PB_SNAPSHOT_ID,		/* Contains a single id. Used for reading/writing ids from proxy or cache. */
 	PB_MEMFD_FILE,
 	PB_MEMFD_INODE,		/* 60 */
+	PB_TIMENS,
 
 	/* PB_AUTOGEN_STOP */
 

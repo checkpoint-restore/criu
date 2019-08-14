@@ -34,7 +34,13 @@
 #define CLONE_NEWCGROUP	0x02000000
 #endif
 
-#define CLONE_ALLNS	(CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER | CLONE_NEWCGROUP)
+#ifndef CLONE_NEWTIME
+#define CLONE_NEWTIME   0x00000080
+#endif
+
+#define CLONE_ALLNS	(CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | \
+			 CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER | \
+			 CLONE_NEWCGROUP | CLONE_NEWTIME)
 
 /* Nested namespaces are supported only for these types */
 #define CLONE_SUBNS	(CLONE_NEWNS | CLONE_NEWNET)
@@ -146,6 +152,7 @@ extern bool check_ns_proc(struct fd_link *link);
 
 extern struct ns_desc pid_ns_desc;
 extern struct ns_desc user_ns_desc;
+extern struct ns_desc time_ns_desc;
 extern unsigned long root_ns_mask;
 
 extern const struct fdtype_ops nsfile_dump_ops;
