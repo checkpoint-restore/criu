@@ -226,6 +226,7 @@ TST_NOFILE	:=				\
 		memfd03				\
 		shmemfd				\
 		shmemfd-priv			\
+		time				\
 #		jobctl00			\
 
 ifneq ($(ARCH),arm)
