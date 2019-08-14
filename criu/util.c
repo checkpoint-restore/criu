@@ -967,6 +967,8 @@ const char *ns_to_string(unsigned int ns)
 		return "user";
 	case CLONE_NEWUTS:
 		return "uts";
+	case CLONE_NEWTIME:
+		return "time";
 	default:
 		return NULL;
 	}

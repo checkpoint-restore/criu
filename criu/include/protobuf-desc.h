@@ -63,6 +63,7 @@ enum {
 	PB_FILE,
 	PB_MEMFD_FILE,
 	PB_MEMFD_INODE,		/* 60 */
+	PB_TIMENS,
 
 	/* PB_AUTOGEN_STOP */
 

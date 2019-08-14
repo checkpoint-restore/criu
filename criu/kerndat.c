@@ -783,6 +783,21 @@ out:
 	return ret;
 }
 
+static int has_time_namespace(void)
+{
+	if (access("/proc/self/timens_offsets", F_OK) < 0) {
+		if (errno == ENOENT) {
+			pr_debug("Time namespaces are not supported.\n");
+			kdat.has_timens = false;
+			return 0;
+		}
+		pr_perror("Unable to access /proc/self/timens_offsets");
+		return -1;
+	}
+	kdat.has_timens = true;
+	return 0;
+}
+
 int __attribute__((weak)) kdat_x86_has_ptrace_fpu_xsave_bug(void)
 {
 	return 0;
@@ -1091,6 +1106,8 @@ int kerndat_init(void)
 		ret = kerndat_has_fsopen();
 	if (!ret)
 		ret = kerndat_has_clone3_set_tid();
+	if (!ret)
+		ret = has_time_namespace();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();

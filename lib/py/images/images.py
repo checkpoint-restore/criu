@@ -466,6 +466,7 @@ handlers = {
     'IDS': entry_handler(pb.task_kobj_ids_entry),
     'CREDS': entry_handler(pb.creds_entry),
     'UTSNS': entry_handler(pb.utsns_entry),
+    'TIMENS': entry_handler(pb.timens_entry),
     'IPC_VAR': entry_handler(pb.ipc_var_entry),
     'FS': entry_handler(pb.fs_entry),
     'GHOST_FILE': ghost_file_handler(),
