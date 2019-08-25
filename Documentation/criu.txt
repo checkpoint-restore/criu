@@ -156,6 +156,12 @@ In addition, *page-server* options may be specified.
     Turn on memory changes tracker in the kernel. If the option is
     not passed the memory tracker get turned on implicitly.
 
+*--pre-dump-mode*='mode'::
+    There are two 'mode' to operate pre-dump algorithm. The 'splice' mode
+    is parasite based, whereas 'read' mode is based on process_vm_readv
+    syscall. The 'read' mode incurs reduced frozen time and reduced
+    memory pressure as compared to 'splice' mode. Default is 'splice' mode.
+
 *dump*
 ~~~~~~
 Performs a checkpoint procedure.
