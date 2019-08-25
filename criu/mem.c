@@ -361,6 +361,20 @@ static int generate_vma_iovs(struct pstree_item *item, struct vma_area *vma,
 				!vma_area_is(vma, VMA_ANON_SHARED))
 		return 0;
 
+	/*
+	 * process_vm_readv syscall can't copy memory regions lacking
+	 * PROT_READ flag. Therefore, avoid generating iovs for such
+	 * regions in "read" mode pre-dump. Regions skipped by pre-dumps
+	 * can't be referred as parent by following dump stage. So, mark
+	 * "has_parent=false" for such regions.
+	 */
+	if (opts.pre_dump_mode == PRE_DUMP_READ &&
+	                          !(vma->e->prot & PROT_READ)) {
+		if (pre_dump)
+			return 0;
+		has_parent = false;
+	}
+
 	if (vma_entry_is(vma->e, VMA_AREA_AIORING)) {
 		if (pre_dump)
 			return 0;
