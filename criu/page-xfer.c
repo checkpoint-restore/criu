@@ -827,6 +827,8 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer,
 
 	list_for_each_entry(ppb, &pp->bufs, l) {
 
+		timing_start(TIME_MEMDUMP);
+
 		aux_len = 0;
 		bufvec.iov_len = sizeof(userbuf);
 		bufvec.iov_base = userbuf;
@@ -844,6 +846,9 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer,
 			pr_err("vmsplice: Failed to splice user buffer to pipe %ld\n", ret);
 			return -1;
 		}
+
+		timing_stop(TIME_MEMDUMP);
+		timing_start(TIME_MEMWRITE);
 
 		/* generating pagemap */
 		for (i = 0; i < aux_len; i++) {
@@ -867,8 +872,11 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer,
 			if (xfer->write_pages(xfer, ppb->p[0], iov.iov_len))
 				return -1;
 		}
+
+		timing_stop(TIME_MEMWRITE);
         }
 
+	timing_start(TIME_MEMWRITE);
 	return dump_holes(xfer, pp, &cur_hole, NULL);
 }
 
