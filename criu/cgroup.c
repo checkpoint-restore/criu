@@ -439,10 +439,13 @@ static int add_cgroup_properties(const char *fpath, struct cgroup_dir *ncd,
 	return 0;
 }
 
-static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag)
+static int add_cgroup(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
 {
 	struct cgroup_dir *ncd = NULL, *match;
 	int exit_code = -1;
+
+	if (opts.cgroup_dump_only_below_criu && ftwbuf->level == 0)
+		return 0;
 
 	if (typeflag == FTW_D) {
 		int mtype;
@@ -619,7 +622,7 @@ static int collect_cgroups(struct list_head *ctls)
 
 		snprintf(path + path_pref_len, PATH_MAX - path_pref_len, "%s", root);
 
-		ret = ftw(path, add_cgroup, 4);
+		ret = nftw(path, add_cgroup, 4, 0);
 		if (ret < 0)
 			pr_perror("failed walking %s for empty cgroups", path);
 
@@ -652,7 +655,11 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_
 	if (parse_task_cgroup(pid, args, &ctls, &n_ctls))
 		return -1;
 
-	cs = get_cg_set(&ctls, n_ctls, item);
+	if (opts.cgroup_dump_only_below_criu)
+		cs = get_cg_set(&ctls, n_ctls, item == NULL);
+	else
+		cs = get_cg_set(&ctls, n_ctls, item);
+
 	if (!cs)
 		return -1;
 
@@ -846,9 +853,12 @@ static int dump_sets(CgroupEntry *cg)
 	CgSetEntry *se;
 	CgMemberEntry *ce;
 
-	pr_info("Dumping %d sets\n", n_sets - 1);
+	if (opts.cgroup_dump_only_below_criu)
+		cg->n_sets = 1;
+	else
+		cg->n_sets = n_sets - 1;
 
-	cg->n_sets = n_sets - 1;
+	pr_info("Dumping %zu sets\n", cg->n_sets);
 	m = xmalloc(cg->n_sets * (sizeof(CgSetEntry *) + sizeof(CgSetEntry)));
 	cg->sets = m;
 	se = m + cg->n_sets * sizeof(CgSetEntry *);
@@ -857,7 +867,7 @@ static int dump_sets(CgroupEntry *cg)
 
 	s = 0;
 	list_for_each_entry(set, &cg_sets, l) {
-		if (set == criu_cgset)
+		if (!opts.cgroup_dump_only_below_criu && set == criu_cgset)
 			continue;
 
 		/*
@@ -910,7 +920,8 @@ int dump_cgroups(void)
 	 * we're not dumping anything here.
 	 */
 
-	if (root_cgset == criu_cgset && list_is_singular(&cg_sets)) {
+	if (!opts.cgroup_dump_only_below_criu && root_cgset == criu_cgset &&
+			list_is_singular(&cg_sets)) {
 		pr_info("All tasks in criu's cgroups. Nothing to dump.\n");
 		return 0;
 	}

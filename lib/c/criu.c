@@ -987,6 +987,12 @@ int criu_local_add_cg_dump_controller(criu_opts *opts, const char *name)
 	return 0;
 }
 
+void criu_local_set_cg_dump_only_below_criu(criu_opts *opts, bool val)
+{
+	opts->rpc->has_cgroup_dump_only_below_criu = true;
+	opts->rpc->cgroup_dump_only_below_criu = val;
+}
+
 int criu_add_skip_mnt(const char *mnt)
 {
 	return criu_local_add_skip_mnt(global_opts, mnt);

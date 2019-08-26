@@ -621,6 +621,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->tls_no_cn_verify)
 		opts.tls_no_cn_verify = req->tls_no_cn_verify;
 
+	if (req->has_cgroup_dump_only_below_criu)
+		opts.cgroup_dump_only_below_criu = req->cgroup_dump_only_below_criu;
+
 	if (req->has_auto_ext_mnt)
 		opts.autodetect_ext_mounts = req->auto_ext_mnt;
 

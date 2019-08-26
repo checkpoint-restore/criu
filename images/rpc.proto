@@ -120,6 +120,9 @@ message criu_opts {
 	optional string			tls_key			= 57;
 	optional bool			tls			= 58;
 	optional bool			tls_no_cn_verify	= 59;
+
+	optional bool			cgroup_dump_only_below_criu	= 60;
+
 /*	optional bool			check_mounts		= 128;	*/
 }
 
