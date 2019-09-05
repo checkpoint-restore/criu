@@ -169,20 +169,40 @@ sk_maps = {
     },
 }
 
-gen_rmaps = {
-    k: {v2: k2
-        for k2, v2 in list(v.items())}
-    for k, v in list(gen_maps.items())
-}
-sk_rmaps = {
-    k: {v2: k2
-        for k2, v2 in list(v.items())}
-    for k, v in list(sk_maps.items())
+rlimits_map = {
+    'rlimit_type': {
+        0: 'RLIMIT_CPU',
+        1: 'RLIMIT_FSIZE',
+        2: 'RLIMIT_DATA',
+        3: 'RLIMIT_STACK',
+        4: 'RLIMIT_CORE',
+        5: 'RLIMIT_RSS',
+        6: 'RLIMIT_NPROC',
+        7: 'RLIMIT_NOFILE',
+        8: 'RLIMIT_MEMLOCK',
+        9: 'RLIMIT_AS',
+        10: 'RLIMIT_LOCKS',
+        11: 'RLIMIT_SIGPENDING',
+        12: 'RLIMIT_MSGQUEUE',
+        13: 'RLIMIT_NICE',
+        14: 'RLIMIT_RTPRIO',
+        15: 'RLIMIT_RTTIME',
+    },
 }
 
+
+def reverse_map(orig_map):
+    return {
+        k: {v2: k2
+            for k2, v2 in list(v.items())}
+        for k, v in list(orig_map.items())
+    }
+
+
 dict_maps = {
-    'gen': (gen_maps, gen_rmaps),
-    'sk': (sk_maps, sk_rmaps),
+    'gen': (gen_maps, reverse_map(gen_maps)),
+    'sk': (sk_maps, reverse_map(sk_maps)),
+    'rlimit': (rlimits_map, reverse_map(rlimits_map)),
 }
 
 

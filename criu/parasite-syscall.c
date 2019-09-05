@@ -246,6 +246,8 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct pstree_item *i
 		memcpy(&sa->mask, args->sas[i].rt_sa_mask.sig, sizeof(sa->mask));
 		sa->has_compat_sigaction = true;
 		sa->compat_sigaction = !compel_mode_native(ctl);
+		sa->has_signal = true;
+		sa->signal = sig;
 
 		*(psa++) = sa++;
 	}

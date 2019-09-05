@@ -1,6 +1,9 @@
 syntax = "proto2";
 
+import "opts.proto";
+
 message rlimit_entry {
 	required uint64		cur = 1;
 	required uint64		max = 2;
+	optional uint32		rlimit_type = 3 [(criu).dict = "rlimit"];
 }

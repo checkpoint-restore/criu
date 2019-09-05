@@ -345,6 +345,8 @@ static int dump_task_rlimits(int pid, TaskRlimitsEntry *rls)
 
 		rls->rlimits[res]->cur = encode_rlim(lim.rlim_cur);
 		rls->rlimits[res]->max = encode_rlim(lim.rlim_max);
+		rls->rlimits[res]->has_rlimit_type = true;
+		rls->rlimits[res]->rlimit_type = res;
 	}
 
 	return 0;
