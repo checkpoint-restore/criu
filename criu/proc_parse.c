@@ -1669,8 +1669,12 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 		if (fdinfo_field(str, "lock")) {
 			struct file_lock *fl;
 			struct fdinfo_common *fdinfo = arg;
+			char *flock_buf = str+6;
 
 			if (type != FD_TYPES__UND)
+				continue;
+
+			if (flock_buf[0] == '\0')
 				continue;
 
 			fl = alloc_file_lock();
@@ -1679,7 +1683,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 				goto out;
 			}
 
-			if (parse_file_lock_buf(str + 6, fl, 0)) {
+			if (parse_file_lock_buf(flock_buf, fl, 0)) {
 				xfree(fl);
 				goto parse_err;
 			}
