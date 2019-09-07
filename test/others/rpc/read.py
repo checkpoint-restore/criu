@@ -12,6 +12,6 @@ r = f.read(1)
 f.close()
 
 if r == '\0':
-	sys.exit(0)
+    sys.exit(0)
 
 sys.exit(-1)
