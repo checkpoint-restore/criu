@@ -194,7 +194,9 @@ void rt_sigframe_erase_sigset(struct rt_sigframe *sigframe)
 #define ARCH_RT_SIGRETURN_COMPAT(new_sp)				\
 	asm volatile(							\
 		"pushq $"__stringify(USER32_CS)"		\n"	\
-		"pushq $1f					\n"	\
+		"xor %%rax, %%rax				\n"	\
+		"movl $1f, %%eax				\n"	\
+		"pushq   %%rax					\n"	\
 		"lretq						\n"	\
 		"1:						\n"	\
 		".code32					\n"	\
