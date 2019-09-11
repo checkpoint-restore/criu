@@ -25,7 +25,9 @@ ENTRY(__export_parasite_head_start_compat)
 .code64
 	PARASITE_ENTRY 0
 	pushq	$__USER32_CS
-	pushq	$2f
+	xor	%r11, %r11
+	movl	$2f, %r11d
+	pushq   %r11
 	lretq
 2:
 .code32
