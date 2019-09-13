@@ -1,3 +1,5 @@
+include ../../../../criu/Makefile.versions
+
 TESTS += test_sub 
 TESTS += test_self
 TESTS += test_notify
@@ -19,8 +21,16 @@ endef
 $(foreach t, $(TESTS), $(eval $(call genb, $(t))))
 
 %.o: %.c
-	gcc -c $^ -I../../../../criu/lib/c/ -I../../../../criu/images/ -o $@ -Werror
+	gcc -c $^ -iquote ../../../../criu/criu/include -I../../../../criu/lib/c/ -I../../../../criu/images/ -o $@ -Werror
 
-clean:
+clean: libcriu_clean
 	rm -rf $(TESTS) $(TESTS:%=%.o) lib.o
 .PHONY: clean
+
+libcriu_clean:
+	rm -f libcriu.so.${CRIU_SO_VERSION_MAJOR}
+.PHONY: libcriu_clean
+
+libcriu:
+	ln -s ../../../../criu/lib/c/libcriu.so libcriu.so.${CRIU_SO_VERSION_MAJOR}
+.PHONY: libcriu
