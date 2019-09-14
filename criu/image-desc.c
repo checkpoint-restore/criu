@@ -112,9 +112,4 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 		.magic	= IRMAP_CACHE_MAGIC,
 		.oflags = O_SERVICE | O_FORCE_LOCAL,
 	},
-
-	[CR_FD_FILE_LOCKS_PID] = {
-		.fmt	= "filelocks-%u.img",
-		.magic	= FILE_LOCKS_MAGIC,
-	},
 };
