@@ -134,7 +134,7 @@ bash ./test/jenkins/criu-inhfd.sh
 if [ -z "$SKIP_EXT_DEV_TEST" ]; then
 	make -C test/others/mnt-ext-dev/ run
 fi
-#make -C test/others/exec/ run
+
 make -C test/others/make/ run CC="$CC"
 make -C test/others/shell-job/ run
 make -C test/others/rpc/ run
