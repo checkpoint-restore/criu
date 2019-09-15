@@ -245,7 +245,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (!strcmp(argv[optind], "image-proxy")) {
 		if (!opts.addr) {
-			pr_msg("Error: address not specified\n");
+			pr_err("address not specified\n");
 			return 1;
 		}
 		if (!opts.port)
@@ -484,7 +484,7 @@ usage:
 	return 0;
 
 opt_port_missing:
-	pr_msg("Error: port not specified\n");
+	pr_err("port not specified\n");
 	return 1;
 
 opt_pid_missing:
