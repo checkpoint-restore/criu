@@ -12,6 +12,7 @@ if sys.argv[1] == "--pre-dump":
 	Create external cgroup yard to be passed to CRIU via --cgroup-yard
 	'''
 	os.mkdir(yard)
+	subprocess.check_call(["mount", "-t", "tmpfs", "zdtm_yard", yard])
 	with open("/proc/self/cgroup") as f:
 		for line in f:
 			cgr = line.split(":")[1]
@@ -29,26 +30,6 @@ if sys.argv[1] == "--pre-dump":
 			os.mkdir(yard + "/" + ctrl)
 			subprocess.check_call(["mount", "-t", "cgroup", "none", yard + "/" + ctrl, "-o", opts])
 
-if sys.argv[1] == "--post-restore":
-	'''
-	Clean up the cgroup yard created during `--pre-dump`
-	'''
-	with open("/proc/self/cgroup") as f:
-		for line in f:
-			cgr = line.split(":")[1]
-
-			if cgr == "":
-				continue
-
-			if cgr.startswith("name="):
-				ctrl = cgr[len("name="):]
-			else:
-				ctrl = cgr
-
-			subprocess.check_call(["umount", yard + "/" + ctrl])
-			os.rmdir(yard + "/" + ctrl)
-	os.rmdir(yard)
-
 if sys.argv[1] in ["--pre-restore", "--clean"]:
 	'''
 	Clean up the leftover cgroups created by the test
@@ -56,15 +37,15 @@ if sys.argv[1] in ["--pre-restore", "--clean"]:
 	tname = tempfile.mkdtemp()
 	subprocess.call(["mount", "-t", "cgroup", "none", tname, "-o", "none,name=zdtmtst"])
 
-	try:
-		os.rmdir(os.path.join(tname, "subcg00", "subsubcg"))
-	except:
-		pass
-
-	try:
-		os.rmdir(os.path.join(tname, "subcg00"))
-	except:
-		pass
+	for cg in [os.path.join(tname, "subcg00", "subsubcg"),
+			os.path.join(tname, "subcg00")]:
+		if os.access(cg, os.F_OK):
+			os.rmdir(cg)
 
 	subprocess.call(["umount", tname])
 	os.rmdir(tname)
+
+if sys.argv[1] == "--clean":
+	if os.access(yard, os.F_OK):
+		subprocess.call(["umount", "-l", yard])
+		os.rmdir(yard)
