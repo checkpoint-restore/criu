@@ -113,7 +113,7 @@ int main(int argc, char *argv[], char *envp[])
 		SET_CHAR_OPTS(work_dir, opts.imgs_dir);
 
 	if (optind >= argc) {
-		pr_msg("Error: command is required\n");
+		pr_err("command is required\n");
 		goto usage;
 	}
 
@@ -121,17 +121,17 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (has_exec_cmd) {
 		if (!has_sub_command) {
-			pr_msg("Error: --exec-cmd requires a command\n");
+			pr_err("--exec-cmd requires a command\n");
 			goto usage;
 		}
 
 		if (strcmp(argv[optind], "restore")) {
-			pr_msg("Error: --exec-cmd is available for the restore command only\n");
+			pr_err("--exec-cmd is available for the restore command only\n");
 			goto usage;
 		}
 
 		if (opts.restore_detach) {
-			pr_msg("Error: --restore-detached and --exec-cmd cannot be used together\n");
+			pr_err("--restore-detached and --exec-cmd cannot be used together\n");
 			goto usage;
 		}
 
@@ -143,7 +143,7 @@ int main(int argc, char *argv[], char *envp[])
 	} else {
 		/* No subcommands except for cpuinfo and restore --exec-cmd */
 		if (strcmp(argv[optind], "cpuinfo") && has_sub_command) {
-			pr_msg("Error: excessive parameter%s for command %s\n",
+			pr_err("excessive parameter%s for command %s\n",
 				(argc - optind) > 2 ? "s" : "", argv[optind]);
 			goto usage;
 		}
@@ -242,7 +242,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (!strcmp(argv[optind], "image-proxy")) {
 		if (!opts.addr) {
-			pr_msg("Error: address not specified\n");
+			pr_err("address not specified\n");
 			return 1;
 		}
 		if (!opts.port)
@@ -258,7 +258,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (!strcmp(argv[optind], "cpuinfo")) {
 		if (!argv[optind + 1]) {
-			pr_msg("Error: cpuinfo requires an action: dump or check\n");
+			pr_err("cpuinfo requires an action: dump or check\n");
 			goto usage;
 		}
 		if (!strcmp(argv[optind + 1], "dump"))
@@ -268,17 +268,17 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	if (!strcmp(argv[optind], "exec")) {
-		pr_msg("The \"exec\" action is deprecated by the Compel library.\n");
+		pr_err("The \"exec\" action is deprecated by the Compel library.\n");
 		return -1;
 	}
 
 	if (!strcmp(argv[optind], "show")) {
-		pr_msg("The \"show\" action is deprecated by the CRIT utility.\n");
-		pr_msg("To view an image use the \"crit decode -i $name --pretty\" command.\n");
+		pr_err("The \"show\" action is deprecated by the CRIT utility.\n");
+		pr_err("To view an image use the \"crit decode -i $name --pretty\" command.\n");
 		return -1;
 	}
 
-	pr_msg("Error: unknown command: %s\n", argv[optind]);
+	pr_err("unknown command: %s\n", argv[optind]);
 usage:
 	pr_msg("\n"
 "Usage:\n"
@@ -478,10 +478,10 @@ usage:
 	return 0;
 
 opt_port_missing:
-	pr_msg("Error: port not specified\n");
+	pr_err("port not specified\n");
 	return 1;
 
 opt_pid_missing:
-	pr_msg("Error: pid not specified\n");
+	pr_err("pid not specified\n");
 	return 1;
 }
