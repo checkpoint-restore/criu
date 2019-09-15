@@ -835,10 +835,10 @@ int parse_options(int argc, char **argv, bool *usage_error,
 
 bad_arg:
 	if (idx < 0) /* short option */
-		pr_msg("Error: invalid argument for -%c: %s\n",
+		pr_err("invalid argument for -%c: %s\n",
 				opt, optarg);
 	else /* long option */
-		pr_msg("Error: invalid argument for --%s: %s\n",
+		pr_err("invalid argument for --%s: %s\n",
 				long_opts[idx].name, optarg);
 	return 1;
 }

@@ -932,7 +932,7 @@ int prepare_loginuid(unsigned int value, unsigned int loglevel)
 
 	if (write(fd, buf, 11) < 0) {
 		print_on_level(loglevel,
-			"Write %s to /proc/self/loginuid failed: %s",
+			"Write %s to /proc/self/loginuid failed: %s\n",
 			buf, strerror(errno));
 		ret = -1;
 	}
