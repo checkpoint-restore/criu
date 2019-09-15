@@ -47,6 +47,13 @@
 #include "setproctitle.h"
 #include "sysctl.h"
 
+void flush_early_log_to_stderr() __attribute__((destructor));
+
+void flush_early_log_to_stderr(void)
+{
+	flush_early_log_buffer(STDERR_FILENO);
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	int ret = -1;
@@ -95,10 +102,8 @@ int main(int argc, char *argv[], char *envp[])
 		return cr_service_work(atoi(argv[2]));
 	}
 
-	if (check_options()) {
-		flush_early_log_buffer(STDERR_FILENO);
+	if (check_options())
 		return 1;
-	}
 
 	if (opts.imgs_dir == NULL)
 		SET_CHAR_OPTS(imgs_dir, ".");
