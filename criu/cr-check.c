@@ -62,7 +62,7 @@ static int check_tty(void)
 	int ret = -1;
 
 	if (ARRAY_SIZE(t.c_cc) < TERMIOS_NCC) {
-		pr_msg("struct termios has %d @c_cc while "
+		pr_err("struct termios has %d @c_cc while "
 			"at least %d expected.\n",
 			(int)ARRAY_SIZE(t.c_cc),
 			TERMIOS_NCC);
