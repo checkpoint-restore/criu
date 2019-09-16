@@ -478,6 +478,9 @@ static int try_resolve_ext_mount(struct mount_info *info)
 			char *source;
 			int len;
 
+			pr_info("Found %s dev-mapping for %s mountpoint\n",
+				val, info->mountpoint);
+
 			len = strlen(val) + sizeof("dev[]");
 			source = xrealloc(info->source, len);
 			if (source == NULL)
