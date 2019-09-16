@@ -161,6 +161,9 @@ ip net add test
 ./test/zdtm.py run -t zdtm/static/env00 -k always
 ./test/crit-recode.py
 
+# libcriu testing
+make -C test/others/libcriu run
+
 make -C test/others/shell-job
 
 if ! [ -x "$(command -v flake8)" ]; then
