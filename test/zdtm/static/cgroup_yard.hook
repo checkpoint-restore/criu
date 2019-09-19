@@ -7,7 +7,7 @@ import tempfile
 
 yard = "external_yard"
 
-if sys.argv[1] == "--pre-dump":
+if sys.argv[1] == "--post-start":
 	'''
 	Create external cgroup yard to be passed to CRIU via --cgroup-yard
 	'''
