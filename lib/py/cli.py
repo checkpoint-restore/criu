@@ -3,6 +3,7 @@ import argparse
 import sys
 import json
 import os
+import glob
 
 import pycriu
 
@@ -329,6 +330,30 @@ def explore_rss(opts):
             print('%-24s%s' % (pstr, vstr))
 
 
+def anonymize(opts):
+    try:
+        os.makedirs(opts['out'])
+    except OSError as err:
+        if err.errno != os.errno.EEXIST:
+            raise
+
+    img_files = glob.glob(os.path.join(opts['in'], '*.img'))
+
+    for i in img_files:
+        inf_opts = {
+            'in': i,
+            'out': os.path.join(
+                opts['out'],
+                os.path.basename(i))}
+
+        try:
+            img = pycriu.images.load(inf(inf_opts))
+        except pycriu.images.MagicException as exc:
+            print("Unknown magic %#x.\n"
+                "Found a raw image" % exc.magic, file=sys.stderr)
+            print("Skipping over %s, continuing ..." % os.path.basename(i))
+
+
 explorers = {
     'ps': explore_ps,
     'fds': explore_fds,
@@ -399,6 +424,19 @@ def main():
                              help='do not show entry payload (if exists)',
                              action='store_true')
     show_parser.set_defaults(func=decode, pretty=True, out=None)
+
+    # Anonymize
+    anon_parser = subparsers.add_parser(
+        'anonymize', help="anonymize binary images to remove sensitive information")
+    anon_parser.add_argument(
+        '-i',
+        '--in',
+        help="path to directory containing images to be anonymized")
+    anon_parser.add_argument(
+        '-o',
+        '--out',
+        help="path to directory where the anonymized images are to be stored")
+    anon_parser.set_defaults(func=anonymize)
 
     opts = vars(parser.parse_args())
 
