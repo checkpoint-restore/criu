@@ -1313,7 +1313,7 @@ static int fchroot(int fd)
 	 * it using fchdir()
 	 */
 
-	if (fchdir(fd) < 0) {
+	if (fchdir(fd) < 0 && !(opts.anonymize)) {
 		pr_perror("Can't chdir to proc");
 		return -1;
 	}
@@ -1356,7 +1356,7 @@ int restore_fs(struct pstree_item *me)
 	}
 
 	ret = fchdir(dd_cwd);
-	if (ret < 0) {
+	if (ret < 0 && !(opts.anonymize)) {
 		pr_perror("Can't change cwd");
 		goto out;
 	}

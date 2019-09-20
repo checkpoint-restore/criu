@@ -112,6 +112,7 @@ struct cr_options {
 	int			enable_external_masters;
 	bool			aufs;		/* auto-detected, not via cli */
 	bool			overlayfs;
+	bool                    anonymize;
 #ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
 	bool			has_binfmt_misc; /* auto-detected */
 #endif

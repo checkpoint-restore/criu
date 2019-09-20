@@ -1719,12 +1719,12 @@ long __export_restore_task(struct task_restore_args *args)
 		 */
 		ret |= restore_self_exe_late(args);
 	} else {
-		if (ret)
+		if (ret && !(args->anonymize))
 			pr_err("sys_prctl(PR_SET_MM, PR_SET_MM_MAP) failed with %d\n", (int)ret);
 		sys_close(args->fd_exe_link);
 	}
 
-	if (ret)
+	if (ret && !(args->anonymize))
 		goto core_restore_end;
 
 	/* SELinux (1) process context needs to be set before creating threads. */

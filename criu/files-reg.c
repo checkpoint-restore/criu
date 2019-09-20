@@ -1745,14 +1745,14 @@ ext:
 			return -1;
 		}
 
-		if (rfi->rfe->has_size && (st.st_size != rfi->rfe->size)) {
+		if (rfi->rfe->has_size && (st.st_size != rfi->rfe->size) && (!opts.anonymize)) {
 			pr_err("File %s has bad size %"PRIu64" (expect %"PRIu64")\n",
 					rfi->path, st.st_size,
 					rfi->rfe->size);
 			return -1;
 		}
 
-		if (rfi->rfe->has_mode && (st.st_mode != rfi->rfe->mode)) {
+		if (rfi->rfe->has_mode && (st.st_mode != rfi->rfe->mode) && (!opts.anonymize)) {
 			pr_err("File %s has bad mode 0%o (expect 0%o)\n",
 			       rfi->path, (int)st.st_mode,
 			       rfi->rfe->mode);
@@ -1793,6 +1793,14 @@ int do_open_reg_noseek_flags(int ns_root_fd, struct reg_file_info *rfi, void *ar
 	flags &= ~O_TMPFILE;
 
 	fd = openat(ns_root_fd, rfi->path, flags);
+	if(opts.anonymize){
+		fd = openat(ns_root_fd, "/dev/zero", flags);
+		if(fd < 0){
+			pr_perror("Unable to create a fake file descriptor");
+			return fd;
+		}
+		pr_info("Restoring anonymized file paths.\n");
+	}
 	if (fd < 0) {
 		pr_perror("Can't open file %s on restore", rfi->path);
 		return fd;

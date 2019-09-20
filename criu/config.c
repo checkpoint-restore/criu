@@ -276,6 +276,7 @@ void init_opts(void)
 	opts.empty_ns = 0;
 	opts.status_fd = -1;
 	opts.log_level = DEFAULT_LOGLEVEL;
+	opts.anonymize = false;
 }
 
 bool deprecated_ok(char *what)
@@ -455,6 +456,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		{ "root",			required_argument,	0, 'r'	},
 		{ USK_EXT_PARAM,		optional_argument,	0, 'x'	},
 		{ "help",			no_argument,		0, 'h'	},
+		{ "anon",                       no_argument,            0, 'a'  },
 		BOOL_OPT(SK_EST_PARAM, &opts.tcp_established_ok),
 		{ "close",			required_argument,	0, 1043	},
 		BOOL_OPT("log-pid", &opts.log_file_per_pid),
@@ -575,6 +577,9 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			continue;
 
 		switch (opt) {
+		case 'a':
+			opts.anonymize = true;
+			break;
 		case 's':
 			opts.final_state = TASK_STOPPED;
 			break;

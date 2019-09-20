@@ -136,6 +136,7 @@ struct task_restore_args {
 
 	int				uffd;
 	bool				has_thp_enabled;
+	bool                            anonymize;
 
 	/* threads restoration */
 	int				nr_threads;		/* number of threads */

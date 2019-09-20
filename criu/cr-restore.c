@@ -882,6 +882,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 
 	memzero(ta, args_len);
 
+	if(opts.anonymize)
+		ta->anonymize = true;
+
 	if (prepare_fds(current))
 		return -1;
 
@@ -2268,6 +2271,8 @@ skip_ns_bouncing:
 		goto out_kill;
 
 	pr_info("Restore finished successfully. Resuming tasks.\n");
+	if(opts.anonymize)
+		return 0;
 	__restore_switch_stage(CR_STATE_COMPLETE);
 
 	if (ret == 0)
