@@ -6,6 +6,7 @@ import os
 import glob
 
 import pycriu
+from anonymize import anon_handler
 
 
 def inf(opts):
@@ -348,6 +349,9 @@ def anonymize(opts):
 
         try:
             img = pycriu.images.load(inf(inf_opts))
+            anon_dict = anon_handler(img)
+            if anon_dict != -1:
+                pycriu.images.dump(anon_dict, outf(inf_opts))
         except pycriu.images.MagicException as exc:
             print("Unknown magic %#x.\n"
                 "Found a raw image" % exc.magic, file=sys.stderr)
