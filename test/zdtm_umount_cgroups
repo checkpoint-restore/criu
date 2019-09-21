@@ -5,7 +5,7 @@
 cat /proc/self/cgroup | grep -q zdtmtst.defaultroot || exit 0
 
 tdir=`mktemp -d zdtm.XXXXXX`
-for i in "zdtmtst" "zdtmtst.defaultroot"; do
+for i in "zdtmtst" "zdtmtst.defaultroot" "zdtmtstxattr"; do
 	mount -t cgroup -o none,name=$i zdtm $tdir || { rmdir $tdir; exit 1; }
 	# remove a fake group if exists
 	if [ -d "$tdir/holder" ]; then

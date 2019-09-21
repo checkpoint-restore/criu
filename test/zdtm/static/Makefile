@@ -326,6 +326,7 @@ TST_DIR		=				\
 		cgroup02			\
 		cgroup03			\
 		cgroup04			\
+		cgroup05			\
 		cgroup_ifpriomap		\
 		cgroup_stray			\
 		cgroup_yard			\
