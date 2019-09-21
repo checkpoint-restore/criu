@@ -590,12 +590,12 @@ static int collect_cgroups(struct list_head *ctls)
 		if (opts.cgroup_yard) {
 			char dir_path[PATH_MAX];
 			int off;
-			
+
 			off = snprintf(dir_path, PATH_MAX, "%s/", opts.cgroup_yard);
 			if (strstartswith(cc->name, namestr))
-				snprintf(dir_path + off, PATH_MAX, "%s", cc->name + strlen(namestr));
+				snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name + strlen(namestr));
 			else
-				snprintf(dir_path + off, PATH_MAX, "%s", cc->name);
+				snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name);
 
 			fd = open(dir_path, O_RDONLY | O_DIRECTORY, 0);
 			if (fd < 0) {
