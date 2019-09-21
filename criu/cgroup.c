@@ -6,6 +6,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <ftw.h>
+#include <sys/xattr.h>
 #include <libgen.h>
 #include <sched.h>
 
@@ -512,6 +513,78 @@ out:
 	return exit_code;
 }
 
+#define XATTR_SYSTEM_PREFIX "system."
+#define XATTR_POSIX_ACL_ACCESS  "posix_acl_access"
+#define XATTR_NAME_POSIX_ACL_ACCESS XATTR_SYSTEM_PREFIX XATTR_POSIX_ACL_ACCESS
+#define XATTR_POSIX_ACL_DEFAULT  "posix_acl_default"
+#define XATTR_NAME_POSIX_ACL_DEFAULT XATTR_SYSTEM_PREFIX XATTR_POSIX_ACL_DEFAULT
+
+/*
+ * Yet we don't support dumping and restoring of extended
+ * attributes on cgroups, check that we don't have them.
+ */
+static int cgroup_xattr_check(const char *fpath, const struct stat *sb, int typeflag)
+{
+	char *buf = NULL, *xattr;
+	int len, namelen;
+
+	/* Should be only files and directories in cgroupfs */
+	if (!(typeflag == FTW_D) && !(typeflag == FTW_F)) {
+		pr_warn("Unexpected file type %d in cgroup xattr check\n", typeflag);
+		return 0;
+	}
+
+	len = listxattr(fpath, NULL, 0);
+	if (len < 0)
+		goto lerr;
+	if (len == 0)
+		return 0;
+
+	/*
+	 * If kernel is configured with CONFIG_FS_POSIX_ACL each
+	 * SB_POSIXACL inode has system.posix_acl_access and
+	 * system.posix_acl_default xattrs listed in listxattr. But
+	 * cgroupfs (kernfs) supports only trusted.* and security.*
+	 * groups in setxattr, so these system.posix* xattrs can't be
+	 * changed and will always be default values. So we don't need
+	 * to dump them and thus can skip them in these check.
+	 */
+	buf = xmalloc(len);
+	if (buf == NULL) {
+		pr_err("Failed to allocate buffer for listxattr\n");
+		return -1;
+	}
+
+	len = listxattr(fpath, buf, len);
+	if (len < 0)
+		goto lerr;
+	if (len == 0)
+		goto pass;
+
+	xattr = buf;
+	while (len > 0) {
+		if (!strcmp(XATTR_NAME_POSIX_ACL_ACCESS, xattr) ||
+		    !strcmp(XATTR_NAME_POSIX_ACL_DEFAULT, xattr)) {
+			namelen = strlen(xattr) + 1;
+			BUG_ON(namelen > len);
+			xattr += namelen;
+			len -= namelen;
+		} else {
+			pr_err("File %s has xattr %s\n", fpath, xattr);
+			goto err;
+		}
+	}
+
+pass:
+	xfree(buf);
+	return 0;
+lerr:
+	pr_perror("Failed to listxattr %s", fpath);
+err:
+	xfree(buf);
+	return -1;
+}
+
 static int add_freezer_state(struct cg_controller *controller)
 {
 	struct cgroup_dir *it;
@@ -700,8 +773,14 @@ static int collect_cgroups(struct list_head *ctls)
 
 		ret = ftw(path, add_cgroup, 4);
 
-		if (ret < 0)
+		if (ret < 0) {
 			pr_perror("failed walking %s for empty cgroups", path);
+		} else {
+			ret = ftw(path, cgroup_xattr_check, 4);
+			if (ret < 0)
+				pr_perror("Failed walking cgroup %s:%s: contains xattrs (unsupported)",
+					  cc->name, path);
+		}
 
 		close_safe(&fd);
 
