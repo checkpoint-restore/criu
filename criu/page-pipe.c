@@ -40,6 +40,22 @@ static int __ppb_resize_pipe(struct page_pipe_buf *ppb, unsigned long new_size)
 	ret /= PAGE_SIZE;
 	BUG_ON(ret < ppb->pipe_size);
 
+	/*
+	 * TODO: Investigate and handle
+	 * Sometimes vmsplice fails to splice N pages(where N=2^k)
+	 * from user buffer to pipe, so restricting page-pipe
+	 * capacity to accommodate N-1 pages.
+	 * e.g. Pipe size can be 512 pages, but it's filled till
+	 * 511 pages.
+	 *
+	 * Steps to reproduce issue:
+	 * 1. Comment-out next two lines following this comment
+	 * 2. Run maps007/maps004 from transitive tests with
+	 *    --pre-dump-mode=read option
+	 */
+	if (opts.pre_dump_mode == PRE_DUMP_READ)
+		ret -= 1;
+
 	pr_debug("Grow pipe %x -> %x\n", ppb->pipe_size, ret);
 	ppb->pipe_size = ret;
 
