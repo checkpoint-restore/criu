@@ -824,6 +824,8 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer,
 
 	list_for_each_entry(ppb, &pp->bufs, l) {
 
+		timing_start(TIME_MEMDUMP);
+
 		aux_len = 0;
 		bufvec.iov_len = BUFFER_SIZE;
 		bufvec.iov_base = userbuf;
@@ -844,6 +846,9 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer,
 			xfree(userbuf);
 			return -1;
 		}
+
+		timing_stop(TIME_MEMDUMP);
+		timing_start(TIME_MEMWRITE);
 
 		/* generating pagemap */
 		for (i = 0; i < aux_len; i++) {
@@ -875,9 +880,11 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer,
 			}
 		}
 
+		timing_stop(TIME_MEMWRITE);
 	}
 
 	xfree(userbuf);
+	timing_start(TIME_MEMWRITE);
 	return dump_holes(xfer, pp, &cur_hole, NULL);
 }
 
