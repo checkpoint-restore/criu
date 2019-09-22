@@ -162,6 +162,10 @@ In addition, *page-server* options may be specified.
     syscall. The 'read' mode incurs reduced frozen time and reduced
     memory pressure as compared to 'splice' mode. Default is 'splice' mode.
 
+    It is safe to inter-mix SPLICE and READ modes of pre-dump.
+    (Travis test with --mix-pre-dump option checks the integrity of
+     inter-mixing READ and SPLICE modes of pre-dump).
+
 *dump*
 ~~~~~~
 Performs a checkpoint procedure.
