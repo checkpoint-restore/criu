@@ -276,6 +276,7 @@ void init_opts(void)
 	opts.empty_ns = 0;
 	opts.status_fd = -1;
 	opts.log_level = DEFAULT_LOGLEVEL;
+	opts.pre_dump_mode = PRE_DUMP_SPLICE;
 }
 
 bool deprecated_ok(char *what)
@@ -518,6 +519,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		BOOL_OPT("tls", &opts.tls),
 		{"tls-no-cn-verify",		no_argument,		&opts.tls_no_cn_verify, true},
 		{ "cgroup-yard",		required_argument,	0, 1096 },
+		{ "pre-dump-mode",		required_argument,	0, 1097},
 		{ },
 	};
 
@@ -818,6 +820,14 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			break;
 		case 1096:
 			SET_CHAR_OPTS(cgroup_yard, optarg);
+			break;
+		case 1097:
+			if (!strcmp("read", optarg)) {
+				opts.pre_dump_mode = PRE_DUMP_READ;
+			} else if (strcmp("splice", optarg)) {
+				pr_err("Unable to parse value of --pre-dump-mode\n");
+				return 1;
+			}
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
