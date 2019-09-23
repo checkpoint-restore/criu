@@ -556,19 +556,6 @@ void close_image(struct cr_img *img)
 	xfree(img);
 }
 
-struct cr_img *img_from_fd(int fd)
-{
-	struct cr_img *img;
-
-	img = xmalloc(sizeof(*img));
-	if (img) {
-		img->_x.fd = fd;
-		bfd_setraw(&img->_x);
-	}
-
-	return img;
-}
-
 int open_image_dir(char *dir)
 {
 	int fd, ret;
@@ -711,31 +698,6 @@ int read_img_buf(struct cr_img *img, void *ptr, int size)
 	}
 
 	return ret;
-}
-
-/*
- * read_img_str -- same as read_img_buf, but allocates memory for
- * the buffer and puts the '\0' at the end
- */
-
-int read_img_str(struct cr_img *img, char **pstr, int size)
-{
-	int ret;
-	char *str;
-
-	str = xmalloc(size + 1);
-	if (!str)
-		return -1;
-
-	ret = read_img_buf(img, str, size);
-	if (ret < 0) {
-		xfree(str);
-		return -1;
-	}
-
-	str[size] = '\0';
-	*pstr = str;
-	return 0;
 }
 
 off_t img_raw_size(struct cr_img *img)
