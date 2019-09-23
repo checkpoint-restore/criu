@@ -13,7 +13,7 @@ mkdir -p wdir/i/
 
 echo "== Run tests"
 export LD_LIBRARY_PATH=.
-export PATH="`dirname ${BASH_SOURCE[0]}`/../../:$PATH"
+export PATH="`dirname ${BASH_SOURCE[0]}`/../../../criu:$PATH"
 
 RESULT=0
 
@@ -21,6 +21,19 @@ function run_test {
 	echo "== Build $1"
 	if ! make $1; then
 		echo "FAIL build $1"
+		echo "** Output of $1/test.log"
+		cat wdir/i/$1/test.log
+		echo "---------------"
+		if [ -f wdir/i/$1/dump.log ]; then
+			echo "** Contents of dump.log"
+			cat wdir/i/$1/dump.log
+			echo "---------------"
+		fi
+		if [ -f wdir/i/$1/restore.log ]; then
+			echo "** Contents of restore.log"
+			cat wdir/i/$1/restore.log
+			echo "---------------"
+		fi
 		RESULT=1;
 	else
 		echo "== Test $1"
