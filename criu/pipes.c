@@ -282,8 +282,8 @@ static char *pipe_d_name(struct file_desc *d, char *buf, size_t s)
 	struct pipe_info *pi;
 
 	pi = container_of(d, struct pipe_info, d);
-	if (snprintf(buf, s, "pipe:[%d]", pi->pe->pipe_id) >= s) {
-		pr_err("Not enough room for pipe %d identifier string\n",
+	if (snprintf(buf, s, "pipe:[%u]", pi->pe->pipe_id) >= s) {
+		pr_err("Not enough room for pipe %u identifier string\n",
 				pi->pe->pipe_id);
 		return NULL;
 	}
