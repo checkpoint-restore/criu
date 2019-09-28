@@ -54,8 +54,12 @@ static inline int ppb_resize_pipe(struct page_pipe_buf *ppb)
 	if (ppb->pages_in + ppb->pipe_off < ppb->pipe_size)
 		return 0;
 
-	if (new_size > PIPE_MAX_SIZE)
-		return 1;
+	if (new_size > PIPE_MAX_SIZE) {
+		if (ppb->pipe_size < PIPE_MAX_SIZE)
+			ppb->pipe_size = PIPE_MAX_SIZE;
+		else
+			return 1;
+	}
 
 	ret = __ppb_resize_pipe(ppb, new_size);
 	if (ret < 0)
