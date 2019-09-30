@@ -28,7 +28,6 @@ extern char restore_rt_sigaction;
  */
 int arch_compat_rt_sigaction(void *stack32, int sig, rt_sigaction_t_compat *act)
 {
-	int ret;
 	struct syscall_args32 arg = {};
 	unsigned long act_stack = (unsigned long)stack32;
 
@@ -49,8 +48,5 @@ int arch_compat_rt_sigaction(void *stack32, int sig, rt_sigaction_t_compat *act)
 	arg.arg2	= 0;					/* oldact */
 	arg.arg3	= (uint32_t)sizeof(act->rt_sa_mask);	/* sigsetsize */
 
-	do_full_int80(&arg);
-	asm volatile ("\t movl %%eax,%0\n" : "=r"(ret));
-	return ret;
+	return do_full_int80(&arg);
 }
-
