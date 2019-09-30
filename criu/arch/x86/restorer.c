@@ -54,8 +54,7 @@ int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 		.arg1	= len,
 	};
 
-	do_full_int80(&s);
-	return (int)s.nr;
+	return do_full_int80(&s);
 }
 
 static int prepare_stack32(void **stack32)
