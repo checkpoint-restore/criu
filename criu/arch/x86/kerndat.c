@@ -75,9 +75,7 @@ void *mmap_ia32(void *addr, size_t len, int prot,
 	s.arg4  = fildes;
 	s.arg5  = (uint32_t)off;
 
-	do_full_int80(&s);
-
-	return (void *)(uintptr_t)s.nr;
+	return (void *)(uintptr_t)do_full_int80(&s);
 }
 
 /*
