@@ -199,8 +199,8 @@ void flush_early_log_buffer(int fd)
 		}
 		pos += hdr->len;
 	}
-	if (early_log_buf_off)
-		pr_warn("The early log isn't empty\n");
+	if (early_log_buf_off == EARLY_LOG_BUF_LEN)
+		pr_warn("The early log buffer is full, some messages may have been lost\n");
 	early_log_buf_off = 0;
 }
 
