@@ -1019,6 +1019,7 @@ class criu:
         self.__tls = self.__tls_options() if opts['tls'] else []
         self.__criu_bin = opts['criu_bin']
         self.__crit_bin = opts['crit_bin']
+        self.__pre_dump_mode = opts['pre_dump_mode']
 
     def fini(self):
         if self.__lazy_migrate:
@@ -1249,6 +1250,8 @@ class criu:
             a_opts += ['--leave-stopped']
         if self.__empty_ns:
             a_opts += ['--empty-ns', 'net']
+        if self.__pre_dump_mode:
+            a_opts += ["--pre-dump-mode", "%s" % self.__pre_dump_mode]
 
         nowait = False
         if self.__lazy_migrate and action == "dump":
@@ -1835,7 +1838,7 @@ class Launcher:
               'sat', 'script', 'rpc', 'lazy_pages', 'join_ns', 'dedup', 'sbs',
               'freezecg', 'user', 'dry_run', 'noauto_dedup',
               'remote_lazy_pages', 'show_stats', 'lazy_migrate',
-              'tls', 'criu_bin', 'crit_bin')
+              'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
         if self.__use_log:
@@ -2482,6 +2485,10 @@ rp.add_argument("--criu-bin",
 rp.add_argument("--crit-bin",
                 help="Path to crit binary",
                 default='../crit/crit')
+rp.add_argument("--pre-dump-mode",
+                help="Use splice or read mode of pre-dumping",
+                choices=['splice', 'read'],
+                default='splice')
 
 lp = sp.add_parser("list", help="List tests")
 lp.set_defaults(action=list_tests)
