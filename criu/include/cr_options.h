@@ -39,6 +39,12 @@ struct cg_root_opt {
 };
 
 /*
+ * Pre-dump variants
+ */
+#define PRE_DUMP_SPLICE		1		/* Pre-dump using parasite */
+#define PRE_DUMP_READ			2		/* Pre-dump using process_vm_readv syscall */
+
+/*
  * Cgroup management options.
  */
 #define CG_MODE_IGNORE		(0u << 0)	/* Zero is important here */
@@ -81,6 +87,7 @@ struct cr_options {
 	int			evasive_devices;
 	int			link_remap_ok;
 	int			log_file_per_pid;
+	int			pre_dump_mode;
 	bool			swrk_restore;
 	char			*output;
 	char			*root;

@@ -336,6 +336,21 @@ int criu_set_parent_images(const char *path)
 	return criu_local_set_parent_images(global_opts, path);
 }
 
+int criu_local_set_pre_dump_mode(criu_opts *opts, enum criu_pre_dump_mode mode)
+{
+	opts->rpc->has_pre_dump_mode = true;
+	if (mode == CRIU_PRE_DUMP_SPLICE || mode == CRIU_PRE_DUMP_READ) {
+		opts->rpc->pre_dump_mode = mode;
+		return 0;
+	}
+	return -1;
+}
+
+int criu_set_pre_dump_mode(enum criu_pre_dump_mode mode)
+{
+	return criu_local_set_pre_dump_mode(global_opts, mode);
+}
+
 void criu_local_set_track_mem(criu_opts *opts, bool track_mem)
 {
 	opts->rpc->has_track_mem = true;

@@ -482,7 +482,18 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 	if (mdc->lazy)
 		memcpy(pargs_iovs(args), pp->iovs,
 		       sizeof(struct iovec) * pp->nr_iovs);
-	ret = drain_pages(pp, ctl, args);
+
+	/*
+	 * Faking drain_pages for pre-dump here. Actual drain_pages for pre-dump
+	 * will happen after task unfreezing in cr_pre_dump_finish(). This is
+	 * actual optimization which reduces time for which process was frozen
+	 * during pre-dump.
+	 */
+	if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ)
+		ret = 0;
+	else
+		ret = drain_pages(pp, ctl, args);
+
 	if (!ret && !mdc->pre_dump)
 		ret = xfer_pages(pp, &xfer);
 	if (ret)
