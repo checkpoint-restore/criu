@@ -9,6 +9,9 @@ struct ps_info {
 
 extern int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd);
 
+/* User buffer for read-mode pre-dump*/
+#define BUFFER_SIZE (PIPE_MAX_SIZE << PAGE_SHIFT)
+
 /*
  * page_xfer -- transfer pages into image file.
  * Two images backends are implemented -- local image file
@@ -48,6 +51,7 @@ struct page_xfer {
 extern int open_page_xfer(struct page_xfer *xfer, int fd_type, unsigned long id);
 struct page_pipe;
 extern int page_xfer_dump_pages(struct page_xfer *, struct page_pipe *);
+extern int page_xfer_predump_pages(int pid, struct page_xfer *, struct page_pipe *);
 extern int connect_to_page_server_to_send(void);
 extern int connect_to_page_server_to_recv(int epfd);
 extern int disconnect_from_page_server(void);
