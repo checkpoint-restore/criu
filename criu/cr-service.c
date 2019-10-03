@@ -473,6 +473,19 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		opts.lazy_pages = req->lazy_pages;
 	}
 
+	if (req->has_pre_dump_mode) {
+		switch (req->pre_dump_mode) {
+			case CRIU_PRE_DUMP_MODE__SPLICE:
+				opts.pre_dump_mode = PRE_DUMP_SPLICE;
+				break;
+			case CRIU_PRE_DUMP_MODE__READ:
+				opts.pre_dump_mode = PRE_DUMP_READ;
+				break;
+			default:
+				goto err;
+		}
+	}
+
 	if (req->ps) {
 		opts.port = (short)req->ps->port;
 
