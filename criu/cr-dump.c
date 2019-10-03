@@ -1486,6 +1486,9 @@ static int cr_pre_dump_finish(int status)
 	if (ret)
 		goto err;
 
+	he.has_pre_dump_mode = true;
+	he.pre_dump_mode = opts.pre_dump_mode;
+
 	pstree_switch_state(root_item, TASK_ALIVE);
 
 	timing_stop(TIME_FROZEN);
@@ -1929,6 +1932,8 @@ int cr_dump_tasks(pid_t pid)
 	ret = inventory_save_uptime(&he);
 	if (ret)
 		goto err;
+
+	he.has_pre_dump_mode = false;
 
 	ret = write_img_inventory(&he);
 	if (ret)
