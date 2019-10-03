@@ -591,13 +591,47 @@ int parasite_dump_pages_seized(struct pstree_item *item,
 	 * able to read the memory contents.
 	 *
 	 * Afterwards -- reprotect memory back.
+	 *
+	 * This step is required for "splice" mode pre-dump and dump.
+	 * Skip this step for "read" mode pre-dump.
+	 * "read" mode pre-dump delegates processing of non-PROT_READ
+	 * regions to dump stage. Adding PROT_READ works fine for
+	 * static processing (target process frozen during pre-dump)
+	 * and fails for dynamic as explained below.
+	 *
+	 * Consider following sequence of instances to reason, why
+	 * not to add PROT_READ in "read" mode pre-dump ?
+	 *
+	 *	CRIU- "read" pre-dump		    Target Process
+	 *
+	 *					1. Creates mapping M
+	 *					   without PROT_READ
+	 * 2. CRIU freezes target
+	 *    process
+	 * 3. Collect the mappings
+	 * 4. Add PROT_READ to M
+	 *    (non-PROT_READ region)
+	 * 5. CRIU unfreezes target
+	 *    process
+	 *					6. Add flag PROT_READ
+	 *					   to mapping M
+	 *					7. Revoke flag PROT_READ
+	 *					   from mapping M
+	 * 8. process_vm_readv tries
+	 *    to copy mapping M
+	 *    (believing M have
+	 *     PROT_READ flag)
+	 * 9. syscall fails to copy
+	 *    data from M
 	 */
 
-	pargs->add_prot = PROT_READ;
-	ret = compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl);
-	if (ret) {
-		pr_err("Can't dump unprotect vmas with parasite\n");
-		return ret;
+	if (!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE) {
+		pargs->add_prot = PROT_READ;
+		ret = compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl);
+		if (ret) {
+			pr_err("Can't dump unprotect vmas with parasite\n");
+			return ret;
+		}
 	}
 
 	if (fault_injected(FI_DUMP_PAGES)) {
@@ -612,10 +646,12 @@ int parasite_dump_pages_seized(struct pstree_item *item,
 		return ret;
 	}
 
-	pargs->add_prot = 0;
-	if (compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl)) {
-		pr_err("Can't rollback unprotected vmas with parasite\n");
-		ret = -1;
+	if (!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE) {
+		pargs->add_prot = 0;
+		if (compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl)) {
+			pr_err("Can't rollback unprotected vmas with parasite\n");
+			ret = -1;
+		}
 	}
 
 	return ret;
