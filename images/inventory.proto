@@ -16,4 +16,5 @@ message inventory_entry {
 	optional uint32			root_cg_set	= 5;
 	optional lsmtype		lsmtype		= 6;
 	optional uint64			dump_uptime	= 8;
+	optional uint32			pre_dump_mode	= 9;
 }
