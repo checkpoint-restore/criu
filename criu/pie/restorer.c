@@ -1320,20 +1320,22 @@ static int fd_poll(int inotify_fd)
 }
 
 /*
- * note: Actually kernel may want even more space for one event (see
- * round_event_name_len), so using buffer of EVENT_BUFF_SIZE size may fail.
- * To be on the safe side - take a bigger buffer, and these also allows to
- * read more events in one syscall.
+ * In the worst case buf size should be:
+ *   sizeof(struct inotify_event) * 2 + PATH_MAX
+ * See round_event_name_len() in kernel.
  */
-#define EVENT_BUFF_SIZE ((sizeof(struct inotify_event) + PATH_MAX))
+#define EVENT_BUFF_SIZE ((sizeof(struct inotify_event) * 2 + PATH_MAX))
 
 /*
  * Read all available events from inotify queue
  */
 static int cleanup_inotify_events(int inotify_fd)
 {
-	char buf[EVENT_BUFF_SIZE * 8];
+	char buf[EVENT_BUFF_SIZE * 3];
 	int ret;
+
+	/* Limit buf to be lesser than half of restorer's stack */
+	BUILD_BUG_ON(ARRAY_SIZE(buf) >= RESTORE_STACK_SIZE/2);
 
 	while (1) {
 		ret = fd_poll(inotify_fd);
