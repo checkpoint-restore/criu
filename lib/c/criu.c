@@ -340,7 +340,7 @@ int criu_local_set_pre_dump_mode(criu_opts *opts, enum criu_pre_dump_mode mode)
 {
 	opts->rpc->has_pre_dump_mode = true;
 	if (mode == CRIU_PRE_DUMP_SPLICE || mode == CRIU_PRE_DUMP_READ) {
-		opts->rpc->pre_dump_mode = mode;
+		opts->rpc->pre_dump_mode = (CriuPreDumpMode)mode;
 		return 0;
 	}
 	return -1;
