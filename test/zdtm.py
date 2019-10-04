@@ -911,6 +911,13 @@ class criu_rpc:
             if arg == '--prev-images-dir':
                 criu.opts.parent_img = args.pop(0)
                 continue
+            if arg == '--pre-dump-mode':
+                key = args.pop(0)
+                mode = crpc.rpc.READ
+                if key == "splice":
+                    mode = crpc.rpc.SPLICE
+                criu.opts.pre_dump_mode = mode
+                continue
             if arg == '--track-mem':
                 criu.opts.track_mem = True
                 continue
@@ -928,7 +935,7 @@ class criu_rpc:
                 inhfd.key = key
                 continue
 
-            raise test_fail_exc('RPC for %s required' % arg)
+            raise test_fail_exc('RPC for %s(%s) required' % (arg, args.pop(0)))
 
     @staticmethod
     def run(action,
