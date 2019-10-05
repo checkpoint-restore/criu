@@ -48,7 +48,7 @@ void cnt_sub(int c, unsigned long val)
 		dstats->counts[c] -= val;
 	} else if (rstats != NULL) {
 		BUG_ON(c >= RESTORE_CNT_NR_STATS);
-		atomic_sub(val, &rstats->counts[c]);
+		atomic_add(-val, &rstats->counts[c]);
 	} else
 		BUG();
 }
