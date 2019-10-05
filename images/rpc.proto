@@ -49,7 +49,7 @@ enum criu_cg_mode {
 
 enum criu_pre_dump_mode {
 	SPLICE = 	1;
-	READ =		2;
+	VM_READ =	2;
 };
 
 message criu_opts {
