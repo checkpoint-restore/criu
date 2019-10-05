@@ -913,7 +913,7 @@ class criu_rpc:
                 continue
             if arg == '--pre-dump-mode':
                 key = args.pop(0)
-                mode = crpc.rpc.READ
+                mode = crpc.rpc.VM_READ
                 if key == "splice":
                     mode = crpc.rpc.SPLICE
                 criu.opts.pre_dump_mode = mode
