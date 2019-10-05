@@ -478,7 +478,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			case CRIU_PRE_DUMP_MODE__SPLICE:
 				opts.pre_dump_mode = PRE_DUMP_SPLICE;
 				break;
-			case CRIU_PRE_DUMP_MODE__READ:
+			case CRIU_PRE_DUMP_MODE__VM_READ:
 				opts.pre_dump_mode = PRE_DUMP_READ;
 				break;
 			default:
