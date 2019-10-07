@@ -1868,15 +1868,15 @@ static int restore_shared_options(struct mount_info *mi, bool private, bool shar
 	}
 
 	if (private && mount(NULL, mi->mountpoint, NULL, MS_PRIVATE, NULL)) {
-		pr_perror("Unable to make %s private", mi->mountpoint);
+		pr_perror("Unable to make %d private", mi->mnt_id);
 		return -1;
 	}
 	if (slave && mount(NULL, mi->mountpoint, NULL, MS_SLAVE, NULL)) {
-		pr_perror("Unable to make %s slave", mi->mountpoint);
+		pr_perror("Unable to make %d slave", mi->mnt_id);
 		return -1;
 	}
 	if (shared && mount(NULL, mi->mountpoint, NULL, MS_SHARED, NULL)) {
-		pr_perror("Unable to make %s shared", mi->mountpoint);
+		pr_perror("Unable to make %d shared", mi->mnt_id);
 		return -1;
 	}
 
