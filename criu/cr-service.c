@@ -27,6 +27,7 @@
 #include "cr-service.h"
 #include "cr-service-const.h"
 #include "page-xfer.h"
+#include "protobuf.h"
 #include "net.h"
 #include "mount.h"
 #include "filesystems.h"
@@ -49,18 +50,21 @@ unsigned int service_sk_ino = -1;
 
 static int recv_criu_msg(int socket_fd, CriuReq **req)
 {
-	unsigned char *buf;
-	int len;
+	u8 local[PB_PKOBJ_LOCAL_SIZE];
+	void *buf = (void *)&local;
+	int len, exit_code = -1;
 
 	len = recv(socket_fd, NULL, 0, MSG_TRUNC | MSG_PEEK);
 	if (len == -1) {
 		pr_perror("Can't read request");
-		return -1;
+		goto err;
 	}
 
-	buf = xmalloc(len);
-	if (!buf)
-		return -ENOMEM;
+	if (len > sizeof(local)) {
+		buf = xmalloc(len);
+		if (!buf)
+			return -ENOMEM;
+	}
 
 	len = recv(socket_fd, buf, len, MSG_TRUNC);
 	if (len == -1) {
@@ -80,43 +84,47 @@ static int recv_criu_msg(int socket_fd, CriuReq **req)
 		goto err;
 	}
 
-	xfree(buf);
-	return 0;
+	exit_code = 0;
 err:
-	xfree(buf);
-	return -1;
+	if (buf != (void *)&local)
+		xfree(buf);
+	return exit_code;
 }
 
 static int send_criu_msg_with_fd(int socket_fd, CriuResp *msg, int fd)
 {
-	unsigned char *buf;
-	int len, ret;
+	u8 local[PB_PKOBJ_LOCAL_SIZE];
+	void *buf = (void *)&local;
+	int len, exit_code = -1;
 
 	len = criu_resp__get_packed_size(msg);
 
-	buf = xmalloc(len);
-	if (!buf)
-		return -ENOMEM;
+	if (len > sizeof(local)) {
+		buf = xmalloc(len);
+		if (!buf)
+			return -ENOMEM;
+	}
 
 	if (criu_resp__pack(msg, buf) != len) {
 		pr_perror("Failed packing response");
 		goto err;
 	}
 
-	if (fd >= 0) {
-		ret = send_fds(socket_fd, NULL, 0, &fd, 1, buf, len);
-	} else
-		ret = write(socket_fd, buf, len);
-	if (ret < 0) {
+	if (fd >= 0)
+		exit_code = send_fds(socket_fd, NULL, 0, &fd, 1, buf, len);
+	else
+		exit_code = write(socket_fd, buf, len);
+
+	if (exit_code < 0) {
 		pr_perror("Can't send response");
 		goto err;
 	}
 
-	xfree(buf);
-	return 0;
+	exit_code = 0;
 err:
-	xfree(buf);
-	return -1;
+	if (buf != (void *)&local)
+		xfree(buf);
+	return exit_code;
 }
 
 static int send_criu_msg(int socket_fd, CriuResp *msg)
