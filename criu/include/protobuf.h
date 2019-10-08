@@ -52,4 +52,11 @@ static inline int collect_images(struct collect_image_info **array, unsigned siz
 	return 0;
 }
 
+/*
+ * To speed up reading of packed objects
+ * by providing space on stack, this should
+ * be more than enough for most objects.
+ */
+#define PB_PKOBJ_LOCAL_SIZE	1024
+
 #endif /* __CR_PROTOBUF_H__ */
