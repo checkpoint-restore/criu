@@ -20,13 +20,6 @@
 #include "protobuf.h"
 #include "util.h"
 
-/*
- * To speed up reading of packed objects
- * by providing space on stack, this should
- * be more than enough for most objects.
- */
-#define PB_PKOBJ_LOCAL_SIZE	1024
-
 static char *image_name(struct cr_img *img)
 {
 	int fd = img->_x.fd;
