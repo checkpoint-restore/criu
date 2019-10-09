@@ -846,10 +846,10 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer,
 
 		bufvec.iov_base = userbuf;
 		bufvec.iov_len = bytes_read;
-		ret = vmsplice(ppb->p[1], &bufvec, 1, SPLICE_F_NONBLOCK);
+		ret = vmsplice(ppb->p[1], &bufvec, 1, 0);
 
-		if (ret == -1 || ret != bytes_read) {
-			pr_err("vmsplice: Failed to splice user buffer to pipe %ld\n", ret);
+		if (ret != bytes_read) {
+			pr_perror("vmsplice: Failed to splice user buffer to pipe %ld\n", ret);
 			munmap(userbuf, BUFFER_SIZE);
 			return -1;
 		}
