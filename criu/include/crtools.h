@@ -8,7 +8,7 @@
 
 #include "images/inventory.pb-c.h"
 
-#define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
+#define CR_FD_PERM		(S_IRUSR | S_IWUSR)
 
 extern int check_img_inventory(void);
 extern int write_img_inventory(InventoryEntry *he);

@@ -460,28 +460,24 @@ static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long of
 
 	flags = oflags & ~(O_NOBUF | O_SERVICE | O_FORCE_LOCAL);
 
-	if (opts.remote && !(oflags & O_FORCE_LOCAL))
+	if (opts.remote && !(oflags & O_FORCE_LOCAL)) {
 		ret = do_open_remote_image(dfd, path, flags);
-	else {
+	} else {
 		/*
-		 * For pages images dedup we need to open images read-write on
-		 * restore, that may require proper capabilities, so we ask
-		 * usernsd to do it for us
+		 * When userns is enabled proper capabilities may be required
+		 * to open images, so we ask usernsd to do it for us
 		 */
-		if (root_ns_mask & CLONE_NEWUSER &&
-		    type == CR_FD_PAGES && oflags & O_RDWR) {
-			struct openat_args pa = {
-				.flags = flags,
-				.err = 0,
-				.mode = CR_FD_PERM,
-			};
-			snprintf(pa.path, PATH_MAX, "%s", path);
-			ret = userns_call(userns_openat, UNS_FDOUT, &pa, sizeof(struct openat_args), dfd);
-			if (ret < 0)
-				errno = pa.err;
-		} else
-			ret = openat(dfd, path, flags, CR_FD_PERM);
+		struct openat_args pa = {
+			.flags = flags,
+			.err = 0,
+			.mode = CR_FD_PERM,
+		};
+		snprintf(pa.path, PATH_MAX, "%s", path);
+		ret = userns_call(userns_openat, UNS_FDOUT, &pa, sizeof(struct openat_args), dfd);
+		if (ret < 0)
+			errno = pa.err;
 	}
+
 	if (ret < 0) {
 		if (!(flags & O_CREAT) && (errno == ENOENT || ret == -ENOENT)) {
 			pr_info("No %s image\n", path);

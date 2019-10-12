@@ -1282,7 +1282,7 @@ static int usernsd(int sk)
 		else
 			fd = -1;
 
-		unsc_msg_init(&um, &call, &ret, NULL, 0, fd);
+		unsc_msg_init(&um, &call, &ret, msg, sizeof(msg), fd);
 		if (sendmsg(sk, &um.h, 0) <= 0) {
 			pr_perror("uns: send resp error");
 			return -1;
@@ -1345,7 +1345,7 @@ int __userns_call(const char *func_name, uns_call_t call, int flags,
 
 	/* Get the response back */
 
-	unsc_msg_init(&um, &call, &res, NULL, 0, 0);
+	unsc_msg_init(&um, &call, &res, arg, arg_size, 0);
 	ret = recvmsg(sk, &um.h, 0);
 	if (ret <= 0) {
 		pr_perror("uns: recv resp error");
