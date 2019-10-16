@@ -1317,9 +1317,6 @@ int cr_service(bool daemon_mode)
 	int server_fd = -1;
 	int child_pid;
 
-	struct sockaddr_un client_addr;
-	socklen_t client_addr_len;
-
 	{
 		struct sockaddr_un server_addr;
 		socklen_t server_addr_len;
@@ -1331,7 +1328,6 @@ int cr_service(bool daemon_mode)
 		}
 
 		memset(&server_addr, 0, sizeof(server_addr));
-		memset(&client_addr, 0, sizeof(client_addr));
 		server_addr.sun_family = AF_LOCAL;
 
 		if (opts.addr == NULL) {
@@ -1344,7 +1340,6 @@ int cr_service(bool daemon_mode)
 
 		server_addr_len = strlen(server_addr.sun_path)
 				+ sizeof(server_addr.sun_family);
-		client_addr_len = sizeof(client_addr);
 
 		unlink(server_addr.sun_path);
 
@@ -1393,7 +1388,7 @@ int cr_service(bool daemon_mode)
 
 		pr_info("Waiting for connection...\n");
 
-		sk = accept(server_fd, (struct sockaddr *)&client_addr, &client_addr_len);
+		sk = accept(server_fd, NULL, NULL);
 		if (sk == -1) {
 			pr_perror("Can't accept connection");
 			goto err;
