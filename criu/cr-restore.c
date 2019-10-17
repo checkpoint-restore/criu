@@ -1790,7 +1790,7 @@ static int restore_task_with_children(void *_arg)
 	}
 
 	if (log_init_by_pid(vpid(current)))
-		return -1;
+		goto err;
 
 	if (current->parent == NULL) {
 		/*
