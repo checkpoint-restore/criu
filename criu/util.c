@@ -558,7 +558,7 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 	sigemptyset(&blockmask);
 	sigaddset(&blockmask, SIGCHLD);
 	if (sigprocmask(SIG_BLOCK, &blockmask, &oldmask) == -1) {
-		pr_perror("Can not set mask of blocked signals");
+		pr_perror("Cannot set mask of blocked signals");
 		return -1;
 	}
 
@@ -567,6 +567,12 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 		pr_perror("fork() failed");
 		goto out;
 	} else if (pid == 0) {
+		sigemptyset(&blockmask);
+		if (sigprocmask(SIG_SETMASK, &blockmask, NULL) == -1) {
+			pr_perror("Cannot clear blocked signals");
+			goto out_chld;
+		}
+
 		if (userns_pid > 0) {
 			if (switch_ns(userns_pid, &user_ns_desc, NULL))
 				goto out_chld;
