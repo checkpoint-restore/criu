@@ -14,11 +14,9 @@ env:
   - TR_ARCH=x86_64
   - TR_ARCH=x86_64      CLANG=1
   - TR_ARCH=armv7hf
-  - TR_ARCH=aarch64
   - TR_ARCH=ppc64le
   - TR_ARCH=s390x
   - TR_ARCH=armv7hf     CLANG=1
-  - TR_ARCH=aarch64     CLANG=1
   - TR_ARCH=ppc64le     CLANG=1
   - TR_ARCH=alpine      CLANG=1
   - TR_ARCH=docker-test
@@ -27,6 +25,15 @@ env:
   - TR_ARCH=centos
   - TR_ARCH=podman-test
 matrix:
+  include:
+    - os: linux
+      arch: arm64
+      env: TR_ARCH=local
+      dist: bionic
+    - os: linux
+      arch: arm64
+      env: TR_ARCH=local CLANG=1
+      dist: bionic
   allow_failures:
     - env: TR_ARCH=docker-test
     - env: TR_ARCH=fedora-rawhide

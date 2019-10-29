@@ -42,5 +42,5 @@ RUN apk add \
 # The rpc test cases are running as user #1000, let's add the user
 RUN adduser -u 1000 -D test
 
-RUN pip install protobuf ipaddress junit_xml
+RUN pip install protobuf ipaddress junit_xml flake8
 RUN make -C test/zdtm

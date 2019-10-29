@@ -1,17 +1,31 @@
 #!/bin/sh
 set -x -e
 
-TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev
+TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev python-future
 		libgnutls28-dev libgnutls30 libprotobuf-dev protobuf-compiler
-		libcap-dev libnl-3-dev gcc-multilib gdb bash python-protobuf
-		libnet-dev util-linux asciidoctor libnl-route-3-dev"
+		libcap-dev libnl-3-dev gdb bash python-protobuf python-yaml
+		libnet-dev util-linux asciidoctor libnl-route-3-dev
+		python-junit.xml python-ipaddress time ccache flake8
+		libbsd-dev"
+
+X86_64_PKGS="gcc-multilib"
+
+UNAME_M=`uname -m`
+
+if [ "$UNAME_M" != "x86_64" ]; then
+	# For Travis only x86_64 seems to be baremetal. Other
+	# architectures are running in unprivileged LXD containers.
+	# That seems to block most of CRIU's interfaces.
+	SKIP_TRAVIS_TEST=1
+fi
 
 travis_prep () {
 	[ -n "$SKIP_TRAVIS_PREP" ] && return
 
 	cd ../../
 
-	service apport stop
+	# This can fail on aarch64 travis
+	service apport stop || :
 
 	CC=gcc
 	# clang support
@@ -43,23 +57,40 @@ travis_prep () {
 		sed -i '/security/ d' /etc/apt/sources.list
 	fi
 
+
+	# Do not install x86_64 specific packages on other architectures
+	if [ "$UNAME_M" = "x86_64" ]; then
+		TRAVIS_PKGS="$TRAVIS_PKGS $X86_64_PKGS"
+	fi
+
 	apt-get update -qq
 	apt-get install -qq --no-install-recommends $TRAVIS_PKGS
-	# travis is based on 14.04 and that does not have python
-	# packages for future and ipaddress (16.04 has those packages)
-	pip install junit-xml future ipaddress
 	chmod a+x $HOME
 }
 
 travis_prep
 
-ulimit -c unlimited
-echo "|`pwd`/test/abrt.sh %P %p %s %e" > /proc/sys/kernel/core_pattern
-
 export GCOV
+$CC --version
 time make CC="$CC" -j4
 
+./criu/criu -v4 cpuinfo dump || :
+./criu/criu -v4 cpuinfo check || :
+
+make lint
+
+# Check that help output fits into 80 columns
+WIDTH=$(./criu/criu --help | wc --max-line-length)
+if [ "$WIDTH" -gt 80 ]; then
+	echo "criu --help output does not obey 80 characters line width!"
+	exit 1
+fi
+
 [ -n "$SKIP_TRAVIS_TEST" ] && return
+
+ulimit -c unlimited
+
+echo "|`pwd`/test/abrt.sh %P %p %s %e" > /proc/sys/kernel/core_pattern
 
 if [ "${COMPAT_TEST}x" = "yx" ] ; then
 	# Dirty hack to keep both ia32 & x86_64 shared libs on a machine:
@@ -165,15 +196,3 @@ ip net add test
 make -C test/others/libcriu run
 
 make -C test/others/shell-job
-
-if ! [ -x "$(command -v flake8)" ]; then
-	pip install flake8
-fi
-make lint
-
-# Check that help output fits into 80 columns
-WIDTH=$(./criu/criu --help | wc --max-line-length)
-if [ "$WIDTH" -gt 80 ]; then
-	echo "criu --help output does not obey 80 characters line width!"
-	exit 1
-fi

@@ -23,6 +23,7 @@ RUN yum install -y \
 	protobuf-devel \
 	protobuf-python \
 	python \
+	python-flake8 \
 	python-ipaddress \
 	python2-future \
 	python2-junit_xml \
