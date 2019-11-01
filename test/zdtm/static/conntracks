@@ -23,7 +23,7 @@ do_or_fail()
 		fail "$failmsg: $output"
 }
 
-do_start()
+do_start_ipt()
 {
 	[ -f "$statefile" ] && die "state file $statefile aleady exists"
 
@@ -35,7 +35,7 @@ do_start()
 		iptables -L \> "$statefile"
 }
 
-do_stop()
+do_stop_ipt()
 {
 	do_or_fail "can't compare the iptables" \
 		iptables -L \| diff -u "$statefile" -
@@ -43,6 +43,38 @@ do_stop()
 	rm -f "$statefile"
 
 	echo "PASS" > $outfile
+}
+
+do_start_nft()
+{
+	[ -f "$statefile" ] && die "state file $statefile aleady exists"
+
+	do_or_fail "can't install a state match" \
+		nft add rule filter INPUT \
+		ct state related,established accept
+
+	do_or_fail "can't list the loaded nftables" \
+		nft list ruleset \> "$statefile"
+}
+
+do_stop_nft()
+{
+	do_or_fail "can't compare the nftables" \
+		nft list ruleset \| diff -u "$statefile" -
+
+	rm -f "$statefile"
+
+	echo "PASS" > $outfile
+}
+
+do_start()
+{
+	[ -x "$(command -v nft)" ] && do_start_nft || do_start_ipt
+}
+
+do_stop()
+{
+	[ -x "$(command -v nft)" ] && do_stop_nft || do_stop_ipt
 }
 
 tmpargs="$(../lib/parseargs.sh --name=$0 \
