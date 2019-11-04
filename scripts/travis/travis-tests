@@ -86,7 +86,7 @@ if [ "$WIDTH" -gt 80 ]; then
 	exit 1
 fi
 
-[ -n "$SKIP_TRAVIS_TEST" ] && return
+[ -n "$SKIP_TRAVIS_TEST" ] && exit 0
 
 ulimit -c unlimited
 
