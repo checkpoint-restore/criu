@@ -1,6 +1,6 @@
 language: c
 sudo: required
-dist: xenial
+dist: bionic
 cache: ccache
 services:
   - docker
@@ -9,21 +9,12 @@ env:
   - TR_ARCH=local       CLANG=1
   - TR_ARCH=local       COMPAT_TEST=y
   - TR_ARCH=local       CLANG=1 COMPAT_TEST=y
-  - TR_ARCH=alpine
-  - TR_ARCH=fedora-asan
   - TR_ARCH=x86_64
   - TR_ARCH=x86_64      CLANG=1
-  - TR_ARCH=armv7hf
   - TR_ARCH=ppc64le
   - TR_ARCH=s390x
-  - TR_ARCH=armv7hf     CLANG=1
   - TR_ARCH=ppc64le     CLANG=1
-  - TR_ARCH=alpine      CLANG=1
   - TR_ARCH=docker-test
-  - TR_ARCH=fedora-rawhide
-  - TR_ARCH=fedora-rawhide-aarch64
-  - TR_ARCH=centos
-  - TR_ARCH=podman-test
   - TR_ARCH=openj9-test
 
 matrix:
@@ -36,10 +27,47 @@ matrix:
       arch: arm64
       env: TR_ARCH=local CLANG=1
       dist: bionic
+    - os: linux
+      arch: arm64
+      # This runs on aarch64 with 'setarch linux32'
+      env: TR_ARCH=armv7hf
+      dist: bionic
+    - os: linux
+      arch: arm64
+      # This runs on aarch64 with 'setarch linux32'
+      env: TR_ARCH=armv7hf     CLANG=1
+      dist: bionic
+    - os: linux
+      arch: arm64
+      env: TR_ARCH=fedora-rawhide
+      dist: bionic
+    - os: linux
+      arch: amd64
+      env: TR_ARCH=fedora-rawhide
+      dist: xenial # test hangs on bionic
+    - os: linux
+      arch: amd64
+      env: TR_ARCH=podman-test
+      dist: bionic
+    - os: linux
+      arch: amd64
+      env: TR_ARCH=alpine      CLANG=1
+      dist: xenial # test hangs on bionic
+    - os: linux
+      arch: amd64
+      env: TR_ARCH=alpine
+      dist: xenial # test hangs on bionic
+    - os: linux
+      arch: amd64
+      env: TR_ARCH=centos
+      dist: xenial # test hangs on bionic
+    - os: linux
+      arch: amd64
+      env: TR_ARCH=fedora-asan
+      dist: xenial # test hangs on bionic
   allow_failures:
     - env: TR_ARCH=docker-test
     - env: TR_ARCH=fedora-rawhide
-    - env: TR_ARCH=fedora-rawhide-aarch64
     - env: TR_ARCH=s390x
     - env: TR_ARCH=local       GCOV=1
 script:
