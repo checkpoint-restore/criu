@@ -1,5 +1,5 @@
-QEMU_ARCHES := armv7hf ppc64le s390x fedora-rawhide-aarch64 # require qemu
-ARCHES := $(QEMU_ARCHES) aarch64 x86_64 fedora-asan fedora-rawhide centos
+QEMU_ARCHES := ppc64le s390x # require qemu
+ARCHES := $(QEMU_ARCHES) aarch64 x86_64 fedora-asan fedora-rawhide centos armv7hf
 TARGETS := $(ARCHES) alpine
 TARGETS_CLANG := $(addsuffix $(TARGETS),-clang)
 CONTAINER_RUNTIME := docker

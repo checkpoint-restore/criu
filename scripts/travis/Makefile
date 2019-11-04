@@ -28,6 +28,8 @@ endef
 export DOCKER_JSON
 
 ifeq ($(UNAME),x86_64)
+	# On anything besides x86_64 Travis is running unprivileged LXD
+	# containers which do not support running docker with '--privileged'.
 	CONTAINER_OPTS := --rm -it --privileged -v /lib/modules:/lib/modules --tmpfs /run
 else
 	CONTAINER_OPTS := --rm -v /lib/modules:/lib/modules --tmpfs /run
