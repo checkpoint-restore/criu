@@ -35,7 +35,6 @@ endif
 # Architecture specific options.
 ifeq ($(ARCH),arm)
         ARMV		:= $(shell echo $(UNAME-M) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
-        DEFINES		:= -DCONFIG_ARMV$(ARMV) -DCONFIG_VDSO_32
 
         ifeq ($(ARMV),6)
                 USERCFLAGS += -march=armv6
@@ -44,6 +43,16 @@ ifeq ($(ARCH),arm)
         ifeq ($(ARMV),7)
                 USERCFLAGS += -march=armv7-a
         endif
+
+        ifeq ($(ARMV),8)
+                # Running 'setarch linux32 uname -m' returns armv8l on travis aarch64.
+                # This tells CRIU to handle armv8l just as armv7hf. Right now this is
+                # only used for compile testing. No further verification of armv8l exists.
+                USERCFLAGS += -march=armv7-a
+                ARMV := 7
+        endif
+
+        DEFINES		:= -DCONFIG_ARMV$(ARMV) -DCONFIG_VDSO_32
 
         PROTOUFIX	:= y
 	# For simplicity - compile code in Arm mode without interwork.
