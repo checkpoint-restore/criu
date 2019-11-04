@@ -11,7 +11,7 @@ apt-get install -qq \
 
 apt-get update -qq
 
-apt-get install -qqy podman
+apt-get install -qqy podman containernetworking-plugins
 
 export SKIP_TRAVIS_TEST=1
 
