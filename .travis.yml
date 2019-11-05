@@ -24,6 +24,8 @@ env:
   - TR_ARCH=fedora-rawhide-aarch64
   - TR_ARCH=centos
   - TR_ARCH=podman-test
+  - TR_ARCH=openj9-test
+
 matrix:
   include:
     - os: linux
