@@ -41,5 +41,8 @@ docker-test:
 podman-test:
 	./podman-test.sh
 
+openj9-test:
+	./openj9-test.sh
+
 %:
 	$(MAKE) -C ../build $@$(target-suffix)
