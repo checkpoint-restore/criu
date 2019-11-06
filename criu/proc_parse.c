@@ -2498,6 +2498,12 @@ int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups)
 			goto err;
 		}
 		*off = '\0';
+
+		if (cgp_should_skip_controller(controllers)) {
+			pr_debug("cg-prop: Skipping controller %s\n", controllers);
+			continue;
+		}
+
 		while (1) {
 			off = strchr(controllers, ',');
 			if (off)
