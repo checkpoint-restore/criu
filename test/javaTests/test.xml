@@ -4,10 +4,40 @@
 <suite name = "Suite1">
 	<parameter name="checkpointOpt" value=""/>
 	<parameter name="restoreOpt" value=""/>
+
 	<test name = "test1-FileRead">
 		<parameter name="testname" value="FileRead"/>
 		<classes>
 			<class name = "org.criu.java.tests.CheckpointRestore"/>
 		</classes>
 	</test>
+
+	<test name = "test2-ReadWrite">
+		<parameter name="testname" value="ReadWrite"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test3-MemoryMappings">
+		<parameter name="testname" value="MemoryMappings"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test4-MultipleFileRead">
+		<parameter name="testname" value="MultipleFileRead"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test5-MultipleFileWrite">
+		<parameter name="testname" value="MultipleFileWrite"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
 </suite>

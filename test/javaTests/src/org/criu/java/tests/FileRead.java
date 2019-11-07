@@ -50,7 +50,7 @@ class FileRead {
 			/*
 			 * Mapped Byte Buffer should be in init state at the beginning of test
 			 */
-			if ('I' != b.getChar(Helper.MAPPED_INDEX)) {
+			if (Helper.STATE_INIT != b.getChar(Helper.MAPPED_INDEX)) {
 				logger.log(Level.SEVERE, "Error: Error in memory mapping, test is not in init state");
 				b.putChar(Helper.MAPPED_INDEX, Helper.STATE_END);
 				System.exit(1);
