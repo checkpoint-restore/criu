@@ -77,7 +77,7 @@ public class CheckpointRestore {
 	private void testSetup(String testName) throws IOException {
 		Path testFolderPath = Paths.get(outputFolder + testName + "/");
 		if (!Files.exists(testFolderPath)) {
-			System.out.println("Test Folder does not exist creating it");
+			System.out.println("Creating the test folder");
 			Files.createDirectory(testFolderPath);
 		}
 	}
@@ -245,7 +245,7 @@ public class CheckpointRestore {
 		Assert.assertNotEquals(currentState, Helper.STATE_TERMINATE, testName + ": ERROR: Checkpoint-Restore failed");
 		Assert.assertNotEquals(currentState, Helper.STATE_FAIL, testName + ": ERROR: Test Failed, Check Log for details");
 		Assert.assertEquals(currentState, Helper.STATE_PASS, testName + " ERROR: Unexpected State of Mapped Buffer");
-		System.out.println("-----" + "PASS" + "-----");
+		System.out.println("----- " + "PASS" + " -----");
 
 	}
 
