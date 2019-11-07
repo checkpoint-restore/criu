@@ -23,6 +23,14 @@ CAP_SETUID
 
 Here we test the File-Based Java APIs by checkpointing the application in the following scenarios and verifying the contents of the file after restore:
 - Reading and writing in the same file. (FileRead.java)
+- Read from a file and write its content to another file. (ReadWrite.java)
+- Reading from multiple files and writing their content to another file. (MultipleFileRead)
+- Reading from a file and writing its content to multiple files. (MultipleFileWrite)
+
+## Memory mapping Java APIs
+
+Here we test the Memory Mapping APIs by checkpointing the application in following scenario and verifying the contents after restore:
+- Memory-mapping a file and writing its content to another file. (MemoryMappings.java)
 
 ### Prerequisites for running the tests:
 - Maven
