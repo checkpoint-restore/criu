@@ -1,9 +1,6 @@
 package org.criu.java.tests;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.MappedByteBuffer;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
@@ -96,4 +93,38 @@ class Helper {
 			System.exit(1);
 		}
 	}
+
+
+	/**
+	 * Compare two files and return true if their content is similar.
+	 *
+	 * @param readFile  File 1 whose content has to be compared.
+	 * @param writeFile File 2 whose content has to be compared.
+	 * @return true if the files are similar, false otherwise.
+	 * @throws IOException
+	 */
+	static boolean compare(File readFile, File writeFile) throws IOException {
+		BufferedReader bir = new BufferedReader(new FileReader(readFile));
+		BufferedReader bor = new BufferedReader(new FileReader(writeFile));
+		String si, so;
+		si = bir.readLine();
+		so = bor.readLine();
+		while (null != si && null != so) {
+			if (!si.equals(so)) {
+				return false;
+			}
+
+			si = bir.readLine();
+			so = bor.readLine();
+		}
+
+		if ((null == si) && (null == so)) {
+			return true;
+		}
+		bir.close();
+		bor.close();
+
+		return false;
+	}
+
 }
