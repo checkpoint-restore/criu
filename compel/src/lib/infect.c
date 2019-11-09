@@ -313,6 +313,8 @@ err:
 
 int compel_resume_task(pid_t pid, int orig_st, int st)
 {
+	int ret = 0;
+
 	pr_debug("\tUnseizing %d into %d\n", pid, st);
 
 	if (st == COMPEL_TASK_DEAD) {
@@ -335,15 +337,17 @@ int compel_resume_task(pid_t pid, int orig_st, int st)
 		 */
 		if (orig_st == COMPEL_TASK_STOPPED)
 			kill(pid, SIGSTOP);
-	} else
+	} else {
 		pr_err("Unknown final state %d\n", st);
+		ret = -1;
+	}
 
 	if (ptrace(PTRACE_DETACH, pid, NULL, NULL)) {
 		pr_perror("Unable to detach from %d", pid);
 		return -1;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int gen_parasite_saddr(struct sockaddr_un *saddr, int key)
