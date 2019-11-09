@@ -2,6 +2,7 @@
 #define COMPEL_PLUGIN_STD_LOG_H__
 
 #include "compel/loglevels.h"
+#include "common/compiler.h"
 
 #define STD_LOG_SIMPLE_CHUNK	256
 
