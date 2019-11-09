@@ -1975,7 +1975,7 @@ static void finalize_restore(void)
 	}
 }
 
-static void finalize_restore_detach(int status)
+static int finalize_restore_detach(void)
 {
 	struct pstree_item *item;
 
@@ -1989,16 +1989,21 @@ static void finalize_restore_detach(int status)
 		for (i = 0; i < item->nr_threads; i++) {
 			pid = item->threads[i].real;
 			if (pid < 0) {
-				BUG_ON(status >= 0);
-				break;
+				pr_err("pstree item has unvalid pid %d\n", pid);
+				continue;
 			}
 
-			if (arch_set_thread_regs_nosigrt(&item->threads[i]))
+			if (arch_set_thread_regs_nosigrt(&item->threads[i])) {
 				pr_perror("Restoring regs for %d failed", pid);
-			if (ptrace(PTRACE_DETACH, pid, NULL, 0))
-				pr_perror("Unable to execute %d", pid);
+				return -1;
+			}
+			if (ptrace(PTRACE_DETACH, pid, NULL, 0)) {
+				pr_perror("Unable to detach %d", pid);
+				return -1;
+			}
 		}
 	}
+	return 0;
 }
 
 static void ignore_kids(void)
@@ -2256,32 +2261,37 @@ skip_ns_bouncing:
 
 	/*
 	 * -------------------------------------------------------------
-	 * Below this line nothing should fail, because network is unlocked
+	 * Network is unlocked. If something fails below - we lose data
+	 * or a connection.
 	 */
 	attach_to_tasks(root_seized);
 
-	ret = restore_switch_stage(CR_STATE_RESTORE_CREDS);
-	BUG_ON(ret);
+	if (restore_switch_stage(CR_STATE_RESTORE_CREDS))
+		goto out_kill_network_unlocked;
 
 	timing_stop(TIME_RESTORE);
 
-	ret = catch_tasks(root_seized, &flag);
+	if (catch_tasks(root_seized, &flag)) {
+		pr_err("Can't catch all tasks\n");
+		goto out_kill_network_unlocked;
+	}
 
 	if (lazy_pages_finish_restore())
-		goto out_kill;
+		goto out_kill_network_unlocked;
 
-	pr_info("Restore finished successfully. Resuming tasks.\n");
 	__restore_switch_stage(CR_STATE_COMPLETE);
 
-	if (ret == 0)
-		ret = compel_stop_on_syscall(task_entries->nr_threads,
-			__NR(rt_sigreturn, 0), __NR(rt_sigreturn, 1), flag);
+	ret = compel_stop_on_syscall(task_entries->nr_threads,
+		__NR(rt_sigreturn, 0), __NR(rt_sigreturn, 1), flag);
+	if (ret) {
+		pr_err("Can't stop all tasks on rt_sigreturn\n");
+		goto out_kill_network_unlocked;
+	}
 
 	if (clear_breakpoints())
 		pr_err("Unable to flush breakpoints\n");
 
-	if (ret == 0)
-		finalize_restore();
+	finalize_restore();
 
 	ret = run_scripts(ACT_PRE_RESUME);
 	if (ret)
@@ -2293,8 +2303,10 @@ skip_ns_bouncing:
 	fini_cgroup();
 
 	/* Detaches from processes and they continue run through sigreturn. */
-	finalize_restore_detach(ret);
+	if (finalize_restore_detach())
+		goto out_kill_network_unlocked;
 
+	pr_info("Restore finished successfully. Tasks resumed.\n");
 	write_stats(RESTORE_STATS);
 
 	ret = run_scripts(ACT_POST_RESUME);
@@ -2306,6 +2318,8 @@ skip_ns_bouncing:
 
 	return 0;
 
+out_kill_network_unlocked:
+	pr_err("Killing processes because of failure on restore.\nThe Network was unlocked so some data or a connection may have been lost.\n");
 out_kill:
 	/*
 	 * The processes can be killed only when all of them have been created,
