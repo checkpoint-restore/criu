@@ -1953,6 +1953,7 @@ static void finalize_restore(void)
 	for_each_pstree_item(item) {
 		pid_t pid = item->pid->real;
 		struct parasite_ctl *ctl;
+		unsigned long restorer_addr;
 
 		if (!task_alive(item))
 			continue;
@@ -1962,7 +1963,9 @@ static void finalize_restore(void)
 		if (ctl == NULL)
 			continue;
 
-		compel_unmap(ctl, (unsigned long)rsti(item)->munmap_restorer);
+		restorer_addr = (unsigned long)rsti(item)->munmap_restorer;
+		if (compel_unmap(ctl, restorer_addr))
+			pr_err("Failed to unmap restorer from %d\n", pid);
 
 		xfree(ctl);
 
