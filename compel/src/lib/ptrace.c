@@ -34,14 +34,20 @@ int ptrace_suspend_seccomp(pid_t pid)
 int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes)
 {
 	unsigned long w;
+	int old_errno = errno;
+
 	if (bytes & (sizeof(long) - 1))
 		return -1;
+
+	errno = 0;
 	for (w = 0; w < bytes / sizeof(long); w++) {
 		unsigned long *d = dst, *a = addr;
+
 		d[w] = ptrace(PTRACE_PEEKDATA, pid, a + w, NULL);
 		if (d[w] == -1U && errno)
 			goto err;
 	}
+	errno = old_errno;
 	return 0;
 err:
 	return -2;
