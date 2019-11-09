@@ -1538,7 +1538,8 @@ static int cr_pre_dump_finish(int status)
 		timing_stop(TIME_MEMWRITE);
 
 		destroy_page_pipe(mem_pp);
-		compel_cure_local(ctl);
+		if (compel_cure_local(ctl))
+			pr_err("Can't cure local: something happened with mapping?\n");
 	}
 
 	free_pstree(root_item);
@@ -1670,7 +1671,8 @@ static int cr_lazy_mem_dump(void)
 	for_each_pstree_item(item) {
 		if (item->pid->state != TASK_DEAD) {
 			destroy_page_pipe(dmpi(item)->mem_pp);
-			compel_cure_local(dmpi(item)->parasite_ctl);
+			if (compel_cure_local(dmpi(item)->parasite_ctl))
+				pr_err("Can't cure local: something happened with mapping?\n");
 		}
 	}
 
