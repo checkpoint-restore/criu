@@ -73,7 +73,7 @@ typedef struct {
 
 #define user_regs_native(pregs)		true
 
-#define __NR(syscall, compat)	__NR_##syscall
+#define __NR(syscall, compat) ({ (void)compat; __NR_##syscall; })
 
 struct mmap_arg_struct {
 	unsigned long addr;

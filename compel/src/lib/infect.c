@@ -720,7 +720,7 @@ static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
 
 static void parasite_memfd_close(struct parasite_ctl *ctl, int fd)
 {
-	bool __maybe_unused compat = !compel_mode_native(ctl);
+	bool compat = !compel_mode_native(ctl);
 	long ret;
 	int err;
 
@@ -732,7 +732,7 @@ static void parasite_memfd_close(struct parasite_ctl *ctl, int fd)
 static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 {
 	void *where = (void *)ctl->ictx.syscall_ip + BUILTIN_SYSCALL_SIZE;
-	bool __maybe_unused compat_task = !compel_mode_native(ctl);
+	bool compat_task = !compel_mode_native(ctl);
 	uint8_t orig_code[MEMFD_FNAME_SZ] = MEMFD_FNAME;
 	pid_t pid = ctl->rpid;
 	long sret = -ENOSYS;
