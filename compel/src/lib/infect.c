@@ -718,14 +718,25 @@ static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
 	return 0;
 }
 
+static void parasite_memfd_close(struct parasite_ctl *ctl, int fd)
+{
+	bool __maybe_unused compat = !compel_mode_native(ctl);
+	long ret;
+	int err;
+
+	err = compel_syscall(ctl, __NR(close, compat), &ret, fd, 0, 0, 0, 0, 0);
+	if (err || ret)
+		pr_err("Can't close memfd\n");
+}
+
 static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 {
 	void *where = (void *)ctl->ictx.syscall_ip + BUILTIN_SYSCALL_SIZE;
+	bool __maybe_unused compat_task = !compel_mode_native(ctl);
 	uint8_t orig_code[MEMFD_FNAME_SZ] = MEMFD_FNAME;
 	pid_t pid = ctl->rpid;
 	long sret = -ENOSYS;
 	int ret, fd, lfd;
-	bool __maybe_unused compat_task = !compel_mode_native(ctl);
 
 	if (ctl->ictx.flags & INFECT_NO_MEMFD)
 		return 1;
@@ -741,10 +752,9 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 			     (unsigned long)where, 0, 0, 0, 0, 0);
 
 	if (ptrace_poke_area(pid, orig_code, where, sizeof(orig_code))) {
-		fd = (int)(long)sret;
+		fd = (int)sret;
 		if (fd >= 0)
-			compel_syscall(ctl, __NR(close, compat_task), &sret,
-					fd, 0, 0, 0, 0, 0);
+			parasite_memfd_close(ctl, fd);
 		pr_err("Can't restore memfd args (pid: %d)\n", pid);
 		return -1;
 	}
@@ -752,7 +762,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 	if (ret < 0)
 		return ret;
 
-	fd = (int)(long)sret;
+	fd = (int)sret;
 	if (fd == -ENOSYS)
 		return 1;
 	if (fd < 0) {
@@ -787,7 +797,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 		goto err_curef;
 	}
 
-	compel_syscall(ctl, __NR(close, compat_task), &sret, fd, 0, 0, 0, 0, 0);
+	parasite_memfd_close(ctl, fd);
 	close(lfd);
 
 	pr_info("Set up parasite blob using memfd\n");
@@ -796,7 +806,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 err_curef:
 	close(lfd);
 err_cure:
-	compel_syscall(ctl, __NR(close, compat_task), &sret, fd, 0, 0, 0, 0, 0);
+	parasite_memfd_close(ctl, fd);
 	return -1;
 }
 
