@@ -1303,6 +1303,7 @@ int compel_stop_daemon(struct parasite_ctl *ctl)
 int compel_cure_remote(struct parasite_ctl *ctl)
 {
 	long ret;
+	int err;
 
 	if (compel_stop_daemon(ctl))
 		return -1;
@@ -1310,9 +1311,12 @@ int compel_cure_remote(struct parasite_ctl *ctl)
 	if (!ctl->remote_map)
 		return 0;
 
-	compel_syscall(ctl, __NR(munmap, !compel_mode_native(ctl)), &ret,
-			(unsigned long)ctl->remote_map, ctl->map_length,
-			0, 0, 0, 0);
+	err = compel_syscall(ctl, __NR(munmap, !compel_mode_native(ctl)), &ret,
+			     (unsigned long)ctl->remote_map, ctl->map_length,
+			     0, 0, 0, 0);
+	if (err)
+		return err;
+
 	if (ret) {
 		pr_err("munmap for remote map %p, %lu returned %lu\n",
 				ctl->remote_map, ctl->map_length, ret);
