@@ -1386,16 +1386,20 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 
 	ret = compel_stop_daemon(parasite_ctl);
 	if (ret) {
-		pr_err("Can't cure (pid: %d) from parasite\n", pid);
-		goto err;
+		pr_err("Can't stop daemon in parasite (pid: %d)\n", pid);
+		goto err_cure;
 	}
 
 	ret = dump_task_threads(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump threads\n");
-		goto err;
+		goto err_cure;
 	}
 
+	/*
+	 * On failure local map will be cured in cr_dump_finish()
+	 * for lazy pages.
+	 */
 	if (opts.lazy_pages)
 		ret = compel_cure_remote(parasite_ctl);
 	else
@@ -1428,7 +1432,9 @@ err:
 err_cure:
 	close_cr_imgset(&cr_imgset);
 err_cure_imgset:
-	compel_cure(parasite_ctl);
+	ret = compel_cure(parasite_ctl);
+	if (ret)
+		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 	goto err;
 }
 
