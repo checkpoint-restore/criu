@@ -1589,13 +1589,14 @@ static void restore_pgid(void)
 static int mount_proc(void)
 {
 	int fd, ret;
-	char proc_mountpoint[] = "crtools-proc.XXXXXX";
+	char proc_mountpoint[] = "/tmp/crtools-proc.XXXXXX";
 
 	if (root_ns_mask == 0)
 		fd = ret = open("/proc", O_DIRECTORY);
 	else {
 		if (mkdtemp(proc_mountpoint) == NULL) {
-			pr_perror("mkdtemp failed %s", proc_mountpoint);
+			pr_perror("Failed to create temp directory %s/%s",
+				get_current_dir_name(), proc_mountpoint);
 			return -1;
 		}
 
