@@ -29,11 +29,10 @@
  * These *must* be power of two values.
  */
 #define RESTORE_ARGS_SIZE		(512)
-#define RESTORE_STACK_REDZONE		(128)
+#define RESTORE_STACK_REDZONE		(PAGE_SIZE)
 #define RESTORE_STACK_SIZE		(KILO(32))
 
 struct restore_mem_zone {
-	u8				redzone[RESTORE_STACK_REDZONE];
 	u8				stack[RESTORE_STACK_SIZE];
 	u8				rt_sigframe[RESTORE_STACK_SIGFRAME];
 } __stack_aligned__;
