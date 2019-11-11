@@ -795,6 +795,45 @@ struct vma_area *alloc_vma_area(void)
 	return p;
 }
 
+static int __check_cmd_exists(const char *path)
+{
+	return (access(path, F_OK) == 0);
+}
+
+int check_cmd_exists(const char *cmd)
+{
+	int ret = 0;
+	char buf[255];
+	char *env_path, *dup, *s, *p;
+
+	env_path = getenv("PATH");
+
+	/* ok, the simply __check_cmd_exists */
+	if (!env_path || cmd[0] == '/')
+		return __check_cmd_exists(cmd);
+
+	dup = strdup(env_path);
+
+	/* let's try to find program in PATH */
+	s = dup;
+	p = NULL;
+	do {
+		p = strchr(s, ':');
+		if (p != NULL)
+			p[0] = 0;
+
+		sprintf(buf, "%s/%s", s, cmd);
+		if ((ret = __check_cmd_exists(buf)))
+			goto free;
+
+		s = p + 1;
+	} while (p != NULL);
+
+free:
+	free(dup);
+	return ret;
+}
+
 int mkdirpat(int fd, const char *path, int mode)
 {
 	size_t i;
