@@ -1,0 +1,5 @@
+{   'deps': [   '/bin/sh',
+                '/usr/sbin/nft',
+                '/usr/bin/diff'],
+    'flags': 'suid',
+    'flavor': 'ns uns'}
