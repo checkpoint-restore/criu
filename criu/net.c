@@ -1739,12 +1739,12 @@ static int run_ip_tool(char *arg1, char *arg2, char *arg3, char *arg4, int fdin,
 	return 0;
 }
 
-static int run_iptables_tool(char *def_cmd, int fdin, int fdout)
+static int run_tool(const char *env_var, char *def_cmd, int fdin, int fdout)
 {
 	int ret;
 	char *cmd;
 
-	cmd = getenv("CR_IPTABLES");
+	cmd = getenv(env_var);
 	if (!cmd)
 		cmd = def_cmd;
 	pr_debug("\tRunning %s for %s\n", cmd, def_cmd);
@@ -1753,6 +1753,16 @@ static int run_iptables_tool(char *def_cmd, int fdin, int fdout)
 		pr_err("%s failed\n", def_cmd);
 
 	return ret;
+}
+
+static int run_iptables_tool(char *def_cmd, int fdin, int fdout)
+{
+	return run_tool("CR_IPTABLES", def_cmd, fdin, fdout);
+}
+
+static int run_nftables_tool(char *def_cmd, int fdin, int fdout)
+{
+	return run_tool("CR_NFTABLES", def_cmd, fdin, fdout);
 }
 
 static inline int dump_ifaddr(struct cr_imgset *fds)
@@ -1814,6 +1824,17 @@ static inline int dump_iptables(struct cr_imgset *fds)
 		if (run_iptables_tool("ip6tables-save", -1, img_raw_fd(img)))
 			return -1;
 	}
+
+	return 0;
+}
+
+static inline int dump_nftables(struct cr_imgset *fds)
+{
+	struct cr_img *img;
+
+	img = img_from_set(fds, CR_FD_NFTABLES);
+	if (run_nftables_tool("nft list ruleset", -1, img_raw_fd(img)))
+		return -1;
 
 	return 0;
 }
@@ -2082,6 +2103,27 @@ out:
 	return ret;
 }
 
+static inline int restore_nftables(int pid)
+{
+	int ret = -1;
+	struct cr_img *img;
+
+	img = open_image(CR_FD_NFTABLES, O_RSTR, pid);
+	if (img == NULL)
+		return -1;
+	if (empty_image(img)) {
+		/* Backward compatibility */
+		pr_info("Skipping nft restore, no image");
+		ret = 0;
+		goto out;
+	}
+
+	ret = run_nftables_tool("nft -f /proc/self/fd/0", img_raw_fd(img), -1);
+out:
+	close_image(img);
+	return ret;
+}
+
 int read_net_ns_img(void)
 {
 	struct ns_id *ns;
@@ -2300,6 +2342,8 @@ int dump_net_ns(struct ns_id *ns)
 		if (!ret)
 			ret = dump_iptables(fds);
 		if (!ret)
+			ret = dump_nftables(fds);
+		if (!ret)
 			ret = dump_netns_conf(ns, fds);
 	} else if (ns->type != NS_ROOT) {
 		pr_err("Unable to dump more than one netns if the --emptyns is set\n");
@@ -2392,6 +2436,8 @@ static int prepare_net_ns_second_stage(struct ns_id *ns)
 			ret = restore_rule(nsid);
 		if (!ret)
 			ret = restore_iptables(nsid);
+		if (!ret)
+			ret = restore_nftables(nsid);
 	}
 
 	if (!ret)
