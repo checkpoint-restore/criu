@@ -6,7 +6,7 @@ TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev python-future
 		libcap-dev libnl-3-dev gdb bash python-protobuf python-yaml
 		libnet-dev util-linux asciidoctor libnl-route-3-dev
 		python-junit.xml python-ipaddress time ccache flake8
-		libbsd-dev"
+		libbsd-dev nftables"
 
 X86_64_PKGS="gcc-multilib"
 
