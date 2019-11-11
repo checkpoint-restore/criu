@@ -147,4 +147,27 @@ int main(void)
 		return 0;
 	return 0;
 }
+
+endef
+
+define FEATURE_TEST_NFTABLES_LIB_API_0
+
+#include <nftables/libnftables.h>
+
+int main(int argc, char **argv)
+{
+	return nft_run_cmd_from_buffer(nft_ctx_new(NFT_CTX_DEFAULT), \"cmd\", strlen(\"cmd\"));
+}
+
+endef
+
+define FEATURE_TEST_NFTABLES_LIB_API_1
+
+#include <nftables/libnftables.h>
+
+int main(int argc, char **argv)
+{
+	return nft_run_cmd_from_buffer(nft_ctx_new(NFT_CTX_DEFAULT), \"cmd\");
+}
+
 endef
