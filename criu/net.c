@@ -17,6 +17,10 @@
 #include <libnl3/netlink/msg.h>
 #include <libnl3/netlink/netlink.h>
 
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+#include <nftables/libnftables.h>
+#endif
+
 #ifdef CONFIG_HAS_SELINUX
 #include <selinux/selinux.h>
 #endif
@@ -1897,6 +1901,55 @@ static inline int dump_iptables(struct cr_imgset *fds)
 	return 0;
 }
 
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+static inline int dump_nftables(struct cr_imgset *fds)
+{
+	int ret = -1;
+	struct cr_img *img;
+	int img_fd;
+	FILE *fp;
+	struct nft_ctx *nft;
+
+	nft = nft_ctx_new(NFT_CTX_DEFAULT);
+	if (!nft)
+		return -1;
+
+	img = img_from_set(fds, CR_FD_NFTABLES);
+	img_fd = dup(img_raw_fd(img));
+	if (img_fd < 0) {
+		pr_perror("dup() failed");
+		goto nft_ctx_free_out;
+	}
+
+	fp = fdopen(img_fd, "w");
+	if (!fp) {
+		pr_perror("fdopen() failed");
+		close(img_fd);
+		goto nft_ctx_free_out;
+	}
+
+	nft_ctx_set_output(nft, fp);
+#define DUMP_NFTABLES_CMD "list ruleset"
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0)
+	if (nft_run_cmd_from_buffer(nft, DUMP_NFTABLES_CMD, strlen(DUMP_NFTABLES_CMD)))
+#elif defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	if (nft_run_cmd_from_buffer(nft, DUMP_NFTABLES_CMD))
+#else
+	BUILD_BUG_ON(1);
+#endif
+		goto fp_close_out;
+
+	ret = 0;
+
+fp_close_out:
+	fclose(fp);
+nft_ctx_free_out:
+	nft_ctx_free(nft);
+
+	return ret;
+}
+#endif
+
 static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 {
 	void *buf, *o_buf;
@@ -2178,6 +2231,60 @@ out:
 	return ret;
 }
 
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+static inline int restore_nftables(int pid)
+{
+	int ret = -1;
+	struct cr_img *img;
+	struct nft_ctx *nft;
+	off_t img_data_size;
+	char *buf;
+
+	img = open_image(CR_FD_NFTABLES, O_RSTR, pid);
+	if (img == NULL)
+		return -1;
+	if (empty_image(img)) {
+		/* Backward compatibility */
+		pr_info("Skipping nft restore, no image");
+		ret = 0;
+		goto image_close_out;
+	}
+
+	if ((img_data_size = img_raw_size(img)) < 0)
+		goto image_close_out;
+
+	if (read_img_str(img, &buf, img_data_size) < 0)
+		goto image_close_out;
+
+	nft = nft_ctx_new(NFT_CTX_DEFAULT);
+	if (!nft)
+		goto buf_free_out;
+
+	if (nft_ctx_buffer_output(nft) || nft_ctx_buffer_error(nft) ||
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0)
+		nft_run_cmd_from_buffer(nft, buf, strlen(buf)))
+#elif defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+		nft_run_cmd_from_buffer(nft, buf))
+#else
+	{
+		BUILD_BUG_ON(1);
+	}
+#endif
+		goto nft_ctx_free_out;
+
+	ret = 0;
+
+nft_ctx_free_out:
+	nft_ctx_free(nft);
+buf_free_out:
+	xfree(buf);
+image_close_out:
+	close_image(img);
+
+	return ret;
+}
+#endif
+
 int read_net_ns_img(void)
 {
 	struct ns_id *ns;
@@ -2409,6 +2516,10 @@ int dump_net_ns(struct ns_id *ns)
 			ret = dump_rule(fds);
 		if (!ret)
 			ret = dump_iptables(fds);
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+		if (!ret)
+			ret = dump_nftables(fds);
+#endif
 		if (!ret)
 			ret = dump_netns_conf(ns, fds);
 	} else if (ns->type != NS_ROOT) {
@@ -2502,6 +2613,10 @@ static int prepare_net_ns_second_stage(struct ns_id *ns)
 			ret = restore_rule(nsid);
 		if (!ret)
 			ret = restore_iptables(nsid);
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+		if (!ret)
+			ret = restore_nftables(nsid);
+#endif
 	}
 
 	if (!ret)
