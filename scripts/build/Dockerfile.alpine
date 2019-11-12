@@ -32,6 +32,7 @@ RUN apk add \
 	py2-future \
 	ip6tables \
 	iptables \
+	nftables \
 	iproute2 \
 	tar \
 	bash \
