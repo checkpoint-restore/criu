@@ -1839,9 +1839,6 @@ long __export_restore_task(struct task_restore_args *args)
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE);
 
-	if (cleanup_current_inotify_events(args))
-		goto core_restore_end;
-
 	if (wait_helpers(args) < 0)
 		goto core_restore_end;
 	if (wait_zombies(args) < 0)
@@ -1853,6 +1850,9 @@ long __export_restore_task(struct task_restore_args *args)
 		pr_err("Unable to block signals %ld\n", ret);
 		goto core_restore_end;
 	}
+
+	if (cleanup_current_inotify_events(args))
+		goto core_restore_end;
 
 	if (!args->compatible_mode) {
 		ret = sys_sigaction(SIGCHLD, &args->sigchld_act,
