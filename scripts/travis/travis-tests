@@ -51,13 +51,6 @@ travis_prep () {
 		CC="ccache $CC"
 	fi
 
-	# The /etc/apt/sources.list in the current trusty image for ppc64le is
-	# broken and needs to be fixed
-	if [ "$TR_ARCH" = "ppc64le" ] ; then
-		sed -i '/security/ d' /etc/apt/sources.list
-	fi
-
-
 	# Do not install x86_64 specific packages on other architectures
 	if [ "$UNAME_M" = "x86_64" ]; then
 		TRAVIS_PKGS="$TRAVIS_PKGS $X86_64_PKGS"

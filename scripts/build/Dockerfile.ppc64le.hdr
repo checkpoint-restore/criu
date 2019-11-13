@@ -1,5 +1,0 @@
-FROM ppc64le/ubuntu:xenial
-
-ENV QEMU_CPU POWER8
-COPY scripts/build/qemu-user-static/usr/bin/qemu-ppc64le-static /usr/bin/qemu-ppc64le-static
-RUN sed -i '/security/ d' /etc/apt/sources.list
