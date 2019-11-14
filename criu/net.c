@@ -210,6 +210,19 @@ char *devconfs6[] = {
 #define MAX_CONF_OPT_PATH IFNAMSIZ+60
 #define MAX_STR_CONF_LEN 200
 
+static const char *unix_conf_entries[] = {
+	"max_dgram_qlen",
+};
+
+/*
+ * MAX_CONF_UNIX_PATH = (sizeof(CONF_UNIX_FMT) - strlen("%s"))
+ * 					  + MAX_CONF_UNIX_OPT_PATH
+ */
+#define CONF_UNIX_BASE		"net/unix"
+#define CONF_UNIX_FMT		CONF_UNIX_BASE"/%s"
+#define MAX_CONF_UNIX_OPT_PATH	32
+#define MAX_CONF_UNIX_PATH	(sizeof(CONF_UNIX_FMT) + MAX_CONF_UNIX_OPT_PATH - 2)
+
 static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto,
 		struct sysctl_req *req, char (*path)[MAX_CONF_OPT_PATH], int size,
 		char **devconfs, SysctlEntry **def_conf)
@@ -337,6 +350,72 @@ static int ipv6_conf_op(char *tgt, SysctlEntry **conf, int n, int op, SysctlEntr
 	return net_conf_op(tgt, conf, n, op, "ipv6",
 			req, path, ARRAY_SIZE(devconfs6),
 			devconfs6, def_conf);
+}
+
+static int unix_conf_op(SysctlEntry ***rconf, size_t *n, int op)
+{
+	int i, ret = -1, flags = 0;
+	char path[ARRAY_SIZE(unix_conf_entries)][MAX_CONF_UNIX_PATH] = { };
+	struct sysctl_req req[ARRAY_SIZE(unix_conf_entries)] = { };
+	SysctlEntry **conf = *rconf;
+
+	if (*n != ARRAY_SIZE(unix_conf_entries)) {
+		pr_err("unix: Unexpected entries in config (%zu %zu)\n",
+			*n, ARRAY_SIZE(unix_conf_entries));
+		return -EINVAL;
+	}
+
+	if (opts.weak_sysctls || op == CTL_READ)
+		flags = CTL_FLAGS_OPTIONAL;
+
+	for (i = 0; i < *n; i++) {
+		snprintf(path[i], MAX_CONF_UNIX_PATH, CONF_UNIX_FMT,
+			unix_conf_entries[i]);
+		req[i].name = path[i];
+		req[i].flags = flags;
+
+		switch (conf[i]->type) {
+		case SYSCTL_TYPE__CTL_32:
+			req[i].type = CTL_32;
+			req[i].arg = &conf[i]->iarg;
+			break;
+		default:
+			pr_err("unix: Unknown config type %d\n",
+				conf[i]->type);
+			return -1;
+		}
+	}
+
+	ret = sysctl_op(req, *n, op, CLONE_NEWNET);
+	if (ret < 0) {
+		pr_err("unix: Failed to %s %s/<confs>\n",
+			(op == CTL_READ) ? "read" : "write",
+			CONF_UNIX_BASE);
+		return -1;
+	}
+
+	if (op == CTL_READ) {
+		bool has_entries = false;
+
+		for (i = 0; i < *n; i++) {
+			if (req[i].flags & CTL_FLAGS_HAS) {
+				conf[i]->has_iarg = true;
+				if (!has_entries)
+					has_entries = true;
+			}
+		}
+
+		/*
+		 * Zap the whole section of data.
+		 * Unix conf is optional.
+		 */
+		if (!has_entries) {
+			*n = 0;
+			*rconf = NULL;
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -1824,6 +1903,8 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 	int ret = -1;
 	int i;
 	NetnsEntry netns = NETNS_ENTRY__INIT;
+	SysctlEntry *unix_confs = NULL;
+	size_t sizex = ARRAY_SIZE(unix_conf_entries);
 	SysctlEntry *def_confs4 = NULL, *all_confs4 = NULL;
 	int size4 = ARRAY_SIZE(devconfs4);
 	SysctlEntry *def_confs6 = NULL, *all_confs6 = NULL;
@@ -1840,7 +1921,8 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 	o_buf = buf = xmalloc(
 			i * (sizeof(NetnsId*) + sizeof(NetnsId)) +
 			size4 * (sizeof(SysctlEntry*) + sizeof(SysctlEntry)) * 2 +
-			size6 * (sizeof(SysctlEntry*) + sizeof(SysctlEntry)) * 2
+			size6 * (sizeof(SysctlEntry*) + sizeof(SysctlEntry)) * 2 +
+			sizex * (sizeof(SysctlEntry*) + sizeof(SysctlEntry))
 		     );
 	if (!buf)
 		goto out;
@@ -1896,6 +1978,16 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 		}
 	}
 
+	netns.n_unix_conf = sizex;
+	netns.unix_conf = xptr_pull_s(&buf, sizex * sizeof(SysctlEntry*));
+	unix_confs = xptr_pull_s(&buf, sizex * sizeof(SysctlEntry));
+
+	for (i = 0; i < sizex; i++) {
+		sysctl_entry__init(&unix_confs[i]);
+		netns.unix_conf[i] = &unix_confs[i];
+		netns.unix_conf[i]->type = SYSCTL_TYPE__CTL_32;
+	}
+
 	ret = ipv4_conf_op("default", netns.def_conf4, size4, CTL_READ, NULL);
 	if (ret < 0)
 		goto err_free;
@@ -1907,6 +1999,10 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 	if (ret < 0)
 		goto err_free;
 	ret = ipv6_conf_op("all", netns.all_conf6, size6, CTL_READ, NULL);
+	if (ret < 0)
+		goto err_free;
+
+	ret = unix_conf_op(&netns.unix_conf, &netns.n_unix_conf, CTL_READ);
 	if (ret < 0)
 		goto err_free;
 
@@ -2149,6 +2245,12 @@ static int restore_netns_conf(struct ns_id *ns)
 		if (ret)
 			goto out;
 		ret = ipv6_conf_op("default", (netns)->def_conf6, (netns)->n_def_conf6, CTL_WRITE, NULL);
+	}
+
+	if ((netns)->unix_conf) {
+		ret = unix_conf_op(&(netns)->unix_conf, &(netns)->n_unix_conf, CTL_WRITE);
+		if (ret)
+			goto out;
 	}
 
 	ns->net.netns = netns;
