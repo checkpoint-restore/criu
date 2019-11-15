@@ -1814,6 +1814,7 @@ static int restore_task_with_children(void *_arg)
 		if (restore_wait_other_tasks())
 			goto err;
 		fini_restore_mntns();
+		clone_noasan_set_mutex(&task_entries->last_pid_mutex);
 		__restore_switch_stage(CR_STATE_RESTORE);
 	} else {
 		if (restore_finish_stage(task_entries, CR_STATE_FORKING) < 0)
@@ -2301,6 +2302,7 @@ skip_ns_bouncing:
 	if (!opts.restore_detach && !opts.exec_cmd)
 		wait(NULL);
 
+	clone_noasan_fini();
 	return 0;
 
 out_kill:
@@ -2331,6 +2333,7 @@ out:
 	depopulate_roots_yard(mnt_ns_fd, true);
 	stop_usernsd();
 	__restore_switch_stage(CR_STATE_FAIL);
+	clone_noasan_fini();
 	pr_err("Restoring FAILED.\n");
 	return -1;
 }
@@ -2389,6 +2392,9 @@ int cr_restore_tasks(void)
 	timing_start(TIME_RESTORE);
 
 	if (cpu_init() < 0)
+		goto err;
+
+	if (clone_noasan_init() < 0)
 		goto err;
 
 	if (vdso_init_restore())
