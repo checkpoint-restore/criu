@@ -1536,6 +1536,7 @@ static __maybe_unused int mount_cr_time_mount(struct ns_id *ns, unsigned int *s_
 
 	ret = mount(source, target, type, 0, NULL);
 	if (ret < 0) {
+		pr_perror("Unable to mount %s %s", source, target);
 		exit_code = -errno;
 		goto restore_ns;
 	} else {
@@ -2004,7 +2005,10 @@ static int fetch_rt_stat(struct mount_info *m, const char *where)
 static int do_simple_mount(struct mount_info *mi, const char *src, const
 			   char *fstype, unsigned long mountflags)
 {
-	return mount(src, mi->mountpoint, fstype, mountflags, mi->options);
+	int ret = mount(src, mi->mountpoint, fstype, mountflags, mi->options);
+	if (ret)
+		pr_perror("Unable to mount %s %s (id=%d)", src, mi->mountpoint, mi->mnt_id);
+	return ret;
 }
 
 static char *mnt_fsname(struct mount_info *mi)
@@ -2491,8 +2495,11 @@ static int do_mount_one(struct mount_info *mi)
 		}
 
 		/* do_mount_root() is called from populate_mnt_ns() */
-		if (mount(opts.root, mi->mountpoint, NULL, MS_BIND | MS_REC, NULL))
+		if (mount(opts.root, mi->mountpoint, NULL, MS_BIND | MS_REC, NULL)) {
+			pr_perror("Unable to mount %s %s (id=%d)", opts.root, mi->mountpoint, mi->mnt_id);
 			return -1;
+		}
+
 		if (do_mount_root(mi))
 			return -1;
 		mi->mounted = true;
