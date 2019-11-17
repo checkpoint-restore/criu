@@ -414,6 +414,8 @@ usually need to be escaped from shell.
 
 *-r*, *--root* 'path'::
     Change the root filesystem to 'path' (when run in a mount namespace).
+    This option is required to restore a mount namespace. The directory
+    'path' must be a mount point and its parent must not be overmounted.
 
 *--external* 'type'*[*'id'*]:*'value'::
     Restore an instance of an external resource. The generic syntax is
