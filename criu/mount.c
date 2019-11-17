@@ -2018,25 +2018,35 @@ static char *mnt_fsname(struct mount_info *mi)
 	return mi->fstype->name;
 }
 
-static int apply_sb_flags(void *args, int fd, pid_t pid)
+static int userns_mount(char *src, void *args, int fd, pid_t pid)
 {
 	unsigned long flags = *(unsigned long *) args;
 	int rst = -1, err = -1;
-	char path[PSFDS];
+	char target[PSFDS];
 
-	snprintf(path, sizeof(path), "/proc/self/fd/%d", fd);
+	snprintf(target, sizeof(target), "/proc/self/fd/%d", fd);
 
 	if (pid != getpid() && switch_ns(pid, &mnt_ns_desc, &rst))
 		return -1;
 
-	err = mount(NULL, path, NULL, MS_REMOUNT | flags, NULL);
+	err = mount(src, target, NULL, flags, NULL);
 	if (err)
-		pr_perror("Unable to remount %s", path);
+		pr_perror("Unable to mount %s", target);
 
 	if (rst >= 0 &&	restore_ns(rst, &mnt_ns_desc))
 		return -1;
 
 	return err;
+}
+
+static int apply_sb_flags(void *args, int fd, pid_t pid)
+{
+	return userns_mount(NULL, args, fd, pid);
+}
+
+static int mount_root(void *args, int fd, pid_t pid)
+{
+	return userns_mount(opts.root, args, fd, pid);
 }
 
 static int do_new_mount(struct mount_info *mi)
@@ -2086,10 +2096,9 @@ static int do_new_mount(struct mount_info *mi)
 			pr_perror("Unable to open %s", mi->mountpoint);
 			return -1;
 		}
-		sflags |= MS_RDONLY;
-		if (userns_call(apply_sb_flags, 0,
-				&sflags, sizeof(sflags), fd)) {
-			pr_perror("Unable to apply mount flags %d for %s",
+		sflags |= MS_RDONLY | MS_REMOUNT;
+		if (userns_call(apply_sb_flags, 0, &sflags, sizeof(sflags), fd)) {
+			pr_err("Unable to apply mount flags %d for %s",
 						mi->sb_flags, mi->mountpoint);
 			close(fd);
 			return -1;
@@ -2489,15 +2498,33 @@ static int do_mount_one(struct mount_info *mi)
 	pr_debug("\tMounting %s @%s (%d)\n", mi->fstype->name, mi->mountpoint, mi->need_plugin);
 
 	if (rst_mnt_is_root(mi)) {
+		int fd;
+		unsigned long flags = MS_BIND | MS_REC;
+
 		if (opts.root == NULL) {
 			pr_err("The --root option is required to restore a mount namespace\n");
 			return -1;
 		}
 
 		/* do_mount_root() is called from populate_mnt_ns() */
-		if (mount(opts.root, mi->mountpoint, NULL, MS_BIND | MS_REC, NULL)) {
-			pr_perror("Unable to mount %s %s (id=%d)", opts.root, mi->mountpoint, mi->mnt_id);
-			return -1;
+		if (root_ns_mask & CLONE_NEWUSER) {
+			fd = open(mi->mountpoint, O_PATH);
+			if (fd < 0) {
+				pr_perror("Unable to open %s", mi->mountpoint);
+				return -1;
+			}
+
+			if (userns_call(mount_root, 0, &flags, sizeof(flags), fd)) {
+				pr_err("Unable to mount %s\n", mi->mountpoint);
+				close(fd);
+				return -1;
+			}
+			close(fd);
+		} else {
+			if (mount(opts.root, mi->mountpoint, NULL, flags, NULL)) {
+				pr_perror("Unable to mount %s %s (id=%d)", opts.root, mi->mountpoint, mi->mnt_id);
+				return -1;
+			}
 		}
 
 		if (do_mount_root(mi))
