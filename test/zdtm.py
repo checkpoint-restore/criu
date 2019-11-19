@@ -864,76 +864,57 @@ class criu_rpc:
     def __set_opts(criu, args, ctx):
         while len(args) != 0:
             arg = args.pop(0)
-            if arg == '-v4':
+            if "-v4" == arg:
                 criu.opts.log_level = 4
-                continue
-            if arg == '-o':
+            elif "-o" == arg:
                 criu.opts.log_file = args.pop(0)
-                continue
-            if arg == '-D':
+            elif "-D" == arg:
                 criu.opts.images_dir_fd = os.open(args.pop(0), os.O_DIRECTORY)
                 ctx['imgd'] = criu.opts.images_dir_fd
-                continue
-            if arg == '-t':
+            elif "-t" == arg:
                 criu.opts.pid = int(args.pop(0))
-                continue
-            if arg == '--pidfile':
+            elif "--pidfile" == arg:
                 ctx['pidf'] = args.pop(0)
-                continue
-            if arg == '--timeout':
+            elif "--timeout" == arg:
                 criu.opts.timeout = int(args.pop(0))
-                continue
-            if arg == '--restore-detached':
-                # Set by service by default
-                ctx['rd'] = True
-                continue
-            if arg == '--root':
+            elif "--restore-detached" == arg:
+                ctx['rd'] = True  # Set by service by default
+            elif "--root" == arg:
                 criu.opts.root = args.pop(0)
-                continue
-            if arg == '--external':
+            elif "--external" == arg:
                 criu.opts.external.append(args.pop(0))
-                continue
-            if arg == '--status-fd':
+            elif "--status-fd" == arg:
                 fd = int(args.pop(0))
                 os.write(fd, b"\0")
                 fcntl.fcntl(fd, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
-                continue
-            if arg == '--port':
+            elif "--port" == arg:
                 criu.opts.ps.port = int(args.pop(0))
-                continue
-            if arg == '--address':
+            elif "--address" == arg:
                 criu.opts.ps.address = args.pop(0)
+            elif "--page-server" == arg:
                 continue
-            if arg == '--page-server':
-                continue
-            if arg == '--prev-images-dir':
+            elif "--prev-images-dir" == arg:
                 criu.opts.parent_img = args.pop(0)
-                continue
-            if arg == '--pre-dump-mode':
+            elif "--pre-dump-mode" == arg:
                 key = args.pop(0)
                 mode = crpc.rpc.VM_READ
                 if key == "splice":
                     mode = crpc.rpc.SPLICE
                 criu.opts.pre_dump_mode = mode
-                continue
-            if arg == '--track-mem':
+            elif "--track-mem" == arg:
                 criu.opts.track_mem = True
-                continue
-            if arg == '--tcp-established':
+            elif "--tcp-established" == arg:
                 criu.opts.tcp_established = True
-                continue
-            if arg == '--restore-sibling':
+            elif "--restore-sibling" == arg:
                 criu.opts.rst_sibling = True
-                continue
-            if arg == "--inherit-fd":
+            elif "--inherit-fd" == arg:
                 inhfd = criu.opts.inherit_fd.add()
                 key = args.pop(0)
                 fd, key = key.split(":", 1)
                 inhfd.fd = int(fd[3:-1])
                 inhfd.key = key
-                continue
-
-            raise test_fail_exc('RPC for %s(%s) required' % (arg, args.pop(0)))
+            else:
+                raise test_fail_exc('RPC for %s(%s) required' % (arg, args.pop(0)))
 
     @staticmethod
     def run(action,
