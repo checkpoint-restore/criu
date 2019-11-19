@@ -62,6 +62,7 @@ tests_root = None
 def clean_tests_root():
     global tests_root
     if tests_root and tests_root[0] == os.getpid():
+        os.rmdir(os.path.join(tests_root[1], "root"))
         os.rmdir(tests_root[1])
 
 
@@ -70,7 +71,9 @@ def make_tests_root():
     if not tests_root:
         tests_root = (os.getpid(), tempfile.mkdtemp("", "criu-root-", "/tmp"))
         atexit.register(clean_tests_root)
-    return tests_root[1]
+        os.mkdir(os.path.join(tests_root[1], "root"))
+    os.chmod(tests_root[1], 0o777)
+    return os.path.join(tests_root[1], "root")
 
 
 # Report generation
@@ -482,6 +485,13 @@ class zdtm_test:
             # Wait less than a second to give the test chance to
             # move into some semi-random state
             time.sleep(random.random())
+
+        if self.__flavor.ns:
+            # In the case of runc the path specified with the opts.root
+            # option is created in /run/runc/ which is inaccessible to
+            # unprivileged users. The permissions here are set to test
+            # this use case.
+            os.chmod(os.path.dirname(self.__flavor.root), 0o700)
 
     def kill(self, sig=signal.SIGKILL):
         self.__freezer.thaw()
