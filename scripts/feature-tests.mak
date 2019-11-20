@@ -136,3 +136,15 @@ ENTRY(main)
         nop
 END(main)
 endef
+
+define FEATURE_TEST_FSCONFIG
+
+#include <linux/mount.h>
+
+int main(void)
+{
+	if (FSCONFIG_CMD_CREATE > 0)
+		return 0;
+	return 0;
+}
+endef
