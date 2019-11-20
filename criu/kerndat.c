@@ -723,6 +723,20 @@ static int kerndat_has_inotify_setnextwd(void)
 	return ret;
 }
 
+static int kerndat_has_fsopen(void)
+{
+	if (syscall(__NR_fsopen, NULL, -1) != -1) {
+		pr_err("fsopen should fail\n");
+		return -1;
+	}
+	if (errno == ENOSYS)
+		pr_info("The new mount API (fsopen, fsmount) isn't supported\n");
+	else
+		kdat.has_fsopen = true;
+
+	return 0;
+}
+
 static int has_kcmp_epoll_tfd(void)
 {
 	kcmp_epoll_slot_t slot = { };
@@ -1043,6 +1057,8 @@ int kerndat_init(void)
 		ret = kerndat_has_inotify_setnextwd();
 	if (!ret)
 		ret = has_kcmp_epoll_tfd();
+	if (!ret)
+		ret = kerndat_has_fsopen();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
