@@ -23,6 +23,8 @@
 #include <compel/ptrace.h>
 #include "common/compiler.h"
 
+#include "linux/mount.h"
+
 #include "clone-noasan.h"
 #include "cr_options.h"
 #include "servicefd.h"
@@ -1585,27 +1587,39 @@ static void restore_pgid(void)
 		futex_set_and_wake(&rsti(current)->pgrp_set, 1);
 }
 
+static int __legacy_mount_proc()
+{
+	char proc_mountpoint[] = "/tmp/crtools-proc.XXXXXX";
+	int fd;
+
+	if (mkdtemp(proc_mountpoint) == NULL) {
+		pr_perror("mkdtemp failed %s", proc_mountpoint);
+		return -1;
+	}
+
+	pr_info("Mount procfs in %s\n", proc_mountpoint);
+	if (mount("proc", proc_mountpoint, "proc", MS_MGC_VAL | MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL)) {
+		pr_perror("mount failed");
+		if (rmdir(proc_mountpoint))
+			pr_perror("Unable to remove %s", proc_mountpoint);
+		return -1;
+	}
+
+	fd = open_detach_mount(proc_mountpoint);
+	return fd;
+}
+
 static int mount_proc(void)
 {
 	int fd, ret;
-	char proc_mountpoint[] = "/tmp/crtools-proc.XXXXXX";
 
 	if (root_ns_mask == 0)
 		fd = ret = open("/proc", O_DIRECTORY);
 	else {
-		if (mkdtemp(proc_mountpoint) == NULL) {
-			pr_perror("mkdtemp failed %s", proc_mountpoint);
-			return -1;
-		}
-
-		pr_info("Mount procfs in %s\n", proc_mountpoint);
-		if (mount("proc", proc_mountpoint, "proc", MS_MGC_VAL | MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL)) {
-			pr_perror("mount failed");
-			rmdir(proc_mountpoint);
-			return -1;
-		}
-
-		ret = fd = open_detach_mount(proc_mountpoint);
+		if (kdat.has_fsopen)
+			fd = ret = mount_detached_fs("proc");
+		else
+			fd = ret = __legacy_mount_proc();
 	}
 
 	if (fd >= 0) {
