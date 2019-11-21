@@ -20,13 +20,17 @@ ifeq ($(ARCH),arm64)
 endif
 
 ifeq ($(ARCH),arm)
-	ARMV := $(shell echo $(SUBARCH) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
+        ARMV := $(shell echo $(SUBARCH) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
 
-	ifeq ($(ARMV),6)
-		USERCFLAGS += -march=armv6
-	else ifeq ($(ARMV),7)
-		USERCFLAGS += -march=armv7-a
-	endif
+        ifeq ($(ARMV),6)
+                USERCFLAGS += -march=armv6
+        else ifeq ($(ARMV),7)
+                USERCFLAGS += -march=armv7-a
+        else ifeq ($(ARMV),8)
+                # To build aarch32 on armv8 Travis-CI (see criu Makefile)
+                USERCFLAGS += -march=armv7-a
+                ARMV := 7
+        endif
 endif
 
 HOSTCC	?= gcc
