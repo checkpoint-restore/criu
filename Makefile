@@ -17,8 +17,6 @@ ifeq ($(origin HOSTCFLAGS), undefined)
         HOSTCFLAGS := $(CFLAGS) $(USERCFLAGS)
 endif
 
-UNAME-M := $(shell uname -m)
-
 #
 # Supported Architectures
 ifneq ($(filter-out x86 arm aarch64 ppc64 s390,$(ARCH)),)
@@ -27,14 +25,14 @@ endif
 
 # The PowerPC 64 bits architecture could be big or little endian.
 # They are handled in the same way.
-ifeq ($(UNAME-M),ppc64)
+ifeq ($(SUBARCH),ppc64)
         error := $(error ppc64 big endian is not yet supported)
 endif
 
 #
 # Architecture specific options.
 ifeq ($(ARCH),arm)
-        ARMV		:= $(shell echo $(UNAME-M) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
+        ARMV		:= $(shell echo $(SUBARCH) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
 
         ifeq ($(ARMV),6)
                 USERCFLAGS += -march=armv6
