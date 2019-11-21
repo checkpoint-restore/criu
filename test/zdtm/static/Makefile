@@ -528,8 +528,8 @@ stopped12:		CFLAGS += -DZDTM_STOPPED_KILL -DZDTM_STOPPED_TKILL
 clone_fs:		LDLIBS += -pthread
 # As generating dependencies won't work without proper includes,
 # we have to explicitly specify both .o and .d for this case:
-netns_sub_veth.o netns_sub_veth.d:	CPPFLAGS += -I/usr/include/libnl3
-netns_sub_veth:		LDLIBS += -lnl-3 -l nl-route-3
+netns_sub_veth.o netns_sub_veth.d: CPPFLAGS += $(call pkg-cflags, libnl-3.0)
+netns_sub_veth:		LDLIBS += $(call pkg-libs, libnl-route-3.0 libnl-3.0)
 
 socket-tcp-fin-wait1:	CFLAGS += -D ZDTM_TCP_FIN_WAIT1
 socket-tcp-fin-wait2:	CFLAGS += -D ZDTM_TCP_FIN_WAIT2
