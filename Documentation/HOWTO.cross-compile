@@ -1,4 +1,10 @@
-This HOWTO explains how to cross-compile CRIU on x86
+How to cross-compile CRIU on x86:
+
+Use the Dockerfile provided:
+   scripts/build/Dockerfile.armv7-cross
+
+Historical guide how-to do it without docker container:
+[Unsupported, may not work anymore!]
 
  1. Download the protobuf sources.
  2. Apply the patch http://16918.selcdn.ru/crtools/aarch64/0001-protobuf-added-the-support-for-the-acrchitecture-AAr.patch
