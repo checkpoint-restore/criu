@@ -14,7 +14,7 @@ ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
         compel_plugins	:= $(shell $(COMPEL_BIN) plugins)
 endif
 
-LDS		:= compel/arch/$(SRCARCH)/scripts/compel-pack.lds.S
+LDS		:= compel/arch/$(ARCH)/scripts/compel-pack.lds.S
 
 restorer-obj-y	+= parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o
 restorer-obj-y	+= ./$(ARCH_DIR)/restorer.o
@@ -26,11 +26,11 @@ ifeq ($(ARCH),x86)
         endif
 endif
 
-ifeq ($(SRCARCH),aarch64)
+ifeq ($(ARCH),aarch64)
         restorer-obj-y	+= ./$(ARCH_DIR)/intraprocedure.o
 endif
 
-ifeq ($(SRCARCH),ppc64)
+ifeq ($(ARCH),ppc64)
         restorer-obj-y	+= ./$(ARCH_DIR)/vdso-trampoline.o
 endif
 
