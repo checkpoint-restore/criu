@@ -53,11 +53,24 @@ endif
 RM := rm -f --one-file-system
 
 ifeq ($(COMPAT_TEST),y)
+        # Firstly look for 32-bit libs and then in standard path.
+        PKG_CONFIG_PATH := $(shell pkg-config --variable pc_path pkg-config)
+        PKG_CONFIG_PATH := /usr/lib32/pkgconfig:$(PKG_CONFIG_PATH)
 ifeq ($(ARCH),x86)
         export CFLAGS += -m32
         export LDFLAGS += -m32
+        PKG_CONFIG_PATH := /usr/lib/i386-linux-gnu/pkgconfig:$(PKG_CONFIG_PATH)
 endif
+        export PKG_CONFIG_PATH
 endif
+
+define pkg-libs
+        $(shell PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" pkg-config --libs $(1))
+endef
+
+define pkg-cflags
+        $(shell PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" pkg-config --cflags $(1))
+endef
 
 %.d: %.c
 	$(E) " DEP      " $@
