@@ -219,13 +219,13 @@ TST_NOFILE	:=				\
 		child_subreaper_and_reparent	\
 #		jobctl00			\
 
-ifneq ($(SRCARCH),arm)
+ifneq ($(ARCH),arm)
 ifneq ($(COMPAT_TEST),y)
         TST_NOFILE += maps03
 endif
 endif
 
-ifeq ($(SRCARCH),s390)
+ifeq ($(ARCH),s390)
         TST_NOFILE +=	s390x_regs_check	\
 			s390x_gs_threads	\
 			s390x_runtime_instr

@@ -53,11 +53,11 @@ std-lib-y		+= ./$(PLUGIN_ARCH_DIR)/std/parasite-head.o
 target			+= fds
 fds-lib-y		+= fds/fds.o
 
-ifeq ($(SRCARCH),x86)
+ifeq ($(ARCH),x86)
 	std-lib-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcpy.o
 endif
 
-ifeq ($(SRCARCH),ppc64)
+ifeq ($(ARCH),ppc64)
 	std-lib-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcpy.o
 	std-lib-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcmp.o
 endif
