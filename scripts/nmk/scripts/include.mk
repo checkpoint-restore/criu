@@ -22,9 +22,8 @@ SUBARCH := $(shell uname -m | sed       \
                 -e s/aarch64.*/aarch64/)
 
 ARCH		?= $(SUBARCH)
-SRCARCH 	:= $(ARCH)
 
-export SUBARCH ARCH SRCARCH
+export SUBARCH ARCH
 
 ifndef ____nmk_defined__tools
         include $(__nmk_dir)tools.mk
