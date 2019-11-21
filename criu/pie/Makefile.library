@@ -9,14 +9,14 @@ lib-name		:= pie.lib.a
 lib-y			+= util.o
 lib-y			+= util-vdso.o
 
-ifeq ($(SRCARCH),x86)
+ifeq ($(ARCH),x86)
         ifeq ($(CONFIG_COMPAT),y)
                 lib-y	+= util-vdso-elf32.o
         endif
         CFLAGS_util-vdso-elf32.o	+= -DCONFIG_VDSO_32
 endif
 
-ifeq ($(SRCARCH),arm)
+ifeq ($(ARCH),arm)
         lib-y		+= ./$(ARCH_DIR)/aeabi-helpers.o
         lib-y		+= ./$(ARCH_DIR)/pie-cacheflush.o
 endif
