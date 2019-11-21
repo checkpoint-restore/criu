@@ -15,11 +15,8 @@ ARCH ?= $(shell uname -m | sed          \
                 -e s/aarch64.*/arm64/)
 
 ifeq ($(ARCH),arm64)
-        ARCH		?= aarch64
-        SRCARCH		?= aarch64
+        ARCH	:= aarch64
 endif
-
-SRCARCH ?= $(ARCH)
 
 ifeq ($(ARCH),arm)
 	ARMV := $(shell echo $(UNAME-M) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
@@ -35,7 +32,7 @@ CC	:= gcc
 CFLAGS	+= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 CFLAGS	+= $(USERCFLAGS)
 CFLAGS	+= -D_GNU_SOURCE
-CPPFLAGS += -iquote $(LIBDIR)/arch/$(SRCARCH)/include
+CPPFLAGS += -iquote $(LIBDIR)/arch/$(ARCH)/include
 
 ifeq ($(strip $(V)),)
 	E = @echo

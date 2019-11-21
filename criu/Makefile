@@ -2,7 +2,7 @@
 # 6a8d90f5fec4 "attr: Allow attribute type 0"
 WRAPFLAGS		+= -Wl,--wrap=nla_parse,--wrap=nlmsg_parse
 
-ARCH_DIR		:= criu/arch/$(SRCARCH)
+ARCH_DIR		:= criu/arch/$(ARCH)
 PIE_DIR			:= criu/pie
 export ARCH_DIR PIE_DIR
 
