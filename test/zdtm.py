@@ -232,11 +232,13 @@ class ns_flavor:
                 rdev = os.stat(name).st_rdev
 
         name = self.root + name
-        os.mknod(name, stat.S_IFCHR | 0o666, rdev)
+        os.mknod(name, stat.S_IFCHR, rdev)
+        os.chmod(name, 0o666)
 
     def __construct_root(self):
         for dir in self.__root_dirs:
-            os.mkdir(self.root + dir, 0o777)
+            os.mkdir(self.root + dir)
+            os.chmod(self.root + dir, 0o777)
 
         for ldir in ["/bin", "/sbin", "/lib", "/lib64"]:
             os.symlink(".." + ldir, self.root + "/usr" + ldir)
@@ -1146,7 +1148,8 @@ class criu:
                 if action == "dump":
                     # create a clean directory for images
                     os.rename(__ddir, __ddir + ".fail")
-                    os.mkdir(__ddir, 0o777)
+                    os.mkdir(__ddir)
+                    os.chmod(__ddir, 0o777)
                 else:
                     # on restore we move only a log file, because we need images
                     os.rename(os.path.join(__ddir, log),
@@ -1205,7 +1208,8 @@ class criu:
 
     def dump(self, action, opts=[]):
         self.__iter += 1
-        os.mkdir(self.__ddir(), 0o777)
+        os.mkdir(self.__ddir())
+        os.chmod(self.__ddir(), 0o777)
 
         a_opts = ["-t", self.__test.getpid()]
         if self.__prev_dump_iter:
