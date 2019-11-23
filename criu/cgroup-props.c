@@ -14,7 +14,6 @@
 #include "cgroup-props.h"
 #include "cr_options.h"
 #include "xmalloc.h"
-#include "string.h"
 #include "util.h"
 #include "common/list.h"
 #include "log.h"

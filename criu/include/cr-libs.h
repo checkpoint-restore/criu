@@ -6,7 +6,8 @@
 #endif
 
 enum shared_libs {
-	SHARED_LIB_LAST = 0,
+	LIB_BSD = 0,
+	SHARED_LIB_LAST,
 };
 
 /* Called on init to dlopen() all .so libraries */

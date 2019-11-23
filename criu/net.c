@@ -35,7 +35,7 @@
 #include "action-scripts.h"
 #include "sockets.h"
 #include "pstree.h"
-#include "string.h"
+#include "lib-bsd.h"
 #include "sysctl.h"
 #include "kerndat.h"
 #include "util.h"

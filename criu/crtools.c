@@ -45,7 +45,7 @@
 #include "proc_parse.h"
 #include "kerndat.h"
 
-#include "setproctitle.h"
+#include "lib-bsd.h"
 #include "sysctl.h"
 #include "img-remote.h"
 

@@ -33,7 +33,7 @@
 #include "cr_options.h"
 #include "sysfs_parse.h"
 #include "seccomp.h"
-#include "string.h"
+#include "lib-bsd.h"
 #include "namespaces.h"
 #include "files-reg.h"
 #include "cgroup.h"

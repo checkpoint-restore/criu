@@ -41,7 +41,7 @@
 #include "common/scm.h"
 #include "uffd.h"
 
-#include "setproctitle.h"
+#include "lib-bsd.h"
 
 #include "cr-errno.h"
 #include "namespaces.h"

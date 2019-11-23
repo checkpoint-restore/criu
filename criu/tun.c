@@ -12,7 +12,7 @@
 #include "cr_options.h"
 #include "imgset.h"
 #include "protobuf.h"
-#include "string.h"
+#include "lib-bsd.h"
 #include "files.h"
 #include "files-reg.h"
 #include "tun.h"

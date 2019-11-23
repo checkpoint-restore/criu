@@ -26,6 +26,7 @@ struct so_desc {
 	unsigned	loaded_major;
 };
 static struct so_desc crlibs[SHARED_LIB_LAST] = {
+{ "libbsd.so", "Can't set title and using self-made strlcpy()", 0 },
 };
 
 static void *try_load_name_version(const char *so_name, const unsigned major)

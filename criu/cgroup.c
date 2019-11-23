@@ -20,7 +20,6 @@
 #include "util-pie.h"
 #include "namespaces.h"
 #include "seize.h"
-#include "string.h"
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"

@@ -20,7 +20,7 @@
 #include "servicefd.h"
 #include "rst-malloc.h"
 #include "common/lock.h"
-#include "string.h"
+#include "lib-bsd.h"
 #include "version.h"
 
 #include "../soccr/soccr.h"

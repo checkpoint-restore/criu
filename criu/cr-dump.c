@@ -38,7 +38,7 @@
 #include "crtools.h"
 #include "cr_options.h"
 #include "servicefd.h"
-#include "string.h"
+#include "lib-bsd.h"
 #include "ptrace-compat.h"
 #include "util.h"
 #include "namespaces.h"
