@@ -36,6 +36,9 @@ int render_lsm_profile(char *profile, char **val);
 
 extern int lsm_check_opts(void);
 
+extern int lsm_start_socket_labeling(void);
+extern int lsm_stop_socket_labeling(void);
+
 #ifdef CONFIG_HAS_SELINUX
 int dump_xattr_security_selinux(int fd, FdinfoEntry *e);
 int run_setsockcreatecon(FdinfoEntry *e);

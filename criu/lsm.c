@@ -262,6 +262,83 @@ int collect_lsm_profile(pid_t pid, CredsEntry *ce)
 	return ret;
 }
 
+/*
+ * If running on a system with SELinux enabled the socket for the
+ * communication between parasite daemon and the main
+ * CRIU process needs to be correctly labeled.
+ * Initially this was motivated by Podman's use case: The container
+ * is usually running as something like '...:...:container_t:...:....'
+ * and CRIU started from runc and Podman will run as
+ * '...:...:container_runtime_t:...:...'. As the parasite will be
+ * running with the same context as the container process: 'container_t'.
+ * Allowing a container process to connect via socket to the outside
+ * of the container ('container_runtime_t') is not desired and
+ * therefore CRIU needs to label the socket with the context of
+ * the container: 'container_t'.
+ * So this first gets the context of the root container process
+ * and tells SELinux to label the next created socket with
+ * the same label as the root container process.
+ * For this to work it is necessary to have the correct SELinux
+ * policies installed. For Fedora based systems this is part
+ * of the container-selinux package.
+ */
+int lsm_start_socket_labeling(void)
+{
+#ifdef CONFIG_HAS_SELINUX
+	security_context_t ctx;
+	int ret;
+
+	/*
+	 * This assumes that all processes CRIU wants to dump are labeled
+	 * with the same SELinux context. If some of the child processes
+	 * have different labels this will not work and needs additional
+	 * SELinux policies. But the whole SELinux socket labeling relies
+	 * on the correct SELinux being available.
+	 */
+	if (kdat.lsm != LSMTYPE__SELINUX)
+		return 0;
+
+	ret = getpidcon_raw(root_item->pid->real, &ctx);
+	if (ret < 0) {
+		pr_perror("Getting SELinux context for PID %d failed",
+				root_item->pid->real);
+		return ret;
+	}
+
+	ret = setsockcreatecon(ctx);
+	freecon(ctx);
+	if (ret < 0) {
+		pr_perror("Setting SELinux socket context for PID %d failed",
+				root_item->pid->real);
+		return ret;
+	}
+#endif
+	return 0;
+}
+
+/*
+ * Once the socket has been created, reset the SELinux socket labelling
+ * back to the default value of this process.
+ */
+int lsm_stop_socket_labeling(void)
+{
+#ifdef CONFIG_HAS_SELINUX
+	int ret;
+
+	if (kdat.lsm != LSMTYPE__SELINUX)
+		return 0;
+
+	ret = setsockcreatecon_raw(NULL);
+	if (ret < 0) {
+		pr_perror("Resetting SELinux socket context to "
+				"default for PID %d failed",
+				root_item->pid->real);
+		return ret;
+	}
+#endif
+	return 0;
+}
+
 // in inventory.c
 extern Lsmtype image_lsm;
 
