@@ -5,9 +5,10 @@
 
 #ifndef CR_NOGLIBC
 
-#include <string.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <stdbool.h>
+#include <string.h>
 
 extern void vprint_on_level(unsigned int loglevel, const char *format,
 		va_list params);
