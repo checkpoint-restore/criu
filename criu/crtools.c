@@ -25,6 +25,7 @@
 #include "common/compiler.h"
 #include "crtools.h"
 #include "cr_options.h"
+#include "cr-libs.h"
 #include "external.h"
 #include "files.h"
 #include "sk-inet.h"
@@ -48,11 +49,22 @@
 #include "sysctl.h"
 #include "img-remote.h"
 
-void flush_early_log_to_stderr() __attribute__((destructor));
-
-void flush_early_log_to_stderr(void)
+__attribute__((destructor))
+static void flush_early_log_to_stderr()
 {
 	flush_early_log_buffer(STDERR_FILENO);
+}
+
+__attribute__((destructor))
+static void exit_shared_libs(void)
+{
+	shared_libs_unload();
+}
+
+__attribute__((constructor))
+static void init_shared_libs(void)
+{
+	shared_libs_load();
 }
 
 int main(int argc, char *argv[], char *envp[])
