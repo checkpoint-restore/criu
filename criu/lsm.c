@@ -132,22 +132,11 @@ static int selinux_get_sockcreate_label(pid_t pid, char **output)
 	fclose(f);
 	return 0;
 }
-
-int reset_setsockcreatecon()
-{
-	/* Currently this only works for SELinux. */
-	if (kdat.lsm != LSMTYPE__SELINUX)
-		return 0;
-
-	if (setsockcreatecon_raw(NULL)) {
-		pr_perror("Unable to reset socket SELinux context");
-		return -1;
-	}
-	return 0;
-}
+#endif
 
 int run_setsockcreatecon(FdinfoEntry *e)
 {
+#ifdef CONFIG_HAS_SELINUX
 	char *ctx = NULL;
 
 	/* Currently this only works for SELinux. */
@@ -160,11 +149,13 @@ int run_setsockcreatecon(FdinfoEntry *e)
 		pr_perror("Unable to set the %s socket SELinux context", ctx);
 		return -1;
 	}
+#endif
 	return 0;
 }
 
 int dump_xattr_security_selinux(int fd, FdinfoEntry *e)
 {
+#ifdef CONFIG_HAS_SELINUX
 	char *ctx = NULL;
 	int len;
 	int ret;
@@ -194,10 +185,9 @@ int dump_xattr_security_selinux(int fd, FdinfoEntry *e)
 
 	e->xattr_security_selinux = ctx;
 
+#endif
 	return 0;
 }
-
-#endif
 
 void kerndat_lsm(void)
 {

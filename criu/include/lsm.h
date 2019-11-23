@@ -38,21 +38,7 @@ extern int lsm_check_opts(void);
 
 extern int lsm_start_socket_labeling(void);
 extern int lsm_stop_socket_labeling(void);
-
-#ifdef CONFIG_HAS_SELINUX
-int dump_xattr_security_selinux(int fd, FdinfoEntry *e);
-int run_setsockcreatecon(FdinfoEntry *e);
-int reset_setsockcreatecon();
-#else
-static inline int dump_xattr_security_selinux(int fd, FdinfoEntry *e) {
-	return 0;
-}
-static inline int run_setsockcreatecon(FdinfoEntry *e) {
-	return 0;
-}
-static inline int reset_setsockcreatecon() {
-	return 0;
-}
-#endif
+extern int dump_xattr_security_selinux(int fd, FdinfoEntry *e);
+extern int run_setsockcreatecon(FdinfoEntry *e);
 
 #endif /* __CR_LSM_H__ */

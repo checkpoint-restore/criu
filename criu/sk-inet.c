@@ -823,7 +823,7 @@ static int open_inet_sk(struct file_desc *d, int *new_fd)
 		return -1;
 	}
 
-	if (reset_setsockcreatecon())
+	if (lsm_stop_socket_labeling())
 		goto err;
 
 	if (ie->v6only) {
