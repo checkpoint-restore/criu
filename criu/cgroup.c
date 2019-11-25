@@ -8,6 +8,7 @@
 #include <ftw.h>
 #include <libgen.h>
 #include <sched.h>
+
 #include "common/list.h"
 #include "xmalloc.h"
 #include "cgroup.h"
@@ -24,6 +25,8 @@
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"
+#include "kerndat.h"
+#include "linux/mount.h"
 
 /*
  * This structure describes set of controller groups
@@ -542,6 +545,84 @@ static int add_freezer_state(struct cg_controller *controller)
 	return 0;
 }
 
+static const char namestr[] = "name=";
+static int __new_open_cgroupfs(struct cg_ctl *cc)
+{
+	int fsfd, fd;
+	char *name;
+
+	fsfd = sys_fsopen("cgroup", 0);
+	if (fsfd < 0) {
+		pr_perror("Unable to open the cgroup file system");
+		return -1;
+	}
+
+	if (strstartswith(cc->name, namestr)) {
+		if (sys_fsconfig(fsfd, FSCONFIG_SET_STRING,
+				 "name", cc->name + strlen(namestr), 0)) {
+			pr_perror("Unable to configure the cgroup (%s) file system", cc->name);
+			goto err;
+		}
+	} else {
+		char *saveptr = NULL, *buf = strdupa(cc->name);
+		name = strtok_r(buf, ",", &saveptr);
+		while (name) {
+			if (sys_fsconfig(fsfd, FSCONFIG_SET_FLAG, name, NULL, 0)) {
+				pr_perror("Unable to configure the cgroup (%s) file system", name);
+				goto err;
+			}
+			name = strtok_r(NULL, ",", &saveptr);
+		}
+	}
+
+	if (sys_fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0)) {
+		pr_perror("Unable to create the cgroup (%s) file system", cc->name);
+		goto err;
+	}
+
+	fd = sys_fsmount(fsfd, 0, 0);
+	if (fd < 0)
+		pr_perror("Unable to mount the cgroup (%s) file system", cc->name);
+	close(fsfd);
+
+	return fd;
+err:
+	close(fsfd);
+	return -1;
+}
+
+static int open_cgroupfs(struct cg_ctl *cc)
+{
+	char prefix[] = ".criu.cgmounts.XXXXXX";
+	char mopts[1024];
+	int fd;
+
+	if (kdat.has_fsopen)
+		return __new_open_cgroupfs(cc);
+
+	if (strstartswith(cc->name, namestr))
+		snprintf(mopts, sizeof(mopts), "none,%s", cc->name);
+	else
+		snprintf(mopts, sizeof(mopts), "%s", cc->name);
+
+	if (mkdtemp(prefix) == NULL) {
+		pr_perror("can't make dir for cg mounts");
+		return -1;
+	}
+
+	if (mount("none", prefix, "cgroup", 0, mopts) < 0) {
+		pr_perror("Unable to mount %s", mopts);
+		rmdir(prefix);
+		return -1;
+	}
+
+	fd = open_detach_mount(prefix);
+	if (fd < 0)
+		return -1;
+
+	return fd;
+}
+
 static int collect_cgroups(struct list_head *ctls)
 {
 	struct cg_ctl *cc;
@@ -550,8 +631,6 @@ static int collect_cgroups(struct list_head *ctls)
 
 	list_for_each_entry(cc, ctls, l) {
 		char path[PATH_MAX], *root;
-		char prefix[] = ".criu.cgmounts.XXXXXX";
-		const char namestr[] = "name=";
 		struct cg_controller *cg;
 		struct cg_root_opt *o;
 
@@ -603,27 +682,7 @@ static int collect_cgroups(struct list_head *ctls)
 				return -1;
 			}
 		} else {
-			char mopts[1024];
-
-			if (strstartswith(cc->name, namestr))
-				snprintf(mopts, sizeof(mopts), "none,%s", cc->name);
-			else
-				snprintf(mopts, sizeof(mopts), "%s", cc->name);
-
-			if (mkdtemp(prefix) == NULL) {
-				pr_perror("can't make dir for cg mounts");
-				return -1;
-			}
-
-			if (mount("none", prefix, "cgroup", 0, mopts) < 0) {
-				pr_perror("couldn't mount %s", mopts);
-				rmdir(prefix);
-				return -1;
-			}
-
-			fd = open_detach_mount(prefix);
-			if (fd < 0)
-				return -1;
+			fd = open_cgroupfs(cc);
 		}
 
 		path_pref_len = snprintf(path, PATH_MAX, "/proc/self/fd/%d", fd);
