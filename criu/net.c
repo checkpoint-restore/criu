@@ -2162,6 +2162,11 @@ static int mount_ns_sysfs(void)
 
 	BUG_ON(ns_sysfs_fd != -1);
 
+	if (kdat.has_fsopen) {
+		ns_sysfs_fd = mount_detached_fs("sysfs");
+		return ns_sysfs_fd >= 0 ? 0 : -1;
+	}
+
 	/*
 	 * A new mntns is required to avoid the race between
 	 * open_detach_mount and creating mntns.
