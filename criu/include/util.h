@@ -380,4 +380,6 @@ static inline void print_stack_trace(pid_t pid) {}
 		___ret;									\
 	})
 
+extern int mount_detached_fs(const char *fsname);
+
 #endif /* __CR_UTIL_H__ */
