@@ -17,6 +17,10 @@ ifeq ($(SRCARCH),arm)
 	ccflags-y	+= -marm
 endif
 
+ifeq ($(SRCARCH),mips)
+	ccflags-y	+= -mno-abicalls
+endif
+
 asflags-y	+= -D__ASSEMBLY__
 
 LDS		:= compel/arch/$(SRCARCH)/scripts/compel-pack.lds.S

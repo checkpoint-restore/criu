@@ -630,7 +630,39 @@ void parasite_cleanup(void)
 int parasite_daemon_cmd(int cmd, void *args)
 {
 	int ret;
-
+//	pr_debug("parasite_daemon_cmd  cmd=%d misc=%d\n",cmd,PARASITE_CMD_DUMP_MISC);
+#if CONFIG_MIPS
+	if(cmd == PARASITE_CMD_DUMPPAGES) {
+		ret = dump_pages(args);
+	}else if(cmd == PARASITE_CMD_MPROTECT_VMAS){
+		ret = mprotect_vmas(args);
+	}else if(cmd == PARASITE_CMD_DUMP_SIGACTS){
+		ret = dump_sigact(args);
+	}else if(cmd == PARASITE_CMD_DUMP_ITIMERS){
+		ret = dump_itimers(args);
+	}else if(cmd == PARASITE_CMD_DUMP_POSIX_TIMERS){
+		ret = dump_posix_timers(args);
+	}else if(cmd == PARASITE_CMD_DUMP_THREAD){
+		ret = dump_thread(args);
+	}else if(cmd == PARASITE_CMD_DUMP_MISC){
+		ret = dump_misc(args);
+	}else if(cmd == PARASITE_CMD_DRAIN_FDS){
+		ret = drain_fds(args);
+	}else if(cmd == PARASITE_CMD_GET_PROC_FD){
+		ret = parasite_get_proc_fd();
+	}else if(cmd == PARASITE_CMD_DUMP_TTY){
+		ret = parasite_dump_tty(args);
+	}else if(cmd == PARASITE_CMD_CHECK_AIOS){
+		ret = parasite_check_aios(args);
+	}else if(cmd == PARASITE_CMD_CHECK_VDSO_MARK){
+		ret = parasite_check_vdso_mark(args);
+	}else if(cmd == PARASITE_CMD_DUMP_CGROUP){
+		ret = parasite_dump_cgroup(args);
+	}else {
+		pr_err("Unknown command in parasite daemon thread leader: %d\n", cmd);
+		ret = -1;
+	}
+#else
 	switch (cmd) {
 	case PARASITE_CMD_DUMPPAGES:
 		ret = dump_pages(args);
@@ -676,7 +708,7 @@ int parasite_daemon_cmd(int cmd, void *args)
 		ret = -1;
 		break;
 	}
-
+#endif 
 	return ret;
 }
 

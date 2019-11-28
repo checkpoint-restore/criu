@@ -1,6 +1,10 @@
 lib-name		:= pie.lib.a
 
+ifeq ($(SRCARCH),mips)
+CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC -mno-abicalls
+else
 CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC -fpie
+endif
 
 lib-y			+= util.o
 

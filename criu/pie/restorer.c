@@ -1228,7 +1228,7 @@ long __export_restore_task(struct task_restore_args *args)
 	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len,
 				bootstrap_start, bootstrap_len, args->task_size))
 		goto core_restore_end;
-
+#ifdef CONFIG_VDSO
 	/* Map vdso that wasn't parked */
 	if (!vdso_unmapped(args) && args->can_map_vdso) {
 		if (arch_map_vdso(args->vdso_rt_parked_at,
@@ -1236,7 +1236,7 @@ long __export_restore_task(struct task_restore_args *args)
 			goto core_restore_end;
 		}
 	}
-
+#endif
 	/* Shift private vma-s to the left */
 	for (i = 0; i < args->vmas_n; i++) {
 		vma_entry = args->vmas + i;
@@ -1476,8 +1476,12 @@ long __export_restore_task(struct task_restore_args *args)
 		sys_close(args->fd_exe_link);
 	}
 
+#ifdef CONFIG_MIPS
+	  //对于mips noabi程序，此prctl调用返回22。
+#else
 	if (ret)
-		goto core_restore_end;
+	    goto core_restore_end;
+#endif
 
 	/*
 	 * We need to prepare a valid sigframe here, so

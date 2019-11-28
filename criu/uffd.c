@@ -223,7 +223,7 @@ bool uffd_noncooperative(void)
 
 int uffd_open(int flags, unsigned long *features)
 {
-	struct uffdio_api uffdio_api = { 0 };
+struct uffdio_api uffdio_api = { 0 };
 	int uffd;
 
 	uffd = syscall(SYS_userfaultfd, flags);
