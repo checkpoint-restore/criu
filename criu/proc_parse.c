@@ -517,6 +517,11 @@ static inline int handle_vvar_vma(struct vma_area *vma)
 static inline int handle_vdso_vma(struct vma_area *vma)
 {
 	pr_warn_once("Found vDSO area without support\n");
+#ifdef CONFIG_MIPS
+	  /*mips can not support vdso temply*/
+	printf("%s %d WARN:mips can not support vdso temply\n",__FILE__,__LINE__);
+	return 0;
+#endif
 	return -1;
 }
 

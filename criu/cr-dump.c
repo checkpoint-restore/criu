@@ -1709,7 +1709,7 @@ static int cr_dump_finish(int ret)
 		pr_err("Dumping FAILED.\n");
 	} else {
 		write_stats(DUMP_STATS);
-		pr_info("Dumping finished successfully\n");
+		pr_msg("Dumping finished successfully\n");
 	}
 	return post_dump_ret ? : (ret != 0);
 }

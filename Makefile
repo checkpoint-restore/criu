@@ -21,7 +21,7 @@ UNAME-M := $(shell uname -m)
 
 #
 # Supported Architectures
-ifneq ($(filter-out x86 arm aarch64 ppc64 s390,$(ARCH)),)
+ifneq ($(filter-out x86 arm aarch64 ppc64 s390 mips,$(ARCH)),)
         $(error "The architecture $(ARCH) isn't supported")
 endif
 
@@ -65,6 +65,12 @@ ifeq ($(ARCH),x86)
         DEFINES		:= -DCONFIG_X86_64
 endif
 
+ifeq ($(ARCH),mips)
+         #VDSO		:= y
+        DEFINES		:= -DCONFIG_MIPS -DCONFIG_SMP -DCONFIG_CPU_LOONGSON3 -DCONFIG_WEAK_REORDERING_BEYOND_LLSC -DCONFIG_64BIT 
+        DEFINES		+= -DCONFIG_WEAK_ORDERING -DCONFIG_CPU_MIPSR2 -DCONFIG_PAGE_SIZE_16KB
+endif
+
 #
 # CFLAGS_PIE:
 #
@@ -92,6 +98,13 @@ DEFINES			+= -D_GNU_SOURCE
 WARNINGS		:= -Wall -Wformat-security
 
 CFLAGS-GCOV		:= --coverage -fno-exceptions -fno-inline
+
+ifeq ($(ARCH),mips)
+# 在MIPS上使用-Wall，在long long unsigned int 与__u64转化上会报ERROR
+WARNINGS		:= -g -rdynamic -finput-charset=UTF-8
+#WARNINGS		:= -mno-abicalls
+endif
+
 export CFLAGS-GCOV
 
 ifneq ($(GCOV),)

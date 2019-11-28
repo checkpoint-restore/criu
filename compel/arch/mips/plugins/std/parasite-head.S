@@ -1,0 +1,98 @@
+//#include "common/asm/linkage.h"
+#ifndef __CR_LINKAGE_H__
+#define __CR_LINKAGE_H__
+
+
+#define __ALIGN		.align 8
+#define __ALIGN_STR	".align 8"
+
+#define GLOBAL(name)		\
+	.globl name;		\
+	name:
+
+#define ENTRY(name)		\
+	.globl name;		\
+	__ALIGN;		\
+	.type name, @function;	\
+	name:
+
+#define END(sym)		\
+	.size sym, . - sym
+
+
+/*from glibc-2.20/sysdeps/mips/sys/regdef.h*/
+#define zero    $0      /* wired zero */
+#define AT      $1      /* assembler temp  - uppercase because of ".set at" */
+#define v0 	$2
+#define v1 	$3
+
+#define a0 	$4   
+#define a1      $5
+#define a2      $6
+#define a3      $7
+#define a4      $8
+#define a5      $9
+#define a6      $10
+#define a7      $11
+#define t0      $12
+#define t1      $13
+#define t2      $14
+#define t3      $15
+	
+#define s0      $16     /* callee saved */
+#define s1      $17
+#define s2      $18
+#define s3      $19
+#define s4      $20
+#define s5      $21
+#define s6      $22
+#define s7      $23
+#define t8      $24     /* caller saved */
+#define t9      $25
+#define jp      $25     /* PIC jump register */
+#define k0      $26     /* kernel scratch */
+#define k1      $27
+#define gp      $28     /* global pointer */
+#define sp      $29     /* stack pointer */
+#define fp      $30     /* frame pointer */
+#define s8	$30	/* same like fp! */
+#define ra      $31     /* return address */
+
+#endif /* __CR_LINKAGE_H__ */
+
+	
+	.section .head.text, "ax"
+ENTRY(__export_parasite_head_start)
+	.set noreorder
+	lw	a0, __export_parasite_cmd
+	dla	a1, __export_parasite_args
+	j	parasite_service
+	nop
+	.byte   0x0d, 0x00, 0x00, 0x00   //break
+//	.byte 0x40,0x01,0x00,0x00   //pause
+	
+__export_parasite_cmd:
+	.long 0
+END(__export_parasite_head_start)
+		
+
+/*
+ENTRY(__export_parasite_head_start)
+	.set	noreorder
+	.set	nomacro
+	daddiu	sp,sp,-48
+	gssq	ra,fp,32(sp)
+	sd	gp,24(sp)
+	move	fp,sp
+	ld	v0,%got_disp(__export_parasite_cmd)(gp)
+	lw	$2,0($2)
+	move	a0,v0
+	ld	a1,0(fp)
+	ld	$2,%got_disp(parasite_service)($28)
+	move	$25,$2
+	.reloc	1f,R_MIPS_JALR,parasite_service
+1:	jalr	$25
+	nop
+END(__export_parasite_head_start)
+*/	
+/*UNDO: gysun*/
