@@ -17,6 +17,10 @@ ldflags-y		+= -r
 # UAPI inclusion, referred as <compel/...>
 ccflags-y		+= -I compel/include/uapi
 
+ifeq ($(ARCH),mips)
+ccflags-y		+= -I compel
+endif
+
 lib-name		:= $(LIBCOMPEL_A)
 lib-y			+= src/lib/log.o
 host-lib-y		+= src/lib/log.o

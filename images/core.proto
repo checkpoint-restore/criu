@@ -5,6 +5,7 @@ import "core-arm.proto";
 import "core-aarch64.proto";
 import "core-ppc64.proto";
 import "core-s390.proto";
+import "core-mips.proto";
 
 import "rlimit.proto";
 import "timer.proto";
@@ -53,6 +54,7 @@ message task_core_entry {
 	//optional int32		tty_pgrp	= 17;
 
 	optional bool			child_subreaper	= 18;
+	optional uint64			blk_sigset_mips = 16[(criu).hex = true];
 }
 
 message task_kobj_ids_entry {
@@ -93,6 +95,7 @@ message thread_core_entry {
 	optional uint32			seccomp_filter	= 12;
 
 	optional string			comm		= 13;
+	optional uint64			blk_sigset_mips	= 14;
 }
 
 message task_rlimits_entry {
@@ -107,6 +110,7 @@ message core_entry {
 		AARCH64		= 3;
 		PPC64		= 4;
 		S390		= 5;
+		MIPS		= 6;
 	}
 
 	required march			mtype		= 1;
@@ -115,6 +119,7 @@ message core_entry {
 	optional thread_info_aarch64	ti_aarch64	= 8;
 	optional thread_info_ppc64	ti_ppc64	= 9;
 	optional thread_info_s390	ti_s390		= 10;
+	optional thread_info_mips	ti_mips		= 11;
 
 	optional task_core_entry	tc		= 3;
 	optional task_kobj_ids_entry	ids		= 4;

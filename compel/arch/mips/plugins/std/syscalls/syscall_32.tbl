@@ -1,0 +1,7 @@
+#
+# System calls table, please make sure the table consist only the syscalls
+# really used somewhere in project.
+#UNDO: gysun 
+#
+# code		name			arguments
+# -------------------------------------------------------------------------------------------------------------------------------------------------------------

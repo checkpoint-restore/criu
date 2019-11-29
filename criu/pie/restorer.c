@@ -1726,9 +1726,12 @@ long __export_restore_task(struct task_restore_args *args)
 		sys_close(args->fd_exe_link);
 	}
 
+#ifdef CONFIG_MIPS
+	  //for mips noabi，sys_prctl return 22.
+#else
 	if (ret)
 		goto core_restore_end;
-
+#endif
 	/* SELinux (1) process context needs to be set before creating threads. */
 	if (args->lsm_type == LSMTYPE__SELINUX) {
 		/* Only for SELinux */

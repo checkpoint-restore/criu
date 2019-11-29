@@ -181,7 +181,14 @@ int parasite_dump_thread_seized(struct parasite_thread_ctl *tctl,
 	pc->cap_last_cap = kdat.last_cap;
 
 	tc->has_blk_sigset = true;
+#ifdef CONFIG_MIPS
+
+	memcpy(&tc->blk_sigset, compel_thread_sigmask(tctl), sizeof(tc->blk_sigset));
+	memcpy(&tc->blk_sigset_mips, compel_thread_sigmask(tctl)+1, sizeof(tc->blk_sigset));
+#else
+
 	memcpy(&tc->blk_sigset, compel_thread_sigmask(tctl), sizeof(k_rtsigset_t));
+#endif
 	ret = compel_get_thread_regs(tctl, save_task_regs, core);
 	if (ret) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
@@ -242,8 +249,16 @@ int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct pstree_item *i
 		ASSIGN_TYPED(sa->sigaction, encode_pointer(args->sas[i].rt_sa_handler));
 		ASSIGN_TYPED(sa->flags, args->sas[i].rt_sa_flags);
 		ASSIGN_TYPED(sa->restorer, encode_pointer(args->sas[i].rt_sa_restorer));
+#ifdef CONFIG_MIPS
+		sa->has_mask_mips = 1;
+		BUILD_BUG_ON(sizeof(sa->mask) * 2 != sizeof(args->sas[0].rt_sa_mask.sig));
+		memcpy(&sa->mask, &(args->sas[i].rt_sa_mask.sig[0]), sizeof(sa->mask));
+		memcpy(&sa->mask_mips, &(args->sas[i].rt_sa_mask.sig[1]), sizeof(sa->mask));
+
+#else
 		BUILD_BUG_ON(sizeof(sa->mask) != sizeof(args->sas[0].rt_sa_mask.sig));
 		memcpy(&sa->mask, args->sas[i].rt_sa_mask.sig, sizeof(sa->mask));
+#endif
 		sa->has_compat_sigaction = true;
 		sa->compat_sigaction = !compel_mode_native(ctl);
 
@@ -571,7 +586,14 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	}
 
 	parasite_args_size = PARASITE_ARG_SIZE_MIN; /* reset for next task */
+#ifdef CONFIG_MIPS
+
+	memcpy(&item->core[0]->tc->blk_sigset, (unsigned long *)compel_task_sigmask(ctl), sizeof(item->core[0]->tc->blk_sigset));
+	memcpy(&item->core[0]->tc->blk_sigset_mips, (unsigned long *)compel_task_sigmask(ctl)+1, sizeof(item->core[0]->tc->blk_sigset));
+
+#else
 	memcpy(&item->core[0]->tc->blk_sigset, compel_task_sigmask(ctl), sizeof(k_rtsigset_t));
+#endif
 	dmpi(item)->parasite_ctl = ctl;
 
 	return ctl;

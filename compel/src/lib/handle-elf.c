@@ -18,8 +18,9 @@
 #include "piegen.h"
 #include "log.h"
 
-piegen_opt_t opts = {};
-
+#ifdef ELF_MIPS
+#include "arch/mips/src/lib/include/ldsodefs.h"
+#endif
 /* Check if pointer is out-of-bound */
 static bool __ptr_oob(const uintptr_t ptr, const uintptr_t start, const size_t size)
 {
@@ -405,6 +406,115 @@ int __handle_elf(void *mem, size_t size)
 #endif
 
 			switch (ELF_R_TYPE(r->rel.r_info)) {
+#ifdef ELF_MIPS
+	      /*fixme:gysun
+	       * refer to binutils-2.30/gold/mips.cc
+	       */
+			case R_MIPS_PC16:
+			      /* s+a-p relative */
+			      //	pr_debug("\t\t\t\tR_MIPS_PC16     at 0x%-4lx val 0x%x\n", place, value32 + addend32 - (int32_t)place);
+				*((int32_t *)where) = *((int32_t *)where) | ((value32 + addend32 - place)>>2);		
+				break;
+			case R_MIPS_26:
+			      /*TODO   */
+			      /*  local    : (((A << 2) | (P & 0xf0000000) + S) >> 2  
+			       *  external : (sign–extend(A < 2) + S) >> 2*/
+
+			      //pr_debug("\t\t\t\tR_MIPS_26       at 0x%-4lx val 0x%x  bind=0x%-2x\n", place, value32,(unsigned)ELF_ST_BIND(sym->st_info));
+			    if((unsigned)ELF_ST_BIND(sym->st_info) == 0x1){
+				  //bind type local is 0x0 ,global is 0x1
+				addend32 = value32;
+			    }
+			    pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_MIPS_26,  "
+			    	       ".addend = %-8d, .value = 0x%-16x, }, /* R_MIPS_26 */\n",
+			    	       (unsigned int)place, addend32, value32);
+				break;
+			case R_MIPS_32:
+				pr_debug("\t\t\t\tR_MIPS_32\n");
+			      /* S+A */
+			    /* pr_debug("\t\t\t\tR_MIPS_32       at 0x%-4lx val 0x%x\n", place, value32); */
+			    /* pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_INT,  " */
+			    /* 	       ".addend = %-8d, .value = 0x%-16x, }, /\* R_MIPS_32 *\/\n", */
+			    /* 	       (unsigned int)place, addend32, value32); */
+				break;
+			case R_MIPS_64:
+				pr_debug("\t\t\t\tR_MIPS_64\n");
+			      /*TODO  S + A */
+				/* pr_debug("\t\t\t\tR_MIPS_64       at 0x%-4lx val 0x%lx\n", place, (long)value64); */
+				/* pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_LONG, " */
+				/*        ".addend = %-8ld, .value = 0x%-16lx, }, /\* R_MIPS_64 *\/\n", */
+				/*        (unsigned int)place, (long)addend64, (long)value64); */
+				break;
+			case R_MIPS_HIGHEST:
+			      /*fixme
+			       *mipsabi has not . refer to binutils mips.cc 
+			       */
+			      //pr_debug("\t\t\t\tR_MIPS_HIGHEST     at 0x%-4lx val 0x%x\n", place, value32 + addend32);
+			    pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_MIPS_HIGHEST,  "
+			    	       ".addend = %-8d, .value = 0x%-16x, }, /* R_MIPS_HIGHEST */\n",
+			    	       (unsigned int)place, addend32, value32);
+			    /* pr_debug("\t\t\t\tR_MIPS_HIGHEST     at 0x%-4lx val 0x%x\n", place, value32 + addend32); */
+			    /* *((int32_t *)where) = *((int32_t *)where) | ((( value32 + addend32 + (uint64_t) 0x800080008000llu) >> 48) & 0xffff);		 */
+			    /* pr_debug("\t\t\t\tR_MIPS_HIGHEST     where 0x%x\n", *((int32_t *)where)); */
+			    break;
+
+			case R_MIPS_HIGHER:
+			      //pr_debug("\t\t\t\tR_MIPS_HIGHER     at 0x%-4lx val 0x%x\n", place, value32 + addend32);
+			    pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_MIPS_HIGHER,  "
+			    	       ".addend = %-8d, .value = 0x%-16x, }, /* R_MIPS_HIGHER */\n",
+			    	       (unsigned int)place, addend32, value32);
+			    break;
+			case R_MIPS_HI16:
+			      /* ((AHL + S) – (short)(AHL + S)) >> 16 */
+			    pr_debug("\t\t\t\tR_MIPS_HI16     at 0x%-4lx val 0x%x\n", place, value32 + addend32);
+			    pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_MIPS_HI16,  "
+			    	       ".addend = %-8d, .value = 0x%-16x, }, /* R_MIPS_HI16 */\n",
+			    	       (unsigned int)place, addend32, value32);
+			    break;
+
+			case R_MIPS_LO16:
+			      /* AHL + S */
+			      //pr_debug("\t\t\t\tR_MIPS_LO16     at 0x%-4lx val 0x%x\n", place, value32 + addend32);
+
+			    if((unsigned)ELF_ST_BIND(sym->st_info) == 0x1){
+				  //bind type local is 0x0 ,global is 0x1
+				addend32 = value32;
+			    }
+			    pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_MIPS_LO16,  "
+			    	       ".addend = %-8d, .value = 0x%-16x, }, /* R_MIPS_LO16 */\n",
+			    	       (unsigned int)place, addend32, value32);
+			    break;
+#if 1
+			case R_MIPS_GPREL16:
+			      /*TODO external:A+S+GP local A+S+GP0-GP*/
+			    pr_debug("\t\t\t\tTODO:R_MIPS_GPREL16      \n");
+				break;
+			case R_MIPS_GPREL32:
+			      /*TODO  A+S+GP0-GP*/
+			    pr_debug("\t\t\t\tTODO:R_MIPS_GPREL32      \n");
+				break;
+			case R_MIPS_CALL16:
+			    pr_debug("\t\t\t\tTODO:R_MIPS_CALL16      \n");
+			    break;
+			case R_MIPS_GOT_DISP:
+			      /*TODO*/
+			    pr_debug("\t\t\t\tTODO:R_MIPS_GOT_DISP      \n");
+				break;
+			case R_MIPS_GOT_PAGE:
+			      /*TODO ? */
+			    pr_debug("\t\t\t\tTODO:R_MIPS_GOT_PAGE      \n");
+				break;
+			case R_MIPS_GOT_OFST:
+			      /*TODO*/
+			    pr_debug("\t\t\t\tTODO:R_MIPS_GOT_OFST      \n");
+				break;
+			case R_MIPS_JALR:
+			      /*TODO*/
+			    pr_debug("\t\t\t\tTODO:R_MIPS_JALR      \n");
+				break;
+#endif //0
+
+#endif
 #ifdef ELF_PPC64
 			case R_PPC64_REL24:
 				/* Update PC relative offset, linker has not done this yet */
