@@ -18,6 +18,15 @@
  *         https://gcc.gnu.org/bugzilla/show_bug.cgi?id=69863
  *
  * So the only way is to put this wrapper in separate non-instrumented file
+ *
+ * WARNING: When calling clone_noasan make sure your not sitting in a later
+ * __restore__ phase where other tasks might be creating threads, otherwise
+ * all calls to clone_noasan should be guarder with
+ *
+ * 	lock_last_pid
+ *	clone_noasan
+ *	... wait for process to finish ...
+ *	unlock_last_pid
  */
 int clone_noasan(int (*fn)(void *), int flags, void *arg)
 {
