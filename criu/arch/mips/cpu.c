@@ -31,25 +31,25 @@
 
 int cpu_init(void)
 {
-    pr_info("%s:%d WARN:no implemented!!\n",__FILE__,__LINE__);
+    pr_warn("%s:%d no implemented!!\n",__FILE__,__LINE__);
     return 0;
 }
 
 int cpu_dump_cpuinfo(void)
 {
-    pr_info("ERROR''''''''%s:%d:no implemented!!\n",__FILE__,__LINE__);
+    pr_warn("%s:%d:no implemented!!\n",__FILE__,__LINE__);
 	return 0;
 }
 
 int cpu_validate_cpuinfo(void)
 {
-    pr_info("WARN''''''''%s:%d:no implemented!!\n",__FILE__,__LINE__);
+    pr_warn("%s:%d:no implemented!!\n",__FILE__,__LINE__);
 	return 0;
 }
 
 int cpuinfo_dump(void)
 {
-    pr_info("WARN''''''''%s:%d:no implemented!!\n",__FILE__,__LINE__);
+    pr_warn("%s:%d:no implemented!!\n",__FILE__,__LINE__);
 	if (cpu_init())
 		return -1;
 	if (cpu_dump_cpuinfo())
@@ -59,6 +59,6 @@ int cpuinfo_dump(void)
 
 int cpuinfo_check(void)
 {
-    pr_info("WARN''''''''%s:%d:no implemented!!\n",__FILE__,__LINE__);
+    pr_warn("%s:%d:no implemented!!\n",__FILE__,__LINE__);
 	return 0;
 }

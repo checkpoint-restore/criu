@@ -39,12 +39,12 @@ typedef struct {
 
 } user_fpregs_struct_t;
 
-#define MIPS_a0			regs[4] //参数寄存器 a0-a3
-#define MIPS_t0			regs[8] //临时寄存器 t0-t7
-#define MIPS_v0			regs[2] //
-#define MIPS_v1			regs[3] //
-#define MIPS_sp			regs[29] //
-#define MIPS_ra			regs[31] //
+#define MIPS_a0			regs[4] //arguments a0-a3
+#define MIPS_t0			regs[8] //temporaries t0-t7
+#define MIPS_v0			regs[2] 
+#define MIPS_v1			regs[3] 
+#define MIPS_sp			regs[29]
+#define MIPS_ra			regs[31]
 
 
 #define NATIVE_MAGIC	0x0A
@@ -55,10 +55,10 @@ static inline bool user_regs_native(user_regs_struct_t *pregs)
 }
 
 
-#define REG_RES(regs)		((regs).MIPS_v0) //系统调用的返回值
-#define REG_IP(regs)		((regs).cp0_epc) // 程序计数器
+#define REG_RES(regs)		((regs).MIPS_v0) 
+#define REG_IP(regs)		((regs).cp0_epc) 
 #define REG_SP(regs)		((regs).MIPS_sp)
-#define REG_SYSCALL_NR(regs)	((regs).MIPS_v0) //系统调用号
+#define REG_SYSCALL_NR(regs)	((regs).MIPS_v0) 
 
 //#define __NR(syscall, compat)	((compat) ? __NR32_##syscall : __NR_##syscall)
 #define __NR(syscall, compat)	__NR_##syscall

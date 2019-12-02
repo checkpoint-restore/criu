@@ -75,24 +75,3 @@ __export_parasite_cmd:
 	.long 0
 END(__export_parasite_head_start)
 		
-
-/*
-ENTRY(__export_parasite_head_start)
-	.set	noreorder
-	.set	nomacro
-	daddiu	sp,sp,-48
-	gssq	ra,fp,32(sp)
-	sd	gp,24(sp)
-	move	fp,sp
-	ld	v0,%got_disp(__export_parasite_cmd)(gp)
-	lw	$2,0($2)
-	move	a0,v0
-	ld	a1,0(fp)
-	ld	$2,%got_disp(parasite_service)($28)
-	move	$25,$2
-	.reloc	1f,R_MIPS_JALR,parasite_service
-1:	jalr	$25
-	nop
-END(__export_parasite_head_start)
-*/	
-/*UNDO: gysun*/

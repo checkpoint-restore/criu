@@ -2,7 +2,7 @@
 #define COMPEL_HANDLE_ELF_H__
 
 #include "elf64-types.h"
-/*fixme: gysun*/
+
 #define ELF_MIPS
 #define __handle_elf				handle_elf_mips
 //#define handle_elf_mips __handle_elf

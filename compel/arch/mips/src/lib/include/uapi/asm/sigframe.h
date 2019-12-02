@@ -10,7 +10,7 @@
 //#define SIGFRAME_MAX_OFFSET 8
 
 /*
- *fixme: gysun
+ *fixme
 */
 #include <asm/types.h>
 #define u32 __u32
@@ -64,7 +64,6 @@ typedef struct compat_sigaltstack {
 	compat_size_t		ss_size;
 } compat_stack_t;
 
-/*fixme: gysun*/
 #define RT_SIGFRAME_UC(rt_sigframe)		(&rt_sigframe->rs_uc)
 #define RT_SIGFRAME_UC_SIGMASK(rt_sigframe) 	((k_rtsigset_t *)(void *)&rt_sigframe->rs_uc.uc_sigmask)
 #define RT_SIGFRAME_REGIP(rt_sigframe)	((long unsigned int)0x00)   
@@ -72,13 +71,11 @@ typedef struct compat_sigaltstack {
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe) 1
 
 
-/*fixme: gysun*/
 #define RT_SIGFRAME_OFFSET(rt_sigframe)	0
 
 #define USER32_CS		0x23
 
 
-/*fixme: gysun 汇编指令*/
 #define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)				\
 	asm volatile(							\
 		     "move $29, %0				    \n"	\

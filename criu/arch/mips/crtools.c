@@ -132,17 +132,10 @@ int kdat_compatible_cr(void)
 	return 1;
 }
 #else /* !CONFIG_COMPAT */
-#if 0 /*fixme: gysun*/
-int kdat_compatible_cr(void)
-{
-	return 0;
-}
-#endif
 #endif
 
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
-//#define assign_reg(dst, src, e, n)		dst->e = (__typeof__(dst->e))((src)->regs##[##n##])
 	CoreEntry *core = x;
 
 	// Save the MIPS CPU state
@@ -254,7 +247,6 @@ err:
 
 void arch_free_thread_info(CoreEntry *core)
 {
-    pr_info("ERROR''''''''%s:%d:no implemented!!\n",__FILE__,__LINE__);
 	if (!core->thread_info)
 		return;
 
@@ -348,39 +340,8 @@ int restore_gpregs(struct rt_sigframe *f, UserMipsRegsEntry *r)
     return 0;
 }
 
-/* static int get_robust_list32(pid_t pid, uintptr_t head, uintptr_t len) */
-/* { */
-/* #if 0 //fixme: gysun */
-/* 	struct syscall_args32 s = { */
-/* 		.nr	= __NR32_get_robust_list, */
-/* 		.arg0	= pid, */
-/* 		.arg1	= (uint32_t)head, */
-/* 		.arg2	= (uint32_t)len, */
-/* 	}; */
-
-/* 	do_full_int80(&s); */
-/* 	return (int)s.nr; */
-/* #endif */
-/* 	return 0; */
-/* } */
-
-/* static int set_robust_list32(uint32_t head, uint32_t len) */
-/* { */
-/* #if 0 //fixme: gysun */
-/* 	struct syscall_args32 s = { */
-/* 		.nr	= __NR32_set_robust_list, */
-/* 		.arg0	= head, */
-/* 		.arg1	= len, */
-/* 	}; */
-
-/* 	do_full_int80(&s); */
-/* 	return (int)s.nr; */
-/* #endif */
-/* 	return 0; */
-/* } */
-
 int get_task_futex_robust_list_compat(pid_t pid, ThreadCoreEntry *info)
 {
-    pr_info("ERROR''''''''%s:%d:no implemented!!\n",__FILE__,__LINE__);
+    pr_warn("%s:%d:no implemented!!\n",__FILE__,__LINE__);
 	return 0;
 }

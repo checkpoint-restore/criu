@@ -142,7 +142,8 @@ typedef struct
 #undef ELF64_R_SYM
 #define ELF64_R_SYM(i) ELF64_MIPS_R_SYM (i)
 #undef ELF64_R_TYPE
-/*fixme:gysun*/
+
+/*fixme*/
 #define ELF64_R_TYPE(i) (ELF64_MIPS_R_TYPE (i) & 0x00ff)
 #undef ELF64_R_INFO
 #define ELF64_R_INFO(sym, type) ELF64_MIPS_R_INFO ((sym), (type))

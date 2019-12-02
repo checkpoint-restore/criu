@@ -131,7 +131,6 @@ typedef struct siginfo {
 #define SI_TIMER __SI_CODE(__SI_TIMER, -3) /* sent by timer expiration */
 #define SI_MESGQ __SI_CODE(__SI_MESGQ, -4) /* sent by real time mesq state change */
 
-/*fixme: gysun*/
 //#include <asm-generic/siginfo.h>
 
 #endif /* _UAPI_ASM_SIGINFO_H */

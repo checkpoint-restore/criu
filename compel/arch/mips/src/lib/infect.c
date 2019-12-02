@@ -22,7 +22,7 @@
 #include <stdio.h>
 /*
  * Injected syscall instruction
- * mips64el 是64位小端字节序
+ * mips64el is Little Endian
  */
 const char code_syscall[] = {
     0x0c, 0x00, 0x00, 0x00,   /* syscall    */
@@ -47,21 +47,20 @@ int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
 			      user_regs_struct_t *regs,
 			      user_fpregs_struct_t *fpregs)
 {
-    pr_info("ERROR''''''''%s:%d:no implemented!!\n",__FILE__,__LINE__);
+    pr_warn("%s:%d:no implemented!!\n",__FILE__,__LINE__);
 	return 0;
 }
 
 int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
 				   struct rt_sigframe *rsigframe)
 {
-    pr_info("ERROR''''''''%s:%d:no implemented!!\n",__FILE__,__LINE__);
+    pr_warn("%s:%d:no implemented!!\n",__FILE__,__LINE__);
 	return 0;
 }
 
 int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 		  void *arg, __maybe_unused unsigned long flags)
 {
-    pr_info("''''''''%s:%d\n",__FILE__,__LINE__);
 	user_fpregs_struct_t xsave	= {  }, *xs = NULL;
 	int ret = -1;
 
@@ -134,31 +133,6 @@ void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *
     }
 }
 
-#define USER32_CS	0x23
-#define USER_CS		0x33
-#if 0 //fixme: gysun
-static bool ldt_task_selectors(pid_t pid)
-{
-    pr_info("ERROR''''''''%s:%d:no implemented!!\n",__FILE__,__LINE__);
-
-	unsigned long cs;
-
-	errno = 0;
-	/*
-	 * Offset of register must be from 64-bit set even for
-	 * compatible tasks. Fix this to support native i386 tasks
-	 */
-	cs = ptrace(PTRACE_PEEKUSER, pid, offsetof(user_regs_struct64, cs), 0);
-	if (errno != 0) {
-		pr_perror("Can't get CS register for %d", pid);
-		return -1;
-	}
-
-	return cs != USER_CS && cs != USER32_CS;
-//	return -1;
-}
-#endif
-
 bool arch_can_dump_task(struct parasite_ctl *ctl)
 {
 	/*
@@ -169,7 +143,6 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 
 int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
 {
-    pr_info("''''''''%s:%d\n",__FILE__,__LINE__);
     long ret;
     int err;
 
@@ -193,13 +166,13 @@ int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
 
 int ptrace_set_breakpoint(pid_t pid, void *addr)
 {
-    pr_info("WARN''''''''%s:%d:no implemented!!\n",__FILE__,__LINE__);
+    pr_warn("%s:%d:no implemented!!\n",__FILE__,__LINE__);
     return 1;
 }
 
 int ptrace_flush_breakpoints(pid_t pid)
 {
-     pr_info("%s:%d:WARN:no implemented!!\n",__FILE__,__LINE__);
+     pr_warn("%s:%d:no implemented!!\n",__FILE__,__LINE__);
 	return 0;
 }
 

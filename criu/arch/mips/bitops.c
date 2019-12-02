@@ -11,7 +11,7 @@
 /* #include <linux/export.h> */
 //#include "common/arch/mips/asm/bitops_mips.h"
 #include "bitops.h"
-
+#if 0
 /**
  * __mips_set_bit - Atomically set a bit in memory.  This is called by
  * set_bit() if it cannot find a faster solution.
@@ -179,7 +179,7 @@ int __mips_test_and_change_bit(unsigned long nr, volatile unsigned long *addr)
 }
 //EXPORT_SYMBOL(__mips_test_and_change_bit);
 
-
+#endif //0
 #define BITOP_WORD(nr)		((nr) / BITS_PER_LONG)
 
 #ifndef find_next_bit
@@ -187,13 +187,14 @@ int __mips_test_and_change_bit(unsigned long nr, volatile unsigned long *addr)
  * fixme: gysun 
  * from kernel/linux-3.10.84/lib/find_next_bit.c
  */
+#include "log.h"
 unsigned long find_next_bit(const unsigned long *addr, unsigned long size,
 			    unsigned long offset)
 {
 	const unsigned long *p = addr + BITOP_WORD(offset);
 	unsigned long result = offset & ~(BITS_PER_LONG-1);
 	unsigned long tmp;
-
+	pr_msg("-------gysun bitops.c find_next_bit work\n");
 	if (offset >= size)
 		return size;
 	size -= result;

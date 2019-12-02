@@ -13,41 +13,10 @@
 #include <compel/plugins/std/syscall.h>
 #include "log.h"
 #include "cpu.h"
-#if 0 //fixme: gysun
-int arch_map_vdso(unsigned long map_at, bool compatible)
-{
 
-	int vdso_type = compatible ? ARCH_MAP_VDSO_32 : ARCH_MAP_VDSO_64;
-
-	pr_debug("Mapping %s vDSO at %lx\n",
-		compatible ? "compatible" : "native", map_at);
-
-	return sys_arch_prctl(vdso_type, map_at);
-
-	return 0;
-}
-#endif
 int restore_nonsigframe_gpregs(UserMipsRegsEntry *r)
 {
 	return 0;
-#if 0 //fixme: gysun
-	long ret;
-	unsigned long fsgs_base;
-
-	fsgs_base = r->fs_base;
-	ret = sys_arch_prctl(ARCH_SET_FS, fsgs_base);
-	if (ret) {
-		pr_info("SET_FS fail %ld\n", ret);
-		return -1;
-	}
-
-	fsgs_base = r->gs_base;
-	ret = sys_arch_prctl(ARCH_SET_GS, fsgs_base);
-	if (ret) {
-		pr_info("SET_GS fail %ld\n", ret);
-		return -1;
-	}
-#endif
 }
 
 #ifdef CONFIG_COMPAT
@@ -80,6 +49,12 @@ static int prepare_stack32(void **stack32)
 
 void restore_tls(tls_t *ptls)
 {
-    pr_warn("-ERROR:MIPS 未实现 %s %d restore_tls\n",__FILE__,__LINE__);
+	asm volatile(							
+		     "move $4, %0				    \n"	
+		     "li $2,  "__stringify(__NR_set_thread_area)"  \n" 
+		     "syscall					    \n"	
+		     :							
+		     : "r"(*ptls)					
+		     : "$4","$2","memory");
 }
 #endif
