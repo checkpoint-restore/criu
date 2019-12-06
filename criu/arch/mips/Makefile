@@ -12,7 +12,7 @@ ldflags-y		+= -r -z noexecstack
 obj-y			+= cpu.o
 obj-y			+= crtools.o
 obj-y			+= sigframe.o
-obj-y			+= bitops.o
+#obj-y			+= bitops.o
 # ifeq ($(CONFIG_COMPAT),y)
 #         obj-y		+= sigaction_compat.o
 #         obj-y		+= call32.o
