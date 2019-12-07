@@ -231,12 +231,20 @@ int arch_alloc_thread_info(CoreEntry *core)
 	core->ti_mips = ti_mips;
 
 	gpregs = xmalloc(sizeof(*gpregs));
+	if (!gpregs){
+	    xfree(ti_mips);
+	    goto err;
+	}
+
 	user_mips_regs_entry__init(gpregs);
 	ti_mips->gpregs = gpregs;
 
 	fpregs = xmalloc(sizeof(*fpregs));
-	if (!fpregs)
-		goto err;
+	if (!fpregs){
+	    xfree(ti_mips);
+	    xfree(gpregs);
+	    goto err;
+	}
 	user_mips_fpregs_entry__init(fpregs);
 	ti_mips->fpregs = fpregs;
 

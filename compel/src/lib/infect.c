@@ -838,6 +838,12 @@ void compel_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *el
 			int *where = (mem + elf_relocs[i].offset);
 			*where = elf_relocs[i].value + elf_relocs[i].addend + (unsigned long)vbase;
 #ifdef CONFIG_MIPS
+                /*
+		 * mips rebasing :load time relocation
+		 * parasite.built-in.o and restorer.built-in.o is ELF 64-bit LSB relocatable for mips.
+		 * so we have to relocate some type for R_MIPS_26 R_MIPS_HIGHEST R_MIPS_HIGHER R_MIPS_HI16 and R_MIPS_LO16 in there.
+		 * for mips64el .if toload/store data or jump instruct ,need to relocation R_TYPE 
+		 */
 		} else if (elf_relocs[i].type & COMPEL_TYPE_MIPS_26) {
 		    int *where = (mem + elf_relocs[i].offset);
 		    *where = *where | ((elf_relocs[i].addend + ((unsigned long)vbase & 0x00fffffff) /*low 28 bit*/)>>2);
@@ -846,8 +852,8 @@ void compel_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *el
 		    int *where = (mem + elf_relocs[i].offset);
 
 		    int v_lo16 = (unsigned long)vbase &0x00ffff;
-		    if((v_lo16+elf_relocs[i].value+elf_relocs[i].addend) >= 0x8000){ //有符号扩展
-			*where = *where | ((((unsigned long)vbase>>16) &0xffff)+0x1);//基址进位
+		    if((v_lo16+elf_relocs[i].value+elf_relocs[i].addend) >= 0x8000){ 
+			*where = *where | ((((unsigned long)vbase>>16) &0xffff)+0x1);
 		    }else{
 			*where = *where | ((((unsigned long)vbase>>16) &0xffff));//
 		    }
@@ -858,12 +864,10 @@ void compel_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *el
 		    *where = *where | ((v_lo16 + elf_relocs[i].addend) & 0xffff);
 
 		} else if (elf_relocs[i].type & COMPEL_TYPE_MIPS_HIGHER) {
-		      //refer to binutils mips.cc
 		    int *where = (mem + elf_relocs[i].offset);
 		    *where = *where | ((( (unsigned long)vbase + (uint64_t) 0x80008000) >> 32) & 0xffff);	
 
 		} else if (elf_relocs[i].type & COMPEL_TYPE_MIPS_HIGHEST) {
-		      //refer to binutils mips.cc . used instruct is lui
 		    int *where = (mem + elf_relocs[i].offset);
 		    *where = *where | ((( (unsigned long)vbase + (uint64_t) 0x800080008000llu) >> 48) & 0xffff);	
 #endif
