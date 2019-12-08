@@ -40,4 +40,50 @@
 		</classes>
 	</test>
 
+	<test name = "test6-Sockets">
+		<parameter name="testname" value="Sockets"/>
+		<parameter name="checkpointOpt" value="--tcp-established"/>
+		<parameter name="restoreOpt" value="--tcp-established"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test7-SocketsListen">
+		<parameter name="testname" value="SocketsListen"/>
+		<parameter name="checkpointOpt" value="--tcp-established"/>
+		<parameter name="restoreOpt" value="--tcp-established"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test8-SocketsConnect">
+		<parameter name="testname" value="SocketsConnect"/>
+		<parameter name="checkpointOpt" value="--tcp-established"/>
+		<parameter name="restoreOpt" value="--tcp-established"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test9-SocketsMultiple">
+		<parameter name="testname" value="SocketsMultiple"/>
+		<parameter name="checkpointOpt" value="--tcp-established"/>
+		<parameter name="restoreOpt" value="--tcp-established"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+	</test>
+
+	<test name = "test10-SocketsData">
+		<parameter name="testname" value="SocketsData"/>
+		<parameter name="checkpointOpt" value="--tcp-established"/>
+		<parameter name="restoreOpt" value="--tcp-established"/>
+		<classes>
+			<class name = "org.criu.java.tests.CheckpointRestore"/>
+		</classes>
+
+	</test>
+
 </suite>
