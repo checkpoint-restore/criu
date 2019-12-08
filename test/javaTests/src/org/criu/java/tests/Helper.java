@@ -30,7 +30,7 @@ class Helper {
 	 * the pid to the pidFile.
 	 *
 	 * @param testName Name of the java test
-	 * @param pid Pid of the java test process
+	 * @param pid      Pid of the java test process
 	 * @param logger
 	 * @return 0 or 1 denoting whether the function was successful or not.
 	 * @throws IOException
