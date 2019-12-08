@@ -30,7 +30,16 @@ Here we test the File-Based Java APIs by checkpointing the application in the fo
 ## Memory mapping Java APIs
 
 Here we test the Memory Mapping APIs by checkpointing the application in following scenario and verifying the contents after restore:
-- Memory-mapping a file and writing its content to another file. (MemoryMappings.java)
+- Memory-mapping a file and writing its content to another file. (MemoryMappings.java)  
+
+## Socket-based Java APIs
+
+Here we test the Socket-based API's by checkpointing the application in the following scenario and verifying the state after restore:  
+- Checkpointing the server process in the middle of data transfer. (Sockets.java)  
+- Checkpointing the server process after it has bound to a port but is not listening for client connections. (SocketListen.java)  
+- Checkpointing the server process while it is listening for client connections, and no client has connected yet. (SocketConnect.java)  
+- Checkpointing the server process when it has multiple clients in multiple states connected to it. (SocketMultiple.java)  
+- Checkpointing the client process in the middle of data transfer. (SocketsData.java)  
 
 ### Prerequisites for running the tests:
 - Maven
