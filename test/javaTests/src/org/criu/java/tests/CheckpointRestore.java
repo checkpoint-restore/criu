@@ -154,6 +154,7 @@ public class CheckpointRestore {
 		 */
 		while (Helper.STATE_INIT == currentState) {
 			currentState = mappedByteBuffer.getChar(Helper.MAPPED_INDEX);
+			Thread.sleep(100);
 		}
 
 		/*
