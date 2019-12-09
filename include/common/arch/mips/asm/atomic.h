@@ -21,23 +21,7 @@
  *
  * Atomically sets the value of @v to @i.
  */
-#if defined(CONFIG_CPU_LOONGSON3) || defined(CONFIG_CPU_LOONGSON2K)
-static __inline__ void atomic_set(atomic_t * v, int i)
-{
-		__asm__ __volatile__(
-		"	.set    mips64r2	# atomic_set		\n"
-                "	.set    noreorder				\n"
-		"	sync						\n"
-		"	sw      %1, %0					\n"
-		"	sync						\n"
-		"	.set    reorder					\n"
-		"	.set    mips0					\n"
-		: "+m" (v->counter)
-		: "r" (i));
-}
-#else
 #define atomic_set(v, i)		((v)->counter = (i))
-#endif
 /*
  * atomic_add - add integer to atomic variable
  * @i: integer value to add
@@ -48,35 +32,7 @@ static __inline__ void atomic_set(atomic_t * v, int i)
 
 static __inline__ void atomic_add(int i, atomic_t * v)
 {
-	if (kernel_uses_llsc && R10000_LLSC_WAR) {
-		int temp;
-
-		__asm__ __volatile__(
-		"	.set	mips3					\n"
-		"1:	ll	%0, %1		# atomic_add		\n"
-		"	addu	%0, %2					\n"
-		"	sc	%0, %1					\n"
-		"	beqzl	%0, 1b					\n"
-		"	.set	mips0					\n"
-		: "=&r" (temp), "+m" (v->counter)
-		: "Ir" (i));
-	} else if (kernel_uses_llsc && LOONGSON_LLSC_WAR) {
-		int temp;
-
-		do {
-			__asm__ __volatile__(
-			"	.set	mips3				\n"
-			__WEAK_LLSC_MB
-			"	ll	%0, %1		# atomic_add	\n"
-			"	addu	%0, %2				\n"
-			"	sc	%0, %1				\n"
-			"	.set	mips0				\n"
-			: "=&r" (temp), "+m" (v->counter)
-			: "Ir" (i));
-		} while (unlikely(!temp));
-
-		smp_llsc_mb();
-	} else if (kernel_uses_llsc) {
+    if (kernel_uses_llsc) {
 		int temp;
 
 		do {
@@ -103,35 +59,7 @@ static __inline__ void atomic_add(int i, atomic_t * v)
  */
 static __inline__ void atomic_sub(int i, atomic_t * v)
 {
-	if (kernel_uses_llsc && R10000_LLSC_WAR) {
-		int temp;
-
-		__asm__ __volatile__(
-		"	.set	mips3					\n"
-		"1:	ll	%0, %1		# atomic_sub		\n"
-		"	subu	%0, %2					\n"
-		"	sc	%0, %1					\n"
-		"	beqzl	%0, 1b					\n"
-		"	.set	mips0					\n"
-		: "=&r" (temp), "+m" (v->counter)
-		: "Ir" (i));
-	} else if (kernel_uses_llsc && LOONGSON_LLSC_WAR) {
-		int temp;
-
-		do {
-			__asm__ __volatile__(
-			"	.set	mips3				\n"
-			__WEAK_LLSC_MB
-			"	ll	%0, %1		# atomic_sub	\n"
-			"	subu	%0, %2				\n"
-			"	sc	%0, %1				\n"
-			"	.set	mips0				\n"
-			: "=&r" (temp), "+m" (v->counter)
-			: "Ir" (i));
-		} while (unlikely(!temp));
-
-		smp_llsc_mb();
-	} else if (kernel_uses_llsc) {
+    if (kernel_uses_llsc) {
 		int temp;
 
 		do {
@@ -158,36 +86,7 @@ static __inline__ int atomic_add_return(int i, atomic_t * v)
 
 	smp_mb__before_llsc();
 
-	if (kernel_uses_llsc && R10000_LLSC_WAR) {
-		int temp;
-
-		__asm__ __volatile__(
-		"	.set	mips3					\n"
-		"1:	ll	%1, %2		# atomic_add_return	\n"
-		"	addu	%0, %1, %3				\n"
-		"	sc	%0, %2					\n"
-		"	beqzl	%0, 1b					\n"
-		"	addu	%0, %1, %3				\n"
-		"	.set	mips0					\n"
-		: "=&r" (result), "=&r" (temp), "+m" (v->counter)
-		: "Ir" (i));
-	} else if (kernel_uses_llsc && LOONGSON_LLSC_WAR) {
-		int temp;
-
-		do {
-			__asm__ __volatile__(
-			"	.set	mips3				\n"
-			__WEAK_LLSC_MB
-			"	ll	%1, %2	# atomic_add_return	\n"
-			"	addu	%0, %1, %3			\n"
-			"	sc	%0, %2				\n"
-			"	.set	mips0				\n"
-			: "=&r" (result), "=&r" (temp), "+m" (v->counter)
-			: "Ir" (i));
-		} while (unlikely(!result));
-
-		result = temp + i;
-	} else if (kernel_uses_llsc) {
+	if (kernel_uses_llsc) {
 		int temp;
 
 		do {
@@ -217,38 +116,7 @@ static __inline__ int atomic_sub_return(int i, atomic_t * v)
 
 	smp_mb__before_llsc();
 
-	if (kernel_uses_llsc && R10000_LLSC_WAR) {
-		int temp;
-
-		__asm__ __volatile__(
-		"	.set	mips3					\n"
-		"1:	ll	%1, %2		# atomic_sub_return	\n"
-		"	subu	%0, %1, %3				\n"
-		"	sc	%0, %2					\n"
-		"	beqzl	%0, 1b					\n"
-		"	subu	%0, %1, %3				\n"
-		"	.set	mips0					\n"
-		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
-		: "Ir" (i), "m" (v->counter)
-		: "memory");
-
-	} else if (kernel_uses_llsc && LOONGSON_LLSC_WAR) {
-		int temp;
-
-		do {
-			__asm__ __volatile__(
-			"	.set	mips3				\n"
-			__WEAK_LLSC_MB
-			"	ll	%1, %2	# atomic_sub_return	\n"
-			"	subu	%0, %1, %3			\n"
-			"	sc	%0, %2				\n"
-			"	.set	mips0				\n"
-			: "=&r" (result), "=&r" (temp), "+m" (v->counter)
-			: "Ir" (i));
-		} while (unlikely(!result));
-
-		result = temp - i;
-	} else if (kernel_uses_llsc) {
+	if (kernel_uses_llsc) {
 		int temp;
 
 		do {

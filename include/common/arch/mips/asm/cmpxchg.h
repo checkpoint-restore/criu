@@ -5,44 +5,7 @@
 ({									\
 	__typeof(*(m)) __ret;						\
 									\
-	if (kernel_uses_llsc && R10000_LLSC_WAR) {			\
-		__asm__ __volatile__(					\
-		"	.set	push				\n"	\
-		"	.set	noat				\n"	\
-		"	.set	mips3				\n"	\
-		"1:	" ld "	%0, %2		# __cmpxchg_asm \n"	\
-		"	bne	%0, %z3, 2f			\n"	\
-		"	.set	mips0				\n"	\
-		"	move	$1, %z4				\n"	\
-		"	.set	mips3				\n"	\
-		"	" st "	$1, %1				\n"	\
-		"	beqzl	$1, 1b				\n"	\
-		"2:						\n"	\
-		"	.set	pop				\n"	\
-		: "=&r" (__ret), "=R" (*m)				\
-		: "R" (*m), "Jr" (old), "Jr" (new)			\
-		: "memory");						\
-	} else if (kernel_uses_llsc && LOONGSON_LLSC_WAR) {					\
-		__asm__ __volatile__(					\
-		"	.set	push				\n"	\
-		"	.set	noat				\n"	\
-		"	.set	mips3				\n"	\
-		"1:				# __cmpxchg_asm \n"	\
-		__WEAK_LLSC_MB						\
-		"	" ld "	%0, %2				\n"	\
-		"	bne	%0, %z3, 2f			\n"	\
-		"	.set	mips0				\n"	\
-		"	move	$1, %z4				\n"	\
-		"	.set	mips3				\n"	\
-		"	" st "	$1, %1				\n"	\
-		"	beqz	$1, 1b				\n"	\
-		"	.set	pop				\n"	\
-		"2:						\n"	\
-		__WEAK_LLSC_MB						\
-		: "=&r" (__ret), "=R" (*m)				\
-		: "R" (*m), "Jr" (old), "Jr" (new)			\
-		: "memory");						\
-	} else if (kernel_uses_llsc) {					\
+	if (kernel_uses_llsc) {						\
 		__asm__ __volatile__(					\
 		"	.set	push				\n"	\
 		"	.set	noat				\n"	\

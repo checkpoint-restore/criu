@@ -7,9 +7,6 @@
 *
 */
 
-#define LOONGSON_LLSC_WAR               0
-#define R10000_LLSC_WAR			0
-
 #ifdef CONFIG_SMP
 # define kernel_uses_llsc	1
 #else
@@ -38,11 +35,7 @@ typedef struct {
 #endif
 
 #if defined(CONFIG_WEAK_REORDERING_BEYOND_LLSC) && defined(CONFIG_SMP)
-#if defined(CONFIG_CPU_LOONGSON3) || defined(CONFIG_CPU_LOONGSON2K)
-#  define __WEAK_LLSC_MB	"	.set mips64r2\nsynci 0\n.set mips0\n"
-# else
 #define __WEAK_LLSC_MB		"	sync	\n"
-# endif
 #else
 #define __WEAK_LLSC_MB		"		\n"
 #endif
