@@ -111,10 +111,8 @@ void *remote_mmap(struct parasite_ctl *ctl,
 	long map;
 	int err;
 
-/*LOONGSON MIPS PAGE_SIZE IS 16K */
-
 	err = compel_syscall(ctl, __NR_mmap, &map,
-			(unsigned long)addr, length, prot, flags, fd, offset >> 14);
+			(unsigned long)addr, length, prot, flags, fd, offset >> PAGE_SHIFT);
 	if (err < 0){
 		map = 0;
 	}
