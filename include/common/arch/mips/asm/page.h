@@ -1,34 +1,39 @@
 #ifndef __CR_ASM_PAGE_H__
 #define __CR_ASM_PAGE_H__
 
-/*
-* from kernel/linux-3.10.84/arch/mips/include/asm/page.h
-*/
-#ifdef CONFIG_PAGE_SIZE_4KB
-#define PAGE_SHIFT	12
-#endif
-#ifdef CONFIG_PAGE_SIZE_8KB
-#define PAGE_SHIFT	13
-#endif
-#ifdef CONFIG_PAGE_SIZE_16KB
-#define PAGE_SHIFT	14
-#endif
-#ifdef CONFIG_PAGE_SIZE_32KB
-#define PAGE_SHIFT	15
-#endif
-#ifdef CONFIG_PAGE_SIZE_64KB
-#define PAGE_SHIFT	16
-#endif
+#define ARCH_HAS_LONG_PAGES
 
-#ifndef PAGE_SIZE
-# define PAGE_SIZE	(1UL << PAGE_SHIFT)
-#endif
+#ifndef CR_NOGLIBC
+#include <string.h> /* ffsl() */
+#include <unistd.h> /* _SC_PAGESIZE */
 
-#ifndef PAGE_MASK
-# define PAGE_MASK	(~(PAGE_SIZE - 1))
-#endif
+static unsigned __page_size;
+static unsigned __page_shift;
+
+static inline unsigned page_size(void)
+{
+	if (!__page_size)
+	    __page_size = sysconf(_SC_PAGESIZE);
+	return __page_size;
+}
+
+static inline unsigned page_shift(void)
+{
+	if (!__page_shift)
+		__page_shift = (ffsl(page_size()) - 1);
+	return __page_shift;
+}
+
+#define PAGE_SIZE	page_size()
+#define PAGE_SHIFT	page_shift()
+#define PAGE_MASK	(~(PAGE_SIZE - 1))
 
 #define PAGE_PFN(addr)	((addr) / PAGE_SIZE)
-#define page_size()	PAGE_SIZE
+#else /* CR_NOGLIBC */
+
+extern unsigned page_size(void);
+#define PAGE_SIZE page_size()
+
+#endif /* CR_NOGLIBC */
 
 #endif /* __CR_ASM_PAGE_H__ */
