@@ -640,9 +640,24 @@ int inet_collect_one(struct nlmsghdr *h, int family, int type, struct ns_id *ns)
 static int open_inet_sk(struct file_desc *d, int *new_fd);
 static int post_open_inet_sk(struct file_desc *d, int sk);
 
+static char *inet_sk_name(struct file_desc *d, char *buf, size_t s)
+{
+	struct inet_sk_info *ii;
+
+	ii = container_of(d, struct inet_sk_info, d);
+	if (snprintf(buf, s, "socket:[%u]", ii->ie->ino) >= s) {
+		pr_err("Not enough room for inetsk %d identifier string\n",
+				ii->ie->ino);
+		return NULL;
+	}
+
+	return buf;
+}
+
 static struct file_desc_ops inet_desc_ops = {
 	.type = FD_TYPES__INETSK,
 	.open = open_inet_sk,
+	.name = inet_sk_name,
 };
 
 static inline int tcp_connection(InetSkEntry *ie)
@@ -789,6 +804,10 @@ static int open_inet_sk(struct file_desc *d, int *new_fd)
 	struct inet_sk_info *ii;
 	InetSkEntry *ie;
 	int sk, yes = 1;
+
+	if (inherited_fd(d, new_fd)) {
+		return *new_fd >= 0 ? 0 : -1;
+	}
 
 	if (fle->stage >= FLE_OPEN)
 		return post_open_inet_sk(d, fle->fe->fd);
