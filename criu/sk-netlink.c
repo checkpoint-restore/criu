@@ -224,8 +224,17 @@ static int open_netlink_sk(struct file_desc *d, int *new_fd)
 		addr.nl_pid = nse->portid;
 
 		if (bind(sk, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-			pr_perror("Can't bind netlink socket");
-			goto err;
+			/*
+			 * Reassign if original bind fails, because socket addresses are
+			 * typically kernel assigned based on PID, and colisions are common
+			 * and very few applications care what address they are bound to.
+			 */
+			addr.nl_pid = 0;
+			if (bind(sk, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+				pr_perror("Can't bind netlink socket");
+				goto err;
+			}
+			pr_warn("Netlink socket id %#x reassigned new port\n", nse->id);
 		}
 	}
 
