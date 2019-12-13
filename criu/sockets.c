@@ -566,6 +566,22 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 		pr_debug("\tset broadcast for socket\n");
 		ret |= restore_opt(sk, SOL_SOCKET, SO_BROADCAST, &val);
 	}
+	if (soe->has_so_keepalive && soe->so_keepalive) {
+		pr_debug("\tset keepalive for socket\n");
+		ret |= restore_opt(sk, SOL_SOCKET, SO_KEEPALIVE, &val);
+	}
+	if (soe->has_tcp_keepcnt) {
+		pr_debug("\tset keepcnt for socket\n");
+		ret |= restore_opt(sk, SOL_TCP, TCP_KEEPCNT, &soe->tcp_keepcnt);
+	}
+	if (soe->has_tcp_keepidle) {
+		pr_debug("\tset keepidle for socket\n");
+		ret |= restore_opt(sk, SOL_TCP, TCP_KEEPIDLE, &soe->tcp_keepidle);
+	}
+	if (soe->has_tcp_keepintvl) {
+		pr_debug("\tset keepintvl for socket\n");
+		ret |= restore_opt(sk, SOL_TCP, TCP_KEEPINTVL, &soe->tcp_keepintvl);
+	}
 
 	tv.tv_sec = soe->so_snd_tmo_sec;
 	tv.tv_usec = soe->so_snd_tmo_usec;
@@ -650,6 +666,10 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	ret |= dump_opt(sk, SOL_SOCKET, SO_BROADCAST, &val);
 	soe->has_so_broadcast = true;
 	soe->so_broadcast = val ? true : false;
+
+	ret |= dump_opt(sk, SOL_SOCKET, SO_KEEPALIVE, &val);
+	soe->has_so_keepalive = true;
+	soe->so_keepalive = val ? true : false;
 
 	ret |= dump_bound_dev(sk, soe);
 	ret |= dump_socket_filter(sk, soe);
