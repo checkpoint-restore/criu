@@ -551,7 +551,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 
 	switch (proto) {
 	case IPPROTO_TCP:
-		err = (type != SOCK_RAW) ? dump_one_tcp(lfd, sk) : 0;
+		err = (type != SOCK_RAW) ? dump_one_tcp(lfd, sk, &skopts) : 0;
 		break;
 	case IPPROTO_UDP:
 	case IPPROTO_UDPLITE:
@@ -745,6 +745,10 @@ static int post_open_inet_sk(struct file_desc *d, int sk)
 
 	val = ii->ie->opts->so_broadcast;
 	if (!val && restore_opt(sk, SOL_SOCKET, SO_BROADCAST, &val))
+		return -1;
+
+	val = ii->ie->opts->so_keepalive;
+	if (!val && restore_opt(sk, SOL_SOCKET, SO_KEEPALIVE, &val))
 		return -1;
 
 	return 0;
