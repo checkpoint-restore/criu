@@ -218,8 +218,26 @@ err_r:
 	return ret;
 }
 
-int dump_one_tcp(int fd, struct inet_sk_desc *sk)
+int dump_one_tcp(int fd, struct inet_sk_desc *sk, SkOptsEntry *soe)
 {
+	soe->has_tcp_keepcnt = true;
+	if (dump_opt(fd, SOL_TCP, TCP_KEEPCNT, &soe->tcp_keepcnt)) {
+		pr_perror("Can't read TCP_KEEPCNT");
+		return -1;
+	}
+
+	soe->has_tcp_keepidle = true;
+	if (dump_opt(fd, SOL_TCP, TCP_KEEPIDLE, &soe->tcp_keepidle)) {
+		pr_perror("Can't read TCP_KEEPIDLE");
+		return -1;
+	}
+
+	soe->has_tcp_keepintvl = true;
+	if (dump_opt(fd, SOL_TCP, TCP_KEEPINTVL, &soe->tcp_keepintvl)) {
+		pr_perror("Can't read TCP_KEEPINTVL");
+		return -1;
+	}
+
 	if (sk->dst_port == 0)
 		return 0;
 

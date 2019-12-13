@@ -23,6 +23,10 @@ message sk_opts_entry {
 	repeated fixed64	so_filter	= 16;
 	optional bool		so_reuseport	= 17;
 	optional bool		so_broadcast	= 18;
+	optional bool		so_keepalive	= 19;
+	optional uint32		tcp_keepcnt	= 20;
+	optional uint32		tcp_keepidle	= 21;
+	optional uint32		tcp_keepintvl	= 22;
 }
 
 enum sk_shutdown {
