@@ -105,7 +105,8 @@ TST_NOFILE	:=				\
 		socket-tcp-unconn		\
 		socket-tcp6-unconn		\
 		socket-tcp-syn-sent		\
-		socket-tcp-skip-in-flight       \
+		socket-tcp-skip-in-flight	\
+		socket-tcp-keepalive		\
 		sock_opts00			\
 		sock_opts01			\
 		sk-unix-unconn			\
