@@ -1224,6 +1224,16 @@ static int check_uffd_noncoop(void)
 	return 0;
 }
 
+static int check_clone3_set_tid(void)
+{
+	if (!kdat.has_clone3_set_tid) {
+		pr_warn("clone3() with set_tid not supported\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int check_can_map_vdso(void)
 {
 	if (kdat_can_map_vdso() == 1)
@@ -1373,6 +1383,7 @@ int cr_check(void)
 		ret |= check_sk_netns();
 		ret |= check_kcmp_epoll();
 		ret |= check_net_diag_raw();
+		ret |= check_clone3_set_tid();
 	}
 
 	/*
@@ -1476,6 +1487,7 @@ static struct feature_list feature_list[] = {
 	{ "link_nsid", check_link_nsid},
 	{ "kcmp_epoll", check_kcmp_epoll},
 	{ "external_net_ns", check_external_net_ns},
+	{ "clone3_set_tid", check_clone3_set_tid},
 	{ NULL, NULL },
 };
 

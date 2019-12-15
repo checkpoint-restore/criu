@@ -41,6 +41,7 @@
 #include "uffd.h"
 #include "vdso.h"
 #include "kcmp.h"
+#include "sched.h"
 
 struct kerndat_s kdat = {
 };
@@ -986,6 +987,44 @@ static int kerndat_tun_netns(void)
 	return check_tun_netns_cr(&kdat.tun_ns);
 }
 
+static bool kerndat_has_clone3_set_tid(void)
+{
+	pid_t pid;
+	struct _clone_args args = {};
+
+#ifndef CONFIG_X86_64
+	/*
+	 * Currently the CRIU PIE assembler clone3() wrapper is
+	 * only implemented for X86_64.
+	 */
+	kdat.has_clone3_set_tid = false;
+	return 0;
+#endif
+
+	args.set_tid = -1;
+	/*
+	 * On a system without clone3() this will return ENOSYS.
+	 * On a system with clone3() but without set_tid this
+	 * will return E2BIG.
+	 * On a system with clone3() and set_tid it will return
+	 * EINVAL.
+	 */
+	pid = syscall(__NR_clone3, &args, sizeof(args));
+
+	if (pid == -1 && (errno == ENOSYS || errno == E2BIG)) {
+		kdat.has_clone3_set_tid = false;
+		return 0;
+	}
+	if (pid == -1 && errno == EINVAL) {
+		kdat.has_clone3_set_tid = true;
+	} else {
+		pr_perror("Unexpected error from clone3\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -1059,6 +1098,8 @@ int kerndat_init(void)
 		ret = has_kcmp_epoll_tfd();
 	if (!ret)
 		ret = kerndat_has_fsopen();
+	if (!ret)
+		ret = kerndat_has_clone3_set_tid();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
