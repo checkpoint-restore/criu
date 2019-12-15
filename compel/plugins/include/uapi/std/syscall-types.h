@@ -39,6 +39,7 @@ struct msghdr;
 struct rusage;
 struct iocb;
 struct pollfd;
+struct clone_args;
 
 typedef unsigned long aio_context_t;
 
