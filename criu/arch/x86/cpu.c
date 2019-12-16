@@ -236,6 +236,7 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 		return -1;
 
 	if (opts.cpu_cap & CPU_CAP_FPU) {
+		uint64_t m;
 		/*
 		 * If we're requested to check FPU only ignore
 		 * any other bit. It's up to a user if the
@@ -261,24 +262,33 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 #undef __mismatch_fpu_bit
 
 		/*
-		 * Make sure the xsave features are compatible. We already hit the
-		 * issue with libc where we've checkpointed the container on old
-		 * machine but restored on more modern one and libc fetched new
-		 * xsave frame size directly by xsave instruction with greedy
-		 * feature mask causing programs to misbehave.
+		 * Make sure the xsave features are compatible. Check that on
+		 * the destination there are all the features which were on the
+		 * source.
 		 */
-		if (cpu_info->xfeatures_mask > rt_cpu_info.xfeatures_mask) {
-			uint64_t m = cpu_info->xfeatures_mask & ~rt_cpu_info.xfeatures_mask;
-			pr_err("CPU xfeatures has unsupported bits (%#llx)\n",
-			       (unsigned long long)m);
+		if ((m = cpu_info->xfeatures_mask &
+			 ~rt_cpu_info.xfeatures_mask)) {
+			pr_err("CPU xfeatures has unsupported bits (%#"
+			       PRIx64")\n", m);
 			return -1;
-		} else if (cpu_info->xsave_size != rt_cpu_info.xsave_size) {
+		}
+
+		/*
+		 * Make sure the xsave sizes are compatible. We already hit the
+		 * issue with libc where we've checkpointed the container on
+		 * old machine but restored on more modern one and libc fetched
+		 * new xsave frame size directly by xsave instruction with
+		 * greedy feature mask causing programs to misbehave.
+		 */
+		if (cpu_info->xsave_size != rt_cpu_info.xsave_size) {
 			pr_err("CPU xsave size mismatch (%u/%u)\n",
 			       cpu_info->xsave_size, rt_cpu_info.xsave_size);
 			return -1;
-		} else if (cpu_info->xsave_size_max != rt_cpu_info.xsave_size_max) {
+		}
+		if (cpu_info->xsave_size_max != rt_cpu_info.xsave_size_max) {
 			pr_err("CPU xsave max size mismatch (%u/%u)\n",
-			       cpu_info->xsave_size_max, rt_cpu_info.xsave_size_max);
+			       cpu_info->xsave_size_max,
+			       rt_cpu_info.xsave_size_max);
 			return -1;
 		}
 	}
