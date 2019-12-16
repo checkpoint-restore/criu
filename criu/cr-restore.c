@@ -1374,40 +1374,55 @@ static inline int fork_with_pid(struct pstree_item *item)
 	if (!(ca.clone_flags & CLONE_NEWPID)) {
 		char buf[32];
 		int len;
-		int fd;
+		int fd = -1;
 
-		fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-		if (fd < 0)
-			goto err;
+		if (!kdat.has_clone3_set_tid) {
+			fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
+			if (fd < 0)
+				goto err;
+		}
 
 		lock_last_pid();
 
-		len = snprintf(buf, sizeof(buf), "%d", pid - 1);
-		if (write(fd, buf, len) != len) {
-			pr_perror("%d: Write %s to %s", pid, buf, LAST_PID_PATH);
+		if (!kdat.has_clone3_set_tid) {
+			len = snprintf(buf, sizeof(buf), "%d", pid - 1);
+			if (write(fd, buf, len) != len) {
+				pr_perror("%d: Write %s to %s", pid, buf,
+					LAST_PID_PATH);
+				close(fd);
+				goto err_unlock;
+			}
 			close(fd);
-			goto err_unlock;
 		}
-		close(fd);
 	} else {
 		BUG_ON(pid != INIT_PID);
 	}
 
-	/*
-	 * Some kernel modules, such as network packet generator
-	 * run kernel thread upon net-namespace creattion taking
-	 * the @pid we've been requeting via LAST_PID_PATH interface
-	 * so that we can't restore a take with pid needed.
-	 *
-	 * Here is an idea -- unhare net namespace in callee instead.
-	 */
-	/*
-	 * The cgroup namespace is also unshared explicitly in the
-	 * move_in_cgroup(), so drop this flag here as well.
-	 */
-	close_pid_proc();
-	ret = clone_noasan(restore_task_with_children,
-			(ca.clone_flags & ~(CLONE_NEWNET | CLONE_NEWCGROUP)) | SIGCHLD, &ca);
+	if (kdat.has_clone3_set_tid) {
+		ret = clone3_with_pid_noasan(restore_task_with_children,
+				&ca, (ca.clone_flags &
+					~(CLONE_NEWNET | CLONE_NEWCGROUP)),
+				SIGCHLD, pid);
+	} else {
+		/*
+		 * Some kernel modules, such as network packet generator
+		 * run kernel thread upon net-namespace creation taking
+		 * the @pid we've been requesting via LAST_PID_PATH interface
+		 * so that we can't restore a take with pid needed.
+		 *
+		 * Here is an idea -- unshare net namespace in callee instead.
+		 */
+		/*
+		 * The cgroup namespace is also unshared explicitly in the
+		 * move_in_cgroup(), so drop this flag here as well.
+		 */
+		close_pid_proc();
+		ret = clone_noasan(restore_task_with_children,
+				(ca.clone_flags &
+				 ~(CLONE_NEWNET | CLONE_NEWCGROUP)) | SIGCHLD,
+				&ca);
+	}
+
 	if (ret < 0) {
 		pr_perror("Can't fork for %d", pid);
 		goto err_unlock;
@@ -3588,6 +3603,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	task_args->vdso_maps_rt = vdso_maps_rt;
 	task_args->vdso_rt_size = vdso_rt_size;
 	task_args->can_map_vdso = kdat.can_map_vdso;
+	task_args->has_clone3_set_tid = kdat.has_clone3_set_tid;
 
 	new_sp = restorer_stack(task_args->t->mz);
 
