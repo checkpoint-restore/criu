@@ -48,6 +48,13 @@
 		  "r"(&thread_args[i])		/* %6 */		\
 		: "memory","0","3","4","5","6","7","14","15")
 
+#define RUN_CLONE3_RESTORE_FN(ret, clone_args, size, args, \
+			      clone_restore_fn)	do { \
+	pr_err("This architecture does not support clone3() with set_tid, yet!\n"); \
+	pr_err("Not creating a process with PID: %d\n", ((pid_t *)u64_to_ptr(clone_args.set_tid))[0]); \
+	ret = -1; \
+} while (0)
+
 #define arch_map_vdso(map, compat)		-1
 
 int restore_gpregs(struct rt_sigframe *f, UserPpc64RegsEntry *r);
