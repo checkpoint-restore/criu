@@ -107,7 +107,6 @@ __NR_setns			5303		sys_setns		(int fd, int nstype)
 __NR_kcmp			5306		sys_kcmp		(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2)
 __NR_memfd_create		5314		sys_memfd_create	(const char *name, unsigned int flags)
 __NR_userfaultfd		5317		sys_userfaultfd		(int flags)
-__NR_get_thread_area		5321		sys_get_thread_area	(unsigned long *addr)
 
 ##TODO for kernel
 __NR_fsopen			5400		sys_fsopen		(char *fsname, unsigned int flags)
