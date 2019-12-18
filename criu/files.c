@@ -1608,7 +1608,7 @@ int inherit_fd_lookup_id(char *id)
 
 bool inherited_fd(struct file_desc *d, int *fd_p)
 {
-	char buf[32], *id_str;
+	char buf[PATH_MAX], *id_str;
 	int i_fd;
 
 	if (!d->ops->name)
