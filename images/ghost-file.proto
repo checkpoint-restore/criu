@@ -16,8 +16,3 @@ message ghost_file_entry {
 	optional bool		chunks		= 9;
 	optional uint64		size		= 10;
 }
-
-message ghost_chunk_entry {
-	required uint64		len		= 1;
-	required uint64		off		= 2;
-}

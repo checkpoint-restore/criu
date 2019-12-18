@@ -12,6 +12,7 @@ proto-obj-y	+= fown.o
 proto-obj-y	+= ns.o
 proto-obj-y	+= regfile.o
 proto-obj-y	+= ghost-file.o
+proto-obj-y	+= data-chunk.o
 proto-obj-y	+= fifo.o
 proto-obj-y	+= remap-file-path.o
 proto-obj-y	+= eventfd.o

@@ -13,11 +13,6 @@
 #include <sys/capability.h>
 #include <sys/mount.h>
 
-#ifndef SEEK_DATA
-#define SEEK_DATA	3
-#define SEEK_HOLE	4
-#endif
-
 /* Stolen from kernel/fs/nfs/unlink.c */
 #define SILLYNAME_PREF ".nfs"
 #define SILLYNAME_SUFF_LEN (((unsigned)sizeof(u64) << 1) + ((unsigned)sizeof(unsigned int) << 1))
@@ -148,157 +143,11 @@ static int trim_last_parent(char *path)
 	return 0;
 }
 
-#define BUFSIZE	(4096)
-
-static int copy_chunk_from_file(int fd, int img, off_t off, size_t len)
-{
-	char *buf = NULL;
-	int ret;
-
-	if (opts.remote) {
-		buf = xmalloc(BUFSIZE);
-		if (!buf)
-			return -1;
-	}
-
-	while (len > 0) {
-		if (opts.remote) {
-			ret = pread(fd, buf, min_t(size_t, BUFSIZE, len), off);
-			if (ret <= 0) {
-				pr_perror("Can't read from ghost file");
-				xfree(buf);
-				return -1;
-			}
-			if (write(img, buf, ret) != ret) {
-				pr_perror("Can't write to image");
-				xfree(buf);
-				return -1;
-			}
-			off += ret;
-		} else {
-			ret = sendfile(img, fd, &off, len);
-			if (ret <= 0) {
-				pr_perror("Can't send ghost to image");
-				return -1;
-			}
-		}
-
-		len -= ret;
-	}
-
-	xfree(buf);
-	return 0;
-}
-
-static int copy_file_to_chunks(int fd, struct cr_img *img, size_t file_size)
-{
-	GhostChunkEntry ce = GHOST_CHUNK_ENTRY__INIT;
-	off_t data, hole = 0;
-
-	while (hole < file_size) {
-		data = lseek(fd, hole, SEEK_DATA);
-		if (data < 0) {
-			if (errno == ENXIO)
-				/* No data */
-				break;
-			else if (hole == 0) {
-				/* No SEEK_HOLE/DATA by FS */
-				data = 0;
-				hole = file_size;
-			} else {
-				pr_perror("Can't seek file data");
-				return -1;
-			}
-		} else {
-			hole = lseek(fd, data, SEEK_HOLE);
-			if (hole < 0) {
-				pr_perror("Can't seek file hole");
-				return -1;
-			}
-		}
-
-		ce.len = hole - data;
-		ce.off = data;
-
-		if (pb_write_one(img, &ce, PB_GHOST_CHUNK))
-			return -1;
-
-		if (copy_chunk_from_file(fd, img_raw_fd(img), ce.off, ce.len))
-			return -1;
-	}
-
-	return 0;
-}
-
-static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
-{
-	char *buf = NULL;
-	int ret;
-
-	if (opts.remote) {
-		buf = xmalloc(BUFSIZE);
-		if (!buf)
-			return -1;
-	}
-
-	while (len > 0) {
-		if (opts.remote) {
-			ret = read(img, buf, min_t(size_t, BUFSIZE, len));
-			if (ret <= 0) {
-				pr_perror("Can't read from image");
-				xfree(buf);
-				return -1;
-			}
-			if (pwrite(fd, buf, ret, off) != ret) {
-				pr_perror("Can't write to file");
-				xfree(buf);
-				return -1;
-			}
-		} else {
-			if (lseek(fd, off, SEEK_SET) < 0) {
-				pr_perror("Can't seek file");
-				return -1;
-			}
-			ret = sendfile(fd, img, NULL, len);
-			if (ret < 0) {
-				pr_perror("Can't send data");
-				return -1;
-			}
-		}
-
-		off += ret;
-		len -= ret;
-	}
-
-	xfree(buf);
-	return 0;
-}
-
-static int copy_file_from_chunks(struct cr_img *img, int fd, size_t file_size)
-{
-	if (ftruncate(fd, file_size) < 0) {
-		pr_perror("Can't make file size");
-		return -1;
-	}
-
-	while (1) {
-		int ret;
-		GhostChunkEntry *ce;
-
-		ret = pb_read_one_eof(img, &ce, PB_GHOST_CHUNK);
-		if (ret <= 0)
-			return ret;
-
-		if (copy_chunk_to_file(img_raw_fd(img), fd, ce->off, ce->len))
-			return -1;
-
-		ghost_chunk_entry__free_unpacked(ce, NULL);
-	}
-}
-
 static int mkreg_ghost(char *path, GhostFileEntry *gfe, struct cr_img *img)
 {
 	int gfd, ret;
+	int flags = 0;
+	size_t size = 0;
 
 	gfd = open(path, O_WRONLY | O_CREAT | O_EXCL, gfe->mode);
 	if (gfd < 0)
@@ -310,10 +159,11 @@ static int mkreg_ghost(char *path, GhostFileEntry *gfe, struct cr_img *img)
 			close(gfd);
 			return -1;
 		}
+		flags |= COPY_WITH_CHUNKS;
+		size = gfe->size;
+	}
 
-		ret = copy_file_from_chunks(img, gfd, gfe->size);
-	} else
-		ret = copy_file(img_raw_fd(img), gfd, 0);
+	ret = copy_img_to_fd(img, gfd, size, flags);
 	if (ret < 0)
 		unlink(path);
 	close(gfd);
@@ -773,7 +623,7 @@ static struct collect_image_info remap_cinfo = {
 /* Tiny files don't need to generate chunks in ghost image. */
 #define GHOST_CHUNKS_THRESH	(3 * 4096)
 
-static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_dev)
+static int dump_ghost_file(int fd, u32 id, const struct stat *st, dev_t phys_dev)
 {
 	struct cr_img *img;
 	int exit_code = -1;
@@ -816,26 +666,8 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 		goto err_out;
 
 	if (S_ISREG(st->st_mode)) {
-		int fd, ret;
-		char lpath[PSFDS];
-
-		/*
-		 * Reopen file locally since it may have no read
-		 * permissions when drained
-		 */
-		sprintf(lpath, "/proc/self/fd/%d", _fd);
-		fd = open(lpath, O_RDONLY);
-		if (fd < 0) {
-			pr_perror("Can't open ghost original file");
-			goto err_out;
-		}
-
-		if (gfe.chunks)
-			ret = copy_file_to_chunks(fd, img, st->st_size);
-		else
-			ret = copy_file(fd, img_raw_fd(img), st->st_size);
-		close(fd);
-		if (ret)
+		int flags = (gfe.chunks ? COPY_WITH_CHUNKS : 0) | COPY_REOPEN_FD;
+		if (copy_fd_to_img(fd, img, st->st_size, flags) < 0)
 			goto err_out;
 	}
 

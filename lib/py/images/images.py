@@ -229,11 +229,14 @@ class pagemap_handler:
 
 
 # Special handler for ghost-file.img
-class ghost_file_handler:
+class data_file_handler:
+    def __init__(self, base_pb):
+        self.base_pb = base_pb
+
     def load(self, f, pretty=False, no_payload=False):
         entries = []
 
-        gf = pb.ghost_file_entry()
+        gf = self.base_pb()
         buf = f.read(4)
         size, = struct.unpack('i', buf)
         gf.ParseFromString(f.read(size))
@@ -242,7 +245,7 @@ class ghost_file_handler:
         if gf.chunks:
             entries.append(g_entry)
             while True:
-                gc = pb.ghost_chunk_entry()
+                gc = pb.data_chunk_entry()
                 buf = f.read(4)
                 if len(buf) == 0:
                     break
@@ -268,7 +271,7 @@ class ghost_file_handler:
         return self.load(f, pretty)
 
     def dump(self, entries, f):
-        pbuff = pb.ghost_file_entry()
+        pbuff = pb.base_pb()
         item = entries.pop(0)
         pb2dict.dict2pb(item, pbuff)
         pb_str = pbuff.SerializeToString()
@@ -278,7 +281,7 @@ class ghost_file_handler:
 
         if pbuff.chunks:
             for item in entries:
-                pbuff = pb.ghost_chunk_entry()
+                pbuff = pb.data_chunk_entry()
                 pb2dict.dict2pb(item, pbuff)
                 pb_str = pbuff.SerializeToString()
                 size = len(pb_str)
@@ -468,7 +471,7 @@ handlers = {
     'UTSNS': entry_handler(pb.utsns_entry),
     'IPC_VAR': entry_handler(pb.ipc_var_entry),
     'FS': entry_handler(pb.fs_entry),
-    'GHOST_FILE': ghost_file_handler(),
+    'GHOST_FILE': data_file_handler(pb.ghost_file_entry),
     'MM': entry_handler(pb.mm_entry),
     'CGROUP': entry_handler(pb.cgroup_entry),
     'TCP_STREAM': entry_handler(pb.tcp_stream_entry,

@@ -1,0 +1,6 @@
+syntax = "proto2";
+
+message data_chunk_entry {
+	required uint64		len		= 1;
+	required uint64		off		= 2;
+}

@@ -43,10 +43,17 @@
 #include "cr-service.h"
 #include "files.h"
 #include "pstree.h"
+#include "data-chunk.pb-c.h"
+#include "protobuf.h"
 
 #include "cr-errno.h"
 
 #define VMA_OPT_LEN	128
+
+#ifndef SEEK_DATA
+#define SEEK_DATA	3
+#define SEEK_HOLE	4
+#endif
 
 static int xatol_base(const char *string, long *number, int base)
 {
@@ -468,6 +475,193 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 err:
 	xfree(buffer);
 	return ret;
+}
+
+#define BUFSIZE	(4096)
+
+static int copy_chunk_from_file(int fd, int img, off_t off, size_t len)
+{
+	char *buf = NULL;
+	int ret;
+
+	if (opts.remote) {
+		buf = xmalloc(BUFSIZE);
+		if (!buf)
+			return -1;
+	}
+
+	while (len > 0) {
+		if (opts.remote) {
+			ret = pread(fd, buf, min_t(size_t, BUFSIZE, len), off);
+			if (ret <= 0) {
+				pr_perror("Can't read from file");
+				xfree(buf);
+				return -1;
+			}
+			if (write(img, buf, ret) != ret) {
+				pr_perror("Can't write to image");
+				xfree(buf);
+				return -1;
+			}
+			off += ret;
+		} else {
+			ret = sendfile(img, fd, &off, len);
+			if (ret <= 0) {
+				pr_perror("Can't send file to image");
+				return -1;
+			}
+		}
+
+		len -= ret;
+	}
+
+	xfree(buf);
+	return 0;
+}
+
+
+static int copy_file_to_chunks(int fd, struct cr_img *img, size_t file_size)
+{
+	DataChunkEntry ce = DATA_CHUNK_ENTRY__INIT;
+	off_t data, hole = 0;
+
+	while (hole < file_size) {
+		data = lseek(fd, hole, SEEK_DATA);
+		if (data < 0) {
+			if (errno == ENXIO)
+				/* No data */
+				break;
+			else if (hole == 0) {
+				/* No SEEK_HOLE/DATA by FS */
+				data = 0;
+				hole = file_size;
+			} else {
+				pr_perror("Can't seek file data");
+				return -1;
+			}
+		} else {
+			hole = lseek(fd, data, SEEK_HOLE);
+			if (hole < 0) {
+				pr_perror("Can't seek file hole");
+				return -1;
+			}
+		}
+
+		ce.len = hole - data;
+		ce.off = data;
+
+		if (pb_write_one(img, &ce, PB_DATA_CHUNK))
+			return -1;
+
+		if (copy_chunk_from_file(fd, img_raw_fd(img), ce.off, ce.len))
+			return -1;
+	}
+
+	return 0;
+}
+
+int copy_fd_to_img(int fd, struct cr_img *img, size_t size, int flags)
+{
+	int ret;
+
+	if (flags & COPY_REOPEN_FD) {
+		char lpath[PSFDS];
+
+		/*
+		 * Reopen file locally since it may have no read
+		 * permissions when drained
+		 */
+		sprintf(lpath, "/proc/self/fd/%d", fd);
+		fd = open(lpath, O_RDONLY);
+		if (fd < 0) {
+			pr_perror("Can't open original file");
+			return -1;
+		}
+	}
+
+	if (flags & COPY_WITH_CHUNKS)
+		ret = copy_file_to_chunks(fd, img, size);
+	else
+		ret = copy_file(fd, img_raw_fd(img), size);
+
+	if (flags & COPY_REOPEN_FD)
+		close(fd);
+
+	return ret;
+}
+
+static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
+{
+	char *buf = NULL;
+	int ret;
+
+	if (opts.remote) {
+		buf = xmalloc(BUFSIZE);
+		if (!buf)
+			return -1;
+	}
+
+	while (len > 0) {
+		if (opts.remote) {
+			ret = read(img, buf, min_t(size_t, BUFSIZE, len));
+			if (ret <= 0) {
+				pr_perror("Can't read from image");
+				xfree(buf);
+				return -1;
+			}
+			if (pwrite(fd, buf, ret, off) != ret) {
+				pr_perror("Can't write to file");
+				xfree(buf);
+				return -1;
+			}
+		} else {
+			if (lseek(fd, off, SEEK_SET) < 0) {
+				pr_perror("Can't seek file");
+				return -1;
+			}
+			ret = sendfile(fd, img, NULL, len);
+			if (ret < 0) {
+				pr_perror("Can't send data");
+				return -1;
+			}
+		}
+
+		off += ret;
+		len -= ret;
+	}
+
+	xfree(buf);
+	return 0;
+}
+
+static int copy_file_from_chunks(struct cr_img *img, int fd, size_t file_size)
+{
+	if (ftruncate(fd, file_size) < 0) {
+		pr_perror("Can't make file size");
+		return -1;
+	}
+
+	while (1) {
+		int ret;
+		DataChunkEntry *ce;
+
+		ret = pb_read_one_eof(img, &ce, PB_DATA_CHUNK);
+		if (ret <= 0)
+			return ret;
+
+		if (copy_chunk_to_file(img_raw_fd(img), fd, ce->off, ce->len))
+			return -1;
+
+		data_chunk_entry__free_unpacked(ce, NULL);
+	}
+}
+
+int copy_img_to_fd(struct cr_img *img, int fd, size_t size, int flags)
+{
+	if (flags & COPY_WITH_CHUNKS)
+		return copy_file_from_chunks(img, fd, size);
+	else
+		return copy_file(img_raw_fd(img), fd, size);
 }
 
 int read_fd_link(int lfd, char *buf, size_t size)
