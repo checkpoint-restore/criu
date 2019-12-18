@@ -244,7 +244,7 @@ class ghost_file_handler:
             while True:
                 gc = pb.ghost_chunk_entry()
                 buf = f.read(4)
-                if buf == '':
+                if len(buf) == 0:
                     break
                 size, = struct.unpack('i', buf)
                 gc.ParseFromString(f.read(size))
@@ -252,13 +252,13 @@ class ghost_file_handler:
                 if no_payload:
                     f.seek(gc.len, os.SEEK_CUR)
                 else:
-                    entry['extra'] = base64.encodebytes(f.read(gc.len))
+                    entry['extra'] = base64.encodebytes(f.read(gc.len)).decode('utf-8')
                 entries.append(entry)
         else:
             if no_payload:
                 f.seek(0, os.SEEK_END)
             else:
-                g_entry['extra'] = base64.encodebytes(f.read())
+                g_entry['extra'] = base64.encodebytes(f.read()).decode('utf-8')
             entries.append(g_entry)
 
         return entries
