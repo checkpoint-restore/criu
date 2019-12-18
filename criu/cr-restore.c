@@ -2232,6 +2232,10 @@ skip_ns_bouncing:
 	if (ret < 0)
 		goto out_kill;
 
+	ret = apply_memfd_seals();
+	if (ret < 0)
+		goto out_kill;
+
 	/*
 	 * Zombies die after CR_STATE_RESTORE which is switched
 	 * by root task, not by us. See comment before CR_STATE_FORKING

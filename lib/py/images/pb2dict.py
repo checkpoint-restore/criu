@@ -123,6 +123,14 @@ rfile_flags_map = [
     ('O_CLOEXEC', 0o02000000),
 ]
 
+seals_flags_map = [
+    ('F_SEAL_SEAL', 0x0001),
+    ('F_SEAL_SHRINK', 0x0002),
+    ('F_SEAL_GROW', 0x0004),
+    ('F_SEAL_WRITE', 0x0008),
+    ('F_SEAL_FUTURE_WRITE', 0x0010),
+]
+
 pmap_flags_map = [
     ('PE_PARENT', 1 << 0),
     ('PE_LAZY', 1 << 1),
@@ -135,6 +143,7 @@ flags_maps = {
     'mmap.status': mmap_status_map,
     'rfile.flags': rfile_flags_map,
     'pmap.flags': pmap_flags_map,
+    'seals.flags': seals_flags_map,
 }
 
 gen_maps = {

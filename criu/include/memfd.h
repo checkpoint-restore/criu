@@ -15,6 +15,7 @@ extern const struct fdtype_ops memfd_dump_ops;
 extern int memfd_open(struct file_desc *d, u32 *fdflags);
 extern struct collect_image_info memfd_cinfo;
 extern struct file_desc *collect_memfd(u32 id);
+extern int apply_memfd_seals(void);
 
 #ifdef CONFIG_HAS_MEMFD_CREATE
 # include <sys/mman.h>
