@@ -164,6 +164,13 @@ static int dump_one_memfd(int lfd, u32 id, const struct fd_parms *p)
 	return pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
 }
 
+int dump_one_memfd_cond(int lfd, u32 *id, struct fd_parms *parms)
+{
+	if (fd_id_generate_special(parms, id))
+		return dump_one_memfd(lfd, *id, parms);
+	return 0;
+}
+
 const struct fdtype_ops memfd_dump_ops = {
 	.type		= FD_TYPES__MEMFD,
 	.dump		= dump_one_memfd,
@@ -265,7 +272,7 @@ static int memfd_open_inode(struct memfd_inode *inode)
 	return fd;
 }
 
-static int memfd_open(struct file_desc *d, u32 *fdflags)
+int memfd_open(struct file_desc *d, u32 *fdflags)
 {
 	char lpath[PSFDS];
 	struct memfd_info *mfi;
@@ -384,3 +391,13 @@ struct collect_image_info memfd_cinfo = {
 	.priv_size = sizeof(struct memfd_info),
 	.collect = collect_one_memfd,
 };
+
+struct file_desc *collect_memfd(u32 id) {
+	struct file_desc *fdesc;
+
+	fdesc = find_file_desc_raw(FD_TYPES__MEMFD, id);
+	if (fdesc == NULL)
+		pr_err("No entry for memfd %#x\n", id);
+
+	return fdesc;
+}
