@@ -412,6 +412,7 @@ usage:
 "                            pipe[inode]\n"
 "                            socket[inode]\n"
 "                            file[mnt_id:inode]\n"
+"                            /memfd:name\n"
 "                            path/to/file\n"
 "  --empty-ns net        Create a namespace, but don't restore its properties\n"
 "                        (assuming it will be restored by action scripts)\n"

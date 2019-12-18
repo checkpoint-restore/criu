@@ -276,6 +276,9 @@ static int memfd_open(struct file_desc *d, u32 *fdflags)
 	mfi = container_of(d, struct memfd_info, d);
 	mfe = mfi->mfe;
 
+	if (inherited_fd(d, &fd))
+		return fd;
+
 	pr_info("Restoring memfd id=%d\n", mfe->id);
 
 	fd = memfd_open_inode(mfi->inode);
@@ -325,9 +328,42 @@ static int memfd_open_fe_fd(struct file_desc *fd, int *new_fd)
 	return 0;
 }
 
+static char *memfd_d_name(struct file_desc *d, char *buf, size_t s)
+{
+	MemfdInodeEntry *mie = NULL;
+	struct cr_img *img = NULL;
+	struct memfd_info *mfi;
+	char *ret = NULL;
+
+	mfi = container_of(d, struct memfd_info, d);
+
+	img = open_image(CR_FD_MEMFD_INODE, O_RSTR, mfi->inode->id);
+	if (!img)
+		goto out;
+
+	if (pb_read_one(img, &mie, PB_MEMFD_INODE) < 0)
+		goto out;
+
+	if (snprintf(buf, s, "%s%s", MEMFD_PREFIX, mie->name) >= s) {
+		pr_err("Buffer too small for memfd name %s\n", mie->name);
+		goto out;
+	}
+
+	ret = buf;
+
+out:
+	if (img)
+		close_image(img);
+	if (mie)
+		memfd_inode_entry__free_unpacked(mie, NULL);
+
+	return ret;
+}
+
 static struct file_desc_ops memfd_desc_ops = {
 	.type = FD_TYPES__MEMFD,
 	.open = memfd_open_fe_fd,
+	.name = memfd_d_name,
 };
 
 static int collect_one_memfd(void *o, ProtobufCMessage *msg, struct cr_img *i)
