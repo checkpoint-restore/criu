@@ -34,6 +34,7 @@
 #include "sk-packet.h"
 #include "mount.h"
 #include "signalfd.h"
+#include "memfd.h"
 #include "namespaces.h"
 #include "tun.h"
 #include "timerfd.h"
@@ -546,13 +547,17 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 			return -1;
 
 		p.link = &link;
-		if (link.name[1] == '/')
-			return do_dump_gen_file(&p, lfd, &regfile_dump_ops, e);
 
-		if (check_ns_proc(&link))
-			return do_dump_gen_file(&p, lfd, &nsfile_dump_ops, e);
+		if (is_memfd(p.stat.st_dev, &link.name[1]))
+			ops = &memfd_dump_ops;
+		else if (link.name[1] == '/')
+			ops = &regfile_dump_ops;
+		else if (check_ns_proc(&link))
+			ops = &nsfile_dump_ops;
+		else
+			return dump_unsupp_fd(&p, lfd, "reg", link.name + 1, e);
 
-		return dump_unsupp_fd(&p, lfd, "reg", link.name + 1, e);
+		return do_dump_gen_file(&p, lfd, ops, e);
 	}
 
 	if (S_ISFIFO(p.stat.st_mode)) {
@@ -1720,6 +1725,9 @@ static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
 		break;
 	case FD_TYPES__TTY:
 		ret = collect_one_file_entry(fe, fe->tty->id, &fe->tty->base, &tty_cinfo);
+		break;
+	case FD_TYPES__MEMFD:
+		ret = collect_one_file_entry(fe, fe->memfd->id, &fe->memfd->base, &memfd_cinfo);
 		break;
 	}
 
