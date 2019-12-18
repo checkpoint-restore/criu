@@ -66,6 +66,7 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY(FS,		"fs-%u"),
 	FD_ENTRY(REMAP_FPATH,	"remap-fpath"),
 	FD_ENTRY_F(GHOST_FILE,	"ghost-file-%x", O_NOBUF),
+	FD_ENTRY_F(MEMFD_INODE,	"memfd-%u", O_NOBUF),
 	FD_ENTRY(TCP_STREAM,	"tcp-stream-%x"),
 	FD_ENTRY(MNTS,		"mountpoints-%u"),
 	FD_ENTRY(NETDEV,	"netdev-%u"),

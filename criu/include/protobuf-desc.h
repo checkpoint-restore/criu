@@ -61,6 +61,8 @@ enum {
 	PB_AUTOFS,
 	PB_GHOST_CHUNK,
 	PB_FILE,
+	PB_MEMFD_FILE,
+	PB_MEMFD_INODE,		/* 60 */
 
 	/* PB_AUTOGEN_STOP */
 
