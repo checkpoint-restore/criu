@@ -885,10 +885,13 @@ static int dump_ghost_remap(char *path, const struct stat *st,
 	gf->dev = phys_dev;
 	gf->ino = st->st_ino;
 	gf->id = ghost_file_ids++;
-	list_add_tail(&gf->list, &ghost_files);
 
-	if (dump_ghost_file(lfd, gf->id, st, phys_dev))
+	if (dump_ghost_file(lfd, gf->id, st, phys_dev)) {
+		xfree(gf);
 		return -1;
+	}
+
+	list_add_tail(&gf->list, &ghost_files);
 
 dump_entry:
 	rpe.orig_id = id;
