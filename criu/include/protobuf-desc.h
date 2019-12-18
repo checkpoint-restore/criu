@@ -65,6 +65,8 @@ enum {
 	PB_LOCAL_IMAGE,		/* Header for reading/writing images from/to proxy or cache. */
 	PB_LOCAL_IMAGE_REPLY,	/* Header for reading/writing images reply. */
 	PB_SNAPSHOT_ID,		/* Contains a single id. Used for reading/writing ids from proxy or cache. */
+	PB_MEMFD_FILE,
+	PB_MEMFD_INODE,		/* 60 */
 
 	/* PB_AUTOGEN_STOP */
 

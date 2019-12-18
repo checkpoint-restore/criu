@@ -76,6 +76,7 @@
 #include "sk-queue.h"
 #include "sigframe.h"
 #include "fdstore.h"
+#include "memfd.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
@@ -289,6 +290,7 @@ static struct collect_image_info *cinfos_files[] = {
 	&fanotify_cinfo,
 	&fanotify_mark_cinfo,
 	&ext_file_cinfo,
+	&memfd_cinfo,
 };
 
 /* These images are required to restore namespaces */

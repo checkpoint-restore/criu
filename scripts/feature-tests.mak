@@ -171,3 +171,14 @@ int main(int argc, char **argv)
 }
 
 endef
+
+define FEATURE_TEST_MEMFD_CREATE
+
+#include <sys/mman.h>
+#include <stddef.h>
+
+int main(void)
+{
+	return memfd_create(NULL, 0);
+}
+endef

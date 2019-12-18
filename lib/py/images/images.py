@@ -522,6 +522,8 @@ handlers = {
     'AUTOFS': entry_handler(pb.autofs_entry),
     'FILES': entry_handler(pb.file_entry),
     'CPUINFO': entry_handler(pb.cpuinfo_entry),
+    'MEMFD_FILE': entry_handler(pb.memfd_file_entry),
+    'MEMFD_INODE': entry_handler(pb.memfd_inode_entry),
 }
 
 

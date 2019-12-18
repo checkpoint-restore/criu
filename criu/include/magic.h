@@ -94,6 +94,7 @@
 #define BINFMT_MISC_MAGIC	0x67343323 /* Apatity */
 #define AUTOFS_MAGIC		0x49353943 /* Sochi */
 #define FILES_MAGIC		0x56303138 /* Toropets */
+#define MEMFD_INODE_MAGIC	0x48453499 /* Dnipro */
 
 #define IFADDR_MAGIC		RAW_IMAGE_MAGIC
 #define ROUTE_MAGIC		RAW_IMAGE_MAGIC
