@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <linux/memfd.h>
 
 #include "common/compiler.h"
 #include "common/lock.h"
@@ -24,6 +25,13 @@
 #define MEMFD_PREFIX "/memfd:"
 #define MEMFD_PREFIX_LEN (sizeof(MEMFD_PREFIX)-1)
 
+#define F_SEAL_SEAL	0x0001	/* prevent further seals from being set */
+#define F_SEAL_SHRINK	0x0002	/* prevent file from shrinking */
+#define F_SEAL_GROW	0x0004	/* prevent file from growing */
+#define F_SEAL_WRITE	0x0008	/* prevent writes */
+/* Linux 5.1+ */
+#define F_SEAL_FUTURE_WRITE	0x0010  /* prevent future writes while mapped */
+
 struct memfd_inode {
 	struct list_head	list;
 	u32			id;
@@ -37,6 +45,7 @@ struct memfd_inode {
 		struct {
 			mutex_t	lock;
 			int	fdstore_id;
+			unsigned int pending_seals;
 		};
 	};
 };
@@ -91,6 +100,10 @@ static int dump_memfd_inode(int fd, struct memfd_inode *inode,
 	mie.name = (char *)name;
 	mie.size = st->st_size;
 	mie.shmid = shmid;
+
+	mie.seals = fcntl(fd, F_GET_SEALS);
+	if (mie.seals == -1)
+		goto out;
 
 	if (pb_write_one(img, &mie, PB_MEMFD_INODE))
 		goto out;
@@ -187,6 +200,8 @@ struct memfd_info {
 	struct memfd_inode	*inode;
 };
 
+static int memfd_open_inode(struct memfd_inode *inode);
+
 static struct memfd_inode *memfd_alloc_inode(int id)
 {
 	struct memfd_inode *inode;
@@ -202,6 +217,7 @@ static struct memfd_inode *memfd_alloc_inode(int id)
 	inode->id = id;
 	mutex_init(&inode->lock);
 	inode->fdstore_id = -1;
+	inode->pending_seals = 0;
 
 	list_add_tail(&inode->list, &memfd_inodes);
 	return inode;
@@ -223,7 +239,16 @@ static int memfd_open_inode_nocache(struct memfd_inode *inode)
 	if (pb_read_one(img, &mie, PB_MEMFD_INODE) < 0)
 		goto out;
 
-	fd = memfd_create(mie->name, 0);
+	if (mie->seals == F_SEAL_SEAL) {
+		inode->pending_seals = 0;
+		flags = 0;
+	} else {
+		/* Seals are applied later due to F_SEAL_FUTURE_WRITE */
+		inode->pending_seals = mie->seals;
+		flags = MFD_ALLOW_SEALING;
+	}
+
+	fd = memfd_create(mie->name, flags);
 	if (fd < 0) {
 		pr_perror("Can't create memfd:%s", mie->name);
 		goto out;
@@ -400,4 +425,36 @@ struct file_desc *collect_memfd(u32 id) {
 		pr_err("No entry for memfd %#x\n", id);
 
 	return fdesc;
+}
+
+int apply_memfd_seals(void)
+{
+	/*
+	 * We apply the seals after all the mappings are done because the seal
+	 * F_SEAL_FUTURE_WRITE prevents future write access (added in
+	 * Linux 5.1). Thus we must make sure all writable mappings are opened
+	 * before applying this seal.
+	 */
+
+	int ret, fd;
+	struct memfd_inode *inode;
+
+	list_for_each_entry(inode, &memfd_inodes, list) {
+		if (!inode->pending_seals)
+			continue;
+
+		fd = memfd_open_inode(inode);
+		if (fd < 0)
+			return -1;
+
+		ret = fcntl(fd, F_ADD_SEALS, inode->pending_seals);
+		close(fd);
+
+		if (ret < 0) {
+			pr_perror("Cannot apply seals on memfd");
+			return -1;
+		}
+	}
+
+	return 0;
 }

@@ -17,4 +17,5 @@ message memfd_inode_entry {
 	required uint32		gid		= 3;
 	required uint64		size		= 4;
 	required uint32		shmid		= 5;
+	required uint32		seals		= 6 [(criu).flags = "seals.flags"];
 };
