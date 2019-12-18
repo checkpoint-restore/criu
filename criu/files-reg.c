@@ -35,6 +35,7 @@
 #include "pstree.h"
 #include "fault-injection.h"
 #include "external.h"
+#include "memfd.h"
 
 #include "protobuf.h"
 #include "util.h"
@@ -1920,7 +1921,10 @@ static int open_filemap(int pid, struct vma_area *vma)
 	flags = vma->e->fdflags;
 
 	if (ctx.flags != flags || ctx.desc != vma->vmfd) {
-		ret = open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
+		if (vma->e->status & VMA_AREA_MEMFD)
+			ret = memfd_open(vma->vmfd, &flags);
+		else
+			ret = open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
 		if (ret < 0)
 			return ret;
 
@@ -1950,7 +1954,10 @@ int collect_filemap(struct vma_area *vma)
 			vma->e->fdflags = O_RDONLY;
 	}
 
-	fd = collect_special_file(vma->e->shmid);
+	if (vma->e->status & VMA_AREA_MEMFD)
+		fd = collect_memfd(vma->e->shmid);
+	else
+		fd = collect_special_file(vma->e->shmid);
 	if (!fd)
 		return -1;
 

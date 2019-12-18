@@ -83,6 +83,7 @@
 #define VMA_AREA_SOCKET		(1 <<  11)
 #define VMA_AREA_VVAR		(1 <<  12)
 #define VMA_AREA_AIORING	(1 <<  13)
+#define VMA_AREA_MEMFD		(1 <<  14)
 
 #define VMA_CLOSE		(1 <<  28)
 #define VMA_NO_PROT_WRITE	(1 <<  29)
