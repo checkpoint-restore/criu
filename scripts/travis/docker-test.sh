@@ -19,11 +19,16 @@ apt-get update -qq
 
 apt-get install -qq docker-ce
 
-cat > /etc/docker/daemon.json <<EOF
-{
-    "experimental": true
-}
-EOF
+. /etc/lsb-release
+
+if [ "$DISTRIB_RELEASE" = "18.04" ]; then
+    # overlayfs behaves differently on Ubuntu (18.04) and breaks CRIU
+    # https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1857257
+    # Switch to devicemapper
+    echo '{ "experimental": true, "storage-driver": "devicemapper" }' > /etc/docker/daemon.json
+else
+    echo '{ "experimental": true }' > /etc/docker/daemon.json
+fi
 
 service docker restart
 
