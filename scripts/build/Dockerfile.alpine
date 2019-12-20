@@ -27,9 +27,7 @@ RUN mv .ccache /tmp && make mrproper && ccache -sz && \
 	date && make -j $(nproc) CC="$CC" && date && ccache -s
 
 RUN apk add \
-	py-yaml \
 	py-pip	\
-	py2-future \
 	ip6tables \
 	iptables \
 	iproute2 \
@@ -42,5 +40,5 @@ RUN apk add \
 # The rpc test cases are running as user #1000, let's add the user
 RUN adduser -u 1000 -D test
 
-RUN pip install protobuf ipaddress junit_xml flake8
+RUN pip install PyYAML future protobuf ipaddress junit_xml flake8
 RUN make -C test/zdtm
