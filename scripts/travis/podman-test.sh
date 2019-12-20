@@ -1,7 +1,13 @@
 #!/bin/bash
 set -x -e -o pipefail
 
-add-apt-repository -y ppa:projectatomic/ppa
+echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_18.04/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
+
+wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_18.04/Release.key -O- | apt-key add -
+
+# podman conflicts with a man page from docker-ce
+# this is a podman packaging bug (https://github.com/containers/libpod/issues/4747)
+apt-get -y purge docker-ce
 
 apt-get install -qq \
     apt-transport-https \
@@ -10,7 +16,6 @@ apt-get install -qq \
     software-properties-common
 
 apt-get update -qq
-
 apt-get install -qqy podman containernetworking-plugins
 
 export SKIP_TRAVIS_TEST=1
@@ -21,7 +26,9 @@ cd ../../
 
 make install
 
-podman info
+# overlaysfs behaves differently on Ubuntu and breaks CRIU
+# https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1857257
+podman --storage-driver vfs info
 
 criu --version
 

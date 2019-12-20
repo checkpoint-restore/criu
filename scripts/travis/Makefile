@@ -58,7 +58,10 @@ docker-test:
 podman-test:
 	./podman-test.sh
 
-openj9-test:
+# overlayfs behaves differently on Ubuntu and breaks CRIU
+# https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1857257
+# Switch to devicemapper
+openj9-test: restart-docker
 	./openj9-test.sh
 
 %:
