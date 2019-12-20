@@ -571,6 +571,11 @@ static bool mnt_is_external(struct mount_info *m)
 				if (t->external)
 					return 1;
 
+		/*
+		 * Shouldn't use mnt_bind list before it was populated in search_bindmounts
+		 */
+		BUG_ON(!m->mnt_bind_is_populated);
+
 		if (m->master_id <= 0 && !list_empty(&m->mnt_bind))
 			list_for_each_entry(t, &m->mnt_bind, mnt_bind)
 				if (issubpath(m->root, t->root) && t->external)
@@ -892,6 +897,43 @@ static int same_propagation_group(struct mount_info *a, struct mount_info *b)
 	return 0;
 }
 
+/*
+ * Note: Only valid if called consequently on all mounts in mntinfo list.
+ *
+ * Note: We may want to iterate over all bindmounts of some mount, and we would
+ * use ->mnt_bind list for this, but iterating over ->mnt_bind list is
+ * obviously meaningless before search_bindmounts had actually put bindmounts
+ * in it. That's why we have ->mnt_bind_is_populated to protect from misuse of
+ * ->mnt_bind. (As ->mnt_bind list can validly be empty when mount has no
+ *  bindmounts we need separate field to indicate population.)
+ */
+static void __search_bindmounts(struct mount_info *mi)
+{
+	struct mount_info *t;
+
+	if (mi->mnt_bind_is_populated)
+		return;
+
+	for (t = mi->next; t; t = t->next) {
+		if (mounts_sb_equal(mi, t)) {
+			list_add(&t->mnt_bind, &mi->mnt_bind);
+			t->mnt_bind_is_populated = true;
+			pr_debug("\tThe mount %3d is bind for %3d (@%s -> @%s)\n", t->mnt_id, mi->mnt_id, t->mountpoint,
+				 mi->mountpoint);
+		}
+	}
+
+	mi->mnt_bind_is_populated = true;
+}
+
+static void search_bindmounts(void)
+{
+	struct mount_info *mi;
+
+	for (mi = mntinfo; mi; mi = mi->next)
+		__search_bindmounts(mi);
+}
+
 static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 {
 	struct mount_info *m, *t;
@@ -943,21 +985,6 @@ static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 			       "has unreachable sharing. Try --enable-external-masters.\n",
 			       m->mnt_id, m->mountpoint, m->master_id, m->shared_id);
 			return -1;
-		}
-
-		/* Search bind-mounts */
-		if (list_empty(&m->mnt_bind)) {
-			/*
-			 * A first mounted point will be set up as a source point
-			 * for others. Look at propagate_mount()
-			 */
-			for (t = m->next; t; t = t->next) {
-				if (mounts_sb_equal(m, t)) {
-					list_add(&t->mnt_bind, &m->mnt_bind);
-					pr_debug("\tThe mount %3d is bind for %3d (@%s -> @%s)\n", t->mnt_id, m->mnt_id,
-						 t->mountpoint, m->mountpoint);
-				}
-			}
 		}
 	}
 
@@ -1539,6 +1566,7 @@ static __maybe_unused int add_cr_time_mount(struct mount_info *root, char *fsnam
 			break;
 	}
 
+	mi->mnt_bind_is_populated = true;
 	mi->nsid = parent->nsid;
 	mi->parent = parent;
 	mi->parent_mnt_id = parent->mnt_id;
@@ -3143,6 +3171,9 @@ int read_mnt_ns_img(void)
 	}
 
 	mntinfo = pms;
+
+	search_bindmounts();
+
 	return 0;
 }
 
@@ -3320,6 +3351,7 @@ static int populate_mnt_ns(void)
 
 	root_yard_mp->mountpoint = mnt_roots;
 	root_yard_mp->mounted = true;
+	root_yard_mp->mnt_bind_is_populated = true;
 
 	if (merge_mount_trees(root_yard_mp))
 		return -1;
@@ -3755,6 +3787,8 @@ int collect_mnt_namespaces(bool for_dump)
 	ret = walk_namespaces(&mnt_ns_desc, collect_mntns, &arg);
 	if (ret)
 		goto err;
+
+	search_bindmounts();
 
 #ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
 	if (for_dump && !opts.has_binfmt_misc) {
