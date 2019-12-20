@@ -558,6 +558,12 @@ static bool mnt_is_external(struct mount_info *m)
 				if (t->external)
 					return 1;
 
+		/*
+		 * Shouldn't use mnt_bind list before it was setup in
+		 * __search_bindmounts
+		 */
+		BUG_ON(list_empty(&m->mnt_bind) && !m->mnt_no_bind);
+
 		if (m->master_id <= 0 && !list_empty(&m->mnt_bind))
 			list_for_each_entry(t, &m->mnt_bind, mnt_bind)
 				if (issubpath(m->root, t->root) && t->external)
@@ -881,6 +887,30 @@ static int same_propagation_group(struct mount_info *a, struct mount_info *b) {
 	return 0;
 }
 
+/*
+ * Only valid if called consequently on all mounts in mntinfo list
+ */
+static void __search_bindmounts(struct mount_info *m)
+{
+	struct mount_info *t;
+
+	/* m is already processed */
+	if (!list_empty(&m->mnt_bind) || m->mnt_no_bind)
+		return;
+
+	for (t = m->next; t; t = t->next) {
+		if (mounts_sb_equal(m, t)) {
+			list_add(&t->mnt_bind, &m->mnt_bind);
+			pr_debug("\tThe mount %3d is bind for %3d (@%s -> @%s)\n",
+				 t->mnt_id, m->mnt_id,
+				 t->mountpoint, m->mountpoint);
+		}
+	}
+
+	if (list_empty(&m->mnt_bind))
+		m->mnt_no_bind = true;
+}
+
 static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 {
 	struct mount_info *m, *t;
@@ -925,6 +955,8 @@ static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 			}
 		}
 
+		__search_bindmounts(m);
+
 		/*
 		 * If we haven't already determined this mount is external,
 		 * or bind of external, then we don't know where it came from.
@@ -934,22 +966,6 @@ static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 			       "has unreachable sharing. Try --enable-external-masters.\n", m->mnt_id,
 				m->mountpoint, m->master_id, m->shared_id);
 			return -1;
-		}
-
-		/* Search bind-mounts */
-		if (list_empty(&m->mnt_bind)) {
-			/*
-			 * A first mounted point will be set up as a source point
-			 * for others. Look at propagate_mount()
-			 */
-			for (t = m->next; t; t = t->next) {
-				if (mounts_sb_equal(m, t)) {
-					list_add(&t->mnt_bind, &m->mnt_bind);
-					pr_debug("\tThe mount %3d is bind for %3d (@%s -> @%s)\n",
-						 t->mnt_id, m->mnt_id,
-						 t->mountpoint, m->mountpoint);
-				}
-			}
 		}
 	}
 
