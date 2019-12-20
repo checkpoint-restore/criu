@@ -17,9 +17,6 @@ RUN apk update && apk add \
 	python \
 	sudo \
 	maven \
-	py-yaml \
-	py-pip \
-	py2-future \
 	ip6tables \
 	iptables \
 	bash
