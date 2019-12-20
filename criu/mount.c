@@ -299,9 +299,6 @@ static bool mounts_sb_equal(struct mount_info *a, struct mount_info *b)
 	if (a->s_dev != b->s_dev)
 		return false;
 
-	if (strcmp(a->source, b->source) != 0)
-		return false;
-
 	if (a->fstype->sb_equal) /* :) */
 		return b->fstype->sb_equal(a, b);
 
