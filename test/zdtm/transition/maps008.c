@@ -348,6 +348,7 @@ static int proc11_func(task_waiter_t *setup_waiter)
 	void *mem3_old = mem3;
 	size_t mem3_size_old = mem3_size;
 	uint32_t crc_epoch = 0;
+	uint8_t *proc1_mem3;
 
 	pstree->proc11 = getpid();
 	xmunmap(mem3, MEM3_START_CUT);
@@ -382,7 +383,7 @@ static int proc11_func(task_waiter_t *setup_waiter)
 	chk_proc_mem_eq(pstree->proc11, mem3, mem3_size,
 		pstree->proc112, mem3, mem3_size + MEM3_END_CUT);
 
-	uint8_t *proc1_mem3 = mmap_proc_mem(pstree->proc1,
+	proc1_mem3 = mmap_proc_mem(pstree->proc1,
 			(unsigned long)mem3_old, mem3_size_old);
 	check_mem_eq(mem3, mem3_size, proc1_mem3 + MEM3_START_CUT, mem3_size);
 	xmunmap(proc1_mem3, mem3_size_old);
@@ -489,16 +490,17 @@ static void sigchld_hand(int signo, siginfo_t *info, void *ucontext)
 
 int main(int argc, char **argv)
 {
-	test_init(argc, argv);
-
-	pstree = (struct pstree *)mmap_ashmem(PAGE_SIZE);
-	test_sync = (struct test_sync *)mmap_ashmem(sizeof(*test_sync));
-
 	struct sigaction sa = {
 		.sa_sigaction = sigchld_hand,
 		.sa_flags = SA_RESTART | SA_SIGINFO | SA_NOCLDSTOP
 	};
 	sigemptyset(&sa.sa_mask);
+
+	test_init(argc, argv);
+
+	pstree = (struct pstree *)mmap_ashmem(PAGE_SIZE);
+	test_sync = (struct test_sync *)mmap_ashmem(sizeof(*test_sync));
+
 	if (sigaction(SIGCHLD, &sa, NULL)) {
 		pr_perror("SIGCHLD handler setup");
 		exit(1);
