@@ -980,9 +980,10 @@ int write_remote_image_connection(char *snapshot_id, char *path, int flags)
 
 int finish_remote_dump(void)
 {
+	int fd;
 	pr_info("Dump side is calling finish\n");
-	int fd = write_remote_image_connection(NULL_SNAPSHOT_ID, FINISH, O_WRONLY);
 
+	fd = write_remote_image_connection(NULL_SNAPSHOT_ID, FINISH, O_WRONLY);
 	if (fd == -1) {
 		pr_err("Unable to open finish dump connection");
 		return -1;
@@ -994,9 +995,10 @@ int finish_remote_dump(void)
 
 int finish_remote_restore(void)
 {
+	int fd;
 	pr_info("Restore side is calling finish\n");
-	int fd = read_remote_image_connection(NULL_SNAPSHOT_ID, FINISH);
 
+	fd = read_remote_image_connection(NULL_SNAPSHOT_ID, FINISH);
 	if (fd == -1) {
 		pr_err("Unable to open finish restore connection\n");
 		return -1;
@@ -1079,10 +1081,12 @@ static int pull_snapshot_ids(void)
 int push_snapshot_id(void)
 {
 	int n;
-	restoring = false;
 	SnapshotIdEntry rn = SNAPSHOT_ID_ENTRY__INIT;
-	int sockfd = write_remote_image_connection(NULL_SNAPSHOT_ID, PARENT_IMG, O_APPEND);
+	int sockfd;
 
+	restoring = false;
+
+	sockfd = write_remote_image_connection(NULL_SNAPSHOT_ID, PARENT_IMG, O_APPEND);
 	if (sockfd < 0) {
 		pr_err("Unable to open snapshot id push connection\n");
 		return -1;
