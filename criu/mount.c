@@ -2140,7 +2140,7 @@ static int restore_ext_mount(struct mount_info *mi)
 
 static char mnt_clean_path[] = "/tmp/cr-tmpfs.XXXXXX";
 
-static int mount_clean_path()
+static int mount_clean_path(void)
 {
 	/*
 	 * To make a bind mount, we need to have access to a source directory,
@@ -2167,7 +2167,7 @@ static int mount_clean_path()
 	return 0;
 }
 
-static int umount_clean_path()
+static int umount_clean_path(void)
 {
 	if (umount2(mnt_clean_path, MNT_DETACH)) {
 		pr_perror("Unable to umount %s", mnt_clean_path);
@@ -2659,7 +2659,7 @@ static int find_remap_mounts(struct mount_info *root)
 }
 
 /* Move remapped mounts to places where they have to be */
-static int fixup_remap_mounts()
+static int fixup_remap_mounts(void)
 {
 	struct mnt_remap_entry *r;
 

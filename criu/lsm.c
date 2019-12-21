@@ -133,7 +133,7 @@ static int selinux_get_sockcreate_label(pid_t pid, char **output)
 	return 0;
 }
 
-int reset_setsockcreatecon()
+int reset_setsockcreatecon(void)
 {
 	/* Currently this only works for SELinux. */
 	if (kdat.lsm != LSMTYPE__SELINUX)

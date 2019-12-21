@@ -51,7 +51,7 @@
 #include "restorer.h"
 #include "uffd.h"
 
-static char *feature_name(int (*func)());
+static char *feature_name(int (*func)(void));
 
 static int check_tty(void)
 {
@@ -513,7 +513,7 @@ static int check_ipc(void)
 	return -1;
 }
 
-static int check_sigqueuinfo()
+static int check_sigqueuinfo(void)
 {
 	siginfo_t info = { .si_code = 1 };
 
@@ -960,7 +960,7 @@ static int clone_cb(void *_arg) {
 	exit(0);
 }
 
-static int check_clone_parent_vs_pid()
+static int check_clone_parent_vs_pid(void)
 {
 	struct clone_arg ca;
 	pid_t pid;
@@ -1447,7 +1447,7 @@ static int check_external_net_ns(void)
 
 struct feature_list {
 	char *name;
-	int (*func)();
+	int (*func)(void);
 };
 
 static struct feature_list feature_list[] = {
@@ -1517,7 +1517,7 @@ int check_add_feature(char *feat)
 	return -1;
 }
 
-static char *feature_name(int (*func)())
+static char *feature_name(int (*func)(void))
 {
 	struct feature_list *fl;
 
