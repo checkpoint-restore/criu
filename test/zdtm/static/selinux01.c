@@ -133,6 +133,7 @@ int check_sockcreate_empty()
 
 int main(int argc, char **argv)
 {
+	int sk;
 	char ctx[1024];
 	test_init(argc, argv);
 
@@ -159,7 +160,7 @@ int main(int argc, char **argv)
 #endif
 
 	/* Open our test socket */
-	int sk = socket(AF_INET, SOCK_STREAM, 0);
+	sk = socket(AF_INET, SOCK_STREAM, 0);
 	memset(ctx, 0, 1024);
 	/* Read out the socket label */
 	if (fgetxattr(sk, "security.selinux", ctx, 1024) == -1) {

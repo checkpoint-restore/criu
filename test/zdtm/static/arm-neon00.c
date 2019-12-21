@@ -12,13 +12,14 @@ const char *test_author	= "Alexander Karatshov <alekskartashov@parallels.com>";
 
 int main(int argc, char ** argv)
 {
+	int a, b, c, y1, y2;
+
 	srand(time(0));
 
-	int a = rand() % 100;
-	int b = rand() % 100;
-	int c = rand() % 100;
-	int y1 = a + b*c;
-	int y2;
+	a = rand() % 100;
+	b = rand() % 100;
+	c = rand() % 100;
+	y1 = a + b*c;
 
 	test_init(argc, argv);
 
