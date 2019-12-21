@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 {
 	int fd, fd_s, sock, sk;
 	union sockaddr_inet addr;
-	char cmd[4096];
+	char c, cmd[4096];
 
 	test_init(argc, argv);
 
@@ -113,7 +113,7 @@ int main(int argc, char **argv)
 
 	fcntl(sock, F_SETFL, 0);
 
-	char c = 5;
+	c = 5;
 	if (write(sock, &c, 1) != 1) {
 		fail("Unable to send data");
 		return 1;

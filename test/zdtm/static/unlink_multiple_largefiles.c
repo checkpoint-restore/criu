@@ -30,9 +30,10 @@ void create_check_pattern(char *buf, size_t count, unsigned char seed)
 
 struct fiemap *read_fiemap(int fd)
 {
-	test_msg("Obtaining fiemap for fd %d\n", fd);
 	struct fiemap *fiemap, *tmp;
 	int extents_size;
+
+	test_msg("Obtaining fiemap for fd %d\n", fd);
 
 	fiemap = malloc(sizeof(struct fiemap));
 	if (fiemap == NULL) {

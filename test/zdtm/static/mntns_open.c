@@ -119,8 +119,8 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (pid > 0) {
-		kill(pid, SIGTERM);
 		int status = 1;
+		kill(pid, SIGTERM);
 		wait(&status);
 		if (WIFEXITED(status)) {
 			if (WEXITSTATUS(status) == AWK_OK)

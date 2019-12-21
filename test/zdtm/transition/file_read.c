@@ -158,9 +158,11 @@ static void chew_some_file(int num)
 			rv = SEEK_FAILED;
 			goto out_exit;
 		case 1:
-			rv = FILE_CORRUPTED;
+			{
 			int fd1;
 			char str[PATH_MAX];
+
+			rv = FILE_CORRUPTED;
 			// create standard file
 			sprintf(str, "standard_%s.%d", filename, num);
 			fd1 = open(str, O_WRONLY | O_CREAT | O_TRUNC, 0666);
@@ -168,6 +170,7 @@ static void chew_some_file(int num)
 				pr_perror("can't write %s", str);
 			close(fd1);
 			goto out_exit;
+			}
 		}
 	}
 	rv = SUCCESS;
