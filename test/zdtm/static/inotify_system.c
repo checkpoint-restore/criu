@@ -68,7 +68,7 @@ typedef struct {
 	int dir;
 } desc;
 
-void do_wait() {
+void do_wait(void) {
 	test_daemon();
 	test_waitsig();
 }

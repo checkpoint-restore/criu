@@ -4,7 +4,7 @@
 # ifdef CONFIG_GNUTLS
 
 int tls_x509_init(int sockfd, bool is_server);
-void tls_terminate_session();
+void tls_terminate_session(void);
 
 ssize_t tls_send(const void *buf, size_t len, int flags);
 ssize_t tls_recv(void *buf, size_t len, int flags);

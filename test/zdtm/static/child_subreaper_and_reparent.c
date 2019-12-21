@@ -25,7 +25,7 @@ struct shared {
 	int parent_after_cr;
 } *sh;
 
-int orphan()
+int orphan(void)
 {
 	/*
 	 * Wait until reparented to the pidns init. (By waiting
@@ -45,7 +45,7 @@ int orphan()
 	return 0;
 }
 
-int helper()
+int helper(void)
 {
 	int pid;
 
@@ -59,7 +59,7 @@ int helper()
 	return 0;
 }
 
-int subreaper()
+int subreaper(void)
 {
 	int pid, ret, status;
 

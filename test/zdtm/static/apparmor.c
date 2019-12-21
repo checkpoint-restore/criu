@@ -15,7 +15,7 @@ const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
 
 #define PROFILE "criu_test"
 
-int setprofile()
+int setprofile(void)
 {
 	char profile[1024];
 	int fd, len;
@@ -45,7 +45,7 @@ int setprofile()
 	return 0;
 }
 
-int checkprofile()
+int checkprofile(void)
 {
 	FILE *f;
 	char path[PATH_MAX], profile[1024];

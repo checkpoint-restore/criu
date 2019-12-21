@@ -56,12 +56,12 @@ struct rtmsg *rtp;
 int rtl;
 struct rtattr *rtap;
 
-int send_request();
-int recv_reply();
-int form_request_add();
-int form_request_del();
-int read_reply();
-typedef int (*cmd_t)();
+int send_request(void);
+int recv_reply(void);
+int form_request_add(void);
+int form_request_del(void);
+int read_reply(void);
+typedef int (*cmd_t)(void);
 #define CMD_NUM 2
 cmd_t cmd[CMD_NUM]={form_request_add, form_request_del};
 
@@ -120,7 +120,7 @@ out:
 	return 0;
 }
 
-int send_request()
+int send_request(void)
 {
 	// create the remote address
 	// to communicate
@@ -145,7 +145,7 @@ int send_request()
 	}
 	return 0;
 }
-int recv_reply()
+int recv_reply(void)
 {
 	char *p;
 	// initialize the socket read buffer
@@ -191,7 +191,7 @@ int recv_reply()
 	return 0;
 }
 
-int read_reply()
+int read_reply(void)
 {
 	//string to hold content of the route
 	// table (i.e. one entry)
@@ -250,7 +250,7 @@ int read_reply()
 #define NLMSG_TAIL(nmsg) \
         ((struct rtattr *) (((void *) (nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
 
-int form_request_del()
+int form_request_del(void)
 {
 	bzero(&req, sizeof(req));
 	req.nl.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
@@ -272,7 +272,7 @@ int form_request_del()
 	return 0;
 }
 
-int form_request_add()
+int form_request_add(void)
 {
 	int ifcn = 1; //interface number
 

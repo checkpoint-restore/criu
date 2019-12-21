@@ -608,7 +608,7 @@ err:
 }
 
 #define RESERVED_PIDS		300
-static int get_free_pid()
+static int get_free_pid(void)
 {
 	static struct pid *prev, *next;
 

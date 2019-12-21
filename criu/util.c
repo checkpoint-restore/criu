@@ -325,7 +325,7 @@ int close_pid_proc(void)
 	return 0;
 }
 
-void close_proc()
+void close_proc(void)
 {
 	close_pid_proc();
 	close_service_fd(PROC_FD_OFF);
@@ -712,7 +712,7 @@ int cr_daemon(int nochdir, int noclose, int close_fd)
 	return 0;
 }
 
-int is_root_user()
+int is_root_user(void)
 {
 	if (geteuid() != 0) {
 		pr_err("You need to be root to run this command\n");

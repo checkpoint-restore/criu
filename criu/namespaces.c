@@ -976,7 +976,7 @@ err:
 	return exit_code;
 }
 
-void free_userns_maps()
+void free_userns_maps(void)
 {
 	if (userns_entry.n_uid_map > 0) {
 		xfree(userns_entry.uid_map[0]);

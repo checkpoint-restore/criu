@@ -159,7 +159,7 @@ extern struct cr_options opts;
 char *rpc_cfg_file;
 
 extern int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, int state);
-extern int check_options();
-extern void init_opts();
+extern int check_options(void);
+extern void init_opts(void);
 
 #endif /* __CR_OPTIONS_H__ */
