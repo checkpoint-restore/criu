@@ -8,10 +8,11 @@ const char *test_author	= "Michał Cłapiński <mclapinski@google.com>";
 
 int main(int argc, char **argv)
 {
+	int cs_before = 1, cs_after, ret;
+
 	test_init(argc, argv);
 
-	int cs_before = 1;
-	int ret = prctl(PR_SET_CHILD_SUBREAPER, cs_before, 0, 0, 0);
+	ret = prctl(PR_SET_CHILD_SUBREAPER, cs_before, 0, 0, 0);
 	if (ret) {
 		pr_perror("Can't set child subreaper attribute, err = %d", ret);
 		exit(1);
@@ -20,7 +21,6 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	int cs_after;
 	ret = prctl(PR_GET_CHILD_SUBREAPER, (unsigned long)&cs_after, 0, 0, 0);
 	if (ret) {
 		pr_perror("Can't get child subreaper attribute, err = %d", ret);

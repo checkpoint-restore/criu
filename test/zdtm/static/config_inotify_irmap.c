@@ -31,6 +31,7 @@ char test_files[2][128] = {TDIR"/zdtm-test", TDIR"/zdtm-test1",};
 
 int main (int argc, char *argv[])
 {
+	FILE *configfile;
 	char buf[BUFF_SIZE];
 	int fd, wd, i;
 
@@ -56,7 +57,7 @@ int main (int argc, char *argv[])
 		}
 	}
 
-	FILE *configfile = fopen(CONFIG_PATH, "w");
+	configfile = fopen(CONFIG_PATH, "w");
 	if (configfile == NULL) {
 		pr_perror("Unable to create configuration file %s", CONFIG_PATH);
 		goto err;
