@@ -72,7 +72,7 @@ extern int local_sk;
 /* True if we are running the cache/restore, false if proxy/dump. */
 extern bool restoring;
 
-void accept_image_connections();
+void accept_image_connections(void);
 struct rimage *get_rimg_by_name(const char *snapshot_id, const char *path);
 
 int setup_UNIX_server_socket(char *path);
@@ -91,8 +91,8 @@ int write_remote_image_connection(char *snapshot_id, char *path, int flags);
  * creates a new connection with a special control name. The receiver side uses
  * it to ack that no more files are coming.
  */
-int finish_remote_dump();
-int finish_remote_restore();
+int finish_remote_dump(void);
+int finish_remote_restore(void);
 
 /* Starts an image proxy daemon (dump side). It receives image files through
  * socket connections and forwards them to the image cache (restore side).
@@ -123,14 +123,14 @@ int skip_remote_bytes(int fd, unsigned long len);
 void init_snapshot_id(char *ns);
 
 /* Returns the current snapshot_id. */
-char *get_curr_snapshot_id();
+char *get_curr_snapshot_id(void);
 
 /* Returns the snapshot_id index representing the current snapshot_id. This
  * index represents the hierarchy position. For example: images tagged with
  * the snapshot_id with index 1 are more recent than the images tagged with
  * the snapshot_id with index 0.
  */
-int get_curr_snapshot_id_idx();
+int get_curr_snapshot_id_idx(void);
 
 /* Returns the snapshot_id associated with the snapshot_id index. */
 char *get_snapshot_id_from_idx(int idx);
@@ -138,9 +138,9 @@ char *get_snapshot_id_from_idx(int idx);
 /* Pushes the current snapshot_id into the snapshot_id hierarchy (into the Image
  * Proxy and Image Cache).
  */
-int push_snapshot_id();
+int push_snapshot_id(void);
 
 /* Returns the snapshot id index that precedes the current snapshot_id. */
-int get_curr_parent_snapshot_id_idx();
+int get_curr_parent_snapshot_id_idx(void);
 
 #endif

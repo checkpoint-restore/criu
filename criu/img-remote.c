@@ -433,7 +433,7 @@ err:
 	return NULL;
 }
 
-static inline void finish_local()
+static inline void finish_local(void)
 {
 	int ret;
 	finished_local = true;
@@ -727,7 +727,7 @@ err:
 	xfree(rop);
 }
 
-static void check_pending()
+static void check_pending(void)
 {
 	struct roperation *rop = NULL;
 	struct rimage *rimg = NULL;
@@ -746,7 +746,7 @@ static void check_pending()
 	}
 }
 
-void accept_image_connections() {
+void accept_image_connections(void) {
 	int ret;
 
 	epoll_fd = epoll_create(EPOLL_MAX_EVENTS);
