@@ -1278,7 +1278,7 @@ static void reap_worker(int signo)
 	}
 }
 
-static int setup_sigchld_handler()
+static int setup_sigchld_handler(void)
 {
 	struct sigaction action;
 
@@ -1295,7 +1295,7 @@ static int setup_sigchld_handler()
 	return 0;
 }
 
-static int restore_sigchld_handler()
+static int restore_sigchld_handler(void)
 {
 	struct sigaction action;
 

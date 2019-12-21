@@ -13,7 +13,7 @@
 const char *test_doc    = "Check dumpable flag handling (non-dumpable case)";
 const char *test_author = "Filipe Brandenburger <filbranden@google.com>";
 
-int dumpable_server() {
+int dumpable_server(void) {
 	char buf[256];
 	int ret;
 

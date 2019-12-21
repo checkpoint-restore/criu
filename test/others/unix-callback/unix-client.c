@@ -86,7 +86,7 @@ static int check_sock(int i)
 	return 0;
 }
 
-int main()
+int main(void)
 {
 	int i, fd;
 	sigset_t set;
