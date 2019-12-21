@@ -36,7 +36,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 		waitpid(pid, NULL, WNOHANG);
 }
 
-static void cleanup()
+static void cleanup(void)
 {
 	int i, ret;
 
@@ -72,7 +72,7 @@ enum commands
 
 int cmd_weght[TEST_MAX] = {10, 3, 1, 10, 7};
 int sum_weight = 0;
-static int get_rnd_op()
+static int get_rnd_op(void)
 {
 	int i, m;
 	if (sum_weight == 0) {
@@ -97,9 +97,9 @@ struct command
 	int		arg2;
 };
 
-static void handle_command();
+static void handle_command(void);
 
-static void mainloop()
+static void mainloop(void)
 {
 	while (1)
 		handle_command();
@@ -142,7 +142,7 @@ static int make_child(int id, int flags)
 	return cid;
 }
 
-static void handle_command()
+static void handle_command(void)
 {
 	int sk = processes[current].sks[0], ret, status = 0;
 	struct command cmd;

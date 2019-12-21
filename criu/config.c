@@ -854,7 +854,7 @@ bad_arg:
 	return 1;
 }
 
-int check_options()
+int check_options(void)
 {
 	if (opts.tcp_established_ok)
 		pr_info("Will dump/restore TCP connections\n");

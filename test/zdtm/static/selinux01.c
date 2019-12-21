@@ -28,14 +28,14 @@ const char *test_author	= "Adrian Reber <areber@redhat.com>";
  */
 char state;
 
-int check_for_selinux()
+int check_for_selinux(void)
 {
 	if (access("/sys/fs/selinux", F_OK) == 0)
 		return 0;
 	return 1;
 }
 
-int setprofile()
+int setprofile(void)
 {
 	int fd, len;
 
@@ -56,7 +56,7 @@ int setprofile()
 	return 0;
 }
 
-int set_sockcreate()
+int set_sockcreate(void)
 {
 	int fd, len;
 
@@ -77,7 +77,7 @@ int set_sockcreate()
 	return 0;
 }
 
-int check_sockcreate()
+int check_sockcreate(void)
 {
 	int fd;
 	char context[1024];
@@ -106,7 +106,7 @@ int check_sockcreate()
 	return 0;
 }
 
-int check_sockcreate_empty()
+int check_sockcreate_empty(void)
 {
 	char *output = NULL;
 	FILE *f = fopen("/proc/self/attr/sockcreate", "r");

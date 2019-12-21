@@ -25,7 +25,7 @@ struct process *processes;
 int nr_processes = 20;
 int current = 0;
 
-static void cleanup()
+static void cleanup(void)
 {
 	int i;
 
@@ -55,9 +55,9 @@ struct command
 	int		arg2;
 };
 
-static void handle_command();
+static void handle_command(void);
 
-static void mainloop()
+static void mainloop(void)
 {
 	while (1)
 		handle_command();
@@ -100,7 +100,7 @@ static int make_child(int id, int flags)
 	return cid;
 }
 
-static void handle_command()
+static void handle_command(void)
 {
 	int sk = processes[current].sks[0], ret, status = 0;
 	struct command cmd;

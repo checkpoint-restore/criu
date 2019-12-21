@@ -123,7 +123,7 @@ static void segfault(int signo)
  * after test func should be placed check map, because size of test_func
  * is calculated as (check_map-test_func)
  */
-int test_func()
+int test_func(void)
 {
 	return 1;
 }
@@ -176,8 +176,9 @@ static int check_map(struct map *map)
 			memcpy(map->ptr,test_func, getpagesize());
 		} else {
 			if (!(map->flag & MAP_ANONYMOUS)) {
+				uint8_t funlen = (uint8_t *)check_map - (uint8_t *)test_func;
 				lseek(map->fd,0,SEEK_SET);
-				if (write(map->fd,test_func,check_map - test_func)<check_map - test_func) {
+				if (write(map->fd,test_func,funlen)<funlen) {
 					pr_perror("failed to write %s", map->filename);
 					return -1;
 				}
@@ -185,7 +186,7 @@ static int check_map(struct map *map)
 		}
 		if (!(map->flag & MAP_ANONYMOUS) || map->prot & PROT_WRITE)
 			/* Function body has been copied into the mapping */
-			((int (*)())map->ptr)();	/* perform exec access */
+			((int (*)(void))map->ptr)();	/* perform exec access */
 		else
 			/* No way to copy function body into mapping,
 			 * clear exec bit from effective protection

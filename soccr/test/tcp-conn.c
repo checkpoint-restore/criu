@@ -23,7 +23,7 @@ static void pr_printf(unsigned int level, const char *fmt, ...)
 	va_end(args);
 }
 
-int main()
+int main(void)
 {
 	union libsoccr_addr addr, dst;
 	int srv, sock, clnt, rst;

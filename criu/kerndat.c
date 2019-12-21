@@ -364,7 +364,7 @@ no_dt:
 }
 
 /* The page frame number (PFN) is constant for the zero page */
-static int init_zero_page_pfn()
+static int init_zero_page_pfn(void)
 {
 	void *addr;
 	int ret = 0;
@@ -429,7 +429,7 @@ static int get_task_size(void)
 	return 0;
 }
 
-static int kerndat_fdinfo_has_lock()
+static int kerndat_fdinfo_has_lock(void)
 {
 	int fd, pfd = -1, exit_code = -1, len;
 	char buf[PAGE_SIZE];
@@ -464,7 +464,7 @@ out:
 	return exit_code;
 }
 
-static int get_ipv6()
+static int get_ipv6(void)
 {
 	if (access("/proc/sys/net/ipv6", F_OK) < 0) {
 		if (errno == ENOENT) {

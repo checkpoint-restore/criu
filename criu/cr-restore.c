@@ -183,13 +183,13 @@ static int __restore_wait_inprogress_tasks(int participants)
 	return 0;
 }
 
-static int restore_wait_inprogress_tasks()
+static int restore_wait_inprogress_tasks(void)
 {
 	return __restore_wait_inprogress_tasks(0);
 }
 
 /* Wait all tasks except the current one */
-static int restore_wait_other_tasks()
+static int restore_wait_other_tasks(void)
 {
 	int participants, stage;
 
@@ -1588,7 +1588,7 @@ static void restore_pgid(void)
 		futex_set_and_wake(&rsti(current)->pgrp_set, 1);
 }
 
-static int __legacy_mount_proc()
+static int __legacy_mount_proc(void)
 {
 	char proc_mountpoint[] = "/tmp/crtools-proc.XXXXXX";
 	int fd;
@@ -1942,7 +1942,7 @@ static int catch_tasks(bool root_seized, enum trace_flags *flag)
 	return 0;
 }
 
-static int clear_breakpoints()
+static int clear_breakpoints(void)
 {
 	struct pstree_item *item;
 	int ret = 0, i;

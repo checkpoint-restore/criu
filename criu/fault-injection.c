@@ -3,7 +3,7 @@
 
 enum faults fi_strategy;
 
-int fault_injection_init()
+int fault_injection_init(void)
 {
 	char *val;
 	int start;

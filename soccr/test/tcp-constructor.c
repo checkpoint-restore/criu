@@ -20,7 +20,7 @@ struct tcp {
 	uint16_t wscale;
 };
 
-static void usage()
+static void usage(void)
 {
 	printf(
 		"Usage: --addr ADDR -port PORT --seq SEQ --next --addr ADDR -port PORT --seq SEQ -- CMD ...\n"

@@ -101,7 +101,7 @@ static int check_write_lock(int fd, int whence, off_t offset, off_t len)
 	return -1;
 }
 
-static int check_file_locks()
+static int check_file_locks(void)
 {
 	int fd_0, fd_1;
 	int ret0, ret1;
