@@ -1439,7 +1439,7 @@ err_cure_imgset:
 
 static int alarm_attempts = 0;
 
-bool alarm_timeouted() {
+bool alarm_timeouted(void) {
 	return alarm_attempts > 0;
 }
 
@@ -1456,7 +1456,7 @@ static void alarm_handler(int signo)
 	BUG();
 }
 
-static int setup_alarm_handler()
+static int setup_alarm_handler(void)
 {
 	struct sigaction sa = {
 		.sa_handler	= alarm_handler,

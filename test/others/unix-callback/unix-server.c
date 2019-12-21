@@ -19,7 +19,7 @@ struct ticket *tickets;
 
 #define SK_NAME "/tmp/criu.unix.callback.test"
 
-int main()
+int main(void)
 {
 	int sk, ret, id;
 	char buf[4096];

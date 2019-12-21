@@ -96,7 +96,7 @@ extern int collect_binfmt_misc(void);
 static inline int collect_binfmt_misc(void) { return 0; }
 #endif
 
-extern struct mount_info *mnt_entry_alloc();
+extern struct mount_info *mnt_entry_alloc(void);
 extern void mnt_entry_free(struct mount_info *mi);
 
 extern int __mntns_get_root_fd(pid_t pid);

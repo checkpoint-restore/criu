@@ -22,7 +22,7 @@ TEST_OPTION(filename, string, "file name", 1);
 #define CHILDREN 4
 static int fork_pfd[2];
 
-static void forked()
+static void forked(void)
 {
 	char c = 0;
 
@@ -32,7 +32,7 @@ static void forked()
 	}
 }
 
-static void wait_children()
+static void wait_children(void)
 {
 	int i;
 	char c;

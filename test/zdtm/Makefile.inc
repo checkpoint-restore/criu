@@ -38,7 +38,7 @@ ifeq ($(origin CC), default)
         CC := $(CROSS_COMPILE)$(HOSTCC)
 endif
 CFLAGS	+= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
-CFLAGS	+= -Wdeclaration-after-statement
+CFLAGS	+= -Wdeclaration-after-statement -Wstrict-prototypes
 CFLAGS	+= $(USERCFLAGS)
 CFLAGS	+= -D_GNU_SOURCE
 CPPFLAGS += -iquote $(LIBDIR)/arch/$(ARCH)/include

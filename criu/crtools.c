@@ -47,7 +47,7 @@
 #include "setproctitle.h"
 #include "sysctl.h"
 
-void flush_early_log_to_stderr() __attribute__((destructor));
+void flush_early_log_to_stderr(void) __attribute__((destructor));
 
 void flush_early_log_to_stderr(void)
 {

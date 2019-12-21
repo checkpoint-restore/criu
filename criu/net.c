@@ -1765,7 +1765,7 @@ static int __restore_links(struct ns_id *nsid, int *nrlinks, int *nrcreated)
 	return 0;
 }
 
-static int restore_links()
+static int restore_links(void)
 {
 	int nrcreated, nrlinks;
 	struct ns_id *nsid;
@@ -2080,7 +2080,7 @@ out:
  * iptables-restore is executed from a target userns and it may have not enough
  * rights to open /run/xtables.lock. Here we try to workaround this problem.
  */
-static int prepare_xtable_lock()
+static int prepare_xtable_lock(void)
 {
 	int fd;
 
@@ -2700,7 +2700,7 @@ err:
 	return ret;
 }
 
-int network_lock_internal()
+int network_lock_internal(void)
 {
 	char conf[] =	"*filter\n"
 				":CRIU - [0:0]\n"
@@ -2731,7 +2731,7 @@ int network_lock_internal()
 	return ret;
 }
 
-static int network_unlock_internal()
+static int network_unlock_internal(void)
 {
 	char conf[] =	"*filter\n"
 			":CRIU - [0:0]\n"
@@ -3284,7 +3284,7 @@ static int check_link_nsid(int rtsk, void *args)
 	return do_rtnl_req(rtsk, &req, sizeof(req), check_one_link_nsid, NULL, NULL, args);
 }
 
-int kerndat_link_nsid()
+int kerndat_link_nsid(void)
 {
 	int status;
 	pid_t pid;

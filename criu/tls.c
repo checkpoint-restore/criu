@@ -31,7 +31,7 @@ static gnutls_certificate_credentials_t x509_cred;
 static int tls_sk = -1;
 static int tls_sk_flags = 0;
 
-void tls_terminate_session()
+void tls_terminate_session(void)
 {
 	int ret;
 
@@ -227,7 +227,7 @@ static int tls_x509_verify_peer_cert(void)
 	return 0;
 }
 
-static int tls_handshake()
+static int tls_handshake(void)
 {
 	int ret = -1;
 	while (ret != GNUTLS_E_SUCCESS) {
@@ -241,7 +241,7 @@ static int tls_handshake()
 	return 0;
 }
 
-static int tls_x509_setup_creds()
+static int tls_x509_setup_creds(void)
 {
 	int ret;
 	char *cacert = CRIU_CACERT;

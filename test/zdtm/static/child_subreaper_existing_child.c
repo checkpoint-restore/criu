@@ -24,7 +24,7 @@ struct shared {
 } *sh;
 
 
-int orphan()
+int orphan(void)
 {
 	/* Return the control back to MAIN worker to do C/R */
 	futex_set_and_wake(&sh->fstate, TEST_CRIU);
@@ -36,7 +36,7 @@ int orphan()
 	return 0;
 }
 
-int helper()
+int helper(void)
 {
 	int pid;
 
@@ -52,7 +52,7 @@ int helper()
 	return 0;
 }
 
-int subreaper()
+int subreaper(void)
 {
 	int pid, ret, status;
 

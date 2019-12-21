@@ -71,7 +71,7 @@ static void test_fini(void)
 	unlinkat(cwd, pidfile, 0);
 }
 
-static void setup_outfile()
+static void setup_outfile(void)
 {
 	if (!access(outfile, F_OK) || errno != ENOENT) {
 		fprintf(stderr, "Output file %s appears to exist, aborting\n",
@@ -93,7 +93,7 @@ static void setup_outfile()
 		exit(1);
 }
 
-static void redir_stdfds()
+static void redir_stdfds(void)
 {
 	int nullfd;
 
@@ -346,7 +346,7 @@ void test_init(int argc, char **argv)
 	srand48(time(NULL));	/* just in case we need it */
 }
 
-void test_daemon()
+void test_daemon(void)
 {
 	futex_set_and_wake(&test_shared_state->stage, TEST_RUNNING_STAGE);
 }
