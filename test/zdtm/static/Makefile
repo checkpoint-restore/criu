@@ -220,6 +220,10 @@ TST_NOFILE	:=				\
 		child_subreaper			\
 		child_subreaper_existing_child	\
 		child_subreaper_and_reparent	\
+		memfd00				\
+		memfd01				\
+		memfd02				\
+		memfd03				\
 #		jobctl00			\
 
 ifneq ($(ARCH),arm)
