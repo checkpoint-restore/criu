@@ -40,11 +40,11 @@ int main(int argc, char **argv)
 		while(1)
 			sleep(10);
 	} else {
-		test_msg("child is %d\n", pid);
-
 		int fd, ret;
 		char path[PATH_MAX];
 		pid_t result;
+
+		test_msg("child is %d\n", pid);
 
 		sprintf(path, proc_path, pid);
 		fd = open(path, O_RDONLY);

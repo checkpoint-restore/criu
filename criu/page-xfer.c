@@ -624,16 +624,16 @@ unsigned long handle_faulty_iov(int pid, struct iovec* riov,
 				unsigned long* aux_len,
 				unsigned long partial_read_bytes)
 {
+	struct iovec dummy;
+	ssize_t bytes_read;
+	unsigned long offset = 0;
+	unsigned long final_read_cnt = 0;
+
 	/* Handling Case 2*/
 	if (riov[faulty_index].iov_len == PAGE_SIZE) {
 		cnt_sub(CNT_PAGES_WRITTEN, 1);
 		return 0;
 	}
-
-	struct iovec dummy;
-	ssize_t bytes_read;
-	unsigned long offset = 0;
-	unsigned long final_read_cnt = 0;
 
 	/* Handling Case 3-Part 3.2*/
 	offset = (partial_read_bytes)? partial_read_bytes : PAGE_SIZE;

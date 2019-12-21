@@ -17,13 +17,14 @@ const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 
 int main(int argc, char **argv)
 {
-	test_init(argc, argv);
 	char buf[BUF_SIZE];
 	int fd;
 	struct aiocb aiocb;
 	const struct aiocb   *aioary[1];
 	char tmpfname[256]="/tmp/file_aio.XXXXXX";
 	int ret;
+
+	test_init(argc, argv);
 
 	fd = mkstemp(tmpfname);
 	if (fd == -1) {

@@ -2817,6 +2817,9 @@ int macvlan_ext_add(struct external *ext)
 static int prep_ns_sockets(struct ns_id *ns, bool for_dump)
 {
 	int nsret = -1, ret;
+#ifdef CONFIG_HAS_SELINUX
+	security_context_t ctx;
+#endif
 
 	if (ns->type != NS_CRIU) {
 		pr_info("Switching to %d's net for collecting sockets\n", ns->ns_pid);
@@ -2854,7 +2857,6 @@ static int prep_ns_sockets(struct ns_id *ns, bool for_dump)
 	 * policies installed. For Fedora based systems this is part
 	 * of the container-selinux package.
 	 */
-	security_context_t ctx;
 
 	/*
 	 * This assumes that all processes CRIU wants to dump are labeled
@@ -3294,6 +3296,7 @@ int kerndat_link_nsid()
 	}
 
 	if (pid == 0) {
+		bool has_link_nsid;
 		NetDeviceEntry nde = NET_DEVICE_ENTRY__INIT;
 		struct net_link link = {
 			.created = false,
@@ -3336,7 +3339,7 @@ int kerndat_link_nsid()
 			exit(1);
 		}
 
-		bool has_link_nsid = false;
+		has_link_nsid = false;
 		if (check_link_nsid(sk, &has_link_nsid))
 			exit(1);
 

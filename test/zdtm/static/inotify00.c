@@ -125,8 +125,9 @@ int main (int argc, char *argv[])
 {
 	pid_t pid;
 	task_waiter_t t;
-	task_waiter_init(&t);
 	static char buf[PATH_MAX];
+
+	task_waiter_init(&t);
 
 	if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL)) {
 		pr_perror("Unable to remount /");
