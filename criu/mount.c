@@ -671,6 +671,23 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 	return 0;
 }
 
+static bool has_external_sharing(struct mount_info *list, struct mount_info *mi) {
+	struct mount_info *t;
+
+	if (!(mi->flags & MS_SHARED))
+		return false;
+
+	for (t = list; t; t = t->next) {
+		if (!mounts_sb_equal(mi, t))
+			continue;
+
+		if (t->flags & MS_SHARED && mi->shared_id == t->shared_id)
+			return true;
+	}
+
+	return false;
+}
+
 static struct mount_info *find_best_external_match(struct mount_info *list, struct mount_info *info)
 {
 	struct mount_info *it, *candidate = NULL;
@@ -751,11 +768,9 @@ static int resolve_external_mounts(struct mount_info *info)
 	struct ns_id *ext_ns = NULL;
 	struct mount_info *m;
 
-	if (opts.autodetect_ext_mounts) {
-		ext_ns = find_ext_ns_id();
-		if (!ext_ns)
-			return -1;
-	}
+	ext_ns = find_ext_ns_id();
+	if (!ext_ns)
+		return -1;
 
 	for (m = info; m; m = m->next) {
 		int ret;
@@ -764,6 +779,13 @@ static int resolve_external_mounts(struct mount_info *info)
 
 		if (m->parent == NULL || m->is_ns_root)
 			continue;
+
+		/* Check mount has external sharing */
+		m->internal_sharing =
+			!has_external_sharing(ext_ns->mnt.mntinfo_list, m);
+		if (!m->internal_sharing)
+			pr_debug("Detected external sharing on %d\n",
+				 m->mnt_id);
 
 		/*
 		 * Only allow external mounts in root mntns. External mounts
@@ -776,20 +798,15 @@ static int resolve_external_mounts(struct mount_info *info)
 		ret = try_resolve_ext_mount(m);
 		if (ret < 0)
 			return ret;
-		if (ret == 1 || !ext_ns)
+		if (ret == 1 || !opts.autodetect_ext_mounts)
 			continue;
 
 		match = find_best_external_match(ext_ns->mnt.mntinfo_list, m);
 		if (!match)
 			continue;
 
-		if (m->flags & MS_SHARED) {
-			if (!opts.enable_external_sharing)
-				continue;
-
-			if (m->shared_id != match->shared_id)
-				m->internal_sharing = true;
-		}
+		if (m->flags & MS_SHARED && !opts.enable_external_sharing)
+			continue;
 
 		if (m->flags & MS_SLAVE) {
 			if (!opts.enable_external_masters)
