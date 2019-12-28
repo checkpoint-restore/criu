@@ -566,6 +566,10 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 		pr_debug("\tset broadcast for socket\n");
 		ret |= restore_opt(sk, SOL_SOCKET, SO_BROADCAST, &val);
 	}
+	if (soe->has_so_oobinline && soe->so_oobinline) {
+		pr_debug("\tset oobinline for socket\n");
+		ret |= restore_opt(sk, SOL_SOCKET, SO_OOBINLINE, &val);
+	}
 	if (soe->has_so_keepalive && soe->so_keepalive) {
 		pr_debug("\tset keepalive for socket\n");
 		ret |= restore_opt(sk, SOL_SOCKET, SO_KEEPALIVE, &val);
@@ -670,6 +674,10 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	ret |= dump_opt(sk, SOL_SOCKET, SO_KEEPALIVE, &val);
 	soe->has_so_keepalive = true;
 	soe->so_keepalive = val ? true : false;
+
+	ret |= dump_opt(sk, SOL_SOCKET, SO_OOBINLINE, &val);
+	soe->has_so_oobinline = true;
+	soe->so_oobinline = val ? true : false;
 
 	ret |= dump_bound_dev(sk, soe);
 	ret |= dump_socket_filter(sk, soe);
