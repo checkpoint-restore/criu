@@ -526,6 +526,7 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 {
 	int ret = 0, val = 1;
 	struct timeval tv;
+	struct linger so_linger;
 	/* In kernel a bufsize value is doubled. */
 	u32 bufs[2] = { soe->so_sndbuf / 2, soe->so_rcvbuf / 2};
 
@@ -569,6 +570,12 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 	if (soe->has_so_oobinline && soe->so_oobinline) {
 		pr_debug("\tset oobinline for socket\n");
 		ret |= restore_opt(sk, SOL_SOCKET, SO_OOBINLINE, &val);
+	}
+	if (soe->has_so_linger) {
+		pr_debug("\tset so_linger for socket\n");
+		so_linger.l_onoff = true;
+		so_linger.l_linger = soe->so_linger;
+		ret |= restore_opt(sk, SOL_SOCKET, SO_LINGER, &so_linger);
 	}
 	if (soe->has_so_keepalive && soe->so_keepalive) {
 		pr_debug("\tset keepalive for socket\n");
@@ -625,6 +632,7 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 {
 	int ret = 0, val;
 	struct timeval tv;
+	struct linger so_linger = {0, 0};
 
 	ret |= dump_opt(sk, SOL_SOCKET, SO_SNDBUF, &soe->so_sndbuf);
 	ret |= dump_opt(sk, SOL_SOCKET, SO_RCVBUF, &soe->so_rcvbuf);
@@ -678,6 +686,12 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	ret |= dump_opt(sk, SOL_SOCKET, SO_OOBINLINE, &val);
 	soe->has_so_oobinline = true;
 	soe->so_oobinline = val ? true : false;
+
+	ret |= dump_opt(sk, SOL_SOCKET, SO_LINGER, &so_linger);
+	if (so_linger.l_onoff) {
+		soe->has_so_linger = true;
+		soe->so_linger = so_linger.l_linger;
+	}
 
 	ret |= dump_bound_dev(sk, soe);
 	ret |= dump_socket_filter(sk, soe);
