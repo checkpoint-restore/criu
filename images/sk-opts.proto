@@ -27,6 +27,7 @@ message sk_opts_entry {
 	optional uint32		tcp_keepcnt	= 20;
 	optional uint32		tcp_keepidle	= 21;
 	optional uint32		tcp_keepintvl	= 22;
+	optional uint32		so_oobinline	= 23;
 }
 
 enum sk_shutdown {
