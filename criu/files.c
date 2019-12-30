@@ -382,7 +382,13 @@ static int fill_fd_params(struct pid *owner_pid, int fd, int lfd,
 	p->fs_type	= fsbuf.f_type;
 	p->fd		= fd;
 	p->pos		= fdinfo.pos;
-	p->flags	= fdinfo.flags;
+	/*
+	 * The kernel artificially adds the O_CLOEXEC flag on the file pointer
+	 * flags by looking at the flags on the file descriptor (see kernel
+	 * code fs/proc/fd.c). FD_CLOEXEC is a file descriptor property, which
+	 * is saved in fd_flags.
+	 */
+	p->flags	= fdinfo.flags & ~O_CLOEXEC;
 	p->mnt_id	= fdinfo.mnt_id;
 	p->pid		= owner_pid->real;
 	p->fd_flags	= opts->flags;
