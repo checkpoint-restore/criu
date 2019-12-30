@@ -39,6 +39,10 @@ int main(int argc, char **argv)
 		pr_perror("mount");
 		return 1;
 	}
+	if (mount(NULL, dname, NULL, MS_SHARED, NULL)) {
+		pr_perror("shared");
+		return 1;
+	}
 
 	mkdir(src, 755);
 	mkdir(dst, 755);
