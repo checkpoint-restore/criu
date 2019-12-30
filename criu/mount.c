@@ -759,6 +759,14 @@ static int resolve_external_mounts(struct mount_info *info)
 		if (m->parent == NULL || m->is_ns_root)
 			continue;
 
+		/*
+		 * Only allow external mounts in root mntns. External mounts
+		 * lookup is based on mountpoint path, but there may be a lot of
+		 * mounts with same mountpoint across nested mntnses.
+		 */
+		if (m->nsid->type != NS_ROOT)
+			continue;
+
 		ret = try_resolve_ext_mount(m);
 		if (ret < 0)
 			return ret;
