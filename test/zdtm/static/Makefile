@@ -403,6 +403,7 @@ TST_DIR		=				\
 		mnt_ext_collision		\
 		mntns_pivot_root		\
 		mntns_pivot_root_ro		\
+		mnt_ext_sharing			\
 		mnt_tracefs			\
 		mntns_deleted			\
 		unlink_regular00		\
