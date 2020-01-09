@@ -18,7 +18,7 @@ RUN apk update && apk add \
 	pkgconfig \
 	protobuf-c-dev \
 	protobuf-dev \
-	python \
+	python3 \
 	sudo
 
 COPY . /criu
@@ -28,7 +28,6 @@ RUN mv .ccache /tmp && make mrproper && ccache -sz && \
 	date && make -j $(nproc) CC="$CC" && date && ccache -s
 
 RUN apk add \
-	py-pip	\
 	ip6tables \
 	iptables \
 	nftables \
@@ -37,10 +36,16 @@ RUN apk add \
 	bash \
 	go \
 	e2fsprogs \
+	py-yaml \
+	py3-flake8 \
 	asciidoctor
 
 # The rpc test cases are running as user #1000, let's add the user
 RUN adduser -u 1000 -D test
 
-RUN pip install PyYAML future protobuf ipaddress junit_xml flake8
+RUN pip3 install protobuf junit_xml
+
+# For zdtm we need an unversioned python binary
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
 RUN make -C test/zdtm
