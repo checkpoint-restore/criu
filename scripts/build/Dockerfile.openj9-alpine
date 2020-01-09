@@ -14,7 +14,7 @@ RUN apk update && apk add \
 	pkgconfig \
 	protobuf-c-dev \
 	protobuf-dev \
-	python \
+	python3 \
 	sudo \
 	maven \
 	ip6tables \
