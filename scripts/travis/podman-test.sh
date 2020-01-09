@@ -35,7 +35,7 @@ criu --version
 podman run --name cr -d docker.io/library/alpine /bin/sh -c 'i=0; while true; do echo $i; i=$(expr $i + 1); sleep 1; done'
 
 sleep 1
-for i in `seq 50`; do
+for i in `seq 20`; do
 	echo "Test $i for podman container checkpoint"
 	podman exec cr ps axf
 	podman logs cr
@@ -48,7 +48,7 @@ for i in `seq 50`; do
 	podman logs cr
 done
 
-for i in `seq 50`; do
+for i in `seq 20`; do
 	echo "Test $i for podman container checkpoint --export"
 	podman ps -a
 	podman exec cr ps axf
