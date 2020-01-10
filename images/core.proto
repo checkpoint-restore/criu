@@ -53,6 +53,8 @@ message task_core_entry {
 	//optional int32		tty_pgrp	= 17;
 
 	optional bool			child_subreaper	= 18;
+	// Reserved for container relative start time
+	//optional uint64		start_time	= 19;
 }
 
 message task_kobj_ids_entry {
