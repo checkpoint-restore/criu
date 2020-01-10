@@ -13,6 +13,7 @@ const char *test_author	= "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
 char *dirname = "mnt_ext_sharing.test";
 char *source = "zdtm_ext_sharing";
 char *internal_source = "zdtm_ext_sharing.internal";
+char *external_source = "zdtm_ext_sharing.external";
 #define SUBDIR "subdir"
 TEST_OPTION(dirname, string, "directory name", 1);
 
@@ -89,6 +90,8 @@ int main(int argc, char ** argv)
 	char internal_dst[PATH_MAX], internal_src[PATH_MAX],
 	     internal_nsdst[PATH_MAX];
 	int internal_shid_self = -1, internal_shid_pid = -1;
+	char external_dst[PATH_MAX], external_src[PATH_MAX];
+	int external_shid_self = -1, external_shid_pid = -1;
 	char *tmp = "/tmp/zdtm_ext_sharing.tmp";
 	char *zdtm_newns = getenv("ZDTM_NEWNS");
 	int pid, status;
@@ -113,6 +116,9 @@ int main(int argc, char ** argv)
 	sprintf(internal_dst, "%s/%s/internal", root, dirname);
 	mkdir(internal_dst, 0755);
 
+	sprintf(external_dst, "%s/%s/external", root, dirname);
+	mkdir(external_dst, 0755);
+
 	/* Prepare directories in criu root */
 	mkdir(tmp, 0755);
 	if (mount(source, tmp, "tmpfs", 0, NULL)) {
@@ -127,13 +133,34 @@ int main(int argc, char ** argv)
 	sprintf(internal_src, "%s/internal", tmp);
 	mkdir(internal_src, 0755);
 
-	/* Create a private mount in criu mntns */
+	sprintf(external_src, "%s/external", tmp);
+	mkdir(external_src, 0755);
+
+	/* Create a shared mount in criu mntns */
 	if (mount(internal_source, internal_src, "tmpfs", 0, NULL)) {
 		pr_perror("mount tmpfs");
 		return 1;
 	}
 	if (mount(NULL, internal_src, NULL, MS_PRIVATE, NULL)) {
 		pr_perror("make private");
+		return 1;
+	}
+	if (mount(NULL, internal_src, NULL, MS_SHARED, NULL)) {
+		pr_perror("make shared");
+		return 1;
+	}
+
+	/* Create a shared mount in criu mntns */
+	if (mount(external_source, external_src, "tmpfs", 0, NULL)) {
+		pr_perror("mount tmpfs");
+		return 1;
+	}
+	if (mount(NULL, external_src, NULL, MS_PRIVATE, NULL)) {
+		pr_perror("make private");
+		return 1;
+	}
+	if (mount(NULL, external_src, NULL, MS_SHARED, NULL)) {
+		pr_perror("make shared");
 		return 1;
 	}
 
@@ -156,6 +183,13 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
+	sprintf(external_src, "%s/external/%s", tmp, SUBDIR);
+	mkdir(external_src, 0755);
+	if (mount(external_src, external_dst, NULL, MS_BIND, NULL)) {
+		pr_perror("bind");
+		return 1;
+	}
+
 test:
 	test_init(argc, argv);
 
@@ -170,6 +204,10 @@ test:
 
 	sprintf(internal_nsdst, "/%s/internal", dirname);
 	/* Make "external" mount to have internal sharing */
+	if (mount(NULL, internal_nsdst, NULL, MS_PRIVATE, NULL)) {
+		pr_perror("make shared");
+		return 1;
+	}
 	if (mount(NULL, internal_nsdst, NULL, MS_SHARED, NULL)) {
 		pr_perror("make shared");
 		return 1;
@@ -200,6 +238,8 @@ test:
 	sprintf(spid, "%d", pid);
 	internal_shid_pid = pid_mntinfo_get_shid(spid, internal_source);
 	internal_shid_self = pid_mntinfo_get_shid("self", internal_source);
+	external_shid_pid = pid_mntinfo_get_shid(spid, external_source);
+	external_shid_self = pid_mntinfo_get_shid("self", external_source);
 
 	/* Cleanup */
 	futex_set_and_wake(&sh->fstate, TEST_EXIT);
@@ -218,6 +258,15 @@ test:
 		return 1;
 	}
 
+	if (external_shid_pid == -1 || external_shid_self == -1 ||
+	    external_shid_pid != external_shid_self) {
+		fail("Shared ids does not match (external)");
+		return 1;
+	}
+
+	/* Print shared id so that it can be checked in cleanup hook */
+	test_msg("internal_shared_id = %d\n", internal_shid_pid);
+	test_msg("external_shared_id = %d\n", external_shid_pid);
 	pass();
 
 	return 0;

@@ -1,5 +1,5 @@
-{   'dopts': '--external mnt[/mnt_ext_sharing.test/internal]:ZDTM',
+{   'dopts': '--external mnt[/mnt_ext_sharing.test/internal]:ZDTM --external mnt[/mnt_ext_sharing.test/external]:ZDTM2',
     'feature': 'mnt_id',
     'flavor': 'ns',
     'flags': 'suid',
-    'ropts': '--external mnt[ZDTM]:/tmp/zdtm_ext_sharing.tmp/internal/subdir'}
+    'ropts': '--external mnt[ZDTM]:/tmp/zdtm_ext_sharing.tmp/internal/subdir --external mnt[ZDTM2]:/tmp/zdtm_ext_sharing.tmp/external/subdir'}
