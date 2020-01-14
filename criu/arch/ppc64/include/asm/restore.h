@@ -21,7 +21,7 @@
 		: "r"(new_sp),						\
 		  "r"((unsigned long)restore_task_exec_start),		\
 		  "r"(task_args)					\
-		: "1", "3", "12")
+		: "3", "12")
 
 /* There is nothing to do since TLS is accessed through r13 */
 #define core_get_tls(pcore, ptls)
