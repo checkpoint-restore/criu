@@ -50,7 +50,7 @@ struct rt_sigframe {
 		"sc \n"						\
 		:						\
 		: "r"(new_sp)					\
-		: "1", "memory")
+		: "memory")
 
 #if _CALL_ELF != 2
 # error Only supporting ABIv2.
