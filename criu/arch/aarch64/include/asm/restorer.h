@@ -49,16 +49,6 @@
 	ret = -1; \
 } while (0)
 
-#define ARCH_FAIL_CORE_RESTORE					\
-	asm volatile(						\
-			"mov sp, %0			\n"	\
-			"mov x0, #0			\n"	\
-			"b   x0				\n"	\
-			:					\
-			: "r"(ret)				\
-			: "sp", "x0", "memory")
-
-
 #define arch_map_vdso(map, compat)		-1
 
 int restore_gpregs(struct rt_sigframe *f, UserAarch64RegsEntry *r);

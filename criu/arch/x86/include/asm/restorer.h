@@ -155,15 +155,6 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 		       "r"(args)					\
 		     : "rax", "rcx", "rdi", "rsi", "rdx", "r10", "r11", "memory")
 
-#define ARCH_FAIL_CORE_RESTORE					\
-	asm volatile(						\
-		     "movq %0, %%rsp			    \n"	\
-		     "movq 0, %%rax			    \n"	\
-		     "jmp *%%rax			    \n"	\
-		     :						\
-		     : "r"(ret)					\
-		     : "memory")
-
 static inline void
 __setup_sas_compat(struct ucontext_ia32* uc, ThreadSasEntry *sas)
 {
