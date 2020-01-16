@@ -7,9 +7,6 @@
 	b	__syscall_common;	\
 	END(name)
 
-	.text
-	.align	4
-
 ENTRY(__syscall_common)
 	sc
 	bnslr+		/* if no error return to LR */

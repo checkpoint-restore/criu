@@ -6,9 +6,6 @@
 	jmp	__syscall_common;	\
 	END(name)
 
-	.text
-	.align	4
-
 ENTRY(__syscall_common)
 	movq	%rcx, %r10
 	syscall
