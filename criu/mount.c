@@ -476,7 +476,7 @@ static int try_resolve_ext_mount(struct mount_info *info)
 
 	snprintf(devstr, sizeof(devstr), "dev[%d/%d]", kdev_major(info->s_dev), kdev_minor(info->s_dev));
 
-	if (info->fstype->code == FSTYPE__UNSUPPORTED) {
+	if (info->fstype->code == FSTYPE__UNSUPPORTED && fsroot_mounted(info)) {
 		char *val;
 
 		val = external_lookup_by_key(devstr);
