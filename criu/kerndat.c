@@ -992,10 +992,10 @@ static bool kerndat_has_clone3_set_tid(void)
 	pid_t pid;
 	struct _clone_args args = {};
 
-#if !defined(CONFIG_X86_64) && !defined(CONFIG_S390)
+#if !defined(CONFIG_X86_64) && !defined(CONFIG_S390) && !defined(CONFIG_PPC64)
 	/*
 	 * Currently the CRIU PIE assembler clone3() wrapper is
-	 * only implemented for X86_64 and S390X.
+	 * only implemented for X86_64, S390X and PPC64LE.
 	 */
 	kdat.has_clone3_set_tid = false;
 	return 0;
