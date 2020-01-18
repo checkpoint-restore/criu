@@ -31,12 +31,12 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (access("/proc/sys/net/ipv4/ip_forward", W_OK)) {
-		fail("Unable to access /proc/sys/net/core/wmem_max");
+		fail("Unable to access /proc/sys/net/ipv4/ip_forward");
 		return 1;
 	}
 
 	if (access("/proc/sys/kernel/ns_last_pid", W_OK) != -1 || errno != EROFS) {
-		fail("Unable to access /proc/sys/kernel/pid_max");
+		fail("Unable to access /proc/sys/kernel/ns_last_pid");
 		return 1;
 	}
 
