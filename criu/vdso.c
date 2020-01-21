@@ -611,6 +611,12 @@ int kerndat_vdso_fill_symtable(void)
 		return -1;
 	}
 
+	if (!vdso_is_present(&vdso_maps)) {
+		pr_debug("Kernel doesn't premap vDSO - probably CONFIG_VDSO is not set\n");
+		kdat.vdso_sym = vdso_maps.sym;
+		return 0;
+	}
+
 	if (vdso_fill_self_symtable(&vdso_maps)) {
 		pr_err("Failed to fill self vdso symtable\n");
 		return -1;
@@ -643,7 +649,7 @@ int kerndat_vdso_preserves_hint(void)
 
 	kdat.vdso_hint_reliable = 0;
 
-	if (vdso_maps.vdso_start == VDSO_BAD_ADDR)
+	if (!vdso_is_present(&vdso_maps))
 		return 0;
 
 	child = fork();
@@ -693,7 +699,7 @@ int kerndat_vdso_preserves_hint(void)
 		goto out_kill;
 	}
 
-	if (vdso_maps_after.vdso_start != VDSO_BAD_ADDR)
+	if (vdso_is_present(&vdso_maps_after))
 		kdat.vdso_hint_reliable = 1;
 
 	ret = 0;
