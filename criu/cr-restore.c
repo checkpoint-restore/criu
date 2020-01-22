@@ -3373,10 +3373,13 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		vdso_maps_rt = vdso_maps;
 	/*
 	 * Figure out how much memory runtime vdso and vvar will need.
+	 * Check if vDSO or VVAR is not provided by kernel.
 	 */
-	vdso_rt_size = vdso_maps_rt.sym.vdso_size;
-	if (vdso_rt_size && vdso_maps_rt.sym.vvar_size)
-		vdso_rt_size += ALIGN(vdso_maps_rt.sym.vvar_size, PAGE_SIZE);
+	if (vdso_maps_rt.sym.vdso_size != VDSO_BAD_SIZE) {
+		vdso_rt_size = vdso_maps_rt.sym.vdso_size;
+		if (vdso_maps_rt.sym.vvar_size != VVAR_BAD_SIZE)
+			vdso_rt_size += ALIGN(vdso_maps_rt.sym.vvar_size, PAGE_SIZE);
+	}
 	task_args->bootstrap_len += vdso_rt_size;
 
 	/*

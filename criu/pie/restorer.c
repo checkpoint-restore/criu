@@ -1454,7 +1454,7 @@ long __export_restore_task(struct task_restore_args *args)
 	 * it's presence in original task: vdso will be used for fast
 	 * getttimeofday() in restorer's log timings.
 	 */
-	if (!args->can_map_vdso) {
+	if (!args->can_map_vdso && vdso_is_present(&args->vdso_maps_rt)) {
 		/* It's already checked in kdat, but let's check again */
 		if (args->compatible_mode) {
 			pr_err("Compatible mode without vdso map support\n");

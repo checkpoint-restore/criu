@@ -293,6 +293,18 @@ int vdso_proxify(struct vdso_maps *rt, bool *added_proxy,
 	}
 
 	/*
+	 * We could still do something about it here..
+	 * 1. Hope that vDSO from images still works (might not be the case).
+	 * 2. Try to map vDSO.
+	 * But, hopefully no one intends to migrate application that uses
+	 * vDSO to a dut where kernel doesn't provide it.
+	 */
+	if (!vdso_is_present(rt)) {
+		pr_err("vDSO isn't provided by kernel, but exists in images\n");
+		return -1;
+	}
+
+	/*
 	 * vDSO mark overwrites Elf program header of proxy vDSO thus
 	 * it must never ever be greater in size.
 	 */
