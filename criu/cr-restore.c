@@ -3389,7 +3389,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	if (vdso_maps_rt.sym.vdso_size != VDSO_BAD_SIZE) {
 		vdso_rt_size = vdso_maps_rt.sym.vdso_size;
 		if (vdso_maps_rt.sym.vvar_size != VVAR_BAD_SIZE)
-			vdso_rt_size += ALIGN(vdso_maps_rt.sym.vvar_size, PAGE_SIZE);
+			vdso_rt_size += vdso_maps_rt.sym.vvar_size;
 	}
 	task_args->bootstrap_len += vdso_rt_size;
 
