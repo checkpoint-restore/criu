@@ -992,15 +992,6 @@ static bool kerndat_has_clone3_set_tid(void)
 	pid_t pid;
 	struct _clone_args args = {};
 
-#if !defined(CONFIG_X86_64) && !defined(CONFIG_S390) && !defined(CONFIG_PPC64) && !defined(CONFIG_AARCH64)
-	/*
-	 * Currently the CRIU PIE assembler clone3() wrapper is
-	 * only implemented for X86_64, S390X, AARCH64 and PPC64LE.
-	 */
-	kdat.has_clone3_set_tid = false;
-	return 0;
-#endif
-
 	args.set_tid = -1;
 	/*
 	 * On a system without clone3() this will return ENOSYS.
