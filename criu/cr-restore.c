@@ -3318,7 +3318,8 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	long memzone_size;
 
 	struct thread_restore_args *thread_args;
-	struct restore_mem_zone *mz;
+	void *mem_zones;
+	unsigned long restore_mem_zone_size;
 
 	struct vdso_maps vdso_maps_rt;
 	unsigned long vdso_rt_size = 0;
@@ -3366,7 +3367,8 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		goto err;
 
 	rst_mem_size = rst_mem_lock();
-	memzone_size = round_up(sizeof(struct restore_mem_zone) * current->nr_threads, page_size());
+	restore_mem_zone_size = round_up(sizeof(struct restore_mem_zone), page_size()) + page_size();
+	memzone_size = restore_mem_zone_size * current->nr_threads;
 	task_args->bootstrap_len = restorer_len + memzone_size + alen + rst_mem_size;
 	BUG_ON(task_args->bootstrap_len & (PAGE_SIZE - 1));
 	pr_info("%d threads require %ldK of memory\n",
@@ -3429,7 +3431,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	}
 
 	memzero(mem, memzone_size);
-	mz = mem;
+	mem_zones = mem;
 	mem += memzone_size;
 
 	/* New home for task_restore_args and thread_restore_args */
@@ -3526,6 +3528,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		CoreEntry *tcore;
 		struct rt_sigframe *sigframe;
 		k_rtsigset_t *blkset = NULL;
+		struct restore_mem_zone *mem_zone;
 
 		thread_args[i].pid = current->threads[i].ns[0].virt;
 		thread_args[i].siginfo_n = siginfo_priv_nr[i];
@@ -3578,8 +3581,15 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		seccomp_rst_reloc(&thread_args[i]);
 		thread_args[i].seccomp_force_tsync = rsti(current)->has_old_seccomp_filter;
 
-		thread_args[i].mz = mz + i;
-		sigframe = (struct rt_sigframe *)&mz[i].rt_sigframe;
+		/* Allocate a guard page. */
+		if (mprotect(mem_zones + i * restore_mem_zone_size, page_size(), PROT_NONE)) {
+			pr_perror("Unable to set a stack guard page");
+			goto err;
+		}
+
+		mem_zone = mem_zones + i * restore_mem_zone_size + page_size();
+		thread_args[i].mz = mem_zone;
+		sigframe = (struct rt_sigframe *)&mem_zone->rt_sigframe;
 
 		if (construct_sigframe(sigframe, sigframe, blkset, tcore))
 			goto err;
@@ -3594,7 +3604,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 			core_entry__free_unpacked(tcore, NULL);
 
 		pr_info("Thread %4d stack %8p rt_sigframe %8p\n",
-				i, mz[i].stack, mz[i].rt_sigframe);
+				i, mem_zone->stack, mem_zone->rt_sigframe);
 
 	}
 
