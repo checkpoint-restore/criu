@@ -9,8 +9,6 @@ SECTIONS
 		ASSERT(DEFINED(__export_parasite_head_start),
 			"Symbol __export_parasite_head_start is missing");
 		*(.text*)
-		*(.compel.exit)
-		*(.compel.init)
 	}
 
 	.data : {

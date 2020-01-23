@@ -1,6 +1,5 @@
 #include <errno.h>
 
-#include "uapi/plugins.h"
 #include "uapi/plugins/std.h"
 #include <compel/plugins/std/infect.h>
 

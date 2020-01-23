@@ -1,6 +1,5 @@
 #include <sys/mman.h>
 
-#include <compel/plugins.h>
 #include <compel/plugins/shmem.h>
 #include <compel/plugins/std/syscall.h>
 #include "shmem.h"
@@ -33,5 +32,3 @@ void *shmem_receive(unsigned long *size)
 	/* master -> parasite not implemented yet */
 	return NULL;
 }
-
-PLUGIN_REGISTER_DUMMY(shmem)

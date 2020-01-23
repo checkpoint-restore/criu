@@ -1,6 +1,5 @@
 #include <errno.h>
 
-#include <compel/plugins.h>
 #include <compel/plugins/std.h>
 
 #define pr_err(fmt, ...)
