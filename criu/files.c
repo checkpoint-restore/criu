@@ -45,6 +45,7 @@
 #include "autofs.h"
 #include "parasite.h"
 #include "parasite-syscall.h"
+#include "string.h"
 #include "kerndat.h"
 #include "fdstore.h"
 
@@ -291,8 +292,7 @@ static int fixup_overlayfs(struct fd_parms *p, struct fd_link *link)
 		char buf[PATH_MAX];
 		int n;
 
-		strncpy(buf, link->name, PATH_MAX);
-		buf[PATH_MAX - 1] = 0;
+		strlcpy(buf, link->name, PATH_MAX);
 		n = snprintf(link->name, PATH_MAX, "%s/%s", m->mountpoint, buf + 2);
 		if (n >= PATH_MAX) {
 			pr_err("Not enough space to replace %s\n", buf);
