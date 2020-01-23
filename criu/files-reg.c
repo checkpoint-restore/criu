@@ -33,6 +33,7 @@
 #include "namespaces.h"
 #include "proc_parse.h"
 #include "pstree.h"
+#include "string.h"
 #include "fault-injection.h"
 #include "external.h"
 #include "memfd.h"
@@ -457,7 +458,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	gf->remap.rmnt_id = rfi->rfe->mnt_id;
 
 	if (S_ISDIR(gfe->mode))
-		strncpy(gf->remap.rpath, rfi->path, PATH_MAX);
+		strlcpy(gf->remap.rpath, rfi->path, PATH_MAX);
 	else
 		ghost_path(gf->remap.rpath, PATH_MAX, rfi, rpe);
 
