@@ -4,7 +4,6 @@
 #include <compel/plugins/shmem.h>
 #include <compel/plugins/std/syscall.h>
 #include "shmem.h"
-#include "std-priv.h"
 
 void *shmem_create(unsigned long size)
 {

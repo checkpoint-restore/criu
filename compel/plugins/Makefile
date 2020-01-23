@@ -41,7 +41,6 @@ shmem-lib-y		+= shmem/shmem.o
 #
 # STD plugin
 target			+= std
-std-lib-y		+= std/std.o
 std-lib-y		+= std/fds.o
 std-lib-y		+= std/log.o
 std-lib-y		+= std/string.o

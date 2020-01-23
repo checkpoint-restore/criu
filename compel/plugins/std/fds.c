@@ -3,8 +3,6 @@
 #include <compel/plugins.h>
 #include <compel/plugins/std.h>
 
-#include "std-priv.h"
-
 #define pr_err(fmt, ...)
 
 #include "common/compiler.h"
