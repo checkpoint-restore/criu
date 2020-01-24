@@ -113,8 +113,8 @@ static void helpexit(void)
 	exit(1);
 }
 
-const char *test_doc;
-const char *test_author;
+const char __attribute__((weak)) *test_doc;
+const char __attribute__((weak)) *test_author;
 
 static void prdoc(void)
 {
