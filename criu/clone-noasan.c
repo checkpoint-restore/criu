@@ -61,7 +61,19 @@ int clone3_with_pid_noasan(int (*fn)(void *), void *arg, int flags,
 
 	pr_debug("Creating process using clone3()\n");
 
-	c_args.exit_signal = exit_signal;
+	/*
+	 * clone3() explicitly blocks setting an exit_signal
+	 * if CLONE_PARENT is specified. With clone() it also
+	 * did not work, but there was no error message. The
+	 * exit signal from the thread group leader is taken.
+	 */
+	if (!(flags & CLONE_PARENT)) {
+		if (exit_signal != SIGCHLD) {
+			pr_err("Exit signal not SIGCHLD\n");
+			return -1;
+		}
+		c_args.exit_signal = exit_signal;
+	}
 	c_args.flags = flags;
 	c_args.set_tid = ptr_to_u64(&pid);
 	c_args.set_tid_size = 1;
