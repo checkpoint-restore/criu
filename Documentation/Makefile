@@ -54,7 +54,7 @@ ifneq ($(USE_ASCIIDOCTOR),)
 	$(Q) $(ASCIIDOC) -b manpage -d manpage -o $@ $<
 else
 	$(Q) $(ASCIIDOC) -b docbook -d manpage -o $(patsubst %.1,%.xml,$@) $<
-	$(Q) $(XMLTO) man -m custom.xsl $(patsubst %.1,%.xml,$@) 2>/dev/null
+	$(Q) $(XMLTO) man -m custom.xsl $(patsubst %.1,%.xml,$@)
 endif
 
 %.8: %.txt $(FOOTER) custom.xsl
@@ -63,7 +63,7 @@ ifneq ($(USE_ASCIIDOCTOR),)
 	$(Q) $(ASCIIDOC) -b manpage -d manpage -o $@ $<
 else
 	$(Q) $(ASCIIDOC) -b docbook -d manpage -o $(patsubst %.8,%.xml,$@) $<
-	$(Q) $(XMLTO) man -m custom.xsl $(patsubst %.8,%.xml,$@) 2>/dev/null
+	$(Q) $(XMLTO) man -m custom.xsl $(patsubst %.8,%.xml,$@)
 endif
 
 %.ps: %.1
