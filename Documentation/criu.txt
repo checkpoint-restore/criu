@@ -36,8 +36,8 @@ Common options are applicable to any 'command'.
     Increase verbosity up from the default level. In case of short option,
     multiple *v* can be used, each increasing verbosity by one.
 
-*-v*'num', *--verbosity*='num'::
-    Set verbosity level to 'num'. The higher the level, the more output
+**-v**__num__, **--verbosity=**__num__::
+    Set verbosity level to _num_. The higher the level, the more output
     is produced.
     +
 The following levels are available:
@@ -184,7 +184,7 @@ In other words, do not use it unless really needed.
 *-s*, *--leave-stopped*::
     Leave tasks in stopped state after checkpoint, instead of killing.
 
-*--external* 'type'*[*'id'*]:*'value'::
+*--external* __type__**[**__id__**]:**__value__::
     Dump an instance of an external resource. The generic syntax is
     'type' of resource, followed by resource 'id' (enclosed in literal
     square brackets), and optional 'value' (prepended by a literal colon).
@@ -193,35 +193,36 @@ In other words, do not use it unless really needed.
     Note to restore external resources, either *--external* or *--inherit-fd*
     is used, depending on resource type.
 
-*--external mnt[*'mountpoint'*]:*'name'::
+*--external* **mnt[**__mountpoint__**]:**__name__::
     Dump an external bind mount referenced by 'mountpoint', saving it
     to image under the identifier 'name'.
 
-*--external mnt[]:*'flags'::
+*--external* **mnt[]:**__flags__::
     Dump all external bind mounts, autodetecting those. Optional 'flags'
     can contain *m* to also dump external master mounts, *s* to also
     dump external shared mounts (default behavior is to abort dumping
     if such mounts are found). If 'flags' are not provided, colon
     is optional.
 
-*--external dev[*'major'*/*'minor'*]:*'name'::
+*--external* **dev[**__major__**/**__minor__**]:**__name__::
     Allow to dump a mount namespace having a real block device mounted.
     A block device is identified by its 'major' and 'minor' numbers,
     and *criu* saves its information to image under the identifier 'name'.
 
-*--external file[*'mnt_id'*:*'inode'*]*::
+*--external* **file[**__mnt_id__**:**__inode__**]**::
     Dump an external file, i.e. an opened file that is can not be resolved
     from the current mount namespace, which can not be dumped without using
     this option. The file is identified by 'mnt_id' (a field obtained from
-    */proc/*'pid'*/fdinfo/*'N') and 'inode' (as returned by *stat*(2)).
+    **/proc/**__pid__**/fdinfo/**__N__) and 'inode' (as returned by
+    *stat*(2)).
 
-*--external tty[*'rdev'*:*'dev'*]*::
+*--external* **tty[**__rdev__**:**__dev__**]**::
     Dump an external TTY, identified by *st_rdev* and *st_dev* fields
     returned by *stat*(2).
 
-*--external unix[*'id'*]*::
+*--external* **unix[**__id__**]**::
     Tell *criu* that one end of a pair of UNIX sockets (created by
-    *socketpair*(2)) with 'id' is OK to be disconnected.
+    *socketpair*(2)) with the given _id_ is OK to be disconnected.
 
 *--freeze-cgroup*::
    Use cgroup freezer to collect processes.
@@ -379,7 +380,7 @@ By default the option is set to *fpu* and *ins*.
 ~~~~~~~~~
 Restores previously checkpointed processes.
 
-*--inherit-fd* *fd[*'N'*]:*'resource'::
+*--inherit-fd* **fd[**__N__**]:**__resource__::
     Inherit a file descriptor. This option lets *criu* use an already opened
     file descriptor 'N' for restoring a file identified by 'resource'.
     This option can be used to restore an external resource dumped
@@ -387,10 +388,10 @@ Restores previously checkpointed processes.
 +
 The 'resource' argument can be one of the following:
 +
-    - *tty[*'rdev'*:*'dev'*]*
-    - *pipe[*'inode'*]*
-    - *socket[*'inode'*]*
-    - *file[*'mnt_id'*:*'inode'*]*
+    - **tty[**__rdev__**:**__dev__**]**
+    - **pipe[**__inode__**]**
+    - **socket[**__inode__*]*
+    - **file[**__mnt_id__**:**__inode__**]**
     - 'path/to/file'
 
 +
@@ -416,7 +417,7 @@ usually need to be escaped from shell.
     This option is required to restore a mount namespace. The directory
     'path' must be a mount point and its parent must not be overmounted.
 
-*--external* 'type'*[*'id'*]:*'value'::
+*--external* __type__**[**__id__**]:**__value__::
     Restore an instance of an external resource. The generic syntax is
     'type' of resource, followed by resource 'id' (enclosed in literal
     square brackets), and optional 'value' (prepended by a literal colon).
@@ -426,7 +427,7 @@ usually need to be escaped from shell.
     the help of *--external* *file*, *tty*, and *unix* options), option
     *--inherit-fd* should be used.
 
-*--external mnt[*'name'*]:*'mountpoint'::
+*--external* **mnt[**__name__**]:**__mountpoint__::
     Restore an external bind mount referenced in the image by 'name',
     bind-mounting it from the host 'mountpoint' to a proper mount point.
 
@@ -434,17 +435,17 @@ usually need to be escaped from shell.
     Restore all external bind mounts (dumped with the help of
     *--external mnt[]* auto-detection).
 
-*--external dev[*'name'*]:*'/dev/path'::
+*--external* **dev[**__name__**]:**__/dev/path__::
     Restore an external mount device, identified in the image by 'name',
     using the existing block device '/dev/path'.
 
-*--external veth[*'inner_dev'*]:*'outer_dev'*@*'bridge'::
+*--external* **veth[**__inner_dev__**]:**__outer_dev__**@**__bridge__::
     Set the outer VETH device name (corresponding to 'inner_dev' being
-    restored) to 'outer_dev'. If optional *@*'bridge' is specified,
+    restored) to 'outer_dev'. If optional **@**_bridge_ is specified,
     'outer_dev' is added to that bridge. If the option is not used,
     'outer_dev' will be autogenerated by the kernel.
 
-*--external macvlan[*'inner_dev'*]:*'outer_dev'::
+*--external* **macvlan[**__inner_dev__**]:**__outer_dev__::
     When restoring an image that have a MacVLAN device in it, this option
     must be used to specify to which 'outer_dev' (an existing network device
     in CRIU namespace) the restored 'inner_dev' should be bound to.
@@ -489,14 +490,14 @@ The 'mode' may be one of the following:
 *--tcp-close*::
     Restore connected TCP sockets in closed state.
 
-*--veth-pair* 'IN'*=*'OUT'::
+*--veth-pair* __IN__**=**__OUT__::
     Correspondence between outside and inside names of veth devices.
 
 *-l*, *--file-locks*::
     Restore file locks from the image.
 
-*--lsm-profile* 'type'*:*'name'::
-    Specify an LSM profile to be used during restore. The `type` can be
+*--lsm-profile* __type__**:**__name__::
+    Specify an LSM profile to be used during restore. The _type_ can be
     either *apparmor* or *selinux*.
 
 *--auto-dedup*::
