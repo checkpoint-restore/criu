@@ -24,8 +24,8 @@ on a different system, or both.
 OPTIONS
 -------
 
-Most of the true / false long options (the ones without arguments) can be
-prefixed with *--no-* to negate the option (example: *--display-stats*
+Most of the long flags can be
+prefixed with *no-* to negate the option (example: *--display-stats*
 and *--no-display-stats*).
 
 Common options
@@ -33,9 +33,8 @@ Common options
 Common options are applicable to any 'command'.
 
 *-v*[*v*...], *--verbosity*::
-    Increase verbosity up from the default level. Multiple *v* can be used,
-    each increasing verbosity by one level. Using long option without argument
-    increases verbosity by one level.
+    Increase verbosity up from the default level. In case of short option,
+    multiple *v* can be used, each increasing verbosity by one.
 
 *-v*'num', *--verbosity*='num'::
     Set verbosity level to 'num'. The higher the level, the more output
@@ -57,22 +56,22 @@ The following levels are available:
     Pass a specific configuration file to criu.
 
 *--no-default-config*::
-    Forbid parsing of default configuration files.
+    Disable parsing of default configuration files.
 
 *--pidfile* 'file'::
     Write root task, service or page-server pid into a 'file'.
 
 *-o*, *--log-file* 'file'::
-    Write logging messages to 'file'.
+    Write logging messages to a 'file'.
 
 *--display-stats*::
-    During dump as well as during restore *criu* collects information
-    like the time required to dump or restore the process or the
+    During dump, as well as during restore, *criu* collects some statistics,
+    like the time required to dump or restore the process, or the
     number of pages dumped or restored. This information is always
-    written to the files 'stats-dump' and 'stats-restore' and can
-    be easily displayed using *crit*. The option *--display-stats*
-    additionally prints out this information on the console at the end
-    of a dump or a restore.
+    saved to the *stats-dump* and *stats-restore* files, and can
+    be shown using *crit*(1). The option *--display-stats*
+    prints out this information on the console at the end
+    of a dump or restore operation.
 
 *-D*, *--images-dir* 'path'::
     Use 'path' as a base directory where to look for sets of image files.
