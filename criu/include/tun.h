@@ -5,7 +5,7 @@
 #define TUN_MINOR	200
 #endif
 
-struct ns_id *ns;
+extern struct ns_id *ns;
 
 #include <linux/netlink.h>
 
