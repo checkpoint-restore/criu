@@ -94,3 +94,27 @@ err:
 	mnt_info_free(&m);
 	goto out;
 }
+
+int get_cwd_check_perm(char **result)
+{
+	char *cwd;
+	*result = 0;
+	cwd = get_current_dir_name();
+	if (!cwd) {
+		pr_perror("failed to get current directory");
+		return -1;
+	}
+
+	if (access(cwd, X_OK)) {
+		pr_err("access check for bit X for current dir path '%s' "
+		       "failed for uid:%d,gid:%d, error: %d(%s). "
+		       "Bit 'x' should be set in all path components of "
+		       "this directory\n",
+		       cwd, getuid(), getgid(), errno, strerror(errno)
+		);
+		return -1;
+	}
+
+	*result = cwd;
+	return 0;
+}
