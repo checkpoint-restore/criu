@@ -149,6 +149,9 @@ extern int tcp_init_server(int family, int *port);
 extern int tcp_accept_server(int sock);
 extern int tcp_init_client(int family, char *servIP, unsigned short servPort);
 
+struct sockaddr_un;
+extern int unix_fill_sock_name(struct sockaddr_un *name, char *relFilename);
+
 struct zdtm_tcp_opts {
 	bool reuseaddr;
 	bool reuseport;
