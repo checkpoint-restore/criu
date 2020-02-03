@@ -50,4 +50,28 @@ extern mnt_info_t *mnt_info_alloc(void);
 extern void mnt_info_free(mnt_info_t **m);
 extern mnt_info_t *get_cwd_mnt_info(void);
 
+/*
+ * get_cwd_check_perm is called to check that cwd is actually usable for a calling
+ * process.
+ *
+ * Example output of a stat command on a '/root' path shows file access bits:
+ * > stat /root
+ * File: ‘/root’
+ *   ...
+ *   Access: (0550/dr-xr-x---) Uid: (  0/root)   Gid: (  0/root)
+ *                          ^- no 'x' bit for other
+ *
+ * Here we can see that '/root' dir (that often can be part of cwd path) does not
+ * allow non-root user and non-root group to list contents of this directory.
+ * Calling process matching 'other' access category may succeed getting cwd path, but will
+ * fail performing further filesystem operations based on this path with confusing errors.
+ *
+ * This function calls get_current_dir_name and explicitly checks that bit 'x' is enabled for
+ * a calling process and logs the error.
+ *
+ * If check passes, stores get_current_dir's result in *result and returns 0
+ * If check fails, stores 0 in *result and returns -1
+ */
+extern int get_cwd_check_perm(char **result);
+
 #endif /* ZDTM_FS_H_ */
