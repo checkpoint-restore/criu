@@ -24,22 +24,6 @@ const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 
-static int fill_sock_name(struct sockaddr_un *name, const char *filename)
-{
-	char *cwd;
-
-	cwd = get_current_dir_name();
-	if (strlen(filename) + strlen(cwd) + 1 >= sizeof(name->sun_path)) {
-		pr_err("Name %s/%s is too long for socket\n",
-		       cwd, filename);
-		return -1;
-	}
-
-	name->sun_family = AF_LOCAL;
-	ssprintf(name->sun_path, "%s/%s", cwd, filename);
-	return 0;
-}
-
 static int sk_alloc_bind(int type, struct sockaddr_un *addr)
 {
 	int sk;
@@ -155,10 +139,9 @@ int main(int argc, char **argv)
 	 */
 
 	ssprintf(filename, "%s/%s", subdir_dg, "sk-dt");
-	if (fill_sock_name(&addr, filename) < 0) {
-		pr_err("%s is too long for socket\n", filename);
+	if (unix_fill_sock_name(&addr, filename))
 		return 1;
-	}
+
 	unlink(addr.sun_path);
 
 	sk_dgram[0] = sk_alloc_bind(SOCK_DGRAM, &addr);
@@ -184,10 +167,9 @@ int main(int argc, char **argv)
 	test_msg("sk-dt: alloc/connect/unlink %d %s\n", sk_dgram[3], addr.sun_path);
 
 	ssprintf(filename, "%s/%s", dirname, "sole");
-	if (fill_sock_name(&addr, filename) < 0) {
-		pr_err("%s is too long for socket\n", filename);
+	if (unix_fill_sock_name(&addr, filename))
 		return 1;
-	}
+
 	unlink(addr.sun_path);
 
 	sk_dgram[4] = sk_alloc_bind(SOCK_DGRAM, &addr);
@@ -237,7 +219,7 @@ int main(int argc, char **argv)
 		 sk_dgram_pair[0], sk_dgram_pair[1]);
 	ssprintf(filename, "%s/%s", subdir_dg, "sk-dtp");
 
-	if (fill_sock_name(&addr, filename) < 0) {
+	if (unix_fill_sock_name(&addr, filename)) {
 		pr_err("%s is too long for socket\n", filename);
 		return 1;
 	}
@@ -270,10 +252,9 @@ int main(int argc, char **argv)
 	 *  - delete socket on fs
 	 */
 	ssprintf(filename, "%s/%s", subdir_st, "sk-st");
-	if (fill_sock_name(&addr, filename) < 0) {
-		pr_err("%s is too long for socket\n", filename);
+	if (unix_fill_sock_name(&addr, filename))
 		return 1;
-	}
+
 	unlink(addr.sun_path);
 
 	sk_st[0] = sk_alloc_bind(SOCK_STREAM, &addr);

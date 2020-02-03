@@ -17,28 +17,13 @@ const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-static int fill_sock_name(struct sockaddr_un *name, const char *filename)
-{
-	char *cwd;
-
-	cwd = get_current_dir_name();
-	if (strlen(filename) + strlen(cwd) + 1 >= sizeof(name->sun_path))
-		return -1;
-
-	name->sun_family = AF_LOCAL;
-	sprintf(name->sun_path, "%s/%s", cwd, filename);
-	return 0;
-}
-
 static int setup_srv_sock(void)
 {
 	struct sockaddr_un name;
 	int sock;
 
-	if (fill_sock_name(&name, filename) < 0) {
-		pr_perror("filename \"%s\" is too long", filename);
+	if (unix_fill_sock_name(&name, filename))
 		return -1;
-	}
 
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (sock < 0) {
@@ -67,7 +52,7 @@ static int setup_clnt_sock(void)
 	struct sockaddr_un name;
 	int sock;
 
-	if (fill_sock_name(&name, filename) < 0)
+	if (unix_fill_sock_name(&name, filename))
 		return -1;
 
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);

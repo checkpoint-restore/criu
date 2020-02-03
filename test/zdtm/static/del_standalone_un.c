@@ -16,19 +16,6 @@ const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 
-static int fill_sock_name(struct sockaddr_un *name, const char *filename)
-{
-	char *cwd;
-
-	cwd = get_current_dir_name();
-	if (strlen(filename) + strlen(cwd) + 1 >= sizeof(name->sun_path))
-		return -1;
-
-	name->sun_family = AF_LOCAL;
-	ssprintf(name->sun_path, "%s/%s", cwd, filename);
-	return 0;
-}
-
 static int bind_and_listen(struct sockaddr_un *addr)
 {
 	int sk;
@@ -71,10 +58,8 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
-	if (fill_sock_name(&addr, filename) < 0) {
-		pr_err("filename \"%s\" is too long\n", filename);
+	if (unix_fill_sock_name(&addr, filename))
 		goto out;
-	}
 
 	sk1 = bind_and_listen(&addr);
 	if (sk1 < 0)
