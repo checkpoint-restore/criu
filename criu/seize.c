@@ -20,6 +20,7 @@
 #include "seccomp.h"
 #include "seize.h"
 #include "stats.h"
+#include "string.h"
 #include "xmalloc.h"
 #include "util.h"
 #include <compel/compel.h>
@@ -77,13 +78,39 @@ const char *get_real_freezer_state(void)
 	return freezer_thawed ? thawed : frozen;
 }
 
-static int freezer_restore_state(void)
+static int freezer_write_state(int fd, enum freezer_state new_state)
 {
-	int fd;
-	char path[PATH_MAX];
+	char state[32];
+	int ret;
 
-	if (!opts.freeze_cgroup || freezer_thawed)
-		return 0;
+	if (new_state == THAWED) {
+		if (strlcpy(state, thawed, sizeof(state)) >= sizeof(state))
+			return -1;
+	} else if (new_state == FROZEN) {
+		if (strlcpy(state, frozen, sizeof(state)) >= sizeof(state))
+			return -1;
+	} else {
+		return -1;
+	}
+
+	ret = lseek(fd, 0, SEEK_SET);
+	if (ret < 0) {
+		pr_perror("Unable to seek freezer FD");
+		return -1;
+	}
+	if (write(fd, state, sizeof(state)) != sizeof(state)) {
+		pr_perror("Unable to %s tasks",
+				(new_state == THAWED) ? "thaw" : "freeze");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int freezer_open(void)
+{
+	char path[PATH_MAX];
+	int fd;
 
 	snprintf(path, sizeof(path), "%s/freezer.state", opts.freeze_cgroup);
 	fd = open(path, O_RDWR);
@@ -92,13 +119,24 @@ static int freezer_restore_state(void)
 		return -1;
 	}
 
-	if (write(fd, frozen, sizeof(frozen)) != sizeof(frozen)) {
-		pr_perror("Unable to freeze tasks");
-		close(fd);
+	return fd;
+}
+
+static int freezer_restore_state(void)
+{
+	int fd;
+	int ret;
+
+	if (!opts.freeze_cgroup || freezer_thawed)
+		return 0;
+
+	fd = freezer_open();
+	if (fd < 0)
 		return -1;
-	}
+
+	ret = freezer_write_state(fd, FROZEN);
 	close(fd);
-	return 0;
+	return ret;
 }
 
 /* A number of tasks in a freezer cgroup which are not going to be dumped */
@@ -338,7 +376,6 @@ static int log_unfrozen_stacks(char *root)
 static int freeze_processes(void)
 {
 	int fd, exit_code = -1;
-	char path[PATH_MAX];
 	enum freezer_state state = THAWED;
 
 	static const unsigned long step_ms = 100;
@@ -361,12 +398,10 @@ static int freeze_processes(void)
 	pr_debug("freezing processes: %lu attempts with %lu ms steps\n",
 		 nr_attempts, step_ms);
 
-	snprintf(path, sizeof(path), "%s/freezer.state", opts.freeze_cgroup);
-	fd = open(path, O_RDWR);
-	if (fd < 0) {
-		pr_perror("Unable to open %s", path);
+	fd = freezer_open();
+	if (fd < 0)
 		return -1;
-	}
+
 	state = get_freezer_state(fd);
 	if (state == FREEZER_ERROR) {
 		close(fd);
@@ -375,9 +410,7 @@ static int freeze_processes(void)
 	if (state == THAWED) {
 		freezer_thawed = true;
 
-		lseek(fd, 0, SEEK_SET);
-		if (write(fd, frozen, sizeof(frozen)) != sizeof(frozen)) {
-			pr_perror("Unable to freeze tasks");
+		if (freezer_write_state(fd, FROZEN)) {
 			close(fd);
 			return -1;
 		}
@@ -427,13 +460,9 @@ static int freeze_processes(void)
 	}
 
 err:
-	if (exit_code == 0 || freezer_thawed) {
-		lseek(fd, 0, SEEK_SET);
-		if (write(fd, thawed, sizeof(thawed)) != sizeof(thawed)) {
-			pr_perror("Unable to thaw tasks");
-			exit_code = -1;
-		}
-	}
+	if (exit_code == 0 || freezer_thawed)
+		exit_code = freezer_write_state(fd, THAWED);
+
 	if (close(fd)) {
 		pr_perror("Unable to thaw tasks");
 		return -1;
