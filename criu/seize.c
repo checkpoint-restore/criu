@@ -38,7 +38,10 @@ enum freezer_state {
 	FREEZING
 };
 
-static enum freezer_state get_freezer_state(int fd)
+/* Track if we are running on cgroup v2 system. */
+static bool cgroup_v2 = false;
+
+static enum freezer_state get_freezer_v1_state(int fd)
 {
 	char state[32];
 	int ret;
@@ -71,6 +74,70 @@ err:
 	return FREEZER_ERROR;
 }
 
+static enum freezer_state get_freezer_v2_state(int fd)
+{
+	int exit_code = FREEZER_ERROR;
+	char path[PATH_MAX];
+	FILE *event;
+	char state;
+	int ret;
+
+	/*
+	 * cgroupv2 freezer uses cgroup.freeze to control the state. The file
+	 * can return 0 or 1. 1 means the cgroup is frozen; 0 means it is not
+	 * frozen. Writing 1 to an unfrozen cgroup can freeze it. Freezing can
+	 * take some time and if the cgroup has finished freezing can be
+	 * seen in cgroup.events: frozen 0|1.
+	 */
+
+	ret = lseek(fd, 0, SEEK_SET);
+	if (ret < 0) {
+		pr_perror("Unable to seek freezer FD");
+		goto out;
+	}
+	ret = read(fd, &state, 1);
+	if (ret <= 0) {
+		pr_perror("Unable to read from freezer FD");
+		goto out;
+	}
+	pr_debug("cgroup.freeze=%c\n", state);
+	if (state == '0') {
+		exit_code = THAWED;
+		goto out;
+	}
+
+	snprintf(path, sizeof(path), "%s/cgroup.events", opts.freeze_cgroup);
+	event = fopen(path, "r");
+	if (event == NULL) {
+		pr_perror("Unable to open %s", path);
+		goto out;
+	}
+	while (fgets(path, sizeof(path), event)) {
+		if (strncmp(path, "frozen", 6) != 0) {
+			continue;
+		} else if (strncmp(path, "frozen 0", 8) == 0) {
+			exit_code = FREEZING;
+			goto close;
+		} else if (strncmp(path, "frozen 1", 8) == 0) {
+			exit_code = FROZEN;
+			goto close;
+		}
+	}
+
+	pr_err("Unknown freezer state: %c\n", state);
+close:
+	fclose(event);
+out:
+	return exit_code;
+}
+
+static enum freezer_state get_freezer_state(int fd)
+{
+	if (cgroup_v2)
+		return get_freezer_v2_state(fd);
+	return get_freezer_v1_state(fd);
+}
+
 static bool freezer_thawed;
 
 const char *get_real_freezer_state(void)
@@ -80,15 +147,23 @@ const char *get_real_freezer_state(void)
 
 static int freezer_write_state(int fd, enum freezer_state new_state)
 {
-	char state[32];
+	char state[32] = {0};
 	int ret;
 
 	if (new_state == THAWED) {
-		if (strlcpy(state, thawed, sizeof(state)) >= sizeof(state))
-			return -1;
+		if (cgroup_v2)
+			state[0] = '0';
+		else
+			if (strlcpy(state, thawed, sizeof(state)) >=
+					sizeof(state))
+				return -1;
 	} else if (new_state == FROZEN) {
-		if (strlcpy(state, frozen, sizeof(state)) >= sizeof(state))
-			return -1;
+		if (cgroup_v2)
+			state[0] = '1';
+		else
+			if (strlcpy(state, frozen, sizeof(state)) >=
+					sizeof(state))
+				return -1;
 	} else {
 		return -1;
 	}
@@ -109,10 +184,13 @@ static int freezer_write_state(int fd, enum freezer_state new_state)
 
 static int freezer_open(void)
 {
+	const char freezer_v1[] = "freezer.state";
+	const char freezer_v2[] = "cgroup.freeze";
 	char path[PATH_MAX];
 	int fd;
 
-	snprintf(path, sizeof(path), "%s/freezer.state", opts.freeze_cgroup);
+	snprintf(path, sizeof(path), "%s/%s", opts.freeze_cgroup,
+			cgroup_v2 ? freezer_v2 : freezer_v1);
 	fd = open(path, O_RDWR);
 	if (fd < 0) {
 		pr_perror("Unable to open %s", path);
@@ -139,6 +217,22 @@ static int freezer_restore_state(void)
 	return ret;
 }
 
+static FILE *freezer_open_thread_list(char *root_path)
+{
+	char path[PATH_MAX];
+	FILE *f;
+
+	snprintf(path, sizeof(path), "%s/%s", root_path,
+			cgroup_v2 ? "cgroup.threads" : "tasks");
+	f = fopen(path, "r");
+	if (f == NULL) {
+		pr_perror("Unable to open %s", path);
+		return NULL;
+	}
+
+	return f;
+}
+
 /* A number of tasks in a freezer cgroup which are not going to be dumped */
 static int processes_to_wait;
 static pid_t *processes_to_wait_pids;
@@ -154,12 +248,10 @@ static int seize_cgroup_tree(char *root_path, enum freezer_state state)
 	 * New tasks can appear while a freezer state isn't
 	 * frozen, so we need to catch all new tasks.
 	 */
-	snprintf(path, sizeof(path), "%s/tasks", root_path);
-	f = fopen(path, "r");
-	if (f == NULL) {
-		pr_perror("Unable to open %s", path);
+	f = freezer_open_thread_list(root_path);
+	if (f == NULL)
 		return -1;
-	}
+
 	while (fgets(path, sizeof(path), f)) {
 		pid_t pid;
 		int ret;
@@ -306,12 +398,10 @@ static int log_unfrozen_stacks(char *root)
 	char path[PATH_MAX];
 	FILE *f;
 
-	snprintf(path, sizeof(path), "%s/tasks", root);
-	f = fopen(path, "r");
-	if (f == NULL) {
-		pr_perror("Unable to open %s", path);
+	f = freezer_open_thread_list(root);
+	if (f == NULL)
 		return -1;
-	}
+
 	while (fgets(path, sizeof(path), f)) {
 		pid_t pid;
 		int ret, stack;
@@ -820,6 +910,27 @@ err_close:
 	return -1;
 }
 
+static int cgroup_version(void)
+{
+	char path[PATH_MAX];
+
+	snprintf(path, sizeof(path), "%s/freezer.state", opts.freeze_cgroup);
+	if (access(path, F_OK) == 0) {
+		cgroup_v2 = false;
+		return 0;
+	}
+
+	snprintf(path, sizeof(path), "%s/cgroup.freeze", opts.freeze_cgroup);
+	if (access(path, F_OK) == 0) {
+		cgroup_v2 = true;
+		return 0;
+	}
+
+	pr_err("Neither a cgroupv1 (freezer.state) or cgroupv2 (cgroup.freeze) control file found.\n");
+
+	return -1;
+}
+
 int collect_pstree(void)
 {
 	pid_t pid = root_item->pid->real;
@@ -834,6 +945,11 @@ int collect_pstree(void)
 	 * cleanups and terminate current process.
 	 */
 	alarm(opts.timeout);
+
+	if (opts.freeze_cgroup && cgroup_version())
+		goto err;
+
+	pr_debug("Detected cgroup V%d freezer\n", cgroup_v2 ? 2 : 1);
 
 	if (opts.freeze_cgroup && freeze_processes())
 		goto err;
