@@ -691,9 +691,14 @@ class inhfd_test:
             i = 0
             for _, peer_file in self.__files:
                 msg = self.__get_message(i)
-                my_file.close()
                 try:
-                    data = peer_file.read(16)
+                    # File pairs naturally block on read() until the write()
+                    # happen (or the writer is closed). This is not the case for
+                    # regular files, so we loop.
+                    data = b''
+                    while not data:
+                        data = peer_file.read(16)
+                        time.sleep(0.1)
                 except Exception as e:
                     print("Unable to read a peer file: %s" % e)
                     sys.exit(1)
