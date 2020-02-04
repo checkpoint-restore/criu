@@ -30,7 +30,14 @@ static const char frozen[]	= "FROZEN";
 static const char freezing[]	= "FREEZING";
 static const char thawed[]	= "THAWED";
 
-static const char *get_freezer_state(int fd)
+enum freezer_state {
+	FREEZER_ERROR = -1,
+	THAWED,
+	FROZEN,
+	FREEZING
+};
+
+static enum freezer_state get_freezer_state(int fd)
 {
 	char state[32];
 	int ret;
@@ -52,15 +59,15 @@ static const char *get_freezer_state(int fd)
 
 	pr_debug("freezer.state=%s\n", state);
 	if (strcmp(state, frozen) == 0)
-		return frozen;
+		return FROZEN;
 	else if (strcmp(state, freezing) == 0)
-		return freezing;
+		return FREEZING;
 	else if (strcmp(state, thawed) == 0)
-		return thawed;
+		return THAWED;
 
 	pr_err("Unknown freezer state: %s\n", state);
 err:
-	return NULL;
+	return FREEZER_ERROR;
 }
 
 static bool freezer_thawed;
@@ -98,7 +105,7 @@ static int freezer_restore_state(void)
 static int processes_to_wait;
 static pid_t *processes_to_wait_pids;
 
-static int seize_cgroup_tree(char *root_path, const char *state)
+static int seize_cgroup_tree(char *root_path, enum freezer_state state)
 {
 	DIR *dir;
 	struct dirent *de;
@@ -134,7 +141,7 @@ static int seize_cgroup_tree(char *root_path, const char *state)
 		if (!compel_interrupt_task(pid)) {
 			pr_debug("SEIZE %d: success\n", pid);
 			processes_to_wait++;
-		} else if (state == frozen) {
+		} else if (state == FROZEN) {
 			char buf[] = "/proc/XXXXXXXXXX/exe";
 			struct stat st;
 
@@ -332,7 +339,7 @@ static int freeze_processes(void)
 {
 	int fd, exit_code = -1;
 	char path[PATH_MAX];
-	const char *state = thawed;
+	enum freezer_state state = THAWED;
 
 	static const unsigned long step_ms = 100;
 	unsigned long nr_attempts = (opts.timeout * 1000000) / step_ms;
@@ -361,11 +368,11 @@ static int freeze_processes(void)
 		return -1;
 	}
 	state = get_freezer_state(fd);
-	if (!state) {
+	if (state == FREEZER_ERROR) {
 		close(fd);
 		return -1;
 	}
-	if (state == thawed) {
+	if (state == THAWED) {
 		freezer_thawed = true;
 
 		lseek(fd, 0, SEEK_SET);
@@ -384,12 +391,12 @@ static int freeze_processes(void)
 		 */
 		for (; i <= nr_attempts; i++) {
 			state = get_freezer_state(fd);
-			if (!state) {
+			if (state == FREEZER_ERROR) {
 				close(fd);
 				return -1;
 			}
 
-			if (state == frozen)
+			if (state == FROZEN)
 				break;
 			if (alarm_timeouted())
 				goto err;
