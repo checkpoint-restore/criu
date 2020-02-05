@@ -748,6 +748,11 @@ static struct fstype fstypes[] = {
 		.parse = cgroup_parse,
 		.sb_equal = cgroup_sb_equal,
 	}, {
+		.name = "cgroup2",
+		.code = FSTYPE__CGROUP2,
+		.parse = cgroup_parse,
+		.sb_equal = cgroup_sb_equal,
+	}, {
 		.name = "aufs",
 		.code = FSTYPE__AUFS,
 		.parse = aufs_parse,
