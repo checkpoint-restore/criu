@@ -1877,7 +1877,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 				!(opts.ext_unix_sk)) {
 			pr_err("External socket found in image. "
 					"Consider using the --" USK_EXT_PARAM
-					"option to allow restoring it.\n");
+					" option to allow restoring it.\n");
 			return -1;
 		}
 
