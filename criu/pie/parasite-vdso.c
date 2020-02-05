@@ -119,9 +119,9 @@ int vdso_do_park(struct vdso_maps *rt, unsigned long addr, unsigned long space)
 	BUG_ON((vdso_size + vvar_size) < space);
 
 	if (rt->sym.vdso_before_vvar)
-		return park_at(rt, addr, addr + vvar_size);
+		return park_at(rt, addr, addr + vdso_size);
 	else
-		return park_at(rt, addr + vdso_size, addr);
+		return park_at(rt, addr + vvar_size, addr);
 }
 
 #ifndef CONFIG_COMPAT
