@@ -28,6 +28,8 @@ enum fstype {
 	// RPC_PIPEFS		= 20;
 	// NFS			= 21;
 	// NFS4			= 22;
+
+	CGROUP2			= 23;
 };
 
 message mnt_entry {
