@@ -77,6 +77,7 @@
 #include "fdstore.h"
 #include "string.h"
 #include "memfd.h"
+#include "string.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
