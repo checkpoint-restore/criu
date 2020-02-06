@@ -77,6 +77,7 @@
 #include "sigframe.h"
 #include "fdstore.h"
 #include "memfd.h"
+#include "string.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
@@ -3154,7 +3155,7 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 
 			args = rst_mem_remap_ptr(this_pos, RM_PRIVATE);
 			args->lsm_profile = lsm_profile;
-			strncpy(args->lsm_profile, rendered, lsm_profile_len);
+			strlcpy(args->lsm_profile, rendered, lsm_profile_len + 1);
 			xfree(rendered);
 		}
 	} else {
@@ -3188,7 +3189,7 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 
 			args = rst_mem_remap_ptr(this_pos, RM_PRIVATE);
 			args->lsm_sockcreate = lsm_sockcreate;
-			strncpy(args->lsm_sockcreate, rendered, lsm_sockcreate_len);
+			strlcpy(args->lsm_sockcreate, rendered, lsm_sockcreate_len + 1);
 			xfree(rendered);
 		}
 	} else {
