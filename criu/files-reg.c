@@ -282,19 +282,53 @@ static int mkreg_ghost(char *path, GhostFileEntry *gfe, struct cr_img *img)
 	return ret;
 }
 
+static int mklnk_ghost(char *path, GhostFileEntry *gfe)
+{
+	if (!gfe->symlnk_target) {
+		pr_err("Ghost symlink target is NULL for %s. Image from old CRIU?\n", path);
+		return -1;
+	}
+
+	if (symlink(gfe->symlnk_target, path) < 0) {
+		/*
+		 * ENOENT case is OK
+		 * Take a look closer on create_ghost() function
+		 */
+		if (errno != ENOENT)
+			pr_perror("symlink(%s, %s) failed", gfe->symlnk_target, path);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int ghost_apply_metadata(const char *path, GhostFileEntry *gfe)
 {
 	struct timeval tv[2];
 	int ret = -1;
 
-	if (chown(path, gfe->uid, gfe->gid) < 0) {
-		pr_perror("Can't reset user/group on ghost %s", path);
-		goto err;
-	}
+	if (S_ISLNK(gfe->mode)) {
+		if (lchown(path, gfe->uid, gfe->gid) < 0) {
+			pr_perror("Can't reset user/group on ghost %s", path);
+			goto err;
+		}
 
-	if (chmod(path, gfe->mode)) {
-		pr_perror("Can't set perms %o on ghost %s", gfe->mode, path);
-		goto err;
+		/*
+		 * We have no lchmod() function, and fchmod() will fail on
+		 * O_PATH | O_NOFOLLOW fd. Yes, we have fchmodat()
+		 * function and flag AT_SYMLINK_NOFOLLOW described in
+		 * man 2 fchmodat, but it is not currently implemented. %)
+		 */
+	} else {
+		if (chown(path, gfe->uid, gfe->gid) < 0) {
+			pr_perror("Can't reset user/group on ghost %s", path);
+			goto err;
+		}
+
+		if (chmod(path, gfe->mode)) {
+			pr_perror("Can't set perms %o on ghost %s", gfe->mode, path);
+			goto err;
+		}
 	}
 
 	if (gfe->atim) {
@@ -353,6 +387,9 @@ again:
 	} else if (S_ISDIR(gfe->mode)) {
 		if ((ret = mkdirpat(AT_FDCWD, path, gfe->mode)) < 0)
 			msg = "Can't make ghost dir";
+	} else if (S_ISLNK(gfe->mode)) {
+		if ((ret = mklnk_ghost(path, gfe)) < 0)
+			msg = "Can't create ghost symlink";
 	} else {
 		if ((ret = mkreg_ghost(path, gfe, img)) < 0)
 			msg = "Can't create ghost regfile";
@@ -740,6 +777,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 	int exit_code = -1;
 	GhostFileEntry gfe = GHOST_FILE_ENTRY__INIT;
 	Timeval atim = TIMEVAL__INIT, mtim = TIMEVAL__INIT;
+	char pathbuf[PATH_MAX];
 
 	pr_info("Dumping ghost file contents (id %#x)\n", id);
 
@@ -771,6 +809,36 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 		gfe.has_chunks = gfe.chunks = true;
 		gfe.has_size = true;
 		gfe.size = st->st_size;
+	}
+
+	/*
+	 * We set gfe.symlnk_target only if we need to dump
+	 * symlink content, otherwise we leave it NULL.
+	 * It will be taken into account on restore in mklnk_ghost function.
+	 */
+	if (S_ISLNK(st->st_mode)) {
+		ssize_t ret;
+
+		/*
+		 * We assume that _fd opened with O_PATH | O_NOFOLLOW
+		 * flags because S_ISLNK(st->st_mode). With current kernel version,
+		 * it's looks like correct assumption in any case.
+		 */
+		ret = readlinkat(_fd, "", pathbuf, sizeof(pathbuf) - 1);
+		if (ret < 0) {
+			pr_perror("Can't readlinkat");
+			goto err_out;
+		}
+
+		pathbuf[ret] = 0;
+
+		if (ret != st->st_size) {
+			pr_err("Buffer for readlinkat is too small: ret %zd, st_size %"PRId64", buf %u %s\n",
+					ret, st->st_size, PATH_MAX, pathbuf);
+			goto err_out;
+		}
+
+		gfe.symlnk_target = pathbuf;
 	}
 
 	if (pb_write_one(img, &gfe, PB_GHOST_FILE))
@@ -1116,6 +1184,7 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms,
 	int ret, mntns_root;
 	struct stat pst;
 	const struct stat *ost = &parms->stat;
+	int flags = 0;
 
 	if (parms->fs_type == PROC_SUPER_MAGIC) {
 		/* The file points to /proc/pid/<foo> where pid is a dead
@@ -1212,7 +1281,10 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms,
 	if (mntns_root < 0)
 		return -1;
 
-	ret = fstatat(mntns_root, rpath, &pst, 0);
+	if (S_ISLNK(parms->stat.st_mode))
+		flags = AT_SYMLINK_NOFOLLOW;
+
+	ret = fstatat(mntns_root, rpath, &pst, flags);
 	if (ret < 0) {
 		/*
 		 * Linked file, but path is not accessible (unless any
