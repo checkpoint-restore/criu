@@ -317,15 +317,60 @@ grps_err:
 	return -1;
 }
 
+static int fill_fds_fown(int fd, struct fd_opts *p)
+{
+	int flags, ret;
+	struct f_owner_ex owner_ex;
+	uint32_t v[2];
+
+	/*
+	 * For O_PATH opened files there is no owner at all.
+	 */
+	flags = sys_fcntl(fd, F_GETFL, 0);
+	if (flags < 0) {
+		pr_err("fcntl(%d, F_GETFL) -> %d\n", fd, flags);
+		return -1;
+	}
+	if (flags & O_PATH) {
+		p->fown.pid = 0;
+		return 0;
+	}
+
+	ret = sys_fcntl(fd, F_GETOWN_EX, (long)&owner_ex);
+	if (ret) {
+		pr_err("fcntl(%d, F_GETOWN_EX) -> %d\n", fd, ret);
+		return -1;
+	}
+
+	/*
+	 * Simple case -- nothing is changed.
+	 */
+	if (owner_ex.pid == 0) {
+		p->fown.pid = 0;
+		return 0;
+	}
+
+	ret = sys_fcntl(fd, F_GETOWNER_UIDS, (long)&v);
+	if (ret) {
+		pr_err("fcntl(%d, F_GETOWNER_UIDS) -> %d\n", fd, ret);
+		return -1;
+	}
+
+	p->fown.uid	 = v[0];
+	p->fown.euid	 = v[1];
+	p->fown.pid_type = owner_ex.type;
+	p->fown.pid	 = owner_ex.pid;
+
+	return 0;
+}
+
 static int fill_fds_opts(struct parasite_drain_fd *fds, struct fd_opts *opts)
 {
 	int i;
 
 	for (i = 0; i < fds->nr_fds; i++) {
-		int flags, fd = fds->fds[i], ret;
+		int flags, fd = fds->fds[i];
 		struct fd_opts *p = opts + i;
-		struct f_owner_ex owner_ex;
-		uint32_t v[2];
 
 		flags = sys_fcntl(fd, F_GETFD, 0);
 		if (flags < 0) {
@@ -335,30 +380,8 @@ static int fill_fds_opts(struct parasite_drain_fd *fds, struct fd_opts *opts)
 
 		p->flags = (char)flags;
 
-		ret = sys_fcntl(fd, F_GETOWN_EX, (long)&owner_ex);
-		if (ret) {
-			pr_err("fcntl(%d, F_GETOWN_EX) -> %d\n", fd, ret);
+		if (fill_fds_fown(fd, p))
 			return -1;
-		}
-
-		/*
-		 * Simple case -- nothing is changed.
-		 */
-		if (owner_ex.pid == 0) {
-			p->fown.pid = 0;
-			continue;
-		}
-
-		ret = sys_fcntl(fd, F_GETOWNER_UIDS, (long)&v);
-		if (ret) {
-			pr_err("fcntl(%d, F_GETOWNER_UIDS) -> %d\n", fd, ret);
-			return -1;
-		}
-
-		p->fown.uid	 = v[0];
-		p->fown.euid	 = v[1];
-		p->fown.pid_type = owner_ex.type;
-		p->fown.pid	 = owner_ex.pid;
 	}
 
 	return 0;

@@ -399,7 +399,10 @@ static int fill_fd_params(struct pid *owner_pid, int fd, int lfd,
 	pr_info("%d fdinfo %d: pos: %#16"PRIx64" flags: %16o/%#x\n",
 			owner_pid->real, fd, p->pos, p->flags, (int)p->fd_flags);
 
-	ret = fcntl(lfd, F_GETSIG, 0);
+	if (p->flags & O_PATH)
+		ret = 0;
+	else
+		ret = fcntl(lfd, F_GETSIG, 0);
 	if (ret < 0) {
 		pr_perror("Can't get owner signum on %d", lfd);
 		return -1;
