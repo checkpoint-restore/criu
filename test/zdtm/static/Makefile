@@ -359,6 +359,7 @@ TST_DIR		=				\
 		private_bind_propagation	\
 		ghost_on_rofs			\
 		overmounted_file		\
+		opath_file			\
 
 TST_DIR_FILE	=				\
 		chroot				\
