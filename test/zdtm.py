@@ -757,6 +757,11 @@ class inhfd_test:
             fcntl.fcntl(fd, fcntl.F_SETFD, fdflags)
             peer_file_name = self.__peer_file_names[i]
             ropts.extend(["--inherit-fd", "fd[%d]:%s" % (fd, peer_file_name)])
+        self.__peer_file_names = []
+        self.__dump_opts = []
+        for _, peer_file in self.__files:
+            self.__peer_file_names.append(self.__fdtyp.filename(peer_file))
+            self.__dump_opts += self.__fdtyp.dump_opts(peer_file)
         return ropts
 
     def print_output(self):
