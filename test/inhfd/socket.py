@@ -1,5 +1,5 @@
-import socket
 import os
+import socket
 
 
 def create_fds():
