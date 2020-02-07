@@ -1,12 +1,13 @@
-from google.protobuf.descriptor import FieldDescriptor as FD
-import opts_pb2
-from ipaddress import IPv4Address, ip_address
-from ipaddress import IPv6Address
-import socket
+import base64
 import collections
 import os
-import base64
 import quopri
+import socket
+from ipaddress import IPv4Address, IPv6Address, ip_address
+
+from google.protobuf.descriptor import FieldDescriptor as FD
+
+import opts_pb2
 
 if "encodebytes" not in dir(base64):
     base64.encodebytes = base64.encodestring

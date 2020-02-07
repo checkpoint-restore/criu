@@ -1,30 +1,32 @@
 #!/usr/bin/env python
 # vim: noet ts=8 sw=8 sts=8
 from __future__ import absolute_import, division, print_function, unicode_literals
-from builtins import (str, open, range, zip, int, input)
 
 import argparse
-import glob
-import os
-import subprocess
-import time
-import tempfile
-import shutil
-import re
-import stat
-import signal
 import atexit
-import sys
-import linecache
-import random
-import string
-import fcntl
-import errno
 import datetime
-import yaml
-import struct
+import errno
+import fcntl
+import glob
+import linecache
 import mmap
+import os
+import random
+import re
+import shutil
+import signal
+import stat
+import string
+import struct
+import subprocess
+import sys
+import tempfile
+import time
+from builtins import (input, int, open, range, str, zip)
+
 import pycriu as crpc
+
+import yaml
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
