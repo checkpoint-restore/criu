@@ -36,7 +36,7 @@ static int parse_self_fdinfo(int fd, struct fdinfo *fi)
 
 	while (fgets(line, sizeof(line), file)) {
 		if (fdinfo_field(line, "flags")) {
-			if (sscanf(line, "%*s %llu", &val) != 1) {
+			if (sscanf(line, "%*s %llo", &val) != 1) {
 				pr_err("failed to read flags: %s", line);
 				goto fail;
 			}
