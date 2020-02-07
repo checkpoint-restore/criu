@@ -1,11 +1,12 @@
 #!/usr/bin/python
 
+import argparse
 import os
 import sys
-import rpc_pb2 as rpc
-import argparse
-from tempfile import mkstemp
 import time
+from tempfile import mkstemp
+
+import rpc_pb2 as rpc
 
 from setup_swrk import setup_swrk
 
