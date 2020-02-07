@@ -1776,11 +1776,17 @@ static int do_open_reg(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 	if (fd < 0)
 		return fd;
 
-	if ((rfi->rfe->pos != -1ULL) &&
-			lseek(fd, rfi->rfe->pos, SEEK_SET) < 0) {
-		pr_perror("Can't restore file pos");
-		close(fd);
-		return -1;
+	/*
+	 * O_PATH opened files carry empty fops in kernel,
+	 * just ignore positioning at all.
+	 */
+	if (!(rfi->rfe->flags & O_PATH)) {
+		if (rfi->rfe->pos != -1ULL &&
+		    lseek(fd, rfi->rfe->pos, SEEK_SET) < 0) {
+			pr_perror("Can't restore file pos");
+			close(fd);
+			return -1;
+		}
 	}
 
 	return fd;
