@@ -12,6 +12,7 @@ env:
   - TR_ARCH=x86_64
   - TR_ARCH=x86_64      CLANG=1
   - TR_ARCH=openj9-test
+  - TR_ARCH=vagrant-fedora-no-vdso
 jobs:
   include:
     - os: linux

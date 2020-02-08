@@ -64,5 +64,13 @@ podman-test:
 openj9-test: restart-docker
 	./openj9-test.sh
 
+setup-vagrant:
+	./vagrant.sh setup
+
+vagrant-fedora-no-vdso: setup-vagrant
+	./vagrant.sh fedora-no-vdso
+
+.PHONY: setup-vagrant vagrant-fedora-no-vdso
+
 %:
 	$(MAKE) -C ../build $@$(target-suffix)
