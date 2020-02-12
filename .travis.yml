@@ -7,84 +7,108 @@ services:
 jobs:
   include:
     - env: TR_ARCH=local
+      name: "x86 zdtm"
     - env: TR_ARCH=local CLANG=1
+      name: "x86 clang zdtm"
     - env: TR_ARCH=local COMPAT_TEST=y
+      name: "ia32 zdtm"
     - env: TR_ARCH=local CLANG=1 COMPAT_TEST=y
+      name: "ia32 clang zdtm"
     - env: TR_ARCH=x86_64
+      name: "x86 in docker zdtm"
     - env: TR_ARCH=x86_64 CLANG=1
+      name: "x86 in docker clang zdtm"
     - env: TR_ARCH=openj9-test
+      name: "CRIU+Java integration"
     - os: linux
       arch: ppc64le
       env: TR_ARCH=local
       dist: bionic
+      name: "ppc64 build"
     - os: linux
       arch: ppc64le
       env: TR_ARCH=local CLANG=1
       dist: bionic
+      name: "ppc64 clang build"
     - os: linux
       arch: s390x
       env: TR_ARCH=local
       dist: bionic
+      name: "s390 build"
     - os: linux
       arch: arm64
       env: TR_ARCH=local
       dist: bionic
+      name: "aarch64 build"
     - os: linux
       arch: arm64
       env: TR_ARCH=local CLANG=1
       dist: bionic
+      name: "aarch64 clang build"
     - os: linux
       arch: arm64
       # This runs on aarch64 with 'setarch linux32'
       env: TR_ARCH=armv7hf
       dist: bionic
+      name: "aarch32 build"
     - os: linux
       arch: arm64
       # This runs on aarch64 with 'setarch linux32'
       env: TR_ARCH=armv7hf     CLANG=1
       dist: bionic
+      name: "aarch32 clang build"
     - os: linux
       arch: arm64
       env: TR_ARCH=fedora-rawhide
       dist: bionic
+      name: "aarch64 Fedora-Rawhide build"
     - os: linux
       arch: amd64
       env: TR_ARCH=fedora-rawhide
       dist: xenial # test hangs on bionic
+      name: "x86 Fedora-Rawhide zdtm"
     - os: linux
       arch: amd64
       env: TR_ARCH=podman-test
       dist: bionic
+      name: "x86 Podman integration"
     - os: linux
       arch: amd64
       env: TR_ARCH=docker-test
       dist: bionic
+      name: "x86 Docker integration"
     - os: linux
       arch: amd64
       env: TR_ARCH=docker-test DIST=xenial
       # On xenial it should be possible to test overlayfs;
       # broken on the latest bionic kernel
       dist: xenial
+      name: "x86 Docker [Xenial] integration"
     - os: linux
       arch: amd64
       env: TR_ARCH=alpine      CLANG=1
       dist: xenial # test hangs on bionic
+      name: "x86 Alpine clang zdtm"
     - os: linux
       arch: amd64
       env: TR_ARCH=alpine
       dist: xenial # test hangs on bionic
+      name: "x86 Alpine zdtm"
     - os: linux
       arch: amd64
       env: TR_ARCH=centos
       dist: xenial # test hangs on bionic
+      name: "x86 Centos zdtm"
     - os: linux
       arch: amd64
       env: TR_ARCH=fedora-asan
       dist: xenial # test hangs on bionic
+      name: "x86 ASAN zdtm"
     - os: linux
       arch: amd64
       env: TR_ARCH=armv7-cross
       dist: bionic
+      name: "x86 cross armv7 build"
   allow_failures:
     - env: TR_ARCH=docker-test
     - env: TR_ARCH=docker-test DIST=xenial
