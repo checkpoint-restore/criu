@@ -1541,7 +1541,7 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 		int ret = -1;
 		char *fsname = NULL;
 
-		new = mnt_entry_alloc();
+		new = mnt_entry_alloc(false);
 		if (!new)
 			goto end;
 
