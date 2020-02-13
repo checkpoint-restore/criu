@@ -1867,6 +1867,9 @@ out:
  * This routine properly resolves d's path handling ghost/link-remaps.
  * The open_cb is a routine that does actual open, it differs for
  * files, directories, fifos, etc.
+ *
+ * Return 0 on success, -1 on error and 1 to indicate soft error, which can be
+ * retried.
  */
 
 static int rfi_remap(struct reg_file_info *rfi, int *level)
@@ -1932,6 +1935,8 @@ out_root:
 		int errno_saved = errno;
 		rm_parent_dirs(mntns_root, path, *level);
 		errno = errno_saved;
+		if (errno == EEXIST)
+			return 1;
 		return -1;
 	}
 
@@ -2008,11 +2013,12 @@ static bool validate_file(const int fd, const struct stat *fd_status, const stru
 
 int open_path(struct file_desc *d, int (*open_cb)(int mntns_root, struct reg_file_info *, void *), void *arg)
 {
-	int tmp, mntns_root, level = 0;
+	int tmp = -1, mntns_root, level = 0;
 	struct reg_file_info *rfi;
 	char *orig_path = NULL;
 	char path[PATH_MAX];
 	int inh_fd = -1;
+	int ret;
 
 	if (inherited_fd(d, &tmp))
 		return tmp;
@@ -2049,13 +2055,8 @@ int open_path(struct file_desc *d, int (*open_cb)(int mntns_root, struct reg_fil
 			 */
 			orig_path = rfi->path;
 			rfi->path = rfi->remap->rpath;
-		} else if (rfi_remap(rfi, &level) < 0) {
+		} else if ((ret = rfi_remap(rfi, &level)) == 1) {
 			static char tmp_path[PATH_MAX];
-
-			if (errno != EEXIST) {
-				pr_perror("Can't link %s -> %s", rfi->remap->rpath, rfi->path);
-				return -1;
-			}
 
 			/*
 			 * The file whose name we're trying to create
@@ -2070,12 +2071,15 @@ int open_path(struct file_desc *d, int (*open_cb)(int mntns_root, struct reg_fil
 			orig_path = rfi->path;
 			rfi->path = tmp_path;
 			snprintf(tmp_path, sizeof(tmp_path), "%s.cr_link", orig_path);
-			pr_debug("Fake %s -> %s link\n", rfi->path, rfi->remap->rpath);
+			pr_debug("Fake %s -> %s link\n", rfi->remap->rpath, rfi->path);
 
-			if (rfi_remap(rfi, &level) < 0) {
+			if (rfi_remap(rfi, &level)) {
 				pr_perror("Can't create even fake link!");
-				return -1;
+				goto err;
 			}
+		} else if (ret < 0) {
+			pr_perror("Can't link %s -> %s", rfi->remap->rpath, rfi->path);
+			goto err;
 		}
 	}
 
@@ -2085,7 +2089,7 @@ ext:
 	if (tmp < 0) {
 		pr_perror("Can't open file %s", rfi->path);
 		close_safe(&inh_fd);
-		return -1;
+		goto err;
 	}
 	close_safe(&inh_fd);
 
@@ -2094,15 +2098,15 @@ ext:
 
 		if (fstat(tmp, &st) < 0) {
 			pr_perror("Can't fstat opened file");
-			return -1;
+			goto err;
 		}
 
 		if (!validate_file(tmp, &st, rfi))
-			return -1;
+			goto err;
 
 		if (rfi->rfe->has_mode && (st.st_mode != rfi->rfe->mode)) {
 			pr_err("File %s has bad mode 0%o (expect 0%o)\n", rfi->path, (int)st.st_mode, rfi->rfe->mode);
-			return -1;
+			goto err;
 		}
 
 		/*
@@ -2115,7 +2119,11 @@ ext:
 
 	if (rfi->remap) {
 		if (!rfi->remap->is_dir) {
-			unlinkat(mntns_root, rfi->path, 0);
+			pr_debug("Unlink: %d:%s\n", rfi->rfe->mnt_id, rfi->path);
+			if (unlinkat(mntns_root, rfi->path, 0)) {
+				pr_perror("Failed to unlink the remap file");
+				goto err;
+			}
 			rm_parent_dirs(mntns_root, rfi->path, level);
 		}
 
@@ -2124,10 +2132,17 @@ ext:
 	if (orig_path)
 		rfi->path = orig_path;
 
-	if (restore_fown(tmp, rfi->rfe->fown))
+	if (restore_fown(tmp, rfi->rfe->fown)) {
+		close(tmp);
 		return -1;
+	}
 
 	return tmp;
+err:
+	if (rfi->remap)
+		mutex_unlock(remap_open_lock);
+	close_safe(&tmp);
+	return -1;
 }
 
 int do_open_reg_noseek_flags(int ns_root_fd, struct reg_file_info *rfi, void *arg)
