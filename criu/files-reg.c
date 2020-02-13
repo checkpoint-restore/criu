@@ -1792,30 +1792,42 @@ out:
 	return ret;
 }
 
-static void rm_parent_dirs(int mntns_root, char *path, int count)
+static int rm_parent_dirs(int mntns_root, char *path, int count)
 {
 	char *p, *prev = NULL;
+	int ret = -1;
 
-	if (!count)
-		return;
-
-	while (count > 0) {
-		count -= 1;
+	while (count-- > 0) {
 		p = strrchr(path, '/');
-		if (p)
+		if (p) {
+			/* We don't handle "//" in path */
+			BUG_ON(prev && (prev - p == 1));
 			*p = '\0';
+		} else {
+			/* Inconsistent path and count */
+			pr_perror("Can't strrchr \"/\" in \"%s\"/\"%s\"]"
+				  " left count=%d\n",
+				  path, prev ? prev + 1 : "", count + 1);
+			goto err;
+		}
+
 		if (prev)
 			*prev = '/';
-
-		if (unlinkat(mntns_root, path, AT_REMOVEDIR))
-			pr_perror("Can't remove %s AT %d", path, mntns_root);
-		else
-			pr_debug("Unlinked parent dir: %s AT %d\n", path, mntns_root);
 		prev = p;
+
+		if (unlinkat(mntns_root, path, AT_REMOVEDIR)) {
+			pr_perror("Can't remove %s AT %d", path, mntns_root);
+			goto err;
+		}
+		pr_debug("Unlinked parent dir: %s AT %d\n", path, mntns_root);
 	}
 
+	ret = 0;
+err:
 	if (prev)
 		*prev = '/';
+
+	return ret;
 }
 
 /* Construct parent dir name and mkdir parent/grandparents if they're not exist */
@@ -1847,6 +1859,7 @@ static int make_parent_dirs_if_need(int mntns_root, char *path)
 		err = mkdirat(mntns_root, path, 0777);
 		if (err && errno != EEXIST) {
 			pr_perror("Can't create dir: %s AT %d", path, mntns_root);
+			/* Failing anyway -> no retcode check */
 			rm_parent_dirs(mntns_root, path, count);
 			count = -1;
 			goto out;
@@ -1933,10 +1946,11 @@ out_root:
 
 	if (linkat_hard(mntns_root, rpath, mntns_root, path, rfi->remap->uid, rfi->remap->gid, 0) < 0) {
 		int errno_saved = errno;
-		rm_parent_dirs(mntns_root, path, *level);
-		errno = errno_saved;
-		if (errno == EEXIST)
+
+		if (!rm_parent_dirs(mntns_root, path, *level) && errno_saved == EEXIST) {
+			errno = errno_saved;
 			return 1;
+		}
 		return -1;
 	}
 
@@ -2124,7 +2138,8 @@ ext:
 				pr_perror("Failed to unlink the remap file");
 				goto err;
 			}
-			rm_parent_dirs(mntns_root, rfi->path, level);
+			if (rm_parent_dirs(mntns_root, rfi->path, level))
+				goto err;
 		}
 
 		mutex_unlock(remap_open_lock);
