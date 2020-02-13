@@ -2133,6 +2133,11 @@ ext:
 
 	if (rfi->remap) {
 		if (!rfi->remap->is_dir) {
+			struct mount_info *mi = lookup_mnt_id(rfi->rfe->mnt_id);
+
+			if (mi && try_remount_writable(mi, true))
+				goto err;
+
 			pr_debug("Unlink: %d:%s\n", rfi->rfe->mnt_id, rfi->path);
 			if (unlinkat(mntns_root, rfi->path, 0)) {
 				pr_perror("Failed to unlink the remap file");
