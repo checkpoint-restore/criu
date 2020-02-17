@@ -564,9 +564,14 @@ static bool __mnt_is_external_bind(struct mount_info *mi, struct mount_info *bin
  * Say mount is external if it was explicitly specified as an external or it
  * can be bind-mounted from such an explicit external mount.
  */
-bool mnt_is_external_bind(struct mount_info *mi)
+struct mount_info *mnt_get_external_bind(struct mount_info *mi)
 {
 	return mnt_bind_pick(mi, __mnt_is_external_bind);
+}
+
+bool mnt_is_external_bind(struct mount_info *mi)
+{
+	return mnt_get_external_bind(mi);
 }
 
 static bool __can_receive_master_from_external(struct mount_info *mi, struct mount_info *bind)
@@ -580,6 +585,19 @@ static bool __can_receive_master_from_external(struct mount_info *mi, struct mou
 static struct mount_info *can_receive_master_from_external(struct mount_info *mi)
 {
 	return mnt_bind_pick(mi, __can_receive_master_from_external);
+}
+
+static bool __has_mounted_external_bind(struct mount_info *mi, struct mount_info *bind)
+{
+	if (bind->external && bind->mounted && is_sub_path(mi->root, bind->root))
+		return true;
+
+	return false;
+}
+
+bool has_mounted_external_bind(struct mount_info *mi)
+{
+	return mnt_bind_pick(mi, __has_mounted_external_bind);
 }
 
 /*
@@ -2426,6 +2444,8 @@ static bool rst_mnt_is_root(struct mount_info *m)
 
 static bool can_mount_now(struct mount_info *mi)
 {
+	struct mount_info *ext;
+
 	if (rst_mnt_is_root(mi)) {
 		pr_debug("%s: true as %d is mntns root\n", __func__, mi->mnt_id);
 		return true;
@@ -2436,6 +2456,11 @@ static bool can_mount_now(struct mount_info *mi)
 
 	if (mnt_is_nodev_external(mi))
 		goto shared;
+
+	if (!mi->bind && !mi->external && (ext = mnt_get_external_bind(mi)) && !has_mounted_external_bind(mi)) {
+		pr_debug("%s: false as %d's external %d is not mounted\n", __func__, mi->mnt_id, ext->mnt_id);
+		return false;
+	}
 
 	/*
 	 * We're the slave peer:
