@@ -477,7 +477,7 @@ The 'mode' may be one of the following:
 
     *soft*:::   Restore cgroup properties if only cgroup has been created
                 by *criu*, otherwise do not restore properties. This is the
-		default if mode is unspecified.
+                default if mode is unspecified.
 
     *full*:::   Always restore all cgroups and their properties.
 
@@ -575,17 +575,17 @@ check* always checks Category 1 features unless *--feature* is specified
 which only checks a specified feature.
 
 *Category 1*::: Absolutely required. These are features like support for
-		*/proc/PID/map_files*, *NETLINK_SOCK_DIAG* socket
-		monitoring, */proc/sys/kernel/ns_last_pid* etc.
+        */proc/PID/map_files*, *NETLINK_SOCK_DIAG* socket
+        monitoring, */proc/sys/kernel/ns_last_pid* etc.
 
 *Category 2*::: Required only for specific cases. These are features
-		like AIO remap, */dev/net/tun* and others that are only
-		required if a process being dumped or restored
-		is using those.
+        like AIO remap, */dev/net/tun* and others that are only
+        required if a process being dumped or restored
+        is using those.
 
 *Category 3*::: Experimental. These are features like *task-diag* that
-		are used for experimental purposes (mostly
-		during development).
+        are used for experimental purposes (mostly
+        during development).
 
 If there are no errors or warnings, *criu* prints "Looks good." and its
 exit code is 0.
