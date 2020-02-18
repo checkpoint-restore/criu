@@ -1,0 +1,5 @@
+{   'dopts': '--external mnt[/mnt_ext_root.test/dst]:ZDTM',
+    'feature': 'mnt_id',
+    'flavor': 'ns uns',
+    'flags': 'suid',
+    'ropts': '--external mnt[ZDTM]:/tmp/zdtm_ext_root.tmp'}

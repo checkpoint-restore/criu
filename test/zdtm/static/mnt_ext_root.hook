@@ -1,0 +1,12 @@
+#!/bin/bash
+
+[ "$1" == "--clean" ] || exit 0
+
+TMP="/tmp/zdtm_ext_root.tmp"
+echo "Cleanup mnt_ext_sharing"
+umount "$TMP"
+rm -rf $TMP
+
+rm -rf "mnt_ext_root.test"
+
+exit 0
