@@ -90,6 +90,19 @@ The following levels are available:
 *-L*, *--libdir* 'path'::
     Path to plugins directory.
 
+*--enable-fs* ['fs'[,'fs'...]]::
+    Specify a comma-separated list of filesystem names that should
+    be auto-detected. The value 'all' enables auto-detection for
+    all filesystems.
++
+Note: This option is not safe, use at your own risk.
+Auto-detecting a filesystem mount assumes that the mountpoint can
+be restored with *mount(src, mountpoint, flags, options)*. When used,
+*dump* is expected to always succeed if a mountpoint is to be
+auto-detected, however *restore* may fail (or do something wrong)
+if the assumption for restore logic is incorrect. This option is
+not compatable with *--external* *dev*.
+
 *--action-script* 'script'::
     Add an external action script to be executed at certain stages.
     The environment variable *CRTOOLS_SCRIPT_ACTION* is available
