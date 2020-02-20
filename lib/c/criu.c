@@ -541,6 +541,17 @@ void criu_set_shell_job(bool shell_job)
 	criu_local_set_shell_job(global_opts, shell_job);
 }
 
+void criu_local_set_orphan_pts_master(criu_opts *opts, bool orphan_pts_master)
+{
+	opts->rpc->has_orphan_pts_master = true;
+	opts->rpc->orphan_pts_master = orphan_pts_master;
+}
+
+void criu_set_orphan_pts_master(bool orphan_pts_master)
+{
+	criu_local_set_orphan_pts_master(global_opts, orphan_pts_master);
+}
+
 void criu_local_set_file_locks(criu_opts *opts, bool file_locks)
 {
 	opts->rpc->has_file_locks	= true;
