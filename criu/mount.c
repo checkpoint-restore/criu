@@ -1059,10 +1059,12 @@ static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 		 * External master detected
 		 */
 		if (need_master) {
-			if (can_receive_master_from_external(m))
+			if ((t = can_receive_master_from_external(m)) || (t = can_receive_master_from_root(m))) {
+				pr_debug("Detected external slavery for %d via %d\n", m->mnt_id, t->mnt_id);
+				if (m != t)
+					list_add(&m->mnt_ext_slave, &t->mnt_ext_slave);
 				continue;
-			if (can_receive_master_from_root(m))
-				continue;
+			}
 
 			pr_err("Mount %d %s (master_id: %d shared_id: %d) "
 			       "has unreachable sharing. Try --enable-external-masters.\n",
@@ -2056,6 +2058,14 @@ static int propagate_siblings(struct mount_info *mi)
 		t->s_dev_rt = mi->s_dev_rt;
 	}
 
+	list_for_each_entry(t, &mi->mnt_ext_slave, mnt_ext_slave) {
+		if (t->mounted || t->bind)
+			continue;
+		pr_debug("\t\tBind ext-slave %s(%d)\n", t->ns_mountpoint, t->mnt_id);
+		t->bind = mi;
+		t->s_dev_rt = mi->s_dev_rt;
+	}
+
 	return 0;
 }
 
@@ -2924,6 +2934,7 @@ struct mount_info *mnt_entry_alloc(bool rst)
 		INIT_LIST_HEAD(&new->children);
 		INIT_LIST_HEAD(&new->siblings);
 		INIT_LIST_HEAD(&new->mnt_slave_list);
+		INIT_LIST_HEAD(&new->mnt_ext_slave);
 		INIT_LIST_HEAD(&new->mnt_share);
 		INIT_LIST_HEAD(&new->mnt_bind);
 		INIT_LIST_HEAD(&new->mnt_propagate);
