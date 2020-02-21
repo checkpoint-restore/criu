@@ -256,11 +256,11 @@ int criu_local_init_opts(criu_opts **o)
 		return -1;
 	}
 
-	opts->rpc	= rpc;
-	opts->notify	= NULL;
+	opts->rpc = rpc;
+	opts->notify = NULL;
 
-	opts->service_comm	= CRIU_COMM_BIN;
-	opts->service_binary	= strdup(CR_DEFAULT_SERVICE_BIN);
+	opts->service_comm = CRIU_COMM_BIN;
+	opts->service_binary = strdup(CR_DEFAULT_SERVICE_BIN);
 
 	if(opts->service_binary == NULL) {
 		perror("Can't allocate memory for criu service setting");
@@ -303,8 +303,8 @@ int criu_notify_pid(criu_notify_arg_t na)
 
 void criu_local_set_pid(criu_opts *opts, int pid)
 {
-	opts->rpc->has_pid	= true;
-	opts->rpc->pid		= pid;
+	opts->rpc->has_pid = true;
+	opts->rpc->pid = pid;
 }
 
 void criu_set_pid(int pid)
@@ -408,8 +408,8 @@ void criu_set_work_dir_fd(int fd)
 
 void criu_local_set_leave_running(criu_opts *opts, bool leave_running)
 {
-	opts->rpc->has_leave_running	= true;
-	opts->rpc->leave_running	= leave_running;
+	opts->rpc->has_leave_running = true;
+	opts->rpc->leave_running = leave_running;
 }
 
 void criu_set_leave_running(bool leave_running)
@@ -419,8 +419,8 @@ void criu_set_leave_running(bool leave_running)
 
 void criu_local_set_ext_unix_sk(criu_opts *opts, bool ext_unix_sk)
 {
-	opts->rpc->has_ext_unix_sk	= true;
-	opts->rpc->ext_unix_sk	= ext_unix_sk;
+	opts->rpc->has_ext_unix_sk = true;
+	opts->rpc->ext_unix_sk = ext_unix_sk;
 }
 
 void criu_set_ext_unix_sk(bool ext_unix_sk)
@@ -477,8 +477,8 @@ int criu_add_unix_sk(unsigned int inode)
 
 void criu_local_set_tcp_established(criu_opts *opts, bool tcp_established)
 {
-	opts->rpc->has_tcp_established	= true;
-	opts->rpc->tcp_established	= tcp_established;
+	opts->rpc->has_tcp_established = true;
+	opts->rpc->tcp_established = tcp_established;
 }
 
 void criu_set_tcp_established(bool tcp_established)
@@ -488,8 +488,8 @@ void criu_set_tcp_established(bool tcp_established)
 
 void criu_local_set_tcp_skip_in_flight(criu_opts *opts, bool tcp_skip_in_flight)
 {
-	opts->rpc->has_tcp_skip_in_flight	= true;
-	opts->rpc->tcp_skip_in_flight		= tcp_skip_in_flight;
+	opts->rpc->has_tcp_skip_in_flight = true;
+	opts->rpc->tcp_skip_in_flight = tcp_skip_in_flight;
 }
 
 void criu_set_tcp_skip_in_flight(bool tcp_skip_in_flight)
@@ -499,8 +499,8 @@ void criu_set_tcp_skip_in_flight(bool tcp_skip_in_flight)
 
 void criu_local_set_tcp_close(criu_opts *opts, bool tcp_close)
 {
-	opts->rpc->has_tcp_close	= true;
-	opts->rpc->tcp_close		= tcp_close;
+	opts->rpc->has_tcp_close = true;
+	opts->rpc->tcp_close = tcp_close;
 }
 
 void criu_set_tcp_close(bool tcp_close)
@@ -511,7 +511,7 @@ void criu_set_tcp_close(bool tcp_close)
 void criu_local_set_weak_sysctls(criu_opts *opts, bool val)
 {
 	opts->rpc->has_weak_sysctls = true;
-	opts->rpc->weak_sysctls	= val;
+	opts->rpc->weak_sysctls = val;
 }
 
 void criu_set_weak_sysctls(bool val)
@@ -521,8 +521,8 @@ void criu_set_weak_sysctls(bool val)
 
 void criu_local_set_evasive_devices(criu_opts *opts, bool evasive_devices)
 {
-	opts->rpc->has_evasive_devices	= true;
-	opts->rpc->evasive_devices	= evasive_devices;
+	opts->rpc->has_evasive_devices = true;
+	opts->rpc->evasive_devices = evasive_devices;
 }
 
 void criu_set_evasive_devices(bool evasive_devices)
@@ -532,8 +532,8 @@ void criu_set_evasive_devices(bool evasive_devices)
 
 void criu_local_set_shell_job(criu_opts *opts, bool shell_job)
 {
-	opts->rpc->has_shell_job	= true;
-	opts->rpc->shell_job		= shell_job;
+	opts->rpc->has_shell_job = true;
+	opts->rpc->shell_job = shell_job;
 }
 
 void criu_set_shell_job(bool shell_job)
@@ -554,8 +554,8 @@ void criu_set_orphan_pts_master(bool orphan_pts_master)
 
 void criu_local_set_file_locks(criu_opts *opts, bool file_locks)
 {
-	opts->rpc->has_file_locks	= true;
-	opts->rpc->file_locks		= file_locks;
+	opts->rpc->has_file_locks = true;
+	opts->rpc->file_locks = file_locks;
 }
 
 void criu_set_file_locks(bool file_locks)
@@ -565,8 +565,8 @@ void criu_set_file_locks(bool file_locks)
 
 void criu_local_set_log_level(criu_opts *opts, int log_level)
 {
-	opts->rpc->has_log_level	= true;
-	opts->rpc->log_level		= log_level;
+	opts->rpc->has_log_level = true;
+	opts->rpc->log_level = log_level;
 }
 
 void criu_set_log_level(int log_level)
@@ -697,8 +697,8 @@ int criu_set_log_file(const char *log_file)
 
 void criu_local_set_cpu_cap(criu_opts *opts, unsigned int cap)
 {
-	opts->rpc->has_cpu_cap	= true;
-	opts->rpc->cpu_cap	= cap;
+	opts->rpc->has_cpu_cap = true;
+	opts->rpc->cpu_cap = cap;
 }
 
 void criu_set_cpu_cap(unsigned int cap)
@@ -1410,7 +1410,7 @@ exit:
 static int send_req_and_recv_resp(criu_opts *opts, CriuReq *req, CriuResp **resp)
 {
 	int fd;
-	int ret	= 0;
+	int ret = 0;
 	bool d = false;
 
 	if (req->type == CRIU_REQ_TYPE__DUMP && req->opts->has_pid == false)
@@ -1431,12 +1431,12 @@ static int send_req_and_recv_resp(criu_opts *opts, CriuReq *req, CriuResp **resp
 int criu_local_check(criu_opts *opts)
 {
 	int ret = -1;
-	CriuReq req	= CRIU_REQ__INIT;
-	CriuResp *resp	= NULL;
+	CriuReq req = CRIU_REQ__INIT;
+	CriuResp *resp = NULL;
 
 	saved_errno = 0;
 
-	req.type	= CRIU_REQ_TYPE__CHECK;
+	req.type = CRIU_REQ_TYPE__CHECK;
 
 	ret = send_req_and_recv_resp(opts, &req, &resp);
 	if (ret)
@@ -1463,13 +1463,13 @@ int criu_check(void)
 int criu_local_dump(criu_opts *opts)
 {
 	int ret = -1;
-	CriuReq req	= CRIU_REQ__INIT;
-	CriuResp *resp	= NULL;
+	CriuReq req = CRIU_REQ__INIT;
+	CriuResp *resp = NULL;
 
 	saved_errno = 0;
 
-	req.type	= CRIU_REQ_TYPE__DUMP;
-	req.opts	= opts->rpc;
+	req.type = CRIU_REQ_TYPE__DUMP;
+	req.opts = opts->rpc;
 
 	ret = send_req_and_recv_resp(opts, &req, &resp);
 	if (ret)
@@ -1502,13 +1502,13 @@ int criu_dump(void)
 int criu_local_dump_iters(criu_opts *opts, int (*more)(criu_predump_info pi))
 {
 	int ret = -1, fd = -1, uret;
-	CriuReq req	= CRIU_REQ__INIT;
-	CriuResp *resp	= NULL;
+	CriuReq req = CRIU_REQ__INIT;
+	CriuResp *resp = NULL;
 
 	saved_errno = 0;
 
-	req.type	= CRIU_REQ_TYPE__PRE_DUMP;
-	req.opts	= opts->rpc;
+	req.type = CRIU_REQ_TYPE__PRE_DUMP;
+	req.opts = opts->rpc;
 
 	ret = -EINVAL;
 	/*
@@ -1573,13 +1573,13 @@ int criu_dump_iters(int (*more)(criu_predump_info pi))
 int criu_local_restore(criu_opts *opts)
 {
 	int ret = -1;
-	CriuReq req	= CRIU_REQ__INIT;
-	CriuResp *resp	= NULL;
+	CriuReq req = CRIU_REQ__INIT;
+	CriuResp *resp = NULL;
 
 	saved_errno = 0;
 
-	req.type	= CRIU_REQ_TYPE__RESTORE;
-	req.opts	= opts->rpc;
+	req.type = CRIU_REQ_TYPE__RESTORE;
+	req.opts = opts->rpc;
 
 	ret = send_req_and_recv_resp(opts, &req, &resp);
 	if (ret)
@@ -1612,8 +1612,8 @@ int criu_local_restore_child(criu_opts *opts)
 	enum criu_service_comm saved_comm;
 	const char *saved_comm_data;
 	bool save_comm;
-	CriuReq req	= CRIU_REQ__INIT;
-	CriuResp *resp	= NULL;
+	CriuReq req = CRIU_REQ__INIT;
+	CriuResp *resp = NULL;
 
 	/*
 	 * restore_child is not possible with criu running as a system
@@ -1644,8 +1644,8 @@ int criu_local_restore_child(criu_opts *opts)
 
 	saved_errno = 0;
 
-	req.type	= CRIU_REQ_TYPE__RESTORE;
-	req.opts	= opts->rpc;
+	req.type = CRIU_REQ_TYPE__RESTORE;
+	req.opts = opts->rpc;
 
 	req.opts->has_rst_sibling = true;
 	req.opts->rst_sibling = true;
