@@ -27,4 +27,3 @@ fi
 ./test/zdtm.py run -t zdtm/static/maps04 --fault 131 --keep-going --report report --pre 2:1 || fail
 ./test/zdtm.py run -t zdtm/transition/maps008 --fault 131 --keep-going --report report --pre 2:1 || fail
 ./test/zdtm.py run -t zdtm/static/maps01 --fault 132 -f h || fail
-
