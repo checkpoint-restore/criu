@@ -50,6 +50,17 @@ static inline void clear_bit(int nr, volatile unsigned long *addr)
 }
 
 /**
+ * __fls - find last (most-significant) set bit in a long word
+ * @word: the word to search
+ *
+ * Undefined if no set bit exists, so code should check against 0 first.
+ */
+static inline unsigned long __fls(unsigned long word)
+{
+	return (sizeof(word) * 8) - 1 - __builtin_clzl(word);
+}
+
+/**
  * __ffs - find first set bit in word
  * @word: The word to search
  *

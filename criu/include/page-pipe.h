@@ -3,6 +3,7 @@
 
 #include <sys/uio.h>
 #include "common/list.h"
+#include "common/log2.h"
 
 #define PAGE_ALLOC_COSTLY_ORDER 3 /* from the kernel source code */
 struct kernel_pipe_buffer {
@@ -19,7 +20,7 @@ struct kernel_pipe_buffer {
  * fails very often, so we need to restrict the pipe capacity to not
  * allocate big chunks.
  */
-#define PIPE_MAX_SIZE ((1 << PAGE_ALLOC_COSTLY_ORDER) * PAGE_SIZE /	\
+#define PIPE_MAX_SIZE rounddown_pow_of_two((1 << PAGE_ALLOC_COSTLY_ORDER) * PAGE_SIZE /        \
 			sizeof(struct kernel_pipe_buffer))
 
 /* The number of pipes for one chunk */
