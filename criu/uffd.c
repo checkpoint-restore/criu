@@ -40,6 +40,7 @@
 #include "tls.h"
 #include "fdstore.h"
 #include "util.h"
+#include "namespaces.h"
 
 #undef  LOG_PREFIX
 #define LOG_PREFIX "uffd: "
@@ -254,6 +255,13 @@ bool uffd_noncooperative(void)
 	return (kdat.uffd_features & features) == features;
 }
 
+static int uffd_api_ioctl(void *arg, int fd, pid_t pid)
+{
+	struct uffdio_api *uffdio_api = arg;
+
+	return ioctl(fd, UFFDIO_API, uffdio_api);
+}
+
 int uffd_open(int flags, unsigned long *features)
 {
 	struct uffdio_api uffdio_api = { 0 };
@@ -269,7 +277,8 @@ int uffd_open(int flags, unsigned long *features)
 	if (features)
 		uffdio_api.features = *features;
 
-	if (ioctl(uffd, UFFDIO_API, &uffdio_api)) {
+	if (userns_call(uffd_api_ioctl, 0, &uffdio_api, sizeof(uffdio_api),
+			uffd)) {
 		pr_perror("Failed to get uffd API");
 		goto err;
 	}
