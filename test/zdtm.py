@@ -697,7 +697,10 @@ class inhfd_test:
                     # regular files, so we loop.
                     data = b''
                     while not data:
-                        data = peer_file.read(16)
+                        # In python 2.7, peer_file.read() doesn't call the read
+                        # system call if it's read file to the end once. The
+                        # next seek allows to workaround this problem.
+                        data = os.read(peer_file.fileno(), 16)
                         time.sleep(0.1)
                 except Exception as e:
                     print("Unable to read a peer file: %s" % e)
