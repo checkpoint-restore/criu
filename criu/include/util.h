@@ -36,6 +36,7 @@
 
 struct vma_area;
 struct list_head;
+struct cr_img;
 
 extern int service_fd_rlim_cur;
 
@@ -163,7 +164,13 @@ static inline dev_t kdev_to_odev(u32 kdev)
 	return makedev(major, minor);
 }
 
+#define COPY_WITH_CHUNKS	(1 << 0)
+#define COPY_REOPEN_FD		(1 << 1)
+
 extern int copy_file(int fd_in, int fd_out, size_t bytes);
+extern int copy_img_to_fd(struct cr_img *img, int fd, size_t size, int flags);
+extern int copy_fd_to_img(int fd, struct cr_img *img, size_t size, int flags);
+
 extern int is_anon_link_type(char *link, char *type);
 
 #define is_hex_digit(c)				\

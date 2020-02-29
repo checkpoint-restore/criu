@@ -44,6 +44,7 @@
 #include "images/fs.pb-c.h"
 #include "images/remap-file-path.pb-c.h"
 #include "images/ghost-file.pb-c.h"
+#include "images/data-chunk.pb-c.h"
 #include "images/mnt.pb-c.h"
 #include "images/netdev.pb-c.h"
 #include "images/tcp-stream.pb-c.h"

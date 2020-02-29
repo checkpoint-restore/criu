@@ -59,7 +59,7 @@ enum {
 	PB_BINFMT_MISC,		/* 50 */
 	PB_TTY_DATA,
 	PB_AUTOFS,
-	PB_GHOST_CHUNK,
+	PB_DATA_CHUNK,
 	PB_FILE,
 	PB_REMOTE_IMAGE,	/* Header for images sent from proxy to cache.*/
 	PB_LOCAL_IMAGE,		/* Header for reading/writing images from/to proxy or cache. */
