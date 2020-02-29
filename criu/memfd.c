@@ -119,6 +119,7 @@ out:
 static struct memfd_inode *dump_unique_memfd_inode(int lfd, const char *name, const struct stat *st)
 {
 	struct memfd_inode *inode;
+	int fd;
 
 	list_for_each_entry(inode, &memfd_inodes, list)
 		if ((inode->dev == st->st_dev) && (inode->ino == st->st_ino))
@@ -132,10 +133,18 @@ static struct memfd_inode *dump_unique_memfd_inode(int lfd, const char *name, co
 	inode->ino = st->st_ino;
 	inode->id = memfd_inode_ids++;
 
-	if (dump_memfd_inode(lfd, inode, name, st)) {
+	fd = open_proc(PROC_SELF, "fd/%d", lfd);
+	if (fd < 0) {
 		xfree(inode);
 		return NULL;
 	}
+
+	if (dump_memfd_inode(fd, inode, name, st)) {
+		close(fd);
+		xfree(inode);
+		return NULL;
+	}
+	close(fd);
 
 	list_add_tail(&inode->list, &memfd_inodes);
 
