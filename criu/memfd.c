@@ -299,7 +299,6 @@ static int memfd_open_inode(struct memfd_inode *inode)
 
 int memfd_open(struct file_desc *d, u32 *fdflags)
 {
-	char lpath[PSFDS];
 	struct memfd_info *mfi;
 	MemfdFileEntry *mfe;
 	int fd, _fd;
@@ -318,14 +317,13 @@ int memfd_open(struct file_desc *d, u32 *fdflags)
 		goto err;
 
 	/* Reopen the fd with original permissions */
-	sprintf(lpath, "/proc/self/fd/%d", fd);
 	flags = fdflags ? *fdflags : mfe->flags;
 	/*
 	 * Ideally we should call compat version open() to not force the
 	 * O_LARGEFILE file flag with regular open(). It doesn't seem that
 	 * important though.
 	 */
-	_fd = open(lpath, flags);
+	_fd = __open_proc(getpid(), 0, flags, "fd/%d", fd);
 	if (_fd < 0) {
 		pr_perror("Can't reopen memfd id=%d", mfe->id);
 		goto err;
