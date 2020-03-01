@@ -778,14 +778,12 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 
 	if (S_ISREG(st->st_mode)) {
 		int fd, ret;
-		char lpath[PSFDS];
 
 		/*
 		 * Reopen file locally since it may have no read
 		 * permissions when drained
 		 */
-		sprintf(lpath, "/proc/self/fd/%d", _fd);
-		fd = open(lpath, O_RDONLY);
+		fd = open_proc(PROC_SELF, "fd/%d", _fd);
 		if (fd < 0) {
 			pr_perror("Can't open ghost original file");
 			goto err_out;
