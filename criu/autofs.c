@@ -62,25 +62,53 @@ int autofs_parse(struct mount_info *pm)
 {
 	long pipe_ino = AUTOFS_OPT_UNKNOWN;
 	char **opts;
-	int nr_opts, i;
+	int nr_opts, i, ret;
 
 	split(pm->options, ',', &opts, &nr_opts);
 	if (!opts)
 		return -1;
+
 	for (i = 0; i < nr_opts; i++) {
 		if (!strncmp(opts[i], "pipe_ino=", strlen("pipe_ino=")))
-			pipe_ino = atoi(opts[i] + strlen("pipe_ino="));
+			if (xatol(opts[i] + strlen("pipe_ino="), &pipe_ino)) {
+				pr_err("pipe_ino (%s) mount option parse failed\n", opts[i] + strlen("pipe_ino="));
+				ret = -1;
+				goto free;
+			}
 	}
-	for (i = 0; i < nr_opts; i++)
-		xfree(opts[i]);
-	free(opts);
+
+	/*
+	 * We must inform user about bug if pipe_ino is greater than UINT32_MAX,
+	 * because it means that something changed in Linux Kernel virtual fs
+	 * inode numbers generation mechanism. What we have at the moment:
+	 * 1. struct inode i_ino field (include/linux/fs.h in Linux kernel)
+	 * has unsigned long type.
+	 * 2. get_next_ino() function (fs/inode.c), that used for generating inode
+	 * numbers on virtual filesystems (pipefs, debugfs for instance)
+	 * has unsigned int as return type.
+	 * So, it means that ATM it is safe to keep uint32 type for pipe_id field
+	 * in pipe-data.proto.
+	 */
+	if (pipe_ino > UINT32_MAX) {
+		pr_err("overflow: pipe_ino > UINT32_MAX\n");
+		ret = -1;
+		goto free;
+	}
 
 	if (pipe_ino == AUTOFS_OPT_UNKNOWN) {
 		pr_warn("Failed to find pipe_ino option (old kernel?)\n");
-		return 0;
+		ret = 0;
+		goto free;
 	}
 
-	return autofs_gather_pipe(pipe_ino);
+	ret = autofs_gather_pipe(pipe_ino);
+
+free:
+	for (i = 0; i < nr_opts; i++)
+		xfree(opts[i]);
+	xfree(opts);
+
+	return ret;
 }
 
 static int autofs_check_fd_stat(struct stat *stat, int prgp, int fd,
