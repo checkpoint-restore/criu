@@ -1,0 +1,45 @@
+FROM dockcross/base:latest
+
+# Add the cross compiler sources
+RUN echo "deb http://ftp.us.debian.org/debian/ jessie main" >> /etc/apt/sources.list && \
+  dpkg --add-architecture arm64 && \
+  apt-get install emdebian-archive-keyring
+
+RUN apt-get update && apt-get install -y \
+	crossbuild-essential-arm64	\
+	libc6-dev-arm64-cross		\
+	libc6-arm64-cross		\
+	libbz2-dev:arm64		\
+	libexpat1-dev:arm64		\
+	ncurses-dev:arm64		\
+	libssl-dev:arm64		\
+	protobuf-c-compiler		\
+	protobuf-compiler		\
+	python-protobuf			\
+	libnl-3-dev:arm64		\
+	libprotobuf-dev:arm64		\
+	libnet-dev:arm64		\
+	libprotobuf-c-dev:arm64		\
+	libcap-dev:arm64		\
+	libaio-dev:arm64		\
+	libnl-route-3-dev:arm64
+
+ENV CROSS_TRIPLE=aarch64-linux-gnu
+ENV CROSS_COMPILE=${CROSS_TRIPLE}-				\
+	CROSS_ROOT=/usr/${CROSS_TRIPLE}				\
+	AS=/usr/bin/${CROSS_TRIPLE}-as				\
+	AR=/usr/bin/${CROSS_TRIPLE}-ar				\
+	CC=/usr/bin/${CROSS_TRIPLE}-gcc				\
+	CPP=/usr/bin/${CROSS_TRIPLE}-cpp			\
+	CXX=/usr/bin/${CROSS_TRIPLE}-g++			\
+	LD=/usr/bin/${CROSS_TRIPLE}-ld				\
+	FC=/usr/bin/${CROSS_TRIPLE}-gfortran
+
+ENV PATH="${PATH}:${CROSS_ROOT}/bin"				\
+	PKG_CONFIG_PATH=/usr/lib/${CROSS_TRIPLE}/pkgconfig	\
+	ARCH=aarch64
+
+COPY . /criu
+WORKDIR /criu
+
+RUN	make mrproper && date && make -j $(nproc) zdtm && date
