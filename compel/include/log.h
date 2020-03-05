@@ -1,8 +1,7 @@
 #ifndef COMPEL_LOG_H__
 #define COMPEL_LOG_H__
 
-#include "uapi/compel/compel.h"
-#include "uapi/compel/loglevels.h"
+#include "uapi/compel/log.h"
 
 #ifndef LOG_PREFIX
 # define LOG_PREFIX

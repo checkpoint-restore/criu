@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
+#include <string.h>
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/asm/processor-flags.h>
 #include "common/page.h"
