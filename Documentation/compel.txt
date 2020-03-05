@@ -86,7 +86,7 @@ Infecting code
 ~~~~~~~~~~~~~~
 The parasitic code is compiled and converted to a header using *compel*, and included here.
 
-*#include <compel/compel.h>*
+*#include <compel/infect.h>*
 
 *#include "parasite.h"*
 
