@@ -4,8 +4,6 @@
 #include <sys/wait.h>
 #include <sys/syscall.h>
 
-#include <compel/compel.h>
-
 static void print_vmsg(unsigned int lvl, const char *fmt, va_list parms)
 {
 	printf("\tLC%u: ", lvl);

@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 
-#include <compel/compel.h>
 #include "parasite.h"
 
 #define PARASITE_CMD_GETFD	PARASITE_USER_CMDS
