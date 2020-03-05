@@ -1,0 +1,45 @@
+FROM dockcross/base:latest
+
+# Add the cross compiler sources
+RUN echo "deb http://ftp.us.debian.org/debian/ buster main" >> /etc/apt/sources.list && \
+  dpkg --add-architecture ppc64el && \
+  apt-get install emdebian-archive-keyring
+
+RUN apt-get update && apt-get install -y \
+	crossbuild-essential-ppc64el	\
+	libc6-dev-ppc64el-cross		\
+	libc6-ppc64el-cross		\
+	libbz2-dev:ppc64el		\
+	libexpat1-dev:ppc64el		\
+	ncurses-dev:ppc64el		\
+	libssl-dev:ppc64el		\
+	protobuf-c-compiler		\
+	protobuf-compiler		\
+	python-protobuf			\
+	libnl-3-dev:ppc64el		\
+	libprotobuf-dev:ppc64el		\
+	libnet-dev:ppc64el		\
+	libprotobuf-c-dev:ppc64el		\
+	libcap-dev:ppc64el		\
+	libaio-dev:ppc64el		\
+	libnl-route-3-dev:ppc64el
+
+ENV CROSS_TRIPLE=powerpc64le-linux-gnu
+ENV CROSS_COMPILE=${CROSS_TRIPLE}-				\
+	CROSS_ROOT=/usr/${CROSS_TRIPLE}				\
+	AS=/usr/bin/${CROSS_TRIPLE}-as				\
+	AR=/usr/bin/${CROSS_TRIPLE}-ar				\
+	CC=/usr/bin/${CROSS_TRIPLE}-gcc				\
+	CPP=/usr/bin/${CROSS_TRIPLE}-cpp			\
+	CXX=/usr/bin/${CROSS_TRIPLE}-g++			\
+	LD=/usr/bin/${CROSS_TRIPLE}-ld				\
+	FC=/usr/bin/${CROSS_TRIPLE}-gfortran
+
+ENV PATH="${PATH}:${CROSS_ROOT}/bin"				\
+	PKG_CONFIG_PATH=/usr/lib/${CROSS_TRIPLE}/pkgconfig	\
+	ARCH=ppc64
+
+COPY . /criu
+WORKDIR /criu
+
+RUN	make mrproper && date && make -j $(nproc) zdtm && date
