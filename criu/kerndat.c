@@ -33,7 +33,6 @@
 #include "net.h"
 #include "tun.h"
 #include <compel/plugins/std/syscall-codes.h>
-#include <compel/compel.h>
 #include "netfilter.h"
 #include "fsnotify.h"
 #include "linux/userfaultfd.h"

@@ -17,7 +17,7 @@
 #include "log.h"
 #include "util.h"
 #include "cpu.h"
-#include <compel/compel.h>
+#include "compel/infect.h"
 
 #include "protobuf.h"
 #include "images/core.pb-c.h"

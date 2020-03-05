@@ -23,7 +23,6 @@
 #include "string.h"
 #include "xmalloc.h"
 #include "util.h"
-#include <compel/compel.h>
 
 #define NR_ATTEMPTS 5
 
