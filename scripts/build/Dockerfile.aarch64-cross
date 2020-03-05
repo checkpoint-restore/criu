@@ -1,7 +1,7 @@
 FROM dockcross/base:latest
 
 # Add the cross compiler sources
-RUN echo "deb http://ftp.us.debian.org/debian/ jessie main" >> /etc/apt/sources.list && \
+RUN echo "deb http://ftp.us.debian.org/debian/ buster main" >> /etc/apt/sources.list && \
   dpkg --add-architecture arm64 && \
   apt-get install emdebian-archive-keyring
 
