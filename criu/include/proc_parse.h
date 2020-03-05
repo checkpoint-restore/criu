@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-#include <compel/compel.h>
+#include "compel/infect.h"
 
 #define PROC_TASK_COMM_LEN	32
 #define PROC_TASK_COMM_LEN_FMT	"(%31s"

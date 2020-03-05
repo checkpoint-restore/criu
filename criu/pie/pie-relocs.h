@@ -1,8 +1,6 @@
 #ifndef __PIE_RELOCS_H__
 #define __PIE_RELOCS_H__
 
-#include <compel/compel.h>
-
 #include "common/config.h"
 #include "common/compiler.h"
 

@@ -20,7 +20,6 @@
 #include "criu-log.h"
 #include "mem.h"
 #include "vma.h"
-#include <compel/compel.h>
 #include <compel/plugins/std/syscall.h>
 
 #ifdef LOG_PREFIX
