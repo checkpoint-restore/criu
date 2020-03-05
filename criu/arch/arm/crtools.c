@@ -18,8 +18,7 @@
 #include "elf.h"
 #include "parasite-syscall.h"
 #include "restorer.h"
-
-#include <compel/compel.h>
+#include "compel/infect.h"
 
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))((src)->ARM_##e)
 

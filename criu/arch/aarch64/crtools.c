@@ -19,7 +19,7 @@
 #include "util.h"
 #include "cpu.h"
 #include "restorer.h"
-#include <compel/compel.h>
+#include "compel/infect.h"
 
 #define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))(src)->e
 

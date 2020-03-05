@@ -45,8 +45,6 @@
 #include "infect-rpc.h"
 #include "pie/parasite-blob.h"
 
-#include <compel/compel.h>
-
 unsigned long get_exec_start(struct vm_area_list *vmas)
 {
 	struct vma_area *vma_area;

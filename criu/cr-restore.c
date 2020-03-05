@@ -67,7 +67,6 @@
 #include "timerfd.h"
 #include "action-scripts.h"
 #include "shmem.h"
-#include <compel/compel.h>
 #include "aio.h"
 #include "lsm.h"
 #include "seccomp.h"
