@@ -86,6 +86,10 @@ jobs:
       arch: amd64
       env: TR_ARCH=armv7-cross
       dist: bionic
+    - os: linux
+      arch: amd64
+      env: TR_ARCH=aarch64-cross
+      dist: bionic
   allow_failures:
     - env: TR_ARCH=docker-test
     - env: TR_ARCH=docker-test DIST=xenial
