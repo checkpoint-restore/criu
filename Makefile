@@ -17,8 +17,6 @@ ifeq ($(origin HOSTCFLAGS), undefined)
         HOSTCFLAGS := $(CFLAGS) $(USERCFLAGS)
 endif
 
-UNAME-M := $(shell uname -m)
-
 #
 # Supported Architectures
 ifneq ($(filter-out x86 arm aarch64 ppc64 s390,$(ARCH)),)
@@ -27,15 +25,14 @@ endif
 
 # The PowerPC 64 bits architecture could be big or little endian.
 # They are handled in the same way.
-ifeq ($(UNAME-M),ppc64)
+ifeq ($(SUBARCH),ppc64)
         error := $(error ppc64 big endian is not yet supported)
 endif
 
 #
 # Architecture specific options.
 ifeq ($(ARCH),arm)
-        ARMV		:= $(shell echo $(UNAME-M) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
-        DEFINES		:= -DCONFIG_ARMV$(ARMV) -DCONFIG_VDSO_32
+        ARMV		:= $(shell echo $(SUBARCH) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
 
         ifeq ($(ARMV),6)
                 USERCFLAGS += -march=armv6
@@ -44,6 +41,16 @@ ifeq ($(ARCH),arm)
         ifeq ($(ARMV),7)
                 USERCFLAGS += -march=armv7-a
         endif
+
+        ifeq ($(ARMV),8)
+                # Running 'setarch linux32 uname -m' returns armv8l on travis aarch64.
+                # This tells CRIU to handle armv8l just as armv7hf. Right now this is
+                # only used for compile testing. No further verification of armv8l exists.
+                USERCFLAGS += -march=armv7-a
+                ARMV := 7
+        endif
+
+        DEFINES		:= -DCONFIG_ARMV$(ARMV) -DCONFIG_VDSO_32
 
         PROTOUFIX	:= y
 	# For simplicity - compile code in Arm mode without interwork.
@@ -77,7 +84,6 @@ endif
 # commit "S/390: Fix 64 bit sibcall".
 ifeq ($(ARCH),s390)
         ARCH		:= s390
-        SRCARCH		:= s390
         DEFINES		:= -DCONFIG_S390
         CFLAGS_PIE	:= -fno-optimize-sibling-calls
 endif
@@ -85,7 +91,7 @@ endif
 CFLAGS_PIE		+= -DCR_NOGLIBC
 export CFLAGS_PIE
 
-LDARCH ?= $(SRCARCH)
+LDARCH ?= $(ARCH)
 export LDARCH
 export PROTOUFIX DEFINES
 
@@ -94,7 +100,7 @@ export PROTOUFIX DEFINES
 DEFINES			+= -D_FILE_OFFSET_BITS=64
 DEFINES			+= -D_GNU_SOURCE
 
-WARNINGS		:= -Wall -Wformat-security
+WARNINGS		:= -Wall -Wformat-security -Wdeclaration-after-statement -Wstrict-prototypes
 
 CFLAGS-GCOV		:= --coverage -fno-exceptions -fno-inline -fprofile-update=atomic
 export CFLAGS-GCOV

@@ -1,6 +1,7 @@
 #ifndef UAPI_COMPEL_PTRACE_H__
 #define UAPI_COMPEL_PTRACE_H__
 
+#include "common/compiler.h"
 /*
  * We'd want to include both sys/ptrace.h and linux/ptrace.h,
  * hoping that most definitions come from either one or another.
@@ -75,8 +76,8 @@ typedef struct {
 
 extern int ptrace_suspend_seccomp(pid_t pid);
 
-extern int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
-extern int ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes);
-extern int ptrace_swap_area(pid_t pid, void *dst, void *src, long bytes);
+extern int __must_check ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes);
+extern int __must_check ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes);
+extern int __must_check ptrace_swap_area(pid_t pid, void *dst, void *src, long bytes);
 
 #endif /* UAPI_COMPEL_PTRACE_H__ */

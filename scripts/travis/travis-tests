@@ -1,17 +1,31 @@
 #!/bin/sh
 set -x -e
 
-TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev
+TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev python-future
 		libgnutls28-dev libgnutls30 libprotobuf-dev protobuf-compiler
-		libcap-dev libnl-3-dev gcc-multilib gdb bash python-protobuf
-		libnet-dev util-linux asciidoctor libnl-route-3-dev"
+		libcap-dev libnl-3-dev gdb bash python-protobuf python-yaml
+		libnet-dev util-linux asciidoctor libnl-route-3-dev
+		python-junit.xml python-ipaddress time ccache flake8
+		libbsd-dev"
+
+X86_64_PKGS="gcc-multilib"
+
+UNAME_M=`uname -m`
+
+if [ "$UNAME_M" != "x86_64" ]; then
+	# For Travis only x86_64 seems to be baremetal. Other
+	# architectures are running in unprivileged LXD containers.
+	# That seems to block most of CRIU's interfaces.
+	SKIP_TRAVIS_TEST=1
+fi
 
 travis_prep () {
 	[ -n "$SKIP_TRAVIS_PREP" ] && return
 
 	cd ../../
 
-	service apport stop
+	# This can fail on aarch64 travis
+	service apport stop || :
 
 	CC=gcc
 	# clang support
@@ -37,29 +51,39 @@ travis_prep () {
 		CC="ccache $CC"
 	fi
 
-	# The /etc/apt/sources.list in the current trusty image for ppc64le is
-	# broken and needs to be fixed
-	if [ "$TR_ARCH" = "ppc64le" ] ; then
-		sed -i '/security/ d' /etc/apt/sources.list
+	# Do not install x86_64 specific packages on other architectures
+	if [ "$UNAME_M" = "x86_64" ]; then
+		TRAVIS_PKGS="$TRAVIS_PKGS $X86_64_PKGS"
 	fi
 
 	apt-get update -qq
 	apt-get install -qq --no-install-recommends $TRAVIS_PKGS
-	# travis is based on 14.04 and that does not have python
-	# packages for future and ipaddress (16.04 has those packages)
-	pip install junit-xml future ipaddress
 	chmod a+x $HOME
 }
 
 travis_prep
 
-ulimit -c unlimited
-echo "|`pwd`/test/abrt.sh %P %p %s %e" > /proc/sys/kernel/core_pattern
-
 export GCOV
+$CC --version
 time make CC="$CC" -j4
 
-[ -n "$SKIP_TRAVIS_TEST" ] && return
+./criu/criu -v4 cpuinfo dump || :
+./criu/criu -v4 cpuinfo check || :
+
+make lint
+
+# Check that help output fits into 80 columns
+WIDTH=$(./criu/criu --help | wc --max-line-length)
+if [ "$WIDTH" -gt 80 ]; then
+	echo "criu --help output does not obey 80 characters line width!"
+	exit 1
+fi
+
+[ -n "$SKIP_TRAVIS_TEST" ] && exit 0
+
+ulimit -c unlimited
+
+echo "|`pwd`/test/abrt.sh %P %p %s %e" > /proc/sys/kernel/core_pattern
 
 if [ "${COMPAT_TEST}x" = "yx" ] ; then
 	# Dirty hack to keep both ia32 & x86_64 shared libs on a machine:
@@ -121,11 +145,19 @@ else
 fi
 LAZY_EXCLUDE="$LAZY_EXCLUDE -x maps04"
 
-LAZY_TESTS=.*\(maps0\|uffd-events\|lazy-thp\|futex\|fork\).*
+# Starting with 5.4 kernel requires SYS_CAP_PTRACE to use uffd events; as such
+# we cannot run lazy-pages tests in uns
+LAZY_FLAVORS=""
+if [ $KERN_MAJ -ge "5" ] && [ $KERN_MIN -ge "4" ]; then
+    LAZY_FLAVORS = "-f h,ns"
+fi
 
-./test/zdtm.py run -p 2 -T $LAZY_TESTS --lazy-pages $LAZY_EXCLUDE $ZDTM_OPTS
-./test/zdtm.py run -p 2 -T $LAZY_TESTS --remote-lazy-pages $LAZY_EXCLUDE $ZDTM_OPTS
-./test/zdtm.py run -p 2 -T $LAZY_TESTS --remote-lazy-pages --tls $LAZY_EXCLUDE $ZDTM_OPTS
+LAZY_TESTS=.*\(maps0\|uffd-events\|lazy-thp\|futex\|fork\).*
+LAZY_OPTS="-p 2 -T $LAZY_TESTS $LAZY_EXCLUDE $LAZY_FLAVORS $ZDTM_OPTS"
+
+./test/zdtm.py run $LAZY_OPTS --lazy-pages
+./test/zdtm.py run $LAZY_OPTS --remote-lazy-pages
+./test/zdtm.py run $LAZY_OPTS --remote-lazy-pages --tls
 
 bash ./test/jenkins/criu-fault.sh
 bash ./test/jenkins/criu-fcg.sh
@@ -161,16 +193,7 @@ ip net add test
 ./test/zdtm.py run -t zdtm/static/env00 -k always
 ./test/crit-recode.py
 
+# libcriu testing
+make -C test/others/libcriu run
+
 make -C test/others/shell-job
-
-if ! [ -x "$(command -v flake8)" ]; then
-	pip install flake8
-fi
-make lint
-
-# Check that help output fits into 80 columns
-WIDTH=$(./criu/criu --help | wc --max-line-length)
-if [ "$WIDTH" -gt 80 ]; then
-	echo "criu --help output does not obey 80 characters line width!"
-	exit 1
-fi

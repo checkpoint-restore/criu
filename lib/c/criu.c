@@ -336,6 +336,21 @@ int criu_set_parent_images(const char *path)
 	return criu_local_set_parent_images(global_opts, path);
 }
 
+int criu_local_set_pre_dump_mode(criu_opts *opts, enum criu_pre_dump_mode mode)
+{
+	opts->rpc->has_pre_dump_mode = true;
+	if (mode == CRIU_PRE_DUMP_SPLICE || mode == CRIU_PRE_DUMP_READ) {
+		opts->rpc->pre_dump_mode = (CriuPreDumpMode)mode;
+		return 0;
+	}
+	return -1;
+}
+
+int criu_set_pre_dump_mode(enum criu_pre_dump_mode mode)
+{
+	return criu_local_set_pre_dump_mode(global_opts, mode);
+}
+
 void criu_local_set_track_mem(criu_opts *opts, bool track_mem)
 {
 	opts->rpc->has_track_mem = true;
@@ -984,6 +999,19 @@ int criu_local_add_cg_dump_controller(criu_opts *opts, const char *name)
 	opts->rpc->n_cgroup_dump_controller = nr;
 	opts->rpc->cgroup_dump_controller = new;
 
+	return 0;
+}
+
+int criu_local_add_cg_yard(criu_opts *opts, const char *path)
+{
+	char *new;
+
+	new = strdup(path);
+	if (!new)
+		return -ENOMEM;
+
+	free(opts->rpc->cgroup_yard);
+	opts->rpc->cgroup_yard = new;
 	return 0;
 }
 

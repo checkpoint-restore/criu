@@ -42,6 +42,68 @@
 			  "r"(&thread_args[i])					\
 			: "x0", "x1", "x2", "x3", "x8", "memory")
 
+/*
+ * Based on sysdeps/unix/sysv/linux/aarch64/clone.S
+ *
+ * int clone(int (*fn)(void *arg),            x0
+ *	     void *child_stack,               x1
+ *	     int flags,                       x2
+ *	     void *arg,                       x3
+ *	     pid_t *ptid,                     x4
+ *	     struct user_desc *tls,           x5
+ *	     pid_t *ctid);                    x6
+ *
+ * int clone3(struct clone_args *args,        x0
+ *	      size_t size);                   x1
+ *
+ * Always consult the CLONE3 wrappers for other architectures
+ * for additional details.
+ *
+ */
+
+#define RUN_CLONE3_RESTORE_FN(ret, clone_args, size, args,			\
+			      clone_restore_fn)					\
+	asm volatile(								\
+	/* In contrast to the clone() wrapper above this does not put
+	 * the thread function and its arguments on the child stack,
+	 * but uses registers to pass these parameters to the child process.
+	 * Based on the glibc clone() wrapper at
+	 * sysdeps/unix/sysv/linux/aarch64/clone.S.
+	 */									\
+			"clone3_emul:					\n"	\
+	/*
+	 * Based on the glibc clone() wrapper, which uses x10 and x11
+	 * to save the arguments for the child process, this does the same.
+	 * x10 for the thread function and x11 for the thread arguments.
+	 */									\
+			"mov x10, %3	/* clone_restore_fn */		\n"	\
+			"mov x11, %4	/* args */			\n"	\
+			"mov x0, %1	/* &clone_args */		\n"	\
+			"mov x1, %2	/* size */			\n"	\
+	/* Load syscall number */						\
+			"mov x8, #"__stringify(__NR_clone3)"		\n"	\
+	/* Do the syscall */							\
+			"svc #0						\n"	\
+										\
+			"cbz x0, clone3_thread_run			\n"	\
+										\
+			"mov %0, x0					\n"	\
+			"b   clone3_end					\n"	\
+										\
+			"clone3_thread_run:				\n"	\
+	/* Move args to x0 */							\
+			"mov x0, x11					\n"	\
+	/* Jump to clone_restore_fn */						\
+			"br  x10					\n"	\
+										\
+			"clone3_end:					\n"	\
+			: "=r"(ret)						\
+			: "r"(&clone_args),					\
+			  "r"(size),						\
+			  "r"(clone_restore_fn),				\
+			  "r"(args)						\
+			: "x0", "x1", "x8", "x10", "x11", "memory")
+
 #define ARCH_FAIL_CORE_RESTORE					\
 	asm volatile(						\
 			"mov sp, %0			\n"	\

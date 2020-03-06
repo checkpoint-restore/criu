@@ -1,0 +1,31 @@
+FROM adoptopenjdk/openjdk8-openj9:latest
+
+RUN apt-get update && apt-get install -y --no-install-recommends protobuf-c-compiler \
+	libprotobuf-c-dev \
+	libaio-dev \
+	python-future \
+	libprotobuf-dev \
+	protobuf-compiler \
+	libcap-dev \
+	libnl-3-dev \
+	gdb \
+	bash \
+	python-protobuf \
+	python-yaml \
+	libnet-dev \
+	libnl-route-3-dev \
+	libbsd-dev \
+	make \
+	git \
+	pkg-config \
+	iptables \
+	gcc \
+	maven
+
+COPY . /criu
+WORKDIR /criu
+
+RUN make
+
+ENTRYPOINT mvn -f test/javaTests/pom.xml test
+

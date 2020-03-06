@@ -34,46 +34,74 @@ int ptrace_suspend_seccomp(pid_t pid)
 int ptrace_peek_area(pid_t pid, void *dst, void *addr, long bytes)
 {
 	unsigned long w;
-	if (bytes & (sizeof(long) - 1))
+	int old_errno = errno;
+
+	if (bytes & (sizeof(long) - 1)) {
+		pr_err("Peek request with non-word size %ld\n", bytes);
 		return -1;
+	}
+
+	errno = 0;
 	for (w = 0; w < bytes / sizeof(long); w++) {
 		unsigned long *d = dst, *a = addr;
+
 		d[w] = ptrace(PTRACE_PEEKDATA, pid, a + w, NULL);
-		if (d[w] == -1U && errno)
+		if (d[w] == -1U && errno) {
+			pr_perror("PEEKDATA failed");
 			goto err;
+		}
 	}
+	errno = old_errno;
 	return 0;
 err:
-	return -2;
+	return -errno;
 }
 
 int ptrace_poke_area(pid_t pid, void *src, void *addr, long bytes)
 {
 	unsigned long w;
-	if (bytes & (sizeof(long) - 1))
+
+	if (bytes & (sizeof(long) - 1)) {
+		pr_err("Poke request with non-word size %ld\n", bytes);
 		return -1;
+	}
+
 	for (w = 0; w < bytes / sizeof(long); w++) {
 		unsigned long *s = src, *a = addr;
-		if (ptrace(PTRACE_POKEDATA, pid, a + w, s[w]))
+
+		if (ptrace(PTRACE_POKEDATA, pid, a + w, s[w])) {
+			pr_perror("POKEDATA failed");
 			goto err;
+		}
 	}
 	return 0;
 err:
-	return -2;
+	return -errno;
 }
 
 /* don't swap big space, it might overflow the stack */
 int ptrace_swap_area(pid_t pid, void *dst, void *src, long bytes)
 {
 	void *t = alloca(bytes);
+	int err;
 
-	if (ptrace_peek_area(pid, t, dst, bytes))
-		return -1;
+	err = ptrace_peek_area(pid, t, dst, bytes);
+	if (err)
+		return err;
 
-	if (ptrace_poke_area(pid, src, dst, bytes)) {
-		if (ptrace_poke_area(pid, t, dst, bytes))
-			return -2;
-		return -1;
+	err = ptrace_poke_area(pid, src, dst, bytes);
+	if (err) {
+		int err2;
+
+		pr_err("Can't poke %d @ %p from %p sized %ld\n",
+			pid, dst, src, bytes);
+
+		err2 = ptrace_poke_area(pid, t, dst, bytes);
+		if (err2) {
+			pr_err("Can't restore the original data with poke\n");
+			return err2;
+		}
+		return err;
 	}
 
 	memcpy(src, t, bytes);

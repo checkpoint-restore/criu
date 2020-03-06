@@ -3,12 +3,15 @@ ARG ENV1=FOOBAR
 
 RUN dnf install -y \
 	ccache \
+	diffutils \
 	findutils \
 	gcc \
 	git \
 	gnutls-devel \
 	iproute \
 	iptables \
+	nftables \
+	nftables-devel \
 	libaio-devel \
 	libasan \
 	libcap-devel \
@@ -29,12 +32,6 @@ RUN dnf install -y \
 	e2fsprogs \
 	rubygem-asciidoctor \
 	kmod
-
-# Replace coreutils-single with "traditional" coreutils
-# to fix the following error on Fedora 28/rawhide while
-# running under QEMU:
-# > sh: /usr/bin/sort: /usr/bin/coreutils: bad interpreter: No such file or directory
-RUN dnf install -y --allowerasing coreutils
 
 RUN ln -sf python3 /usr/bin/python
 ENV PYTHON=python3

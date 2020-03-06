@@ -141,7 +141,7 @@ int main(int argc, char **argv)
 			return 1;
 		}
 
-		if (write(fd, TEST_MSG + 2, sizeof(TEST_MSG) - 2) != sizeof(TEST_MSG) - 2) {
+		if (write(fd, &TEST_MSG[2], sizeof(TEST_MSG) - 2) != sizeof(TEST_MSG) - 2) {
 			pr_err("write");
 			return 1;
 		}

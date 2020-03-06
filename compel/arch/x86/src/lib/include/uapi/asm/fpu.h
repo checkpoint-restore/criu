@@ -263,7 +263,7 @@ struct xsave_struct_ia32 {
 		struct ymmh_struct	ymmh;
 		uint8_t			extended_state_area[EXTENDED_STATE_AREA_SIZE];
 	};
-} __aligned(FXSAVE_ALIGN_BYTES);
+};
 
 typedef struct {
 	/*
@@ -309,7 +309,11 @@ typedef struct {
 typedef struct {
 	union {
 		fpu_state_64_t			fpu_state_64;
-		fpu_state_ia32_t		fpu_state_ia32;
+		struct {
+			/* fpu_state_ia32->xsave has to be 64-byte aligned. */
+			uint32_t		__pad[2];
+			fpu_state_ia32_t	fpu_state_ia32;
+		};
 	};
 
 	uint8_t has_fpu;

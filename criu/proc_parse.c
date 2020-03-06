@@ -932,7 +932,7 @@ int prepare_loginuid(unsigned int value, unsigned int loglevel)
 
 	if (write(fd, buf, 11) < 0) {
 		print_on_level(loglevel,
-			"Write %s to /proc/self/loginuid failed: %s",
+			"Write %s to /proc/self/loginuid failed: %s\n",
 			buf, strerror(errno));
 		ret = -1;
 	}
@@ -1669,8 +1669,18 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 		if (fdinfo_field(str, "lock")) {
 			struct file_lock *fl;
 			struct fdinfo_common *fdinfo = arg;
+			char *flock_status = str+sizeof("lock:\t")-1;
 
 			if (type != FD_TYPES__UND)
+				continue;
+
+			/*
+			 * The lock status can be empty when the owner of the
+			 * lock is invisible from our PID namespace.
+			 * This unfortunate behavior is fixed in kernels v4.19
+			 * and up (see commit 1cf8e5de40).
+			 */
+			if (flock_status[0] == '\0')
 				continue;
 
 			fl = alloc_file_lock();
@@ -1679,7 +1689,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 				goto out;
 			}
 
-			if (parse_file_lock_buf(str + 6, fl, 0)) {
+			if (parse_file_lock_buf(flock_status, fl, 0)) {
 				xfree(fl);
 				goto parse_err;
 			}
@@ -2488,6 +2498,12 @@ int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups)
 			goto err;
 		}
 		*off = '\0';
+
+		if (cgp_should_skip_controller(controllers)) {
+			pr_debug("cg-prop: Skipping controller %s\n", controllers);
+			continue;
+		}
+
 		while (1) {
 			off = strchr(controllers, ',');
 			if (off)

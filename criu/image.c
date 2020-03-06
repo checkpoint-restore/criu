@@ -190,7 +190,7 @@ int prepare_inventory(InventoryEntry *he)
 		struct dmp_info d;
 	} crt = { .i.pid = &pid };
 
-	pr_info("Perparing image inventory (version %u)\n", CRTOOLS_IMAGES_V1);
+	pr_info("Preparing image inventory (version %u)\n", CRTOOLS_IMAGES_V1);
 
 	he->img_version = CRTOOLS_IMAGES_V1_1;
 	he->fdinfo_per_id = true;

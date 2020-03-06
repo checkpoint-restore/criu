@@ -351,7 +351,8 @@ static int generate_vma_iovs(struct pstree_item *item, struct vma_area *vma,
 			     struct page_pipe *pp, struct page_xfer *xfer,
 			     struct parasite_dump_pages_args *args,
 			     struct parasite_ctl *ctl, pmc_t *pmc,
-			     bool has_parent, bool pre_dump)
+			     bool has_parent, bool pre_dump,
+			     int parent_predump_mode)
 {
 	u64 off = 0;
 	u64 *map;
@@ -360,6 +361,52 @@ static int generate_vma_iovs(struct pstree_item *item, struct vma_area *vma,
 	if (!vma_area_is_private(vma, kdat.task_size) &&
 				!vma_area_is(vma, VMA_ANON_SHARED))
 		return 0;
+
+	/*
+	 * To facilitate any combination of pre-dump modes to run after
+	 * one another, we need to take extra care as discussed below.
+	 *
+	 * The SPLICE mode pre-dump, processes all type of memory regions,
+	 * whereas READ mode pre-dump skips processing those memory regions
+	 * which lacks PROT_READ flag.
+	 *
+	 * Now on mixing pre-dump modes:
+	 * 	If SPLICE mode follows SPLICE mode	: no issue
+	 *		-> everything dumped both the times
+	 *
+	 * 	If READ mode follows READ mode		: no issue
+	 *		-> non-PROT_READ skipped both the time
+	 *
+	 * 	If READ mode follows SPLICE mode   	: no issue
+	 *		-> everything dumped at first,
+	 *		   the non-PROT_READ skipped later
+	 *
+	 * 	If SPLICE mode follows READ mode   	: Need special care
+	 *
+	 * If READ pre-dump happens first, then it has skipped processing
+	 * non-PROT_READ regions. Following SPLICE pre-dump expects pagemap
+	 * entries for all mappings in parent pagemap, but last READ mode
+	 * pre-dump cycle has skipped processing & pagemap generation for
+	 * non-PROT_READ regions. So SPLICE mode throws error of missing
+	 * pagemap entry for encountered non-PROT_READ mapping.
+	 *
+	 * To resolve this, the pre-dump-mode is stored in current pre-dump's
+	 * inventoy file. This pre-dump mode is read back from this file
+	 * (present in parent pre-dump dir) as parent-pre-dump-mode during
+	 * next pre-dump.
+	 *
+	 * If parent-pre-dump-mode and next-pre-dump-mode are in READ-mode ->
+	 * SPLICE-mode order, then SPLICE mode doesn't expect mappings for
+	 * non-PROT_READ regions in parent-image and marks "has_parent=false".
+	 */
+
+	if (!(vma->e->prot & PROT_READ)) {
+		if (opts.pre_dump_mode == PRE_DUMP_READ && pre_dump)
+			return 0;
+		if ((parent_predump_mode == PRE_DUMP_READ &&
+			opts.pre_dump_mode == PRE_DUMP_SPLICE) || !pre_dump)
+			has_parent = false;
+	}
 
 	if (vma_entry_is(vma->e, VMA_AREA_AIORING)) {
 		if (pre_dump)
@@ -406,6 +453,7 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 	unsigned long pmc_size;
 	int possible_pid_reuse = 0;
 	bool has_parent;
+	int parent_predump_mode = -1;
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, item->pid->real);
@@ -472,9 +520,13 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 	 */
 	args->off = 0;
 	has_parent = !!xfer.parent && !possible_pid_reuse;
+	if(mdc->parent_ie)
+		parent_predump_mode = mdc->parent_ie->pre_dump_mode;
+
 	list_for_each_entry(vma_area, &vma_area_list->h, list) {
 		ret = generate_vma_iovs(item, vma_area, pp, &xfer, args, ctl,
-					&pmc, has_parent, mdc->pre_dump);
+					&pmc, has_parent, mdc->pre_dump,
+					parent_predump_mode);
 		if (ret < 0)
 			goto out_xfer;
 	}
@@ -482,7 +534,18 @@ static int __parasite_dump_pages_seized(struct pstree_item *item,
 	if (mdc->lazy)
 		memcpy(pargs_iovs(args), pp->iovs,
 		       sizeof(struct iovec) * pp->nr_iovs);
-	ret = drain_pages(pp, ctl, args);
+
+	/*
+	 * Faking drain_pages for pre-dump here. Actual drain_pages for pre-dump
+	 * will happen after task unfreezing in cr_pre_dump_finish(). This is
+	 * actual optimization which reduces time for which process was frozen
+	 * during pre-dump.
+	 */
+	if (mdc->pre_dump && opts.pre_dump_mode == PRE_DUMP_READ)
+		ret = 0;
+	else
+		ret = drain_pages(pp, ctl, args);
+
 	if (!ret && !mdc->pre_dump)
 		ret = xfer_pages(pp, &xfer);
 	if (ret)
@@ -528,13 +591,47 @@ int parasite_dump_pages_seized(struct pstree_item *item,
 	 * able to read the memory contents.
 	 *
 	 * Afterwards -- reprotect memory back.
+	 *
+	 * This step is required for "splice" mode pre-dump and dump.
+	 * Skip this step for "read" mode pre-dump.
+	 * "read" mode pre-dump delegates processing of non-PROT_READ
+	 * regions to dump stage. Adding PROT_READ works fine for
+	 * static processing (target process frozen during pre-dump)
+	 * and fails for dynamic as explained below.
+	 *
+	 * Consider following sequence of instances to reason, why
+	 * not to add PROT_READ in "read" mode pre-dump ?
+	 *
+	 *	CRIU- "read" pre-dump		    Target Process
+	 *
+	 *					1. Creates mapping M
+	 *					   without PROT_READ
+	 * 2. CRIU freezes target
+	 *    process
+	 * 3. Collect the mappings
+	 * 4. Add PROT_READ to M
+	 *    (non-PROT_READ region)
+	 * 5. CRIU unfreezes target
+	 *    process
+	 *					6. Add flag PROT_READ
+	 *					   to mapping M
+	 *					7. Revoke flag PROT_READ
+	 *					   from mapping M
+	 * 8. process_vm_readv tries
+	 *    to copy mapping M
+	 *    (believing M have
+	 *     PROT_READ flag)
+	 * 9. syscall fails to copy
+	 *    data from M
 	 */
 
-	pargs->add_prot = PROT_READ;
-	ret = compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl);
-	if (ret) {
-		pr_err("Can't dump unprotect vmas with parasite\n");
-		return ret;
+	if (!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE) {
+		pargs->add_prot = PROT_READ;
+		ret = compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl);
+		if (ret) {
+			pr_err("Can't dump unprotect vmas with parasite\n");
+			return ret;
+		}
 	}
 
 	if (fault_injected(FI_DUMP_PAGES)) {
@@ -549,10 +646,12 @@ int parasite_dump_pages_seized(struct pstree_item *item,
 		return ret;
 	}
 
-	pargs->add_prot = 0;
-	if (compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl)) {
-		pr_err("Can't rollback unprotected vmas with parasite\n");
-		ret = -1;
+	if (!mdc->pre_dump || opts.pre_dump_mode == PRE_DUMP_SPLICE) {
+		pargs->add_prot = 0;
+		if (compel_rpc_call_sync(PARASITE_CMD_MPROTECT_VMAS, ctl)) {
+			pr_err("Can't rollback unprotected vmas with parasite\n");
+			ret = -1;
+		}
 	}
 
 	return ret;

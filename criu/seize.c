@@ -194,7 +194,7 @@ static int seize_cgroup_tree(char *root_path, const char *state)
  * A freezer cgroup can contain tasks which will not be dumped
  * and we need to wait them, because the are interrupted them by ptrace.
  */
-static int freezer_wait_processes()
+static int freezer_wait_processes(void)
 {
 	int i;
 
@@ -483,7 +483,7 @@ static int collect_children(struct pstree_item *item)
 
 		if (!opts.freeze_cgroup)
 			/* fails when meets a zombie */
-			compel_interrupt_task(pid);
+			__ignore_value(compel_interrupt_task(pid));
 
 		ret = compel_wait_task(pid, item->pid->real, parse_pid_status, NULL, &creds.s, NULL);
 		if (ret < 0) {

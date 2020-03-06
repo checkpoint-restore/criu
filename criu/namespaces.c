@@ -290,7 +290,7 @@ static void nsid_add(struct ns_id *ns, struct ns_desc *nd, unsigned int id, pid_
 	pr_info("Add %s ns %d pid %d\n", nd->str, ns->id, ns->ns_pid);
 }
 
-struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid,
+static struct ns_id *rst_new_ns_id(unsigned int id, pid_t pid,
 		struct ns_desc *nd, enum ns_type type)
 {
 	struct ns_id *nsid;
@@ -976,7 +976,7 @@ err:
 	return exit_code;
 }
 
-void free_userns_maps()
+void free_userns_maps(void)
 {
 	if (userns_entry.n_uid_map > 0) {
 		xfree(userns_entry.uid_map[0]);

@@ -1,0 +1,3 @@
+#!/bin/bash
+
+test -f /usr/sbin/nft || exit 1

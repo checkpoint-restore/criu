@@ -119,9 +119,9 @@ int vdso_do_park(struct vdso_maps *rt, unsigned long addr, unsigned long space)
 	BUG_ON((vdso_size + vvar_size) < space);
 
 	if (rt->sym.vdso_before_vvar)
-		return park_at(rt, addr, addr + vvar_size);
+		return park_at(rt, addr, addr + vdso_size);
 	else
-		return park_at(rt, addr + vdso_size, addr);
+		return park_at(rt, addr + vvar_size, addr);
 }
 
 #ifndef CONFIG_COMPAT
@@ -289,6 +289,18 @@ int vdso_proxify(struct vdso_maps *rt, bool *added_proxy,
 
 	if (!vma_vdso) {
 		pr_err("Can't find vDSO area in image\n");
+		return -1;
+	}
+
+	/*
+	 * We could still do something about it here..
+	 * 1. Hope that vDSO from images still works (might not be the case).
+	 * 2. Try to map vDSO.
+	 * But, hopefully no one intends to migrate application that uses
+	 * vDSO to a dut where kernel doesn't provide it.
+	 */
+	if (!vdso_is_present(rt)) {
+		pr_err("vDSO isn't provided by kernel, but exists in images\n");
 		return -1;
 	}
 

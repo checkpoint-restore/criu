@@ -42,7 +42,7 @@ enum {
 };
 #define FDS_EVENT (1 << FDS_EVENT_BIT)
 
-struct pstree_item *current;
+extern struct pstree_item *current;
 
 struct rst_info;
 /* See alloc_pstree_item() for details */

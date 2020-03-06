@@ -5,16 +5,15 @@ source ../env.sh || exit 1
 
 echo "== Clean"
 make clean
+make libcriu
 rm -rf wdir
-rm -f ./libcriu.so.1
 
 echo "== Prepare"
 mkdir -p wdir/i/
 
 echo "== Run tests"
-ln -s ../../../../criu/lib/c/libcriu.so libcriu.so.1
 export LD_LIBRARY_PATH=.
-export PATH="`dirname ${BASH_SOURCE[0]}`/../../:$PATH"
+export PATH="`dirname ${BASH_SOURCE[0]}`/../../../criu:$PATH"
 
 RESULT=0
 
@@ -22,6 +21,19 @@ function run_test {
 	echo "== Build $1"
 	if ! make $1; then
 		echo "FAIL build $1"
+		echo "** Output of $1/test.log"
+		cat wdir/i/$1/test.log
+		echo "---------------"
+		if [ -f wdir/i/$1/dump.log ]; then
+			echo "** Contents of dump.log"
+			cat wdir/i/$1/dump.log
+			echo "---------------"
+		fi
+		if [ -f wdir/i/$1/restore.log ]; then
+			echo "** Contents of restore.log"
+			cat wdir/i/$1/restore.log
+			echo "---------------"
+		fi
 		RESULT=1;
 	else
 		echo "== Test $1"
@@ -40,6 +52,6 @@ run_test test_iters
 run_test test_errno
 
 echo "== Tests done"
-unlink libcriu.so.1
+make libcriu_clean
 [ $RESULT -eq 0 ] && echo "Success" || echo "FAIL"
 exit $RESULT

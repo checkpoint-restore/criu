@@ -105,7 +105,8 @@ TST_NOFILE	:=				\
 		socket-tcp-unconn		\
 		socket-tcp6-unconn		\
 		socket-tcp-syn-sent		\
-		socket-tcp-skip-in-flight       \
+		socket-tcp-skip-in-flight	\
+		socket-tcp-keepalive		\
 		sock_opts00			\
 		sock_opts01			\
 		sk-unix-unconn			\
@@ -121,6 +122,7 @@ TST_NOFILE	:=				\
 		groups				\
 		pdeath_sig			\
 		file_fown			\
+		file_cloexec			\
 		proc-self			\
 		eventfs00			\
 		epoll				\
@@ -207,6 +209,7 @@ TST_NOFILE	:=				\
 		pipe03				\
 		netns_sub			\
 		netns_sub_veth			\
+		netns_sub_sysctl	\
 		unlink_multiple_largefiles	\
 		config_inotify_irmap		\
 		thp_disable			\
@@ -219,13 +222,13 @@ TST_NOFILE	:=				\
 		child_subreaper_and_reparent	\
 #		jobctl00			\
 
-ifneq ($(SRCARCH),arm)
+ifneq ($(ARCH),arm)
 ifneq ($(COMPAT_TEST),y)
         TST_NOFILE += maps03
 endif
 endif
 
-ifeq ($(SRCARCH),s390)
+ifeq ($(ARCH),s390)
         TST_NOFILE +=	s390x_regs_check	\
 			s390x_gs_threads	\
 			s390x_runtime_instr
@@ -286,6 +289,7 @@ TST_FILE	=				\
 		file_locks07			\
 		file_locks08			\
 		netns-nf			\
+		netns-nft				\
 		maps_file_prot			\
 		socket_close_data01		\
 
@@ -319,7 +323,8 @@ TST_DIR		=				\
 		cgroup03			\
 		cgroup04			\
 		cgroup_ifpriomap		\
-		cgroup_stray		\
+		cgroup_stray			\
+		cgroup_yard			\
 		unlink_fstat04			\
 		unlink_fstat041			\
 		mntns_remap			\
@@ -527,8 +532,8 @@ stopped12:		CFLAGS += -DZDTM_STOPPED_KILL -DZDTM_STOPPED_TKILL
 clone_fs:		LDLIBS += -pthread
 # As generating dependencies won't work without proper includes,
 # we have to explicitly specify both .o and .d for this case:
-netns_sub_veth.o netns_sub_veth.d:	CPPFLAGS += -I/usr/include/libnl3
-netns_sub_veth:		LDLIBS += -lnl-3 -l nl-route-3
+netns_sub_veth.o netns_sub_veth.d: CPPFLAGS += $(call pkg-cflags, libnl-3.0)
+netns_sub_veth:		LDLIBS += $(call pkg-libs, libnl-route-3.0 libnl-3.0)
 
 socket-tcp-fin-wait1:	CFLAGS += -D ZDTM_TCP_FIN_WAIT1
 socket-tcp-fin-wait2:	CFLAGS += -D ZDTM_TCP_FIN_WAIT2

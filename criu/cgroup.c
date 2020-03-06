@@ -8,6 +8,7 @@
 #include <ftw.h>
 #include <libgen.h>
 #include <sched.h>
+
 #include "common/list.h"
 #include "xmalloc.h"
 #include "cgroup.h"
@@ -24,6 +25,8 @@
 #include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"
+#include "kerndat.h"
+#include "linux/mount.h"
 
 /*
  * This structure describes set of controller groups
@@ -542,6 +545,84 @@ static int add_freezer_state(struct cg_controller *controller)
 	return 0;
 }
 
+static const char namestr[] = "name=";
+static int __new_open_cgroupfs(struct cg_ctl *cc)
+{
+	int fsfd, fd;
+	char *name;
+
+	fsfd = sys_fsopen("cgroup", 0);
+	if (fsfd < 0) {
+		pr_perror("Unable to open the cgroup file system");
+		return -1;
+	}
+
+	if (strstartswith(cc->name, namestr)) {
+		if (sys_fsconfig(fsfd, FSCONFIG_SET_STRING,
+				 "name", cc->name + strlen(namestr), 0)) {
+			pr_perror("Unable to configure the cgroup (%s) file system", cc->name);
+			goto err;
+		}
+	} else {
+		char *saveptr = NULL, *buf = strdupa(cc->name);
+		name = strtok_r(buf, ",", &saveptr);
+		while (name) {
+			if (sys_fsconfig(fsfd, FSCONFIG_SET_FLAG, name, NULL, 0)) {
+				pr_perror("Unable to configure the cgroup (%s) file system", name);
+				goto err;
+			}
+			name = strtok_r(NULL, ",", &saveptr);
+		}
+	}
+
+	if (sys_fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0)) {
+		pr_perror("Unable to create the cgroup (%s) file system", cc->name);
+		goto err;
+	}
+
+	fd = sys_fsmount(fsfd, 0, 0);
+	if (fd < 0)
+		pr_perror("Unable to mount the cgroup (%s) file system", cc->name);
+	close(fsfd);
+
+	return fd;
+err:
+	close(fsfd);
+	return -1;
+}
+
+static int open_cgroupfs(struct cg_ctl *cc)
+{
+	char prefix[] = ".criu.cgmounts.XXXXXX";
+	char mopts[1024];
+	int fd;
+
+	if (kdat.has_fsopen)
+		return __new_open_cgroupfs(cc);
+
+	if (strstartswith(cc->name, namestr))
+		snprintf(mopts, sizeof(mopts), "none,%s", cc->name);
+	else
+		snprintf(mopts, sizeof(mopts), "%s", cc->name);
+
+	if (mkdtemp(prefix) == NULL) {
+		pr_perror("can't make dir for cg mounts");
+		return -1;
+	}
+
+	if (mount("none", prefix, "cgroup", 0, mopts) < 0) {
+		pr_perror("Unable to mount %s", mopts);
+		rmdir(prefix);
+		return -1;
+	}
+
+	fd = open_detach_mount(prefix);
+	if (fd < 0)
+		return -1;
+
+	return fd;
+}
+
 static int collect_cgroups(struct list_head *ctls)
 {
 	struct cg_ctl *cc;
@@ -549,8 +630,7 @@ static int collect_cgroups(struct list_head *ctls)
 	int fd = -1;
 
 	list_for_each_entry(cc, ctls, l) {
-		char path[PATH_MAX], mopts[1024], *root;
-		char prefix[] = ".criu.cgmounts.XXXXXX";
+		char path[PATH_MAX], *root;
 		struct cg_controller *cg;
 		struct cg_root_opt *o;
 
@@ -568,7 +648,7 @@ static int collect_cgroups(struct list_head *ctls)
 
 		if (!current_controller) {
 			/* only allow "fake" controllers to be created this way */
-			if (!strstartswith(cc->name, "name=")) {
+			if (!strstartswith(cc->name, namestr)) {
 				pr_err("controller %s not found\n", cc->name);
 				return -1;
 			} else {
@@ -586,25 +666,24 @@ static int collect_cgroups(struct list_head *ctls)
 		if (!opts.manage_cgroups)
 			continue;
 
-		if (strstartswith(cc->name, "name="))
-			snprintf(mopts, sizeof(mopts), "none,%s", cc->name);
-		else
-			snprintf(mopts, sizeof(mopts), "%s", cc->name);
+		if (opts.cgroup_yard) {
+			char dir_path[PATH_MAX];
+			int off;
 
-		if (mkdtemp(prefix) == NULL) {
-			pr_perror("can't make dir for cg mounts");
-			return -1;
+			off = snprintf(dir_path, PATH_MAX, "%s/", opts.cgroup_yard);
+			if (strstartswith(cc->name, namestr))
+				snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name + strlen(namestr));
+			else
+				snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name);
+
+			fd = open(dir_path, O_RDONLY | O_DIRECTORY, 0);
+			if (fd < 0) {
+				pr_perror("couldn't open %s", dir_path);
+				return -1;
+			}
+		} else {
+			fd = open_cgroupfs(cc);
 		}
-
-		if (mount("none", prefix, "cgroup", 0, mopts) < 0) {
-			pr_perror("couldn't mount %s", mopts);
-			rmdir(prefix);
-			return -1;
-		}
-
-		fd = open_detach_mount(prefix);
-		if (fd < 0)
-			return -1;
 
 		path_pref_len = snprintf(path, PATH_MAX, "/proc/self/fd/%d", fd);
 
@@ -620,6 +699,7 @@ static int collect_cgroups(struct list_head *ctls)
 		snprintf(path + path_pref_len, PATH_MAX - path_pref_len, "%s", root);
 
 		ret = ftw(path, add_cgroup, 4);
+
 		if (ret < 0)
 			pr_perror("failed walking %s for empty cgroups", path);
 
@@ -1167,10 +1247,12 @@ void fini_cgroup(void)
 		return;
 
 	close_service_fd(CGROUP_YARD);
-	if (umount2(cg_yard, MNT_DETACH))
-		pr_perror("Unable to umount %s", cg_yard);
-	if (rmdir(cg_yard))
-		pr_perror("Unable to remove %s", cg_yard);
+	if (!opts.cgroup_yard) {
+		if (umount2(cg_yard, MNT_DETACH))
+			pr_perror("Unable to umount %s", cg_yard);
+		if (rmdir(cg_yard))
+			pr_perror("Unable to remove %s", cg_yard);
+	}
 	xfree(cg_yard);
 	cg_yard = NULL;
 }
@@ -1652,20 +1734,28 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 	pr_info("Preparing cgroups yard (cgroups restore mode %#x)\n",
 		opts.manage_cgroups);
 
-	off = sprintf(paux, ".criu.cgyard.XXXXXX");
-	if (mkdtemp(paux) == NULL) {
-		pr_perror("Can't make temp cgyard dir");
-		return -1;
-	}
+	if (opts.cgroup_yard) {
+		off = sprintf(paux, "%s", opts.cgroup_yard);
 
-	cg_yard = xstrdup(paux);
-	if (!cg_yard) {
-		rmdir(paux);
-		return -1;
-	}
+		cg_yard = xstrdup(paux);
+		if (!cg_yard)
+			return -1;
+	} else {
+		off = sprintf(paux, ".criu.cgyard.XXXXXX");
+		if (mkdtemp(paux) == NULL) {
+			pr_perror("Can't make temp cgyard dir");
+			return -1;
+		}
 
-	if (make_yard(cg_yard))
-		goto err;
+		cg_yard = xstrdup(paux);
+		if (!cg_yard) {
+			rmdir(paux);
+			return -1;
+		}
+
+		if (make_yard(cg_yard))
+			goto err;
+	}
 
 	pr_debug("Opening %s as cg yard\n", cg_yard);
 	i = open(cg_yard, O_DIRECTORY);
@@ -1699,11 +1789,11 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 			pr_debug("\tMaking controller dir %s (%s)\n", paux, opt);
 			if (mkdir(paux, 0700)) {
 				pr_perror("\tCan't make controller dir %s", paux);
-				return -1;
+				goto err;
 			}
 			if (mount("none", paux, "cgroup", 0, opt) < 0) {
 				pr_perror("\tCan't mount controller dir %s", paux);
-				return -1;
+				goto err;
 			}
 		}
 

@@ -47,6 +47,11 @@ enum criu_cg_mode {
 	DEFAULT = 6;
 };
 
+enum criu_pre_dump_mode {
+	SPLICE = 	1;
+	VM_READ =	2;
+};
+
 message criu_opts {
 	required int32			images_dir_fd	= 1;
 	optional int32			pid		= 2; /* if not set on dump, will dump requesting process */
@@ -120,6 +125,8 @@ message criu_opts {
 	optional string			tls_key			= 57;
 	optional bool			tls			= 58;
 	optional bool			tls_no_cn_verify	= 59;
+	optional string			cgroup_yard		= 60;
+	optional criu_pre_dump_mode	pre_dump_mode		= 61 [default = SPLICE];
 /*	optional bool			check_mounts		= 128;	*/
 }
 

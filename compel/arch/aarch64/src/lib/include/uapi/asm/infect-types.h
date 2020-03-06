@@ -27,6 +27,6 @@ typedef struct user_fpsimd_state	user_fpregs_struct_t;
 
 #define ARCH_SI_TRAP		TRAP_BRKPT
 
-#define __NR(syscall, compat)	__NR_##syscall
+#define __NR(syscall, compat) ({ (void)compat; __NR_##syscall; })
 
 #endif /* UAPI_COMPEL_ASM_TYPES_H__ */

@@ -23,6 +23,8 @@
 #include <compel/ptrace.h>
 #include "common/compiler.h"
 
+#include "linux/mount.h"
+
 #include "clone-noasan.h"
 #include "cr_options.h"
 #include "servicefd.h"
@@ -73,6 +75,7 @@
 #include "sk-queue.h"
 #include "sigframe.h"
 #include "fdstore.h"
+#include "string.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
@@ -180,13 +183,13 @@ static int __restore_wait_inprogress_tasks(int participants)
 	return 0;
 }
 
-static int restore_wait_inprogress_tasks()
+static int restore_wait_inprogress_tasks(void)
 {
 	return __restore_wait_inprogress_tasks(0);
 }
 
 /* Wait all tasks except the current one */
-static int restore_wait_other_tasks()
+static int restore_wait_other_tasks(void)
 {
 	int participants, stage;
 
@@ -1372,40 +1375,55 @@ static inline int fork_with_pid(struct pstree_item *item)
 	if (!(ca.clone_flags & CLONE_NEWPID)) {
 		char buf[32];
 		int len;
-		int fd;
+		int fd = -1;
 
-		fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-		if (fd < 0)
-			goto err;
+		if (!kdat.has_clone3_set_tid) {
+			fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
+			if (fd < 0)
+				goto err;
+		}
 
 		lock_last_pid();
 
-		len = snprintf(buf, sizeof(buf), "%d", pid - 1);
-		if (write(fd, buf, len) != len) {
-			pr_perror("%d: Write %s to %s", pid, buf, LAST_PID_PATH);
+		if (!kdat.has_clone3_set_tid) {
+			len = snprintf(buf, sizeof(buf), "%d", pid - 1);
+			if (write(fd, buf, len) != len) {
+				pr_perror("%d: Write %s to %s", pid, buf,
+					LAST_PID_PATH);
+				close(fd);
+				goto err_unlock;
+			}
 			close(fd);
-			goto err_unlock;
 		}
-		close(fd);
 	} else {
 		BUG_ON(pid != INIT_PID);
 	}
 
-	/*
-	 * Some kernel modules, such as network packet generator
-	 * run kernel thread upon net-namespace creattion taking
-	 * the @pid we've been requeting via LAST_PID_PATH interface
-	 * so that we can't restore a take with pid needed.
-	 *
-	 * Here is an idea -- unhare net namespace in callee instead.
-	 */
-	/*
-	 * The cgroup namespace is also unshared explicitly in the
-	 * move_in_cgroup(), so drop this flag here as well.
-	 */
-	close_pid_proc();
-	ret = clone_noasan(restore_task_with_children,
-			(ca.clone_flags & ~(CLONE_NEWNET | CLONE_NEWCGROUP)) | SIGCHLD, &ca);
+	if (kdat.has_clone3_set_tid) {
+		ret = clone3_with_pid_noasan(restore_task_with_children,
+				&ca, (ca.clone_flags &
+					~(CLONE_NEWNET | CLONE_NEWCGROUP)),
+				SIGCHLD, pid);
+	} else {
+		/*
+		 * Some kernel modules, such as network packet generator
+		 * run kernel thread upon net-namespace creation taking
+		 * the @pid we've been requesting via LAST_PID_PATH interface
+		 * so that we can't restore a take with pid needed.
+		 *
+		 * Here is an idea -- unshare net namespace in callee instead.
+		 */
+		/*
+		 * The cgroup namespace is also unshared explicitly in the
+		 * move_in_cgroup(), so drop this flag here as well.
+		 */
+		close_pid_proc();
+		ret = clone_noasan(restore_task_with_children,
+				(ca.clone_flags &
+				 ~(CLONE_NEWNET | CLONE_NEWCGROUP)) | SIGCHLD,
+				&ca);
+	}
+
 	if (ret < 0) {
 		pr_perror("Can't fork for %d", pid);
 		goto err_unlock;
@@ -1585,27 +1603,39 @@ static void restore_pgid(void)
 		futex_set_and_wake(&rsti(current)->pgrp_set, 1);
 }
 
+static int __legacy_mount_proc(void)
+{
+	char proc_mountpoint[] = "/tmp/crtools-proc.XXXXXX";
+	int fd;
+
+	if (mkdtemp(proc_mountpoint) == NULL) {
+		pr_perror("mkdtemp failed %s", proc_mountpoint);
+		return -1;
+	}
+
+	pr_info("Mount procfs in %s\n", proc_mountpoint);
+	if (mount("proc", proc_mountpoint, "proc", MS_MGC_VAL | MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL)) {
+		pr_perror("mount failed");
+		if (rmdir(proc_mountpoint))
+			pr_perror("Unable to remove %s", proc_mountpoint);
+		return -1;
+	}
+
+	fd = open_detach_mount(proc_mountpoint);
+	return fd;
+}
+
 static int mount_proc(void)
 {
 	int fd, ret;
-	char proc_mountpoint[] = "crtools-proc.XXXXXX";
 
 	if (root_ns_mask == 0)
 		fd = ret = open("/proc", O_DIRECTORY);
 	else {
-		if (mkdtemp(proc_mountpoint) == NULL) {
-			pr_perror("mkdtemp failed %s", proc_mountpoint);
-			return -1;
-		}
-
-		pr_info("Mount procfs in %s\n", proc_mountpoint);
-		if (mount("proc", proc_mountpoint, "proc", MS_MGC_VAL | MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL)) {
-			pr_perror("mount failed");
-			rmdir(proc_mountpoint);
-			return -1;
-		}
-
-		ret = fd = open_detach_mount(proc_mountpoint);
+		if (kdat.has_fsopen)
+			fd = ret = mount_detached_fs("proc");
+		else
+			fd = ret = __legacy_mount_proc();
 	}
 
 	if (fd >= 0) {
@@ -1927,7 +1957,7 @@ static int catch_tasks(bool root_seized, enum trace_flags *flag)
 	return 0;
 }
 
-static int clear_breakpoints()
+static int clear_breakpoints(void)
 {
 	struct pstree_item *item;
 	int ret = 0, i;
@@ -1952,6 +1982,7 @@ static void finalize_restore(void)
 	for_each_pstree_item(item) {
 		pid_t pid = item->pid->real;
 		struct parasite_ctl *ctl;
+		unsigned long restorer_addr;
 
 		if (!task_alive(item))
 			continue;
@@ -1961,7 +1992,9 @@ static void finalize_restore(void)
 		if (ctl == NULL)
 			continue;
 
-		compel_unmap(ctl, (unsigned long)rsti(item)->munmap_restorer);
+		restorer_addr = (unsigned long)rsti(item)->munmap_restorer;
+		if (compel_unmap(ctl, restorer_addr))
+			pr_err("Failed to unmap restorer from %d\n", pid);
 
 		xfree(ctl);
 
@@ -1971,7 +2004,7 @@ static void finalize_restore(void)
 	}
 }
 
-static void finalize_restore_detach(int status)
+static int finalize_restore_detach(void)
 {
 	struct pstree_item *item;
 
@@ -1985,16 +2018,21 @@ static void finalize_restore_detach(int status)
 		for (i = 0; i < item->nr_threads; i++) {
 			pid = item->threads[i].real;
 			if (pid < 0) {
-				BUG_ON(status >= 0);
-				break;
+				pr_err("pstree item has unvalid pid %d\n", pid);
+				continue;
 			}
 
-			if (arch_set_thread_regs_nosigrt(&item->threads[i]))
+			if (arch_set_thread_regs_nosigrt(&item->threads[i])) {
 				pr_perror("Restoring regs for %d failed", pid);
-			if (ptrace(PTRACE_DETACH, pid, NULL, 0))
-				pr_perror("Unable to execute %d", pid);
+				return -1;
+			}
+			if (ptrace(PTRACE_DETACH, pid, NULL, 0)) {
+				pr_perror("Unable to detach %d", pid);
+				return -1;
+			}
 		}
 	}
+	return 0;
 }
 
 static void ignore_kids(void)
@@ -2252,32 +2290,37 @@ skip_ns_bouncing:
 
 	/*
 	 * -------------------------------------------------------------
-	 * Below this line nothing should fail, because network is unlocked
+	 * Network is unlocked. If something fails below - we lose data
+	 * or a connection.
 	 */
 	attach_to_tasks(root_seized);
 
-	ret = restore_switch_stage(CR_STATE_RESTORE_CREDS);
-	BUG_ON(ret);
+	if (restore_switch_stage(CR_STATE_RESTORE_CREDS))
+		goto out_kill_network_unlocked;
 
 	timing_stop(TIME_RESTORE);
 
-	ret = catch_tasks(root_seized, &flag);
+	if (catch_tasks(root_seized, &flag)) {
+		pr_err("Can't catch all tasks\n");
+		goto out_kill_network_unlocked;
+	}
 
 	if (lazy_pages_finish_restore())
-		goto out_kill;
+		goto out_kill_network_unlocked;
 
-	pr_info("Restore finished successfully. Resuming tasks.\n");
 	__restore_switch_stage(CR_STATE_COMPLETE);
 
-	if (ret == 0)
-		ret = compel_stop_on_syscall(task_entries->nr_threads,
-			__NR(rt_sigreturn, 0), __NR(rt_sigreturn, 1), flag);
+	ret = compel_stop_on_syscall(task_entries->nr_threads,
+		__NR(rt_sigreturn, 0), __NR(rt_sigreturn, 1), flag);
+	if (ret) {
+		pr_err("Can't stop all tasks on rt_sigreturn\n");
+		goto out_kill_network_unlocked;
+	}
 
 	if (clear_breakpoints())
 		pr_err("Unable to flush breakpoints\n");
 
-	if (ret == 0)
-		finalize_restore();
+	finalize_restore();
 
 	ret = run_scripts(ACT_PRE_RESUME);
 	if (ret)
@@ -2289,8 +2332,10 @@ skip_ns_bouncing:
 	fini_cgroup();
 
 	/* Detaches from processes and they continue run through sigreturn. */
-	finalize_restore_detach(ret);
+	if (finalize_restore_detach())
+		goto out_kill_network_unlocked;
 
+	pr_info("Restore finished successfully. Tasks resumed.\n");
 	write_stats(RESTORE_STATS);
 
 	ret = run_scripts(ACT_POST_RESUME);
@@ -2302,6 +2347,8 @@ skip_ns_bouncing:
 
 	return 0;
 
+out_kill_network_unlocked:
+	pr_err("Killing processes because of failure on restore.\nThe Network was unlocked so some data or a connection may have been lost.\n");
 out_kill:
 	/*
 	 * The processes can be killed only when all of them have been created,
@@ -3096,7 +3143,7 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 
 			args = rst_mem_remap_ptr(this_pos, RM_PRIVATE);
 			args->lsm_profile = lsm_profile;
-			strncpy(args->lsm_profile, rendered, lsm_profile_len);
+			strlcpy(args->lsm_profile, rendered, lsm_profile_len + 1);
 			xfree(rendered);
 		}
 	} else {
@@ -3130,7 +3177,7 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 
 			args = rst_mem_remap_ptr(this_pos, RM_PRIVATE);
 			args->lsm_sockcreate = lsm_sockcreate;
-			strncpy(args->lsm_sockcreate, rendered, lsm_sockcreate_len);
+			strlcpy(args->lsm_sockcreate, rendered, lsm_sockcreate_len + 1);
 			xfree(rendered);
 		}
 	} else {
@@ -3326,10 +3373,13 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		vdso_maps_rt = vdso_maps;
 	/*
 	 * Figure out how much memory runtime vdso and vvar will need.
+	 * Check if vDSO or VVAR is not provided by kernel.
 	 */
-	vdso_rt_size = vdso_maps_rt.sym.vdso_size;
-	if (vdso_rt_size && vdso_maps_rt.sym.vvar_size)
-		vdso_rt_size += ALIGN(vdso_maps_rt.sym.vvar_size, PAGE_SIZE);
+	if (vdso_maps_rt.sym.vdso_size != VDSO_BAD_SIZE) {
+		vdso_rt_size = vdso_maps_rt.sym.vdso_size;
+		if (vdso_maps_rt.sym.vvar_size != VVAR_BAD_SIZE)
+			vdso_rt_size += vdso_maps_rt.sym.vvar_size;
+	}
 	task_args->bootstrap_len += vdso_rt_size;
 
 	/*
@@ -3557,6 +3607,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	task_args->vdso_maps_rt = vdso_maps_rt;
 	task_args->vdso_rt_size = vdso_rt_size;
 	task_args->can_map_vdso = kdat.can_map_vdso;
+	task_args->has_clone3_set_tid = kdat.has_clone3_set_tid;
 
 	new_sp = restorer_stack(task_args->t->mz);
 

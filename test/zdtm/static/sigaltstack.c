@@ -61,15 +61,15 @@ void thread_sigaction(int signo, siginfo_t *info, void *context)
 
 static void *thread_func(void *arg)
 {
+	struct sigaction sa = {
+		.sa_sigaction	= thread_sigaction,
+		.sa_flags	= SA_RESTART | SA_ONSTACK,
+	};
+
 	sas_state[SAS_THRD_OLD] = (stack_t) {
 		.ss_size	= sizeof(stack_thread) - 8,
 		.ss_sp		= stack_thread,
 		.ss_flags	= 0,
-	};
-
-	struct sigaction sa = {
-		.sa_sigaction	= thread_sigaction,
-		.sa_flags	= SA_RESTART | SA_ONSTACK,
 	};
 
 	sigemptyset(&sa.sa_mask);
@@ -103,15 +103,15 @@ int main(int argc, char *argv[])
 {
 	pthread_t thread;
 
+	struct sigaction sa = {
+		.sa_sigaction	= leader_sigaction,
+		.sa_flags	= SA_RESTART | SA_ONSTACK,
+	};
+
 	sas_state[SAS_MAIN_OLD] = (stack_t) {
 		.ss_size	= sizeof(stack_main) - 8,
 		.ss_sp		= stack_main,
 		.ss_flags	= 0,
-	};
-
-	struct sigaction sa = {
-		.sa_sigaction	= leader_sigaction,
-		.sa_flags	= SA_RESTART | SA_ONSTACK,
 	};
 
 	sigemptyset(&sa.sa_mask);

@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import subprocess
+import tempfile
+
+yard = "external_yard"
+
+if sys.argv[1] == "--post-start":
+	'''
+	Create external cgroup yard to be passed to CRIU via --cgroup-yard
+	'''
+	os.mkdir(yard)
+	subprocess.check_call(["mount", "-t", "tmpfs", "zdtm_yard", yard])
+	with open("/proc/self/cgroup") as f:
+		for line in f:
+			cgr = line.split(":")[1]
+
+			if cgr == "":
+				continue
+
+			if cgr.startswith("name="):
+				ctrl = cgr[len("name="):]
+				opts = "none," + cgr
+			else:
+				ctrl = cgr
+				opts = cgr
+
+			os.mkdir(yard + "/" + ctrl)
+			subprocess.check_call(["mount", "-t", "cgroup", "none", yard + "/" + ctrl, "-o", opts])
+
+if sys.argv[1] in ["--pre-restore", "--clean"]:
+	'''
+	Clean up the leftover cgroups created by the test
+	'''
+	tname = tempfile.mkdtemp()
+	subprocess.call(["mount", "-t", "cgroup", "none", tname, "-o", "none,name=zdtmtst"])
+
+	for cg in [os.path.join(tname, "subcg00", "subsubcg"),
+			os.path.join(tname, "subcg00")]:
+		if os.access(cg, os.F_OK):
+			os.rmdir(cg)
+
+	subprocess.call(["umount", tname])
+	os.rmdir(tname)
+
+if sys.argv[1] == "--clean":
+	if os.access(yard, os.F_OK):
+		subprocess.call(["umount", "-l", yard])
+		os.rmdir(yard)

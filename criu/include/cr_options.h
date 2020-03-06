@@ -39,6 +39,12 @@ struct cg_root_opt {
 };
 
 /*
+ * Pre-dump variants
+ */
+#define PRE_DUMP_SPLICE		1		/* Pre-dump using parasite */
+#define PRE_DUMP_READ			2		/* Pre-dump using process_vm_readv syscall */
+
+/*
  * Cgroup management options.
  */
 #define CG_MODE_IGNORE		(0u << 0)	/* Zero is important here */
@@ -81,6 +87,7 @@ struct cr_options {
 	int			evasive_devices;
 	int			link_remap_ok;
 	int			log_file_per_pid;
+	int			pre_dump_mode;
 	bool			swrk_restore;
 	char			*output;
 	char			*root;
@@ -106,6 +113,7 @@ struct cr_options {
 	char			*cgroup_props;
 	char			*cgroup_props_file;
 	struct list_head	new_cgroup_roots;
+	char			*cgroup_yard;
 	bool			autodetect_ext_mounts;
 	int			enable_external_sharing;
 	int			enable_external_masters;
@@ -147,10 +155,10 @@ struct cr_options {
 };
 
 extern struct cr_options opts;
-char *rpc_cfg_file;
+extern char *rpc_cfg_file;
 
 extern int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, int state);
-extern int check_options();
-extern void init_opts();
+extern int check_options(void);
+extern void init_opts(void);
 
 #endif /* __CR_OPTIONS_H__ */

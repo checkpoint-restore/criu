@@ -43,6 +43,11 @@ enum criu_cg_mode {
 	CRIU_CG_MODE_DEFAULT,
 };
 
+enum criu_pre_dump_mode {
+	CRIU_PRE_DUMP_SPLICE =	1,
+	CRIU_PRE_DUMP_READ =	2
+};
+
 int criu_set_service_address(const char *path);
 void criu_set_service_fd(int fd);
 int criu_set_service_binary(const char *path);
@@ -95,6 +100,7 @@ int criu_add_irmap_path(const char *path);
 int criu_add_inherit_fd(int fd, const char *key);
 int criu_add_external(const char *key);
 int criu_set_page_server_address_port(const char *address, int port);
+int criu_set_pre_dump_mode(enum criu_pre_dump_mode mode);
 
 /*
  * The criu_notify_arg_t na argument is an opaque
@@ -207,9 +213,11 @@ int criu_local_add_irmap_path(criu_opts *opts, const char *path);
 int criu_local_add_cg_props(criu_opts *opts, const char *stream);
 int criu_local_add_cg_props_file(criu_opts *opts, const char *path);
 int criu_local_add_cg_dump_controller(criu_opts *opts, const char *name);
+int criu_local_add_cg_yard(criu_opts *opts, const char *path);
 int criu_local_add_inherit_fd(criu_opts *opts, int fd, const char *key);
 int criu_local_add_external(criu_opts *opts, const char *key);
 int criu_local_set_page_server_address_port(criu_opts *opts, const char *address, int port);
+int criu_local_set_pre_dump_mode(criu_opts *opts, enum criu_pre_dump_mode mode);
 
 void criu_local_set_notify_cb(criu_opts *opts, int (*cb)(char *action, criu_notify_arg_t na));
 

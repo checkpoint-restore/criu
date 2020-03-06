@@ -130,7 +130,7 @@ static struct unix_sk_listen_icon *lookup_unix_listen_icons(unsigned int peer_in
 
 static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 {
-	pr_debug("\t%s: ino %d peer_ino %d family %4d type %4d state %2d name %s\n",
+	pr_debug("\t%s: ino %u peer_ino %u family %4d type %4d state %2d name %s\n",
 		act, sk->sd.ino, sk->peer_ino, sk->sd.family, sk->type, sk->state, sk->name);
 
 	if (sk->nr_icons) {
@@ -143,7 +143,7 @@ static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 
 static void show_one_unix_img(const char *act, const UnixSkEntry *e)
 {
-	pr_info("\t%s: id %#x ino %d peer %d type %d state %d name %d bytes\n",
+	pr_info("\t%s: id %#x ino %u peer %u type %d state %d name %d bytes\n",
 		act, e->id, e->ino, e->peer, e->type, e->state, (int)e->name.len);
 }
 
@@ -426,7 +426,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 	if (ue->peer) {
 		peer = (struct unix_sk_desc *)lookup_socket(ue->peer, PF_UNIX, 0);
 		if (IS_ERR_OR_NULL(peer)) {
-			pr_err("Unix socket %d without peer %d\n",
+			pr_err("Unix socket %u without peer %u\n",
 					ue->ino, ue->peer);
 			goto err;
 		}
@@ -437,7 +437,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 		 */
 		if (peer->peer_ino != ue->ino) {
 			if (!peer->name) {
-				pr_err("Unix socket %d with unreachable peer %d (%d)\n",
+				pr_err("Unix socket %u with unreachable peer %u (%u)\n",
 				       ue->ino, ue->peer, peer->peer_ino);
 				goto err;
 			}
@@ -513,7 +513,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 
 		ue->peer = e->sk_desc->sd.ino;
 
-		pr_debug("\t\tFixed inflight socket %d peer %d)\n",
+		pr_debug("\t\tFixed inflight socket %u peer %u)\n",
 				ue->ino, ue->peer);
 	}
 dump:
@@ -1383,7 +1383,7 @@ static int keep_deleted(struct unix_sk_info *ui)
 {
 	int fd = open(ui->name, O_PATH);
 	if (fd < 0) {
-		pr_perror("ghost: Can't open id %#x ino %d addr %s",
+		pr_perror("ghost: Can't open id %#x ino %u addr %s",
 			  ui->ue->id, ui->ue->ino, ui->name);
 		return -1;
 	}
@@ -1409,7 +1409,7 @@ static int bind_on_deleted(int sk, struct unix_sk_info *ui)
 	int ret;
 
 	if (ui->ue->name.len >= UNIX_PATH_MAX) {
-		pr_err("ghost: Too long name for socket id %#x ino %d name %s\n",
+		pr_err("ghost: Too long name for socket id %#x ino %u name %s\n",
 		       ui->ue->id, ui->ue->ino, ui->name);
 		return -ENOSPC;
 	}
@@ -1424,14 +1424,14 @@ static int bind_on_deleted(int sk, struct unix_sk_info *ui)
 		ret = access(path, R_OK | W_OK | X_OK);
 		if (ret == 0) {
 			ui->ghost_dir_pos = pos - path;
-			pr_debug("ghost: socket id %#x ino %d name %s detected F_OK %s\n",
+			pr_debug("ghost: socket id %#x ino %u name %s detected F_OK %s\n",
 				 ui->ue->id, ui->ue->ino, ui->name, path);
 			break;
 		}
 
 		if (errno != ENOENT) {
 			ret = -errno;
-			pr_perror("ghost: Can't access %s for socket id %#x ino %d name %s",
+			pr_perror("ghost: Can't access %s for socket id %#x ino %u name %s",
 				  path, ui->ue->id, ui->ue->ino, ui->name);
 			return ret;
 		}
@@ -1441,7 +1441,7 @@ static int bind_on_deleted(int sk, struct unix_sk_info *ui)
 	path[ui->ue->name.len] = '\0';
 
 	pos = dirname(path);
-	pr_debug("ghost: socket id %#x ino %d name %s creating %s\n",
+	pr_debug("ghost: socket id %#x ino %u name %s creating %s\n",
 		 ui->ue->id, ui->ue->ino, ui->name, pos);
 	ret = mkdirpat(AT_FDCWD, pos, 0755);
 	if (ret) {
@@ -1471,15 +1471,15 @@ static int bind_on_deleted(int sk, struct unix_sk_info *ui)
 			 * clean it up.
 			 */
 			if (unlinkat(AT_FDCWD, path_parked, 0) == 0)
-				pr_debug("ghost: Unlinked stale socket id %#x ino %d name %s\n",
+				pr_debug("ghost: Unlinked stale socket id %#x ino %u name %s\n",
 					 ui->ue->id, ui->ue->ino, path_parked);
 			if (rename(ui->name, path_parked)) {
 				ret = -errno;
-				pr_perror("ghost: Can't rename id %#x ino %d addr %s -> %s",
+				pr_perror("ghost: Can't rename id %#x ino %u addr %s -> %s",
 					  ui->ue->id, ui->ue->ino, ui->name, path_parked);
 				return ret;
 			}
-			pr_debug("ghost: id %#x ino %d renamed %s -> %s\n",
+			pr_debug("ghost: id %#x ino %u renamed %s -> %s\n",
 				 ui->ue->id, ui->ue->ino, ui->name, path_parked);
 			renamed = true;
 			ret = bind(sk, (struct sockaddr *)&addr,
@@ -1487,7 +1487,7 @@ static int bind_on_deleted(int sk, struct unix_sk_info *ui)
 		}
 		if (ret < 0) {
 			ret = -errno;
-			pr_perror("ghost: Can't bind on socket id %#x ino %d addr %s",
+			pr_perror("ghost: Can't bind on socket id %#x ino %u addr %s",
 				  ui->ue->id, ui->ue->ino, ui->name);
 			return ret;
 		}
@@ -1499,7 +1499,7 @@ static int bind_on_deleted(int sk, struct unix_sk_info *ui)
 
 	ret = keep_deleted(ui);
 	if (ret < 0) {
-		pr_err("ghost: Can't save socket %#x ino %d addr %s into fdstore\n",
+		pr_err("ghost: Can't save socket %#x ino %u addr %s into fdstore\n",
 		       ui->ue->id, ui->ue->ino, ui->name);
 		return -EIO;
 	}
@@ -1511,7 +1511,7 @@ static int bind_on_deleted(int sk, struct unix_sk_info *ui)
 	ret = unlinkat(AT_FDCWD, ui->name, 0);
 	if (ret < 0) {
 		ret = -errno;
-		pr_perror("ghost: Can't unlink socket %#x ino %d addr %s",
+		pr_perror("ghost: Can't unlink socket %#x ino %u addr %s",
 			  ui->ue->id, ui->ue->ino, ui->name);
 		return ret;
 	}
@@ -1519,12 +1519,12 @@ static int bind_on_deleted(int sk, struct unix_sk_info *ui)
 	if (renamed) {
 		if (rename(path_parked, ui->name)) {
 			ret = -errno;
-			pr_perror("ghost: Can't rename id %#x ino %d addr %s -> %s",
+			pr_perror("ghost: Can't rename id %#x ino %u addr %s -> %s",
 				  ui->ue->id, ui->ue->ino, path_parked, ui->name);
 			return ret;
 		}
 
-		pr_debug("ghost: id %#x ino %d renamed %s -> %s\n",
+		pr_debug("ghost: id %#x ino %u renamed %s -> %s\n",
 			 ui->ue->id, ui->ue->ino, path_parked,  ui->name);
 	}
 
@@ -1542,11 +1542,11 @@ static int bind_on_deleted(int sk, struct unix_sk_info *ui)
 		     pos = strrchr(path, '/')) {
 			*pos = '\0';
 			if (rmdir(path)) {
-				pr_perror("ghost: Can't remove directory %s on id %#x ino %d",
+				pr_perror("ghost: Can't remove directory %s on id %#x ino %u",
 					  path, ui->ue->id, ui->ue->ino);
 				return -1;
 			}
-			pr_debug("ghost: Removed %s on id %#x ino %d\n",
+			pr_debug("ghost: Removed %s on id %#x ino %u\n",
 				 path, ui->ue->id, ui->ue->ino);
 		}
 	}
@@ -1594,13 +1594,13 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 	mutex_lock(mutex_ghost);
 
 	if (ui->flags & USK_GHOST_FDSTORE) {
-		pr_debug("ghost: bind id %#x ino %d addr %s\n",
+		pr_debug("ghost: bind id %#x ino %u addr %s\n",
 			 ui->ue->id, ui->ue->ino, ui->name);
 		ret = bind_on_deleted(sk, ui);
 		if (ret)
 			errno = -ret;
 	} else {
-		pr_debug("bind id %#x ino %d addr %s\n",
+		pr_debug("bind id %#x ino %u addr %s\n",
 			 ui->ue->id, ui->ue->ino, ui->name);
 		ret = bind(sk, (struct sockaddr *)&addr,
 			   sizeof(addr.sun_family) + ui->ue->name.len);
@@ -1608,7 +1608,7 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 			goto done;
 	}
 	if (ret < 0) {
-		pr_perror("Can't bind id %#x ino %d addr %s",
+		pr_perror("Can't bind id %#x ino %u addr %s",
 			  ui->ue->id, ui->ue->ino, ui->name);
 		goto done;
 	}
@@ -1654,7 +1654,7 @@ static int post_open_interconnected_master(struct unix_sk_info *ui)
 
 static void pr_info_opening(const char *prefix, struct unix_sk_info *ui, struct fdinfo_list_entry *fle)
 {
-	pr_info("Opening %s (stage %d id %#x ino %d peer %d)\n",
+	pr_info("Opening %s (stage %d id %#x ino %u peer %u)\n",
 		prefix, fle->stage, ui->ue->id, ui->ue->ino, ui->ue->peer);
 }
 
@@ -1877,7 +1877,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 				!(opts.ext_unix_sk)) {
 			pr_err("External socket found in image. "
 					"Consider using the --" USK_EXT_PARAM
-					"option to allow restoring it.\n");
+					" option to allow restoring it.\n");
 			return -1;
 		}
 
@@ -1950,7 +1950,7 @@ static char *socket_d_name(struct file_desc *d, char *buf, size_t s)
 
 	ui = container_of(d, struct unix_sk_info, d);
 
-	if (snprintf(buf, s, "socket:[%d]", ui->ue->ino) >= s) {
+	if (snprintf(buf, s, "socket:[%u]", ui->ue->ino) >= s) {
 		pr_err("Not enough room for unixsk %d identifier string\n",
 				ui->ue->ino);
 		return NULL;
@@ -1981,14 +1981,14 @@ static int unlink_sk(struct unix_sk_info *ui)
 
 	ret = unlinkat(AT_FDCWD, ui->name, 0) ? -1 : 0;
 	if (ret < 0 && errno != ENOENT) {
-		pr_warn("Can't unlink socket %d peer %d (name %s dir %s)\n",
+		pr_warn("Can't unlink socket %u peer %u (name %s dir %s)\n",
 			ui->ue->ino, ui->ue->peer,
 			ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
 			ui->name_dir ? ui->name_dir : "-");
 		ret = -errno;
 		goto out;
 	} else if (ret == 0) {
-		pr_debug("Unlinked socket %d peer %d (name %s dir %s)\n",
+		pr_debug("Unlinked socket %u peer %u (name %s dir %s)\n",
 			 ui->ue->ino, ui->ue->peer,
 			 ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
 			 ui->name_dir ? ui->name_dir : "-");
@@ -2065,7 +2065,7 @@ int unix_prepare_root_shared(void)
 		char tp_name[32];
 		char st_name[32];
 
-		pr_debug("ghost: id %#x type %s state %s ino %d peer %d address %s\n",
+		pr_debug("ghost: id %#x type %s state %s ino %u peer %u address %s\n",
 			 ui->ue->id, __socket_type_name(ui->ue->type, tp_name),
 			 __tcp_state_name(ui->ue->state, st_name),
 			 ui->ue->ino, ui->peer ? ui->peer->ue->ino : 0,
@@ -2113,7 +2113,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 		uname = "-";
 	}
 
-	pr_info(" `- Got id %#x ino %d type %s state %s peer %d (name %s%.*s dir %s)\n",
+	pr_info(" `- Got id %#x ino %u type %s state %s peer %u (name %s%.*s dir %s)\n",
 		ui->ue->id, ui->ue->ino, ___socket_type_name(ui->ue->type),
 		___tcp_state_name(ui->ue->state), ui->ue->peer, prefix, ulen,
 		uname, ui->name_dir ? ui->name_dir : "-");
@@ -2128,7 +2128,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 
 	if (ui->ue->deleted) {
 		if (!ui->name || !ui->ue->name.len || !ui->name[0]) {
-			pr_err("No name present, ino %d\n", ui->ue->ino);
+			pr_err("No name present, ino %u\n", ui->ue->ino);
 			return -1;
 		}
 

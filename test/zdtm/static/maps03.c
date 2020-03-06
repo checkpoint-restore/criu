@@ -16,8 +16,9 @@ const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 int main(int argc, char **argv)
 {
-	test_init(argc, argv);
 	unsigned char *mem;
+
+	test_init(argc, argv);
 
 	test_msg("Alloc huge VMA\n");
 	mem = (void *)mmap(NULL, (10L << 30), PROT_READ | PROT_WRITE,

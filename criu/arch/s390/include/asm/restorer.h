@@ -39,6 +39,43 @@
 	  "d"(&thread_args[i])						\
 	: "0", "1", "2", "3", "4", "5", "6", "cc", "memory")
 
+#define RUN_CLONE3_RESTORE_FN(ret, clone_args, size, args, \
+			      clone_restore_fn)				\
+	asm volatile(							\
+	/*
+	 * clone3 only needs two arguments (r2, r3), this means
+	 * we can use r4 and r5 for args and thread function.
+	 * r4 and r5 are callee-saved and are not overwritten.
+	 * No need to put these values on the child stack.
+	 */								\
+	"lgr	%%r4,%4\n"	/* Save args in %r4 */			\
+	"lgr	%%r5,%3\n"	/* Save clone_restore_fn in %r5 */	\
+	"lgr	%%r2,%1\n"	/* Parameter 1: clone_args */		\
+	"lgr	%%r3,%2\n"	/* Parameter 2: size */			\
+	/*
+	 * On s390x a syscall is done sc <syscall number>.
+	 * That only works for syscalls < 255. clone3 is 435,
+	 * therefore it is necessary to load the syscall number
+	 * into r1 and do 'svc 0'.
+	 */								\
+	"lghi	%%r1,"__stringify(__NR_clone3)"\n"			\
+	"svc	0\n"							\
+	"ltgr	%0,%%r2\n"	/* Set and check "ret" */		\
+	"jnz	0f\n"		/* ret != 0: Continue caller */		\
+	"lgr	%%r2,%%r4\n"	/* Thread arguments taken from r4. */	\
+	"lgr	%%r1,%%r5\n"	/* Thread function taken from r5. */	\
+	"aghi	%%r15,-160\n"	/* Prepare stack frame */		\
+	"xc	0(8,%%r15),0(%%r15)\n"					\
+	"basr	%%r14,%%r1\n"	/* Jump to clone_restore_fn() */	\
+	"j	.+2\n"		/* BUG(): Force PGM check */		\
+"0:\n"				/* Continue caller */			\
+	: "=d"(ret)							\
+	: "a"(&clone_args),						\
+	  "d"(size),							\
+	  "d"(clone_restore_fn),					\
+	  "d"(args)							\
+	: "0", "1", "2", "3", "4", "5", "cc", "memory")
+
 #define arch_map_vdso(map, compat)		-1
 
 int restore_gpregs(struct rt_sigframe *f, UserS390RegsEntry *r);

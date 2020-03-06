@@ -17,6 +17,10 @@
 #include <libnl3/netlink/msg.h>
 #include <libnl3/netlink/netlink.h>
 
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+#include <nftables/libnftables.h>
+#endif
+
 #ifdef CONFIG_HAS_SELINUX
 #include <selinux/selinux.h>
 #endif
@@ -210,6 +214,19 @@ char *devconfs6[] = {
 #define MAX_CONF_OPT_PATH IFNAMSIZ+60
 #define MAX_STR_CONF_LEN 200
 
+static const char *unix_conf_entries[] = {
+	"max_dgram_qlen",
+};
+
+/*
+ * MAX_CONF_UNIX_PATH = (sizeof(CONF_UNIX_FMT) - strlen("%s"))
+ * 					  + MAX_CONF_UNIX_OPT_PATH
+ */
+#define CONF_UNIX_BASE		"net/unix"
+#define CONF_UNIX_FMT		CONF_UNIX_BASE"/%s"
+#define MAX_CONF_UNIX_OPT_PATH	32
+#define MAX_CONF_UNIX_PATH	(sizeof(CONF_UNIX_FMT) + MAX_CONF_UNIX_OPT_PATH - 2)
+
 static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto,
 		struct sysctl_req *req, char (*path)[MAX_CONF_OPT_PATH], int size,
 		char **devconfs, SysctlEntry **def_conf)
@@ -337,6 +354,72 @@ static int ipv6_conf_op(char *tgt, SysctlEntry **conf, int n, int op, SysctlEntr
 	return net_conf_op(tgt, conf, n, op, "ipv6",
 			req, path, ARRAY_SIZE(devconfs6),
 			devconfs6, def_conf);
+}
+
+static int unix_conf_op(SysctlEntry ***rconf, size_t *n, int op)
+{
+	int i, ret = -1, flags = 0;
+	char path[ARRAY_SIZE(unix_conf_entries)][MAX_CONF_UNIX_PATH] = { };
+	struct sysctl_req req[ARRAY_SIZE(unix_conf_entries)] = { };
+	SysctlEntry **conf = *rconf;
+
+	if (*n != ARRAY_SIZE(unix_conf_entries)) {
+		pr_err("unix: Unexpected entries in config (%zu %zu)\n",
+			*n, ARRAY_SIZE(unix_conf_entries));
+		return -EINVAL;
+	}
+
+	if (opts.weak_sysctls || op == CTL_READ)
+		flags = CTL_FLAGS_OPTIONAL;
+
+	for (i = 0; i < *n; i++) {
+		snprintf(path[i], MAX_CONF_UNIX_PATH, CONF_UNIX_FMT,
+			unix_conf_entries[i]);
+		req[i].name = path[i];
+		req[i].flags = flags;
+
+		switch (conf[i]->type) {
+		case SYSCTL_TYPE__CTL_32:
+			req[i].type = CTL_32;
+			req[i].arg = &conf[i]->iarg;
+			break;
+		default:
+			pr_err("unix: Unknown config type %d\n",
+				conf[i]->type);
+			return -1;
+		}
+	}
+
+	ret = sysctl_op(req, *n, op, CLONE_NEWNET);
+	if (ret < 0) {
+		pr_err("unix: Failed to %s %s/<confs>\n",
+			(op == CTL_READ) ? "read" : "write",
+			CONF_UNIX_BASE);
+		return -1;
+	}
+
+	if (op == CTL_READ) {
+		bool has_entries = false;
+
+		for (i = 0; i < *n; i++) {
+			if (req[i].flags & CTL_FLAGS_HAS) {
+				conf[i]->has_iarg = true;
+				if (!has_entries)
+					has_entries = true;
+			}
+		}
+
+		/*
+		 * Zap the whole section of data.
+		 * Unix conf is optional.
+		 */
+		if (!has_entries) {
+			*n = 0;
+			*rconf = NULL;
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -1686,7 +1769,7 @@ static int __restore_links(struct ns_id *nsid, int *nrlinks, int *nrcreated)
 	return 0;
 }
 
-static int restore_links()
+static int restore_links(void)
 {
 	int nrcreated, nrlinks;
 	struct ns_id *nsid;
@@ -1818,12 +1901,63 @@ static inline int dump_iptables(struct cr_imgset *fds)
 	return 0;
 }
 
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+static inline int dump_nftables(struct cr_imgset *fds)
+{
+	int ret = -1;
+	struct cr_img *img;
+	int img_fd;
+	FILE *fp;
+	struct nft_ctx *nft;
+
+	nft = nft_ctx_new(NFT_CTX_DEFAULT);
+	if (!nft)
+		return -1;
+
+	img = img_from_set(fds, CR_FD_NFTABLES);
+	img_fd = dup(img_raw_fd(img));
+	if (img_fd < 0) {
+		pr_perror("dup() failed");
+		goto nft_ctx_free_out;
+	}
+
+	fp = fdopen(img_fd, "w");
+	if (!fp) {
+		pr_perror("fdopen() failed");
+		close(img_fd);
+		goto nft_ctx_free_out;
+	}
+
+	nft_ctx_set_output(nft, fp);
+#define DUMP_NFTABLES_CMD "list ruleset"
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0)
+	if (nft_run_cmd_from_buffer(nft, DUMP_NFTABLES_CMD, strlen(DUMP_NFTABLES_CMD)))
+#elif defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	if (nft_run_cmd_from_buffer(nft, DUMP_NFTABLES_CMD))
+#else
+	BUILD_BUG_ON(1);
+#endif
+		goto fp_close_out;
+
+	ret = 0;
+
+fp_close_out:
+	fclose(fp);
+nft_ctx_free_out:
+	nft_ctx_free(nft);
+
+	return ret;
+}
+#endif
+
 static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 {
 	void *buf, *o_buf;
 	int ret = -1;
 	int i;
 	NetnsEntry netns = NETNS_ENTRY__INIT;
+	SysctlEntry *unix_confs = NULL;
+	size_t sizex = ARRAY_SIZE(unix_conf_entries);
 	SysctlEntry *def_confs4 = NULL, *all_confs4 = NULL;
 	int size4 = ARRAY_SIZE(devconfs4);
 	SysctlEntry *def_confs6 = NULL, *all_confs6 = NULL;
@@ -1840,7 +1974,8 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 	o_buf = buf = xmalloc(
 			i * (sizeof(NetnsId*) + sizeof(NetnsId)) +
 			size4 * (sizeof(SysctlEntry*) + sizeof(SysctlEntry)) * 2 +
-			size6 * (sizeof(SysctlEntry*) + sizeof(SysctlEntry)) * 2
+			size6 * (sizeof(SysctlEntry*) + sizeof(SysctlEntry)) * 2 +
+			sizex * (sizeof(SysctlEntry*) + sizeof(SysctlEntry))
 		     );
 	if (!buf)
 		goto out;
@@ -1896,6 +2031,16 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 		}
 	}
 
+	netns.n_unix_conf = sizex;
+	netns.unix_conf = xptr_pull_s(&buf, sizex * sizeof(SysctlEntry*));
+	unix_confs = xptr_pull_s(&buf, sizex * sizeof(SysctlEntry));
+
+	for (i = 0; i < sizex; i++) {
+		sysctl_entry__init(&unix_confs[i]);
+		netns.unix_conf[i] = &unix_confs[i];
+		netns.unix_conf[i]->type = SYSCTL_TYPE__CTL_32;
+	}
+
 	ret = ipv4_conf_op("default", netns.def_conf4, size4, CTL_READ, NULL);
 	if (ret < 0)
 		goto err_free;
@@ -1907,6 +2052,10 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 	if (ret < 0)
 		goto err_free;
 	ret = ipv6_conf_op("all", netns.all_conf6, size6, CTL_READ, NULL);
+	if (ret < 0)
+		goto err_free;
+
+	ret = unix_conf_op(&netns.unix_conf, &netns.n_unix_conf, CTL_READ);
 	if (ret < 0)
 		goto err_free;
 
@@ -1984,7 +2133,7 @@ out:
  * iptables-restore is executed from a target userns and it may have not enough
  * rights to open /run/xtables.lock. Here we try to workaround this problem.
  */
-static int prepare_xtable_lock()
+static int prepare_xtable_lock(void)
 {
 	int fd;
 
@@ -2053,9 +2202,66 @@ out:
 	return ret;
 }
 
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+static inline int restore_nftables(int pid)
+{
+	int ret = -1;
+	struct cr_img *img;
+	struct nft_ctx *nft;
+	off_t img_data_size;
+	char *buf;
+
+	img = open_image(CR_FD_NFTABLES, O_RSTR, pid);
+	if (img == NULL)
+		return -1;
+	if (empty_image(img)) {
+		/* Backward compatibility */
+		pr_info("Skipping nft restore, no image");
+		ret = 0;
+		goto image_close_out;
+	}
+
+	if ((img_data_size = img_raw_size(img)) < 0)
+		goto image_close_out;
+
+	if (read_img_str(img, &buf, img_data_size) < 0)
+		goto image_close_out;
+
+	nft = nft_ctx_new(NFT_CTX_DEFAULT);
+	if (!nft)
+		goto buf_free_out;
+
+	if (nft_ctx_buffer_output(nft) || nft_ctx_buffer_error(nft) ||
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0)
+		nft_run_cmd_from_buffer(nft, buf, strlen(buf)))
+#elif defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+		nft_run_cmd_from_buffer(nft, buf))
+#else
+	{
+		BUILD_BUG_ON(1);
+	}
+#endif
+		goto nft_ctx_free_out;
+
+	ret = 0;
+
+nft_ctx_free_out:
+	nft_ctx_free(nft);
+buf_free_out:
+	xfree(buf);
+image_close_out:
+	close_image(img);
+
+	return ret;
+}
+#endif
+
 int read_net_ns_img(void)
 {
 	struct ns_id *ns;
+
+	if (!(root_ns_mask & CLONE_NEWNET))
+		return 0;
 
 	for (ns = ns_ids; ns != NULL; ns = ns->next) {
 		struct cr_img *img;
@@ -2119,6 +2325,12 @@ static int restore_netns_conf(struct ns_id *ns)
 		ret = ipv6_conf_op("default", (netns)->def_conf6, (netns)->n_def_conf6, CTL_WRITE, NULL);
 	}
 
+	if ((netns)->unix_conf) {
+		ret = unix_conf_op(&(netns)->unix_conf, &(netns)->n_unix_conf, CTL_WRITE);
+		if (ret)
+			goto out;
+	}
+
 	ns->net.netns = netns;
 out:
 	return ret;
@@ -2129,6 +2341,11 @@ static int mount_ns_sysfs(void)
 	char sys_mount[] = "crtools-sys.XXXXXX";
 
 	BUG_ON(ns_sysfs_fd != -1);
+
+	if (kdat.has_fsopen) {
+		ns_sysfs_fd = mount_detached_fs("sysfs");
+		return ns_sysfs_fd >= 0 ? 0 : -1;
+	}
 
 	/*
 	 * A new mntns is required to avoid the race between
@@ -2270,6 +2487,10 @@ int dump_net_ns(struct ns_id *ns)
 			ret = dump_rule(fds);
 		if (!ret)
 			ret = dump_iptables(fds);
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+		if (!ret)
+			ret = dump_nftables(fds);
+#endif
 		if (!ret)
 			ret = dump_netns_conf(ns, fds);
 	} else if (ns->type != NS_ROOT) {
@@ -2363,6 +2584,10 @@ static int prepare_net_ns_second_stage(struct ns_id *ns)
 			ret = restore_rule(nsid);
 		if (!ret)
 			ret = restore_iptables(nsid);
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+		if (!ret)
+			ret = restore_nftables(nsid);
+#endif
 	}
 
 	if (!ret)
@@ -2590,7 +2815,7 @@ err:
 	return ret;
 }
 
-int network_lock_internal()
+int network_lock_internal(void)
 {
 	char conf[] =	"*filter\n"
 				":CRIU - [0:0]\n"
@@ -2621,7 +2846,7 @@ int network_lock_internal()
 	return ret;
 }
 
-static int network_unlock_internal()
+static int network_unlock_internal(void)
 {
 	char conf[] =	"*filter\n"
 			":CRIU - [0:0]\n"
@@ -2707,6 +2932,9 @@ int macvlan_ext_add(struct external *ext)
 static int prep_ns_sockets(struct ns_id *ns, bool for_dump)
 {
 	int nsret = -1, ret;
+#ifdef CONFIG_HAS_SELINUX
+	security_context_t ctx;
+#endif
 
 	if (ns->type != NS_CRIU) {
 		pr_info("Switching to %d's net for collecting sockets\n", ns->ns_pid);
@@ -2744,7 +2972,6 @@ static int prep_ns_sockets(struct ns_id *ns, bool for_dump)
 	 * policies installed. For Fedora based systems this is part
 	 * of the container-selinux package.
 	 */
-	security_context_t ctx;
 
 	/*
 	 * This assumes that all processes CRIU wants to dump are labeled
@@ -3172,7 +3399,7 @@ static int check_link_nsid(int rtsk, void *args)
 	return do_rtnl_req(rtsk, &req, sizeof(req), check_one_link_nsid, NULL, NULL, args);
 }
 
-int kerndat_link_nsid()
+int kerndat_link_nsid(void)
 {
 	int status;
 	pid_t pid;
@@ -3184,6 +3411,7 @@ int kerndat_link_nsid()
 	}
 
 	if (pid == 0) {
+		bool has_link_nsid;
 		NetDeviceEntry nde = NET_DEVICE_ENTRY__INIT;
 		struct net_link link = {
 			.created = false,
@@ -3226,7 +3454,7 @@ int kerndat_link_nsid()
 			exit(1);
 		}
 
-		bool has_link_nsid = false;
+		has_link_nsid = false;
 		if (check_link_nsid(sk, &has_link_nsid))
 			exit(1);
 

@@ -1,12 +1,13 @@
-from google.protobuf.descriptor import FieldDescriptor as FD
-import opts_pb2
-from ipaddress import IPv4Address, ip_address
-from ipaddress import IPv6Address
-import socket
+import base64
 import collections
 import os
-import base64
 import quopri
+import socket
+from ipaddress import IPv4Address, IPv6Address, ip_address
+
+from google.protobuf.descriptor import FieldDescriptor as FD
+
+import opts_pb2
 
 if "encodebytes" not in dir(base64):
     base64.encodebytes = base64.encodestring
@@ -105,11 +106,22 @@ mmap_status_map = [
 ]
 
 rfile_flags_map = [
-    ('O_WRONLY', 0o1),
-    ('O_RDWR', 0o2),
-    ('O_APPEND', 0o2000),
-    ('O_DIRECT', 0o40000),
-    ('O_LARGEFILE', 0o100000),
+    ('O_WRONLY', 0o00000001),
+    ('O_RDWR', 0o00000002),
+    ('O_CREAT', 0o00000100),
+    ('O_EXCL', 0o00000200),
+    ('O_NOCTTY', 0o00000400),
+    ('O_TRUNC', 0o00001000),
+    ('O_APPEND', 0o00002000),
+    ('O_NONBLOCK', 0o00004000),
+    ('O_DSYNC', 0o00010000),
+    ('FASYNC', 0o00020000),
+    ('O_DIRECT', 0o00040000),
+    ('O_LARGEFILE', 0o00100000),
+    ('O_DIRECTORY', 0o00200000),
+    ('O_NOFOLLOW', 0o00400000),
+    ('O_NOATIME', 0o01000000),
+    ('O_CLOEXEC', 0o02000000),
 ]
 
 pmap_flags_map = [

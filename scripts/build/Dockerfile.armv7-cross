@@ -1,0 +1,44 @@
+FROM dockcross/base:latest
+
+# Add the cross compiler sources
+RUN echo "deb http://ftp.us.debian.org/debian/ jessie main" >> /etc/apt/sources.list && \
+  dpkg --add-architecture armhf && \
+  apt-get install emdebian-archive-keyring
+
+RUN apt-get update && apt-get install -y \
+	crossbuild-essential-armhf	\
+	libbz2-dev:armhf		\
+	libexpat1-dev:armhf		\
+	ncurses-dev:armhf		\
+	libssl-dev:armhf		\
+	protobuf-c-compiler		\
+	protobuf-compiler		\
+	python-protobuf			\
+	libnl-3-dev:armhf		\
+	libprotobuf-dev:armhf		\
+	libnet-dev:armhf		\
+	libprotobuf-c-dev:armhf		\
+	libcap-dev:armhf		\
+	libaio-dev:armhf		\
+	libnl-route-3-dev:armhf
+
+ENV CROSS_TRIPLE=arm-linux-gnueabihf
+ENV CROSS_COMPILE=${CROSS_TRIPLE}-				\
+	CROSS_ROOT=/usr/${CROSS_TRIPLE}				\
+	AS=/usr/bin/${CROSS_TRIPLE}-as				\
+	AR=/usr/bin/${CROSS_TRIPLE}-ar				\
+	CC=/usr/bin/${CROSS_TRIPLE}-gcc				\
+	CPP=/usr/bin/${CROSS_TRIPLE}-cpp			\
+	CXX=/usr/bin/${CROSS_TRIPLE}-g++			\
+	LD=/usr/bin/${CROSS_TRIPLE}-ld				\
+	FC=/usr/bin/${CROSS_TRIPLE}-gfortran
+
+ENV PATH="${PATH}:${CROSS_ROOT}/bin"				\
+	PKG_CONFIG_PATH=/usr/lib/${CROSS_TRIPLE}/pkgconfig	\
+	ARCH=arm						\
+	SUBARCH=armv7
+
+COPY . /criu
+WORKDIR /criu
+
+RUN	make mrproper && date && make -j $(nproc) zdtm && date

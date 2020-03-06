@@ -28,6 +28,8 @@
 #include <sched.h>
 #include <ctype.h>
 
+#include "linux/mount.h"
+
 #include "kerndat.h"
 #include "page.h"
 #include "util.h"
@@ -324,7 +326,7 @@ int close_pid_proc(void)
 	return 0;
 }
 
-void close_proc()
+void close_proc(void)
 {
 	close_pid_proc();
 	close_service_fd(PROC_FD_OFF);
@@ -536,7 +538,7 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 	sigemptyset(&blockmask);
 	sigaddset(&blockmask, SIGCHLD);
 	if (sigprocmask(SIG_BLOCK, &blockmask, &oldmask) == -1) {
-		pr_perror("Can not set mask of blocked signals");
+		pr_perror("Cannot set mask of blocked signals");
 		return -1;
 	}
 
@@ -545,6 +547,12 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 		pr_perror("fork() failed");
 		goto out;
 	} else if (pid == 0) {
+		sigemptyset(&blockmask);
+		if (sigprocmask(SIG_SETMASK, &blockmask, NULL) == -1) {
+			pr_perror("Cannot clear blocked signals");
+			goto out_chld;
+		}
+
 		if (userns_pid > 0) {
 			if (switch_ns(userns_pid, &user_ns_desc, NULL))
 				goto out_chld;
@@ -682,7 +690,7 @@ int cr_daemon(int nochdir, int noclose, int close_fd)
 	return 0;
 }
 
-int is_root_user()
+int is_root_user(void)
 {
 	if (geteuid() != 0) {
 		pr_err("You need to be root to run this command\n");
@@ -1417,3 +1425,27 @@ void print_stack_trace(pid_t pid)
 	free(strings);
 }
 #endif
+
+int mount_detached_fs(const char *fsname)
+{
+	int fsfd, fd;
+
+	fsfd = sys_fsopen(fsname, 0);
+	if (fsfd < 0) {
+		pr_perror("Unable to open the %s file system", fsname);
+		return -1;
+	}
+
+	if (sys_fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0) {
+		pr_perror("Unable to create the %s file system", fsname);
+		close(fsfd);
+		return -1;
+	}
+
+	fd = sys_fsmount(fsfd, 0, 0);
+	if (fd < 0)
+		pr_perror("Unable to mount the %s file system", fsname);
+	close(fsfd);
+	return fd;
+}
+

@@ -4,6 +4,7 @@
 #include "common/lock.h"
 #include "common/list.h"
 #include "vma.h"
+#include "kerndat.h"
 
 struct task_entries {
 	int nr_threads, nr_tasks, nr_helpers;

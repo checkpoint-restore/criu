@@ -41,6 +41,18 @@ void cnt_add(int c, unsigned long val)
 		BUG();
 }
 
+void cnt_sub(int c, unsigned long val)
+{
+	if (dstats != NULL) {
+		BUG_ON(c >= DUMP_CNT_NR_STATS);
+		dstats->counts[c] -= val;
+	} else if (rstats != NULL) {
+		BUG_ON(c >= RESTORE_CNT_NR_STATS);
+		atomic_add(-val, &rstats->counts[c]);
+	} else
+		BUG();
+}
+
 static void timeval_accumulate(const struct timeval *from, const struct timeval *to,
 		struct timeval *res)
 {

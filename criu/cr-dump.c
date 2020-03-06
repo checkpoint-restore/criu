@@ -782,8 +782,6 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 
 	img = img_from_set(cr_imgset, CR_FD_CORE);
 	ret = pb_write_one(img, core, PB_CORE);
-	if (ret < 0)
-		goto err;
 
 err:
 	pr_info("----------------------------------------\n");
@@ -1387,16 +1385,20 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 
 	ret = compel_stop_daemon(parasite_ctl);
 	if (ret) {
-		pr_err("Can't cure (pid: %d) from parasite\n", pid);
-		goto err;
+		pr_err("Can't stop daemon in parasite (pid: %d)\n", pid);
+		goto err_cure;
 	}
 
 	ret = dump_task_threads(parasite_ctl, item);
 	if (ret) {
 		pr_err("Can't dump threads\n");
-		goto err;
+		goto err_cure;
 	}
 
+	/*
+	 * On failure local map will be cured in cr_dump_finish()
+	 * for lazy pages.
+	 */
 	if (opts.lazy_pages)
 		ret = compel_cure_remote(parasite_ctl);
 	else
@@ -1429,13 +1431,15 @@ err:
 err_cure:
 	close_cr_imgset(&cr_imgset);
 err_cure_imgset:
-	compel_cure(parasite_ctl);
+	ret = compel_cure(parasite_ctl);
+	if (ret)
+		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 	goto err;
 }
 
 static int alarm_attempts = 0;
 
-bool alarm_timeouted() {
+bool alarm_timeouted(void) {
 	return alarm_attempts > 0;
 }
 
@@ -1452,7 +1456,7 @@ static void alarm_handler(int signo)
 	BUG();
 }
 
-static int setup_alarm_handler()
+static int setup_alarm_handler(void)
 {
 	struct sigaction sa = {
 		.sa_handler	= alarm_handler,
@@ -1487,6 +1491,9 @@ static int cr_pre_dump_finish(int status)
 	if (ret)
 		goto err;
 
+	he.has_pre_dump_mode = true;
+	he.pre_dump_mode = opts.pre_dump_mode;
+
 	pstree_switch_state(root_item, TASK_ALIVE);
 
 	timing_stop(TIME_FROZEN);
@@ -1512,7 +1519,15 @@ static int cr_pre_dump_finish(int status)
 			goto err;
 
 		mem_pp = dmpi(item)->mem_pp;
-		ret = page_xfer_dump_pages(&xfer, mem_pp);
+
+		if (opts.pre_dump_mode == PRE_DUMP_READ) {
+			timing_stop(TIME_MEMWRITE);
+			ret = page_xfer_predump_pages(item->pid->real,
+							&xfer, mem_pp);
+		}
+		else {
+			ret = page_xfer_dump_pages(&xfer, mem_pp);
+		}
 
 		xfer.close(&xfer);
 
@@ -1522,7 +1537,8 @@ static int cr_pre_dump_finish(int status)
 		timing_stop(TIME_MEMWRITE);
 
 		destroy_page_pipe(mem_pp);
-		compel_cure_local(ctl);
+		if (compel_cure_local(ctl))
+			pr_err("Can't cure local: something happened with mapping?\n");
 	}
 
 	free_pstree(root_item);
@@ -1649,7 +1665,8 @@ static int cr_lazy_mem_dump(void)
 	for_each_pstree_item(item) {
 		if (item->pid->state != TASK_DEAD) {
 			destroy_page_pipe(dmpi(item)->mem_pp);
-			compel_cure_local(dmpi(item)->parasite_ctl);
+			if (compel_cure_local(dmpi(item)->parasite_ctl))
+				pr_err("Can't cure local: something happened with mapping?\n");
 		}
 	}
 
@@ -1915,6 +1932,8 @@ int cr_dump_tasks(pid_t pid)
 	ret = inventory_save_uptime(&he);
 	if (ret)
 		goto err;
+
+	he.has_pre_dump_mode = false;
 
 	ret = write_img_inventory(&he);
 	if (ret)

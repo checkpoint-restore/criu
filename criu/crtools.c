@@ -47,6 +47,13 @@
 #include "setproctitle.h"
 #include "sysctl.h"
 
+void flush_early_log_to_stderr(void) __attribute__((destructor));
+
+void flush_early_log_to_stderr(void)
+{
+	flush_early_log_buffer(STDERR_FILENO);
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	int ret = -1;
@@ -95,10 +102,8 @@ int main(int argc, char *argv[], char *envp[])
 		return cr_service_work(atoi(argv[2]));
 	}
 
-	if (check_options()) {
-		flush_early_log_buffer(STDERR_FILENO);
+	if (check_options())
 		return 1;
-	}
 
 	if (opts.imgs_dir == NULL)
 		SET_CHAR_OPTS(imgs_dir, ".");
@@ -107,7 +112,7 @@ int main(int argc, char *argv[], char *envp[])
 		SET_CHAR_OPTS(work_dir, opts.imgs_dir);
 
 	if (optind >= argc) {
-		pr_msg("Error: command is required\n");
+		pr_err("command is required\n");
 		goto usage;
 	}
 
@@ -115,17 +120,17 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (has_exec_cmd) {
 		if (!has_sub_command) {
-			pr_msg("Error: --exec-cmd requires a command\n");
+			pr_err("--exec-cmd requires a command\n");
 			goto usage;
 		}
 
 		if (strcmp(argv[optind], "restore")) {
-			pr_msg("Error: --exec-cmd is available for the restore command only\n");
+			pr_err("--exec-cmd is available for the restore command only\n");
 			goto usage;
 		}
 
 		if (opts.restore_detach) {
-			pr_msg("Error: --restore-detached and --exec-cmd cannot be used together\n");
+			pr_err("--restore-detached and --exec-cmd cannot be used together\n");
 			goto usage;
 		}
 
@@ -137,7 +142,7 @@ int main(int argc, char *argv[], char *envp[])
 	} else {
 		/* No subcommands except for cpuinfo and restore --exec-cmd */
 		if (strcmp(argv[optind], "cpuinfo") && has_sub_command) {
-			pr_msg("Error: excessive parameter%s for command %s\n",
+			pr_err("excessive parameter%s for command %s\n",
 				(argc - optind) > 2 ? "s" : "", argv[optind]);
 			goto usage;
 		}
@@ -170,6 +175,9 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (kerndat_init())
 		return 1;
+
+       if (fault_injected(FI_CANNOT_MAP_VDSO))
+               kdat.can_map_vdso = 0;
 
 	if (opts.deprecated_ok)
 		pr_debug("DEPRECATED ON\n");
@@ -236,7 +244,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (!strcmp(argv[optind], "cpuinfo")) {
 		if (!argv[optind + 1]) {
-			pr_msg("Error: cpuinfo requires an action: dump or check\n");
+			pr_err("cpuinfo requires an action: dump or check\n");
 			goto usage;
 		}
 		if (!strcmp(argv[optind + 1], "dump"))
@@ -246,17 +254,17 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	if (!strcmp(argv[optind], "exec")) {
-		pr_msg("The \"exec\" action is deprecated by the Compel library.\n");
+		pr_err("The \"exec\" action is deprecated by the Compel library.\n");
 		return -1;
 	}
 
 	if (!strcmp(argv[optind], "show")) {
-		pr_msg("The \"show\" action is deprecated by the CRIT utility.\n");
-		pr_msg("To view an image use the \"crit decode -i $name --pretty\" command.\n");
+		pr_err("The \"show\" action is deprecated by the CRIT utility.\n");
+		pr_err("To view an image use the \"crit decode -i $name --pretty\" command.\n");
 		return -1;
 	}
 
-	pr_msg("Error: unknown command: %s\n", argv[optind]);
+	pr_err("unknown command: %s\n", argv[optind]);
 usage:
 	pr_msg("\n"
 "Usage:\n"
@@ -366,6 +374,10 @@ usage:
 "  --cgroup-dump-controller NAME\n"
 "                        define cgroup controller to be dumped\n"
 "                        and skip anything else present in system\n"
+"  --cgroup-yard PATH\n"
+"                        instead of trying to mount cgroups in CRIU, provide\n"
+"                        a path to a directory with already created cgroup yard.\n"
+"                        Useful if you don't want to grant CAP_SYS_ADMIN to CRIU\n"
 "  --lsm-profile TYPE:NAME\n"
 "                        Specify an LSM profile to be used during restore.\n"
 "                        The type can be either 'apparmor' or 'selinux'.\n"
@@ -419,6 +431,8 @@ usage:
 "                        pages images of previous dump\n"
 "                        when used on restore, as soon as page is restored, it\n"
 "                        will be punched from the image\n"
+"  --pre-dump-mode       splice - parasite based pre-dumping (default)\n"
+"                        read   - process_vm_readv syscall based pre-dumping\n"
 "\n"
 "Page/Service server options:\n"
 "  --address ADDR        address of server or service\n"
@@ -446,6 +460,6 @@ usage:
 	return 0;
 
 opt_pid_missing:
-	pr_msg("Error: pid not specified\n");
+	pr_err("pid not specified\n");
 	return 1;
 }

@@ -275,6 +275,10 @@ int parasite_fixup_vdso(struct parasite_ctl *ctl, pid_t pid,
 	struct vma_area *vma;
 	int fd = -1;
 
+	/* vDSO is not provided by kernel */
+	if (kdat.vdso_sym.vdso_size == VDSO_BAD_SIZE)
+		return 0;
+
 	vcheck = get_vdso_check_type(ctl);
 	if (vcheck == VDSO_CHECK_PFN) {
 		BUG_ON(vdso_pfn == VDSO_BAD_PFN);
@@ -534,21 +538,6 @@ out_unmap:
 }
 #endif /* CONFIG_COMPAT */
 
-int vdso_init_dump(void)
-{
-	if (vdso_parse_maps(PROC_SELF, &vdso_maps)) {
-		pr_err("Failed reading self/maps for filling vdso/vvar bounds\n");
-		return -1;
-	}
-
-	if (kdat.pmap != PM_FULL)
-		pr_info("VDSO detection turned off\n");
-	else if (vaddr_to_pfn(-1, vdso_maps.vdso_start, &vdso_pfn))
-		return -1;
-
-	return 0;
-}
-
 /*
  * Check vdso/vvar sized read from maps to kdat values.
  * We do not read /proc/self/maps for compatible vdso as it's
@@ -566,11 +555,36 @@ static int is_kdat_vdso_sym_valid(void)
 	return true;
 }
 
+int vdso_init_dump(void)
+{
+	if (vdso_parse_maps(PROC_SELF, &vdso_maps)) {
+		pr_err("Failed reading self/maps for filling vdso/vvar bounds\n");
+		return -1;
+	}
+
+	if (!is_kdat_vdso_sym_valid()) {
+		pr_err("Kdat sizes of vdso/vvar differ to maps file \n");
+		return -1;
+	}
+
+	if (kdat.vdso_sym.vdso_size == VDSO_BAD_SIZE) {
+		pr_debug("Kdat has empty vdso symtable - probably CONFIG_VDSO is not set\n");
+		return 0;
+	}
+
+	if (kdat.pmap != PM_FULL)
+		pr_info("VDSO detection turned off\n");
+	else if (vaddr_to_pfn(-1, vdso_maps.vdso_start, &vdso_pfn))
+		return -1;
+
+	return 0;
+}
+
 int vdso_init_restore(void)
 {
 	if (kdat.vdso_sym.vdso_size == VDSO_BAD_SIZE) {
-		pr_err("Kdat has empty vdso symtable\n");
-		return -1;
+		pr_debug("Kdat has empty vdso symtable - probably CONFIG_VDSO is not set\n");
+		return 0;
 	}
 
 	/* Already filled vdso_maps during kdat test */
@@ -611,6 +625,12 @@ int kerndat_vdso_fill_symtable(void)
 		return -1;
 	}
 
+	if (!vdso_is_present(&vdso_maps)) {
+		pr_debug("Kernel doesn't premap vDSO - probably CONFIG_VDSO is not set\n");
+		kdat.vdso_sym = vdso_maps.sym;
+		return 0;
+	}
+
 	if (vdso_fill_self_symtable(&vdso_maps)) {
 		pr_err("Failed to fill self vdso symtable\n");
 		return -1;
@@ -643,7 +663,7 @@ int kerndat_vdso_preserves_hint(void)
 
 	kdat.vdso_hint_reliable = 0;
 
-	if (vdso_maps.vdso_start == VDSO_BAD_ADDR)
+	if (!vdso_is_present(&vdso_maps))
 		return 0;
 
 	child = fork();
@@ -693,7 +713,7 @@ int kerndat_vdso_preserves_hint(void)
 		goto out_kill;
 	}
 
-	if (vdso_maps_after.vdso_start != VDSO_BAD_ADDR)
+	if (vdso_is_present(&vdso_maps_after))
 		kdat.vdso_hint_reliable = 1;
 
 	ret = 0;

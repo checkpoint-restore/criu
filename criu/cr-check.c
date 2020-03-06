@@ -51,7 +51,7 @@
 #include "restorer.h"
 #include "uffd.h"
 
-static char *feature_name(int (*func)());
+static char *feature_name(int (*func)(void));
 
 static int check_tty(void)
 {
@@ -62,7 +62,7 @@ static int check_tty(void)
 	int ret = -1;
 
 	if (ARRAY_SIZE(t.c_cc) < TERMIOS_NCC) {
-		pr_msg("struct termios has %d @c_cc while "
+		pr_err("struct termios has %d @c_cc while "
 			"at least %d expected.\n",
 			(int)ARRAY_SIZE(t.c_cc),
 			TERMIOS_NCC);
@@ -513,7 +513,7 @@ static int check_ipc(void)
 	return -1;
 }
 
-static int check_sigqueuinfo()
+static int check_sigqueuinfo(void)
 {
 	siginfo_t info = { .si_code = 1 };
 
@@ -960,7 +960,7 @@ static int clone_cb(void *_arg) {
 	exit(0);
 }
 
-static int check_clone_parent_vs_pid()
+static int check_clone_parent_vs_pid(void)
 {
 	struct clone_arg ca;
 	pid_t pid;
@@ -1224,6 +1224,16 @@ static int check_uffd_noncoop(void)
 	return 0;
 }
 
+static int check_clone3_set_tid(void)
+{
+	if (!kdat.has_clone3_set_tid) {
+		pr_warn("clone3() with set_tid not supported\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int check_can_map_vdso(void)
 {
 	if (kdat_can_map_vdso() == 1)
@@ -1373,6 +1383,7 @@ int cr_check(void)
 		ret |= check_sk_netns();
 		ret |= check_kcmp_epoll();
 		ret |= check_net_diag_raw();
+		ret |= check_clone3_set_tid();
 	}
 
 	/*
@@ -1447,7 +1458,7 @@ static int check_external_net_ns(void)
 
 struct feature_list {
 	char *name;
-	int (*func)();
+	int (*func)(void);
 };
 
 static struct feature_list feature_list[] = {
@@ -1476,6 +1487,7 @@ static struct feature_list feature_list[] = {
 	{ "link_nsid", check_link_nsid},
 	{ "kcmp_epoll", check_kcmp_epoll},
 	{ "external_net_ns", check_external_net_ns},
+	{ "clone3_set_tid", check_clone3_set_tid},
 	{ NULL, NULL },
 };
 
@@ -1517,7 +1529,7 @@ int check_add_feature(char *feat)
 	return -1;
 }
 
-static char *feature_name(int (*func)())
+static char *feature_name(int (*func)(void))
 {
 	struct feature_list *fl;
 
