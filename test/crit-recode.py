@@ -47,6 +47,8 @@ for imgf in find.stdout.readlines():
         continue
     if imgf_b.startswith(b'ip6tables-'):
         continue
+    if imgf_b.startswith(b'nftables-'):
+        continue
     if imgf_b.startswith(b'route-'):
         continue
     if imgf_b.startswith(b'route6-'):
