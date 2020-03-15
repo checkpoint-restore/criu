@@ -58,15 +58,14 @@ static LIST_HEAD(memfd_inodes);
 
 static u32 memfd_inode_ids = 1;
 
-int is_memfd(dev_t dev, const char *path)
+int is_memfd(dev_t dev)
 {
 	/*
 	 * TODO When MAP_HUGETLB is used, the file device is not shmem_dev,
 	 * Note that other parts of CRIU have similar issues, see
 	 * is_anon_shmem_map().
 	 */
-	return dev == kdat.shmem_dev &&
-		!strncmp(path, MEMFD_PREFIX, MEMFD_PREFIX_LEN);
+	return dev == kdat.shmem_dev;
 }
 
 static int dump_memfd_inode(int fd, struct memfd_inode *inode,
@@ -167,7 +166,11 @@ static int dump_one_memfd(int lfd, u32 id, const struct fd_parms *p)
 		link = p->link;
 
 	strip_deleted(link);
-	name = &link->name[1+MEMFD_PREFIX_LEN];
+	/* link->name is always started with "." which has to be skipped.  */
+	if (strncmp(link->name + 1, MEMFD_PREFIX, MEMFD_PREFIX_LEN) == 0)
+		name = &link->name[1 + MEMFD_PREFIX_LEN];
+	else
+		name = link->name + 1;
 
 	inode = dump_unique_memfd_inode(lfd, name, &p->stat);
 	if (!inode)

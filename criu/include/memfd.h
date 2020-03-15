@@ -8,7 +8,7 @@
 struct fd_parms;
 struct file_desc;
 
-extern int is_memfd(dev_t dev, const char *path);
+extern int is_memfd(dev_t dev);
 extern int dump_one_memfd_cond(int lfd, u32 *id, struct fd_parms *parms);
 extern const struct fdtype_ops memfd_dump_ops;
 
