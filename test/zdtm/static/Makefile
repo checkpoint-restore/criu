@@ -224,6 +224,8 @@ TST_NOFILE	:=				\
 		memfd01				\
 		memfd02				\
 		memfd03				\
+		shmemfd				\
+		shmemfd-priv			\
 #		jobctl00			\
 
 ifneq ($(ARCH),arm)
