@@ -305,7 +305,7 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma,
 
 	vfi_dev = makedev(vfi->dev_maj, vfi->dev_min);
 
-	if (is_memfd(vfi_dev, fname)) {
+	if (is_memfd(vfi_dev)) {
 		struct fd_link link;
 		link.len = strlen(fname);
 		strlcpy(link.name, fname, sizeof(link.name));
@@ -596,39 +596,21 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area,
 			goto err;
 		}
 
-		/*
-		 * /dev/zero stands for anon-shared mapping
-		 * otherwise it's some file mapping.
-		 *
-		 * We treat memfd mappings as regular file mappings because
-		 * their backing can be seen as files, which is easy to
-		 * support. So even though memfd is an anonymous shmem, we
-		 * treat it differently.
-		 * Note: maybe we should revisit this as /proc/map_files/<vma>
-		 * may not always be accessible.
-		 */
-
-		if (is_memfd(st_buf->st_dev, file_path)) {
-			vma_area->e->status |= VMA_AREA_MEMFD;
-			goto normal_file;
-		}
-
-		if (is_anon_shmem_map(st_buf->st_dev)) {
-			if (!(vma_area->e->flags & MAP_SHARED))
-				goto err_bogus_mapping;
+		if (is_anon_shmem_map(st_buf->st_dev) && !strncmp(file_path, "/SYSV", 5)) {
 			vma_area->e->flags  |= MAP_ANONYMOUS;
 			vma_area->e->status |= VMA_ANON_SHARED;
 			vma_area->e->shmid = st_buf->st_ino;
-
-			if (!strncmp(file_path, "/SYSV", 5)) {
-				pr_info("path: %s\n", file_path);
-				vma_area->e->status |= VMA_AREA_SYSVIPC;
-			} else {
+			if (!(vma_area->e->flags & MAP_SHARED))
+				goto err_bogus_mapping;
+			pr_info("path: %s\n", file_path);
+			vma_area->e->status |= VMA_AREA_SYSVIPC;
+		} else {
+			if (is_anon_shmem_map(st_buf->st_dev)) {
+				vma_area->e->status |= VMA_AREA_MEMFD;
 				if (fault_injected(FI_HUGE_ANON_SHMEM_ID))
 					vma_area->e->shmid += FI_HUGE_ANON_SHMEM_ID_BASE;
 			}
-		} else {
-normal_file:
+
 			if (vma_area->e->flags & MAP_PRIVATE)
 				vma_area->e->status |= VMA_FILE_PRIVATE;
 			else
