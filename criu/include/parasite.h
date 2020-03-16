@@ -9,11 +9,14 @@
 #include <sys/time.h>
 #include <time.h>
 #include <signal.h>
+#include <compel/plugins/std/syscall-types.h>
 
 #include "image.h"
 #include "util-pie.h"
 #include "common/lock.h"
 #include "infect-rpc.h"
+#include <compel/asm/infect-types.h>
+#include "types.h"
 
 #include "images/vma.pb-c.h"
 #include "images/tty.pb-c.h"
