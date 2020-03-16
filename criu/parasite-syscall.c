@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 
+#include "sigaction.h"
 #include "common/config.h"
 #include "common/compiler.h"
 #include "types.h"
@@ -44,6 +45,8 @@
 #include "infect.h"
 #include "infect-rpc.h"
 #include "pie/parasite-blob.h"
+
+#include <compel/compel.h>
 
 unsigned long get_exec_start(struct vm_area_list *vmas)
 {
@@ -206,49 +209,6 @@ int parasite_dump_thread_seized(struct parasite_thread_ctl *tctl,
 err_rth:
 	compel_release_thread(tctl);
 	return -1;
-}
-
-int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct pstree_item *item)
-{
-	TaskCoreEntry *tc = item->core[0]->tc;
-	struct parasite_dump_sa_args *args;
-	int ret, sig;
-	SaEntry *sa, **psa;
-
-	args = compel_parasite_args(ctl, struct parasite_dump_sa_args);
-
-	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_SIGACTS, ctl);
-	if (ret < 0)
-		return ret;
-
-	psa = xmalloc((SIGMAX - 2) * (sizeof(SaEntry *) + sizeof(SaEntry)));
-	if (!psa)
-		return -1;
-
-	sa = (SaEntry *)(psa + SIGMAX - 2);
-
-	tc->n_sigactions = SIGMAX - 2;
-	tc->sigactions = psa;
-
-	for (sig = 1; sig <= SIGMAX; sig++) {
-		int i = sig - 1;
-
-		if (sig == SIGSTOP || sig == SIGKILL)
-			continue;
-
-		sa_entry__init(sa);
-		ASSIGN_TYPED(sa->sigaction, encode_pointer(args->sas[i].rt_sa_handler));
-		ASSIGN_TYPED(sa->flags, args->sas[i].rt_sa_flags);
-		ASSIGN_TYPED(sa->restorer, encode_pointer(args->sas[i].rt_sa_restorer));
-		BUILD_BUG_ON(sizeof(sa->mask) != sizeof(args->sas[0].rt_sa_mask.sig));
-		memcpy(&sa->mask, args->sas[i].rt_sa_mask.sig, sizeof(sa->mask));
-		sa->has_compat_sigaction = true;
-		sa->compat_sigaction = !compel_mode_native(ctl);
-
-		*(psa++) = sa++;
-	}
-
-	return 0;
 }
 
 static void encode_itimer(struct itimerval *v, ItimerEntry *ie)
