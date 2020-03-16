@@ -12,6 +12,7 @@
 #include "int.h"
 #include "types.h"
 #include <compel/plugins/std/syscall.h>
+#include <compel/plugins/std/syscall-types.h>
 #include "parasite.h"
 #include "fcntl.h"
 #include "prctl.h"
