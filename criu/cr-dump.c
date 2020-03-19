@@ -14,7 +14,6 @@
 #include <sys/vfs.h>
 #include <sys/time.h>
 #include <sys/wait.h>
-#include "sigaction.h"
 
 
 #include <sched.h>
@@ -83,6 +82,7 @@
 #include "eventpoll.h"
 #include "img-remote.h"
 #include "memfd.h"
+#include "sigaction.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
