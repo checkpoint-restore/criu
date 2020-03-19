@@ -60,6 +60,7 @@ obj-y			+= protobuf.o
 obj-y			+= pstree.o
 obj-y			+= rbtree.o
 obj-y			+= rst-malloc.o
+obj-y			+= sigaction.o
 obj-y			+= seccomp.o
 obj-y			+= seize.o
 obj-y			+= shmem.o

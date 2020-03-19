@@ -14,6 +14,7 @@
 #include <sys/vfs.h>
 #include <sys/time.h>
 #include <sys/wait.h>
+#include "sigaction.h"
 
 
 #include <sched.h>
