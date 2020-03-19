@@ -3,7 +3,7 @@
 
 #include "parasite-syscall.h"
 #include "pstree.h"
-#include "images/core.pb-c.h"
+#include "images/sa.pb-c.h"
 #include <compel/plugins/std/syscall-codes.h>
 
 extern rt_sigaction_t sigchld_act;
