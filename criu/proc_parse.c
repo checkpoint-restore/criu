@@ -584,6 +584,14 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area,
 		vma_area->e->shmid = prev->e->shmid;
 		vma_area->vmst = prev->vmst;
 		vma_area->mnt_id = prev->mnt_id;
+
+		if (!(vma_area->e->status & VMA_AREA_SYSVIPC)) {
+			vma_area->e->status &= ~(VMA_FILE_PRIVATE | VMA_FILE_SHARED);
+			if (vma_area->e->flags & MAP_PRIVATE)
+				vma_area->e->status |= VMA_FILE_PRIVATE;
+			else
+				vma_area->e->status |= VMA_FILE_SHARED;
+		}
 	} else if (*vm_file_fd >= 0) {
 		struct stat *st_buf = vma_area->vmst;
 
