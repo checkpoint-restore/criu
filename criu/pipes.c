@@ -160,22 +160,22 @@ int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash
 		return 0;
 	}
 
-	if (!pd->pde->bytes)
-		goto out;
-
-	if (!pd->data) {
-		pr_err("Double data restore occurred on %#x\n", id);
-		return -1;
-	}
-
 	if (pd->pde->has_size) {
 		pr_info("Restoring size %#x for %#x\n",
 				pd->pde->size, pd->pde->pipe_id);
 		ret = fcntl(pfd, F_SETPIPE_SZ, pd->pde->size);
 		if (ret < 0) {
 			pr_perror("Can't restore pipe size");
-			goto err;
+			return -1;
 		}
+	}
+
+	if (!pd->pde->bytes)
+		return 0;
+
+	if (!pd->data) {
+		pr_err("Double data restore occurred on %#x\n", id);
+		return -1;
 	}
 
 	iov.iov_base = pd->data;
@@ -185,14 +185,13 @@ int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash
 		ret = vmsplice(pfd, &iov, 1, SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
 		if (ret < 0) {
 			pr_perror("%#x: Error splicing data", id);
-			goto err;
+			return -1;
 		}
 
 		if (ret == 0 || ret > iov.iov_len /* sanity */) {
 			pr_err("%#x: Wanted to restore %zu bytes, but got %d\n", id,
 					iov.iov_len, ret);
-			ret = -1;
-			goto err;
+			return -1;
 		}
 
 		iov.iov_base += ret;
@@ -211,10 +210,7 @@ int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst **hash
 
 	munmap(pd->data, pd->pde->bytes);
 	pd->data = NULL;
-out:
-	ret = 0;
-err:
-	return ret;
+	return 0;
 }
 
 static int userns_reopen(void *_arg, int fd, pid_t pid)
