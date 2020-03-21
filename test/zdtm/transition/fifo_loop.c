@@ -84,6 +84,14 @@ int main(int argc, char **argv)
 				ret = errno;
 				return ret;
 			}
+
+			pipe_size = fcntl(writefd, F_SETPIPE_SZ, sizeof(buf));
+			if (pipe_size != sizeof(buf)) {
+				pr_perror("fcntl(writefd, F_SETPIPE_SZ) -> %d", pipe_size);
+				kill(0, SIGKILL);
+				exit(1);
+			}
+
 			signal(SIGPIPE, SIG_IGN);
 			if (pipe_in2out(readfd, writefd, buf, sizeof(buf)) < 0)
 				/* pass errno as exit code to the parent */
@@ -107,7 +115,7 @@ int main(int argc, char **argv)
 
 	pipe_size = fcntl(writefd, F_SETPIPE_SZ, sizeof(buf));
 	if (pipe_size != sizeof(buf)) {
-		pr_perror("fcntl(writefd, F_GETPIPE_SZ) -> %d", pipe_size);
+		pr_perror("fcntl(writefd, F_SETPIPE_SZ) -> %d", pipe_size);
 		kill(0, SIGKILL);
 		exit(1);
 	}
