@@ -1749,6 +1749,9 @@ static int restore_task_with_children(void *_arg)
 		if (root_ns_mask & CLONE_NEWTIME) {
 			if (prepare_timens(current->ids->time_ns_id))
 				goto err;
+		} else if (kdat.has_timens) {
+			if (prepare_timens(0))
+				goto err;
 		}
 
 		/* Wait prepare_userns */

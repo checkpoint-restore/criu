@@ -81,6 +81,7 @@
 #include "dump.h"
 #include "eventpoll.h"
 #include "memfd.h"
+#include "timens.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
@@ -1917,6 +1918,12 @@ int cr_dump_tasks(pid_t pid)
 
 	if (root_ns_mask) {
 		ret = dump_namespaces(root_item, root_ns_mask);
+		if (ret)
+			goto err;
+	}
+
+	if ((root_ns_mask & CLONE_NEWTIME) == 0) {
+		ret = dump_time_ns(0);
 		if (ret)
 			goto err;
 	}
