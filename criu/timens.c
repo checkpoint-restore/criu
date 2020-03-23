@@ -62,6 +62,11 @@ int prepare_timens(int id)
 	if (!img)
 		return -1;
 
+	if (id == 0 && empty_image(img)) {
+		pr_warn("Clocks values have not been dumped\n");
+		return 0;
+	}
+
 	ret = pb_read_one(img, &te, PB_TIMENS);
 	close_image(img);
 	if (ret < 0)
