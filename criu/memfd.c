@@ -43,9 +43,10 @@ struct memfd_inode {
 		};
 		/* Only for restore */
 		struct {
-			mutex_t	lock;
-			int	fdstore_id;
-			unsigned int pending_seals;
+			mutex_t		lock;
+			int		fdstore_id;
+			unsigned int	pending_seals;
+			MemfdInodeEntry	*mie;
 		};
 	};
 };
@@ -71,9 +72,8 @@ int is_memfd(dev_t dev)
 static int dump_memfd_inode(int fd, struct memfd_inode *inode,
 			    const char *name, const struct stat *st)
 {
-	int ret = -1;
-	struct cr_img *img = NULL;
 	MemfdInodeEntry mie = MEMFD_INODE_ENTRY__INIT;
+	int ret = -1;
 	u32 shmid;
 
 	 /*
@@ -90,10 +90,7 @@ static int dump_memfd_inode(int fd, struct memfd_inode *inode,
 	if (dump_one_memfd_shmem(fd, shmid, st->st_size) < 0)
 		goto out;
 
-	img = open_image(CR_FD_MEMFD_INODE, O_DUMP, inode->id);
-	if (!img)
-		goto out;
-
+	mie.inode_id = inode->id;
 	mie.uid = userns_uid(st->st_uid);
 	mie.gid = userns_gid(st->st_gid);
 	mie.name = (char *)name;
@@ -104,14 +101,12 @@ static int dump_memfd_inode(int fd, struct memfd_inode *inode,
 	if (mie.seals == -1)
 		goto out;
 
-	if (pb_write_one(img, &mie, PB_MEMFD_INODE))
+	if (pb_write_one(img_from_set(glob_imgset, CR_FD_MEMFD_INODE), &mie, PB_MEMFD_INODE))
 		goto out;
 
 	ret = 0;
 
 out:
-	if (img)
-		close_image(img);
 	return ret;
 }
 
@@ -212,8 +207,6 @@ struct memfd_info {
 	struct memfd_inode	*inode;
 };
 
-static int memfd_open_inode(struct memfd_inode *inode);
-
 static struct memfd_inode *memfd_alloc_inode(int id)
 {
 	struct memfd_inode *inode;
@@ -222,35 +215,47 @@ static struct memfd_inode *memfd_alloc_inode(int id)
 		if (inode->id == id)
 			return inode;
 
-	inode = shmalloc(sizeof(*inode));
-	if (!inode)
-		return NULL;
+	pr_err("Unable to find the %d memfd inode\n", id);
+	return NULL;
+}
 
-	inode->id = id;
+static int collect_one_memfd_inode(void *o, ProtobufCMessage *base, struct cr_img *i)
+{
+	MemfdInodeEntry *mie = pb_msg(base, MemfdInodeEntry);
+	struct memfd_inode *inode = o;
+
+	inode->mie = mie;
+	inode->id = mie->inode_id;
 	mutex_init(&inode->lock);
 	inode->fdstore_id = -1;
 	inode->pending_seals = 0;
 
 	list_add_tail(&inode->list, &memfd_inodes);
-	return inode;
+
+	return 0;
 }
 
-extern int restore_memfd_shm(int fd, u64 id, u64 size);
+static struct collect_image_info memfd_inode_cinfo = {
+	.fd_type = CR_FD_MEMFD_INODE,
+	.pb_type = PB_MEMFD_INODE,
+	.priv_size = sizeof(struct memfd_inode),
+	.collect = collect_one_memfd_inode,
+	.flags = COLLECT_SHARED | COLLECT_NOFREE,
+};
+
+int prepare_memfd_inodes(void)
+{
+	return collect_image(&memfd_inode_cinfo);
+}
+
 static int memfd_open_inode_nocache(struct memfd_inode *inode)
 {
 	MemfdInodeEntry *mie = NULL;
-	struct cr_img *img = NULL;
 	int fd = -1;
 	int ret = -1;
 	int flags;
 
-	img = open_image(CR_FD_MEMFD_INODE, O_RSTR, inode->id);
-	if (!img)
-		goto out;
-
-	if (pb_read_one(img, &mie, PB_MEMFD_INODE) < 0)
-		goto out;
-
+	mie = inode->mie;
 	if (mie->seals == F_SEAL_SEAL) {
 		inode->pending_seals = 0;
 		flags = 0;
@@ -285,10 +290,6 @@ static int memfd_open_inode_nocache(struct memfd_inode *inode)
 out:
 	if (fd != -1)
 		close(fd);
-	if (img)
-		close_image(img);
-	if (mie)
-		memfd_inode_entry__free_unpacked(mie, NULL);
 	return ret;
 }
 
@@ -373,33 +374,17 @@ static int memfd_open_fe_fd(struct file_desc *fd, int *new_fd)
 static char *memfd_d_name(struct file_desc *d, char *buf, size_t s)
 {
 	MemfdInodeEntry *mie = NULL;
-	struct cr_img *img = NULL;
 	struct memfd_info *mfi;
-	char *ret = NULL;
 
 	mfi = container_of(d, struct memfd_info, d);
 
-	img = open_image(CR_FD_MEMFD_INODE, O_RSTR, mfi->inode->id);
-	if (!img)
-		goto out;
-
-	if (pb_read_one(img, &mie, PB_MEMFD_INODE) < 0)
-		goto out;
-
+	mie = mfi->inode->mie;
 	if (snprintf(buf, s, "%s%s", MEMFD_PREFIX, mie->name) >= s) {
 		pr_err("Buffer too small for memfd name %s\n", mie->name);
-		goto out;
+		return NULL;
 	}
 
-	ret = buf;
-
-out:
-	if (img)
-		close_image(img);
-	if (mie)
-		memfd_inode_entry__free_unpacked(mie, NULL);
-
-	return ret;
+	return buf;
 }
 
 static struct file_desc_ops memfd_desc_ops = {
@@ -427,7 +412,8 @@ struct collect_image_info memfd_cinfo = {
 	.collect = collect_one_memfd,
 };
 
-struct file_desc *collect_memfd(u32 id) {
+struct file_desc *collect_memfd(u32 id)
+{
 	struct file_desc *fdesc;
 
 	fdesc = find_file_desc_raw(FD_TYPES__MEMFD, id);
