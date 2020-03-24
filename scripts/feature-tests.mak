@@ -152,6 +152,8 @@ endef
 
 define FEATURE_TEST_NFTABLES_LIB_API_0
 
+#include <string.h>
+
 #include <nftables/libnftables.h>
 
 int main(int argc, char **argv)
