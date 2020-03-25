@@ -32,23 +32,19 @@
 /* Linux 5.1+ */
 #define F_SEAL_FUTURE_WRITE	0x0010  /* prevent future writes while mapped */
 
-struct memfd_inode {
+struct memfd_dump_inode {
 	struct list_head	list;
 	u32			id;
-	union {
-		/* Only for dump */
-		struct {
-			u32	dev;
-			u32	ino;
-		};
-		/* Only for restore */
-		struct {
-			mutex_t		lock;
-			int		fdstore_id;
-			unsigned int	pending_seals;
-			MemfdInodeEntry	*mie;
-		};
-	};
+	u32			dev;
+	u32			ino;
+};
+
+struct memfd_restore_inode {
+	struct list_head	list;
+	mutex_t			lock;
+	int			fdstore_id;
+	unsigned int		pending_seals;
+	MemfdInodeEntry		*mie;
 };
 
 static LIST_HEAD(memfd_inodes);
@@ -69,7 +65,7 @@ int is_memfd(dev_t dev)
 	return dev == kdat.shmem_dev;
 }
 
-static int dump_memfd_inode(int fd, struct memfd_inode *inode,
+static int dump_memfd_inode(int fd, struct memfd_dump_inode *inode,
 			    const char *name, const struct stat *st)
 {
 	MemfdInodeEntry mie = MEMFD_INODE_ENTRY__INIT;
@@ -110,9 +106,10 @@ out:
 	return ret;
 }
 
-static struct memfd_inode *dump_unique_memfd_inode(int lfd, const char *name, const struct stat *st)
+static struct memfd_dump_inode *
+dump_unique_memfd_inode(int lfd, const char *name, const struct stat *st)
 {
-	struct memfd_inode *inode;
+	struct memfd_dump_inode *inode;
 	int fd;
 
 	list_for_each_entry(inode, &memfd_inodes, list)
@@ -149,7 +146,7 @@ static int dump_one_memfd(int lfd, u32 id, const struct fd_parms *p)
 {
 	MemfdFileEntry mfe = MEMFD_FILE_ENTRY__INIT;
 	FileEntry fe = FILE_ENTRY__INIT;
-	struct memfd_inode *inode;
+	struct memfd_dump_inode *inode;
 	struct fd_link _link, *link;
 	const char *name;
 
@@ -202,17 +199,17 @@ const struct fdtype_ops memfd_dump_ops = {
  */
 
 struct memfd_info {
-	MemfdFileEntry		*mfe;
-	struct file_desc	d;
-	struct memfd_inode	*inode;
+	MemfdFileEntry			*mfe;
+	struct file_desc		d;
+	struct memfd_restore_inode	*inode;
 };
 
-static struct memfd_inode *memfd_alloc_inode(int id)
+static struct memfd_restore_inode *memfd_alloc_inode(int id)
 {
-	struct memfd_inode *inode;
+	struct memfd_restore_inode *inode;
 
 	list_for_each_entry(inode, &memfd_inodes, list)
-		if (inode->id == id)
+		if (inode->mie->inode_id == id)
 			return inode;
 
 	pr_err("Unable to find the %d memfd inode\n", id);
@@ -222,10 +219,9 @@ static struct memfd_inode *memfd_alloc_inode(int id)
 static int collect_one_memfd_inode(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
 	MemfdInodeEntry *mie = pb_msg(base, MemfdInodeEntry);
-	struct memfd_inode *inode = o;
+	struct memfd_restore_inode *inode = o;
 
 	inode->mie = mie;
-	inode->id = mie->inode_id;
 	mutex_init(&inode->lock);
 	inode->fdstore_id = -1;
 	inode->pending_seals = 0;
@@ -238,7 +234,7 @@ static int collect_one_memfd_inode(void *o, ProtobufCMessage *base, struct cr_im
 static struct collect_image_info memfd_inode_cinfo = {
 	.fd_type = CR_FD_MEMFD_INODE,
 	.pb_type = PB_MEMFD_INODE,
-	.priv_size = sizeof(struct memfd_inode),
+	.priv_size = sizeof(struct memfd_restore_inode),
 	.collect = collect_one_memfd_inode,
 	.flags = COLLECT_SHARED | COLLECT_NOFREE,
 };
@@ -248,7 +244,7 @@ int prepare_memfd_inodes(void)
 	return collect_image(&memfd_inode_cinfo);
 }
 
-static int memfd_open_inode_nocache(struct memfd_inode *inode)
+static int memfd_open_inode_nocache(struct memfd_restore_inode *inode)
 {
 	MemfdInodeEntry *mie = NULL;
 	int fd = -1;
@@ -293,7 +289,7 @@ out:
 	return ret;
 }
 
-static int memfd_open_inode(struct memfd_inode *inode)
+static int memfd_open_inode(struct memfd_restore_inode *inode)
 {
 	int fd;
 
@@ -433,7 +429,7 @@ int apply_memfd_seals(void)
 	 */
 
 	int ret, fd;
-	struct memfd_inode *inode;
+	struct memfd_restore_inode *inode;
 
 	list_for_each_entry(inode, &memfd_inodes, list) {
 		if (!inode->pending_seals)
