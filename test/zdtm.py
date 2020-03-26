@@ -1915,7 +1915,7 @@ class Launcher:
                 pid, status = os.waitpid(0, flags)
             except OSError as e:
                 if e.errno == errno.EINTR:
-                    subprocess.Popen(["ps", "axf"]).wait()
+                    subprocess.Popen(["ps", "axf", "--width", "160"]).wait()
                     continue
                 signal.alarm(0)
                 raise e
