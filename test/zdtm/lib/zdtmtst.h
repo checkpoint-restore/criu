@@ -174,4 +174,9 @@ extern pid_t sys_clone_unified(unsigned long flags, void *child_stack, void *par
 	___ret;									\
 })
 
+#define sstrncpy(d, s) ({							\
+	strncpy(d, s, sizeof(d)-1);						\
+	d[sizeof(d)-1] = '\0';							\
+})
+
 #endif /* _VIMITESU_H_ */

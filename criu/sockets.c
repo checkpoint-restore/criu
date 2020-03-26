@@ -522,17 +522,23 @@ int restore_prepare_socket(int sk)
 	return 0;
 }
 
-int restore_socket_opts(int sk, SkOptsEntry *soe)
+int restore_socket_bufsz(int sk, SkOptsEntry *soe)
 {
-	int ret = 0, val = 1;
-	struct timeval tv;
 	/* In kernel a bufsize value is doubled. */
-	u32 bufs[2] = { soe->so_sndbuf / 2, soe->so_rcvbuf / 2};
+	uint32_t bufs[2] = { soe->so_sndbuf / 2, soe->so_rcvbuf / 2};
 
 	pr_info("%d restore sndbuf %d rcv buf %d\n", sk, soe->so_sndbuf, soe->so_rcvbuf);
 
 	/* setsockopt() multiplies the input values by 2 */
-	ret |= userns_call(sk_setbufs, UNS_ASYNC, bufs, sizeof(bufs), sk);
+	return userns_call(sk_setbufs, UNS_ASYNC, bufs, sizeof(bufs), sk);
+}
+
+int restore_socket_opts(int sk, SkOptsEntry *soe)
+{
+	int ret = 0, val;
+	struct timeval tv;
+
+	ret |= restore_socket_bufsz(sk, soe);
 
 	if (soe->has_so_priority) {
 		pr_debug("\trestore priority %d for socket\n", soe->so_priority);

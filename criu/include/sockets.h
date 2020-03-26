@@ -10,6 +10,7 @@
 
 struct fdinfo_list_entry;
 struct sk_opts_entry;
+struct mount_info;
 struct file_desc;
 struct fd_parms;
 struct cr_imgset;
@@ -27,6 +28,7 @@ struct socket_desc {
 extern int dump_socket(struct fd_parms *p, int lfd, FdinfoEntry *);
 extern int dump_socket_opts(int sk, SkOptsEntry *soe);
 extern int restore_socket_opts(int sk, SkOptsEntry *soe);
+extern int restore_socket_bufsz(int sk, SkOptsEntry *soe);
 extern void release_skopts(SkOptsEntry *);
 extern int restore_prepare_socket(int sk);
 extern void preload_socket_modules(void);
@@ -42,6 +44,8 @@ extern int add_fake_unix_queuers(void);
 extern int fix_external_unix_sockets(void);
 extern int prepare_scms(void);
 extern int unix_note_scm_rights(int id_for, uint32_t *file_ids, int *fds, int n_ids);
+extern int collect_unix_bindmounts(void);
+extern int unix_prepare_bindmount(struct mount_info *mi);
 
 extern struct collect_image_info netlink_sk_cinfo;
 
@@ -61,6 +65,7 @@ extern int netlink_receive_one(struct nlmsghdr *hdr, struct ns_id *ns, void *arg
 extern int unix_sk_id_add(unsigned int ino);
 extern int unix_sk_ids_parse(char *optarg);
 extern int unix_prepare_root_shared(void);
+extern int unix_prepare_shared(void);
 
 extern int do_dump_opt(int sk, int level, int name, void *val, int len);
 #define dump_opt(s, l, n, f)	do_dump_opt(s, l, n, f, sizeof(*f))

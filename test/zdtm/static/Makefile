@@ -359,6 +359,7 @@ TST_DIR		=				\
 		del_standalone_un		\
 		sk-unix-mntns			\
 		sk-unix01			\
+		bind-mount-unix			\
 		unsupported_children_collision  \
 		shared_slave_mount_children	\
 		non_uniform_share_propagation	\
