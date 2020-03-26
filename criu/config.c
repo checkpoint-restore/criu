@@ -876,7 +876,7 @@ int check_options(void)
 	}
 
 	if (!opts.restore_detach && opts.restore_sibling) {
-		pr_err("--restore-sibling only makes sense with --restore-detach\n");
+		pr_err("--restore-sibling only makes sense with --restore-detached\n");
 		return 1;
 	}
 
