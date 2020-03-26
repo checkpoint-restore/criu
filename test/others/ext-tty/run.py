@@ -29,7 +29,7 @@ ttyid = "fd[%d]:tty[%x:%x]" % (slave, st.st_rdev, st.st_dev)
 
 ret = subprocess.Popen([
     "../../../criu/criu", "restore", "-v4", "--inherit-fd", ttyid,
-    "--restore-sibling", "--restore-detach"
+    "--restore-sibling", "--restore-detached"
 ]).wait()
 if ret:
     sys.exit(ret)
