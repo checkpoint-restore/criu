@@ -227,6 +227,8 @@ TST_NOFILE	:=				\
 		shmemfd				\
 		shmemfd-priv			\
 		time				\
+		timens_nested			\
+		timens_for_kids			\
 #		jobctl00			\
 
 ifneq ($(ARCH),arm)
