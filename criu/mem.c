@@ -1404,6 +1404,20 @@ static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
 	struct cr_img *pages;
 
 	/*
+	 * We optimize the case when rsti(t)->vma_io is empty.
+	 *
+	 * This is useful for for remote images, where all VMAs are premapped
+	 * (pr->pieok is false). This avoids re-opening the CR_FD_PAGES file,
+	 * which could be no longer be available.
+	 */
+	if (list_empty(&rsti(t)->vma_io)) {
+		ta->vma_ios = NULL;
+		ta->vma_ios_n = 0;
+		ta->vma_ios_fd = -1;
+		return 0;
+	}
+
+	/*
 	 * If auto-dedup is on we need RDWR mode to be able to punch holes in
 	 * the input files (in restorer.c)
 	 */
