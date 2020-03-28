@@ -1602,7 +1602,8 @@ long __export_restore_task(struct task_restore_args *args)
 		rio = ((void *)rio) + RIO_SIZE(rio->nr_iovs);
 	}
 
-	sys_close(args->vma_ios_fd);
+	if (args->vma_ios_fd != -1)
+		sys_close(args->vma_ios_fd);
 
 	/*
 	 * Proxify vDSO.
