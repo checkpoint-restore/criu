@@ -1765,6 +1765,8 @@ def do_run_test(tname, tdesc, flavs, opts):
                 t.stop()
                 cr_api.fini()
                 try_run_hook(t, ["--clean"])
+                if t.blocking():
+                    raise test_fail_exc("unexpected success")
         except test_fail_exc as e:
             print_sep("Test %s FAIL at %s" % (tname, e.step), '#')
             t.print_output()
