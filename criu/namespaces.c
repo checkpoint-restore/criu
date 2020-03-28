@@ -341,7 +341,7 @@ struct ns_id *lookup_ns_by_kid(unsigned int kid, struct ns_desc *nd)
 	struct ns_id *nsid;
 
 	for (nsid = ns_ids; nsid != NULL; nsid = nsid->next)
-		if (nsid->kid == kid && nsid->nd == nd)
+		if (nsid->kid == kid && nsid->nd->cflag == nd->cflag)
 			return nsid;
 
 	return NULL;
@@ -447,7 +447,7 @@ static unsigned int __get_ns_id(int pid, struct ns_desc *nd, protobuf_c_boolean 
 {
 	int proc_dir;
 	unsigned int kid;
-	char ns_path[10];
+	char ns_path[32];
 	struct stat st;
 
 	proc_dir = open_pid_proc(pid);
@@ -680,11 +680,23 @@ int dump_task_ns_ids(struct pstree_item *item)
 		return -1;
 	}
 
-	ids->has_time_ns_id = true;
-	ids->time_ns_id = get_ns_id(pid, &time_ns_desc, NULL);
+	ids->time_ns_id = get_ns_id(pid, &time_ns_desc, &ids->has_time_ns_id);
 	if (!ids->time_ns_id) {
 		pr_err("Can't make timens id\n");
 		return -1;
+	}
+	if (ids->has_time_ns_id) {
+		unsigned int id;
+		protobuf_c_boolean supported;
+		id = get_ns_id(pid, &time_for_children_ns_desc, &supported);
+		if (!supported || !id) {
+			pr_err("Can't make timens id\n");
+			return -1;
+		}
+		if (id != ids->time_ns_id) {
+			pr_err("Can't dump nested time namespace for %d\n", pid);
+			return -1;
+		}
 	}
 
 	ids->has_mnt_ns_id = true;
