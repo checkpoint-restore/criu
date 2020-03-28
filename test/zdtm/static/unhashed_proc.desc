@@ -1,1 +1,1 @@
-{'flags': 'crfail', 'opts' : '--link-remap'}
+{'opts' : '--link-remap'}
