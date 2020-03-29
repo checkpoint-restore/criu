@@ -512,7 +512,7 @@ int restore_memfd_shmem_content(int fd, unsigned long shmid, unsigned long size)
 		goto out;
 	}
 
-	addr = mmap(NULL, size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
+	addr = mmap(NULL, size, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_NORESERVE, fd, 0);
 	if (addr == MAP_FAILED) {
 		pr_perror("Can't mmap shmem 0x%lx size=%ld", shmid, size);
 		goto out;
@@ -564,7 +564,7 @@ static int open_shmem(int pid, struct vma_area *vma)
 		goto out;
 	}
 
-	flags = MAP_SHARED;
+	flags = MAP_SHARED | MAP_NORESERVE;
 	if (kdat.has_memfd) {
 		f = memfd_create("", 0);
 		if (f < 0) {

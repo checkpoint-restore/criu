@@ -860,7 +860,7 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		 * bits there. Ideally we'd check for the whole COW-chain
 		 * having any data in.
 		 */
-		addr = mmap(*tgt_addr, size, vma->e->prot | PROT_WRITE, vma->e->flags | MAP_FIXED | flag, vma->e->fd,
+		addr = mmap(*tgt_addr, size, vma->e->prot | PROT_WRITE, vma->e->flags | MAP_FIXED | MAP_NORESERVE | flag, vma->e->fd,
 			    vma->e->pgoff);
 
 		if (addr == MAP_FAILED) {
