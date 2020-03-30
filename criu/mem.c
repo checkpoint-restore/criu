@@ -29,7 +29,7 @@
 #include "pagemap-cache.h"
 #include "fault-injection.h"
 #include "prctl.h"
-#include <compel/compel.h>
+#include "compel/infect-util.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"

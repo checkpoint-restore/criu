@@ -39,6 +39,7 @@ int main(int argc, char **argv)
 	int i;
 	uint8_t buf[0x100000];
 	char *file_path;
+	int pipe_size;
 
 	test_init(argc, argv);
 
@@ -83,6 +84,14 @@ int main(int argc, char **argv)
 				ret = errno;
 				return ret;
 			}
+
+			pipe_size = fcntl(writefd, F_SETPIPE_SZ, sizeof(buf));
+			if (pipe_size != sizeof(buf)) {
+				pr_perror("fcntl(writefd, F_SETPIPE_SZ) -> %d", pipe_size);
+				kill(0, SIGKILL);
+				exit(1);
+			}
+
 			signal(SIGPIPE, SIG_IGN);
 			if (pipe_in2out(readfd, writefd, buf, sizeof(buf)) < 0)
 				/* pass errno as exit code to the parent */
@@ -100,6 +109,13 @@ int main(int argc, char **argv)
 	writefd = open(file_path, O_WRONLY);
 	if (writefd < 0) {
 		pr_perror("open(%s, O_WRONLY) failed", file_path);
+		kill(0, SIGKILL);
+		exit(1);
+	}
+
+	pipe_size = fcntl(writefd, F_SETPIPE_SZ, sizeof(buf));
+	if (pipe_size != sizeof(buf)) {
+		pr_perror("fcntl(writefd, F_SETPIPE_SZ) -> %d", pipe_size);
 		kill(0, SIGKILL);
 		exit(1);
 	}
@@ -138,12 +154,13 @@ int main(int argc, char **argv)
 
 		for (p = rbuf, len = wlen; len > 0; p += rlen, len -= rlen) {
 			rlen = read(readfd, p, len);
+			if (rlen < 0 && errno == EINTR) {
+				continue;
+			}
+
 			if (rlen <= 0)
 				break;
 		}
-
-		if (rlen < 0 && errno == EINTR)
-			continue;
 
 		if (len > 0) {
 			fail("read failed: %m\n");

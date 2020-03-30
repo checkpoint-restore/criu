@@ -11,7 +11,7 @@
 #include "parasite.h"
 #include "parasite-syscall.h"
 #include "images/mm.pb-c.h"
-#include <compel/compel.h>
+#include "compel/infect.h"
 
 #define NR_IOEVENTS_IN_NPAGES(npages) ((PAGE_SIZE * (npages) - sizeof(struct aio_ring)) / sizeof(struct io_event))
 

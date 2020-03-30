@@ -15,6 +15,8 @@ message ghost_file_entry {
 	optional timeval	mtim		= 8;
 	optional bool		chunks		= 9;
 	optional uint64		size		= 10;
+	/* this field makes sense only when S_ISLNK(mode) */
+	optional string		symlnk_target	= 11;
 }
 
 message ghost_chunk_entry {

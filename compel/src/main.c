@@ -13,8 +13,6 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#include "uapi/compel/compel.h"
-
 #include "version.h"
 #include "piegen.h"
 #include "log.h"

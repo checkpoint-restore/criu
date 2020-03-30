@@ -152,6 +152,8 @@ endef
 
 define FEATURE_TEST_NFTABLES_LIB_API_0
 
+#include <string.h>
+
 #include <nftables/libnftables.h>
 
 int main(int argc, char **argv)
@@ -170,4 +172,15 @@ int main(int argc, char **argv)
 	return nft_run_cmd_from_buffer(nft_ctx_new(NFT_CTX_DEFAULT), \"cmd\");
 }
 
+endef
+
+define FEATURE_TEST_MEMFD_CREATE
+
+#include <sys/mman.h>
+#include <stddef.h>
+
+int main(void)
+{
+	return memfd_create(NULL, 0);
+}
 endef

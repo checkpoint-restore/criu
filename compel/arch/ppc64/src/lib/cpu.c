@@ -2,6 +2,7 @@
 #include <asm/cputable.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "compel-cpu.h"
 

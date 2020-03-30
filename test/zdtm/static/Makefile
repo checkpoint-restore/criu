@@ -220,6 +220,12 @@ TST_NOFILE	:=				\
 		child_subreaper			\
 		child_subreaper_existing_child	\
 		child_subreaper_and_reparent	\
+		memfd00				\
+		memfd01				\
+		memfd02				\
+		memfd03				\
+		shmemfd				\
+		shmemfd-priv			\
 #		jobctl00			\
 
 ifneq ($(ARCH),arm)
@@ -359,6 +365,9 @@ TST_DIR		=				\
 		private_bind_propagation	\
 		ghost_on_rofs			\
 		overmounted_file		\
+		opath_file			\
+		symlink				\
+		symlink01			\
 
 TST_DIR_FILE	=				\
 		chroot				\
@@ -534,6 +543,7 @@ clone_fs:		LDLIBS += -pthread
 # we have to explicitly specify both .o and .d for this case:
 netns_sub_veth.o netns_sub_veth.d: CPPFLAGS += $(call pkg-cflags, libnl-3.0)
 netns_sub_veth:		LDLIBS += $(call pkg-libs, libnl-route-3.0 libnl-3.0)
+symlink01:		CFLAGS += -DZDTM_UNLINK_SYMLINK
 
 socket-tcp-fin-wait1:	CFLAGS += -D ZDTM_TCP_FIN_WAIT1
 socket-tcp-fin-wait2:	CFLAGS += -D ZDTM_TCP_FIN_WAIT2

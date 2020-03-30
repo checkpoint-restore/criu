@@ -3,7 +3,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/uio.h>
 
 /*
  * Because of kernel doing kmalloc for user data passed

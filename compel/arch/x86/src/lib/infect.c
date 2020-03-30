@@ -3,6 +3,7 @@
 #include <sys/auxv.h>
 #include <sys/mman.h>
 #include <sys/user.h>
+#include <errno.h>
 
 #include <compel/asm/fpu.h>
 

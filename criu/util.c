@@ -30,6 +30,8 @@
 
 #include "linux/mount.h"
 
+#include "linux/mount.h"
+
 #include "kerndat.h"
 #include "page.h"
 #include "util.h"

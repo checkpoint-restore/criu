@@ -1,4 +1,3 @@
-#include <compel/compel.h>
 
 static struct syscall_exec_desc sc_exec_table_64[] = {
 #include "sys-exec-tbl-64.c"

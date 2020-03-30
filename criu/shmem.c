@@ -23,6 +23,7 @@
 #include "types.h"
 #include "page.h"
 #include "util.h"
+#include "memfd.h"
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
 
@@ -490,7 +491,7 @@ static int do_restore_shmem_content(void *addr, unsigned long size, unsigned lon
 	return ret;
 }
 
-static int restore_shmem_content(void *addr, struct shmem_info *si)
+int restore_shmem_content(void *addr, struct shmem_info *si)
 {
 	return do_restore_shmem_content(addr, si->size, si->shmid);
 }
@@ -498,6 +499,41 @@ static int restore_shmem_content(void *addr, struct shmem_info *si)
 int restore_sysv_shmem_content(void *addr, unsigned long size, unsigned long shmid)
 {
 	return do_restore_shmem_content(addr, round_up(size, PAGE_SIZE), shmid);
+}
+
+int restore_memfd_shmem_content(int fd, unsigned long shmid, unsigned long size)
+{
+	void *addr = NULL;
+	int ret = 1;
+
+	if (size == 0)
+		return 0;
+
+	if (ftruncate(fd, size) < 0) {
+		pr_perror("Can't resize shmem 0x%lx size=%ld", shmid, size);
+		goto out;
+	}
+
+	addr = mmap(NULL, size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
+	if (addr == MAP_FAILED) {
+		pr_perror("Can't mmap shmem 0x%lx size=%ld", shmid, size);
+		goto out;
+	}
+
+	/*
+	 * do_restore_shmem_content needs size to be page aligned.
+	 */
+	if (do_restore_shmem_content(addr, round_up(size, PAGE_SIZE), shmid) < 0) {
+		pr_err("Can't restore shmem content\n");
+		goto out;
+	}
+
+	ret = 0;
+
+out:
+	if (addr)
+		munmap(addr, size);
+	return ret;
 }
 
 static int open_shmem(int pid, struct vma_area *vma)
@@ -532,7 +568,7 @@ static int open_shmem(int pid, struct vma_area *vma)
 
 	flags = MAP_SHARED;
 	if (kdat.has_memfd) {
-		f = syscall(SYS_memfd_create, "", 0);
+		f = memfd_create("", 0);
 		if (f < 0) {
 			pr_perror("Unable to create memfd");
 			goto err;
@@ -775,6 +811,32 @@ static int dump_one_shmem(struct shmem_info *si)
 	munmap(addr, si->size);
 errc:
 	close(fd);
+err:
+	return ret;
+}
+
+int dump_one_memfd_shmem(int fd, unsigned long shmid, unsigned long size)
+{
+	int ret = -1;
+	void *addr;
+	struct shmem_info si;
+
+	if (size == 0)
+		return 0;
+
+	memset(&si, 0, sizeof(si));
+	si.shmid = shmid;
+	si.size = size;
+
+	addr = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+	if (addr == MAP_FAILED) {
+		pr_perror("Can't mmap shmem 0x%lx", shmid);
+		goto err;
+	}
+
+	ret = do_dump_one_shmem(fd, addr, &si);
+
+	munmap(addr, size);
 err:
 	return ret;
 }

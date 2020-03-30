@@ -34,6 +34,7 @@
 #include "sk-packet.h"
 #include "mount.h"
 #include "signalfd.h"
+#include "memfd.h"
 #include "namespaces.h"
 #include "tun.h"
 #include "timerfd.h"
@@ -44,6 +45,7 @@
 #include "autofs.h"
 #include "parasite.h"
 #include "parasite-syscall.h"
+#include "string.h"
 #include "kerndat.h"
 #include "fdstore.h"
 
@@ -290,8 +292,7 @@ static int fixup_overlayfs(struct fd_parms *p, struct fd_link *link)
 		char buf[PATH_MAX];
 		int n;
 
-		strncpy(buf, link->name, PATH_MAX);
-		buf[PATH_MAX - 1] = 0;
+		strlcpy(buf, link->name, PATH_MAX);
 		n = snprintf(link->name, PATH_MAX, "%s/%s", m->mountpoint, buf + 2);
 		if (n >= PATH_MAX) {
 			pr_err("Not enough space to replace %s\n", buf);
@@ -398,7 +399,10 @@ static int fill_fd_params(struct pid *owner_pid, int fd, int lfd,
 	pr_info("%d fdinfo %d: pos: %#16"PRIx64" flags: %16o/%#x\n",
 			owner_pid->real, fd, p->pos, p->flags, (int)p->fd_flags);
 
-	ret = fcntl(lfd, F_GETSIG, 0);
+	if (p->flags & O_PATH)
+		ret = 0;
+	else
+		ret = fcntl(lfd, F_GETSIG, 0);
 	if (ret < 0) {
 		pr_perror("Can't get owner signum on %d", lfd);
 		return -1;
@@ -541,18 +545,23 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 		return do_dump_gen_file(&p, lfd, ops, e);
 	}
 
-	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode)) {
+	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode) ||
+		S_ISLNK(p.stat.st_mode)) {
 		if (fill_fdlink(lfd, &p, &link))
 			return -1;
 
 		p.link = &link;
-		if (link.name[1] == '/')
-			return do_dump_gen_file(&p, lfd, &regfile_dump_ops, e);
 
-		if (check_ns_proc(&link))
-			return do_dump_gen_file(&p, lfd, &nsfile_dump_ops, e);
+		if (is_memfd(p.stat.st_dev))
+			ops = &memfd_dump_ops;
+		else if (link.name[1] == '/')
+			ops = &regfile_dump_ops;
+		else if (check_ns_proc(&link))
+			ops = &nsfile_dump_ops;
+		else
+			return dump_unsupp_fd(&p, lfd, "reg", link.name + 1, e);
 
-		return dump_unsupp_fd(&p, lfd, "reg", link.name + 1, e);
+		return do_dump_gen_file(&p, lfd, ops, e);
 	}
 
 	if (S_ISFIFO(p.stat.st_mode)) {
@@ -1603,7 +1612,7 @@ int inherit_fd_lookup_id(char *id)
 
 bool inherited_fd(struct file_desc *d, int *fd_p)
 {
-	char buf[32], *id_str;
+	char buf[PATH_MAX], *id_str;
 	int i_fd;
 
 	if (!d->ops->name)
@@ -1720,6 +1729,9 @@ static int collect_one_file(void *o, ProtobufCMessage *base, struct cr_img *i)
 		break;
 	case FD_TYPES__TTY:
 		ret = collect_one_file_entry(fe, fe->tty->id, &fe->tty->base, &tty_cinfo);
+		break;
+	case FD_TYPES__MEMFD:
+		ret = collect_one_file_entry(fe, fe->memfd->id, &fe->memfd->base, &memfd_cinfo);
 		break;
 	}
 

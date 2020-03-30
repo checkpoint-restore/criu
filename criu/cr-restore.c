@@ -67,7 +67,6 @@
 #include "timerfd.h"
 #include "action-scripts.h"
 #include "shmem.h"
-#include <compel/compel.h>
 #include "aio.h"
 #include "lsm.h"
 #include "seccomp.h"
@@ -75,6 +74,8 @@
 #include "sk-queue.h"
 #include "sigframe.h"
 #include "fdstore.h"
+#include "string.h"
+#include "memfd.h"
 #include "string.h"
 
 #include "parasite-syscall.h"
@@ -232,6 +233,9 @@ static int restore_finish_ns_stage(int from, int to)
 
 static int crtools_prepare_shared(void)
 {
+	if (prepare_memfd_inodes())
+		return -1;
+
 	if (prepare_files())
 		return -1;
 
@@ -289,6 +293,7 @@ static struct collect_image_info *cinfos_files[] = {
 	&fanotify_cinfo,
 	&fanotify_mark_cinfo,
 	&ext_file_cinfo,
+	&memfd_cinfo,
 };
 
 /* These images are required to restore namespaces */
@@ -2227,6 +2232,10 @@ static int restore_root_task(struct pstree_item *init)
 skip_ns_bouncing:
 
 	ret = restore_wait_inprogress_tasks();
+	if (ret < 0)
+		goto out_kill;
+
+	ret = apply_memfd_seals();
 	if (ret < 0)
 		goto out_kill;
 

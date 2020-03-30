@@ -4,10 +4,7 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <unistd.h>
-
 #include <fcntl.h>
-
-#include <compel/compel.h>
 
 #include "log.h"
 

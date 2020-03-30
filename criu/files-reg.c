@@ -33,8 +33,10 @@
 #include "namespaces.h"
 #include "proc_parse.h"
 #include "pstree.h"
+#include "string.h"
 #include "fault-injection.h"
 #include "external.h"
+#include "memfd.h"
 
 #include "protobuf.h"
 #include "util.h"
@@ -280,19 +282,53 @@ static int mkreg_ghost(char *path, GhostFileEntry *gfe, struct cr_img *img)
 	return ret;
 }
 
+static int mklnk_ghost(char *path, GhostFileEntry *gfe)
+{
+	if (!gfe->symlnk_target) {
+		pr_err("Ghost symlink target is NULL for %s. Image from old CRIU?\n", path);
+		return -1;
+	}
+
+	if (symlink(gfe->symlnk_target, path) < 0) {
+		/*
+		 * ENOENT case is OK
+		 * Take a look closer on create_ghost() function
+		 */
+		if (errno != ENOENT)
+			pr_perror("symlink(%s, %s) failed", gfe->symlnk_target, path);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int ghost_apply_metadata(const char *path, GhostFileEntry *gfe)
 {
 	struct timeval tv[2];
 	int ret = -1;
 
-	if (chown(path, gfe->uid, gfe->gid) < 0) {
-		pr_perror("Can't reset user/group on ghost %s", path);
-		goto err;
-	}
+	if (S_ISLNK(gfe->mode)) {
+		if (lchown(path, gfe->uid, gfe->gid) < 0) {
+			pr_perror("Can't reset user/group on ghost %s", path);
+			goto err;
+		}
 
-	if (chmod(path, gfe->mode)) {
-		pr_perror("Can't set perms %o on ghost %s", gfe->mode, path);
-		goto err;
+		/*
+		 * We have no lchmod() function, and fchmod() will fail on
+		 * O_PATH | O_NOFOLLOW fd. Yes, we have fchmodat()
+		 * function and flag AT_SYMLINK_NOFOLLOW described in
+		 * man 2 fchmodat, but it is not currently implemented. %)
+		 */
+	} else {
+		if (chown(path, gfe->uid, gfe->gid) < 0) {
+			pr_perror("Can't reset user/group on ghost %s", path);
+			goto err;
+		}
+
+		if (chmod(path, gfe->mode)) {
+			pr_perror("Can't set perms %o on ghost %s", gfe->mode, path);
+			goto err;
+		}
 	}
 
 	if (gfe->atim) {
@@ -351,6 +387,9 @@ again:
 	} else if (S_ISDIR(gfe->mode)) {
 		if ((ret = mkdirpat(AT_FDCWD, path, gfe->mode)) < 0)
 			msg = "Can't make ghost dir";
+	} else if (S_ISLNK(gfe->mode)) {
+		if ((ret = mklnk_ghost(path, gfe)) < 0)
+			msg = "Can't create ghost symlink";
 	} else {
 		if ((ret = mkreg_ghost(path, gfe, img)) < 0)
 			msg = "Can't create ghost regfile";
@@ -456,7 +495,7 @@ static int open_remap_ghost(struct reg_file_info *rfi,
 	gf->remap.rmnt_id = rfi->rfe->mnt_id;
 
 	if (S_ISDIR(gfe->mode))
-		strncpy(gf->remap.rpath, rfi->path, PATH_MAX);
+		strlcpy(gf->remap.rpath, rfi->path, PATH_MAX);
 	else
 		ghost_path(gf->remap.rpath, PATH_MAX, rfi, rpe);
 
@@ -738,6 +777,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 	int exit_code = -1;
 	GhostFileEntry gfe = GHOST_FILE_ENTRY__INIT;
 	Timeval atim = TIMEVAL__INIT, mtim = TIMEVAL__INIT;
+	char pathbuf[PATH_MAX];
 
 	pr_info("Dumping ghost file contents (id %#x)\n", id);
 
@@ -771,19 +811,47 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 		gfe.size = st->st_size;
 	}
 
+	/*
+	 * We set gfe.symlnk_target only if we need to dump
+	 * symlink content, otherwise we leave it NULL.
+	 * It will be taken into account on restore in mklnk_ghost function.
+	 */
+	if (S_ISLNK(st->st_mode)) {
+		ssize_t ret;
+
+		/*
+		 * We assume that _fd opened with O_PATH | O_NOFOLLOW
+		 * flags because S_ISLNK(st->st_mode). With current kernel version,
+		 * it's looks like correct assumption in any case.
+		 */
+		ret = readlinkat(_fd, "", pathbuf, sizeof(pathbuf) - 1);
+		if (ret < 0) {
+			pr_perror("Can't readlinkat");
+			goto err_out;
+		}
+
+		pathbuf[ret] = 0;
+
+		if (ret != st->st_size) {
+			pr_err("Buffer for readlinkat is too small: ret %zd, st_size %"PRId64", buf %u %s\n",
+					ret, st->st_size, PATH_MAX, pathbuf);
+			goto err_out;
+		}
+
+		gfe.symlnk_target = pathbuf;
+	}
+
 	if (pb_write_one(img, &gfe, PB_GHOST_FILE))
 		goto err_out;
 
 	if (S_ISREG(st->st_mode)) {
 		int fd, ret;
-		char lpath[PSFDS];
 
 		/*
 		 * Reopen file locally since it may have no read
 		 * permissions when drained
 		 */
-		sprintf(lpath, "/proc/self/fd/%d", _fd);
-		fd = open(lpath, O_RDONLY);
+		fd = open_proc(PROC_SELF, "fd/%d", _fd);
 		if (fd < 0) {
 			pr_perror("Can't open ghost original file");
 			goto err_out;
@@ -1116,6 +1184,7 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms,
 	int ret, mntns_root;
 	struct stat pst;
 	const struct stat *ost = &parms->stat;
+	int flags = 0;
 
 	if (parms->fs_type == PROC_SUPER_MAGIC) {
 		/* The file points to /proc/pid/<foo> where pid is a dead
@@ -1212,7 +1281,10 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms,
 	if (mntns_root < 0)
 		return -1;
 
-	ret = fstatat(mntns_root, rpath, &pst, 0);
+	if (S_ISLNK(parms->stat.st_mode))
+		flags = AT_SYMLINK_NOFOLLOW;
+
+	ret = fstatat(mntns_root, rpath, &pst, flags);
 	if (ret < 0) {
 		/*
 		 * Linked file, but path is not accessible (unless any
@@ -1776,11 +1848,17 @@ static int do_open_reg(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 	if (fd < 0)
 		return fd;
 
-	if ((rfi->rfe->pos != -1ULL) &&
-			lseek(fd, rfi->rfe->pos, SEEK_SET) < 0) {
-		pr_perror("Can't restore file pos");
-		close(fd);
-		return -1;
+	/*
+	 * O_PATH opened files carry empty fops in kernel,
+	 * just ignore positioning at all.
+	 */
+	if (!(rfi->rfe->flags & O_PATH)) {
+		if (rfi->rfe->pos != -1ULL &&
+		    lseek(fd, rfi->rfe->pos, SEEK_SET) < 0) {
+			pr_perror("Can't restore file pos");
+			close(fd);
+			return -1;
+		}
 	}
 
 	return fd;
@@ -1879,7 +1957,10 @@ static int open_filemap(int pid, struct vma_area *vma)
 	flags = vma->e->fdflags;
 
 	if (ctx.flags != flags || ctx.desc != vma->vmfd) {
-		ret = open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
+		if (vma->e->status & VMA_AREA_MEMFD)
+			ret = memfd_open(vma->vmfd, &flags);
+		else
+			ret = open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
 		if (ret < 0)
 			return ret;
 
@@ -1909,7 +1990,10 @@ int collect_filemap(struct vma_area *vma)
 			vma->e->fdflags = O_RDONLY;
 	}
 
-	fd = collect_special_file(vma->e->shmid);
+	if (vma->e->status & VMA_AREA_MEMFD)
+		fd = collect_memfd(vma->e->shmid);
+	else
+		fd = collect_special_file(vma->e->shmid);
 	if (!fd)
 		return -1;
 

@@ -1,5 +1,5 @@
 #include "compel/asm/fpu.h"
-#include "compel/compel.h"
+#include "compel/infect.h"
 #include "compel/plugins/std/syscall-codes.h"
 #include "cpu.h"
 #include "cr_options.h"

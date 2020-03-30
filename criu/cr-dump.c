@@ -80,6 +80,7 @@
 #include "fault-injection.h"
 #include "dump.h"
 #include "eventpoll.h"
+#include "memfd.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
@@ -414,7 +415,10 @@ static int dump_filemap(struct vma_area *vma_area, int fd)
 
 	/* Flags will be set during restore in open_filmap() */
 
-	ret = dump_one_reg_file_cond(fd, &id, &p);
+	if (vma->status & VMA_AREA_MEMFD)
+		ret = dump_one_memfd_cond(fd, &id, &p);
+	else
+		ret = dump_one_reg_file_cond(fd, &id, &p);
 
 	vma->shmid = id;
 	return ret;

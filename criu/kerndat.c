@@ -33,7 +33,6 @@
 #include "net.h"
 #include "tun.h"
 #include <compel/plugins/std/syscall-codes.h>
-#include <compel/compel.h>
 #include "netfilter.h"
 #include "fsnotify.h"
 #include "linux/userfaultfd.h"
@@ -42,6 +41,7 @@
 #include "vdso.h"
 #include "kcmp.h"
 #include "sched.h"
+#include "memfd.h"
 
 struct kerndat_s kdat = {
 };
@@ -409,7 +409,7 @@ static bool kerndat_has_memfd_create(void)
 {
 	int ret;
 
-	ret = syscall(SYS_memfd_create, NULL, 0);
+	ret = memfd_create(NULL, 0);
 
 	if (ret == -1 && errno == ENOSYS)
 		kdat.has_memfd = false;

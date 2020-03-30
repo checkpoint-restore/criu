@@ -41,6 +41,7 @@
 #include "timerfd.h"
 #include "path.h"
 #include "fault-injection.h"
+#include "memfd.h"
 
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
@@ -303,6 +304,26 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma,
 	}
 
 	vfi_dev = makedev(vfi->dev_maj, vfi->dev_min);
+
+	if (is_memfd(vfi_dev)) {
+		struct fd_link link;
+		link.len = strlen(fname);
+		strlcpy(link.name, fname, sizeof(link.name));
+		strip_deleted(&link);
+
+		/*
+		 * The error EPERM will be shown in the following pr_perror().
+		 * It comes from the previous open() call.
+		 */
+		pr_perror("Can't open mapped [%s]", link.name);
+
+		/*
+		 * TODO Perhaps we could do better than failing and dump the
+		 * memory like what is being done in shmem.c
+		 */
+		return -1;
+	}
+
 	if (is_anon_shmem_map(vfi_dev)) {
 		if (!(vma->e->flags & MAP_SHARED))
 			return -1;
@@ -563,6 +584,14 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area,
 		vma_area->e->shmid = prev->e->shmid;
 		vma_area->vmst = prev->vmst;
 		vma_area->mnt_id = prev->mnt_id;
+
+		if (!(vma_area->e->status & VMA_AREA_SYSVIPC)) {
+			vma_area->e->status &= ~(VMA_FILE_PRIVATE | VMA_FILE_SHARED);
+			if (vma_area->e->flags & MAP_PRIVATE)
+				vma_area->e->status |= VMA_FILE_PRIVATE;
+			else
+				vma_area->e->status |= VMA_FILE_SHARED;
+		}
 	} else if (*vm_file_fd >= 0) {
 		struct stat *st_buf = vma_area->vmst;
 
@@ -575,25 +604,21 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area,
 			goto err;
 		}
 
-		/*
-		 * /dev/zero stands for anon-shared mapping
-		 * otherwise it's some file mapping.
-		 */
-		if (is_anon_shmem_map(st_buf->st_dev)) {
-			if (!(vma_area->e->flags & MAP_SHARED))
-				goto err_bogus_mapping;
+		if (is_anon_shmem_map(st_buf->st_dev) && !strncmp(file_path, "/SYSV", 5)) {
 			vma_area->e->flags  |= MAP_ANONYMOUS;
 			vma_area->e->status |= VMA_ANON_SHARED;
 			vma_area->e->shmid = st_buf->st_ino;
-
-			if (!strncmp(file_path, "/SYSV", 5)) {
-				pr_info("path: %s\n", file_path);
-				vma_area->e->status |= VMA_AREA_SYSVIPC;
-			} else {
+			if (!(vma_area->e->flags & MAP_SHARED))
+				goto err_bogus_mapping;
+			pr_info("path: %s\n", file_path);
+			vma_area->e->status |= VMA_AREA_SYSVIPC;
+		} else {
+			if (is_anon_shmem_map(st_buf->st_dev)) {
+				vma_area->e->status |= VMA_AREA_MEMFD;
 				if (fault_injected(FI_HUGE_ANON_SHMEM_ID))
 					vma_area->e->shmid += FI_HUGE_ANON_SHMEM_ID_BASE;
 			}
-		} else {
+
 			if (vma_area->e->flags & MAP_PRIVATE)
 				vma_area->e->status |= VMA_FILE_PRIVATE;
 			else

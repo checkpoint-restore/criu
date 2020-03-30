@@ -1,6 +1,5 @@
 #include <string.h>
-
-#include "uapi/compel.h"
+#include <errno.h>
 
 #include "handle-elf.h"
 #include "piegen.h"
