@@ -25,8 +25,13 @@ static char *image_name(struct cr_img *img)
 	int fd = img->_x.fd;
 	static char image_path[PATH_MAX];
 
-	if (read_fd_link(fd, image_path, sizeof(image_path)) > 0)
+	if (lazy_image(img))
+		return img->path;
+	else if (empty_image(img))
+		return "(empty-image)";
+	else if (fd >= 0 && read_fd_link(fd, image_path, sizeof(image_path)) > 0)
 		return image_path;
+
 	return NULL;
 }
 
