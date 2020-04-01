@@ -498,11 +498,109 @@ static int read_pstree_ids(struct pstree_item *pi)
 	return 0;
 }
 
+/*
+ * Returns <0 on error, 0 on eof and >0 on successful read
+ */
+static int read_one_pstree_item(struct cr_img *img, pid_t *pid_max)
+{
+	struct pstree_item *pi;
+	PstreeEntry *e;
+	int ret, i;
+
+	ret = pb_read_one_eof(img, &e, PB_PSTREE);
+	if (ret <= 0)
+		return ret;
+
+	ret = -1;
+	pi = lookup_create_item(e->pid);
+	if (pi == NULL)
+		goto err;
+	BUG_ON(pi->pid->state != TASK_UNDEF);
+
+	/*
+	 * All pids should be added in the tree to be able to find
+	 * free pid-s for helpers. pstree_item for these pid-s will
+	 * be initialized when we meet PstreeEntry with this pid or
+	 * we will create helpers for them.
+	 */
+	if (lookup_create_item(e->pgid) == NULL)
+		goto err;
+	if (lookup_create_item(e->sid) == NULL)
+		goto err;
+
+	pi->pid->ns[0].virt = e->pid;
+	if (e->pid > *pid_max)
+		*pid_max = e->pid;
+	pi->pgid = e->pgid;
+	if (e->pgid > *pid_max)
+		*pid_max = e->pgid;
+	pi->sid = e->sid;
+	if (e->sid > *pid_max)
+		*pid_max = e->sid;
+	pi->pid->state = TASK_ALIVE;
+
+	if (e->ppid == 0) {
+		if (root_item) {
+			pr_err("Parent missed on non-root task "
+			       "with pid %d, image corruption!\n", e->pid);
+			goto err;
+		}
+		root_item = pi;
+		pi->parent = NULL;
+	} else {
+		struct pid *pid;
+		struct pstree_item *parent;
+
+		pid = pstree_pid_by_virt(e->ppid);
+		if (!pid || pid->state == TASK_UNDEF || pid->state == TASK_THREAD) {
+			pr_err("Can't find a parent for %d\n", vpid(pi));
+			goto err;
+		}
+
+		parent = pid->item;
+		pi->parent = parent;
+		list_add(&pi->sibling, &parent->children);
+	}
+
+	pi->nr_threads = e->n_threads;
+	pi->threads = xmalloc(e->n_threads * sizeof(struct pid));
+	if (!pi->threads)
+		goto err;
+
+	for (i = 0; i < e->n_threads; i++) {
+		struct pid *node;
+		pi->threads[i].real = -1;
+		pi->threads[i].ns[0].virt = e->threads[i];
+		pi->threads[i].state = TASK_THREAD;
+		pi->threads[i].item = NULL;
+		if (i == 0)
+			continue; /* A thread leader is in a tree already */
+		node = lookup_create_pid(pi->threads[i].ns[0].virt, &pi->threads[i]);
+
+		BUG_ON(node == NULL);
+		if (node != &pi->threads[i]) {
+			pr_err("Unexpected task %d in a tree %d\n", e->threads[i], i);
+			goto err;
+		}
+	}
+
+	task_entries->nr_threads += e->n_threads;
+	task_entries->nr_tasks++;
+
+	/* note: we don't fail if we have empty ids */
+	if (read_pstree_ids(pi) < 0)
+		goto err;
+
+	ret = 1;
+err:
+	pstree_entry__free_unpacked(e, NULL);
+	return ret;
+}
+
 static int read_pstree_image(pid_t *pid_max)
 {
-	int ret = 0, i;
 	struct cr_img *img;
-	struct pstree_item *pi;
+	int ret;
 
 	pr_info("Reading image tree\n");
 
@@ -510,99 +608,10 @@ static int read_pstree_image(pid_t *pid_max)
 	if (!img)
 		return -1;
 
-	while (1) {
-		PstreeEntry *e;
+	do {
+		ret = read_one_pstree_item(img, pid_max);
+	} while (ret > 0);
 
-		ret = pb_read_one_eof(img, &e, PB_PSTREE);
-		if (ret <= 0)
-			break;
-
-		ret = -1;
-		pi = lookup_create_item(e->pid);
-		if (pi == NULL)
-			break;
-		BUG_ON(pi->pid->state != TASK_UNDEF);
-
-		/*
-		 * All pids should be added in the tree to be able to find
-		 * free pid-s for helpers. pstree_item for these pid-s will
-		 * be initialized when we meet PstreeEntry with this pid or
-		 * we will create helpers for them.
-		 */
-		if (lookup_create_item(e->pgid) == NULL)
-			break;
-		if (lookup_create_item(e->sid) == NULL)
-			break;
-
-		pi->pid->ns[0].virt = e->pid;
-		if (e->pid > *pid_max)
-			*pid_max = e->pid;
-		pi->pgid = e->pgid;
-		if (e->pgid > *pid_max)
-			*pid_max = e->pgid;
-		pi->sid = e->sid;
-		if (e->sid > *pid_max)
-			*pid_max = e->sid;
-		pi->pid->state = TASK_ALIVE;
-
-		if (e->ppid == 0) {
-			if (root_item) {
-				pr_err("Parent missed on non-root task "
-				       "with pid %d, image corruption!\n", e->pid);
-				goto err;
-			}
-			root_item = pi;
-			pi->parent = NULL;
-		} else {
-			struct pid *pid;
-			struct pstree_item *parent;
-
-			pid = pstree_pid_by_virt(e->ppid);
-			if (!pid || pid->state == TASK_UNDEF || pid->state == TASK_THREAD) {
-				pr_err("Can't find a parent for %d\n", vpid(pi));
-				pstree_entry__free_unpacked(e, NULL);
-				xfree(pi);
-				goto err;
-			}
-
-			parent = pid->item;
-			pi->parent = parent;
-			list_add(&pi->sibling, &parent->children);
-		}
-
-		pi->nr_threads = e->n_threads;
-		pi->threads = xmalloc(e->n_threads * sizeof(struct pid));
-		if (!pi->threads)
-			break;
-
-		for (i = 0; i < e->n_threads; i++) {
-			struct pid *node;
-			pi->threads[i].real = -1;
-			pi->threads[i].ns[0].virt = e->threads[i];
-			pi->threads[i].state = TASK_THREAD;
-			pi->threads[i].item = NULL;
-			if (i == 0)
-				continue; /* A thread leader is in a tree already */
-			node = lookup_create_pid(pi->threads[i].ns[0].virt, &pi->threads[i]);
-
-			BUG_ON(node == NULL);
-			if (node != &pi->threads[i]) {
-				pr_err("Unexpected task %d in a tree %d\n", e->threads[i], i);
-				return -1;
-			}
-		}
-
-		task_entries->nr_threads += e->n_threads;
-		task_entries->nr_tasks++;
-
-		pstree_entry__free_unpacked(e, NULL);
-
-		ret = read_pstree_ids(pi);
-		if (ret < 0)
-			goto err;
-	}
-
-err:
 	close_image(img);
 	return ret;
 }
