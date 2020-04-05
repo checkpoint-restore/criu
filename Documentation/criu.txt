@@ -637,6 +637,13 @@ Launches *criu* in page server mode.
     Useful for intercepting page-server traffic e.g. to add encryption
     or authentication.
 
+*--images-dir* 'path'::
+    Use 'path' as a base directory where to store the sets of image files.
+
+*--prev-images-dir* 'path'::
+    Use 'path' as a parent directory where to look for sets of image files.
+    This option makes sense in case of incremental dumps or iterative migrations.
+
 *--lazy-pages*::
     Serve local memory dump to a remote *lazy-pages* daemon. In this
     mode the *page-server* reads local memory dump and allows the
