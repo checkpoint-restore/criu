@@ -165,6 +165,7 @@ extern struct parasite_blob_desc *compel_parasite_blob_desc(struct parasite_ctl 
 extern int __must_check compel_get_thread_regs(struct parasite_thread_ctl *, save_regs_t, void *);
 
 extern void compel_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *elf_relocs, size_t nr_relocs);
+extern void compel_relocs_apply_mips(void *mem, void *vbase, compel_reloc_t *elf_relocs, size_t nr_relocs);
 
 extern unsigned long compel_task_size(void);
 

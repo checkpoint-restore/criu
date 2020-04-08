@@ -817,7 +817,9 @@ err_cure:
 void compel_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *elf_relocs, size_t nr_relocs)
 {
 	size_t i, j;
-
+#ifdef CONFIG_MIPS
+	compel_relocs_apply_mips(mem, vbase, elf_relocs, nr_relocs);
+#else
 	for (i = 0, j = 0; i < nr_relocs; i++) {
 		if (elf_relocs[i].type & COMPEL_TYPE_LONG) {
 			long *where = mem + elf_relocs[i].offset;
@@ -840,6 +842,7 @@ void compel_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *el
 		} else
 			BUG();
 	}
+#endif
 }
 
 static int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size)

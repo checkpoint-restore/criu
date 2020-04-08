@@ -53,11 +53,14 @@ static const flags_t flags = {
 #elif defined CONFIG_S390
 	.arch		= "s390",
 	.cflags		= COMPEL_CFLAGS_PIE,
+#elif defined CONFIG_MIPS
+	.arch		= "mips",
 #else
 #error "CONFIG_<ARCH> not defined, or unsupported ARCH"
 #endif
 };
 
+piegen_opt_t opts = {};
 const char *uninst_root;
 
 static int piegen(void)
