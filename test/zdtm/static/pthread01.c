@@ -27,6 +27,11 @@ static __thread struct tls_data_s {
 static task_waiter_t t1;
 static task_waiter_t t2;
 
+#ifdef CONFIG_MIPS
+#ifndef SIGSTKFLT
+#define SIGSTKFLT 16
+#endif
+#endif
 static char *decode_signal(const sigset_t *s, char *buf)
 {
 	buf[0] = '\0';
