@@ -403,7 +403,7 @@ pid_t sys_clone_unified(unsigned long flags, void *child_stack, void *parent_tid
 {
 #ifdef __x86_64__
 	return (pid_t)syscall(__NR_clone, flags, child_stack, parent_tid, child_tid, newtls);
-#elif (__i386__ || __arm__ || __aarch64__ ||__powerpc64__)
+#elif (__i386__ || __arm__ || __aarch64__ ||__powerpc64__ || __mips__)
 	return (pid_t)syscall(__NR_clone, flags, child_stack, parent_tid, newtls, child_tid);
 #elif __s390x__
 	return (pid_t)syscall(__NR_clone, child_stack, flags, parent_tid, child_tid, newtls);
