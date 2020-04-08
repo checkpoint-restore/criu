@@ -16,7 +16,12 @@ asflags-y		+= -I compel/include/uapi
 
 # General compel includes
 ccflags-y		+= -iquote compel/include
+
+ifeq ($(ARCH),mips)
+ccflags-y		+= -mno-abicalls -fno-pic -fno-stack-protector
+else
 ccflags-y		+= -fpie -fno-stack-protector
+endif
 
 # General compel/plugins includes
 ccflags-y		+= -iquote $(obj)/include
@@ -28,7 +33,12 @@ asflags-y		+= -iquote $(PLUGIN_ARCH_DIR)/include
 asflags-y		+= -iquote $(PLUGIN_ARCH_DIR)
 
 # General flags for assembly
+ifeq ($(ARCH),mips)
+asflags-y		+= -mno-abicalls -fno-pic -Wstrict-prototypes
+else
 asflags-y		+= -fpie -Wstrict-prototypes
+endif
+
 asflags-y		+= -nostdlib -fomit-frame-pointer
 asflags-y		+= -fno-stack-protector
 ldflags-y		+= -z noexecstack
@@ -54,6 +64,10 @@ target			+= fds
 fds-lib-y		+= fds/fds.o
 
 ifeq ($(ARCH),x86)
+	std-lib-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcpy.o
+endif
+
+ifeq ($(ARCH),mips)
 	std-lib-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcpy.o
 endif
 
