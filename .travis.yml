@@ -12,13 +12,8 @@ env:
   - TR_ARCH=x86_64
   - TR_ARCH=x86_64      CLANG=1
   - TR_ARCH=openj9-test
-  - TR_ARCH=vagrant-fedora-no-vdso
 jobs:
   include:
-    - os: linux
-      arch: amd64
-      env: TR_ARCH=local
-      dist: focal
     - os: linux
       arch: ppc64le
       env: TR_ARCH=local
@@ -56,7 +51,7 @@ jobs:
     - os: linux
       arch: amd64
       env: TR_ARCH=fedora-rawhide
-      dist: bionic
+      dist: xenial # test hangs on bionic
     - os: linux
       arch: amd64
       env: TR_ARCH=podman-test
@@ -74,20 +69,35 @@ jobs:
     - os: linux
       arch: amd64
       env: TR_ARCH=alpine      CLANG=1
-      dist: bionic
+      dist: xenial # test hangs on bionic
     - os: linux
       arch: amd64
       env: TR_ARCH=alpine
-      dist: bionic
+      dist: xenial # test hangs on bionic
     - os: linux
       arch: amd64
       env: TR_ARCH=centos
-      dist: bionic
+      dist: xenial # test hangs on bionic
     - os: linux
       arch: amd64
       env: TR_ARCH=fedora-asan
+      dist: xenial # test hangs on bionic
+    - os: linux
+      arch: amd64
+      env: TR_ARCH=armv7-cross
       dist: bionic
-    - env: TR_ARCH=local STREAM_TEST=1
+    - os: linux
+      arch: amd64
+      env: TR_ARCH=aarch64-cross
+      dist: bionic
+    - os: linux
+      arch: amd64
+      env: TR_ARCH=ppc64-cross
+      dist: bionic
+    - os: linux
+      arch: amd64
+      env: TR_ARCH=mips64el-cross
+      dist: bionic
   allow_failures:
     - env: TR_ARCH=docker-test
     - env: TR_ARCH=docker-test DIST=xenial
