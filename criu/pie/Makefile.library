@@ -23,3 +23,7 @@ endif
 
 CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
 CFLAGS		+= $(CFLAGS_PIE)
+
+ifeq ($(ARCH),mips)
+CFLAGS			+= -fno-stack-protector -DCR_NOGLIBC -mno-abicalls -fno-pic
+endif

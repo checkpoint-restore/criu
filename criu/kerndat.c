@@ -1007,6 +1007,15 @@ static bool kerndat_has_clone3_set_tid(void)
 	pid_t pid;
 	struct _clone_args args = {};
 
+#if defined(CONFIG_MIPS)
+	/*
+	 * Currently the CRIU PIE assembler clone3() wrapper is
+	 * not implemented for MIPS.
+	 */
+	kdat.has_clone3_set_tid = false;
+	return 0;
+#endif
+
 	args.set_tid = -1;
 	/*
 	 * On a system without clone3() this will return ENOSYS.

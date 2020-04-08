@@ -461,9 +461,16 @@ static int restore_native_sigaction(int sig, SaEntry *e)
 	ASSIGN_TYPED(act.rt_sa_handler, decode_pointer(e->sigaction));
 	ASSIGN_TYPED(act.rt_sa_flags, e->flags);
 	ASSIGN_TYPED(act.rt_sa_restorer, decode_pointer(e->restorer));
+#ifdef CONFIG_MIPS
+	e->has_mask_extended = 1;
+	BUILD_BUG_ON(sizeof(e->mask)* 2 != sizeof(act.rt_sa_mask.sig));
+
+	memcpy(&(act.rt_sa_mask.sig[0]), &e->mask, sizeof(act.rt_sa_mask.sig[0]));
+	memcpy(&(act.rt_sa_mask.sig[1]), &e->mask_extended, sizeof(act.rt_sa_mask.sig[1]));
+#else
 	BUILD_BUG_ON(sizeof(e->mask) != sizeof(act.rt_sa_mask.sig));
 	memcpy(act.rt_sa_mask.sig, &e->mask, sizeof(act.rt_sa_mask.sig));
-
+#endif
 	if (sig == SIGCHLD) {
 		sigchld_act = act;
 		return 0;

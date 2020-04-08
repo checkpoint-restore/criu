@@ -19,7 +19,7 @@ endif
 
 #
 # Supported Architectures
-ifneq ($(filter-out x86 arm aarch64 ppc64 s390,$(ARCH)),)
+ifneq ($(filter-out x86 arm aarch64 ppc64 s390 mips,$(ARCH)),)
         $(error "The architecture $(ARCH) isn't supported")
 endif
 
@@ -76,6 +76,10 @@ ifeq ($(ARCH),x86)
         DEFINES		:= -DCONFIG_X86_64
 endif
 
+ifeq ($(ARCH),mips)
+        DEFINES		:= -DCONFIG_MIPS 
+endif
+
 #
 # CFLAGS_PIE:
 #
@@ -104,6 +108,10 @@ WARNINGS		:= -Wall -Wformat-security -Wdeclaration-after-statement -Wstrict-prot
 
 CFLAGS-GCOV		:= --coverage -fno-exceptions -fno-inline -fprofile-update=atomic
 export CFLAGS-GCOV
+
+ifeq ($(ARCH),mips)
+WARNINGS		:= -rdynamic
+endif
 
 ifneq ($(GCOV),)
         LDFLAGS         += -lgcov
