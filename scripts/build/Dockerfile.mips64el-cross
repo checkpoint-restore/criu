@@ -1,0 +1,44 @@
+FROM dockcross/base:latest
+
+# Add the cross compiler sources
+RUN echo "deb http://ftp.us.debian.org/debian/ buster main" >> /etc/apt/sources.list && \
+  dpkg --add-architecture mips64el && \
+  apt-get install emdebian-archive-keyring
+
+RUN apt-get update && apt-get install -y \
+	crossbuild-essential-mips64el	\
+	libbz2-dev:mips64el		\
+	libexpat1-dev:mips64el		\
+	ncurses-dev:mips64el		\
+	libssl-dev:mips64el		\
+	protobuf-c-compiler		\
+	protobuf-compiler		\
+	python-protobuf			\
+	libnl-3-dev:mips64el		\
+	libprotobuf-dev:mips64el		\
+	libnet-dev:mips64el		\
+	libprotobuf-c-dev:mips64el		\
+	libcap-dev:mips64el		\
+	libaio-dev:mips64el		\
+	libnl-route-3-dev:mips64el
+
+ENV CROSS_TRIPLE=mips64el-linux-gnuabi64
+ENV CROSS_COMPILE=${CROSS_TRIPLE}-				\
+	CROSS_ROOT=/usr/${CROSS_TRIPLE}				\
+	AS=/usr/bin/${CROSS_TRIPLE}-as				\
+	AR=/usr/bin/${CROSS_TRIPLE}-ar				\
+	CC=/usr/bin/${CROSS_TRIPLE}-gcc				\
+	CPP=/usr/bin/${CROSS_TRIPLE}-cpp			\
+	CXX=/usr/bin/${CROSS_TRIPLE}-g++			\
+	LD=/usr/bin/${CROSS_TRIPLE}-ld				\
+	FC=/usr/bin/${CROSS_TRIPLE}-gfortran
+
+ENV PATH="${PATH}:${CROSS_ROOT}/bin"				\
+	PKG_CONFIG_PATH=/usr/lib/${CROSS_TRIPLE}/pkgconfig	\
+	ARCH=mips						\
+	SUBARCH=mips
+
+COPY . /criu
+WORKDIR /criu
+
+RUN	make mrproper && date && make -j $(nproc) zdtm && date
