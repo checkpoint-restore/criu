@@ -416,7 +416,11 @@ static int maybe_read_page_img_cache(struct page_read *pr, unsigned long vaddr,
 	pr_debug("\tpr%lu-%u Read page from self %lx/%"PRIx64"\n", pr->img_id, pr->id, pr->cvaddr, pr->pi_off);
 	while (1) {
 		ret = read(fd, buf + curr, len - curr);
-		if (ret < 0) {
+		if (ret == 0) {
+			pr_err("Reached EOF unexpectedly while reading page from image\n");
+			return -1;
+		}
+		else if (ret < 0) {
 			pr_perror("Can't read mapping page %d", ret);
 			return -1;
 		}
