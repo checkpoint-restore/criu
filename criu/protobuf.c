@@ -20,16 +20,16 @@
 #include "protobuf.h"
 #include "util.h"
 
-static char *image_name(struct cr_img *img)
+#define  image_name(img, buf) __image_name(img, buf, sizeof(buf))
+static char *__image_name(struct cr_img *img, char *image_path, size_t image_path_size)
 {
 	int fd = img->_x.fd;
-	static char image_path[PATH_MAX];
 
 	if (lazy_image(img))
 		return img->path;
 	else if (empty_image(img))
 		return "(empty-image)";
-	else if (fd >= 0 && read_fd_link(fd, image_path, sizeof(image_path)) > 0)
+	else if (fd >= 0 && read_fd_link(fd, image_path, image_path_size) > 0)
 		return image_path;
 
 	return NULL;
@@ -48,6 +48,7 @@ static char *image_name(struct cr_img *img)
 
 int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 {
+	char img_name_buf[PATH_MAX];
 	u8 local[PB_PKOBJ_LOCAL_SIZE];
 	void *buf = (void *)&local;
 	u32 size;
@@ -55,7 +56,7 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 
 	if (!cr_pb_descs[type].pb_desc) {
 		pr_err("Wrong object requested %d on %s\n",
-			type, image_name(img));
+			type, image_name(img, img_name_buf));
 		return -1;
 	}
 
@@ -70,13 +71,13 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 			return 0;
 		} else {
 			pr_err("Unexpected EOF on %s\n",
-			       image_name(img));
+			       image_name(img, img_name_buf));
 			return -1;
 		}
 	} else if (ret < sizeof(size)) {
 		pr_perror("Read %d bytes while %d expected on %s",
 			  ret, (int)sizeof(size),
-			  image_name(img));
+			  image_name(img, img_name_buf));
 		return -1;
 	}
 
@@ -90,11 +91,11 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 	ret = bread(&img->_x, buf, size);
 	if (ret < 0) {
 		pr_perror("Can't read %d bytes from file %s",
-			  size, image_name(img));
+			  size, image_name(img, img_name_buf));
 		goto err;
 	} else if (ret != size) {
 		pr_perror("Read %d bytes while %d expected from %s",
-			  ret, size, image_name(img));
+			  ret, size, image_name(img, img_name_buf));
 		ret = -1;
 		goto err;
 	}
@@ -103,7 +104,7 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 	if (!*pobj) {
 		ret = -1;
 		pr_err("Failed unpacking object %p from %s\n",
-		       pobj, image_name(img));
+		       pobj, image_name(img, img_name_buf));
 		goto err;
 	}
 
