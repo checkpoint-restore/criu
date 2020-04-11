@@ -1484,25 +1484,27 @@ int parse_timens_offsets(struct timespec *boff, struct timespec *moff)
 	}
 	while (fgets(buf, BUF_SIZE, f)) {
 		int64_t sec, nsec;
-		int clockid;
+		char clockid[10];
 
-		if (sscanf(buf, "%d %"PRId64" %"PRId64"\n", &clockid, &sec, &nsec) != 3) {
+		if (sscanf(buf, "%9s %"PRId64" %"PRId64"\n", clockid, &sec, &nsec) != 3) {
 			pr_err("Unable to parse: %s\n", buf);
 			goto out;
 		}
-		switch (clockid) {
-		case CLOCK_MONOTONIC:
+		clockid[sizeof(clockid) - 1] = 0;
+		if (strcmp(clockid, "monotonic") == 0 ||
+		    strcmp(clockid, __stringify(CLOCK_MONOTONIC)) == 0) {
 			moff->tv_sec = sec;
 			moff->tv_nsec = nsec;
-			break;
-		case CLOCK_BOOTTIME:
+			continue;
+		}
+		if (strcmp(clockid, "boottime") == 0 ||
+		    strcmp(clockid, __stringify(CLOCK_BOOTTIME)) == 0) {
 			boff->tv_sec = sec;
 			boff->tv_nsec = nsec;
-			break;
-		default:
-			pr_err("Unknown clockid: %d\n", clockid);
-			goto out;
+			continue;
 		}
+		pr_err("Unknown clockid: %s\n", clockid);
+		goto out;
 	}
 	exit_code = 0;
 out:
