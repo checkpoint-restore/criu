@@ -16,10 +16,15 @@ struct cr_imgset;
 struct nlmsghdr;
 struct cr_img;
 
+struct socket_table_entry {
+	unsigned int			ino;
+	struct socket_table_entry	*next;
+	void				*obj;
+};
+
 struct socket_desc {
 	unsigned int		family;
 	unsigned int		ino;
-	struct socket_desc	*next;
 	struct ns_id		*sk_ns;
 	int			already_dumped;
 };
@@ -45,8 +50,10 @@ extern int unix_note_scm_rights(int id_for, uint32_t *file_ids, int *fds, int n_
 
 extern struct collect_image_info netlink_sk_cinfo;
 
-extern struct socket_desc *lookup_socket_ino(unsigned int ino, int family);
-extern struct socket_desc *lookup_socket(unsigned int ino, int family, int proto);
+extern int add_socket_table_entry(int ino, void *obj);
+extern struct socket_table_entry *lookup_socket_ino(unsigned int ino);
+extern struct socket_desc *lookup_socket_desc_ino(unsigned int ino, int family);
+extern struct socket_desc *lookup_socket_desc(unsigned int ino, int family, int proto);
 
 extern const struct fdtype_ops unix_dump_ops;
 extern const struct fdtype_ops inet_dump_ops;

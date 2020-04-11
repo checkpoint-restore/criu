@@ -437,9 +437,9 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 		goto err;
 
 	if (type == SOCK_RAW)
-		sk = (struct inet_sk_desc *)lookup_socket_ino(p->stat.st_ino, family);
+		sk = (struct inet_sk_desc *)lookup_socket_desc_ino(p->stat.st_ino, family);
 	else
-		sk = (struct inet_sk_desc *)lookup_socket(p->stat.st_ino, family, proto);
+		sk = (struct inet_sk_desc *)lookup_socket_desc(p->stat.st_ino, family, proto);
 	if (IS_ERR(sk))
 		goto err;
 	if (!sk) {

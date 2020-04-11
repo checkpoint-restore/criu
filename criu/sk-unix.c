@@ -356,7 +356,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 
 	*fown = p->fown;
 
-	sk = (struct unix_sk_desc *)lookup_socket(p->stat.st_ino, PF_UNIX, 0);
+	sk = (struct unix_sk_desc *)lookup_socket_desc(p->stat.st_ino, PF_UNIX, 0);
 	if (IS_ERR_OR_NULL(sk)) {
 		pr_err("Unix socket %d not found\n", (int)p->stat.st_ino);
 		goto err;
@@ -424,7 +424,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 	}
 
 	if (ue->peer) {
-		peer = (struct unix_sk_desc *)lookup_socket(ue->peer, PF_UNIX, 0);
+		peer = (struct unix_sk_desc *)lookup_socket_desc(ue->peer, PF_UNIX, 0);
 		if (IS_ERR_OR_NULL(peer)) {
 			pr_err("Unix socket %u without peer %u\n",
 					ue->ino, ue->peer);

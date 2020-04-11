@@ -425,26 +425,39 @@ static int restore_socket_filter(int sk, SkOptsEntry *soe)
 	return ret;
 }
 
-static struct socket_desc *sockets[SK_HASH_SIZE];
+static struct socket_table_entry *sockets[SK_HASH_SIZE];
 
-struct socket_desc *lookup_socket_ino(unsigned int ino, int family)
+struct socket_table_entry *lookup_socket_ino(unsigned int ino)
+{
+	struct socket_table_entry *entry;
+
+	for (entry = sockets[ino % SK_HASH_SIZE]; entry; entry = entry->next) {
+		if (entry->ino == ino)
+			return entry;
+	}
+
+	return NULL;
+}
+
+struct socket_desc *lookup_socket_desc_ino(unsigned int ino, int family)
 {
 	struct socket_desc *sd;
+	struct socket_table_entry *entry;
 
 	pr_debug("Searching for socket %#x family %d\n", ino, family);
 
-	for (sd = sockets[ino % SK_HASH_SIZE]; sd; sd = sd->next) {
-		if (sd->ino == ino) {
-			BUG_ON(sd->family != family);
-			return sd;
-		}
+	entry = lookup_socket_ino(ino);
+	if(entry) {
+		sd = (struct socket_desc *)entry->obj;
+		BUG_ON(sd->family != family);
+		return sd;
 	}
 
 	return NULL;
 }
 
 
-struct socket_desc *lookup_socket(unsigned int ino, int family, int proto)
+struct socket_desc *lookup_socket_desc(unsigned int ino, int family, int proto)
 {
 	if (!socket_test_collect_bit(family, proto)) {
 		pr_err("Sockets (family %d proto %d) are not collected\n",
@@ -452,23 +465,33 @@ struct socket_desc *lookup_socket(unsigned int ino, int family, int proto)
 		return ERR_PTR(-EINVAL);
 	}
 
-	return lookup_socket_ino(ino, family);
+	return lookup_socket_desc_ino(ino, family);
+}
+
+int add_socket_table_entry(int ino, void *obj)
+{
+	struct socket_table_entry *entry;
+	struct socket_table_entry **chain;
+
+	entry = xmalloc(sizeof(struct socket_table_entry));
+	entry->ino = ino;
+	entry->obj = obj;
+
+	chain = &sockets[entry->ino % SK_HASH_SIZE];
+	entry->next = *chain;
+	*chain = entry;
+
+	return 0;
 }
 
 int sk_collect_one(unsigned ino, int family, struct socket_desc *d, struct ns_id *ns)
 {
-	struct socket_desc **chain;
-
 	d->ino		= ino;
 	d->family	= family;
 	d->already_dumped = 0;
 	d->sk_ns	= ns;
 
-	chain = &sockets[ino % SK_HASH_SIZE];
-	d->next = *chain;
-	*chain = d;
-
-	return 0;
+	return add_socket_table_entry(ino, d);
 }
 
 int do_restore_opt(int sk, int level, int name, void *val, int len)
