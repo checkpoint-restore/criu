@@ -936,14 +936,14 @@ struct scm_fle {
 
 static struct unix_sk_info *find_unix_sk_by_ino(int ino)
 {
-	struct unix_sk_info *ui;
+	struct socket_table_entry *entry;
+	struct unix_sk_info *ui = NULL;
 
-	list_for_each_entry(ui, &unix_sockets, list) {
-		if (ui->ue->ino == ino)
-			return ui;
-	}
+	entry = lookup_socket_ino(ino);
+	if(entry)
+		ui = (struct unix_sk_info *)entry->obj;
 
-	return NULL;
+	return ui;
 }
 
 static struct unix_sk_info *find_queuer_for(int id)
@@ -2135,6 +2135,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 		list_add_tail(&ui->ghost_node, &unix_ghost_addr);
 	}
 
+	add_socket_table_entry(ui->ue->ino, ui);
 	list_add_tail(&ui->list, &unix_sockets);
 	return file_desc_add(&ui->d, ui->ue->id, &unix_desc_ops);
 }
@@ -2195,6 +2196,7 @@ static int add_fake_queuer(struct unix_sk_info *ui)
 	peer->ue->ino = FAKE_INO;
 	file_desc_add(&peer->d, peer_ue->id, &unix_desc_ops);
 	list_del_init(&peer->d.fake_master_list);
+	add_socket_table_entry(FAKE_INO, peer);
 	list_add(&peer->list, &unix_sockets);
 	task = file_master(&ui->d)->task;
 
