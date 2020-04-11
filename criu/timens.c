@@ -92,8 +92,7 @@ int prepare_timens(int id)
 	ts.tv_nsec = te->monotonic->tv_nsec - ts.tv_nsec;
 	normalize_timespec(&ts);
 
-	pr_debug("timens: %d %ld %ld\n",
-		 CLOCK_MONOTONIC, ts.tv_sec, ts.tv_nsec);
+	pr_debug("timens: monotonic %ld %ld\n", ts.tv_sec, ts.tv_nsec);
 	if (dprintf(fd, "%d %ld %ld\n",
 		    CLOCK_MONOTONIC, ts.tv_sec, ts.tv_nsec) < 0) {
 		pr_perror("Unable to set a monotonic clock offset");
@@ -109,8 +108,7 @@ int prepare_timens(int id)
 	ts.tv_nsec = te->boottime->tv_nsec - ts.tv_nsec;
 	normalize_timespec(&ts);
 
-	pr_debug("timens: %d %ld %ld\n",
-		 CLOCK_BOOTTIME, ts.tv_sec, ts.tv_nsec);
+	pr_debug("timens: boottime %ld %ld\n", ts.tv_sec, ts.tv_nsec);
 	if (dprintf(fd, "%d %ld %ld\n",
 		    CLOCK_BOOTTIME, ts.tv_sec, ts.tv_nsec) < 0) {
 		pr_perror("Unable to set a boottime clock offset");
