@@ -90,6 +90,9 @@ struct mount_info {
 };
 
 extern struct mount_info *mntinfo;
+
+extern void mntinfo_add_list_before(struct mount_info **head, struct mount_info *new);
+
 extern struct ns_desc mnt_ns_desc;
 #ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
 extern int collect_binfmt_misc(void);
