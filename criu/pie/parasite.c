@@ -53,7 +53,7 @@ static int mprotect_vmas(struct parasite_dump_pages_args *args)
 		vma = vmas + i;
 		ret = sys_mprotect((void *)vma->start, vma->len, vma->prot | args->add_prot);
 		if (ret) {
-			pr_err("mprotect(%08lx, %lu) failed with code %d\n",
+			pr_err("mprotect(%08lx, %ld) failed with code %d\n",
 						vma->start, vma->len, ret);
 			break;
 		}
@@ -102,7 +102,7 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	}
 	if (spliced_bytes != args->nr_pages * PAGE_SIZE) {
 		sys_close(p);
-		pr_err("Can't splice all pages to pipe (%lu/%d)\n", spliced_bytes, args->nr_pages);
+		pr_err("Can't splice all pages to pipe (%ld/%d)\n", spliced_bytes, args->nr_pages);
 		return -1;
 	}
 
