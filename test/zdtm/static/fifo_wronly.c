@@ -55,8 +55,7 @@ int main(int argc, char **argv)
 			pr_perror("read error %s", filename);
 			chret = errno;
 			return chret;
-		}
-		else if (res == 0) {
+		} else if (res == 0) {
 			pr_perror("read(%d, rbuf, 7) return 0", fd1);
 			return 1;
 		}

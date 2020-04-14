@@ -374,8 +374,7 @@ static int __copy_task_regs(user_regs_struct_t *regs,
 		fpstate = &(core->ti_ppc64->tmstate->fpstate);
 		vrstate = &(core->ti_ppc64->tmstate->vrstate);
 		vsxstate = &(core->ti_ppc64->tmstate->vsxstate);
-	}
-	else {
+	} else {
 		gpregs = core->ti_ppc64->gpregs;
 		fpstate = &(core->ti_ppc64->fpstate);
 		vrstate = &(core->ti_ppc64->vrstate);
