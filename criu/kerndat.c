@@ -1078,8 +1078,6 @@ int kerndat_init(void)
 	if (!ret)
 		ret = kerndat_compat_restore();
 	if (!ret)
-		ret = kerndat_socket_netns();
-	if (!ret)
 		ret = kerndat_tun_netns();
 	if (!ret)
 		ret = kerndat_socket_unix_file();
