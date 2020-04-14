@@ -181,8 +181,7 @@ static void print_ldflags(bool compat)
 	if (uninst_root) {
 		printf("%s/arch/%s/scripts/compel-pack%s.lds.S\n",
 				uninst_root, flags.arch, compat_str);
-	}
-	else {
+	} else {
 		printf("%s/compel/scripts/compel-pack%s.lds.S\n",
 				LIBEXECDIR, compat_str);
 
@@ -222,8 +221,7 @@ static int print_libs(bool is_static)
 			return 1;
 		}
 		printf("%s/%s\n", uninst_root, STATIC_LIB);
-	}
-	else {
+	} else {
 		printf("%s/%s\n", LIBDIR, (is_static) ? STATIC_LIB : DYN_LIB);
 	}
 
@@ -255,8 +253,7 @@ static char *gen_prefix(const char *path)
 	for (i = len - 1; i >= 0; i--) {
 		if (!p1 && path[i] == '.') {
 			p2 = path + i - 1;
-		}
-		else if (!p1 && path[i] == '/') {
+		} else if (!p1 && path[i] == '/') {
 			p1 = path + i + 1;
 			break;
 		}

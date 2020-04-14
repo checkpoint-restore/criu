@@ -222,8 +222,7 @@ static int get_altivec_regs(pid_t pid, user_fpregs_struct_t *fp)
 			return -1;
 		}
 		pr_debug("Altivec not supported\n");
-	}
-	else {
+	} else {
 		pr_debug("Dumping Altivec registers\n");
 		fp->flags |= USER_FPREGS_FL_ALTIVEC;
 	}
@@ -251,8 +250,7 @@ static int get_vsx_regs(pid_t pid, user_fpregs_struct_t *fp)
 			return -1;
 		}
 		pr_debug("VSX register's dump not supported.\n");
-	}
-	else {
+	} else {
 		pr_debug("Dumping VSX registers\n");
 		fp->flags |= USER_FPREGS_FL_VSX;
 	}
