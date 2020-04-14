@@ -280,8 +280,7 @@ int errors(int exp_len, int len, char *etalon_buf, char *buf) {
 			fail("Incorrect length of field name.");
 			error++;
 			break;
-		}
-		else if (event->len && strncmp(event->name, exp_event->name, event->len)) {
+		} else if (event->len && strncmp(event->name, exp_event->name, event->len)) {
 			fail("Handled file name %s, expected %s",
 				event->name,
 				exp_event->name);

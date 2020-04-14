@@ -74,8 +74,7 @@ int main(int argc, char ** argv)
 	if (cpid < 0) {
 		pr_perror("fork failed");
 		return 1;
-	}
-	else if (cpid == 0) {
+	} else if (cpid == 0) {
 		close(child_pipe[0]);
 		return child(child_pipe[1]);
 	}

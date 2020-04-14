@@ -181,8 +181,7 @@ int main(int argc, char **argv)
 			fail("waitpid error: %m\n");
 			counter++;
 			continue;
-		}
-		else {
+		} else {
 			rv = WEXITSTATUS(rv);
 			if (rv < MAX_EXIT_CODE && rv > SUCCESS) {
 				fail("Child failed: %s (%d)\n",
