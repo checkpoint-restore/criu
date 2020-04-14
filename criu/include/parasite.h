@@ -17,6 +17,7 @@
 
 #include "images/vma.pb-c.h"
 #include "images/tty.pb-c.h"
+#include "types.h" /* imports rt_sigaction_t */
 
 #define __head __used __section(.head.text)
 

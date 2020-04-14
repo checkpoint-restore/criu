@@ -63,6 +63,7 @@ obj-y			+= rst-malloc.o
 obj-y			+= seccomp.o
 obj-y			+= seize.o
 obj-y			+= shmem.o
+obj-y			+= sigaction.o
 obj-y			+= sigframe.o
 obj-y			+= signalfd.o
 obj-y			+= sk-inet.o

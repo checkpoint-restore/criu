@@ -30,6 +30,8 @@
 #include "images/rlimit.pb-c.h"
 #include "images/siginfo.pb-c.h"
 
+#include "sigaction.h" /*imports parasite_dump_sigacts_seized*/
+
 #include "common/list.h"
 #include "imgset.h"
 #include "file-ids.h"
@@ -82,6 +84,7 @@
 #include "eventpoll.h"
 #include "img-remote.h"
 #include "memfd.h"
+
 
 /*
  * Architectures can overwrite this function to restore register sets that
