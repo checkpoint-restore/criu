@@ -1749,5 +1749,6 @@ struct collect_image_info files_cinfo = {
 int prepare_files(void)
 {
 	init_fdesc_hash();
+	init_sk_info_hash();
 	return collect_image(&files_cinfo);
 }
