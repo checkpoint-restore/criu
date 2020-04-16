@@ -903,6 +903,7 @@ struct unix_sk_info {
 	struct unix_sk_info	*peer;
 	struct pprep_head	peer_resolve; /* XXX : union with the above? */
 	struct file_desc	d;
+	struct hlist_node	hash; /* To lookup socket by ino */
 	struct list_head	connected; /* List of sockets, connected to me */
 	struct list_head	node; /* To link in peer's connected list  */
 	struct list_head	scm_fles;
@@ -934,11 +935,25 @@ struct scm_fle {
 #define USK_PAIR_SLAVE		0x2
 #define USK_GHOST_FDSTORE	0x4	/* bound but removed address */
 
+#define SK_INFO_HASH_SIZE	32
+
+static struct hlist_head sk_info_hash[SK_INFO_HASH_SIZE];
+
+void init_sk_info_hash(void)
+{
+	int i;
+
+	for (i = 0; i < SK_INFO_HASH_SIZE; i++)
+		INIT_HLIST_HEAD(&sk_info_hash[i]);
+}
+
 static struct unix_sk_info *find_unix_sk_by_ino(int ino)
 {
 	struct unix_sk_info *ui;
+	struct hlist_head *chain;
 
-	list_for_each_entry(ui, &unix_sockets, list) {
+	chain = &sk_info_hash[ino % SK_INFO_HASH_SIZE];
+	hlist_for_each_entry(ui, chain, hash) {
 		if (ui->ue->ino == ino)
 			return ui;
 	}
@@ -2044,6 +2059,7 @@ static int init_unix_sk_info(struct unix_sk_info *ui, UnixSkEntry *ue)
 	INIT_LIST_HEAD(&ui->node);
 	INIT_LIST_HEAD(&ui->scm_fles);
 	INIT_LIST_HEAD(&ui->ghost_node);
+	INIT_HLIST_NODE(&ui->hash);
 
 	return 0;
 }
@@ -2135,6 +2151,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 		list_add_tail(&ui->ghost_node, &unix_ghost_addr);
 	}
 
+	hlist_add_head(&ui->hash, &sk_info_hash[ui->ue->ino % SK_INFO_HASH_SIZE]);
 	list_add_tail(&ui->list, &unix_sockets);
 	return file_desc_add(&ui->d, ui->ue->id, &unix_desc_ops);
 }
