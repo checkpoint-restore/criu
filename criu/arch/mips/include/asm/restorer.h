@@ -76,4 +76,8 @@ static inline void free_compat_syscall_stack(void *stack32) { }
 int restore_gpregs(struct rt_sigframe *f, UserMipsRegsEntry *r);
 int restore_nonsigframe_gpregs(UserMipsRegsEntry *r);
 
+#define ARCH_HAS_SHMAT_HOOK
+unsigned long arch_shmat(int shmid, void *shmaddr,
+			int shmflg, unsigned long size);
+
 #endif
