@@ -1,3 +1,5 @@
+#!/bin/bash
+
 KERN_MAJ=`uname -r | cut -d. -f1`
 KERN_MIN=`uname -r | cut -d. -f2`
 if [ $KERN_MAJ -ge "4" ] && [ $KERN_MIN -ge "11" ]; then
