@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Check auto-deduplication of pagemaps
 set -e
 source `dirname $0`/criu-lib.sh

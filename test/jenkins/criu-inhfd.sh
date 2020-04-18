@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Check known fault injections
 set -e
 source `dirname $0`/criu-lib.sh
