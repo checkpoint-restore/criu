@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # This is a job which is executed on btrfs
 
 source `dirname $0`/criu-lib.sh &&

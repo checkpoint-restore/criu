@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Check --leave-stopped option
 set -e
 source `dirname $0`/criu-lib.sh
