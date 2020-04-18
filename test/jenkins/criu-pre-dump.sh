@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Check 3 pre-dump-s before dump (with and w/o page server)
 set -e
 source `dirname $0`/criu-lib.sh
