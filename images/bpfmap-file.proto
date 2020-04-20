@@ -1,0 +1,23 @@
+syntax = "proto2";
+
+import "opts.proto";
+import "fown.proto";
+message bpfmap_file_entry {
+
+    required uint32		id	= 1;
+	required uint32		flags	= 2 [(criu).flags = "rfile.flags"];
+    required uint64		pos	= 3;
+    required fown_entry	fown	= 5;
+    required uint32     map_type    = 6;
+    required uint32     key_size    = 7;
+    required uint32     value_size  = 8;
+    required uint32     map_id  = 9;
+    required uint32     max_entries = 10;
+
+    optional sint32		mnt_id	= 11 [default = -1];
+    optional uint64     map_flags   = 12;
+    optional uint64     memlock = 13;
+    optional bool       frozen  = 14;
+
+
+}
