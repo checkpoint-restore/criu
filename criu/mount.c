@@ -294,17 +294,30 @@ bool phys_stat_dev_match(dev_t st_dev, dev_t phys_dev, struct ns_id *ns, const c
  */
 static bool mounts_sb_equal(struct mount_info *a, struct mount_info *b)
 {
-	if (a->fstype != b->fstype)
-		return false;
-
 	if (a->s_dev != b->s_dev)
 		return false;
 
-	if (strcmp(a->source, b->source) != 0)
-		return false;
+	/*
+	 * If one of compared mounts is external its mount info can have fstype
+	 * and source fields changed by resolve_external_mounts() or
+	 * try_resolve_ext_mount(), but we still want to detect bindmounts of
+	 * this external mount, so let's skip source and fstype checks for it.
+	 */
+	if (!a->external && !b->external) {
+		if (strcmp(a->source, b->source) != 0)
+			return false;
 
-	if (a->fstype->sb_equal) /* :) */
-		return b->fstype->sb_equal(a, b);
+		if (a->fstype != b->fstype)
+			return false;
+
+		if (a->fstype->sb_equal)
+			return a->fstype->sb_equal(a, b);
+	} else {
+		if (a->fstype->sb_equal)
+			return a->fstype->sb_equal(a, b);
+		else if (b->fstype->sb_equal)
+			return b->fstype->sb_equal(a, b);
+	}
 
 	if (strcmp(a->options, b->options))
 		return false;
