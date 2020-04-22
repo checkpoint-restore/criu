@@ -3554,8 +3554,12 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	for (i = 0; i < current->nr_threads; i++) {
 		CoreEntry *tcore;
 		struct rt_sigframe *sigframe;
+#ifdef CONFIG_MIPS
+		k_rtsigset_t mips_blkset;
+#else
 		k_rtsigset_t *blkset = NULL;
 
+#endif
 		thread_args[i].pid = current->threads[i].ns[0].virt;
 		thread_args[i].siginfo_n = siginfo_priv_nr[i];
 		thread_args[i].siginfo = task_args->siginfo;
@@ -3566,11 +3570,22 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		if (thread_args[i].pid == pid) {
 			task_args->t = thread_args + i;
 			tcore = core;
+#ifdef CONFIG_MIPS
+			mips_blkset.sig[0] = tcore->tc->blk_sigset;
+			mips_blkset.sig[1] = tcore->tc->blk_sigset_extended;
+#else
 			blkset = (void *)&tcore->tc->blk_sigset;
+#endif
 		} else {
 			tcore = current->core[i];
-			if (tcore->thread_core->has_blk_sigset)
+			if (tcore->thread_core->has_blk_sigset) {
+#ifdef CONFIG_MIPS
+				mips_blkset.sig[0] = tcore->thread_core->blk_sigset;
+				mips_blkset.sig[1] = tcore->thread_core->blk_sigset_extended;
+#else
 				blkset = (void *)&tcore->thread_core->blk_sigset;
+#endif
+			}
 		}
 
 		if ((tcore->tc || tcore->ids) && thread_args[i].pid != pid) {
@@ -3610,7 +3625,11 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		thread_args[i].mz = mz + i;
 		sigframe = (struct rt_sigframe *)&mz[i].rt_sigframe;
 
+#ifdef CONFIG_MIPS
+		if (construct_sigframe(sigframe, sigframe, &mips_blkset, tcore))
+#else
 		if (construct_sigframe(sigframe, sigframe, blkset, tcore))
+#endif
 			goto err;
 
 		if (tcore->thread_core->comm)
