@@ -1439,6 +1439,8 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 	if (ret < 0) {
 		pr_perror("Can't fork for %d", pid);
+		if (errno == EEXIST)
+			set_cr_errno(EEXIST);
 		goto err_unlock;
 	}
 
