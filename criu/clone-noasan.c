@@ -70,6 +70,7 @@ int clone3_with_pid_noasan(int (*fn)(void *), void *arg, int flags,
 	if (!(flags & CLONE_PARENT)) {
 		if (exit_signal != SIGCHLD) {
 			pr_err("Exit signal not SIGCHLD\n");
+			errno = EINVAL;
 			return -1;
 		}
 		c_args.exit_signal = exit_signal;
