@@ -159,6 +159,35 @@ typedef void *criu_predump_info;
 int criu_dump_iters(int (*more)(criu_predump_info pi));
 
 /*
+ * Get the version of the actual binary used for RPC.
+ *
+ * As this library is just forwarding all tasks to an
+ * independent (of this library) CRIU binary, the actual
+ * version of the CRIU binary can be different then the
+ * hardcoded values in the libary (version.h).
+ * To be able to easily check the version of the CRIU binary
+ * the function criu_get_version() returns the version
+ * in the following format:
+ *
+ * (major * 10000) + (minor * 100) + sublevel
+ *
+ * If the CRIU binary has been built from a git checkout
+ * minor will increased by one.
+ */
+int criu_get_version(void);
+
+/*
+ * Check if the version of the CRIU binary is at least
+ * 'minimum'. Version has to be in the same format as
+ * described for criu_get_version().
+ *
+ * Returns 1 if CRIU is at least 'minimum'.
+ * Returns 0 if CRIU is too old.
+ * Returns < 0 if there was an error.
+ */
+int criu_check_version(int minimum);
+
+/*
  * Same as the list above, but lets you have your very own options
  * structure and lets you set individual options in it.
  */
@@ -228,6 +257,9 @@ int criu_local_dump(criu_opts *opts);
 int criu_local_restore(criu_opts *opts);
 int criu_local_restore_child(criu_opts *opts);
 int criu_local_dump_iters(criu_opts *opts, int (*more)(criu_predump_info pi));
+
+int criu_local_get_version(criu_opts *opts);
+int criu_local_check_version(criu_opts *opts, int minimum);
 
 #ifdef __GNUG__
 }
