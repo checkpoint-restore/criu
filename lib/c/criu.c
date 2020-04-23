@@ -1668,3 +1668,68 @@ int criu_restore_child(void)
 {
 	return criu_local_restore_child(global_opts);
 }
+
+int criu_local_get_version(criu_opts *opts)
+{
+	int ret = -1;
+	CriuReq req	= CRIU_REQ__INIT;
+	CriuResp *resp	= NULL;
+
+	saved_errno = 0;
+
+	req.type	= CRIU_REQ_TYPE__VERSION;
+	req.opts	= opts->rpc;
+
+	ret = send_req_and_recv_resp(opts, &req, &resp);
+	if (ret)
+		goto exit;
+
+	if (resp->success) {
+		ret = resp->version->major_number * 10000;
+		ret += resp->version->minor_number * 100;
+		if (resp->version->has_sublevel)
+			ret += resp->version->sublevel;
+		if (resp->version->gitid) {
+			/* Taken from runc: a git release -> minor + 1 */
+			ret -= (ret % 100);
+			ret += 100;
+		}
+	} else {
+		ret = -EBADE;
+	}
+
+exit:
+	if (resp)
+		criu_resp__free_unpacked(resp, NULL);
+
+	swrk_wait(opts);
+
+	errno = saved_errno;
+
+	return ret;
+}
+
+int criu_get_version(void)
+{
+	return criu_local_get_version(global_opts);
+}
+
+int criu_local_check_version(criu_opts *opts, int minimum)
+{
+	int version;
+
+	version = criu_local_get_version(opts);
+
+	if (version < 0)
+		return version;
+
+	if (minimum <= version)
+		return 1;
+
+	return 0;
+}
+
+int criu_check_version(int minimum)
+{
+	return criu_local_check_version(global_opts, minimum);
+}
