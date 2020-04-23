@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <errno.h>
 #include <signal.h>
@@ -23,6 +24,18 @@ int main(int argc, char *argv[])
 
 	criu_init_opts();
 	criu_set_service_binary(argv[1]);
+
+	get_version();
+	if (!criu_check_version(31400)) {
+		printf("CRIU version check failed. CRIU too old\n");
+		return 1;
+	}
+
+	if (criu_check_version(INT_MAX)) {
+		printf("CRIU version check failed. CRIU too new.\n");
+		return 1;
+	}
+
 	criu_set_images_dir_fd(fd);
 	criu_set_log_level(4);
 

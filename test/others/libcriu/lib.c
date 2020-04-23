@@ -2,6 +2,8 @@
 #include <errno.h>
 #include <sys/wait.h>
 
+#include "criu.h"
+
 void what_err_ret_mean(int ret)
 {
 	/* NOTE: errno is set by libcriu */
@@ -44,4 +46,7 @@ int chk_exit(int status, int want)
 	return 1;
 }
 
-
+int get_version()
+{
+	printf("Using a CRIU binary with version %d\n", criu_get_version());
+}
