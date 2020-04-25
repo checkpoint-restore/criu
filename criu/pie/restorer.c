@@ -667,7 +667,7 @@ unsigned long arch_shmat(int shmid, void *shmaddr,
 static unsigned long restore_mapping(VmaEntry *vma_entry)
 {
 	int prot	= vma_entry->prot;
-	int flags	= vma_entry->flags | MAP_FIXED;
+	int flags	= vma_entry->flags | MAP_FIXED | MAP_NORESERVE;
 	unsigned long addr;
 
 	if (vma_entry_is(vma_entry, VMA_AREA_SYSVIPC)) {
