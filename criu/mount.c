@@ -3362,7 +3362,6 @@ void fini_restore_mntns(void)
 
 static int merge_mount_trees(struct mount_info *root_yard)
 {
-	struct mount_info *first = NULL;
 	struct ns_id *nsid;
 
 	/* Merge mount trees together under root_yard */
@@ -3373,16 +3372,6 @@ static int merge_mount_trees(struct mount_info *root_yard)
 			continue;
 
 		root = nsid->mnt.mntinfo_tree;
-
-		if (!first)
-			first = root;
-		else if (!mounts_sb_equal(root, first) || strcmp(root->root, first->root)) {
-			pr_err("Nested mount namespaces with different "
-			       "roots %d (@%s %s) %d (@%s %s) are not supported yet\n",
-			       root->mnt_id, root->mountpoint, root->root, first->mnt_id, first->mountpoint,
-			       first->root);
-			return -1;
-		}
 
 		pr_debug("Mountpoint %d (@%s) moved to the root yard\n", root->mnt_id, root->mountpoint);
 		root->parent = root_yard;
