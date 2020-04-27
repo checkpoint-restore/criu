@@ -101,12 +101,12 @@ int main(void)
 	/* Start testing */
 	dst_let = sizeof(addr);
 	if (getsockname(sock, (struct sockaddr *) &addr, &dst_let)) {
-		pr_perror("connect");
+		pr_perror("getsockname");
 		return 1;
 	}
 	dst_let = sizeof(addr);
 	if (getpeername(sock, (struct sockaddr *) &dst, &dst_let)) {
-		pr_perror("connect");
+		pr_perror("getpeername");
 		return 1;
 	}
 
