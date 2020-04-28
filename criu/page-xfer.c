@@ -648,13 +648,13 @@ unsigned long handle_faulty_iov(int pid, struct iovec* riov,
 	unsigned long offset = 0;
 	unsigned long final_read_cnt = 0;
 
-	/* Handling Case 2*/
+	/* Handling Case 2 */
 	if (riov[faulty_index].iov_len == PAGE_SIZE) {
 		cnt_sub(CNT_PAGES_WRITTEN, 1);
 		return 0;
 	}
 
-	/* Handling Case 3-Part 3.2*/
+	/* Handling Case 3-Part 3.2 */
 	offset = (partial_read_bytes)? partial_read_bytes : PAGE_SIZE;
 
 	dummy.iov_base = riov[faulty_index].iov_base + offset;
@@ -664,15 +664,23 @@ unsigned long handle_faulty_iov(int pid, struct iovec* riov,
 		cnt_sub(CNT_PAGES_WRITTEN, 1);
 
 	while (dummy.iov_len) {
-
+		/* if bufvec->iov_len is zero, we will freeze */
+		BUG_ON(bufvec->iov_len == 0);
 		bytes_read = process_vm_readv(pid, bufvec, 1, &dummy, 1, 0);
 
-		if(bytes_read == -1) {
-			/* Handling faulty page read in faulty iov */
-			cnt_sub(CNT_PAGES_WRITTEN, 1);
-			dummy.iov_base += PAGE_SIZE;
-			dummy.iov_len -= PAGE_SIZE;
-			continue;
+		if (bytes_read == -1) {
+			if (errno == EFAULT) {
+				/* Handling faulty page read in faulty iov */
+				cnt_sub(CNT_PAGES_WRITTEN, 1);
+				dummy.iov_base += PAGE_SIZE;
+				dummy.iov_len -= PAGE_SIZE;
+				pr_perror("Handling faulty page read in faulty iov");
+				continue;
+			} else {
+				pr_perror("process_vm_readv");
+				BUG();
+				return -errno;
+			}
 		}
 
 		/* If aux-iov can merge and expand or new entry required */
@@ -709,7 +717,6 @@ static unsigned long analyze_iov(ssize_t bytes_read, struct iovec* riov,
 
 	/* correlating iovs with read bytes */
 	while (processed_bytes < bytes_read) {
-
 		processed_bytes += riov[*index].iov_len;
 		aux_iov[*aux_len].iov_base = riov[*index].iov_base;
 		aux_iov[*aux_len].iov_len = riov[*index].iov_len;
@@ -718,11 +725,9 @@ static unsigned long analyze_iov(ssize_t bytes_read, struct iovec* riov,
 		(*index) += 1;
 	}
 
-	/* handling partially processed faulty iov*/
+	/* handling partially processed faulty iov */
 	if (processed_bytes - bytes_read) {
-
 		(*index) -= 1;
-
 		partial_read_bytes = riov[*index].iov_len
 					- (processed_bytes - bytes_read);
 		aux_iov[*aux_len-1].iov_len = partial_read_bytes;
@@ -746,7 +751,7 @@ static unsigned long analyze_iov(ssize_t bytes_read, struct iovec* riov,
  * skip processing further any entry in iovec. This is handled by
  * handle_faulty_iov function.
  */
-static long fill_userbuf(int pid, struct page_pipe_buf *ppb,
+static ssize_t fill_userbuf(int pid, struct page_pipe_buf *ppb,
 				  struct iovec *bufvec,
 				  struct iovec* aux_iov,
 				  unsigned long *aux_len)
@@ -758,24 +763,25 @@ static long fill_userbuf(int pid, struct page_pipe_buf *ppb,
 	unsigned long partial_read_bytes = 0;
 
 	while (start < ppb->nr_segs) {
-
 		bytes_read = process_vm_readv(pid, bufvec, 1, &riov[start],
 						   ppb->nr_segs - start, 0);
-
 		if (bytes_read == -1) {
-			/* Handling Case 1*/
-			if (riov[start].iov_len == PAGE_SIZE) {
+			/* Handling Case 1 */
+			if (errno == EFAULT && riov[start].iov_len == PAGE_SIZE) {
 				cnt_sub(CNT_PAGES_WRITTEN, 1);
 				start += 1;
 				continue;
 			} else if (errno == ESRCH) {
-				pr_debug("Target process PID:%d not found\n", pid);
-				return ESRCH;
+				pr_err("Target process PID:%d not found\n", pid);
+				return -ESRCH;
+			} else {
+				pr_perror("process_vm_readv");
+				BUG();
+				return -errno;
 			}
 		}
 
 		partial_read_bytes = 0;
-
 		if (bytes_read > 0) {
 			partial_read_bytes = analyze_iov(bytes_read, riov,
 							 &start, aux_iov,
@@ -793,7 +799,6 @@ static long fill_userbuf(int pid, struct page_pipe_buf *ppb,
 			total_read += handle_faulty_iov(pid, riov, start, bufvec,
 							aux_iov, aux_len,
 							partial_read_bytes);
-
 		start += 1;
 	}
 
@@ -815,7 +820,8 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer,
 {
 	struct page_pipe_buf *ppb;
 	unsigned int cur_hole = 0, i;
-	unsigned long ret, bytes_read;
+	unsigned long ret;
+	ssize_t bytes_read;
 	struct iovec bufvec;
 
 	struct iovec aux_iov[PIPE_MAX_SIZE];
@@ -830,16 +836,13 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer,
 	}
 
 	list_for_each_entry(ppb, &pp->bufs, l) {
-
 		timing_start(TIME_MEMDUMP);
 
 		aux_len = 0;
 		bufvec.iov_len = BUFFER_SIZE;
 		bufvec.iov_base = userbuf;
-
 		bytes_read = fill_userbuf(pid, ppb, &bufvec, aux_iov, &aux_len);
-
-		if (bytes_read == ESRCH) {
+		if (bytes_read < 0) {
 			munmap(userbuf, BUFFER_SIZE);
 			return -1;
 		}
@@ -859,7 +862,6 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer,
 
 		/* generating pagemap */
 		for (i = 0; i < aux_len; i++) {
-
 			struct iovec iov = aux_iov[i];
 			u32 flags;
 
@@ -1127,7 +1129,7 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 		}
 
 		if (opts.tls) {
-			if(tls_recv_data_to_fd(cxfer.p[1], chunk)) {
+			if (tls_recv_data_to_fd(cxfer.p[1], chunk)) {
 				pr_err("Can't read from socket\n");
 				return -1;
 			}

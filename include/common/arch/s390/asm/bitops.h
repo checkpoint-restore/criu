@@ -111,6 +111,11 @@ static inline unsigned char __flogr(unsigned long word)
 	}
 }
 
+static inline unsigned long __fls(unsigned long word)
+{
+	return __flogr(word) ^ (BITS_PER_LONG - 1);
+}
+
 static inline unsigned long __ffs(unsigned long word)
 {
 	return __flogr(-word & word) ^ (BITS_PER_LONG - 1);

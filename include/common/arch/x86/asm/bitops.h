@@ -79,6 +79,20 @@ static inline unsigned long __ffs(unsigned long word)
 	return word;
 }
 
+/*
+ * __fls: find last set bit in word
+ * @word: The word to search
+ *
+ * Undefined if no set bit exists, so code should check against 0 first.
+ */
+static inline unsigned long __fls(unsigned long word)
+{
+	asm("bsr %1,%0"
+	    : "=r" (word)
+	    : "rm" (word));
+	return word;
+}
+
 #define BITOP_WORD(nr)		((nr) / BITS_PER_LONG)
 
 /*

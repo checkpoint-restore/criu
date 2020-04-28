@@ -155,6 +155,10 @@ int __ilog2(unsigned long x)
         return BITS_PER_LONG - 1 - lz;
 }
 
+static inline unsigned long __fls(unsigned long word)
+{
+	return (sizeof(word) * 8) - 1 - __builtin_clzl(word);
+}
 
 static __inline__ unsigned long __ffs(unsigned long x)
 {
