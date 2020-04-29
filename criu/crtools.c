@@ -87,12 +87,18 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	if (ret == 2)
 		goto usage;
+	if (optind >= argc) {
+		pr_err("command is required\n");
+		goto usage;
+	}
 
 	log_set_loglevel(opts.log_level);
 
-	if (!strcmp(argv[1], "swrk")) {
-		if (argc < 3)
-			goto usage;
+	if (optind < argc && !strcmp(argv[optind], "swrk")) {
+		if (argc != optind+2) {
+			fprintf(stderr, "Usage: criu swrk <fd>\n");
+			return 1;
+		}
 		/*
 		 * This is to start criu service worker from libcriu calls.
 		 * The usage is "criu swrk <fd>" and is not for CLI/scripts.
@@ -100,7 +106,7 @@ int main(int argc, char *argv[], char *envp[])
 		 * corresponding lib call change.
 		 */
 		opts.swrk_restore = true;
-		return cr_service_work(atoi(argv[2]));
+		return cr_service_work(atoi(argv[optind+1]));
 	}
 
 	if (check_options())
@@ -111,11 +117,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (opts.work_dir == NULL)
 		SET_CHAR_OPTS(work_dir, opts.imgs_dir);
-
-	if (optind >= argc) {
-		pr_err("command is required\n");
-		goto usage;
-	}
 
 	has_sub_command = (argc - optind) > 1;
 
