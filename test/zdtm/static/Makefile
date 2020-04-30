@@ -371,6 +371,7 @@ TST_DIR		=				\
 		opath_file			\
 		symlink				\
 		symlink01			\
+		mnt_ext_sharing			\
 
 TST_DIR_FILE	=				\
 		chroot				\
