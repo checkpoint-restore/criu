@@ -157,6 +157,18 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	/*
+	 * The kernel might send us lethal signals when writing to a pipe
+	 * which reader has disappeared. We deal with write() failures on our
+	 * own, and prefer not to get killed. So we ignore SIGPIPEs.
+	 *
+	 * Pipes are used in various places:
+	 * 1) Receiving application page data
+	 * 2) Transmitting remote image data
+	 * 3) When emitting logs (potentially to a pipe).
+	 */
+	signal(SIGPIPE, SIG_IGN);
+
+	/*
 	 * When a process group becomes an orphan,
 	 * its processes are sent a SIGHUP signal
 	 */
