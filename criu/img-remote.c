@@ -12,6 +12,7 @@
 #include "servicefd.h"
 #include "string.h"
 #include "xmalloc.h"
+#include "common/scm.h"
 
 #define EPOLL_MAX_EVENTS 50
 
@@ -176,6 +177,51 @@ static int setup_UNIX_client_socket(char *path)
 	}
 
 	return sockfd;
+}
+
+/*
+ * Using a pipe for image file transfers instead of the UNIX socket can
+ * greatly improve performance. Data can be further spliced() by the proxy
+ * to transfer data with minimal overhead.
+ * Transfer rates of up to 15GB/s can be seen with this technique.
+ */
+#define SEND_FD_FOR_READ	0
+#define SEND_FD_FOR_WRITE	1
+#define RECV_FD			2
+static int upgrade_to_pipe(int sockfd, int mode)
+{
+	/*
+	 * If the other end of the pipe closes, the kernel will want to kill
+	 * us with a SIGPIPE. These signal must be ignored, which we do in
+	 * crtools.c:main() with signal(SIGPIPE, SIG_IGN).
+	 */
+
+	int ret = -1;
+
+	if (mode == RECV_FD) {
+		ret = recv_fd(sockfd);
+	} else {
+		// mode is either 0 (SEND_FD_FOR_READ) or 1 (SEND_FD_FOR_WRITE)
+		int direction = mode;
+		int other_direction = 1 - direction;
+		int fds[2];
+
+		if (pipe(fds) < 0) {
+			pr_perror("Unable to create pipe");
+			goto err;
+		}
+
+		if (send_fd(sockfd, NULL, 0, fds[other_direction]) < 0)
+			close(fds[direction]);
+		else
+			ret = fds[direction];
+
+		close(fds[other_direction]);
+	}
+
+err:
+	close(sockfd);
+	return ret;
 }
 
 static inline int64_t pb_write_obj(int fd, void *obj, int type)
@@ -608,6 +654,14 @@ static void handle_local_accept(int fd)
 	// If we have an operation. Check if we are ready to start or not.
 	if (rop != NULL) {
 		if (rop->rimg != NULL) {
+			if (snapshot_id[0] != NULL_SNAPSHOT_ID) {
+				rop->fd = upgrade_to_pipe(rop->fd, RECV_FD);
+				if (rop->fd < 0) {
+					xfree(rop);
+					return;
+				}
+			}
+
 			list_add_tail(&(rop->l), &rop_inprogress);
 			event_set(
 				epoll_fd,
@@ -685,6 +739,14 @@ static void finish_cache_write(struct roperation *rop)
 			close(prop->fd);
 			xfree(prop);
 			return;
+		}
+
+		if (rop->snapshot_id[0] != NULL_SNAPSHOT_ID) {
+			prop->fd = upgrade_to_pipe(prop->fd, RECV_FD);
+			if (prop->fd < 0) {
+				xfree(prop);
+				return;
+			}
 		}
 
 		rop_set_rimg(prop, rop->rimg);
@@ -951,8 +1013,11 @@ int read_remote_image_connection(char *snapshot_id, char *path)
 		return -1;
 	}
 
-	if (!error)
+	if (!error) {
+		if (snapshot_id != NULL_SNAPSHOT_ID)
+			return upgrade_to_pipe(sockfd, SEND_FD_FOR_READ);
 		return sockfd;
+	}
 
 	if (error == ENOENT) {
 		pr_info("Image does not exist (%s:%s)\n", path, snapshot_id);
@@ -976,6 +1041,10 @@ int write_remote_image_connection(char *snapshot_id, char *path, int flags)
 		pr_err("Error writing header for %s:%s\n", path, snapshot_id);
 		return -1;
 	}
+
+	if (snapshot_id != NULL_SNAPSHOT_ID)
+		return upgrade_to_pipe(sockfd, SEND_FD_FOR_WRITE);
+
 	return sockfd;
 }
 

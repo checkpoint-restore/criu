@@ -55,20 +55,6 @@ void flush_early_log_to_stderr(void)
 	flush_early_log_buffer(STDERR_FILENO);
 }
 
-static int image_dir_mode(char *argv[], int optind)
-{
-	if (!strcmp(argv[optind], "dump") ||
-	    !strcmp(argv[optind], "pre-dump") ||
-	    (!strcmp(argv[optind], "cpuinfo") && !strcmp(argv[optind + 1], "dump")))
-		return O_DUMP;
-
-	if (!strcmp(argv[optind], "restore") ||
-	    (!strcmp(argv[optind], "cpuinfo") && !strcmp(argv[optind + 1], "restore")))
-		return O_RSTR;
-
-	return -1;
-}
-
 int main(int argc, char *argv[], char *envp[])
 {
 	int ret = -1;
@@ -83,10 +69,8 @@ int main(int argc, char *argv[], char *envp[])
 	BUG_ON(get_service_fd(SERVICE_FD_MIN+1) <
 	       get_service_fd(SERVICE_FD_MAX-1));
 
-	if (fault_injection_init()) {
-		pr_err("Failed to initialize fault injection when initializing crtools.\n");
+	if (fault_injection_init())
 		return 1;
-	}
 
 	cr_pb_init();
 	setproctitle_init(argc, argv, envp);
@@ -103,18 +87,12 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	if (ret == 2)
 		goto usage;
-	if (optind >= argc) {
-		pr_err("command is required\n");
-		goto usage;
-	}
 
 	log_set_loglevel(opts.log_level);
 
-	if (optind < argc && !strcmp(argv[optind], "swrk")) {
-		if (argc != optind+2) {
-			fprintf(stderr, "Usage: criu swrk <fd>\n");
-			return 1;
-		}
+	if (!strcmp(argv[1], "swrk")) {
+		if (argc < 3)
+			goto usage;
 		/*
 		 * This is to start criu service worker from libcriu calls.
 		 * The usage is "criu swrk <fd>" and is not for CLI/scripts.
@@ -122,7 +100,7 @@ int main(int argc, char *argv[], char *envp[])
 		 * corresponding lib call change.
 		 */
 		opts.swrk_restore = true;
-		return cr_service_work(atoi(argv[optind+1]));
+		return cr_service_work(atoi(argv[2]));
 	}
 
 	if (check_options())
@@ -133,6 +111,11 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (opts.work_dir == NULL)
 		SET_CHAR_OPTS(work_dir, opts.imgs_dir);
+
+	if (optind >= argc) {
+		pr_err("command is required\n");
+		goto usage;
+	}
 
 	has_sub_command = (argc - optind) > 1;
 
@@ -166,18 +149,11 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 
-	if (opts.stream && image_dir_mode(argv, optind) == -1) {
-		pr_err("--stream cannot be used with the %s command\n", argv[optind]);
-		goto usage;
-	}
-
 	/* We must not open imgs dir, if service is called */
 	if (strcmp(argv[optind], "service")) {
-		ret = open_image_dir(opts.imgs_dir, image_dir_mode(argv, optind));
-		if (ret < 0) {
-			pr_err("Couldn't open image dir: %s", opts.imgs_dir);
+		ret = open_image_dir(opts.imgs_dir);
+		if (ret < 0)
 			return 1;
-		}
 	}
 
 	/*
@@ -187,8 +163,8 @@ int main(int argc, char *argv[], char *envp[])
 	 *
 	 * Pipes are used in various places:
 	 * 1) Receiving application page data
-	 * 2) Transmitting data to the image streamer
-	 * 3) Emitting logs (potentially to a pipe).
+	 * 2) Transmitting remote image data
+	 * 3) When emitting logs (potentially to a pipe).
 	 */
 	signal(SIGPIPE, SIG_IGN);
 
@@ -210,10 +186,8 @@ int main(int argc, char *argv[], char *envp[])
 	if (log_init(opts.output))
 		return 1;
 
-	if (kerndat_init()) {
-		pr_err("Could not initialize kernel features detection.\n");
+	if (kerndat_init())
 		return 1;
-	}
 
        if (fault_injected(FI_CANNOT_MAP_VDSO))
                kdat.can_map_vdso = 0;
@@ -378,7 +352,6 @@ usage:
 "                        this requires running a second instance of criu\n"
 "                        in lazy-pages mode: 'criu lazy-pages -D DIR'\n"
 "                        --lazy-pages and lazy-pages mode require userfaultfd\n"
-"  --stream              dump/restore images using criu-image-streamer\n"
 "\n"
 "* External resources support:\n"
 "  --external RES        dump objects from this list as external resources:\n"
@@ -460,9 +433,6 @@ usage:
 "			Namespace can be specified as either pid or file path.\n"
 "			OPTIONS can be used to specify parameters for userns:\n"
 "			    user:PID,UID,GID\n"
-"  --file-validation METHOD\n"
-			"pass the validation method to be used; argument\n"
-			"can be 'filesize' or 'buildid' (default).\n"
 "\n"
 "Check options:\n"
 "  Without options, \"criu check\" checks availability of absolutely required\n"
