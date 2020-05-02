@@ -2363,6 +2363,14 @@ skip_ns_bouncing:
 	pr_info("Restore finished successfully. Tasks resumed.\n");
 	write_stats(RESTORE_STATS);
 
+	if (opts.remote) {
+		/*
+		 * If we fail to notify that we are done, we keep going.
+		 * It's better to keep the application alive at this point.
+		 */
+		finish_remote_restore();
+	}
+
 	ret = run_scripts(ACT_POST_RESUME);
 	if (ret != 0)
 		pr_err("Post-resume script ret code %d\n", ret);
@@ -2495,11 +2503,6 @@ int cr_restore_tasks(void)
 		goto err;
 
 	ret = restore_root_task(root_item);
-
-	if (opts.remote && (finish_remote_restore() < 0)) {
-		pr_err("Finish remote restore failed.\n");
-		goto err;
-	}
 err:
 	cr_plugin_fini(CR_PLUGIN_STAGE__RESTORE, ret);
 	return ret;
