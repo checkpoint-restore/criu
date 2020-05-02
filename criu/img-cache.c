@@ -51,6 +51,6 @@ int image_cache(bool background, char *local_cache_path)
 	}
 
 	accept_image_connections();
-	pr_info("Finished image cache.");
+	pr_info("Finished image cache\n");
 	return 0;
 }
