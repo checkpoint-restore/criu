@@ -474,8 +474,9 @@ static struct roperation *handle_accept_cache_read(int cli_fd,
 			pr_perror("Error writing reply header for unexisting image");
 		close(cli_fd);
 		xfree(rop);
+		return NULL;
 	}
-	return NULL;
+	return rop;
 }
 
 static void forward_remote_image(struct roperation *rop)
@@ -505,6 +506,19 @@ static void forward_remote_image(struct roperation *rop)
 	event_set(epoll_fd, EPOLL_CTL_ADD, rop->fd, EPOLLOUT, rop);
 }
 
+static void dismiss_pending_image_files(void)
+{
+	struct roperation *rop, *tmp;
+
+	list_for_each_entry_safe(rop, tmp, &rop_pending, l) {
+		if (write_reply_header(rop->fd, ENOENT) < 0)
+			pr_perror("Error writing reply header for unexisting image");
+		close(rop->fd);
+		list_del(&rop->l);
+		xfree(rop);
+	}
+}
+
 static void handle_remote_accept(int fd)
 {
 	char path[PATH_MAX];
@@ -525,6 +539,13 @@ static void handle_remote_accept(int fd)
 	/* This means that the no more images are coming. */
 	else if (!ret) {
 		finished_remote = true;
+
+		/*
+		 * For all pending files to be sent that we have collected, we
+		 * now know they will never come. If they did come, they would
+		 * have been forwarded in finish_cache_write().
+		 */
+		dismiss_pending_image_files();
 		pr_info("Image Proxy connection closed.\n");
 		return;
 	}
@@ -566,7 +587,8 @@ static void handle_local_accept(int fd)
 
 	if (read_header(cli_fd, snapshot_id, path, &flags) < 0) {
 		pr_err("Error reading local image header\n");
-		goto err;
+		close(cli_fd);
+		return;
 	}
 
 	if (snapshot_id[0] == NULL_SNAPSHOT_ID && path[0] == FINISH) {
@@ -599,15 +621,21 @@ static void handle_local_accept(int fd)
 				rop->fd,
 				rop->flags == O_RDONLY ? EPOLLOUT : EPOLLIN,
 				rop);
+			fd_set_nonblocking(rop->fd, true);
 		} else {
+			/*
+			 * We land here only when handle_accept_cache_read()
+			 * could not find an image, and the proxy is still
+			 * alive. So at this point, we don't know if the file
+			 * will never exist, or we haven't received it yet.
+			 */
 			list_add_tail(&(rop->l), &rop_pending);
+			/*
+			 * rop->fd is still in blocking mode. It will get into
+			 * non blocking mode in finish_cache_write().
+			 */
 		}
-		fd_set_nonblocking(rop->fd, false);
 	}
-
-	return;
-err:
-	close(cli_fd);
 }
 
 static inline void finish_proxy_read(struct roperation *rop)
@@ -672,6 +700,8 @@ static void finish_cache_write(struct roperation *rop)
 		list_del(&(prop->l));
 		list_add_tail(&(prop->l), &rop_inprogress);
 		event_set(epoll_fd, EPOLL_CTL_ADD, prop->fd, EPOLLOUT, prop);
+
+		fd_set_nonblocking(rop->fd, true);
 	}
 }
 
@@ -728,25 +758,6 @@ static void handle_roperation(struct epoll_event *event,
 	}
 err:
 	xfree(rop);
-}
-
-static void check_pending(void)
-{
-	struct roperation *rop = NULL;
-	struct rimage *rimg = NULL;
-
-	list_for_each_entry(rop, &rop_pending, l) {
-		rimg = get_rimg_by_name(rop->snapshot_id, rop->path);
-		if (rimg != NULL) {
-			rop_set_rimg(rop, rimg);
-			if (restoring) {
-				event_set(epoll_fd, EPOLL_CTL_ADD, rop->fd, EPOLLOUT, rop);
-			} else {
-				forward_remote_image(rop);
-				return;
-			}
-		}
-	}
 }
 
 void accept_image_connections(void) {
@@ -812,10 +823,6 @@ void accept_image_connections(void) {
 				handle_roperation(&events[i], rop);
 			}
 		}
-
-		// Check if there are any pending operations
-		if (restoring || !forwarding)
-			check_pending();
 
 		// Check if we can close the tcp socket (this will unblock the cache
 		// to answer "no image" to restore).
