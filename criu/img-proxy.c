@@ -40,6 +40,6 @@ int image_proxy(bool background, char *local_proxy_path)
 
 	// TODO - local_sk and remote_sk send as args.
 	accept_image_connections();
-	pr_info("Finished image proxy.");
+	pr_info("Finished image proxy\n");
 	return 0;
 }

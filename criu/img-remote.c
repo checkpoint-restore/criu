@@ -494,7 +494,7 @@ static void forward_remote_image(struct roperation *rop)
 		return;
 	}
 
-	pr_info("[fd=%d] Forwarding %s request for %s:%s (%" PRIu64 " bytes\n",
+	pr_info("[fd=%d] Forwarding %s request for %s:%s (%" PRIu64 " bytes)\n",
 		rop->fd, strflags(rop->flags), rop->path, rop->snapshot_id,
 		rop->size);
 
@@ -950,7 +950,7 @@ int read_remote_image_connection(char *snapshot_id, char *path)
 		return -1;
 	}
 
-	if (!error || (snapshot_id[0] == NULL_SNAPSHOT_ID && path[0] != FINISH))
+	if (!error)
 		return sockfd;
 
 	if (error == ENOENT) {
