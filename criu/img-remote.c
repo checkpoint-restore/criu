@@ -1041,28 +1041,22 @@ static int pull_snapshot_ids(void)
 {
 	int n, sockfd;
 	SnapshotIdEntry *ls;
-	struct snapshot *s = NULL;
+	struct snapshot *s;
 
 	sockfd = read_remote_image_connection(NULL_SNAPSHOT_ID, PARENT_IMG);
 
-	/* The connection was successful but there is not file. */
-	if (sockfd < 0) {
-		if (errno != ENOENT) {
-			pr_err("Unable to open snapshot id read connection\n");
-			return -1;
-		}
-		return 0;
-	}
+	if (sockfd < 0)
+		return -1;
 
 	while (1) {
 		n = pb_read_obj(sockfd, (void **)&ls, PB_SNAPSHOT_ID);
 		if (!n) {
 			close(sockfd);
-			return n;
+			return 0;
 		} else if (n < 0) {
 			pr_err("Unable to read remote snapshot ids\n");
 			close(sockfd);
-			return n;
+			return -1;
 		}
 
 		s = new_snapshot(ls->snapshot_id);
@@ -1073,9 +1067,6 @@ static int pull_snapshot_ids(void)
 		add_snapshot(s);
 		pr_info("[read_snapshot ids] parent = %s\n", ls->snapshot_id);
 	}
-	free(ls);
-	close(sockfd);
-	return n;
 }
 
 int push_snapshot_id(void)
@@ -1121,8 +1112,10 @@ int get_curr_snapshot_id_idx(void)
 	struct snapshot *si;
 	int idx = 0;
 
-	if (list_empty(&snapshot_head))
-		pull_snapshot_ids();
+	if (list_empty(&snapshot_head)) {
+		if (pull_snapshot_ids() < 0)
+			return -1;
+	}
 
 	list_for_each_entry(si, &snapshot_head, l) {
 		if (!strncmp(si->snapshot_id, snapshot_id, PATH_MAX))
@@ -1139,8 +1132,10 @@ char *get_snapshot_id_from_idx(int idx)
 {
 	struct snapshot *si;
 
-	if (list_empty(&snapshot_head))
-		pull_snapshot_ids();
+	if (list_empty(&snapshot_head)) {
+		if (pull_snapshot_ids() < 0)
+			return NULL;
+	}
 
 	/* Note: if idx is the service fd then we need the current
 	 * snapshot_id idx. Else we need a parent snapshot_id idx.
