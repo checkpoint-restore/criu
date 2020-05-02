@@ -678,7 +678,10 @@ static void finish_cache_write(struct roperation *rop)
 static void handle_roperation(struct epoll_event *event,
 	struct roperation *rop)
 {
-	int64_t ret = (EPOLLOUT & event->events) ?
+	bool sending = rop->fd == remote_sk ?
+		!restoring : rop->flags == O_RDONLY;
+
+	int64_t ret = sending ?
 		send_image_async(rop) :
 		recv_image_async(rop);
 
@@ -698,18 +701,18 @@ static void handle_roperation(struct epoll_event *event,
 	// Operation is finished.
 	if (ret < 0) {
 		pr_perror("Unable to %s %s:%s (returned %" PRId64 ")",
-				event->events & EPOLLOUT ? "send" : "receive",
+				sending ? "send" : "receive",
 				rop->rimg->path, rop->rimg->snapshot_id, ret);
 		goto err;
 	} else {
 		pr_info("[fd=%d] Finished %s %s:%s to CRIU (size %" PRIu64 ")\n",
 				rop->fd,
-				event->events & EPOLLOUT ? "sending" : "receiving",
+				sending ? "sending" : "receiving",
 				rop->rimg->path, rop->rimg->snapshot_id, rop->rimg->size);
 	}
 
 	// If receive operation is finished
-	if (event->events & EPOLLIN) {
+	if (!sending) {
 		// Cached side (finished receiving forwarded image)
 		if (restoring) {
 			finish_cache_write(rop);
