@@ -41,9 +41,6 @@ static char *snapshot_id;
 // True if restoring (cache := true; proxy := false).
 bool restoring = true;
 
-// True if the proxy to cache socket is being used (receiving or sending).
-static bool forwarding = false;
-
 // True if the local dump or restore is finished.
 static bool finished_local = false;
 
@@ -502,7 +499,6 @@ static void forward_remote_image(struct roperation *rop)
 	// Go back to non-blocking
 	fd_set_nonblocking(rop->fd, true);
 
-	forwarding = true;
 	event_set(epoll_fd, EPOLL_CTL_ADD, rop->fd, EPOLLOUT, rop);
 }
 
@@ -556,8 +552,6 @@ static void handle_remote_accept(int fd)
 	pr_info("[fd=%d] Received %s request for %s:%s with %" PRIu64 " bytes\n",
 		fd, strflags(flags), path, snapshot_id, size);
 
-
-	forwarding = true;
 	rop = handle_accept_write(fd, snapshot_id, path, flags, false, size);
 
 	if (rop != NULL) {
@@ -646,8 +640,6 @@ static inline void finish_proxy_read(struct roperation *rop)
 		rop->rimg->curr_fwd_buf = rop->curr_sent_buf;
 		rop->rimg->curr_fwd_bytes = rop->curr_sent_bytes;
 
-		forwarding = false;
-
 		// If there are images waiting to be forwarded, forward the next.
 		if (!list_empty(&rop_forwarding)) {
 			forward_remote_image(list_entry(rop_forwarding.next, struct roperation, l));
@@ -676,7 +668,6 @@ static void finish_cache_write(struct roperation *rop)
 	struct roperation *prop = get_rop_by_name(
 	&rop_pending, rop->snapshot_id, rop->path);
 
-	forwarding = false;
 	event_set(epoll_fd, EPOLL_CTL_ADD, remote_sk, EPOLLIN, &remote_sk);
 
 	// Add image to list of images.
@@ -813,7 +804,7 @@ void accept_image_connections(void) {
 					goto end;
 				}
 				handle_local_accept(local_sk);
-			} else if (restoring && !forwarding && events[i].data.ptr == &remote_sk) {
+			} else if (events[i].data.ptr == &remote_sk) {
 				event_set(epoll_fd, EPOLL_CTL_DEL, remote_sk, 0, 0);
 				handle_remote_accept(remote_sk);
 			} else {
