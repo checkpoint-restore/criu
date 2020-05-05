@@ -1081,8 +1081,24 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 	pr_info("Dumping %d(%d)'s namespaces\n", ns_pid->ns[0].virt, ns_pid->real);
 
 	if ((ns_flags & CLONE_NEWPID) && ns_pid->ns[0].virt != 1) {
-		pr_err("Can't dump a pid namespace without the process init\n");
-		return -1;
+		char *val = NULL;
+		for (ns = ns_ids; ns; ns = ns->next) {
+			if (ns->nd->cflag == CLONE_NEWPID) {
+				char id[64];
+				snprintf(id, sizeof(id), "pid[%u]", ns->kid);
+				val = external_lookup_by_key(id);
+				if (IS_ERR_OR_NULL(val)) {
+					val = NULL;
+					continue;
+				}
+				if (val)
+					break;
+			}
+		}
+		if (!val) {
+			pr_err("Can't dump a pid namespace without the process init\n");
+			return -1;
+		}
 	}
 
 	for (ns = ns_ids; ns; ns = ns->next) {
@@ -1783,8 +1799,17 @@ static int read_pid_ns_img(void)
 			pr_err("Can not read pidns object\n");
 			return -1;
 		}
-		if (ret > 0)
+		if (ret > 0) {
 			ns->ext_key = e->ext_key;
+			/*
+			 * Restoring into an existing PID namespace. This disables
+			 * the check to require a PID 1 when restoring a process
+			 * which used to be in a PID namespace.
+			 * To keep the PID namespace code paths enabled this bit
+			 * will be set after having clone()ed the process.
+			 */
+			root_ns_mask &= ~CLONE_NEWPID;
+		}
 	}
 
 	return 0;

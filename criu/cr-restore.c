@@ -1335,9 +1335,32 @@ static bool needs_prep_creds(struct pstree_item *item)
 	return (!item->parent && ((root_ns_mask & CLONE_NEWUSER) || getuid()));
 }
 
+static int write_ns_last_pid(pid_t pid)
+{
+	char buf[32];
+	int len;
+	int fd;
+
+	fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
+	if (fd < 0)
+		return -1;
+
+	len = snprintf(buf, sizeof(buf), "%d", pid - 1);
+	if (write(fd, buf, len) != len) {
+		pr_perror("%d: Write %s to %s", pid, buf,
+			LAST_PID_PATH);
+		close(fd);
+		return -1;
+	}
+	close(fd);
+	return 0;
+}
+
 static inline int fork_with_pid(struct pstree_item *item)
 {
+	unsigned long clone_flags;
 	struct cr_clone_arg ca;
+	struct ns_id *pid_ns = NULL;
 	int ret = -1;
 	pid_t pid = vpid(item);
 
@@ -1385,36 +1408,91 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ca.clone_flags);
 
-	if (!(ca.clone_flags & CLONE_NEWPID)) {
-		char buf[32];
-		int len;
-		int fd = -1;
+	if (ca.item->ids)
+		pid_ns = lookup_ns_by_id(ca.item->ids->pid_ns_id, &pid_ns_desc);
 
-		if (!kdat.has_clone3_set_tid) {
-			fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-			if (fd < 0)
-				goto err;
+	clone_flags = ca.clone_flags;
+	if (pid_ns && pid_ns->ext_key) {
+		int fd;
+
+		/* Not possible to restore into an empty PID namespace. */
+		BUG_ON(pid == INIT_PID);
+
+		/*
+		 * Restoring into an existing namespace means that CLONE_NEWPID
+		 * needs to be removed during clone() as the process will be
+		 * created in the correct PID namespace thanks to switch_ns_by_fd().
+		 */
+		clone_flags &= ~CLONE_NEWPID;
+
+		fd = inherit_fd_lookup_id(pid_ns->ext_key);
+		if (fd < 0) {
+			pr_err("Unable to find an external pidns: %s\n", pid_ns->ext_key);
+			return -1;
 		}
+
+		ret = switch_ns_by_fd(fd, &pid_ns_desc, NULL);
+		close(fd);
+
+		/*
+		 * If a process without a PID namespace is restored into
+		 * a PID namespace this tells CRIU to still handle the
+		 * process as if using CLONE_NEWPID.
+		 */
+		root_ns_mask |= CLONE_NEWPID;
+		rsti(item)->clone_flags |= CLONE_NEWPID;
+	}
+
+	if (!(clone_flags & CLONE_NEWPID)) {
+		pid_t helper_pid = -1;
 
 		lock_last_pid();
 
 		if (!kdat.has_clone3_set_tid) {
-			len = snprintf(buf, sizeof(buf), "%d", pid - 1);
-			if (write(fd, buf, len) != len) {
-				pr_perror("%d: Write %s to %s", pid, buf,
-					LAST_PID_PATH);
-				close(fd);
-				goto err_unlock;
+			if (pid_ns && pid_ns->ext_key) {
+				/*
+				 * Restoring into another namespace requires a helper
+				 * to write to LAST_PID_PATH. Using clone3() this is
+				 * so much easier and simpler. As long as CRIU supports
+				 * clone() this is needed.
+				 */
+				helper_pid = fork();
+				if (helper_pid < 0) {
+					pr_perror("Cannot fork ns_last_pid writer");
+					goto err_unlock;
+				}
 			}
-			close(fd);
+			if (helper_pid <= 0) {
+				ret = write_ns_last_pid(pid);
+				if (ret == -1 && helper_pid == -1)
+					goto err_unlock;
+				if (helper_pid == 0)
+					exit(ret);
+			}
+			if (helper_pid > 0) {
+				/* We forked and this is the parent. */
+				int status;
+
+				ret = waitpid(-1, &status, 0);
+				if (ret < 0) {
+					pr_perror("Cannot wait for ns_last_pid writer");
+					goto err_unlock;
+				}
+				if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+					pr_err("Writing ns_last_pid failed with error %d\n", status);
+					ret = -1;
+					goto err_unlock;
+				}
+			}
 		}
 	} else {
-		BUG_ON(pid != INIT_PID);
+		if (!(pid_ns && pid_ns->ext_key))
+			BUG_ON(pid != INIT_PID);
 	}
 
 	if (kdat.has_clone3_set_tid) {
 		ret = clone3_with_pid_noasan(restore_task_with_children,
-				&ca, (ca.clone_flags &
+				&ca, (clone_flags &
 					~(CLONE_NEWNET | CLONE_NEWCGROUP | CLONE_NEWTIME)),
 				SIGCHLD, pid);
 	} else {
@@ -1432,7 +1510,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 		 */
 		close_pid_proc();
 		ret = clone_noasan(restore_task_with_children,
-				(ca.clone_flags &
+				(clone_flags &
 				 ~(CLONE_NEWNET | CLONE_NEWCGROUP | CLONE_NEWTIME)) | SIGCHLD,
 				&ca);
 	}
@@ -1452,9 +1530,9 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 err_unlock:
-	if (!(ca.clone_flags & CLONE_NEWPID))
+	if (!(clone_flags & CLONE_NEWPID))
 		unlock_last_pid();
-err:
+
 	if (ca.core)
 		core_entry__free_unpacked(ca.core, NULL);
 	return ret;
@@ -2149,6 +2227,9 @@ static int restore_root_task(struct pstree_item *init)
 	 * this later.
 	 */
 
+	if (prepare_namespace_before_tasks())
+		return -1;
+
 	if (vpid(init) == INIT_PID) {
 		if (!(root_ns_mask & CLONE_NEWPID)) {
 			pr_err("This process tree can only be restored "
@@ -2163,9 +2244,6 @@ static int restore_root_task(struct pstree_item *init)
 	}
 
 	if (prepare_userns_hook())
-		return -1;
-
-	if (prepare_namespace_before_tasks())
 		return -1;
 
 	__restore_switch_stage_nw(CR_STATE_ROOT_TASK);
