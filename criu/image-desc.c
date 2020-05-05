@@ -103,6 +103,7 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 	FD_ENTRY(NETNF_EXP,	"netns-exp-%u"),
 	FD_ENTRY(FILES,		"files"),
 	FD_ENTRY(TIMENS,	"timens-%u"),
+	FD_ENTRY(PIDNS,		"pidns-%u"),
 
 	[CR_FD_STATS] = {
 		.fmt	= "stats-%s",

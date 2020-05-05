@@ -1,0 +1,5 @@
+syntax = "proto2";
+
+message pidns_entry {
+	optional string ext_key		= 1;
+}
