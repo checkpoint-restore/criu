@@ -32,6 +32,7 @@
 #include "util.h"
 #include "images/ns.pb-c.h"
 #include "images/userns.pb-c.h"
+#include "images/pidns.pb-c.h"
 
 static struct ns_desc *ns_desc_array[] = {
 	&net_ns_desc,
@@ -45,6 +46,8 @@ static struct ns_desc *ns_desc_array[] = {
 };
 
 static unsigned int join_ns_flags;
+
+static int collect_pid_namespaces(bool);
 
 int check_namespace_opts(void)
 {
@@ -1563,6 +1566,10 @@ int collect_namespaces(bool for_dump)
 	if (ret < 0)
 		return ret;
 
+	ret = collect_pid_namespaces(for_dump);
+	if (ret < 0)
+		return ret;
+
 	return 0;
 }
 
@@ -1754,6 +1761,35 @@ out:
 	return ret;
 }
 
+static int read_pid_ns_img(void)
+{
+	struct ns_id *ns;
+	PidnsEntry *e;
+
+	for (ns = ns_ids; ns != NULL; ns = ns->next) {
+		struct cr_img *img;
+		int ret;
+
+		if (ns->nd != &pid_ns_desc)
+			continue;
+
+		img = open_image(CR_FD_PIDNS, O_RSTR, ns->id);
+		if (!img)
+			return -1;
+
+		ret = pb_read_one_eof(img, &e, PB_PIDNS);
+		close_image(img);
+		if (ret < 0) {
+			pr_err("Can not read pidns object\n");
+			return -1;
+		}
+		if (ret > 0)
+			ns->ext_key = e->ext_key;
+	}
+
+	return 0;
+}
+
 int prepare_namespace_before_tasks(void)
 {
 	if (start_usernsd())
@@ -1769,6 +1805,9 @@ int prepare_namespace_before_tasks(void)
 		goto err_img;
 
 	if (read_net_ns_img())
+		goto err_img;
+
+	if (read_pid_ns_img())
 		goto err_img;
 
 	return 0;
@@ -1788,3 +1827,43 @@ err_unds:
 
 struct ns_desc pid_ns_desc = NS_DESC_ENTRY(CLONE_NEWPID, "pid");
 struct ns_desc user_ns_desc = NS_DESC_ENTRY(CLONE_NEWUSER, "user");
+
+static int collect_pid_ns(struct ns_id *ns, void *oarg)
+{
+	PidnsEntry e = PIDNS_ENTRY__INIT;
+	struct cr_img *img;
+	int ret;
+	char id[64], *val;
+
+	pr_info("Collecting pidns %d/%d\n", ns->id, ns->ns_pid);
+
+	snprintf(id, sizeof(id), "pid[%u]", ns->kid);
+	val = external_lookup_by_key(id);
+	if (PTR_RET(val))
+		return 0;
+
+	/*
+	 * Only if the user marked the PID namespace as external
+	 * via --external pid[<inode>]:<label> the pidns
+	 * image is written.
+	 */
+
+	pr_debug("The %s pidns is external\n", id);
+	ns->ext_key = e.ext_key = val;
+
+	img = open_image(CR_FD_PIDNS, O_DUMP, ns->id);
+	if (!img)
+		return -1;
+	ret = pb_write_one(img, &e, PB_PIDNS);
+	close_image(img);
+
+	return ret;
+}
+
+static int collect_pid_namespaces(bool for_dump)
+{
+	if (!for_dump)
+		return 0;
+
+	return walk_namespaces(&pid_ns_desc, collect_pid_ns, NULL);
+}
