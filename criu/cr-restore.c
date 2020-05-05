@@ -1335,9 +1335,10 @@ static bool needs_prep_creds(struct pstree_item *item)
 	return (!item->parent && ((root_ns_mask & CLONE_NEWUSER) || getuid()));
 }
 
-static int write_ns_last_pid(pid_t pid)
+static int set_next_pid(void *arg)
 {
 	char buf[32];
+	pid_t *pid = arg;
 	int len;
 	int fd;
 
@@ -1345,10 +1346,10 @@ static int write_ns_last_pid(pid_t pid)
 	if (fd < 0)
 		return -1;
 
-	len = snprintf(buf, sizeof(buf), "%d", pid - 1);
+	len = snprintf(buf, sizeof(buf), "%d", *pid - 1);
 	if (write(fd, buf, len) != len) {
-		pr_perror("%d: Write %s to %s", pid, buf,
-			LAST_PID_PATH);
+		pr_perror("Failed to write %s to /proc/%s",
+			buf, LAST_PID_PATH);
 		close(fd);
 		return -1;
 	}
@@ -1416,7 +1417,10 @@ static inline int fork_with_pid(struct pstree_item *item)
 		int fd;
 
 		/* Not possible to restore into an empty PID namespace. */
-		BUG_ON(pid == INIT_PID);
+		if (pid == INIT_PID) {
+			pr_err("Unable to restore into an empty PID namespace\n");
+			return -1;
+		}
 
 		/*
 		 * Restoring into an existing namespace means that CLONE_NEWPID
@@ -1433,6 +1437,10 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 		ret = switch_ns_by_fd(fd, &pid_ns_desc, NULL);
 		close(fd);
+		if (ret) {
+			pr_err("Unable to enter existing PID namespace\n");
+			return -1;
+		}
 
 		/*
 		 * If a process without a PID namespace is restored into
@@ -1444,8 +1452,6 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 	if (!(clone_flags & CLONE_NEWPID)) {
-		pid_t helper_pid = -1;
-
 		lock_last_pid();
 
 		if (!kdat.has_clone3_set_tid) {
@@ -1456,38 +1462,23 @@ static inline int fork_with_pid(struct pstree_item *item)
 				 * so much easier and simpler. As long as CRIU supports
 				 * clone() this is needed.
 				 */
-				helper_pid = fork();
-				if (helper_pid < 0) {
-					pr_perror("Cannot fork ns_last_pid writer");
-					goto err_unlock;
-				}
+				ret = call_in_child_process(set_next_pid, (void *)&pid);
+			} else {
+				ret = set_next_pid((void *)&pid);
 			}
-			if (helper_pid <= 0) {
-				ret = write_ns_last_pid(pid);
-				if (ret == -1 && helper_pid == -1)
-					goto err_unlock;
-				if (helper_pid == 0)
-					exit(ret);
-			}
-			if (helper_pid > 0) {
-				/* We forked and this is the parent. */
-				int status;
-
-				ret = waitpid(-1, &status, 0);
-				if (ret < 0) {
-					pr_perror("Cannot wait for ns_last_pid writer");
-					goto err_unlock;
-				}
-				if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-					pr_err("Writing ns_last_pid failed with error %d\n", status);
-					ret = -1;
-					goto err_unlock;
-				}
+			if (ret != 0) {
+				pr_err("Setting PID failed");
+				goto err_unlock;
 			}
 		}
 	} else {
-		if (!(pid_ns && pid_ns->ext_key))
-			BUG_ON(pid != INIT_PID);
+		if (!(pid_ns && pid_ns->ext_key)) {
+			if (pid != INIT_PID) {
+				pr_err("First PID in a PID namespace needs to be %d and not %d\n",
+					pid, INIT_PID);
+				return -1;
+			}
+		}
 	}
 
 	if (kdat.has_clone3_set_tid) {
@@ -2227,6 +2218,9 @@ static int restore_root_task(struct pstree_item *init)
 	 * this later.
 	 */
 
+	if (prepare_userns_hook())
+		return -1;
+
 	if (prepare_namespace_before_tasks())
 		return -1;
 
@@ -2242,9 +2236,6 @@ static int restore_root_task(struct pstree_item *init)
 		pr_err("Can't restore pid namespace without the process init\n");
 		return -1;
 	}
-
-	if (prepare_userns_hook())
-		return -1;
 
 	__restore_switch_stage_nw(CR_STATE_ROOT_TASK);
 
