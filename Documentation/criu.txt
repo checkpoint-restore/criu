@@ -242,6 +242,12 @@ In other words, do not use it unless really needed.
     Tell *criu* that one end of a pair of UNIX sockets (created by
     *socketpair*(2)) with the given _id_ is OK to be disconnected.
 
+*--external* **pid[**__inode__**]:**__name__::
+    Mark a PID namespace as external. This can be later used to restore
+    a process into an existing PID namespace. The label 'name' can be
+    used to assign another PID namespace during restore with the help
+    of *--inherit-fd*.
+
 *--freeze-cgroup*::
    Use cgroup freezer to collect processes.
 
@@ -402,7 +408,7 @@ Restores previously checkpointed processes.
     Inherit a file descriptor. This option lets *criu* use an already opened
     file descriptor 'N' for restoring a file identified by 'resource'.
     This option can be used to restore an external resource dumped
-    with the help of *--external* *file*, *tty*, and *unix* options.
+    with the help of *--external* *file*, *tty*, *pid* and *unix* options.
 +
 The 'resource' argument can be one of the following:
 +
