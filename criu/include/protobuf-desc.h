@@ -64,6 +64,7 @@ enum {
 	PB_MEMFD_FILE,
 	PB_MEMFD_INODE,		/* 60 */
 	PB_TIMENS,
+	PB_PIDNS,
 	PB_REMOTE_IMAGE,	/* Header for images sent from proxy to cache.*/
 	PB_LOCAL_IMAGE,		/* Header for reading/writing images from/to proxy or cache. */
 	PB_LOCAL_IMAGE_REPLY,	/* Header for reading/writing images reply. */

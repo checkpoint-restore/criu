@@ -467,6 +467,7 @@ handlers = {
     'CREDS': entry_handler(pb.creds_entry),
     'UTSNS': entry_handler(pb.utsns_entry),
     'TIMENS': entry_handler(pb.timens_entry),
+    'PIDNS': entry_handler(pb.pidns_entry),
     'IPC_VAR': entry_handler(pb.ipc_var_entry),
     'FS': entry_handler(pb.fs_entry),
     'GHOST_FILE': ghost_file_handler(),
