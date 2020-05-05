@@ -96,7 +96,7 @@
 #define FILES_MAGIC		0x56303138 /* Toropets */
 #define MEMFD_INODE_MAGIC	0x48453499 /* Dnipro */
 #define TIMENS_MAGIC		0x43114433 /* Beslan */
-#define PIDNS_MAGIC		0x12345678
+#define PIDNS_MAGIC		0x61157326 /* Surgut */
 
 #define IFADDR_MAGIC		RAW_IMAGE_MAGIC
 #define ROUTE_MAGIC		RAW_IMAGE_MAGIC
