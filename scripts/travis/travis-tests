@@ -196,4 +196,7 @@ ip net add test
 # libcriu testing
 make -C test/others/libcriu run
 
+# external namespace testing
+make -C test/others/ns_ext run
+
 make -C test/others/shell-job
