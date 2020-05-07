@@ -37,7 +37,8 @@
 #define LOG_PREFIX "mnt: "
 
 #define BINFMT_MISC_HOME "proc/sys/fs/binfmt_misc"
-#define CRTIME_MNT_ID	 0
+
+#define HELPER_MNT_ID 0
 
 #define CONTEXT_OPT "context="
 
@@ -1595,7 +1596,7 @@ static __maybe_unused struct mount_info *add_cr_time_mount(struct mount_info *ro
 		sprintf(mi->mountpoint, "%s%s", root->mountpoint, path);
 	else
 		sprintf(mi->mountpoint, "%s/%s", root->mountpoint, path);
-	mi->mnt_id = CRTIME_MNT_ID;
+	mi->mnt_id = HELPER_MNT_ID;
 	mi->flags = mi->sb_flags = 0;
 	mi->root = xstrdup("/");
 	mi->fsname = xstrdup(fsname);
@@ -1718,8 +1719,8 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 	    pm->fstype->check_bindmount(pm))
 		return -1;
 
-	if (pm->mnt_id == CRTIME_MNT_ID) {
-		pr_info("Skip dumping cr-time mountpoint: %s\n", pm->mountpoint);
+	if (pm->mnt_id == HELPER_MNT_ID) {
+		pr_info("Skip dumping helper mountpoint: %s\n", pm->mountpoint);
 		return 0;
 	}
 
@@ -3414,6 +3415,7 @@ static int populate_mnt_ns(void)
 	root_yard_mp->mountpoint = mnt_roots;
 	root_yard_mp->mounted = true;
 	root_yard_mp->mnt_bind_is_populated = true;
+	root_yard_mp->mnt_id = HELPER_MNT_ID;
 
 	if (merge_mount_trees(root_yard_mp))
 		return -1;
@@ -3931,7 +3933,7 @@ void clean_cr_time_mounts(void)
 	for (mi = mntinfo; mi; mi = mi->next) {
 		int cwd_fd;
 
-		if (mi->mnt_id != CRTIME_MNT_ID)
+		if (mi->mnt_id != HELPER_MNT_ID)
 			continue;
 		ret = switch_mnt_ns(mi->nsid->ns_pid, &ns_old, &cwd_fd);
 		if (ret) {
