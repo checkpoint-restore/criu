@@ -176,6 +176,9 @@ extern bool mnt_is_overmounted(struct mount_info *mi);
 extern struct mount_info *mnt_get_external_bind(struct mount_info *mi);
 extern bool mnt_is_external_bind(struct mount_info *mi);
 extern bool has_mounted_external_bind(struct mount_info *mi);
+extern bool rst_mnt_is_root(struct mount_info *mi);
+extern struct mount_info *mnt_get_root_bind(struct mount_info *mi);
+extern bool mnt_is_root_bind(struct mount_info *mi);
 
 extern struct mount_info *mnt_bind_pick(struct mount_info *mi,
 					bool (*pick)(struct mount_info *mi, struct mount_info *bind));
