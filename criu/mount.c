@@ -609,6 +609,29 @@ bool has_mounted_external_bind(struct mount_info *mi)
 	return mnt_bind_pick(mi, __has_mounted_external_bind);
 }
 
+bool rst_mnt_is_root(struct mount_info *mi)
+{
+	return (mi->is_ns_root && mi->nsid->id == root_item->ids->mnt_ns_id);
+}
+
+static bool __mnt_is_root_bind(struct mount_info *mi, struct mount_info *bind)
+{
+	if (rst_mnt_is_root(bind) && is_sub_path(mi->root, bind->root))
+		return true;
+
+	return false;
+}
+
+struct mount_info *mnt_get_root_bind(struct mount_info *mi)
+{
+	return mnt_bind_pick(mi, __mnt_is_root_bind);
+}
+
+bool mnt_is_root_bind(struct mount_info *mi)
+{
+	return mnt_get_root_bind(mi);
+}
+
 /*
  * Having two children with same mountpoint is unsupported. That can happen in
  * case of mount propagation inside of shared mounts, in that case it is hard
@@ -642,14 +665,13 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 	struct mount_info *m, *t;
 
 	for (m = info; m; m = m->next) {
-		if (m->parent == NULL || m->is_ns_root)
-			/* root mount can be any */
-			continue;
-
 		if (validate_children_collision(m))
 			return -1;
 
 		if (mnt_is_external_bind(m))
+			continue;
+
+		if (mnt_is_root_bind(m))
 			continue;
 
 		/*
@@ -1662,7 +1684,7 @@ static int dump_one_fs(struct mount_info *mi)
 	struct mount_info *t;
 	bool first = true;
 
-	if (mi->is_ns_root || mi->need_plugin || mnt_is_external_bind(mi) || !mi->fstype->dump)
+	if (mnt_is_root_bind(mi) || mi->need_plugin || mnt_is_external_bind(mi) || !mi->fstype->dump)
 		return 0;
 
 	/* mnt_bind is a cycled list, so list_for_each can't be used here. */
@@ -2444,11 +2466,6 @@ err:
 		}
 	}
 	return exit_code;
-}
-
-static bool rst_mnt_is_root(struct mount_info *m)
-{
-	return (m->is_ns_root && m->nsid->id == root_item->ids->mnt_ns_id);
 }
 
 static bool can_mount_now(struct mount_info *mi)
