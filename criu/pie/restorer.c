@@ -1814,7 +1814,7 @@ long __export_restore_task(struct task_restore_args *args)
 				sys_lseek(fd, 0, SEEK_SET);
 				ret = sys_write(fd, s, last_pid_len);
 				if (ret < 0) {
-					pr_err("Can't set last_pid %ld/%s\n", ret, last_pid_buf);
+					pr_err("Can't set last_pid %ld/%s\n", ret, s);
 					sys_close(fd);
 					mutex_unlock(&task_entries_local->last_pid_mutex);
 					goto core_restore_end;
