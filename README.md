@@ -65,3 +65,6 @@ itself, and we have it available as the [libsoccr library](https://criu.org/Libs
 ## Licence
 
 The project is licensed under GPLv2 (though files sitting in the lib/ directory are LGPLv2.1).
+
+All files in the images/ directory are licensed under the Expat license (so-called MIT).
+See the images/LICENSE file.
