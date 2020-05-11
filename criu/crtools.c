@@ -210,9 +210,6 @@ int main(int argc, char *argv[], char *envp[])
        if (fault_injected(FI_CANNOT_MAP_VDSO))
                kdat.can_map_vdso = 0;
 
-	if (opts.deprecated_ok)
-		pr_debug("DEPRECATED ON\n");
-
 	if (!list_empty(&opts.inherit_fds)) {
 		if (strcmp(argv[optind], "restore")) {
 			pr_err("--inherit-fd is restore-only option\n");
