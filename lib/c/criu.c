@@ -670,6 +670,16 @@ void criu_set_ext_masters(bool val)
 	criu_local_set_ext_masters(global_opts, val);
 }
 
+void criu_local_set_orphan_pts_master(criu_opts *opts, bool val)
+{
+	opts->rpc->has_orphan_pts_master = true;
+	opts->rpc->orphan_pts_master = val;
+}
+void criu_set_orphan_pts_master(bool val)
+{
+	criu_local_set_orphan_pts_master(global_opts, val);
+}
+
 int criu_local_set_log_file(criu_opts *opts, const char *log_file)
 {
 	opts->rpc->log_file = strdup(log_file);
