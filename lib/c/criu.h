@@ -117,6 +117,17 @@ void criu_set_notify_cb(int (*cb)(char *action, criu_notify_arg_t na));
 /* Get pid of root task. 0 if not available */
 int criu_notify_pid(criu_notify_arg_t na);
 
+/*
+ * If CRIU sends and FD in the case of 'orphan-pts-master',
+ * this FD can be retrieved with criu_get_orphan_pts_master_fd().
+ *
+ * If no FD has been received this will return -1.
+ *
+ * To make sure the FD returned is valid this function has to be
+ * called after the callback with the 'action' 'orphan-pts-master'.
+ */
+int criu_get_orphan_pts_master_fd(void);
+
 /* Here is a table of return values and errno's of functions
  * from the list down below.
  *
