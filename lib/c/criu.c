@@ -34,6 +34,7 @@ struct criu_opts {
 
 static criu_opts *global_opts;
 static int saved_errno;
+static int orphan_pts_master_fd = -1;
 
 void criu_free_service(criu_opts *opts)
 {
@@ -1145,27 +1146,70 @@ int criu_set_page_server_address_port(const char *address, int port)
 
 static CriuResp *recv_resp(int socket_fd)
 {
+	struct msghdr msg_hdr = {0};
 	unsigned char *buf = NULL;
-	int len;
+	struct cmsghdr *cmsg;
 	CriuResp *msg = 0;
+	struct iovec io;
+	int cmsg_len;
+	int len;
 
+	/* Check the size of the waiting data. */
 	len = recv(socket_fd, NULL, 0, MSG_TRUNC | MSG_PEEK);
 	if (len == -1) {
 		perror("Can't read request");
 		goto err;
 	}
 
-	buf = malloc(len);
+	/*
+	 * If there is an FD attached to the protobuf message from CRIU
+	 * the FD will be in the ancillary data. Let's reserve additional
+	 * memory for that.
+	 */
+	cmsg_len = CMSG_LEN(sizeof(int));
+	buf = malloc(len + cmsg_len);
 	if (!buf) {
 		errno = ENOMEM;
 		perror("Can't receive response");
 		goto err;
 	}
 
-	len = recv(socket_fd, buf, len, MSG_TRUNC);
+	io.iov_base = buf;
+	io.iov_len = len;
+	msg_hdr.msg_iov = &io;
+	msg_hdr.msg_iovlen = 1;
+	msg_hdr.msg_control = buf + len;
+	msg_hdr.msg_controllen = cmsg_len;
+	len = recvmsg(socket_fd, &msg_hdr, MSG_TRUNC);
+
 	if (len == -1) {
 		perror("Can't read request");
 		goto err;
+	}
+
+	/*
+	 * This will be NULL if no FD is in the message. Currently
+	 * only a response with script set to 'orphan-pts-master'
+	 * has an FD in the ancillary data.
+	 */
+	cmsg = CMSG_FIRSTHDR(&msg_hdr);
+	if (cmsg) {
+		/* We probably got an FD from CRIU. */
+		if (cmsg->cmsg_type != SCM_RIGHTS) {
+			errno = EINVAL;
+			goto err;
+		}
+		/* CTRUNC will be set if msg_hdr.msg_controllen is too small. */
+		if (msg_hdr.msg_flags & MSG_CTRUNC) {
+			errno = ENFILE;
+			goto err;
+		}
+		/*
+		 * Not using 'orphan_pts_master_fd = *(int *)CMSG_DATA(cmsg)'
+		 * as that fails with some compilers with:
+		 * 'error: dereferencing type-punned pointer will break strict-aliasing rules'
+		 */
+		memcpy(&orphan_pts_master_fd, CMSG_DATA(cmsg), sizeof(int));
 	}
 
 	msg = criu_resp__unpack(NULL, len, buf);
@@ -1732,4 +1776,9 @@ int criu_local_check_version(criu_opts *opts, int minimum)
 int criu_check_version(int minimum)
 {
 	return criu_local_check_version(global_opts, minimum);
+}
+
+int criu_get_orphan_pts_master_fd(void)
+{
+	return orphan_pts_master_fd;
 }
