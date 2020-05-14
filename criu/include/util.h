@@ -241,6 +241,10 @@ static inline bool issubpath(const char *path, const char *sub_path)
 	return strstartswith2(path, sub_path, &end) && (end == '/' || end == '\0');
 }
 
+extern char *get_relative_path(char *path, char *sub_path);
+extern bool is_sub_path(char *path, char *sub_path);
+extern bool is_same_path(char *path1, char *path2);
+
 int strip_deleted(char *path, int len);
 int cut_path_ending(char *path, char *sub_path);
 
