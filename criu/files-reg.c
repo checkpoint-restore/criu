@@ -53,6 +53,7 @@
 
 #include "files-reg.h"
 #include "plugin.h"
+#include "string.h"
 
 int setfsuid(uid_t fsuid);
 int setfsgid(gid_t fsuid);
@@ -401,40 +402,74 @@ err:
 	return ret;
 }
 
-static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_img *img)
+static int nomntns_create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_img *img)
 {
-	struct mount_info *mi;
 	char path[PATH_MAX];
-	int ret, root_len;
 
-	root_len = ret = rst_get_mnt_root(gf->remap.rmnt_id, path, sizeof(path));
-	if (ret < 0) {
-		pr_err("The %d mount is not found for ghost\n", gf->remap.rmnt_id);
-		return -1;
-	}
+	snprintf(path, sizeof(path), "/%s", gf->remap.rpath);
 
-	/* Add a '/' only if we have no at the end */
-	if (path[root_len - 1] != '/') {
-		path[root_len++] = '/';
-		path[root_len] = '\0';
-	}
-
-	snprintf(path + root_len, sizeof(path) - root_len, "%s", gf->remap.rpath);
-	ret = -1;
-
-	mi = lookup_mnt_id(gf->remap.rmnt_id);
-	/* We get here while in service mntns */
-	if (mi && try_remount_writable(mi, false))
-		return -1;
-
-	ret = create_ghost_dentry(path, gfe, img);
-	if (ret)
+	if (create_ghost_dentry(path, gfe, img))
 		return -1;
 
 	if (ghost_apply_metadata(path, gfe))
 		return -1;
 
-	strcpy(gf->remap.rpath, path + root_len);
+	strlcpy(gf->remap.rpath, path + 1, PATH_MAX);
+	pr_debug("Remap rpath is %s\n", gf->remap.rpath);
+	return 0;
+}
+
+static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_img *img)
+{
+	struct mount_info *mi;
+	char path[PATH_MAX], *rel_path, *rel_mp;
+
+	if (!(root_ns_mask & CLONE_NEWNS))
+		return nomntns_create_ghost(gf, gfe, img);
+
+	mi = lookup_mnt_id(gf->remap.rmnt_id);
+	if (!mi) {
+		pr_err("The %d mount is not found for ghost\n", gf->remap.rmnt_id);
+		return -1;
+	}
+
+	/* Get path relative to mountpoint from path relative to mntns */
+	rel_path = get_relative_path(gf->remap.rpath, mi->ns_mountpoint);
+	if (!rel_path) {
+		pr_err("Can't get path %s relative to %s\n", gf->remap.rpath, mi->ns_mountpoint);
+		return -1;
+	}
+
+	snprintf(path, sizeof(path), "%s%s%s", service_mountpoint(mi), rel_path[0] ? "/" : "", rel_path);
+	pr_debug("Trying to create ghost on path %s\n", path);
+
+	/* We get here while in service mntns */
+	if (try_remount_writable(mi, false))
+		return -1;
+
+	if (create_ghost_dentry(path, gfe, img))
+		return -1;
+
+	if (ghost_apply_metadata(path, gfe))
+		return -1;
+
+	/*
+	 * Convert the path back to mntns relative, as create_ghost_dentry
+	 * might have changed it.
+	 */
+	rel_path = get_relative_path(path, service_mountpoint(mi));
+	if (!rel_path) {
+		pr_err("Can't get path %s relative to %s\n", path, service_mountpoint(mi));
+		return -1;
+	}
+
+	rel_mp = get_relative_path(mi->ns_mountpoint, "/");
+	if (!rel_mp) {
+		pr_err("Can't get path %s relative to %s\n", mi->ns_mountpoint, "/");
+		return -1;
+	}
+
+	snprintf(gf->remap.rpath, PATH_MAX, "%s%s%s", rel_mp, (rel_mp[0] && rel_path[0]) ? "/" : "", rel_path);
 	pr_debug("Remap rpath is %s\n", gf->remap.rpath);
 	return 0;
 }
