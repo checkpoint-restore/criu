@@ -678,6 +678,8 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	if (req->has_status_fd) {
+		pr_warn("status_fd is obsoleted; use status-ready notification instead\n");
+
 		sprintf(status_fd, "/proc/%d/fd/%d", ids.pid, req->status_fd);
 		opts.status_fd = open(status_fd, O_WRONLY);
 		if (opts.status_fd < 0) {
