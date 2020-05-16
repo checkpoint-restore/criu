@@ -673,8 +673,10 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_status_fd) {
 		sprintf(status_fd, "/proc/%d/fd/%d", ids.pid, req->status_fd);
 		opts.status_fd = open(status_fd, O_WRONLY);
-		if (opts.status_fd < 0)
+		if (opts.status_fd < 0) {
+			pr_perror("Can't reopen status fd %s", status_fd);
 			goto err;
+		}
 	}
 
 	if (req->orphan_pts_master)
