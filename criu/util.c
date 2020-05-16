@@ -660,7 +660,7 @@ out:
 	return ret;
 }
 
-int close_status_fd(void)
+int status_ready(void)
 {
 	char c = 0;
 
@@ -1121,7 +1121,7 @@ int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
 		}
 	}
 
-	if (close_status_fd())
+	if (status_ready())
 		return -1;
 
 	if (sk >= 0) {

@@ -1387,7 +1387,7 @@ int cr_service(bool daemon_mode)
 	if (setup_sigchld_handler())
 		goto err;
 
-	if (close_status_fd())
+	if (status_ready())
 		goto err;
 
 	while (1) {
