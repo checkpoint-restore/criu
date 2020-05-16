@@ -45,6 +45,7 @@
 #include "pstree.h"
 
 #include "cr-errno.h"
+#include "action-scripts.h"
 
 #define VMA_OPT_LEN	128
 
@@ -663,6 +664,9 @@ out:
 int status_ready(void)
 {
 	char c = 0;
+
+	if (run_scripts(ACT_STATUS_READY))
+		return -1;
 
 	if (opts.status_fd < 0)
 		return 0;
