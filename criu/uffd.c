@@ -1456,7 +1456,7 @@ int cr_lazy_pages(bool daemon)
 		}
 	}
 
-	if (close_status_fd())
+	if (status_ready())
 		return -1;
 
 	/*
