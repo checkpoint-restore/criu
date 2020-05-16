@@ -126,6 +126,8 @@ static char ** parse_config(char *filepath)
 	if (!configfile)
 		return NULL;
 
+	pr_debug("Parsing config file %s\n", filepath);
+
 	configuration = xmalloc(config_size * sizeof(char *));
 	if (configuration == NULL) {
 		fclose(configfile);
