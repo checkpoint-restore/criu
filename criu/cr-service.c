@@ -405,7 +405,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	if (req->config_file) {
-		pr_debug("Overwriting RPC settings with values from %s\n", req->config_file);
+		pr_debug("Would overwrite RPC settings with values from %s\n", req->config_file);
 	}
 
 	if (kerndat_init())
