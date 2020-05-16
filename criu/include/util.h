@@ -177,7 +177,7 @@ extern int cr_system(int in, int out, int err, char *cmd, char *const argv[], un
 extern int cr_system_userns(int in, int out, int err, char *cmd,
 				char *const argv[], unsigned flags, int userns_pid);
 extern int cr_daemon(int nochdir, int noclose, int close_fd);
-extern int close_status_fd(void);
+extern int status_ready(void);
 extern int is_root_user(void);
 
 extern void set_proc_self_fd(int fd);
