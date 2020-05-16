@@ -29,6 +29,7 @@ static const char *action_names[ACT_MAX] = {
 	[ ACT_PRE_RESUME ]	= "pre-resume",
 	[ ACT_POST_RESUME ]	= "post-resume",
 	[ ACT_ORPHAN_PTS_MASTER ] = "orphan-pts-master",
+	[ ACT_STATUS_READY ]    = "status-ready",
 };
 
 struct script {
