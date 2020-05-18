@@ -34,6 +34,10 @@ endif
 ifeq ($(ARCH),arm)
         ARMV		:= $(shell echo $(SUBARCH) | sed -nr 's/armv([[:digit:]]).*/\1/p; t; i7')
 
+        ifneq ($(filter-out 6 7 8,$(ARMV)),)
+                $(error "ARM platform subversion undetected. SUBARCH is $(SUBARCH))
+        endif
+
         ifeq ($(ARMV),6)
                 USERCFLAGS += -march=armv6
         endif
