@@ -437,6 +437,7 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 			void *from = xsave->member;					\
 			size_t size = pb_repeated_size(xsave, member);			\
 			size_t xsize = (size_t)compel_fpu_feature_size(feature);	\
+			size_t xstate_size_next = off + xsize;				\
 			if (xsize != size) {						\
 				if (size) {						\
 					pr_err("%s reported %zu bytes (expecting %zu)\n",\
@@ -448,7 +449,8 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 				}							\
 			}								\
 			xstate_bv |= (1UL << feature);					\
-			xstate_size += xsize;						\
+			BUG_ON(xstate_size > xstate_size_next);				\
+			xstate_size = xstate_size_next;					\
 			memcpy(to, from, size);						\
 		}									\
 	} while (0)
@@ -485,6 +487,11 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 			UserX86XsaveEntry *xsave = core->thread_info->fpregs->xsave;
 			uint8_t *extended_state_area = (void *)x;
 
+			/*
+			 * Note the order does matter here and bound
+			 * to the increasing offsets of XFEATURE_x
+			 * inside memory layout (xstate_size calculation).
+			 */
 			assign_xsave(XFEATURE_YMM,	xsave, ymmh_space,	extended_state_area);
 			assign_xsave(XFEATURE_BNDREGS,	xsave, bndreg_state,	extended_state_area);
 			assign_xsave(XFEATURE_BNDCSR,	xsave, bndcsr_state,	extended_state_area);
