@@ -1480,7 +1480,7 @@ int parse_timens_offsets(struct timespec *boff, struct timespec *moff)
 	f = fopen_proc(PROC_SELF, "timens_offsets");
 	if (!f) {
 		pr_perror("Unable to open /proc/self/timens_offsets");
-		goto out;
+		return exit_code;
 	}
 	while (fgets(buf, BUF_SIZE, f)) {
 		int64_t sec, nsec;
