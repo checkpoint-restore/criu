@@ -687,7 +687,7 @@ int dump_task_ns_ids(struct pstree_item *item)
 	}
 	if (ids->has_time_ns_id) {
 		unsigned int id;
-		protobuf_c_boolean supported;
+		protobuf_c_boolean supported = false;
 		id = get_ns_id(pid, &time_for_children_ns_desc, &supported);
 		if (!supported || !id) {
 			pr_err("Can't make timens id\n");
