@@ -64,6 +64,7 @@ int prepare_timens(int id)
 
 	if (id == 0 && empty_image(img)) {
 		pr_warn("Clocks values have not been dumped\n");
+		close_image(img);
 		return 0;
 	}
 
