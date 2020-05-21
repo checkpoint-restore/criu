@@ -76,6 +76,11 @@ The following levels are available:
 *-D*, *--images-dir* 'path'::
     Use 'path' as a base directory where to look for sets of image files.
 
+*--stream*::
+    dump/restore images using criu-image-streamer.
+    See https://github.com/checkpoint-restore/criu-image-streamer for detailed
+    usage.
+
 *--prev-images-dir* 'path'::
     Use 'path' as a parent directory where to look for sets of image files.
     This option makes sense in case of incremental dumps.

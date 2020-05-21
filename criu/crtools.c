@@ -54,6 +54,20 @@ void flush_early_log_to_stderr(void)
 	flush_early_log_buffer(STDERR_FILENO);
 }
 
+static int image_dir_mode(char *argv[], int optind)
+{
+	if (!strcmp(argv[optind], "dump") ||
+	    !strcmp(argv[optind], "pre-dump") ||
+	    (!strcmp(argv[optind], "cpuinfo") && !strcmp(argv[optind + 1], "dump")))
+		return O_DUMP;
+
+	if (!strcmp(argv[optind], "restore") ||
+	    (!strcmp(argv[optind], "cpuinfo") && !strcmp(argv[optind + 1], "restore")))
+		return O_RSTR;
+
+	return -1;
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	int ret = -1;
@@ -148,12 +162,29 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 
+	if (opts.stream && image_dir_mode(argv, optind) == -1) {
+		pr_err("--stream cannot be used with the %s command\n", argv[optind]);
+		goto usage;
+	}
+
 	/* We must not open imgs dir, if service is called */
 	if (strcmp(argv[optind], "service")) {
-		ret = open_image_dir(opts.imgs_dir);
+		ret = open_image_dir(opts.imgs_dir, image_dir_mode(argv, optind));
 		if (ret < 0)
 			return 1;
 	}
+
+	/*
+	 * The kernel might send us lethal signals when writing to a pipe
+	 * which reader has disappeared. We deal with write() failures on our
+	 * own, and prefer not to get killed. So we ignore SIGPIPEs.
+	 *
+	 * Pipes are used in various places:
+	 * 1) Receiving application page data
+	 * 2) Transmitting data to the image streamer
+	 * 3) Emitting logs (potentially to a pipe).
+	 */
+	signal(SIGPIPE, SIG_IGN);
 
 	/*
 	 * When a process group becomes an orphan,
@@ -322,6 +353,7 @@ usage:
 "                        this requires running a second instance of criu\n"
 "                        in lazy-pages mode: 'criu lazy-pages -D DIR'\n"
 "                        --lazy-pages and lazy-pages mode require userfaultfd\n"
+"  --stream              dump/restore images using criu-image-streamer\n"
 "\n"
 "* External resources support:\n"
 "  --external RES        dump objects from this list as external resources:\n"

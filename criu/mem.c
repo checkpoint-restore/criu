@@ -1406,9 +1406,9 @@ static int prepare_vma_ios(struct pstree_item *t, struct task_restore_args *ta)
 	/*
 	 * We optimize the case when rsti(t)->vma_io is empty.
 	 *
-	 * This is useful for for remote images, where all VMAs are premapped
-	 * (pr->pieok is false). This avoids re-opening the CR_FD_PAGES file,
-	 * which could be no longer be available.
+	 * This is useful when using the image streamer, where all VMAs are
+	 * premapped (pr->pieok is false). This avoids re-opening the
+	 * CR_FD_PAGES file, which may only be readable only once.
 	 */
 	if (list_empty(&rsti(t)->vma_io)) {
 		ta->vma_ios = NULL;

@@ -145,7 +145,7 @@ static inline int img_raw_fd(struct cr_img *img)
 
 extern off_t img_raw_size(struct cr_img *img);
 
-extern int open_image_dir(char *dir);
+extern int open_image_dir(char *dir, int mode);
 extern void close_image_dir(void);
 
 extern struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...);

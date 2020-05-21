@@ -154,7 +154,6 @@ static int trim_last_parent(char *path)
 
 static int copy_chunk_from_file(int fd, int img, off_t off, size_t len)
 {
-	char *buf = NULL;
 	int ret;
 
 	while (len > 0) {
@@ -167,7 +166,6 @@ static int copy_chunk_from_file(int fd, int img, off_t off, size_t len)
 		len -= ret;
 	}
 
-	xfree(buf);
 	return 0;
 }
 
@@ -213,7 +211,6 @@ static int copy_file_to_chunks(int fd, struct cr_img *img, size_t file_size)
 
 static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
 {
-	char *buf = NULL;
 	int ret;
 
 	while (len > 0) {
@@ -221,7 +218,11 @@ static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
 			pr_perror("Can't seek file");
 			return -1;
 		}
-		ret = sendfile(fd, img, NULL, len);
+
+		if (opts.stream)
+			ret = splice(img, NULL, fd, NULL, len, SPLICE_F_MOVE);
+		else
+			ret = sendfile(fd, img, NULL, len);
 		if (ret < 0) {
 			pr_perror("Can't send data");
 			return -1;
@@ -231,7 +232,6 @@ static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
 		len -= ret;
 	}
 
-	xfree(buf);
 	return 0;
 }
 
