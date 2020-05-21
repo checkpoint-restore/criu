@@ -82,6 +82,7 @@
 #include "eventpoll.h"
 #include "memfd.h"
 #include "timens.h"
+#include "img-streamer.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
@@ -1759,6 +1760,7 @@ static int cr_dump_finish(int ret)
 	free_userns_maps();
 
 	close_service_fd(CR_PROC_FD_OFF);
+	close_image_dir();
 
 	if (ret) {
 		pr_err("Dumping FAILED.\n");
