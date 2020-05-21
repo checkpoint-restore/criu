@@ -46,13 +46,26 @@
 
 #include "setproctitle.h"
 #include "sysctl.h"
-#include "img-remote.h"
 
 void flush_early_log_to_stderr(void) __attribute__((destructor));
 
 void flush_early_log_to_stderr(void)
 {
 	flush_early_log_buffer(STDERR_FILENO);
+}
+
+static int image_dir_mode(char *argv[], int optind)
+{
+	if (!strcmp(argv[optind], "dump") ||
+	    !strcmp(argv[optind], "pre-dump") ||
+	    (!strcmp(argv[optind], "cpuinfo") && !strcmp(argv[optind + 1], "dump")))
+		return O_DUMP;
+
+	if (!strcmp(argv[optind], "restore") ||
+	    (!strcmp(argv[optind], "cpuinfo") && !strcmp(argv[optind + 1], "restore")))
+		return O_RSTR;
+
+	return -1;
 }
 
 int main(int argc, char *argv[], char *envp[])
@@ -150,9 +163,14 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 
+	if (opts.stream && image_dir_mode(argv, optind) == -1) {
+		pr_err("--stream cannot be used with the %s command\n", argv[optind]);
+		goto usage;
+	}
+
 	/* We must not open imgs dir, if service is called */
 	if (strcmp(argv[optind], "service")) {
-		ret = open_image_dir(opts.imgs_dir);
+		ret = open_image_dir(opts.imgs_dir, image_dir_mode(argv, optind));
 		if (ret < 0)
 			return 1;
 	}
@@ -164,8 +182,8 @@ int main(int argc, char *argv[], char *envp[])
 	 *
 	 * Pipes are used in various places:
 	 * 1) Receiving application page data
-	 * 2) Transmitting remote image data
-	 * 3) When emitting logs (potentially to a pipe).
+	 * 2) Transmitting data to the image streamer
+	 * 3) Emitting logs (potentially to a pipe).
 	 */
 	signal(SIGPIPE, SIG_IGN);
 
@@ -247,22 +265,6 @@ int main(int argc, char *argv[], char *envp[])
 	if (!strcmp(argv[optind], "page-server"))
 		return cr_page_server(opts.daemon_mode, false, -1) != 0;
 
-	if (!strcmp(argv[optind], "image-cache")) {
-		if (!opts.port)
-			goto opt_port_missing;
-		return image_cache(opts.daemon_mode, DEFAULT_CACHE_SOCKET);
-	}
-
-	if (!strcmp(argv[optind], "image-proxy")) {
-		if (!opts.addr) {
-			pr_err("address not specified\n");
-			return 1;
-		}
-		if (!opts.port)
-			goto opt_port_missing;
-		return image_proxy(opts.daemon_mode, DEFAULT_PROXY_SOCKET);
-	}
-
 	if (!strcmp(argv[optind], "service"))
 		return cr_service(opts.daemon_mode);
 
@@ -302,8 +304,6 @@ usage:
 "  criu service [<options>]\n"
 "  criu dedup\n"
 "  criu lazy-pages -D DIR [<options>]\n"
-"  criu image-cache [<options>]\n"
-"  criu image-proxy [<options>]\n"
 "\n"
 "Commands:\n"
 "  dump           checkpoint a process/tree identified by pid\n"
@@ -315,8 +315,6 @@ usage:
 "  dedup          remove duplicates in memory dump\n"
 "  cpuinfo dump   writes cpu information into image file\n"
 "  cpuinfo check  validates cpu information read from image file\n"
-"  image-proxy    launch dump-side proxy to sent images\n"
-"  image-cache    launch restore-side cache to receive images\n"
 	);
 
 	if (usage_error) {
@@ -368,9 +366,7 @@ usage:
 "                            veth[IFNAME]:OUTNAME{@BRIDGE}\n"
 "                            macvlan[IFNAME]:OUTNAME\n"
 "                            mnt[COOKIE]:ROOT\n"
-"\n"
-"  --remote              dump/restore images directly to/from remote node using\n"
-"                        image-proxy/image-cache\n"
+"  --stream              dump/restore images using criu-image-streamer\n"
 "* Special resources support:\n"
 "     --" SK_EST_PARAM "  checkpoint/restore established TCP connections\n"
 "     --" SK_INFLIGHT_PARAM "   skip (ignore) in-flight TCP connections\n"
@@ -492,10 +488,6 @@ usage:
 	);
 
 	return 0;
-
-opt_port_missing:
-	pr_err("port not specified\n");
-	return 1;
 
 opt_pid_missing:
 	pr_err("pid not specified\n");

@@ -29,7 +29,7 @@
 #include "cr_options.h"
 #include "servicefd.h"
 #include "image.h"
-#include "img-remote.h"
+#include "img-streamer.h"
 #include "util.h"
 #include "util-pie.h"
 #include "criu-log.h"
@@ -2365,13 +2365,8 @@ skip_ns_bouncing:
 	pr_info("Restore finished successfully. Tasks resumed.\n");
 	write_stats(RESTORE_STATS);
 
-	if (opts.remote) {
-		/*
-		 * If we fail to notify that we are done, we keep going.
-		 * It's better to keep the application alive at this point.
-		 */
-		finish_remote_restore();
-	}
+	/* Dismisses the image streamer */
+	close_image_dir();
 
 	ret = run_scripts(ACT_POST_RESUME);
 	if (ret != 0)

@@ -17,7 +17,7 @@
 #include "images/inventory.pb-c.h"
 #include "images/pagemap.pb-c.h"
 #include "proc_parse.h"
-#include "img-remote.h"
+#include "img-streamer.h"
 #include "namespaces.h"
 
 bool ns_per_id = false;
@@ -391,50 +391,6 @@ static int img_write_magic(struct cr_img *img, int oflags, int type)
 	return write_img(img, &imgset_template[type].magic);
 }
 
-int do_open_remote_image(int dfd, char *path, int flags)
-{
-	char *snapshot_id = NULL;
-	int ret, save;
-
-	/* When using namespaces, the current dir is changed so we need to
-	 * change to previous working dir and back to correctly open the image
-	 * proxy and cache sockets. */
-	save = open(".", O_RDONLY);
-	if (save < 0) {
-		pr_perror("unable to open current working directory");
-		return -1;
-	}
-
-	if (fchdir(get_service_fd(IMG_FD_OFF)) < 0) {
-		pr_perror("fchdir to dfd failed!\n");
-		close(save);
-		return -1;
-	}
-
-	snapshot_id = get_snapshot_id_from_idx(dfd);
-
-	if (snapshot_id == NULL)
-		ret = -1;
-	else if (flags == O_RDONLY) {
-		pr_debug("do_open_remote_image RDONLY path=%s snapshot_id=%s\n",
-				  path, snapshot_id);
-		ret = read_remote_image_connection(snapshot_id, path);
-	} else {
-		pr_debug("do_open_remote_image WRONLY path=%s snapshot_id=%s\n",
-				  path, snapshot_id);
-		ret = write_remote_image_connection(snapshot_id, path, O_WRONLY);
-	}
-
-	if (fchdir(save) < 0) {
-		pr_perror("fchdir to save failed");
-		close(save);
-		return -1;
-	}
-	close(save);
-
-	return ret;
-}
-
 struct openat_args {
 	char	path[PATH_MAX];
 	int	flags;
@@ -460,9 +416,10 @@ static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long of
 
 	flags = oflags & ~(O_NOBUF | O_SERVICE | O_FORCE_LOCAL);
 
-	if (opts.remote && !(oflags & O_FORCE_LOCAL))
-		ret = do_open_remote_image(dfd, path, flags);
-	else {
+	if (opts.stream && !(oflags & O_FORCE_LOCAL)) {
+		ret = img_streamer_open(path, flags);
+		errno = EIO; /* errno value is meaningless, only the ret value is meaningful */
+	} else {
 		/*
 		 * For pages images dedup we need to open images read-write on
 		 * restore, that may require proper capabilities, so we ask
@@ -569,7 +526,12 @@ struct cr_img *img_from_fd(int fd)
 	return img;
 }
 
-int open_image_dir(char *dir)
+/*
+ * `mode` should be O_RSTR or O_DUMP depending on the intent.
+ * This is used when opts.stream is enabled for picking the right streamer
+ * socket name. `mode` is ignored when opts.stream is not enabled.
+ */
+int open_image_dir(char *dir, int mode)
 {
 	int fd, ret;
 
@@ -584,8 +546,9 @@ int open_image_dir(char *dir)
 		return -1;
 	fd = ret;
 
-	if (opts.remote) {
-		init_snapshot_id(dir);
+	if (opts.stream) {
+		if (img_streamer_init(dir, mode) < 0)
+			goto err;
 	} else if (opts.img_parent) {
 		ret = symlinkat(opts.img_parent, fd, CR_PARENT_LINK);
 		if (ret < 0 && errno != EEXIST) {
@@ -607,6 +570,8 @@ err:
 
 void close_image_dir(void)
 {
+	if (opts.stream)
+		img_streamer_finish();
 	close_service_fd(IMG_FD_OFF);
 }
 

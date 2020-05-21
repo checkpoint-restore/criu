@@ -343,7 +343,13 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->parent_img)
 		SET_CHAR_OPTS(img_parent, req->parent_img);
 
-	if (open_image_dir(images_dir_path) < 0) {
+	/*
+	 * Image streaming is not supported with CRIU's service feature as
+	 * the streamer must be started for each dump/restore operation.
+	 * It is unclear how to do that with RPC, so we punt for now.
+	 * This explain why we pass -1 as argument.
+	 */
+	if (open_image_dir(images_dir_path, -1) < 0) {
 		pr_perror("Can't open images directory");
 		goto err;
 	}

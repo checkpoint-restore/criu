@@ -18,7 +18,6 @@
 #include "xmalloc.h"
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
-#include "img-remote.h"
 
 #ifndef SEEK_DATA
 #define SEEK_DATA	3
@@ -144,12 +143,8 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	if (!len)
 		return;
 
-	if (pagemap_present(pr->pe)) {
-		if (opts.remote)
-			if (skip_remote_bytes(img_raw_fd(pr->pi), len))
-				pr_perror("Error skipping remote bytes");
+	if (pagemap_present(pr->pe))
 		pr->pi_off += len;
-	}
 	pr->cvaddr += len;
 }
 
@@ -405,8 +400,8 @@ static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr,
 	return ret;
 }
 
-static int maybe_read_page_img_cache(struct page_read *pr, unsigned long vaddr,
-				     int nr, void *buf, unsigned flags)
+static int maybe_read_page_img_streamer(struct page_read *pr, unsigned long vaddr,
+					int nr, void *buf, unsigned flags)
 {
 	unsigned long len = nr * PAGE_SIZE;
 	int fd = img_raw_fd(pr->pi);
@@ -429,7 +424,7 @@ static int maybe_read_page_img_cache(struct page_read *pr, unsigned long vaddr,
 	}
 
 	if (opts.auto_dedup)
-		pr_warn_once("Can't dedup from image cache\n");
+		pr_warn_once("Can't dedup from the image streamer\n");
 
 	if (ret == 0 && pr->io_complete)
 		ret = pr->io_complete(pr, vaddr, nr);
@@ -636,24 +631,14 @@ static int try_open_parent(int dfd, unsigned long id, struct page_read *pr, int 
 	int pfd, ret;
 	struct page_read *parent = NULL;
 
-	if (opts.remote) {
-		/* Note: we are replacing a real directory FD for a snapshot_id
-		 * index. Since we need the parent of the current snapshot_id,
-		 * we want the current snapshot_id index minus one. It is
-		 * possible that dfd is already a snapshot_id index. We test it
-		 * by comparing it to the service FD. When opening an image (see
-		 * do_open_image) we convert the snapshot_id index into a real
-		 * snapshot_id.
-		 */
-		pfd = dfd == get_service_fd(IMG_FD_OFF) ?
-			get_curr_snapshot_id_idx() - 1 : dfd - 1;
-		if (pfd < 0)
-			goto out;
-	} else {
-		pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
-		if (pfd < 0 && errno == ENOENT)
-			goto out;
+	if (opts.stream) {
+		/* Streaming images do not support incremental checkpoints */
+		goto out;
 	}
+
+	pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
+	if (pfd < 0 && errno == ENOENT)
+		goto out;
 
 	parent = xmalloc(sizeof(*parent));
 	if (!parent)
@@ -668,8 +653,7 @@ static int try_open_parent(int dfd, unsigned long id, struct page_read *pr, int 
 		parent = NULL;
 	}
 
-	if (!opts.remote)
-		close(pfd);
+	close(pfd);
 out:
 	pr->parent = parent;
 	return 0;
@@ -677,8 +661,7 @@ out:
 err_free:
 	xfree(parent);
 err_cl:
-	if (!opts.remote)
-		close(pfd);
+	close(pfd);
 	return -1;
 }
 
@@ -709,15 +692,15 @@ static int init_pagemaps(struct page_read *pr)
 	off_t fsize;
 	int nr_pmes, nr_realloc;
 
-	if (!opts.remote)
+	if (!opts.stream)
 		fsize = img_raw_size(pr->pmi);
 	else
 		/*
 		 * FIXME - There is no easy way to estimate the size of the
 		 * pagemap that is still to be read from the socket. Possible
-		 * solution is to ask Image Proxy or Image Cache about the size
-		 * of the image. 1024 is a wild guess (more space is allocated
-		 * if needed).
+		 * solution is to ask the image streamer for the size of the
+		 * image. 1024 is a wild guess (more space is allocated if
+		 * needed).
 		 */
 		fsize = 1024;
 
@@ -842,8 +825,8 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 	pr->id = ids++;
 	pr->img_id = img_id;
 
-	if (opts.remote)
-		pr->maybe_read_page = maybe_read_page_img_cache;
+	if (opts.stream)
+		pr->maybe_read_page = maybe_read_page_img_streamer;
 	else if (remote)
 		pr->maybe_read_page = maybe_read_page_remote;
 	else {

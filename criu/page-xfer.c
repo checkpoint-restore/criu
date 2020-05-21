@@ -25,7 +25,6 @@
 #include "parasite-syscall.h"
 #include "rst_info.h"
 #include "stats.h"
-#include "img-remote.h"
 #include "tls.h"
 
 static int page_server_sk = -1;
@@ -383,29 +382,16 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, unsigned lo
 		int pfd;
 		int pr_flags = (fd_type == CR_FD_PAGEMAP) ? PR_TASK : PR_SHMEM;
 
+		if (opts.stream)
+			goto out;
 
-		if (opts.remote) {
-			/* Note: we are replacing a real directory FD for a snapshot_id
-			 * index. Since we need the parent of the current snapshot_id,
-			 * we want the current snapshot_id index minus one. It is
-			 * possible that dfd is already a snapshot_id index. We test it
-			 * by comparing it to the service FD. When opening an image (see
-			 * do_open_image) we convert the snapshot_id index into a real
-			 * snapshot_id.
-			 */
-			pfd = get_curr_snapshot_id_idx() - 1;
-			if (pfd < 0)
-				goto out;
-		} else {
-			pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
-			if (pfd < 0 && errno == ENOENT)
-				goto out;
-		}
+		pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
+		if (pfd < 0 && errno == ENOENT)
+			goto out;
 
 		xfer->parent = xmalloc(sizeof(*xfer->parent));
 		if (!xfer->parent) {
-			if (!opts.remote)
-				close(pfd);
+			close(pfd);
 			return -1;
 		}
 
@@ -414,12 +400,10 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, unsigned lo
 			pr_perror("No parent image found, though parent directory is set");
 			xfree(xfer->parent);
 			xfer->parent = NULL;
-			if (!opts.remote)
-				close(pfd);
+			close(pfd);
 			goto out;
 		}
-		if (!opts.remote)
-			close(pfd);
+		close(pfd);
 	}
 
 out:
@@ -947,8 +931,8 @@ int check_parent_local_xfer(int fd_type, unsigned long img_id)
 	struct stat st;
 	int ret, pfd;
 
-	if (opts.remote)
-		return get_curr_parent_snapshot_id_idx() == -1 ? 0 : 1;
+	if (opts.stream)
+		return 0;
 
 	pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
 	if (pfd < 0 && errno == ENOENT)

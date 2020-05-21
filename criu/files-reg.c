@@ -154,41 +154,18 @@ static int trim_last_parent(char *path)
 
 static int copy_chunk_from_file(int fd, int img, off_t off, size_t len)
 {
-	char *buf = NULL;
 	int ret;
 
-	if (opts.remote) {
-		buf = xmalloc(BUFSIZE);
-		if (!buf)
-			return -1;
-	}
-
 	while (len > 0) {
-		if (opts.remote) {
-			ret = pread(fd, buf, min_t(size_t, BUFSIZE, len), off);
-			if (ret <= 0) {
-				pr_perror("Can't read from ghost file");
-				xfree(buf);
-				return -1;
-			}
-			if (write(img, buf, ret) != ret) {
-				pr_perror("Can't write to image");
-				xfree(buf);
-				return -1;
-			}
-			off += ret;
-		} else {
-			ret = sendfile(img, fd, &off, len);
-			if (ret <= 0) {
-				pr_perror("Can't send ghost to image");
-				return -1;
-			}
+		ret = sendfile(img, fd, &off, len);
+		if (ret <= 0) {
+			pr_perror("Can't send ghost to image");
+			return -1;
 		}
 
 		len -= ret;
 	}
 
-	xfree(buf);
 	return 0;
 }
 
@@ -234,45 +211,27 @@ static int copy_file_to_chunks(int fd, struct cr_img *img, size_t file_size)
 
 static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
 {
-	char *buf = NULL;
 	int ret;
 
-	if (opts.remote) {
-		buf = xmalloc(BUFSIZE);
-		if (!buf)
-			return -1;
-	}
-
 	while (len > 0) {
-		if (opts.remote) {
-			ret = read(img, buf, min_t(size_t, BUFSIZE, len));
-			if (ret <= 0) {
-				pr_perror("Can't read from image");
-				xfree(buf);
-				return -1;
-			}
-			if (pwrite(fd, buf, ret, off) != ret) {
-				pr_perror("Can't write to file");
-				xfree(buf);
-				return -1;
-			}
-		} else {
-			if (lseek(fd, off, SEEK_SET) < 0) {
-				pr_perror("Can't seek file");
-				return -1;
-			}
+		if (lseek(fd, off, SEEK_SET) < 0) {
+			pr_perror("Can't seek file");
+			return -1;
+		}
+
+		if (opts.stream)
+			ret = splice(img, NULL, fd, NULL, len, SPLICE_F_MOVE);
+		else
 			ret = sendfile(fd, img, NULL, len);
-			if (ret < 0) {
-				pr_perror("Can't send data");
-				return -1;
-			}
+		if (ret < 0) {
+			pr_perror("Can't send data");
+			return -1;
 		}
 
 		off += ret;
 		len -= ret;
 	}
 
-	xfree(buf);
 	return 0;
 }
 
