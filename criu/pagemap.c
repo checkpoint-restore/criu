@@ -406,6 +406,49 @@ static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr,
 	return ret;
 }
 
+/*
+ * We cannot use maybe_read_page_local() for streaming images as it uses
+ * pread(), seeking in the file. Instead, we use this custom page reader.
+ */
+static int maybe_read_page_img_streamer(struct page_read *pr, unsigned long vaddr,
+					int nr, void *buf, unsigned flags)
+{
+	unsigned long len = nr * PAGE_SIZE;
+	int fd = img_raw_fd(pr->pi);
+	int ret;
+	size_t curr = 0;
+
+	pr_debug("\tpr%lu-%u Read page from self %lx/%"PRIx64"\n",
+		 pr->img_id, pr->id, pr->cvaddr, pr->pi_off);
+
+	/* We can't seek. The requested address better match */
+	BUG_ON(pr->cvaddr != vaddr);
+
+	while (1) {
+		ret = read(fd, buf + curr, len - curr);
+		if (ret == 0) {
+			pr_err("Reached EOF unexpectedly while reading page from image\n");
+			return -1;
+		} else if (ret < 0) {
+			pr_perror("Can't read mapping page %d", ret);
+			return -1;
+		}
+		curr += ret;
+		if (curr == len)
+			break;
+	}
+
+	if (opts.auto_dedup)
+		pr_warn_once("Can't dedup when streaming images\n");
+
+	if (ret == 0 && pr->io_complete)
+		ret = pr->io_complete(pr, vaddr, nr);
+
+	pr->pi_off += len;
+
+	return ret;
+}
+
 static int read_page_complete(unsigned long img_id, unsigned long vaddr, int nr_pages, void *priv)
 {
 	int ret = 0;
@@ -601,6 +644,10 @@ static int try_open_parent(int dfd, unsigned long id, struct page_read *pr, int 
 	int pfd, ret;
 	struct page_read *parent = NULL;
 
+	/* Image streaming lacks support for incremental images */
+	if (opts.stream)
+		goto out;
+
 	pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
 	if (pfd < 0 && errno == ENOENT)
 		goto out;
@@ -657,7 +704,19 @@ static int init_pagemaps(struct page_read *pr)
 	off_t fsize;
 	int nr_pmes, nr_realloc;
 
-	fsize = img_raw_size(pr->pmi);
+	if (opts.stream) {
+		/*
+		 * TODO - There is no easy way to estimate the size of the
+		 * pagemap that is still to be read from the pipe. Possible
+		 * solution is to ask the image streamer for the size of the
+		 * image. 1024 is a wild guess (more space is allocated if
+		 * needed).
+		 */
+		fsize = 1024;
+	} else {
+		fsize = img_raw_size(pr->pmi);
+	}
+
 	if (fsize < 0)
 		return -1;
 
@@ -781,6 +840,8 @@ int open_page_read_at(int dfd, unsigned long img_id, struct page_read *pr, int p
 
 	if (remote)
 		pr->maybe_read_page = maybe_read_page_remote;
+	else if (opts.stream)
+		pr->maybe_read_page = maybe_read_page_img_streamer;
 	else {
 		pr->maybe_read_page = maybe_read_page_local;
 		if (!pr->parent && !opts.lazy_pages)
