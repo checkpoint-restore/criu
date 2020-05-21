@@ -14,6 +14,7 @@ enum sfd_type {
 
 	LOG_FD_OFF,
 	IMG_FD_OFF,
+	IMG_STREAMER_FD_OFF,
 	PROC_FD_OFF,		/* fd with /proc for all proc_ calls */
 	PROC_PID_FD_OFF,
 	CR_PROC_FD_OFF,		/* some other's proc fd:

@@ -423,13 +423,19 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 {
 	ssize_t written = 0;
 	size_t chunk = bytes ? bytes : 4096;
+	ssize_t ret;
 
 	while (1) {
-		ssize_t ret;
-
-		ret = sendfile(fd_out, fd_in, NULL, chunk);
+		/*
+		 * When fd_out is a pipe, sendfile() returns -EINVAL, so we
+		 * fallback to splice(). Not sure why.
+		 */
+		if (opts.stream)
+			ret = splice(fd_in, NULL, fd_out, NULL, chunk, SPLICE_F_MOVE);
+		else
+			ret = sendfile(fd_out, fd_in, NULL, chunk);
 		if (ret < 0) {
-			pr_perror("Can't send data to ghost file");
+			pr_perror("Can't transfer data to ghost file from image");
 			return -1;
 		}
 
