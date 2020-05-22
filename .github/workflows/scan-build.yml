@@ -1,0 +1,25 @@
+name: CLANG scan-build analysis
+
+on:
+  push:
+    branches: [criu-dev, master]
+  pull_request:
+    branches: [criu-dev, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run CLANG scan-build analysis
+      run: >
+        sudo make -C scripts/travis local SCAN_BUILD=1 CLANG=1 &&
+        cp /tmp/scan-build/*/index.html /tmp
+    - uses: actions/upload-artifact@v2
+      with:
+        name: scan-build
+        path: /tmp/scan-build/*/*
+    - uses: actions/upload-artifact@v2
+      with:
+        name: scan-build overview
+        path: /tmp/index.html

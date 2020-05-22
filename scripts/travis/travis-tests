@@ -30,8 +30,8 @@ travis_prep () {
 	CC=gcc
 	# clang support
 	if [ "$CLANG" = "1" ]; then
-		TRAVIS_PKGS="$TRAVIS_PKGS clang"
-		CC=clang
+		TRAVIS_PKGS="$TRAVIS_PKGS clang-tools-9"
+		CC=clang-9
 	fi
 
 	[ -n "$GCOV" ] && {
@@ -45,7 +45,7 @@ travis_prep () {
 	if [ "$CCACHE" = "1" -a -z "$GCOV" ]; then
 		# ccache is installed by default, need to set it up
 		export CCACHE_DIR=$HOME/.ccache
-		[ "$CC" = "clang" ] && export CCACHE_CPP2=yes
+		[ "$CC" = "clang-9" ] && export CCACHE_CPP2=yes
 		# uncomment the following to get detailed ccache logs
 		#export CCACHE_LOGFILE=$HOME/ccache.log
 		CC="ccache $CC"
@@ -62,6 +62,11 @@ travis_prep () {
 }
 
 travis_prep
+
+if [ "$SCAN_BUILD" = "1" ]; then
+	time scan-build-9 -o /tmp/scan-build make -j4
+	exit 0
+fi
 
 export GCOV
 $CC --version
