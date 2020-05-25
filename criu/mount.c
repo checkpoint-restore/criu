@@ -17,6 +17,7 @@
 #include "plugin.h"
 #include "filesystems.h"
 #include "mount.h"
+#include "mount-v2.h"
 #include "pstree.h"
 #include "image.h"
 #include "namespaces.h"
@@ -1680,6 +1681,7 @@ struct mount_info __maybe_unused *add_cr_time_mount(struct mount_info *root, cha
 			goto err;
 	}
 	mi->mnt_id = HELPER_MNT_ID;
+	mi->is_dir = true;
 	mi->flags = mi->sb_flags = 0;
 	mi->root = xstrdup("/");
 	mi->fsname = xstrdup(fsname);
@@ -2987,6 +2989,9 @@ struct mount_info *mnt_entry_alloc(bool rst)
 			}
 			memset(new->rmi, 0, sizeof(struct rst_mount_info));
 		}
+		new->mp_fd_id = -1;
+		new->mnt_fd_id = -1;
+		new->is_dir = -1;
 		new->fd = -1;
 		new->is_overmounted = -1;
 		INIT_LIST_HEAD(&new->children);
@@ -2999,6 +3004,7 @@ struct mount_info *mnt_entry_alloc(bool rst)
 		INIT_LIST_HEAD(&new->mnt_notprop);
 		INIT_LIST_HEAD(&new->mnt_unbindable);
 		INIT_LIST_HEAD(&new->postpone);
+		INIT_LIST_HEAD(&new->deleted_list);
 	}
 	return new;
 }
@@ -3314,6 +3320,7 @@ static int merge_mount_trees(void)
 	root_yard_mp->plain_mountpoint = xstrdup(mnt_roots);
 	if (!root_yard_mp->plain_mountpoint)
 		return -1;
+	root_yard_mp->is_dir = true;
 	root_yard_mp->mounted = true;
 	root_yard_mp->mnt_bind_is_populated = true;
 	root_yard_mp->is_overmounted = false;
@@ -3359,6 +3366,9 @@ int read_mnt_ns_img(void)
 		if (!nsid->mnt.mntinfo_tree)
 			return -1;
 
+		/* mntns root mounts are always directories */
+		nsid->mnt.mntinfo_tree->is_dir = true;
+
 		tail->next = pms;
 		pms = head;
 	}
@@ -3367,6 +3377,9 @@ int read_mnt_ns_img(void)
 
 	search_bindmounts();
 	prepare_is_overmounted();
+
+	if (!opts.mntns_compat_mode && resolve_shared_mounts_v2())
+		return -1;
 
 	if (merge_mount_trees())
 		return -1;
@@ -3690,6 +3703,9 @@ int prepare_mnt_ns(void)
 
 		free_mntinfo(old);
 	}
+
+	if (!opts.mntns_compat_mode)
+		return prepare_mnt_ns_v2();
 
 	ret = populate_mnt_ns();
 	if (ret)

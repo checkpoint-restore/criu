@@ -62,7 +62,15 @@ struct mount_info {
 	 */
 	char *mountpoint;
 	char *ns_mountpoint;
+
+	/* Mount-v2 specific */
 	char *plain_mountpoint;
+	int is_dir;
+	int mp_fd_id;
+	int mnt_fd_id;
+	struct sharing_group *sg;
+	struct list_head mnt_sharing;
+
 	int fd;
 	unsigned flags;
 	unsigned sb_flags;
@@ -79,6 +87,8 @@ struct mount_info {
 	bool need_plugin;
 	bool is_ns_root;
 	bool deleted;
+	int deleted_level;
+	struct list_head deleted_list;
 	struct mount_info *next;
 	struct ns_id *nsid;
 
