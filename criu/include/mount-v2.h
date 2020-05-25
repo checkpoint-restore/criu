@@ -55,4 +55,6 @@ static inline long sys_openat2(int dirfd, const char *pathname, struct open_how 
 	return syscall(__NR_openat2, dirfd, pathname, how, size);
 }
 
+extern int check_mount_v2(void);
+
 #endif /* __CR_MOUNT_V2_H__ */

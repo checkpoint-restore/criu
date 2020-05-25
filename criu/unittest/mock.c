@@ -136,3 +136,8 @@ struct kerndat_s kdat = {};
 int service_fd_rlim_cur;
 
 unsigned __page_size;
+
+int check_mount_v2(void)
+{
+	return 0;
+}

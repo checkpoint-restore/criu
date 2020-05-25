@@ -112,6 +112,7 @@ int criu_set_pre_dump_mode(enum criu_pre_dump_mode mode);
 void criu_set_pidfd_store_sk(int sk);
 int criu_set_network_lock(enum criu_network_lock_method method);
 int criu_join_ns_add(const char *ns, const char *ns_file, const char *extra_opt);
+void criu_set_mntns_compat_mode(bool val);
 
 /*
  * The criu_notify_arg_t na argument is an opaque
@@ -275,6 +276,7 @@ int criu_local_set_pre_dump_mode(criu_opts *opts, enum criu_pre_dump_mode mode);
 void criu_local_set_pidfd_store_sk(criu_opts *opts, int sk);
 int criu_local_set_network_lock(criu_opts *opts, enum criu_network_lock_method method);
 int criu_local_join_ns_add(criu_opts *opts, const char *ns, const char *ns_file, const char *extra_opt);
+void criu_local_set_mntns_compat_mode(criu_opts *opts, bool val);
 
 void criu_local_set_notify_cb(criu_opts *opts, int (*cb)(char *action, criu_notify_arg_t na));
 
