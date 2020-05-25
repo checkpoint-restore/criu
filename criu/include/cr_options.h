@@ -207,6 +207,8 @@ struct cr_options {
 
 	/* Shows the mode criu is running at the moment: dump/pre-dump/restore/... */
 	enum criu_mode mode;
+
+	int mntns_compat_mode;
 };
 
 extern struct cr_options opts;
