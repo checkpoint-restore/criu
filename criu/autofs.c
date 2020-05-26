@@ -725,14 +725,19 @@ static int autofs_create_dentries(const struct mount_info *mi, char *mnt_path)
 	struct mount_info *c;
 
 	list_for_each_entry(c, &mi->children, siblings) {
-		char *path, *basename;
+		char *path, *rel_path;
 
-		basename = strrchr(c->mountpoint, '/');
-		if (!basename) {
-			pr_info("%s: mount path \"%s\" doesn't have '/'\n", __func__, c->mountpoint);
+		rel_path = get_relative_path(c->ns_mountpoint, mi->ns_mountpoint);
+		if (!rel_path) {
+			pr_err("Can't get path %s relative to %s\n", c->ns_mountpoint, mi->ns_mountpoint);
 			return -1;
 		}
-		path = xsprintf("%s%s", mnt_path, basename);
+
+		/* Skip children-overmount */
+		if (*rel_path == '\0')
+			continue;
+
+		path = xsprintf("%s/%s", mnt_path, rel_path);
 		if (!path)
 			return -1;
 		if (mkdir(path, 0555) < 0) {
