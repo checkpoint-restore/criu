@@ -953,6 +953,8 @@ class criu_rpc:
                 if criu_rpc.pidfd_store_socket is None:
                     criu_rpc.pidfd_store_socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
                 criu.opts.pidfd_store_sk = criu_rpc.pidfd_store_socket.fileno()
+            elif "--mntns-compat-mode" == arg:
+                criu.opts.mntns_compat_mode = True
             else:
                 raise test_fail_exc('RPC for %s(%s) required' % (arg, args.pop(0)))
 
@@ -1046,6 +1048,7 @@ class criu:
         self.__criu_bin = opts['criu_bin']
         self.__crit_bin = opts['crit_bin']
         self.__pre_dump_mode = opts['pre_dump_mode']
+        self.__mntns_compat_mode = bool(opts['mntns_compat_mode'])
 
         if opts['rpc']:
             self.__criu = criu_rpc
@@ -1443,6 +1446,9 @@ class criu:
                                                   opts=lp_opts,
                                                   nowait=True)
             r_opts += ["--lazy-pages"]
+
+        if self.__mntns_compat_mode:
+            r_opts = ['--mntns-compat-mode'] + r_opts
 
         if self.__leave_stopped:
             r_opts += ['--leave-stopped']
@@ -2034,7 +2040,7 @@ class Launcher:
               'sat', 'script', 'rpc', 'criu_config', 'lazy_pages', 'join_ns',
               'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
               'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
-              'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode')
+              'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'mntns_compat_mode')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
         if self.__use_log:
@@ -2707,6 +2713,9 @@ def get_cli_args():
                     help="Use splice or read mode of pre-dumping",
                     choices=['splice', 'read'],
                     default='splice')
+    rp.add_argument("--mntns-compat-mode",
+                    help="Use old compat mounts restore engine",
+                    action='store_true')
 
     lp = sp.add_parser("list", help="List tests")
     lp.set_defaults(action=list_tests)
