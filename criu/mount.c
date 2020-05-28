@@ -49,6 +49,10 @@ static LIST_HEAD(delayed_unbindable);
 
 char *service_mountpoint(const struct mount_info *mi)
 {
+	if (!opts.mntns_compat_mode && opts.mode == CR_RESTORE) {
+		BUG_ON(!mi->plain_mountpoint);
+		return mi->plain_mountpoint;
+	}
 	return mi->mountpoint;
 }
 
@@ -1627,6 +1631,28 @@ err:
 	return -1;
 }
 
+/*
+ * Helper for getting a path to mount's plain mountpoint
+ */
+char *get_plain_mountpoint(int mnt_id, char *name)
+{
+	static char tmp[PATH_MAX];
+	int ret;
+
+	if (!mnt_roots)
+		return NULL;
+
+	if (name)
+		ret = snprintf(tmp, sizeof(tmp), "%s/mnt-%s", mnt_roots, name);
+	else
+		ret = snprintf(tmp, sizeof(tmp), "%s/mnt-%010d", mnt_roots, mnt_id);
+
+	if (ret >= sizeof(tmp))
+		return NULL;
+
+	return xstrdup(tmp);
+}
+
 static __maybe_unused struct mount_info *add_cr_time_mount(struct mount_info *root, char *fsname, const char *path,
 							   unsigned int s_dev, bool rst)
 {
@@ -1654,6 +1680,11 @@ static __maybe_unused struct mount_info *add_cr_time_mount(struct mount_info *ro
 		sprintf(mi->mountpoint, "%s%s", root->mountpoint, path);
 	else
 		sprintf(mi->mountpoint, "%s/%s", root->mountpoint, path);
+	if (rst) {
+		mi->plain_mountpoint = get_plain_mountpoint(-1, "crtime");
+		if (!mi->plain_mountpoint)
+			goto err;
+	}
 	mi->mnt_id = HELPER_MNT_ID;
 	mi->flags = mi->sb_flags = 0;
 	mi->root = xstrdup("/");
@@ -2995,6 +3026,7 @@ void mnt_entry_free(struct mount_info *mi)
 	if (mi) {
 		xfree(mi->root);
 		xfree(mi->mountpoint);
+		xfree(mi->plain_mountpoint);
 		xfree(mi->source);
 		xfree(mi->options);
 		xfree(mi->fsname);
@@ -3119,6 +3151,10 @@ static int get_mp_mountpoint(char *mountpoint, struct mount_info *mi, char *root
 	strcpy(mi->mountpoint + root_len, mountpoint);
 
 	mi->ns_mountpoint = mi->mountpoint + root_len;
+
+	mi->plain_mountpoint = get_plain_mountpoint(mi->mnt_id, NULL);
+	if (!mi->plain_mountpoint)
+		return -1;
 
 	pr_debug("\t\tWill mount %d @ %s %s\n", mi->mnt_id, service_mountpoint(mi), mi->ns_mountpoint);
 	return 0;
@@ -3293,6 +3329,9 @@ static int merge_mount_trees(void)
 		return -1;
 
 	root_yard_mp->mountpoint = mnt_roots;
+	root_yard_mp->plain_mountpoint = xstrdup(mnt_roots);
+	if (!root_yard_mp->plain_mountpoint)
+		return -1;
 	root_yard_mp->mounted = true;
 	root_yard_mp->mnt_bind_is_populated = true;
 	root_yard_mp->is_overmounted = false;
