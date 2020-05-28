@@ -48,6 +48,7 @@ struct mount_info {
 	 */
 	char *mountpoint;
 	char *ns_mountpoint;
+	char *plain_mountpoint;
 	int fd;
 	unsigned flags;
 	unsigned sb_flags;
@@ -167,6 +168,8 @@ extern int mntns_maybe_create_roots(void);
 extern int read_mnt_ns_img(void);
 extern void cleanup_mnt_ns(void);
 extern void clean_cr_time_mounts(void);
+
+extern char *get_plain_mountpoint(int mnt_id, char *name);
 
 extern bool add_skip_mount(const char *mountpoint);
 struct ns_id;
