@@ -290,7 +290,7 @@ static int binfmt_misc_restore_bme(struct mount_info *mi, BinfmtMiscEntry *bme, 
 		goto bad_dump;
 
 	pr_debug("binfmt_misc_pattern=%s\n", buf);
-	ret = write_binfmt_misc_entry(mi->mountpoint, buf, bme);
+	ret = write_binfmt_misc_entry(service_mountpoint(mi), buf, bme);
 
 	return ret;
 
@@ -452,7 +452,7 @@ static int tmpfs_restore(struct mount_info *pm)
 
 	ret = cr_system(img_raw_fd(img), -1, -1, "tar",
 			(char *[]){ "tar", "--extract", "--gzip", "--no-unquote", "--no-wildcards", "--directory",
-				    pm->mountpoint, NULL },
+				    service_mountpoint(pm), NULL },
 			0);
 	close_image(img);
 

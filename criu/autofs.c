@@ -388,7 +388,7 @@ free_str:
  */
 static int access_autofs_mount(struct mount_info *pm)
 {
-	const char *mnt_path = pm->mountpoint + 1;
+	const char *mnt_path = service_mountpoint(pm) + 1;
 	dev_t dev_id = pm->s_dev;
 	int new_pid_ns = -1, old_pid_ns = -1;
 	int old_mnt_ns, old_cwd_fd;
@@ -498,7 +498,7 @@ static int autofs_create_entry(struct mount_info *pm, AutofsEntry *entry)
 			 * options, then we can read them again and dump it.
 			 */
 			if (access_autofs_mount(pm)) {
-				pr_err("failed to access autofs %s\n", pm->mountpoint + 1);
+				pr_err("failed to access autofs %s\n", service_mountpoint(pm) + 1);
 				return -1;
 			}
 			if (parse_options(pm->options, entry, &pipe_ino))
@@ -755,7 +755,7 @@ static int autofs_populate_mount(const struct mount_info *mi, const AutofsEntry 
 	if (entry->mode != AUTOFS_MODE_INDIRECT)
 		return 0;
 
-	return autofs_create_dentries(mi, mi->mountpoint);
+	return autofs_create_dentries(mi, service_mountpoint(mi));
 }
 
 static int autofs_post_mount(const char *mnt_path, dev_t mnt_dev, time_t timeout)
@@ -1031,10 +1031,10 @@ int autofs_mount(struct mount_info *mi, const char *source, const char *filesyst
 		goto close_pipe;
 	}
 
-	pr_info("autofs: mounting to %s with options: \"%s\"\n", mi->mountpoint, opts);
+	pr_info("autofs: mounting to %s with options: \"%s\"\n", service_mountpoint(mi), opts);
 
-	if (mount(source, mi->mountpoint, filesystemtype, mountflags, opts) < 0) {
-		pr_perror("Failed to mount autofs to %s", mi->mountpoint);
+	if (mount(source, service_mountpoint(mi), filesystemtype, mountflags, opts) < 0) {
+		pr_perror("Failed to mount autofs to %s", service_mountpoint(mi));
 		goto free_opts;
 	}
 
@@ -1049,8 +1049,8 @@ int autofs_mount(struct mount_info *mi, const char *source, const char *filesyst
 	 * data is not ready yet. So, let's put in on mi->private and copy to
 	 * shared data in autofs_add_mount_info().
 	 */
-	if (stat(mi->mountpoint, &buf) < 0) {
-		pr_perror("Failed to stat %s", mi->mountpoint);
+	if (stat(service_mountpoint(mi), &buf) < 0) {
+		pr_perror("Failed to stat %s", service_mountpoint(mi));
 		goto free_info;
 	}
 	info->mnt_dev = buf.st_dev;
@@ -1061,7 +1061,7 @@ int autofs_mount(struct mount_info *mi, const char *source, const char *filesyst
 		goto free_info;
 
 	/* In case of catatonic mounts all we need as the function call below */
-	ret = autofs_post_mount(mi->mountpoint, buf.st_dev, entry->timeout);
+	ret = autofs_post_mount(service_mountpoint(mi), buf.st_dev, entry->timeout);
 	if (ret < 0)
 		goto free_info;
 
@@ -1084,7 +1084,7 @@ close_pipe:
 free_info:
 	free(info);
 umount:
-	if (umount(mi->mountpoint) < 0)
-		pr_perror("Failed to umount %s", mi->mountpoint);
+	if (umount(service_mountpoint(mi)) < 0)
+		pr_perror("Failed to umount %s", service_mountpoint(mi));
 	goto close_pipe;
 }

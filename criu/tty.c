@@ -2406,9 +2406,9 @@ int devpts_restore(struct mount_info *pm)
 	struct mount_info *bm;
 	int dfd, exit_code = -1;
 
-	dfd = open(pm->mountpoint, O_RDONLY);
+	dfd = open(service_mountpoint(pm), O_RDONLY);
 	if (dfd < 0) {
-		pr_perror("Unable to open %s", pm->mountpoint);
+		pr_perror("Unable to open %s", service_mountpoint(pm));
 		return -1;
 	}
 
