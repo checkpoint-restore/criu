@@ -1486,12 +1486,12 @@ bool add_skip_mount(const char *mountpoint)
 	return true;
 }
 
-static bool should_skip_mount(const char *mountpoint)
+static bool should_skip_mount(char *mountpoint)
 {
 	struct str_node *pos;
 
 	list_for_each_entry(pos, &skip_mount_list, node) {
-		if (strcmp(mountpoint, pos->string) == 0)
+		if (is_same_path(mountpoint, pos->string))
 			return true;
 	}
 
@@ -1620,8 +1620,8 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 		 * fail loudly at "dump" stage if an opened file or another mnt
 		 * depends on this one.
 		 */
-		if (for_dump && should_skip_mount(new->mountpoint + 1)) {
-			pr_info("\tskip %s @ %s\n", fsname, new->mountpoint);
+		if (for_dump && should_skip_mount(new->ns_mountpoint)) {
+			pr_info("\tskip %s @ %s\n", fsname, new->ns_mountpoint);
 			mnt_entry_free(new);
 			new = NULL;
 			goto end;
