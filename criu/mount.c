@@ -159,15 +159,18 @@ static struct mount_info *__lookup_overlayfs(struct mount_info *list, char *rpat
 			}
 		}
 
-		/* Concatenates m->mountpoint with rpath and attempts to stat the resulting path */
+		/*
+		 * Concatenates m->ns_mountpoint with rpath and attempts
+		 * to stat the resulting path at mntns_root
+		 */
 		if (is_root_mount(m)) {
 			ret_stat = fstatat(mntns_root, rpath, &f_stat, 0);
 		} else {
 			char _full_path[PATH_MAX];
-			int n = snprintf(_full_path, PATH_MAX, "%s/%s", m->mountpoint, rpath);
+			int n = snprintf(_full_path, PATH_MAX, "%s/%s", m->ns_mountpoint, rpath);
 
 			if (n >= PATH_MAX) {
-				pr_err("Not enough space to concatenate %s and %s\n", m->mountpoint, rpath);
+				pr_err("Not enough space to concatenate %s and %s\n", m->ns_mountpoint, rpath);
 				return ERR_PTR(-ENOSPC);
 			}
 			ret_stat = fstatat(mntns_root, _full_path, &f_stat, 0);
@@ -249,11 +252,11 @@ static struct mount_info *mount_resolve_path(struct mount_info *mntinfo_tree, co
 		list_for_each_entry(c, &m->children, siblings) {
 			size_t n;
 
-			n = strlen(c->mountpoint + 1);
+			n = strlen(c->ns_mountpoint + 1);
 			if (n > pathlen)
 				continue;
 
-			if (strncmp(c->mountpoint + 1, path, min(n, pathlen)))
+			if (strncmp(c->ns_mountpoint + 1, path, min(n, pathlen)))
 				continue;
 			if (n < pathlen && path[n] != '/')
 				continue;
@@ -265,7 +268,7 @@ static struct mount_info *mount_resolve_path(struct mount_info *mntinfo_tree, co
 			break;
 	}
 
-	pr_debug("Path `%s' resolved to `%s' mountpoint\n", path, m->mountpoint);
+	pr_debug("Path `%s' resolved to `%s' mountpoint\n", path, m->ns_mountpoint);
 	return m;
 }
 
@@ -371,7 +374,7 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 				continue;
 			}
 
-			pr_err("No parent found for mountpoint %d (@%s)\n", m->mnt_id, m->mountpoint);
+			pr_err("No parent found for mountpoint %d (@%s)\n", m->mnt_id, m->ns_mountpoint);
 			return NULL;
 		}
 
@@ -460,7 +463,7 @@ static void mnt_tree_show(struct mount_info *tree, int off)
 {
 	struct mount_info *m;
 
-	pr_info("%*s[%s](%d->%d)\n", off, "", tree->mountpoint, tree->mnt_id, tree->parent_mnt_id);
+	pr_info("%*s[%s](%d->%d)\n", off, "", tree->ns_mountpoint, tree->mnt_id, tree->parent_mnt_id);
 
 	list_for_each_entry(m, &tree->children, siblings)
 		mnt_tree_show(m, off + 1);
@@ -482,9 +485,9 @@ static int try_resolve_ext_mount(struct mount_info *info)
 	if (info->nsid->type == NS_ROOT) {
 		char *ext;
 
-		ext = ext_mount_lookup(info->mountpoint + 1 /* trim the . */);
+		ext = ext_mount_lookup(info->ns_mountpoint + 1 /* trim the . */);
 		if (ext) {
-			pr_info("Found %s mapping for %s mountpoint\n", ext, info->mountpoint);
+			pr_info("Found %s mapping for %s mountpoint\n", ext, info->ns_mountpoint);
 			info->external = ext;
 			return 1;
 		}
@@ -714,7 +717,7 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 
 		if (fsroot_mounted(m)) {
 			if (m->fstype->code == FSTYPE__UNSUPPORTED) {
-				pr_err("FS mnt %s dev %#x root %s unsupported id %d\n", m->mountpoint, m->s_dev,
+				pr_err("FS mnt %s dev %#x root %s unsupported id %d\n", m->ns_mountpoint, m->s_dev,
 				       m->root, m->mnt_id);
 				return -1;
 			}
@@ -730,7 +733,7 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 				 */
 
 				if (for_dump) {
-					ret = run_plugins(DUMP_EXT_MOUNT, m->mountpoint, m->mnt_id);
+					ret = run_plugins(DUMP_EXT_MOUNT, m->ns_mountpoint, m->mnt_id);
 					if (ret == 0)
 						m->need_plugin = true;
 				} else
@@ -744,7 +747,7 @@ static int validate_mounts(struct mount_info *info, bool for_dump)
 				if (ret < 0) {
 					if (ret == -ENOTSUP)
 						pr_err("%d:%s doesn't have a proper root mount\n", m->mnt_id,
-						       m->mountpoint);
+						       m->ns_mountpoint);
 					return -1;
 				}
 			}
@@ -881,7 +884,7 @@ static int resolve_external_mounts(struct mount_info *info)
 
 		cut_root = cut_root_for_bind(m->root, match->root);
 
-		p = xsprintf("%s/%s", match->mountpoint + 1, cut_root);
+		p = xsprintf("%s/%s", match->ns_mountpoint + 1, cut_root);
 		if (!p)
 			return -1;
 
@@ -894,7 +897,7 @@ static int resolve_external_mounts(struct mount_info *info)
 		xfree(m->source);
 		m->source = p;
 
-		pr_info("autodetected external mount %s for %s\n", p, m->mountpoint);
+		pr_info("autodetected external mount %s for %s(%d)\n", p, m->ns_mountpoint, m->mnt_id);
 	}
 
 	return 0;
@@ -989,8 +992,8 @@ static void __search_bindmounts(struct mount_info *mi)
 		if (mounts_sb_equal(mi, t)) {
 			list_add(&t->mnt_bind, &mi->mnt_bind);
 			t->mnt_bind_is_populated = true;
-			pr_debug("\tThe mount %3d is bind for %3d (@%s -> @%s)\n", t->mnt_id, mi->mnt_id, t->mountpoint,
-				 mi->mountpoint);
+			pr_debug("\tThe mount %3d is bind for %3d (@%s -> @%s)\n", t->mnt_id, mi->mnt_id,
+				 t->ns_mountpoint, mi->ns_mountpoint);
 		}
 	}
 
@@ -1043,14 +1046,14 @@ static int resolve_shared_mounts(struct mount_info *info)
 		need_master = m->master_id;
 
 		pr_debug("Inspecting sharing on %2d shared_id %d master_id %d (@%s)\n", m->mnt_id, m->shared_id,
-			 m->master_id, m->mountpoint);
+			 m->master_id, m->ns_mountpoint);
 
 		for (t = info; t && (need_share || need_master); t = t->next) {
 			if (t == m)
 				continue;
 			if (need_master && t->shared_id == m->master_id) {
 				pr_debug("\tThe mount %3d is slave for %3d (@%s -> @%s)\n", m->mnt_id, t->mnt_id,
-					 m->mountpoint, t->mountpoint);
+					 m->ns_mountpoint, t->ns_mountpoint);
 				list_add(&m->mnt_slave, &t->mnt_slave_list);
 				m->mnt_master = t;
 				need_master = false;
@@ -1059,7 +1062,7 @@ static int resolve_shared_mounts(struct mount_info *info)
 			/* Collect all mounts from this group */
 			if (need_share && t->shared_id == m->shared_id) {
 				pr_debug("\tMount %3d is shared with %3d group %3d (@%s -> @%s)\n", m->mnt_id,
-					 t->mnt_id, m->shared_id, t->mountpoint, m->mountpoint);
+					 t->mnt_id, m->shared_id, t->ns_mountpoint, m->ns_mountpoint);
 				list_add(&t->mnt_share, &m->mnt_share);
 			}
 		}
@@ -1077,7 +1080,7 @@ static int resolve_shared_mounts(struct mount_info *info)
 
 			pr_err("Mount %d %s (master_id: %d shared_id: %d) "
 			       "has unreachable sharing. Try --enable-external-masters.\n",
-			       m->mnt_id, m->mountpoint, m->master_id, m->shared_id);
+			       m->mnt_id, m->ns_mountpoint, m->master_id, m->shared_id);
 			return -1;
 		}
 	}
@@ -1104,7 +1107,7 @@ static int resolve_shared_mounts(struct mount_info *info)
 				else if (ret) {
 					BUG_ON(!mounts_equal(m, schild));
 					pr_debug("\tMount %3d is in same propagation group with %3d (@%s ~ @%s)\n",
-						 m->mnt_id, schild->mnt_id, m->mountpoint, schild->mountpoint);
+						 m->mnt_id, schild->mnt_id, m->ns_mountpoint, schild->ns_mountpoint);
 					list_add(&schild->mnt_propagate, &m->mnt_propagate);
 				}
 			}
@@ -1250,8 +1253,8 @@ static char *get_clean_mnt(struct mount_info *mi, char *mnt_path_tmp, char *mnt_
 		return NULL;
 	}
 
-	if (mount(mi->mountpoint, mnt_path, NULL, MS_BIND, NULL)) {
-		pr_warn("Can't bind-mount %d:%s to %s: %s\n", mi->mnt_id, mi->mountpoint, mnt_path, strerror(errno));
+	if (mount(mi->ns_mountpoint, mnt_path, NULL, MS_BIND, NULL)) {
+		pr_perror("Can't bind-mount %d:%s to %s", mi->mnt_id, mi->ns_mountpoint, mnt_path);
 		rmdir(mnt_path);
 		return NULL;
 	}
@@ -1392,7 +1395,7 @@ static int __umount_children_overmounts(struct mount_info *mi)
 	 */
 again:
 	list_for_each_entry(c, &m->children, siblings) {
-		if (!strcmp(c->mountpoint, m->mountpoint)) {
+		if (!strcmp(c->ns_mountpoint, m->ns_mountpoint)) {
 			m = c;
 			goto again;
 		}
@@ -1400,8 +1403,8 @@ again:
 
 	/* Unmout children-overmounts in the order of visibility */
 	while (m != mi) {
-		if (umount2(m->mountpoint, MNT_DETACH)) {
-			pr_perror("Unable to umount child-overmount %s", m->mountpoint);
+		if (umount2(m->ns_mountpoint, MNT_DETACH)) {
+			pr_perror("Unable to umount child-overmount %s", m->ns_mountpoint);
 			return -1;
 		}
 		BUG_ON(!m->parent);
@@ -1431,12 +1434,12 @@ static int __umount_overmounts(struct mount_info *m)
 	/* Unmount sibling-overmounts in visibility order */
 next:
 	ovm = NULL;
-	ovm_len = strlen(m->mountpoint) + 1;
+	ovm_len = strlen(m->ns_mountpoint) + 1;
 	list_for_each_entry(t, &m->parent->children, siblings) {
 		if (m == t)
 			continue;
-		if (issubpath(m->mountpoint, t->mountpoint)) {
-			int t_len = strlen(t->mountpoint);
+		if (issubpath(m->ns_mountpoint, t->ns_mountpoint)) {
+			int t_len = strlen(t->ns_mountpoint);
 
 			if (t_len < ovm_len && t_len > ovm_len_min) {
 				ovm = t;
@@ -1452,8 +1455,8 @@ next:
 		if (__umount_children_overmounts(ovm))
 			return -1;
 
-		if (umount2(ovm->mountpoint, MNT_DETACH)) {
-			pr_perror("Unable to umount %s", ovm->mountpoint);
+		if (umount2(ovm->ns_mountpoint, MNT_DETACH)) {
+			pr_perror("Unable to umount %s", ovm->ns_mountpoint + 1);
 			return -1;
 		}
 
@@ -1525,9 +1528,9 @@ int ns_open_mountpoint(void *arg)
 	 * explicitly as when last process exits mntns all mounts in it are
 	 * cleaned from their children, and we are exactly the last process.
 	 */
-	*fd = open(mi->mountpoint, O_DIRECTORY | O_RDONLY);
+	*fd = open(mi->ns_mountpoint, O_DIRECTORY | O_RDONLY);
 	if (*fd < 0) {
-		pr_perror("Unable to open %s", mi->mountpoint);
+		pr_perror("Unable to open %s(%d)", mi->ns_mountpoint, mi->mnt_id);
 		goto err;
 	}
 
@@ -1549,7 +1552,7 @@ int open_mountpoint(struct mount_info *pm)
 	if (list_empty(&pm->children) && !mnt_is_overmounted(pm))
 		return __open_mountpoint(pm);
 
-	pr_info("Mount is not fully visible %s\n", pm->mountpoint);
+	pr_info("Mount is not fully visible %s(%d)\n", pm->ns_mountpoint, pm->mnt_id);
 
 	/*
 	 * We do two things below:
@@ -1567,7 +1570,7 @@ int open_mountpoint(struct mount_info *pm)
 		goto err;
 
 	if (!mnt_is_overmounted(pm)) {
-		pr_info("\tmount has children %s\n", pm->mountpoint);
+		pr_info("\tmount has children %s(%d)\n", pm->ns_mountpoint, pm->mnt_id);
 		fd = get_clean_fd(pm);
 	}
 
@@ -1579,7 +1582,7 @@ int open_mountpoint(struct mount_info *pm)
 		int pid, status;
 		struct clone_arg ca = { .mi = pm, .fd = &fd };
 
-		pr_info("\tmount is overmounted or has children %s\n", pm->mountpoint);
+		pr_info("\tmount is overmounted or has children %s(%d)\n", pm->ns_mountpoint, pm->mnt_id);
 
 		/*
 		 * We are overmounted - not accessible in a regular way. We
@@ -1748,7 +1751,7 @@ static int dump_one_fs(struct mount_info *mi)
 		return 0;
 	}
 
-	pr_err("Unable to dump a file system for %d:%s\n", mi->mnt_id, mi->mountpoint);
+	pr_err("Unable to dump a file system for %d:%s\n", mi->mnt_id, mi->ns_mountpoint);
 	return -1;
 }
 
@@ -1756,7 +1759,7 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 {
 	MntEntry me = MNT_ENTRY__INIT;
 
-	pr_info("\t%d: %x:%s @ %s\n", pm->mnt_id, pm->s_dev, pm->root, pm->mountpoint);
+	pr_info("\t%d: %x:%s @ %s\n", pm->mnt_id, pm->s_dev, pm->root, pm->ns_mountpoint);
 
 	me.fstype = pm->fstype->code;
 
@@ -1771,7 +1774,7 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 		return -1;
 
 	if (pm->mnt_id == HELPER_MNT_ID) {
-		pr_info("Skip dumping helper mountpoint: %s\n", pm->mountpoint);
+		pr_info("Skip dumping helper mountpoint: %s\n", pm->ns_mountpoint);
 		return 0;
 	}
 
@@ -1781,7 +1784,7 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 	me.flags = pm->flags;
 	me.sb_flags = pm->sb_flags;
 	me.has_sb_flags = true;
-	me.mountpoint = pm->mountpoint + 1;
+	me.mountpoint = pm->ns_mountpoint + 1;
 	me.source = pm->source;
 	me.options = pm->options;
 	me.shared_id = pm->shared_id;
@@ -1923,7 +1926,7 @@ int mnt_tree_for_each(struct mount_info *start, int (*fn)(struct mount_info *))
 	LIST_HEAD(postpone2);
 	int progress;
 
-	pr_debug("Start with %d:%s\n", start->mnt_id, start->mountpoint);
+	pr_debug("Start with %d:%s\n", start->mnt_id, start->ns_mountpoint);
 	list_add(&start->postpone, &postpone);
 
 again:
@@ -1937,7 +1940,7 @@ again:
 
 		pr_err("A few mount points can't be mounted\n");
 		list_for_each_entry(m, &postpone2, postpone) {
-			pr_err("%d:%d %s %s %s\n", m->mnt_id, m->parent_mnt_id, m->root, m->mountpoint, m->source);
+			pr_err("%d:%d %s %s %s\n", m->mnt_id, m->parent_mnt_id, m->root, m->ns_mountpoint, m->source);
 		}
 		return -1;
 	}
@@ -1985,7 +1988,7 @@ static char *resolve_source(struct mount_info *mi)
 			return mi->source;
 	}
 
-	pr_err("No device for %s mount\n", mi->mountpoint);
+	pr_err("No device for %s(%d) mount\n", mi->ns_mountpoint, mi->mnt_id);
 	return NULL;
 }
 
@@ -2079,7 +2082,7 @@ static int propagate_siblings(struct mount_info *mi)
 			continue;
 		if (t->bind && t->bind->shared_id == t->shared_id)
 			continue;
-		pr_debug("\t\tBind share %s\n", t->mountpoint);
+		pr_debug("\t\tBind share %s(%d)\n", t->ns_mountpoint, t->mnt_id);
 		t->bind = mi;
 		t->s_dev_rt = mi->s_dev_rt;
 	}
@@ -2087,7 +2090,7 @@ static int propagate_siblings(struct mount_info *mi)
 	list_for_each_entry(t, &mi->mnt_slave_list, mnt_slave) {
 		if (t->mounted || t->bind)
 			continue;
-		pr_debug("\t\tBind slave %s\n", t->mountpoint);
+		pr_debug("\t\tBind slave %s(%d)\n", t->ns_mountpoint, t->mnt_id);
 		t->bind = mi;
 		t->s_dev_rt = mi->s_dev_rt;
 	}
@@ -2118,7 +2121,7 @@ static int propagate_mount(struct mount_info *mi)
 	list_for_each_entry(p, &mi->mnt_propagate, mnt_propagate) {
 		/* Should not propagate the same mount twice */
 		BUG_ON(p->mounted);
-		pr_debug("\t\tPropagate %s\n", p->mountpoint);
+		pr_debug("\t\tPropagate %s(%d)\n", p->ns_mountpoint, p->mnt_id);
 
 		/*
 		 * When a mount is propagated, the result mount
@@ -2148,7 +2151,7 @@ skip_parent:
 				continue;
 			if (!issubpath(t->root, mi->root))
 				continue;
-			pr_debug("\t\tBind private %s\n", t->mountpoint);
+			pr_debug("\t\tBind private %s(%d)\n", t->ns_mountpoint, t->mnt_id);
 			t->bind = mi;
 			t->s_dev_rt = mi->s_dev_rt;
 		}
@@ -2673,7 +2676,7 @@ static int do_mount_one(struct mount_info *mi)
 		return 0;
 
 	if (!can_mount_now(mi)) {
-		pr_debug("Postpone slave %s\n", mi->mountpoint);
+		pr_debug("Postpone mount %s(%d)\n", mi->ns_mountpoint, mi->mnt_id);
 		return 1;
 	}
 
@@ -3059,7 +3062,7 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 		if (!opts.autodetect_ext_mounts) {
 			pr_err("Mount %d:%s is autodetected external mount. "
 			       "Try \"--ext-mount-map auto\" to allow them.\n",
-			       mi->mnt_id, mi->mountpoint);
+			       mi->mnt_id, mi->ns_mountpoint);
 			return -1;
 		}
 
@@ -3078,7 +3081,7 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 	} else {
 		ext = ext_mount_lookup(me->ext_key);
 		if (!ext) {
-			pr_err("No mapping for %d:%s mountpoint\n", mi->mnt_id, mi->mountpoint);
+			pr_err("No mapping for %d:%s mountpoint\n", mi->mnt_id, mi->ns_mountpoint);
 			return -1;
 		}
 	}
@@ -3260,7 +3263,7 @@ static int collect_mnt_from_image(struct mount_info **head, struct mount_info **
 		if (get_mp_mountpoint(me->mountpoint, pm, root, root_len))
 			goto err;
 
-		pr_debug("\tRead %d mp @ %s\n", pm->mnt_id, pm->mountpoint);
+		pr_debug("\tRead %d mp @ %s\n", pm->mnt_id, pm->ns_mountpoint);
 	}
 
 	if (me)
@@ -3297,7 +3300,7 @@ static int merge_mount_trees(void)
 
 		root = nsid->mnt.mntinfo_tree;
 
-		pr_debug("Mountpoint %d (@%s) moved to the root yard\n", root->mnt_id, root->mountpoint);
+		pr_debug("Mountpoint %d (@%s) moved to the root yard\n", root->mnt_id, root->ns_mountpoint);
 		root->parent = root_yard_mp;
 		list_add(&root->siblings, &root_yard_mp->children);
 	}
@@ -4000,8 +4003,8 @@ void clean_cr_time_mounts(void)
 			continue;
 		}
 
-		if (umount(mi->mountpoint) < 0)
-			pr_perror("Can't umount forced mount %s", mi->mountpoint);
+		if (umount(mi->ns_mountpoint) < 0)
+			pr_perror("Can't umount forced mount %s", mi->ns_mountpoint);
 
 		if (restore_mnt_ns(ns_old, &cwd_fd)) {
 			pr_err("cleanup_forced_mounts exiting with wrong mnt_ns\n");
@@ -4058,7 +4061,7 @@ static int ns_remount_writable(void *arg)
 
 	if (mount(NULL, mi->ns_mountpoint, NULL, MS_REMOUNT | MS_BIND | (mi->flags & ~(MS_PROPAGATE | MS_RDONLY)),
 		  NULL) == -1) {
-		pr_perror("Failed to remount %d:%s writable", mi->mnt_id, mi->mountpoint);
+		pr_perror("Failed to remount %d:%s writable", mi->mnt_id, mi->ns_mountpoint);
 		return 1;
 	}
 	return 0;
@@ -4131,9 +4134,9 @@ static int __remount_readonly_mounts(struct ns_id *ns)
 			pr_debug("Switched to mntns %u:%u\n", ns->id, ns->kid);
 		}
 
-		pr_info("Remount %d:%s back to readonly\n", mi->mnt_id, mi->mountpoint);
+		pr_info("Remount %d:%s back to readonly\n", mi->mnt_id, mi->ns_mountpoint);
 		if (mount(NULL, mi->ns_mountpoint, NULL, MS_REMOUNT | MS_BIND | (mi->flags & ~MS_PROPAGATE), NULL)) {
-			pr_perror("Failed to restore %d:%s mount flags %x", mi->mnt_id, mi->mountpoint, mi->flags);
+			pr_perror("Failed to restore %d:%s mount flags %x", mi->mnt_id, mi->ns_mountpoint, mi->flags);
 			return -1;
 		}
 	}

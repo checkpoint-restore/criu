@@ -548,7 +548,7 @@ static int fusectl_dump(struct mount_info *pm)
 
 		for (it = mntinfo; it; it = it->next) {
 			if (it->fstype->code == FSTYPE__FUSE && id == kdev_minor(it->s_dev) && !it->external) {
-				pr_err("%s is a fuse mount but not external\n", it->mountpoint);
+				pr_err("%s is a fuse mount but not external\n", it->ns_mountpoint);
 				goto out;
 			}
 		}
@@ -659,7 +659,7 @@ static int dump_empty_fs(struct mount_info *pm)
  */
 static int always_fail(struct mount_info *pm)
 {
-	pr_err("failed to dump fs %s (%s): always fail\n", pm->mountpoint, pm->fstype->name);
+	pr_err("failed to dump fs %s (%s): always fail\n", pm->ns_mountpoint, pm->fstype->name);
 	return -1;
 }
 

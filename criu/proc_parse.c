@@ -1628,7 +1628,7 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 		}
 
 		pr_info("\ttype %s source %s mnt_id %d s_dev %#x %s @ %s flags %#x options %s\n", fsname, new->source,
-			new->mnt_id, new->s_dev, new->root, new->mountpoint, new->flags, new->options);
+			new->mnt_id, new->s_dev, new->root, new->ns_mountpoint, new->flags, new->options);
 
 		if (new->fstype->parse) {
 			ret = new->fstype->parse(new);
