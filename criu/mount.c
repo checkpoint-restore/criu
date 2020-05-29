@@ -392,7 +392,7 @@ static unsigned int mnt_depth(struct mount_info *m)
 	unsigned int depth = 0;
 	char *c;
 
-	for (c = m->mountpoint; *c != '\0'; c++)
+	for (c = m->ns_mountpoint; *c != '\0'; c++)
 		if (*c == '/')
 			depth++;
 
