@@ -184,4 +184,6 @@ extern struct mount_info *mnt_get_external_bind_nodev(struct mount_info *mi);
 
 extern struct mount_info *mnt_bind_pick(struct mount_info *mi,
 					bool (*pick)(struct mount_info *mi, struct mount_info *bind));
+
+extern int mnt_tree_for_each(struct mount_info *start, int (*fn)(struct mount_info *));
 #endif /* __CR_MOUNT_H__ */

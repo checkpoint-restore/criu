@@ -1347,11 +1347,33 @@ exit:
 	return mi->is_overmounted;
 }
 
-static int set_is_overmounted(struct mount_info *mi)
+static int __set_is_overmounted(struct mount_info *mi)
 {
 	/* coverity[check_return] */
 	mnt_is_overmounted(mi);
 	return 0;
+}
+
+/*
+ * mnt_is_overmounted is intended to detect overmounts in original dumped mount
+ * tree, so we pre-save it just after loading mount tree from images, so that
+ * it does not mess up with any helper mounts or tree changes we can do.
+ */
+static void prepare_is_overmounted(void)
+{
+	struct ns_id *nsid;
+
+	for (nsid = ns_ids; nsid; nsid = nsid->next) {
+		struct mount_info *root;
+
+		if (nsid->nd != &mnt_ns_desc)
+			continue;
+
+		root = nsid->mnt.mntinfo_tree;
+
+		BUG_ON(root->parent);
+		mnt_tree_for_each(root, __set_is_overmounted);
+	}
 }
 
 /*
@@ -1649,6 +1671,7 @@ static __maybe_unused struct mount_info *add_cr_time_mount(struct mount_info *ro
 	}
 
 	mi->mnt_bind_is_populated = true;
+	mi->is_overmounted = false;
 	mi->nsid = parent->nsid;
 	mi->parent = parent;
 	mi->parent_mnt_id = parent->mnt_id;
@@ -1893,7 +1916,7 @@ err:
 
 #define MNT_WALK_NONE 0 &&
 
-static int mnt_tree_for_each(struct mount_info *start, int (*fn)(struct mount_info *))
+int mnt_tree_for_each(struct mount_info *start, int (*fn)(struct mount_info *))
 {
 	struct mount_info *tmp;
 	LIST_HEAD(postpone);
@@ -3278,6 +3301,7 @@ int read_mnt_ns_img(void)
 	mntinfo = pms;
 
 	search_bindmounts();
+	prepare_is_overmounted();
 
 	return 0;
 }
@@ -3452,6 +3476,7 @@ static int populate_mnt_ns(void)
 	root_yard_mp->mountpoint = mnt_roots;
 	root_yard_mp->mounted = true;
 	root_yard_mp->mnt_bind_is_populated = true;
+	root_yard_mp->is_overmounted = false;
 	root_yard_mp->mnt_id = HELPER_MNT_ID;
 
 	if (merge_mount_trees(root_yard_mp))
@@ -3471,8 +3496,6 @@ static int populate_mnt_ns(void)
 
 	if (validate_mounts(mntinfo, false))
 		return -1;
-
-	mnt_tree_for_each(root_yard_mp, set_is_overmounted);
 
 	if (find_remap_mounts(root_yard_mp))
 		return -1;
