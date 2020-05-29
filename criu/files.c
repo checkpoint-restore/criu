@@ -298,12 +298,12 @@ static int fixup_overlayfs(struct fd_parms *p, struct fd_link *link)
 	 * If the bug is present, the file path from /proc/<pid>/fd
 	 * does not include the mountpoint, so we prepend it ourselves.
 	 */
-	if (strcmp("./", m->mountpoint) != 0) {
+	if (strcmp("./", m->ns_mountpoint) != 0) {
 		char buf[PATH_MAX];
 		int n;
 
 		strlcpy(buf, link->name, PATH_MAX);
-		n = snprintf(link->name, PATH_MAX, "%s/%s", m->mountpoint, buf + 2);
+		n = snprintf(link->name, PATH_MAX, "%s/%s", m->ns_mountpoint, buf + 2);
 		if (n >= PATH_MAX) {
 			pr_err("Not enough space to replace %s\n", buf);
 			return -1;
