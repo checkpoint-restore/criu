@@ -541,13 +541,13 @@ static bool mnt_needs_remap(struct mount_info *m)
 {
 	struct mount_info *t;
 
-	if (!m->parent)
+	if (!m->parent || m->parent == root_yard_mp)
 		return false;
 
 	list_for_each_entry(t, &m->parent->children, siblings) {
 		if (m == t)
 			continue;
-		if (issubpath(t->mountpoint, m->mountpoint))
+		if (issubpath(t->ns_mountpoint, m->ns_mountpoint))
 			return true;
 	}
 
@@ -556,7 +556,7 @@ static bool mnt_needs_remap(struct mount_info *m)
 	 * remapped too, else fixup_remap_mounts() won't be able to move parent
 	 * to it's real place, it will move child instead.
 	 */
-	if (!strcmp(m->parent->mountpoint, m->mountpoint))
+	if (!strcmp(m->parent->ns_mountpoint, m->ns_mountpoint))
 		return mnt_needs_remap(m->parent);
 
 	return false;
