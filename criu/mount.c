@@ -905,11 +905,11 @@ static int root_path_from_parent(struct mount_info *m, char *buf, int size)
 	bool head_slash = false, tail_slash = false;
 	int p_len, m_len, len;
 
-	if (!m->parent)
+	if (!m->parent || m->parent == root_yard_mp)
 		return -1;
 
-	p_len = strlen(m->parent->mountpoint);
-	m_len = strlen(m->mountpoint);
+	p_len = strlen(m->parent->ns_mountpoint);
+	m_len = strlen(m->ns_mountpoint);
 
 	len = snprintf(buf, size, "%s", m->parent->root);
 	if (len >= size)
@@ -925,11 +925,11 @@ static int root_path_from_parent(struct mount_info *m, char *buf, int size)
 	len = m_len - p_len;
 	BUG_ON(len < 0);
 	if (len) {
-		if (m->mountpoint[p_len] == '/')
+		if (m->ns_mountpoint[p_len] == '/')
 			head_slash = true;
 
 		len = snprintf(buf, size, "%s%s", (!tail_slash && !head_slash) ? "/" : "",
-			       m->mountpoint + p_len + (tail_slash && head_slash));
+			       m->ns_mountpoint + p_len + (tail_slash && head_slash));
 		if (len >= size)
 			return -1;
 	}
