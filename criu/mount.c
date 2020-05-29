@@ -676,7 +676,7 @@ static int validate_children_collision(struct mount_info *mnt)
 		list_for_each_entry(chj, &mnt->children, siblings) {
 			if (chj == chi)
 				break;
-			if (!strcmp(chj->mountpoint, chi->mountpoint)) {
+			if (!strcmp(chj->ns_mountpoint, chi->ns_mountpoint)) {
 				pr_err("Mount %d has two children with same "
 				       "mountpoint: %d %d\n",
 				       mnt->mnt_id, chj->mnt_id, chi->mnt_id);
