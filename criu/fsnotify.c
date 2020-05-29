@@ -404,7 +404,7 @@ static int check_one_mark(FanotifyMarkEntry *fme)
 			return -1;
 		}
 		if (!(root_ns_mask & CLONE_NEWNS))
-			fme->me->path = m->mountpoint + 1;
+			fme->me->path = m->ns_mountpoint + 1;
 		fme->s_dev = m->s_dev;
 
 		pr_info("mark: s_dev %#08x mnt_id  %#08x mask %#08x\n", fme->s_dev, fme->me->mnt_id, fme->mask);
