@@ -2675,7 +2675,7 @@ static int do_mount_one(struct mount_info *mi)
 		return 1;
 	}
 
-	if (!strcmp(mi->parent->mountpoint, mi->mountpoint)) {
+	if ((mi->parent && mi->parent != root_yard_mp) && !strcmp(mi->parent->ns_mountpoint, mi->ns_mountpoint)) {
 		mi->parent->fd = open(mi->parent->mountpoint, O_PATH);
 		if (mi->parent->fd < 0) {
 			pr_perror("Unable to open %s", mi->mountpoint);
