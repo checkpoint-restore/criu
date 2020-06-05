@@ -2077,11 +2077,11 @@ def grep_errors(fname):
     print_next = False
     before = []
     with open(fname, errors='replace') as fd:
-        for l in fd:
-            before.append(l)
+        for line in fd:
+            before.append(line)
             if len(before) > 5:
                 before.pop(0)
-            if "Error" in l or "Warn" in l:
+            if "Error" in line or "Warn" in line:
                 if first:
                     print_fname(fname, 'log')
                     print_sep("grep Error", "-", 60)
@@ -2091,7 +2091,7 @@ def grep_errors(fname):
                 before = []
             else:
                 if print_next:
-                    print_next = print_error(l)
+                    print_next = print_error(line)
                     before = []
     if not first:
         print_sep("ERROR OVER", "-", 60)
