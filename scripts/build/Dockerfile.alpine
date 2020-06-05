@@ -15,9 +15,12 @@ RUN apk update && apk add \
 	libnet-dev \
 	libnl3-dev \
 	nftables \
+	nftables-dev \
 	pkgconfig \
 	protobuf-c-dev \
 	protobuf-dev \
+	py3-pip \
+	py3-protobuf \
 	python3 \
 	sudo
 
@@ -43,7 +46,7 @@ RUN apk add \
 # The rpc test cases are running as user #1000, let's add the user
 RUN adduser -u 1000 -D test
 
-RUN pip3 install protobuf junit_xml
+RUN pip3 install junit_xml
 
 # For zdtm we need an unversioned python binary
 RUN ln -s /usr/bin/python3 /usr/bin/python
