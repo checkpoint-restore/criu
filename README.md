@@ -68,6 +68,8 @@ Here are some useful hints to get involved.
 * Documentation is always hard, we have [some information](https://criu.org/Category:Empty_articles) that is to be extracted from people's heads into wiki pages as well as [some texts](https://criu.org/Category:Editor_help_needed) that all need to be converted into useful articles;
 * Feedback is expected on the github issues page and on the [mailing list](https://lists.openvz.org/mailman/listinfo/criu);
 * We accept github pull requests and this is the preferred way to contribute to CRIU. If you prefer to send patches by email, you are welcome to send them to [the devel list](http://criu.org/How_to_submit_patches);
+  * Please avoid force pushing updates to an existent pull request. Close the pull request and open a new one with the updated changes.
+  * Mention what were the changes between different versions of a pull request. It makes reviewers and maintainers life much easier.
 * Spread the word about CRIU in [social networks](http://criu.org/Contacts);
 * If you're giving a talk about CRIU -- let us know, we'll mention it on the [wiki main page](https://criu.org/News/events);
 
