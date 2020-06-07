@@ -863,9 +863,8 @@ out:
 
 static int pre_dump_loop(int sk, CriuReq *msg)
 {
-	int ret;
-
 	do {
+		int ret;
 		ret = pre_dump_using_req(sk, msg->opts);
 		if (ret < 0)
 			return ret;

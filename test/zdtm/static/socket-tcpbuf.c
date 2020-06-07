@@ -45,7 +45,6 @@ static int fill_sock_buf(int fd)
 {
 	int flags;
 	int size;
-	int ret;
 
 	flags = fcntl(fd, F_GETFL, 0);
 	if (flags == -1) {
@@ -59,6 +58,7 @@ static int fill_sock_buf(int fd)
 
 	size = 0;
 	while (1) {
+		int ret;
 		char zdtm[] = "zdtm test packet";
 		ret = write(fd, zdtm, sizeof(zdtm));
 		if (ret == -1) {
@@ -80,11 +80,12 @@ static int fill_sock_buf(int fd)
 
 static int clean_sk_buf(int fd, int limit)
 {
-	int size, ret;
+	int size;
 	char buf[BUF_SIZE];
 
 	size = 0;
 	while (1) {
+		int ret;
 		ret = read(fd, buf, sizeof(buf));
 		if (ret == -1) {
 			pr_perror("read");

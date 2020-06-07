@@ -155,7 +155,6 @@ static int trim_last_parent(char *path)
 static int copy_chunk_from_file(int fd, int img, off_t off, size_t len)
 {
 	char *buf = NULL;
-	int ret;
 
 	if (opts.remote) {
 		buf = xmalloc(BUFSIZE);
@@ -164,6 +163,7 @@ static int copy_chunk_from_file(int fd, int img, off_t off, size_t len)
 	}
 
 	while (len > 0) {
+		int ret;
 		if (opts.remote) {
 			ret = pread(fd, buf, min_t(size_t, BUFSIZE, len), off);
 			if (ret <= 0) {
@@ -235,7 +235,6 @@ static int copy_file_to_chunks(int fd, struct cr_img *img, size_t file_size)
 static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
 {
 	char *buf = NULL;
-	int ret;
 
 	if (opts.remote) {
 		buf = xmalloc(BUFSIZE);
@@ -244,6 +243,7 @@ static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
 	}
 
 	while (len > 0) {
+		int ret;
 		if (opts.remote) {
 			ret = read(img, buf, min_t(size_t, BUFSIZE, len));
 			if (ret <= 0) {

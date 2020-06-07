@@ -30,11 +30,10 @@ static int __parasite_send_cmd(int sockfd, struct ctl_msg *m)
 
 int parasite_wait_ack(int sockfd, unsigned int cmd, struct ctl_msg *m)
 {
-	int ret;
-
 	pr_debug("Wait for ack %d on daemon socket\n", cmd);
 
 	while (1) {
+		int ret;
 		memzero(m, sizeof(*m));
 
 		ret = recv(sockfd, m, sizeof(*m), MSG_WAITALL);

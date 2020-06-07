@@ -2930,7 +2930,6 @@ static rlim_t decode_rlim(rlim_t ival)
 static int prepare_rlimits_from_fd(int pid, struct task_restore_args *ta)
 {
 	struct rlimit *r;
-	int ret;
 	struct cr_img *img;
 
 	if (!deprecated_ok("Rlimits"))
@@ -2945,6 +2944,7 @@ static int prepare_rlimits_from_fd(int pid, struct task_restore_args *ta)
 
 	ta->rlims_n = 0;
 	while (1) {
+		int ret;
 		RlimitEntry *re;
 
 		ret = pb_read_one_eof(img, &re, PB_RLIMIT);

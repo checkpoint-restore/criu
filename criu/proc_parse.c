@@ -1032,9 +1032,10 @@ static int ids_parse(char *str, unsigned int *arr)
 
 static int cap_parse(char *str, unsigned int *res)
 {
-	int i, ret;
+	int i;
 
 	for (i = 0; i < PROC_CAP_SIZE; i++) {
+		int ret;
 		ret = sscanf(str, "%08x", &res[PROC_CAP_SIZE - 1 - i]);
 		if (ret != 1)
 			return -1;

@@ -173,7 +173,6 @@ struct early_log_hdr {
 void flush_early_log_buffer(int fd)
 {
 	unsigned int pos = 0;
-	int ret;
 
 	while (pos < early_log_buf_off) {
 		/*
@@ -190,6 +189,7 @@ void flush_early_log_buffer(int fd)
 		if (hdr->level <= current_loglevel) {
 			size_t size = 0;
 			while (size < hdr->len) {
+				int ret;
 				ret = write(fd, early_log_buffer + pos + size,
 						hdr->len - size);
 				if (ret <= 0)
@@ -352,7 +352,7 @@ static void early_vprint(const char *format, unsigned int loglevel, va_list para
 
 void vprint_on_level(unsigned int loglevel, const char *format, va_list params)
 {
-	int fd, size, ret, off = 0;
+	int fd, size, off = 0;
 	int _errno = errno;
 
 	if (unlikely(loglevel == LOG_MSG)) {
@@ -378,6 +378,7 @@ void vprint_on_level(unsigned int loglevel, const char *format, va_list params)
 	size += buf_off;
 
 	while (off < size) {
+		int ret;
 		ret = write(fd, buffer + off, size - off);
 		if (ret <= 0)
 			break;
