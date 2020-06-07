@@ -1,0 +1,22 @@
+#!/bin/sh
+
+set -e -x
+
+echo Map a log file into memory
+time ./flog run -i 1000000 -o /tmp/flog.raw.map
+echo Write into a log file
+time ./flog run -i 1000000 > /tmp/flog.raw
+echo Use fprintf
+time ./flog run -m fprintf -i 1000000 -o /tmp/flog.fprintf.txt
+echo Use dprintf
+time ./flog run -m dprintf -i 1000000 -o /tmp/flog.dprintf.txt
+echo Use sprintf
+time ./flog run -m sprintf -i 1000000
+
+time ./flog run -d < /tmp/flog.raw > /tmp/flog.raw.txt
+cmp /tmp/flog.raw.txt /tmp/flog.fprintf.txt
+
+time ./flog run -d < /tmp/flog.raw.map > /tmp/flog.raw.map.txt
+cmp /tmp/flog.raw.map.txt /tmp/flog.fprintf.txt
+
+cmp /tmp/flog.dprintf.txt /tmp/flog.fprintf.txt
