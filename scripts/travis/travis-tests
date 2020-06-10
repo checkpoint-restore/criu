@@ -61,6 +61,13 @@ travis_prep () {
 	chmod a+x $HOME
 }
 
+test_stream() {
+	# We must test CRIU features that dump content into an image file to ensure
+	# streaming compatibility.
+	STREAM_TEST_PATTERN='.*(ghost|fifo|unlink|memfd|shmem|socket_queue).*'
+	./test/zdtm.py run --stream -p 2 --keep-going -T $STREAM_TEST_PATTERN $ZDTM_OPTS
+}
+
 travis_prep
 
 export GCOV
@@ -131,6 +138,14 @@ uname -r | grep -q ^3\.19 && export CRIU_PMC_OFF=1
 chmod 0777 test/
 chmod 0777 test/zdtm/static
 chmod 0777 test/zdtm/transition
+
+# We run streaming tests separately to improve test completion times,
+# hence the exit 0.
+if [ "${STREAM_TEST}" = "1" ]; then
+	./scripts/install-criu-image-streamer.sh
+	test_stream
+	exit 0
+fi
 
 ./test/zdtm.py run -a -p 2 --keep-going $ZDTM_OPTS
 
