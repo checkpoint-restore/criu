@@ -390,9 +390,10 @@ static int init_zero_page_pfn(void)
 	ret = vaddr_to_pfn(-1, (unsigned long)addr, &kdat.zero_page_pfn);
 	munmap(addr, PAGE_SIZE);
 
-	if (kdat.zero_page_pfn == 0)
+	if (kdat.zero_page_pfn == 0) {
+		pr_err("vaddr_to_pfn succeeded but kdat.zero_page_pfn is invalid.\n");
 		ret = -1;
-
+	}
 	return ret;
 }
 
@@ -577,8 +578,10 @@ int kerndat_tcp_repair(void)
 	}
 
 	if (setsockopt(clnt, SOL_TCP, TCP_REPAIR, &yes, sizeof(yes))) {
-		if (errno != EPERM)
+		if (errno != EPERM) {
+			pr_perror("Unable to set TCP_REPAIR with setsockopt");
 			goto err;
+		}
 		kdat.has_tcp_half_closed = false;
 	} else
 		kdat.has_tcp_half_closed = true;
@@ -617,8 +620,10 @@ static int kerndat_compat_restore(void)
 	int ret;
 
 	ret = kdat_can_map_vdso();
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("kdat_can_map_vdso failed\n");
 		return ret;
+	}
 	kdat.can_map_vdso = !!ret;
 
 	/* depends on kdat.can_map_vdso result */
@@ -653,6 +658,7 @@ static int kerndat_detect_stack_guard_gap(void)
 
 	maps = fopen("/proc/self/maps", "r");
 	if (maps == NULL) {
+		pr_perror("Could not open /proc/self/maps");
 		munmap(mem, 4096);
 		return -1;
 	}
@@ -807,8 +813,10 @@ static int kerndat_x86_has_ptrace_fpu_xsave_bug(void)
 {
 	int ret = kdat_x86_has_ptrace_fpu_xsave_bug();
 
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("kdat_x86_has_ptrace_fpu_xsave_bug failed\n");
 		return ret;
+	}
 
 	kdat.x86_has_ptrace_fpu_xsave_bug = !!ret;
 	return 0;
@@ -936,8 +944,10 @@ int kerndat_has_thp_disable(void)
 	bool vma_match = false;
 
 	if (prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0)) {
-		if (errno != EINVAL)
+		if (errno != EINVAL) {
+			pr_perror("prctl PR_SET_THP_DISABLE failed");
 			return -1;
+		}
 		pr_info("PR_SET_THP_DISABLE is not available\n");
 		return 0;
 	}
@@ -949,8 +959,10 @@ int kerndat_has_thp_disable(void)
 		return -1;
 	}
 
-	if (prctl(PR_SET_THP_DISABLE, 0, 0, 0, 0))
-		return -1;
+	if (prctl(PR_SET_THP_DISABLE, 0, 0, 0, 0)) {
+		pr_perror("prctl PR_SET_THP_DISABLE failed");
+		goto out_unmap;
+	}
 
 	f.fd = open("/proc/self/smaps", O_RDONLY);
 	if (f.fd < 0) {
@@ -1047,6 +1059,7 @@ int kerndat_init(void)
 	ret = kerndat_try_load_cache();
 	if (ret <= 0)
 		return ret;
+	ret = 0;
 
 	/* kerndat_try_load_cache can leave some trash in kdat */
 	memset(&kdat, 0, sizeof(kdat));
@@ -1054,65 +1067,124 @@ int kerndat_init(void)
 	preload_socket_modules();
 	preload_netfilter_modules();
 
-	ret = check_pagemap();
-	if (!ret)
-		ret = kerndat_get_shmemdev();
-	if (!ret)
-		ret = kerndat_get_dirty_track();
-	if (!ret)
-		ret = init_zero_page_pfn();
-	if (!ret)
-		ret = get_last_cap();
-	if (!ret)
-		ret = kerndat_fdinfo_has_lock();
-	if (!ret)
-		ret = get_task_size();
-	if (!ret)
-		ret = get_ipv6();
-	if (!ret)
-		ret = kerndat_loginuid();
-	if (!ret)
-		ret = kerndat_iptables_has_xtlocks();
-	if (!ret)
-		ret = kerndat_tcp_repair();
-	if (!ret)
-		ret = kerndat_compat_restore();
-	if (!ret)
-		ret = kerndat_tun_netns();
-	if (!ret)
-		ret = kerndat_socket_unix_file();
-	if (!ret)
-		ret = kerndat_nsid();
-	if (!ret)
-		ret = kerndat_link_nsid();
-	if (!ret)
-		ret = kerndat_has_memfd_create();
-	if (!ret)
-		ret = kerndat_detect_stack_guard_gap();
-	if (!ret)
-		ret = kerndat_uffd();
-	if (!ret)
-		ret = kerndat_has_thp_disable();
+	if (check_pagemap()) {
+		pr_err("check_pagemap failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_get_shmemdev()) {
+		pr_err("kerndat_get_shmemdev failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_get_dirty_track()) {
+		pr_err("kerndat_get_dirty_track failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && init_zero_page_pfn()) {
+		pr_err("init_zero_page_pfn failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && get_last_cap()) {
+		pr_err("get_last_cap failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_fdinfo_has_lock()) {
+		pr_err("kerndat_fdinfo_has_lock failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && get_task_size()) {
+		pr_err("get_task_size failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && get_ipv6()) {
+		pr_err("get_ipv6 failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_loginuid()) {
+		pr_err("kerndat_loginuid failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_iptables_has_xtlocks()) {
+		pr_err("kerndat_iptables_has_xtlocks failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_tcp_repair()) {
+		pr_err("kerndat_tcp_repair failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_compat_restore()) {
+		pr_err("kerndat_compat_restore failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_tun_netns()) {
+		pr_err("kerndat_tun_netns failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_socket_unix_file()) {
+		pr_err("kerndat_socket_unix_file failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_nsid()) {
+		pr_err("kerndat_nsid failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_link_nsid()) {
+		pr_err("kerndat_link_nsid failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_memfd_create()) {
+		pr_err("kerndat_has_memfd_create failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_detect_stack_guard_gap()) {
+		pr_err("kerndat_detect_stack_guard_gap failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_uffd()) {
+		pr_err("kerndat_uffd failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_thp_disable()) {
+		pr_err("kerndat_has_thp_disable failed when initializing kerndat.\n");
+		ret = -1;
+	}
 	/* Needs kdat.compat_cr filled before */
-	if (!ret)
-		ret = kerndat_vdso_fill_symtable();
+	if (!ret && kerndat_vdso_fill_symtable()) {
+		pr_err("kerndat_vdso_fill_symtable failed when initializing kerndat.\n");
+		ret = -1;
+	}
 	/* Depends on kerndat_vdso_fill_symtable() */
-	if (!ret)
-		ret = kerndat_vdso_preserves_hint();
-	if (!ret)
-		ret = kerndat_socket_netns();
-	if (!ret)
-		ret = kerndat_x86_has_ptrace_fpu_xsave_bug();
-	if (!ret)
-		ret = kerndat_has_inotify_setnextwd();
-	if (!ret)
-		ret = has_kcmp_epoll_tfd();
-	if (!ret)
-		ret = kerndat_has_fsopen();
-	if (!ret)
-		ret = kerndat_has_clone3_set_tid();
-	if (!ret)
-		ret = has_time_namespace();
+	if (!ret && kerndat_vdso_preserves_hint()) {
+		pr_err("kerndat_vdso_preserves_hint failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_socket_netns()) {
+		pr_err("kerndat_socket_netns failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_x86_has_ptrace_fpu_xsave_bug()) {
+		pr_err("kerndat_x86_has_ptrace_fpu_xsave_bug failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_inotify_setnextwd()) {
+		pr_err("kerndat_has_inotify_setnextwd failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && has_kcmp_epoll_tfd()) {
+		pr_err("has_kcmp_epoll_tfd failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_fsopen()) {
+		pr_err("kerndat_has_fsopen failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_clone3_set_tid()) {
+		pr_err("kerndat_has_clone3_set_tid failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && has_time_namespace()) {
+		pr_err("has_time_namespace failed when initializing kerndat.\n");
+		ret = -1;
+	}
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
