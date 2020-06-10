@@ -94,6 +94,7 @@ jobs:
       arch: amd64
       env: TR_ARCH=ppc64-cross
       dist: bionic
+    - env: TR_ARCH=local STREAM_TEST=1
   allow_failures:
     - env: TR_ARCH=docker-test
     - env: TR_ARCH=docker-test DIST=xenial
