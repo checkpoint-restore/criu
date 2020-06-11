@@ -463,18 +463,15 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 	if (pb_write_one(img, &pde, PB_PIPE_DATA))
 		goto err_close;
 
-	if (bytes) {
+	while (bytes > 0) {
 		int wrote;
-
 		wrote = splice(steal_pipe[0], NULL, img_raw_fd(img), NULL, bytes, 0);
 		if (wrote < 0) {
 			pr_perror("Can't push pipe data");
 			goto err_close;
-		} else if (wrote != bytes) {
-			pr_err("%#x: Wanted to write %d bytes, but wrote %d\n",
-					pipe_id(p), bytes, wrote);
-			goto err_close;
-		}
+		} else if (wrote == 0)
+			break;
+		bytes -= wrote;
 	}
 
 	ret = 0;
