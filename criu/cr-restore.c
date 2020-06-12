@@ -3201,6 +3201,43 @@ static void rst_reloc_creds(struct thread_restore_args *thread_args,
 	thread_args->creds_args = args;
 }
 
+static bool groups_match(gid_t* groups, int n_groups)
+{
+	int n, len;
+	bool ret;
+	gid_t* gids;
+
+	n = getgroups(0, NULL);
+	if (n == -1) {
+		pr_perror("Failed to get number of supplementary groups");
+		ret = false;
+	}
+	if (n != n_groups)
+		return false;
+	if (n == 0)
+		return true;
+
+	len = n * sizeof(gid_t);
+	gids = xmalloc(len);
+	if (gids == NULL)
+		return false;
+
+	n = getgroups(n, gids);
+	if (n == -1) {
+		pr_perror("Failed to get supplementary groups");
+		ret = false;
+	} else {
+		/*
+		* Because getgroups sorts gids,
+		* memcmp compares two sorted arrays
+		*/
+		ret = !memcmp(gids, groups, len);
+	}
+
+	xfree(gids);
+	return ret;
+}
+
 static struct thread_creds_args *
 rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 {
@@ -3308,7 +3345,7 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 	memcpy(args->cap_prm, ce->cap_prm, sizeof(args->cap_prm));
 	memcpy(args->cap_bnd, ce->cap_bnd, sizeof(args->cap_bnd));
 
-	if (ce->n_groups) {
+	if (ce->n_groups && !groups_match(ce->groups, ce->n_groups)) {
 		unsigned int *groups;
 
 		args->mem_groups_pos = rst_mem_align_cpos(RM_PRIVATE);
