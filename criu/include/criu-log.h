@@ -21,6 +21,7 @@
 #define __CRIU_LOG_H__
 
 #include "log.h"
+#include <sys/types.h>
 
 struct timeval;
 
