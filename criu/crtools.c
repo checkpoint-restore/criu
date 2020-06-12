@@ -82,8 +82,10 @@ int main(int argc, char *argv[], char *envp[])
 	BUG_ON(get_service_fd(SERVICE_FD_MIN+1) <
 	       get_service_fd(SERVICE_FD_MAX-1));
 
-	if (fault_injection_init())
+	if (fault_injection_init()) {
+		pr_err("Failed to initialize fault injection when initializing crtools.\n");
 		return 1;
+	}
 
 	cr_pb_init();
 	setproctitle_init(argc, argv, envp);
@@ -171,8 +173,10 @@ int main(int argc, char *argv[], char *envp[])
 	/* We must not open imgs dir, if service is called */
 	if (strcmp(argv[optind], "service")) {
 		ret = open_image_dir(opts.imgs_dir, image_dir_mode(argv, optind));
-		if (ret < 0)
+		if (ret < 0) {
+			pr_err("Couldn't open image dir: %s", opts.imgs_dir);
 			return 1;
+		}
 	}
 
 	/*
@@ -205,8 +209,10 @@ int main(int argc, char *argv[], char *envp[])
 	if (log_init(opts.output))
 		return 1;
 
-	if (kerndat_init())
+	if (kerndat_init()) {
+		pr_err("Could not initialize kernel features detection.\n");
 		return 1;
+	}
 
        if (fault_injected(FI_CANNOT_MAP_VDSO))
                kdat.can_map_vdso = 0;

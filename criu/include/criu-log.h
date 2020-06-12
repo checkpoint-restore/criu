@@ -21,6 +21,7 @@
 #define __CRIU_LOG_H__
 
 #include "log.h"
+#include <sys/types.h>
 
 extern int log_init(const char *output);
 extern void log_fini(void);
