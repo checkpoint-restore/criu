@@ -587,8 +587,10 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			opts.final_state = TASK_ALIVE;
 			break;
 		case 'x':
-			if (optarg && unix_sk_ids_parse(optarg) < 0)
+			if (optarg && unix_sk_ids_parse(optarg) < 0) {
+				pr_err("Failed to parse unix socket inode from optarg: %s\n", optarg);
 				return 1;
+			}
 			opts.ext_unix_sk = true;
 			break;
 		case 't':
@@ -648,13 +650,17 @@ int parse_options(int argc, char **argv, bool *usage_error,
 					goto bad_arg;
 
 				*aux = '\0';
-				if (veth_pair_add(optarg, aux + 1))
+				if (veth_pair_add(optarg, aux + 1)) {
+					pr_err("Failed to add veth pair: %s, %s.\n", optarg, aux + 1);
 					return 1;
+				}
 			}
 			break;
 		case 1049:
-			if (add_script(optarg))
+			if (add_script(optarg)) {
+				pr_err("Failed to add action-script: %s.\n", optarg);
 				return 1;
+			}
 			break;
 		case 1051:
 			SET_CHAR_OPTS(addr, optarg);
@@ -724,12 +730,16 @@ int parse_options(int argc, char **argv, bool *usage_error,
 				return 0;
 			break;
 		case 1064:
-			if (!add_skip_mount(optarg))
+			if (!add_skip_mount(optarg)) {
+				pr_err("Failed to add skip-mnt: %s\n", optarg);
 				return 1;
+			}
 			break;
 		case 1065:
-			if (!add_fsname_auto(optarg))
+			if (!add_fsname_auto(optarg)) {
+				pr_err("Failed while parsing --enable-fs option: %s", optarg);
 				return 1;
+			}
 			break;
 		case 1068:
 			SET_CHAR_OPTS(freeze_cgroup, optarg);
@@ -738,8 +748,10 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			opts.ghost_limit = parse_size(optarg);
 			break;
 		case 1070:
-			if (irmap_scan_path_add(optarg))
+			if (irmap_scan_path_add(optarg)) {
+				pr_err("Failed while parsing --irmap-scan-path option: %s", optarg);
 				return -1;
+			}
 			break;
 		case 1071:
 			SET_CHAR_OPTS(lsm_profile, optarg);
@@ -765,13 +777,17 @@ int parse_options(int argc, char **argv, bool *usage_error,
 					goto bad_arg;
 
 				*aux = '\0';
-				if (ext_mount_add(optarg, aux + 1))
+				if (ext_mount_add(optarg, aux + 1)) {
+					pr_err("Could not add external mount when initializing config: %s, %s\n", optarg, aux + 1);
 					return 1;
+				}
 			}
 			break;
 		case 1073:
-			if (add_external(optarg))
+			if (add_external(optarg)) {
+				pr_err("Could not add external resource when initializing config: %s\n", optarg);
 				return 1;
+			}
 			break;
 		case 1074:
 			if (!strcmp("net", optarg))
