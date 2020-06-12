@@ -540,8 +540,10 @@ int open_image_dir(char *dir, int mode)
 	}
 
 	ret = install_service_fd(IMG_FD_OFF, fd);
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("install_service_fd failed.\n");
 		return -1;
+	}
 	fd = ret;
 
 	if (opts.stream) {
