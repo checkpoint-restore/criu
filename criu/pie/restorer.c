@@ -202,10 +202,32 @@ static int restore_creds(struct thread_creds_args *args, int procfd,
 	 * Setup supplementary group IDs early.
 	 */
 	if (args->groups) {
-		ret = sys_setgroups(ce->n_groups, args->groups);
-		if (ret) {
-			pr_err("Can't setup supplementary group IDs: %d\n", ret);
+		// We may be in an unprivileged user namespace where we're not
+		// allowed to call setgroups. If the current list of groups is already
+		// what we want, skip the call to setgroups.
+
+		int n = sys_getgroups(0, NULL);
+		int len = n * sizeof(unsigned int);
+		bool groups_are_ok;
+		unsigned int* gids = (unsigned int*)sys_mmap(NULL, len, PROT_WRITE | PROT_READ,
+			MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		if (gids == MAP_FAILED) {
+			pr_err("Unable to mmap %d bytes\n", len);
 			return -1;
+		}
+		n = sys_getgroups(n, gids);
+		groups_are_ok = (n == ce->n_groups && !memcmp(gids, args->groups, len));
+		if (sys_munmap(gids, len)) {
+			pr_err("Unable to munmap\n");
+			return -1;
+		}
+		if (groups_are_ok) {
+			pr_debug("getgroups() looks good, not calling setgroups()\n");
+		} else {
+			if (sys_setgroups(ce->n_groups, args->groups)) {
+				pr_err("Can't setgroups([%zu gids])\n", ce->n_groups);
+				return -1;
+			}
 		}
 	}
 
