@@ -216,6 +216,44 @@ commit message. To append such line to a commit you already made, use
 We accept GitHub pull requests and this is the preferred way to contribute to CRIU.
 For that you should push your work to your fork of CRIU at [GitHub](https://github.com) and create a [pull request](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/about-pull-requests)
 
+### Pull request guidelines
+
+Pull request comment should contain description of the problem your changes
+solve and a brief outline of the changes included in the pull request.
+
+Please avoid pushing fixup commits to an existent pull request. Each commit
+should be self contained and there should not be fixup commits in a patch
+series. Pull requests that contain one commit which breaks something
+and another commit which fixes it, will be rejected.
+
+Please merge the fixup commits into the commits that has introduced the
+problem before creating a pull request.
+
+It may happen that the reviewers were not completely happy with your
+changes and requested changes to your patches. After you updated your
+changes please close the old pull request and create a new one that
+contains the following:
+
+* Description of the problem your changes solve and a brief outline of the
+  changes
+* Link to the previous version of the pull request
+* Brief description of the changes between old and new versions of the pull
+  request. If there were more than one previous pull request, all the
+  revisions should be listed. For example:
+
+```
+	v3: rebase on the current criu-dev
+	v2: add commit to foo() and update bar() coding style
+```
+
+If there are only minor updates to the commits in a pull request, it is
+possible to force-push them into an existing pull request. This only applies
+to small changes and should be used with care. If you update an existing
+pull request, remember to add the description of the changes from the
+previous version.
+
+### Mailing list submission
+
 Historically, CRIU worked with mailing lists and patches so if you still prefer this way continue reading till the end of this section.
 
 ### Make a patch
