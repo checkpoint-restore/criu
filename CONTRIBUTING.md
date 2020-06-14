@@ -80,6 +80,77 @@ own GitHub fork of CRIU. It will check the compilation for various supported pla
 as well as run most of the tests from the suite. See https://travis-ci.org/checkpoint-restore/criu
 for more details.
 
+## Describe your changes
+
+Describe your problem.  Whether your change is a one-line bug fix or
+5000 lines of a new feature, there must be an underlying problem that
+motivated you to do this work.  Convince the reviewer that there is a
+problem worth fixing and that it makes sense for them to read past the
+first paragraph.
+
+Once the problem is established, describe what you are actually doing
+about it in technical detail. It's important to describe the change
+in plain English for the reviewer to verify that the code is behaving
+as you intend it to.
+
+Solve only one problem per commit. If your description starts to get
+long, that's a sign that you probably need to split up your commit.
+See [Separate your changes](#separate-your-changes).
+
+Describe your changes in imperative mood, e.g. "make xyzzy do frotz"
+instead of "[This commit] makes xyzzy do frotz" or "[I] changed xyzzy
+to do frotz", as if you are giving orders to the codebase to change
+its behaviour.
+
+If your change fixes a bug in a specific commit, e.g. you found an issue using
+`git bisect`, please use the `Fixes:` tag with the abbreviation of
+the SHA-1 ID, and the one line summary. For example:
+
+```
+	Fixes: 9433b7b9db3e ("make: use cflags/ldflags for config.h detection mechanism")
+```
+
+The following `git config` settings can be used to add a pretty format for
+outputting the above style in the `git log` or `git show` commands:
+
+```
+	[pretty]
+		fixes = Fixes: %h (\"%s\")
+```
+
+If your change address an issue listed in GitHub, please use `Fixes:` tag with the number of the issue. For instance:
+
+```
+	Fixes: #339
+```
+
+You may refer to [How to Write a Git Commit
+Message](https://chris.beams.io/posts/git-commit/) article for
+recommendations for good commit message.
+
+## Separate your changes
+
+Separate each **logical change** into a separate commit.
+
+For example, if your changes include both bug fixes and performance
+enhancements for a single driver, separate those changes into two
+or more commits.  If your changes include an API update, and a new
+driver which uses that new API, separate those into two commits.
+
+On the other hand, if you make a single change to numerous files,
+group those changes into a single commit.  Thus a single logical change
+is contained within a single commit.
+
+The point to remember is that each commit should make an easily understood
+change that can be verified by reviewers.  Each commit should be justifiable
+on its own merits.
+
+When dividing your change into a series of commits, take special care to
+ensure that CRIU builds and runs properly after each commit in the
+series.  Developers using `git bisect` to track down a problem can end up
+splitting your patch series at any point; they will not thank you if you
+introduce bugs in the middle.
+
 ## Sign your work
 
 To improve tracking of who did what, we ask you to sign off the commits in
