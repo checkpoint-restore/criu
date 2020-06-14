@@ -13,15 +13,15 @@ Here are some useful hints to get involved.
 * We have both -- [very simple](https://github.com/checkpoint-restore/criu/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement) and [more sophisticated](https://github.com/checkpoint-restore/criu/issues?q=is%3Aissue+is%3Aopen+label%3A%22new+feature%22) coding tasks;
 * CRIU does need [extensive testing](https://github.com/checkpoint-restore/criu/issues?q=is%3Aissue+is%3Aopen+label%3Atesting);
 * Documentation is always hard, we have [some information](https://criu.org/Category:Empty_articles) that is to be extracted from people's heads into wiki pages as well as [some texts](https://criu.org/Category:Editor_help_needed) that all need to be converted into useful articles;
-* Feedback is expected on the github issues page and on the [mailing list](https://lists.openvz.org/mailman/listinfo/criu);
-* We accept github pull requests and this is the preferred way to contribute to CRIU. If you prefer to send patches by email, you are welcome to send them to [CRIU development mailing list](https://lists.openvz.org/mailman/listinfo/criu).
-Below we describe in more detail recommend practices for CRIU developemnt.
+* Feedback is expected on the GitHub issues page and on the [mailing list](https://lists.openvz.org/mailman/listinfo/criu);
+* We accept GitHub pull requests and this is the preferred way to contribute to CRIU. If you prefer to send patches by email, you are welcome to send them to [CRIU development mailing list](https://lists.openvz.org/mailman/listinfo/criu).
+Below we describe in more detail recommend practices for CRIU development.
 * Spread the word about CRIU in [social networks](http://criu.org/Contacts);
 * If you're giving a talk about CRIU -- let us know, we'll mention it on the [wiki main page](https://criu.org/News/events);
 
-### Seting up the developemnt environment
+### Setting up the development environment
 
-Although criu could be run as non-root (see [Security](https://criu.org/Security), development is better to be done as root. For example, some tests require root. So, it would be a good idea to set up some recent Linux distro on a virtual machine.
+Although `criu` could be run as non-root (see [Security](https://criu.org/Security)), development is better to be done as root. For example, some tests require root. So, it would be a good idea to set up some recent Linux distro on a virtual machine.
 
 ### Get the source code
 
@@ -76,14 +76,14 @@ CRIU comes with an extensive test suite. To check whether your changes introduce
 The command runs [ZDTM Test Suite](https://criu.org/ZDTM_Test_Suite). Check for any error messages produced by it.
 
 In case you'd rather have someone else run the tests, you can use travis-ci for your
-own github fork of CRIU. It will check the compilation for various supported platforms,
+own GitHub fork of CRIU. It will check the compilation for various supported platforms,
 as well as run most of the tests from the suite. See https://travis-ci.org/checkpoint-restore/criu
 for more details.
 
 ## Sign your work
 
-To improve tracking of who did what, we ask you to sign off the patches
-that are to be emailed.
+To improve tracking of who did what, we ask you to sign off the commits in
+your fork of CRIU or the patches that are to be emailed.
 
 The sign-off is a simple line at the end of the explanation for the
 patch, which certifies that you wrote it or otherwise have the right to
@@ -142,7 +142,7 @@ commit message. To append such line to a commit you already made, use
 
 ## Submit your work upstream
 
-We accept github pull requests and this is the preferred way to contribute to CRIU.
+We accept GitHub pull requests and this is the preferred way to contribute to CRIU.
 For that you should push your work to your fork of CRIU at [GitHub](https://github.com) and create a [pull request](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/about-pull-requests)
 
 Historically, CRIU worked with mailing lists and patches so if you still prefer this way continue reading till the end of this section.
@@ -200,7 +200,7 @@ The patches should be sent to CRIU development mailing list, `criu AT openvz.org
 
 Please make sure the email client you're using doesn't screw your patch (line wrapping and so on).
 
-{{Note| When sending a patch set that consists of more than one patch, please, push your changes in your local repo and provide the URL of the branch in the cover-letter}}
+>  **Note:** When sending a patch set that consists of more than one patch, please, push your changes in your local repo and provide the URL of the branch in the cover-letter
 
 ### Wait for response
 
