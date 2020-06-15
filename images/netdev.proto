@@ -6,6 +6,8 @@ import "tun.proto";
 import "sysctl.proto";
 import "sit.proto";
 
+option go_package = "/protobindings";
+
 enum nd_type {
 	LOOPBACK	= 1;
 	VETH		= 2;

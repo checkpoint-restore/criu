@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "/protobindings";
+
 message local_image_entry {
 	required string name		= 1;
 	required string snapshot_id	= 2;

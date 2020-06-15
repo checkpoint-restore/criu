@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "/protobindings";
+
 message timespec {
 	required uint64		tv_sec	= 1;
 	required uint64		tv_nsec	= 2;

@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "opts.proto";
 
+option go_package = "/protobindings";
+
 message pagemap_head {
 	required uint32 pages_id	= 1;
 }

@@ -1,6 +1,8 @@
 syntax = "proto2";
 
 import "opts.proto";
+ 
+option go_package = "/protobindings";
 
 message vma_entry {
 	required uint64		start	= 1 [(criu).hex = true];

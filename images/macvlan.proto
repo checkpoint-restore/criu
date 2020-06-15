@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "/protobindings";
+
 message macvlan_link_entry {
 	required uint32	mode	= 1;
 	optional uint32 flags	= 2;

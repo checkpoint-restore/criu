@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "/protobindings";
+
 message fown_entry {
 	required uint32		uid		= 1;
 	required uint32		euid		= 2;

@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "/protobindings";
+
 message rlimit_entry {
 	required uint64		cur = 1;
 	required uint64		max = 2;

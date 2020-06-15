@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "ipc-desc.proto";
 
+option go_package = "/protobindings";
+
 message ipc_msg {
 	required uint64		mtype	= 1;
 	required uint32		msize	= 2;

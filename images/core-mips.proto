@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "opts.proto";
 
+option go_package = "/protobindings";
+
 message user_mips_regs_entry {
 	required uint64 r0      = 1;
 	required uint64 r1      = 2;

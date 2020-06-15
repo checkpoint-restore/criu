@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "/protobindings";
+
 message seccomp_filter {
 	required bytes		filter			= 1;
 	optional uint32		prev			= 2;

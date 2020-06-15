@@ -18,6 +18,8 @@ import "pipe.proto";
 import "tty.proto";
 import "memfd.proto";
 
+option go_package = "/protobindings";
+
 enum fd_types {
 	UND		= 0;
 	REG		= 1;

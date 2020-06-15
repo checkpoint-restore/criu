@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "opts.proto";
 
+option go_package = "/protobindings";
+
 enum fh_entry_sizes {
 	min_entries			= 16;
 }

@@ -3,6 +3,8 @@ syntax = "proto2";
 import "opts.proto";
 import "fown.proto";
 
+option go_package = "/protobindings";
+
 message reg_file_entry {
 	required uint32		id	= 1;
 	required uint32		flags	= 2 [(criu).flags = "rfile.flags"];

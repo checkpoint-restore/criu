@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "opts.proto";
 
+option go_package = "/protobindings";
+
 message sit_entry {
 	optional uint32 link		= 1;
 	repeated uint32 local		= 2 [(criu).ipadd = true];

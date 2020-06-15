@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "/protobindings";
+
 message pstree_entry {
 	required uint32			pid		= 1;
 	required uint32			ppid		= 2;

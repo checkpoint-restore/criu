@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "opts.proto";
 
+option go_package = "/protobindings";
+
 message tcp_stream_entry {
 	required uint32		inq_len		= 1;
 	required uint32		inq_seq		= 2;

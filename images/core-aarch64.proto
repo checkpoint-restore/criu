@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "opts.proto";
 
+option go_package = "/protobindings";
+
 message user_aarch64_regs_entry {
 	repeated uint64 regs	= 1;
 	required uint64 sp	= 2;

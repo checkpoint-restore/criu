@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "opts.proto";
 
+option go_package = "/protobindings";
+
 enum user_x86_regs_mode {
 	NATIVE = 1;
 	COMPAT = 2;

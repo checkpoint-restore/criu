@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "opts.proto";
 
+option go_package = "/protobindings";
+
 message tunfile_entry {
 	required uint32		id		= 1;
 	optional string		netdev		= 2;

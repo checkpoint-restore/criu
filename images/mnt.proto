@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "opts.proto";
 
+option go_package = "/protobindings";
+
 enum fstype {
 	UNSUPPORTED		= 0;
 	PROC			= 1;

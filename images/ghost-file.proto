@@ -3,6 +3,8 @@ syntax = "proto2";
 import "opts.proto";
 import "time.proto";
 
+option go_package = "/protobindings";
+
 message ghost_file_entry {
 	required uint32		uid		= 1;
 	required uint32		gid		= 2;
