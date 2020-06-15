@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "/protobindings";
+
 // This one contains statistics about dump/restore process
 message dump_stats_entry {
 	required uint32			freezing_time		= 1;

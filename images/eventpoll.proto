@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "fown.proto";
 
+option go_package = "/protobindings";
+
 message eventpoll_tfd_entry {
 	required uint32		id	= 1;
 	required uint32		tfd	= 2;

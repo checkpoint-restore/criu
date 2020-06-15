@@ -3,6 +3,8 @@ syntax = "proto2";
 import "opts.proto";
 import "vma.proto";
 
+option go_package = "/protobindings";
+
 message aio_ring_entry {
 	required uint64	id		= 1;
 	required uint32	nr_req		= 2;

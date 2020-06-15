@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "/protobindings";
+
 message itimer_entry {
 	required uint64		isec		= 1;
 	required uint64		iusec		= 2;

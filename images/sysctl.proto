@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "/protobindings";
+
 enum SysctlType {
 	CTL_STR	= 5;
 	CTL_32	= 6;

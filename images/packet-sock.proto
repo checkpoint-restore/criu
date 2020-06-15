@@ -4,6 +4,8 @@ import "opts.proto";
 import "fown.proto";
 import "sk-opts.proto";
 
+option go_package = "/protobindings";
+
 message packet_mclist {
 	required uint32	index	= 1;
 	required uint32	type	= 2;

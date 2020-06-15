@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "opts.proto";
 
+option go_package = "/protobindings";
+
 message user_s390_regs_entry {
 	required uint64			psw_mask	= 1;
 	required uint64			psw_addr	= 2;

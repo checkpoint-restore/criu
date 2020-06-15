@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "opts.proto";
 
+option go_package = "/protobindings";
+
 message user_ppc64_regs_entry {
 	/* Following is the list of regiters starting at r0. */
 	repeated uint64 gpr		= 1;
