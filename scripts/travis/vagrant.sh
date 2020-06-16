@@ -45,9 +45,8 @@ fedora-no-vdso() {
 	vagrant reload
 	ssh default cat /proc/cmdline
 	ssh default 'cd /vagrant; tar xf criu.tar; cd criu; make -j 4'
-	# Excluding the VDSO test as we are running without VDSO
 	# Excluding two cgroup tests which seem to fail because of cgroup2
-	ssh default 'cd /vagrant/criu/test; sudo ./zdtm.py run -a -x zdtm/static/cgroup04 -x zdtm/static/cgroup_ifpriomap -x zdtm/static/vdso01 --keep-going'
+	ssh default 'cd /vagrant/criu/test; sudo ./zdtm.py run -a -x zdtm/static/cgroup04 -x zdtm/static/cgroup_ifpriomap --keep-going'
 }
 
 $1
