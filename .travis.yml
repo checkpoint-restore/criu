@@ -1,7 +1,10 @@
 language: c
 os: linux
 dist: bionic
-cache: ccache
+cache:
+  ccache: true
+  directories:
+  - /home/travis/.vagrant.d/boxes
 services:
   - docker
 env:
