@@ -194,6 +194,11 @@ static bool cgroup_contains(char **controllers,
 {
 	unsigned int i;
 	bool all_match = true;
+
+	/* Check whether this cgroup2 or not.*/
+	if (n_controllers == 1 && controllers[0][0] == 0)
+		return name[0] == 0;
+
 	for (i = 0; i < n_controllers; i++) {
 		bool found = false;
 		const char *loc = name;
@@ -548,10 +553,11 @@ static int add_freezer_state(struct cg_controller *controller)
 static const char namestr[] = "name=";
 static int __new_open_cgroupfs(struct cg_ctl *cc)
 {
+	const char *fstype = cc->name[0] == 0 ? "cgroup2" : "cgroup";
 	int fsfd, fd;
 	char *name;
 
-	fsfd = sys_fsopen("cgroup", 0);
+	fsfd = sys_fsopen(fstype, 0);
 	if (fsfd < 0) {
 		pr_perror("Unable to open the cgroup file system");
 		return -1;
@@ -563,7 +569,7 @@ static int __new_open_cgroupfs(struct cg_ctl *cc)
 			pr_perror("Unable to configure the cgroup (%s) file system", cc->name);
 			goto err;
 		}
-	} else {
+	} else if (cc->name[0] != 0)  { /* cgroup v1 */
 		char *saveptr = NULL, *buf = strdupa(cc->name);
 		name = strtok_r(buf, ",", &saveptr);
 		while (name) {
@@ -593,6 +599,7 @@ err:
 
 static int open_cgroupfs(struct cg_ctl *cc)
 {
+	const char *fstype = cc->name[0] == 0 ? "cgroup2" : "cgroup";
 	char prefix[] = ".criu.cgmounts.XXXXXX";
 	char mopts[1024];
 	int fd;
@@ -610,7 +617,7 @@ static int open_cgroupfs(struct cg_ctl *cc)
 		return -1;
 	}
 
-	if (mount("none", prefix, "cgroup", 0, mopts) < 0) {
+	if (mount("none", prefix, fstype, 0, mopts) < 0) {
 		pr_perror("Unable to mount %s", mopts);
 		rmdir(prefix);
 		return -1;
@@ -673,6 +680,8 @@ static int collect_cgroups(struct list_head *ctls)
 			off = snprintf(dir_path, PATH_MAX, "%s/", opts.cgroup_yard);
 			if (strstartswith(cc->name, namestr))
 				snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name + strlen(namestr));
+			else if (cc->name[0] == 0)
+				snprintf(dir_path + off, PATH_MAX - off, "unified");
 			else
 				snprintf(dir_path + off, PATH_MAX - off, "%s", cc->name);
 
@@ -1027,7 +1036,10 @@ static int ctrl_dir_and_opt(CgControllerEntry *ctl, char *dir, int ds,
 			}
 		}
 
-		doff += snprintf(dir + doff, ds - doff, "%s,", n);
+		if (n[0] == 0)
+			doff += snprintf(dir + doff, ds - doff, "unified");
+		else
+			doff += snprintf(dir + doff, ds - doff, "%s,", n);
 		if (opt)
 			ooff += snprintf(opt + ooff, os - ooff, "%s,", ctl->cnames[i]);
 	}
@@ -1138,7 +1150,7 @@ static int prepare_cgns(CgSetEntry *se)
 			ce->path[ce->cgns_prefix] = '\0';
 
 			pr_info("setting cgns prefix to %s\n", ce->path);
-			snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/tasks", ce->path);
+			snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/cgroup.procs", ce->path);
 			ce->path[ce->cgns_prefix] = tmp;
 			if (userns_call(userns_move, 0, aux, strlen(aux) + 1, -1) < 0) {
 				pr_perror("couldn't set cgns prefix %s", aux);
@@ -1196,7 +1208,7 @@ static int move_in_cgroup(CgSetEntry *se, bool setup_cgns)
 		 * the root cgns, we still want to use the full path here when
 		 * we move into the cgroup.
 		 */
-		snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/tasks", ce->path);
+		snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/cgroup.procs", ce->path);
 		pr_debug("  `-> %s\n", aux);
 		err = userns_call(userns_move, 0, aux, strlen(aux) + 1, -1);
 		if (err < 0) {
@@ -1791,12 +1803,17 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 
 		/* Create controller if not yet present */
 		if (access(paux, F_OK)) {
+			char *fstype = "cgroup";
+
+			if (ctrl->cnames[0][0] == 0)
+				fstype = "cgroup2";
+
 			pr_debug("\tMaking controller dir %s (%s)\n", paux, opt);
 			if (mkdir(paux, 0700)) {
 				pr_perror("\tCan't make controller dir %s", paux);
 				goto err;
 			}
-			if (mount("none", paux, "cgroup", 0, opt) < 0) {
+			if (mount("none", paux, fstype, 0, opt) < 0) {
 				pr_perror("\tCan't mount controller dir %s", paux);
 				goto err;
 			}
