@@ -1667,6 +1667,37 @@ class noop_freezer:
         return []
 
 
+class cg_freezer2:
+    def __init__(self, path, state):
+        self.__path = '/sys/fs/cgroup/' + path
+        self.__state = state
+        self.kernel = True
+
+    def attach(self):
+        if not os.access(self.__path, os.F_OK):
+            os.makedirs(self.__path)
+        with open(self.__path + '/cgroup.procs', 'w') as f:
+            f.write('0')
+
+    def __set_state(self, state):
+        with open(self.__path + '/cgroup.freeze', 'w') as f:
+            f.write(state)
+
+    def freeze(self):
+        if self.__state.startswith('f'):
+            self.__set_state('1')
+
+    def thaw(self):
+        if self.__state.startswith('f'):
+            self.__set_state('0')
+
+    def getdopts(self):
+        return ['--freeze-cgroup', self.__path, '--manage-cgroups']
+
+    def getropts(self):
+        return ['--manage-cgroups']
+
+
 class cg_freezer:
     def __init__(self, path, state):
         self.__path = '/sys/fs/cgroup/freezer/' + path
@@ -1703,7 +1734,11 @@ def get_freezer(desc):
         return noop_freezer()
 
     fd = desc.split(':')
-    fr = cg_freezer(path=fd[0], state=fd[1])
+
+    if os.access("/sys/fs/cgroup/user.slice/cgroup.procs", os .F_OK):
+        fr = cg_freezer2(path=fd[0], state=fd[1])
+    else:
+        fr = cg_freezer(path=fd[0], state=fd[1])
     return fr
 
 
