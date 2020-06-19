@@ -1,0 +1,3 @@
+#!/bin/bash
+
+! test -f /sys/fs/cgroup/cgroup.controllers
