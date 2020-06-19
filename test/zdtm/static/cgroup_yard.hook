@@ -18,7 +18,7 @@ if sys.argv[1] == "--post-start":
 			cgr = line.split(":")[1]
 
 			if cgr == "":
-				continue
+				cgr = "unified"
 
 			if cgr.startswith("name="):
 				ctrl = cgr[len("name="):]
@@ -28,7 +28,10 @@ if sys.argv[1] == "--post-start":
 				opts = cgr
 
 			os.mkdir(yard + "/" + ctrl)
-			subprocess.check_call(["mount", "-t", "cgroup", "none", yard + "/" + ctrl, "-o", opts])
+			if cgr == "unified":
+				subprocess.check_call(["mount", "-t", "cgroup2", "none", yard + "/" + ctrl])
+			else:
+				subprocess.check_call(["mount", "-t", "cgroup", "none", yard + "/" + ctrl, "-o", opts])
 
 if sys.argv[1] in ["--pre-restore", "--clean"]:
 	'''
