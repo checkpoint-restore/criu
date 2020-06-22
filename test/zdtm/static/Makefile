@@ -229,6 +229,7 @@ TST_NOFILE	:=				\
 		time				\
 		timens_nested			\
 		timens_for_kids			\
+		zombie_leader			\
 #		jobctl00			\
 
 ifneq ($(ARCH),arm)
