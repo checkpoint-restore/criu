@@ -1210,14 +1210,19 @@ static int move_in_cgroup(CgSetEntry *se, bool setup_cgns)
 
 int prepare_task_cgroup(struct pstree_item *me)
 {
+	struct pstree_item *parent = me->parent;
 	CgSetEntry *se;
 	u32 current_cgset;
 
 	if (!rsti(me)->cg_set)
 		return 0;
 
-	if (me->parent)
-		current_cgset = rsti(me->parent)->cg_set;
+	/* Zombies and helpers can have cg_set == 0 so we skip them */
+	while (parent && !rsti(parent)->cg_set)
+		parent = parent->parent;
+
+	if (parent)
+		current_cgset = rsti(parent)->cg_set;
 	else
 		current_cgset = root_cg_set;
 
