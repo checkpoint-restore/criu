@@ -26,6 +26,8 @@
 #include "../soccr/soccr.h"
 #include "compel/log.h"
 
+#include "flog/include/flog.h"
+
 
 #define DEFAULT_LOGFD		STDERR_FILENO
 /* Enable timestamps if verbosity is increased from default */
@@ -395,9 +397,20 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 {
 	va_list params;
 
-	va_start(params, format);
-	vprint_on_level(loglevel, format, params);
-	va_end(params);
+	if(!opts.log_in_binary){
+		va_start(params, format);
+		vprint_on_level(loglevel, format, params);
+		va_end(params);
+	}else{
+		int fd;
+		if(loglevel>current_loglevel){
+			return;
+		}
+		fd = log_get_fd();
+		va_start(params, format);
+		flog_encode(fd, format, params);
+		va_end(params);
+	}
 }
 
 int write_pidfile(int pid)

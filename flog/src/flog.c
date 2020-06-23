@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <string.h>
 #include <stdint.h>
 #include <sys/param.h>
 #include <sys/mman.h>
@@ -19,6 +20,7 @@ static char *mbuf = _mbuf;
 static char *fbuf;
 static uint64_t fsize;
 static uint64_t mbuf_size = sizeof(_mbuf);
+static int flog_enqueue(int fdout, flog_msg_t *m, const char *format);
 
 /*int flog_decode_all(int fdin, int fdout)
 {
@@ -75,9 +77,9 @@ static uint64_t mbuf_size = sizeof(_mbuf);
 	return 0;
 }*/
 
-static int flog_enqueue(flog_msg_t *m)
+static int flog_enqueue(int fdout, flog_msg_t *m, const char *format)
 {
-	if (write(1, m, m->size) != m->size) {
+	if (write(fdout, m, m->size) != m->size) {
 		fprintf(stderr, "Unable to write a message\n");
 		return -1;
 	}
@@ -87,6 +89,7 @@ static int flog_enqueue(flog_msg_t *m)
 /*extern char *rodata_start;
 extern char *rodata_end;
 */
+
 /* Pre-allocate a buffer in a file and map it into memory. */
 int flog_map_buf(int fdout)
 {
@@ -205,7 +208,7 @@ int flog_encode_msg(int fdout, unsigned int nargs, unsigned int mask, const char
 
 	m->size = roundup(m->size, 8);
 	if (mbuf == _mbuf) {
-		if (flog_enqueue(m))
+		if (flog_enqueue(fdout, m, format))
 			return -1;
 	} else {
 		mbuf += m->size;

@@ -455,6 +455,7 @@ usage:
 "                          -v2 - also warnings (default level)\n"
 "                          -v3 - also information messages and timestamps\n"
 "                          -v4 - lots of debug\n"
+"  -b|--binary-file      convert logs to binary, increasing the speed\n"
 "  --display-stats       print out dump/restore stats\n"
 "\n"
 "* Memory dumping options:\n"
