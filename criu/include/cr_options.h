@@ -63,6 +63,14 @@ struct cg_root_opt {
 
 #define DEFAULT_TIMEOUT		10
 
+/*
+ * File validation options
+ */
+#define FILE_VALIDATION_FILE_SIZE		1
+#define FILE_VALIDATION_BUILD_ID		2
+
+#define FILE_VALIDATION_DEFAULT			FILE_VALIDATION_BUILD_ID
+
 struct irmap;
 
 struct irmap_path_opt {
@@ -153,6 +161,9 @@ struct cr_options {
 	char			*tls_key;
 	int			tls;
 	int			tls_no_cn_verify;
+
+	/* Options for file validation */
+	int 			file_validation_method;
 };
 
 extern struct cr_options opts;
