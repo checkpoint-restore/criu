@@ -12,6 +12,7 @@
 #include <sched.h>
 #include <sys/capability.h>
 #include <sys/mount.h>
+#include <elf.h>
 
 #ifndef SEEK_DATA
 #define SEEK_DATA	3
@@ -21,6 +22,13 @@
 /* Stolen from kernel/fs/nfs/unlink.c */
 #define SILLYNAME_PREF ".nfs"
 #define SILLYNAME_SUFF_LEN (((unsigned)sizeof(u64) << 1) + ((unsigned)sizeof(unsigned int) << 1))
+
+/*
+ * If the build-id exists, then it will most likely be present in the
+ * beginning of the file. Therefore only the first 1MB will be mapped
+ * and checked.
+ */
+#define BUILD_ID_MAP_SIZE 1048576
 
 #include "cr_options.h"
 #include "imgset.h"
@@ -1339,12 +1347,309 @@ static bool should_check_size(int flags)
 	return true;
 }
 
+/*
+ * Gets the build-id (If it exists) from 32-bit ELF files.
+ * Returns the number of bytes of the build-id if it could
+ * be obtained, else -1.
+ */
+static int get_build_id_32(Elf32_Ehdr *file_header, unsigned char **build_id,
+				const int fd, size_t mapped_size)
+{
+	int size, num_iterations;
+	size_t file_header_end;
+	Elf32_Phdr *program_header, *program_header_end;
+	Elf32_Nhdr *note_header, *note_header_end;
+
+	file_header_end = (size_t) file_header + mapped_size;
+	if (sizeof(Elf32_Ehdr) > mapped_size)
+		return -1;
+
+	/*
+	 * If the file doesn't have atleast 1 program header entry, it definitely can't
+	 * have a build-id.
+	 */
+	if (!file_header->e_phnum) {
+		pr_warn("Couldn't find any program headers for file with fd %d\n", fd);
+		return -1;
+	}
+
+	program_header = (Elf32_Phdr *) (file_header->e_phoff + (char *) file_header);
+	if (program_header <= (Elf32_Phdr *) file_header)
+		return -1;
+
+	program_header_end = (Elf32_Phdr *) (file_header_end - sizeof(Elf32_Phdr));
+	num_iterations = file_header->e_phnum + 1;
+
+	/*
+	 * If the file has a build-id, it will be in the PT_NOTE program header
+	 * entry AKA the note sections.
+	 */
+	while (num_iterations-- && program_header <= program_header_end &&
+			program_header->p_type != PT_NOTE)
+		program_header++;
+
+	if (!num_iterations || program_header >= program_header_end) {
+		pr_warn("Couldn't find the note program header for file with fd %d\n", fd);
+		return -1;
+	}
+
+	note_header = (Elf32_Nhdr *) (program_header->p_offset + (char *) file_header);
+	if (note_header <= (Elf32_Nhdr *) file_header)
+		return -1;
+
+	note_header_end = (Elf32_Nhdr *) min_t(char*,
+						(char *) note_header + program_header->p_filesz,
+						(char *) (file_header_end - sizeof(Elf32_Nhdr)));
+
+	/* The note type for the build-id is NT_GNU_BUILD_ID. */
+	while (note_header <= note_header_end && note_header->n_type != NT_GNU_BUILD_ID)
+		note_header = (Elf32_Nhdr *) ((char *) note_header + sizeof(Elf32_Nhdr) +
+						ALIGN(note_header->n_namesz, 4) +
+						ALIGN(note_header->n_descsz, 4));
+
+	if (note_header >= note_header_end) {
+		pr_warn("Couldn't find the build-id note for file with fd %d\n", fd);
+		return -1;
+	}
+
+	/*
+	 * If the size of the notes description is too large or is invalid
+	 * then the build-id could not be obtained.
+	 */
+	if (note_header->n_descsz <= 0 || note_header->n_descsz > 512) {
+		pr_warn("Invalid description size for build-id note for file with fd %d\n", fd);
+		return -1;
+	}
+
+	size = note_header->n_descsz;
+	note_header = (Elf32_Nhdr *) ((char *) note_header + sizeof(Elf32_Nhdr) +
+					ALIGN(note_header->n_namesz, 4));
+	note_header_end = (Elf32_Nhdr *) (file_header_end - size);
+	if (note_header <= (Elf32_Nhdr *) file_header || note_header > note_header_end)
+		return -1;
+
+	*build_id = (unsigned char *) xmalloc(size);
+	if (!*build_id)
+		return -1;
+
+	memcpy(*build_id, (void *) note_header, size);
+	return size;
+}
+
+/*
+ * Gets the build-id (If it exists) from 64-bit ELF files.
+ * Returns the number of bytes of the build-id if it could
+ * be obtained, else -1.
+ */
+static int get_build_id_64(Elf64_Ehdr *file_header, unsigned char **build_id,
+				const int fd, size_t mapped_size)
+{
+	int size, num_iterations;
+	size_t file_header_end;
+	Elf64_Phdr *program_header, *program_header_end;
+	Elf64_Nhdr *note_header, *note_header_end;
+
+	file_header_end = (size_t) file_header + mapped_size;
+	if (sizeof(Elf64_Ehdr) > mapped_size)
+		return -1;
+
+	/*
+	 * If the file doesn't have atleast 1 program header entry, it definitely can't
+	 * have a build-id.
+	 */
+	if (!file_header->e_phnum) {
+		pr_warn("Couldn't find any program headers for file with fd %d\n", fd);
+		return -1;
+	}
+
+	program_header = (Elf64_Phdr *) (file_header->e_phoff + (char *) file_header);
+	if (program_header <= (Elf64_Phdr *) file_header)
+		return -1;
+
+	program_header_end = (Elf64_Phdr *) (file_header_end - sizeof(Elf64_Phdr));
+	num_iterations = file_header->e_phnum + 1;
+
+	/*
+	 * If the file has a build-id, it will be in the PT_NOTE program header
+	 * entry AKA the note sections.
+	 */
+	while (num_iterations-- && program_header <= program_header_end &&
+			program_header->p_type != PT_NOTE)
+		program_header++;
+
+	if (!num_iterations || program_header >= program_header_end) {
+		pr_warn("Couldn't find the note program header for file with fd %d\n", fd);
+		return -1;
+	}
+
+	note_header = (Elf64_Nhdr *) (program_header->p_offset + (char *) file_header);
+	if (note_header <= (Elf64_Nhdr *) file_header)
+		return -1;
+
+	note_header_end = (Elf64_Nhdr *) min_t(char*,
+						(char *) note_header + program_header->p_filesz,
+						(char *) (file_header_end - sizeof(Elf64_Nhdr)));
+
+	/* The note type for the build-id is NT_GNU_BUILD_ID. */
+	while (note_header <= note_header_end && note_header->n_type != NT_GNU_BUILD_ID)
+		note_header = (Elf64_Nhdr *) ((char *) note_header + sizeof(Elf64_Nhdr) +
+						ALIGN(note_header->n_namesz, 4) +
+						ALIGN(note_header->n_descsz, 4));
+
+	if (note_header >= note_header_end) {
+		pr_warn("Couldn't find the build-id note for file with fd %d\n", fd);
+		return -1;
+	}
+
+	/*
+	 * If the size of the notes description is too large or is invalid
+	 * then the build-id could not be obtained.
+	 */
+	if (note_header->n_descsz <= 0 || note_header->n_descsz > 512) {
+		pr_warn("Invalid description size for build-id note for file with fd %d\n", fd);
+		return -1;
+	}
+
+	size = note_header->n_descsz;
+	note_header = (Elf64_Nhdr *) ((char *) note_header + sizeof(Elf64_Nhdr) +
+					ALIGN(note_header->n_namesz, 4));
+	note_header_end = (Elf64_Nhdr *) (file_header_end - size);
+	if (note_header <= (Elf64_Nhdr *) file_header || note_header > note_header_end)
+		return -1;
+
+	*build_id = (unsigned char *) xmalloc(size);
+	if (!*build_id)
+		return -1;
+
+	memcpy(*build_id, (void *) note_header, size);
+	return size;
+}
+
+/*
+ * Finds the build-id of the file by checking if the file is an ELF file
+ * and then calling either the 32-bit or the 64-bit function as necessary.
+ * Returns the number of bytes of the build-id if it could be
+ * obtained, else -1.
+ */
+static int get_build_id(const int fd, const struct stat *fd_status,
+				unsigned char **build_id)
+{
+	char buf[SELFMAG+1];
+	void *start_addr;
+	size_t mapped_size;
+	int ret = -1;
+
+	if (read(fd, buf, SELFMAG+1) != SELFMAG+1)
+		return -1;
+
+	/*
+	 * The first 4 bytes contain a magic number identifying the file as an
+	 * ELF file. They should contain the characters ‘\x7f’, ‘E’, ‘L’, and
+	 * ‘F’, respectively. These characters are together defined as ELFMAG.
+	 */
+	if (strncmp(buf, ELFMAG, SELFMAG))
+		return -1;
+
+	/*
+	 * If the build-id exists, then it will most likely be present in the
+	 * beginning of the file. Therefore at most only the first 1 MB of the
+	 * file is mapped.
+	 */
+	mapped_size = min_t(size_t, fd_status->st_size, BUILD_ID_MAP_SIZE);
+	start_addr = mmap(0, mapped_size, PROT_READ, MAP_PRIVATE | MAP_FILE, fd, 0);
+	if (start_addr == MAP_FAILED) {
+		pr_warn("Couldn't mmap file with fd %d", fd);
+		return -1;
+	}
+
+	if (buf[EI_CLASS] == ELFCLASS32)
+		ret = get_build_id_32(start_addr, build_id, fd, mapped_size);
+	if (buf[EI_CLASS] == ELFCLASS64)
+		ret = get_build_id_64(start_addr, build_id, fd, mapped_size);
+	
+	munmap(start_addr, mapped_size);
+	return ret;
+}
+
+/*
+ * Finds and stores the build-id of a file, if it exists, so that it can be validated
+ * while restoring.
+ * Returns 1 if the build-id of the file could be stored, -1 if there was an error
+ * or 0 if the build-id could not be obtained.
+ */
+static int store_validation_data_build_id(RegFileEntry *rfe, int lfd,
+						const struct fd_parms *p)
+{
+	unsigned char *build_id = NULL;
+	int build_id_size;
+	int fd;
+
+	/*
+	 * Checks whether the file is atleast big enough to try and read the first
+	 * four (SELFMAG) bytes which should correspond to the ELF magic number
+	 * and the next byte which indicates whether the file is 32-bit or 64-bit.
+	 */
+	if (p->stat.st_size < SELFMAG+1)
+		return 0;
+
+	fd = open_proc(PROC_SELF, "fd/%d", lfd);
+	if (fd < 0) {
+		pr_err("Build-ID (For validation) could not be obtained for file %s because can't open the file\n",
+				rfe->name);
+		return -1;
+	}
+
+	build_id_size = get_build_id(fd, &(p->stat), &build_id);
+	close(fd);
+	if (!build_id || build_id_size == -1)
+		return 0;
+
+	rfe->build_id = xmalloc(round_up(build_id_size, sizeof(uint32_t)));
+	if (!rfe->build_id) {
+		pr_warn("Build-ID (For validation) could not be set for file %s\n",
+				rfe->name);
+		return -1;
+	}
+
+	rfe->n_build_id = build_id_size;
+	memcpy(rfe->build_id, (void *) build_id, rfe->n_build_id);
+
+	xfree(build_id);
+	return 1;
+}
+
+/*
+ * This routine stores metadata about the open file (File size, build-id, CRC32C checksum)
+ * so that validation can be done while restoring to make sure that the right file is
+ * being restored.
+ * Returns true if atleast some metadata was stored, if there was an error it returns false.
+ */
+static bool store_validation_data(RegFileEntry *rfe,
+					const struct fd_parms *p, int lfd)
+{
+	int result = 1;
+
+	rfe->has_size = true;
+	rfe->size = p->stat.st_size;
+
+	result = store_validation_data_build_id(rfe, lfd, p);
+
+	if (result == -1)
+		return false;
+
+	if (!result)
+		pr_info("Only file size could be stored for validation for file %s\n",
+				rfe->name);
+	return true;
+}
+
 int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 {
 	struct fd_link _link, *link;
 	struct mount_info *mi;
 	struct cr_img *rimg;
 	char ext_id[64];
+	int ret;
 	FileEntry fe = FILE_ENTRY__INIT;
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 
@@ -1405,17 +1710,21 @@ ext:
 	rfe.has_mode	= true;
 	rfe.mode	= p->stat.st_mode;
 
-	if (S_ISREG(p->stat.st_mode) && should_check_size(rfe.flags)) {
-		rfe.has_size = true;
-		rfe.size = p->stat.st_size;
-	}
+	if (S_ISREG(p->stat.st_mode) && should_check_size(rfe.flags) &&
+		!store_validation_data(&rfe, p, lfd))
+		return -1;
 
 	fe.type = FD_TYPES__REG;
 	fe.id = rfe.id;
 	fe.reg = &rfe;
 
 	rimg = img_from_set(glob_imgset, CR_FD_FILES);
-	return pb_write_one(rimg, &fe, PB_FILE);
+	ret = pb_write_one(rimg, &fe, PB_FILE);
+
+	if (rfe.build_id)
+		xfree(rfe.build_id);
+
+	return ret;
 }
 
 const struct fdtype_ops regfile_dump_ops = {
@@ -1685,6 +1994,76 @@ out_root:
 	return 0;
 }
 
+/*
+ * Compares the file's build-id with the stored value.
+ * Returns 1 if the build-id of the file matches the build-id that was stored
+ * while dumping, -1 if there is a mismatch or 0 if the build-id has not been
+ * stored or could not be obtained.
+ */
+static int validate_with_build_id(const int fd, const struct stat *fd_status,
+					const struct reg_file_info *rfi)
+{
+	unsigned char *build_id;
+	int build_id_size;
+
+	if (!rfi->rfe->has_size)
+		return 1;
+
+	if (!rfi->rfe->n_build_id)
+		return 0;
+
+	build_id = NULL;
+	build_id_size = get_build_id(fd, fd_status, &build_id);
+	if (!build_id || build_id_size == -1)
+		return 0;
+
+	if (build_id_size != rfi->rfe->n_build_id) {
+		pr_err("File %s has bad build-ID length %d (expect %d)\n", rfi->path,
+				build_id_size, (int) rfi->rfe->n_build_id);
+		xfree(build_id);
+		return -1;
+	}
+
+	if (memcmp(build_id, rfi->rfe->build_id, build_id_size)) {
+		pr_err("File %s has bad build-ID\n", rfi->path);
+		xfree(build_id);
+		return -1;
+	}
+
+	xfree(build_id);
+	return 1;
+}
+
+/*
+ * This function determines whether it was the same file that was open during dump
+ * by checking the file's size, build-id and/or checksum with the same metadata
+ * that was stored before dumping.
+ * Checksum is calculated with CRC32C.
+ * Returns true if the metadata of the file matches the metadata stored while
+ * dumping else returns false.
+ */
+static bool validate_file(const int fd, const struct stat *fd_status,
+					const struct reg_file_info *rfi)
+{
+	int result = 1;
+
+	if (rfi->rfe->has_size && (fd_status->st_size != rfi->rfe->size)) {
+		pr_err("File %s has bad size %"PRIu64" (expect %"PRIu64")\n",
+				rfi->path, fd_status->st_size, rfi->rfe->size);
+		return false;
+	}
+
+	result = validate_with_build_id(fd, fd_status, rfi);
+
+	if (result == -1)
+		return false;
+
+	if (!result)
+		pr_info("File %s could only be validated with file size\n",
+				rfi->path);
+	return true;
+}
+
 int open_path(struct file_desc *d,
 		int(*open_cb)(int mntns_root, struct reg_file_info *, void *), void *arg)
 {
@@ -1779,12 +2158,8 @@ ext:
 			return -1;
 		}
 
-		if (rfi->rfe->has_size && (st.st_size != rfi->rfe->size)) {
-			pr_err("File %s has bad size %"PRIu64" (expect %"PRIu64")\n",
-					rfi->path, st.st_size,
-					rfi->rfe->size);
+		if (!validate_file(tmp, &st, rfi))
 			return -1;
-		}
 
 		if (rfi->rfe->has_mode && (st.st_mode != rfi->rfe->mode)) {
 			pr_err("File %s has bad mode 0%o (expect 0%o)\n",
