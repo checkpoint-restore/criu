@@ -280,6 +280,7 @@ void init_opts(void)
 	opts.status_fd = -1;
 	opts.log_level = DEFAULT_LOGLEVEL;
 	opts.pre_dump_mode = PRE_DUMP_SPLICE;
+	opts.file_validation_method = FILE_VALIDATION_DEFAULT;
 }
 
 bool deprecated_ok(char *what)
@@ -420,6 +421,22 @@ static int parse_join_ns(const char *ptr)
 	return 0;
 }
 
+static int parse_file_validation_method(struct cr_options *opts, const char *optarg)
+{
+	if (!strcmp(optarg, "filesize"))
+		opts->file_validation_method = FILE_VALIDATION_FILE_SIZE;
+	else if (!strcmp(optarg, "buildid"))
+		opts->file_validation_method = FILE_VALIDATION_BUILD_ID;
+	else
+		goto Esyntax;
+
+	return 0;
+
+Esyntax:
+	pr_err("Unknown file validation method `%s' selected\n", optarg);
+	return -1;
+}
+
 /*
  * parse_options() is the point where the getopt parsing happens. The CLI
  * parsing as well as the configuration file parsing happens here.
@@ -523,6 +540,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		{"tls-no-cn-verify",		no_argument,		&opts.tls_no_cn_verify, true},
 		{ "cgroup-yard",		required_argument,	0, 1096 },
 		{ "pre-dump-mode",		required_argument,	0, 1097},
+		{ "file-validation",		required_argument,	0, 1098	},
 		{ },
 	};
 
@@ -847,6 +865,10 @@ int parse_options(int argc, char **argv, bool *usage_error,
 				pr_err("Unable to parse value of --pre-dump-mode\n");
 				return 1;
 			}
+			break;
+		case 1098:
+			if (parse_file_validation_method(&opts, optarg))
+				return 2;
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
