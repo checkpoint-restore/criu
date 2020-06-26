@@ -63,6 +63,24 @@ struct cg_root_opt {
 
 #define DEFAULT_TIMEOUT		10
 
+enum FILE_VALIDATION_OPTIONS
+{
+	/*
+	 * This constant indicates that the file validation should be tried with the
+	 * file size method by default.
+	 */
+	FILE_VALIDATION_FILE_SIZE,
+
+	/*
+	 * This constant indicates that the file validation should be tried with the
+	 * build-ID method by default.
+	 */
+	FILE_VALIDATION_BUILD_ID
+};
+
+/* This constant dictates which file validation method should be tried by default. */
+#define FILE_VALIDATION_DEFAULT			FILE_VALIDATION_BUILD_ID
+
 struct irmap;
 
 struct irmap_path_opt {
@@ -153,6 +171,9 @@ struct cr_options {
 	char			*tls_key;
 	int			tls;
 	int			tls_no_cn_verify;
+
+	/* This stores which method to use for file validation. */
+	int 			file_validation_method;
 };
 
 extern struct cr_options opts;

@@ -1632,7 +1632,8 @@ static bool store_validation_data(RegFileEntry *rfe,
 	rfe->has_size = true;
 	rfe->size = p->stat.st_size;
 
-	result = store_validation_data_build_id(rfe, lfd, p);
+	if (opts.file_validation_method == FILE_VALIDATION_BUILD_ID)
+		result = store_validation_data_build_id(rfe, lfd, p);
 
 	if (result == -1)
 		return false;
@@ -2053,7 +2054,8 @@ static bool validate_file(const int fd, const struct stat *fd_status,
 		return false;
 	}
 
-	result = validate_with_build_id(fd, fd_status, rfi);
+	if (opts.file_validation_method == FILE_VALIDATION_BUILD_ID)
+		result = validate_with_build_id(fd, fd_status, rfi);
 
 	if (result == -1)
 		return false;

@@ -400,6 +400,22 @@ By default the option is set to *fpu* and *ins*.
     option is intended for post-copy (lazy) migration and should be
     used in conjunction with *restore* with appropriate options.
 
+*--file-validation* ['mode']::
+    Set the method to be used to validate open files. Validation is done
+    to ensure that the version of the file being restored is the same
+    version when it was dumped.
+
+The 'mode' may be one of the following:
+
+    *filesize*:::
+                To explicitly use only the file size check all the time.
+                This is the fastest and least intensive check.
+
+    *buildid*:::
+                To validate ELF files with their build-ID. If the
+                build-ID cannot be obtained, 'chksm-first' method will be
+                used. This is the default if mode is unspecified.
+
 *restore*
 ~~~~~~~~~
 Restores previously checkpointed processes.
@@ -575,6 +591,22 @@ are not adequate, but this can be suppressed by using *--cpu-cap=none*.
    the process accesses them or in the background without stopping the
    restored process.
    This option requires running *lazy-pages* daemon.
+
+*--file-validation* ['mode']::
+    Set the method to be used to validate open files. Validation is done
+    to ensure that the version of the file being restored is the same
+    version when it was dumped.
+
+The 'mode' may be one of the following:
+
+    *filesize*:::
+                To explicitly use only the file size check all the time.
+                This is the fastest and least intensive check.
+
+    *buildid*:::
+                To validate ELF files with their build-ID. If the
+                build-ID cannot be obtained, 'chksm-first' method will be
+                used. This is the default if mode is unspecified.
 
 *check*
 ~~~~~~~
