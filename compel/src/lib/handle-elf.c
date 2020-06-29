@@ -646,7 +646,7 @@ int __handle_elf(void *mem, size_t size)
 	for (i = 0, k = 0; i < hdr->e_shnum; i++) {
 		Elf_Shdr *sh = sec_hdrs[i];
 		unsigned char *shdata;
-		size_t j;
+		size_t j, addr;
 
 		if (!(sh->sh_flags & SHF_ALLOC) || !sh->sh_size)
 			continue;
@@ -658,7 +658,8 @@ int __handle_elf(void *mem, size_t size)
 			 (unsigned long)(sh->sh_addr - k), (unsigned long) sh->sh_size);
 
 		/* write 0 in the gap between the 2 sections */
-		for (; k < sh->sh_addr; k++) {
+		addr = i == 1 ? 0 : sh->sh_offset;
+		for (; k < addr; k++) {
 			if (k && (k % 8) == 0)
 				pr_out("\n\t");
 			pr_out("0x00,");
