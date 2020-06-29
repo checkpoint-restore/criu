@@ -3271,6 +3271,37 @@ err:
 	return -1;
 }
 
+static int merge_mount_trees(void)
+{
+	struct ns_id *nsid;
+
+	root_yard_mp = mnt_entry_alloc(true);
+	if (!root_yard_mp)
+		return -1;
+
+	root_yard_mp->mountpoint = mnt_roots;
+	root_yard_mp->mounted = true;
+	root_yard_mp->mnt_bind_is_populated = true;
+	root_yard_mp->is_overmounted = false;
+	root_yard_mp->mnt_id = HELPER_MNT_ID;
+
+	/* Merge mount trees together under root_yard_mp */
+	for (nsid = ns_ids; nsid; nsid = nsid->next) {
+		struct mount_info *root;
+
+		if (nsid->nd != &mnt_ns_desc)
+			continue;
+
+		root = nsid->mnt.mntinfo_tree;
+
+		pr_debug("Mountpoint %d (@%s) moved to the root yard\n", root->mnt_id, root->mountpoint);
+		root->parent = root_yard_mp;
+		list_add(&root->siblings, &root_yard_mp->children);
+	}
+
+	return 0;
+}
+
 int read_mnt_ns_img(void)
 {
 	struct mount_info *pms = NULL;
@@ -3302,6 +3333,9 @@ int read_mnt_ns_img(void)
 
 	search_bindmounts();
 	prepare_is_overmounted();
+
+	if (merge_mount_trees())
+		return -1;
 
 	return 0;
 }
@@ -3401,27 +3435,6 @@ void fini_restore_mntns(void)
 	}
 }
 
-static int merge_mount_trees(struct mount_info *root_yard)
-{
-	struct ns_id *nsid;
-
-	/* Merge mount trees together under root_yard */
-	for (nsid = ns_ids; nsid; nsid = nsid->next) {
-		struct mount_info *root;
-
-		if (nsid->nd != &mnt_ns_desc)
-			continue;
-
-		root = nsid->mnt.mntinfo_tree;
-
-		pr_debug("Mountpoint %d (@%s) moved to the root yard\n", root->mnt_id, root->mountpoint);
-		root->parent = root_yard;
-		list_add(&root->siblings, &root_yard->children);
-	}
-
-	return 0;
-}
-
 /*
  * All nested mount namespaces are restore as sub-trees of the root namespace.
  */
@@ -3468,19 +3481,6 @@ static int populate_mnt_ns(void)
 {
 	struct mount_info *cr_time = NULL;
 	int ret;
-
-	root_yard_mp = mnt_entry_alloc(true);
-	if (!root_yard_mp)
-		return -1;
-
-	root_yard_mp->mountpoint = mnt_roots;
-	root_yard_mp->mounted = true;
-	root_yard_mp->mnt_bind_is_populated = true;
-	root_yard_mp->is_overmounted = false;
-	root_yard_mp->mnt_id = HELPER_MNT_ID;
-
-	if (merge_mount_trees(root_yard_mp))
-		return -1;
 
 #ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
 	if (!opts.has_binfmt_misc && !list_empty(&binfmt_misc_list)) {
