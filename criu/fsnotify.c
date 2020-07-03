@@ -209,7 +209,7 @@ static int open_handle(unsigned int s_dev, unsigned long i_ino,
 
 		mntfd = __open_mountpoint(m, -1);
 		if (mntfd < 0) {
-			pr_err("Can't open mount for s_dev %x, continue\n", s_dev);
+			pr_warn("Can't open mount for s_dev %x, continue\n", s_dev);
 			continue;
 		}
 
