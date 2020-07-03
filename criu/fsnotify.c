@@ -104,12 +104,19 @@ static int open_by_handle(void *arg, int fd, int pid)
 	return syscall(__NR_open_by_handle_at, fd, arg, O_PATH);
 }
 
+enum {
+	ERR_NO_MOUNT = -1,
+	ERR_NO_PATH_IN_MOUNT = -2,
+	ERR_GENERIC = -3
+};
+
 static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_handle)
 {
 	struct mount_info *m;
 	fh_t handle;
 	int fd = -1;
 	char *path;
+	char suitable_mount_found = 0;
 
 	decode_handle(&handle, f_handle);
 
@@ -142,6 +149,7 @@ static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_
 		close(mntfd);
 		if (fd < 0)
 			continue;
+		suitable_mount_found = 1;
 
 		if (read_fd_link(fd, buf, sizeof(buf)) < 0) {
 			close(fd);
@@ -164,7 +172,7 @@ static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_
 			if (fstat(openable_fd, &st)) {
 				pr_perror("Can't stat on %s", __path);
 				close(openable_fd);
-				return ERR_PTR(-errno);
+				goto err;
 			}
 			close(openable_fd);
 
@@ -175,7 +183,7 @@ static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_
 			if (st.st_ino == i_ino) {
 				path = xstrdup(buf);
 				if (path == NULL)
-					return ERR_PTR(-ENOMEM);
+					return ERR_PTR(ERR_GENERIC);
 				if (root_ns_mask & CLONE_NEWNS) {
 					f_handle->has_mnt_id = true;
 					f_handle->mnt_id = m->mnt_id;
@@ -186,9 +194,10 @@ static char *alloc_openable(unsigned int s_dev, unsigned long i_ino, FhEntry *f_
 			pr_debug("\t\t\tnot openable as %s (%m)\n", __path);
 	}
 
-	return ERR_PTR(-ENOENT);
 err:
-	return ERR_PTR(-1);
+	if (suitable_mount_found)
+		return ERR_PTR(ERR_NO_PATH_IN_MOUNT);
+	return ERR_PTR(ERR_NO_MOUNT);
 }
 
 static int open_handle(unsigned int s_dev, unsigned long i_ino,
@@ -228,63 +237,59 @@ int check_open_handle(unsigned int s_dev, unsigned long i_ino,
 		FhEntry *f_handle)
 {
 	char *path, *irmap_path;
-	int fd = -1;
+	struct mount_info *mi;
 
-	if (fault_injected(FI_CHECK_OPEN_HANDLE)) {
-		fd = -1;
+	if (fault_injected(FI_CHECK_OPEN_HANDLE))
 		goto fault;
-	}
 
-	fd = open_handle(s_dev, i_ino, f_handle);
-fault:
-	if (fd >= 0) {
-		struct mount_info *mi;
+	/*
+	 * Always try to fetch watchee path first. There are several reasons:
+	 *
+	 *  - tmpfs/devtmps do not save inode numbers between mounts,
+	 *    so it is critical to have the complete path under our
+	 *    hands for restore purpose;
+	 *
+	 *  - in case of migration the inodes might be changed as well
+	 *    so the only portable solution is to carry the whole path
+	 *    to the watchee inside image.
+	 */
+	path = alloc_openable(s_dev, i_ino, f_handle);
 
+	if (!IS_ERR_OR_NULL(path)) {
 		pr_debug("\tHandle 0x%x:0x%lx is openable\n", s_dev, i_ino);
-
-		mi = lookup_mnt_sdev(s_dev);
-		if (mi == NULL) {
-			pr_err("Unable to lookup a mount by dev 0x%x\n", s_dev);
-			goto err;
-		}
-
-		/*
-		 * Always try to fetch watchee path first. There are several reasons:
-		 *
-		 *  - tmpfs/devtmps do not save inode numbers between mounts,
-		 *    so it is critical to have the complete path under our
-		 *    hands for restore purpose;
-		 *
-		 *  - in case of migration the inodes might be changed as well
-		 *    so the only portable solution is to carry the whole path
-		 *    to the watchee inside image.
-		 */
-		path = alloc_openable(s_dev, i_ino, f_handle);
-		if (!IS_ERR_OR_NULL(path))
-			goto out;
-		else if (IS_ERR(path) && PTR_ERR(path) == -ENOMEM)
-			goto err;
-
-		if ((mi->fstype->code == FSTYPE__TMPFS) ||
-		    (mi->fstype->code == FSTYPE__DEVTMPFS)) {
-			pr_err("Can't find suitable path for handle (dev %#x ino %#lx): %d\n",
-			       s_dev, i_ino, (int)PTR_ERR(path));
-			goto err;
-		}
-
-		if (!opts.force_irmap)
-			/*
-			 * If we're not forced to do irmap, then
-			 * say we have no path for watch. Otherwise
-			 * do irmap scan even if the handle is
-			 * working.
-			 *
-			 * FIXME -- no need to open-by-handle if
-			 * we are in force-irmap and not on tempfs
-			 */
-			goto out_nopath;
+		goto out;
+	} else if (IS_ERR(path) && PTR_ERR(path) == ERR_NO_MOUNT) {
+		goto fault;
+	} else if (IS_ERR(path) && PTR_ERR(path) == ERR_GENERIC) {
+		goto err;
 	}
 
+	mi = lookup_mnt_sdev(s_dev);
+	if (mi == NULL) {
+		pr_err("Unable to lookup a mount by dev 0x%x\n", s_dev);
+		goto err;
+	}
+
+	if ((mi->fstype->code == FSTYPE__TMPFS) ||
+	    (mi->fstype->code == FSTYPE__DEVTMPFS)) {
+		pr_err("Can't find suitable path for handle (dev %#x ino %#lx): %d\n",
+		       s_dev, i_ino, (int)PTR_ERR(path));
+		goto err;
+	}
+
+	if (!opts.force_irmap)
+		/*
+		 * If we're not forced to do irmap, then
+		 * say we have no path for watch. Otherwise
+		 * do irmap scan even if the handle is
+		 * working.
+		 *
+		 * FIXME -- no need to open-by-handle if
+		 * we are in force-irmap and not on tempfs
+		 */
+		goto out_nopath;
+
+fault:
 	pr_warn("\tHandle 0x%x:0x%lx cannot be opened\n", s_dev, i_ino);
 	irmap_path = irmap_lookup(s_dev, i_ino);
 	if (!irmap_path) {
@@ -298,10 +303,8 @@ out:
 	pr_debug("\tDumping %s as path for handle\n", path);
 	f_handle->path = path;
 out_nopath:
-	close_safe(&fd);
 	return 0;
 err:
-	close_safe(&fd);
 	return -1;
 }
 
