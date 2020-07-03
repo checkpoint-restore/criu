@@ -235,6 +235,7 @@ struct mount_info *lookup_mnt_sdev(unsigned int s_dev)
 		if (m->s_dev == s_dev && mnt_is_dir(m))
 			return m;
 
+	pr_err("Unable to find suitable mount point for s_dev %x\n", s_dev);
 	return NULL;
 }
 
@@ -1016,12 +1017,12 @@ int mnt_is_dir(struct mount_info *pm)
 
 	mntns_root = mntns_get_root_fd(pm->nsid);
 	if (mntns_root < 0) {
-		pr_perror("Can't get root fd of mntns for %d", pm->mnt_id);
+		pr_warn("Can't get root fd of mntns for %d: %s\n", pm->mnt_id, strerror(errno));
 		return 0;
 	}
 
 	if (fstatat(mntns_root, pm->ns_mountpoint, &st, 0)) {
-		pr_perror("Can't fstatat on %s", pm->ns_mountpoint);
+		pr_warn("Can't fstatat on %s: %s\n", pm->ns_mountpoint, strerror(errno));
 		return 0;
 	}
 
