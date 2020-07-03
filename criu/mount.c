@@ -1111,8 +1111,8 @@ static char *get_clean_mnt(struct mount_info *mi, char *mnt_path_tmp, char *mnt_
 	}
 
 	if (mount(mi->mountpoint, mnt_path, NULL, MS_BIND, NULL)) {
-		pr_perror("Can't bind-mount %d:%s to %s",
-				mi->mnt_id, mi->mountpoint, mnt_path);
+		pr_warn("Can't bind-mount %d:%s to %s: %s\n",
+				mi->mnt_id, mi->mountpoint, mnt_path, strerror(errno));
 		rmdir(mnt_path);
 		return NULL;
 	}
