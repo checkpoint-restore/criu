@@ -63,13 +63,59 @@ struct cg_root_opt {
 
 #define DEFAULT_TIMEOUT		10
 
-/*
- * File validation options
- */
-#define FILE_VALIDATION_FILE_SIZE		1
-#define FILE_VALIDATION_BUILD_ID		2
+enum FILE_VALIDATION_OPTIONS 
+{
+	/*
+	 * This constant indicates that the file validation should be tried with the
+	 * file size method by default.
+	 */
+	FILE_VALIDATION_FILE_SIZE,
 
+	/*
+	 * This constant indicates that the file validation should be tried with the
+	 * build-ID method by default.
+	 */
+	FILE_VALIDATION_BUILD_ID,
+
+	/*
+	 * This constant indicates that the file validation should be tried with the
+	 * CRC32C checksum method by default.
+	 */
+	FILE_VALIDATION_CHKSM,
+
+	/* 
+	 * This constant indicates that the file validation should be done with the
+	 * checksum method using the entire file.
+	 */
+	FILE_VALIDATION_CHKSM_EVERY,
+
+	/* 
+	 * This constant indicates that the file validation should be done with the
+	 * checksum method using the first N (The checksum parameter) bytes of the file.
+	 */
+	FILE_VALIDATION_CHKSM_FIRST,
+
+	/* 
+	 * This constant indicates that the file validation should be done with the
+	 * checksum method using every Nth (The checksum parameter) bytes of the file.
+	 */
+	FILE_VALIDATION_CHKSM_PERIOD
+};
+
+/* This constant dictates which file validation method should be tried by default. */
 #define FILE_VALIDATION_DEFAULT			FILE_VALIDATION_BUILD_ID
+
+/*
+ * This constant dictates which configuration of bytes (Entire file, First N bytes or
+ * Every Nth byte) should be used for the checksum method by default.
+ */
+#define FILE_VALIDATION_CHKSM_CONFIG_DEFAULT	FILE_VALIDATION_CHKSM_FIRST
+
+/*
+ * This constant dictates which checksum parameter should be used for the checksum
+ * method by default.
+ */
+#define FILE_VALIDATION_CHKSM_PARAM_DEFAULT	1024
 
 struct irmap;
 
@@ -162,8 +208,18 @@ struct cr_options {
 	int			tls;
 	int			tls_no_cn_verify;
 
-	/* Options for file validation */
-	int 			file_validation_method;
+	/* This stores which method to use for file validation. */
+	int file_validation_method;
+
+	/* This stores which configuration of bytes to use if
+	 * checksum method needs to be used.
+	 */
+	int file_validation_chksm_config;
+
+	/* This stores which parameter to use for the checksum
+	 * method if it needs to be used.
+	 */
+	int file_validation_chksm_parameter;
 };
 
 extern struct cr_options opts;
