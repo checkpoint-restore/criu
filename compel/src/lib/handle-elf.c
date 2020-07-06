@@ -334,6 +334,15 @@ int __handle_elf(void *mem, size_t size)
 				pr_err("Unexpected undefined symbol: `%s'. External symbol in PIE?\n", name);
 				goto err;
 #endif
+			} else if (sym->st_shndx == SHN_COMMON) {
+				/*
+				 * To support COMMON symbols, we could
+				 * allocate these variables somewhere,
+				 * perhaps somewhere near the GOT table.
+				 * For now, we punt.
+				 */
+				pr_err("Unsupported COMMON symbol: `%s'. Try initializing the variable\n", name);
+				goto err;
 			}
 
 			if (sh->sh_type == SHT_REL) {
