@@ -4113,7 +4113,7 @@ static int __remount_readonly_mounts(struct ns_id *ns)
 		if (ns && mi->nsid != ns)
 			continue;
 
-		if (!(*mi->remounted_rw && REMOUNTED_RW))
+		if (!(*mi->remounted_rw & REMOUNTED_RW))
 			continue;
 
 		/*
