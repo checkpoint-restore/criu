@@ -469,9 +469,6 @@ static int automountd_loop(int pipe, const char *mountpoint, struct autofs_param
 		return -ENOMEM;
 	}
 
-	/* Allow SIGUSR2 to interrupt system call */
-	siginterrupt(SIGUSR2, 1);
-
 	while (!stop && !err) {
 		memset(packet, 0, psize);
 
@@ -874,6 +871,13 @@ struct autofs_params autofs_types[] = {
 
 int main(int argc, char **argv)
 {
+	struct sigaction act = {
+		.sa_handler = do_stop,
+		/*
+		 * SIGUSR2 is used to interrupt system calls, so SA_RESTART
+		 * isn't set.
+		 */
+	};
 	int ret = 0;
 
 	test_init(argc, argv);
@@ -889,7 +893,7 @@ int main(int argc, char **argv)
 	if (autofs_dev < 0)
 		return -1;
 
-	if (signal(SIGUSR2, do_stop) == SIG_ERR) {
+	if (sigaction(SIGUSR2, &act, NULL) < 0) {
 		pr_perror("Failed to set SIGUSR2 handler");
 		return -1;
 	}
