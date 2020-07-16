@@ -153,6 +153,7 @@ struct parasite_blob_desc {
 			size_t			nr_gotpcrel;
 			unsigned long		parasite_ip_off;
 			unsigned long		cmd_off;
+			unsigned long		args_ptr_off;
 			unsigned long		args_off;
 			compel_reloc_t		*relocs;
 			unsigned int		nr_relocs;

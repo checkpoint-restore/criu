@@ -699,10 +699,9 @@ int __handle_elf(void *mem, size_t size)
 	pr_out("\t\tpbd->hdr.parasite_ip_off	= "
 		"%s_sym__export_parasite_head_start_compat;\n", opts.prefix);
 	pr_out("#endif /* CONFIG_COMPAT */\n");
-	pr_out("\tpbd->hdr.cmd_off	= "
-			"%s_sym__export_parasite_cmd;\n", opts.prefix);
-	pr_out("\tpbd->hdr.args_off	= "
-			"%s_sym__export_parasite_args;\n", opts.prefix);
+	pr_out("\tpbd->hdr.cmd_off	= %s_sym__export_parasite_service_cmd;\n", opts.prefix);
+	pr_out("\tpbd->hdr.args_ptr_off	= %s_sym__export_parasite_service_args_ptr;\n", opts.prefix);
+	pr_out("\tpbd->hdr.args_off	= round_up(pbd->hdr.bsize, 4);\n");
 	pr_out("\tpbd->hdr.relocs		= %s_relocs;\n", opts.prefix);
 	pr_out("\tpbd->hdr.nr_relocs	= "
 			"sizeof(%s_relocs) / sizeof(%s_relocs[0]);\n",
