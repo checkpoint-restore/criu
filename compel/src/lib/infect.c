@@ -822,6 +822,13 @@ void compel_relocs_apply(void *mem, void *vbase, struct parasite_blob_desc *pbd)
 
 	size_t i, j;
 
+	/*
+	 * parasite_service() reads the value of __export_parasite_service_args_ptr.
+	 * The reason it is set here is that semantically, we are doing a symbol
+	 * resolution on parasite_service_args, and it turns out to be relocatable.
+	 */
+	*(void **)(mem + pbd->hdr.args_ptr_off) = vbase + pbd->hdr.args_off;
+
 #ifdef CONFIG_MIPS
 	compel_relocs_apply_mips(mem, vbase, pbd);
 #else
@@ -883,7 +890,30 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	 * without using ptrace at all.
 	 */
 
-	parasite_size = ctl->pblob.hdr.bsize;
+	/*
+	 * The parasite memory layout is the following:
+	 * Low address start first.
+	 * The number in parenthesis denotes the size of the section.
+	 * The arrow on the right shows the different variables that
+	 * corresponds to a given offset.
+	 * +------------------------------------------------------+ <--- 0
+	 * |   Parasite blob (sizeof(parasite_blob))              |
+	 * +------------------------------------------------------+ <--- hdr.bsize
+	 *                         align 4
+	 * +------------------------------------------------------+ <--- hdr.args_off
+	 * |   Args area (args_size)                              |
+	 * +------------------------------------------------------+
+	 *                         align 64
+	 * +------------------------------------------------------+ <--- ctl->rsigframe
+	 * |   sigframe (RESTORE_STACK_SIGFRAME)                  |      ctl->sigframe
+	 * +------------------------------------------------------+
+	 * |   main stack (PARASITE_STACK_SIZE)                   |
+	 * +------------------------------------------------------+ <--- ctl->rstack
+	 * |   compel_run_in_thread stack (PARASITE_STACK_SIZE)   |
+	 * +------------------------------------------------------+ <--- ctl->r_thread_stack
+	 *                                                               map_exchange_size
+	 */
+	parasite_size = ctl->pblob.hdr.args_off;
 
 	ctl->args_size = args_size;
 	parasite_size += ctl->args_size;
