@@ -196,8 +196,22 @@ err:
 # define __parasite_entry
 #endif
 
-int __used __parasite_entry parasite_service(unsigned int cmd, void *args)
+/*
+ * __export_parasite_service_{cmd,args} serve as arguments to the
+ * parasite_service() function. We use these global variables to make it
+ * easier to pass arguments when invoking from ptrace.
+ *
+ * We need the linker to allocate these variables. Hence the dummy
+ * initialization. Otherwise, we end up with COMMON symbols.
+ */
+unsigned int __export_parasite_service_cmd = 0;
+void * __export_parasite_service_args_ptr = NULL;
+
+int __used __parasite_entry parasite_service(void)
 {
+	unsigned int cmd = __export_parasite_service_cmd;
+	void *args = __export_parasite_service_args_ptr;
+
 	pr_info("Parasite cmd %d/%x process\n", cmd, cmd);
 
 	if (cmd == PARASITE_CMD_INIT_DAEMON)
