@@ -30,8 +30,4 @@ SECTIONS
 		*(.MIPS.options)
 		*(.gnu.attributes)
 	}
-
-/* Parasite args should have 4 bytes align, as we have futex inside. */
-. = ALIGN(32);
-__export_parasite_args = .;
 }

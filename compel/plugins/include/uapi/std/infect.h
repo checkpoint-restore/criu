@@ -4,7 +4,10 @@
 #include "common/compiler.h"
 
 extern int parasite_get_rpc_sock(void);
-extern int __must_check parasite_service(unsigned int cmd, void *args);
+
+extern unsigned int __export_parasite_service_cmd;
+extern void * __export_parasite_service_args_ptr;
+extern int __must_check parasite_service(void);
 
 /*
  * Must be supplied by user plugins.
