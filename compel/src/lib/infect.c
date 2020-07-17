@@ -948,6 +948,17 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	p += PARASITE_STACK_SIZE;
 	ctl->rstack = ctl->remote_map + p;
 
+	/*
+	 * x86-64 ABI requires a 16 bytes aligned stack.
+	 * It is already the case as RESTORE_STACK_SIGFRAME is a multiple of
+	 * 64, and PARASITE_STACK_SIZE is 0x4000.
+	 */
+	if ((unsigned long)ctl->rstack & (16-1)) {
+		pr_err("BUG: stack is not 16 bytes aligned: %p\n", ctl->rstack);
+		ctl->rstack = (void *)round_down((unsigned long)ctl->rstack, 16);
+	}
+
+
 	if (nr_threads > 1) {
 		p += PARASITE_STACK_SIZE;
 		ctl->r_thread_stack = ctl->remote_map + p;
