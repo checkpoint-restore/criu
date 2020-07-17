@@ -2937,6 +2937,7 @@ static int prepare_restorer_blob(void)
 
 static int remap_restorer_blob(void *addr)
 {
+	struct parasite_blob_desc pbd;
 	void *mem;
 
 	mem = mremap(restorer, restorer_len, restorer_len,
@@ -2946,8 +2947,13 @@ static int remap_restorer_blob(void *addr)
 		return -1;
 	}
 
-	compel_relocs_apply(addr, addr, sizeof(restorer_blob),
-			restorer_relocs, ARRAY_SIZE(restorer_relocs));
+	/*
+	 * We pass native=true, which is then used to set the value of
+	 * pbd.parasite_ip_off. We don't use parasite_ip_off, so the value we
+	 * pass as native argument is not relevant.
+	 */
+	restorer_setup_c_header_desc(&pbd, true);
+	compel_relocs_apply(addr, addr, &pbd);
 
 	return 0;
 }

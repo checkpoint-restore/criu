@@ -682,20 +682,17 @@ int __handle_elf(void *mem, size_t size)
 	}
 	pr_out("};\n");
 	pr_out("\n");
-	pr_out("static void __maybe_unused %s_setup_c_header(struct parasite_ctl *ctl)\n",
+	pr_out("static void __maybe_unused %s_setup_c_header_desc(struct parasite_blob_desc *pbd, bool native)\n",
 			opts.prefix);
 	pr_out(
 "{\n"
-"	struct parasite_blob_desc *pbd;\n"
-"\n"
-"	pbd = compel_parasite_blob_desc(ctl);\n"
 "	pbd->parasite_type	= COMPEL_BLOB_CHEADER;\n"
 );
 	pr_out("\tpbd->hdr.mem		= %s_blob;\n", opts.prefix);
 	pr_out("\tpbd->hdr.bsize		= sizeof(%s_blob);\n",
 			opts.prefix);
 	pr_out("\tpbd->hdr.nr_gotpcrel	= %s_nr_gotpcrel;\n", opts.prefix);
-	pr_out("\tif (compel_mode_native(ctl))\n");
+	pr_out("\tif (native)\n");
 	pr_out("\t\tpbd->hdr.parasite_ip_off	= "
 		"%s_sym__export_parasite_head_start;\n", opts.prefix);
 	pr_out("#ifdef CONFIG_COMPAT\n");
@@ -712,6 +709,13 @@ int __handle_elf(void *mem, size_t size)
 			"sizeof(%s_relocs) / sizeof(%s_relocs[0]);\n",
 			opts.prefix, opts.prefix);
 	pr_out("}\n");
+	pr_out("\n");
+	pr_out("static void __maybe_unused %s_setup_c_header(struct parasite_ctl *ctl)\n",
+			opts.prefix);
+	pr_out("{\n");
+	pr_out("\t%s_setup_c_header_desc(compel_parasite_blob_desc(ctl), compel_mode_native(ctl));\n", opts.prefix);
+	pr_out("}\n");
+
 	ret = 0;
 err:
 	free(sec_hdrs);
