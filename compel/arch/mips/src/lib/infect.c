@@ -262,9 +262,11 @@ int ptrace_set_regs(int pid, user_regs_struct_t *regs)
     return ptrace(PTRACE_SETREGS, pid, NULL, regs);
 }
 
-void compel_relocs_apply_mips(void *mem, void *vbase, compel_reloc_t *elf_relocs, size_t nr_relocs)
+void compel_relocs_apply_mips(void *mem, void *vbase, struct parasite_blob_desc *pbd)
 {
-    size_t i, j;
+	compel_reloc_t *elf_relocs = pbd->hdr.relocs;
+	size_t nr_relocs = pbd->hdr.nr_relocs;
+	size_t i, j;
 
       /*
        * mips rebasing :load time relocation
