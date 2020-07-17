@@ -33,8 +33,8 @@ struct parasite_ctl {
 
 	unsigned long		parasite_ip;				/* service routine start ip */
 
-	unsigned int		*addr_cmd;				/* addr for command */
-	void			*addr_args;				/* address for arguments */
+	unsigned int		*cmd;					/* address for command */
+	void			*args;					/* address for arguments */
 	unsigned long		args_size;
 	int			tsock;					/* transport socket for transferring fds */
 
