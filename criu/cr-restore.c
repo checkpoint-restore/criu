@@ -96,8 +96,6 @@
 
 #include "cr-errno.h"
 
-#include "pie/pie-relocs.h"
-
 #ifndef arch_export_restore_thread
 #define arch_export_restore_thread	__export_restore_thread
 #endif
@@ -2913,7 +2911,23 @@ static int prepare_restorer_blob(void)
 	 * in turn will lead to set-exe-file prctl to fail with EBUSY.
 	 */
 
-	restorer_len = pie_size(restorer);
+	struct parasite_blob_desc pbd;
+
+	/*
+	 * We pass native=true, which is then used to set the value of
+	 * pbd.parasite_ip_off. We don't use parasite_ip_off, so the value we
+	 * pass as native argument is not relevant.
+	 */
+	restorer_setup_c_header_desc(&pbd, true);
+
+	/*
+	 * args_off is the offset where the binary blob with its GOT table
+	 * ends. As we don't do RPC, parasite sections after args_off can be
+	 * ignored. See compel_infect() for a description of the parasite
+	 * memory layout.
+	 */
+	restorer_len = round_up(pbd.hdr.args_off, page_size());
+
 	restorer = mmap(NULL, restorer_len,
 			PROT_READ | PROT_WRITE | PROT_EXEC,
 			MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
@@ -2922,7 +2936,8 @@ static int prepare_restorer_blob(void)
 		return -1;
 	}
 
-	memcpy(restorer, &restorer_blob, sizeof(restorer_blob));
+	memcpy(restorer, pbd.hdr.mem, pbd.hdr.bsize);
+
 	return 0;
 }
 
