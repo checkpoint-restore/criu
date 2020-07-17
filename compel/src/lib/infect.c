@@ -816,11 +816,11 @@ err_cure:
 
 void compel_relocs_apply(void *mem, void *vbase, struct parasite_blob_desc *pbd)
 {
-	size_t size = pbd->hdr.bsize;
 	compel_reloc_t *elf_relocs = pbd->hdr.relocs;
 	size_t nr_relocs = pbd->hdr.nr_relocs;
 
 	size_t i, j;
+	void **got = mem + pbd->hdr.got_off;
 
 	/*
 	 * parasite_service() reads the value of __export_parasite_service_args_ptr.
@@ -835,14 +835,13 @@ void compel_relocs_apply(void *mem, void *vbase, struct parasite_blob_desc *pbd)
 	for (i = 0, j = 0; i < nr_relocs; i++) {
 		if (elf_relocs[i].type & COMPEL_TYPE_LONG) {
 			long *where = mem + elf_relocs[i].offset;
-			long *p = mem + size;
 
 			if (elf_relocs[i].type & COMPEL_TYPE_GOTPCREL) {
 				int *value = (int *)where;
 				int rel;
 
-				p[j] = (long)vbase + elf_relocs[i].value;
-				rel = (unsigned)((void *)&p[j] - (void *)mem) - elf_relocs[i].offset + elf_relocs[i].addend;
+				got[j] = vbase + elf_relocs[i].value;
+				rel = (unsigned)((void *)&got[j] - (void *)mem) - elf_relocs[i].offset + elf_relocs[i].addend;
 
 				*value = rel;
 				j++;
@@ -899,7 +898,9 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	 * +------------------------------------------------------+ <--- 0
 	 * |   Parasite blob (sizeof(parasite_blob))              |
 	 * +------------------------------------------------------+ <--- hdr.bsize
-	 *                         align 4
+	 *                         align 8
+	 * +------------------------------------------------------+ <--- hdr.got_off
+	 * |   GOT Table (nr_gotpcrel * sizeof(long))             |
 	 * +------------------------------------------------------+ <--- hdr.args_off
 	 * |   Args area (args_size)                              |
 	 * +------------------------------------------------------+
@@ -935,6 +936,13 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	ctl->parasite_ip = (unsigned long)(ctl->remote_map + ctl->pblob.hdr.parasite_ip_off);
 	ctl->cmd = ctl->local_map + ctl->pblob.hdr.cmd_off;
 	ctl->args = ctl->local_map + ctl->pblob.hdr.args_off;
+
+	/*
+	 * args must be 4 bytes aligned as we use futexes() on them. It is
+	 * already the case, as args follows the GOT table, which is 8 bytes
+	 * aligned.
+	 */
+	BUG_ON((unsigned long)ctl->args & (4-1));
 
 	memcpy(ctl->local_map, ctl->pblob.hdr.mem, ctl->pblob.hdr.bsize);
 	compel_relocs_apply(ctl->local_map, ctl->remote_map, &ctl->pblob);

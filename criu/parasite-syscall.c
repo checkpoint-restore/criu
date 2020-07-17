@@ -39,7 +39,6 @@
 
 #include "dump.h"
 #include "restorer.h"
-#include "pie/pie-relocs.h"
 
 #include "infect.h"
 #include "infect-rpc.h"
