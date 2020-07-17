@@ -862,11 +862,6 @@ static int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 	return ret;
 }
 
-static inline unsigned long total_pie_size(size_t blob_size)
-{
-	return round_up(blob_size, page_size());
-}
-
 int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size)
 {
 	int ret;
@@ -888,10 +883,13 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	 * without using ptrace at all.
 	 */
 
-	parasite_size = total_pie_size(ctl->pblob.hdr.bsize);
+	parasite_size = ctl->pblob.hdr.bsize;
 
-	ctl->args_size = round_up(args_size, PAGE_SIZE);
+	ctl->args_size = args_size;
 	parasite_size += ctl->args_size;
+
+	/* RESTORE_STACK_SIGFRAME needs a 64 bytes alignement */
+	parasite_size = round_up(parasite_size, 64);
 
 	map_exchange_size = parasite_size;
 	map_exchange_size += RESTORE_STACK_SIGFRAME + PARASITE_STACK_SIZE;
