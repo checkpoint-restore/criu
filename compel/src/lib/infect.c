@@ -612,7 +612,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 	user_regs_struct_t regs;
 	struct ctl_msg m = { };
 
-	*ctl->addr_cmd = PARASITE_CMD_INIT_DAEMON;
+	*ctl->cmd = PARASITE_CMD_INIT_DAEMON;
 
 	args = compel_parasite_args(ctl, struct parasite_init_args);
 
@@ -905,8 +905,8 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	pr_info("Putting parasite blob into %p->%p\n", ctl->local_map, ctl->remote_map);
 
 	ctl->parasite_ip = (unsigned long)(ctl->remote_map + ctl->pblob.hdr.parasite_ip_off);
-	ctl->addr_cmd = ctl->local_map + ctl->pblob.hdr.addr_cmd_off;
-	ctl->addr_args = ctl->local_map + ctl->pblob.hdr.addr_arg_off;
+	ctl->cmd = ctl->local_map + ctl->pblob.hdr.cmd_off;
+	ctl->args = ctl->local_map + ctl->pblob.hdr.args_off;
 
 	memcpy(ctl->local_map, ctl->pblob.hdr.mem, ctl->pblob.hdr.bsize);
 	compel_relocs_apply(ctl->local_map, ctl->remote_map, &ctl->pblob);
@@ -1364,7 +1364,7 @@ int compel_cure(struct parasite_ctl *ctl)
 
 void *compel_parasite_args_p(struct parasite_ctl *ctl)
 {
-	return ctl->addr_args;
+	return ctl->args;
 }
 
 void *compel_parasite_args_s(struct parasite_ctl *ctl, unsigned long args_size)
@@ -1382,7 +1382,7 @@ int compel_run_in_thread(struct parasite_thread_ctl *tctl, unsigned int cmd)
 	user_regs_struct_t regs = octx->regs;
 	int ret;
 
-	*ctl->addr_cmd = cmd;
+	*ctl->cmd = cmd;
 
 	ret = parasite_run(pid, PTRACE_CONT, ctl->parasite_ip, stack, &regs, octx);
 	if (ret == 0)
