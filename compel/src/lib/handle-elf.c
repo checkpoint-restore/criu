@@ -648,7 +648,6 @@ int __handle_elf(void *mem, size_t size)
 	}
 #endif /* !NO_RELOCS */
 	pr_out("};\n");
-	pr_out("static __maybe_unused size_t %s_nr_gotpcrel = %zd;\n", opts.prefix, nr_gotpcrel);
 
 	pr_out("static __maybe_unused const char %s_blob[] = {\n\t", opts.prefix);
 
@@ -690,7 +689,6 @@ int __handle_elf(void *mem, size_t size)
 	pr_out("\tpbd->hdr.mem		= %s_blob;\n", opts.prefix);
 	pr_out("\tpbd->hdr.bsize		= sizeof(%s_blob);\n",
 			opts.prefix);
-	pr_out("\tpbd->hdr.nr_gotpcrel	= %s_nr_gotpcrel;\n", opts.prefix);
 	pr_out("\tif (native)\n");
 	pr_out("\t\tpbd->hdr.parasite_ip_off	= "
 		"%s_sym__export_parasite_head_start;\n", opts.prefix);
@@ -701,7 +699,8 @@ int __handle_elf(void *mem, size_t size)
 	pr_out("#endif /* CONFIG_COMPAT */\n");
 	pr_out("\tpbd->hdr.cmd_off	= %s_sym__export_parasite_service_cmd;\n", opts.prefix);
 	pr_out("\tpbd->hdr.args_ptr_off	= %s_sym__export_parasite_service_args_ptr;\n", opts.prefix);
-	pr_out("\tpbd->hdr.args_off	= round_up(pbd->hdr.bsize, 4);\n");
+	pr_out("\tpbd->hdr.got_off	= round_up(pbd->hdr.bsize, sizeof(long));\n");
+	pr_out("\tpbd->hdr.args_off	= pbd->hdr.got_off + %zd*sizeof(long);\n", nr_gotpcrel);
 	pr_out("\tpbd->hdr.relocs		= %s_relocs;\n", opts.prefix);
 	pr_out("\tpbd->hdr.nr_relocs	= "
 			"sizeof(%s_relocs) / sizeof(%s_relocs[0]);\n",
