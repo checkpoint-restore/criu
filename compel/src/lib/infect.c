@@ -814,11 +814,16 @@ err_cure:
 	return -1;
 }
 
-void compel_relocs_apply(void *mem, void *vbase, size_t size, compel_reloc_t *elf_relocs, size_t nr_relocs)
+void compel_relocs_apply(void *mem, void *vbase, struct parasite_blob_desc *pbd)
 {
+	size_t size = pbd->hdr.bsize;
+	compel_reloc_t *elf_relocs = pbd->hdr.relocs;
+	size_t nr_relocs = pbd->hdr.nr_relocs;
+
 	size_t i, j;
+
 #ifdef CONFIG_MIPS
-	compel_relocs_apply_mips(mem, vbase, elf_relocs, nr_relocs);
+	compel_relocs_apply_mips(mem, vbase, pbd);
 #else
 	for (i = 0, j = 0; i < nr_relocs; i++) {
 		if (elf_relocs[i].type & COMPEL_TYPE_LONG) {
@@ -904,9 +909,7 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	ctl->addr_args = ctl->local_map + ctl->pblob.hdr.addr_arg_off;
 
 	memcpy(ctl->local_map, ctl->pblob.hdr.mem, ctl->pblob.hdr.bsize);
-	if (ctl->pblob.hdr.nr_relocs)
-		compel_relocs_apply(ctl->local_map, ctl->remote_map, ctl->pblob.hdr.bsize,
-				    ctl->pblob.hdr.relocs, ctl->pblob.hdr.nr_relocs);
+	compel_relocs_apply(ctl->local_map, ctl->remote_map, &ctl->pblob);
 
 	p = parasite_size;
 
