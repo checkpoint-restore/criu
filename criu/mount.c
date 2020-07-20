@@ -826,7 +826,7 @@ static struct ns_id *find_ext_ns_id(void)
 
 	for (ns = ns_ids; ns->next; ns = ns->next)
 		if (ns->type == NS_CRIU && ns->nd == &mnt_ns_desc) {
-			if (!ns->mnt.mntinfo_list && !collect_mntinfo(ns, true))
+			if (!ns->mnt.mntinfo_list && !collect_mntinfo(ns, false))
 				break;
 			return ns;
 		}
