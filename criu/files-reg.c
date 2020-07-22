@@ -30,6 +30,12 @@
  */
 #define BUILD_ID_MAP_SIZE 1048576
 
+/*
+ * The file is read and processed in chunks and the required bytes in each
+ * chunk contribute to the checksum.
+ */
+#define CHKSM_CHUNK_SIZE 10485760
+
 #include "cr_options.h"
 #include "imgset.h"
 #include "file-ids.h"
@@ -1581,6 +1587,124 @@ static int get_build_id(const int fd, const struct stat *fd_status,
 	return ret;
 }
 
+static inline void checksum_iterator_init(u64 *iter)
+{
+	switch (opts.file_validation_chksm_config) {
+	case FILE_VALIDATION_CHKSM_FULL:
+		*iter = 0;
+		break;
+	case FILE_VALIDATION_CHKSM_FIRST:
+		*iter = 0;
+		break;
+	case FILE_VALIDATION_CHKSM_PERIOD:
+		*iter = 0;
+		break;
+	}
+}
+
+static inline void checksum_iterator_next(u64 *iter)
+{
+	switch (opts.file_validation_chksm_config) {
+	case FILE_VALIDATION_CHKSM_FULL:
+		*iter += 1;
+		break;
+	case FILE_VALIDATION_CHKSM_FIRST:
+		*iter += 1;
+		break;
+	case FILE_VALIDATION_CHKSM_PERIOD:
+		*iter += opts.file_validation_chksm_parameter;
+		break;
+	}
+}
+
+static inline bool checksum_iterator_stop(u64 iter)
+{
+	switch (opts.file_validation_chksm_config) {
+	case FILE_VALIDATION_CHKSM_FULL:
+		return false;
+	case FILE_VALIDATION_CHKSM_FIRST:
+		if (iter >= opts.file_validation_chksm_parameter)
+			return true;
+		else
+			return false;
+	case FILE_VALIDATION_CHKSM_PERIOD:
+		return false;
+	default:
+		return true;
+	}
+}
+
+/*
+ * Does the actual work of calculating the CRC32C checksum of "some"
+ * parts of the file. These "some" parts depend on the configuration chosen.
+ * By default, the first 1024 bytes of the file or the entire file, which ever
+ * is smaller, is considered.
+ * Returns true if the checksum could be obtained, else it returns false.
+ */
+static bool calculate_checksum(const int fd, const struct stat *fd_status,
+				u32 *checksum)
+{
+	int tmp;
+	u32 byte, mask;
+	u64 up_bound, low_bound = 0, offset = 0;
+	unsigned char *buf;
+
+	/* At most, the first 10MB of the file is mapped. */
+	up_bound = min_t(size_t, fd_status->st_size, CHKSM_CHUNK_SIZE);
+	buf = mmap(0, up_bound, PROT_READ, MAP_PRIVATE | MAP_FILE, fd, 0);
+	if (buf == MAP_FAILED) {
+		pr_warn("Couldn't mmap file with fd %d", fd);
+		return false;
+	}
+
+	*checksum = 0xFFFFFFFF;
+	checksum_iterator_init(&offset);
+
+	while (!checksum_iterator_stop(offset) && offset >= low_bound && offset < up_bound) {
+
+		byte = buf[offset-low_bound];
+
+		*checksum = *checksum ^ byte;
+		for (tmp = 0; tmp < 8; tmp++) {
+			mask = -(*checksum & 1);
+
+			/*
+			 * Little endian notation is used.
+			 * The Castagnoli polynomial (0x82F63B78) is used instead of
+			 * 0xEDB88320 and is the difference between CRC32C and CRC32.
+			 */
+			*checksum = (*checksum >> 1) ^ (0x82F63B78 & mask);
+		}
+
+		checksum_iterator_next(&offset);
+
+		/*
+		 * If the new iterator position is outside the mapped region (Bytes in the range
+		 * low_bound and up_bound) of the file, the current region needs to be unmapped
+		 * and the next portion (At most the next 10MB) of the file needs to be mapped.
+		 */
+		if (offset >= up_bound && offset < fd_status->st_size &&
+				up_bound != fd_status->st_size) {
+
+			munmap(buf, up_bound - low_bound);
+
+			low_bound = round_down(offset, sysconf(_SC_PAGE_SIZE));
+			up_bound = min_t(size_t, fd_status->st_size, low_bound + CHKSM_CHUNK_SIZE);
+
+			buf = mmap(0, up_bound - low_bound, PROT_READ, MAP_PRIVATE | MAP_FILE,
+					fd, low_bound);
+		}
+		if (buf == MAP_FAILED) {
+			pr_warn("Couldn't mmap file with fd %d", fd);
+			return false;
+		}
+	}
+	*checksum = ~*checksum;
+
+	munmap(buf, up_bound - low_bound);
+	return true;
+}
+
 /*
  * Finds and stores the build-id of a file, if it exists, so that it can be validated
  * while restoring.
@@ -1630,6 +1754,47 @@ static int store_validation_data_build_id(RegFileEntry *rfe, int lfd,
 }
 
 /*
+ * Finds and stores the CRC32C checksum of a file so that it can be validated
+ * while restoring.
+ * Returns 1 if the checksum of the file could be stored, -1 if there was an error
+ * or 0 if the checksum could not be obtained.
+ */
+static int store_validation_data_checksum(RegFileEntry *rfe, int lfd,
+						const struct fd_parms *p)
+{
+	u32 checksum;
+	int fd;
+
+	if (!p->stat.st_size)
+		return 0;
+
+	fd = open_proc(PROC_SELF, "fd/%d", lfd);
+	if (fd < 0) {
+		pr_err("Checksum (For validation) could not be obtained for file %s because can't open the file\n",
+				rfe->name);
+		return -1;
+	}
+
+	if (!calculate_checksum(fd, &(p->stat), &checksum)) {
+		close(fd);
+		pr_err("Could not obtain checksum for file %s\n", rfe->name);
+		return -1;
+	}
+	close(fd);
+
+	rfe->has_checksum = true;
+	rfe->checksum = checksum;
+
+	rfe->has_checksum_config = true;
+	rfe->checksum_config = opts.file_validation_chksm_config;
+
+	rfe->has_checksum_parameter = true;
+	rfe->checksum_parameter = opts.file_validation_chksm_parameter;
+
+	return 1;
+}
+
+/*
  * This routine stores metadata about the open file (File size, build-id, CRC32C checksum)
  * so that validation can be done while restoring to make sure that the right file is
  * being restored.
@@ -1643,8 +1808,15 @@ static bool store_validation_data(RegFileEntry *rfe,
 	rfe->has_size = true;
 	rfe->size = p->stat.st_size;
 
-	if (opts.file_validation_method == FILE_VALIDATION_BUILD_ID)
+	if (opts.file_validation_method == FILE_VALIDATION_BUILD_ID) {
 		result = store_validation_data_build_id(rfe, lfd, p);
+		if (!result) {
+			pr_info("Could not store build-ID, trying to store checksum instead for validation for file %s\n",
+					rfe->name);
+			result = store_validation_data_checksum(rfe, lfd, p);
+		}
+	} else if (opts.file_validation_method == FILE_VALIDATION_CHKSM)
+		result = store_validation_data_checksum(rfe, lfd, p);
 
 	if (result == -1)
 		return false;
@@ -2048,6 +2220,61 @@ static int validate_with_build_id(const int fd, const struct stat *fd_status,
 }
 
 /*
+ * Compares the file's CRC32C checksum with the stored value.
+ * Returns 1 if the checksum of the file matches the checksum that was stored
+ * while dumping, -1 if there is a mismatch or 0 if the checksum has not been
+ * stored or could not be obtained.
+ */
+static int validate_with_checksum(const int fd, const struct stat *fd_status,
+					const struct reg_file_info *rfi)
+{
+	u32 checksum;
+
+	if (!rfi->rfe->has_size)
+		return 1;
+
+	if (!rfi->rfe->has_checksum || !rfi->rfe->has_checksum_config ||
+		!rfi->rfe->has_checksum_parameter)
+		return 0;
+
+	/*
+	 * If the checksum configuration used while dumping is not the same as the current
+	 * checksum configuration, then the user is informed of this and the checksum
+	 * configuration used while dumping is considered.
+	 */
+	if (opts.file_validation_chksm_config != rfi->rfe->checksum_config) {
+		pr_warn("Checksum configuration (For validation) doesn't match the configuration used for dumping file %s\n",
+				rfi->path);
+		opts.file_validation_chksm_config = rfi->rfe->checksum_config;
+	}
+
+	/*
+	 * If the checksum parameter used while dumping is not the same as the current
+	 * checksum parameter, then the user is informed of this and the checksum parameter
+	 * used while dumping is considered. If the checksum config is to checksum the entire
+	 * file, then no changes need to be made since the checksum parameter isn't used anyway.
+	 */
+	if (opts.file_validation_chksm_config != FILE_VALIDATION_CHKSM_FULL &&
+			opts.file_validation_chksm_parameter != rfi->rfe->checksum_parameter) {
+		pr_warn("Checksum parameter (For validation) doesn't match the parameter used for dumping file %s\n",
+				rfi->path);
+		opts.file_validation_chksm_parameter = rfi->rfe->checksum_parameter;
+	}
+
+	if (!calculate_checksum(fd, fd_status, &checksum)) {
+		pr_warn("Could not validate with checksum for file %s\n", rfi->path);
+		return 0;
+	}
+
+	if (checksum == rfi->rfe->checksum)
+		return 1;
+
+	pr_err("File %s has bad checksum %x (expect %x)\n",
+			rfi->path, checksum, rfi->rfe->checksum);
+	return -1;
+}
+
+/*
  * This function determines whether it was the same file that was open during dump
  * by checking the file's size, build-id and/or checksum with the same metadata
  * that was stored before dumping.
@@ -2066,8 +2293,15 @@ static bool validate_file(const int fd, const struct stat *fd_status,
 		return false;
 	}
 
-	if (opts.file_validation_method == FILE_VALIDATION_BUILD_ID)
+	if (opts.file_validation_method == FILE_VALIDATION_BUILD_ID) {
 		result = validate_with_build_id(fd, fd_status, rfi);
+		if (!result) {
+			pr_info("Could not validate with build-ID, trying checksum validation instead for file %s\n",
+				rfi->path);
+			result = validate_with_checksum(fd, fd_status, rfi);
+		}
+	} else if (opts.file_validation_method == FILE_VALIDATION_CHKSM)
+		result = validate_with_checksum(fd, fd_status, rfi);
 
 	if (result == -1)
 		return false;
