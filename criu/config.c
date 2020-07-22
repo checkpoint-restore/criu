@@ -281,6 +281,8 @@ void init_opts(void)
 	opts.log_level = DEFAULT_LOGLEVEL;
 	opts.pre_dump_mode = PRE_DUMP_SPLICE;
 	opts.file_validation_method = FILE_VALIDATION_DEFAULT;
+	opts.file_validation_chksm_config = FILE_VALIDATION_CHKSM_CONFIG_DEFAULT;
+	opts.file_validation_chksm_parameter = FILE_VALIDATION_CHKSM_PARAM_DEFAULT;
 }
 
 bool deprecated_ok(char *what)
@@ -423,11 +425,20 @@ static int parse_join_ns(const char *ptr)
 
 static int parse_file_validation_method(struct cr_options *opts, const char *optarg)
 {
-	if (!strcmp(optarg, "filesize"))
+	if (!strcmp(optarg, "filesize")) {
 		opts->file_validation_method = FILE_VALIDATION_FILE_SIZE;
-	else if (!strcmp(optarg, "buildid"))
+	} else if (!strcmp(optarg, "buildid")) {
 		opts->file_validation_method = FILE_VALIDATION_BUILD_ID;
-	else
+	} else if (!strcmp(optarg, "checksum")) {
+		opts->file_validation_method = FILE_VALIDATION_CHKSM;
+		opts->file_validation_chksm_config = FILE_VALIDATION_CHKSM_FIRST;
+	} else if (!strcmp(optarg, "checksum-full")) {
+		opts->file_validation_method = FILE_VALIDATION_CHKSM;
+		opts->file_validation_chksm_config = FILE_VALIDATION_CHKSM_FULL;
+	} else if (!strcmp(optarg, "checksum-period")) {
+		opts->file_validation_method = FILE_VALIDATION_CHKSM;
+		opts->file_validation_chksm_config = FILE_VALIDATION_CHKSM_PERIOD;
+	} else
 		goto Esyntax;
 
 	return 0;
@@ -541,6 +552,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		{ "cgroup-yard",		required_argument,	0, 1096 },
 		{ "pre-dump-mode",		required_argument,	0, 1097},
 		{ "file-validation",		required_argument,	0, 1098	},
+		{ "checksum-parameter",		required_argument,	0, 1099 },
 		{ },
 	};
 
@@ -868,6 +880,11 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			break;
 		case 1098:
 			if (parse_file_validation_method(&opts, optarg))
+				return 2;
+			break;
+		case 1099:
+			opts.file_validation_chksm_parameter = atoi(optarg);
+			if (opts.file_validation_chksm_parameter <= 0)
 				return 2;
 			break;
 		case 'V':
