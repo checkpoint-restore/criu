@@ -97,6 +97,8 @@
 #define MEMFD_INODE_MAGIC	0x48453499 /* Dnipro */
 #define TIMENS_MAGIC		0x43114433 /* Beslan */
 #define PIDNS_MAGIC		0x61157326 /* Surgut */
+#define BPFMAP_FILE_MAGIC	0x57506142 /* Alapayevsk */
+#define BPFMAP_DATA_MAGIC	0x64324033 /* Arkhangelsk */
 
 #define IFADDR_MAGIC		RAW_IMAGE_MAGIC
 #define ROUTE_MAGIC		RAW_IMAGE_MAGIC
