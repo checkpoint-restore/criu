@@ -16,5 +16,6 @@
 #include "common/scm.h"
 
 extern int open_detach_mount(char *dir);
+extern bool has_cap_checkpoint_restore(u32 *cap_eff);
 
 #endif /* __CR_UTIL_NET_H__ */
