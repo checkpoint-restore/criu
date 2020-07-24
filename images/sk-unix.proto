@@ -51,4 +51,9 @@ message unix_sk_entry {
 
 	optional uint32			ns_id		= 16;
 	optional sint32			mnt_id		= 17 [default = -1];
+/*
+ * These field is reserved for Virtuozzo criu multiple unix socket bindmounts feature
+ *	repeated uint32			vz_mnt_id	= 18;
+ *	repeated uint32			bind_mnt_ids	= 19;
+ */
 }
