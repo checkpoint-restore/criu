@@ -86,3 +86,23 @@ inline bool has_cap_checkpoint_restore(u32 *cap_eff)
 
 	return false;
 }
+
+inline bool has_cap_net_admin(u32 *cap_eff)
+{
+	return has_capability(CAP_NET_ADMIN, cap_eff);
+}
+
+inline bool has_cap_sys_chroot(u32 *cap_eff)
+{
+	return has_capability(CAP_SYS_CHROOT, cap_eff);
+}
+
+inline bool has_cap_setuid(u32 *cap_eff)
+{
+	return has_capability(CAP_SETUID, cap_eff);
+}
+
+inline bool has_cap_sys_resource(u32 *cap_eff)
+{
+	return has_capability(CAP_SYS_RESOURCE, cap_eff);
+}

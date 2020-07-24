@@ -124,6 +124,9 @@ int main(int argc, char *argv[], char *envp[])
 		return cr_service_work(atoi(argv[optind+1]));
 	}
 
+	if (check_caps())
+		return 1;
+
 	if (check_options())
 		return 1;
 
@@ -358,6 +361,8 @@ usage:
 "                        in lazy-pages mode: 'criu lazy-pages -D DIR'\n"
 "                        --lazy-pages and lazy-pages mode require userfaultfd\n"
 "  --stream              dump/restore images using criu-image-streamer\n"
+"  --unprivileged        accept limitations when running as non-root\n"
+"                        consult documentation for further details\n"
 "\n"
 "* External resources support:\n"
 "  --external RES        dump objects from this list as external resources:\n"

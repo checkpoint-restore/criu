@@ -732,6 +732,9 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_
 	unsigned int n_ctls = 0;
 	struct cg_set *cs;
 
+	if (opts.uid)
+		return 0;
+
 	if (item)
 		pid = item->pid->real;
 	else
@@ -988,6 +991,9 @@ int dump_cgroups(void)
 {
 	CgroupEntry cg = CGROUP_ENTRY__INIT;
 	int ret = -1;
+
+	if (opts.uid)
+		return 0;
 
 	BUG_ON(!criu_cgset || !root_cgset);
 
