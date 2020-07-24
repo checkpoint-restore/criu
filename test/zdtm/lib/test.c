@@ -211,6 +211,7 @@ err_u:
 
 void test_init(int argc, char **argv)
 {
+	uid_t uid;
 	pid_t pid;
 	char *val;
 	struct sigaction sa = {
@@ -218,6 +219,8 @@ void test_init(int argc, char **argv)
 		.sa_flags	= SA_RESTART,
 	};
 	sigemptyset(&sa.sa_mask);
+
+	uid = getuid();
 
 	parseargs(argc, argv);
 
@@ -238,34 +241,36 @@ void test_init(int argc, char **argv)
 		exit(1);
 	}
 
-	val = getenv("ZDTM_GROUPS");
-	if (val) {
-		char *tok = NULL;
-		unsigned int size = 0, groups[NGROUPS_MAX];
+	if (!uid) {
+		val = getenv("ZDTM_GROUPS");
+		if (val) {
+			char *tok = NULL;
+			unsigned int size = 0, groups[NGROUPS_MAX];
 
-		tok = strtok(val, " ");
-		while (tok) {
-			size++;
-			groups[size - 1] = atoi(tok);
-			tok = strtok(NULL, " ");
+			tok = strtok(val, " ");
+			while (tok) {
+				size++;
+				groups[size - 1] = atoi(tok);
+				tok = strtok(NULL, " ");
+			}
+
+			if (setgroups(size, groups)) {
+				fprintf(stderr, "Can't set groups: %m");
+				exit(1);
+			}
 		}
 
-		if (setgroups(size, groups)) {
-			fprintf(stderr, "Can't set groups: %m");
+		val = getenv("ZDTM_GID");
+		if (val && (setgid(atoi(val)) == -1)) {
+			fprintf(stderr, "Can't set gid: %m");
 			exit(1);
 		}
-	}
 
-	val = getenv("ZDTM_GID");
-	if (val && (setgid(atoi(val)) == -1)) {
-		fprintf(stderr, "Can't set gid: %m");
-		exit(1);
-	}
-
-	val = getenv("ZDTM_UID");
-	if (val && (setuid(atoi(val)) == -1)) {
-		fprintf(stderr, "Can't set gid: %m");
-		exit(1);
+		val = getenv("ZDTM_UID");
+		if (val && (setuid(atoi(val)) == -1)) {
+			fprintf(stderr, "Can't set gid: %m");
+			exit(1);
+		}
 	}
 
 	if (prctl(PR_SET_DUMPABLE, 1)) {
