@@ -1,10 +1,11 @@
 #ifndef __CR_OPTIONS_H__
 #define __CR_OPTIONS_H__
 
-#include <sys/types.h>
 #include <stdbool.h>
 #include "common/config.h"
 #include "common/list.h"
+#include "int.h"
+#include "image.h"
 
 /* Configuration and CLI parsing order defines */
 #define PARSING_GLOBAL_CONF  1
@@ -210,6 +211,20 @@ struct cr_options {
 	enum criu_mode mode;
 
 	int mntns_compat_mode;
+
+	/* Remember the program name passed to main() so we can use it in
+	 * error messages elsewhere.
+	 */
+	char *argv_0;
+	/*
+	 * This contains the eUID of the current CRIU user. It
+	 * will only be set to a non-zero value if CRIU has
+	 * the necessary capabilities to run as non root.
+	 * CAP_CHECKPOINT_RESTORE or CAP_SYS_ADMIN
+	 */
+	uid_t uid;
+	/* This contains the value from /proc/pid/status: CapEff */
+	u32 cap_eff[CR_CAP_SIZE];
 };
 
 extern struct cr_options opts;
