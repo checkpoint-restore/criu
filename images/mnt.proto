@@ -30,6 +30,10 @@ enum fstype {
 	// NFS4			= 22;
 
 	CGROUP2			= 23;
+/*
+ * These field is reserved for Virtuozzo criu new mounts engine
+ * 	NSFS			= 24;
+ */
 };
 
 message mnt_entry {
@@ -57,4 +61,10 @@ message mnt_entry {
 	optional uint32		sb_flags		= 17 [(criu).hex = true];
 	/* user defined mapping for external mount */
 	optional string		ext_key			= 18;
+/*
+ * These fields are reserved for Virtuozzo criu new mounts engine
+ *	optional uint32		ns_bind_id		= 19;
+ *	optional uint32		ns_bind_desc		= 20;
+ *	optional mnt_nses_entry	nses			= 21;
+ */
 }

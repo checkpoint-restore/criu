@@ -127,7 +127,11 @@ message criu_opts {
 	optional bool			tls_no_cn_verify	= 59;
 	optional string			cgroup_yard		= 60;
 	optional criu_pre_dump_mode	pre_dump_mode		= 61 [default = SPLICE];
-/*	optional bool			check_mounts		= 128;	*/
+/*
+ *	These fields are reserved for Virtuozzo criu new mounts engine
+ *	optional bool			check_mounts		= 128;
+ *	optional bool			mounts_v2		= 129;
+ */
 }
 
 message criu_dump_resp {
