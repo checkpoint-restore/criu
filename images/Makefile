@@ -68,6 +68,8 @@ proto-obj-y	+= sit.o
 proto-obj-y	+= memfd.o
 proto-obj-y	+= timens.o
 proto-obj-y	+= img-streamer.o
+proto-obj-y	+= bpfmap-file.o
+proto-obj-y	+= bpfmap-data.o
 
 CFLAGS		+= -iquote $(obj)/
 

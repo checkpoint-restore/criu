@@ -17,6 +17,7 @@ import "fifo.proto";
 import "pipe.proto";
 import "tty.proto";
 import "memfd.proto";
+import "bpfmap-file.proto";
 
 enum fd_types {
 	UND		= 0;
@@ -38,6 +39,7 @@ enum fd_types {
 	EXT		= 16;
 	TIMERFD		= 17;
 	MEMFD		= 18;
+	BPFMAP		= 19;
 
 	/* Any number above the real used. Not stored to image */
 	CTL_TTY		= 65534;
@@ -73,4 +75,5 @@ message file_entry {
 	optional pipe_entry		pipe	= 18;
 	optional tty_file_entry		tty	= 19;
 	optional memfd_file_entry	memfd	= 20;
+	optional bpfmap_file_entry	bpf	= 21;
 }
