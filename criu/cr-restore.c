@@ -3748,6 +3748,10 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	prep_libc_rseq_info(&task_args->libc_rseq);
 
+	task_args->uid = opts.uid;
+	for (i = 0; i < CR_CAP_SIZE; i++)
+		task_args->cap_eff[i] = opts.cap_eff[i];
+
 	/*
 	 * Fill up per-thread data.
 	 */
