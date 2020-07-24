@@ -222,6 +222,8 @@ struct task_restore_args {
 	int				lsm_type;
 	int				child_subreaper;
 	bool				has_clone3_set_tid;
+	uid_t				uid;
+	u32				cap_eff[CR_CAP_SIZE];
 } __aligned(64);
 
 /*

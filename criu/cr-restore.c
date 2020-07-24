@@ -3707,6 +3707,10 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	strncpy(task_args->comm, core->tc->comm, TASK_COMM_LEN - 1);
 	task_args->comm[TASK_COMM_LEN - 1] = 0;
 
+	task_args->uid = opts.uid;
+	for (i = 0; i < CR_CAP_SIZE; i++)
+		task_args->cap_eff[i] = opts.cap_eff[i];
+
 	/*
 	 * Fill up per-thread data.
 	 */
