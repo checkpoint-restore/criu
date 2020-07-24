@@ -705,6 +705,9 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 
 #undef BOOL_OPT
 
+	if (argv && argv[0])
+		SET_CHAR_OPTS(argv_0, argv[0]);
+
 	ret = pre_parse(argc, argv, usage_error, &no_default_config, &cfg_file);
 
 	if (ret)

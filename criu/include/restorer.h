@@ -235,6 +235,9 @@ struct task_restore_args {
 	 * unregister it before memory restoration procedure
 	 */
 	struct rst_rseq_param libc_rseq;
+
+	uid_t uid;
+	u32 cap_eff[CR_CAP_SIZE];
 } __aligned(64);
 
 /*
