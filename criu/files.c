@@ -48,6 +48,7 @@
 #include "string.h"
 #include "kerndat.h"
 #include "fdstore.h"
+#include "bpfmap.h"
 
 #include "protobuf.h"
 #include "util.h"
@@ -539,6 +540,10 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 			ops = &signalfd_dump_ops;
 		else if (is_timerfd_link(link))
 			ops = &timerfd_dump_ops;
+#ifdef CONFIG_HAS_LIBBPF
+		else if (is_bpfmap_link(link))
+			ops = &bpfmap_dump_ops;
+#endif
 		else
 			return dump_unsupp_fd(&p, lfd, "anon", link, e);
 
