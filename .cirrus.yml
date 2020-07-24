@@ -69,6 +69,27 @@ task:
     make -C scripts/ci vagrant-fedora-rawhide
 
 task:
+  name: Vagrant Fedora based test (non-root)
+  environment:
+    HOME: "/root"
+    CIRRUS_WORKING_DIR: "/tmp/criu"
+
+  compute_engine_instance:
+    image_project: cirrus-images
+    image: family/docker-kvm
+    platform: linux
+    cpu: 4
+    memory: 16G
+    nested_virtualization: true
+
+  setup_script: |
+    scripts/ci/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget cpu-checker
+    sudo kvm-ok
+    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
+  build_script: |
+    make -C scripts/ci vagrant-fedora-non-root
+
+task:
   name: CentOS Stream 8 based test
   environment:
     HOME: "/root"
