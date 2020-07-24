@@ -29,7 +29,7 @@
 #include "sockets.h"
 #include "crtools.h"
 #include "log.h"
-#include "util-pie.h"
+#include "util-caps.h"
 #include "prctl.h"
 #include "files.h"
 #include "sk-inet.h"
@@ -1654,4 +1654,48 @@ static char *feature_name(int (*func)(void))
 			return fl->name;
 	}
 	return NULL;
+}
+
+static int pr_set_dumpable(int value)
+{
+	int ret = prctl(PR_SET_DUMPABLE, value, 0, 0, 0);
+	if (ret < 0)
+		pr_perror("Unable to set PR_SET_DUMPABLE");
+	return ret;
+}
+
+int check_caps(void)
+{
+	struct proc_status_creds creds;
+	int exit_code = -1;
+
+	if (parse_pid_status(PROC_SELF, &creds.s, NULL))
+		goto out;
+
+	memcpy(&opts.cap_eff, &creds.cap_eff, sizeof(u32) * PROC_CAP_SIZE);
+
+	if (!has_cap_checkpoint_restore(opts.cap_eff))
+		goto out;
+
+	/* For some things we need to know if we are running as root. */
+	opts.uid = geteuid();
+
+	if (opts.uid) {
+		/*
+		 * At his point we know we are running as non-root with the necessary
+		 * capabilities available. Now we have to make the process dumpable
+		 * so that /proc/self is not owned by root.
+		 */
+		if (pr_set_dumpable(1))
+			return -1;
+	}
+
+	exit_code = 0;
+out:
+	if (exit_code) {
+		pr_msg("CRIU needs to have the CAP_SYS_ADMIN or the CAP_CHECKPOINT_RESTORE capability: \n");
+		pr_msg("setcap cap_checkpoint_restore+eip %s\n", opts.argv_0);
+	}
+
+	return exit_code;
 }
