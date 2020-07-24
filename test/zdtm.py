@@ -41,6 +41,8 @@ STREAMED_IMG_FILE_NAME = "img.criu"
 prev_line = None
 uuid = uuid.uuid4()
 
+NON_ROOT_UID = 65534
+
 
 def alarm(*args):
     print("==== ALARM ====")
@@ -392,10 +394,11 @@ class test_fail_expected_exc(Exception):
 
 
 class zdtm_test:
-    def __init__(self, name, desc, flavor, freezer):
+    def __init__(self, name, desc, flavor, freezer, rootless):
         self.__name = name
         self.__desc = desc
         self.__freezer = None
+        self.__rootless = rootless
         self.__make_action('cleanout')
         self.__pid = 0
         self.__flavor = flavor
@@ -439,6 +442,8 @@ class zdtm_test:
         wait_pid_die(int(self.__pid), self.__name, self.__timeout)
 
     def __add_wperms(self):
+        if os.getuid() != 0:
+            return
         # Add write perms for .out and .pid files
         for b in self._bins:
             p = os.path.dirname(b)
@@ -456,6 +461,9 @@ class zdtm_test:
         if test_flag(self.__desc, 'pre-dump-notify'):
             env['ZDTM_NOTIFY_FDIN'] = "100"
             env['ZDTM_NOTIFY_FDOUT'] = "101"
+
+        if self.__rootless:
+            env['ZDTM_ROOTLESS'] = "1"
 
         if not test_flag(self.__desc, 'suid'):
             # Numbers should match those in criu
@@ -618,11 +626,15 @@ class zdtm_test:
                 ["make", "zdtm_ct"], env=dict(os.environ, MAKEFLAGS=""))
         if not os.access("zdtm/lib/libzdtmtst.a", os.F_OK):
             subprocess.check_call(["make", "-C", "zdtm/"])
+        if opts['rootless']:
+            return
         subprocess.check_call(
             ["flock", "zdtm_mount_cgroups.lock", "./zdtm_mount_cgroups", str(uuid)])
 
     @staticmethod
     def cleanup():
+        if opts['rootless']:
+            return
         subprocess.check_call(
             ["flock", "zdtm_mount_cgroups.lock", "./zdtm_umount_cgroups", str(uuid)])
 
@@ -640,7 +652,9 @@ def load_module_from_file(name, path):
 
 
 class inhfd_test:
-    def __init__(self, name, desc, flavor, freezer):
+    def __init__(self, name, desc, flavor, freezer, rootless):
+        if rootless:
+            raise test_fail_exc("This kind of test does not currently support rootless mode")
         self.__name = os.path.basename(name)
         print("Load %s" % name)
         self.__fdtyp = load_module_from_file(self.__name, name)
@@ -801,8 +815,8 @@ class inhfd_test:
 
 
 class groups_test(zdtm_test):
-    def __init__(self, name, desc, flavor, freezer):
-        zdtm_test.__init__(self, 'zdtm/lib/groups', desc, flavor, freezer)
+    def __init__(self, name, desc, flavor, freezer, rootless):
+        zdtm_test.__init__(self, 'zdtm/lib/groups', desc, flavor, freezer, rootless)
         if flavor.ns:
             self.__real_name = name
             with open(name) as fd:
@@ -1039,6 +1053,7 @@ class criu:
         self.__dedup = bool(opts['dedup'])
         self.__mdedup = bool(opts['noauto_dedup'])
         self.__user = bool(opts['user'])
+        self.__rootless = bool(opts['rootless'])
         self.__leave_stopped = bool(opts['stop'])
         self.__stream = bool(opts['stream'])
         self.__show_stats = bool(opts['show_stats'])
@@ -1138,6 +1153,9 @@ class criu:
 
         print("Run criu " + action)
 
+        if self.__rootless:
+            s_args += ["--unprivileged"]
+
         strace = []
         if self.__sat:
             fname = os.path.join(self.__ddir(), action + '.strace')
@@ -1156,7 +1174,10 @@ class criu:
         if action == "restore":
             preexec = None
         else:
-            preexec = self.__user and self.set_user_id or None
+            if os.getuid():
+                preexec = None
+            else:
+                preexec = self.__user and self.set_user_id or None
 
         __ddir = self.__ddir()
 
@@ -1476,10 +1497,11 @@ class criu:
             except Exception:
                 return False
 
-        return criu_cli.run(
-            "check",
-            ["--no-default-config", "--verbosity=0", "--feature", feature],
-            opts['criu_bin']) == 0
+        args = ["--no-default-config", "-verbosity=0", "--feature", feature]
+        if opts['rootless']:
+            args += ["--unprivileged"]
+
+        return criu_cli.run("check", args, opts['criu_bin']) == 0
 
     @staticmethod
     def available():
@@ -1900,7 +1922,7 @@ def do_run_test(tname, tdesc, flavs, opts):
         if opts['dry_run']:
             continue
         flav = flavors[f](opts)
-        t = tclass(tname, tdesc, flav, fcg)
+        t = tclass(tname, tdesc, flav, fcg, opts['rootless'])
         cr_api = criu(opts)
 
         try:
@@ -2051,7 +2073,8 @@ class Launcher:
               'sat', 'script', 'rpc', 'criu_config', 'lazy_pages', 'join_ns',
               'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
               'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
-              'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'mntns_compat_mode')
+              'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'mntns_compat_mode',
+              'rootless')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
         if self.__use_log:
@@ -2061,6 +2084,9 @@ class Launcher:
             logf = None
             log = None
 
+        if opts['rootless'] and os.getuid() == 0:
+            os.setgid(NON_ROOT_UID)
+            os.setuid(NON_ROOT_UID)
         sub = subprocess.Popen(["./zdtm_ct", "zdtm.py"],
                                env=dict(os.environ, CR_CT_TEST_INFO=arg),
                                stdout=log,
@@ -2600,6 +2626,10 @@ def set_nr_hugepages(nr):
         with open("/proc/sys/vm/nr_hugepages", "w") as f:
             f.write("{}\n".format(nr))
         return orig_hugepages
+    except PermissionError as err:
+        # EACCES is expected when running as non-root, otherwise re-raise the exception.
+        if err.errno != errno.EACCES or os.getuid() == 0:
+            raise
     except OSError as err:
         if err.errno != errno.EOPNOTSUPP:
             raise
@@ -2673,6 +2703,10 @@ def get_cli_args():
     rp.add_argument("--freezecg", help="Use freeze cgroup (path:state)")
     rp.add_argument("--user", help="Run CRIU as regular user",
                     action='store_true')
+    rp.add_argument(
+        "--rootless",
+        help="Run CRIU rootless (uid!=0) (needs CAP_CHECKPOINT_RESTORE)",
+        action='store_true')
     rp.add_argument("--rpc",
                     help="Run CRIU via RPC rather than CLI",
                     action='store_true')
