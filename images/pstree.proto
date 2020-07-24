@@ -6,4 +6,11 @@ message pstree_entry {
 	required uint32			pgid		= 3;
 	required uint32			sid		= 4;
 	repeated uint32			threads		= 5;
+/*
+ * These fields are reserved for Virtuozzo criu nested pidns feature
+ *	repeated uint32			ns_pid		= 6;
+ *	repeated uint32			ns_pgid		= 7;
+ *	repeated uint32			ns_sid		= 8;
+ *	repeated ns_tid			tids		= 9;
+ */
 }

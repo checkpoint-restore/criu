@@ -73,6 +73,10 @@ message task_kobj_ids_entry {
 	optional uint32			user_ns_id	= 10;
 	optional uint32			cgroup_ns_id	= 11;
 	optional uint32			time_ns_id	= 12;
+/*
+ * These field is reserved for Virtuozzo criu nested pidns feature
+ *	optional uint32			pid_for_children_ns_id	= 13;
+ */
 }
 
 message thread_sas_entry {
