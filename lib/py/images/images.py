@@ -353,6 +353,19 @@ class tcp_stream_extra_handler:
         f.seek(0, os.SEEK_END)
         return pbuff.inq_len + pbuff.outq_len
 
+class bpfmap_data_extra_handler:
+    def load(self, f, pload):
+        size = pload.keys_bytes + pload.values_bytes
+        data = f.read(size)
+        return base64.encodebytes(data)
+
+    def dump(self, extra, f, pload):
+        data = base64.decodebytes(extra)
+        f.write(data)
+
+    def skip(self, f, pload):
+        f.seek(pload.bytes, os.SEEK_CUR)
+        return pload.bytes
 
 class ipc_sem_set_handler:
     def load(self, f, pbuff):
@@ -526,6 +539,9 @@ handlers = {
     'CPUINFO': entry_handler(pb.cpuinfo_entry),
     'MEMFD_FILE': entry_handler(pb.memfd_file_entry),
     'MEMFD_INODE': entry_handler(pb.memfd_inode_entry),
+    'BPFMAP_FILE': entry_handler(pb.bpfmap_file_entry),
+    'BPFMAP_DATA': entry_handler(pb.bpfmap_data_entry,
+                                bpfmap_data_extra_handler()),
 }
 
 
