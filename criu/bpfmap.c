@@ -161,3 +161,54 @@ const struct fdtype_ops bpfmap_dump_ops = {
 	.type		= FD_TYPES__BPFMAP,
 	.dump		= dump_one_bpfmap,
 };
+
+static int bpfmap_open(struct file_desc *d, int *new_fd)
+{
+	struct bpfmap_file_info *info;
+	BpfmapFileEntry *bpfe;
+	int bpfmap_fd;
+
+	info = container_of(d, struct bpfmap_file_info, d);
+	bpfe = info->bpfe;
+
+	pr_info_bpfmap("Creating and opening ", bpfe);
+	bpfmap_fd = bpf_create_map(bpfe->map_type, bpfe->key_size,
+						bpfe->value_size, bpfe->max_entries, bpfe->map_flags);
+	if (bpfmap_fd < 0) {
+		pr_perror("Can't create bpfmap %#08x", bpfe->id);
+		return -1;
+	}
+
+	if (rst_file_params(bpfmap_fd, bpfe->fown, bpfe->flags)) {
+		pr_perror("Can't restore params on bpfmap %#08x", bpfe->id);
+		goto err_close;
+	}
+
+	*new_fd = bpfmap_fd;
+	return 0;
+
+err_close:
+	close(bpfmap_fd);
+	return -1;
+}
+
+static struct file_desc_ops bpfmap_desc_ops = {
+	.type = FD_TYPES__BPFMAP,
+	.open = bpfmap_open,
+};
+
+static int collect_one_bpfmap(void *obj, ProtobufCMessage *msg, struct cr_img *i)
+{
+	struct bpfmap_file_info *info = obj;
+
+	info->bpfe = pb_msg(msg, BpfmapFileEntry);
+	pr_info_bpfmap("Collected ", info->bpfe);
+	return file_desc_add(&info->d, info->bpfe->id, &bpfmap_desc_ops);
+}
+
+struct collect_image_info bpfmap_cinfo = {
+	.fd_type = CR_FD_BPFMAP_FILE,
+	.pb_type = PB_BPFMAP_FILE,
+	.priv_size = sizeof(struct bpfmap_file_info),
+	.collect = collect_one_bpfmap,
+};
