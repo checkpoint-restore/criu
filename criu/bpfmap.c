@@ -23,6 +23,112 @@ static void pr_info_bpfmap(char *action, BpfmapFileEntry *bpf)
 		action, bpf->id, bpf->map_id, bpf->map_type, bpf->map_flags);
 }
 
+struct bpfmap_data_rst *bpfmap_data_hash_table[BPFMAP_DATA_TABLE_SIZE];
+
+static int bpfmap_data_read(struct cr_img *img, struct bpfmap_data_rst *r)
+{
+	unsigned long bytes = r->bde->keys_bytes + r->bde->values_bytes;
+	if (!bytes)
+		return 0;
+
+	r->data = mmap(NULL, bytes, PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	if (r->data == MAP_FAILED) {
+		pr_perror("Can't map mem for bpfmap buffers");
+		return -1;
+	}
+
+	return read_img_buf(img, r->data, bytes);
+}
+
+int do_collect_bpfmap_data(struct bpfmap_data_rst *r, ProtobufCMessage *msg,
+		struct cr_img *img, struct bpfmap_data_rst **bpf_hash_table)
+{
+	int ret;
+	int table_index;
+
+	r->bde = pb_msg(msg, BpfmapDataEntry);
+	ret = bpfmap_data_read(img, r);
+	if (ret < 0)
+		return ret;
+
+	table_index = r->bde->map_id & BPFMAP_DATA_HASH_MASK;
+	r->next = bpf_hash_table[table_index];
+	bpf_hash_table[table_index] = r;
+
+	pr_info("Collected bpfmap data for %#x\n", r->bde->map_id);
+	return 0;
+}
+
+int restore_bpfmap_data(int map_fd, uint32_t map_id, struct bpfmap_data_rst **bpf_hash_table)
+{
+	struct bpfmap_data_rst *map_data;
+	BpfmapDataEntry *bde;
+	void *keys = NULL;
+	void *values = NULL;
+	unsigned int count;
+	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts,
+		.elem_flags = 0,
+		.flags = 0,
+	);
+
+	for (map_data = bpf_hash_table[map_id & BPFMAP_DATA_HASH_MASK]; map_data != NULL; 
+		map_data = map_data->next) {
+
+		if (map_data->bde->map_id == map_id)
+			break;
+	}
+
+	if (!map_data || map_data->bde->count == 0) {
+		pr_info("No data for BPF map %#x\n", map_id);
+		return 0;
+	}
+
+	bde = map_data->bde;
+	count = bde->count;
+
+	keys = mmap(NULL, bde->keys_bytes, PROT_READ | PROT_WRITE,
+				MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	if (keys == MAP_FAILED) {
+		pr_perror("Can't map memory for BPF map keys");
+		goto err;
+	}
+	memcpy(keys, map_data->data, bde->keys_bytes);
+
+	values = mmap(NULL, bde->values_bytes, PROT_READ | PROT_WRITE,
+				MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	if (values == MAP_FAILED) {
+		pr_perror("Can't map memory for BPF map values");
+		goto err;
+	}
+	memcpy(values, map_data->data + bde->keys_bytes, bde->values_bytes);
+
+	if (bpf_map_update_batch(map_fd, keys, values, &count, &opts)) {
+		pr_perror("Can't load key-value pairs to BPF map");
+		goto err;
+	}
+	munmap(keys, bde->keys_bytes);
+	munmap(values, bde->values_bytes);
+	return 0;
+
+err:
+	munmap(keys, bde->keys_bytes);
+	munmap(values, bde->values_bytes);
+	return -1;
+}
+
+static int collect_bpfmap_data(void *obj, ProtobufCMessage *msg, struct cr_img *img)
+{
+	return do_collect_bpfmap_data(obj, msg, img, bpfmap_data_hash_table);
+}
+
+struct collect_image_info bpfmap_data_cinfo = {
+	.fd_type = CR_FD_BPFMAP_DATA,
+	.pb_type = PB_BPFMAP_DATA,
+	.priv_size = sizeof(struct bpfmap_data_rst),
+	.collect = collect_bpfmap_data,
+};
+
 int dump_one_bpfmap_data(BpfmapFileEntry *bpf, int lfd, const struct fd_parms *p)
 {
 	/*
@@ -178,6 +284,9 @@ static int bpfmap_open(struct file_desc *d, int *new_fd)
 		pr_perror("Can't create bpfmap %#08x", bpfe->id);
 		return -1;
 	}
+
+	if (restore_bpfmap_data(bpfmap_fd, bpfe->map_id, bpfmap_data_hash_table))
+		return -1;
 
 	if (rst_file_params(bpfmap_fd, bpfe->fown, bpfe->flags)) {
 		pr_perror("Can't restore params on bpfmap %#08x", bpfe->id);
