@@ -944,7 +944,7 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	 */
 	if ((unsigned long)ctl->args & (4-1)) {
 		pr_err("BUG: args are not 4 bytes aligned: %p\n", ctl->args);
-		ctl->args = (void *)round_up((unsigned long)ctl->args, 4);
+		goto err;
 	}
 
 	memcpy(ctl->local_map, ctl->pblob.hdr.mem, ctl->pblob.hdr.bsize);
@@ -966,7 +966,7 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	 */
 	if ((unsigned long)ctl->rstack & (16-1)) {
 		pr_err("BUG: stack is not 16 bytes aligned: %p\n", ctl->rstack);
-		ctl->rstack = (void *)round_down((unsigned long)ctl->rstack, 16);
+		goto err;
 	}
 
 
