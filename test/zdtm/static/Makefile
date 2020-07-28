@@ -313,6 +313,12 @@ TST_FILE	=				\
 		file-validation-buildid01	\
 		file-validation-buildid02	\
 		file-validation-buildid03	\
+		file-validation-chksm00		\
+		file-validation-chksm01		\
+		file-validation-chksm02		\
+		file-validation-chksm03		\
+		file-validation-chksm04		\
+		file-validation-chksm05		\
 
 TST_DIR		=				\
 		cwd00				\
