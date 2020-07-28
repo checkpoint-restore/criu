@@ -232,6 +232,13 @@ TST_NOFILE	:=				\
 		zombie_leader			\
 #		jobctl00			\
 
+pkg-config-check = $(shell sh -c 'pkg-config $(1) && echo y')
+ifeq ($(call pkg-config-check,libbpf),y)
+TST_NOFILE	+=				\
+		bpf_hash			\
+		bpf_array			
+endif
+
 ifneq ($(ARCH),arm)
 ifneq ($(COMPAT_TEST),y)
         TST_NOFILE += maps03
@@ -573,6 +580,9 @@ s390x_regs_check:	LDFLAGS += -pthread
 s390x_gs_threads:	LDFLAGS += -pthread
 
 thread_different_uid_gid:	LDLIBS += -pthread -lcap
+
+bpf_hash:		LDLIBS += -lbpf
+bpf_array:		LDLIBS += -lbpf
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
