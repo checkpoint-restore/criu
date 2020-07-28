@@ -404,6 +404,7 @@ TST_DIR		=				\
 		mntns_pivot_root		\
 		mntns_pivot_root_ro		\
 		mnt_ext_sharing			\
+		mount_complex_sharing		\
 		mnt_tracefs			\
 		mntns_deleted			\
 		unlink_regular00		\
