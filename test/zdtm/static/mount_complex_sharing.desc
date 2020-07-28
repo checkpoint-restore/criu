@@ -1,0 +1,4 @@
+{   'flavor': 'ns uns',
+    'flags': 'suid',
+    'feature': 'move_mount_set_group',
+    'ropts': '--no-mntns-compat-mode'}
