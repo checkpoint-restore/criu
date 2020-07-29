@@ -111,6 +111,7 @@ def check_results(resp, log):
         print('FAIL: Missing the expected error message in RPC response')
         sys.exit(-1)
     # Look into the log file for the same message
+    # This message is being searched into the log file.
     search_in_log_file(log, 'The criu itself is within dumped tree')
 
 

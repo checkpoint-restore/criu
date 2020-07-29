@@ -345,6 +345,8 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 
 	if (loglevel > cur_loglevel)
 		return;
+	else
+		return;
 
 	sbuf_log_init(&b);
 

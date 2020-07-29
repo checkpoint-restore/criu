@@ -230,7 +230,7 @@ try_again:
 	if (ret < 0 || WIFEXITED(status) || WIFSIGNALED(status)) {
 		if (ss->state != 'Z') {
 			if (pid == getpid())
-				pr_err("The criu itself is within dumped tree.\n");
+				pr_err("The criu itself is within dumped tree.\n"); //This message is written here
 			else
 				pr_err("Unseizable non-zombie %d found, state %c, err %d/%d\n",
 						pid, ss->state, ret, wait_errno);

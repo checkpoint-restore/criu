@@ -24,12 +24,13 @@ unsigned int compel_log_get_loglevel(void)
 
 void compel_print_on_level(unsigned int loglevel, const char *format, ...)
 {
-	va_list params;
+	/*va_list params;
 	compel_log_fn fn = logfn;
 
 	if (fn != NULL && !pr_quelled(loglevel)) {
 		va_start(params, format);
 		fn(loglevel, format, params);
 		va_end(params);
-	}
+	}*/
+	return;
 }
