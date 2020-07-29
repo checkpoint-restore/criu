@@ -1,6 +1,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "flog.h"
 #include "types.h"
 #include <compel/asm/processor-flags.h>
 

@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
+#include "flog.h"
 #include "int.h"
 #include "types.h"
 #include "page.h"

@@ -1,4 +1,5 @@
 #include "log.h"
+#include "flog.h"
 #include "asm/restorer.h"
 #include <compel/asm/fpu.h>
 #include "asm/compat.h"

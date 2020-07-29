@@ -20,6 +20,7 @@
 
 #include "linux/userfaultfd.h"
 
+#include "flog.h"
 #include "common/config.h"
 #include "int.h"
 #include "types.h"

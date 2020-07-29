@@ -1,6 +1,7 @@
 #undef	LOG_PREFIX
 #define LOG_PREFIX "cpu: "
 
+#include "flog.h"
 #include <sys/auxv.h>
 #include <errno.h>
 

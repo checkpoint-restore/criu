@@ -8,6 +8,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdarg.h>
+#include "flog.h"
 
 extern void vprint_on_level(unsigned int loglevel, const char *format,
 		va_list params);
@@ -36,21 +37,21 @@ void flush_early_log_buffer(int fd);
 	do {								\
 		static bool __printed;					\
 		if (!__printed) {					\
-			print_on_level(loglevel, fmt, ##__VA_ARGS__);	\
+			flog_encode(loglevel, fmt, ##__VA_ARGS__);	\
 			__printed = 1;					\
 		}							\
 	} while (0)
 
 #define pr_msg(fmt, ...)						\
-	print_on_level(LOG_MSG,						\
+	flog_encode(LOG_MSG,						\
 		       fmt, ##__VA_ARGS__)
 
 #define pr_info(fmt, ...)						\
-	print_on_level(LOG_INFO,					\
+	flog_encode(LOG_INFO,						\
 		       LOG_PREFIX fmt, ##__VA_ARGS__)
 
 #define pr_err(fmt, ...)						\
-	print_on_level(LOG_ERROR,					\
+	flog_encode(LOG_ERROR,						\
 		       "Error (%s:%d): " LOG_PREFIX fmt,		\
 		       __FILE__, __LINE__, ##__VA_ARGS__)
 
@@ -58,7 +59,7 @@ void flush_early_log_buffer(int fd);
 	print_once(LOG_ERROR, fmt, ##__VA_ARGS__)
 
 #define pr_warn(fmt, ...)						\
-	print_on_level(LOG_WARN,					\
+	flog_encode(LOG_WARN,						\
 		       "Warn  (%s:%d): " LOG_PREFIX fmt,		\
 		       __FILE__, __LINE__, ##__VA_ARGS__)
 
@@ -68,7 +69,7 @@ void flush_early_log_buffer(int fd);
 			__FILE__, __LINE__, ##__VA_ARGS__)
 
 #define pr_debug(fmt, ...)						\
-	print_on_level(LOG_DEBUG,					\
+	flog_encode(LOG_DEBUG,						\
 		       LOG_PREFIX fmt, ##__VA_ARGS__)
 
 #ifndef CR_NOGLIBC

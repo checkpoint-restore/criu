@@ -5,6 +5,7 @@
 #include "cr_options.h"
 #include "images/core.pb-c.h"
 #include "log.h"
+#include "flog.h"
 #include "protobuf.h"
 #include "types.h"
 

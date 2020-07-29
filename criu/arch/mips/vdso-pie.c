@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include "asm/types.h"
 
+#include "flog.h"
 #include <compel/plugins/std/string.h>
 #include <compel/plugins/std/syscall.h>
 #include "parasite-vdso.h"

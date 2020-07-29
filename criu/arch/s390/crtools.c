@@ -5,6 +5,7 @@
 #include <asm/unistd.h>
 #include <sys/uio.h>
 
+#include "flog.h"
 #include "types.h"
 #include <compel/asm/fpu.h>
 #include "asm/restorer.h"

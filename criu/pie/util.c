@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
+#include "flog.h"
 #include "int.h"
 #include "types.h"
 #include "common/compiler.h"

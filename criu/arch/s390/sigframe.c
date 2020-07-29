@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include "flog.h"
 #include "asm/sigframe.h"
 #include "asm/types.h"
 

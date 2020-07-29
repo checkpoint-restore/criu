@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
+#include "flog.h"
 #include "image.h"
 #include "util-vdso.h"
 #include "vma.h"

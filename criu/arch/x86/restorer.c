@@ -2,6 +2,7 @@
 #include <unistd.h>
 
 #include "types.h"
+#include "flog.h"
 #include "restorer.h"
 #include "asm/compat.h"
 #include "asm/restorer.h"

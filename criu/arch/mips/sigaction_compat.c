@@ -1,3 +1,4 @@
+#include "flog.h"
 #include "log.h"
 #include "asm/restorer.h"
 #include <compel/asm/fpu.h>

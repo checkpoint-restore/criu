@@ -30,6 +30,7 @@
 #include "sockets.h"
 #include "crtools.h"
 #include "log.h"
+#include "flog.h"
 #include "util-pie.h"
 #include "prctl.h"
 #include "files.h"
@@ -1304,7 +1305,7 @@ static int (*chk_feature)(void);
 			"dump or restore failure."
 #define CHECK_CAT1(fn)	do { \
 				if ((ret = fn) != 0) { \
-					print_on_level(DEFAULT_LOGLEVEL, "%s\n", CHECK_BAD); \
+					flog_encode(DEFAULT_LOGLEVEL, "%s\n", CHECK_BAD); \
 					return ret; \
 				} \
 			} while (0)
@@ -1336,7 +1337,7 @@ int cr_check(void)
 	if (chk_feature) {
 		if (chk_feature())
 			return -1;
-		print_on_level(DEFAULT_LOGLEVEL, "%s is supported\n",
+		flog_encode(DEFAULT_LOGLEVEL, "%s is supported\n",
 			feature_name(chk_feature));
 		return 0;
 	}
@@ -1405,7 +1406,7 @@ int cr_check(void)
 		ret |= check_compat_cr();
 	}
 
-	print_on_level(DEFAULT_LOGLEVEL, "%s\n", ret ? CHECK_MAYBE : CHECK_GOOD);
+	flog_encode(DEFAULT_LOGLEVEL, "%s\n", ret ? CHECK_MAYBE : CHECK_GOOD);
 	return ret;
 }
 #undef CHECK_GOOD

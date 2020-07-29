@@ -1,5 +1,6 @@
 #include <unistd.h>
 
+#include "flog.h"
 #include "types.h"
 #include "restorer.h"
 #include "asm/restorer.h"

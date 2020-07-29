@@ -3824,7 +3824,11 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	__gcov_flush();
 
-	pr_info("task_args: %p\n"
+	/*This message is commented out as
+	it causes a segmentation fault when restore
+	is run while using binary logging*/
+
+	/*pr_info("task_args: %p\n"
 		"task_args->pid: %d\n"
 		"task_args->nr_threads: %d\n"
 		"task_args->clone_restore_fn: %p\n"
@@ -3832,7 +3836,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		task_args, task_args->t->pid,
 		task_args->nr_threads,
 		task_args->clone_restore_fn,
-		task_args->thread_args);
+		task_args->thread_args);*/
 
 	/*
 	 * An indirect call to task_restore, note it never returns

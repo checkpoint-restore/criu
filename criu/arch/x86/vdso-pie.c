@@ -6,6 +6,7 @@
 #include <compel/plugins/std/syscall.h>
 #include "parasite-vdso.h"
 #include "log.h"
+#include "flog.h"
 #include "common/bug.h"
 
 #ifdef LOG_PREFIX

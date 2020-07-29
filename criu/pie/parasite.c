@@ -8,6 +8,7 @@
 #include <sys/ioctl.h>
 #include <sys/uio.h>
 
+#include "flog.h"
 #include "common/config.h"
 #include "int.h"
 #include "types.h"
