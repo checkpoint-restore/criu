@@ -9,7 +9,7 @@
 //#include <ffi.h>
 
 #include "uapi/flog.h"
-#include "util.h"
+#include "flog_util.h"
 
 #define MAGIC 0xABCDABCD
 
@@ -33,9 +33,7 @@ static uint64_t mbuf_size = sizeof(_mbuf);
 	ffi_arg rc;
 	size_t i, ret;
 	char *fmt;
-
 	values[0] = (void *)&fdout;
-
 	while (1) {
 		ret = read(fdin, mbuf, sizeof(m));
 		if (ret == 0)
@@ -57,17 +55,14 @@ static uint64_t mbuf_size = sizeof(_mbuf);
 			fprintf(stderr, "Unable to read a message: %m");
 			return -1;
 		}
-
 		fmt = mbuf + m->fmt;
 		values[1] = &fmt;
-
 		for (i = 0; i < m->nargs; i++) {
 			values[i + 2] = (void *)&m->args[i];
 			if (m->mask & (1u << i)) {
 				m->args[i] = (long)(mbuf + m->args[i]);
 			}
 		}
-
 		if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, m->nargs + 2,
 				 &ffi_type_sint, args) == FFI_OK)
 			ffi_call(&cif, FFI_FN(dprintf), &rc, values);
