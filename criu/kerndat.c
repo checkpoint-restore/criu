@@ -500,10 +500,10 @@ static int kerndat_loginuid(void)
 	 * on that rely dump/restore code.
 	 * See also: marc.info/?l=git-commits-head&m=138509506407067
 	 */
-	if (prepare_loginuid(INVALID_UID, LOG_WARN) < 0)
+	if (prepare_loginuid(INVALID_UID) < 0)
 		return 0;
 	/* Cleaning value back as it was */
-	if (prepare_loginuid(saved_loginuid, LOG_WARN) < 0)
+	if (prepare_loginuid(saved_loginuid) < 0)
 		return 0;
 
 	kdat.luid = LUID_FULL;
