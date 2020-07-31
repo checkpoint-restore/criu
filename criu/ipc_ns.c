@@ -36,9 +36,9 @@
 #define MSG_COPY		040000
 #endif
 
-static void pr_ipc_desc_entry(unsigned int loglevel, const IpcDescEntry *desc)
+static void pr_ipc_desc_entry(const IpcDescEntry *desc)
 {
-	print_on_level(loglevel, "id: %-10d key: %#08x uid: %-10d gid: %-10d "
+	pr_info("id: %-10d key: %#08x uid: %-10d gid: %-10d "
 		       "cuid: %-10d cgid: %-10d mode: %-10o ",
 		       desc->id, desc->key, desc->uid, desc->gid,
 		       desc->cuid, desc->cgid, desc->mode);
@@ -55,19 +55,19 @@ static void fill_ipc_desc(int id, IpcDescEntry *desc, const struct ipc_perm *ipc
 	desc->mode = ipcp->mode;
 }
 
-static void pr_ipc_sem_array(unsigned int loglevel, int nr, u16 *values)
+static void pr_ipc_sem_array(int nr, u16 *values)
 {
 	while (nr--)
-		print_on_level(loglevel, "  %-5d", values[nr]);
-	print_on_level(loglevel, "\n");
+		pr_info("  %-5d", values[nr]);
+	pr_info("\n");
 }
 
-#define pr_info_ipc_sem_array(nr, values)	pr_ipc_sem_array(LOG_INFO, nr, values)
+#define pr_info_ipc_sem_array(nr, values)	pr_ipc_sem_array(nr, values)
 
 static void pr_info_ipc_sem_entry(const IpcSemEntry *sem)
 {
-	pr_ipc_desc_entry(LOG_INFO, sem->desc);
-	print_on_level(LOG_INFO, "nsems: %-10d\n", sem->nsems);
+	pr_ipc_desc_entry(sem->desc);
+	pr_info("nsems: %-10d\n", sem->nsems);
 }
 
 static int dump_ipc_sem_set(struct cr_img *img, const IpcSemEntry *sem)
@@ -160,15 +160,14 @@ static int dump_ipc_sem(struct cr_img *img)
 
 static void pr_info_ipc_msg(int nr, const IpcMsg *msg)
 {
-	print_on_level(LOG_INFO, "  %-5d: type: %-20"PRId64" size: %-10d\n",
+	pr_info("  %-5d: type: %-20"PRId64" size: %-10d\n",
 		       nr++, msg->mtype, msg->msize);
 }
 
 static void pr_info_ipc_msg_entry(const IpcMsgEntry *msg)
 {
-	pr_ipc_desc_entry(LOG_INFO, msg->desc);
-	print_on_level(LOG_INFO, "qbytes: %-10d qnum: %-10d\n",
-		       msg->qbytes, msg->qnum);
+	pr_ipc_desc_entry(msg->desc);
+	pr_info("qbytes: %-10d qnum: %-10d\n", msg->qbytes, msg->qnum);
 }
 
 static int dump_ipc_msg_queue_messages(struct cr_img *img, const IpcMsgEntry *msq,
@@ -287,8 +286,8 @@ static int dump_ipc_msg(struct cr_img *img)
 
 static void pr_info_ipc_shm(const IpcShmEntry *shm)
 {
-	pr_ipc_desc_entry(LOG_INFO, shm->desc);
-	print_on_level(LOG_INFO, "size: %-10"PRIu64"\n", shm->size);
+	pr_ipc_desc_entry(shm->desc);
+	pr_info("size: %-10"PRIu64"\n", shm->size);
 }
 
 #define NR_MANDATORY_IPC_SYSCTLS 9
