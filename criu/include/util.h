@@ -39,17 +39,17 @@ struct list_head;
 
 extern int service_fd_rlim_cur;
 
-extern void pr_vma(unsigned int loglevel, const struct vma_area *vma_area);
+extern void pr_vma(const struct vma_area *vma_area);
 
-#define pr_info_vma(vma_area)	pr_vma(LOG_INFO, vma_area)
+#define pr_info_vma(vma_area)	pr_vma(vma_area)
 
-#define pr_vma_list(level, head)				\
+#define pr_vma_list(head)					\
 	do {							\
 		struct vma_area *vma;				\
 		list_for_each_entry(vma, head, list)		\
-			pr_vma(level, vma);			\
+			pr_vma(vma);				\
 	} while (0)
-#define pr_info_vma_list(head)	pr_vma_list(LOG_INFO, head)
+#define pr_info_vma_list(head)	pr_vma_list(head)
 
 extern int move_fd_from(int *img_fd, int want_fd);
 extern int close_safe(int *fd);
