@@ -34,6 +34,7 @@
 #define EARLY_LOG_BUF_LEN	1024
 
 static unsigned int current_loglevel = DEFAULT_LOGLEVEL;
+static void vprint_on_level(unsigned int, const char *, va_list);
 
 static char buffer[LOG_BUF_LEN];
 static char buf_off = 0;
@@ -350,7 +351,7 @@ static void early_vprint(const char *format, unsigned int loglevel, va_list para
 	early_log_buf_off += log_size;
 }
 
-void vprint_on_level(unsigned int loglevel, const char *format, va_list params)
+static void vprint_on_level(unsigned int loglevel, const char *format, va_list params)
 {
 	int fd, size, ret, off = 0;
 	int _errno = errno;

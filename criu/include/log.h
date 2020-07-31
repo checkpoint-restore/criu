@@ -9,9 +9,6 @@
 #include <errno.h>
 #include <stdarg.h>
 
-extern void vprint_on_level(unsigned int loglevel, const char *format,
-		va_list params);
-
 #endif /* CR_NOGLIBC */
 
 #define LOG_UNSET	(-1)
