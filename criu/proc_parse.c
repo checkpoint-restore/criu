@@ -944,7 +944,7 @@ err:
 	return -1;
 }
 
-int prepare_loginuid(unsigned int value, unsigned int loglevel)
+int prepare_loginuid(unsigned int value)
 {
 	int fd, ret = 0;
 	char buf[11]; /* 4294967295 is maximum for u32 */
@@ -956,8 +956,7 @@ int prepare_loginuid(unsigned int value, unsigned int loglevel)
 	snprintf(buf, 11, "%u", value);
 
 	if (write(fd, buf, 11) < 0) {
-		print_on_level(loglevel,
-			"Write %s to /proc/self/loginuid failed: %s\n",
+		pr_warn("Write %s to /proc/self/loginuid failed: %s\n",
 			buf, strerror(errno));
 		ret = -1;
 	}

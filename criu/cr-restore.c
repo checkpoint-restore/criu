@@ -864,9 +864,11 @@ static int prepare_proc_misc(pid_t pid, TaskCoreEntry *tc, struct task_restore_a
 	/* loginuid value is critical to restore */
 	if (kdat.luid == LUID_FULL && tc->has_loginuid &&
 			tc->loginuid != INVALID_UID) {
-		ret = prepare_loginuid(tc->loginuid, LOG_ERROR);
-		if (ret < 0)
+		ret = prepare_loginuid(tc->loginuid);
+		if (ret < 0) {
+			pr_err("Setting loginuid for %d task failed\n", pid);
 			return ret;
+		}
 	}
 
 	/* oom_score_adj is not critical: only log errors */
@@ -2152,7 +2154,7 @@ static int prepare_userns_hook(void)
 	if (ret < 0)
 		return -1;
 
-	if (prepare_loginuid(INVALID_UID, LOG_ERROR) < 0) {
+	if (prepare_loginuid(INVALID_UID) < 0) {
 		pr_err("Setting loginuid for CT init task failed, CAP_AUDIT_CONTROL?\n");
 		return -1;
 	}
@@ -2165,7 +2167,7 @@ static void restore_origin_ns_hook(void)
 		return;
 
 	/* not critical: it does not affect CT in any way */
-	if (prepare_loginuid(saved_loginuid, LOG_ERROR) < 0)
+	if (prepare_loginuid(saved_loginuid) < 0)
 		pr_err("Restore original /proc/self/loginuid failed\n");
 }
 
