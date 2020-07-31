@@ -1304,7 +1304,7 @@ static int (*chk_feature)(void);
 			"dump or restore failure."
 #define CHECK_CAT1(fn)	do { \
 				if ((ret = fn) != 0) { \
-					print_on_level(DEFAULT_LOGLEVEL, "%s\n", CHECK_BAD); \
+					pr_warn("%s\n", CHECK_BAD); \
 					return ret; \
 				} \
 			} while (0)
@@ -1336,8 +1336,7 @@ int cr_check(void)
 	if (chk_feature) {
 		if (chk_feature())
 			return -1;
-		print_on_level(DEFAULT_LOGLEVEL, "%s is supported\n",
-			feature_name(chk_feature));
+		pr_msg("%s is supported\n", feature_name(chk_feature));
 		return 0;
 	}
 
@@ -1405,7 +1404,7 @@ int cr_check(void)
 		ret |= check_compat_cr();
 	}
 
-	print_on_level(DEFAULT_LOGLEVEL, "%s\n", ret ? CHECK_MAYBE : CHECK_GOOD);
+	pr_msg("%s\n", ret ? CHECK_MAYBE : CHECK_GOOD);
 	return ret;
 }
 #undef CHECK_GOOD
