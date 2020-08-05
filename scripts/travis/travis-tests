@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -x -e
 
 TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev python-future
@@ -19,6 +19,27 @@ if [ "$UNAME_M" != "x86_64" ]; then
 	SKIP_TRAVIS_TEST=1
 fi
 
+install_retry_counter=0
+max_apt_retries=5
+
+# This function loops a couple of times over apt-get, hoping to
+# avoid CI errors due to errors during apt-get
+# hashsum mismatches, DNS errors and similar things
+apt_install () {
+	while true; do
+		let install_retry_counter+=1
+		if [ $install_retry_counter -gt $max_apt_retries ]; then
+			exit 1
+		fi
+		apt-get clean -qqy || continue
+		apt-get update -qqy || continue
+		apt-get install -qqy --no-install-recommends $@ && break
+
+		# In case it is a network error let's wait a bit.
+		sleep $install_retry_counter
+	done
+}
+
 travis_prep () {
 	[ -n "$SKIP_TRAVIS_PREP" ] && return
 
@@ -36,8 +57,7 @@ travis_prep () {
 
 	[ -n "$GCOV" ] && {
 		apt-add-repository -y "ppa:ubuntu-toolchain-r/test"
-		apt-get update -yq
-		apt-get -yq --no-install-suggests --no-install-recommends --force-yes install g++-7
+		apt_install --no-install-suggests g++-7
 		CC=gcc-7
 	}
 
@@ -56,8 +76,7 @@ travis_prep () {
 		TRAVIS_PKGS="$TRAVIS_PKGS $X86_64_PKGS"
 	fi
 
-	apt-get update -qq
-	apt-get install -qq --no-install-recommends $TRAVIS_PKGS
+	apt_install $TRAVIS_PKGS
 	chmod a+x $HOME
 }
 
@@ -111,7 +130,7 @@ if [ "${COMPAT_TEST}x" = "yx" ] ; then
 		IA32_PKGS="$IA32_PKGS $i:i386"
 	done
 	apt-get remove $INCOMPATIBLE_LIBS
-	apt-get install --no-install-recommends $IA32_PKGS
+	apt_install $IA32_PKGS
 	mkdir -p /usr/lib/x86_64-linux-gnu/
 	mv "$REFUGE"/* /usr/lib/x86_64-linux-gnu/
 fi
