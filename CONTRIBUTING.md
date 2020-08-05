@@ -124,6 +124,8 @@ If your change address an issue listed in GitHub, please use `Fixes:` tag with t
 	Fixes: #339
 ```
 
+The `Fixes:` tags should be put at the end of the detailed description.
+
 You may refer to [How to Write a Git Commit
 Message](https://chris.beams.io/posts/git-commit/) article for
 recommendations for good commit message.
