@@ -4,18 +4,17 @@ libprotobuf-dev
 libprotobuf-c-dev
 protobuf-c-compiler
 protobuf-compiler
-python-protobuf
+python3-protobuf
 libnet-dev
 
 # Extra packages, required for testing and building other tools
 pkg-config
 libnl-3-dev
-python-ipaddr
 libbsd0
 libbsd-dev
 iproute2
 libcap-dev
 libaio-dev
-python-yaml
+python3-yaml
 libnl-route-3-dev
 python-future

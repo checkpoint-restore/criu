@@ -14,21 +14,19 @@ REQ-DEB-PKG-NAMES	+= libprotobuf-dev
 REQ-DEB-PKG-NAMES	+= libprotobuf-c-dev
 REQ-DEB-PKG-NAMES	+= protobuf-c-compiler
 REQ-DEB-PKG-NAMES	+= protobuf-compiler
-REQ-DEB-PKG-NAMES	+= python-protobuf
+REQ-DEB-PKG-NAMES	+= $(PYTHON)-protobuf
+REQ-DEB-PKG-NAMES	+= $(PYTHON)-future
 REQ-DEB-PKG-NAMES	+= libnl-3-dev
 REQ-DEB-PKG-NAMES	+= libcap-dev
 
-REQ-DEB-PKG-TEST-NAMES	+= python-yaml
+REQ-DEB-PKG-TEST-NAMES	+= $(PYTHON)-yaml
 REQ-DEB-PKG-TEST-NAMES	+= libaio-dev
 
 ifeq ($(PYTHON),python3)
-REQ-DEB-PKG-NAMES	+= $(PYTHON)-future
 REQ-DEB-PKG-TEST-NAMES	+= libaio-dev
 
 REQ-RPM-PKG-TEST-NAMES	+= $(PYTHON)-PyYAML
 else
-REQ-DEB-PKG-NAMES	+= python-future
-
 REQ-RPM-PKG-TEST-NAMES	+= $(PYTHON)-pyyaml
 endif
 
