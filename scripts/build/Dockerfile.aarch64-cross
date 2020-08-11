@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
 	libssl-dev:arm64		\
 	protobuf-c-compiler		\
 	protobuf-compiler		\
-	python-protobuf			\
+	python3-protobuf			\
 	libnl-3-dev:arm64		\
 	libprotobuf-dev:arm64		\
 	libnet-dev:arm64		\
