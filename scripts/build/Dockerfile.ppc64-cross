@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
 	libssl-dev:ppc64el		\
 	protobuf-c-compiler		\
 	protobuf-compiler		\
-	python-protobuf			\
+	python3-protobuf			\
 	libnl-3-dev:ppc64el		\
 	libprotobuf-dev:ppc64el		\
 	libnet-dev:ppc64el		\
