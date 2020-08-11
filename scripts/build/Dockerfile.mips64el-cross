@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 	libssl-dev:mips64el		\
 	protobuf-c-compiler		\
 	protobuf-compiler		\
-	python-protobuf			\
+	python3-protobuf			\
 	libnl-3-dev:mips64el		\
 	libprotobuf-dev:mips64el		\
 	libnet-dev:mips64el		\

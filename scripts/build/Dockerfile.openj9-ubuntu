@@ -3,15 +3,15 @@ FROM adoptopenjdk/openjdk8-openj9:latest
 RUN apt-get update && apt-get install -y --no-install-recommends protobuf-c-compiler \
 	libprotobuf-c-dev \
 	libaio-dev \
-	python-future \
+	python3-future \
 	libprotobuf-dev \
 	protobuf-compiler \
 	libcap-dev \
 	libnl-3-dev \
 	gdb \
 	bash \
-	python-protobuf \
-	python-yaml \
+	python3-protobuf \
+	python3-yaml \
 	libnet-dev \
 	libnl-route-3-dev \
 	libbsd-dev \

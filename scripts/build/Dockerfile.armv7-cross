@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 	libssl-dev:armhf		\
 	protobuf-c-compiler		\
 	protobuf-compiler		\
-	python-protobuf			\
+	python3-protobuf			\
 	libnl-3-dev:armhf		\
 	libprotobuf-dev:armhf		\
 	libnet-dev:armhf		\
