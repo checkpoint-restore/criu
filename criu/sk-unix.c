@@ -472,7 +472,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 			 * to check both ends on read()/write(). Thus mismatched sockets behave
 			 * the same way as matched.
 			 */
-			pr_warn("Shutdown mismatch %d:%d -> %d:%d\n",
+			pr_warn("Shutdown mismatch %u:%d -> %u:%d\n",
 					ue->ino, ue->shutdown, peer->sd.ino, peer->shutdown);
 		}
 	} else if (ue->state == TCP_ESTABLISHED) {
@@ -947,7 +947,7 @@ void init_sk_info_hash(void)
 		INIT_HLIST_HEAD(&sk_info_hash[i]);
 }
 
-static struct unix_sk_info *find_unix_sk_by_ino(int ino)
+static struct unix_sk_info *find_unix_sk_by_ino(unsigned int ino)
 {
 	struct unix_sk_info *ui;
 	struct hlist_head *chain;
@@ -1145,7 +1145,7 @@ static int shutdown_unix_sk(int sk, struct unix_sk_info *ui)
 		return -1;
 	}
 
-	pr_debug("Socket %d is shut down %d\n", ue->ino, how);
+	pr_debug("Socket %u is shut down %d\n", ue->ino, how);
 	return 0;
 }
 
@@ -1825,13 +1825,13 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		int ret, sks[2];
 
 		if (ui->ue->type != SOCK_STREAM) {
-			pr_err("Non-stream socket %d in established state\n",
+			pr_err("Non-stream socket %u in established state\n",
 					ui->ue->ino);
 			return -1;
 		}
 
 		if (ui->ue->shutdown != SK_SHUTDOWN__BOTH) {
-			pr_err("Wrong shutdown/peer state for %d\n",
+			pr_err("Wrong shutdown/peer state for %u\n",
 					ui->ue->ino);
 			return -1;
 		}
@@ -1909,7 +1909,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 	}
 
 	if (ui->ue->state == TCP_LISTEN) {
-		pr_info("\tPutting %d into listen state\n", ui->ue->ino);
+		pr_info("\tPutting %u into listen state\n", ui->ue->ino);
 		if (listen(sk, ui->ue->backlog) < 0) {
 			pr_perror("Can't make usk listen");
 			close(sk);
@@ -2267,7 +2267,7 @@ static int fixup_unix_peer(struct unix_sk_info *ui)
 	struct unix_sk_info *peer = ui->peer;
 
 	if (!peer) {
-		pr_err("FATAL: Peer %d unresolved for %d\n",
+		pr_err("FATAL: Peer %u unresolved for %u\n",
 				ui->ue->peer, ui->ue->ino);
 		return -1;
 	}

@@ -116,7 +116,7 @@ static void show_one_inet_img(const char *act, const InetSkEntry *e)
 		src_addr);
 }
 
-static int can_dump_ipproto(int ino, int proto, int type)
+static int can_dump_ipproto(unsigned int ino, int proto, int type)
 {
 	/* Raw sockets may have any protocol inside */
 	if (type == SOCK_RAW)
