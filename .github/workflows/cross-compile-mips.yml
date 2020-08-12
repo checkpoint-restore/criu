@@ -1,8 +1,10 @@
-name: Daily Cross Compile Tests
+name: Cross Compile Tests
 
 on:
-  schedule:
-    - cron:  '30 * * * *'
+  push:
+    branches: [criu-dev]
+  pull_request:
+    branches: [criu-dev]
 
 jobs:
   build:
@@ -10,13 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [armv7-cross, aarch64-cross, ppc64-cross]
-        branches: [criu-dev, master]
+        target: [mips64el-cross]
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        ref: ${{ matrix.branches }}
     - name: Run Cross Compilation Targets
       run: >
         sudo make -C scripts/travis ${{ matrix.target }}
