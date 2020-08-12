@@ -10,8 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [armv7-cross, aarch64-cross, ppc64-cross]
-        branches: [criu-dev, master]
+        target: [mips64el-cross]
+        branches: [criu-dev]
 
     steps:
     - uses: actions/checkout@v2
