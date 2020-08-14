@@ -20,7 +20,7 @@ setup() {
 	wget https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}_"$(uname -m)".deb -O /tmp/vagrant.deb && \
 		dpkg -i /tmp/vagrant.deb
 
-	apt-get -qq install -y libvirt-bin libvirt-dev qemu-utils qemu
+	./apt-install libvirt-bin libvirt-dev qemu-utils qemu
 	systemctl restart libvirt-bin
 	vagrant plugin install vagrant-libvirt
 	vagrant init fedora/${FEDORA_VERSION}-cloud-base --box-version ${FEDORA_BOX_VERSION}

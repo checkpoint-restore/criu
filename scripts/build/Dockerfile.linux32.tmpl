@@ -1,7 +1,9 @@
 ARG CC=gcc
 ARG ENV1=FOOBAR
 
-RUN apt-get update && apt-get install -y \
+COPY scripts/travis/apt-install /bin/apt-install
+
+RUN apt-install \
 	ccache \
 	libnet-dev \
 	libnl-route-3-dev \
