@@ -9,14 +9,13 @@ wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:st
 # this is a podman packaging bug (https://github.com/containers/libpod/issues/4747)
 apt-get -y purge docker-ce
 
-apt-get install -qq \
+./apt-install \
     apt-transport-https \
     ca-certificates \
     curl \
     software-properties-common
 
-apt-get update -qq
-apt-get install -qqy podman containernetworking-plugins
+./apt-install podman containernetworking-plugins
 
 export SKIP_TRAVIS_TEST=1
 

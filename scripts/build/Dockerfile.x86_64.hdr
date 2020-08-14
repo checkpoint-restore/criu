@@ -1,4 +1,5 @@
 FROM ubuntu:xenial
 
-RUN apt-get update -qq && apt-get install -qq \
-                gcc-multilib
+COPY scripts/travis/apt-install /bin/apt-install
+
+RUN apt-install gcc-multilib

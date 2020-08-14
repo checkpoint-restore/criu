@@ -1,11 +1,13 @@
 FROM dockcross/base:latest
 
+COPY scripts/travis/apt-install /bin/apt-install
+
 # Add the cross compiler sources
 RUN echo "deb http://ftp.us.debian.org/debian/ buster main" >> /etc/apt/sources.list && \
   dpkg --add-architecture armhf && \
-  apt-get install emdebian-archive-keyring
+  apt-install emdebian-archive-keyring
 
-RUN apt-get update && apt-get install -y \
+RUN apt-install \
 	crossbuild-essential-armhf	\
 	libbz2-dev:armhf		\
 	libexpat1-dev:armhf		\
