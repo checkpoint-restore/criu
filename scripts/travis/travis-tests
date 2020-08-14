@@ -59,6 +59,11 @@ travis_prep () {
 
 	cd ../../
 
+	# At least one of the test cases run by this script (others/rpc)
+	# expects a user with the ID 1000. sudo from 20.04 (focal) does
+	# not run anymore with 'sudo -u \#1000' if the UID does not exist.
+	adduser -u 1000 --disabled-password --gecos "criutest" criutest || :
+
 	# This can fail on aarch64 travis
 	service apport stop || :
 
@@ -201,7 +206,7 @@ LAZY_EXCLUDE="$LAZY_EXCLUDE -x maps04"
 # we cannot run lazy-pages tests in uns
 LAZY_FLAVORS=""
 if [ $KERN_MAJ -ge "5" ] && [ $KERN_MIN -ge "4" ]; then
-    LAZY_FLAVORS = "-f h,ns"
+    LAZY_FLAVORS="-f h,ns"
 fi
 
 LAZY_TESTS=.*\(maps0\|uffd-events\|lazy-thp\|futex\|fork\).*
