@@ -1,7 +1,7 @@
 #!/bin/bash
 set -x -e -o pipefail
 
-apt-get install -qq \
+./apt-install \
     apt-transport-https \
     ca-certificates \
     curl \
@@ -14,10 +14,7 @@ add-apt-repository \
    $(lsb_release -cs) \
    stable test"
 
-
-apt-get update -qq
-
-apt-get install -qq docker-ce
+./apt-install docker-ce
 
 . /etc/lsb-release
 

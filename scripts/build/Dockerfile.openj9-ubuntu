@@ -1,6 +1,8 @@
 FROM adoptopenjdk/openjdk8-openj9:latest
 
-RUN apt-get update && apt-get install -y --no-install-recommends protobuf-c-compiler \
+COPY scripts/travis/apt-install /bin/apt-install
+
+RUN apt-install protobuf-c-compiler \
 	libprotobuf-c-dev \
 	libaio-dev \
 	python-future \
