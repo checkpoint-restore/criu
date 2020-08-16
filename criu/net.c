@@ -2962,7 +2962,7 @@ static int prep_ns_sockets(struct ns_id *ns, bool for_dump)
 {
 	int nsret = -1, ret;
 #ifdef CONFIG_HAS_SELINUX
-	security_context_t ctx;
+	char *ctx;
 #endif
 
 	if (ns->type != NS_CRIU) {
