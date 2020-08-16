@@ -64,7 +64,7 @@ static int apparmor_get_label(pid_t pid, char **profile_name)
 #ifdef CONFIG_HAS_SELINUX
 static int selinux_get_label(pid_t pid, char **output)
 {
-	security_context_t ctx;
+	char *ctx;
 	char *pos;
 	int i;
 	int ret = -1;
