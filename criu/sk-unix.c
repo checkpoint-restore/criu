@@ -595,12 +595,14 @@ static int unix_resolve_name_old(int lfd, uint32_t id, struct unix_sk_desc *d, U
 	else
 		ns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
 	if (!ns) {
+		pr_err("Failed to lookup ns by mnt id %d\n", ue->mnt_id);
 		ret = -ENOENT;
 		goto out;
 	}
 
 	mntns_root = mntns_get_root_fd(ns);
 	if (mntns_root < 0) {
+		pr_err("Failed to lookup mntns root for ns %d\n", ns->id);
 		ret = -ENOENT;
 		goto out;
 	}
