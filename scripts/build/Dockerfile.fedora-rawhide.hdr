@@ -1,1 +1,1 @@
-FROM fedora:rawhide
+FROM registry.fedoraproject.org/fedora:rawhide
