@@ -205,6 +205,15 @@ static int toff_cmp(const void *a, const void *b)
 	return 0;
 }
 
+static int toff_cmp_idx(const void *a, const void *b)
+{
+	if (((toff_t *)a)[0].idx > ((toff_t *)b)[0].idx)
+		return 1;
+	if (((toff_t *)a)[0].idx < ((toff_t *)b)[0].idx)
+		return -1;
+	return 0;
+}
+
 /*
  * fds in fd_parms are sorted so we can use binary search
  * for better performance.
@@ -300,6 +309,8 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 			} else
 				toff_base = NULL;
 		}
+
+		qsort(toff, e->n_tfd, sizeof(*toff), toff_cmp_idx);
 	}
 
 	/*
