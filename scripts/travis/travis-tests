@@ -202,15 +202,8 @@ else
 fi
 LAZY_EXCLUDE="$LAZY_EXCLUDE -x maps04"
 
-# Starting with 5.4 kernel requires SYS_CAP_PTRACE to use uffd events; as such
-# we cannot run lazy-pages tests in uns
-LAZY_FLAVORS=""
-if [ $KERN_MAJ -ge "5" ] && [ $KERN_MIN -ge "4" ]; then
-    LAZY_FLAVORS="-f h,ns"
-fi
-
 LAZY_TESTS=.*\(maps0\|uffd-events\|lazy-thp\|futex\|fork\).*
-LAZY_OPTS="-p 2 -T $LAZY_TESTS $LAZY_EXCLUDE $LAZY_FLAVORS $ZDTM_OPTS"
+LAZY_OPTS="-p 2 -T $LAZY_TESTS $LAZY_EXCLUDE $ZDTM_OPTS"
 
 ./test/zdtm.py run $LAZY_OPTS --lazy-pages
 ./test/zdtm.py run $LAZY_OPTS --remote-lazy-pages
