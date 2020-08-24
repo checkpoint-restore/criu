@@ -126,6 +126,7 @@ TST_NOFILE	:=				\
 		proc-self			\
 		eventfs00			\
 		epoll				\
+		epoll01				\
 		signalfd00			\
 		inotify_irmap			\
 		fanotify00			\
