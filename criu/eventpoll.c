@@ -256,7 +256,7 @@ static int find_tfd_bsearch(pid_t pid, int efd, int fds[], size_t nr_fds,
 
 static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 {
-	toff_t *toff_base, *toff = NULL;
+	toff_t *toff = NULL;
 	EventpollFileEntry *e = NULL;
 	FileEntry *fe = NULL;
 	int ret = -1;
@@ -300,15 +300,9 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 
 		qsort(toff, e->n_tfd, sizeof(*toff), toff_cmp);
 
-		toff_base = NULL;
-		for (i = 1; i < e->n_tfd; i++) {
-			if (toff[i].tfd == toff[i - 1].tfd) {
-				if (!toff_base)
-					toff_base = &toff[i - 1];
-				toff[i].off = toff[i].idx - toff_base->idx;
-			} else
-				toff_base = NULL;
-		}
+		for (i = 1; i < e->n_tfd; i++)
+			if (toff[i].tfd == toff[i - 1].tfd)
+				toff[i].off = toff[i - 1].off + 1;
 
 		qsort(toff, e->n_tfd, sizeof(*toff), toff_cmp_idx);
 	}
