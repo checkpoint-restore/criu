@@ -52,5 +52,6 @@ extern void cnt_sub(int c, unsigned long val);
 
 extern int init_stats(int what);
 extern void write_stats(int what);
+extern bool stats_initialized(void);
 
 #endif /* __CR_STATS_H__ */

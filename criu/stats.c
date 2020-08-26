@@ -228,3 +228,8 @@ int init_stats(int what)
 	rstats = shmalloc(sizeof(struct restore_stats));
 	return rstats ? 0 : -1;
 }
+
+bool stats_initialized(void)
+{
+	return dstats || rstats;
+}

@@ -1753,7 +1753,10 @@ static int cr_dump_finish(int ret)
 	pstree_switch_state(root_item,
 			    (ret || post_dump_ret) ?
 			    TASK_ALIVE : opts.final_state);
-	timing_stop(TIME_FROZEN);
+
+	if (stats_initialized())
+		timing_stop(TIME_FROZEN);
+
 	free_pstree(root_item);
 	seccomp_free_entries();
 	free_file_locks();
