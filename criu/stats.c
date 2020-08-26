@@ -102,6 +102,10 @@ void timing_stop(int t)
 	struct timing *tm;
 	struct timeval now;
 
+	/* stats haven't been initialized. */
+	if (!dstats && !rstats)
+		return;
+
 	tm = get_timing(t);
 	gettimeofday(&now, NULL);
 	timeval_accumulate(&tm->start, &now, &tm->total);
