@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "/protobindings";
+
 message file_lock_entry {
     required uint32	flag  = 1;
     required uint32	type  = 2;

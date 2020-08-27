@@ -19,6 +19,8 @@ import "tty.proto";
 import "memfd.proto";
 import "bpfmap-file.proto";
 
+option go_package = "/protobindings";
+
 enum fd_types {
 	UND		= 0;
 	REG		= 1;

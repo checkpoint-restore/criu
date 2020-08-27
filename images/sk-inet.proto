@@ -4,6 +4,8 @@ import "opts.proto";
 import "fown.proto";
 import "sk-opts.proto";
 
+option go_package = "/protobindings";
+
 message ip_opts_raw_entry {
 	optional bool			hdrincl		= 1;
 	optional bool			nodefrag	= 2;

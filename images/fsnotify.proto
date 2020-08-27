@@ -4,6 +4,8 @@ import "opts.proto";
 import "fh.proto";
 import "fown.proto";
 
+option go_package = "/protobindings";
+
 message inotify_wd_entry {
 	required uint32		id		= 1;
 	required uint64		i_ino		= 2;

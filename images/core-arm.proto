@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "opts.proto";
 
+option go_package = "/protobindings";
+
 message user_arm_regs_entry {
 	required uint32 r0      = 1;
 	required uint32 r1      = 2;

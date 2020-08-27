@@ -12,13 +12,8 @@ env:
   - TR_ARCH=x86_64
   - TR_ARCH=x86_64      CLANG=1
   - TR_ARCH=openj9-test
-  - TR_ARCH=vagrant-fedora-no-vdso
 jobs:
   include:
-    - os: linux
-      arch: amd64
-      env: TR_ARCH=local
-      dist: focal
     - os: linux
       arch: ppc64le
       env: TR_ARCH=local
@@ -87,7 +82,6 @@ jobs:
       arch: amd64
       env: TR_ARCH=fedora-asan
       dist: bionic
-    - env: TR_ARCH=local STREAM_TEST=1
   allow_failures:
     - env: TR_ARCH=docker-test
     - env: TR_ARCH=docker-test DIST=xenial

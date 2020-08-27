@@ -45,7 +45,6 @@
 #include "pstree.h"
 
 #include "cr-errno.h"
-#include "action-scripts.h"
 
 #define VMA_OPT_LEN	128
 
@@ -191,7 +190,7 @@ static void vma_opt_str(const struct vma_area *v, char *opt)
 #undef opt2s
 }
 
-void pr_vma(const struct vma_area *vma_area)
+void pr_vma(unsigned int loglevel, const struct vma_area *vma_area)
 {
 	char opt[VMA_OPT_LEN];
 	memset(opt, 0, VMA_OPT_LEN);
@@ -200,7 +199,7 @@ void pr_vma(const struct vma_area *vma_area)
 		return;
 
 	vma_opt_str(vma_area, opt);
-	pr_info("%#"PRIx64"-%#"PRIx64" (%"PRIi64"K) prot %#x flags %#x fdflags %#o st %#x off %#"PRIx64" "
+	print_on_level(loglevel, "%#"PRIx64"-%#"PRIx64" (%"PRIi64"K) prot %#x flags %#x fdflags %#o st %#x off %#"PRIx64" "
 			"%s shmid: %#"PRIx64"\n",
 			vma_area->e->start, vma_area->e->end,
 			KBYTES(vma_area_len(vma_area)),
@@ -423,35 +422,52 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 {
 	ssize_t written = 0;
 	size_t chunk = bytes ? bytes : 4096;
+	char *buffer;
 	ssize_t ret;
 
+	buffer = xmalloc(chunk);
+	if (buffer == NULL) {
+		pr_perror("failed to allocate buffer to copy file");
+		return -1;
+	}
+
 	while (1) {
-		/*
-		 * When fd_out is a pipe, sendfile() returns -EINVAL, so we
-		 * fallback to splice(). Not sure why.
-		 */
-		if (opts.stream)
-			ret = splice(fd_in, NULL, fd_out, NULL, chunk, SPLICE_F_MOVE);
-		else
+		if (opts.remote) {
+			ret = read(fd_in, buffer, chunk);
+			if (ret < 0) {
+				pr_perror("Can't read from fd_in\n");
+				ret = -1;
+				goto err;
+			}
+			if (write(fd_out, buffer, ret) != ret) {
+				pr_perror("Couldn't write all read bytes\n");
+				ret = -1;
+				goto err;
+			}
+		} else
 			ret = sendfile(fd_out, fd_in, NULL, chunk);
+
 		if (ret < 0) {
-			pr_perror("Can't transfer data to ghost file from image");
-			return -1;
+			pr_perror("Can't send data to ghost file");
+			ret = -1;
+			goto err;
 		}
 
 		if (ret == 0) {
 			if (bytes && (written != bytes)) {
 				pr_err("Ghost file size mismatch %zu/%zu\n",
 						written, bytes);
-				return -1;
+				ret = -1;
+				goto err;
 			}
 			break;
 		}
 
 		written += ret;
 	}
-
-	return 0;
+err:
+	xfree(buffer);
+	return ret;
 }
 
 int read_fd_link(int lfd, char *buf, size_t size)
@@ -644,12 +660,9 @@ out:
 	return ret;
 }
 
-int status_ready(void)
+int close_status_fd(void)
 {
 	char c = 0;
-
-	if (run_scripts(ACT_STATUS_READY))
-		return -1;
 
 	if (opts.status_fd < 0)
 		return 0;
@@ -997,13 +1010,12 @@ void tcp_nodelay(int sk, bool on)
 		pr_perror("Unable to restore TCP_NODELAY (%d)", val);
 }
 
-static int get_sockaddr_in(struct sockaddr_storage *addr, char *host,
-			unsigned short port)
+static int get_sockaddr_in(struct sockaddr_storage *addr, char *host)
 {
 	memset(addr, 0, sizeof(*addr));
 
 	if (!host) {
-		((struct sockaddr_in *)addr)->sin_addr.s_addr = INADDR_ANY;
+ 		((struct sockaddr_in *)addr)->sin_addr.s_addr = INADDR_ANY;
 		addr->ss_family = AF_INET;
 	} else if (inet_pton(AF_INET, host, &((struct sockaddr_in *)addr)->sin_addr)) {
 		addr->ss_family = AF_INET;
@@ -1016,26 +1028,26 @@ static int get_sockaddr_in(struct sockaddr_storage *addr, char *host,
 	}
 
 	if (addr->ss_family == AF_INET6) {
-		((struct sockaddr_in6 *)addr)->sin6_port = htons(port);
+		((struct sockaddr_in6 *)addr)->sin6_port = htons(opts.port);
 	} else if (addr->ss_family == AF_INET) {
-		((struct sockaddr_in *)addr)->sin_port = htons(port);
+		((struct sockaddr_in *)addr)->sin_port = htons(opts.port);
 	}
 
 	return 0;
 }
 
-int setup_tcp_server(char *type, char *addr, unsigned short *port)
+int setup_tcp_server(char *type)
 {
 	int sk = -1;
 	int sockopt = 1;
 	struct sockaddr_storage saddr;
 	socklen_t slen = sizeof(saddr);
 
-	if (get_sockaddr_in(&saddr, addr, (*port))) {
+	if (get_sockaddr_in(&saddr, opts.addr)) {
 		return -1;
 	}
 
-	pr_info("Starting %s server on port %u\n", type, *port);
+	pr_info("Starting %s server on port %u\n", type, opts.port);
 
 	sk = socket(saddr.ss_family, SOCK_STREAM, IPPROTO_TCP);
 
@@ -1061,19 +1073,19 @@ int setup_tcp_server(char *type, char *addr, unsigned short *port)
 	}
 
 	/* Get socket port in case of autobind */
-	if ((*port) == 0) {
+	if (opts.port == 0) {
 		if (getsockname(sk, (struct sockaddr *)&saddr, &slen)) {
 			pr_perror("Can't get %s server name", type);
 			goto out;
 		}
 
 		if (saddr.ss_family == AF_INET6) {
-			(*port) = ntohs(((struct sockaddr_in6 *)&saddr)->sin6_port);
+			opts.port = ntohs(((struct sockaddr_in6 *)&saddr)->sin6_port);
 		} else if (saddr.ss_family == AF_INET) {
-			(*port) = ntohs(((struct sockaddr_in *)&saddr)->sin_port);
+			opts.port = ntohs(((struct sockaddr_in *)&saddr)->sin_port);
 		}
 
-		pr_info("Using %u port\n", (*port));
+		pr_info("Using %u port\n", opts.port);
 	}
 
 	return sk;
@@ -1109,7 +1121,7 @@ int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
 		}
 	}
 
-	if (status_ready())
+	if (close_status_fd())
 		return -1;
 
 	if (sk >= 0) {
@@ -1130,7 +1142,7 @@ err:
 	return -1;
 }
 
-int setup_tcp_client(char *hostname)
+int setup_tcp_client(void)
 {
 	struct sockaddr_storage saddr;
 	struct addrinfo addr_criteria, *addr_list, *p;
@@ -1145,10 +1157,10 @@ int setup_tcp_client(char *hostname)
 
 	/*
 	 * addr_list contains a list of addrinfo structures that corresponding
-	 * to the criteria specified in hostname and addr_criteria.
+	 * to the criteria specified in opts.addr and addr_criteria.
 	 */
-	if (getaddrinfo(hostname, NULL, &addr_criteria, &addr_list)) {
-		pr_perror("Failed to resolve hostname: %s", hostname);
+	if (getaddrinfo(opts.addr, NULL, &addr_criteria, &addr_list)) {
+		pr_perror("Failed to resolve hostname: %s", opts.addr);
 		goto out;
 	}
 
@@ -1169,7 +1181,7 @@ int setup_tcp_client(char *hostname)
 		inet_ntop(p->ai_family, ip, ipstr, sizeof(ipstr));
 		pr_info("Connecting to server %s:%u\n", ipstr, opts.port);
 
-		if (get_sockaddr_in(&saddr, ipstr, opts.port))
+		if (get_sockaddr_in(&saddr, ipstr))
 			goto out;
 
 		sk = socket(saddr.ss_family, SOCK_STREAM, IPPROTO_TCP);

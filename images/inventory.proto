@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "core.proto";
 
+option go_package = "/protobindings";
+
 enum lsmtype {
 	NO_LSM		= 0;
 	SELINUX		= 1;

@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "/protobindings";
+
 message fifo_entry {
 	required uint32		id		= 1;
 	required uint32		pipe_id		= 2;

@@ -2,6 +2,8 @@ syntax = "proto2";
 
 import "ipc-desc.proto";
 
+option go_package = "/protobindings";
+
 message ipc_shm_entry {
 	required ipc_desc_entry		desc	= 1;
 	required uint64			size	= 2;

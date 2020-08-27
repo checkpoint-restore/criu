@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+option go_package = "/protobindings";
+
 message criu_page_server_info {
 	optional string		address	= 1;
 	optional int32		port	= 2;

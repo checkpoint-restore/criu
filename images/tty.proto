@@ -3,6 +3,8 @@ syntax = "proto2";
 import "opts.proto";
 import "fown.proto";
 
+option go_package = "/protobindings";
+
 message winsize_entry {
 	required uint32			ws_row		= 1;
 	required uint32			ws_col		= 2;

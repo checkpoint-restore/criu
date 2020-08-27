@@ -15,6 +15,8 @@ import "siginfo.proto";
 
 import "opts.proto";
 
+option go_package = "/protobindings";
+
 /*
  * These match the SECCOMP_MODE_* flags from <linux/seccomp.h>.
  */
