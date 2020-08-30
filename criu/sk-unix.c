@@ -1845,7 +1845,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 {
 	struct unix_sk_info *queuer = ui->queuer;
 	struct unix_sk_info *peer = ui->peer;
-	struct fdinfo_list_entry *fle, *fle_peer;
+	struct fdinfo_list_entry *fle;
 	int sk;
 
 	fle = file_master(&ui->d);
@@ -1859,10 +1859,12 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 	 * into it in a special way.
 	 */
 	if (peer && (peer->flags & USK_GHOST_FDSTORE)) {
-		fle_peer = file_master(&peer->d);
-		if (fle_peer->stage < FLE_OPEN) {
+		/*
+		 * Here we return 1 which says "try again" to
+		 * the caller if peer is not yet bounded.
+		 */
+		if (peer_is_not_prepared(peer))
 			return 1;
-		}
 	}
 
 	if (fle->stage == FLE_OPEN)
