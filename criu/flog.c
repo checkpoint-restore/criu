@@ -9,7 +9,7 @@
 //#include <ffi.h>
 
 #include "uapi/flog.h"
-#include "util.h"
+#include "flog_util.h"
 
 #define MAGIC 0xABCDABCD
 
