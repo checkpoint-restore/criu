@@ -431,7 +431,11 @@ int restore_one_tcp(int fd, struct inet_sk_info *ii)
 	pr_info("Restoring TCP connection\n");
 
 	if (opts.tcp_close &&
-		ii->ie->state != TCP_LISTEN && ii->ie->state != TCP_CLOSE) {
+	    ii->ie->state != TCP_LISTEN && ii->ie->state != TCP_CLOSE) {
+		if (shutdown(fd, SHUT_RDWR) && errno != ENOTCONN) {
+			pr_perror("Unable to shutdown the socket id %x ino %x",
+				  ii->ie->id, ii->ie->ino);
+		}
 		return 0;
 	}
 
