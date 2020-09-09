@@ -241,6 +241,10 @@ int dump_one_tcp(int fd, struct inet_sk_desc *sk, SkOptsEntry *soe)
 	if (sk->dst_port == 0)
 		return 0;
 
+	if (opts.tcp_close) {
+		return 0;
+	}
+
 	pr_info("Dumping TCP connection\n");
 
 	if (tcp_repair_established(fd, sk))
@@ -460,6 +464,9 @@ void tcp_locked_conn_add(struct inet_sk_info *ii)
 void rst_unlock_tcp_connections(void)
 {
 	struct inet_sk_info *ii;
+
+	if (opts.tcp_close)
+		return;
 
 	/* Network will be unlocked by network-unlock scripts */
 	if (root_ns_mask & CLONE_NEWNET)

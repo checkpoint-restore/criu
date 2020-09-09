@@ -17,4 +17,5 @@ message inventory_entry {
 	optional lsmtype		lsmtype		= 6;
 	optional uint64			dump_uptime	= 8;
 	optional uint32			pre_dump_mode	= 9;
+	optional bool			tcp_close	= 10;
 }
