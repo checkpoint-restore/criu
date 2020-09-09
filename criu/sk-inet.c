@@ -194,7 +194,7 @@ static int can_dump_inet_sk(const struct inet_sk_desc *sk)
 	case TCP_LAST_ACK:
 	case TCP_CLOSING:
 	case TCP_SYN_SENT:
-		if (!opts.tcp_established_ok) {
+		if (!opts.tcp_established_ok && !opts.tcp_close) {
 			pr_err("Connected TCP socket, consider using --%s option.\n",
 					SK_EST_PARAM);
 			return 0;
@@ -787,6 +787,7 @@ int restore_ip_opts(int sk, int family, int proto, IpOptsEntry *ioe)
 		ret |= restore_ip_raw_opts(sk, family, proto, ioe->raw);
 	return ret;
 }
+
 static int open_inet_sk(struct file_desc *d, int *new_fd)
 {
 	struct fdinfo_list_entry *fle = file_master(d);
