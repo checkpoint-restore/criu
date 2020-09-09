@@ -102,6 +102,7 @@ TST_NOFILE	:=				\
 		socket-tcp4v6-closed		\
 		socket-tcp-close0 		\
 		socket-tcp-close1 		\
+		socket-dump-tcp-close 		\
 		socket-tcp-unconn		\
 		socket-tcp6-unconn		\
 		socket-tcp-syn-sent		\
