@@ -81,6 +81,11 @@ int check_img_inventory(void)
 		goto out_err;
 	}
 
+	if (he->tcp_close && !opts.tcp_close) {
+		pr_err("Need to set the --tcp-close option.");
+		goto out_err;
+	}
+
 	ret = 0;
 
 out_err:
@@ -211,6 +216,12 @@ int prepare_inventory(InventoryEntry *he)
 		return -1;
 
 	he->root_ids = crt.i.ids;
+
+	/* tcp_close has to be set on restore if it has been set on dump. */
+	if (opts.tcp_close) {
+		he->tcp_close = true;
+		he->has_tcp_close = true;
+	}
 
 	return 0;
 }
