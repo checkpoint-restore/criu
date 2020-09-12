@@ -230,10 +230,18 @@ static int dump_one_bpfmap(int lfd, u32 id, const struct fd_parms *p)
 {
 	BpfmapFileEntry bpf = BPFMAP_FILE_ENTRY__INIT;
 	FileEntry fe = FILE_ENTRY__INIT;
+	struct bpf_map_info map_info;
+	uint32_t info_len = sizeof(struct bpf_map_info);
 	int ret;
 
 	if (parse_fdinfo(lfd, FD_TYPES__BPFMAP, &bpf))
 		return -1;
+
+	ret = bpf_obj_get_info_by_fd(lfd, &map_info, &info_len);
+	if (ret) {
+		pr_perror("Could not get BPF map info");
+		return -1;
+	}
 
 	switch (bpf.map_type) {
 
@@ -242,6 +250,8 @@ static int dump_one_bpfmap(int lfd, u32 id, const struct fd_parms *p)
 			bpf.id = id;
 			bpf.flags = p->flags;
 			bpf.fown = (FownEntry *)&p->fown;
+			bpf.map_name = xstrdup(map_info.name);
+			bpf.ifindex = map_info.ifindex;
 
 			fe.type = FD_TYPES__BPFMAP;
 			fe.id = bpf.id;
@@ -272,14 +282,27 @@ static int bpfmap_open(struct file_desc *d, int *new_fd)
 {
 	struct bpfmap_file_info *info;
 	BpfmapFileEntry *bpfe;
+	struct bpf_create_map_attr xattr;
 	int bpfmap_fd;
 
 	info = container_of(d, struct bpfmap_file_info, d);
 	bpfe = info->bpfe;
 
+	xattr.name = xstrdup(bpfe->map_name);
+	xattr.map_type = bpfe->map_type;
+	xattr.map_flags = bpfe->map_flags;
+	xattr.key_size = bpfe->key_size;
+	xattr.value_size = bpfe->value_size;
+	xattr.max_entries = bpfe->max_entries;
+	xattr.numa_node = 0;
+	xattr.btf_fd = 0;
+	xattr.btf_key_type_id = 0;
+	xattr.btf_value_type_id = 0;
+	xattr.map_ifindex = bpfe->ifindex;
+	xattr.inner_map_fd = 0;
+
 	pr_info_bpfmap("Creating and opening ", bpfe);
-	bpfmap_fd = bpf_create_map(bpfe->map_type, bpfe->key_size,
-						bpfe->value_size, bpfe->max_entries, bpfe->map_flags);
+	bpfmap_fd = bpf_create_map_xattr(&xattr);
 	if (bpfmap_fd < 0) {
 		pr_perror("Can't create bpfmap %#08x", bpfe->id);
 		return -1;
@@ -287,6 +310,13 @@ static int bpfmap_open(struct file_desc *d, int *new_fd)
 
 	if (restore_bpfmap_data(bpfmap_fd, bpfe->map_id, bpfmap_data_hash_table))
 		return -1;
+
+	if (bpfe->frozen) {
+		if (bpf_map_freeze(bpfmap_fd)) {
+			pr_perror("Can't freeze bpfmap %#08x", bpfe->id);
+			goto err_close;
+		}
+	}
 
 	if (rst_file_params(bpfmap_fd, bpfe->fown, bpfe->flags)) {
 		pr_perror("Can't restore params on bpfmap %#08x", bpfe->id);
