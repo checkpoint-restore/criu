@@ -3,6 +3,7 @@
 #include <sys/mman.h>
 
 #include "zdtmtst.h"
+#include "bpfmap_zdtm.h"
 
 const char *test_doc	= "Check that data and meta-data for BPF_MAP_TYPE_HASH"
 							"is correctly restored";
@@ -57,9 +58,13 @@ int main(int argc, char **argv)
 	int *keys = NULL, *values = NULL, *visited = NULL;
 	const uint32_t max_entries = 10;
 	int ret;
-	struct bpf_map_info map_info = {};
-	uint32_t info_len = sizeof(map_info);
+	struct bpf_map_info old_map_info = {};
+	struct bpf_map_info new_map_info = {};
+	struct bpfmap_fdinfo_obj old_fdinfo = {};
+	struct bpfmap_fdinfo_obj new_fdinfo = {};
+	uint32_t info_len = sizeof(struct bpf_map_info);
 	struct bpf_create_map_attr xattr = {
+		.name = "hash_test_map",
 		.map_type = BPF_MAP_TYPE_HASH,
 		.key_size = sizeof(int),
 		.value_size = sizeof(int),
@@ -94,38 +99,47 @@ int main(int argc, char **argv)
 	if (map_batch_update(map_fd, max_entries, keys, values))
 		goto err;
 
+	ret = bpf_map_freeze(map_fd);
+	if (ret) {
+		pr_perror("Could not freeze map");
+		goto err;
+	}
+
+	ret = bpf_obj_get_info_by_fd(map_fd, &old_map_info, &info_len);
+	if (ret) {
+		pr_perror("Could not get old map info");
+		goto err;
+	}
+
+	ret = parse_bpfmap_fdinfo(map_fd, &old_fdinfo, 8);
+	if (ret) {
+		pr_perror("Could not parse old map fdinfo from procfs");
+		goto err;
+	}
+
 	test_daemon();
 
 	test_waitsig();
 
-	ret = bpf_obj_get_info_by_fd(map_fd, &map_info, &info_len);
+	ret = bpf_obj_get_info_by_fd(map_fd, &new_map_info, &info_len);
 	if (ret) {
-		pr_perror("Could not get map info");
+		pr_perror("Could not get new map info");
+		goto err;
+	}
+
+	ret = parse_bpfmap_fdinfo(map_fd, &new_fdinfo, 8);
+	if (ret) {
+		pr_perror("Could not parse new map fdinfo from procfs");
 		goto err;
 	}
 	
-	if (map_info.type != BPF_MAP_TYPE_HASH) {
-		pr_err("Map type should be BPF_MAP_TYPE_HASH\n");
+	if (cmp_bpf_map_info(&old_map_info, &new_map_info)) {
+		pr_err("bpf_map_info mismatch\n");
 		goto err;
 	}
-	if (map_info.key_size != sizeof(*keys)) {
-		pr_err("Key size should be %zu\n", sizeof(*keys));
-		goto err;
-	}
-	if (map_info.value_size != sizeof(*values)) {
-		pr_err("Value size should be %zu\n", sizeof(*values));
-		goto err;
-	}
-	if (map_info.max_entries != max_entries) {
-		pr_err("Max entries should be %d\n", max_entries);
-		goto err;
-	}
-	if (!(map_info.map_flags & BPF_F_NO_PREALLOC)) {
-		pr_err("Map flag BPF_F_NO_PREALLOC should be set\n");
-		goto err;
-	}
-	if (!(map_info.map_flags & BPF_F_NUMA_NODE)) {
-		pr_err("Map flag BPF_F_NUMA_NODE should be set\n");
+
+	if (cmp_bpfmap_fdinfo(&old_fdinfo, &new_fdinfo)) {
+		pr_err("bpfmap fdinfo mismatch\n");
 		goto err;
 	}
 
