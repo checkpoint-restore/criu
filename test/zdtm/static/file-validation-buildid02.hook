@@ -1,0 +1,16 @@
+#!/bin/bash
+
+[ "$1" == "--clean" -o "$1" == "--pre-restore" ] || exit 0
+
+filename="${0%.*}.test"
+
+if [ "$1" == "--pre-restore" ]
+then
+	set -e -- $(ls -l $filename)
+	pos=$(( $5 - 1 ))
+	data=$(od -j "$pos" -t u1 -A n "$9")
+	invdata=$(printf '%02x' $(( data ^ 0xff )))
+	printf "\\x${invdata}" | dd of="$9" obs="$pos" seek=1
+else
+	rm $filename
+fi
