@@ -17,7 +17,7 @@ setup() {
 
 	# Tar up the git checkout to have vagrant rsync it to the VM
 	tar cf criu.tar ../../../criu
-	wget https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}_$(uname -m).deb -O /tmp/vagrant.deb && \
+	wget https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}_"$(uname -m)".deb -O /tmp/vagrant.deb && \
 		dpkg -i /tmp/vagrant.deb
 
 	apt-get -qq install -y libvirt-bin libvirt-dev qemu-utils qemu
