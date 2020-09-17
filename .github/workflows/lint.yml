@@ -1,0 +1,13 @@
+name: Run code linter
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install tools
+      run: sudo apt-get install -qqy flake8 shellcheck
+    - name: Run make lint
+      run: make lint
