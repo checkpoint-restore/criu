@@ -5,7 +5,7 @@ set -eux
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 # Clone criu-image-streamer in a sibling directory of the criu project directory
-cd $(dirname "$0")/../../
+cd "$(dirname "$0")"/../../
 git clone --depth=1 https://github.com/checkpoint-restore/criu-image-streamer.git
 
 # Compile

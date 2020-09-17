@@ -23,7 +23,7 @@ DUMPARGS="--create --absolute-names --gzip --no-unquote --no-wildcards --file"
 RESTOREARGS="--extract --gzip --no-unquote --no-wildcards --absolute-names --directory / --file"
 IMGFILE=$CRTOOLS_IMAGE_DIR"/tmpfiles.tar.gz"
 
-MY_NAME=`basename "$0"`
+MY_NAME=$(basename "$0")
 
 case "$CRTOOLS_SCRIPT_ACTION" in
 	$POSTDUMP )
@@ -31,7 +31,7 @@ case "$CRTOOLS_SCRIPT_ACTION" in
 			echo "$MY_NAME: ERROR! No files are given."
 			exit 1
 		fi
-		tar $DUMPARGS $IMGFILE -- "$@"
+		tar "$DUMPARGS" "$IMGFILE" -- "$@"
 		exit $?
 		;;
 	$PRERESTORE )
@@ -39,7 +39,7 @@ case "$CRTOOLS_SCRIPT_ACTION" in
 			echo "$MY_NAME: ERROR! Not expected script args."
 			exit 1
 		fi
-		tar $RESTOREARGS $IMGFILE
+		tar "$RESTOREARGS" "$IMGFILE"
 		exit $?
 		;;
 esac
