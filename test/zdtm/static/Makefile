@@ -315,6 +315,7 @@ TST_FILE	=				\
 		netns-nft				\
 		maps_file_prot			\
 		socket_close_data01		\
+		fifo_upon_unix_socket		\
 
 TST_DIR		=				\
 		cwd00				\
