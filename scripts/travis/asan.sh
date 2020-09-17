@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/bin/bash
+
+# shellcheck disable=2044
 
 set -x
 
@@ -11,11 +13,11 @@ chmod 0777 test/zdtm/static
 ./test/zdtm.py run -a --keep-going -k always --parallel 4 -x zdtm/static/rtc "$@"
 ret=$?
 
-for i in `find / -name 'asan.log*'`; do
-	echo $i;
+for i in $(find / -name 'asan.log*'); do
+	echo "$i"
 	echo ========================================
-	cat $i;
+	cat "$i"
 	echo ========================================
-	ret=1;
-done;
+	ret=1
+done
 exit $ret

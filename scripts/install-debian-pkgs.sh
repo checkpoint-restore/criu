@@ -15,7 +15,7 @@ function print_help()
 function process()
 {
 	sudo apt-get update
-	sudo apt-get install -yq $( sed 's/\#.*$//' ${REQ_PKGS} )
+	sudo apt-get install -yq "$( sed 's/\#.*$//' ${REQ_PKGS} )"
 }
 
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
