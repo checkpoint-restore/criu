@@ -1,3 +1,7 @@
+#!/bin/bash
+
+# shellcheck disable=SC2013,SC1004
+
 TR="y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/"
 
 for x in $(sed -n '/PB_AUTOGEN_START/,/PB_AUTOGEN_STOP/ {
@@ -6,8 +10,8 @@ for x in $(sed -n '/PB_AUTOGEN_START/,/PB_AUTOGEN_STOP/ {
 		s/\tPB_//;
 		p;
 	   }' criu/include/protobuf-desc.h); do
-	x_la=$(echo $x | sed $TR)
-	x_uf=$(echo $x | sed -nr 's/^./&#\\\
+	x_la=$(echo "$x" | sed $TR)
+	x_uf=$(echo "$x" | sed -nr 's/^./&#\\\
 /;
 		s/_(.)/\\\
 \1#\\\
