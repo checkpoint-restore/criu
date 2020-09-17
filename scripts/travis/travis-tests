@@ -119,8 +119,6 @@ time make CC="$CC" -j4
 ./criu/criu -v4 cpuinfo dump || :
 ./criu/criu -v4 cpuinfo check || :
 
-make lint
-
 # Check that help output fits into 80 columns
 WIDTH=$(./criu/criu --help | wc --max-line-length)
 if [ "$WIDTH" -gt 80 ]; then
