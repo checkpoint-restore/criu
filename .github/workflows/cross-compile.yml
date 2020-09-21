@@ -1,10 +1,6 @@
 name: Cross Compile Tests
 
-on:
-  push:
-    branches: [criu-dev, master]
-  pull_request:
-    branches: [criu-dev, master]
+on: [push, pull_request]
 
 jobs:
   build:
