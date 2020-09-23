@@ -11,10 +11,11 @@ max_apt_retries=5
 # avoid CI errors due to errors during apt-get
 # hashsum mismatches, DNS errors and similar things
 while true; do
-	let install_retry_counter+=1
+	(( install_retry_counter+=1 ))
 	if [ ${install_retry_counter} -gt ${max_apt_retries} ]; then
 		exit 1
 	fi
+	# shellcheck disable=SC2068
 	apt-get clean -qqy && apt-get update -qqy && apt-get install -qqy --no-install-recommends $@ && break
 
 	# In case it is a network error let's wait a bit.
