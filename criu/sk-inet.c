@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <linux/icmp.h>
 #include <linux/icmpv6.h>
+#include <poll.h>
 
 #include "../soccr/soccr.h"
 
@@ -225,6 +226,31 @@ static int dump_sockaddr(union libsoccr_addr *sa, u32 *pb_port, u32 *pb_addr)
 	return -1;
 }
 
+/*
+ * There is no direct way to get shutdown state for unconnected sockets,
+ * but we can get it indirectly from polling events for a socket.
+ */
+static int dump_tcp_uncon_shutdown(int lfd, struct inet_sk_desc *sk)
+{
+	struct pollfd pfd = {.fd = lfd, .events = POLLRDHUP | POLLHUP};
+
+	if (poll(&pfd, 1, 0) != 1) {
+		pr_perror("Unable to poll the socket");
+		return -1;
+	}
+
+	sk->shutdown = 0;
+
+	if ((pfd.revents & POLLHUP) == 0)
+		return 0;
+
+	if (pfd.revents & POLLRDHUP)
+		sk->shutdown |= SK_SHUTDOWN__READ;
+
+	return 0;
+}
+
+
 static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p,
 					 int proto, int family, int type)
 {
@@ -300,6 +326,9 @@ static struct inet_sk_desc *gen_uncon_sk(int lfd, const struct fd_parms *p,
 		}
 
 		sk->wqlen = info.tcpi_backoff;
+
+		if (dump_tcp_uncon_shutdown(lfd, sk))
+			goto err;
 	}
 
 	sk->state = TCP_CLOSE;
@@ -552,6 +581,8 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 	switch (proto) {
 	case IPPROTO_TCP:
 		err = (type != SOCK_RAW) ? dump_one_tcp(lfd, sk, &skopts) : 0;
+		if (sk->shutdown)
+			sk_encode_shutdown(&ie, sk->shutdown);
 		break;
 	case IPPROTO_UDP:
 	case IPPROTO_UDPLITE:
@@ -902,7 +933,7 @@ done:
 
 	if (ie->has_shutdown &&
 	    (ie->proto == IPPROTO_UDP ||
-	     ie->proto == IPPROTO_UDPLITE)) {
+	     ie->proto == IPPROTO_UDPLITE || ie->proto == IPPROTO_TCP)) {
 		if (shutdown(sk, sk_decode_shutdown(ie->shutdown))) {
 			if (ie->state != TCP_CLOSE && errno != ENOTCONN) {
 				pr_perror("Can't shutdown socket into %d",
