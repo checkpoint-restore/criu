@@ -148,6 +148,7 @@ extern void task_waiter_complete_current(task_waiter_t *t);
 extern int tcp_init_server(int family, int *port);
 extern int tcp_accept_server(int sock);
 extern int tcp_init_client(int family, char *servIP, unsigned short servPort);
+extern int tcp_init_client_with_fd(int sock, int family, char *servIP, unsigned short servPort);
 
 struct sockaddr_un;
 extern int unix_fill_sock_name(struct sockaddr_un *name, char *relFilename);
