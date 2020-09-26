@@ -69,6 +69,7 @@ TST_NOFILE	:=				\
 		socket_queues			\
 		socket-raw			\
 		socket-tcp			\
+		socket-tcp-listen		\
 		socket-tcp-reseted		\
 		socket-tcp6			\
 		socket-tcp4v6			\
