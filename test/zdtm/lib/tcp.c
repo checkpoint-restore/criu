@@ -107,12 +107,19 @@ int tcp_accept_server(int sock)
 int tcp_init_client(int family, char *servIP, unsigned short servPort)
 {
 	int sock;
-	union sockaddr_inet servAddr;
 
 	if ((sock = socket(family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
 		pr_perror("can't create socket");
 		return -1;
 	}
+
+	return tcp_init_client_with_fd(sock, family, servIP, servPort);
+}
+
+int tcp_init_client_with_fd(int sock, int family, char *servIP, unsigned short servPort)
+{
+	union sockaddr_inet servAddr;
+
 	/* Construct the server address structure */
 	memset(&servAddr, 0, sizeof(servAddr));
 	if (family == AF_INET) {
