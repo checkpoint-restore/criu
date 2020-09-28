@@ -10,7 +10,7 @@
 
 #define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
 
-extern int check_img_inventory(void);
+extern int check_img_inventory(bool restore);
 extern int write_img_inventory(InventoryEntry *he);
 extern int inventory_save_uptime(InventoryEntry *he);
 extern InventoryEntry *get_parent_inventory(void);
