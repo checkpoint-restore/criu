@@ -1884,6 +1884,7 @@ static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controller
 				cg->path = xsprintf("%s%s", newroot, cg->path + cg->cgns_prefix);
 				if (!cg->path) {
 					cg->path = prev;
+					xfree(dirnew);
 					return -ENOMEM;
 				}
 				xfree(prev);
