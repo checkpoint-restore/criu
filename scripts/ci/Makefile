@@ -11,7 +11,7 @@ ifdef CLANG
 	target-suffix = -clang
 endif
 
-TARGETS := alpine fedora-rawhide centos7
+TARGETS := alpine fedora-rawhide centos7 centos8
 ZDTM_OPTIONS :=
 UNAME := $(shell uname -m)
 
