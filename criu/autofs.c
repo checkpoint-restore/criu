@@ -143,6 +143,7 @@ static int autofs_kernel_pipe_alive(int pgrp, int fd, int ino)
 			return 0;
 		}
 		pr_perror("Failed to stat %s", path);
+		xfree(path);
 		return -1;
 	}
 
