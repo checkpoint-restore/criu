@@ -349,6 +349,12 @@ criu-$(tar-name).tar.bz2:
 dist tar: criu-$(tar-name).tar.bz2 ;
 .PHONY: dist tar
 
+CLANG_FILES_REGEXP := . -name '*.[hc]' ! -path './.*' ! -path './images/*' ! -path './test/*'
+clang-check:
+	$(call msg-gen, $@)
+	$(Q) $(FIND) $(CLANG_FILES_REGEXP) -print | xargs -n 1 scripts/clang-check-file.sh && echo "OK" || echo "FAIL"
+.PHONY: clang-check
+
 TAGS_FILES_REGEXP := . -name '*.[hcS]' ! -path './.*' \( ! -path './test/*' -o -path './test/zdtm/lib/*' \)
 tags:
 	$(call msg-gen, $@)
@@ -397,6 +403,7 @@ help:
 	@echo '      dist            - Create a source tarball'
 	@echo '      clean           - Clean most, but leave enough to navigate'
 	@echo '      mrproper        - Delete all compiled/generated files'
+	@echo '      clang-check     - Check all sources (except tests) code-style (experimental)'
 	@echo '      tags            - Generate tags file (ctags)'
 	@echo '      etags           - Generate TAGS file (etags)'
 	@echo '      cscope          - Generate cscope database'
