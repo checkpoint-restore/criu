@@ -709,6 +709,10 @@ int is_root_user(void)
 	return 1;
 }
 
+/*
+ * is_empty_dir will always close the FD dirfd: either implicitly
+ * via closedir or explicitly in case fdopendir had failed
+ */
 int is_empty_dir(int dirfd)
 {
 	int ret = 0;
@@ -716,8 +720,10 @@ int is_empty_dir(int dirfd)
 	struct dirent *de;
 
 	fdir = fdopendir(dirfd);
-	if (!fdir)
+	if (!fdir) {
+		close_safe(&dirfd);
 		return -1;
+	}
 
 	while ((de = readdir(fdir))) {
 		if (dir_dots(de))
