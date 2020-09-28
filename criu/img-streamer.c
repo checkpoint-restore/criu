@@ -73,7 +73,7 @@ int img_streamer_init(const char *image_dir, int mode)
 	mutex_init(img_streamer_fd_lock);
 
 	if (install_service_fd(IMG_STREAMER_FD_OFF, sockfd) < 0)
-		goto err;
+		return -1;
 
 	return 0;
 
