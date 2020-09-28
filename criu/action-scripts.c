@@ -162,10 +162,18 @@ int add_script(char *path)
 
 int add_rpc_notify(int sk)
 {
+	int fd;
+
+	fd = dup(sk);
+	if (fd < 0) {
+		pr_perror("dup() failed");
+		return -1;
+	}
+
 	BUG_ON(scripts_mode == SCRIPTS_SHELL);
 	scripts_mode = SCRIPTS_RPC;
 
-	if (install_service_fd(RPC_SK_OFF, dup(sk)) < 0)
+	if (install_service_fd(RPC_SK_OFF, fd) < 0)
 		return -1;
 
 	return 0;
