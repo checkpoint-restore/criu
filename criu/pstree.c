@@ -997,7 +997,7 @@ int prepare_dummy_pstree(void)
 {
 	pid_t dummy = 0;
 
-	if (check_img_inventory() == -1)
+	if (check_img_inventory(/* restore = */ false) == -1)
 		return -1;
 
 	if (prepare_task_entries() == -1)

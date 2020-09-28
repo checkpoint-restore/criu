@@ -26,7 +26,7 @@ TaskKobjIdsEntry *root_ids;
 u32 root_cg_set;
 Lsmtype image_lsm;
 
-int check_img_inventory(void)
+int check_img_inventory(bool restore)
 {
 	int ret = -1;
 	struct cr_img *img;
@@ -81,8 +81,8 @@ int check_img_inventory(void)
 		goto out_err;
 	}
 
-	if (he->tcp_close && !opts.tcp_close) {
-		pr_err("Need to set the --tcp-close option.");
+	if (restore && he->tcp_close && !opts.tcp_close) {
+		pr_err("Need to set the --tcp-close options.\n");
 		goto out_err;
 	}
 
