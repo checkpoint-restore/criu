@@ -1484,7 +1484,7 @@ static __maybe_unused int add_cr_time_mount(struct mount_info *root, char *fsnam
 
 	mi->mountpoint = xmalloc(len + strlen(path) + 1);
 	if (!mi->mountpoint)
-		return -1;
+		goto err;
 	mi->ns_mountpoint = mi->mountpoint;
 	if (!add_slash)
 		sprintf(mi->mountpoint, "%s%s", root->mountpoint, path);
@@ -1497,7 +1497,7 @@ static __maybe_unused int add_cr_time_mount(struct mount_info *root, char *fsnam
 	mi->source = xstrdup(fsname);
 	mi->options = xstrdup("");
 	if (!mi->root || !mi->fsname || !mi->source || !mi->options)
-		return -1;
+		goto err;
 	mi->fstype = find_fstype_by_name(fsname);
 
 	mi->s_dev = mi->s_dev_rt = s_dev;
@@ -1523,6 +1523,10 @@ static __maybe_unused int add_cr_time_mount(struct mount_info *root, char *fsnam
 	pr_info("Add cr-time mountpoint %s with parent %s(%u)\n",
 		mi->mountpoint, parent->mountpoint, parent->mnt_id);
 	return 0;
+
+err:
+	mnt_entry_free(mi);
+	return -1;
 }
 
 /* Returns 1 in case of success, -errno in case of mount fail, and 0 on other errors */
