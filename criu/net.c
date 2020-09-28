@@ -2084,6 +2084,10 @@ static int restore_ip_dump(int type, int pid, char *cmd)
 		return 0;
 	}
 	sockfd = img_raw_fd(img);
+	if (sockfd < 0) {
+		pr_err("Getting raw FD failed\n");
+		return -1;
+	}
 	tmp_file = tmpfile();
 	if (!tmp_file) {
 		pr_perror("Failed to open tmpfile");
