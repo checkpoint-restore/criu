@@ -1372,6 +1372,10 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 	cure_path(new->root);
 
 	root_link.len = strlen(new->root);
+	if (root_link.len >= sizeof(root_link.name) - 1) {
+		pr_err("new root path (%s) exceeds %zu\n", new->root, sizeof(root_link.name));
+		goto err;
+	}
 	strcpy(root_link.name, new->root);
 	if (strip_deleted(&root_link)) {
 		strcpy(new->root, root_link.name);
