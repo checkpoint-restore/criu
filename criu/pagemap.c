@@ -447,7 +447,7 @@ static int maybe_read_page_img_streamer(struct page_read *pr, unsigned long vadd
 	if (opts.auto_dedup)
 		pr_warn_once("Can't dedup when streaming images\n");
 
-	if (ret == 0 && pr->io_complete)
+	if (pr->io_complete)
 		ret = pr->io_complete(pr, vaddr, nr);
 
 	pr->pi_off += len;
