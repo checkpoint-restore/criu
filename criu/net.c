@@ -2515,7 +2515,7 @@ int dump_net_ns(struct ns_id *ns)
 		if (!ret)
 			ret = dump_links(sk, ns, fds);
 
-		close(sk);
+		close_safe(&sk);
 
 		if (!ret)
 			ret = dump_ifaddr(fds);
