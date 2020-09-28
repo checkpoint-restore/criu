@@ -125,6 +125,7 @@ static int irmap_update_dir(struct irmap *t)
 	dfd = fdopendir(fd);
 	if (!dfd) {
 		pr_perror("Can't opendir %s", t->path);
+		close(fd);
 		return -1;
 	}
 
@@ -155,14 +156,12 @@ static int irmap_update_dir(struct irmap *t)
 	}
 
 	closedir(dfd);
-	close(fd);
 	t->nr_kids = nr;
 	return 0;
 
 out_err:
 	xfree(t->kids);
 	closedir(dfd);
-	close(fd);
 	return -1;
 }
 
