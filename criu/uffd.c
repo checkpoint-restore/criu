@@ -1421,7 +1421,7 @@ close_uffd:
 
 int cr_lazy_pages(bool daemon)
 {
-	struct epoll_event *events;
+	struct epoll_event *events = NULL;
 	int nr_fds;
 	int lazy_sk;
 	int ret;
@@ -1469,17 +1469,22 @@ int cr_lazy_pages(bool daemon)
 	if (epollfd < 0)
 		return -1;
 
-	if (prepare_uffds(lazy_sk, epollfd))
+	if (prepare_uffds(lazy_sk, epollfd)) {
+		xfree(events);
 		return -1;
+	}
 
 	if (opts.use_page_server) {
-		if (connect_to_page_server_to_recv(epollfd))
+		if (connect_to_page_server_to_recv(epollfd)) {
+			xfree(events);
 			return -1;
+		}
 	}
 
 	ret = handle_requests(epollfd, events, nr_fds);
 
 	tls_terminate_session();
 
+	xfree(events);
 	return ret;
 }
