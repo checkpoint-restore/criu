@@ -460,7 +460,7 @@ static int kerndat_fdinfo_has_lock(void)
 
 	exit_code = 0;
 out:
-	close(pfd);
+	close_safe(&pfd);
 	close(fd);
 
 	return exit_code;
