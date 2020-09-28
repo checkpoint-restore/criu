@@ -1457,7 +1457,7 @@ no_server:
 		return ret > 0 ? 0 : -1;
 
 	if (tls_x509_init(ask, true)) {
-		close(sk);
+		close_safe(&sk);
 		return -1;
 	}
 
