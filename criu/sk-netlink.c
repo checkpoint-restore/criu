@@ -209,7 +209,7 @@ static int open_netlink_sk(struct file_desc *d, int *new_fd)
 	sk = socket(PF_NETLINK, SOCK_RAW, nse->protocol);
 	if (sk < 0) {
 		pr_perror("Can't create netlink sock");
-		goto err;
+		return -1;
 	}
 
 	if (nse->portid) {
