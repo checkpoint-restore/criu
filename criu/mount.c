@@ -3585,6 +3585,10 @@ int mntns_get_root_fd(struct ns_id *mntns)
 {
 	if (!(root_ns_mask & CLONE_NEWNS))
 		return __mntns_get_root_fd(0);
+
+	if (!mntns)
+		return -1;
+
 	/*
 	 * All namespaces are restored from the root task and during the
 	 * CR_STATE_FORKING stage the root task has two file descriptors for
