@@ -1289,7 +1289,7 @@ int epoll_prepare(int nr_fds, struct epoll_event **events)
 		return -1;
 
 	epollfd = epoll_create(nr_fds);
-	if (epollfd == -1) {
+	if (epollfd < 0) {
 		pr_perror("epoll_create failed");
 		goto free_events;
 	}
