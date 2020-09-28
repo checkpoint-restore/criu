@@ -1619,6 +1619,7 @@ static int store_validation_data_build_id(RegFileEntry *rfe, int lfd,
 	if (!rfe->build_id) {
 		pr_warn("Build-ID (For validation) could not be set for file %s\n",
 				rfe->name);
+		xfree(build_id);
 		return -1;
 	}
 
