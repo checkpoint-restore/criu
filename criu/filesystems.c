@@ -656,7 +656,6 @@ static int dump_empty_fs(struct mount_info *pm)
 		return fd;
 
 	ret = is_empty_dir(fd);
-	close(fd);
 	if (ret < 0) {
 		pr_err("%s isn't empty\n", pm->fstype->name);
 		return -1;
