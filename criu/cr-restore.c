@@ -2526,7 +2526,7 @@ int cr_restore_tasks(void)
 	if (cr_plugin_init(CR_PLUGIN_STAGE__RESTORE))
 		return -1;
 
-	if (check_img_inventory() < 0)
+	if (check_img_inventory(/* restore = */ true) < 0)
 		goto err;
 
 	if (init_stats(RESTORE_STATS))
