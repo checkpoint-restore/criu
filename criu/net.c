@@ -1915,7 +1915,12 @@ static inline int dump_nftables(struct cr_imgset *fds)
 		return -1;
 
 	img = img_from_set(fds, CR_FD_NFTABLES);
-	img_fd = dup(img_raw_fd(img));
+	img_fd = img_raw_fd(img);
+	if (img_fd < 0) {
+		pr_err("Getting raw FD failed\n");
+		goto nft_ctx_free_out;
+	}
+	img_fd = dup(img_fd);
 	if (img_fd < 0) {
 		pr_perror("dup() failed");
 		goto nft_ctx_free_out;
