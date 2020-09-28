@@ -334,7 +334,14 @@ void close_proc(void)
 
 int set_proc_fd(int fd)
 {
-	if (install_service_fd(PROC_FD_OFF, dup(fd)) < 0)
+	int _fd;
+
+	_fd = dup(fd);
+	if (_fd < 0) {
+		pr_perror("dup() failed");
+		return -1;
+	}
+	if (install_service_fd(PROC_FD_OFF, _fd) < 0)
 		return -1;
 	return 0;
 }
