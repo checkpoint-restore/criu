@@ -186,6 +186,7 @@ int flog_encode_msg(int fdout, unsigned int nargs, unsigned int mask, const char
 			p = memccpy(str_start, (void *)m->args[i], 0, mbuf_size - (str_start - mbuf));
 			if (p == NULL) {
 				fprintf(stderr, "No memory for string argument\n");
+				va_end(argptr);
 				return -1;
 			}
 			m->args[i] = str_start - mbuf;
