@@ -215,8 +215,10 @@ static int collect_fds(pid_t pid, struct parasite_drain_fd **dfds)
 
 			size += PAGE_SIZE;
 			t = xrealloc(*dfds, size);
-			if (!t)
+			if (!t) {
+				closedir(fd_dir);
 				return -1;
+			}
 			*dfds = t;
 		}
 
