@@ -414,9 +414,15 @@ static int maybe_read_page_img_streamer(struct page_read *pr, unsigned long vadd
 					int nr, void *buf, unsigned flags)
 {
 	unsigned long len = nr * PAGE_SIZE;
-	int fd = img_raw_fd(pr->pi);
+	int fd;
 	int ret;
 	size_t curr = 0;
+
+	fd = img_raw_fd(pr->pi);
+	if (fd < 0) {
+		pr_err("Getting raw FD failed\n");
+		return -1;
+	}
 
 	pr_debug("\tpr%lu-%u Read page from self %lx/%"PRIx64"\n",
 		 pr->img_id, pr->id, pr->cvaddr, pr->pi_off);
