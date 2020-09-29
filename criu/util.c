@@ -1139,7 +1139,7 @@ int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
 
 	return 0;
 err:
-	close(sk);
+	close_safe(&sk);
 	return -1;
 }
 
