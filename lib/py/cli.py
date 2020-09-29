@@ -133,7 +133,7 @@ def ftype_find_in_image(opts, ft, fid, img):
     if f:
         return f[ft['field']]
 
-    if ft['img'] == None:
+    if ft['img'] is None:
         ft['img'] = pycriu.images.load(dinf(opts, img))['entries']
     for f in ft['img']:
         if f['id'] == fid:
