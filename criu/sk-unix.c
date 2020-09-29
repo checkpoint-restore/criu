@@ -2118,10 +2118,10 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 		if (memrchr(uname, 0, ulen)) {
 			/* replace zero characters */
 			char *s = alloca(ulen + 1);
-			int i;
+			int j;
 
-			for (i = 0; i < ulen; i++)
-				s[i] = uname[i] ? : '@';
+			for (j = 0; j < ulen; j++)
+				s[j] = uname[j] ? : '@';
 			uname = s;
 		}
 	} else if (ulen == 0) {
