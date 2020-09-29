@@ -718,7 +718,7 @@ class coredump_generator:
                 # than one from maped file on disk.
                 page = page_mem
 
-            if page == None:
+            if page is None:
                 # Hole
                 page = PAGESIZE * "\0"
 
