@@ -418,7 +418,6 @@ class ipc_msg_queue_handler:
         return messages
 
     def dump(self, extra, f, pbuff):
-        entry = pb2dict.pb2dict(pbuff)
         for i in range(0, len(extra), 2):
             msg = pb.ipc_msg()
             pb2dict.dict2pb(extra[i], msg)
