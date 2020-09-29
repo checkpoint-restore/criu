@@ -228,6 +228,7 @@ int cr_plugin_init(int stage)
 		char path[PATH_MAX];
 		struct dirent *de;
 		int len;
+		int length_needed;
 
 		errno = 0;
 		de = readdir(d);
@@ -243,7 +244,9 @@ int cr_plugin_init(int stage)
 		if (len < 3 || strncmp(de->d_name + len - 3, ".so", 3))
 			continue;
 
-		snprintf(path, sizeof(path), "%s/%s", opts.libdir, de->d_name);
+		length_needed = snprintf(path, sizeof(path), "%s/%s", opts.libdir, de->d_name);
+		if (length_needed < 0 || (unsigned) length_needed >= sizeof(path))
+			goto err;
 
 		if (cr_lib_load(stage, path))
 			goto err;
