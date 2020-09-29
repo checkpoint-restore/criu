@@ -178,6 +178,7 @@ int install_service_fd(enum sfd_type type, int fd)
 		return -1;
 	} else if (tmp != sfd) {
 		pr_err("%s busy target %d -> %d\n", sfd_type_name(type), fd, sfd);
+		close(tmp);
 		close(fd);
 		return -1;
 	}
