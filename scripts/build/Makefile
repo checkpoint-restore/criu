@@ -1,4 +1,4 @@
-ARCHES := x86_64 fedora-asan fedora-rawhide centos armv7hf
+ARCHES := x86_64 fedora-asan fedora-rawhide centos7 armv7hf
 TARGETS := $(ARCHES) alpine
 TARGETS_CLANG := $(addsuffix $(TARGETS),-clang)
 CONTAINER_RUNTIME := docker
