@@ -26,6 +26,7 @@ obj-y			+= file-lock.o
 obj-y			+= files-ext.o
 obj-y			+= files.o
 obj-y			+= files-reg.o
+obj-$(ARCH_HAS_FLOG)	+= flog.o
 obj-y			+= fsnotify.o
 obj-y			+= image-desc.o
 obj-y			+= image.o
