@@ -9,6 +9,12 @@
 #include <errno.h>
 #include <stdarg.h>
 
+/*This function is used in flog.c, when the regular printer is called.*/
+extern void vprint_on_level(unsigned int loglevel, const char *format,
+		va_list params);
+
+extern int init_done;
+
 #endif /* CR_NOGLIBC */
 
 #define LOG_UNSET	(-1)
