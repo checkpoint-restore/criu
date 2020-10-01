@@ -175,6 +175,7 @@ struct cr_options {
 	/* This stores which method to use for file validation. */
 	int 			file_validation_method;
 	bool			log_in_binary;
+	bool			file_logging;
 };
 
 extern struct cr_options opts;

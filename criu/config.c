@@ -633,6 +633,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			SET_CHAR_OPTS(work_dir, optarg);
 			break;
 		case 'o':
+			opts.file_logging = true;
 			SET_CHAR_OPTS(output, optarg);
 			break;
 		case 'J':
