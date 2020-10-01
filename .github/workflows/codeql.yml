@@ -1,0 +1,41 @@
+name: "CodeQL"
+
+on:
+  push:
+    branches: [criu-dev]
+  pull_request:
+    branches: [criu-dev]
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 2
+
+    # If this run was triggered by a pull request event, then checkout
+    # the head of the pull request instead of the merge commit.
+    - run: git checkout HEAD^2
+      if: ${{ github.event_name == 'pull_request' }}
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v1
+      with:
+        languages: cpp, python
+
+    - name: Build CRIU
+      run: |
+        sudo make -C scripts/ci local SKIP_CI_BUILD=1
+        make -j 8
+        make install DESTDIR=/tmp/install PYTHON=python3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v1

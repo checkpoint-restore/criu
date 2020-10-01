@@ -138,6 +138,8 @@ if [ "$CLANG" = "1" ]; then
 	export LDFLAGS
 fi
 
+[ -n "$SKIP_CI_BUILD" ] && exit 0
+
 export GCOV CC
 $CC --version
 time make CC="$CC" -j4 V=1
