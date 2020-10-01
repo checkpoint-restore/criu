@@ -5,9 +5,6 @@
 #include <stdint.h>
 #include <sys/param.h>
 #include <sys/mman.h>
-
-//#include <ffi.h>
-
 #include "uapi/flog.h"
 #include "flog_util.h"
 #include "cr_options.h"
@@ -23,61 +20,6 @@ static char *fbuf;
 static uint64_t fsize = BUF_SIZE;
 static uint64_t mbuf_size = sizeof(_mbuf);
 
-/*int flog_decode_all(int fdin, int fdout)
-{
-	flog_msg_t *m = (void *)mbuf;
-	ffi_type *args[34] = {
-		[0]		= &ffi_type_sint,
-		[1]		= &ffi_type_pointer,
-		[2 ... 33]	= &ffi_type_slong
-	};
-	void *values[34];
-	ffi_cif cif;
-	ffi_arg rc;
-	size_t i, ret;
-	char *fmt;
-
-	values[0] = (void *)&fdout;
-
-	while (1) {
-		ret = read(fdin, mbuf, sizeof(m));
-		if (ret == 0)
-			break;
-		if (ret < 0) {
-			fprintf(stderr, "Unable to read a message: %m");
-			return -1;
-		}
-		if (m->magic != MAGIC) {
-			fprintf(stderr, "The log file was not properly closed\n");
-			break;
-		}
-		ret = m->size - sizeof(m);
-		if (m->size > mbuf_size) {
-			fprintf(stderr, "The buffer is too small");
-			return -1;
-		}
-		if (read(fdin, mbuf + sizeof(m), ret) != ret) {
-			fprintf(stderr, "Unable to read a message: %m");
-			return -1;
-		}
-
-		fmt = mbuf + m->fmt;
-		values[1] = &fmt;
-
-		for (i = 0; i < m->nargs; i++) {
-			values[i + 2] = (void *)&m->args[i];
-			if (m->mask & (1u << i)) {
-				m->args[i] = (long)(mbuf + m->args[i]);
-			}
-		}
-
-		if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, m->nargs + 2,
-				 &ffi_type_sint, args) == FFI_OK)
-			ffi_call(&cif, FFI_FN(dprintf), &rc, values);
-	}
-	return 0;
-}*/
-
 static int flog_enqueue(int fdout, flog_msg_t *m)
 {
 	if (write(fdout, m, m->size) != m->size) {
@@ -87,9 +29,6 @@ static int flog_enqueue(int fdout, flog_msg_t *m)
 	return 0;
 }
 
-/*extern char *rodata_start;
-extern char *rodata_end;
-*/
 /* Pre-allocate a buffer in a file and map it into memory. */
 int flog_map_buf(int fdout)
 {
