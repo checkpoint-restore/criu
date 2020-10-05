@@ -44,7 +44,8 @@ TST_NOFILE	:=				\
 		packet_sock			\
 		packet_sock_mmap		\
 		packet_sock_spkt		\
-		sock_filter			\
+		sock_filter00			\
+		sock_filter01			\
 		msgque				\
 		inotify_system			\
 		inotify_system_nodel		\
@@ -515,6 +516,7 @@ msgque:			CFLAGS += -DNEW_IPC_NS
 sem:			CFLAGS += -DNEW_IPC_NS
 posix_timers:		LDLIBS += -lrt -pthread
 remap_dead_pid_root:	CFLAGS += -DREMAP_PID_ROOT
+sock_filter01:		CFLAGS += -DSOCK_FILTER01
 socket-tcp6:		CFLAGS += -D ZDTM_IPV6
 socket-tcp4v6:		CFLAGS += -D ZDTM_IPV4V6
 socket-tcpbuf6:		CFLAGS += -D ZDTM_IPV6
