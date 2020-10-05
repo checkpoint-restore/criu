@@ -15,12 +15,24 @@ const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
 #define SO_GET_FILTER           SO_ATTACH_FILTER
 #endif
 
+#ifdef SOCK_FILTER01
+#define SFLEN	4
+#else
 #define SFLEN	14
+#endif
 
 int main(int argc, char **argv)
 {
 	int sk;
 	struct sock_fprog p;
+#ifdef SOCK_FILTER01
+	struct sock_filter f[SFLEN] = {
+		{ 0x6,  0, 0, 0x0000ffff },
+		{ 0x6,  0, 0, 0x0000ffff },
+		{ 0x6,  0, 0, 0x0000ffff },
+		{ 0x6,  0, 0, 0x0000ffff },
+	};
+#else
 	struct sock_filter f[SFLEN] = {
 		{ 0x28, 0, 0, 0x0000000c },
 		{ 0x15, 0, 4, 0x00000800 },
@@ -37,6 +49,7 @@ int main(int argc, char **argv)
 		{ 0x6,  0, 0, 0x0000ffff },
 		{ 0x6,  0, 0, 0x00000000 },
 	};
+#endif
 	struct sock_filter f2[SFLEN], f3[SFLEN];
 	socklen_t len;
 
