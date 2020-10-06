@@ -1,0 +1,45 @@
+FROM archlinux
+ARG CC=gcc
+ARG ENV1=FOOBAR
+
+RUN pacman -Syu --noconfirm \
+	$CC \
+	bash \
+	make \
+	ccache \
+	coreutils \
+	git \
+	gnutls \
+	libaio \
+	libcap \
+	libnet \
+	libnl \
+	nftables \
+	pkgconfig \
+	protobuf-c \
+	protobuf \
+	python-pip \
+	python-protobuf \
+	which \
+	sudo
+
+COPY . /criu
+WORKDIR /criu
+ENV CC="ccache $CC" CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
+RUN mv .ccache /tmp && make mrproper && ccache -sz && \
+	date && make -j $(nproc) CC="$CC" && date && ccache -s
+
+RUN pacman -Syu --noconfirm \
+	iptables \
+	nftables \
+	iproute2 \
+	tar \
+	bash \
+	go \
+	python-yaml \
+	flake8 \
+	asciidoctor
+
+RUN pip3 install junit_xml
+
+RUN make -C test/zdtm
