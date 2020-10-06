@@ -67,12 +67,8 @@ def wrap_restore():
 		_errno = ctypes.get_errno()
 		raise OSError(_errno, errno.errorcode[_errno])
 
-	(r_pipe, w_pipe) = os.pipe()
-
-	# Spawn the init
-	if os.fork() == 0:
-		os.close(r_pipe)
-
+	criu_pid = os.fork()
+	if criu_pid == 0:
 		# Mount new /proc
 		if _mount(None, b"/", None, MS_SLAVE|MS_REC, None) != 0:
 			_errno = ctypes.get_errno()
@@ -83,44 +79,22 @@ def wrap_restore():
 			raise OSError(_errno, errno.errorcode[_errno])
 
 		# Spawn CRIU binary
-		criu_pid = os.fork()
-		if criu_pid == 0:
-			run_criu()
-			raise OSError(errno.ENOENT, "No such command")
-
-		while True:
-			try:
-				(pid, status) = os.wait()
-				if pid == criu_pid:
-					status = os.WEXITSTATUS(status)
-					break
-			except OSError:
-				status = -251
-				break
-
-		os.write(w_pipe, b"%d" % status)
-		os.close(w_pipe)
-
-		if status != 0:
-			sys.exit(status)
-
-		while True:
-			try:
-				os.wait()
-			except OSError:
-				break
-
+		run_criu()
+		raise OSError(errno.ENOENT, "No such command")
 		sys.exit(0)
 
 	# Wait for CRIU to exit and report the status back
-	os.close(w_pipe)
-	status = os.read(r_pipe, 1024)
-	if not status.isdigit():
-		status_i = -252
-	else:
-		status_i = int(status)
+	while True:
+		try:
+			(pid, status) = os.wait()
+			if pid == criu_pid:
+				status = os.WEXITSTATUS(status)
+				break
+		except OSError:
+			status = -251
+			break
 
-	return status_i
+	return status
 
 
 def get_varg(args):
