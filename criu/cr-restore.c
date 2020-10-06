@@ -2192,6 +2192,18 @@ static int write_restored_pid(void)
 	return 0;
 }
 
+static void reap_zombies(void)
+{
+	while (1) {
+		pid_t pid = wait(NULL);
+		if (pid == -1) {
+			if (errno != ECHILD)
+				pr_perror("Error while waiting for pids");
+			return;
+		}
+	}
+}
+
 static int restore_root_task(struct pstree_item *init)
 {
 	enum trace_flags flag = TRACE_ALL;
@@ -2445,8 +2457,9 @@ skip_ns_bouncing:
 	if (ret != 0)
 		pr_err("Post-resume script ret code %d\n", ret);
 
-	if (!opts.restore_detach && !opts.exec_cmd)
-		wait(NULL);
+	if (!opts.restore_detach && !opts.exec_cmd) {
+		reap_zombies();
+	}
 
 	return 0;
 
