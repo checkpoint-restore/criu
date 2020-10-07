@@ -51,7 +51,7 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 	char img_name_buf[PATH_MAX];
 	u8 local[PB_PKOBJ_LOCAL_SIZE];
 	void *buf = (void *)&local;
-	u32 size;
+	u32 size = 0;
 	int ret;
 
 	if (!cr_pb_descs[type].pb_desc) {
@@ -66,6 +66,10 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 		ret = 0;
 	else
 		ret = bread(&img->_x, &size, sizeof(size));
+
+	/* This is to make coverity happy and to not report TAINTED_SCALAR. */
+	size &= UINT32_MAX;
+
 	if (ret == 0) {
 		if (eof) {
 			return 0;
