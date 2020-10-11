@@ -463,6 +463,7 @@ usage:
 "  -o|--log-file FILE    log file name\n"
 "     --log-pid          enable per-process logging to separate FILE.pid files\n"
 "  -v[v...]|--verbosity  increase verbosity (can use multiple v)\n"
+"  -b|--binary-file      store the logs in binary\n"
 "  -vNUM|--verbosity=NUM set verbosity to NUM (higher level means more output):\n"
 "                          -v1 - only errors and messages\n"
 "                          -v2 - also warnings (default level)\n"
