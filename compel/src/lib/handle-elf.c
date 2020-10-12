@@ -155,6 +155,7 @@ int __handle_elf(void *mem, size_t size)
 	int64_t toc_offset = 0;
 #endif
 	int ret = -EINVAL;
+	unsigned long data_off = 0;
 
 	pr_debug("Header\n");
 	pr_debug("------------\n");
@@ -698,6 +699,9 @@ int __handle_elf(void *mem, size_t size)
 				pr_out("\n\t");
 			pr_out("0x%02x,", shdata[j]);
 		}
+
+		if (!strcmp(&secstrings[sh->sh_name], ".data"))
+			data_off = sh->sh_addr;
 	}
 	pr_out("};\n");
 	pr_out("\n");
@@ -722,6 +726,7 @@ int __handle_elf(void *mem, size_t size)
 	pr_out("\tpbd->hdr.args_ptr_off	= %s_sym__export_parasite_service_args_ptr;\n", opts.prefix);
 	pr_out("\tpbd->hdr.got_off	= round_up(pbd->hdr.bsize, sizeof(long));\n");
 	pr_out("\tpbd->hdr.args_off	= pbd->hdr.got_off + %zd*sizeof(long);\n", nr_gotpcrel);
+	pr_out("\tpbd->hdr.data_off	= %#lx;\n", data_off);
 	pr_out("\tpbd->hdr.relocs		= %s_relocs;\n", opts.prefix);
 	pr_out("\tpbd->hdr.nr_relocs	= "
 			"sizeof(%s_relocs) / sizeof(%s_relocs[0]);\n",
