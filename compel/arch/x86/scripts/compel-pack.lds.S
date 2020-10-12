@@ -13,7 +13,7 @@ SECTIONS
 		*(.compel.init)
 	}
 
-	.data : {
+	.data : ALIGN(0x1000) {
 		*(.data*)
 		*(.bss*)
 	}
