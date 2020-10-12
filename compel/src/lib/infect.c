@@ -690,12 +690,11 @@ static int parasite_start_daemon(struct parasite_ctl *ctl)
 	return 0;
 }
 
-static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
+static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size, int remote_prot)
 {
 	int fd;
 
-	ctl->remote_map = remote_mmap(ctl, NULL, size,
-				      PROT_READ | PROT_WRITE | PROT_EXEC,
+	ctl->remote_map = remote_mmap(ctl, NULL, size, remote_prot,
 				      MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 	if (!ctl->remote_map) {
 		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", ctl->rpid);
@@ -733,7 +732,7 @@ static void parasite_memfd_close(struct parasite_ctl *ctl, int fd)
 		pr_err("Can't close memfd\n");
 }
 
-static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
+static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size, int remote_prot)
 {
 	void *where = (void *)ctl->ictx.syscall_ip + BUILTIN_SYSCALL_SIZE;
 	bool compat_task = !compel_mode_native(ctl);
@@ -785,8 +784,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 		goto err_cure;
 	}
 
-	ctl->remote_map = remote_mmap(ctl, NULL, size,
-				      PROT_READ | PROT_WRITE | PROT_EXEC,
+	ctl->remote_map = remote_mmap(ctl, NULL, size, remote_prot,
 				      MAP_FILE | MAP_SHARED, fd, 0);
 	if (!ctl->remote_map) {
 		pr_err("Can't rmap memfd for parasite blob\n");
@@ -856,15 +854,47 @@ void compel_relocs_apply(void *mem, void *vbase, struct parasite_blob_desc *pbd)
 #endif
 }
 
+long remote_mprotect(struct parasite_ctl *ctl, void *addr, size_t len, int prot)
+{
+	long ret;
+	int err;
+	bool compat_task = !user_regs_native(&ctl->orig.regs);
+
+	err = compel_syscall(ctl, __NR(mprotect, compat_task), &ret,
+			(unsigned long)addr, len, prot, 0, 0, 0);
+	if (err < 0) {
+		pr_err("compel_syscall for mprotect failed\n");
+		return -1;
+	}
+	return ret;
+}
+
 static int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 {
-	int ret;
+	int ret, remote_prot;
 
-	ret = parasite_memfd_exchange(ctl, size);
+	if (ctl->pblob.hdr.data_off)
+		remote_prot = PROT_READ | PROT_EXEC;
+	else
+		remote_prot = PROT_READ | PROT_WRITE | PROT_EXEC;
+
+	ret = parasite_memfd_exchange(ctl, size, remote_prot);
 	if (ret == 1) {
 		pr_info("MemFD parasite doesn't work, goto legacy mmap\n");
-		ret = parasite_mmap_exchange(ctl, size);
+		ret = parasite_mmap_exchange(ctl, size, remote_prot);
+		if (ret)
+			return ret;
 	}
+
+	if (!ctl->pblob.hdr.data_off)
+		return 0;
+
+	ret = remote_mprotect(ctl, ctl->remote_map + ctl->pblob.hdr.data_off,
+			      size - ctl->pblob.hdr.data_off,
+			      PROT_READ | PROT_WRITE);
+	if (ret)
+		pr_err("remote_mprotect failed\n");
+
 	return ret;
 }
 
