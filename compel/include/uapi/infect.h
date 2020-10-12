@@ -155,6 +155,7 @@ struct parasite_blob_desc {
 			unsigned long		args_ptr_off;
 			unsigned long		got_off;
 			unsigned long		args_off;
+			unsigned long		data_off;
 			compel_reloc_t		*relocs;
 			unsigned int		nr_relocs;
 		} hdr;
