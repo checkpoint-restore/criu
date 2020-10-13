@@ -946,6 +946,7 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 			} else
 				pr_perror("ptrace");
 
+			xfree(si);
 			break;
 		}
 
