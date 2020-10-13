@@ -13,6 +13,7 @@ static void exit_on(int ret, int err_fd, char *reason)
 	if (ret) {
 		syscall(__NR_write, err_fd, reason, strlen(reason));
 		syscall(__NR_exit, ret);
+		__builtin_unreachable();
 	}
 }
 /*
