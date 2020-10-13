@@ -105,7 +105,7 @@ err_parse:
 int compel_stop_task(int pid)
 {
 	int ret;
-	struct seize_task_status ss;
+	struct seize_task_status ss = {};
 
 	ret = compel_interrupt_task(pid);
 	if (ret == 0)
