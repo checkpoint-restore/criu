@@ -1485,6 +1485,5 @@ int cr_lazy_pages(bool daemon)
 
 	tls_terminate_session();
 
-	xfree(events);
 	return ret;
 }
