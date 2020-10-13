@@ -355,6 +355,7 @@ static int gen_parasite_saddr(struct sockaddr_un *saddr, int key)
 	int sun_len;
 
 	saddr->sun_family = AF_UNIX;
+	/* cppcheck-suppress nullPointer */
 	snprintf(saddr->sun_path, UNIX_PATH_MAX,
 			"X/crtools-pr-%d", key);
 
