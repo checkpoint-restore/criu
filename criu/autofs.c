@@ -433,6 +433,7 @@ static int access_autofs_mount(struct mount_info *pm)
 		case 0:
 			/* We don't care about results.
 			 * All we need is to "touch" */
+			/* coverity[check_return] */
 			openat(autofs_mnt, mnt_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY);
 			_exit(0);
 
