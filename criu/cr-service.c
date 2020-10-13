@@ -1019,6 +1019,7 @@ static int handle_version(int sk, CriuReq * msg)
 	/* This assumes we will always have a major and minor version */
 	version.major_number = CRIU_VERSION_MAJOR;
 	version.minor_number = CRIU_VERSION_MINOR;
+	/* coverity[pointless_string_compare] */
 	if (strcmp(CRIU_GITID, "0")) {
 		version.gitid = CRIU_GITID;
 	}

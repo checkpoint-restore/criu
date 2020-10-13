@@ -1114,6 +1114,7 @@ close_pipe:
 free_info:
 	free(info);
 umount:
+	/* coverity[toctou] */
 	if (umount(mi->mountpoint) < 0)
 		pr_perror("Failed to umount %s", mi->mountpoint);
 	goto close_pipe;
