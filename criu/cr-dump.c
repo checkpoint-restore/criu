@@ -1099,8 +1099,16 @@ static int dump_zombies(void)
 	int ret = -1;
 	int pidns = root_ns_mask & CLONE_NEWPID;
 
-	if (pidns && set_proc_fd(get_service_fd(CR_PROC_FD_OFF)))
-		return -1;
+	if (pidns) {
+		int fd;
+
+		fd = get_service_fd(CR_PROC_FD_OFF);
+		if (fd < 0)
+			return -1;
+
+		if (set_proc_fd(fd))
+			return -1;
+	}
 
 	/*
 	 * We dump zombies separately because for pid-ns case
