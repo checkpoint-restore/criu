@@ -2930,6 +2930,7 @@ void network_unlock(void)
 	rst_unlock_tcp_connections();
 
 	if (root_ns_mask & CLONE_NEWNET) {
+		/* coverity[check_return] */
 		run_scripts(ACT_NET_UNLOCK);
 		network_unlock_internal();
 	}
