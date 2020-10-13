@@ -936,8 +936,10 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 		}
 
 		nr = ret = ptrace(PTRACE_PEEKSIGINFO, tid, &arg, si);
-		if (ret == 0)
+		if (ret == 0) {
+			xfree(si);
 			break; /* Finished */
+		}
 
 		if (ret < 0) {
 			if (errno == EIO) {
@@ -954,6 +956,7 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 		queue->signals = xrealloc(queue->signals, sizeof(*queue->signals) * queue->n_signals);
 		if (!queue->signals) {
 			ret = -1;
+			xfree(si);
 			break;
 		}
 
