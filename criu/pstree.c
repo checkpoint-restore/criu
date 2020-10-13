@@ -674,12 +674,12 @@ static int prepare_pstree_ids(pid_t pid)
 		leader = pstree_item_by_virt(item->sid);
 		BUG_ON(leader == NULL);
 		if (leader->pid->state != TASK_UNDEF) {
-			pid_t pid;
+			pid_t helper_pid;
 
-			pid = get_free_pid();
-			if (pid < 0)
+			helper_pid = get_free_pid();
+			if (helper_pid < 0)
 				break;
-			helper = lookup_create_item(pid);
+			helper = lookup_create_item(helper_pid);
 			if (helper == NULL)
 				return -1;
 
@@ -771,15 +771,15 @@ static int prepare_pstree_ids(pid_t pid)
 
 	/* Add a process group leader if it is absent  */
 	for_each_pstree_item(item) {
-		struct pid *pid;
+		struct pid *pgid;
 
 		if (!item->pgid || vpid(item) == item->pgid)
 			continue;
 
-		pid = pstree_pid_by_virt(item->pgid);
-		if (pid->state != TASK_UNDEF) {
-			BUG_ON(pid->state == TASK_THREAD);
-			rsti(item)->pgrp_leader = pid->item;
+		pgid = pstree_pid_by_virt(item->pgid);
+		if (pgid->state != TASK_UNDEF) {
+			BUG_ON(pgid->state == TASK_THREAD);
+			rsti(item)->pgrp_leader = pgid->item;
 			continue;
 		}
 
@@ -791,7 +791,7 @@ static int prepare_pstree_ids(pid_t pid)
 		if (current_pgid == item->pgid)
 			continue;
 
-		helper = pid->item;
+		helper = pgid->item;
 
 		helper->sid = item->sid;
 		helper->pgid = item->pgid;
