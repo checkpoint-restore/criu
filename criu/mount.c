@@ -1188,6 +1188,7 @@ exit:
 
 static int set_is_overmounted(struct mount_info *mi)
 {
+	/* coverity[check_return] */
 	mnt_is_overmounted(mi);
 	return 0;
 }
@@ -1444,6 +1445,7 @@ int open_mountpoint(struct mount_info *pm)
 	return __open_mountpoint(pm, fd);
 err:
 	if (ns_old >= 0)
+		/* coverity[check_return] */
 		restore_ns(ns_old, &mnt_ns_desc);
 	close_safe(&fd);
 	if (fchdir(cwd_fd))
@@ -3508,6 +3510,7 @@ int prepare_mnt_ns(void)
 	return ret;
 err:
 	if (rst >= 0)
+		/* coverity[check_return] */
 		restore_ns(rst, &mnt_ns_desc);
 	return -1;
 }
