@@ -1940,6 +1940,7 @@ static int rewrite_cgroup_roots(CgroupEntry *cge)
 		list_for_each_entry(o, &opts.new_cgroup_roots, node) {
 			unsigned old_mask = ctrl_mask;
 
+			/* coverity[check_return] */
 			cgroup_contains(ctrl->cnames, ctrl->n_cnames,
 					o->controller, &ctrl_mask);
 			if (old_mask != ctrl_mask) {
