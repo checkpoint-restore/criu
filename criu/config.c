@@ -872,6 +872,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
+			/* coverity[pointless_string_compare] */
 			if (strcmp(CRIU_GITID, "0"))
 				pr_msg("GitID: %s\n", CRIU_GITID);
 			exit(0);

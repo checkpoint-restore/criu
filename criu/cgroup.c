@@ -1809,6 +1809,7 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 				fstype = "cgroup2";
 
 			pr_debug("\tMaking controller dir %s (%s)\n", paux, opt);
+			/* coverity[toctou] */
 			if (mkdir(paux, 0700)) {
 				pr_perror("\tCan't make controller dir %s", paux);
 				goto err;

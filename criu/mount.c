@@ -2781,6 +2781,7 @@ err_tmpfs:
 	}
 
 err_root:
+	/* coverity[toctou] */
 	if (tmp_dir && rmdir(put_root)) {
 		pr_perror("Can't remove the directory %s", put_root);
 		return -1;

@@ -395,6 +395,7 @@ static int cgp_parse_file(char *path)
 	ret = 0;
 err:
 	if (mem != MAP_FAILED)
+		/* coverity[uninit_use_in_call] */
 		munmap(mem, st.st_size);
 	close_safe(&fd);
 	return ret;
