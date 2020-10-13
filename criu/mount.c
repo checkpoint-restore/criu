@@ -2854,6 +2854,7 @@ static int create_mnt_roots(void)
 		mnt_roots = NULL;
 		goto out;
 	}
+	/* coverity[check_return] */
 	chmod(mnt_roots, 0777);
 
 	exit_code = 0;

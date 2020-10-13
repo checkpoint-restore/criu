@@ -341,6 +341,7 @@ static int kerndat_get_dirty_track(void)
 
 	map[0] = '\0';
 
+	/* coverity[check_return] */
 	lseek(pm2, (unsigned long)map / PAGE_SIZE * sizeof(u64), SEEK_SET);
 	ret = read(pm2, &pmap, sizeof(pmap));
 	if (ret < 0)
