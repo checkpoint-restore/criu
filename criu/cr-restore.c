@@ -3260,7 +3260,7 @@ static bool groups_match(gid_t* groups, int n_groups)
 	n = getgroups(0, NULL);
 	if (n == -1) {
 		pr_perror("Failed to get number of supplementary groups");
-		ret = false;
+		return false;
 	}
 	if (n != n_groups)
 		return false;
