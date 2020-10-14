@@ -534,6 +534,7 @@ static int close_fds(int minfd)
 			continue;
 		if (fd < minfd)
 			continue;
+		/* coverity[double_close] */
 		close(fd);
 	}
 	closedir(dir);
