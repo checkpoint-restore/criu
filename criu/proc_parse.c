@@ -1381,6 +1381,7 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 	}
 	strcpy(root_link.name, new->root);
 	if (strip_deleted(&root_link)) {
+		root_link.name[sizeof(root_link.name) - 2] = 0;
 		strcpy(new->root, root_link.name);
 		new->deleted = true;
 	}
