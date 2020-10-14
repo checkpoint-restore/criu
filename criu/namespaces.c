@@ -1364,6 +1364,10 @@ int __userns_call(const char *func_name, uns_call_t call, int flags,
 		return call(arg, fd, getpid());
 
 	sk = get_service_fd(USERNSD_SK);
+	if (sk < 0) {
+		pr_err("Cannot get USERNSD_SK fd\n");
+		return -1;
+	}
 	pr_debug("uns: calling %s (%d, %x)\n", func_name, fd, flags);
 
 	if (!async)
