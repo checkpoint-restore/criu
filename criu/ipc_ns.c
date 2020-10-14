@@ -760,6 +760,10 @@ static int restore_content(void *data, struct cr_img *img, const IpcShmEntry *sh
 	ssize_t size, off;
 
 	ifd = img_raw_fd(img);
+	if (ifd < 0) {
+		pr_err("Failed getting raw image fd\n");
+		return -1;
+	}
 	size = round_up(shm->size, sizeof(u32));
 	off = 0;
 	do {
