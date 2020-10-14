@@ -151,6 +151,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 {
 	if (!pr->pe)
+		/* coverity[branch_past_initialization] */
 		goto adv;
 
 	do {
