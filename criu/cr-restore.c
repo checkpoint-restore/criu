@@ -3633,7 +3633,13 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 * it gets unmapped at the very end of __export_restore_task
 	 */
 
-	task_args->proc_fd = dup(get_service_fd(PROC_FD_OFF));
+	i = get_service_fd(PROC_FD_OFF);
+	if (i < 0) {
+		pr_err("Cannot get PROC_FD_OFF fd\n");
+		goto err;
+	}
+
+	task_args->proc_fd = dup(i);
 	if (task_args->proc_fd < 0) {
 		pr_perror("can't dup proc fd");
 		goto err;
