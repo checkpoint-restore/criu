@@ -526,7 +526,7 @@ static int open_ns_fd(struct file_desc *d, int *new_fd)
 	struct ns_desc *nd = NULL;
 	struct ns_id *ns;
 	int nsfd_id, fd;
-	char path[64];
+	char path[64] = "";
 
 	for (ns = ns_ids; ns != NULL; ns = ns->next) {
 		if (ns->id != nfi->nfe->ns_id)
