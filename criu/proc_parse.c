@@ -853,7 +853,7 @@ int parse_pid_stat(pid_t pid, struct proc_pid_stat *s)
 	if (fd < 0)
 		return -1;
 
-	n = read(fd, buf, BUF_SIZE);
+	n = read(fd, buf, BUF_SIZE - 1);
 	close(fd);
 	if (n < 1) {
 		pr_err("stat for %d is corrupted\n", pid);
@@ -862,6 +862,7 @@ int parse_pid_stat(pid_t pid, struct proc_pid_stat *s)
 
 	memset(s, 0, sizeof(*s));
 
+	buf[n] = 0;
 	tok = strchr(buf, ' ');
 	if (!tok)
 		goto err;
