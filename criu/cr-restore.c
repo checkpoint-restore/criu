@@ -3512,7 +3512,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	struct vm_area_list self_vmas;
 	struct vm_area_list *vmas = &rsti(current)->vmas;
-	int i, siginfo_n;
+	int i, fd, siginfo_n;
 
 	unsigned long creds_pos = 0;
 	unsigned long creds_pos_next;
@@ -3653,7 +3653,13 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 * it gets unmapped at the very end of __export_restore_task
 	 */
 
-	task_args->proc_fd = dup(get_service_fd(PROC_FD_OFF));
+	fd = get_service_fd(PROC_FD_OFF);
+	if (fd < 0) {
+		pr_err("Cannot get PROC_FD_OFF fd\n");
+		goto err;
+	}
+
+	task_args->proc_fd = dup(fd);
 	if (task_args->proc_fd < 0) {
 		pr_perror("can't dup proc fd");
 		goto err;
