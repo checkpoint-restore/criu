@@ -757,6 +757,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list,
 		if (!eof && !__is_vma_range_fmt(str)) {
 			if (!strncmp(str, "Nonlinear", 9)) {
 				BUG_ON(!vma_area);
+				/* coverity[var_deref_op] */
 				pr_err("Nonlinear mapping found %016"PRIx64"-%016"PRIx64"\n",
 				       vma_area->e->start, vma_area->e->end);
 				/*
@@ -767,6 +768,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list,
 				goto err;
 			} else if (!strncmp(str, "VmFlags: ", 9)) {
 				BUG_ON(!vma_area);
+				/* coverity[var_deref_model] */
 				parse_vma_vmflags(&str[9], vma_area);
 				continue;
 			} else
