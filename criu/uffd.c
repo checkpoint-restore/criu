@@ -284,6 +284,7 @@ int uffd_open(int flags, unsigned long *features)
 	}
 
 	if (uffdio_api.api != UFFD_API) {
+		/* coverity[format_error] */
 		pr_err("Incompatible uffd API: expected %Lu, got %Lu\n",
 		       UFFD_API, uffdio_api.api);
 		goto err;
