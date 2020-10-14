@@ -107,8 +107,13 @@ int fdstore_add(int fd)
 
 int fdstore_get(int id)
 {
-	int sk = get_service_fd(FDSTORE_SK_OFF);
-	int fd;
+	int sk, fd;
+
+	sk = get_service_fd(FDSTORE_SK_OFF);
+	if (sk < 0) {
+		pr_err("Cannot get FDSTORE_SK_OFF fd\n");
+		return -1;
+	}
 
 	mutex_lock(&desc->lock);
 	if (setsockopt(sk, SOL_SOCKET, SO_PEEK_OFF, &id, sizeof(id))) {
