@@ -1170,6 +1170,7 @@ static int revert_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd, int *ro
 	if (*ns_fd >= 0 && restore_ns(*ns_fd, &mnt_ns_desc))
 		ret = -1;
 	if (*root_fd >= 0) {
+		/* coverity[chroot_call] */
 		if (fchdir(*root_fd) || chroot("."))
 			pr_perror("Can't revert root directory");
 		close_safe(root_fd);
@@ -1248,6 +1249,7 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd,
 			goto err;
 		}
 		close(fd);
+		/* coverity[chroot_call] */
 		if (chroot(".")) {
 			pr_perror("Unable to change root directory");
 			goto err;
