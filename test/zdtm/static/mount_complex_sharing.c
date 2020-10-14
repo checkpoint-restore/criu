@@ -32,7 +32,8 @@ struct file {
  * bind_root - root offset from bind source
  * fstype - needed for non-binds, always tmpfs
  * source - source for mounting
- * shflags - array of sharing options applied after mounting (ending with -1)
+ * flags - array of sharing options or mount flags applied after
+ *         mounting (ending with -1)
  * mounted - identifies implicitly propagated mounts
  * files - array of files we need to create on mount (ending with zeroed file)
  */
@@ -42,7 +43,7 @@ struct mountinfo {
 	char *bind_root;
 	char *fstype;
 	char *source;
-	int shflags[3];
+	int flags[3];
 	bool mounted;
 	struct file files[10];
 };
@@ -70,6 +71,7 @@ struct mountinfo mounts[] = {
 			{"prop-shared", true},
 			{"prop-slave", true},
 			{"prop-slave-shared", true},
+			{"prop-mount-flags", true},
 			{NULL}
 		}
 	},
@@ -106,6 +108,11 @@ struct mountinfo mounts[] = {
 	{"shared-bind-4/prop-shared", -1, NULL, NULL, NULL, {MS_PRIVATE, MS_SHARED, -1}, true},
 	{"shared-bind-4/prop-slave", -1, NULL, NULL, NULL, {MS_PRIVATE, MS_SHARED, -1}, true},
 	{"shared-bind-4/prop-slave-shared", -1, NULL, NULL, NULL, {MS_PRIVATE, MS_SHARED, -1}, true},
+
+	{"shared-bind-1/prop-mount-flags", 5, "subdir", NULL, NULL, {MS_RDONLY|MS_REMOUNT|MS_BIND, -1}, false},
+	{"shared-bind-2/prop-mount-flags", -1, NULL, NULL, NULL, {MS_RDONLY|MS_REMOUNT|MS_BIND, -1}, true},
+	{"shared-bind-3/prop-mount-flags", -1, NULL, NULL, NULL, {-1}, true},
+	{"shared-bind-4/prop-mount-flags", -1, NULL, NULL, NULL, {-1}, true},
 };
 /* clang-format on */
 
@@ -150,7 +157,7 @@ static int fill_content(struct mountinfo *mi)
 static int mount_one(struct mountinfo *mi)
 {
 	char source[PATH_MAX], target[PATH_MAX];
-	int *shflags = mi->shflags, mflags = 0;
+	int *flags = mi->flags, mflags = 0;
 	char *fstype = NULL;
 
 	test_msg("Mounting %s %d %s %s %d\n", mi->mountpoint, mi->bind, mi->fstype, mi->source, mi->mounted);
@@ -158,7 +165,7 @@ static int mount_one(struct mountinfo *mi)
 	snprintf(target, sizeof(target), "%s/%s", dirname, mi->mountpoint);
 
 	if (mi->mounted)
-		goto sharing;
+		goto apply_flags;
 
 	if (mi->bind != -1) {
 		snprintf(source, sizeof(source), "%s/%s/%s", dirname, mounts[mi->bind].mountpoint, mi->bind_root);
@@ -177,14 +184,14 @@ static int mount_one(struct mountinfo *mi)
 	if (fill_content(mi))
 		return -1;
 
-sharing:
-	while (shflags[0] != -1) {
-		test_msg("Making mount %s 0x%x\n", target, shflags[0]);
-		if (mount(NULL, target, NULL, shflags[0], NULL)) {
-			pr_perror("Failed to make mount %s 0x%x", target, shflags[0]);
+apply_flags:
+	while (flags[0] != -1) {
+		test_msg("Making mount %s 0x%x\n", target, flags[0]);
+		if (mount(NULL, target, NULL, flags[0], NULL)) {
+			pr_perror("Failed to make mount %s 0x%x", target, flags[0]);
 			return -1;
 		}
-		shflags++;
+		flags++;
 	}
 
 	return 0;
