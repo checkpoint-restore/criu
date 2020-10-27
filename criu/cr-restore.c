@@ -1363,7 +1363,6 @@ static int set_next_pid(void *arg)
 
 static inline int fork_with_pid(struct pstree_item *item)
 {
-	unsigned long clone_flags;
 	struct cr_clone_arg ca;
 	struct ns_id *pid_ns = NULL;
 	int ret = -1;
@@ -1404,17 +1403,9 @@ static inline int fork_with_pid(struct pstree_item *item)
 		ca.core = NULL;
 	}
 
-	ca.item = item;
-	ca.clone_flags = rsti(item)->clone_flags;
+	if (item->ids)
+		pid_ns = lookup_ns_by_id(item->ids->pid_ns_id, &pid_ns_desc);
 
-	BUG_ON(ca.clone_flags & CLONE_VM);
-
-	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ca.clone_flags);
-
-	if (ca.item->ids)
-		pid_ns = lookup_ns_by_id(ca.item->ids->pid_ns_id, &pid_ns_desc);
-
-	clone_flags = ca.clone_flags;
 	if (pid_ns && pid_ns->ext_key) {
 		int fd;
 
@@ -1423,13 +1414,6 @@ static inline int fork_with_pid(struct pstree_item *item)
 			pr_err("Unable to restore into an empty PID namespace\n");
 			return -1;
 		}
-
-		/*
-		 * Restoring into an existing namespace means that CLONE_NEWPID
-		 * needs to be removed during clone() as the process will be
-		 * created in the correct PID namespace thanks to switch_ns_by_fd().
-		 */
-		clone_flags &= ~CLONE_NEWPID;
 
 		fd = inherit_fd_lookup_id(pid_ns->ext_key);
 		if (fd < 0) {
@@ -1450,10 +1434,16 @@ static inline int fork_with_pid(struct pstree_item *item)
 		 * process as if using CLONE_NEWPID.
 		 */
 		root_ns_mask |= CLONE_NEWPID;
-		rsti(item)->clone_flags |= CLONE_NEWPID;
 	}
 
-	if (!(clone_flags & CLONE_NEWPID)) {
+	ca.item = item;
+	ca.clone_flags = rsti(item)->clone_flags;
+
+	BUG_ON(ca.clone_flags & CLONE_VM);
+
+	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ca.clone_flags);
+
+	if (!(ca.clone_flags & CLONE_NEWPID)) {
 		lock_last_pid();
 
 		if (!kdat.has_clone3_set_tid) {
@@ -1485,7 +1475,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 	if (kdat.has_clone3_set_tid) {
 		ret = clone3_with_pid_noasan(restore_task_with_children,
-				&ca, (clone_flags &
+				&ca, (ca.clone_flags &
 					~(CLONE_NEWNET | CLONE_NEWCGROUP | CLONE_NEWTIME)),
 				SIGCHLD, pid);
 	} else {
@@ -1503,7 +1493,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 		 */
 		close_pid_proc();
 		ret = clone_noasan(restore_task_with_children,
-				(clone_flags &
+				(ca.clone_flags &
 				 ~(CLONE_NEWNET | CLONE_NEWCGROUP | CLONE_NEWTIME)) | SIGCHLD,
 				&ca);
 	}
@@ -1523,7 +1513,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 err_unlock:
-	if (!(clone_flags & CLONE_NEWPID))
+	if (!(ca.clone_flags & CLONE_NEWPID))
 		unlock_last_pid();
 
 	if (ca.core)
