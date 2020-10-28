@@ -1427,13 +1427,6 @@ static inline int fork_with_pid(struct pstree_item *item)
 			pr_err("Unable to enter existing PID namespace\n");
 			return -1;
 		}
-
-		/*
-		 * If a process without a PID namespace is restored into
-		 * a PID namespace this tells CRIU to still handle the
-		 * process as if using CLONE_NEWPID.
-		 */
-		root_ns_mask |= CLONE_NEWPID;
 	}
 
 	ca.item = item;
@@ -2254,9 +2247,18 @@ static int restore_root_task(struct pstree_item *init)
 				"\"--namespace pid\" option.\n");
 			return -1;
 		}
-	} else	if (root_ns_mask & CLONE_NEWPID) {
-		pr_err("Can't restore pid namespace without the process init\n");
-		return -1;
+	} else if (root_ns_mask & CLONE_NEWPID) {
+		struct ns_id *ns;
+		/*
+		 * Restoring into an existing PID namespace. This disables
+		 * the check to require a PID 1 when restoring a process
+		 * which used to be in a PID namespace.
+		 */
+		ns = lookup_ns_by_id(init->ids->pid_ns_id, &pid_ns_desc);
+		if (!ns || !ns->ext_key) {
+			pr_err("Can't restore pid namespace without the process init\n");
+			return -1;
+		}
 	}
 
 	__restore_switch_stage_nw(CR_STATE_ROOT_TASK);
@@ -2476,7 +2478,7 @@ out_kill:
 	 * The processes can be killed only when all of them have been created,
 	 * otherwise an external processes can be killed.
 	 */
-	if (root_ns_mask & CLONE_NEWPID) {
+	if (vpid(root_item) == INIT_PID) {
 		int status;
 
 		/* Kill init */
