@@ -1365,6 +1365,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 {
 	struct cr_clone_arg ca;
 	struct ns_id *pid_ns = NULL;
+	bool external_pidns = false;
 	int ret = -1;
 	pid_t pid = vpid(item);
 
@@ -1406,7 +1407,10 @@ static inline int fork_with_pid(struct pstree_item *item)
 	if (item->ids)
 		pid_ns = lookup_ns_by_id(item->ids->pid_ns_id, &pid_ns_desc);
 
-	if (pid_ns && pid_ns->ext_key) {
+	if (!current && pid_ns && pid_ns->ext_key)
+		external_pidns = true;
+
+	if (external_pidns) {
 		int fd;
 
 		/* Not possible to restore into an empty PID namespace. */
@@ -1427,6 +1431,8 @@ static inline int fork_with_pid(struct pstree_item *item)
 			pr_err("Unable to enter existing PID namespace\n");
 			return -1;
 		}
+
+		pr_info("Inheriting external pidns %s for %d\n", pid_ns->ext_key, pid);
 	}
 
 	ca.item = item;
@@ -1440,7 +1446,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 		lock_last_pid();
 
 		if (!kdat.has_clone3_set_tid) {
-			if (pid_ns && pid_ns->ext_key) {
+			if (external_pidns) {
 				/*
 				 * Restoring into another namespace requires a helper
 				 * to write to LAST_PID_PATH. Using clone3() this is
@@ -1457,7 +1463,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 			}
 		}
 	} else {
-		if (!(pid_ns && pid_ns->ext_key)) {
+		if (!external_pidns) {
 			if (pid != INIT_PID) {
 				pr_err("First PID in a PID namespace needs to be %d and not %d\n",
 					pid, INIT_PID);
