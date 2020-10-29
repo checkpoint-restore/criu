@@ -81,6 +81,10 @@ jobs:
       dist: bionic
     - os: linux
       arch: amd64
+      env: TR_ARCH=archlinux
+      dist: bionic
+    - os: linux
+      arch: amd64
       env: TR_ARCH=centos
       dist: bionic
     - os: linux
