@@ -545,17 +545,46 @@ static int send_one_pkt(int fd, struct sk_packet *pkt)
 	int ret;
 	SkPacketEntry *entry = pkt->entry;
 	struct msghdr mh = {};
+	size_t msg_controllen = 0;
 	struct iovec iov;
 	char cmsg[CMSG_MAX_SIZE];
+	struct cmsghdr *ch = NULL;
 
 	mh.msg_iov = &iov;
 	mh.msg_iovlen = 1;
 	iov.iov_base = pkt->data;
 	iov.iov_len = entry->length;
 
+	/*
+	 * We need to init msg_control, msg_controllen
+	 * fields to make CMSG_*() helpers work correctly
+	 * Later, just before sendmsg we have to set
+	 * msg_controllen to actual summary length of SCMs.
+	 */
+	mh.msg_control = cmsg;
+	mh.msg_controllen = sizeof(cmsg);
+	memset(cmsg, 0, sizeof(cmsg));
+
 	if (pkt->scm != NULL) {
-		mh.msg_controllen = pkt->scm_len;
-		mh.msg_control = pkt->scm;
+		ScmEntry *se;
+		struct cmsghdr *sch;
+
+		BUG_ON(!entry->n_scm);
+		se = entry->scm[0];
+
+		ch = CMSG_FIRSTHDR(&mh);
+		BUG_ON(!ch);
+
+		sch = (struct cmsghdr *)pkt->scm;
+		ch->cmsg_level = SOL_SOCKET;
+		ch->cmsg_type = SCM_RIGHTS;
+
+		BUG_ON(msg_controllen +
+		       CMSG_SPACE(se->n_rights * sizeof(int)) >= sizeof(cmsg));
+		memcpy(CMSG_DATA(ch), CMSG_DATA(sch), se->n_rights * sizeof(int));
+
+		ch->cmsg_len = CMSG_LEN(se->n_rights * sizeof(int));
+		msg_controllen += CMSG_SPACE(se->n_rights * sizeof(int));
 	}
 
 	/*
@@ -568,26 +597,31 @@ static int send_one_pkt(int fd, struct sk_packet *pkt)
 
 	if (entry->ucred && entry->ucred->pid) {
 		struct ucred *ucred;
-		struct cmsghdr *ch;
 
-		mh.msg_control = cmsg;
-		mh.msg_controllen = sizeof(cmsg);
+		ch = ch ? CMSG_NXTHDR(&mh, ch) : CMSG_FIRSTHDR(&mh);
+		BUG_ON(!ch);
 
-		ch = CMSG_FIRSTHDR(&mh);
 		ch->cmsg_len = CMSG_LEN(sizeof(struct ucred));
 		ch->cmsg_level = SOL_SOCKET;
 		ch->cmsg_type = SCM_CREDENTIALS;
+
+		BUG_ON(msg_controllen +
+		       CMSG_SPACE(sizeof(struct ucred)) >= sizeof(cmsg));
+
 		ucred = (struct ucred *)CMSG_DATA(ch);
 		ucred->pid = entry->ucred->pid;
 		ucred->uid = entry->ucred->uid;
 		ucred->gid = entry->ucred->gid;
-		mh.msg_controllen = CMSG_SPACE(sizeof(struct ucred));
+		msg_controllen += CMSG_SPACE(sizeof(struct ucred));
 
 		pr_debug("\tsend creds pid %d uid %d gid %d\n",
 			 entry->ucred->pid,
 			 entry->ucred->uid,
 			 entry->ucred->gid);
 	}
+
+	mh.msg_controllen = msg_controllen;
+
 	ret = sendmsg(fd, &mh, 0);
 	xfree(pkt->data);
 	xfree(pkt->scm);
