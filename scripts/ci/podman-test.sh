@@ -17,9 +17,9 @@ apt-get -y purge docker-ce
 
 ./apt-install podman containernetworking-plugins
 
-export SKIP_TRAVIS_TEST=1
+export SKIP_CI_TEST=1
 
-./travis-tests
+./run-ci-tests.sh
 
 cd ../../
 

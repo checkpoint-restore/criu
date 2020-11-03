@@ -1,6 +1,6 @@
 FROM dockcross/base:latest
 
-COPY scripts/travis/apt-install /bin/apt-install
+COPY scripts/ci/apt-install /bin/apt-install
 
 # Add the cross compiler sources
 RUN echo "deb http://ftp.us.debian.org/debian/ buster main" >> /etc/apt/sources.list && \

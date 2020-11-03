@@ -1,7 +1,7 @@
 ARG CC=gcc
 ARG ENV1=FOOBAR
 
-COPY scripts/travis/apt-install /bin/apt-install
+COPY scripts/ci/apt-install /bin/apt-install
 
 RUN apt-install \
 	ccache \

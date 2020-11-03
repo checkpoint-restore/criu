@@ -1,5 +1,5 @@
 FROM ubuntu:xenial
 
-COPY scripts/travis/apt-install /bin/apt-install
+COPY scripts/ci/apt-install /bin/apt-install
 
 RUN apt-install gcc-multilib
