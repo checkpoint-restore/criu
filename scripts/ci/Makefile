@@ -1,9 +1,9 @@
 local:
-	./travis-tests
+	./run-ci-tests.sh
 .PHONY: local
 
 after_success:
-	./travis-after_success
+	./ci-after-success.sh
 .PHONY: after_success
 
 target-suffix =
@@ -46,11 +46,11 @@ restart-docker:
 
 $(TARGETS): restart-docker
 	$(MAKE) -C ../build $@$(target-suffix)
-	docker run --env-file docker.env $(CONTAINER_OPTS) criu-$@ scripts/travis/travis-tests
+	docker run --env-file docker.env $(CONTAINER_OPTS) criu-$@ scripts/ci/run-ci-tests.sh
 
 fedora-asan: restart-docker
 	$(MAKE) -C ../build $@$(target-suffix)
-	docker run -it $(CONTAINER_OPTS) criu-$@ ./scripts/travis/asan.sh $(ZDTM_OPTIONS)
+	docker run -it $(CONTAINER_OPTS) criu-$@ ./scripts/ci/asan.sh $(ZDTM_OPTIONS)
 
 docker-test:
 	./docker-test.sh

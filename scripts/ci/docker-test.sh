@@ -32,9 +32,9 @@ fi
 
 service docker restart
 
-export SKIP_TRAVIS_TEST=1
+export SKIP_CI_TEST=1
 
-./travis-tests
+./run-ci-tests.sh
 
 cd ../../
 

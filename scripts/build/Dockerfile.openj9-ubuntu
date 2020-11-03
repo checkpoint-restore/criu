@@ -1,6 +1,6 @@
 FROM adoptopenjdk/openjdk8-openj9:latest
 
-COPY scripts/travis/apt-install /bin/apt-install
+COPY scripts/ci/apt-install /bin/apt-install
 
 RUN apt-install protobuf-c-compiler \
 	libprotobuf-c-dev \

@@ -18,4 +18,4 @@ jobs:
     - uses: actions/checkout@v2
     - name: Run Cross Compilation Targets
       run: >
-        sudo make -C scripts/travis ${{ matrix.target }}
+        sudo make -C scripts/ci ${{ matrix.target }}
