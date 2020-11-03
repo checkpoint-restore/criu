@@ -290,4 +290,3 @@ static int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry
 out:
 	return ret;
 }
-
