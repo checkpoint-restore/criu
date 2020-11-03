@@ -9,9 +9,6 @@ env:
   - TR_ARCH=local       CLANG=1
   - TR_ARCH=local       COMPAT_TEST=y
   - TR_ARCH=local       CLANG=1 COMPAT_TEST=y
-  - TR_ARCH=x86_64
-  - TR_ARCH=x86_64      CLANG=1
-  - TR_ARCH=openj9-test
   - TR_ARCH=vagrant-fedora-no-vdso
 jobs:
   include:
@@ -56,10 +53,6 @@ jobs:
     - os: linux
       arch: amd64
       env: TR_ARCH=fedora-rawhide
-      dist: bionic
-    - os: linux
-      arch: amd64
-      env: TR_ARCH=podman-test
       dist: bionic
     - os: linux
       arch: amd64
