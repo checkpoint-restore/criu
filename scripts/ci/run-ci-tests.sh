@@ -1,7 +1,7 @@
 #!/bin/bash
 set -x -e
 
-TRAVIS_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
+CI_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
 		libgnutls30 libprotobuf-dev protobuf-compiler libcap-dev
 		libnl-3-dev gdb bash libnet-dev util-linux asciidoctor
 		libnl-route-3-dev time ccache flake8 libbsd-dev"
@@ -15,11 +15,11 @@ if [ -e /etc/lsb-release ]; then
 		# There is one last test running on 16.04 because of the broken
 		# overlayfs in 18.04. Once that is fixed we can remove the last
 		# 16.04 based test and this if clause.
-		TRAVIS_PKGS="$TRAVIS_PKGS python-future python-protobuf python-yaml
-				python-junit.xml python-ipaddress"
+		CI_PKGS="$CI_PKGS python-future python-protobuf python-yaml
+			python-junit.xml python-ipaddress"
 	else
-		TRAVIS_PKGS="$TRAVIS_PKGS python3-future python3-protobuf python3-yaml
-				python3-junit.xml"
+		CI_PKGS="$CI_PKGS python3-future python3-protobuf python3-yaml
+			python3-junit.xml"
 	fi
 fi
 
@@ -31,11 +31,11 @@ if [ "$UNAME_M" != "x86_64" ]; then
 	# For Travis only x86_64 seems to be baremetal. Other
 	# architectures are running in unprivileged LXD containers.
 	# That seems to block most of CRIU's interfaces.
-	SKIP_TRAVIS_TEST=1
+	SKIP_CI_TEST=1
 fi
 
-travis_prep () {
-	[ -n "$SKIP_TRAVIS_PREP" ] && return
+ci_prep () {
+	[ -n "$SKIP_CI_PREP" ] && return
 
 	cd ../../
 
@@ -50,13 +50,13 @@ travis_prep () {
 	CC=gcc
 	# clang support
 	if [ "$CLANG" = "1" ]; then
-		TRAVIS_PKGS="$TRAVIS_PKGS clang"
+		CI_PKGS="$CI_PKGS clang"
 		CC=clang
 	fi
 
 	[ -n "$GCOV" ] && {
 		apt-add-repository -y "ppa:ubuntu-toolchain-r/test"
-		scripts/travis/apt-install --no-install-suggests g++-7
+		scripts/ci/apt-install --no-install-suggests g++-7
 		CC=gcc-7
 	}
 
@@ -72,10 +72,10 @@ travis_prep () {
 
 	# Do not install x86_64 specific packages on other architectures
 	if [ "$UNAME_M" = "x86_64" ]; then
-		TRAVIS_PKGS="$TRAVIS_PKGS $X86_64_PKGS"
+		CI_PKGS="$CI_PKGS $X86_64_PKGS"
 	fi
 
-	scripts/travis/apt-install "$TRAVIS_PKGS"
+	scripts/ci/apt-install "$CI_PKGS"
 	chmod a+x "$HOME"
 
 	# zdtm uses an unversioned python binary to run the tests.
@@ -91,7 +91,7 @@ test_stream() {
 	./test/zdtm.py run --stream -p 2 --keep-going -T "$STREAM_TEST_PATTERN" $ZDTM_OPTS
 }
 
-travis_prep
+ci_prep
 
 export GCOV
 $CC --version
@@ -107,7 +107,7 @@ if [ "$WIDTH" -gt 80 ]; then
 	exit 1
 fi
 
-[ -n "$SKIP_TRAVIS_TEST" ] && exit 0
+[ -n "$SKIP_CI_TEST" ] && exit 0
 
 ulimit -c unlimited
 
@@ -133,7 +133,7 @@ if [ "${COMPAT_TEST}x" = "yx" ] ; then
 	done
 	# shellcheck disable=SC2086
 	apt-get remove $INCOMPATIBLE_LIBS
-	scripts/travis/apt-install "$IA32_PKGS"
+	scripts/ci/apt-install "$IA32_PKGS"
 	mkdir -p /usr/lib/x86_64-linux-gnu/
 	mv "$REFUGE"/* /usr/lib/x86_64-linux-gnu/
 fi
