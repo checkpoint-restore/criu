@@ -116,7 +116,7 @@ static int restore_task_with_children(void *);
 static int sigreturn_restore(pid_t pid, struct task_restore_args *ta, unsigned long alen, CoreEntry *core);
 static int prepare_restorer_blob(void);
 static int prepare_rlimits(int pid, struct task_restore_args *, CoreEntry *core);
-static int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry *core);
+
 static int prepare_signals(int pid, struct task_restore_args *, CoreEntry *core);
 
 /*
@@ -882,7 +882,7 @@ static int prepare_proc_misc(pid_t pid, TaskCoreEntry *tc, struct task_restore_a
 	return 0;
 }
 
-static int prepare_itimers(int pid, struct task_restore_args *args, CoreEntry *core);
+
 static int prepare_mm(pid_t pid, struct task_restore_args *args);
 
 static int restore_one_alive_task(int pid, CoreEntry *core)
