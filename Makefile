@@ -411,7 +411,7 @@ lint:
 	flake8 --config=scripts/flake8.cfg test/others/rpc/config_file.py
 	flake8 --config=scripts/flake8.cfg lib/py/images/pb2dict.py
 	shellcheck scripts/*.sh
-	shellcheck scripts/travis/*.sh scripts/travis/travis* scripts/travis/apt-install
+	shellcheck scripts/ci/*.sh scripts/ci/apt-install
 
 include Makefile.install
 
