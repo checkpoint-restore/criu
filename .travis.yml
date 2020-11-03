@@ -94,7 +94,7 @@ jobs:
     - env: TR_ARCH=fedora-rawhide
     - env: TR_ARCH=local       GCOV=1
 script:
-  - sudo make CCACHE=1 -C scripts/travis $TR_ARCH
+  - sudo make CCACHE=1 -C scripts/ci $TR_ARCH
 after_success:
   - ccache -s
-  - make -C scripts/travis after_success
+  - make -C scripts/ci after_success
