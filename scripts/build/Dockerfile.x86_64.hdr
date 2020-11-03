@@ -1,4 +1,4 @@
-FROM ubuntu:xenial
+FROM ubuntu:focal
 
 COPY scripts/ci/apt-install /bin/apt-install
 

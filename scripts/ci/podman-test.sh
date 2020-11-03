@@ -1,13 +1,21 @@
 #!/bin/bash
 set -x -e -o pipefail
 
-echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_18.04/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
+if [ ! -e /etc/lsb-release ]; then
+       # This expects to run on Ubuntu
+       exit 1
+fi
 
-wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_18.04/Release.key -O- | apt-key add -
+#shellcheck disable=SC1091
+. /etc/lsb-release
+
+echo "deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${DISTRIB_RELEASE}/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
+
+curl -sL "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_${DISTRIB_RELEASE}/Release.key" | apt-key add -
 
 # podman conflicts with a man page from docker-ce
 # this is a podman packaging bug (https://github.com/containers/libpod/issues/4747)
-apt-get -y purge docker-ce
+apt-get -y purge docker-ce || :
 
 ./apt-install \
     apt-transport-https \
