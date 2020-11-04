@@ -31,7 +31,11 @@ if [ "$UNAME_M" != "x86_64" ]; then
 	# For Travis only x86_64 seems to be baremetal. Other
 	# architectures are running in unprivileged LXD containers.
 	# That seems to block most of CRIU's interfaces.
-	SKIP_CI_TEST=1
+
+	# But with the introduction of baremetal aarch64 systems in
+	# Travis (arch: arm64-graviton2) we can override this using
+	# an evironment variable
+	[ -n "$RUN_TESTS" ] || SKIP_CI_TEST=1
 fi
 
 ci_prep () {
@@ -147,8 +151,11 @@ time make CC="$CC" -j4 -C test/zdtm
 umask 0000
 ./criu/criu check
 ./criu/criu check --all || echo $?
-./criu/criu cpuinfo dump
-./criu/criu cpuinfo check
+if [ "$UNAME_M" == "x86_64" ]; then
+	# This fails on aarch64 (aws-graviton2)
+	./criu/criu cpuinfo dump
+	./criu/criu cpuinfo check
+fi
 
 export SKIP_PREP=1
 # The 3.19 kernel (from Ubuntu 14.04) has a bug. When /proc/PID/pagemap
@@ -184,9 +191,13 @@ LAZY_OPTS="-p 2 -T $LAZY_TESTS $LAZY_EXCLUDE $ZDTM_OPTS"
 # shellcheck disable=SC2086
 ./test/zdtm.py run $LAZY_OPTS --remote-lazy-pages --tls
 
-bash ./test/jenkins/criu-fault.sh
-bash ./test/jenkins/criu-fcg.sh
-bash ./test/jenkins/criu-inhfd.sh
+bash -x ./test/jenkins/criu-fault.sh
+if [ "$UNAME_M" == "x86_64" ]; then
+	# This fails on aarch64 (aws-graviton2) with:
+	# 33: ERR: thread-bomb.c:49: pthread_attr_setstacksize(): 22
+	bash -x ./test/jenkins/criu-fcg.sh
+fi
+bash -x ./test/jenkins/criu-inhfd.sh
 
 if [ -z "$SKIP_EXT_DEV_TEST" ]; then
 	make -C test/others/mnt-ext-dev/ run
