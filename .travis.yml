@@ -29,12 +29,16 @@ jobs:
       env: TR_ARCH=local
       dist: bionic
     - os: linux
-      arch: arm64
-      env: TR_ARCH=local
-      dist: bionic
+      arch: arm64-graviton2
+      env: TR_ARCH=local RUN_TESTS=1
+      dist: focal
+      group: edge
+      virt: vm
     - os: linux
-      arch: arm64
-      env: TR_ARCH=local CLANG=1
+      arch: arm64-graviton2
+      env: TR_ARCH=local CLANG=1 RUN_TESTS=1
+      group: edge
+      virt: vm
       dist: bionic
     - os: linux
       arch: arm64
