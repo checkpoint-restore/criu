@@ -7,7 +7,6 @@ services:
 env:
   - TR_ARCH=local       COMPAT_TEST=y
   - TR_ARCH=local       CLANG=1 COMPAT_TEST=y
-  - TR_ARCH=vagrant-fedora-no-vdso
 jobs:
   include:
     - os: linux
