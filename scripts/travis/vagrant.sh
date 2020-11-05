@@ -6,29 +6,57 @@
 set -e
 set -x
 
-VAGRANT_VERSION=2.2.7
+VAGRANT_VERSION=2.2.10
 FEDORA_VERSION=32
 FEDORA_BOX_VERSION=32.20200422.0
 
 setup() {
+	chmod 666 /dev/kvm
+	ls -la /dev
 	apt-get -qq update
 	# Load the kvm modules for vagrant to use qemu
-	modprobe kvm kvm_intel
+	lsmod || :
+	modprobe kvm kvm_intel || :
+	printenv
 
 	# Tar up the git checkout to have vagrant rsync it to the VM
 	tar cf criu.tar ../../../criu
-	wget https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}_"$(uname -m)".deb -O /tmp/vagrant.deb && \
+	wget --no-check-certificate https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}_"$(uname -m)".deb -O /tmp/vagrant.deb && \
 		dpkg -i /tmp/vagrant.deb
 
-	./apt-install libvirt-bin libvirt-dev qemu-utils qemu
-	systemctl restart libvirt-bin
+	./apt-install libvirt-clients libvirt-daemon-system libvirt-dev qemu-utils qemu \
+		ruby build-essential libxml2-dev qemu-kvm rsync ebtables dnsmasq-base \
+		openssh-client
+	systemctl restart libvirtd || :
+	/usr/sbin/libvirtd -d
+	/usr/sbin/virtlogd -d
 	vagrant plugin install vagrant-libvirt
 	vagrant init fedora/${FEDORA_VERSION}-cloud-base --box-version ${FEDORA_BOX_VERSION}
 	# The default libvirt Vagrant VM uses 512MB.
 	# Travis VMs should have around 7.5GB.
 	# Increasing it to 4GB should work.
 	sed -i Vagrantfile -e 's,^end$,  config.vm.provider :libvirt do |libvirt|'"\n"'    libvirt.memory = 4096;end'"\n"'end,g'
-	vagrant up --provider=libvirt
+	if [ -n "$CIRRUS_CI" ]; then
+		# Work around for:
+		# Error while activating network: Call to virNetworkCreate failed: internal error:
+		# Failed to apply firewall rules /usr/sbin/ip6tables --table filter --list-rules: modprobe: FATAL: Module ip6_tables not found in directory /lib/modules/5.4.0-1025-gcp
+		# On cirrus-ci.com. Running in a container without access to the host's kernel modules
+		#ls -la /usr/sbin/ip6tables
+		#rm -f /usr/sbin/ip6tables
+		#rm -f /sbin/ip6tables
+		#rm -f /etc/alternatives/ip6tables
+		#rm -f /usr/sbin/ip6tables-legacy
+		#cp /bin/true /usr/sbin/ip6tables
+		#cp /bin/true /sbin/ip6tables
+		#cp /bin/true /etc/alternatives/ip6tables
+		#cp /bin/true /usr/sbin/ip6tables-legacy
+		#ls -la /usr/sbin/ip6tables
+		ls -la /sbin/ip6tables
+		rm -f /sbin/ip6tables
+		cp /bin/true /sbin/ip6tables
+		cat /etc/libvirt/qemu/networks/default.xml
+	fi
+	vagrant up --provider=libvirt > /dev/null
 	mkdir -p /root/.ssh
 	vagrant ssh-config >> /root/.ssh/config
 	ssh default sudo dnf install -y gcc git gnutls-devel nftables-devel libaio-devel \

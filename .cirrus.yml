@@ -1,0 +1,14 @@
+environment:
+  CIRRUS_WORKING_DIR: "/tmp/criu"
+container:
+  image: ubuntu:bionic
+  kvm: true
+  cpu: 4
+  memory: 8G
+task:
+  name: Native x86_64 build GCC (all tests)
+  setup_script: |
+    scripts/travis/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget
+    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
+  build_script: |
+    make -C scripts/travis vagrant-fedora-no-vdso
