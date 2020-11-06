@@ -332,7 +332,7 @@ int memfd_open(struct file_desc *d, u32 *fdflags)
 	 * O_LARGEFILE file flag with regular open(). It doesn't seem that
 	 * important though.
 	 */
-	_fd = __open_proc(getpid(), 0, flags, "fd/%d", fd);
+	_fd = __open_proc(PROC_SELF, 0, flags, "fd/%d", fd);
 	if (_fd < 0) {
 		pr_perror("Can't reopen memfd id=%d", mfe->id);
 		goto err;
