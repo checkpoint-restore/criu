@@ -172,23 +172,17 @@ fi
 # shellcheck disable=SC2086
 ./test/zdtm.py run -a -p 2 --keep-going $ZDTM_OPTS
 
-KERN_MAJ=$(uname -r | cut -d. -f1)
-KERN_MIN=$(uname -r | cut -d. -f2)
-if [ "$KERN_MAJ" -ge "4" ] && [ "$KERN_MIN" -ge "18" ]; then
-	LAZY_EXCLUDE="-x cmdlinenv00 -x maps007"
-else
-	LAZY_EXCLUDE="-x maps007 -x fork -x fork2 -x uffd-events -x cgroupns
-		      -x socket_listen -x socket_listen6 -x cmdlinenv00
-		      -x socket_close_data01 -x file_read -x lazy-thp -x futex"
-fi
-LAZY_EXCLUDE="$LAZY_EXCLUDE -x maps04"
+LAZY_EXCLUDE="-x maps04 -x cmdlinenv00 -x maps007"
 
 LAZY_TESTS='.*\(maps0\|uffd-events\|lazy-thp\|futex\|fork\).*'
 LAZY_OPTS="-p 2 -T $LAZY_TESTS $LAZY_EXCLUDE $ZDTM_OPTS"
 
-./test/zdtm.py run "$LAZY_OPTS" --lazy-pages
-./test/zdtm.py run "$LAZY_OPTS" --remote-lazy-pages
-./test/zdtm.py run "$LAZY_OPTS" --remote-lazy-pages --tls
+# shellcheck disable=SC2086
+./test/zdtm.py run $LAZY_OPTS --lazy-pages
+# shellcheck disable=SC2086
+./test/zdtm.py run $LAZY_OPTS --remote-lazy-pages
+# shellcheck disable=SC2086
+./test/zdtm.py run $LAZY_OPTS --remote-lazy-pages --tls
 
 bash ./test/jenkins/criu-fault.sh
 bash ./test/jenkins/criu-fcg.sh
