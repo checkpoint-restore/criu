@@ -81,7 +81,6 @@ def wrap_restore():
 		# Spawn CRIU binary
 		run_criu()
 		raise OSError(errno.ENOENT, "No such command")
-		sys.exit(0)
 
 	# Wait for CRIU to exit and report the status back
 	while True:
