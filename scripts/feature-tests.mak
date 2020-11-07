@@ -184,3 +184,14 @@ int main(void)
 	return memfd_create(NULL, 0);
 }
 endef
+
+define FEATURE_TEST_C11_SUPPORT
+#if (__STDC_VERSION__ < 201112L)
+#error C11 is unsupported
+#endif
+
+int main(void)
+{
+        return 0;
+}
+endef

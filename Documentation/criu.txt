@@ -64,6 +64,9 @@ The following levels are available:
 *-o*, *--log-file* 'file'::
     Write logging messages to a 'file'.
 
+*-b*, *--binary-log*::
+    Write logging messages to a file using binary logger.
+
 *--display-stats*::
     During dump, as well as during restore, *criu* collects some statistics,
     like the time required to dump or restore the process, or the

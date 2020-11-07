@@ -147,7 +147,7 @@ HOSTCFLAGS		+= $(WARNINGS) $(DEFINES) -iquote include/
 export AFLAGS CFLAGS USERCLFAGS HOSTCFLAGS
 
 # Default target
-all: flog criu lib crit
+all: criu lib crit
 .PHONY: all
 
 #
@@ -209,6 +209,7 @@ else
 export CONFIG_COMPAT := y
 export CONFIG_GNUTLS := y
 export CONFIG_HAS_LIBBPF := y
+export ARCH_HAS_FLOG := y
 endif
 
 #
@@ -232,15 +233,6 @@ soccr/built-in.o: $(CONFIG_HEADER) .FORCE
 	$(Q) $(MAKE) $(build)=soccr all
 $(SOCCR_A): |soccr/built-in.o
 criu-deps	+= $(SOCCR_A)
-
-#flog gets used by criu, build it earlier
-
-flogMakefile: ;
-flog%:
-	$(Q) $(MAKE) $(build)=flog $@
-flog:
-	$(Q) $(MAKE) $(build)=flog all
-.PHONY: flog
 
 #
 # CRIU building done in own directory
@@ -280,7 +272,6 @@ lib: crit
 
 clean mrproper:
 	$(Q) $(MAKE) $(build)=images $@
-	$(Q) $(MAKE) $(build)=flog $@
 	$(Q) $(MAKE) $(build)=criu $@
 	$(Q) $(MAKE) $(build)=soccr $@
 	$(Q) $(MAKE) $(build)=lib $@

@@ -5,11 +5,11 @@
 #include <stdint.h>
 #include <sys/param.h>
 #include <sys/mman.h>
-
-//#include <ffi.h>
-
 #include "uapi/flog.h"
-#include "util.h"
+#include "flog_util.h"
+#include "cr_options.h"
+#include "log.h"
+#include "servicefd.h"
 
 #define MAGIC 0xABCDABCD
 
@@ -17,76 +17,18 @@
 static char _mbuf[BUF_SIZE];
 static char *mbuf = _mbuf;
 static char *fbuf;
-static uint64_t fsize;
+static uint64_t fsize = BUF_SIZE;
 static uint64_t mbuf_size = sizeof(_mbuf);
 
-/*int flog_decode_all(int fdin, int fdout)
+static int flog_enqueue(int fdout, flog_msg_t *m)
 {
-	flog_msg_t *m = (void *)mbuf;
-	ffi_type *args[34] = {
-		[0]		= &ffi_type_sint,
-		[1]		= &ffi_type_pointer,
-		[2 ... 33]	= &ffi_type_slong
-	};
-	void *values[34];
-	ffi_cif cif;
-	ffi_arg rc;
-	size_t i, ret;
-	char *fmt;
-
-	values[0] = (void *)&fdout;
-
-	while (1) {
-		ret = read(fdin, mbuf, sizeof(m));
-		if (ret == 0)
-			break;
-		if (ret < 0) {
-			fprintf(stderr, "Unable to read a message: %m");
-			return -1;
-		}
-		if (m->magic != MAGIC) {
-			fprintf(stderr, "The log file was not properly closed\n");
-			break;
-		}
-		ret = m->size - sizeof(m);
-		if (m->size > mbuf_size) {
-			fprintf(stderr, "The buffer is too small");
-			return -1;
-		}
-		if (read(fdin, mbuf + sizeof(m), ret) != ret) {
-			fprintf(stderr, "Unable to read a message: %m");
-			return -1;
-		}
-
-		fmt = mbuf + m->fmt;
-		values[1] = &fmt;
-
-		for (i = 0; i < m->nargs; i++) {
-			values[i + 2] = (void *)&m->args[i];
-			if (m->mask & (1u << i)) {
-				m->args[i] = (long)(mbuf + m->args[i]);
-			}
-		}
-
-		if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, m->nargs + 2,
-				 &ffi_type_sint, args) == FFI_OK)
-			ffi_call(&cif, FFI_FN(dprintf), &rc, values);
-	}
-	return 0;
-}*/
-
-static int flog_enqueue(flog_msg_t *m)
-{
-	if (write(1, m, m->size) != m->size) {
+	if (write(fdout, m, m->size) != m->size) {
 		fprintf(stderr, "Unable to write a message\n");
 		return -1;
 	}
 	return 0;
 }
 
-/*extern char *rodata_start;
-extern char *rodata_end;
-*/
 /* Pre-allocate a buffer in a file and map it into memory. */
 int flog_map_buf(int fdout)
 {
@@ -109,8 +51,6 @@ int flog_map_buf(int fdout)
 		fbuf = NULL;
 	}
 
-	if (fsize == 0)
-		fsize += BUF_SIZE;
 	fsize += BUF_SIZE;
 
 	if (ftruncate(fdout, fsize)) {
@@ -150,12 +90,27 @@ int flog_close(int fdout)
 	return 0;
 }
 
-int flog_encode_msg(int fdout, unsigned int nargs, unsigned int mask, const char *format, ...)
+int flog_encode_msg(int loglevel, unsigned int nargs, unsigned int mask, const char *format, ...)
 {
 	flog_msg_t *m;
 	va_list argptr;
 	char *str_start, *p;
 	size_t i;
+	int fdout;
+	unsigned int current_loglevel;
+
+	/*FIXME implement early logging using flog printer*/
+
+	if (!opts.log_in_binary || !init_done || unlikely(loglevel == LOG_MSG))
+		goto regular_logging;
+
+	current_loglevel = log_get_loglevel();
+	if (loglevel > current_loglevel)
+		return 0;
+	fdout = log_get_fd();
+
+	if(isatty(fdout))
+		goto regular_logging;
 
 	if (mbuf != _mbuf && flog_map_buf(fdout))
 		return -1;
@@ -183,11 +138,13 @@ int flog_encode_msg(int fdout, unsigned int nargs, unsigned int mask, const char
 		 * a copy (FIXME implement rodata refs).
 		 */
 		if (mask & (1u << i)) {
-			p = memccpy(str_start, (void *)m->args[i], 0, mbuf_size - (str_start - mbuf));
-			if (p == NULL) {
-				fprintf(stderr, "No memory for string argument\n");
-				va_end(argptr);
-				return -1;
+			if(m->args[i]){
+				p = memccpy(str_start, (void *)m->args[i], 0, mbuf_size - (str_start - mbuf));
+				if (p == NULL) {
+					fprintf(stderr, "No memory for string argument\n");
+					va_end(argptr);
+					return -1;
+				}
 			}
 			m->args[i] = str_start - mbuf;
 			str_start = p;
@@ -206,11 +163,17 @@ int flog_encode_msg(int fdout, unsigned int nargs, unsigned int mask, const char
 
 	m->size = roundup(m->size, 8);
 	if (mbuf == _mbuf) {
-		if (flog_enqueue(m))
+		if (flog_enqueue(fdout, m))
 			return -1;
 	} else {
 		mbuf += m->size;
 		mbuf_size -= m->size;
 	}
+	return 0;
+
+regular_logging:
+	va_start(argptr, format);
+	vprint_on_level(loglevel, format, argptr);
+	va_end(argptr);
 	return 0;
 }
