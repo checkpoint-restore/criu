@@ -27,10 +27,20 @@ endef
 
 export DOCKER_JSON
 
+ifeq ($(GITHUB_ACTIONS),true)
+	# GitHub Actions does not give us a real TTY and errors out with
+	# 'the input device is not a TTY' if using '-t'
+	CONTAINER_TERMINAL := -i
+else
+	CONTAINER_TERMINAL := -it
+endif
+
+export CONTAINER_TERMINAL
+
 ifeq ($(UNAME),x86_64)
 	# On anything besides x86_64 Travis is running unprivileged LXD
 	# containers which do not support running docker with '--privileged'.
-	CONTAINER_OPTS := --rm -it --privileged -v /lib/modules:/lib/modules --tmpfs /run
+	CONTAINER_OPTS := --rm $(CONTAINER_TERMINAL) --privileged -v /lib/modules:/lib/modules --tmpfs /run
 else
 	CONTAINER_OPTS := --rm -v /lib/modules:/lib/modules --tmpfs /run
 endif
