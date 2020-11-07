@@ -1,0 +1,15 @@
+name: CentOS Test
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        target: [centos7]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run CentOS ${{ matrix.target }} Test
+      run: sudo -E make -C scripts/ci ${{ matrix.target }}
