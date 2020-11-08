@@ -1254,18 +1254,18 @@ static void lazy_pages_summary(struct lazy_pages_info *lpi)
 #endif
 }
 
-static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
+static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 {
 	struct lazy_pages_info *lpi, *n;
 	int poll_timeout = -1;
 	int ret;
 
 	for (;;) {
-		ret = epoll_run_rfds(epollfd, events, nr_fds, poll_timeout);
+		ret = epoll_run_rfds(epollfd, *events, nr_fds, poll_timeout);
 		if (ret < 0)
 			goto out;
 		if (ret > 0) {
-			ret = complete_forks(epollfd, &events, &nr_fds);
+			ret = complete_forks(epollfd, events, &nr_fds);
 			if (ret < 0)
 				goto out;
 			if (restore_finished)
@@ -1481,7 +1481,7 @@ int cr_lazy_pages(bool daemon)
 		}
 	}
 
-	ret = handle_requests(epollfd, events, nr_fds);
+	ret = handle_requests(epollfd, &events, nr_fds);
 
 	tls_terminate_session();
 
