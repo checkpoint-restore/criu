@@ -48,7 +48,4 @@ RUN adduser -u 1000 -D test
 
 RUN pip3 install junit_xml
 
-# For zdtm we need an unversioned python binary
-RUN ln -s /usr/bin/python3 /usr/bin/python
-
 RUN make -C test/zdtm
