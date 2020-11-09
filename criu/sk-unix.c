@@ -559,7 +559,7 @@ const struct fdtype_ops unix_dump_ops = {
 	.dump		= dump_one_unix_fd,
 };
 
-static int unix_resolve_name(int lfd, uint32_t id, struct unix_sk_desc *d,
+static int unix_resolve_name_old(int lfd, uint32_t id, struct unix_sk_desc *d,
 				UnixSkEntry *ue, const struct fd_parms *p)
 {
 	char *name = d->name;
@@ -642,6 +642,84 @@ out:
 skip:
 	ret = 1;
 	goto out;
+}
+
+static int unix_resolve_name(int lfd, uint32_t id, struct unix_sk_desc *d,
+				UnixSkEntry *ue, const struct fd_parms *p)
+{
+	char *name = d->name;
+	char path[PATH_MAX], tmp[PATH_MAX];
+	struct stat st;
+	int fd, proc_fd, mnt_id, ret;
+
+	if (d->namelen == 0 || name[0] == '\0')
+		return 0;
+
+	if (kdat.sk_unix_file && (root_ns_mask & CLONE_NEWNS)) {
+		if (get_mnt_id(lfd, &mnt_id))
+			return -1;
+		ue->mnt_id = mnt_id;
+		ue->has_mnt_id = true;
+	}
+
+	fd = ioctl(lfd, SIOCUNIXFILE);
+	if (fd < 0) {
+		pr_warn("Unable to get a socket file descriptor with SIOCUNIXFILE ioctl.");
+		goto fallback;
+	}
+
+	ret = fstat(fd, &st);
+	if (ret) {
+		pr_perror("Unable to fstat socket fd");
+		return -1;
+	}
+	d->mode = st.st_mode;
+	d->uid	= st.st_uid;
+	d->gid	= st.st_gid;
+
+	proc_fd = get_service_fd(PROC_FD_OFF);
+	if (proc_fd < 0) {
+		pr_err("Unable to get service fd for proc\n");
+		return -1;
+	}
+
+	snprintf(tmp, sizeof(tmp), "self/fd/%d", fd);
+	ret = readlinkat(proc_fd, tmp, path, PATH_MAX);
+	if (ret < 0 && ret >= PATH_MAX) {
+		pr_perror("Unable to readlink %s", tmp);
+		goto out;
+	}
+	path[ret] = 0;
+
+	d->deleted = strip_deleted(path, ret);
+
+	if (name[0] != '/') {
+		ret = cut_path_ending(path, name);
+		if (ret) {
+			pr_err("Unable too resolve %s from %s\n", name, path);
+			goto out;
+		}
+
+		ue->name_dir = xstrdup(path);
+		if (!ue->name_dir) {
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		pr_debug("Resolved socket relative name %s to %s/%s\n", name, ue->name_dir, name);
+	}
+
+	ret = 0;
+out:
+	close(fd);
+	return ret;
+
+fallback:
+	pr_warn("Trying to resolve unix socket with obsolete method");
+	ret = unix_resolve_name_old(lfd, id, d, ue, p);
+	if (ret < 0)
+		pr_err("Unable to resolve unix socket name with obsolete method. Try a linux kernel newer than 4.10\n");
+	return ret;
 }
 
 /*
