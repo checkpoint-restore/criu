@@ -17,6 +17,7 @@ const char *test_author	= "Andrey Zhadchenko <andrey.zhadchenko@virtuozzo.com>";
 char *filename;
 TEST_OPTION(filename, string, "socket name", 1);
 
+#ifndef FIFO_UPON_UNIX01
 static int fill_sock_name(struct sockaddr_un *name, const char *filename)
 {
 	char *cwd;
@@ -32,6 +33,19 @@ static int fill_sock_name(struct sockaddr_un *name, const char *filename)
 	ssprintf(name->sun_path, "%s/%s", cwd, filename);
 	return 0;
 }
+#else
+static int fill_sock_name(struct sockaddr_un *name, const char *filename)
+{
+	if (strlen(filename) + 1 >= sizeof(name->sun_path)) {
+		pr_err("Name %s is too long for socket\n", filename);
+		return -1;
+	}
+
+	name->sun_family = AF_LOCAL;
+	ssprintf(name->sun_path, "%s", filename);
+	return 0;
+}
+#endif
 
 static int sk_alloc_bind(int type, struct sockaddr_un *addr)
 {
@@ -130,6 +144,10 @@ int main(int argc, char **argv)
 		pr_perror("can't open %s", filename);
 		return 1;
 	}
+
+#ifdef FIFO_UPON_UNIX01
+	chdir("/");
+#endif
 
 	test_daemon();
 	test_waitsig();
