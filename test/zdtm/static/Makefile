@@ -315,7 +315,8 @@ TST_FILE	=				\
 		netns-nft				\
 		maps_file_prot			\
 		socket_close_data01		\
-		fifo_upon_unix_socket		\
+		fifo_upon_unix_socket00		\
+		fifo_upon_unix_socket01		\
 
 TST_DIR		=				\
 		cwd00				\
@@ -592,6 +593,8 @@ thread_different_uid_gid:	LDLIBS += -pthread -lcap
 
 bpf_hash:		LDLIBS += -lbpf
 bpf_array:		LDLIBS += -lbpf
+
+fifo_upon_unix_socket01:	CFLAGS += -DFIFO_UPON_UNIX01
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
