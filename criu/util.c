@@ -1447,3 +1447,43 @@ int strip_deleted(char *name, int len)
 	}
 	return 0;
 }
+
+/*
+ * This function check if path ends with ending and cuts it from path.
+ * Return 0 if path is cut. -1 otherwise, leaving path unchanged.
+ * Example:
+ *	path = "/foo/bar", ending = "bar"
+ *	cut(path, ending)  -> path becomes "/foo"
+ *
+ * 1. Skip leading "./" in subpath.
+ * 2. Respect root: ("/a/b", "b") -> "/a" but ("/a", "a") -> "/"
+ * 3. Refuse to cut identical strings, e.g. ("abc", "abc") will result in -1
+ * 4. Do not handle "..", "//", "./" (with exception "./" as leading symbols)
+ */
+
+int cut_path_ending(char *path, char *ending)
+{
+	int ending_pos;
+
+	if (ending[0] == '.' && ending[1] == '/')
+		ending = ending + 2;
+
+	ending_pos = strlen(path) - strlen(ending);
+
+	if (ending_pos < 1)
+		return -1;
+
+	if (strcmp(path + ending_pos, ending))
+		return -1;
+
+	if (path[ending_pos - 1] != '/')
+		return -1;
+
+	if (ending_pos == 1) {
+		path[ending_pos] = 0;
+		return 0;
+	}
+
+	path[ending_pos - 1] = 0;
+	return 0;
+}
