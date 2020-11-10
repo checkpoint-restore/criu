@@ -247,11 +247,11 @@ int switch_ns(int pid, struct ns_desc *nd, int *rst)
 
 int switch_ns_by_fd(int nsfd, struct ns_desc *nd, int *rst)
 {
-	int ret = -1;
+	int ret = -1, old_ns = -1;
 
 	if (rst) {
-		*rst = open_proc(PROC_SELF, "ns/%s", nd->str);
-		if (*rst < 0)
+		old_ns = open_proc(PROC_SELF, "ns/%s", nd->str);
+		if (old_ns < 0)
 			goto err_ns;
 	}
 
@@ -261,11 +261,12 @@ int switch_ns_by_fd(int nsfd, struct ns_desc *nd, int *rst)
 		goto err_set;
 	}
 
+	if (rst)
+		*rst = old_ns;
 	return 0;
 
 err_set:
-	if (rst)
-		close(*rst);
+	close_safe(&old_ns);
 err_ns:
 	return -1;
 }
