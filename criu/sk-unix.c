@@ -1211,7 +1211,6 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd,
 		if (switch_ns_by_fd(ns_fd, &mnt_ns_desc, prev_mntns_fd))
 			return -1;
 
-		set_proc_self_fd(-1);
 		close(ns_fd);
 	}
 
