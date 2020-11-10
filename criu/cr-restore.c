@@ -418,6 +418,10 @@ static int populate_pid_proc(void)
 		pr_err("Can't open PROC_SELF\n");
 		return -1;
 	}
+	if (open_pid_proc(PROC_SELF) < 0) {
+		pr_err("Can't open PROC_SELF\n");
+		return -1;
+	}
 	return 0;
 }
 

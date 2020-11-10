@@ -1256,6 +1256,14 @@ int close_old_fds(void)
 	struct dirent *de;
 	int fd, ret;
 
+	/**
+	 * Close previous /proc/self/ service fd, as we don't wan't to reuse it
+	 * from a different task. Also there can be some junk fd in it's place
+	 * after we've moved our service fds (e.g. from other task of parents
+	 * shared fdtable), we need to close it before opendir_proc() below.
+	 */
+	__close_service_fd(PROC_SELF_FD_OFF);
+
 	dir = opendir_proc(PROC_SELF, "fd");
 	if (dir == NULL)
 		return -1;
@@ -1297,7 +1305,6 @@ int prepare_fds(struct pstree_item *me)
 	sfds_protected = false;
 	close_service_fd(CGROUP_YARD);
 	sfds_protected = true;
-	set_proc_self_fd(-1); /* flush any proc cached fds we may have */
 
 	if (rsti(me)->fdt) {
 		struct fdt *fdt = rsti(me)->fdt;
