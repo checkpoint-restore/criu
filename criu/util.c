@@ -281,15 +281,18 @@ int move_fd_from(int *img_fd, int want_fd)
 
 static pid_t open_proc_pid = PROC_NONE;
 static pid_t open_proc_self_pid;
-static int open_proc_self_fd = -1;
 
-void set_proc_self_fd(int fd)
+int set_proc_self_fd(int fd)
 {
-	if (open_proc_self_fd >= 0)
-		close(open_proc_self_fd);
+	int ret;
 
-	open_proc_self_fd = fd;
+	if (fd < 0)
+		return close_service_fd(PROC_SELF_FD_OFF);
+
 	open_proc_self_pid = getpid();
+	ret = install_service_fd(PROC_SELF_FD_OFF, fd);
+
+	return ret;
 }
 
 static inline int set_proc_pid_fd(int pid, int fd)
@@ -308,10 +311,18 @@ static inline int set_proc_pid_fd(int pid, int fd)
 static inline int get_proc_fd(int pid)
 {
 	if (pid == PROC_SELF) {
-		if (open_proc_self_fd != -1 && open_proc_self_pid != getpid()) {
-			close(open_proc_self_fd);
+		int open_proc_self_fd;
+
+		open_proc_self_fd = get_service_fd(PROC_SELF_FD_OFF);
+		/**
+		 * FIXME in case two processes from different pidnses have the
+		 * same pid from getpid() and one inherited service fds from
+		 * another or they share them by shared fdt - this check will
+		 * not detect that one of them reuses /proc/self of another.
+		 * Everything proc related may break in this case.
+		 */
+		if (open_proc_self_fd >= 0 && open_proc_self_pid != getpid())
 			open_proc_self_fd = -1;
-		}
 		return open_proc_self_fd;
 	} else if (pid == open_proc_pid)
 		return get_service_fd(PROC_PID_FD_OFF);
@@ -402,7 +413,7 @@ inline int open_pid_proc(pid_t pid)
 	}
 
 	if (pid == PROC_SELF)
-		set_proc_self_fd(fd);
+		fd = set_proc_self_fd(fd);
 	else
 		fd = set_proc_pid_fd(pid, fd);
 
