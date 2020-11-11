@@ -1531,35 +1531,53 @@ err_unlock:
 	return ret;
 }
 
+/* Returns 0 if restore can be continued */
+static int sigchld_process(int status, pid_t pid)
+{
+	int sig;
+
+	if (WIFEXITED(status)) {
+		pr_err("%d exited, status=%d\n", pid, WEXITSTATUS(status));
+		return -1;
+	} else if (WIFSIGNALED(status)) {
+		sig = WTERMSIG(status);
+		pr_err("%d killed by signal %d: %s\n", pid, sig, strsignal(sig));
+		return -1;
+	} else if (WIFSTOPPED(status)) {
+		sig = WSTOPSIG(status);
+		/* The root task is ptraced. Allow it to handle SIGCHLD */
+		if (sig == SIGCHLD && !current) {
+			if (ptrace(PTRACE_CONT, pid, 0, SIGCHLD)) {
+				pr_perror("Unable to resume %d", pid);
+				return -1;
+			}
+			return 0;
+		}
+		pr_err("%d stopped by signal %d: %s\n", pid, sig, strsignal(sig));
+		return -1;
+	} else if (WIFCONTINUED(status)) {
+		pr_err("%d unexpectedly continued\n", pid);
+		return -1;
+	}
+	pr_err("wait for %d resulted in %x status\n", pid, status);
+	return -1;
+}
+
 static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 {
-	int status, pid, exit;
-
 	while (1) {
+		int status;
+		pid_t pid;
+
 		pid = waitpid(-1, &status, WNOHANG);
 		if (pid <= 0)
 			return;
 
-		if (!current && WIFSTOPPED(status) &&
-					WSTOPSIG(status) == SIGCHLD) {
-			/* The root task is ptraced. Allow it to handle SIGCHLD */
-			if (ptrace(PTRACE_CONT, pid, 0, SIGCHLD))
-				pr_perror("Unable to resume %d", pid);
-			return;
-		}
-
-		exit = WIFEXITED(status);
-		status = exit ? WEXITSTATUS(status) : WTERMSIG(status);
-
-		break;
+		if (sigchld_process(status, pid) < 0)
+			goto err_abort;
 	}
 
-	if (exit)
-		pr_err("%d exited, status=%d\n", pid, status);
-	else
-		pr_err("%d killed by signal %d: %s\n",
-			pid, status, strsignal(status));
-
+err_abort:
 	futex_abort_and_wake(&task_entries->nr_in_progress);
 }
 
