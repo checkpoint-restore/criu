@@ -222,7 +222,7 @@ static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
 		ARCH_VDSO_SYMBOLS
 	};
-	const size_t vdso_symbol_length = sizeof(t->symbols[0].name);
+	const size_t vdso_symbol_length = sizeof(t->symbols[0].name) - 1;
 
 	Hash_t nbucket, nchain;
 	Hash_t *bucket, *chain;
@@ -265,6 +265,7 @@ static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 			if (std_strncmp(name, symbol, vdso_symbol_length))
 				continue;
 
+			/* XXX: provide strncpy() implementation for PIE */
 			memcpy(t->symbols[i].name, name, vdso_symbol_length);
 			t->symbols[i].offset = (unsigned long)sym->st_value - load->p_vaddr;
 			break;
