@@ -9,6 +9,29 @@
 #define SIGMAX			64
 #define SIGMAX_OLD		31
 
+#define ARCH_HAS_PTRACE_GET_THREAD_AREA
+
+/*
+ * Linux preserves three TLS segments in GDT.
+ * Offsets in GDT differ between 32-bit and 64-bit machines.
+ * For 64-bit x86 those GDT offsets are the same
+ * for native and compat tasks.
+ */
+#define GDT_ENTRY_TLS_MIN		12
+#define GDT_ENTRY_TLS_MAX		14
+#define GDT_ENTRY_TLS_NUM		3
+typedef struct {
+	user_desc_t		desc[GDT_ENTRY_TLS_NUM];
+} tls_t;
+
+struct thread_ctx;
+struct parasite_ctl;
+struct parasite_thread_ctl;
+extern int __compel_arch_fetch_thread_area(int tid, struct thread_ctx *th);
+extern int compel_arch_fetch_thread_area(struct parasite_thread_ctl *tctl);
+extern void compel_arch_get_tls_thread(struct parasite_thread_ctl *tctl, tls_t *out);
+extern void compel_arch_get_tls_task(struct parasite_ctl *ctl, tls_t *out);
+
 typedef struct {
 	uint64_t	r15;
 	uint64_t	r14;
