@@ -2,7 +2,7 @@ name: Daily Cross Compile Tests
 
 on:
   schedule:
-    - cron:  '30 * * * *'
+    - cron:  '30 12 * * *'
 
 jobs:
   build:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [armv7-cross, aarch64-cross, ppc64-cross]
+        target: [armv7-cross, aarch64-cross, ppc64-cross, mips64el-cross]
         branches: [criu-dev, master]
 
     steps:
