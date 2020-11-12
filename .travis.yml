@@ -35,16 +35,6 @@ jobs:
       dist: bionic
     - os: linux
       arch: arm64
-      # This runs on aarch64 with 'setarch linux32'
-      env: TR_ARCH=armv7hf
-      dist: bionic
-    - os: linux
-      arch: arm64
-      # This runs on aarch64 with 'setarch linux32'
-      env: TR_ARCH=armv7hf     CLANG=1
-      dist: bionic
-    - os: linux
-      arch: arm64
       env: TR_ARCH=fedora-rawhide
       dist: bionic
     - os: linux
