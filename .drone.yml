@@ -1,0 +1,65 @@
+---
+kind: pipeline
+type: docker
+name: aarch64 build GCC (native)
+
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+- name: build
+  image: ubuntu:focal
+  commands:
+  - scripts/ci/apt-install make
+  - make -C scripts/ci local
+
+---
+kind: pipeline
+type: docker
+name: aarch64 build CLANG (native)
+
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+- name: build
+  image: ubuntu:focal
+  commands:
+  - scripts/ci/apt-install make
+  - make -C scripts/ci local CLANG=1
+
+---
+kind: pipeline
+type: docker
+name: armhf build GCC (native)
+
+platform:
+  os: linux
+  arch: arm
+
+steps:
+- name: build
+  # At the time of setting up focal did not work
+  image: ubuntu:bionic
+  commands:
+  - scripts/ci/apt-install make
+  - make -C scripts/ci local
+
+---
+kind: pipeline
+type: docker
+name: armhf build CLANG (native)
+
+platform:
+  os: linux
+  arch: arm
+
+steps:
+- name: build
+  # At the time of setting up focal did not work
+  image: ubuntu:bionic
+  commands:
+  - scripts/ci/apt-install make
+  - make -C scripts/ci local CLANG=1

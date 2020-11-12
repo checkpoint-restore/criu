@@ -4,7 +4,8 @@ set -x -e
 CI_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
 		libgnutls30 libprotobuf-dev protobuf-compiler libcap-dev
 		libnl-3-dev gdb bash libnet-dev util-linux asciidoctor
-		libnl-route-3-dev time ccache flake8 libbsd-dev"
+		libnl-route-3-dev time ccache flake8 libbsd-dev
+		libperl-dev pkg-config"
 
 
 if [ -e /etc/lsb-release ]; then
@@ -51,12 +52,13 @@ ci_prep () {
 	# This can fail on aarch64 travis
 	service apport stop || :
 
-	CC=gcc
-	# clang support
 	if [ "$CLANG" = "1" ]; then
-		CI_PKGS="$CI_PKGS clang"
+		# clang support
 		CC=clang
+	else
+		CC=gcc
 	fi
+	CI_PKGS="$CI_PKGS $CC"
 
 	[ -n "$GCOV" ] && {
 		apt-add-repository -y "ppa:ubuntu-toolchain-r/test"
