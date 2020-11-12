@@ -3,6 +3,7 @@
 
 #include "asm/types.h"
 #include <compel/asm/fpu.h>
+#include <compel/asm/infect-types.h>
 #include "images/core.pb-c.h"
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/asm/sigframe.h>

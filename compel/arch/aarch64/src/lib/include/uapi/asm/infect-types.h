@@ -18,6 +18,11 @@
 typedef struct user_pt_regs		user_regs_struct_t;
 typedef struct user_fpsimd_state	user_fpregs_struct_t;
 
+#define __compel_arch_fetch_thread_area(tid, th) 0
+#define compel_arch_fetch_thread_area(tctl) 0
+#define compel_arch_get_tls_task(ctl, tls)
+#define compel_arch_get_tls_thread(tctl, tls)
+
 #define REG_RES(r)			((uint64_t)(r).regs[0])
 #define REG_IP(r)			((uint64_t)(r).pc)
 #define REG_SP(r)			((uint64_t)((r).sp))
