@@ -8,6 +8,9 @@
 struct thread_ctx {
 	k_rtsigset_t		sigmask;
 	user_regs_struct_t	regs;
+#ifdef ARCH_HAS_PTRACE_GET_THREAD_AREA
+	tls_t			tls;
+#endif
 };
 
 /* parasite control block */

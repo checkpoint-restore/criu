@@ -681,6 +681,11 @@ static int parasite_start_daemon(struct parasite_ctl *ctl)
 		return -1;
 	}
 
+	if (__compel_arch_fetch_thread_area(pid, &ctl->orig)) {
+		pr_err("Can't get thread area of %d\n", pid);
+		return -1;
+	}
+
 	if (ictx->make_sigframe(ictx->regs_arg, ctl->sigframe, ctl->rsigframe, &ctl->orig.sigmask))
 		return -1;
 

@@ -156,6 +156,8 @@ int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEn
 		return -1;
 	}
 
+	compel_arch_get_tls_task(ctl, &args->tls);
+
 	return dump_thread_core(pid, core, args);
 }
 
@@ -189,6 +191,14 @@ int parasite_dump_thread_seized(struct parasite_thread_ctl *tctl,
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		goto err_rth;
 	}
+
+	ret = compel_arch_fetch_thread_area(tctl);
+	if (ret) {
+		pr_err("Can't obtain thread area of %d\n", pid);
+		goto err_rth;
+	}
+
+	compel_arch_get_tls_thread(tctl, &args->tls);
 
 	ret = compel_run_in_thread(tctl, PARASITE_CMD_DUMP_THREAD);
 	if (ret) {

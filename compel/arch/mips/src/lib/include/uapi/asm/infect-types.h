@@ -54,6 +54,10 @@ static inline bool user_regs_native(user_regs_struct_t *pregs)
 	return true;
 }
 
+#define __compel_arch_fetch_thread_area(tid, th) 0
+#define compel_arch_fetch_thread_area(tctl) 0
+#define compel_arch_get_tls_task(ctl, tls)
+#define compel_arch_get_tls_thread(tctl, tls)
 
 #define REG_RES(regs)		((regs).MIPS_v0) 
 #define REG_IP(regs)		((regs).cp0_epc) 

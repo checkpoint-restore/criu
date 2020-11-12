@@ -28,6 +28,10 @@ lib-y			+= src/lib/infect-util.o
 lib-y			+= src/lib/infect.o
 lib-y			+= src/lib/ptrace.o
 
+ifeq ($(ARCH),x86)
+lib-y			+= arch/$(ARCH)/src/lib/thread_area.o
+endif
+
 # handle_elf() has no support of ELF relocations on ARM (yet?)
 ifneq ($(filter arm aarch64,$(ARCH)),)
 CFLAGS			+= -DNO_RELOCS
