@@ -1131,6 +1131,7 @@ out:
 static int complete_forks(int epollfd, struct epoll_event **events, int *nr_fds)
 {
 	struct lazy_pages_info *lpi, *n;
+	struct epoll_event *tmp;
 
 	if (list_empty(&pending_lpis))
 		return 1;
@@ -1138,9 +1139,10 @@ static int complete_forks(int epollfd, struct epoll_event **events, int *nr_fds)
 	list_for_each_entry(lpi, &pending_lpis, l)
 		(*nr_fds)++;
 
-	*events = xrealloc(*events, sizeof(struct epoll_event) * (*nr_fds));
-	if (!*events)
+	tmp = xrealloc(*events, sizeof(struct epoll_event) * (*nr_fds));
+	if (!tmp)
 		return -1;
+	*events = tmp;
 
 	list_for_each_entry_safe(lpi, n, &pending_lpis, l) {
 		if (epoll_add_rfd(epollfd, &lpi->lpfd))
