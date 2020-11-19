@@ -1213,6 +1213,10 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 		/* we've already handled the page fault for another thread */
 		if (errno == EAGAIN)
 			return 0;
+		if (errno == EBADF && lpi->exited) {
+			lp_debug(lpi, "excess message in queue: %d", msg.event);
+			return 0;
+		}
 		lp_perror(lpi, "Can't read uffd message");
 		return -1;
 	} else if (ret == 0) {
