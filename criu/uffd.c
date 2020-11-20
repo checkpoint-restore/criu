@@ -1209,17 +1209,16 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 	lpi = container_of(lpfd, struct lazy_pages_info, lpfd);
 
 	ret = read(lpfd->fd, &msg, sizeof(msg));
-	if (!ret)
-		return 1;
-
-	if (ret != sizeof(msg)) {
+	if (ret < 0) {
 		/* we've already handled the page fault for another thread */
 		if (errno == EAGAIN)
 			return 0;
-		if (ret < 0)
-			lp_perror(lpi, "Can't read uffd message");
-		else
-			lp_err(lpi, "Can't read uffd message: short read");
+		lp_perror(lpi, "Can't read uffd message");
+		return -1;
+	} else if (ret == 0) {
+		return 1;
+	} else if (ret != sizeof(msg)) {
+		lp_err(lpi, "Can't read uffd message: short read");
 		return -1;
 	}
 
