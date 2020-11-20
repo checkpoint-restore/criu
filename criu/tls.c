@@ -303,13 +303,25 @@ static int tls_x509_setup_creds(void)
 static ssize_t _tls_push_cb(void *p, const void* data, size_t sz)
 {
 	int fd = *(int *)(p);
-	return send(fd, data, sz, tls_sk_flags);
+	int ret = send(fd, data, sz, tls_sk_flags);
+	if (ret < 0 && errno != EAGAIN) {
+		int _errno = errno;
+		pr_perror("Push callback send failed");
+		errno = _errno;
+	}
+	return ret;
 }
 
 static ssize_t _tls_pull_cb(void *p, void* data, size_t sz)
 {
 	int fd = *(int *)(p);
-	return recv(fd, data, sz, tls_sk_flags);
+	int ret = recv(fd, data, sz, tls_sk_flags);
+	if (ret < 0 && errno != EAGAIN) {
+		int _errno = errno;
+		pr_perror("Pull callback recv failed");
+		errno = _errno;
+	}
+	return ret;
 }
 
 static int tls_x509_setup_session(unsigned int flags)
