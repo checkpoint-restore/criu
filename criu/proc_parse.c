@@ -190,6 +190,7 @@ struct vma_file_info {
 	int dev_min;
 	unsigned long ino;
 	struct vma_area *vma;
+	bool has_special_plugin;
 };
 
 static inline int vfi_equal(struct vma_file_info *a, struct vma_file_info *b)
@@ -592,14 +593,49 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area,
 		}
 	} else if (*vm_file_fd >= 0) {
 		struct stat *st_buf = vma_area->vmst;
+		struct stat st_kfd, st_dri_min;
+		char img_path[128];
+		int ret;
 
 		if (S_ISREG(st_buf->st_mode))
 			/* regular file mapping -- supported */;
 		else if (S_ISCHR(st_buf->st_mode) && (st_buf->st_rdev == DEVZERO))
 			/* devzero mapping -- also makes sense */;
 		else {
-			pr_err("Can't handle non-regular mapping on %d's map %"PRIx64"\n", pid, vma_area->e->start);
-			goto err;
+			ret = stat("/dev/kfd", &st_kfd);
+			if (ret == -1) {
+				pr_perror("fstat error for /dev/kfd\n");
+				goto err;
+			}
+			snprintf(img_path, sizeof(img_path), "/dev/dri/renderD%d",
+				 DRM_FIRST_RENDER_NODE);
+
+			ret = stat(img_path, &st_dri_min);
+			if (ret == -1) {
+				pr_perror("fstat error for %s\n", img_path);
+				goto err;
+			}
+
+			if (major(st_buf->st_rdev) == major(st_kfd.st_rdev) ||
+			    ((major(st_buf->st_rdev) == major(st_dri_min.st_rdev)) &&
+			     (minor(st_buf->st_rdev) >= minor(st_dri_min.st_rdev) &&
+			      minor(st_buf->st_rdev) >= DRM_FIRST_RENDER_NODE) )) {
+				pr_debug("Known non-regular mapping, kfd-renderD%d -> OK\n",
+					 minor(st_buf->st_rdev));
+				pr_debug("AMD KFD(maj) = %d, DRI(maj,min) = %d:%d, "
+					 "VMA Device fd(maj,min) = %d:%d\n",
+					 major(st_kfd.st_rdev),
+					 major(st_dri_min.st_rdev),
+					 minor(st_dri_min.st_rdev),
+					 major(st_buf->st_rdev),
+					 minor(st_buf->st_rdev));
+
+				vfi->has_special_plugin = true;
+
+			} else {
+				pr_err("Can't handle non-regular mapping on %d's map %"PRIx64"\n", pid, vma_area->e->start);
+				goto err;
+			}
 		}
 
 		if (is_anon_shmem_map(st_buf->st_dev) && !strncmp(file_path, "/SYSV", 5)) {
@@ -666,9 +702,16 @@ static int vma_list_add(struct vma_area *vma_area,
 			struct vma_file_info *vfi, struct vma_file_info *prev_vfi)
 {
 	if (vma_area->e->status & VMA_UNSUPP) {
-		pr_err("Unsupported mapping found %016"PRIx64"-%016"PRIx64"\n",
+		if (vfi->has_special_plugin) {
+			pr_debug("Device file mapping %016"PRIx64"-%016"PRIx64" "
+				 "must be supported via special plugins\n",
+				 vma_area->e->start, vma_area->e->end);
+
+		} else {
+			pr_err("Unsupported mapping found %016"PRIx64"-%016"PRIx64"\n",
 					vma_area->e->start, vma_area->e->end);
-		return -1;
+			return -1;
+		}
 	}
 
 	/* Add a guard page only if here is enough space for it */
