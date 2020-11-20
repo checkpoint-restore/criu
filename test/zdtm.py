@@ -1043,19 +1043,19 @@ class criu:
             ret = self.__dump_process.wait()
         if self.__lazy_pages_p:
             ret = self.__lazy_pages_p.wait()
-            grep_errors(os.path.join(self.__ddir(), "lazy-pages.log"))
+            grep_errors(os.path.join(self.__ddir(), "lazy-pages.log"), err=ret)
             self.__lazy_pages_p = None
             if ret:
                 raise test_fail_exc("criu lazy-pages exited with %s" % ret)
         if self.__page_server_p:
             ret = self.__page_server_p.wait()
-            grep_errors(os.path.join(self.__ddir(), "page-server.log"))
+            grep_errors(os.path.join(self.__ddir(), "page-server.log"), err=ret)
             self.__page_server_p = None
             if ret:
                 raise test_fail_exc("criu page-server exited with %s" % ret)
         if self.__dump_process:
             ret = self.__dump_process.wait()
-            grep_errors(os.path.join(self.__ddir(), "dump.log"))
+            grep_errors(os.path.join(self.__ddir(), "dump.log"), err=ret)
             self.__dump_process = None
             if ret:
                 raise test_fail_exc("criu dump exited with %s" % ret)
@@ -1357,7 +1357,7 @@ class criu:
 
         if self.__page_server_p:
             ret = self.__page_server_p.wait()
-            grep_errors(os.path.join(self.__ddir(), "page-server.log"))
+            grep_errors(os.path.join(self.__ddir(), "page-server.log"), err=ret)
             self.__page_server_p = None
             if ret:
                 raise test_fail_exc("criu page-server exited with %d" % ret)
@@ -2165,7 +2165,7 @@ def print_error(line):
     return False
 
 
-def grep_errors(fname):
+def grep_errors(fname, err=False):
     first = True
     print_next = False
     before = []
@@ -2186,6 +2186,17 @@ def grep_errors(fname):
                 if print_next:
                     print_next = print_error(line)
                     before = []
+
+    # If process failed but there are no errors in log,
+    # let's just print the log tail, probably it would
+    # be helpful.
+    if err and first:
+        print_fname(fname, 'log')
+        print_sep("grep Error (no)", "-", 60)
+        first = False
+        for i in before:
+            print_next = print_error(i)
+
     if not first:
         print_sep("ERROR OVER", "-", 60)
 
