@@ -91,6 +91,9 @@ static void fill_flock_entry(FileLockEntry *fle, int fl_kind, int fl_ltype)
 
 int dump_file_locks(void)
 {
+	if (!opts.handle_file_locks)
+		return 0;
+
 	FileLockEntry	 fle;
 	struct file_lock *fl;
 	int	ret = 0;
