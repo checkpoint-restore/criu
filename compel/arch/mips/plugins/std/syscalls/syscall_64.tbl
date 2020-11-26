@@ -73,6 +73,7 @@ __NR_mount			5160		sys_mount		(char *dev_nmae, char *dir_name, char *type, unsig
 __NR_umount2			5161		sys_umount2		(char *name, int flags)
 __NR_gettid			5178		sys_gettid		(void)
 __NR_futex			5194		sys_futex		(uint32_t *uaddr, int op, uint32_t val, struct timespec *utime, uint32_t *uaddr2, uint32_t val3)
+__NR_sched_setaffinity		5195		sys_sched_setaffinity	(int fd, size_t cpusetsize, const cpu_set_t *mask)
 __NR_cacheflush			5197		sys_cacheflush		(char *addr, int nbytes, int cache)
 __NR_io_setup			5200		sys_io_setup		(unsigned nr_events, aio_context_t *ctx)
 __NR_io_getevents		5202		sys_io_getevents	(aio_context_t ctx, long min_nr, long nr, struct io_event *evs, struct timespec *tmo)

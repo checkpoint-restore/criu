@@ -118,6 +118,7 @@ static int prepare_restorer_blob(void);
 static int prepare_rlimits(int pid, struct task_restore_args *, CoreEntry *core);
 static int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry *core);
 static int prepare_signals(int pid, struct task_restore_args *, CoreEntry *core);
+static int prepare_allowed_cpus(int pid, struct task_restore_args *ta, CoreEntry *leader_core);
 
 /*
  * Architectures can overwrite this function to restore registers that are not
@@ -920,6 +921,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (prepare_signals(pid, ta, core))
+		return -1;
+
+	if (prepare_allowed_cpus(pid, ta, core))
 		return -1;
 
 	if (prepare_posix_timers(pid, ta, core))
@@ -3223,6 +3227,27 @@ out:
 	return ret;
 }
 
+static int prepare_allowed_cpus(int pid, struct task_restore_args *ta, CoreEntry *leader_core)
+{
+	int i;
+	int *need_cpu_affinity;
+	cpu_set_t *cpumaks;
+
+	ta->allowed_cpus = (char *)rst_mem_align_cpos(RM_PRIVATE);
+
+	need_cpu_affinity = rst_mem_alloc(sizeof(int), RM_PRIVATE);
+	*need_cpu_affinity = opts.with_cpu_affinity;
+
+	for (i = 0; i < current->nr_threads; i++) {
+		cpumaks = rst_mem_alloc(sizeof(cpu_set_t), RM_PRIVATE);
+		if (!cpumaks)
+			return -1;
+
+		memcpy(cpumaks, current->core[i]->thread_core->allowed_cpus->cpumask, sizeof(cpu_set_t));
+	}
+	return 0;
+}
+
 extern void __gcov_flush(void) __attribute__((weak));
 void __gcov_flush(void) {}
 
@@ -3682,6 +3707,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	RST_MEM_FIXUP_PPTR(task_args->timerfd);
 	RST_MEM_FIXUP_PPTR(task_args->posix_timers);
 	RST_MEM_FIXUP_PPTR(task_args->siginfo);
+	RST_MEM_FIXUP_PPTR(task_args->allowed_cpus);
 	RST_MEM_FIXUP_PPTR(task_args->rlims);
 	RST_MEM_FIXUP_PPTR(task_args->helpers);
 	RST_MEM_FIXUP_PPTR(task_args->zombies);

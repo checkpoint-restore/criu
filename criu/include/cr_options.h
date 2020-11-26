@@ -174,6 +174,8 @@ struct cr_options {
 
 	/* This stores which method to use for file validation. */
 	int 			file_validation_method;
+
+	int			with_cpu_affinity;	/* restore cpu affinity */
 };
 
 extern struct cr_options opts;

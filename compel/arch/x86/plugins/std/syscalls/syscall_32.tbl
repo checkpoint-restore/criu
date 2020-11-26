@@ -63,6 +63,7 @@ __NR_mincore		218		sys_mincore		(void *addr, unsigned long size, unsigned char *
 __NR_madvise		219		sys_madvise		(unsigned long start, size_t len, int behavior)
 __NR_gettid		224		sys_gettid		(void)
 __NR_futex		240		sys_futex		(uint32_t *uaddr, int op, uint32_t val, struct timespec *utime, uint32_t *uaddr2, uint32_t val3)
+__NR_sched_setaffinity	241		sys_sched_setaffinity	(int fd, size_t cpusetsize, const cpu_set_t *mask)
 __NR_set_thread_area	243		sys_set_thread_area	(user_desc_t *info)
 __NR_get_thread_area	244		sys_get_thread_area	(user_desc_t *info)
 __NR_io_setup		245		sys_io_setup		(unsigned nr_reqs, aio_context_t *ctx32p)

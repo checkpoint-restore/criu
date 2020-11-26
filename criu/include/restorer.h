@@ -1,6 +1,7 @@
 #ifndef __CR_RESTORER_H__
 #define __CR_RESTORER_H__
 
+#include <sched.h>
 #include <signal.h>
 #include <limits.h>
 #include <sys/resource.h>
@@ -161,6 +162,8 @@ struct task_restore_args {
 
 	siginfo_t			*siginfo;
 	unsigned int			siginfo_n;
+
+	char				*allowed_cpus;
 
 	struct rst_tcp_sock		*tcp_socks;
 	unsigned int			tcp_socks_n;

@@ -441,6 +441,8 @@ usage:
 "  --file-validation METHOD\n"
 "			pass the validation method to be used; argument\n"
 "			can be 'filesize' or 'buildid' (default).\n"
+"  --with-cpu-affinity	Allow to restore cpu affinity. Only for hosts with\n"
+"			same cpu quantity.\n"
 "\n"
 "Check options:\n"
 "  Without options, \"criu check\" checks availability of absolutely required\n"
