@@ -95,6 +95,9 @@ int dump_file_locks(void)
 	struct file_lock *fl;
 	int	ret = 0;
 
+	if (!opts.handle_file_locks)
+		return 0;
+
 	pr_info("Dumping file-locks\n");
 
 	list_for_each_entry(fl, &file_lock_list, list) {
