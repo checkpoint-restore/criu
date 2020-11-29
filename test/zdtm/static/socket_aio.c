@@ -5,7 +5,7 @@ const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 
 /* Description:
  * Create two tcp socket, server send asynchronous request on
- * read data and clietn write data after migration
+ * read data and client write data after migration
  */
 
 #include <stdio.h>
