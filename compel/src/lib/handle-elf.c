@@ -212,13 +212,11 @@ int __handle_elf(void *mem, size_t size)
 		if (sh->sh_addralign > 0 && k % sh->sh_addralign != 0) {
 			k += sh->sh_addralign - k % sh->sh_addralign;
 		}
-		if (sh->sh_addr && sh->sh_addr != k) {
-			pr_err("Unexpected precalculated address of section (section %s addr 0x%lx expected 0x%lx)\n",
-				   &secstrings[sh->sh_name],
-				   (unsigned long) sh->sh_addr,
-				   (unsigned long) k);
-			goto err;
-		}
+		if (sh->sh_addr && sh->sh_addr != k)
+			pr_info("Overriding unexpected precalculated address of section (section %s addr 0x%lx expected 0x%lx)\n",
+				&secstrings[sh->sh_name],
+				(unsigned long) sh->sh_addr,
+				(unsigned long) k);
 		sh->sh_addr = k;
 		k += sh->sh_size;
 	}
