@@ -46,6 +46,7 @@
 #include "proc_parse.h"
 #include "parasite.h"
 #include "parasite-syscall.h"
+#include "sigacts-dump.h"
 #include "files.h"
 #include "files-reg.h"
 #include "shmem.h"
