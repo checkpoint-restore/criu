@@ -4,7 +4,7 @@ ARG CC=gcc
 ARG ENV1=FOOBAR
 
 RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm dnf-plugins-core
-RUN yum config-manager --set-enabled PowerTools
+RUN yum config-manager --set-enabled powertools
 RUN yum install -y --allowerasing \
 	asciidoc \
 	ccache \
