@@ -5,17 +5,11 @@ cache: ccache
 services:
   - docker
 env:
-  - TR_ARCH=local
-  - TR_ARCH=local       CLANG=1
   - TR_ARCH=local       COMPAT_TEST=y
   - TR_ARCH=local       CLANG=1 COMPAT_TEST=y
   - TR_ARCH=vagrant-fedora-no-vdso
 jobs:
   include:
-    - os: linux
-      arch: amd64
-      env: TR_ARCH=local
-      dist: focal
     - os: linux
       arch: ppc64le
       env: TR_ARCH=local
