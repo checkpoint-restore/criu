@@ -97,6 +97,12 @@ test_stream() {
 
 ci_prep
 
+if [ "$CLANG" = "1" ]; then
+	# Needed for clang on Circle CI
+	LDFLAGS="$LDFLAGS -Wl,-z,now"
+	export LDFLAGS
+fi
+
 export GCOV
 $CC --version
 time make CC="$CC" -j4
@@ -204,7 +210,7 @@ if [ -z "$SKIP_EXT_DEV_TEST" ]; then
 fi
 #make -C test/others/exec/ run
 make -C test/others/make/ run CC="$CC"
-if [ -n "$TRAVIS" ]; then
+if [ -n "$TRAVIS" ] || [ -n "$CIRCLECI" ]; then
        # GitHub Actions does not provide a real TTY and CRIU will fail with:
        # Error (criu/tty.c:1014): tty: Don't have tty to inherit session from, aborting
        make -C test/others/shell-job/ run
