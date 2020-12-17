@@ -64,14 +64,6 @@ jobs:
       dist: xenial
     - os: linux
       arch: amd64
-      env: TR_ARCH=alpine      CLANG=1
-      dist: bionic
-    - os: linux
-      arch: amd64
-      env: TR_ARCH=alpine
-      dist: bionic
-    - os: linux
-      arch: amd64
       env: TR_ARCH=fedora-asan
       dist: bionic
     - env: TR_ARCH=local STREAM_TEST=1
