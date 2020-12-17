@@ -1,0 +1,15 @@
+name: Alpine Test
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        target: [GCC=1, CLANG=1]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run Alpine ${{ matrix.target }} Test
+      run: sudo -E make -C scripts/ci alpine ${{ matrix.target }}
