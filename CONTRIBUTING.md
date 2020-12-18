@@ -126,6 +126,19 @@ If your change address an issue listed in GitHub, please use `Fixes:` tag with t
 
 The `Fixes:` tags should be put at the end of the detailed description.
 
+Please add a prefix to your commit subject line describing the part of the
+project your change is related to. This can be either the name of the file or
+directory you changed, or just a general word. If your patch is touching
+multiple components you may separate prefixes with "/"-es. Here are some good
+examples of subject lines from git log:
+
+```
+criu-ns: Convert to python3 style print() syntax
+compel: Calculate sh_addr if not provided by linker
+style: Enforce kernel style -Wstrict-prototypes
+rpc/libcriu: Add lsm-profile option
+```
+
 You may refer to [How to Write a Git Commit
 Message](https://chris.beams.io/posts/git-commit/) article for
 recommendations for good commit message.
@@ -203,7 +216,7 @@ commit message. To append such line to a commit you already made, use
 
 ```
  From: Random J Developer <random at developer.example.org>
- Subject: [PATCH] Short patch description
+ Subject: [PATCH] component: Short patch description
 
  Long patch description (could be skipped if patch
  is trivial enough)
