@@ -95,6 +95,36 @@ test_stream() {
 	./test/zdtm.py run --stream -p 2 --keep-going -T "$STREAM_TEST_PATTERN" $ZDTM_OPTS
 }
 
+print_header() {
+	echo "############### $1 ###############"
+}
+
+print_env() {
+	# As this script can run on multiple different CI systems
+	# the following lines should give some context to the
+	# evnvironment of this CI run.
+	print_header "Environment variables"
+	printenv
+	print_header "uname -a"
+	uname -a || :
+	print_header "Mounted file systems"
+	mount || :
+	print_header "Kernel command line"
+	cat /proc/cmdline || :
+	print_header "Distribution information"
+	[ -e /etc/lsb-release ] && cat /etc/lsb-release
+	[ -e /etc/redhat-release ] && cat /etc/redhat-release
+	[ -e /etc/alpine-release ] && cat /etc/alpine-release
+	print_header "ulimit -a"
+	ulimit -a
+	print_header "Available memory"
+	free -h
+	print_header "Available CPUs"
+	lscpu || :
+}
+
+print_env
+
 ci_prep
 
 if [ "$CLANG" = "1" ]; then
@@ -103,9 +133,9 @@ if [ "$CLANG" = "1" ]; then
 	export LDFLAGS
 fi
 
-export GCOV
+export GCOV CC
 $CC --version
-time make CC="$CC" -j4
+time make CC="$CC" -j4 V=1
 
 ./criu/criu -v4 cpuinfo dump || :
 ./criu/criu -v4 cpuinfo check || :
@@ -148,7 +178,7 @@ if [ "${COMPAT_TEST}x" = "yx" ] ; then
 	mv "$REFUGE"/* /usr/lib/x86_64-linux-gnu/
 fi
 
-time make CC="$CC" -j4 -C test/zdtm
+time make CC="$CC" -j4 -C test/zdtm V=1
 
 [ -f "$CCACHE_LOGFILE" ] && cat "$CCACHE_LOGFILE"
 
