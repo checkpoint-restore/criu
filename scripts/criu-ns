@@ -68,6 +68,19 @@ def _mount_new_proc():
         raise OSError(_errno, errno.errorcode[_errno])
 
 
+def _wait_for_process_status(criu_pid):
+    """
+    Wait for CRIU to exit and report the status back.
+    """
+    while True:
+        try:
+            (pid, status) = os.wait()
+            if pid == criu_pid:
+                return os.WEXITSTATUS(status)
+        except OSError:
+            return -251
+
+
 def run_criu():
     print(sys.argv)
     os.execlp('criu', *['criu'] + sys.argv[1:])
@@ -87,18 +100,7 @@ def wrap_restore():
         run_criu()
         raise OSError(errno.ENOENT, "No such command")
 
-    # Wait for CRIU to exit and report the status back
-    while True:
-        try:
-            (pid, status) = os.wait()
-            if pid == criu_pid:
-                status = os.WEXITSTATUS(status)
-                break
-        except OSError:
-            status = -251
-            break
-
-    return status
+    return _wait_for_process_status(criu_pid)
 
 
 def get_varg(args):
@@ -191,18 +193,7 @@ def wrap_dump():
         run_criu()
         raise OSError(errno.ENOENT, "No such command")
 
-    # Wait for CRIU to exit and report the status back
-    while True:
-        try:
-            (pid, status) = os.wait()
-            if pid == criu_pid:
-                status = os.WEXITSTATUS(status)
-                break
-        except OSError:
-            status = -251
-            break
-
-    return status
+    return _wait_for_process_status(pid)
 
 
 if len(sys.argv) == 1:
