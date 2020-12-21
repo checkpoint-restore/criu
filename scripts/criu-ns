@@ -56,6 +56,18 @@ else:
     _umount.restype = ctypes.c_int
 
 
+def _mount_new_proc():
+    """
+    Mount new /proc filesystem.
+    """
+    if _mount(None, b"/", None, MS_SLAVE|MS_REC, None):
+        _errno = ctypes.get_errno()
+        raise OSError(_errno, errno.errorcode[_errno])
+    if _mount(b'proc', b'/proc', b'proc', 0, None):
+        _errno = ctypes.get_errno()
+        raise OSError(_errno, errno.errorcode[_errno])
+
+
 def run_criu():
     print(sys.argv)
     os.execlp('criu', *['criu'] + sys.argv[1:])
@@ -69,14 +81,7 @@ def wrap_restore():
 
     criu_pid = os.fork()
     if criu_pid == 0:
-        # Mount new /proc
-        if _mount(None, b"/", None, MS_SLAVE|MS_REC, None) != 0:
-            _errno = ctypes.get_errno()
-            raise OSError(_errno, errno.errorcode[_errno])
-
-        if _mount(b'proc', b'/proc', b'proc', 0, None) != 0:
-            _errno = ctypes.get_errno()
-            raise OSError(_errno, errno.errorcode[_errno])
+        _mount_new_proc()
 
         # Spawn CRIU binary
         run_criu()
