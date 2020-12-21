@@ -22,7 +22,7 @@ try:
 except AttributeError:
     raise OSError(errno.EINVAL, "unshare is not supported on this platform")
 else:
-    _unshare.argtypes = [ ctypes.c_int ]
+    _unshare.argtypes = [ctypes.c_int]
     _unshare.restype = ctypes.c_int
 
 try:
@@ -30,7 +30,7 @@ try:
 except AttributeError:
     raise OSError(errno.EINVAL, "setns is not supported on this platform")
 else:
-    _setns.argtypes = [ ctypes.c_int, ctypes.c_int ]
+    _setns.argtypes = [ctypes.c_int, ctypes.c_int]
     _setns.restype = ctypes.c_int
 
 try:
