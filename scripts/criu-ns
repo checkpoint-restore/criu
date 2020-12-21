@@ -82,6 +82,9 @@ def _wait_for_process_status(criu_pid):
 
 
 def run_criu():
+    """
+    Spawn CRIU binary
+    """
     print(sys.argv)
     os.execlp('criu', *['criu'] + sys.argv[1:])
 
@@ -96,7 +99,6 @@ def wrap_restore():
     if criu_pid == 0:
         _mount_new_proc()
 
-        # Spawn CRIU binary
         run_criu()
         raise OSError(errno.ENOENT, "No such command")
 
@@ -118,12 +120,12 @@ def get_varg(args):
 
 
 def set_pidns(tpid, pid_idx):
-    # Joind pid namespace. Note, that the given pid should
-    # be changed in -t option, as task lives in different
-    # pid namespace.
-
+    """
+    Join pid namespace. Note, that the given pid should
+    be changed in -t option, as task lives in different
+    pid namespace.
+    """
     myns = os.stat('/proc/self/ns/pid').st_ino
-
     ns_fd = os.open('/proc/%s/ns/pid' % tpid, os.O_RDONLY)
     if myns != os.fstat(ns_fd).st_ino:
 
@@ -149,9 +151,10 @@ def set_pidns(tpid, pid_idx):
 
 
 def set_mntns(tpid):
-    # Join mount namespace. Trick here too -- check / and .
-    # will be the same in target mntns.
-
+    """
+    Join mount namespace. Trick here too -- check / and .
+    will be the same in target mntns.
+    """
     myns = os.stat('/proc/self/ns/mnt').st_ino
     ns_fd = os.open('/proc/%s/ns/mnt' % tpid, os.O_RDONLY)
     if myns != os.fstat(ns_fd).st_ino:
@@ -187,7 +190,6 @@ def wrap_dump():
     set_pidns(pid, pid_idx)
     set_mntns(pid)
 
-    # Spawn CRIU binary
     criu_pid = os.fork()
     if criu_pid == 0:
         run_criu()
