@@ -47,14 +47,6 @@ else:
     ]
     _mount.restype = ctypes.c_int
 
-try:
-    _umount = _libc.umount
-except AttributeError:
-    raise OSError(errno.EINVAL, "umount is not supported on this platform")
-else:
-    _umount.argtypes = [ctypes.c_char]
-    _umount.restype = ctypes.c_int
-
 
 def _mount_new_proc():
     """
