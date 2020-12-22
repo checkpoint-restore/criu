@@ -73,12 +73,13 @@ def _wait_for_process_status(criu_pid):
             return -251
 
 
-def run_criu():
+def run_criu(args):
     """
     Spawn CRIU binary
     """
     print(sys.argv)
-    os.execlp('criu', *['criu'] + sys.argv[1:])
+    os.execlp('criu', *['criu'] + args)
+    raise OSError(errno.ENOENT, "No such command")
 
 
 def wrap_restore():
@@ -90,10 +91,7 @@ def wrap_restore():
     criu_pid = os.fork()
     if criu_pid == 0:
         _mount_new_proc()
-
-        run_criu()
-        raise OSError(errno.ENOENT, "No such command")
-
+        run_criu(sys.argv[1:])
     return _wait_for_process_status(criu_pid)
 
 
@@ -187,9 +185,7 @@ def wrap_dump():
 
     criu_pid = os.fork()
     if criu_pid == 0:
-        run_criu()
-        raise OSError(errno.ENOENT, "No such command")
-
+        run_criu(sys.argv[1:])
     return _wait_for_process_status(pid)
 
 
