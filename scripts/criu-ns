@@ -221,7 +221,7 @@ action = sys.argv[1]
 
 if action == 'restore':
     res = wrap_restore()
-elif action == 'dump' or action == 'pre-dump':
+elif action in ['dump', 'pre-dump']:
     res = wrap_dump()
 else:
     print('Unsupported action {} for nswrap'.format(action))
