@@ -88,10 +88,23 @@ def wrap_restore():
         _errno = ctypes.get_errno()
         raise OSError(_errno, errno.errorcode[_errno])
 
+    restore_detached = False
+    restore_args = sys.argv[1:]
+    if '-d' in restore_args:
+        restore_detached = True
+        restore_args.remove('-d')
+    if '--restore-detached' in restore_args:
+        restore_detached = True
+        restore_args.remove('--restore-detached')
+
     criu_pid = os.fork()
     if criu_pid == 0:
         _mount_new_proc()
-        run_criu(sys.argv[1:])
+        run_criu(restore_args)
+
+    if restore_detached:
+        return 0
+
     return _wait_for_process_status(criu_pid)
 
 
