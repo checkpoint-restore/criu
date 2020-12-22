@@ -83,13 +83,16 @@ def run_criu(args):
 
 
 def wrap_restore():
+    restore_args = sys.argv[1:]
+    if '--restore-sibling' in restore_args:
+        raise OSError(errno.EINVAL, "--restore-sibling is not supported")
+
     # Unshare pid and mount namespaces
     if _unshare(CLONE_NEWNS | CLONE_NEWPID) != 0:
         _errno = ctypes.get_errno()
         raise OSError(_errno, errno.errorcode[_errno])
 
     restore_detached = False
-    restore_args = sys.argv[1:]
     if '-d' in restore_args:
         restore_detached = True
         restore_args.remove('-d')
