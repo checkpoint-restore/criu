@@ -110,6 +110,17 @@ def get_varg(args):
     return (None, None)
 
 
+def _set_namespace(fd):
+    """Join namespace referred to by fd"""
+    if _setns(fd, 0) != 0:
+        _errno = ctypes.get_errno()
+        raise OSError(_errno, errno.errorcode[_errno])
+
+
+def is_my_namespace(fd):
+    """Returns True if fd refers to current namespace"""
+    return os.stat('/proc/self/ns/pid').st_ino != os.fstat(fd).st_ino
+
 
 def set_pidns(tpid, pid_idx):
     """
@@ -117,14 +128,11 @@ def set_pidns(tpid, pid_idx):
     be changed in -t option, as task lives in different
     pid namespace.
     """
-    myns = os.stat('/proc/self/ns/pid').st_ino
     ns_fd = os.open('/proc/%s/ns/pid' % tpid, os.O_RDONLY)
-    if myns != os.fstat(ns_fd).st_ino:
-
+    if is_my_namespace(ns_fd):
         for l in open('/proc/%s/status' % tpid):
             if not l.startswith('NSpid:'):
                 continue
-
             ls = l.split()
             if ls[1] != tpid:
                 raise OSError(errno.ESRCH, 'No such pid')
@@ -134,11 +142,7 @@ def set_pidns(tpid, pid_idx):
             break
         else:
             raise OSError(errno.ENOENT, 'Cannot find NSpid field in proc')
-
-        if _setns(ns_fd, 0) != 0:
-            _errno = ctypes.get_errno()
-            raise OSError(_errno, errno.errorcode[_errno])
-
+        _set_namespace(ns_fd)
     os.close(ns_fd)
 
 
@@ -147,16 +151,13 @@ def set_mntns(tpid):
     Join mount namespace. Trick here too -- check / and .
     will be the same in target mntns.
     """
-    myns = os.stat('/proc/self/ns/mnt').st_ino
     ns_fd = os.open('/proc/%s/ns/mnt' % tpid, os.O_RDONLY)
-    if myns != os.fstat(ns_fd).st_ino:
+    if is_my_namespace(ns_fd):
         root_st = os.stat('/')
         cwd_st = os.stat('.')
         cwd_path = os.path.realpath('.')
 
-        if _setns(ns_fd, 0) != 0:
-            _errno = ctypes.get_errno()
-            raise OSError(_errno, errno.errorcode[_errno])
+        _set_namespace(ns_fd)
 
         os.chdir(cwd_path)
         root_nst = os.stat('/')
@@ -169,8 +170,6 @@ def set_mntns(tpid):
             raise OSError(errno.EXDEV, 'Target ns / is not as current')
         if not steq(cwd_st, cwd_nst):
             raise OSError(errno.EXDEV, 'Target ns . is not as current')
-
-
     os.close(ns_fd)
 
 
