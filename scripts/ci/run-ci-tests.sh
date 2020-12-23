@@ -127,12 +127,6 @@ print_env
 
 ci_prep
 
-if [ "$CLANG" = "1" ]; then
-	# Needed for clang on Circle CI
-	LDFLAGS="$LDFLAGS -Wl,-z,now"
-	export LDFLAGS
-fi
-
 export GCOV CC
 $CC --version
 time make CC="$CC" -j4 V=1
