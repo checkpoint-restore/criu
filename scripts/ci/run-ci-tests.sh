@@ -118,7 +118,12 @@ print_env() {
 	print_header "ulimit -a"
 	ulimit -a
 	print_header "Available memory"
-	free -h
+	if [ -e /etc/alpine-release ]; then
+		# Alpine's busybox based free does not understand -h
+		free
+	else
+		free -h
+	fi
 	print_header "Available CPUs"
 	lscpu || :
 }
