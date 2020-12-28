@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/utsname.h>
 
 #ifndef CLONE_NEWTIME
 #define CLONE_NEWTIME   0x00000080      /* New time namespace */
@@ -42,7 +43,28 @@ static inline int _settime(clockid_t clk_id, time_t offset)
 
 static int create_timens()
 {
-	int fd;
+	struct utsname buf;
+	unsigned major, minor;
+	int fd, ret;
+
+	/*
+	 * Before the 5.11 kernel, there is a known issue.
+	 * start_time in /proc/pid/stat is printed in the host time
+	 * namespace, but /proc/uptime is shown in the current time
+	 * namespace, so criu can't compare them to detect tasks that
+	 * reuse old pids.
+	 */
+	ret = uname(&buf);
+	if (ret)
+		return -1;
+
+	if (sscanf(buf.release, "%u.%u", &major, &minor) != 2)
+		return -1;
+
+	if (major == 5 && minor < 11) {
+		fprintf(stderr, "timens isn't supported on %s\n", buf.release);
+		return 0;
+	}
 
 	if (unshare(CLONE_NEWTIME)) {
 		if (errno == EINVAL) {
