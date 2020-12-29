@@ -55,6 +55,10 @@ ci_prep () {
 	if [ "$CLANG" = "1" ]; then
 		# clang support
 		CC=clang
+		# If this is running in an environment without gcc installed
+		# compel-host-bin will fail as it is using HOSTCC. Also
+		# set HOSTCC to clang to build compel-host-bin with it.
+		export HOSTCC=clang
 	else
 		CC=gcc
 	fi
