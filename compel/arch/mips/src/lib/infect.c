@@ -2,6 +2,8 @@
 #include <sys/uio.h>
 #include <sys/auxv.h>
 #include <sys/mman.h>
+#include <errno.h>
+
 #include <compel/asm/fpu.h>
 #include <compel/cpu.h>
 #include "errno.h"
@@ -142,9 +144,8 @@ int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 		    regs->cp0_epc -= 4;
 		    break;
 		case ERESTART_RESTARTBLOCK:
-		    regs->regs[2] = __NR_restart_syscall;
-		    regs->regs[7] = regs->regs[26];
-		    regs->cp0_epc -= 4;
+		    pr_warn("Will restore %d with interrupted system call\n", pid);
+		    regs->regs[2] = -EINTR;
 		    break;
 	    }
 	    regs->regs[0] = 0;

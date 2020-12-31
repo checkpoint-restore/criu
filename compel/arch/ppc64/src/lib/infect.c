@@ -330,8 +330,8 @@ static int __get_task_regs(pid_t pid, user_regs_struct_t *regs,
 			regs->nip -= 4;
 			break;
 		case ERESTART_RESTARTBLOCK:
-			regs->gpr[0] = __NR_restart_syscall;
-			regs->nip -= 4;
+			pr_warn("Will restore %d with interrupted system call\n", pid);
+			regs->gpr[3] = EINTR;
 			break;
 		}
 	}
