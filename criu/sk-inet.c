@@ -875,6 +875,8 @@ static int open_inet_sk(struct file_desc *d, int *new_fd)
 		goto err;
 	if (restore_opt(sk, SOL_SOCKET, SO_REUSEPORT, &yes))
 		goto err;
+	if (restore_bound_opts(sk, ie->opts))
+		goto err;
 
 	if (tcp_connection(ie)) {
 		if (!opts.tcp_established_ok && !opts.tcp_close) {
