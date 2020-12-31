@@ -4,6 +4,8 @@
 #include <string.h>
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/asm/processor-flags.h>
+#include <errno.h>
+
 #include "common/page.h"
 #include "uapi/compel/asm/infect-types.h"
 #include "log.h"
@@ -91,8 +93,8 @@ int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 			regs->ARM_pc -= 4;
 			break;
 		case -ERESTART_RESTARTBLOCK:
-			regs->ARM_r0 = __NR_restart_syscall;
-			regs->ARM_pc -= 4;
+			pr_warn("Will restore %d with interrupted system call\n", pid);
+			regs->ARM_r0 = -EINTR;
 			break;
 		}
 	}
