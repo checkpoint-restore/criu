@@ -252,6 +252,8 @@ static inline bool issubpath(const char *path, const char *sub_path)
 		(end == '/' || end == '\0');
 }
 
+int strip_deleted(char *path, int len);
+
 /*
  * mkdir -p
  */
