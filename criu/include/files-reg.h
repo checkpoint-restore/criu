@@ -2,6 +2,7 @@
 #define __CR_FILES_REG_H__
 
 #include "files.h"
+#include "util.h"
 
 #include "images/regfile.pb-c.h"
 #include "images/ghost-file.pb-c.h"
@@ -51,7 +52,10 @@ extern void free_link_remaps(void);
 extern int prepare_remaps(void);
 extern int try_clean_remaps(bool only_ghosts);
 
-extern int strip_deleted(struct fd_link *link);
+static inline int link_strip_deleted(struct fd_link *link)
+{
+	return strip_deleted(link->name, link->len);
+}
 
 extern int dead_pid_conflict(void);
 
