@@ -279,3 +279,6 @@ make -C test/others/libcriu run
 
 # external namespace testing
 make -C test/others/ns_ext run
+
+# compel testing
+make -C compel/test
