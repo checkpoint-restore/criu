@@ -5,6 +5,10 @@ COMPEL		:= ../../../compel/compel-host
 
 all: victim spy
 
+run:
+	./spy
+.PHONY: run
+
 clean:
 	rm -f victim
 	rm -f spy
