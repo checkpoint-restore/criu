@@ -157,7 +157,7 @@ static int dump_one_memfd(int lfd, u32 id, const struct fd_parms *p)
 	} else
 		link = p->link;
 
-	strip_deleted(link);
+	link_strip_deleted(link);
 	/* link->name is always started with "." which has to be skipped.  */
 	if (strncmp(link->name + 1, MEMFD_PREFIX, MEMFD_PREFIX_LEN) == 0)
 		name = &link->name[1 + MEMFD_PREFIX_LEN];
