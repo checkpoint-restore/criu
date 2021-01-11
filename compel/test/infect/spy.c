@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 
+#include <compel/log.h>
+#include <compel/infect-rpc.h>
+
 #include "parasite.h"
 
 #define PARASITE_CMD_INC	PARASITE_USER_CMDS
