@@ -1470,56 +1470,49 @@ static int bind_on_deleted(int sk, struct unix_sk_info *ui)
 	addr.sun_family = AF_UNIX;
 	memcpy(&addr.sun_path, ui->name, ui->ue->name.len);
 
+	ret = access(ui->name, F_OK);
+	if (!ret) {
+		snprintf(path_parked, sizeof(path_parked), UNIX_GHOST_FMT, ui->name);
+		/*
+		 * In case if there exist any file with same name
+		 * just move it aside for a while, we will move it back
+		 * once ghost socket is processed.
+		 */
+		if (unlinkat(AT_FDCWD, path_parked, 0) == 0)
+			pr_debug("ghost: Unlinked stale socket id %#x ino %d name %s\n",
+				 ui->ue->id, ui->ue->ino, path_parked);
+		if (rename(ui->name, path_parked)) {
+			ret = -errno;
+			pr_perror("ghost: Can't rename id %#x ino %u addr %s -> %s",
+				  ui->ue->id, ui->ue->ino, ui->name, path_parked);
+			return ret;
+		}
+		pr_debug("ghost: id %#x ino %d renamed %s -> %s\n",
+			 ui->ue->id, ui->ue->ino, ui->name, path_parked);
+		renamed = true;
+	}
+
 	ret = bind(sk, (struct sockaddr *)&addr,
 		   sizeof(addr.sun_family) + ui->ue->name.len);
 	if (ret < 0) {
-		/*
-		 * In case if there some real living socket
-		 * with same name just move it aside for a
-		 * while, we will move it back once ghost
-		 * socket is processed.
-		 */
-		if (errno == EADDRINUSE) {
-			snprintf(path_parked, sizeof(path_parked), UNIX_GHOST_FMT, ui->name);
-			/*
-			 * Say previous restore get killed in a middle due to
-			 * any reason, be ready the file might already exist,
-			 * clean it up.
-			 */
-			if (unlinkat(AT_FDCWD, path_parked, 0) == 0)
-				pr_debug("ghost: Unlinked stale socket id %#x ino %u name %s\n",
-					 ui->ue->id, ui->ue->ino, path_parked);
-			if (rename(ui->name, path_parked)) {
-				ret = -errno;
-				pr_perror("ghost: Can't rename id %#x ino %u addr %s -> %s",
-					  ui->ue->id, ui->ue->ino, ui->name, path_parked);
-				return ret;
-			}
-			pr_debug("ghost: id %#x ino %u renamed %s -> %s\n",
-				 ui->ue->id, ui->ue->ino, ui->name, path_parked);
-			renamed = true;
-			ret = bind(sk, (struct sockaddr *)&addr,
-				   sizeof(addr.sun_family) + ui->ue->name.len);
-		}
-		if (ret < 0) {
-			ret = -errno;
-			pr_perror("ghost: Can't bind on socket id %#x ino %u addr %s",
-				  ui->ue->id, ui->ue->ino, ui->name);
-			return ret;
-		}
+		ret = -errno;
+		pr_perror("ghost: Can't bind on socket id %#x ino %d addr %s",
+			  ui->ue->id, ui->ue->ino, ui->name);
+		goto out_rename;
 	}
 
 	ret = restore_file_perms(ui);
 	if (ret < 0)
-		return ret;
+		goto out;
 
 	ret = keep_deleted(ui);
 	if (ret < 0) {
 		pr_err("ghost: Can't save socket %#x ino %u addr %s into fdstore\n",
 		       ui->ue->id, ui->ue->ino, ui->name);
-		return -EIO;
+		ret = -EIO;
 	}
 
+out:
 	/*
 	 * Once everything is ready, just remove the socket from the
 	 * filesystem and rename back the original one if it were here.
@@ -1529,19 +1522,18 @@ static int bind_on_deleted(int sk, struct unix_sk_info *ui)
 		ret = -errno;
 		pr_perror("ghost: Can't unlink socket %#x ino %u addr %s",
 			  ui->ue->id, ui->ue->ino, ui->name);
-		return ret;
 	}
 
+out_rename:
 	if (renamed) {
 		if (rename(path_parked, ui->name)) {
 			ret = -errno;
 			pr_perror("ghost: Can't rename id %#x ino %u addr %s -> %s",
 				  ui->ue->id, ui->ue->ino, path_parked, ui->name);
-			return ret;
+		} else {
+			pr_debug("ghost: id %#x ino %d renamed %s -> %s\n",
+				 ui->ue->id, ui->ue->ino, path_parked,  ui->name);
 		}
-
-		pr_debug("ghost: id %#x ino %u renamed %s -> %s\n",
-			 ui->ue->id, ui->ue->ino, path_parked,  ui->name);
 	}
 
 	/*
@@ -1988,12 +1980,22 @@ static struct file_desc_ops unix_desc_ops = {
 static int unlink_sk(struct unix_sk_info *ui)
 {
 	int ret = 0, cwd_fd = -1, root_fd = -1, ns_fd = -1;
+	struct stat statbuf;
 
 	if (!ui->name || ui->name[0] == '\0' || (ui->ue->uflags & USK_EXTERN))
 		return 0;
 
 	if (prep_unix_sk_cwd(ui, &cwd_fd, &root_fd, NULL))
 		return -1;
+
+	ret = stat(ui->name, &statbuf);
+	if (!ret) {
+		/* Do not cleanup non-socket files */
+		if (!S_ISSOCK(statbuf.st_mode)) {
+			ret = 0;
+			goto out;
+		}
+	}
 
 	ret = unlinkat(AT_FDCWD, ui->name, 0) ? -1 : 0;
 	if (ret < 0 && errno != ENOENT) {
