@@ -5,6 +5,10 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 
+#include <compel/log.h>
+#include <compel/infect-rpc.h>
+#include <compel/infect-util.h>
+
 #include "parasite.h"
 
 #define PARASITE_CMD_GETFD	PARASITE_USER_CMDS
