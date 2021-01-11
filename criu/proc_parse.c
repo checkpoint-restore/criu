@@ -35,7 +35,6 @@
 #include "seccomp.h"
 #include "string.h"
 #include "namespaces.h"
-#include "files-reg.h"
 #include "cgroup.h"
 #include "cgroup-props.h"
 #include "timerfd.h"
@@ -306,16 +305,15 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma,
 	vfi_dev = makedev(vfi->dev_maj, vfi->dev_min);
 
 	if (is_memfd(vfi_dev)) {
-		struct fd_link link;
-		link.len = strlen(fname);
-		strlcpy(link.name, fname, sizeof(link.name));
-		strip_deleted(&link);
+		char tmp[PATH_MAX];
+		strlcpy(tmp, fname, PATH_MAX);
+		strip_deleted(tmp, strlen(tmp));
 
 		/*
 		 * The error EPERM will be shown in the following pr_perror().
 		 * It comes from the previous open() call.
 		 */
-		pr_perror("Can't open mapped [%s]", link.name);
+		pr_perror("Can't open mapped [%s]", tmp);
 
 		/*
 		 * TODO Perhaps we could do better than failing and dump the
@@ -1351,10 +1349,10 @@ replace:
 
 static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 {
-	struct fd_link root_link;
 	unsigned int kmaj, kmin;
-	int ret, n;
+	int ret, n, len;
 	char *sub, *opt = NULL;
+	char link_path[PATH_MAX];
 
 	new->mountpoint = xmalloc(PATH_MAX);
 	if (new->mountpoint == NULL)
@@ -1371,14 +1369,14 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 	cure_path(new->mountpoint);
 	cure_path(new->root);
 
-	root_link.len = strlen(new->root);
-	if (root_link.len >= sizeof(root_link.name) - 1) {
-		pr_err("new root path (%s) exceeds %zu\n", new->root, sizeof(root_link.name));
+	len = strlen(new->root);
+	if (len >= PATH_MAX - 1) {
+		pr_err("new root path (%s) exceeds %d\n", new->root, PATH_MAX);
 		goto err;
 	}
-	strcpy(root_link.name, new->root);
-	if (strip_deleted(&root_link)) {
-		strcpy(new->root, root_link.name);
+	strcpy(link_path, new->root);
+	if (strip_deleted(link_path, len)) {
+		strcpy(new->root, link_path);
 		new->deleted = true;
 	}
 
