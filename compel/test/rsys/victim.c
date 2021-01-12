@@ -9,7 +9,8 @@ int main(int argc, char **argv)
 			break;
 
 		i = getsid(0);
-		write(1, &i, sizeof(i));
+		if (write(1, &i, sizeof(i)) != sizeof(i))
+			break;
 	}
 
 	return 0;
