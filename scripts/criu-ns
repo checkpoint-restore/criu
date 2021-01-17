@@ -135,12 +135,14 @@ def set_pidns(tpid, pid_idx):
                 continue
             ls = l.split()
             if ls[1] != tpid:
+                os.close(ns_fd)
                 raise OSError(errno.ESRCH, 'No such pid')
 
             print('Replace pid {} with {}'.format(tpid, ls[2]))
             sys.argv[pid_idx] = ls[2]
             break
         else:
+            os.close(ns_fd)
             raise OSError(errno.ENOENT, 'Cannot find NSpid field in proc')
         _set_namespace(ns_fd)
     os.close(ns_fd)
@@ -167,8 +169,10 @@ def set_mntns(tpid):
             return (st.st_dev, st.st_ino) == (nst.st_dev, nst.st_ino)
 
         if not steq(root_st, root_nst):
+            os.close(ns_fd)
             raise OSError(errno.EXDEV, 'Target ns / is not as current')
         if not steq(cwd_st, cwd_nst):
+            os.close(ns_fd)
             raise OSError(errno.EXDEV, 'Target ns . is not as current')
     os.close(ns_fd)
 
