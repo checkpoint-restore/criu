@@ -1323,6 +1323,7 @@ int epoll_prepare(int nr_fds, struct epoll_event **events)
 
 free_events:
 	xfree(*events);
+	*events = NULL;
 	return -1;
 }
 
