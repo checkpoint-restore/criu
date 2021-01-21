@@ -1163,11 +1163,19 @@ static int write_id_map(pid_t pid, UidGidExtent **extents, int n, char *id_map)
 	 *  We can perform only a single write (that may contain multiple
 	 *  newline-delimited records) to a uid_map and a gid_map files.
 	 */
-	for (i = 0; i < n; i++)
-		off += snprintf(buf + off, sizeof(buf) - off,
+	for (i = 0; i < n; i++) {
+		int len;
+
+		len = snprintf(buf + off, sizeof(buf) - off,
 				"%u %u %u\n", extents[i]->first,
 					extents[i]->lower_first,
 					extents[i]->count);
+		if (len < 0) {
+			pr_perror("Unable to form the user/group mappings buffer");
+			return -1;
+		}
+		off += len;
+	}
 
 	fd = open_proc_rw(pid, "%s", id_map);
 	if (fd < 0)
