@@ -251,6 +251,8 @@ make -C test/others/rpc/ run
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server --dedup
 
+./test/zdtm.py run -t zdtm/transition/pid_reuse --pre 2
+
 ./test/zdtm.py run -t zdtm/static/socket-tcp-local --norst
 
 ip net add test
