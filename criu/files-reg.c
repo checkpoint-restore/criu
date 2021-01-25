@@ -1301,9 +1301,11 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms,
 		 * name.
 		 */
 
-		if (errno == ENOENT)
+		if (errno == ENOENT) {
+			strip_deleted(link);
 			return dump_linked_remap(rpath + 1, plen - 1,
 							ost, lfd, id, nsid);
+		}
 
 		pr_perror("Can't stat path");
 		return -1;
