@@ -15,6 +15,33 @@ message bo_entries_test {
 	required bytes bo_rawdata = 8;
 }
 
+message q_entry {
+	required uint32 gpu_id = 1;
+	required uint32 type = 2;
+	required uint32 format = 3;
+	required uint32 q_id = 4;
+	required uint64 q_address = 5;
+	required uint64 q_size = 6;
+	required uint32 priority = 7;
+	required uint32 q_percent = 8;
+	required uint64 read_ptr_addr = 9;
+	required uint64 write_ptr_addr = 10;
+	required uint32 doorbell_id = 11;
+	required uint64 doorbell_off = 12;
+	required uint32 is_gws = 13;
+	required uint32 sdma_id = 14;
+	required uint32 sdma_vm_addr = 15;
+
+	required uint64 eop_ring_buffer_address = 16;
+	required uint32 eop_ring_buffer_size = 17;
+	required uint64 ctx_save_restore_area_address = 18;
+	required uint32 ctx_save_restore_area_size = 19;
+	required uint32 ctl_stack_size = 20;
+	required bytes cu_mask = 21;
+	required bytes mqd = 22;
+	required bytes ctl_stack = 23;
+}
+
 message criu_kfd {
 	required uint32 pid = 1;
 	required uint32 num_of_devices = 2;
@@ -22,6 +49,7 @@ message criu_kfd {
 	required uint64	num_of_bos = 4;
 	repeated bo_entries_test bo_info_test = 5;
 	required uint32	num_of_queues = 6;
+	repeated q_entry q_entries = 7;
 }
 
 message criu_render_node {
