@@ -24,4 +24,4 @@ jobs:
         days-before-close: 365
         remove-stale-when-updated: true
         exempt-pr-labels: 'no-auto-close'
-        exempt-issue-labels: 'no-auto-close'
+        exempt-issue-labels: 'no-auto-close', 'new feature', 'enhancement'
