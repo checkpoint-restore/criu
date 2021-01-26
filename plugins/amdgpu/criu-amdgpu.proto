@@ -19,6 +19,11 @@ message bo_entry {
 	required bytes private_data = 7;
 }
 
+message q_entry {
+	required uint32 gpu_id = 1;
+	required bytes private_data = 2;
+}
+
 message criu_kfd {
 	required uint32 pid = 1;
 	required process_entry process_entry = 2;
@@ -26,6 +31,8 @@ message criu_kfd {
 	repeated device_entry device_entries = 4;
 	required uint64	num_of_bos = 5;
 	repeated bo_entry bo_entries = 6;
+	required uint32	num_of_queues = 7;
+	repeated q_entry q_entries = 8;
 }
 
 message criu_render_node {
