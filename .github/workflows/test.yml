@@ -13,31 +13,31 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        compiler: [GCC=1, CLANG=1]
+        compiler: [GCC, CLANG]
     steps:
     - uses: actions/checkout@v2
-    - name: Run Alpine ${{ matrix.compiler }} Test
-      run: sudo -E make -C scripts/ci ${{ matrix.compiler }} alpine
+    - name: Run Alpine/${{ matrix.compiler }} test
+      run: sudo -E make -C scripts/ci ${{ matrix.compiler }}=1 alpine
 
   centos:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        target: [centos7, centos8]
+        target: [7, 8]
     steps:
     - uses: actions/checkout@v2
     - name: Run CentOS ${{ matrix.target }} Test
-      run: sudo -E make -C scripts/ci ${{ matrix.target }}
+      run: sudo -E make -C scripts/ci centos${{ matrix.target }}
 
-  cross-compile:
+  cross:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        target: [armv7-cross, aarch64-cross, ppc64-cross, mips64el-cross]
+        target: [armv7, aarch64, ppc64, mips64el]
     steps:
     - uses: actions/checkout@v2
     - name: Run Cross Compilation Targets
-      run: sudo make -C scripts/ci ${{ matrix.target }}
+      run: sudo make -C scripts/ci ${{ matrix.target }}-cross
 
   lint:
     runs-on: ubuntu-20.04
@@ -52,22 +52,22 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
-    - name: Run OpenJ9 Test
+    - name: Run OpenJ9 test
       run: sudo make -C scripts/ci openj9-test
 
   podman:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
-    - name: Run Podman Test
+    - name: Run Podman test
       run: sudo make -C scripts/ci podman-test
 
   x86_64:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        compiler: [GCC=1, CLANG=1]
+        compiler: [GCC, CLANG]
     steps:
     - uses: actions/checkout@v2
-    - name: Run X86_64 ${{ matrix.compiler }} Test
-      run: sudo make -C scripts/ci ${{ matrix.compiler }} x86_64
+    - name: Run X86_64 ${{ matrix.compiler }} test
+      run: sudo make -C scripts/ci ${{ matrix.compiler }}=1 x86_64
