@@ -219,6 +219,8 @@ static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 		struct vdso_symtable *t, uintptr_t dynsymbol_names,
 		Hash_t *hash, Dyn_t *dyn_symtab)
 {
+	ARCH_VDSO_SYMBOLS_LIST
+
 	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
 		ARCH_VDSO_SYMBOLS
 	};
