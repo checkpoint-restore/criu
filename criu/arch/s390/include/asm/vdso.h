@@ -12,13 +12,18 @@
 #define VDSO_SYMBOL_GTOD	0
 
 /*
- * This definition is used in pie/util-vdso.c to initialize the vdso symbol
+ * These definitions are used in pie/util-vdso.c to initialize the vdso symbol
  * name string table 'vdso_symbols'
  */
-#define ARCH_VDSO_SYMBOLS				\
-	"__kernel_gettimeofday",			\
-	"__kernel_clock_gettime",			\
-	"__kernel_clock_getres",			\
-	"__kernel_getcpu"
+#define ARCH_VDSO_SYMBOLS_LIST \
+	const char* aarch_vdso_symbol1 = "__kernel_gettimeofday"; \
+	const char* aarch_vdso_symbol2 = "__kernel_clock_gettime"; \
+	const char* aarch_vdso_symbol3 = "__kernel_clock_getres"; \
+	const char* aarch_vdso_symbol4 = "__kernel_getcpu";
+#define ARCH_VDSO_SYMBOLS \
+	aarch_vdso_symbol1, \
+	aarch_vdso_symbol2, \
+	aarch_vdso_symbol3, \
+	aarch_vdso_symbol4
 
 #endif /* __CR_ASM_VDSO_H__ */

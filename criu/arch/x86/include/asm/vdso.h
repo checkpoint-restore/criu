@@ -35,13 +35,22 @@
  * vsyscall will be patched again when addressing:
  * https://github.com/checkpoint-restore/criu/issues/512
  */
-#define ARCH_VDSO_SYMBOLS			\
-	"__vdso_clock_gettime",			\
-	"__vdso_getcpu",			\
-	"__vdso_gettimeofday",			\
-	"__vdso_time",				\
-	"__kernel_sigreturn",			\
-	"__kernel_rt_sigreturn"
+
+#define ARCH_VDSO_SYMBOLS_LIST \
+	const char* aarch_vdso_symbol1 = "__vdso_clock_gettime"; \
+	const char* aarch_vdso_symbol2 = "__vdso_getcpu"; \
+	const char* aarch_vdso_symbol3 = "__vdso_gettimeofday"; \
+	const char* aarch_vdso_symbol4 = "__vdso_time"; \
+	const char* aarch_vdso_symbol5 = "__kernel_sigreturn"; \
+	const char* aarch_vdso_symbol6 = "__kernel_rt_sigreturn";
+
+#define ARCH_VDSO_SYMBOLS \
+	aarch_vdso_symbol1, \
+	aarch_vdso_symbol2, \
+	aarch_vdso_symbol3, \
+	aarch_vdso_symbol4, \
+	aarch_vdso_symbol5, \
+	aarch_vdso_symbol6
 
 /*	"__kernel_vsyscall",			*/
 
