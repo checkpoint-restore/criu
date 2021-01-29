@@ -6,9 +6,9 @@
 set -e
 set -x
 
-VAGRANT_VERSION=2.2.10
-FEDORA_VERSION=32
-FEDORA_BOX_VERSION=32.20200422.0
+VAGRANT_VERSION=2.2.14
+FEDORA_VERSION=33
+FEDORA_BOX_VERSION=33.20201019.0
 
 setup() {
 	if [ -n "$TRAVIS" ]; then
@@ -54,9 +54,10 @@ setup() {
 		rm -f /sbin/ip6tables
 		cp /bin/true /sbin/ip6tables
 	fi
-	vagrant up --provider=libvirt > /dev/null
+	vagrant up --provider=libvirt --no-tty
 	mkdir -p /root/.ssh
 	vagrant ssh-config >> /root/.ssh/config
+	ssh default sudo dnf upgrade -y
 	ssh default sudo dnf install -y gcc git gnutls-devel nftables-devel libaio-devel \
 		libasan libcap-devel libnet-devel libnl3-devel make protobuf-c-devel \
 		protobuf-devel python3-flake8 python3-future python3-protobuf \
