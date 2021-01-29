@@ -35,6 +35,7 @@ make install
 
 # overlaysfs behaves differently on Ubuntu and breaks CRIU
 # https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1857257
+export STORAGE_DRIVER=vfs
 podman --storage-driver vfs info
 
 criu --version
