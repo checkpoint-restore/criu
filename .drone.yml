@@ -63,3 +63,20 @@ steps:
   commands:
   - scripts/ci/apt-install make
   - make -C scripts/ci local CLANG=1
+
+---
+kind: pipeline
+type: docker
+name: aarch64 Fedora Rawhide
+
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+- name: build
+  image: registry.fedoraproject.org/fedora:rawhide
+  commands:
+  - scripts/ci/prepare-for-fedora-rawhide.sh
+  - make -C scripts/ci/ local CC=gcc SKIP_CI_PREP=1 SKIP_CI_TEST=1 CD_TO_TOP=1
+  - make -C test/zdtm -j 4
