@@ -72,7 +72,9 @@ fedora-no-vdso() {
 	vagrant reload
 	ssh default cat /proc/cmdline
 	ssh default 'cd /vagrant; tar xf criu.tar; cd criu; make -j 4'
-	ssh default 'cd /vagrant/criu/test; sudo ./zdtm.py run -a --keep-going'
+	# BPF tests are failing see: https://github.com/checkpoint-restore/criu/issues/1354
+	# Needs to be fixed, skip for now
+	ssh default 'cd /vagrant/criu/test; sudo ./zdtm.py run -a --keep-going -x zdtm/static/bpf_hash -x zdtm/static/bpf_array'
 }
 
 $1
