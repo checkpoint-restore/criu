@@ -138,6 +138,10 @@ print_env
 
 ci_prep
 
+if [ "${CD_TO_TOP}" = "1" ]; then
+	cd ../../
+fi
+
 if [ "$CLANG" = "1" ]; then
 	# Needed for clang on Circle CI
 	LDFLAGS="$LDFLAGS -Wl,-z,now"
