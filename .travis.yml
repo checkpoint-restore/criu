@@ -34,14 +34,6 @@ jobs:
       virt: vm
       dist: bionic
     - os: linux
-      arch: arm64
-      env: TR_ARCH=fedora-rawhide
-      dist: bionic
-    - os: linux
-      arch: amd64
-      env: TR_ARCH=fedora-rawhide
-      dist: bionic
-    - os: linux
       arch: amd64
       env: TR_ARCH=docker-test
       dist: bionic
