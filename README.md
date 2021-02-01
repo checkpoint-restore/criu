@@ -7,11 +7,11 @@
 
 CRIU (stands for Checkpoint and Restore in Userspace) is a utility to checkpoint/restore Linux tasks.
 
-Using this tool, you can freeze a running application (or part of it) and checkpoint 
+Using this tool, you can freeze a running application (or part of it) and checkpoint
 it to a hard drive as a collection of files. You can then use the files to restore and run the
 application from the point it was frozen at. The distinctive feature of the CRIU
 project is that it is mainly implemented in user space. There are some more projects
-doing C/R for Linux, and so far CRIU [appears to be](https://criu.org/Comparison_to_other_CR_projects) 
+doing C/R for Linux, and so far CRIU [appears to be](https://criu.org/Comparison_to_other_CR_projects)
 the most feature-rich and up-to-date with the kernel.
 
 CRIU project is (almost) the never-ending story, because we have to always keep up with the
@@ -20,8 +20,8 @@ looking for contributors of all kinds -- feedback, bug reports, testing, coding,
 Please refer to [CONTRIBUTING.md](CONTRIBUTING.md) if you would like to get involved.
 
 The project [started](https://criu.org/History) as the way to do live migration for OpenVZ
-Linux containers, but later grew to more sophisticated and flexible tool. It is currently 
-used by (integrated into) OpenVZ, LXC/LXD, Docker, and other software, project gets tremendous 
+Linux containers, but later grew to more sophisticated and flexible tool. It is currently
+used by (integrated into) OpenVZ, LXC/LXD, Docker, and other software, project gets tremendous
 help from the community, and its packages are included into many Linux distributions.
 
 The project home is at http://criu.org. This wiki contains all the knowledge base for CRIU we have.
@@ -31,13 +31,13 @@ Pages worth starting with are:
 - [Examples of more advanced usage](https://criu.org/Category:HOWTO)
 - Troubleshooting can be hard, some help can be found [here](https://criu.org/When_C/R_fails), [here](https://criu.org/What_cannot_be_checkpointed) and [here](https://criu.org/FAQ)
 
-### Checkpoint and restore of simple loop process 
+### Checkpoint and restore of simple loop process
 [<p align="center"><img src="https://asciinema.org/a/232445.png" width="572px" height="412px"/></p>](https://asciinema.org/a/232445)
 
 ## Advanced features
 
 As main usage for CRIU is live migration, there's a library for it called P.Haul. Also the
-project exposes two cool core features as standalone libraries. These are libcompel for parasite code 
+project exposes two cool core features as standalone libraries. These are libcompel for parasite code
 injection and libsoccr for TCP connections checkpoint-restore.
 
 ### Live migration
