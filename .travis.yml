@@ -43,7 +43,6 @@ jobs:
   allow_failures:
     - env: TR_ARCH=docker-test
     - env: TR_ARCH=docker-test DIST=xenial
-    - env: TR_ARCH=local       GCOV=1
 script:
   - sudo make CCACHE=1 -C scripts/ci $TR_ARCH
 after_success:
