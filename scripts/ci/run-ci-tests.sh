@@ -188,6 +188,7 @@ if [ "${COMPAT_TEST}x" = "yx" ] ; then
 	done
 	# shellcheck disable=SC2086
 	apt-get remove $INCOMPATIBLE_LIBS
+	dpkg --add-architecture i386
 	scripts/ci/apt-install "$IA32_PKGS"
 	mkdir -p /usr/lib/x86_64-linux-gnu/
 	mv "$REFUGE"/* /usr/lib/x86_64-linux-gnu/

@@ -1,0 +1,16 @@
+name: Compat Tests
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        target: [GCC, CLANG]
+
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run Compat Tests (${{ matrix.target }})
+      run: sudo -E make -C scripts/ci local COMPAT_TEST=y ${{ matrix.target }}=1
