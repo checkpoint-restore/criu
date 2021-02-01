@@ -64,12 +64,6 @@ ci_prep () {
 	fi
 	CI_PKGS="$CI_PKGS $CC"
 
-	[ -n "$GCOV" ] && {
-		apt-add-repository -y "ppa:ubuntu-toolchain-r/test"
-		scripts/ci/apt-install --no-install-suggests g++-7
-		CC=gcc-7
-	}
-
 	# ccache support, only enable for non-GCOV case
 	if [ "$CCACHE" = "1" ] && [ -z "$GCOV" ]; then
 		# ccache is installed by default, need to set it up
@@ -290,6 +284,11 @@ make -C test/others/libcriu run
 
 # external namespace testing
 make -C test/others/ns_ext run
+
+# Skip all further tests when running with GCOV=1
+# The one test which currently cannot handle GCOV testing is compel/test
+# Probably because the GCOV Makefile infrastructure does not exist in compel
+[ -n "$GCOV" ] && exit 0
 
 # compel testing
 make -C compel/test
