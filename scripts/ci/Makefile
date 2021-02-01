@@ -60,7 +60,7 @@ $(TARGETS): restart-docker
 
 fedora-asan: restart-docker
 	$(MAKE) -C ../build $@$(target-suffix)
-	docker run -it $(CONTAINER_OPTS) criu-$@ ./scripts/ci/asan.sh $(ZDTM_OPTIONS)
+	docker run $(CONTAINER_OPTS) criu-$@ ./scripts/ci/asan.sh $(ZDTM_OPTIONS)
 
 docker-test:
 	./docker-test.sh

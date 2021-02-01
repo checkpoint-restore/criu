@@ -43,11 +43,6 @@ jobs:
       # On xenial it should be possible to test overlayfs;
       # broken on the latest bionic kernel
       dist: xenial
-    - os: linux
-      arch: amd64
-      env: TR_ARCH=fedora-asan
-      dist: bionic
-    - env: TR_ARCH=local STREAM_TEST=1
   allow_failures:
     - env: TR_ARCH=docker-test
     - env: TR_ARCH=docker-test DIST=xenial

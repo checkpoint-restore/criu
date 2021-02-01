@@ -1,0 +1,12 @@
+name: Fedora ASAN Test
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run Fedora ASAN Test
+      run: sudo -E make -C scripts/ci fedora-asan
