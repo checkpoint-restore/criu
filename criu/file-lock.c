@@ -108,6 +108,12 @@ int dump_file_locks(void)
 			continue;
 		}
 
+		if (!opts.handle_file_locks) {
+			pr_err("Some file locks are hold by dumping tasks!"
+					"You can try --" OPT_FILE_LOCKS " to dump them.\n");
+			return -1;
+		}
+
 		file_lock_entry__init(&fle);
 		fle.pid = fl->real_owner;
 		fle.fd = fl->owners_fd;
