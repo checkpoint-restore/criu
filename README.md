@@ -1,6 +1,7 @@
-[![master](https://travis-ci.org/checkpoint-restore/criu.svg?branch=master)](https://travis-ci.org/checkpoint-restore/criu)
-[![development](https://travis-ci.org/checkpoint-restore/criu.svg?branch=criu-dev)](https://travis-ci.org/checkpoint-restore/criu)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/55251ec7db28421da4481fc7c1cb0cee)](https://www.codacy.com/app/xemul/criu?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=xemul/criu&amp;utm_campaign=Badge_Grade)
+![X86_64 GCC Test](https://github.com/checkpoint-restore/criu/workflows/X86_64%20GCC%20Test/badge.svg)
+![Podman Test](https://github.com/checkpoint-restore/criu/workflows/Podman%20Test/badge.svg)
+[![CircleCI](https://circleci.com/gh/checkpoint-restore/criu.svg?style=svg)](https://circleci.com/gh/checkpoint-restore/criu)
+
 <p align="center"><img src="https://criu.org/w/images/1/1c/CRIU.svg" width="256px"/></p>
 
 ## CRIU -- A project to implement checkpoint/restore functionality for Linux
