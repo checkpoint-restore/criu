@@ -413,6 +413,11 @@ lint:
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh scripts/ci/apt-install
 
+codecov: SHELL := $(shell which bash)
+codecov:
+	bash <(curl -s https://codecov.io/bash)
+.PHONY: codecov
+
 include Makefile.install
 
 .DEFAULT_GOAL := all
