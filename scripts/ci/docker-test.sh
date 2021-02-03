@@ -26,6 +26,10 @@ add-apt-repository \
 # Switch to devicemapper
 echo '{ "experimental": true, "storage-driver": "devicemapper" }' > /etc/docker/daemon.json
 
+CRIU_LOG='/criu.log'
+mkdir -p /etc/criu
+echo "log-file=$CRIU_LOG" > /etc/criu/runc.conf
+
 service docker stop
 
 # Restore with containerd versions after v1.2.14 and before v1.5.0-beta.0 is broken.
@@ -62,7 +66,7 @@ for i in $(seq 50); do
 	docker start --checkpoint checkpoint"$i" cr 2>&1 | tee log || {
 	cat "$(grep log 'log file:' | sed 's/log file:\s*//')" || true
 		docker logs cr || true
-		cat /tmp/zdtm-core-* || true
+		cat $CRIU_LOG || true
 		dmesg
 		docker ps
 		exit 1
