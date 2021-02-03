@@ -30,19 +30,6 @@ jobs:
       group: edge
       virt: vm
       dist: bionic
-    - os: linux
-      arch: amd64
-      env: TR_ARCH=docker-test
-      dist: bionic
-    - os: linux
-      arch: amd64
-      env: TR_ARCH=docker-test DIST=xenial
-      # On xenial it should be possible to test overlayfs;
-      # broken on the latest bionic kernel
-      dist: xenial
-  allow_failures:
-    - env: TR_ARCH=docker-test
-    - env: TR_ARCH=docker-test DIST=xenial
 script:
   - sudo make CCACHE=1 -C scripts/ci $TR_ARCH
 after_success:
