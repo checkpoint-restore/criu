@@ -26,6 +26,11 @@ add-apt-repository \
 # Switch to devicemapper
 echo '{ "experimental": true, "storage-driver": "devicemapper" }' > /etc/docker/daemon.json
 
+service docker stop
+
+# Restore with containerd versions after v1.2.14 and before v1.5.0-beta.0 is broken.
+wget -nv https://github.com/containerd/containerd/releases/download/v1.5.0-beta.0/containerd-1.5.0-beta.0-linux-amd64.tar.gz -O - | tar -xz -C /usr/bin/
+
 service docker restart
 
 export SKIP_CI_TEST=1
