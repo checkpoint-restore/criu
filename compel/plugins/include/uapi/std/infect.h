@@ -21,5 +21,6 @@ extern void parasite_cleanup(void);
  */
 extern void log_set_fd(int fd);
 extern void log_set_loglevel(unsigned int level);
+extern void log_set_relativetimestamps(int level);
 
 #endif /* COMPEL_PLUGIN_STD_INFECT_H__ */

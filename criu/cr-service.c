@@ -702,6 +702,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	log_set_loglevel(opts.log_level);
+	log_set_relativetimestamps(req->relative_timestamps);
 	if (check_options())
 		goto err;
 

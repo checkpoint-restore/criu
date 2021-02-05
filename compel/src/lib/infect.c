@@ -618,6 +618,7 @@ static int parasite_init_daemon(struct parasite_ctl *ctl)
 
 	args->sigframe = (uintptr_t)ctl->rsigframe;
 	args->log_level = compel_log_get_loglevel();
+	args->relative_timestamps = compel_get_relativetimestamps();
 #ifdef ARCH_HAS_LONG_PAGES
 	args->page_size = PAGE_SIZE;
 #endif

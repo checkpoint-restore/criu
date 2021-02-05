@@ -108,6 +108,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	log_set_loglevel(opts.log_level);
+	log_set_relativetimestamps(opts.relative_timestamps);
 
 	if (optind < argc && !strcmp(argv[optind], "swrk")) {
 		if (argc != optind+2) {

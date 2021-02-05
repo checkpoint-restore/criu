@@ -3701,6 +3701,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	task_args->logfd	= log_get_fd();
 	task_args->loglevel	= log_get_loglevel();
+	task_args->relative_timestamps = log_get_relativetimestamps();
 	log_get_logstart(&task_args->logstart);
 	task_args->sigchld_act	= sigchld_act;
 

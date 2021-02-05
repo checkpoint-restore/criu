@@ -127,6 +127,7 @@ message criu_opts {
 	optional bool			tls_no_cn_verify	= 59;
 	optional string			cgroup_yard		= 60;
 	optional criu_pre_dump_mode	pre_dump_mode		= 61 [default = SPLICE];
+	optional int32			relative_timestamps	= 62;
 /*	optional bool			check_mounts		= 128;	*/
 }
 
