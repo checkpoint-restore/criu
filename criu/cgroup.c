@@ -1202,16 +1202,11 @@ static int prepare_cgns(CgSetEntry *se)
 	return 0;
 }
 
-static int move_in_cgroup(CgSetEntry *se, bool setup_cgns)
+static int move_in_cgroup(CgSetEntry *se)
 {
 	int i;
 
 	pr_info("Move into %d\n", se->id);
-
-	if (setup_cgns && prepare_cgns(se) < 0) {
-		pr_err("failed preparing cgns\n");
-		return -1;
-	}
 
 	for (i = 0; i < se->n_ctls; i++) {
 		char aux[PATH_MAX];
@@ -1252,7 +1247,44 @@ static int move_in_cgroup(CgSetEntry *se, bool setup_cgns)
 	return 0;
 }
 
-int prepare_task_cgroup(struct pstree_item *me)
+int prepare_cgroup_namespace(struct pstree_item *root_task)
+{
+	CgSetEntry *se;
+
+	if (opts.manage_cgroups == CG_MODE_IGNORE)
+		return 0;
+
+	if (root_task->parent) {
+		pr_err("Expecting root_task to restore cgroup namespace\n");
+		return -1;
+	}
+
+	/*
+	 * If on dump all dumped tasks are in same cgset with criu we don't
+	 * dump cgsets and thus cgroup namespaces and rely that on restore
+	 * criu caller would prepare proper cgset/cgns for us. Also in case
+	 * of --unprivileged we don't even have the root cgset here.
+	 */
+	if (!rsti(root_task)->cg_set || rsti(root_task)->cg_set == root_cg_set) {
+		pr_info("Cgroup namespace inherited from parent\n");
+		return 0;
+	}
+
+	se = find_rst_set_by_id(rsti(root_task)->cg_set);
+	if (!se) {
+		pr_err("No set %d found\n", rsti(root_task)->cg_set);
+		return -1;
+	}
+
+	if (prepare_cgns(se) < 0) {
+		pr_err("failed preparing cgns\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int restore_task_cgroup(struct pstree_item *me)
 {
 	struct pstree_item *parent = me->parent;
 	CgSetEntry *se;
@@ -1284,13 +1316,7 @@ int prepare_task_cgroup(struct pstree_item *me)
 		return -1;
 	}
 
-	/* Since don't support nesting of cgroup namespaces, let's only set up
-	 * the cgns (if it exists) in the init task. In the future, we should
-	 * just check that the cgns prefix string matches for all the entries
-	 * in the cgset, and only unshare if that's true.
-	 */
-
-	return move_in_cgroup(se, !me->parent);
+	return move_in_cgroup(se);
 }
 
 void fini_cgroup(void)

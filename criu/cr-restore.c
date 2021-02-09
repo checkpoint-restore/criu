@@ -1827,6 +1827,13 @@ static int restore_task_with_children(void *_arg)
 		/* Wait prepare_userns */
 		if (restore_finish_ns_stage(CR_STATE_ROOT_TASK, CR_STATE_PREPARE_NAMESPACES) < 0)
 			goto err;
+
+		/*
+		 * Since we don't support nesting of cgroup namespaces, let's
+		 * only set up the cgns (if it exists) in the init task.
+		 */
+		if (prepare_cgroup_namespace(current) < 0)
+			goto err;
 	}
 
 	if (needs_prep_creds(current) && (prepare_userns_creds()))
@@ -1838,7 +1845,7 @@ static int restore_task_with_children(void *_arg)
 	 * we will only move the root one there, others will
 	 * just have it inherited.
 	 */
-	if (prepare_task_cgroup(current) < 0)
+	if (restore_task_cgroup(current) < 0)
 		goto err;
 
 	/* Restore root task */
