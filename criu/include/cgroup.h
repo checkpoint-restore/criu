@@ -9,7 +9,8 @@ struct parasite_dump_cgroup_args;
 extern u32 root_cg_set;
 int dump_thread_cgroup(const struct pstree_item *, u32 *, struct parasite_dump_cgroup_args *args, int id);
 int dump_cgroups(void);
-int prepare_task_cgroup(struct pstree_item *);
+int restore_task_cgroup(struct pstree_item *);
+int prepare_cgroup_namespace(struct pstree_item *);
 int prepare_cgroup(void);
 /* Restore things like cpu_limit in known cgroups. */
 int prepare_cgroup_properties(void);
