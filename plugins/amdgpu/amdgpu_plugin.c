@@ -32,6 +32,17 @@
 #define _GNU_SOURCE 1
 #endif
 
+#ifdef LOG_PREFIX
+#undef LOG_PREFIX
+#endif
+#define LOG_PREFIX "amdgpu_plugin: "
+
+#ifdef DEBUG
+#define plugin_log_msg(fmt, ...) pr_debug(fmt, ##__VA_ARGS__)
+#else
+#define plugin_log_msg(fmt, ...) {}
+#endif
+
 struct vma_metadata {
 	struct list_head list;
 	uint64_t old_pgoff;
@@ -464,7 +475,7 @@ int amdgpu_plugin_dump_file(int fd, int id)
 				pr_info("log initial few bytes of the raw data for this BO\n");
 				for (int i = 0; i < 10; i ++)
 				{
-					pr_info("0x%llx\n",((__u64*)local_buf)[i]);
+					plugin_log_msg("0x%llx\n",((__u64*)local_buf)[i]);
 				}
 
 				close(mem_fd);
@@ -479,11 +490,11 @@ int amdgpu_plugin_dump_file(int fd, int id)
 
 	e->num_of_bos = helper_args.num_of_bos;
 
-	pr_info("Dumping bo_info_test \n");
+	plugin_log_msg("Dumping bo_info_test \n");
 	for (int i = 0; i < helper_args.num_of_bos; i++)
 	{
-		pr_info("e->bo_info_test[%d]:\n", i);
-		pr_info("bo_addr = 0x%lx, bo_size = 0x%lx, bo_offset = 0x%lx, gpu_id = 0x%x, "
+		plugin_log_msg("e->bo_info_test[%d]:\n", i);
+		plugin_log_msg("bo_addr = 0x%lx, bo_size = 0x%lx, bo_offset = 0x%lx, gpu_id = 0x%x, "
 			"bo_alloc_flags = 0x%x, idr_handle = 0x%x\n",
 		  (e->bo_info_test[i])->bo_addr,
 		  (e->bo_info_test[i])->bo_size,
@@ -491,6 +502,15 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		  (e->bo_info_test[i])->gpu_id,
 		  (e->bo_info_test[i])->bo_alloc_flags,
 		  (e->bo_info_test[i])->idr_handle);
+		plugin_log_msg("(bo_bucket_ptr)[%d]:\n", i);
+		plugin_log_msg("bo_addr = 0x%llx, bo_size = 0x%llx, bo_offset = 0x%llx, "
+			"gpu_id = 0x%x, bo_alloc_flags = 0x%x, idr_handle = 0x%x\n",
+		  (bo_bucket_ptr)[i].bo_addr,
+		  (bo_bucket_ptr)[i].bo_size,
+		  (bo_bucket_ptr)[i].bo_offset,
+		  (bo_bucket_ptr)[i].gpu_id,
+		  (bo_bucket_ptr)[i].bo_alloc_flags,
+		  (bo_bucket_ptr)[i].idr_handle);
 
 	}
 
@@ -505,8 +525,8 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		uint8_t *queue_data_ptr = (uint8_t *)args.queues_data_ptr
 					+ q_bucket_ptr[i].queues_data_offset;
 
-		pr_info("Dumping Queue[%d]:\n", i);
-		pr_info("\tgpu_id:%x type:%x format:%x q_id:%x q_address:%llx ",
+		plugin_log_msg("Dumping Queue[%d]:\n", i);
+		plugin_log_msg("\tgpu_id:%x type:%x format:%x q_id:%x q_address:%llx ",
 			q_bucket_ptr[i].gpu_id,
 			q_bucket_ptr[i].type,
 			q_bucket_ptr[i].format,
@@ -696,7 +716,7 @@ int amdgpu_plugin_restore_file(int id)
 		return -1;
 	}
 
-	pr_info("amdgpu_plugin: read image file data\n");
+	plugin_log_msg("amdgpu_plugin: read image file data\n");
 
 	devinfo_bucket_ptr = xmalloc(e->num_of_devices * sizeof(struct kfd_criu_devinfo_bucket));
 	if (!devinfo_bucket_ptr) {
@@ -722,12 +742,12 @@ int amdgpu_plugin_restore_file(int id)
 
 	for (int i = 0; i < e->num_of_bos; i++ )
 	{
-		pr_info("reading e->bo_info_test[%d]:\n", i);
-		pr_info("bo_addr = 0x%lx, bo_size = 0x%lx, bo_offset = 0x%lx, gpu_id = 0x%x, "
-			"bo_alloc_flags = 0x%x, idr_handle = 0x%x user_addr=0x%lx\n",
+		plugin_log_msg("reading e->bo_info_test[%d]:\n", i);
+		plugin_log_msg("bo_addr = 0x%lx, bo_size = 0x%lx, bo_offset = 0x%lx, "
+			"gpu_id = 0x%x, bo_alloc_flags = 0x%x, idr_handle = 0x%x user_addr=0x%lx\n",
 		  (e->bo_info_test[i])->bo_addr,
 		  (e->bo_info_test[i])->bo_size,
-		  (e->bo_info_test[i])->bo_offset,
+		  (e->bo_info_test[i])->bo_offset,s
 		  (e->bo_info_test[i])->gpu_id,
 		  (e->bo_info_test[i])->bo_alloc_flags,
 		  (e->bo_info_test[i])->idr_handle,
@@ -793,8 +813,8 @@ int amdgpu_plugin_restore_file(int id)
 	for (int i = 0; i < e->num_of_queues; i++ )
 	{
 		uint8_t *queue_data;
-		pr_info("Restoring Queue[%d]:\n", i);
-		pr_info("\tgpu_id:%x type:%x format:%x q_id:%x q_address:%lx "
+		plugin_log_msg("Restoring Queue[%d]:\n", i);
+		plugin_log_msg("\tgpu_id:%x type:%x format:%x q_id:%x q_address:%lx "
 			"cu_mask_size:%lx mqd_size:%lx ctl_stack_size:%lx\n",
 			e->q_entries[i]->gpu_id,
 			e->q_entries[i]->type,
