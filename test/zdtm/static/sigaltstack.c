@@ -14,8 +14,10 @@
 const char *test_doc	= "Check for alternate signal stack";
 const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
 
-static char stack_thread[SIGSTKSZ + TEST_MSG_BUFFER_SIZE] __stack_aligned__;
-static char stack_main[SIGSTKSZ + TEST_MSG_BUFFER_SIZE] __stack_aligned__;
+#define TESTSIGSTKSZ 16384
+
+static char stack_thread[TESTSIGSTKSZ + TEST_MSG_BUFFER_SIZE] __stack_aligned__;
+static char stack_main[TESTSIGSTKSZ + TEST_MSG_BUFFER_SIZE] __stack_aligned__;
 
 enum {
 	SAS_MAIN_OLD,
