@@ -23,7 +23,10 @@ apt-get -y purge docker-ce || :
     curl \
     software-properties-common
 
-./apt-install podman containernetworking-plugins
+# explicitly install runc. crun is not compiled with criu support
+./apt-install cri-o-runc podman containernetworking-plugins
+
+echo -e '[engine]\nruntime="runc"' > /etc/containers/containers.conf
 
 export SKIP_CI_TEST=1
 
