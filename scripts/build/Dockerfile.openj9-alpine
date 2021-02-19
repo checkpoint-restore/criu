@@ -26,5 +26,5 @@ WORKDIR /criu
 
 RUN make
 
-ENTRYPOINT mvn -f test/javaTests/pom.xml test
+ENTRYPOINT mvn -q -f test/javaTests/pom.xml test
 
