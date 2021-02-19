@@ -109,7 +109,7 @@ int dump_file_locks(void)
 		}
 
 		if (!opts.handle_file_locks) {
-			pr_err("Some file locks are hold by dumping tasks!"
+			pr_err("Some file locks are hold by dumping tasks! "
 					"You can try --" OPT_FILE_LOCKS " to dump them.\n");
 			return -1;
 		}
@@ -201,7 +201,7 @@ static int lock_check_fd(int lfd, struct file_lock *fl)
 	} else {
 		/*
 		 * The ret == 0 means, that new lock doesn't conflict
-		 * with any others on the file. But since we do know, 
+		 * with any others on the file. But since we do know,
 		 * that there should be some other one (file is found
 		 * in /proc/locks), it means that the lock is already
 		 * on file pointed by fd.
