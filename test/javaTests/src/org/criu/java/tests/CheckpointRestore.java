@@ -361,7 +361,7 @@ public class CheckpointRestore {
 	private void checkpoint(String pid, String checkpointOpt) throws IOException, InterruptedException {
 		ProcessBuilder builder;
 		System.out.println("Checkpointing process " + pid);
-		String command = "../../criu/criu dump --shell-job -t " + pid + " -vvv -D " + logFolder + " -o dump.log";
+		String command = "../../criu/criu dump --shell-job -t " + pid + " --file-locks -v4 -D " + logFolder + " -o dump.log";
 		if (0 == checkpointOpt.length()) {
 			String[] cmd = command.split(" ");
 			builder = new ProcessBuilder(cmd);
@@ -411,7 +411,7 @@ public class CheckpointRestore {
 	private void restore(String restoreOpt) throws IOException, InterruptedException {
 		ProcessBuilder builder;
 		System.out.println("Restoring process");
-		String command = "../../criu/criu restore -d -vvv --shell-job -D " + logFolder + " -o restore.log";
+		String command = "../../criu/criu restore -d --file-locks -v4 --shell-job -D " + logFolder + " -o restore.log";
 		if (0 == restoreOpt.length()) {
 			String[] cmd = command.split(" ");
 			builder = new ProcessBuilder(cmd);
