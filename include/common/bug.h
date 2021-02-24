@@ -24,6 +24,7 @@
 			pr_err("BUG at %s:%d\n", __FILE__, __LINE__);			\
 			__raise();							\
 			*(volatile unsigned long *)NULL = 0xdead0000 + __LINE__;	\
+			__builtin_unreachable();					\
 		}									\
 	} while (0)
 #else
