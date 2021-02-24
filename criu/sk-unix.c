@@ -131,7 +131,8 @@ static struct unix_sk_listen_icon *lookup_unix_listen_icons(unsigned int peer_in
 static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 {
 	pr_debug("\t%s: ino %u peer_ino %u family %4d type %4d state %2d name %s\n",
-		act, sk->sd.ino, sk->peer_ino, sk->sd.family, sk->type, sk->state, sk->name);
+		act, sk->sd.ino, sk->peer_ino, sk->sd.family, sk->type, sk->state,
+		sk->name ? : "null");
 
 	if (sk->nr_icons) {
 		int i;
