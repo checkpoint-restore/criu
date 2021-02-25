@@ -1173,6 +1173,9 @@ static int write_id_map(pid_t pid, UidGidExtent **extents, int n, char *id_map)
 		if (len < 0) {
 			pr_perror("Unable to form the user/group mappings buffer");
 			return -1;
+		} else if (len >= sizeof(buf) - off) {
+			pr_err("The user/group mappings buffer truncated\n");
+			return -1;
 		}
 		off += len;
 	}
