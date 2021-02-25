@@ -575,6 +575,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		ictx->flags |= INFECT_COMPATIBLE;
 	if (kdat.x86_has_ptrace_fpu_xsave_bug)
 		ictx->flags |= INFECT_X86_PTRACE_MXCSR_BUG;
+	if (fault_injected(FI_CORRUPT_EXTREGS))
+		ictx->flags |= INFECT_CORRUPT_EXTREGS;
 
 	ictx->log_fd = log_get_fd();
 
