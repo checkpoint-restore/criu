@@ -44,17 +44,14 @@ int chk_proc_fpu(void)
 
 	return edx & CPUID_FEAT_EDX_FPU;
 }
-#endif
 
 int main(int argc, char ** argv)
 {
-#if defined(__i386__) || defined(__x86_64__)
 	float a, b, c, d;
 	float res1, res2;
-#endif
 
 	test_init(argc, argv);
-#if defined(__i386__) || defined(__x86_64__)
+
 	if (!chk_proc_fpu()) {
 		skip("FPU not supported");
 		return 1;
@@ -80,8 +77,17 @@ int main(int argc, char ** argv)
 		fail("%f != %f\n", res1, res2);
 	else
 		pass();
-#else
-	skip("Unsupported arch");
-#endif
+
 	return 0;
 }
+
+#else
+
+int main(int argc, char *argv[])
+{
+	test_init(argc, argv);
+	skip("Unsupported arch");
+	return 0;
+}
+
+#endif
