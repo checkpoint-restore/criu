@@ -4,6 +4,8 @@
 #include <sys/mman.h>
 #include <sys/user.h>
 #include <errno.h>
+#include <stdlib.h>
+#include <time.h>
 
 #include <compel/asm/fpu.h>
 
@@ -258,6 +260,80 @@ static int get_task_fpregs(pid_t pid, user_fpregs_struct_t *xsave)
 	return 0;
 }
 
+/* See arch/x86/kernel/fpu/xstate.c */
+static void validate_random_xstate(struct xsave_struct *xsave)
+{
+	struct xsave_hdr_struct *hdr = &xsave->xsave_hdr;
+	unsigned int i;
+
+	/* No unknown or supervisor features may be set */
+	hdr->xstate_bv &= XFEATURE_MASK_USER;
+	hdr->xstate_bv &= ~XFEATURE_MASK_SUPERVISOR;
+
+	for (i = 0; i < XFEATURE_MAX; i++) {
+		if (!compel_fpu_has_feature(i))
+			hdr->xstate_bv &= ~(1 << i);
+	}
+
+	/* Userspace must use the uncompacted format */
+	hdr->xcomp_bv = 0;
+
+	/*
+	 * If 'reserved' is shrunken to add a new field, make sure to validate
+	 * that new field here!
+	 */
+	BUILD_BUG_ON(sizeof(hdr->reserved) != 48);
+
+	/* No reserved bits may be set */
+	memset(&hdr->reserved, 0, sizeof(hdr->reserved));
+}
+
+/*
+ * TODO: Put fault-injection under CONFIG_* and move
+ * extended regset corruption to generic code
+ */
+static int corrupt_extregs(pid_t pid)
+{
+	bool use_xsave = compel_cpu_has_feature(X86_FEATURE_OSXSAVE);
+	user_fpregs_struct_t ext_regs;
+	int *rand_to = (int *)&ext_regs;
+	unsigned int seed;
+	size_t i;
+
+	seed = time(NULL);
+	for (i = 0; i < sizeof(ext_regs) / sizeof(int); i++)
+		*rand_to++ = rand_r(&seed);
+
+	/*
+	 * Error log-level as:
+	 *  - not intended to be used outside of testing,
+	 *  - zdtm.py will grep it auto-magically from logs
+	 *    (and the seed will be known from an automatical testing)
+	 */
+	pr_err("Corrupting %s for %d, seed %u\n",
+			use_xsave ? "xsave" : "fpuregs", pid, seed);
+
+	if (!use_xsave) {
+		if (ptrace(PTRACE_SETFPREGS, pid, NULL, &ext_regs)) {
+			pr_perror("Can't set FPU registers for %d", pid);
+			return -1;
+		}
+	} else {
+		struct iovec iov;
+
+		validate_random_xstate((void *)&ext_regs);
+
+		iov.iov_base = &ext_regs;
+		iov.iov_len = sizeof(ext_regs);
+
+		if (ptrace(PTRACE_SETREGSET, pid, (unsigned int)NT_X86_XSTATE, &iov) < 0) {
+			pr_perror("Can't set xstate for %d", pid);
+			return -1;
+		}
+	}
+	return 0;
+}
+
 int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 		  void *arg, unsigned long flags)
 {
@@ -308,6 +384,9 @@ int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 	} else {
 		ret = get_task_xsave(pid, &xsave);
 	}
+
+	if (!ret && unlikely(flags & INFECT_CORRUPT_EXTREGS))
+		ret = corrupt_extregs(pid);
 
 	if (ret)
 		goto err;
