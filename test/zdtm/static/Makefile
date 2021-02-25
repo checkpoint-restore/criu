@@ -14,6 +14,7 @@ TST_NOFILE	:=				\
 		fpu00				\
 		fpu01				\
 		fpu02				\
+		fpu03				\
 		arm-neon00			\
 		futex				\
 		futex-rl			\
@@ -496,6 +497,8 @@ $(TST):	| $(LIB)
 aio00:			LDLIBS += -laio
 different_creds:	LDLIBS += -lcap
 file_locks06 file_locks07 file_locks08:	ofd_file_locks.o
+fpu03:			CFLAGS += -pthread -D ZDTM_FPU00_RUN_IN_THREAD
+fpu03:			LDFLAGS += -pthread
 futex:			CFLAGS += -pthread
 futex:			LDFLAGS += -pthread
 futex-rl:		CFLAGS += -pthread
