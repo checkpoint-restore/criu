@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <pthread.h>
 
 #include "zdtmtst.h"
 
@@ -45,17 +46,10 @@ int chk_proc_fpu(void)
 	return edx & CPUID_FEAT_EDX_FPU;
 }
 
-int main(int argc, char ** argv)
+void *run_fpu_test(void *unused)
 {
 	float a, b, c, d;
 	float res1, res2;
-
-	test_init(argc, argv);
-
-	if (!chk_proc_fpu()) {
-		skip("FPU not supported");
-		return 1;
-	}
 
 	a = drand48();
 	b = drand48();
@@ -78,7 +72,40 @@ int main(int argc, char ** argv)
 	else
 		pass();
 
-	return 0;
+	return (void *)(uintptr_t)(res1 != res2);
+}
+
+int main(int argc, char ** argv)
+{
+	test_init(argc, argv);
+
+	if (!chk_proc_fpu()) {
+		skip("FPU not supported");
+		return 1;
+	}
+
+
+#ifdef ZDTM_FPU00_RUN_IN_THREAD
+	/* Check if thread's fpu state is preserved */
+	{
+		pthread_t child;
+		void *ret;
+
+		if (pthread_create(&child, NULL, &run_fpu_test, NULL)) {
+			pr_perror("Can't create pthread\n");
+			exit(1);
+		}
+
+		if (pthread_join(child, &ret)) {
+			pr_perror("Can't join pthread\n");
+			exit(1);
+		}
+
+		exit(!!ret);
+	}
+#else
+	return !!run_fpu_test(NULL);
+#endif
 }
 
 #else
