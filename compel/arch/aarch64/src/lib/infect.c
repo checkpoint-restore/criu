@@ -89,6 +89,21 @@ err:
 	return ret;
 }
 
+int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
+{
+	struct iovec iov;
+
+	pr_info("Restoring GP/FPU registers for %d\n", pid);
+
+	iov.iov_base = ext_regs;
+	iov.iov_len = sizeof(*ext_regs);
+	if (ptrace(PTRACE_SETREGSET, pid, NT_PRFPREG, &iov)) {
+		pr_perror("Failed to set FPU registers for %d", pid);
+		return -1;
+	}
+	return 0;
+}
+
 int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 					unsigned long arg1,
 					unsigned long arg2,
