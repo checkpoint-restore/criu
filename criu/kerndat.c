@@ -1065,6 +1065,69 @@ static void kerndat_has_pidfd_open(void)
 	close_safe(&pidfd);
 }
 
+static int kerndat_has_pidfd_getfd(void)
+{
+	int ret;
+	int fds[2];
+	int val_a, val_b;
+	int pidfd, stolen_fd;
+
+	ret = 0;
+
+	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, fds)) {
+		pr_perror("Can't open unix socket pair");
+		ret = -1;
+		goto out;
+	}
+
+	val_a = 1984;
+	if (write(fds[0], &val_a, sizeof(val_a)) != sizeof(val_a)) {
+		pr_perror("Can't write to socket");
+		ret = -1;
+		goto close_pair;
+	}
+
+	pidfd = syscall(SYS_pidfd_open, getpid(), 0);
+	if (pidfd == -1) {
+		pr_warn("Can't get pidfd\n");
+		/*
+		 * If pidfd_open is not supported then pidfd_getfd
+		 * will not be supported as well.
+		 */
+		kdat.has_pidfd_getfd = false;
+		goto close_pair;
+	}
+
+	stolen_fd = syscall(SYS_pidfd_getfd, pidfd, fds[1], 0);
+	if (stolen_fd == -1) {
+		kdat.has_pidfd_getfd = false;
+		goto close_all;
+	}
+
+	if (read(fds[1], &val_b, sizeof(val_b)) != sizeof(val_b)) {
+		pr_perror("Can't read from socket");
+		ret = -1;
+		goto close_all;
+	}
+
+	if (val_b == val_a) {
+		kdat.has_pidfd_getfd = true;
+	} else {
+		/* If val_b != val_a then something unexpected happend. */
+		pr_err("Unexpected value read from socket\n");
+		ret = -1;
+	}
+
+close_all:
+	close_safe(&stolen_fd);
+	close_safe(&pidfd);
+close_pair:
+	close(fds[0]);
+	close(fds[1]);
+out:
+	return ret;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -1200,6 +1263,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_newifindex()) {
 		pr_err("kerndat_has_newifindex failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_pidfd_getfd()) {
+		pr_err("kerndat_has_pidfd_getfd failed when initializing kerndat.\n");
 		ret = -1;
 	}
 	if (!ret)
