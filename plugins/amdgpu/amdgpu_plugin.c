@@ -381,9 +381,10 @@ static int dump_bos(int fd, struct kfd_ioctl_criu_process_info_args *info_args, 
 	struct kfd_ioctl_criu_dumper_args args = { 0 };
 	struct kfd_criu_bo_bucket *bo_buckets;
 	uint8_t *priv_data;
-	uint8_t *local_buf;
+	char fd_path[128];
 	int ret = 0, i;
 	char *fname;
+	int drm_fd;
 
 	pr_debug("Dumping %lld BOs\n", info_args->total_bos);
 
@@ -410,6 +411,13 @@ static int dump_bos(int fd, struct kfd_ioctl_criu_process_info_args *info_args, 
 		goto exit;
 	}
 
+	sprintf(fd_path, "/dev/dri/renderD%d", DRM_FIRST_RENDER_NODE);
+	drm_fd = open(fd_path, O_RDWR | O_CLOEXEC);
+	if (drm_fd < 0) {
+		pr_perror("amdgpu_plugin: failed to open drm fd for %s", fd_path);
+		return -1;
+	}
+
 	for (i = 0; i < args.num_objects; i++) {
 		struct kfd_criu_bo_bucket *bo_bucket = &bo_buckets[i];
 		BoEntry *boinfo = e->bo_entries[i];
@@ -432,56 +440,75 @@ static int dump_bos(int fd, struct kfd_ioctl_criu_process_info_args *info_args, 
 		boinfo->offset = bo_bucket->offset;
 		boinfo->alloc_flags = bo_bucket->alloc_flags;
 
-		local_buf = xmalloc(bo_bucket->size);
-		if (!local_buf) {
-			pr_err("failed to allocate memory for BO rawdata\n");
-			ret = -1;
-			goto exit;
-		}
-
 		if (bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_VRAM ||
 		    bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_GTT) {
-			int mem_fd;
+			if (bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_PUBLIC) {
+				void *addr;
 
-			pr_info("Now try reading BO contents with /proc/pid/mem\n");
-			if (asprintf(&fname, PROCPIDMEM, info_args->task_pid) < 0) {
-				pr_perror("failed in asprintf, %s", fname);
-				ret = -1;
-				goto exit;
-			}
+				pr_info("amdgpu_plugin: large bar read possible\n");
 
-			mem_fd = open(fname, O_RDONLY);
-			if (mem_fd < 0) {
-				pr_perror("Can't open %s for pid %d", fname, info_args->task_pid);
+				addr = mmap(NULL, boinfo->size, PROT_READ, MAP_SHARED, drm_fd, boinfo->offset);
+				if (addr == MAP_FAILED) {
+					pr_perror("amdgpu_plugin: mmap failed\n");
+					ret = -errno;
+					goto exit;
+				}
+
+				/* direct memcpy is possible on large bars */
+				memcpy(boinfo->rawdata.data, addr, boinfo->size);
+				munmap(addr, boinfo->size);
+			} else {
+				size_t bo_size;
+				uint8_t *local_buf;
+				int mem_fd;
+
+				local_buf = xmalloc(bo_bucket->size);
+				if (!local_buf) {
+					pr_err("failed to allocate memory for BO rawdata\n");
+					ret = -1;
+					goto exit;
+				}
+
+				pr_info("Now try reading BO contents with /proc/pid/mem\n");
+				if (asprintf(&fname, PROCPIDMEM, info_args->task_pid) < 0) {
+					pr_perror("failed in asprintf, %s", fname);
+					ret = -1;
+					goto exit;
+				}
+
+				mem_fd = open(fname, O_RDONLY);
+				if (mem_fd < 0) {
+					pr_perror("Can't open %s for pid %d", fname, info_args->task_pid);
+					free(fname);
+					close(mem_fd);
+					xfree(local_buf);
+					ret = -1;
+					goto exit;
+				}
+
+				pr_info("Opened %s file for pid = %d\n", fname, info_args->task_pid);
 				free(fname);
-				close(mem_fd);
-				xfree(local_buf);
-				ret = -1;
-				goto exit;
-			}
 
-			pr_info("Opened %s file for pid = %d\n", fname, info_args->task_pid);
-			free(fname);
+				if (lseek(mem_fd, (off_t)bo_bucket->addr, SEEK_SET) == -1) {
+					pr_perror("Can't lseek for bo_offset for pid = %d", info_args->task_pid);
+					close(mem_fd);
+					xfree(local_buf);
+					ret = -1;
+					goto exit;
+				}
 
-			if (lseek(mem_fd, (off_t)bo_bucket->addr, SEEK_SET) == -1) {
-				pr_perror("Can't lseek for bo_offset for pid = %d", info_args->task_pid);
+				bo_size = read(mem_fd, local_buf, boinfo->size);
+				if (bo_size != boinfo->size) {
+					close(mem_fd);
+					xfree(local_buf);
+					pr_perror("Can't read buffer");
+					ret = -1;
+					goto exit;
+				}
 				close(mem_fd);
+				memcpy(boinfo->rawdata.data, (uint8_t *)local_buf, boinfo->size);
 				xfree(local_buf);
-				ret = -1;
-				goto exit;
 			}
-			pr_info("Try to read file now\n");
-
-			if (read(mem_fd, local_buf, boinfo->size) != boinfo->size) {
-				close(mem_fd);
-				xfree(local_buf);
-				pr_perror("Can't read buffer");
-				ret = -1;
-				goto exit;
-			}
-			close(mem_fd);
-			memcpy(boinfo->rawdata.data, (uint8_t *)local_buf, boinfo->size);
-			xfree(local_buf);
 		}
 	}
 exit:
