@@ -310,31 +310,32 @@ static int s390_disable_ri_bit(pid_t pid, user_regs_struct_t *regs)
 /*
  * Prepare task registers for restart
  */
-int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
+		  user_fpregs_struct_t *ext_regs, save_regs_t save,
 		  void *arg, __maybe_unused unsigned long flags)
 {
-	user_fpregs_struct_t fpregs;
+	user_fpregs_struct_t tmp, *fpregs = ext_regs ? ext_regs : &tmp;
 	struct iovec iov;
 	int rewind;
 
-	print_user_regs_struct("get_task_regs", pid, regs);
+	print_user_regs_struct("compel_get_task_regs", pid, regs);
 
-	memset(&fpregs, 0, sizeof(fpregs));
-	iov.iov_base = &fpregs.prfpreg;
-	iov.iov_len = sizeof(fpregs.prfpreg);
+	memset(fpregs, 0, sizeof(*fpregs));
+	iov.iov_base = &fpregs->prfpreg;
+	iov.iov_len = sizeof(fpregs->prfpreg);
 	if (ptrace(PTRACE_GETREGSET, pid, NT_PRFPREG, &iov) < 0) {
 		pr_perror("Couldn't get floating-point registers");
 		return -1;
 	}
-	if (get_vx_regs(pid, &fpregs)) {
+	if (get_vx_regs(pid, fpregs)) {
 		pr_perror("Couldn't get vector registers");
 		return -1;
 	}
-	if (get_gs_cb(pid, &fpregs)) {
+	if (get_gs_cb(pid, fpregs)) {
 		pr_perror("Couldn't get guarded-storage");
 		return -1;
 	}
-	if (get_ri_cb(pid, &fpregs)) {
+	if (get_ri_cb(pid, fpregs)) {
 		pr_perror("Couldn't get runtime-instrumentation");
 		return -1;
 	}
@@ -343,10 +344,10 @@ int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 	 * before we execute parasite code. Otherwise parasite operations
 	 * would be recorded.
 	 */
-	if (fpregs.flags & USER_RI_ON)
+	if (fpregs->flags & USER_RI_ON)
 		s390_disable_ri_bit(pid, regs);
 
-	print_user_fpregs_struct("get_task_regs", pid, &fpregs);
+	print_user_fpregs_struct("compel_get_task_regs", pid, fpregs);
 	/* Check for system call restarting. */
 	if (regs->system_call) {
 		rewind = regs->system_call >> 16;
@@ -366,7 +367,7 @@ int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 		}
 	}
 	/* Call save_task_regs() */
-	return save(arg, regs, &fpregs);
+	return save(arg, regs, fpregs);
 }
 
 /*

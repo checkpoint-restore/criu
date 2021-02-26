@@ -11,6 +11,7 @@ struct thread_ctx {
 #ifdef ARCH_HAS_PTRACE_GET_THREAD_AREA
 	tls_t			tls;
 #endif
+	user_fpregs_struct_t	ext_regs;
 };
 
 /* parasite control block */
@@ -61,7 +62,16 @@ extern void *remote_mmap(struct parasite_ctl *ctl,
 		void *addr, size_t length, int prot,
 		int flags, int fd, off_t offset);
 extern bool arch_can_dump_task(struct parasite_ctl *ctl);
-extern int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
+/*
+ * @regs:	general purpose registers
+ * @ext_regs:	extended register set (fpu/mmx/sse/etc)
+ *		for task that is NULL, restored by sigframe on rt_sigreturn()
+ * @save:	callback to dump all info
+ * @flags:	see INFECT_* in infect_ctx::flags
+ * @pid:	mystery
+ */
+extern int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
+			user_fpregs_struct_t *ext_regs, save_regs_t save,
 			void *arg, unsigned long flags);
 extern int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s);
 extern int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
