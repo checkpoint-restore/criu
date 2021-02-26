@@ -717,14 +717,6 @@ unsigned long compel_task_size(void)
 
 /*
  * Get task registers (overwrites weak function)
- *
- * We don't store floating point and vector registers here because we
- * assue that compel/pie code does not change them.
- *
- * For verification issue:
- *
- * $ objdump -S criu/pie/parasite.built-in.bin.o | grep "%f"
- * $ objdump -S criu/pie/restorer.built-in.bin.o | grep "%f"
  */
 int ptrace_get_regs(int pid, user_regs_struct_t *regs)
 {
