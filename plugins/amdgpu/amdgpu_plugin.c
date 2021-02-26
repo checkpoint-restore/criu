@@ -179,12 +179,14 @@ int amdgpu_plugin_dump_file(int fd, int id)
 	struct kfd_criu_devinfo_bucket *devinfo_bucket_ptr;
 	struct kfd_ioctl_criu_dumper_args args = {0};
 	struct kfd_criu_bo_buckets *bo_bucket_ptr;
-	int img_fd, ret, len, mem_fd;
+	int img_fd, ret, len, mem_fd, drm_fd;
 	char img_path[PATH_MAX];
 	struct stat st, st_kfd;
 	unsigned char *buf;
+	char fd_path[128];
 	uint8_t *local_buf;
 	char *fname;
+	void *addr;
 
 	pr_debug("amdgpu_plugin: Enter cr_plugin_dump_file()- ID = 0x%x\n", id);
 	ret = 0;
@@ -318,6 +320,13 @@ int amdgpu_plugin_dump_file(int fd, int id)
 	if (ret)
 		return -1;
 
+	sprintf(fd_path, "/dev/dri/renderD%d", DRM_FIRST_RENDER_NODE);
+	drm_fd = open(fd_path, O_RDWR | O_CLOEXEC);
+	if (drm_fd < 0) {
+		pr_perror("amdgpu_plugin: failed to open drm fd for %s\n", fd_path);
+		return -1;
+	}
+
 	for (int i = 0; i < helper_args.num_of_bos; i++)
 	{
 		(e->bo_info_test[i])->bo_addr = (bo_bucket_ptr)[i].bo_addr;
@@ -347,53 +356,75 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		    KFD_IOC_ALLOC_MEM_FLAGS_VRAM ||
 		    (bo_bucket_ptr)[i].bo_alloc_flags &
 		    KFD_IOC_ALLOC_MEM_FLAGS_GTT) {
+			if ((e->bo_info_test[i])->bo_alloc_flags &
+			    KFD_IOC_ALLOC_MEM_FLAGS_PUBLIC) {
+				pr_info("amdgpu_plugin: large bar read possible\n");
+				addr = mmap(NULL,
+					    (bo_bucket_ptr)[i].bo_size,
+					    PROT_READ,
+					    MAP_SHARED,
+					    drm_fd,	/* mapping on local gpu for prototype */
+					    (bo_bucket_ptr)[i].bo_offset);
+				if (addr == MAP_FAILED) {
+					pr_perror("amdgpu_plugin: mmap failed\n");
+					fd = -EBADFD;
+					close(drm_fd);
+					goto failed;
+				}
 
-			pr_info("Now try reading BO contents with /proc/pid/mem");
-			if (asprintf (&fname, PROCPIDMEM, helper_args.task_pid) < 0) {
-				pr_perror("failed in asprintf, %s\n", fname);
-				ret = -1;
-				goto failed;
-			}
+				/* direct memcpy is possible on large bars */
+				memcpy((e->bo_info_test[i])->bo_rawdata.data,
+				       addr, bo_bucket_ptr[i].bo_size);
+				munmap(addr, bo_bucket_ptr[i].bo_size);
 
-			mem_fd = open (fname, O_RDONLY);
-			if (mem_fd < 0) {
-				pr_perror("Can't open %s for pid %d\n", fname, helper_args.task_pid);
+			} else {
+				pr_info("Now try reading BO contents with /proc/pid/mem");
+				if (asprintf (&fname, PROCPIDMEM, e->pid) < 0) {
+					pr_perror("failed in asprintf, %s\n", fname);
+					ret = -1;
+					goto failed;
+				}
+
+				mem_fd = open (fname, O_RDONLY);
+				if (mem_fd < 0) {
+					pr_perror("Can't open %s for pid %d\n", fname, e->pid);
+					free (fname);
+					ret = -1;
+					goto failed;
+				}
+
+				pr_info("Opened %s file for pid = %d\n", fname, e->pid);
 				free (fname);
-				ret = -1;
-				goto failed;
-			}
+				if (lseek (mem_fd, (off_t) (bo_bucket_ptr)[i].bo_addr, SEEK_SET) == -1) {
+					pr_perror("Can't lseek for bo_offset for pid = %d\n", e->pid);
+					ret = -1;
+					goto failed;
+				}
+				pr_info("Try to read file now\n");
 
-			pr_info("Opened %s file for pid = %d\n", fname, helper_args.task_pid);
-			free (fname);
+				if (read(mem_fd, local_buf,
+					 (e->bo_info_test[i])->bo_size) !=
+				    (e->bo_info_test[i])->bo_size) {
+					pr_perror("Can't read buffer\n");
+					ret = -1;
+					goto failed;
+				}
 
-			if (lseek (mem_fd, (off_t) (bo_bucket_ptr)[i].bo_addr, SEEK_SET) == -1) {
-				pr_perror("Can't lseek for bo_offset for pid = %d\n", helper_args.task_pid);
-				ret = -1;
-				goto failed;
-			}
-			pr_info("Try to read file now\n");
+				pr_info("log initial few bytes of the raw data for this BO\n");
+				for (int i = 0; i < 10; i ++)
+				{
+					pr_info("0x%llx\n",((__u64*)local_buf)[i]);
+				}
 
-			if (read(mem_fd, local_buf,
-				 (e->bo_info_test[i])->bo_size) !=
-			    (e->bo_info_test[i])->bo_size) {
-				pr_perror("Can't read buffer\n");
-				ret = -1;
-				goto failed;
-			}
-			pr_info("log initial few bytes of the raw data for this BO\n");
-
-			for (int i = 0; i < 10; i ++)
-			{
-				pr_info("0x%llx\n",((__u64*)local_buf)[i]);
-			}
-			close(mem_fd);
-			memcpy((e->bo_info_test[i])->bo_rawdata.data,
-			       (uint8_t*)local_buf,
-			       (e->bo_info_test[i])->bo_size);
-			xfree(local_buf);
-
+				close(mem_fd);
+				memcpy((e->bo_info_test[i])->bo_rawdata.data,
+				       (uint8_t*)local_buf,
+				       (e->bo_info_test[i])->bo_size);
+				xfree(local_buf);
+			} /* PROCPIDMEM read done */
 		}
 	}
+	close(drm_fd);
 
 	e->num_of_bos = helper_args.num_of_bos;
 
