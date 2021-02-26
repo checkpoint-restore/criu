@@ -398,6 +398,31 @@ err:
 	return ret;
 }
 
+int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
+{
+	struct iovec iov;
+
+	pr_info("Restoring GP/FPU registers for %d\n", pid);
+
+	if (!compel_cpu_has_feature(X86_FEATURE_OSXSAVE)) {
+		if (ptrace(PTRACE_SETFPREGS, pid, NULL, ext_regs)) {
+			pr_perror("Can't set FPU registers for %d", pid);
+			return -1;
+		}
+		return 0;
+	}
+
+	iov.iov_base = ext_regs;
+	iov.iov_len = sizeof(*ext_regs);
+
+	if (ptrace(PTRACE_SETREGSET, pid, (unsigned int)NT_X86_XSTATE, &iov) < 0) {
+		pr_perror("Can't set FPU registers for %d", pid);
+		return -1;
+	}
+
+	return 0;
+}
+
 int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 		unsigned long arg1,
 		unsigned long arg2,

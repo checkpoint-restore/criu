@@ -129,6 +129,8 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
 	user_fpregs_struct_t xsave = {  }, *xs = ext_regs ? ext_regs : &xsave;
 	int ret = -1;
 
+	pr_info("Dumping GP/FPU registers for %d\n", pid);
+
 	if (ptrace(PTRACE_GETFPREGS, pid, NULL, xs)) {
 	    pr_perror("Can't obtain FPU registers for %d", pid);
 	    return ret;
@@ -154,6 +156,17 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
 
 	ret = save(arg, regs, xs);
 	return ret;
+}
+
+int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
+{
+	pr_info("Restoring GP/FPU registers for %d\n", pid);
+
+	if (ptrace(PTRACE_SETFPREGS, pid, NULL, ext_regs)) {
+		pr_perror("Can't set FPU registers for %d", pid);
+		return -1;
+	}
+	return 0;
 }
 
 int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
