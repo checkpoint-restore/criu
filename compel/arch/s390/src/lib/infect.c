@@ -370,6 +370,61 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
 	return save(arg, regs, fpregs);
 }
 
+int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
+{
+	struct iovec iov;
+	int ret = 0;
+
+	iov.iov_base = &ext_regs->prfpreg;
+	iov.iov_len = sizeof(ext_regs->prfpreg);
+	if (ptrace(PTRACE_SETREGSET, pid, NT_PRFPREG, &iov) < 0) {
+		pr_perror("Couldn't set floating-point registers");
+		ret = -1;
+	}
+
+	if (ext_regs->flags & USER_FPREGS_VXRS) {
+		iov.iov_base = &ext_regs->vxrs_low;
+		iov.iov_len = sizeof(ext_regs->vxrs_low);
+		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_VXRS_LOW, &iov) < 0) {
+			pr_perror("Couldn't set VXRS_LOW\n");
+			ret = -1;
+		}
+
+		iov.iov_base = &ext_regs->vxrs_high;
+		iov.iov_len = sizeof(ext_regs->vxrs_high);
+		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_VXRS_HIGH, &iov) < 0) {
+			pr_perror("Couldn't set VXRS_HIGH\n");
+			ret = -1;
+		}
+	}
+
+	if (ext_regs->flags & USER_GS_CB) {
+		iov.iov_base = &ext_regs->gs_cb;
+		iov.iov_len = sizeof(ext_regs->gs_cb);
+		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_GS_CB, &iov) < 0) {
+			pr_perror("Couldn't set GS_CB\n");
+			ret = -1;
+		}
+		iov.iov_base = &ext_regs->gs_bc;
+		iov.iov_len = sizeof(ext_regs->gs_bc);
+		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_GS_BC, &iov) < 0) {
+			pr_perror("Couldn't set GS_BC\n");
+			ret = -1;
+		}
+	}
+
+	if (ext_regs->flags & USER_RI_CB) {
+		iov.iov_base = &ext_regs->ri_cb;
+		iov.iov_len = sizeof(ext_regs->ri_cb);
+		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_RI_CB, &iov) < 0) {
+			pr_perror("Couldn't set RI_CB\n");
+			ret = -1;
+		}
+	}
+
+	return ret;
+}
+
 /*
  * Injected syscall instruction
  */

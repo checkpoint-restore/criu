@@ -386,6 +386,34 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
 	return save(arg, regs, fpregs);
 }
 
+int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
+{
+	int ret = 0;
+
+	pr_info("Restoring GP/FPU registers for %d\n", pid);
+
+	/* XXX: should restore TM registers somehow? */
+	if (ext_regs->flags & USER_FPREGS_FL_FP) {
+		if (ptrace(PTRACE_SETFPREGS, pid, 0, (void *)&ext_regs->fpregs) < 0) {
+			pr_perror("Couldn't set floating-point registers");
+			ret = -1;
+		}
+	}
+
+	if (ext_regs->flags & USER_FPREGS_FL_ALTIVEC) {
+		if (ptrace(PTRACE_SETVRREGS, pid, 0, (void*)&ext_regs->vrregs) < 0) {
+			pr_perror("Couldn't set Altivec registers");
+			ret = -1;
+		}
+		if (ptrace(PTRACE_SETVSRREGS, pid, 0, (void*)ext_regs->vsxregs) < 0) {
+			pr_perror("Couldn't set VSX registers");
+			ret = -1;
+		}
+	}
+
+	return ret;
+}
+
 int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 		unsigned long arg1,
 		unsigned long arg2,

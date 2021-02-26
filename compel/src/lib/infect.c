@@ -475,7 +475,8 @@ err_sig:
 	return -1;
 }
 
-static int restore_thread_ctx(int pid, struct thread_ctx *ctx)
+static int restore_thread_ctx(int pid, struct thread_ctx *ctx,
+			      bool restore_ext_regs)
 {
 	int ret = 0;
 
@@ -483,6 +484,10 @@ static int restore_thread_ctx(int pid, struct thread_ctx *ctx)
 		pr_perror("Can't restore registers (pid: %d)", pid);
 		ret = -1;
 	}
+
+	if (restore_ext_regs && compel_set_task_ext_regs(pid, &ctx->ext_regs))
+		ret = -1;
+
 	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &ctx->sigmask)) {
 		pr_perror("Can't block signals");
 		ret = -1;
@@ -491,11 +496,11 @@ static int restore_thread_ctx(int pid, struct thread_ctx *ctx)
 	return ret;
 }
 
-
 /* we run at @regs->ip */
 static int parasite_trap(struct parasite_ctl *ctl, pid_t pid,
 				user_regs_struct_t *regs,
-				struct thread_ctx *octx)
+				struct thread_ctx *octx,
+				bool may_use_extended_regs)
 {
 	siginfo_t siginfo;
 	int status;
@@ -540,7 +545,7 @@ static int parasite_trap(struct parasite_ctl *ctl, pid_t pid,
 	 */
 	ret = 0;
 err:
-	if (restore_thread_ctx(pid, octx))
+	if (restore_thread_ctx(pid, octx, may_use_extended_regs))
 		ret = -1;
 
 	return ret;
@@ -567,7 +572,7 @@ int compel_execute_syscall(struct parasite_ctl *ctl,
 
 	err = parasite_run(pid, PTRACE_CONT, ctl->ictx.syscall_ip, 0, regs, &ctl->orig);
 	if (!err)
-		err = parasite_trap(ctl, pid, regs, &ctl->orig);
+		err = parasite_trap(ctl, pid, regs, &ctl->orig, false);
 
 	if (ptrace_poke_area(pid, (void *)code_orig,
 			     (void *)ctl->ictx.syscall_ip, sizeof(code_orig))) {
@@ -585,7 +590,7 @@ int compel_run_at(struct parasite_ctl *ctl, unsigned long ip, user_regs_struct_t
 
 	ret = parasite_run(ctl->rpid, PTRACE_CONT, ip, 0, &regs, &ctl->orig);
 	if (!ret)
-		ret = parasite_trap(ctl, ctl->rpid, ret_regs ? ret_regs : &regs, &ctl->orig);
+		ret = parasite_trap(ctl, ctl->rpid, ret_regs ? ret_regs : &regs, &ctl->orig, false);
 	return ret;
 }
 
@@ -1471,7 +1476,7 @@ int compel_run_in_thread(struct parasite_thread_ctl *tctl, unsigned int cmd)
 
 	ret = parasite_run(pid, PTRACE_CONT, ctl->parasite_ip, stack, &regs, octx);
 	if (ret == 0)
-		ret = parasite_trap(ctl, pid, &regs, octx);
+		ret = parasite_trap(ctl, pid, &regs, octx, true);
 	if (ret == 0)
 		ret = (int)REG_RES(regs);
 
@@ -1499,7 +1504,11 @@ int compel_unmap(struct parasite_ctl *ctl, unsigned long addr)
 	ret = compel_stop_on_syscall(1, __NR(munmap, 0),
 			__NR(munmap, 1), TRACE_ENTER);
 
-	if (restore_thread_ctx(pid, &ctl->orig))
+	/*
+	 * Don't touch extended registers here: they were restored
+	 * with rt_sigreturn from sigframe.
+	 */
+	if (restore_thread_ctx(pid, &ctl->orig, false))
 		ret = -1;
 err:
 	return ret;

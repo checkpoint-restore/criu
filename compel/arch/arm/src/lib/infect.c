@@ -105,6 +105,17 @@ err:
 	return ret;
 }
 
+int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
+{
+	pr_info("Restoring GP/FPU registers for %d\n", pid);
+
+	if (ptrace(PTRACE_SETVFPREGS, pid, NULL, ext_regs)) {
+		pr_perror("Can't set FPU registers for %d", pid);
+		return -1;
+	}
+	return 0;
+}
+
 int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 		unsigned long arg1,
 		unsigned long arg2,
