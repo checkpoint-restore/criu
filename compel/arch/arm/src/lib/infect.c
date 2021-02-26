@@ -69,15 +69,16 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
 }
 
 #define PTRACE_GETVFPREGS 27
-int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
+		  user_fpregs_struct_t *ext_regs, save_regs_t save,
 		  void *arg, __maybe_unused unsigned long flags)
 {
-	user_fpregs_struct_t vfp;
+	user_fpregs_struct_t tmp, *vfp = ext_regs ? ext_regs : &tmp;
 	int ret = -1;
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
 
-	if (ptrace(PTRACE_GETVFPREGS, pid, NULL, &vfp)) {
+	if (ptrace(PTRACE_GETVFPREGS, pid, NULL, vfp)) {
 		pr_perror("Can't obtain FPU registers for %d", pid);
 		goto err;
 	}
@@ -99,7 +100,7 @@ int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 		}
 	}
 
-	ret = save(arg, regs, &vfp);
+	ret = save(arg, regs, vfp);
 err:
 	return ret;
 }

@@ -122,13 +122,14 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
     return 0;
 }
 
-int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
+		  user_fpregs_struct_t *ext_regs, save_regs_t save,
 		  void *arg, __maybe_unused unsigned long flags)
 {
-	user_fpregs_struct_t xsave = {  }, *xs = NULL;
+	user_fpregs_struct_t xsave = {  }, *xs = ext_regs ? ext_regs : &xsave;
 	int ret = -1;
 
-	if (ptrace(PTRACE_GETFPREGS, pid, NULL, &xsave)) {
+	if (ptrace(PTRACE_GETFPREGS, pid, NULL, xs)) {
 	    pr_perror("Can't obtain FPU registers for %d", pid);
 	    return ret;
 	}
@@ -151,7 +152,6 @@ int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 	    regs->regs[0] = 0;
 	}
 
-	xs = &xsave;
 	ret = save(arg, regs, xs);
 	return ret;
 }
