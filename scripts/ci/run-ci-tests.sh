@@ -190,6 +190,11 @@ fi
 
 time make CC="$CC" -j4 -C test/zdtm V=1
 
+if [ "${COMPAT_TEST}x" = "yx" ] ; then
+	# Cross-verify that zdtm tests are 32-bit
+	file test/zdtm/static/env00 | grep 'ELF 32-bit' -q
+fi
+
 [ -f "$CCACHE_LOGFILE" ] && cat "$CCACHE_LOGFILE"
 
 # umask has to be called before a first criu run, so that .gcda (coverage data)
