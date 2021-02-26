@@ -70,6 +70,7 @@ struct kerndat_s {
 	bool has_timens;
 	bool has_newifindex;
 	bool has_pidfd_open;
+	bool has_pidfd_getfd;
 };
 
 extern struct kerndat_s kdat;
