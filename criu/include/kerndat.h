@@ -69,6 +69,7 @@ struct kerndat_s {
 	bool has_clone3_set_tid;
 	bool has_timens;
 	bool has_newifindex;
+	bool has_pidfd_open;
 };
 
 extern struct kerndat_s kdat;

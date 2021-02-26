@@ -1052,6 +1052,19 @@ static bool kerndat_has_clone3_set_tid(void)
 	return 0;
 }
 
+static void kerndat_has_pidfd_open(void)
+{
+	int pidfd;
+
+	pidfd = syscall(SYS_pidfd_open, getpid(), 0);
+	if (pidfd == -1)
+		kdat.has_pidfd_open = false;
+	else
+		kdat.has_pidfd_open = true;
+
+	close_safe(&pidfd);
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -1189,6 +1202,8 @@ int kerndat_init(void)
 		pr_err("kerndat_has_newifindex failed when initializing kerndat.\n");
 		ret = -1;
 	}
+	if (!ret)
+		kerndat_has_pidfd_open();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
