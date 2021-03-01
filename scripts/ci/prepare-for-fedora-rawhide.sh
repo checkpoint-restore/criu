@@ -35,3 +35,6 @@ dnf install -y \
 	e2fsprogs \
 	rubygem-asciidoctor \
 	kmod
+
+# /tmp is no longer 755 in the rawhide container image and breaks CI - fix it
+chmod 1777 /tmp
