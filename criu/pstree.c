@@ -339,6 +339,7 @@ static int prepare_pstree_for_shell_job(pid_t pid)
 	pid_t current_gid = getpgid(pid);
 
 	struct pstree_item *pi;
+	struct pid *tmp;
 
 	pid_t old_sid;
 	pid_t old_gid;
@@ -371,6 +372,13 @@ static int prepare_pstree_for_shell_job(pid_t pid)
 	pr_info("Migrating process tree (SID %d->%d)\n",
 		old_sid, current_sid);
 
+	tmp = pstree_pid_by_virt(current_sid);
+	if (tmp) {
+		pr_err("Current sid %d intersects with pid (%d) in images",
+		       current_sid, tmp->state);
+		return -1;
+	}
+
 	for_each_pstree_item(pi) {
 		if (pi->sid == old_sid)
 			pi->sid = current_sid;
@@ -383,6 +391,13 @@ static int prepare_pstree_for_shell_job(pid_t pid)
 
 		pr_info("Migrating process tree (GID %d->%d)\n",
 			old_gid, current_gid);
+
+		tmp = pstree_pid_by_virt(current_gid);
+		if (tmp) {
+			pr_err("Current gid %d intersects with pid (%d) in images",
+			       current_gid, tmp->state);
+			return -1;
+		}
 
 		for_each_pstree_item(pi) {
 			if (pi->pgid == old_gid)
