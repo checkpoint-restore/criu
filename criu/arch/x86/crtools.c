@@ -433,7 +433,7 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 #define assign_array(dst, src, e) memcpy(dst.e, (src)->e, sizeof(dst.e))
 #define assign_xsave(feature, xsave, member, area)                                                                \
 	do {                                                                                                      \
-		if (compel_fpu_has_feature(feature)) {                                                            \
+		if (compel_fpu_has_feature(feature) && (xsave->xstate_bv & (1UL << feature))) {                   \
 			uint32_t off = compel_fpu_feature_offset(feature);                                        \
 			void *to = &area[off];                                                                    \
 			void *from = xsave->member;                                                               \
