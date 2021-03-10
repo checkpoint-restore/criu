@@ -3,7 +3,6 @@ FROM adoptopenjdk/openjdk8-openj9:alpine
 RUN apk update && apk add \
 	bash \
 	build-base \
-	ccache \
 	coreutils \
 	git \
 	gnutls-dev \

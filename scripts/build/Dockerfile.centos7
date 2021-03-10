@@ -5,7 +5,6 @@ ARG ENV1=FOOBAR
 
 RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 RUN yum install -y \
-	ccache \
 	findutils \
 	gcc \
 	git \
@@ -39,9 +38,8 @@ RUN yum install -y \
 COPY . /criu
 WORKDIR /criu
 
-ENV CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
-RUN mv .ccache /tmp && make mrproper && ccache -sz  && \
-	date && make -j $(nproc) CC="$CC" && date && ccache -s
+ENV $ENV1=yes
+RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 
 # The rpc test cases are running as user #1000, let's add the user
 RUN adduser -u 1000 test
