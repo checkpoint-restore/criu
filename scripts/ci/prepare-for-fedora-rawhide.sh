@@ -2,7 +2,6 @@
 set -e -x
 
 dnf install -y \
-	ccache \
 	diffutils \
 	findutils \
 	gcc \
