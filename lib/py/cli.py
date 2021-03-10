@@ -11,14 +11,28 @@ def inf(opts):
     if opts['in']:
         return open(opts['in'], 'rb')
     else:
-        return sys.stdin
+        if (sys.version_info < (3, 0)):
+            return sys.stdin
+        if sys.stdin.isatty():
+            # If we are reading from a terminal (not a pipe) we want text input and not binary
+            return sys.stdin
+        return sys.stdin.buffer
 
 
-def outf(opts):
+def outf(opts, decode):
+    # Decode means from protobuf to JSON.
+    # Use text when writing to JSON else use binaray mode
     if opts['out']:
-        return open(opts['out'], 'wb+')
+        mode = 'wb+'
+        if decode:
+            mode = 'w+'
+        return open(opts['out'], mode)
     else:
-        return sys.stdout
+        if (sys.version_info < (3, 0)):
+            return sys.stdout
+        if decode:
+            return sys.stdout
+        return sys.stdout.buffer
 
 
 def dinf(opts, name):
@@ -39,7 +53,7 @@ def decode(opts):
     if opts['pretty']:
         indent = 4
 
-    f = outf(opts)
+    f = outf(opts, True)
     json.dump(img, f, indent=indent)
     if f == sys.stdout:
         f.write("\n")
@@ -47,7 +61,7 @@ def decode(opts):
 
 def encode(opts):
     img = json.load(inf(opts))
-    pycriu.images.dump(img, outf(opts))
+    pycriu.images.dump(img, outf(opts, False))
 
 
 def info(opts):
