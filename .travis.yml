@@ -1,7 +1,6 @@
 language: c
 os: linux
 dist: bionic
-cache: ccache
 services:
   - docker
 jobs:
@@ -31,7 +30,6 @@ jobs:
       virt: vm
       dist: bionic
 script:
-  - sudo make CCACHE=1 -C scripts/ci $TR_ARCH
+  - sudo make -C scripts/ci $TR_ARCH
 after_success:
-  - ccache -s
   - make -C scripts/ci after_success
