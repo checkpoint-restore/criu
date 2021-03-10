@@ -275,7 +275,7 @@ ip net add test
 
 ./test/zdtm.py run --empty-ns -T zdtm/static/socket-tcp*-local --iter 2
 
-./test/zdtm.py run -t zdtm/static/env00 -k always
+./test/zdtm.py run -t zdtm/static/env00 -t zdtm/transition/fork -t zdtm/static/ghost_holes00 -k always
 ./test/crit-recode.py
 
 # libcriu testing
