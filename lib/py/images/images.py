@@ -284,9 +284,9 @@ class ghost_file_handler:
                 size = len(pb_str)
                 f.write(struct.pack('i', size))
                 f.write(pb_str)
-                f.write(base64.decodebytes(item['extra']))
+                f.write(base64.decodebytes(str.encode(item['extra'])))
         else:
-            f.write(base64.decodebytes(item['extra']))
+            f.write(base64.decodebytes(str.encode(item['extra'])))
 
     def dumps(self, entries):
         f = io.BytesIO('')
