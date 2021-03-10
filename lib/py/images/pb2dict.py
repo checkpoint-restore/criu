@@ -246,11 +246,11 @@ def encode_dev(field, value):
 
 
 def encode_base64(value):
-    return base64.encodebytes(value)
+    return base64.encodebytes(value).decode()
 
 
 def decode_base64(value):
-    return base64.decodebytes(value)
+    return base64.decodebytes(str.encode(value))
 
 
 def encode_unix(value):
