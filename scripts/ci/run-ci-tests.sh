@@ -4,7 +4,7 @@ set -x -e
 CI_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
 		libgnutls30 libprotobuf-dev protobuf-compiler libcap-dev
 		libnl-3-dev gdb bash libnet-dev util-linux asciidoctor
-		libnl-route-3-dev time ccache flake8 libbsd-dev
+		libnl-route-3-dev time flake8 libbsd-dev
 		libperl-dev pkg-config"
 
 
@@ -63,16 +63,6 @@ ci_prep () {
 		CC=gcc
 	fi
 	CI_PKGS="$CI_PKGS $CC"
-
-	# ccache support, only enable for non-GCOV case
-	if [ "$CCACHE" = "1" ] && [ -z "$GCOV" ]; then
-		# ccache is installed by default, need to set it up
-		export CCACHE_DIR=$HOME/.ccache
-		[ "$CC" = "clang" ] && export CCACHE_CPP2=yes
-		# uncomment the following to get detailed ccache logs
-		#export CCACHE_LOGFILE=$HOME/ccache.log
-		CC="ccache $CC"
-	fi
 
 	# Do not install x86_64 specific packages on other architectures
 	if [ "$UNAME_M" = "x86_64" ]; then
@@ -188,8 +178,6 @@ if [ "${COMPAT_TEST}x" = "yx" ] ; then
 	# Cross-verify that zdtm tests are 32-bit
 	file test/zdtm/static/env00 | grep 'ELF 32-bit' -q
 fi
-
-[ -f "$CCACHE_LOGFILE" ] && cat "$CCACHE_LOGFILE"
 
 # umask has to be called before a first criu run, so that .gcda (coverage data)
 # files are created with read-write permissions for all.

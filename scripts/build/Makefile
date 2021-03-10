@@ -19,10 +19,7 @@ Dockerfile.%: Dockerfile.%.hdr Dockerfile.%.tmpl
 	cat $^ > $@
 
 $(TARGETS):
-	mkdir -p $(HOME)/.ccache
-	mv $(HOME)/.ccache ../../
-	$(CONTAINER_RUNTIME) build  -t criu-$@ -f Dockerfile.$@ $(DB_CC) $(DB_ENV) ../..
-	$(CONTAINER_RUNTIME) run criu-$@ tar c -C /tmp .ccache | tar x -C $(HOME)
+	$(CONTAINER_RUNTIME) build  -t criu-$@ -f Dockerfile.$@ $(DB_CC) ../..
 .PHONY: $(TARGETS)
 
 # Clang builds add some Docker build env
@@ -32,6 +29,5 @@ endef
 $(foreach t,$(TARGETS),$(eval $(call CLANG_DEP,$(t))))
 
 %-clang:	DB_CC=--build-arg CC=clang
-%-clang:	DB_ENV=--build-arg ENV1=CCACHE_CPP2
 s390x-clang:	DB_CC=--build-arg CC=clang-3.8
 .PHONY: $(TARGETS_CLANG)

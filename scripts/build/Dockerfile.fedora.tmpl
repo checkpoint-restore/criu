@@ -7,9 +7,8 @@ RUN /bin/prepare-for-fedora-rawhide.sh
 COPY . /criu
 WORKDIR /criu
 
-ENV CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
-RUN mv .ccache /tmp && make mrproper && ccache -sz  && \
-	date && make -j $(nproc) CC="$CC" && date && ccache -s
+ENV $ENV1=yes
+RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 
 # The rpc test cases are running as user #1000, let's add the user
 RUN adduser -u 1000 test
