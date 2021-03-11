@@ -2672,6 +2672,13 @@ cp.set_defaults(action=clean_stuff)
 cp.add_argument("what", choices=['nsroot'])
 
 opts = vars(p.parse_args())
+
+try:
+    if os.environ["ZDTM_IGNORE_TAINT"] == "1":
+        opts["ignore_taint"] = True
+except KeyError:
+    pass
+
 if opts.get('sat', False):
     opts['keep_img'] = 'always'
 
