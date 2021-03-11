@@ -1961,8 +1961,9 @@ class Launcher:
         with open("/proc/sys/kernel/tainted") as taintfd:
             taint = taintfd.read()
         if self.__taint != taint:
-            raise Exception("The kernel is tainted: %r (%r)" %
-                            (taint, self.__taint))
+            if not opts["ignore_taint"]:
+                raise Exception("The kernel is tainted: %r (%r)" %
+                                (taint, self.__taint))
 
         if test_flag(desc, 'excl'):
             self.wait_all()
