@@ -557,11 +557,7 @@ static int read_one_pstree_item(struct cr_img *img, pid_t *pid_max)
 	if (e->pid > *pid_max)
 		*pid_max = e->pid;
 	pi->pgid = e->pgid;
-	if (e->pgid > *pid_max)
-		*pid_max = e->pgid;
 	pi->sid = e->sid;
-	if (e->sid > *pid_max)
-		*pid_max = e->sid;
 	pi->pid->state = TASK_ALIVE;
 
 	if (e->ppid == 0) {
