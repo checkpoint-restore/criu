@@ -149,8 +149,7 @@ InventoryEntry *get_parent_inventory(void)
 	InventoryEntry *ie;
 	int dir;
 
-	dir = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
-	if (dir == -1) {
+	if (open_parent(get_service_fd(IMG_FD_OFF), &dir)) {
 		/*
 		 * We print the warning below to be notified that we had some
 		 * unexpected problem on open. For instance we have a parent
@@ -158,10 +157,11 @@ InventoryEntry *get_parent_inventory(void)
 		 * when also having no parent directory is an expected case of
 		 * first dump iteration.
 		 */
-		if (errno != ENOENT)
-			pr_warn("Failed to open parent directory\n");
+		pr_warn("Failed to open parent directory\n");
 		return NULL;
 	}
+	if (dir < 0)
+		return NULL;
 
 	img = open_image_at(dir, CR_FD_INVENTORY, O_RSTR);
 	if (!img) {
@@ -561,6 +561,11 @@ int open_image_dir(char *dir, int mode)
 		if (img_streamer_init(dir, mode) < 0)
 			goto err;
 	} else if (opts.img_parent) {
+		if (faccessat(fd, opts.img_parent, R_OK, 0)) {
+			pr_perror("Invalid parent image directory provided");
+			goto err;
+		}
+
 		ret = symlinkat(opts.img_parent, fd, CR_PARENT_LINK);
 		if (ret < 0 && errno != EEXIST) {
 			pr_perror("Can't link parent snapshot");
@@ -584,6 +589,24 @@ void close_image_dir(void)
 	if (opts.stream)
 		img_streamer_finish();
 	close_service_fd(IMG_FD_OFF);
+}
+
+int open_parent(int dfd, int *pfd)
+{
+	*pfd = -1;
+	/* Check if the parent symlink exists */
+	if (faccessat(dfd, CR_PARENT_LINK, F_OK, AT_SYMLINK_NOFOLLOW) && errno == ENOENT) {
+		pr_debug("No parent images directory provided\n");
+		return 0;
+	}
+
+	*pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
+	if (*pfd < 0) {
+		pr_perror("Can't open parent path");
+		return -1;
+	}
+
+	return 0;
 }
 
 static unsigned long page_ids = 1;

@@ -364,10 +364,8 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, unsigned lo
 		return -1;
 
 	xfer->pi = open_pages_image(O_DUMP, xfer->pmi, &pages_id);
-	if (!xfer->pi) {
-		close_image(xfer->pmi);
-		return -1;
-	}
+	if (!xfer->pi)
+		goto err_pmi;
 
 	/*
 	 * Open page-read for parent images (if it exists). It will
@@ -386,14 +384,15 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, unsigned lo
 		if (opts.stream)
 			goto out;
 
-		pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
-		if (pfd < 0 && errno == ENOENT)
+		if (open_parent(get_service_fd(IMG_FD_OFF), &pfd))
+			goto err_pi;
+		if (pfd < 0)
 			goto out;
 
 		xfer->parent = xmalloc(sizeof(*xfer->parent));
 		if (!xfer->parent) {
 			close(pfd);
-			return -1;
+			goto err_pi;
 		}
 
 		ret = open_page_read_at(pfd, img_id, xfer->parent, pr_flags);
@@ -412,6 +411,12 @@ out:
 	xfer->write_pages = write_pages_loc;
 	xfer->close = close_page_xfer;
 	return 0;
+
+err_pi:
+	close_image(xfer->pi);
+err_pmi:
+	close_image(xfer->pmi);
+	return -1;
 }
 
 int open_page_xfer(struct page_xfer *xfer, int fd_type, unsigned long img_id)
@@ -936,8 +941,9 @@ int check_parent_local_xfer(int fd_type, unsigned long img_id)
 	if (opts.stream)
 		return 0;
 
-	pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
-	if (pfd < 0 && errno == ENOENT)
+	if (open_parent(get_service_fd(IMG_FD_OFF), &pfd))
+		return -1;
+	if (pfd < 0)
 		return 0;
 
 	snprintf(path, sizeof(path), imgset_template[fd_type].fmt, img_id);
