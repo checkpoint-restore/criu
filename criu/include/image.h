@@ -147,6 +147,12 @@ extern off_t img_raw_size(struct cr_img *img);
 
 extern int open_image_dir(char *dir, int mode);
 extern void close_image_dir(void);
+/*
+ * Return -1 -- parent symlink points to invalid target
+ * Return 0 && pfd < 0 -- parent symlink does not exist
+ * Return 0 && pfd >= 0 -- opened
+ */
+extern int open_parent(int dfd, int *pfd);
 
 extern struct cr_img *open_image_at(int dfd, int type, unsigned long flags, ...);
 #define open_image(typ, flags, ...) open_image_at(-1, typ, flags, ##__VA_ARGS__)

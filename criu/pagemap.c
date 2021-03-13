@@ -661,8 +661,9 @@ static int try_open_parent(int dfd, unsigned long id, struct page_read *pr, int 
 	if (opts.stream)
 		goto out;
 
-	pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
-	if (pfd < 0 && errno == ENOENT)
+	if (open_parent(dfd, &pfd))
+		goto err;
+	if (pfd < 0)
 		goto out;
 
 	parent = xmalloc(sizeof(*parent));
@@ -687,6 +688,7 @@ err_free:
 	xfree(parent);
 err_cl:
 	close(pfd);
+err:
 	return -1;
 }
 
