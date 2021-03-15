@@ -390,7 +390,7 @@ class ipc_sem_set_handler:
         if len(s) != entry['nsems']:
             raise Exception("Number of semaphores mismatch")
         f.write(s.tobytes())
-        f.write('\0' * (rounded - size))
+        f.write(b'\0' * (rounded - size))
 
     def skip(self, f, pbuff):
         entry = pb2dict.pb2dict(pbuff)
@@ -428,7 +428,7 @@ class ipc_msg_queue_handler:
             rounded = round_up(msg.msize, sizeof_u64)
             data = base64.decodebytes(extra[i + 1])
             f.write(data[:msg.msize])
-            f.write('\0' * (rounded - msg.msize))
+            f.write(b'\0' * (rounded - msg.msize))
 
     def skip(self, f, pbuff):
         entry = pb2dict.pb2dict(pbuff)
@@ -462,7 +462,7 @@ class ipc_shm_handler:
         data = base64.decodebytes(extra)
         rounded = round_up(size, sizeof_u32)
         f.write(data[:size])
-        f.write('\0' * (rounded - size))
+        f.write(b'\0' * (rounded - size))
 
     def skip(self, f, pbuff):
         entry = pb2dict.pb2dict(pbuff)
