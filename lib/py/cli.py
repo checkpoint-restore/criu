@@ -60,7 +60,13 @@ def decode(opts):
 
 
 def encode(opts):
-    img = json.load(inf(opts))
+    try:
+        img = json.load(inf(opts))
+    except UnicodeDecodeError:
+        print("Cannot read JSON.\n"\
+          "Maybe you are feeding me an image with protobuf data? "\
+          "Encode expects JSON input.", file=sys.stderr)
+        sys.exit(1)
     pycriu.images.dump(img, outf(opts, False))
 
 
