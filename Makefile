@@ -412,6 +412,7 @@ lint:
 	flake8 --config=scripts/flake8.cfg lib/py/images/pb2dict.py
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh scripts/ci/apt-install
+	shellcheck test/others/crit/*.sh
 
 codecov: SHELL := $(shell which bash)
 codecov:
