@@ -1171,6 +1171,12 @@ static int restore_link_cb(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 	return 0;
 }
 
+static int restore_newlink_cb(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
+{
+	pr_info("Got response on RTM_NEWLINK =)\n");
+	return 0;
+}
+
 struct newlink_req {
 	struct nlmsghdr h;
 	struct ifinfomsg i;
@@ -1267,6 +1273,110 @@ static int restore_one_link(struct ns_id *ns, struct net_link *link, int nlsk,
 {
 	pr_info("Restoring netdev %s idx %d\n", link->nde->name, link->nde->ifindex);
 	return do_rtm_link_req(RTM_NEWLINK, link, nlsk, ns, link_info, extras);
+}
+
+struct move_req {
+	struct newlink_req req;
+	char ifnam[IFNAMSIZ];
+};
+
+static int move_veth_cb(void *arg, int fd, pid_t pid)
+{
+	int fd_ns_old = -1, ret = -1;
+	struct move_req *mvreq = arg;
+	struct newlink_req *req = &mvreq->req;
+	int ifindex, nlsk;
+
+	if (!(root_ns_mask & CLONE_NEWUSER)) {
+		int fd_ns;
+
+		fd_ns = get_service_fd(NS_FD_OFF);
+		if (switch_ns_by_fd(fd_ns, &net_ns_desc, &fd_ns_old))
+			return -1;
+	}
+
+	/* Retrieve ifindex of precreated veth device in source netns. */
+	ifindex = if_nametoindex(mvreq->ifnam);
+	if (!ifindex)
+		goto out;
+	req->i.ifi_index = ifindex;
+
+	/* Tell netlink what netns we want to move that veth device into. */
+	addattr_l(&req->h, sizeof(*req), IFLA_NET_NS_FD, &fd, sizeof(fd));
+
+	nlsk = socket(PF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
+	if (nlsk < 0)
+		goto out;
+
+	ret = do_rtnl_req(nlsk, req, req->h.nlmsg_len, restore_newlink_cb, NULL, NULL, NULL);
+	close(nlsk);
+
+out:
+	if (fd_ns_old >= 0)
+		ret = restore_ns(fd_ns_old, &net_ns_desc);
+
+	return ret;
+}
+
+static int move_veth(const char *netdev, struct ns_id *ns,
+		     struct net_link *link, int nlsk)
+{
+
+	NetDeviceEntry *nde = link->nde;
+	struct newlink_req *req;
+	struct move_req mvreq;
+	size_t len_val;
+	int ret;
+
+	/*
+	 * We require a target ifindex otherwise we can't restore addresses
+	 * later on as ip stores ifindex in its address dump for network
+	 * devices.
+	 */
+	if (!nde->ifindex)
+		return -1;
+
+	memset(&mvreq.req, 0, sizeof(mvreq.req));
+	req = &mvreq.req;
+
+	req->h.nlmsg_len	= NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req->h.nlmsg_flags	= NLM_F_REQUEST|NLM_F_ACK;
+	req->h.nlmsg_type	= RTM_NEWLINK;
+	req->h.nlmsg_seq	= CR_NLMSG_SEQ;
+
+	req->i.ifi_family	= AF_UNSPEC;
+	req->i.ifi_flags	= nde->flags;
+
+	/* Tell netlink what name we want in the target netns. */
+	addattr_l(&req->h, sizeof(*req), IFLA_IFNAME,
+		  nde->name, strlen(nde->name));
+
+	/* Tell netlink what mtu we want in the target netns. */
+	addattr_l(&req->h, sizeof(*req), IFLA_MTU,
+		  &nde->mtu, sizeof(nde->mtu));
+
+	/* Tell netlink what ifindex we want in the target netns. */
+	addattr_l(&req->h, sizeof(*req), IFLA_NEW_IFINDEX,
+		  &nde->ifindex, sizeof(nde->ifindex));
+
+	if (nde->has_address) {
+		pr_debug("Restore ll addr (%02x:../%d) for device with target ifindex %d\n",
+			 (int)nde->address.data[0], (int)nde->address.len, nde->ifindex);
+		addattr_l(&req->h, sizeof(*req), IFLA_ADDRESS,
+			  nde->address.data, nde->address.len);
+	}
+
+	len_val = strlen(netdev);
+	if (len_val >= IFNAMSIZ)
+		return -1;
+	strlcpy(mvreq.ifnam, netdev, IFNAMSIZ);
+
+	ret = userns_call(move_veth_cb, 0, &mvreq, sizeof(mvreq), ns->net.ns_fd);
+	if (ret < 0)
+		return -1;
+
+	link->created = true;
+	return 0;
 }
 
 #ifndef VETH_INFO_MAX
@@ -1600,6 +1710,7 @@ skip:;
 static int __restore_link(struct ns_id *ns, struct net_link *link, int nlsk)
 {
 	NetDeviceEntry *nde = link->nde;
+	char key[100], *val;
 
 	pr_info("Restoring link %s type %d\n", nde->name, nde->type);
 
@@ -1610,6 +1721,12 @@ static int __restore_link(struct ns_id *ns, struct net_link *link, int nlsk)
 	case ND_TYPE__VENET:
 		return restore_one_link(ns, link, nlsk, venet_link_info, NULL);
 	case ND_TYPE__VETH:
+		/* Handle pre-created veth devices we just need to move over. */
+		snprintf(key, sizeof(key), "netdev[%s]", nde->name);
+		val = external_lookup_by_key(key);
+		if (!IS_ERR_OR_NULL(val))
+			return move_veth(val, ns, link, nlsk);
+
 		return restore_one_link(ns, link, nlsk, veth_link_info, NULL);
 	case ND_TYPE__TUN:
 		return restore_one_tun(ns, link, nlsk);
