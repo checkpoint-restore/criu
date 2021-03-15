@@ -373,6 +373,7 @@ usage:
 "                            veth[IFNAME]:OUTNAME{@BRIDGE}\n"
 "                            macvlan[IFNAME]:OUTNAME\n"
 "                            mnt[COOKIE]:ROOT\n"
+"                            netdev[IFNAME]:ORIGNAME\n"
 "\n"
 "* Special resources support:\n"
 "     --" SK_EST_PARAM "  checkpoint/restore established TCP connections\n"
