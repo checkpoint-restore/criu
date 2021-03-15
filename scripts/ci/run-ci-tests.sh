@@ -268,6 +268,9 @@ ip net add test
 ./test/zdtm.py run -t zdtm/static/env00 -t zdtm/transition/fork -t zdtm/static/ghost_holes00 -k always
 ./test/crit-recode.py
 
+# more crit testing
+make -C test/others/crit run
+
 # libcriu testing
 make -C test/others/libcriu run
 
