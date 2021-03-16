@@ -50,4 +50,6 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta);
 int unmap_guard_pages(struct pstree_item *t);
 int prepare_mappings(struct pstree_item *t);
 bool should_dump_page(VmaEntry *vmae, u64 pme);
+
+int init_pidfd_store_sk(pid_t pid, int fd);
 #endif /* __CR_MEM_H__ */
