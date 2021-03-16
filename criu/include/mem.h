@@ -52,4 +52,7 @@ int prepare_mappings(struct pstree_item *t);
 bool should_dump_page(VmaEntry *vmae, u64 pme);
 
 int init_pidfd_store_sk(pid_t pid, int fd);
+int init_pidfd_store_hash(void);
+void free_pidfd_store(void);
+int send_pidfd_entry(pid_t pid);
 #endif /* __CR_MEM_H__ */
