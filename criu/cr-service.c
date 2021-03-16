@@ -1069,8 +1069,7 @@ static int handle_feature_check(int sk, CriuReq * msg)
 	}
 
 	if (pid == 0) {
-		/* kerndat_init() is called from setup_opts_from_req() */
-		if (setup_opts_from_req(sk, msg->opts))
+		if (kerndat_init())
 			exit(1);
 
 		setproctitle("feature-check --rpc");
@@ -1103,6 +1102,8 @@ static int handle_feature_check(int sk, CriuReq * msg)
 	}
 	if (status != 0)
 		goto out;
+
+	return 0;
 
 	/*
 	 * The child process was not able to send an answer. Tell
