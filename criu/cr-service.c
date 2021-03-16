@@ -1065,6 +1065,8 @@ static int handle_feature_check(int sk, CriuReq * msg)
 	feat.mem_track = false;
 	feat.has_lazy_pages = 1;
 	feat.lazy_pages = false;
+	feat.has_pidfd_store = 1;
+	feat.pidfd_store = false;
 
 	pid = fork();
 	if (pid < 0) {
@@ -1085,6 +1087,10 @@ static int handle_feature_check(int sk, CriuReq * msg)
 		if ((msg->features->has_lazy_pages == 1) &&
 		    (msg->features->lazy_pages == true))
 			feat.lazy_pages = kdat.has_uffd && uffd_noncooperative();
+
+		if ((msg->features->has_pidfd_store == 1) &&
+		    (msg->features->pidfd_store == true))
+			feat.pidfd_store = kdat.has_pidfd_getfd && kdat.has_pidfd_open;
 
 		resp.features = &feat;
 		resp.type = msg->type;
