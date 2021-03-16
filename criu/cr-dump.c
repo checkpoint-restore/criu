@@ -1165,6 +1165,15 @@ static int pre_dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie
 	pr_info("Pre-dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
+	/*
+	 * Send pidfd of task over pidfd_store_sk if it is set.
+	 * This pidfd will be used in the next pre-dump/dump iteration
+	 * in detect_pid_reuse().
+	 */
+	ret = send_pidfd_entry(pid);
+	if (ret)
+		goto err;
+
 	if (item->pid->state == TASK_STOPPED) {
 		pr_warn("Stopped tasks are not supported\n");
 		return 0;
@@ -1562,6 +1571,7 @@ static int cr_pre_dump_finish(int status)
 
 	free_pstree(root_item);
 	seccomp_free_entries();
+	free_pidfd_store();
 
 	if (irmap_predump_run()) {
 		ret = -1;
@@ -1614,6 +1624,9 @@ int cr_pre_dump_tasks(pid_t pid)
 	}
 
 	if (init_stats(DUMP_STATS))
+		goto err;
+
+	if (init_pidfd_store_hash())
 		goto err;
 
 	if (cr_plugin_init(CR_PLUGIN_STAGE__PRE_DUMP))
@@ -1772,6 +1785,7 @@ static int cr_dump_finish(int ret)
 	free_link_remaps();
 	free_aufs_branches();
 	free_userns_maps();
+	free_pidfd_store();
 
 	close_service_fd(CR_PROC_FD_OFF);
 	close_image_dir();
@@ -1815,6 +1829,9 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 	}
 	if (init_stats(DUMP_STATS))
+		goto err;
+
+	if (init_pidfd_store_hash())
 		goto err;
 
 	if (cr_plugin_init(CR_PLUGIN_STAGE__DUMP))
