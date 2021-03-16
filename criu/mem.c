@@ -30,9 +30,106 @@
 #include "fault-injection.h"
 #include "prctl.h"
 #include "compel/infect-util.h"
+#include "compel/plugins/std/syscall-codes.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
+
+static int pidfd_store_sk = -1;
+
+int init_pidfd_store_sk(pid_t pid, int sk)
+{
+	int pidfd;
+	int sock_type;
+	socklen_t len;
+	struct sockaddr_un addr;
+	unsigned int addrlen;
+	/* In kernel a bufsize has type int and a value is doubled. */
+	uint32_t buf[2] = { INT_MAX / 2, INT_MAX / 2 };
+
+	if (!kdat.has_pidfd_open) {
+		pr_err("pidfd_open syscall is not supported\n");
+		return -1;
+	}
+
+	if (!kdat.has_pidfd_getfd) {
+		pr_err("pidfd_getfd syscall is not supported\n");
+		return -1;
+	}
+
+	/* Steal pidfd store socket from RPC client */
+	pidfd = syscall(SYS_pidfd_open, pid, 0);
+	if (pidfd == -1) {
+		pr_perror("Can't get pidfd of (pid: %d)", pid);
+		goto err;
+	}
+
+	close_safe(&pidfd_store_sk);
+	pidfd_store_sk = syscall(SYS_pidfd_getfd, pidfd, sk, 0);
+	if (pidfd_store_sk == -1) {
+		pr_perror("Can't steal fd %d using pidfd_getfd", sk);
+		close(pidfd);
+		goto err;
+	}
+	close(pidfd);
+
+	/* Check that stolen socket is a connectionless unix domain socket */
+	len = sizeof(sock_type);
+	if (getsockopt(pidfd_store_sk, SOL_SOCKET, SO_TYPE, &sock_type, &len)) {
+		pr_perror("Can't get socket type (fd: %d)", pidfd_store_sk);
+		goto err;
+	}
+
+	if (sock_type != SOCK_DGRAM) {
+		pr_err("Pidfd store socket must be of type SOCK_DGRAM\n");
+		goto err;
+	}
+
+	addrlen = sizeof(addr);
+	if (getsockname(pidfd_store_sk, (struct sockaddr *)&addr, &addrlen)) {
+		pr_perror("Can't get socket bound name (fd: %d)", pidfd_store_sk);
+		goto err;
+	}
+
+	if (addr.sun_family != AF_UNIX) {
+		pr_err("Pidfd store socket must be AF_UNIX\n");
+		goto err;
+	}
+
+	/*
+	 * Unnamed socket needs to be initialized and connected to itself.
+	 * This only occurs once in the first predump, after the socket is
+	 * bound, addrlen will be sizeof(struct sockaddr_un).
+	 * This is similar to how fdstore_init() works.
+	 */
+	if (addrlen == sizeof(sa_family_t)) {
+		if (setsockopt(pidfd_store_sk, SOL_SOCKET, SO_SNDBUFFORCE, &buf[0], sizeof(buf[0])) < 0 ||
+			setsockopt(pidfd_store_sk, SOL_SOCKET, SO_RCVBUFFORCE, &buf[1], sizeof(buf[1])) < 0) {
+			pr_perror("Unable to set SO_SNDBUFFORCE/SO_RCVBUFFORCE");
+			goto err;
+		}
+
+		addrlen = snprintf(addr.sun_path, sizeof(addr.sun_path), "X/criu-pidfd-store-%d-%d", pid, sk);
+		addrlen += sizeof(addr.sun_family);
+
+		addr.sun_path[0] = 0;
+
+		if (bind(pidfd_store_sk, (struct sockaddr *)&addr, addrlen)) {
+			pr_perror("Unable to bind a socket");
+			goto err;
+		}
+
+		if (connect(pidfd_store_sk, (struct sockaddr *) &addr, addrlen)) {
+			pr_perror("Unable to connect a socket");
+			goto err;
+		}
+	}
+
+	return 0;
+err:
+	close_safe(&pidfd_store_sk);
+	return -1;
+}
 
 static int task_reset_dirty_track(int pid)
 {

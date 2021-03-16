@@ -1782,3 +1782,14 @@ int criu_get_orphan_pts_master_fd(void)
 {
 	return orphan_pts_master_fd;
 }
+
+void criu_local_set_pidfd_store_sk(criu_opts *opts, int sk)
+{
+	opts->rpc->has_pidfd_store_sk = true;
+	opts->rpc->pidfd_store_sk = sk;
+}
+
+void criu_set_pidfd_store_sk(int sk)
+{
+	criu_local_set_pidfd_store_sk(global_opts, sk);
+}
