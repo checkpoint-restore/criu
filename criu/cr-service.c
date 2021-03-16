@@ -40,6 +40,7 @@
 #include "proc_parse.h"
 #include "common/scm.h"
 #include "uffd.h"
+#include "mem.h"
 
 #include "setproctitle.h"
 
@@ -687,6 +688,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			goto err;
 		}
 	}
+
+	if (req->has_pidfd_store_sk && init_pidfd_store_sk(ids.pid, req->pidfd_store_sk))
+		goto err;
 
 	if (req->orphan_pts_master)
 		opts.orphan_pts_master = true;
