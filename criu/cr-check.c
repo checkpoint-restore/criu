@@ -1331,6 +1331,21 @@ static int check_net_diag_raw(void)
 		socket_test_collect_bit(AF_INET6, IPPROTO_RAW)) ? 0 : -1;
 }
 
+static int check_pidfd_store(void)
+{
+	if (!kdat.has_pidfd_open) {
+		pr_warn("Pidfd store requires pidfd_open syscall which is not supported\n");
+		return -1;
+	}
+
+	if (!kdat.has_pidfd_getfd) {
+		pr_warn("Pidfd store requires pidfd_getfd syscall which is not supported\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1443,6 +1458,7 @@ int cr_check(void)
 		ret |= check_clone3_set_tid();
 		ret |= check_time_namespace();
 		ret |= check_newifindex();
+		ret |= check_pidfd_store();
 	}
 
 	/*
@@ -1551,6 +1567,7 @@ static struct feature_list feature_list[] = {
 	{ "newifindex", check_newifindex},
 	{ "nftables", check_nftables_cr },
 	{ "has_ipt_legacy", check_ipt_legacy },
+	{ "pidfd_store", check_pidfd_store },
 	{ NULL, NULL },
 };
 

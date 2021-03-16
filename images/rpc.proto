@@ -174,6 +174,7 @@ enum criu_req_type {
 message criu_features {
 	optional bool			mem_track	= 1;
 	optional bool			lazy_pages	= 2;
+	optional bool			pidfd_store	= 3;
 }
 
 /*
