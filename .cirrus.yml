@@ -1,16 +1,20 @@
 environment:
+  HOME: "/root"
   CIRRUS_WORKING_DIR: "/tmp/criu"
-container:
-  # This test case does not work on focal, because the newer version
-  # of libvirt fails during 'vagrant up' with ip6tables errors.
-  image: ubuntu:bionic
-  kvm: true
+
+compute_engine_instance:
+  image_project: cirrus-images
+  image: family/docker-kvm
+  platform: linux
   cpu: 4
-  memory: 8G
+  memory: 16G
+  nested_virtualization: true
+
 task:
   name: Vagrant Fedora based test (no VDSO)
   setup_script: |
-    scripts/ci/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget
+    scripts/ci/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget cpu-checker
+    sudo kvm-ok
     ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
   build_script: |
     make -C scripts/ci vagrant-fedora-no-vdso
