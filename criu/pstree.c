@@ -347,6 +347,7 @@ static int prepare_pstree_for_shell_job(pid_t pid)
 	if (!opts.shell_job)
 		return 0;
 
+	/* root_item is a session leader */
 	if (root_item->sid == vpid(root_item))
 		return 0;
 
@@ -368,27 +369,32 @@ static int prepare_pstree_for_shell_job(pid_t pid)
 	 */
 
 	old_sid = root_item->sid;
+	if (old_sid != current_sid) {
+		pr_info("Migrating process tree (SID %d->%d)\n",
+			old_sid, current_sid);
 
-	pr_info("Migrating process tree (SID %d->%d)\n",
-		old_sid, current_sid);
+		tmp = pstree_pid_by_virt(current_sid);
+		if (tmp) {
+			pr_err("Current sid %d intersects with pid (%d) in images",
+			       current_sid, tmp->state);
+			return -1;
+		}
 
-	tmp = pstree_pid_by_virt(current_sid);
-	if (tmp) {
-		pr_err("Current sid %d intersects with pid (%d) in images",
-		       current_sid, tmp->state);
-		return -1;
-	}
+		for_each_pstree_item(pi) {
+			if (pi->sid == old_sid)
+				pi->sid = current_sid;
+		}
 
-	for_each_pstree_item(pi) {
-		if (pi->sid == old_sid)
-			pi->sid = current_sid;
-	}
-
-	old_gid = root_item->pgid;
-	if (old_gid != vpid(root_item)) {
 		if (lookup_create_item(current_sid) == NULL)
 			return -1;
+	}
 
+	/* root_item is a group leader */
+	if (root_item->pgid == vpid(root_item))
+		return 0;
+
+	old_gid = root_item->pgid;
+	if (old_gid != current_gid) {
 		pr_info("Migrating process tree (GID %d->%d)\n",
 			old_gid, current_gid);
 
