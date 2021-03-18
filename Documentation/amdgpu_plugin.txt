@@ -1,0 +1,45 @@
+ROCM Support(1)
+===============
+
+NAME
+----
+amdgpu_plugin - A plugin extention to CRIU to support checkpoint/restore in
+userspace for AMD GPUs.
+
+
+CURRENT SUPPORT
+---------------
+Single GPU systems (Gfx9)
+Checkpoint / Restore on same system
+Checkpoint / Restore inside a docker container
+Pytorch
+
+DESCRIPTION
+-----------
+Though *criu* is a great tool for checkpointing and restoring running
+applications, it has certain limitations such as it cannot handle
+applications that have device files open. In order to support *ROCm* based
+workloads with *criu* we need to augment criu's core functionality with a
+plugin based extention mechanism. *amdgpu_plugin* provides the necessary support
+to criu to allow Checkpoint / Restore with ROCm.
+
+
+Dependencies
+~~~~~~~~~~~~~~
+*amdkfd support*::
+    In order to snapshot the *VRAM* and other *GPU* device states, we require
+    an updated version of amdkfd(amdgpu) driver. The kernel patches are under
+    review currently.
+
+*criu 3.15*::
+    This work is rebased on latest criu release available at this time.
+
+
+AUTHOR
+------
+The AMDKFD team.
+
+
+COPYRIGHT
+---------
+Copyright \(C) 2020-2021, Advanced Micro Devices, Inc. (AMD)
