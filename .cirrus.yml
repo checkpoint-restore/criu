@@ -1,20 +1,53 @@
-environment:
-  HOME: "/root"
-  CIRRUS_WORKING_DIR: "/tmp/criu"
-
-compute_engine_instance:
-  image_project: cirrus-images
-  image: family/docker-kvm
-  platform: linux
-  cpu: 4
-  memory: 16G
-  nested_virtualization: true
-
 task:
   name: Vagrant Fedora based test (no VDSO)
+  environment:
+    HOME: "/root"
+    CIRRUS_WORKING_DIR: "/tmp/criu"
+
+  compute_engine_instance:
+    image_project: cirrus-images
+    image: family/docker-kvm
+    platform: linux
+    cpu: 4
+    memory: 16G
+    nested_virtualization: true
+
   setup_script: |
     scripts/ci/apt-install make gcc pkg-config git perl-modules iproute2 kmod wget cpu-checker
     sudo kvm-ok
     ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
   build_script: |
     make -C scripts/ci vagrant-fedora-no-vdso
+
+task:
+  name: CentOS 8 based test
+  environment:
+    HOME: "/root"
+    CIRRUS_WORKING_DIR: "/tmp/criu"
+
+  compute_engine_instance:
+    image_project: centos-cloud
+    image: family/centos-8
+    platform: linux
+    cpu: 4
+    memory: 8G
+
+  setup_script: |
+    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
+    yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm dnf-plugins-core
+    yum config-manager --set-enabled powertools
+    yum install -y --allowerasing asciidoc gcc git gnutls-devel libaio-devel libasan libcap-devel libnet-devel libnl3-devel libselinux-devel make protobuf-c-devel protobuf-devel python3-devel python3-flake8 python3-PyYAML python3-future python3-protobuf xmlto
+    alternatives --set python /usr/bin/python3
+    systemctl stop sssd
+    # Even with selinux in permissive mode the selinux tests will be executed
+    # The Cirrus CI user runs as a service from selinux point of view and is
+    # much more restricted than a normal shell (system_u:system_r:unconfined_service_t:s0)
+    # The test case above (vagrant-fedora-no-vdso) should run selinux tests in enforcing mode
+    setenforce 0
+    # netns-nft fails with
+    # 4: FAIL: netns-nft.c:51: Can't get nft table (errno = 11 (Resource temporarily unavailable))
+    mv /usr/sbin/nft /usr/sbin/nft.away
+    pip3 install junit_xml
+
+  build_script: |
+    make -C scripts/ci local SKIP_CI_PREP=1 CC=gcc CD_TO_TOP=1
