@@ -42,6 +42,7 @@ import base64
 import struct
 import os
 import array
+import sys
 
 from . import magic
 from . import pb
@@ -284,9 +285,15 @@ class ghost_file_handler:
                 size = len(pb_str)
                 f.write(struct.pack('i', size))
                 f.write(pb_str)
-                f.write(base64.decodebytes(str.encode(item['extra'])))
+                if (sys.version_info > (3, 0)):
+                    f.write(base64.decodebytes(str.encode(item['extra'])))
+                else:
+                    f.write(base64.decodebytes(item['extra']))
         else:
-            f.write(base64.decodebytes(str.encode(item['extra'])))
+            if (sys.version_info > (3, 0)):
+                f.write(base64.decodebytes(str.encode(item['extra'])))
+            else:
+                f.write(base64.decodebytes(item['extra']))
 
     def dumps(self, entries):
         f = io.BytesIO('')
