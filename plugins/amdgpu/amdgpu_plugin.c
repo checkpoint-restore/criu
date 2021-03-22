@@ -1007,7 +1007,8 @@ int amdgpu_plugin_restore_file(int id)
 		if (e->bo_info_test[i]->bo_alloc_flags &
 			(KFD_IOC_ALLOC_MEM_FLAGS_VRAM |
 			 KFD_IOC_ALLOC_MEM_FLAGS_GTT |
-			 KFD_IOC_ALLOC_MEM_FLAGS_MMIO_REMAP)) {
+			 KFD_IOC_ALLOC_MEM_FLAGS_MMIO_REMAP |
+			 KFD_IOC_ALLOC_MEM_FLAGS_DOORBELL)) {
 
 			struct vma_metadata *vma_md;
 			vma_md = xmalloc(sizeof(*vma_md));
