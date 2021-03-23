@@ -311,10 +311,13 @@ class pipes_data_extra_handler:
     def load(self, f, pload):
         size = pload.bytes
         data = f.read(size)
-        return base64.encodebytes(data)
+        return base64.encodebytes(data).decode()
 
     def dump(self, extra, f, pload):
-        data = base64.decodebytes(extra)
+        if (sys.version_info > (3, 0)):
+            data = base64.decodebytes(str.encode(extra))
+        else:
+            data = base64.decodebytes(extra)
         f.write(data)
 
     def skip(self, f, pload):
@@ -326,10 +329,13 @@ class sk_queues_extra_handler:
     def load(self, f, pload):
         size = pload.length
         data = f.read(size)
-        return base64.encodebytes(data)
+        return base64.encodebytes(data).decode()
 
     def dump(self, extra, f, _unused):
-        data = base64.decodebytes(extra)
+        if (sys.version_info > (3, 0)):
+            data = base64.decodebytes(str.encode(extra))
+        else:
+            data = base64.decodebytes(extra)
         f.write(data)
 
     def skip(self, f, pload):
