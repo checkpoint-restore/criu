@@ -1394,6 +1394,14 @@ static int check_sockopt_buf_lock(void)
 	return 0;
 }
 
+static int check_move_mount_set_group(void)
+{
+	if (!kdat.has_move_mount_set_group)
+		return -1;
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1514,6 +1522,7 @@ int cr_check(void)
 		ret |= check_network_lock_nftables();
 		ret |= check_sockopt_buf_lock();
 		ret |= check_memfd_hugetlb();
+		ret |= check_move_mount_set_group();
 	}
 
 	/*
@@ -1628,6 +1637,7 @@ static struct feature_list feature_list[] = {
 	{ "network_lock_nftables", check_network_lock_nftables },
 	{ "sockopt_buf_lock", check_sockopt_buf_lock },
 	{ "memfd_hugetlb", check_memfd_hugetlb },
+	{ "move_mount_set_group", check_move_mount_set_group },
 	{ NULL, NULL },
 };
 
