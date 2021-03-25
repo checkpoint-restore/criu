@@ -14,6 +14,7 @@
 #include <sys/prctl.h>
 #include <sys/inotify.h>
 #include <sched.h>
+#include <sys/mount.h>
 
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 #include <nftables/libnftables.h>
@@ -46,6 +47,7 @@
 #include "kcmp.h"
 #include "sched.h"
 #include "memfd.h"
+#include "mount-v2.h"
 
 struct kerndat_s kdat = {};
 
@@ -932,6 +934,69 @@ err:
 	return exit_code;
 }
 
+static int kerndat_has_move_mount_set_group(void)
+{
+	char tmpdir[] = "/tmp/.criu.move_mount_set_group.XXXXXX";
+	char subdir[64];
+	int exit_code = -1;
+
+	if (mkdtemp(tmpdir) == NULL) {
+		pr_perror("Fail to make dir %s", tmpdir);
+		return -1;
+	}
+
+	if (mount("criu.move_mount_set_group", tmpdir, "tmpfs", 0, NULL)) {
+		pr_perror("Fail to mount tmfps to %s", tmpdir);
+		rmdir(tmpdir);
+		return -1;
+	}
+
+	if (mount(NULL, tmpdir, NULL, MS_PRIVATE, NULL)) {
+		pr_perror("Fail to make %s private", tmpdir);
+		goto out;
+	}
+
+	if (snprintf(subdir, sizeof(subdir), "%s/subdir", tmpdir) >= sizeof(subdir)) {
+		pr_err("Fail to snprintf subdir\n");
+		goto out;
+	}
+
+	if (mkdir(subdir, 0700)) {
+		pr_perror("Fail to make dir %s", subdir);
+		goto out;
+	}
+
+	if (mount(subdir, subdir, NULL, MS_BIND, NULL)) {
+		pr_perror("Fail to make bind-mount %s", subdir);
+		goto out;
+	}
+
+	if (mount(NULL, tmpdir, NULL, MS_SHARED, NULL)) {
+		pr_perror("Fail to make %s private", tmpdir);
+		goto out;
+	}
+
+	if (sys_move_mount(AT_FDCWD, tmpdir, AT_FDCWD, subdir, MOVE_MOUNT_SET_GROUP)) {
+		if (errno == EINVAL || errno == ENOSYS) {
+			pr_debug("No MOVE_MOUNT_SET_GROUP kernel feature\n");
+			kdat.has_move_mount_set_group = false;
+			exit_code = 0;
+			goto out;
+		}
+		pr_perror("Fail to MOVE_MOUNT_SET_GROUP");
+		goto out;
+	}
+
+	kdat.has_move_mount_set_group = true;
+	exit_code = 0;
+out:
+	if (umount2(tmpdir, MNT_DETACH))
+		pr_warn("Fail to umount2 %s: %m\n", tmpdir);
+	if (rmdir(tmpdir))
+		pr_warn("Fail to rmdir %s: %m\n", tmpdir);
+	return exit_code;
+}
+
 #define KERNDAT_CACHE_FILE     KDAT_RUNDIR "/criu.kdat"
 #define KERNDAT_CACHE_FILE_TMP KDAT_RUNDIR "/.criu.kdat"
 
@@ -1515,6 +1580,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_sockopt_buf_lock()) {
 		pr_err("kerndat_sockopt_buf_lock failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_move_mount_set_group()) {
+		pr_err("kerndat_has_move_mount_set_group failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
