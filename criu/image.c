@@ -593,9 +593,11 @@ void close_image_dir(void)
 
 int open_parent(int dfd, int *pfd)
 {
+	struct stat st;
+
 	*pfd = -1;
 	/* Check if the parent symlink exists */
-	if (faccessat(dfd, CR_PARENT_LINK, F_OK, AT_SYMLINK_NOFOLLOW) && errno == ENOENT) {
+	if (fstatat(dfd, CR_PARENT_LINK, &st, AT_SYMLINK_NOFOLLOW) && errno == ENOENT) {
 		pr_debug("No parent images directory provided\n");
 		return 0;
 	}
