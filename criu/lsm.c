@@ -250,26 +250,23 @@ Lsmtype host_lsm_type(void)
 	return kdat.lsm;
 }
 
-int collect_lsm_profile(pid_t pid, CredsEntry *ce)
+static int collect_lsm_profile(pid_t pid, struct thread_lsm *lsm)
 {
 	int ret;
-
-	ce->lsm_profile = NULL;
-	ce->lsm_sockcreate = NULL;
 
 	switch (kdat.lsm) {
 	case LSMTYPE__NO_LSM:
 		ret = 0;
 		break;
 	case LSMTYPE__APPARMOR:
-		ret = apparmor_get_label(pid, &ce->lsm_profile);
+		ret = apparmor_get_label(pid, &lsm->profile);
 		break;
 #ifdef CONFIG_HAS_SELINUX
 	case LSMTYPE__SELINUX:
-		ret = selinux_get_label(pid, &ce->lsm_profile);
+		ret = selinux_get_label(pid, &lsm->profile);
 		if (ret)
 			break;
-		ret = selinux_get_sockcreate_label(pid, &ce->lsm_sockcreate);
+		ret = selinux_get_sockcreate_label(pid, &lsm->sockcreate);
 		break;
 #endif
 	default:
@@ -278,12 +275,50 @@ int collect_lsm_profile(pid_t pid, CredsEntry *ce)
 		break;
 	}
 
-	if (ce->lsm_profile)
-		pr_info("%d has lsm profile %s\n", pid, ce->lsm_profile);
-	if (ce->lsm_sockcreate)
-		pr_info("%d has lsm sockcreate label %s\n", pid, ce->lsm_sockcreate);
+	if (lsm->profile)
+		pr_info("%d has lsm profile %s\n", pid, lsm->profile);
+	if (lsm->sockcreate)
+		pr_info("%d has lsm sockcreate label %s\n", pid, lsm->sockcreate);
 
 	return ret;
+}
+
+int collect_and_suspend_lsm(void)
+{
+	struct pstree_item *item;
+
+	for_each_pstree_item(item) {
+		struct thread_lsm **thread_lsms;
+		int i;
+
+		thread_lsms = xzalloc((item->nr_threads + 1) * sizeof(thread_lsms));
+		if (!thread_lsms)
+			return -1;
+		dmpi(item)->thread_lsms = thread_lsms;
+
+		for (i = 0; i < item->nr_threads; i++) {
+			thread_lsms[i] = xzalloc(sizeof(**thread_lsms));
+			if (!thread_lsms[i])
+				return -1;
+
+			if (collect_lsm_profile(item->threads[i].real, thread_lsms[i]) < 0)
+				return -1;
+		}
+	}
+
+	/* now, suspend the LSM; this is where code that implements something
+	 * like PTRACE_O_SUSPEND_LSM should live. */
+	switch (kdat.lsm) {
+	default:
+		pr_warn("don't know how to suspend LSM %d\n", kdat.lsm);
+	}
+
+	return 0;
+}
+
+int unsuspend_lsm(void)
+{
+	return 0;
 }
 
 // in inventory.c
