@@ -695,19 +695,16 @@ int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread
 	int ret;
 	ThreadCoreEntry *tc = core->thread_core;
 
-	ret = collect_lsm_profile(pid, tc->creds);
-	if (!ret) {
-		/*
-		 * XXX: It's possible to set two: 32-bit and 64-bit
-		 * futex list's heads. That makes about no sense, but
-		 * it's possible. Until we meet such application, dump
-		 * only one: native or compat futex's list pointer.
-		 */
-		if (!core_is_compat(core))
-			ret = get_task_futex_robust_list(pid, tc);
-		else
-			ret = get_task_futex_robust_list_compat(pid, tc);
-	}
+	/*
+	 * XXX: It's possible to set two: 32-bit and 64-bit
+	 * futex list's heads. That makes about no sense, but
+	 * it's possible. Until we meet such application, dump
+	 * only one: native or compat futex's list pointer.
+	 */
+	if (!core_is_compat(core))
+		ret = get_task_futex_robust_list(pid, tc);
+	else
+		ret = get_task_futex_robust_list_compat(pid, tc);
 	if (!ret)
 		ret = dump_sched_info(pid, tc);
 	if (!ret) {
@@ -759,6 +756,9 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 	core->tc->flags = stat->flags;
 	core->tc->task_state = item->pid->state;
 	core->tc->exit_code = 0;
+
+	core->thread_core->creds->lsm_profile = dmpi(item)->thread_lsms[0]->profile;
+	core->thread_core->creds->lsm_sockcreate = dmpi(item)->thread_lsms[0]->sockcreate;
 
 	ret = parasite_dump_thread_leader_seized(ctl, pid, core);
 	if (ret)
@@ -864,6 +864,9 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 		goto err;
 	}
 	pstree_insert_pid(tid);
+
+	core->thread_core->creds->lsm_profile = dmpi(item)->thread_lsms[id]->profile;
+	core->thread_core->creds->lsm_sockcreate = dmpi(item)->thread_lsms[0]->sockcreate;
 
 	img = open_image(CR_FD_CORE, O_DUMP, tid->ns[0].virt);
 	if (!img)
@@ -1765,6 +1768,7 @@ static int cr_dump_finish(int ret)
 	 *    start rollback procedure and cleanup everything.
 	 */
 	if (ret || post_dump_ret || opts.final_state == TASK_ALIVE) {
+		unsuspend_lsm();
 		network_unlock();
 		delete_link_remaps();
 		clean_cr_time_mounts();
@@ -1902,6 +1906,9 @@ int cr_dump_tasks(pid_t pid)
 
 	/* Errors handled later in detect_pid_reuse */
 	parent_ie = get_parent_inventory();
+
+	if (collect_and_suspend_lsm() < 0)
+		goto err;
 
 	for_each_pstree_item(item) {
 		if (dump_one_task(item, parent_ie))

@@ -17,10 +17,8 @@ extern Lsmtype host_lsm_type(void);
  */
 extern void kerndat_lsm(void);
 
-/*
- * Read the LSM profile for the pstree item
- */
-extern int collect_lsm_profile(pid_t, CredsEntry *);
+int collect_and_suspend_lsm(void);
+int unsuspend_lsm(void);
 
 /*
  * Validate that the LSM profiles can be correctly applied (must happen after
