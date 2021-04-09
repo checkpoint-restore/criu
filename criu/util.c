@@ -1640,3 +1640,43 @@ ssize_t write_all(int fd, const void *buf, size_t size)
 	}
 	return n;
 }
+
+int rm_rf(char *target)
+{
+	int offset = strlen(target);
+	DIR *dir = NULL;
+	struct dirent *de;
+	int ret = -1;
+
+	dir = opendir(target);
+	if (!dir) {
+		pr_perror("unable to open %s", target);
+		return -1;
+	}
+
+	while ((de = readdir(dir))) {
+		int n;
+
+		if (dir_dots(de))
+			continue;
+
+		n = snprintf(target+offset, PATH_MAX-offset, "/%s", de->d_name);
+		if (n < 0 || n >= PATH_MAX) {
+			pr_err("snprintf failed\n");
+			goto out;
+		}
+
+		if (de->d_type == DT_DIR && rm_rf(target))
+			goto out;
+
+		if (remove(target) < 0) {
+			pr_perror("unable to remove %s", target);
+			goto out;
+		}
+	}
+
+	ret = 0;
+out:
+	target[offset] = 0;
+	return ret;
+}
