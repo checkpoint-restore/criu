@@ -50,6 +50,7 @@ struct kerndat_s {
 	bool has_tcp_half_closed;
 	bool stack_guard_gap_hidden;
 	int lsm;
+	bool ns_dumping_enabled;
 	bool has_uffd;
 	unsigned long uffd_features;
 	bool has_thp_disable;

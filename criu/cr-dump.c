@@ -83,6 +83,8 @@
 #include "memfd.h"
 #include "timens.h"
 #include "img-streamer.h"
+#include "apparmor.h"
+#include "asm/dump.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
@@ -1966,6 +1968,9 @@ int cr_dump_tasks(pid_t pid)
 		if (ret)
 			goto err;
 	}
+
+	if (dump_aa_namespaces() < 0)
+		goto err;
 
 	ret = dump_cgroups();
 	if (ret)

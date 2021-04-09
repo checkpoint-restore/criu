@@ -99,6 +99,7 @@
 #define PIDNS_MAGIC		0x61157326 /* Surgut */
 #define BPFMAP_FILE_MAGIC	0x57506142 /* Alapayevsk */
 #define BPFMAP_DATA_MAGIC	0x64324033 /* Arkhangelsk */
+#define APPARMOR_MAGIC		0x59423047 /* Sablino */
 
 #define IFADDR_MAGIC		RAW_IMAGE_MAGIC
 #define ROUTE_MAGIC		RAW_IMAGE_MAGIC

@@ -13,6 +13,7 @@
 #include "cr_options.h"
 #include "lsm.h"
 #include "fdstore.h"
+#include "apparmor.h"
 
 #include "protobuf.h"
 #include "images/inventory.pb-c.h"
@@ -56,6 +57,13 @@ static int apparmor_get_label(pid_t pid, char **profile_name)
 	if (strcmp(*profile_name, "unconfined") == 0) {
 		free(*profile_name);
 		*profile_name = NULL;
+	}
+
+	if (*profile_name && collect_aa_namespace(*profile_name) < 0) {
+		free(*profile_name);
+		*profile_name = NULL;
+		pr_err("failed to collect AA namespace\n");
+		return -1;
 	}
 
 	return 0;
@@ -216,6 +224,7 @@ void kerndat_lsm(void)
 
 	if (access(AA_SECURITYFS_PATH, F_OK) == 0) {
 		kdat.lsm = LSMTYPE__APPARMOR;
+ 		kdat.ns_dumping_enabled = check_aa_ns_dumping();
 		return;
 	}
 
