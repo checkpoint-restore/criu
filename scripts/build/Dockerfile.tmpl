@@ -29,7 +29,7 @@ RUN apt-install \
 COPY . /criu
 WORKDIR /criu
 
-RUN make mrproper && date && \
+RUN git clean -dfx && date && \
 # Check single object build
 	make -j $(nproc) CC="$CC" criu/parasite-syscall.o && \
 # Compile criu
