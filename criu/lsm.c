@@ -319,6 +319,10 @@ int collect_and_suspend_lsm(void)
 	/* now, suspend the LSM; this is where code that implements something
 	 * like PTRACE_O_SUSPEND_LSM should live. */
 	switch(kdat.lsm) {
+	case LSMTYPE__APPARMOR:
+		if (suspend_aa() < 0)
+			return -1;
+		break;
 	default:
 		pr_warn("don't know how to suspend LSM %d\n", kdat.lsm);
 	}
@@ -328,6 +332,9 @@ int collect_and_suspend_lsm(void)
 
 int unsuspend_lsm(void)
 {
+	if (kdat.lsm == LSMTYPE__APPARMOR && unsuspend_aa())
+		return -1;
+
 	return 0;
 }
 
