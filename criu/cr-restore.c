@@ -78,6 +78,7 @@
 #include "memfd.h"
 #include "timens.h"
 #include "bpfmap.h"
+#include "apparmor.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
@@ -248,6 +249,9 @@ static int crtools_prepare_shared(void)
 		return -1;
 
 	if (tty_prep_fds())
+		return -1;
+
+	if (prepare_apparmor_namespaces())
 		return -1;
 
 	return 0;
