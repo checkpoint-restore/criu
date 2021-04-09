@@ -31,7 +31,7 @@ COPY . /criu
 WORKDIR /criu
 ENV $ENV1=yes
 
-RUN make mrproper && date && \
+RUN git clean -dfx && date && \
 # Check single object build
 	make -j $(nproc) CC="$CC" criu/parasite-syscall.o && \
 # Compile criu
