@@ -45,11 +45,15 @@
 #include "tun.h"
 #include "namespaces.h"
 #include "pstree.h"
+#include "lsm.h"
+#include "apparmor.h"
 #include "cr_options.h"
 #include "libnetlink.h"
 #include "net.h"
 #include "restorer.h"
 #include "uffd.h"
+
+#include "images/inventory.pb-c.h"
 
 static char *feature_name(int (*func)(void));
 
@@ -97,6 +101,14 @@ out:
 	close_safe(&master);
 	close_safe(&slave);
 	return ret;
+}
+
+static int check_apparmor_stacking(void)
+{
+	if (!check_aa_ns_dumping())
+		return -1;
+
+	return 0;
 }
 
 static int check_map_files(void)
@@ -1459,6 +1471,7 @@ int cr_check(void)
 		ret |= check_time_namespace();
 		ret |= check_newifindex();
 		ret |= check_pidfd_store();
+		ret |= check_apparmor_stacking();
 	}
 
 	/*
@@ -1568,6 +1581,7 @@ static struct feature_list feature_list[] = {
 	{ "nftables", check_nftables_cr },
 	{ "has_ipt_legacy", check_ipt_legacy },
 	{ "pidfd_store", check_pidfd_store },
+	{ "apparmor_stacking", check_apparmor_stacking },
 	{ NULL, NULL },
 };
 
