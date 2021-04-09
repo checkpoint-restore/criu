@@ -3236,8 +3236,6 @@ static struct thread_creds_args *rst_prep_creds_args(CredsEntry *ce, unsigned lo
 		char *rendered = NULL, *profile;
 
 		profile = ce->lsm_profile;
-		if (opts.lsm_supplied)
-			profile = opts.lsm_profile;
 
 		if (validate_lsm(profile) < 0)
 			return ERR_PTR(-EINVAL);
