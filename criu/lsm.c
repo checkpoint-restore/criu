@@ -358,12 +358,7 @@ int render_lsm_profile(char *profile, char **val)
 
 	switch (kdat.lsm) {
 	case LSMTYPE__APPARMOR:
-		if (strcmp(profile, "unconfined") != 0 && asprintf(val, "changeprofile %s", profile) < 0) {
-			pr_err("allocating lsm profile failed\n");
-			*val = NULL;
-			return -1;
-		}
-		break;
+		return render_aa_profile(val, profile);
 	case LSMTYPE__SELINUX:
 		if (asprintf(val, "%s", profile) < 0) {
 			*val = NULL;

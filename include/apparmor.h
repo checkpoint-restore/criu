@@ -8,4 +8,6 @@ bool check_aa_ns_dumping(void);
 
 int prepare_apparmor_namespaces(void);
 
+int render_aa_profile(char **out, const char *cur);
+
 #endif /* __CR_APPARMOR_H__ */

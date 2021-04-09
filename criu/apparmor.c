@@ -350,6 +350,112 @@ err:
 	return -1;
 }
 
+#define NEXT_AA_TOKEN(pos)					\
+	while (*pos) {						\
+		if (*pos == '/' &&				\
+				*(pos+1) && *(pos+1) == '/' &&	\
+				*(pos+2) && *(pos+2) == '&') {	\
+			pos += 3;				\
+			break;					\
+		}						\
+		if (*pos == ':' &&				\
+				*(pos+1) && *(pos+1) == '/' &&	\
+				*(pos+2) && *(pos+2) == '/') {	\
+			pos += 3;				\
+			break;					\
+		}						\
+		pos++;						\
+	}
+
+static int write_aa_policy(AaNamespace *ns, char *path, int offset, char *rewrite)
+{
+	int i, my_offset, ret;
+	char *rewrite_pos = rewrite, namespace[PATH_MAX];
+
+	if (!rewrite) {
+		strncpy(namespace, ns->name, sizeof(namespace) - 1);
+	} else {
+		NEXT_AA_TOKEN(rewrite_pos);
+
+		switch(*rewrite_pos) {
+		case ':': {
+			char tmp, *end;
+
+			end = strchr(rewrite_pos+1, ':');
+			if (!end) {
+				pr_err("invalid namespace %s\n", rewrite_pos);
+				return -1;
+			}
+
+			tmp = *end;
+			*end = 0;
+			strlcpy(namespace, rewrite_pos+1, sizeof(namespace));
+			*end = tmp;
+
+			break;
+		} default:
+			strlcpy(namespace, ns->name, sizeof(namespace));
+			for (i = 0; i < ns->n_policies; i++) {
+				if (strcmp(ns->policies[i]->name, rewrite_pos))
+					pr_warn("binary rewriting of apparmor policies not supported right now, not renaming %s to %s\n", ns->policies[i]->name, rewrite_pos);
+			}
+		}
+	}
+
+	my_offset = snprintf(path+offset, PATH_MAX-offset, "/namespaces/%s", ns->name);
+	if (my_offset < 0 || my_offset >= PATH_MAX-offset) {
+		pr_err("snprintf'd too many characters\n");
+		return -1;
+	}
+
+	if (mkdir(path, 0755) < 0 && errno != EEXIST) {
+		pr_perror("failed to create namespace %s", path);
+		goto fail;
+	}
+
+	for (i = 0; i < ns->n_namespaces; i++) {
+		if (write_aa_policy(ns, path, offset + my_offset, rewrite_pos) < 0)
+			goto fail;
+	}
+
+	ret = snprintf(path+offset+my_offset, sizeof(path)-offset-my_offset, "/.replace");
+	if (ret < 0 || ret >= sizeof(path)-offset-my_offset) {
+		pr_err("snprintf failed\n");
+		goto fail;
+	}
+
+	for (i = 0; i < ns->n_policies; i++) {
+		AaPolicy *p = ns->policies[i];
+		void *data = p->blob.data;
+		int fd, n;
+		off_t len = p->blob.len;
+
+		fd = open(path, O_WRONLY);
+		if (fd < 0) {
+			pr_perror("couldn't open apparmor load file %s", path);
+			goto fail;
+		}
+
+
+		n = write(fd, data, len);
+		close(fd);
+
+		if (n != len) {
+			pr_perror("write AA policy %s in %s failed", p->name, namespace);
+			goto fail;
+		}
+	}
+
+	return 0;
+
+fail:
+	path[offset + my_offset] = 0;
+	rmdir(path);
+
+	pr_err("failed to write policy in AA namespace %s\n", namespace);
+	return -1;
+}
+
 int dump_aa_namespaces(void)
 {
 	ApparmorEntry *ae = NULL;
@@ -411,97 +517,6 @@ bool check_aa_ns_dumping(void)
 	return major >= 1 && minor >= 2;
 }
 
-static int restore_aa_namespace(AaNamespace *ns, char *path, int offset)
-{
-	pid_t pid;
-	int status;
-
-	pid = fork();
-	if (pid < 0) {
-		pr_perror("fork failed");
-		return -1;
-	}
-
-	if (!pid) {
-		int i, my_offset, ret, fd;
-		char buf[1024];
-
-		ret = snprintf(buf, sizeof(buf), "changeprofile :%s:", ns->name);
-		if (ret < 0 || ret >= sizeof(buf)) {
-			pr_err("profile %s too big\n", ns->name);
-			exit(1);
-		}
-
-		my_offset = snprintf(path+offset, PATH_MAX-offset, "/namespaces/%s", ns->name);
-		if (my_offset < 0 || my_offset >= PATH_MAX-offset) {
-			pr_err("snprintf'd too many characters\n");
-			exit(1);
-		}
-
-		if (mkdir(path, 0755) < 0) {
-			if (errno == EEXIST) {
-				pr_warn("apparmor namespace %s already exists, restoring into it\n", path);
-			} else {
-				pr_perror("failed to create namespace %s", path);
-				exit(1);
-			}
-		}
-
-		fd = open_proc_rw(PROC_SELF, "attr/current");
-		if (fd < 0) {
-			pr_perror("couldn't open attr/current");
-			goto fail;
-		}
-
-		errno = 0;
-		ret = write(fd, buf, strlen(buf));
-		close(fd);
-		if (ret != strlen(buf)) {
-			pr_perror("failed to change aa namespace %s", buf);
-			goto fail;
-		}
-
-		for (i = 0; i < ns->n_namespaces; i++) {
-			if (restore_aa_namespace(ns, path, offset + my_offset) < 0)
-				goto fail;
-		}
-
-		for (i = 0; i < ns->n_policies; i++) {
-			int fd, n;
-			AaPolicy *p = ns->policies[i];
-
-			fd = open(AA_SECURITYFS_PATH "/.replace", O_WRONLY);
-			if (fd < 0) {
-				pr_perror("couldn't open apparmor load file");
-				goto fail;
-			}
-
-			n = write(fd, p->blob.data, p->blob.len);
-			close(fd);
-			if (n != p->blob.len) {
-				pr_perror("write AA policy failed");
-				goto fail;
-			}
-		}
-
-		exit(0);
-	fail:
-		rmdir(path);
-		exit(1);
-	}
-
-	if (waitpid(pid, &status, 0) < 0) {
-		pr_perror("waitpid failed");
-		return -1;
-	}
-
-	if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
-		return 0;
-
-	pr_err("failed to restore aa namespace, worker exited: %d\n", status);
-	return -1;
-}
-
 int prepare_apparmor_namespaces(void)
 {
 	struct cr_img *img;
@@ -528,7 +543,7 @@ int prepare_apparmor_namespaces(void)
 	for (i = 0; i < ae->n_namespaces; i++) {
 		char path[PATH_MAX] = AA_SECURITYFS_PATH "/policy";
 
-		if (restore_aa_namespace(ae->namespaces[i], path, strlen(path)) < 0) {
+		if (write_aa_policy(ae->namespaces[i], path, strlen(path), opts.lsm_profile) < 0) {
 			ret = -1;
 			goto out;
 		}
@@ -538,4 +553,75 @@ int prepare_apparmor_namespaces(void)
 out:
 	apparmor_entry__free_unpacked(ae, NULL);
 	return ret;
+}
+
+int render_aa_profile(char **out, const char *cur)
+{
+	const char *pos;
+	int n_namespaces = 0, n_profiles = 0;
+	bool last_namespace = false;
+
+	/* no rewriting necessary */
+	if (!opts.lsm_supplied) {
+		*out = xsprintf("changeprofile %s", cur);
+		if (!*out)
+			return -1;
+
+		return 0;
+	}
+
+	/* user asked to re-write to an unconfined profile */
+	if (!opts.lsm_profile) {
+		*out = NULL;
+		return 0;
+	}
+
+	pos = opts.lsm_profile;
+	while (*pos) {
+		switch(*pos) {
+		case ':':
+			n_namespaces++;
+			break;
+		default:
+			n_profiles++;
+		}
+
+		NEXT_AA_TOKEN(pos);
+	}
+
+	/* special case: there is no namespacing or stacking; we can just
+	 * changeprofile to the rewritten string
+	 */
+	if (n_profiles == 1 && n_namespaces == 0) {
+		*out = xsprintf("changeprofile %s", opts.lsm_profile);
+		if (!*out)
+			return -1;
+
+		pr_info("rewrote apparmor profile from %s to %s\n", cur, *out);
+		return 0;
+	}
+
+	pos = cur;
+	while (*pos) {
+		switch(*pos) {
+		case ':':
+			n_namespaces--;
+			last_namespace = true;
+			break;
+		default:
+			n_profiles--;
+		}
+
+		NEXT_AA_TOKEN(pos);
+
+		if (n_profiles == 0 && n_namespaces == 0)
+			break;
+	}
+
+	*out = xsprintf("changeprofile %s//%s%s", opts.lsm_profile, last_namespace ? "" : "&", pos);
+	if (!*out)
+		return -1;
+
+	pr_info("rewrote apparmor profile from %s to %s\n", cur, *out);
+	return 0;
 }
