@@ -67,6 +67,7 @@
 #include "images/img-streamer.pb-c.h"
 #include "images/bpfmap-file.pb-c.h"
 #include "images/bpfmap-data.pb-c.h"
+#include "images/apparmor.pb-c.h"
 
 struct cr_pb_message_desc cr_pb_descs[PB_MAX];
 
