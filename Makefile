@@ -384,7 +384,7 @@ docker-build:
 
 docker-test:
 	docker run --rm -it --privileged -v /lib/modules:/lib/modules --network=host --cgroupns=host criu-x86_64 \
-		./test/zdtm.py run -a -x tcp6 -x tcpbuf6 -x static/rtc -x cgroup
+		./test/zdtm.py run -a --keep-going --ignore-taint
 .PHONY: docker-test
 
 help:
