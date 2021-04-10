@@ -39,7 +39,8 @@ RUN git clean -dfx && date && \
 	make mrproper && ! git clean -ndx --exclude=scripts/build \
 	--exclude=.config --exclude=test | grep .
 
-# Compile tests
-RUN date && make -j $(nproc) CC="$CC" -C test/zdtm && date
+# Re-compile criu and compile tests for 'make docker-test'
+RUN make -j $(nproc) CC="$CC" && \
+	date &&  make -j $(nproc) CC="$CC" -C test/zdtm && date
 
 #RUN make test/compel/handle_binary && ./test/compel/handle_binary
