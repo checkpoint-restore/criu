@@ -77,7 +77,7 @@ ifeq ($(ARCH),x86)
 endif
 
 ifeq ($(ARCH),mips)
-        DEFINES		:= -DCONFIG_MIPS 
+        DEFINES		:= -DCONFIG_MIPS
 endif
 
 #
@@ -379,11 +379,11 @@ gcov:
 .PHONY: gcov
 
 docker-build:
-	$(MAKE) -C scripts/build/ x86_64 
+	$(MAKE) -C scripts/build/ x86_64
 .PHONY: docker-build
 
 docker-test:
-	docker run --rm -it --privileged criu-x86_64 ./test/zdtm.py run -a -x tcp6 -x tcpbuf6 -x static/rtc -x cgroup
+	docker run --rm -it --privileged -v /lib/modules:/lib/modules criu-x86_64 ./test/zdtm.py run -a -x tcp6 -x tcpbuf6 -x static/rtc -x cgroup
 .PHONY: docker-test
 
 help:
