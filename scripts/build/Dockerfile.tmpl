@@ -2,6 +2,8 @@ ARG CC=gcc
 
 COPY scripts/ci/apt-install /bin/apt-install
 
+# On Ubuntu, kernel modules such as ip_tables and xt_mark may not be loaded by default
+# We need to install kmod to enable iptables to load these modules for us.
 RUN apt-install \
 	libnet-dev \
 	libnl-route-3-dev \
@@ -20,10 +22,15 @@ RUN apt-install \
 	libprotobuf-c-dev \
 	libprotobuf-dev \
 	libselinux-dev \
+	iproute2 \
+	kmod \
 	pkg-config \
 	protobuf-c-compiler \
 	protobuf-compiler \
+	python-is-python3 \
 	python3-minimal \
+	python3-protobuf \
+	python3-yaml \
 	python3-future
 
 COPY . /criu
