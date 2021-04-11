@@ -2065,14 +2065,36 @@ static inline int dump_rule(struct cr_imgset *fds)
 static inline int dump_iptables(struct cr_imgset *fds)
 {
 	struct cr_img *img;
+	char *iptables_cmd = "iptables-save";
+	char *ip6tables_cmd = "ip6tables-save";
 
-	img = img_from_set(fds, CR_FD_IPTABLES);
-	if (run_iptables_tool("iptables-save", -1, img_raw_fd(img)))
-		return -1;
+	/*
+	 * Let's skip iptables dump if we have nftables support compiled in,
+	 * and iptables backend is nft to prevent duplicate dumps.
+	 */
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	iptables_cmd = get_legacy_iptables_bin(false);
 
-	if (kdat.ipv6) {
+	if (kdat.ipv6)
+		ip6tables_cmd = get_legacy_iptables_bin(true);
+#endif
+
+	if (!iptables_cmd) {
+		pr_info("skipping iptables dump - no legacy version present\n");
+	} else {
+		img = img_from_set(fds, CR_FD_IPTABLES);
+		if (run_iptables_tool(iptables_cmd, -1, img_raw_fd(img)))
+			return -1;
+	}
+
+	if (!kdat.ipv6)
+		return 0;
+
+	if (!ip6tables_cmd) {
+		pr_info("skipping ip6tables dump - no legacy version present\n");
+	} else {
 		img = img_from_set(fds, CR_FD_IP6TABLES);
-		if (run_iptables_tool("ip6tables-save", -1, img_raw_fd(img)))
+		if (run_iptables_tool(ip6tables_cmd, -1, img_raw_fd(img)))
 			return -1;
 	}
 
