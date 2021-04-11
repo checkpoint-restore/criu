@@ -1201,6 +1201,44 @@ static int check_compat_cr(void)
 	return -1;
 }
 
+static int check_nftables_cr(void)
+{
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	return 0;
+#else
+	pr_warn("CRIU was built without nftables support - nftables rules will "
+		"not be preserved during C/R\n");
+	return -1;
+#endif
+}
+
+static int check_ipt_legacy(void)
+{
+	char *ipt_legacy_bin;
+	char *ip6t_legacy_bin;
+
+	ipt_legacy_bin = get_legacy_iptables_bin(false);
+	if (!ipt_legacy_bin) {
+		pr_warn("Couldn't find iptables version which is using iptables legacy API\n");
+		return -1;
+	}
+
+	pr_info("iptables cmd: %s\n", ipt_legacy_bin);
+
+	if (!kdat.ipv6)
+		return 0;
+
+	ip6t_legacy_bin = get_legacy_iptables_bin(true);
+	if (!ip6t_legacy_bin) {
+		pr_warn("Couldn't find ip6tables version which is using iptables legacy API\n");
+		return -1;
+	}
+
+	pr_info("ip6tables cmd: %s\n", ip6t_legacy_bin);
+
+	return 0;
+}
+
 static int check_uffd(void)
 {
 	if (!kdat.has_uffd) {
@@ -1511,6 +1549,8 @@ static struct feature_list feature_list[] = {
 	{ "external_net_ns", check_external_net_ns},
 	{ "clone3_set_tid", check_clone3_set_tid},
 	{ "newifindex", check_newifindex},
+	{ "nftables", check_nftables_cr },
+	{ "has_ipt_legacy", check_ipt_legacy },
 	{ NULL, NULL },
 };
 
