@@ -1494,3 +1494,91 @@ int cut_path_ending(char *path, char *ending)
 	path[ending_pos - 1] = 0;
 	return 0;
 }
+
+static int is_iptables_nft(char *bin)
+{
+	int pfd[2] = { -1, -1 }, ret = -1;
+	char *cmd[] = { bin, "-V", NULL };
+	char buf[100];
+
+	if (pipe(pfd) < 0) {
+		pr_perror("Unable to create pipe");
+		goto err;
+	}
+
+	ret = cr_system(-1, pfd[1], -1, cmd[0], cmd, 0);
+	if (ret) {
+		pr_err("%s -V failed\n", cmd[0]);
+		goto err;
+	}
+
+	close_safe(&pfd[1]);
+
+	ret = read(pfd[0], buf, sizeof(buf) - 1);
+	if (ret < 0) {
+		pr_perror("Unable to read %s -V output", cmd[0]);
+		goto err;
+	}
+
+	buf[ret] = '\0';
+	ret = 0;
+
+	if (strstr(buf, "nf_tables")) {
+		pr_info("iptables has nft backend: %s\n", buf);
+		ret = 1;
+	}
+
+err:
+	close_safe(&pfd[1]);
+	close_safe(&pfd[0]);
+	return ret;
+}
+
+char *get_legacy_iptables_bin(bool ipv6)
+{
+	static char iptables_bin[2][32];
+	/* 0  - means we don't know yet,
+	 * -1 - not present,
+	 * 1  - present.
+	 */
+	static int iptables_present[2] = { 0, 0 };
+	char bins[2][2][32] = {
+		{
+			"iptables-save",
+			"iptables-legacy-save"
+		},
+		{
+			"ip6tables-save",
+			"ip6tables-legacy-save"
+		}
+	};
+	int ret;
+
+	if (iptables_present[ipv6] == -1)
+		return NULL;
+
+	if (iptables_present[ipv6] == 1)
+		return iptables_bin[ipv6];
+
+	memcpy(iptables_bin[ipv6], bins[ipv6][0], strlen(bins[ipv6][0]) + 1);
+	ret = is_iptables_nft(iptables_bin[ipv6]);
+
+	/*
+	 * iptables on host uses nft backend (or not installed),
+	 * let's try iptables-legacy
+	 */
+	if (ret < 0 || ret == 1) {
+		memcpy(iptables_bin[ipv6], bins[ipv6][1],
+					   strlen(bins[ipv6][1]) + 1);
+		ret = is_iptables_nft(iptables_bin[ipv6]);
+		if (ret < 0 || ret == 1) {
+			iptables_present[ipv6] = -1;
+			return NULL;
+		}
+	}
+
+	/* we can come here with iptables-save or iptables-legacy-save */
+	iptables_present[ipv6] = 1;
+
+	return iptables_bin[ipv6];
+}
