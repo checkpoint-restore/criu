@@ -1,5 +1,4 @@
 ARG CC=gcc
-ARG ENV1=FOOBAR
 
 COPY scripts/ci/apt-install /bin/apt-install
 
@@ -29,7 +28,6 @@ RUN apt-install \
 
 COPY . /criu
 WORKDIR /criu
-ENV $ENV1=yes
 
 RUN make mrproper && date && \
 # Check single object build
