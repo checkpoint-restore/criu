@@ -383,7 +383,7 @@ docker-build:
 .PHONY: docker-build
 
 docker-test:
-	docker run --rm -it --privileged -v /lib/modules:/lib/modules --network=host --cgroupns=host criu-x86_64 \
+	docker run --rm --privileged -v /lib/modules:/lib/modules --network=host --cgroupns=host criu-x86_64 \
 		./test/zdtm.py run -a --keep-going --ignore-taint
 .PHONY: docker-test
 
