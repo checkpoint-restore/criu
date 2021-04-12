@@ -1,6 +1,5 @@
 FROM alpine
 ARG CC=gcc
-ARG ENV1=FOOBAR
 
 RUN apk update && apk add \
 	$CC \
@@ -25,7 +24,6 @@ RUN apk update && apk add \
 
 COPY . /criu
 WORKDIR /criu
-ENV $ENV1=yes
 RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 
 RUN apk add \

@@ -1,7 +1,6 @@
 FROM registry.centos.org/centos/centos:8
 
 ARG CC=gcc
-ARG ENV1=FOOBAR
 
 RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm dnf-plugins-core
 RUN yum config-manager --set-enabled powertools
@@ -43,7 +42,6 @@ ENV PYTHON=python3
 COPY . /criu
 WORKDIR /criu
 
-ENV $ENV1=yes
 RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 
 # The rpc test cases are running as user #1000, let's add the user
