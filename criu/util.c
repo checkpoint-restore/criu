@@ -731,7 +731,13 @@ int is_root_user(void)
 /*
  * is_empty_dir will always close the FD dirfd: either implicitly
  * via closedir or explicitly in case fdopendir had failed
+ *
+ * return values:
+ *   < 0 : open directory stream failed
+ *     0 : directory is not empty
+ *     1 : directory is empty
  */
+
 int is_empty_dir(int dirfd)
 {
 	int ret = 0;
@@ -740,6 +746,7 @@ int is_empty_dir(int dirfd)
 
 	fdir = fdopendir(dirfd);
 	if (!fdir) {
+		pr_perror("open directory stream by fd %d failed", dirfd);
 		close_safe(&dirfd);
 		return -1;
 	}
