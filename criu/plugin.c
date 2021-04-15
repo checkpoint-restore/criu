@@ -54,6 +54,9 @@ static cr_plugin_desc_t *cr_gen_plugin_desc(void *h, char *path)
 	__assign_hook(DUMP_EXT_MOUNT, "cr_plugin_dump_ext_mount");
 	__assign_hook(RESTORE_EXT_MOUNT, "cr_plugin_restore_ext_mount");
 	__assign_hook(DUMP_EXT_LINK, "cr_plugin_dump_ext_link");
+	__assign_hook(HANDLE_DEVICE_VMA, "cr_plugin_handle_device_vma");
+	__assign_hook(UPDATE_VMA_MAP, "cr_plugin_update_vma_map");
+	__assign_hook(RESUME_DEVICES_LATE, "cr_plugin_resume_devices_late");
 
 #undef __assign_hook
 

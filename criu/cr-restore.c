@@ -2388,6 +2388,29 @@ skip_ns_bouncing:
 		pr_err("Unable to flush breakpoints\n");
 
 	finalize_restore();
+	/*
+	 * Some external devices such as GPUs might need a very late
+	 * trigger to kick-off some events, memory notifiers and for
+	 * restarting the previously restored queues during criu restore
+	 * stage. This is needed since criu pie code may shuffle VMAs
+	 * around so things such as registering MMU notifiers (for GPU
+	 * mapped memory) could be done sanely once the pie code hands
+	 * over the control to master process.
+	 */
+	for_each_pstree_item(item) {
+		pr_info("Run late stage hook from criu master for external devices\n");
+		ret = run_plugins(RESUME_DEVICES_LATE, item->pid->real);
+		/*
+		 * This may not really be an error. Only certain plugin hooks
+		 * (if available) will return success such as amdgpu_plugin that
+		 * validates the pid of the resuming tasks in the kernel mode.
+		 * Most of the times, it'll be -ENOTSUP and in few cases, it
+		 * might actually be a true error code but that would be also
+		 * captured in the plugin so no need to print the error here.
+		 */
+		if (ret < 0)
+			pr_debug("restore late stage hook for external plugin failed\n");
+	}
 
 	ret = run_scripts(ACT_PRE_RESUME);
 	if (ret)
