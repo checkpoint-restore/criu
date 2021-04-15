@@ -53,6 +53,8 @@ enum {
 
 	CR_PLUGIN_HOOK__UPDATE_VMA_MAP		= 7,
 
+	CR_PLUGIN_HOOK__RESUME_DEVICES_LATE	= 8,
+
 	CR_PLUGIN_HOOK__MAX
 };
 
@@ -68,6 +70,7 @@ DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESTORE_EXT_MOUNT, int id, char *mountp
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_EXT_LINK, int index, int type, char *kind);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__UPDATE_VMA_MAP, const char* old_path, char *new_path,
                                const uint64_t addr, const uint64_t old_pgoff, uint64_t *new_pgoff);
+DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, int pid);
 
 enum {
 	CR_PLUGIN_STAGE__DUMP,
@@ -136,5 +139,6 @@ typedef int (cr_plugin_dump_ext_link_t)(int index, int type, char *kind);
 typedef int (cr_plugin_update_vma_offset_t)(const char* old_path, char *new_path,
 					    const uint64_t addr, const uint64_t old_pgoff,
 					    uint64_t *new_pgoff);
+typedef int (cr_plugin_resume_devices_late_t)(int pid);
 
 #endif /* __CRIU_PLUGIN_H__ */
