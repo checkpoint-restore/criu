@@ -163,6 +163,15 @@ int kmtIoctl(int fd, unsigned long request, void *arg)
 
 static void free_e(CriuKfd *e)
 {
+	for (int i = 0; i < e->n_ev_entries; i++) {
+		if (e->ev_entries[i]) {
+			if (e->ev_entries[i]->private_data.data)
+				xfree(e->ev_entries[i]->private_data.data);
+
+			xfree(e->ev_entries[i]);
+		}
+	}
+
 	for (int i = 0; i < e->n_q_entries; i++) {
 		if (e->q_entries[i]) {
 			if (e->q_entries[i]->private_data.data)
@@ -289,6 +298,29 @@ static int allocate_q_entries(CriuKfd *e, int num_queues)
 
 		e->q_entries[i] = entry;
 		e->n_q_entries++;
+	}
+	return 0;
+}
+
+static int allocate_ev_entries(CriuKfd *e, int num_events)
+{
+	e->ev_entries = xmalloc(sizeof(EvEntry *) * num_events);
+	if (!e->ev_entries) {
+		pr_err("Failed to allocate ev_entries\n");
+		return -1;
+	}
+
+	for (int i = 0; i < num_events; i++) {
+		EvEntry *entry = xzalloc(sizeof(*entry));
+
+		if (!entry) {
+			pr_err("Failed to allocate ev_entry\n");
+			return -ENOMEM;
+		}
+		ev_entry__init(entry);
+
+		e->ev_entries[i] = entry;
+		e->n_ev_entries++;
 	}
 	return 0;
 }
@@ -689,6 +721,66 @@ exit:
 	return ret;
 }
 
+static int dump_events(int fd, struct kfd_ioctl_criu_process_info_args *info_args, CriuKfd *e)
+{
+	int ret = 0, i;
+	struct kfd_ioctl_criu_dumper_args args = { 0 };
+	struct kfd_criu_event_bucket *ev_buckets;
+	uint8_t *priv_data;
+
+	pr_debug("Dumping %d events\n", info_args->total_events);
+
+	if (!info_args->total_events)
+		return 0;
+
+	ret = init_dumper_args(&args, KFD_CRIU_OBJECT_TYPE_EVENT, 0, info_args->total_events,
+			       (info_args->total_events * sizeof(*ev_buckets)) + info_args->events_priv_data_size);
+
+	if (ret)
+		goto exit;
+
+	ret = kmtIoctl(fd, AMDKFD_IOC_CRIU_DUMPER, &args);
+	if (ret) {
+		pr_perror("amdgpu_plugin: Failed to call dumper (events) ioctl");
+		goto exit;
+	}
+
+	ev_buckets = (struct kfd_criu_event_bucket *)args.objects;
+	/* First private data starts after all buckets */
+	priv_data = (void *)(ev_buckets + args.num_objects);
+
+	e->num_of_events = info_args->total_events;
+
+	ret = allocate_ev_entries(e, e->num_of_events);
+	if (ret) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	for (i = 0; i < args.num_objects; i++) {
+		struct kfd_criu_event_bucket *ev_bucket = &ev_buckets[i];
+		EvEntry *evinfo = e->ev_entries[i];
+
+		pr_debug("Event[%d] gpu_id:%x\n", i, ev_bucket->gpu_id);
+
+		if (ev_bucket->gpu_id)
+			evinfo->gpu_id = ev_bucket->gpu_id;
+
+		evinfo->private_data.len = ev_bucket->priv_data_size;
+		evinfo->private_data.data = xmalloc(evinfo->private_data.len);
+		if (!evinfo->private_data.data) {
+			ret = -ENOMEM;
+			goto exit;
+		}
+
+		memcpy(evinfo->private_data.data, priv_data + ev_bucket->priv_data_offset, evinfo->private_data.len);
+	}
+exit:
+	xfree((void *)args.objects);
+	pr_info("Dumped events %s (ret:%d)\n", ret ? "Failed" : "Ok", ret);
+	return ret;
+}
+
 int amdgpu_plugin_dump_file(int fd, int id)
 {
 	struct kfd_ioctl_criu_process_info_args info_args = { 0 };
@@ -780,6 +872,10 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		goto exit;
 
 	ret = dump_queues(fd, &info_args, e);
+	if (ret)
+		goto exit;
+
+	ret = dump_events(fd, &info_args, e);
 	if (ret)
 		goto exit;
 
@@ -1124,6 +1220,58 @@ exit:
 	return ret;
 }
 
+static int restore_events(int fd, CriuKfd *e)
+{
+	struct kfd_ioctl_criu_restorer_args args = { 0 };
+	struct kfd_criu_event_bucket *ev_buckets;
+	uint64_t priv_data_offset = 0;
+	uint64_t objects_size = 0;
+	uint8_t *priv_data;
+	int ret = 0;
+
+	if (!e->num_of_events)
+		return 0;
+
+	pr_debug("Restoring %d events\n", e->num_of_events);
+
+	for (int i = 0; i < e->num_of_events; i++)
+		objects_size += sizeof(*ev_buckets) + e->ev_entries[i]->private_data.len;
+
+	ret = init_restorer_args(&args, KFD_CRIU_OBJECT_TYPE_EVENT, 0, e->num_of_events, objects_size);
+	if (ret)
+		goto exit;
+
+	ev_buckets = (struct kfd_criu_event_bucket *)args.objects;
+	priv_data = (void *)(ev_buckets + args.num_objects);
+
+	for (int i = 0; i < args.num_objects; i++) {
+		struct kfd_criu_event_bucket *ev_bucket = &ev_buckets[i];
+		EvEntry *evinfo = e->ev_entries[i];
+
+		ev_bucket->priv_data_size = evinfo->private_data.len;
+		ev_bucket->priv_data_offset = priv_data_offset;
+		priv_data_offset += ev_bucket->priv_data_size;
+
+		memcpy(priv_data + ev_bucket->priv_data_offset, evinfo->private_data.data, ev_bucket->priv_data_size);
+
+		if (evinfo->gpu_id)
+			ev_bucket->gpu_id = evinfo->gpu_id;
+
+		plugin_log_msg("Event [%d] gpu_id:%x\n", i, ev_bucket->gpu_id);
+	}
+
+	ret = kmtIoctl(fd, AMDKFD_IOC_CRIU_RESTORER, &args);
+	if (ret) {
+		pr_perror("amdgpu_plugin: Failed to call restorer (events) ioctl");
+		goto exit;
+	}
+
+exit:
+	xfree((void *)args.objects);
+	pr_info("Restore events %s (ret:%d)\n", ret ? "Failed" : "Ok", ret);
+	return ret;
+}
+
 int amdgpu_plugin_restore_file(int id)
 {
 	int ret = 0, fd;
@@ -1223,6 +1371,10 @@ int amdgpu_plugin_restore_file(int id)
 		goto exit;
 
 	ret = restore_queues(fd, e);
+	if (ret)
+		goto exit;
+
+	ret = restore_events(fd, e);
 	if (ret)
 		goto exit;
 
