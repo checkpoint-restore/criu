@@ -42,6 +42,23 @@ message q_entry {
 	required bytes ctl_stack = 23;
 }
 
+message ev_entry {
+	required uint32 event_id = 1;
+	required uint32 auto_reset = 2;
+	required uint32 type = 3;
+	required uint32 signaled = 4;
+	required uint64 user_signal_address = 5;
+	required uint32 mem_exc_fail_not_present = 6;
+	required uint32 mem_exc_fail_read_only = 7;
+	required uint32 mem_exc_fail_no_execute = 8;
+	required uint64 mem_exc_va = 9;
+	required uint32 mem_exc_gpu_id = 10;
+	required uint32 hw_exc_reset_type = 11;
+	required uint32 hw_exc_reset_cause = 12;
+	required uint32 hw_exc_memory_lost = 13;
+	required uint32 hw_exc_gpu_id = 14;
+}
+
 message criu_kfd {
 	required uint32 pid = 1;
 	required uint32 num_of_devices = 2;
@@ -50,6 +67,9 @@ message criu_kfd {
 	repeated bo_entries_test bo_info_test = 5;
 	required uint32	num_of_queues = 6;
 	repeated q_entry q_entries = 7;
+	required uint64 event_page_offset = 8;
+	required uint32 num_of_events = 9;
+	repeated ev_entry ev_entries = 10;
 }
 
 message criu_render_node {

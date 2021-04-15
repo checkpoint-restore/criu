@@ -173,6 +173,10 @@ static void free_e(CriuKfd *e)
 		if (e->q_entries[i])
 			xfree(e->q_entries[i]);
 	}
+	for (int i = 0; i < e->n_ev_entries; i++) {
+		if (e->ev_entries[i])
+			xfree(e->ev_entries[i]);
+	}
 	xfree(e);
 }
 
@@ -260,6 +264,29 @@ static int allocate_q_entries(CriuKfd *e, int num_queues)
 	return 0;
 }
 
+static int allocate_ev_entries(CriuKfd *e, int num_events)
+{
+	e->ev_entries = xmalloc(sizeof(EvEntry*) * num_events);
+	if (!e->ev_entries) {
+		pr_err("Failed to allocate ev_entries\n");
+		return -1;
+	}
+
+	for (int i = 0; i < num_events; i++) {
+		EvEntry *ev_entry = xmalloc(sizeof(EvEntry));
+		if (!ev_entry) {
+			pr_err("Failed to allocate ev_entry\n");
+			return -ENOMEM;
+		}
+		ev_entry__init(ev_entry);
+		e->ev_entries[i] = ev_entry;
+		e->n_ev_entries++;
+
+	}
+	e->num_of_events = num_events;
+	return 0;
+}
+
 int amdgpu_plugin_init(int stage)
 {
 	pr_info("amdgpu_plugin: initialized:  %s (AMDGPU/KFD)\n",
@@ -281,6 +308,7 @@ int amdgpu_plugin_dump_file(int fd, int id)
 	struct kfd_ioctl_criu_dumper_args args = {0};
 	struct kfd_criu_bo_buckets *bo_bucket_ptr;
 	struct kfd_criu_q_bucket *q_bucket_ptr;
+	struct kfd_criu_ev_bucket *ev_buckets_ptr = NULL;
 	int ret, drm_fd;
 	char img_path[PATH_MAX];
 	struct stat st, st_kfd;
@@ -388,6 +416,14 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		args.queues_data_size = helper_args.queues_data_size;
 		pr_info("amdgpu_plugin: queues data size:%llu\n", args.queues_data_size);
 	}
+
+	if (helper_args.num_of_events) {
+		ev_buckets_ptr = xmalloc(helper_args.num_of_events *
+					sizeof(struct kfd_criu_ev_bucket));
+		args.num_of_events = helper_args.num_of_events;
+	}
+
+	args.kfd_criu_ev_buckets_ptr = (uintptr_t)ev_buckets_ptr;
 
 	/* call dumper ioctl, pass num of BOs to dump */
         if (kmtIoctl(fd, AMDKFD_IOC_CRIU_DUMPER, &args) == -1) {
@@ -602,6 +638,44 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		e->q_entries[i]->ctl_stack.data = queue_data_ptr + q_bucket_ptr[i].cu_mask_size + q_bucket_ptr[i].mqd_size;
 	}
 
+	e->event_page_offset = args.event_page_offset;
+	pr_info("amdgpu_plugin: number of events:%d\n", args.num_of_events);
+
+	if (args.num_of_events) {
+		ret = allocate_ev_entries(e, args.num_of_events);
+		if (ret)
+			return ret;
+
+		for (int i = 0; i < args.num_of_events; i++) {
+			e->ev_entries[i]->event_id = ev_buckets_ptr[i].event_id;
+			e->ev_entries[i]->auto_reset = ev_buckets_ptr[i].auto_reset;
+			e->ev_entries[i]->type = ev_buckets_ptr[i].type;
+			e->ev_entries[i]->signaled = ev_buckets_ptr[i].signaled;
+
+			if (e->ev_entries[i]->type == KFD_IOC_EVENT_MEMORY) {
+				e->ev_entries[i]->mem_exc_fail_not_present =
+					ev_buckets_ptr[i].memory_exception_data.failure.NotPresent;
+				e->ev_entries[i]->mem_exc_fail_read_only =
+					ev_buckets_ptr[i].memory_exception_data.failure.ReadOnly;
+				e->ev_entries[i]->mem_exc_fail_no_execute =
+					ev_buckets_ptr[i].memory_exception_data.failure.NoExecute;
+				e->ev_entries[i]->mem_exc_va =
+					ev_buckets_ptr[i].memory_exception_data.va;
+				e->ev_entries[i]->mem_exc_gpu_id =
+					ev_buckets_ptr[i].memory_exception_data.gpu_id;
+			} else if (e->ev_entries[i]->type == KFD_IOC_EVENT_HW_EXCEPTION) {
+				e->ev_entries[i]->hw_exc_reset_type =
+					ev_buckets_ptr[i].hw_exception_data.reset_type;
+				e->ev_entries[i]->hw_exc_reset_cause =
+					ev_buckets_ptr[i].hw_exception_data.reset_cause;
+				e->ev_entries[i]->hw_exc_memory_lost =
+					ev_buckets_ptr[i].hw_exception_data.memory_lost;
+				e->ev_entries[i]->hw_exc_gpu_id =
+					ev_buckets_ptr[i].hw_exception_data.gpu_id;
+			}
+		}
+	}
+
 	snprintf(img_path, sizeof(img_path), "kfd.%d.img", id);
 	pr_info("amdgpu_plugin: img_path = %s", img_path);
 
@@ -619,7 +693,7 @@ int amdgpu_plugin_dump_file(int fd, int id)
 	criu_kfd__pack(e, buf);
 
 	ret = write_file(img_path,  buf, len);
-	if (ret != len)
+	if (ret)
 		ret = -1;
 
 	xfree(buf);
@@ -627,6 +701,8 @@ failed:
 	xfree(devinfo_bucket_ptr);
 	xfree(bo_bucket_ptr);
 	xfree(q_bucket_ptr);
+	if (ev_buckets_ptr)
+		xfree(ev_buckets_ptr);
 	free_e(e);
 	pr_info("amdgpu_plugin: Exiting from dumper for fd = %d\n", major(st.st_rdev));
         return ret;
@@ -641,6 +717,7 @@ int amdgpu_plugin_restore_file(int id)
 	struct kfd_ioctl_criu_restorer_args args = {0};
 	struct kfd_criu_bo_buckets *bo_bucket_ptr;
 	struct kfd_criu_q_bucket *q_bucket_ptr;
+	struct kfd_criu_ev_bucket *ev_bucket_ptr = NULL;
 	__u64 *restored_bo_offsets_array;
 	char img_path[PATH_MAX];
 	struct stat filestat;
@@ -881,6 +958,51 @@ int amdgpu_plugin_restore_file(int id)
 	args.num_of_queues = e->num_of_queues;
 	args.kfd_criu_q_buckets_ptr = (uintptr_t)q_bucket_ptr;
 
+	args.event_page_offset = e->event_page_offset;
+
+	pr_info("Number of events:%u\n", e->num_of_events);
+	if (e->num_of_events) {
+		ev_bucket_ptr = xmalloc(e->num_of_events * sizeof(struct kfd_criu_ev_bucket));
+		if (!ev_bucket_ptr) {
+			pr_perror("amdgpu_plugin: failed to allocate events for restore ioctl\n");
+			return -1;
+		}
+
+		for (int i = 0; i < e->num_of_events; i++ )
+		{
+			ev_bucket_ptr[i].event_id = e->ev_entries[i]->event_id;
+			ev_bucket_ptr[i].auto_reset = e->ev_entries[i]->auto_reset;
+			ev_bucket_ptr[i].type = e->ev_entries[i]->type;
+			ev_bucket_ptr[i].signaled = e->ev_entries[i]->signaled;
+
+			if (e->ev_entries[i]->type == KFD_IOC_EVENT_MEMORY) {
+				ev_bucket_ptr[i].memory_exception_data.failure.NotPresent =
+						e->ev_entries[i]->mem_exc_fail_not_present;
+				ev_bucket_ptr[i].memory_exception_data.failure.ReadOnly =
+						e->ev_entries[i]->mem_exc_fail_read_only;
+				ev_bucket_ptr[i].memory_exception_data.failure.NoExecute =
+						e->ev_entries[i]->mem_exc_fail_no_execute;
+				ev_bucket_ptr[i].memory_exception_data.va =
+						e->ev_entries[i]->mem_exc_va;
+				ev_bucket_ptr[i].memory_exception_data.gpu_id =
+						e->ev_entries[i]->mem_exc_gpu_id;
+
+			} else if (e->ev_entries[i]->type == KFD_IOC_EVENT_HW_EXCEPTION) {
+				ev_bucket_ptr[i].hw_exception_data.reset_type =
+					e->ev_entries[i]->hw_exc_reset_type;
+				ev_bucket_ptr[i].hw_exception_data.reset_cause =
+					e->ev_entries[i]->hw_exc_reset_cause;
+				ev_bucket_ptr[i].hw_exception_data.memory_lost =
+					e->ev_entries[i]->hw_exc_memory_lost;
+				ev_bucket_ptr[i].hw_exception_data.gpu_id =
+					e->ev_entries[i]->hw_exc_gpu_id;
+			}
+		}
+
+		args.num_of_events = e->num_of_events;
+		args.kfd_criu_ev_buckets_ptr = (uintptr_t)ev_bucket_ptr;
+	}
+
 	if (kmtIoctl(fd, AMDKFD_IOC_CRIU_RESTORER, &args) == -1) {
 		pr_perror("amdgpu_plugin: failed to call kfd ioctl from plugin restorer for id = %d\n", id);
 		fd = -EBADFD;
@@ -999,6 +1121,8 @@ int amdgpu_plugin_restore_file(int id)
 	}
 clean:
 	xfree(devinfo_bucket_ptr);
+	if (ev_bucket_ptr)
+		xfree(ev_bucket_ptr);
 	if (q_bucket_ptr)
 		xfree(q_bucket_ptr);
 	xfree(restored_bo_offsets_array);
