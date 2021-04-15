@@ -208,6 +208,7 @@ TST_NOFILE	:=				\
 		macvlan			\
 		sit				\
 		cr_veth				\
+		cr_veth02			\
 		sock_peercred			\
 		s390x_mmap_high			\
 		uffd-events			\
