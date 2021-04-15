@@ -2267,6 +2267,23 @@ static int open_filemap(int pid, struct vma_area *vma)
 	BUG_ON((vma->vmfd == NULL) || !vma->e->has_fdflags);
 	flags = vma->e->fdflags;
 
+	/* update the new device file page offsets and file paths set during restore */
+	if (vma->e->status & VMA_UNSUPP) {
+		uint64_t new_pgoff;
+		char new_path[PATH_MAX];
+		int ret;
+
+		struct reg_file_info *rfi = container_of(vma->vmfd, struct reg_file_info, d);
+		ret = run_plugins(UPDATE_VMA_MAP, rfi->rfe->name, new_path, vma->e->start, vma->e->pgoff, &new_pgoff);
+		if (ret == 1) {
+			pr_info("New mmap %#016" PRIx64 "->%#016" PRIx64 " path %s\n", vma->e->pgoff, new_pgoff,
+				new_path);
+			vma->e->pgoff = new_pgoff;
+			rfi->path = xstrdup(new_path);
+			pr_debug("Updated rfi->path %s\n", rfi->path);
+		}
+	}
+
 	if (ctx.flags != flags || ctx.desc != vma->vmfd) {
 		if (vma->e->status & VMA_AREA_MEMFD)
 			ret = memfd_open(vma->vmfd, &flags);
