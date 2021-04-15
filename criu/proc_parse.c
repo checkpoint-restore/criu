@@ -45,6 +45,7 @@
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
 #include "images/mnt.pb-c.h"
+#include "plugin.h"
 
 #include <stdlib.h>
 
@@ -101,6 +102,19 @@ static bool __is_vma_range_fmt(char *line)
 bool is_vma_range_fmt(char *line)
 {
 	return __is_vma_range_fmt(line);
+}
+
+bool handle_vma_plugin(int *fd, struct stat *stat)
+{
+	int ret;
+
+	ret = run_plugins(HANDLE_DEVICE_VMA, *fd, stat);
+	if (ret < 0) {
+		pr_perror("handle_device_vma plugin failed");
+		return false;
+	}
+
+	return true;
 }
 
 static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf)
@@ -188,6 +202,7 @@ struct vma_file_info {
 	int dev_min;
 	unsigned long ino;
 	struct vma_area *vma;
+	bool has_device_plugin;
 };
 
 static inline int vfi_equal(struct vma_file_info *a, struct vma_file_info *b)
@@ -577,11 +592,17 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 	} else if (*vm_file_fd >= 0) {
 		struct stat *st_buf = vma_area->vmst;
 
-		if (S_ISREG(st_buf->st_mode))
+		if (S_ISREG(st_buf->st_mode)) {
 			/* regular file mapping -- supported */;
-		else if (S_ISCHR(st_buf->st_mode) && (st_buf->st_rdev == DEVZERO))
+			pr_debug("Found regular file mapping, OK\n");
+		} else if (S_ISCHR(st_buf->st_mode) && (st_buf->st_rdev == DEVZERO)) {
 			/* devzero mapping -- also makes sense */;
-		else {
+			pr_debug("Found devzero mapping, OK\n");
+		} else if (handle_vma_plugin(vm_file_fd, st_buf)) {
+			pr_info("Found device file mapping, plugin is available\n");
+			vfi->has_device_plugin = true;
+		} else {
+			/* non-regular mapping with no supporting plugin */
 			pr_err("Can't handle non-regular mapping on %d's map %" PRIx64 "\n", pid, vma_area->e->start);
 			goto err;
 		}
@@ -646,9 +667,23 @@ static int vma_list_add(struct vma_area *vma_area, struct vm_area_list *vma_area
 			struct vma_file_info *vfi, struct vma_file_info *prev_vfi)
 {
 	if (vma_area->e->status & VMA_UNSUPP) {
-		pr_err("Unsupported mapping found %016" PRIx64 "-%016" PRIx64 "\n", vma_area->e->start,
-		       vma_area->e->end);
-		return -1;
+		if (vfi->has_device_plugin) {
+			/* Unsupported VMAs that provide special plugins for
+			 * backup can be treated as regular VMAs and criu
+			 * should only save their metadata in the dump files.
+			 * There can be several special backup plugins hooks
+			 * that might run at different stages during checkpoint
+			 * and restore.
+			 */
+			pr_debug("Device file mapping %016" PRIx64 "-%016" PRIx64 " "
+				 "must be supported via device plugins\n",
+				 vma_area->e->start, vma_area->e->end);
+
+		} else {
+			pr_err("Unsupported mapping found %016" PRIx64 "-%016" PRIx64 "\n", vma_area->e->start,
+			       vma_area->e->end);
+			return -1;
+		}
 	}
 
 	/* Add a guard page only if here is enough space for it */
