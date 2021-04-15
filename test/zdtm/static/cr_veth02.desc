@@ -1,0 +1,7 @@
+{
+    'deps': ['/bin/sh', '/bin/sed', '/bin/grep', '/sbin/ip|/bin/ip', '/usr/bin/diff'],
+    'flags': 'suid',
+    'flavor': 'ns uns',
+    'ropts': '--external netdev[zdtmvthc0]:zdtmvthc1',
+    'feature': 'newifindex',
+}
