@@ -21,6 +21,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import socket
 from builtins import (input, int, open, range, str, zip)
 
 import pycriu as crpc
@@ -890,6 +891,8 @@ class criu_rpc_process:
 
 
 class criu_rpc:
+    pidfd_store_socket = None
+
     @staticmethod
     def __set_opts(criu, args, ctx):
         while len(args) != 0:
@@ -943,6 +946,10 @@ class criu_rpc:
                 fd, key = key.split(":", 1)
                 inhfd.fd = int(fd[3:-1])
                 inhfd.key = key
+            elif "--pidfd-store" == arg:
+                if criu_rpc.pidfd_store_socket is None:
+                    criu_rpc.pidfd_store_socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+                criu.opts.pidfd_store_sk = criu_rpc.pidfd_store_socket.fileno()
             else:
                 raise test_fail_exc('RPC for %s(%s) required' % (arg, args.pop(0)))
 
