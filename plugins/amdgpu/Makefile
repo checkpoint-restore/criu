@@ -15,7 +15,7 @@ all: amdgpu_plugin.so
 criu-amdgpu.pb-c.c: criu-amdgpu.proto
 		protoc-c --proto_path=. --c_out=. criu-amdgpu.proto
 
-amdgpu_plugin.so: amdgpu_plugin.c criu-amdgpu.pb-c.c
+amdgpu_plugin.so: amdgpu_plugin.c amdgpu_plugin_topology.c criu-amdgpu.pb-c.c
 	$(CC) $(PLUGIN_CFLAGS) $^ -o $@ $(PLUGIN_INCLUDE)
 
 amdgpu_plugin_clean:
