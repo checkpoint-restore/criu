@@ -1276,6 +1276,16 @@ static int check_time_namespace(void)
 	return 0;
 }
 
+static int check_newifindex(void)
+{
+	if (!kdat.has_newifindex) {
+		pr_err("IFLA_NEW_IFINDEX isn't supported\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int check_net_diag_raw(void)
 {
 	check_sock_diag();
@@ -1394,6 +1404,7 @@ int cr_check(void)
 		ret |= check_net_diag_raw();
 		ret |= check_clone3_set_tid();
 		ret |= check_time_namespace();
+		ret |= check_newifindex();
 	}
 
 	/*
@@ -1499,6 +1510,7 @@ static struct feature_list feature_list[] = {
 	{ "timens", check_time_namespace},
 	{ "external_net_ns", check_external_net_ns},
 	{ "clone3_set_tid", check_clone3_set_tid},
+	{ "newifindex", check_newifindex},
 	{ NULL, NULL },
 };
 

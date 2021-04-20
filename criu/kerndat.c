@@ -1185,6 +1185,10 @@ int kerndat_init(void)
 		pr_err("has_time_namespace failed when initializing kerndat.\n");
 		ret = -1;
 	}
+	if (!ret && kerndat_has_newifindex()) {
+		pr_err("kerndat_has_newifindex failed when initializing kerndat.\n");
+		ret = -1;
+	}
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
