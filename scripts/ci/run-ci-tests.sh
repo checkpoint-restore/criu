@@ -253,7 +253,8 @@ make -C test/others/rpc/ run
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server --dedup
 
-./test/zdtm.py run -t zdtm/transition/pid_reuse --pre 2
+./test/zdtm.py run -t zdtm/transition/pid_reuse --pre 2 # start time based pid reuse detection
+./test/zdtm.py run -t zdtm/transition/pidfd_store_sk --rpc --pre 2 # pidfd based pid reuse detection
 
 ./test/zdtm.py run -t zdtm/static/socket-tcp-local --norst
 

@@ -53,6 +53,9 @@ fedora-no-vdso() {
 	# BPF tests are failing see: https://github.com/checkpoint-restore/criu/issues/1354
 	# Needs to be fixed, skip for now
 	ssh default 'cd /vagrant/criu/test; sudo ./zdtm.py run -a --keep-going -x zdtm/static/bpf_hash -x zdtm/static/bpf_array'
+	# This test (pidfd_store_sk) requires pidfd_getfd syscall which is guaranteed in Fedora 33.
+	# It is also skipped from -a because it runs in RPC mode only
+	ssh default 'cd /vagrant/criu/test; sudo ./zdtm.py run -t zdtm/transition/pidfd_store_sk --rpc --pre 2'
 }
 
 $1
