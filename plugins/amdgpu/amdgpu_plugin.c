@@ -424,15 +424,76 @@ int devinfo_to_topology(DevinfoEntry *devinfos[], uint32_t num_devices, struct t
 
 int amdgpu_plugin_init(int stage)
 {
+	char *opt_param = NULL;
 	pr_info("amdgpu_plugin: initialized:  %s (AMDGPU/KFD)\n",
 						CR_PLUGIN_DESC.name);
 
 	topology_init(&src_topology);
 	topology_init(&dest_topology);
-
 	maps_init(&checkpoint_maps);
 	maps_init(&restore_maps);
 
+	if (stage == CR_PLUGIN_STAGE__RESTORE) {
+		kfd_gpu_override = NULL;
+		kfd_topology_check = true;
+		kfd_fw_version_check = true;
+		kfd_sdma_fw_version_check = true;
+		kfd_caches_count_check = true;
+		kfd_num_gws_check = true;
+		kfd_vram_size_check = true;
+		kfd_ignore_numa = false;
+
+		/* Forces gpu mapping to specific gpu list */
+		/* Expected destination gpu format:
+		*	KFD_DESTINATION_GPUS=0xff31,0x90db
+		*	KFD_DESTINATION_GPUS=65329,37083
+		*	KFD_DESTINATION_GPUS=renderD129,renderD128
+		*/
+		kfd_gpu_override = getenv("KFD_DESTINATION_GPUS");
+		pr_info("param: KFD_DESTINATION_GPUS:%s\n", kfd_gpu_override ? kfd_gpu_override : "None");
+
+		if ((opt_param = getenv("KFD_TOPOLOGY_CHECK"))) {
+			if (!strcmp(opt_param, "0") || !strcmp(opt_param, "NO"))
+				kfd_topology_check = false;
+		}
+		pr_info("param: KFD_TOPOLOGY_CHECK:%s\n", kfd_topology_check ? "Y" : "N");
+
+		if ((opt_param = getenv("KFD_FW_VER_CHECK"))) {
+			if (!strcmp(opt_param, "0") || !strcmp(opt_param, "NO"))
+				kfd_fw_version_check = false;
+		}
+		pr_info("param: KFD_FW_VERSION_CHECK:%s\n", kfd_fw_version_check ? "Y" : "N");
+
+		if ((opt_param = getenv("KFD_SDMA_FW_VER_CHECK"))) {
+			if (!strcmp(opt_param, "0") || !strcmp(opt_param, "NO"))
+				kfd_sdma_fw_version_check = false;
+		}
+		pr_info("param: KFD_SDMA_FW_VER_CHECK:%s\n", kfd_sdma_fw_version_check ? "Y" : "N");
+
+		if ((opt_param = getenv("KFD_CACHES_COUNT_CHECK"))) {
+			if (!strcmp(opt_param, "0") || !strcmp(opt_param, "NO"))
+				kfd_caches_count_check = false;
+		}
+		pr_info("param: KFD_CACHES_COUNT_CHECK:%s\n", kfd_caches_count_check ? "Y" : "N");
+
+		if ((opt_param = getenv("KFD_NUM_GWS_CHECK"))) {
+			if (!strcmp(opt_param, "0") || !strcmp(opt_param, "NO"))
+				kfd_num_gws_check = false;
+		}
+		pr_info("param: KFD_NUM_GWS_CHECK:%s\n", kfd_num_gws_check ? "Y" : "N");
+
+		if ((opt_param = getenv("KFD_VRAM_SIZE_CHECK"))) {
+			if (!strcmp(opt_param, "0") || !strcmp(opt_param, "NO"))
+				kfd_vram_size_check = false;
+		}
+		pr_info("param: KFD_VRAM_SIZE_CHECK:%s\n", kfd_vram_size_check ? "Y" : "N");
+
+		if ((opt_param = getenv("KFD_IGNORE_NUMA"))) {
+			if (!strcmp(opt_param, "1") || !strcmp(opt_param, "Y"))
+				kfd_ignore_numa = true;
+		}
+		pr_info("param: KFD_IGNORE_NUMA:%s\n", kfd_ignore_numa ? "Y" : "N");
+	}
 	return 0;
 }
 

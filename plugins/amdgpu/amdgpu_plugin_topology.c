@@ -898,11 +898,11 @@ bool device_properties_match(struct tp_node *src, struct tp_node *dest)
 	    src->num_cp_queues == dest->num_cp_queues &&
 	    src->capability == dest->capability &&
 	    src->vram_public == dest->vram_public &&
-	    src->vram_size <= dest->vram_size &&
-	    src->num_gws <= dest->num_gws &&
-	    src->caches_count <= dest->caches_count &&
-	    src->fw_version <= dest->fw_version &&
-	    src->sdma_fw_version <= dest->sdma_fw_version) {
+	    (!kfd_vram_size_check || (src->vram_size <= dest->vram_size)) &&
+	    (!kfd_num_gws_check || (src->num_gws <= dest->num_gws)) &&
+	    (!kfd_caches_count_check || (src->caches_count <= dest->caches_count)) &&
+	    (!kfd_fw_version_check || (src->fw_version <= dest->fw_version)) &&
+	    (!kfd_sdma_fw_version_check || (src->sdma_fw_version <= dest->sdma_fw_version))) {
 		return true;
 	}
 	return false;
@@ -954,32 +954,40 @@ bool map_device(struct tp_system *src_sys, struct tp_system *dest_sys, struct tp
 			/* This is a iolink to CPU */
 			pr_debug("Found link to CPU node:%02d\n", src_iolink->node_to->id);
 
-			uint32_t dest_cpu_node_id;
-			dest_cpu_node_id = maps_get_dest_cpu(maps, src_iolink->node_to->id);
-			if (dest_cpu_node_id == INVALID_CPU_ID)
-				dest_cpu_node_id = maps_get_dest_cpu(new_maps, src_iolink->node_to->id);
-
-			if (dest_cpu_node_id == INVALID_CPU_ID)  {
+			if (kfd_ignore_numa) {
 				struct tp_iolink *dest_iolink;
 				list_for_each_entry(dest_iolink, &dest_node->iolinks, listm) {
-					if (iolink_match(src_iolink, dest_iolink) &&
-						!maps_dest_cpu_mapped(maps, dest_iolink->node_to->id) &&
-						!maps_dest_cpu_mapped(new_maps, dest_iolink->node_to->id)) {
-						if (!maps_add_cpu_entry(new_maps, src_iolink->node_to->id, dest_iolink->node_to->id))
-							/* This is a critical error because we are out of memory */
-							return false;
-
+					if (iolink_match(src_iolink, dest_iolink))
 						matched_iolink = true;
-						break;
-					}
 				}
 			} else {
-				pr_debug("Existing CPU mapping found [%02d-%02d]\n", src_iolink->node_to->id, dest_cpu_node_id);
-				/* Confirm that the link to this CPU is same or better */
+				uint32_t dest_cpu_node_id;
+				dest_cpu_node_id = maps_get_dest_cpu(maps, src_iolink->node_to->id);
+				if (dest_cpu_node_id == INVALID_CPU_ID)
+					dest_cpu_node_id = maps_get_dest_cpu(new_maps, src_iolink->node_to->id);
 
-				struct tp_iolink *dest_iolink = node_get_iolink_to_node_id(dest_node, src_iolink->type, dest_cpu_node_id);
-				if (dest_iolink && iolink_match(src_iolink, dest_iolink))
-					matched_iolink = true;
+				if (dest_cpu_node_id == INVALID_CPU_ID)  {
+					struct tp_iolink *dest_iolink;
+					list_for_each_entry(dest_iolink, &dest_node->iolinks, listm) {
+						if (iolink_match(src_iolink, dest_iolink) &&
+						    !maps_dest_cpu_mapped(maps, dest_iolink->node_to->id) &&
+						    !maps_dest_cpu_mapped(new_maps, dest_iolink->node_to->id)) {
+							if (!maps_add_cpu_entry(new_maps, src_iolink->node_to->id, dest_iolink->node_to->id))
+								/* This is a critical error because we are out of memory */
+								return false;
+
+							matched_iolink = true;
+							break;
+						}
+					}
+				} else {
+					pr_debug("Existing CPU mapping found [%02d-%02d]\n", src_iolink->node_to->id, dest_cpu_node_id);
+					/* Confirm that the link to this CPU is same or better */
+
+					struct tp_iolink *dest_iolink = node_get_iolink_to_node_id(dest_node, src_iolink->type, dest_cpu_node_id);
+					if (dest_iolink && iolink_match(src_iolink, dest_iolink))
+						matched_iolink = true;
+				}
 			}
 			if (!matched_iolink) {
 				pr_debug("[0x%04X -> 0x%04X] Mismatch between iolink to CPU\n", src_node->gpu_id, dest_node->gpu_id);
@@ -1103,6 +1111,63 @@ bool match_xgmi_groups(struct tp_system *src_sys, struct tp_system *dest_sys,
 	return false;
 }
 
+/* return 1  	 if gpu override is set
+ * return 0  	 if no gpu overide
+ * return -errno if failed to set gpu override */
+int get_user_gpu_override(struct tp_system *src_sys, struct tp_system *dest_sys,
+			  struct device_maps *maps)
+{
+	char *token;
+	int index = 0;
+	char *gpu_str = kfd_gpu_override;
+	struct tp_node *src_node, *dest_node;
+
+	/* Expected destination gpu formats:
+	*      KFD_DESTINATION_GPUS=0xff31,0x90db
+	*      KFD_DESTINATION_GPUS=65329,37083
+	*      KFD_DESTINATION_GPUS=renderD129,renderD128 */
+	if (!gpu_str)
+		return 0;
+
+	pr_info("amdgpu_plugin: Destination GPU's override:%s\n", gpu_str);
+
+	token = strtok(gpu_str, ",");
+	while (token) {
+		uint32_t dev_minor=0, gpu_id = 0;
+		if (sscanf(token, "renderD%d", &dev_minor) == 1) {
+			dest_node = sys_get_node_by_render_minor(dest_sys, dev_minor);
+			gpu_id = dest_node->gpu_id;
+		} else if (sscanf(token, "0x%x", &gpu_id) == 1 || sscanf(token, "%u", &gpu_id) == 1)
+			dest_node = sys_get_node_by_gpu_id(dest_sys, gpu_id);
+
+		if (dest_node) {
+			struct device_maps new_maps;
+			maps_init(&new_maps);
+
+			/* Ignore extra GPU's */
+			if (index >= dest_sys->num_nodes)
+				break;
+
+			src_node = sys_get_node_by_gpu_index(src_sys, index);
+			if (kfd_topology_check &&
+			    !map_device(src_sys, dest_sys, src_node, dest_node, maps, &new_maps)) {
+				pr_err("Local gpu_id = 0x%04x not compatible\n", gpu_id);
+				return -EINVAL;
+			}
+
+			if (maps_append(maps, &new_maps))
+				return -EINVAL;
+
+			index++;
+		} else {
+			pr_err("amdgpu_plugin:Failed to parse destination GPU's: %s", gpu_str);
+			return -1;
+		}
+		token = strtok(NULL, ",");
+	}
+	return 1;
+}
+
 int set_restore_gpu_maps(struct tp_system *src_sys, struct tp_system *dest_sys,
 			 struct device_maps *maps)
 {
@@ -1145,6 +1210,16 @@ int set_restore_gpu_maps(struct tp_system *src_sys, struct tp_system *dest_sys,
 	if (src_sys->num_xgmi_groups > dest_sys->num_xgmi_groups) {
 		pr_err("Number of xgmi groups mismatch (checkpointed:%d local:%d)\n",
 						src_sys->num_xgmi_groups, dest_sys->num_xgmi_groups);
+		return -EINVAL;
+	}
+
+	ret = get_user_gpu_override(src_sys, dest_sys, maps);
+	if (ret == 1) {
+		pr_info("Maps after user override\n");
+		maps_print(maps);
+		return 0;
+	} else if (ret < 0) {
+		pr_err("Failed to override GPUs with user settings\n");
 		return -EINVAL;
 	}
 

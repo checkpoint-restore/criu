@@ -101,6 +101,24 @@ struct tp_system dest_topology; /* Valid during restore */
 struct device_maps checkpoint_maps;
 struct device_maps restore_maps;
 
+/* User override options */
+/* Forces gpu mapping to specific gpu list */
+char *kfd_gpu_override;
+/* Skips all topology checks inside plugin - only if kfd_gpu_override is enabled */
+bool  kfd_topology_check;
+/* Skip firmware version check */
+bool  kfd_fw_version_check;
+/* Skip SDMA firmware version check */
+bool  kfd_sdma_fw_version_check;
+/* Skip caches count check */
+bool  kfd_caches_count_check;
+/* Skip num gws check */
+bool kfd_num_gws_check;
+/* Skip vram size check */
+bool kfd_vram_size_check;
+/* Ignore NUMA regions */
+bool kfd_ignore_numa;
+
 /**************************************** Functions ***********************************************/
 void topology_init(struct tp_system *sys);
 void topology_free(struct tp_system *topology);
