@@ -35,6 +35,60 @@ Dependencies
     This work is rebased on latest criu release available at this time.
 
 
+OPTIONS
+-------
+Optional parameters can be passed in as environment variables before
+executing criu command.
+
+*KFD_FW_VER_CHECK*::
+    Enable or disable firmware version check.
+    If enabled, firmware version on restored gpu needs to be greater than or
+    equal firmware version on checkpointed GPU. Default:Enabled
+
+    E.g:
+    KFD_FW_VER_CHECK=0
+
+*KFD_SDMA_FW_VER_CHECK*::
+    Enable or disable SDMA firmware version check.
+    If enabled, SDMA firmware version on restored gpu needs to be greater than or
+    equal firmware version on checkpointed GPU. Default:Enabled
+
+    E.g:
+    KFD_SDMA_FW_VER_CHECK=0
+
+*KFD_CACHES_COUNT_CHECK*::
+    Enable or disable caches count check. If enabled, the caches count on
+    restored GPU needs to be greater than or equal caches count on checkpointed
+    GPU. Default:Enabled
+
+    E.g:
+    KFD_CACHES_COUNT_CHECK=0
+
+*KFD_NUM_GWS_CHECK*::
+    Enable or disable num_gws check. If enabled, the num_gws on
+    restored GPU needs to be greater than or equal num_gws on checkpointed
+    GPU. Default:Enabled
+
+    E.g:
+    KFD_NUM_GWS_CHECK=0
+
+*KFD_VRAM_SIZE_CHECK*::
+    Enable or disable VRAM size check. If enabled, the VRAM size on
+    restored GPU needs to be greater than or equal VRAM size on checkpointed
+    GPU. Default:Enabled
+
+    E.g:
+    KFD_VRAM_SIZE_CHECK=0
+
+*KFD_NUMA_CHECK*::
+    Enable or disable NUMA CPU region check. If enabled, the plugin will restore
+    GPUs that belong to one CPU NUMA region to the same CPU NUMA region.
+    Default:Enabled
+
+    E.g:
+    KFD_IGNORE_NUMA=1
+
+
 AUTHOR
 ------
 The AMDKFD team.
