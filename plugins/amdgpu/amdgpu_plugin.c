@@ -53,6 +53,8 @@ struct vma_metadata {
 	uint64_t old_pgoff;
 	uint64_t new_pgoff;
 	uint64_t vma_entry;
+	uint32_t new_minor;
+	int fd;
 };
 
 /************************************ Global Variables ********************************************/
@@ -64,31 +66,6 @@ struct device_maps restore_maps;
 
 static LIST_HEAD(update_vma_info_list);
 /**************************************************************************************************/
-
-int open_drm_render_device(int minor)
-{
-	char path[128];
-	int fd;
-
-	if (minor < DRM_FIRST_RENDER_NODE || minor > DRM_LAST_RENDER_NODE) {
-		pr_perror("DRM render minor %d out of range [%d, %d]", minor, DRM_FIRST_RENDER_NODE,
-			  DRM_LAST_RENDER_NODE);
-		return -EINVAL;
-	}
-
-	sprintf(path, "/dev/dri/renderD%d", minor);
-	fd = open(path, O_RDWR | O_CLOEXEC);
-	if (fd < 0) {
-		if (errno != ENOENT && errno != EPERM) {
-			pr_err("Failed to open %s: %s\n", path, strerror(errno));
-			if (errno == EACCES)
-				pr_err("Check user is in \"video\" group\n");
-		}
-		return -EBADFD;
-	}
-
-	return fd;
-}
 
 int write_file(const char *file_path, const void *buf, const size_t buf_len)
 {
@@ -348,7 +325,9 @@ int topology_to_devinfo(struct tp_system *sys, struct device_maps *maps, DeviceE
 		devinfo->node_id = node->id;
 
 		if (NODE_IS_GPU(node)) {
-			devinfo->gpu_id = node->gpu_id;
+			devinfo->gpu_id = maps_get_dest_gpu(&checkpoint_maps, node->gpu_id);
+			if (!devinfo->gpu_id)
+				return -EINVAL;
 
 			devinfo->simd_count = node->simd_count;
 			devinfo->mem_banks_count = node->mem_banks_count;
@@ -469,12 +448,19 @@ int amdgpu_plugin_init(int stage)
 
 	topology_init(&src_topology);
 	topology_init(&dest_topology);
+
+	maps_init(&checkpoint_maps);
+	maps_init(&restore_maps);
+
 	return 0;
 }
 
 void amdgpu_plugin_fini(int stage, int ret)
 {
 	pr_info("amdgpu_plugin: finished  %s (AMDGPU/KFD)\n", CR_PLUGIN_DESC.name);
+
+	maps_free(&checkpoint_maps);
+	maps_free(&restore_maps);
 
 	topology_free(&src_topology);
 	topology_free(&dest_topology);
@@ -645,6 +631,15 @@ static int dump_devices(int fd, struct kfd_ioctl_criu_process_info_args *info_ar
 	/* First private data starts after all buckets */
 	priv_data = (void *)(device_buckets + args.num_objects);
 
+	/* When checkpointing on a node where there was already a checkpoint-restore before, the
+	 * user_gpu_id and actual_gpu_id will be different.
+	 *
+	 * We store the user_gpu_id in the stored image files so that the stored images always have
+	 * the gpu_id's of the node where the application was first launched.
+	 */
+	for (int i = 0; i < args.num_objects; i++)
+		maps_add_gpu_entry(&checkpoint_maps, device_buckets[i].actual_gpu_id, device_buckets[i].user_gpu_id);
+
 	e->num_of_gpus = info_args->total_devices;
 	e->num_of_cpus = src_topology.num_nodes - info_args->total_devices;
 
@@ -666,21 +661,28 @@ static int dump_devices(int fd, struct kfd_ioctl_criu_process_info_args *info_ar
 
 	/* Add private data obtained from IOCTL for each GPU */
 	for (i = 0; i < args.num_objects; i++) {
+		int j;
 		struct kfd_criu_device_bucket *device_bucket = &device_buckets[i];
-		DeviceEntry *devinfo = e->device_entries[i];
+		pr_debug("Device[%d] user_gpu_id:%x actual_gpu_id:%x\n", i, device_bucket->user_gpu_id,
+			 device_bucket->actual_gpu_id);
 
-		pr_debug("Device[%d] user_gpu_id:%x\n", i, device_bucket->user_gpu_id);
+		for (j = 0; j < src_topology.num_nodes; j++) {
+			DeviceEntry *devinfo = e->device_entries[j];
 
-		devinfo->private_data.len = device_bucket->priv_data_size;
-		devinfo->private_data.data = xmalloc(devinfo->private_data.len);
+			if (device_bucket->user_gpu_id != devinfo->gpu_id)
+				continue;
 
-		if (!devinfo->private_data.data) {
-			ret = -ENOMEM;
-			goto exit;
+			devinfo->private_data.len = device_bucket->priv_data_size;
+			devinfo->private_data.data = xmalloc(devinfo->private_data.len);
+
+			if (!devinfo->private_data.data) {
+				ret = -ENOMEM;
+				goto exit;
+			}
+
+			memcpy(devinfo->private_data.data, priv_data + device_bucket->priv_data_offset,
+			       devinfo->private_data.len);
 		}
-
-		memcpy(devinfo->private_data.data, priv_data + device_bucket->priv_data_offset,
-		       devinfo->private_data.len);
 	}
 exit:
 	xfree((void *)args.objects);
@@ -693,10 +695,8 @@ static int dump_bos(int fd, struct kfd_ioctl_criu_process_info_args *info_args, 
 	struct kfd_ioctl_criu_dumper_args args = { 0 };
 	struct kfd_criu_bo_bucket *bo_buckets;
 	uint8_t *priv_data;
-	char fd_path[128];
 	int ret = 0, i;
 	char *fname;
-	int drm_fd;
 
 	pr_debug("Dumping %lld BOs\n", info_args->total_bos);
 
@@ -723,13 +723,6 @@ static int dump_bos(int fd, struct kfd_ioctl_criu_process_info_args *info_args, 
 		goto exit;
 	}
 
-	sprintf(fd_path, "/dev/dri/renderD%d", DRM_FIRST_RENDER_NODE);
-	drm_fd = open(fd_path, O_RDWR | O_CLOEXEC);
-	if (drm_fd < 0) {
-		pr_perror("amdgpu_plugin: failed to open drm fd for %s", fd_path);
-		return -1;
-	}
-
 	for (i = 0; i < args.num_objects; i++) {
 		struct kfd_criu_bo_bucket *bo_bucket = &bo_buckets[i];
 		BoEntry *boinfo = e->bo_entries[i];
@@ -746,7 +739,11 @@ static int dump_bos(int fd, struct kfd_ioctl_criu_process_info_args *info_args, 
 		plugin_log_msg("BO [%d] gpu_id:%x addr:%llx size:%llx offset:%llx dmabuf_fd:%d\n", i, bo_bucket->gpu_id,
 			       bo_bucket->addr, bo_bucket->size, bo_bucket->offset, bo_bucket->dmabuf_fd);
 
-		boinfo->gpu_id = bo_bucket->gpu_id;
+		boinfo->gpu_id = maps_get_dest_gpu(&checkpoint_maps, bo_bucket->gpu_id);
+		if (!boinfo->gpu_id) {
+			ret = -ENODEV;
+			goto exit;
+		}
 		boinfo->addr = bo_bucket->addr;
 		boinfo->size = bo_bucket->size;
 		boinfo->offset = bo_bucket->offset;
@@ -755,9 +752,19 @@ static int dump_bos(int fd, struct kfd_ioctl_criu_process_info_args *info_args, 
 		if (bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_VRAM ||
 		    bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_GTT) {
 			if (bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_PUBLIC) {
+				int drm_fd;
 				void *addr;
+				struct tp_node *tp_node;
 
-				pr_info("amdgpu_plugin: large bar read possible\n");
+				plugin_log_msg("amdgpu_plugin: large bar read possible\n");
+
+				tp_node = sys_get_node_by_gpu_id(&src_topology, boinfo->gpu_id);
+				if (!tp_node) {
+					ret = -ENODEV;
+					goto exit;
+				}
+
+				drm_fd = node_get_drm_render_device(tp_node);
 
 				addr = mmap(NULL, boinfo->size, PROT_READ, MAP_SHARED, drm_fd, boinfo->offset);
 				if (addr == MAP_FAILED) {
@@ -773,7 +780,7 @@ static int dump_bos(int fd, struct kfd_ioctl_criu_process_info_args *info_args, 
 				size_t bo_size;
 				int mem_fd;
 
-				pr_info("Now try reading BO contents with /proc/pid/mem\n");
+				plugin_log_msg("Now try reading BO contents with /proc/pid/mem\n");
 				if (asprintf(&fname, PROCPIDMEM, info_args->task_pid) < 0) {
 					pr_perror("failed in asprintf, %s", fname);
 					ret = -1;
@@ -857,7 +864,11 @@ static int dump_queues(int fd, struct kfd_ioctl_criu_process_info_args *info_arg
 
 		pr_debug("Queue [%d] gpu_id:%x\n", i, q_bucket->gpu_id);
 
-		qinfo->gpu_id = q_bucket->gpu_id;
+		qinfo->gpu_id = maps_get_dest_gpu(&checkpoint_maps, q_bucket->gpu_id);
+		if (!qinfo->gpu_id) {
+			ret = -ENODEV;
+			goto exit;
+		}
 
 		qinfo->private_data.len = q_bucket->priv_data_size;
 		qinfo->private_data.data = xmalloc(qinfo->private_data.len);
@@ -916,8 +927,13 @@ static int dump_events(int fd, struct kfd_ioctl_criu_process_info_args *info_arg
 
 		pr_debug("Event[%d] gpu_id:%x\n", i, ev_bucket->gpu_id);
 
-		if (ev_bucket->gpu_id)
-			evinfo->gpu_id = ev_bucket->gpu_id;
+		if (ev_bucket->gpu_id) {
+			evinfo->gpu_id = maps_get_dest_gpu(&checkpoint_maps, ev_bucket->gpu_id);
+			if (!evinfo->gpu_id) {
+				ret = -ENODEV;
+				goto exit;
+			}
+		}
 
 		evinfo->private_data.len = ev_bucket->priv_data_size;
 		evinfo->private_data.data = xmalloc(evinfo->private_data.len);
@@ -968,17 +984,24 @@ int amdgpu_plugin_dump_file(int fd, int id)
 
 	/* Check whether this plugin was called for kfd or render nodes */
 	if (major(st.st_rdev) != major(st_kfd.st_rdev) || minor(st.st_rdev) != 0) {
-		/* This is RenderD dumper plugin, for now just save renderD
-		 * minor number to be used during restore. In later phases this
-		 * needs to save more data for video decode etc.
-		 */
+		/* This is RenderD dumper plugin, save the render minor and gpu_id */
 
 		CriuRenderNode rd = CRIU_RENDER_NODE__INIT;
+		struct tp_node *tp_node;
 
 		pr_info("amdgpu_plugin: Dumper called for /dev/dri/renderD%d, FD = %d, ID = %d\n", minor(st.st_rdev),
 			fd, id);
 
-		rd.minor_number = minor(st.st_rdev);
+		tp_node = sys_get_node_by_render_minor(&src_topology, minor(st.st_rdev));
+		if (!tp_node) {
+			pr_err("amdgpu_plugin: Failed to find a device with minor number = %d\n", minor(st.st_rdev));
+
+			return -ENODEV;
+		}
+
+		rd.gpu_id = maps_get_dest_gpu(&checkpoint_maps, tp_node->gpu_id);
+		if (!rd.gpu_id)
+			return -ENODEV;
 
 		len = criu_render_node__get_packed_size(&rd);
 		buf = xmalloc(len);
@@ -994,8 +1017,8 @@ int amdgpu_plugin_dump_file(int fd, int id)
 			return ret;
 		}
 
-		xfree(buf);
 		/* Need to return success here so that criu can call plugins for renderD nodes */
+		xfree(buf);
 		return ret;
 	}
 
@@ -1066,6 +1089,7 @@ exit:
 	/* Restore all queues */
 	pause_process(fd, false);
 
+	sys_close_drm_render_devices(&src_topology);
 	free_e(e);
 
 	if (ret)
@@ -1142,6 +1166,7 @@ static int restore_devices(int fd, CriuKfd *e)
 	for (int entries_i = 0; entries_i < e->num_of_cpus + e->num_of_gpus; entries_i++) {
 		struct kfd_criu_device_bucket *device_bucket;
 		DeviceEntry *devinfo = e->device_entries[entries_i];
+		struct tp_node *tp_node;
 
 		if (!devinfo->gpu_id)
 			continue;
@@ -1157,8 +1182,19 @@ static int restore_devices(int fd, CriuKfd *e)
 		       device_bucket->priv_data_size);
 
 		device_bucket->user_gpu_id = devinfo->gpu_id;
+		device_bucket->actual_gpu_id = maps_get_dest_gpu(&restore_maps, devinfo->gpu_id);
+		if (!device_bucket->actual_gpu_id) {
+			ret = -ENODEV;
+			goto exit;
+		}
 
-		device_bucket->drm_fd = open_drm_render_device(bucket_index + DRM_FIRST_RENDER_NODE);
+		tp_node = sys_get_node_by_gpu_id(&dest_topology, device_bucket->actual_gpu_id);
+		if (!tp_node) {
+			ret = -ENODEV;
+			goto exit;
+		}
+
+		device_bucket->drm_fd = node_get_drm_render_device(tp_node);
 		if (device_bucket->drm_fd < 0) {
 			pr_perror("amdgpu_plugin: Can't pass NULL drm render fd to driver");
 			fd = -EBADFD;
@@ -1172,11 +1208,6 @@ static int restore_devices(int fd, CriuKfd *e)
 	if (ret) {
 		pr_perror("amdgpu_plugin: Failed to call restorer (devices) ioctl");
 		goto exit;
-	}
-
-	for (int i = 0; i < e->num_of_gpus; i++) {
-		if (device_buckets[i].drm_fd >= 0)
-			close(device_buckets[i].drm_fd);
 	}
 exit:
 
@@ -1195,7 +1226,6 @@ static int restore_bos(int fd, CriuKfd *e)
 	int ret = 0;
 	char *fname;
 	void *addr;
-	int drm_fd;
 
 	pr_debug("Restoring %ld BOs\n", e->num_of_bos);
 
@@ -1219,7 +1249,12 @@ static int restore_bos(int fd, CriuKfd *e)
 
 		memcpy(priv_data + bo_bucket->priv_data_offset, bo_entry->private_data.data, bo_bucket->priv_data_size);
 
-		bo_bucket->gpu_id = bo_entry->gpu_id;
+		bo_bucket->gpu_id = maps_get_dest_gpu(&restore_maps, bo_entry->gpu_id);
+		if (!bo_bucket->gpu_id) {
+			ret = -ENODEV;
+			goto exit;
+		}
+
 		bo_bucket->addr = bo_entry->addr;
 		bo_bucket->size = bo_entry->size;
 		bo_bucket->offset = bo_entry->offset;
@@ -1235,24 +1270,37 @@ static int restore_bos(int fd, CriuKfd *e)
 		goto exit;
 	}
 
-	/* This only works for single-gpu, need to fix for multi-gpu */
-	drm_fd = open_drm_render_device(DRM_FIRST_RENDER_NODE);
-
 	for (int i = 0; i < args.num_objects; i++) {
 		struct kfd_criu_bo_bucket *bo_bucket = &bo_buckets[i];
 		BoEntry *bo_entry = e->bo_entries[i];
+
+		struct tp_node *tp_node;
 
 		if (bo_bucket->alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT |
 					      KFD_IOC_ALLOC_MEM_FLAGS_MMIO_REMAP | KFD_IOC_ALLOC_MEM_FLAGS_DOORBELL)) {
 			struct vma_metadata *vma_md;
 
 			vma_md = xmalloc(sizeof(*vma_md));
-			if (!vma_md)
-				return -ENOMEM;
+			if (!vma_md) {
+				ret = -ENOMEM;
+				goto exit;
+			}
+
+			memset(vma_md, 0, sizeof(*vma_md));
 
 			vma_md->old_pgoff = bo_bucket->offset;
 			vma_md->vma_entry = bo_bucket->addr;
+
+			tp_node = sys_get_node_by_gpu_id(&dest_topology, bo_bucket->gpu_id);
+			if (!tp_node) {
+				pr_err("Failed to find node with gpu_id:0x%04x\n", bo_bucket->gpu_id);
+				ret = -ENODEV;
+				goto exit;
+			}
+
+			vma_md->new_minor = tp_node->drm_render_minor;
 			vma_md->new_pgoff = bo_bucket->restored_offset;
+			vma_md->fd = node_get_drm_render_device(tp_node);
 
 			plugin_log_msg("amdgpu_plugin: adding vma_entry:addr:0x%lx old-off:0x%lx "
 				       "new_off:0x%lx new_minor:%d\n",
@@ -1262,7 +1310,9 @@ static int restore_bos(int fd, CriuKfd *e)
 		}
 
 		if (bo_bucket->alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT)) {
-			pr_info("amdgpu_plugin: Trying mmap in stage 2\n");
+			int drm_fd = node_get_drm_render_device(tp_node);
+
+			plugin_log_msg("amdgpu_plugin: Trying mmap in stage 2\n");
 			if (bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_PUBLIC ||
 			    bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_GTT) {
 				plugin_log_msg("amdgpu_plugin: large bar write possible\n");
@@ -1376,7 +1426,12 @@ static int restore_queues(int fd, CriuKfd *e)
 
 		memcpy(priv_data + q_bucket->priv_data_offset, qinfo->private_data.data, q_bucket->priv_data_size);
 
-		q_bucket->gpu_id = qinfo->gpu_id;
+		q_bucket->gpu_id = maps_get_dest_gpu(&restore_maps, qinfo->gpu_id);
+		if (!q_bucket->gpu_id) {
+			ret = -ENODEV;
+			goto exit;
+		}
+
 		pr_debug("Queue [%d] gpu_id:%x\n", i, q_bucket->gpu_id);
 	}
 
@@ -1426,8 +1481,13 @@ static int restore_events(int fd, CriuKfd *e)
 
 		memcpy(priv_data + ev_bucket->priv_data_offset, evinfo->private_data.data, ev_bucket->priv_data_size);
 
-		if (evinfo->gpu_id)
-			ev_bucket->gpu_id = evinfo->gpu_id;
+		if (evinfo->gpu_id) {
+			ev_bucket->gpu_id = maps_get_dest_gpu(&restore_maps, evinfo->gpu_id);
+			if (!ev_bucket->gpu_id) {
+				ret = -ENODEV;
+				goto exit;
+			}
+		}
 
 		plugin_log_msg("Event [%d] gpu_id:%x\n", i, ev_bucket->gpu_id);
 	}
@@ -1458,13 +1518,14 @@ int amdgpu_plugin_restore_file(int id)
 	snprintf(img_path, sizeof(img_path), "kfd.%d.img", id);
 
 	if (stat(img_path, &filestat) == -1) {
+		struct tp_node *tp_node;
+		uint32_t target_gpu_id;
+
 		pr_perror("open(%s)", img_path);
-		/* This is restorer plugin for renderD nodes. Since criu doesn't
-		 * gurantee that they will be called before the plugin is called
-		 * for kfd file descriptor, we need to make sure we open the render
-		 * nodes only once and before /dev/kfd is open, the render nodes
-		 * are open too. Generally, it is seen that during checkpoint and
-		 * restore both, the kfd plugin gets called first.
+		/* This is restorer plugin for renderD nodes. Criu doesn't guarantee that they will
+		 * be called before the plugin is called for kfd file descriptor.
+		 * TODO: Currently, this code will only work if this function is called for /dev/kfd
+		 * first as we assume restore_maps is already filled. Need to fix this later.
 		 */
 		snprintf(img_path, sizeof(img_path), "renderDXXX.%d.img", id);
 
@@ -1493,8 +1554,26 @@ int amdgpu_plugin_restore_file(int id)
 			return -1;
 		}
 
-		pr_info("amdgpu_plugin: render node minor num = %d\n", rd->minor_number);
-		fd = open_drm_render_device(rd->minor_number);
+		pr_info("amdgpu_plugin: render node gpu_id = 0x%04x\n", rd->gpu_id);
+
+		target_gpu_id = maps_get_dest_gpu(&restore_maps, rd->gpu_id);
+		if (!target_gpu_id) {
+			fd = -ENODEV;
+			goto fail;
+		}
+
+		tp_node = sys_get_node_by_gpu_id(&dest_topology, target_gpu_id);
+		if (!tp_node) {
+			fd = -ENODEV;
+			goto fail;
+		}
+
+		pr_info("amdgpu_plugin: render node destination gpu_id = 0x%04x\n", tp_node->gpu_id);
+
+		fd = node_get_drm_render_device(tp_node);
+		if (fd < 0)
+			pr_err("amdgpu_plugin: Failed to open render device (minor:%d)\n", tp_node->drm_render_minor);
+	fail:
 		criu_render_node__free_unpacked(rd, NULL);
 		xfree(buf);
 		return fd;
@@ -1543,6 +1622,12 @@ int amdgpu_plugin_restore_file(int id)
 		goto exit;
 	}
 
+	ret = set_restore_gpu_maps(&src_topology, &dest_topology, &restore_maps);
+	if (ret) {
+		pr_err("Failed to map GPUs\n");
+		goto exit;
+	}
+
 	ret = restore_process(fd, e);
 	if (ret)
 		goto exit;
@@ -1564,6 +1649,8 @@ int amdgpu_plugin_restore_file(int id)
 		goto exit;
 
 exit:
+	sys_close_drm_render_devices(&dest_topology);
+
 	if (e)
 		criu_kfd__free_unpacked(e, NULL);
 
@@ -1582,25 +1669,55 @@ CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESTORE_EXT_FILE, amdgpu_plugin_restore_
  * return -1 for error.
  * return 1 if vmap map must be adjusted.
  */
-int amdgpu_plugin_update_vmamap(const char *path, const uint64_t addr, const uint64_t old_offset, uint64_t *new_offset,
-				int *updated_fd)
+int amdgpu_plugin_update_vmamap(const char *in_path, const uint64_t addr, const uint64_t old_offset,
+				uint64_t *new_offset, int *updated_fd)
 {
 	struct vma_metadata *vma_md;
+	char path[PATH_MAX];
+	char *p_begin;
+	char *p_end;
+	bool is_kfd = false, is_renderD = false;
 
 	plugin_log_msg("amdgpu_plugin: Enter %s\n", __func__);
 
+	strncpy(path, in_path, sizeof(path));
+
+	p_begin = path;
+	p_end = p_begin + strlen(path);
+
 	/*
-	 * On newer versions of AMD KFD driver, only the file descriptor that was used to open the
-	 * device can be used for mmap, so we will have to return the proper file descriptor here
+	 * Paths sometimes have double forward slashes (e.g //dev/dri/renderD*)
+	 * replace all '//' with '/'.
 	 */
-	*updated_fd = -1;
+	while (p_begin < p_end - 1) {
+		if (*p_begin == '/' && *(p_begin + 1) == '/')
+			memmove(p_begin, p_begin + 1, p_end - p_begin);
+		else
+			p_begin++;
+	}
+
+	if (!strncmp(path, "/dev/dri/renderD", strlen("/dev/dri/renderD")))
+		is_renderD = true;
+
+	if (!strcmp(path, AMDGPU_KFD_DEVICE))
+		is_kfd = true;
+
+	if (!is_renderD && !is_kfd) {
+		pr_info("Skipping unsupported path:%s addr:%lx old_offset:%lx\n", in_path, addr, old_offset);
+		return 0;
+	}
 
 	list_for_each_entry(vma_md, &update_vma_info_list, list) {
 		if (addr == vma_md->vma_entry && old_offset == vma_md->old_pgoff) {
 			*new_offset = vma_md->new_pgoff;
 
-			plugin_log_msg("amdgpu_plugin: old_pgoff= 0x%lx new_pgoff = 0x%lx path = %s\n",
-				       vma_md->old_pgoff, vma_md->new_pgoff, path);
+			if (is_renderD)
+				*updated_fd = vma_md->fd;
+			else
+				*updated_fd = -1;
+
+			plugin_log_msg("amdgpu_plugin: old_pgoff=0x%lx new_pgoff=0x%lx fd=%d\n", vma_md->old_pgoff,
+				       vma_md->new_pgoff, *updated_fd);
 
 			return 1;
 		}
