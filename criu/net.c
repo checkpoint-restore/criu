@@ -1167,13 +1167,13 @@ static int dump_links(int rtsk, struct ns_id *ns, struct cr_imgset *fds)
 
 static int restore_link_cb(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
-	pr_info("Got response on SETLINK =)\n");
+	pr_info("Got response on SETLINK.\n");
 	return 0;
 }
 
 static int restore_newlink_cb(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
-	pr_info("Got response on RTM_NEWLINK =)\n");
+	pr_info("Got response on RTM_NEWLINK.\n");
 	return 0;
 }
 
@@ -1251,6 +1251,58 @@ static int populate_newlink_req(struct ns_id *ns, struct newlink_req *req,
 	return 0;
 }
 
+static int kerndat_newifindex_err_cb(int err, struct ns_id *ns, void *arg)
+{
+	switch (err) {
+	case -ENODEV:
+		kdat.has_newifindex = false;
+		break;
+	case -ERANGE:
+		kdat.has_newifindex = true;
+		break;
+	default:
+		pr_err("Unexpected error: %d(%s)\n", err, strerror(-err));
+		break;
+	}
+	return 0;
+}
+
+int kerndat_has_newifindex(void)
+{
+	struct newlink_req req = {};
+	int ifindex = -1;
+	int sk, ret;
+
+	kdat.has_newifindex = false;
+	sk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+	if (sk < 0) {
+		pr_perror("Unable to create a netlink socket");
+		return -1;
+	}
+	memset(&req, 0, sizeof(req));
+
+	req.h.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.h.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK|NLM_F_CREATE;
+	req.h.nlmsg_type = RTM_SETLINK;
+	req.h.nlmsg_seq = CR_NLMSG_SEQ;
+	req.i.ifi_family = AF_UNSPEC;
+
+	/*
+	 * ifindex is negative, so the kernel will return ERANGE if
+	 * IFLA_NEW_IFINDEX is supported.
+	 */
+	addattr_l(&req.h, sizeof(req), IFLA_NEW_IFINDEX,
+		  &ifindex, sizeof(ifindex));
+	/* criu-kdat doesn't exist, so the kernel will return ENODEV. */
+	addattr_l(&req.h, sizeof(req), IFLA_IFNAME, "criu-kdat", 9);
+
+	ret = do_rtnl_req(sk, &req, sizeof(req), restore_link_cb,
+			  kerndat_newifindex_err_cb, NULL, NULL);
+	close(sk);
+	return ret;
+}
+
+
 static int do_rtm_link_req(int msg_type,
 			struct net_link *link, int nlsk, struct ns_id *ns,
 			link_info_t link_info, struct newlink_extras *extras)
@@ -1327,6 +1379,11 @@ static int move_veth(const char *netdev, struct ns_id *ns,
 	struct move_req mvreq;
 	size_t len_val;
 	int ret;
+
+	if (!kdat.has_newifindex) {
+		pr_err("Unable to specify ifindex in the target namespace.\n");
+		return -1;
+	}
 
 	/*
 	 * We require a target ifindex otherwise we can't restore addresses
