@@ -44,9 +44,6 @@ task:
     # much more restricted than a normal shell (system_u:system_r:unconfined_service_t:s0)
     # The test case above (vagrant-fedora-no-vdso) should run selinux tests in enforcing mode
     setenforce 0
-    # netns-nft fails with
-    # 4: FAIL: netns-nft.c:51: Can't get nft table (errno = 11 (Resource temporarily unavailable))
-    mv /usr/sbin/nft /usr/sbin/nft.away
     pip3 install junit_xml
 
   build_script: |
