@@ -1,0 +1,97 @@
+FROM rocm/pytorch:latest
+
+ARG CC=gcc
+
+# Environment
+ENV BRANCH=$BRANCH \
+    DEBIAN_FRONTEND=noninteractive \
+    LC_ALL=en_US.UTF-8 \
+    LANG=en_US.UTF-8 \
+    LANGUAGE=en_US.UTF-8
+
+#
+# Package installation
+#
+RUN apt-get clean -qqy && apt-get update -qqy && apt-get install -qqy --no-install-recommends \
+	--no-upgrade -yq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+	apt-utils \
+	apt-transport-https\
+	gnupg \
+	gnupg2 \
+	gettext \
+	locales \
+	iproute2 \
+	iputils-ping \
+	moreutils \
+	net-tools \
+	psmisc\
+	supervisor \
+	cifs-utils \
+	nfs-common \
+	systemd \
+	fuse \
+	xmlto \
+	autossh \
+	netbase \
+	libnet-dev \
+	libnl-route-3-dev \
+	$CC \
+	bsdmainutils \
+	ca-certificates \
+	build-essential \
+	git-core \
+	iptables \
+	libaio-dev \
+	libbsd-dev \
+	libcap-dev \
+	libgnutls28-dev \
+	libgnutls30 \
+	libnl-3-dev \
+	libprotobuf-c-dev \
+	libprotobuf-dev \
+	libselinux-dev \
+	pkg-config \
+	protobuf-c-compiler \
+	protobuf-compiler \
+	python-protobuf \
+	python3-minimal \
+	python3-future \
+	python-ipaddress \
+	curl \
+	wget \
+	vim \
+	openssl \
+	openssh-server \
+	python \
+	sudo \
+	libnuma1 \
+	libdrm-dev \
+	libdrm-amdgpu1 \
+	asciidoc \
+	&& \
+	rm -rf /var/lib/apt/lists/* && \
+	apt-get purge --auto-remove && \
+	apt-get clean
+
+# Clone latest criu code
+COPY . /criu
+WORKDIR /criu
+
+RUN make mrproper && date && \
+# Check single object build
+	make -j $(nproc) CC="$CC" criu/parasite-syscall.o && \
+# Compile criu
+	make -j $(nproc) CC="$CC" && \
+	date && echo BUILD_OK && \
+# Install criu
+	make -j $(nproc) install && \
+	date && echo INSTALL_OK
+
+WORKDIR /root/criu_build_dir
+RUN	git clone --recursive -b  cl/rocm-transformers https://github.com/lcskrishna/transformers.git && \
+	cd transformers && wget https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v1.1.json && \
+	wget https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json && \
+	wget https://github.com/allenai/bi-att-flow/blob/master/squad/evaluate-v1.1.py
+ENV SQUAD_DIR=/root/criu_build_dir/transformers
+WORKDIR /root/criu_build_dir/transformers
+RUN pip3 install tensorboard tensorboardX && pip3 install .
