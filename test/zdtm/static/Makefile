@@ -314,7 +314,8 @@ TST_FILE	=				\
 		file_locks07			\
 		file_locks08			\
 		netns-nf			\
-		netns-nft				\
+		netns-nft			\
+		netns-nft-ipt			\
 		maps_file_prot			\
 		socket_close_data01		\
 		fifo_upon_unix_socket00		\
