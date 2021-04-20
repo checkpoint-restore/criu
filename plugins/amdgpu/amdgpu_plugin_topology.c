@@ -1102,3 +1102,82 @@ bool match_xgmi_groups(struct tp_system *src_sys, struct tp_system *dest_sys,
 
 	return false;
 }
+
+int set_restore_gpu_maps(struct tp_system *src_sys, struct tp_system *dest_sys,
+			 struct device_maps *maps)
+{
+	struct tp_node *node;
+	int ret = 0;
+	int src_num_gpus = 0;
+	int dest_num_gpus = 0;
+
+	maps_init(maps);
+
+	ret = topology_determine_iolinks(src_sys);
+	if (ret) {
+		pr_err("Failed to determine iolinks from source (checkpointed) topology\n");
+		return ret;
+	}
+	topology_print(src_sys, "Source    ");
+
+	ret = topology_determine_iolinks(dest_sys);
+	if (ret) {
+		pr_err("Failed to determine iolinks from destination (local) topology\n");
+		return ret;
+	}
+	topology_print(dest_sys, "Destination");
+
+	list_for_each_entry(node, &src_sys->nodes, listm_system) {
+		if (NODE_IS_GPU(node))
+			src_num_gpus++;
+	}
+	list_for_each_entry(node, &dest_sys->nodes, listm_system) {
+		if (NODE_IS_GPU(node))
+			dest_num_gpus++;
+	}
+
+	if (src_num_gpus != dest_num_gpus) {
+		pr_err("Number of devices mismatch (checkpointed:%d local:%d)\n",
+						src_num_gpus, dest_num_gpus);
+		return -EINVAL;
+	}
+
+	if (src_sys->num_xgmi_groups > dest_sys->num_xgmi_groups) {
+		pr_err("Number of xgmi groups mismatch (checkpointed:%d local:%d)\n",
+						src_sys->num_xgmi_groups, dest_sys->num_xgmi_groups);
+		return -EINVAL;
+	}
+
+	if (src_sys->num_xgmi_groups) {
+		if (!match_xgmi_groups(src_sys, dest_sys, &src_sys->xgmi_groups, &dest_sys->xgmi_groups, maps)) {
+			pr_err("Failed to match all GPU groups\n");
+			return -EINVAL;
+		}
+		pr_info("Current maps after XGMI groups matched\n");
+		maps_print(maps);
+	}
+
+	/* We matched all the groups, now match remaining GPUs */
+	LIST_HEAD(src_nodes);
+	LIST_HEAD(dest_nodes);
+
+	list_for_each_entry(node, &src_sys->nodes, listm_system) {
+		if (NODE_IS_GPU(node) && !maps_get_dest_gpu(maps, node->gpu_id))
+			list_add(&node->listm_mapping, &src_nodes);
+	}
+
+	list_for_each_entry(node, &dest_sys->nodes, listm_system) {
+		if (NODE_IS_GPU(node) && !maps_dest_gpu_mapped(maps, node->gpu_id))
+			list_add(&node->listm_mapping, &dest_nodes);
+	}
+
+	if (!map_devices(src_sys, dest_sys, &src_nodes, &dest_nodes, maps)) {
+		pr_err("Failed to match remaining nodes\n");
+		return -EINVAL;
+	}
+
+	pr_info("Maps after all nodes matched\n");
+	maps_print(maps);
+
+	return ret;
+}
