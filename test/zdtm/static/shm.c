@@ -123,7 +123,7 @@ int main(int argc, char **argv)
 
 	shm = prepare_shm(key, shmem_size);
 	if (shm == -1) {
-		pr_perror("Can't prepare shm (1)");
+		pr_err("Can't prepare shm (1)\n");
 		goto out;
 	}
 
