@@ -29,14 +29,14 @@ static int fill_shm_seg(int id, size_t size)
 
 	mem = shmat(id, NULL, 0);
 	if (mem == (void *)-1) {
-		pr_perror("Can't attach shm: %d", -errno);
+		pr_perror("Can't attach shm");
 		return -1;
 	}
 
 	datagen(mem, size, &crc);
 
 	if (shmdt(mem) < 0) {
-		pr_perror("Can't detach shm: %d", -errno);
+		pr_perror("Can't detach shm");
 		return -1;
 	}
 	return 0;
@@ -48,7 +48,7 @@ static int get_shm_seg(int key, size_t size, unsigned int flags)
 
 	id = shmget(key, size, 0777 | flags);
 	if (id == -1) {
-		pr_perror("Can't get shm: %d", -errno);
+		pr_perror("Can't get shm");
 		return -1;
 	}
 	return id;
@@ -74,7 +74,7 @@ static int check_shm_id(int id, size_t size)
 
 	mem = shmat(id, NULL, 0);
 	if (mem == (void *)-1) {
-		pr_perror("Can't attach shm: %d", -errno);
+		pr_perror("Can't attach shm");
 		return -1;
 	}
 	crc = INIT_CRC;
@@ -83,7 +83,7 @@ static int check_shm_id(int id, size_t size)
 		return -1;
 	}
 	if (shmdt(mem) < 0) {
-		pr_perror("Can't detach shm: %d", -errno);
+		pr_perror("Can't detach shm");
 		return -1;
 	}
 	return 0;
