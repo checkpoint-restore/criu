@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (fstat(fd, &st) < 0) {
-		fail("can't stat %s: %m", filename);
+		fail("can't stat %s", filename);
 		goto out;
 	}
 
@@ -59,12 +59,12 @@ int main(int argc, char **argv)
 	}
 
 	if (close(fd) < 0) {
-		fail("can't close %s: %m", filename);
+		fail("can't close %s", filename);
 		goto out;
 	}
 
 	if (unlink(filename) != -1 || errno != ENOENT) {
-		fail("file %s should have been deleted before migration: unlink: %m", filename);
+		fail("file %s should have been deleted before migration: unlink", filename);
 		goto out;
 	}
 

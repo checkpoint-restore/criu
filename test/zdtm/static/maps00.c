@@ -133,7 +133,7 @@ static int check_map(struct map *map)
 
 	if (signal(SIGSEGV, segfault) == SIG_ERR)
 	{
-		fail("setting SIGSEGV handler failed: %m");
+		fail("setting SIGSEGV handler failed");
 		return -1;
 	}
 	if (!sigsetjmp(segv_ret, 1))
@@ -154,7 +154,7 @@ static int check_map(struct map *map)
 
 	if (signal(SIGSEGV, segfault) == SIG_ERR)
 	{
-		fail("setting SIGSEGV handler failed: %m");
+		fail("setting SIGSEGV handler failed");
 		return -1;
 	}
 
@@ -166,7 +166,7 @@ static int check_map(struct map *map)
 
 	if (signal(SIGSEGV, segfault) == SIG_ERR)
 	{
-		fail("restoring SIGSEGV handler failed: %m");
+		fail("restoring SIGSEGV handler failed");
 		return -1;
 	}
 
@@ -197,7 +197,7 @@ static int check_map(struct map *map)
 
 	if (signal(SIGSEGV, SIG_DFL) == SIG_ERR)
 	{
-		fail("restoring SIGSEGV handler failed: %m");
+		fail("restoring SIGSEGV handler failed");
 		return -1;
 	}
 
