@@ -170,13 +170,13 @@ desc init_env(const char *dir, char *file_path, char *link_path) {
 	}
 
 	if (snprintf(file_path, BUF_SIZE, "%s/%s", dir, filename) >= BUF_SIZE) {
-		pr_perror("filename %s is too long", filename);
+		pr_err("filename %s is too long\n", filename);
 		rmdir(dir);
 		return in_desc;
 	}
 
 	if (snprintf(link_path, BUF_SIZE, "%s/%s", dir, linkname) >= BUF_SIZE) {
-		pr_perror("filename %s is too long", linkname);
+		pr_err("filename %s is too long\n", linkname);
 		rmdir(dir);
 		return in_desc;
 	}
