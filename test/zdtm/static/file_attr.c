@@ -72,18 +72,18 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (lseek(fd, 0, SEEK_SET) < 0) {
-		fail("lseeking to the beginning of file failed: %m\n");
+		fail("lseeking to the beginning of file failed: %m");
 		goto out;
 	}
 
 	if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
-		fail("can't read %s: %m\n", filename);
+		fail("can't read %s: %m", filename);
 		goto out;
 	}
 
 	crc = ~0;
 	if (datachk(buf, sizeof(buf), &crc)) {
-		fail("CRC mismatch\n");
+		fail("CRC mismatch");
 		goto out;
 	}
 
@@ -103,12 +103,12 @@ int main(int argc, char ** argv)
 	}
 
 	if (close(fd)) {
-		fail("close failed: %m\n");
+		fail("close failed: %m");
 		goto out_noclose;
 	}
 
 	if (unlink(filename) != -1 || errno != ENOENT) {
-		fail("file %s should have been deleted before migration: unlink: %m\n", filename);
+		fail("file %s should have been deleted before migration: unlink: %m", filename);
 		goto out_noclose;
 	}
 

@@ -82,7 +82,7 @@ int main(int argc, char ** argv)
 	}
 
 	if ((fst.st_dev != fst2.st_dev) || (fst.st_ino != fst2.st_ino)) {
-		fail("files differ after restore\n");
+		fail("files differ after restore");
 		goto failed;
 	}
 

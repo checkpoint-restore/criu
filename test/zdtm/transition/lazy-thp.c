@@ -29,7 +29,7 @@ int main(int argc, char ** argv)
 	mem = malloc(PAGE_SIZE * N_PAGES);
 	org = malloc(PAGE_SIZE);
 	if (!mem || !org) {
-		fail("malloc failed\n");
+		fail("malloc failed");
 		exit(1);
 	}
 
@@ -48,7 +48,7 @@ int main(int argc, char ** argv)
 			org[128] = (count % 2 == 0) ? count : 0x42;
 
 			if (memcmp(org, m, PAGE_SIZE)) {
-				fail("memory corruption\n");
+				fail("memory corruption");
 				return 1;
 			}
 		}

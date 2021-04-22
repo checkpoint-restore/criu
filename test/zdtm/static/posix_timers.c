@@ -122,32 +122,32 @@ static int check_handler_status(struct posix_timers_info *info,
 	int timer_ms;
 
 	if (!info->handler_cnt && !info->oneshot) {
-		fail("%s: Signal handler wasn't called\n", info->name);
+		fail("%s: Signal handler wasn't called", info->name);
 		return -EINVAL;
 	}
 
 	if (info->handler_status) {
 		if (info->handler_status & WRONG_SIGNAL)
-			fail("%s: Handler: wrong signal received\n", info->name);
+			fail("%s: Handler: wrong signal received", info->name);
 		if (info->handler_status & WRONG_SI_PTR)
-			fail("%s: Handler: wrong timer address\n", info->name);
+			fail("%s: Handler: wrong timer address", info->name);
 		if (info->handler_status & FAIL_OVERRUN)
-			fail("%s: Handler: failed to get overrun count\n", info->name);
+			fail("%s: Handler: failed to get overrun count", info->name);
 		return -1;
 	}
 
 	if (!info->oneshot && !its->it_value.tv_sec && !its->it_value.tv_nsec) {
-		fail("%s: timer became unset\n", info->name);
+		fail("%s: timer became unset", info->name);
 		return -EFAULT;
 	}
 
 	if (info->oneshot && (its->it_interval.tv_sec || its->it_interval.tv_nsec)) {
-		fail("%s: timer became periodic\n", info->name);
+		fail("%s: timer became periodic", info->name);
 		return -EFAULT;
 	}
 
 	if (!info->oneshot && !its->it_interval.tv_sec && !its->it_interval.tv_nsec) {
-		fail("%s: timer became oneshot\n", info->name);
+		fail("%s: timer became oneshot", info->name);
 		return -EFAULT;
 	}
 
@@ -155,15 +155,15 @@ static int check_handler_status(struct posix_timers_info *info,
 		int val = its->it_value.tv_sec * 1000 + its->it_value.tv_nsec / 1000 / 1000;
 		if (info->handler_cnt) {
 			if (val != 0) {
-				fail("%s: timer continues ticking after expiration\n", info->name);
+				fail("%s: timer continues ticking after expiration", info->name);
 				return -EFAULT;
 			}
 			if (info->handler_cnt > 1) {
-				fail("%s: timer expired %d times\n", info->name, info->handler_cnt);
+				fail("%s: timer expired %d times", info->name, info->handler_cnt);
 				return -EFAULT;
 			}
 			if (info->ms_int > ms_passed) {
-				fail("%s: timer expired too early\n", info->name);
+				fail("%s: timer expired too early", info->name);
 				return -EFAULT;
 			}
 			return 0;
@@ -179,7 +179,7 @@ static int check_handler_status(struct posix_timers_info *info,
 	test_msg("%20s: Handler count    : %d\n", info->name, info->handler_cnt);
 
 	if (displacement > MAX_TIMER_DISPLACEMENT) {
-		fail("%32s: Time displacement: %d%% (max alloved: %d%%)\n", info->name, displacement, MAX_TIMER_DISPLACEMENT);
+		fail("%32s: Time displacement: %d%% (max alloved: %d%%)", info->name, displacement, MAX_TIMER_DISPLACEMENT);
 		return -EFAULT;
 	}
 	return 0;
@@ -193,19 +193,19 @@ static int check_timers(int delta, struct timespec *sleep_start, struct timespec
 	struct itimerspec val, oldval;
 
 	if (sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1) {
-		fail("Failed to unlock signal\n");
+		fail("Failed to unlock signal");
 		return -errno;
 	}
 
 	while (info->handler) {
 		memset(&val, 0, sizeof(val));
 		if (timer_settime(info->timerid, 0, &val, &oldval) == -1) {
-			fail("%s: failed to reset timer\n", info->name);
+			fail("%s: failed to reset timer", info->name);
 			return -errno;
 		}
 
 		if (clock_gettime(info->clock, &info->end) == -1) {
-			fail("Can't get %s end time\n", info->name);
+			fail("Can't get %s end time", info->name);
 			return -errno;
 		}
 

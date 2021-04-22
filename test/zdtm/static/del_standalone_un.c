@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 	}
 
 	if (stat(addr.sun_path, &sb) != 0) {
-		fail("%s doesn't exist after restore\n", addr.sun_path);
+		fail("%s doesn't exist after restore", addr.sun_path);
 		goto out;
 	}
 

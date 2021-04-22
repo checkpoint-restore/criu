@@ -155,7 +155,7 @@ static int child(void)
 				(errno != EINTR && errno != EPIPE && \
 					errno != ECONNRESET))) {
 			ret = errno;
-			fail("child write: %m\n");
+			fail("child write: %m");
 			goto out;
 		}
 	}
@@ -246,7 +246,7 @@ out:
 	test_waitsig();
 
 	if (kill(0, SIGTERM)) {
-		fail("failed to send SIGTERM to my process group: %m\n");
+		fail("failed to send SIGTERM to my process group: %m");
 		goto cleanup;	/* shouldn't wait() in this case */
 	}
 
@@ -259,16 +259,16 @@ out:
 		 * (not yet delivered), then called write(), blocking forever.
 		 */
 		if(close(child_desc[nproc].sock))
-			fail("Can't close server socket: %m\n");
+			fail("Can't close server socket: %m");
 
 		if (wait(&chret) < 0) {
-			fail("can't wait for a child: %m\n");
+			fail("can't wait for a child: %m");
 			goto cleanup;
 		}
 
 		chret = WEXITSTATUS(chret);
 		if (chret) {
-			fail("child exited with non-zero code %d (%s)\n",
+			fail("child exited with non-zero code %d (%s)",
 			     chret, strerror(chret));
 			goto cleanup;
 		}

@@ -102,7 +102,7 @@ int main(int argc, char **argv)
 		wait(&chret);
 		chret = WEXITSTATUS(chret);
 		if (chret) {
-			fail("Parent: child exited with non-zero code %d (%s)\n",
+			fail("Parent: child exited with non-zero code %d (%s)",
 			     chret, strerror(chret));
 			goto out;
 		}
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
 
 out:
 	if (msgctl(msg, IPC_RMID, 0)) {
-		fail("Failed to destroy message queue: %d\n", -errno);
+		fail("Failed to destroy message queue: %d", -errno);
 		return -errno;
 	}
 	return chret;

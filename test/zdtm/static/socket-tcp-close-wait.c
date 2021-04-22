@@ -267,7 +267,7 @@ int main(int argc, char **argv)
 	rcv_size = clean_sk_buf(fd);
 
 	if (ret != rcv_size) {
-		fail("The child sent %d bytes, but the parent received %d bytes\n", ret, rcv_size);
+		fail("The child sent %d bytes, but the parent received %d bytes", ret, rcv_size);
 		return 1;
 	}
 
@@ -278,7 +278,7 @@ int main(int argc, char **argv)
 	/* == End of the final stage == */
 
 	if (ret != snd_size) {
-		fail("The parent sent %d bytes, but the child received %d bytes\n", snd_size, ret);
+		fail("The parent sent %d bytes, but the child received %d bytes", snd_size, ret);
 		return 1;
 	}
 

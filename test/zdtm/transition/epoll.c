@@ -82,7 +82,7 @@ static void run_child(int num)
 		if (write(fd, buf, buf_size) < 0 &&
 			(!stop /* signal SIGUSR2 NOT received */ ||
 				(errno != EINTR && errno != EPIPE))) {
-			fail("child write: %m\n");
+			fail("child write: %m");
 			rv = WRITEERROR;
 			goto out;
 		}
@@ -178,17 +178,17 @@ int main(int argc, char **argv)
 	for (i = 0; i < scale; i++) {
 		kill(pids[i], SIGUSR2);
 		if (waitpid(pids[i], &rv, 0) < 0) {
-			fail("waitpid error: %m\n");
+			fail("waitpid error: %m");
 			counter++;
 			continue;
 		} else {
 			rv = WEXITSTATUS(rv);
 			if (rv < MAX_EXIT_CODE && rv > SUCCESS) {
-				fail("Child failed: %s (%d)\n",
+				fail("Child failed: %s (%d)",
 						child_fail_reason[rv], rv);
 				counter++;
 			} else if (rv != SUCCESS) {
-				fail("Unknown exitcode from child: %d\n", rv);
+				fail("Unknown exitcode from child: %d", rv);
 				counter++;
 			}
 		}

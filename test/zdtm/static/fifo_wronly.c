@@ -87,7 +87,7 @@ int main(int argc, char **argv)
 		wait(&chret);
 		chret = WEXITSTATUS(chret);
 		if (chret) {
-			fail("child exited with non-zero code %d (%s)\n",
+			fail("child exited with non-zero code %d (%s)",
 				chret, strerror(chret));
 			return 1;
 		}

@@ -46,12 +46,12 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (!getcwd(cwd2, sizeof(cwd2))) {
-		fail("can't get cwd: %m\n");
+		fail("can't get cwd: %m");
 		goto cleanup;
 	}
 
 	if (strcmp(cwd1, cwd2))
-		fail("%s != %s\n", cwd1, cwd2);
+		fail("%s != %s", cwd1, cwd2);
 	else
 		pass();
 cleanup:

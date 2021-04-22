@@ -40,7 +40,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (!wait_for_macvlan()) {
-		fail("failed to inject macvlan device\n");
+		fail("failed to inject macvlan device");
 		return 1;
 	}
 

@@ -28,7 +28,7 @@ int main(int argc, char **argv)
 	}
 
 	if (cs_before != cs_after)
-		fail("%d != %d\n", cs_before, cs_after);
+		fail("%d != %d", cs_before, cs_after);
 	else
 		pass();
 

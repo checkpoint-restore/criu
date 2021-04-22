@@ -33,24 +33,24 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (kill(pid, SIGTERM)) {
-		fail("terminating the child failed: %m\n");
+		fail("terminating the child failed: %m");
 		goto out;
 	}
 
 	if (wait(&ret) != pid) {
-		fail("wait() returned wrong pid: %m\n");
+		fail("wait() returned wrong pid: %m");
 		goto out;
 	}
 
 	if (WIFEXITED(ret)) {
 		ret = WEXITSTATUS(ret);
 		if (ret) {
-			fail("child exited with nonzero code %d (%s)\n", ret, strerror(ret));
+			fail("child exited with nonzero code %d (%s)", ret, strerror(ret));
 			goto out;
 		}
 	}
 	if (WIFSIGNALED(ret)) {
-		fail("child exited on unexpected signal %d\n", WTERMSIG(ret));
+		fail("child exited on unexpected signal %d", WTERMSIG(ret));
 		goto out;
 	}
 

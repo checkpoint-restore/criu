@@ -20,7 +20,7 @@ static void segfault(int signo)
 static int check_prot(char *ptr, char val, int prot)
 {
 	if (signal(SIGSEGV, segfault) == SIG_ERR) {
-		fail("setting SIGSEGV handler failed: %m\n");
+		fail("setting SIGSEGV handler failed: %m");
 		return -1;
 	}
 
@@ -30,29 +30,29 @@ static int check_prot(char *ptr, char val, int prot)
 			return -1;
 		}
 		if (!(prot & PROT_READ)) {
-			fail("PROT_READ bypassed\n");
+			fail("PROT_READ bypassed");
 			return -1;
 		}
 	} else		/* we come here on return from SIGSEGV handler */
 		if (prot & PROT_READ) {
-			fail("PROT_READ rejected\n");
+			fail("PROT_READ rejected");
 			return -1;
 		}
 
 	if (!sigsetjmp(segv_ret, 1)) {
 		*ptr = val;
 		if (!(prot & PROT_WRITE)) {
-			fail("PROT_WRITE bypassed\n");
+			fail("PROT_WRITE bypassed");
 			return -1;
 		}
 	} else		/* we come here on return from SIGSEGV handler */
 		if (prot & PROT_WRITE) {
-			fail("PROT_WRITE rejected\n");
+			fail("PROT_WRITE rejected");
 			return -1;
 		}
 
 	if (signal(SIGSEGV, SIG_DFL) == SIG_ERR) {
-		fail("restoring SIGSEGV handler failed: %m\n");
+		fail("restoring SIGSEGV handler failed: %m");
 		return -1;
 	}
 

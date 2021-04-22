@@ -115,7 +115,7 @@ int main(int argc, char ** argv)
 		exit(1);
 	}
 	if (mode != SECCOMP_MODE_STRICT) {
-		fail("seccomp mode mismatch %d\n", mode);
+		fail("seccomp mode mismatch %d", mode);
 		return 1;
 	}
 

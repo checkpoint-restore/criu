@@ -78,7 +78,7 @@ int main(int argc, char **argv)
 	finish(res2);
 
 	if (memcmp((uint8_t *) res1, (uint8_t *) res2, sizeof(res1)))
-		fail("results differ\n");
+		fail("results differ");
 	else
 		pass();
 #else

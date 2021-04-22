@@ -146,7 +146,7 @@ int main(int argc, char **argv)
 	ssprintf(path, "%s/%s", dirname, NAME[0]);
 	fd = open(path, O_WRONLY);
 	if (fd < 0 || write(fd, "0", 1) != 1) {
-		fail("Can't disable %s\n", path);
+		fail("Can't disable %s", path);
 		exit(1);
 	}
 	close(fd);
@@ -170,7 +170,7 @@ int main(int argc, char **argv)
 			exit(1);
 
 		if (strcmp(tmp, dump[i])) {
-			fail("Content differs:\n%s\nand\n%s\n", tmp, dump[i]);
+			fail("Content differs:\n%s\nand\n%s", tmp, dump[i]);
 			exit(1);
 		}
 		free(dump[i]);

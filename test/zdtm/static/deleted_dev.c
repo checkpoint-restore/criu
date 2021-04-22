@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 	}
 
 	if (unlink(filename) != -1 || errno != ENOENT) {
-		fail("file %s should have been deleted before migration: unlink: %m\n", filename);
+		fail("file %s should have been deleted before migration: unlink: %m", filename);
 		goto out;
 	}
 

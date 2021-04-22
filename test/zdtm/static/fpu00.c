@@ -68,7 +68,7 @@ void *run_fpu_test(void *unused)
 	res2 = finish();
 
 	if (res1 != res2)
-		fail("%f != %f\n", res1, res2);
+		fail("%f != %f", res1, res2);
 	else
 		pass();
 

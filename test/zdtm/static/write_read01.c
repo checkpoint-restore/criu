@@ -52,13 +52,13 @@ int main(int argc, char ** argv)
 
 	/* recover reading */
 	if (read(fd, buf + len, sizeof(buf) - len) != (sizeof(buf) - len)) {
-		fail("can't read %s: %m\n", filename);
+		fail("can't read %s: %m", filename);
 		goto out;
 	}
 
 	crc = ~0;
 	if (datachk(buf, sizeof(buf), &crc)) {
-		fail("CRC mismatch\n");
+		fail("CRC mismatch");
 		goto out;
 	}
 
