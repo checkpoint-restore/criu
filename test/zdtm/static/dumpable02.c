@@ -87,7 +87,7 @@ int main(int argc, char **argv)
 	 */
 	ret = chmod(argv[0], 0111);
 	if (ret < 0) {
-		pr_perror("error chmodding %s", argv[0]);
+		pr_perror("chmod(%s) failed", argv[0]);
 		return 1;
 	}
 
@@ -144,7 +144,7 @@ int main(int argc, char **argv)
 		}
 
 		execl(argv[0], "dumpable_server", NULL);
-		pr_perror("could not execv %s as a dumpable_server\nError No: %d", argv[0], errno);
+		pr_perror("could not execv %s as a dumpable_server", argv[0]);
 		return 1;
 	}
 

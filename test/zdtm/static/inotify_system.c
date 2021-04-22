@@ -92,8 +92,8 @@ int addWatcher(int fd, const char *path) {
 	int wd;
 	wd = inotify_add_watch(fd, path, IN_ALL_EVENTS | IN_DONT_FOLLOW);
 	if (wd < 0) {
-		pr_perror("inotify_add_watch(%d, %s, IN_ALL_EVENTS) Failed, %s",
-			fd, path, strerror(errno));
+		pr_perror("inotify_add_watch(%d, %s, IN_ALL_EVENTS) failed",
+				fd, path);
 		return -1;
 	}
 	return wd;
@@ -101,8 +101,7 @@ int addWatcher(int fd, const char *path) {
 
 int fChmod(char *path) {
 	if (chmod(path, 0755) < 0) {
-		pr_perror("chmod(%s, 0755) Failed, %s",
-			path, strerror(errno));
+		pr_perror("chmod(%s, 0755) failed", path);
 		return -1;
 	}
 	return 0;
@@ -111,16 +110,15 @@ int fChmod(char *path) {
 int fWriteClose(char *path) {
 	int fd = open(path, O_RDWR | O_CREAT, 0700);
 	if (fd == -1) {
-		pr_perror("open(%s, O_RDWR|O_CREAT,0700) Failed, %s",
-			path, strerror(errno));
+		pr_perror("open(%s, O_RDWR|O_CREAT, 0700) failed", path);
 		return -1;
 	}
 	if (write(fd, "string", 7) == -1) {
-		pr_perror("write(%d, %s, 1) Failed, %s", fd, path, strerror(errno));
+		pr_perror("write(%d, %s, 1) failed", fd, path);
 		return -1;
 	}
 	if (close(fd) == -1) {
-		pr_perror("close(%s) Failed, %s", path, strerror(errno));
+		pr_perror("close(%s) failed", path);
 		return -1;
 	}
 	return 0;
@@ -130,17 +128,16 @@ int fNoWriteClose(char *path) {
 	char buf[BUF_SIZE];
 	int fd = open(path, O_RDONLY);
 	if ( fd < 0 ) {
-		pr_perror("open(%s, O_RDONLY) Failed, %s",
-			path, strerror(errno));
+		pr_perror("open(%s, O_RDONLY) failed", path);
 		return -1;
 	}
 	if (read(fd, buf, BUF_SIZE) == -1) {
-		pr_perror("read error: %s", strerror(errno));
+		pr_perror("read");
 		close(fd);
 		return -1;
 	}
 	if (close(fd) == -1) {
-		pr_perror("close(%s) Failed, %s", path, strerror(errno));
+		pr_perror("close(%s) failed", path);
 		return -1;
 	}
 	return 0;
@@ -148,8 +145,7 @@ int fNoWriteClose(char *path) {
 
 int fMove(char *from, char *to) {
 	if (rename(from, to) == -1) {
-		pr_perror("rename error (from: %s to: %s) : %s",
-			from, to, strerror(errno));
+		pr_perror("rename error (from: %s to: %s)", from, to);
 		return -1;
 	}
 	return 0;
@@ -158,13 +154,12 @@ int fMove(char *from, char *to) {
 desc init_env(const char *dir, char *file_path, char *link_path) {
 	desc in_desc = {-1, -1, -1, -1};
 	if (mkdir(dir, 0777) < 0) {
-		pr_perror("error in creating directory: %s, %s",
-			dir, strerror(errno));
+		pr_perror("mkdir(%s)", dir);
 		return in_desc;
 	}
 	in_desc.inot = inotify_init();
 	if (in_desc.inot < 0) {
-		pr_perror("inotify_init () Failed, %s", strerror(errno));
+		pr_perror("inotify_init() failed");
 		rmdir(dir);
 		return in_desc;
 	}
@@ -193,7 +188,7 @@ desc init_env(const char *dir, char *file_path, char *link_path) {
 
 int fDelete(char *path) {
 	if (unlink(path) != 0) {
-		pr_perror("unlink: (%s)", strerror(errno));
+		pr_perror("unlink(%s)", path);
 		return -1;
 	}
 	return 0;
@@ -201,7 +196,7 @@ int fDelete(char *path) {
 
 int fRemDir(const char *target) {
 	if(rmdir(target)) {
-		pr_perror("rmdir: (%s)", strerror(errno));
+		pr_perror("rmdir(%s)", target);
 		return -1;
 	}
 	return 0;
@@ -295,8 +290,8 @@ next_event:
 int read_set(int inot_fd, char *event_set) {
 	int len;
 	if ((len = read(inot_fd, event_set, EVENT_BUF_LEN)) < 0) {
-		pr_perror("read(%d, buf, %lu) Failed, errno=%d",
-			inot_fd, (unsigned long)EVENT_BUF_LEN, errno);
+		pr_perror("read(%d, buf, %lu) failed",
+			inot_fd, (unsigned long)EVENT_BUF_LEN);
 		return -1;
 	}
 	return len;

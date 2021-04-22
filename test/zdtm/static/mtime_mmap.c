@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 	ptr = (char *)mmap(NULL, count, PROT_READ | PROT_WRITE,
 			MAP_SHARED, fd, 0);
 	if (ptr == MAP_FAILED) {
-		pr_perror("mmap() Failed, errno=%d : %s", errno, strerror(errno));
+		pr_perror("mmap() failed");
 		goto failed;
 	}
 
@@ -66,12 +66,12 @@ int main(int argc, char **argv)
 		ptr[i]++;
 
 	if (munmap(ptr, count)) {
-		pr_perror("munmap Failed, errno=%d : %s", errno, strerror(errno));
+		pr_perror("munmap failed");
 		goto failed;
 	}
 
 	if (fstat(fd, &fst) < 0) {
-		pr_perror("can't get %s file info", filename);
+		pr_perror("fstat(%s) failed", filename);
 		goto failed;
 	}
 

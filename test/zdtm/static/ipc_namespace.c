@@ -100,7 +100,7 @@ static int get_messages_info(struct ipc_ns *ipc)
 
 	ret = msgctl(0, MSG_INFO, (struct msqid_ds *)&info);
 	if (ret < 0) {
-		pr_perror("msgctl failed with %d", errno);
+		pr_perror("msgctl failed");
 		return ret;
 	}
 
@@ -149,7 +149,7 @@ static int get_semaphores_info(struct ipc_ns *ipc)
 
 	err = semctl(0, 0, SEM_INFO, &info);
 	if (err < 0)
-		pr_perror("semctl failed with %d", errno);
+		pr_perror("semctl failed");
 
 	ipc->sem_ctls[0] = info.semmsl;
 	ipc->sem_ctls[1] = info.semmns;
@@ -172,7 +172,7 @@ static int get_shared_memory_info(struct ipc_ns *ipc)
 
 	ret = shmctl(0, IPC_INFO, &u.shmid);
 	if (ret < 0)
-		pr_perror("semctl failed with %d", errno);
+		pr_perror("semctl failed");
 
 	ipc->shm_ctlmax = u.shminfo64.shmmax;
 	ipc->shm_ctlall = u.shminfo64.shmall;
@@ -180,7 +180,7 @@ static int get_shared_memory_info(struct ipc_ns *ipc)
 
 	ret = shmctl(0, SHM_INFO, &u.shmid);
 	if (ret < 0)
-		pr_perror("semctl failed with %d", errno);
+		pr_perror("semctl failed");
 
 	ipc->shm_tot = u.shminfo.shm_tot;
 	ipc->ids[IPC_SHM_IDS].in_use = u.shminfo.used_ids;
@@ -256,7 +256,7 @@ static int rand_ipc_sem(void)
 				      (unsigned) lrand48(), (unsigned) lrand48() % MAX_MNI);
 	ret = write(fd, buf, 128);
 	if (ret < 0) {
-		pr_perror("Can't write %s: %d", name, errno);
+		pr_perror("Can't write %s", name);
 		return -errno;
 	}
 	close(fd);
