@@ -44,13 +44,13 @@ int get_dumpable_from_pipes(int pipe_input, int pipe_output) {
 	buf[len] = 0;
 
 	if (memcmp(buf, "DUMPABLE:", 9) != 0) {
-		pr_perror("child returned [%s]", buf);
+		pr_err("child returned [%s]\n", buf);
 		return -1;
 	}
 
 	value = strtol(&buf[9], &endptr, 10);
 	if (!endptr || *endptr != '\n' || endptr != buf + len - 1) {
-		pr_perror("child returned [%s]", buf);
+		pr_err("child returned [%s]\n", buf);
 		return -1;
 	}
 
@@ -188,17 +188,17 @@ int main(int argc, char **argv)
 	}
 	errno = 0;
 	if (waited != pid) {
-		pr_perror("waited pid %d did not match child pid %d",
+		pr_err("waited pid %d did not match child pid %d\n",
 		    waited, pid);
 		return 1;
 	}
 	if (!WIFEXITED(status)) {
-		pr_perror("child dumpable server returned abnormally with status=%d",
+		pr_err("child dumpable server returned abnormally with status=%d\n",
 		    status);
 		return 1;
 	}
 	if (WEXITSTATUS(status) != 0) {
-		pr_perror("child dumpable server returned rc=%d",
+		pr_err("child dumpable server returned rc=%d\n",
 		    WEXITSTATUS(status));
 		return 1;
 	}

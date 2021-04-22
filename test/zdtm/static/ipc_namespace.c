@@ -199,19 +199,19 @@ int fill_ipc_ns(struct ipc_ns *ipc)
 
 	ret = get_messages_info(ipc);
 	if (ret < 0) {
-		pr_perror("Failed to collect messages");
+		pr_err("Failed to collect messages\n");
 		return ret;
 	}
 
 	ret = get_semaphores_info(ipc);
 	if (ret < 0) {
-		pr_perror("Failed to collect semaphores");
+		pr_err("Failed to collect semaphores\n");
 		return ret;
 	}
 
 	ret = get_shared_memory_info(ipc);
 	if (ret < 0) {
-		pr_perror("Failed to collect shared memory");
+		pr_err("Failed to collect shared memory\n");
 		return ret;
 	}
 	return 0;
@@ -304,7 +304,7 @@ static int rand_ipc_ns(void)
 		ret = rand_ipc_sysctl("/proc/sys/fs/mqueue/msgsize_default", ((unsigned)lrand48() & (8192 * 128 - 1)) | 128);
 
 	if (ret < 0)
-		pr_perror("Failed to randomize ipc namespace tunables");
+		pr_err("Failed to randomize ipc namespace tunables\n");
 
 	return ret;
 }
@@ -315,64 +315,64 @@ static void show_ipc_entry(struct ipc_ns *old, struct ipc_ns *new)
 
 	for (i = 0; i < 3; i++) {
 		if (old->ids[i].in_use != new->ids[i].in_use)
-			pr_perror("ids[%d].in_use differs: %d ---> %d", i,
+			pr_err("ids[%d].in_use differs: %d ---> %d\n", i,
 				old->ids[i].in_use, new->ids[i].in_use);
 
 	}
 	for (i = 0; i < 4; i++) {
 		if (old->sem_ctls[i] != new->sem_ctls[i])
-			pr_perror("sem_ctls[%d] differs: %d ---> %d", i,
+			pr_err("sem_ctls[%d] differs: %d ---> %d\n", i,
 				old->sem_ctls[i], new->sem_ctls[i]);
 
 	}
 
 	if (old->msg_ctlmax != new->msg_ctlmax)
-		pr_perror("msg_ctlmax differs: %d ---> %d",
+		pr_err("msg_ctlmax differs: %d ---> %d\n",
 			old->msg_ctlmax, new->msg_ctlmax);
 	if (old->msg_ctlmnb != new->msg_ctlmnb)
-		pr_perror("msg_ctlmnb differs: %d ---> %d",
+		pr_err("msg_ctlmnb differs: %d ---> %d\n",
 			old->msg_ctlmnb, new->msg_ctlmnb);
 	if (old->msg_ctlmni != new->msg_ctlmni)
-		pr_perror("msg_ctlmni differs: %d ---> %d",
+		pr_err("msg_ctlmni differs: %d ---> %d\n",
 			old->msg_ctlmni, new->msg_ctlmni);
 	if (old->auto_msgmni != new->auto_msgmni)
-		pr_perror("auto_msgmni differs: %d ---> %d",
+		pr_err("auto_msgmni differs: %d ---> %d\n",
 			old->auto_msgmni, new->auto_msgmni);
 	if (old->msg_next_id != new->msg_next_id)
-		pr_perror("msg_next_id differs: %d ---> %d",
+		pr_err("msg_next_id differs: %d ---> %d\n",
 			old->msg_next_id, new->msg_next_id);
 	if (old->sem_next_id != new->sem_next_id)
-		pr_perror("sem_next_id differs: %d ---> %d",
+		pr_err("sem_next_id differs: %d ---> %d\n",
 			old->sem_next_id, new->sem_next_id);
 	if (old->shm_next_id != new->shm_next_id)
-		pr_perror("shm_next_id differs: %d ---> %d",
+		pr_err("shm_next_id differs: %d ---> %d\n",
 			old->shm_next_id, new->shm_next_id);
 	if (old->shm_ctlmax != new->shm_ctlmax)
-		pr_perror("shm_ctlmax differs: %zu ---> %zu",
+		pr_err("shm_ctlmax differs: %zu ---> %zu\n",
 			old->shm_ctlmax, new->shm_ctlmax);
 	if (old->shm_ctlall != new->shm_ctlall)
-		pr_perror("shm_ctlall differs: %zu ---> %zu",
+		pr_err("shm_ctlall differs: %zu ---> %zu\n",
 			old->shm_ctlall, new->shm_ctlall);
 	if (old->shm_ctlmni != new->shm_ctlmni)
-		pr_perror("shm_ctlmni differs: %d ---> %d",
+		pr_err("shm_ctlmni differs: %d ---> %d\n",
 			old->shm_ctlmni, new->shm_ctlmni);
 	if (old->shm_rmid_forced != new->shm_rmid_forced)
-		pr_perror("shm_rmid_forced differs: %d ---> %d",
+		pr_err("shm_rmid_forced differs: %d ---> %d\n",
 			old->shm_rmid_forced, new->shm_rmid_forced);
 	if (old->mq_queues_max != new->mq_queues_max)
-		pr_perror("mq_queues_max differs: %d ---> %d",
+		pr_err("mq_queues_max differs: %d ---> %d\n",
 			old->mq_queues_max, new->mq_queues_max);
 	if (old->mq_msg_max != new->mq_msg_max)
-		pr_perror("mq_msg_max differs: %d ---> %d",
+		pr_err("mq_msg_max differs: %d ---> %d\n",
 			old->mq_msg_max, new->mq_msg_max);
 	if (old->mq_msgsize_max != new->mq_msgsize_max)
-		pr_perror("mq_msgsize_max differs: %d ---> %d",
+		pr_err("mq_msgsize_max differs: %d ---> %d\n",
 			old->mq_msgsize_max, new->mq_msgsize_max);
 	if (old->mq_msg_default != new->mq_msg_default)
-		pr_perror("mq_msg_default differs: %d ---> %d",
+		pr_err("mq_msg_default differs: %d ---> %d\n",
 			old->mq_msg_default, new->mq_msg_default);
 	if (old->mq_msgsize_default != new->mq_msgsize_default)
-		pr_perror("mq_msgsize_default differs: %d ---> %d",
+		pr_err("mq_msgsize_default differs: %d ---> %d\n",
 			old->mq_msgsize_default, new->mq_msgsize_default);
 }
 
@@ -384,13 +384,13 @@ int main(int argc, char **argv)
 
 	ret = rand_ipc_ns();
 	if (ret) {
-		pr_perror("Failed to randomize ipc ns before migration");
+		pr_err("Failed to randomize ipc ns before migration\n");
 		return -1;
 	}
 
 	ret = fill_ipc_ns(&ipc_before);
 	if (ret) {
-		pr_perror("Failed to collect ipc ns before migration");
+		pr_err("Failed to collect ipc ns before migration\n");
 		return ret;
 	}
 
@@ -399,12 +399,12 @@ int main(int argc, char **argv)
 
 	ret = fill_ipc_ns(&ipc_after);
 	if (ret) {
-		pr_perror("Failed to collect ipc ns after migration");
+		pr_err("Failed to collect ipc ns after migration\n");
 		return ret;
 	}
 
 	if (memcmp(&ipc_before, &ipc_after, sizeof(ipc_after))) {
-		pr_perror("IPC's differ");
+		pr_err("IPCs differ\n");
 		show_ipc_entry(&ipc_before, &ipc_after);
 		return -EINVAL;
 	}
