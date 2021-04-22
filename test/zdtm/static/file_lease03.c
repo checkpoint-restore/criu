@@ -129,9 +129,9 @@ int main(int argc, char **argv)
 	if (ret < 0 || !WIFEXITED(status) || WEXITSTATUS(status))
 		fail();
 	if (sigaction_error)
-		fail("Ghost signal\n");
+		fail("Ghost signal");
 	else if (check_lease_type(fd, F_UNLCK))
-		fail("Lease type doesn't match\n");
+		fail("Lease type doesn't match");
 	else
 		pass();
 

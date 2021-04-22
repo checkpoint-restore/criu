@@ -87,7 +87,7 @@ int main(int argc, char **argv)
 	ctime_new = fst.st_ctime;
 	/* time of last status change */
 	if (ctime_new <= ctime_old) {
-		fail("time of last status change of %s file wasn't changed\n",
+		fail("time of last status change of %s file wasn't changed",
 			filename);
 		goto failed;
 	}

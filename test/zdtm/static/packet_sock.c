@@ -211,7 +211,7 @@ int main(int argc, char **argv)
 	}
 
 	if (ver != TPACKET_V2) {
-		fail("Version mismatch have %d, want %d\n", ver, TPACKET_V2);
+		fail("Version mismatch have %d, want %d", ver, TPACKET_V2);
 		return 1;
 	}
 
@@ -272,7 +272,7 @@ int main(int argc, char **argv)
 	}
 
 	if (rsv != SK_RESERVE) {
-		fail("Reserve mismatch have %d, want %d\n", rsv, SK_RESERVE);
+		fail("Reserve mismatch have %d, want %d", rsv, SK_RESERVE);
 		return 1;
 	}
 

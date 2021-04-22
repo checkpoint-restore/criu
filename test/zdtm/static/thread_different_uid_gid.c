@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 	task_waiter_init(&t);
 
 	if (getuid() != 0) {
-		fail("Test is expected to be run with root privileges\n");
+		fail("Test is expected to be run with root privileges");
 		exit(1);
 	}
 

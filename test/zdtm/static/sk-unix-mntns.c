@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 	task_waiter_init(&t);
 	cwd = get_current_dir_name();
 	if (!cwd) {
-		fail("getcwd\n");
+		fail("getcwd");
 		exit(1);
 	}
 
@@ -89,12 +89,12 @@ int main(int argc, char *argv[])
 
 	ret = bind(sk, (struct sockaddr *) &addr, addrlen);
 	if (ret) {
-		fail("bind\n");
+		fail("bind");
 		exit(1);
 	}
 
 	if (connect(csk, (struct sockaddr *) &addr, addrlen)) {
-		fail("connect\n");
+		fail("connect");
 		exit(1);
 	}
 
@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
 		}
 
 		if (strncmp(rbuf, sbuf, len)) {
-			fail("data corrupted\n");
+			fail("data corrupted");
 			exit(1);
 		}
 

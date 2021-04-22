@@ -39,18 +39,18 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		fail("can't open %s: %m\n", filename);
+		fail("can't open %s: %m", filename);
 		exit(1);
 	}
 
 	if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
-		fail("can't read %s: %m\n", filename);
+		fail("can't read %s: %m", filename);
 		goto out;
 	}
 
 	crc = ~0;
 	if (datachk(buf, sizeof(buf), &crc)) {
-		fail("CRC mismatch\n");
+		fail("CRC mismatch");
 		goto out;
 	}
 

@@ -125,46 +125,46 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (kill(pid, SIGTERM)) {
-		fail("terminating the child failed: %m\n");
+		fail("terminating the child failed: %m");
 		goto out;
 	}
 
 	if (wait(&ret) != pid) {
-		fail("wait() returned wrong pid %d: %m\n", pid);
+		fail("wait() returned wrong pid %d: %m", pid);
 		goto out;
 	}
 
 	if (WIFEXITED(ret)) {
 		ret = WEXITSTATUS(ret);
 		if (ret) {
-			fail("child exited with nonzero code %d (%s)\n", ret, strerror(ret));
+			fail("child exited with nonzero code %d (%s)", ret, strerror(ret));
 			goto out;
 		}
 	}
 	if (WIFSIGNALED(ret)) {
-		fail("child exited on unexpected signal %d\n", WTERMSIG(ret));
+		fail("child exited on unexpected signal %d", WTERMSIG(ret));
 		goto out;
 	}
 
 	if (read(sock, buf, sizeof(buf)) != sizeof(buf)) {
-		fail("can't read %s: %m\n", filename);
+		fail("can't read %s: %m", filename);
 		goto out;
 	}
 
 	crc = ~0;
 	if (datachk(buf, sizeof(buf), &crc)) {
-		fail("CRC mismatch\n");
+		fail("CRC mismatch");
 		goto out;
 	}
 
 
 	if (close(sock)) {
-		fail("close failed: %m\n");
+		fail("close failed: %m");
 		goto out;
 	}
 
 	if (unlink(filename) != -1 || errno != ENOENT) {
-		fail("file %s should have been deleted before migration: unlink: %m\n", filename);
+		fail("file %s should have been deleted before migration: unlink: %m", filename);
 		goto out;
 	}
 

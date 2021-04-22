@@ -217,7 +217,7 @@ int main(int argc, char ** argv)
 				err++;
 			}
 			if (!WIFEXITED(status) || WEXITSTATUS(status)) {
-				fail("The process with pid %d returns %d\n", pid, status);
+				fail("The process with pid %d returns %d", pid, status);
 				err++;
 			}
 		}

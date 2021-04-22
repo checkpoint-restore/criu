@@ -63,18 +63,18 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (fstat(fd, &stf) < 0) {
-		fail("dir fd closed\n");
+		fail("dir fd closed");
 		goto cleanup;
 	}
 
 	if (stat("/proc/self/cwd", &std) < 0) {
-		fail("cwd is not OK\n");
+		fail("cwd is not OK");
 		goto cleanup;
 	}
 
 	if (stf.st_ino != std.st_ino ||
 			stf.st_dev != std.st_dev) {
-		fail("cwd and opened fd are not the same\n");
+		fail("cwd and opened fd are not the same");
 		goto cleanup;
 	}
 

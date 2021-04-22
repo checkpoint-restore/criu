@@ -121,7 +121,7 @@ int main(int argc, char **argv)
 	task_waiter_complete_current(&t);
 
 	if (v != TEST_VALUE) {
-		fail("read data mismatch\n");
+		fail("read data mismatch");
 		exit_shot(pid, 1);
 	}
 
@@ -130,7 +130,7 @@ int main(int argc, char **argv)
 		exit_shot(pid, 1);
 	}
 	if (v != TEST_VALUE) {
-		fail("read data mismatch\n");
+		fail("read data mismatch");
 		exit_shot(pid, 1);
 	}
 

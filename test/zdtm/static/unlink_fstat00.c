@@ -152,13 +152,13 @@ int main(int argc, char ** argv)
 		goto failed;
 	}
 	if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
-		fail("can't read %s: %m\n", filename);
+		fail("can't read %s: %m", filename);
 		goto failed;
 	}
 
 	crc = ~0;
 	if (datachk(buf, sizeof(buf), &crc)) {
-		fail("CRC mismatch\n");
+		fail("CRC mismatch");
 		goto failed;
 	}
 
