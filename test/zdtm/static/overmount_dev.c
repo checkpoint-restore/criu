@@ -57,17 +57,17 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (umount(dirname) < 0) {
-		fail("can't umount %s: %m", dirname);
+		fail("can't umount %s", dirname);
 		goto cleanup;
 	}
 
 	if (close(fd) < 0) {
-		fail("can't close %s: %m", path);
+		fail("can't close %s", path);
 		goto unlink;
 	}
 
 	if (stat(path, &st) < 0) {
-		fail("can't stat %s: %m", path);
+		fail("can't stat %s", path);
 		goto unlink;
 	}
 
@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 	}
 
 	if (unlink(path) < 0) {
-		fail("can't unlink %s: %m", path);
+		fail("can't unlink %s", path);
 		goto rmdir;
 	}
 

@@ -72,12 +72,12 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (lseek(fd, 0, SEEK_SET) < 0) {
-		fail("lseeking to the beginning of file failed: %m");
+		fail("lseeking to the beginning of file failed");
 		goto out;
 	}
 
 	if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
-		fail("can't read %s: %m", filename);
+		fail("can't read %s", filename);
 		goto out;
 	}
 
@@ -88,7 +88,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (fstat(fd, &st) < 0) {
-		fail("can't fstat %s: %m", filename);
+		fail("can't fstat %s", filename);
 		goto out;
 	}
 
@@ -103,12 +103,12 @@ int main(int argc, char ** argv)
 	}
 
 	if (close(fd)) {
-		fail("close failed: %m");
+		fail("close failed");
 		goto out_noclose;
 	}
 
 	if (unlink(filename) != -1 || errno != ENOENT) {
-		fail("file %s should have been deleted before migration: unlink: %m", filename);
+		fail("file %s should have been deleted before migration: unlink", filename);
 		goto out_noclose;
 	}
 

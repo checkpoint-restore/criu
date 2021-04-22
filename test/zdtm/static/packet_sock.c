@@ -206,7 +206,7 @@ int main(int argc, char **argv)
 
 	alen = sizeof(ver);
 	if (getsockopt(sk1, SOL_PACKET, PACKET_VERSION, &ver, &alen) < 0) {
-		fail("Can't get sockopt ver %m");
+		fail("Can't get sockopt ver");
 		return 1;
 	}
 
@@ -217,7 +217,7 @@ int main(int argc, char **argv)
 
 	alen = sizeof(yes);
 	if (getsockopt(sk1, SOL_PACKET, PACKET_AUXDATA, &yes, &alen) < 0) {
-		fail("Can't get sockopt auxdata %m");
+		fail("Can't get sockopt auxdata");
 		return 1;
 	}
 
@@ -236,7 +236,7 @@ int main(int argc, char **argv)
 
 	alen = sizeof(yes);
 	if (getsockopt(sk1, SOL_PACKET, PACKET_FANOUT, &yes, &alen) < 0) {
-		fail("Can't read fanout back %m");
+		fail("Can't read fanout back");
 		return 1;
 	}
 
@@ -256,13 +256,13 @@ int main(int argc, char **argv)
 
 	alen = sizeof(rsv);
 	if (getsockopt(sk2, SOL_PACKET, PACKET_RESERVE, &rsv, &alen) < 0) {
-		fail("Can't get sockopt rsv %m");
+		fail("Can't get sockopt rsv");
 		return 1;
 	}
 
 	alen = sizeof(yes);
 	if (getsockopt(sk2, SOL_PACKET, PACKET_ORIGDEV, &yes, &alen) < 0) {
-		fail("Can't get sockopt origdev %m");
+		fail("Can't get sockopt origdev");
 		return 1;
 	}
 
@@ -287,7 +287,7 @@ int main(int argc, char **argv)
 
 	alen = sizeof(yes);
 	if (getsockopt(sk2, SOL_PACKET, PACKET_FANOUT, &yes, &alen) < 0) {
-		fail("Can't read fanout2 back %m");
+		fail("Can't read fanout2 back");
 		return 1;
 	}
 

@@ -147,12 +147,12 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (kill(pid, SIGTERM)) {
-		fail("terminating the child failed: %m");
+		fail("terminating the child failed");
 		goto out;
 	}
 
 	if (wait(&ret) != pid) {
-		fail("wait() returned wrong pid %d: %m", pid);
+		fail("wait() returned wrong pid %d", pid);
 		goto out;
 	}
 
@@ -170,7 +170,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (read(sock, buf, sizeof(buf)) != sizeof(buf)) {
-		fail("can't read %s: %m", path);
+		fail("can't read %s", path);
 		goto out;
 	}
 
@@ -181,17 +181,17 @@ int main(int argc, char ** argv)
 	}
 
 	if (umount(dirname) < 0) {
-		fail("can't umount %s: %m", dirname);
+		fail("can't umount %s", dirname);
 		goto out;
 	}
 
 	if (close(sock) < 0) {
-		fail("can't close %s: %m", path);
+		fail("can't close %s", path);
 		goto out;
 	}
 
 	if (unlink(path) < 0) {
-		fail("can't unlink %s: %m", path);
+		fail("can't unlink %s", path);
 		goto out;
 	}
 

@@ -20,7 +20,7 @@ static void segfault(int signo)
 static int check_prot(char *ptr, char val, int prot)
 {
 	if (signal(SIGSEGV, segfault) == SIG_ERR) {
-		fail("setting SIGSEGV handler failed: %m");
+		fail("setting SIGSEGV handler failed");
 		return -1;
 	}
 
@@ -52,7 +52,7 @@ static int check_prot(char *ptr, char val, int prot)
 		}
 
 	if (signal(SIGSEGV, SIG_DFL) == SIG_ERR) {
-		fail("restoring SIGSEGV handler failed: %m");
+		fail("restoring SIGSEGV handler failed");
 		return -1;
 	}
 

@@ -74,7 +74,7 @@ int main(int argc, char **argv)
 
 	aux2 = readlink("/proc/self/cwd", cwd2, sizeof(cwd2));
 	if (aux2 < 0) {
-		fail("can't get cwd: %m");
+		fail("can't get cwd");
 		goto cleanup;
 	}
 	if (aux2 == sizeof(cwd2)) {

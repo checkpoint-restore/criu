@@ -131,7 +131,7 @@ int main(int argc, char **argv)
 			continue;
 
 		if (len > 0) {
-			fail("read failed: %m");
+			fail("read failed");
 			ret = 1;
 			break;
 		}
@@ -150,22 +150,22 @@ int main(int argc, char **argv)
 	 * has been received. Thus, send signal before closing parent fds.
 	 */
 	if (kill(0, SIGTERM)) {
-		fail("failed to send SIGTERM to my process group: %m");
+		fail("failed to send SIGTERM to my process group");
 		goto out;	/* shouldn't wait() in this case */
 	}
 	if (close(out))
-		fail("Failed to close parent fd 'out': %m");
+		fail("Failed to close parent fd 'out'");
 	/* If last child in the chain (from whom we read data) receives signal
 	 * after parent has finished reading but before calling write(2), this
 	 * child can block forever.  To avoid this, close 'in' fd.
 	 */
 	if (close(in))
-		fail("failed to close parent fd 'in': %m");
+		fail("failed to close parent fd 'in'");
 
 	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
 		int chret;
 		if (wait(&chret) < 0) {
-			fail("can't wait for a child: %m");
+			fail("can't wait for a child");
 			ret = 1;
 			continue;
 		}

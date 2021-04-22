@@ -146,7 +146,7 @@ int main(int argc, char **argv)
 			if (errno == EINTR)
 				continue;
 			else {
-				fail("write failed: %m");
+				fail("write failed");
 				ret = 1;
 				break;
 			}
@@ -163,7 +163,7 @@ int main(int argc, char **argv)
 		}
 
 		if (len > 0) {
-			fail("read failed: %m");
+			fail("read failed");
 			ret = 1;
 			break;
 		}
@@ -180,7 +180,7 @@ int main(int argc, char **argv)
 	test_waitsig(); /* even if failed, wait for migration to complete */
 
 	if (kill(0, SIGTERM)) {
-		fail("failed to send SIGTERM to my process group: %m");
+		fail("failed to send SIGTERM to my process group");
 		return 1;	/* shouldn't wait() in this case */
 	}
 	close(readfd);
@@ -188,7 +188,7 @@ int main(int argc, char **argv)
 	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
 		int chret;
 		if (waitpid(pids[i], &chret, 0) < 0) {
-			fail("waitpid error: %m");
+			fail("waitpid error");
 			ret = 1;
 			continue;
 		}

@@ -152,7 +152,7 @@ int main(int argc, char ** argv)
 		goto failed;
 	}
 	if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
-		fail("can't read %s: %m", filename);
+		fail("can't read %s", filename);
 		goto failed;
 	}
 
