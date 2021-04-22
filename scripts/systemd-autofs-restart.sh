@@ -45,8 +45,8 @@ bindmount=""
 
 function remove_bindmount {
 	if [ -n "$bindmount" ]; then
-		$JOIN_CT umount $bindmount
-		$JOIN_CT rm -rf $bindmount
+		$JOIN_CT umount "$bindmount"
+		$JOIN_CT rm -rf "$bindmount"
 		bindmount=""
 	fi
 }
@@ -107,7 +107,7 @@ function save_mountpoint {
 	# Nothing to do, if no file system is on top of autofs
 	[ "$top_mount_fs_type" = "autofs" ] && return
 
-	bindmount=$($JOIN_CT mktemp -d)
+	bindmount="$($JOIN_CT mktemp -d)"
 	if [ -z "$bindmount" ]; then
 		echo "Failed to create temporary directory"
 		return 1
