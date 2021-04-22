@@ -3832,7 +3832,7 @@ static int ns_remount_writable(void *arg)
 
 	if (do_restore_task_mnt_ns(ns))
 		return 1;
-	pr_debug("Switched to mntns %u:%u/n", ns->id, ns->kid);
+	pr_debug("Switched to mntns %u:%u\n", ns->id, ns->kid);
 
 	if (mount(NULL, mi->ns_mountpoint, NULL, MS_REMOUNT | MS_BIND |
 		  (mi->flags & ~(MS_PROPAGATE | MS_RDONLY)), NULL) == -1) {
@@ -3903,7 +3903,7 @@ static int __remount_readonly_mounts(struct ns_id *ns)
 			if (do_restore_task_mnt_ns(ns))
 				return -1;
 			mntns_set = true;
-			pr_debug("Switched to mntns %u:%u/n", ns->id, ns->kid);
+			pr_debug("Switched to mntns %u:%u\n", ns->id, ns->kid);
 		}
 
 		pr_info("Remount %d:%s back to readonly\n", mi->mnt_id, mi->mountpoint);
