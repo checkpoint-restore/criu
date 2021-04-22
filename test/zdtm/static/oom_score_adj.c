@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 		return -1;
 
 	if (new_oom_score_adj != test_value) {
-		fail("OOM score value %d is different after restore: %d\n",
+		fail("OOM score value %d is different after restore: %d",
 				test_value, new_oom_score_adj);
 		return -1;
 	}

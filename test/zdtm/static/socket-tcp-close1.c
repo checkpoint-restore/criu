@@ -43,7 +43,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (check_socket_state(fd_s, TCP_LISTEN)) {
-		fail("Listen socket state is changed\n");
+		fail("Listen socket state is changed");
 		close(fd_s);
 		return 1;
 	}

@@ -131,11 +131,11 @@ int main(int argc, char **argv)
 
 	ret = 0;
 	if (sigaction_error)
-		fail("Ghost signal\n");
+		fail("Ghost signal");
 	else if (check_lease_type(fds[0], F_UNLCK) ||
 		check_lease_type(fds[1], F_RDLCK) ||
 		check_lease_type(fds[2], F_UNLCK))
-		fail("Lease type doesn't match\n");
+		fail("Lease type doesn't match");
 	else
 		pass();
 done:

@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 
 	sleep(1);
 	if (kid_passed != 0)
-		fail("some kids broke through\n");
+		fail("some kids broke through");
 
 	pthread_mutex_unlock(&m);
 	for (i = 0; i < num_threads; i++)
@@ -67,13 +67,13 @@ int main(int argc, char **argv)
 
 	if (pthread_mutex_trylock(&m)) {
 		if (errno == EBUSY)
-			fail("kids left my mutex locked\n");
+			fail("kids left my mutex locked");
 		else
 			pr_perror("kids spoiled my mutex");
 	}
 
 	if (kid_passed != num_threads)
-		fail("some kids died during migration\n");
+		fail("some kids died during migration");
 
 	pass();
 out:

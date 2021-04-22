@@ -75,13 +75,13 @@ int main(int argc, char **argv)
 
 	if (check_file_lock_restored(getpid(), fd, &lck) ||
 		check_lock_exists(filename, &lck) < 0)
-		fail("OFD file locks check failed\n");
+		fail("OFD file locks check failed");
 
 	kill(pid, SIGTERM);
 	ret = waitpid(pid, &status, 0);
 
 	if (ret < 0 || !WIFEXITED(status) || WEXITSTATUS(status))
-		fail("OFD file locks check failed\n");
+		fail("OFD file locks check failed");
 	else
 		pass();
 

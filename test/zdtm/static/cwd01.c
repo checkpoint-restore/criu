@@ -74,7 +74,7 @@ int main(int argc, char **argv)
 
 	aux2 = readlink("/proc/self/cwd", cwd2, sizeof(cwd2));
 	if (aux2 < 0) {
-		fail("can't get cwd: %m\n");
+		fail("can't get cwd: %m");
 		goto cleanup;
 	}
 	if (aux2 == sizeof(cwd2)) {
@@ -86,7 +86,7 @@ int main(int argc, char **argv)
 
 	/* FIXME -- criu adds a suffix to removed cwd */
 	if (strncmp(cwd1, cwd2, aux))
-		fail("%s != %s\n", cwd1, cwd2);
+		fail("%s != %s", cwd1, cwd2);
 	else
 		pass();
 cleanup:

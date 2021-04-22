@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 
 	cwd = get_current_dir_name();
 	if (!cwd) {
-		fail("getcwd\n");
+		fail("getcwd");
 		exit(1);
 	}
 
@@ -62,13 +62,13 @@ int main(int argc, char *argv[])
 	ssk_icon[1] = socket(AF_UNIX, SOCK_STREAM, 0);
 	ssk_icon[2] = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (ssk_icon[0] < 0 || ssk_icon[1] < 0 || ssk_icon[2] < 0) {
-		fail("socket\n");
+		fail("socket");
 		exit(1);
 	}
 
 	ret = bind(ssk_icon[0], (struct sockaddr *) &addr, addrlen);
 	if (ret) {
-		fail("bind\n");
+		fail("bind");
 		exit(1);
 	}
 
@@ -86,13 +86,13 @@ int main(int argc, char *argv[])
 
 	ret = listen(ssk_icon[0], 16);
 	if (ret) {
-		fail("bind\n");
+		fail("bind");
 		exit(1);
 	}
 
 	ret = connect(ssk_icon[2], (struct sockaddr *) &addr, addrlen);
 	if (ret) {
-		fail("connect\n");
+		fail("connect");
 		exit(1);
 	}
 
@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 
 	ret = connect(ssk_icon[1], (struct sockaddr *) &addr, addrlen);
 	if (ret) {
-		fail("connect\n");
+		fail("connect");
 		exit(1);
 	}
 
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (st_b.st_mode != st_a.st_mode) {
-		fail("The file permissions for %s were changed %o %o\n",
+		fail("The file permissions for %s were changed %o %o",
 					path, st_b.st_mode, st_a.st_mode);
 		exit(1);
 	}
@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
 
 	ret = accept(ssk_icon[0], NULL, NULL);
 	if (ret < 0) {
-		fail("accept\n");
+		fail("accept");
 		exit(1);
 	}
 
@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
 	write(ssk_icon[1], SK_DATA, sizeof(SK_DATA));
 	read(ret, &buf, sizeof(buf));
 	if (strcmp(buf, SK_DATA)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	test_msg("stream1           : '%s'\n", buf);
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
 	write(ssk_icon[2], SK_DATA, sizeof(SK_DATA));
 	read(ssk_icon[3], &buf, sizeof(buf));
 	if (strcmp(buf, SK_DATA)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	test_msg("stream2           : '%s'\n", buf);

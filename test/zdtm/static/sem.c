@@ -98,7 +98,7 @@ static int check_sem_by_id(int id, int num, int val)
 		return -errno;
 	}
 	if (curr != val) {
-		fail("Sem has wrong value: %d instead of %d\n", curr, val);
+		fail("Sem has wrong value: %d instead of %d", curr, val);
 		return -EFAULT;
 	}
 	return sem_test(id, lock, unlock,
