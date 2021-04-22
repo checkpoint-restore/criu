@@ -49,14 +49,14 @@ int main(int argc, char *argv[])
 	errno = 0;
 	ret = read(ssk_pair[0], &aux, sizeof(aux));
 	if (ret != 0 || errno != 0) {
-		fail("Opened end in wrong state (%d/%d)", ret, errno);
+		fail("Opened end in wrong state (ret=%d)", ret);
 		return 0;
 	}
 
 	errno = 0;
 	ret = read(ssk_pair[1], &aux, sizeof(aux));
 	if (ret != -1 || errno != EBADF) {
-		fail("Closed end in wrong state (%d/%d)", ret, errno);
+		fail("Closed end in wrong state (ret=%d)", ret);
 		return 0;
 	}
 
