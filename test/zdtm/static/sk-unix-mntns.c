@@ -78,12 +78,12 @@ int main(int argc, char *argv[])
 
 	sk = socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0);
 	if (sk < 0) {
-		pr_perror("socket\n");
+		pr_perror("socket");
 		exit(1);
 	}
 	csk = socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0);
 	if (csk < 0) {
-		pr_perror("socket\n");
+		pr_perror("socket");
 		exit(1);
 	}
 
@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
 		close(csk);
 		csk = socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0);
 		if (csk < 0) {
-			pr_perror("socket\n");
+			pr_perror("socket");
 			exit(1);
 		}
 		if (connect(csk, (struct sockaddr *) &addr, addrlen)) {

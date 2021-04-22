@@ -1224,7 +1224,7 @@ static int wait_exiting_children(void)
 	futex_dec_and_wake(&task_entries->nr_in_progress);
 
 	if (waitid(P_ALL, 0, &info, WEXITED | WNOWAIT)) {
-		pr_perror("Failed to wait\n");
+		pr_perror("Failed to wait");
 		return -1;
 	}
 

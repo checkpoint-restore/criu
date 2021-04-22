@@ -21,7 +21,7 @@ static int check_socket_state(int sk, int state)
 
 	err = getsockopt(sk, IPPROTO_TCP, TCP_INFO, (void *)&info, &len);
 	if (err != 0) {
-		pr_perror("Can't get socket state\n");
+		pr_perror("Can't get socket state");
 		return -1;
 	}
 	return info.tcpi_state == state ? 0 : -1;

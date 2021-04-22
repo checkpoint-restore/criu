@@ -224,7 +224,7 @@ int kdat_x86_has_ptrace_fpu_xsave_bug(void)
 		 * waitpid() may end with ECHILD if SIGCHLD == SIG_IGN,
 		 * and the child has stopped already.
 		 */
-		pr_perror("Failed to wait for %s() test\n", __func__);
+		pr_perror("Failed to wait for %s() test", __func__);
 		goto out_kill;
 	}
 
