@@ -53,7 +53,7 @@ static int child_func(void *fd_p)
 
 	/* If sks[1] == fd, the below closes it, but we don't care */
 	if (dup2(sks[0], fd) == -1) {
-		pr_perror("Can't dup fd\n");
+		pr_perror("Can't dup fd");
 		return 1;
 	}
 
@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 	}
 
 	if (wait(&status) == -1 || status) {
-		pr_perror("wait error: status=%d\n", status);
+		pr_perror("wait error: status=%d", status);
 		goto out;
 	}
 
