@@ -64,7 +64,7 @@ int __compel_arch_fetch_thread_area(int tid, struct thread_ctx *th)
 		if (err == -EIO && native_mode)
 			return 0;
 		if (err) {
-			pr_perror("get_thread_area failed for %d\n", tid);
+			pr_perror("get_thread_area failed for %d", tid);
 			return err;
 		}
 	}

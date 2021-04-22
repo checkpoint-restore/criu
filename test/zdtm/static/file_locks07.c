@@ -59,10 +59,10 @@ void cleanup(void)
 
 	for (i = 0; i < FILE_NUM; ++i)
 		if (close(fds[i]))
-			pr_perror("Can't close fd\n");
+			pr_perror("Can't close fd");
 
 	if (unlink(filename))
-		pr_perror("Can't unlink file failed\n");
+		pr_perror("Can't unlink file failed");
 }
 
 int check_file_locks_restored(void)

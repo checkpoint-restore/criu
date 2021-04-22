@@ -92,12 +92,12 @@ int main(int argc, char ** argv)
 		void *ret;
 
 		if (pthread_create(&child, NULL, &run_fpu_test, NULL)) {
-			pr_perror("Can't create pthread\n");
+			pr_perror("Can't create pthread");
 			exit(1);
 		}
 
 		if (pthread_join(child, &ret)) {
-			pr_perror("Can't join pthread\n");
+			pr_perror("Can't join pthread");
 			exit(1);
 		}
 
