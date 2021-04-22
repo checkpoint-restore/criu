@@ -138,14 +138,14 @@ int main(int argc, char **argv)
 
 	ret = check_shm_id(shm, shmem_size);
 	if (ret < 0) {
-		fail("ID check (1) failed\n");
+		fail("ID check (1) failed");
 		fail_count++;
 		goto out_shm;
 	}
 
 	ret = check_shm_key(key, shmem_size);
 	if (ret < 0) {
-		fail("KEY check failed\n");
+		fail("KEY check failed");
 		fail_count++;
 		goto out_shm;
 	}
@@ -162,7 +162,7 @@ int main(int argc, char **argv)
 
 	ret = shmctl(shm, IPC_RMID, NULL);
 	if (ret < 0) {
-		fail("Failed (1) to destroy segment: %d\n", -errno);
+		fail("Failed (1) to destroy segment: %d", -errno);
 		fail_count++;
 		goto out_shm;
 	}
@@ -179,7 +179,7 @@ int main(int argc, char **argv)
 
 	ret = check_shm_id(shm, shmem_size);
 	if (ret < 0) {
-		fail("ID check (2) failed\n");
+		fail("ID check (2) failed");
 		fail_count++;
 		goto out_shm;
 	}
@@ -187,7 +187,7 @@ int main(int argc, char **argv)
 out_shm:
 	ret = shmctl(shm, IPC_RMID, NULL);
 	if (ret < 0) {
-		fail("Failed (2) to destroy segment: %d\n", -errno);
+		fail("Failed (2) to destroy segment: %d", -errno);
 		fail_count++;
 	}
 	if (fail_count == 0)

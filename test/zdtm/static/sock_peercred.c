@@ -115,7 +115,7 @@ int main(int argc, char **argv)
 
 	if (ucred.pid != pid || ucred.gid != getuid() + UID_INC ||
 			        ucred.gid != getgid() + GID_INC) {
-		fail("Wrong pid, uid or gid\n");
+		fail("Wrong pid, uid or gid");
 		goto out;
 	}
 

@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 
 	crc = ~0;
 	if (datachk(buf, BUF_SIZE, &crc)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		return 1;
 	}
 

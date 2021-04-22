@@ -133,7 +133,7 @@ static int check_map(struct map *map)
 
 	if (signal(SIGSEGV, segfault) == SIG_ERR)
 	{
-		fail("setting SIGSEGV handler failed: %m\n");
+		fail("setting SIGSEGV handler failed: %m");
 		return -1;
 	}
 	if (!sigsetjmp(segv_ret, 1))
@@ -142,7 +142,7 @@ static int check_map(struct map *map)
 		if (datachk(map->ptr, ONE_MAP_SIZE, &crc))	/* perform read access */
 			if (!(map->flag & MAP_ANONYMOUS) ||
 					(map->prot & PROT_WRITE)) {	/* anon maps could only be filled when r/w */
-				fail("CRC mismatch: ptr %p flag %8x prot %8x\n",
+				fail("CRC mismatch: ptr %p flag %8x prot %8x",
 				     map->ptr, map->flag, map->prot);
 				return -1;
 			}
@@ -154,7 +154,7 @@ static int check_map(struct map *map)
 
 	if (signal(SIGSEGV, segfault) == SIG_ERR)
 	{
-		fail("setting SIGSEGV handler failed: %m\n");
+		fail("setting SIGSEGV handler failed: %m");
 		return -1;
 	}
 
@@ -166,7 +166,7 @@ static int check_map(struct map *map)
 
 	if (signal(SIGSEGV, segfault) == SIG_ERR)
 	{
-		fail("restoring SIGSEGV handler failed: %m\n");
+		fail("restoring SIGSEGV handler failed: %m");
 		return -1;
 	}
 
@@ -197,7 +197,7 @@ static int check_map(struct map *map)
 
 	if (signal(SIGSEGV, SIG_DFL) == SIG_ERR)
 	{
-		fail("restoring SIGSEGV handler failed: %m\n");
+		fail("restoring SIGSEGV handler failed: %m");
 		return -1;
 	}
 

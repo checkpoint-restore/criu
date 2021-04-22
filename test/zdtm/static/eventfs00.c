@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (v != EVENTFD_FINAL) {
-		fail("EVENTFD_FINAL mismatch\n");
+		fail("EVENTFD_FINAL mismatch");
 		exit(1);
 	}
 

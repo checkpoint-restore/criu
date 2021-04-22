@@ -122,7 +122,7 @@ int main(int argc, char **argv)
 	if (ret < 0 || !WIFEXITED(status) || WEXITSTATUS(status))
 		fail();
 	else if (sigaction_error)
-		fail("Ghost signal\n");
+		fail("Ghost signal");
 	else
 		pass();
 done:

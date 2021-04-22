@@ -90,7 +90,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (check_file_locks_restored())
-		fail("OFD file locks check failed\n");
+		fail("OFD file locks check failed");
 	else
 		pass();
 

@@ -49,7 +49,7 @@ int main(int argc, char ** argv)
 	);
 
 	if (y1 != y2)
-		fail("VFP restoration failed: result = %d, expected = %d (a = %d, b = %d, c = %d)\n", y2, y1, a, b, c);
+		fail("VFP restoration failed: result = %d, expected = %d (a = %d, b = %d, c = %d)", y2, y1, a, b, c);
 	else
 		pass();
 

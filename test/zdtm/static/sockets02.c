@@ -26,12 +26,12 @@ int main(int argc, char *argv[])
 	data = (char)lrand48();
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, ssk_pair) == -1) {
-		fail("socketpair\n");
+		fail("socketpair");
 		exit(1);
 	}
 
 	if (write(ssk_pair[1], &data, sizeof(data)) != sizeof(data)) {
-		fail("write\n");
+		fail("write");
 		exit(1);
 	}
 

@@ -70,24 +70,24 @@ int main(int argc, char **argv)
 		}
 		off = lseek(fd2, 0, SEEK_CUR);
 		if (off != OFFSET) {
-			fail("offset1 fail\n");
+			fail("offset1 fail");
 			return 1;
 		}
 		off = lseek(fd3, 0, SEEK_CUR);
 		if (off != OFFSET2) {
-			fail("offset2 fail\n");
+			fail("offset2 fail");
 			return 1;
 		}
 
 		ret = fcntl(fd, F_GETFD, 0);
 		if (ret != 0) {
-			fail("fd cloexec broken\n");
+			fail("fd cloexec broken");
 			return 1;
 		}
 
 		ret = fcntl(fd2, F_GETFD, 0);
 		if (ret != 1) {
-			fail("fd2 cloexec broken\n");
+			fail("fd2 cloexec broken");
 			return 1;
 		}
 
@@ -95,17 +95,17 @@ int main(int argc, char **argv)
 		test_waitsig();
 		off = lseek(fd, 0, SEEK_CUR);
 		if (off != OFFSET) {
-			fail("offset3 fail\n");
+			fail("offset3 fail");
 			return 1;
 		}
 		off = lseek(fd2, 0, SEEK_CUR);
 		if (off != OFFSET) {
-			fail("offset4 fail\n");
+			fail("offset4 fail");
 			return 1;
 		}
 		off = lseek(fd3, 0, SEEK_CUR);
 		if (off != OFFSET2) {
-			fail("offset5 fail\n");
+			fail("offset5 fail");
 			return 1;
 		}
 		return 0;

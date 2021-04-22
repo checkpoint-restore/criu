@@ -26,12 +26,12 @@ int main(int argc, char **argv)
 
 	env = getenv(envname);
 	if (!env) {
-		fail("can't get env var \"%s\": %m\n", envname);
+		fail("can't get env var \"%s\": %m", envname);
 		goto out;
 	}
 
 	if (strcmp(env, test_author))
-		fail("%s != %s\n", env, test_author);
+		fail("%s != %s", env, test_author);
 	else
 		pass();
 out:

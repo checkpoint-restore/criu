@@ -115,7 +115,7 @@ int main(int argc, char **argv)
 			if (errno == EINTR)
 				continue;
 			else {
-				fail("write failed\n");
+				fail("write failed");
 				ret = 1;
 				break;
 			}
@@ -131,13 +131,13 @@ int main(int argc, char **argv)
 			continue;
 
 		if (len > 0) {
-			fail("read failed: %m\n");
+			fail("read failed: %m");
 			ret = 1;
 			break;
 		}
 
 		if (memcmp(buf, rbuf, wlen)) {
-			fail("data mismatch\n");
+			fail("data mismatch");
 			ret = 1;
 			break;
 		}
@@ -150,29 +150,29 @@ int main(int argc, char **argv)
 	 * has been received. Thus, send signal before closing parent fds.
 	 */
 	if (kill(0, SIGTERM)) {
-		fail("failed to send SIGTERM to my process group: %m\n");
+		fail("failed to send SIGTERM to my process group: %m");
 		goto out;	/* shouldn't wait() in this case */
 	}
 	if (close(out))
-		fail("Failed to close parent fd 'out': %m\n");
+		fail("Failed to close parent fd 'out': %m");
 	/* If last child in the chain (from whom we read data) receives signal
 	 * after parent has finished reading but before calling write(2), this
 	 * child can block forever.  To avoid this, close 'in' fd.
 	 */
 	if (close(in))
-		fail("failed to close parent fd 'in': %m\n");
+		fail("failed to close parent fd 'in': %m");
 
 	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
 		int chret;
 		if (wait(&chret) < 0) {
-			fail("can't wait for a child: %m\n");
+			fail("can't wait for a child: %m");
 			ret = 1;
 			continue;
 		}
 
 		chret = WEXITSTATUS(chret);
 		if (chret) {
-			fail("child %d exited with non-zero code %d (%s)\n",
+			fail("child %d exited with non-zero code %d (%s)",
 			     i, chret, strerror(chret));
 			ret = 1;
 			continue;

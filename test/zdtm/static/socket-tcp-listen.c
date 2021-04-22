@@ -140,7 +140,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	if (val != 1) {
-		fail("SO_REUSEADDR are not set for %d\n", fd);
+		fail("SO_REUSEADDR are not set for %d", fd);
 		return 1;
 	}
 

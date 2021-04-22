@@ -110,7 +110,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	if (val == 1) {
-		fail("SO_REUSEPORT is set for %d\n", fd);
+		fail("SO_REUSEPORT is set for %d", fd);
 		return 1;
 	}
 	optlen = sizeof(val);
@@ -119,7 +119,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	if (val != 1) {
-		fail("SO_REUSEPORT is not set for %d\n", fd);
+		fail("SO_REUSEPORT is not set for %d", fd);
 		return 1;
 	}
 

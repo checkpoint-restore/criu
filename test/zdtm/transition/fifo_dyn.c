@@ -104,7 +104,7 @@ int main(int argc, char **argv)
 			if (errno == EINTR)
 				continue;
 			else {
-				fail("write failed: %m\n");
+				fail("write failed: %m");
 				ret = 1;
 				break;
 			}
@@ -120,13 +120,13 @@ int main(int argc, char **argv)
 			continue;
 
 		if (len > 0) {
-			fail("read failed: %m\n");
+			fail("read failed: %m");
 			ret = 1;
 			break;
 		}
 
 		if (memcmp(buf, rbuf, wlen)) {
-			fail("data mismatch\n");
+			fail("data mismatch");
 			ret = 1;
 			break;
 		}
@@ -138,7 +138,7 @@ int main(int argc, char **argv)
 	wait(&chret);
 	chret = WEXITSTATUS(chret);
 	if (chret) {
-		fail("child exited with non-zero code %d (%s)\n",
+		fail("child exited with non-zero code %d (%s)",
 			chret, strerror(chret));
 		return 1;
 	}

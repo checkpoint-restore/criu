@@ -86,13 +86,13 @@ int main(int argc, char **argv)
 			ssprintf(paux, "%s/%s/%s.%d", aux, subname, empty, i);
 
 			if (stat(paux, &st)) {
-				fail("couldn't stat %s\n", paux);
+				fail("couldn't stat %s", paux);
 				ret = -1;
 				goto out_close;
 			}
 
 			if (!S_ISDIR(st.st_mode)) {
-				fail("%s is not a directory\n", paux);
+				fail("%s is not a directory", paux);
 				ret = -1;
 				goto out_close;
 			}
@@ -103,7 +103,7 @@ int main(int argc, char **argv)
 		goto out_close;
 	}
 
-	fail("empty cgroup not found!\n");
+	fail("empty cgroup not found!");
 
 out_close:
 	fclose(cgf);

@@ -146,7 +146,7 @@ int main(int argc, char **argv)
 			if (errno == EINTR)
 				continue;
 			else {
-				fail("write failed: %m\n");
+				fail("write failed: %m");
 				ret = 1;
 				break;
 			}
@@ -163,13 +163,13 @@ int main(int argc, char **argv)
 		}
 
 		if (len > 0) {
-			fail("read failed: %m\n");
+			fail("read failed: %m");
 			ret = 1;
 			break;
 		}
 
 		if (memcmp(buf, rbuf, wlen)) {
-			fail("data mismatch\n");
+			fail("data mismatch");
 			ret = 1;
 			break;
 		}
@@ -180,7 +180,7 @@ int main(int argc, char **argv)
 	test_waitsig(); /* even if failed, wait for migration to complete */
 
 	if (kill(0, SIGTERM)) {
-		fail("failed to send SIGTERM to my process group: %m\n");
+		fail("failed to send SIGTERM to my process group: %m");
 		return 1;	/* shouldn't wait() in this case */
 	}
 	close(readfd);
@@ -188,14 +188,14 @@ int main(int argc, char **argv)
 	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
 		int chret;
 		if (waitpid(pids[i], &chret, 0) < 0) {
-			fail("waitpid error: %m\n");
+			fail("waitpid error: %m");
 			ret = 1;
 			continue;
 		}
 
 		chret = WEXITSTATUS(chret);
 		if (chret) {
-			fail("child %d exited with non-zero code %d (%s)\n",
+			fail("child %d exited with non-zero code %d (%s)",
 				i, chret, strerror(chret));
 			ret = 1;
 			continue;

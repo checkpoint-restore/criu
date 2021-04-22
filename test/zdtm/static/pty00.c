@@ -38,7 +38,7 @@ int main(int argc, char ** argv)
 	 * receive SIGHUP, so make sure it's delivered.
 	 */
 	if (sigaction(SIGHUP, &sa, 0)) {
-		fail("sigaction failed\n");
+		fail("sigaction failed");
 		return 1;
 	}
 

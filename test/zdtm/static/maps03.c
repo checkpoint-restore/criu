@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 	test_msg("Testing restored data\n");
 
 	if (mem[4L << 30] != 1 || mem[8L << 30] != 2) {
-		fail("Data corrupted!\n");
+		fail("Data corrupted!");
 		exit(1);
 	}
 

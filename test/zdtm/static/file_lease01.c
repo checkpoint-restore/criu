@@ -74,11 +74,11 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (check_lease_type(fds[FD_LEASE_FREE], F_UNLCK))
-		fail("Unexpected lease was found (%i)\n", fds[FD_LEASE_FREE]);
+		fail("Unexpected lease was found (%i)", fds[FD_LEASE_FREE]);
 	else if (check_lease_type(fds[FD_LEASED1], F_RDLCK))
-		fail("Lease isn't set (%i)\n", fds[FD_LEASED1]);
+		fail("Lease isn't set (%i)", fds[FD_LEASED1]);
 	else if (check_lease_type(fds[FD_LEASED2], F_RDLCK))
-		fail("Lease isn't set (%i)\n", fds[FD_LEASED2]);
+		fail("Lease isn't set (%i)", fds[FD_LEASED2]);
 	else
 		pass();
 

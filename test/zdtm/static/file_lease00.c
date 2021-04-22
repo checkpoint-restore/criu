@@ -73,9 +73,9 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (check_lease_type(fd_rd, F_RDLCK))
-		fail("Read lease check failed\n");
+		fail("Read lease check failed");
 	else if (check_lease_type(fd_wr, F_WRLCK))
-		fail("Write lease check failed\n");
+		fail("Write lease check failed");
 	else
 		pass();
 
