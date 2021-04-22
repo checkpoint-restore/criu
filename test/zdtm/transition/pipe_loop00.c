@@ -129,7 +129,7 @@ int main(int argc, char **argv)
 			continue;
 
 		if (len > 0) {
-			fail("read failed: %m");
+			fail("read failed");
 			ret = 1;
 			break;
 		}
@@ -146,14 +146,14 @@ int main(int argc, char **argv)
 	test_waitsig();	/* even if failed, wait for migration to complete */
 
 	if (kill(0, SIGTERM)) {
-		fail("failed to send SIGTERM to my process group: %m");
+		fail("failed to send SIGTERM to my process group");
 		goto out;	/* shouldn't wait() in this case */
 	}
 
 	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
 		int chret;
 		if (wait(&chret) < 0) {
-			fail("can't wait for a child: %m");
+			fail("can't wait for a child");
 			ret = 1;
 			continue;
 		}

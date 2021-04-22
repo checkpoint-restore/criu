@@ -50,7 +50,7 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (write(fd, buf + len, sizeof(buf) - len) != (sizeof(buf) - len)) {
-		fail("can't write %s: %m", filename);
+		fail("can't write %s", filename);
 		goto out;
 	}
 
@@ -58,12 +58,12 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		fail("can't open %s: %m", filename);
+		fail("can't open %s", filename);
 		return 1;
 	}
 
 	if (read(fd, buf, full_len) != full_len) {
-		fail("can't read %s: %m", filename);
+		fail("can't read %s", filename);
 		return 1;
 	}
 

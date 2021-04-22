@@ -102,7 +102,7 @@ int main(int argc, char **argv)
 	while(test_go())
 		if (write(pipes[1], buf, sizeof(buf)) < 0 &&
 		    (errno != EINTR || test_go())) {	/* only SIGTERM may stop us */
-			fail("write failed: %m");
+			fail("write failed");
 			ret = 1;
 			break;
 		}
@@ -111,14 +111,14 @@ int main(int argc, char **argv)
 	test_waitsig();	/* even if failed, wait for migration to complete */
 
 	if (kill(0, SIGTERM)) {
-		fail("failed to send SIGTERM to my process group: %m");
+		fail("failed to send SIGTERM to my process group");
 		goto out;	/* shouldn't wait() in this case */
 	}
 
 	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
 		int chret;
 		if (wait(&chret) < 0) {
-			fail("can't wait for a child: %m");
+			fail("can't wait for a child");
 			ret = 1;
 			continue;
 		}

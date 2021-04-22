@@ -104,7 +104,7 @@ int main(int argc, char **argv)
 			if (errno == EINTR)
 				continue;
 			else {
-				fail("write failed: %m");
+				fail("write failed");
 				ret = 1;
 				break;
 			}
@@ -120,7 +120,7 @@ int main(int argc, char **argv)
 			continue;
 
 		if (len > 0) {
-			fail("read failed: %m");
+			fail("read failed");
 			ret = 1;
 			break;
 		}

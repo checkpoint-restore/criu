@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 				goto out;
 			};
 			if (recv_reply() < 0){
-				fail("RTNETLINK answers: %m");
+				fail("RTNETLINK answers");
 				goto out;
 			};
 

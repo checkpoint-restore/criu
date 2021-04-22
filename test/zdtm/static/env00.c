@@ -26,7 +26,7 @@ int main(int argc, char **argv)
 
 	env = getenv(envname);
 	if (!env) {
-		fail("can't get env var \"%s\": %m", envname);
+		fail("can't get env var \"%s\"", envname);
 		goto out;
 	}
 

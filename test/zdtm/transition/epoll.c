@@ -82,7 +82,7 @@ static void run_child(int num)
 		if (write(fd, buf, buf_size) < 0 &&
 			(!stop /* signal SIGUSR2 NOT received */ ||
 				(errno != EINTR && errno != EPIPE))) {
-			fail("child write: %m");
+			fail("child write");
 			rv = WRITEERROR;
 			goto out;
 		}
@@ -178,7 +178,7 @@ int main(int argc, char **argv)
 	for (i = 0; i < scale; i++) {
 		kill(pids[i], SIGUSR2);
 		if (waitpid(pids[i], &rv, 0) < 0) {
-			fail("waitpid error: %m");
+			fail("waitpid error");
 			counter++;
 			continue;
 		} else {

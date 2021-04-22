@@ -125,12 +125,12 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (kill(pid, SIGTERM)) {
-		fail("terminating the child failed: %m");
+		fail("terminating the child failed");
 		goto out;
 	}
 
 	if (wait(&ret) != pid) {
-		fail("wait() returned wrong pid %d: %m", pid);
+		fail("wait() returned wrong pid %d", pid);
 		goto out;
 	}
 
@@ -147,7 +147,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (read(sock, buf, sizeof(buf)) != sizeof(buf)) {
-		fail("can't read %s: %m", filename);
+		fail("can't read %s", filename);
 		goto out;
 	}
 
@@ -159,12 +159,12 @@ int main(int argc, char ** argv)
 
 
 	if (close(sock)) {
-		fail("close failed: %m");
+		fail("close failed");
 		goto out;
 	}
 
 	if (unlink(filename) != -1 || errno != ENOENT) {
-		fail("file %s should have been deleted before migration: unlink: %m", filename);
+		fail("file %s should have been deleted before migration: unlink", filename);
 		goto out;
 	}
 

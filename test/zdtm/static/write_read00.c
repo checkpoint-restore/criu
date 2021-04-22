@@ -39,12 +39,12 @@ int main(int argc, char ** argv)
 
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
-		fail("can't open %s: %m", filename);
+		fail("can't open %s", filename);
 		exit(1);
 	}
 
 	if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
-		fail("can't read %s: %m", filename);
+		fail("can't read %s", filename);
 		goto out;
 	}
 
