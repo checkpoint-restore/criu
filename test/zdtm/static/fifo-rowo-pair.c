@@ -149,7 +149,7 @@ int main(int argc, char **argv)
 
 	errno = WEXITSTATUS(status);
 	if (errno) {
-		fail("Child exited with error %m");
+		fail("Child exited with error");
 		exit(errno);
 	}
 

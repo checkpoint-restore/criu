@@ -33,12 +33,12 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (kill(pid, SIGTERM)) {
-		fail("terminating the child failed: %m");
+		fail("terminating the child failed");
 		goto out;
 	}
 
 	if (wait(&ret) != pid) {
-		fail("wait() returned wrong pid: %m");
+		fail("wait() returned wrong pid");
 		goto out;
 	}
 

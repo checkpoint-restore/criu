@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (!getcwd(cwd2, sizeof(cwd2))) {
-		fail("can't get cwd: %m");
+		fail("can't get cwd");
 		goto cleanup;
 	}
 

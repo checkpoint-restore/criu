@@ -53,7 +53,7 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (fstat(fd, &stat) < 0 || fstat(fd2, &stat2) < 0) {
-		fail("fstat failed: %m");
+		fail("fstat failed");
 		goto out;
 	}
 

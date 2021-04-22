@@ -52,7 +52,7 @@ int main(int argc, char ** argv)
 
 	/* recover reading */
 	if (read(fd, buf + len, sizeof(buf) - len) != (sizeof(buf) - len)) {
-		fail("can't read %s: %m", filename);
+		fail("can't read %s", filename);
 		goto out;
 	}
 
