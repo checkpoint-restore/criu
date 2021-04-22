@@ -414,6 +414,13 @@ lint:
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh scripts/ci/apt-install
 	shellcheck test/others/crit/*.sh
+	# Do not append \n to pr_perror or fail
+	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>.*\\n"'
+	# Do not use %m with pr_perror or fail
+	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>.*%m'
+	# Do not use errno with pr_perror or fail
+	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>\(".*".*errno'
+.PHONY: lint
 
 codecov: SHELL := $(shell which bash)
 codecov:
