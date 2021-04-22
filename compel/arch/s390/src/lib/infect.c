@@ -196,13 +196,13 @@ int get_vx_regs(pid_t pid, user_fpregs_struct_t *fpregs)
 			pr_debug("VXRS registers not supported\n");
 			return 0;
 		}
-		pr_perror("Couldn't get VXRS_LOW\n");
+		pr_perror("Couldn't get VXRS_LOW");
 		return -1;
 	}
 	iov.iov_base = &fpregs->vxrs_high;
 	iov.iov_len = sizeof(fpregs->vxrs_high);
 	if (ptrace(PTRACE_GETREGSET, pid, NT_S390_VXRS_HIGH, &iov) < 0) {
-		pr_perror("Couldn't get VXRS_HIGH\n");
+		pr_perror("Couldn't get VXRS_HIGH");
 		return -1;
 	}
 	fpregs->flags |= USER_FPREGS_VXRS;
@@ -243,7 +243,7 @@ int get_gs_cb(pid_t pid, user_fpregs_struct_t *fpregs)
 			pr_debug("GS_BC not set\n");
 			return 0;
 		}
-		pr_perror("Couldn't get GS_BC\n");
+		pr_perror("Couldn't get GS_BC");
 		return -1;
 	}
 	fpregs->flags |= USER_GS_BC;
@@ -274,7 +274,7 @@ int get_ri_cb(pid_t pid, user_fpregs_struct_t *fpregs)
 			pr_debug("RI_CB not set\n");
 			return 0;
 		default:
-			pr_perror("Couldn't get RI_CB\n");
+			pr_perror("Couldn't get RI_CB");
 			return -1;
 		}
 	}
@@ -386,14 +386,14 @@ int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
 		iov.iov_base = &ext_regs->vxrs_low;
 		iov.iov_len = sizeof(ext_regs->vxrs_low);
 		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_VXRS_LOW, &iov) < 0) {
-			pr_perror("Couldn't set VXRS_LOW\n");
+			pr_perror("Couldn't set VXRS_LOW");
 			ret = -1;
 		}
 
 		iov.iov_base = &ext_regs->vxrs_high;
 		iov.iov_len = sizeof(ext_regs->vxrs_high);
 		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_VXRS_HIGH, &iov) < 0) {
-			pr_perror("Couldn't set VXRS_HIGH\n");
+			pr_perror("Couldn't set VXRS_HIGH");
 			ret = -1;
 		}
 	}
@@ -402,13 +402,13 @@ int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
 		iov.iov_base = &ext_regs->gs_cb;
 		iov.iov_len = sizeof(ext_regs->gs_cb);
 		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_GS_CB, &iov) < 0) {
-			pr_perror("Couldn't set GS_CB\n");
+			pr_perror("Couldn't set GS_CB");
 			ret = -1;
 		}
 		iov.iov_base = &ext_regs->gs_bc;
 		iov.iov_len = sizeof(ext_regs->gs_bc);
 		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_GS_BC, &iov) < 0) {
-			pr_perror("Couldn't set GS_BC\n");
+			pr_perror("Couldn't set GS_BC");
 			ret = -1;
 		}
 	}
@@ -417,7 +417,7 @@ int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
 		iov.iov_base = &ext_regs->ri_cb;
 		iov.iov_len = sizeof(ext_regs->ri_cb);
 		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_RI_CB, &iov) < 0) {
-			pr_perror("Couldn't set RI_CB\n");
+			pr_perror("Couldn't set RI_CB");
 			ret = -1;
 		}
 	}

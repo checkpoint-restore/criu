@@ -41,7 +41,7 @@ static int check_lease_type(int fd, int expected_type)
 
 	if (lease_type != expected_type) {
 		if (lease_type < 0)
-			pr_perror("Can't acquire lease type\n");
+			pr_perror("Can't acquire lease type");
 		else
 			pr_err("Mismatched lease type: %i\n", lease_type);
 		return -1;
@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 	}
 	if (fcntl(fd_rd, F_SETLEASE, F_RDLCK) < 0 ||
 		fcntl(fd_wr, F_SETLEASE, F_WRLCK) < 0) {
-		pr_perror("Can't set leases\n");
+		pr_perror("Can't set leases");
 		close_files(fd_rd, fd_wr);
 		return -1;
 	}

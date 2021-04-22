@@ -1045,7 +1045,7 @@ static bool kerndat_has_clone3_set_tid(void)
 	if (pid == -1 && errno == EINVAL) {
 		kdat.has_clone3_set_tid = true;
 	} else {
-		pr_perror("Unexpected error from clone3\n");
+		pr_perror("Unexpected error from clone3");
 		return -1;
 	}
 

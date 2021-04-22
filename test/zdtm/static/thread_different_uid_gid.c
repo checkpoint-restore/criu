@@ -39,19 +39,19 @@ void *chg_uid_gid(void *arg)
 
 	newcaps = cap_from_text("cap_setgid,cap_setuid=+eip");
 	if (!newcaps) {
-		pr_perror("Failed to get capability struct\n");
+		pr_perror("Failed to get capability struct");
 		exit(1);
 	}
 
 	ret = cap_set_proc(newcaps);
 	if (ret) {
-		pr_perror("Failed to set capabilities for the process\n");
+		pr_perror("Failed to set capabilities for the process");
 		exit(1);
 	}
 
 	mycaps = cap_get_proc();
 	if (!mycaps) {
-		pr_perror("Failed to get child thread capabilities\n");
+		pr_perror("Failed to get child thread capabilities");
 		exit_group(2);
 	}
 
@@ -62,7 +62,7 @@ void *chg_uid_gid(void *arg)
 	if (ret >= 0) {
 		syscall(SYS_setresuid, uid, uid, uid);
 	} else if (ret < 0) {
-		pr_perror("Failed to change UID/GID\n");
+		pr_perror("Failed to change UID/GID");
 		exit_group(2);
 	}
 
@@ -103,17 +103,17 @@ int main(int argc, char **argv)
 
 	newcaps = cap_from_text("cap_setgid,cap_setuid=+eip");
 	if (!newcaps) {
-		pr_perror("Failed to get capability struct\n");
+		pr_perror("Failed to get capability struct");
 		exit(1);
 	}
 	ret = cap_set_proc(newcaps);
 	if (ret) {
-		pr_perror("Failed to set capabilities for the process\n");
+		pr_perror("Failed to set capabilities for the process");
 		exit(1);
 	}
 	ret = prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
 	if (ret) {
-		pr_perror("Unable to set KEEPCAPS\n");
+		pr_perror("Unable to set KEEPCAPS");
 		exit(1);
 	}
 
@@ -132,12 +132,12 @@ int main(int argc, char **argv)
 	if (ret >= 0) {
 		ret = syscall(SYS_setresuid, mainuser, mainuser, mainuser);
 	} else if (ret < 0) {
-		pr_perror("Failed to drop privileges\n");
+		pr_perror("Failed to drop privileges");
 		exit(1);
 	}
 	test_msg("Now main thread runs as UID: %d; GID: %d\n", getuid(), getgid());
 	if (gid == getgid() || uid == getuid()) {
-		pr_perror("Thread credentials match\n");
+		pr_perror("Thread credentials match");
 		exit(1);
 	}
 	test_msg("Main thread is waiting for signal\n");
@@ -146,7 +146,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (gid == getgid() || uid == getuid()) {
-		pr_perror("Thread credentials match after restore\n");
+		pr_perror("Thread credentials match after restore");
 		exit(1);
 	}
 
