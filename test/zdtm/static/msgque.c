@@ -123,7 +123,7 @@ int main(int argc, char **argv)
 
 out:
 	if (msgctl(msg, IPC_RMID, 0)) {
-		fail("Failed to destroy message queue: %d", -errno);
+		fail("Failed to destroy message queue");
 		return -errno;
 	}
 	return chret;

@@ -162,7 +162,7 @@ int main(int argc, char **argv)
 
 	ret = shmctl(shm, IPC_RMID, NULL);
 	if (ret < 0) {
-		fail("Failed (1) to destroy segment: %d", -errno);
+		fail("Failed (1) to destroy segment");
 		fail_count++;
 		goto out_shm;
 	}
@@ -187,7 +187,7 @@ int main(int argc, char **argv)
 out_shm:
 	ret = shmctl(shm, IPC_RMID, NULL);
 	if (ret < 0) {
-		fail("Failed (2) to destroy segment: %d", -errno);
+		fail("Failed (2) to destroy segment");
 		fail_count++;
 	}
 	if (fail_count == 0)

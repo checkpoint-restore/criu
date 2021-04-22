@@ -56,7 +56,7 @@ static int check_socket_closed(int sk)
 	}
 
 	if (errno != EPIPE) {
-		fail("errno is %d (%s) (expected EPIPE)", errno, strerror(errno));
+		fail("wrong errno (expected EPIPE)");
 		return 1;
 	}
 	return 0;
