@@ -58,7 +58,7 @@ static void fill_ipc_desc(int id, IpcDescEntry *desc, const struct ipc_perm *ipc
 static void pr_ipc_sem_array(int nr, u16 *values)
 {
 	while (nr--)
-		pr_info("  %-5d", values[nr]);
+		pr_info("  %-5d", values[nr]); // no \n
 	pr_info("\n");
 }
 

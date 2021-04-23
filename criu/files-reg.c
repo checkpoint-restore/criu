@@ -1536,7 +1536,7 @@ static int get_build_id(const int fd, const struct stat *fd_status,
 	mapped_size = min_t(size_t, fd_status->st_size, BUILD_ID_MAP_SIZE);
 	start_addr = mmap(0, mapped_size, PROT_READ, MAP_PRIVATE | MAP_FILE, fd, 0);
 	if (start_addr == MAP_FAILED) {
-		pr_warn("Couldn't mmap file with fd %d", fd);
+		pr_warn("Couldn't mmap file with fd %d\n", fd);
 		return -1;
 	}
 
