@@ -54,7 +54,7 @@ static int check_pagemap(void)
 	fd = __open_proc(PROC_SELF, EPERM, O_RDONLY, "pagemap");
 	if (fd < 0) {
 		if (errno == EPERM) {
-			pr_info("Pagemap disabled");
+			pr_info("Pagemap disabled\n");
 			kdat.pmap = PM_DISABLED;
 			return 0;
 		}

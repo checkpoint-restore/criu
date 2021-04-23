@@ -187,7 +187,7 @@ static int next_config(char **argv, char ***_argv, bool no_default_config,
 				break;
 			home_dir = getenv("HOME");
 			if (!home_dir) {
-				pr_info("Unable to get $HOME directory, local configuration file will not be used.");
+				pr_info("Unable to get $HOME directory, local configuration file will not be used.\n");
 			} else {
 				snprintf(local_filepath, PATH_MAX, "%s/%s%s",
 						home_dir, USER_CONFIG_DIR, DEFAULT_CONFIG_FILENAME);
@@ -755,7 +755,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			break;
 		case 1065:
 			if (!add_fsname_auto(optarg)) {
-				pr_err("Failed while parsing --enable-fs option: %s", optarg);
+				pr_err("Failed while parsing --enable-fs option: %s\n", optarg);
 				return 1;
 			}
 			break;
@@ -767,7 +767,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			break;
 		case 1070:
 			if (irmap_scan_path_add(optarg)) {
-				pr_err("Failed while parsing --irmap-scan-path option: %s", optarg);
+				pr_err("Failed while parsing --irmap-scan-path option: %s\n", optarg);
 				return -1;
 			}
 			break;
