@@ -311,7 +311,7 @@ static int read_cgroup_prop(struct cgroup_prop *property, const char *fullpath)
 
 	ret = read(fd, buf, sizeof(buf) - 1);
 	if (ret == -1) {
-		pr_err("Failed scanning %s\n", fullpath);
+		pr_perror("Failed scanning %s", fullpath);
 		close(fd);
 		return -1;
 	}

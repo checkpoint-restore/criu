@@ -190,7 +190,7 @@ static int check_prctl_cat1(void)
 
 	ret = prctl(PR_GET_TID_ADDRESS, (unsigned long)&tid_addr, 0, 0, 0);
 	if (ret < 0) {
-		pr_msg("prctl: PR_GET_TID_ADDRESS is not supported: %m");
+		pr_perror("prctl: PR_GET_TID_ADDRESS is not supported");
 		return -1;
 	}
 
@@ -206,19 +206,19 @@ static int check_prctl_cat1(void)
 			if (errno == EPERM)
 				pr_msg("prctl: One needs CAP_SYS_RESOURCE capability to perform testing\n");
 			else
-				pr_msg("prctl: PR_SET_MM_BRK is not supported: %m\n");
+				pr_perror("prctl: PR_SET_MM_BRK is not supported");
 			return -1;
 		}
 
 		ret = prctl(PR_SET_MM, PR_SET_MM_EXE_FILE, -1, 0, 0);
 		if (ret < 0 && errno != EBADF) {
-			pr_msg("prctl: PR_SET_MM_EXE_FILE is not supported: %m\n");
+			pr_perror("prctl: PR_SET_MM_EXE_FILE is not supported");
 			return -1;
 		}
 
 		ret = prctl(PR_SET_MM, PR_SET_MM_AUXV, (long)&user_auxv, sizeof(user_auxv), 0);
 		if (ret < 0) {
-			pr_msg("prctl: PR_SET_MM_AUXV is not supported: %m\n");
+			pr_perror("prctl: PR_SET_MM_AUXV is not supported");
 			return -1;
 		}
 	}
@@ -908,7 +908,7 @@ static int check_aio_remap(void)
 	int r;
 
 	if (syscall(SYS_io_setup, 16, &ctx) < 0) {
-		pr_err("No AIO syscall: %m\n");
+		pr_perror("No AIO syscall");
 		return -1;
 	}
 
@@ -930,7 +930,7 @@ static int check_aio_remap(void)
 	ctx = (aio_context_t)naddr;
 	r = syscall(SYS_io_getevents, ctx, 0, 1, NULL, NULL);
 	if (r < 0) {
-		pr_err("AIO remap doesn't work properly: %m\n");
+		pr_perror("AIO remap doesn't work properly");
 		return -1;
 	}
 
