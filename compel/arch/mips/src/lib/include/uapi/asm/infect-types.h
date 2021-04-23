@@ -41,8 +41,8 @@ typedef struct {
 
 #define MIPS_a0			regs[4] //arguments a0-a3
 #define MIPS_t0			regs[8] //temporaries t0-t7
-#define MIPS_v0			regs[2] 
-#define MIPS_v1			regs[3] 
+#define MIPS_v0			regs[2]
+#define MIPS_v1			regs[3]
 #define MIPS_sp			regs[29]
 #define MIPS_ra			regs[31]
 
@@ -59,10 +59,10 @@ static inline bool user_regs_native(user_regs_struct_t *pregs)
 #define compel_arch_get_tls_task(ctl, tls)
 #define compel_arch_get_tls_thread(tctl, tls)
 
-#define REG_RES(regs)		((regs).MIPS_v0) 
-#define REG_IP(regs)		((regs).cp0_epc) 
+#define REG_RES(regs)		((regs).MIPS_v0)
+#define REG_IP(regs)		((regs).cp0_epc)
 #define REG_SP(regs)		((regs).MIPS_sp)
-#define REG_SYSCALL_NR(regs)	((regs).MIPS_v0) 
+#define REG_SYSCALL_NR(regs)	((regs).MIPS_v0)
 
 //#define __NR(syscall, compat)	((compat) ? __NR32_##syscall : __NR_##syscall)
 #define __NR(syscall, compat)	__NR_##syscall

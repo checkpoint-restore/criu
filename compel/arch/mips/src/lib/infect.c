@@ -217,7 +217,7 @@ void *remote_mmap(struct parasite_ctl *ctl,
  * regs must be inited when calling this function from original context
  */
 void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
-{  
+{
     regs->cp0_epc = new_ip;
     if (stack){
 	  /* regs[29] is sp */
@@ -286,7 +286,7 @@ void compel_relocs_apply_mips(void *mem, void *vbase, struct parasite_blob_desc 
        * mips rebasing :load time relocation
        * parasite.built-in.o and restorer.built-in.o is ELF 64-bit LSB relocatable for mips.
        * so we have to relocate some type for R_MIPS_26 R_MIPS_HIGHEST R_MIPS_HIGHER R_MIPS_HI16 and R_MIPS_LO16 in there.
-       * for mips64el .if toload/store data or jump instruct ,need to relocation R_TYPE 
+       * for mips64el .if toload/store data or jump instruct ,need to relocation R_TYPE
        */
     for (i = 0, j = 0; i < nr_relocs; i++) {
 	if (elf_relocs[i].type & COMPEL_TYPE_MIPS_26) {

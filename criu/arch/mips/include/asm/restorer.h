@@ -7,13 +7,13 @@
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/asm/sigframe.h>
 
-static inline void restore_tls(tls_t *ptls) { 
-	asm volatile(							
-		     "move $4, %0				    \n"	
-		     "li $2,  "__stringify(__NR_set_thread_area)"  \n" 
-		     "syscall					    \n"	
-		     :							
-		     : "r"(*ptls)					
+static inline void restore_tls(tls_t *ptls) {
+	asm volatile(
+		     "move $4, %0				    \n"
+		     "li $2,  "__stringify(__NR_set_thread_area)"  \n"
+		     "syscall					    \n"
+		     :
+		     : "r"(*ptls)
 		     : "$4","$2","memory");
 }
 static inline int arch_compat_rt_sigaction(void *stack, int sig, void *act)
