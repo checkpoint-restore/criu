@@ -72,7 +72,7 @@ int restore_bpfmap_data(int map_fd, uint32_t map_id, struct bpfmap_data_rst **bp
 		.flags = 0,
 	);
 
-	for (map_data = bpf_hash_table[map_id & BPFMAP_DATA_HASH_MASK]; map_data != NULL; 
+	for (map_data = bpf_hash_table[map_id & BPFMAP_DATA_HASH_MASK]; map_data != NULL;
 		map_data = map_data->next) {
 
 		if (map_data->bde->map_id == map_id)
@@ -143,11 +143,11 @@ int dump_one_bpfmap_data(BpfmapFileEntry *bpf, int lfd, const struct fd_parms *p
 	 * by userspace if it's dealing with percpu maps. 'count' will contain the
 	 * number of keys/values successfully retrieved. Note that 'count' is an
 	 * input/output variable and it can contain a lower value after a call.
-	 * 
+	 *
 	 * If there's no more entries to retrieve, ENOENT will be returned. If error
 	 * is ENOENT, count might be > 0 in case it copied some values but there were
 	 * no more entries to retrieve.
-	 * 
+	 *
 	 * Note that if the return code is an error and not -EFAULT,
 	 * count indicates the number of elements successfully processed.
 	 */
@@ -270,7 +270,7 @@ static int dump_one_bpfmap(int lfd, u32 id, const struct fd_parms *p)
 	}
 
 	return ret;
-	
+
 }
 
 const struct fdtype_ops bpfmap_dump_ops = {
