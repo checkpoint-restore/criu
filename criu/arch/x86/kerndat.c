@@ -110,7 +110,7 @@ static void mmap_bug_test(void)
 	}
 
 	if (munmap(map1, PAGE_SIZE)) {
-		pr_err("Failed to unmap() 32-bit mapping: %m\n");
+		pr_perror("Failed to unmap() 32-bit mapping");
 		exit(1);
 	}
 
