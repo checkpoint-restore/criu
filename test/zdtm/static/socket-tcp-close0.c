@@ -28,7 +28,7 @@ static int check_socket_closed(int sk)
 		pr_perror("Can't get socket state");
 		return -1;
 	} else if (info.tcpi_state != TCP_CLOSE) {
-		pr_err("Invalid socket state (%i)", (int)info.tcpi_state);
+		pr_err("Invalid socket state (%i)\n", (int)info.tcpi_state);
 		return -1;
 	}
 

@@ -34,11 +34,11 @@ int main(int argc, char **argv)
 	}
 	if (pid == 0) {
 		if (mount("zdtm", dirname, "tmpfs", 0, "") < 0) {
-			pr_err("Can't mount tmpfs");
+			pr_perror("Can't mount tmpfs");
 			return 1;
 		}
 		if (chdir(dirname)) {
-			pr_err("chdir");
+			pr_perror("chdir");
 			return 1;
 		}
 

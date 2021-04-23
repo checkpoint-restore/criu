@@ -37,11 +37,11 @@ int fill_sock_buf(int fd)
 
 	flags = fcntl(fd, F_GETFL, 0);
 	if (flags == -1) {
-		pr_err("Can't get flags");
+		pr_perror("Can't get flags");
 		return -1;
 	}
 	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-		pr_err("Can't set flags");
+		pr_perror("Can't set flags");
 		return -1;
 	}
 
@@ -52,14 +52,14 @@ int fill_sock_buf(int fd)
 		if (ret == -1) {
 			if (errno == EAGAIN)
 				break;
-			pr_err("write");
+			pr_perror("write");
 			return -1;
 		}
 		size += ret;
 	}
 
 	if (fcntl(fd, F_SETFL, flags) == -1) {
-		pr_err("Can't set flags");
+		pr_perror("Can't set flags");
 		return -1;
 	}
 
@@ -77,7 +77,7 @@ static int clean_sk_buf(int fd)
 	while (1) {
 		ret = read(fd, buf, sizeof(buf));
 		if (ret == -1) {
-			pr_err("read");
+			pr_perror("read");
 			return -11;
 		}
 
@@ -104,13 +104,13 @@ int main(int argc, char **argv)
 		test_init(argc, argv);
 
 	if (pipe(pfd)) {
-		pr_err("pipe() failed");
+		pr_perror("pipe() failed");
 		return 1;
 	}
 
 	extpid = fork();
 	if (extpid < 0) {
-		pr_err("fork() failed");
+		pr_perror("fork() failed");
 		return 1;
 	} else if (extpid == 0) {
 		int size = 0;
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
 
 		close(pfd[1]);
 		if (read(pfd[0], &port, sizeof(port)) != sizeof(port)) {
-			pr_err("Can't read port\n");
+			pr_perror("Can't read port");
 			return 1;
 		}
 
@@ -138,17 +138,17 @@ int main(int argc, char **argv)
 			return 1;
 
 		if (shutdown(fd, SHUT_WR) == -1) {
-			pr_err("shutdown");
+			pr_perror("shutdown");
 			return 1;
 		}
 
 		if (write(ctl_fd, &size, sizeof(size)) != sizeof(size)) {
-			pr_err("write");
+			pr_perror("write");
 			return 1;
 		}
 
 		if (read(ctl_fd, &c, 1) != 0) {
-			pr_err("read");
+			pr_perror("read");
 			return 1;
 		}
 
@@ -166,13 +166,13 @@ int main(int argc, char **argv)
 		test_init(argc, argv);
 
 	if ((fd_s = tcp_init_server(ZDTM_SRV_FAMILY, &port)) < 0) {
-		pr_err("initializing server failed");
+		pr_err("initializing server failed\n");
 		return 1;
 	}
 
 	close(pfd[0]);
 	if (write(pfd[1], &port, sizeof(port)) != sizeof(port)) {
-		pr_err("Can't send port");
+		pr_perror("Can't send port");
 		return 1;
 	}
 	close(pfd[1]);
@@ -182,13 +182,13 @@ int main(int argc, char **argv)
 	 */
 	fd = tcp_accept_server(fd_s);
 	if (fd < 0) {
-		pr_err("can't accept client connection %m");
+		pr_err("can't accept client connection\n");
 		return 1;
 	}
 
 	ctl_fd = tcp_accept_server(fd_s);
 	if (ctl_fd < 0) {
-		pr_err("can't accept client connection %m");
+		pr_err("can't accept client connection\n");
 		return 1;
 	}
 
@@ -197,12 +197,12 @@ int main(int argc, char **argv)
 		return 1;
 
 	if (shutdown(fd, SHUT_WR) == -1) {
-		pr_err("shutdown");
+		pr_perror("shutdown");
 		return 1;
 	}
 
 	if (read(ctl_fd, &ret, sizeof(ret)) != sizeof(ret)) {
-		pr_err("read");
+		pr_perror("read");
 		return 1;
 	}
 
@@ -224,12 +224,12 @@ int main(int argc, char **argv)
 	}
 
 	if (shutdown(ctl_fd, SHUT_WR) == -1) {
-		pr_err("shutdown");
+		pr_perror("shutdown");
 		return 1;
 	}
 
 	if (read(ctl_fd, &ret, sizeof(ret)) != sizeof(ret)) {
-		pr_err("read");
+		pr_perror("read");
 		return 1;
 	}
 
