@@ -86,7 +86,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	if (memcmp(&addr, &src_addr, aux)) {
-		pr_err("A source address mismatch");
+		pr_err("A source address mismatch\n");
 		return 1;
 	}
 
