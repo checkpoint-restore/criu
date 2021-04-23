@@ -50,6 +50,10 @@
 #include "images/netdev.pb-c.h"
 #include "images/inventory.pb-c.h"
 
+#ifndef IFLA_NEW_IFINDEX
+#define IFLA_NEW_IFINDEX	49
+#endif
+
 #ifndef IFLA_LINK_NETNSID
 #define IFLA_LINK_NETNSID	37
 #undef IFLA_MAX
