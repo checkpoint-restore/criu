@@ -626,7 +626,9 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 
 		execvp(cmd, argv);
 
-		pr_perror("exec(%s, ...) failed", cmd);
+		/* We can't use pr_error() as log file fd is closed. */
+		fprintf(stderr, "Error (%s:%d): " LOG_PREFIX "execvp(\"%s\", ...) failed: %s\n",
+		       __FILE__, __LINE__, cmd, strerror(errno));
 out_chld:
 		_exit(1);
 	}
