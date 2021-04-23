@@ -3614,7 +3614,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	/* VMA we need for stacks and sigframes for threads */
 	if (mmap(mem, memzone_size, PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, 0, 0) != mem) {
-		pr_err("Can't mmap section for restore code\n");
+		pr_perror("Can't mmap section for restore code");
 		goto err;
 	}
 
