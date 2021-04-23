@@ -43,13 +43,13 @@ int tcp_init_server_with_opts(int family, int *port, struct zdtm_tcp_opts *opts)
 
 	if (opts->reuseport &&
 	    setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(int)) == -1) {
-		pr_perror("");
+		pr_perror("setsockopt(SO_REUSEPORT) failed");
 		return -1;
 	}
 
 	if (opts->reuseaddr &&
 	    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1 ) {
-		pr_perror("setsockopt() error");
+		pr_perror("setsockopt(SO_REUSEATTR) failed");
 		return -1;
 	}
 

@@ -96,7 +96,7 @@ static int check_file_lock(int fd, char *expected_type,
 	snprintf(path, sizeof(path), "/proc/self/fdinfo/%d", fd);
 	fp_locks = fopen(path, "r");
 	if (!fp_locks) {
-		pr_err("Can't open %s\n", path);
+		pr_perror("Can't open %s", path);
 		return -1;
 	}
 
@@ -113,7 +113,7 @@ static int check_file_lock(int fd, char *expected_type,
 			     fl_flag, fl_type, fl_option, &fl_owner,
 			     &maj, &min, &i_no);
 		if (num < 7) {
-			pr_perror("Invalid lock info.");
+			pr_err("Invalid lock info\n");
 			break;
 		}
 

@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 	sk1 = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	sk2 = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sk1 < 0 || sk2 < 0) {
-		pr_err("Can't create socket");
+		pr_perror("Can't create socket");
 		exit(1);
 		return 1;
 	}
@@ -49,19 +49,19 @@ int main(int argc, char **argv)
 
 	if (bind(sk1, (struct sockaddr *)&addr1, len) < 0 ||
 	    bind(sk2, (struct sockaddr *)&addr2, len) < 0) {
-		pr_err("Can't bind socket");
+		pr_perror("Can't bind socket");
 		return 1;
 	}
 
 	if (connect(sk1, (struct sockaddr *)&addr2, len) ||
 	    connect(sk2, (struct sockaddr *)&addr1, len)) {
-		pr_err("Can't connect");
+		pr_perror("Can't connect");
 		return 1;
 	}
 
 	if (shutdown(sk1, SHUT_WR) ||
 	    shutdown(sk2, SHUT_RD)) {
-		pr_err("Can't shutdown\n");
+		pr_perror("Can't shutdown");
 		return 1;
 	}
 
@@ -75,17 +75,17 @@ int main(int argc, char **argv)
 	ret = recvfrom(sk1, buf, sizeof(buf), 0,
 		       (struct sockaddr *)&addr, &len);
 	if (ret <= 0) {
-		pr_err("Can't receive data");
+		pr_perror("Can't receive data");
 		return 1;
 	}
 
 	if (len != sizeof(struct sockaddr_in) || memcmp(&addr2, &addr, len)) {
-		pr_err("Data received from wrong peer");
+		pr_err("Data received from wrong peer\n");
 		return 1;
 	}
 
 	if (ret != sizeof(MSG1) || memcmp(buf, MSG1, ret)) {
-		pr_err("Wrong message received");
+		pr_err("Wrong message received\n");
 		return 1;
 	}
 
@@ -102,17 +102,17 @@ int main(int argc, char **argv)
 	ret = recvfrom(sk1, buf, sizeof(buf), 0,
 		       (struct sockaddr *)&addr, &len);
 	if (ret <= 0) {
-		pr_err("Can't receive data");
+		pr_perror("Can't receive data");
 		return 1;
 	}
 
 	if (len != sizeof(struct sockaddr_in) || memcmp(&addr2, &addr, len)) {
-		pr_err("Data received from wrong peer");
+		pr_err("Data received from wrong peer\n");
 		return 1;
 	}
 
 	if (ret != sizeof(MSG1) || memcmp(buf, MSG1, ret)) {
-		pr_err("Wrong message received");
+		pr_err("Wrong message received\n");
 		return 1;
 	}
 

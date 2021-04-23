@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 	ret = nl_connect(sk, NETLINK_ROUTE);
 	if (ret < 0) {
 		nl_socket_free(sk);
-		pr_err("Unable to connect socket: %s", nl_geterror(ret));
+		pr_err("Unable to connect socket: %s\n", nl_geterror(ret));
 		return -1;
 	}
 
