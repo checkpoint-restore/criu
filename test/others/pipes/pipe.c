@@ -10,7 +10,7 @@
  * Also note that changing the log file during restore has nothing to do
  * with the pipe.  It's just a nice feature for cases where it's desirable
  * to have a restored process use a different file then the original one.
- * 
+ *
  * The parent process spawns a child that will write messages to its
  * parent through a pipe.  After a couple of messages, parent invokes
  * criu to checkpoint the child.  Since the child exits after checkpoint,
@@ -377,7 +377,7 @@ void chld_handler(int signum)
 	if (pid == child_pid) {
 		if (!qflag) {
 			printf("%s %s exited with status %d\n", who(0),
-				who(pid), status); 
+				who(pid), status);
 		}
 		/* if child exited successfully, we're done */
 		if (status == 0)
@@ -528,7 +528,7 @@ char *pipe_name(int fd)
 }
 
 /*
- * Use two buffers to support two calls to 
+ * Use two buffers to support two calls to
  * this function in a printf argument list.
  */
 char *who(pid_t pid)

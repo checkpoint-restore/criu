@@ -1694,7 +1694,7 @@ static int parse_bpfmap(struct bfd *f, char *str, BpfmapFileEntry *bpf)
 {
 	/*
 	 * Format is:
-	 * 
+	 *
 	 * uint32_t map_type
 	 * uint32_t key_size
 	 * uint32_t value_size
@@ -1718,7 +1718,7 @@ static int parse_bpfmap(struct bfd *f, char *str, BpfmapFileEntry *bpf)
 
 	size_t n = sizeof(map) / sizeof(bpfmap_fmt);
 	int i;
-	
+
 	for (i = 0; i < n; i++) {
 		if (sscanf(str, map[i].fmt, map[i].value) != 1)
 			return -1;

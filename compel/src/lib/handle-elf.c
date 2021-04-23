@@ -201,7 +201,7 @@ int __handle_elf(void *mem, size_t size)
 		}
 #endif
 	}
-        
+
 	/* Calculate section addresses with proper alignment.
 	 * Note: some but not all linkers precalculate this information.
 	 */

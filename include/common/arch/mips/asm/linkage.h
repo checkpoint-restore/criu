@@ -6,7 +6,7 @@
 #define v0 	$2
 #define v1 	$3
 
-#define a0 	$4   
+#define a0 	$4
 #define a1      $5
 #define a2      $6
 #define a3      $7
@@ -18,7 +18,7 @@
 #define t1      $13
 #define t2      $14
 #define t3      $15
-	
+
 #define s0      $16     /* callee saved */
 #define s1      $17
 #define s2      $18
