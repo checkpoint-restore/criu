@@ -665,7 +665,7 @@ static int unix_resolve_name(int lfd, uint32_t id, struct unix_sk_desc *d,
 
 	fd = ioctl(lfd, SIOCUNIXFILE);
 	if (fd < 0) {
-		pr_warn("Unable to get a socket file descriptor with SIOCUNIXFILE ioctl.");
+		pr_warn("Unable to get a socket file descriptor with SIOCUNIXFILE ioctl: %m\n");
 		goto fallback;
 	}
 
@@ -716,7 +716,7 @@ out:
 	return ret;
 
 fallback:
-	pr_warn("Trying to resolve unix socket with obsolete method");
+	pr_warn("Trying to resolve unix socket with obsolete method\n");
 	ret = unix_resolve_name_old(lfd, id, d, ue, p);
 	if (ret < 0)
 		pr_err("Unable to resolve unix socket name with obsolete method. Try a linux kernel newer than 4.10\n");

@@ -421,6 +421,8 @@ lint:
 	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>.*%m'
 	# Do not use errno with pr_perror or fail
 	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>\(".*".*errno'
+	# End pr_(err|warn|msg|info|debug) with \n
+	! git --no-pager grep -En '^\s*\<pr_(err|warn|msg|info|debug)\>.*);$$' | grep -v '\\n'
 	# No EOL whitespace for C files
 	! git --no-pager grep -E '\s+$$' \*.c \*.h
 .PHONY: lint

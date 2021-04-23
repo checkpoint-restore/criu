@@ -2428,7 +2428,7 @@ static inline int restore_nftables(int pid)
 		return -1;
 	if (empty_image(img)) {
 		/* Backward compatibility */
-		pr_info("Skipping nft restore, no image");
+		pr_info("Skipping nft restore, no image\n");
 		ret = 0;
 		goto image_close_out;
 	}

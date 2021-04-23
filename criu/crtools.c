@@ -174,7 +174,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (strcmp(argv[optind], "service")) {
 		ret = open_image_dir(opts.imgs_dir, image_dir_mode(argv, optind));
 		if (ret < 0) {
-			pr_err("Couldn't open image dir: %s", opts.imgs_dir);
+			pr_err("Couldn't open image dir %s\n", opts.imgs_dir);
 			return 1;
 		}
 	}
