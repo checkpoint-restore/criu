@@ -23,7 +23,7 @@ int main(int argc, char ** argv)
 	 * in the child */
 	pid = fork();
 	if (pid < 0) {
-		pr_err("fork failed: %m");
+		pr_perror("fork failed");
 		exit(1);
 	}
 

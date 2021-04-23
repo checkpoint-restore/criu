@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 
 	for (i = 0; i < ARRAY_SIZE(pipes); i++) {
 		if (pipe(pipes[i].pipefd)) {
-			pr_err("Can't create pipe %d\n", i);
+			pr_perror("Can't create pipe %d", i);
 			exit(1);
 		}
 
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 
 			nfd = dup2(pipes[i].pipefd[0], i + 700);
 			if (nfd < 0) {
-				pr_err("dup2");
+				pr_perror("dup2");
 				exit(1);
 			}
 			close(pipes[i].pipefd[0]);

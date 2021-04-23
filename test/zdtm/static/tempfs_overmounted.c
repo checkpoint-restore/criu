@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (umount("a/b") || umount("a") || umount("a") || umount("a/b/c") || umount("a/b") || umount("a/b")) {
-		pr_err("umount");
+		pr_perror("umount");
 		return 1;
 	}
 
