@@ -1544,7 +1544,7 @@ static int get_build_id(const int fd, const struct stat *fd_status,
 		ret = get_build_id_32(start_addr, build_id, fd, mapped_size);
 	if (buf[EI_CLASS] == ELFCLASS64)
 		ret = get_build_id_64(start_addr, build_id, fd, mapped_size);
-	
+
 	munmap(start_addr, mapped_size);
 	return ret;
 }
@@ -2065,7 +2065,7 @@ int open_path(struct file_desc *d,
 		tmp = inherit_fd_lookup_id(rfi->rfe->name);
 		if (tmp >= 0) {
 			inh_fd = tmp;
-			/* 
+			/*
 			 * PROC_SELF isn't used, because only service
 			 * descriptors can be used here.
 			 */

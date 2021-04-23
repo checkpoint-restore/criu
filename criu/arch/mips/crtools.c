@@ -65,14 +65,14 @@ int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpre
     core->ti_mips->gpregs->r29 = regs->regs[29];
     core->ti_mips->gpregs->r30 = regs->regs[30];
     core->ti_mips->gpregs->r31 = regs->regs[31];
-    
+
     core->ti_mips->gpregs->lo = regs->lo;
     core->ti_mips->gpregs->hi = regs->hi;
     core->ti_mips->gpregs->cp0_epc = regs->cp0_epc;
     core->ti_mips->gpregs->cp0_badvaddr = regs->cp0_badvaddr;
     core->ti_mips->gpregs->cp0_status = regs->cp0_status;
     core->ti_mips->gpregs->cp0_cause = regs->cp0_cause;
-    
+
     core->ti_mips->fpregs->r0 = fpregs->regs[0];
     core->ti_mips->fpregs->r1 = fpregs->regs[1];
     core->ti_mips->fpregs->r2 = fpregs->regs[2];
@@ -107,7 +107,7 @@ int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpre
     core->ti_mips->fpregs->r31 = fpregs->regs[31];
     core->ti_mips->fpregs->fpu_fcr31 = fpregs->fpu_fcr31;
     core->ti_mips->fpregs->fpu_id = fpregs->fpu_id;
-    
+
     return 0;
 }
 
@@ -142,7 +142,7 @@ int arch_alloc_thread_info(CoreEntry *core)
 
     user_mips_fpregs_entry__init(fpregs);
     ti_mips->fpregs = fpregs;
-    
+
     return 0;
 err:
     return -1;
@@ -155,7 +155,7 @@ void arch_free_thread_info(CoreEntry *core)
 
     if (core->ti_mips->gpregs)
 	xfree(core->ti_mips->gpregs);
-    
+
     if (core->ti_mips->fpregs)
 	xfree(core->ti_mips->fpregs);
 

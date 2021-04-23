@@ -34,7 +34,7 @@ static int map_batch_verify(int *visited, uint32_t max_entries, int *keys, int *
 {
 	memset(visited, 0, max_entries * sizeof(*visited));
 	for (int i = 0; i < max_entries; i++) {
-		
+
 		if (keys[i] + 1 != values[i]) {
 			pr_err("Key/value checking error: i=%d, key=%d, value=%d\n", i, keys[i], values[i]);
 			return -1;
@@ -76,13 +76,13 @@ int main(int argc, char **argv)
 		.flags = 0,
 	);
 
-	keys = mmap(NULL, max_entries * sizeof(int), 
-			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);	
-	values = mmap(NULL, max_entries * sizeof(int), 
+	keys = mmap(NULL, max_entries * sizeof(int),
 			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-	visited = mmap(NULL, max_entries * sizeof(int), 
+	values = mmap(NULL, max_entries * sizeof(int),
 			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-	
+	visited = mmap(NULL, max_entries * sizeof(int),
+			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+
 	if ((keys == MAP_FAILED) || (values == MAP_FAILED) || (visited == MAP_FAILED)) {
 		pr_perror("Can't mmap()");
 		goto err;
@@ -132,7 +132,7 @@ int main(int argc, char **argv)
 		pr_perror("Could not parse new map fdinfo from procfs");
 		goto err;
 	}
-	
+
 	if (cmp_bpf_map_info(&old_map_info, &new_map_info)) {
 		pr_err("bpf_map_info mismatch\n");
 		goto err;
@@ -166,7 +166,7 @@ err:
 	munmap(keys, max_entries * sizeof(int));
 	munmap(values, max_entries * sizeof(int));
 	munmap(visited, max_entries * sizeof(int));
-	
+
 	fail();
 	return 1;
 }

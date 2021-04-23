@@ -36,8 +36,8 @@ struct rt_sigframe {
 
 #define RT_SIGFRAME_UC(rt_sigframe)		(&rt_sigframe->rs_uc)
 #define RT_SIGFRAME_UC_SIGMASK(rt_sigframe) 	((k_rtsigset_t *)(void *)&rt_sigframe->rs_uc.uc_sigmask)
-#define RT_SIGFRAME_REGIP(rt_sigframe)	((long unsigned int)0x00)   
-#define RT_SIGFRAME_FPU(rt_sigframe)		     
+#define RT_SIGFRAME_REGIP(rt_sigframe)	((long unsigned int)0x00)
+#define RT_SIGFRAME_FPU(rt_sigframe)
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe) 1
 
 

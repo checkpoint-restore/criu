@@ -96,7 +96,7 @@ struct libsoccr_sk_data {
  * from the kernel and is required for restore. Not present data
  * is zeroified by the library.
  *
- * Ideally the caller should carry the whole _data structure between 
+ * Ideally the caller should carry the whole _data structure between
  * calls, but for optimization purposes it may analyze the flags
  * field and drop the unneeded bits.
  */
@@ -213,14 +213,14 @@ union libsoccr_addr *libsoccr_get_addr(struct libsoccr_sk *sk, int self, unsigne
 
 /*
  * Set a pointer on the send/recv queue data.
- * If flags have SOCCR_MEM_EXCL, the buffer is stolen by the library and is 
+ * If flags have SOCCR_MEM_EXCL, the buffer is stolen by the library and is
  * free()-ed after libsoccr_resume().
  */
 int libsoccr_set_queue_bytes(struct libsoccr_sk *sk, int queue_id, char *bytes, unsigned flags);
 
 /*
  * Set a pointer on the libsoccr_addr for src/dst.
- * If flags have SOCCR_MEM_EXCL, the buffer is stolen by the library and is 
+ * If flags have SOCCR_MEM_EXCL, the buffer is stolen by the library and is
  * fre()-ed after libsoccr_resume().
  */
 int libsoccr_set_addr(struct libsoccr_sk *sk, int self, union libsoccr_addr *, unsigned flags);
