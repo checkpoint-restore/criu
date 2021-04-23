@@ -1528,10 +1528,10 @@ void pr_check_features(const char *offset, const char *sep, int width)
 			pr_msg("\n%s", offset);
 			pos = offset_len;
 		}
-		pr_msg("%s", fl->name);
+		pr_msg("%s", fl->name); // no \n
 		pos += len;
 		if ((fl + 1)->name) { // not the last item
-			pr_msg("%s", sep);
+			pr_msg("%s", sep); // no \n
 			pos += sep_len;
 		}
 	}

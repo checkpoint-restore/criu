@@ -1462,7 +1462,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 				ret = set_next_pid((void *)&pid);
 			}
 			if (ret != 0) {
-				pr_err("Setting PID failed");
+				pr_err("Setting PID failed\n");
 				goto err_unlock;
 			}
 		}
