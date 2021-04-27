@@ -77,8 +77,14 @@ int fd_id_generate_special(struct fd_parms *p, u32 *id)
 
 		fi = fd_id_cache_lookup(p);
 		if (fi) {
-			*id = fi->id;
-			return 0;
+			if (p->stat.st_mode & (S_IFCHR | S_IFBLK)) {
+				/* Don't cache the id for mapped devices */
+				*id = fd_tree.subid++;
+				return 1;
+			} else {
+				*id = fi->id;
+				return 0;
+			}
 		}
 	}
 
