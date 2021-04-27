@@ -62,11 +62,37 @@ static int apparmor_get_label(pid_t pid, char **profile_name)
 }
 
 #ifdef CONFIG_HAS_SELINUX
+static int verify_selinux_label(char *ctx)
+{
+	char *pos;
+	int i;
+
+	/*
+	 * There are SELinux setups where SELinux seems to be enabled,
+	 * but the returned labels are not really valid. See also
+	 * https://github.com/torvalds/linux/blob/master/security/selinux/include/initial_sid_to_string.h
+	 *
+	 * CRIU tells the user that such labels are invalid
+	 * and CRIU expects a SELinux label to contain three ':'.
+	 *
+	 * A label should look like this:
+	 *
+	 *      unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
+	 */
+	pos = (char*)ctx;
+	for (i = 0; i < 3; i++) {
+		pos = strstr(pos, ":");
+		if (!pos)
+			return -1;
+		pos++;
+	}
+
+	return 0;
+}
+
 static int selinux_get_label(pid_t pid, char **output)
 {
 	char *ctx;
-	char *pos;
-	int i;
 	int ret = -1;
 
 	if (getpidcon_raw(pid, &ctx) < 0) {
@@ -74,28 +100,14 @@ static int selinux_get_label(pid_t pid, char **output)
 		return -1;
 	}
 
+	if (verify_selinux_label(ctx)) {
+		pr_err("Invalid selinux context %s\n", (char *)ctx);
+		goto err;
+	}
+
 	*output = xstrdup((char *)ctx);
 	if (!*output)
 		goto err;
-
-	/*
-	 * Make sure it is a valid SELinux label. It should look like this:
-	 *
-	 *	unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
-	 */
-	pos = (char*)ctx;
-	for (i = 0; i < 3; i++) {
-		pos = strstr(pos, ":");
-		if (!pos) {
-			pr_err("Invalid selinux context %s\n", (char *)ctx);
-			xfree(*output);
-			*output = NULL;
-			goto err;
-		}
-
-		*pos = 0;
-		pos++;
-	}
 
 	ret = 0;
 err:
@@ -201,21 +213,34 @@ int dump_xattr_security_selinux(int fd, FdinfoEntry *e)
 
 void kerndat_lsm(void)
 {
+
 	if (access(AA_SECURITYFS_PATH, F_OK) == 0) {
 		kdat.lsm = LSMTYPE__APPARMOR;
 		return;
 	}
 
 #ifdef CONFIG_HAS_SELINUX
-	/*
-	 * This seems to be the canonical place to mount this fs if it is
-	 * enabled, although we may (?) want to check /selinux for posterity as
-	 * well.
-	 */
-	if (access("/sys/fs/selinux", F_OK) == 0) {
+	if (is_selinux_enabled()) {
+		char *ctx;
+
+		/*
+		 * CRIU used to only check if /sys/fs/selinux is mounted, but that does not
+		 * seem to be enough for CRIU's use case. CRIU actually needs to look if
+		 * a valid label is returned.
+		 */
+		if (getpidcon_raw(getpid(), &ctx) < 0)
+			goto no_lsm;
+
+		if (verify_selinux_label(ctx)) {
+			freecon(ctx);
+			goto no_lsm;
+		}
+
 		kdat.lsm = LSMTYPE__SELINUX;
+		freecon(ctx);
 		return;
 	}
+no_lsm:
 #endif
 
 	kdat.lsm = LSMTYPE__NO_LSM;
