@@ -214,6 +214,7 @@ TST_NOFILE	:=				\
 		uffd-events			\
 		thread_different_uid_gid	\
 		pipe03				\
+		netns_lock			\
 		netns_sub			\
 		netns_sub_veth			\
 		netns_sub_sysctl	\
