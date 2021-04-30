@@ -10,11 +10,10 @@
 #define SIGMAX_OLD		31
 
 /*
-
  * Copied from the Linux kernel header arch/mips/include/asm/ptrace.h
  *
  * A thread MIPS CPU context
- **/
+ */
 typedef struct {
 	/* Saved main processor registers. */
 	__u64 regs[32];
