@@ -18,18 +18,18 @@
 
 /* refer to linux-3.10/include/uapi/asm-generic/ucontext.h */
 struct k_ucontext{
-    unsigned long uc_flags;
-    struct k_ucontext *uc_link;
-    stack_t uc_stack;
-    struct sigcontext uc_mcontext;
-    k_rtsigset_t uc_sigmask;
+	unsigned long uc_flags;
+	struct k_ucontext *uc_link;
+	stack_t uc_stack;
+	struct sigcontext uc_mcontext;
+	k_rtsigset_t uc_sigmask;
 };
 
 /* Copy from the kernel source arch/mips/kernel/signal.c */
 struct rt_sigframe {
 	u32 rs_ass[4];		/* argument save space for o32 */
 	u32 rs_pad[2];		/* Was: signal trampoline */
-        siginfo_t rs_info;
+	siginfo_t rs_info;
 	struct k_ucontext rs_uc;
 };
 
@@ -44,14 +44,14 @@ struct rt_sigframe {
 #define RT_SIGFRAME_OFFSET(rt_sigframe)	0
 
 
-#define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)				\
-	asm volatile(							\
-		     "move $29, %0				    \n"	\
-		     "li $2,  "__stringify(__NR_rt_sigreturn)"  \n" \
-		     "syscall					    \n"	\
-		     :							\
-		     : "r"(new_sp)					\
-		     : "$29","$2","memory")
+#define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)			\
+	asm volatile(						\
+	"move $29, %0					\n"	\
+	"li $2,  "__stringify(__NR_rt_sigreturn)"	\n"	\
+	"syscall					\n"	\
+	:							\
+	: "r"(new_sp)						\
+	: "$29","$2","memory")
 
 int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe,
 		struct rt_sigframe *rsigframe);
