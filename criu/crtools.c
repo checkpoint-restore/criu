@@ -214,8 +214,8 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
-       if (fault_injected(FI_CANNOT_MAP_VDSO))
-               kdat.can_map_vdso = 0;
+	if (fault_injected(FI_CANNOT_MAP_VDSO))
+		kdat.can_map_vdso = 0;
 
 	if (!list_empty(&opts.inherit_fds)) {
 		if (strcmp(argv[optind], "restore")) {
