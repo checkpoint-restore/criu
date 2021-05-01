@@ -50,6 +50,7 @@ struct vma_metadata {
 	uint64_t old_pgoff;
 	uint64_t new_pgoff;
 	uint64_t vma_entry;
+	uint32_t new_minor;
 };
 
 static LIST_HEAD(update_vma_info_list);
@@ -93,6 +94,21 @@ struct tp_system {
 };
 
 struct tp_system src_topology;  /* Valid during dump */
+struct tp_system dest_topology; /* Valid during restore */
+
+struct gpu_id_maps {
+	uint32_t num_devices;
+	struct gpu_id_map {
+		uint32_t src;
+		uint32_t dest;
+	} maps[NUM_OF_SUPPORTED_GPUS];
+};
+
+/* Valid during dump, map of actual gpu_id to user gpu_id */
+struct gpu_id_maps checkpoint_maps;
+
+/* Valid during restore, map of gpu_id on checkpointed node to gpu_id on current node */
+struct gpu_id_maps restore_maps;
 
 struct tp_device *get_tp_device_by_render_minor(struct tp_system *sys, int drm_render_minor)
 {
@@ -341,6 +357,121 @@ int parse_topology(struct tp_system *topology)
 	return 0;
 }
 
+int get_gpu_map(struct gpu_id_maps *gpu_maps, uint32_t src, uint32_t *dest)
+{
+	/* If we have an existing mapping for this gpu_id, return it */
+	for (int i = 0; i < gpu_maps->num_devices; i++) {
+		if (gpu_maps->maps[i].src == src) {
+			*dest = gpu_maps->maps[i].dest;
+			return 0;
+		}
+	}
+	pr_err("Failed to find destination GPU ID for 0x%04x (num_devices:%d)\n", src, gpu_maps->num_devices);
+	return -1;
+}
+
+bool device_match(DevinfoEntry *src_dev, struct tp_device *tp_dev)
+{
+	if (src_dev->cpu_cores_count == tp_dev->cpu_cores_count &&
+		src_dev->simd_count == tp_dev->simd_count &&
+		src_dev->mem_banks_count == tp_dev->mem_banks_count &&
+		src_dev->io_links_count == tp_dev->io_links_count &&
+		src_dev->max_waves_per_simd == tp_dev->max_waves_per_simd &&
+		src_dev->lds_size_in_kb == tp_dev->lds_size_in_kb &&
+		src_dev->num_gws == tp_dev->num_gws &&
+		src_dev->wave_front_size == tp_dev->wave_front_size &&
+		src_dev->array_count == tp_dev->array_count &&
+		src_dev->simd_arrays_per_engine == tp_dev->simd_arrays_per_engine &&
+		src_dev->cu_per_simd_array == tp_dev->cu_per_simd_array &&
+		src_dev->simd_per_cu == tp_dev->simd_per_cu &&
+		src_dev->max_slots_scratch_cu == tp_dev->max_slots_scratch_cu &&
+		src_dev->vendor_id == tp_dev->vendor_id &&
+		src_dev->device_id == tp_dev->device_id &&
+		src_dev->num_sdma_engines == tp_dev->num_sdma_engines &&
+		src_dev->num_sdma_xgmi_engines == tp_dev->num_sdma_xgmi_engines &&
+		src_dev->num_sdma_queues_per_engine == tp_dev->num_sdma_queues_per_engine &&
+		src_dev->num_cp_queues == tp_dev->num_cp_queues &&
+		src_dev->capability == tp_dev->capability &&
+		src_dev->sdma_fw_version == tp_dev->sdma_fw_version &&
+		src_dev->caches_count <= tp_dev->caches_count &&
+		src_dev->fw_version <= tp_dev->fw_version) {
+
+		return true;
+	}
+	return false;
+}
+
+void print_required_properties(DevinfoEntry *src_dev)
+{
+	pr_err("===Required properties==================================================\n");
+	pr_err("      cpu_cores_count:%u simd_count:%u mem_banks_count:%u caches_count:%u\n",
+			src_dev->cpu_cores_count, src_dev->simd_count,
+			src_dev->mem_banks_count, src_dev->caches_count);
+	pr_err("      io_links_count:%u max_waves_per_simd:%u lds_size_in_kb:%u\n",
+			src_dev->io_links_count, src_dev->max_waves_per_simd,
+			src_dev->lds_size_in_kb);
+	pr_err("      num_gws:%u wave_front_size:%u array_count:%u\n",
+			src_dev->num_gws, src_dev->wave_front_size, src_dev->array_count);
+	pr_err("      simd_arrays_per_engine:%u cu_per_simd_array:%u simd_per_cu:%u\n",
+			src_dev->simd_arrays_per_engine, src_dev->cu_per_simd_array,
+			src_dev->simd_per_cu);
+	pr_err("      max_slots_scratch_cu:%u vendor_id:%u device_id:%u\n",
+			src_dev->max_slots_scratch_cu, src_dev->vendor_id, src_dev->device_id);
+	pr_err("      num_sdma_engines:%u num_sdma_xgmi_engines:%u num_sdma_queues_per_engine:%u\n",
+			src_dev->num_sdma_engines, src_dev->num_sdma_xgmi_engines,
+			src_dev->num_sdma_queues_per_engine);
+	pr_err("      num_cp_queues:%u fw_version:%u capability:%u sdma_fw_version:%u\n",
+			src_dev->num_cp_queues, src_dev->fw_version, src_dev->capability,
+			src_dev->sdma_fw_version);
+	pr_err("========================================================================\n");
+}
+
+/* Parse local system topology and compare with checkpointed devices so we can build a set of gpu
+ * maps that is used for local target gpu's */
+int set_restore_gpu_maps(struct gpu_id_maps *gpu_maps, DevinfoEntry *src_devs[],
+                               uint32_t num_devices, struct tp_system *topo)
+{
+	int i,j;
+	bool matched_devices[NUM_OF_SUPPORTED_GPUS];
+
+	if (parse_topology(topo))
+		return -EFAULT;
+
+	if (topo->num_nodes != num_devices) {
+		pr_err("Number of devices mismatch (local:%d checkpointed:%d)\n",
+						topo->num_nodes, num_devices);
+		return -EINVAL;
+	}
+
+	memset(matched_devices, 0, sizeof(matched_devices));
+	gpu_maps->num_devices = num_devices;
+
+	for (i = 0; i < num_devices; i++) {
+		for (j = 0; j < num_devices; j++) {
+			if (matched_devices[j])
+				continue;
+
+			if (device_match(src_devs[i], &topo->devs[j])) {
+				matched_devices[j] = true;
+				gpu_maps->maps[i].src = src_devs[i]->gpu_id;
+				gpu_maps->maps[i].dest = topo->devs[j].gpu_id;
+				pr_info("Matched gpu 0x%04x->0x%04x\n", gpu_maps->maps[i].src,
+						gpu_maps->maps[i].dest);
+				break;
+			}
+		}
+
+		if (j < num_devices)
+			continue;
+
+		pr_err("No matching destination GPU for gpu_id = 0x%04x\n", src_devs[i]->gpu_id);
+		print_required_properties(src_devs[i]);
+
+		return -ENOTSUP;
+	}
+	return 0;
+}
+
 int open_drm_render_device(int minor)
 {
 	char path[128];
@@ -581,6 +712,9 @@ int kfd_plugin_init(int stage)
 						CR_PLUGIN_DESC.name);
 
 	memset(&src_topology, 0, sizeof(src_topology));
+	memset(&dest_topology, 0, sizeof(dest_topology));
+	memset(&checkpoint_maps, 0, sizeof(checkpoint_maps));
+	memset(&restore_maps, 0, sizeof(restore_maps));
 	return 0;
 }
 
@@ -599,12 +733,10 @@ int kfd_plugin_dump_file(int fd, int id)
 	struct kfd_criu_bo_buckets *bo_bucket_ptr;
 	struct kfd_criu_q_bucket *q_bucket_ptr;
 	struct kfd_criu_ev_bucket *ev_buckets_ptr = NULL;
-	int ret, drm_fd;
+	int ret;
 	char img_path[PATH_MAX];
 	struct stat st, st_kfd;
 	unsigned char *buf;
-	char fd_path[128];
-	void *addr;
 	size_t len;
 
 	printf("kfd_plugin: Enter cr_plugin_dump_file()- ID = 0x%x\n", id);
@@ -623,21 +755,28 @@ int kfd_plugin_dump_file(int fd, int id)
 	}
 
 	if (parse_topology(&src_topology))
-		return HSAKMT_STATUS_ERROR;
+		return -1;
 
 	/* Check whether this plugin was called for kfd or render nodes */
 	if (major(st.st_rdev) != major(st_kfd.st_rdev) ||
 		 minor(st.st_rdev) != 0) {
-		/* This is RenderD dumper plugin, for now just save renderD
-		 * minor number to be used during restore. In later phases this
-		 * needs to save more data for video decode etc.
-		 */
-
+		/* This is RenderD dumper plugin, save the render minor and gpu_id */
 		CriuRenderNode rd = CRIU_RENDER_NODE__INIT;
-		pr_info("kfd_plugin: Dumper called for /dev/dri/renderD%d, FD = %d, ID = %d\n", minor(st.st_rdev), fd, id);
+		struct tp_device *tp_dev;
 
-		rd.minor_number = minor(st.st_rdev);
-		snprintf(img_path, sizeof(img_path), "renderDXXX.%d.img", id);
+		pr_info("kfd_plugin: Dumper called for /dev/dri/renderD%d, FD = %d, ID = %d\n",
+			minor(st.st_rdev), fd, id);
+
+		tp_dev = get_tp_device_by_render_minor(&src_topology, minor(st.st_rdev));
+		if (!tp_dev) {
+			pr_err("kfd_plugin: Failed to find a device with minor number = %d\n",
+				minor(st.st_rdev));
+
+			return -EFAULT;
+		}
+
+		if (get_gpu_map(&checkpoint_maps, tp_dev->gpu_id, &rd.gpu_id))
+			return -EFAULT;
 
 		len = criu_render_node__get_packed_size(&rd);
 		buf = xmalloc(len);
@@ -645,14 +784,17 @@ int kfd_plugin_dump_file(int fd, int id)
 			return -ENOMEM;
 
 		criu_render_node__pack(&rd, buf);
+
+		snprintf(img_path, sizeof(img_path), "renderDXXX.%d.img", id);
 		ret = write_file(img_path,  buf, len);
-		if (ret)
-			ret = -1;
+		if (ret) {
+			xfree(buf);
+			return ret;
+		}
 
 		xfree(buf);
 
-		/* Need to return success here so that criu can call plugins for
-		 * renderD nodes */
+		/* Need to return success here so that criu can call plugins for renderD nodes */
 		return ret;
 	}
 
@@ -746,15 +888,13 @@ int kfd_plugin_dump_file(int fd, int id)
 	/* When checkpointing on a node where there was already a checkpoint-restore before, the
 	 * user_gpu_id and actual_gpu_id will be different.
 	 *
-	 * For now, we assume the user_gpu_id and actual_gpu_id is the same. Once we support
-	 * restoring on a different node, then we will have a user_gpu_id to actual_gpu_id mapping.
-	 */
+	 * We store the user_gpu_id in the stored image files so that the stored images always have
+	 * the gpu_id's of the node where the application was first launched. */
+
+	checkpoint_maps.num_devices = args.num_of_devices;
 	for (int i = 0; i < args.num_of_devices; i++) {
-		e->devinfo_entries[i]->gpu_id = devinfo_bucket_ptr[i].user_gpu_id;
-		if (devinfo_bucket_ptr[i].user_gpu_id != devinfo_bucket_ptr[i].actual_gpu_id) {
-			pr_err("Checkpoint-Restore on different node not supported yet\n");
-			ret = -ENOTSUP;
-		}
+		checkpoint_maps.maps[i].src = devinfo_bucket_ptr[i].actual_gpu_id;
+		checkpoint_maps.maps[i].dest = devinfo_bucket_ptr[i].user_gpu_id;
 	}
 
 	/* Store local topology information */
@@ -777,7 +917,6 @@ int kfd_plugin_dump_file(int fd, int id)
 		e->devinfo_entries[i]->simd_id_base = dev->simd_id_base;
 		e->devinfo_entries[i]->max_waves_per_simd = dev->max_waves_per_simd;
 		e->devinfo_entries[i]->lds_size_in_kb = dev->lds_size_in_kb;
-		e->devinfo_entries[i]->gds_size_in_kb = dev->gds_size_in_kb;
 		e->devinfo_entries[i]->num_gws = dev->num_gws;
 		e->devinfo_entries[i]->wave_front_size = dev->wave_front_size;
 		e->devinfo_entries[i]->array_count = dev->array_count;
@@ -806,22 +945,20 @@ int kfd_plugin_dump_file(int fd, int id)
 	if (ret)
 		return -1;
 
-	sprintf(fd_path, "/dev/dri/renderD%d", DRM_FIRST_RENDER_NODE);
-	drm_fd = open(fd_path, O_RDWR | O_CLOEXEC);
-	if (drm_fd < 0) {
-		pr_perror("kfd_plugin: failed to open drm fd for %s\n", fd_path);
-		return -1;
-	}
-
 	for (int i = 0; i < helper_args.num_of_bos; i++)
 	{
 		(e->bo_info_test[i])->bo_addr = (bo_bucket_ptr)[i].bo_addr;
 		(e->bo_info_test[i])->bo_size = (bo_bucket_ptr)[i].bo_size;
 		(e->bo_info_test[i])->bo_offset = (bo_bucket_ptr)[i].bo_offset;
-		(e->bo_info_test[i])->gpu_id = (bo_bucket_ptr)[i].gpu_id;
 		(e->bo_info_test[i])->bo_alloc_flags = (bo_bucket_ptr)[i].bo_alloc_flags;
 		(e->bo_info_test[i])->idr_handle = (bo_bucket_ptr)[i].idr_handle;
 		(e->bo_info_test[i])->user_addr = (bo_bucket_ptr)[i].user_addr;
+
+		if (get_gpu_map(&checkpoint_maps, bo_bucket_ptr[i].gpu_id,
+			&e->bo_info_test[i]->gpu_id)) {
+			ret = -EFAULT;
+			goto failed;
+		}
 
 		if ((bo_bucket_ptr)[i].bo_alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_VRAM) {
 			pr_info("VRAM BO Found\n");
@@ -840,7 +977,24 @@ int kfd_plugin_dump_file(int fd, int id)
 
 			if ((e->bo_info_test[i])->bo_alloc_flags &
 			    KFD_IOC_ALLOC_MEM_FLAGS_PUBLIC) {
-				pr_info("kfd_plugin: large bar read possible\n");
+				int drm_fd;
+				void *addr;
+				struct tp_device *dev;
+
+				plugin_log_msg("kfd_plugin: large bar read possible\n");
+
+				dev = get_tp_device_by_gpu_id(&src_topology, bo_bucket_ptr[i].gpu_id);
+				if (!dev) {
+					ret = -EFAULT;
+					goto failed;
+				}
+
+				drm_fd = open_drm_render_device(dev->drm_render_minor);
+				if (drm_fd < 0) {
+					ret = -EFAULT;
+					goto failed;
+				}
+
 				addr = mmap(NULL,
 					    (bo_bucket_ptr)[i].bo_size,
 					    PROT_READ,
@@ -858,9 +1012,9 @@ int kfd_plugin_dump_file(int fd, int id)
 				memcpy((e->bo_info_test[i])->bo_rawdata.data,
 				       addr, bo_bucket_ptr[i].bo_size);
 				munmap(addr, bo_bucket_ptr[i].bo_size);
-
+				close(drm_fd);
 			} else {
-				pr_info("Now try reading BO contents with /proc/pid/mem");
+				plugin_log_msg("Now try reading BO contents with /proc/pid/mem");
 				if (asprintf (&fname, PROCPIDMEM, e->pid) < 0) {
 					pr_perror("failed in asprintf, %s\n", fname);
 					ret = -1;
@@ -896,8 +1050,6 @@ int kfd_plugin_dump_file(int fd, int id)
 			} /* PROCPIDMEM read done */
 		}
 	}
-	close(drm_fd);
-
 	e->num_of_bos = helper_args.num_of_bos;
 
 	plugin_log_msg("Dumping bo_info_test \n");
@@ -943,7 +1095,13 @@ int kfd_plugin_dump_file(int fd, int id)
 			q_bucket_ptr[i].q_id,
 			q_bucket_ptr[i].q_address);
 
-		e->q_entries[i]->gpu_id = q_bucket_ptr[i].gpu_id;
+		if (get_gpu_map(&checkpoint_maps, q_bucket_ptr[i].gpu_id,
+				&e->q_entries[i]->gpu_id)) {
+
+			ret = -EFAULT;
+			goto failed;
+		}
+
 		e->q_entries[i]->type = q_bucket_ptr[i].type;
 		e->q_entries[i]->format = q_bucket_ptr[i].format;
 		e->q_entries[i]->q_id = q_bucket_ptr[i].q_id;
@@ -996,8 +1154,14 @@ int kfd_plugin_dump_file(int fd, int id)
 					ev_buckets_ptr[i].memory_exception_data.failure.NoExecute;
 				e->ev_entries[i]->mem_exc_va =
 					ev_buckets_ptr[i].memory_exception_data.va;
-				e->ev_entries[i]->mem_exc_gpu_id =
-					ev_buckets_ptr[i].memory_exception_data.gpu_id;
+				if (ev_buckets_ptr[i].memory_exception_data.gpu_id) {
+					if (get_gpu_map(&checkpoint_maps,
+							ev_buckets_ptr[i].memory_exception_data.gpu_id,
+							&e->ev_entries[i]->mem_exc_gpu_id)) {
+						ret = -EFAULT;
+						goto failed;
+					}
+				}
 			} else if (e->ev_entries[i]->type == KFD_IOC_EVENT_HW_EXCEPTION) {
 				e->ev_entries[i]->hw_exc_reset_type =
 					ev_buckets_ptr[i].hw_exception_data.reset_type;
@@ -1005,8 +1169,14 @@ int kfd_plugin_dump_file(int fd, int id)
 					ev_buckets_ptr[i].hw_exception_data.reset_cause;
 				e->ev_entries[i]->hw_exc_memory_lost =
 					ev_buckets_ptr[i].hw_exception_data.memory_lost;
-				e->ev_entries[i]->hw_exc_gpu_id =
-					ev_buckets_ptr[i].hw_exception_data.gpu_id;
+				if (ev_buckets_ptr[i].hw_exception_data.gpu_id) {
+					if (get_gpu_map(&checkpoint_maps,
+							ev_buckets_ptr[i].hw_exception_data.gpu_id,
+							&e->ev_entries[i]->hw_exc_gpu_id)) {
+						ret = -EFAULT;
+						goto failed;
+					}
+				}
 			}
 		}
 	}
@@ -1067,14 +1237,15 @@ int kfd_plugin_restore_file(int id)
 	snprintf(img_path, sizeof(img_path), "kfd.%d.img", id);
 
 	if (stat(img_path, &filestat) == -1) {
+		struct tp_device *tp_dev;
+		uint32_t target_gpu_id;
+
 		pr_perror("open(%s)", img_path);
 
-		/* This is restorer plugin for renderD nodes. Since criu doesn't
-		 * gurantee that they will be called before the plugin is called
-		 * for kfd file descriptor, we need to make sure we open the render
-		 * nodes only once and before /dev/kfd is open, the render nodes
-		 * are open too. Generally, it is seen that during checkpoint and
-		 * restore both, the kfd plugin gets called first.
+		/* This is restorer plugin for renderD nodes. Criu doesn't guarantee that they will
+		 * be called before the plugin is called for kfd file descriptor.
+		 * TODO: Currently, this code will only work if this function is called for /dev/kfd
+		 * first as we assume restore_maps is already filled. Need to fix this later.
 		 */
 		snprintf(img_path, sizeof(img_path), "renderDXXX.%d.img", id);
 
@@ -1100,12 +1271,30 @@ int kfd_plugin_restore_file(int id)
 		rd = criu_render_node__unpack(NULL, filestat.st_size, buf);
 		if (rd == NULL) {
 			pr_perror("Unable to parse the KFD message %d", id);
-			xfree(buf);
-			return -1;
+			fd = -EBADFD;
+			goto fail;
 		}
 
-		pr_info("kfd_plugin: render node minor num = %d\n", rd->minor_number);
-		fd = open_drm_render_device(rd->minor_number);
+		pr_info("kfd_plugin: render node gpu_id = 0x%04x\n", rd->gpu_id);
+
+		if (get_gpu_map(&restore_maps, rd->gpu_id, &target_gpu_id)) {
+			fd = -EBADFD;
+			goto fail;
+		}
+
+		tp_dev = get_tp_device_by_gpu_id(&dest_topology, target_gpu_id);
+		if (!tp_dev) {
+			fd = -EBADFD;
+			goto fail;
+		}
+
+		pr_info("kfd_plugin: render node destination gpu_id = 0x%04x\n", tp_dev->gpu_id);
+
+		fd = open_drm_render_device(tp_dev->drm_render_minor);
+		if (fd < 0)
+			pr_err("kfd_plugin: Failed to open render device (minor:%d)\n",
+									tp_dev->drm_render_minor);
+fail:
 		criu_render_node__free_unpacked(rd,  NULL);
 		xfree(buf);
 		return fd;
@@ -1139,6 +1328,8 @@ int kfd_plugin_restore_file(int id)
 
 	plugin_log_msg("kfd_plugin: read image file data\n");
 
+	args.num_of_devices = e->num_of_devices;
+
 	devinfo_bucket_ptr = xmalloc(e->num_of_devices * sizeof(struct kfd_criu_devinfo_bucket));
 	if (!devinfo_bucket_ptr) {
 		fd = -EBADFD;
@@ -1146,19 +1337,36 @@ int kfd_plugin_restore_file(int id)
 	}
 	args.kfd_criu_devinfo_buckets_ptr = (uintptr_t)devinfo_bucket_ptr;
 
+	/* set_restore_gpu_maps will parse local topology and fill dest_topology */
+	if (set_restore_gpu_maps(&restore_maps, e->devinfo_entries, e->num_of_devices, &dest_topology)) {
+		fd = -EBADFD;
+		goto clean;
+	}
+
 	for (int i = 0; i < e->num_of_devices; i++) {
+		struct tp_device *tp_dev;
+		int drm_fd;
 		devinfo_bucket_ptr[i].user_gpu_id = e->devinfo_entries[i]->gpu_id;
 
-		// for now always bind the VMA to /dev/dri/renderD128
-		// this should allow us later to restore BO on a different GPU node.
-		devinfo_bucket_ptr[i].drm_fd = open_drm_render_device(i + DRM_FIRST_RENDER_NODE);
-		if (!devinfo_bucket_ptr[i].drm_fd) {
-			pr_perror("kfd_plugin: Can't pass NULL drm render fd to driver\n");
+		if (get_gpu_map(&restore_maps, e->devinfo_entries[i]->gpu_id,
+			&devinfo_bucket_ptr[i].actual_gpu_id)) {
+
 			fd = -EBADFD;
 			goto clean;
-		} else {
-			pr_info("kfd_plugin: passing drm render fd = %d to driver\n", devinfo_bucket_ptr[i].drm_fd);
 		}
+
+		tp_dev = get_tp_device_by_gpu_id(&dest_topology,
+							devinfo_bucket_ptr[i].actual_gpu_id);
+		if (!tp_dev) {
+			fd = -EBADFD;
+			goto clean;
+		}
+		drm_fd = open_drm_render_device(tp_dev->drm_render_minor);
+		if (drm_fd < 0) {
+			fd = -EBADFD;
+			goto clean;
+		}
+		devinfo_bucket_ptr[i].drm_fd = drm_fd;
 	}
 
 	for (int i = 0; i < e->num_of_bos; i++ )
@@ -1188,10 +1396,15 @@ int kfd_plugin_restore_file(int id)
 		(bo_bucket_ptr)[i].bo_addr = (e->bo_info_test[i])->bo_addr;
 		(bo_bucket_ptr)[i].bo_size = (e->bo_info_test[i])->bo_size;
 		(bo_bucket_ptr)[i].bo_offset = (e->bo_info_test[i])->bo_offset;
-		(bo_bucket_ptr)[i].gpu_id = (e->bo_info_test[i])->gpu_id;
 		(bo_bucket_ptr)[i].bo_alloc_flags = (e->bo_info_test[i])->bo_alloc_flags;
 		(bo_bucket_ptr)[i].idr_handle = (e->bo_info_test[i])->idr_handle;
 		(bo_bucket_ptr)[i].user_addr = (e->bo_info_test[i])->user_addr;
+
+		if (get_gpu_map(&restore_maps, e->bo_info_test[i]->gpu_id,
+						&bo_bucket_ptr[i].gpu_id)) {
+			fd = -EBADFD;
+			goto clean;
+		}
 	}
 
 	args.num_of_bos = e->num_of_bos;
@@ -1204,7 +1417,6 @@ int kfd_plugin_restore_file(int id)
 	}
 
 	args.restored_bo_array_ptr = (uint64_t)restored_bo_offsets_array;
-	args.num_of_devices = 1; /* Only support 1 gpu for now */
 
 	q_bucket_ptr = xmalloc(e->num_of_queues * sizeof(struct kfd_criu_q_bucket));
         if (!q_bucket_ptr) {
@@ -1246,7 +1458,10 @@ int kfd_plugin_restore_file(int id)
 			e->q_entries[i]->mqd.len,
 			e->q_entries[i]->ctl_stack.len);
 
-		q_bucket_ptr[i].gpu_id = e->q_entries[i]->gpu_id;
+		if (get_gpu_map(&restore_maps, e->q_entries[i]->gpu_id, &q_bucket_ptr[i].gpu_id)) {
+			fd = -EBADFD;
+			goto clean;
+		}
 		q_bucket_ptr[i].type = e->q_entries[i]->type;
 		q_bucket_ptr[i].format = e->q_entries[i]->format;
 		q_bucket_ptr[i].q_id = e->q_entries[i]->q_id;
@@ -1319,9 +1534,14 @@ int kfd_plugin_restore_file(int id)
 						e->ev_entries[i]->mem_exc_fail_no_execute;
 				ev_bucket_ptr[i].memory_exception_data.va =
 						e->ev_entries[i]->mem_exc_va;
-				ev_bucket_ptr[i].memory_exception_data.gpu_id =
-						e->ev_entries[i]->mem_exc_gpu_id;
+				if (e->ev_entries[i]->mem_exc_gpu_id) {
+					if (get_gpu_map(&restore_maps, e->ev_entries[i]->mem_exc_gpu_id,
+							&ev_bucket_ptr[i].memory_exception_data.gpu_id)) {
 
+						fd = -EBADFD;
+						goto clean;
+					}
+				}
 			} else if (e->ev_entries[i]->type == KFD_IOC_EVENT_HW_EXCEPTION) {
 				ev_bucket_ptr[i].hw_exception_data.reset_type =
 					e->ev_entries[i]->hw_exc_reset_type;
@@ -1329,8 +1549,14 @@ int kfd_plugin_restore_file(int id)
 					e->ev_entries[i]->hw_exc_reset_cause;
 				ev_bucket_ptr[i].hw_exception_data.memory_lost =
 					e->ev_entries[i]->hw_exc_memory_lost;
-				ev_bucket_ptr[i].hw_exception_data.gpu_id =
-					e->ev_entries[i]->hw_exc_gpu_id;
+
+				if (e->ev_entries[i]->hw_exc_gpu_id) {
+					if (get_gpu_map(&restore_maps, e->ev_entries[i]->hw_exc_gpu_id,
+							&ev_bucket_ptr[i].hw_exception_data.gpu_id)) {
+						fd = -EBADFD;
+						goto clean;
+					}
+				}
 			}
 		}
 
@@ -1352,31 +1578,59 @@ int kfd_plugin_restore_file(int id)
 			 KFD_IOC_ALLOC_MEM_FLAGS_MMIO_REMAP |
 			 KFD_IOC_ALLOC_MEM_FLAGS_DOORBELL)) {
 
+			struct tp_device *tp_dev;
 			struct vma_metadata *vma_md;
 			vma_md = xmalloc(sizeof(*vma_md));
 			if (!vma_md)
 				return -ENOMEM;
 
-			vma_md->old_pgoff = (e->bo_info_test[i])->bo_offset;
-			vma_md->vma_entry = (e->bo_info_test[i])->bo_addr;
+			memset(vma_md, 0, sizeof(*vma_md));
+
+			vma_md->old_pgoff = bo_bucket_ptr[i].bo_offset;
+			vma_md->vma_entry = bo_bucket_ptr[i].bo_addr;
+
+			tp_dev = get_tp_device_by_gpu_id(&dest_topology, bo_bucket_ptr[i].gpu_id);
+			vma_md->new_minor = tp_dev->drm_render_minor;
+
 			vma_md->new_pgoff = restored_bo_offsets_array[i];
+
+			plugin_log_msg("kfd_plugin: adding vma_entry:addr:0x%lx old-off:0x%lx \
+					new_off:0x%lx new_minor:%d\n", vma_md->vma_entry,
+					vma_md->old_pgoff, vma_md->new_pgoff, vma_md->new_minor);
+
 			list_add_tail(&vma_md->list, &update_vma_info_list);
 		}
 
 		if (e->bo_info_test[i]->bo_alloc_flags &
 			(KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT)) {
 
-			pr_info("kfd_plugin: Trying mmap in stage 2\n");
+			int j;
+			int drm_render_fd = -EBADFD;
+
+			for (j = 0; j < e->num_of_devices; j++) {
+				if (devinfo_bucket_ptr[j].actual_gpu_id == bo_bucket_ptr[i].gpu_id) {
+					drm_render_fd = devinfo_bucket_ptr[j].drm_fd;
+					break;
+				}
+			}
+
+			if (drm_render_fd < 0) {
+				pr_err("kfd_plugin: bad fd for render node\n");
+				fd = -EBADFD;
+				goto clean;
+			}
+
+			plugin_log_msg("kfd_plugin: Trying mmap in stage 2\n");
 			if ((e->bo_info_test[i])->bo_alloc_flags &
 			    KFD_IOC_ALLOC_MEM_FLAGS_PUBLIC ||
 			    (e->bo_info_test[i])->bo_alloc_flags &
 			    KFD_IOC_ALLOC_MEM_FLAGS_GTT ) {
-				pr_info("kfd_plugin: large bar write possible\n");
+				plugin_log_msg("kfd_plugin: large bar write possible\n");
 				addr = mmap(NULL,
 					    (e->bo_info_test[i])->bo_size,
 					    PROT_WRITE,
 					    MAP_SHARED,
-					    devinfo_bucket_ptr[0].drm_fd,
+					    drm_render_fd,
 					    restored_bo_offsets_array[i]);
 				if (addr == MAP_FAILED) {
 					pr_perror("kfd_plugin: mmap failed\n");
@@ -1399,7 +1653,7 @@ int kfd_plugin_restore_file(int id)
 					    (e->bo_info_test[i])->bo_size,
 					    PROT_NONE,
 					    MAP_SHARED,
-					    devinfo_bucket_ptr[0].drm_fd,
+					    drm_render_fd,
 					    restored_bo_offsets_array[i]);
 				if (addr == MAP_FAILED) {
 					pr_perror("kfd_plugin: mmap failed\n");
@@ -1480,18 +1734,49 @@ int kfd_plugin_update_vmamap(const char *old_path, char *new_path, const uint64_
 				const uint64_t old_offset, uint64_t *new_offset)
 {
 	struct vma_metadata *vma_md;
+	char path[PATH_MAX];
+	char *p_begin;
+	char *p_end;
+	bool is_kfd = false, is_renderD = false;
+
 
 	pr_info("kfd_plugin: Enter %s\n", __func__);
 
-	/* Once we support restoring on different nodes, new_path may be different from old_path
-	 * because the restored gpu may have a different minor number.
-	 * For now, we are restoring on the same gpu, so new_path is the same as old_path */
+	strncpy(path, old_path, sizeof(path));
 
-	strcpy(new_path, old_path);
+	p_begin = path;
+	p_end = p_begin + strlen(path);
+
+	/*
+	 * Paths sometimes have double forward slashes (e.g //dev/dri/renderD*)
+	 * replace all '//' with '/'.
+	 */
+	while (p_begin < p_end - 1) {
+		if (*p_begin == '/' && *(p_begin + 1) == '/')
+			memmove(p_begin, p_begin + 1, p_end - p_begin);
+		else
+			p_begin++;
+	}
+
+	if (!strncmp(path, "/dev/dri/renderD", strlen("/dev/dri/renderD")))
+		is_renderD = true;
+
+	if (!strcmp(path, "/dev/kfd"))
+		is_kfd = true;
+
+	if (!is_renderD && !is_kfd) {
+		pr_info("Skipping unsupported path:%s addr:%lx old_offset:%lx\n", old_path, addr, old_offset);
+		return 0;
+	}
 
 	list_for_each_entry(vma_md, &update_vma_info_list, list) {
 		if (addr == vma_md->vma_entry && old_offset == vma_md->old_pgoff) {
 			*new_offset = vma_md->new_pgoff;
+
+			if (is_renderD)
+				sprintf(new_path, "/dev/dri/renderD%d", vma_md->new_minor);
+			else
+				strcpy(new_path, old_path);
 
 			pr_info("kfd_plugin: old_pgoff= 0x%lx new_pgoff = 0x%lx old_path = %s new_path = %s\n",
 				vma_md->old_pgoff, vma_md->new_pgoff, old_path, new_path);
