@@ -13,6 +13,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <stdint.h>
+#include <dirent.h>
 
 #include "criu-plugin.h"
 #include "criu-kfd.pb-c.h"
@@ -27,6 +28,7 @@
 #define DRM_LAST_RENDER_NODE 255
 
 #define PROCPIDMEM      "/proc/%d/mem"
+#define TOPOLOGY_PATH   "/sys/class/kfd/kfd/topology/nodes/"
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE 1
@@ -51,6 +53,293 @@ struct vma_metadata {
 };
 
 static LIST_HEAD(update_vma_info_list);
+
+struct tp_system {
+	bool parsed;
+	int num_nodes;
+	struct tp_device {
+		uint32_t gpu_id;
+		uint32_t cpu_cores_count;
+		uint32_t simd_count;
+		uint32_t mem_banks_count;
+		uint32_t caches_count;
+		uint32_t io_links_count;
+		uint32_t cpu_core_id_base;
+		uint32_t simd_id_base;
+		uint32_t max_waves_per_simd;
+		uint32_t lds_size_in_kb;
+		uint32_t gds_size_in_kb;
+		uint32_t num_gws;
+		uint32_t wave_front_size;
+		uint32_t array_count;
+		uint32_t simd_arrays_per_engine;
+		uint32_t cu_per_simd_array;
+		uint32_t simd_per_cu;
+		uint32_t max_slots_scratch_cu;
+		uint32_t vendor_id;
+		uint32_t device_id;
+		uint32_t domain;
+		uint32_t drm_render_minor;
+		uint64_t hive_id;
+		uint32_t num_sdma_engines;
+		uint32_t num_sdma_xgmi_engines;
+		uint32_t num_sdma_queues_per_engine;
+		uint32_t num_cp_queues;
+		uint64_t local_mem_size;
+		uint32_t fw_version;
+		uint32_t capability;
+		uint32_t sdma_fw_version;
+	} devs[NUM_OF_SUPPORTED_GPUS];
+};
+
+struct tp_system src_topology;  /* Valid during dump */
+
+struct tp_device *get_tp_device_by_render_minor(struct tp_system *sys, int drm_render_minor)
+{
+	int i;
+	for (i = 0; i < sys->num_nodes; i++) {
+		if (sys->devs[i].drm_render_minor == drm_render_minor)
+			return &sys->devs[i];
+	}
+	pr_err("Failed to find device with drm_render_minor = 0x%x\n", drm_render_minor);
+	return NULL;
+}
+
+struct tp_device *get_tp_device_by_gpu_id(struct tp_system *sys, int gpu_id)
+{
+	int i;
+	for (i = 0; i < sys->num_nodes; i++) {
+		if (sys->devs[i].gpu_id == gpu_id)
+			return &sys->devs[i];
+	}
+	pr_err("Failed to find device with gpu_id = 0x%x\n", gpu_id);
+	return NULL;
+}
+
+/* Returns 0 if successfull or name did not match. -errno if fail to parse  */
+int get_prop_uint64(const char *line, const char *name, uint64_t *value)
+{
+	char *p_val_begin, *p_val_end;
+	char value_str[25];
+
+	if (strncmp(line, name, strlen(name)))
+		return 0;
+
+	memset(value_str, 0, sizeof(value_str));
+
+	p_val_begin = strchr(line, ' ');
+	if (p_val_begin && *p_val_begin == ' ')
+		p_val_begin++;
+
+	if (!p_val_begin)
+		return -EINVAL;
+
+	p_val_end = strchr(p_val_begin, '\n');
+	if (!p_val_end)
+		return -EINVAL;
+
+	if (p_val_end - p_val_begin > sizeof(value_str))
+		return -EINVAL;
+
+	strncpy(value_str, p_val_begin, p_val_end - p_val_begin);
+	if (sscanf(value_str, "%lu", value) != 1)
+		return -EINVAL;
+
+	return 0;
+}
+
+/* Returns 0 if successfull or name did not match. -errno if fail to parse  */
+int get_prop_uint32(const char *line, const char *name, uint32_t *value)
+{
+	char *p_val_begin, *p_val_end;
+	char value_str[15];
+
+	if (strncmp(line, name, strlen(name)))
+		return 0;
+
+	memset(value_str, 0, sizeof(value_str));
+
+	p_val_begin = strchr(line, ' ');
+	if (p_val_begin && *p_val_begin == ' ')
+		p_val_begin++;
+
+	if (!p_val_begin)
+		return -EINVAL;
+
+	p_val_end = strchr(p_val_begin, '\n');
+	if (!p_val_end)
+		return -EINVAL;
+
+	if (p_val_end - p_val_begin > sizeof(value_str))
+		return -EINVAL;
+
+	strncpy(value_str, p_val_begin, p_val_end - p_val_begin);
+	if (sscanf(value_str, "%u", value) != 1)
+		return -EINVAL;
+
+	return 0;
+}
+
+
+int parse_topology_device(struct tp_device *dev, unsigned gpu_id, const char* dir_path)
+{
+	FILE *file;
+	char path[300];
+	char line[300];
+
+	dev->gpu_id = gpu_id;
+	sprintf(path, "%s/properties", dir_path);
+	file = fopen(path, "r");
+	if (!file) {
+		pr_perror("Failed to access %s\n", path);
+		return -EFAULT;
+	}
+
+	/* We ignore the following entries: simd_id_base, cpu_core_id_base, location_id, max_engine_clk_fcompute,
+		max_engine_clk_ccompute */
+
+	while (fgets(line, sizeof(line), file)) {
+		if (get_prop_uint32(line, "cpu_cores_count", &dev->cpu_cores_count)) goto fail;
+		else if (get_prop_uint32(line, "simd_count", &dev->simd_count)) goto fail;
+		else if (get_prop_uint32(line, "mem_banks_count", &dev->mem_banks_count)) goto fail;
+		else if (get_prop_uint32(line, "caches_count", &dev->caches_count)) goto fail;
+		else if (get_prop_uint32(line, "io_links_count", &dev->io_links_count)) goto fail;
+		else if (get_prop_uint32(line, "cpu_core_id_base", &dev->cpu_core_id_base)) goto fail;
+		else if (get_prop_uint32(line, "simd_id_base", &dev->simd_id_base)) goto fail;
+		else if (get_prop_uint32(line, "max_waves_per_simd", &dev->max_waves_per_simd)) goto fail;
+		else if (get_prop_uint32(line, "lds_size_in_kb", &dev->lds_size_in_kb)) goto fail;
+		else if (get_prop_uint32(line, "gds_size_in_kb", &dev->gds_size_in_kb)) goto fail;
+		else if (get_prop_uint32(line, "num_gws", &dev->num_gws)) goto fail;
+		else if (get_prop_uint32(line, "wave_front_size", &dev->wave_front_size)) goto fail;
+		else if (get_prop_uint32(line, "array_count", &dev->array_count)) goto fail;
+		else if (get_prop_uint32(line, "simd_arrays_per_engine", &dev->simd_arrays_per_engine)) goto fail;
+		else if (get_prop_uint32(line, "cu_per_simd_array", &dev->cu_per_simd_array)) goto fail;
+		else if (get_prop_uint32(line, "simd_per_cu", &dev->simd_per_cu)) goto fail;
+		else if (get_prop_uint32(line, "max_slots_scratch_cu", &dev->max_slots_scratch_cu)) goto fail;
+		else if (get_prop_uint32(line, "vendor_id", &dev->vendor_id)) goto fail;
+		else if (get_prop_uint32(line, "device_id", &dev->device_id)) goto fail;
+		else if (get_prop_uint32(line, "domain", &dev->domain)) goto fail;
+		else if (get_prop_uint32(line, "drm_render_minor", &dev->drm_render_minor)) goto fail;
+		else if (get_prop_uint64(line, "hive_id", &dev->hive_id)) goto fail;
+		else if (get_prop_uint32(line, "num_sdma_engines", &dev->num_sdma_engines)) goto fail;
+		else if (get_prop_uint32(line, "num_sdma_xgmi_engines", &dev->num_sdma_xgmi_engines)) goto fail;
+		else if (get_prop_uint32(line, "num_sdma_queues_per_engine", &dev->num_sdma_queues_per_engine)) goto fail;
+		else if (get_prop_uint32(line, "num_cp_queues", &dev->num_cp_queues)) goto fail;
+		else if (get_prop_uint64(line, "local_mem_size", &dev->local_mem_size)) goto fail;
+		else if (get_prop_uint32(line, "fw_version", &dev->fw_version)) goto fail;
+		else if (get_prop_uint32(line, "capability", &dev->capability)) goto fail;
+		else if (get_prop_uint32(line, "sdma_fw_version", &dev->sdma_fw_version)) goto fail;
+	}
+
+	fclose(file);
+	return 0;
+fail:
+       pr_err("Failed to parse line = %s \n", line);
+       fclose(file);
+       return -EINVAL;
+}
+
+int parse_topology(struct tp_system *topology)
+{
+	struct dirent *dirent_system;
+	DIR *d_system;
+	char path[300];
+	int num_nodes = 0;
+	int i;
+
+	if (topology->parsed)
+		return 0;
+
+	topology->parsed = true;
+
+	d_system = opendir(TOPOLOGY_PATH);
+	if (!d_system) {
+		pr_perror("Can't open %s\n", TOPOLOGY_PATH);
+		return -EACCES;
+	}
+
+	while ((dirent_system = readdir(d_system)) != NULL) {
+		struct stat stbuf;
+		int id, fd;
+
+		/* Only parse numeric directories */
+		if (sscanf(dirent_system->d_name, "%d", &id) != 1) {
+			continue;
+		}
+
+		sprintf(path, "%s/%s", TOPOLOGY_PATH, dirent_system->d_name);
+		if (stat(path, &stbuf)) {
+			pr_info("Cannot to access %s\n", path);
+			continue;
+		}
+
+		if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
+			int len;
+			char gpu_id_path[300];
+			char read_buf[7]; /* Max gpu_id len is 6 chars */
+			unsigned gpu_id;
+			sprintf(gpu_id_path, "%s/%s/gpu_id", TOPOLOGY_PATH, dirent_system->d_name);
+			fd = open(gpu_id_path, O_RDONLY);
+			if (fd < 0) {
+				pr_perror("Failed to access %s\n", gpu_id_path);
+				continue;
+			}
+
+			len = read(fd, read_buf, sizeof(read_buf));
+			close(fd);
+			if (len < 0)
+				continue;
+
+			if (sscanf(read_buf, "%d", &gpu_id) != 1 || !gpu_id)
+				continue;
+
+			if (topology->num_nodes + 1 >= NUM_OF_SUPPORTED_GPUS) {
+				pr_err("Number of nodes exceed max supported GPU\n");
+				return -EINVAL;
+			}
+
+			if (parse_topology_device(&topology->devs[num_nodes++], gpu_id, path)) {
+				pr_err("Failed to parse node %s", path);
+				return -EINVAL;
+			}
+		}
+	}
+	closedir(d_system);
+	topology->num_nodes = num_nodes;
+
+	pr_info("===System Topology============================================================\n");
+	for (i = 0; i < topology->num_nodes; i++) {
+		struct tp_device *tp_dev = &topology->devs[i];
+		pr_info(" [%d] gpu_id:%x\n", i, tp_dev->gpu_id);
+		pr_info("      cpu_cores_count:%u simd_count:%u mem_banks_count:%u caches_count:%d\n",
+				tp_dev->cpu_cores_count, tp_dev->simd_count,
+				tp_dev->mem_banks_count, tp_dev->caches_count);
+		pr_info("      io_links_count:%u cpu_core_id_base:%x simd_id_base:%x\n",
+				tp_dev->io_links_count, tp_dev->cpu_core_id_base,
+				tp_dev->simd_id_base);
+		pr_info("      max_waves_per_simd:%u lds_size_in_kb:%u gds_size_in_kb:%u\n",
+				tp_dev->max_waves_per_simd, tp_dev->lds_size_in_kb,
+				tp_dev->gds_size_in_kb);
+		pr_info("      num_gws:%u wave_front_size:%u array_count:%u\n",
+				tp_dev->num_gws, tp_dev->wave_front_size, tp_dev->array_count);
+		pr_info("      simd_arrays_per_engine:%u cu_per_simd_array:%u simd_per_cu:%u\n",
+				tp_dev->simd_arrays_per_engine, tp_dev->cu_per_simd_array,
+				tp_dev->simd_per_cu);
+		pr_info("      max_slots_scratch_cu:%u vendor_id:%u device_id:%u\n",
+				tp_dev->max_slots_scratch_cu, tp_dev->vendor_id, tp_dev->device_id);
+		pr_info("      domain:%u drm_render_minor:%u hive_id:%lu num_sdma_engines:%u\n",
+				tp_dev->domain, tp_dev->drm_render_minor, tp_dev->hive_id,
+				tp_dev->num_sdma_engines);
+		pr_info("      num_sdma_xgmi_engines:%u num_sdma_queues_per_engine:%u\n",
+				tp_dev->num_sdma_xgmi_engines, tp_dev->num_sdma_queues_per_engine);
+		pr_info("      num_cp_queues:%u fw_version:%u\n",
+				tp_dev->num_cp_queues, tp_dev->fw_version);
+		pr_info("      capability:%u sdma_fw_version:%u\n",
+				tp_dev->capability, tp_dev->sdma_fw_version);
+	}
+	pr_info("==============================================================================\n");
+	return 0;
+}
 
 int open_drm_render_device(int minor)
 {
@@ -290,6 +579,8 @@ int kfd_plugin_init(int stage)
 {
 	pr_info("kfd_plugin: initialized:  %s (AMDGPU/KFD)\n",
 						CR_PLUGIN_DESC.name);
+
+	memset(&src_topology, 0, sizeof(src_topology));
 	return 0;
 }
 
@@ -330,6 +621,9 @@ int kfd_plugin_dump_file(int fd, int id)
 		pr_perror("kfd_plugin: fstat error for /dev/kfd\n");
 		return -1;
 	}
+
+	if (parse_topology(&src_topology))
+		return HSAKMT_STATUS_ERROR;
 
 	/* Check whether this plugin was called for kfd or render nodes */
 	if (major(st.st_rdev) != major(st_kfd.st_rdev) ||
@@ -460,8 +754,50 @@ int kfd_plugin_dump_file(int fd, int id)
 		if (devinfo_bucket_ptr[i].user_gpu_id != devinfo_bucket_ptr[i].actual_gpu_id) {
 			pr_err("Checkpoint-Restore on different node not supported yet\n");
 			ret = -ENOTSUP;
+		}
+	}
+
+	/* Store local topology information */
+	for (int i = 0; i < args.num_of_devices; i++) {
+		struct tp_device *dev;
+
+		dev = get_tp_device_by_gpu_id(&src_topology, devinfo_bucket_ptr[i].actual_gpu_id);
+		if (!dev) {
+			ret = -EFAULT;
 			goto failed;
 		}
+
+		e->devinfo_entries[i]->gpu_id = devinfo_bucket_ptr[i].user_gpu_id;
+
+		e->devinfo_entries[i]->cpu_cores_count = dev->cpu_cores_count;
+		e->devinfo_entries[i]->simd_count = dev->simd_count;
+		e->devinfo_entries[i]->mem_banks_count = dev->mem_banks_count;
+		e->devinfo_entries[i]->caches_count = dev->caches_count;
+		e->devinfo_entries[i]->io_links_count = dev->io_links_count;
+		e->devinfo_entries[i]->simd_id_base = dev->simd_id_base;
+		e->devinfo_entries[i]->max_waves_per_simd = dev->max_waves_per_simd;
+		e->devinfo_entries[i]->lds_size_in_kb = dev->lds_size_in_kb;
+		e->devinfo_entries[i]->gds_size_in_kb = dev->gds_size_in_kb;
+		e->devinfo_entries[i]->num_gws = dev->num_gws;
+		e->devinfo_entries[i]->wave_front_size = dev->wave_front_size;
+		e->devinfo_entries[i]->array_count = dev->array_count;
+		e->devinfo_entries[i]->simd_arrays_per_engine = dev->simd_arrays_per_engine;
+		e->devinfo_entries[i]->cu_per_simd_array = dev->cu_per_simd_array;
+		e->devinfo_entries[i]->simd_per_cu = dev->simd_per_cu;
+		e->devinfo_entries[i]->max_slots_scratch_cu = dev->max_slots_scratch_cu;
+		e->devinfo_entries[i]->vendor_id = dev->vendor_id;
+		e->devinfo_entries[i]->device_id = dev->device_id;
+		e->devinfo_entries[i]->domain = dev->domain;
+		e->devinfo_entries[i]->drm_render_minor = dev->drm_render_minor;
+		e->devinfo_entries[i]->hive_id = dev->hive_id;
+		e->devinfo_entries[i]->num_sdma_engines = dev->num_sdma_engines;
+		e->devinfo_entries[i]->num_sdma_xgmi_engines = dev->num_sdma_xgmi_engines;
+		e->devinfo_entries[i]->num_sdma_queues_per_engine = dev->num_sdma_queues_per_engine;
+		e->devinfo_entries[i]->num_cp_queues = dev->num_cp_queues;
+		e->devinfo_entries[i]->local_mem_size = dev->local_mem_size;
+		e->devinfo_entries[i]->fw_version = dev->fw_version;
+		e->devinfo_entries[i]->capability = dev->capability;
+		e->devinfo_entries[i]->sdma_fw_version = dev->sdma_fw_version;
 	}
 
 	e->num_of_devices = args.num_of_devices;

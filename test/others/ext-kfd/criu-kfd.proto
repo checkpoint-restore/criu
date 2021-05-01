@@ -2,6 +2,36 @@ syntax = "proto2";
 
 message devinfo_entry {
 	required uint32 gpu_id = 1;
+	required uint32 cpu_cores_count = 2;
+	required uint32 simd_count = 3;
+	required uint32 mem_banks_count = 4;
+	required uint32 caches_count = 5;
+	required uint32 io_links_count = 6;
+	required uint32 cpu_core_id_base = 7;
+	required uint32 simd_id_base = 8;
+	required uint32 max_waves_per_simd = 9;
+	required uint32 lds_size_in_kb = 10;
+	required uint32 gds_size_in_kb = 11;
+	required uint32 num_gws = 12;
+	required uint32 wave_front_size = 13;
+	required uint32 array_count = 14;
+	required uint32 simd_arrays_per_engine = 15;
+	required uint32 cu_per_simd_array = 16;
+	required uint32 simd_per_cu = 17;
+	required uint32 max_slots_scratch_cu = 18;
+	required uint32 vendor_id = 19;
+	required uint32 device_id = 20;
+	required uint32 domain = 21;
+	required uint32 drm_render_minor = 22;
+	required uint64 hive_id = 23;
+	required uint32 num_sdma_engines = 24;
+	required uint32 num_sdma_xgmi_engines = 25;
+	required uint32 num_sdma_queues_per_engine = 26;
+	required uint32 num_cp_queues = 27;
+	required uint64 local_mem_size = 28;
+	required uint32 fw_version = 29;
+	required uint32 capability = 30;
+	required uint32 sdma_fw_version = 31;
 }
 
 message bo_entries_test {
