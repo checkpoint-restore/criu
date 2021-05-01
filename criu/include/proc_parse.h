@@ -8,6 +8,9 @@
 #define PROC_TASK_COMM_LEN	32
 #define PROC_TASK_COMM_LEN_FMT	"(%31s"
 
+#define DRM_FIRST_RENDER_NODE 128
+#define DRM_LAST_RENDER_NODE 255
+
 struct proc_pid_stat {
 	int			pid;
 	char			comm[PROC_TASK_COMM_LEN];
