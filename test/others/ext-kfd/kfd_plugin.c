@@ -45,6 +45,16 @@
 #define plugin_log_msg(fmt, ...) {}
 #endif
 
+/* User override options */
+/* Forces gpu mapping to specific gpu list */
+char *kfd_gpu_override = NULL;
+/* Skips all topology checks inside plugin - only if kfd_gpu_override is enabled */
+bool  kfd_topology_check = true;
+/* Skip firmware version check */
+bool  kfd_fw_version_check = true;
+/* Skip caches count check */
+bool  kfd_caches_count_check = true;
+
 struct vma_metadata {
 	struct list_head list;
 	uint64_t old_pgoff;
@@ -372,6 +382,9 @@ int get_gpu_map(struct gpu_id_maps *gpu_maps, uint32_t src, uint32_t *dest)
 
 bool device_match(DevinfoEntry *src_dev, struct tp_device *tp_dev)
 {
+	if (!kfd_topology_check)
+		return true;
+
 	if (src_dev->cpu_cores_count == tp_dev->cpu_cores_count &&
 		src_dev->simd_count == tp_dev->simd_count &&
 		src_dev->mem_banks_count == tp_dev->mem_banks_count &&
@@ -393,8 +406,8 @@ bool device_match(DevinfoEntry *src_dev, struct tp_device *tp_dev)
 		src_dev->num_cp_queues == tp_dev->num_cp_queues &&
 		src_dev->capability == tp_dev->capability &&
 		src_dev->sdma_fw_version == tp_dev->sdma_fw_version &&
-		src_dev->caches_count <= tp_dev->caches_count &&
-		src_dev->fw_version <= tp_dev->fw_version) {
+		(!kfd_caches_count_check || (src_dev->caches_count <= tp_dev->caches_count)) &&
+		(!kfd_fw_version_check || (src_dev->fw_version <= tp_dev->fw_version))) {
 
 		return true;
 	}
@@ -426,6 +439,61 @@ void print_required_properties(DevinfoEntry *src_dev)
 	pr_err("========================================================================\n");
 }
 
+/* return 1  if gpu override is set
+ * return 0  if no gpu overide
+ * return -1 if failed to set gpu override */
+int get_user_gpu_override(struct gpu_id_maps *gpu_maps, DevinfoEntry *src_devs[],
+                               uint32_t num_devices, struct tp_system *topology)
+{
+	char *token;
+	int index = 0;
+	char *gpu_str = kfd_gpu_override;
+	struct tp_device *tp_dev;
+
+	/* Expected destination gpu formats:
+	*      KFD_DESTINATION_GPUS=0xff31,0x90db
+	*      KFD_DESTINATION_GPUS=65329,37083
+	*      KFD_DESTINATION_GPUS=renderD129,renderD128 */
+	if (!gpu_str)
+		return 0;
+
+	pr_info("kfd_plugin: Destination GPU's override:%s\n", gpu_str);
+
+	token = strtok(gpu_str, ",");
+	while (token) {
+		uint32_t dev_minor=0, gpu_id = 0;
+		if (sscanf(token, "renderD%d", &dev_minor) == 1) {
+			tp_dev = get_tp_device_by_render_minor(topology, dev_minor);
+			gpu_id = tp_dev->gpu_id;
+		} else if (sscanf(token, "0x%x", &gpu_id) == 1 || sscanf(token, "%u", &gpu_id) == 1)
+			tp_dev = get_tp_device_by_gpu_id(topology, gpu_id);
+
+		if (tp_dev) {
+			/* Ignore extra GPU's */
+			if (index >= num_devices)
+				break;
+
+			if (!device_match(src_devs[index], tp_dev)) {
+				pr_err("Local gpu_id = 0x%04x not compatible\n", gpu_id);
+				print_required_properties(src_devs[index]);
+				return -1;
+			}
+
+			gpu_maps->maps[index].src = src_devs[index]->gpu_id;
+			gpu_maps->maps[index].dest = gpu_id;
+			pr_info("Matched gpu 0x%04x->0x%04x\n", gpu_maps->maps[index].src,
+						gpu_maps->maps[index].dest);
+			index++;
+		} else {
+			pr_err("kfd_plugin:Failed to parse destination GPU's: %s", gpu_str);
+			return -1;
+		}
+		token = strtok(NULL, ",");
+	}
+	gpu_maps->num_devices = num_devices;
+	return 1;
+}
+
 /* Parse local system topology and compare with checkpointed devices so we can build a set of gpu
  * maps that is used for local target gpu's */
 int set_restore_gpu_maps(struct gpu_id_maps *gpu_maps, DevinfoEntry *src_devs[],
@@ -442,6 +510,10 @@ int set_restore_gpu_maps(struct gpu_id_maps *gpu_maps, DevinfoEntry *src_devs[],
 						topo->num_nodes, num_devices);
 		return -EINVAL;
 	}
+
+	/* For debugging purposes, we can override destination GPU's */
+	if (get_user_gpu_override(gpu_maps, src_devs, num_devices, topo))
+		return 0;
 
 	memset(matched_devices, 0, sizeof(matched_devices));
 	gpu_maps->num_devices = num_devices;
@@ -708,6 +780,7 @@ static int allocate_ev_entries(CriuKfd *e, int num_events)
 }
 int kfd_plugin_init(int stage)
 {
+	char *opt_param = NULL;
 	pr_info("kfd_plugin: initialized:  %s (AMDGPU/KFD)\n",
 						CR_PLUGIN_DESC.name);
 
@@ -715,6 +788,34 @@ int kfd_plugin_init(int stage)
 	memset(&dest_topology, 0, sizeof(dest_topology));
 	memset(&checkpoint_maps, 0, sizeof(checkpoint_maps));
 	memset(&restore_maps, 0, sizeof(restore_maps));
+
+	if (stage == CR_PLUGIN_STAGE__RESTORE) {
+		/* Expected destination gpu format:
+		*	KFD_DESTINATION_GPUS=0xff31,0x90db
+		*	KFD_DESTINATION_GPUS=65329,37083
+		*	KFD_DESTINATION_GPUS=renderD129,renderD128
+		*/
+		kfd_gpu_override = getenv("KFD_DESTINATION_GPUS");
+		pr_info("param: KFD_DESTINATION_GPUS:%s\n", kfd_gpu_override ? kfd_gpu_override : "None");
+
+		if ((opt_param = getenv("KFD_TOPOLOGY_CHECK"))) {
+			if (!strcmp(opt_param, "0") || !strcmp(opt_param, "NO"))
+				kfd_topology_check = false;
+		}
+		pr_info("param: KFD_TOPOLOGY_CHECK:%s\n", kfd_topology_check ? "Y" : "N");
+
+		if ((opt_param = getenv("KFD_FW_VER_CHECK"))) {
+			if (!strcmp(opt_param, "0") || !strcmp(opt_param, "NO"))
+				kfd_fw_version_check = false;
+		}
+		pr_info("param: KFD_FW_VERSION_CHECK:%s\n", kfd_fw_version_check ? "Y" : "N");
+
+		if ((opt_param = getenv("KFD_CACHES_COUNT_CHECK"))) {
+			if (!strcmp(opt_param, "0") || !strcmp(opt_param, "NO"))
+				kfd_caches_count_check = false;
+		}
+		pr_info("param: KFD_CACHES_COUNT_CHECK:%s\n", kfd_caches_count_check ? "Y" : "N");
+	}
 	return 0;
 }
 
