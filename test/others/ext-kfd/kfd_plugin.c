@@ -784,7 +784,7 @@ clean:
 	xfree(bo_bucket_ptr);
 	xfree(buf);
 	criu_kfd__free_unpacked(e, NULL);
-	pr_info("kfd_plugin: returning kfd fd from plugin\n");
+	pr_info("kfd_plugin: returning kfd fd from plugin, fd = %d\n", fd);
 	return fd;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESTORE_EXT_FILE, kfd_plugin_restore_file)
@@ -819,3 +819,29 @@ int kfd_plugin_update_vmamap(const char *old_path, char *new_path, const uint64_
 	return 0;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__UPDATE_VMA_MAP, kfd_plugin_update_vmamap)
+
+int kfd_plugin_resume_devices_late(int target_pid)
+{
+	struct kfd_ioctl_criu_resume_args args = {0};
+	int fd, ret = 0;
+
+	pr_info("kfd_plugin: Inside %s for target pid = %d\n", __func__, target_pid);
+
+	fd = open("/dev/kfd", O_RDWR | O_CLOEXEC);
+	if (fd < 0) {
+		pr_perror("failed to open kfd in plugin");
+		return -1;
+	}
+
+	args.pid = target_pid;
+	pr_info("kfd_plugin: Calling IOCTL to start notifiers and queues\n");
+	if (kmtIoctl(fd, AMDKFD_IOC_CRIU_RESUME, &args) == -1) {
+		pr_perror("restore late ioctl failed\n");
+		ret = -1;
+	}
+
+	close(fd);
+	return ret;
+}
+
+CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, kfd_plugin_resume_devices_late)
