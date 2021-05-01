@@ -143,8 +143,13 @@ static int allocate_bo_info_test(CriuKfd *e, int num_bos, struct kfd_criu_bo_buc
 
 		bo_entries_test__init(botest);
 
-		botest->bo_rawdata.data = xmalloc((bo_bucket_ptr)[i].bo_size);
-		botest->bo_rawdata.len = (bo_bucket_ptr)[i].bo_size;
+		if ((bo_bucket_ptr)[i].bo_alloc_flags &
+		    KFD_IOC_ALLOC_MEM_FLAGS_VRAM ||
+		    (bo_bucket_ptr)[i].bo_alloc_flags &
+		    KFD_IOC_ALLOC_MEM_FLAGS_GTT) {
+			botest->bo_rawdata.data = xmalloc((bo_bucket_ptr)[i].bo_size);
+			botest->bo_rawdata.len = (bo_bucket_ptr)[i].bo_size;
+		}
 
 		e->bo_info_test[i] = botest;
 		e->n_bo_info_test++;
