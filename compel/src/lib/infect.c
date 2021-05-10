@@ -447,6 +447,13 @@ static int parasite_run(pid_t pid, int cmd, unsigned long ip, void *stack,
 	k_rtsigset_t block;
 
 	ksigfillset(&block);
+
+	/* This meant to be a work-around for the existing bug that the restored
+	 * process' caught sigset is not equal to the checkpoint process'. It was
+	 * noticed that SIGTRAP is missing there outstandingly.
+	 */
+	block.sig[0] = block.sig[0] & ~(1<<(SIGTRAP - 1));
+
 	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &block)) {
 		pr_perror("Can't block signals for %d", pid);
 		goto err_sig;
