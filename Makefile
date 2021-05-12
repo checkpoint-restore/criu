@@ -147,7 +147,7 @@ HOSTCFLAGS		+= $(WARNINGS) $(DEFINES) -iquote include/
 export AFLAGS CFLAGS USERCLFAGS HOSTCFLAGS
 
 # Default target
-all: flog criu lib crit
+all: flog criu lib crit amdgpu_plugin
 .PHONY: all
 
 #
@@ -290,15 +290,19 @@ clean mrproper:
 	$(Q) $(MAKE) $(build)=crit $@
 .PHONY: clean mrproper
 
+clean-amdgpu_plugin:
+	$(Q) $(MAKE) -C plugins/amdgpu clean
+.PHONY: clean-amdgpu_plugin
+
 clean-top:
 	$(Q) $(MAKE) -C Documentation clean
 	$(Q) $(MAKE) $(build)=test/compel clean
 	$(Q) $(RM) .gitid
 .PHONY: clean-top
 
-clean: clean-top
+clean: clean-top clean-amdgpu_plugin
 
-mrproper-top: clean-top
+mrproper-top: clean-top clean-amdgpu_plugin
 	$(Q) $(RM) $(CONFIG_HEADER)
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(RM) $(COMPEL_VERSION_HEADER)
@@ -325,6 +329,10 @@ zdtm: all
 test: zdtm
 	$(Q) $(MAKE) -C test
 .PHONY: test
+
+amdgpu_plugin:
+	$(Q) $(MAKE) -C plugins/amdgpu all
+.PHONY: amdgpu_plugin
 
 #
 # Generating tar requires tag matched CRIU_VERSION.
@@ -403,6 +411,7 @@ help:
 	@echo '      cscope          - Generate cscope database'
 	@echo '      test            - Run zdtm test-suite'
 	@echo '      gcov            - Make code coverage report'
+	@echo '      amdgpu_plugin   - Make AMD GPU plugin'
 .PHONY: help
 
 lint:
