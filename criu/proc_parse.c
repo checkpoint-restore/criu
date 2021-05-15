@@ -173,8 +173,7 @@ static void parse_vma_vmflags(char *buf, struct vma_area *vma_area)
 	 * only exception is VVAR area that mapped by the kernel as
 	 * VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP
 	 */
-	if (io_pf && !vma_area_is(vma_area, VMA_AREA_VVAR) &&
-	    !vma_entry_is(vma_area->e, VMA_FILE_SHARED))
+	if (io_pf && !vma_area_is(vma_area, VMA_AREA_VVAR))
 		vma_area->e->status |= VMA_UNSUPP;
 
 	if (vma_area->e->madv)
