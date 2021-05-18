@@ -24,6 +24,19 @@
 #define _GNU_SOURCE 1
 #endif
 
+#ifdef COMPILE_TESTS
+#undef pr_err
+#define pr_err(format, arg...) fprintf(stdout, "%s:%d ERROR:" format, __FILE__, __LINE__, ##arg)
+#undef pr_info
+#define pr_info(format, arg...) fprintf(stdout, "%s:%d INFO:" format, __FILE__, __LINE__, ##arg)
+#undef pr_debug
+#define pr_debug(format, arg...) fprintf(stdout, "%s:%d DBG:" format, __FILE__, __LINE__, ##arg)
+
+#undef pr_perror
+#define pr_perror(format, arg...) \
+	fprintf(stdout, "%s:%d: " format " (errno = %d (%s))\n", __FILE__, __LINE__, ##arg, errno, strerror(errno))
+#endif
+
 #ifdef DEBUG
 #define plugin_log_msg(fmt, ...) pr_debug(fmt, ##__VA_ARGS__)
 #else
@@ -34,19 +47,19 @@
 
 /* User override options */
 /* Skip firmware version check */
-bool kfd_fw_version_check;
+bool kfd_fw_version_check = true;
 /* Skip SDMA firmware version check */
-bool kfd_sdma_fw_version_check;
+bool kfd_sdma_fw_version_check = true;
 /* Skip caches count check */
-bool kfd_caches_count_check;
+bool kfd_caches_count_check = true;
 /* Skip num gws check */
-bool kfd_num_gws_check;
+bool kfd_num_gws_check = true;
 /* Skip vram size check */
-bool kfd_vram_size_check;
+bool kfd_vram_size_check = true;
 /* Preserve NUMA regions */
-bool kfd_numa_check;
+bool kfd_numa_check = true;
 /* Skip capability check */
-bool kfd_capability_check;
+bool kfd_capability_check = true;
 
 static int open_drm_render_device(int minor)
 {
