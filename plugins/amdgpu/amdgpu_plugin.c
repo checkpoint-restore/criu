@@ -13,6 +13,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <stdint.h>
+#include <pthread.h>
 
 #include "criu-plugin.h"
 #include "plugin.h"
@@ -506,6 +507,17 @@ void amdgpu_plugin_fini(int stage, int ret)
 
 CR_PLUGIN_REGISTER("amdgpu_plugin", amdgpu_plugin_init, amdgpu_plugin_fini)
 
+struct thread_data {
+	pthread_t thread;
+	uint64_t num_of_bos;
+	uint32_t gpu_id;
+	pid_t pid;
+	struct kfd_criu_bo_bucket *bo_buckets;
+	BoEntry **bo_entries;
+	int drm_fd;
+	int ret;
+};
+
 int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
 {
 	struct stat st_kfd, st_dri_min;
@@ -542,6 +554,181 @@ int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
 	return -ENOTSUP;
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__HANDLE_DEVICE_VMA, amdgpu_plugin_handle_device_vma)
+
+void *dump_bo_contents(void *_thread_data)
+{
+	int i, ret = 0;
+	int num_bos = 0;
+	struct thread_data *thread_data = (struct thread_data *)_thread_data;
+	struct kfd_criu_bo_bucket *bo_buckets = thread_data->bo_buckets;
+	BoEntry **bo_info = thread_data->bo_entries;
+	char *fname;
+	int mem_fd = -1;
+
+	pr_info("amdgpu_plugin: Thread[0x%x] started\n", thread_data->gpu_id);
+
+	if (asprintf(&fname, PROCPIDMEM, thread_data->pid) < 0) {
+		pr_perror("failed in asprintf, %s", fname);
+		ret = -1;
+		goto exit;
+	}
+	mem_fd = open(fname, O_RDONLY);
+	if (mem_fd < 0) {
+		pr_perror("Can't open %s for pid %d", fname, thread_data->pid);
+		free(fname);
+		ret = -errno;
+		goto exit;
+	}
+	plugin_log_msg("Opened %s file for pid = %d\n", fname, thread_data->pid);
+	free(fname);
+
+	for (i = 0; i < thread_data->num_of_bos; i++) {
+		if (bo_buckets[i].gpu_id != thread_data->gpu_id)
+			continue;
+
+		num_bos++;
+		if (!(bo_buckets[i].alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_VRAM) &&
+		    !(bo_buckets[i].alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_GTT))
+			continue;
+
+		if (bo_info[i]->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_PUBLIC) {
+			void *addr;
+
+			plugin_log_msg("amdgpu_plugin: large bar read possible\n");
+
+			addr = mmap(NULL, bo_buckets[i].size, PROT_READ, MAP_SHARED, thread_data->drm_fd,
+				    bo_buckets[i].offset);
+			if (addr == MAP_FAILED) {
+				pr_perror("amdgpu_plugin: mmap failed");
+				ret = -errno;
+				goto exit;
+			}
+
+			/* direct memcpy is possible on large bars */
+			memcpy(bo_info[i]->rawdata.data, addr, bo_buckets[i].size);
+			munmap(addr, bo_buckets[i].size);
+		} else {
+			size_t bo_size;
+			plugin_log_msg("Reading BO contents with /proc/pid/mem\n");
+			if (lseek(mem_fd, (off_t)bo_buckets[i].addr, SEEK_SET) == -1) {
+				pr_perror("Can't lseek for BO offset for pid = %d", thread_data->pid);
+				ret = -errno;
+				goto exit;
+			}
+
+			bo_size = read(mem_fd, bo_info[i]->rawdata.data, bo_info[i]->size);
+			if (bo_size != bo_info[i]->size) {
+				pr_perror("Can't read buffer");
+				ret = -errno;
+				goto exit;
+			}
+		} /* PROCPIDMEM read done */
+	}
+
+exit:
+	pr_info("amdgpu_plugin: Thread[0x%x] done num_bos:%d ret:%d\n", thread_data->gpu_id, num_bos, ret);
+
+	if (mem_fd >= 0)
+		close(mem_fd);
+
+	thread_data->ret = ret;
+	return NULL;
+};
+
+void *restore_bo_contents(void *_thread_data)
+{
+	int i, ret = 0;
+	int num_bos = 0;
+	struct thread_data *thread_data = (struct thread_data *)_thread_data;
+	struct kfd_criu_bo_bucket *bo_buckets = thread_data->bo_buckets;
+	BoEntry **bo_info = thread_data->bo_entries;
+	char *fname;
+	int mem_fd = -1;
+
+	pr_info("amdgpu_plugin: Thread[0x%x] started\n", thread_data->gpu_id);
+
+	if (asprintf(&fname, PROCPIDMEM, thread_data->pid) < 0) {
+		pr_perror("failed in asprintf, %s", fname);
+		ret = -1;
+		goto exit;
+	}
+
+	mem_fd = open(fname, O_RDWR);
+	if (mem_fd < 0) {
+		pr_perror("Can't open %s for pid %d", fname, thread_data->pid);
+		free(fname);
+		ret = -errno;
+		goto exit;
+	}
+	plugin_log_msg("Opened %s file for pid = %d\n", fname, thread_data->pid);
+	free(fname);
+
+	for (i = 0; i < thread_data->num_of_bos; i++) {
+		void *addr;
+
+		if (bo_buckets[i].gpu_id != thread_data->gpu_id)
+			continue;
+
+		num_bos++;
+
+		if (!(bo_buckets[i].alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_VRAM) &&
+		    !(bo_buckets[i].alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_GTT))
+			continue;
+
+		if (bo_info[i]->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_PUBLIC) {
+			plugin_log_msg("amdgpu_plugin: large bar write possible\n");
+
+			addr = mmap(NULL, bo_buckets[i].size, PROT_WRITE, MAP_SHARED, thread_data->drm_fd,
+				    bo_buckets[i].restored_offset);
+			if (addr == MAP_FAILED) {
+				pr_perror("amdgpu_plugin: mmap failed");
+				ret = -errno;
+				goto exit;
+			}
+
+			/* direct memcpy is possible on large bars */
+			memcpy(addr, (void *)bo_info[i]->rawdata.data, bo_info[i]->size);
+			munmap(addr, bo_info[i]->size);
+		} else {
+			size_t bo_size;
+			/* Use indirect host data path via /proc/pid/mem on small pci bar GPUs or
+			 * for Buffer Objects that don't have HostAccess permissions.
+			 */
+			plugin_log_msg("amdgpu_plugin: using PROCPIDMEM to restore BO contents\n");
+			addr = mmap(NULL, bo_info[i]->size, PROT_NONE, MAP_SHARED, thread_data->drm_fd,
+				    bo_buckets[i].restored_offset);
+
+			if (addr == MAP_FAILED) {
+				pr_perror("amdgpu_plugin: mmap failed");
+				ret = -errno;
+				goto exit;
+			}
+
+			if (lseek(mem_fd, (off_t)addr, SEEK_SET) == -1) {
+				pr_perror("Can't lseek for BO offset for pid = %d", thread_data->pid);
+				ret = -errno;
+				goto exit;
+			}
+
+			plugin_log_msg("Attempt writing now\n");
+			bo_size = write(mem_fd, bo_info[i]->rawdata.data, bo_info[i]->size);
+			if (bo_size != bo_info[i]->size) {
+				pr_perror("Can't write buffer");
+				ret = -errno;
+				goto exit;
+			}
+			munmap(addr, bo_info[i]->size);
+		}
+	}
+
+exit:
+	pr_info("amdgpu_plugin: Thread[0x%x] done num_bos:%d ret:%d\n", thread_data->gpu_id, num_bos, ret);
+
+	if (mem_fd >= 0)
+		close(mem_fd);
+	thread_data->ret = ret;
+	return NULL;
+};
 
 static int init_dumper_args(struct kfd_ioctl_criu_dumper_args *args, __u32 type, __u64 index_start, __u64 num_objects,
 			    __u64 objects_size)
@@ -732,11 +919,17 @@ static int dump_bos(int fd, struct kfd_ioctl_criu_process_info_args *info_args, 
 {
 	struct kfd_ioctl_criu_dumper_args args = { 0 };
 	struct kfd_criu_bo_bucket *bo_buckets;
+	struct thread_data *thread_datas;
 	uint8_t *priv_data;
 	int ret = 0, i;
-	char *fname;
 
 	pr_debug("Dumping %lld BOs\n", info_args->total_bos);
+
+	thread_datas = xzalloc(sizeof(*thread_datas) * e->num_of_gpus);
+	if (!thread_datas) {
+		ret = -ENOMEM;
+		goto exit;
+	}
 
 	ret = init_dumper_args(&args, KFD_CRIU_OBJECT_TYPE_BO, 0, info_args->total_bos,
 			       (info_args->total_bos * sizeof(*bo_buckets)) + info_args->bos_priv_data_size);
@@ -786,77 +979,49 @@ static int dump_bos(int fd, struct kfd_ioctl_criu_process_info_args *info_args, 
 		boinfo->size = bo_bucket->size;
 		boinfo->offset = bo_bucket->offset;
 		boinfo->alloc_flags = bo_bucket->alloc_flags;
+	}
 
-		if (bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_VRAM ||
-		    bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_GTT) {
-			if (bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_PUBLIC) {
-				int drm_fd;
-				void *addr;
-				struct tp_node *tp_node;
+	for (int i = 0; i < e->num_of_gpus; i++) {
+		struct tp_node *dev;
+		int ret_thread = 0;
 
-				plugin_log_msg("amdgpu_plugin: large bar read possible\n");
+		dev = sys_get_node_by_index(&src_topology, i);
+		if (!dev) {
+			ret = -ENODEV;
+			goto exit;
+		}
 
-				tp_node = sys_get_node_by_gpu_id(&src_topology, boinfo->gpu_id);
-				if (!tp_node) {
-					ret = -ENODEV;
-					goto exit;
-				}
+		thread_datas[i].gpu_id = dev->gpu_id;
+		thread_datas[i].bo_buckets = bo_buckets;
+		thread_datas[i].bo_entries = e->bo_entries;
+		thread_datas[i].pid = e->pid;
+		thread_datas[i].num_of_bos = info_args->total_bos;
+		thread_datas[i].drm_fd = node_get_drm_render_device(dev);
+		if (thread_datas[i].drm_fd < 0) {
+			ret = thread_datas[i].drm_fd;
+			goto exit;
+		}
 
-				drm_fd = node_get_drm_render_device(tp_node);
+		ret_thread = pthread_create(&thread_datas[i].thread, NULL, dump_bo_contents, (void *)&thread_datas[i]);
+		if (ret_thread) {
+			pr_err("Failed to create thread[%i]\n", i);
+			ret = -ret_thread;
+			goto exit;
+		}
+	}
 
-				addr = mmap(NULL, boinfo->size, PROT_READ, MAP_SHARED, drm_fd, boinfo->offset);
-				if (addr == MAP_FAILED) {
-					pr_perror("amdgpu_plugin: mmap failed\n");
-					ret = -errno;
-					goto exit;
-				}
+	for (int i = 0; i < e->num_of_gpus; i++) {
+		pthread_join(thread_datas[i].thread, NULL);
+		pr_info("Thread[0x%x] finished ret:%d\n", thread_datas[i].gpu_id, thread_datas[i].ret);
 
-				/* direct memcpy is possible on large bars */
-				memcpy(boinfo->rawdata.data, addr, boinfo->size);
-				munmap(addr, boinfo->size);
-			} else {
-				size_t bo_size;
-				int mem_fd;
-
-				plugin_log_msg("Now try reading BO contents with /proc/pid/mem\n");
-				if (asprintf(&fname, PROCPIDMEM, info_args->task_pid) < 0) {
-					pr_perror("failed in asprintf, %s", fname);
-					ret = -1;
-					goto exit;
-				}
-
-				mem_fd = open(fname, O_RDONLY);
-				if (mem_fd < 0) {
-					pr_perror("Can't open %s for pid %d", fname, info_args->task_pid);
-					free(fname);
-					close(mem_fd);
-					ret = -1;
-					goto exit;
-				}
-
-				pr_info("Opened %s file for pid = %d\n", fname, info_args->task_pid);
-				free(fname);
-
-				if (lseek(mem_fd, (off_t)bo_bucket->addr, SEEK_SET) == -1) {
-					pr_perror("Can't lseek for bo_offset for pid = %d", info_args->task_pid);
-					close(mem_fd);
-					ret = -1;
-					goto exit;
-				}
-
-				bo_size = read(mem_fd, boinfo->rawdata.data, boinfo->size);
-				if (bo_size != boinfo->size) {
-					close(mem_fd);
-					pr_perror("Can't read buffer");
-					ret = -1;
-					goto exit;
-				}
-				close(mem_fd);
-			}
+		if (thread_datas[i].ret) {
+			ret = thread_datas[i].ret;
+			goto exit;
 		}
 	}
 exit:
 	xfree((void *)args.objects);
+	xfree(thread_datas);
 	pr_info("Dumped bos %s (ret:%d)\n", ret ? "failed" : "ok", ret);
 	return ret;
 }
@@ -1258,14 +1423,19 @@ static int restore_bos(int fd, CriuKfd *e)
 {
 	struct kfd_ioctl_criu_restorer_args args = { 0 };
 	struct kfd_criu_bo_bucket *bo_buckets;
+	struct thread_data *thread_datas;
 	uint64_t priv_data_offset = 0;
 	uint64_t objects_size = 0;
 	uint8_t *priv_data;
 	int ret = 0;
-	char *fname;
-	void *addr;
 
 	pr_debug("Restoring %ld BOs\n", e->num_of_bos);
+
+	thread_datas = xzalloc(sizeof(*thread_datas) * e->num_of_gpus);
+	if (!thread_datas) {
+		ret = -ENOMEM;
+		goto exit;
+	}
 
 	for (int i = 0; i < e->num_of_bos; i++)
 		objects_size += sizeof(*bo_buckets) + e->bo_entries[i]->private_data.len;
@@ -1310,8 +1480,6 @@ static int restore_bos(int fd, CriuKfd *e)
 
 	for (int i = 0; i < args.num_objects; i++) {
 		struct kfd_criu_bo_bucket *bo_bucket = &bo_buckets[i];
-		BoEntry *bo_entry = e->bo_entries[i];
-
 		struct tp_node *tp_node;
 
 		if (bo_bucket->alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT |
@@ -1346,85 +1514,50 @@ static int restore_bos(int fd, CriuKfd *e)
 
 			list_add_tail(&vma_md->list, &update_vma_info_list);
 		}
+	}
 
-		if (bo_bucket->alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT)) {
-			int drm_fd = node_get_drm_render_device(tp_node);
+	for (int i = 0; i < e->num_of_gpus; i++) {
+		struct tp_node *dev;
+		int ret_thread = 0;
 
-			plugin_log_msg("amdgpu_plugin: Trying mmap in stage 2\n");
-			if (bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_PUBLIC ||
-			    bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_GTT) {
-				plugin_log_msg("amdgpu_plugin: large bar write possible\n");
-				addr = mmap(NULL, bo_bucket->size, PROT_WRITE, MAP_SHARED, drm_fd,
-					    bo_bucket->restored_offset);
-				if (addr == MAP_FAILED) {
-					pr_perror("amdgpu_plugin: mmap failed");
-					fd = -EBADFD;
-					goto exit;
-				}
+		dev = sys_get_node_by_index(&dest_topology, i);
+		if (!dev) {
+			ret = -ENODEV;
+			goto exit;
+		}
 
-				/* direct memcpy is possible on large bars */
-				memcpy(addr, (void *)bo_entry->rawdata.data, bo_entry->size);
-				munmap(addr, bo_entry->size);
-			} else {
-				size_t bo_size;
-				int mem_fd;
-				/* Use indirect host data path via /proc/pid/mem
-				 * on small pci bar GPUs or for Buffer Objects
-				 * that don't have HostAccess permissions.
-				 */
-				plugin_log_msg("amdgpu_plugin: using PROCPIDMEM to restore BO contents\n");
-				addr = mmap(NULL, bo_bucket->size, PROT_NONE, MAP_SHARED, drm_fd,
-					    bo_bucket->restored_offset);
-				if (addr == MAP_FAILED) {
-					pr_perror("amdgpu_plugin: mmap failed");
-					fd = -EBADFD;
-					goto exit;
-				}
+		thread_datas[i].gpu_id = dev->gpu_id;
+		thread_datas[i].bo_buckets = bo_buckets;
+		thread_datas[i].bo_entries = e->bo_entries;
+		thread_datas[i].pid = e->pid;
+		thread_datas[i].num_of_bos = e->num_of_bos;
 
-				if (asprintf(&fname, PROCPIDMEM, e->pid) < 0) {
-					pr_perror("failed in asprintf, %s", fname);
-					munmap(addr, bo_bucket->size);
-					fd = -EBADFD;
-					goto exit;
-				}
+		thread_datas[i].drm_fd = node_get_drm_render_device(dev);
+		if (thread_datas[i].drm_fd < 0) {
+			ret = -thread_datas[i].drm_fd;
+			goto exit;
+		}
 
-				mem_fd = open(fname, O_RDWR);
-				if (mem_fd < 0) {
-					pr_perror("Can't open %s for pid %d", fname, e->pid);
-					free(fname);
-					munmap(addr, bo_bucket->size);
-					fd = -EBADFD;
-					goto exit;
-				}
-
-				plugin_log_msg("Opened %s file for pid = %d", fname, e->pid);
-				free(fname);
-
-				if (lseek(mem_fd, (off_t)addr, SEEK_SET) == -1) {
-					pr_perror("Can't lseek for bo_offset for pid = %d", e->pid);
-					munmap(addr, bo_entry->size);
-					fd = -EBADFD;
-					goto exit;
-				}
-
-				plugin_log_msg("Attempt writing now");
-				bo_size = write(mem_fd, bo_entry->rawdata.data, bo_entry->size);
-				if (bo_size != bo_entry->size) {
-					pr_perror("Can't write buffer");
-					munmap(addr, bo_entry->size);
-					fd = -EBADFD;
-					goto exit;
-				}
-				munmap(addr, bo_entry->size);
-				close(mem_fd);
-			}
-		} else {
-			plugin_log_msg("Not a VRAM BO\n");
-			continue;
+		ret_thread =
+			pthread_create(&thread_datas[i].thread, NULL, restore_bo_contents, (void *)&thread_datas[i]);
+		if (ret_thread) {
+			pr_err("Failed to create thread[%i]\n", i);
+			fd = -ret_thread;
+			goto exit;
 		}
 	}
 
+	for (int i = 0; i < e->num_of_gpus; i++) {
+		pthread_join(thread_datas[i].thread, NULL);
+		pr_info("Thread[0x%x] finished ret:%d\n", thread_datas[i].gpu_id, thread_datas[i].ret);
+
+		if (thread_datas[i].ret) {
+			ret = thread_datas[i].ret;
+			goto exit;
+		}
+	}
 exit:
+	xfree(thread_datas);
 	xfree((void *)args.objects);
 	pr_info("Restore BOs %s (ret:%d)\n", ret ? "Failed" : "Ok", ret);
 	return ret;

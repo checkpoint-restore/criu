@@ -149,6 +149,17 @@ struct tp_node *sys_get_node_by_render_minor(const struct tp_system *sys, const 
 	return NULL;
 }
 
+struct tp_node *sys_get_node_by_index(const struct tp_system *sys, uint32_t index)
+{
+	struct tp_node *node;
+
+	list_for_each_entry(node, &sys->nodes, listm_system) {
+		if (NODE_IS_GPU(node) && index-- == 0)
+			return node;
+	}
+	return NULL;
+}
+
 struct tp_node *sys_get_node_by_gpu_id(const struct tp_system *sys, const uint32_t gpu_id)
 {
 	struct tp_node *node;
