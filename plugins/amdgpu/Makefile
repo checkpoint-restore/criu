@@ -5,7 +5,7 @@ PLUGIN_INC		:= ../../../criu/include
 PLUGIN_INC_EXTRA	:= ../../criu/include
 PLUGIN_INCLUDE		:= -iquote$(PLUGIN_INC) -iquote$(PLUGIN_INC_EXTRA)
 LIBDRM_INC             := -I/usr/include/libdrm
-DEPS_OK 		:= amdgpu_plugin.so
+DEPS_OK 		:= amdgpu_plugin.so amdgpu_plugin_test
 DEPS_NOK 		:= ;
 
 include $(__nmk_dir)msg.mk
@@ -29,7 +29,18 @@ amdgpu_plugin_clean:
 	$(call msg-clean, $@)
 	$(Q) $(RM) amdgpu_plugin.so criu-amdgpu.pb-c*
 .PHONY: amdgpu_plugin_clean
-clean: amdgpu_plugin_clean
+
+test_topology_remap: amdgpu_plugin_topology.c tests/test_topology_remap.c
+	$(CC) $^ -o $@ -DCOMPILE_TESTS $(PLUGIN_INCLUDE) -I .
+
+amdgpu_plugin_test:  test_topology_remap
+.PHONY: amdgpu_plugin_test
+
+amdgpu_plugin_test_clean:
+	$(Q) $(RM) test_topology_remap
+.PHONY: amdgpu_plugin_test_clean
+
+clean: amdgpu_plugin_clean amdgpu_plugin_test_clean
 
 mrproper: clean
 
