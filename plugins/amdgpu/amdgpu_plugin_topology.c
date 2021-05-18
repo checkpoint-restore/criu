@@ -23,6 +23,21 @@
 #define _GNU_SOURCE 1
 #endif
 
+#ifdef COMPILE_TESTS
+#undef pr_err
+#define pr_err(format, arg...) fprintf(stdout, "%s:%d ERROR:" format, __FILE__, __LINE__, ## arg)
+#undef pr_info
+#define pr_info(format, arg...) fprintf(stdout, "%s:%d INFO:" format, __FILE__, __LINE__, ## arg)
+#undef pr_debug
+#define pr_debug(format, arg...) fprintf(stdout, "%s:%d DBG:" format, __FILE__, __LINE__, ## arg)
+
+#undef pr_perror
+#define pr_perror(format, arg...)       \
+        fprintf(stdout, "%s:%d: " format " (errno = %d (%s))\n", \
+                __FILE__, __LINE__, ## arg, errno, strerror(errno))
+
+#endif
+
 #ifdef DEBUG
 #define plugin_log_msg(fmt, ...) pr_debug(fmt, ##__VA_ARGS__)
 #else
