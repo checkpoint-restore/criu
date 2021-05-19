@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #include "criu-plugin.h"
 #include "criu-amdgpu.pb-c.h"
@@ -29,6 +30,10 @@
 #define DRM_LAST_RENDER_NODE 255
 
 #define PROCPIDMEM      "/proc/%d/mem"
+#define HSAKMT_SHM_PATH "/dev/shm/hsakmt_shared_mem"
+#define HSAKMT_SHM 	"/hsakmt_shared_mem"
+#define HSAKMT_SEM_PATH "/dev/shm/sem.hsakmt_semaphore"
+#define HSAKMT_SEM 	"hsakmt_semaphore"
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE 1
@@ -621,6 +626,83 @@ failed:
         return NULL;
 };
 
+int check_hsakmt_shared_mem(uint64_t *shared_mem_size, uint32_t *shared_mem_magic)
+{
+	int ret, fd;
+	struct stat st;
+	uint32_t *shared_mem_ptr;
+
+	ret = stat(HSAKMT_SHM_PATH, &st);
+	if (ret) {
+		*shared_mem_size = 0;
+		return 0;
+	}
+
+	fd = shm_open(HSAKMT_SHM, O_RDONLY, 0);
+	if (fd < 0) {
+		*shared_mem_size = 0;
+		return 0;
+	}
+
+	shared_mem_ptr = mmap(0, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+	if (shared_mem_ptr == MAP_FAILED) {
+		pr_perror("amdgpu_plugin: Failed to mmap shared mem %s\n", HSAKMT_SHM);
+		return -EACCES;
+	}
+
+	*shared_mem_size = st.st_size;
+
+	/* First 4 bytes of shared file is the magic */
+	memcpy(shared_mem_magic, shared_mem_ptr, sizeof(*shared_mem_magic));
+	pr_debug("amdgpu_plugin: Shared mem magic:0x%x\n", *shared_mem_magic);
+
+	close(fd);
+	return 0;
+}
+
+int restore_hsakmt_shared_mem(const uint64_t shared_mem_size, const uint32_t shared_mem_magic)
+{
+	int ret, fd;
+	struct stat st;
+	uint32_t *shared_mem_ptr;
+	sem_t *sem = SEM_FAILED;
+
+	if (!shared_mem_size)
+		return 0;
+
+	if (!stat(HSAKMT_SHM_PATH, &st)) {
+		pr_debug("amdgpu_plugin: %s already exists\n", HSAKMT_SHM_PATH);
+	} else {
+		pr_info("Warning:%s was missing. Re-creating new file but we may lose perf counters\n",
+										HSAKMT_SHM_PATH);
+		fd = shm_open(HSAKMT_SHM, O_CREAT | O_RDWR, 0666);
+
+		ret = ftruncate(fd, shared_mem_size);
+		if (ret < 0) {
+			pr_err("amdgpu_plugin: Failed to truncate shared mem %s\n", HSAKMT_SHM);
+			close(fd);
+			return -EINVAL;
+		}
+
+		shared_mem_ptr = mmap(0, shared_mem_size, PROT_WRITE, MAP_SHARED, fd, 0);
+		if (shared_mem_ptr == MAP_FAILED) {
+			pr_perror("amdgpu_plugin: Failed to mmap shared mem %s\n", HSAKMT_SHM);
+			close(fd);
+			return -EACCES;
+		}
+		memcpy(shared_mem_ptr, &shared_mem_magic, sizeof(shared_mem_magic));
+		close(fd);
+	}
+
+	sem = sem_open(HSAKMT_SEM, O_CREAT, 0666, 0);
+	if (sem == SEM_FAILED) {
+		pr_perror("Failed to create %s\n", HSAKMT_SEM);
+		return -EACCES;
+	}
+	sem_close(sem);
+	return 0;
+}
+
 int amdgpu_plugin_dump_file(int fd, int id)
 {
 	struct kfd_ioctl_criu_helper_args helper_args = {0};
@@ -989,6 +1071,10 @@ int amdgpu_plugin_dump_file(int fd, int id)
 			}
 		}
 	}
+
+	ret = check_hsakmt_shared_mem(&e->shared_mem_size, &e->shared_mem_magic);
+	if (ret)
+		goto failed;
 
 	snprintf(img_path, sizeof(img_path), "kfd.%d.img", id);
 	pr_info("amdgpu_plugin: img_path = %s", img_path);
@@ -1546,6 +1632,11 @@ fail:
 			continue;
 		}
 	} /* mmap done for VRAM BO */
+
+	if (restore_hsakmt_shared_mem(e->shared_mem_size, e->shared_mem_magic)) {
+		fd = -EBADFD;
+		goto clean;
+	}
 
 	for (int i = 0; i < e->num_of_gpus; i++) {
 		if (devinfo_bucket_ptr[i].drm_fd >= 0)
