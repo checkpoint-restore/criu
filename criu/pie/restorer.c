@@ -432,6 +432,40 @@ static int restore_signals(siginfo_t *ptr, int nr, bool group)
 	return 0;
 }
 
+static int restore_cpu_affinity(struct task_restore_args *args)
+{
+	int i;
+	int pid;
+	int ret;
+	int *need_cpu_affinity;
+	cpu_set_t *cpumask;
+	cpu_set_t *allowed_cpus;
+
+	need_cpu_affinity = (int *)args->allowed_cpus;
+	if (!*need_cpu_affinity) {
+		pr_debug("No need to restore cpu affinity.\n");
+		return 0;
+	}
+
+	allowed_cpus = (cpu_set_t *)(args->allowed_cpus + sizeof(int));
+	for (i = 0; i < args->nr_threads; i++) {
+		pid = args->thread_args[i].pid;
+		cpumask = &allowed_cpus[i];
+		pr_info("Restoring %d allowed_cpus %llx, %llx, %llx, %llx\n", pid,
+			(unsigned long long)cpumask->__bits[3],
+			(unsigned long long)cpumask->__bits[2],
+			(unsigned long long)cpumask->__bits[1],
+			(unsigned long long)cpumask->__bits[0]);
+		ret = sys_sched_setaffinity(pid, sizeof(cpu_set_t), cpumask);
+		if (ret) {
+			pr_err("\t Restore %d cpumask failed.\n", pid);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 static int restore_seccomp_filter(pid_t tid, struct thread_restore_args *args)
 {
 	unsigned int flags = args->seccomp_force_tsync ? SECCOMP_FILTER_FLAG_TSYNC : 0;
@@ -1897,6 +1931,10 @@ long __export_restore_task(struct task_restore_args *args)
 		goto core_restore_end;
 
 	ret = restore_signals(args->t->siginfo, args->t->siginfo_n, false);
+	if (ret)
+		goto core_restore_end;
+
+	ret = restore_cpu_affinity(args);
 	if (ret)
 		goto core_restore_end;
 
