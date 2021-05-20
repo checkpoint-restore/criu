@@ -281,6 +281,19 @@ try_again:
 	if (ss->seccomp_mode != SECCOMP_MODE_DISABLED && ptrace_suspend_seccomp(pid) < 0)
 		goto err;
 
+	/*
+	 * FIXME(issues/1429): parasite code contains instructions that trigger
+	 * SIGTRAP to stop at certain points. In such cases, the kernel sends a
+	 * force SIGTRAP that can't be ignored and if it is blocked, the kernel
+	 * resets its signal handler to a default one and unblocks it. It means
+	 * that if we want to save the origin signal handler, we need to run a
+	 * parasite code with the unblocked SIGTRAP.
+	 */
+	if ((ss->sigpnd | ss->shdpnd) & (1 << (SIGTRAP - 1))) {
+		pr_err("Can't dump the %d thread with a pending SIGTRAP.\n", pid);
+		goto err;
+	}
+
 	nr_sigstop = 0;
 	if (ss->sigpnd & (1 << (SIGSTOP - 1)))
 		nr_sigstop++;
@@ -447,6 +460,11 @@ static int parasite_run(pid_t pid, int cmd, unsigned long ip, void *stack,
 	k_rtsigset_t block;
 
 	ksigfillset(&block);
+	/*
+	 * FIXME(issues/1429): SIGTRAP can't be blocked, otherwice its hanlder
+	 * will be reseted to the default one.
+	 */
+	ksigdelset(&block, SIGTRAP);
 	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &block)) {
 		pr_perror("Can't block signals for %d", pid);
 		goto err_sig;
