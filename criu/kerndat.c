@@ -919,7 +919,10 @@ static int kerndat_uffd(void)
 	if (uffd < 0) {
 		if (uffd == -ENOSYS)
 			return 0;
-
+		if (uffd == -EPERM) {
+			pr_info("Lazy pages are disabled\n");
+			return 0;
+		}
 		pr_err("Lazy pages are not available\n");
 		return -1;
 	}
