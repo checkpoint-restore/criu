@@ -100,6 +100,12 @@ function run_test2 {
 	${CRIT} decode -i "${JSON_IN}" || true
 	${CRIT} decode -i "${JSON_IN}" -o "${OUT}" || true
 	${CRIT} decode -i "${JSON_IN}" > "${OUT}" || true
+
+	# explore image directory
+	${CRIT} x ./ ps || _exit 1
+	${CRIT} x ./ fds || _exit 1
+	${CRIT} x ./ mems || _exit 1
+	${CRIT} x ./ rss || _exit 1
 }
 
 gen_imgs
