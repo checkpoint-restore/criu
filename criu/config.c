@@ -281,6 +281,7 @@ void init_opts(void)
 	opts.log_level = DEFAULT_LOGLEVEL;
 	opts.pre_dump_mode = PRE_DUMP_SPLICE;
 	opts.file_validation_method = FILE_VALIDATION_DEFAULT;
+	opts.relative_timestamps = DEFAULT_RELATIVETIMESTAMPS;
 }
 
 bool deprecated_ok(char *what)
@@ -461,7 +462,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		{OPT_NAME, no_argument, SAVE_TO, true},\
 		{"no-" OPT_NAME, no_argument, SAVE_TO, false}
 
-	static const char short_opts[] = "dSsRt:hD:o:v::x::Vr:jJ:lW:L:M:";
+	static const char short_opts[] = "dSsRt:hD:o:v::x::Vr:jJ:lW:L:M:T:";
 	static struct option long_opts[] = {
 		{ "tree",			required_argument,	0, 't'	},
 		{ "leave-stopped",		no_argument,		0, 's'	},
@@ -481,6 +482,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		BOOL_OPT("log-pid", &opts.log_file_per_pid),
 		{ "version",			no_argument,		0, 'V'	},
 		BOOL_OPT("evasive-devices", &opts.evasive_devices),
+		{ "relative-timestamps",	no_argument,		0, 'T'	},
 		{ "pidfile",			required_argument,	0, 1046	},
 		{ "veth-pair",			required_argument,	0, 1047	},
 		{ "action-script",		required_argument,	0, 1049	},
@@ -875,6 +877,8 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			if (strcmp(CRIU_GITID, "0"))
 				pr_msg("GitID: %s\n", CRIU_GITID);
 			exit(0);
+		case 'T':
+			opts.relative_timestamps = 1;
 		case 'h':
 			*usage_error = false;
 			return 2;

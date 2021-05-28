@@ -8,6 +8,7 @@
 
 extern void std_log_set_fd(int fd);
 extern void std_log_set_loglevel(enum __compel_log_levels level);
+extern void std_log_set_relativetimestamps(enum __compel_relative_timestamps timestamps);
 extern void std_log_set_start(struct timeval *tv);
 
 /*

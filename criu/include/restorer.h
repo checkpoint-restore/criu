@@ -132,6 +132,7 @@ struct task_restore_args {
 	int				fd_exe_link;		/* opened self->exe file */
 	int				logfd;
 	unsigned int			loglevel;
+	int				relative_timestamps;
 	struct timeval			logstart;
 
 	int				uffd;

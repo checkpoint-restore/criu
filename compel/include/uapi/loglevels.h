@@ -17,4 +17,9 @@ enum __compel_log_levels
 	COMPEL_DEFAULT_LOGLEVEL	= COMPEL_LOG_WARN
 };
 
+enum __compel_relative_timestamps
+{
+	COMPEL_DEFAULT_RELATIVETIMESTAMPS
+};
+
 #endif /* UAPI_COMPEL_LOGLEVELS_H__ */

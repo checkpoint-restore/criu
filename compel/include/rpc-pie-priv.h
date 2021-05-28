@@ -35,6 +35,7 @@ struct parasite_init_args {
 	int32_t				h_addr_len;
 	struct sockaddr_un		h_addr;
 	int32_t				log_level;
+	int32_t				relative_timestamps;
 	uint64_t			sigreturn_addr;
 	uint64_t			sigframe; /* pointer to sigframe */
 	futex_t				daemon_connected;

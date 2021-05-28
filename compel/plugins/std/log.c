@@ -15,6 +15,7 @@ struct simple_buf {
 
 static int logfd = -1;
 static int cur_loglevel = COMPEL_DEFAULT_LOGLEVEL;
+static int relative_timestamps = COMPEL_DEFAULT_RELATIVETIMESTAMPS;
 static struct timeval start;
 static gettimeofday_t __std_gettimeofday;
 
@@ -40,6 +41,11 @@ static inline void pad_num(char **s, int *n, int nr)
 	}
 }
 
+void std_log_set_relativetimestamps(enum __compel_relative_timestamps timestamps)
+{
+	relative_timestamps = timestamps;
+}
+
 static void sbuf_log_init(struct simple_buf *b)
 {
 	char pbuf[12], *s;
@@ -54,9 +60,18 @@ static void sbuf_log_init(struct simple_buf *b)
 
 	if (start.tv_sec != 0) {
 		struct timeval now;
+		/* temporary variable to store now */
+		struct timeval temp;
 
 		std_gettimeofday(&now, NULL);
+
+		if(relative_timestamps)
+			temp = now;
+
 		timediff(&start, &now);
+
+		if(relative_timestamps)
+			start = temp;
 
 		/* Seconds */
 		n = std_vprint_num(pbuf, sizeof(pbuf), (unsigned)now.tv_sec, &s);

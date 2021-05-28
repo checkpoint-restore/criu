@@ -19,6 +19,7 @@
 #define LOG_DEBUG	(4) /* Debug only */
 
 #define DEFAULT_LOGLEVEL	LOG_WARN
+#define DEFAULT_RELATIVETIMESTAMPS (0)
 
 /*
  * This is low-level printing helper, try hard not to use it directly

@@ -34,7 +34,9 @@ extern void log_set_fd(int fd);
 extern int log_get_fd(void);
 
 extern void log_set_loglevel(unsigned int loglevel);
+extern void log_set_relativetimestamps(int relative_timestamps);
 extern unsigned int log_get_loglevel(void);
+extern int log_get_relativetimestamps(void);
 struct timeval;
 extern void log_get_logstart(struct timeval *);
 

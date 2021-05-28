@@ -34,6 +34,7 @@
 #define EARLY_LOG_BUF_LEN	1024
 
 static unsigned int current_loglevel = DEFAULT_LOGLEVEL;
+static int current_relativetimestamps = DEFAULT_RELATIVETIMESTAMPS;
 static void vprint_on_level(unsigned int, const char *, va_list);
 
 static char buffer[LOG_BUF_LEN];
@@ -69,9 +70,17 @@ static void timediff(struct timeval *from, struct timeval *to)
 static void print_ts(void)
 {
 	struct timeval t;
+	/* temporary variable to store t*/
+	struct timeval temp;
 
 	gettimeofday(&t, NULL);
+
+	if(opts.relative_timestamps)
+		temp = t;
 	timediff(&start, &t);
+
+	if(opts.relative_timestamps)
+		start = temp;
 	snprintf(buffer, TS_BUF_OFF,
 			"(%02u.%06u)", (unsigned)t.tv_sec, (unsigned)t.tv_usec);
 	buffer[TS_BUF_OFF - 1] = ' '; /* kill the '\0' produced by snprintf */
@@ -311,9 +320,20 @@ void log_set_loglevel(unsigned int level)
 	compel_log_init(vprint_on_level, level);
 }
 
+void log_set_relativetimestamps(int relative_timestamps)
+{
+	current_relativetimestamps = relative_timestamps;
+	compel_relativetimestamps_init(relative_timestamps);
+}
+
 unsigned int log_get_loglevel(void)
 {
 	return current_loglevel;
+}
+
+int log_get_relativetimestamps(void)
+{
+	return current_relativetimestamps;
 }
 
 static void early_vprint(const char *format, unsigned int loglevel, va_list params)
