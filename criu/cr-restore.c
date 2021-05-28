@@ -1846,6 +1846,9 @@ static int restore_task_with_children(void *_arg)
 				goto err;
 		}
 
+		if (set_opts_cap_eff())
+			goto err;
+
 		/* Wait prepare_userns */
 		if (restore_finish_ns_stage(CR_STATE_ROOT_TASK, CR_STATE_PREPARE_NAMESPACES) < 0)
 			goto err;
@@ -3706,6 +3709,10 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	strncpy(task_args->comm, core->tc->comm, TASK_COMM_LEN - 1);
 	task_args->comm[TASK_COMM_LEN - 1] = 0;
+
+	task_args->uid = opts.uid;
+	for (i = 0; i < CR_CAP_SIZE; i++)
+		task_args->cap_eff[i] = opts.cap_eff[i];
 
 	/*
 	 * Fill up per-thread data.

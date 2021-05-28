@@ -541,10 +541,14 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		{ "cgroup-yard",		required_argument,	0, 1096 },
 		{ "pre-dump-mode",		required_argument,	0, 1097},
 		{ "file-validation",		required_argument,	0, 1098	},
+		BOOL_OPT("unprivileged", &opts.unprivileged),
 		{ },
 	};
 
 #undef BOOL_OPT
+
+	if (argv && argv[0])
+		SET_CHAR_OPTS(argv_0, argv[0]);
 
 	ret = pre_parse(argc, argv, usage_error, &no_default_config,
 			&cfg_file);

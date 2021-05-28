@@ -27,6 +27,7 @@
 #include "net.h"
 #include "cgroup.h"
 #include "fdstore.h"
+#include "util-pie.h"
 
 #include "protobuf.h"
 #include "util.h"
@@ -1606,10 +1607,12 @@ int collect_namespaces(bool for_dump)
 
 int prepare_userns_creds(void)
 {
-	/* UID and GID must be set after restoring /proc/PID/{uid,gid}_maps */
-	if (setuid(0) || setgid(0) || setgroups(0, NULL)) {
-		pr_perror("Unable to initialize id-s");
-		return -1;
+	if (has_cap_setuid(opts.cap_eff)) {
+		/* UID and GID must be set after restoring /proc/PID/{uid,gid}_maps */
+		if (setuid(0) || setgid(0) || setgroups(0, NULL)) {
+			pr_perror("Unable to initialize id-s");
+			return -1;
+		}
 	}
 
 	/*

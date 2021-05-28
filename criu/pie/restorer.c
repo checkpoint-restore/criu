@@ -187,7 +187,7 @@ static int lsm_set_label(char *label, char *type, int procfd)
 }
 
 static int restore_creds(struct thread_creds_args *args, int procfd,
-			 int lsm_type)
+			 int lsm_type, uid_t uid)
 {
 	CredsEntry *ce = &args->creds;
 	int b, i, ret;
@@ -214,10 +214,12 @@ static int restore_creds(struct thread_creds_args *args, int procfd,
 	 * lose caps bits when changing xids.
 	 */
 
-	ret = sys_prctl(PR_SET_SECUREBITS, 1 << SECURE_NO_SETUID_FIXUP, 0, 0, 0);
-	if (ret) {
-		pr_err("Unable to set SECURE_NO_SETUID_FIXUP: %d\n", ret);
-		return -1;
+	if (!uid) {
+		ret = sys_prctl(PR_SET_SECUREBITS, 1 << SECURE_NO_SETUID_FIXUP, 0, 0, 0);
+		if (ret) {
+			pr_err("Unable to set SECURE_NO_SETUID_FIXUP: %d\n", ret);
+			return -1;
+		}
 	}
 
 	/*
@@ -255,10 +257,12 @@ static int restore_creds(struct thread_creds_args *args, int procfd,
 	 * special state any longer.
 	 */
 
-	ret = sys_prctl(PR_SET_SECUREBITS, ce->secbits, 0, 0, 0);
-	if (ret) {
-		pr_err("Unable to set PR_SET_SECUREBITS: %d\n", ret);
-		return -1;
+	if (!uid) {
+		ret = sys_prctl(PR_SET_SECUREBITS, ce->secbits, 0, 0, 0);
+		if (ret) {
+			pr_err("Unable to set PR_SET_SECUREBITS: %d\n", ret);
+			return -1;
+		}
 	}
 
 	/*
@@ -623,7 +627,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 		BUG();
 
 	ret = restore_creds(args->creds_args, args->ta->proc_fd,
-			    args->ta->lsm_type);
+			    args->ta->lsm_type, args->ta->uid);
 	ret = ret || restore_dumpable_flag(&args->ta->mm);
 	ret = ret || restore_pdeath_sig(args);
 	if (ret)
@@ -1917,7 +1921,7 @@ long __export_restore_task(struct task_restore_args *args)
 	 * thus restore* creds _after_ all of the above.
 	 */
 	ret = restore_creds(args->t->creds_args, args->proc_fd,
-			    args->lsm_type);
+			    args->lsm_type, args->uid);
 	ret = ret || restore_dumpable_flag(&args->mm);
 	ret = ret || restore_pdeath_sig(args->t);
 	ret = ret || restore_child_subreaper(args->child_subreaper);

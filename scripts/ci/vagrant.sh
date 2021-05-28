@@ -55,4 +55,17 @@ fedora-no-vdso() {
 	ssh default 'cd /vagrant/criu/test; sudo ./zdtm.py run -a --keep-going -x zdtm/static/bpf_hash -x zdtm/static/bpf_array'
 }
 
+fedora-non-root() {
+	# Need a reboot to activate the latest Fedora kernel with CAP_CHECKPOINT_RESTORE
+	vagrant reload
+	ssh default uname -a
+	ssh default 'cd /vagrant; tar xf criu.tar; cd criu; make -j 4'
+	# Setting the capability should be the only line needed to run as root
+	ssh default 'sudo setcap cap_checkpoint_restore+eip /vagrant/criu/criu/criu'
+	# Run it once as non-root
+	ssh default 'cd /vagrant/criu; criu/criu check --unprivileged; ./test/zdtm.py run -t zdtm/static/env00 -t zdtm/static/pthread00 -f h'
+	# Run it as root with '--rootless'
+	ssh default 'cd /vagrant/criu; sudo ./test/zdtm.py run -t zdtm/static/env00 -t zdtm/static/pthread00 -f h; sudo chmod 777 test/dump/zdtm/static/{env00,pthread00}; sudo ./test/zdtm.py run -t zdtm/static/env00 -t zdtm/static/pthread00 -f h --rootless'
+}
+
 $1

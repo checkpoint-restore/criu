@@ -1,10 +1,12 @@
 #ifndef __CR_OPTIONS_H__
 #define __CR_OPTIONS_H__
 
-#include <sys/types.h>
 #include <stdbool.h>
+#include <sys/capability.h>
 #include "common/config.h"
 #include "common/list.h"
+#include "int.h"
+#include "image.h"
 
 /* Configuration and CLI parsing order defines */
 #define PARSING_GLOBAL_CONF	1
@@ -174,6 +176,22 @@ struct cr_options {
 
 	/* This stores which method to use for file validation. */
 	int 			file_validation_method;
+	char			*argv_0;
+	/*
+	 * This contains the eUID of the current CRIU user. It
+	 * will only be set to a non-zero value if CRIU has
+	 * the necessary capabilities to run as non root.
+	 * CAP_CHECKPOINT_RESTORE or CAP_SYS_ADMIN
+	 */
+	uid_t			uid;
+	/* This contains the value from capget()->effective */
+	u32			cap_eff[_LINUX_CAPABILITY_U32S_3];
+	/*
+	 * If CRIU should be running as non-root with the help of
+	 * CAP_CHECKPOINT_RESTORE or CAP_SYS_ADMIN the user should
+	 * explicitly request it as it comes with many limitations.
+	 */
+	int			unprivileged;
 };
 
 extern struct cr_options opts;

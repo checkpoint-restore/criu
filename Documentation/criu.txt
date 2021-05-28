@@ -155,6 +155,12 @@ not compatable with *--external* *dev*.
             notification message contains a file descriptor for
             the master pty
 
+*--unprivileged*::
+    This option tells *criu* to accept the limitations when running
+    as non-root. Running as non-root requires *criu* at least to have
+    *CAP_SYS_ADMIN* or *CAP_CHECKPOINT_RESTORE*. For details about running
+    *criu* as non-root please consult the *NON-ROOT* section.
+
 *-V*, *--version*::
     Print program version and exit.
 
@@ -817,6 +823,28 @@ via "req.opts.config_file = '/path/to/file'". The values from this
 configuration file will overwrite all other configuration file settings
 or RPC options. *This can lead to undesired behavior of criu and
 should only be used carefully.*
+
+NON-ROOT
+--------
+*criu* can be used as non-root with either the *CAP_SYS_ADMIN* capability
+or with the *CAP_CHECKPOINT_RESTORE* capability introduces in Linux kernel 5.9.
+*CAP_CHECKPOINT_RESTORE* is the minimum that is required.
+
+Running *criu* as non-root has many limitations and depending on the process
+to checkpoint and restore it may not be possible.
+
+In addition to *CAP_CHECKPOINT_RESTORE* it is possible to give *criu* additional
+capabilities to enable additional features in non-root mode.
+
+Currently *criu* can benefit from the following additional capabilities:
+
+    - *CAP_NET_ADMIN*
+    - *CAP_SYS_CHROOT*
+    - *CAP_SETUID*
+    - *CAP_SYS_RESOURCE*
+
+Independent of the capabilities it is always necessary to use "*--unprivileged*" to
+accept *criu*'s limitation in non-root mode.
 
 EXAMPLES
 --------
