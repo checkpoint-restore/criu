@@ -18,12 +18,10 @@ function _exit {
 function gen_imgs {
 	setsid ./loop.sh < /dev/null &> /dev/null &
 	PID=$!
-	$CRIU dump -v4 -o dump.log -D ./ -t $PID
-	# shellcheck disable=SC2181
-	if [ $? -ne 0 ]; then
+	if ! $CRIU dump -v4 -o dump.log -D ./ -t "$PID"; then
 		cat dump.log
-		kill -9 $PID
-		_exit 1
+		kill -9 "$PID"
+		exit 1
 	fi
 
 	images_list=$(ls -1 ./*.img)
