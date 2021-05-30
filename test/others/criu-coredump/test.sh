@@ -10,10 +10,10 @@ function _exit {
 function gen_imgs {
 	# Assign PID after the background task has started
 	PID=$( (setsid ./loop.sh < /dev/null &> /dev/null) & jobs -r -p)
-	$CRIU dump -v4 -o dump.log -D ./ -t $PID
-	if [ $? -ne 0 ]; then
-		kill -9 $PID
-		_exit 1
+	if ! $CRIU dump -v4 -o dump.log -D ./ -t "$PID"; then
+		cat dump.log
+		kill -9 "$PID"
+		exit 1
 	fi
 
 	images_list=$(ls -1 *.img)
