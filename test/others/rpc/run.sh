@@ -45,8 +45,8 @@ function test_restore_loop {
 	mkdir -p build/imgs_loop
 
 	title_print "Run loop.sh"
-	setsid ./loop.sh < /dev/null &> build/loop.log &
-	P=${!}
+	# Assign P after the background task has started
+	P=$( (setsid ./loop.sh < /dev/null &> build/loop.log) & jobs -r -p)
 	echo "pid ${P}"
 
 	title_print "Dump loop.sh"
