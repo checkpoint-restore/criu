@@ -494,6 +494,16 @@ usually need to be escaped from shell.
     must be used to specify to which 'outer_dev' (an existing network device
     in CRIU namespace) the restored 'inner_dev' should be bound to.
 
+*-J*, *--join-ns* **NS**:{**PID**|**NS_FILE**}[,**EXTRA_OPTS**]::
+    Restore process tree inside an existing namespace. The namespace can
+    be specified in 'PID' or 'NS_FILE' path format (example:
+    *--join-ns net:12345* or *--join-ns net:/foo/bar*). Currently supported
+    values for **NS** are: *ipc*, *net*, *time*, *user*, and *uts*.
+    This option doesn't support joining a PID namespace, however, this is
+    possible using *--external* and *--inheritfd*. 'EXTRA_OPTS' is optional
+    and can be used to specify UID and GID for user namespace (e.g.,
+    *--join-ns user:PID,UID,GID*).
+
 *--manage-cgroups* ['mode']::
     Restore cgroups configuration associated with a task from the image.
     Controllers are always restored in an optimistic way -- if already present
