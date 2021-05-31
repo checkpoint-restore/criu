@@ -905,22 +905,24 @@ unl:
 
 static int kerndat_uffd(void)
 {
-	int uffd;
+	int uffd, err = 0;
 
 	kdat.uffd_features = 0;
-	uffd = uffd_open(0, &kdat.uffd_features);
+	uffd = uffd_open(0, &kdat.uffd_features, &err);
 
 	/*
-	 * uffd == -ENOSYS means userfaultfd is not supported on this
-	 * system and we just happily return with kdat.has_uffd = false.
-	 * Error other than -ENOSYS would mean "Houston, Houston, we
+	 * err == ENOSYS means userfaultfd is not supported on this system and
+	 * we just happily return with kdat.has_uffd = false.
+	 * err == EPERM means that userfaultfd is not allowed as we are
+	 * non-root user, so we also return with kdat.has_uffd = false.
+	 * Errors other than ENOSYS and EPERM would mean "Houston, Houston, we
 	 * have a problem!"
 	 */
 	if (uffd < 0) {
-		if (uffd == -ENOSYS)
+		if (err == ENOSYS)
 			return 0;
-		if (uffd == -EPERM) {
-			pr_info("Lazy pages are disabled\n");
+		if (err == EPERM) {
+			pr_info("Lazy pages are not permited\n");
 			return 0;
 		}
 		pr_err("Lazy pages are not available\n");

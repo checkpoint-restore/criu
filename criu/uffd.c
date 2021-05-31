@@ -262,7 +262,7 @@ static int uffd_api_ioctl(void *arg, int fd, pid_t pid)
 	return ioctl(fd, UFFDIO_API, uffdio_api);
 }
 
-int uffd_open(int flags, unsigned long *features)
+int uffd_open(int flags, unsigned long *features, int *err)
 {
 	struct uffdio_api uffdio_api = { 0 };
 	int uffd;
@@ -270,7 +270,9 @@ int uffd_open(int flags, unsigned long *features)
 	uffd = syscall(SYS_userfaultfd, flags);
 	if (uffd == -1) {
 		pr_info("Lazy pages are not available: %s\n", strerror(errno));
-		return -errno;
+		if (err)
+			*err = errno;
+		return -1;
 	}
 
 	uffdio_api.api = UFFD_API;
@@ -280,13 +282,13 @@ int uffd_open(int flags, unsigned long *features)
 	if (userns_call(uffd_api_ioctl, 0, &uffdio_api, sizeof(uffdio_api),
 			uffd)) {
 		pr_perror("Failed to get uffd API");
-		goto err;
+		goto close;
 	}
 
 	if (uffdio_api.api != UFFD_API) {
 		pr_err("Incompatible uffd API: expected %Lu, got %Lu\n",
 		       UFFD_API, uffdio_api.api);
-		goto err;
+		goto close;
 	}
 
 	if (features)
@@ -294,7 +296,7 @@ int uffd_open(int flags, unsigned long *features)
 
 	return uffd;
 
-err:
+close:
 	close(uffd);
 	return -1;
 }
@@ -313,7 +315,7 @@ int setup_uffd(int pid, struct task_restore_args *task_args)
 	 * Open userfaulfd FD which is passed to the restorer blob and
 	 * to a second process handling the userfaultfd page faults.
 	 */
-	task_args->uffd = uffd_open(O_CLOEXEC | O_NONBLOCK, &features);
+	task_args->uffd = uffd_open(O_CLOEXEC | O_NONBLOCK, &features, NULL);
 	if (task_args->uffd < 0) {
 		pr_perror("Unable to open an userfaultfd descriptor");
 		return -1;
