@@ -246,7 +246,7 @@ static int check_pidfd_entry_state(struct pidfd_entry *entry)
 
 	while (1) {
 		ret = poll(&pollfd, 1, 0);
-		if (errno == EINTR && restart_cnt < MAX_RESTARTS) {
+		if (ret == -1 && errno == EINTR && restart_cnt < MAX_RESTARTS) {
 			restart_cnt++;
 			continue; /* restart polling */
 		}
