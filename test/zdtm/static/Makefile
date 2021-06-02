@@ -238,6 +238,7 @@ TST_NOFILE	:=				\
 		timens_for_kids			\
 		zombie_leader			\
 		sigtrap				\
+		sigtrap01			\
 #		jobctl00			\
 
 pkg-config-check = $(shell sh -c 'pkg-config $(1) && echo y')
