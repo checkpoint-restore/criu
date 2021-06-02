@@ -26,6 +26,6 @@ static inline void ksigaddset(k_rtsigset_t *set, int _sig)
 static inline void ksigdelset(k_rtsigset_t *set, int _sig)
 {
 	int sig = _sig - 1;
-	set->sig[sig / _NSIG_BPW] |= ~(1UL << (sig % _NSIG_BPW));
+	set->sig[sig / _NSIG_BPW] &= ~(1UL << (sig % _NSIG_BPW));
 }
 #endif
