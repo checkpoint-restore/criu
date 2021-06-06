@@ -27,7 +27,7 @@ function gen_imgs {
 	images_list=$(ls -1 ./*.img)
 	if [ -z "$images_list" ]; then
 		echo "Failed to generate images"
-		_exit 1
+		exit 1
 	fi
 }
 
