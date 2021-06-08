@@ -45,6 +45,8 @@
 #define BINFMT_MISC_HOME "proc/sys/fs/binfmt_misc"
 #define CRTIME_MNT_ID 0
 
+#define CONTEXT_OPT "context="
+
 /* A helper mount_info entry for the roots yard */
 static struct mount_info *root_yard_mp = NULL;
 
@@ -2942,6 +2944,66 @@ static int get_mp_mountpoint(char *mountpoint, struct mount_info *mi, char *root
 	return 0;
 }
 
+static char *mount_update_lsm_context(char *mount_opts)
+{
+	cleanup_free char *before_context = NULL;
+	char *other_options;
+	char *context_start;
+	char *context_end;
+	char *old_context;
+	char *new_options;
+	int ret;
+
+	old_context = strstr(mount_opts, CONTEXT_OPT);
+
+	if (!old_context || !opts.lsm_mount_context)
+		return xstrdup(mount_opts);
+
+	/*
+	 * If the user specified a different mount_context we need
+	 * to replace the existing mount context in the mount
+	 * options with the one specified by the user.
+	 *
+	 * The original mount options will be something like:
+	 *
+	 *  context="system_u:object_r:container_file_t:s0:c82,c137",inode64
+	 *
+	 * and it needs to be replaced with opts.lsm_mount_context.
+	 *
+	 * The content between 'context=' and ',inode64' will be replaced
+	 * with opts.lsm_mount_context in quotes.
+	 */
+
+	/* Skip 'context=' */
+	context_start = old_context + strlen(CONTEXT_OPT);
+	if (context_start[0] == '"' && context_start + 1 < mount_opts + strlen(mount_opts)) {
+		/* Skip quotes */
+		context_end = strchr(context_start + 1, '"');
+		if (!context_end) {
+			pr_err("Failed parsing mount option 'context'\n");
+			return NULL;
+		}
+	} else {
+		context_end = context_start;
+	}
+
+	/* Find next after optionally skipping quotes. */
+	other_options = strchr(context_end, ',');
+
+	before_context = xstrdup(mount_opts);
+	if (unlikely(!before_context))
+		return NULL;
+	before_context[context_start - mount_opts] = 0;
+
+	ret = asprintf(&new_options, "%s\"%s\"%s", before_context,
+			opts.lsm_mount_context, other_options ? other_options : "");
+	if (unlikely(ret < 0))
+		return NULL;
+	pr_debug("\t\tChanged mount 'context=' to %s\n", new_options);
+
+	return new_options;
+}
+
 static int collect_mnt_from_image(struct mount_info **head, struct mount_info **tail, struct ns_id *nsid)
 {
 	MntEntry *me = NULL;
@@ -3006,8 +3068,8 @@ static int collect_mnt_from_image(struct mount_info **head, struct mount_info **
 		if (!pm->source)
 			goto err;
 
-		pm->options = xstrdup(me->options);
-		if (!pm->options)
+		pm->options = mount_update_lsm_context(me->options);
+		if (unlikely(!pm->options))
 			goto err;
 
 		if (me->fstype != FSTYPE__AUTO && me->fsname) {
