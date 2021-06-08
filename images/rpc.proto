@@ -130,6 +130,7 @@ message criu_opts {
 	optional string			cgroup_yard		= 60;
 	optional criu_pre_dump_mode	pre_dump_mode		= 61 [default = SPLICE];
 	optional int32			pidfd_store_sk		= 62;
+	optional string			lsm_mount_context	= 63;
 /*	optional bool			check_mounts		= 128;	*/
 }
 

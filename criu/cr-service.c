@@ -623,6 +623,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		SET_CHAR_OPTS(lsm_profile, req->lsm_profile);
 	}
 
+	if (req->lsm_mount_context)
+		SET_CHAR_OPTS(lsm_mount_context, req->lsm_mount_context);
+
 	if (req->has_timeout)
 		opts.timeout = req->timeout;
 
