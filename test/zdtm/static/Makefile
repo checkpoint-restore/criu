@@ -240,6 +240,7 @@ TST_NOFILE	:=				\
 		zombie_leader			\
 		sigtrap				\
 		sigtrap01			\
+		change_mnt_context		\
 #		jobctl00			\
 
 PKG_CONFIG ?= pkg-config
