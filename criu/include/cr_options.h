@@ -174,7 +174,7 @@ struct cr_options {
 	int			tls_no_cn_verify;
 
 	/* This stores which method to use for file validation. */
-	int 			file_validation_method;
+	int			file_validation_method;
 };
 
 extern struct cr_options opts;
