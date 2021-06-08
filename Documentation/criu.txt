@@ -554,6 +554,28 @@ The 'mode' may be one of the following:
     Specify an LSM profile to be used during restore. The _type_ can be
     either *apparmor* or *selinux*.
 
+*--lsm-mount-context* 'context'::
+    Specify a new mount context to be used during restore.
++
+This option will only replace existing mount context information
+with the one specified with this option. Mounts without the
+'context=' option will not be changed.
++
+If a mountpoint has been checkpointed with an option like
+
+    context="system_u:object_r:container_file_t:s0:c82,c137"
++
+it is possible to change this option using
+
+    --lsm-mount-context "system_u:object_r:container_file_t:s0:c204,c495"
++
+which will result that the mountpoint will be restored
+with the new 'context='.
++
+This option is useful if using *selinux* and if the *selinux*
+labels need to be changed on restore like if a container is
+restored into an existing Pod.
+
 *--auto-dedup*::
     As soon as a page is restored it get punched out from image.
 

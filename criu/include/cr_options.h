@@ -145,6 +145,7 @@ struct cr_options {
 	struct list_head	irmap_scan_paths;
 	bool			lsm_supplied;
 	char			*lsm_profile;
+	char			*lsm_mount_context;
 	unsigned int		timeout;
 	unsigned int		empty_ns;
 	int			tcp_skip_in_flight;
