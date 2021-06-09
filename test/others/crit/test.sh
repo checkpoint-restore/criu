@@ -7,28 +7,20 @@ source ../env.sh
 
 images_list=""
 
-function _exit {
-	# shellcheck disable=SC2181
-	if [ $? -ne 0 ]; then
-		echo "FAIL"
-		exit 1
-	fi
-}
-
 function gen_imgs {
 	setsid ./loop.sh < /dev/null &> /dev/null &
 	PID=$!
-	$CRIU dump -v4 -o dump.log -D ./ -t $PID
-	# shellcheck disable=SC2181
-	if [ $? -ne 0 ]; then
-		kill -9 $PID
-		_exit 1
+	if ! $CRIU dump -v4 -o dump.log -D ./ -t "$PID"; then
+		echo "Failed to checkpoint process $PID"
+		cat dump.log
+		kill -9 "$PID"
+		exit 1
 	fi
 
 	images_list=$(ls -1 ./*.img)
 	if [ -z "$images_list" ]; then
 		echo "Failed to generate images"
-		_exit 1
+		exit 1
 	fi
 }
 
@@ -42,11 +34,11 @@ function run_test1 {
 		fi
 
 		echo "  -- to json"
-		$CRIT decode -o "$x"".json" --pretty < "$x" || _exit $?
+		$CRIT decode -o "$x"".json" --pretty < "$x" || exit $?
 		echo "  -- to img"
-		$CRIT encode -i "$x"".json" > "$x"".json.img" || _exit $?
+		$CRIT encode -i "$x"".json" > "$x"".json.img" || exit $?
 		echo "  -- cmp"
-		cmp "$x" "$x"".json.img" || _exit $?
+		cmp "$x" "$x"".json.img" || exit $?
 
 		echo "=== done"
 	done
@@ -64,15 +56,15 @@ function run_test2 {
 	${CRIT} decode -i "${PROTO_IN}" -o "${JSON_IN}"
 
 	# proto in - json out decode
-	cat "${PROTO_IN}" | ${CRIT} decode || _exit 1
-	cat "${PROTO_IN}" | ${CRIT} decode -o "${OUT}" || _exit 1
-	cat "${PROTO_IN}" | ${CRIT} decode > "${OUT}" || _exit 1
-	${CRIT} decode -i "${PROTO_IN}" || _exit 1
-	${CRIT} decode -i "${PROTO_IN}" -o "${OUT}" || _exit 1
-	${CRIT} decode -i "${PROTO_IN}" > "${OUT}" || _exit 1
-	${CRIT} decode < "${PROTO_IN}" || _exit 1
-	${CRIT} decode -o "${OUT}" < "${PROTO_IN}" || _exit 1
-	${CRIT} decode < "${PROTO_IN}" > "${OUT}" || _exit 1
+	cat "${PROTO_IN}" | ${CRIT} decode || exit 1
+	cat "${PROTO_IN}" | ${CRIT} decode -o "${OUT}" || exit 1
+	cat "${PROTO_IN}" | ${CRIT} decode > "${OUT}" || exit 1
+	${CRIT} decode -i "${PROTO_IN}" || exit 1
+	${CRIT} decode -i "${PROTO_IN}" -o "${OUT}" || exit 1
+	${CRIT} decode -i "${PROTO_IN}" > "${OUT}" || exit 1
+	${CRIT} decode < "${PROTO_IN}" || exit 1
+	${CRIT} decode -o "${OUT}" < "${PROTO_IN}" || exit 1
+	${CRIT} decode < "${PROTO_IN}" > "${OUT}" || exit 1
 
 	# proto in - json out encode -> should fail
 	cat "${PROTO_IN}" | ${CRIT} encode || true
@@ -83,15 +75,15 @@ function run_test2 {
 	${CRIT} encode -i "${PROTO_IN}" > "${OUT}" || true
 
 	# json in - proto out encode
-	cat "${JSON_IN}" | ${CRIT} encode || _exit 1
-	cat "${JSON_IN}" | ${CRIT} encode -o "${OUT}" || _exit 1
-	cat "${JSON_IN}" | ${CRIT} encode > "${OUT}" || _exit 1
-	${CRIT} encode -i "${JSON_IN}" || _exit 1
-	${CRIT} encode -i "${JSON_IN}" -o "${OUT}" || _exit 1
-	${CRIT} encode -i "${JSON_IN}" > "${OUT}" || _exit 1
-	${CRIT} encode < "${JSON_IN}" || _exit 1
-	${CRIT} encode -o "${OUT}" < "${JSON_IN}" || _exit 1
-	${CRIT} encode < "${JSON_IN}" > "${OUT}" || _exit 1
+	cat "${JSON_IN}" | ${CRIT} encode || exit 1
+	cat "${JSON_IN}" | ${CRIT} encode -o "${OUT}" || exit 1
+	cat "${JSON_IN}" | ${CRIT} encode > "${OUT}" || exit 1
+	${CRIT} encode -i "${JSON_IN}" || exit 1
+	${CRIT} encode -i "${JSON_IN}" -o "${OUT}" || exit 1
+	${CRIT} encode -i "${JSON_IN}" > "${OUT}" || exit 1
+	${CRIT} encode < "${JSON_IN}" || exit 1
+	${CRIT} encode -o "${OUT}" < "${JSON_IN}" || exit 1
+	${CRIT} encode < "${JSON_IN}" > "${OUT}" || exit 1
 
 	# json in - proto out decode -> should fail
 	cat "${JSON_IN}" | ${CRIT} decode || true
@@ -102,10 +94,10 @@ function run_test2 {
 	${CRIT} decode -i "${JSON_IN}" > "${OUT}" || true
 
 	# explore image directory
-	${CRIT} x ./ ps || _exit 1
-	${CRIT} x ./ fds || _exit 1
-	${CRIT} x ./ mems || _exit 1
-	${CRIT} x ./ rss || _exit 1
+	${CRIT} x ./ ps || exit 1
+	${CRIT} x ./ fds || exit 1
+	${CRIT} x ./ mems || exit 1
+	${CRIT} x ./ rss || exit 1
 }
 
 gen_imgs
