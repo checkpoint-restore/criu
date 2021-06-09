@@ -1,4 +1,5 @@
 run: clean
+	@make -C .. loop
 	./test.sh
 
 clean:
