@@ -1,8 +1,7 @@
 source ../env.sh
 
 function gen_imgs {
-	setsid ./loop.sh < /dev/null &> /dev/null &
-	PID=$!
+	PID=$(../loop)
 	if ! $CRIU dump -v4 -o dump.log -D ./ -t "$PID"; then
 		echo "Failed to checkpoint process $PID"
 		cat dump.log

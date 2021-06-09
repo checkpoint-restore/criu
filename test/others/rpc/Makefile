@@ -7,6 +7,7 @@ LDLIBS +=  -lprotobuf-c
 PYTHON ?= python
 
 run: all
+	@make -C .. loop
 	mkdir -p build
 	chmod a+rwx build
 	rm -f build/status
