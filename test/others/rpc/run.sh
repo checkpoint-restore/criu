@@ -44,12 +44,11 @@ function test_py {
 function test_restore_loop {
 	mkdir -p build/imgs_loop
 
-	title_print "Run loop.sh"
-	setsid ./loop.sh < /dev/null &> build/loop.log &
-	P=${!}
+	title_print "Run loop process"
+	P=$(../loop)
 	echo "pid ${P}"
 
-	title_print "Dump loop.sh"
+	title_print "Dump loop process"
 	# So theoretically '-j' (--shell-job) should not be necessary, but on alpine
 	# this test fails without it.
 	${CRIU} dump -j -v4 -o dump-loop.log -D build/imgs_loop -t ${P}
