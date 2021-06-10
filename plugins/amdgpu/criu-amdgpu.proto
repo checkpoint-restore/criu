@@ -57,7 +57,9 @@ message criu_kfd {
 	required uint64	num_of_bos = 5;
 	repeated bo_entry bo_entries = 6;
 	required uint32	num_of_objects = 7;
-	required bytes priv_data = 8;
+	required uint64 shared_mem_size = 8;
+	required uint32 shared_mem_magic = 9;
+	required bytes priv_data = 10;
 }
 
 message criu_render_node {

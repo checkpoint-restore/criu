@@ -12,7 +12,7 @@ include $(__nmk_dir)msg.mk
 
 CC      		:= gcc
 PLUGIN_CFLAGS  		:= -g -Wall -Werror -D _GNU_SOURCE -shared -nostartfiles -fPIC
-PLUGIN_LDFLAGS		:= -lpthread
+PLUGIN_LDFLAGS		:= -lpthread -lrt
 
 ifeq ($(CONFIG_AMDGPU),y)
         all: $(DEPS_OK)
