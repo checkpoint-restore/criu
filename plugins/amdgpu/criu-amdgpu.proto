@@ -78,6 +78,8 @@ message criu_kfd {
 	required uint64 event_page_offset = 10;
 	required uint32 num_of_events = 11;
 	repeated ev_entry ev_entries = 12;
+	required uint64 shared_mem_size = 13;
+	required uint32 shared_mem_magic = 14;
 }
 
 message criu_render_node {

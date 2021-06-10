@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #include "criu-plugin.h"
 #include "plugin.h"
@@ -31,6 +32,10 @@
 
 #define AMDGPU_KFD_DEVICE "/dev/kfd"
 #define PROCPIDMEM	  "/proc/%d/mem"
+#define HSAKMT_SHM_PATH	  "/dev/shm/hsakmt_shared_mem"
+#define HSAKMT_SHM	  "/hsakmt_shared_mem"
+#define HSAKMT_SEM_PATH	  "/dev/shm/sem.hsakmt_semaphore"
+#define HSAKMT_SEM	  "hsakmt_semaphore"
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE 1
@@ -730,6 +735,71 @@ exit:
 	return NULL;
 };
 
+int check_hsakmt_shared_mem(uint64_t *shared_mem_size, uint32_t *shared_mem_magic)
+{
+	int ret;
+	struct stat st;
+
+	ret = stat(HSAKMT_SHM_PATH, &st);
+	if (ret) {
+		*shared_mem_size = 0;
+		return 0;
+	}
+
+	*shared_mem_size = st.st_size;
+
+	/* First 4 bytes of shared file is the magic */
+	ret = read_file(HSAKMT_SHM_PATH, shared_mem_magic, sizeof(*shared_mem_magic));
+	if (ret)
+		pr_perror("amdgpu_plugin: Failed to read shared mem magic");
+	else
+		plugin_log_msg("amdgpu_plugin: Shared mem magic:0x%x\n", *shared_mem_magic);
+
+	return 0;
+}
+
+int restore_hsakmt_shared_mem(const uint64_t shared_mem_size, const uint32_t shared_mem_magic)
+{
+	int ret, fd;
+	struct stat st;
+	sem_t *sem = SEM_FAILED;
+
+	if (!shared_mem_size)
+		return 0;
+
+	if (!stat(HSAKMT_SHM_PATH, &st)) {
+		pr_debug("amdgpu_plugin: %s already exists\n", HSAKMT_SHM_PATH);
+	} else {
+		pr_info("Warning:%s was missing. Re-creating new file but we may lose perf counters\n",
+			HSAKMT_SHM_PATH);
+		fd = shm_open(HSAKMT_SHM, O_CREAT | O_RDWR, 0666);
+
+		ret = ftruncate(fd, shared_mem_size);
+		if (ret < 0) {
+			pr_err("amdgpu_plugin: Failed to truncate shared mem %s\n", HSAKMT_SHM);
+			close(fd);
+			return -errno;
+		}
+
+		ret = write(fd, &shared_mem_magic, sizeof(shared_mem_magic));
+		if (ret != sizeof(shared_mem_magic)) {
+			pr_perror("amdgpu_plugin: Failed to restore shared mem magic");
+			close(fd);
+			return -errno;
+		}
+
+		close(fd);
+	}
+
+	sem = sem_open(HSAKMT_SEM, O_CREAT, 0666, 1);
+	if (sem == SEM_FAILED) {
+		pr_perror("Failed to create %s", HSAKMT_SEM);
+		return -EACCES;
+	}
+	sem_close(sem);
+	return 0;
+}
+
 static int init_dumper_args(struct kfd_ioctl_criu_dumper_args *args, __u32 type, __u64 index_start, __u64 num_objects,
 			    __u64 objects_size)
 {
@@ -1266,6 +1336,10 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		goto exit;
 
 	ret = dump_events(fd, &info_args, e);
+	if (ret)
+		goto exit;
+
+	ret = check_hsakmt_shared_mem(&e->shared_mem_size, &e->shared_mem_magic);
 	if (ret)
 		goto exit;
 
@@ -1818,6 +1892,8 @@ int amdgpu_plugin_restore_file(int id)
 	ret = restore_events(fd, e);
 	if (ret)
 		goto exit;
+
+	ret = restore_hsakmt_shared_mem(e->shared_mem_size, e->shared_mem_magic);
 
 exit:
 	sys_close_drm_render_devices(&dest_topology);
