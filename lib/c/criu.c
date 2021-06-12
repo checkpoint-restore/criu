@@ -1789,3 +1789,18 @@ void criu_set_pidfd_store_sk(int sk)
 {
 	criu_local_set_pidfd_store_sk(global_opts, sk);
 }
+
+int criu_local_set_network_lock(criu_opts *opts, enum criu_network_lock_method method)
+{
+	opts->rpc->has_network_lock = true;
+	if (method == CRIU_NETWORK_LOCK_IPTABLES || method == CRIU_NETWORK_LOCK_NFTABLES) {
+		opts->rpc->network_lock = (CriuNetworkLockMethod)method;
+		return 0;
+	}
+	return -1;
+}
+
+int criu_set_network_lock(enum criu_network_lock_method method)
+{
+	return criu_local_set_network_lock(global_opts, method);
+}
