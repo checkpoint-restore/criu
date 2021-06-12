@@ -502,6 +502,19 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		}
 	}
 
+	if (req->has_network_lock) {
+		switch (req->network_lock) {
+		case CRIU_NETWORK_LOCK_METHOD__IPTABLES:
+			opts.network_lock_method = NETWORK_LOCK_IPTABLES;
+			break;
+		case CRIU_NETWORK_LOCK_METHOD__NFTABLES:
+			opts.network_lock_method = NETWORK_LOCK_NFTABLES;
+			break;
+		default:
+			goto err;
+		}
+	}
+
 	if (req->ps) {
 		opts.port = (short)req->ps->port;
 

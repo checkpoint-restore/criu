@@ -40,6 +40,11 @@ enum criu_cg_mode {
 	CRIU_CG_MODE_DEFAULT,
 };
 
+enum criu_network_lock_method {
+	CRIU_NETWORK_LOCK_IPTABLES = 1,
+	CRIU_NETWORK_LOCK_NFTABLES = 2,
+};
+
 enum criu_pre_dump_mode { CRIU_PRE_DUMP_SPLICE = 1, CRIU_PRE_DUMP_READ = 2 };
 
 int criu_set_service_address(const char *path);
@@ -97,6 +102,7 @@ int criu_add_external(const char *key);
 int criu_set_page_server_address_port(const char *address, int port);
 int criu_set_pre_dump_mode(enum criu_pre_dump_mode mode);
 void criu_set_pidfd_store_sk(int sk);
+int criu_set_network_lock(enum criu_network_lock_method method);
 
 /*
  * The criu_notify_arg_t na argument is an opaque
@@ -256,6 +262,7 @@ int criu_local_add_external(criu_opts *opts, const char *key);
 int criu_local_set_page_server_address_port(criu_opts *opts, const char *address, int port);
 int criu_local_set_pre_dump_mode(criu_opts *opts, enum criu_pre_dump_mode mode);
 void criu_local_set_pidfd_store_sk(criu_opts *opts, int sk);
+int criu_local_set_network_lock(criu_opts *opts, enum criu_network_lock_method method);
 
 void criu_local_set_notify_cb(criu_opts *opts, int (*cb)(char *action, criu_notify_arg_t na));
 
