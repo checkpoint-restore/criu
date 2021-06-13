@@ -21,10 +21,7 @@ add-apt-repository \
 
 . /etc/lsb-release
 
-# overlayfs behaves differently on Ubuntu (18.04) and breaks CRIU
-# https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1857257
-# Switch to devicemapper
-echo '{ "experimental": true, "storage-driver": "devicemapper" }' > /etc/docker/daemon.json
+echo '{ "experimental": true }' > /etc/docker/daemon.json
 
 CRIU_LOG='/criu.log'
 mkdir -p /etc/criu
