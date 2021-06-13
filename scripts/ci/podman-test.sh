@@ -23,10 +23,7 @@ apt-get -y purge docker-ce || :
     curl \
     software-properties-common
 
-# explicitly install runc. crun is not compiled with criu support
-./apt-install cri-o-runc podman containernetworking-plugins
-
-echo -e '[engine]\nruntime="runc"' > /etc/containers/containers.conf
+./apt-install podman containernetworking-plugins
 
 export SKIP_CI_TEST=1
 
@@ -35,11 +32,6 @@ export SKIP_CI_TEST=1
 cd ../../
 
 make install
-
-# overlaysfs behaves differently on Ubuntu and breaks CRIU
-# https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1857257
-export STORAGE_DRIVER=vfs
-podman --storage-driver vfs info
 
 criu --version
 
