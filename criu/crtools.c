@@ -189,7 +189,10 @@ int main(int argc, char *argv[], char *envp[])
 	 * 2) Transmitting data to the image streamer
 	 * 3) Emitting logs (potentially to a pipe).
 	 */
-	signal(SIGPIPE, SIG_IGN);
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+		pr_perror("Failed to set a SIGPIPE signal ignore.");
+		return 1;
+	}
 
 	/*
 	 * When a process group becomes an orphan,
