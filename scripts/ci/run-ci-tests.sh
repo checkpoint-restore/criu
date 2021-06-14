@@ -90,6 +90,7 @@ print_header() {
 }
 
 print_env() {
+	set +x
 	# As this script can run on multiple different CI systems
 	# the following lines should give some context to the
 	# evnvironment of this CI run.
@@ -116,6 +117,7 @@ print_env() {
 	fi
 	print_header "Available CPUs"
 	lscpu || :
+	set -x
 }
 
 print_env
