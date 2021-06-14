@@ -48,3 +48,32 @@ task:
 
   build_script: |
     make -C scripts/ci local SKIP_CI_PREP=1 CC=gcc CD_TO_TOP=1
+
+task:
+  name: CentOS 7 based test
+  environment:
+    HOME: "/root"
+    CIRRUS_WORKING_DIR: "/tmp/criu"
+
+  compute_engine_instance:
+    image_project: centos-cloud
+    image: family/centos-7
+    platform: linux
+    cpu: 4
+    memory: 8G
+
+  setup_script: |
+    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
+    yum install -y findutils gcc git gnutls-devel iproute iptables libaio-devel libasan libcap-devel libnet-devel libnl3-devel make procps-ng protobuf-c-devel protobuf-devel protobuf-python python python-flake8 python-ipaddress python2-future python2-junit_xml python-yaml python-six sudo tar which e2fsprogs python2-pip rubygem-asciidoctor libselinux-devel
+    # Even with selinux in permissive mode the selinux tests will be executed
+    # The Cirrus CI user runs as a service from selinux point of view and is
+    # much more restricted than a normal shell (system_u:system_r:unconfined_service_t:s0)
+    # The test case above (vagrant-fedora-no-vdso) should run selinux tests in enforcing mode
+    setenforce 0
+    # Enable user namespaces on CentOS 7
+    echo 10000 > /proc/sys/user/max_user_namespaces
+    # Adapt sudoers to our needs
+    echo 'root ALL=(ALL:ALL) ALL' | EDITOR='tee -a' visudo
+
+  build_script: |
+    make -C scripts/ci local SKIP_CI_PREP=1 CC=gcc CD_TO_TOP=1 ZDTM_IGNORE_TAINT=1 ZDTM_OPTS="-x zdtm/static/socket-raw -x zdtm/static/child_subreaper_existing_child -x zdtm/static/fifo_upon_unix_socket01 -x zdtm/static/overmount_sock -x zdtm/static/tempfs_overmounted"
