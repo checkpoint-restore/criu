@@ -1938,7 +1938,7 @@ class Launcher:
             self.__taint = taintfd.read()
         if int(self.__taint, 0) != 0:
             print("The kernel is tainted: %r" % self.__taint)
-            if not opts["ignore_taint"]:
+            if not opts["ignore_taint"] and os.getenv("ZDTM_IGNORE_TAINT") != '1':
                 raise Exception("The kernel is tainted: %r" % self.__taint)
 
     def __show_progress(self, msg):
