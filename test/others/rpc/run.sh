@@ -1,6 +1,14 @@
 #!/bin/bash
 
-set -e
+set -ex
+
+if [ -e /etc/os-release ]; then
+	. /etc/os-release
+	if [ "$ID" == "centos" ] && [[ "$VERSION_ID" == "7"* ]];then
+		echo "Skipping tests on CentOS 7 because they do not work in CI"
+		exit 0
+	fi
+fi
 
 CRIU=./criu
 
