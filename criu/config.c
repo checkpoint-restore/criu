@@ -44,72 +44,208 @@ static int count_elements(char **to_count)
 /* Parse one statement in configuration file */
 int parse_statement(int i, char *line, char **configuration)
 {
+	cleanup_free char *input = NULL;
 	int offset = 0, len = 0;
-	bool was_newline = true;
-	char *tmp_string, *quoted, *quotedptr;
+	char *tmp_string;
 
-	while (1) {
-		/* Ignore white-space */
-		while ((isspace(*(line + offset)) && (*(line + offset) != '\n'))) offset++;
+	/*
+	 * A line from the configuration file can be:
+	 *  - empty
+	 *  - a boolean option (tcp-close)
+	 *  - an option with one parameter (verbosity 4)
+	 *    - a parameter can be in quotes (lsm-profile "selinux:something")
+	 *    - a parameter can contain escaped quotes
+	 *
+	 * Whenever a '#' is found we ignore everything after as a comment.
+	 *
+	 * This function adds none, one (boolean option) or two entries
+	 * in **configuration and returns i + (the number of entries).
+	 */
 
-		/* Read a single word. A word is everything
-		 * that doesn't contain white-space characters. */
-		if (sscanf(line + offset, "%m[^ \t\n]s", &configuration[i]) != 1) {
-			configuration[i] = NULL;
-			break;
-		}
+	if (strlen(line) == 0)
+		return i;
 
-		/* Ignore comments - everything between '#' and '\n' */
-		if (configuration[i][0] == '#') {
-			configuration[i] = NULL;
-			break;
-		}
+	/* Ignore leading white-space */
+	while ((isspace(*(line + offset)) && (*(line + offset) != '\n')))
+		offset++;
 
-		if ((configuration[i][0] == '\"') && (strchr(line + offset + 1, '"'))) {
-			/* Handle empty strings which strtok ignores */
-			if (!strcmp(configuration[i], "\"\"")) {
-				configuration[i] = "";
-				offset += strlen("\"\"");
-			} else if ((configuration[i] = strtok_r(line + offset, "\"", &quotedptr))) {
-				/* Handle escaping of quotes in quoted string */
-				while (configuration[i][strlen(configuration[i]) - 1] == '\\') {
-					offset++;
-					len = strlen(configuration[i]);
-					configuration[i][len - 1] = '"';
-					if (*quotedptr == '"') {
-						quotedptr++;
-						break;
-					}
-					quoted = strtok_r(NULL, "\"", &quotedptr);
-					tmp_string = xmalloc(len + strlen(quoted) + 1);
-					if (tmp_string == NULL)
-						return -1;
+	/* Ignore empty line */
+	if (line[offset] == '\n')
+		return i;
 
-					memmove(tmp_string, configuration[i], len);
-					memmove(tmp_string + len, quoted, strlen(quoted) + 1);
-					configuration[i] = tmp_string;
-				}
-				offset += 2;
-			}
-		}
+	/* Ignore line starting with a comment */
+	if (line[offset] == '#')
+		return i;
 
-		offset += strlen(configuration[i]);
+	input = xstrdup(line + offset);
+	if (unlikely(!input))
+		return -1;
 
-		if (was_newline) {
-			was_newline = false;
-			len = strlen(configuration[i]);
-			tmp_string = xrealloc(configuration[i], len + strlen("--") + 1);
-			if (tmp_string == NULL)
-				return -1;
+	offset = 0;
 
-			memmove(tmp_string + strlen("--"), tmp_string, len + 1);
-			memmove(tmp_string, "--", strlen("--"));
-			configuration[i] = tmp_string;
-		}
+	/* Remove trailing '\n' */
+	if ((tmp_string = strchr(input, '\n')))
+		tmp_string[0] = 0;
+
+	if ((tmp_string = strchr(input, ' ')) || (tmp_string = strchr(input, '\t'))) {
+		configuration[i] = xzalloc(tmp_string - input + strlen("--") + 1);
+		if (unlikely(!configuration[i]))
+			return -1;
+		memcpy(configuration[i], "--", strlen("--"));
+		memcpy(configuration[i] + strlen("--"), input, tmp_string - input);
+		configuration[i][tmp_string - input + strlen("--")] = 0;
+		/* Go to the next character */
+		offset += tmp_string - input + 1;
 		i++;
+	} else {
+		if (unlikely(asprintf(&configuration[i], "--%s", input) == -1))
+			return -1;
+		return i + 1;
 	}
 
-	return i;
+	while ((isspace(*(input + offset))))
+		offset++;
+
+	/* Check if the next token is a comment */
+	if (input[offset] == '#')
+		return i;
+
+	if (input[offset] == '"') {
+		bool found_second_quote = false;
+		char *quote_start;
+		int quote_offset;
+
+		/* Move by one to skip the leading quote. */
+		offset++;
+		quote_start = input + offset;
+		quote_offset = offset;
+
+		if (input[offset] == 0) {
+			/* The value for the parameter was a single quote, this is not supported. */
+			xfree(configuration[i - 1]);
+			pr_err("Unsupported configuration file format. Please consult man page criu(8)\n");
+			return -1;
+		}
+
+		if (input[offset] == '"') {
+			/* We got "" as value */
+			configuration[i] = xstrdup("");
+			if (unlikely(!configuration[i])) {
+				xfree(configuration[i -1]);
+				return -1;
+			}
+			offset = 0;
+			goto out;
+		}
+
+		/*
+		 * If it starts with a quote everything until the
+		 * next unescaped quote needs to be looked at.
+		 */
+		while ((tmp_string = strchr(input + quote_offset + 1, '"'))) {
+			quote_offset = tmp_string - input;
+			/* Check if it is escaped */
+			if (*(tmp_string - 1) == '\\')
+				continue;
+
+			/* Not escaped. That is the end of the quoted string. */
+			found_second_quote = true;
+			configuration[i] = xzalloc(quote_offset - offset + 1);
+			if (unlikely(!configuration[i])) {
+				xfree(configuration[i -1]);
+				return -1;
+			}
+			memcpy(configuration[i], quote_start, quote_offset - offset);
+			configuration[i][quote_offset - offset] = 0;
+			/* We skipped one additional quote */
+			offset++;
+			/* Check for excessive parameters on the original line. */
+			tmp_string++;
+			if (tmp_string != 0 && strchr(tmp_string, ' ')) {
+				int j;
+				len = strlen(tmp_string);
+				for (j = 0; j < len - 1; j++) {
+					if (tmp_string[j] == '#')
+						break;
+					if (!isspace(tmp_string[j])) {
+						pr_err("Unsupported configuration file format. Please consult man page criu(8)\n");
+						xfree(configuration[i - 1]);
+						xfree(configuration[i]);
+						return -1;
+					}
+				}
+			}
+			break;
+		}
+		if (!found_second_quote) {
+			pr_err("Unsupported configuration file format. Please consult man page criu(8)\n");
+			xfree(configuration[i - 1]);
+			return -1;
+		}
+	} else {
+		/* Does not start with a quote. */
+		if (unlikely(asprintf(&configuration[i], "%s", input + offset) == -1)) {
+			xfree(configuration[i -1]);
+			return -1;
+		}
+
+		if ((tmp_string = strchr(input + offset, ' ')))
+			offset = tmp_string - (input + offset);
+		else
+			offset = 0;
+	}
+
+	len = strlen(configuration[i]);
+	if (strstr(configuration[i], "\\\"")) {
+		/* We found an escaped quote. Skip the backslash. */
+		cleanup_free char *tmp = NULL;
+		int skipped = 0;
+		int start = 0;
+		int dest = 0;
+		int j;
+
+		tmp = xzalloc(len);
+		if (tmp == NULL)
+			return -1;
+
+		for (j = start; j < len; j++) {
+			if (configuration[i][j] == '\\' && j + 1 < len && configuration[i][j + 1] == '"') {
+				skipped++;
+				continue;
+			}
+			tmp[dest++] = configuration[i][j];
+		}
+		memcpy(configuration[i], tmp, strlen(tmp));
+		configuration[i][strlen(tmp)] = 0;
+
+		/* Account for skipped backslashes. */
+		offset += skipped + 1;
+		len -= skipped;
+	}
+
+out:
+	/* Remove potential comments at the end */
+	if ((tmp_string = strstr(configuration[i], "#")) || (tmp_string = strstr(configuration[i], " #")))
+		tmp_string[0] = 0;
+
+	/* Check for unsupported configuration file entries */
+	if (configuration[i] + offset + 1 != 0 && strchr(configuration[i] + offset, ' ')) {
+		int j;
+		len = strlen(configuration[i] + offset);
+		for (j = 0; j < len - 1; j++) {
+			if (!isspace(configuration[i][offset + j])) {
+				pr_err("Unsupported configuration file format. Please consult man page criu(8)\n");
+				xfree(configuration[i - 1]);
+				xfree(configuration[i]);
+				return -1;
+			}
+		}
+	}
+
+	if ((tmp_string = strchr(configuration[i] + offset, ' ')))
+		tmp_string[0] = 0;
+
+	return i + 1;
 }
 
 /* Parse a configuration file */
@@ -139,9 +275,22 @@ static char ** parse_config(char *filepath)
 	configuration[0] = "criu";
 
 	while (getline(&line, &line_size, configfile) != -1) {
+		int spaces = 1;
+		int j;
+		/*
+		 * The statement parser 'parse_statement()' needs as many
+		 * elements in 'configuration' as spaces + 1, because it splits
+		 * each line at a space to return a result that can used as
+		 * input for getopt. So, let's count spaces to determine the
+		 * memory requirements.
+		 */
+		for (j = 0; j < strlen(line); j++)
+			if (line[j] == ' ')
+				spaces++;
+
 		/* Extend configuration buffer if necessary */
-		if (i >= config_size - 1) {
-			config_size *= 2;
+		if (i + spaces >= config_size - 1) {
+			config_size += spaces;
 			configuration = xrealloc(configuration, config_size * sizeof(char *));
 			if (configuration == NULL) {
 				fclose(configfile);
