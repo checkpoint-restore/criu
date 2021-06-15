@@ -4,25 +4,9 @@ set -x -e
 CI_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
 		libgnutls30 libprotobuf-dev protobuf-compiler libcap-dev
 		libnl-3-dev gdb bash libnet-dev util-linux asciidoctor
-		libnl-route-3-dev time flake8 libbsd-dev
-		libperl-dev pkg-config"
-
-
-if [ -e /etc/lsb-release ]; then
-	# This file does not exist on non Ubuntu
-	# shellcheck disable=SC1091
-	. /etc/lsb-release
-	if [ "$DISTRIB_RELEASE" = "16.04" ]; then
-		# There is one last test running on 16.04 because of the broken
-		# overlayfs in 18.04. Once that is fixed we can remove the last
-		# 16.04 based test and this if clause.
-		CI_PKGS="$CI_PKGS python-future python-protobuf python-yaml
-			python-junit.xml python-ipaddress"
-	else
-		CI_PKGS="$CI_PKGS python3-future python3-protobuf python3-yaml
-			python3-junit.xml"
-	fi
-fi
+		libnl-route-3-dev time flake8 libbsd-dev python3-yaml
+		libperl-dev pkg-config python3-future python3-protobuf
+		python3-junit.xml"
 
 X86_64_PKGS="gcc-multilib"
 
@@ -193,11 +177,6 @@ if [ "$UNAME_M" == "x86_64" ]; then
 fi
 
 export SKIP_PREP=1
-# The 3.19 kernel (from Ubuntu 14.04) has a bug. When /proc/PID/pagemap
-# is read for a few VMAs in one read call, incorrect data is returned.
-# See https://github.com/checkpoint-restore/criu/issues/207
-# Kernel 4.4 (from Ubuntu 14.04.5 update) fixes this.
-uname -r | grep -q ^3\.19 && export CRIU_PMC_OFF=1
 
 chmod 0777 test/
 chmod 0777 test/zdtm/static
@@ -239,7 +218,7 @@ bash -x ./test/jenkins/criu-inhfd.sh
 if [ -z "$SKIP_EXT_DEV_TEST" ]; then
 	make -C test/others/mnt-ext-dev/ run
 fi
-#make -C test/others/exec/ run
+
 make -C test/others/make/ run CC="$CC"
 if [ -n "$TRAVIS" ] || [ -n "$CIRCLECI" ]; then
        # GitHub Actions (and Cirrus CI) does not provide a real TTY and CRIU will fail with:
