@@ -43,6 +43,7 @@
 #include "cr-service.h"
 #include "files.h"
 #include "pstree.h"
+#include "sched.h"
 
 #include "cr-errno.h"
 #include "action-scripts.h"
@@ -1650,4 +1651,167 @@ int rm_rf(char *target)
 out:
 	target[offset] = 0;
 	return ret;
+}
+
+__attribute__((returns_twice)) static pid_t raw_legacy_clone(unsigned long flags, int *pidfd)
+{
+#if defined(__s390x__) || defined(__s390__) || defined(__CRIS__)
+	/* On s390/s390x and cris the order of the first and second arguments
+	 * of the system call is reversed.
+	 */
+	return syscall(__NR_clone, NULL, flags | SIGCHLD, pidfd);
+#elif defined(__sparc__) && defined(__arch64__)
+	{
+		/*
+		 * sparc64 always returns the other process id in %o0, and a
+		 * boolean flag whether this is the child or the parent in %o1.
+		 * Inline assembly is needed to get the flag returned in %o1.
+		 */
+		register long g1 asm("g1") = __NR_clone;
+		register long o0 asm("o0") = flags | SIGCHLD;
+		register long o1 asm("o1") = 0; /* is parent/child indicator */
+		register long o2 asm("o2") = (unsigned long)pidfd;
+		long is_error, retval, in_child;
+		pid_t child_pid;
+
+		asm volatile(
+#if defined(__arch64__)
+			"t 0x6d\n\t" /* 64-bit trap */
+#else
+			"t 0x10\n\t" /* 32-bit trap */
+#endif
+			/*
+		     * catch errors: On sparc, the carry bit (csr) in the
+		     * processor status register (psr) is used instead of a
+		     * full register.
+		     */
+			"addx %%g0, 0, %%g1"
+			: "=r"(g1), "=r"(o0), "=r"(o1), "=r"(o2) /* outputs */
+			: "r"(g1), "r"(o0), "r"(o1), "r"(o2) /* inputs */
+			: "%cc"); /* clobbers */
+
+		is_error = g1;
+		retval = o0;
+		in_child = o1;
+
+		if (is_error) {
+			errno = retval;
+			return -1;
+		}
+
+		if (in_child)
+			return 0;
+
+		child_pid = retval;
+		return child_pid;
+	}
+#elif defined(__ia64__)
+	/* On ia64 the stack and stack size are passed as separate arguments. */
+	return syscall(__NR_clone, flags | SIGCHLD, NULL, 0, pidfd);
+#else
+	return syscall(__NR_clone, flags | SIGCHLD, NULL, pidfd);
+#endif
+}
+
+__attribute__((returns_twice)) static pid_t raw_clone(unsigned long flags, int *pidfd)
+{
+	pid_t pid;
+	struct _clone_args args = {
+		.flags = flags,
+		.pidfd = ptr_to_u64(pidfd),
+	};
+
+	if (flags & (CLONE_VM | CLONE_PARENT_SETTID | CLONE_CHILD_SETTID | CLONE_CHILD_CLEARTID | CLONE_SETTLS))
+		return -EINVAL;
+
+	/* On CLONE_PARENT we inherit the parent's exit signal. */
+	if (!(flags & CLONE_PARENT))
+		args.exit_signal = SIGCHLD;
+
+	pid = syscall(__NR_clone3, &args, sizeof(args));
+	if (pid < 0 && errno == ENOSYS)
+		return raw_legacy_clone(flags, pidfd);
+
+	return pid;
+}
+
+static int wait_for_pid(pid_t pid)
+{
+	int status, ret;
+
+again:
+	ret = waitpid(pid, &status, 0);
+	if (ret == -1) {
+		if (errno == EINTR)
+			goto again;
+
+		return -1;
+	}
+
+	if (ret != pid)
+		goto again;
+
+	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+		return -1;
+
+	return 0;
+}
+
+int run_command(char *buf, size_t buf_size, int (*child_fn)(void *), void *args)
+{
+	pid_t child;
+	int ret, fret, pipefd[2];
+	ssize_t bytes;
+
+	/* Make sure our callers do not receive uninitialized memory. */
+	if (buf_size > 0 && buf)
+		buf[0] = '\0';
+
+	if (pipe(pipefd) < 0)
+		return -1;
+
+	child = raw_clone(0, NULL);
+	if (child < 0) {
+		close(pipefd[0]);
+		close(pipefd[1]);
+		return -1;
+	}
+
+	if (child == 0) {
+		/* Close the read-end of the pipe. */
+		close(pipefd[0]);
+
+		/* Redirect std{err,out} to write-end of the
+		 * pipe.
+		 */
+		ret = dup2(pipefd[1], STDOUT_FILENO);
+		if (ret >= 0)
+			ret = dup2(pipefd[1], STDERR_FILENO);
+
+		/* Close the write-end of the pipe. */
+		close(pipefd[1]);
+
+		if (ret < 0)
+			_exit(EXIT_FAILURE);
+
+		/* Does not return. */
+		child_fn(args);
+		_exit(EXIT_FAILURE);
+	}
+
+	/* close the write-end of the pipe */
+	close(pipefd[1]);
+
+	if (buf && buf_size > 0) {
+		bytes = read_all(pipefd[0], buf, buf_size - 1);
+		if (bytes > 0)
+			buf[bytes - 1] = '\0';
+	}
+
+	fret = wait_for_pid(child);
+
+	/* close the read-end of the pipe */
+	close(pipefd[0]);
+
+	return fret;
 }
