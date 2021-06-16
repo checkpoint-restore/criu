@@ -361,6 +361,31 @@ err:
 	"}\n")
 
 char policydir[PATH_MAX] = ".criu.temp-aa-policy.XXXXXX";
+char cachedir[PATH_MAX];
+
+struct apparmor_parser_args {
+	char *cache;
+	char *file;
+};
+
+static int apparmor_parser_exec(void *data)
+{
+	struct apparmor_parser_args *args = data;
+
+	execlp("apparmor_parser", "apparmor_parser",
+	       "-QWL", args->cache,
+	       args->file, NULL);
+
+	return -1;
+}
+
+static int apparmor_cache_exec(void *data)
+{
+	execlp("apparmor_parser", "apparmor_parser",
+	       "--cache-loc", "/", "--print-cache-dir", (char *)NULL);
+
+	return -1;
+}
 
 static void *get_suspend_policy(char *name, off_t *len)
 {
@@ -368,12 +393,9 @@ static void *get_suspend_policy(char *name, off_t *len)
 	void *ret = NULL;
 	int n, fd, policy_len, i;
 	struct stat sb;
-	char *cmd[] = {
-		"apparmor_parser",
-		"-QWL",
-		cache,
-		file,
-		NULL,
+	struct apparmor_parser_args args = {
+		.cache = cache,
+		.file = file,
 	};
 
 	*len = 0;
@@ -420,13 +442,19 @@ static void *get_suspend_policy(char *name, off_t *len)
 		return NULL;
 	}
 
-	n = cr_system(-1, -1, -1, cmd[0], cmd, 0);
-	if (n < 0 || !WIFEXITED(n) || WEXITSTATUS(n)) {
+	n = run_command(cachedir, sizeof(cachedir), apparmor_cache_exec, NULL);
+	if (n < 0) {
 		pr_err("apparmor parsing failed %d\n", n);
 		return NULL;
 	}
 
-	n = snprintf(file, sizeof(file), "%s/cache/%s", policydir, clean_name);
+	n = run_command(NULL, 0, apparmor_parser_exec, &args);
+	if (n < 0) {
+		pr_err("apparmor parsing failed %d\n", n);
+		return NULL;
+	}
+
+	n = snprintf(file, sizeof(file), "%s/cache/%s/%s", policydir, cachedir, clean_name);
 	if (n < 0 || n >= sizeof(policy)) {
 		pr_err("policy name %s too long\n", clean_name);
 		return NULL;
