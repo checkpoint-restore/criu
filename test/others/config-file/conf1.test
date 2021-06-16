@@ -1,0 +1,13 @@
+#
+#
+#
+verbosity 4
+lsm-profile "" # more comments
+lsm-profile "something"# comment
+lsm-profile "selinux:something\"with\"quotes"
+lsm-profile "apparmor:something\"with\"quotes"
+work-dir /tmp
+work-dir "/tmp"
+work-dir "/dir with spaces"
+a b c d e f g h i j k l m n o p
+dsfa "aaaaa \"bbbbbb\""
