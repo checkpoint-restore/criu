@@ -322,6 +322,8 @@ int collect_and_suspend_lsm(void)
 		if (suspend_aa() < 0)
 			return -1;
 		break;
+	case LSMTYPE__SELINUX:
+		break;
 	default:
 		pr_warn("don't know how to suspend LSM %d\n", kdat.lsm);
 	}
