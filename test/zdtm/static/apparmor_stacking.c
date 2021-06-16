@@ -135,7 +135,7 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	if (checkprofile(pid, ":criu_stacking_test://criu/stacking/test") < 0)
+	if (checkprofile(pid, ":criu_stacking_test:criu/stacking/test") < 0)
 		goto out;
 
 	ret = 0;
