@@ -591,7 +591,7 @@ static int do_suspend(bool suspend)
 		AaNamespace *ns = namespaces[i];
 		char path[PATH_MAX] = AA_SECURITYFS_PATH "/policy";
 
-		if (write_aa_policy(ns, path, strlen(path), opts.lsm_profile, false) < 0)
+		if (write_aa_policy(ns, path, strlen(path), opts.lsm_profile, suspend) < 0)
 			return -1;
 	}
 
