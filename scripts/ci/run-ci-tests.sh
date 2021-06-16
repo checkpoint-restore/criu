@@ -261,6 +261,9 @@ make -C test/others/libcriu run
 # external namespace testing
 make -C test/others/ns_ext run
 
+# config file parser and parameter testing
+make -C test/others/config-file run
+
 # Skip all further tests when running with GCOV=1
 # The one test which currently cannot handle GCOV testing is compel/test
 # Probably because the GCOV Makefile infrastructure does not exist in compel
