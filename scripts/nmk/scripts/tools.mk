@@ -17,6 +17,7 @@ AR		:= $(CROSS_COMPILE)ar
 STRIP		:= $(CROSS_COMPILE)strip
 OBJCOPY		:= $(CROSS_COMPILE)objcopy
 OBJDUMP		:= $(CROSS_COMPILE)objdump
+PKG_CONFIG	?= pkg-config
 NM		:= $(CROSS_COMPILE)nm
 MAKE		:= make
 MKDIR		:= mkdir -p
