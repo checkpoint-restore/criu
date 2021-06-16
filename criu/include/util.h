@@ -398,4 +398,7 @@ static inline void cleanup_freep (void *p)
 	free (*pp);
 }
 
+extern int run_command(char *buf, size_t buf_size, int (*child_fn)(void *),
+		       void *args);
+
 #endif /* __CR_UTIL_H__ */
