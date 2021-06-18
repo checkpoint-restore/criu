@@ -1584,3 +1584,59 @@ char *get_legacy_iptables_bin(bool ipv6)
 
 	return iptables_bin[ipv6];
 }
+
+/*
+ * read_all() behaves like read() without the possibility of partial reads.
+ * Use only with blocking I/O.
+ */
+ssize_t read_all(int fd, void *buf, size_t size)
+{
+	ssize_t n = 0;
+	while (size > 0) {
+		ssize_t ret = read(fd, buf, size);
+		if (ret == -1) {
+			if (errno == EINTR)
+				continue;
+			/*
+			 * The caller should use standard read() for
+			 * non-blocking I/O.
+			 */
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				errno = EINVAL;
+			return ret;
+		}
+		if (ret == 0)
+			break;
+		n += ret;
+		buf = (char *)buf + ret;
+		size -= ret;
+	}
+	return n;
+}
+
+/*
+ * write_all() behaves like write() without the possibility of partial writes.
+ * Use only with blocking I/O.
+ */
+ssize_t write_all(int fd, const void *buf, size_t size)
+{
+	ssize_t n = 0;
+	while (size > 0) {
+		ssize_t ret = write(fd, buf, size);
+		if (ret == -1) {
+			if (errno == EINTR)
+				continue;
+			/*
+			 * The caller should use standard write() for
+			 * non-blocking I/O.
+			 */
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				errno = EINVAL;
+			return ret;
+		}
+		n += ret;
+		buf = (char *)buf + ret;
+		size -= ret;
+	}
+	return n;
+}

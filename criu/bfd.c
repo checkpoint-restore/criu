@@ -145,7 +145,7 @@ static int brefill(struct bfd *f)
 	memmove(b->mem, b->data, b->sz);
 	b->data = b->mem;
 
-	ret = read(f->fd, b->mem + b->sz, BUFSIZE - b->sz);
+	ret = read_all(f->fd, b->mem + b->sz, BUFSIZE - b->sz);
 	if (ret < 0) {
 		pr_perror("Error reading file");
 		return -1;
@@ -241,7 +241,7 @@ static int bflush(struct bfd *bfd)
 	if (!b->sz)
 		return 0;
 
-	ret = write(bfd->fd, b->data, b->sz);
+	ret = write_all(bfd->fd, b->data, b->sz);
 	if (ret != b->sz)
 		return -1;
 
@@ -261,7 +261,7 @@ static int __bwrite(struct bfd *bfd, const void *buf, int size)
 	}
 
 	if (size > BUFSIZE)
-		return write(bfd->fd, buf, size);
+		return write_all(bfd->fd, buf, size);
 
 	memcpy(b->data + b->sz, buf, size);
 	b->sz += size;
@@ -271,7 +271,7 @@ static int __bwrite(struct bfd *bfd, const void *buf, int size)
 int bwrite(struct bfd *bfd, const void *buf, int size)
 {
 	if (!bfd_buffered(bfd))
-		return write(bfd->fd, buf, size);
+		return write_all(bfd->fd, buf, size);
 
 	return __bwrite(bfd, buf, size);
 }
@@ -280,8 +280,13 @@ int bwritev(struct bfd *bfd, const struct iovec *iov, int cnt)
 {
 	int i, written = 0;
 
-	if (!bfd_buffered(bfd))
+	if (!bfd_buffered(bfd)) {
+		/*
+		 * FIXME writev() should be called again if writev() writes
+		 * less bytes than requested.
+		 */
 		return writev(bfd->fd, iov, cnt);
+	}
 
 	for (i = 0; i < cnt; i++) {
 		int ret;
@@ -304,7 +309,7 @@ int bread(struct bfd *bfd, void *buf, int size)
 	int more = 1, filled = 0;
 
 	if (!bfd_buffered(bfd))
-		return read(bfd->fd, buf, size);
+		return read_all(bfd->fd, buf, size);
 
 	while (more > 0) {
 		int chunk;
