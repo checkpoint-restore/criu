@@ -241,6 +241,7 @@ TST_NOFILE	:=				\
 		sigtrap01			\
 #		jobctl00			\
 
+PKG_CONFIG ?= pkg-config
 pkg-config-check = $(shell sh -c '$(PKG_CONFIG) $(1) && echo y')
 ifeq ($(call pkg-config-check,libbpf),y)
 TST_NOFILE	+=				\
