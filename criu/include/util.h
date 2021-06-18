@@ -385,4 +385,7 @@ extern int mount_detached_fs(const char *fsname);
 
 extern char *get_legacy_iptables_bin(bool ipv6);
 
+extern ssize_t read_all(int fd, void *buf, size_t size);
+extern ssize_t write_all(int fd, const void *buf, size_t size);
+
 #endif /* __CR_UTIL_H__ */
