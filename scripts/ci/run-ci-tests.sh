@@ -126,6 +126,10 @@ if [ "$WIDTH" -gt 80 ]; then
 	exit 1
 fi
 
+# Unit tests at this point do not require any kernel or hardware capabilities.
+# Just try to run it everywhere for now.
+time make unittest
+
 [ -n "$SKIP_CI_TEST" ] && exit 0
 
 ulimit -c unlimited

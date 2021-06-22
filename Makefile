@@ -266,6 +266,10 @@ crit: criu
 	$(Q) $(MAKE) $(build)=crit all
 .PHONY: crit
 
+unittest: $(criu-deps)
+	$(Q) $(MAKE) $(build)=criu unittest
+.PHONY: unittest
+
 
 #
 # Libraries next once crit it ready
@@ -403,6 +407,7 @@ help:
 	@echo '      cscope          - Generate cscope database'
 	@echo '      test            - Run zdtm test-suite'
 	@echo '      gcov            - Make code coverage report'
+	@echo '      unittest        - Run unit tests'
 .PHONY: help
 
 lint:
