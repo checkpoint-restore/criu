@@ -1398,7 +1398,7 @@ int cr_service(bool daemon_mode)
 	}
 
 	if (opts.pidfile) {
-		if (write_pidfile(getpid()) == -1) {
+		if (write_pidfile(syscall(__NR_getpid)) == -1) {
 			pr_perror("Can't write pidfile");
 			goto err;
 		}

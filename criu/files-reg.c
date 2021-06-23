@@ -2069,7 +2069,7 @@ int open_path(struct file_desc *d,
 			 * PROC_SELF isn't used, because only service
 			 * descriptors can be used here.
 			 */
-			mntns_root = open_pid_proc(getpid());
+			mntns_root = open_pid_proc(syscall(__NR_getpid));
 			snprintf(path, sizeof(path), "fd/%d", tmp);
 			orig_path = rfi->path;
 			rfi->path = path;
@@ -2080,7 +2080,7 @@ int open_path(struct file_desc *d,
 	if (rfi->remap) {
 		if (fault_injected(FI_RESTORE_OPEN_LINK_REMAP)) {
 			pr_info("fault: Open link-remap failure!\n");
-			kill(getpid(), SIGKILL);
+			kill(syscall(__NR_getpid), SIGKILL);
 		}
 
 		mutex_lock(remap_open_lock);

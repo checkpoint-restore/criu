@@ -736,7 +736,7 @@ static int tty_restore_ctl_terminal(struct file_desc *d)
 
 out:
 	pr_info("Restore session %d by %d tty (index %d)\n",
-		 info->tie->sid, (int)getpid(), index);
+		 info->tie->sid, (int)syscall(__NR_getpid), index);
 
 	ret = tty_set_sid(slave);
 	if (!ret)

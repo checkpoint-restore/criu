@@ -996,7 +996,7 @@ int prepare_pstree(void)
 		}
 	}
 
-	pid = getpid();
+	pid = syscall(__NR_getpid);
 
 	if (!ret)
 		/*

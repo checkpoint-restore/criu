@@ -2052,7 +2052,7 @@ static int userns_mount(char *src, void *args, int fd, pid_t pid)
 
 	snprintf(target, sizeof(target), "/proc/self/fd/%d", fd);
 
-	if (pid != getpid() && switch_ns(pid, &mnt_ns_desc, &rst))
+	if (pid != syscall(__NR_getpid) && switch_ns(pid, &mnt_ns_desc, &rst))
 		return -1;
 
 	err = mount(src, target, NULL, flags, NULL);

@@ -326,7 +326,7 @@ static int kerndat_get_dirty_track(void)
 	 * was at least once re-set. (this is to be removed in
 	 * a couple of kernel releases)
 	 */
-	ret = do_task_reset_dirty_track(getpid());
+	ret = do_task_reset_dirty_track(syscall(__NR_getpid));
 	if (ret < 0)
 		return ret;
 	if (ret == 1)
@@ -604,7 +604,7 @@ int kerndat_nsid(void)
 		return -1;
 	}
 
-	if (net_get_nsid(sk, getpid(), &nsid) < 0) {
+	if (net_get_nsid(sk, syscall(__NR_getpid), &nsid) < 0) {
 		pr_err("NSID is not supported\n");
 		close(sk);
 		return -1;
@@ -748,7 +748,7 @@ static int has_kcmp_epoll_tfd(void)
 {
 	kcmp_epoll_slot_t slot = { };
 	int ret = -1, efd, tfd;
-	pid_t pid = getpid();
+	pid_t pid = syscall(__NR_getpid);
 	struct epoll_event ev;
 	int pipefd[2];
 

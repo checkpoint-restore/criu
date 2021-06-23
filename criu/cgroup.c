@@ -735,7 +735,7 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_
 	if (item)
 		pid = item->pid->real;
 	else
-		pid = getpid();
+		pid = syscall(__NR_getpid);
 
 	pr_info("Dumping cgroups for %d\n", pid);
 	if (parse_task_cgroup(pid, args, &ctls, &n_ctls))

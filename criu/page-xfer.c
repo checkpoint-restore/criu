@@ -1447,7 +1447,7 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 no_server:
 
 	if (!daemon_mode && cfd >= 0) {
-		struct ps_info info = {.pid = getpid(), .port = opts.port};
+		struct ps_info info = {.pid = syscall(__NR_getpid), .port = opts.port};
 		int count;
 
 		count = write(cfd, &info, sizeof(info));

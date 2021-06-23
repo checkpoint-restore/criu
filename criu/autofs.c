@@ -333,12 +333,13 @@ static int autofs_revisit_options(struct mount_info *pm)
 	char *buf;
 	int ret = -ENOMEM;
 
+	pid_t pid = syscall(__NR_getpid);
 	buf = xmalloc(1024);
 	if (!buf) {
 		return -ENOMEM;
 	}
 
-	f = fopen_proc(getpid(), "mountinfo");
+	f = fopen_proc(pid, "mountinfo");
 	if (!f)
 		goto free_str;
 
@@ -811,6 +812,7 @@ static int autofs_post_open(struct file_desc *d, int fd)
 	struct pipe_info *pi = container_of(d, struct pipe_info, d);
 	autofs_info_t *i = container_of(pi, autofs_info_t, pi);
 	int mnt_fd;
+	int pid = syscall(__NR_getpid);
 
 	pr_info("%s: restoring %s\n", __func__, i->mnt_path);
 
@@ -835,12 +837,12 @@ static int autofs_post_open(struct file_desc *d, int fd)
 
 	if (i->entry->has_read_fd) {
 		pr_info("%s: pid %d, closing write end %d\n", __func__,
-				getpid(), i->entry->fd);
+				pid, i->entry->fd);
 		close(i->entry->fd);
 	}
 
 	pr_info("%s: pid %d, closing artificial pipe end %d\n", __func__,
-					getpid(), fd);
+					pid, fd);
 	close(fd);
 	return 0;
 }
@@ -970,7 +972,7 @@ static int autofs_add_mount_info(struct pprep_head *ph)
 
 	if (entry->fd == -1)
 		/* Catatonic mounts have no owner. Keep them with init. */
-		master = pstree_item_by_virt(getpid());
+		master = pstree_item_by_virt(syscall(__NR_getpid));
 	else
 		master = pstree_item_by_virt(entry->pgrp);
 	BUG_ON(!master);

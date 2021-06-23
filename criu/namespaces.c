@@ -412,7 +412,7 @@ static unsigned int generate_ns_id(int pid, unsigned int kid, struct ns_desc *nd
 	if (nsid)
 		goto found;
 
-	if (pid != getpid()) {
+	if (pid != syscall(__NR_getpid)) {
 		type = NS_OTHER;
 		if (pid == root_item->pid->real) {
 			BUG_ON(root_ns_mask & nd->cflag);
@@ -1245,7 +1245,7 @@ static inline void unsc_msg_init(struct unsc_msg *m, uns_call_t *c,
 	ch->cmsg_type = SCM_CREDENTIALS;
 
 	ucred = (struct ucred *) CMSG_DATA(ch);
-	ucred->pid = getpid();
+	ucred->pid = syscall(__NR_getpid);
 	ucred->uid = getuid();
 	ucred->gid = getgid();
 
@@ -1372,7 +1372,7 @@ int __userns_call(const char *func_name, uns_call_t call, int flags,
 	}
 
 	if (!usernsd_pid)
-		return call(arg, fd, getpid());
+		return call(arg, fd, syscall(__NR_getpid));
 
 	sk = get_service_fd(USERNSD_SK);
 	if (sk < 0) {

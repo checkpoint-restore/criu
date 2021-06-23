@@ -176,13 +176,14 @@ int kdat_compatible_cr(void)
 
 static int kdat_x86_has_ptrace_fpu_xsave_bug_child(void *arg)
 {
+	int pid = syscall(__NR_getpid);
 	if (ptrace(PTRACE_TRACEME, 0, 0, 0)) {
-		pr_perror("%d: ptrace(PTRACE_TRACEME) failed", getpid());
+		pr_perror("%d: ptrace(PTRACE_TRACEME) failed", pid);
 		_exit(1);
 	}
 
-	if (kill(getpid(), SIGSTOP))
-		pr_perror("%d: failed to kill myself", getpid());
+	if (kill(pid, SIGSTOP))
+		pr_perror("%d: failed to kill myself", pid);
 
 	pr_err("Continue after SIGSTOP.. Urr what?\n");
 	_exit(1);

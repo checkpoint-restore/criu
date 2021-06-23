@@ -602,7 +602,8 @@ static int open_shmem(int pid, struct vma_area *vma)
 	}
 
 	if (f == -1) {
-		f = open_proc_rw(getpid(), "map_files/%lx-%lx",
+		pid_t pid = syscall(__NR_getpid);
+		f = open_proc_rw(pid, "map_files/%lx-%lx",
 				(unsigned long) addr,
 				(unsigned long) addr + si->size);
 		if (f < 0)

@@ -595,7 +595,7 @@ int dump_my_file(int lfd, u32 *id, int *type)
 	struct fd_opts fo = {};
 	FdinfoEntry e = FDINFO_ENTRY__INIT;
 
-	me.real = getpid();
+	me.real = syscall(__NR_getpid);
 	me.ns[0].virt = -1; /* FIXME */
 
 	if (dump_one_file(&me, lfd, lfd, &fo, NULL, &e, NULL))

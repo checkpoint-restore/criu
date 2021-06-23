@@ -171,7 +171,7 @@ static int check_sock_peek_off(void)
 
 static int check_kcmp(void)
 {
-	int ret = syscall(SYS_kcmp, getpid(), -1, -1, -1, -1);
+	int ret = syscall(SYS_kcmp, syscall(__NR_getpid), -1, -1, -1, -1);
 
 	if (ret < 0 && errno == ENOSYS) {
 		pr_perror("System call kcmp is not supported");
@@ -263,7 +263,7 @@ static int check_proc_stat(void)
 	struct proc_pid_stat stat;
 	int ret;
 
-	ret = parse_pid_stat(getpid(), &stat);
+	ret = parse_pid_stat(syscall(__NR_getpid), &stat);
 	if (ret) {
 		pr_msg("procfs: stat extension is not supported\n");
 		return -1;
@@ -519,7 +519,7 @@ static int check_sigqueuinfo(void)
 
 	signal(SIGUSR1, SIG_IGN);
 
-	if (syscall(SYS_rt_sigqueueinfo, getpid(), SIGUSR1, &info) < 0) {
+	if (syscall(SYS_rt_sigqueueinfo, syscall(__NR_getpid), SIGUSR1, &info) < 0) {
 		pr_perror("Unable to send siginfo with positive si_code to itself");
 		return -1;
 	}
@@ -679,7 +679,7 @@ static void check_special_mapping_mremap_child(struct special_mapping *vmas,
 {
 	size_t i, parking_size = 0;
 	void *parking_lot;
-	pid_t self = getpid();
+	pid_t self = syscall(__NR_getpid);
 
 	for (i = 0; i < nr; i++) {
 		if (vmas[i].addr != MAP_FAILED)
@@ -1383,7 +1383,7 @@ int cr_check(void)
 	if (root_item == NULL)
 		return -1;
 
-	root_item->pid->real = getpid();
+	root_item->pid->real = syscall(__NR_getpid);
 
 	if (collect_pstree_ids())
 		return -1;

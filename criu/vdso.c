@@ -681,7 +681,7 @@ int kerndat_vdso_preserves_hint(void)
 		if (new_addr == MAP_FAILED)
 			exit(1);
 
-		child = getpid();
+		child = syscall(__NR_getpid);
 		new_addr = (void *)syscall(SYS_mremap, vdso_addr, vdso_size,
 			vdso_size, MREMAP_MAYMOVE | MREMAP_FIXED, new_addr);
 		if (new_addr == MAP_FAILED)

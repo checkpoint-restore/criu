@@ -1389,7 +1389,8 @@ static int post_open_standalone(struct file_desc *d, int fd)
 		return -1;
 
 	if (peer->flags & USK_GHOST_FDSTORE) {
-		procfs_self_dir = open_proc(getpid(), "fd");
+		pid_t pid = syscall(__NR_getpid);
+		procfs_self_dir = open_proc(pid, "fd");
 		fdstore_fd = fdstore_get(peer->fdstore_id);
 
 		if (fdstore_fd < 0 || procfs_self_dir < 0)

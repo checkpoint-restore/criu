@@ -812,7 +812,7 @@ static int collect_pstree_ids_predump(void)
 	 */
 
 	crt.i.pid->state = TASK_ALIVE;
-	crt.i.pid->real = getpid();
+	crt.i.pid->real = syscall(__NR_getpid);
 
 	if (predump_task_ns_ids(&crt.i))
 		return -1;
@@ -1308,7 +1308,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 
 	if (fault_injected(FI_DUMP_EARLY)) {
 		pr_info("fault: CRIU sudden detach\n");
-		kill(getpid(), SIGKILL);
+		kill(syscall(__NR_getpid), SIGKILL);
 	}
 
 	if (root_ns_mask & CLONE_NEWPID && root_item == item) {

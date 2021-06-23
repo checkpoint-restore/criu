@@ -228,7 +228,7 @@ void kerndat_lsm(void)
 		 * seem to be enough for CRIU's use case. CRIU actually needs to look if
 		 * a valid label is returned.
 		 */
-		if (getpidcon_raw(getpid(), &ctx) < 0)
+		if (getpidcon_raw(syscall(__NR_getpid), &ctx) < 0)
 			goto no_lsm;
 
 		if (verify_selinux_label(ctx)) {

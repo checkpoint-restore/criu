@@ -87,7 +87,7 @@ int init_service_fd(void)
 	 * conflict with any 'real-life' ones
 	 */
 
-	if (syscall(__NR_prlimit64, getpid(), RLIMIT_NOFILE, NULL, &rlimit)) {
+	if (syscall(__NR_prlimit64, syscall(__NR_getpid), RLIMIT_NOFILE, NULL, &rlimit)) {
 		pr_perror("Can't get rlimit");
 		return -1;
 	}

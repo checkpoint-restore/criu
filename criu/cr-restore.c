@@ -1811,7 +1811,7 @@ static int restore_task_with_children(void *_arg)
 				current->pid->real, vpid(current));
 	}
 
-	pid = getpid();
+	pid = syscall(__NR_getpid);
 	if (vpid(current) != pid) {
 		pr_err("Pid %d do not match expected %d\n", pid, vpid(current));
 		set_task_cr_err(EEXIST);
@@ -1913,7 +1913,7 @@ static int restore_task_with_children(void *_arg)
 
 	if (fault_injected(FI_RESTORE_ROOT_ONLY)) {
 		pr_info("fault: Restore root task failure!\n");
-		kill(getpid(), SIGKILL);
+		kill(syscall(__NR_getpid), SIGKILL);
 	}
 
 	if (open_transport_socket())
@@ -2163,7 +2163,7 @@ static int prepare_userns_hook(void)
 	 * inside container due to permissions.
 	 * But you still can set this value if it was unset.
 	 */
-	saved_loginuid = parse_pid_loginuid(getpid(), &ret, false);
+	saved_loginuid = parse_pid_loginuid(syscall(__NR_getpid), &ret, false);
 	if (ret < 0)
 		return -1;
 

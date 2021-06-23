@@ -207,7 +207,7 @@ int prepare_inventory(InventoryEntry *he)
 	he->lsmtype = host_lsm_type();
 
 	crt.i.pid->state = TASK_ALIVE;
-	crt.i.pid->real = getpid();
+	crt.i.pid->real = syscall(__NR_getpid);
 	if (get_task_ids(&crt.i))
 		return -1;
 
