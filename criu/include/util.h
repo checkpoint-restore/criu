@@ -388,4 +388,11 @@ extern char *get_legacy_iptables_bin(bool ipv6);
 extern ssize_t read_all(int fd, void *buf, size_t size);
 extern ssize_t write_all(int fd, const void *buf, size_t size);
 
+#define cleanup_free __attribute__ ((cleanup (cleanup_freep)))
+static inline void cleanup_freep (void *p)
+{
+	void **pp = (void **) p;
+	free (*pp);
+}
+
 #endif /* __CR_UTIL_H__ */
