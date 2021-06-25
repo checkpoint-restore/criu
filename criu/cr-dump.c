@@ -1167,11 +1167,11 @@ static int pre_dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie
 	pr_info("========================================\n");
 
 	/*
-	 * Send pidfd of task over pidfd_store_sk if it is set.
+	 * Add pidfd of task to pidfd_store if it is initialized.
 	 * This pidfd will be used in the next pre-dump/dump iteration
 	 * in detect_pid_reuse().
 	 */
-	ret = send_pidfd_entry(pid);
+	ret = pidfd_store_add(pid);
 	if (ret)
 		goto err;
 
