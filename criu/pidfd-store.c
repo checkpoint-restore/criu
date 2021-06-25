@@ -14,10 +14,20 @@
 #include "util.h"
 #include "pidfd-store.h"
 
-int pidfd_store_sk = -1;
+struct pidfd_entry {
+	pid_t				pid;
+	int				pidfd;
+	struct hlist_node		hash; /* To lookup pidfd by pid */
+};
+
+static int pidfd_store_sk = -1;
 #define PIDFD_HASH_SIZE	32
 static struct hlist_head pidfd_hash[PIDFD_HASH_SIZE];
 
+/*
+ * Steal (sk) from remote RPC client (pid) and prepare it to
+ * be used as the pidfd storage socket.
+ */
 int init_pidfd_store_sk(pid_t pid, int sk)
 {
 	int pidfd;
@@ -100,7 +110,7 @@ int init_pidfd_store_sk(pid_t pid, int sk)
 			goto err;
 		}
 
-		if (connect(pidfd_store_sk, (struct sockaddr *) &addr, addrlen)) {
+		if (connect(pidfd_store_sk, (struct sockaddr *)&addr, addrlen)) {
 			pr_perror("Unable to connect a socket");
 			goto err;
 		}
@@ -148,9 +158,8 @@ int init_pidfd_store_hash(void)
 	cnt = 0;
 	while (1) {
 		entry = xmalloc(sizeof(struct pidfd_entry));
-		if (entry == NULL) {
-			return -1;
-		}
+		if (entry == NULL)
+			goto err;
 		INIT_HLIST_NODE(&entry->hash);
 
 		ret = __recv_fds(pidfd_store_sk, &entry->pidfd, 1, &entry->pid, sizeof(pid_t), MSG_DONTWAIT);
@@ -161,14 +170,16 @@ int init_pidfd_store_hash(void)
 		} else if (ret) {
 			pr_perror("Can't read pidfd");
 			xfree(entry);
-			free_pidfd_store();
-			return ret;
+			goto err;
 		}
 
 		cnt++;
 		hlist_add_head(&entry->hash, &pidfd_hash[entry->pid % PIDFD_HASH_SIZE]);
 	}
 
+err:
+	free_pidfd_store();
+	return -1;
 check_empty:
 	/*
 	 * If no pidfds exist in pidfd_store. This would cause full page
@@ -184,7 +195,7 @@ check_empty:
 	return 0;
 }
 
-struct pidfd_entry *find_pidfd_entry_by_pid(pid_t pid)
+static struct pidfd_entry *find_pidfd_entry_by_pid(pid_t pid)
 {
 	struct pidfd_entry *entry;
 	struct hlist_head *chain;
@@ -203,7 +214,7 @@ struct pidfd_entry *find_pidfd_entry_by_pid(pid_t pid)
  * 0 - task still running
  * -1 - error
  */
-int check_pidfd_entry_state(struct pidfd_entry *entry)
+static int check_pidfd_entry_state(struct pidfd_entry *entry)
 {
 	struct pollfd pollfd;
 	int ret, restart_cnt = 0;
@@ -227,7 +238,7 @@ int check_pidfd_entry_state(struct pidfd_entry *entry)
 	}
 }
 
-int send_pidfd_entry(pid_t pid)
+int pidfd_store_add(pid_t pid)
 {
 	int pidfd, entry_state;
 	struct pidfd_entry *entry;
@@ -247,7 +258,7 @@ int send_pidfd_entry(pid_t pid)
 		if (entry_state == -1) {
 			pr_perror("Can't get state of pidfd entry of pid %d", pid);
 			return -1;
-		} else if(entry_state == 1) {
+		} else if (entry_state == 1) {
 			/* Task is closed, We need to create a new pidfd for task. */
 			entry = NULL;
 		}
@@ -270,13 +281,47 @@ int send_pidfd_entry(pid_t pid)
 
 	if (send_fds(pidfd_store_sk, NULL, 0, &pidfd, 1, &pid, sizeof(pid_t))) {
 		pr_perror("Can't send pidfd %d of pid %d", pidfd, pid);
-		if(!entry)
+		if (!entry)
 			close(pidfd);
 		return -1;
 	}
 
-	if(!entry)
+	if (!entry)
 		close(pidfd);
 
 	return 0;
+}
+
+/*
+ * 1 - pid reuse detected
+ * 0 - task still running
+ * -1 - error
+ */
+int pidfd_store_check_pid_reuse(pid_t pid)
+{
+	struct pidfd_entry *entry;
+	int ret;
+
+	entry = find_pidfd_entry_by_pid(pid);
+	if (entry == NULL) {
+		/*
+		 * This task was created between two iteration so it
+		 * should be marked as a pid reuse to make a full memory dump.
+		 */
+		pr_warn("Pid reuse detected for pid %d\n", pid);
+		return 1;
+	}
+
+	ret = check_pidfd_entry_state(entry);
+	if (ret == -1)
+		pr_err("Failed to get pidfd entry state for pid %d\n", pid);
+	else if (ret == 1)
+		pr_warn("Pid reuse detected for pid %d\n", pid);
+
+	return ret;
+}
+
+bool pidfd_store_ready(void)
+{
+	return pidfd_store_sk != -1;
 }

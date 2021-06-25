@@ -314,33 +314,12 @@ static int detect_pid_reuse(struct pstree_item *item,
 {
 	unsigned long long dump_ticks;
 	struct proc_pid_stat pps_buf;
-	struct pidfd_entry *entry;
 	unsigned long long tps; /* ticks per second */
 	int ret;
 
 	/* Check pid reuse using pidfds */
-	if (pidfd_store_sk != -1) {
-		entry = find_pidfd_entry_by_pid(item->pid->real);
-		if (entry == NULL) {
-			/*
-			 * This task was created between two iteration so it
-			 * should be marked as a pid reuse to make a full memory dump.
-			 */
-			pr_warn("Pid reuse detected for pid %d\n", item->pid->real);
-			return 1;
-		}
-
-		ret = check_pidfd_entry_state(entry);
-		if (ret < 0) {
-			pr_err("Failed to get pidfd entry state for pid %d\n", item->pid->real);
-			return -1;
-		}
-
-		if (ret == 1)
-			pr_warn("Pid reuse detected for pid %d\n", item->pid->real);
-
-		return ret;
-	}
+	if (pidfd_store_ready())
+		return pidfd_store_check_pid_reuse(item->pid->real);
 
 	if (!parent_ie) {
 		pr_err("Pid-reuse detection failed: no parent inventory, " \
