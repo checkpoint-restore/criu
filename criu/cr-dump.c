@@ -83,6 +83,7 @@
 #include "memfd.h"
 #include "timens.h"
 #include "img-streamer.h"
+#include "pidfd-store.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
