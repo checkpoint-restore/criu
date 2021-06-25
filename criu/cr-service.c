@@ -729,6 +729,8 @@ static int dump_using_req(int sk, CriuOpts *req)
 
 	setproctitle("dump --rpc -t %d -D %s", req->pid, images_dir);
 
+	if (init_pidfd_store_hash())
+		goto pidfd_store_err;
 	/*
 	 * FIXME -- cr_dump_tasks() may return code from custom
 	 * scripts, that can be positive. However, right now we
@@ -740,6 +742,8 @@ static int dump_using_req(int sk, CriuOpts *req)
 
 	success = true;
 exit:
+	free_pidfd_store();
+pidfd_store_err:
 	if (req->leave_running  || !self_dump || !success) {
 		if (send_criu_dump_resp(sk, success, false) == -1) {
 			pr_perror("Can't send response");
@@ -850,11 +854,16 @@ static int pre_dump_using_req(int sk, CriuOpts *req)
 
 		setproctitle("pre-dump --rpc -t %d -D %s", req->pid, images_dir);
 
+		if (init_pidfd_store_hash())
+			goto pidfd_store_err;
+
 		if (cr_pre_dump_tasks(req->pid))
 			goto cout;
 
 		ret = 0;
 cout:
+		free_pidfd_store();
+pidfd_store_err:
 		exit(ret);
 	}
 

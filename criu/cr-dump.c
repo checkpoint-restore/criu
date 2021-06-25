@@ -1572,7 +1572,6 @@ static int cr_pre_dump_finish(int status)
 
 	free_pstree(root_item);
 	seccomp_free_entries();
-	free_pidfd_store();
 
 	if (irmap_predump_run()) {
 		ret = -1;
@@ -1625,9 +1624,6 @@ int cr_pre_dump_tasks(pid_t pid)
 	}
 
 	if (init_stats(DUMP_STATS))
-		goto err;
-
-	if (init_pidfd_store_hash())
 		goto err;
 
 	if (cr_plugin_init(CR_PLUGIN_STAGE__PRE_DUMP))
@@ -1786,7 +1782,6 @@ static int cr_dump_finish(int ret)
 	free_link_remaps();
 	free_aufs_branches();
 	free_userns_maps();
-	free_pidfd_store();
 
 	close_service_fd(CR_PROC_FD_OFF);
 	close_image_dir();
@@ -1830,9 +1825,6 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 	}
 	if (init_stats(DUMP_STATS))
-		goto err;
-
-	if (init_pidfd_store_hash())
 		goto err;
 
 	if (cr_plugin_init(CR_PLUGIN_STAGE__DUMP))
