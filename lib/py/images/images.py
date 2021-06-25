@@ -311,7 +311,7 @@ class pipes_data_extra_handler:
     def load(self, f, pload):
         size = pload.bytes
         data = f.read(size)
-        return base64.encodebytes(data).decode()
+        return base64.encodebytes(data).decode('utf-8')
 
     def dump(self, extra, f, pload):
         if (sys.version_info > (3, 0)):
@@ -329,7 +329,7 @@ class sk_queues_extra_handler:
     def load(self, f, pload):
         size = pload.length
         data = f.read(size)
-        return base64.encodebytes(data).decode()
+        return base64.encodebytes(data).decode('utf-8')
 
     def dump(self, extra, f, _unused):
         if (sys.version_info > (3, 0)):
@@ -350,8 +350,8 @@ class tcp_stream_extra_handler:
         inq = f.read(pbuff.inq_len)
         outq = f.read(pbuff.outq_len)
 
-        d['inq'] = base64.encodebytes(inq)
-        d['outq'] = base64.encodebytes(outq)
+        d['inq'] = base64.encodebytes(inq).decode('utf-8')
+        d['outq'] = base64.encodebytes(outq).decode('utf-8')
 
         return d
 
@@ -370,7 +370,7 @@ class bpfmap_data_extra_handler:
     def load(self, f, pload):
         size = pload.keys_bytes + pload.values_bytes
         data = f.read(size)
-        return base64.encodebytes(data)
+        return base64.encodebytes(data).decode('utf-8')
 
     def dump(self, extra, f, pload):
         data = base64.decodebytes(extra)
@@ -427,7 +427,7 @@ class ipc_msg_queue_handler:
             data = f.read(msg.msize)
             f.seek(rounded - msg.msize, 1)
             messages.append(pb2dict.pb2dict(msg))
-            messages.append(base64.encodebytes(data))
+            messages.append(base64.encodebytes(data).decode('utf-8'))
         return messages
 
     def dump(self, extra, f, pbuff):
@@ -467,7 +467,7 @@ class ipc_shm_handler:
         data = f.read(size)
         rounded = round_up(size, sizeof_u32)
         f.seek(rounded - size, 1)
-        return base64.encodebytes(data)
+        return base64.encodebytes(data).decode('utf-8')
 
     def dump(self, extra, f, pbuff):
         entry = pb2dict.pb2dict(pbuff)
