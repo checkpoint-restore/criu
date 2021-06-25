@@ -452,7 +452,7 @@ static int parse_topo_node_mem_banks(struct tp_node *node, const char *dir_path)
 
 	while ((dirent_node = readdir(d_node)) != NULL) {
 		char line[300];
-		char bank_path[300];
+		char bank_path[1024];
 		struct stat st;
 		int id;
 
@@ -463,16 +463,16 @@ static int parse_topo_node_mem_banks(struct tp_node *node, const char *dir_path)
 		if (sscanf(dirent_node->d_name, "%d", &id) != 1)
 			continue;
 
-		sprintf(bank_path, "%s/%s", path, dirent_node->d_name);
+		snprintf(bank_path, sizeof(bank_path), "%s/%s", path, dirent_node->d_name);
 		if (stat(bank_path, &st)) {
 			pr_err("Cannot to access %s\n", path);
 			ret = -EACCES;
 			goto fail;
 		}
 		if ((st.st_mode & S_IFMT) == S_IFDIR) {
-			char properties_path[300];
+			char properties_path[PATH_MAX];
 
-			sprintf(properties_path, "%s/properties", bank_path);
+			snprintf(properties_path, sizeof(properties_path), "%s/properties", bank_path);
 
 			file = fopen(properties_path, "r");
 			if (!file) {
@@ -529,7 +529,7 @@ static int parse_topo_node_iolinks(struct tp_node *node, const char *dir_path)
 	FILE *file = NULL;
 	int ret = 0;
 
-	sprintf(path, "%s/io_links", dir_path);
+	snprintf(path, sizeof(path), "%s/io_links", dir_path);
 
 	d_node = opendir(path);
 	if (!d_node) {
@@ -539,7 +539,7 @@ static int parse_topo_node_iolinks(struct tp_node *node, const char *dir_path)
 
 	while ((dirent_node = readdir(d_node)) != NULL) {
 		char line[300];
-		char iolink_path[300];
+		char iolink_path[1024];
 		struct stat st;
 		int id;
 
@@ -550,16 +550,16 @@ static int parse_topo_node_iolinks(struct tp_node *node, const char *dir_path)
 		if (sscanf(dirent_node->d_name, "%d", &id) != 1)
 			continue;
 
-		sprintf(iolink_path, "%s/%s", path, dirent_node->d_name);
+		snprintf(iolink_path, sizeof(iolink_path), "%s/%s", path, dirent_node->d_name);
 		if (stat(iolink_path, &st)) {
 			pr_err("Cannot to access %s\n", path);
 			ret = -EACCES;
 			goto fail;
 		}
 		if ((st.st_mode & S_IFMT) == S_IFDIR) {
-			char properties_path[300];
+			char properties_path[PATH_MAX];
 
-			sprintf(properties_path, "%s/properties", iolink_path);
+			snprintf(properties_path, sizeof(properties_path), "%s/properties", iolink_path);
 
 			file = fopen(properties_path, "r");
 			if (!file) {
