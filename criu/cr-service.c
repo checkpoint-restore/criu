@@ -40,7 +40,7 @@
 #include "proc_parse.h"
 #include "common/scm.h"
 #include "uffd.h"
-#include "mem.h"
+#include "pidfd-store.h"
 
 #include "setproctitle.h"
 
