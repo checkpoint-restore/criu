@@ -605,12 +605,16 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 	tv.tv_usec = soe->so_rcv_tmo_usec;
 	ret |= restore_opt(sk, SOL_SOCKET, SO_RCVTIMEO, &tv);
 
-	ret |= restore_bound_dev(sk, soe);
 	ret |= restore_socket_filter(sk, soe);
 
 	/* The restore of SO_REUSEADDR depends on type of socket */
 
 	return ret;
+}
+
+int restore_bound_opts(int sk, SkOptsEntry *soe)
+{
+	return restore_bound_dev(sk, soe);
 }
 
 int do_dump_opt(int sk, int level, int name, void *val, int len)
