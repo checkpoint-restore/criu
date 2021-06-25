@@ -214,6 +214,7 @@ TST_NOFILE	:=				\
 		uffd-events			\
 		thread_different_uid_gid	\
 		pipe03				\
+		netns_lock			\
 		netns_sub			\
 		netns_sub_veth			\
 		netns_sub_sysctl	\
@@ -241,7 +242,8 @@ TST_NOFILE	:=				\
 		sigtrap01			\
 #		jobctl00			\
 
-pkg-config-check = $(shell sh -c 'pkg-config $(1) && echo y')
+PKG_CONFIG ?= pkg-config
+pkg-config-check = $(shell sh -c '$(PKG_CONFIG) $(1) && echo y')
 ifeq ($(call pkg-config-check,libbpf),y)
 TST_NOFILE	+=				\
 		bpf_hash			\

@@ -266,6 +266,10 @@ crit: criu
 	$(Q) $(MAKE) $(build)=crit all
 .PHONY: crit
 
+unittest: $(criu-deps)
+	$(Q) $(MAKE) $(build)=criu unittest
+.PHONY: unittest
+
 
 #
 # Libraries next once crit it ready
@@ -412,6 +416,7 @@ help:
 	@echo '      test            - Run zdtm test-suite'
 	@echo '      gcov            - Make code coverage report'
 	@echo '      amdgpu_plugin   - Make AMD GPU plugin'
+	@echo '      unittest        - Run unit tests'
 .PHONY: help
 
 lint:
@@ -424,6 +429,7 @@ lint:
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh scripts/ci/apt-install
 	shellcheck test/others/crit/*.sh
+	shellcheck test/others/config-file/*.sh
 	# Do not append \n to pr_perror or fail
 	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>.*\\n"'
 	# Do not use %m with pr_perror or fail

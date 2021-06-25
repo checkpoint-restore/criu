@@ -16,7 +16,7 @@ try-asm = $(call try-compile,assembler-with-cpp,$(1),$(2),$(3))
 
 # pkg-config-check
 # Usage: ifeq ($(call pkg-config-check, library),y)
-pkg-config-check = $(shell sh -c 'pkg-config $(1) && echo y')
+pkg-config-check = $(shell sh -c '$(PKG_CONFIG) $(1) && echo y')
 
 #
 # Remove duplicates.

@@ -37,6 +37,7 @@ HOSTCC	?= gcc
 ifeq ($(origin CC), default)
         CC := $(CROSS_COMPILE)$(HOSTCC)
 endif
+PKG_CONFIG ?= pkg-config
 CFLAGS	+= -g -O2 -Wall -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 CFLAGS	+= -Wdeclaration-after-statement -Wstrict-prototypes
 CFLAGS	+= $(USERCFLAGS)
@@ -55,7 +56,7 @@ RM := rm -f --one-file-system
 
 ifeq ($(COMPAT_TEST),y)
         # Firstly look for 32-bit libs and then in standard path.
-        PKG_CONFIG_PATH := $(shell pkg-config --variable pc_path pkg-config)
+        PKG_CONFIG_PATH := $(shell $(PKG_CONFIG) --variable pc_path pkg-config)
         PKG_CONFIG_PATH := /usr/lib32/pkgconfig:$(PKG_CONFIG_PATH)
 ifeq ($(ARCH),x86)
         export CFLAGS += -m32
@@ -66,11 +67,11 @@ endif
 endif
 
 define pkg-libs
-        $(shell PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" pkg-config --libs $(1))
+        $(shell PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" $(PKG_CONFIG) --libs $(1))
 endef
 
 define pkg-cflags
-        $(shell PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" pkg-config --cflags $(1))
+        $(shell PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" $(PKG_CONFIG) --cflags $(1))
 endef
 
 %.d: %.c
