@@ -16,6 +16,10 @@
 #include <pthread.h>
 #include <semaphore.h>
 
+#include <xf86drm.h>
+#include <libdrm/amdgpu.h>
+#include <libdrm/amdgpu_drm.h>
+
 #include "criu-plugin.h"
 #include "plugin.h"
 #include "criu-amdgpu.pb-c.h"
@@ -35,7 +39,7 @@
 #define HSAKMT_SEM	  "hsakmt_semaphore"
 
 #define KFD_IOCTL_MAJOR_VERSION	    1
-#define MIN_KFD_IOCTL_MINOR_VERSION 7
+#define MIN_KFD_IOCTL_MINOR_VERSION 8
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE 1
@@ -53,6 +57,18 @@
 	{                        \
 	}
 #endif
+
+#define SDMA_PACKET(op, sub_op, e) ((((e)&0xFFFF) << 16) | (((sub_op)&0xFF) << 8) | (((op)&0xFF) << 0))
+
+#define SDMA_OPCODE_COPY	    1
+#define SDMA_COPY_SUB_OPCODE_LINEAR 0
+#define SDMA_NOP		    0
+#define SDMA_LINEAR_COPY_MAX_SIZE   (1ULL << 21)
+
+enum sdma_op_type {
+	SDMA_OP_VRAM_READ,
+	SDMA_OP_VRAM_WRITE,
+};
 
 struct vma_metadata {
 	struct list_head list;
@@ -497,81 +513,389 @@ int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
 }
 CR_PLUGIN_REGISTER_HOOK(CR_PLUGIN_HOOK__HANDLE_DEVICE_VMA, amdgpu_plugin_handle_device_vma)
 
+int alloc_and_map(amdgpu_device_handle h_dev, uint64_t size, uint32_t domain, amdgpu_bo_handle *ph_bo,
+		  amdgpu_va_handle *ph_va, uint64_t *p_gpu_addr, void **p_cpu_addr)
+{
+	struct amdgpu_bo_alloc_request alloc_req;
+	amdgpu_bo_handle h_bo;
+	amdgpu_va_handle h_va;
+	uint64_t gpu_addr;
+	void *cpu_addr;
+	int err;
+
+	memset(&alloc_req, 0, sizeof(alloc_req));
+	alloc_req.alloc_size = size;
+	alloc_req.phys_alignment = 0x1000;
+	alloc_req.preferred_heap = domain;
+	alloc_req.flags = 0;
+	err = amdgpu_bo_alloc(h_dev, &alloc_req, &h_bo);
+	if (err) {
+		pr_perror("failed to alloc BO");
+		return err;
+	}
+	err = amdgpu_va_range_alloc(h_dev, amdgpu_gpu_va_range_general, size, 0x1000, 0, &gpu_addr, &h_va, 0);
+	if (err) {
+		pr_perror("failed to alloc VA");
+		goto err_va;
+	}
+	err = amdgpu_bo_va_op(h_bo, 0, size, gpu_addr, 0, AMDGPU_VA_OP_MAP);
+	if (err) {
+		pr_perror("failed to GPU map BO");
+		goto err_gpu_map;
+	}
+	if (p_cpu_addr) {
+		err = amdgpu_bo_cpu_map(h_bo, &cpu_addr);
+		if (err) {
+			pr_perror("failed to CPU map BO");
+			goto err_cpu_map;
+		}
+		*p_cpu_addr = cpu_addr;
+	}
+
+	*ph_bo = h_bo;
+	*ph_va = h_va;
+	*p_gpu_addr = gpu_addr;
+
+	return 0;
+
+err_cpu_map:
+	amdgpu_bo_va_op(h_bo, 0, size, gpu_addr, 0, AMDGPU_VA_OP_UNMAP);
+err_gpu_map:
+	amdgpu_va_range_free(h_va);
+err_va:
+	amdgpu_bo_free(h_bo);
+	return err;
+}
+
+void free_and_unmap(uint64_t size, amdgpu_bo_handle h_bo, amdgpu_va_handle h_va, uint64_t gpu_addr, void *cpu_addr)
+{
+	if (cpu_addr)
+		amdgpu_bo_cpu_unmap(h_bo);
+	amdgpu_bo_va_op(h_bo, 0, size, gpu_addr, 0, AMDGPU_VA_OP_UNMAP);
+	amdgpu_va_range_free(h_va);
+	amdgpu_bo_free(h_bo);
+}
+
+int sdma_copy_bo(struct kfd_criu_bo_bucket *bo_buckets, BoEntry **bo_info_test, int i, amdgpu_device_handle h_dev,
+		 uint64_t max_copy_size, enum sdma_op_type type)
+{
+	uint64_t size, gpu_addr_src, gpu_addr_dest, gpu_addr_ib;
+	uint64_t gpu_addr_src_orig, gpu_addr_dest_orig;
+	amdgpu_va_handle h_va_src, h_va_dest, h_va_ib;
+	amdgpu_bo_handle h_bo_src, h_bo_dest, h_bo_ib;
+	struct amdgpu_bo_import_result res = { 0 };
+	uint64_t copy_size, bytes_remain, j = 0;
+	uint64_t n_packets;
+	struct amdgpu_cs_ib_info ib_info;
+	amdgpu_bo_list_handle h_bo_list;
+	struct amdgpu_cs_request cs_req;
+	amdgpu_bo_handle resources[3];
+	struct amdgpu_cs_fence fence;
+	uint32_t expired;
+	amdgpu_context_handle h_ctx;
+	void *userptr = NULL;
+	uint32_t *ib = NULL;
+	int err, shared_fd;
+
+	shared_fd = bo_buckets[i].dmabuf_fd;
+	size = bo_buckets[i].size;
+
+	plugin_log_msg("Enter %s\n", __func__);
+
+	/* prepare src buffer */
+	switch (type) {
+	case SDMA_OP_VRAM_WRITE:
+		/* create the userptr BO and prepare the src buffer */
+		posix_memalign(&userptr, sysconf(_SC_PAGE_SIZE), size);
+		if (!userptr) {
+			pr_perror("failed to alloc memory for userptr");
+			return -ENOMEM;
+		}
+
+		memcpy(userptr, bo_info_test[i]->rawdata.data, size);
+		plugin_log_msg("data copied to userptr from protobuf buffer\n");
+
+		err = amdgpu_create_bo_from_user_mem(h_dev, userptr, size, &h_bo_src);
+		if (err) {
+			pr_perror("failed to create userptr for sdma");
+			free(userptr);
+			return -EFAULT;
+		}
+
+		break;
+
+	case SDMA_OP_VRAM_READ:
+		err = amdgpu_bo_import(h_dev, amdgpu_bo_handle_type_dma_buf_fd, shared_fd, &res);
+		if (err) {
+			pr_perror("failed to import dmabuf handle from libdrm");
+			return -EFAULT;
+		}
+
+		h_bo_src = res.buf_handle;
+		break;
+
+	default:
+		pr_perror("Invalid sdma operation");
+		return -EINVAL;
+	}
+
+	err = amdgpu_va_range_alloc(h_dev, amdgpu_gpu_va_range_general, size, 0x1000, 0, &gpu_addr_src, &h_va_src, 0);
+	if (err) {
+		pr_perror("failed to alloc VA for src bo");
+		goto err_src_va;
+	}
+	err = amdgpu_bo_va_op(h_bo_src, 0, size, gpu_addr_src, 0, AMDGPU_VA_OP_MAP);
+	if (err) {
+		pr_perror("failed to GPU map the src BO");
+		goto err_src_bo_map;
+	}
+	plugin_log_msg("Source BO: GPU VA: %lx, size: %lx\n", gpu_addr_src, size);
+	/* prepare dest buffer */
+	switch (type) {
+	case SDMA_OP_VRAM_WRITE:
+		err = amdgpu_bo_import(h_dev, amdgpu_bo_handle_type_dma_buf_fd, shared_fd, &res);
+		if (err) {
+			pr_perror("failed to import dmabuf handle from libdrm");
+			goto err_dest_bo_prep;
+		}
+
+		h_bo_dest = res.buf_handle;
+		break;
+
+	case SDMA_OP_VRAM_READ:
+		posix_memalign(&userptr, sysconf(_SC_PAGE_SIZE), size);
+		if (!userptr) {
+			pr_perror("failed to alloc memory for userptr");
+			goto err_dest_bo_prep;
+		}
+		memset(userptr, 0, size);
+		err = amdgpu_create_bo_from_user_mem(h_dev, userptr, size, &h_bo_dest);
+		if (err) {
+			pr_perror("failed to create userptr for sdma");
+			free(userptr);
+			goto err_dest_bo_prep;
+		}
+		break;
+
+	default:
+		pr_perror("Invalid sdma operation");
+		goto err_dest_bo_prep;
+	}
+
+	err = amdgpu_va_range_alloc(h_dev, amdgpu_gpu_va_range_general, size, 0x1000, 0, &gpu_addr_dest, &h_va_dest, 0);
+	if (err) {
+		pr_perror("failed to alloc VA for dest bo");
+		goto err_dest_va;
+	}
+	err = amdgpu_bo_va_op(h_bo_dest, 0, size, gpu_addr_dest, 0, AMDGPU_VA_OP_MAP);
+	if (err) {
+		pr_perror("failed to GPU map the dest BO");
+		goto err_dest_bo_map;
+	}
+	plugin_log_msg("Dest BO: GPU VA: %lx, size: %lx\n", gpu_addr_dest, size);
+
+	n_packets = (size + max_copy_size) / max_copy_size;
+	/* prepare ring buffer/indirect buffer for command submission
+	 * each copy packet is 7 dwords so we need to alloc 28x size for ib
+	 */
+	err = alloc_and_map(h_dev, n_packets * 28, AMDGPU_GEM_DOMAIN_GTT, &h_bo_ib, &h_va_ib, &gpu_addr_ib,
+			    (void **)&ib);
+	if (err) {
+		pr_perror("failed to allocate and map ib/rb");
+		goto err_ib_gpu_alloc;
+	}
+
+	plugin_log_msg("Indirect BO: GPU VA: %lx, size: %lx\n", gpu_addr_ib, n_packets * 28);
+
+	resources[0] = h_bo_src;
+	resources[1] = h_bo_dest;
+	resources[2] = h_bo_ib;
+	err = amdgpu_bo_list_create(h_dev, 3, resources, NULL, &h_bo_list);
+	if (err) {
+		pr_perror("failed to create BO resources list");
+		goto err_bo_list;
+	}
+
+	memset(&cs_req, 0, sizeof(cs_req));
+	memset(&fence, 0, sizeof(fence));
+	memset(ib, 0, n_packets * 28);
+
+	plugin_log_msg("setting up sdma packets for command submission\n");
+	bytes_remain = size;
+	gpu_addr_src_orig = gpu_addr_src;
+	gpu_addr_dest_orig = gpu_addr_dest;
+	while (bytes_remain > 0) {
+		copy_size = min(bytes_remain, max_copy_size);
+
+		ib[j++] = SDMA_PACKET(SDMA_OPCODE_COPY, SDMA_COPY_SUB_OPCODE_LINEAR, 0);
+		ib[j++] = copy_size;
+		ib[j++] = 0;
+		ib[j++] = 0xffffffff & gpu_addr_src;
+		ib[j++] = (0xffffffff00000000 & gpu_addr_src) >> 32;
+		ib[j++] = 0xffffffff & gpu_addr_dest;
+		ib[j++] = (0xffffffff00000000 & gpu_addr_dest) >> 32;
+
+		gpu_addr_src += copy_size;
+		gpu_addr_dest += copy_size;
+		bytes_remain -= copy_size;
+	}
+
+	gpu_addr_src = gpu_addr_src_orig;
+	gpu_addr_dest = gpu_addr_dest_orig;
+	plugin_log_msg("pad the IB to align on 8 dw boundary\n");
+	/* pad the IB to the required number of dw with SDMA_NOP */
+	while (j & 7)
+		ib[j++] = SDMA_NOP;
+
+	ib_info.ib_mc_address = gpu_addr_ib;
+	ib_info.size = j;
+
+	cs_req.ip_type = AMDGPU_HW_IP_DMA;
+	/* possible future optimization: may use other rings, info available in
+	 * amdgpu_query_hw_ip_info()
+	 */
+	cs_req.ring = 0;
+	cs_req.number_of_ibs = 1;
+	cs_req.ibs = &ib_info;
+	cs_req.resources = h_bo_list;
+	cs_req.fence_info.handle = NULL;
+
+	plugin_log_msg("create the context\n");
+	err = amdgpu_cs_ctx_create(h_dev, &h_ctx);
+	if (err) {
+		pr_perror("failed to create context for SDMA command submission");
+		goto err_ctx;
+	}
+
+	plugin_log_msg("initiate sdma command submission\n");
+	err = amdgpu_cs_submit(h_ctx, 0, &cs_req, 1);
+	if (err) {
+		pr_perror("failed to submit command for SDMA IB");
+		goto err_cs_submit_ib;
+	}
+
+	fence.context = h_ctx;
+	fence.ip_type = AMDGPU_HW_IP_DMA;
+	fence.ip_instance = 0;
+	fence.ring = 0;
+	fence.fence = cs_req.seq_no;
+	err = amdgpu_cs_query_fence_status(&fence, AMDGPU_TIMEOUT_INFINITE, 0, &expired);
+	if (err) {
+		pr_perror("failed to query fence status");
+		goto err_cs_submit_ib;
+	}
+
+	if (!expired) {
+		pr_err("IB execution did not complete\n");
+		err = -EBUSY;
+		goto err_cs_submit_ib;
+	}
+
+	plugin_log_msg("done querying fence status\n");
+
+	if (type == SDMA_OP_VRAM_READ) {
+		memcpy(bo_info_test[i]->rawdata.data, userptr, size);
+		plugin_log_msg("data copied to protobuf buffer\n");
+	}
+
+err_cs_submit_ib:
+	amdgpu_cs_ctx_free(h_ctx);
+err_ctx:
+	amdgpu_bo_list_destroy(h_bo_list);
+err_bo_list:
+	free_and_unmap(n_packets * 28, h_bo_ib, h_va_ib, gpu_addr_ib, ib);
+err_ib_gpu_alloc:
+	err = amdgpu_bo_va_op(h_bo_dest, 0, size, gpu_addr_dest, 0, AMDGPU_VA_OP_UNMAP);
+	if (err)
+		pr_perror("failed to GPU unmap the dest BO %lx, size = %lx", gpu_addr_dest, size);
+err_dest_bo_map:
+	err = amdgpu_va_range_free(h_va_dest);
+	if (err)
+		pr_perror("dest range free failed");
+err_dest_va:
+	err = amdgpu_bo_free(h_bo_dest);
+	if (err)
+		pr_perror("dest bo free failed");
+
+	if (userptr && (type == SDMA_OP_VRAM_READ)) {
+		free(userptr);
+		userptr = NULL;
+	}
+
+err_dest_bo_prep:
+	err = amdgpu_bo_va_op(h_bo_src, 0, size, gpu_addr_src, 0, AMDGPU_VA_OP_UNMAP);
+	if (err)
+		pr_perror("failed to GPU unmap the src BO %lx, size = %lx", gpu_addr_src, size);
+err_src_bo_map:
+	err = amdgpu_va_range_free(h_va_src);
+	if (err)
+		pr_perror("src range free failed");
+err_src_va:
+	err = amdgpu_bo_free(h_bo_src);
+	if (err)
+		pr_perror("src bo free failed");
+
+	if (userptr && (type == SDMA_OP_VRAM_WRITE)) {
+		free(userptr);
+		userptr = NULL;
+	}
+
+	plugin_log_msg("Leaving sdma_copy_bo, err = %d\n", err);
+	return err;
+}
+
 void *dump_bo_contents(void *_thread_data)
 {
-	int i, ret = 0;
-	int num_bos = 0;
 	struct thread_data *thread_data = (struct thread_data *)_thread_data;
 	struct kfd_criu_bo_bucket *bo_buckets = thread_data->bo_buckets;
 	BoEntry **bo_info = thread_data->bo_entries;
-	char *fname;
-	int mem_fd = -1;
+	struct amdgpu_gpu_info gpu_info = { 0 };
+	amdgpu_device_handle h_dev;
+	uint64_t max_copy_size;
+	uint32_t major, minor;
+	int num_bos = 0;
+	int i, ret = 0;
 
 	pr_info("amdgpu_plugin: Thread[0x%x] started\n", thread_data->gpu_id);
 
-	if (asprintf(&fname, PROCPIDMEM, thread_data->pid) < 0) {
-		pr_perror("failed in asprintf, %s", fname);
-		ret = -1;
+	ret = amdgpu_device_initialize(thread_data->drm_fd, &major, &minor, &h_dev);
+	if (ret) {
+		pr_perror("failed to initialize device");
 		goto exit;
 	}
-	mem_fd = open(fname, O_RDONLY);
-	if (mem_fd < 0) {
-		pr_perror("Can't open %s for pid %d", fname, thread_data->pid);
-		free(fname);
-		ret = -errno;
+	plugin_log_msg("libdrm initialized successfully\n");
+
+	ret = amdgpu_query_gpu_info(h_dev, &gpu_info);
+	if (ret) {
+		pr_perror("failed to query gpuinfo via libdrm");
 		goto exit;
 	}
-	plugin_log_msg("Opened %s file for pid = %d\n", fname, thread_data->pid);
-	free(fname);
+
+	max_copy_size = (gpu_info.family_id >= AMDGPU_FAMILY_AI) ? SDMA_LINEAR_COPY_MAX_SIZE :
+									 SDMA_LINEAR_COPY_MAX_SIZE - 1;
 
 	for (i = 0; i < thread_data->num_of_bos; i++) {
 		if (bo_buckets[i].gpu_id != thread_data->gpu_id)
 			continue;
 
-		num_bos++;
-		if (!(bo_buckets[i].alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_VRAM) &&
-		    !(bo_buckets[i].alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_GTT))
+		if (!(bo_buckets[i].alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT)))
 			continue;
 
-		if (bo_info[i]->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_PUBLIC) {
-			void *addr;
+		num_bos++;
 
-			plugin_log_msg("amdgpu_plugin: large bar read possible\n");
-
-			addr = mmap(NULL, bo_buckets[i].size, PROT_READ, MAP_SHARED, thread_data->drm_fd,
-				    bo_buckets[i].offset);
-			if (addr == MAP_FAILED) {
-				pr_perror("amdgpu_plugin: mmap failed");
-				ret = -errno;
-				goto exit;
-			}
-
-			/* direct memcpy is possible on large bars */
-			memcpy(bo_info[i]->rawdata.data, addr, bo_buckets[i].size);
-			munmap(addr, bo_buckets[i].size);
-		} else {
-			size_t bo_size;
-			plugin_log_msg("Reading BO contents with /proc/pid/mem\n");
-			if (lseek(mem_fd, (off_t)bo_buckets[i].addr, SEEK_SET) == -1) {
-				pr_perror("Can't lseek for BO offset for pid = %d", thread_data->pid);
-				ret = -errno;
-				goto exit;
-			}
-
-			bo_size = read(mem_fd, bo_info[i]->rawdata.data, bo_info[i]->size);
-			if (bo_size != bo_info[i]->size) {
-				pr_perror("Can't read buffer");
-				ret = -errno;
-				goto exit;
-			}
-		} /* PROCPIDMEM read done */
+		/* perform sDMA based vram copy */
+		ret = sdma_copy_bo(bo_buckets, bo_info, i, h_dev, max_copy_size, SDMA_OP_VRAM_READ);
+		if (ret) {
+			pr_err("Failed to drain the BO using sDMA: bo_buckets[%d]\n", i);
+			break;
+		}
+		plugin_log_msg("** Successfully drained the BO using sDMA: bo_buckets[%d] **\n", i);
 	}
 
 exit:
 	pr_info("amdgpu_plugin: Thread[0x%x] done num_bos:%d ret:%d\n", thread_data->gpu_id, num_bos, ret);
 
-	if (mem_fd >= 0)
-		close(mem_fd);
+	amdgpu_device_deinitialize(h_dev);
 
 	thread_data->ret = ret;
 	return NULL;
@@ -579,95 +903,55 @@ exit:
 
 void *restore_bo_contents(void *_thread_data)
 {
-	int i, ret = 0;
-	int num_bos = 0;
 	struct thread_data *thread_data = (struct thread_data *)_thread_data;
 	struct kfd_criu_bo_bucket *bo_buckets = thread_data->bo_buckets;
 	BoEntry **bo_info = thread_data->bo_entries;
-	char *fname;
-	int mem_fd = -1;
+	struct amdgpu_gpu_info gpu_info = { 0 };
+	amdgpu_device_handle h_dev;
+	uint64_t max_copy_size;
+	uint32_t major, minor;
+	int num_bos = 0;
+	int i, ret = 0;
 
 	pr_info("amdgpu_plugin: Thread[0x%x] started\n", thread_data->gpu_id);
 
-	if (asprintf(&fname, PROCPIDMEM, thread_data->pid) < 0) {
-		pr_perror("failed in asprintf, %s", fname);
-		ret = -1;
+	ret = amdgpu_device_initialize(thread_data->drm_fd, &major, &minor, &h_dev);
+	if (ret) {
+		pr_perror("failed to initialize device");
+		goto exit;
+	}
+	plugin_log_msg("libdrm initialized successfully\n");
+
+	ret = amdgpu_query_gpu_info(h_dev, &gpu_info);
+	if (ret) {
+		pr_perror("failed to query gpuinfo via libdrm");
 		goto exit;
 	}
 
-	mem_fd = open(fname, O_RDWR);
-	if (mem_fd < 0) {
-		pr_perror("Can't open %s for pid %d", fname, thread_data->pid);
-		free(fname);
-		ret = -errno;
-		goto exit;
-	}
-	plugin_log_msg("Opened %s file for pid = %d\n", fname, thread_data->pid);
-	free(fname);
+	max_copy_size = (gpu_info.family_id >= AMDGPU_FAMILY_AI) ? SDMA_LINEAR_COPY_MAX_SIZE :
+									 SDMA_LINEAR_COPY_MAX_SIZE - 1;
 
 	for (i = 0; i < thread_data->num_of_bos; i++) {
-		void *addr;
-
 		if (bo_buckets[i].gpu_id != thread_data->gpu_id)
+			continue;
+
+		if (!(bo_buckets[i].alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT)))
 			continue;
 
 		num_bos++;
 
-		if (!(bo_buckets[i].alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_VRAM) &&
-		    !(bo_buckets[i].alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_GTT))
-			continue;
-
-		if (bo_info[i]->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_PUBLIC) {
-			plugin_log_msg("amdgpu_plugin: large bar write possible\n");
-
-			addr = mmap(NULL, bo_buckets[i].size, PROT_WRITE, MAP_SHARED, thread_data->drm_fd,
-				    bo_buckets[i].restored_offset);
-			if (addr == MAP_FAILED) {
-				pr_perror("amdgpu_plugin: mmap failed");
-				ret = -errno;
-				goto exit;
-			}
-
-			/* direct memcpy is possible on large bars */
-			memcpy(addr, (void *)bo_info[i]->rawdata.data, bo_info[i]->size);
-			munmap(addr, bo_info[i]->size);
-		} else {
-			size_t bo_size;
-			/* Use indirect host data path via /proc/pid/mem on small pci bar GPUs or
-			 * for Buffer Objects that don't have HostAccess permissions.
-			 */
-			plugin_log_msg("amdgpu_plugin: using PROCPIDMEM to restore BO contents\n");
-			addr = mmap(NULL, bo_info[i]->size, PROT_NONE, MAP_SHARED, thread_data->drm_fd,
-				    bo_buckets[i].restored_offset);
-
-			if (addr == MAP_FAILED) {
-				pr_perror("amdgpu_plugin: mmap failed");
-				ret = -errno;
-				goto exit;
-			}
-
-			if (lseek(mem_fd, (off_t)addr, SEEK_SET) == -1) {
-				pr_perror("Can't lseek for BO offset for pid = %d", thread_data->pid);
-				ret = -errno;
-				goto exit;
-			}
-
-			plugin_log_msg("Attempt writing now\n");
-			bo_size = write(mem_fd, bo_info[i]->rawdata.data, bo_info[i]->size);
-			if (bo_size != bo_info[i]->size) {
-				pr_perror("Can't write buffer");
-				ret = -errno;
-				goto exit;
-			}
-			munmap(addr, bo_info[i]->size);
+		ret = sdma_copy_bo(bo_buckets, bo_info, i, h_dev, max_copy_size, SDMA_OP_VRAM_WRITE);
+		if (ret) {
+			pr_err("Failed to fill the BO using sDMA: bo_buckets[%d]\n", i);
+			break;
 		}
+		plugin_log_msg("** Successfully filled the BO using sDMA: bo_buckets[%d] **\n", i);
 	}
 
 exit:
 	pr_info("amdgpu_plugin: Thread[0x%x] done num_bos:%d ret:%d\n", thread_data->gpu_id, num_bos, ret);
 
-	if (mem_fd >= 0)
-		close(mem_fd);
+	amdgpu_device_deinitialize(h_dev);
 	thread_data->ret = ret;
 	return NULL;
 };
@@ -862,6 +1146,11 @@ static int save_bos(int fd, struct kfd_ioctl_criu_args *args, struct kfd_criu_bo
 		}
 	}
 exit:
+	for (int i = 0; i < e->num_of_bos; i++) {
+		if (bo_buckets[i].dmabuf_fd != KFD_INVALID_FD)
+			close(bo_buckets[i].dmabuf_fd);
+	}
+
 	xfree(thread_datas);
 	pr_info("Dumped bos %s (ret:%d)\n", ret ? "failed" : "ok", ret);
 	return ret;
@@ -1275,6 +1564,11 @@ static int restore_bo_data(struct kfd_criu_bo_bucket *bo_buckets, CriuKfd *e)
 		}
 	}
 exit:
+	for (int i = 0; i < e->num_of_bos; i++) {
+		if (bo_buckets[i].dmabuf_fd != KFD_INVALID_FD)
+			close(bo_buckets[i].dmabuf_fd);
+	}
+
 	xfree(thread_datas);
 	return ret;
 }
