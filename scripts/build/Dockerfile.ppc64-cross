@@ -24,7 +24,8 @@ RUN apt-install \
 	libprotobuf-c-dev:ppc64el		\
 	libcap-dev:ppc64el		\
 	libaio-dev:ppc64el		\
-	libnl-route-3-dev:ppc64el
+	libnl-route-3-dev:ppc64el	\
+	libdrm-dev
 
 ENV CROSS_TRIPLE=powerpc64le-linux-gnu
 ENV CROSS_COMPILE=${CROSS_TRIPLE}-				\

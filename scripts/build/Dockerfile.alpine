@@ -20,7 +20,8 @@ RUN apk update && apk add \
 	py3-pip \
 	py3-protobuf \
 	python3 \
-	sudo
+	sudo \
+	libdrm-dev
 
 COPY . /criu
 WORKDIR /criu

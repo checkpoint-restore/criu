@@ -22,7 +22,8 @@ RUN apt-install \
 	libprotobuf-c-dev:armhf		\
 	libcap-dev:armhf		\
 	libaio-dev:armhf		\
-	libnl-route-3-dev:armhf
+	libnl-route-3-dev:armhf		\
+	libdrm-dev:armhf
 
 ENV CROSS_TRIPLE=arm-linux-gnueabihf
 ENV CROSS_COMPILE=${CROSS_TRIPLE}-				\
