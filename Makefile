@@ -202,7 +202,7 @@ criu-deps	+= include/common/asm
 #
 # Configure variables.
 export CONFIG_HEADER := include/common/config.h
-ifeq ($(filter tags etags cscope clean mrproper,$(MAKECMDGOALS)),)
+ifeq ($(filter tags etags cscope clean lint indent fetch-clang-format help mrproper,$(MAKECMDGOALS)),)
 include Makefile.config
 else
 # To clean all files, enable make/build options here
@@ -408,6 +408,8 @@ help:
 	@echo '      test            - Run zdtm test-suite'
 	@echo '      gcov            - Make code coverage report'
 	@echo '      unittest        - Run unit tests'
+	@echo '      lint            - Run code linters'
+	@echo '      indent          - Indent C code'
 .PHONY: help
 
 lint:
@@ -438,6 +440,14 @@ codecov: SHELL := $(shell which bash)
 codecov:
 	bash <(curl -s https://codecov.io/bash)
 .PHONY: codecov
+
+fetch-clang-format: .FORCE
+	$(E) ".clang-format"
+	$(Q) scripts/fetch-clang-format.sh
+
+indent:
+	find . -name '*.[ch]' -type f -print0 | xargs --null --max-args 128 --max-procs 4 clang-format -i
+.PHONY: indent
 
 include Makefile.install
 
