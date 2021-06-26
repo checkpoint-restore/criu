@@ -79,7 +79,7 @@ static int verify_selinux_label(char *ctx)
 	 *
 	 *      unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
 	 */
-	pos = (char*)ctx;
+	pos = (char *)ctx;
 	for (i = 0; i < 3; i++) {
 		pos = strstr(pos, ":");
 		if (!pos)
@@ -213,7 +213,6 @@ int dump_xattr_security_selinux(int fd, FdinfoEntry *e)
 
 void kerndat_lsm(void)
 {
-
 	if (access(AA_SECURITYFS_PATH, F_OK) == 0) {
 		kdat.lsm = LSMTYPE__APPARMOR;
 		return;

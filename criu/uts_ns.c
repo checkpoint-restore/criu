@@ -44,7 +44,7 @@ int prepare_utsns(int pid)
 	struct cr_img *img;
 	UtsnsEntry *ue;
 	struct sysctl_req req[] = {
-		{ "kernel/hostname" },
+		{ "kernel/hostname"   },
 		{ "kernel/domainname" },
 	};
 

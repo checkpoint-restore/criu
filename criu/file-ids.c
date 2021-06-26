@@ -31,11 +31,11 @@ static inline int fdid_hashfn(unsigned int s_dev, unsigned long i_ino)
 }
 
 struct fd_id {
-	int mnt_id;
-	unsigned int dev;
-	unsigned long ino;
-	u32 id;
-	struct fd_id *n;
+	int		mnt_id;
+	unsigned int	dev;
+	unsigned long	ino;
+	u32		id;
+	struct fd_id *	n;
 };
 
 static struct fd_id *fd_id_cache[FDID_SIZE];
@@ -64,7 +64,7 @@ static struct fd_id *fd_id_cache_lookup(struct fd_parms *p)
 	struct fd_id *fi;
 
 	for (fi = fd_id_cache[fdid_hashfn(st->st_dev, st->st_ino)];
-			fi; fi = fi->n)
+	     fi; fi = fi->n)
 		if (fi->dev == st->st_dev &&
 		    fi->ino == st->st_ino &&
 		    fi->mnt_id == p->mnt_id)

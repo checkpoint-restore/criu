@@ -202,7 +202,7 @@ criu-deps	+= include/common/asm
 #
 # Configure variables.
 export CONFIG_HEADER := include/common/config.h
-ifeq ($(filter tags etags cscope clean mrproper,$(MAKECMDGOALS)),)
+ifeq ($(filter tags etags cscope clean lint indent help mrproper,$(MAKECMDGOALS)),)
 include Makefile.config
 else
 # To clean all files, enable make/build options here
@@ -408,6 +408,8 @@ help:
 	@echo '      test            - Run zdtm test-suite'
 	@echo '      gcov            - Make code coverage report'
 	@echo '      unittest        - Run unit tests'
+	@echo '      lint            - Run code linters'
+	@echo '      indent          - Indent C code'
 .PHONY: help
 
 lint:
@@ -437,6 +439,11 @@ codecov: SHELL := $(shell which bash)
 codecov:
 	bash <(curl -s https://codecov.io/bash)
 .PHONY: codecov
+
+indent:
+	uncrustify -c scripts/criu.uncrustify.cfg --replace --no-backup criu/{uts_ns,lsm,cr-errno,string,sigframe,external,cr-dedup,file-ids}.c
+	uncrustify -c scripts/criu.uncrustify.cfg --replace --no-backup criu/unittest/*.c
+.PHONY: indent
 
 include Makefile.install
 
