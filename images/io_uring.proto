@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: MIT
+
+syntax = "proto2";
+
+import "opts.proto";
+import "fown.proto";
+
+message io_uring_group_id {
+	required uint32 group		= 1;
+	required string group_name	= 2;
+}
+
+message io_uring_personality_id {
+	required uint32 uid			= 1;
+	required uint32 euid			= 2;
+	required uint32 suid			= 3;
+	required uint32 fsuid			= 4;
+	required uint32 gid			= 5;
+	required uint32 egid			= 6;
+	required uint32 sgid			= 7;
+	required uint32 fsgid			= 8;
+	required string uid_name		= 9;
+	required string euid_name		= 10;
+	required string suid_name		= 11;
+	required string fsuid_name		= 12;
+	required string gid_name		= 13;
+	required string egid_name		= 14;
+	required string sgid_name		= 15;
+	required string fsgid_name		= 16;
+	required uint64 cap_eff			= 17;
+	repeated io_uring_group_id group_id	= 18;
+}
+
+message io_uring_file_entry {
+	required uint32		id                 = 1;
+	required uint32		flags              = 2 [(criu).flags = "rfile.flags"];
+	required uint64		pos                = 3;
+	required fown_entry	fown               = 4;
+	/* Instance */
+	required uint32		setup_flags        = 5;
+	required uint32		sq_thread_cpu      = 6;
+	required uint32		sq_thread_idle     = 7;
+	required uint64		nr_user_bufs       = 8;
+	required uint64		nr_user_files      = 9;
+	required uint32		sq_entries         = 10;
+	required uint32		cq_entries         = 11;
+	required uint32		sq_off_array       = 12;
+	required uint32		inode              = 13;
+	/* Ring */
+	required uint32		sq_head            = 14;
+	required uint32		sq_tail            = 15;
+	required uint32		cqe_head           = 16;
+	required uint32		cqe_tail           = 17;
+	required uint32		sq_ring_mask       = 18;
+	required uint32		cq_ring_mask       = 19;
+	/* Restrictions */
+	required bool		restrictions	   = 20;
+	required uint32		reg_op             = 21;
+	required uint32		sqe_op             = 22;
+	required uint32		sqe_flags_allowed  = 23;
+	required uint32		sqe_flags_required = 24;
+	/* Personality */
+	repeated io_uring_personality_id pers_id   = 25;
+	optional sint32		mnt_id             = 26 [default     = -1];
+}
+
+message io_uring_data_entry {
+	required uint32	id			= 1;
+	required uint32	sqe_bytes		= 2;	/* Bytes required for SQEs */
+	required uint32	cqe_bytes		= 3;	/* Bytes required for CQEs */
+	required uint32 sq_arr_bytes		= 4;    /* Bytes required for SQ array */
+}

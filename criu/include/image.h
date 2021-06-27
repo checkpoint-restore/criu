@@ -79,11 +79,12 @@
 #define VMA_ANON_SHARED	 (1 << 8)
 #define VMA_ANON_PRIVATE (1 << 9)
 
-#define VMA_AREA_SYSVIPC (1 << 10)
-#define VMA_AREA_SOCKET	 (1 << 11)
-#define VMA_AREA_VVAR	 (1 << 12)
-#define VMA_AREA_AIORING (1 << 13)
-#define VMA_AREA_MEMFD	 (1 << 14)
+#define VMA_AREA_SYSVIPC  (1 << 10)
+#define VMA_AREA_SOCKET	  (1 << 11)
+#define VMA_AREA_VVAR	  (1 << 12)
+#define VMA_AREA_AIORING  (1 << 13)
+#define VMA_AREA_MEMFD	  (1 << 14)
+#define VMA_AREA_IO_URING (1 << 15)
 
 #define VMA_CLOSE	  (1 << 28)
 #define VMA_NO_PROT_WRITE (1 << 29)

@@ -20,6 +20,7 @@ import "pipe.proto";
 import "tty.proto";
 import "memfd.proto";
 import "bpfmap-file.proto";
+import "io_uring.proto";
 
 enum fd_types {
 	UND		= 0;
@@ -42,6 +43,7 @@ enum fd_types {
 	TIMERFD		= 17;
 	MEMFD		= 18;
 	BPFMAP		= 19;
+	IO_URING	= 20;
 
 	/* Any number above the real used. Not stored to image */
 	CTL_TTY		= 65534;
@@ -57,25 +59,26 @@ message fdinfo_entry {
 }
 
 message file_entry {
-	required fd_types		type	= 1;
-	required uint32			id	= 2;
-	optional reg_file_entry		reg	= 3;
-	optional inet_sk_entry		isk	= 4;
-	optional ns_file_entry		nsf	= 5;
-	optional packet_sock_entry	psk	= 6;
-	optional netlink_sk_entry	nlsk	= 7;
-	optional eventfd_file_entry	efd	= 8;
-	optional eventpoll_file_entry	epfd	= 9;
-	optional signalfd_entry		sgfd	= 10;
-	optional tunfile_entry		tunf	= 11;
-	optional timerfd_entry		tfd	= 12;
-	optional inotify_file_entry	ify	= 13;
-	optional fanotify_file_entry	ffy	= 14;
-	optional ext_file_entry		ext	= 15;
-	optional unix_sk_entry		usk	= 16;
-	optional fifo_entry		fifo	= 17;
-	optional pipe_entry		pipe	= 18;
-	optional tty_file_entry		tty	= 19;
-	optional memfd_file_entry	memfd	= 20;
-	optional bpfmap_file_entry	bpf	= 21;
+	required fd_types		type	 = 1;
+	required uint32			id	 = 2;
+	optional reg_file_entry		reg	 = 3;
+	optional inet_sk_entry		isk	 = 4;
+	optional ns_file_entry		nsf	 = 5;
+	optional packet_sock_entry	psk	 = 6;
+	optional netlink_sk_entry	nlsk	 = 7;
+	optional eventfd_file_entry	efd	 = 8;
+	optional eventpoll_file_entry	epfd	 = 9;
+	optional signalfd_entry		sgfd	 = 10;
+	optional tunfile_entry		tunf	 = 11;
+	optional timerfd_entry		tfd	 = 12;
+	optional inotify_file_entry	ify	 = 13;
+	optional fanotify_file_entry	ffy	 = 14;
+	optional ext_file_entry		ext	 = 15;
+	optional unix_sk_entry		usk	 = 16;
+	optional fifo_entry		fifo	 = 17;
+	optional pipe_entry		pipe	 = 18;
+	optional tty_file_entry		tty	 = 19;
+	optional memfd_file_entry	memfd	 = 20;
+	optional bpfmap_file_entry	bpf	 = 21;
+	optional io_uring_file_entry    io_uring = 22;
 }

@@ -35,7 +35,10 @@ struct vma_area {
 
 	union {
 		struct /* for dump */ {
-			int vm_socket_id;
+			union {
+				int vm_socket_id;
+				int io_uring_id;
+			};
 
 			char *aufs_rpath; /* path from aufs root */
 			char *aufs_fpath; /* full path from global root */

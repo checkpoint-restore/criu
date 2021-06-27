@@ -49,6 +49,7 @@
 #include "kerndat.h"
 #include "fdstore.h"
 #include "bpfmap.h"
+#include "io_uring.h"
 
 #include "protobuf.h"
 #include "util.h"
@@ -536,6 +537,8 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 		else if (is_bpfmap_link(link))
 			ops = &bpfmap_dump_ops;
 #endif
+		else if (is_io_uring_link(link))
+			ops = &io_uring_dump_ops;
 		else
 			return dump_unsupp_fd(&p, lfd, "anon", link, e);
 
