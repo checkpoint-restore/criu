@@ -2799,6 +2799,7 @@ static inline int decode_posix_timer(PosixTimerEntry *pte,
 	pt->spt.si_signo = pte->si_signo;
 	pt->spt.it_sigev_notify = pte->it_sigev_notify;
 	pt->spt.sival_ptr = decode_pointer(pte->sival_ptr);
+	pt->spt.notify_thread_id = pte->notify_thread_id;
 	pt->overrun = pte->overrun;
 
 	return 0;

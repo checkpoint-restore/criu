@@ -1069,6 +1069,11 @@ static int create_posix_timers(struct task_restore_args *args)
 	for (i = 0; i < args->posix_timers_n; i++) {
 		sev.sigev_notify = args->posix_timers[i].spt.it_sigev_notify;
 		sev.sigev_signo = args->posix_timers[i].spt.si_signo;
+#ifdef __GLIBC__
+		sev._sigev_un._tid = args->posix_timers[i].spt.notify_thread_id;
+#else
+		sev.sigev_notify_thread_id = args->posix_timers[i].spt.notify_thread_id;
+#endif
 		sev.sigev_value.sival_ptr = args->posix_timers[i].spt.sival_ptr;
 
 		while (1) {
