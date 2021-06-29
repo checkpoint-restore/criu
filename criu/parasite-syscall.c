@@ -325,6 +325,7 @@ static void encode_posix_timer(struct posix_timer *v,
 	pte->clock_id = vp->spt.clock_id;
 	pte->si_signo = vp->spt.si_signo;
 	pte->it_sigev_notify = vp->spt.it_sigev_notify;
+	pte->notify_thread_id = vp->spt.notify_thread_id;
 	pte->sival_ptr = encode_pointer(vp->spt.sival_ptr);
 
 	pte->overrun = v->overrun;

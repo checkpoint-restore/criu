@@ -2342,6 +2342,7 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 
 			if ( tidpid[0] == 't') {
 				timer->spt.it_sigev_notify = SIGEV_THREAD_ID;
+				timer->spt.notify_thread_id = pid_t;
 			} else {
 				switch (sigpid[0]) {
 					case 's' :
