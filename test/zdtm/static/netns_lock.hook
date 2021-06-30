@@ -15,16 +15,24 @@ CLONE_NEWNET = 0x40000000
 PORT = 8880
 NETNS = "criu-net-lock-test"
 TIMEOUT = 0.1
+SYNCFILE = "zdtm/static/net_lock.sync"
 
 def nsenter():
     with open("/var/run/netns/{}".format(NETNS)) as f:
         libc.setns(f.fileno(), CLONE_NEWNET)
+
+def create_sync_file():
+    open(SYNCFILE, "wb").close()
 
 if sys.argv[1] == "--post-start":
     # Add test netns
     subprocess.Popen(["ip", "netns", "add", NETNS]).wait()
     nsenter() # Enter test netns
     subprocess.Popen(["ip", "link", "set", "up", "dev", "lo"]).wait()
+
+    # Lets test know that the netns is initilized successfully
+    # by checking the access of SYNCFILE
+    create_sync_file()
 
     # TCP server daemon
     pid = os.fork()
@@ -144,3 +152,5 @@ if sys.argv[1] == "--post-restore":
 if sys.argv[1] == "--clean":
     # Delete test netns
     subprocess.Popen(["ip", "netns", "delete", NETNS]).wait()
+    # Delete sync file
+    os.remove(SYNCFILE)
