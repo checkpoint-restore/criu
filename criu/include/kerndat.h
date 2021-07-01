@@ -73,6 +73,7 @@ struct kerndat_s {
 	bool has_pidfd_open;
 	bool has_pidfd_getfd;
 	bool has_nspid;
+	bool has_nftables_concat;
 };
 
 extern struct kerndat_s kdat;
