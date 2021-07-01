@@ -15,7 +15,7 @@
 		:							\
 		:"r"(task_args),"r"(restore_task_exec_start),		\
 		 "g"(new_sp)						\
-		: "$29", "$25", "$4","$5")
+		: "$25", "$4","$5")
 
 static inline void core_get_tls(CoreEntry *pcore, tls_t *ptls)
 {
