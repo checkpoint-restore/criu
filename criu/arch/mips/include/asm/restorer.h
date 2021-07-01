@@ -60,7 +60,7 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 		       "r"(&thread_args[i].pid),			\
 		       "r"(clone_restore_fn),				\
 		       "r"(&thread_args[i])				\
-		 :"$2","$4","$5","$6","$7","$8","$25","$29","memory")
+		 :"$2","$4","$5","$6","$7","$8","$25","memory")
 
 #define RUN_CLONE3_RESTORE_FN(ret, clone_args, size, args, \
 			      clone_restore_fn)	do { \
