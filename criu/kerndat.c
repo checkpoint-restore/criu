@@ -14,6 +14,10 @@
 #include <sys/prctl.h>
 #include <sys/inotify.h>
 
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+#include <nftables/libnftables.h>
+#endif
+
 #include "common/config.h"
 #include "int.h"
 #include "log.h"
@@ -1146,6 +1150,39 @@ close:
 	return ret;
 }
 
+static int kerndat_has_nftables_concat(void)
+{
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	struct nft_ctx *nft;
+	int ret = 0;
+
+	nft = nft_ctx_new(NFT_CTX_DEFAULT);
+	if (!nft)
+		return -1;
+
+	if (NFT_RUN_CMD(nft, "add table inet CRIU")) {
+		ret = -1;
+		goto nft_ctx_free_out;
+	}
+
+	if (NFT_RUN_CMD(nft, "add set inet CRIU conn { type ipv4_addr . inet_service ;}"))
+		kdat.has_nftables_concat = false;
+	else
+		kdat.has_nftables_concat = true;
+
+	/* Clean up */
+	NFT_RUN_CMD(nft, "delete table inet CRIU");
+
+nft_ctx_free_out:
+	nft_ctx_free(nft);
+	return ret;
+#else
+	pr_warn("CRIU was built without libnftables support\n");
+	kdat.has_nftables_concat = false;
+	return 0;
+#endif
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -1291,6 +1328,10 @@ int kerndat_init(void)
 		kerndat_has_pidfd_open();
 	if (!ret && kerndat_has_nspid()) {
 		pr_err("kerndat_has_nspid failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_nftables_concat()) {
+		pr_err("kerndat_has_nftables_concat failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
