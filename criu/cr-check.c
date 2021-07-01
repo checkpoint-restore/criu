@@ -1362,6 +1362,16 @@ static int check_ns_pid(void)
 	return 0;
 }
 
+static int check_network_lock_nftables(void)
+{
+	if (!kdat.has_nftables_concat) {
+		pr_warn("Nftables based locking requires libnftables and set concatenations support\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1479,6 +1489,7 @@ int cr_check(void)
 		ret |= check_pidfd_store();
 		ret |= check_ns_pid();
 		ret |= check_apparmor_stacking();
+		ret |= check_network_lock_nftables();
 	}
 
 	/*
@@ -1590,6 +1601,7 @@ static struct feature_list feature_list[] = {
 	{ "pidfd_store", check_pidfd_store },
 	{ "ns_pid", check_ns_pid },
 	{ "apparmor_stacking", check_apparmor_stacking },
+	{ "network_lock_nftables", check_network_lock_nftables },
 	{ NULL, NULL },
 };
 
