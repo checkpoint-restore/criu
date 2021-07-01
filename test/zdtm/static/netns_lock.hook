@@ -35,30 +35,32 @@ if sys.argv[1] == "--post-start":
         srv.bind(("127.0.0.1", PORT))
         srv.listen(1)
 
-        # We should accept connections normally from
-        # pre-dump client, post-restore client and
-        # the pre-restore client using SOCCR_MARK
-        # The pre-restore client without SOCCR_MARK
-        # should fail with a timeout
+        # Loop allows zdtm multiple iterations to work (i.e. --iter 3)
+        while True:
+            # We should accept connections normally from
+            # pre-dump client, post-restore client and
+            # the pre-restore client using SOCCR_MARK
+            # The pre-restore client without SOCCR_MARK
+            # should fail with a timeout
 
-        # Accept pre-dump client
-        cln, addr = srv.accept()
-        cln.sendall(str.encode("--pre-dump"))
-        cln.close()
+            # Accept pre-dump client
+            cln, addr = srv.accept()
+            cln.sendall(str.encode("--pre-dump"))
+            cln.close()
 
-        # Accept pre-restore client with SOCCR_MARK
-        srv.setsockopt(socket.SOL_SOCKET, SO_MARK, SOCCR_MARK)
-        cln, addr = srv.accept()
-        cln.sendall(str.encode("--pre-restore"))
-        cln.close()
-        srv.setsockopt(socket.SOL_SOCKET, SO_MARK, 0)
+            # Accept pre-restore client with SOCCR_MARK
+            srv.setsockopt(socket.SOL_SOCKET, SO_MARK, SOCCR_MARK)
+            cln, addr = srv.accept()
+            cln.sendall(str.encode("--pre-restore"))
+            cln.close()
+            srv.setsockopt(socket.SOL_SOCKET, SO_MARK, 0)
 
-        # Accept post-restore client
-        cln, addr = srv.accept()
-        cln.sendall(str.encode("--post-restore"))
-        cln.close()
-
-        srv.close()
+            # Accept post-restore client
+            cln, addr = srv.accept()
+            cln.sendall(str.encode("--post-restore"))
+            cln.close()
+        
+        # Server will be closed when zdtm sends SIGKILL
 
 if sys.argv[1] == "--pre-dump":
     # Network is not locked yet
