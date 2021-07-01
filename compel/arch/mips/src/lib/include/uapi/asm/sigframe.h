@@ -51,7 +51,7 @@ struct rt_sigframe {
 	"syscall					\n"	\
 	:							\
 	: "r"(new_sp)						\
-	: "$29","$2","memory")
+	: "$2","memory")
 
 int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe,
 		struct rt_sigframe *rsigframe);
