@@ -51,6 +51,11 @@ static inline struct rst_info *rsti(struct pstree_item *i)
 	return (struct rst_info *)(i + 1);
 }
 
+struct thread_lsm {
+	char *profile;
+	char *sockcreate;
+};
+
 struct ns_id;
 struct dmp_info {
 	struct ns_id *netns;
@@ -58,6 +63,13 @@ struct dmp_info {
 	struct parasite_ctl *parasite_ctl;
 	struct parasite_thread_ctl **thread_ctls;
 	uint64_t *thread_sp;
+
+	/*
+	 * Although we don't support dumping different struct creds in general,
+	 * we do for threads. Let's keep track of their profiles here; a NULL
+	 * entry means there was no LSM profile for this thread.
+	 */
+	struct thread_lsm **thread_lsms;
 };
 
 static inline struct dmp_info *dmpi(const struct pstree_item *i)

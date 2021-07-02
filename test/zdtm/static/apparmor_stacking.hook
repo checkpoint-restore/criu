@@ -1,0 +1,10 @@
+#!/bin/bash
+
+[ "$1" == "--clean" -o "$1" == "--pre-restore" ] || exit 0
+
+dir="/sys/kernel/security/apparmor/policy/namespaces/criu_stacking_test"
+
+echo "Cleaning $dir"
+if [ -d $dir ]; then
+  rmdir $dir
+fi

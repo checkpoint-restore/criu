@@ -79,6 +79,7 @@
 #include "memfd.h"
 #include "timens.h"
 #include "bpfmap.h"
+#include "apparmor.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
@@ -254,6 +255,9 @@ static int crtools_prepare_shared(void)
 		return -1;
 
 	if (prepare_cgroup())
+		return -1;
+
+	if (prepare_apparmor_namespaces())
 		return -1;
 
 	return 0;
@@ -3311,8 +3315,6 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 		char *rendered = NULL, *profile;
 
 		profile = ce->lsm_profile;
-		if (opts.lsm_supplied)
-			profile = opts.lsm_profile;
 
 		if (validate_lsm(profile) < 0)
 			return ERR_PTR(-EINVAL);

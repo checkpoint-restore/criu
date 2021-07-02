@@ -554,6 +554,7 @@ handlers = {
     'BPFMAP_FILE': entry_handler(pb.bpfmap_file_entry),
     'BPFMAP_DATA': entry_handler(pb.bpfmap_data_entry,
                                 bpfmap_data_extra_handler()),
+    'APPARMOR': entry_handler(pb.apparmor_entry),
 }
 
 
