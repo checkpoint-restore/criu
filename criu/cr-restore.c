@@ -253,9 +253,6 @@ static int crtools_prepare_shared(void)
 	if (tty_prep_fds())
 		return -1;
 
-	if (prepare_cgroup())
-		return -1;
-
 	return 0;
 }
 
@@ -2459,8 +2456,6 @@ skip_ns_bouncing:
 	if (restore_freezer_state())
 		pr_err("Unable to restore freezer state\n");
 
-	fini_cgroup();
-
 	/* Detaches from processes and they continue run through sigreturn. */
 	if (finalize_restore_detach())
 		goto out_kill_network_unlocked;
@@ -2507,7 +2502,6 @@ out_kill:
 	}
 
 out:
-	fini_cgroup();
 	depopulate_roots_yard(mnt_ns_fd, true);
 	stop_usernsd();
 	__restore_switch_stage(CR_STATE_FAIL);
@@ -2597,13 +2591,18 @@ int cr_restore_tasks(void)
 	if (crtools_prepare_shared() < 0)
 		goto err;
 
+	if (prepare_cgroup())
+		goto clean_cgroup;
+
 	if (criu_signals_setup() < 0)
-		goto err;
+		goto clean_cgroup;
 
 	if (prepare_lazy_pages_socket() < 0)
-		goto err;
+		goto clean_cgroup;
 
 	ret = restore_root_task(root_item);
+clean_cgroup:
+	fini_cgroup();
 err:
 	cr_plugin_fini(CR_PLUGIN_STAGE__RESTORE, ret);
 	return ret;

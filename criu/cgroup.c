@@ -1771,19 +1771,19 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 		}
 
 		if (make_yard(cg_yard))
-			goto err;
+			return -1;
 	}
 
 	pr_debug("Opening %s as cg yard\n", cg_yard);
 	i = open(cg_yard, O_DIRECTORY);
 	if (i < 0) {
 		pr_perror("Can't open cgyard");
-		goto err;
+		return -1;
 	}
 
 	ret = install_service_fd(CGROUP_YARD, i);
 	if (ret < 0)
-		goto err;
+		return -1;
 
 	paux[off++] = '/';
 
@@ -1794,7 +1794,7 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 
 		if (ctrl->n_cnames < 1) {
 			pr_err("Each cg_controller_entry must have at least 1 controller\n");
-			goto err;
+			return -1;
 		}
 
 		ctl_off += ctrl_dir_and_opt(ctrl,
@@ -1811,11 +1811,11 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 			pr_debug("\tMaking controller dir %s (%s)\n", paux, opt);
 			if (mkdir(paux, 0700)) {
 				pr_perror("\tCan't make controller dir %s", paux);
-				goto err;
+				return -1;
 			}
 			if (mount("none", paux, fstype, 0, opt) < 0) {
 				pr_perror("\tCan't mount controller dir %s", paux);
-				goto err;
+				return -1;
 			}
 		}
 
@@ -1827,14 +1827,10 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 		if (opts.manage_cgroups &&
 		    prepare_cgroup_dirs(ctrl->cnames, ctrl->n_cnames, yard, yard_off,
 				ctrl->dirs, ctrl->n_dirs))
-			goto err;
+			return -1;
 	}
 
 	return 0;
-
-err:
-	fini_cgroup();
-	return -1;
 }
 
 static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controllers,
