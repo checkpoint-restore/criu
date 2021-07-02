@@ -1494,7 +1494,7 @@ def init_sbs():
 
 def sbs(what):
     if do_sbs:
-        input("Pause at %s. Press Enter to continue." % what)
+        input("Pause %s. Press Enter to continue." % what)
 
 
 #
@@ -1516,14 +1516,16 @@ def cr(cr_api, test, opts):
         pres = iter_parm(opts['pre'], 0)
         for p in pres[0]:
             if opts['snaps']:
+                sbs('before snap %d' % p)
                 cr_api.dump("dump", opts=["--leave-running", "--track-mem"])
             else:
+                sbs('before pre-dump %d' % p)
                 cr_api.dump("pre-dump")
                 try_run_hook(test, ["--post-pre-dump"])
                 test.pre_dump_notify()
             time.sleep(pres[1])
 
-        sbs('pre-dump')
+        sbs('before dump')
 
         os.environ["ZDTM_TEST_PID"] = str(test.getpid())
         if opts['norst']:
@@ -1536,13 +1538,13 @@ def cr(cr_api, test, opts):
                 test.gone()
             else:
                 test.unlink_pidfile()
-            sbs('pre-restore')
+            sbs('before restore')
             try_run_hook(test, ["--pre-restore"])
             cr_api.restore()
             os.environ["ZDTM_TEST_PID"] = str(test.getpid())
             os.environ["ZDTM_IMG_DIR"] = cr_api.logs()
             try_run_hook(test, ["--post-restore"])
-            sbs('post-restore')
+            sbs('after restore')
 
         time.sleep(iters[1])
 
