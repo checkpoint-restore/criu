@@ -151,7 +151,10 @@ def ftype_find_in_files(opts, ft, fid):
 def ftype_find_in_image(opts, ft, fid, img):
     f = ftype_find_in_files(opts, ft, fid)
     if f:
-        return f[ft['field']]
+        if ft['field'] in f:
+            return f[ft['field']]
+        else:
+            return None
 
     if ft['img'] is None:
         ft['img'] = pycriu.images.load(dinf(opts, img))['entries']
