@@ -116,7 +116,7 @@ int main(int argc, char ** argv)
 		crc = ~0;
 		ret = datachk(buf, sizeof(buf), &crc);
 		if (ret) {
-			fail("CRC mismatch\n");
+			fail("CRC mismatch");
 			goto err;
 		}
 	}

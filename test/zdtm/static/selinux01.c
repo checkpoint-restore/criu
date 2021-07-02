@@ -41,7 +41,7 @@ int setprofile(void)
 
 	fd = open("/proc/self/attr/current", O_WRONLY);
 	if (fd < 0) {
-		fail("Could not open /proc/self/attr/current\n");
+		fail("Could not open /proc/self/attr/current");
 		return -1;
 	}
 
@@ -49,7 +49,7 @@ int setprofile(void)
 	close(fd);
 
 	if (len < 0) {
-		fail("Could not write context\n");
+		fail("Could not write context");
 		return -1;
 	}
 
@@ -62,7 +62,7 @@ int set_sockcreate(void)
 
 	fd = open("/proc/self/attr/sockcreate", O_WRONLY);
 	if (fd < 0) {
-		fail("Could not open /proc/self/attr/sockcreate\n");
+		fail("Could not open /proc/self/attr/sockcreate");
 		return -1;
 	}
 
@@ -70,7 +70,7 @@ int set_sockcreate(void)
 	close(fd);
 
 	if (len < 0) {
-		fail("Could not write context\n");
+		fail("Could not write context");
 		return -1;
 	}
 
@@ -86,20 +86,20 @@ int check_sockcreate(void)
 
 	fd = open("/proc/self/attr/sockcreate", O_RDONLY);
 	if (fd < 0) {
-		fail("Could not open /proc/self/attr/sockcreate\n");
+		fail("Could not open /proc/self/attr/sockcreate");
 		return -1;
 	}
 
 	len = read(fd, context, strlen(CONTEXT));
 	close(fd);
 	if (len != strlen(CONTEXT)) {
-		fail("SELinux context has unexpected length %d, expected %zd\n",
+		fail("SELinux context has unexpected length %d, expected %zd",
 			len, strlen(CONTEXT));
 		return -1;
 	}
 
 	if (strncmp(context, CONTEXT, strlen(CONTEXT)) != 0) {
-		fail("Wrong SELinux context %s expected %s\n", context, CONTEXT);
+		fail("Wrong SELinux context %s expected %s", context, CONTEXT);
 		return -1;
 	}
 
@@ -117,14 +117,14 @@ int check_sockcreate_empty(void)
 		free(output);
 		/* sockcreate should be empty, if fscanf found something
 		 * it is wrong.*/
-		fail("sockcreate should be empty\n");
+		fail("sockcreate should be empty");
 		return -1;
 	}
 
 	if (output) {
 		free(output);
 		/* Same here, output should still be NULL. */
-		fail("sockcreate should be empty\n");
+		fail("sockcreate should be empty");
 		return -1;
 	}
 
@@ -164,11 +164,11 @@ int main(int argc, char **argv)
 	memset(ctx, 0, 1024);
 	/* Read out the socket label */
 	if (fgetxattr(sk, "security.selinux", ctx, 1024) == -1) {
-		fail("Reading xattr 'security.selinux' failed.\n");
+		fail("Reading xattr 'security.selinux' failed.");
 		return -1;
 	}
 	if (strncmp(ctx, CONTEXT, strlen(CONTEXT)) != 0) {
-		fail("Wrong SELinux context %s expected %s\n", ctx, CONTEXT);
+		fail("Wrong SELinux context %s expected %s", ctx, CONTEXT);
 		return -1;
 	}
 	memset(ctx, 0, 1024);
@@ -179,11 +179,11 @@ int main(int argc, char **argv)
 	/* Read out the socket label again */
 
 	if (fgetxattr(sk, "security.selinux", ctx, 1024) == -1) {
-		fail("Reading xattr 'security.selinux' failed.\n");
+		fail("Reading xattr 'security.selinux' failed.");
 		return -1;
 	}
 	if (strncmp(ctx, CONTEXT, strlen(CONTEXT)) != 0) {
-		fail("Wrong SELinux context %s expected %s\n", ctx, CONTEXT);
+		fail("Wrong SELinux context %s expected %s", ctx, CONTEXT);
 		return -1;
 	}
 

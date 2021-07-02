@@ -1,0 +1,2 @@
+#!/bin/bash
+unshare --net ip link add type veth

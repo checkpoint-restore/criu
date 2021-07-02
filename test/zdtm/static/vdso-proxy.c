@@ -42,7 +42,7 @@ static int parse_maps(struct vm_area *vmas)
 
 	maps = fopen("/proc/self/maps", "r");
 	if (maps == NULL) {
-		pr_err("Failed to open maps file: %m\n");
+		pr_perror("Failed to open maps file");
 		return -1;
 	}
 
@@ -74,7 +74,7 @@ static int parse_maps(struct vm_area *vmas)
 	}
 
 	if (fclose(maps)) {
-		pr_err("Failed to close maps file: %m\n");
+		pr_perror("Failed to close maps file");
 		return -1;
 	}
 
@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
 	test_msg("[NOTE]\tMappings before:\n");
 	nr_before = parse_maps(vmas_before);
 	if (nr_before < 0) {
-		pr_perror("Failed to parse maps");
+		pr_err("Failed to parse maps\n");
 		return -1;
 	}
 
@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
 	test_msg("[NOTE]\tMappings after:\n");
 	nr_after = parse_maps(vmas_after);
 	if (nr_after < 0) {
-		pr_perror("Failed to parse maps");
+		pr_err("Failed to parse maps\n");
 		return -1;
 	}
 

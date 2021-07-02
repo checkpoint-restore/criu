@@ -85,7 +85,7 @@ int main(int argc, char **argv)
 			ret = 0;
 		}
 		pfd[ret] = '\0';
-		fail("Unexpected fd: %s -> %s\n", de->d_name, pfd);
+		fail("Unexpected fd: %s -> %s", de->d_name, pfd);
 		return 1;
 	}
 

@@ -40,6 +40,7 @@
 #include "proc_parse.h"
 #include "common/scm.h"
 #include "uffd.h"
+#include "mem.h"
 
 #include "setproctitle.h"
 
@@ -622,6 +623,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		SET_CHAR_OPTS(lsm_profile, req->lsm_profile);
 	}
 
+	if (req->lsm_mount_context)
+		SET_CHAR_OPTS(lsm_mount_context, req->lsm_mount_context);
+
 	if (req->has_timeout)
 		opts.timeout = req->timeout;
 
@@ -687,6 +691,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			goto err;
 		}
 	}
+
+	if (req->has_pidfd_store_sk && init_pidfd_store_sk(ids.pid, req->pidfd_store_sk))
+		goto err;
 
 	if (req->orphan_pts_master)
 		opts.orphan_pts_master = true;
@@ -1061,6 +1068,8 @@ static int handle_feature_check(int sk, CriuReq * msg)
 	feat.mem_track = false;
 	feat.has_lazy_pages = 1;
 	feat.lazy_pages = false;
+	feat.has_pidfd_store = 1;
+	feat.pidfd_store = false;
 
 	pid = fork();
 	if (pid < 0) {
@@ -1069,8 +1078,7 @@ static int handle_feature_check(int sk, CriuReq * msg)
 	}
 
 	if (pid == 0) {
-		/* kerndat_init() is called from setup_opts_from_req() */
-		if (setup_opts_from_req(sk, msg->opts))
+		if (kerndat_init())
 			exit(1);
 
 		setproctitle("feature-check --rpc");
@@ -1082,6 +1090,10 @@ static int handle_feature_check(int sk, CriuReq * msg)
 		if ((msg->features->has_lazy_pages == 1) &&
 		    (msg->features->lazy_pages == true))
 			feat.lazy_pages = kdat.has_uffd && uffd_noncooperative();
+
+		if ((msg->features->has_pidfd_store == 1) &&
+		    (msg->features->pidfd_store == true))
+			feat.pidfd_store = kdat.has_pidfd_getfd && kdat.has_pidfd_open;
 
 		resp.features = &feat;
 		resp.type = msg->type;
@@ -1103,6 +1115,8 @@ static int handle_feature_check(int sk, CriuReq * msg)
 	}
 	if (status != 0)
 		goto out;
+
+	return 0;
 
 	/*
 	 * The child process was not able to send an answer. Tell

@@ -62,7 +62,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!*cpid) {
-		pr_err("Don't know grand child's pid");
+		pr_err("Don't know grand child's pid\n");
 		goto err;
 	}
 

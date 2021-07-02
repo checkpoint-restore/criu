@@ -243,7 +243,11 @@ int cr_plugin_init(int stage)
 		if (len < 3 || strncmp(de->d_name + len - 3, ".so", 3))
 			continue;
 
-		snprintf(path, sizeof(path), "%s/%s", opts.libdir, de->d_name);
+		if (snprintf(path, sizeof(path), "%s/%s", opts.libdir, de->d_name) >=
+		    sizeof(path)) {
+			pr_err("Unable to build plugin path\n");
+			goto err;
+		}
 
 		if (cr_lib_load(stage, path))
 			goto err;

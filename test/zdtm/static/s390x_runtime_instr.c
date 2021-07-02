@@ -150,7 +150,7 @@ int main(int argc, char **argv)
 			free(buf);
 			return 0;
 		}
-		fail("Fail with error %d", errno);
+		fail("syscall(s390_runtime_instr) failed");
 		free(buf);
 		return -1;
 	}

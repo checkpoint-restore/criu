@@ -55,7 +55,7 @@ int main(int argc, char **argv)
 	for (i = 0; i < MAP_SIZE; i++) {
 		if (buf[i] == VAL)
 			continue;
-		fail("%d: %d != %d\n", i, buf[i], VAL);
+		fail("%d: %d != %d", i, buf[i], VAL);
 		goto out;
 	}
 	pass();

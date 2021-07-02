@@ -50,6 +50,10 @@
 #include "images/netdev.pb-c.h"
 #include "images/inventory.pb-c.h"
 
+#ifndef IFLA_NEW_IFINDEX
+#define IFLA_NEW_IFINDEX	49
+#endif
+
 #ifndef IFLA_LINK_NETNSID
 #define IFLA_LINK_NETNSID	37
 #undef IFLA_MAX
@@ -1167,7 +1171,13 @@ static int dump_links(int rtsk, struct ns_id *ns, struct cr_imgset *fds)
 
 static int restore_link_cb(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
-	pr_info("Got response on SETLINK =)\n");
+	pr_info("Got response on SETLINK.\n");
+	return 0;
+}
+
+static int restore_newlink_cb(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
+{
+	pr_info("Got response on RTM_NEWLINK.\n");
 	return 0;
 }
 
@@ -1245,6 +1255,58 @@ static int populate_newlink_req(struct ns_id *ns, struct newlink_req *req,
 	return 0;
 }
 
+static int kerndat_newifindex_err_cb(int err, struct ns_id *ns, void *arg)
+{
+	switch (err) {
+	case -ENODEV:
+		kdat.has_newifindex = false;
+		break;
+	case -ERANGE:
+		kdat.has_newifindex = true;
+		break;
+	default:
+		pr_err("Unexpected error: %d(%s)\n", err, strerror(-err));
+		break;
+	}
+	return 0;
+}
+
+int kerndat_has_newifindex(void)
+{
+	struct newlink_req req = {};
+	int ifindex = -1;
+	int sk, ret;
+
+	kdat.has_newifindex = false;
+	sk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+	if (sk < 0) {
+		pr_perror("Unable to create a netlink socket");
+		return -1;
+	}
+	memset(&req, 0, sizeof(req));
+
+	req.h.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.h.nlmsg_flags = NLM_F_REQUEST|NLM_F_ACK|NLM_F_CREATE;
+	req.h.nlmsg_type = RTM_SETLINK;
+	req.h.nlmsg_seq = CR_NLMSG_SEQ;
+	req.i.ifi_family = AF_UNSPEC;
+
+	/*
+	 * ifindex is negative, so the kernel will return ERANGE if
+	 * IFLA_NEW_IFINDEX is supported.
+	 */
+	addattr_l(&req.h, sizeof(req), IFLA_NEW_IFINDEX,
+		  &ifindex, sizeof(ifindex));
+	/* criu-kdat doesn't exist, so the kernel will return ENODEV. */
+	addattr_l(&req.h, sizeof(req), IFLA_IFNAME, "criu-kdat", 9);
+
+	ret = do_rtnl_req(sk, &req, sizeof(req), restore_link_cb,
+			  kerndat_newifindex_err_cb, NULL, NULL);
+	close(sk);
+	return ret;
+}
+
+
 static int do_rtm_link_req(int msg_type,
 			struct net_link *link, int nlsk, struct ns_id *ns,
 			link_info_t link_info, struct newlink_extras *extras)
@@ -1267,6 +1329,115 @@ static int restore_one_link(struct ns_id *ns, struct net_link *link, int nlsk,
 {
 	pr_info("Restoring netdev %s idx %d\n", link->nde->name, link->nde->ifindex);
 	return do_rtm_link_req(RTM_NEWLINK, link, nlsk, ns, link_info, extras);
+}
+
+struct move_req {
+	struct newlink_req req;
+	char ifnam[IFNAMSIZ];
+};
+
+static int move_veth_cb(void *arg, int fd, pid_t pid)
+{
+	int fd_ns_old = -1, ret = -1;
+	struct move_req *mvreq = arg;
+	struct newlink_req *req = &mvreq->req;
+	int ifindex, nlsk;
+
+	if (!(root_ns_mask & CLONE_NEWUSER)) {
+		int fd_ns;
+
+		fd_ns = get_service_fd(NS_FD_OFF);
+		if (switch_ns_by_fd(fd_ns, &net_ns_desc, &fd_ns_old))
+			return -1;
+	}
+
+	/* Retrieve ifindex of precreated veth device in source netns. */
+	ifindex = if_nametoindex(mvreq->ifnam);
+	if (!ifindex)
+		goto out;
+	req->i.ifi_index = ifindex;
+
+	/* Tell netlink what netns we want to move that veth device into. */
+	addattr_l(&req->h, sizeof(*req), IFLA_NET_NS_FD, &fd, sizeof(fd));
+
+	nlsk = socket(PF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
+	if (nlsk < 0)
+		goto out;
+
+	ret = do_rtnl_req(nlsk, req, req->h.nlmsg_len, restore_newlink_cb, NULL, NULL, NULL);
+	close(nlsk);
+
+out:
+	if (fd_ns_old >= 0)
+		ret = restore_ns(fd_ns_old, &net_ns_desc);
+
+	return ret;
+}
+
+static int move_veth(const char *netdev, struct ns_id *ns,
+		     struct net_link *link, int nlsk)
+{
+
+	NetDeviceEntry *nde = link->nde;
+	struct newlink_req *req;
+	struct move_req mvreq;
+	size_t len_val;
+	int ret;
+
+	if (!kdat.has_newifindex) {
+		pr_err("Unable to specify ifindex in the target namespace.\n");
+		return -1;
+	}
+
+	/*
+	 * We require a target ifindex otherwise we can't restore addresses
+	 * later on as ip stores ifindex in its address dump for network
+	 * devices.
+	 */
+	if (!nde->ifindex)
+		return -1;
+
+	memset(&mvreq.req, 0, sizeof(mvreq.req));
+	req = &mvreq.req;
+
+	req->h.nlmsg_len	= NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req->h.nlmsg_flags	= NLM_F_REQUEST|NLM_F_ACK;
+	req->h.nlmsg_type	= RTM_NEWLINK;
+	req->h.nlmsg_seq	= CR_NLMSG_SEQ;
+
+	req->i.ifi_family	= AF_UNSPEC;
+	req->i.ifi_flags	= nde->flags;
+
+	/* Tell netlink what name we want in the target netns. */
+	addattr_l(&req->h, sizeof(*req), IFLA_IFNAME,
+		  nde->name, strlen(nde->name));
+
+	/* Tell netlink what mtu we want in the target netns. */
+	addattr_l(&req->h, sizeof(*req), IFLA_MTU,
+		  &nde->mtu, sizeof(nde->mtu));
+
+	/* Tell netlink what ifindex we want in the target netns. */
+	addattr_l(&req->h, sizeof(*req), IFLA_NEW_IFINDEX,
+		  &nde->ifindex, sizeof(nde->ifindex));
+
+	if (nde->has_address) {
+		pr_debug("Restore ll addr (%02x:../%d) for device with target ifindex %d\n",
+			 (int)nde->address.data[0], (int)nde->address.len, nde->ifindex);
+		addattr_l(&req->h, sizeof(*req), IFLA_ADDRESS,
+			  nde->address.data, nde->address.len);
+	}
+
+	len_val = strlen(netdev);
+	if (len_val >= IFNAMSIZ)
+		return -1;
+	strlcpy(mvreq.ifnam, netdev, IFNAMSIZ);
+
+	ret = userns_call(move_veth_cb, 0, &mvreq, sizeof(mvreq), ns->net.ns_fd);
+	if (ret < 0)
+		return -1;
+
+	link->created = true;
+	return 0;
 }
 
 #ifndef VETH_INFO_MAX
@@ -1600,6 +1771,7 @@ skip:;
 static int __restore_link(struct ns_id *ns, struct net_link *link, int nlsk)
 {
 	NetDeviceEntry *nde = link->nde;
+	char key[100], *val;
 
 	pr_info("Restoring link %s type %d\n", nde->name, nde->type);
 
@@ -1610,6 +1782,12 @@ static int __restore_link(struct ns_id *ns, struct net_link *link, int nlsk)
 	case ND_TYPE__VENET:
 		return restore_one_link(ns, link, nlsk, venet_link_info, NULL);
 	case ND_TYPE__VETH:
+		/* Handle pre-created veth devices we just need to move over. */
+		snprintf(key, sizeof(key), "netdev[%s]", nde->name);
+		val = external_lookup_by_key(key);
+		if (!IS_ERR_OR_NULL(val))
+			return move_veth(val, ns, link, nlsk);
+
 		return restore_one_link(ns, link, nlsk, veth_link_info, NULL);
 	case ND_TYPE__TUN:
 		return restore_one_tun(ns, link, nlsk);
@@ -1887,14 +2065,36 @@ static inline int dump_rule(struct cr_imgset *fds)
 static inline int dump_iptables(struct cr_imgset *fds)
 {
 	struct cr_img *img;
+	char *iptables_cmd = "iptables-save";
+	char *ip6tables_cmd = "ip6tables-save";
 
-	img = img_from_set(fds, CR_FD_IPTABLES);
-	if (run_iptables_tool("iptables-save", -1, img_raw_fd(img)))
-		return -1;
+	/*
+	 * Let's skip iptables dump if we have nftables support compiled in,
+	 * and iptables backend is nft to prevent duplicate dumps.
+	 */
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	iptables_cmd = get_legacy_iptables_bin(false);
 
-	if (kdat.ipv6) {
+	if (kdat.ipv6)
+		ip6tables_cmd = get_legacy_iptables_bin(true);
+#endif
+
+	if (!iptables_cmd) {
+		pr_info("skipping iptables dump - no legacy version present\n");
+	} else {
+		img = img_from_set(fds, CR_FD_IPTABLES);
+		if (run_iptables_tool(iptables_cmd, -1, img_raw_fd(img)))
+			return -1;
+	}
+
+	if (!kdat.ipv6)
+		return 0;
+
+	if (!ip6tables_cmd) {
+		pr_info("skipping ip6tables dump - no legacy version present\n");
+	} else {
 		img = img_from_set(fds, CR_FD_IP6TABLES);
-		if (run_iptables_tool("ip6tables-save", -1, img_raw_fd(img)))
+		if (run_iptables_tool(ip6tables_cmd, -1, img_raw_fd(img)))
 			return -1;
 	}
 
@@ -2254,7 +2454,7 @@ static inline int restore_nftables(int pid)
 		return -1;
 	if (empty_image(img)) {
 		/* Backward compatibility */
-		pr_info("Skipping nft restore, no image");
+		pr_info("Skipping nft restore, no image\n");
 		ret = 0;
 		goto image_close_out;
 	}
@@ -2930,6 +3130,7 @@ void network_unlock(void)
 	rst_unlock_tcp_connections();
 
 	if (root_ns_mask & CLONE_NEWNET) {
+		/* coverity[check_return] */
 		run_scripts(ACT_NET_UNLOCK);
 		network_unlock_internal();
 	}

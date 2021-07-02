@@ -591,7 +591,7 @@ static int open_shmem(int pid, struct vma_area *vma)
 	 */
 	addr = mmap(NULL, si->size, PROT_WRITE | PROT_READ, flags, f, 0);
 	if (addr == MAP_FAILED) {
-		pr_err("Can't mmap shmid=0x%"PRIx64" size=%ld\n",
+		pr_perror("Can't mmap shmid=0x%"PRIx64" size=%ld",
 				vi->shmid, si->size);
 		goto err;
 	}

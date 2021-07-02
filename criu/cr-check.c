@@ -190,7 +190,7 @@ static int check_prctl_cat1(void)
 
 	ret = prctl(PR_GET_TID_ADDRESS, (unsigned long)&tid_addr, 0, 0, 0);
 	if (ret < 0) {
-		pr_msg("prctl: PR_GET_TID_ADDRESS is not supported: %m");
+		pr_perror("prctl: PR_GET_TID_ADDRESS is not supported");
 		return -1;
 	}
 
@@ -206,19 +206,19 @@ static int check_prctl_cat1(void)
 			if (errno == EPERM)
 				pr_msg("prctl: One needs CAP_SYS_RESOURCE capability to perform testing\n");
 			else
-				pr_msg("prctl: PR_SET_MM_BRK is not supported: %m\n");
+				pr_perror("prctl: PR_SET_MM_BRK is not supported");
 			return -1;
 		}
 
 		ret = prctl(PR_SET_MM, PR_SET_MM_EXE_FILE, -1, 0, 0);
 		if (ret < 0 && errno != EBADF) {
-			pr_msg("prctl: PR_SET_MM_EXE_FILE is not supported: %m\n");
+			pr_perror("prctl: PR_SET_MM_EXE_FILE is not supported");
 			return -1;
 		}
 
 		ret = prctl(PR_SET_MM, PR_SET_MM_AUXV, (long)&user_auxv, sizeof(user_auxv), 0);
 		if (ret < 0) {
-			pr_msg("prctl: PR_SET_MM_AUXV is not supported: %m\n");
+			pr_perror("prctl: PR_SET_MM_AUXV is not supported");
 			return -1;
 		}
 	}
@@ -908,7 +908,7 @@ static int check_aio_remap(void)
 	int r;
 
 	if (syscall(SYS_io_setup, 16, &ctx) < 0) {
-		pr_err("No AIO syscall: %m\n");
+		pr_perror("No AIO syscall");
 		return -1;
 	}
 
@@ -930,7 +930,7 @@ static int check_aio_remap(void)
 	ctx = (aio_context_t)naddr;
 	r = syscall(SYS_io_getevents, ctx, 0, 1, NULL, NULL);
 	if (r < 0) {
-		pr_err("AIO remap doesn't work properly: %m\n");
+		pr_perror("AIO remap doesn't work properly");
 		return -1;
 	}
 
@@ -1201,6 +1201,44 @@ static int check_compat_cr(void)
 	return -1;
 }
 
+static int check_nftables_cr(void)
+{
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	return 0;
+#else
+	pr_warn("CRIU was built without nftables support - nftables rules will "
+		"not be preserved during C/R\n");
+	return -1;
+#endif
+}
+
+static int check_ipt_legacy(void)
+{
+	char *ipt_legacy_bin;
+	char *ip6t_legacy_bin;
+
+	ipt_legacy_bin = get_legacy_iptables_bin(false);
+	if (!ipt_legacy_bin) {
+		pr_warn("Couldn't find iptables version which is using iptables legacy API\n");
+		return -1;
+	}
+
+	pr_info("iptables cmd: %s\n", ipt_legacy_bin);
+
+	if (!kdat.ipv6)
+		return 0;
+
+	ip6t_legacy_bin = get_legacy_iptables_bin(true);
+	if (!ip6t_legacy_bin) {
+		pr_warn("Couldn't find ip6tables version which is using iptables legacy API\n");
+		return -1;
+	}
+
+	pr_info("ip6tables cmd: %s\n", ip6t_legacy_bin);
+
+	return 0;
+}
+
 static int check_uffd(void)
 {
 	if (!kdat.has_uffd) {
@@ -1276,11 +1314,36 @@ static int check_time_namespace(void)
 	return 0;
 }
 
+static int check_newifindex(void)
+{
+	if (!kdat.has_newifindex) {
+		pr_err("IFLA_NEW_IFINDEX isn't supported\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int check_net_diag_raw(void)
 {
 	check_sock_diag();
 	return (socket_test_collect_bit(AF_INET, IPPROTO_RAW) &&
 		socket_test_collect_bit(AF_INET6, IPPROTO_RAW)) ? 0 : -1;
+}
+
+static int check_pidfd_store(void)
+{
+	if (!kdat.has_pidfd_open) {
+		pr_warn("Pidfd store requires pidfd_open syscall which is not supported\n");
+		return -1;
+	}
+
+	if (!kdat.has_pidfd_getfd) {
+		pr_warn("Pidfd store requires pidfd_getfd syscall which is not supported\n");
+		return -1;
+	}
+
+	return 0;
 }
 
 static int (*chk_feature)(void);
@@ -1394,6 +1457,8 @@ int cr_check(void)
 		ret |= check_net_diag_raw();
 		ret |= check_clone3_set_tid();
 		ret |= check_time_namespace();
+		ret |= check_newifindex();
+		ret |= check_pidfd_store();
 	}
 
 	/*
@@ -1499,6 +1564,10 @@ static struct feature_list feature_list[] = {
 	{ "timens", check_time_namespace},
 	{ "external_net_ns", check_external_net_ns},
 	{ "clone3_set_tid", check_clone3_set_tid},
+	{ "newifindex", check_newifindex},
+	{ "nftables", check_nftables_cr },
+	{ "has_ipt_legacy", check_ipt_legacy },
+	{ "pidfd_store", check_pidfd_store },
 	{ NULL, NULL },
 };
 
@@ -1516,10 +1585,10 @@ void pr_check_features(const char *offset, const char *sep, int width)
 			pr_msg("\n%s", offset);
 			pos = offset_len;
 		}
-		pr_msg("%s", fl->name);
+		pr_msg("%s", fl->name); // no \n
 		pos += len;
 		if ((fl + 1)->name) { // not the last item
-			pr_msg("%s", sep);
+			pr_msg("%s", sep); // no \n
 			pos += sep_len;
 		}
 	}

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 syntax = "proto2";
 
 message criu_page_server_info {
@@ -127,6 +129,8 @@ message criu_opts {
 	optional bool			tls_no_cn_verify	= 59;
 	optional string			cgroup_yard		= 60;
 	optional criu_pre_dump_mode	pre_dump_mode		= 61 [default = SPLICE];
+	optional int32			pidfd_store_sk		= 62;
+	optional string			lsm_mount_context	= 63;
 /*	optional bool			check_mounts		= 128;	*/
 }
 
@@ -171,6 +175,7 @@ enum criu_req_type {
 message criu_features {
 	optional bool			mem_track	= 1;
 	optional bool			lazy_pages	= 2;
+	optional bool			pidfd_store	= 3;
 }
 
 /*

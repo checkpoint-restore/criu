@@ -48,7 +48,10 @@ function run_test {
 run_test test_sub
 run_test test_self
 run_test test_notify
-run_test test_iters
+if [ "$(uname -m)" == "x86_64" ]; then
+	# Skip this on aarch64 as aarch64 has no dirty page tracking
+	run_test test_iters
+fi
 run_test test_errno
 
 echo "== Tests done"

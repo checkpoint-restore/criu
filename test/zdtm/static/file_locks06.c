@@ -36,10 +36,10 @@ int init_lock(int *fd, struct flock *lck)
 void cleanup(int *fd)
 {
 	if (close(*fd))
-		pr_perror("Can't close fd\n");
+		pr_perror("Can't close fd");
 
 	if (unlink(filename))
-		pr_perror("Can't unlink file\n");
+		pr_perror("Can't unlink file");
 }
 
 int main(int argc, char **argv)
@@ -56,7 +56,7 @@ int main(int argc, char **argv)
 
 	if (check_file_lock_restored(getpid(), fd, &lck) ||
 		check_lock_exists(filename, &lck) < 0)
-		fail("OFD file locks check failed\n");
+		fail("OFD file locks check failed");
 	else
 		pass();
 

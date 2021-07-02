@@ -75,12 +75,12 @@ int main(int argc, char ** argv)
 
 	/* An NFS mount is restored with another st_dev */
 	if (fsst.f_type != NFS_SUPER_MAGIC && fst.st_dev != fst2.st_dev) {
-		fail("files differ after restore\n");
+		fail("files differ after restore");
 		goto failed;
 	}
 
 	if (fst.st_ino != fst2.st_ino) {
-		fail("files differ after restore\n");
+		fail("files differ after restore");
 		goto failed;
 	}
 

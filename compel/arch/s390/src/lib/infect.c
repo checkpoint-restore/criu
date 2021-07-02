@@ -196,13 +196,13 @@ int get_vx_regs(pid_t pid, user_fpregs_struct_t *fpregs)
 			pr_debug("VXRS registers not supported\n");
 			return 0;
 		}
-		pr_perror("Couldn't get VXRS_LOW\n");
+		pr_perror("Couldn't get VXRS_LOW");
 		return -1;
 	}
 	iov.iov_base = &fpregs->vxrs_high;
 	iov.iov_len = sizeof(fpregs->vxrs_high);
 	if (ptrace(PTRACE_GETREGSET, pid, NT_S390_VXRS_HIGH, &iov) < 0) {
-		pr_perror("Couldn't get VXRS_HIGH\n");
+		pr_perror("Couldn't get VXRS_HIGH");
 		return -1;
 	}
 	fpregs->flags |= USER_FPREGS_VXRS;
@@ -243,7 +243,7 @@ int get_gs_cb(pid_t pid, user_fpregs_struct_t *fpregs)
 			pr_debug("GS_BC not set\n");
 			return 0;
 		}
-		pr_perror("Couldn't get GS_BC\n");
+		pr_perror("Couldn't get GS_BC");
 		return -1;
 	}
 	fpregs->flags |= USER_GS_BC;
@@ -274,7 +274,7 @@ int get_ri_cb(pid_t pid, user_fpregs_struct_t *fpregs)
 			pr_debug("RI_CB not set\n");
 			return 0;
 		default:
-			pr_perror("Couldn't get RI_CB\n");
+			pr_perror("Couldn't get RI_CB");
 			return -1;
 		}
 	}
@@ -310,31 +310,32 @@ static int s390_disable_ri_bit(pid_t pid, user_regs_struct_t *regs)
 /*
  * Prepare task registers for restart
  */
-int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
+		  user_fpregs_struct_t *ext_regs, save_regs_t save,
 		  void *arg, __maybe_unused unsigned long flags)
 {
-	user_fpregs_struct_t fpregs;
+	user_fpregs_struct_t tmp, *fpregs = ext_regs ? ext_regs : &tmp;
 	struct iovec iov;
 	int rewind;
 
-	print_user_regs_struct("get_task_regs", pid, regs);
+	print_user_regs_struct("compel_get_task_regs", pid, regs);
 
-	memset(&fpregs, 0, sizeof(fpregs));
-	iov.iov_base = &fpregs.prfpreg;
-	iov.iov_len = sizeof(fpregs.prfpreg);
+	memset(fpregs, 0, sizeof(*fpregs));
+	iov.iov_base = &fpregs->prfpreg;
+	iov.iov_len = sizeof(fpregs->prfpreg);
 	if (ptrace(PTRACE_GETREGSET, pid, NT_PRFPREG, &iov) < 0) {
 		pr_perror("Couldn't get floating-point registers");
 		return -1;
 	}
-	if (get_vx_regs(pid, &fpregs)) {
+	if (get_vx_regs(pid, fpregs)) {
 		pr_perror("Couldn't get vector registers");
 		return -1;
 	}
-	if (get_gs_cb(pid, &fpregs)) {
+	if (get_gs_cb(pid, fpregs)) {
 		pr_perror("Couldn't get guarded-storage");
 		return -1;
 	}
-	if (get_ri_cb(pid, &fpregs)) {
+	if (get_ri_cb(pid, fpregs)) {
 		pr_perror("Couldn't get runtime-instrumentation");
 		return -1;
 	}
@@ -343,10 +344,10 @@ int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 	 * before we execute parasite code. Otherwise parasite operations
 	 * would be recorded.
 	 */
-	if (fpregs.flags & USER_RI_ON)
+	if (fpregs->flags & USER_RI_ON)
 		s390_disable_ri_bit(pid, regs);
 
-	print_user_fpregs_struct("get_task_regs", pid, &fpregs);
+	print_user_fpregs_struct("compel_get_task_regs", pid, fpregs);
 	/* Check for system call restarting. */
 	if (regs->system_call) {
 		rewind = regs->system_call >> 16;
@@ -366,7 +367,62 @@ int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 		}
 	}
 	/* Call save_task_regs() */
-	return save(arg, regs, &fpregs);
+	return save(arg, regs, fpregs);
+}
+
+int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
+{
+	struct iovec iov;
+	int ret = 0;
+
+	iov.iov_base = &ext_regs->prfpreg;
+	iov.iov_len = sizeof(ext_regs->prfpreg);
+	if (ptrace(PTRACE_SETREGSET, pid, NT_PRFPREG, &iov) < 0) {
+		pr_perror("Couldn't set floating-point registers");
+		ret = -1;
+	}
+
+	if (ext_regs->flags & USER_FPREGS_VXRS) {
+		iov.iov_base = &ext_regs->vxrs_low;
+		iov.iov_len = sizeof(ext_regs->vxrs_low);
+		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_VXRS_LOW, &iov) < 0) {
+			pr_perror("Couldn't set VXRS_LOW");
+			ret = -1;
+		}
+
+		iov.iov_base = &ext_regs->vxrs_high;
+		iov.iov_len = sizeof(ext_regs->vxrs_high);
+		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_VXRS_HIGH, &iov) < 0) {
+			pr_perror("Couldn't set VXRS_HIGH");
+			ret = -1;
+		}
+	}
+
+	if (ext_regs->flags & USER_GS_CB) {
+		iov.iov_base = &ext_regs->gs_cb;
+		iov.iov_len = sizeof(ext_regs->gs_cb);
+		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_GS_CB, &iov) < 0) {
+			pr_perror("Couldn't set GS_CB");
+			ret = -1;
+		}
+		iov.iov_base = &ext_regs->gs_bc;
+		iov.iov_len = sizeof(ext_regs->gs_bc);
+		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_GS_BC, &iov) < 0) {
+			pr_perror("Couldn't set GS_BC");
+			ret = -1;
+		}
+	}
+
+	if (ext_regs->flags & USER_RI_CB) {
+		iov.iov_base = &ext_regs->ri_cb;
+		iov.iov_len = sizeof(ext_regs->ri_cb);
+		if (ptrace(PTRACE_SETREGSET, pid, NT_S390_RI_CB, &iov) < 0) {
+			pr_perror("Couldn't set RI_CB");
+			ret = -1;
+		}
+	}
+
+	return ret;
 }
 
 /*
@@ -661,14 +717,6 @@ unsigned long compel_task_size(void)
 
 /*
  * Get task registers (overwrites weak function)
- *
- * We don't store floating point and vector registers here because we
- * assue that compel/pie code does not change them.
- *
- * For verification issue:
- *
- * $ objdump -S criu/pie/parasite.built-in.bin.o | grep "%f"
- * $ objdump -S criu/pie/restorer.built-in.bin.o | grep "%f"
  */
 int ptrace_get_regs(int pid, user_regs_struct_t *regs)
 {

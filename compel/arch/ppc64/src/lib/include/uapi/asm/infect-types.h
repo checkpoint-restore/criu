@@ -83,4 +83,9 @@ typedef struct {
 
 #define __NR(syscall, compat) ({ (void)compat; __NR_##syscall; })
 
+#define __compel_arch_fetch_thread_area(tid, th) 0
+#define compel_arch_fetch_thread_area(tctl) 0
+#define compel_arch_get_tls_task(ctl, tls)
+#define compel_arch_get_tls_thread(tctl, tls)
+
 #endif /* UAPI_COMPEL_ASM_TYPES_H__ */

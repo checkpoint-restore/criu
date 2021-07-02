@@ -102,17 +102,17 @@ int checkperms(char *path)
 	}
 
 	if ((sb.st_mode & 0777) != 0777) {
-		fail("mode for %s doesn't match (%o)\n", path, sb.st_mode);
+		fail("mode for %s doesn't match (%o)", path, sb.st_mode);
 		return -1;
 	}
 
 	if (sb.st_uid != 1000) {
-		fail("uid for %s doesn't match (%d)\n", path, sb.st_uid);
+		fail("uid for %s doesn't match (%d)", path, sb.st_uid);
 		return -1;
 	}
 
 	if (sb.st_gid != 1000) {
-		fail("gid for %s doesn't match (%d)\n", path, sb.st_gid);
+		fail("gid for %s doesn't match (%d)", path, sb.st_gid);
 		return -1;
 	}
 

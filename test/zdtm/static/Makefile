@@ -14,6 +14,7 @@ TST_NOFILE	:=				\
 		fpu00				\
 		fpu01				\
 		fpu02				\
+		fpu03				\
 		arm-neon00			\
 		futex				\
 		futex-rl			\
@@ -207,11 +208,13 @@ TST_NOFILE	:=				\
 		macvlan			\
 		sit				\
 		cr_veth				\
+		cr_veth02			\
 		sock_peercred			\
 		s390x_mmap_high			\
 		uffd-events			\
 		thread_different_uid_gid	\
 		pipe03				\
+		netns_lock			\
 		netns_sub			\
 		netns_sub_veth			\
 		netns_sub_sysctl	\
@@ -235,9 +238,13 @@ TST_NOFILE	:=				\
 		timens_nested			\
 		timens_for_kids			\
 		zombie_leader			\
+		sigtrap				\
+		sigtrap01			\
+		change_mnt_context		\
 #		jobctl00			\
 
-pkg-config-check = $(shell sh -c 'pkg-config $(1) && echo y')
+PKG_CONFIG ?= pkg-config
+pkg-config-check = $(shell sh -c '$(PKG_CONFIG) $(1) && echo y')
 ifeq ($(call pkg-config-check,libbpf),y)
 TST_NOFILE	+=				\
 		bpf_hash			\
@@ -302,6 +309,7 @@ TST_FILE	=				\
 		file_lease03			\
 		file_lease04			\
 		file_locks00			\
+		file_locks00_fail		\
 		file_locks01			\
 		file_locks02			\
 		file_locks03			\
@@ -311,9 +319,12 @@ TST_FILE	=				\
 		file_locks07			\
 		file_locks08			\
 		netns-nf			\
-		netns-nft				\
+		netns-nft			\
+		netns-nft-ipt			\
 		maps_file_prot			\
 		socket_close_data01		\
+		fifo_upon_unix_socket00		\
+		fifo_upon_unix_socket01		\
 
 TST_DIR		=				\
 		cwd00				\
@@ -375,6 +386,7 @@ TST_DIR		=				\
 		del_standalone_un		\
 		sk-unix-mntns			\
 		sk-unix01			\
+		sk-unix-dgram-ghost		\
 		unsupported_children_collision  \
 		shared_slave_mount_children	\
 		non_uniform_share_propagation	\
@@ -493,6 +505,8 @@ $(TST):	| $(LIB)
 aio00:			LDLIBS += -laio
 different_creds:	LDLIBS += -lcap
 file_locks06 file_locks07 file_locks08:	ofd_file_locks.o
+fpu03:			CFLAGS += -pthread -D ZDTM_FPU00_RUN_IN_THREAD
+fpu03:			LDFLAGS += -pthread
 futex:			CFLAGS += -pthread
 futex:			LDFLAGS += -pthread
 futex-rl:		CFLAGS += -pthread
@@ -590,6 +604,8 @@ thread_different_uid_gid:	LDLIBS += -pthread -lcap
 
 bpf_hash:		LDLIBS += -lbpf
 bpf_array:		LDLIBS += -lbpf
+
+fifo_upon_unix_socket01:	CFLAGS += -DFIFO_UPON_UNIX01
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)

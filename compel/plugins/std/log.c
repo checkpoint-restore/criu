@@ -225,6 +225,22 @@ done:
 	print_string(s, b);
 }
 
+static void print_num_u(unsigned long num, struct simple_buf *b)
+{
+	char buf[22], *s;
+
+	buf[21] = '\0';
+	s = &buf[21];
+
+	do {
+		s--;
+		*s = (num % 10) + '0';
+		num /= 10;
+	} while (num > 0);
+
+	print_string(s, b);
+}
+
 static void hexdigit(unsigned int v, char *to, char **z)
 {
 	*to = "0123456789abcdef"[v & 0xf];
@@ -329,10 +345,17 @@ static void sbuf_printf(struct simple_buf *b, const char *format, va_list args)
 		case 'p':
 			print_hex_l((unsigned long)va_arg(args, void *), b);
 			break;
-		default:
-			print_string("UNKNOWN FORMAT ", b);
-			sbuf_putc(b, *s);
+		case 'u':
+			if (along)
+				print_num_u(va_arg(args, unsigned long), b);
+			else
+				print_num_u(va_arg(args, unsigned), b);
 			break;
+		default:
+			print_string("\nError: Unknown printf format %", b);
+			sbuf_putc(b, *s);
+			sbuf_putc(b, '\n');
+			return;
 		}
 		s++;
 	}

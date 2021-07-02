@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
 	       (struct sockaddr *) &name_bound, sizeof(name_bound));
 	read(sk_dgram_bound_server, &buf, sizeof(buf));
 	if (strcmp(buf, SK_DATA_BOUND)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	test_msg("dgram-bound       : '%s'\n", buf);
@@ -153,7 +153,7 @@ int main(int argc, char *argv[])
 	write(sk_dgram_conn_client, SK_DATA_CONN, sizeof(SK_DATA_CONN));
 	read(sk_dgram_conn_server, &buf, sizeof(buf));
 	if (strcmp(buf, SK_DATA_CONN)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	test_msg("dgram-conn        : '%s'\n", buf);
@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
 	write(sk_dgram_bound_conn, SK_DATA_BOUND_CONN, sizeof(SK_DATA_BOUND_CONN));
 	read(sk_dgram_bound_conn, &buf, sizeof(buf));
 	if (strcmp(buf, SK_DATA_BOUND_CONN)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	test_msg("dgram-bound-conn  : '%s'\n", buf);
@@ -175,7 +175,7 @@ int main(int argc, char *argv[])
 	       (struct sockaddr *) &name_bound, sizeof(name_bound));
 	read(sk_dgram_bound_server, &buf, sizeof(buf));
 	if (strcmp(buf, SK_DATA_BOUND)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	test_msg("dgram-bound       : '%s'\n", buf);
@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
 	write(sk_dgram_conn_client, SK_DATA_CONN, sizeof(SK_DATA_CONN));
 	read(sk_dgram_conn_server, &buf, sizeof(buf));
 	if (strcmp(buf, SK_DATA_CONN)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	test_msg("dgram-conn        : '%s'\n", buf);
@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
 	write(sk_dgram_bound_conn, SK_DATA_BOUND_CONN, sizeof(SK_DATA_BOUND_CONN));
 	read(sk_dgram_bound_conn, &buf, sizeof(buf));
 	if (strcmp(buf, SK_DATA_BOUND_CONN)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	test_msg("dgram-bound-conn  : '%s'\n", buf);

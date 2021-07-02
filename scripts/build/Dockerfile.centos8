@@ -1,0 +1,52 @@
+FROM registry.centos.org/centos/centos:8
+
+ARG CC=gcc
+
+RUN yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm dnf-plugins-core
+RUN yum config-manager --set-enabled powertools
+RUN yum install -y --allowerasing \
+	asciidoc \
+	coreutils \
+	chkconfig \
+	diffutils \
+	findutils \
+	gcc \
+	git \
+	gnutls-devel \
+	iproute \
+	iptables \
+	libaio-devel \
+	libasan \
+	libcap-devel \
+	libnet-devel \
+	libnl3-devel \
+	libselinux-devel \
+	make \
+	procps-ng \
+	protobuf-c-devel \
+	protobuf-devel \
+	python3-devel \
+	python3-flake8 \
+	python3-PyYAML \
+	python3-future \
+	python3-protobuf \
+	python3-pip \
+	sudo \
+	tar \
+	which \
+	xmlto
+
+RUN alternatives --set python /usr/bin/python3
+ENV PYTHON=python3
+
+COPY . /criu
+WORKDIR /criu
+
+RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
+
+# The rpc test cases are running as user #1000, let's add the user
+RUN adduser -u 1000 test
+
+RUN pip3 install junit_xml
+
+RUN make -C test/zdtm -j $(nproc)

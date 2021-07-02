@@ -11,7 +11,7 @@ ifdef CLANG
 	target-suffix = -clang
 endif
 
-TARGETS := alpine fedora-rawhide centos
+TARGETS := alpine fedora-rawhide centos7 centos8
 ZDTM_OPTIONS :=
 UNAME := $(shell uname -m)
 
@@ -27,10 +27,20 @@ endef
 
 export DOCKER_JSON
 
+ifeq ($(GITHUB_ACTIONS),true)
+	# GitHub Actions does not give us a real TTY and errors out with
+	# 'the input device is not a TTY' if using '-t'
+	CONTAINER_TERMINAL := -i
+else
+	CONTAINER_TERMINAL := -it
+endif
+
+export CONTAINER_TERMINAL
+
 ifeq ($(UNAME),x86_64)
 	# On anything besides x86_64 Travis is running unprivileged LXD
 	# containers which do not support running docker with '--privileged'.
-	CONTAINER_OPTS := --rm -it --privileged -v /lib/modules:/lib/modules --tmpfs /run
+	CONTAINER_OPTS := --rm $(CONTAINER_TERMINAL) --privileged -v /lib/modules:/lib/modules --tmpfs /run
 else
 	CONTAINER_OPTS := --rm -v /lib/modules:/lib/modules --tmpfs /run
 endif
@@ -50,7 +60,7 @@ $(TARGETS): restart-docker
 
 fedora-asan: restart-docker
 	$(MAKE) -C ../build $@$(target-suffix)
-	docker run -it $(CONTAINER_OPTS) criu-$@ ./scripts/ci/asan.sh $(ZDTM_OPTIONS)
+	docker run $(CONTAINER_OPTS) criu-$@ ./scripts/ci/asan.sh $(ZDTM_OPTIONS)
 
 docker-test:
 	./docker-test.sh

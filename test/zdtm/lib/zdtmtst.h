@@ -114,7 +114,7 @@ extern int write_pidfile(int pid);
 #define __stringify(x)          __stringify_1(x)
 
 /*
- * Macro to define stack alignment. 
+ * Macro to define stack alignment.
  * aarch64 requires stack to be aligned to 16 bytes.
  */
 #define __stack_aligned__	__attribute__((aligned(16)))

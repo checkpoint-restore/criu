@@ -11,8 +11,11 @@
  */
 #define VDSO_SYMBOL_MAX		2
 #define VDSO_SYMBOL_GTOD	1
-#define ARCH_VDSO_SYMBOLS			\
-	"__vdso_clock_gettime",		\
-	"__vdso_gettimeofday"
+#define ARCH_VDSO_SYMBOLS_LIST \
+	const char* aarch_vdso_symbol1 = "__vdso_clock_gettime"; \
+	const char* aarch_vdso_symbol2 = "__vdso_gettimeofday";
+#define ARCH_VDSO_SYMBOLS \
+	aarch_vdso_symbol1, \
+	aarch_vdso_symbol2,
 
 #endif /* __CR_ASM_VDSO_H__ */

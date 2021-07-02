@@ -262,7 +262,7 @@ static int uffd_api_ioctl(void *arg, int fd, pid_t pid)
 	return ioctl(fd, UFFDIO_API, uffdio_api);
 }
 
-int uffd_open(int flags, unsigned long *features)
+int uffd_open(int flags, unsigned long *features, int *err)
 {
 	struct uffdio_api uffdio_api = { 0 };
 	int uffd;
@@ -270,7 +270,9 @@ int uffd_open(int flags, unsigned long *features)
 	uffd = syscall(SYS_userfaultfd, flags);
 	if (uffd == -1) {
 		pr_info("Lazy pages are not available: %s\n", strerror(errno));
-		return -errno;
+		if (err)
+			*err = errno;
+		return -1;
 	}
 
 	uffdio_api.api = UFFD_API;
@@ -280,13 +282,13 @@ int uffd_open(int flags, unsigned long *features)
 	if (userns_call(uffd_api_ioctl, 0, &uffdio_api, sizeof(uffdio_api),
 			uffd)) {
 		pr_perror("Failed to get uffd API");
-		goto err;
+		goto close;
 	}
 
 	if (uffdio_api.api != UFFD_API) {
 		pr_err("Incompatible uffd API: expected %Lu, got %Lu\n",
 		       UFFD_API, uffdio_api.api);
-		goto err;
+		goto close;
 	}
 
 	if (features)
@@ -294,7 +296,7 @@ int uffd_open(int flags, unsigned long *features)
 
 	return uffd;
 
-err:
+close:
 	close(uffd);
 	return -1;
 }
@@ -313,7 +315,7 @@ int setup_uffd(int pid, struct task_restore_args *task_args)
 	 * Open userfaulfd FD which is passed to the restorer blob and
 	 * to a second process handling the userfaultfd page faults.
 	 */
-	task_args->uffd = uffd_open(O_CLOEXEC | O_NONBLOCK, &features);
+	task_args->uffd = uffd_open(O_CLOEXEC | O_NONBLOCK, &features, NULL);
 	if (task_args->uffd < 0) {
 		pr_perror("Unable to open an userfaultfd descriptor");
 		return -1;
@@ -1131,6 +1133,7 @@ out:
 static int complete_forks(int epollfd, struct epoll_event **events, int *nr_fds)
 {
 	struct lazy_pages_info *lpi, *n;
+	struct epoll_event *tmp;
 
 	if (list_empty(&pending_lpis))
 		return 1;
@@ -1138,9 +1141,10 @@ static int complete_forks(int epollfd, struct epoll_event **events, int *nr_fds)
 	list_for_each_entry(lpi, &pending_lpis, l)
 		(*nr_fds)++;
 
-	*events = xrealloc(*events, sizeof(struct epoll_event) * (*nr_fds));
-	if (!*events)
+	tmp = xrealloc(*events, sizeof(struct epoll_event) * (*nr_fds));
+	if (!tmp)
 		return -1;
+	*events = tmp;
 
 	list_for_each_entry_safe(lpi, n, &pending_lpis, l) {
 		if (epoll_add_rfd(epollfd, &lpi->lpfd))
@@ -1207,17 +1211,20 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 	lpi = container_of(lpfd, struct lazy_pages_info, lpfd);
 
 	ret = read(lpfd->fd, &msg, sizeof(msg));
-	if (!ret)
-		return 1;
-
-	if (ret != sizeof(msg)) {
+	if (ret < 0) {
 		/* we've already handled the page fault for another thread */
 		if (errno == EAGAIN)
 			return 0;
-		if (ret < 0)
-			lp_perror(lpi, "Can't read uffd message");
-		else
-			lp_err(lpi, "Can't read uffd message: short read");
+		if (errno == EBADF && lpi->exited) {
+			lp_debug(lpi, "excess message in queue: %d", msg.event);
+			return 0;
+		}
+		lp_perror(lpi, "Can't read uffd message");
+		return -1;
+	} else if (ret == 0) {
+		return 1;
+	} else if (ret != sizeof(msg)) {
+		lp_err(lpi, "Can't read uffd message: short read");
 		return -1;
 	}
 
@@ -1254,18 +1261,18 @@ static void lazy_pages_summary(struct lazy_pages_info *lpi)
 #endif
 }
 
-static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
+static int handle_requests(int epollfd, struct epoll_event **events, int nr_fds)
 {
 	struct lazy_pages_info *lpi, *n;
 	int poll_timeout = -1;
 	int ret;
 
 	for (;;) {
-		ret = epoll_run_rfds(epollfd, events, nr_fds, poll_timeout);
+		ret = epoll_run_rfds(epollfd, *events, nr_fds, poll_timeout);
 		if (ret < 0)
 			goto out;
 		if (ret > 0) {
-			ret = complete_forks(epollfd, &events, &nr_fds);
+			ret = complete_forks(epollfd, events, &nr_fds);
 			if (ret < 0)
 				goto out;
 			if (restore_finished)
@@ -1481,7 +1488,7 @@ int cr_lazy_pages(bool daemon)
 		}
 	}
 
-	ret = handle_requests(epollfd, events, nr_fds);
+	ret = handle_requests(epollfd, &events, nr_fds);
 
 	tls_terminate_session();
 

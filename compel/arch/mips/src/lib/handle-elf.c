@@ -15,8 +15,8 @@ extern int __handle_elf(void *mem, size_t size);
 
 int handle_binary(void *mem, size_t size)
 {
-    if (memcmp(mem, elf_ident_64_le, sizeof(elf_ident_64_le)) == 0)
-	return __handle_elf(mem, size);
+	if (memcmp(mem, elf_ident_64_le, sizeof(elf_ident_64_le)) == 0)
+		return __handle_elf(mem, size);
 
 	pr_err("Unsupported Elf format detected\n");
 	return -EINVAL;

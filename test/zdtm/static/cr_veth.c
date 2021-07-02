@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (!wait_for_veth()) {
-		fail("failed to inject veth device\n");
+		fail("failed to inject veth device");
 		return 1;
 	}
 

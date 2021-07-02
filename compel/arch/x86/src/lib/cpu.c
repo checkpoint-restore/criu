@@ -125,7 +125,7 @@ static int compel_fpuid(compel_cpuinfo_t *c)
 			c->xfeatures_mask &= ~(1 << i);
 	}
 
-	c->xfeatures_mask &= XCNTXT_MASK;
+	c->xfeatures_mask &= XFEATURE_MASK_USER;
 	c->xfeatures_mask &= ~XFEATURE_MASK_SUPERVISOR;
 
 	/*

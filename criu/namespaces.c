@@ -247,11 +247,11 @@ int switch_ns(int pid, struct ns_desc *nd, int *rst)
 
 int switch_ns_by_fd(int nsfd, struct ns_desc *nd, int *rst)
 {
-	int ret = -1;
+	int ret = -1, old_ns = -1;
 
 	if (rst) {
-		*rst = open_proc(PROC_SELF, "ns/%s", nd->str);
-		if (*rst < 0)
+		old_ns = open_proc(PROC_SELF, "ns/%s", nd->str);
+		if (old_ns < 0)
 			goto err_ns;
 	}
 
@@ -261,11 +261,12 @@ int switch_ns_by_fd(int nsfd, struct ns_desc *nd, int *rst)
 		goto err_set;
 	}
 
+	if (rst)
+		*rst = old_ns;
 	return 0;
 
 err_set:
-	if (rst)
-		close(*rst);
+	close_safe(&old_ns);
 err_ns:
 	return -1;
 }
@@ -537,7 +538,10 @@ static int open_ns_fd(struct file_desc *d, int *new_fd)
 		else
 			break;
 		fd = fdstore_get(nsfd_id);
-		goto check_open;
+		if (fd < 0) {
+			return -1;
+		}
+		goto out;
 	}
 
 	/*
@@ -597,12 +601,11 @@ static int open_ns_fd(struct file_desc *d, int *new_fd)
 	path[sizeof(path) - 1] = '\0';
 
 	fd = open(path, nfi->nfe->flags);
-check_open:
 	if (fd < 0) {
 		pr_perror("Can't open file %s on restore", path);
 		return fd;
 	}
-
+out:
 	*new_fd = fd;
 	return 0;
 }
@@ -1080,21 +1083,18 @@ int dump_namespaces(struct pstree_item *item, unsigned int ns_flags)
 
 	pr_info("Dumping %d(%d)'s namespaces\n", ns_pid->ns[0].virt, ns_pid->real);
 
-	if ((ns_flags & CLONE_NEWPID) && ns_pid->ns[0].virt != 1) {
+	if ((ns_flags & CLONE_NEWPID) && ns_pid->ns[0].virt != INIT_PID) {
 		char *val = NULL;
-		for (ns = ns_ids; ns; ns = ns->next) {
-			if (ns->nd->cflag == CLONE_NEWPID) {
-				char id[64];
-				snprintf(id, sizeof(id), "pid[%u]", ns->kid);
-				val = external_lookup_by_key(id);
-				if (IS_ERR_OR_NULL(val)) {
-					val = NULL;
-					continue;
-				}
-				if (val)
-					break;
-			}
+
+		ns = lookup_ns_by_id(item->ids->pid_ns_id, &pid_ns_desc);
+		if (ns) {
+			char id[64];
+			snprintf(id, sizeof(id), "pid[%u]", ns->kid);
+			val = external_lookup_by_key(id);
+			if (IS_ERR_OR_NULL(val))
+				val = NULL;
 		}
+
 		if (!val) {
 			pr_err("Can't dump a pid namespace without the process init\n");
 			return -1;
@@ -1163,11 +1163,22 @@ static int write_id_map(pid_t pid, UidGidExtent **extents, int n, char *id_map)
 	 *  We can perform only a single write (that may contain multiple
 	 *  newline-delimited records) to a uid_map and a gid_map files.
 	 */
-	for (i = 0; i < n; i++)
-		off += snprintf(buf + off, sizeof(buf) - off,
+	for (i = 0; i < n; i++) {
+		int len;
+
+		len = snprintf(buf + off, sizeof(buf) - off,
 				"%u %u %u\n", extents[i]->first,
 					extents[i]->lower_first,
 					extents[i]->count);
+		if (len < 0) {
+			pr_perror("Unable to form the user/group mappings buffer");
+			return -1;
+		} else if (len >= sizeof(buf) - off) {
+			pr_err("The user/group mappings buffer truncated\n");
+			return -1;
+		}
+		off += len;
+	}
 
 	fd = open_proc_rw(pid, "%s", id_map);
 	if (fd < 0)
@@ -1364,6 +1375,10 @@ int __userns_call(const char *func_name, uns_call_t call, int flags,
 		return call(arg, fd, getpid());
 
 	sk = get_service_fd(USERNSD_SK);
+	if (sk < 0) {
+		pr_err("Cannot get USERNSD_SK fd\n");
+		return -1;
+	}
 	pr_debug("uns: calling %s (%d, %x)\n", func_name, fd, flags);
 
 	if (!async)
@@ -1799,17 +1814,8 @@ static int read_pid_ns_img(void)
 			pr_err("Can not read pidns object\n");
 			return -1;
 		}
-		if (ret > 0) {
+		if (ret > 0)
 			ns->ext_key = e->ext_key;
-			/*
-			 * Restoring into an existing PID namespace. This disables
-			 * the check to require a PID 1 when restoring a process
-			 * which used to be in a PID namespace.
-			 * To keep the PID namespace code paths enabled this bit
-			 * will be set after having clone()ed the process.
-			 */
-			root_ns_mask &= ~CLONE_NEWPID;
-		}
 	}
 
 	return 0;

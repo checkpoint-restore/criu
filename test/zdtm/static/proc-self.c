@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (memcmp(path_orig, path_new, sizeof(path_orig))) {
-		fail("Paths mismatch %s %s\n", path_orig, path_new);
+		fail("Paths mismatch %s %s", path_orig, path_new);
 		return -1;
 	}
 

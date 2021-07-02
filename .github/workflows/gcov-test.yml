@@ -1,0 +1,14 @@
+name: Coverage Tests
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run Coverage Tests
+      run: sudo -E make -C scripts/ci local GCOV=1
+    - name: Run Coverage Analysis
+      run: sudo -E make codecov

@@ -157,7 +157,7 @@ static int dump_one_memfd(int lfd, u32 id, const struct fd_parms *p)
 	} else
 		link = p->link;
 
-	strip_deleted(link);
+	link_strip_deleted(link);
 	/* link->name is always started with "." which has to be skipped.  */
 	if (strncmp(link->name + 1, MEMFD_PREFIX, MEMFD_PREFIX_LEN) == 0)
 		name = &link->name[1 + MEMFD_PREFIX_LEN];
@@ -332,7 +332,7 @@ int memfd_open(struct file_desc *d, u32 *fdflags)
 	 * O_LARGEFILE file flag with regular open(). It doesn't seem that
 	 * important though.
 	 */
-	_fd = __open_proc(getpid(), 0, flags, "fd/%d", fd);
+	_fd = __open_proc(PROC_SELF, 0, flags, "fd/%d", fd);
 	if (_fd < 0) {
 		pr_perror("Can't reopen memfd id=%d", mfe->id);
 		goto err;

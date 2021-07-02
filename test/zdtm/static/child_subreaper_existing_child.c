@@ -76,18 +76,18 @@ int subreaper(void)
 		pr_perror("Wrong exit status for HELPER: %d", status);
 		return 1;
 	}
-	
+
 	/* Give control to ORPHAN so it can check its parent */
 	futex_set_and_wake(&sh->fstate, TEST_CHECK);
 	futex_wait_until(&sh->fstate, TEST_EXIT);
-	
+
 	/* Cleanup: reap the ORPHAN */
 	wait(&status);
 	if (!WIFEXITED(status) || WEXITSTATUS(status)) {
 		pr_perror("Wrong exit status for ORPHAN: %d", status);
 		return 1;
 	}
-	
+
 	return 0;
 }
 

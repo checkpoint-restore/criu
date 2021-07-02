@@ -118,7 +118,7 @@ static void *thread_run(void *param)
 	gs_epl = malloc(sizeof(unsigned long) * 6);
 	gs_cb = malloc(sizeof(*gs_cb));
 	if (gs_epl == NULL || gs_cb == NULL) {
-		fail("Error allocating memory\n");
+		fail("Error allocating memory");
 		exit(1);
 	}
 	gs_cb->gsd = 0x1234000000UL | 26;

@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
 	test_waitsig();
 
 	if (unlink(path)) {
-		pr_perror("Unable to remove %s\n", path);
+		pr_perror("Unable to remove %s", path);
 		return 1;
 	}
 	if (rmdir(dir)) {

@@ -20,9 +20,9 @@ static int nlmsg_receive(char *buf, int len,
 		if (hdr->nlmsg_seq != CR_NLMSG_SEQ)
 			continue;
 		if (hdr->nlmsg_type == NLMSG_DONE) {
-			int *len = (int *)NLMSG_DATA(hdr);
-			if (*len < 0)
-				return err_cb(*len, ns, arg);
+			int *length = (int *)NLMSG_DATA(hdr);
+			if (*length < 0)
+				return err_cb(*length, ns, arg);
 			return 0;
 		}
 		if (hdr->nlmsg_type == NLMSG_ERROR) {

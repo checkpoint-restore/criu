@@ -383,7 +383,7 @@ int main(int argc, char *argv[])
 	ret = wait(&status);
 	if (ret == -1 || !WIFEXITED(status) || WEXITSTATUS(status)) {
 		kill(pid, SIGKILL);
-		fail("Failed waiting server\n");
+		fail("Failed waiting server");
 		exit(1);
 	}
 

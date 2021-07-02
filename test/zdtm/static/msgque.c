@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 		test_waitsig();
 
 		if (msgrcv(msg, &msgbuf, sizeof(TEST_STRING), MSG_TYPE, IPC_NOWAIT) == -1) {
-			fail("Child: msgrcv failed (%m)");
+			fail("Child: msgrcv failed");
 			return -errno;
 		}
 
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
 		msgbuf.mtype = ANOTHER_MSG_TYPE;
 		memcpy(msgbuf.mtext, ANOTHER_TEST_STRING, sizeof(ANOTHER_TEST_STRING));
 		if (msgsnd(msg, &msgbuf, sizeof(ANOTHER_TEST_STRING), IPC_NOWAIT) != 0) {
-			fail("Child: msgsnd failed (%m)");
+			fail("Child: msgsnd failed");
 			return -errno;
 		};
 		pass();
@@ -83,14 +83,14 @@ int main(int argc, char **argv)
 		msgbuf.mtype = MSG_TYPE;
 		memcpy(msgbuf.mtext, TEST_STRING, sizeof(TEST_STRING));
 		if (msgsnd(msg, &msgbuf, sizeof(TEST_STRING), IPC_NOWAIT) != 0) {
-			fail("Parent: msgsnd failed (%m)");
+			fail("Parent: msgsnd failed");
 			goto err_kill;
 		};
 
 		msgbuf.mtype = ANOTHER_MSG_TYPE;
 		memcpy(msgbuf.mtext, ANOTHER_TEST_STRING, sizeof(ANOTHER_TEST_STRING));
 		if (msgsnd(msg, &msgbuf, sizeof(ANOTHER_TEST_STRING), IPC_NOWAIT) != 0) {
-			fail("child: msgsnd (2) failed (%m)");
+			fail("child: msgsnd (2) failed");
 			return -errno;
 		};
 
@@ -102,13 +102,13 @@ int main(int argc, char **argv)
 		wait(&chret);
 		chret = WEXITSTATUS(chret);
 		if (chret) {
-			fail("Parent: child exited with non-zero code %d (%s)\n",
+			fail("Parent: child exited with non-zero code %d (%s)",
 			     chret, strerror(chret));
 			goto out;
 		}
 
 		if (msgrcv(msg, &msgbuf, sizeof(ANOTHER_TEST_STRING), ANOTHER_MSG_TYPE, IPC_NOWAIT) == -1) {
-			fail("Parent: msgrcv failed (%m)");
+			fail("Parent: msgrcv failed");
 			goto err;
 		}
 
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
 
 out:
 	if (msgctl(msg, IPC_RMID, 0)) {
-		fail("Failed to destroy message queue: %d\n", -errno);
+		fail("Failed to destroy message queue");
 		return -errno;
 	}
 	return chret;

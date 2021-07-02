@@ -1,0 +1,3 @@
+#!/bin/bash
+
+test -d /sys/fs/selinux || exit 1

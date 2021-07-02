@@ -43,15 +43,15 @@ int main(int argc, char **argv)
 	addrlen = sizeof(addr.sun_family) + sizeof(SK_SRV);
 
 	if (bind(srv, (struct sockaddr *) &addr, addrlen)) {
-		fail("bind\n");
+		fail("bind");
 		exit(1);
 	}
 	if (connect(clnt1, (struct sockaddr *) &addr, addrlen)) {
-		fail("connect\n");
+		fail("connect");
 		exit(1);
 	}
 	if (connect(clnt2, (struct sockaddr *) &addr, addrlen)) {
-		fail("connect\n");
+		fail("connect");
 		exit(1);
 	}
 

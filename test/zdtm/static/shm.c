@@ -29,14 +29,14 @@ static int fill_shm_seg(int id, size_t size)
 
 	mem = shmat(id, NULL, 0);
 	if (mem == (void *)-1) {
-		pr_perror("Can't attach shm: %d", -errno);
+		pr_perror("Can't attach shm");
 		return -1;
 	}
 
 	datagen(mem, size, &crc);
 
 	if (shmdt(mem) < 0) {
-		pr_perror("Can't detach shm: %d", -errno);
+		pr_perror("Can't detach shm");
 		return -1;
 	}
 	return 0;
@@ -48,7 +48,7 @@ static int get_shm_seg(int key, size_t size, unsigned int flags)
 
 	id = shmget(key, size, 0777 | flags);
 	if (id == -1) {
-		pr_perror("Can't get shm: %d", -errno);
+		pr_perror("Can't get shm");
 		return -1;
 	}
 	return id;
@@ -74,7 +74,7 @@ static int check_shm_id(int id, size_t size)
 
 	mem = shmat(id, NULL, 0);
 	if (mem == (void *)-1) {
-		pr_perror("Can't attach shm: %d", -errno);
+		pr_perror("Can't attach shm");
 		return -1;
 	}
 	crc = INIT_CRC;
@@ -83,7 +83,7 @@ static int check_shm_id(int id, size_t size)
 		return -1;
 	}
 	if (shmdt(mem) < 0) {
-		pr_perror("Can't detach shm: %d", -errno);
+		pr_perror("Can't detach shm");
 		return -1;
 	}
 	return 0;
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
 
 	shm = prepare_shm(key, shmem_size);
 	if (shm == -1) {
-		pr_perror("Can't prepare shm (1)");
+		pr_err("Can't prepare shm (1)\n");
 		goto out;
 	}
 
@@ -138,14 +138,14 @@ int main(int argc, char **argv)
 
 	ret = check_shm_id(shm, shmem_size);
 	if (ret < 0) {
-		fail("ID check (1) failed\n");
+		fail("ID check (1) failed");
 		fail_count++;
 		goto out_shm;
 	}
 
 	ret = check_shm_key(key, shmem_size);
 	if (ret < 0) {
-		fail("KEY check failed\n");
+		fail("KEY check failed");
 		fail_count++;
 		goto out_shm;
 	}
@@ -162,7 +162,7 @@ int main(int argc, char **argv)
 
 	ret = shmctl(shm, IPC_RMID, NULL);
 	if (ret < 0) {
-		fail("Failed (1) to destroy segment: %d\n", -errno);
+		fail("Failed (1) to destroy segment");
 		fail_count++;
 		goto out_shm;
 	}
@@ -179,7 +179,7 @@ int main(int argc, char **argv)
 
 	ret = check_shm_id(shm, shmem_size);
 	if (ret < 0) {
-		fail("ID check (2) failed\n");
+		fail("ID check (2) failed");
 		fail_count++;
 		goto out_shm;
 	}
@@ -187,7 +187,7 @@ int main(int argc, char **argv)
 out_shm:
 	ret = shmctl(shm, IPC_RMID, NULL);
 	if (ret < 0) {
-		fail("Failed (2) to destroy segment: %d\n", -errno);
+		fail("Failed (2) to destroy segment");
 		fail_count++;
 	}
 	if (fail_count == 0)

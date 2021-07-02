@@ -89,7 +89,7 @@ static void *thread_func_1(void *map)
 
 	pid = test_fork();
 	if (pid < 0) {
-		fail("Failed to test_fork()\n");
+		fail("Failed to test_fork()");
 		exit_group(1);
 	} else if (pid == 0) {
 		passage(2);
@@ -115,7 +115,7 @@ static void *thread_func_2(void *map)
 
 	pid = test_fork();
 	if (pid < 0) {
-		fail("Failed to test_fork()\n");
+		fail("Failed to test_fork()");
 		exit_group(1);
 	} else if (pid == 0) {
 		passage(4);

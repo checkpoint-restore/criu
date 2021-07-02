@@ -108,6 +108,12 @@ int dump_file_locks(void)
 			continue;
 		}
 
+		if (!opts.handle_file_locks) {
+			pr_err("Some file locks are hold by dumping tasks! "
+					"You can try --" OPT_FILE_LOCKS " to dump them.\n");
+			return -1;
+		}
+
 		file_lock_entry__init(&fle);
 		fle.pid = fl->real_owner;
 		fle.fd = fl->owners_fd;
@@ -195,7 +201,7 @@ static int lock_check_fd(int lfd, struct file_lock *fl)
 	} else {
 		/*
 		 * The ret == 0 means, that new lock doesn't conflict
-		 * with any others on the file. But since we do know, 
+		 * with any others on the file. But since we do know,
 		 * that there should be some other one (file is found
 		 * in /proc/locks), it means that the lock is already
 		 * on file pointed by fd.
@@ -473,7 +479,7 @@ static int open_break_cb(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 		close(fd);
 		return -1;
 	} else if (errno != EWOULDBLOCK) {
-		pr_perror("Can't break lease\n");
+		pr_perror("Can't break lease");
 		return -1;
 	}
 	return 0;
@@ -506,7 +512,7 @@ static int set_file_lease(int fd, int type)
 	struct stat st;
 
 	if (fstat(fd, &st)) {
-		pr_perror("Can't get file stat (%i)\n", fd);
+		pr_perror("Can't get file stat (%i)", fd);
 		return -1;
 	}
 
@@ -518,7 +524,7 @@ static int set_file_lease(int fd, int type)
 
 	ret = fcntl(fd, F_SETLEASE, type);
 	if (ret < 0)
-		pr_perror("Can't set lease\n");
+		pr_perror("Can't set lease");
 
 	setfsuid(old_fsuid);
 	return ret;
@@ -583,20 +589,20 @@ static int restore_file_lease(FileLockEntry *fle)
 		signum_fcntl = fcntl(fle->fd, F_GETSIG);
 		signum = signum_fcntl ? signum_fcntl : SIGIO;
 		if (signum_fcntl < 0) {
-			pr_perror("Can't get file i/o signum\n");
+			pr_perror("Can't get file i/o signum");
 			return -1;
 		}
 		if (sigemptyset(&blockmask) ||
 			sigaddset(&blockmask, signum) ||
 			sigprocmask(SIG_BLOCK, &blockmask, &oldmask)) {
-			pr_perror("Can't block file i/o signal\n");
+			pr_perror("Can't block file i/o signal");
 			return -1;
 		}
 
 		ret = restore_breaking_file_lease(fle);
 
 		if (sigprocmask(SIG_SETMASK, &oldmask, NULL)) {
-			pr_perror("Can't restore sigmask\n");
+			pr_perror("Can't restore sigmask");
 			ret = -1;
 		}
 		return ret;

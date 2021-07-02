@@ -1,0 +1,27 @@
+version: 2.1
+jobs:
+  test-local-gcc:
+    machine:
+      image: ubuntu-2004:202010-01
+    working_directory: ~/criu
+    steps:
+      - checkout
+      - run:
+          name: "Test local with GCC"
+          command: sudo -E make -C scripts/ci local
+  test-local-clang:
+    machine:
+      image: ubuntu-2004:202010-01
+    working_directory: ~/criu
+    steps:
+      - checkout
+      - run:
+          name: "Test local with CLANG"
+          command: sudo -E make -C scripts/ci local CLANG=1
+
+workflows:
+  version: 2
+  builds:
+    jobs:
+      - test-local-gcc
+      - test-local-clang

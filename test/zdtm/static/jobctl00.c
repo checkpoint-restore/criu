@@ -75,7 +75,7 @@ static int reader(int sig)
 static int post_reader(int fd)
 {
 	if (write(fd, rd_string, sizeof(rd_string) - 1) < 0) {
-		fail("write failed: %m");
+		fail("write failed");
 		return -1;
 	}
 	return 0;
@@ -90,7 +90,7 @@ static int post_writer(int fd)
 {
 	char str[sizeof(wr_string) + 1];
 	if (read(0, str, sizeof(str)) < 0) {
-		fail("read failed: %m");
+		fail("read failed");
 		return -1;
 	}
 	/*
@@ -241,7 +241,7 @@ int finish_jobs(pid_t *jobs, int njobs, int fdmaster, int fdslave)
 		int jtno = i % (sizeof(job_types) / sizeof(job_types[0]));
 
 		if (tcsetpgrp(fdslave, jobs[i]) < 0) {
-			fail("can't bring a job into foreground: %m");
+			fail("can't bring a job into foreground");
 			goto killout;
 		}
 

@@ -174,7 +174,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (strcmp(argv[optind], "service")) {
 		ret = open_image_dir(opts.imgs_dir, image_dir_mode(argv, optind));
 		if (ret < 0) {
-			pr_err("Couldn't open image dir: %s", opts.imgs_dir);
+			pr_err("Couldn't open image dir %s\n", opts.imgs_dir);
 			return 1;
 		}
 	}
@@ -189,7 +189,10 @@ int main(int argc, char *argv[], char *envp[])
 	 * 2) Transmitting data to the image streamer
 	 * 3) Emitting logs (potentially to a pipe).
 	 */
-	signal(SIGPIPE, SIG_IGN);
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+		pr_perror("Failed to set a SIGPIPE signal ignore.");
+		return 1;
+	}
 
 	/*
 	 * When a process group becomes an orphan,
@@ -214,8 +217,8 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
-       if (fault_injected(FI_CANNOT_MAP_VDSO))
-               kdat.can_map_vdso = 0;
+	if (fault_injected(FI_CANNOT_MAP_VDSO))
+		kdat.can_map_vdso = 0;
 
 	if (!list_empty(&opts.inherit_fds)) {
 		if (strcmp(argv[optind], "restore")) {
@@ -373,6 +376,7 @@ usage:
 "                            veth[IFNAME]:OUTNAME{@BRIDGE}\n"
 "                            macvlan[IFNAME]:OUTNAME\n"
 "                            mnt[COOKIE]:ROOT\n"
+"                            netdev[IFNAME]:ORIGNAME\n"
 "\n"
 "* Special resources support:\n"
 "     --" SK_EST_PARAM "  checkpoint/restore established TCP connections\n"
@@ -418,6 +422,10 @@ usage:
 "  --lsm-profile TYPE:NAME\n"
 "                        Specify an LSM profile to be used during restore.\n"
 "                        The type can be either 'apparmor' or 'selinux'.\n"
+"  --lsm-mount-context CTX\n"
+"                        Specify a mount context to be used during restore.\n"
+"                        Only mounts with an existing context will have their\n"
+"                        mount context replaced with CTX.\n"
 "  --skip-mnt PATH       ignore this mountpoint when dumping the mount namespace\n"
 "  --enable-fs FSNAMES   a comma separated list of filesystem names or \"all\"\n"
 "                        force criu to (try to) dump/restore these filesystem's\n"

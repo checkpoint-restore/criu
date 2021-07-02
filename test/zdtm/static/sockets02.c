@@ -26,12 +26,12 @@ int main(int argc, char *argv[])
 	data = (char)lrand48();
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, ssk_pair) == -1) {
-		fail("socketpair\n");
+		fail("socketpair");
 		exit(1);
 	}
 
 	if (write(ssk_pair[1], &data, sizeof(data)) != sizeof(data)) {
-		fail("write\n");
+		fail("write");
 		exit(1);
 	}
 
@@ -49,14 +49,14 @@ int main(int argc, char *argv[])
 	errno = 0;
 	ret = read(ssk_pair[0], &aux, sizeof(aux));
 	if (ret != 0 || errno != 0) {
-		fail("Opened end in wrong state (%d/%d)", ret, errno);
+		fail("Opened end in wrong state (ret=%d)", ret);
 		return 0;
 	}
 
 	errno = 0;
 	ret = read(ssk_pair[1], &aux, sizeof(aux));
 	if (ret != -1 || errno != EBADF) {
-		fail("Closed end in wrong state (%d/%d)", ret, errno);
+		fail("Closed end in wrong state (ret=%d)", ret);
 		return 0;
 	}
 

@@ -4,24 +4,9 @@ set -x -e
 CI_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
 		libgnutls30 libprotobuf-dev protobuf-compiler libcap-dev
 		libnl-3-dev gdb bash libnet-dev util-linux asciidoctor
-		libnl-route-3-dev time ccache flake8 libbsd-dev"
-
-
-if [ -e /etc/lsb-release ]; then
-	# This file does not exist on non Ubuntu
-	# shellcheck disable=SC1091
-	. /etc/lsb-release
-	if [ "$DISTRIB_RELEASE" = "16.04" ]; then
-		# There is one last test running on 16.04 because of the broken
-		# overlayfs in 18.04. Once that is fixed we can remove the last
-		# 16.04 based test and this if clause.
-		CI_PKGS="$CI_PKGS python-future python-protobuf python-yaml
-			python-junit.xml python-ipaddress"
-	else
-		CI_PKGS="$CI_PKGS python3-future python3-protobuf python3-yaml
-			python3-junit.xml"
-	fi
-fi
+		libnl-route-3-dev time flake8 libbsd-dev python3-yaml
+		libperl-dev pkg-config python3-future python3-protobuf
+		python3-junit.xml"
 
 X86_64_PKGS="gcc-multilib"
 
@@ -31,7 +16,11 @@ if [ "$UNAME_M" != "x86_64" ]; then
 	# For Travis only x86_64 seems to be baremetal. Other
 	# architectures are running in unprivileged LXD containers.
 	# That seems to block most of CRIU's interfaces.
-	SKIP_CI_TEST=1
+
+	# But with the introduction of baremetal aarch64 systems in
+	# Travis (arch: arm64-graviton2) we can override this using
+	# an evironment variable
+	[ -n "$RUN_TESTS" ] || SKIP_CI_TEST=1
 fi
 
 ci_prep () {
@@ -47,28 +36,17 @@ ci_prep () {
 	# This can fail on aarch64 travis
 	service apport stop || :
 
-	CC=gcc
-	# clang support
 	if [ "$CLANG" = "1" ]; then
-		CI_PKGS="$CI_PKGS clang"
+		# clang support
 		CC=clang
+		# If this is running in an environment without gcc installed
+		# compel-host-bin will fail as it is using HOSTCC. Also
+		# set HOSTCC to clang to build compel-host-bin with it.
+		export HOSTCC=clang
+	else
+		CC=gcc
 	fi
-
-	[ -n "$GCOV" ] && {
-		apt-add-repository -y "ppa:ubuntu-toolchain-r/test"
-		scripts/ci/apt-install --no-install-suggests g++-7
-		CC=gcc-7
-	}
-
-	# ccache support, only enable for non-GCOV case
-	if [ "$CCACHE" = "1" ] && [ -z "$GCOV" ]; then
-		# ccache is installed by default, need to set it up
-		export CCACHE_DIR=$HOME/.ccache
-		[ "$CC" = "clang" ] && export CCACHE_CPP2=yes
-		# uncomment the following to get detailed ccache logs
-		#export CCACHE_LOGFILE=$HOME/ccache.log
-		CC="ccache $CC"
-	fi
+	CI_PKGS="$CI_PKGS $CC"
 
 	# Do not install x86_64 specific packages on other architectures
 	if [ "$UNAME_M" = "x86_64" ]; then
@@ -91,11 +69,52 @@ test_stream() {
 	./test/zdtm.py run --stream -p 2 --keep-going -T "$STREAM_TEST_PATTERN" $ZDTM_OPTS
 }
 
+print_header() {
+	echo "############### $1 ###############"
+}
+
+print_env() {
+	set +x
+	# As this script can run on multiple different CI systems
+	# the following lines should give some context to the
+	# evnvironment of this CI run.
+	print_header "Environment variables"
+	printenv
+	print_header "uname -a"
+	uname -a || :
+	print_header "Mounted file systems"
+	mount || :
+	print_header "Kernel command line"
+	cat /proc/cmdline || :
+	print_header "Distribution information"
+	[ -e /etc/lsb-release ] && cat /etc/lsb-release
+	[ -e /etc/redhat-release ] && cat /etc/redhat-release
+	[ -e /etc/alpine-release ] && cat /etc/alpine-release
+	print_header "ulimit -a"
+	ulimit -a
+	print_header "Available memory"
+	if [ -e /etc/alpine-release ]; then
+		# Alpine's busybox based free does not understand -h
+		free
+	else
+		free -h
+	fi
+	print_header "Available CPUs"
+	lscpu || :
+	set -x
+}
+
+print_env
+
 ci_prep
 
-export GCOV
+if [ "${CD_TO_TOP}" = "1" ]; then
+	cd ../../
+fi
+
+export GCOV CC
 $CC --version
-time make CC="$CC" -j4
+time make CC="$CC" -j4 V=1
 
 ./criu/criu -v4 cpuinfo dump || :
 ./criu/criu -v4 cpuinfo check || :
@@ -106,6 +125,10 @@ if [ "$WIDTH" -gt 80 ]; then
 	echo "criu --help output does not obey 80 characters line width!"
 	exit 1
 fi
+
+# Unit tests at this point do not require any kernel or hardware capabilities.
+# Just try to run it everywhere for now.
+time make unittest
 
 [ -n "$SKIP_CI_TEST" ] && exit 0
 
@@ -133,29 +156,31 @@ if [ "${COMPAT_TEST}x" = "yx" ] ; then
 	done
 	# shellcheck disable=SC2086
 	apt-get remove $INCOMPATIBLE_LIBS
+	dpkg --add-architecture i386
 	scripts/ci/apt-install "$IA32_PKGS"
 	mkdir -p /usr/lib/x86_64-linux-gnu/
 	mv "$REFUGE"/* /usr/lib/x86_64-linux-gnu/
 fi
 
-time make CC="$CC" -j4 -C test/zdtm
+time make CC="$CC" -j4 -C test/zdtm V=1
 
-[ -f "$CCACHE_LOGFILE" ] && cat "$CCACHE_LOGFILE"
+if [ "${COMPAT_TEST}x" = "yx" ] ; then
+	# Cross-verify that zdtm tests are 32-bit
+	file test/zdtm/static/env00 | grep 'ELF 32-bit' -q
+fi
 
 # umask has to be called before a first criu run, so that .gcda (coverage data)
 # files are created with read-write permissions for all.
 umask 0000
 ./criu/criu check
 ./criu/criu check --all || echo $?
-./criu/criu cpuinfo dump
-./criu/criu cpuinfo check
+if [ "$UNAME_M" == "x86_64" ]; then
+	# This fails on aarch64 (aws-graviton2)
+	./criu/criu cpuinfo dump
+	./criu/criu cpuinfo check
+fi
 
 export SKIP_PREP=1
-# The 3.19 kernel (from Ubuntu 14.04) has a bug. When /proc/PID/pagemap
-# is read for a few VMAs in one read call, incorrect data is returned.
-# See https://github.com/checkpoint-restore/criu/issues/207
-# Kernel 4.4 (from Ubuntu 14.04.5 update) fixes this.
-uname -r | grep -q ^3\.19 && export CRIU_PMC_OFF=1
 
 chmod 0777 test/
 chmod 0777 test/zdtm/static
@@ -172,34 +197,38 @@ fi
 # shellcheck disable=SC2086
 ./test/zdtm.py run -a -p 2 --keep-going $ZDTM_OPTS
 
-KERN_MAJ=$(uname -r | cut -d. -f1)
-KERN_MIN=$(uname -r | cut -d. -f2)
-if [ "$KERN_MAJ" -ge "4" ] && [ "$KERN_MIN" -ge "18" ]; then
-	LAZY_EXCLUDE="-x cmdlinenv00 -x maps007"
-else
-	LAZY_EXCLUDE="-x maps007 -x fork -x fork2 -x uffd-events -x cgroupns
-		      -x socket_listen -x socket_listen6 -x cmdlinenv00
-		      -x socket_close_data01 -x file_read -x lazy-thp -x futex"
-fi
-LAZY_EXCLUDE="$LAZY_EXCLUDE -x maps04"
+LAZY_EXCLUDE="-x maps04 -x cmdlinenv00 -x maps007"
 
-LAZY_TESTS='.*\(maps0\|uffd-events\|lazy-thp\|futex\|fork\).*'
+LAZY_TESTS='.*(maps0|uffd-events|lazy-thp|futex|fork).*'
 LAZY_OPTS="-p 2 -T $LAZY_TESTS $LAZY_EXCLUDE $ZDTM_OPTS"
 
-./test/zdtm.py run "$LAZY_OPTS" --lazy-pages
-./test/zdtm.py run "$LAZY_OPTS" --remote-lazy-pages
-./test/zdtm.py run "$LAZY_OPTS" --remote-lazy-pages --tls
+# shellcheck disable=SC2086
+./test/zdtm.py run $LAZY_OPTS --lazy-pages
+# shellcheck disable=SC2086
+./test/zdtm.py run $LAZY_OPTS --remote-lazy-pages
+# FIXME: post-copy migration of THP over TLS (sometimes) fails with:
+#     Error (criu/tls.c:321): tls: Pull callback recv failed: Connection reset by peer
+# shellcheck disable=SC2086
+./test/zdtm.py run $LAZY_OPTS --remote-lazy-pages --tls -x lazy-thp
 
-bash ./test/jenkins/criu-fault.sh
-bash ./test/jenkins/criu-fcg.sh
-bash ./test/jenkins/criu-inhfd.sh
+bash -x ./test/jenkins/criu-fault.sh
+if [ "$UNAME_M" == "x86_64" ]; then
+	# This fails on aarch64 (aws-graviton2) with:
+	# 33: ERR: thread-bomb.c:49: pthread_attr_setstacksize(): 22
+	bash -x ./test/jenkins/criu-fcg.sh
+fi
+bash -x ./test/jenkins/criu-inhfd.sh
 
 if [ -z "$SKIP_EXT_DEV_TEST" ]; then
 	make -C test/others/mnt-ext-dev/ run
 fi
-#make -C test/others/exec/ run
+
 make -C test/others/make/ run CC="$CC"
-make -C test/others/shell-job/ run
+if [ -n "$TRAVIS" ] || [ -n "$CIRCLECI" ]; then
+       # GitHub Actions (and Cirrus CI) does not provide a real TTY and CRIU will fail with:
+       # Error (criu/tty.c:1014): tty: Don't have tty to inherit session from, aborting
+       make -C test/others/shell-job/ run
+fi
 make -C test/others/rpc/ run
 
 ./test/zdtm.py run -t zdtm/static/env00 --sibling
@@ -208,6 +237,9 @@ make -C test/others/rpc/ run
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --noauto-dedup
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server
 ./test/zdtm.py run -t zdtm/transition/maps007 --pre 2 --page-server --dedup
+
+./test/zdtm.py run -t zdtm/transition/pid_reuse --pre 2 # start time based pid reuse detection
+./test/zdtm.py run -t zdtm/transition/pidfd_store_sk --rpc --pre 2 # pidfd based pid reuse detection
 
 ./test/zdtm.py run -t zdtm/static/socket-tcp-local --norst
 
@@ -221,8 +253,11 @@ ip net add test
 
 ./test/zdtm.py run --empty-ns -T zdtm/static/socket-tcp*-local --iter 2
 
-./test/zdtm.py run -t zdtm/static/env00 -k always
+./test/zdtm.py run -t zdtm/static/env00 -t zdtm/transition/fork -t zdtm/static/ghost_holes00 -k always
 ./test/crit-recode.py
+
+# more crit testing
+make -C test/others/crit run
 
 # libcriu testing
 make -C test/others/libcriu run
@@ -230,4 +265,13 @@ make -C test/others/libcriu run
 # external namespace testing
 make -C test/others/ns_ext run
 
-make -C test/others/shell-job
+# config file parser and parameter testing
+make -C test/others/config-file run
+
+# Skip all further tests when running with GCOV=1
+# The one test which currently cannot handle GCOV testing is compel/test
+# Probably because the GCOV Makefile infrastructure does not exist in compel
+[ -n "$GCOV" ] && exit 0
+
+# compel testing
+make -C compel/test

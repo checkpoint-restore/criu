@@ -53,7 +53,7 @@ int main(int argc, char **argv)
 			test_msg("Page %u matches %u\n", i, backup[i]);
 
 	if (fail)
-		fail("Memory corruption\n");
+		fail("Memory corruption");
 	else
 		pass();
 

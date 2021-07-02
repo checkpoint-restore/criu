@@ -180,7 +180,7 @@ extern int cr_daemon(int nochdir, int noclose, int close_fd);
 extern int status_ready(void);
 extern int is_root_user(void);
 
-extern void set_proc_self_fd(int fd);
+extern int set_proc_self_fd(int fd);
 
 static inline bool dir_dots(const struct dirent *de)
 {
@@ -251,6 +251,9 @@ static inline bool issubpath(const char *path, const char *sub_path)
 	return strstartswith2(path, sub_path, &end) &&
 		(end == '/' || end == '\0');
 }
+
+int strip_deleted(char *path, int len);
+int cut_path_ending(char *path, char *sub_path);
 
 /*
  * mkdir -p
@@ -379,5 +382,17 @@ static inline void print_stack_trace(pid_t pid) {}
 	})
 
 extern int mount_detached_fs(const char *fsname);
+
+extern char *get_legacy_iptables_bin(bool ipv6);
+
+extern ssize_t read_all(int fd, void *buf, size_t size);
+extern ssize_t write_all(int fd, const void *buf, size_t size);
+
+#define cleanup_free __attribute__ ((cleanup (cleanup_freep)))
+static inline void cleanup_freep (void *p)
+{
+	void **pp = (void **) p;
+	free (*pp);
+}
 
 #endif /* __CR_UTIL_H__ */

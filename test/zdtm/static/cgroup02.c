@@ -148,12 +148,12 @@ int main(int argc, char **argv)
 	}
 
 	if (!found_zdtmtstroot) {
-		fail("oldroot not rewritten to zdtmtstroot!\n");
+		fail("oldroot not rewritten to zdtmtstroot!");
 		goto out_close;
 	}
 
 	if (!found_newroot) {
-		fail("oldroot not rewritten to newroot!\n");
+		fail("oldroot not rewritten to newroot!");
 		goto out_close;
 	}
 

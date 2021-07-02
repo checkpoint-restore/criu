@@ -22,6 +22,7 @@ TST_NOFILE	=	\
 		shmem		\
 		lazy-thp	\
 		pid_reuse	\
+		pidfd_store_sk \
 
 
 TST_FILE	=	\

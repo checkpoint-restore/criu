@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 	}
 
 	if (status != *sum) {
-		fail("checksum mismatch: %x %x\n", status, *sum);
+		fail("checksum mismatch: %x %x", status, *sum);
 		return 1;
 	}
 

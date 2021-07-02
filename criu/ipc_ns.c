@@ -58,7 +58,7 @@ static void fill_ipc_desc(int id, IpcDescEntry *desc, const struct ipc_perm *ipc
 static void pr_ipc_sem_array(int nr, u16 *values)
 {
 	while (nr--)
-		pr_info("  %-5d", values[nr]);
+		pr_info("  %-5d", values[nr]); // no \n
 	pr_info("\n");
 }
 
@@ -760,6 +760,10 @@ static int restore_content(void *data, struct cr_img *img, const IpcShmEntry *sh
 	ssize_t size, off;
 
 	ifd = img_raw_fd(img);
+	if (ifd < 0) {
+		pr_err("Failed getting raw image fd\n");
+		return -1;
+	}
 	size = round_up(shm->size, sizeof(u32));
 	off = 0;
 	do {

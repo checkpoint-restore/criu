@@ -26,7 +26,7 @@ IMGFILE=$CRTOOLS_IMAGE_DIR"/tmpfiles.tar.gz"
 MY_NAME=$(basename "$0")
 
 case "$CRTOOLS_SCRIPT_ACTION" in
-	$POSTDUMP )
+	"$POSTDUMP")
 		if [ "$#" -lt 1 ]; then
 			echo "$MY_NAME: ERROR! No files are given."
 			exit 1
@@ -34,7 +34,7 @@ case "$CRTOOLS_SCRIPT_ACTION" in
 		tar "$DUMPARGS" "$IMGFILE" -- "$@"
 		exit $?
 		;;
-	$PRERESTORE )
+	"$PRERESTORE")
 		if [ "$#" -ne 0 ]; then
 			echo "$MY_NAME: ERROR! Not expected script args."
 			exit 1

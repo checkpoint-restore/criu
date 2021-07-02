@@ -97,7 +97,7 @@ static bool pid_in_cgroup(pid_t pid, const char *controller, const char *path) {
 		/* skip hierarchy no. */
 		pos = strstr(buf, ":");
 		if (!pos) {
-			pr_err("invalid /proc/pid/cgroups file");
+			pr_err("invalid /proc/pid/cgroups file\n");
 			goto out;
 		}
 		pos++;
@@ -105,7 +105,7 @@ static bool pid_in_cgroup(pid_t pid, const char *controller, const char *path) {
 
 		pos = strstr(pos, ":");
 		if (!pos) {
-			pr_err("invalid /proc/pid/cgroups file");
+			pr_err("invalid /proc/pid/cgroups file\n");
 			goto out;
 		}
 
@@ -206,7 +206,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!WIFEXITED(status) || WEXITSTATUS(status)) {
-		fail("exit status %d\n", status);
+		fail("exit status %d", status);
 		goto out_umount;
 	}
 

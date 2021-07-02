@@ -105,12 +105,12 @@ static void sig_handler(int signal, siginfo_t *info, void *data)
 
 		crc = ~0;
 		if (datachk((uint8_t *) siginf_body(info), _si_fields_sz, &crc)) {
-			fail("CRC mismatch\n");
+			fail("CRC mismatch");
 			return;
 		}
 
 		 if (memcmp(info, src, siginfo_filled)) {
-			fail("Source and received info are differ\n");
+			fail("Source and received info are differ");
 			return;
 		}
 

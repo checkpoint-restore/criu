@@ -55,7 +55,7 @@ int main(int argc, char **argv)
 
 	munmap(test_addr, PAGE_SIZE);
 	if (fake_grow_down[0] != 'c' || *(fake_grow_down - 1) != 'b') {
-		fail("%c %c\n", fake_grow_down[0], *(fake_grow_down - 1));
+		fail("%c %c", fake_grow_down[0], *(fake_grow_down - 1));
 		return 1;
 	}
 

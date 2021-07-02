@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 	if (new_flags & MAP_LOCKED) {
 		pass();
 	} else {
-		fail("Vma is not locked after c/r\n");
+		fail("Vma is not locked after c/r");
 		return -1;
 	}
 

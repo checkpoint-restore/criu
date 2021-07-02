@@ -15,11 +15,12 @@
 #define PARSING_RPC_CONF	6
 #define PARSING_LAST		7
 
-#define SET_CHAR_OPTS(__dest, __src) \
-	do { \
-		free(opts.__dest); \
-		opts.__dest = xstrdup(__src); \
-	} while(0)
+#define SET_CHAR_OPTS(__dest, __src)              \
+	do {                                      \
+		char *__src_dup = xstrdup(__src); \
+		free(opts.__dest);                \
+		opts.__dest = __src_dup;          \
+	} while (0)
 
 /*
  * CPU capability options.
@@ -144,6 +145,7 @@ struct cr_options {
 	struct list_head	irmap_scan_paths;
 	bool			lsm_supplied;
 	char			*lsm_profile;
+	char			*lsm_mount_context;
 	unsigned int		timeout;
 	unsigned int		empty_ns;
 	int			tcp_skip_in_flight;
@@ -173,7 +175,7 @@ struct cr_options {
 	int			tls_no_cn_verify;
 
 	/* This stores which method to use for file validation. */
-	int 			file_validation_method;
+	int			file_validation_method;
 };
 
 extern struct cr_options opts;

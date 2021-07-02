@@ -284,25 +284,25 @@ int main (int argc, char *argv[])
 	close(fd);
 
 	if (unlink(fanotify_path)) {
-		fail("can't unlink %s\n", fanotify_path);
+		fail("can't unlink %s", fanotify_path);
 		exit(1);
 	}
 
 	if (parse_fanotify_fdinfo(fa_fd, &new, 3)) {
-		fail("parsing fanotify fdinfo failed\n");
+		fail("parsing fanotify fdinfo failed");
 		exit(1);
 	}
 
 	show_fanotify_obj(&new);
 
 	if (cmp_fanotify_obj(&old, &new)) {
-		fail("fanotify mismatch on fdinfo level\n");
+		fail("fanotify mismatch on fdinfo level");
 		exit(1);
 	}
 
 	length = read(fa_fd, buf, sizeof(buf));
 	if (length <= 0) {
-		fail("No events in fanotify queue\n");
+		fail("No events in fanotify queue");
 		exit(1);
 	}
 

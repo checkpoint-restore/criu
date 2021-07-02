@@ -45,7 +45,7 @@ int main(int argc, char ** argv)
 
 	ret = bind(sk, (struct sockaddr *) &addr, addrlen);
 	if (ret) {
-		fail("bind\n");
+		fail("bind");
 		return 1;
 	}
 

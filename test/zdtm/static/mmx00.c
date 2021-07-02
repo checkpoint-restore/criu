@@ -87,9 +87,9 @@ int main(int argc, char **argv)
 	finish(resbytes2, reswords2);
 
 	if (memcmp((uint8_t *) resbytes1, (uint8_t *) resbytes2, sizeof(resbytes1)))
-		fail("byte op mismatch\n");
+		fail("byte op mismatch");
 	else if (memcmp((uint8_t *) reswords1, (uint8_t *) reswords2, sizeof(reswords2)))
-		fail("word op mismatch\n");
+		fail("word op mismatch");
 	else
 		pass();
 #else

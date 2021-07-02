@@ -1,12 +1,10 @@
 FROM alpine
 ARG CC=gcc
-ARG ENV1=FOOBAR
 
 RUN apk update && apk add \
 	$CC \
 	bash \
 	build-base \
-	ccache \
 	coreutils \
 	git \
 	gnutls-dev \
@@ -26,9 +24,7 @@ RUN apk update && apk add \
 
 COPY . /criu
 WORKDIR /criu
-ENV CC="ccache $CC" CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
-RUN mv .ccache /tmp && make mrproper && ccache -sz && \
-	date && make -j $(nproc) CC="$CC" && date && ccache -s
+RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 
 RUN apk add \
 	ip6tables \

@@ -16,7 +16,7 @@ char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
 #ifdef __s390x__
-#define MINOR	64 /* ttyS0 */
+#define MINOR	65 /* ttysclp0 */
 #else
 #define MINOR	5
 #endif

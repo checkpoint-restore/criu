@@ -36,7 +36,7 @@ int main(int argc, char ** argv)
 				MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
 	if (m == MAP_FAILED) {
-		pr_err("Failed to mmap %lu Mb shared anonymous R/W memory\n",
+		pr_perror("Failed to mmap %lu Mb shared anonymous R/W memory",
 				MEM_SIZE >> 20);
 		goto err;
 	}
@@ -45,14 +45,14 @@ int main(int argc, char ** argv)
 				MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
 	if (p == MAP_FAILED) {
-		pr_err("Failed to mmap %ld Mb shared anonymous R/W memory\n",
+		pr_perror("Failed to mmap %ld Mb shared anonymous R/W memory",
 				MEM_SIZE >> 20);
 		goto err;
 	}
 
 	p2 = mmap(NULL, MEM_OFFSET, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (p2 == MAP_FAILED) {
-		pr_err("Failed to mmap %lu Mb anonymous memory\n",
+		pr_perror("Failed to mmap %lu Mb anonymous memory",
 				MEM_OFFSET >> 20);
 		goto err;
 	}
@@ -67,7 +67,7 @@ int main(int argc, char ** argv)
 		p3 = mmap(NULL, MEM_OFFSET3, PROT_READ | PROT_WRITE,
 					MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 		if (p3 == MAP_FAILED) {
-			pr_err("Failed to mmap %lu Mb anonymous R/W memory\n",
+			pr_perror("Failed to mmap %lu Mb anonymous R/W memory",
 					MEM_OFFSET3 >> 20);
 			goto err;
 		}

@@ -153,7 +153,7 @@ int main(int argc, char ** argv)
 			MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 
 	if (wait_rdy == MAP_FAILED || wait_run == MAP_FAILED) {
-		pr_perror("mmap failed\n");
+		pr_perror("mmap failed");
 		exit(1);
 	}
 
@@ -206,7 +206,7 @@ int main(int argc, char ** argv)
 	mode = get_seccomp_mode(pid);
 
 	if (mode != SECCOMP_MODE_DISABLED) {
-		fail("seccomp mode mismatch %d\n", mode);
+		fail("seccomp mode mismatch %d", mode);
 		return 1;
 	}
 
@@ -217,7 +217,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-		fail("expected 0 exit, got %d\n", WEXITSTATUS(status));
+		fail("expected 0 exit, got %d", WEXITSTATUS(status));
 		exit(1);
 	}
 

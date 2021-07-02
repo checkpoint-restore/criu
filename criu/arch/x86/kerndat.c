@@ -110,7 +110,7 @@ static void mmap_bug_test(void)
 	}
 
 	if (munmap(map1, PAGE_SIZE)) {
-		pr_err("Failed to unmap() 32-bit mapping: %m\n");
+		pr_perror("Failed to unmap() 32-bit mapping");
 		exit(1);
 	}
 
@@ -224,7 +224,7 @@ int kdat_x86_has_ptrace_fpu_xsave_bug(void)
 		 * waitpid() may end with ECHILD if SIGCHLD == SIG_IGN,
 		 * and the child has stopped already.
 		 */
-		pr_perror("Failed to wait for %s() test\n", __func__);
+		pr_perror("Failed to wait for %s() test", __func__);
 		goto out_kill;
 	}
 

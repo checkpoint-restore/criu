@@ -21,15 +21,22 @@ add-apt-repository \
 
 . /etc/lsb-release
 
-if [ "$DISTRIB_RELEASE" = "18.04" ]; then
-    # overlayfs behaves differently on Ubuntu (18.04) and breaks CRIU
-    # https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1857257
-    # Switch to devicemapper
-    echo '{ "experimental": true, "storage-driver": "devicemapper" }' > /etc/docker/daemon.json
-else
-    echo '{ "experimental": true }' > /etc/docker/daemon.json
-fi
+echo '{ "experimental": true }' > /etc/docker/daemon.json
 
+CRIU_LOG='/criu.log'
+mkdir -p /etc/criu
+echo "log-file=$CRIU_LOG" > /etc/criu/runc.conf
+
+service docker stop
+systemctl stop containerd.service
+
+# Always use the latest containerd release.
+# Restore with containerd versions after v1.2.14 and before v1.5.0-beta.0 are broken.
+# https://github.com/checkpoint-restore/criu/issues/1223
+CONTAINERD_DOWNLOAD_URL=$(curl -s https://api.github.com/repos/containerd/containerd/releases/latest | grep '"browser_download_url":.*/containerd-.*-linux-amd64.tar.gz.$' | cut -d\" -f4)
+wget -nv "$CONTAINERD_DOWNLOAD_URL" -O - | tar -xz -C /usr/
+
+systemctl restart containerd.service
 service docker restart
 
 export SKIP_CI_TEST=1
@@ -61,7 +68,7 @@ for i in $(seq 50); do
 	docker start --checkpoint checkpoint"$i" cr 2>&1 | tee log || {
 	cat "$(grep log 'log file:' | sed 's/log file:\s*//')" || true
 		docker logs cr || true
-		cat /tmp/zdtm-core-* || true
+		cat $CRIU_LOG || true
 		dmesg
 		docker ps
 		exit 1

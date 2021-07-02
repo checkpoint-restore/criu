@@ -30,4 +30,4 @@ extern const struct fdtype_ops bpfmap_dump_ops;
 extern struct collect_image_info bpfmap_cinfo;
 extern struct collect_image_info bpfmap_data_cinfo;
 
-#endif /* __CR_BPFMAP_H__ */ 
+#endif /* __CR_BPFMAP_H__ */

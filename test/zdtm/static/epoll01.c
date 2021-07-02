@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 		uint8_t cw = 1, cr;
 
 		if (write(pipes[i].pipefd[1], &cw, sizeof(cw)) != sizeof(cw)) {
-			pr_perror("Unable to write into a pipe\n");
+			pr_perror("Unable to write into a pipe");
 			return 1;
 		}
 

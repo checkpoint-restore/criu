@@ -159,7 +159,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (mode != SECCOMP_MODE_FILTER) {
-		fail("seccomp mode mismatch %d\n", mode);
+		fail("seccomp mode mismatch %d", mode);
 		return 1;
 	}
 

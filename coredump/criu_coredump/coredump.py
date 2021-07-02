@@ -523,7 +523,6 @@ class coredump_generator:
                 continue
 
             shmid = vma["shmid"]
-            size = vma["end"] - vma["start"]
             off = vma["pgoff"] / PAGESIZE
 
             files = self.reg_files
@@ -719,7 +718,7 @@ class coredump_generator:
                 # than one from maped file on disk.
                 page = page_mem
 
-            if page == None:
+            if page is None:
                 # Hole
                 page = PAGESIZE * "\0"
 
@@ -821,8 +820,6 @@ class coredump_generator:
         vmas = []
         for vma in mm["vmas"]:
             size = self._get_vma_dump_size(vma)
-
-            chunk = self._gen_mem_chunk(pid, vma, size)
 
             v = vma_class()
             v.filesz = self._get_vma_dump_size(vma)

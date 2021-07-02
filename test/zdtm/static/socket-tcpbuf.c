@@ -196,7 +196,7 @@ int main(int argc, char **argv)
 			return 1;
 
 		if (size != rcv_buf_size) {
-			fail("the received buffer contains only %d bytes (%d)\n", size, rcv_buf_size);
+			fail("the received buffer contains only %d bytes (%d)", size, rcv_buf_size);
 		}
 
 		rcv_size += size;
@@ -300,19 +300,19 @@ int main(int argc, char **argv)
 
 	ret = clean_sk_buf(fd, 0);
 	if (ret != rcv_buf_size) {
-		fail("the received buffer contains only %d bytes (%d)\n", ret, rcv_buf_size);
+		fail("the received buffer contains only %d bytes (%d)", ret, rcv_buf_size);
 	}
 	rcv_size += ret;
 
 	if (snd != rcv_size) {
-		fail("The child sent %d bytes, but the parent received %d bytes\n", rcv_buf_size, rcv_size);
+		fail("The child sent %d bytes, but the parent received %d bytes", rcv_buf_size, rcv_size);
 		return 1;
 	}
 
 	read_safe(ctl_fd, &ret, sizeof(ret));
 
 	if (ret != snd_size) {
-		fail("The parent sent %d bytes, but the child received %d bytes\n", snd_size, ret);
+		fail("The parent sent %d bytes, but the child received %d bytes", snd_size, ret);
 		return 1;
 	}
 

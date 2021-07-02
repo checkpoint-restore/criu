@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 	test_init(argc, argv);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, ssk_pair_s) == -1) {
-		fail("socketpair\n");
+		fail("socketpair");
 		exit(1);
 	}
 
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 	write(ssk_pair_s[1], SK_DATA_S1, sizeof(SK_DATA_S1));
 
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, ssk_pair_d) == -1) {
-		fail("socketpair\n");
+		fail("socketpair");
 		exit(1);
 	}
 
@@ -57,48 +57,48 @@ int main(int argc, char *argv[])
 
 	read(ssk_pair_s[1], buf_left, strlen(SK_DATA_S1) + 1);
 	if (strcmp(buf_left, SK_DATA_S1)) {
-		fail("SK_DATA_S2: '%s\n", SK_DATA_S1);
+		fail("SK_DATA_S2: '%s", SK_DATA_S1);
 		exit(1);
 	}
 	read(ssk_pair_s[1], buf_right, strlen(SK_DATA_S2) + 1);
 	if (strcmp(buf_right, SK_DATA_S2)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	test_msg("stream1            : '%s' '%s'\n", buf_left, buf_right);
 
 	read(ssk_pair_s[0], buf_left, strlen(SK_DATA_S2) + 1);
 	if (strcmp(buf_left, SK_DATA_S2)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	read(ssk_pair_s[0], buf_right, strlen(SK_DATA_S1) + 1);
 	if (strcmp(buf_right, SK_DATA_S1)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	test_msg("stream2            : '%s' '%s'\n", buf_left, buf_right);
 
 	read(ssk_pair_d[1], buf_left, strlen(SK_DATA_D1) + 1);
 	if (strcmp(buf_left, SK_DATA_D1)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	read(ssk_pair_d[1], buf_right, strlen(SK_DATA_D2) + 1);
 	if (strcmp(buf_right, SK_DATA_D2)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	test_msg("dgram1            : '%s' '%s'\n", buf_left, buf_right);
 
 	read(ssk_pair_d[0], buf_left, strlen(SK_DATA_D2) + 1);
 	if (strcmp(buf_left, SK_DATA_D2)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	read(ssk_pair_d[0], buf_right,strlen(SK_DATA_D1) + 1);
 	if (strcmp(buf_right, SK_DATA_D1)) {
-		fail("data corrupted\n");
+		fail("data corrupted");
 		exit(1);
 	}
 	test_msg("dgram2            : '%s' '%s'\n", buf_left, buf_right);

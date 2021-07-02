@@ -96,7 +96,7 @@ int cr_plugin_restore_file(int id)
 
 	e = criu_rtc__unpack(NULL, len, buf);
 	if (e == NULL) {
-		pr_err("Unable to parse the RTC message %#x", id);
+		pr_err("Unable to parse the RTC message %#x\n", id);
 		return -1;
 	}
 

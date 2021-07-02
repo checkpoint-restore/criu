@@ -156,6 +156,8 @@ int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEn
 		return -1;
 	}
 
+	compel_arch_get_tls_task(ctl, &args->tls);
+
 	return dump_thread_core(pid, core, args);
 }
 
@@ -189,6 +191,14 @@ int parasite_dump_thread_seized(struct parasite_thread_ctl *tctl,
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		goto err_rth;
 	}
+
+	ret = compel_arch_fetch_thread_area(tctl);
+	if (ret) {
+		pr_err("Can't obtain thread area of %d\n", pid);
+		goto err_rth;
+	}
+
+	compel_arch_get_tls_thread(tctl, &args->tls);
 
 	ret = compel_run_in_thread(tctl, PARASITE_CMD_DUMP_THREAD);
 	if (ret) {
@@ -565,6 +575,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		ictx->flags |= INFECT_COMPATIBLE;
 	if (kdat.x86_has_ptrace_fpu_xsave_bug)
 		ictx->flags |= INFECT_X86_PTRACE_MXCSR_BUG;
+	if (fault_injected(FI_CORRUPT_EXTREGS))
+		ictx->flags |= INFECT_CORRUPT_EXTREGS;
 
 	ictx->log_fd = log_get_fd();
 

@@ -936,8 +936,10 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 		}
 
 		nr = ret = ptrace(PTRACE_PEEKSIGINFO, tid, &arg, si);
-		if (ret == 0)
+		if (ret == 0) {
+			xfree(si);
 			break; /* Finished */
+		}
 
 		if (ret < 0) {
 			if (errno == EIO) {
@@ -946,6 +948,7 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 			} else
 				pr_perror("ptrace");
 
+			xfree(si);
 			break;
 		}
 
@@ -953,6 +956,7 @@ static int dump_signal_queue(pid_t tid, SignalQueueEntry **sqe, bool group)
 		queue->signals = xrealloc(queue->signals, sizeof(*queue->signals) * queue->n_signals);
 		if (!queue->signals) {
 			ret = -1;
+			xfree(si);
 			break;
 		}
 
@@ -1095,8 +1099,16 @@ static int dump_zombies(void)
 	int ret = -1;
 	int pidns = root_ns_mask & CLONE_NEWPID;
 
-	if (pidns && set_proc_fd(get_service_fd(CR_PROC_FD_OFF)))
-		return -1;
+	if (pidns) {
+		int fd;
+
+		fd = get_service_fd(CR_PROC_FD_OFF);
+		if (fd < 0)
+			return -1;
+
+		if (set_proc_fd(fd))
+			return -1;
+	}
 
 	/*
 	 * We dump zombies separately because for pid-ns case
@@ -1152,6 +1164,15 @@ static int pre_dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie
 	pr_info("========================================\n");
 	pr_info("Pre-dumping task (pid: %d)\n", pid);
 	pr_info("========================================\n");
+
+	/*
+	 * Send pidfd of task over pidfd_store_sk if it is set.
+	 * This pidfd will be used in the next pre-dump/dump iteration
+	 * in detect_pid_reuse().
+	 */
+	ret = send_pidfd_entry(pid);
+	if (ret)
+		goto err;
 
 	if (item->pid->state == TASK_STOPPED) {
 		pr_warn("Stopped tasks are not supported\n");
@@ -1550,6 +1571,7 @@ static int cr_pre_dump_finish(int status)
 
 	free_pstree(root_item);
 	seccomp_free_entries();
+	free_pidfd_store();
 
 	if (irmap_predump_run()) {
 		ret = -1;
@@ -1602,6 +1624,9 @@ int cr_pre_dump_tasks(pid_t pid)
 	}
 
 	if (init_stats(DUMP_STATS))
+		goto err;
+
+	if (init_pidfd_store_hash())
 		goto err;
 
 	if (cr_plugin_init(CR_PLUGIN_STAGE__PRE_DUMP))
@@ -1760,6 +1785,7 @@ static int cr_dump_finish(int ret)
 	free_link_remaps();
 	free_aufs_branches();
 	free_userns_maps();
+	free_pidfd_store();
 
 	close_service_fd(CR_PROC_FD_OFF);
 	close_image_dir();
@@ -1803,6 +1829,9 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 	}
 	if (init_stats(DUMP_STATS))
+		goto err;
+
+	if (init_pidfd_store_hash())
 		goto err;
 
 	if (cr_plugin_init(CR_PLUGIN_STAGE__DUMP))

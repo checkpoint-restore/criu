@@ -55,17 +55,17 @@ static int cmp_pipe_params(struct params *p1, struct params *p2)
 
 	for (i = 0; i < 2; i++) {
 		if (p1->pipe_flags[i] != p2->pipe_flags[i]) {
-			fail("pipe flags failed [%d] expected %08o got %08o\n",
+			fail("pipe flags failed [%d] expected %08o got %08o",
 			     i, p1->pipe_flags[i], p2->pipe_flags[i]);
 			return -1;
 		}
 		if (p1->pipe_pid[i] != p2->pipe_pid[i]) {
-			fail("pipe pid failed [%d] expected %d got %d\n",
+			fail("pipe pid failed [%d] expected %d got %d",
 			     i, p1->pipe_pid[i], p2->pipe_pid[i]);
 			return -1;
 		}
 		if (p1->pipe_sig[i] != p2->pipe_sig[i]) {
-			fail("pipe sig failed [%d] expected %d got %d\n",
+			fail("pipe sig failed [%d] expected %d got %d",
 			     i, p1->pipe_sig[i], p2->pipe_sig[i]);
 			return -1;
 		}
@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (getresuid(&ruid, &euid, &suid)) {
-		fail("getresuid failed\n");
+		fail("getresuid failed");
 		exit(1);
 	}
 
@@ -103,12 +103,12 @@ int main(int argc, char *argv[])
 	saio.sa_handler	= (sig_t)signal_handler_io;
 	saio.sa_flags	= SA_RESTART;
 	if (sigaction(SIGIO, &saio, 0)) {
-		fail("sigaction failed\n");
+		fail("sigaction failed");
 		exit(1);
 	}
 
 	if (!getuid() && setresuid(-1, 1, -1)) {
-		fail("setresuid failed\n");
+		fail("setresuid failed");
 		exit(1);
 	}
 
@@ -118,14 +118,14 @@ int main(int argc, char *argv[])
 	    fcntl(pipes[1], F_SETSIG, SIGIO)					||
 	    fcntl(pipes[0], F_SETFL, fcntl(pipes[0], F_GETFL) | O_ASYNC)	||
 	    fcntl(pipes[1], F_SETFL, fcntl(pipes[1], F_GETFL) | O_ASYNC)) {
-		fail("fcntl failed\n");
+		fail("fcntl failed");
 		exit(1);
 	}
 
 	fill_pipe_params(shared, pipes);
 
 	if (setresuid(-1, euid, -1)) {
-		fail("setresuid failed\n");
+		fail("setresuid failed");
 		exit(1);
 	}
 
@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
 		fill_pipe_params(&p, pipes);
 
 		if (write(pipes[1], &p, sizeof(p)) != sizeof(p)) {
-			fail("write failed\n");
+			fail("write failed");
 			exit(1);
 		}
 
@@ -156,24 +156,24 @@ int main(int argc, char *argv[])
 	kill(pid, SIGTERM);
 
 	if (waitpid(pid, &status, P_ALL) == -1) {
-		fail("waitpid failed\n");
+		fail("waitpid failed");
 		exit(1);
 	}
 
 	if (read(pipes[0], &obtained, sizeof(obtained)) != sizeof(obtained)) {
-		fail("read failed\n");
+		fail("read failed");
 		exit(1);
 	}
 
 	if (shared->sigio < 1) {
-		fail("shared->sigio = %d (> 0 expected)\n", shared->sigio);
+		fail("shared->sigio = %d (> 0 expected)", shared->sigio);
 		exit(1);
 	}
 
 	shared->pipe_pid[1] = pid;
 
 	if (cmp_pipe_params(shared, &obtained)) {
-		fail("params comparison failed\n");
+		fail("params comparison failed");
 		exit(1);
 	}
 

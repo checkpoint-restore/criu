@@ -1,52 +1,14 @@
 ARG CC=gcc
-ARG ENV1=FOOBAR
 
-RUN dnf install -y \
-	ccache \
-	diffutils \
-	findutils \
-	gcc \
-	git \
-	gnutls-devel \
-	gzip \
-	iproute \
-	iptables \
-	nftables \
-	nftables-devel \
-	libaio-devel \
-	libasan \
-	libcap-devel \
-	libnet-devel \
-	libnl3-devel \
-	make \
-	procps-ng \
-	protobuf-c-devel \
-	protobuf-devel \
-	python3-flake8 \
-	python3-PyYAML \
-	python3-future \
-	python3-protobuf \
-	python3-junit_xml \
-	redhat-rpm-config \
-	sudo \
-	tar \
-	which \
-	e2fsprogs \
-	rubygem-asciidoctor \
-	kmod
-
-RUN ln -sf python3 /usr/bin/python
-ENV PYTHON=python3
+COPY scripts/ci/prepare-for-fedora-rawhide.sh /bin/prepare-for-fedora-rawhide.sh
+RUN /bin/prepare-for-fedora-rawhide.sh
 
 COPY . /criu
 WORKDIR /criu
 
-ENV CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
-RUN mv .ccache /tmp && make mrproper && ccache -sz  && \
-	date && make -j $(nproc) CC="$CC" && date && ccache -s
+RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
 
 # The rpc test cases are running as user #1000, let's add the user
 RUN adduser -u 1000 test
 
 RUN make -C test/zdtm -j $(nproc)
-

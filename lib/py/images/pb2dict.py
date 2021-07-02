@@ -3,6 +3,7 @@ import collections
 import os
 import quopri
 import socket
+import sys
 from ipaddress import IPv4Address, IPv6Address, ip_address
 
 from google.protobuf.descriptor import FieldDescriptor as FD
@@ -246,11 +247,17 @@ def encode_dev(field, value):
 
 
 def encode_base64(value):
-    return base64.encodebytes(value)
+    if (sys.version_info > (3, 0)):
+        return base64.encodebytes(value).decode()
+    else:
+        return base64.encodebytes(value)
 
 
 def decode_base64(value):
-    return base64.decodebytes(value)
+    if (sys.version_info > (3, 0)):
+        return base64.decodebytes(str.encode(value))
+    else:
+        return base64.decodebytes(value)
 
 
 def encode_unix(value):

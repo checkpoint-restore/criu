@@ -437,11 +437,11 @@ static int automountd_serve(const char *mountpoint, struct autofs_params *p,
 			res = autofs_mount_direct(mountpoint, v5_packet);
 			break;
 		case autofs_ptype_expire_indirect:
-			pr_err("%d: expire request for indirect mount %s?",
+			pr_err("%d: expire request for indirect mount %s?\n",
 					getpid(), v5_packet->name);
 			return -EINVAL;
 		case autofs_ptype_expire_direct:
-			pr_err("%d: expire request for direct mount?",
+			pr_err("%d: expire request for direct mount?\n",
 					getpid());
 			return -EINVAL;
 		default:
@@ -507,7 +507,7 @@ static int automountd(struct autofs_params *p, int control_fd)
 
 	autofs_path = xsprintf("%s/%s", dirname, p->mountpoint);
 	if (!autofs_path) {
-		pr_err("failed to allocate autofs path");
+		pr_err("failed to allocate autofs path\n");
 		goto err;
 	}
 

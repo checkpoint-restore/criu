@@ -366,7 +366,7 @@ int main(int argc, char *argv[])
 
 		pid = fork();
 		if (pid < 0) {
-			printf("Can't create fork: %m\n");
+			pr_perror("Can't fork");
 			exit(1);
 		} else if (pid == 0) {
 			work_on_fork(shared);

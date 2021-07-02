@@ -105,7 +105,7 @@ static int read_one_priomap(char *prop_line, struct ifpriomap_t *out)
 
 	out->ifname = malloc(len + 1);
 	if (!out->ifname) {
-		pr_perror("malloc() failed\n");
+		pr_perror("malloc() failed");
 		return -1;
 	}
 

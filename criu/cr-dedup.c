@@ -19,7 +19,7 @@ int cr_dedup(void)
 
 	dirp = opendir(CR_PARENT_LINK);
 	if (dirp == NULL) {
-		pr_perror("Can't enter previous snapshot folder, error=%d", errno);
+		pr_perror("Can't enter previous snapshot folder");
 		ret = -1;
 		goto err;
 	}
@@ -29,7 +29,7 @@ int cr_dedup(void)
 		ent = readdir(dirp);
 		if (ent == NULL) {
 			if (errno) {
-				pr_perror("Failed readdir, error=%d", errno);
+				pr_perror("Failed readdir");
 				ret = -1;
 				goto err;
 			}

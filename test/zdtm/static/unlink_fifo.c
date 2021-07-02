@@ -41,7 +41,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (close(fd) < 0) {
-		fail("can't close %s: %m", filename);
+		fail("can't close %s", filename);
 		return 1;
 	}
 

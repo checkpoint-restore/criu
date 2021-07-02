@@ -1,0 +1,6 @@
+{
+    'flavor': 'h',
+    'flags': 'suid',
+    'opts': '--tcp-established',
+    'ropts': '--join-ns net:/var/run/netns/criu-net-lock-test'
+}

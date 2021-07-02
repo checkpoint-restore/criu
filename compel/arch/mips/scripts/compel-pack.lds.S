@@ -3,17 +3,17 @@ EXTERN(__export_parasite_head_start)
 
 SECTIONS
 {
-	.text : {  
+	.text : {
 		*(.head.text)
-		ASSERT(DEFINED(__export_parasite_head_start),	
+		ASSERT(DEFINED(__export_parasite_head_start),
 			"Symbol __export_parasite_head_start is missing");
-        	*(.text*)
+		*(.text*)
 		*(.compel.exit)
 		*(.compel.init)
 		/* .rodata section*/
 		*(.rodata*)
 		*(.got*)
-	       /* .data section */
+		/* .data section */
 		*(.data*)
 		*(.bss*)
 		*(.sbss*)
@@ -22,7 +22,7 @@ SECTIONS
 
 	/DISCARD/ : { /*segments need to discard */
 		*(.debug*)
-		*(.pdr)	
+		*(.pdr)
 		*(.comment*)
 		*(.note*)
 		*(.group*)

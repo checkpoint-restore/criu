@@ -242,10 +242,15 @@ static int read_parent_page(struct page_read *pr, unsigned long vaddr,
 static int read_local_page(struct page_read *pr, unsigned long vaddr,
 			   unsigned long len, void *buf)
 {
-	int fd = img_raw_fd(pr->pi);
+	int fd;
 	ssize_t ret;
 	size_t curr = 0;
 
+	fd = img_raw_fd(pr->pi);
+	if (fd < 0) {
+		pr_err("Failed getting raw image fd\n");
+		return -1;
+	}
 	/*
 	 * Flush any pending async requests if any not to break the
 	 * linear reading from the pages.img file.
@@ -656,8 +661,9 @@ static int try_open_parent(int dfd, unsigned long id, struct page_read *pr, int 
 	if (opts.stream)
 		goto out;
 
-	pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
-	if (pfd < 0 && errno == ENOENT)
+	if (open_parent(dfd, &pfd))
+		goto err;
+	if (pfd < 0)
 		goto out;
 
 	parent = xmalloc(sizeof(*parent));
@@ -682,6 +688,7 @@ err_free:
 	xfree(parent);
 err_cl:
 	close(pfd);
+err:
 	return -1;
 }
 

@@ -109,7 +109,7 @@ static void check_mem_eq(void *addr1, size_t size1, void *addr2, size_t size2)
 static void xmunmap(void *map, size_t size)
 {
 	if (munmap(map, size)) {
-		pr_err("xmunmap");
+		pr_perror("xmunmap");
 		exit(1);
 	}
 }
@@ -507,7 +507,7 @@ int main(int argc, char **argv)
 	};
 
 	if (atexit(kill_pstree_from_root)) {
-		pr_err("Can't setup atexit cleanup func");
+		pr_err("Can't setup atexit cleanup func\n");
 		exit(1);
 	}
 	return proc1_func();

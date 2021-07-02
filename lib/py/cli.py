@@ -11,18 +11,32 @@ def inf(opts):
     if opts['in']:
         return open(opts['in'], 'rb')
     else:
-        return sys.stdin
+        if (sys.version_info < (3, 0)):
+            return sys.stdin
+        if sys.stdin.isatty():
+            # If we are reading from a terminal (not a pipe) we want text input and not binary
+            return sys.stdin
+        return sys.stdin.buffer
 
 
-def outf(opts):
+def outf(opts, decode):
+    # Decode means from protobuf to JSON.
+    # Use text when writing to JSON else use binaray mode
     if opts['out']:
-        return open(opts['out'], 'w+')
+        mode = 'wb+'
+        if decode:
+            mode = 'w+'
+        return open(opts['out'], mode)
     else:
-        return sys.stdout
+        if (sys.version_info < (3, 0)):
+            return sys.stdout
+        if decode:
+            return sys.stdout
+        return sys.stdout.buffer
 
 
 def dinf(opts, name):
-    return open(os.path.join(opts['dir'], name))
+    return open(os.path.join(opts['dir'], name), mode='rb')
 
 
 def decode(opts):
@@ -39,15 +53,21 @@ def decode(opts):
     if opts['pretty']:
         indent = 4
 
-    f = outf(opts)
+    f = outf(opts, True)
     json.dump(img, f, indent=indent)
     if f == sys.stdout:
         f.write("\n")
 
 
 def encode(opts):
-    img = json.load(inf(opts))
-    pycriu.images.dump(img, outf(opts))
+    try:
+        img = json.load(inf(opts))
+    except UnicodeDecodeError:
+        print("Cannot read JSON.\n"\
+          "Maybe you are feeding me an image with protobuf data? "\
+          "Encode expects JSON input.", file=sys.stderr)
+        sys.exit(1)
+    pycriu.images.dump(img, outf(opts, False))
 
 
 def info(opts):
@@ -133,7 +153,7 @@ def ftype_find_in_image(opts, ft, fid, img):
     if f:
         return f[ft['field']]
 
-    if ft['img'] == None:
+    if ft['img'] is None:
         ft['img'] = pycriu.images.load(dinf(opts, img))['entries']
     for f in ft['img']:
         if f['id'] == fid:

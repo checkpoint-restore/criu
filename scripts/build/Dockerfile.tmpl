@@ -1,10 +1,10 @@
 ARG CC=gcc
-ARG ENV1=FOOBAR
 
 COPY scripts/ci/apt-install /bin/apt-install
 
+# On Ubuntu, kernel modules such as ip_tables and xt_mark may not be loaded by default
+# We need to install kmod to enable iptables to load these modules for us.
 RUN apt-install \
-	ccache \
 	libnet-dev \
 	libnl-route-3-dev \
 	$CC \
@@ -22,18 +22,21 @@ RUN apt-install \
 	libprotobuf-c-dev \
 	libprotobuf-dev \
 	libselinux-dev \
+	iproute2 \
+	kmod \
 	pkg-config \
 	protobuf-c-compiler \
 	protobuf-compiler \
+	python-is-python3 \
 	python3-minimal \
+	python3-protobuf \
+	python3-yaml \
 	python3-future
 
 COPY . /criu
 WORKDIR /criu
-ENV CC="ccache $CC" CCACHE_DIR=/tmp/.ccache CCACHE_NOCOMPRESS=1 $ENV1=yes
 
-RUN mv .ccache /tmp && make mrproper && ccache -s && \
-	date && \
+RUN git clean -dfx && date && \
 # Check single object build
 	make -j $(nproc) CC="$CC" criu/parasite-syscall.o && \
 # Compile criu
@@ -43,7 +46,8 @@ RUN mv .ccache /tmp && make mrproper && ccache -s && \
 	make mrproper && ! git clean -ndx --exclude=scripts/build \
 	--exclude=.config --exclude=test | grep .
 
-# Compile tests
-RUN date && make -j $(nproc) CC="$CC" -C test/zdtm && date
+# Re-compile criu and compile tests for 'make docker-test'
+RUN make -j $(nproc) CC="$CC" && \
+	date &&  make -j $(nproc) CC="$CC" -C test/zdtm && date
 
 #RUN make test/compel/handle_binary && ./test/compel/handle_binary

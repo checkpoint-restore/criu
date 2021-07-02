@@ -33,10 +33,6 @@ cd ../../
 
 make install
 
-# overlaysfs behaves differently on Ubuntu and breaks CRIU
-# https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1857257
-podman --storage-driver vfs info
-
 criu --version
 
 # shellcheck disable=SC2016

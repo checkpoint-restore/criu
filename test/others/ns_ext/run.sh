@@ -4,6 +4,8 @@ set -x
 
 if [[ "$1" == "pid" ]]; then
 	NS=pid
+	# CentOS 7 kernels do not have NSpid -> skip this test
+	grep NSpid /proc/self/status || exit 0
 else
 	NS=net
 fi

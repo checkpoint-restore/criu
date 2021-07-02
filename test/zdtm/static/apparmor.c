@@ -22,13 +22,13 @@ int setprofile(void)
 
 	len = snprintf(profile, sizeof(profile), "changeprofile " PROFILE);
 	if (len < 0 || len >= sizeof(profile)) {
-		fail("bad sprintf\n");
+		fail("bad sprintf");
 		return -1;
 	}
 
 	fd = open("/proc/self/attr/current", O_WRONLY);
 	if (fd < 0) {
-		fail("couldn't open fd\n");
+		fail("couldn't open fd");
 		return -1;
 	}
 
@@ -38,7 +38,7 @@ int setprofile(void)
 	close(fd);
 
 	if (len < 0) {
-		fail("couldn't write profile\n");
+		fail("couldn't write profile");
 		return -1;
 	}
 
@@ -55,19 +55,19 @@ int checkprofile(void)
 
 	f = fopen(path, "r");
 	if (!f) {
-		fail("couldn't open lsm current\n");
+		fail("couldn't open lsm current");
 		return -1;
 	}
 
 	len = fscanf(f, "%[^ \n]s", profile);
 	fclose(f);
 	if (len != 1) {
-		fail("wrong number of items scanned %d\n", len);
+		fail("wrong number of items scanned %d", len);
 		return -1;
 	}
 
 	if (strcmp(profile, PROFILE) != 0) {
-		fail("bad profile .%s. expected .%s.\n", profile, PROFILE);
+		fail("bad profile .%s. expected .%s.", profile, PROFILE);
 		return -1;
 	}
 

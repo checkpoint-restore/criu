@@ -281,15 +281,18 @@ int move_fd_from(int *img_fd, int want_fd)
 
 static pid_t open_proc_pid = PROC_NONE;
 static pid_t open_proc_self_pid;
-static int open_proc_self_fd = -1;
 
-void set_proc_self_fd(int fd)
+int set_proc_self_fd(int fd)
 {
-	if (open_proc_self_fd >= 0)
-		close(open_proc_self_fd);
+	int ret;
 
-	open_proc_self_fd = fd;
+	if (fd < 0)
+		return close_service_fd(PROC_SELF_FD_OFF);
+
 	open_proc_self_pid = getpid();
+	ret = install_service_fd(PROC_SELF_FD_OFF, fd);
+
+	return ret;
 }
 
 static inline int set_proc_pid_fd(int pid, int fd)
@@ -308,10 +311,18 @@ static inline int set_proc_pid_fd(int pid, int fd)
 static inline int get_proc_fd(int pid)
 {
 	if (pid == PROC_SELF) {
-		if (open_proc_self_fd != -1 && open_proc_self_pid != getpid()) {
-			close(open_proc_self_fd);
+		int open_proc_self_fd;
+
+		open_proc_self_fd = get_service_fd(PROC_SELF_FD_OFF);
+		/**
+		 * FIXME in case two processes from different pidnses have the
+		 * same pid from getpid() and one inherited service fds from
+		 * another or they share them by shared fdt - this check will
+		 * not detect that one of them reuses /proc/self of another.
+		 * Everything proc related may break in this case.
+		 */
+		if (open_proc_self_fd >= 0 && open_proc_self_pid != getpid())
 			open_proc_self_fd = -1;
-		}
 		return open_proc_self_fd;
 	} else if (pid == open_proc_pid)
 		return get_service_fd(PROC_PID_FD_OFF);
@@ -402,7 +413,7 @@ inline int open_pid_proc(pid_t pid)
 	}
 
 	if (pid == PROC_SELF)
-		set_proc_self_fd(fd);
+		fd = set_proc_self_fd(fd);
 	else
 		fd = set_proc_pid_fd(pid, fd);
 
@@ -534,6 +545,7 @@ static int close_fds(int minfd)
 			continue;
 		if (fd < minfd)
 			continue;
+		/* coverity[double_close] */
 		close(fd);
 	}
 	closedir(dir);
@@ -614,7 +626,9 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 
 		execvp(cmd, argv);
 
-		pr_perror("exec(%s, ...) failed", cmd);
+		/* We can't use pr_error() as log file fd is closed. */
+		fprintf(stderr, "Error (%s:%d): " LOG_PREFIX "execvp(\"%s\", ...) failed: %s\n",
+		       __FILE__, __LINE__, cmd, strerror(errno));
 out_chld:
 		_exit(1);
 	}
@@ -719,7 +733,13 @@ int is_root_user(void)
 /*
  * is_empty_dir will always close the FD dirfd: either implicitly
  * via closedir or explicitly in case fdopendir had failed
+ *
+ * return values:
+ *   < 0 : open directory stream failed
+ *     0 : directory is not empty
+ *     1 : directory is empty
  */
+
 int is_empty_dir(int dirfd)
 {
 	int ret = 0;
@@ -728,6 +748,7 @@ int is_empty_dir(int dirfd)
 
 	fdir = fdopendir(dirfd);
 	if (!fdir) {
+		pr_perror("open directory stream by fd %d failed", dirfd);
 		close_safe(&dirfd);
 		return -1;
 	}
@@ -1311,6 +1332,7 @@ int epoll_prepare(int nr_fds, struct epoll_event **events)
 
 free_events:
 	xfree(*events);
+	*events = NULL;
 	return -1;
 }
 
@@ -1401,3 +1423,220 @@ int mount_detached_fs(const char *fsname)
 	return fd;
 }
 
+int strip_deleted(char *name, int len)
+{
+	struct dcache_prepends {
+		const char	*str;
+		size_t		len;
+	} static const prepends[] = {
+		{
+			.str	= " (deleted)",
+			.len	= 10,
+		}, {
+			.str	= "//deleted",
+			.len	= 9,
+		}
+	};
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(prepends); i++) {
+		size_t at;
+
+		if (len <= prepends[i].len)
+			continue;
+
+		at = len - prepends[i].len;
+		if (!strcmp(&name[at], prepends[i].str)) {
+			pr_debug("Strip '%s' tag from '%s'\n",
+				 prepends[i].str, name);
+			name[at] = '\0';
+			len -= prepends[i].len;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/*
+ * This function check if path ends with ending and cuts it from path.
+ * Return 0 if path is cut. -1 otherwise, leaving path unchanged.
+ * Example:
+ *	path = "/foo/bar", ending = "bar"
+ *	cut(path, ending)  -> path becomes "/foo"
+ *
+ * 1. Skip leading "./" in subpath.
+ * 2. Respect root: ("/a/b", "b") -> "/a" but ("/a", "a") -> "/"
+ * 3. Refuse to cut identical strings, e.g. ("abc", "abc") will result in -1
+ * 4. Do not handle "..", "//", "./" (with exception "./" as leading symbols)
+ */
+
+int cut_path_ending(char *path, char *ending)
+{
+	int ending_pos;
+
+	if (ending[0] == '.' && ending[1] == '/')
+		ending = ending + 2;
+
+	ending_pos = strlen(path) - strlen(ending);
+
+	if (ending_pos < 1)
+		return -1;
+
+	if (strcmp(path + ending_pos, ending))
+		return -1;
+
+	if (path[ending_pos - 1] != '/')
+		return -1;
+
+	if (ending_pos == 1) {
+		path[ending_pos] = 0;
+		return 0;
+	}
+
+	path[ending_pos - 1] = 0;
+	return 0;
+}
+
+static int is_iptables_nft(char *bin)
+{
+	int pfd[2] = { -1, -1 }, ret = -1;
+	char *cmd[] = { bin, "-V", NULL };
+	char buf[100];
+
+	if (pipe(pfd) < 0) {
+		pr_perror("Unable to create pipe");
+		goto err;
+	}
+
+	ret = cr_system(-1, pfd[1], -1, cmd[0], cmd, 0);
+	if (ret) {
+		pr_err("%s -V failed\n", cmd[0]);
+		goto err;
+	}
+
+	close_safe(&pfd[1]);
+
+	ret = read(pfd[0], buf, sizeof(buf) - 1);
+	if (ret < 0) {
+		pr_perror("Unable to read %s -V output", cmd[0]);
+		goto err;
+	}
+
+	buf[ret] = '\0';
+	ret = 0;
+
+	if (strstr(buf, "nf_tables")) {
+		pr_info("iptables has nft backend: %s\n", buf);
+		ret = 1;
+	}
+
+err:
+	close_safe(&pfd[1]);
+	close_safe(&pfd[0]);
+	return ret;
+}
+
+char *get_legacy_iptables_bin(bool ipv6)
+{
+	static char iptables_bin[2][32];
+	/* 0  - means we don't know yet,
+	 * -1 - not present,
+	 * 1  - present.
+	 */
+	static int iptables_present[2] = { 0, 0 };
+	char bins[2][2][32] = {
+		{
+			"iptables-save",
+			"iptables-legacy-save"
+		},
+		{
+			"ip6tables-save",
+			"ip6tables-legacy-save"
+		}
+	};
+	int ret;
+
+	if (iptables_present[ipv6] == -1)
+		return NULL;
+
+	if (iptables_present[ipv6] == 1)
+		return iptables_bin[ipv6];
+
+	memcpy(iptables_bin[ipv6], bins[ipv6][0], strlen(bins[ipv6][0]) + 1);
+	ret = is_iptables_nft(iptables_bin[ipv6]);
+
+	/*
+	 * iptables on host uses nft backend (or not installed),
+	 * let's try iptables-legacy
+	 */
+	if (ret < 0 || ret == 1) {
+		memcpy(iptables_bin[ipv6], bins[ipv6][1],
+					   strlen(bins[ipv6][1]) + 1);
+		ret = is_iptables_nft(iptables_bin[ipv6]);
+		if (ret < 0 || ret == 1) {
+			iptables_present[ipv6] = -1;
+			return NULL;
+		}
+	}
+
+	/* we can come here with iptables-save or iptables-legacy-save */
+	iptables_present[ipv6] = 1;
+
+	return iptables_bin[ipv6];
+}
+
+/*
+ * read_all() behaves like read() without the possibility of partial reads.
+ * Use only with blocking I/O.
+ */
+ssize_t read_all(int fd, void *buf, size_t size)
+{
+	ssize_t n = 0;
+	while (size > 0) {
+		ssize_t ret = read(fd, buf, size);
+		if (ret == -1) {
+			if (errno == EINTR)
+				continue;
+			/*
+			 * The caller should use standard read() for
+			 * non-blocking I/O.
+			 */
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				errno = EINVAL;
+			return ret;
+		}
+		if (ret == 0)
+			break;
+		n += ret;
+		buf = (char *)buf + ret;
+		size -= ret;
+	}
+	return n;
+}
+
+/*
+ * write_all() behaves like write() without the possibility of partial writes.
+ * Use only with blocking I/O.
+ */
+ssize_t write_all(int fd, const void *buf, size_t size)
+{
+	ssize_t n = 0;
+	while (size > 0) {
+		ssize_t ret = write(fd, buf, size);
+		if (ret == -1) {
+			if (errno == EINTR)
+				continue;
+			/*
+			 * The caller should use standard write() for
+			 * non-blocking I/O.
+			 */
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				errno = EINVAL;
+			return ret;
+		}
+		n += ret;
+		buf = (char *)buf + ret;
+		size -= ret;
+	}
+	return n;
+}

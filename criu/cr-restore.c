@@ -418,6 +418,10 @@ static int populate_pid_proc(void)
 		pr_err("Can't open PROC_SELF\n");
 		return -1;
 	}
+	if (open_pid_proc(PROC_SELF) < 0) {
+		pr_err("Can't open PROC_SELF\n");
+		return -1;
+	}
 	return 0;
 }
 
@@ -1220,7 +1224,7 @@ static int wait_exiting_children(void)
 	futex_dec_and_wake(&task_entries->nr_in_progress);
 
 	if (waitid(P_ALL, 0, &info, WEXITED | WNOWAIT)) {
-		pr_perror("Failed to wait\n");
+		pr_perror("Failed to wait");
 		return -1;
 	}
 
@@ -1363,9 +1367,9 @@ static int set_next_pid(void *arg)
 
 static inline int fork_with_pid(struct pstree_item *item)
 {
-	unsigned long clone_flags;
 	struct cr_clone_arg ca;
 	struct ns_id *pid_ns = NULL;
+	bool external_pidns = false;
 	int ret = -1;
 	pid_t pid = vpid(item);
 
@@ -1404,20 +1408,13 @@ static inline int fork_with_pid(struct pstree_item *item)
 		ca.core = NULL;
 	}
 
-	ret = -1;
+	if (item->ids)
+		pid_ns = lookup_ns_by_id(item->ids->pid_ns_id, &pid_ns_desc);
 
-	ca.item = item;
-	ca.clone_flags = rsti(item)->clone_flags;
+	if (!current && pid_ns && pid_ns->ext_key)
+		external_pidns = true;
 
-	BUG_ON(ca.clone_flags & CLONE_VM);
-
-	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ca.clone_flags);
-
-	if (ca.item->ids)
-		pid_ns = lookup_ns_by_id(ca.item->ids->pid_ns_id, &pid_ns_desc);
-
-	clone_flags = ca.clone_flags;
-	if (pid_ns && pid_ns->ext_key) {
+	if (external_pidns) {
 		int fd;
 
 		/* Not possible to restore into an empty PID namespace. */
@@ -1425,13 +1422,6 @@ static inline int fork_with_pid(struct pstree_item *item)
 			pr_err("Unable to restore into an empty PID namespace\n");
 			return -1;
 		}
-
-		/*
-		 * Restoring into an existing namespace means that CLONE_NEWPID
-		 * needs to be removed during clone() as the process will be
-		 * created in the correct PID namespace thanks to switch_ns_by_fd().
-		 */
-		clone_flags &= ~CLONE_NEWPID;
 
 		fd = inherit_fd_lookup_id(pid_ns->ext_key);
 		if (fd < 0) {
@@ -1446,20 +1436,21 @@ static inline int fork_with_pid(struct pstree_item *item)
 			return -1;
 		}
 
-		/*
-		 * If a process without a PID namespace is restored into
-		 * a PID namespace this tells CRIU to still handle the
-		 * process as if using CLONE_NEWPID.
-		 */
-		root_ns_mask |= CLONE_NEWPID;
-		rsti(item)->clone_flags |= CLONE_NEWPID;
+		pr_info("Inheriting external pidns %s for %d\n", pid_ns->ext_key, pid);
 	}
 
-	if (!(clone_flags & CLONE_NEWPID)) {
+	ca.item = item;
+	ca.clone_flags = rsti(item)->clone_flags;
+
+	BUG_ON(ca.clone_flags & CLONE_VM);
+
+	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ca.clone_flags);
+
+	if (!(ca.clone_flags & CLONE_NEWPID)) {
 		lock_last_pid();
 
 		if (!kdat.has_clone3_set_tid) {
-			if (pid_ns && pid_ns->ext_key) {
+			if (external_pidns) {
 				/*
 				 * Restoring into another namespace requires a helper
 				 * to write to LAST_PID_PATH. Using clone3() this is
@@ -1471,12 +1462,12 @@ static inline int fork_with_pid(struct pstree_item *item)
 				ret = set_next_pid((void *)&pid);
 			}
 			if (ret != 0) {
-				pr_err("Setting PID failed");
+				pr_err("Setting PID failed\n");
 				goto err_unlock;
 			}
 		}
 	} else {
-		if (!(pid_ns && pid_ns->ext_key)) {
+		if (!external_pidns) {
 			if (pid != INIT_PID) {
 				pr_err("First PID in a PID namespace needs to be %d and not %d\n",
 					pid, INIT_PID);
@@ -1487,7 +1478,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 	if (kdat.has_clone3_set_tid) {
 		ret = clone3_with_pid_noasan(restore_task_with_children,
-				&ca, (clone_flags &
+				&ca, (ca.clone_flags &
 					~(CLONE_NEWNET | CLONE_NEWCGROUP | CLONE_NEWTIME)),
 				SIGCHLD, pid);
 	} else {
@@ -1505,7 +1496,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 		 */
 		close_pid_proc();
 		ret = clone_noasan(restore_task_with_children,
-				(clone_flags &
+				(ca.clone_flags &
 				 ~(CLONE_NEWNET | CLONE_NEWCGROUP | CLONE_NEWTIME)) | SIGCHLD,
 				&ca);
 	}
@@ -1525,7 +1516,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 err_unlock:
-	if (!(clone_flags & CLONE_NEWPID))
+	if (!(ca.clone_flags & CLONE_NEWPID))
 		unlock_last_pid();
 
 	if (ca.core)
@@ -1533,35 +1524,53 @@ err_unlock:
 	return ret;
 }
 
+/* Returns 0 if restore can be continued */
+static int sigchld_process(int status, pid_t pid)
+{
+	int sig;
+
+	if (WIFEXITED(status)) {
+		pr_err("%d exited, status=%d\n", pid, WEXITSTATUS(status));
+		return -1;
+	} else if (WIFSIGNALED(status)) {
+		sig = WTERMSIG(status);
+		pr_err("%d killed by signal %d: %s\n", pid, sig, strsignal(sig));
+		return -1;
+	} else if (WIFSTOPPED(status)) {
+		sig = WSTOPSIG(status);
+		/* The root task is ptraced. Allow it to handle SIGCHLD */
+		if (sig == SIGCHLD && !current) {
+			if (ptrace(PTRACE_CONT, pid, 0, SIGCHLD)) {
+				pr_perror("Unable to resume %d", pid);
+				return -1;
+			}
+			return 0;
+		}
+		pr_err("%d stopped by signal %d: %s\n", pid, sig, strsignal(sig));
+		return -1;
+	} else if (WIFCONTINUED(status)) {
+		pr_err("%d unexpectedly continued\n", pid);
+		return -1;
+	}
+	pr_err("wait for %d resulted in %x status\n", pid, status);
+	return -1;
+}
+
 static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 {
-	int status, pid, exit;
-
 	while (1) {
+		int status;
+		pid_t pid;
+
 		pid = waitpid(-1, &status, WNOHANG);
 		if (pid <= 0)
 			return;
 
-		if (!current && WIFSTOPPED(status) &&
-					WSTOPSIG(status) == SIGCHLD) {
-			/* The root task is ptraced. Allow it to handle SIGCHLD */
-			if (ptrace(PTRACE_CONT, pid, 0, SIGCHLD))
-				pr_perror("Unable to resume %d", pid);
-			return;
-		}
-
-		exit = WIFEXITED(status);
-		status = exit ? WEXITSTATUS(status) : WTERMSIG(status);
-
-		break;
+		if (sigchld_process(status, pid) < 0)
+			goto err_abort;
 	}
 
-	if (exit)
-		pr_err("%d exited, status=%d\n", pid, status);
-	else
-		pr_err("%d killed by signal %d: %s\n",
-			pid, status, strsignal(status));
-
+err_abort:
 	futex_abort_and_wake(&task_entries->nr_in_progress);
 }
 
@@ -2192,6 +2201,18 @@ static int write_restored_pid(void)
 	return 0;
 }
 
+static void reap_zombies(void)
+{
+	while (1) {
+		pid_t pid = wait(NULL);
+		if (pid == -1) {
+			if (errno != ECHILD)
+				pr_perror("Error while waiting for pids");
+			return;
+		}
+	}
+}
+
 static int restore_root_task(struct pstree_item *init)
 {
 	enum trace_flags flag = TRACE_ALL;
@@ -2236,9 +2257,18 @@ static int restore_root_task(struct pstree_item *init)
 				"\"--namespace pid\" option.\n");
 			return -1;
 		}
-	} else	if (root_ns_mask & CLONE_NEWPID) {
-		pr_err("Can't restore pid namespace without the process init\n");
-		return -1;
+	} else if (root_ns_mask & CLONE_NEWPID) {
+		struct ns_id *ns;
+		/*
+		 * Restoring into an existing PID namespace. This disables
+		 * the check to require a PID 1 when restoring a process
+		 * which used to be in a PID namespace.
+		 */
+		ns = lookup_ns_by_id(init->ids->pid_ns_id, &pid_ns_desc);
+		if (!ns || !ns->ext_key) {
+			pr_err("Can't restore pid namespace without the process init\n");
+			return -1;
+		}
 	}
 
 	__restore_switch_stage_nw(CR_STATE_ROOT_TASK);
@@ -2445,8 +2475,9 @@ skip_ns_bouncing:
 	if (ret != 0)
 		pr_err("Post-resume script ret code %d\n", ret);
 
-	if (!opts.restore_detach && !opts.exec_cmd)
-		wait(NULL);
+	if (!opts.restore_detach && !opts.exec_cmd) {
+		reap_zombies();
+	}
 
 	return 0;
 
@@ -2457,7 +2488,7 @@ out_kill:
 	 * The processes can be killed only when all of them have been created,
 	 * otherwise an external processes can be killed.
 	 */
-	if (root_ns_mask & CLONE_NEWPID) {
+	if (vpid(root_item) == INIT_PID) {
 		int status;
 
 		/* Kill init */
@@ -3229,7 +3260,7 @@ static bool groups_match(gid_t* groups, int n_groups)
 	n = getgroups(0, NULL);
 	if (n == -1) {
 		pr_perror("Failed to get number of supplementary groups");
-		ret = false;
+		return false;
 	}
 	if (n != n_groups)
 		return false;
@@ -3583,7 +3614,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	/* VMA we need for stacks and sigframes for threads */
 	if (mmap(mem, memzone_size, PROT_READ | PROT_WRITE,
 			MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, 0, 0) != mem) {
-		pr_err("Can't mmap section for restore code\n");
+		pr_perror("Can't mmap section for restore code");
 		goto err;
 	}
 

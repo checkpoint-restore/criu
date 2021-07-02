@@ -39,7 +39,7 @@ static int check_lease_type(int fd, int expected_type)
 
 	if (lease_type != expected_type) {
 		if (lease_type < 0)
-			pr_perror("Can't acquire lease type\n");
+			pr_perror("Can't acquire lease type");
 		else
 			pr_err("Mismatched lease type: %i\n", lease_type);
 		return -1;
@@ -54,15 +54,15 @@ static int prepare_file(char *file, int file_type, int break_type)
 
 	fd = open(file, file_type | O_CREAT, 0666);
 	if (fd < 0) {
-		pr_perror("Can't open file (type %i)\n", file_type);
+		pr_perror("Can't open file (type %i)", file_type);
 		return fd;
 	}
 	if (fcntl(fd, F_SETLEASE, lease_type) < 0) {
-		pr_perror("Can't set exclusive lease\n");
+		pr_perror("Can't set exclusive lease");
 		goto err;
 	}
 	if (fcntl(fd, F_SETSIG, BREAK_SIGNUM) < 0) {
-		pr_perror("Can't set signum for file i/o\n");
+		pr_perror("Can't set signum for file i/o");
 		goto err;
 	}
 
@@ -74,7 +74,7 @@ static int prepare_file(char *file, int file_type, int break_type)
 		pr_err("Conflicting lease not found\n");
 		goto err;
 	} else if (errno != EWOULDBLOCK) {
-		pr_perror("Can't break lease\n");
+		pr_perror("Can't break lease");
 		goto err;
 	}
 	return fd;
@@ -114,7 +114,7 @@ int main(int argc, char **argv)
 	if (sigemptyset(&act.sa_mask) ||
 		sigaddset(&act.sa_mask, BREAK_SIGNUM) ||
 		sigaction(BREAK_SIGNUM, &act, NULL)) {
-		pr_perror("Can't set signal action\n");
+		pr_perror("Can't set signal action");
 		fail();
 		return -1;
 	}
@@ -131,11 +131,11 @@ int main(int argc, char **argv)
 
 	ret = 0;
 	if (sigaction_error)
-		fail("Ghost signal\n");
+		fail("Ghost signal");
 	else if (check_lease_type(fds[0], F_UNLCK) ||
 		check_lease_type(fds[1], F_RDLCK) ||
 		check_lease_type(fds[2], F_UNLCK))
-		fail("Lease type doesn't match\n");
+		fail("Lease type doesn't match");
 	else
 		pass();
 done:

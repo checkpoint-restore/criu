@@ -60,7 +60,7 @@ int main(int argc, char **argv)
 			return 1;
 		}
 		if (close(fd1) < 0) {
-			fail("can't close %d, %s: %m", fd1, filename);
+			fail("can't close %d, %s", fd1, filename);
 			chret = errno;
 			return chret;
 		}
@@ -87,18 +87,18 @@ int main(int argc, char **argv)
 		wait(&chret);
 		chret = WEXITSTATUS(chret);
 		if (chret) {
-			fail("child exited with non-zero code %d (%s)\n",
+			fail("child exited with non-zero code %d (%s)",
 				chret, strerror(chret));
 			return 1;
 		}
 
 		if (close(fd) < 0) {
-			fail("can't close %d, %s: %m", fd, filename);
+			fail("can't close %d, %s", fd, filename);
 			return 1;
 		}
 
 		if (stat(filename, &st) < 0) {
-			fail("can't stat %s: %m", filename);
+			fail("can't stat %s", filename);
 			return 1;
 		}
 
@@ -108,7 +108,7 @@ int main(int argc, char **argv)
 		}
 
 		if (unlink(filename) < 0) {
-			fail("can't unlink %s: %m", filename);
+			fail("can't unlink %s", filename);
 			return 1;
 		}
 	}

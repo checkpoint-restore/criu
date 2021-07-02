@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 
 	args = (struct args *)mmap(NULL, sizeof(*args), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 	if ((void *)args == MAP_FAILED) {
-		fail("mmap failed\n");
+		fail("mmap failed");
 		exit(1);
 	}
 
@@ -86,14 +86,14 @@ int main(int argc, char **argv)
 
 	test_msg("Creating thread\n");
 	if (pthread_create(&thread, NULL, thread_fn, (void *)args)) {
-		fail("Can't create thread\n");
+		fail("Can't create thread");
 		exit(1);
 	}
 
 	test_msg("Wait for thread work\n");
 	task_waiter_wait4(&args->waiter, 1);
 	if (args->result == -1) {
-		fail("thread failed\n");
+		fail("thread failed");
 		exit(1);
 	}
 

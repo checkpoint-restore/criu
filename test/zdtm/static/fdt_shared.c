@@ -81,7 +81,7 @@ static int child3(void *_arg)
 	test_waitsig();
 
 	if (close(TEST_FD) != -1) {
-		fail("%d is exist\n", TEST_FD);
+		fail("%d is exist", TEST_FD);
 		return 1;
 	}
 
@@ -110,14 +110,14 @@ static int child(void *_arg)
 	waitpid(pid2, &status, 0);
 
 	if (status) {
-		fail("The child3 returned %d\n", status);
+		fail("The child3 returned %d", status);
 		return 1;
 	}
 
 	waitpid(pid, &status, 0);
 
 	if (status) {
-		fail("The child2 returned %d\n", status);
+		fail("The child2 returned %d", status);
 		return 1;
 	}
 
@@ -185,18 +185,18 @@ int main(int argc, char ** argv)
 	kill(pid, SIGTERM);
 
 	if (status) {
-		fail("The child returned %d\n", status);
+		fail("The child returned %d", status);
 		return 1;
 	}
 
 	waitpid(pid, &status, 0);
 	if (status) {
-		fail("The child returned %d\n", status);
+		fail("The child returned %d", status);
 		return 1;
 	}
 
 	if (close(TEST_FD) == 0) {
-		fail("%d was not closed\n", TEST_FD);
+		fail("%d was not closed", TEST_FD);
 		return 1;
 	}
 

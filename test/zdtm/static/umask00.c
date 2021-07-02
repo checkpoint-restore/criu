@@ -21,7 +21,7 @@ int main(int argc, char **argv)
 
 	mask2 = umask(0);
 	if (mask != mask2)
-		fail("mask changed: %o != %o\n", mask, mask2);
+		fail("mask changed: %o != %o", mask, mask2);
 	else
 		pass();
 

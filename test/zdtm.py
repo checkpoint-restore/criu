@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# vim: noet ts=8 sw=8 sts=8
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import argparse
@@ -22,6 +21,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import socket
 from builtins import (input, int, open, range, str, zip)
 
 import pycriu as crpc
@@ -891,6 +891,8 @@ class criu_rpc_process:
 
 
 class criu_rpc:
+    pidfd_store_socket = None
+
     @staticmethod
     def __set_opts(criu, args, ctx):
         while len(args) != 0:
@@ -944,6 +946,10 @@ class criu_rpc:
                 fd, key = key.split(":", 1)
                 inhfd.fd = int(fd[3:-1])
                 inhfd.key = key
+            elif "--pidfd-store" == arg:
+                if criu_rpc.pidfd_store_socket is None:
+                    criu_rpc.pidfd_store_socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+                criu.opts.pidfd_store_sk = criu_rpc.pidfd_store_socket.fileno()
             else:
                 raise test_fail_exc('RPC for %s(%s) required' % (arg, args.pop(0)))
 
@@ -1043,19 +1049,19 @@ class criu:
             ret = self.__dump_process.wait()
         if self.__lazy_pages_p:
             ret = self.__lazy_pages_p.wait()
-            grep_errors(os.path.join(self.__ddir(), "lazy-pages.log"))
+            grep_errors(os.path.join(self.__ddir(), "lazy-pages.log"), err=ret)
             self.__lazy_pages_p = None
             if ret:
                 raise test_fail_exc("criu lazy-pages exited with %s" % ret)
         if self.__page_server_p:
             ret = self.__page_server_p.wait()
-            grep_errors(os.path.join(self.__ddir(), "page-server.log"))
+            grep_errors(os.path.join(self.__ddir(), "page-server.log"), err=ret)
             self.__page_server_p = None
             if ret:
                 raise test_fail_exc("criu page-server exited with %s" % ret)
         if self.__dump_process:
             ret = self.__dump_process.wait()
-            grep_errors(os.path.join(self.__ddir(), "dump.log"))
+            grep_errors(os.path.join(self.__ddir(), "dump.log"), err=ret)
             self.__dump_process = None
             if ret:
                 raise test_fail_exc("criu dump exited with %s" % ret)
@@ -1357,7 +1363,7 @@ class criu:
 
         if self.__page_server_p:
             ret = self.__page_server_p.wait()
-            grep_errors(os.path.join(self.__ddir(), "page-server.log"))
+            grep_errors(os.path.join(self.__ddir(), "page-server.log"), err=ret)
             self.__page_server_p = None
             if ret:
                 raise test_fail_exc("criu page-server exited with %d" % ret)
@@ -1932,7 +1938,7 @@ class Launcher:
             self.__taint = taintfd.read()
         if int(self.__taint, 0) != 0:
             print("The kernel is tainted: %r" % self.__taint)
-            if not opts["ignore_taint"]:
+            if not opts["ignore_taint"] and os.getenv("ZDTM_IGNORE_TAINT") != '1':
                 raise Exception("The kernel is tainted: %r" % self.__taint)
 
     def __show_progress(self, msg):
@@ -2165,7 +2171,7 @@ def print_error(line):
     return False
 
 
-def grep_errors(fname):
+def grep_errors(fname, err=False):
     first = True
     print_next = False
     before = []
@@ -2186,6 +2192,17 @@ def grep_errors(fname):
                 if print_next:
                     print_next = print_error(line)
                     before = []
+
+    # If process failed but there are no errors in log,
+    # let's just print the log tail, probably it would
+    # be helpful.
+    if err and first:
+        print_fname(fname, 'log')
+        print_sep("grep Error (no)", "-", 60)
+        first = False
+        for i in before:
+            print_next = print_error(i)
+
     if not first:
         print_sep("ERROR OVER", "-", 60)
 

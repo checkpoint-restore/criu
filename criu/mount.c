@@ -45,6 +45,8 @@
 #define BINFMT_MISC_HOME "proc/sys/fs/binfmt_misc"
 #define CRTIME_MNT_ID 0
 
+#define CONTEXT_OPT "context="
+
 /* A helper mount_info entry for the roots yard */
 static struct mount_info *root_yard_mp = NULL;
 
@@ -235,6 +237,7 @@ struct mount_info *lookup_mnt_sdev(unsigned int s_dev)
 		if (m->s_dev == s_dev && mnt_is_dir(m))
 			return m;
 
+	pr_err("Unable to find suitable mount point for s_dev %x\n", s_dev);
 	return NULL;
 }
 
@@ -1016,12 +1019,12 @@ int mnt_is_dir(struct mount_info *pm)
 
 	mntns_root = mntns_get_root_fd(pm->nsid);
 	if (mntns_root < 0) {
-		pr_perror("Can't get root fd of mntns for %d", pm->mnt_id);
+		pr_warn("Can't get root fd of mntns for %d: %s\n", pm->mnt_id, strerror(errno));
 		return 0;
 	}
 
 	if (fstatat(mntns_root, pm->ns_mountpoint, &st, 0)) {
-		pr_perror("Can't fstatat on %s", pm->ns_mountpoint);
+		pr_warn("Can't fstatat on %s: %s\n", pm->ns_mountpoint, strerror(errno));
 		return 0;
 	}
 
@@ -1111,8 +1114,8 @@ static char *get_clean_mnt(struct mount_info *mi, char *mnt_path_tmp, char *mnt_
 	}
 
 	if (mount(mi->mountpoint, mnt_path, NULL, MS_BIND, NULL)) {
-		pr_perror("Can't bind-mount %d:%s to %s",
-				mi->mnt_id, mi->mountpoint, mnt_path);
+		pr_warn("Can't bind-mount %d:%s to %s: %s\n",
+				mi->mnt_id, mi->mountpoint, mnt_path, strerror(errno));
 		rmdir(mnt_path);
 		return NULL;
 	}
@@ -1188,6 +1191,7 @@ exit:
 
 static int set_is_overmounted(struct mount_info *mi)
 {
+	/* coverity[check_return] */
 	mnt_is_overmounted(mi);
 	return 0;
 }
@@ -1444,6 +1448,7 @@ int open_mountpoint(struct mount_info *pm)
 	return __open_mountpoint(pm, fd);
 err:
 	if (ns_old >= 0)
+		/* coverity[check_return] */
 		restore_ns(ns_old, &mnt_ns_desc);
 	close_safe(&fd);
 	if (fchdir(cwd_fd))
@@ -2939,6 +2944,66 @@ static int get_mp_mountpoint(char *mountpoint, struct mount_info *mi, char *root
 	return 0;
 }
 
+static char *mount_update_lsm_context(char *mount_opts)
+{
+	cleanup_free char *before_context = NULL;
+	char *other_options;
+	char *context_start;
+	char *context_end;
+	char *old_context;
+	char *new_options;
+	int ret;
+
+	old_context = strstr(mount_opts, CONTEXT_OPT);
+
+	if (!old_context || !opts.lsm_mount_context)
+		return xstrdup(mount_opts);
+
+	/*
+	 * If the user specified a different mount_context we need
+	 * to replace the existing mount context in the mount
+	 * options with the one specified by the user.
+	 *
+	 * The original mount options will be something like:
+	 *
+	 *  context="system_u:object_r:container_file_t:s0:c82,c137",inode64
+	 *
+	 * and it needs to be replaced with opts.lsm_mount_context.
+	 *
+	 * The content between 'context=' and ',inode64' will be replaced
+	 * with opts.lsm_mount_context in quotes.
+	 */
+
+	/* Skip 'context=' */
+	context_start = old_context + strlen(CONTEXT_OPT);
+	if (context_start[0] == '"' && context_start + 1 < mount_opts + strlen(mount_opts)) {
+		/* Skip quotes */
+		context_end = strchr(context_start + 1, '"');
+		if (!context_end) {
+			pr_err("Failed parsing mount option 'context'\n");
+			return NULL;
+		}
+	} else {
+		context_end = context_start;
+	}
+
+	/* Find next after optionally skipping quotes. */
+	other_options = strchr(context_end, ',');
+
+	before_context = xstrdup(mount_opts);
+	if (unlikely(!before_context))
+		return NULL;
+	before_context[context_start - mount_opts] = 0;
+
+	ret = asprintf(&new_options, "%s\"%s\"%s", before_context,
+			opts.lsm_mount_context, other_options ? other_options : "");
+	if (unlikely(ret < 0))
+		return NULL;
+	pr_debug("\t\tChanged mount 'context=' to %s\n", new_options);
+
+	return new_options;
+}
+
 static int collect_mnt_from_image(struct mount_info **head, struct mount_info **tail, struct ns_id *nsid)
 {
 	MntEntry *me = NULL;
@@ -3003,8 +3068,8 @@ static int collect_mnt_from_image(struct mount_info **head, struct mount_info **
 		if (!pm->source)
 			goto err;
 
-		pm->options = xstrdup(me->options);
-		if (!pm->options)
+		pm->options = mount_update_lsm_context(me->options);
+		if (unlikely(!pm->options))
 			goto err;
 
 		if (me->fstype != FSTYPE__AUTO && me->fsname) {
@@ -3508,6 +3573,7 @@ int prepare_mnt_ns(void)
 	return ret;
 err:
 	if (rst >= 0)
+		/* coverity[check_return] */
 		restore_ns(rst, &mnt_ns_desc);
 	return -1;
 }
@@ -3828,7 +3894,7 @@ static int ns_remount_writable(void *arg)
 
 	if (do_restore_task_mnt_ns(ns))
 		return 1;
-	pr_debug("Switched to mntns %u:%u/n", ns->id, ns->kid);
+	pr_debug("Switched to mntns %u:%u\n", ns->id, ns->kid);
 
 	if (mount(NULL, mi->ns_mountpoint, NULL, MS_REMOUNT | MS_BIND |
 		  (mi->flags & ~(MS_PROPAGATE | MS_RDONLY)), NULL) == -1) {
@@ -3899,7 +3965,7 @@ static int __remount_readonly_mounts(struct ns_id *ns)
 			if (do_restore_task_mnt_ns(ns))
 				return -1;
 			mntns_set = true;
-			pr_debug("Switched to mntns %u:%u/n", ns->id, ns->kid);
+			pr_debug("Switched to mntns %u:%u\n", ns->id, ns->kid);
 		}
 
 		pr_info("Remount %d:%s back to readonly\n", mi->mnt_id, mi->mountpoint);

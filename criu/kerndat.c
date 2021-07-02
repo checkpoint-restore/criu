@@ -54,7 +54,7 @@ static int check_pagemap(void)
 	fd = __open_proc(PROC_SELF, EPERM, O_RDONLY, "pagemap");
 	if (fd < 0) {
 		if (errno == EPERM) {
-			pr_info("Pagemap disabled");
+			pr_info("Pagemap disabled\n");
 			kdat.pmap = PM_DISABLED;
 			return 0;
 		}
@@ -417,7 +417,7 @@ static bool kerndat_has_memfd_create(void)
 	else if (ret == -1 && errno == EFAULT)
 		kdat.has_memfd = true;
 	else {
-		pr_err("Unexpected error from memfd_create(NULL, 0): %m\n");
+		pr_perror("Unexpected error from memfd_create(NULL, 0)");
 		return -1;
 	}
 
@@ -905,21 +905,26 @@ unl:
 
 static int kerndat_uffd(void)
 {
-	int uffd;
+	int uffd, err = 0;
 
 	kdat.uffd_features = 0;
-	uffd = uffd_open(0, &kdat.uffd_features);
+	uffd = uffd_open(0, &kdat.uffd_features, &err);
 
 	/*
-	 * uffd == -ENOSYS means userfaultfd is not supported on this
-	 * system and we just happily return with kdat.has_uffd = false.
-	 * Error other than -ENOSYS would mean "Houston, Houston, we
+	 * err == ENOSYS means userfaultfd is not supported on this system and
+	 * we just happily return with kdat.has_uffd = false.
+	 * err == EPERM means that userfaultfd is not allowed as we are
+	 * non-root user, so we also return with kdat.has_uffd = false.
+	 * Errors other than ENOSYS and EPERM would mean "Houston, Houston, we
 	 * have a problem!"
 	 */
 	if (uffd < 0) {
-		if (uffd == -ENOSYS)
+		if (err == ENOSYS)
 			return 0;
-
+		if (err == EPERM) {
+			pr_info("Lazy pages are not permited\n");
+			return 0;
+		}
 		pr_err("Lazy pages are not available\n");
 		return -1;
 	}
@@ -1045,11 +1050,87 @@ static bool kerndat_has_clone3_set_tid(void)
 	if (pid == -1 && errno == EINVAL) {
 		kdat.has_clone3_set_tid = true;
 	} else {
-		pr_perror("Unexpected error from clone3\n");
+		pr_perror("Unexpected error from clone3");
 		return -1;
 	}
 
 	return 0;
+}
+
+static void kerndat_has_pidfd_open(void)
+{
+	int pidfd;
+
+	pidfd = syscall(SYS_pidfd_open, getpid(), 0);
+	if (pidfd == -1)
+		kdat.has_pidfd_open = false;
+	else
+		kdat.has_pidfd_open = true;
+
+	close_safe(&pidfd);
+}
+
+static int kerndat_has_pidfd_getfd(void)
+{
+	int ret;
+	int fds[2];
+	int val_a, val_b;
+	int pidfd, stolen_fd;
+
+	ret = 0;
+
+	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, fds)) {
+		pr_perror("Can't open unix socket pair");
+		ret = -1;
+		goto out;
+	}
+
+	val_a = 1984;
+	if (write(fds[0], &val_a, sizeof(val_a)) != sizeof(val_a)) {
+		pr_perror("Can't write to socket");
+		ret = -1;
+		goto close_pair;
+	}
+
+	pidfd = syscall(SYS_pidfd_open, getpid(), 0);
+	if (pidfd == -1) {
+		pr_warn("Can't get pidfd\n");
+		/*
+		 * If pidfd_open is not supported then pidfd_getfd
+		 * will not be supported as well.
+		 */
+		kdat.has_pidfd_getfd = false;
+		goto close_pair;
+	}
+
+	stolen_fd = syscall(SYS_pidfd_getfd, pidfd, fds[1], 0);
+	if (stolen_fd == -1) {
+		kdat.has_pidfd_getfd = false;
+		goto close_all;
+	}
+
+	if (read(fds[1], &val_b, sizeof(val_b)) != sizeof(val_b)) {
+		pr_perror("Can't read from socket");
+		ret = -1;
+		goto close_all;
+	}
+
+	if (val_b == val_a) {
+		kdat.has_pidfd_getfd = true;
+	} else {
+		/* If val_b != val_a then something unexpected happend. */
+		pr_err("Unexpected value read from socket\n");
+		ret = -1;
+	}
+
+close_all:
+	close_safe(&stolen_fd);
+	close_safe(&pidfd);
+close_pair:
+	close(fds[0]);
+	close(fds[1]);
+out:
+	return ret;
 }
 
 int kerndat_init(void)
@@ -1185,6 +1266,16 @@ int kerndat_init(void)
 		pr_err("has_time_namespace failed when initializing kerndat.\n");
 		ret = -1;
 	}
+	if (!ret && kerndat_has_newifindex()) {
+		pr_err("kerndat_has_newifindex failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_pidfd_getfd()) {
+		pr_err("kerndat_has_pidfd_getfd failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret)
+		kerndat_has_pidfd_open();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();

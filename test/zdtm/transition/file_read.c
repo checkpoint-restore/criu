@@ -217,21 +217,21 @@ int main(int argc, char **argv)
 	killall();
 	for (i = 0; i < scale; i++) {
 		if (waitpid(pids[i], &rv, 0) == -1) {
-			fail("Can't wipe up the kid\n");
+			fail("Can't wipe up the kid");
 			counter++;
 			continue;
 		}
 		if (!WIFEXITED(rv)) {
-			fail("Kid was killed\n");
+			fail("Kid was killed");
 			counter++;
 		} else {
 			rv = WEXITSTATUS(rv);
 			if (rv < MAX_EXIT_CODE_VAL && rv > SUCCESS) {
-				fail("Kid failed: %s (%d)\n",
+				fail("Kid failed: %s (%d)",
 						kids_fail_reasons[rv], rv);
 				counter++;
 			} else if (rv != SUCCESS) {
-				fail("Unknown exitcode from kid: %d\n", rv);
+				fail("Unknown exitcode from kid: %d", rv);
 				counter++;
 			}
 		}

@@ -339,6 +339,7 @@ static int prepare_pstree_for_shell_job(pid_t pid)
 	pid_t current_gid = getpgid(pid);
 
 	struct pstree_item *pi;
+	struct pid *tmp;
 
 	pid_t old_sid;
 	pid_t old_gid;
@@ -346,6 +347,7 @@ static int prepare_pstree_for_shell_job(pid_t pid)
 	if (!opts.shell_job)
 		return 0;
 
+	/* root_item is a session leader */
 	if (root_item->sid == vpid(root_item))
 		return 0;
 
@@ -367,22 +369,41 @@ static int prepare_pstree_for_shell_job(pid_t pid)
 	 */
 
 	old_sid = root_item->sid;
+	if (old_sid != current_sid) {
+		pr_info("Migrating process tree (SID %d->%d)\n",
+			old_sid, current_sid);
 
-	pr_info("Migrating process tree (SID %d->%d)\n",
-		old_sid, current_sid);
+		tmp = pstree_pid_by_virt(current_sid);
+		if (tmp) {
+			pr_err("Current sid %d intersects with pid (%d) in images",
+			       current_sid, tmp->state);
+			return -1;
+		}
 
-	for_each_pstree_item(pi) {
-		if (pi->sid == old_sid)
-			pi->sid = current_sid;
-	}
+		for_each_pstree_item(pi) {
+			if (pi->sid == old_sid)
+				pi->sid = current_sid;
+		}
 
-	old_gid = root_item->pgid;
-	if (old_gid != vpid(root_item)) {
 		if (lookup_create_item(current_sid) == NULL)
 			return -1;
+	}
 
+	/* root_item is a group leader */
+	if (root_item->pgid == vpid(root_item))
+		return 0;
+
+	old_gid = root_item->pgid;
+	if (old_gid != current_gid) {
 		pr_info("Migrating process tree (GID %d->%d)\n",
 			old_gid, current_gid);
+
+		tmp = pstree_pid_by_virt(current_gid);
+		if (tmp) {
+			pr_err("Current gid %d intersects with pid (%d) in images",
+			       current_gid, tmp->state);
+			return -1;
+		}
 
 		for_each_pstree_item(pi) {
 			if (pi->pgid == old_gid)
@@ -674,12 +695,12 @@ static int prepare_pstree_ids(pid_t pid)
 		leader = pstree_item_by_virt(item->sid);
 		BUG_ON(leader == NULL);
 		if (leader->pid->state != TASK_UNDEF) {
-			pid_t pid;
+			pid_t helper_pid;
 
-			pid = get_free_pid();
-			if (pid < 0)
+			helper_pid = get_free_pid();
+			if (helper_pid < 0)
 				break;
-			helper = lookup_create_item(pid);
+			helper = lookup_create_item(helper_pid);
 			if (helper == NULL)
 				return -1;
 
@@ -771,15 +792,15 @@ static int prepare_pstree_ids(pid_t pid)
 
 	/* Add a process group leader if it is absent  */
 	for_each_pstree_item(item) {
-		struct pid *pid;
+		struct pid *pgid;
 
 		if (!item->pgid || vpid(item) == item->pgid)
 			continue;
 
-		pid = pstree_pid_by_virt(item->pgid);
-		if (pid->state != TASK_UNDEF) {
-			BUG_ON(pid->state == TASK_THREAD);
-			rsti(item)->pgrp_leader = pid->item;
+		pgid = pstree_pid_by_virt(item->pgid);
+		if (pgid->state != TASK_UNDEF) {
+			BUG_ON(pgid->state == TASK_THREAD);
+			rsti(item)->pgrp_leader = pgid->item;
 			continue;
 		}
 
@@ -791,7 +812,7 @@ static int prepare_pstree_ids(pid_t pid)
 		if (current_pgid == item->pgid)
 			continue;
 
-		helper = pid->item;
+		helper = pgid->item;
 
 		helper->sid = item->sid;
 		helper->pgid = item->pgid;
@@ -905,6 +926,12 @@ static int prepare_pstree_kobj_ids(void)
 			 * namespaces' entries.
 			 */
 			rsti(item)->clone_flags &= ~CLONE_NEWNS;
+
+		/**
+		 * Only child reaper can clone with CLONE_NEWPID
+		 */
+		if (vpid(item) != INIT_PID)
+			rsti(item)->clone_flags &= ~CLONE_NEWPID;
 
 		cflags &= CLONE_ALLNS;
 

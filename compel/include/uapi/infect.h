@@ -136,6 +136,8 @@ extern struct infect_ctx *compel_infect_ctx(struct parasite_ctl *);
 #define INFECT_COMPATIBLE		(1UL << 3)
 /* Workaround for ptrace bug on Skylake CPUs with kernels older than v4.14 */
 #define INFECT_X86_PTRACE_MXCSR_BUG	(1UL << 4)
+/* After infecting - corrupt extended registers (fault-injection) */
+#define INFECT_CORRUPT_EXTREGS		(1UL << 5)
 
 /*
  * There are several ways to describe a blob to compel
@@ -155,6 +157,7 @@ struct parasite_blob_desc {
 			unsigned long		args_ptr_off;
 			unsigned long		got_off;
 			unsigned long		args_off;
+			unsigned long		data_off;
 			compel_reloc_t		*relocs;
 			unsigned int		nr_relocs;
 		} hdr;

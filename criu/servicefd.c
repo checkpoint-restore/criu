@@ -46,6 +46,7 @@ const char *sfd_type_name(enum sfd_type type)
 		[IMG_FD_OFF]		= __stringify_1(IMG_FD_OFF),
 		[PROC_FD_OFF]		= __stringify_1(PROC_FD_OFF),
 		[PROC_PID_FD_OFF]	= __stringify_1(PROC_PID_FD_OFF),
+		[PROC_SELF_FD_OFF]	= __stringify_1(PROC_SELF_FD_OFF),
 		[CR_PROC_FD_OFF]	= __stringify_1(CR_PROC_FD_OFF),
 		[ROOT_FD_OFF]		= __stringify_1(ROOT_FD_OFF),
 		[CGROUP_YARD]		= __stringify_1(CGROUP_YARD),
@@ -206,6 +207,15 @@ int close_service_fd(enum sfd_type type)
 	return 0;
 }
 
+void __close_service_fd(enum sfd_type type)
+{
+	int fd;
+
+	fd = __get_service_fd(type, service_fd_id);
+	close(fd);
+	clear_bit(type, sfd_map);
+}
+
 static int move_service_fd(struct pstree_item *me, int type, int new_id, int new_base)
 {
 	int old = get_service_fd(type);
@@ -290,7 +300,8 @@ int clone_service_fd(struct pstree_item *me)
 
 	if (new_base == -1)
 		return -1;
-	if (service_fd_base == new_base && service_fd_id == id)
+
+	if (get_service_fd(LOG_FD_OFF) == new_base - LOG_FD_OFF - SERVICE_FD_MAX * id)
 		return 0;
 
 	/* Dup sfds in memmove() style: they may overlap */

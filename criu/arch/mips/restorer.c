@@ -13,7 +13,7 @@
 
 int restore_nonsigframe_gpregs(UserMipsRegsEntry *r)
 {
-    return 0;
+	return 0;
 }
 
 #define SHMLBA 0x40000

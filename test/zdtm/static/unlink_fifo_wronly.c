@@ -46,12 +46,12 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	if (close(fd) < 0) {
-		fail("can't close (O_RDONLY | O_NONBLOCK) %s: %m", filename);
+		fail("can't close (O_RDONLY | O_NONBLOCK) %s", filename);
 		return 1;
 	}
 
 	if (close(fd1) < 0) {
-		fail("can't close (O_WRONLY) %s: %m", filename);
+		fail("can't close (O_WRONLY) %s", filename);
 		return 1;
 	}
 

@@ -1,12 +1,12 @@
 
 #include "common/asm/linkage.h"
-	
+
 	.section .head.text, "ax"
 ENTRY(memcpy)
 	.set noreorder
 	dadd v0,zero,a0
 	daddiu t1,zero,0
-loop:	
+loop:
 	beq t1,a2,exit
 	nop
 	lb t2,0(a1)
@@ -20,4 +20,3 @@ exit:
 	jr ra
 	nop
 END(memcpy)
-		

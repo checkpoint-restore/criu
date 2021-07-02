@@ -109,7 +109,7 @@ int get_smaps_bits(unsigned long where, unsigned long *flags, unsigned long *mad
 	while (fgets(buf, sizeof(buf), smaps)) {
 		is_vma_range_fmt(buf, &start, &end);
 
-		if (!strncmp(buf, "VmFlags: ", 9) && start == where) {
+		if (!strncmp(buf, "VmFlags: ", 9) && start <= where && where < end) {
 			found = 1;
 			parse_vmflags(buf, flags, madv);
 			break;

@@ -123,4 +123,4 @@ int cmp_bpfmap_fdinfo(struct bpfmap_fdinfo_obj *old, struct bpfmap_fdinfo_obj *n
 		return -1;
 
 	return 0;
-} 
+}

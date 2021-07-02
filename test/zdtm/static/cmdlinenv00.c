@@ -26,7 +26,7 @@ static void read_from_proc(const char *path, char *buf, size_t size)
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
-		fail("Can't open cmdline\n");
+		fail("Can't open cmdline");
 		exit(1);
 	}
 

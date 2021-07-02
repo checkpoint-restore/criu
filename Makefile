@@ -77,7 +77,7 @@ ifeq ($(ARCH),x86)
 endif
 
 ifeq ($(ARCH),mips)
-        DEFINES		:= -DCONFIG_MIPS 
+        DEFINES		:= -DCONFIG_MIPS
 endif
 
 #
@@ -257,6 +257,10 @@ crit: criu
 	$(Q) $(MAKE) $(build)=crit all
 .PHONY: crit
 
+unittest: $(criu-deps)
+	$(Q) $(MAKE) $(build)=criu unittest
+.PHONY: unittest
+
 
 #
 # Libraries next once crit it ready
@@ -369,11 +373,12 @@ gcov:
 .PHONY: gcov
 
 docker-build:
-	$(MAKE) -C scripts/build/ x86_64 
+	$(MAKE) -C scripts/build/ x86_64
 .PHONY: docker-build
 
 docker-test:
-	docker run --rm -it --privileged criu-x86_64 ./test/zdtm.py run -a -x tcp6 -x tcpbuf6 -x static/rtc -x cgroup
+	docker run --rm --privileged -v /lib/modules:/lib/modules --network=host --cgroupns=host criu-x86_64 \
+		./test/zdtm.py run -a --keep-going --ignore-taint
 .PHONY: docker-test
 
 help:
@@ -392,6 +397,7 @@ help:
 	@echo '      cscope          - Generate cscope database'
 	@echo '      test            - Run zdtm test-suite'
 	@echo '      gcov            - Make code coverage report'
+	@echo '      unittest        - Run unit tests'
 .PHONY: help
 
 lint:
@@ -400,8 +406,27 @@ lint:
 	flake8 --config=scripts/flake8.cfg test/inhfd/*.py
 	flake8 --config=scripts/flake8.cfg test/others/rpc/config_file.py
 	flake8 --config=scripts/flake8.cfg lib/py/images/pb2dict.py
+	shellcheck --version
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh scripts/ci/apt-install
+	shellcheck test/others/crit/*.sh
+	shellcheck test/others/config-file/*.sh
+	# Do not append \n to pr_perror or fail
+	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>.*\\n"'
+	# Do not use %m with pr_perror or fail
+	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>.*%m'
+	# Do not use errno with pr_perror or fail
+	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>\(".*".*errno'
+	# End pr_(err|warn|msg|info|debug) with \n
+	! git --no-pager grep -En '^\s*\<pr_(err|warn|msg|info|debug)\>.*);$$' | grep -v '\\n'
+	# No EOL whitespace for C files
+	! git --no-pager grep -E '\s+$$' \*.c \*.h
+.PHONY: lint
+
+codecov: SHELL := $(shell which bash)
+codecov:
+	bash <(curl -s https://codecov.io/bash)
+.PHONY: codecov
 
 include Makefile.install
 

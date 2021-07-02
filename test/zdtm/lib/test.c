@@ -372,7 +372,7 @@ int test_wait_pre_dump(void)
 
 	if (read(criu_status_in, &ret, sizeof(ret)) != sizeof(ret)) {
 		if (errno != EBADF || !futex_get(&sig_received))
-			pr_perror("Can't wait pre-dump\n");
+			pr_perror("Can't wait pre-dump");
 		return -1;
 	}
 	pr_err("pre-dump\n");

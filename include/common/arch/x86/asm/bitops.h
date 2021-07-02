@@ -3,15 +3,8 @@
 
 #include <stdbool.h>
 #include "common/arch/x86/asm/cmpxchg.h"
+#include "common/arch/x86/asm/asm.h"
 #include "common/asm/bitsperlong.h"
-
-#ifdef __GCC_ASM_FLAG_OUTPUTS__
-# define CC_SET(c) "\n\t/* output condition code " #c "*/\n"
-# define CC_OUT(c) "=@cc" #c
-#else
-# define CC_SET(c) "\n\tset" #c " %[_cc_" #c "]\n"
-# define CC_OUT(c) [_cc_ ## c] "=qm"
-#endif
 
 #define DIV_ROUND_UP(n,d)	(((n) + (d) - 1) / (d))
 #define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_LONG)
@@ -29,21 +22,21 @@
 
 #define ADDR				BITOP_ADDR(addr)
 
-static inline void set_bit(int nr, volatile unsigned long *addr)
+static inline void set_bit(long nr, volatile unsigned long *addr)
 {
-	asm volatile("btsl %1,%0" : ADDR : "Ir" (nr) : "memory");
+	asm volatile(__ASM_SIZE(bts) " %1,%0" : ADDR : "Ir" (nr) : "memory");
 }
 
-static inline void change_bit(int nr, volatile unsigned long *addr)
+static inline void change_bit(long nr, volatile unsigned long *addr)
 {
-	asm volatile("btcl %1,%0" : ADDR : "Ir" (nr));
+	asm volatile(__ASM_SIZE(btc) " %1,%0" : ADDR : "Ir" (nr));
 }
 
 static inline bool test_bit(long nr, volatile const unsigned long *addr)
 {
 	bool oldbit;
 
-	asm volatile("btq %2,%1"
+	asm volatile(__ASM_SIZE(bt) " %2,%1"
 		     CC_SET(c)
 		     : CC_OUT(c) (oldbit)
 		     : "m" (*(unsigned long *)addr), "Ir" (nr) : "memory");
@@ -51,9 +44,9 @@ static inline bool test_bit(long nr, volatile const unsigned long *addr)
 	return oldbit;
 }
 
-static inline void clear_bit(int nr, volatile unsigned long *addr)
+static inline void clear_bit(long nr, volatile unsigned long *addr)
 {
-	asm volatile("btrl %1,%0" : ADDR : "Ir" (nr));
+	asm volatile(__ASM_SIZE(btr) " %1,%0" : ADDR : "Ir" (nr));
 }
 
 /**
@@ -64,11 +57,11 @@ static inline void clear_bit(int nr, volatile unsigned long *addr)
  * This operation is atomic and cannot be reordered.
  * It also implies a memory barrier.
  */
-static inline bool test_and_set_bit(int nr, volatile unsigned long *addr)
+static inline bool test_and_set_bit(long nr, volatile unsigned long *addr)
 {
 	bool oldbit;
 
-	asm("btsq %2,%1"
+	asm(__ASM_SIZE(bts) " %2,%1"
 	    CC_SET(c)
 	    : CC_OUT(c) (oldbit)
 	    : "m" (*(unsigned long *)addr), "Ir" (nr) : "memory");

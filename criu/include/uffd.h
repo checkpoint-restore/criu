@@ -3,7 +3,7 @@
 
 struct task_restore_args;
 
-extern int uffd_open(int flags, unsigned long *features);
+extern int uffd_open(int flags, unsigned long *features, int *err);
 extern bool uffd_noncooperative(void);
 extern int setup_uffd(int pid, struct task_restore_args *task_args);
 extern int lazy_pages_setup_zombie(int pid);

@@ -471,12 +471,12 @@ static int vdso_mmap_compat(struct vdso_maps *native,
 		goto out_kill;
 
 	if (kill(pid, SIGCONT)) {
-		pr_perror("Failed to kill(SIGCONT) for compat vdso helper\n");
+		pr_perror("Failed to kill(SIGCONT) for compat vdso helper");
 		goto out_kill;
 	}
 	if (write(fds[1], &compat->vdso_start, sizeof(void *)) !=
 			sizeof(compat->vdso_start)) {
-		pr_perror("Failed write to pipe\n");
+		pr_perror("Failed write to pipe");
 		goto out_kill;
 	}
 	waitpid(pid, &status, WUNTRACED);

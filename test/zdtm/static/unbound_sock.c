@@ -33,7 +33,7 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	if (bind(sock, (struct sockaddr *) &name, sizeof(name)) < 0)
-		fail("can't bind to a socket: %m");
+		fail("can't bind to a socket");
 	else
 		pass();
 

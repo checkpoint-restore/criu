@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <pthread.h>
 
 #include "zdtmtst.h"
 
@@ -44,21 +45,11 @@ int chk_proc_fpu(void)
 
 	return edx & CPUID_FEAT_EDX_FPU;
 }
-#endif
 
-int main(int argc, char ** argv)
+void *run_fpu_test(void *unused)
 {
-#if defined(__i386__) || defined(__x86_64__)
 	float a, b, c, d;
 	float res1, res2;
-#endif
-
-	test_init(argc, argv);
-#if defined(__i386__) || defined(__x86_64__)
-	if (!chk_proc_fpu()) {
-		skip("FPU not supported");
-		return 1;
-	}
 
 	a = drand48();
 	b = drand48();
@@ -77,11 +68,53 @@ int main(int argc, char ** argv)
 	res2 = finish();
 
 	if (res1 != res2)
-		fail("%f != %f\n", res1, res2);
+		fail("%f != %f", res1, res2);
 	else
 		pass();
+
+	return (void *)(uintptr_t)(res1 != res2);
+}
+
+int main(int argc, char ** argv)
+{
+	test_init(argc, argv);
+
+	if (!chk_proc_fpu()) {
+		skip("FPU not supported");
+		return 1;
+	}
+
+
+#ifdef ZDTM_FPU00_RUN_IN_THREAD
+	/* Check if thread's fpu state is preserved */
+	{
+		pthread_t child;
+		void *ret;
+
+		if (pthread_create(&child, NULL, &run_fpu_test, NULL)) {
+			pr_perror("Can't create pthread");
+			exit(1);
+		}
+
+		if (pthread_join(child, &ret)) {
+			pr_perror("Can't join pthread");
+			exit(1);
+		}
+
+		exit(!!ret);
+	}
 #else
-	skip("Unsupported arch");
+	return !!run_fpu_test(NULL);
 #endif
+}
+
+#else
+
+int main(int argc, char *argv[])
+{
+	test_init(argc, argv);
+	skip("Unsupported arch");
 	return 0;
 }
+
+#endif

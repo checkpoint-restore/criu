@@ -35,7 +35,7 @@ int main(int argc, char **argv)
 		if (!tv_ge(&tm, &tm_old)) {
 			diff_nsec = (tm_old.tv_sec - tm.tv_sec) * 1.0E9 +\
 				(tm_old.tv_nsec - tm.tv_nsec);
-			fail("clock step backward for %e nsec\n", diff_nsec);
+			fail("clock step backward for %e nsec", diff_nsec);
 			exit(1);
 		}
 		tm_old = tm;

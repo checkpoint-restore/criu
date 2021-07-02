@@ -1,0 +1,14 @@
+name: Docker Test
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run Docker Test (${{ matrix.os }})
+      run: sudo make -C scripts/ci docker-test

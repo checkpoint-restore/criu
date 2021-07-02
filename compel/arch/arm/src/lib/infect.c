@@ -4,6 +4,8 @@
 #include <string.h>
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/asm/processor-flags.h>
+#include <errno.h>
+
 #include "common/page.h"
 #include "uapi/compel/asm/infect-types.h"
 #include "log.h"
@@ -67,15 +69,16 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
 }
 
 #define PTRACE_GETVFPREGS 27
-int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
+		  user_fpregs_struct_t *ext_regs, save_regs_t save,
 		  void *arg, __maybe_unused unsigned long flags)
 {
-	user_fpregs_struct_t vfp;
+	user_fpregs_struct_t tmp, *vfp = ext_regs ? ext_regs : &tmp;
 	int ret = -1;
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
 
-	if (ptrace(PTRACE_GETVFPREGS, pid, NULL, &vfp)) {
+	if (ptrace(PTRACE_GETVFPREGS, pid, NULL, vfp)) {
 		pr_perror("Can't obtain FPU registers for %d", pid);
 		goto err;
 	}
@@ -91,15 +94,26 @@ int get_task_regs(pid_t pid, user_regs_struct_t *regs, save_regs_t save,
 			regs->ARM_pc -= 4;
 			break;
 		case -ERESTART_RESTARTBLOCK:
-			regs->ARM_r0 = __NR_restart_syscall;
-			regs->ARM_pc -= 4;
+			pr_warn("Will restore %d with interrupted system call\n", pid);
+			regs->ARM_r0 = -EINTR;
 			break;
 		}
 	}
 
-	ret = save(arg, regs, &vfp);
+	ret = save(arg, regs, vfp);
 err:
 	return ret;
+}
+
+int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
+{
+	pr_info("Restoring GP/FPU registers for %d\n", pid);
+
+	if (ptrace(PTRACE_SETVFPREGS, pid, NULL, ext_regs)) {
+		pr_perror("Can't set FPU registers for %d", pid);
+		return -1;
+	}
+	return 0;
 }
 
 int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,

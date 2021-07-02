@@ -425,12 +425,10 @@ in:
 		close_image(*img);
 		if (dir == AT_FDCWD) {
 			pr_info("Searching irmap cache in parent\n");
-			dir = openat(get_service_fd(IMG_FD_OFF),
-					CR_PARENT_LINK, O_RDONLY);
+			if (open_parent(get_service_fd(IMG_FD_OFF), &dir))
+				return -1;
 			if (dir >= 0)
 				goto in;
-			if (errno != ENOENT)
-				return -1;
 		}
 
 		pr_info("No irmap cache\n");

@@ -76,7 +76,7 @@ enum xfeature {
 #define XFEATURE_MASK_SUPERVISOR	(XFEATURE_MASK_PT | XFEATURE_HDC)
 
 /* All currently supported features */
-#define XCNTXT_MASK							  \
+#define XFEATURE_MASK_USER						  \
 	(XFEATURE_MASK_FP		| XFEATURE_MASK_SSE		| \
 	 XFEATURE_MASK_YMM		| XFEATURE_MASK_OPMASK		| \
 	 XFEATURE_MASK_ZMM_Hi256	| XFEATURE_MASK_Hi16_ZMM	| \
@@ -232,7 +232,7 @@ struct pkru_state {
  * can vary quite a bit between CPUs.
  *
  *
- * One page should be enough for the whole xsave state.
+ * One page should be enough for the whole xsave state ;-)
  */
 #define EXTENDED_STATE_AREA_SIZE	(4096 - sizeof(struct i387_fxsave_struct) - sizeof(struct xsave_hdr_struct))
 

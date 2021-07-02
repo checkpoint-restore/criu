@@ -28,3 +28,8 @@ fi
 ./test/zdtm.py run -t zdtm/static/maps04 --fault 131 --keep-going --report report --pre 2:1 || fail
 ./test/zdtm.py run -t zdtm/transition/maps008 --fault 131 --keep-going --report report --pre 2:1 || fail
 ./test/zdtm.py run -t zdtm/static/maps01 --fault 132 -f h || fail
+# 134 is corrupting extended registers set, should run in a sub-thread (fpu03)
+# without restore (that will check if parasite corrupts extended registers)
+./test/zdtm.py run -t zdtm/static/fpu03 --fault 134 -f h --norst || fail
+# also check for the main thread corruption
+./test/zdtm.py run -t zdtm/static/fpu00 --fault 134 -f h --norst || fail
