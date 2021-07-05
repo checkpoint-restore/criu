@@ -356,8 +356,12 @@ class tcp_stream_extra_handler:
         return d
 
     def dump(self, extra, f, _unused):
-        inq = base64.decodebytes(extra['inq'])
-        outq = base64.decodebytes(extra['outq'])
+        if (sys.version_info > (3, 0)):
+            inq = base64.decodebytes(str.encode(extra['inq']))
+            outq = base64.decodebytes(str.encode(extra['outq']))
+        else:
+            inq = base64.decodebytes(extra['inq'])
+            outq = base64.decodebytes(extra['outq'])
 
         f.write(inq)
         f.write(outq)
