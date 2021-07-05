@@ -52,7 +52,7 @@ def _mount_new_proc():
     """
     Mount new /proc filesystem.
     """
-    if _mount(None, b"/", None, MS_SLAVE|MS_REC, None):
+    if _mount(None, b"/", None, MS_SLAVE | MS_REC, None):
         _errno = ctypes.get_errno()
         raise OSError(_errno, errno.errorcode[_errno])
     if _mount(b'proc', b'/proc', b'proc', 0, None):
@@ -144,10 +144,10 @@ def set_pidns(tpid, pid_idx):
     """
     ns_fd = os.open('/proc/%s/ns/pid' % tpid, os.O_RDONLY)
     if is_my_namespace(ns_fd):
-        for l in open('/proc/%s/status' % tpid):
-            if not l.startswith('NSpid:'):
+        for line in open('/proc/%s/status' % tpid):
+            if not line.startswith('NSpid:'):
                 continue
-            ls = l.split()
+            ls = line.split()
             if ls[1] != tpid:
                 os.close(ns_fd)
                 raise OSError(errno.ESRCH, 'No such pid')
