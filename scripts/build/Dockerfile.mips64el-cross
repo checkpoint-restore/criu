@@ -22,7 +22,8 @@ RUN apt-install \
 	libprotobuf-c-dev:mips64el		\
 	libcap-dev:mips64el		\
 	libaio-dev:mips64el		\
-	libnl-route-3-dev:mips64el
+	libnl-route-3-dev:mips64el	\
+	libdrm-dev:mips
 
 ENV CROSS_TRIPLE=mips64el-linux-gnuabi64
 ENV CROSS_COMPILE=${CROSS_TRIPLE}-				\

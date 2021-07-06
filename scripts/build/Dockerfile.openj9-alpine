@@ -18,7 +18,8 @@ RUN apk update && apk add \
 	maven \
 	ip6tables \
 	iptables \
-	bash
+	bash \
+	libdrm-dev
 
 COPY . /criu
 WORKDIR /criu

@@ -24,7 +24,8 @@ RUN apt-install \
 	libprotobuf-c-dev:arm64		\
 	libcap-dev:arm64		\
 	libaio-dev:arm64		\
-	libnl-route-3-dev:arm64
+	libnl-route-3-dev:arm64		\
+	libdrm-dev:arm64
 
 ENV CROSS_TRIPLE=aarch64-linux-gnu
 ENV CROSS_COMPILE=${CROSS_TRIPLE}-				\
