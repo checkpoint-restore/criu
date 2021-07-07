@@ -70,6 +70,7 @@ obj-y			+= sk-packet.o
 obj-y			+= sk-queue.o
 obj-y			+= sk-tcp.o
 obj-y			+= sk-unix.o
+obj-y			+= sk-udp.o
 obj-y			+= sockets.o
 obj-y			+= stats.o
 obj-y			+= string.o

@@ -68,6 +68,7 @@
 #include "images/bpfmap-file.pb-c.h"
 #include "images/bpfmap-data.pb-c.h"
 #include "images/apparmor.pb-c.h"
+#include "images/udp-queue.pb-c.h"
 
 struct cr_pb_message_desc cr_pb_descs[PB_MAX];
 
@@ -121,6 +122,7 @@ void cr_pb_init(void)
 	CR_PB_DESC(REMAP_FPATH, RemapFilePath, remap_file_path);
 	CR_PB_DESC(NETDEV, NetDevice, net_device);
 	CR_PB_MDESC_INIT(cr_pb_descs[PB_PAGEMAP_HEAD], PagemapHead, pagemap_head);
+	CR_PB_DESC(UDP_PACKET, UdpPacket, udp_packet);
 
 #include "protobuf-desc-gen.h"
 }
