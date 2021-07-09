@@ -33,6 +33,22 @@
 static LIST_HEAD(cpt_tcp_repair_sockets);
 static LIST_HEAD(rst_tcp_repair_sockets);
 
+static int lock_connection(struct inet_sk_desc *sk)
+{
+	if (opts.network_lock_method == NETWORK_LOCK_IPTABLES)
+		return iptables_lock_connection(sk);
+
+	return -1;
+}
+
+static int unlock_connection(struct inet_sk_desc *sk)
+{
+	if (opts.network_lock_method == NETWORK_LOCK_IPTABLES)
+		return iptables_unlock_connection(sk);
+
+	return -1;
+}
+
 static int tcp_repair_established(int fd, struct inet_sk_desc *sk)
 {
 	int ret;
@@ -51,7 +67,7 @@ static int tcp_repair_established(int fd, struct inet_sk_desc *sk)
 	}
 
 	if (!(root_ns_mask & CLONE_NEWNET)) {
-		ret = nf_lock_connection(sk);
+		ret = lock_connection(sk);
 		if (ret < 0)
 			goto err2;
 	}
@@ -66,7 +82,7 @@ static int tcp_repair_established(int fd, struct inet_sk_desc *sk)
 
 err3:
 	if (!(root_ns_mask & CLONE_NEWNET))
-		nf_unlock_connection(sk);
+		unlock_connection(sk);
 err2:
 	close(sk->rfd);
 err1:
@@ -80,7 +96,7 @@ static void tcp_unlock_one(struct inet_sk_desc *sk)
 	list_del(&sk->rlist);
 
 	if (!(root_ns_mask & CLONE_NEWNET)) {
-		ret = nf_unlock_connection(sk);
+		ret = unlock_connection(sk);
 		if (ret < 0)
 			pr_perror("Failed to unlock TCP connection");
 	}
@@ -461,6 +477,14 @@ void tcp_locked_conn_add(struct inet_sk_info *ii)
 	ii->sk_fd = -1;
 }
 
+static int unlock_connection_info(struct inet_sk_info *si)
+{
+	if (opts.network_lock_method == NETWORK_LOCK_IPTABLES)
+		return iptables_unlock_connection_info(si);
+
+	return -1;
+}
+
 void rst_unlock_tcp_connections(void)
 {
 	struct inet_sk_info *ii;
@@ -473,5 +497,5 @@ void rst_unlock_tcp_connections(void)
 		return;
 
 	list_for_each_entry(ii, &rst_tcp_repair_sockets, rlist)
-		nf_unlock_connection_info(ii);
+		unlock_connection_info(ii);
 }
