@@ -428,6 +428,7 @@ void init_opts(void)
 	opts.log_level = DEFAULT_LOGLEVEL;
 	opts.pre_dump_mode = PRE_DUMP_SPLICE;
 	opts.file_validation_method = FILE_VALIDATION_DEFAULT;
+	opts.network_lock_method = NETWORK_LOCK_DEFAULT;
 }
 
 bool deprecated_ok(char *what)
@@ -601,6 +602,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 	char *cfg_file = NULL;
 	char **_argv = NULL;
 	int _argc = 0;
+	bool has_network_lock_opt = false;
 
 #define BOOL_OPT(OPT_NAME, SAVE_TO)                         \
 	{ OPT_NAME, no_argument, SAVE_TO, true },           \
@@ -689,6 +691,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		{ "pre-dump-mode", required_argument, 0, 1097 },
 		{ "file-validation", required_argument, 0, 1098 },
 		{ "lsm-mount-context", required_argument, 0, 1099 },
+		{ "network-lock", required_argument, 0, 1100 },
 		{},
 	};
 
@@ -1014,6 +1017,17 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		case 1099:
 			SET_CHAR_OPTS(lsm_mount_context, optarg);
 			break;
+		case 1100:
+			has_network_lock_opt = true;
+			if (!strcmp("iptables", optarg)) {
+				opts.network_lock_method = NETWORK_LOCK_IPTABLES;
+			} else if (!strcmp("nftables", optarg)) {
+				opts.network_lock_method = NETWORK_LOCK_NFTABLES;
+			} else {
+				pr_err("Invalid value for --network-lock: %s\n", optarg);
+				return 1;
+			}
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -1025,6 +1039,11 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		default:
 			return 2;
 		}
+	}
+
+	if (has_network_lock_opt && !strcmp(argv[optind], "restore")) {
+		pr_warn("--network-lock will be ignored in restore command\n");
+		pr_info("Network lock method from dump will be used in restore\n");
 	}
 
 	return 0;
