@@ -3014,7 +3014,7 @@ err:
 	return ret;
 }
 
-int network_lock_internal(void)
+static int iptables_network_lock_internal(void)
 {
 	char conf[] = "*filter\n"
 		      ":CRIU - [0:0]\n"
@@ -3023,10 +3023,7 @@ int network_lock_internal(void)
 		      "-A CRIU -m mark --mark " __stringify(SOCCR_MARK) " -j ACCEPT\n"
 									"-A CRIU -j DROP\n"
 									"COMMIT\n";
-	int ret = 0, nsret;
-
-	if (switch_ns(root_item->pid->real, &net_ns_desc, &nsret))
-		return -1;
+	int ret = 0;
 
 	ret |= iptables_restore(false, conf, sizeof(conf) - 1);
 	if (kdat.ipv6)
@@ -3039,13 +3036,26 @@ int network_lock_internal(void)
 		       "option.\n",
 		       ret);
 
+	return ret;
+}
+
+int network_lock_internal(void)
+{
+	int ret = 0, nsret;
+
+	if (switch_ns(root_item->pid->real, &net_ns_desc, &nsret))
+		return -1;
+
+	if (opts.network_lock_method == NETWORK_LOCK_IPTABLES)
+		ret = iptables_network_lock_internal();
+
 	if (restore_ns(nsret, &net_ns_desc))
 		ret = -1;
 
 	return ret;
 }
 
-static int network_unlock_internal(void)
+static int iptables_network_unlock_internal(void)
 {
 	char conf[] = "*filter\n"
 		      ":CRIU - [0:0]\n"
@@ -3053,14 +3063,24 @@ static int network_unlock_internal(void)
 		      "-D OUTPUT -j CRIU\n"
 		      "-X CRIU\n"
 		      "COMMIT\n";
+	int ret = 0;
+
+	ret |= iptables_restore(false, conf, sizeof(conf) - 1);
+	if (kdat.ipv6)
+		ret |= iptables_restore(true, conf, sizeof(conf) - 1);
+
+	return ret;
+}
+
+static int network_unlock_internal(void)
+{
 	int ret = 0, nsret;
 
 	if (switch_ns(root_item->pid->real, &net_ns_desc, &nsret))
 		return -1;
 
-	ret |= iptables_restore(false, conf, sizeof(conf) - 1);
-	if (kdat.ipv6)
-		ret |= iptables_restore(true, conf, sizeof(conf) - 1);
+	if (opts.network_lock_method == NETWORK_LOCK_IPTABLES)
+		ret = iptables_network_unlock_internal();
 
 	if (restore_ns(nsret, &net_ns_desc))
 		ret = -1;
