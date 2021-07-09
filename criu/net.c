@@ -45,6 +45,7 @@
 #include "util.h"
 #include "external.h"
 #include "fdstore.h"
+#include "netfilter.h"
 
 #include "protobuf.h"
 #include "images/netdev.pb-c.h"
@@ -3014,6 +3015,47 @@ err:
 	return ret;
 }
 
+static inline int nftables_lock_network_internal(void)
+{
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	struct nft_ctx *nft;
+	int ret = 0;
+
+	nft = nft_ctx_new(NFT_CTX_DEFAULT);
+	if (!nft)
+		return -1;
+
+	if (NFT_RUN_CMD(nft, "add table inet CRIU"))
+		goto err2;
+
+	if (NFT_RUN_CMD(nft, "add chain inet CRIU output { type filter hook output priority 0; policy drop; }"))
+		goto err1;
+
+	if (NFT_RUN_CMD(nft, "add rule inet CRIU output meta mark " __stringify(SOCCR_MARK) " accept"))
+		goto err1;
+
+	if (NFT_RUN_CMD(nft, "add chain inet CRIU input { type filter hook input priority 0; policy drop; }"))
+		goto err1;
+
+	if (NFT_RUN_CMD(nft, "add rule inet CRIU input meta mark " __stringify(SOCCR_MARK) " accept"))
+		goto err1;
+
+	goto out;
+
+err1:
+	NFT_RUN_CMD(nft, "delete table inet CRIU");
+err2:
+	ret = -1;
+	pr_err("Locking network failed using nftables\n");
+out:
+	nft_ctx_free(nft);
+	return ret;
+#else
+	pr_err("CRIU was built without libnftables support\n");
+	return -1;
+#endif
+}
+
 static int iptables_network_lock_internal(void)
 {
 	char conf[] = "*filter\n"
@@ -3048,11 +3090,34 @@ int network_lock_internal(void)
 
 	if (opts.network_lock_method == NETWORK_LOCK_IPTABLES)
 		ret = iptables_network_lock_internal();
+	else if (opts.network_lock_method == NETWORK_LOCK_NFTABLES)
+		ret = nftables_lock_network_internal();
 
 	if (restore_ns(nsret, &net_ns_desc))
 		ret = -1;
 
 	return ret;
+}
+
+static inline int nftables_network_unlock(void)
+{
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	int ret = 0;
+	struct nft_ctx *nft;
+
+	nft = nft_ctx_new(NFT_CTX_DEFAULT);
+	if (!nft)
+		return -1;
+
+	if (NFT_RUN_CMD(nft, "delete table inet CRIU"))
+		ret = -1;
+
+	nft_ctx_free(nft);
+	return ret;
+#else
+	pr_err("CRIU was built without libnftables support\n");
+	return -1;
+#endif
 }
 
 static int iptables_network_unlock_internal(void)
@@ -3081,6 +3146,8 @@ static int network_unlock_internal(void)
 
 	if (opts.network_lock_method == NETWORK_LOCK_IPTABLES)
 		ret = iptables_network_unlock_internal();
+	else if (opts.network_lock_method == NETWORK_LOCK_NFTABLES)
+		ret = nftables_network_unlock();
 
 	if (restore_ns(nsret, &net_ns_desc))
 		ret = -1;
