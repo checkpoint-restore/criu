@@ -60,6 +60,16 @@ struct cg_root_opt {
 #define CG_MODE_DEFAULT (CG_MODE_SOFT)
 
 /*
+ * Network locking method
+ */
+enum NETWORK_LOCK_METHOD {
+	NETWORK_LOCK_IPTABLES,
+	NETWORK_LOCK_NFTABLES,
+};
+
+#define NETWORK_LOCK_DEFAULT NETWORK_LOCK_IPTABLES
+
+/*
  * Ghost file size we allow to carry by default.
  */
 #define DEFAULT_GHOST_LIMIT (1 << 20)
@@ -152,6 +162,7 @@ struct cr_options {
 	int tcp_skip_in_flight;
 	bool lazy_pages;
 	char *work_dir;
+	int network_lock_method;
 
 	/*
 	 * When we scheduler for removal some functionality we first
