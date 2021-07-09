@@ -420,6 +420,19 @@ The 'mode' may be one of the following:
                 build-ID cannot be obtained, 'chksm-first' method will be
                 used. This is the default if mode is unspecified.
 
+*--network-lock* ['mode']::
+    Set the method to be used for network locking/unlocking. Locking is done
+    to ensure that tcp packets are dropped between dump and restore. This is
+    done to avoid the kernel sending RST when a packet arrives destined for
+    the dumped process.
++
+The 'mode' may be one of the following:
+
+    *iptables*::: Use iptables rules to drop the packets.
+    This is the default if 'mode' is not specified.
+
+    *nftables*::: Use nftables rules to drop the packets.
+
 *restore*
 ~~~~~~~~~
 Restores previously checkpointed processes.
