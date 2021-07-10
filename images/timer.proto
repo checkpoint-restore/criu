@@ -21,7 +21,8 @@ message posix_timer_entry {
 	required uint64		insec		= 8;
 	required uint64		vsec		= 9;
 	required uint64		vnsec		= 10;
-	required int32		notify_thread_id= 11;
+
+	optional int32		notify_thread_id= 11;
 }
 
 message task_timers_entry {
