@@ -318,14 +318,13 @@ static int core_alloc_posix_timers(TaskTimersEntry *tte, int n,
 	return 0;
 }
 
-static void encode_posix_timer(struct posix_timer *v,
-		struct proc_posix_timer *vp, PosixTimerEntry *pte)
+static int encode_posix_timer(struct pstree_item *item, struct posix_timer *v,
+			     struct proc_posix_timer *vp, PosixTimerEntry *pte)
 {
 	pte->it_id = vp->spt.it_id;
 	pte->clock_id = vp->spt.clock_id;
 	pte->si_signo = vp->spt.si_signo;
 	pte->it_sigev_notify = vp->spt.it_sigev_notify;
-	pte->notify_thread_id = vp->spt.notify_thread_id;
 	pte->sival_ptr = encode_pointer(vp->spt.sival_ptr);
 
 	pte->overrun = v->overrun;
@@ -334,6 +333,26 @@ static void encode_posix_timer(struct posix_timer *v,
 	pte->insec = v->val.it_interval.tv_nsec;
 	pte->vsec = v->val.it_value.tv_sec;
 	pte->vnsec = v->val.it_value.tv_nsec;
+	if (vp->spt.notify_thread_id != 0) {
+		pid_t vtid = 0, rtid = vp->spt.notify_thread_id;
+		int i;
+
+		for (i = 0; i < item->nr_threads; i++) {
+			if (item->threads[i].real != rtid)
+				continue;
+
+			vtid = item->threads[i].ns[0].virt;
+			break;
+		}
+
+		if (vtid == 0) {
+			pr_err("Unable to find the thread %d\n", rtid);
+			return -1;
+		}
+
+		pte->notify_thread_id = vtid;
+	}
+	return 0;
 }
 
 int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
@@ -344,8 +363,8 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 	PosixTimerEntry *pte;
 	struct proc_posix_timer *temp;
 	struct parasite_dump_posix_timers_args *args;
+	int ret, exit_code = -1;
 	int args_size;
-	int ret = 0;
 	int i;
 
 	if (core_alloc_posix_timers(tte, proc_args->timer_n, &pte))
@@ -368,14 +387,16 @@ int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc_args,
 	i = 0;
 	list_for_each_entry(temp, &proc_args->timers, list) {
 		posix_timer_entry__init(&pte[i]);
-		encode_posix_timer(&args->timer[i], temp, &pte[i]);
+		if (encode_posix_timer(item, &args->timer[i], temp, &pte[i]))
+			goto end_posix;
 		tte->posix[i] = &pte[i];
 		i++;
 	}
 
+	exit_code = 0;
 end_posix:
 	free_posix_timers(proc_args);
-	return ret;
+	return exit_code;
 }
 
 int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc)
