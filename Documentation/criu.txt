@@ -420,6 +420,23 @@ The 'mode' may be one of the following:
                 build-ID cannot be obtained, 'chksm-first' method will be
                 used. This is the default if mode is unspecified.
 
+*--network-lock* ['mode']::
+    Set the method to be used for network locking/unlocking. Locking is done
+    to ensure that tcp packets are dropped between dump and restore. This is
+    done to avoid the kernel sending RST when a packet arrives destined for
+    the dumped process.
+
+The 'mode' may be one of the following:
+
+    *iptables*:::
+                Iptables rules are used to drop the packets. 'iptables-restore'
+                executable is required. This is the default if mode is
+                unspecified.
+
+    *nftables*:::
+                Nftables rules are used to drop the packets. 'libnftables' is
+                required at compile time.
+
 *restore*
 ~~~~~~~~~
 Restores previously checkpointed processes.
@@ -643,6 +660,23 @@ The 'mode' may be one of the following:
                 To validate ELF files with their build-ID. If the
                 build-ID cannot be obtained, 'chksm-first' method will be
                 used. This is the default if mode is unspecified.
+
+*--network-lock* ['mode']::
+    Set the method to be used for network locking/unlocking. Locking is done
+    to ensure that tcp packets are dropped between dump and restore. This is
+    done to avoid the kernel sending RST when a packet arrives destined for
+    the dumped process.
+
+The 'mode' may be one of the following:
+
+    *iptables*:::
+                Iptables rules are used to drop the packets. 'iptables-restore'
+                executable is required. This is the default if mode is
+                unspecified.
+
+    *nftables*:::
+                Nftables rules are used to drop the packets. 'libnftables' is
+                required at compile time.
 
 *check*
 ~~~~~~~

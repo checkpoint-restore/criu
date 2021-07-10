@@ -22,7 +22,7 @@ static char buf[512];
  * Any brave soul to write it using xtables-devel?
  */
 
-#define NF_CONN_CMD	"%s %s -t filter %s %s --protocol tcp " \
+#define IPTABLES_CONN_CMD	"%s %s -t filter %s %s --protocol tcp " \
 	"-m mark ! --mark " __stringify(SOCCR_MARK) " --source %s --sport %d --destination %s --dport %d -j DROP"
 
 static char iptable_cmd_ipv4[] = "iptables";
@@ -53,7 +53,7 @@ static int ipv6_addr_mapped(u32 *addr)
 	return (addr[2] == htonl(0x0000ffff));
 }
 
-static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port,
+static int iptables_connection_switch_raw(int family, u32 *src_addr, u16 src_port,
 						u32 *dst_addr, u16 dst_port,
 						bool input, bool lock)
 {
@@ -86,7 +86,7 @@ static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port,
 		return -1;
 	}
 
-	snprintf(buf, sizeof(buf), NF_CONN_CMD, cmd,
+	snprintf(buf, sizeof(buf), IPTABLES_CONN_CMD, cmd,
 			kdat.has_xtlocks ? "-w" : "",
 			lock ? "-I" : "-D",
 			input ? "INPUT" : "OUTPUT",
@@ -109,44 +109,44 @@ static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port,
 	return 0;
 }
 
-static int nf_connection_switch(struct inet_sk_desc *sk, bool lock)
+static int iptables_connection_switch(struct inet_sk_desc *sk, bool lock)
 {
 	int ret = 0;
 
-	ret = nf_connection_switch_raw(sk->sd.family,
+	ret = iptables_connection_switch_raw(sk->sd.family,
 			sk->src_addr, sk->src_port,
 			sk->dst_addr, sk->dst_port, true, lock);
 	if (ret)
 		return -1;
 
-	ret = nf_connection_switch_raw(sk->sd.family,
+	ret = iptables_connection_switch_raw(sk->sd.family,
 			sk->dst_addr, sk->dst_port,
 			sk->src_addr, sk->src_port, false, lock);
 	if (ret) /* rollback */
-		nf_connection_switch_raw(sk->sd.family,
+		iptables_connection_switch_raw(sk->sd.family,
 			sk->src_addr, sk->src_port,
 			sk->dst_addr, sk->dst_port, true, !lock);
 	return ret;
 }
 
-int nf_lock_connection(struct inet_sk_desc *sk)
+int iptables_lock_connection(struct inet_sk_desc *sk)
 {
-	return nf_connection_switch(sk, true);
+	return iptables_connection_switch(sk, true);
 }
 
-int nf_unlock_connection(struct inet_sk_desc *sk)
+int iptables_unlock_connection(struct inet_sk_desc *sk)
 {
-	return nf_connection_switch(sk, false);
+	return iptables_connection_switch(sk, false);
 }
 
-int nf_unlock_connection_info(struct inet_sk_info *si)
+int iptables_unlock_connection_info(struct inet_sk_info *si)
 {
 	int ret = 0;
 
-	ret |= nf_connection_switch_raw(si->ie->family,
+	ret |= iptables_connection_switch_raw(si->ie->family,
 			si->ie->src_addr, si->ie->src_port,
 			si->ie->dst_addr, si->ie->dst_port, true, false);
-	ret |= nf_connection_switch_raw(si->ie->family,
+	ret |= iptables_connection_switch_raw(si->ie->family,
 			si->ie->dst_addr, si->ie->dst_port,
 			si->ie->src_addr, si->ie->src_port, false, false);
 	/*

@@ -1346,6 +1346,16 @@ static int check_pidfd_store(void)
 	return 0;
 }
 
+static int check_network_lock_nftables(void)
+{
+	if (!kdat.has_nftables_concat) {
+		pr_warn("Nftables based locking requires libnftables and set concatenations support\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1459,6 +1469,7 @@ int cr_check(void)
 		ret |= check_time_namespace();
 		ret |= check_newifindex();
 		ret |= check_pidfd_store();
+		ret |= check_network_lock_nftables();
 	}
 
 	/*
@@ -1568,6 +1579,7 @@ static struct feature_list feature_list[] = {
 	{ "nftables", check_nftables_cr },
 	{ "has_ipt_legacy", check_ipt_legacy },
 	{ "pidfd_store", check_pidfd_store },
+	{ "network_lock_nftables", check_network_lock_nftables },
 	{ NULL, NULL },
 };
 
