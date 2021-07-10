@@ -59,6 +59,7 @@ TST_NOFILE	:=				\
 		pthread00			\
 		pthread01			\
 		pthread02			\
+		pthread_timers			\
 		vdso00				\
 		vdso01				\
 		vdso02				\
@@ -240,6 +241,7 @@ TST_NOFILE	:=				\
 		zombie_leader			\
 		sigtrap				\
 		sigtrap01			\
+		change_mnt_context		\
 #		jobctl00			\
 
 PKG_CONFIG ?= pkg-config
@@ -519,6 +521,7 @@ inotify_system_nodel:	CFLAGS += -DNODEL
 pthread00:		LDLIBS += -pthread
 pthread01:		LDLIBS += -pthread
 pthread02:		LDLIBS += -pthread
+pthread_timers:		LDLIBS += -lrt -pthread
 different_creds:	LDLIBS += -pthread
 sigpending:		LDLIBS += -pthread
 sigaltstack:		LDLIBS += -pthread
