@@ -1062,7 +1062,7 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 	if (bfdopenr(&f))
 		return -1;
 
-	while (done < 12) {
+	while (done < 13) {
 		str = breadline(&f);
 		if (str == NULL)
 			break;
@@ -1080,6 +1080,20 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 				pr_err("Unable to parse: %s\n", str);
 				goto err_parse;
 			}
+			done++;
+			continue;
+		}
+
+		if (!strncmp(str, "NSpid:", 6)) {
+			/* Get a thread ID in the thread PID namespace. */
+			char *last;
+
+			last = strrchr(str, '\t');
+			if (!last || sscanf(last, "%d", &cr->s.vpid) != 1) {
+				pr_err("Unable to parse: %s\n", str);
+				goto err_parse;
+			}
+
 			done++;
 			continue;
 		}
@@ -1165,7 +1179,7 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 	}
 
 	/* seccomp is optional */
-	if (done >= 11 || (done == 10 && !parsed_seccomp))
+	if (done >= 12 || (done == 11 && !parsed_seccomp))
 		ret = 0;
 
 err_parse:
