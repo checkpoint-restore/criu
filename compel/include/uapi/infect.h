@@ -19,6 +19,7 @@ struct seize_task_status {
 	unsigned long long	sigpnd;
 	unsigned long long	shdpnd;
 	char			state;
+	int			vpid;
 	int			ppid;
 	int			seccomp_mode;
 };
