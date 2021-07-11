@@ -196,8 +196,14 @@ static bool cgroup_contains(char **controllers,
 	bool all_match = true;
 
 	/* Check whether this cgroup2 or not.*/
-	if (n_controllers == 1 && controllers[0][0] == 0)
-		return name[0] == 0;
+	if (n_controllers == 1 && controllers[0][0] == 0) {
+		bool match = name[0] == 0;
+
+		if (mask && match)
+			*mask &= ~(1ULL);
+
+		return match;
+	}
 
 	for (i = 0; i < n_controllers; i++) {
 		bool found = false;
