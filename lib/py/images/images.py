@@ -48,6 +48,9 @@ from . import magic
 from . import pb
 from . import pb2dict
 
+import codecs
+codecs.register_error("strict", codecs.ignore_errors) # ignore all bytes -> utf8 strings errors
+
 if "encodebytes" not in dir(base64):
     base64.encodebytes = base64.encodestring
     base64.decodebytes = base64.decodestring
