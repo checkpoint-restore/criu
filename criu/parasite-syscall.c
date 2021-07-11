@@ -351,6 +351,7 @@ static int encode_posix_timer(struct pstree_item *item, struct posix_timer *v,
 		}
 
 		pte->notify_thread_id = vtid;
+		pte->has_notify_thread_id = true;
 	}
 	return 0;
 }
