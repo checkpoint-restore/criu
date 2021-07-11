@@ -816,6 +816,7 @@ static int collect_threads(struct pstree_item *item)
 
 		BUG_ON(item->nr_threads + 1 > nr_threads);
 		item->threads[item->nr_threads].real = pid;
+		item->threads[item->nr_threads].ns[0].virt = t_creds.s.vpid;
 		item->threads[item->nr_threads].item = NULL;
 		item->nr_threads++;
 
