@@ -8,6 +8,7 @@ struct str_posix_timer {
 	int clock_id;
 	int si_signo;
 	int it_sigev_notify;
+	int notify_thread_id;
 	void * sival_ptr;
 };
 
