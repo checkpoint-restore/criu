@@ -253,7 +253,7 @@ ip net add test
 
 ./test/zdtm.py run --empty-ns -T zdtm/static/socket-tcp*-local --iter 2
 
-./test/zdtm.py run -t zdtm/static/env00 -t zdtm/transition/fork -t zdtm/static/ghost_holes00 -t zdtm/static/socket-tcp -k always
+./test/zdtm.py run -t zdtm/static/env00 -t zdtm/transition/fork -t zdtm/static/ghost_holes00 -t zdtm/static/socket-tcp -t zdtm/static/msgque -k always
 ./test/crit-recode.py
 
 # more crit testing
