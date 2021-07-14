@@ -36,9 +36,10 @@ bool external_lookup_id(char *id)
 {
 	struct external *ext;
 
-	list_for_each_entry(ext, &opts.external, node)
+	list_for_each_entry(ext, &opts.external, node) {
 		if (!strcmp(ext->id, id))
 			return true;
+	}
 	return false;
 }
 

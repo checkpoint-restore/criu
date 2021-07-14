@@ -5,23 +5,21 @@
 #include "images/core.pb-c.h"
 
 #ifndef setup_sas
-static inline void setup_sas(struct rt_sigframe* sigframe, ThreadSasEntry *sas)
+static inline void setup_sas(struct rt_sigframe *sigframe, ThreadSasEntry *sas)
 {
 	if (sas) {
-#define UC	RT_SIGFRAME_UC(sigframe)
+#define UC RT_SIGFRAME_UC(sigframe)
 
-		UC->uc_stack.ss_sp	= (void *)decode_pointer((sas)->ss_sp);
-		UC->uc_stack.ss_flags	= (int)(sas)->ss_flags;
-		UC->uc_stack.ss_size	= (size_t)(sas)->ss_size;
+		UC->uc_stack.ss_sp = (void *)decode_pointer((sas)->ss_sp);
+		UC->uc_stack.ss_flags = (int)(sas)->ss_flags;
+		UC->uc_stack.ss_size = (size_t)(sas)->ss_size;
 #undef UC
 	}
 }
 #endif
 
-int construct_sigframe(struct rt_sigframe *sigframe,
-				     struct rt_sigframe *rsigframe,
-				     k_rtsigset_t *blkset,
-				     CoreEntry *core)
+int construct_sigframe(struct rt_sigframe *sigframe, struct rt_sigframe *rsigframe, k_rtsigset_t *blkset,
+		       CoreEntry *core)
 {
 	/*
 	 * Copy basic register set in the first place: this will set
