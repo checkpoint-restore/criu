@@ -443,7 +443,10 @@ class ipc_msg_queue_handler:
             f.write(struct.pack('i', size))
             f.write(msg_str)
             rounded = round_up(msg.msize, sizeof_u64)
-            data = base64.decodebytes(extra[i + 1])
+            if (sys.version_info > (3, 0)):
+                data = base64.decodebytes(str.encode(extra[i + 1]))
+            else:
+                data = base64.decodebytes(extra[i + 1])
             f.write(data[:msg.msize])
             f.write(b'\0' * (rounded - msg.msize))
 
