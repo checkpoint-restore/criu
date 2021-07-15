@@ -7,6 +7,7 @@ MANDIR		?= $(PREFIX)/share/man
 INCLUDEDIR	?= $(PREFIX)/include
 LIBEXECDIR	?= $(PREFIX)/libexec
 RUNDIR		?= /run
+PLUGINDIR	?= /var/lib/criu
 
 #
 # For recent Debian/Ubuntu with multiarch support.
@@ -26,7 +27,7 @@ endif
 LIBDIR ?= $(PREFIX)/lib
 
 export PREFIX BINDIR SBINDIR MANDIR RUNDIR
-export LIBDIR INCLUDEDIR LIBEXECDIR
+export LIBDIR INCLUDEDIR LIBEXECDIR PLUGINDIR
 
 install-man:
 	$(Q) $(MAKE) -C Documentation install
@@ -39,6 +40,10 @@ install-lib: lib
 install-criu: criu
 	$(Q) $(MAKE) $(build)=criu install
 .PHONY: install-criu
+
+install-dummy_amdgpu_plugin: dummy_amdgpu_plugin
+	$(Q) $(MAKE) -C plugins/amdgpu install
+.PHONY: install-dummy_amdgpu_plugin
 
 install-compel: $(compel-install-targets)
 	$(Q) $(MAKE) $(build)=compel install
@@ -54,4 +59,5 @@ uninstall:
 	$(Q) $(MAKE) $(build)=criu $@
 	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(MAKE) $(build)=compel/plugins $@
+	$(Q) $(MAKE) -C plugins/amdgpu $@
 .PHONY: uninstall

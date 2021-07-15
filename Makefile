@@ -294,15 +294,19 @@ clean mrproper:
 	$(Q) $(MAKE) $(build)=crit $@
 .PHONY: clean mrproper
 
+clean-dummy_amdgpu_plugin:
+	$(Q) $(MAKE) -C plugins/amdgpu clean
+.PHONY: clean dummy_amdgpu_plugin
+
 clean-top:
 	$(Q) $(MAKE) -C Documentation clean
 	$(Q) $(MAKE) $(build)=test/compel clean
 	$(Q) $(RM) .gitid
 .PHONY: clean-top
 
-clean: clean-top
+clean: clean-top clean-dummy_amdgpu_plugin
 
-mrproper-top: clean-top
+mrproper-top: clean-top clean-dummy_amdgpu_plugin
 	$(Q) $(RM) $(CONFIG_HEADER)
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(RM) $(COMPEL_VERSION_HEADER)
@@ -329,6 +333,10 @@ zdtm: all
 test: zdtm
 	$(Q) $(MAKE) -C test
 .PHONY: test
+
+dummy_amdgpu_plugin:
+	$(Q) $(MAKE) -C plugins/amdgpu all
+.PHONY: dummy_amdgpu_plugin
 
 #
 # Generating tar requires tag matched CRIU_VERSION.
