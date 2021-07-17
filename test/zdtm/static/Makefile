@@ -219,6 +219,7 @@ TST_NOFILE	:=				\
 		pipe03				\
 		netns_lock_iptables			\
 		netns_lock_nftables			\
+		net_lock_socket_iptables		\
 		netns_sub			\
 		netns_sub_veth			\
 		netns_sub_sysctl	\
