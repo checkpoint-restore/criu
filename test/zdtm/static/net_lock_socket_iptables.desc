@@ -1,0 +1,5 @@
+{
+    'flavor': 'h',
+    'flags': 'suid excl',
+    'opts': '--tcp-established --network-lock iptables',
+}
