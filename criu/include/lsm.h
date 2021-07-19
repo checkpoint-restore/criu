@@ -41,13 +41,16 @@ int dump_xattr_security_selinux(int fd, FdinfoEntry *e);
 int run_setsockcreatecon(FdinfoEntry *e);
 int reset_setsockcreatecon(void);
 #else
-static inline int dump_xattr_security_selinux(int fd, FdinfoEntry *e) {
+static inline int dump_xattr_security_selinux(int fd, FdinfoEntry *e)
+{
 	return 0;
 }
-static inline int run_setsockcreatecon(FdinfoEntry *e) {
+static inline int run_setsockcreatecon(FdinfoEntry *e)
+{
 	return 0;
 }
-static inline int reset_setsockcreatecon(void) {
+static inline int reset_setsockcreatecon(void)
+{
 	return 0;
 }
 #endif

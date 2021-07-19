@@ -36,7 +36,7 @@ struct page_xfer {
 	union {
 		struct /* local */ {
 			struct cr_img *pmi; /* pagemaps */
-			struct cr_img *pi;  /* pages */
+			struct cr_img *pi; /* pages */
 		};
 
 		struct /* page-server */ {
@@ -72,7 +72,6 @@ extern int check_parent_page_xfer(int fd_type, unsigned long id);
 extern int request_remote_pages(unsigned long img_id, unsigned long addr, int nr_pages);
 
 typedef int (*ps_async_read_complete)(unsigned long img_id, unsigned long vaddr, int nr_pages, void *);
-extern int page_server_start_read(void *buf, int nr_pages,
-		ps_async_read_complete complete, void *priv, unsigned flags);
+extern int page_server_start_read(void *buf, int nr_pages, ps_async_read_complete complete, void *priv, unsigned flags);
 
 #endif /* __CR_PAGE_XFER__H__ */

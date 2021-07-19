@@ -8,7 +8,7 @@
 
 #include "images/inventory.pb-c.h"
 
-#define CR_FD_PERM		(S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
+#define CR_FD_PERM (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
 
 extern int check_img_inventory(bool restore);
 extern int write_img_inventory(InventoryEntry *he);
@@ -32,16 +32,18 @@ extern int cr_lazy_pages(bool daemon);
 extern int check_add_feature(char *arg);
 extern void pr_check_features(const char *offset, const char *sep, int width);
 
-#define PPREP_HEAD_INACTIVE	((struct pprep_head *)-1)
+#define PPREP_HEAD_INACTIVE ((struct pprep_head *)-1)
 
-#define add_post_prepare_cb_once(phead) do {		 \
-		if ((phead)->next == PPREP_HEAD_INACTIVE)\
-			add_post_prepare_cb(phead);	 \
+#define add_post_prepare_cb_once(phead)                   \
+	do {                                              \
+		if ((phead)->next == PPREP_HEAD_INACTIVE) \
+			add_post_prepare_cb(phead);       \
 	} while (0)
 
-#define MAKE_PPREP_HEAD(name) struct pprep_head name = {	\
-			.next = PPREP_HEAD_INACTIVE,		\
-			.actor = name##_cb,			\
+#define MAKE_PPREP_HEAD(name)                \
+	struct pprep_head name = {           \
+		.next = PPREP_HEAD_INACTIVE, \
+		.actor = name##_cb,          \
 	}
 
 #endif /* __CR_CRTOOLS_H__ */

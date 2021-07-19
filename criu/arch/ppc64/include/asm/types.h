@@ -13,14 +13,20 @@
 
 typedef UserPpc64RegsEntry UserRegsEntry;
 
-#define CORE_ENTRY__MARCH	CORE_ENTRY__MARCH__PPC64
+#define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__PPC64
 
-#define core_is_compat(core)			false
+#define core_is_compat(core) false
 
 #define CORE_THREAD_ARCH_INFO(core) core->ti_ppc64
 
-static inline void *decode_pointer(uint64_t v) { return (void*)v; }
-static inline uint64_t encode_pointer(void *p) { return (uint64_t)p; }
+static inline void *decode_pointer(uint64_t v)
+{
+	return (void *)v;
+}
+static inline uint64_t encode_pointer(void *p)
+{
+	return (uint64_t)p;
+}
 
 /*
  * Copied from the following kernel header files :
@@ -28,11 +34,11 @@ static inline uint64_t encode_pointer(void *p) { return (uint64_t)p; }
  *	arch/powerpc/include/uapi/asm/auxvec.h
  *	include/linux/mm_types.h
  */
-#define AT_VECTOR_SIZE_BASE	20
+#define AT_VECTOR_SIZE_BASE 20
 #if !defined AT_VECTOR_SIZE_ARCH
-#define AT_VECTOR_SIZE_ARCH	6
+#define AT_VECTOR_SIZE_ARCH 6
 #endif
-#define AT_VECTOR_SIZE		(2*(AT_VECTOR_SIZE_ARCH + AT_VECTOR_SIZE_BASE + 1))
+#define AT_VECTOR_SIZE (2 * (AT_VECTOR_SIZE_ARCH + AT_VECTOR_SIZE_BASE + 1))
 
 typedef uint64_t auxv_t;
 

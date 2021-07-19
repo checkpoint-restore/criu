@@ -1,6 +1,6 @@
 #ifndef __COMPEL_SYSCALL_H__
 #define __COMPEL_SYSCALL_H__
-#define __NR(syscall, compat)	((compat) ? __NR32_##syscall : __NR_##syscall)
+#define __NR(syscall, compat) ((compat) ? __NR32_##syscall : __NR_##syscall)
 
 /*
  * For x86_32 __NR_mmap inside the kernel represents old_mmap system

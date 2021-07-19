@@ -5,18 +5,17 @@
 
 #define __ALIGN .align 4, 0x07
 
-#define GLOBAL(name)		\
-	.globl name;		\
+#define GLOBAL(name) \
+	.globl name; \
 	name:
 
-#define ENTRY(name)		\
-	.globl name;		\
-	.type name, @function;	\
-	__ALIGN;		\
+#define ENTRY(name)            \
+	.globl name;           \
+	.type name, @function; \
+	__ALIGN;               \
 	name:
 
-#define END(name)		\
-	.size name, . - name
+#define END(name) .size name, .- name
 
 #endif /* __ASSEMBLY__ */
 #endif

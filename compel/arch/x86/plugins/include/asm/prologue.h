@@ -9,17 +9,16 @@
 
 #include <errno.h>
 
-#define sys_recv(sockfd, ubuf, size, flags)	\
-	sys_recvfrom(sockfd, ubuf, size, flags, NULL, NULL)
+#define sys_recv(sockfd, ubuf, size, flags) sys_recvfrom(sockfd, ubuf, size, flags, NULL, NULL)
 
 typedef struct prologue_init_args {
-	struct sockaddr_un	ctl_sock_addr;
-	unsigned int		ctl_sock_addr_len;
+	struct sockaddr_un ctl_sock_addr;
+	unsigned int ctl_sock_addr_len;
 
-	unsigned int		arg_s;
-	void			*arg_p;
+	unsigned int arg_s;
+	void *arg_p;
 
-	void			*sigframe;
+	void *sigframe;
 } prologue_init_args_t;
 
 #endif /* __ASSEMBLY__ */
@@ -29,8 +28,8 @@ typedef struct prologue_init_args {
  *
  * FIXME It is rather should be taken from sigframe header.
  */
-#define PROLOGUE_SGFRAME_SIZE	4096
+#define PROLOGUE_SGFRAME_SIZE 4096
 
-#define PROLOGUE_INIT_ARGS_SIZE	1024
+#define PROLOGUE_INIT_ARGS_SIZE 1024
 
 #endif /* __ASM_PROLOGUE_H__ */

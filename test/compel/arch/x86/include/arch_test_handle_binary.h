@@ -5,7 +5,7 @@
 
 #ifdef CONFIG_X86_64
 #include "uapi/elf64-types.h"
-#define __run_tests	run_tests_64
+#define __run_tests run_tests_64
 
 static __maybe_unused void arch_test_set_elf_hdr_ident(void *mem)
 {
@@ -20,7 +20,7 @@ static __maybe_unused void arch_test_set_elf_hdr_machine(Ehdr_t *hdr)
 #else /* !CONFIG_X86_64 */
 
 #include "uapi/elf32-types.h"
-#define __run_tests	run_tests_32
+#define __run_tests run_tests_32
 
 static __maybe_unused void arch_test_set_elf_hdr_ident(void *mem)
 {

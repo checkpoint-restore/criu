@@ -6,8 +6,8 @@
 
 #include "images/fdinfo.pb-c.h"
 
-#define FD_PID_INVALID		(-2U)
-#define FD_DESC_INVALID		(-3U)
+#define FD_PID_INVALID	(-2U)
+#define FD_DESC_INVALID (-3U)
 
 struct fdinfo_entry;
 struct stat;

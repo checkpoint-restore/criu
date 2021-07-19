@@ -19,8 +19,7 @@ struct kernel_pipe_buffer {
  * fails very often, so we need to restrict the pipe capacity to not
  * allocate big chunks.
  */
-#define PIPE_MAX_SIZE ((1 << PAGE_ALLOC_COSTLY_ORDER) * PAGE_SIZE /	\
-			sizeof(struct kernel_pipe_buffer))
+#define PIPE_MAX_SIZE ((1 << PAGE_ALLOC_COSTLY_ORDER) * PAGE_SIZE / sizeof(struct kernel_pipe_buffer))
 
 /* The number of pipes for one chunk */
 #define NR_PIPES_PER_CHUNK 8
@@ -91,15 +90,15 @@ struct kernel_pipe_buffer {
  */
 
 struct page_pipe_buf {
-	int			p[2];		/* pipe with pages */
-	unsigned int		pipe_size;	/* how many pages can be fit into pipe */
-	unsigned int		pipe_off;	/* where this buf is started in a pipe */
-	unsigned int		pages_in;	/* how many pages are there */
-	unsigned int		nr_segs;	/* how many iov-s are busy */
+	int p[2]; /* pipe with pages */
+	unsigned int pipe_size; /* how many pages can be fit into pipe */
+	unsigned int pipe_off; /* where this buf is started in a pipe */
+	unsigned int pages_in; /* how many pages are there */
+	unsigned int nr_segs; /* how many iov-s are busy */
 #define PPB_LAZY (1 << 0)
-	unsigned int		flags;
-	struct iovec		*iov;		/* vaddr:len map */
-	struct list_head	l;		/* links into page_pipe->bufs */
+	unsigned int flags;
+	struct iovec *iov; /* vaddr:len map */
+	struct list_head l; /* links into page_pipe->bufs */
 };
 
 /*
@@ -109,38 +108,37 @@ struct page_pipe_buf {
  * Currently we have 2 types: the buffers that are always stored in
  * the images and the buffers that are lazily migrated
  */
-#define PP_PIPE_TYPES	2
+#define PP_PIPE_TYPES 2
 
 #define PP_HOLE_PARENT (1 << 0)
 
 struct page_pipe {
-	unsigned int		nr_pipes;		/* how many page_pipe_bufs in there */
-	struct list_head	bufs;			/* list of bufs */
-	struct list_head	free_bufs;		/* list of bufs */
-	struct page_pipe_buf	*prev[PP_PIPE_TYPES];	/* last ppb of each type for pipe sharing */
-	unsigned int		nr_iovs;		/* number of iovs */
-	unsigned int		free_iov;		/* first free iov */
+	unsigned int nr_pipes; /* how many page_pipe_bufs in there */
+	struct list_head bufs; /* list of bufs */
+	struct list_head free_bufs; /* list of bufs */
+	struct page_pipe_buf *prev[PP_PIPE_TYPES]; /* last ppb of each type for pipe sharing */
+	unsigned int nr_iovs; /* number of iovs */
+	unsigned int free_iov; /* first free iov */
 
-	struct iovec		*iovs;			/* iovs. They are provided into create_page_pipe
+	struct iovec *iovs; /* iovs. They are provided into create_page_pipe
 							   and all bufs have their iov-s in there */
 
-	unsigned int		nr_holes;		/* number of holes allocated */
-	unsigned int		free_hole;		/* number of holes in use */
-	struct iovec		*holes;			/* holes */
-	unsigned int		*hole_flags;
-	unsigned int		flags;			/* PP_FOO flags below */
+	unsigned int nr_holes; /* number of holes allocated */
+	unsigned int free_hole; /* number of holes in use */
+	struct iovec *holes; /* holes */
+	unsigned int *hole_flags;
+	unsigned int flags; /* PP_FOO flags below */
 };
 
-#define PP_CHUNK_MODE	0x1	/* Restrict the maximum buffer size of pipes
+#define PP_CHUNK_MODE \
+	0x1 /* Restrict the maximum buffer size of pipes
 				   and dump memory for a few iterations */
-#define PP_OWN_IOVS	0x4	/* create_page_pipe allocated IOVs memory */
+#define PP_OWN_IOVS 0x4 /* create_page_pipe allocated IOVs memory */
 
 struct page_pipe *create_page_pipe(unsigned int nr_segs, struct iovec *iovs, unsigned flags);
 extern void destroy_page_pipe(struct page_pipe *p);
-extern int page_pipe_add_page(struct page_pipe *p, unsigned long addr,
-			      unsigned int flags);
-extern int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr,
-			      unsigned int flags);
+extern int page_pipe_add_page(struct page_pipe *p, unsigned long addr, unsigned int flags);
+extern int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr, unsigned int flags);
 
 extern void debug_show_page_pipe(struct page_pipe *pp);
 void page_pipe_reinit(struct page_pipe *pp);
@@ -153,8 +151,7 @@ struct pipe_read_dest {
 };
 
 extern int pipe_read_dest_init(struct pipe_read_dest *prd);
-extern int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd,
-			  unsigned long addr, unsigned int *nr_pages,
+extern int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned long addr, unsigned int *nr_pages,
 			  unsigned int ppb_flags);
 
 #endif /* __CR_PAGE_PIPE_H__ */

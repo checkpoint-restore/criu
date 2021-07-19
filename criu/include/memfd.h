@@ -20,10 +20,10 @@ extern int apply_memfd_seals(void);
 extern int prepare_memfd_inodes(void);
 
 #ifdef CONFIG_HAS_MEMFD_CREATE
-# include <sys/mman.h>
+#include <sys/mman.h>
 #else
-# include <sys/syscall.h>
-# include <linux/memfd.h>
+#include <sys/syscall.h>
+#include <linux/memfd.h>
 static inline int memfd_create(const char *name, unsigned int flags)
 {
 	return syscall(SYS_memfd_create, name, flags);

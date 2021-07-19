@@ -13,10 +13,13 @@ typedef struct {
 
 #include "common/arch/ppc64/asm/cmpxchg.h"
 
-#define PPC_ATOMIC_ENTRY_BARRIER	"lwsync \n"
-#define PPC_ATOMIC_EXIT_BARRIER		"sync  	\n"
+#define PPC_ATOMIC_ENTRY_BARRIER "lwsync \n"
+#define PPC_ATOMIC_EXIT_BARRIER	 "sync  	\n"
 
-#define ATOMIC_INIT(i)		{ (i) }
+#define ATOMIC_INIT(i) \
+	{              \
+		(i)    \
+	}
 
 static __inline__ int atomic_read(const atomic_t *v)
 {
@@ -32,6 +35,7 @@ static __inline__ void atomic_set(atomic_t *v, int i)
 	__asm__ __volatile__("stw%U0%X0 %1,%0" : "=m"(v->counter) : "r"(i));
 }
 
+/* clang-format off */
 #define ATOMIC_OP(op, asm_op)						\
 static __inline__ void atomic_##op(int a, atomic_t *v)			\
 {									\
@@ -124,10 +128,11 @@ static __inline__ int atomic_sub_return(int a, atomic_t *v)
 
 	return t;
 }
+/* clang-format on */
 
 /* true if the result is 0, or false for all other cases. */
 #define atomic_dec_and_test(v) (atomic_sub_return(1, v) == 0)
-#define atomic_dec_return(v)  (atomic_sub_return(1, v))
+#define atomic_dec_return(v)   (atomic_sub_return(1, v))
 
 #define atomic_cmpxchg(v, o, n) (cmpxchg(&((v)->counter), (o), (n)))
 
