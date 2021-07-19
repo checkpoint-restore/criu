@@ -24,7 +24,6 @@ const char *test_author = "Radostin Stoyanov <rstoyanov1@gmail.com>";
 #include <unistd.h>
 #include <fcntl.h>
 
-
 int main(int argc, char **argv)
 {
 	struct pollfd poll_set[1];

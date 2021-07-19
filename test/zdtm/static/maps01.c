@@ -11,15 +11,15 @@
 #include <linux/limits.h>
 #include "zdtmtst.h"
 
-#define MEM_SIZE (1LU << 30)
-#define MEM_OFFSET (1LU << 29)
+#define MEM_SIZE    (1LU << 30)
+#define MEM_OFFSET  (1LU << 29)
 #define MEM_OFFSET2 (MEM_SIZE - PAGE_SIZE)
 #define MEM_OFFSET3 (20LU * PAGE_SIZE)
 
-const char *test_doc	= "Test shared memory";
-const char *test_author	= "Andrew Vagin <avagin@openvz.org";
+const char *test_doc = "Test shared memory";
+const char *test_author = "Andrew Vagin <avagin@openvz.org";
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	void *m, *m2, *p, *p2;
 	char path[PATH_MAX];
@@ -32,28 +32,23 @@ int main(int argc, char ** argv)
 
 	task_waiter_init(&t);
 
-	m = mmap(NULL, MEM_SIZE, PROT_WRITE | PROT_READ,
-				MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	m = mmap(NULL, MEM_SIZE, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
 	if (m == MAP_FAILED) {
-		pr_perror("Failed to mmap %lu Mb shared anonymous R/W memory",
-				MEM_SIZE >> 20);
+		pr_perror("Failed to mmap %lu Mb shared anonymous R/W memory", MEM_SIZE >> 20);
 		goto err;
 	}
 
-	p = mmap(NULL, MEM_SIZE, PROT_WRITE | PROT_READ,
-				MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	p = mmap(NULL, MEM_SIZE, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
 	if (p == MAP_FAILED) {
-		pr_perror("Failed to mmap %ld Mb shared anonymous R/W memory",
-				MEM_SIZE >> 20);
+		pr_perror("Failed to mmap %ld Mb shared anonymous R/W memory", MEM_SIZE >> 20);
 		goto err;
 	}
 
 	p2 = mmap(NULL, MEM_OFFSET, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (p2 == MAP_FAILED) {
-		pr_perror("Failed to mmap %lu Mb anonymous memory",
-				MEM_OFFSET >> 20);
+		pr_perror("Failed to mmap %lu Mb anonymous memory", MEM_OFFSET >> 20);
 		goto err;
 	}
 
@@ -64,11 +59,9 @@ int main(int argc, char ** argv)
 	} else if (pid == 0) {
 		void *p3;
 
-		p3 = mmap(NULL, MEM_OFFSET3, PROT_READ | PROT_WRITE,
-					MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		p3 = mmap(NULL, MEM_OFFSET3, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 		if (p3 == MAP_FAILED) {
-			pr_perror("Failed to mmap %lu Mb anonymous R/W memory",
-					MEM_OFFSET3 >> 20);
+			pr_perror("Failed to mmap %lu Mb anonymous R/W memory", MEM_OFFSET3 >> 20);
 			goto err;
 		}
 
@@ -122,9 +115,7 @@ int main(int argc, char ** argv)
 	if (p2 == MAP_FAILED)
 		goto err;
 
-	snprintf(path, PATH_MAX, "/proc/self/map_files/%lx-%lx",
-						(unsigned long) m,
-						(unsigned long) m + MEM_SIZE);
+	snprintf(path, PATH_MAX, "/proc/self/map_files/%lx-%lx", (unsigned long)m, (unsigned long)m + MEM_SIZE);
 	fd = open(path, O_RDWR);
 	if (fd == -1) {
 		pr_perror("Can't open file %s", path);

@@ -9,8 +9,8 @@
 #include <limits.h>
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that global cgroup settings (+perms) are restored";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "Check that global cgroup settings (+perms) are restored";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "cgroup directory name", 1);
@@ -136,7 +136,6 @@ int main(int argc, char **argv)
 	sprintf(path, "%s/%s/test/notify_on_release", dirname, cgname);
 	if (chownmod(path, O_RDWR) < 0)
 		goto out_umount;
-
 
 	sprintf(path, "%s/%s/test/cgroup.procs", dirname, cgname);
 	if (chownmod(path, O_RDWR) < 0)

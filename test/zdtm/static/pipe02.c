@@ -10,10 +10,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Create two unshared descriptor for the one end of a pipe";
-const char *test_author	= "Andrey Vagin <avagin@parallels.com>";
+const char *test_doc = "Create two unshared descriptor for the one end of a pipe";
+const char *test_author = "Andrey Vagin <avagin@parallels.com>";
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int p[2], fd;
 	int ret;

@@ -7,8 +7,8 @@
 #include <sys/types.h>
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check if we can use vDSO after restore\n";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
+const char *test_doc = "Check if we can use vDSO after restore\n";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org";
 
 int main(int argc, char *argv[])
 {

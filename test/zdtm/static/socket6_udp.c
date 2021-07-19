@@ -12,7 +12,7 @@ const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>\n";
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
+#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
 #include <sys/wait.h>
 
 static int port = 8880;
@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 
 	memset(&addr2, 0, sizeof(addr2));
 	addr2.sin6_family = AF_INET6;
-	addr2.sin6_port = htons(port+1);
+	addr2.sin6_port = htons(port + 1);
 	inet_pton(AF_INET6, "::1", &addr2.sin6_addr);
 
 	ret = bind(sk2, (struct sockaddr *)&addr2, len);
@@ -72,8 +72,7 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	ret = sendto(sk1, MSG1, sizeof(MSG1), 0,
-			(struct sockaddr *)&addr2, len);
+	ret = sendto(sk1, MSG1, sizeof(MSG1), 0, (struct sockaddr *)&addr2, len);
 	if (ret < 0) {
 		fail("Can't send");
 		return 1;
@@ -85,8 +84,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	ret = recvfrom(sk1, buf, sizeof(buf), 0,
-			(struct sockaddr *)&addr, &len);
+	ret = recvfrom(sk1, buf, sizeof(buf), 0, (struct sockaddr *)&addr, &len);
 	if (ret <= 0) {
 		fail("Can't recv C");
 		return 1;
@@ -102,8 +100,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	ret = recvfrom(sk2, buf, sizeof(buf), 0,
-			(struct sockaddr *)&addr, &len);
+	ret = recvfrom(sk2, buf, sizeof(buf), 0, (struct sockaddr *)&addr, &len);
 	if (ret <= 0) {
 		fail("Can't recv");
 		return 1;

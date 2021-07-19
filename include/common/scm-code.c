@@ -2,16 +2,15 @@
 #error "The __sys macro is required"
 #endif
 
-static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds,
-		void *data, unsigned ch_size)
+static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds, void *data, unsigned ch_size)
 {
 	struct cmsghdr *cmsg;
 	static char dummy;
 
 	fdset->hdr.msg_controllen = CMSG_LEN(sizeof(int) * nr_fds);
 
-	cmsg		= CMSG_FIRSTHDR(&fdset->hdr);
-	cmsg->cmsg_len	= fdset->hdr.msg_controllen;
+	cmsg = CMSG_FIRSTHDR(&fdset->hdr);
+	cmsg->cmsg_len = fdset->hdr.msg_controllen;
 
 	if (data) {
 		fdset->iov.iov_base = data;
@@ -22,33 +21,31 @@ static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds,
 	}
 }
 
-static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr,
-		int saddr_len)
+static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr, int saddr_len)
 {
 	struct cmsghdr *cmsg;
 
 	BUILD_BUG_ON(sizeof(fdset->msg_buf) < (CMSG_SPACE(sizeof(int) * CR_SCM_MAX_FD)));
 
-	fdset->iov.iov_base		= (void *)0xdeadbeef;
+	fdset->iov.iov_base = (void *)0xdeadbeef;
 
-	fdset->hdr.msg_iov		= &fdset->iov;
-	fdset->hdr.msg_iovlen		= 1;
-	fdset->hdr.msg_name		= (struct sockaddr *)saddr;
-	fdset->hdr.msg_namelen		= saddr_len;
+	fdset->hdr.msg_iov = &fdset->iov;
+	fdset->hdr.msg_iovlen = 1;
+	fdset->hdr.msg_name = (struct sockaddr *)saddr;
+	fdset->hdr.msg_namelen = saddr_len;
 
-	fdset->hdr.msg_control		= &fdset->msg_buf;
-	fdset->hdr.msg_controllen	= CMSG_LEN(sizeof(int) * CR_SCM_MAX_FD);
+	fdset->hdr.msg_control = &fdset->msg_buf;
+	fdset->hdr.msg_controllen = CMSG_LEN(sizeof(int) * CR_SCM_MAX_FD);
 
-	cmsg				= CMSG_FIRSTHDR(&fdset->hdr);
-	cmsg->cmsg_len			= fdset->hdr.msg_controllen;
-	cmsg->cmsg_level		= SOL_SOCKET;
-	cmsg->cmsg_type			= SCM_RIGHTS;
+	cmsg = CMSG_FIRSTHDR(&fdset->hdr);
+	cmsg->cmsg_len = fdset->hdr.msg_controllen;
+	cmsg->cmsg_level = SOL_SOCKET;
+	cmsg->cmsg_type = SCM_RIGHTS;
 
 	return (int *)CMSG_DATA(cmsg);
 }
 
-int send_fds(int sock, struct sockaddr_un *saddr, int len,
-		int *fds, int nr_fds, void *data, unsigned ch_size)
+int send_fds(int sock, struct sockaddr_un *saddr, int len, int *fds, int nr_fds, void *data, unsigned ch_size)
 {
 	/* In musl_libc the msghdr structure has pads which has to be zeroed */
 	struct scm_fdset fdset = {};
@@ -63,7 +60,7 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 
 		ret = __sys(sendmsg)(sock, &fdset.hdr, 0);
 		if (ret <= 0)
-			return ret ? : -1;
+			return ret ?: -1;
 
 		if (data)
 			data += min_fd * ch_size;
@@ -118,4 +115,3 @@ int __recv_fds(int sock, int *fds, int nr_fds, void *data, unsigned ch_size, int
 
 	return 0;
 }
-

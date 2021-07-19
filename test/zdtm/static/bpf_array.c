@@ -5,17 +5,14 @@
 #include "zdtmtst.h"
 #include "bpfmap_zdtm.h"
 
-const char *test_doc	= "Check that data and meta-data for BPF_MAP_TYPE_ARRAY"
-							"is correctly restored";
-const char *test_author	= "Abhishek Vijeev <abhishek.vijeev@gmail.com>";
+const char *test_doc = "Check that data and meta-data for BPF_MAP_TYPE_ARRAY"
+		       "is correctly restored";
+const char *test_author = "Abhishek Vijeev <abhishek.vijeev@gmail.com>";
 
 static int map_batch_update(int map_fd, uint32_t max_entries, int *keys, int *values)
 {
 	int i, ret;
-	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts,
-		.elem_flags = 0,
-		.flags = 0,
-	);
+	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts, .elem_flags = 0, .flags = 0, );
 
 	for (i = 0; i < max_entries; i++) {
 		keys[i] = i;
@@ -72,17 +69,11 @@ int main(int argc, char **argv)
 		.max_entries = max_entries,
 		.map_flags = BPF_F_NUMA_NODE,
 	};
-	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts,
-		.elem_flags = 0,
-		.flags = 0,
-	);
+	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts, .elem_flags = 0, .flags = 0, );
 
-	keys = mmap(NULL, max_entries * sizeof(int),
-			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-	values = mmap(NULL, max_entries * sizeof(int),
-			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-	visited = mmap(NULL, max_entries * sizeof(int),
-			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	keys = mmap(NULL, max_entries * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	values = mmap(NULL, max_entries * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	visited = mmap(NULL, max_entries * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 
 	if ((keys == MAP_FAILED) || (values == MAP_FAILED) || (visited == MAP_FAILED)) {
 		pr_perror("Can't mmap()");

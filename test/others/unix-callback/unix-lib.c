@@ -39,7 +39,7 @@ static int get_srv_socket(void)
 	addr_len += sizeof(addr.sun_family);
 
 	unlink(addr.sun_path);
-	if (bind(skd, (struct sockaddr *) &addr, addr_len) < 0) {
+	if (bind(skd, (struct sockaddr *)&addr, addr_len) < 0) {
 		pr_perror("bind");
 		return 1;
 	}
@@ -48,7 +48,7 @@ static int get_srv_socket(void)
 	addr_len = snprintf(addr.sun_path, UNIX_PATH_MAX, SK_NAME);
 	addr_len += sizeof(addr.sun_family);
 
-	if (connect(skd, (struct sockaddr *) &addr, addr_len) < 0) {
+	if (connect(skd, (struct sockaddr *)&addr, addr_len) < 0) {
 		pr_perror("connect");
 		return -1;
 	}
@@ -69,7 +69,7 @@ int cr_plugin_dump_unix_sk(int sk, int sk_id)
 	int skd, id, ret, fd, len;
 	UnixTest e = UNIX_TEST__INIT;
 
-	if (getpeername(sk, (struct sockaddr *) &addr, &addr_len)) {
+	if (getpeername(sk, (struct sockaddr *)&addr, &addr_len)) {
 		pr_perror("getpeername");
 		return -1;
 	}
@@ -78,8 +78,7 @@ int cr_plugin_dump_unix_sk(int sk, int sk_id)
 	if (addr.sun_path[len - 1] == 0)
 		len--;
 
-	if (len != strlen(SK_NAME) ||
-	    strncmp(addr.sun_path, SK_NAME, strlen(SK_NAME)))
+	if (len != strlen(SK_NAME) || strncmp(addr.sun_path, SK_NAME, strlen(SK_NAME)))
 		return -ENOTSUP;
 
 	pr_info("Dump the socket %x\n", sk_id);
@@ -89,7 +88,7 @@ int cr_plugin_dump_unix_sk(int sk, int sk_id)
 
 	addr_len = sizeof(struct sockaddr_un);
 
-	if (getsockname(sk, (struct sockaddr *) &addr, &addr_len) < 0)
+	if (getsockname(sk, (struct sockaddr *)&addr, &addr_len) < 0)
 		return -1;
 
 	id = atoi(addr.sun_path + strlen(SK_NAME));
@@ -120,7 +119,7 @@ int cr_plugin_dump_unix_sk(int sk, int sk_id)
 		return -1;
 	}
 
-	ret = unix_test__pack(&e, (uint8_t *) buf);
+	ret = unix_test__pack(&e, (uint8_t *)buf);
 	if (write(fd, buf, ret) != ret)
 		return -1;
 	close(fd);
@@ -148,7 +147,7 @@ int cr_plugin_restore_unix_sk(int sk_id)
 	}
 	close(fd);
 
-	e = unix_test__unpack(NULL, ret, (uint8_t *) buf);
+	e = unix_test__unpack(NULL, ret, (uint8_t *)buf);
 	if (e == NULL)
 		return -1;
 
@@ -162,7 +161,7 @@ int cr_plugin_restore_unix_sk(int sk_id)
 	memcpy(addr.sun_path, e->name.data, e->name.len);
 	addr_len = sizeof(addr.sun_family) + e->name.len;
 
-	if (bind(sk, (struct sockaddr *) &addr, addr_len) < 0) {
+	if (bind(sk, (struct sockaddr *)&addr, addr_len) < 0) {
 		pr_perror("bind");
 		return -1;
 	}
@@ -171,7 +170,7 @@ int cr_plugin_restore_unix_sk(int sk_id)
 	addr_len = snprintf(addr.sun_path, UNIX_PATH_MAX, SK_NAME);
 	addr_len += sizeof(addr.sun_family);
 
-	if (connect(sk, (struct sockaddr *) &addr, addr_len) < 0) {
+	if (connect(sk, (struct sockaddr *)&addr, addr_len) < 0) {
 		pr_perror("connect");
 		return -1;
 	}

@@ -30,33 +30,33 @@
 #include "protobuf.h"
 #include "images/eventpoll.pb-c.h"
 
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "epoll: "
 
 static LIST_HEAD(dinfo_list);
 
 typedef struct {
-	uint32_t			tfd;
-	uint32_t			off;
-	uint32_t			idx;
+	uint32_t tfd;
+	uint32_t off;
+	uint32_t idx;
 } toff_t;
 
 struct eventpoll_dinfo {
-	struct list_head		list;
+	struct list_head list;
 
-	FileEntry			*fe;
-	EventpollFileEntry		*e;
+	FileEntry *fe;
+	EventpollFileEntry *e;
 
-	toff_t				*toff;
-	FownEntry			fown;
+	toff_t *toff;
+	FownEntry fown;
 
-	pid_t				pid;
-	int				efd;
+	pid_t pid;
+	int efd;
 };
 
 struct eventpoll_file_info {
-	EventpollFileEntry		*efe;
-	struct file_desc		d;
+	EventpollFileEntry *efe;
+	struct file_desc d;
 };
 
 /* Checks if file descriptor @lfd is eventfd */
@@ -67,8 +67,8 @@ int is_eventpoll_link(char *link)
 
 static void pr_info_eventpoll_tfd(char *action, uint32_t id, EventpollTfdEntry *e)
 {
-	pr_info("%seventpoll-tfd: id %#08x tfd %8d events %#08x data %#016"PRIx64"\n",
-		action, id, e->tfd, e->events, e->data);
+	pr_info("%seventpoll-tfd: id %#08x tfd %8d events %#08x data %#016" PRIx64 "\n", action, id, e->tfd, e->events,
+		e->data);
 }
 
 static void pr_info_eventpoll(char *action, EventpollFileEntry *e)
@@ -90,16 +90,16 @@ static int queue_dinfo(FileEntry **fe, EventpollFileEntry **e, toff_t **toff, co
 
 	INIT_LIST_HEAD(&dinfo->list);
 
-	dinfo->fe	= *fe;
-	dinfo->e	= *e;
-	dinfo->toff	= *toff;
-	dinfo->e->fown	= &dinfo->fown;
-	dinfo->pid	= p->pid;
-	dinfo->efd	= p->fd;
+	dinfo->fe = *fe;
+	dinfo->e = *e;
+	dinfo->toff = *toff;
+	dinfo->e->fown = &dinfo->fown;
+	dinfo->pid = p->pid;
+	dinfo->efd = p->fd;
 
-	*fe	= NULL;
-	*e	= NULL;
-	*toff	= NULL;
+	*fe = NULL;
+	*e = NULL;
+	*toff = NULL;
 
 	list_add_tail(&dinfo->list, &dinfo_list);
 	return 0;
@@ -133,31 +133,29 @@ int flush_eventpoll_dinfo_queue(void)
 		for (i = 0; i < e->n_tfd; i++) {
 			EventpollTfdEntry *tfde = e->tfd[i];
 			struct kid_elem ke = {
-				.pid	= dinfo->pid,
-				.genid	= make_gen_id(tfde->dev,
-						      tfde->inode,
-						      tfde->pos),
-				.idx	= tfde->tfd,
+				.pid = dinfo->pid,
+				.genid = make_gen_id(tfde->dev, tfde->inode, tfde->pos),
+				.idx = tfde->tfd,
 			};
 			kcmp_epoll_slot_t slot = {
-				.efd	= dinfo->efd,
-				.tfd	= tfde->tfd,
-				.toff	= dinfo->toff[i].off,
+				.efd = dinfo->efd,
+				.tfd = tfde->tfd,
+				.toff = dinfo->toff[i].off,
 			};
 			struct kid_elem *t = kid_lookup_epoll_tfd(&fd_tree, &ke, &slot);
 			if (!t) {
-				pr_debug("kid_lookup_epoll: no match pid %d efd %d tfd %d toff %u\n",
-					 dinfo->pid, dinfo->efd, tfde->tfd, dinfo->toff[i].off);
+				pr_debug("kid_lookup_epoll: no match pid %d efd %d tfd %d toff %u\n", dinfo->pid,
+					 dinfo->efd, tfde->tfd, dinfo->toff[i].off);
 				goto err;
 			}
 
-			pr_debug("kid_lookup_epoll: rbsearch match pid %d efd %d tfd %d toff %u -> %d\n",
-				 dinfo->pid, dinfo->efd, tfde->tfd, dinfo->toff[i].off, t->idx);
+			pr_debug("kid_lookup_epoll: rbsearch match pid %d efd %d tfd %d toff %u -> %d\n", dinfo->pid,
+				 dinfo->efd, tfde->tfd, dinfo->toff[i].off, t->idx);
 
 			/* Make sure the pid matches */
 			if (t->pid != dinfo->pid) {
-				pr_debug("kid_lookup_epoll: pid mismatch %d %d efd %d tfd %d toff %u\n",
-					 dinfo->pid, t->pid, dinfo->efd, tfde->tfd, dinfo->toff[i].off);
+				pr_debug("kid_lookup_epoll: pid mismatch %d %d efd %d tfd %d toff %u\n", dinfo->pid,
+					 t->pid, dinfo->efd, tfde->tfd, dinfo->toff[i].off);
 				goto err;
 			}
 
@@ -218,13 +216,12 @@ static int toff_cmp_idx(const void *a, const void *b)
  * fds in fd_parms are sorted so we can use binary search
  * for better performance.
  */
-static int find_tfd_bsearch(pid_t pid, int efd, int fds[], size_t nr_fds,
-			    int tfd, unsigned int toff)
+static int find_tfd_bsearch(pid_t pid, int efd, int fds[], size_t nr_fds, int tfd, unsigned int toff)
 {
 	kcmp_epoll_slot_t slot = {
-		.efd	= efd,
-		.tfd	= tfd,
-		.toff	= toff,
+		.efd = efd,
+		.tfd = tfd,
+		.toff = toff,
 	};
 	int *tfd_found;
 
@@ -243,14 +240,13 @@ static int find_tfd_bsearch(pid_t pid, int efd, int fds[], size_t nr_fds,
 				return tfd;
 			}
 		} else {
-			pr_debug("find_tfd_bsearch (kcmp-no): bsearch match pid %d efd %d tfd %d toff %u\n",
-				 pid, efd, tfd, toff);
+			pr_debug("find_tfd_bsearch (kcmp-no): bsearch match pid %d efd %d tfd %d toff %u\n", pid, efd,
+				 tfd, toff);
 			return tfd;
 		}
 	}
 
-	pr_debug("find_tfd_bsearch: no match pid %d efd %d tfd %d toff %u\n",
-		 pid, efd, tfd, toff);
+	pr_debug("find_tfd_bsearch: no match pid %d efd %d tfd %d toff %u\n", pid, efd, tfd, toff);
 	return -1;
 }
 
@@ -272,16 +268,16 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 		goto out;
 	file_entry__init(fe);
 
-	e->id		= id;
-	e->flags	= p->flags;
-	e->fown		= (FownEntry *)&p->fown;
+	e->id = id;
+	e->flags = p->flags;
+	e->fown = (FownEntry *)&p->fown;
 
 	if (parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, e))
 		goto out;
 
-	fe->type	= FD_TYPES__EVENTPOLL;
-	fe->id		= e->id;
-	fe->epfd	= e;
+	fe->type = FD_TYPES__EVENTPOLL;
+	fe->id = e->id;
+	fe->epfd = e;
 
 	/*
 	 * In regular case there is no so many dup'ed
@@ -293,9 +289,9 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 		if (!toff)
 			goto out;
 		for (i = 0; i < e->n_tfd; i++) {
-			toff[i].idx	= i;
-			toff[i].tfd	= e->tfd[i]->tfd;
-			toff[i].off	= 0;
+			toff[i].idx = i;
+			toff[i].tfd = e->tfd[i]->tfd;
+			toff[i].off = 0;
 		}
 
 		qsort(toff, e->n_tfd, sizeof(*toff), toff_cmp);
@@ -317,14 +313,13 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	 */
 	if (p->dfds) {
 		for (i = 0; i < e->n_tfd; i++) {
-			int tfd = find_tfd_bsearch(p->pid, p->fd, p->dfds->fds,
-						   p->dfds->nr_fds, e->tfd[i]->tfd, toff[i].off);
+			int tfd = find_tfd_bsearch(p->pid, p->fd, p->dfds->fds, p->dfds->nr_fds, e->tfd[i]->tfd,
+						   toff[i].off);
 			if (tfd == -1) {
 				if (kdat.has_kcmp_epoll_tfd) {
 					ret = queue_dinfo(&fe, &e, &toff, p);
 				} else {
-					pr_err("Escaped/closed fd descriptor %d on pid %d\n",
-					       e->tfd[i]->tfd, p->pid);
+					pr_err("Escaped/closed fd descriptor %d on pid %d\n", e->tfd[i]->tfd, p->pid);
 				}
 				goto out;
 			}
@@ -352,8 +347,8 @@ out:
 }
 
 const struct fdtype_ops eventpoll_dump_ops = {
-	.type		= FD_TYPES__EVENTPOLL,
-	.dump		= dump_one_eventpoll,
+	.type = FD_TYPES__EVENTPOLL,
+	.dump = dump_one_eventpoll,
 };
 
 static int eventpoll_post_open(struct file_desc *d, int fd);
@@ -373,14 +368,12 @@ static int eventpoll_open(struct file_desc *d, int *new_fd)
 
 	tmp = epoll_create(1);
 	if (tmp < 0) {
-		pr_perror("Can't create epoll %#08x",
-			  info->efe->id);
+		pr_perror("Can't create epoll %#08x", info->efe->id);
 		return -1;
 	}
 
 	if (rst_file_params(tmp, info->efe->fown, info->efe->flags)) {
-		pr_perror("Can't restore file params on epoll %#08x",
-			  info->efe->id);
+		pr_perror("Can't restore file params on epoll %#08x", info->efe->id);
 		goto err_close;
 	}
 
@@ -418,8 +411,8 @@ static int eventpoll_retore_tfd(int fd, int id, EventpollTfdEntry *tdefe)
 
 	pr_info_eventpoll_tfd("Restore ", id, tdefe);
 
-	event.events	= tdefe->events;
-	event.data.u64	= tdefe->data;
+	event.events = tdefe->events;
+	event.data.u64 = tdefe->data;
 	if (epoll_ctl(fd, EPOLL_CTL_ADD, tdefe->tfd, &event)) {
 		pr_perror("Can't add event on %#08x", id);
 		return -1;
@@ -448,8 +441,8 @@ static int eventpoll_post_open(struct file_desc *d, int fd)
 }
 
 static struct file_desc_ops desc_ops = {
-	.type		= FD_TYPES__EVENTPOLL,
-	.open		= eventpoll_open,
+	.type = FD_TYPES__EVENTPOLL,
+	.open = eventpoll_open,
 };
 
 static int collect_one_epoll_tfd(void *o, ProtobufCMessage *msg, struct cr_img *i)
@@ -484,10 +477,10 @@ static int collect_one_epoll_tfd(void *o, ProtobufCMessage *msg, struct cr_img *
 }
 
 struct collect_image_info epoll_tfd_cinfo = {
-	.fd_type	= CR_FD_EVENTPOLL_TFD,
-	.pb_type	= PB_EVENTPOLL_TFD,
-	.collect	= collect_one_epoll_tfd,
-	.flags		= COLLECT_NOFREE,
+	.fd_type = CR_FD_EVENTPOLL_TFD,
+	.pb_type = PB_EVENTPOLL_TFD,
+	.collect = collect_one_epoll_tfd,
+	.flags = COLLECT_NOFREE,
 };
 
 static int collect_one_epoll(void *o, ProtobufCMessage *msg, struct cr_img *i)
@@ -500,8 +493,8 @@ static int collect_one_epoll(void *o, ProtobufCMessage *msg, struct cr_img *i)
 }
 
 struct collect_image_info epoll_cinfo = {
-	.fd_type	= CR_FD_EVENTPOLL_FILE,
-	.pb_type	= PB_EVENTPOLL_FILE,
-	.priv_size	= sizeof(struct eventpoll_file_info),
-	.collect	= collect_one_epoll,
+	.fd_type = CR_FD_EVENTPOLL_FILE,
+	.pb_type = PB_EVENTPOLL_FILE,
+	.priv_size = sizeof(struct eventpoll_file_info),
+	.collect = collect_one_epoll,
 };

@@ -46,8 +46,7 @@ int clone_noasan(int (*fn)(void *), int flags, void *arg)
 	return clone(fn, stack_ptr, flags, arg);
 }
 
-int clone3_with_pid_noasan(int (*fn)(void *), void *arg, int flags,
-			   int exit_signal, pid_t pid)
+int clone3_with_pid_noasan(int (*fn)(void *), void *arg, int flags, int exit_signal, pid_t pid)
 {
 	struct _clone_args c_args = {};
 

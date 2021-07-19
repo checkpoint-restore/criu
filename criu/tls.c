@@ -10,17 +10,17 @@
 
 /* Compatability with GnuTLS verson <3.5 */
 #ifndef GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR
-# define GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR GNUTLS_E_CERTIFICATE_ERROR
+#define GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR GNUTLS_E_CERTIFICATE_ERROR
 #endif
 
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "tls: "
 
 #define CRIU_PKI_DIR SYSCONFDIR "/pki"
-#define CRIU_CACERT CRIU_PKI_DIR "/CA/cacert.pem"
-#define CRIU_CACRL CRIU_PKI_DIR "/CA/cacrl.pem"
-#define CRIU_CERT CRIU_PKI_DIR "/criu/cert.pem"
-#define CRIU_KEY CRIU_PKI_DIR "/criu/private/key.pem"
+#define CRIU_CACERT  CRIU_PKI_DIR "/CA/cacert.pem"
+#define CRIU_CACRL   CRIU_PKI_DIR "/CA/cacrl.pem"
+#define CRIU_CERT    CRIU_PKI_DIR "/criu/cert.pem"
+#define CRIU_KEY     CRIU_PKI_DIR "/criu/private/key.pem"
 
 #define SPLICE_BUF_SZ_MAX (PIPE_BUF * 100)
 
@@ -42,7 +42,7 @@ void tls_terminate_session(void)
 		do {
 			/* don't wait for peer to close connection */
 			ret = gnutls_bye(session, GNUTLS_SHUT_WR);
-		} while(ret == GNUTLS_E_AGAIN || ret == GNUTLS_E_INTERRUPTED);
+		} while (ret == GNUTLS_E_AGAIN || ret == GNUTLS_E_INTERRUPTED);
 		gnutls_deinit(session);
 	}
 
@@ -60,7 +60,7 @@ ssize_t tls_send(const void *buf, size_t len, int flags)
 	tls_sk_flags = 0;
 
 	if (ret < 0) {
-		switch(ret) {
+		switch (ret) {
 		case GNUTLS_E_AGAIN:
 			errno = EAGAIN;
 			break;
@@ -103,7 +103,7 @@ int tls_send_data_from_fd(int fd, unsigned long len)
 			goto err;
 		}
 
-		for(sent = 0; sent < copied; sent += ret) {
+		for (sent = 0; sent < copied; sent += ret) {
 			ret = tls_send((buf + sent), (copied - sent), 0);
 			if (ret < 0) {
 				tls_perror("Failed sending data", ret);
@@ -126,8 +126,7 @@ ssize_t tls_recv(void *buf, size_t len, int flags)
 	tls_sk_flags = 0;
 
 	/* Check if there are any data to receive in the gnutls buffers. */
-	if (flags == MSG_DONTWAIT
-	    && (ret == GNUTLS_E_AGAIN || ret == GNUTLS_E_INTERRUPTED)) {
+	if (flags == MSG_DONTWAIT && (ret == GNUTLS_E_AGAIN || ret == GNUTLS_E_INTERRUPTED)) {
 		size_t pending = gnutls_record_check_pending(session);
 		if (pending > 0) {
 			pr_debug("Receiving pending data (%zu bytes)\n", pending);
@@ -177,7 +176,7 @@ int tls_recv_data_to_fd(int fd, unsigned long len)
 		}
 
 		gnutls_packet_get(packet, &pdata, NULL);
-		for(w = 0; w < pdata.size; w += ret) {
+		for (w = 0; w < pdata.size; w += ret) {
 			ret = write(fd, (pdata.data + w), (pdata.size - w));
 			if (ret < 0) {
 				pr_perror("Failed writing to fd");
@@ -219,8 +218,7 @@ static int tls_x509_verify_peer_cert(void)
 
 	if (status != 0) {
 		pr_err("Invalid certificate\n");
-		tls_handshake_verification_status_print(
-			GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR, status);
+		tls_handshake_verification_status_print(GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR, status);
 		return -1;
 	}
 
@@ -300,7 +298,7 @@ static int tls_x509_setup_creds(void)
 	return 0;
 }
 
-static ssize_t _tls_push_cb(void *p, const void* data, size_t sz)
+static ssize_t _tls_push_cb(void *p, const void *data, size_t sz)
 {
 	int fd = *(int *)(p);
 	int ret = send(fd, data, sz, tls_sk_flags);
@@ -312,7 +310,7 @@ static ssize_t _tls_push_cb(void *p, const void* data, size_t sz)
 	return ret;
 }
 
-static ssize_t _tls_pull_cb(void *p, void* data, size_t sz)
+static ssize_t _tls_pull_cb(void *p, void *data, size_t sz)
 {
 	int fd = *(int *)(p);
 	int ret = recv(fd, data, sz, tls_sk_flags);

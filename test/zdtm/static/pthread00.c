@@ -18,35 +18,34 @@
 
 #include "zdtmtst.h"
 
-#define exit_group(code)	\
-	syscall(__NR_exit_group, code)
+#define exit_group(code) syscall(__NR_exit_group, code)
 
-const char *test_doc	= "Create a few pthreads/forks and compare TLS and mmap data on restore\n";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
+const char *test_doc = "Create a few pthreads/forks and compare TLS and mmap data on restore\n";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org";
 
 static __thread char tls_data[10];
 
-#define TRANSITION_PASSED	4
-#define TRANSITION_FAILED	8
+#define TRANSITION_PASSED 4
+#define TRANSITION_FAILED 8
 
-#define MAP(map, i)		(((int *)map)[i])
+#define MAP(map, i) (((int *)map)[i])
 
-#define SET_PASSED(map, i)	MAP(map, i) = TRANSITION_PASSED
-#define SET_FAILED(map, i)	MAP(map, i) = TRANSITION_FAILED
+#define SET_PASSED(map, i) MAP(map, i) = TRANSITION_PASSED
+#define SET_FAILED(map, i) MAP(map, i) = TRANSITION_FAILED
 
-#define IS_PASSED(map, i)	(MAP(map, i) & TRANSITION_PASSED)
+#define IS_PASSED(map, i) (MAP(map, i) & TRANSITION_PASSED)
 
-#define NR_WAITERS		6
+#define NR_WAITERS 6
 static task_waiter_t waiter[NR_WAITERS];
 
-#define passage(index)							\
-	do {								\
-		task_waiter_complete(&waiter[index], 1);		\
-		task_waiter_wait4(&waiter[index], 2);			\
-		if (memcmp(tls_data, __tls_data, sizeof(tls_data)))	\
-			SET_FAILED(map, index);				\
-		else							\
-			SET_PASSED(map, index);				\
+#define passage(index)                                              \
+	do {                                                        \
+		task_waiter_complete(&waiter[index], 1);            \
+		task_waiter_wait4(&waiter[index], 2);               \
+		if (memcmp(tls_data, __tls_data, sizeof(tls_data))) \
+			SET_FAILED(map, index);                     \
+		else                                                \
+			SET_PASSED(map, index);                     \
 	} while (0)
 
 static void *thread_subfunc_1(void *map)
@@ -171,11 +170,7 @@ int main(int argc, char *argv[])
 	pthread_join(th1, NULL);
 	pthread_join(th2, NULL);
 
-	if (IS_PASSED(map, 0) &&
-	    IS_PASSED(map, 1) &&
-	    IS_PASSED(map, 2) &&
-	    IS_PASSED(map, 3) &&
-	    IS_PASSED(map, 4) &&
+	if (IS_PASSED(map, 0) && IS_PASSED(map, 1) && IS_PASSED(map, 2) && IS_PASSED(map, 3) && IS_PASSED(map, 4) &&
 	    IS_PASSED(map, 5))
 		pass();
 	else

@@ -17,56 +17,56 @@
 #include "zdtmtst.h"
 
 #ifdef __x86_64__
-# define __NR_fanotify_init	300
-# define __NR_fanotify_mark	301
+#define __NR_fanotify_init 300
+#define __NR_fanotify_mark 301
 #elif defined(__PPC64__)
-# define __NR_fanotify_init	323
-# define __NR_fanotify_mark	324
+#define __NR_fanotify_init 323
+#define __NR_fanotify_mark 324
 #elif __aarch64__
-# define __NR_fanotify_init     262
-# define __NR_fanotify_mark     263
+#define __NR_fanotify_init 262
+#define __NR_fanotify_mark 263
 #elif __s390x__
-# define __NR_fanotify_init     332
-# define __NR_fanotify_mark     333
+#define __NR_fanotify_init 332
+#define __NR_fanotify_mark 333
 #else
-# define __NR_fanotify_init	338
-# define __NR_fanotify_mark	339
+#define __NR_fanotify_init 338
+#define __NR_fanotify_mark 339
 #endif
 
-const char *test_doc	= "Check for fanotify delivery";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Check for fanotify delivery";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 const char fanotify_path[] = "fanotify-del-after-cr";
 
 #define BUFF_SIZE (8192)
 
 struct fanotify_mark_inode {
-	unsigned long		i_ino;
-	unsigned int		s_dev;
-	unsigned int		mflags;
-	unsigned int		mask;
-	unsigned int		ignored_mask;
-	unsigned int		fhandle_bytes;
-	unsigned int		fhandle_type;
-	unsigned char		fhandle[512];
+	unsigned long i_ino;
+	unsigned int s_dev;
+	unsigned int mflags;
+	unsigned int mask;
+	unsigned int ignored_mask;
+	unsigned int fhandle_bytes;
+	unsigned int fhandle_type;
+	unsigned char fhandle[512];
 };
 
 struct fanotify_mark_mount {
-	unsigned int		mnt_id;
-	unsigned int		mflags;
-	unsigned int		mask;
-	unsigned int		ignored_mask;
+	unsigned int mnt_id;
+	unsigned int mflags;
+	unsigned int mask;
+	unsigned int ignored_mask;
 };
 
 struct fanotify_glob {
-	unsigned int		faflags;
-	unsigned int		evflags;
+	unsigned int faflags;
+	unsigned int evflags;
 };
 
 struct fanotify_obj {
-	struct fanotify_glob		glob;
-	struct fanotify_mark_inode	inode;
-	struct fanotify_mark_mount	mount;
+	struct fanotify_glob glob;
+	struct fanotify_mark_inode inode;
+	struct fanotify_mark_mount mount;
 };
 
 static int fanotify_init(unsigned int flags, unsigned int event_f_flags)
@@ -74,8 +74,7 @@ static int fanotify_init(unsigned int flags, unsigned int event_f_flags)
 	return syscall(__NR_fanotify_init, flags, event_f_flags);
 }
 
-static int fanotify_mark(int fanotify_fd, unsigned int flags, unsigned long mask,
-			 int dfd, const char *pathname)
+static int fanotify_mark(int fanotify_fd, unsigned int flags, unsigned long mask, int dfd, const char *pathname)
 {
 #ifdef __i386__
 	return syscall(__NR_fanotify_mark, fanotify_fd, flags, mask, 0, dfd, pathname);
@@ -84,29 +83,25 @@ static int fanotify_mark(int fanotify_fd, unsigned int flags, unsigned long mask
 #endif
 }
 
-#define fdinfo_field(str, field)	!strncmp(str, field":", sizeof(field))
+#define fdinfo_field(str, field) !strncmp(str, field ":", sizeof(field))
 
 static void show_fanotify_obj(struct fanotify_obj *obj)
 {
 	test_msg("fanotify obj at %p\n", obj);
 
 	test_msg(" glob\n");
-	test_msg("  faflags: %x evflags: %x\n",
-		 obj->glob.faflags, obj->glob.evflags);
+	test_msg("  faflags: %x evflags: %x\n", obj->glob.faflags, obj->glob.evflags);
 
 	test_msg(" inode\n");
 	test_msg("  i_ino: %lx s_dev: %x mflags: %x "
 		 "mask: %x ignored_mask: %x "
 		 "fhandle_bytes: %x fhandle_type: %x "
 		 "fhandle: %s",
-		 obj->inode.i_ino, obj->inode.s_dev,
-		 obj->inode.mflags, obj->inode.mask,
-		 obj->inode.ignored_mask, obj->inode.fhandle_bytes,
-		 obj->inode.fhandle_type, obj->inode.fhandle);
+		 obj->inode.i_ino, obj->inode.s_dev, obj->inode.mflags, obj->inode.mask, obj->inode.ignored_mask,
+		 obj->inode.fhandle_bytes, obj->inode.fhandle_type, obj->inode.fhandle);
 
 	test_msg(" mount\n");
-	test_msg("  mnt_id: %x mflags: %x mask: %x ignored_mask: %x\n",
-		 obj->mount.mnt_id, obj->mount.mflags,
+	test_msg("  mnt_id: %x mflags: %x mask: %x ignored_mask: %x\n", obj->mount.mnt_id, obj->mount.mflags,
 		 obj->mount.mask, obj->mount.ignored_mask);
 }
 
@@ -129,20 +124,15 @@ static int cmp_fanotify_obj(struct fanotify_obj *old, struct fanotify_obj *new)
 	 * moreover the backend (say PLOOP) may be re-mounted during
 	 * c/r, so exclude them.
 	 */
-	if ((old->glob.faflags != new->glob.faflags)			||
-	    (old->glob.evflags != new->glob.evflags)			||
-	    (old->inode.i_ino != new->inode.i_ino)			||
-	    (old->inode.mflags != new->inode.mflags)			||
-	    (old->inode.mask != new->inode.mask)			||
-	    (old->inode.ignored_mask != new->inode.ignored_mask))
+	if ((old->glob.faflags != new->glob.faflags) || (old->glob.evflags != new->glob.evflags) ||
+	    (old->inode.i_ino != new->inode.i_ino) || (old->inode.mflags != new->inode.mflags) ||
+	    (old->inode.mask != new->inode.mask) || (old->inode.ignored_mask != new->inode.ignored_mask))
 		return -1;
 
-	if (memcmp(old->inode.fhandle, new->inode.fhandle,
-		   sizeof(new->inode.fhandle)))
+	if (memcmp(old->inode.fhandle, new->inode.fhandle, sizeof(new->inode.fhandle)))
 		return -2;
 
-	if ((old->mount.mflags != new->mount.mflags)			||
-	    (old->mount.mask != new->mount.mask)			||
+	if ((old->mount.mflags != new->mount.mflags) || (old->mount.mask != new->mount.mask) ||
 	    (old->mount.ignored_mask != new->mount.ignored_mask))
 		return -3;
 
@@ -165,18 +155,15 @@ int parse_fanotify_fdinfo(int fd, struct fanotify_obj *obj, unsigned int expecte
 
 	while (fgets(str, sizeof(str), f)) {
 		if (fdinfo_field(str, "fanotify flags")) {
-			ret = sscanf(str, "fanotify flags:%x event-flags:%x",
-				     &obj->glob.faflags, &obj->glob.evflags);
+			ret = sscanf(str, "fanotify flags:%x event-flags:%x", &obj->glob.faflags, &obj->glob.evflags);
 			if (ret != 2)
 				goto parse_err;
 			met++;
 			continue;
 		}
 		if (fdinfo_field(str, "fanotify mnt_id")) {
-			ret = sscanf(str,
-				     "fanotify mnt_id:%x mflags:%x mask:%x ignored_mask:%x",
-				     &obj->mount.mnt_id, &obj->mount.mflags,
-				     &obj->mount.mask, &obj->mount.ignored_mask);
+			ret = sscanf(str, "fanotify mnt_id:%x mflags:%x mask:%x ignored_mask:%x", &obj->mount.mnt_id,
+				     &obj->mount.mflags, &obj->mount.mask, &obj->mount.ignored_mask);
 			if (ret != 4)
 				goto parse_err;
 			met++;
@@ -187,9 +174,8 @@ int parse_fanotify_fdinfo(int fd, struct fanotify_obj *obj, unsigned int expecte
 			ret = sscanf(str,
 				     "fanotify ino:%lx sdev:%x mflags:%x mask:%x ignored_mask:%x "
 				     "fhandle-bytes:%x fhandle-type:%x f_handle: %n",
-				     &obj->inode.i_ino, &obj->inode.s_dev,
-				     &obj->inode.mflags, &obj->inode.mask, &obj->inode.ignored_mask,
-				     &obj->inode.fhandle_bytes, &obj->inode.fhandle_type,
+				     &obj->inode.i_ino, &obj->inode.s_dev, &obj->inode.mflags, &obj->inode.mask,
+				     &obj->inode.ignored_mask, &obj->inode.fhandle_bytes, &obj->inode.fhandle_type,
 				     &hoff);
 			if (ret != 7)
 				goto parse_err;
@@ -200,8 +186,7 @@ int parse_fanotify_fdinfo(int fd, struct fanotify_obj *obj, unsigned int expecte
 	}
 
 	if (expected_to_meet != met) {
-		pr_perror("Expected to meet %d entries but got %d",
-		    expected_to_meet, met);
+		pr_perror("Expected to meet %d entries but got %d", expected_to_meet, met);
 		return -1;
 	}
 
@@ -212,9 +197,9 @@ parse_err:
 	return -1;
 }
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-	struct fanotify_obj old = { }, new = { };
+	struct fanotify_obj old = {}, new = {};
 	int fa_fd, fd, del_after;
 	char buf[BUFF_SIZE];
 	ssize_t length;
@@ -232,8 +217,7 @@ int main (int argc, char *argv[])
 		}
 	}
 
-	fa_fd = fanotify_init(FAN_NONBLOCK | FAN_CLASS_NOTIF | FAN_UNLIMITED_QUEUE,
-			      O_RDONLY | O_LARGEFILE);
+	fa_fd = fanotify_init(FAN_NONBLOCK | FAN_CLASS_NOTIF | FAN_UNLIMITED_QUEUE, O_RDONLY | O_LARGEFILE);
 	if (fa_fd < 0) {
 		pr_perror("fanotify_init failed");
 		exit(1);
@@ -245,24 +229,19 @@ int main (int argc, char *argv[])
 		exit(1);
 	}
 
-	if (fanotify_mark(fa_fd, FAN_MARK_ADD,
-			  FAN_MODIFY | FAN_ACCESS | FAN_OPEN | FAN_CLOSE,
-			  AT_FDCWD, fanotify_path)) {
+	if (fanotify_mark(fa_fd, FAN_MARK_ADD, FAN_MODIFY | FAN_ACCESS | FAN_OPEN | FAN_CLOSE, AT_FDCWD,
+			  fanotify_path)) {
 		pr_perror("fanotify_mark failed");
 		exit(1);
 	}
 
-	if (fanotify_mark(fa_fd, FAN_MARK_ADD | FAN_MARK_MOUNT,
-			  FAN_ONDIR | FAN_OPEN | FAN_CLOSE,
-			  AT_FDCWD, "/tmp")) {
+	if (fanotify_mark(fa_fd, FAN_MARK_ADD | FAN_MARK_MOUNT, FAN_ONDIR | FAN_OPEN | FAN_CLOSE, AT_FDCWD, "/tmp")) {
 		pr_perror("fanotify_mark failed");
 		exit(1);
 	}
 
-	if (fanotify_mark(fa_fd, FAN_MARK_ADD | FAN_MARK_MOUNT |
-			  FAN_MARK_IGNORED_MASK | FAN_MARK_IGNORED_SURV_MODIFY,
-			  FAN_MODIFY | FAN_ACCESS,
-			  AT_FDCWD, "/tmp")) {
+	if (fanotify_mark(fa_fd, FAN_MARK_ADD | FAN_MARK_MOUNT | FAN_MARK_IGNORED_MASK | FAN_MARK_IGNORED_SURV_MODIFY,
+			  FAN_MODIFY | FAN_ACCESS, AT_FDCWD, "/tmp")) {
 		pr_perror("fanotify_mark failed");
 		exit(1);
 	}
@@ -306,9 +285,8 @@ int main (int argc, char *argv[])
 		exit(1);
 	}
 
-	if (fanotify_mark(fa_fd, FAN_MARK_REMOVE | FAN_MARK_MOUNT,
-			  FAN_ONDIR | FAN_OPEN | FAN_CLOSE,
-			  AT_FDCWD, "/tmp")) {
+	if (fanotify_mark(fa_fd, FAN_MARK_REMOVE | FAN_MARK_MOUNT, FAN_ONDIR | FAN_OPEN | FAN_CLOSE, AT_FDCWD,
+			  "/tmp")) {
 		pr_perror("fanotify_mark failed");
 		exit(1);
 	}

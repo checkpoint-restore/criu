@@ -41,7 +41,7 @@ static int prepare_mntns(void)
 	 * under them. So we need to create another mount for the
 	 * new root.
 	 */
-	if (mount(root, root, NULL, MS_SLAVE , NULL)) {
+	if (mount(root, root, NULL, MS_SLAVE, NULL)) {
 		fprintf(stderr, "Can't bind-mount root: %m\n");
 		return -1;
 	}
@@ -54,8 +54,7 @@ static int prepare_mntns(void)
 	criu_path = getenv("ZDTM_CRIU");
 	if (criu_path) {
 		snprintf(path, sizeof(path), "%s%s", root, criu_path);
-		if (mount(criu_path, path, NULL, MS_BIND, NULL) ||
-		    mount(NULL, path, NULL, MS_PRIVATE, NULL)) {
+		if (mount(criu_path, path, NULL, MS_BIND, NULL) || mount(NULL, path, NULL, MS_PRIVATE, NULL)) {
 			pr_perror("Unable to mount %s", path);
 			return -1;
 		}
@@ -87,7 +86,7 @@ static int prepare_mntns(void)
 		return -1;
 	}
 
-	if (mount("./old", "./old", NULL, MS_SLAVE | MS_REC , NULL)) {
+	if (mount("./old", "./old", NULL, MS_SLAVE | MS_REC, NULL)) {
 		fprintf(stderr, "Can't bind-mount root: %m\n");
 		return -1;
 	}
@@ -159,7 +158,7 @@ static int prepare_namespaces(void)
 	return 0;
 }
 
-#define NS_STACK_SIZE	4096
+#define NS_STACK_SIZE 4096
 
 /* All arguments should be above stack, because it grows down */
 struct ns_exec_args {
@@ -191,13 +190,11 @@ static void ns_sig_hand(int signo)
 				if (futex_get(&sig_received))
 					return;
 				futex_set_and_wake(&sig_received, signo);
-				len = snprintf(buf, sizeof(buf),
-						"All test processes exited\n");
+				len = snprintf(buf, sizeof(buf), "All test processes exited\n");
 			} else {
-				len = snprintf(buf, sizeof(buf),
-						"wait() failed: %m\n");
+				len = snprintf(buf, sizeof(buf), "wait() failed: %m\n");
 			}
-				goto write_out;
+			goto write_out;
 		}
 		if (status)
 			fprintf(stderr, "%d return %d\n", pid, status);
@@ -210,7 +207,7 @@ write_out:
 }
 
 #ifndef CLONE_NEWTIME
-#define CLONE_NEWTIME   0x00000080      /* New time namespace */
+#define CLONE_NEWTIME 0x00000080 /* New time namespace */
 #endif
 
 static inline int _settime(clockid_t clk_id, time_t offset)
@@ -245,7 +242,7 @@ static inline int _settime(clockid_t clk_id, time_t offset)
 #define STATUS_FD 255
 static int ns_exec(void *_arg)
 {
-	struct ns_exec_args *args = (struct ns_exec_args *) _arg;
+	struct ns_exec_args *args = (struct ns_exec_args *)_arg;
 	char buf[4096];
 	int ret;
 
@@ -304,8 +301,8 @@ static int create_timens(void)
 int ns_init(int argc, char **argv)
 {
 	struct sigaction sa = {
-		.sa_handler	= ns_sig_hand,
-		.sa_flags	= SA_RESTART,
+		.sa_handler = ns_sig_hand,
+		.sa_flags = SA_RESTART,
 	};
 	int ret, fd, status_pipe = STATUS_FD;
 	char buf[128], *x;
@@ -372,7 +369,7 @@ int ns_init(int argc, char **argv)
 			break;
 		if (pid < 0) {
 			fprintf(stderr, "waitpid() failed: %m\n");
-			exit (1);
+			exit(1);
 		}
 		if (status)
 			fprintf(stderr, "%d return %d\n", pid, status);
@@ -426,7 +423,6 @@ int ns_init(int argc, char **argv)
 		waitpid(pid, NULL, 0);
 	}
 
-
 	exit(1);
 }
 
@@ -449,8 +445,7 @@ void ns_create(int argc, char **argv)
 		exit(1);
 	}
 
-	flags = CLONE_NEWPID | CLONE_NEWNS | CLONE_NEWUTS |
-		CLONE_NEWNET | CLONE_NEWIPC | SIGCHLD;
+	flags = CLONE_NEWPID | CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWNET | CLONE_NEWIPC | SIGCHLD;
 
 	if (getenv("ZDTM_USERNS"))
 		flags |= CLONE_NEWUSER;
@@ -521,4 +516,3 @@ void ns_create(int argc, char **argv)
 
 	exit(0);
 }
-

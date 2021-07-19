@@ -15,12 +15,11 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check ghost and link-remap files in a few mntns";
-const char *test_author	= "Andrew Vagin <avagin@parallels.com>";
+const char *test_doc = "Check ghost and link-remap files in a few mntns";
+const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
-
 
 int main(int argc, char **argv)
 {
@@ -101,7 +100,6 @@ int main(int argc, char **argv)
 	task_waiter_wait4(&lock, 1);
 	test_daemon();
 	test_waitsig();
-
 
 	kill(pid, SIGTERM);
 	wait(&status);

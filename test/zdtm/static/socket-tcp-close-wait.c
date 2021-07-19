@@ -1,13 +1,13 @@
 #include "zdtmtst.h"
 
 #ifdef ZDTM_IPV4V6
-#define ZDTM_FAMILY AF_INET
+#define ZDTM_FAMILY	AF_INET
 #define ZDTM_SRV_FAMILY AF_INET6
 #elif defined(ZDTM_IPV6)
-#define ZDTM_FAMILY AF_INET6
+#define ZDTM_FAMILY	AF_INET6
 #define ZDTM_SRV_FAMILY AF_INET6
 #else
-#define ZDTM_FAMILY AF_INET
+#define ZDTM_FAMILY	AF_INET
 #define ZDTM_SRV_FAMILY AF_INET
 #endif
 
@@ -169,8 +169,7 @@ int main(int argc, char **argv)
 		if (size < 0)
 			return 1;
 #else
-		if (read(fd, buf, sizeof(buf)) != sizeof(TEST_MSG) ||
-		    strncmp(buf, TEST_MSG, sizeof(TEST_MSG))) {
+		if (read(fd, buf, sizeof(buf)) != sizeof(TEST_MSG) || strncmp(buf, TEST_MSG, sizeof(TEST_MSG))) {
 			pr_perror("read");
 			return 1;
 		}

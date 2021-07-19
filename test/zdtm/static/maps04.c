@@ -13,10 +13,10 @@
 
 #define MEM_SIZE (1L << 29)
 
-const char *test_doc	= "Test big mappings";
-const char *test_author	= "Andrew Vagin <avagin@openvz.org";
+const char *test_doc = "Test big mappings";
+const char *test_author = "Andrew Vagin <avagin@openvz.org";
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	void *m;
 	uint32_t crc;
@@ -24,8 +24,7 @@ int main(int argc, char ** argv)
 
 	test_init(argc, argv);
 
-	m = mmap(NULL, MEM_SIZE, PROT_WRITE | PROT_READ,
-				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	m = mmap(NULL, MEM_SIZE, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
 	if (m == MAP_FAILED) {
 		fail();
@@ -35,7 +34,7 @@ int main(int argc, char ** argv)
 	crc = ~0;
 	datagen(m, MEM_SIZE, &crc);
 
-	for (i = 0; i < MEM_SIZE / (1<<20); i++)
+	for (i = 0; i < MEM_SIZE / (1 << 20); i++)
 		if (mprotect(m + (lrand48() * PAGE_SIZE % MEM_SIZE), PAGE_SIZE, PROT_NONE)) {
 			pr_perror("mprotect");
 			return 1;

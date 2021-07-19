@@ -17,25 +17,23 @@
 #include "ptrace.h"
 #include "infect-priv.h"
 
-#define NT_PRFPREG		2
-#define NT_S390_VXRS_LOW	0x309
-#define NT_S390_VXRS_HIGH	0x30a
-#define NT_S390_GS_CB		0x30b
-#define NT_S390_GS_BC		0x30c
-#define NT_S390_RI_CB		0x30d
+#define NT_PRFPREG	  2
+#define NT_S390_VXRS_LOW  0x309
+#define NT_S390_VXRS_HIGH 0x30a
+#define NT_S390_GS_CB	  0x30b
+#define NT_S390_GS_BC	  0x30c
+#define NT_S390_RI_CB	  0x30d
 
 /*
  * Print general purpose and access registers
  */
-static void print_user_regs_struct(const char *msg, int pid,
-				   user_regs_struct_t *regs)
+static void print_user_regs_struct(const char *msg, int pid, user_regs_struct_t *regs)
 {
 	int i;
 
 	pr_debug("%s: Registers for pid=%d\n", msg, pid);
-	pr_debug("system_call %08lx\n", (unsigned long) regs->system_call);
-	pr_debug("       psw %016lx %016lx\n", regs->prstatus.psw.mask,
-		 regs->prstatus.psw.addr);
+	pr_debug("system_call %08lx\n", (unsigned long)regs->system_call);
+	pr_debug("       psw %016lx %016lx\n", regs->prstatus.psw.mask, regs->prstatus.psw.addr);
 	pr_debug(" orig_gpr2 %016lx\n", regs->prstatus.orig_gpr2);
 	for (i = 0; i < 16; i++)
 		pr_debug("       g%02d %016lx\n", i, regs->prstatus.gprs[i]);
@@ -57,9 +55,7 @@ static void print_vxrs(user_fpregs_struct_t *fpregs)
 	for (i = 0; i < 16; i++)
 		pr_debug("  vx_low%02d %016lx\n", i, fpregs->vxrs_low[i]);
 	for (i = 0; i < 16; i++)
-		pr_debug(" vx_high%02d %016lx %016lx\n", i,
-			 fpregs->vxrs_high[i].part1,
-			 fpregs->vxrs_high[i].part2);
+		pr_debug(" vx_high%02d %016lx %016lx\n", i, fpregs->vxrs_high[i].part1, fpregs->vxrs_high[i].part2);
 }
 
 /*
@@ -111,8 +107,7 @@ static void print_ri_cb(user_fpregs_struct_t *fpregs)
  * Print FP registers, VX registers, guarded-storage, and
  * runtime-instrumentation
  */
-static void print_user_fpregs_struct(const char *msg, int pid,
-				     user_fpregs_struct_t *fpregs)
+static void print_user_fpregs_struct(const char *msg, int pid, user_fpregs_struct_t *fpregs)
 {
 	int i;
 
@@ -126,28 +121,19 @@ static void print_user_fpregs_struct(const char *msg, int pid,
 	print_ri_cb(fpregs);
 }
 
-int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
-			      user_regs_struct_t *regs,
-			      user_fpregs_struct_t *fpregs)
+int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	_sigregs_ext *dst_ext = &sigframe->uc.uc_mcontext_ext;
 	_sigregs *dst = &sigframe->uc.uc_mcontext;
 
-	memcpy(dst->regs.gprs, regs->prstatus.gprs,
-	       sizeof(regs->prstatus.gprs));
-	memcpy(dst->regs.acrs, regs->prstatus.acrs,
-	       sizeof(regs->prstatus.acrs));
-	memcpy(&dst->regs.psw, &regs->prstatus.psw,
-	       sizeof(regs->prstatus.psw));
-	memcpy(&dst->fpregs.fpc, &fpregs->prfpreg.fpc,
-	       sizeof(fpregs->prfpreg.fpc));
-	memcpy(&dst->fpregs.fprs, &fpregs->prfpreg.fprs,
-	       sizeof(fpregs->prfpreg.fprs));
+	memcpy(dst->regs.gprs, regs->prstatus.gprs, sizeof(regs->prstatus.gprs));
+	memcpy(dst->regs.acrs, regs->prstatus.acrs, sizeof(regs->prstatus.acrs));
+	memcpy(&dst->regs.psw, &regs->prstatus.psw, sizeof(regs->prstatus.psw));
+	memcpy(&dst->fpregs.fpc, &fpregs->prfpreg.fpc, sizeof(fpregs->prfpreg.fpc));
+	memcpy(&dst->fpregs.fprs, &fpregs->prfpreg.fprs, sizeof(fpregs->prfpreg.fprs));
 	if (fpregs->flags & USER_FPREGS_VXRS) {
-		memcpy(&dst_ext->vxrs_low, &fpregs->vxrs_low,
-		       sizeof(fpregs->vxrs_low));
-		memcpy(&dst_ext->vxrs_high, &fpregs->vxrs_high,
-		       sizeof(fpregs->vxrs_high));
+		memcpy(&dst_ext->vxrs_low, &fpregs->vxrs_low, sizeof(fpregs->vxrs_low));
+		memcpy(&dst_ext->vxrs_high, &fpregs->vxrs_high, sizeof(fpregs->vxrs_high));
 	} else {
 		memset(&dst_ext->vxrs_low, 0, sizeof(dst_ext->vxrs_low));
 		memset(&dst_ext->vxrs_high, 0, sizeof(dst_ext->vxrs_high));
@@ -155,8 +141,7 @@ int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
 	return 0;
 }
 
-int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
-				   struct rt_sigframe *rsigframe)
+int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe, struct rt_sigframe *rsigframe)
 {
 	return 0;
 }
@@ -169,9 +154,7 @@ static inline void rewind_psw(psw_t *psw, unsigned long bytes)
 	unsigned long mask;
 
 	pr_debug("Rewind psw: %016lx bytes=%lu\n", psw->addr, bytes);
-	mask = (psw->mask & PSW_MASK_EA) ? -1UL :
-		(psw->mask & PSW_MASK_BA) ? (1UL << 31) - 1 :
-		(1UL << 24) - 1;
+	mask = (psw->mask & PSW_MASK_EA) ? -1UL : (psw->mask & PSW_MASK_BA) ? (1UL << 31) - 1 : (1UL << 24) - 1;
 	psw->addr = (psw->addr - bytes) & mask;
 }
 
@@ -310,9 +293,8 @@ static int s390_disable_ri_bit(pid_t pid, user_regs_struct_t *regs)
 /*
  * Prepare task registers for restart
  */
-int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
-		  user_fpregs_struct_t *ext_regs, save_regs_t save,
-		  void *arg, __maybe_unused unsigned long flags)
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *ext_regs, save_regs_t save,
+			 void *arg, __maybe_unused unsigned long flags)
 {
 	user_fpregs_struct_t tmp, *fpregs = ext_regs ? ext_regs : &tmp;
 	struct iovec iov;
@@ -429,10 +411,10 @@ int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
  * Injected syscall instruction
  */
 const char code_syscall[] = {
-	0x0a, 0x00,		/* sc 0 */
-	0x00, 0x01,		/* S390_BREAKPOINT_U16 */
-	0x00, 0x01,		/* S390_BREAKPOINT_U16 */
-	0x00, 0x01,		/* S390_BREAKPOINT_U16 */
+	0x0a, 0x00, /* sc 0 */
+	0x00, 0x01, /* S390_BREAKPOINT_U16 */
+	0x00, 0x01, /* S390_BREAKPOINT_U16 */
+	0x00, 0x01, /* S390_BREAKPOINT_U16 */
 };
 
 static inline void __check_code_syscall(void)
@@ -444,19 +426,14 @@ static inline void __check_code_syscall(void)
 /*
  * Issue s390 system call
  */
-int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
-		unsigned long arg1,
-		unsigned long arg2,
-		unsigned long arg3,
-		unsigned long arg4,
-		unsigned long arg5,
-		unsigned long arg6)
+int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret, unsigned long arg1, unsigned long arg2,
+		   unsigned long arg3, unsigned long arg4, unsigned long arg5, unsigned long arg6)
 {
 	user_regs_struct_t regs = ctl->orig.regs;
 	int err;
 
 	/* Load syscall number into %r1 */
-	regs.prstatus.gprs[1] = (unsigned long) nr;
+	regs.prstatus.gprs[1] = (unsigned long)nr;
 	/* Load parameter registers %r2-%r7 */
 	regs.prstatus.gprs[2] = arg1;
 	regs.prstatus.gprs[3] = arg2;
@@ -465,7 +442,7 @@ int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 	regs.prstatus.gprs[6] = arg5;
 	regs.prstatus.gprs[7] = arg6;
 
-	err = compel_execute_syscall(ctl, &regs, (char *) code_syscall);
+	err = compel_execute_syscall(ctl, &regs, (char *)code_syscall);
 
 	/* Return code from system is in %r2 */
 	if (ret)
@@ -476,9 +453,7 @@ int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 /*
  * Issue s390 mmap call
  */
-void *remote_mmap(struct parasite_ctl *ctl,
-		  void *addr, size_t length, int prot,
-		  int flags, int fd, off_t offset)
+void *remote_mmap(struct parasite_ctl *ctl, void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
 	void *where = (void *)ctl->ictx.syscall_ip + BUILTIN_SYSCALL_SIZE;
 	struct mmap_arg_struct arg_struct;
@@ -501,8 +476,7 @@ void *remote_mmap(struct parasite_ctl *ctl,
 	}
 
 	/* Do syscall */
-	err = compel_syscall(ctl, __NR_mmap, &map, (unsigned long) where,
-			     0, 0, 0, 0, 0);
+	err = compel_syscall(ctl, __NR_mmap, &map, (unsigned long)where, 0, 0, 0, 0, 0);
 	if (err < 0 || (long)map < 0)
 		map = 0;
 
@@ -510,8 +484,7 @@ void *remote_mmap(struct parasite_ctl *ctl,
 	if (ptrace_poke_area(pid, &arg_struct, where, sizeof(arg_struct))) {
 		pr_err("Can't restore mmap args (pid: %d)\n", pid);
 		if (map != 0) {
-			err = compel_syscall(ctl, __NR_munmap, NULL, map,
-					     length, 0, 0, 0, 0);
+			err = compel_syscall(ctl, __NR_munmap, NULL, map, length, 0, 0, 0, 0);
 			if (err)
 				pr_err("Can't munmap %d\n", err);
 			map = 0;
@@ -524,14 +497,12 @@ void *remote_mmap(struct parasite_ctl *ctl,
 /*
  * Setup registers for parasite call
  */
-void parasite_setup_regs(unsigned long new_ip, void *stack,
-			 user_regs_struct_t *regs)
+void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
 {
 	regs->prstatus.psw.addr = new_ip;
 	if (!stack)
 		return;
-	regs->prstatus.gprs[15] = ((unsigned long) stack) -
-		STACK_FRAME_OVERHEAD;
+	regs->prstatus.gprs[15] = ((unsigned long)stack) - STACK_FRAME_OVERHEAD;
 }
 
 /*
@@ -579,9 +550,7 @@ int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
 	long ret;
 	int err;
 
-	err = compel_syscall(ctl, __NR_sigaltstack,
-			     &ret, 0, (unsigned long)&s->uc.uc_stack,
-			     0, 0, 0, 0);
+	err = compel_syscall(ctl, __NR_sigaltstack, &ret, 0, (unsigned long)&s->uc.uc_stack, 0, 0, 0, 0);
 	return err ? err : ret;
 }
 
@@ -655,9 +624,9 @@ enum kernel_ts_level {
 };
 
 /* See arch/s390/include/asm/processor.h */
-#define TASK_SIZE_LEVEL_3	0x40000000000UL		/* 4 TB */
-#define TASK_SIZE_LEVEL_4	0x20000000000000UL	/* 8 PB */
-#define TASK_SIZE_LEVEL_5	0xffffffffffffefffUL	/* 16 EB - 0x1000 */
+#define TASK_SIZE_LEVEL_3 0x40000000000UL /* 4 TB */
+#define TASK_SIZE_LEVEL_4 0x20000000000000UL /* 8 PB */
+#define TASK_SIZE_LEVEL_5 0xffffffffffffefffUL /* 16 EB - 0x1000 */
 
 /*
  * Return detected kernel version regarding task size level
@@ -671,12 +640,12 @@ static enum kernel_ts_level get_kernel_ts_level(void)
 	/* Check for 5 levels */
 	if (criu_end_addr >= TASK_SIZE_LEVEL_4)
 		return KERNEL_TS_LEVEL_5;
-	else if (munmap((void *) TASK_SIZE_LEVEL_4, 0x1000) == 0)
+	else if (munmap((void *)TASK_SIZE_LEVEL_4, 0x1000) == 0)
 		return KERNEL_TS_LEVEL_5;
 
 	if (criu_end_addr < TASK_SIZE_LEVEL_3) {
 		/* Check for 4 level kernel with fix */
-		if (munmap((void *) TASK_SIZE_LEVEL_3, 0x1000) == 0)
+		if (munmap((void *)TASK_SIZE_LEVEL_3, 0x1000) == 0)
 			return KERNEL_TS_LEVEL_4_FIX_YES;
 		else
 			return KERNEL_TS_LEVEL_4_FIX_NO;

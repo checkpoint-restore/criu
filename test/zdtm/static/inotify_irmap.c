@@ -14,15 +14,15 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check for irmap";
-const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
+const char *test_doc = "Check for irmap";
+const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
-#define TDIR	"/etc"
-char test_files[2][128] = {TDIR"/zdtm-test", TDIR"/zdtm-test1"};
+#define TDIR "/etc"
+char test_files[2][128] = { TDIR "/zdtm-test", TDIR "/zdtm-test1" };
 
 #define BUFF_SIZE ((sizeof(struct inotify_event) + PATH_MAX))
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	char buf[BUFF_SIZE];
 	int fd, wd, i;

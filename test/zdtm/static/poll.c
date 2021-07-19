@@ -16,8 +16,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check poll() timeouts";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@parallels.com>";
+const char *test_doc = "Check poll() timeouts";
+const char *test_author = "Cyrill Gorcunov <gorcunov@parallels.com>";
 
 static void show_timestamp(char *prefix, unsigned long tv_sec, unsigned long tv_usec)
 {
@@ -29,8 +29,7 @@ static void show_pollfd(struct pollfd *fds, size_t nfds)
 	size_t i;
 
 	for (i = 0; i < nfds; i++) {
-		test_msg("%2zu) fd: %2d events %2x revents %2x\n",
-			 i, fds[i].fd, fds[i].events, fds[i].revents);
+		test_msg("%2zu) fd: %2d events %2x revents %2x\n", i, fds[i].fd, fds[i].events, fds[i].revents);
 	}
 }
 
@@ -100,11 +99,9 @@ int main(int argc, char *argv[])
 			}
 
 			show_timestamp("Stop", time2.tv_sec, time2.tv_usec);
-			show_timestamp("Diff", time2.tv_sec - time1.tv_sec,
-				       time2.tv_usec - time1.tv_usec);
+			show_timestamp("Diff", time2.tv_sec - time1.tv_sec, time2.tv_usec - time1.tv_usec);
 			if ((time2.tv_sec - time1.tv_sec) > delta) {
-				fail("Delta is too big %lu",
-				     (unsigned long)(time2.tv_sec - time1.tv_sec));
+				fail("Delta is too big %lu", (unsigned long)(time2.tv_sec - time1.tv_sec));
 				exit(1);
 			}
 		}

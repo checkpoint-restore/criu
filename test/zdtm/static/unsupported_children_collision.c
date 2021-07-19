@@ -4,8 +4,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check unsupported children collision for mounts";
-const char *test_author	= "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
+const char *test_doc = "Check unsupported children collision for mounts";
+const char *test_author = "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);

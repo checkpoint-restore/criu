@@ -9,13 +9,13 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that binfmt_misc entries remain registered";
-const char *test_author	= "Kirill Tkhai <ktkhai@odin.com";
+const char *test_doc = "Check that binfmt_misc entries remain registered";
+const char *test_author = "Kirill Tkhai <ktkhai@odin.com";
 
-#define MAX_REG_STR 256
-#define MAX_MAGIC 16
+#define MAX_REG_STR	 256
+#define MAX_MAGIC	 16
 #define MAX_MAGIC_OFFSET 128 /* Max magic+offset */
-#define MAX_EXTENSION 128
+#define MAX_EXTENSION	 128
 
 char *dirname = "binfmt_misc.dir";
 TEST_OPTION(dirname, string, "binfmt_misc mount directory name", 1);
@@ -31,7 +31,7 @@ void create_magic_pattern(char *buf, const char *name)
 	int i, magic, mask, offset;
 
 	magic = rand() % (MAX_MAGIC + 1);
-	mask  = (rand() % 2) ? magic : 0;
+	mask = (rand() % 2) ? magic : 0;
 	offset = MAX_MAGIC_OFFSET - magic;
 	offset = rand() % (offset + 1);
 
@@ -83,7 +83,7 @@ int dump_content(const char *path, char **dump)
 		return -1;
 	}
 
-	len = read(fd, p, PAGE_SIZE-1);
+	len = read(fd, p, PAGE_SIZE - 1);
 	close(fd);
 	if (len <= 0) {
 		fail("read");
@@ -98,7 +98,7 @@ int dump_content(const char *path, char **dump)
 int main(int argc, char **argv)
 {
 	char buf[MAX_REG_STR + 1];
-	char path[PATH_MAX*2 + 1];
+	char path[PATH_MAX * 2 + 1];
 	char *dump[2];
 	int i, fd, len;
 
@@ -118,7 +118,10 @@ int main(int argc, char **argv)
 	}
 
 	/* Register binfmt_entries */
-	sprintf(path, "%s/" "register", dirname);
+	sprintf(path,
+		"%s/"
+		"register",
+		dirname);
 	fd = open(path, O_WRONLY);
 	if (fd < 0) {
 		fail("open");
@@ -152,7 +155,7 @@ int main(int argc, char **argv)
 	close(fd);
 
 	/* Dump files content */
-	for (i = 0; i < 2; i ++) {
+	for (i = 0; i < 2; i++) {
 		sprintf(path, "%s/%s", dirname, NAME[i]);
 		if (dump_content(path, &dump[i]))
 			exit(1);
@@ -162,7 +165,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	/* Check */
-	for (i = 0; i < 2; i ++) {
+	for (i = 0; i < 2; i++) {
 		char *tmp;
 
 		sprintf(path, "%s/%s", dirname, NAME[i]);

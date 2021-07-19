@@ -12,8 +12,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check for /proc/self/ns path restore";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Check for /proc/self/ns path restore";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 const char nspath[] = "/proc/self/ns/net";
 

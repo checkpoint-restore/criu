@@ -10,8 +10,8 @@
 
 #include "cpuid.h"
 
-const char *test_doc	= "Test if FPU data in YMM registers do survive the c/r";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Test if FPU data in YMM registers do survive the c/r";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 static int verify_cpu(void)
 {
@@ -45,36 +45,22 @@ static int fpu_test(void)
 {
 	int ret = 0;
 
-	asm volatile("vmovapd %0, %%ymm0 \n"
-		     :
-		     : "m" (*ymm1)
-		     : "memory");
+	asm volatile("vmovapd %0, %%ymm0 \n" : : "m"(*ymm1) : "memory");
 
-	asm volatile("vmovapd %0, %%ymm7 \n"
-		     :
-		     : "m" (*ymm2)
-		     : "memory");
+	asm volatile("vmovapd %0, %%ymm7 \n" : : "m"(*ymm2) : "memory");
 
 	test_daemon();
 	test_waitsig();
 
-	asm volatile("vmovapd %%ymm0, %0 \n"
-		     : "=m" (*ymm3)
-		     :
-		     : "memory");
+	asm volatile("vmovapd %%ymm0, %0 \n" : "=m"(*ymm3) : : "memory");
 
-	asm volatile("vmovapd %%ymm7, %0 \n"
-		     : "=m" (*ymm4)
-		     :
-		     : "memory");
+	asm volatile("vmovapd %%ymm7, %0 \n" : "=m"(*ymm4) : : "memory");
 
 	if (memcmp(ymm1, ymm3, 32) || memcmp(ymm2, ymm4, 32)) {
-		test_msg("Data mismatch ('%s' '%s' '%s' '%s')\n",
-			 ymm1, ymm2, ymm3, ymm4);
+		test_msg("Data mismatch ('%s' '%s' '%s' '%s')\n", ymm1, ymm2, ymm3, ymm4);
 		ret = -1;
 	} else {
-		test_msg("Data match ('%s' '%s' '%s' '%s')\n",
-			 ymm1, ymm2, ymm3, ymm4);
+		test_msg("Data match ('%s' '%s' '%s' '%s')\n", ymm1, ymm2, ymm3, ymm4);
 		ret = 0;
 	}
 

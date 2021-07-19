@@ -10,8 +10,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that a zombie with a helper parent is restored";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "Check that a zombie with a helper parent is restored";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 void setsid_and_fork(int sk)
 {

@@ -8,8 +8,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check bind-mounts";
-const char *test_author	= "Pavel Emelianov <avagin@parallels.com>";
+const char *test_doc = "Check bind-mounts";
+const char *test_author = "Pavel Emelianov <avagin@parallels.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);

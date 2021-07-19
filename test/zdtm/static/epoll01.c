@@ -19,12 +19,12 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check another case of epoll: This adds three epoll "
-			  "targets on tfd 702 and then adds two epoll targets "
-			  "on tfd 701. This test is for off calculation in "
-			  "dump_one_eventpoll, the reverse order makes qsort "
-			  "to actually work.";
-const char *test_author	= "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
+const char *test_doc = "Check another case of epoll: This adds three epoll "
+		       "targets on tfd 702 and then adds two epoll targets "
+		       "on tfd 701. This test is for off calculation in "
+		       "dump_one_eventpoll, the reverse order makes qsort "
+		       "to actually work.";
+const char *test_author = "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
 
 int main(int argc, char *argv[])
 {
@@ -33,15 +33,11 @@ int main(int argc, char *argv[])
 	int i, ret;
 
 	struct {
-		int	pipefd[2];
-		int	dupfd;
-		bool	close;
+		int pipefd[2];
+		int dupfd;
+		bool close;
 	} pipes[5] = {
-		{ {}, 702, true },
-		{ {}, 702, true },
-		{ {}, 702, false },
-		{ {}, 701, true },
-		{ {}, 701, false },
+		{ {}, 702, true }, { {}, 702, true }, { {}, 702, false }, { {}, 701, true }, { {}, 701, false },
 	};
 
 	test_init(argc, argv);
@@ -102,8 +98,7 @@ int main(int argc, char *argv[])
 		}
 
 		if (ev.data.u64 != i) {
-			pr_err("ev.fd=%d ev.data.u64=%#llx (%d expected)\n",
-			       ev.data.fd, (long long)ev.data.u64, i);
+			pr_err("ev.fd=%d ev.data.u64=%#llx (%d expected)\n", ev.data.fd, (long long)ev.data.u64, i);
 			ret |= 1;
 		}
 

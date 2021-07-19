@@ -13,12 +13,12 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test unix dgram sockets\n";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
+const char *test_doc = "Test unix dgram sockets\n";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org";
 
-#define SK_DATA_BOUND		"data-packet-bound"
-#define SK_DATA_CONN		"data-packet-conn"
-#define SK_DATA_BOUND_CONN	"data-packet-bound-conn"
+#define SK_DATA_BOUND	   "data-packet-bound"
+#define SK_DATA_CONN	   "data-packet-conn"
+#define SK_DATA_BOUND_CONN "data-packet-bound-conn"
 
 char *filename;
 TEST_OPTION(filename, string, "socket file name", 1);
@@ -55,19 +55,15 @@ int main(int argc, char *argv[])
 	snprintf(path, sizeof(path), "%s/%s", dirname, filename);
 	unlink(path);
 
-	sk_dgram_bound_client	= socket(AF_UNIX, SOCK_DGRAM, 0);
-	sk_dgram_bound_server	= socket(AF_UNIX, SOCK_DGRAM, 0);
-	sk_dgram_conn_client	= socket(AF_UNIX, SOCK_DGRAM, 0);
-	sk_dgram_conn_client2	= socket(AF_UNIX, SOCK_DGRAM, 0);
-	sk_dgram_conn_server	= socket(AF_UNIX, SOCK_DGRAM, 0);
-	sk_dgram_bound_conn	= socket(AF_UNIX, SOCK_DGRAM, 0);
+	sk_dgram_bound_client = socket(AF_UNIX, SOCK_DGRAM, 0);
+	sk_dgram_bound_server = socket(AF_UNIX, SOCK_DGRAM, 0);
+	sk_dgram_conn_client = socket(AF_UNIX, SOCK_DGRAM, 0);
+	sk_dgram_conn_client2 = socket(AF_UNIX, SOCK_DGRAM, 0);
+	sk_dgram_conn_server = socket(AF_UNIX, SOCK_DGRAM, 0);
+	sk_dgram_bound_conn = socket(AF_UNIX, SOCK_DGRAM, 0);
 
-	if (sk_dgram_conn_server < 0	||
-	    sk_dgram_bound_server < 0	||
-	    sk_dgram_conn_client < 0	||
-	    sk_dgram_conn_client2 < 0	||
-	    sk_dgram_conn_server < 0	||
-	    sk_dgram_bound_conn < 0) {
+	if (sk_dgram_conn_server < 0 || sk_dgram_bound_server < 0 || sk_dgram_conn_client < 0 ||
+	    sk_dgram_conn_client2 < 0 || sk_dgram_conn_server < 0 || sk_dgram_bound_conn < 0) {
 		fail("socket");
 		exit(1);
 	}
@@ -94,54 +90,54 @@ int main(int argc, char *argv[])
 
 	snprintf(path, sizeof(path), "%s/%s.bound-conn", dirname, filename);
 	unlink(path);
-       if (strlen(path) >= sizeof(name_bound_conn.sun_path)) {
-               fail("too long path");
-               exit(1);
-       }
+	if (strlen(path) >= sizeof(name_bound_conn.sun_path)) {
+		fail("too long path");
+		exit(1);
+	}
 
 	name_bound_conn.sun_family = AF_UNIX;
 	strncpy(name_bound_conn.sun_path, path, sizeof(name_bound_conn.sun_path));
 
-	ret = bind(sk_dgram_bound_server, (struct sockaddr *) &name_bound, sizeof(name_bound));
+	ret = bind(sk_dgram_bound_server, (struct sockaddr *)&name_bound, sizeof(name_bound));
 	if (ret) {
 		fail("bind");
 		exit(1);
 	}
 
-	ret = bind(sk_dgram_conn_server, (struct sockaddr *) &name_conn, sizeof(name_conn));
+	ret = bind(sk_dgram_conn_server, (struct sockaddr *)&name_conn, sizeof(name_conn));
 	if (ret) {
 		fail("bind");
 		exit(1);
 	}
 
-	ret = connect(sk_dgram_conn_client, (struct sockaddr *) &name_conn, sizeof(name_conn));
+	ret = connect(sk_dgram_conn_client, (struct sockaddr *)&name_conn, sizeof(name_conn));
 	if (ret) {
 		fail("connect");
 		exit(1);
 	}
 
-	ret = connect(sk_dgram_conn_client2, (struct sockaddr *) &name_conn, sizeof(name_conn));
+	ret = connect(sk_dgram_conn_client2, (struct sockaddr *)&name_conn, sizeof(name_conn));
 	if (ret) {
 		fail("connect");
 		exit(1);
 	}
 
-	ret = bind(sk_dgram_bound_conn, (struct sockaddr *) &name_bound_conn, sizeof(name_bound_conn));
+	ret = bind(sk_dgram_bound_conn, (struct sockaddr *)&name_bound_conn, sizeof(name_bound_conn));
 	if (ret) {
 		fail("bind");
 		exit(1);
 	}
 
 	/* Note, it's already bound, so make it more idiotic! */
-	ret = connect(sk_dgram_bound_conn, (struct sockaddr *) &name_bound_conn, sizeof(name_bound_conn));
+	ret = connect(sk_dgram_bound_conn, (struct sockaddr *)&name_bound_conn, sizeof(name_bound_conn));
 	if (ret) {
 		fail("connect");
 		exit(1);
 	}
 
 	memset(buf, 0, sizeof(buf));
-	sendto(sk_dgram_bound_client, SK_DATA_BOUND, sizeof(SK_DATA_BOUND), 0,
-	       (struct sockaddr *) &name_bound, sizeof(name_bound));
+	sendto(sk_dgram_bound_client, SK_DATA_BOUND, sizeof(SK_DATA_BOUND), 0, (struct sockaddr *)&name_bound,
+	       sizeof(name_bound));
 	read(sk_dgram_bound_server, &buf, sizeof(buf));
 	if (strcmp(buf, SK_DATA_BOUND)) {
 		fail("data corrupted");
@@ -171,8 +167,8 @@ int main(int argc, char *argv[])
 	test_waitsig();
 
 	memset(buf, 0, sizeof(buf));
-	sendto(sk_dgram_bound_client, SK_DATA_BOUND, sizeof(SK_DATA_BOUND), 0,
-	       (struct sockaddr *) &name_bound, sizeof(name_bound));
+	sendto(sk_dgram_bound_client, SK_DATA_BOUND, sizeof(SK_DATA_BOUND), 0, (struct sockaddr *)&name_bound,
+	       sizeof(name_bound));
 	read(sk_dgram_bound_server, &buf, sizeof(buf));
 	if (strcmp(buf, SK_DATA_BOUND)) {
 		fail("data corrupted");

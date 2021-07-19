@@ -10,12 +10,12 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check the futex robust list c/r";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Check the futex robust list c/r";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 struct args {
-	task_waiter_t	waiter;
-	int		result;
+	task_waiter_t waiter;
+	int result;
 };
 
 static pid_t __gettid(void)

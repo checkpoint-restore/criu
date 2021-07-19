@@ -8,15 +8,15 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Open, unlink, change size, migrate, check size";
+const char *test_doc = "Open, unlink, change size, migrate, check size";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fd;
-	size_t fsize=1000;
+	size_t fsize = 1000;
 	uint8_t buf[fsize];
 	struct stat fst;
 
@@ -44,15 +44,15 @@ int main(int argc, char ** argv)
 	}
 
 #ifdef UNLINK_OVER
-{
-	int fdo;
+	{
+		int fdo;
 
-	fdo = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-	if (fdo < 0) {
-		pr_perror("can't open %s", filename);
-		exit(1);
+		fdo = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		if (fdo < 0) {
+			pr_perror("can't open %s", filename);
+			exit(1);
+		}
 	}
-}
 #endif
 
 	memset(buf, '0', sizeof(buf));
@@ -70,15 +70,13 @@ int main(int argc, char ** argv)
 	}
 
 	if (fst.st_size != fsize) {
-		fail("(via fstat): file size changed to %lld",
-			(long long)fst.st_size);
+		fail("(via fstat): file size changed to %lld", (long long)fst.st_size);
 		goto failed;
 	}
 
 	fst.st_size = lseek(fd, 0, SEEK_END);
 	if (fst.st_size != fsize) {
-		fail("(via lseek): file size changed to %lld",
-			(long long)fst.st_size);
+		fail("(via lseek): file size changed to %lld", (long long)fst.st_size);
 		goto failed;
 	}
 

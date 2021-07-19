@@ -15,7 +15,7 @@
 const char *test_doc = "Tests that ptraced thread do not escape from tracing";
 const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
-#define NR_THREADS	2
+#define NR_THREADS 2
 unsigned int nr_threads = NR_THREADS;
 TEST_OPTION(nr_threads, uint, "Number of threads", 0);
 
@@ -30,17 +30,15 @@ static void *thread(void *arg)
 int main(int argc, char **argv)
 {
 	int pid, status, i, stopped;
-#define PT_REGS_SIZE	4096	/* big enough for any arch */
-#define PT_REGS_ALIGN	16	/* big enough for any arch */
+#define PT_REGS_SIZE  4096 /* big enough for any arch */
+#define PT_REGS_ALIGN 16 /* big enough for any arch */
 	char regs[PT_REGS_SIZE] __attribute__((aligned(PT_REGS_ALIGN)));
 
 	int *pids;
 
 	test_init(argc, argv);
 
-	pids = (int *)mmap(NULL, sizeof(int) * nr_threads,
-			PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	pids = (int *)mmap(NULL, sizeof(int) * nr_threads, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (pids == MAP_FAILED) {
 		pr_perror("Can't map");
 		exit(1);
@@ -62,8 +60,8 @@ int main(int argc, char **argv)
 			}
 		}
 		thread(pids + i);
-out_th:
-		for (i--; i >=0; i--) {
+	out_th:
+		for (i--; i >= 0; i--) {
 			pthread_kill(pt[i], SIGKILL);
 			pthread_join(pt[i], NULL);
 		}

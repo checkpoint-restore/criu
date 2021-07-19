@@ -18,8 +18,8 @@
 #define LOCK_READ 64
 #endif
 
-const char *test_doc	= "Check that flock locks are restored";
-const char *test_author	= "Qiang Huang <h.huangqiang@huawei.com>";
+const char *test_doc = "Check that flock locks are restored";
+const char *test_author = "Qiang Huang <h.huangqiang@huawei.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
@@ -78,9 +78,7 @@ static int open_all_files(int *fd_0, int *fd_1, int *fd_2)
 	return 0;
 }
 
-static int check_file_lock(int fd, char *expected_type,
-			   char *expected_option,
-			   unsigned int expected_dev,
+static int check_file_lock(int fd, char *expected_type, char *expected_option, unsigned int expected_dev,
 			   unsigned long expected_ino)
 {
 	char buf[100], fl_flag[16], fl_type[16], fl_option[16];
@@ -90,8 +88,8 @@ static int check_file_lock(int fd, char *expected_type,
 	unsigned long i_no;
 	int maj, min;
 
-	test_msg("check_file_lock: (fsname %s) expecting fd %d type %s option %s dev %u ino %lu\n",
-		 m->fsname, fd, expected_type, expected_option, expected_dev, expected_ino);
+	test_msg("check_file_lock: (fsname %s) expecting fd %d type %s option %s dev %u ino %lu\n", m->fsname, fd,
+		 expected_type, expected_option, expected_dev, expected_ino);
 
 	snprintf(path, sizeof(path), "/proc/self/fdinfo/%d", fd);
 	fp_locks = fopen(path, "r");
@@ -109,9 +107,8 @@ static int check_file_lock(int fd, char *expected_type,
 		memset(fl_type, 0, sizeof(fl_type));
 		memset(fl_option, 0, sizeof(fl_option));
 
-		num = sscanf(buf, "%*s %*d:%s %s %s %d %x:%x:%ld %*d %*s",
-			     fl_flag, fl_type, fl_option, &fl_owner,
-			     &maj, &min, &i_no);
+		num = sscanf(buf, "%*s %*d:%s %s %s %d %x:%x:%ld %*d %*s", fl_flag, fl_type, fl_option, &fl_owner, &maj,
+			     &min, &i_no);
 		if (num < 7) {
 			pr_err("Invalid lock info\n");
 			break;

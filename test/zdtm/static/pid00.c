@@ -4,8 +4,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that p?pid and e?[ug]id didn't change";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that p?pid and e?[ug]id didn't change";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 int setfsuid(uid_t fsuid);
 int setfsgid(uid_t fsgid);
@@ -40,11 +40,12 @@ int main(int argc, char **argv)
 		read(f_p[0], &res, 1);
 		close(f_p[0]);
 
-#define CHECK_ID(__t, __w, __e)	do {			\
-		if (__t##id != w_##__t##__w##id) {	\
-			res = __e;			\
-			goto bad;			\
-		}					\
+#define CHECK_ID(__t, __w, __e)                    \
+	do {                                       \
+		if (__t##id != w_##__t##__w##id) { \
+			res = __e;                 \
+			goto bad;                  \
+		}                                  \
 	} while (0)
 
 		rid = eid = sid = fsid = 0;
@@ -65,7 +66,7 @@ int main(int argc, char **argv)
 		CHECK_ID(fs, g, '8');
 
 		res = '0';
-bad:
+	bad:
 		write(r_p[1], &res, 1);
 		close(r_p[1]);
 		_exit(0);

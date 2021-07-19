@@ -6,10 +6,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check unconnected unix sockets";
-const char *test_author	= "Vagin Andrew <avagin@parallels.com>";
+const char *test_doc = "Check unconnected unix sockets";
+const char *test_author = "Vagin Andrew <avagin@parallels.com>";
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int sk, skc;
 	int ret, len;
@@ -43,7 +43,7 @@ int main(int argc, char ** argv)
 	addr.sun_path[0] = 0;
 	addr.sun_path[len - 1] = 0;
 
-	ret = bind(sk, (struct sockaddr *) &addr, addrlen);
+	ret = bind(sk, (struct sockaddr *)&addr, addrlen);
 	if (ret) {
 		fail("bind");
 		return 1;
@@ -58,7 +58,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	if (connect(skc, (struct sockaddr *) &addr, addrlen) == -1) {
+	if (connect(skc, (struct sockaddr *)&addr, addrlen) == -1) {
 		fail("Unable to connect");
 		return 1;
 	}

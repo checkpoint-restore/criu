@@ -43,7 +43,7 @@ static int send_req(int socket_fd, CriuReq *req)
 		return -1;
 	}
 
-	if (write(socket_fd, buf, len)  == -1) {
+	if (write(socket_fd, buf, len) == -1) {
 		perror("Can't send request");
 		return -1;
 	}
@@ -53,8 +53,8 @@ static int send_req(int socket_fd, CriuReq *req)
 
 int main(int argc, char *argv[])
 {
-	CriuReq req		= CRIU_REQ__INIT;
-	CriuResp *resp		= NULL;
+	CriuReq req = CRIU_REQ__INIT;
+	CriuResp *resp = NULL;
 	int fd, dir_fd;
 	int ret = 0;
 	struct sockaddr_un addr;
@@ -81,11 +81,11 @@ int main(int argc, char *argv[])
 	 * Set "DUMP" type of request.
 	 * Allocate CriuDumpReq.
 	 */
-	req.type			= CRIU_REQ_TYPE__DUMP;
-	req.opts			= malloc(sizeof(CriuOpts));
+	req.type = CRIU_REQ_TYPE__DUMP;
+	req.opts = malloc(sizeof(CriuOpts));
 	if (!req.opts) {
-			perror("Can't allocate memory for dump request");
-			return -1;
+		perror("Can't allocate memory for dump request");
+		return -1;
 	}
 
 	criu_opts__init(req.opts);
@@ -94,11 +94,11 @@ int main(int argc, char *argv[])
 	 * Set dump options.
 	 * Checkout more in protobuf/rpc.proto.
 	 */
-	req.opts->has_leave_running	= true;
-	req.opts->leave_running		= true;
-	req.opts->images_dir_fd		= dir_fd;
-	req.opts->has_log_level		= true;
-	req.opts->log_level		= 4;
+	req.opts->has_leave_running = true;
+	req.opts->leave_running = true;
+	req.opts->images_dir_fd = dir_fd;
+	req.opts->has_log_level = true;
+	req.opts->log_level = 4;
 
 	/*
 	 * Connect to service socket
@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
 
 	addr_len = strlen(addr.sun_path) + sizeof(addr.sun_family);
 
-	ret = connect(fd, (struct sockaddr *) &addr, addr_len);
+	ret = connect(fd, (struct sockaddr *)&addr, addr_len);
 	if (ret == -1) {
 		perror("Cant connect to socket");
 		goto exit;

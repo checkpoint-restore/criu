@@ -18,44 +18,29 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check for inotify delivery";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Check for inotify delivery";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 
-#define TEST_FILE	"inotify-removed"
-#define TEST_LINK	"inotify-hardlink"
+#define TEST_FILE "inotify-removed"
+#define TEST_LINK "inotify-hardlink"
 
 #define BUFF_SIZE ((sizeof(struct inotify_event) + PATH_MAX))
 
 static void decode_event_mask(char *buf, size_t size, unsigned int mask)
 {
 	static const char *names[32] = {
-		[ 0]	= "IN_ACCESS",
-		[ 1]	= "IN_MODIFY",
-		[ 2]	= "IN_ATTRIB",
-		[ 3]	= "IN_CLOSE_WRITE",
-		[ 4]	= "IN_CLOSE_NOWRITE",
-		[ 5]	= "IN_OPEN",
-		[ 6]	= "IN_MOVED_FROM",
-		[ 7]	= "IN_MOVED_TO",
-		[ 8]	= "IN_CREATE",
-		[ 9]	= "IN_DELETE",
-		[10]	= "IN_DELETE_SELF",
-		[11]	= "IN_MOVE_SELF",
+		[0] = "IN_ACCESS",	  [1] = "IN_MODIFY",	   [2] = "IN_ATTRIB",	    [3] = "IN_CLOSE_WRITE",
+		[4] = "IN_CLOSE_NOWRITE", [5] = "IN_OPEN",	   [6] = "IN_MOVED_FROM",   [7] = "IN_MOVED_TO",
+		[8] = "IN_CREATE",	  [9] = "IN_DELETE",	   [10] = "IN_DELETE_SELF", [11] = "IN_MOVE_SELF",
 
-		[13]	= "IN_UNMOUNT",
-		[14]	= "IN_Q_OVERFLOW",
-		[15]	= "IN_IGNORED",
+		[13] = "IN_UNMOUNT",	  [14] = "IN_Q_OVERFLOW",  [15] = "IN_IGNORED",
 
-		[24]	= "IN_ONLYDIR",
-		[25]	= "IN_DONT_FOLLOW",
-		[26]	= "IN_EXCL_UNLINK",
+		[24] = "IN_ONLYDIR",	  [25] = "IN_DONT_FOLLOW", [26] = "IN_EXCL_UNLINK",
 
-		[29]	= "IN_MASK_ADD",
-		[30]	= "IN_ISDIR",
-		[31]	= "IN_ONESHOT",
+		[29] = "IN_MASK_ADD",	  [30] = "IN_ISDIR",	   [31] = "IN_ONESHOT",
 	};
 
 	size_t i, j;
@@ -95,8 +80,7 @@ static int inotify_read_events(char *prefix, int inotify_fd, unsigned int *expec
 
 			event = (void *)(buf + off);
 			decode_event_mask(emask, sizeof(emask), event->mask);
-			test_msg("\t%-16s: event %#10x -> %s\n",
-				 prefix, event->mask, emask);
+			test_msg("\t%-16s: event %#10x -> %s\n", prefix, event->mask, emask);
 			if (expected)
 				*expected &= ~event->mask;
 		}
@@ -107,7 +91,7 @@ out:
 	return ret;
 }
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	unsigned int mask = IN_DELETE | IN_CLOSE_WRITE | IN_DELETE_SELF | IN_CREATE;
 	char test_file_path[PATH_MAX];
@@ -122,51 +106,51 @@ int main (int argc, char *argv[])
 	}
 
 #ifdef INOTIFY01
-{
-	pid_t pid;
-	task_waiter_t t;
-	static char buf[PATH_MAX];
+	{
+		pid_t pid;
+		task_waiter_t t;
+		static char buf[PATH_MAX];
 
-	task_waiter_init(&t);
+		task_waiter_init(&t);
 
-	if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL)) {
-		pr_perror("Unable to remount /");
-		return 1;
-	}
-
-	pid = fork();
-	if (pid < 0) {
-		pr_perror("Can't fork a test process");
-		exit(1);
-	}
-	if (pid == 0) {
-		int fd;
-
-		prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
-		if (unshare(CLONE_NEWNS)) {
-			pr_perror("Unable to unshare mount namespace");
-			exit(1);
+		if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL)) {
+			pr_perror("Unable to remount /");
+			return 1;
 		}
 
-		if (mount("zdtm", dirname, "tmpfs", 0, NULL)) {
-			pr_perror("Unable to mount tmpfs");
+		pid = fork();
+		if (pid < 0) {
+			pr_perror("Can't fork a test process");
 			exit(1);
 		}
-		fd = open(dirname, O_RDONLY);
-		if (fd < 0) {
-			pr_perror("Unable to open %s", dirname);
+		if (pid == 0) {
+			int fd;
+
+			prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
+			if (unshare(CLONE_NEWNS)) {
+				pr_perror("Unable to unshare mount namespace");
+				exit(1);
+			}
+
+			if (mount("zdtm", dirname, "tmpfs", 0, NULL)) {
+				pr_perror("Unable to mount tmpfs");
+				exit(1);
+			}
+			fd = open(dirname, O_RDONLY);
+			if (fd < 0) {
+				pr_perror("Unable to open %s", dirname);
+				exit(1);
+			}
+			dup2(fd, 100);
+			task_waiter_complete_current(&t);
+			while (1)
+				sleep(1000);
 			exit(1);
 		}
-		dup2(fd, 100);
-		task_waiter_complete_current(&t);
-		while (1)
-			sleep(1000);
-		exit(1);
+		task_waiter_wait4(&t, pid);
+		snprintf(buf, sizeof(buf), "/proc/%d/fd/100", pid);
+		dirname = buf;
 	}
-	task_waiter_wait4(&t, pid);
-	snprintf(buf, sizeof(buf), "/proc/%d/fd/100", pid);
-	dirname = buf;
-}
 #endif
 
 	fd = inotify_init1(IN_NONBLOCK);
@@ -210,8 +194,7 @@ int main (int argc, char *argv[])
 	if (emask) {
 		char emask_bits[128];
 		decode_event_mask(emask_bits, sizeof(emask_bits), emask);
-		pr_perror("Unhandled events in emask %#x -> %s",
-		    emask, emask_bits);
+		pr_perror("Unhandled events in emask %#x -> %s", emask, emask_bits);
 		exit(1);
 	}
 #endif
@@ -226,8 +209,7 @@ int main (int argc, char *argv[])
 	if (emask) {
 		char emask_bits[128];
 		decode_event_mask(emask_bits, sizeof(emask_bits), emask);
-		fail("Unhandled events in emask %#x -> %s",
-		    emask, emask_bits);
+		fail("Unhandled events in emask %#x -> %s", emask, emask_bits);
 		return 1;
 	}
 
@@ -244,8 +226,7 @@ int main (int argc, char *argv[])
 	if (emask) {
 		char emask_bits[128];
 		decode_event_mask(emask_bits, sizeof(emask_bits), emask);
-		fail("Unhandled events in emask %#x -> %s",
-		    emask, emask_bits);
+		fail("Unhandled events in emask %#x -> %s", emask, emask_bits);
 		return 1;
 	}
 #endif

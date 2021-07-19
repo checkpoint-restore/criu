@@ -4,8 +4,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that network environment (links, addresses and routes) are preserved";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that network environment (links, addresses and routes) are preserved";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 int main(int argc, char **argv)
 {

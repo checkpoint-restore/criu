@@ -17,8 +17,7 @@ int arch_map_vdso(unsigned long map_at, bool compatible)
 {
 	int vdso_type = compatible ? ARCH_MAP_VDSO_32 : ARCH_MAP_VDSO_64;
 
-	pr_debug("Mapping %s vDSO at %lx\n",
-		compatible ? "compatible" : "native", map_at);
+	pr_debug("Mapping %s vDSO at %lx\n", compatible ? "compatible" : "native", map_at);
 
 	return sys_arch_prctl(vdso_type, map_at);
 }
@@ -49,9 +48,9 @@ int restore_nonsigframe_gpregs(UserX86RegsEntry *r)
 int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 {
 	struct syscall_args32 s = {
-		.nr	= __NR32_set_robust_list,
-		.arg0	= head_ptr,
-		.arg1	= len,
+		.nr = __NR32_set_robust_list,
+		.arg0 = head_ptr,
+		.arg1 = len,
 	};
 
 	return do_full_int80(&s);
@@ -95,18 +94,16 @@ void restore_tls(tls_t *ptls)
 			return;
 
 		memcpy(stack32, desc, sizeof(user_desc_t));
-		asm volatile (
-		"       mov %1,%%eax			\n"
-		"       mov %2,%%ebx			\n"
-		"	int $0x80			\n"
-		"	mov %%eax,%0			\n"
-		: "=g"(ret)
-		: "r"(__NR32_set_thread_area), "r"((uint32_t)(uintptr_t)stack32)
-		: "eax", "ebx", "r8", "r9", "r10", "r11", "memory");
+		asm volatile("       mov %1,%%eax			\n"
+			     "       mov %2,%%ebx			\n"
+			     "	int $0x80			\n"
+			     "	mov %%eax,%0			\n"
+			     : "=g"(ret)
+			     : "r"(__NR32_set_thread_area), "r"((uint32_t)(uintptr_t)stack32)
+			     : "eax", "ebx", "r8", "r9", "r10", "r11", "memory");
 
 		if (ret)
-			pr_err("Failed to restore TLS descriptor %u in GDT: %d\n",
-					desc->entry_number, ret);
+			pr_err("Failed to restore TLS descriptor %u in GDT: %d\n", desc->entry_number, ret);
 	}
 
 	if (stack32)

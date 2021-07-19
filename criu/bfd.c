@@ -16,14 +16,14 @@
 #include "xmalloc.h"
 #include "page.h"
 
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "bfd: "
 
 /*
  * Kernel doesn't produce more than one page of
  * date per one read call on proc files.
  */
-#define BUFSIZE	(PAGE_SIZE)
+#define BUFSIZE (PAGE_SIZE)
 
 struct bfd_buf {
 	char *mem;
@@ -32,7 +32,7 @@ struct bfd_buf {
 
 static LIST_HEAD(bufs);
 
-#define BUFBATCH	(16)
+#define BUFBATCH (16)
 
 static int buf_get(struct xbuf *xb)
 {
@@ -42,8 +42,7 @@ static int buf_get(struct xbuf *xb)
 		void *mem;
 		int i;
 
-		mem = mmap(NULL, BUFBATCH * BUFSIZE, PROT_READ | PROT_WRITE,
-				MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+		mem = mmap(NULL, BUFBATCH * BUFSIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 		if (mem == MAP_FAILED) {
 			pr_perror("No buf");
 			return -1;

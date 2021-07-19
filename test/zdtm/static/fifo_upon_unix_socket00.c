@@ -11,8 +11,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that fifo upon ghost socket configuration is restored";
-const char *test_author	= "Andrey Zhadchenko <andrey.zhadchenko@virtuozzo.com>";
+const char *test_doc = "Check that fifo upon ghost socket configuration is restored";
+const char *test_author = "Andrey Zhadchenko <andrey.zhadchenko@virtuozzo.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "socket name", 1);
@@ -24,8 +24,7 @@ static int fill_sock_name(struct sockaddr_un *name, const char *filename)
 
 	cwd = get_current_dir_name();
 	if (strlen(filename) + strlen(cwd) + 1 >= sizeof(name->sun_path)) {
-		pr_err("Name %s/%s is too long for socket\n",
-			   cwd, filename);
+		pr_err("Name %s/%s is too long for socket\n", cwd, filename);
 		return -1;
 	}
 

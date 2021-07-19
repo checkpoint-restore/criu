@@ -14,18 +14,18 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc="Tests sysv5 msg queues supporting by checkpointing";
-const char *test_author="Stanislav Kinsbursky <skinsbursky@openvz.org>";
+const char *test_doc = "Tests sysv5 msg queues supporting by checkpointing";
+const char *test_author = "Stanislav Kinsbursky <skinsbursky@openvz.org>";
 
 struct msg1 {
 	long mtype;
 	char mtext[30];
 };
 #define TEST_STRING "Test sysv5 msg"
-#define MSG_TYPE 1
+#define MSG_TYPE    1
 
 #define ANOTHER_TEST_STRING "Yet another test sysv5 msg"
-#define ANOTHER_MSG_TYPE 26538
+#define ANOTHER_MSG_TYPE    26538
 
 int main(int argc, char **argv)
 {
@@ -102,8 +102,7 @@ int main(int argc, char **argv)
 		wait(&chret);
 		chret = WEXITSTATUS(chret);
 		if (chret) {
-			fail("Parent: child exited with non-zero code %d (%s)",
-			     chret, strerror(chret));
+			fail("Parent: child exited with non-zero code %d (%s)", chret, strerror(chret));
 			goto out;
 		}
 

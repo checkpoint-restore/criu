@@ -120,10 +120,7 @@ int datachk(const uint8_t *buffer, unsigned length, uint32_t *crc)
 	for (; length-- > 4; buffer++)
 		*crc = crc32_le8(*crc, *buffer);
 
-	read_crc = buffer[0] |
-		buffer[1] << 8  |
-		buffer[2] << 16 |
-		buffer[3] << 24;
+	read_crc = buffer[0] | buffer[1] << 8 | buffer[2] << 16 | buffer[3] << 24;
 	if (read_crc != *crc) {
 		test_msg("Read: %x, Expected: %x\n", read_crc, *crc);
 		return 1;

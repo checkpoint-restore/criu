@@ -13,8 +13,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test unix stream socketpair\n";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
+const char *test_doc = "Test unix stream socketpair\n";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org";
 
 #define SK_DATA "packet"
 

@@ -20,7 +20,7 @@
 #include "log.h"
 #include "common/bug.h"
 
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "cg-prop: "
 
 enum {
@@ -36,14 +36,14 @@ static const char *____criu_global_props____[] = {
 };
 
 cgp_t cgp_global = {
-	.name		= "____criu_global_props____",
-	.nr_props	= ARRAY_SIZE(____criu_global_props____),
-	.props		= ____criu_global_props____,
+	.name = "____criu_global_props____",
+	.nr_props = ARRAY_SIZE(____criu_global_props____),
+	.props = ____criu_global_props____,
 };
 
 typedef struct {
-	struct list_head	list;
-	cgp_t			cgp;
+	struct list_head list;
+	cgp_t cgp;
 } cgp_list_entry_t;
 
 static LIST_HEAD(cgp_list);
@@ -91,9 +91,7 @@ static int cgp_handle_props(cgp_list_entry_t **p, int strategy)
 		if (strcmp(t->cgp.name, s->cgp.name))
 			continue;
 
-		pr_debug("%s \"%s\" controller properties\n",
-			 strategy == CGP_MERGE ?
-			 "Merging" : "Replacing",
+		pr_debug("%s \"%s\" controller properties\n", strategy == CGP_MERGE ? "Merging" : "Replacing",
 			 s->cgp.name);
 
 		if (strategy == CGP_MERGE) {
@@ -258,21 +256,18 @@ static int cgp_parse_stream(char *stream, size_t len)
 		}
 
 		if (!eat_symbols(&stream, &len, ":\n - ", 5, true)) {
-			pr_err("Expected \':\\n - \' sequence controller's %s stream\n",
-			       cgp_entry->cgp.name);
+			pr_err("Expected \':\\n - \' sequence controller's %s stream\n", cgp_entry->cgp.name);
 			goto err_parse;
 		}
 
 		if (!eat_word(&stream, &len, "\"strategy\":", 11, true)) {
-			pr_err("Expected \'strategy:\' keyword in controller's %s stream\n",
-			       cgp_entry->cgp.name);
+			pr_err("Expected \'strategy:\' keyword in controller's %s stream\n", cgp_entry->cgp.name);
 			goto err_parse;
 		}
 
 		p = get_quoted(&stream, &len, true);
 		if (!p) {
-			pr_err("Expected strategy in controller's %s stream\n",
-			       cgp_entry->cgp.name);
+			pr_err("Expected strategy in controller's %s stream\n", cgp_entry->cgp.name);
 			goto err_parse;
 		};
 
@@ -281,8 +276,7 @@ static int cgp_parse_stream(char *stream, size_t len)
 		} else if (!strcmp(p, "replace")) {
 			strategy = CGP_REPLACE;
 		} else {
-			pr_err("Unknown strategy \"%s\" in controller's %s stream\n",
-			       p, cgp_entry->cgp.name);
+			pr_err("Unknown strategy \"%s\" in controller's %s stream\n", p, cgp_entry->cgp.name);
 			xfree(p);
 			goto err_parse;
 		}
@@ -291,34 +285,28 @@ static int cgp_parse_stream(char *stream, size_t len)
 		xfree(p);
 
 		if (!eat_symbols(&stream, &len, "\n - ", 4, true)) {
-			pr_err("Expected \':\\n - \' sequence controller's %s stream\n",
-			       cgp_entry->cgp.name);
+			pr_err("Expected \':\\n - \' sequence controller's %s stream\n", cgp_entry->cgp.name);
 			goto err_parse;
 		}
 
 		if (!eat_word(&stream, &len, "\"properties\":", 13, true)) {
-			pr_err("Expected \"properties:\" keyword in controller's %s stream\n",
-			       cgp_entry->cgp.name);
+			pr_err("Expected \"properties:\" keyword in controller's %s stream\n", cgp_entry->cgp.name);
 			goto err_parse;
 		}
 
 		if (!eat_symbol(&stream, &len, '[', true)) {
-			pr_err("Expected \'[\' sequence controller's %s properties stream\n",
-			       cgp_entry->cgp.name);
+			pr_err("Expected \'[\' sequence controller's %s properties stream\n", cgp_entry->cgp.name);
 			goto err_parse;
 		}
 
 		while ((p = get_quoted(&stream, &len, true))) {
 			if (!p) {
-				pr_err("Expected property name for controller %s\n",
-				       cgp_entry->cgp.name);
+				pr_err("Expected property name for controller %s\n", cgp_entry->cgp.name);
 				goto err_parse;
 			}
 
-			if (xrealloc_safe(&cgp_entry->cgp.props,
-					  (cgp_entry->cgp.nr_props + 1) * sizeof(char *))) {
-				pr_err("Can't allocate property for controller %s\n",
-				       cgp_entry->cgp.name);
+			if (xrealloc_safe(&cgp_entry->cgp.props, (cgp_entry->cgp.nr_props + 1) * sizeof(char *))) {
+				pr_err("Can't allocate property for controller %s\n", cgp_entry->cgp.name);
 				xfree(p);
 				goto err_parse;
 			}
@@ -331,8 +319,7 @@ static int cgp_parse_stream(char *stream, size_t len)
 					stream++, len--;
 					break;
 				}
-				pr_err("Expected ']' in controller's %s stream\n",
-				       cgp_entry->cgp.name);
+				pr_err("Expected ']' in controller's %s stream\n", cgp_entry->cgp.name);
 				goto err_parse;
 			}
 		}
@@ -343,8 +330,7 @@ static int cgp_parse_stream(char *stream, size_t len)
 		}
 
 		if (!eat_symbol(&stream, &len, '\n', true) && len) {
-			pr_err("Expected \'\\n\' symbol in controller's %s stream\n",
-			       cgp_entry->cgp.name);
+			pr_err("Expected \'\\n\' symbol in controller's %s stream\n", cgp_entry->cgp.name);
 			goto err_parse;
 		}
 
@@ -402,96 +388,94 @@ err:
 
 static int cgp_parse_builtins(void)
 {
-	static const char predefined_stream[] =
-		"\"cpu\":\n"
-			" - \"strategy\": \"replace\"\n"
-			" - \"properties\": "
-			"[ "
-				"\"cpu.shares\", "
-				"\"cpu.cfs_period_us\", "
-				"\"cpu.cfs_quota_us\", "
-				"\"cpu.rt_period_us\", "
-				"\"cpu.rt_runtime_us\" "
-			"]\n"
-		/* limit_in_bytes and memsw.limit_in_bytes must be set in this order */
-		"\"memory\":\n"
-			" - \"strategy\": \"replace\"\n"
-			" - \"properties\": "
-			"[ "
-				"\"memory.limit_in_bytes\", "
-				"\"memory.memsw.limit_in_bytes\", "
-				"\"memory.swappiness\", "
-				"\"memory.soft_limit_in_bytes\", "
-				"\"memory.move_charge_at_immigrate\", "
-				"\"memory.oom_control\", "
-				"\"memory.use_hierarchy\", "
-				"\"memory.kmem.limit_in_bytes\", "
-				"\"memory.kmem.tcp.limit_in_bytes\" "
-			"]\n"
-		/*
+	static const char predefined_stream[] = "\"cpu\":\n"
+						" - \"strategy\": \"replace\"\n"
+						" - \"properties\": "
+						"[ "
+						"\"cpu.shares\", "
+						"\"cpu.cfs_period_us\", "
+						"\"cpu.cfs_quota_us\", "
+						"\"cpu.rt_period_us\", "
+						"\"cpu.rt_runtime_us\" "
+						"]\n"
+						/* limit_in_bytes and memsw.limit_in_bytes must be set in this order */
+						"\"memory\":\n"
+						" - \"strategy\": \"replace\"\n"
+						" - \"properties\": "
+						"[ "
+						"\"memory.limit_in_bytes\", "
+						"\"memory.memsw.limit_in_bytes\", "
+						"\"memory.swappiness\", "
+						"\"memory.soft_limit_in_bytes\", "
+						"\"memory.move_charge_at_immigrate\", "
+						"\"memory.oom_control\", "
+						"\"memory.use_hierarchy\", "
+						"\"memory.kmem.limit_in_bytes\", "
+						"\"memory.kmem.tcp.limit_in_bytes\" "
+						"]\n"
+						/*
 		 * cpuset.cpus and cpuset.mems must be set before the process moves
 		 * into its cgroup; they are "initialized" below to whatever the root
 		 * values are in copy_special_cg_props so as not to cause ENOSPC when
 		 * values are restored via this code.
 		 */
-		"\"cpuset\":\n"
-			" - \"strategy\": \"replace\"\n"
-			" - \"properties\": "
-			"[ "
-				"\"cpuset.cpus\", "
-				"\"cpuset.mems\", "
-				"\"cpuset.memory_migrate\", "
-				"\"cpuset.cpu_exclusive\", "
-				"\"cpuset.mem_exclusive\", "
-				"\"cpuset.mem_hardwall\", "
-				"\"cpuset.memory_spread_page\", "
-				"\"cpuset.memory_spread_slab\", "
-				"\"cpuset.sched_load_balance\", "
-				"\"cpuset.sched_relax_domain_level\" "
-			"]\n"
-		"\"blkio\":\n"
-			" - \"strategy\": \"replace\"\n"
-			" - \"properties\": "
-			"[ "
-				"\"blkio.weight\" "
-			"]\n"
-		"\"freezer\":\n"
-			" - \"strategy\": \"replace\"\n"
-			" - \"properties\": "
-			"[ "
-			"]\n"
-		"\"perf_event\":\n"
-			" - \"strategy\": \"replace\"\n"
-			" - \"properties\": "
-			"[ "
-			"]\n"
-		"\"net_cls\":\n"
-			" - \"strategy\": \"replace\"\n"
-			" - \"properties\": "
-			"[ "
-				"\"net_cls.classid\" "
-			"]\n"
-		"\"net_prio\":\n"
-			" - \"strategy\": \"replace\"\n"
-			" - \"properties\": "
-			"[ "
-				"\"net_prio.ifpriomap\" "
-			"]\n"
-		"\"pids\":\n"
-			" - \"strategy\": \"replace\"\n"
-			" - \"properties\": "
-			"[ "
-				"\"pids.max\" "
-			"]\n"
-		"\"devices\":\n"
-			" - \"strategy\": \"replace\"\n"
-			" - \"properties\": "
-			"[ "
-				"\"devices.list\" "
-			"]\n";
+						"\"cpuset\":\n"
+						" - \"strategy\": \"replace\"\n"
+						" - \"properties\": "
+						"[ "
+						"\"cpuset.cpus\", "
+						"\"cpuset.mems\", "
+						"\"cpuset.memory_migrate\", "
+						"\"cpuset.cpu_exclusive\", "
+						"\"cpuset.mem_exclusive\", "
+						"\"cpuset.mem_hardwall\", "
+						"\"cpuset.memory_spread_page\", "
+						"\"cpuset.memory_spread_slab\", "
+						"\"cpuset.sched_load_balance\", "
+						"\"cpuset.sched_relax_domain_level\" "
+						"]\n"
+						"\"blkio\":\n"
+						" - \"strategy\": \"replace\"\n"
+						" - \"properties\": "
+						"[ "
+						"\"blkio.weight\" "
+						"]\n"
+						"\"freezer\":\n"
+						" - \"strategy\": \"replace\"\n"
+						" - \"properties\": "
+						"[ "
+						"]\n"
+						"\"perf_event\":\n"
+						" - \"strategy\": \"replace\"\n"
+						" - \"properties\": "
+						"[ "
+						"]\n"
+						"\"net_cls\":\n"
+						" - \"strategy\": \"replace\"\n"
+						" - \"properties\": "
+						"[ "
+						"\"net_cls.classid\" "
+						"]\n"
+						"\"net_prio\":\n"
+						" - \"strategy\": \"replace\"\n"
+						" - \"properties\": "
+						"[ "
+						"\"net_prio.ifpriomap\" "
+						"]\n"
+						"\"pids\":\n"
+						" - \"strategy\": \"replace\"\n"
+						" - \"properties\": "
+						"[ "
+						"\"pids.max\" "
+						"]\n"
+						"\"devices\":\n"
+						" - \"strategy\": \"replace\"\n"
+						" - \"properties\": "
+						"[ "
+						"\"devices.list\" "
+						"]\n";
 
-	return cgp_parse_stream((void *)predefined_stream,
-				strlen(predefined_stream));
+	return cgp_parse_stream((void *)predefined_stream, strlen(predefined_stream));
 }
 
 int cgp_init(char *stream, size_t len, char *path)

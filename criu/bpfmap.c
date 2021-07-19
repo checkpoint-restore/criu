@@ -19,8 +19,8 @@ int is_bpfmap_link(char *link)
 
 static void pr_info_bpfmap(char *action, BpfmapFileEntry *bpf)
 {
-	pr_info("%sbpfmap: id %#08x map_id %#08x map_type %d flags %"PRIx32"\n",
-		action, bpf->id, bpf->map_id, bpf->map_type, bpf->map_flags);
+	pr_info("%sbpfmap: id %#08x map_id %#08x map_type %d flags %" PRIx32 "\n", action, bpf->id, bpf->map_id,
+		bpf->map_type, bpf->map_flags);
 }
 
 struct bpfmap_data_rst *bpfmap_data_hash_table[BPFMAP_DATA_TABLE_SIZE];
@@ -31,8 +31,7 @@ static int bpfmap_data_read(struct cr_img *img, struct bpfmap_data_rst *r)
 	if (!bytes)
 		return 0;
 
-	r->data = mmap(NULL, bytes, PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	r->data = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (r->data == MAP_FAILED) {
 		pr_perror("Can't map mem for bpfmap buffers");
 		return -1;
@@ -41,8 +40,8 @@ static int bpfmap_data_read(struct cr_img *img, struct bpfmap_data_rst *r)
 	return read_img_buf(img, r->data, bytes);
 }
 
-int do_collect_bpfmap_data(struct bpfmap_data_rst *r, ProtobufCMessage *msg,
-		struct cr_img *img, struct bpfmap_data_rst **bpf_hash_table)
+int do_collect_bpfmap_data(struct bpfmap_data_rst *r, ProtobufCMessage *msg, struct cr_img *img,
+			   struct bpfmap_data_rst **bpf_hash_table)
 {
 	int ret;
 	int table_index;
@@ -67,14 +66,9 @@ int restore_bpfmap_data(int map_fd, uint32_t map_id, struct bpfmap_data_rst **bp
 	void *keys = NULL;
 	void *values = NULL;
 	unsigned int count;
-	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts,
-		.elem_flags = 0,
-		.flags = 0,
-	);
+	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts, .elem_flags = 0, .flags = 0, );
 
-	for (map_data = bpf_hash_table[map_id & BPFMAP_DATA_HASH_MASK]; map_data != NULL;
-		map_data = map_data->next) {
-
+	for (map_data = bpf_hash_table[map_id & BPFMAP_DATA_HASH_MASK]; map_data != NULL; map_data = map_data->next) {
 		if (map_data->bde->map_id == map_id)
 			break;
 	}
@@ -87,16 +81,14 @@ int restore_bpfmap_data(int map_fd, uint32_t map_id, struct bpfmap_data_rst **bp
 	bde = map_data->bde;
 	count = bde->count;
 
-	keys = mmap(NULL, bde->keys_bytes, PROT_READ | PROT_WRITE,
-				MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	keys = mmap(NULL, bde->keys_bytes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (keys == MAP_FAILED) {
 		pr_perror("Can't map memory for BPF map keys");
 		goto err;
 	}
 	memcpy(keys, map_data->data, bde->keys_bytes);
 
-	values = mmap(NULL, bde->values_bytes, PROT_READ | PROT_WRITE,
-				MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	values = mmap(NULL, bde->values_bytes, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (values == MAP_FAILED) {
 		pr_perror("Can't map memory for BPF map values");
 		goto err;
@@ -157,10 +149,7 @@ int dump_one_bpfmap_data(BpfmapFileEntry *bpf, int lfd, const struct fd_parms *p
 	void *keys = NULL, *values = NULL;
 	void *in_batch = NULL, *out_batch = NULL;
 	BpfmapDataEntry bde = BPFMAP_DATA_ENTRY__INIT;
-	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts,
-		.elem_flags = 0,
-		.flags = 0,
-	);
+	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts, .elem_flags = 0, .flags = 0, );
 	int ret;
 
 	key_size = bpf->key_size;
@@ -168,22 +157,19 @@ int dump_one_bpfmap_data(BpfmapFileEntry *bpf, int lfd, const struct fd_parms *p
 	max_entries = bpf->max_entries;
 	count = max_entries;
 
-	keys = mmap(NULL, key_size * max_entries, PROT_READ | PROT_WRITE,
-				MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	keys = mmap(NULL, key_size * max_entries, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (keys == MAP_FAILED) {
 		pr_perror("Can't map memory for BPF map keys");
 		goto err;
 	}
 
-	values = mmap(NULL, value_size * max_entries, PROT_READ | PROT_WRITE,
-				MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	values = mmap(NULL, value_size * max_entries, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (values == MAP_FAILED) {
 		pr_perror("Can't map memory for BPF map values");
 		goto err;
 	}
 
-	out_batch = mmap(NULL, key_size, PROT_READ | PROT_WRITE,
-				MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	out_batch = mmap(NULL, key_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (out_batch == MAP_FAILED) {
 		pr_perror("Can't map memory for BPF map out_batch");
 		goto err;
@@ -244,38 +230,36 @@ static int dump_one_bpfmap(int lfd, u32 id, const struct fd_parms *p)
 	}
 
 	switch (bpf.map_type) {
+	case BPF_MAP_TYPE_HASH:
+	case BPF_MAP_TYPE_ARRAY:
+		bpf.id = id;
+		bpf.flags = p->flags;
+		bpf.fown = (FownEntry *)&p->fown;
+		bpf.map_name = xstrdup(map_info.name);
+		bpf.ifindex = map_info.ifindex;
 
-		case BPF_MAP_TYPE_HASH:
-		case BPF_MAP_TYPE_ARRAY:
-			bpf.id = id;
-			bpf.flags = p->flags;
-			bpf.fown = (FownEntry *)&p->fown;
-			bpf.map_name = xstrdup(map_info.name);
-			bpf.ifindex = map_info.ifindex;
+		fe.type = FD_TYPES__BPFMAP;
+		fe.id = bpf.id;
+		fe.bpf = &bpf;
 
-			fe.type = FD_TYPES__BPFMAP;
-			fe.id = bpf.id;
-			fe.bpf = &bpf;
+		pr_info_bpfmap("Dumping ", &bpf);
+		if (pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE))
+			return -1;
+		pr_info_bpfmap("Dumping data for ", &bpf);
+		ret = dump_one_bpfmap_data(&bpf, lfd, p);
+		break;
 
-			pr_info_bpfmap("Dumping ", &bpf);
-			if (pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE))
-				return -1;
-			pr_info_bpfmap("Dumping data for ", &bpf);
-			ret = dump_one_bpfmap_data(&bpf, lfd, p);
-			break;
-
-		default:
-			pr_err("CRIU does not currently support dumping BPF map type %u!\n", bpf.map_type);
-			ret = -1;
+	default:
+		pr_err("CRIU does not currently support dumping BPF map type %u!\n", bpf.map_type);
+		ret = -1;
 	}
 
 	return ret;
-
 }
 
 const struct fdtype_ops bpfmap_dump_ops = {
-	.type		= FD_TYPES__BPFMAP,
-	.dump		= dump_one_bpfmap,
+	.type = FD_TYPES__BPFMAP,
+	.dump = dump_one_bpfmap,
 };
 
 static int bpfmap_open(struct file_desc *d, int *new_fd)

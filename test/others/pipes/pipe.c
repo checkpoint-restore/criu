@@ -62,36 +62,37 @@ typedef void (*sighandler_t)(int);
 typedef unsigned long ulong;
 
 /* colors */
-#define CS_PARENT 		"\033[00;32m"
-#define CS_CHILD 		"\033[00;33m"
-#define CS_DUMP 		"\033[00;34m"
-#define CS_RESTORE 		"\033[00;35m"
-#define CE			"\033[0m"
+#define CS_PARENT  "\033[00;32m"
+#define CS_CHILD   "\033[00;33m"
+#define CS_DUMP	   "\033[00;34m"
+#define CS_RESTORE "\033[00;35m"
+#define CE	   "\033[0m"
 
-#define die(fmt, ...) do { \
-	if (!qflag) \
-		fprintf(stderr, fmt ": %m\n", __VA_ARGS__); \
-	if (getpid() == parent_pid) { \
-		(void)kill(0, 9); \
-		exit(1); \
-	} \
-	_exit(1); \
-} while (0)
+#define die(fmt, ...)                                               \
+	do {                                                        \
+		if (!qflag)                                         \
+			fprintf(stderr, fmt ": %m\n", __VA_ARGS__); \
+		if (getpid() == parent_pid) {                       \
+			(void)kill(0, 9);                           \
+			exit(1);                                    \
+		}                                                   \
+		_exit(1);                                           \
+	} while (0)
 
-#define READ_FD		0	/* pipe read fd */
-#define WRITE_FD	1	/* pipe write fd */
-#define CLASH_FD	3	/* force inherit fd clash */
+#define READ_FD	 0 /* pipe read fd */
+#define WRITE_FD 1 /* pipe write fd */
+#define CLASH_FD 3 /* force inherit fd clash */
 
-#define MAX_FORKS	3	/* child, checkpoint, restore */
+#define MAX_FORKS 3 /* child, checkpoint, restore */
 
-#define CRIU_BINARY		"../../../criu/criu"
-#define IMG_DIR			"images"
-#define DUMP_LOG_FILE		"dump.log"
-#define RESTORE_LOG_FILE	"restore.log"
-#define RESTORE_PID_FILE	"restore.pid"
-#define INHERIT_FD_OPTION	"--inherit-fd"
-#define OLD_LOG_FILE		"/tmp/oldlog"
-#define NEW_LOG_FILE		"/tmp/newlog"
+#define CRIU_BINARY	  "../../../criu/criu"
+#define IMG_DIR		  "images"
+#define DUMP_LOG_FILE	  "dump.log"
+#define RESTORE_LOG_FILE  "restore.log"
+#define RESTORE_PID_FILE  "restore.pid"
+#define INHERIT_FD_OPTION "--inherit-fd"
+#define OLD_LOG_FILE	  "/tmp/oldlog"
+#define NEW_LOG_FILE	  "/tmp/newlog"
 
 /*
  * Command line options (see usage()).
@@ -113,21 +114,11 @@ char inh_pipe_arg[64];
 char inh_file_opt[16];
 char inh_file_arg[64];
 
-char *dump_argv[] = {
-	"criu", "dump",
-	"-D", IMG_DIR, "-o", DUMP_LOG_FILE,
-	"-v4",
-	"-t", pid_number,
-	NULL
-};
+char *dump_argv[] = { "criu", "dump", "-D", IMG_DIR, "-o", DUMP_LOG_FILE, "-v4", "-t", pid_number, NULL };
 
 char *restore_argv[] = {
-	"criu", "restore", "-d",
-	"-D", IMG_DIR, "-o", RESTORE_LOG_FILE,
-	"--pidfile", RESTORE_PID_FILE,
-	"-v4",
-	inh_pipe_opt, inh_pipe_arg,
-	inh_file_opt, inh_file_arg,
+	"criu",	     "restore",	       "-d",  "-D",	    IMG_DIR,	  "-o",		RESTORE_LOG_FILE,
+	"--pidfile", RESTORE_PID_FILE, "-v4", inh_pipe_opt, inh_pipe_arg, inh_file_opt, inh_file_arg,
 	NULL
 };
 
@@ -167,11 +158,9 @@ int dup2_safe(int oldfd, int newfd);
 void usage(char *cmd)
 {
 	printf("Usage: %s [%s]\n", cmd, cli_flags);
-	printf("-c\tcause a clash during restore by opening %s as fd %d\n",
-		OLD_LOG_FILE, CLASH_FD);
+	printf("-c\tcause a clash during restore by opening %s as fd %d\n", OLD_LOG_FILE, CLASH_FD);
 	printf("-d\tdup the pipe and write to it\n");
-	printf("-l\tchange log file from %s to %s during restore\n",
-		OLD_LOG_FILE, NEW_LOG_FILE);
+	printf("-l\tchange log file from %s to %s during restore\n", OLD_LOG_FILE, NEW_LOG_FILE);
 
 	printf("\n");
 	printf("The following flags should cause restore failure\n");
@@ -184,28 +173,51 @@ void usage(char *cmd)
 	printf("-h\tprint this help and exit\n");
 	printf("-q\tquiet mode, don't print anything\n");
 	printf("-v\tverbose mode (list contents of /proc/<pid>/fd)\n");
-
 }
 
 int main(int argc, char *argv[])
 {
 	int ret;
-        int opt;
+	int opt;
 	int pipefd[2];
 
 	max_msgs = 4;
 	while ((opt = getopt(argc, argv, cli_flags)) != -1) {
 		switch (opt) {
-		case 'c': cflag++; break;
-		case 'd': dflag++; max_msgs += 4; break;
-		case 'h': usage(argv[0]); return 0;
-		case 'l': lflag++; break;
-		case 'n': nflag++; break;
-		case 'o': oflag++; max_msgs += 4; break;
-		case 'q': qflag++; vflag = 0;break;
-		case 'r': rflag++; break;
-		case 'v': vflag++; qflag = 0; break;
-		default: usage(argv[0]); return 1;
+		case 'c':
+			cflag++;
+			break;
+		case 'd':
+			dflag++;
+			max_msgs += 4;
+			break;
+		case 'h':
+			usage(argv[0]);
+			return 0;
+		case 'l':
+			lflag++;
+			break;
+		case 'n':
+			nflag++;
+			break;
+		case 'o':
+			oflag++;
+			max_msgs += 4;
+			break;
+		case 'q':
+			qflag++;
+			vflag = 0;
+			break;
+		case 'r':
+			rflag++;
+			break;
+		case 'v':
+			vflag++;
+			qflag = 0;
+			break;
+		default:
+			usage(argv[0]);
+			return 1;
 		}
 	}
 
@@ -287,8 +299,7 @@ int parent(int *pipefd)
 			ls_proc_fd(-1);
 
 		if (!qflag) {
-			printf("%s read %s from %s\n", who(0), buf,
-				pipe_name(pipefd[READ_FD]));
+			printf("%s read %s from %s\n", who(0), buf, pipe_name(pipefd[READ_FD]));
 		}
 
 		if (nread == (max_msgs / 2)) {
@@ -296,8 +307,7 @@ int parent(int *pipefd)
 
 			if (!nflag) {
 				/* save the old pipe's name before closing it */
-				snprintf(old_pipe, sizeof old_pipe, "%s",
-					pipe_name(pipefd[READ_FD]));
+				snprintf(old_pipe, sizeof old_pipe, "%s", pipe_name(pipefd[READ_FD]));
 				close_safe(pipefd[READ_FD]);
 
 				/* create a new one */
@@ -340,14 +350,20 @@ int child(int *pipefd, int dupfd, int openfd)
 			ls_proc_fd(-1);
 
 		switch (i % num_wfds) {
-		case 0: fd = pipefd[WRITE_FD]; break;
-		case 1: fd = dflag ? dupfd : openfd; break;
-		case 2: fd = openfd; break;
+		case 0:
+			fd = pipefd[WRITE_FD];
+			break;
+		case 1:
+			fd = dflag ? dupfd : openfd;
+			break;
+		case 2:
+			fd = openfd;
+			break;
 		}
 
-		write_to_fd(fd, pipe_name(pipefd[WRITE_FD]), i+1, 0);
+		write_to_fd(fd, pipe_name(pipefd[WRITE_FD]), i + 1, 0);
 		if (cflag)
-			write_to_fd(CLASH_FD, "log file", i+1, 1);
+			write_to_fd(CLASH_FD, "log file", i + 1, 1);
 
 		/*
 		 * Since sleep will be interrupted by C/R, make sure
@@ -376,8 +392,7 @@ void chld_handler(int signum)
 		status = WEXITSTATUS(status);
 	if (pid == child_pid) {
 		if (!qflag) {
-			printf("%s %s exited with status %d\n", who(0),
-				who(pid), status);
+			printf("%s %s exited with status %d\n", who(0), who(pid), status);
 		}
 		/* if child exited successfully, we're done */
 		if (status == 0)
@@ -402,8 +417,7 @@ void checkpoint_child(int child_pid, int *pipefd)
 		if (WIFEXITED(status))
 			status = WEXITSTATUS(status);
 		if (!qflag) {
-			printf("%s %s exited with status %d\n", who(0),
-				who(pid), status);
+			printf("%s %s exited with status %d\n", who(0), who(pid), status);
 		}
 		if (status)
 			exit(status);
@@ -430,8 +444,7 @@ void restore_child(int *new_pipefd, char *old_pipe_name)
 		if (WIFEXITED(status))
 			status = WEXITSTATUS(status);
 		if (!qflag) {
-			printf("%s %s exited with status %d\n", who(0),
-				who(pid), status);
+			printf("%s %s exited with status %d\n", who(0), who(pid), status);
 		}
 		if (status)
 			exit(status);
@@ -457,20 +470,16 @@ void restore_child(int *new_pipefd, char *old_pipe_name)
 			}
 
 			/* --inherit-fd fd[CLASH_FD]:pipe[xxxxxx] */
-			snprintf(inh_pipe_opt, sizeof inh_pipe_opt,
-				"%s", INHERIT_FD_OPTION);
-			snprintf(inh_pipe_arg, sizeof inh_pipe_arg, "fd[%d]:%s",
-				CLASH_FD, old_pipe_name);
+			snprintf(inh_pipe_opt, sizeof inh_pipe_opt, "%s", INHERIT_FD_OPTION);
+			snprintf(inh_pipe_arg, sizeof inh_pipe_arg, "fd[%d]:%s", CLASH_FD, old_pipe_name);
 
 			if (lflag) {
 				/* create a new log file to replace the old one */
 				int filefd = open_safe(NEW_LOG_FILE, O_WRONLY | O_APPEND | O_CREAT);
 
 				/* --inherit-fd fd[x]:tmp/oldlog */
-				snprintf(inh_file_opt, sizeof inh_file_opt,
-					"%s", INHERIT_FD_OPTION);
-				snprintf(inh_file_arg, sizeof inh_file_arg,
-					"fd[%d]:%s", filefd, OLD_LOG_FILE + 1);
+				snprintf(inh_file_opt, sizeof inh_file_opt, "%s", INHERIT_FD_OPTION);
+				snprintf(inh_file_arg, sizeof inh_file_arg, "fd[%d]:%s", filefd, OLD_LOG_FILE + 1);
 
 				restore_argv[12] = inh_file_opt;
 			} else
@@ -488,7 +497,7 @@ void restore_child(int *new_pipefd, char *old_pipe_name)
 void write_to_fd(int fd, char *name, int i, int newline)
 {
 	int n;
-	char buf[16];	/* fit "hello d\n" for small d */
+	char buf[16]; /* fit "hello d\n" for small d */
 
 	n = snprintf(buf, sizeof buf, "hello %d", i);
 	if (!qflag)
@@ -601,8 +610,7 @@ void close_safe(int fd)
 void write_safe(int fd, char *buf, int count)
 {
 	if (write(fd, buf, count) != count) {
-		die("write: fd=%d buf=\"%s\" count=%d errno=%d",
-			fd, buf, count, errno);
+		die("write: fd=%d buf=\"%s\" count=%d errno=%d", fd, buf, count, errno);
 	}
 }
 

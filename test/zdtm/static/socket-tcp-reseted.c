@@ -2,19 +2,19 @@
 #include "zdtmtst.h"
 #include <string.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
+#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <signal.h>
 
 #ifdef ZDTM_IPV4V6
-#define ZDTM_FAMILY AF_INET
+#define ZDTM_FAMILY	AF_INET
 #define ZDTM_SRV_FAMILY AF_INET6
 #elif defined(ZDTM_IPV6)
-#define ZDTM_FAMILY AF_INET6
+#define ZDTM_FAMILY	AF_INET6
 #define ZDTM_SRV_FAMILY AF_INET6
 #else
-#define ZDTM_FAMILY AF_INET
+#define ZDTM_FAMILY	AF_INET
 #define ZDTM_SRV_FAMILY AF_INET
 #endif
 
@@ -46,11 +46,10 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-
 	clt = tcp_init_client(ZDTM_FAMILY, "localhost", port);
 	if (clt < 0) {
 		pr_perror("Unable to create a client socket");
-	        return 1;
+		return 1;
 	}
 
 	/*
@@ -65,7 +64,8 @@ int main(int argc, char **argv)
 		pr_perror("Unable to write into a socket");
 		return 1;
 	}
-	snprintf(cmd, sizeof(cmd), "iptables -w -t filter --protocol tcp -A INPUT --dport %d -j REJECT --reject-with tcp-reset", port);
+	snprintf(cmd, sizeof(cmd),
+		 "iptables -w -t filter --protocol tcp -A INPUT --dport %d -j REJECT --reject-with tcp-reset", port);
 	if (system(cmd))
 		return 1;
 
@@ -74,7 +74,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	snprintf(cmd, sizeof(cmd), "iptables -w -t filter --protocol tcp -D INPUT --dport %d -j REJECT --reject-with tcp-reset", port);
+	snprintf(cmd, sizeof(cmd),
+		 "iptables -w -t filter --protocol tcp -D INPUT --dport %d -j REJECT --reject-with tcp-reset", port);
 	if (system(cmd))
 		return 1;
 

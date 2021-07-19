@@ -46,11 +46,9 @@ err:
 	return ret;
 }
 
-#define plugin_init_count(size)	((size) / (sizeof(plugin_init_t *)))
+#define plugin_init_count(size) ((size) / (sizeof(plugin_init_t *)))
 
-int __export_std_compel_start(struct prologue_init_args *args,
-			      const plugin_init_t * const *init_array,
-			      size_t init_size)
+int __export_std_compel_start(struct prologue_init_args *args, const plugin_init_t *const *init_array, size_t init_size)
 {
 	unsigned int i;
 	int ret = 0;

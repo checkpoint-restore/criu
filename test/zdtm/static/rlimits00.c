@@ -5,8 +5,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that rlimits are saved";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that rlimits are saved";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 int main(int argc, char **argv)
 {
@@ -21,8 +21,7 @@ int main(int argc, char **argv)
 			goto out;
 		}
 
-		if (rlims[r].rlim_cur > 1 &&
-				rlims[r].rlim_cur != RLIM_INFINITY) {
+		if (rlims[r].rlim_cur > 1 && rlims[r].rlim_cur != RLIM_INFINITY) {
 			rlims[r].rlim_cur--;
 
 			if (setrlimit(r, &rlims[r])) {
@@ -63,4 +62,3 @@ int main(int argc, char **argv)
 out:
 	return 0;
 }
-

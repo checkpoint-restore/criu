@@ -13,8 +13,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that cow memory are restored";
-const char *test_author	= "Andrey Vagin <avagin@parallels.com";
+const char *test_doc = "Check that cow memory are restored";
+const char *test_author = "Andrey Vagin <avagin@parallels.com";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
@@ -22,20 +22,19 @@ TEST_OPTION(filename, string, "file name", 1);
 struct test_case {
 	union {
 		struct {
-			uint8_t b_f_write:1;		/* before fork */
-			uint8_t b_f_read:1;
-			uint8_t a_f_write_child:1;	/* after fork */
-			uint8_t a_f_write_parent:1;
-			uint8_t a_f_read_child:1;
-			uint8_t a_f_read_parent:1;
-#define			TEST_CASES (2 << 6)
+			uint8_t b_f_write : 1; /* before fork */
+			uint8_t b_f_read : 1;
+			uint8_t a_f_write_child : 1; /* after fork */
+			uint8_t a_f_write_parent : 1;
+			uint8_t a_f_read_child : 1;
+			uint8_t a_f_read_parent : 1;
+#define TEST_CASES (2 << 6)
 		};
 		uint8_t num;
 	};
 
 	uint32_t crc_parent;
 	uint32_t crc_child;
-
 };
 
 struct test_cases {
@@ -57,27 +56,28 @@ static pid_t child_pid;
  * file, etc.).  A return code of 1 means failure, it means criu was not able
  * to checkpoint and/or restore the process properly.
  */
-#define EXECUTE_ACTION(func, fd) ({	\
-	int __ret = 0;			\
-	__ret |= func(&sep_tcs, fd);	\
-	__ret |= func(&cow_tcs, fd);	\
-	__ret |= func(&cow_gd_tcs, fd);	\
-	__ret |= func(&file_tcs, fd);	\
-	__ret;				\
-})
+#define EXECUTE_ACTION(func, fd)                \
+	({                                      \
+		int __ret = 0;                  \
+		__ret |= func(&sep_tcs, fd);    \
+		__ret |= func(&cow_tcs, fd);    \
+		__ret |= func(&cow_gd_tcs, fd); \
+		__ret |= func(&file_tcs, fd);   \
+		__ret;                          \
+	})
 
-struct test_cases cow_tcs = {.init = init_cow, .tname = "cow_tcs"},
-		  sep_tcs = {.init = init_sep, .tname = "sep_tcs"},
-		  file_tcs = {.init = init_file, .tname = "file_tcs"},
-		  cow_gd_tcs = {.init = init_cow_gd, .tname = "cow_gd_tcs"};
+struct test_cases cow_tcs = { .init = init_cow, .tname = "cow_tcs" },
+		  sep_tcs = { .init = init_sep, .tname = "sep_tcs" },
+		  file_tcs = { .init = init_file, .tname = "file_tcs" },
+		  cow_gd_tcs = { .init = init_cow_gd, .tname = "cow_gd_tcs" };
 
 uint32_t zero_crc = ~1;
 
-static int is_cow(void *addr, pid_t pid_child, pid_t pid_parent,
-		  uint64_t *map_child_ret, uint64_t *map_parent_ret, int fd)
+static int is_cow(void *addr, pid_t pid_child, pid_t pid_parent, uint64_t *map_child_ret, uint64_t *map_parent_ret,
+		  int fd)
 {
 	char buf[PATH_MAX];
-	unsigned long pfn = (unsigned long) addr / PAGE_SIZE;
+	unsigned long pfn = (unsigned long)addr / PAGE_SIZE;
 	uint64_t map_child, map_parent;
 	int fd_child, fd_parent, ret, i;
 	off_t lseek_ret;
@@ -104,30 +104,26 @@ static int is_cow(void *addr, pid_t pid_child, pid_t pid_parent,
 		void **p = addr;
 
 		lseek_ret = lseek(fd_child, pfn * sizeof(map_child), SEEK_SET);
-		if (lseek_ret == (off_t) -1) {
-			pr_perror("Unable to seek child pagemap to virtual addr %#08lx",
-			    pfn * PAGE_SIZE);
+		if (lseek_ret == (off_t)-1) {
+			pr_perror("Unable to seek child pagemap to virtual addr %#08lx", pfn * PAGE_SIZE);
 			return -1;
 		}
 
 		lseek_ret = lseek(fd_parent, pfn * sizeof(map_parent), SEEK_SET);
-		if (lseek_ret == (off_t) -1) {
-			pr_perror("Unable to seek parent pagemap to virtual addr %#08lx",
-			    pfn * PAGE_SIZE);
+		if (lseek_ret == (off_t)-1) {
+			pr_perror("Unable to seek parent pagemap to virtual addr %#08lx", pfn * PAGE_SIZE);
 			return -1;
 		}
 
 		ret = read(fd_child, &map_child, sizeof(map_child));
 		if (ret != sizeof(map_child)) {
-			pr_perror("Unable to read child pagemap at virtual addr %#08lx",
-			    pfn * PAGE_SIZE);
+			pr_perror("Unable to read child pagemap at virtual addr %#08lx", pfn * PAGE_SIZE);
 			return -1;
 		}
 
 		ret = read(fd_parent, &map_parent, sizeof(map_parent));
 		if (ret != sizeof(map_parent)) {
-			pr_perror("Unable to read parent pagemap at virtual addr %#08lx",
-			    pfn * PAGE_SIZE);
+			pr_perror("Unable to read parent pagemap at virtual addr %#08lx", pfn * PAGE_SIZE);
 			return -1;
 		}
 
@@ -192,8 +188,8 @@ static int child_check(struct test_cases *test_cases, int fd)
 		datasum(addr + i * PAGE_SIZE, PAGE_SIZE, &crc);
 		if (crc != tc->crc_child) {
 			errno = 0;
-			fail("%s[%#x]: %p child data mismatch (expected [%04x] got [%04x])",
-			     test_cases->tname, i, addr + i * PAGE_SIZE, tc->crc_child, crc);
+			fail("%s[%#x]: %p child data mismatch (expected [%04x] got [%04x])", test_cases->tname, i,
+			     addr + i * PAGE_SIZE, tc->crc_child, crc);
 			ret |= 1;
 		}
 	}
@@ -266,29 +262,25 @@ static int parent_check(struct test_cases *test_cases, int fd)
 		datasum(addr + i * PAGE_SIZE, PAGE_SIZE, &crc);
 		if (crc != tc->crc_parent) {
 			errno = 0;
-			fail("%s[%#x]: %p parent data mismatch (expected [%04x] got [%04x])",
-			     test_cases->tname, i, addr + i * PAGE_SIZE, tc->crc_parent, crc);
+			fail("%s[%#x]: %p parent data mismatch (expected [%04x] got [%04x])", test_cases->tname, i,
+			     addr + i * PAGE_SIZE, tc->crc_parent, crc);
 			ret |= 1;
 		}
 
 		if (test_cases == &sep_tcs)
 			continue;
 
-		if (!tc->a_f_write_child &&
-		    !tc->a_f_write_parent &&
-		     tc->b_f_write) {
+		if (!tc->a_f_write_child && !tc->a_f_write_parent && tc->b_f_write) {
 			uint64_t map_child, map_parent;
 			int is_cow_ret;
 
-			is_cow_ret = is_cow(addr + i * PAGE_SIZE, child_pid, getpid(),
-					    &map_child, &map_parent, fd);
+			is_cow_ret = is_cow(addr + i * PAGE_SIZE, child_pid, getpid(), &map_child, &map_parent, fd);
 			ret |= is_cow_ret;
 			if (is_cow_ret == 1) {
 				errno = 0;
 				fail("%s[%#x]: %p is not COW-ed (pagemap of "
-				     "child=[%"PRIx64"], parent=[%"PRIx64"])",
-				     test_cases->tname, i, addr + i * PAGE_SIZE,
-				     map_child, map_parent);
+				     "child=[%" PRIx64 "], parent=[%" PRIx64 "])",
+				     test_cases->tname, i, addr + i * PAGE_SIZE, map_child, map_parent);
 			}
 		}
 	}
@@ -301,9 +293,7 @@ static int __init_cow(struct test_cases *tcs, int flags)
 	int i;
 	void *addr;
 
-	addr = mmap(NULL, PAGE_SIZE * (TEST_CASES + 2),
-				PROT_READ | PROT_WRITE,
-				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	addr = mmap(NULL, PAGE_SIZE * (TEST_CASES + 2), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (addr == MAP_FAILED) {
 		pr_perror("Can't allocate memory");
 		return -1;
@@ -314,12 +304,11 @@ static int __init_cow(struct test_cases *tcs, int flags)
 	 * In parent cow-ed and coinciding regions can be merged, but
 	 * in child they cannot be, so COW will not be restored. FIXME
 	 */
-	mmap(addr, PAGE_SIZE, PROT_NONE,
-			MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+	mmap(addr, PAGE_SIZE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 	addr += PAGE_SIZE;
 	tcs->addr = addr;
-	mmap(addr + PAGE_SIZE * TEST_CASES, PAGE_SIZE, PROT_NONE,
-			MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | flags, -1, 0);
+	mmap(addr + PAGE_SIZE * TEST_CASES, PAGE_SIZE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | flags, -1,
+	     0);
 
 	test_msg("addr[%s]=%p\n", tcs->tname, tcs->addr);
 	for (i = 0; i < TEST_CASES; i++) {
@@ -345,9 +334,7 @@ static int init_sep(struct test_cases *tcs)
 {
 	int i;
 
-	tcs->addr = mmap(NULL, PAGE_SIZE * TEST_CASES,
-				PROT_READ | PROT_WRITE,
-				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	tcs->addr = mmap(NULL, PAGE_SIZE * TEST_CASES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (tcs->addr == MAP_FAILED) {
 		pr_perror("Can't allocate memory");
 		return -1;
@@ -389,9 +376,7 @@ static int init_file(struct test_cases *tcs)
 		tc->crc_child = crc;
 	}
 
-	tcs->addr = mmap(NULL, PAGE_SIZE * TEST_CASES,
-				PROT_READ | PROT_WRITE,
-				MAP_PRIVATE | MAP_FILE, fd, 0);
+	tcs->addr = mmap(NULL, PAGE_SIZE * TEST_CASES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FILE, fd, 0);
 	if (tcs->addr == MAP_FAILED) {
 		pr_perror("Can't allocate memory");
 		return -1;
@@ -407,9 +392,8 @@ static int child(task_waiter_t *child_waiter, int fd)
 {
 	int ret = 0;
 
-	sep_tcs.addr = mmap(sep_tcs.addr, PAGE_SIZE * TEST_CASES,
-				PROT_READ | PROT_WRITE,
-				MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+	sep_tcs.addr = mmap(sep_tcs.addr, PAGE_SIZE * TEST_CASES, PROT_READ | PROT_WRITE,
+			    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 	if (sep_tcs.addr == MAP_FAILED) {
 		pr_perror("Can't allocate memory");
 		return -1;
@@ -445,7 +429,7 @@ static int child(task_waiter_t *child_waiter, int fd)
 	return (ret < 0) ? 2 : (ret != 0);
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	uint8_t zero_page[PAGE_SIZE];
 	int status = -1, ret = 0;

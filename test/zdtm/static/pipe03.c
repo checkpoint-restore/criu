@@ -5,11 +5,11 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that pipes with a non-default size can be c/r-ed";
-const char *test_author	= "Andrei Vagin <avagin@gmail.com>";
+const char *test_doc = "Check that pipes with a non-default size can be c/r-ed";
+const char *test_author = "Andrei Vagin <avagin@gmail.com>";
 
 #define DATA_SIZE (1 << 20)
-#define BUF_SIZE (4096)
+#define BUF_SIZE  (4096)
 
 int main(int argc, char **argv)
 {

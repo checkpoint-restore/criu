@@ -10,11 +10,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Create a crazy process tree";
-const char *test_author	= "Andrew Vagin <avagin@parallels.com>";
+const char *test_doc = "Create a crazy process tree";
+const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 
-struct process
-{
+struct process {
 	pid_t pid;
 	pid_t sid;
 	int sks[2];
@@ -39,20 +38,12 @@ static void cleanup(void)
 	}
 }
 
-enum commands
-{
-	TEST_FORK,
-	TEST_WAIT,
-	TEST_SUBREAPER,
-	TEST_SETSID,
-	TEST_DIE
-};
+enum commands { TEST_FORK, TEST_WAIT, TEST_SUBREAPER, TEST_SETSID, TEST_DIE };
 
-struct command
-{
-	enum commands	cmd;
-	int		arg1;
-	int		arg2;
+struct command {
+	enum commands cmd;
+	int arg1;
+	int arg2;
 };
 
 static void handle_command(void);
@@ -63,7 +54,7 @@ static void mainloop(void)
 		handle_command();
 }
 
-#define CLONE_STACK_SIZE	4096
+#define CLONE_STACK_SIZE 4096
 /* All arguments should be above stack, because it grows down */
 struct clone_args {
 	char stack[CLONE_STACK_SIZE] __stack_aligned__;
@@ -73,7 +64,7 @@ struct clone_args {
 
 static int clone_func(void *_arg)
 {
-	struct clone_args *args = (struct clone_args *) _arg;
+	struct clone_args *args = (struct clone_args *)_arg;
 
 	current = args->id;
 
@@ -89,8 +80,7 @@ static int make_child(int id, int flags)
 
 	args.id = id;
 
-	cid = clone(clone_func, args.stack_ptr,
-			flags | SIGCHLD, &args);
+	cid = clone(clone_func, args.stack_ptr, flags | SIGCHLD, &args);
 
 	if (cid < 0)
 		pr_perror("clone(%d, %d)", id, flags);
@@ -112,24 +102,20 @@ static void handle_command(void)
 	}
 
 	switch (cmd.cmd) {
-	case TEST_FORK:
-		{
-			pid_t pid;
+	case TEST_FORK: {
+		pid_t pid;
 
-			pid = make_child(cmd.arg1, cmd.arg2);
-			if (pid == -1) {
-				status = -1;
-				goto err;
-			}
-
-			test_msg("%3d: fork(%d, %x) = %d\n",
-					current, cmd.arg1, cmd.arg2, pid);
-			processes[cmd.arg1].pid = pid;
+		pid = make_child(cmd.arg1, cmd.arg2);
+		if (pid == -1) {
+			status = -1;
+			goto err;
 		}
-		break;
+
+		test_msg("%3d: fork(%d, %x) = %d\n", current, cmd.arg1, cmd.arg2, pid);
+		processes[cmd.arg1].pid = pid;
+	} break;
 	case TEST_WAIT:
-		test_msg("%3d: wait(%d) = %d\n", current,
-				cmd.arg1, processes[cmd.arg1].pid);
+		test_msg("%3d: wait(%d) = %d\n", current, cmd.arg1, processes[cmd.arg1].pid);
 
 		if (waitpid(processes[cmd.arg1].pid, NULL, 0) == -1) {
 			pr_perror("waitpid(%d)", processes[cmd.arg1].pid);
@@ -145,7 +131,7 @@ static void handle_command(void)
 		break;
 	case TEST_SETSID:
 		test_msg("%3d: setsid()\n", current);
-		if(setsid() == -1) {
+		if (setsid() == -1) {
 			pr_perror("setsid");
 			status = -1;
 		}
@@ -175,7 +161,7 @@ err:
 static int send_command(int id, enum commands op, int arg1, int arg2)
 {
 	int sk = processes[id].sks[1], ret, status;
-	struct command cmd = {op, arg1, arg2};
+	struct command cmd = { op, arg1, arg2 };
 
 	if (op == TEST_FORK) {
 		if (processes[arg1].pid) {
@@ -208,15 +194,14 @@ err:
 	exit(1);
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int pid, i;
 	int fail_cnt = 0;
 
 	test_init(argc, argv);
 
-	processes = mmap(NULL, PAGE_SIZE, PROT_WRITE | PROT_READ,
-				MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	processes = mmap(NULL, PAGE_SIZE, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (processes == NULL) {
 		pr_perror("Unable to map share memory");
 		return 1;
@@ -243,39 +228,39 @@ int main(int argc, char ** argv)
 	 * 13    12          \_ session02	( 8)
 	*/
 
-	send_command(0, TEST_SUBREAPER,	1, 0);
-	send_command(0, TEST_SETSID,	0, 0);
+	send_command(0, TEST_SUBREAPER, 1, 0);
+	send_command(0, TEST_SETSID, 0, 0);
 
-	send_command(0, TEST_FORK,	1, 0);
-	send_command(1, TEST_FORK,	2, 0);
+	send_command(0, TEST_FORK, 1, 0);
+	send_command(1, TEST_FORK, 2, 0);
 
-	send_command(2, TEST_SETSID,	0, 0);
-	send_command(2, TEST_FORK,	3, CLONE_PARENT);
-	send_command(2, TEST_DIE,	0, 0);
-	send_command(1, TEST_WAIT,	2, 0);
+	send_command(2, TEST_SETSID, 0, 0);
+	send_command(2, TEST_FORK, 3, CLONE_PARENT);
+	send_command(2, TEST_DIE, 0, 0);
+	send_command(1, TEST_WAIT, 2, 0);
 
-	send_command(3, TEST_FORK,	4, 0);
-	send_command(4, TEST_FORK,	5, 0);
-	send_command(5, TEST_FORK,	6, 0);
+	send_command(3, TEST_FORK, 4, 0);
+	send_command(4, TEST_FORK, 5, 0);
+	send_command(5, TEST_FORK, 6, 0);
 
-	send_command(5, TEST_FORK,	7, 0);
-	send_command(7, TEST_SETSID,	0, 0);
-	send_command(7, TEST_FORK,	8, CLONE_PARENT);
-	send_command(7, TEST_FORK,	9, CLONE_PARENT);
-	send_command(7, TEST_DIE,	0, 0);
-	send_command(5, TEST_WAIT,	7, 0);
+	send_command(5, TEST_FORK, 7, 0);
+	send_command(7, TEST_SETSID, 0, 0);
+	send_command(7, TEST_FORK, 8, CLONE_PARENT);
+	send_command(7, TEST_FORK, 9, CLONE_PARENT);
+	send_command(7, TEST_DIE, 0, 0);
+	send_command(5, TEST_WAIT, 7, 0);
 
-	send_command(9, TEST_FORK,	10, 0);
-	send_command(1, TEST_SUBREAPER,	1, 0);
-	send_command(9, TEST_DIE,	0, 0);
-	send_command(5, TEST_WAIT,	9, 0);
-	send_command(1, TEST_SUBREAPER,	0, 0);
+	send_command(9, TEST_FORK, 10, 0);
+	send_command(1, TEST_SUBREAPER, 1, 0);
+	send_command(9, TEST_DIE, 0, 0);
+	send_command(5, TEST_WAIT, 9, 0);
+	send_command(1, TEST_SUBREAPER, 0, 0);
 
-	send_command(4, TEST_DIE,	0, 0);
-	send_command(3, TEST_WAIT,	4, 0);
+	send_command(4, TEST_DIE, 0, 0);
+	send_command(3, TEST_WAIT, 4, 0);
 
-	send_command(1, TEST_SETSID,	0, 0);
-	send_command(5, TEST_SETSID,	0, 0);
+	send_command(1, TEST_SETSID, 0, 0);
+	send_command(5, TEST_SETSID, 0, 0);
 
 	for (i = 0; i < nr_processes; i++) {
 		if (processes[i].dead)
@@ -309,8 +294,7 @@ int main(int argc, char ** argv)
 		}
 
 		if (sid != processes[i].sid) {
-			fail("%d, %d: wrong sid %d (expected %d)",
-				i, processes[i].pid, sid, processes[i].sid);
+			fail("%d, %d: wrong sid %d (expected %d)", i, processes[i].pid, sid, processes[i].sid);
 			fail_cnt++;
 		}
 	}

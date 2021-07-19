@@ -76,11 +76,10 @@ void free_file_locks(void)
 
 static int dump_one_file_lock(FileLockEntry *fle)
 {
-	pr_info("LOCK flag: %d,type: %d,pid: %d,fd: %d,start: %8"PRIx64",len: %8"PRIx64"\n",
-		fle->flag, fle->type, fle->pid,	fle->fd, fle->start, fle->len);
+	pr_info("LOCK flag: %d,type: %d,pid: %d,fd: %d,start: %8" PRIx64 ",len: %8" PRIx64 "\n", fle->flag, fle->type,
+		fle->pid, fle->fd, fle->start, fle->len);
 
-	return pb_write_one(img_from_set(glob_imgset, CR_FD_FILE_LOCKS),
-			fle, PB_FILE_LOCK);
+	return pb_write_one(img_from_set(glob_imgset, CR_FD_FILE_LOCKS), fle, PB_FILE_LOCK);
 }
 
 static void fill_flock_entry(FileLockEntry *fle, int fl_kind, int fl_ltype)
@@ -91,17 +90,16 @@ static void fill_flock_entry(FileLockEntry *fle, int fl_kind, int fl_ltype)
 
 int dump_file_locks(void)
 {
-	FileLockEntry	 fle;
+	FileLockEntry fle;
 	struct file_lock *fl;
-	int	ret = 0;
+	int ret = 0;
 
 	pr_info("Dumping file-locks\n");
 
 	list_for_each_entry(fl, &file_lock_list, list) {
 		if (fl->real_owner == -1) {
 			if (fl->fl_kind == FL_POSIX) {
-				pr_err("Unresolved lock found pid %d ino %ld\n",
-						fl->fl_owner, fl->i_no);
+				pr_err("Unresolved lock found pid %d ino %ld\n", fl->fl_owner, fl->i_no);
 				return -1;
 			}
 
@@ -110,7 +108,7 @@ int dump_file_locks(void)
 
 		if (!opts.handle_file_locks) {
 			pr_err("Some file locks are hold by dumping tasks! "
-					"You can try --" OPT_FILE_LOCKS " to dump them.\n");
+			       "You can try --" OPT_FILE_LOCKS " to dump them.\n");
 			return -1;
 		}
 
@@ -154,7 +152,7 @@ static int lock_btrfs_file_match(pid_t pid, int fd, struct file_lock *fl, struct
 	link[ret] = 0;
 
 	ns = lookup_nsid_by_mnt_id(p->mnt_id);
-	return  phys_stat_dev_match(p->stat.st_dev, phys_dev, ns, link);
+	return phys_stat_dev_match(p->stat.st_dev, phys_dev, ns, link);
 }
 
 static inline int lock_file_match(pid_t pid, int fd, struct file_lock *fl, struct fd_parms *p)
@@ -224,11 +222,7 @@ static int lock_ofd_check_fd(int lfd, struct file_lock *fl)
 {
 	int ret;
 
-	struct flock lck = {
-		.l_whence = SEEK_SET,
-		.l_type   = F_WRLCK,
-		.l_start  = fl->start
-	};
+	struct flock lck = { .l_whence = SEEK_SET, .l_type = F_WRLCK, .l_start = fl->start };
 	if (strcmp(fl->end, "EOF")) {
 		unsigned long end;
 
@@ -366,7 +360,7 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 
 		if (!opts.handle_file_locks) {
 			pr_err("Some file locks are hold by dumping tasks!"
-					"You can try --" OPT_FILE_LOCKS " to dump them.\n");
+			       "You can try --" OPT_FILE_LOCKS " to dump them.\n");
 			return -1;
 		}
 
@@ -380,8 +374,7 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 		} else if (fl->fl_kind == FL_LEASE) {
 			if (fl->owners_fd >= 0)
 				continue;
-			if (fl->fl_owner != pid->real &&
-					fl->real_owner != -1)
+			if (fl->fl_owner != pid->real && fl->real_owner != -1)
 				continue;
 
 			ret = lease_check_fd(lfd, p->flags, fl);
@@ -399,8 +392,7 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 			 * anyway.
 			 */
 
-			if (fl->fl_owner != pid->real &&
-					fl->real_owner != -1)
+			if (fl->fl_owner != pid->real && fl->real_owner != -1)
 				continue;
 
 			pr_debug("Checking lock holder %d:%d\n", pid->real, fd);
@@ -419,9 +411,7 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 		fl->real_owner = pid->ns[0].virt;
 		fl->owners_fd = fd;
 
-		pr_info("Found lock entry %d.%d %d vs %d\n",
-				pid->real, pid->ns[0].virt, fd,
-				fl->fl_owner);
+		pr_info("Found lock entry %d.%d %d vs %d\n", pid->real, pid->ns[0].virt, fd, fl->fl_owner);
 	}
 
 	return 0;
@@ -450,8 +440,7 @@ int correct_file_leases_type(struct pid *pid, int fd, int lfd)
 		if (fl->fl_holder != pid->real || fl->owners_fd != fd)
 			continue;
 
-		if (fl->fl_kind == FL_LEASE &&
-			(fl->fl_ltype & LEASE_BREAKING)) {
+		if (fl->fl_kind == FL_LEASE && (fl->fl_ltype & LEASE_BREAKING)) {
 			/*
 			 * Set lease type to actual 'target lease type'
 			 * instead of 'READ' returned by procfs.
@@ -538,8 +527,7 @@ static int restore_lease_prebreaking_state(int fd, int fd_type)
 	return set_file_lease(fd, lease_type);
 }
 
-static struct fdinfo_list_entry *find_fd_unordered(struct pstree_item *task,
-							int fd)
+static struct fdinfo_list_entry *find_fd_unordered(struct pstree_item *task, int fd)
 {
 	struct list_head *head = &rsti(task)->fds;
 	struct fdinfo_list_entry *fle;
@@ -592,9 +580,8 @@ static int restore_file_lease(FileLockEntry *fle)
 			pr_perror("Can't get file i/o signum");
 			return -1;
 		}
-		if (sigemptyset(&blockmask) ||
-			sigaddset(&blockmask, signum) ||
-			sigprocmask(SIG_BLOCK, &blockmask, &oldmask)) {
+		if (sigemptyset(&blockmask) || sigaddset(&blockmask, signum) ||
+		    sigprocmask(SIG_BLOCK, &blockmask, &oldmask)) {
 			pr_perror("Can't block file i/o signal");
 			return -1;
 		}
@@ -633,8 +620,8 @@ static int restore_file_lock(FileLockEntry *fle)
 			goto err;
 		}
 
-		pr_info("(flock)flag: %d, type: %d, cmd: %d, pid: %d, fd: %d\n",
-			fle->flag, fle->type, cmd, fle->pid, fle->fd);
+		pr_info("(flock)flag: %d, type: %d, cmd: %d, pid: %d, fd: %d\n", fle->flag, fle->type, cmd, fle->pid,
+			fle->fd);
 
 		ret = flock(fle->fd, cmd);
 		if (ret < 0) {
@@ -646,15 +633,14 @@ static int restore_file_lock(FileLockEntry *fle)
 		memset(&flk, 0, sizeof(flk));
 
 		flk.l_whence = SEEK_SET;
-		flk.l_start  = fle->start;
-		flk.l_len    = fle->len;
-		flk.l_pid    = fle->pid;
-		flk.l_type   = fle->type;
+		flk.l_start = fle->start;
+		flk.l_len = fle->len;
+		flk.l_pid = fle->pid;
+		flk.l_type = fle->type;
 
 		pr_info("(posix)flag: %d, type: %d, pid: %d, fd: %d, "
-			"start: %8"PRIx64", len: %8"PRIx64"\n",
-			fle->flag, fle->type, fle->pid, fle->fd,
-			fle->start, fle->len);
+			"start: %8" PRIx64 ", len: %8" PRIx64 "\n",
+			fle->flag, fle->type, fle->pid, fle->fd, fle->start, fle->len);
 
 		ret = fcntl(fle->fd, F_SETLKW, &flk);
 		if (ret < 0) {
@@ -663,17 +649,12 @@ static int restore_file_lock(FileLockEntry *fle)
 		}
 	} else if (fle->flag & FL_OFD) {
 		struct flock flk = {
-			.l_whence = SEEK_SET,
-			.l_start  = fle->start,
-			.l_len    = fle->len,
-			.l_pid    = 0,
-			.l_type   = fle->type
+			.l_whence = SEEK_SET, .l_start = fle->start, .l_len = fle->len, .l_pid = 0, .l_type = fle->type
 		};
 
 		pr_info("(ofd)flag: %d, type: %d, pid: %d, fd: %d, "
-				"start: %8"PRIx64", len: %8"PRIx64"\n",
-				fle->flag, fle->type, fle->pid, fle->fd,
-				fle->start, fle->len);
+			"start: %8" PRIx64 ", len: %8" PRIx64 "\n",
+			fle->flag, fle->type, fle->pid, fle->fd, fle->start, fle->len);
 
 		ret = fcntl(fle->fd, F_OFD_SETLK, &flk);
 		if (ret < 0) {
@@ -682,9 +663,8 @@ static int restore_file_lock(FileLockEntry *fle)
 		}
 	} else if (fle->flag & FL_LEASE) {
 		pr_info("(lease)flag: %d, type: %d, pid: %d, fd: %d, "
-				"start: %8"PRIx64", len: %8"PRIx64"\n",
-			fle->flag, fle->type, fle->pid, fle->fd,
-			fle->start, fle->len);
+			"start: %8" PRIx64 ", len: %8" PRIx64 "\n",
+			fle->flag, fle->type, fle->pid, fle->fd, fle->start, fle->len);
 		ret = restore_file_lease(fle);
 		if (ret < 0)
 			goto err;
@@ -720,5 +700,4 @@ int prepare_file_locks(int pid)
 		return 0;
 
 	return restore_file_locks(pid);
-
 }

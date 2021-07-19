@@ -3,9 +3,9 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Start a calculation, leaving FPU in a certain state,\n"
-"before migration, continue after";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Start a calculation, leaving FPU in a certain state,\n"
+		       "before migration, continue after";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 #if defined(__i386__) || defined(__x86_64__)
 
@@ -13,25 +13,20 @@ const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
 
 void start(float a, float b, float c, float d)
 {
-	__asm__ volatile (
-			  "flds  %0\n"
-			  "fadds %1\n"
-			  "flds  %2\n"
-			  "fadds %3\n"
-			  "fmulp %%st(1)\n"
-			  :
-			  : "m" (a), "m" (b), "m" (c), "m" (d)
-			 );
+	__asm__ volatile("flds  %0\n"
+			 "fadds %1\n"
+			 "flds  %2\n"
+			 "fadds %3\n"
+			 "fmulp %%st(1)\n"
+			 :
+			 : "m"(a), "m"(b), "m"(c), "m"(d));
 }
 
 float finish(void)
 {
 	float res;
 
-	__asm__ volatile (
-			  "fstps %0\n"
-			  : "=m" (res)
-			 );
+	__asm__ volatile("fstps %0\n" : "=m"(res));
 	return res;
 }
 
@@ -56,7 +51,6 @@ void *run_fpu_test(void *unused)
 	c = drand48();
 	d = drand48();
 
-
 	start(a, b, c, d);
 	res1 = finish();
 
@@ -75,7 +69,7 @@ void *run_fpu_test(void *unused)
 	return (void *)(uintptr_t)(res1 != res2);
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	test_init(argc, argv);
 
@@ -83,7 +77,6 @@ int main(int argc, char ** argv)
 		skip("FPU not supported");
 		return 1;
 	}
-
 
 #ifdef ZDTM_FPU00_RUN_IN_THREAD
 	/* Check if thread's fpu state is preserved */

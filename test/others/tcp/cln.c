@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <signal.h>
 
-#define BUF_SIZE	(1024)
+#define BUF_SIZE (1024)
 
 static char rbuf[BUF_SIZE];
 static char buf[BUF_SIZE];
@@ -39,8 +39,7 @@ static int check_buf(int sk, char *buf, int count)
 
 	for (i = 0; i < count; i++)
 		if (buf[i] != rbuf[i]) {
-			printf("Mismatch on %d byte %d != %d\n",
-					i, (int)buf[i], (int)rbuf[i]);
+			printf("Mismatch on %d byte %d != %d\n", i, (int)buf[i], (int)rbuf[i]);
 			return 1;
 		}
 

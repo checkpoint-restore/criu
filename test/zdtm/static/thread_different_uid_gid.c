@@ -15,16 +15,15 @@
 
 #include "zdtmtst.h"
 
-#define exit_group(code)	\
-	syscall(__NR_exit_group, code)
+#define exit_group(code) syscall(__NR_exit_group, code)
 
-const char *test_doc	= "Acquire UID/GID setting caps, create thread and drop thread to non-root by changing UID/GID\n";
-const char *test_author	= "Vitaly Ostrosablin <vostrosablin@virtuozzo.com>";
+const char *test_doc = "Acquire UID/GID setting caps, create thread and drop thread to non-root by changing UID/GID\n";
+const char *test_author = "Vitaly Ostrosablin <vostrosablin@virtuozzo.com>";
 
 unsigned int gid;
 unsigned int uid;
-pthread_mutex_t mutex  = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t  cond   = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 task_waiter_t t;
 
 int done = 0;

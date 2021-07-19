@@ -13,9 +13,9 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "migrate application using epoll";
+const char *test_doc = "migrate application using epoll";
 
-#define MAX_SCALE	128
+#define MAX_SCALE 128
 
 enum child_exit_codes {
 	SUCCESS = 0,
@@ -25,11 +25,7 @@ enum child_exit_codes {
 	MAX_EXIT_CODE
 };
 
-static char *child_fail_reason[] = {
-	"Success",
-	"Can't get time",
-	"Can't write"
-};
+static char *child_fail_reason[] = { "Success", "Can't get time", "Can't write" };
 
 int scale = 13;
 TEST_OPTION(scale, int, "How many children should perform testing", 0);
@@ -58,7 +54,7 @@ static void run_child(int num)
 {
 	int fd = fds[num][1];
 	uint32_t crc = ~0;
-	size_t buf_size=512;
+	size_t buf_size = 512;
 	uint8_t buf[buf_size];
 	struct timeval tv;
 	struct timespec ts;
@@ -80,15 +76,15 @@ static void run_child(int num)
 		ts.tv_nsec = rand() % 999999999;
 		nanosleep(&ts, &ts);
 		if (write(fd, buf, buf_size) < 0 &&
-			(!stop /* signal SIGUSR2 NOT received */ ||
-				(errno != EINTR && errno != EPIPE))) {
+		    (!stop /* signal SIGUSR2 NOT received */ || (errno != EINTR && errno != EPIPE))) {
 			fail("child write");
 			rv = WRITEERROR;
 			goto out;
 		}
 	}
 	rv = SUCCESS;
-out:	close(fds[num][1]);
+out:
+	close(fds[num][1]);
 	exit(rv);
 }
 
@@ -97,11 +93,9 @@ int main(int argc, char **argv)
 	int rv, i;
 	int counter = 0;
 	int efd;
-	size_t buf_size=512;
+	size_t buf_size = 512;
 	char buf[buf_size];
-	struct epoll_event event = {
-		.events = EPOLLIN
-	}, *events;
+	struct epoll_event event = { .events = EPOLLIN }, *events;
 
 	test_init(argc, argv);
 
@@ -149,7 +143,7 @@ int main(int argc, char **argv)
 		pids[i] = rv;
 	}
 
-	if ((events = (struct epoll_event*) malloc (sizeof(struct epoll_event)*scale)) == NULL) {
+	if ((events = (struct epoll_event *)malloc(sizeof(struct epoll_event) * scale)) == NULL) {
 		pr_perror("Can't allocate memory");
 		killall();
 		exit(1);
@@ -164,7 +158,8 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 		for (i = 0; i < rv; i++) {
-			while (read(events[i].data.fd, buf, buf_size) > 0);
+			while (read(events[i].data.fd, buf, buf_size) > 0)
+				;
 			if (errno != EAGAIN && errno != 0 && errno) {
 				pr_perror("read error");
 				killall();
@@ -184,8 +179,7 @@ int main(int argc, char **argv)
 		} else {
 			rv = WEXITSTATUS(rv);
 			if (rv < MAX_EXIT_CODE && rv > SUCCESS) {
-				fail("Child failed: %s (%d)",
-						child_fail_reason[rv], rv);
+				fail("Child failed: %s (%d)", child_fail_reason[rv], rv);
 				counter++;
 			} else if (rv != SUCCESS) {
 				fail("Unknown exitcode from child: %d", rv);

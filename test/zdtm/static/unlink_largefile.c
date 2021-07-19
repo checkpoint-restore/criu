@@ -12,11 +12,11 @@ const char *test_doc = "Checkpointing/restore of big (2Gb) unlinked files";
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fd;
 	char buf[1000000];
-	off64_t offset= 0x80002000ULL;
+	off64_t offset = 0x80002000ULL;
 	size_t count;
 
 	test_init(argc, argv);
@@ -28,8 +28,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (lseek64(fd, offset, SEEK_SET) < 0) {
-		pr_perror("can't lseek %s, offset= %llx", filename,
-				(long long unsigned)offset);
+		pr_perror("can't lseek %s, offset= %llx", filename, (long long unsigned)offset);
 		goto failed;
 	}
 

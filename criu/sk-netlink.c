@@ -14,23 +14,23 @@
 #include "libnetlink.h"
 #include "namespaces.h"
 
-#undef  LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "netlink: "
 
 struct netlink_sk_desc {
-	struct socket_desc	sd;
-	u32			portid;
-	u32			*groups;
-	u32			gsize;
-	u32			dst_portid;
-	u32			dst_group;
-	u8			state;
-	u8			protocol;
+	struct socket_desc sd;
+	u32 portid;
+	u32 *groups;
+	u32 gsize;
+	u32 dst_portid;
+	u32 dst_group;
+	u8 state;
+	u8 protocol;
 };
 
 int netlink_receive_one(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 {
-	struct nlattr *tb[NETLINK_DIAG_MAX+1];
+	struct nlattr *tb[NETLINK_DIAG_MAX + 1];
 	struct netlink_diag_msg *m;
 	struct netlink_sk_desc *sd;
 	unsigned long *groups;
@@ -105,7 +105,6 @@ static int dump_one_netlink_fd(int lfd, u32 id, const struct fd_parms *p)
 		ne.portid = sk->portid;
 		ne.groups = sk->groups;
 
-
 		ne.n_groups = sk->gsize / sizeof(ne.groups[0]);
 		/*
 		 * On 64-bit sk->gsize is multiple to 8 bytes (sizeof(long)),
@@ -164,7 +163,7 @@ static int dump_one_netlink_fd(int lfd, u32 id, const struct fd_parms *p)
 	}
 
 	ne.fown = (FownEntry *)&p->fown;
-	ne.opts	= &skopts;
+	ne.opts = &skopts;
 
 	if (dump_socket_opts(lfd, &skopts))
 		goto err;
@@ -182,8 +181,8 @@ err:
 }
 
 const struct fdtype_ops netlink_dump_ops = {
-	.type		= FD_TYPES__NETLINKSK,
-	.dump		= dump_one_netlink_fd,
+	.type = FD_TYPES__NETLINKSK,
+	.dump = dump_one_netlink_fd,
 };
 
 struct netlink_sock_info {

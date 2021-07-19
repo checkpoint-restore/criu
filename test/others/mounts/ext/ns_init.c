@@ -41,7 +41,7 @@ int main(int argc, char **argv)
 		if (chdir(argv[2]))
 			return 1;
 
-		fd = open(argv[3], O_WRONLY|O_CREAT|O_TRUNC|O_APPEND, 0600);
+		fd = open(argv[3], O_WRONLY | O_CREAT | O_TRUNC | O_APPEND, 0600);
 		if (fd < 0)
 			return 1;
 

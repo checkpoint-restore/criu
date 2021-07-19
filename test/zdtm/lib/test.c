@@ -22,7 +22,7 @@
 futex_t sig_received;
 static struct {
 	futex_t stage;
-} *test_shared_state;
+} * test_shared_state;
 
 enum {
 	TEST_INIT_STAGE = 0,
@@ -74,8 +74,7 @@ static void test_fini(void)
 static void setup_outfile(void)
 {
 	if (!access(outfile, F_OK) || errno != ENOENT) {
-		fprintf(stderr, "Output file %s appears to exist, aborting\n",
-			outfile);
+		fprintf(stderr, "Output file %s appears to exist, aborting\n", outfile);
 		exit(1);
 	}
 
@@ -214,8 +213,8 @@ void test_init(int argc, char **argv)
 	pid_t pid;
 	char *val;
 	struct sigaction sa = {
-		.sa_handler	= sig_hand,
-		.sa_flags	= SA_RESTART,
+		.sa_handler = sig_hand,
+		.sa_flags = SA_RESTART,
 	};
 	sigemptyset(&sa.sa_mask);
 
@@ -302,7 +301,7 @@ void test_init(int argc, char **argv)
 	}
 
 	parent = 1;
-	if (pid) {	/* parent will exit when the child is ready */
+	if (pid) { /* parent will exit when the child is ready */
 		futex_wait_while(&test_shared_state->stage, TEST_INIT_STAGE);
 
 		if (futex_get(&test_shared_state->stage) == TEST_FAIL_STAGE) {
@@ -343,7 +342,7 @@ void test_init(int argc, char **argv)
 		exit(1);
 	}
 
-	srand48(time(NULL));	/* just in case we need it */
+	srand48(time(NULL)); /* just in case we need it */
 }
 
 void test_daemon(void)
@@ -398,12 +397,11 @@ int test_wait_pre_dump_ack(void)
 	return 0;
 }
 
-pid_t sys_clone_unified(unsigned long flags, void *child_stack, void *parent_tid,
-			void *child_tid, unsigned long newtls)
+pid_t sys_clone_unified(unsigned long flags, void *child_stack, void *parent_tid, void *child_tid, unsigned long newtls)
 {
 #ifdef __x86_64__
 	return (pid_t)syscall(__NR_clone, flags, child_stack, parent_tid, child_tid, newtls);
-#elif (__i386__ || __arm__ || __aarch64__ ||__powerpc64__ || __mips__)
+#elif (__i386__ || __arm__ || __aarch64__ || __powerpc64__ || __mips__)
 	return (pid_t)syscall(__NR_clone, flags, child_stack, parent_tid, newtls, child_tid);
 #elif __s390x__
 	return (pid_t)syscall(__NR_clone, child_stack, flags, parent_tid, child_tid, newtls);

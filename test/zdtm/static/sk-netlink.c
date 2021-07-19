@@ -7,15 +7,15 @@
 #include "zdtmtst.h"
 
 #ifndef SOL_NETLINK
-#define SOL_NETLINK     270
+#define SOL_NETLINK 270
 #endif
 
-#define	UDEV_MONITOR_TEST 32
+#define UDEV_MONITOR_TEST 32
 
-const char *test_doc	= "Support of netlink sockets";
-const char *test_author	= "Andrew Vagin <avagin@parallels.com>";
+const char *test_doc = "Support of netlink sockets";
+const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int ssk, bsk, csk, dsk;
 	struct sockaddr_nl addr;
@@ -64,21 +64,21 @@ int main(int argc, char ** argv)
 	addr.nl_family = AF_NETLINK;
 	addr.nl_groups = 0;
 	addr.nl_pid = getpid();
-	if (bind(ssk, (struct sockaddr *) &addr, sizeof(struct sockaddr_nl))) {
+	if (bind(ssk, (struct sockaddr *)&addr, sizeof(struct sockaddr_nl))) {
 		pr_perror("bind");
 		return 1;
 	}
 
 	addr.nl_groups = 1 << (UDEV_MONITOR_TEST - 1);
 	addr.nl_pid = 0;
-	if (bind(bsk, (struct sockaddr *) &addr, sizeof(struct sockaddr_nl))) {
+	if (bind(bsk, (struct sockaddr *)&addr, sizeof(struct sockaddr_nl))) {
 		pr_perror("bind");
 		return 1;
 	}
 
 	addr.nl_pid = getpid();
 	addr.nl_groups = 1 << (UDEV_MONITOR_TEST - 1);
-	if (connect(csk, (struct sockaddr *) &addr, sizeof(struct sockaddr_nl))) {
+	if (connect(csk, (struct sockaddr *)&addr, sizeof(struct sockaddr_nl))) {
 		pr_perror("connect");
 		return 1;
 	}
@@ -87,18 +87,18 @@ int main(int argc, char ** argv)
 
 	test_waitsig();
 
-	req.hdr.nlmsg_len       = sizeof(req);
-	req.hdr.nlmsg_type      = 0x1234;
-	req.hdr.nlmsg_flags     = NLM_F_DUMP | NLM_F_REQUEST;
-	req.hdr.nlmsg_seq       = 0xabcd;
+	req.hdr.nlmsg_len = sizeof(req);
+	req.hdr.nlmsg_type = 0x1234;
+	req.hdr.nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST;
+	req.hdr.nlmsg_seq = 0xabcd;
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_namelen = 0;
-	msg.msg_iov     = &iov;
-	msg.msg_iovlen  = 1;
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
 
-	iov.iov_base    = (void *) &req;
-	iov.iov_len     = sizeof(req);
+	iov.iov_base = (void *)&req;
+	iov.iov_len = sizeof(req);
 
 	if (sendmsg(csk, &msg, 0) < 0) {
 		pr_perror("Can't send request message");
@@ -107,11 +107,11 @@ int main(int argc, char ** argv)
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_namelen = 0;
-	msg.msg_iov     = &iov;
-	msg.msg_iovlen  = 1;
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
 
-	iov.iov_base    = buf;
-	iov.iov_len     = sizeof(buf);
+	iov.iov_base = buf;
+	iov.iov_len = sizeof(buf);
 
 	if (recvmsg(ssk, &msg, 0) < 0) {
 		pr_perror("Can't recv request message");
@@ -129,12 +129,12 @@ int main(int argc, char ** argv)
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_namelen = sizeof(addr);
-	msg.msg_name	= &addr;
-	msg.msg_iov     = &iov;
-	msg.msg_iovlen  = 1;
+	msg.msg_name = &addr;
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
 
-	iov.iov_base    = (void *) &req;
-	iov.iov_len     = sizeof(req);
+	iov.iov_base = (void *)&req;
+	iov.iov_len = sizeof(req);
 
 	if (sendmsg(dsk, &msg, 0) < 0) {
 		pr_perror("Can't send request message");
@@ -143,11 +143,11 @@ int main(int argc, char ** argv)
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_namelen = 0;
-	msg.msg_iov     = &iov;
-	msg.msg_iovlen  = 1;
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
 
-	iov.iov_base    = buf;
-	iov.iov_len     = sizeof(buf);
+	iov.iov_base = buf;
+	iov.iov_len = sizeof(buf);
 
 	if (recvmsg(ssk, &msg, 0) < 0) {
 		pr_perror("Can't recv request message");

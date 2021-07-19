@@ -13,8 +13,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check two pts on ptmx";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Check two pts on ptmx";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 static const char teststr[] = "ping\n";
 
@@ -81,9 +81,8 @@ int main(int argc, char *argv[])
 	}
 
 	if (st.st_uid != new_uid || st.st_gid != new_gid) {
-		fail("UID/GID mismatch (got %d/%d but %d/%d expected)",
-		     (int)st.st_uid, (int)st.st_gid,
-		     (int)new_uid, (int)new_gid);
+		fail("UID/GID mismatch (got %d/%d but %d/%d expected)", (int)st.st_uid, (int)st.st_gid, (int)new_uid,
+		     (int)new_gid);
 		return 1;
 	}
 

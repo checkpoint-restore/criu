@@ -1,17 +1,12 @@
 #include "common/bitsperlong.h"
 
-#define BIT_WORD(nr)		((nr) / BITS_PER_LONG)
+#define BIT_WORD(nr) ((nr) / BITS_PER_LONG)
 
 #define BITMAP_FIRST_WORD_MASK(start) (~0ul << ((start) % BITS_PER_LONG))
 
-#define BITMAP_LAST_WORD_MASK(nbits)					\
-(									\
-	((nbits) % BITS_PER_LONG) ?					\
-		(1ul << ((nbits) % BITS_PER_LONG)) - 1 : ~0ul		\
-)
+#define BITMAP_LAST_WORD_MASK(nbits) (((nbits) % BITS_PER_LONG) ? (1ul << ((nbits) % BITS_PER_LONG)) - 1 : ~0ul)
 
-#define small_const_nbits(nbits)					\
-	(__builtin_constant_p(nbits) && (nbits) <= BITS_PER_LONG)
+#define small_const_nbits(nbits) (__builtin_constant_p(nbits) && (nbits) <= BITS_PER_LONG)
 
 void bitmap_set(unsigned long *map, int start, int nr)
 {

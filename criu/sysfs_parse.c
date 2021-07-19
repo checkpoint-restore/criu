@@ -67,7 +67,7 @@ static int parse_aufs_sbinfo(struct mount_info *mi, char *sbinfo, int len)
 	}
 
 	/* all ok, copy */
-	if (len < 4) {		/* 4 for "si_" */
+	if (len < 4) { /* 4 for "si_" */
 		pr_err("Buffer of %d bytes too small for sbinfo\n", len);
 		return -1;
 	}
@@ -109,7 +109,7 @@ static int fixup_aufs_path(char *path, int size)
 	}
 
 	if (aufs_branches[n] == NULL)
-		return 0;	/* not in a branch */
+		return 0; /* not in a branch */
 
 	n = snprintf(rpath, PATH_MAX, "%s", &path[blen]);
 	if (n >= min(PATH_MAX, size)) {
@@ -160,7 +160,7 @@ int parse_aufs_branches(struct mount_info *mi)
 	if (aufs_nsid)
 		free_aufs_branches();
 
-	strcpy(path, SYSFS_AUFS);	/* /sys/fs/aufs/ */
+	strcpy(path, SYSFS_AUFS); /* /sys/fs/aufs/ */
 	if (parse_aufs_sbinfo(mi, &path[sizeof SYSFS_AUFS - 1], SBINFO_LEN) < 0)
 		return -1;
 	if ((dp = opendir(path)) == NULL) {
@@ -205,7 +205,7 @@ int parse_aufs_branches(struct mount_info *mi)
 	 * Allocate an array of pointers to branch pathnames to be read.
 	 * Branches are indexed from 0 and we need a NULL pointer at the end.
 	 */
-	aufs_branches = xzalloc((br_max + 2) * sizeof (char *));
+	aufs_branches = xzalloc((br_max + 2) * sizeof(char *));
 	if (!aufs_branches)
 		return -1;
 
@@ -227,8 +227,7 @@ int parse_aufs_branches(struct mount_info *mi)
 			goto err;
 		}
 
-		if (fscanf(fp, "%ms=", &aufs_branches[br_num]) != 1 ||
-		    aufs_branches[br_num] == NULL) {
+		if (fscanf(fp, "%ms=", &aufs_branches[br_num]) != 1 || aufs_branches[br_num] == NULL) {
 			pr_perror("Parse error reading %s", path);
 			goto err;
 		}
@@ -300,8 +299,7 @@ int fixup_aufs_vma_fd(struct vma_area *vma, int vm_file_fd)
 	pr_debug("Saved AUFS paths %s and %s\n", vma->aufs_rpath, vma->aufs_fpath);
 
 	if (stat(vma->aufs_fpath, vma->vmst) < 0) {
-		pr_perror("Failed stat on map %"PRIx64" (%s)",
-				vma->e->start, vma->aufs_fpath);
+		pr_perror("Failed stat on map %" PRIx64 " (%s)", vma->e->start, vma->aufs_fpath);
 		return -1;
 	}
 

@@ -10,10 +10,10 @@
 #include <limits.h>
 #include "zdtmtst.h"
 
-#define ARRAY_SIZE(x)           (sizeof(x) / sizeof((x)[0]))
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
-const char *test_doc	= "Check that some cgroups properties in kernel controllers are preserved";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "Check that some cgroups properties in kernel controllers are preserved";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "cgroup directory name", 1);
@@ -116,17 +116,8 @@ int main(int argc, char **argv)
 	struct stat sb;
 
 	char *dev_allow[] = {
-		"c *:* m",
-		"b *:* m",
-		"c 1:3 rwm",
-		"c 1:5 rwm",
-		"c 1:7 rwm",
-		"c 5:0 rwm",
-		"c 5:2 rwm",
-		"c 1:8 rwm",
-		"c 1:9 rwm",
-		"c 136:* rwm",
-		"c 10:229 rwm",
+		"c *:* m",   "b *:* m",	  "c 1:3 rwm", "c 1:5 rwm",   "c 1:7 rwm",    "c 5:0 rwm",
+		"c 5:2 rwm", "c 1:8 rwm", "c 1:9 rwm", "c 136:* rwm", "c 10:229 rwm",
 	};
 
 	test_init(argc, argv);

@@ -10,9 +10,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Create a thread with a dead leader\n";
-const char *test_author	= "Andrew Vagin <avagin@openvz.org";
-
+const char *test_doc = "Create a thread with a dead leader\n";
+const char *test_author = "Andrew Vagin <avagin@openvz.org";
 
 static void *thread_func(void *args)
 {
@@ -27,7 +26,6 @@ int main(int argc, char *argv[])
 	int ret;
 
 	test_init(argc, argv);
-
 
 	ret = pthread_create(&th1, NULL, &thread_func, NULL);
 

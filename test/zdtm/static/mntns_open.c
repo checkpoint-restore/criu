@@ -14,18 +14,18 @@
 #include "zdtmtst.h"
 
 #ifndef CLONE_NEWNS
-#define CLONE_NEWNS     0x00020000
+#define CLONE_NEWNS 0x00020000
 #endif
 
-const char *test_doc	= "Check that mnt_id is repsected";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that mnt_id is repsected";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
-#define MPTS_FILE	"F"
+#define MPTS_FILE "F"
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 char fpath[PATH_MAX];
 
-#define NS_STACK_SIZE	4096
+#define NS_STACK_SIZE 4096
 /* All arguments should be above stack, because it grows down */
 struct ns_exec_args {
 	char stack[NS_STACK_SIZE] __stack_aligned__;
@@ -33,8 +33,8 @@ struct ns_exec_args {
 	int fd;
 };
 
-#define AWK_OK		13
-#define AWK_FAIL	42
+#define AWK_OK	 13
+#define AWK_FAIL 42
 
 static int get_mntid(int fd)
 {
@@ -74,7 +74,7 @@ int ns_child(void *_arg)
 
 	test_msg("%d %d", id1, id2);
 
-	if (id1 <0 || id2 < 0)
+	if (id1 < 0 || id2 < 0)
 		exit(1);
 	if (id1 > 0 && id1 != id2)
 		exit(AWK_OK);

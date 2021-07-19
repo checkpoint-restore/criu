@@ -52,13 +52,13 @@
  */
 
 struct kid_entry {
-	struct rb_node	node;
+	struct rb_node node;
 
-	struct rb_root	subtree_root;
-	struct rb_node	subtree_node;
+	struct rb_root subtree_root;
+	struct rb_node subtree_node;
 
-	uint32_t	subid;	/* subid is always unique */
-	struct kid_elem	elem;
+	uint32_t subid; /* subid is always unique */
+	struct kid_elem elem;
 } __aligned(sizeof(long));
 
 static struct kid_entry *alloc_kid_entry(struct kid_tree *tree, struct kid_elem *elem)
@@ -69,8 +69,8 @@ static struct kid_entry *alloc_kid_entry(struct kid_tree *tree, struct kid_elem 
 	if (!e)
 		goto err;
 
-	e->subid	= tree->subid++;
-	e->elem		= *elem;
+	e->subid = tree->subid++;
+	e->elem = *elem;
 
 	/* Make sure no overflow here */
 	BUG_ON(!e->subid);
@@ -78,14 +78,12 @@ static struct kid_entry *alloc_kid_entry(struct kid_tree *tree, struct kid_elem 
 	rb_init_node(&e->node);
 	rb_init_node(&e->subtree_node);
 	e->subtree_root = RB_ROOT;
-	rb_link_and_balance(&e->subtree_root, &e->subtree_node,
-			NULL, &e->subtree_root.rb_node);
+	rb_link_and_balance(&e->subtree_root, &e->subtree_node, NULL, &e->subtree_root.rb_node);
 err:
 	return e;
 }
 
-static uint32_t kid_generate_sub(struct kid_tree *tree, struct kid_entry *e,
-		struct kid_elem *elem, int *new_id)
+static uint32_t kid_generate_sub(struct kid_tree *tree, struct kid_entry *e, struct kid_elem *elem, int *new_id)
 {
 	struct rb_node *node = e->subtree_root.rb_node;
 	struct kid_entry *sub = NULL;
@@ -97,8 +95,7 @@ static uint32_t kid_generate_sub(struct kid_tree *tree, struct kid_entry *e,
 
 	while (node) {
 		struct kid_entry *this = rb_entry(node, struct kid_entry, subtree_node);
-		int ret = syscall(SYS_kcmp, this->elem.pid, elem->pid, tree->kcmp_type,
-				this->elem.idx, elem->idx);
+		int ret = syscall(SYS_kcmp, this->elem.pid, elem->pid, tree->kcmp_type, this->elem.idx, elem->idx);
 
 		parent = *new;
 		if (ret == 1)
@@ -108,9 +105,8 @@ static uint32_t kid_generate_sub(struct kid_tree *tree, struct kid_entry *e,
 		else if (ret == 0)
 			return this->subid;
 		else {
-			pr_perror("kcmp failed: pid (%d %d) type %u idx (%u %u)",
-				  this->elem.pid, elem->pid, tree->kcmp_type,
-				  this->elem.idx, elem->idx);
+			pr_perror("kcmp failed: pid (%d %d) type %u idx (%u %u)", this->elem.pid, elem->pid,
+				  tree->kcmp_type, this->elem.idx, elem->idx);
 			return 0;
 		}
 	}
@@ -124,8 +120,7 @@ static uint32_t kid_generate_sub(struct kid_tree *tree, struct kid_entry *e,
 	return sub->subid;
 }
 
-uint32_t kid_generate_gen(struct kid_tree *tree,
-		struct kid_elem *elem, int *new_id)
+uint32_t kid_generate_gen(struct kid_tree *tree, struct kid_elem *elem, int *new_id)
 {
 	struct rb_node *node = tree->root.rb_node;
 	struct kid_entry *e = NULL;
@@ -154,9 +149,7 @@ uint32_t kid_generate_gen(struct kid_tree *tree,
 	return e->subid;
 }
 
-static struct kid_elem *kid_lookup_epoll_tfd_sub(struct kid_tree *tree,
-						 struct kid_entry *e,
-						 struct kid_elem *elem,
+static struct kid_elem *kid_lookup_epoll_tfd_sub(struct kid_tree *tree, struct kid_entry *e, struct kid_elem *elem,
 						 kcmp_epoll_slot_t *slot)
 {
 	struct rb_node *node = e->subtree_root.rb_node;
@@ -166,8 +159,7 @@ static struct kid_elem *kid_lookup_epoll_tfd_sub(struct kid_tree *tree,
 
 	while (node) {
 		struct kid_entry *this = rb_entry(node, struct kid_entry, subtree_node);
-		int ret = syscall(SYS_kcmp, this->elem.pid, elem->pid, KCMP_EPOLL_TFD,
-				  this->elem.idx, slot);
+		int ret = syscall(SYS_kcmp, this->elem.pid, elem->pid, KCMP_EPOLL_TFD, this->elem.idx, slot);
 
 		if (ret == 1)
 			node = node->rb_left, new = &((*new)->rb_left);
@@ -176,9 +168,8 @@ static struct kid_elem *kid_lookup_epoll_tfd_sub(struct kid_tree *tree,
 		else if (ret == 0)
 			return &this->elem;
 		else {
-			pr_perror("kcmp-epoll failed: pid (%d %d) type %u idx (%u %u)",
-				  this->elem.pid, elem->pid, KCMP_EPOLL_TFD,
-				  this->elem.idx, elem->idx);
+			pr_perror("kcmp-epoll failed: pid (%d %d) type %u idx (%u %u)", this->elem.pid, elem->pid,
+				  KCMP_EPOLL_TFD, this->elem.idx, elem->idx);
 			return NULL;
 		}
 	}
@@ -186,9 +177,7 @@ static struct kid_elem *kid_lookup_epoll_tfd_sub(struct kid_tree *tree,
 	return NULL;
 }
 
-struct kid_elem *kid_lookup_epoll_tfd(struct kid_tree *tree,
-				      struct kid_elem *elem,
-				      kcmp_epoll_slot_t *slot)
+struct kid_elem *kid_lookup_epoll_tfd(struct kid_tree *tree, struct kid_elem *elem, kcmp_epoll_slot_t *slot)
 {
 	struct rb_node *node = tree->root.rb_node;
 	struct rb_node **new = &tree->root.rb_node;

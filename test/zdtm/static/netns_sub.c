@@ -14,7 +14,7 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check dump and restore a few network namespaces";
+const char *test_doc = "Check dump and restore a few network namespaces";
 
 static int fill_name(int nsid, struct sockaddr_un *name)
 {
@@ -41,7 +41,7 @@ static int create_socket(int nsid)
 		return -1;
 	}
 
-	if (bind(sk, (struct sockaddr *) &name, len) < 0) {
+	if (bind(sk, (struct sockaddr *)&name, len) < 0) {
 		pr_perror("bind");
 		close(sk);
 		return -1;
@@ -63,7 +63,7 @@ static int check_socket(int nsid, bool success)
 		return -1;
 	}
 
-	if (connect(sk, (struct sockaddr *) &name, len) < 0) {
+	if (connect(sk, (struct sockaddr *)&name, len) < 0) {
 		if (!success && errno == ECONNREFUSED)
 			return 0;
 		pr_perror("connect to %d", nsid);

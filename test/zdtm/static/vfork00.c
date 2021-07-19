@@ -9,10 +9,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Block migration by a pending (non-exec()-ed) vfork()";
-const char *test_author	= "Pavel Emelianov <xemul@sw.ru>";
+const char *test_doc = "Block migration by a pending (non-exec()-ed) vfork()";
+const char *test_author = "Pavel Emelianov <xemul@sw.ru>";
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int ret = 0;
 	pid_t pid;

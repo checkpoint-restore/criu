@@ -9,14 +9,14 @@
 #include <sys/syscall.h>
 
 #ifdef __NR_seccomp
-# include <linux/seccomp.h>
-# include <linux/limits.h>
+#include <linux/seccomp.h>
+#include <linux/limits.h>
 #endif
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that SECCOMP_MODE_STRICT is restored";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "Check that SECCOMP_MODE_STRICT is restored";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 #ifdef __NR_seccomp
 
@@ -46,7 +46,7 @@ int get_seccomp_mode(pid_t pid)
 	return -1;
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	pid_t pid;
 	int mode, status;

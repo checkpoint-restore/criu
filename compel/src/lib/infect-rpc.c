@@ -19,8 +19,7 @@ static int __parasite_send_cmd(int sockfd, struct ctl_msg *m)
 		pr_perror("Failed to send command %d to daemon", m->cmd);
 		return -1;
 	} else if (ret != sizeof(*m)) {
-		pr_err("Message to daemon is trimmed (%d/%d)\n",
-		       (int)sizeof(*m), ret);
+		pr_err("Message to daemon is trimmed (%d/%d)\n", (int)sizeof(*m), ret);
 		return -1;
 	}
 
@@ -42,12 +41,10 @@ int parasite_wait_ack(int sockfd, unsigned int cmd, struct ctl_msg *m)
 			pr_perror("Failed to read ack");
 			return -1;
 		} else if (ret != sizeof(*m)) {
-			pr_err("Message reply from daemon is trimmed (%d/%d)\n",
-			       (int)sizeof(*m), ret);
+			pr_err("Message reply from daemon is trimmed (%d/%d)\n", (int)sizeof(*m), ret);
 			return -1;
 		}
-		pr_debug("Fetched ack: %d %d %d\n",
-			 m->cmd, m->ack, m->err);
+		pr_debug("Fetched ack: %d %d %d\n", m->cmd, m->ack, m->err);
 
 		if (m->cmd != cmd || m->ack != cmd) {
 			pr_err("Communication error, this is not "
@@ -68,8 +65,7 @@ int compel_rpc_sync(unsigned int cmd, struct parasite_ctl *ctl)
 		return -1;
 
 	if (m.err != 0) {
-		pr_err("Command %d for daemon failed with %d\n",
-		       cmd, m.err);
+		pr_err("Command %d for daemon failed with %d\n", cmd, m.err);
 		return -1;
 	}
 

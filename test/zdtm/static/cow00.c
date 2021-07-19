@@ -10,13 +10,13 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that cow memory are restored";
-const char *test_author	= "Andrey Vagin <avagin@parallels.com";
+const char *test_doc = "Check that cow memory are restored";
+const char *test_author = "Andrey Vagin <avagin@parallels.com";
 
 static int is_cow(void *addr, pid_t p1, pid_t p2)
 {
 	char buf[PATH_MAX];
-	unsigned long pfn = (unsigned long) addr / PAGE_SIZE;
+	unsigned long pfn = (unsigned long)addr / PAGE_SIZE;
 	uint64_t map1, map2;
 	int fd1, fd2, ret, i;
 
@@ -63,7 +63,7 @@ static int is_cow(void *addr, pid_t p1, pid_t p2)
 	return map1 == map2;
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	void *addr;
 	pid_t pid;

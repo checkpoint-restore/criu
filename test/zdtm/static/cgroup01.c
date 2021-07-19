@@ -6,8 +6,8 @@
 #include <sys/mount.h>
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that empty cgroups are preserved";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "Check that empty cgroups are preserved";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "cgroup directory name", 1);

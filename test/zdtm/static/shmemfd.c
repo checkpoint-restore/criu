@@ -9,10 +9,14 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test C/R of shared memory file descriptors";
-const char *test_author	= "Andrei Vagin <avagin@gmail.com>";
+const char *test_doc = "Test C/R of shared memory file descriptors";
+const char *test_author = "Andrei Vagin <avagin@gmail.com>";
 
-#define err(exitcode, msg, ...) ({ pr_perror(msg, ##__VA_ARGS__); exit(exitcode); })
+#define err(exitcode, msg, ...)                \
+	({                                     \
+		pr_perror(msg, ##__VA_ARGS__); \
+		exit(exitcode);                \
+	})
 
 int main(int argc, char *argv[])
 {
@@ -31,8 +35,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	snprintf(path, sizeof(path), "/proc/self/map_files/%lx-%lx",
-					(long)addr, (long)addr + PAGE_SIZE);
+	snprintf(path, sizeof(path), "/proc/self/map_files/%lx-%lx", (long)addr, (long)addr + PAGE_SIZE);
 	fd = open(path, O_RDWR | O_LARGEFILE);
 	if (fd < 0)
 		err(1, "Can't open %s", path);

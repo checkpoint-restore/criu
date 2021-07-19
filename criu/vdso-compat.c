@@ -34,22 +34,19 @@ static void exit_on(int ret, int err_fd, char *reason)
  * WARN: This helper shouldn't call pr_err() or any syscall with
  *	 Glibc's wrapper function - it may very likely blow up.
  */
-void compat_vdso_helper(struct vdso_maps *native, int pipe_fd,
-		int err_fd, void *vdso_buf, size_t buf_size)
+void compat_vdso_helper(struct vdso_maps *native, int pipe_fd, int err_fd, void *vdso_buf, size_t buf_size)
 {
 	void *vdso_addr;
 	long vdso_size;
 	long ret;
 
 	if (native->vdso_start != VDSO_BAD_ADDR) {
-		ret = syscall(__NR_munmap,
-			native->vdso_start, native->sym.vdso_size);
+		ret = syscall(__NR_munmap, native->vdso_start, native->sym.vdso_size);
 		exit_on(ret, err_fd, "Error: Failed to unmap native vdso\n");
 	}
 
 	if (native->vvar_start != VVAR_BAD_ADDR) {
-		ret = syscall(__NR_munmap,
-			native->vvar_start, native->sym.vvar_size);
+		ret = syscall(__NR_munmap, native->vvar_start, native->sym.vvar_size);
 		exit_on(ret, err_fd, "Error: Failed to unmap native vvar\n");
 	}
 

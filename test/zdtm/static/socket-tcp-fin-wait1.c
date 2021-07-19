@@ -1,13 +1,13 @@
 #include "zdtmtst.h"
 
 #ifdef ZDTM_IPV4V6
-#define ZDTM_FAMILY AF_INET
+#define ZDTM_FAMILY	AF_INET
 #define ZDTM_SRV_FAMILY AF_INET6
 #elif defined(ZDTM_IPV6)
-#define ZDTM_FAMILY AF_INET6
+#define ZDTM_FAMILY	AF_INET6
 #define ZDTM_SRV_FAMILY AF_INET6
 #else
-#define ZDTM_FAMILY AF_INET
+#define ZDTM_FAMILY	AF_INET
 #define ZDTM_SRV_FAMILY AF_INET
 #endif
 
@@ -202,7 +202,6 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-
 	test_daemon();
 	test_waitsig();
 
@@ -211,8 +210,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (recv(fd, buf, sizeof(buf), MSG_WAITALL) != sizeof(TEST_MSG) ||
-	    strncmp(buf, TEST_MSG, sizeof(TEST_MSG))) {
+	if (recv(fd, buf, sizeof(buf), MSG_WAITALL) != sizeof(TEST_MSG) || strncmp(buf, TEST_MSG, sizeof(TEST_MSG))) {
 		pr_perror("recv: expected %s, got %s", TEST_MSG, buf);
 		return 1;
 	}

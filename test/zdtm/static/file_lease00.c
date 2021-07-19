@@ -62,8 +62,7 @@ int main(int argc, char **argv)
 		pr_err("Can't open files\n");
 		return -1;
 	}
-	if (fcntl(fd_rd, F_SETLEASE, F_RDLCK) < 0 ||
-		fcntl(fd_wr, F_SETLEASE, F_WRLCK) < 0) {
+	if (fcntl(fd_rd, F_SETLEASE, F_RDLCK) < 0 || fcntl(fd_wr, F_SETLEASE, F_WRLCK) < 0) {
 		pr_perror("Can't set leases");
 		close_files(fd_rd, fd_wr);
 		return -1;

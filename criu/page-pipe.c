@@ -68,8 +68,7 @@ static inline int ppb_resize_pipe(struct page_pipe_buf *ppb)
 	return 0;
 }
 
-static struct page_pipe_buf *pp_prev_ppb(struct page_pipe *pp,
-					 unsigned int ppb_flags)
+static struct page_pipe_buf *pp_prev_ppb(struct page_pipe *pp, unsigned int ppb_flags)
 {
 	int type = 0;
 
@@ -86,8 +85,7 @@ static struct page_pipe_buf *pp_prev_ppb(struct page_pipe *pp,
 	return pp->prev[type];
 }
 
-static void pp_update_prev_ppb(struct page_pipe *pp, struct page_pipe_buf *ppb,
-			       unsigned int ppb_flags)
+static void pp_update_prev_ppb(struct page_pipe *pp, struct page_pipe_buf *ppb, unsigned int ppb_flags)
 {
 	int type = 0;
 
@@ -97,8 +95,7 @@ static void pp_update_prev_ppb(struct page_pipe *pp, struct page_pipe_buf *ppb,
 	pp->prev[type] = ppb;
 }
 
-static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp,
-				       unsigned int ppb_flags)
+static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp, unsigned int ppb_flags)
 {
 	struct page_pipe_buf *prev = pp_prev_ppb(pp, ppb_flags);
 	struct page_pipe_buf *ppb;
@@ -144,8 +141,7 @@ static void ppb_destroy(struct page_pipe_buf *ppb)
 	xfree(ppb);
 }
 
-static void ppb_init(struct page_pipe_buf *ppb, unsigned int pages_in,
-		     unsigned int nr_segs, unsigned int flags,
+static void ppb_init(struct page_pipe_buf *ppb, unsigned int pages_in, unsigned int nr_segs, unsigned int flags,
 		     struct iovec *iov)
 {
 	ppb->pages_in = pages_in;
@@ -249,8 +245,8 @@ void page_pipe_reinit(struct page_pipe *pp)
 		BUG(); /* It can't fail, because ppb is in free_bufs */
 }
 
-static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *ppb,
-		unsigned long addr, unsigned int flags)
+static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *ppb, unsigned long addr,
+				  unsigned int flags)
 {
 	if (ppb->flags != flags)
 		return 1;
@@ -259,10 +255,9 @@ static inline int try_add_page_to(struct page_pipe *pp, struct page_pipe_buf *pp
 		return 1;
 
 	if (ppb->nr_segs && iov_grow_page(&ppb->iov[ppb->nr_segs - 1], addr))
-			goto out;
+		goto out;
 
-	pr_debug("Add iov to page pipe (%u iovs, %u/%u total)\n",
-			ppb->nr_segs, pp->free_iov, pp->nr_iovs);
+	pr_debug("Add iov to page pipe (%u iovs, %u/%u total)\n", ppb->nr_segs, pp->free_iov, pp->nr_iovs);
 	iov_init(&ppb->iov[ppb->nr_segs++], addr);
 	pp->free_iov++;
 	BUG_ON(pp->free_iov > pp->nr_iovs);
@@ -271,15 +266,13 @@ out:
 	return 0;
 }
 
-static inline int try_add_page(struct page_pipe *pp, unsigned long addr,
-			       unsigned int flags)
+static inline int try_add_page(struct page_pipe *pp, unsigned long addr, unsigned int flags)
 {
 	BUG_ON(list_empty(&pp->bufs));
 	return try_add_page_to(pp, list_entry(pp->bufs.prev, struct page_pipe_buf, l), addr, flags);
 }
 
-int page_pipe_add_page(struct page_pipe *pp, unsigned long addr,
-		       unsigned int flags)
+int page_pipe_add_page(struct page_pipe *pp, unsigned long addr, unsigned int flags)
 {
 	int ret;
 
@@ -296,10 +289,9 @@ int page_pipe_add_page(struct page_pipe *pp, unsigned long addr,
 	return ret;
 }
 
-#define PP_HOLES_BATCH	32
+#define PP_HOLES_BATCH 32
 
-int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr,
-		       unsigned int flags)
+int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr, unsigned int flags)
 {
 	if (pp->free_hole >= pp->nr_holes) {
 		size_t new_size = (pp->nr_holes + PP_HOLES_BATCH) * sizeof(struct iovec);
@@ -313,8 +305,7 @@ int page_pipe_add_hole(struct page_pipe *pp, unsigned long addr,
 		pp->nr_holes += PP_HOLES_BATCH;
 	}
 
-	if (pp->free_hole &&
-	    pp->hole_flags[pp->free_hole - 1] == flags &&
+	if (pp->free_hole && pp->hole_flags[pp->free_hole - 1] == flags &&
 	    iov_grow_page(&pp->holes[pp->free_hole - 1], addr))
 		goto out;
 
@@ -330,8 +321,7 @@ out:
  * Get ppb and iov that contain addr and count amount of data between
  * beginning of the pipe belonging to the ppb and addr
  */
-static struct page_pipe_buf *get_ppb(struct page_pipe *pp, unsigned long addr,
-				     struct iovec **iov_ret,
+static struct page_pipe_buf *get_ppb(struct page_pipe *pp, unsigned long addr, struct iovec **iov_ret,
 				     unsigned long *len)
 {
 	struct page_pipe_buf *ppb;
@@ -384,8 +374,7 @@ int pipe_read_dest_init(struct pipe_read_dest *prd)
 	return 0;
 }
 
-int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd,
-		   unsigned long addr, unsigned int *nr_pages,
+int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd, unsigned long addr, unsigned int *nr_pages,
 		   unsigned int ppb_flags)
 {
 	struct page_pipe_buf *ppb;
@@ -410,8 +399,7 @@ int page_pipe_read(struct page_pipe *pp, struct pipe_read_dest *prd,
 	}
 
 	/* clamp the request if it passes the end of iovec */
-	len = min((unsigned long)iov->iov_base + iov->iov_len - addr,
-		  (unsigned long)(*nr_pages) * PAGE_SIZE);
+	len = min((unsigned long)iov->iov_base + iov->iov_len - addr, (unsigned long)(*nr_pages) * PAGE_SIZE);
 	*nr_pages = len / PAGE_SIZE;
 
 	skip += ppb->pipe_off * PAGE_SIZE;
@@ -449,15 +437,13 @@ void debug_show_page_pipe(struct page_pipe *pp)
 		return;
 
 	pr_debug("Page pipe:\n");
-	pr_debug("* %u pipes %u/%u iovs:\n",
-			pp->nr_pipes, pp->free_iov, pp->nr_iovs);
+	pr_debug("* %u pipes %u/%u iovs:\n", pp->nr_pipes, pp->free_iov, pp->nr_iovs);
 	list_for_each_entry(ppb, &pp->bufs, l) {
-		pr_debug("\tbuf %u pages, %u iovs, flags: %x pipe_off: %x :\n",
-			 ppb->pages_in, ppb->nr_segs, ppb->flags, ppb->pipe_off);
+		pr_debug("\tbuf %u pages, %u iovs, flags: %x pipe_off: %x :\n", ppb->pages_in, ppb->nr_segs, ppb->flags,
+			 ppb->pipe_off);
 		for (i = 0; i < ppb->nr_segs; i++) {
 			iov = &ppb->iov[i];
-			pr_debug("\t\t%p %lu\n", iov->iov_base,
-					iov->iov_len / PAGE_SIZE);
+			pr_debug("\t\t%p %lu\n", iov->iov_base, iov->iov_len / PAGE_SIZE);
 		}
 	}
 

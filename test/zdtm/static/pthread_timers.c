@@ -8,11 +8,12 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check SIGEV_THREAD timers";
-const char *test_author	= "Andrei Vagin <avagin@gmail.com>";
+const char *test_doc = "Check SIGEV_THREAD timers";
+const char *test_author = "Andrei Vagin <avagin@gmail.com>";
 
 int efd;
-static void timer_func(union sigval sigval) {
+static void timer_func(union sigval sigval)
+{
 	long long int val = 1;
 
 	if (write(efd, &val, sizeof(val)) != sizeof(val)) {

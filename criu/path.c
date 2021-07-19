@@ -38,8 +38,7 @@ out:
 	return path;
 }
 
-char *mnt_get_sibling_path(struct mount_info *m,
-			   struct mount_info *p, char *buf, int len)
+char *mnt_get_sibling_path(struct mount_info *m, struct mount_info *p, char *buf, int len)
 {
 	struct mount_info *pa = m->parent;
 	char *rpath, *cut_root, *path = buf;

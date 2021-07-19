@@ -48,7 +48,7 @@ const char *test_author = "Michael Holzheu <holzheu@linux.vnet.ibm.com>";
  *   $ zdtmp.py run --norst --pre 2 -t zdtm/static/s390x_regs_check
  *   $ zdtmp.py run --check-only -t zdtm/static/s390x_regs_check
  */
-#define NR_THREADS 2
+#define NR_THREADS     2
 #define NR_THREADS_ALL (NR_THREADS + 1)
 
 static pid_t thread_pids[NR_THREADS_ALL];
@@ -58,222 +58,198 @@ static int pipefd[2];
  * Generic structure to define a register set and test data
  */
 struct reg_set {
-	const char *name;	/* Name of regset */
-	int nr;			/* Number of regset */
-	void *data;		/* Test data */
-	int len;		/* Number of bytes of test data */
-	bool optional;		/* Not all kernels/machines have this reg set */
-	bool available;		/* Current kernel/machine has this reg set */
+	const char *name; /* Name of regset */
+	int nr; /* Number of regset */
+	void *data; /* Test data */
+	int len; /* Number of bytes of test data */
+	bool optional; /* Not all kernels/machines have this reg set */
+	bool available; /* Current kernel/machine has this reg set */
 };
 
 /*
  * s390 floating point registers
  */
 struct prfpreg {
-	uint32_t	fpc;
-	uint64_t	fprs[16];
+	uint32_t fpc;
+	uint64_t fprs[16];
 };
 
-struct prfpreg prfpreg_data = {
-	.fpc = 0,
-	.fprs = {
-		0x0000000000000000,
-		0x1111111111111110,
-		0x2222222222222220,
-		0x3333333333333330,
-		0x4444444444444440,
-		0x5555555555555550,
-		0x6666666666666660,
-		0x7777777777777770,
-		0x8888888888888880,
-		0x9999999999999990,
-		0xaaaaaaaaaaaaaaa0,
-		0xbbbbbbbbbbbbbbb0,
-		0xccccccccccccccc0,
-		0xddddddddddddddd0,
-		0xeeeeeeeeeeeeeee0,
-		0xfffffffffffffff0,
-	}
-};
+struct prfpreg prfpreg_data = { .fpc = 0,
+				.fprs = {
+					0x0000000000000000,
+					0x1111111111111110,
+					0x2222222222222220,
+					0x3333333333333330,
+					0x4444444444444440,
+					0x5555555555555550,
+					0x6666666666666660,
+					0x7777777777777770,
+					0x8888888888888880,
+					0x9999999999999990,
+					0xaaaaaaaaaaaaaaa0,
+					0xbbbbbbbbbbbbbbb0,
+					0xccccccccccccccc0,
+					0xddddddddddddddd0,
+					0xeeeeeeeeeeeeeee0,
+					0xfffffffffffffff0,
+				} };
 
 struct reg_set reg_set_prfpreg = {
-	.name		= "PRFPREG",
-	.nr		= NT_PRFPREG,
-	.data		= &prfpreg_data,
-	.len		= sizeof(prfpreg_data),
-	.optional	= false,
+	.name = "PRFPREG",
+	.nr = NT_PRFPREG,
+	.data = &prfpreg_data,
+	.len = sizeof(prfpreg_data),
+	.optional = false,
 };
 
 /*
  * s390 vector VXRS_LOW registers
  */
 
-#define NT_S390_VXRS_LOW	0x309
+#define NT_S390_VXRS_LOW 0x309
 
 struct vxrs_low {
-	uint64_t	regs[16];
+	uint64_t regs[16];
 };
 
-struct vxrs_low vxrs_low_data = {
-	.regs = {
-		0x0000000000000001,
-		0x1111111111111111,
-		0x2222222222222221,
-		0x3333333333333331,
-		0x4444444444444441,
-		0x5555555555555551,
-		0x6666666666666661,
-		0x7777777777777771,
-		0x8888888888888881,
-		0x9999999999999991,
-		0xaaaaaaaaaaaaaaa1,
-		0xbbbbbbbbbbbbbbb1,
-		0xccccccccccccccc1,
-		0xddddddddddddddd1,
-		0xeeeeeeeeeeeeeee1,
-		0xfffffffffffffff1,
-	}
-};
+struct vxrs_low vxrs_low_data = { .regs = {
+					  0x0000000000000001,
+					  0x1111111111111111,
+					  0x2222222222222221,
+					  0x3333333333333331,
+					  0x4444444444444441,
+					  0x5555555555555551,
+					  0x6666666666666661,
+					  0x7777777777777771,
+					  0x8888888888888881,
+					  0x9999999999999991,
+					  0xaaaaaaaaaaaaaaa1,
+					  0xbbbbbbbbbbbbbbb1,
+					  0xccccccccccccccc1,
+					  0xddddddddddddddd1,
+					  0xeeeeeeeeeeeeeee1,
+					  0xfffffffffffffff1,
+				  } };
 
 struct reg_set reg_set_vxrs_low = {
-	.name		= "VXRS_LOW",
-	.nr		= NT_S390_VXRS_LOW,
-	.data		= &vxrs_low_data,
-	.len		= sizeof(vxrs_low_data),
-	.optional	= true,
+	.name = "VXRS_LOW",
+	.nr = NT_S390_VXRS_LOW,
+	.data = &vxrs_low_data,
+	.len = sizeof(vxrs_low_data),
+	.optional = true,
 };
 
 /*
  * s390 vector VXRS_HIGH registers
  */
 
-#define NT_S390_VXRS_HIGH	0x30a
+#define NT_S390_VXRS_HIGH 0x30a
 
 struct vxrs_high {
-	uint64_t	regs[32];
+	uint64_t regs[32];
 };
 
-struct vxrs_high vxrs_high_data = {
-	.regs = {
-		0x0000000000000002, 0x0000000000000002,
-		0x1111111111111112, 0x1111111111111112,
-		0x2222222222222222, 0x2222222222222222,
-		0x3333333333333332, 0x3333333333333332,
-		0x4444444444444442, 0x4444444444444442,
-		0x5555555555555552, 0x5555555555555552,
-		0x6666666666666662, 0x6666666666666662,
-		0x7777777777777772, 0x7777777777777772,
-		0x8888888888888882, 0x8888888888888882,
-		0x9999999999999992, 0x9999999999999992,
-		0xaaaaaaaaaaaaaaa2, 0xaaaaaaaaaaaaaaa2,
-		0xbbbbbbbbbbbbbbb2, 0xbbbbbbbbbbbbbbb2,
-		0xccccccccccccccc2, 0xccccccccccccccc2,
-		0xddddddddddddddd2, 0xddddddddddddddd2,
-		0xeeeeeeeeeeeeeee2, 0xeeeeeeeeeeeeeee2,
-		0xfffffffffffffff2, 0xfffffffffffffff2,
-	}
-};
+struct vxrs_high vxrs_high_data = { .regs = {
+					    0x0000000000000002, 0x0000000000000002, 0x1111111111111112,
+					    0x1111111111111112, 0x2222222222222222, 0x2222222222222222,
+					    0x3333333333333332, 0x3333333333333332, 0x4444444444444442,
+					    0x4444444444444442, 0x5555555555555552, 0x5555555555555552,
+					    0x6666666666666662, 0x6666666666666662, 0x7777777777777772,
+					    0x7777777777777772, 0x8888888888888882, 0x8888888888888882,
+					    0x9999999999999992, 0x9999999999999992, 0xaaaaaaaaaaaaaaa2,
+					    0xaaaaaaaaaaaaaaa2, 0xbbbbbbbbbbbbbbb2, 0xbbbbbbbbbbbbbbb2,
+					    0xccccccccccccccc2, 0xccccccccccccccc2, 0xddddddddddddddd2,
+					    0xddddddddddddddd2, 0xeeeeeeeeeeeeeee2, 0xeeeeeeeeeeeeeee2,
+					    0xfffffffffffffff2, 0xfffffffffffffff2,
+				    } };
 
 struct reg_set reg_set_vxrs_high = {
-	.name		= "VXRS_HIGH",
-	.nr		= NT_S390_VXRS_HIGH,
-	.data		= &vxrs_high_data,
-	.len		= sizeof(vxrs_high_data),
-	.optional	= true,
+	.name = "VXRS_HIGH",
+	.nr = NT_S390_VXRS_HIGH,
+	.data = &vxrs_high_data,
+	.len = sizeof(vxrs_high_data),
+	.optional = true,
 };
 
 /*
  * s390 guarded-storage registers
  */
-#define NT_S390_GS_CB		0x30b
-#define NT_S390_GS_BC		0x30c
+#define NT_S390_GS_CB 0x30b
+#define NT_S390_GS_BC 0x30c
 
 struct gs_cb {
 	uint64_t regs[4];
 };
 
-struct gs_cb gs_cb_data = {
-	.regs = {
-		0x0000000000000000,
-		0x000000123400001a,
-		0x5555555555555555,
-		0x000000014b58a010,
-	}
-};
+struct gs_cb gs_cb_data = { .regs = {
+				    0x0000000000000000,
+				    0x000000123400001a,
+				    0x5555555555555555,
+				    0x000000014b58a010,
+			    } };
 
 struct reg_set reg_set_gs_cb = {
-	.name		= "GS_CB",
-	.nr		= NT_S390_GS_CB,
-	.data		= &gs_cb_data,
-	.len		= sizeof(gs_cb_data),
-	.optional	= true,
+	.name = "GS_CB",
+	.nr = NT_S390_GS_CB,
+	.data = &gs_cb_data,
+	.len = sizeof(gs_cb_data),
+	.optional = true,
 };
 
-struct gs_cb gs_bc_data = {
-	.regs = {
-		0x0000000000000000,
-		0x000000123400001a,
-		0xffffffffffffffff,
-		0x0000000aaaaaaaaa,
-	}
-};
+struct gs_cb gs_bc_data = { .regs = {
+				    0x0000000000000000,
+				    0x000000123400001a,
+				    0xffffffffffffffff,
+				    0x0000000aaaaaaaaa,
+			    } };
 
 struct reg_set reg_set_gs_bc = {
-	.name		= "GS_BC_CB",
-	.nr		= NT_S390_GS_BC,
-	.data		= &gs_bc_data,
-	.len		= sizeof(gs_bc_data),
-	.optional	= true,
+	.name = "GS_BC_CB",
+	.nr = NT_S390_GS_BC,
+	.data = &gs_bc_data,
+	.len = sizeof(gs_bc_data),
+	.optional = true,
 };
 
 /*
  * s390 runtime-instrumentation control block
  */
-#define NT_S390_RI_CB		0x30d
+#define NT_S390_RI_CB 0x30d
 
 struct ri_cb {
 	uint64_t regs[8];
 };
 
-struct ri_cb ri_cb_data = {
-	.regs = {
-			0x000002aa13aae000,
-			0x000002aa13aad000,
-			0x000002aa13aadfff,
-			0xe0a1000400000000,
-			0x0000000000000000,
-			0x0000000000004e20,
-			0x0000000000003479,
-			0x0000000000000000,
-	}
-};
+struct ri_cb ri_cb_data = { .regs = {
+				    0x000002aa13aae000,
+				    0x000002aa13aad000,
+				    0x000002aa13aadfff,
+				    0xe0a1000400000000,
+				    0x0000000000000000,
+				    0x0000000000004e20,
+				    0x0000000000003479,
+				    0x0000000000000000,
+			    } };
 
 struct reg_set reg_set_ri_cb = {
-	.name		= "RI_CB",
-	.nr		= NT_S390_RI_CB,
-	.data		= &ri_cb_data,
-	.len		= sizeof(ri_cb_data),
-	.optional	= true,
+	.name = "RI_CB",
+	.nr = NT_S390_RI_CB,
+	.data = &ri_cb_data,
+	.len = sizeof(ri_cb_data),
+	.optional = true,
 };
 
 /*
  * Vector with all regsets
  */
 struct reg_set *reg_set_vec[] = {
-	&reg_set_prfpreg,
-	&reg_set_vxrs_low,
-	&reg_set_vxrs_high,
-	&reg_set_gs_cb,
-	&reg_set_gs_bc,
-	&reg_set_ri_cb,
-	NULL,
+	&reg_set_prfpreg, &reg_set_vxrs_low, &reg_set_vxrs_high, &reg_set_gs_cb, &reg_set_gs_bc, &reg_set_ri_cb, NULL,
 };
 
 /*
  * Print hexdump for buffer with variable group parameter
  */
-void util_hexdump_grp(const char *tag, const void *data, int grp,
-		      int count, int indent)
+void util_hexdump_grp(const char *tag, const void *data, int grp, int count, int indent)
 {
 	char str[1024], *ptr = str;
 	const char *buf = data;
@@ -325,19 +301,16 @@ static int set_regset(pid_t pid, struct reg_set *reg_set)
 		switch (errno) {
 		case EOPNOTSUPP:
 		case ENODEV:
-			test_msg(" REGSET: %12s -> not supported by machine\n",
-				 reg_set->name);
+			test_msg(" REGSET: %12s -> not supported by machine\n", reg_set->name);
 			return 0;
 		case EINVAL:
-			test_msg(" REGSET: %12s -> not supported by kernel\n",
-				 reg_set->name);
+			test_msg(" REGSET: %12s -> not supported by kernel\n", reg_set->name);
 			return 0;
 		default:
 			break;
 		}
 	}
-	pr_perror("PTRACE_SETREGSET for %s failed for pid %d",
-		  reg_set->name, pid);
+	pr_perror("PTRACE_SETREGSET for %s failed for pid %d", reg_set->name, pid);
 	return -1;
 }
 
@@ -373,8 +346,7 @@ static int check_regset(pid_t pid, struct reg_set *reg_set)
 	iov.iov_len = reg_set->len;
 
 	if (ptrace(PTRACE_GETREGSET, pid, reg_set->nr, iov) != 0) {
-		pr_perror("PTRACE_SETREGSET for %s failed for pid %d",
-			  reg_set->name, pid);
+		pr_perror("PTRACE_SETREGSET for %s failed for pid %d", reg_set->name, pid);
 		free(data);
 		return -1;
 	}
@@ -423,14 +395,15 @@ static inline void send_tid_and_loop(int fd)
 {
 	int tid = syscall(__NR_gettid);
 
-	asm volatile(
-		     "lgr	2,%0\n"	/* Arg 1: fd */
+	asm volatile("lgr	2,%0\n" /* Arg 1: fd */
 		     "la	3,%1\n" /* Arg 2: &tid */
-		     "lghi	4,4\n"  /* Arg 3: sizeof(int) */
-		     "svc	4\n"	/* __NR_write SVC: */
+		     "lghi	4,4\n" /* Arg 3: sizeof(int) */
+		     "svc	4\n" /* __NR_write SVC: */
 		     /* After SVC no more registers are changed */
 		     "0:	j 0b\n" /* Loop here */
-		     : : "d" (fd), "Q" (tid) : "2", "3", "4");
+		     :
+		     : "d"(fd), "Q"(tid)
+		     : "2", "3", "4");
 }
 
 /*
@@ -501,8 +474,7 @@ int main(int argc, char *argv[])
 
 	test_init(argc, argv);
 
-	test_msg("------------- START 1 PROCESS + %d THREADS ---------------\n",
-	       NR_THREADS);
+	test_msg("------------- START 1 PROCESS + %d THREADS ---------------\n", NR_THREADS);
 	if (pipe(pipefd) == -1) {
 		perror("pipe failed");
 		exit(EXIT_FAILURE);

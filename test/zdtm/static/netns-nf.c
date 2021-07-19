@@ -5,8 +5,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that netfilter rules (some) are kept";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that netfilter rules (some) are kept";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);

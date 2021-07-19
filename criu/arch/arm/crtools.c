@@ -20,7 +20,7 @@
 #include "restorer.h"
 #include "compel/infect.h"
 
-#define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))((src)->ARM_##e)
+#define assign_reg(dst, src, e) dst->e = (__typeof__(dst->e))((src)->ARM_##e)
 
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
@@ -46,7 +46,6 @@ int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpre
 	assign_reg(core->ti_arm->gpregs, regs, pc);
 	assign_reg(core->ti_arm->gpregs, regs, cpsr);
 	core->ti_arm->gpregs->orig_r0 = regs->ARM_ORIG_r0;
-
 
 	// Save the VFP state
 
@@ -77,7 +76,7 @@ int arch_alloc_thread_info(CoreEntry *core)
 		goto err;
 	user_arm_vfpstate_entry__init(fpstate);
 	ti_arm->fpstate = fpstate;
-	fpstate->vfp_regs = xmalloc(32*sizeof(unsigned long long));
+	fpstate->vfp_regs = xmalloc(32 * sizeof(unsigned long long));
 	fpstate->n_vfp_regs = 32;
 	if (!fpstate->vfp_regs)
 		goto err;
@@ -113,8 +112,8 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 
 int restore_gpregs(struct rt_sigframe *f, UserArmRegsEntry *r)
 {
-#define CPREG1(d)       f->sig.uc.uc_mcontext.arm_##d = r->d
-#define CPREG2(d, s)    f->sig.uc.uc_mcontext.arm_##d = r->s
+#define CPREG1(d)    f->sig.uc.uc_mcontext.arm_##d = r->d
+#define CPREG2(d, s) f->sig.uc.uc_mcontext.arm_##d = r->s
 
 	CPREG1(r0);
 	CPREG1(r1);

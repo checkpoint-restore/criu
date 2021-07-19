@@ -1,15 +1,12 @@
 #include "zdtmtst.h"
 
-const char *test_doc    = "test to ensure that monotonic clock doesn't decrease";
+const char *test_doc = "test to ensure that monotonic clock doesn't decrease";
 const char *test_author = "Evgeny Antysev <eantyshev@parallels.com>";
 
 #include <time.h>
 #include <stdlib.h>
 
-# define tv_ge(a, b) \
-  (((a)->tv_sec == (b)->tv_sec) ? \
-   ((a)->tv_nsec >= (b)->tv_nsec) : \
-   ((a)->tv_sec > (b)->tv_sec))
+#define tv_ge(a, b) (((a)->tv_sec == (b)->tv_sec) ? ((a)->tv_nsec >= (b)->tv_nsec) : ((a)->tv_sec > (b)->tv_sec))
 
 int main(int argc, char **argv)
 {
@@ -33,8 +30,7 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 		if (!tv_ge(&tm, &tm_old)) {
-			diff_nsec = (tm_old.tv_sec - tm.tv_sec) * 1.0E9 +\
-				(tm_old.tv_nsec - tm.tv_nsec);
+			diff_nsec = (tm_old.tv_sec - tm.tv_sec) * 1.0E9 + (tm_old.tv_nsec - tm.tv_nsec);
 			fail("clock step backward for %e nsec", diff_nsec);
 			exit(1);
 		}

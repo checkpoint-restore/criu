@@ -1,13 +1,13 @@
 #include "zdtmtst.h"
 
 #ifdef ZDTM_IPV4V6
-#define ZDTM_FAMILY AF_INET
+#define ZDTM_FAMILY	AF_INET
 #define ZDTM_SRV_FAMILY AF_INET6
 #elif defined(ZDTM_IPV6)
-#define ZDTM_FAMILY AF_INET6
+#define ZDTM_FAMILY	AF_INET6
 #define ZDTM_SRV_FAMILY AF_INET6
 #else
-#define ZDTM_FAMILY AF_INET
+#define ZDTM_FAMILY	AF_INET
 #define ZDTM_SRV_FAMILY AF_INET
 #endif
 
@@ -52,7 +52,6 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-
 	if ((sock = socket(ZDTM_FAMILY, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP)) < 0) {
 		pr_perror("can't create socket");
 		return -1;
@@ -61,13 +60,13 @@ int main(int argc, char **argv)
 	/* Construct the server address structure */
 	memset(&addr, 0, sizeof(addr));
 	if (ZDTM_FAMILY == AF_INET) {
-		addr.v4.sin_family      = AF_INET;
+		addr.v4.sin_family = AF_INET;
 		inet_pton(AF_INET, "localhost", &addr.v4.sin_addr);
 	} else {
-		addr.v6.sin6_family      = AF_INET6;
+		addr.v6.sin6_family = AF_INET6;
 		inet_pton(AF_INET6, "localhost", &addr.v6.sin6_addr);
 	}
-	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+	if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 		pr_perror("can't connect to server");
 		return -1;
 	}
@@ -79,17 +78,17 @@ int main(int argc, char **argv)
 	/* Construct the server address structure */
 	memset(&addr, 0, sizeof(addr));
 	if (ZDTM_FAMILY == AF_INET) {
-		addr.v4.sin_family      = AF_INET;
-		addr.v4.sin_port        = htons(port);
+		addr.v4.sin_family = AF_INET;
+		addr.v4.sin_port = htons(port);
 		inet_pton(AF_INET, "localhost", &addr.v4.sin_addr);
 	} else {
-		addr.v6.sin6_family      = AF_INET6;
-		addr.v6.sin6_port        = htons(port);
+		addr.v6.sin6_family = AF_INET6;
+		addr.v6.sin6_port = htons(port);
 		inet_pton(AF_INET6, "localhost", &addr.v6.sin6_addr);
 	}
 
 	errno = 0;
-	if (connect(sock, (struct sockaddr *) &addr, sizeof(addr)) == 0 || errno != EINPROGRESS) {
+	if (connect(sock, (struct sockaddr *)&addr, sizeof(addr)) == 0 || errno != EINPROGRESS) {
 		pr_perror("can't connect to server");
 		return -1;
 	}
@@ -136,7 +135,6 @@ int main(int argc, char **argv)
 		fail("Unable to recv data");
 		return 1;
 	}
-
 
 	pass();
 	return 0;

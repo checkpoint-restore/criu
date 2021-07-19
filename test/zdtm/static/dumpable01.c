@@ -5,7 +5,7 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc    = "Check dumpable flag handling (dumpable case)";
+const char *test_doc = "Check dumpable flag handling (dumpable case)";
 const char *test_author = "Filipe Brandenburger <filbranden@google.com>";
 
 int main(int argc, char **argv)

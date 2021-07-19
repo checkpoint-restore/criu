@@ -10,10 +10,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that we can migrate with a unix socket "
-			"bound in a directory which has been mounted over by"
-			" another filesystem";
-const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
+const char *test_doc = "Check that we can migrate with a unix socket "
+		       "bound in a directory which has been mounted over by"
+		       " another filesystem";
+const char *test_author = "Roman Kagan <rkagan@parallels.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
@@ -44,7 +44,7 @@ static int setup_srv_sock(const char *filename)
 		return -1;
 	}
 
-	if (bind(sock, (struct sockaddr *) &name, SUN_LEN(&name)) < 0) {
+	if (bind(sock, (struct sockaddr *)&name, SUN_LEN(&name)) < 0) {
 		pr_perror("can't bind to socket \"%s\"", filename);
 		goto err;
 	}
@@ -72,7 +72,7 @@ static int setup_clnt_sock(const char *filename)
 	if (sock < 0)
 		return -1;
 
-	if (connect(sock, (struct sockaddr *) &name, SUN_LEN(&name)) < 0)
+	if (connect(sock, (struct sockaddr *)&name, SUN_LEN(&name)) < 0)
 		goto err;
 
 	return sock;
@@ -81,7 +81,7 @@ err:
 	return -1;
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int sock, acc_sock, ret;
 	char path[256];
@@ -111,7 +111,7 @@ int main(int argc, char ** argv)
 		goto out;
 	}
 
-	if (pid == 0) {	/* child writes to the overmounted socket and returns */
+	if (pid == 0) { /* child writes to the overmounted socket and returns */
 		close(sock);
 
 		sock = setup_clnt_sock(path);
@@ -159,8 +159,7 @@ int main(int argc, char ** argv)
 	if (WIFEXITED(ret)) {
 		ret = WEXITSTATUS(ret);
 		if (ret) {
-			fail("child exited with nonzero code %d (%s)", ret,
-				strerror(ret));
+			fail("child exited with nonzero code %d (%s)", ret, strerror(ret));
 			goto out;
 		}
 	}

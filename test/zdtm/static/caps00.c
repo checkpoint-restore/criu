@@ -6,8 +6,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that aps are preserved";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that aps are preserved";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 struct cap_hdr {
 	unsigned int version;
@@ -15,15 +15,15 @@ struct cap_hdr {
 };
 
 struct cap_data {
-	unsigned int	eff;
-	unsigned int	prm;
-	unsigned int	inh;
+	unsigned int eff;
+	unsigned int prm;
+	unsigned int inh;
 };
 
-#define _LINUX_CAPABILITY_VERSION_3     0x20080522
-#define _LINUX_CAPABILITY_U32S_3        2
-#define CAP_CHOWN            0
-#define CAP_DAC_OVERRIDE     1
+#define _LINUX_CAPABILITY_VERSION_3 0x20080522
+#define _LINUX_CAPABILITY_U32S_3    2
+#define CAP_CHOWN		    0
+#define CAP_DAC_OVERRIDE	    1
 
 int capget(struct cap_hdr *hdrp, struct cap_data *datap);
 int capset(struct cap_hdr *hdrp, const struct cap_data *datap);
@@ -131,12 +131,12 @@ int main(int argc, char **argv)
 		}
 
 		if (prctl(PR_CAPBSET_READ, CAP_SETPCAP, 0, 0, 0) != 0) {
-			res='5';
+			res = '5';
 			goto bad;
 		}
 
 		res = '0';
-bad:
+	bad:
 		write(result_pipe[1], &res, 1);
 
 		if (res != '0') {
@@ -163,12 +163,10 @@ bad:
 	else {
 		read(result_pipe[0], data, sizeof(data));
 		read(result_pipe[0], data_2, sizeof(data_2));
-		test_msg("{eff,prm,inh}[]={%08x,%08x,%08x}, {%08x,%08x,%08x}\n",
-			  data[0].eff, data[0].prm, data[0].inh,
-			  data[1].eff, data[1].prm, data[1].inh);
-		test_msg("{eff,prm,inh}[]={%08x,%08x,%08x}, {%08x,%08x,%08x}\n",
-			  data_2[0].eff, data_2[0].prm, data_2[0].inh,
-			  data_2[1].eff, data_2[1].prm, data_2[1].inh);
+		test_msg("{eff,prm,inh}[]={%08x,%08x,%08x}, {%08x,%08x,%08x}\n", data[0].eff, data[0].prm, data[0].inh,
+			 data[1].eff, data[1].prm, data[1].inh);
+		test_msg("{eff,prm,inh}[]={%08x,%08x,%08x}, {%08x,%08x,%08x}\n", data_2[0].eff, data_2[0].prm,
+			 data_2[0].inh, data_2[1].eff, data_2[1].prm, data_2[1].inh);
 		fail("Fail: %c", res);
 	}
 	close(result_pipe[0]);

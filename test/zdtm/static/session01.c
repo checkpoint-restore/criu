@@ -7,8 +7,8 @@
 #include "zdtmtst.h"
 #include "lock.h"
 
-const char *test_doc	= "Test that sid, pgid are restored";
-const char *test_author	= "Andrey Vagin <avagin@openvz.org>";
+const char *test_doc = "Test that sid, pgid are restored";
+const char *test_author = "Andrey Vagin <avagin@openvz.org>";
 
 struct master {
 	pid_t pid;
@@ -40,27 +40,33 @@ enum {
 static struct testcase *testcases;
 static futex_t *fstate;
 static struct testcase __testcases[] = {
-	{ 2,  1,  2,  1,  2, 1 },  /* session00			*/
-	{ 4,  2,  4,  2,  4, 1 },  /*  |\_session00		*/
-	{15,  4,  4,  4, 15, 1 },  /*  |  |\_session00		*/
-	{16,  4,  4,  4, 15, 1 },  /*  |   \_session00		*/
-	{17,  4,  4,  4, 17, 0 },  /*  |  |\_session00		*/
-	{18,  4,  4,  4, 17, 1 },  /*  |   \_session00		*/
-	{ 5,  2,  2,  2,  2, 1 },  /*  |\_session00		*/
-	{ 8,  2,  8,  2,  8, 1 },  /*  |\_session00		*/
-	{ 9,  8,  2,  2,  2, 1 },  /*  |   \_session00		*/
-	{10,  2, 10,  2, 10, 1 },  /*  |\_session00		*/
-	{11, 10, 11,  2, 11, 1 },  /*  |    \_session00		*/
-	{12, 11,  2,  2,  2, 1 },  /*  |        \_session00	*/
-	{13,  2,  2,  2,  2, 0 },  /*   \_session00		*/
-	{ 3, 13,  2,  2,  2, 1 },  /* session00			*/
-	{ 6,  2,  6,  2,  6, 0 },  /*   \_session00		*/
-	{14,  6,  6,  6,  6, 1 },  /* session00			*/
+	{ 2, 1, 2, 1, 2, 1 }, /* session00			*/
+	{ 4, 2, 4, 2, 4, 1 }, /*  |\_session00		*/
+	{ 15, 4, 4, 4, 15, 1 }, /*  |  |\_session00		*/
+	{ 16, 4, 4, 4, 15, 1 }, /*  |   \_session00		*/
+	{ 17, 4, 4, 4, 17, 0 }, /*  |  |\_session00		*/
+	{ 18, 4, 4, 4, 17, 1 }, /*  |   \_session00		*/
+	{ 5, 2, 2, 2, 2, 1 }, /*  |\_session00		*/
+	{ 8, 2, 8, 2, 8, 1 }, /*  |\_session00		*/
+	{ 9, 8, 2, 2, 2, 1 }, /*  |   \_session00		*/
+	{ 10, 2, 10, 2, 10, 1 }, /*  |\_session00		*/
+	{ 11, 10, 11, 2, 11, 1 }, /*  |    \_session00		*/
+	{ 12, 11, 2, 2, 2, 1 }, /*  |        \_session00	*/
+	{ 13, 2, 2, 2, 2, 0 }, /*   \_session00		*/
+	{ 3, 13, 2, 2, 2, 1 }, /* session00			*/
+	{ 6, 2, 6, 2, 6, 0 }, /*   \_session00		*/
+	{ 14, 6, 6, 6, 6, 1 }, /* session00			*/
 };
 
 #define TESTS (sizeof(__testcases) / sizeof(struct testcase))
 
-#define check(n, a, b) do { if ((a) != (b)) { pr_perror("%s mismatch %d != %d", n, a, b); goto err; } } while (0)
+#define check(n, a, b)                                              \
+	do {                                                        \
+		if ((a) != (b)) {                                   \
+			pr_perror("%s mismatch %d != %d", n, a, b); \
+			goto err;                                   \
+		}                                                   \
+	} while (0)
 
 static int child(const int c);
 static int fork_children(struct testcase *t, int leader)
@@ -73,7 +79,7 @@ static int fork_children(struct testcase *t, int leader)
 			continue;
 
 		if (leader ^ (t->pid == testcases[i].born_sid))
-				continue;
+			continue;
 
 		cid = test_fork_id(i);
 		if (cid < 0)
@@ -135,7 +141,7 @@ static int child(const int c)
 				goto err;
 			}
 
-		t->master.pgid	= testcases[i].master.pid;
+		t->master.pgid = testcases[i].master.pid;
 		break;
 	}
 
@@ -160,17 +166,17 @@ static int child(const int c)
 	futex_wait_until(fstate, TEST_MASTER);
 
 	/* Save the master copy */
-	t->master.ppid	= getppid();
-	t->master.sid	= getsid(0);
+	t->master.ppid = getppid();
+	t->master.sid = getsid(0);
 
 	futex_set_and_wake(&t->futex, c);
 
 	futex_wait_until(fstate, TEST_CHECK);
 
-	check("pid", t->master.pid,	getpid());
-	check("ppid", t->master.ppid,	getppid());
-	check("sid", t->master.sid,	getsid(0));
-	check("pgid", t->master.pgid,	getpgid(0));
+	check("pid", t->master.pid, getpid());
+	check("ppid", t->master.ppid, getppid());
+	check("sid", t->master.sid, getsid(0));
+	check("pgid", t->master.pgid, getpgid(0));
 
 	futex_set_and_wake(&t->futex, c);
 
@@ -183,7 +189,7 @@ err:
 	return 1;
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int i, err, ret;
 	void *ptr;
@@ -238,8 +244,7 @@ int main(int argc, char ** argv)
 			continue;
 		if (testcases[i].alive)
 			continue;
-		test_msg("Wait porcess %d (pid %d)\n",
-				i, testcases[i].master.pid);
+		test_msg("Wait porcess %d (pid %d)\n", i, testcases[i].master.pid);
 		waitpid(testcases[i].master.pid, NULL, 0);
 	}
 
@@ -272,28 +277,24 @@ int main(int argc, char ** argv)
 			struct testcase *p = testcases + j;
 			/* sanity check */
 			if (p->pid == t->sid && t->master.sid != p->master.pid) {
-				pr_perror("session mismatch (%d) %d != (%d) %d",
-					i, t->master.sid, j, p->master.pid);
+				pr_perror("session mismatch (%d) %d != (%d) %d", i, t->master.sid, j, p->master.pid);
 				err++;
 			}
 			if (p->pid == t->pgid && t->master.pgid != p->master.pid) {
-				pr_perror("pgid mismatch (%d) %d != (%d) %d",
-					i, t->master.pgid, j, p->master.pid);
+				pr_perror("pgid mismatch (%d) %d != (%d) %d", i, t->master.pgid, j, p->master.pid);
 				err++;
 			}
 		}
 
 		sid = getsid(t->master.pid);
 		if (t->master.sid != sid) {
-			pr_perror("%d: session mismatch %d (expected %d)",
-						i, sid, t->master.sid);
+			pr_perror("%d: session mismatch %d (expected %d)", i, sid, t->master.sid);
 			err++;
 		}
 
 		pgid = getpgid(t->master.pid);
 		if (t->master.pgid != pgid) {
-			pr_perror("%d: pgid mismatch %d (expected %d)",
-						i, t->master.pgid, pgid);
+			pr_perror("%d: pgid mismatch %d (expected %d)", i, t->master.pgid, pgid);
 			err++;
 		}
 	}

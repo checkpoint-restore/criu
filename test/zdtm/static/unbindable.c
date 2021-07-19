@@ -6,8 +6,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check unbindable flag does not break mount restore";
-const char *test_author	= "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
+const char *test_doc = "Check unbindable flag does not break mount restore";
+const char *test_author = "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
