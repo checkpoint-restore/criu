@@ -10,8 +10,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test that env/cmdline/auxv restored well\n";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
+const char *test_doc = "Test that env/cmdline/auxv restored well\n";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org";
 
 static char *arg1, *arg2, *arg3;
 
@@ -60,7 +60,7 @@ static int cmp_auxv(const void *auxv_orig, const void *auxv, size_t size)
 	while (size > 0) {
 		if (*new != *old)
 			return -1;
-		new++;
+		new ++;
 		old++;
 		size -= sizeof(*new);
 	}
@@ -76,12 +76,12 @@ int main(int argc, char *argv[])
 	char auxv_orig[1024];
 	char auxv[1024];
 
-	memset(cmdline_orig,	0, sizeof(cmdline_orig));
-	memset(cmdline,		0, sizeof(cmdline));
-	memset(env_orig,	0, sizeof(env_orig));
-	memset(env,		0, sizeof(env));
-	memset(auxv_orig,	0, sizeof(auxv_orig));
-	memset(auxv,		0, sizeof(auxv));
+	memset(cmdline_orig, 0, sizeof(cmdline_orig));
+	memset(cmdline, 0, sizeof(cmdline));
+	memset(env_orig, 0, sizeof(env_orig));
+	memset(env, 0, sizeof(env));
+	memset(auxv_orig, 0, sizeof(auxv_orig));
+	memset(auxv, 0, sizeof(auxv));
 
 	test_init(argc, argv);
 

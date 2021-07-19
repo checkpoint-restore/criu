@@ -108,8 +108,7 @@ void rb_insert_color(struct rb_node *node, struct rb_root *root)
 	rb_set_black(root->rb_node);
 }
 
-static void __rb_erase_color(struct rb_node *node, struct rb_node *parent,
-			     struct rb_root *root)
+static void __rb_erase_color(struct rb_node *node, struct rb_node *parent, struct rb_root *root)
 {
 	struct rb_node *other;
 
@@ -122,7 +121,7 @@ static void __rb_erase_color(struct rb_node *node, struct rb_node *parent,
 				__rb_rotate_left(parent, root);
 				other = parent->rb_right;
 			}
-			if ((!other->rb_left  || rb_is_black(other->rb_left)) &&
+			if ((!other->rb_left || rb_is_black(other->rb_left)) &&
 			    (!other->rb_right || rb_is_black(other->rb_right))) {
 				rb_set_red(other);
 				node = parent;
@@ -149,7 +148,7 @@ static void __rb_erase_color(struct rb_node *node, struct rb_node *parent,
 				__rb_rotate_right(parent, root);
 				other = parent->rb_left;
 			}
-			if ((!other->rb_left  || rb_is_black(other->rb_left)) &&
+			if ((!other->rb_left || rb_is_black(other->rb_left)) &&
 			    (!other->rb_right || rb_is_black(other->rb_right))) {
 				rb_set_red(other);
 				node = parent;
@@ -245,7 +244,7 @@ color:
  */
 struct rb_node *rb_first(const struct rb_root *root)
 {
-	struct rb_node	*n;
+	struct rb_node *n;
 
 	n = root->rb_node;
 	if (!n)
@@ -259,7 +258,7 @@ struct rb_node *rb_first(const struct rb_root *root)
 
 struct rb_node *rb_last(const struct rb_root *root)
 {
-	struct rb_node	*n;
+	struct rb_node *n;
 
 	n = root->rb_node;
 	if (!n)
@@ -285,7 +284,7 @@ struct rb_node *rb_next(const struct rb_node *node)
 	if (node->rb_right) {
 		node = node->rb_right;
 		while (node->rb_left)
-			node=node->rb_left;
+			node = node->rb_left;
 		return (struct rb_node *)node;
 	}
 
@@ -331,9 +330,7 @@ struct rb_node *rb_prev(const struct rb_node *node)
 	return parent;
 }
 
-void rb_replace_node(struct rb_node *victim,
-		     struct rb_node *new,
-		     struct rb_root *root)
+void rb_replace_node(struct rb_node *victim, struct rb_node *new, struct rb_root *root)
 {
 	struct rb_node *parent = rb_parent(victim);
 

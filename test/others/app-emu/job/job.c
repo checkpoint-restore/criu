@@ -45,8 +45,7 @@ int main(int argc, char *argv[])
 	gid = getgid();
 	sid = getsid(pid);
 
-	printf("pid %d gid %d sid %d\n",
-		pid, gid, sid);
+	printf("pid %d gid %d sid %d\n", pid, gid, sid);
 
 	snprintf(buf, sizeof(buf), "/proc/%d/fd", pid);
 	fd_dir = opendir(buf);

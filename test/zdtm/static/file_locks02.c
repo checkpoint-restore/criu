@@ -9,22 +9,21 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that 'shared' flocks work";
-const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
+const char *test_doc = "Check that 'shared' flocks work";
+const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-static int check_file_lock(pid_t pid, pid_t child, int fd, char *expected_type,
-			   char *expected_option)
+static int check_file_lock(pid_t pid, pid_t child, int fd, char *expected_type, char *expected_option)
 {
 	char buf[100], fl_flag[16], fl_type[16], fl_option[16];
 	int found = 0, num, fl_owner;
 	FILE *fp_locks = NULL;
 	char path[PATH_MAX];
 
-	test_msg("check_file_lock: (pid %d child %d) expecting fd %d type %s option %s\n",
-		 pid, child, fd, expected_type, expected_option);
+	test_msg("check_file_lock: (pid %d child %d) expecting fd %d type %s option %s\n", pid, child, fd,
+		 expected_type, expected_option);
 
 	snprintf(path, sizeof(path), "/proc/self/fdinfo/%d", fd);
 	fp_locks = fopen(path, "r");
@@ -42,8 +41,7 @@ static int check_file_lock(pid_t pid, pid_t child, int fd, char *expected_type,
 		memset(fl_type, 0, sizeof(fl_type));
 		memset(fl_option, 0, sizeof(fl_option));
 
-		num = sscanf(buf, "%*s %*d:%s %s %s %d",
-			     fl_flag, fl_type, fl_option, &fl_owner);
+		num = sscanf(buf, "%*s %*d:%s %s %s %d", fl_flag, fl_type, fl_option, &fl_owner);
 		if (num < 4) {
 			pr_perror("Invalid lock info.");
 			break;

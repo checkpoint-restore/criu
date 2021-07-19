@@ -7,10 +7,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check changing memory";
-const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
+const char *test_doc = "Check changing memory";
+const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
-#define MEM_PAGES	16
+#define MEM_PAGES 16
 
 int main(int argc, char **argv)
 {
@@ -32,7 +32,10 @@ int main(int argc, char **argv)
 	test_daemon();
 	while (test_go()) {
 		unsigned pfn;
-		struct timespec req = { .tv_sec = 0, .tv_nsec = 100000, };
+		struct timespec req = {
+			.tv_sec = 0,
+			.tv_nsec = 100000,
+		};
 
 		pfn = random() % MEM_PAGES;
 		*(unsigned *)(mem + pfn * PAGE_SIZE) = rover;
@@ -46,8 +49,7 @@ int main(int argc, char **argv)
 	test_msg("final rover %u\n", rover);
 	for (i = 0; i < MEM_PAGES; i++)
 		if (backup[i] != *(unsigned *)(mem + i * PAGE_SIZE)) {
-			test_msg("Page %u differs want %u has %u\n", i,
-					backup[i], *(unsigned *)(mem + i * PAGE_SIZE));
+			test_msg("Page %u differs want %u has %u\n", i, backup[i], *(unsigned *)(mem + i * PAGE_SIZE));
 			fail = 1;
 		} else
 			test_msg("Page %u matches %u\n", i, backup[i]);
@@ -59,4 +61,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-

@@ -10,20 +10,20 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check c/r for console device";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Check c/r for console device";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	struct stat st1, st2;
 	int fd;
 
 	test_init(argc, argv);
 
-	if (mknod(filename, S_IFCHR | S_IRUSR | S_IWUSR, makedev(5,1))) {
+	if (mknod(filename, S_IFCHR | S_IRUSR | S_IWUSR, makedev(5, 1))) {
 		pr_perror("Can't create console %s", filename);
 		return 1;
 	}
@@ -48,9 +48,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (st1.st_rdev != st2.st_rdev) {
-		fail("Console rdev mismatch %x != %x on %s",
-		     (int)st1.st_rdev, (int)st2.st_rdev,
-		     filename);
+		fail("Console rdev mismatch %x != %x on %s", (int)st1.st_rdev, (int)st2.st_rdev, filename);
 		return 1;
 	}
 

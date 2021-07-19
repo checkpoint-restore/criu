@@ -34,7 +34,7 @@ void core_entry_free(CoreEntry *core)
 }
 
 #ifndef RLIM_NLIMITS
-# define RLIM_NLIMITS 16
+#define RLIM_NLIMITS 16
 #endif
 
 CoreEntry *core_entry_alloc(int th, int tsk)
@@ -118,14 +118,14 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 			ce = core->thread_core->creds = xptr_pull(&m, CredsEntry);
 			creds_entry__init(ce);
 
-			ce->n_cap_inh	= CR_CAP_SIZE;
-			ce->n_cap_prm	= CR_CAP_SIZE;
-			ce->n_cap_eff	= CR_CAP_SIZE;
-			ce->n_cap_bnd	= CR_CAP_SIZE;
-			ce->cap_inh	= xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_inh[0]));
-			ce->cap_prm	= xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_prm[0]));
-			ce->cap_eff	= xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_eff[0]));
-			ce->cap_bnd	= xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_bnd[0]));
+			ce->n_cap_inh = CR_CAP_SIZE;
+			ce->n_cap_prm = CR_CAP_SIZE;
+			ce->n_cap_eff = CR_CAP_SIZE;
+			ce->n_cap_bnd = CR_CAP_SIZE;
+			ce->cap_inh = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_inh[0]));
+			ce->cap_prm = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_prm[0]));
+			ce->cap_eff = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_eff[0]));
+			ce->cap_bnd = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_bnd[0]));
 
 			if (arch_alloc_thread_info(core)) {
 				xfree(core);
@@ -294,7 +294,8 @@ int dump_pstree(struct pstree_item *root_item)
 	if (vpid(root_item) != root_item->sid) {
 		if (!opts.shell_job) {
 			pr_err("The root process %d is not a session leader. "
-			       "Consider using --" OPT_SHELL_JOB " option\n", vpid(item));
+			       "Consider using --" OPT_SHELL_JOB " option\n",
+			       vpid(item));
 			return -1;
 		}
 	}
@@ -306,11 +307,11 @@ int dump_pstree(struct pstree_item *root_item)
 	for_each_pstree_item(item) {
 		pr_info("Process: %d(%d)\n", vpid(item), item->pid->real);
 
-		e.pid		= vpid(item);
-		e.ppid		= item->parent ? vpid(item->parent) : 0;
-		e.pgid		= item->pgid;
-		e.sid		= item->sid;
-		e.n_threads	= item->nr_threads;
+		e.pid = vpid(item);
+		e.ppid = item->parent ? vpid(item->parent) : 0;
+		e.pgid = item->pgid;
+		e.sid = item->sid;
+		e.n_threads = item->nr_threads;
 
 		e.threads = xmalloc(sizeof(e.threads[0]) * e.n_threads);
 		if (!e.threads)
@@ -370,13 +371,11 @@ static int prepare_pstree_for_shell_job(pid_t pid)
 
 	old_sid = root_item->sid;
 	if (old_sid != current_sid) {
-		pr_info("Migrating process tree (SID %d->%d)\n",
-			old_sid, current_sid);
+		pr_info("Migrating process tree (SID %d->%d)\n", old_sid, current_sid);
 
 		tmp = pstree_pid_by_virt(current_sid);
 		if (tmp) {
-			pr_err("Current sid %d intersects with pid (%d) in images",
-			       current_sid, tmp->state);
+			pr_err("Current sid %d intersects with pid (%d) in images\n", current_sid, tmp->state);
 			return -1;
 		}
 
@@ -395,13 +394,11 @@ static int prepare_pstree_for_shell_job(pid_t pid)
 
 	old_gid = root_item->pgid;
 	if (old_gid != current_gid) {
-		pr_info("Migrating process tree (GID %d->%d)\n",
-			old_gid, current_gid);
+		pr_info("Migrating process tree (GID %d->%d)\n", old_gid, current_gid);
 
 		tmp = pstree_pid_by_virt(current_gid);
 		if (tmp) {
-			pr_err("Current gid %d intersects with pid (%d) in images",
-			       current_gid, tmp->state);
+			pr_err("Current gid %d intersects with pid (%d) in images\n", current_gid, tmp->state);
 			return -1;
 		}
 
@@ -456,7 +453,7 @@ static struct pid *lookup_create_pid(pid_t pid, struct pid *pid_node)
 
 void pstree_insert_pid(struct pid *pid_node)
 {
-	struct pid* n;
+	struct pid *n;
 
 	n = lookup_create_pid(pid_node->ns[0].virt, pid_node);
 
@@ -567,7 +564,8 @@ static int read_one_pstree_item(struct cr_img *img, pid_t *pid_max)
 	if (e->ppid == 0) {
 		if (root_item) {
 			pr_err("Parent missed on non-root task "
-			       "with pid %d, image corruption!\n", e->pid);
+			       "with pid %d, image corruption!\n",
+			       e->pid);
 			goto err;
 		}
 		root_item = pi;
@@ -641,7 +639,7 @@ static int read_pstree_image(pid_t *pid_max)
 	return ret;
 }
 
-#define RESERVED_PIDS		300
+#define RESERVED_PIDS 300
 static int get_free_pid(void)
 {
 	static struct pid *prev, *next;
@@ -712,8 +710,7 @@ static int prepare_pstree_ids(pid_t pid)
 			helper->parent = leader;
 			list_add(&helper->sibling, &leader->children);
 
-			pr_info("Attach %d to the task %d\n",
-					vpid(helper), vpid(leader));
+			pr_info("Attach %d to the task %d\n", vpid(helper), vpid(leader));
 		} else {
 			helper = leader;
 			helper->sid = item->sid;
@@ -727,8 +724,7 @@ static int prepare_pstree_ids(pid_t pid)
 			return -1;
 		}
 
-		pr_info("Add a helper %d for restoring SID %d\n",
-				vpid(helper), helper->sid);
+		pr_info("Add a helper %d for restoring SID %d\n", vpid(helper), helper->sid);
 
 		child = list_entry(item->sibling.prev, struct pstree_item, sibling);
 		item = child;
@@ -742,8 +738,7 @@ static int prepare_pstree_ids(pid_t pid)
 			if (child->sid == vpid(child))
 				continue;
 
-			pr_info("Attach %d to the temporary task %d\n",
-					vpid(child), vpid(helper));
+			pr_info("Attach %d to the temporary task %d\n", vpid(child), vpid(helper));
 
 			child->parent = helper;
 			list_move(&child->sibling, &helper->children);
@@ -769,8 +764,8 @@ static int prepare_pstree_ids(pid_t pid)
 			while (parent && vpid(parent) != item->sid) {
 				if (parent->born_sid != -1 && parent->born_sid != item->sid) {
 					pr_err("Can't figure out which sid (%d or %d)"
-						"the process %d was born with\n",
-						parent->born_sid, item->sid, vpid(parent));
+					       "the process %d was born with\n",
+					       parent->born_sid, item->sid, vpid(parent));
 					return -1;
 				}
 				parent->born_sid = item->sid;
@@ -826,15 +821,13 @@ static int prepare_pstree_ids(pid_t pid)
 		list_add(&helper->sibling, &item->children);
 		rsti(item)->pgrp_leader = helper;
 
-		pr_info("Add a helper %d for restoring PGID %d\n",
-				vpid(helper), helper->pgid);
+		pr_info("Add a helper %d for restoring PGID %d\n", vpid(helper), helper->pgid);
 	}
 
 	return 0;
 }
 
-static unsigned long get_clone_mask(TaskKobjIdsEntry *i,
-		TaskKobjIdsEntry *p)
+static unsigned long get_clone_mask(TaskKobjIdsEntry *i, TaskKobjIdsEntry *p)
 {
 	unsigned long mask = 0;
 
@@ -985,12 +978,11 @@ int prepare_pstree(void)
 		if (fd == -1)
 			ret = -1;
 		else {
-			snprintf(buf, sizeof(buf), "%u", pid_max+1);
+			snprintf(buf, sizeof(buf), "%u", pid_max + 1);
 			if (write(fd, buf, strlen(buf)) < 0) {
 				pr_perror("Can't set kernel pid_max=%s", buf);
 				ret = -1;
-			}
-			else
+			} else
 				pr_info("kernel pid_max pushed to %s\n", buf);
 			close(fd);
 		}

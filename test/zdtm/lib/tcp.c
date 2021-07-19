@@ -1,6 +1,6 @@
 #include <string.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
+#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
 
 #include "zdtmtst.h"
 
@@ -25,11 +25,11 @@ int tcp_init_server_with_opts(int family, int *port, struct zdtm_tcp_opts *opts)
 	int sock;
 	int yes = 1, ret;
 
-	memset(&addr,0,sizeof(addr));
+	memset(&addr, 0, sizeof(addr));
 	if (family == AF_INET) {
 		addr.v4.sin_family = family;
 		inet_pton(family, "0.0.0.0", &(addr.v4.sin_addr));
-	} else if (family == AF_INET6){
+	} else if (family == AF_INET6) {
 		addr.v6.sin6_family = family;
 		inet_pton(family, "::0", &(addr.v6.sin6_addr));
 	} else
@@ -41,14 +41,12 @@ int tcp_init_server_with_opts(int family, int *port, struct zdtm_tcp_opts *opts)
 		return -1;
 	}
 
-	if (opts->reuseport &&
-	    setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(int)) == -1) {
+	if (opts->reuseport && setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &yes, sizeof(int)) == -1) {
 		pr_perror("setsockopt(SO_REUSEPORT) failed");
 		return -1;
 	}
 
-	if (opts->reuseaddr &&
-	    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1 ) {
+	if (opts->reuseaddr && setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
 		pr_perror("setsockopt(SO_REUSEATTR) failed");
 		return -1;
 	}
@@ -59,7 +57,7 @@ int tcp_init_server_with_opts(int family, int *port, struct zdtm_tcp_opts *opts)
 		else if (family == AF_INET6)
 			addr.v6.sin6_port = htons(*port);
 
-		ret = bind(sock, (struct sockaddr *) &addr, sizeof(addr));
+		ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr));
 
 		/* criu doesn't restore sock opts, so we need this hack */
 		if (ret == -1 && errno == EADDRINUSE) {
@@ -88,10 +86,10 @@ int tcp_accept_server(int sock)
 	int sock2;
 	socklen_t addrlen;
 #ifdef DEBUG
-	test_msg ("Waiting for connection..........\n");
+	test_msg("Waiting for connection..........\n");
 #endif
 	addrlen = sizeof(maddr);
-	sock2 = accept(sock,(struct sockaddr *) &maddr, &addrlen);
+	sock2 = accept(sock, (struct sockaddr *)&maddr, &addrlen);
 
 	if (sock2 == -1) {
 		pr_perror("accept() failed");
@@ -99,7 +97,7 @@ int tcp_accept_server(int sock)
 	}
 
 #ifdef DEBUG
-	test_msg ("Connection!!\n");
+	test_msg("Connection!!\n");
 #endif
 	return sock2;
 }
@@ -123,15 +121,15 @@ int tcp_init_client_with_fd(int sock, int family, char *servIP, unsigned short s
 	/* Construct the server address structure */
 	memset(&servAddr, 0, sizeof(servAddr));
 	if (family == AF_INET) {
-		servAddr.v4.sin_family      = AF_INET;
-		servAddr.v4.sin_port        = htons(servPort);
+		servAddr.v4.sin_family = AF_INET;
+		servAddr.v4.sin_port = htons(servPort);
 		inet_pton(AF_INET, servIP, &servAddr.v4.sin_addr);
 	} else {
-		servAddr.v6.sin6_family      = AF_INET6;
-		servAddr.v6.sin6_port        = htons(servPort);
+		servAddr.v6.sin6_family = AF_INET6;
+		servAddr.v6.sin6_port = htons(servPort);
 		inet_pton(AF_INET6, servIP, &servAddr.v6.sin6_addr);
 	}
-	if (connect(sock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0) {
+	if (connect(sock, (struct sockaddr *)&servAddr, sizeof(servAddr)) < 0) {
 		pr_perror("can't connect to server");
 		return -1;
 	}

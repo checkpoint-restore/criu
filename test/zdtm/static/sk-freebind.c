@@ -2,12 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
+#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that IP_FREEBIND is restored";
-const char *test_author	= "Andrew Vagin <avagin@virtuozzo.com>";
+const char *test_doc = "Check that IP_FREEBIND is restored";
+const char *test_author = "Andrew Vagin <avagin@virtuozzo.com>";
 
 union sockaddr_inet {
 	struct sockaddr_in v4;
@@ -40,18 +40,18 @@ int main(int argc, char **argv)
 		return -1;
 	}
 	val = 1;
-	if (setsockopt(sock, SOL_IP, IP_FREEBIND, &val, sizeof(int)) == -1 ) {
+	if (setsockopt(sock, SOL_IP, IP_FREEBIND, &val, sizeof(int)) == -1) {
 		pr_perror("setsockopt() error");
 		return -1;
 	}
-	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr))) {
+	if (bind(sock, (struct sockaddr *)&addr, sizeof(addr))) {
 		pr_perror("bind()");
 		return -1;
 	}
 
 	if (!fb_keep) {
 		val = 0;
-		if (setsockopt(sock, SOL_IP, IP_FREEBIND, &val, sizeof(int)) == -1 ) {
+		if (setsockopt(sock, SOL_IP, IP_FREEBIND, &val, sizeof(int)) == -1) {
 			pr_perror("setsockopt() error");
 			return -1;
 		}
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	len = sizeof(int);
-	if (getsockopt(sock, SOL_IP, IP_FREEBIND, &val, &len) == -1 ) {
+	if (getsockopt(sock, SOL_IP, IP_FREEBIND, &val, &len) == -1) {
 		pr_perror("setsockopt() error");
 		return -1;
 	}

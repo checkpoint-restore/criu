@@ -20,7 +20,7 @@
 #include "protobuf.h"
 #include "util.h"
 
-#define  image_name(img, buf) __image_name(img, buf, sizeof(buf))
+#define image_name(img, buf) __image_name(img, buf, sizeof(buf))
 static char *__image_name(struct cr_img *img, char *image_path, size_t image_path_size)
 {
 	int fd = img->_x.fd;
@@ -55,8 +55,7 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 	int ret;
 
 	if (!cr_pb_descs[type].pb_desc) {
-		pr_err("Wrong object requested %d on %s\n",
-			type, image_name(img, img_name_buf));
+		pr_err("Wrong object requested %d on %s\n", type, image_name(img, img_name_buf));
 		return -1;
 	}
 
@@ -70,13 +69,11 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 		if (eof) {
 			return 0;
 		} else {
-			pr_err("Unexpected EOF on %s\n",
-			       image_name(img, img_name_buf));
+			pr_err("Unexpected EOF on %s\n", image_name(img, img_name_buf));
 			return -1;
 		}
 	} else if (ret < sizeof(size)) {
-		pr_perror("Read %d bytes while %d expected on %s",
-			  ret, (int)sizeof(size),
+		pr_perror("Read %d bytes while %d expected on %s", ret, (int)sizeof(size),
 			  image_name(img, img_name_buf));
 		return -1;
 	}
@@ -90,12 +87,10 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 
 	ret = bread(&img->_x, buf, size);
 	if (ret < 0) {
-		pr_perror("Can't read %d bytes from file %s",
-			  size, image_name(img, img_name_buf));
+		pr_perror("Can't read %d bytes from file %s", size, image_name(img, img_name_buf));
 		goto err;
 	} else if (ret != size) {
-		pr_perror("Read %d bytes while %d expected from %s",
-			  ret, size, image_name(img, img_name_buf));
+		pr_perror("Read %d bytes while %d expected from %s", ret, size, image_name(img, img_name_buf));
 		ret = -1;
 		goto err;
 	}
@@ -103,8 +98,7 @@ int do_pb_read_one(struct cr_img *img, void **pobj, int type, bool eof)
 	*pobj = cr_pb_descs[type].unpack(NULL, size, buf);
 	if (!*pobj) {
 		ret = -1;
-		pr_err("Failed unpacking object %p from %s\n",
-		       pobj, image_name(img, img_name_buf));
+		pr_err("Failed unpacking object %p from %s\n", pobj, image_name(img, img_name_buf));
 		goto err;
 	}
 
@@ -209,8 +203,7 @@ int collect_image(struct collect_image_info *cinfo)
 	void *(*o_alloc)(size_t size) = malloc;
 	void (*o_free)(void *ptr) = free;
 
-	pr_info("Collecting %d/%d (flags %x)\n",
-			cinfo->fd_type, cinfo->pb_type, cinfo->flags);
+	pr_info("Collecting %d/%d (flags %x)\n", cinfo->fd_type, cinfo->pb_type, cinfo->flags);
 
 	img = open_image(cinfo->fd_type, O_RSTR);
 	if (!img)

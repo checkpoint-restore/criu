@@ -10,7 +10,7 @@
 
 #include "lib.h"
 
-#define SUCC_ECODE	42
+#define SUCC_ECODE 42
 
 static int actions_called = 0;
 static int notify(char *action, criu_notify_arg_t na)

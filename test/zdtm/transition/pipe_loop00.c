@@ -10,15 +10,16 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Multi-process pipe loop";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Multi-process pipe loop";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
-#define PROCS_DEF	4
-#define PROCS_MAX	64
+#define PROCS_DEF 4
+#define PROCS_MAX 64
 unsigned int num_procs = PROCS_DEF;
-TEST_OPTION(num_procs, uint, "# processes to create "
-	    "(default " __stringify(PROCS_DEF)
-	    ", max " __stringify(PROCS_MAX) ")", 0);
+TEST_OPTION(num_procs, uint,
+	    "# processes to create "
+	    "(default " __stringify(PROCS_DEF) ", max " __stringify(PROCS_MAX) ")",
+	    0);
 
 volatile sig_atomic_t num_exited = 0;
 void inc_num_exited(int signo)
@@ -53,7 +54,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
+	for (i = 1; i < num_procs; i++) { /* i = 0 - parent */
 		pid = test_fork();
 		if (pid < 0) {
 			pr_perror("Can't fork");
@@ -72,11 +73,10 @@ int main(int argc, char **argv)
 			signal(SIGPIPE, SIG_IGN);
 			if (pipe_in2out(pipes[in], pipes[out], buf, sizeof(buf)) < 0)
 				/* pass errno as exit code to the parent */
-				if (test_go() /* signal NOT delivered */ ||
-						(errno != EINTR && errno != EPIPE))
+				if (test_go() /* signal NOT delivered */ || (errno != EINTR && errno != EPIPE))
 					ret = errno;
 
-			test_waitsig();	/* even if failed, wait for migration to complete */
+			test_waitsig(); /* even if failed, wait for migration to complete */
 
 			close(pipes[in]);
 			close(pipes[out]);
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
 	out = pipes[num_procs * 2 - 1];
 
 	/* don't block on writing, _do_ block on reading */
-	if (set_nonblock(out,1) < 0) {
+	if (set_nonblock(out, 1) < 0) {
 		pr_perror("setting O_NONBLOCK failed");
 		exit(1);
 	}
@@ -143,14 +143,14 @@ int main(int argc, char **argv)
 
 	close(out);
 
-	test_waitsig();	/* even if failed, wait for migration to complete */
+	test_waitsig(); /* even if failed, wait for migration to complete */
 
 	if (kill(0, SIGTERM)) {
 		fail("failed to send SIGTERM to my process group");
-		goto out;	/* shouldn't wait() in this case */
+		goto out; /* shouldn't wait() in this case */
 	}
 
-	for (i = 1; i < num_procs; i++) {	/* i = 0 - parent */
+	for (i = 1; i < num_procs; i++) { /* i = 0 - parent */
 		int chret;
 		if (wait(&chret) < 0) {
 			fail("can't wait for a child");
@@ -160,8 +160,7 @@ int main(int argc, char **argv)
 
 		chret = WEXITSTATUS(chret);
 		if (chret) {
-			fail("child %d exited with non-zero code %d (%s)",
-			     i, chret, strerror(chret));
+			fail("child %d exited with non-zero code %d (%s)", i, chret, strerror(chret));
 			ret = 1;
 			continue;
 		}

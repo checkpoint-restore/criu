@@ -15,7 +15,7 @@ static int check_socket_state(int sk, int state)
 {
 	int err;
 	struct {
-		__u8    tcpi_state;
+		__u8 tcpi_state;
 	} info;
 	socklen_t len = sizeof(info);
 

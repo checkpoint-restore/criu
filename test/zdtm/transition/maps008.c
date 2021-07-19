@@ -62,8 +62,7 @@ static void cont_and_wait_child(pid_t pid)
 
 static void *mmap_ashmem(size_t size)
 {
-	void *mem = mmap(NULL, size, PROT_WRITE | PROT_READ,
-			MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	void *mem = mmap(NULL, size, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	if (mem == MAP_FAILED) {
 		pr_perror("Can't map shmem %zx", size);
 		exit(1);
@@ -71,15 +70,13 @@ static void *mmap_ashmem(size_t size)
 	return mem;
 }
 
-static void *mmap_proc_mem(pid_t pid, unsigned long addr,
-		unsigned long size)
+static void *mmap_proc_mem(pid_t pid, unsigned long addr, unsigned long size)
 {
 	int fd;
 	void *mem;
 	char path[PATH_MAX];
 
-	snprintf(path, PATH_MAX, "/proc/%d/map_files/%lx-%lx",
-			(int)pid, addr, addr + size);
+	snprintf(path, PATH_MAX, "/proc/%d/map_files/%lx-%lx", (int)pid, addr, addr + size);
 	fd = open(path, O_RDWR);
 	if (fd == -1) {
 		pr_perror("Can't open file %s", path);
@@ -100,8 +97,7 @@ static void check_mem_eq(void *addr1, size_t size1, void *addr2, size_t size2)
 	unsigned long min_size = size1 < size2 ? size1 : size2;
 
 	if (memcmp(addr1, addr2, min_size)) {
-		pr_err("Mem differs %lx %lx %lx", (unsigned long)addr1,
-			(unsigned long)addr2, min_size);
+		pr_err("Mem differs %lx %lx %lx\n", (unsigned long)addr1, (unsigned long)addr2, min_size);
 		exit(1);
 	}
 }
@@ -114,8 +110,7 @@ static void xmunmap(void *map, size_t size)
 	}
 }
 
-static void chk_proc_mem_eq(pid_t pid1, void *addr1, unsigned long size1,
-		pid_t pid2, void *addr2, unsigned long size2)
+static void chk_proc_mem_eq(pid_t pid1, void *addr1, unsigned long size1, pid_t pid2, void *addr2, unsigned long size2)
 {
 	void *map1, *map2;
 
@@ -136,14 +131,14 @@ static void chk_proc_mem_eq(pid_t pid1, void *addr1, unsigned long size1,
  */
 #define PROC_CNT 7
 
-#define PROC1_PGIX 0
-#define PROC11_PGIX 1
-#define PROC12_PGIX 2
-#define PROC13_PGIX 3
+#define PROC1_PGIX   0
+#define PROC11_PGIX  1
+#define PROC12_PGIX  2
+#define PROC13_PGIX  3
 #define PROC111_PGIX 4
 #define PROC112_PGIX 5
 #define PROC131_PGIX 6
-#define ZERO_PGIX 7
+#define ZERO_PGIX    7
 /* unused pgix: 8 */
 #define MEM_PERIOD (9 * PAGE_SIZE)
 
@@ -278,12 +273,9 @@ static int proc13_func(task_waiter_t *setup_waiter)
 
 	mems_datachck_each_pgix(PROC13_PGIX);
 
-	chk_proc_mem_eq(pstree->proc13, mem1, mem1_size,
-		pstree->proc131, mem1, mem1_size);
-	chk_proc_mem_eq(pstree->proc13, mem2, mem2_size,
-		pstree->proc131, mem2, mem2_size);
-	chk_proc_mem_eq(pstree->proc13, mem3, mem3_size,
-		pstree->proc131, mem3, mem3_size);
+	chk_proc_mem_eq(pstree->proc13, mem1, mem1_size, pstree->proc131, mem1, mem1_size);
+	chk_proc_mem_eq(pstree->proc13, mem2, mem2_size, pstree->proc131, mem2, mem2_size);
+	chk_proc_mem_eq(pstree->proc13, mem3, mem3_size, pstree->proc131, mem3, mem3_size);
 
 	cont_and_wait_child(pstree->proc131);
 	return 0;
@@ -368,23 +360,16 @@ static int proc11_func(task_waiter_t *setup_waiter)
 
 	mems_datachck_each_pgix(PROC11_PGIX);
 
-	chk_proc_mem_eq(pstree->proc11, mem1, mem1_size,
-		pstree->proc111, mem1, mem1_size);
-	chk_proc_mem_eq(pstree->proc11, mem1, mem1_size,
-		pstree->proc112, mem1, mem1_size);
+	chk_proc_mem_eq(pstree->proc11, mem1, mem1_size, pstree->proc111, mem1, mem1_size);
+	chk_proc_mem_eq(pstree->proc11, mem1, mem1_size, pstree->proc112, mem1, mem1_size);
 
-	chk_proc_mem_eq(pstree->proc11, mem2, mem2_size,
-		pstree->proc111, mem2, mem2_size);
-	chk_proc_mem_eq(pstree->proc11, mem2, mem2_size,
-		pstree->proc112, mem2, mem2_size);
+	chk_proc_mem_eq(pstree->proc11, mem2, mem2_size, pstree->proc111, mem2, mem2_size);
+	chk_proc_mem_eq(pstree->proc11, mem2, mem2_size, pstree->proc112, mem2, mem2_size);
 
-	chk_proc_mem_eq(pstree->proc11, mem3, mem3_size,
-		pstree->proc111, mem3, mem3_size + MEM3_END_CUT);
-	chk_proc_mem_eq(pstree->proc11, mem3, mem3_size,
-		pstree->proc112, mem3, mem3_size + MEM3_END_CUT);
+	chk_proc_mem_eq(pstree->proc11, mem3, mem3_size, pstree->proc111, mem3, mem3_size + MEM3_END_CUT);
+	chk_proc_mem_eq(pstree->proc11, mem3, mem3_size, pstree->proc112, mem3, mem3_size + MEM3_END_CUT);
 
-	proc1_mem3 = mmap_proc_mem(pstree->proc1,
-			(unsigned long)mem3_old, mem3_size_old);
+	proc1_mem3 = mmap_proc_mem(pstree->proc1, (unsigned long)mem3_old, mem3_size_old);
 	check_mem_eq(mem3, mem3_size, proc1_mem3 + MEM3_START_CUT, mem3_size);
 	xmunmap(proc1_mem3, mem3_size_old);
 
@@ -394,7 +379,7 @@ static int proc11_func(task_waiter_t *setup_waiter)
 }
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MB(n) ((n) * (1UL << 20))
+#define MB(n)	  ((n) * (1UL << 20))
 
 static int proc1_func(void)
 {
@@ -423,8 +408,7 @@ static int proc1_func(void)
 	fork_and_setup(proc13_func);
 
 	xmunmap(mem1, mem1_size);
-	if (mremap(mem2, mem2_size, mem1_size, MREMAP_MAYMOVE | MREMAP_FIXED,
-				mem1) != mem1) {
+	if (mremap(mem2, mem2_size, mem1_size, MREMAP_MAYMOVE | MREMAP_FIXED, mem1) != mem1) {
 		pr_perror("proc1 mem2 remap");
 		exit(1);
 	}
@@ -441,13 +425,10 @@ static int proc1_func(void)
 
 	mems_datachck_each_pgix(PROC1_PGIX);
 
-	chk_proc_mem_eq(pstree->proc1, mem1, mem1_size,
-		pstree->proc11, mem2_old, mem2_size);
-	chk_proc_mem_eq(pstree->proc1, mem1, mem1_size,
-		pstree->proc12, mem2_old, mem2_size);
+	chk_proc_mem_eq(pstree->proc1, mem1, mem1_size, pstree->proc11, mem2_old, mem2_size);
+	chk_proc_mem_eq(pstree->proc1, mem1, mem1_size, pstree->proc12, mem2_old, mem2_size);
 
-	chk_proc_mem_eq(pstree->proc1, mem3, mem3_size,
-		pstree->proc12, mem3, mem3_size);
+	chk_proc_mem_eq(pstree->proc1, mem3, mem3_size, pstree->proc12, mem3, mem3_size);
 
 	cont_and_wait_child(pstree->proc11);
 	cont_and_wait_child(pstree->proc12);
@@ -490,10 +471,7 @@ static void sigchld_hand(int signo, siginfo_t *info, void *ucontext)
 
 int main(int argc, char **argv)
 {
-	struct sigaction sa = {
-		.sa_sigaction = sigchld_hand,
-		.sa_flags = SA_RESTART | SA_SIGINFO | SA_NOCLDSTOP
-	};
+	struct sigaction sa = { .sa_sigaction = sigchld_hand, .sa_flags = SA_RESTART | SA_SIGINFO | SA_NOCLDSTOP };
 	sigemptyset(&sa.sa_mask);
 
 	test_init(argc, argv);

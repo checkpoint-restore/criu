@@ -9,16 +9,18 @@
 #include <termios.h>
 #include <signal.h>
 
-const char *test_doc	= "Check forked master ptmx";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Check forked master ptmx";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 static const char teststr[] = "ping\n";
 
-#define exit_shot(pid, code)	\
-	do { kill(pid, SIGKILL); exit(code); } while (0)
+#define exit_shot(pid, code)        \
+	do {                        \
+		kill(pid, SIGKILL); \
+		exit(code);         \
+	} while (0)
 
-#define exit_shot_parent(code)	\
-	exit_shot(getppid(), 1)
+#define exit_shot_parent(code) exit_shot(getppid(), 1)
 
 int main(int argc, char *argv[])
 {

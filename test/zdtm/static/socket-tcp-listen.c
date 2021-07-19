@@ -1,13 +1,13 @@
 #include "zdtmtst.h"
 
 #ifdef ZDTM_IPV4V6
-#define ZDTM_FAMILY AF_INET
+#define ZDTM_FAMILY	AF_INET
 #define ZDTM_SRV_FAMILY AF_INET6
 #elif defined(ZDTM_IPV6)
-#define ZDTM_FAMILY AF_INET6
+#define ZDTM_FAMILY	AF_INET6
 #define ZDTM_SRV_FAMILY AF_INET6
 #else
-#define ZDTM_FAMILY AF_INET
+#define ZDTM_FAMILY	AF_INET
 #define ZDTM_SRV_FAMILY AF_INET
 #endif
 
@@ -65,7 +65,6 @@ int main(int argc, char **argv)
 	int val;
 	socklen_t optlen;
 
-
 	test_init(argc, argv);
 
 	if ((fd_s = tcp_init_server(ZDTM_SRV_FAMILY, &port)) < 0) {
@@ -87,7 +86,7 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	clt = tcp_init_client_with_fd(clt, ZDTM_FAMILY, "localhost", port);
-	if (clt  < 0)
+	if (clt < 0)
 		return 1;
 
 	/*

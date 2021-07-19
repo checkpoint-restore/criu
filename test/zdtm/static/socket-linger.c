@@ -5,13 +5,13 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check SO_LINGER socket option";
-const char *test_author	= "Radostin Stoyanov <rstoyanov1@gmail.com>";
+const char *test_doc = "Check SO_LINGER socket option";
+const char *test_author = "Radostin Stoyanov <rstoyanov1@gmail.com>";
 
 int main(int argc, char **argv)
 {
 	int sk;
-	struct linger dump = {true, 30}, restore = {0, 0};
+	struct linger dump = { true, 30 }, restore = { 0, 0 };
 	socklen_t optlen = sizeof(restore);
 
 	test_init(argc, argv);
@@ -36,14 +36,12 @@ int main(int argc, char **argv)
 	}
 
 	if (restore.l_onoff != dump.l_onoff) {
-		fail("linger.l_onoff has incorrect value (%d != %d)",
-			restore.l_onoff, dump.l_onoff);
+		fail("linger.l_onoff has incorrect value (%d != %d)", restore.l_onoff, dump.l_onoff);
 		return 1;
 	}
 
 	if (restore.l_linger != dump.l_linger) {
-		fail("linger.l_linger has incorrect value (%d != %d)",
-			restore.l_linger, dump.l_linger);
+		fail("linger.l_linger has incorrect value (%d != %d)", restore.l_linger, dump.l_linger);
 		return 1;
 	}
 

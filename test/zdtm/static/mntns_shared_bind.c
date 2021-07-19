@@ -14,15 +14,14 @@
 #include "zdtmtst.h"
 
 #ifndef CLONE_NEWNS
-#define CLONE_NEWNS     0x00020000
+#define CLONE_NEWNS 0x00020000
 #endif
 
-const char *test_doc	= "Check shared non-root bind-mounts";
-const char *test_author	= "Andrew Vagin <avagin@gmail.com>";
+const char *test_doc = "Check shared non-root bind-mounts";
+const char *test_author = "Andrew Vagin <avagin@gmail.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
-
 
 int main(int argc, char **argv)
 {
@@ -50,16 +49,13 @@ int main(int argc, char **argv)
 
 #ifdef SHARED_BIND02
 	/* */
-	if (mount(dirname, dirname, "tmpfs", 0, NULL) ||
-	    mount(NULL, dirname, NULL, MS_SHARED, NULL)) {
+	if (mount(dirname, dirname, "tmpfs", 0, NULL) || mount(NULL, dirname, NULL, MS_SHARED, NULL)) {
 		pr_perror("mount");
 		return 1;
 	}
 #endif
 
-	if (mkdir(path, 0700) ||
-	    mkdir(spath, 0700) ||
-	    mkdir(bpath, 0700)) {
+	if (mkdir(path, 0700) || mkdir(spath, 0700) || mkdir(bpath, 0700)) {
 		pr_perror("mkdir");
 		return 1;
 	}
@@ -98,7 +94,6 @@ int main(int argc, char **argv)
 		pr_perror("mount");
 		return 1;
 	}
-
 
 	test_daemon();
 	test_waitsig();

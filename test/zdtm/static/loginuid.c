@@ -66,7 +66,6 @@ int set_loginuid(const char *path, uid_t value)
 	return ret;
 }
 
-
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -89,8 +88,7 @@ int main(int argc, char *argv[])
 		return -1;
 
 	if (new_loginuid != test_value) {
-		fail("loginuid value %d is different after restore: %d",
-				test_value, new_loginuid);
+		fail("loginuid value %d is different after restore: %d", test_value, new_loginuid);
 		return -1;
 	}
 

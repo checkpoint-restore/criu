@@ -12,10 +12,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "dynamic FIFO test";
+const char *test_doc = "dynamic FIFO test";
 
-#define PROCS_DEF	2 /* 0 - parent, 1 - child */
-#define BUF_SIZE	256
+#define PROCS_DEF 2 /* 0 - parent, 1 - child */
+#define BUF_SIZE  256
 unsigned int num_procs = PROCS_DEF;
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
@@ -70,8 +70,7 @@ int main(int argc, char **argv)
 
 		if (pipe_in2out(readfd, writefd, buf, sizeof(buf)) < 0)
 			/* pass errno as exit code to the parent */
-			if (test_go() /* signal NOT delivered */ ||
-					(errno != EINTR && errno != EPIPE))
+			if (test_go() /* signal NOT delivered */ || (errno != EINTR && errno != EPIPE))
 				ret = errno;
 		close(readfd);
 		close(writefd);
@@ -138,8 +137,7 @@ int main(int argc, char **argv)
 	wait(&chret);
 	chret = WEXITSTATUS(chret);
 	if (chret) {
-		fail("child exited with non-zero code %d (%s)",
-			chret, strerror(chret));
+		fail("child exited with non-zero code %d (%s)", chret, strerror(chret));
 		return 1;
 	}
 	if (!ret)

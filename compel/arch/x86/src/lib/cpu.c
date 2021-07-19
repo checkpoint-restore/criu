@@ -8,7 +8,7 @@
 #include "log.h"
 #include "common/bug.h"
 
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "cpu: "
 
 static compel_cpuinfo_t rt_info;
@@ -29,32 +29,24 @@ static void fetch_rt_cpuinfo(void)
  * to save/restore PT state in Linux.
  */
 
-static const char * const xfeature_names[] = {
-	"x87 floating point registers"	,
-	"SSE registers"			,
-	"AVX registers"			,
-	"MPX bounds registers"		,
-	"MPX CSR"			,
-	"AVX-512 opmask"		,
-	"AVX-512 Hi256"			,
-	"AVX-512 ZMM_Hi256"		,
-	"Processor Trace"		,
+static const char *const xfeature_names[] = {
+	"x87 floating point registers",
+	"SSE registers",
+	"AVX registers",
+	"MPX bounds registers",
+	"MPX CSR",
+	"AVX-512 opmask",
+	"AVX-512 Hi256",
+	"AVX-512 ZMM_Hi256",
+	"Processor Trace",
 	"Protection Keys User registers",
-	"Hardware Duty Cycling"		,
+	"Hardware Duty Cycling",
 };
 
 static short xsave_cpuid_features[] = {
-	X86_FEATURE_FPU,
-	X86_FEATURE_XMM,
-	X86_FEATURE_AVX,
-	X86_FEATURE_MPX,
-	X86_FEATURE_MPX,
-	X86_FEATURE_AVX512F,
-	X86_FEATURE_AVX512F,
-	X86_FEATURE_AVX512F,
-	X86_FEATURE_INTEL_PT,
-	X86_FEATURE_PKU,
-	X86_FEATURE_HDC,
+	X86_FEATURE_FPU,      X86_FEATURE_XMM,	   X86_FEATURE_AVX,	X86_FEATURE_MPX,
+	X86_FEATURE_MPX,      X86_FEATURE_AVX512F, X86_FEATURE_AVX512F, X86_FEATURE_AVX512F,
+	X86_FEATURE_INTEL_PT, X86_FEATURE_PKU,	   X86_FEATURE_HDC,
 };
 
 void compel_set_cpu_cap(compel_cpuinfo_t *c, unsigned int feature)
@@ -89,8 +81,7 @@ static int compel_fpuid(compel_cpuinfo_t *c)
 	uint32_t eax, ebx, ecx, edx;
 	size_t i;
 
-	BUILD_BUG_ON(ARRAY_SIZE(xsave_cpuid_features) !=
-		     ARRAY_SIZE(xfeature_names));
+	BUILD_BUG_ON(ARRAY_SIZE(xsave_cpuid_features) != ARRAY_SIZE(xfeature_names));
 
 	if (!compel_test_cpu_cap(c, X86_FEATURE_FPU)) {
 		pr_err("fpu: No FPU detected\n");
@@ -98,9 +89,7 @@ static int compel_fpuid(compel_cpuinfo_t *c)
 	}
 
 	if (!compel_test_cpu_cap(c, X86_FEATURE_XSAVE)) {
-		pr_info("fpu: x87 FPU will use %s\n",
-			compel_test_cpu_cap(c, X86_FEATURE_FXSR) ?
-			"FXSAVE" : "FSAVE");
+		pr_info("fpu: x87 FPU will use %s\n", compel_test_cpu_cap(c, X86_FEATURE_FXSR) ? "FXSAVE" : "FSAVE");
 		return 0;
 	}
 
@@ -140,12 +129,11 @@ static int compel_fpuid(compel_cpuinfo_t *c)
 	c->xsaves_size = ebx;
 
 	pr_debug("fpu: xfeatures_mask 0x%llx xsave_size %u xsave_size_max %u xsaves_size %u\n",
-		 (unsigned long long)c->xfeatures_mask,
-		 c->xsave_size, c->xsave_size_max, c->xsaves_size);
+		 (unsigned long long)c->xfeatures_mask, c->xsave_size, c->xsave_size_max, c->xsaves_size);
 
 	if (c->xsave_size_max > sizeof(struct xsave_struct))
-		pr_warn_once("fpu: max xsave frame exceed xsave_struct (%u %u)\n",
-			     c->xsave_size_max, (unsigned)sizeof(struct xsave_struct));
+		pr_warn_once("fpu: max xsave frame exceed xsave_struct (%u %u)\n", c->xsave_size_max,
+			     (unsigned)sizeof(struct xsave_struct));
 
 	memset(c->xstate_offsets, 0xff, sizeof(c->xstate_offsets));
 	memset(c->xstate_sizes, 0xff, sizeof(c->xstate_sizes));
@@ -160,10 +148,10 @@ static int compel_fpuid(compel_cpuinfo_t *c)
 	 * in the fixed offsets in the xsave area in either compacted form
 	 * or standard form.
 	 */
-	c->xstate_offsets[0]	= 0;
-	c->xstate_sizes[0]	= offsetof(struct i387_fxsave_struct, xmm_space);
-	c->xstate_offsets[1]	= c->xstate_sizes[0];
-	c->xstate_sizes[1]	= FIELD_SIZEOF(struct i387_fxsave_struct, xmm_space);
+	c->xstate_offsets[0] = 0;
+	c->xstate_sizes[0] = offsetof(struct i387_fxsave_struct, xmm_space);
+	c->xstate_offsets[1] = c->xstate_sizes[0];
+	c->xstate_sizes[1] = FIELD_SIZEOF(struct i387_fxsave_struct, xmm_space);
 
 	for (i = FIRST_EXTENDED_XFEATURE; i < XFEATURE_MAX; i++) {
 		if (!(c->xfeatures_mask & (1UL << i)))
@@ -189,8 +177,7 @@ static int compel_fpuid(compel_cpuinfo_t *c)
 		 * highest offset in the buffer.  Ensure it does.
 		 */
 		if (last_good_offset > c->xstate_offsets[i])
-			pr_warn_once("fpu: misordered xstate %d %d\n",
-				     last_good_offset, c->xstate_offsets[i]);
+			pr_warn_once("fpu: misordered xstate %d %d\n", last_good_offset, c->xstate_offsets[i]);
 
 		last_good_offset = c->xstate_offsets[i];
 	}
@@ -198,10 +185,10 @@ static int compel_fpuid(compel_cpuinfo_t *c)
 	BUILD_BUG_ON(sizeof(c->xstate_offsets) != sizeof(c->xstate_sizes));
 	BUILD_BUG_ON(sizeof(c->xstate_comp_offsets) != sizeof(c->xstate_comp_sizes));
 
-	c->xstate_comp_offsets[0]	= 0;
-	c->xstate_comp_sizes[0]		= offsetof(struct i387_fxsave_struct, xmm_space);
-	c->xstate_comp_offsets[1]	= c->xstate_comp_sizes[0];
-	c->xstate_comp_sizes[1]		= FIELD_SIZEOF(struct i387_fxsave_struct, xmm_space);
+	c->xstate_comp_offsets[0] = 0;
+	c->xstate_comp_sizes[0] = offsetof(struct i387_fxsave_struct, xmm_space);
+	c->xstate_comp_offsets[1] = c->xstate_comp_sizes[0];
+	c->xstate_comp_sizes[1] = FIELD_SIZEOF(struct i387_fxsave_struct, xmm_space);
 
 	if (!compel_test_cpu_cap(c, X86_FEATURE_XSAVES)) {
 		for (i = FIRST_EXTENDED_XFEATURE; i < XFEATURE_MAX; i++) {
@@ -211,8 +198,7 @@ static int compel_fpuid(compel_cpuinfo_t *c)
 			}
 		}
 	} else {
-		c->xstate_comp_offsets[FIRST_EXTENDED_XFEATURE] =
-			FXSAVE_SIZE + XSAVE_HDR_SIZE;
+		c->xstate_comp_offsets[FIRST_EXTENDED_XFEATURE] = FXSAVE_SIZE + XSAVE_HDR_SIZE;
 
 		for (i = FIRST_EXTENDED_XFEATURE; i < XFEATURE_MAX; i++) {
 			if ((c->xfeatures_mask & (1UL << i)))
@@ -221,8 +207,7 @@ static int compel_fpuid(compel_cpuinfo_t *c)
 				c->xstate_comp_sizes[i] = 0;
 
 			if (i > FIRST_EXTENDED_XFEATURE) {
-				c->xstate_comp_offsets[i] = c->xstate_comp_offsets[i-1]
-					+ c->xstate_comp_sizes[i-1];
+				c->xstate_comp_offsets[i] = c->xstate_comp_offsets[i - 1] + c->xstate_comp_sizes[i - 1];
 
 				/*
 				 * The value returned by ECX[1] indicates the alignment
@@ -240,9 +225,9 @@ static int compel_fpuid(compel_cpuinfo_t *c)
 		for (i = 0; i < ARRAY_SIZE(c->xstate_offsets); i++) {
 			if (!(c->xfeatures_mask & (1UL << i)))
 				continue;
-			pr_debug("fpu: %-32s xstate_offsets %6d / %-6d xstate_sizes %6d / %-6d\n",
-				 xfeature_names[i], c->xstate_offsets[i], c->xstate_comp_offsets[i],
-				 c->xstate_sizes[i], c->xstate_comp_sizes[i]);
+			pr_debug("fpu: %-32s xstate_offsets %6d / %-6d xstate_sizes %6d / %-6d\n", xfeature_names[i],
+				 c->xstate_offsets[i], c->xstate_comp_offsets[i], c->xstate_sizes[i],
+				 c->xstate_comp_sizes[i]);
 		}
 	}
 
@@ -261,20 +246,15 @@ int compel_cpuid(compel_cpuinfo_t *c)
 	 */
 
 	/* Get vendor name */
-	cpuid(0x00000000,
-	      (unsigned int *)&c->cpuid_level,
-	      (unsigned int *)&c->x86_vendor_id[0],
-	      (unsigned int *)&c->x86_vendor_id[8],
-	      (unsigned int *)&c->x86_vendor_id[4]);
+	cpuid(0x00000000, (unsigned int *)&c->cpuid_level, (unsigned int *)&c->x86_vendor_id[0],
+	      (unsigned int *)&c->x86_vendor_id[8], (unsigned int *)&c->x86_vendor_id[4]);
 
 	if (!strcmp(c->x86_vendor_id, "GenuineIntel")) {
 		c->x86_vendor = X86_VENDOR_INTEL;
-	} else if (!strcmp(c->x86_vendor_id, "AuthenticAMD") ||
-		!strcmp(c->x86_vendor_id, "HygonGenuine")) {
+	} else if (!strcmp(c->x86_vendor_id, "AuthenticAMD") || !strcmp(c->x86_vendor_id, "HygonGenuine")) {
 		c->x86_vendor = X86_VENDOR_AMD;
 	} else {
-		pr_err("Unsupported CPU vendor %s\n",
-		       c->x86_vendor_id);
+		pr_err("Unsupported CPU vendor %s\n", c->x86_vendor_id);
 		return -1;
 	}
 
@@ -369,7 +349,7 @@ int compel_cpuid(compel_cpuinfo_t *c)
 			while (*p)
 				*q++ = *p++;
 			while (q <= &c->x86_model_id[48])
-				*q++ = '\0';	/* Zero-pad the rest */
+				*q++ = '\0'; /* Zero-pad the rest */
 		}
 	}
 
@@ -440,8 +420,7 @@ int compel_cpuid(compel_cpuinfo_t *c)
 		break;
 	}
 
-	pr_debug("x86_family %u x86_vendor_id %s x86_model_id %s\n",
-		 c->x86_family, c->x86_vendor_id, c->x86_model_id);
+	pr_debug("x86_family %u x86_vendor_id %s x86_model_id %s\n", c->x86_family, c->x86_vendor_id, c->x86_model_id);
 
 	return compel_fpuid(c);
 }
@@ -461,8 +440,7 @@ bool compel_fpu_has_feature(unsigned int feature)
 uint32_t compel_fpu_feature_size(unsigned int feature)
 {
 	fetch_rt_cpuinfo();
-	if (feature >= FIRST_EXTENDED_XFEATURE &&
-	    feature < XFEATURE_MAX)
+	if (feature >= FIRST_EXTENDED_XFEATURE && feature < XFEATURE_MAX)
 		return rt_info.xstate_sizes[feature];
 	return 0;
 }
@@ -470,8 +448,7 @@ uint32_t compel_fpu_feature_size(unsigned int feature)
 uint32_t compel_fpu_feature_offset(unsigned int feature)
 {
 	fetch_rt_cpuinfo();
-	if (feature >= FIRST_EXTENDED_XFEATURE &&
-	    feature < XFEATURE_MAX)
+	if (feature >= FIRST_EXTENDED_XFEATURE && feature < XFEATURE_MAX)
 		return rt_info.xstate_offsets[feature];
 	return 0;
 }

@@ -25,35 +25,36 @@ typedef void (*sighandler_t)(int);
 typedef unsigned long ulong;
 
 /* colors */
-#define CS_PARENT 		"\033[00;32m"
-#define CS_CHILD 		"\033[00;33m"
-#define CS_DUMP 		"\033[00;34m"
-#define CS_RESTORE 		"\033[00;35m"
-#define CE			"\033[0m"
+#define CS_PARENT  "\033[00;32m"
+#define CS_CHILD   "\033[00;33m"
+#define CS_DUMP	   "\033[00;34m"
+#define CS_RESTORE "\033[00;35m"
+#define CE	   "\033[0m"
 
-#define die(fmt, ...) do { \
-	fprintf(stderr, fmt ": %m\n", __VA_ARGS__); \
-	if (getpid() == parent_pid) { \
-		(void)kill(0, 9); \
-		exit(1); \
-	} \
-	_exit(1); \
-} while (0)
+#define die(fmt, ...)                                       \
+	do {                                                \
+		fprintf(stderr, fmt ": %m\n", __VA_ARGS__); \
+		if (getpid() == parent_pid) {               \
+			(void)kill(0, 9);                   \
+			exit(1);                            \
+		}                                           \
+		_exit(1);                                   \
+	} while (0)
 
-#define READ_FD		0	/* pipe read fd */
-#define WRITE_FD	1	/* pipe write fd */
-#define CLASH_FD	3	/* force inherit fd clash */
+#define READ_FD	 0 /* pipe read fd */
+#define WRITE_FD 1 /* pipe write fd */
+#define CLASH_FD 3 /* force inherit fd clash */
 
-#define MAX_FORKS	3	/* child, checkpoint, restore */
+#define MAX_FORKS 3 /* child, checkpoint, restore */
 
-#define CRIU_BINARY		"../../../criu/criu"
-#define IMG_DIR			"images"
-#define DUMP_LOG_FILE		"dump.log"
-#define RESTORE_LOG_FILE	"restore.log"
-#define RESTORE_PID_FILE	"restore.pid"
-#define INHERIT_FD_OPTION	"--inherit-fd"
-#define OLD_LOG_FILE		"/tmp/oldlog"
-#define NEW_LOG_FILE		"/tmp/newlog"
+#define CRIU_BINARY	  "../../../criu/criu"
+#define IMG_DIR		  "images"
+#define DUMP_LOG_FILE	  "dump.log"
+#define RESTORE_LOG_FILE  "restore.log"
+#define RESTORE_PID_FILE  "restore.pid"
+#define INHERIT_FD_OPTION "--inherit-fd"
+#define OLD_LOG_FILE	  "/tmp/oldlog"
+#define NEW_LOG_FILE	  "/tmp/newlog"
 
 /*
  * Command line options (see usage()).
@@ -70,22 +71,11 @@ char inh_unixsk_arg[64];
 char external_sk_ino[32];
 
 char *dump_argv[] = {
-	"criu", "dump",
-	"-D", IMG_DIR, "-o", DUMP_LOG_FILE,
-	"-v4",
-	external_sk_ino,
-	"-t", pid_number,
-	NULL
+	"criu", "dump", "-D", IMG_DIR, "-o", DUMP_LOG_FILE, "-v4", external_sk_ino, "-t", pid_number, NULL
 };
 
-char *restore_argv[] = {
-	"criu", "restore", "-d",
-	"-D", IMG_DIR, "-o", RESTORE_LOG_FILE,
-	"--pidfile", RESTORE_PID_FILE,
-	"-v4", "-x",
-	inh_unixsk_opt, inh_unixsk_arg,
-	NULL
-};
+char *restore_argv[] = { "criu",      "restore",	"-d",  "-D", IMG_DIR,	     "-o",	     RESTORE_LOG_FILE,
+			 "--pidfile", RESTORE_PID_FILE, "-v4", "-x", inh_unixsk_opt, inh_unixsk_arg, NULL };
 
 int max_forks;
 int parent_pid;
@@ -151,12 +141,9 @@ int main(int argc, char *argv[])
 			break;
 		case '?':
 			if ('m' == optopt)
-				fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+				fprintf(stderr, "Option -%c requires an argument.\n", optopt);
 			else
-			fprintf (
-				stderr,
-				"Unknown option character `\\x%x'.\n",
-				optopt);
+				fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
 			return 1;
 		default:
 			usage(argv[0]);
@@ -177,9 +164,9 @@ int main(int argc, char *argv[])
 		prctl_safe(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0);
 
 		snprintf(external_sk_ino, sizeof(external_sk_ino), "--ext-unix-sk=%u",
-			(unsigned int)socket_inode(socketfd[WRITE_FD]));
+			 (unsigned int)socket_inode(socketfd[WRITE_FD]));
 
-		char unix_sk_ino[32] = {0};
+		char unix_sk_ino[32] = { 0 };
 		strcpy(unix_sk_ino, socket_name(socketfd[WRITE_FD]));
 		close_safe(socketfd[WRITE_FD]);
 		ret = parent(socketfd, unix_sk_ino);
@@ -224,11 +211,7 @@ int parent(int *socketfd, const char *ino_child_sk)
 		if (vflag && nread == 1)
 			ls_proc_fd(-1);
 
-		printf(
-			"%s read %s from %s\n",
-			who(0), buf,
-			socket_name(socketfd[READ_FD]));
-
+		printf("%s read %s from %s\n", who(0), buf, socket_name(socketfd[READ_FD]));
 
 		if (nread == (max_msgs / 2)) {
 			checkpoint_child(child_pid, socketfd);
@@ -276,12 +259,18 @@ int child(int *socketfd, int dupfd, int openfd)
 			ls_proc_fd(-1);
 
 		switch (i % num_wfds) {
-			case 0: fd = socketfd[WRITE_FD]; break;
-			case 1: fd = openfd; break;
-			case 2: fd = openfd; break;
+		case 0:
+			fd = socketfd[WRITE_FD];
+			break;
+		case 1:
+			fd = openfd;
+			break;
+		case 2:
+			fd = openfd;
+			break;
 		}
 
-		write_to_fd(fd, socket_name(socketfd[WRITE_FD]), i+1, 0);
+		write_to_fd(fd, socket_name(socketfd[WRITE_FD]), i + 1, 0);
 		/*
 		 * Since sleep will be interrupted by C/R, make sure
 		 * to sleep an entire second to minimize the chance of
@@ -307,8 +296,7 @@ void chld_handler(int signum)
 	if (WIFEXITED(status))
 		status = WEXITSTATUS(status);
 	if (pid == child_pid) {
-		printf("%s %s exited with status %d\n", who(0),
-			who(pid), status);
+		printf("%s %s exited with status %d\n", who(0), who(pid), status);
 		/* if child exited successfully, we're done */
 		if (status == 0)
 			exit(0);
@@ -331,8 +319,7 @@ void checkpoint_child(int child_pid, int *socketfd)
 		pid = waitpid_safe(criu_dump_pid, &status, 0, 2);
 		if (WIFEXITED(status))
 			status = WEXITSTATUS(status);
-		printf("%s %s exited with status %d\n", who(0),
-			who(pid), status);
+		printf("%s %s exited with status %d\n", who(0), who(pid), status);
 		if (status)
 			exit(status);
 	} else {
@@ -358,8 +345,7 @@ void restore_child(int *new_socketfd, const char *old_sock_name)
 		if (WIFEXITED(status))
 			status = WEXITSTATUS(status);
 
-		printf("%s %s exited with status %d\n", who(0),
-			who(pid), status);
+		printf("%s %s exited with status %d\n", who(0), who(pid), status);
 
 		if (status)
 			exit(status);
@@ -371,10 +357,8 @@ void restore_child(int *new_socketfd, const char *old_sock_name)
 			move_fd(new_socketfd[WRITE_FD], CLASH_FD);
 
 			/* --inherit-fd fd[CLASH_FD]:socket[xxxxxx] */
-			snprintf(inh_unixsk_opt, sizeof inh_unixsk_opt,
-				"%s", INHERIT_FD_OPTION);
-			snprintf(inh_unixsk_arg, sizeof inh_unixsk_arg, "fd[%d]:%s",
-				CLASH_FD, old_sock_name);
+			snprintf(inh_unixsk_opt, sizeof inh_unixsk_opt, "%s", INHERIT_FD_OPTION);
+			snprintf(inh_unixsk_arg, sizeof inh_unixsk_arg, "fd[%d]:%s", CLASH_FD, old_sock_name);
 
 			restore_argv[11] = inh_unixsk_opt;
 			restore_argv[13] = NULL;
@@ -390,7 +374,7 @@ void restore_child(int *new_socketfd, const char *old_sock_name)
 void write_to_fd(int fd, char *name, int i, int newline)
 {
 	int n;
-	char buf[16];	/* fit "hello d\n" for small d */
+	char buf[16]; /* fit "hello d\n" for small d */
 
 	n = snprintf(buf, sizeof buf, "hello %d", i);
 
@@ -428,12 +412,12 @@ char *socket_name(int fd)
 
 ino_t socket_inode(int fd)
 {
-         struct stat sbuf;
+	struct stat sbuf;
 
-         if (fstat(fd, &sbuf) == -1)
-                 die("fstat: fd=%i", fd);
+	if (fstat(fd, &sbuf) == -1)
+		die("fstat: fd=%i", fd);
 
-         return sbuf.st_ino;
+	return sbuf.st_ino;
 }
 
 /*
@@ -510,8 +494,7 @@ void close_safe(int fd)
 void write_safe(int fd, char *buf, int count)
 {
 	if (write(fd, buf, count) != count) {
-		die("write: fd=%d buf=\"%s\" count=%d errno=%d",
-			fd, buf, count, errno);
+		die("write: fd=%d buf=\"%s\" count=%d errno=%d", fd, buf, count, errno);
 	}
 }
 

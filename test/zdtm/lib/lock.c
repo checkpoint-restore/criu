@@ -8,7 +8,7 @@
 
 #include "zdtmtst.h"
 
-#define TASK_WAITER_INITIAL		0x0fffff
+#define TASK_WAITER_INITIAL 0x0fffff
 
 static long sys_gettid(void)
 {
@@ -34,8 +34,10 @@ void task_waiter_fini(task_waiter_t *t)
 
 void task_waiter_wait4(task_waiter_t *t, unsigned int lockid)
 {
-	struct timespec req = { .tv_nsec = TASK_WAITER_INITIAL, };
-	struct timespec rem = { };
+	struct timespec req = {
+		.tv_nsec = TASK_WAITER_INITIAL,
+	};
+	struct timespec rem = {};
 	unsigned int v;
 
 	for (;;) {

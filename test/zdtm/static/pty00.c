@@ -9,8 +9,8 @@
 #include <termios.h>
 #include <signal.h>
 
-const char *test_doc	= "Check, that pseudoterminals are restored";
-const char *test_author	= "Andrey Vagin <avagin@openvz.org>";
+const char *test_doc = "Check, that pseudoterminals are restored";
+const char *test_author = "Andrey Vagin <avagin@openvz.org>";
 
 static unsigned int nr_sighups;
 
@@ -19,7 +19,7 @@ static void signal_handler_sighup(int signum)
 	nr_sighups++;
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fdm, fds, ret, tty, i;
 	char *slavename;
@@ -77,7 +77,7 @@ int main(int argc, char ** argv)
 	close(fds);
 	fds = 100;
 
-	for (i = 0; i  < 10; i++) {
+	for (i = 0; i < 10; i++) {
 		/* Check connectivity */
 		ret = write(fdm, teststr, sizeof(teststr) - 1);
 		if (ret != sizeof(teststr) - 1) {
@@ -89,7 +89,7 @@ int main(int argc, char ** argv)
 	test_daemon();
 	test_waitsig();
 
-	for (i = 0; i  < 10; i++) {
+	for (i = 0; i < 10; i++) {
 		ret = read(fds, buf, sizeof(teststr) - 1);
 		if (ret != sizeof(teststr) - 1) {
 			pr_perror("read(fds) failed");

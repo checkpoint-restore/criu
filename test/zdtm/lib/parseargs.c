@@ -20,17 +20,12 @@ void __push_opt(struct long_opt *opt)
 
 int parse_opt_bool(char *param, void *arg)
 {
-	if (param == NULL ||
-	    !strcmp(param, "on") ||
-	    !strcmp(param, "yes") ||
-	    !strcmp(param, "true")) {
-		* (int *) arg = 1;
+	if (param == NULL || !strcmp(param, "on") || !strcmp(param, "yes") || !strcmp(param, "true")) {
+		*(int *)arg = 1;
 		return 0;
 	}
-	if (!strcmp(param, "off") ||
-	    !strcmp(param, "no") ||
-	    !strcmp(param, "false")) {
-		* (int *) arg = 0;
+	if (!strcmp(param, "off") || !strcmp(param, "no") || !strcmp(param, "false")) {
+		*(int *)arg = 0;
 		return 0;
 	}
 	return -EINVAL;
@@ -41,7 +36,7 @@ int parse_opt_int(char *param, void *arg)
 	char *tail;
 	if (param == NULL || param[0] == '\0')
 		return -EINVAL;
-	* (int *) arg = strtol(param, &tail, 0);
+	*(int *)arg = strtol(param, &tail, 0);
 	if (tail[0] != '\0')
 		return -EINVAL;
 	return 0;
@@ -52,7 +47,7 @@ int parse_opt_uint(char *param, void *arg)
 	char *tail;
 	if (param == NULL || param[0] == '\0')
 		return -EINVAL;
-	* (unsigned int *) arg = strtoul(param, &tail, 0);
+	*(unsigned int *)arg = strtoul(param, &tail, 0);
 	if (tail[0] != '\0')
 		return -EINVAL;
 	return 0;
@@ -63,7 +58,7 @@ int parse_opt_long(char *param, void *arg)
 	char *tail;
 	if (param == NULL || param[0] == '\0')
 		return -EINVAL;
-	* (long *) arg = strtol(param, &tail, 0);
+	*(long *)arg = strtol(param, &tail, 0);
 	if (tail[0] != '\0')
 		return -EINVAL;
 	return 0;
@@ -74,7 +69,7 @@ int parse_opt_ulong(char *param, void *arg)
 	char *tail;
 	if (param == NULL || param[0] == '\0')
 		return -EINVAL;
-	* (unsigned long *) arg = strtoul(param, &tail, 0);
+	*(unsigned long *)arg = strtoul(param, &tail, 0);
 	if (tail[0] != '\0')
 		return -EINVAL;
 	return 0;
@@ -84,7 +79,7 @@ int parse_opt_string(char *param, void *arg)
 {
 	if (param == NULL || param[0] == '\0')
 		return -EINVAL;
-	* (char **) arg = param;
+	*(char **)arg = param;
 	return 0;
 }
 
@@ -97,8 +92,7 @@ static void printopt(const struct long_opt *opt)
 		cbracket = "]";
 	}
 
-	fprintf(stderr, "  %s--%s=%s%s\t%s\n",
-		obracket, opt->name, opt->type, cbracket, opt->doc);
+	fprintf(stderr, "  %s--%s=%s%s\t%s\n", obracket, opt->name, opt->type, cbracket, opt->doc);
 }
 
 static void helpexit(void)
@@ -113,8 +107,8 @@ static void helpexit(void)
 	exit(1);
 }
 
-const char __attribute__((weak)) *test_doc;
-const char __attribute__((weak)) *test_author;
+const char __attribute__((weak)) * test_doc;
+const char __attribute__((weak)) * test_author;
 
 static void prdoc(void)
 {
@@ -124,7 +118,7 @@ static void prdoc(void)
 		fprintf(stderr, "Author: %s\n", test_author);
 }
 
-void parseargs(int argc, char ** argv)
+void parseargs(int argc, char **argv)
 {
 	int i;
 	struct long_opt *opt;
@@ -148,10 +142,9 @@ void parseargs(int argc, char ** argv)
 				if (opt->parse_opt(value, opt->value)) {
 					fprintf(stderr, "%s: failed to parse\n", argv[i]);
 					helpexit();
-				}
-				else
+				} else
 					/* -1 marks fulfilled requirement */
-					opt->is_required = - opt->is_required;
+					opt->is_required = -opt->is_required;
 
 				break;
 			}

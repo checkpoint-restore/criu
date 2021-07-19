@@ -15,8 +15,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test that unix sockets are restored in proper mount namespaces\n";
-const char *test_author	= "Andrei Vagin <avagin@openvz.org>";
+const char *test_doc = "Test that unix sockets are restored in proper mount namespaces\n";
+const char *test_author = "Andrei Vagin <avagin@openvz.org>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "socket file name", 1);
@@ -87,13 +87,13 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ret = bind(sk, (struct sockaddr *) &addr, addrlen);
+	ret = bind(sk, (struct sockaddr *)&addr, addrlen);
 	if (ret) {
 		fail("bind");
 		exit(1);
 	}
 
-	if (connect(csk, (struct sockaddr *) &addr, addrlen)) {
+	if (connect(csk, (struct sockaddr *)&addr, addrlen)) {
 		fail("connect");
 		exit(1);
 	}
@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
 			pr_perror("socket");
 			exit(1);
 		}
-		if (connect(csk, (struct sockaddr *) &addr, addrlen)) {
+		if (connect(csk, (struct sockaddr *)&addr, addrlen)) {
 			pr_perror("connect");
 			exit(1);
 		}

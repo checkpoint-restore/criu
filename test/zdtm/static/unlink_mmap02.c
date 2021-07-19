@@ -9,13 +9,13 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test mmaped, opened and unlinked files";
+const char *test_doc = "Test mmaped, opened and unlinked files";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
 #ifndef PAGE_SIZE
-#define PAGE_SIZE	4096
+#define PAGE_SIZE 4096
 #endif
 
 static void touch_file_page(int fd, unsigned long off, char c)
@@ -31,7 +31,7 @@ static void touch_file_page(int fd, unsigned long off, char c)
 	}
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fd;
 	char *mem_a, *mem_b;
@@ -43,7 +43,6 @@ int main(int argc, char ** argv)
 		pr_perror("can't open file");
 		exit(1);
 	}
-
 
 	touch_file_page(fd, 2 * PAGE_SIZE - 1, 'c'); /* for aligned file */
 

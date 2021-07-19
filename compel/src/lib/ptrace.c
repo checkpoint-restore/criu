@@ -93,8 +93,7 @@ int ptrace_swap_area(pid_t pid, void *dst, void *src, long bytes)
 	if (err) {
 		int err2;
 
-		pr_err("Can't poke %d @ %p from %p sized %ld\n",
-			pid, dst, src, bytes);
+		pr_err("Can't poke %d @ %p from %p sized %ld\n", pid, dst, src, bytes);
 
 		err2 = ptrace_poke_area(pid, t, dst, bytes);
 		if (err2) {
@@ -109,7 +108,8 @@ int ptrace_swap_area(pid_t pid, void *dst, void *src, long bytes)
 	return 0;
 }
 
-int __attribute__((weak)) ptrace_get_regs(int pid, user_regs_struct_t *regs) {
+int __attribute__((weak)) ptrace_get_regs(int pid, user_regs_struct_t *regs)
+{
 	struct iovec iov;
 
 	iov.iov_base = regs;

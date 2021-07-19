@@ -7,14 +7,14 @@
 #include <stdlib.h>
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that cgroups layout is preserved";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that cgroups layout is preserved";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "cgroup directory name", 1);
 static const char *cgname = "zdtmtst";
-#define SUBNAME	"subcg00"
-#define SUBNAME2 SUBNAME"/subsubcg"
+#define SUBNAME	 "subcg00"
+#define SUBNAME2 SUBNAME "/subsubcg"
 
 static int cg_move(char *name)
 {

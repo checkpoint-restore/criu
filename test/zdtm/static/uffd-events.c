@@ -11,11 +11,11 @@
 #include <linux/limits.h>
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test uffd events";
-const char *test_author	= "Mike Rapoport <rppt@linux.vnet.ibm.com>";
+const char *test_doc = "Test uffd events";
+const char *test_author = "Mike Rapoport <rppt@linux.vnet.ibm.com>";
 
-#define NR_MAPS		5
-#define MAP_SIZE	(1 << 20)
+#define NR_MAPS	 5
+#define MAP_SIZE (1 << 20)
 
 static void *map[NR_MAPS];
 
@@ -25,8 +25,7 @@ static int create_mappings(void)
 	int i;
 
 	for (i = 0; i < NR_MAPS; i++) {
-		map[i] = mmap(NULL, MAP_SIZE, PROT_READ | PROT_WRITE,
-			      MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+		map[i] = mmap(NULL, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 		if (map[i] == MAP_FAILED) {
 			fail("mmap failed");
 			return 1;
@@ -134,7 +133,7 @@ static int check_swapped_mappings(int idx)
 	return 0;
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	uint32_t crc;
 	int pid;

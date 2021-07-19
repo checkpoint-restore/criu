@@ -12,10 +12,10 @@
 #include "zdtmtst.h"
 
 #define STACK_SIZE (1024 * 1024)
-#define GID_INC 1
-#define UID_INC 1
+#define GID_INC	   1
+#define UID_INC	   1
 
-const char *test_doc    = "Check peercred of a unix socket remains the same";
+const char *test_doc = "Check peercred of a unix socket remains the same";
 const char *test_author = "Kirill Tkhai <ktkhai@virtuozzo.com>";
 
 static int child_func(void *fd_p)
@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
-	pid = clone(child_func, stack + STACK_SIZE, CLONE_FILES|SIGCHLD, (void *)(unsigned long)fd);
+	pid = clone(child_func, stack + STACK_SIZE, CLONE_FILES | SIGCHLD, (void *)(unsigned long)fd);
 	if (pid == -1) {
 		pr_perror("clone");
 		goto out;
@@ -113,15 +113,14 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
-	if (ucred.pid != pid || ucred.gid != getuid() + UID_INC ||
-			        ucred.gid != getgid() + GID_INC) {
+	if (ucred.pid != pid || ucred.gid != getuid() + UID_INC || ucred.gid != getgid() + GID_INC) {
 		fail("Wrong pid, uid or gid");
 		goto out;
 	}
 
 	pass();
 	exit_code = 0;
- out:
+out:
 	free(stack);
 	return exit_code;
 }

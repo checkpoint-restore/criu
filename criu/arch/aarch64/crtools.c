@@ -21,7 +21,7 @@
 #include "restorer.h"
 #include "compel/infect.h"
 
-#define assign_reg(dst, src, e)		dst->e = (__typeof__(dst->e))(src)->e
+#define assign_reg(dst, src, e) dst->e = (__typeof__(dst->e))(src)->e
 
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpsimd)
 {
@@ -35,12 +35,10 @@ int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpsi
 	assign_reg(core->ti_aarch64->gpregs, regs, pc);
 	assign_reg(core->ti_aarch64->gpregs, regs, pstate);
 
-
 	// Save the FP/SIMD state
-	for (i = 0; i < 32; ++i)
-	{
-		core->ti_aarch64->fpsimd->vregs[2*i]     = fpsimd->vregs[i];
-		core->ti_aarch64->fpsimd->vregs[2*i + 1] = fpsimd->vregs[i] >> 64;
+	for (i = 0; i < 32; ++i) {
+		core->ti_aarch64->fpsimd->vregs[2 * i] = fpsimd->vregs[i];
+		core->ti_aarch64->fpsimd->vregs[2 * i + 1] = fpsimd->vregs[i] >> 64;
 	}
 	assign_reg(core->ti_aarch64->fpsimd, fpsimd, fpsr);
 	assign_reg(core->ti_aarch64->fpsimd, fpsimd, fpcr);
@@ -65,7 +63,7 @@ int arch_alloc_thread_info(CoreEntry *core)
 		goto err;
 	user_aarch64_regs_entry__init(gpregs);
 
-	gpregs->regs = xmalloc(31*sizeof(uint64_t));
+	gpregs->regs = xmalloc(31 * sizeof(uint64_t));
 	if (!gpregs->regs)
 		goto err;
 	gpregs->n_regs = 31;
@@ -77,7 +75,7 @@ int arch_alloc_thread_info(CoreEntry *core)
 		goto err;
 	user_aarch64_fpsimd_context_entry__init(fpsimd);
 	ti_aarch64->fpsimd = fpsimd;
-	fpsimd->vregs = xmalloc(64*sizeof(fpsimd->vregs[0]));
+	fpsimd->vregs = xmalloc(64 * sizeof(fpsimd->vregs[0]));
 	fpsimd->n_vregs = 64;
 	if (!fpsimd->vregs)
 		goto err;
@@ -110,8 +108,8 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 		return 1;
 
 	for (i = 0; i < 32; ++i)
-		fpsimd->vregs[i] =	(__uint128_t)core->ti_aarch64->fpsimd->vregs[2*i] |
-					((__uint128_t)core->ti_aarch64->fpsimd->vregs[2*i + 1] << 64);
+		fpsimd->vregs[i] = (__uint128_t)core->ti_aarch64->fpsimd->vregs[2 * i] |
+				   ((__uint128_t)core->ti_aarch64->fpsimd->vregs[2 * i + 1] << 64);
 	assign_reg(fpsimd, core->ti_aarch64->fpsimd, fpsr);
 	assign_reg(fpsimd, core->ti_aarch64->fpsimd, fpcr);
 
@@ -123,7 +121,7 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 
 int restore_gpregs(struct rt_sigframe *f, UserRegsEntry *r)
 {
-#define CPREG1(d)       f->uc.uc_mcontext.d = r->d
+#define CPREG1(d) f->uc.uc_mcontext.d = r->d
 
 	int i;
 

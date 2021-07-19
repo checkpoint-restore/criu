@@ -27,7 +27,6 @@
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
 
-
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	CoreEntry *core = x;
@@ -202,7 +201,6 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 
 	return 0;
 }
-
 
 int restore_gpregs(struct rt_sigframe *f, UserMipsRegsEntry *r)
 {

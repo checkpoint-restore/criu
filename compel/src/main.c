@@ -17,44 +17,44 @@
 #include "piegen.h"
 #include "log.h"
 
-#define CFLAGS_DEFAULT_SET					\
-	"-Wstrict-prototypes "					\
+#define CFLAGS_DEFAULT_SET     \
+	"-Wstrict-prototypes " \
 	"-fno-stack-protector -nostdlib -fomit-frame-pointer "
 
-#define COMPEL_CFLAGS_PIE	CFLAGS_DEFAULT_SET "-fpie"
-#define COMPEL_CFLAGS_NOPIC	CFLAGS_DEFAULT_SET "-fno-pic"
+#define COMPEL_CFLAGS_PIE   CFLAGS_DEFAULT_SET "-fpie"
+#define COMPEL_CFLAGS_NOPIC CFLAGS_DEFAULT_SET "-fno-pic"
 
 #ifdef NO_RELOCS
-#define COMPEL_LDFLAGS_COMMON	"-z noexecstack -T "
+#define COMPEL_LDFLAGS_COMMON "-z noexecstack -T "
 #else
-#define COMPEL_LDFLAGS_COMMON	"-r -z noexecstack -T "
+#define COMPEL_LDFLAGS_COMMON "-r -z noexecstack -T "
 #endif
 
 typedef struct {
-	const char	*arch;		// dir name under arch/
-	const char	*cflags;
-	const char	*cflags_compat;
+	const char *arch; // dir name under arch/
+	const char *cflags;
+	const char *cflags_compat;
 } flags_t;
 
 static const flags_t flags = {
 #if defined CONFIG_X86_64
-	.arch		= "x86",
-	.cflags		= COMPEL_CFLAGS_PIE,
-	.cflags_compat	= COMPEL_CFLAGS_NOPIC,
+	.arch = "x86",
+	.cflags = COMPEL_CFLAGS_PIE,
+	.cflags_compat = COMPEL_CFLAGS_NOPIC,
 #elif defined CONFIG_AARCH64
-	.arch		= "aarch64",
-	.cflags		= COMPEL_CFLAGS_PIE,
+	.arch = "aarch64",
+	.cflags = COMPEL_CFLAGS_PIE,
 #elif defined(CONFIG_ARMV6) || defined(CONFIG_ARMV7)
-	.arch		= "arm",
-	.cflags		= COMPEL_CFLAGS_PIE,
+	.arch = "arm",
+	.cflags = COMPEL_CFLAGS_PIE,
 #elif defined CONFIG_PPC64
-	.arch		= "ppc64",
-	.cflags		= COMPEL_CFLAGS_PIE,
+	.arch = "ppc64",
+	.cflags = COMPEL_CFLAGS_PIE,
 #elif defined CONFIG_S390
-	.arch		= "s390",
-	.cflags		= COMPEL_CFLAGS_PIE,
+	.arch = "s390",
+	.cflags = COMPEL_CFLAGS_PIE,
 #elif defined CONFIG_MIPS
-	.arch		= "mips",
+	.arch = "mips",
 #else
 #error "CONFIG_<ARCH> not defined, or unsupported ARCH"
 #endif
@@ -123,23 +123,23 @@ static void cli_log(unsigned int lvl, const char *fmt, va_list parms)
 	vfprintf(f, fmt, parms);
 }
 
-static int usage(int rc) {
+static int usage(int rc)
+{
 	FILE *out = (rc == 0) ? stdout : stderr;
 
 	fprintf(out,
-"Usage:\n"
-"  compel [--compat] includes | cflags | ldflags\n"
-"  compel plugins [PLUGIN_NAME ...]\n"
-"  compel [--compat] [--static] libs\n"
-"  compel -f FILE -o FILE [-p NAME] [-l N] hgen\n"
-"    -f, --file FILE		input (parasite object) file name\n"
-"    -o, --output FILE		output (header) file name\n"
-"    -p, --prefix NAME		prefix for var names\n"
-"    -l, --log-level NUM		log level (default: %d)\n"
-"  compel -h|--help\n"
-"  compel -V|--version\n"
-, COMPEL_DEFAULT_LOGLEVEL
-);
+		"Usage:\n"
+		"  compel [--compat] includes | cflags | ldflags\n"
+		"  compel plugins [PLUGIN_NAME ...]\n"
+		"  compel [--compat] [--static] libs\n"
+		"  compel -f FILE -o FILE [-p NAME] [-l N] hgen\n"
+		"    -f, --file FILE		input (parasite object) file name\n"
+		"    -o, --output FILE		output (header) file name\n"
+		"    -p, --prefix NAME		prefix for var names\n"
+		"    -l, --log-level NUM		log level (default: %d)\n"
+		"  compel -h|--help\n"
+		"  compel -V|--version\n",
+		COMPEL_DEFAULT_LOGLEVEL);
 
 	return rc;
 }
@@ -182,12 +182,9 @@ static void print_ldflags(bool compat)
 	printf("%s", COMPEL_LDFLAGS_COMMON);
 
 	if (uninst_root) {
-		printf("%s/arch/%s/scripts/compel-pack%s.lds.S\n",
-				uninst_root, flags.arch, compat_str);
+		printf("%s/arch/%s/scripts/compel-pack%s.lds.S\n", uninst_root, flags.arch, compat_str);
 	} else {
-		printf("%s/compel/scripts/compel-pack%s.lds.S\n",
-				LIBEXECDIR, compat_str);
-
+		printf("%s/compel/scripts/compel-pack%s.lds.S\n", LIBEXECDIR, compat_str);
 	}
 }
 
@@ -196,8 +193,7 @@ static void print_plugin(const char *name)
 	const char suffix[] = ".lib.a";
 
 	if (uninst_root)
-		printf("%s/plugins/%s%s\n",
-				uninst_root, name, suffix);
+		printf("%s/plugins/%s%s\n", uninst_root, name, suffix);
 	else
 		printf("%s/compel/%s%s\n", LIBEXECDIR, name, suffix);
 }
@@ -307,15 +303,15 @@ int main(int argc, char *argv[])
 
 	static const char short_opts[] = "csf:o:p:hVl:";
 	static struct option long_opts[] = {
-		{ "compat",	no_argument,		0, 'c' },
-		{ "static",	no_argument,		0, 's' },
-		{ "file",	required_argument,	0, 'f' },
-		{ "output",	required_argument,	0, 'o' },
-		{ "prefix",	required_argument,	0, 'p' },
-		{ "help",	no_argument,		0, 'h' },
-		{ "version",	no_argument,		0, 'V' },
-		{ "log-level",	required_argument,	0, 'l' },
-		{ },
+		{ "compat", no_argument, 0, 'c' },
+		{ "static", no_argument, 0, 's' },
+		{ "file", required_argument, 0, 'f' },
+		{ "output", required_argument, 0, 'o' },
+		{ "prefix", required_argument, 0, 'p' },
+		{ "help", no_argument, 0, 'h' },
+		{ "version", no_argument, 0, 'V' },
+		{ "log-level", required_argument, 0, 'l' },
+		{},
 	};
 
 	uninst_root = getenv("COMPEL_UNINSTALLED_ROOTDIR");
@@ -347,9 +343,7 @@ int main(int argc, char *argv[])
 		case 'h':
 			return usage(0);
 		case 'V':
-			printf("Version: %d.%d.%d\n",
-			       COMPEL_SO_VERSION_MAJOR,
-			       COMPEL_SO_VERSION_MINOR,
+			printf("Version: %d.%d.%d\n", COMPEL_SO_VERSION_MAJOR, COMPEL_SO_VERSION_MINOR,
 			       COMPEL_SO_VERSION_SUBLEVEL);
 			exit(0);
 			break;

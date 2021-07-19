@@ -20,7 +20,7 @@
 #include "protobuf.h"
 #include "images/cpuinfo.pb-c.h"
 
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "cpu: "
 
 int cpu_init(void)

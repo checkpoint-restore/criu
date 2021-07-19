@@ -10,12 +10,12 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test that all data can be restored";
-const char *test_author	= "Andrey Vagin <avagin@parallels.com>";
+const char *test_doc = "Test that all data can be restored";
+const char *test_author = "Andrey Vagin <avagin@parallels.com>";
 
 #define TEST_STRING "Hello world"
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int pfd[2], pfd_dup[2], pfd_rop[2];
 	char path[PATH_MAX];
@@ -43,8 +43,7 @@ int main(int argc, char ** argv)
 	snprintf(path, PATH_MAX, "/proc/self/fd/%d", pfd[1]);
 	pfd_rop[1] = open(path, O_WRONLY);
 
-	if (pfd_rop[0] == -1 || pfd_rop[1] == -1 ||
-	    pfd_dup[0] == -1 || pfd_dup[1] == -1) {
+	if (pfd_rop[0] == -1 || pfd_rop[1] == -1 || pfd_dup[0] == -1 || pfd_dup[1] == -1) {
 		pr_perror("dup() failed");
 		return 1;
 	}

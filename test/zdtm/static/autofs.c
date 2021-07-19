@@ -20,14 +20,14 @@
 #include "auto_dev-ioctl.h"
 
 const char *test_doc = "Autofs (v5) migration test";
-const char *test_author	= "Stanislav Kinsburskii <stanislav.kinsburskiy@virtuozzo.com>";
+const char *test_author = "Stanislav Kinsburskii <stanislav.kinsburskiy@virtuozzo.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 
-#define AUTOFS_DEV			"/dev/autofs"
+#define AUTOFS_DEV "/dev/autofs"
 
-#define INDIRECT_MNT_DIR		"mnt"
+#define INDIRECT_MNT_DIR "mnt"
 
 int autofs_dev;
 task_waiter_t t;
@@ -53,7 +53,7 @@ static char *xvstrcat(char *str, const char *fmt, va_list args)
 			if (ret >= delta) {
 				/* NOTE: vsnprintf returns the amount of bytes
 				 *                                  * to allocate. */
-				delta = ret +1;
+				delta = ret + 1;
 				str = new;
 				ret = 0;
 			}
@@ -187,53 +187,45 @@ static int check_fd(struct autofs_params *p)
 
 	if (st.st_dev != p->fd_stat.st_dev) {
 		skip("%s: st_dev differs: %llu != %llu "
-		     "(waiting for \"device namespaces\")", p->mountpoint,
-				(long long unsigned)st.st_dev,
-				(long long unsigned)p->fd_stat.st_dev);
-//		ret++;
+		     "(waiting for \"device namespaces\")",
+		     p->mountpoint, (long long unsigned)st.st_dev, (long long unsigned)p->fd_stat.st_dev);
+		//		ret++;
 	}
 	if (st.st_mode != p->fd_stat.st_mode) {
-		pr_err("%s: st_mode differs: 0%o != 0%o\n", p->mountpoint,
-				st.st_mode, p->fd_stat.st_mode);
+		pr_err("%s: st_mode differs: 0%o != 0%o\n", p->mountpoint, st.st_mode, p->fd_stat.st_mode);
 		ret++;
 	}
 	if (st.st_nlink != p->fd_stat.st_nlink) {
-		pr_err("%s: st_nlink differs: %ld != %ld\n", p->mountpoint,
-				(long)st.st_nlink, (long)p->fd_stat.st_nlink);
+		pr_err("%s: st_nlink differs: %ld != %ld\n", p->mountpoint, (long)st.st_nlink,
+		       (long)p->fd_stat.st_nlink);
 		ret++;
 	}
 	if (st.st_uid != p->fd_stat.st_uid) {
-		pr_err("%s: st_uid differs: %u != %u\n", p->mountpoint,
-				st.st_uid, p->fd_stat.st_uid);
+		pr_err("%s: st_uid differs: %u != %u\n", p->mountpoint, st.st_uid, p->fd_stat.st_uid);
 		ret++;
 	}
 	if (st.st_gid != p->fd_stat.st_gid) {
-		pr_err("%s: st_gid differs: %u != %u\n", p->mountpoint,
-				st.st_gid, p->fd_stat.st_gid);
+		pr_err("%s: st_gid differs: %u != %u\n", p->mountpoint, st.st_gid, p->fd_stat.st_gid);
 		ret++;
 	}
 	if (st.st_rdev != p->fd_stat.st_rdev) {
-		pr_err("%s: st_rdev differs: %lld != %lld\n", p->mountpoint,
-				(long long)st.st_rdev,
-				(long long)p->fd_stat.st_rdev);
+		pr_err("%s: st_rdev differs: %lld != %lld\n", p->mountpoint, (long long)st.st_rdev,
+		       (long long)p->fd_stat.st_rdev);
 		ret++;
 	}
 	if (st.st_size != p->fd_stat.st_size) {
-		pr_err("%s: st_size differs: %lld != %lld\n", p->mountpoint,
-				(long long)st.st_size,
-				(long long)p->fd_stat.st_size);
+		pr_err("%s: st_size differs: %lld != %lld\n", p->mountpoint, (long long)st.st_size,
+		       (long long)p->fd_stat.st_size);
 		ret++;
 	}
 	if (st.st_blksize != p->fd_stat.st_blksize) {
-		pr_err("%s: st_blksize differs %lld != %lld:\n", p->mountpoint,
-				(long long)st.st_blksize,
-				(long long)p->fd_stat.st_blksize);
+		pr_err("%s: st_blksize differs %lld != %lld:\n", p->mountpoint, (long long)st.st_blksize,
+		       (long long)p->fd_stat.st_blksize);
 		ret++;
 	}
 	if (st.st_blocks != p->fd_stat.st_blocks) {
-		pr_err("%s: st_blocks differs: %lld != %lld\n", p->mountpoint,
-				(long long)st.st_blocks,
-				(long long)p->fd_stat.st_blocks);
+		pr_err("%s: st_blocks differs: %lld != %lld\n", p->mountpoint, (long long)st.st_blocks,
+		       (long long)p->fd_stat.st_blocks);
 		ret++;
 	}
 
@@ -247,8 +239,7 @@ static int check_automount(struct autofs_params *p)
 
 	err = check_fd(p);
 	if (err) {
-		pr_err("%s: opened file descriptor wasn't migrated properly\n",
-				p->mountpoint);
+		pr_err("%s: opened file descriptor wasn't migrated properly\n", p->mountpoint);
 		return err;
 	}
 
@@ -283,8 +274,7 @@ static int check_automount(struct autofs_params *p)
 	}
 
 	if (close(p->fd)) {
-		pr_perror("%s: failed to close fd %d", mountpoint,
-				p->fd);
+		pr_perror("%s: failed to close fd %d", mountpoint, p->fd);
 		return -errno;
 	}
 
@@ -335,11 +325,10 @@ out:
 	return ret;
 }
 
-static int autofs_report_result(int token, int devid, const char *mountpoint,
-				int result)
+static int autofs_report_result(int token, int devid, const char *mountpoint, int result)
 {
 	int ioctl_fd;
-        struct autofs_dev_ioctl param;
+	struct autofs_dev_ioctl param;
 	int err;
 
 	ioctl_fd = autofs_open_mount(devid, mountpoint);
@@ -378,28 +367,24 @@ static int mount_tmpfs(const char *mountpoint)
 		return 0;
 
 	if (mount("autofs_test", mountpoint, "tmpfs", 0, "size=1M") < 0) {
-		pr_perror("failed to mount tmpfs to %s",
-				mountpoint);
+		pr_perror("failed to mount tmpfs to %s", mountpoint);
 		return -errno;
 	}
 	return 0;
 }
 
-static int autofs_mount_direct(const char *mountpoint,
-			       const struct autofs_v5_packet *packet)
+static int autofs_mount_direct(const char *mountpoint, const struct autofs_v5_packet *packet)
 {
 	int err;
 	const char *direct_mnt = mountpoint;
 
 	err = mount_tmpfs(direct_mnt);
 	if (err)
-		pr_err("%d: failed to mount direct autofs mountpoint\n",
-				getpid());
+		pr_err("%d: failed to mount direct autofs mountpoint\n", getpid());
 	return err;
 }
 
-static int autofs_mount_indirect(const char *mountpoint,
-				 const struct autofs_v5_packet *packet)
+static int autofs_mount_indirect(const char *mountpoint, const struct autofs_v5_packet *packet)
 {
 	char *indirect_mnt;
 	int err;
@@ -417,40 +402,34 @@ static int autofs_mount_indirect(const char *mountpoint,
 
 	err = mount_tmpfs(indirect_mnt);
 	if (err)
-		pr_err("%d: failed to mount indirect autofs mountpoint\n",
-				getpid());
+		pr_err("%d: failed to mount indirect autofs mountpoint\n", getpid());
 	return err;
-
 }
 
-static int automountd_serve(const char *mountpoint, struct autofs_params *p,
-			    const union autofs_v5_packet_union *packet)
+static int automountd_serve(const char *mountpoint, struct autofs_params *p, const union autofs_v5_packet_union *packet)
 {
 	const struct autofs_v5_packet *v5_packet = &packet->v5_packet;
 	int err, res;
 
 	switch (packet->hdr.type) {
-		case autofs_ptype_missing_indirect:
-			res = autofs_mount_indirect(mountpoint, v5_packet);
-			break;
-		case autofs_ptype_missing_direct:
-			res = autofs_mount_direct(mountpoint, v5_packet);
-			break;
-		case autofs_ptype_expire_indirect:
-			pr_err("%d: expire request for indirect mount %s?\n",
-					getpid(), v5_packet->name);
-			return -EINVAL;
-		case autofs_ptype_expire_direct:
-			pr_err("%d: expire request for direct mount?\n",
-					getpid());
-			return -EINVAL;
-		default:
-			pr_err("unknown request type: %d\n", packet->hdr.type);
-			return -EINVAL;
+	case autofs_ptype_missing_indirect:
+		res = autofs_mount_indirect(mountpoint, v5_packet);
+		break;
+	case autofs_ptype_missing_direct:
+		res = autofs_mount_direct(mountpoint, v5_packet);
+		break;
+	case autofs_ptype_expire_indirect:
+		pr_err("%d: expire request for indirect mount %s?\n", getpid(), v5_packet->name);
+		return -EINVAL;
+	case autofs_ptype_expire_direct:
+		pr_err("%d: expire request for direct mount?\n", getpid());
+		return -EINVAL;
+	default:
+		pr_err("unknown request type: %d\n", packet->hdr.type);
+		return -EINVAL;
 	}
 
-	err = autofs_report_result(v5_packet->wait_queue_token, v5_packet->dev,
-				   mountpoint, res);
+	err = autofs_report_result(v5_packet->wait_queue_token, v5_packet->dev, mountpoint, res);
 	if (err)
 		return err;
 	return res;
@@ -481,8 +460,7 @@ static int automountd_loop(int pipe, const char *mountpoint, struct autofs_param
 			continue;
 		}
 		if (bytes != psize) {
-			pr_err("read less than expected: %zd < %zd\n",
-					bytes, psize);
+			pr_err("read less than expected: %zd < %zd\n", bytes, psize);
 			return -EINVAL;
 		}
 		err = automountd_serve(mountpoint, param, packet);
@@ -522,22 +500,21 @@ static int automountd(struct autofs_params *p, int control_fd)
 	}
 
 	switch (p->type) {
-		case AUTOFS_TYPE_DIRECT:
-			type = "direct";
-			break;
-		case AUTOFS_TYPE_INDIRECT:
-			type = "indirect";
-			break;
-		case AUTOFS_TYPE_OFFSET:
-			type = "offset";
-			break;
-		default:
-			pr_err("unknown autofs type: %d\n", p->type);
-			return -EINVAL;
+	case AUTOFS_TYPE_DIRECT:
+		type = "direct";
+		break;
+	case AUTOFS_TYPE_INDIRECT:
+		type = "indirect";
+		break;
+	case AUTOFS_TYPE_OFFSET:
+		type = "offset";
+		break;
+	default:
+		pr_err("unknown autofs type: %d\n", p->type);
+		return -EINVAL;
 	}
 
-	options = xsprintf("fd=%d,pgrp=%d,minproto=5,maxproto=5,%s",
-				pipes[1], getpgrp(), type);
+	options = xsprintf("fd=%d,pgrp=%d,minproto=5,maxproto=5,%s", pipes[1], getpgrp(), type);
 	if (!options) {
 		pr_err("failed to allocate autofs options\n");
 		goto err;
@@ -550,8 +527,7 @@ static int automountd(struct autofs_params *p, int control_fd)
 	}
 
 	if (mount("autofs_test", autofs_path, "autofs", 0, options) < 0) {
-		pr_perror("failed to mount autofs with options \"%s\"",
-				options);
+		pr_perror("failed to mount autofs with options \"%s\"", options);
 		goto err;
 	}
 
@@ -589,12 +565,12 @@ static int start_automounter(struct autofs_params *p)
 
 	pid = test_fork();
 	switch (pid) {
-		case -1:
-			pr_perror("failed to fork");
-			return -1;
-		case 0:
-			close(control_fd[0]);
-			exit(automountd(p, control_fd[1]));
+	case -1:
+		pr_perror("failed to fork");
+		return -1;
+	case 0:
+		close(control_fd[0]);
+		exit(automountd(p, control_fd[1]));
 	}
 	task_waiter_wait4(&t, pid);
 	p->pid = pid;
@@ -608,8 +584,7 @@ static int start_automounter(struct autofs_params *p)
 		return -errno;
 	}
 	if (bytes != sizeof(ret)) {
-		pr_err("received less than expected: %zu. Child %d died?\n",
-				bytes, p->pid);
+		pr_err("received less than expected: %zu. Child %d died?\n", bytes, p->pid);
 		return -EINVAL;
 	}
 	return ret;
@@ -657,8 +632,7 @@ static int reap_catatonic(struct autofs_params *p)
 	err = umount_fs(mountpoint, AUTOFS_SUPER_MAGIC);
 	if (!err) {
 		if (rmdir(mountpoint) < 0) {
-			skip("failed to remove %s directory: %s\n", mountpoint,
-					strerror(errno));
+			skip("failed to remove %s directory: %s\n", mountpoint, strerror(errno));
 			err = -errno;
 		}
 	}
@@ -732,40 +706,34 @@ static int create_catatonic(struct autofs_params *p)
 static void test_exit(void)
 {
 	if (rmdir(dirname) < 0)
-		skip("failed to remove %s directory: %s\n", dirname,
-				strerror(errno));
+		skip("failed to remove %s directory: %s\n", dirname, strerror(errno));
 }
 
-typedef enum {
-	AUTOFS_START,
-	AUTOFS_SETUP,
-	AUTOFS_CHECK,
-	AUTOFS_STOP
-} autfs_test_action;
+typedef enum { AUTOFS_START, AUTOFS_SETUP, AUTOFS_CHECK, AUTOFS_STOP } autfs_test_action;
 
 static int test_action(autfs_test_action act, struct autofs_params *p)
 {
 	int ret = 0;
 
-	while(p->mountpoint) {
-		int (*action)(struct autofs_params *p);
+	while (p->mountpoint) {
+		int (*action)(struct autofs_params * p);
 
 		switch (act) {
-			case AUTOFS_START:
-				action = p->create;
-				break;
-			case AUTOFS_SETUP:
-				action = p->setup;
-				break;
-			case AUTOFS_CHECK:
-				action = p->check;
-				break;
-			case AUTOFS_STOP:
-				action = p->reap;
-				break;
-			default:
-				pr_err("unknown action: %d\n", act);
-				return -1;
+		case AUTOFS_START:
+			action = p->create;
+			break;
+		case AUTOFS_SETUP:
+			action = p->setup;
+			break;
+		case AUTOFS_CHECK:
+			action = p->check;
+			break;
+		case AUTOFS_STOP:
+			action = p->reap;
+			break;
+		default:
+			pr_err("unknown action: %d\n", act);
+			return -1;
 		}
 
 		if (action && action(p))
@@ -793,8 +761,7 @@ static void direct_exit(void)
 		return;
 
 	if (rmdir(mountpoint) < 0)
-		skip("failed to remove %s directory: %s\n", mountpoint,
-				strerror(errno));
+		skip("failed to remove %s directory: %s\n", mountpoint, strerror(errno));
 }
 
 static void indirect_exit(void)
@@ -822,8 +789,7 @@ static void indirect_exit(void)
 		return;
 
 	if (rmdir(mountpoint) < 0)
-		skip("failed to remove %s directory: %s\n", mountpoint,
-				strerror(errno));
+		skip("failed to remove %s directory: %s\n", mountpoint, strerror(errno));
 }
 
 enum autofs_tests {
@@ -940,4 +906,3 @@ err:
 	pass();
 	return 0;
 }
-

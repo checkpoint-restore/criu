@@ -1,4 +1,4 @@
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	test_init(argc, argv);
 

@@ -17,14 +17,14 @@
 #include "common/bug.h"
 
 #ifdef CR_NOGLIBC
-# include <compel/plugins/std/string.h>
+#include <compel/plugins/std/string.h>
 #else
-# include <string.h>
-# define std_strncmp strncmp
+#include <string.h>
+#define std_strncmp strncmp
 #endif
 
 #ifdef LOG_PREFIX
-# undef LOG_PREFIX
+#undef LOG_PREFIX
 #endif
 #define LOG_PREFIX "vdso: "
 
@@ -37,18 +37,15 @@ static bool __ptr_oob(uintptr_t ptr, uintptr_t start, size_t size)
 }
 
 /* Check if pointed structure's end is out-of-bound */
-static bool __ptr_struct_end_oob(uintptr_t ptr, size_t struct_size,
-				uintptr_t start, size_t size)
+static bool __ptr_struct_end_oob(uintptr_t ptr, size_t struct_size, uintptr_t start, size_t size)
 {
 	return __ptr_oob(ptr + struct_size - 1, start, size);
 }
 
 /* Check if pointed structure is out-of-bound */
-static bool __ptr_struct_oob(uintptr_t ptr, size_t struct_size,
-				uintptr_t start, size_t size)
+static bool __ptr_struct_oob(uintptr_t ptr, size_t struct_size, uintptr_t start, size_t size)
 {
-	return __ptr_oob(ptr, start, size) ||
-		__ptr_struct_end_oob(ptr, struct_size, start, size);
+	return __ptr_oob(ptr, start, size) || __ptr_struct_end_oob(ptr, struct_size, start, size);
 }
 
 /*
@@ -81,13 +78,11 @@ static int has_elf_identity(Ehdr_t *ehdr)
 	 */
 #if defined(CONFIG_VDSO_32)
 	static const char elf_ident[] = {
-		0x7f, 0x45, 0x4c, 0x46, 0x01, BORD, 0x01, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x7f, 0x45, 0x4c, 0x46, 0x01, BORD, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	};
 #else
 	static const char elf_ident[] = {
-		0x7f, 0x45, 0x4c, 0x46, 0x02, BORD, 0x01, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x7f, 0x45, 0x4c, 0x46, 0x02, BORD, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	};
 #endif
 
@@ -101,8 +96,7 @@ static int has_elf_identity(Ehdr_t *ehdr)
 	return true;
 }
 
-static int parse_elf_phdr(uintptr_t mem, size_t size,
-		Phdr_t **dynamic, Phdr_t **load)
+static int parse_elf_phdr(uintptr_t mem, size_t size, Phdr_t **dynamic, Phdr_t **load)
 {
 	Ehdr_t *ehdr = (void *)mem;
 	uintptr_t addr;
@@ -157,8 +151,8 @@ err_oob:
  *   @dyn_symtab - address of the string table section
  *   @dyn_hash   - address of the symbol hash table
  */
-static int parse_elf_dynamic(uintptr_t mem, size_t size, Phdr_t *dynamic,
-		Dyn_t **dyn_strtab, Dyn_t **dyn_symtab, Dyn_t **dyn_hash)
+static int parse_elf_dynamic(uintptr_t mem, size_t size, Phdr_t *dynamic, Dyn_t **dyn_strtab, Dyn_t **dyn_symtab,
+			     Dyn_t **dyn_hash)
 {
 	Dyn_t *dyn_syment = NULL;
 	Dyn_t *dyn_strsz = NULL;
@@ -170,8 +164,7 @@ static int parse_elf_dynamic(uintptr_t mem, size_t size, Phdr_t *dynamic,
 	if (__ptr_oob(addr, mem, size))
 		goto err_oob;
 
-	for (i = 0; i < dynamic->p_filesz / sizeof(*d);
-			i++, addr += sizeof(Dyn_t)) {
+	for (i = 0; i < dynamic->p_filesz / sizeof(*d); i++, addr += sizeof(Dyn_t)) {
 		if (__ptr_struct_end_oob(addr, sizeof(Dyn_t), mem, size))
 			goto err_oob;
 		d = (void *)addr;
@@ -215,15 +208,12 @@ typedef unsigned long Hash_t;
 typedef Word_t Hash_t;
 #endif
 
-static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
-		struct vdso_symtable *t, uintptr_t dynsymbol_names,
-		Hash_t *hash, Dyn_t *dyn_symtab)
+static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load, struct vdso_symtable *t,
+			      uintptr_t dynsymbol_names, Hash_t *hash, Dyn_t *dyn_symtab)
 {
 	ARCH_VDSO_SYMBOLS_LIST
 
-	const char *vdso_symbols[VDSO_SYMBOL_MAX] = {
-		ARCH_VDSO_SYMBOLS
-	};
+	const char *vdso_symbols[VDSO_SYMBOL_MAX] = { ARCH_VDSO_SYMBOLS };
 	const size_t vdso_symbol_length = sizeof(t->symbols[0].name) - 1;
 
 	Hash_t nbucket, nchain;
@@ -237,11 +227,11 @@ static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 	bucket = &hash[2];
 	chain = &hash[nbucket + 2];
 
-	pr_debug("nbucket %lx nchain %lx bucket %lx chain %lx\n",
-		 (long)nbucket, (long)nchain, (unsigned long)bucket, (unsigned long)chain);
+	pr_debug("nbucket %lx nchain %lx bucket %lx chain %lx\n", (long)nbucket, (long)nchain, (unsigned long)bucket,
+		 (unsigned long)chain);
 
 	for (i = 0; i < VDSO_SYMBOL_MAX; i++) {
-		const char * symbol = vdso_symbols[i];
+		const char *symbol = vdso_symbols[i];
 		k = elf_hash((const unsigned char *)symbol);
 
 		for (j = bucket[k % nbucket]; j < nchain && j != STN_UNDEF; j = chain[j]) {
@@ -250,13 +240,12 @@ static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 
 			addr = mem + dyn_symtab->d_un.d_ptr - load->p_vaddr;
 
-			addr += sizeof(Sym_t)*j;
+			addr += sizeof(Sym_t) * j;
 			if (__ptr_struct_oob(addr, sizeof(Sym_t), mem, size))
 				continue;
 			sym = (void *)addr;
 
-			if (ELF_ST_TYPE(sym->st_info) != STT_FUNC &&
-			    ELF_ST_BIND(sym->st_info) != STB_GLOBAL)
+			if (ELF_ST_TYPE(sym->st_info) != STT_FUNC && ELF_ST_BIND(sym->st_info) != STB_GLOBAL)
 				continue;
 
 			addr = dynsymbol_names + sym->st_name;
@@ -307,8 +296,7 @@ int vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t)
 	 * needed. Note that we're interested in a small set of tags.
 	 */
 
-	ret = parse_elf_dynamic(mem, size, dynamic,
-			&dyn_strtab, &dyn_symtab, &dyn_hash);
+	ret = parse_elf_dynamic(mem, size, dynamic, &dyn_strtab, &dyn_symtab, &dyn_hash);
 	if (ret < 0)
 		return ret;
 
@@ -330,4 +318,3 @@ err_oob:
 	pr_err("Corrupted Elf symbols/hash\n");
 	return -EFAULT;
 }
-

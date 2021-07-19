@@ -1,6 +1,6 @@
 #include "zdtmtst.h"
 
-const char *test_doc    = "test for AIO";
+const char *test_doc = "test for AIO";
 const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 
 #include <stdio.h>
@@ -20,8 +20,8 @@ int main(int argc, char **argv)
 	char buf[BUF_SIZE];
 	int fd;
 	struct aiocb aiocb;
-	const struct aiocb   *aioary[1];
-	char tmpfname[256]="/tmp/file_aio.XXXXXX";
+	const struct aiocb *aioary[1];
+	char tmpfname[256] = "/tmp/file_aio.XXXXXX";
 	int ret;
 
 	test_init(argc, argv);
@@ -62,10 +62,10 @@ int main(int argc, char **argv)
 		}
 		/* Wait for request completion */
 		aioary[0] = &aiocb;
-again:
+	again:
 		ret = aio_suspend(aioary, 1, NULL);
 		if (ret < 0) {
-			if ((errno == EINTR) && (! test_go()))
+			if ((errno == EINTR) && (!test_go()))
 				break;
 			if (errno != EINTR) {
 				pr_perror("aio_suspend failed");

@@ -11,15 +11,15 @@
 #include <sys/syscall.h>
 
 #ifdef __NR_seccomp
-# include <linux/seccomp.h>
-# include <linux/filter.h>
-# include <linux/limits.h>
+#include <linux/seccomp.h>
+#include <linux/filter.h>
+#include <linux/limits.h>
 #endif
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that SECCOMP_MODE_FILTER is restored";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "Check that SECCOMP_MODE_FILTER is restored";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 #ifdef __NR_seccomp
 
@@ -52,14 +52,14 @@ int get_seccomp_mode(pid_t pid)
 int filter_syscall(int syscall_nr)
 {
 	struct sock_filter filter[] = {
-		BPF_STMT(BPF_LD+BPF_W+BPF_ABS, offsetof(struct seccomp_data, nr)),
-		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, syscall_nr, 0, 1),
-		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_KILL),
-		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW),
+		BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct seccomp_data, nr)),
+		BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, syscall_nr, 0, 1),
+		BPF_STMT(BPF_RET + BPF_K, SECCOMP_RET_KILL),
+		BPF_STMT(BPF_RET + BPF_K, SECCOMP_RET_ALLOW),
 	};
 
 	struct sock_fprog bpf_prog = {
-		.len = (unsigned short)(sizeof(filter)/sizeof(filter[0])),
+		.len = (unsigned short)(sizeof(filter) / sizeof(filter[0])),
 		.filter = filter,
 	};
 
@@ -71,7 +71,7 @@ int filter_syscall(int syscall_nr)
 	return 0;
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	pid_t pid;
 	int mode, status;
@@ -92,7 +92,6 @@ int main(int argc, char ** argv)
 	}
 
 	if (pid == 0) {
-
 		pid_t pid2;
 
 		sk = sk_pair[1];
@@ -112,7 +111,6 @@ int main(int argc, char ** argv)
 			_exit(1);
 
 		if (!pid2) {
-
 			if (write(sk, &c, 1) != 1) {
 				pr_perror("write");
 				_exit(1);
@@ -180,7 +178,6 @@ err:
 	kill(pid, SIGKILL);
 	return 1;
 }
-
 
 #else /* __NR_seccomp */
 

@@ -9,8 +9,8 @@
 #include "common/compiler.h"
 #include "common/bug.h"
 
-#define __sys(foo)	sys_##foo
-#define __sys_err(ret)	ret
+#define __sys(foo)     sys_##foo
+#define __sys_err(ret) ret
 
 #include "common/scm.h"
 

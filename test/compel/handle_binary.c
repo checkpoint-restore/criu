@@ -10,9 +10,7 @@ extern const size_t test_elf_buf_size;
 
 static uintptr_t elf_addr;
 static const char *test_bitness;
-#define ASSERT(expected, fmt, ...)					\
-	launch_test((void *)elf_addr, expected,				\
-		fmt " %s", ##__VA_ARGS__, test_bitness)
+#define ASSERT(expected, fmt, ...) launch_test((void *)elf_addr, expected, fmt " %s", ##__VA_ARGS__, test_bitness)
 
 static const unsigned int sections_nr = 1;
 
@@ -26,12 +24,11 @@ static int test_add_strings_section(Ehdr_t *hdr)
 {
 	Shdr_t *sec_strings_hdr;
 	uintptr_t sections_table = elf_addr + hdr->e_shoff;
-	size_t sections_table_size = sections_nr*sizeof(hdr->e_shentsize);
+	size_t sections_table_size = sections_nr * sizeof(hdr->e_shentsize);
 
 	hdr->e_shnum = sections_nr;
 	hdr->e_shstrndx = sections_nr; /* off-by-one */
-	if (ASSERT(-E_NO_STR_SEC,
-			"strings section's header oob of section table"))
+	if (ASSERT(-E_NO_STR_SEC, "strings section's header oob of section table"))
 		return -1;
 
 	hdr->e_shstrndx = 0;
@@ -42,8 +39,7 @@ static int test_add_strings_section(Ehdr_t *hdr)
 		return -1;
 
 	/* Put strings just right after sections table. */
-	sec_strings_hdr->sh_offset = sections_table - elf_addr +
-						sections_table_size;
+	sec_strings_hdr->sh_offset = sections_table - elf_addr + sections_table_size;
 	return 0;
 }
 
@@ -54,8 +50,8 @@ static int test_prepare_section_table(Ehdr_t *hdr)
 		return -1;
 
 	/* Lets put sections table right after ELF header. */
-	hdr->e_shoff = (Off_t) sizeof(Ehdr_t);
-	hdr->e_shentsize = (Half_t) sizeof(Shdr_t);
+	hdr->e_shoff = (Off_t)sizeof(Ehdr_t);
+	hdr->e_shentsize = (Half_t)sizeof(Shdr_t);
 
 	hdr->e_shnum = (Half_t)-1;
 	if (ASSERT(-E_NO_STR_SEC, "too many sections in table"))

@@ -7,15 +7,19 @@
 #include <linux/limits.h>
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test mappings of same file with different prot";
-const char *test_author	= "Jamie Liu <jamieliu@google.com>";
+const char *test_doc = "Test mappings of same file with different prot";
+const char *test_author = "Jamie Liu <jamieliu@google.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-#define die(fmt, arg...) do { pr_perror(fmt, ## arg); return 1; } while (0)
+#define die(fmt, arg...)               \
+	do {                           \
+		pr_perror(fmt, ##arg); \
+		return 1;              \
+	} while (0)
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	void *ro_map, *rw_map;
 	int fd;

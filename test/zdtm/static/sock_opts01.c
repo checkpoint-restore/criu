@@ -8,10 +8,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that SO_BINDTODEVICE option works";
-const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
+const char *test_doc = "Check that SO_BINDTODEVICE option works";
+const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int sock, ret;
 	char dev[IFNAMSIZ], dev2[IFNAMSIZ];

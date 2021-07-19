@@ -5,8 +5,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that VMA-s with MAP_GROWSDOWN are restored correctly";
-const char *test_author	= "Andrew Vagin <avagin@openvz.org>";
+const char *test_doc = "Check that VMA-s with MAP_GROWSDOWN are restored correctly";
+const char *test_author = "Andrew Vagin <avagin@openvz.org>";
 
 /*
 * This test case creates two consecutive grows down vmas with a hole
@@ -26,8 +26,10 @@ int main(int argc, char **argv)
 	}
 	munmap(start_addr, PAGE_SIZE * 10);
 
-	addr1 = mmap(start_addr + PAGE_SIZE * 5, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_GROWSDOWN, -1, 0);
-	addr2 = mmap(start_addr + PAGE_SIZE * 3, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_GROWSDOWN, -1, 0);
+	addr1 = mmap(start_addr + PAGE_SIZE * 5, PAGE_SIZE, PROT_READ | PROT_WRITE,
+		     MAP_ANONYMOUS | MAP_PRIVATE | MAP_GROWSDOWN, -1, 0);
+	addr2 = mmap(start_addr + PAGE_SIZE * 3, PAGE_SIZE, PROT_READ | PROT_WRITE,
+		     MAP_ANONYMOUS | MAP_PRIVATE | MAP_GROWSDOWN, -1, 0);
 
 	test_msg("%p %p\n", addr1, addr2);
 

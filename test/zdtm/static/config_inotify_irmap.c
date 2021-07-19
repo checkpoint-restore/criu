@@ -20,16 +20,19 @@
  * refer to the original test case and it's author.
  */
 
-const char *test_doc	= "Default configuration files usage";
-const char *test_author	= "Veronika Kabatova <vkabatov@redhat.com>";
+const char *test_doc = "Default configuration files usage";
+const char *test_author = "Veronika Kabatova <vkabatov@redhat.com>";
 
-#define TDIR		"/etc"
-char test_files[2][128] = {TDIR"/zdtm-test", TDIR"/zdtm-test1",};
-#define CONFIG_PATH	"../../zdtm_test_config.conf"
+#define TDIR "/etc"
+char test_files[2][128] = {
+	TDIR "/zdtm-test",
+	TDIR "/zdtm-test1",
+};
+#define CONFIG_PATH "../../zdtm_test_config.conf"
 
 #define BUFF_SIZE ((sizeof(struct inotify_event) + PATH_MAX))
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	FILE *configfile;
 	char buf[BUFF_SIZE];

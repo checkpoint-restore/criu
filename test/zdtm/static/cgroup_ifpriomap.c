@@ -10,20 +10,20 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check preserving multiline cgroup controller's property net_prio/net_prio.ifpriomap";
-const char *test_author	= "Dmitry Safonov <dsafonov@virtuozzo.com>";
+const char *test_doc = "Check preserving multiline cgroup controller's property net_prio/net_prio.ifpriomap";
+const char *test_author = "Dmitry Safonov <dsafonov@virtuozzo.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "cgroup directory name", 1);
 
 static const char *cgname = "zdtmtst";
 
-#define BUF_SZ		1024
-#define PRIOMAPS_SZ	40
+#define BUF_SZ	    1024
+#define PRIOMAPS_SZ 40
 
 struct ifpriomap_t {
-	char		*ifname;
-	uint32_t	prio;
+	char *ifname;
+	uint32_t prio;
 };
 struct ifpriomap_t maps[PRIOMAPS_SZ], new_maps[PRIOMAPS_SZ];
 
@@ -165,8 +165,7 @@ static int write_map(const char *path, struct ifpriomap_t *out, size_t out_sz)
 		if (!p->ifname)
 			break;
 
-		snprintf(buf, BUF_SZ, "%s %lu",
-			p->ifname, (unsigned long)p->prio);
+		snprintf(buf, BUF_SZ, "%s %lu", p->ifname, (unsigned long)p->prio);
 
 		written = write(fd, buf, strlen(buf));
 		if (written < 0) {
@@ -216,10 +215,8 @@ static int compare_maps(void)
 
 			if (strcmp(a->ifname, b->ifname) == 0) {
 				if (a->prio != b->prio) {
-					pr_err("`%s' prio: %lu != %lu\n",
-						a->ifname,
-						(unsigned long)a->prio,
-						(unsigned long)b->prio);
+					pr_err("`%s' prio: %lu != %lu\n", a->ifname, (unsigned long)a->prio,
+					       (unsigned long)b->prio);
 					return -1;
 				}
 			}
@@ -296,11 +293,11 @@ static int get_controller_name(char **name)
 
 		if (strstr(*name, "net_prio")) {
 			/* erasing ':' delimiter */
-			(*name)[len-1] = '\0';
+			(*name)[len - 1] = '\0';
 			ret = 0;
 			goto out_close;
 		}
-	} while(1);
+	} while (1);
 
 	/* self/cgroup has no mount for net_prio - try to map it */
 	*name = "net_prio";
@@ -328,8 +325,7 @@ int main(int argc, char **argv)
 	if (mount_cg(controller_name) < 0)
 		return -1;
 
-	sprintf(path, "%s/%s/%s/net_prio.ifpriomap",
-		dirname, controller_name, cgname);
+	sprintf(path, "%s/%s/%s/net_prio.ifpriomap", dirname, controller_name, cgname);
 
 	if (read_map(path, maps, PRIOMAPS_SZ))
 		goto out_umount;

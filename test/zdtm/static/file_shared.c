@@ -7,11 +7,11 @@
 #include <stdio.h>
 
 #include "zdtmtst.h"
-#define OFFSET 1000
+#define OFFSET	1000
 #define OFFSET2 500
 
-const char *test_doc	= "Check shared struct file-s";
-const char *test_author	= "Andrey Vagin <avagin@openvz.org>";
+const char *test_doc = "Check shared struct file-s";
+const char *test_author = "Andrey Vagin <avagin@openvz.org>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
@@ -46,11 +46,11 @@ int main(int argc, char **argv)
 		test_daemon();
 		test_waitsig();
 		off = lseek(fd, OFFSET, SEEK_SET);
-		if (off == (off_t) -1)
+		if (off == (off_t)-1)
 			return 1;
 
 		off = lseek(fd3, OFFSET2, SEEK_SET);
-		if (off == (off_t) -1)
+		if (off == (off_t)-1)
 			return 1;
 
 		ret = kill(pid, SIGTERM);

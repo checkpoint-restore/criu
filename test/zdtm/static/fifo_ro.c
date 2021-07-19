@@ -7,8 +7,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that a fifo read-only descriptor is restored with data";
-const char *test_author	= "Andrew Vagin <avagin@openvz.org>";
+const char *test_doc = "Check that a fifo read-only descriptor is restored with data";
+const char *test_author = "Andrew Vagin <avagin@openvz.org>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);

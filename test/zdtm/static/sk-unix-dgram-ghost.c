@@ -1,5 +1,5 @@
 #ifndef _GNU_SOURCE
-# define _GNU_SOURCE
+#define _GNU_SOURCE
 #endif
 
 #include <stdlib.h>
@@ -18,8 +18,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check data of bound ghost DGRAM unix socket and possibility to connect";
-const char *test_author	= "Alexander Mikhalitsyn <alexander@mihalicyn.com>";
+const char *test_doc = "Check data of bound ghost DGRAM unix socket and possibility to connect";
+const char *test_author = "Alexander Mikhalitsyn <alexander@mihalicyn.com>";
 
 /*
  * PROCESS_NUM | FREEZE_FREQ
@@ -41,8 +41,7 @@ static int fill_sock_name(struct sockaddr_un *name, const char *filename)
 
 	cwd = get_current_dir_name();
 	if (strlen(filename) + strlen(cwd) + 1 >= sizeof(name->sun_path)) {
-		pr_err("Name %s/%s is too long for socket\n",
-		       cwd, filename);
+		pr_err("Name %s/%s is too long for socket\n", cwd, filename);
 		return -1;
 	}
 
@@ -67,7 +66,7 @@ static int client(int i, task_waiter_t t)
 		return 1;
 	}
 
-	if (connect(sk, (struct sockaddr *) &addr, sizeof(struct sockaddr_un)) < 0) {
+	if (connect(sk, (struct sockaddr *)&addr, sizeof(struct sockaddr_un)) < 0) {
 		pr_perror("connect failed %d", i);
 		return 1;
 	}
@@ -163,7 +162,7 @@ int main(int argc, char **argv)
 		goto clean;
 	}
 
-	if (bind(srv, (struct sockaddr *) &addr, sizeof(struct sockaddr_un))) {
+	if (bind(srv, (struct sockaddr *)&addr, sizeof(struct sockaddr_un))) {
 		pr_perror("bind srv");
 		ret = 1;
 		goto clean;

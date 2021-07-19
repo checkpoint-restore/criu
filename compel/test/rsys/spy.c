@@ -15,7 +15,11 @@ static void print_vmsg(unsigned int lvl, const char *fmt, va_list parms)
 
 static int do_rsetsid(int pid)
 {
-#define err_and_ret(msg) do { fprintf(stderr, msg); return -1; } while (0)
+#define err_and_ret(msg)              \
+	do {                          \
+		fprintf(stderr, msg); \
+		return -1;            \
+	} while (0)
 
 	int state;
 	long ret;
@@ -85,14 +89,22 @@ int main(int argc, char **argv)
 
 	pid = vfork();
 	if (pid == 0) {
-		close(p_in[1]);  dup2(p_in[0], 0);  close(p_in[0]);
-		close(p_out[0]); dup2(p_out[1], 1); close(p_out[1]);
-		close(p_err[0]); dup2(p_err[1], 2); close(p_err[1]);
+		close(p_in[1]);
+		dup2(p_in[0], 0);
+		close(p_in[0]);
+		close(p_out[0]);
+		dup2(p_out[1], 1);
+		close(p_out[1]);
+		close(p_err[0]);
+		dup2(p_err[1], 2);
+		close(p_err[1]);
 		execl("./victim", "victim", NULL);
 		exit(1);
 	}
 
-	close(p_in[0]); close(p_out[1]); close(p_err[1]);
+	close(p_in[0]);
+	close(p_out[1]);
+	close(p_err[1]);
 	sid = getsid(0);
 
 	/*

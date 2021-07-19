@@ -14,11 +14,11 @@
 #include "zdtmtst.h"
 
 #ifndef CLONE_NEWCGROUP
-#define CLONE_NEWCGROUP		0x02000000
+#define CLONE_NEWCGROUP 0x02000000
 #endif
 
-const char *test_doc	= "Check that cgroup NS is correctly handled.";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "Check that cgroup NS is correctly handled.";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 /* we need dirname before test_init() here */
 char *dirname = "cgroupns.test";
@@ -74,7 +74,8 @@ err_rd:
 	return -1;
 }
 
-static bool pid_in_cgroup(pid_t pid, const char *controller, const char *path) {
+static bool pid_in_cgroup(pid_t pid, const char *controller, const char *path)
+{
 	char buf[2048];
 	FILE *f;
 	bool ret = false;
@@ -90,7 +91,7 @@ static bool pid_in_cgroup(pid_t pid, const char *controller, const char *path) {
 		char *pos, *pid_controller, *pid_path;
 
 		/* chop off trailing \n */
-		buf[strlen(buf)-1] = '\0';
+		buf[strlen(buf) - 1] = '\0';
 
 		/* skip hierarchy no. */
 		pos = strstr(buf, ":");
@@ -115,7 +116,8 @@ static bool pid_in_cgroup(pid_t pid, const char *controller, const char *path) {
 			continue;
 
 		if (strcmp(path, pid_path))
-			pr_err("task not in right cg for controller %s expected %s, got %s\n", controller, path, pid_path);
+			pr_err("task not in right cg for controller %s expected %s, got %s\n", controller, path,
+			       pid_path);
 		else
 			ret = true;
 

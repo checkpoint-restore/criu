@@ -10,8 +10,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that we can migrate with a named pipe, "
-			"opened in WRONLY mode";
+const char *test_doc = "Check that we can migrate with a named pipe, "
+		       "opened in WRONLY mode";
 #define BUF_SIZE 256
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
@@ -66,7 +66,6 @@ int main(int argc, char **argv)
 		}
 
 	} else {
-
 		fd = open(filename, O_WRONLY);
 		if (fd < 0) {
 			pr_perror("open(%s, O_WRONLY) Failed", filename);
@@ -87,8 +86,7 @@ int main(int argc, char **argv)
 		wait(&chret);
 		chret = WEXITSTATUS(chret);
 		if (chret) {
-			fail("child exited with non-zero code %d (%s)",
-				chret, strerror(chret));
+			fail("child exited with non-zero code %d (%s)", chret, strerror(chret));
 			return 1;
 		}
 

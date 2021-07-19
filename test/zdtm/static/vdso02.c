@@ -6,10 +6,11 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Restoring task with unmapped vDSO blob. Poor man's test for C/R on vdso64_enabled=0 booted kernel.\n";
-const char *test_author	= "Dmitry Safonov <dsafonov@virtuozzo.com>";
+const char *test_doc =
+	"Restoring task with unmapped vDSO blob. Poor man's test for C/R on vdso64_enabled=0 booted kernel.\n";
+const char *test_author = "Dmitry Safonov <dsafonov@virtuozzo.com>";
 
-#define BUILD_BUG_ON(condition)	((void)sizeof(char[1 - 2*!!(condition)]))
+#define BUILD_BUG_ON(condition) ((void)sizeof(char[1 - 2 * !!(condition)]))
 #define VDSO_BAD_ADDR		(-1ul)
 #define VVAR_BAD_ADDR		(-1ul)
 #define BUF_SZ			1024
@@ -34,10 +35,10 @@ static int find_blobs(pid_t pid, struct vm_area *vdso, struct vm_area *vvar)
 	int ret = -1;
 	FILE *maps;
 
-	vdso->start	= VDSO_BAD_ADDR;
-	vdso->end	= VDSO_BAD_ADDR;
-	vvar->start	= VVAR_BAD_ADDR;
-	vvar->end	= VVAR_BAD_ADDR;
+	vdso->start = VDSO_BAD_ADDR;
+	vdso->end = VDSO_BAD_ADDR;
+	vvar->start = VVAR_BAD_ADDR;
+	vvar->end = VVAR_BAD_ADDR;
 
 	if (snprintf(buf, BUF_SZ, "/proc/%d/maps", pid) < 0) {
 		pr_perror("snprintf() failure for path");
@@ -73,28 +74,25 @@ err:
  * On i386 syscalls for speed are optimized trough vdso,
  * call raw int80 as vdso is unmapped.
  */
-#define __NR32_munmap	91
-#define __NR32_kill	37
-#define __NR32_exit	1
+#define __NR32_munmap 91
+#define __NR32_kill   37
+#define __NR32_exit   1
 struct syscall_args32 {
 	uint32_t nr, arg0, arg1;
 };
 
 static inline void do_full_int80(struct syscall_args32 *args)
 {
-	asm volatile (
-			"int $0x80\n\t"
-		      : "+a" (args->nr),
-			"+b" (args->arg0), "+c" (args->arg1));
+	asm volatile("int $0x80\n\t" : "+a"(args->nr), "+b"(args->arg0), "+c"(args->arg1));
 }
 
 int sys_munmap(void *addr, size_t len)
 {
-	struct syscall_args32 s = {0};
+	struct syscall_args32 s = { 0 };
 
-	s.nr    = __NR32_munmap;
-	s.arg0  = (uint32_t)(uintptr_t)addr;
-	s.arg1  = (uint32_t)len;
+	s.nr = __NR32_munmap;
+	s.arg0 = (uint32_t)(uintptr_t)addr;
+	s.arg1 = (uint32_t)len;
 
 	do_full_int80(&s);
 
@@ -103,11 +101,11 @@ int sys_munmap(void *addr, size_t len)
 
 int sys_kill(pid_t pid, int sig)
 {
-	struct syscall_args32 s = {0};
+	struct syscall_args32 s = { 0 };
 
-	s.nr    = __NR32_kill;
-	s.arg0  = (uint32_t)pid;
-	s.arg1  = (uint32_t)sig;
+	s.nr = __NR32_kill;
+	s.arg0 = (uint32_t)pid;
+	s.arg1 = (uint32_t)sig;
 
 	do_full_int80(&s);
 
@@ -116,10 +114,10 @@ int sys_kill(pid_t pid, int sig)
 
 void sys_exit(int status)
 {
-	struct syscall_args32 s = {0};
+	struct syscall_args32 s = { 0 };
 
-	s.nr    = __NR32_exit;
-	s.arg0  = (uint32_t)status;
+	s.nr = __NR32_exit;
+	s.arg0 = (uint32_t)status;
 
 	do_full_int80(&s);
 }
@@ -152,12 +150,12 @@ static int unmap_blobs(void)
 		return -1;
 
 	if (vdso.start != VDSO_BAD_ADDR) {
-		ret = sys_munmap((void*)vdso.start, vdso.end - vdso.start);
+		ret = sys_munmap((void *)vdso.start, vdso.end - vdso.start);
 		if (ret)
 			return ret;
 	}
 	if (vvar.start != VVAR_BAD_ADDR) {
-		ret = sys_munmap((void*)vvar.start, vvar.end - vvar.start);
+		ret = sys_munmap((void *)vvar.start, vvar.end - vvar.start);
 		if (ret)
 			return ret;
 	}
@@ -196,8 +194,7 @@ int main(int argc, char *argv[])
 	} else if (WIFSIGNALED(status)) {
 		int sig = WTERMSIG(status);
 
-		pr_err("Child unexpectedly signaled with %d: %s\n",
-				sig, strsignal(sig));
+		pr_err("Child unexpectedly signaled with %d: %s\n", sig, strsignal(sig));
 		goto out_kill;
 	} else if (!WIFSTOPPED(status) || WSTOPSIG(status) != SIGSTOP) {
 		pr_err("Child is unstoppable or was stopped by other means\n");

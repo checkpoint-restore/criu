@@ -3,9 +3,9 @@
 
 #include "zdtmtst.h"
 
-#define FD_COUNT 3
-#define FD_LEASED1 0
-#define FD_LEASED2 2
+#define FD_COUNT      3
+#define FD_LEASED1    0
+#define FD_LEASED2    2
 #define FD_LEASE_FREE 1
 
 const char *test_doc = "Check that extra leases are not set after c/r";
@@ -63,8 +63,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	if (fcntl(fds[FD_LEASED1], F_SETLEASE, F_RDLCK) < 0 ||
-		fcntl(fds[FD_LEASED2], F_SETLEASE, F_RDLCK) < 0) {
+	if (fcntl(fds[FD_LEASED1], F_SETLEASE, F_RDLCK) < 0 || fcntl(fds[FD_LEASED2], F_SETLEASE, F_RDLCK) < 0) {
 		pr_err("Can't set leases\n");
 		close_files(fds);
 		return -1;
@@ -85,4 +84,3 @@ int main(int argc, char **argv)
 	close_files(fds);
 	return 0;
 }
-

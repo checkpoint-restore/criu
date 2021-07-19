@@ -13,10 +13,14 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "memfd mmap";
-const char *test_author	= "Nicolas Viennot <Nicolas.Viennot@twosigma.com>";
+const char *test_doc = "memfd mmap";
+const char *test_author = "Nicolas Viennot <Nicolas.Viennot@twosigma.com>";
 
-#define err(exitcode, msg, ...) ({ pr_perror(msg, ##__VA_ARGS__); exit(exitcode); })
+#define err(exitcode, msg, ...)                \
+	({                                     \
+		pr_perror(msg, ##__VA_ARGS__); \
+		exit(exitcode);                \
+	})
 
 static int _memfd_create(const char *name, unsigned int flags)
 {

@@ -18,18 +18,18 @@
 #include "common/scm.h"
 
 static const char *action_names[ACT_MAX] = {
-	[ ACT_PRE_DUMP ]	= "pre-dump",
-	[ ACT_POST_DUMP ]	= "post-dump",
-	[ ACT_PRE_RESTORE ]	= "pre-restore",
-	[ ACT_POST_RESTORE ]	= "post-restore",
-	[ ACT_NET_LOCK ]	= "network-lock",
-	[ ACT_NET_UNLOCK ]	= "network-unlock",
-	[ ACT_SETUP_NS ]	= "setup-namespaces",
-	[ ACT_POST_SETUP_NS ]	= "post-setup-namespaces",
-	[ ACT_PRE_RESUME ]	= "pre-resume",
-	[ ACT_POST_RESUME ]	= "post-resume",
-	[ ACT_ORPHAN_PTS_MASTER ] = "orphan-pts-master",
-	[ ACT_STATUS_READY ]    = "status-ready",
+	[ACT_PRE_DUMP] = "pre-dump",
+	[ACT_POST_DUMP] = "post-dump",
+	[ACT_PRE_RESTORE] = "pre-restore",
+	[ACT_POST_RESTORE] = "post-restore",
+	[ACT_NET_LOCK] = "network-lock",
+	[ACT_NET_UNLOCK] = "network-unlock",
+	[ACT_SETUP_NS] = "setup-namespaces",
+	[ACT_POST_SETUP_NS] = "post-setup-namespaces",
+	[ACT_PRE_RESUME] = "pre-resume",
+	[ACT_POST_RESUME] = "post-resume",
+	[ACT_ORPHAN_PTS_MASTER] = "orphan-pts-master",
+	[ACT_STATUS_READY] = "status-ready",
 };
 
 struct script {
@@ -37,11 +37,7 @@ struct script {
 	char *path;
 };
 
-enum {
-	SCRIPTS_NONE,
-	SCRIPTS_SHELL,
-	SCRIPTS_RPC
-};
+enum { SCRIPTS_NONE, SCRIPTS_SHELL, SCRIPTS_RPC };
 
 static int scripts_mode = SCRIPTS_NONE;
 static LIST_HEAD(scripts);
@@ -52,8 +48,8 @@ static int run_shell_scripts(const char *action)
 	struct script *script;
 	static unsigned env_set = 0;
 
-#define ENV_IMGDIR	0x1
-#define ENV_ROOTPID	0x2
+#define ENV_IMGDIR  0x1
+#define ENV_ROOTPID 0x2
 
 	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
 		pr_perror("Can't set CRTOOLS_SCRIPT_ACTION=%s", action);
@@ -62,7 +58,7 @@ static int run_shell_scripts(const char *action)
 
 	if (!(env_set & ENV_IMGDIR)) {
 		char image_dir[PATH_MAX];
-		sprintf(image_dir, "/proc/%ld/fd/%d", (long) getpid(), get_service_fd(IMG_FD_OFF));
+		sprintf(image_dir, "/proc/%ld/fd/%d", (long)getpid(), get_service_fd(IMG_FD_OFF));
 		if (setenv("CRTOOLS_IMAGE_DIR", image_dir, 1)) {
 			pr_perror("Can't set CRTOOLS_IMAGE_DIR=%s", image_dir);
 			return -1;
@@ -88,8 +84,7 @@ static int run_shell_scripts(const char *action)
 	list_for_each_entry(script, &scripts, node) {
 		int err;
 		pr_debug("\t[%s]\n", script->path);
-		err = cr_system(-1, -1, -1, script->path,
-				(char *[]) { script->path, NULL }, 0);
+		err = cr_system(-1, -1, -1, script->path, (char *[]){ script->path, NULL }, 0);
 		if (err)
 			pr_err("Script %s exited with %d\n", script->path, err);
 		retval |= err;

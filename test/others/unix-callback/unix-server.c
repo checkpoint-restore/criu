@@ -8,8 +8,7 @@
 #include <sys/socket.h>
 #include <linux/un.h>
 
-struct ticket
-{
+struct ticket {
 	struct ticket *next;
 	int val;
 	int id;
@@ -40,7 +39,7 @@ int main(void)
 	addr_len = snprintf(addr.sun_path, UNIX_PATH_MAX, SK_NAME);
 	addr_len += sizeof(addr.sun_family);
 
-	if (bind(sk, (struct sockaddr *) &addr, addr_len) < 0) {
+	if (bind(sk, (struct sockaddr *)&addr, addr_len) < 0) {
 		perror("bind");
 		return 1;
 	}
@@ -49,7 +48,7 @@ int main(void)
 
 	while (1) {
 		addr_len = sizeof(struct sockaddr_un);
-		ret = recvfrom(sk, buf, sizeof(buf), 0, (struct sockaddr *) &addr, &addr_len);
+		ret = recvfrom(sk, buf, sizeof(buf), 0, (struct sockaddr *)&addr, &addr_len);
 		if (ret == 0)
 			return 0;
 		if (ret < 0) {
@@ -60,7 +59,7 @@ int main(void)
 		switch (buf[0]) {
 		case 'l':
 			ret = sprintf(buf, "%ld", st.st_ino);
-			if (sendto(sk, buf, ret + 1, 0, (struct sockaddr *) &addr, addr_len) < 0) {
+			if (sendto(sk, buf, ret + 1, 0, (struct sockaddr *)&addr, addr_len) < 0) {
 				perror("sendto");
 				return -1;
 			}
@@ -74,7 +73,7 @@ int main(void)
 
 			t->val = atoi(buf + 1);
 			t->next = tickets;
-			t->id = atoi(addr.sun_path +strlen(SK_NAME));
+			t->id = atoi(addr.sun_path + strlen(SK_NAME));
 			printf("t: id %d val %d\n", t->id, t->val);
 			tickets = t;
 			break;
@@ -90,7 +89,7 @@ int main(void)
 				return 1;
 			printf("r: id %d val %d\n", id, t->val);
 			ret = sprintf(buf, "%d", t->val);
-			if (sendto(sk, buf, ret + 1, 0, (struct sockaddr *) &addr, addr_len) < 0) {
+			if (sendto(sk, buf, ret + 1, 0, (struct sockaddr *)&addr, addr_len) < 0) {
 				perror("sendto");
 				return 1;
 			}

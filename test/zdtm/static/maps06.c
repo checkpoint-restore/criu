@@ -4,13 +4,13 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-const char *test_doc	= "Create a lot of file vma-s";
-const char *test_author	= "Andrei Vagin <avagin@openvz.org>";
+const char *test_doc = "Create a lot of file vma-s";
+const char *test_author = "Andrei Vagin <avagin@openvz.org>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	void *start;
 	int fd, i;
@@ -36,15 +36,12 @@ int main(int argc, char ** argv)
 
 	for (i = 0; i < test_size; i++) {
 		int *addr;
-		addr = mmap(start + i * 3 * ps, ps,
-				PROT_READ | PROT_WRITE,
-				MAP_PRIVATE | MAP_FILE | MAP_FIXED, fd, 0);
+		addr = mmap(start + i * 3 * ps, ps, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FILE | MAP_FIXED, fd, 0);
 		if (addr == MAP_FAILED)
 			return 1;
 		addr[0] = i * 2;
-		addr = mmap(start + (i * 3 + 1) * ps, ps,
-				PROT_READ | PROT_WRITE,
-				MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+		addr = mmap(start + (i * 3 + 1) * ps, ps, PROT_READ | PROT_WRITE,
+			    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 		if (addr == MAP_FAILED)
 			return 1;
 		addr[0] = i;
@@ -59,7 +56,7 @@ int main(int argc, char ** argv)
 		addr = start + i * 3 * ps;
 		if (addr[0] != i * 2)
 			fail();
-		addr = start + (i * 3  + 1) * ps;
+		addr = start + (i * 3 + 1) * ps;
 		if (addr[0] != i)
 			fail();
 	}

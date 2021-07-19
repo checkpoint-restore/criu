@@ -3,8 +3,8 @@
 #include "zdtmtst.h"
 #include "sysctl.h"
 
-const char *test_doc	= "Check dump and restore a net.unix.max_dgram_qlen sysctl parameter in subns";
-const char *test_author	= "Alexander Mikhalitsyn <alexander@mihalicyn.com>";
+const char *test_doc = "Check dump and restore a net.unix.max_dgram_qlen sysctl parameter in subns";
+const char *test_author = "Alexander Mikhalitsyn <alexander@mihalicyn.com>";
 
 typedef struct {
 	const char *path;
@@ -12,12 +12,9 @@ typedef struct {
 	int new;
 } sysctl_opt_t;
 
-#define CONF_UNIX_BASE	"/proc/sys/net/unix"
+#define CONF_UNIX_BASE "/proc/sys/net/unix"
 
-static sysctl_opt_t net_unix_params[] = {
-	{CONF_UNIX_BASE"/max_dgram_qlen", 0, 0},
-	{NULL, 0, 0}
-};
+static sysctl_opt_t net_unix_params[] = { { CONF_UNIX_BASE "/max_dgram_qlen", 0, 0 }, { NULL, 0, 0 } };
 
 int main(int argc, char **argv)
 {

@@ -15,8 +15,8 @@
 #include "images/signalfd.pb-c.h"
 
 struct signalfd_info {
-	SignalfdEntry		*sfe;
-	struct file_desc	d;
+	SignalfdEntry *sfe;
+	struct file_desc d;
 };
 
 int is_signalfd_link(char *link)
@@ -44,8 +44,8 @@ static int dump_one_signalfd(int lfd, u32 id, const struct fd_parms *p)
 }
 
 const struct fdtype_ops signalfd_dump_ops = {
-	.type		= FD_TYPES__SIGNALFD,
-	.dump		= dump_one_signalfd,
+	.type = FD_TYPES__SIGNALFD,
+	.dump = dump_one_signalfd,
 };
 
 static void sigset_fill(sigset_t *to, unsigned long long from)
@@ -78,8 +78,7 @@ static int signalfd_open(struct file_desc *d, int *new_fd)
 	}
 
 	if (rst_file_params(tmp, info->sfe->fown, info->sfe->flags)) {
-		pr_perror("Can't restore params on signalfd %#08x",
-			  info->sfe->id);
+		pr_perror("Can't restore params on signalfd %#08x", info->sfe->id);
 		goto err_close;
 	}
 

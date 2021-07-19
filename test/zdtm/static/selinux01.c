@@ -14,8 +14,8 @@
 
 /* Enabling the right policy happens in selinux00.hook and selinx00.checkskip */
 
-const char *test_doc	= "Check that a SELinux socket context is restored";
-const char *test_author	= "Adrian Reber <areber@redhat.com>";
+const char *test_doc = "Check that a SELinux socket context is restored";
+const char *test_author = "Adrian Reber <areber@redhat.com>";
 
 /* This is all based on Tycho's apparmor code */
 
@@ -83,7 +83,6 @@ int check_sockcreate(void)
 	char context[1024];
 	int len;
 
-
 	fd = open("/proc/self/attr/sockcreate", O_RDONLY);
 	if (fd < 0) {
 		fail("Could not open /proc/self/attr/sockcreate");
@@ -93,8 +92,7 @@ int check_sockcreate(void)
 	len = read(fd, context, strlen(CONTEXT));
 	close(fd);
 	if (len != strlen(CONTEXT)) {
-		fail("SELinux context has unexpected length %d, expected %zd",
-			len, strlen(CONTEXT));
+		fail("SELinux context has unexpected length %d, expected %zd", len, strlen(CONTEXT));
 		return -1;
 	}
 

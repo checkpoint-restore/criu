@@ -3,40 +3,31 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Start a calculation, leaving SSE in a certain state,\n"
-			  "before migration, continue after";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Start a calculation, leaving SSE in a certain state,\n"
+		       "before migration, continue after";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 #if defined(__i386__) || defined(__x86_64__)
 void start(float *in)
 {
-	__asm__ volatile (
-			"movaps	%0, %%xmm0\n"
-			"movaps	%1, %%xmm1\n"
-			"addps	%%xmm0, %%xmm1\n"
-			"sqrtps	%%xmm1, %%xmm2\n"
-			:
-			: "m" (in[0]), "m" (in[4])
-		);
+	__asm__ volatile("movaps	%0, %%xmm0\n"
+			 "movaps	%1, %%xmm1\n"
+			 "addps	%%xmm0, %%xmm1\n"
+			 "sqrtps	%%xmm1, %%xmm2\n"
+			 :
+			 : "m"(in[0]), "m"(in[4]));
 }
 
 void finish(float *out)
 {
-	__asm__ volatile (
-			"movaps	%%xmm1, %0\n"
-			"movaps	%%xmm2, %1\n"
-			: "=m" (out[0]), "=m" (out[4])
-		);
+	__asm__ volatile("movaps	%%xmm1, %0\n"
+			 "movaps	%%xmm2, %1\n"
+			 : "=m"(out[0]), "=m"(out[4]));
 }
 
 static inline void cpuid(unsigned int op, unsigned int *eax, unsigned int *ebx, unsigned int *ecx, unsigned int *edx)
 {
-        __asm__("cpuid"
-                : "=a" (*eax),
-                  "=b" (*ebx),
-                  "=c" (*ecx),
-                  "=d" (*edx)
-                : "0" (op), "c"(0));
+	__asm__("cpuid" : "=a"(*eax), "=b"(*ebx), "=c"(*ecx), "=d"(*edx) : "0"(op), "c"(0));
 }
 
 int chk_proc_sse(void)
@@ -77,7 +68,7 @@ int main(int argc, char **argv)
 
 	finish(res2);
 
-	if (memcmp((uint8_t *) res1, (uint8_t *) res2, sizeof(res1)))
+	if (memcmp((uint8_t *)res1, (uint8_t *)res2, sizeof(res1)))
 		fail("results differ");
 	else
 		pass();

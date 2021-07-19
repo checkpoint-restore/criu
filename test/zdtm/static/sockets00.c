@@ -15,8 +15,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test unix stream sockets\n";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
+const char *test_doc = "Test unix stream sockets\n";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org";
 
 #define SK_DATA "packet"
 
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ret = bind(ssk_icon[0], (struct sockaddr *) &addr, addrlen);
+	ret = bind(ssk_icon[0], (struct sockaddr *)&addr, addrlen);
 	if (ret) {
 		fail("bind");
 		exit(1);
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ret = connect(ssk_icon[2], (struct sockaddr *) &addr, addrlen);
+	ret = connect(ssk_icon[2], (struct sockaddr *)&addr, addrlen);
 	if (ret) {
 		fail("connect");
 		exit(1);
@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ret = connect(ssk_icon[1], (struct sockaddr *) &addr, addrlen);
+	ret = connect(ssk_icon[1], (struct sockaddr *)&addr, addrlen);
 	if (ret) {
 		fail("connect");
 		exit(1);
@@ -124,14 +124,12 @@ int main(int argc, char *argv[])
 	}
 
 	if (st_b.st_mode != st_a.st_mode) {
-		fail("The file permissions for %s were changed %o %o",
-					path, st_b.st_mode, st_a.st_mode);
+		fail("The file permissions for %s were changed %o %o", path, st_b.st_mode, st_a.st_mode);
 		exit(1);
 	}
 
 	if (st_b.st_uid != uid || st_b.st_gid != gid) {
-		fail("Owner user or group for %s corrupted, uid=%d, gid=%d",
-		    path, st_b.st_uid, st_b.st_gid);
+		fail("Owner user or group for %s corrupted, uid=%d, gid=%d", path, st_b.st_uid, st_b.st_gid);
 		exit(1);
 	}
 

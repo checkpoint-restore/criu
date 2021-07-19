@@ -9,13 +9,13 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check pending signals";
-const char *test_author	= "Andrew Vagin <avagin@parallels.com>";
+const char *test_doc = "Check pending signals";
+const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 
 static pid_t child;
 static int numsig;
 
-#define TESTSIG (SIGRTMAX)
+#define TESTSIG	  (SIGRTMAX)
 #define THREADSIG (SIGRTMIN)
 static siginfo_t share_infos[2];
 static siginfo_t self_infos[64]; /* self */
@@ -25,7 +25,7 @@ static int self_nr;
 static int thread_nr;
 
 #ifndef offsetof
-# define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#define offsetof(TYPE, MEMBER) ((size_t) & ((TYPE *)0)->MEMBER)
 #endif
 
 /* cr_siginfo is declared to get an offset of _sifields */
@@ -59,7 +59,7 @@ typedef union cr_siginfo cr_siginfo_t;
  *	  } _rt;
  * Look at __copy_siginfo_to_user32() for more information.
  */
-# define _si_fields_sz 12
+#define _si_fields_sz  12
 #define siginfo_filled (offsetof(cr_siginfo_t, _info._sifields) + _si_fields_sz)
 
 static pthread_mutex_t exit_lock;
@@ -78,9 +78,7 @@ static void sig_handler(int signal, siginfo_t *info, void *data)
 
 	switch (signal) {
 	case SIGCHLD:
-		if ((info->si_code & CLD_EXITED) &&
-		    (info->si_pid == child) &&
-		    (info->si_status == 5))
+		if ((info->si_code & CLD_EXITED) && (info->si_pid == child) && (info->si_status == 5))
 			numsig++;
 		else {
 			fail("Wrong siginfo");
@@ -104,12 +102,12 @@ static void sig_handler(int signal, siginfo_t *info, void *data)
 		}
 
 		crc = ~0;
-		if (datachk((uint8_t *) siginf_body(info), _si_fields_sz, &crc)) {
+		if (datachk((uint8_t *)siginf_body(info), _si_fields_sz, &crc)) {
 			fail("CRC mismatch");
 			return;
 		}
 
-		 if (memcmp(info, src, siginfo_filled)) {
+		if (memcmp(info, src, siginfo_filled)) {
 			fail("Source and received info are differ");
 			return;
 		}
@@ -186,7 +184,7 @@ int send_siginfo(int signo, pid_t pid, pid_t tid, int group, siginfo_t *info)
 	info->si_code = si_code;
 	si_code--;
 	info->si_signo = signo;
-	datagen((uint8_t *) siginf_body(info), _si_fields_sz, &crc);
+	datagen((uint8_t *)siginf_body(info), _si_fields_sz, &crc);
 
 	sent_sigs++;
 
@@ -196,7 +194,7 @@ int send_siginfo(int signo, pid_t pid, pid_t tid, int group, siginfo_t *info)
 		return syscall(SYS_rt_tgsigqueueinfo, pid, tid, signo, info);
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	sigset_t blockmask, oldset, newset;
 	struct sigaction act;
@@ -239,7 +237,7 @@ int main(int argc, char ** argv)
 		return -1;
 	}
 
-	if(child == 0)
+	if (child == 0)
 		return 5; /* SIGCHLD */
 	if (waitid(P_PID, child, &infop, WNOWAIT | WEXITED)) {
 		pr_perror("waitid");

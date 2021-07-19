@@ -10,8 +10,8 @@
 
 #include "cpuid.h"
 
-const char *test_doc	= "Test preserve of mxcsr in FPU";
-const char *test_author	= "Dmitry Safonov <0x7f454c46@gmail.com>";
+const char *test_doc = "Test preserve of mxcsr in FPU";
+const char *test_author = "Dmitry Safonov <0x7f454c46@gmail.com>";
 
 static int verify_cpu(void)
 {
@@ -36,14 +36,12 @@ static int fpu_test(void)
 {
 	uint32_t before, after;
 
-	asm volatile("stmxcsr %0\n"
-		     : "+m"(before));
+	asm volatile("stmxcsr %0\n" : "+m"(before));
 
 	test_daemon();
 	test_waitsig();
 
-	asm volatile("stmxcsr %0\n"
-		     : "+m"(after));
+	asm volatile("stmxcsr %0\n" : "+m"(after));
 
 	test_msg("before: %x, after: %x\n", before, after);
 

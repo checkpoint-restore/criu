@@ -10,10 +10,14 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check FD_CLOEXEC flag";
-const char *test_author	= "Nicolas Viennot <Nicolas.Viennot@twosigma.com>";
+const char *test_doc = "Check FD_CLOEXEC flag";
+const char *test_author = "Nicolas Viennot <Nicolas.Viennot@twosigma.com>";
 
-#define err(exitcode, msg, ...) ({ pr_perror(msg, ##__VA_ARGS__); exit(exitcode); })
+#define err(exitcode, msg, ...)                \
+	({                                     \
+		pr_perror(msg, ##__VA_ARGS__); \
+		exit(exitcode);                \
+	})
 
 static void assert_fd_flags(int fd, int mask, int value)
 {

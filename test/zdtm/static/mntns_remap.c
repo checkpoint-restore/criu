@@ -13,8 +13,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check a case when one mount overmount another one";
-const char *test_author	= "Andrew Vagin <avagin@virtuozzo.com>";
+const char *test_doc = "Check a case when one mount overmount another one";
+const char *test_author = "Andrew Vagin <avagin@virtuozzo.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);

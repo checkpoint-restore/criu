@@ -7,10 +7,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that we can't migrate with a file open in a "
-			"directory which has been mounted over by another "
-			"filesystem";
-const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
+const char *test_doc = "Check that we can't migrate with a file open in a "
+		       "directory which has been mounted over by another "
+		       "filesystem";
+const char *test_author = "Roman Kagan <rkagan@parallels.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);

@@ -15,20 +15,20 @@
 #include "zdtmtst.h"
 
 #ifndef CLONE_NEWNS
-#define CLONE_NEWNS     0x00020000
+#define CLONE_NEWNS 0x00020000
 #endif
 
-const char *test_doc	= "Check the restore of deleted bindmounts";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Check the restore of deleted bindmounts";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 
-#define TEST_DIR_SRC	"test-src"
-#define TEST_DIR_DST	"test-dst"
+#define TEST_DIR_SRC "test-src"
+#define TEST_DIR_DST "test-dst"
 
-#define TEST_FILE_SRC	"mntns-deleted-src"
-#define TEST_FILE_DST	"mntns-deleted-dst"
+#define TEST_FILE_SRC "mntns-deleted-src"
+#define TEST_FILE_DST "mntns-deleted-dst"
 
 int main(int argc, char *argv[])
 {
@@ -56,8 +56,7 @@ int main(int argc, char *argv[])
 	unlink(TEST_FILE_SRC);
 	unlink(TEST_FILE_DST);
 
-	if (mkdir(path_src, 0700) ||
-	    mkdir(path_dst, 0700)) {
+	if (mkdir(path_src, 0700) || mkdir(path_dst, 0700)) {
 		pr_perror("mkdir");
 		return 1;
 	}

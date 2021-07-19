@@ -18,7 +18,7 @@ static int check_socket_closed(int sk)
 {
 	int err, buffer = 0;
 	struct {
-		__u8    tcpi_state;
+		__u8 tcpi_state;
 	} info;
 	socklen_t len = sizeof(info);
 	struct pollfd pollfd = {};

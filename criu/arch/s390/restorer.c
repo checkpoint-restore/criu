@@ -23,15 +23,14 @@ unsigned long sys_shmat(int shmid, const void *shmaddr, int shmflg)
 	unsigned long raddr;
 	int ret;
 
-	ret = sys_ipc(21 /*SHMAT */,
-		      shmid,			/* first		*/
-		      shmflg,			/* second		*/
-		      (unsigned long)&raddr,	/* third		*/
-		      shmaddr,			/* ptr			*/
-		      0				/* fifth not used	*/);
+	ret = sys_ipc(21 /*SHMAT */, shmid, /* first		*/
+		      shmflg, /* second		*/
+		      (unsigned long)&raddr, /* third		*/
+		      shmaddr, /* ptr			*/
+		      0 /* fifth not used	*/);
 
 	if (ret)
-		raddr = (unsigned long) ret;
+		raddr = (unsigned long)ret;
 
 	return raddr;
 }

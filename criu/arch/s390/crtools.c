@@ -26,12 +26,12 @@
 #include "pstree.h"
 #include "image.h"
 
-#define NT_PRFPREG		2
-#define NT_S390_VXRS_LOW	0x309
-#define NT_S390_VXRS_HIGH	0x30a
-#define NT_S390_GS_CB		0x30b
-#define NT_S390_GS_BC		0x30c
-#define NT_S390_RI_CB		0x30d
+#define NT_PRFPREG	  2
+#define NT_S390_VXRS_LOW  0x309
+#define NT_S390_VXRS_HIGH 0x30a
+#define NT_S390_GS_CB	  0x30b
+#define NT_S390_GS_BC	  0x30c
+#define NT_S390_RI_CB	  0x30d
 
 /*
  * Print general purpose and access registers
@@ -41,8 +41,7 @@ static void print_core_gpregs(const char *msg, UserS390RegsEntry *gpregs)
 	int i;
 
 	pr_debug("%s: General purpose registers\n", msg);
-	pr_debug("       psw %016lx %016lx\n",
-		 gpregs->psw_mask, gpregs->psw_addr);
+	pr_debug("       psw %016lx %016lx\n", gpregs->psw_mask, gpregs->psw_addr);
 	pr_debug(" orig_gpr2 %016lx\n", gpregs->orig_gpr2);
 	for (i = 0; i < 16; i++)
 		pr_debug("       g%02d %016lx\n", i, gpregs->gprs[i]);
@@ -69,8 +68,7 @@ static void print_core_vx_regs(CoreEntry *core)
 	for (i = 0; i < 16; i++)
 		pr_debug("  vx_low%02d %016lx\n", i, vxrs_low->regs[i]);
 	for (i = 0; i < 32; i += 2)
-		pr_debug(" vx_high%02d %016lx %016lx\n", i / 2,
-			 vxrs_high->regs[i], vxrs_high->regs[i + 1]);
+		pr_debug(" vx_high%02d %016lx %016lx\n", i / 2, vxrs_high->regs[i], vxrs_high->regs[i + 1]);
 }
 
 /*
@@ -395,10 +393,8 @@ int restore_fpu(struct rt_sigframe *f, CoreEntry *core)
 	dst->fpregs.fpc = fpregs->fpc;
 	memcpy(dst->fpregs.fprs, fpregs->fprs, sizeof(dst->fpregs.fprs));
 	if (vxrs_low) {
-		memcpy(&dst_ext->vxrs_low, vxrs_low->regs,
-		       sizeof(dst_ext->vxrs_low));
-		memcpy(&dst_ext->vxrs_high, vxrs_high->regs,
-		       sizeof(dst_ext->vxrs_high));
+		memcpy(&dst_ext->vxrs_low, vxrs_low->regs, sizeof(dst_ext->vxrs_low));
+		memcpy(&dst_ext->vxrs_high, vxrs_high->regs, sizeof(dst_ext->vxrs_high));
 	}
 	return 0;
 }
@@ -697,10 +693,8 @@ static int set_task_regs(pid_t pid, CoreEntry *core)
 		if (!cvxrs_high)
 			return -1;
 		fpregs.flags |= USER_FPREGS_VXRS;
-		memcpy(&fpregs.vxrs_low, cvxrs_low->regs,
-				sizeof(fpregs.vxrs_low));
-		memcpy(&fpregs.vxrs_high, cvxrs_high->regs,
-				sizeof(fpregs.vxrs_high));
+		memcpy(&fpregs.vxrs_low, cvxrs_low->regs, sizeof(fpregs.vxrs_low));
+		memcpy(&fpregs.vxrs_high, cvxrs_high->regs, sizeof(fpregs.vxrs_high));
 		if (set_vx_regs(pid, &fpregs) < 0)
 			return -1;
 	}
@@ -720,19 +714,15 @@ int arch_set_thread_regs(struct pstree_item *item, bool with_threads)
 	int i;
 
 	for_each_pstree_item(item) {
-		if (item->pid->state == TASK_DEAD ||
-		    item->pid->state == TASK_ZOMBIE)
+		if (item->pid->state == TASK_DEAD || item->pid->state == TASK_ZOMBIE)
 			continue;
 		for (i = 0; i < item->nr_threads; i++) {
-			if (item->threads[i].state == TASK_DEAD ||
-			    item->threads[i].state == TASK_ZOMBIE)
+			if (item->threads[i].state == TASK_DEAD || item->threads[i].state == TASK_ZOMBIE)
 				continue;
 			if (!with_threads && i > 0)
 				continue;
-			if (set_task_regs(item->threads[i].real,
-					  item->core[i])) {
-				pr_perror("Not set registers for task %d",
-					  item->threads[i].real);
+			if (set_task_regs(item->threads[i].real, item->core[i])) {
+				pr_perror("Not set registers for task %d", item->threads[i].real);
 				return -1;
 			}
 		}

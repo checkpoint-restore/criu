@@ -27,7 +27,7 @@
 #include "protobuf.h"
 #include "images/tcp-stream.pb-c.h"
 
-#undef  LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "tcp: "
 
 static LIST_HEAD(cpt_tcp_repair_sockets);
@@ -120,8 +120,7 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 		goto err_r;
 	}
 	if (ret != sizeof(data)) {
-		pr_err("This libsocr is not supported (%d vs %d)\n",
-				ret, (int)sizeof(data));
+		pr_err("This libsocr is not supported (%d vs %d)\n", ret, (int)sizeof(data));
 		goto err_r;
 	}
 
@@ -147,16 +146,16 @@ static int dump_tcp_conn_state(struct inet_sk_desc *sk)
 	}
 
 	if (data.flags & SOCCR_FLAGS_WINDOW) {
-		tse.has_snd_wl1		= true;
-		tse.has_snd_wnd		= true;
-		tse.has_max_window	= true;
-		tse.has_rcv_wnd		= true;
-		tse.has_rcv_wup		= true;
-		tse.snd_wl1		= data.snd_wl1;
-		tse.snd_wnd		= data.snd_wnd;
-		tse.max_window		= data.max_window;
-		tse.rcv_wnd		= data.rcv_wnd;
-		tse.rcv_wup		= data.rcv_wup;
+		tse.has_snd_wl1 = true;
+		tse.has_snd_wnd = true;
+		tse.has_max_window = true;
+		tse.has_rcv_wnd = true;
+		tse.has_rcv_wup = true;
+		tse.snd_wl1 = data.snd_wl1;
+		tse.snd_wnd = data.snd_wnd;
+		tse.max_window = data.max_window;
+		tse.rcv_wnd = data.rcv_wnd;
+		tse.rcv_wup = data.rcv_wup;
 	}
 
 	/*
@@ -260,8 +259,7 @@ int dump_one_tcp(int fd, struct inet_sk_desc *sk, SkOptsEntry *soe)
 	return 0;
 }
 
-static int read_tcp_queue(struct libsoccr_sk *sk, struct libsoccr_sk_data *data,
-		int queue, u32 len, struct cr_img *img)
+static int read_tcp_queue(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, int queue, u32 len, struct cr_img *img)
 {
 	char *buf;
 
@@ -351,13 +349,9 @@ static int restore_tcp_conn_state(int sk, struct libsoccr_sk *socr, struct inet_
 		data.rcv_wup = tse->rcv_wup;
 	}
 
-	if (restore_sockaddr(&sa_src,
-				ii->ie->family, ii->ie->src_port,
-				ii->ie->src_addr, 0) < 0)
+	if (restore_sockaddr(&sa_src, ii->ie->family, ii->ie->src_port, ii->ie->src_addr, 0) < 0)
 		goto err_c;
-	if (restore_sockaddr(&sa_dst,
-				ii->ie->family, ii->ie->dst_port,
-				ii->ie->dst_addr, 0) < 0)
+	if (restore_sockaddr(&sa_dst, ii->ie->family, ii->ie->dst_port, ii->ie->dst_addr, 0) < 0)
 		goto err_c;
 
 	libsoccr_set_addr(socr, 1, &sa_src, 0);
@@ -403,7 +397,7 @@ int prepare_tcp_socks(struct task_restore_args *ta)
 {
 	struct inet_sk_info *ii;
 
-	ta->tcp_socks = (struct rst_tcp_sock *) rst_mem_align_cpos(RM_PRIVATE);
+	ta->tcp_socks = (struct rst_tcp_sock *)rst_mem_align_cpos(RM_PRIVATE);
 	ta->tcp_socks_n = 0;
 
 	list_for_each_entry(ii, &rst_tcp_repair_sockets, rlist) {
@@ -434,11 +428,9 @@ int restore_one_tcp(int fd, struct inet_sk_info *ii)
 
 	pr_info("Restoring TCP connection\n");
 
-	if (opts.tcp_close &&
-	    ii->ie->state != TCP_LISTEN && ii->ie->state != TCP_CLOSE) {
+	if (opts.tcp_close && ii->ie->state != TCP_LISTEN && ii->ie->state != TCP_CLOSE) {
 		if (shutdown(fd, SHUT_RDWR) && errno != ENOTCONN) {
-			pr_perror("Unable to shutdown the socket id %x ino %x",
-				  ii->ie->id, ii->ie->ino);
+			pr_perror("Unable to shutdown the socket id %x ino %x", ii->ie->id, ii->ie->ino);
 		}
 		return 0;
 	}

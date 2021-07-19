@@ -39,13 +39,13 @@ int parse_bpfmap_fdinfo(int fd, struct bpfmap_fdinfo_obj *obj, uint32_t expected
 			continue;
 		}
 		if (fdinfo_field(str, "map_flags")) {
-			if (sscanf(str, "map_flags: %"PRIx32"", &obj->map_flags) != 1)
+			if (sscanf(str, "map_flags: %" PRIx32 "", &obj->map_flags) != 1)
 				goto parse_err;
 			met++;
 			continue;
 		}
 		if (fdinfo_field(str, "memlock")) {
-			if (sscanf(str, "memlock: %"PRIu64"", &obj->memlock) != 1)
+			if (sscanf(str, "memlock: %" PRIu64 "", &obj->memlock) != 1)
 				goto parse_err;
 			met++;
 			continue;
@@ -86,17 +86,11 @@ int cmp_bpf_map_info(struct bpf_map_info *old, struct bpf_map_info *new)
 	 * the new BPF map created by CRIU (during restore) will have a different
 	 * map id than the old one
 	 */
-	if ((old->type != new->type)				||
-	    (old->key_size != new->key_size)			||
-	    (old->value_size != new->value_size)		||
-	    (old->max_entries != new->max_entries)		||
-	    (old->map_flags != new->map_flags)			||
-	    (old->ifindex != new->ifindex)			||
-	    (old->netns_dev != new->netns_dev)			||
-	    (old->netns_ino != new->netns_ino)			||
-	    (old->btf_id != new->btf_id)			||
-	    (old->btf_key_type_id != new->btf_key_type_id)	||
-	    (old->btf_value_type_id != new->btf_value_type_id))
+	if ((old->type != new->type) || (old->key_size != new->key_size) || (old->value_size != new->value_size) ||
+	    (old->max_entries != new->max_entries) || (old->map_flags != new->map_flags) ||
+	    (old->ifindex != new->ifindex) || (old->netns_dev != new->netns_dev) ||
+	    (old->netns_ino != new->netns_ino) || (old->btf_id != new->btf_id) ||
+	    (old->btf_key_type_id != new->btf_key_type_id) || (old->btf_value_type_id != new->btf_value_type_id))
 		return -1;
 
 	if (strcmp(old->name, new->name) != 0)
@@ -113,13 +107,9 @@ int cmp_bpfmap_fdinfo(struct bpfmap_fdinfo_obj *old, struct bpfmap_fdinfo_obj *n
 	 * the new BPF map created by CRIU (during restore) will have a different map
 	 * id than the old one
 	 */
-	if ((old->map_type != new->map_type)		||
-	    (old->key_size != new->key_size)		||
-	    (old->value_size != new->value_size)	||
-	    (old->max_entries != new->max_entries)	||
-	    (old->map_flags != new->map_flags)		||
-	    (old->memlock != new->memlock)		||
-	    (old->frozen != new->frozen))
+	if ((old->map_type != new->map_type) || (old->key_size != new->key_size) ||
+	    (old->value_size != new->value_size) || (old->max_entries != new->max_entries) ||
+	    (old->map_flags != new->map_flags) || (old->memlock != new->memlock) || (old->frozen != new->frozen))
 		return -1;
 
 	return 0;

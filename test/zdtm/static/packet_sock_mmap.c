@@ -18,7 +18,7 @@ const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 #include <net/ethernet.h>
 #include <sys/mman.h>
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,2,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 2, 0)
 
 struct tpacket_req3 {
 	unsigned int tp_block_size;

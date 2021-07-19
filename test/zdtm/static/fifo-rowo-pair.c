@@ -15,9 +15,9 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test for fifo ro/wo with "
-			  "fake fifo needed on criu side";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Test for fifo ro/wo with "
+		       "fake fifo needed on criu side";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 char *name_master;
 TEST_OPTION(name_master, string, "master fifo name", 1);
@@ -25,13 +25,15 @@ TEST_OPTION(name_master, string, "master fifo name", 1);
 char *name_slave;
 TEST_OPTION(name_slave, string, "slave fifo name", 1);
 
-#define TEST_VALUE	(00100)
+#define TEST_VALUE (00100)
 
-#define exit_shot(pid, code)	\
-	do { kill(pid, SIGKILL); exit(code); } while (0)
+#define exit_shot(pid, code)        \
+	do {                        \
+		kill(pid, SIGKILL); \
+		exit(code);         \
+	} while (0)
 
-#define exit_shot_parent(code)	\
-	exit_shot(getppid(), 1)
+#define exit_shot_parent(code) exit_shot(getppid(), 1)
 
 int main(int argc, char **argv)
 {

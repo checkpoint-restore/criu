@@ -6,8 +6,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check one end of socketpair with data";
-const char *test_author	= "Andrew Vagin <avagin@openvz.org";
+const char *test_doc = "Check one end of socketpair with data";
+const char *test_author = "Andrew Vagin <avagin@openvz.org";
 
 #define MSG "hello"
 int main(int argc, char **argv)

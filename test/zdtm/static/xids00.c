@@ -7,8 +7,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that environment didn't change";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that environment didn't change";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 int main(int argc, char **argv)
 {
@@ -86,8 +86,8 @@ int main(int argc, char **argv)
 			pr_perror("Unable to wait P2 %d", pid);
 			exit(3);
 		} else if (!WIFEXITED(stat) || WEXITSTATUS(stat)) {
-			pr_perror("P2 stat %d/%d/%d/%d", WIFEXITED(stat), WEXITSTATUS(stat),
-							WIFSIGNALED(stat), WTERMSIG(stat));
+			pr_perror("P2 stat %d/%d/%d/%d", WIFEXITED(stat), WEXITSTATUS(stat), WIFSIGNALED(stat),
+				  WTERMSIG(stat));
 			exit(3);
 		}
 
@@ -112,8 +112,8 @@ int main(int argc, char **argv)
 			pr_perror("Unable to wait %d", pids[i]);
 			fail = 1;
 		} else if (!WIFEXITED(stat) || WEXITSTATUS(stat)) {
-			pr_perror("P%d stat %d/%d/%d/%d", i, WIFEXITED(stat), WEXITSTATUS(stat),
-							WIFSIGNALED(stat), WTERMSIG(stat));
+			pr_perror("P%d stat %d/%d/%d/%d", i, WIFEXITED(stat), WEXITSTATUS(stat), WIFSIGNALED(stat),
+				  WTERMSIG(stat));
 			fail = 1;
 		}
 	}

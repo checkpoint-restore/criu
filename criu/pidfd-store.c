@@ -15,13 +15,13 @@
 #include "pidfd-store.h"
 
 struct pidfd_entry {
-	pid_t				pid;
-	int				pidfd;
-	struct hlist_node		hash; /* To lookup pidfd by pid */
+	pid_t pid;
+	int pidfd;
+	struct hlist_node hash; /* To lookup pidfd by pid */
 };
 
 static int pidfd_store_sk = -1;
-#define PIDFD_HASH_SIZE	32
+#define PIDFD_HASH_SIZE 32
 static struct hlist_head pidfd_hash[PIDFD_HASH_SIZE];
 
 /*
@@ -95,7 +95,7 @@ int init_pidfd_store_sk(pid_t pid, int sk)
 	 */
 	if (addrlen == sizeof(sa_family_t)) {
 		if (setsockopt(pidfd_store_sk, SOL_SOCKET, SO_SNDBUFFORCE, &buf[0], sizeof(buf[0])) < 0 ||
-			setsockopt(pidfd_store_sk, SOL_SOCKET, SO_RCVBUFFORCE, &buf[1], sizeof(buf[1])) < 0) {
+		    setsockopt(pidfd_store_sk, SOL_SOCKET, SO_RCVBUFFORCE, &buf[1], sizeof(buf[1])) < 0) {
 			pr_perror("Unable to set SO_SNDBUFFORCE/SO_RCVBUFFORCE");
 			goto err;
 		}

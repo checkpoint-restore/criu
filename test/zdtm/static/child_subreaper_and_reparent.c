@@ -8,8 +8,8 @@
 #include "zdtmtst.h"
 #include "lock.h"
 
-const char *test_doc	= "Check that child subreaper does not affect reparenting";
-const char *test_author	= "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
+const char *test_doc = "Check that child subreaper does not affect reparenting";
+const char *test_author = "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
 
 enum {
 	TEST_FORK,
@@ -23,7 +23,7 @@ struct shared {
 	futex_t fstate;
 	int parent_before_cr;
 	int parent_after_cr;
-} *sh;
+} * sh;
 
 int orphan(void)
 {

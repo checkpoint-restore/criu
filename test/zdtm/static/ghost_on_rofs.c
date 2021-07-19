@@ -6,8 +6,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check ghost file on readonly fs mount restores fine";
-const char *test_author	= "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
+const char *test_doc = "Check ghost file on readonly fs mount restores fine";
+const char *test_author = "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
 
 #define GHOST_DATA "Ghost Data"
 
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 	}
 
 	ssprintf(ghost_file, "%s/ghost_file", ro_mount);
-	fd = open(ghost_file, O_CREAT|O_WRONLY, 0600);
+	fd = open(ghost_file, O_CREAT | O_WRONLY, 0600);
 	if (fd < 0) {
 		pr_perror("open");
 		return 1;
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 	}
 
 	ssprintf(ghost_file_bind, "%s/ghost_file_bind", ro_bind_mount);
-	fd_bind = open(ghost_file_bind, O_CREAT|O_WRONLY, 0600);
+	fd_bind = open(ghost_file_bind, O_CREAT | O_WRONLY, 0600);
 	if (fd_bind < 0) {
 		pr_perror("open");
 		return 1;
@@ -118,7 +118,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (mount(NULL, ro_mount, NULL, MS_RDONLY|MS_REMOUNT|MS_BIND, NULL)) {
+	if (mount(NULL, ro_mount, NULL, MS_RDONLY | MS_REMOUNT | MS_BIND, NULL)) {
 		pr_perror("mount");
 		return 1;
 	}
@@ -127,7 +127,7 @@ int main(int argc, char **argv)
 	 * Need MS_NOSUID flag to check the hunk in do_bind_mount, case of
 	 * different flags for mount and it's ->bind
 	 */
-	if (mount(NULL, ro_bind_mount, NULL, MS_NOSUID|MS_RDONLY|MS_REMOUNT|MS_BIND, NULL)) {
+	if (mount(NULL, ro_bind_mount, NULL, MS_NOSUID | MS_RDONLY | MS_REMOUNT | MS_BIND, NULL)) {
 		pr_perror("mount");
 		return 1;
 	}

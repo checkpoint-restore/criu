@@ -13,12 +13,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc="Tests IPC semaphores migrates fine";
-const char *test_author="Stanislav Kinsbursky <skinsbursky@parallels.com>";
+const char *test_doc = "Tests IPC semaphores migrates fine";
+const char *test_author = "Stanislav Kinsbursky <skinsbursky@parallels.com>";
 
-static int sem_test(int id,
-		    struct sembuf *lock, struct sembuf *unlock,
-		    int lock_ops, int unlock_ops)
+static int sem_test(int id, struct sembuf *lock, struct sembuf *unlock, int lock_ops, int unlock_ops)
 {
 	if (semop(id, lock, lock_ops) == -1) {
 		fail("Failed to lock semaphore");
@@ -38,27 +36,25 @@ static int check_sem_by_key(int key, int num)
 	int id;
 	struct sembuf lock[2] = {
 		{
-		.sem_num = num,
-		.sem_op = 0,
-		.sem_flg = 0,
+			.sem_num = num,
+			.sem_op = 0,
+			.sem_flg = 0,
 		},
 		{
-		.sem_num = num,
-		.sem_op = 1,
-		.sem_flg = 0,
+			.sem_num = num,
+			.sem_op = 1,
+			.sem_flg = 0,
 		},
 	};
-	struct sembuf unlock[1] = {
-		{
+	struct sembuf unlock[1] = { {
 		.sem_num = num,
 		.sem_op = -1,
 		.sem_flg = 0,
-		}
-	};
+	} };
 	int val;
 
 	id = semget(key, NSEMS, 0777);
-	if (id  == -1) {
+	if (id == -1) {
 		fail("Can't get sem");
 		return -errno;
 	}
@@ -69,9 +65,7 @@ static int check_sem_by_key(int key, int num)
 		return -errno;
 	}
 
-	return sem_test(id, lock, unlock,
-			sizeof(lock)/sizeof(struct sembuf),
-			sizeof(unlock)/sizeof(struct sembuf));
+	return sem_test(id, lock, unlock, sizeof(lock) / sizeof(struct sembuf), sizeof(unlock) / sizeof(struct sembuf));
 }
 
 static int check_sem_by_id(int id, int num, int val)
@@ -79,18 +73,16 @@ static int check_sem_by_id(int id, int num, int val)
 	int curr;
 	struct sembuf lock[] = {
 		{
-		.sem_num = num,
-		.sem_op = val,
-		.sem_flg = 0,
+			.sem_num = num,
+			.sem_op = val,
+			.sem_flg = 0,
 		},
 	};
-	struct sembuf unlock[] = {
-		{
+	struct sembuf unlock[] = { {
 		.sem_num = num,
-		.sem_op = - val * 2,
+		.sem_op = -val * 2,
 		.sem_flg = 0,
-		}
-	};
+	} };
 
 	curr = semctl(id, num, GETVAL);
 	if (curr < 0) {
@@ -101,9 +93,7 @@ static int check_sem_by_id(int id, int num, int val)
 		fail("Sem has wrong value: %d instead of %d", curr, val);
 		return -EFAULT;
 	}
-	return sem_test(id, lock, unlock,
-			sizeof(lock)/sizeof(struct sembuf),
-			sizeof(unlock)/sizeof(struct sembuf));
+	return sem_test(id, lock, unlock, sizeof(lock) / sizeof(struct sembuf), sizeof(unlock) / sizeof(struct sembuf));
 }
 
 int main(int argc, char **argv)
@@ -112,10 +102,10 @@ int main(int argc, char **argv)
 	int i;
 	/* See man semctl */
 	union semun {
-		int		val;
-		struct		semid_ds *buf;
-		unsigned short	*array;
-		struct seminfo	*__buf;
+		int val;
+		struct semid_ds *buf;
+		unsigned short *array;
+		struct seminfo *__buf;
 	} val[NSEMS];
 	int ret, fail_count = 0;
 
@@ -128,7 +118,7 @@ int main(int argc, char **argv)
 	}
 
 	id = semget(key, NSEMS, 0777 | IPC_CREAT | IPC_EXCL);
-	if (id  == -1) {
+	if (id == -1) {
 		fail_count++;
 		pr_perror("Can't get sem array");
 		goto out;

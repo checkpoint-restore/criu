@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <assert.h>
 
-
 #include "log.h"
 #include "criu-log.h"
 
@@ -45,7 +44,6 @@ int main(int argc, char *argv[], char *envp[])
 	assert(i == 2);
 	assert(!strcmp(configuration[0], "--dsfa"));
 	assert(!strcmp(configuration[1], "aaaaa \"bbbbbb\""));
-
 
 	i = parse_statement(0, "verbosity 4\n", configuration);
 	assert(i == 2);

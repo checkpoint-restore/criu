@@ -44,7 +44,6 @@ static int binfmt_misc_parse_or_collect(struct mount_info *pm)
 {
 	opts.has_binfmt_misc = true;
 	return 0;
-
 }
 
 static int binfmt_misc_virtual(struct mount_info *pm)
@@ -78,13 +77,13 @@ static int parse_binfmt_misc_entry(struct bfd *f, BinfmtMiscEntry *bme)
 			continue;
 		}
 
-#define DUP_EQUAL_AS(key, member)					\
-		if (!strncmp(str, key, strlen(key))) {			\
-			bme->member = xstrdup(str + strlen(key));	\
-			if (!bme->member)				\
-				return -1;				\
-			continue;					\
-		}
+#define DUP_EQUAL_AS(key, member)                         \
+	if (!strncmp(str, key, strlen(key))) {            \
+		bme->member = xstrdup(str + strlen(key)); \
+		if (!bme->member)                         \
+			return -1;                        \
+		continue;                                 \
+	}
 		DUP_EQUAL_AS("interpreter ", interpreter)
 		DUP_EQUAL_AS("flags: ", flags)
 		DUP_EQUAL_AS("extension .", extension)
@@ -130,7 +129,6 @@ err:
 	free(bme.mask);
 	bclose(&f);
 	return ret;
-
 }
 
 static int binfmt_misc_dump(struct mount_info *pm)
@@ -192,7 +190,7 @@ out:
 static int write_binfmt_misc_entry(char *mp, char *buf, BinfmtMiscEntry *bme)
 {
 	int fd, len, ret = -1;
-	char path[PATH_MAX+1];
+	char path[PATH_MAX + 1];
 
 	snprintf(path, PATH_MAX, "%s/register", mp);
 
@@ -243,9 +241,9 @@ static int make_bfmtm_magic_str(char *buf, BinfmtMiscEntry *bme)
 	 * dump them without changes. But for registering a new entry
 	 * it expects every byte is prepended with \x, i.e. \x61\x62\x63.
 	 */
-	len = strlen(bme->name) + 3 /* offset < 128 */ + 2 * strlen(bme->magic)
-	    + (bme->mask ? 2 * strlen(bme->mask) : 0) + strlen(bme->interpreter)
-	    + (bme->flags ? strlen(bme->flags) : 0) + strlen(":::::::");
+	len = strlen(bme->name) + 3 /* offset < 128 */ + 2 * strlen(bme->magic) +
+	      (bme->mask ? 2 * strlen(bme->mask) : 0) + strlen(bme->interpreter) +
+	      (bme->flags ? strlen(bme->flags) : 0) + strlen(":::::::");
 
 	if ((len > BINFMT_MISC_STR - 1) || bme->offset > 128)
 		return -1;
@@ -264,7 +262,7 @@ static int make_bfmtm_magic_str(char *buf, BinfmtMiscEntry *bme)
 			buf += sprintf(buf, "\\x%c%c", bme->mask[i], bme->mask[i + 1]);
 	}
 
-	sprintf(buf, ":%s:%s", bme->interpreter, bme->flags ? : "\0");
+	sprintf(buf, ":%s:%s", bme->interpreter, bme->flags ?: "\0");
 
 	return 1;
 }
@@ -281,9 +279,8 @@ static int binfmt_misc_restore_bme(struct mount_info *mi, BinfmtMiscEntry *bme, 
 		ret = make_bfmtm_magic_str(buf, bme);
 	} else if (bme->extension) {
 		/* :name:E::extension::interpreter:flags */
-		ret = snprintf(buf, BINFMT_MISC_STR, ":%s:E::%s::%s:%s",
-			       bme->name, bme->extension, bme->interpreter,
-			       bme->flags ? : "\0");
+		ret = snprintf(buf, BINFMT_MISC_STR, ":%s:E::%s::%s:%s", bme->name, bme->extension, bme->interpreter,
+			       bme->flags ?: "\0");
 		if (ret >= BINFMT_MISC_STR) /* output truncated */
 			ret = -1;
 	} else
@@ -374,8 +371,8 @@ int collect_binfmt_misc(void)
 	return collect_image(&binfmt_misc_cinfo);
 }
 #else
-#define binfmt_misc_dump	NULL
-#define binfmt_misc_restore	NULL
+#define binfmt_misc_dump	     NULL
+#define binfmt_misc_restore	     NULL
 #define binfmt_misc_parse_or_collect NULL
 #endif
 
@@ -419,17 +416,11 @@ static int tmpfs_dump(struct mount_info *pm)
 	if (root_ns_mask & CLONE_NEWUSER)
 		userns_pid = root_item->pid->real;
 
-	ret = cr_system_userns(fd, img_raw_fd(img), -1, "tar", (char *[])
-			{ "tar", "--create",
-			"--gzip",
-			"--no-unquote",
-			"--no-wildcards",
-			"--one-file-system",
-			"--check-links",
-			"--preserve-permissions",
-			"--sparse",
-			"--numeric-owner",
-			"--directory", "/proc/self/fd/0", ".", NULL }, 0, userns_pid);
+	ret = cr_system_userns(fd, img_raw_fd(img), -1, "tar",
+			       (char *[]){ "tar", "--create", "--gzip", "--no-unquote", "--no-wildcards",
+					   "--one-file-system", "--check-links", "--preserve-permissions", "--sparse",
+					   "--numeric-owner", "--directory", "/proc/self/fd/0", ".", NULL },
+			       0, userns_pid);
 
 	if (ret)
 		pr_err("Can't dump tmpfs content\n");
@@ -460,9 +451,9 @@ static int tmpfs_restore(struct mount_info *pm)
 	}
 
 	ret = cr_system(img_raw_fd(img), -1, -1, "tar",
-			(char *[]) {"tar", "--extract", "--gzip",
-				"--no-unquote", "--no-wildcards",
-				"--directory", pm->mountpoint, NULL}, 0);
+			(char *[]){ "tar", "--extract", "--gzip", "--no-unquote", "--no-wildcards", "--directory",
+				    pm->mountpoint, NULL },
+			0);
 	close_image(img);
 
 	if (ret) {
@@ -556,8 +547,7 @@ static int fusectl_dump(struct mount_info *pm)
 		}
 
 		for (it = mntinfo; it; it = it->next) {
-			if (it->fstype->code == FSTYPE__FUSE &&
-					id == kdev_minor(it->s_dev) && !it->external) {
+			if (it->fstype->code == FSTYPE__FUSE && id == kdev_minor(it->s_dev) && !it->external) {
 				pr_err("%s is a fuse mount but not external\n", it->mountpoint);
 				goto out;
 			}
@@ -588,8 +578,7 @@ static int tracefs_parse(struct mount_info *pm)
 
 static bool cgroup_sb_equal(struct mount_info *a, struct mount_info *b)
 {
-	if (a->private && b->private &&
-			strcmp(a->private, b->private))
+	if (a->private && b->private && strcmp(a->private, b->private))
 		return false;
 	if (strcmp(a->options, b->options))
 		return false;
@@ -670,8 +659,7 @@ static int dump_empty_fs(struct mount_info *pm)
  */
 static int always_fail(struct mount_info *pm)
 {
-	pr_err("failed to dump fs %s (%s): always fail\n", pm->mountpoint,
-							   pm->fstype->name);
+	pr_err("failed to dump fs %s (%s): always fail\n", pm->mountpoint, pm->fstype->name);
 	return -1;
 }
 
@@ -679,92 +667,113 @@ static struct fstype fstypes[] = {
 	{
 		.name = "unsupported",
 		.code = FSTYPE__UNSUPPORTED,
-	}, {
+	},
+	{
 		.name = "auto_cr",
 		.code = FSTYPE__AUTO,
-	}, {
+	},
+	{
 		.name = "proc",
 		.code = FSTYPE__PROC,
-	}, {
+	},
+	{
 		.name = "sysfs",
 		.code = FSTYPE__SYSFS,
-	}, {
+	},
+	{
 		.name = "devtmpfs",
 		.code = FSTYPE__DEVTMPFS,
 		.dump = devtmpfs_dump,
 		.restore = devtmpfs_restore,
-	}, {
+	},
+	{
 		.name = "binfmt_misc",
 		.parse = binfmt_misc_parse_or_collect,
 		.collect = binfmt_misc_parse_or_collect,
 		.code = FSTYPE__BINFMT_MISC,
 		.dump = binfmt_misc_dump,
 		.restore = binfmt_misc_restore,
-	}, {
+	},
+	{
 		.name = "tmpfs",
 		.code = FSTYPE__TMPFS,
 		.dump = tmpfs_dump,
 		.restore = tmpfs_restore,
-	}, {
+	},
+	{
 		.name = "devpts",
 		.parse = devpts_parse,
 		.code = FSTYPE__DEVPTS,
 		.restore = devpts_restore,
 		.check_bindmount = devpts_check_bindmount,
-	}, {
+	},
+	{
 		.name = "simfs",
 		.code = FSTYPE__SIMFS,
-	}, {
+	},
+	{
 		.name = "btrfs",
 		.code = FSTYPE__UNSUPPORTED,
 		.sb_equal = btrfs_sb_equal,
-	}, {
+	},
+	{
 		.name = "pstore",
 		.dump = dump_empty_fs,
 		.code = FSTYPE__PSTORE,
-	}, {
+	},
+	{
 		.name = "mqueue",
 		.dump = dump_empty_fs,
 		.code = FSTYPE__MQUEUE,
-	}, {
+	},
+	{
 		.name = "securityfs",
 		.code = FSTYPE__SECURITYFS,
-	}, {
+	},
+	{
 		.name = "fusectl",
 		.dump = fusectl_dump,
 		.code = FSTYPE__FUSECTL,
-	}, {
+	},
+	{
 		.name = "debugfs",
 		.code = FSTYPE__DEBUGFS,
 		.parse = debugfs_parse,
-	}, {
+	},
+	{
 		.name = "tracefs",
 		.code = FSTYPE__TRACEFS,
 		.parse = tracefs_parse,
-	}, {
+	},
+	{
 		.name = "cgroup",
 		.code = FSTYPE__CGROUP,
 		.parse = cgroup_parse,
 		.sb_equal = cgroup_sb_equal,
-	}, {
+	},
+	{
 		.name = "cgroup2",
 		.code = FSTYPE__CGROUP2,
 		.parse = cgroup_parse,
 		.sb_equal = cgroup_sb_equal,
-	}, {
+	},
+	{
 		.name = "aufs",
 		.code = FSTYPE__AUFS,
 		.parse = aufs_parse,
-	}, {
+	},
+	{
 		.name = "fuse",
 		.code = FSTYPE__FUSE,
 		.dump = always_fail,
 		.restore = always_fail,
-	}, {
+	},
+	{
 		.name = "overlay",
 		.code = FSTYPE__OVERLAYFS,
 		.parse = overlayfs_parse,
-	}, {
+	},
+	{
 		.name = "autofs",
 		.code = FSTYPE__AUTOFS,
 		.parse = autofs_parse,
@@ -773,7 +782,10 @@ static struct fstype fstypes[] = {
 	},
 };
 
-struct fstype *fstype_auto(void) { return &fstypes[1]; }
+struct fstype *fstype_auto(void)
+{
+	return &fstypes[1];
+}
 
 static char fsauto_all[] = "all";
 static char *fsauto_names;
@@ -871,4 +883,3 @@ struct fstype *decode_fstype(u32 fst)
 uns:
 	return &fstypes[0];
 }
-

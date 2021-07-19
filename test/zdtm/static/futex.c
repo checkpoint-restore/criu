@@ -6,8 +6,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check (via pthread/NPTL) that futeces behave through migration";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check (via pthread/NPTL) that futeces behave through migration";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 volatile int kid_passed;
 
@@ -22,12 +22,13 @@ void *thread_fn(void *lock)
 	return NULL;
 }
 
-#define DEF_NUM_THREADS	10
-#define MAX_NUM_THREADS	50
+#define DEF_NUM_THREADS 10
+#define MAX_NUM_THREADS 50
 int num_threads = DEF_NUM_THREADS;
-TEST_OPTION(num_threads, int, "number of threads "
-		"(default " __stringify(DEF_NUM_THREADS)
-		" maximum " __stringify(MAX_NUM_THREADS) ")", 0);
+TEST_OPTION(num_threads, int,
+	    "number of threads "
+	    "(default " __stringify(DEF_NUM_THREADS) " maximum " __stringify(MAX_NUM_THREADS) ")",
+	    0);
 
 int main(int argc, char **argv)
 {
@@ -38,8 +39,7 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	if (num_threads > MAX_NUM_THREADS) {
-		pr_perror("%d threads it too much. max is %d",
-				num_threads, MAX_NUM_THREADS);
+		pr_perror("%d threads it too much. max is %d", num_threads, MAX_NUM_THREADS);
 		goto out;
 	}
 

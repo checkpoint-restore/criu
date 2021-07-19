@@ -9,16 +9,16 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check c/r of a virtual terminal";
-const char *test_author	= "Ruslan Kuprieiev <kupruser@gmail.com>";
+const char *test_doc = "Check c/r of a virtual terminal";
+const char *test_author = "Ruslan Kuprieiev <kupruser@gmail.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
 #ifdef __s390x__
-#define MINOR	65 /* ttysclp0 */
+#define MINOR 65 /* ttysclp0 */
 #else
-#define MINOR	5
+#define MINOR 5
 #endif
 
 int main(int argc, char **argv)
@@ -53,9 +53,7 @@ int main(int argc, char **argv)
 	}
 
 	if (st1.st_rdev != st2.st_rdev) {
-		fail("Virtual terminal rdev mismatch %x != %x on %s",
-		     (int)st1.st_rdev, (int)st2.st_rdev,
-		     filename);
+		fail("Virtual terminal rdev mismatch %x != %x on %s", (int)st1.st_rdev, (int)st2.st_rdev, filename);
 		return 1;
 	}
 
