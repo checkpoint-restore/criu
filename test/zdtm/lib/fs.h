@@ -2,7 +2,7 @@
 #define ZDTM_FS_H_
 
 #ifndef _BSD_SOURCE
-# define _BSD_SOURCE
+#define _BSD_SOURCE
 #endif
 
 #include <sys/types.h>
@@ -10,9 +10,9 @@
 
 #include <limits.h>
 
-#define KDEV_MINORBITS	20
-#define KDEV_MINORMASK	((1UL << KDEV_MINORBITS) - 1)
-#define MKKDEV(ma, mi)	(((ma) << KDEV_MINORBITS) | (mi))
+#define KDEV_MINORBITS 20
+#define KDEV_MINORMASK ((1UL << KDEV_MINORBITS) - 1)
+#define MKKDEV(ma, mi) (((ma) << KDEV_MINORBITS) | (mi))
 
 static inline unsigned int kdev_major(unsigned int kdev)
 {
@@ -38,12 +38,12 @@ static inline dev_t kdev_to_odev(unsigned int kdev)
 }
 
 typedef struct {
-	int			mnt_id;
-	int			parent_mnt_id;
-	unsigned int		s_dev;
-	char			root[PATH_MAX];
-	char			mountpoint[PATH_MAX];
-	char			fsname[64];
+	int mnt_id;
+	int parent_mnt_id;
+	unsigned int s_dev;
+	char root[PATH_MAX];
+	char mountpoint[PATH_MAX];
+	char fsname[64];
 } mnt_info_t;
 
 extern mnt_info_t *mnt_info_alloc(void);

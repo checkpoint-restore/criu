@@ -9,6 +9,7 @@
  * Set R2 to blob + 8000 which is the default value
  * Jump to restore_task_exec_start + 8 since R2 is already set (local call)
  */
+/* clang-format off */
 #define JUMP_TO_RESTORER_BLOB(new_sp, restore_task_exec_start,		\
 			      task_args)				\
 	asm volatile(							\
@@ -22,6 +23,7 @@
 		  "r"((unsigned long)restore_task_exec_start),		\
 		  "r"(task_args)					\
 		: "3", "12")
+/* clang-format on */
 
 /* There is nothing to do since TLS is accessed through r13 */
 #define core_get_tls(pcore, ptls)

@@ -9,6 +9,7 @@
 
 #include <compel/asm/sigframe.h>
 
+/* clang-format off */
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,		\
 			     thread_args, clone_restore_fn)			\
 	asm volatile(								\
@@ -112,20 +113,25 @@
 			:					\
 			: "r"(ret)				\
 			: "sp", "x0", "memory")
+/* clang-format on */
 
-
-#define arch_map_vdso(map, compat)		-1
+#define arch_map_vdso(map, compat) -1
 
 int restore_gpregs(struct rt_sigframe *f, UserAarch64RegsEntry *r);
 int restore_nonsigframe_gpregs(UserAarch64RegsEntry *r);
 
 static inline void restore_tls(tls_t *ptls)
 {
-	asm("msr tpidr_el0, %0" : : "r" (*ptls));
+	asm("msr tpidr_el0, %0" : : "r"(*ptls));
 }
 
-static inline void *alloc_compat_syscall_stack(void) { return NULL; }
-static inline void free_compat_syscall_stack(void *stack32) { }
+static inline void *alloc_compat_syscall_stack(void)
+{
+	return NULL;
+}
+static inline void free_compat_syscall_stack(void *stack32)
+{
+}
 static inline int arch_compat_rt_sigaction(void *stack, int sig, void *act)
 {
 	return -1;

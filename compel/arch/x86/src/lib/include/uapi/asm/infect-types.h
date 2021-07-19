@@ -6,8 +6,8 @@
 #include <signal.h>
 #include <compel/plugins/std/asm/syscall-types.h>
 
-#define SIGMAX			64
-#define SIGMAX_OLD		31
+#define SIGMAX	   64
+#define SIGMAX_OLD 31
 
 #define ARCH_HAS_PTRACE_GET_THREAD_AREA
 
@@ -17,11 +17,11 @@
  * For 64-bit x86 those GDT offsets are the same
  * for native and compat tasks.
  */
-#define GDT_ENTRY_TLS_MIN		12
-#define GDT_ENTRY_TLS_MAX		14
-#define GDT_ENTRY_TLS_NUM		3
+#define GDT_ENTRY_TLS_MIN 12
+#define GDT_ENTRY_TLS_MAX 14
+#define GDT_ENTRY_TLS_NUM 3
 typedef struct {
-	user_desc_t		desc[GDT_ENTRY_TLS_NUM];
+	user_desc_t desc[GDT_ENTRY_TLS_NUM];
 } tls_t;
 
 struct thread_ctx;
@@ -33,53 +33,53 @@ extern void compel_arch_get_tls_thread(struct parasite_thread_ctl *tctl, tls_t *
 extern void compel_arch_get_tls_task(struct parasite_ctl *ctl, tls_t *out);
 
 typedef struct {
-	uint64_t	r15;
-	uint64_t	r14;
-	uint64_t	r13;
-	uint64_t	r12;
-	uint64_t	bp;
-	uint64_t	bx;
-	uint64_t	r11;
-	uint64_t	r10;
-	uint64_t	r9;
-	uint64_t	r8;
-	uint64_t	ax;
-	uint64_t	cx;
-	uint64_t	dx;
-	uint64_t	si;
-	uint64_t	di;
-	uint64_t	orig_ax;
-	uint64_t	ip;
-	uint64_t	cs;
-	uint64_t	flags;
-	uint64_t	sp;
-	uint64_t	ss;
-	uint64_t	fs_base;
-	uint64_t	gs_base;
-	uint64_t	ds;
-	uint64_t	es;
-	uint64_t	fs;
-	uint64_t	gs;
+	uint64_t r15;
+	uint64_t r14;
+	uint64_t r13;
+	uint64_t r12;
+	uint64_t bp;
+	uint64_t bx;
+	uint64_t r11;
+	uint64_t r10;
+	uint64_t r9;
+	uint64_t r8;
+	uint64_t ax;
+	uint64_t cx;
+	uint64_t dx;
+	uint64_t si;
+	uint64_t di;
+	uint64_t orig_ax;
+	uint64_t ip;
+	uint64_t cs;
+	uint64_t flags;
+	uint64_t sp;
+	uint64_t ss;
+	uint64_t fs_base;
+	uint64_t gs_base;
+	uint64_t ds;
+	uint64_t es;
+	uint64_t fs;
+	uint64_t gs;
 } user_regs_struct64;
 
 typedef struct {
-	uint32_t	bx;
-	uint32_t	cx;
-	uint32_t	dx;
-	uint32_t	si;
-	uint32_t	di;
-	uint32_t	bp;
-	uint32_t	ax;
-	uint32_t	ds;
-	uint32_t	es;
-	uint32_t	fs;
-	uint32_t	gs;
-	uint32_t	orig_ax;
-	uint32_t	ip;
-	uint32_t	cs;
-	uint32_t	flags;
-	uint32_t	sp;
-	uint32_t	ss;
+	uint32_t bx;
+	uint32_t cx;
+	uint32_t dx;
+	uint32_t si;
+	uint32_t di;
+	uint32_t bp;
+	uint32_t ax;
+	uint32_t ds;
+	uint32_t es;
+	uint32_t fs;
+	uint32_t gs;
+	uint32_t orig_ax;
+	uint32_t ip;
+	uint32_t cs;
+	uint32_t flags;
+	uint32_t sp;
+	uint32_t ss;
 } user_regs_struct32;
 
 /*
@@ -96,22 +96,17 @@ typedef struct {
 	short __is_native; /* use user_regs_native macro to check it */
 } user_regs_struct_t;
 
-#define NATIVE_MAGIC	0x0A
-#define COMPAT_MAGIC	0x0C
+#define NATIVE_MAGIC 0x0A
+#define COMPAT_MAGIC 0x0C
 static inline bool user_regs_native(user_regs_struct_t *pregs)
 {
 	return pregs->__is_native == NATIVE_MAGIC;
 }
 
-#define get_user_reg(pregs, name)			\
-	((user_regs_native(pregs))		?	\
-	 ((pregs)->native.name)			:	\
-	 ((pregs)->compat.name))
+#define get_user_reg(pregs, name) ((user_regs_native(pregs)) ? ((pregs)->native.name) : ((pregs)->compat.name))
 
-#define set_user_reg(pregs, name, val)			\
-	((user_regs_native(pregs))		?	\
-	 ((pregs)->native.name = (val))		:	\
-	 ((pregs)->compat.name = (val)))
+#define set_user_reg(pregs, name, val) \
+	((user_regs_native(pregs)) ? ((pregs)->native.name = (val)) : ((pregs)->compat.name = (val)))
 
 #if 0
 typedef struct {
@@ -132,12 +127,12 @@ typedef struct {
 
 typedef struct xsave_struct user_fpregs_struct_t;
 
-#define REG_RES(regs)		get_user_reg(&regs, ax)
-#define REG_IP(regs)		get_user_reg(&regs, ip)
-#define REG_SP(regs)		get_user_reg(&regs, sp)
-#define REG_SYSCALL_NR(regs)	get_user_reg(&regs, orig_ax)
+#define REG_RES(regs)	     get_user_reg(&regs, ax)
+#define REG_IP(regs)	     get_user_reg(&regs, ip)
+#define REG_SP(regs)	     get_user_reg(&regs, sp)
+#define REG_SYSCALL_NR(regs) get_user_reg(&regs, orig_ax)
 
-#define __NR(syscall, compat)	((compat) ? __NR32_##syscall : __NR_##syscall)
+#define __NR(syscall, compat) ((compat) ? __NR32_##syscall : __NR_##syscall)
 
 /*
  * For x86_32 __NR_mmap inside the kernel represents old_mmap system

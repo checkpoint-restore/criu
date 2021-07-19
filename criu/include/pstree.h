@@ -11,24 +11,24 @@
  * That's the init process which usually inherit
  * all orphaned children in the system.
  */
-#define INIT_PID	(1)
+#define INIT_PID (1)
 struct pstree_item {
-	struct pstree_item	*parent;
-	struct list_head	children;	/* list of my children */
-	struct list_head	sibling;	/* linkage in my parent's children list */
+	struct pstree_item *parent;
+	struct list_head children; /* list of my children */
+	struct list_head sibling; /* linkage in my parent's children list */
 
-	struct pid		*pid;
-	pid_t			pgid;
-	pid_t			sid;
-	pid_t			born_sid;
+	struct pid *pid;
+	pid_t pgid;
+	pid_t sid;
+	pid_t born_sid;
 
-	int			nr_threads;	/* number of threads */
-	struct pid		*threads;	/* array of threads */
-	CoreEntry		**core;
-	TaskKobjIdsEntry	*ids;
+	int nr_threads; /* number of threads */
+	struct pid *threads; /* array of threads */
+	CoreEntry **core;
+	TaskKobjIdsEntry *ids;
 	union {
-		futex_t		task_st;
-		unsigned long	task_st_le_bits;
+		futex_t task_st;
+		unsigned long task_st_le_bits;
 	};
 };
 
@@ -38,7 +38,7 @@ static inline pid_t vpid(const struct pstree_item *i)
 }
 
 enum {
-	FDS_EVENT_BIT	= 0,
+	FDS_EVENT_BIT = 0,
 };
 #define FDS_EVENT (1 << FDS_EVENT_BIT)
 
@@ -68,8 +68,7 @@ static inline struct dmp_info *dmpi(const struct pstree_item *i)
 /* ids is allocated and initialized for all alive tasks */
 static inline int shared_fdtable(struct pstree_item *item)
 {
-	return (item->parent &&
-		item->ids->files_id == item->parent->ids->files_id);
+	return (item->parent && item->ids->files_id == item->parent->ids->files_id);
 }
 
 static inline bool is_alive_state(int state)
@@ -93,8 +92,7 @@ extern struct pid *pstree_pid_by_virt(pid_t pid);
 
 extern struct pstree_item *root_item;
 extern struct pstree_item *pstree_item_next(struct pstree_item *item);
-#define for_each_pstree_item(pi) \
-	for (pi = root_item; pi != NULL; pi = pstree_item_next(pi))
+#define for_each_pstree_item(pi) for (pi = root_item; pi != NULL; pi = pstree_item_next(pi))
 
 extern bool restore_before_setsid(struct pstree_item *child);
 extern int prepare_pstree(void);

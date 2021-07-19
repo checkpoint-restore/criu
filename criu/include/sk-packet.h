@@ -2,7 +2,7 @@
 #define __CR_SK_PACKET_H__
 
 #ifndef PACKET_TIMESTAMP
-#define PACKET_TIMESTAMP	17
+#define PACKET_TIMESTAMP 17
 #endif
 
 struct cr_imgset;
@@ -22,7 +22,7 @@ extern int packet_receive_one(struct nlmsghdr *h, struct ns_id *ns, void *arg);
 #endif
 
 #ifndef PACKET_FANOUT
-#define PACKET_FANOUT	18
+#define PACKET_FANOUT 18
 #endif
 
 #ifndef TPACKET3_HDRLEN

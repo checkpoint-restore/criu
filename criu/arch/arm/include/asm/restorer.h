@@ -6,6 +6,7 @@
 
 #include <compel/asm/sigframe.h>
 
+/* clang-format off */
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,	\
 			     thread_args, clone_restore_fn)		\
 	asm volatile(							\
@@ -108,32 +109,35 @@
 		     :						\
 		     : "r"(ret)					\
 		     : "memory")
+/* clang-format on */
 
-
-#define arch_map_vdso(map, compat)		-1
+#define arch_map_vdso(map, compat) -1
 
 int restore_gpregs(struct rt_sigframe *f, UserArmRegsEntry *r);
 int restore_nonsigframe_gpregs(UserArmRegsEntry *r);
 #define ARCH_HAS_SHMAT_HOOK
-unsigned long arch_shmat(int shmid, void *shmaddr,
-			int shmflg, unsigned long size);
+unsigned long arch_shmat(int shmid, void *shmaddr, int shmflg, unsigned long size);
 
-static inline void restore_tls(tls_t *ptls) {
-	asm (
-	     "mov r7, #15	\n"
-	     "lsl r7, #16	\n"
-	     "mov r0, #5	\n"
-	     "add r7, r0	\n"	/* r7 = 0xF005 */
-	     "ldr r0, [%0]	\n"
-	     "svc #0		\n"
-	     :
-	     : "r"(ptls)
-	     : "r0", "r7"
-	     );
+static inline void restore_tls(tls_t *ptls)
+{
+	asm("mov r7, #15	\n"
+	    "lsl r7, #16	\n"
+	    "mov r0, #5	\n"
+	    "add r7, r0	\n" /* r7 = 0xF005 */
+	    "ldr r0, [%0]	\n"
+	    "svc #0		\n"
+	    :
+	    : "r"(ptls)
+	    : "r0", "r7");
 }
 
-static inline void *alloc_compat_syscall_stack(void) { return NULL; }
-static inline void free_compat_syscall_stack(void *stack32) { }
+static inline void *alloc_compat_syscall_stack(void)
+{
+	return NULL;
+}
+static inline void free_compat_syscall_stack(void *stack32)
+{
+}
 static inline int arch_compat_rt_sigaction(void *stack, int sig, void *act)
 {
 	return -1;

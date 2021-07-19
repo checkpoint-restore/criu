@@ -5,15 +5,13 @@
 #include "common/compiler.h"
 #include "common/arch/s390/asm/atomic_ops.h"
 
-#define DIV_ROUND_UP(n, d)	(((n) + (d) - 1) / (d))
-#define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_LONG)
-#define __BITOPS_WORDS(bits)	(((bits) + BITS_PER_LONG - 1) / BITS_PER_LONG)
+#define DIV_ROUND_UP(n, d)   (((n) + (d)-1) / (d))
+#define BITS_TO_LONGS(nr)    DIV_ROUND_UP(nr, BITS_PER_LONG)
+#define __BITOPS_WORDS(bits) (((bits) + BITS_PER_LONG - 1) / BITS_PER_LONG)
 
-#define DECLARE_BITMAP(name,bits) \
-	unsigned long name[BITS_TO_LONGS(bits)]
+#define DECLARE_BITMAP(name, bits) unsigned long name[BITS_TO_LONGS(bits)]
 
-static inline unsigned long *
-__bitops_word(unsigned long nr, volatile unsigned long *ptr)
+static inline unsigned long *__bitops_word(unsigned long nr, volatile unsigned long *ptr)
 {
 	unsigned long addr;
 
@@ -21,8 +19,7 @@ __bitops_word(unsigned long nr, volatile unsigned long *ptr)
 	return (unsigned long *)addr;
 }
 
-static inline unsigned char *
-__bitops_byte(unsigned long nr, volatile unsigned long *ptr)
+static inline unsigned char *__bitops_byte(unsigned long nr, volatile unsigned long *ptr)
 {
 	return ((unsigned char *)ptr) + ((nr ^ (BITS_PER_LONG - 8)) >> 3);
 }
@@ -33,7 +30,7 @@ static inline void set_bit(unsigned long nr, volatile unsigned long *ptr)
 	unsigned long mask;
 
 	mask = 1UL << (nr & (BITS_PER_LONG - 1));
-	__atomic64_or((long) mask, (long *) addr);
+	__atomic64_or((long)mask, (long *)addr);
 }
 
 static inline void clear_bit(unsigned long nr, volatile unsigned long *ptr)
@@ -42,7 +39,7 @@ static inline void clear_bit(unsigned long nr, volatile unsigned long *ptr)
 	unsigned long mask;
 
 	mask = ~(1UL << (nr & (BITS_PER_LONG - 1)));
-	__atomic64_and((long) mask, (long *) addr);
+	__atomic64_and((long)mask, (long *)addr);
 }
 
 static inline void change_bit(unsigned long nr, volatile unsigned long *ptr)
@@ -51,17 +48,16 @@ static inline void change_bit(unsigned long nr, volatile unsigned long *ptr)
 	unsigned long mask;
 
 	mask = 1UL << (nr & (BITS_PER_LONG - 1));
-	__atomic64_xor((long) mask, (long *) addr);
+	__atomic64_xor((long)mask, (long *)addr);
 }
 
-static inline int
-test_and_set_bit(unsigned long nr, volatile unsigned long *ptr)
+static inline int test_and_set_bit(unsigned long nr, volatile unsigned long *ptr)
 {
 	unsigned long *addr = __bitops_word(nr, ptr);
 	unsigned long old, mask;
 
 	mask = 1UL << (nr & (BITS_PER_LONG - 1));
-	old = __atomic64_or_barrier((long) mask, (long *) addr);
+	old = __atomic64_or_barrier((long)mask, (long *)addr);
 	return (old & mask) != 0;
 }
 
@@ -118,9 +114,8 @@ static inline unsigned long __ffs(unsigned long word)
 
 #define BITMAP_FIRST_WORD_MASK(start) (~0UL << ((start) & (BITS_PER_LONG - 1)))
 
-static inline unsigned long _find_next_bit(const unsigned long *addr,
-				    unsigned long nbits, unsigned long start,
-				    unsigned long invert)
+static inline unsigned long _find_next_bit(const unsigned long *addr, unsigned long nbits, unsigned long start,
+					   unsigned long invert)
 {
 	unsigned long tmp;
 
@@ -143,16 +138,13 @@ static inline unsigned long _find_next_bit(const unsigned long *addr,
 	return min(start + __ffs(tmp), nbits);
 }
 
-static inline unsigned long find_next_bit(const unsigned long *addr,
-					  unsigned long size,
-					  unsigned long offset)
+static inline unsigned long find_next_bit(const unsigned long *addr, unsigned long size, unsigned long offset)
 {
 	return _find_next_bit(addr, size, offset, 0UL);
 }
 
-#define for_each_bit(i, bitmask)				\
-	for (i = find_next_bit(bitmask, sizeof(bitmask), 0);	\
-	     i < sizeof(bitmask);				\
+#define for_each_bit(i, bitmask)                                                  \
+	for (i = find_next_bit(bitmask, sizeof(bitmask), 0); i < sizeof(bitmask); \
 	     i = find_next_bit(bitmask, sizeof(bitmask), i + 1))
 
 #endif /* _S390_BITOPS_H */

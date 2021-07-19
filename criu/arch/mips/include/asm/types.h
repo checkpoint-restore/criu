@@ -12,7 +12,7 @@
 
 #include "images/core.pb-c.h"
 
-#define core_is_compat(core)			false
+#define core_is_compat(core) false
 
 #define CORE_ENTRY__MARCH CORE_ENTRY__MARCH__MIPS
 
@@ -20,11 +20,16 @@
 
 typedef UserMipsRegsEntry UserRegsEntry;
 
-static inline u64 encode_pointer(void *p) { return (u64)p; }
-static inline void *decode_pointer(u64 v) { return (void*)v; }
+static inline u64 encode_pointer(void *p)
+{
+	return (u64)p;
+}
+static inline void *decode_pointer(u64 v)
+{
+	return (void *)v;
+}
 
-
-#define AT_VECTOR_SIZE			44
+#define AT_VECTOR_SIZE 44
 typedef uint64_t auxv_t;
 typedef unsigned long tls_t;
 

@@ -4,9 +4,9 @@
 #include <stdbool.h>
 
 typedef struct {
-	const char	*name;
-	size_t		nr_props;
-	const char	**props;
+	const char *name;
+	size_t nr_props;
+	const char **props;
 } cgp_t;
 
 extern cgp_t cgp_global;

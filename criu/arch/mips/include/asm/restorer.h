@@ -7,14 +7,16 @@
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/asm/sigframe.h>
 
-static inline void restore_tls(tls_t *ptls) {
-	asm volatile(
-		     "move $4, %0				    \n"
-		     "li $2,  "__stringify(__NR_set_thread_area)"  \n"
-		     "syscall					    \n"
+static inline void restore_tls(tls_t *ptls)
+{
+	/* clang-format off */
+	asm volatile("move $4, %0					\n"
+		     "li $2,  " __stringify(__NR_set_thread_area) "	\n"
+		     "syscall						\n"
 		     :
 		     : "r"(*ptls)
-		     : "$4","$2","memory");
+		     : "$4", "$2", "memory");
+	/* clang-format on */
 }
 static inline int arch_compat_rt_sigaction(void *stack, int sig, void *act)
 {
@@ -25,6 +27,7 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 	return -1;
 }
 
+/* clang-format off */
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,      \
 			     thread_args, clone_restore_fn)      \
     asm volatile(						 \
@@ -67,17 +70,22 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 	pr_err("This architecture does not support clone3() with set_tid, yet!\n"); \
 	ret = -1; \
 } while (0)
+/* clang-format on */
 
-#define kdat_compatible_cr()			0
-#define arch_map_vdso(map, compat)		-1
+#define kdat_compatible_cr()	   0
+#define arch_map_vdso(map, compat) -1
 
-static inline void *alloc_compat_syscall_stack(void) { return NULL; }
-static inline void free_compat_syscall_stack(void *stack32) { }
+static inline void *alloc_compat_syscall_stack(void)
+{
+	return NULL;
+}
+static inline void free_compat_syscall_stack(void *stack32)
+{
+}
 int restore_gpregs(struct rt_sigframe *f, UserMipsRegsEntry *r);
 int restore_nonsigframe_gpregs(UserMipsRegsEntry *r);
 
 #define ARCH_HAS_SHMAT_HOOK
-unsigned long arch_shmat(int shmid, void *shmaddr,
-			int shmflg, unsigned long size);
+unsigned long arch_shmat(int shmid, void *shmaddr, int shmflg, unsigned long size);
 
 #endif

@@ -11,23 +11,24 @@
 
 /* scan-build complains about derefencing a NULL pointer here. */
 #ifndef __clang_analyzer__
-#define LOCK_BUG_ON(condition)							\
-	if ((condition))							\
-		*(volatile unsigned long *)NULL = 0xdead0000 + __LINE__
-#define LOCK_BUG()	LOCK_BUG_ON(1)
+#define LOCK_BUG_ON(condition) \
+	if ((condition))       \
+	*(volatile unsigned long *)NULL = 0xdead0000 + __LINE__
+#define LOCK_BUG() LOCK_BUG_ON(1)
 #endif /* __clang_analyzer__ */
 
 #ifdef CR_NOGLIBC
-# include <compel/plugins/std/syscall.h>
+#include <compel/plugins/std/syscall.h>
 #else
-# include <unistd.h>
-# include <sys/syscall.h>
-static inline long sys_futex (uint32_t *addr1, int op, uint32_t val1,
-			      struct timespec *timeout, uint32_t *addr2, uint32_t val3)
+#include <unistd.h>
+#include <sys/syscall.h>
+static inline long sys_futex(uint32_t *addr1, int op, uint32_t val1, struct timespec *timeout, uint32_t *addr2,
+			     uint32_t val3)
 {
-       int rc = syscall(SYS_futex, addr1, op, val1, timeout, addr2, val3);
-       if (rc == -1) rc = -errno;
-       return rc;
+	int rc = syscall(SYS_futex, addr1, op, val1, timeout, addr2, val3);
+	if (rc == -1)
+		rc = -errno;
+	return rc;
 }
 #endif
 
@@ -35,8 +36,8 @@ typedef struct {
 	atomic_t raw;
 } __aligned(sizeof(int)) futex_t;
 
-#define FUTEX_ABORT_FLAG	(0x80000000)
-#define FUTEX_ABORT_RAW		(-1U)
+#define FUTEX_ABORT_FLAG (0x80000000)
+#define FUTEX_ABORT_RAW	 (-1U)
 
 /* Get current futex @f value */
 static inline uint32_t futex_get(futex_t *f)
@@ -50,29 +51,27 @@ static inline void futex_set(futex_t *f, uint32_t v)
 	atomic_set(&f->raw, (int)v);
 }
 
-#define futex_init(f)	futex_set(f, 0)
+#define futex_init(f) futex_set(f, 0)
 
 /* Wait on futex @__f value @__v become in condition @__c */
-#define futex_wait_if_cond(__f, __v, __cond)			\
-	do {							\
-		int ret;					\
-		uint32_t tmp;					\
-								\
-		while (1) {					\
-			struct timespec to = {.tv_sec = 120};	\
-			tmp = futex_get(__f);			\
-			if ((tmp & FUTEX_ABORT_FLAG) ||		\
-			    (tmp __cond (__v)))			\
-				break;				\
-			ret = sys_futex((uint32_t *)&(__f)->raw.counter, FUTEX_WAIT,\
-					tmp, &to, NULL, 0);	\
-			if (ret == -ETIMEDOUT)			\
-				continue;			\
-			if (ret == -EINTR || ret == -EWOULDBLOCK) \
-				continue;			\
-			if (ret < 0)				\
-				LOCK_BUG();			\
-		}						\
+#define futex_wait_if_cond(__f, __v, __cond)                                                             \
+	do {                                                                                             \
+		int ret;                                                                                 \
+		uint32_t tmp;                                                                            \
+                                                                                                         \
+		while (1) {                                                                              \
+			struct timespec to = { .tv_sec = 120 };                                          \
+			tmp = futex_get(__f);                                                            \
+			if ((tmp & FUTEX_ABORT_FLAG) || (tmp __cond(__v)))                               \
+				break;                                                                   \
+			ret = sys_futex((uint32_t *)&(__f)->raw.counter, FUTEX_WAIT, tmp, &to, NULL, 0); \
+			if (ret == -ETIMEDOUT)                                                           \
+				continue;                                                                \
+			if (ret == -EINTR || ret == -EWOULDBLOCK)                                        \
+				continue;                                                                \
+			if (ret < 0)                                                                     \
+				LOCK_BUG();                                                              \
+		}                                                                                        \
 	} while (0)
 
 /* Set futex @f to @v and wake up all waiters */
@@ -110,10 +109,16 @@ static inline void futex_inc_and_wake(futex_t *f)
 }
 
 /* Plain increment futex @f value */
-static inline void futex_inc(futex_t *f) { atomic_inc(&f->raw); }
+static inline void futex_inc(futex_t *f)
+{
+	atomic_inc(&f->raw);
+}
 
 /* Plain decrement futex @f value */
-static inline void futex_dec(futex_t *f) { atomic_dec(&f->raw); }
+static inline void futex_dec(futex_t *f)
+{
+	atomic_dec(&f->raw);
+}
 
 /* Wait until futex @f value become @v */
 #define futex_wait_until(f, v) futex_wait_if_cond(f, v, ==)
@@ -137,7 +142,7 @@ static inline void futex_wait_while(futex_t *f, uint32_t v)
 }
 
 typedef struct {
-	atomic_t	raw;
+	atomic_t raw;
 } mutex_t;
 
 static inline void mutex_init(mutex_t *m)

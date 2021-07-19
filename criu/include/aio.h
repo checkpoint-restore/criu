@@ -13,18 +13,18 @@ struct task_restore_args;
 int prepare_aios(struct pstree_item *t, struct task_restore_args *ta);
 
 struct aio_ring {
-	unsigned	id;	/* kernel internal index number */
-	unsigned	nr;	/* number of io_events */
-	unsigned	head;	/* Written to by userland or under ring_lock
+	unsigned id; /* kernel internal index number */
+	unsigned nr; /* number of io_events */
+	unsigned head; /* Written to by userland or under ring_lock
 				 * mutex by aio_read_events_ring(). */
-	unsigned	tail;
+	unsigned tail;
 
-	unsigned	magic;
-	unsigned	compat_features;
-	unsigned	incompat_features;
-	unsigned	header_length;  /* size of aio_ring */
+	unsigned magic;
+	unsigned compat_features;
+	unsigned incompat_features;
+	unsigned header_length; /* size of aio_ring */
 
-	struct io_event		io_events[0];
+	struct io_event io_events[0];
 };
 
 struct rst_aio_ring {

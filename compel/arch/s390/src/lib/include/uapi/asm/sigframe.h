@@ -36,14 +36,14 @@ typedef struct {
  * From /usr/include/uapi/asm/ucontext.h
  */
 struct ucontext_extended {
-	unsigned long     uc_flags;
-	ucontext_t       *uc_link;
-	stack_t           uc_stack;
-	_sigregs          uc_mcontext;
-	sigset_t          uc_sigmask;
+	unsigned long uc_flags;
+	ucontext_t *uc_link;
+	stack_t uc_stack;
+	_sigregs uc_mcontext;
+	sigset_t uc_sigmask;
 	/* Allow for uc_sigmask growth.  Glibc uses a 1024-bit sigset_t.  */
-	unsigned char     __unused[128 - sizeof(sigset_t)];
-	_sigregs_ext      uc_mcontext_ext;
+	unsigned char __unused[128 - sizeof(sigset_t)];
+	_sigregs_ext uc_mcontext_ext;
 };
 
 /*
@@ -59,6 +59,7 @@ struct rt_sigframe {
 /*
  * Do rt_sigreturn SVC
  */
+/* clang-format off */
 #define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)			\
 	asm volatile(						\
 		"lgr	%%r15,%0\n"				\
@@ -67,14 +68,13 @@ struct rt_sigframe {
 		:						\
 		: "d" (new_sp)					\
 		: "memory")
+/* clang-format on */
 
-#define RT_SIGFRAME_UC(rt_sigframe) (&rt_sigframe->uc)
-#define RT_SIGFRAME_REGIP(rt_sigframe) (rt_sigframe)->uc.uc_mcontext.regs.psw.addr
-#define RT_SIGFRAME_HAS_FPU(rt_sigframe)	(1)
+#define RT_SIGFRAME_UC(rt_sigframe)	 (&rt_sigframe->uc)
+#define RT_SIGFRAME_REGIP(rt_sigframe)	 (rt_sigframe)->uc.uc_mcontext.regs.psw.addr
+#define RT_SIGFRAME_HAS_FPU(rt_sigframe) (1)
 
-#define rt_sigframe_erase_sigset(sigframe)				\
-	memset(&sigframe->uc.uc_sigmask, 0, sizeof(k_rtsigset_t))
-#define rt_sigframe_copy_sigset(sigframe, from)				\
-	memcpy(&sigframe->uc.uc_sigmask, from, sizeof(k_rtsigset_t))
+#define rt_sigframe_erase_sigset(sigframe)	memset(&sigframe->uc.uc_sigmask, 0, sizeof(k_rtsigset_t))
+#define rt_sigframe_copy_sigset(sigframe, from) memcpy(&sigframe->uc.uc_sigmask, from, sizeof(k_rtsigset_t))
 
 #endif /* UAPI_COMPEL_ASM_SIGFRAME_H__ */

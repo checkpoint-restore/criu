@@ -35,7 +35,6 @@ char *cut_root_for_bind(char *target_root, char *source_root);
  * Get a mount point for a sibling of m if m->parent and p are in the same
  * shared group.
  */
-char *mnt_get_sibling_path(struct mount_info *m,
-			   struct mount_info *p, char *buf, int len);
+char *mnt_get_sibling_path(struct mount_info *m, struct mount_info *p, char *buf, int len);
 
 #endif
