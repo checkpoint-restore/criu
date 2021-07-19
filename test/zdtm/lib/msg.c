@@ -50,8 +50,7 @@ void test_msg(const char *format, ...)
 	gettimeofday(&tv, NULL);
 	tm = localtime(&tv.tv_sec);
 	if (tm == NULL) {
-		fprintf(stderr, "ERROR in %s: localtime() failed: %m\n",
-				__func__);
+		fprintf(stderr, "ERROR in %s: localtime() failed: %m\n", __func__);
 	} else {
 		off += strftime(buf, sizeof(buf), "%H:%M:%S", tm);
 	}

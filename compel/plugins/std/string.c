@@ -100,18 +100,11 @@ void std_vdprintf(int fd, const char *format, va_list args)
 			std_dputs(fd, va_arg(args, char *));
 			break;
 		case 'd':
-			__std_vprint_long(buf, sizeof(buf),
-					  along ?
-					  va_arg(args, long) :
-					  (long)va_arg(args, int),
-					  &t);
+			__std_vprint_long(buf, sizeof(buf), along ? va_arg(args, long) : (long)va_arg(args, int), &t);
 			std_dputs(fd, t);
 			break;
 		case 'x':
-			__std_vprint_long_hex(buf, sizeof(buf),
-					      along ?
-					      va_arg(args, long) :
-					      (long)va_arg(args, int),
+			__std_vprint_long_hex(buf, sizeof(buf), along ? va_arg(args, long) : (long)va_arg(args, int),
 					      &t);
 			std_dputs(fd, t);
 			break;
@@ -130,9 +123,7 @@ void std_dprintf(int fd, const char *format, ...)
 
 static inline bool __isspace(unsigned char c)
 {
-	return	c == ' '  || c == '\f' ||
-		c == '\n' || c == '\r' ||
-		c == '\t' || c == '\v';
+	return c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v';
 }
 
 static unsigned char __tolower(unsigned char c)
@@ -142,8 +133,7 @@ static unsigned char __tolower(unsigned char c)
 
 static inline bool __isalpha(unsigned char c)
 {
-	return ((c <= 'Z' && c >= 'A') ||
-		(c <= 'z' && c >= 'a'));
+	return ((c <= 'Z' && c >= 'A') || (c <= 'z' && c >= 'a'));
 }
 
 static inline bool __isdigit(unsigned char c)
@@ -208,7 +198,7 @@ unsigned long std_strtoul(const char *nptr, char **endptr, int base)
 		if (__isspace(*s))
 			continue;
 		if (!__isalnum(*s))
-		    goto fin;
+			goto fin;
 		v = __conv_val(*s);
 		if (v == -1u || v > base)
 			goto fin;
@@ -221,7 +211,6 @@ fin:
 		*endptr = (char *)s;
 	return neg ? (unsigned long)-num : (unsigned long)num;
 }
-
 
 /*
  * C compiler is free to insert implicit calls to memcmp, memset,
@@ -267,7 +256,7 @@ void *memset(void *s, const int c, size_t count)
 	size_t i = 0;
 
 	while (i < count)
-		dest[i++] = (char) c;
+		dest[i++] = (char)c;
 
 	return s;
 }

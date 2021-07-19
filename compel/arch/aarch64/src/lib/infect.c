@@ -18,12 +18,11 @@ unsigned __page_shift = 0;
  * Injected syscall instruction
  */
 const char code_syscall[] = {
-	0x01, 0x00, 0x00, 0xd4,		/* SVC #0 */
-	0x00, 0x00, 0x20, 0xd4		/* BRK #0 */
+	0x01, 0x00, 0x00, 0xd4, /* SVC #0 */
+	0x00, 0x00, 0x20, 0xd4 /* BRK #0 */
 };
 
-static const int
-code_syscall_aligned = round_up(sizeof(code_syscall), sizeof(long));
+static const int code_syscall_aligned = round_up(sizeof(code_syscall), sizeof(long));
 
 static inline void __always_unused __check_code_syscall(void)
 {
@@ -31,17 +30,15 @@ static inline void __always_unused __check_code_syscall(void)
 	BUILD_BUG_ON(!is_log2(sizeof(code_syscall)));
 }
 
-int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
-			      user_regs_struct_t *regs,
-			      user_fpregs_struct_t *fpregs)
+int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	struct fpsimd_context *fpsimd = RT_SIGFRAME_FPU(sigframe);
 
 	memcpy(sigframe->uc.uc_mcontext.regs, regs->regs, sizeof(regs->regs));
 
-	sigframe->uc.uc_mcontext.sp	= regs->sp;
-	sigframe->uc.uc_mcontext.pc	= regs->pc;
-	sigframe->uc.uc_mcontext.pstate	= regs->pstate;
+	sigframe->uc.uc_mcontext.sp = regs->sp;
+	sigframe->uc.uc_mcontext.pc = regs->pc;
+	sigframe->uc.uc_mcontext.pstate = regs->pstate;
 
 	memcpy(fpsimd->vregs, fpregs->vregs, 32 * sizeof(__uint128_t));
 
@@ -54,15 +51,13 @@ int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
 	return 0;
 }
 
-int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
-				   struct rt_sigframe *rsigframe)
+int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe, struct rt_sigframe *rsigframe)
 {
 	return 0;
 }
 
-int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
-		  user_fpregs_struct_t *ext_regs, save_regs_t save,
-		  void *arg, __maybe_unused unsigned long flags)
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *ext_regs, save_regs_t save,
+			 void *arg, __maybe_unused unsigned long flags)
 {
 	user_fpregs_struct_t tmp, *fpsimd = ext_regs ? ext_regs : &tmp;
 	struct iovec iov;
@@ -104,13 +99,8 @@ int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
 	return 0;
 }
 
-int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
-					unsigned long arg1,
-					unsigned long arg2,
-					unsigned long arg3,
-					unsigned long arg4,
-					unsigned long arg5,
-					unsigned long arg6)
+int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret, unsigned long arg1, unsigned long arg2,
+		   unsigned long arg3, unsigned long arg4, unsigned long arg5, unsigned long arg6)
 {
 	user_regs_struct_t regs = ctl->orig.regs;
 	int err;
@@ -131,15 +121,12 @@ int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 	return err;
 }
 
-void *remote_mmap(struct parasite_ctl *ctl,
-		void *addr, size_t length, int prot,
-		int flags, int fd, off_t offset)
+void *remote_mmap(struct parasite_ctl *ctl, void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
 	long map;
 	int err;
 
-	err = compel_syscall(ctl, __NR_mmap, &map,
-			(unsigned long)addr, length, prot, flags, fd, offset);
+	err = compel_syscall(ctl, __NR_mmap, &map, (unsigned long)addr, length, prot, flags, fd, offset);
 	if (err < 0 || (long)map < 0)
 		map = 0;
 
@@ -166,9 +153,7 @@ int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
 	long ret;
 	int err;
 
-	err = compel_syscall(ctl, __NR_sigaltstack,
-			     &ret, 0, (unsigned long)&s->uc.uc_stack,
-			     0, 0, 0, 0);
+	err = compel_syscall(ctl, __NR_sigaltstack, &ret, 0, (unsigned long)&s->uc.uc_stack, 0, 0, 0, 0);
 	return err ? err : ret;
 }
 
@@ -191,4 +176,3 @@ unsigned long compel_task_size(void)
 			break;
 	return task_size;
 }
-

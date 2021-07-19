@@ -20,19 +20,19 @@
 #include "log.h"
 #include "common/bug.h"
 
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "timerfd: "
 
 struct timerfd_dump_arg {
-	u32			id;
-	const struct fd_parms	*p;
+	u32 id;
+	const struct fd_parms *p;
 };
 
 struct timerfd_info {
-	TimerfdEntry		*tfe;
-	struct file_desc	d;
-	int			t_fd;
-	struct list_head	rlist;
+	TimerfdEntry *tfe;
+	struct file_desc d;
+	int t_fd;
+	struct list_head rlist;
 };
 
 static LIST_HEAD(rst_timerfds);
@@ -75,9 +75,9 @@ static int dump_one_timerfd(int lfd, u32 id, const struct fd_parms *p)
 	tfe.id = id;
 	tfe.flags = p->flags;
 	tfe.fown = (FownEntry *)&p->fown;
-	pr_info("Dumping id %#x clockid %d it_value(%llu, %llu) it_interval(%llu, %llu)\n",
-		tfe.id, tfe.clockid, (unsigned long long)tfe.vsec, (unsigned long long)tfe.vnsec,
-		(unsigned long long)tfe.isec, (unsigned long long)tfe.insec);
+	pr_info("Dumping id %#x clockid %d it_value(%llu, %llu) it_interval(%llu, %llu)\n", tfe.id, tfe.clockid,
+		(unsigned long long)tfe.vsec, (unsigned long long)tfe.vnsec, (unsigned long long)tfe.isec,
+		(unsigned long long)tfe.insec);
 
 	fe.type = FD_TYPES__TIMERFD;
 	fe.id = tfe.id;
@@ -87,8 +87,8 @@ static int dump_one_timerfd(int lfd, u32 id, const struct fd_parms *p)
 }
 
 const struct fdtype_ops timerfd_dump_ops = {
-	.type		= FD_TYPES__TIMERFD,
-	.dump		= dump_one_timerfd,
+	.type = FD_TYPES__TIMERFD,
+	.dump = dump_one_timerfd,
 };
 
 int prepare_timerfds(struct task_restore_args *ta)
@@ -106,15 +106,15 @@ int prepare_timerfds(struct task_restore_args *ta)
 		if (!t)
 			return -1;
 
-		t->id				= tfe->id;
-		t->fd				= ti->t_fd;
-		t->clockid			= tfe->clockid;
-		t->ticks			= (unsigned long)tfe->ticks;
-		t->settime_flags		= tfe->settime_flags;
-		t->val.it_interval.tv_sec	= (time_t)tfe->isec;
-		t->val.it_interval.tv_nsec	= (long)tfe->insec;
-		t->val.it_value.tv_sec		= (time_t)tfe->vsec;
-		t->val.it_value.tv_nsec		= (long)tfe->vnsec;
+		t->id = tfe->id;
+		t->fd = ti->t_fd;
+		t->clockid = tfe->clockid;
+		t->ticks = (unsigned long)tfe->ticks;
+		t->settime_flags = tfe->settime_flags;
+		t->val.it_interval.tv_sec = (time_t)tfe->isec;
+		t->val.it_interval.tv_nsec = (long)tfe->insec;
+		t->val.it_value.tv_sec = (time_t)tfe->vsec;
+		t->val.it_value.tv_nsec = (long)tfe->vnsec;
 
 		ta->timerfd_n++;
 	}
@@ -133,8 +133,8 @@ static int timerfd_open(struct file_desc *d, int *new_fd)
 	pr_info("Creating timerfd id %#x clockid %d settime_flags %x ticks %llu "
 		"it_value(%llu, %llu) it_interval(%llu, %llu)\n",
 		tfe->id, tfe->clockid, tfe->settime_flags, (unsigned long long)tfe->ticks,
-		(unsigned long long)tfe->vsec, (unsigned long long)tfe->vnsec,
-		(unsigned long long)tfe->isec, (unsigned long long)tfe->insec);
+		(unsigned long long)tfe->vsec, (unsigned long long)tfe->vnsec, (unsigned long long)tfe->isec,
+		(unsigned long long)tfe->insec);
 
 	tmp = timerfd_create(tfe->clockid, 0);
 	if (tmp < 0) {
@@ -159,8 +159,8 @@ err_close:
 }
 
 static struct file_desc_ops timerfd_desc_ops = {
-	.type		= FD_TYPES__TIMERFD,
-	.open		= timerfd_open,
+	.type = FD_TYPES__TIMERFD,
+	.open = timerfd_open,
 };
 
 static int collect_one_timerfd(void *o, ProtobufCMessage *msg, struct cr_img *i)
@@ -179,8 +179,8 @@ static int collect_one_timerfd(void *o, ProtobufCMessage *msg, struct cr_img *i)
 }
 
 struct collect_image_info timerfd_cinfo = {
-	.fd_type	= CR_FD_TIMERFD,
-	.pb_type	= PB_TIMERFD,
-	.priv_size	= sizeof(struct timerfd_info),
-	.collect	= collect_one_timerfd,
+	.fd_type = CR_FD_TIMERFD,
+	.pb_type = PB_TIMERFD,
+	.priv_size = sizeof(struct timerfd_info),
+	.collect = collect_one_timerfd,
 };

@@ -13,14 +13,14 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc="Tests detached shmems migrate fine";
-const char *test_author="Stanislav Kinsbursky <skinsbursky@parallels.com>";
+const char *test_doc = "Tests detached shmems migrate fine";
+const char *test_author = "Stanislav Kinsbursky <skinsbursky@parallels.com>";
 
-#define DEF_MEM_SIZE	(40960)
+#define DEF_MEM_SIZE (40960)
 unsigned int shmem_size = DEF_MEM_SIZE;
 TEST_OPTION(shmem_size, uint, "Size of shared memory segment", 0);
 
-#define INIT_CRC	(~0)
+#define INIT_CRC (~0)
 
 static int fill_shm_seg(int id, size_t size)
 {

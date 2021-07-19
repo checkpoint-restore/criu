@@ -15,8 +15,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test unix stream sockets with relative name\n";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
+const char *test_doc = "Test unix stream sockets with relative name\n";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org";
 
 #define SK_DATA "packet"
 
@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ret = bind(sock[0], (struct sockaddr *) &addr, addrlen);
+	ret = bind(sock[0], (struct sockaddr *)&addr, addrlen);
 	if (ret) {
 		fail("bind");
 		exit(1);
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 	test_daemon();
 	test_waitsig();
 
-	if (connect(sock[1], (struct sockaddr *) &addr, addrlen)) {
+	if (connect(sock[1], (struct sockaddr *)&addr, addrlen)) {
 		fail("connect");
 		exit(1);
 	}

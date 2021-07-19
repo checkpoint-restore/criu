@@ -17,7 +17,7 @@
 #define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
 #endif
 
-const char *test_doc	= "Open, unlink, change size, seek, migrate, check size";
+const char *test_doc = "Open, unlink, change size, seek, migrate, check size";
 
 #ifdef UNLINK_FSTAT04
 char *dirname;
@@ -27,10 +27,10 @@ char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 #endif
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fd;
-	size_t fsize=1000;
+	size_t fsize = 1000;
 	mode_t mode;
 	uid_t uid;
 	gid_t gid;
@@ -125,14 +125,12 @@ int main(int argc, char ** argv)
 
 	/* Check file size */
 	if (fst.st_size != fsize) {
-		fail("(via fstat): file size changed to %ld",
-				(long)fst.st_size);
+		fail("(via fstat): file size changed to %ld", (long)fst.st_size);
 		goto failed;
 	}
 	fst.st_size = lseek(fd, 0, SEEK_END);
 	if (fst.st_size != fsize) {
-		fail("(via lseek): file size changed to %ld",
-				(long)fst.st_size);
+		fail("(via lseek): file size changed to %ld", (long)fst.st_size);
 		goto failed;
 	}
 	/* Check mode */
@@ -142,8 +140,7 @@ int main(int argc, char ** argv)
 	}
 	/* Check uid, gid */
 	if (fst.st_uid != uid || fst.st_gid != gid) {
-		fail("u(g)id changed: uid=%d(%d), gid=%d(%d)",
-				fst.st_uid, uid, fst.st_gid, gid);
+		fail("u(g)id changed: uid=%d(%d), gid=%d(%d)", fst.st_uid, uid, fst.st_gid, gid);
 		goto failed;
 	}
 

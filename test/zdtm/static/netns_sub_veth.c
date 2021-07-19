@@ -20,12 +20,12 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check dump and restore a few network namespaces";
+const char *test_doc = "Check dump and restore a few network namespaces";
 
 #ifndef NSIO
-#define NSIO    0xb7
-#define NS_GET_USERNS   _IO(NSIO, 0x1)
-#define NS_GET_PARENT   _IO(NSIO, 0x2)
+#define NSIO	      0xb7
+#define NS_GET_USERNS _IO(NSIO, 0x1)
+#define NS_GET_PARENT _IO(NSIO, 0x2)
 #endif
 
 int main(int argc, char **argv)
@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 	task_waiter_t lock;
 	pid_t pid[2];
 	int status = -1, ret, i;
-        struct rtnl_link *link = NULL, *new;
+	struct rtnl_link *link = NULL, *new;
 	struct nl_sock *sk;
 	int has_index = 1;
 
@@ -77,11 +77,13 @@ int main(int argc, char **argv)
 	for (i = 0; i < 2; i++) {
 		char cmd[4096];
 
-		snprintf(cmd, sizeof(cmd), "ip link add name zdtm%d index %d netns %d type veth peer name zdtm%d index %d",
-				i, i * 10 + 12, pid[i], i, i * 10 + 12);
+		snprintf(cmd, sizeof(cmd),
+			 "ip link add name zdtm%d index %d netns %d type veth peer name zdtm%d index %d", i,
+			 i * 10 + 12, pid[i], i, i * 10 + 12);
 		if (system(cmd)) {
 			has_index = 0;
-			snprintf(cmd, sizeof(cmd), "ip link add name zdtm%d netns %d type veth peer name zdtm%d", i, pid[i], i);
+			snprintf(cmd, sizeof(cmd), "ip link add name zdtm%d netns %d type veth peer name zdtm%d", i,
+				 pid[i], i);
 			if (system(cmd))
 				return 1;
 		}

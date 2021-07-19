@@ -15,12 +15,12 @@
 #define MAP_SIZE (1UL << 20)
 #define MEM_SIZE (1UL << 29)
 
-const char *test_doc	= "create random mappings and touch memory";
+const char *test_doc = "create random mappings and touch memory";
 
 int sys_process_vm_readv(pid_t pid, void *addr, void *buf, int size)
 {
-	struct iovec lvec = {.iov_base = buf, .iov_len = size };
-	struct iovec rvec = {.iov_base = addr, .iov_len = size };
+	struct iovec lvec = { .iov_base = buf, .iov_len = size };
+	struct iovec rvec = { .iov_base = addr, .iov_len = size };
 	/* workaround bug in glibc with sixth argument of syscall */
 	char nop[PAGE_SIZE];
 
@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 	struct {
 		futex_t delta;
 		futex_t stop;
-	} *shm;
+	} * shm;
 	uint32_t v;
 	unsigned long long count = 0;
 	int i;
@@ -84,8 +84,7 @@ int main(int argc, char **argv)
 				/* shm->delta must be always bigger than MAX_DELTA */
 				futex_wait_while_lt(&shm->delta, MAX_DELTA + 2);
 			else if (count % 100 == 0)
-				test_msg("count %llu delta %d\n",
-						count, futex_get(&shm->delta)); /* heartbeat */
+				test_msg("count %llu delta %d\n", count, futex_get(&shm->delta)); /* heartbeat */
 
 			if (futex_get(&shm->stop) && atomic_get(&shm->delta.raw) == MAX_DELTA)
 				break;
@@ -173,6 +172,6 @@ int main(int argc, char **argv)
 	return 0;
 err:
 	kill(child, SIGSEGV);
-	*((volatile int *) 0) = 0;
+	*((volatile int *)0) = 0;
 	return 1;
 }

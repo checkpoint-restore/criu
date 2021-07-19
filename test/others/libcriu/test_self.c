@@ -9,8 +9,8 @@
 #include <sys/wait.h>
 #include "lib.h"
 
-#define SUCC_DUMP_ECODE	41
-#define SUCC_RSTR_ECODE	43
+#define SUCC_DUMP_ECODE 41
+#define SUCC_RSTR_ECODE 43
 
 int main(int argc, char *argv[])
 {
@@ -105,5 +105,4 @@ errk:
 	kill(pid, SIGKILL);
 err:
 	return 1;
-
 }

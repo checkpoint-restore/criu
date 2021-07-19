@@ -4,8 +4,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that environment didn't change";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that environment didn't change";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 char *envname;
 TEST_OPTION(envname, string, "environment variable name", 1);

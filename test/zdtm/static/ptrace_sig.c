@@ -7,8 +7,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check ptrace, if the child process's stopped by signal";
-const char *test_author	= "Andrey Vagin <avagin@parallels.com>";
+const char *test_doc = "Check ptrace, if the child process's stopped by signal";
+const char *test_author = "Andrey Vagin <avagin@parallels.com>";
 
 typedef void (*sighandler_t)(int);
 
@@ -55,7 +55,7 @@ int child(int fd)
 	return 0;
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int ret, status = 0;
 	pid_t pid, spid, cpid;
@@ -82,7 +82,7 @@ int main(int argc, char ** argv)
 	close(child_pipe[1]);
 	test_msg("wait while child initialized");
 	ret = read(child_pipe[0], &status, sizeof(status));
-	if  (ret != sizeof(status)) {
+	if (ret != sizeof(status)) {
 		pr_perror("read from child process failed");
 		return 1;
 	}
@@ -122,7 +122,6 @@ int main(int argc, char ** argv)
 		}
 
 		if (WIFSTOPPED(status)) {
-
 			test_msg("pid=%d stopsig=%d\n", pid, WSTOPSIG(status));
 
 			ret = ptrace(PTRACE_GETSIGINFO, pid, 0, &siginfo);
@@ -137,7 +136,7 @@ int main(int argc, char ** argv)
 				pr_perror("ptrace failed");
 
 			ret = read(child_pipe[0], &status, sizeof(status));
-			if  (ret != sizeof(status)) {
+			if (ret != sizeof(status)) {
 				pr_perror("read");
 				return 1;
 			}

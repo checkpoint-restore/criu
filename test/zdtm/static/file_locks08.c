@@ -7,12 +7,11 @@
 #include "ofd_file_locks.h"
 #include "zdtmtst.h"
 
-const char *test_doc    = "Check that inherited OFD locks work";
+const char *test_doc = "Check that inherited OFD locks work";
 const char *test_author = "Begunkov Pavel <asml.silence@gmail.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
-
 
 int init_file_lock(int *fd, struct flock *lck)
 {
@@ -62,8 +61,7 @@ int main(int argc, char **argv)
 	pid = fork();
 	if (pid == 0) {
 		task_waiter_wait4(&tw, getppid());
-		if (check_file_lock_restored(getpid(), fd, &lck) ||
-			check_lock_exists(filename, &lck) < 0)
+		if (check_file_lock_restored(getpid(), fd, &lck) || check_lock_exists(filename, &lck) < 0)
 			ret = -1;
 		exit(ret);
 	}
@@ -73,8 +71,7 @@ int main(int argc, char **argv)
 
 	task_waiter_complete_current(&tw);
 
-	if (check_file_lock_restored(getpid(), fd, &lck) ||
-		check_lock_exists(filename, &lck) < 0)
+	if (check_file_lock_restored(getpid(), fd, &lck) || check_lock_exists(filename, &lck) < 0)
 		fail("OFD file locks check failed");
 
 	kill(pid, SIGTERM);

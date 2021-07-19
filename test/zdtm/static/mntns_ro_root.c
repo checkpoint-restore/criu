@@ -14,12 +14,11 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check a case when a root is read-only for a sub-mntns";
-const char *test_author	= "Andrew Vagin <avagin@parallels.com>";
+const char *test_doc = "Check a case when a root is read-only for a sub-mntns";
+const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
-
 
 int main(int argc, char **argv)
 {

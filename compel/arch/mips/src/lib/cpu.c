@@ -6,22 +6,27 @@
 #include "common/compiler.h"
 #include "log.h"
 
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "cpu: "
 
 static compel_cpuinfo_t rt_info;
 static bool rt_info_done = false;
 
-void compel_set_cpu_cap(compel_cpuinfo_t *c, unsigned int feature){ }
+void compel_set_cpu_cap(compel_cpuinfo_t *c, unsigned int feature)
+{
+}
 
-void compel_clear_cpu_cap(compel_cpuinfo_t *c, unsigned int feature){ }
+void compel_clear_cpu_cap(compel_cpuinfo_t *c, unsigned int feature)
+{
+}
 
 int compel_test_cpu_cap(compel_cpuinfo_t *c, unsigned int feature)
 {
 	return 0;
 }
 
-int compel_cpuid(compel_cpuinfo_t *c){
+int compel_cpuid(compel_cpuinfo_t *c)
+{
 	return 0;
 }
 

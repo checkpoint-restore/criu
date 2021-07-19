@@ -89,9 +89,7 @@ int main(int argc, char **argv)
 
 	act.sa_sigaction = break_sigaction;
 	act.sa_flags = SA_SIGINFO;
-	if (sigemptyset(&act.sa_mask) ||
-		sigaddset(&act.sa_mask, BREAK_SIGNUM) ||
-		sigaction(BREAK_SIGNUM, &act, NULL)) {
+	if (sigemptyset(&act.sa_mask) || sigaddset(&act.sa_mask, BREAK_SIGNUM) || sigaction(BREAK_SIGNUM, &act, NULL)) {
 		pr_perror("Can't set signal action");
 		return -1;
 	}
@@ -129,4 +127,3 @@ done:
 	unlink(filename);
 	return ret;
 }
-

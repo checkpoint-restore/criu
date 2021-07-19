@@ -17,8 +17,7 @@ int restore_nonsigframe_gpregs(UserMipsRegsEntry *r)
 }
 
 #define SHMLBA 0x40000
-unsigned long arch_shmat(int shmid, void *shmaddr,
-			int shmflg, unsigned long size)
+unsigned long arch_shmat(int shmid, void *shmaddr, int shmflg, unsigned long size)
 {
 	unsigned long smap;
 
@@ -36,13 +35,12 @@ unsigned long arch_shmat(int shmid, void *shmaddr,
 	if (smap == (unsigned long)shmaddr)
 		return smap;
 
-	 /* Warn ALOUD */
+	/* Warn ALOUD */
 	pr_warn("Restoring shmem %p unaligned to SHMLBA.\n", shmaddr);
 	pr_warn("Make sure that you don't migrate shmem from non-VIPT cached CPU to VIPT cached \n");
 	pr_warn("Otherwise YOU HAVE A CHANCE OF DATA CORRUPTIONS in writeable shmem\n");
 
-	smap = sys_mremap(smap, size, size,
-			MREMAP_FIXED | MREMAP_MAYMOVE, (unsigned long)shmaddr);
+	smap = sys_mremap(smap, size, size, MREMAP_FIXED | MREMAP_MAYMOVE, (unsigned long)shmaddr);
 	if (IS_ERR_VALUE(smap))
 		pr_err("mremap() for shmem failed: %d\n", (int)smap);
 	return smap;

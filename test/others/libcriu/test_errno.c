@@ -90,7 +90,6 @@ err:
 	if (f)
 		fclose(f);
 	return -1;
-
 }
 
 static int process_exists(void)

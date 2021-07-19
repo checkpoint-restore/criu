@@ -131,7 +131,7 @@ int parse_statement(int i, char *line, char **configuration)
 			/* We got "" as value */
 			configuration[i] = xstrdup("");
 			if (unlikely(!configuration[i])) {
-				xfree(configuration[i -1]);
+				xfree(configuration[i - 1]);
 				return -1;
 			}
 			offset = 0;
@@ -152,7 +152,7 @@ int parse_statement(int i, char *line, char **configuration)
 			found_second_quote = true;
 			configuration[i] = xzalloc(quote_offset - offset + 1);
 			if (unlikely(!configuration[i])) {
-				xfree(configuration[i -1]);
+				xfree(configuration[i - 1]);
 				return -1;
 			}
 			memcpy(configuration[i], quote_start, quote_offset - offset);
@@ -185,7 +185,7 @@ int parse_statement(int i, char *line, char **configuration)
 	} else {
 		/* Does not start with a quote. */
 		if (unlikely(asprintf(&configuration[i], "%s", input + offset) == -1)) {
-			xfree(configuration[i -1]);
+			xfree(configuration[i - 1]);
 			return -1;
 		}
 
@@ -249,10 +249,10 @@ out:
 }
 
 /* Parse a configuration file */
-static char ** parse_config(char *filepath)
+static char **parse_config(char *filepath)
 {
-#define DEFAULT_CONFIG_SIZE	10
-	FILE* configfile = fopen(filepath, "r");
+#define DEFAULT_CONFIG_SIZE 10
+	FILE *configfile = fopen(filepath, "r");
 	int config_size = DEFAULT_CONFIG_SIZE;
 	int i = 1;
 	size_t line_size = 0;
@@ -315,8 +315,7 @@ static char ** parse_config(char *filepath)
 	return configuration;
 }
 
-static int next_config(char **argv, char ***_argv, bool no_default_config,
-		int state, char *cfg_file)
+static int next_config(char **argv, char ***_argv, bool no_default_config, int state, char *cfg_file)
 {
 	char local_filepath[PATH_MAX + 1];
 	char *home_dir = NULL;
@@ -325,52 +324,51 @@ static int next_config(char **argv, char ***_argv, bool no_default_config,
 	if (state >= PARSING_LAST)
 		return 0;
 
-	switch(state) {
-		case PARSING_GLOBAL_CONF:
-			if (no_default_config)
-				break;
-			*_argv = parse_config(GLOBAL_CONFIG_DIR DEFAULT_CONFIG_FILENAME);
+	switch (state) {
+	case PARSING_GLOBAL_CONF:
+		if (no_default_config)
 			break;
-		case PARSING_USER_CONF:
-			if (no_default_config)
-				break;
-			home_dir = getenv("HOME");
-			if (!home_dir) {
-				pr_info("Unable to get $HOME directory, local configuration file will not be used.\n");
-			} else {
-				snprintf(local_filepath, PATH_MAX, "%s/%s%s",
-						home_dir, USER_CONFIG_DIR, DEFAULT_CONFIG_FILENAME);
-				*_argv = parse_config(local_filepath);
-			}
+		*_argv = parse_config(GLOBAL_CONFIG_DIR DEFAULT_CONFIG_FILENAME);
+		break;
+	case PARSING_USER_CONF:
+		if (no_default_config)
 			break;
-		case PARSING_ENV_CONF:
-			cfg_from_env = getenv("CRIU_CONFIG_FILE");
-			if (!cfg_from_env)
-				break;
-			*_argv = parse_config(cfg_from_env);
+		home_dir = getenv("HOME");
+		if (!home_dir) {
+			pr_info("Unable to get $HOME directory, local configuration file will not be used.\n");
+		} else {
+			snprintf(local_filepath, PATH_MAX, "%s/%s%s", home_dir, USER_CONFIG_DIR,
+				 DEFAULT_CONFIG_FILENAME);
+			*_argv = parse_config(local_filepath);
+		}
+		break;
+	case PARSING_ENV_CONF:
+		cfg_from_env = getenv("CRIU_CONFIG_FILE");
+		if (!cfg_from_env)
 			break;
-		case PARSING_CMDLINE_CONF:
-			if (!cfg_file)
-				break;
-			*_argv = parse_config(cfg_file);
+		*_argv = parse_config(cfg_from_env);
+		break;
+	case PARSING_CMDLINE_CONF:
+		if (!cfg_file)
 			break;
-		case PARSING_ARGV:
-			*_argv = argv;
+		*_argv = parse_config(cfg_file);
+		break;
+	case PARSING_ARGV:
+		*_argv = argv;
+		break;
+	case PARSING_RPC_CONF:
+		if (!rpc_cfg_file)
 			break;
-		case PARSING_RPC_CONF:
-			if (!rpc_cfg_file)
-				break;
-			*_argv = parse_config(rpc_cfg_file);
-			break;
-		default:
-			break;
+		*_argv = parse_config(rpc_cfg_file);
+		break;
+	default:
+		break;
 	}
 
 	return ++state;
 }
 
-static int pre_parse(int argc, char **argv, bool *usage_error, bool *no_default_config,
-		char **cfg_file)
+static int pre_parse(int argc, char **argv, bool *usage_error, bool *no_default_config, char **cfg_file)
 {
 	int i;
 	/*
@@ -447,12 +445,12 @@ static int parse_cpu_cap(struct cr_options *opts, const char *optarg)
 {
 	bool inverse = false;
 
-#define ____cpu_set_cap(__opts, __cap, __inverse)	\
-	do {						\
-		if ((__inverse))			\
-			(__opts)->cpu_cap &= ~(__cap);	\
-		else					\
-			(__opts)->cpu_cap |=  (__cap);	\
+#define ____cpu_set_cap(__opts, __cap, __inverse)      \
+	do {                                           \
+		if ((__inverse))                       \
+			(__opts)->cpu_cap &= ~(__cap); \
+		else                                   \
+			(__opts)->cpu_cap |= (__cap);  \
 	} while (0)
 
 	if (!optarg) {
@@ -594,8 +592,7 @@ Esyntax:
  * correct, '1' if something failed and '2' if the CRIU help text should
  * be displayed.
  */
-int parse_options(int argc, char **argv, bool *usage_error,
-		bool *has_exec_cmd, int state)
+int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, int state)
 {
 	int ret;
 	int opt = -1;
@@ -605,99 +602,99 @@ int parse_options(int argc, char **argv, bool *usage_error,
 	char **_argv = NULL;
 	int _argc = 0;
 
-
-#define BOOL_OPT(OPT_NAME, SAVE_TO) \
-		{OPT_NAME, no_argument, SAVE_TO, true},\
-		{"no-" OPT_NAME, no_argument, SAVE_TO, false}
+#define BOOL_OPT(OPT_NAME, SAVE_TO)                         \
+	{ OPT_NAME, no_argument, SAVE_TO, true },           \
+	{                                                   \
+		"no-" OPT_NAME, no_argument, SAVE_TO, false \
+	}
 
 	static const char short_opts[] = "dSsRt:hD:o:v::x::Vr:jJ:lW:L:M:";
 	static struct option long_opts[] = {
-		{ "tree",			required_argument,	0, 't'	},
-		{ "leave-stopped",		no_argument,		0, 's'	},
-		{ "leave-running",		no_argument,		0, 'R'	},
+		{ "tree", required_argument, 0, 't' },
+		{ "leave-stopped", no_argument, 0, 's' },
+		{ "leave-running", no_argument, 0, 'R' },
 		BOOL_OPT("restore-detached", &opts.restore_detach),
 		BOOL_OPT("restore-sibling", &opts.restore_sibling),
 		BOOL_OPT("daemon", &opts.restore_detach),
-		{ "images-dir",			required_argument,	0, 'D'	},
-		{ "work-dir",			required_argument,	0, 'W'	},
-		{ "log-file",			required_argument,	0, 'o'	},
-		{ "join-ns",			required_argument,	0, 'J'	},
-		{ "root",			required_argument,	0, 'r'	},
-		{ USK_EXT_PARAM,		optional_argument,	0, 'x'	},
-		{ "help",			no_argument,		0, 'h'	},
+		{ "images-dir", required_argument, 0, 'D' },
+		{ "work-dir", required_argument, 0, 'W' },
+		{ "log-file", required_argument, 0, 'o' },
+		{ "join-ns", required_argument, 0, 'J' },
+		{ "root", required_argument, 0, 'r' },
+		{ USK_EXT_PARAM, optional_argument, 0, 'x' },
+		{ "help", no_argument, 0, 'h' },
 		BOOL_OPT(SK_EST_PARAM, &opts.tcp_established_ok),
-		{ "close",			required_argument,	0, 1043	},
+		{ "close", required_argument, 0, 1043 },
 		BOOL_OPT("log-pid", &opts.log_file_per_pid),
-		{ "version",			no_argument,		0, 'V'	},
+		{ "version", no_argument, 0, 'V' },
 		BOOL_OPT("evasive-devices", &opts.evasive_devices),
-		{ "pidfile",			required_argument,	0, 1046	},
-		{ "veth-pair",			required_argument,	0, 1047	},
-		{ "action-script",		required_argument,	0, 1049	},
+		{ "pidfile", required_argument, 0, 1046 },
+		{ "veth-pair", required_argument, 0, 1047 },
+		{ "action-script", required_argument, 0, 1049 },
 		BOOL_OPT(LREMAP_PARAM, &opts.link_remap_ok),
 		BOOL_OPT(OPT_SHELL_JOB, &opts.shell_job),
 		BOOL_OPT(OPT_FILE_LOCKS, &opts.handle_file_locks),
 		BOOL_OPT("page-server", &opts.use_page_server),
-		{ "address",			required_argument,	0, 1051	},
-		{ "port",			required_argument,	0, 1052	},
-		{ "prev-images-dir",		required_argument,	0, 1053	},
-		{ "ms",				no_argument,		0, 1054	},
+		{ "address", required_argument, 0, 1051 },
+		{ "port", required_argument, 0, 1052 },
+		{ "prev-images-dir", required_argument, 0, 1053 },
+		{ "ms", no_argument, 0, 1054 },
 		BOOL_OPT("track-mem", &opts.track_mem),
 		BOOL_OPT("auto-dedup", &opts.auto_dedup),
-		{ "libdir",			required_argument,	0, 'L'	},
-		{ "cpu-cap",			optional_argument,	0, 1057	},
+		{ "libdir", required_argument, 0, 'L' },
+		{ "cpu-cap", optional_argument, 0, 1057 },
 		BOOL_OPT("force-irmap", &opts.force_irmap),
-		{ "ext-mount-map",		required_argument,	0, 'M'	},
-		{ "exec-cmd",			no_argument,		0, 1059	},
-		{ "manage-cgroups",		optional_argument,	0, 1060	},
-		{ "cgroup-root",		required_argument,	0, 1061	},
-		{ "inherit-fd",			required_argument,	0, 1062	},
-		{ "feature",			required_argument,	0, 1063	},
-		{ "skip-mnt",			required_argument,	0, 1064 },
-		{ "enable-fs",			required_argument,	0, 1065 },
-		{ "enable-external-sharing",	no_argument,		&opts.enable_external_sharing, true	},
-		{ "enable-external-masters",	no_argument,		&opts.enable_external_masters, true	},
-		{ "freeze-cgroup",		required_argument,	0, 1068 },
-		{ "ghost-limit",		required_argument,	0, 1069 },
-		{ "irmap-scan-path",		required_argument,	0, 1070 },
-		{ "lsm-profile",		required_argument,	0, 1071 },
-		{ "timeout",			required_argument,	0, 1072 },
-		{ "external",			required_argument,	0, 1073	},
-		{ "empty-ns",			required_argument,	0, 1074	},
-		{ "lazy-pages",			no_argument,		0, 1076 },
+		{ "ext-mount-map", required_argument, 0, 'M' },
+		{ "exec-cmd", no_argument, 0, 1059 },
+		{ "manage-cgroups", optional_argument, 0, 1060 },
+		{ "cgroup-root", required_argument, 0, 1061 },
+		{ "inherit-fd", required_argument, 0, 1062 },
+		{ "feature", required_argument, 0, 1063 },
+		{ "skip-mnt", required_argument, 0, 1064 },
+		{ "enable-fs", required_argument, 0, 1065 },
+		{ "enable-external-sharing", no_argument, &opts.enable_external_sharing, true },
+		{ "enable-external-masters", no_argument, &opts.enable_external_masters, true },
+		{ "freeze-cgroup", required_argument, 0, 1068 },
+		{ "ghost-limit", required_argument, 0, 1069 },
+		{ "irmap-scan-path", required_argument, 0, 1070 },
+		{ "lsm-profile", required_argument, 0, 1071 },
+		{ "timeout", required_argument, 0, 1072 },
+		{ "external", required_argument, 0, 1073 },
+		{ "empty-ns", required_argument, 0, 1074 },
+		{ "lazy-pages", no_argument, 0, 1076 },
 		BOOL_OPT("extra", &opts.check_extra_features),
 		BOOL_OPT("experimental", &opts.check_experimental_features),
-		{ "all",			no_argument,		0, 1079	},
-		{ "cgroup-props",		required_argument,	0, 1080	},
-		{ "cgroup-props-file",		required_argument,	0, 1081	},
-		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
+		{ "all", no_argument, 0, 1079 },
+		{ "cgroup-props", required_argument, 0, 1080 },
+		{ "cgroup-props-file", required_argument, 0, 1081 },
+		{ "cgroup-dump-controller", required_argument, 0, 1082 },
 		BOOL_OPT(SK_INFLIGHT_PARAM, &opts.tcp_skip_in_flight),
 		BOOL_OPT("deprecated", &opts.deprecated_ok),
 		BOOL_OPT("display-stats", &opts.display_stats),
 		BOOL_OPT("weak-sysctls", &opts.weak_sysctls),
-		{ "status-fd",			required_argument,	0, 1088 },
+		{ "status-fd", required_argument, 0, 1088 },
 		BOOL_OPT(SK_CLOSE_PARAM, &opts.tcp_close),
-		{ "verbosity",			optional_argument,	0, 'v'	},
-		{ "ps-socket",			required_argument,	0, 1091},
+		{ "verbosity", optional_argument, 0, 'v' },
+		{ "ps-socket", required_argument, 0, 1091 },
 		BOOL_OPT("stream", &opts.stream),
-		{ "config",			required_argument,	0, 1089},
-		{ "no-default-config",		no_argument,		0, 1090},
-		{ "tls-cacert",			required_argument,	0, 1092},
-		{ "tls-cacrl",			required_argument,	0, 1093},
-		{ "tls-cert",			required_argument,	0, 1094},
-		{ "tls-key",			required_argument,	0, 1095},
+		{ "config", required_argument, 0, 1089 },
+		{ "no-default-config", no_argument, 0, 1090 },
+		{ "tls-cacert", required_argument, 0, 1092 },
+		{ "tls-cacrl", required_argument, 0, 1093 },
+		{ "tls-cert", required_argument, 0, 1094 },
+		{ "tls-key", required_argument, 0, 1095 },
 		BOOL_OPT("tls", &opts.tls),
-		{"tls-no-cn-verify",		no_argument,		&opts.tls_no_cn_verify, true},
-		{ "cgroup-yard",		required_argument,	0, 1096 },
-		{ "pre-dump-mode",		required_argument,	0, 1097},
-		{ "file-validation",		required_argument,	0, 1098	},
-		{ "lsm-mount-context",		required_argument,	0, 1099	},
-		{ },
+		{ "tls-no-cn-verify", no_argument, &opts.tls_no_cn_verify, true },
+		{ "cgroup-yard", required_argument, 0, 1096 },
+		{ "pre-dump-mode", required_argument, 0, 1097 },
+		{ "file-validation", required_argument, 0, 1098 },
+		{ "lsm-mount-context", required_argument, 0, 1099 },
+		{},
 	};
 
 #undef BOOL_OPT
 
-	ret = pre_parse(argc, argv, usage_error, &no_default_config,
-			&cfg_file);
+	ret = pre_parse(argc, argv, usage_error, &no_default_config, &cfg_file);
 
 	if (ret)
 		return 2;
@@ -709,7 +706,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			/* Do not free any memory if it points to argv */
 			if (state != PARSING_ARGV + 1) {
 				int i;
-				for (i=1; i < _argc; i++) {
+				for (i = 1; i < _argc; i++) {
 					free(_argv[i]);
 				}
 				free(_argv);
@@ -809,21 +806,19 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		case 1046:
 			SET_CHAR_OPTS(pidfile, optarg);
 			break;
-		case 1047:
-			{
-				char *aux;
+		case 1047: {
+			char *aux;
 
-				aux = strchr(optarg, '=');
-				if (aux == NULL)
-					goto bad_arg;
+			aux = strchr(optarg, '=');
+			if (aux == NULL)
+				goto bad_arg;
 
-				*aux = '\0';
-				if (veth_pair_add(optarg, aux + 1)) {
-					pr_err("Failed to add veth pair: %s, %s.\n", optarg, aux + 1);
-					return 1;
-				}
+			*aux = '\0';
+			if (veth_pair_add(optarg, aux + 1)) {
+				pr_err("Failed to add veth pair: %s, %s.\n", optarg, aux + 1);
+				return 1;
 			}
-			break;
+		} break;
 		case 1049:
 			if (add_script(optarg)) {
 				pr_err("Failed to add action-script: %s.\n", optarg);
@@ -868,33 +863,31 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			if (parse_manage_cgroups(&opts, optarg))
 				return 2;
 			break;
-		case 1061:
-			{
-				char *path, *ctl;
+		case 1061: {
+			char *path, *ctl;
 
-				path = strchr(optarg, ':');
-				if (path) {
-					*path = '\0';
-					path++;
-					ctl = optarg;
-				} else {
-					path = optarg;
-					ctl = NULL;
-				}
-
-				if (new_cg_root_add(ctl, path))
-					return -1;
+			path = strchr(optarg, ':');
+			if (path) {
+				*path = '\0';
+				path++;
+				ctl = optarg;
+			} else {
+				path = optarg;
+				ctl = NULL;
 			}
-			break;
+
+			if (new_cg_root_add(ctl, path))
+				return -1;
+		} break;
 		case 1062:
 			if (inherit_fd_parse(optarg) < 0)
 				return 1;
 			break;
 		case 1063:
 			ret = check_add_feature(optarg);
-			if (ret < 0)	/* invalid kernel feature name */
+			if (ret < 0) /* invalid kernel feature name */
 				return 1;
-			if (ret > 0)	/* list kernel features and exit */
+			if (ret > 0) /* list kernel features and exit */
 				return 0;
 			break;
 		case 1064:
@@ -931,26 +924,25 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		case 1076:
 			opts.lazy_pages = true;
 			break;
-		case 'M':
-			{
-				char *aux;
+		case 'M': {
+			char *aux;
 
-				if (strcmp(optarg, "auto") == 0) {
-					opts.autodetect_ext_mounts = true;
-					break;
-				}
-
-				aux = strchr(optarg, ':');
-				if (aux == NULL)
-					goto bad_arg;
-
-				*aux = '\0';
-				if (ext_mount_add(optarg, aux + 1)) {
-					pr_err("Could not add external mount when initializing config: %s, %s\n", optarg, aux + 1);
-					return 1;
-				}
+			if (strcmp(optarg, "auto") == 0) {
+				opts.autodetect_ext_mounts = true;
+				break;
 			}
-			break;
+
+			aux = strchr(optarg, ':');
+			if (aux == NULL)
+				goto bad_arg;
+
+			*aux = '\0';
+			if (ext_mount_add(optarg, aux + 1)) {
+				pr_err("Could not add external mount when initializing config: %s, %s\n", optarg,
+				       aux + 1);
+				return 1;
+			}
+		} break;
 		case 1073:
 			if (add_external(optarg)) {
 				pr_err("Could not add external resource when initializing config: %s\n", optarg);
@@ -961,8 +953,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			if (!strcmp("net", optarg))
 				opts.empty_ns |= CLONE_NEWNET;
 			else {
-				pr_err("Unsupported empty namespace: %s\n",
-						optarg);
+				pr_err("Unsupported empty namespace: %s\n", optarg);
 				return 1;
 			}
 			break;
@@ -1040,11 +1031,9 @@ int parse_options(int argc, char **argv, bool *usage_error,
 
 bad_arg:
 	if (idx < 0) /* short option */
-		pr_err("invalid argument for -%c: %s\n",
-				opt, optarg);
+		pr_err("invalid argument for -%c: %s\n", opt, optarg);
 	else /* long option */
-		pr_err("invalid argument for --%s: %s\n",
-				long_opts[idx].name, optarg);
+		pr_err("invalid argument for --%s: %s\n", long_opts[idx].name, optarg);
 	return 1;
 }
 
@@ -1079,7 +1068,7 @@ int check_options(void)
 				"combination with --ps-socket is obsolete\n");
 		if (opts.ps_socket <= STDERR_FILENO && opts.daemon_mode) {
 			pr_err("Standard file descriptors will be closed"
-				" in daemon mode\n");
+			       " in daemon mode\n");
 			return 1;
 		}
 	}

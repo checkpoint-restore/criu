@@ -43,8 +43,7 @@ static int grow_shared(struct rst_mem_type_s *t, unsigned long size)
 	 * previous chunk location and allocate a
 	 * new one
 	 */
-	aux = mmap(NULL, size, PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	aux = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (aux == MAP_FAILED)
 		return -1;
 
@@ -65,8 +64,7 @@ static int grow_remap(struct rst_mem_type_s *t, int flag, unsigned long size)
 		/*
 		 * Can't call mremap with NULL address :(
 		 */
-		aux = mmap(NULL, size, PROT_READ | PROT_WRITE,
-				flag | MAP_ANONYMOUS, 0, 0);
+		aux = mmap(NULL, size, PROT_READ | PROT_WRITE, flag | MAP_ANONYMOUS, 0, 0);
 	else {
 		if (flag & MAP_SHARED) {
 			/*
@@ -88,8 +86,7 @@ static int grow_remap(struct rst_mem_type_s *t, int flag, unsigned long size)
 		 * a completely new one and force callers use objects'
 		 * cpos-s.
 		 */
-		aux = mremap(t->buf, t->size,
-				t->size + size, MREMAP_MAYMOVE);
+		aux = mremap(t->buf, t->size, t->size + size, MREMAP_MAYMOVE);
 	}
 	if (aux == MAP_FAILED)
 		return -1;
@@ -142,7 +139,7 @@ void rst_mem_align(int type)
 	struct rst_mem_type_s *t = &rst_mems[type];
 	void *ptr;
 
-	ptr = (void *) round_up((unsigned long)t->free_mem, sizeof(void *));
+	ptr = (void *)round_up((unsigned long)t->free_mem, sizeof(void *));
 	t->free_bytes -= (ptr - t->free_mem);
 	t->free_mem = ptr;
 }
@@ -220,8 +217,7 @@ static int rst_mem_remap_one(struct rst_mem_type_s *t, void *to)
 		 */
 		return 0;
 
-	pr_debug("\tcall mremap(%p, %lu, %lu, MAYMOVE | FIXED, %p)\n",
-			t->buf, t->size, t->size, to);
+	pr_debug("\tcall mremap(%p, %lu, %lu, MAYMOVE | FIXED, %p)\n", t->buf, t->size, t->size, to);
 	aux = mremap(t->buf, t->size, t->size, MREMAP_MAYMOVE | MREMAP_FIXED, to);
 	if (aux == MAP_FAILED) {
 		pr_perror("Can't mremap rst mem");
@@ -256,4 +252,3 @@ void shfree_last(void *ptr)
 {
 	rst_mem_free_last(RM_SHARED);
 }
-

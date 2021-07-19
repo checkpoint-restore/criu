@@ -8,8 +8,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that supplementary groups are supported";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that supplementary groups are supported";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 int main(int argc, char **argv)
 {

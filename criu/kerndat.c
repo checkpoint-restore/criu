@@ -10,10 +10,9 @@
 #include <sys/sysmacros.h>
 #include <stdint.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
+#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
 #include <sys/prctl.h>
 #include <sys/inotify.h>
-
 
 #include "common/config.h"
 #include "int.h"
@@ -43,8 +42,7 @@
 #include "sched.h"
 #include "memfd.h"
 
-struct kerndat_s kdat = {
-};
+struct kerndat_s kdat = {};
 
 static int check_pagemap(void)
 {
@@ -133,29 +131,26 @@ static void kerndat_mmap_min_addr(void)
 
 	struct sysctl_req req[] = {
 		{
-			.name	= "vm/mmap_min_addr",
-			.arg	= &value,
-			.type	= CTL_U64,
+			.name = "vm/mmap_min_addr",
+			.arg = &value,
+			.type = CTL_U64,
 		},
 	};
 
 	if (sysctl_op(req, ARRAY_SIZE(req), CTL_READ, 0)) {
-		pr_warn("Can't fetch %s value, use default %#lx\n",
-			req[0].name, (unsigned long)default_mmap_min_addr);
+		pr_warn("Can't fetch %s value, use default %#lx\n", req[0].name, (unsigned long)default_mmap_min_addr);
 		kdat.mmap_min_addr = default_mmap_min_addr;
 		return;
 	}
 
 	if (value < default_mmap_min_addr) {
-		pr_debug("Adjust mmap_min_addr %#lx -> %#lx\n",
-			 (unsigned long)value,
+		pr_debug("Adjust mmap_min_addr %#lx -> %#lx\n", (unsigned long)value,
 			 (unsigned long)default_mmap_min_addr);
 		kdat.mmap_min_addr = default_mmap_min_addr;
 	} else
 		kdat.mmap_min_addr = value;
 
-	pr_debug("Found mmap_min_addr %#lx\n",
-		 (unsigned long)kdat.mmap_min_addr);
+	pr_debug("Found mmap_min_addr %#lx\n", (unsigned long)kdat.mmap_min_addr);
 }
 
 static int kerndat_files_stat(void)
@@ -165,9 +160,9 @@ static int kerndat_files_stat(void)
 
 	struct sysctl_req req[] = {
 		{
-			.name	= "fs/nr_open",
-			.arg	= &nr_open,
-			.type	= CTL_U32,
+			.name = "fs/nr_open",
+			.arg = &nr_open,
+			.type = CTL_U32,
 		},
 	};
 
@@ -178,8 +173,7 @@ static int kerndat_files_stat(void)
 
 	kdat.sysctl_nr_open = nr_open;
 
-	pr_debug("files stat: %s %u\n",
-		 req[0].name, kdat.sysctl_nr_open);
+	pr_debug("files stat: %s %u\n", req[0].name, kdat.sysctl_nr_open);
 
 	return 0;
 }
@@ -191,15 +185,13 @@ static int kerndat_get_shmemdev(void)
 	struct stat buf;
 	dev_t dev;
 
-	map = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	map = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	if (map == MAP_FAILED) {
 		pr_perror("Can't mmap memory for shmemdev test");
 		return -1;
 	}
 
-	sprintf(maps, "/proc/self/map_files/%lx-%lx",
-			(unsigned long)map, (unsigned long)map + page_size());
+	sprintf(maps, "/proc/self/map_files/%lx-%lx", (unsigned long)map, (unsigned long)map + page_size());
 	if (stat(maps, &buf) < 0) {
 		int e = errno;
 		if (errno == EPERM) {
@@ -221,7 +213,7 @@ static int kerndat_get_shmemdev(void)
 
 	munmap(map, PAGE_SIZE);
 	kdat.shmem_dev = dev;
-	pr_info("Found anon-shmem device at %"PRIx64"\n", kdat.shmem_dev);
+	pr_info("Found anon-shmem device at %" PRIx64 "\n", kdat.shmem_dev);
 	return 0;
 
 err:
@@ -232,10 +224,10 @@ err:
 static dev_t get_host_dev(unsigned int which)
 {
 	static struct kst {
-		const char	*name;
-		const char	*path;
-		unsigned int	magic;
-		dev_t		fs_dev;
+		const char *name;
+		const char *path;
+		unsigned int magic;
+		dev_t fs_dev;
 	} kstat[KERNDAT_FS_STAT_MAX] = {
 		[KERNDAT_FS_STAT_DEVPTS] = {
 			.name	= "devpts",
@@ -314,8 +306,7 @@ static int kerndat_get_dirty_track(void)
 	u64 pmap = 0;
 	int ret = -1;
 
-	map = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+	map = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	if (map == MAP_FAILED) {
 		pr_perror("Can't mmap memory for pagemap test");
 		return ret;
@@ -353,7 +344,7 @@ static int kerndat_get_dirty_track(void)
 		pr_info("Dirty track supported on kernel\n");
 		kdat.has_dirty_track = true;
 	} else {
-no_dt:
+	no_dt:
 		pr_info("Dirty tracking support is OFF\n");
 		if (opts.track_mem) {
 			pr_err("Tracking memory is not available\n");
@@ -382,7 +373,7 @@ static int init_zero_page_pfn(void)
 		return 0;
 	}
 
-	if (*((int *) addr) != 0) {
+	if (*((int *)addr) != 0) {
 		BUG();
 		return -1;
 	}
@@ -535,7 +526,7 @@ int kerndat_tcp_repair(void)
 	struct sockaddr_in addr;
 	socklen_t aux;
 
-	memset(&addr,0,sizeof(addr));
+	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	inet_pton(AF_INET, "127.0.0.1", &(addr.sin_addr));
 	addr.sin_port = 0;
@@ -545,13 +536,13 @@ int kerndat_tcp_repair(void)
 		return -1;
 	}
 
-	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr))) {
+	if (bind(sock, (struct sockaddr *)&addr, sizeof(addr))) {
 		pr_perror("Unable to bind a socket");
 		goto err;
 	}
 
 	aux = sizeof(addr);
-	if (getsockname(sock, (struct sockaddr *) &addr, &aux)) {
+	if (getsockname(sock, (struct sockaddr *)&addr, &aux)) {
 		pr_perror("Unable to get a socket name");
 		goto err;
 	}
@@ -567,7 +558,7 @@ int kerndat_tcp_repair(void)
 		goto err;
 	}
 
-	if (connect(clnt, (struct sockaddr *) &addr, sizeof(addr))) {
+	if (connect(clnt, (struct sockaddr *)&addr, sizeof(addr))) {
 		pr_perror("Unable to connect a socket");
 		goto err;
 	}
@@ -641,8 +632,7 @@ static int kerndat_detect_stack_guard_gap(void)
 	FILE *maps;
 	void *mem;
 
-	mem = mmap(NULL, (3ul << 20), PROT_READ | PROT_WRITE,
-		   MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
+	mem = mmap(NULL, (3ul << 20), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN, -1, 0);
 	if (mem == MAP_FAILED) {
 		pr_perror("Can't mmap stack area");
 		return -1;
@@ -664,8 +654,7 @@ static int kerndat_detect_stack_guard_gap(void)
 	}
 
 	while (fgets(buf, sizeof(buf), maps)) {
-		num = sscanf(buf, "%lx-%lx %c%c%c%c",
-			     &start, &end, &r, &w, &x, &s);
+		num = sscanf(buf, "%lx-%lx %c%c%c%c", &start, &end, &r, &w, &x, &s);
 		if (num < 6) {
 			pr_err("Can't parse: %s\n", buf);
 			goto err;
@@ -746,7 +735,7 @@ static int kerndat_has_fsopen(void)
 
 static int has_kcmp_epoll_tfd(void)
 {
-	kcmp_epoll_slot_t slot = { };
+	kcmp_epoll_slot_t slot = {};
 	int ret = -1, efd, tfd;
 	pid_t pid = getpid();
 	struct epoll_event ev;
@@ -822,8 +811,8 @@ static int kerndat_x86_has_ptrace_fpu_xsave_bug(void)
 	return 0;
 }
 
-#define KERNDAT_CACHE_FILE	KDAT_RUNDIR"/criu.kdat"
-#define KERNDAT_CACHE_FILE_TMP	KDAT_RUNDIR"/.criu.kdat"
+#define KERNDAT_CACHE_FILE     KDAT_RUNDIR "/criu.kdat"
+#define KERNDAT_CACHE_FILE_TMP KDAT_RUNDIR "/.criu.kdat"
 
 static int kerndat_try_load_cache(void)
 {
@@ -831,7 +820,7 @@ static int kerndat_try_load_cache(void)
 
 	fd = open(KERNDAT_CACHE_FILE, O_RDONLY);
 	if (fd < 0) {
-		if(ENOENT == errno)
+		if (ENOENT == errno)
 			pr_debug("File %s does not exist\n", KERNDAT_CACHE_FILE);
 		else
 			pr_warn("Can't load %s\n", KERNDAT_CACHE_FILE);
@@ -847,9 +836,7 @@ static int kerndat_try_load_cache(void)
 
 	close(fd);
 
-	if (ret != sizeof(kdat) ||
-			kdat.magic1 != KDAT_MAGIC ||
-			kdat.magic2 != KDAT_MAGIC_2) {
+	if (ret != sizeof(kdat) || kdat.magic1 != KDAT_MAGIC || kdat.magic2 != KDAT_MAGIC_2) {
 		pr_warn("Stale %s file\n", KERNDAT_CACHE_FILE);
 		unlink(KERNDAT_CACHE_FILE);
 		return 1;
@@ -898,7 +885,7 @@ static void kerndat_save_cache(void)
 
 	if (ret < 0) {
 		pr_perror("Couldn't save %s", KERNDAT_CACHE_FILE);
-unl:
+	unl:
 		unlink(KERNDAT_CACHE_FILE_TMP);
 	}
 }
@@ -957,8 +944,7 @@ int kerndat_has_thp_disable(void)
 		return 0;
 	}
 
-	addr = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
-		    MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+	addr = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	if (addr == MAP_FAILED) {
 		pr_perror("Can't mmap memory for THP disable test");
 		return -1;

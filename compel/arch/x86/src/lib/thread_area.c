@@ -8,7 +8,7 @@
 #include "infect-priv.h"
 
 #ifndef PTRACE_GET_THREAD_AREA
-# define PTRACE_GET_THREAD_AREA		25
+#define PTRACE_GET_THREAD_AREA 25
 #endif
 
 /*
@@ -49,12 +49,10 @@ int __compel_arch_fetch_thread_area(int tid, struct thread_ctx *th)
 		d->entry_number = GDT_ENTRY_TLS_MIN + i;
 	}
 
-	for (i = 0; i < GDT_ENTRY_TLS_NUM; i++)
-	{
+	for (i = 0; i < GDT_ENTRY_TLS_NUM; i++) {
 		user_desc_t *d = &ptls->desc[i];
 
-		err = ptrace(PTRACE_GET_THREAD_AREA, tid,
-				GDT_ENTRY_TLS_MIN + i, d);
+		err = ptrace(PTRACE_GET_THREAD_AREA, tid, GDT_ENTRY_TLS_MIN + i, d);
 		/*
 		 * Ignoring absent syscall on !CONFIG_IA32_EMULATION
 		 * where such mixed code can't run.

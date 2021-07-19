@@ -59,20 +59,19 @@
 #endif
 
 #ifndef FALLOC_FL_KEEP_SIZE
-#define FALLOC_FL_KEEP_SIZE     0x01
+#define FALLOC_FL_KEEP_SIZE 0x01
 #endif
 
 #ifndef FALLOC_FL_PUNCH_HOLE
-#define FALLOC_FL_PUNCH_HOLE    0x02
+#define FALLOC_FL_PUNCH_HOLE 0x02
 #endif
 
-
-#define sys_prctl_safe(opcode, val1, val2, val3)			\
-	({								\
-		long __ret = sys_prctl(opcode, val1, val2, val3, 0);	\
-		if (__ret)						\
-			 pr_err("prctl failed @%d with %ld\n", __LINE__, __ret);\
-		__ret;							\
+#define sys_prctl_safe(opcode, val1, val2, val3)                                \
+	({                                                                      \
+		long __ret = sys_prctl(opcode, val1, val2, val3, 0);            \
+		if (__ret)                                                      \
+			pr_err("prctl failed @%d with %ld\n", __LINE__, __ret); \
+		__ret;                                                          \
 	})
 
 static struct task_entries *task_entries_local;
@@ -116,8 +115,7 @@ void parasite_cleanup(void)
 {
 }
 
-extern void cr_restore_rt (void) asm ("__cr_restore_rt")
-			__attribute__ ((visibility ("hidden")));
+extern void cr_restore_rt(void) asm("__cr_restore_rt") __attribute__((visibility("hidden")));
 
 static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 {
@@ -186,8 +184,7 @@ static int lsm_set_label(char *label, char *type, int procfd)
 	return 0;
 }
 
-static int restore_creds(struct thread_creds_args *args, int procfd,
-			 int lsm_type)
+static int restore_creds(struct thread_creds_args *args, int procfd, int lsm_type)
 {
 	CredsEntry *ce = &args->creds;
 	int b, i, ret;
@@ -275,8 +272,7 @@ static int restore_creds(struct thread_creds_args *args, int procfd,
 				continue;
 			ret = sys_prctl(PR_CAPBSET_DROP, i + b * 32, 0, 0, 0);
 			if (ret) {
-				pr_err("Unable to drop capability %d: %d\n",
-								i + b * 32, ret);
+				pr_err("Unable to drop capability %d: %d\n", i + b * 32, ret);
 				return -1;
 			}
 		}
@@ -388,8 +384,7 @@ static void restore_sched_info(struct rst_sched_param *p)
 {
 	struct sched_param parm;
 
-	pr_info("Restoring scheduler params %d.%d.%d\n",
-			p->policy, p->nice, p->prio);
+	pr_info("Restoring scheduler params %d.%d.%d\n", p->policy, p->nice, p->prio);
 
 	sys_setpriority(PRIO_PROCESS, 0, p->nice);
 	parm.sched_priority = p->prio;
@@ -420,11 +415,9 @@ static int restore_signals(siginfo_t *ptr, int nr, bool group)
 		if (group)
 			ret = sys_rt_sigqueueinfo(sys_getpid(), info->si_signo, info);
 		else
-			ret = sys_rt_tgsigqueueinfo(sys_getpid(),
-						sys_gettid(), info->si_signo, info);
+			ret = sys_rt_tgsigqueueinfo(sys_getpid(), sys_gettid(), info->si_signo, info);
 		if (ret) {
-			pr_err("Unable to send siginfo %d %x with code %d\n",
-					info->si_signo, info->si_code, ret);
+			pr_err("Unable to send siginfo %d %x with code %d\n", info->si_signo, info->si_code, ret);
 			return -1;
 		}
 	}
@@ -441,24 +434,22 @@ static int restore_seccomp_filter(pid_t tid, struct thread_restore_args *args)
 	for (i = 0; i < args->seccomp_filters_n; i++) {
 		struct thread_seccomp_filter *filter = &args->seccomp_filters[i];
 
-		pr_debug("seccomp: Restoring mode %d flags %x on tid %d filter %d\n",
-			 SECCOMP_SET_MODE_FILTER, (filter->flags | flags), tid, (int)i);
+		pr_debug("seccomp: Restoring mode %d flags %x on tid %d filter %d\n", SECCOMP_SET_MODE_FILTER,
+			 (filter->flags | flags), tid, (int)i);
 
 		ret = sys_seccomp(SECCOMP_SET_MODE_FILTER, filter->flags | flags, (void *)&filter->sock_fprog);
 		if (ret < 0) {
 			if (ret == -ENOSYS) {
 				pr_debug("seccomp: sys_seccomp is not supported in kernel, "
 					 "switching to prctl interface\n");
-				ret = sys_prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER,
-						(long)(void *)&filter->sock_fprog, 0, 0);
+				ret = sys_prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, (long)(void *)&filter->sock_fprog,
+						0, 0);
 				if (ret) {
-					pr_err("seccomp: PR_SET_SECCOMP returned %d on tid %d\n",
-					       ret, tid);
+					pr_err("seccomp: PR_SET_SECCOMP returned %d on tid %d\n", ret, tid);
 					return -1;
 				}
 			} else {
-				pr_err("seccomp: SECCOMP_SET_MODE_FILTER returned %d on tid %d\n",
-				       ret, tid);
+				pr_err("seccomp: SECCOMP_SET_MODE_FILTER returned %d on tid %d\n", ret, tid);
 				return -1;
 			}
 		}
@@ -497,23 +488,20 @@ static int restore_seccomp(struct thread_restore_args *args)
 		std_log_set_gettimeofday(NULL);
 		ret = sys_prctl(PR_SET_SECCOMP, SECCOMP_MODE_STRICT, 0, 0, 0);
 		if (ret < 0) {
-			pr_err("seccomp: SECCOMP_MODE_STRICT returned %d on tid %d\n",
-			       ret, tid);
+			pr_err("seccomp: SECCOMP_MODE_STRICT returned %d on tid %d\n", ret, tid);
 		}
 		break;
 	case SECCOMP_MODE_FILTER:
 		ret = restore_seccomp_filter(tid, args);
 		break;
 	default:
-		pr_err("seccomp: Unknown seccomp mode %d on tid %d\n",
-		       args->seccomp_mode, tid);
+		pr_err("seccomp: Unknown seccomp mode %d on tid %d\n", args->seccomp_mode, tid);
 		ret = -1;
 		break;
 	}
 
 	if (!ret) {
-		pr_debug("seccomp: Restored mode %d on tid %d\n",
-			 args->seccomp_mode, tid);
+		pr_debug("seccomp: Restored mode %d on tid %d\n", args->seccomp_mode, tid);
 	}
 
 	return ret;
@@ -564,8 +552,7 @@ static int restore_thread_common(struct thread_restore_args *args)
 	return 0;
 }
 
-static void noinline rst_sigreturn(unsigned long new_sp,
-		struct rt_sigframe *sigframe)
+static void noinline rst_sigreturn(unsigned long new_sp, struct rt_sigframe *sigframe)
 {
 	ARCH_RT_SIGRETURN(new_sp, sigframe);
 }
@@ -600,7 +587,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 	if (restore_thread_common(args))
 		goto core_restore_end;
 
-	ret = sys_prctl(PR_SET_NAME, (unsigned long) &args->comm, 0, 0, 0);
+	ret = sys_prctl(PR_SET_NAME, (unsigned long)&args->comm, 0, 0, 0);
 	if (ret) {
 		pr_err("Unable to set a thread name: %d\n", ret);
 		goto core_restore_end;
@@ -622,8 +609,7 @@ long __export_restore_thread(struct thread_restore_args *args)
 	if (restore_seccomp(args))
 		BUG();
 
-	ret = restore_creds(args->creds_args, args->ta->proc_fd,
-			    args->ta->lsm_type);
+	ret = restore_creds(args->creds_args, args->ta->proc_fd, args->ta->lsm_type);
 	ret = ret || restore_dumpable_flag(&args->ta->mm);
 	ret = ret || restore_pdeath_sig(args);
 	if (ret)
@@ -657,8 +643,7 @@ static long restore_self_exe_late(struct task_restore_args *args)
 }
 
 #ifndef ARCH_HAS_SHMAT_HOOK
-unsigned long arch_shmat(int shmid, void *shmaddr,
-			int shmflg, unsigned long size)
+unsigned long arch_shmat(int shmid, void *shmaddr, int shmflg, unsigned long size)
 {
 	return sys_shmat(shmid, shmaddr, shmflg);
 }
@@ -666,8 +651,8 @@ unsigned long arch_shmat(int shmid, void *shmaddr,
 
 static unsigned long restore_mapping(VmaEntry *vma_entry)
 {
-	int prot	= vma_entry->prot;
-	int flags	= vma_entry->flags | MAP_FIXED;
+	int prot = vma_entry->prot;
+	int flags = vma_entry->flags | MAP_FIXED;
 	unsigned long addr;
 
 	if (vma_entry_is(vma_entry, VMA_AREA_SYSVIPC)) {
@@ -687,7 +672,7 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 		} else
 			att_flags = SHM_RDONLY;
 
-		pr_info("Attach SYSV shmem %d at %"PRIx64"\n", (int)vma_entry->fd, vma_entry->start);
+		pr_info("Attach SYSV shmem %d at %" PRIx64 "\n", (int)vma_entry->fd, vma_entry->start);
 		return arch_shmat(vma_entry->fd, shmaddr, att_flags, shmsize);
 	}
 
@@ -705,8 +690,7 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 		flags |= MAP_ANONYMOUS;
 
 	/* A mapping of file with MAP_SHARED is up to date */
-	if ((vma_entry->fd == -1 || !(vma_entry->flags & MAP_SHARED)) &&
-			!(vma_entry->status & VMA_NO_PROT_WRITE))
+	if ((vma_entry->fd == -1 || !(vma_entry->flags & MAP_SHARED)) && !(vma_entry->status & VMA_NO_PROT_WRITE))
 		prot |= PROT_WRITE;
 
 	/* TODO: Drop MAP_LOCKED bit and restore it after reading memory.
@@ -717,22 +701,17 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 	 * that mechanism as it causes the process to be charged for memory
 	 * immediately upon mmap, not later upon preadv().
 	 */
-	pr_debug("\tmmap(%"PRIx64" -> %"PRIx64", %x %x %d)\n",
-			vma_entry->start, vma_entry->end,
-			prot, flags, (int)vma_entry->fd);
+	pr_debug("\tmmap(%" PRIx64 " -> %" PRIx64 ", %x %x %d)\n", vma_entry->start, vma_entry->end, prot, flags,
+		 (int)vma_entry->fd);
 	/*
 	 * Should map memory here. Note we map them as
 	 * writable since we're going to restore page
 	 * contents.
 	 */
-	addr = sys_mmap(decode_pointer(vma_entry->start),
-			vma_entry_len(vma_entry),
-			prot, flags,
-			vma_entry->fd,
+	addr = sys_mmap(decode_pointer(vma_entry->start), vma_entry_len(vma_entry), prot, flags, vma_entry->fd,
 			vma_entry->pgoff);
 
-	if ((vma_entry->fd != -1) &&
-			(vma_entry->status & VMA_CLOSE))
+	if ((vma_entry->fd != -1) && (vma_entry->status & VMA_CLOSE))
 		sys_close(vma_entry->fd);
 
 	return addr;
@@ -764,10 +743,9 @@ static int restore_aio_ring(struct rst_aio_ring *raio)
 
 	new = (struct aio_ring *)ctx;
 	i = (raio->len - sizeof(struct aio_ring)) / sizeof(struct io_event);
-	if (tail >= ring->nr || head >= ring->nr || ring->nr != i ||
-	    new->nr != ring->nr) {
-		pr_err("wrong aio: tail=%x head=%x req=%x old_nr=%x new_nr=%x expect=%x\n",
-			tail, head, raio->nr_req, ring->nr, new->nr, i);
+	if (tail >= ring->nr || head >= ring->nr || ring->nr != i || new->nr != ring->nr) {
+		pr_err("wrong aio: tail=%x head=%x req=%x old_nr=%x new_nr=%x expect=%x\n", tail, head, raio->nr_req,
+		       ring->nr, new->nr, i);
 
 		return -1;
 	}
@@ -794,15 +772,14 @@ static int restore_aio_ring(struct rst_aio_ring *raio)
 		count = ring->nr + tail;
 	else
 		count = tail;
-	maxr = min_t(unsigned, count, ring->nr-1);
+	maxr = min_t(unsigned, count, ring->nr - 1);
 
 	/*
 	 * Since we only interested in moving the tail, the requests
 	 * may be any. We submit count identical requests.
 	 */
 	size = sizeof(struct iocb) + maxr * sizeof(struct iocb *);
-	iocb = (void *)sys_mmap(NULL, size, PROT_READ|PROT_WRITE,
-				MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	iocb = (void *)sys_mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	iocbp = (void *)iocb + sizeof(struct iocb);
 
 	if (IS_ERR(iocb)) {
@@ -827,7 +804,7 @@ static int restore_aio_ring(struct rst_aio_ring *raio)
 		}
 		i += ret;
 
-		 /*
+		/*
 		  * We may submit less than requested, because of too big
 		  * count OR behaviour of get_reqs_available(), which
 		  * takes available requests only if their number is
@@ -859,9 +836,7 @@ populate:
 	 * Also, this unmaps temporary anonymous area on raio->addr.
 	 */
 
-	ctx = sys_mremap(ctx, raio->len, raio->len,
-				MREMAP_FIXED | MREMAP_MAYMOVE,
-				raio->addr);
+	ctx = sys_mremap(ctx, raio->len, raio->len, MREMAP_FIXED | MREMAP_MAYMOVE, raio->addr);
 	if (ctx != raio->addr) {
 		pr_err("Ring remap failed with %ld\n", ctx);
 		return -1;
@@ -909,7 +884,7 @@ static int enable_uffd(int uffd, unsigned long addr, unsigned long len)
 
 	pr_info("lazy-pages: register: %lx, len %lx\n", addr, len);
 
-	rc = sys_ioctl(uffd, UFFDIO_REGISTER, (unsigned long) &uffdio_register);
+	rc = sys_ioctl(uffd, UFFDIO_REGISTER, (unsigned long)&uffdio_register);
 	if (rc != 0) {
 		pr_err("lazy-pages: register %lx failed: rc:%d, \n", addr, rc);
 		return -1;
@@ -923,7 +898,6 @@ static int enable_uffd(int uffd, unsigned long addr, unsigned long len)
 
 	return 0;
 }
-
 
 static int vma_remap(VmaEntry *vma_entry, int uffd)
 {
@@ -970,23 +944,20 @@ static int vma_remap(VmaEntry *vma_entry, int uffd)
 		unsigned long addr;
 
 		/* Map guard page (step 2) */
-		tmp = sys_mmap((void *) guard, PAGE_SIZE, PROT_NONE,
-					MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+		tmp = sys_mmap((void *)guard, PAGE_SIZE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 		if (tmp != guard) {
 			pr_err("Unable to map a guard page %lx (%lx)\n", guard, tmp);
 			return -1;
 		}
 
 		/* Move src to non-overlapping place (step 3) */
-		addr = sys_mmap(NULL, len, PROT_NONE,
-					MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-		if (addr == (unsigned long) MAP_FAILED) {
+		addr = sys_mmap(NULL, len, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+		if (addr == (unsigned long)MAP_FAILED) {
 			pr_err("Unable to reserve memory (%lx)\n", addr);
 			return -1;
 		}
 
-		tmp = sys_mremap(src, len, len,
-					MREMAP_MAYMOVE | MREMAP_FIXED, addr);
+		tmp = sys_mremap(src, len, len, MREMAP_MAYMOVE | MREMAP_FIXED, addr);
 		if (tmp != addr) {
 			pr_err("Unable to remap %lx -> %lx (%lx)\n", src, addr, tmp);
 			return -1;
@@ -1042,14 +1013,13 @@ static int timerfd_arm(struct task_restore_args *args)
 
 			t->val.it_value.tv_sec += (time_t)ts.tv_sec;
 
-			pr_debug("Adjust id %#x it_value(%llu, %llu) -> it_value(%llu, %llu)\n",
-				 t->id, (unsigned long long)ts.tv_sec,
-				 (unsigned long long)ts.tv_nsec,
+			pr_debug("Adjust id %#x it_value(%llu, %llu) -> it_value(%llu, %llu)\n", t->id,
+				 (unsigned long long)ts.tv_sec, (unsigned long long)ts.tv_nsec,
 				 (unsigned long long)t->val.it_value.tv_sec,
 				 (unsigned long long)t->val.it_value.tv_nsec);
 		}
 
-		ret  = sys_timerfd_settime(t->fd, t->settime_flags, &t->val, NULL);
+		ret = sys_timerfd_settime(t->fd, t->settime_flags, &t->val, NULL);
 		if (t->ticks)
 			ret |= sys_ioctl(t->fd, TFD_IOC_SET_TICKS, (unsigned long)&t->ticks);
 		if (ret) {
@@ -1143,9 +1113,8 @@ void __export_unmap(void)
  * [ 1st end -- 2nd start ]
  * [ 2nd start -- task_size ]
  */
-static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len,
-		      void *bootstrap_start, unsigned long bootstrap_len,
-		      unsigned long task_size)
+static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len, void *bootstrap_start,
+			  unsigned long bootstrap_len, unsigned long task_size)
 {
 	unsigned long s1, s2;
 	void *p1, *p2;
@@ -1177,8 +1146,7 @@ static int unmap_old_vmas(void *premmapped_addr, unsigned long premmapped_len,
 
 	ret = sys_munmap(p2 + s2, task_size - (unsigned long)(p2 + s2));
 	if (ret) {
-		pr_err("Unable to unmap (%p-%p): %d\n",
-				p2 + s2, (void *)task_size, ret);
+		pr_err("Unable to unmap (%p-%p): %d\n", p2 + s2, (void *)task_size, ret);
 		return -1;
 	}
 
@@ -1199,8 +1167,7 @@ static int wait_helpers(struct task_restore_args *task_args)
 			continue;
 		}
 		if (!WIFEXITED(status) || WEXITSTATUS(status)) {
-			pr_err("%d exited with non-zero code (%d,%d)\n", pid,
-				WEXITSTATUS(status), WTERMSIG(status));
+			pr_err("%d exited with non-zero code (%d,%d)\n", pid, WEXITSTATUS(status), WTERMSIG(status));
 			return -1;
 		}
 	}
@@ -1223,8 +1190,7 @@ static int wait_zombies(struct task_restore_args *task_args)
 			 * Let's wait when someone complete this stage
 			 * and try again.
 			 */
-			futex_wait_while_eq(&task_entries_local->nr_in_progress,
-								nr_in_progress);
+			futex_wait_while_eq(&task_entries_local->nr_in_progress, nr_in_progress);
 			i--;
 			continue;
 		}
@@ -1232,8 +1198,7 @@ static int wait_zombies(struct task_restore_args *task_args)
 			pr_err("Wait on %d zombie failed: %d\n", task_args->zombies[i], ret);
 			return -1;
 		}
-		pr_debug("%ld: Collect a zombie with pid %d\n",
-			sys_getpid(), task_args->zombies[i]);
+		pr_debug("%ld: Collect a zombie with pid %d\n", sys_getpid(), task_args->zombies[i]);
 	}
 
 	return 0;
@@ -1319,8 +1284,8 @@ static int map_vdso(struct task_restore_args *args, bool compatible)
 
 static int fd_poll(int inotify_fd)
 {
-	struct pollfd pfd = {inotify_fd, POLLIN, 0};
-	struct timespec tmo = {0, 0};
+	struct pollfd pfd = { inotify_fd, POLLIN, 0 };
+	struct timespec tmo = { 0, 0 };
 
 	return sys_ppoll(&pfd, 1, &tmo, NULL, sizeof(sigset_t));
 }
@@ -1341,7 +1306,7 @@ static int cleanup_inotify_events(int inotify_fd)
 	int ret;
 
 	/* Limit buf to be lesser than half of restorer's stack */
-	BUILD_BUG_ON(ARRAY_SIZE(buf) >= RESTORE_STACK_SIZE/2);
+	BUILD_BUG_ON(ARRAY_SIZE(buf) >= RESTORE_STACK_SIZE / 2);
 
 	while (1) {
 		ret = fd_poll(inotify_fd);
@@ -1408,9 +1373,9 @@ long __export_restore_task(struct task_restore_args *args)
 	bool has_vdso_proxy;
 
 	bootstrap_start = args->bootstrap_start;
-	bootstrap_len	= args->bootstrap_len;
+	bootstrap_len = args->bootstrap_len;
 
-	vdso_rt_size	= args->vdso_rt_size;
+	vdso_rt_size = args->vdso_rt_size;
 
 	fi_strategy = args->fault_strategy;
 
@@ -1467,13 +1432,12 @@ long __export_restore_task(struct task_restore_args *args)
 		}
 		if (!can_restore_vdso(args))
 			goto core_restore_end;
-		if (vdso_do_park(&args->vdso_maps_rt,
-				args->vdso_rt_parked_at, vdso_rt_size))
+		if (vdso_do_park(&args->vdso_maps_rt, args->vdso_rt_parked_at, vdso_rt_size))
 			goto core_restore_end;
 	}
 
-	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len,
-				bootstrap_start, bootstrap_len, args->task_size))
+	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len, bootstrap_start, bootstrap_len,
+			   args->task_size))
 		goto core_restore_end;
 
 	/* Map vdso that wasn't parked */
@@ -1542,8 +1506,7 @@ long __export_restore_task(struct task_restore_args *args)
 	for (i = 0; i < args->vmas_n; i++) {
 		vma_entry = args->vmas + i;
 
-		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR) &&
-				!vma_entry_is(vma_entry, VMA_AREA_AIORING))
+		if (!vma_entry_is(vma_entry, VMA_AREA_REGULAR) && !vma_entry_is(vma_entry, VMA_AREA_AIORING))
 			continue;
 
 		if (vma_entry_is(vma_entry, VMA_PREMMAPED))
@@ -1552,7 +1515,7 @@ long __export_restore_task(struct task_restore_args *args)
 		va = restore_mapping(vma_entry);
 
 		if (va != vma_entry->start) {
-			pr_err("Can't restore %"PRIx64" mapping with %lx\n", vma_entry->start, va);
+			pr_err("Can't restore %" PRIx64 " mapping with %lx\n", vma_entry->start, va);
 			goto core_restore_end;
 		}
 	}
@@ -1568,9 +1531,7 @@ long __export_restore_task(struct task_restore_args *args)
 		ssize_t r;
 
 		while (nr) {
-			pr_debug("Preadv %lx:%d... (%d iovs)\n",
-					(unsigned long)iovs->iov_base,
-					(int)iovs->iov_len, nr);
+			pr_debug("Preadv %lx:%d... (%d iovs)\n", (unsigned long)iovs->iov_base, (int)iovs->iov_len, nr);
 			r = sys_preadv(args->vma_ios_fd, iovs, nr, rio->off);
 			if (r < 0) {
 				pr_err("Can't read pages data (%d)\n", (int)r);
@@ -1581,8 +1542,8 @@ long __export_restore_task(struct task_restore_args *args)
 			/* If the file is open for writing, then it means we should punch holes
 			 * in it. */
 			if (r > 0 && args->auto_dedup) {
-				int fr = sys_fallocate(args->vma_ios_fd, FALLOC_FL_KEEP_SIZE|FALLOC_FL_PUNCH_HOLE,
-					rio->off, r);
+				int fr = sys_fallocate(args->vma_ios_fd, FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE,
+						       rio->off, r);
 				if (fr < 0) {
 					pr_debug("Failed to punch holes with fallocate: %d\n", fr);
 				}
@@ -1613,9 +1574,8 @@ long __export_restore_task(struct task_restore_args *args)
 	/*
 	 * Proxify vDSO.
 	 */
-	if (vdso_proxify(&args->vdso_maps_rt,  &has_vdso_proxy,
-			 args->vmas, args->vmas_n, args->compatible_mode,
-		         fault_injected(FI_VDSO_TRAMPOLINES)))
+	if (vdso_proxify(&args->vdso_maps_rt, &has_vdso_proxy, args->vmas, args->vmas_n, args->compatible_mode,
+			 fault_injected(FI_VDSO_TRAMPOLINES)))
 		goto core_restore_end;
 
 	/* unmap rt-vdso with restorer blob after restore's finished */
@@ -1632,13 +1592,10 @@ long __export_restore_task(struct task_restore_args *args)
 		if (!(vma_entry_is(vma_entry, VMA_AREA_REGULAR)))
 			continue;
 
-		if ((vma_entry->prot & PROT_WRITE) ||
-				(vma_entry->status & VMA_NO_PROT_WRITE))
+		if ((vma_entry->prot & PROT_WRITE) || (vma_entry->status & VMA_NO_PROT_WRITE))
 			continue;
 
-		sys_mprotect(decode_pointer(vma_entry->start),
-			     vma_entry_len(vma_entry),
-			     vma_entry->prot);
+		sys_mprotect(decode_pointer(vma_entry->start), vma_entry_len(vma_entry), vma_entry->prot);
 	}
 
 	/*
@@ -1662,15 +1619,11 @@ long __export_restore_task(struct task_restore_args *args)
 
 		for (m = 0; m < sizeof(vma_entry->madv) * 8; m++) {
 			if (vma_entry->madv & (1ul << m)) {
-				ret = sys_madvise(vma_entry->start,
-						  vma_entry_len(vma_entry),
-						  m);
+				ret = sys_madvise(vma_entry->start, vma_entry_len(vma_entry), m);
 				if (ret) {
-					pr_err("madvise(%"PRIx64", %"PRIu64", %ld) "
+					pr_err("madvise(%" PRIx64 ", %" PRIu64 ", %ld) "
 					       "failed with %ld\n",
-						vma_entry->start,
-						vma_entry_len(vma_entry),
-						m, ret);
+					       vma_entry->start, vma_entry_len(vma_entry), m, ret);
 					goto core_restore_end;
 				}
 			}
@@ -1689,36 +1642,36 @@ long __export_restore_task(struct task_restore_args *args)
 	 * more widespread once kernel get deployed over the world.
 	 * Thus lets be opportunistic and use new interface as a try.
 	 */
-	prctl_map = (struct prctl_mm_map) {
-		.start_code	= args->mm.mm_start_code,
-		.end_code	= args->mm.mm_end_code,
-		.start_data	= args->mm.mm_start_data,
-		.end_data	= args->mm.mm_end_data,
-		.start_stack	= args->mm.mm_start_stack,
-		.start_brk	= args->mm.mm_start_brk,
-		.brk		= args->mm.mm_brk,
-		.arg_start	= args->mm.mm_arg_start,
-		.arg_end	= args->mm.mm_arg_end,
-		.env_start	= args->mm.mm_env_start,
-		.env_end	= args->mm.mm_env_end,
-		.auxv		= (void *)args->mm_saved_auxv,
-		.auxv_size	= args->mm_saved_auxv_size,
-		.exe_fd		= args->fd_exe_link,
+	prctl_map = (struct prctl_mm_map){
+		.start_code = args->mm.mm_start_code,
+		.end_code = args->mm.mm_end_code,
+		.start_data = args->mm.mm_start_data,
+		.end_data = args->mm.mm_end_data,
+		.start_stack = args->mm.mm_start_stack,
+		.start_brk = args->mm.mm_start_brk,
+		.brk = args->mm.mm_brk,
+		.arg_start = args->mm.mm_arg_start,
+		.arg_end = args->mm.mm_arg_end,
+		.env_start = args->mm.mm_env_start,
+		.env_end = args->mm.mm_env_end,
+		.auxv = (void *)args->mm_saved_auxv,
+		.auxv_size = args->mm_saved_auxv_size,
+		.exe_fd = args->fd_exe_link,
 	};
 	ret = sys_prctl(PR_SET_MM, PR_SET_MM_MAP, (long)&prctl_map, sizeof(prctl_map), 0);
 	if (ret == -EINVAL) {
-		ret  = sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE,	(long)args->mm.mm_start_code, 0);
-		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE,	(long)args->mm.mm_end_code, 0);
-		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_DATA,	(long)args->mm.mm_start_data, 0);
-		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_DATA,	(long)args->mm.mm_end_data, 0);
-		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_STACK,	(long)args->mm.mm_start_stack, 0);
-		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_BRK,	(long)args->mm.mm_start_brk, 0);
-		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_BRK,		(long)args->mm.mm_brk, 0);
-		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_START,	(long)args->mm.mm_arg_start, 0);
-		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END,	(long)args->mm.mm_arg_end, 0);
-		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_START,	(long)args->mm.mm_env_start, 0);
-		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_END,	(long)args->mm.mm_env_end, 0);
-		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_AUXV,	(long)args->mm_saved_auxv, args->mm_saved_auxv_size);
+		ret = sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE, (long)args->mm.mm_start_code, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE, (long)args->mm.mm_end_code, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_DATA, (long)args->mm.mm_start_data, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_DATA, (long)args->mm.mm_end_data, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_STACK, (long)args->mm.mm_start_stack, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_BRK, (long)args->mm.mm_start_brk, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_BRK, (long)args->mm.mm_brk, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_START, (long)args->mm.mm_arg_start, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ARG_END, (long)args->mm.mm_arg_end, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_START, (long)args->mm.mm_env_start, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_ENV_END, (long)args->mm.mm_env_end, 0);
+		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_AUXV, (long)args->mm_saved_auxv, args->mm_saved_auxv_size);
 
 		/*
 		 * Because of requirements applied from kernel side
@@ -1739,8 +1692,7 @@ long __export_restore_task(struct task_restore_args *args)
 	/* SELinux (1) process context needs to be set before creating threads. */
 	if (args->lsm_type == LSMTYPE__SELINUX) {
 		/* Only for SELinux */
-		if (lsm_set_label(args->t->creds_args->lsm_profile,
-				  "current", args->proc_fd) < 0)
+		if (lsm_set_label(args->t->creds_args->lsm_profile, "current", args->proc_fd) < 0)
 			goto core_restore_end;
 	}
 
@@ -1775,8 +1727,7 @@ long __export_restore_task(struct task_restore_args *args)
 
 	if (args->nr_threads > 1) {
 		struct thread_restore_args *thread_args = args->thread_args;
-		long clone_flags = CLONE_VM | CLONE_FILES | CLONE_SIGHAND	|
-				   CLONE_THREAD | CLONE_SYSVSEM | CLONE_FS;
+		long clone_flags = CLONE_VM | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM | CLONE_FS;
 		long last_pid_len;
 		pid_t thread_pid;
 		long parent_tid;
@@ -1789,7 +1740,6 @@ long __export_restore_task(struct task_restore_args *args)
 				pr_err("can't open last pid fd %d\n", fd);
 				goto core_restore_end;
 			}
-
 		}
 		mutex_lock(&task_entries_local->last_pid_mutex);
 
@@ -1813,9 +1763,11 @@ long __export_restore_task(struct task_restore_args *args)
 				c_args.child_tid = ptr_to_u64(&thread_args[i].pid);
 				c_args.parent_tid = ptr_to_u64(&parent_tid);
 				pr_debug("Using clone3 to restore the process\n");
-				RUN_CLONE3_RESTORE_FN(ret, c_args, sizeof(c_args), &thread_args[i], args->clone_restore_fn);
+				RUN_CLONE3_RESTORE_FN(ret, c_args, sizeof(c_args), &thread_args[i],
+						      args->clone_restore_fn);
 			} else {
-				last_pid_len = std_vprint_num(last_pid_buf, sizeof(last_pid_buf), thread_args[i].pid - 1, &s);
+				last_pid_len =
+					std_vprint_num(last_pid_buf, sizeof(last_pid_buf), thread_args[i].pid - 1, &s);
 				sys_lseek(fd, 0, SEEK_SET);
 				ret = sys_write(fd, s, last_pid_len);
 				if (ret < 0) {
@@ -1831,7 +1783,8 @@ long __export_restore_task(struct task_restore_args *args)
 				 * thread will run with own stack and we must not
 				 * have any additional instructions... oh, dear...
 				 */
-				RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid, thread_args, args->clone_restore_fn);
+				RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid, thread_args,
+						     args->clone_restore_fn);
 			}
 			if (ret != thread_args[i].pid) {
 				pr_err("Unable to create a thread: %ld\n", ret);
@@ -1879,8 +1832,7 @@ long __export_restore_task(struct task_restore_args *args)
 		goto core_restore_end;
 
 	if (!args->compatible_mode) {
-		ret = sys_sigaction(SIGCHLD, &args->sigchld_act,
-				NULL, sizeof(k_rtsigset_t));
+		ret = sys_sigaction(SIGCHLD, &args->sigchld_act, NULL, sizeof(k_rtsigset_t));
 	} else {
 		void *stack = alloc_compat_syscall_stack();
 
@@ -1888,8 +1840,7 @@ long __export_restore_task(struct task_restore_args *args)
 			pr_err("Failed to allocate 32-bit stack for sigaction\n");
 			goto core_restore_end;
 		}
-		ret = arch_compat_rt_sigaction(stack, SIGCHLD,
-				(void*)&args->sigchld_act);
+		ret = arch_compat_rt_sigaction(stack, SIGCHLD, (void *)&args->sigchld_act);
 		free_compat_syscall_stack(stack);
 	}
 	if (ret) {
@@ -1921,8 +1872,7 @@ long __export_restore_task(struct task_restore_args *args)
 	 * turning off TCP repair is CAP_SYS_NED_ADMIN protected,
 	 * thus restore* creds _after_ all of the above.
 	 */
-	ret = restore_creds(args->t->creds_args, args->proc_fd,
-			    args->lsm_type);
+	ret = restore_creds(args->t->creds_args, args->proc_fd, args->lsm_type);
 	ret = ret || restore_dumpable_flag(&args->mm);
 	ret = ret || restore_pdeath_sig(args->t);
 	ret = ret || restore_child_subreaper(args->child_subreaper);
@@ -1945,9 +1895,7 @@ long __export_restore_task(struct task_restore_args *args)
 	 * code below doesn't fail due to bad timing values.
 	 */
 
-#define itimer_armed(args, i)				\
-		(args->itimers[i].it_interval.tv_sec ||	\
-		 args->itimers[i].it_interval.tv_usec)
+#define itimer_armed(args, i) (args->itimers[i].it_interval.tv_sec || args->itimers[i].it_interval.tv_usec)
 
 	if (itimer_armed(args, 0))
 		sys_setitimer(ITIMER_REAL, &args->itimers[0], NULL);

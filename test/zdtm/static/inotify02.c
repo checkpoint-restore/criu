@@ -18,8 +18,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check for inotify file-handles storm";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Check for inotify file-handles storm";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
@@ -48,7 +48,7 @@ static int num_of_handles(int fd)
 	return ret;
 }
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	const unsigned int mask = IN_DELETE | IN_CLOSE_WRITE | IN_DELETE_SELF | IN_CREATE;
 	const int nr_dirs = 64;

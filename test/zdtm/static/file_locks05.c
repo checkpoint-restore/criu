@@ -8,8 +8,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Sanity check for criu lock-test quirk";
-const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
+const char *test_doc = "Sanity check for criu lock-test quirk";
+const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);

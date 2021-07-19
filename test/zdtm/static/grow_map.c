@@ -5,8 +5,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that VMA-s with MAP_GROWSDOWN are restored correctly";
-const char *test_author	= "Andrew Vagin <avagin@openvz.org>";
+const char *test_doc = "Check that VMA-s with MAP_GROWSDOWN are restored correctly";
+const char *test_author = "Andrew Vagin <avagin@openvz.org>";
 
 int main(int argc, char **argv)
 {
@@ -21,9 +21,8 @@ int main(int argc, char **argv)
 	}
 	munmap(start_addr, PAGE_SIZE * 10);
 
-	fake_grow_down = mmap(start_addr + PAGE_SIZE * 5, PAGE_SIZE,
-			 PROT_READ | PROT_WRITE,
-			 MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED | MAP_GROWSDOWN, -1, 0);
+	fake_grow_down = mmap(start_addr + PAGE_SIZE * 5, PAGE_SIZE, PROT_READ | PROT_WRITE,
+			      MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED | MAP_GROWSDOWN, -1, 0);
 	if (fake_grow_down == MAP_FAILED) {
 		pr_perror("Can't mal a new region");
 		return 1;
@@ -34,16 +33,14 @@ int main(int argc, char **argv)
 	*p = 'b';
 
 	/* overlap the guard page of fake_grow_down */
-	test_addr = mmap(start_addr + PAGE_SIZE * 3, PAGE_SIZE,
-			 PROT_READ | PROT_WRITE,
+	test_addr = mmap(start_addr + PAGE_SIZE * 3, PAGE_SIZE, PROT_READ | PROT_WRITE,
 			 MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0);
 	if (test_addr == MAP_FAILED) {
 		pr_perror("Can't mal a new region");
 		return 1;
 	}
 
-	grow_down = mmap(start_addr + PAGE_SIZE * 2, PAGE_SIZE,
-			 PROT_READ | PROT_WRITE,
+	grow_down = mmap(start_addr + PAGE_SIZE * 2, PAGE_SIZE, PROT_READ | PROT_WRITE,
 			 MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED | MAP_GROWSDOWN, -1, 0);
 	if (grow_down == MAP_FAILED) {
 		pr_perror("Can't mal a new region");

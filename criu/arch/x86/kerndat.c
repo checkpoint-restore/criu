@@ -58,22 +58,20 @@ int kdat_can_map_vdso(void)
 		return -1;
 
 	return WEXITSTATUS(stat);
-
 }
 
 #ifdef CONFIG_COMPAT
-void *mmap_ia32(void *addr, size_t len, int prot,
-		int flags, int fildes, off_t off)
+void *mmap_ia32(void *addr, size_t len, int prot, int flags, int fildes, off_t off)
 {
 	struct syscall_args32 s;
 
-	s.nr    = __NR32_mmap2;
-	s.arg0  = (uint32_t)(uintptr_t)addr;
-	s.arg1  = (uint32_t)len;
-	s.arg2  = prot;
-	s.arg3  = flags;
-	s.arg4  = fildes;
-	s.arg5  = (uint32_t)off;
+	s.nr = __NR32_mmap2;
+	s.arg0 = (uint32_t)(uintptr_t)addr;
+	s.arg1 = (uint32_t)len;
+	s.arg2 = prot;
+	s.arg3 = flags;
+	s.arg4 = fildes;
+	s.arg5 = (uint32_t)off;
 
 	return (void *)(uintptr_t)do_full_int80(&s);
 }
@@ -101,7 +99,7 @@ static void mmap_bug_test(void)
 	void *map1, *map2;
 	int err;
 
-	map1 = mmap_ia32(0, PAGE_SIZE, PROT_NONE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+	map1 = mmap_ia32(0, PAGE_SIZE, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	/* 32-bit error, not sign-extended - can't use IS_ERR_VALUE() here */
 	err = (uintptr_t)map1 % PAGE_SIZE;
 	if (err) {
@@ -114,7 +112,7 @@ static void mmap_bug_test(void)
 		exit(1);
 	}
 
-	map2 = mmap_ia32(0, PAGE_SIZE, PROT_NONE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+	map2 = mmap_ia32(0, PAGE_SIZE, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	err = (uintptr_t)map2 % PAGE_SIZE;
 	if (err) {
 		pr_err("ia32 mmap() failed: %d\n", err);
@@ -200,7 +198,7 @@ static int kdat_x86_has_ptrace_fpu_xsave_bug_child(void *arg)
  */
 int kdat_x86_has_ptrace_fpu_xsave_bug(void)
 {
-	user_fpregs_struct_t xsave = { };
+	user_fpregs_struct_t xsave = {};
 	struct iovec iov;
 	char stack[PAGE_SIZE];
 	int flags = CLONE_VM | CLONE_FILES | CLONE_UNTRACED | SIGCHLD;
@@ -212,8 +210,7 @@ int kdat_x86_has_ptrace_fpu_xsave_bug(void)
 	if (!compel_cpu_has_feature(X86_FEATURE_OSXSAVE))
 		return 0;
 
-	child = clone(kdat_x86_has_ptrace_fpu_xsave_bug_child,
-		stack + ARRAY_SIZE(stack), flags, 0);
+	child = clone(kdat_x86_has_ptrace_fpu_xsave_bug_child, stack + ARRAY_SIZE(stack), flags, 0);
 	if (child < 0) {
 		pr_perror("%s(): failed to clone()", __func__);
 		return -1;

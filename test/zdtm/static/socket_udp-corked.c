@@ -17,7 +17,7 @@ const char *test_author = "Pavel Emelyanov <xemul@parallels.com<>\n";
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
+#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
 #include <sys/wait.h>
 #include <netinet/udp.h>
 
@@ -69,7 +69,6 @@ int main(int argc, char **argv)
 
 	test_daemon();
 	test_waitsig();
-
 
 	pass();
 	return 0;

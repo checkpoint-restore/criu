@@ -21,7 +21,7 @@
 #include "common/bug.h"
 
 #ifdef LOG_PREFIX
-# undef LOG_PREFIX
+#undef LOG_PREFIX
 #endif
 #define LOG_PREFIX "vdso: "
 
@@ -96,7 +96,7 @@ void vdso_update_gtod_addr(struct vdso_maps *rt)
 		return;
 	}
 
-	gtod = (void*)(rt->vdso_start + gtod_sym->offset);
+	gtod = (void *)(rt->vdso_start + gtod_sym->offset);
 	pr_info("Using gettimeofday() on vdso at %p\n", gtod);
 
 	std_log_set_gettimeofday(gtod);
@@ -125,8 +125,7 @@ int vdso_do_park(struct vdso_maps *rt, unsigned long addr, unsigned long space)
 }
 
 #ifndef CONFIG_COMPAT
-static int __vdso_fill_symtable(uintptr_t mem, size_t size,
-		struct vdso_symtable *t, bool __always_unused compat_vdso)
+static int __vdso_fill_symtable(uintptr_t mem, size_t size, struct vdso_symtable *t, bool __always_unused compat_vdso)
 {
 	return vdso_fill_symtable(mem, size, t);
 }
@@ -142,27 +141,25 @@ static int __vdso_fill_symtable(uintptr_t mem, size_t size,
  *    b) Symbols offsets must match
  *    c) Have same number of vDSO zones
  */
-static bool blobs_matches(VmaEntry *vdso_img, VmaEntry *vvar_img,
-		struct vdso_symtable *sym_img, struct vdso_symtable *sym_rt)
+static bool blobs_matches(VmaEntry *vdso_img, VmaEntry *vvar_img, struct vdso_symtable *sym_img,
+			  struct vdso_symtable *sym_rt)
 {
 	unsigned long vdso_size = vma_entry_len(vdso_img);
 	unsigned long rt_vdso_size = sym_rt->vdso_size;
 	size_t i;
 
 	if (vdso_size != rt_vdso_size) {
-		pr_info("size differs: %lx != %lx (rt)\n",
-			vdso_size, rt_vdso_size);
+		pr_info("size differs: %lx != %lx (rt)\n", vdso_size, rt_vdso_size);
 		return false;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(sym_img->symbols); i++) {
-		unsigned long sym_offset	= sym_img->symbols[i].offset;
-		unsigned long rt_sym_offset	= sym_rt->symbols[i].offset;
-		char *sym_name			= sym_img->symbols[i].name;
+		unsigned long sym_offset = sym_img->symbols[i].offset;
+		unsigned long rt_sym_offset = sym_rt->symbols[i].offset;
+		char *sym_name = sym_img->symbols[i].name;
 
 		if (sym_offset != rt_sym_offset) {
-			pr_info("[%zu]`%s` offset differs: %lx != %lx (rt)\n",
-				i, sym_name, sym_offset, rt_sym_offset);
+			pr_info("[%zu]`%s` offset differs: %lx != %lx (rt)\n", i, sym_name, sym_offset, rt_sym_offset);
 			return false;
 		}
 	}
@@ -173,14 +170,12 @@ static bool blobs_matches(VmaEntry *vdso_img, VmaEntry *vvar_img,
 		unsigned long rt_vvar_size = sym_rt->vvar_size;
 
 		if (vvar_size != rt_vvar_size) {
-			pr_info("vvar size differs: %lx != %lx (rt)\n",
-				vdso_size, rt_vdso_size);
+			pr_info("vvar size differs: %lx != %lx (rt)\n", vdso_size, rt_vdso_size);
 			return false;
 		}
 
 		if (vdso_firstly != sym_rt->vdso_before_vvar) {
-			pr_info("[%s] pair has different order\n",
-				vdso_firstly ? "vdso/vvar" : "vvar/vdso");
+			pr_info("[%s] pair has different order\n", vdso_firstly ? "vdso/vvar" : "vvar/vdso");
 			return false;
 		}
 	}
@@ -193,8 +188,7 @@ static bool blobs_matches(VmaEntry *vdso_img, VmaEntry *vvar_img,
  * order and size as runtime vdso, so we simply remap runtime vdso
  * to dumpee position without generating any proxy.
  */
-static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
-			 struct vdso_maps *rt)
+static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar, struct vdso_maps *rt)
 {
 	void *remap_addr;
 
@@ -227,12 +221,10 @@ static int remap_rt_vdso(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
  * calls from dumpee vdso to runtime vdso, making dumpee
  * to operate as proxy vdso.
  */
-static int add_vdso_proxy(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
-		struct vdso_symtable *sym_img, struct vdso_maps *rt,
-		bool compat_vdso)
+static int add_vdso_proxy(VmaEntry *vma_vdso, VmaEntry *vma_vvar, struct vdso_symtable *sym_img, struct vdso_maps *rt,
+			  bool compat_vdso)
 {
-	unsigned long orig_vvar_addr =
-		vma_vvar ? vma_vvar->start : VVAR_BAD_ADDR;
+	unsigned long orig_vvar_addr = vma_vvar ? vma_vvar->start : VVAR_BAD_ADDR;
 
 	pr_info("Runtime vdso mismatches dumpee, generate proxy\n");
 
@@ -244,8 +236,7 @@ static int add_vdso_proxy(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 	 * jumps, so we can't remove them if on the following migration
 	 * found that number of symbols in vdso has decreased.
 	 */
-	if (vdso_redirect_calls(rt->vdso_start, vma_vdso->start,
-				&rt->sym, sym_img, compat_vdso)) {
+	if (vdso_redirect_calls(rt->vdso_start, vma_vdso->start, &rt->sym, sym_img, compat_vdso)) {
 		pr_err("Failed to proxify dumpee contents\n");
 		return -1;
 	}
@@ -256,16 +247,14 @@ static int add_vdso_proxy(VmaEntry *vma_vdso, VmaEntry *vma_vvar,
 	 * it's auto-generated every new session if proxy required.
 	 */
 	sys_mprotect((void *)rt->vdso_start, rt->sym.vdso_size, PROT_WRITE);
-	vdso_put_mark((void *)rt->vdso_start, rt->vvar_start,
-		      vma_vdso->start, orig_vvar_addr);
+	vdso_put_mark((void *)rt->vdso_start, rt->vvar_start, vma_vdso->start, orig_vvar_addr);
 	sys_mprotect((void *)rt->vdso_start, rt->sym.vdso_size, VDSO_PROT);
 
 	return 0;
 }
 
-int vdso_proxify(struct vdso_maps *rt, bool *added_proxy,
-		 VmaEntry *vmas, size_t nr_vmas,
-		 bool compat_vdso, bool force_trampolines)
+int vdso_proxify(struct vdso_maps *rt, bool *added_proxy, VmaEntry *vmas, size_t nr_vmas, bool compat_vdso,
+		 bool force_trampolines)
 {
 	VmaEntry *vma_vdso = NULL, *vma_vvar = NULL;
 	struct vdso_symtable s = VDSO_SYMTABLE_INIT;
@@ -313,12 +302,10 @@ int vdso_proxify(struct vdso_maps *rt, bool *added_proxy,
 	/*
 	 * Find symbols in vDSO zone read from image.
 	 */
-	if (__vdso_fill_symtable((uintptr_t)vma_vdso->start,
-			vma_entry_len(vma_vdso), &s, compat_vdso))
+	if (__vdso_fill_symtable((uintptr_t)vma_vdso->start, vma_entry_len(vma_vdso), &s, compat_vdso))
 		return -1;
 
-	pr_debug("image [vdso] %lx-%lx [vvar] %lx-%lx\n",
-		 (unsigned long)vma_vdso->start, (unsigned long)vma_vdso->end,
+	pr_debug("image [vdso] %lx-%lx [vvar] %lx-%lx\n", (unsigned long)vma_vdso->start, (unsigned long)vma_vdso->end,
 		 vma_vvar ? (unsigned long)vma_vvar->start : VVAR_BAD_ADDR,
 		 vma_vvar ? (unsigned long)vma_vvar->end : VVAR_BAD_ADDR);
 

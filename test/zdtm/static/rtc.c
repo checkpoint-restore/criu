@@ -10,7 +10,7 @@
 
 #include "zdtmtst.h"
 
-#define TEST_HZ 4
+#define TEST_HZ	 4
 #define NR_FAILS 10
 
 int main(int argc, char **argv)
@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 		gettimeofday(&end, NULL);
 		end.tv_usec += end.tv_sec * 1000000;
 		delta = end.tv_usec - start.tv_usec;
-		if (labs(delta - 1000000 / TEST_HZ ) > 100000) {
+		if (labs(delta - 1000000 / TEST_HZ) > 100000) {
 			pr_perror("delta = %ld", delta);
 			fail--;
 			if (fail == 0)

@@ -11,12 +11,12 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Fill/read file continuously to check"
-			"it's migrated at the right moment";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Fill/read file continuously to check"
+		       "it's migrated at the right moment";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
-#define MAX_SCALE	128
-#define FILE_SIZE	(16 * 1024)
+#define MAX_SCALE 128
+#define FILE_SIZE (16 * 1024)
 
 enum kids_exit_codes {
 	SUCCESS = 0,
@@ -31,16 +31,14 @@ enum kids_exit_codes {
 	MAX_EXIT_CODE_VAL
 };
 
-static char *kids_fail_reasons[] = {
-	"Success",
-	/* 1 */ "File corrupted",
-	/* 2 */ "Map failed",
-	/* 3 */ "Open (create) failed",
-	/* 4 */ "Write failed",
-	/* 5 */ "Read failed",
-	/* 6 */ "Fsync failed",
-	/* 7 */ "Lseek failed"
-};
+static char *kids_fail_reasons[] = { "Success",
+				     /* 1 */ "File corrupted",
+				     /* 2 */ "Map failed",
+				     /* 3 */ "Open (create) failed",
+				     /* 4 */ "Write failed",
+				     /* 5 */ "Read failed",
+				     /* 6 */ "Fsync failed",
+				     /* 7 */ "Lseek failed" };
 
 int scale = 13;
 TEST_OPTION(scale, int, "How many children should perform testing", 0);
@@ -120,8 +118,7 @@ static void chew_some_file(int num)
 	int fd, rv;
 	char chew_file[PATH_MAX];
 
-	buf = mmap(NULL, FILE_SIZE, PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+	buf = mmap(NULL, FILE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 	rv = MMAP_FAILED;
 	if (buf == MAP_FAILED)
 		goto out_exit;
@@ -157,8 +154,7 @@ static void chew_some_file(int num)
 		case -2:
 			rv = SEEK_FAILED;
 			goto out_exit;
-		case 1:
-			{
+		case 1: {
 			int fd1;
 			char str[PATH_MAX];
 
@@ -170,7 +166,7 @@ static void chew_some_file(int num)
 				pr_perror("can't write %s", str);
 			close(fd1);
 			goto out_exit;
-			}
+		}
 		}
 	}
 	rv = SUCCESS;
@@ -227,8 +223,7 @@ int main(int argc, char **argv)
 		} else {
 			rv = WEXITSTATUS(rv);
 			if (rv < MAX_EXIT_CODE_VAL && rv > SUCCESS) {
-				fail("Kid failed: %s (%d)",
-						kids_fail_reasons[rv], rv);
+				fail("Kid failed: %s (%d)", kids_fail_reasons[rv], rv);
 				counter++;
 			} else if (rv != SUCCESS) {
 				fail("Unknown exitcode from kid: %d", rv);

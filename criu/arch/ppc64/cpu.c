@@ -1,4 +1,4 @@
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "cpu: "
 
 #include <sys/auxv.h>
@@ -19,9 +19,9 @@
 static compel_cpuinfo_t rt_cpuinfo;
 
 #ifdef __LITTLE_ENDIAN__
-#define CURRENT_ENDIANNESS	CPUINFO_PPC64_ENTRY__ENDIANNESS__LITTLEENDIAN
+#define CURRENT_ENDIANNESS CPUINFO_PPC64_ENTRY__ENDIANNESS__LITTLEENDIAN
 #else
-#define CURRENT_ENDIANNESS	CPUINFO_PPC64_ENTRY__ENDIANESS__BIGENDIAN
+#define CURRENT_ENDIANNESS CPUINFO_PPC64_ENTRY__ENDIANESS__BIGENDIAN
 #endif
 
 int cpu_init(void)
@@ -83,21 +83,23 @@ int cpu_validate_cpuinfo(void)
 		goto error;
 	}
 
-#define CHECK_FEATURE(s,f) do {						\
-		if ((cpu_ppc64_entry->hwcap[s] & f) &&			\
-		    !(rt_cpuinfo.hwcap[s] & f)) {			\
-			pr_err("CPU Feature %s required by image "	\
-			       "is not supported on host.\n", #f);	\
-			goto error;					\
-		}							\
-	} while(0)
+#define CHECK_FEATURE(s, f)                                                          \
+	do {                                                                         \
+		if ((cpu_ppc64_entry->hwcap[s] & f) && !(rt_cpuinfo.hwcap[s] & f)) { \
+			pr_err("CPU Feature %s required by image "                   \
+			       "is not supported on host.\n",                        \
+			       #f);                                                  \
+			goto error;                                                  \
+		}                                                                    \
+	} while (0)
 
-#define REQUIRE_FEATURE(s,f) do {					\
-		if (!(cpu_ppc64_entry->hwcap[s] & f)) {			\
+#define REQUIRE_FEATURE(s, f)                                             \
+	do {                                                              \
+		if (!(cpu_ppc64_entry->hwcap[s] & f)) {                   \
 			pr_err("CPU Feature %s missing in image.\n", #f); \
-			goto error;					\
-		}							\
-	} while(0)
+			goto error;                                       \
+		}                                                         \
+	} while (0)
 
 	REQUIRE_FEATURE(0, PPC_FEATURE_64);
 	REQUIRE_FEATURE(0, PPC_FEATURE_HAS_FPU);

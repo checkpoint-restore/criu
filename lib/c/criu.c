@@ -21,15 +21,15 @@
 const char *criu_lib_version = CRIU_VERSION;
 
 struct criu_opts {
-	CriuOpts		*rpc;
-	int			(*notify)(char *action, criu_notify_arg_t na);
-	enum criu_service_comm	service_comm;
+	CriuOpts *rpc;
+	int (*notify)(char *action, criu_notify_arg_t na);
+	enum criu_service_comm service_comm;
 	union {
-		const char	*service_address;
-		int		service_fd;
-		const char	*service_binary;
+		const char *service_address;
+		int service_fd;
+		const char *service_binary;
 	};
-	int			swrk_pid;
+	int swrk_pid;
 };
 
 static criu_opts *global_opts;
@@ -38,15 +38,15 @@ static int orphan_pts_master_fd = -1;
 
 void criu_free_service(criu_opts *opts)
 {
-	switch(opts->service_comm) {
-		case CRIU_COMM_SK:
-			free((void*)(opts->service_address));
-			break;
+	switch (opts->service_comm) {
+	case CRIU_COMM_SK:
+		free((void *)(opts->service_address));
+		break;
 	case CRIU_COMM_BIN:
-			free((void*)(opts->service_binary));
-			break;
+		free((void *)(opts->service_binary));
+		break;
 	default:
-			break;
+		break;
 	}
 }
 
@@ -902,7 +902,6 @@ int criu_add_enable_fs(const char *fs)
 	return criu_local_add_enable_fs(global_opts, fs);
 }
 
-
 int criu_local_add_skip_mnt(criu_opts *opts, const char *mnt)
 {
 	int nr;
@@ -1146,7 +1145,7 @@ int criu_set_page_server_address_port(const char *address, int port)
 
 static CriuResp *recv_resp(int socket_fd)
 {
-	struct msghdr msg_hdr = {0};
+	struct msghdr msg_hdr = { 0 };
 	unsigned char *buf = NULL;
 	struct cmsghdr *cmsg;
 	CriuResp *msg = 0;
@@ -1245,7 +1244,7 @@ static int send_req(int socket_fd, CriuReq *req)
 		goto err;
 	}
 
-	if (write(socket_fd, buf, len)  == -1) {
+	if (write(socket_fd, buf, len) == -1) {
 		perror("Can't send request");
 		goto err;
 	}
@@ -1278,7 +1277,7 @@ static int send_notify_ack(int socket_fd, int ret)
 	 * result of acking it.
 	 */
 
-	return ret ? : send_ret;
+	return ret ?: send_ret;
 }
 
 static void swrk_wait(criu_opts *opts)
@@ -1337,7 +1336,7 @@ static int swrk_connect(criu_opts *opts, bool d)
 
 		execlp(opts->service_binary, opts->service_binary, "swrk", fds, NULL);
 		perror("Can't exec criu swrk");
-child_err:
+	child_err:
 		close(sks[1]);
 		exit(1);
 	}
@@ -1384,8 +1383,7 @@ static int criu_connect(criu_opts *opts, bool d)
 
 	addr_len = strlen(opts->service_address);
 	if (addr_len >= sizeof(addr.sun_path)) {
-		fprintf(stderr, "The service address %s is too long",
-					opts->service_address);
+		fprintf(stderr, "The service address %s is too long", opts->service_address);
 		close(fd);
 		return -1;
 	}
@@ -1393,7 +1391,7 @@ static int criu_connect(criu_opts *opts, bool d)
 
 	addr_len += sizeof(addr.sun_family);
 
-	ret = connect(fd, (struct sockaddr *) &addr, addr_len);
+	ret = connect(fd, (struct sockaddr *)&addr, addr_len);
 	if (ret < 0) {
 		saved_errno = errno;
 		perror("Can't connect to socket");
@@ -1429,14 +1427,12 @@ again:
 		if (!ret) {
 			criu_resp__free_unpacked(*resp, NULL);
 			goto again;
-		}
-		else
+		} else
 			goto exit;
 	}
 
 	if ((*resp)->type != req->type) {
-		if ((*resp)->type == CRIU_REQ_TYPE__EMPTY &&
-		    (*resp)->success == false)
+		if ((*resp)->type == CRIU_REQ_TYPE__EMPTY && (*resp)->success == false)
 			ret = -EINVAL;
 		else {
 			perror("Unexpected response type");
@@ -1716,13 +1712,13 @@ int criu_restore_child(void)
 int criu_local_get_version(criu_opts *opts)
 {
 	int ret = -1;
-	CriuReq req	= CRIU_REQ__INIT;
-	CriuResp *resp	= NULL;
+	CriuReq req = CRIU_REQ__INIT;
+	CriuResp *resp = NULL;
 
 	saved_errno = 0;
 
-	req.type	= CRIU_REQ_TYPE__VERSION;
-	req.opts	= opts->rpc;
+	req.type = CRIU_REQ_TYPE__VERSION;
+	req.opts = opts->rpc;
 
 	ret = send_req_and_recv_resp(opts, &req, &resp);
 	if (ret)

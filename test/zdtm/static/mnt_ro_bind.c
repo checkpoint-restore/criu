@@ -9,14 +9,14 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check read-only bind-mounts";
-const char *test_author	= "Andrew Vagin <avagin@openvz.org>";
+const char *test_doc = "Check read-only bind-mounts";
+const char *test_author = "Andrew Vagin <avagin@openvz.org>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 
-#define TEST_WORD	"testtest"
-#define TEST_WORD2	"TESTTEST"
+#define TEST_WORD  "testtest"
+#define TEST_WORD2 "TESTTEST"
 
 int main(int argc, char **argv)
 {

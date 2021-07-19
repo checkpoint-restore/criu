@@ -9,8 +9,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check data of bound socket and possibility to connect";
-const char *test_author	= "Kirill Tkhai <ktkhai@virtuozzo";
+const char *test_doc = "Check data of bound socket and possibility to connect";
+const char *test_author = "Kirill Tkhai <ktkhai@virtuozzo";
 
 #define MSG "hello"
 char *filename;
@@ -30,7 +30,7 @@ static int client(const char *iter)
 	addr.sun_family = AF_UNIX;
 	strcpy(addr.sun_path, filename);
 
-	if (connect(sk, (struct sockaddr *) &addr, sizeof(struct sockaddr_un)) < 0) {
+	if (connect(sk, (struct sockaddr *)&addr, sizeof(struct sockaddr_un)) < 0) {
 		pr_perror("connect failed %s", iter);
 		return 1;
 	}
@@ -60,7 +60,7 @@ int main(int argc, char **argv)
 	addr.sun_family = AF_UNIX;
 	strcpy(addr.sun_path, filename);
 
-	if (bind(srv, (struct sockaddr *) &addr, sizeof(struct sockaddr_un))) {
+	if (bind(srv, (struct sockaddr *)&addr, sizeof(struct sockaddr_un))) {
 		pr_perror("bind srv");
 		exit(1);
 	}

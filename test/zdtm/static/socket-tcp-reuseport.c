@@ -19,7 +19,7 @@ const char *test_author = "Andrey Vagin <avagin@parallels.com";
 #include <sched.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
+#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
 
 #define BUF_SIZE 4096
 
@@ -54,9 +54,7 @@ int write_data(int fd, const unsigned char *buf, int size)
 
 int main(int argc, char **argv)
 {
-	struct zdtm_tcp_opts opts = { .reuseaddr = false,
-					.reuseport = true,
-					.flags = SOCK_NONBLOCK};
+	struct zdtm_tcp_opts opts = { .reuseaddr = false, .reuseport = true, .flags = SOCK_NONBLOCK };
 	unsigned char buf[BUF_SIZE];
 	int port = 8880, port2;
 	int fd, fd_s, fd_s2, clt, i;
@@ -79,11 +77,10 @@ int main(int argc, char **argv)
 	if (port != port2)
 		return 1;
 
-	if (setsockopt(fd_s, SOL_SOCKET, SO_REUSEPORT, &no, sizeof(int)) == -1 ) {
+	if (setsockopt(fd_s, SOL_SOCKET, SO_REUSEPORT, &no, sizeof(int)) == -1) {
 		pr_perror("Unable to set SO_REUSEPORT");
 		return -1;
 	}
-
 
 	clt = tcp_init_client(ZDTM_FAMILY, "localhost", port);
 	if (clt < 0)
@@ -102,7 +99,6 @@ int main(int argc, char **argv)
 
 	test_daemon();
 	test_waitsig();
-
 
 	optlen = sizeof(val);
 	if (getsockopt(fd_s, SOL_SOCKET, SO_REUSEPORT, &val, &optlen)) {
@@ -123,7 +119,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	for (i = 0; ; i++) {
+	for (i = 0;; i++) {
 		crc = 0;
 		datagen(buf, BUF_SIZE, &crc);
 		if (write_data(fd, buf, BUF_SIZE)) {

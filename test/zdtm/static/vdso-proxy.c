@@ -4,17 +4,18 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Compare mappings before/after C/R for vdso/vvar presence. Should run iterative under vdso proxy fault-injection.\n";
-const char *test_author	= "Dmitry Safonov <dsafonov@virtuozzo.com>";
+const char *test_doc =
+	"Compare mappings before/after C/R for vdso/vvar presence. Should run iterative under vdso proxy fault-injection.\n";
+const char *test_author = "Dmitry Safonov <dsafonov@virtuozzo.com>";
 
-#define BUILD_BUG_ON(condition)	((void)sizeof(char[1 - 2*!!(condition)]))
-#define VSYSCALL_START 0xffffffffff600000ULL
+#define BUILD_BUG_ON(condition) ((void)sizeof(char[1 - 2 * !!(condition)]))
+#define VSYSCALL_START		0xffffffffff600000ULL
 /*
  * Use constant MAX_VMAS - to minimize the risk of allocating a new
  * mapping or changing the size of existent VMA with realloc()
  */
-#define MAX_VMAS		80
-#define BUF_SIZE		1024
+#define MAX_VMAS 80
+#define BUF_SIZE 1024
 
 /*
  * After C/R with vdso trampolines insertion, there should
@@ -69,8 +70,7 @@ static int parse_maps(struct vm_area *vmas)
 #endif
 		v->is_vvar_or_vdso |= strstr(buf, "[vdso]") != NULL;
 		v->is_vvar_or_vdso |= strstr(buf, "[vvar]") != NULL;
-		test_msg("[NOTE]\tVMA: [%#" PRIx64 ", %#" PRIx64 "]\n",
-				v->start, v->end);
+		test_msg("[NOTE]\tVMA: [%#" PRIx64 ", %#" PRIx64 "]\n", v->start, v->end);
 	}
 
 	if (fclose(maps)) {
@@ -110,9 +110,8 @@ static int check_vvar_vdso(struct vm_area *before, struct vm_area *after)
 		if (cmp == 0)
 			continue;
 
-		if (cmp < 0) {/* Lost mapping */
-			test_msg("[NOTE]\tLost mapping: %#" PRIx64 "-%#" PRIx64 "\n",
-				before[i].start, before[i].end);
+		if (cmp < 0) { /* Lost mapping */
+			test_msg("[NOTE]\tLost mapping: %#" PRIx64 "-%#" PRIx64 "\n", before[i].start, before[i].end);
 			j--;
 			if (before[i].is_vvar_or_vdso) {
 				fail("Lost vvar/vdso mapping");
@@ -121,8 +120,7 @@ static int check_vvar_vdso(struct vm_area *before, struct vm_area *after)
 			continue;
 		}
 
-		test_msg("[NOTE]\tNew mapping appeared: %#" PRIx64 "-%#" PRIx64 "\n",
-			after[j].start, after[j].end);
+		test_msg("[NOTE]\tNew mapping appeared: %#" PRIx64 "-%#" PRIx64 "\n", after[j].start, after[j].end);
 		i--;
 	}
 

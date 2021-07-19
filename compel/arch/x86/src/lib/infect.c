@@ -24,29 +24,27 @@
 #include "log.h"
 
 #ifndef NT_X86_XSTATE
-#define NT_X86_XSTATE	0x202		/* x86 extended state using xsave */
+#define NT_X86_XSTATE 0x202 /* x86 extended state using xsave */
 #endif
 #ifndef NT_PRSTATUS
-#define NT_PRSTATUS	1		/* Contains copy of prstatus struct */
+#define NT_PRSTATUS 1 /* Contains copy of prstatus struct */
 #endif
 
 /*
  * Injected syscall instruction
  */
 const char code_syscall[] = {
-	0x0f, 0x05,				/* syscall    */
-	0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc	/* int 3, ... */
+	0x0f, 0x05, /* syscall    */
+	0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc /* int 3, ... */
 };
 
 const char code_int_80[] = {
-	0xcd, 0x80,				/* int $0x80  */
-	0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc	/* int 3, ... */
+	0xcd, 0x80, /* int $0x80  */
+	0xcc, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc /* int 3, ... */
 };
 
-static const int
-code_syscall_aligned = round_up(sizeof(code_syscall), sizeof(long));
-static const int
-code_int_80_aligned = round_up(sizeof(code_syscall), sizeof(long));
+static const int code_syscall_aligned = round_up(sizeof(code_syscall), sizeof(long));
+static const int code_int_80_aligned = round_up(sizeof(code_syscall), sizeof(long));
 
 static inline __always_unused void __check_code_syscall(void)
 {
@@ -57,22 +55,22 @@ static inline __always_unused void __check_code_syscall(void)
 
 /* 10-byte legacy floating point register */
 struct fpreg {
-	uint16_t			significand[4];
-	uint16_t			exponent;
+	uint16_t significand[4];
+	uint16_t exponent;
 };
 
 /* 16-byte floating point register */
 struct fpxreg {
-	uint16_t			significand[4];
-	uint16_t			exponent;
-	uint16_t			padding[3];
+	uint16_t significand[4];
+	uint16_t exponent;
+	uint16_t padding[3];
 };
 
-#define FPREG_ADDR(f, n)	((void *)&(f)->st_space + (n) * 16)
-#define FP_EXP_TAG_VALID	0
-#define FP_EXP_TAG_ZERO		1
-#define FP_EXP_TAG_SPECIAL	2
-#define FP_EXP_TAG_EMPTY	3
+#define FPREG_ADDR(f, n)   ((void *)&(f)->st_space + (n)*16)
+#define FP_EXP_TAG_VALID   0
+#define FP_EXP_TAG_ZERO	   1
+#define FP_EXP_TAG_SPECIAL 2
+#define FP_EXP_TAG_EMPTY   3
 
 static inline uint32_t twd_fxsr_to_i387(struct i387_fxsave_struct *fxsave)
 {
@@ -92,9 +90,7 @@ static inline uint32_t twd_fxsr_to_i387(struct i387_fxsave_struct *fxsave)
 				tag = FP_EXP_TAG_SPECIAL;
 				break;
 			case 0x0000:
-				if (!st->significand[0] &&
-				    !st->significand[1] &&
-				    !st->significand[2] &&
+				if (!st->significand[0] && !st->significand[1] && !st->significand[2] &&
 				    !st->significand[3])
 					tag = FP_EXP_TAG_ZERO;
 				else
@@ -115,8 +111,7 @@ static inline uint32_t twd_fxsr_to_i387(struct i387_fxsave_struct *fxsave)
 	return ret;
 }
 
-void compel_convert_from_fxsr(struct user_i387_ia32_struct *env,
-			      struct i387_fxsave_struct *fxsave)
+void compel_convert_from_fxsr(struct user_i387_ia32_struct *env, struct i387_fxsave_struct *fxsave)
 {
 	struct fpxreg *from = (struct fpxreg *)&fxsave->st_space[0];
 	struct fpreg *to = (struct fpreg *)env->st_space;
@@ -140,16 +135,12 @@ void compel_convert_from_fxsr(struct user_i387_ia32_struct *env,
 		memcpy(&to[i], &from[i], sizeof(to[0]));
 }
 
-int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
-			      user_regs_struct_t *regs,
-			      user_fpregs_struct_t *fpregs)
+int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	bool is_native = user_regs_native(regs);
-	fpu_state_t *fpu_state = is_native ?
-				&sigframe->native.fpu_state :
-				&sigframe->compat.fpu_state;
+	fpu_state_t *fpu_state = is_native ? &sigframe->native.fpu_state : &sigframe->compat.fpu_state;
 	if (is_native) {
-#define cpreg64_native(d, s)	sigframe->native.uc.uc_mcontext.d = regs->native.s
+#define cpreg64_native(d, s) sigframe->native.uc.uc_mcontext.d = regs->native.s
 		cpreg64_native(rdi, di);
 		cpreg64_native(rsi, si);
 		cpreg64_native(rbp, bp);
@@ -173,7 +164,7 @@ int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
 		sigframe->is_native = true;
 #undef cpreg64_native
 	} else {
-#define cpreg32_compat(d)	sigframe->compat.uc.uc_mcontext.d = regs->compat.d
+#define cpreg32_compat(d) sigframe->compat.uc.uc_mcontext.d = regs->compat.d
 		cpreg32_compat(gs);
 		cpreg32_compat(fs);
 		cpreg32_compat(es);
@@ -206,34 +197,28 @@ int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
 	return 0;
 }
 
-int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
-				   struct rt_sigframe *rsigframe)
+int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe, struct rt_sigframe *rsigframe)
 {
-	fpu_state_t *fpu_state = (sigframe->is_native) ?
-		&rsigframe->native.fpu_state :
-		&rsigframe->compat.fpu_state;
+	fpu_state_t *fpu_state = (sigframe->is_native) ? &rsigframe->native.fpu_state : &rsigframe->compat.fpu_state;
 
 	if (sigframe->is_native) {
 		unsigned long addr = (unsigned long)(void *)&fpu_state->fpu_state_64.xsave;
 
 		if ((addr % 64ul)) {
-			pr_err("Unaligned address passed: %lx (native %d)\n",
-			       addr, sigframe->is_native);
+			pr_err("Unaligned address passed: %lx (native %d)\n", addr, sigframe->is_native);
 			return -1;
 		}
 
 		sigframe->native.uc.uc_mcontext.fpstate = (uint64_t)addr;
 	} else if (!sigframe->is_native) {
-		sigframe->compat.uc.uc_mcontext.fpstate =
-			(uint32_t)(unsigned long)(void *)&fpu_state->fpu_state_ia32;
+		sigframe->compat.uc.uc_mcontext.fpstate = (uint32_t)(unsigned long)(void *)&fpu_state->fpu_state_ia32;
 	}
 
 	return 0;
 }
 
-#define get_signed_user_reg(pregs, name)				\
-	((user_regs_native(pregs)) ? (int64_t)((pregs)->native.name) :	\
-				(int32_t)((pregs)->compat.name))
+#define get_signed_user_reg(pregs, name) \
+	((user_regs_native(pregs)) ? (int64_t)((pregs)->native.name) : (int32_t)((pregs)->compat.name))
 
 static int get_task_xsave(pid_t pid, user_fpregs_struct_t *xsave)
 {
@@ -310,8 +295,7 @@ static int corrupt_extregs(pid_t pid)
 	 *  - zdtm.py will grep it auto-magically from logs
 	 *    (and the seed will be known from an automatical testing)
 	 */
-	pr_err("Corrupting %s for %d, seed %u\n",
-			use_xsave ? "xsave" : "fpuregs", pid, seed);
+	pr_err("Corrupting %s for %d, seed %u\n", use_xsave ? "xsave" : "fpuregs", pid, seed);
 
 	if (!use_xsave) {
 		if (ptrace(PTRACE_SETFPREGS, pid, NULL, &ext_regs)) {
@@ -334,15 +318,13 @@ static int corrupt_extregs(pid_t pid)
 	return 0;
 }
 
-int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
-		  user_fpregs_struct_t *ext_regs, save_regs_t save,
-		  void *arg, unsigned long flags)
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *ext_regs, save_regs_t save,
+			 void *arg, unsigned long flags)
 {
-	user_fpregs_struct_t xsave = { }, *xs = ext_regs ? ext_regs : &xsave;
+	user_fpregs_struct_t xsave = {}, *xs = ext_regs ? ext_regs : &xsave;
 	int ret = -1;
 
-	pr_info("Dumping general registers for %d in %s mode\n", pid,
-			user_regs_native(regs) ? "native" : "compat");
+	pr_info("Dumping general registers for %d in %s mode\n", pid, user_regs_native(regs) ? "native" : "compat");
 
 	/* Did we come from a system call? */
 	if (get_signed_user_reg(regs, orig_ax) >= 0) {
@@ -423,13 +405,8 @@ int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
 	return 0;
 }
 
-int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
-		unsigned long arg1,
-		unsigned long arg2,
-		unsigned long arg3,
-		unsigned long arg4,
-		unsigned long arg5,
-		unsigned long arg6)
+int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret, unsigned long arg1, unsigned long arg2,
+		   unsigned long arg3, unsigned long arg4, unsigned long arg5, unsigned long arg6)
 {
 	user_regs_struct_t regs = ctl->orig.regs;
 	bool native = user_regs_native(&regs);
@@ -438,51 +415,47 @@ int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 	if (native) {
 		user_regs_struct64 *r = &regs.native;
 
-		r->ax  = (uint64_t)nr;
-		r->di  = arg1;
-		r->si  = arg2;
-		r->dx  = arg3;
+		r->ax = (uint64_t)nr;
+		r->di = arg1;
+		r->si = arg2;
+		r->dx = arg3;
 		r->r10 = arg4;
-		r->r8  = arg5;
-		r->r9  = arg6;
+		r->r8 = arg5;
+		r->r9 = arg6;
 
 		err = compel_execute_syscall(ctl, &regs, code_syscall);
 	} else {
 		user_regs_struct32 *r = &regs.compat;
 
-		r->ax  = (uint32_t)nr;
-		r->bx  = arg1;
-		r->cx  = arg2;
-		r->dx  = arg3;
-		r->si  = arg4;
-		r->di  = arg5;
-		r->bp  = arg6;
+		r->ax = (uint32_t)nr;
+		r->bx = arg1;
+		r->cx = arg2;
+		r->dx = arg3;
+		r->si = arg4;
+		r->di = arg5;
+		r->bp = arg6;
 
 		err = compel_execute_syscall(ctl, &regs, code_int_80);
 	}
 
-	*ret = native ?
-		(long)get_user_reg(&regs, ax) :
-		(int)get_user_reg(&regs, ax);
+	*ret = native ? (long)get_user_reg(&regs, ax) : (int)get_user_reg(&regs, ax);
 	return err;
 }
 
-void *remote_mmap(struct parasite_ctl *ctl,
-		  void *addr, size_t length, int prot,
-		  int flags, int fd, off_t offset)
+void *remote_mmap(struct parasite_ctl *ctl, void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
 	long map;
 	int err;
 	bool compat_task = !user_regs_native(&ctl->orig.regs);
 
-	err = compel_syscall(ctl, __NR(mmap, compat_task), &map,
-			(unsigned long)addr, length, prot, flags, fd, offset);
+	err = compel_syscall(ctl, __NR(mmap, compat_task), &map, (unsigned long)addr, length, prot, flags, fd, offset);
 	if (err < 0)
 		return NULL;
 
 	if (map == -EACCES && (prot & PROT_WRITE) && (prot & PROT_EXEC)) {
 		pr_warn("mmap(PROT_WRITE | PROT_EXEC) failed for %d, "
-			"check selinux execmem policy\n", ctl->rpid);
+			"check selinux execmem policy\n",
+			ctl->rpid);
 		return NULL;
 	}
 	if (IS_ERR_VALUE(map)) {
@@ -507,18 +480,17 @@ void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *
 {
 	set_user_reg(regs, ip, new_ip);
 	if (stack)
-		set_user_reg(regs, sp, (unsigned long) stack);
+		set_user_reg(regs, sp, (unsigned long)stack);
 
 	/* Avoid end of syscall processing */
 	set_user_reg(regs, orig_ax, -1);
 
 	/* Make sure flags are in known state */
-	set_user_reg(regs, flags, get_user_reg(regs, flags) &
-			~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF));
+	set_user_reg(regs, flags, get_user_reg(regs, flags) & ~(X86_EFLAGS_TF | X86_EFLAGS_DF | X86_EFLAGS_IF));
 }
 
-#define USER32_CS	0x23
-#define USER_CS		0x33
+#define USER32_CS 0x23
+#define USER_CS	  0x33
 
 static bool ldt_task_selectors(pid_t pid)
 {
@@ -574,30 +546,26 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
 {
 	int native = compel_mode_native(ctl);
-	void *where = native ?
-		(void *)&s->native.uc.uc_stack :
-		(void *)&s->compat.uc.uc_stack;
+	void *where = native ? (void *)&s->native.uc.uc_stack : (void *)&s->compat.uc.uc_stack;
 	long ret;
 	int err;
 
-	err = compel_syscall(ctl, __NR(sigaltstack, !native),
-			     &ret, 0, (unsigned long)where,
-			     0, 0, 0, 0);
+	err = compel_syscall(ctl, __NR(sigaltstack, !native), &ret, 0, (unsigned long)where, 0, 0, 0, 0);
 	return err ? err : ret;
 }
 
 /* Copied from the gdb header gdb/nat/x86-dregs.h */
 
 /* Debug registers' indices.  */
-#define DR_FIRSTADDR	0
-#define DR_LASTADDR	3
-#define DR_NADDR	4  /* The number of debug address registers.  */
-#define DR_STATUS	6  /* Index of debug status register (DR6).  */
-#define DR_CONTROL	7  /* Index of debug control register (DR7).  */
+#define DR_FIRSTADDR 0
+#define DR_LASTADDR  3
+#define DR_NADDR     4 /* The number of debug address registers.  */
+#define DR_STATUS    6 /* Index of debug status register (DR6).  */
+#define DR_CONTROL   7 /* Index of debug control register (DR7).  */
 
-#define DR_LOCAL_ENABLE_SHIFT	0 /* Extra shift to the local enable bit.  */
-#define DR_GLOBAL_ENABLE_SHIFT	1 /* Extra shift to the global enable bit.  */
-#define DR_ENABLE_SIZE		2 /* Two enable bits per debug register.  */
+#define DR_LOCAL_ENABLE_SHIFT  0 /* Extra shift to the local enable bit.  */
+#define DR_GLOBAL_ENABLE_SHIFT 1 /* Extra shift to the global enable bit.  */
+#define DR_ENABLE_SIZE	       2 /* Two enable bits per debug register.  */
 
 /* Locally enable the break/watchpoint in the I'th debug register.  */
 #define X86_DR_LOCAL_ENABLE(i) (1 << (DR_LOCAL_ENABLE_SHIFT + DR_ENABLE_SIZE * (i)))
@@ -607,17 +575,14 @@ int ptrace_set_breakpoint(pid_t pid, void *addr)
 	int ret;
 
 	/* Set a breakpoint */
-	if (ptrace(PTRACE_POKEUSER, pid,
-			offsetof(struct user, u_debugreg[DR_FIRSTADDR]),
-			addr)) {
+	if (ptrace(PTRACE_POKEUSER, pid, offsetof(struct user, u_debugreg[DR_FIRSTADDR]), addr)) {
 		pr_perror("Unable to setup a breakpoint into %d", pid);
 		return -1;
 	}
 
 	/* Enable the breakpoint */
-	if (ptrace(PTRACE_POKEUSER, pid,
-			offsetof(struct user, u_debugreg[DR_CONTROL]),
-			X86_DR_LOCAL_ENABLE(DR_FIRSTADDR))) {
+	if (ptrace(PTRACE_POKEUSER, pid, offsetof(struct user, u_debugreg[DR_CONTROL]),
+		   X86_DR_LOCAL_ENABLE(DR_FIRSTADDR))) {
 		pr_perror("Unable to enable the breakpoint for %d", pid);
 		return -1;
 	}
@@ -634,9 +599,7 @@ int ptrace_set_breakpoint(pid_t pid, void *addr)
 int ptrace_flush_breakpoints(pid_t pid)
 {
 	/* Disable the breakpoint */
-	if (ptrace(PTRACE_POKEUSER, pid,
-			offsetof(struct user, u_debugreg[DR_CONTROL]),
-			0)) {
+	if (ptrace(PTRACE_POKEUSER, pid, offsetof(struct user, u_debugreg[DR_CONTROL]), 0)) {
 		pr_perror("Unable to disable the breakpoint for %d", pid);
 		return -1;
 	}
@@ -668,8 +631,7 @@ int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs)
 	}
 
 	pr_err("PTRACE_GETREGSET read %zu bytes for pid %d, but native/compat regs sizes are %zu/%zu bytes\n",
-			iov.iov_len, pid,
-			sizeof(regs->native), sizeof(regs->compat));
+	       iov.iov_len, pid, sizeof(regs->native), sizeof(regs->compat));
 	return -1;
 }
 
@@ -687,11 +649,14 @@ int ptrace_set_regs(pid_t pid, user_regs_struct_t *regs)
 	return ptrace(PTRACE_SETREGSET, pid, NT_PRSTATUS, &iov);
 }
 
-#define TASK_SIZE	((1UL << 47) - PAGE_SIZE)
+#define TASK_SIZE ((1UL << 47) - PAGE_SIZE)
 /*
  * Task size may be limited to 3G but we need a
  * higher limit, because it's backward compatible.
  */
-#define TASK_SIZE_IA32	(0xffffe000)
+#define TASK_SIZE_IA32 (0xffffe000)
 
-unsigned long compel_task_size(void) { return TASK_SIZE; }
+unsigned long compel_task_size(void)
+{
+	return TASK_SIZE;
+}

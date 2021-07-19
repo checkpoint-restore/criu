@@ -21,14 +21,14 @@
 #include "zdtmtst.h"
 
 #ifndef F_SETSIG
-#define F_SETSIG	10	/* for sockets. */
-#define F_GETSIG	11	/* for sockets. */
+#define F_SETSIG 10 /* for sockets. */
+#define F_GETSIG 11 /* for sockets. */
 #endif
 
-const char *test_doc	= "Check for eventfs";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Check for eventfs";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
-#define EVENTFD_INITIAL	30
+#define EVENTFD_INITIAL 30
 #define EVENTFD_FINAL	90
 
 int main(int argc, char *argv[])
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	test_msg("created eventfd with %"PRIu64"\n", v);
+	test_msg("created eventfd with %" PRIu64 "\n", v);
 
 	ret = write(efd, &v, sizeof(v));
 	if (ret != sizeof(v)) {

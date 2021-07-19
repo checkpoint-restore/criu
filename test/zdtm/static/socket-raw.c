@@ -29,36 +29,36 @@
  * http://www.binarytides.com/raw-udp-sockets-c-linux/
  */
 
-const char *test_doc		= "Test RAW sockets (IPv4,6)\n";
-const char *test_author		= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Test RAW sockets (IPv4,6)\n";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 #ifndef SO_IP_SET
-# define SO_IP_SET		83
+#define SO_IP_SET 83
 #endif
 
 #ifndef IP_SET_OP_VERSION
-# define IP_SET_OP_VERSION	0x00000100	/* Ask kernel version */
+#define IP_SET_OP_VERSION 0x00000100 /* Ask kernel version */
 #endif
 
-#define pr_debug(format, arg...) test_msg("DBG: %s:%d: " format, __FILE__, __LINE__, ## arg)
+#define pr_debug(format, arg...) test_msg("DBG: %s:%d: " format, __FILE__, __LINE__, ##arg)
 
 struct ip_set_req_version {
-	unsigned int	op;
-	unsigned int	version;
+	unsigned int op;
+	unsigned int version;
 };
 
 struct pseudo_header {
-	uint32_t	source_address;
-	uint32_t	dest_address;
-	uint8_t		placeholder;
-	uint8_t		protocol;
-	uint16_t	udp_length;
+	uint32_t source_address;
+	uint32_t dest_address;
+	uint8_t placeholder;
+	uint8_t protocol;
+	uint16_t udp_length;
 };
 
 static int stop_icmp(int sk_icmp, int sk_icmpv6)
 {
-	struct icmp6_filter filter6 = { };
-	struct icmp_filter filter = { };
+	struct icmp6_filter filter6 = {};
+	struct icmp_filter filter = {};
 	socklen_t aux;
 	int ret = 0;
 
@@ -70,8 +70,7 @@ static int stop_icmp(int sk_icmp, int sk_icmpv6)
 	}
 
 	if (filter.data != (1 << ICMP_TIMESTAMP)) {
-		pr_err("data mismatch on icmp filter %d != %d\n",
-		       filter.data, (1 << ICMP_TIMESTAMP));
+		pr_err("data mismatch on icmp filter %d != %d\n", filter.data, (1 << ICMP_TIMESTAMP));
 		return -1;
 	}
 
@@ -83,27 +82,25 @@ static int stop_icmp(int sk_icmp, int sk_icmpv6)
 	}
 
 	if (filter6.data[0] != (1 << ICMP_TIMESTAMP)) {
-		pr_err("data mismatch on icmp filter %d != %d\n",
-		       filter6.data[0], (1 << ICMP_TIMESTAMP));
+		pr_err("data mismatch on icmp filter %d != %d\n", filter6.data[0], (1 << ICMP_TIMESTAMP));
 		return -1;
 	}
 
 	return ret;
 }
 
-static int start_icmp(int sk_icmp, int sk_icmpv6,
-		      const char *a4, const char *a6, int port)
+static int start_icmp(int sk_icmp, int sk_icmpv6, const char *a4, const char *a6, int port)
 {
 	struct sockaddr_in addr_client;
-	struct icmp6_filter filter6 = { };
-	struct icmp_filter filter = { };
+	struct icmp6_filter filter6 = {};
+	struct icmp_filter filter = {};
 	int ret = 0;
 
 	memset(&addr_client, 0, sizeof(addr_client));
 
-	addr_client.sin_family		= AF_INET;
-	addr_client.sin_port		= htons(port);
-	addr_client.sin_addr.s_addr	= inet_addr(a4);
+	addr_client.sin_family = AF_INET;
+	addr_client.sin_port = htons(port);
+	addr_client.sin_addr.s_addr = inet_addr(a4);
 
 	ret = bind(sk_icmp, (struct sockaddr *)&addr_client, sizeof(addr_client));
 	if (ret < 0) {
@@ -163,7 +160,6 @@ static void raw_socks_storm(void)
 	int sk4[IPPROTO_MAX];
 	int sk6[IPPROTO_MAX];
 	size_t i;
-
 
 	for (i = 1; i < ARRAY_SIZE(sk4); i++) {
 		sk4[i] = socket(PF_INET, SOCK_RAW | SOCK_NONBLOCK, i);
@@ -265,13 +261,13 @@ int main(int argc, char *argv[])
 	memset(&addr_serv, 0, sizeof(addr_serv));
 	memset(&addr_client, 0, sizeof(addr_client));
 
-	addr_client.sin_family		= AF_INET;
-	addr_client.sin_port		= htons(port_client);
-	addr_client.sin_addr.s_addr	= inet_addr(string_client_ip);
+	addr_client.sin_family = AF_INET;
+	addr_client.sin_port = htons(port_client);
+	addr_client.sin_addr.s_addr = inet_addr(string_client_ip);
 
-	addr_serv.sin_family		= AF_INET;
-	addr_serv.sin_port		= htons(port_serv);
-	addr_serv.sin_addr.s_addr	= inet_addr(string_serv_ip);
+	addr_serv.sin_family = AF_INET;
+	addr_serv.sin_port = htons(port_serv);
+	addr_serv.sin_addr.s_addr = inet_addr(string_serv_ip);
 
 	ret = bind(sk_udp_serv, (struct sockaddr *)&addr_serv, sizeof(addr_serv));
 	if (ret < 0) {
@@ -287,36 +283,35 @@ int main(int argc, char *argv[])
 	}
 	pr_debug("Bound sk_udp\n");
 
-	if (start_icmp(sk_icmp, sk_icmpv6, string_client_icmp_ip,
-		       string_client_icmpv6_ip, port_client))
+	if (start_icmp(sk_icmp, sk_icmpv6, string_client_icmp_ip, string_client_icmpv6_ip, port_client))
 		return 1;
 
 	data = datagram + sizeof(struct iphdr) + sizeof(struct udphdr);
 	strcpy(data, string_data);
 
-	iph->ihl	= 5;
-	iph->version	= 4;
-	iph->tos	= 0;
-	iph->tot_len	= sizeof(struct iphdr) + sizeof(struct udphdr) + strlen(string_data);
-	iph->id		= htonl(54321);
-	iph->frag_off	= 0;
-	iph->ttl	= 255;
-	iph->protocol	= IPPROTO_UDP;
-	iph->check	= 0;
-	iph->saddr	= inet_addr(string_client_ip);
-	iph->daddr	= addr_serv.sin_addr.s_addr;
-	iph->check	= csum((unsigned short *)datagram, sizeof(struct iphdr));
+	iph->ihl = 5;
+	iph->version = 4;
+	iph->tos = 0;
+	iph->tot_len = sizeof(struct iphdr) + sizeof(struct udphdr) + strlen(string_data);
+	iph->id = htonl(54321);
+	iph->frag_off = 0;
+	iph->ttl = 255;
+	iph->protocol = IPPROTO_UDP;
+	iph->check = 0;
+	iph->saddr = inet_addr(string_client_ip);
+	iph->daddr = addr_serv.sin_addr.s_addr;
+	iph->check = csum((unsigned short *)datagram, sizeof(struct iphdr));
 
-	udph->source	= htons(port_client);
-	udph->dest	= htons(port_serv);
-	udph->len	= htons(8 + strlen(data));
-	udph->check	= 0;
+	udph->source = htons(port_client);
+	udph->dest = htons(port_serv);
+	udph->len = htons(8 + strlen(data));
+	udph->check = 0;
 
-	psh.source_address	= inet_addr(string_client_ip);
-	psh.dest_address	= addr_serv.sin_addr.s_addr;
-	psh.placeholder		= 0;
-	psh.protocol		= IPPROTO_UDP;
-	psh.udp_length		= htons(sizeof(struct udphdr) + strlen(string_data));
+	psh.source_address = inet_addr(string_client_ip);
+	psh.dest_address = addr_serv.sin_addr.s_addr;
+	psh.placeholder = 0;
+	psh.protocol = IPPROTO_UDP;
+	psh.udp_length = htons(sizeof(struct udphdr) + strlen(string_data));
 
 	psize = sizeof(psh) + sizeof(struct udphdr) + strlen(string_data);
 	pseudogram = malloc(psize);
@@ -325,7 +320,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	memcpy(pseudogram, (char *)&psh , sizeof(psh));
+	memcpy(pseudogram, (char *)&psh, sizeof(psh));
 	memcpy(pseudogram + sizeof(psh), udph, sizeof(*udph) + strlen(string_data));
 
 	udph->check = csum((unsigned short *)pseudogram, psize);
@@ -340,8 +335,7 @@ int main(int argc, char *argv[])
 	if (pid == 0) {
 		task_waiter_wait4(&waiter, 2);
 		pr_debug("Gonna read data\n");
-		ret = recvfrom(sk_udp_serv, receiver, sizeof(receiver), 0,
-			       (struct sockaddr *)&addr_client, &len);
+		ret = recvfrom(sk_udp_serv, receiver, sizeof(receiver), 0, (struct sockaddr *)&addr_client, &len);
 		if (ret < 0) {
 			task_waiter_complete(&waiter, 2);
 			fail("Can't read data");
@@ -353,8 +347,7 @@ int main(int argc, char *argv[])
 		task_waiter_complete(&waiter, 3);
 
 		if (strcmp(receiver, string_data)) {
-			pr_err("Data mismatch (got %s but expected %s)\n",
-			       receiver, string_data);
+			pr_err("Data mismatch (got %s but expected %s)\n", receiver, string_data);
 			exit(1);
 		} else
 			pr_debug("Data match\n");
@@ -369,8 +362,7 @@ int main(int argc, char *argv[])
 	test_daemon();
 	test_waitsig();
 
-	if (sendto(sk_udp, datagram, iph->tot_len, 0,
-		   (struct sockaddr *)&addr_serv, sizeof(addr_serv)) < 0) {
+	if (sendto(sk_udp, datagram, iph->tot_len, 0, (struct sockaddr *)&addr_serv, sizeof(addr_serv)) < 0) {
 		kill(pid, SIGKILL);
 		fail("Can't send RAW data");
 		exit(1);

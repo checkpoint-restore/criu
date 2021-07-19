@@ -16,7 +16,7 @@
 static struct fdstore_desc {
 	int next_id;
 	mutex_t lock; /* to protect a peek offset */
-} *desc;
+} * desc;
 
 int fdstore_init(void)
 {
@@ -54,7 +54,7 @@ int fdstore_init(void)
 	}
 
 	addr.sun_family = AF_UNIX;
-	addrlen = snprintf(addr.sun_path, sizeof(addr.sun_path), "X/criu-fdstore-%"PRIx64, st.st_ino);
+	addrlen = snprintf(addr.sun_path, sizeof(addr.sun_path), "X/criu-fdstore-%" PRIx64, st.st_ino);
 	addrlen += sizeof(addr.sun_family);
 
 	addr.sun_path[0] = 0;
@@ -66,12 +66,12 @@ int fdstore_init(void)
 	 * a queue and remember its sequence number. Then we can set SO_PEEK_OFF
 	 * to get a file descriptor without dequeuing it.
 	 */
-	if (bind(sk, (struct sockaddr *) &addr, addrlen)) {
+	if (bind(sk, (struct sockaddr *)&addr, addrlen)) {
 		pr_perror("Unable to bind a socket");
 		close(sk);
 		return -1;
 	}
-	if (connect(sk, (struct sockaddr *) &addr, addrlen)) {
+	if (connect(sk, (struct sockaddr *)&addr, addrlen)) {
 		pr_perror("Unable to connect a socket");
 		close(sk);
 		return -1;

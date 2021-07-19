@@ -10,9 +10,8 @@
 #include "libnetlink.h"
 #include "util.h"
 
-static int nlmsg_receive(char *buf, int len,
-		int (*cb)(struct nlmsghdr *, struct ns_id *ns, void *),
-		int (*err_cb)(int, struct ns_id *, void *), struct ns_id *ns, void *arg)
+static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, struct ns_id *ns, void *),
+			 int (*err_cb)(int, struct ns_id *, void *), struct ns_id *ns, void *arg)
 {
 	struct nlmsghdr *hdr;
 
@@ -56,8 +55,7 @@ static int rtnl_return_err(int err, struct ns_id *ns, void *arg)
 	return err;
 }
 
-int do_rtnl_req(int nl, void *req, int size,
-		int (*receive_callback)(struct nlmsghdr *h, struct ns_id *ns, void *),
+int do_rtnl_req(int nl, void *req, int size, int (*receive_callback)(struct nlmsghdr *h, struct ns_id *ns, void *),
 		int (*error_callback)(int err, struct ns_id *ns, void *arg), struct ns_id *ns, void *arg)
 {
 	struct msghdr msg;
@@ -70,16 +68,16 @@ int do_rtnl_req(int nl, void *req, int size,
 		error_callback = rtnl_return_err;
 
 	memset(&msg, 0, sizeof(msg));
-	msg.msg_name	= &nladdr;
-	msg.msg_namelen	= sizeof(nladdr);
-	msg.msg_iov	= &iov;
-	msg.msg_iovlen	= 1;
+	msg.msg_name = &nladdr;
+	msg.msg_namelen = sizeof(nladdr);
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
 
 	memset(&nladdr, 0, sizeof(nladdr));
 	nladdr.nl_family = AF_NETLINK;
 
-	iov.iov_base	= req;
-	iov.iov_len	= size;
+	iov.iov_base = req;
+	iov.iov_len = size;
 
 	if (sendmsg(nl, &msg, 0) < 0) {
 		err = -errno;
@@ -87,16 +85,15 @@ int do_rtnl_req(int nl, void *req, int size,
 		goto err;
 	}
 
-	iov.iov_base	= buf;
-	iov.iov_len	= sizeof(buf);
+	iov.iov_base = buf;
+	iov.iov_len = sizeof(buf);
 
 	while (1) {
-
 		memset(&msg, 0, sizeof(msg));
-		msg.msg_name	= &nladdr;
-		msg.msg_namelen	= sizeof(nladdr);
-		msg.msg_iov	= &iov;
-		msg.msg_iovlen	= 1;
+		msg.msg_name = &nladdr;
+		msg.msg_namelen = sizeof(nladdr);
+		msg.msg_iov = &iov;
+		msg.msg_iovlen = 1;
 
 		err = recvmsg(nl, &msg, 0);
 		if (err < 0) {
@@ -130,8 +127,7 @@ err:
 	return err;
 }
 
-int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
-		int alen)
+int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data, int alen)
 {
 	int len = nla_attr_size(alen);
 	struct rtattr *rta;
@@ -172,8 +168,7 @@ int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
  * @see nla_validate
  * @return 0 on success or a negative error code.
  */
-int __wrap_nla_parse(struct nlattr *tb[], int maxtype, struct nlattr *head, int len,
-	      struct nla_policy *policy)
+int __wrap_nla_parse(struct nlattr *tb[], int maxtype, struct nlattr *head, int len, struct nla_policy *policy)
 {
 	struct nlattr *nla;
 	int rem;
@@ -188,14 +183,16 @@ int __wrap_nla_parse(struct nlattr *tb[], int maxtype, struct nlattr *head, int 
 
 		if (tb[type])
 			pr_warn("Attribute of type %#x found multiple times in message, "
-				  "previous attribute is being ignored.\n", type);
+				"previous attribute is being ignored.\n",
+				type);
 
 		tb[type] = nla;
 	}
 
 	if (rem > 0)
 		pr_warn("netlink: %d bytes leftover after parsing "
-		       "attributes.\n", rem);
+			"attributes.\n",
+			rem);
 
 	return 0;
 }
@@ -210,17 +207,15 @@ int __wrap_nla_parse(struct nlattr *tb[], int maxtype, struct nlattr *head, int 
  *
  * See nla_parse()
  */
-int __wrap_nlmsg_parse(struct nlmsghdr *nlh, int hdrlen, struct nlattr *tb[],
-		int maxtype, struct nla_policy *policy)
+int __wrap_nlmsg_parse(struct nlmsghdr *nlh, int hdrlen, struct nlattr *tb[], int maxtype, struct nla_policy *policy)
 {
 	if (!nlmsg_valid_hdr(nlh, hdrlen))
 		return -NLE_MSG_TOOSHORT;
 
-	return nla_parse(tb, maxtype, nlmsg_attrdata(nlh, hdrlen),
-			 nlmsg_attrlen(nlh, hdrlen), policy);
+	return nla_parse(tb, maxtype, nlmsg_attrdata(nlh, hdrlen), nlmsg_attrlen(nlh, hdrlen), policy);
 }
 
 int32_t nla_get_s32(const struct nlattr *nla)
 {
-	return *(const int32_t *) nla_data(nla);
+	return *(const int32_t *)nla_data(nla);
 }

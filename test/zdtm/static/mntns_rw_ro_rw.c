@@ -7,8 +7,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test read-only bind mounts";
-const char *test_author	= "Andrey Vagin <xemul@parallels.com>";
+const char *test_doc = "Test read-only bind mounts";
+const char *test_author = "Andrey Vagin <xemul@parallels.com>";
 
 int main(int argc, char **argv)
 {
@@ -22,7 +22,7 @@ int main(int argc, char **argv)
 		pr_perror("Unable to bind-mount /proc/sys/net");
 		return 1;
 	}
-	if (mount("/proc/sys/", "/proc/sys", NULL, MS_RDONLY|MS_BIND|MS_REMOUNT, NULL)) {
+	if (mount("/proc/sys/", "/proc/sys", NULL, MS_RDONLY | MS_BIND | MS_REMOUNT, NULL)) {
 		pr_perror("Unable to remount  /proc/sys");
 		return 1;
 	}

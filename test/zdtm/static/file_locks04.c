@@ -9,18 +9,18 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that 'overlapping' flocks work";
-const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
+const char *test_doc = "Check that 'overlapping' flocks work";
+const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
 static int check_file_locks(pid_t child_pid, int fd, int child_fd)
 {
-	char		path[PATH_MAX];
-	FILE		*fp_locks = NULL;
-	char		buf[100], fl_flag[16], fl_type[16], fl_option[16];
-	int		found = 0, num, fl_owner;
+	char path[PATH_MAX];
+	FILE *fp_locks = NULL;
+	char buf[100], fl_flag[16], fl_type[16], fl_option[16];
+	int found = 0, num, fl_owner;
 
 	sprintf(path, "/proc/%d/fdinfo/%d", child_pid, child_fd);
 	fp_locks = fopen(path, "r");
@@ -34,9 +34,8 @@ static int check_file_locks(pid_t child_pid, int fd, int child_fd)
 			continue;
 		test_msg("c: %s", buf);
 
-		num = sscanf(buf,
-			"%*s %*d:%s %s %s %d %*02x:%*02x:%*d %*d %*s",
-			fl_flag, fl_type, fl_option, &fl_owner);
+		num = sscanf(buf, "%*s %*d:%s %s %s %d %*02x:%*02x:%*d %*d %*s", fl_flag, fl_type, fl_option,
+			     &fl_owner);
 
 		if (num < 4) {
 			pr_perror("Invalid lock info.");
@@ -48,9 +47,7 @@ static int check_file_locks(pid_t child_pid, int fd, int child_fd)
 			continue;
 		}
 
-		if (!strcmp(fl_flag, "FLOCK") &&
-				!strcmp(fl_type, "ADVISORY") &&
-				!strcmp(fl_option, "WRITE"))
+		if (!strcmp(fl_flag, "FLOCK") && !strcmp(fl_type, "ADVISORY") && !strcmp(fl_option, "WRITE"))
 			found++;
 
 		memset(fl_flag, 0, sizeof(fl_flag));

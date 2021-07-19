@@ -10,19 +10,19 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that memory protection migrates correctly\n";
-const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
+const char *test_doc = "Check that memory protection migrates correctly\n";
+const char *test_author = "Roman Kagan <rkagan@parallels.com>";
 
 const static int prots[] = {
 	PROT_NONE,
 	PROT_READ,
-	/* PROT_WRITE, */	/* doesn't work w/o READ */
-	PROT_READ | PROT_WRITE,
+	/* PROT_WRITE, */ /* doesn't work w/o READ */
+		PROT_READ | PROT_WRITE,
 	PROT_READ | PROT_WRITE | PROT_EXEC,
 };
-#define NUM_MPROTS	sizeof(prots) / sizeof(int)
+#define NUM_MPROTS sizeof(prots) / sizeof(int)
 
-static sigjmp_buf segv_ret;		/* we need sig*jmp stuff, otherwise SIGSEGV will reset our handler */
+static sigjmp_buf segv_ret; /* we need sig*jmp stuff, otherwise SIGSEGV will reset our handler */
 static void segfault(int signo)
 {
 	siglongjmp(segv_ret, 1);
@@ -44,12 +44,11 @@ static int check_prot(char *ptr, int prot)
 			fail("PROT_READ bypassed");
 			return -1;
 		}
-	}
-	else		/* we come here on return from SIGSEGV handler */
+	} else /* we come here on return from SIGSEGV handler */
 		if (prot & PROT_READ) {
-			fail("PROT_READ rejected");
-			return -1;
-		}
+		fail("PROT_READ rejected");
+		return -1;
+	}
 
 	if (!sigsetjmp(segv_ret, 1)) {
 		ptr[20] = 67;
@@ -57,13 +56,11 @@ static int check_prot(char *ptr, int prot)
 			fail("PROT_WRITE bypassed");
 			return -1;
 		}
-	}
-	else		/* we come here on return from SIGSEGV handler */
+	} else /* we come here on return from SIGSEGV handler */
 		if (prot & PROT_WRITE) {
-			fail("PROT_WRITE rejected");
-			return -1;
-		}
-
+		fail("PROT_WRITE rejected");
+		return -1;
+	}
 
 	if (signal(SIGSEGV, SIG_DFL) == SIG_ERR) {
 		fail("restoring SIGSEGV handler failed");
@@ -73,7 +70,7 @@ static int check_prot(char *ptr, int prot)
 	return 0;
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	char *ptr, *ptr_aligned;
 	int pagesize;
@@ -93,12 +90,10 @@ int main(int argc, char ** argv)
 		return -1;
 	}
 
-	ptr_aligned = (char *)(((unsigned long) ptr + pagesize - 1) &
-			       ~(pagesize - 1));
+	ptr_aligned = (char *)(((unsigned long)ptr + pagesize - 1) & ~(pagesize - 1));
 
 	for (i = 0; i < NUM_MPROTS; i++)
-		if (mprotect(ptr_aligned + pagesize * i,
-			     pagesize / 2, prots[i]) < 0) {
+		if (mprotect(ptr_aligned + pagesize * i, pagesize / 2, prots[i]) < 0) {
 			pr_perror("mprotect failed");
 			exit(1);
 		}

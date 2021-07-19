@@ -86,7 +86,6 @@ int main(int argc, char **argv)
 				goto out;
 			}
 		}
-
 	}
 	pass();
 out:

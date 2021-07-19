@@ -491,14 +491,14 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 
 	if (req->has_pre_dump_mode) {
 		switch (req->pre_dump_mode) {
-			case CRIU_PRE_DUMP_MODE__SPLICE:
-				opts.pre_dump_mode = PRE_DUMP_SPLICE;
-				break;
-			case CRIU_PRE_DUMP_MODE__VM_READ:
-				opts.pre_dump_mode = PRE_DUMP_READ;
-				break;
-			default:
-				goto err;
+		case CRIU_PRE_DUMP_MODE__SPLICE:
+			opts.pre_dump_mode = PRE_DUMP_SPLICE;
+			break;
+		case CRIU_PRE_DUMP_MODE__VM_READ:
+			opts.pre_dump_mode = PRE_DUMP_READ;
+			break;
+		default:
+			goto err;
 		}
 	}
 
@@ -553,8 +553,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			goto err;
 
 	for (i = 0; i < req->n_cg_root; i++) {
-		if (new_cg_root_add(req->cg_root[i]->ctrl,
-					req->cg_root[i]->path))
+		if (new_cg_root_add(req->cg_root[i]->ctrl, req->cg_root[i]->path))
 			goto err;
 	}
 
@@ -698,7 +697,6 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->orphan_pts_master)
 		opts.orphan_pts_master = true;
 
-
 	/* Evaluate additional configuration file a second time to overwrite
 	 * all RPC settings. */
 	if (req->config_file) {
@@ -744,7 +742,7 @@ static int dump_using_req(int sk, CriuOpts *req)
 exit:
 	free_pidfd_store();
 pidfd_store_err:
-	if (req->leave_running  || !self_dump || !success) {
+	if (req->leave_running || !self_dump || !success) {
 		if (send_criu_dump_resp(sk, success, false) == -1) {
 			pr_perror("Can't send response");
 			success = false;
@@ -776,8 +774,7 @@ static int restore_using_req(int sk, CriuOpts *req)
 
 	success = true;
 exit:
-	if (send_criu_restore_resp(sk, success,
-				   root_item ? root_item->pid->real : -1) == -1) {
+	if (send_criu_restore_resp(sk, success, root_item ? root_item->pid->real : -1) == -1) {
 		pr_perror("Can't send response");
 		success = false;
 	}
@@ -861,9 +858,9 @@ static int pre_dump_using_req(int sk, CriuOpts *req)
 			goto cout;
 
 		ret = 0;
-cout:
+	cout:
 		free_pidfd_store();
-pidfd_store_err:
+	pidfd_store_err:
 		exit(ret);
 	}
 
@@ -947,7 +944,7 @@ static int start_page_server_req(int sk, CriuOpts *req, bool daemon_mode)
 		}
 
 		ret = 0;
-out_ch:
+	out_ch:
 		if (daemon_mode && ret < 0 && pid > 0)
 			kill(pid, SIGKILL);
 		close(start_pipe[1]);
@@ -1012,8 +1009,7 @@ static int chk_keepopen_req(CriuReq *msg)
 	if (msg->type == CRIU_REQ_TYPE__PAGE_SERVER_CHLD)
 		/* This just fork()-s so no leaks */
 		return 0;
-	else if (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP ||
-		 msg->type == CRIU_REQ_TYPE__CPUINFO_CHECK)
+	else if (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP || msg->type == CRIU_REQ_TYPE__CPUINFO_CHECK)
 		return 0;
 	else if (msg->type == CRIU_REQ_TYPE__FEATURE_CHECK)
 		return 0;
@@ -1027,7 +1023,7 @@ static int chk_keepopen_req(CriuReq *msg)
  * Return the version information, depending on the information
  * available in version.h
  */
-static int handle_version(int sk, CriuReq * msg)
+static int handle_version(int sk, CriuReq *msg)
 {
 	CriuResp resp = CRIU_RESP__INIT;
 	CriuVersion version = CRIU_VERSION__INIT;
@@ -1065,7 +1061,7 @@ static int handle_version(int sk, CriuReq * msg)
  * For each feature which has been requested in msg->features
  * the corresponding parameter will be set in resp.features.
  */
-static int handle_feature_check(int sk, CriuReq * msg)
+static int handle_feature_check(int sk, CriuReq *msg)
 {
 	CriuResp resp = CRIU_RESP__INIT;
 	CriuFeatures feat = CRIU_FEATURES__INIT;
@@ -1092,16 +1088,13 @@ static int handle_feature_check(int sk, CriuReq * msg)
 
 		setproctitle("feature-check --rpc");
 
-		if ((msg->features->has_mem_track == 1) &&
-		    (msg->features->mem_track == true))
+		if ((msg->features->has_mem_track == 1) && (msg->features->mem_track == true))
 			feat.mem_track = kdat.has_dirty_track;
 
-		if ((msg->features->has_lazy_pages == 1) &&
-		    (msg->features->lazy_pages == true))
+		if ((msg->features->has_lazy_pages == 1) && (msg->features->lazy_pages == true))
 			feat.lazy_pages = kdat.has_uffd && uffd_noncooperative();
 
-		if ((msg->features->has_pidfd_store == 1) &&
-		    (msg->features->pidfd_store == true))
+		if ((msg->features->has_pidfd_store == 1) && (msg->features->pidfd_store == true))
 			feat.pidfd_store = kdat.has_pidfd_getfd && kdat.has_pidfd_open;
 
 		resp.features = &feat;
@@ -1179,16 +1172,14 @@ static int handle_cpuinfo(int sk, CriuReq *msg)
 		if (setup_opts_from_req(sk, msg->opts))
 			goto cout;
 
-		setproctitle("cpuinfo %s --rpc -D %s",
-			     msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP ?
-			     "dump" : "check",
+		setproctitle("cpuinfo %s --rpc -D %s", msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP ? "dump" : "check",
 			     images_dir);
 
 		if (msg->type == CRIU_REQ_TYPE__CPUINFO_DUMP)
 			ret = cpuinfo_dump();
 		else
 			ret = cpuinfo_check();
-cout:
+	cout:
 		exit(ret);
 	}
 
@@ -1255,7 +1246,7 @@ more:
 		ret = start_page_server_req(sk, msg->opts, false);
 		break;
 	case CRIU_REQ_TYPE__WAIT_PID:
-		ret =  handle_wait_pid(sk, msg->pid);
+		ret = handle_wait_pid(sk, msg->pid);
 		break;
 	case CRIU_REQ_TYPE__CPUINFO_DUMP:
 	case CRIU_REQ_TYPE__CPUINFO_CHECK:
@@ -1304,11 +1295,10 @@ static void reap_worker(int signo)
 		}
 
 		if (WIFEXITED(status))
-			pr_info("Worker(pid %d) exited with %d\n",
-				pid, WEXITSTATUS(status));
+			pr_info("Worker(pid %d) exited with %d\n", pid, WEXITSTATUS(status));
 		else if (WIFSIGNALED(status))
-			pr_info("Worker(pid %d) was killed by %d: %s\n", pid,
-				WTERMSIG(status), strsignal(WTERMSIG(status)));
+			pr_info("Worker(pid %d) was killed by %d: %s\n", pid, WTERMSIG(status),
+				strsignal(WTERMSIG(status)));
 	}
 }
 
@@ -1318,8 +1308,8 @@ static int setup_sigchld_handler(void)
 
 	sigemptyset(&action.sa_mask);
 	sigaddset(&action.sa_mask, SIGCHLD);
-	action.sa_handler	= reap_worker;
-	action.sa_flags		= SA_RESTART;
+	action.sa_handler = reap_worker;
+	action.sa_flags = SA_RESTART;
 
 	if (sigaction(SIGCHLD, &action, NULL)) {
 		pr_perror("Can't setup SIGCHLD handler");
@@ -1335,8 +1325,8 @@ static int restore_sigchld_handler(void)
 
 	sigemptyset(&action.sa_mask);
 	sigaddset(&action.sa_mask, SIGCHLD);
-	action.sa_handler	= SIG_DFL;
-	action.sa_flags		= SA_RESTART;
+	action.sa_handler = SIG_DFL;
+	action.sa_flags = SA_RESTART;
 
 	if (sigaction(SIGCHLD, &action, NULL)) {
 		pr_perror("Can't restore SIGCHLD handler");
@@ -1373,17 +1363,14 @@ int cr_service(bool daemon_mode)
 			SET_CHAR_OPTS(addr, CR_DEFAULT_SERVICE_ADDRESS);
 		}
 
-		strncpy(server_addr.sun_path, opts.addr,
-				sizeof(server_addr.sun_path) - 1);
+		strncpy(server_addr.sun_path, opts.addr, sizeof(server_addr.sun_path) - 1);
 
-		server_addr_len = strlen(server_addr.sun_path)
-				+ sizeof(server_addr.sun_family);
+		server_addr_len = strlen(server_addr.sun_path) + sizeof(server_addr.sun_family);
 		client_addr_len = sizeof(client_addr);
 
 		unlink(server_addr.sun_path);
 
-		if (bind(server_fd, (struct sockaddr *) &server_addr,
-						server_addr_len) == -1) {
+		if (bind(server_fd, (struct sockaddr *)&server_addr, server_addr_len) == -1) {
 			pr_perror("Can't bind");
 			goto err;
 		}

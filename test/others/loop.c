@@ -47,7 +47,7 @@ int main(void)
 		write(start_pipe[1], &res, sizeof(res));
 		close(start_pipe[1]);
 
-		while(1) {
+		while (1) {
 			sleep(1);
 		}
 	}
@@ -56,7 +56,7 @@ int main(void)
 	read(start_pipe[0], &res, sizeof(res));
 	close(start_pipe[0]);
 
- out:
+out:
 	if (res == EXIT_SUCCESS)
 		printf("%d\n", pid);
 	return res;

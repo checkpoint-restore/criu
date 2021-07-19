@@ -10,8 +10,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check --mnt-ext-map";
-const char *test_author	= "Andrew Vagin <avagin@gmail.com>";
+const char *test_doc = "Check --mnt-ext-map";
+const char *test_author = "Andrew Vagin <avagin@gmail.com>";
 
 #ifdef ZDTM_EXTMAP_MANUAL
 char *dirname = "mnt_ext_manual.test";
@@ -19,25 +19,25 @@ char *dirname_private_shared_bind = "mnt_ext_manual_private_shared_bind.test";
 char *dirname_bind = "mnt_ext_manual_bind.test";
 char *dirname_slave_shared_bind = "mnt_ext_manual_slave_shared_bind.test";
 char *dirname_slave_bind = "mnt_ext_manual_slave_bind.test";
-#define DDIR	"mtest"
+#define DDIR "mtest"
 #else
 char *dirname = "mnt_ext_auto.test";
 char *dirname_private_shared_bind = "mnt_ext_auto_private_shared_bind.test";
 char *dirname_bind = "mnt_ext_auto_bind.test";
 char *dirname_slave_shared_bind = "mnt_ext_auto_slave_shared_bind.test";
 char *dirname_slave_bind = "mnt_ext_auto_slave_bind.test";
-#define DDIR	"atest"
+#define DDIR "atest"
 #endif
 TEST_OPTION(dirname, string, "directory name", 1);
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	char src[PATH_MAX], dst[PATH_MAX], *root;
-	char dst_bind[PATH_MAX], dst_private_shared_bind[PATH_MAX],
-		dst_slave_shared_bind[PATH_MAX], dst_slave_bind[PATH_MAX];
+	char dst_bind[PATH_MAX], dst_private_shared_bind[PATH_MAX], dst_slave_shared_bind[PATH_MAX],
+		dst_slave_bind[PATH_MAX];
 	char *dname = "/tmp/zdtm_ext_auto.XXXXXX";
 	struct stat sta, stb, bsta, bstb, ssbsta, sbsta, ssbstb, sbstb, psbsta, psbstb;
-	char* zdtm_newns = getenv("ZDTM_NEWNS");
+	char *zdtm_newns = getenv("ZDTM_NEWNS");
 
 	root = getenv("ZDTM_ROOT");
 	if (root == NULL) {

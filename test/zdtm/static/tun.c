@@ -9,19 +9,19 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test TUN/TAP devices\n";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Test TUN/TAP devices\n";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
-#define TUN_DEVICE	"/dev/net/tun"
+#define TUN_DEVICE "/dev/net/tun"
 #ifndef IFF_MULTI_QUEUE
-#define IFF_MULTI_QUEUE  0x0100
+#define IFF_MULTI_QUEUE	 0x0100
 #define IFF_ATTACH_QUEUE 0x0200
 #define IFF_DETACH_QUEUE 0x0400
-#define IFF_PERSIST      0x0800
+#define IFF_PERSIST	 0x0800
 #endif
 
 #ifndef TUNSETQUEUE
-#define TUNSETQUEUE  _IOW('T', 217, int)
+#define TUNSETQUEUE _IOW('T', 217, int)
 #endif
 
 static int any_fail = 0;
@@ -39,7 +39,9 @@ static int __open_tun(void)
 
 static int set_tun_queue(int fd, const char *name, unsigned flags)
 {
-	struct ifreq ifr = { .ifr_flags = flags, };
+	struct ifreq ifr = {
+		.ifr_flags = flags,
+	};
 
 	if (ioctl(fd, TUNSETQUEUE, &ifr) < 0) {
 		pr_perror("Can't set queue on %s", name);
@@ -51,9 +53,11 @@ static int set_tun_queue(int fd, const char *name, unsigned flags)
 
 static int __attach_tun(int fd, const char *name, unsigned flags)
 {
-	struct ifreq ifr = { .ifr_flags = flags, };
+	struct ifreq ifr = {
+		.ifr_flags = flags,
+	};
 
-	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name)-1);
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name) - 1);
 
 	if (ioctl(fd, TUNSETIFF, &ifr) < 0) {
 		if (!(flags & IFF_TUN_EXCL))
@@ -77,7 +81,7 @@ static int open_tun(const char *name, unsigned flags)
 
 static void check_tun(int fd, const char *name, unsigned flags)
 {
-	struct ifreq ifr = { };
+	struct ifreq ifr = {};
 
 	if (ioctl(fd, TUNGETIFF, &ifr) > 0) {
 		any_fail = 1;
@@ -97,7 +101,7 @@ static void check_tun(int fd, const char *name, unsigned flags)
 
 static int dev_get_hwaddr(int fd, const char *name, char *a)
 {
-	struct ifreq ifr = { };
+	struct ifreq ifr = {};
 
 	if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
 		pr_perror("Can't get hwaddr on %s", name);
@@ -225,9 +229,7 @@ int main(int argc, char **argv)
 		pr_perror("No hwaddr for tap? (2)");
 		any_fail = 1;
 	} else if (memcmp(addr, a2, sizeof(addr))) {
-		fail("Address mismatch on tap %x:%x -> %x:%x",
-				(int)addr[0], (int)addr[1],
-				(int)a2[0], (int)a2[1]);
+		fail("Address mismatch on tap %x:%x -> %x:%x", (int)addr[0], (int)addr[1], (int)a2[0], (int)a2[1]);
 		any_fail = 1;
 	}
 

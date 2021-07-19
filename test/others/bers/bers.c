@@ -16,71 +16,67 @@
 #include <dirent.h>
 #include <syscall.h>
 
-#define min(x, y) ({				\
-	typeof(x) _min1 = (x);			\
-	typeof(y) _min2 = (y);			\
-	(void) (&_min1 == &_min2);		\
-	_min1 < _min2 ? _min1 : _min2; })
+#define min(x, y)                              \
+	({                                     \
+		typeof(x) _min1 = (x);         \
+		typeof(y) _min2 = (y);         \
+		(void)(&_min1 == &_min2);      \
+		_min1 < _min2 ? _min1 : _min2; \
+	})
 
-#define max(x, y) ({				\
-	typeof(x) _max1 = (x);			\
-	typeof(y) _max2 = (y);			\
-	(void) (&_max1 == &_max2);		\
-	_max1 > _max2 ? _max1 : _max2; })
+#define max(x, y)                              \
+	({                                     \
+		typeof(x) _max1 = (x);         \
+		typeof(y) _max2 = (y);         \
+		(void)(&_max1 == &_max2);      \
+		_max1 > _max2 ? _max1 : _max2; \
+	})
 
-#define MAX_CHUNK		4096
-#define PAGE_SIZE		4096
+#define MAX_CHUNK 4096
+#define PAGE_SIZE 4096
 
-#define pr_info(fmt, ...)				\
-	printf("%8d: " fmt, sys_gettid(), ##__VA_ARGS__)
+#define pr_info(fmt, ...) printf("%8d: " fmt, sys_gettid(), ##__VA_ARGS__)
 
-#define pr_err(fmt, ...)				\
-	printf("%8d: Error (%s:%d): " fmt, sys_gettid(),\
-		       __FILE__, __LINE__, ##__VA_ARGS__)
+#define pr_err(fmt, ...) printf("%8d: Error (%s:%d): " fmt, sys_gettid(), __FILE__, __LINE__, ##__VA_ARGS__)
 
-#define pr_perror(fmt, ...)				\
-	pr_err(fmt ": %m\n", ##__VA_ARGS__)
+#define pr_perror(fmt, ...) pr_err(fmt ": %m\n", ##__VA_ARGS__)
 
-#define pr_msg(fmt, ...)				\
-	printf(fmt, ##__VA_ARGS__)
+#define pr_msg(fmt, ...) printf(fmt, ##__VA_ARGS__)
 
-
-#define pr_trace(fmt, ...)				\
-	printf("%8d: %s: " fmt, sys_gettid(), __func__,	\
-		##__VA_ARGS__)
+#define pr_trace(fmt, ...) printf("%8d: %s: " fmt, sys_gettid(), __func__, ##__VA_ARGS__)
 
 enum {
-	MEM_FILL_MODE_NONE	= 0,
-	MEM_FILL_MODE_ALL	= 1,
-	MEM_FILL_MODE_LIGHT	= 2,
-	MEM_FILL_MODE_DIRTIFY	= 3,
+	MEM_FILL_MODE_NONE = 0,
+	MEM_FILL_MODE_ALL = 1,
+	MEM_FILL_MODE_LIGHT = 2,
+	MEM_FILL_MODE_DIRTIFY = 3,
 };
 
 typedef struct {
-	pthread_mutex_t		mutex;
-	pthread_mutexattr_t	mutex_attr;
+	pthread_mutex_t mutex;
+	pthread_mutexattr_t mutex_attr;
 
-	size_t			opt_tasks;
+	size_t opt_tasks;
 
-	size_t			opt_files;
-	size_t			opt_file_size;
-	int			prev_fd[MAX_CHUNK];
+	size_t opt_files;
+	size_t opt_file_size;
+	int prev_fd[MAX_CHUNK];
 
-	size_t			opt_mem;
-	size_t			opt_mem_chunks;
-	size_t			opt_mem_chunk_size;
-	int			opt_mem_fill_mode;
-	int			opt_mem_cycle_mode;
-	unsigned int		opt_refresh_time;
+	size_t opt_mem;
+	size_t opt_mem_chunks;
+	size_t opt_mem_chunk_size;
+	int opt_mem_fill_mode;
+	int opt_mem_cycle_mode;
+	unsigned int opt_refresh_time;
 
-	char			*opt_work_dir;
-	int			work_dir_fd;
-	DIR			*work_dir;
+	char *opt_work_dir;
+	int work_dir_fd;
+	DIR *work_dir;
 
-	pid_t			err_pid;
-	int			err_no;
+	pid_t err_pid;
+	int err_no;
 
-	unsigned long		prev_map[MAX_CHUNK];
+	unsigned long prev_map[MAX_CHUNK];
 } shared_data_t;
 
 static shared_data_t *shared;
@@ -90,8 +86,7 @@ static int sys_gettid(void)
 	return syscall(__NR_gettid);
 }
 
-static void dirtify_memory(unsigned long *chunks, size_t nr_chunks,
-			   size_t chunk_size, int mode, const size_t nr_pages)
+static void dirtify_memory(unsigned long *chunks, size_t nr_chunks, size_t chunk_size, int mode, const size_t nr_pages)
 {
 	size_t i;
 
@@ -164,7 +159,7 @@ static int create_files(shared_data_t *shared, int *fd, size_t nr_files)
 static void work_on_fork(shared_data_t *shared)
 {
 	const size_t nr_pages = shared->opt_mem_chunk_size / PAGE_SIZE;
-	unsigned long chunks[MAX_CHUNK] = { };
+	unsigned long chunks[MAX_CHUNK] = {};
 	int fd[MAX_CHUNK];
 	size_t i;
 	void *mem;
@@ -173,8 +168,7 @@ static void work_on_fork(shared_data_t *shared)
 	pthread_mutex_lock(&shared->mutex);
 	pr_trace("init\n");
 
-	pr_info("\tCreating %lu mmaps each %lu K\n",
-		shared->opt_mem_chunks, shared->opt_mem_chunk_size >> 10);
+	pr_info("\tCreating %lu mmaps each %lu K\n", shared->opt_mem_chunks, shared->opt_mem_chunk_size >> 10);
 
 	for (i = 0; i < shared->opt_mem_chunks; i++) {
 		if (shared->prev_map[i]) {
@@ -183,28 +177,25 @@ static void work_on_fork(shared_data_t *shared)
 		}
 
 		/* If we won't change proto here, the kernel might merge close areas */
-		mem = mmap(NULL, shared->opt_mem_chunk_size,
-			   PROT_READ | PROT_WRITE | ((i % 2) ? PROT_EXEC : 0),
+		mem = mmap(NULL, shared->opt_mem_chunk_size, PROT_READ | PROT_WRITE | ((i % 2) ? PROT_EXEC : 0),
 			   MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
 		if (mem != (void *)MAP_FAILED) {
 			shared->prev_map[i] = (unsigned long)mem;
 			chunks[i] = (unsigned long)mem;
 
-			pr_info("\t\tMap at %lx\n",(unsigned long)mem);
+			pr_info("\t\tMap at %lx\n", (unsigned long)mem);
 		} else {
 			pr_info("\t\tCan't map\n");
 
-			shared->err_pid	= sys_gettid();
-			shared->err_no	= -errno;
+			shared->err_pid = sys_gettid();
+			shared->err_no = -errno;
 			exit(1);
 		}
 	}
 
 	if (shared->opt_mem_fill_mode)
-		dirtify_memory(chunks, shared->opt_mem_chunks,
-			       shared->opt_mem_chunk_size,
-			       shared->opt_mem_fill_mode,
+		dirtify_memory(chunks, shared->opt_mem_chunks, shared->opt_mem_chunk_size, shared->opt_mem_fill_mode,
 			       nr_pages);
 
 	if (create_files(shared, fd, shared->opt_files))
@@ -213,16 +204,14 @@ static void work_on_fork(shared_data_t *shared)
 	if (shared->opt_file_size)
 		dirtify_files(fd, shared->opt_files, shared->opt_file_size);
 
-		pr_trace("releasing\n");
+	pr_trace("releasing\n");
 	pthread_mutex_unlock(&shared->mutex);
 
 	while (1) {
 		sleep(shared->opt_refresh_time);
 		if (shared->opt_mem_cycle_mode)
-			dirtify_memory(chunks, shared->opt_mem_chunks,
-				       shared->opt_mem_chunk_size,
-				       shared->opt_mem_cycle_mode,
-				       nr_pages);
+			dirtify_memory(chunks, shared->opt_mem_chunks, shared->opt_mem_chunk_size,
+				       shared->opt_mem_cycle_mode, nr_pages);
 		if (shared->opt_file_size)
 			dirtify_files(fd, shared->opt_files, shared->opt_file_size);
 	}
@@ -248,17 +237,17 @@ int main(int argc, char *argv[])
 	/* a - 97, z - 122, A - 65, 90 */
 	static const char short_opts[] = "t:d:f:m:c:h";
 	static struct option long_opts[] = {
-		{"tasks",	required_argument, 0,	't'},
-		{"dir",		required_argument, 0,	'd'},
-		{"files",	required_argument, 0,	'f'},
-		{"memory",	required_argument, 0,	'm'},
-		{"mem-chunks",	required_argument, 0,	'c'},
-		{"help",	no_argument,       0,	'h'},
-		{"mem-fill",	required_argument, 0,	 10},
-		{"mem-cycle",	required_argument, 0,	 11},
-		{"refresh",	required_argument, 0,	 12},
-		{"file-size",	required_argument, 0,	 13},
-		{ },
+		{ "tasks", required_argument, 0, 't' },
+		{ "dir", required_argument, 0, 'd' },
+		{ "files", required_argument, 0, 'f' },
+		{ "memory", required_argument, 0, 'm' },
+		{ "mem-chunks", required_argument, 0, 'c' },
+		{ "help", no_argument, 0, 'h' },
+		{ "mem-fill", required_argument, 0, 10 },
+		{ "mem-cycle", required_argument, 0, 11 },
+		{ "refresh", required_argument, 0, 12 },
+		{ "file-size", required_argument, 0, 13 },
+		{},
 	};
 
 	char workdir[PATH_MAX];
@@ -267,8 +256,7 @@ int main(int argc, char *argv[])
 	pid_t pid;
 	size_t i;
 
-	shared = (void *)mmap(NULL, sizeof(*shared), PROT_READ | PROT_WRITE,
-			      MAP_ANONYMOUS | MAP_SHARED, -1, 0);
+	shared = (void *)mmap(NULL, sizeof(*shared), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 	if ((void *)shared == MAP_FAILED) {
 		pr_err("Failed to setup shared data\n");
 		exit(1);
@@ -293,7 +281,7 @@ int main(int argc, char *argv[])
 		if (opt == -1)
 			break;
 
-		switch(opt) {
+		switch (opt) {
 		case 't':
 			shared->opt_tasks = (size_t)atol(optarg);
 			break;
@@ -330,7 +318,7 @@ int main(int argc, char *argv[])
 
 	if (!shared->opt_work_dir) {
 		shared->opt_work_dir = getcwd(workdir, sizeof(workdir));
-		if (!shared->opt_work_dir)	{
+		if (!shared->opt_work_dir) {
 			pr_perror("Can't fetch current working dir");
 			exit(1);
 		}
@@ -345,16 +333,14 @@ int main(int argc, char *argv[])
 
 	shared->work_dir = opendir(shared->opt_work_dir);
 	if (!shared->work_dir) {
-		pr_perror("Can't open working dir `%s'",
-			  shared->opt_work_dir);
+		pr_perror("Can't open working dir `%s'", shared->opt_work_dir);
 		exit(1);
 	}
 	shared->work_dir_fd = dirfd(shared->work_dir);
 
 	shared->opt_mem_chunk_size = shared->opt_mem / shared->opt_mem_chunks;
 
-	if (shared->opt_mem_chunk_size &&
-	    shared->opt_mem_chunk_size < PAGE_SIZE) {
+	if (shared->opt_mem_chunk_size && shared->opt_mem_chunk_size < PAGE_SIZE) {
 		pr_err("Memory chunk size is too small, provide at least %lu M of memory\n",
 		       (shared->opt_mem_chunks * PAGE_SIZE) >> 20ul);
 		exit(1);
@@ -395,8 +381,7 @@ int main(int argc, char *argv[])
 		sleep(1);
 
 err_child:
-	pr_err("Child %d exited with %d\n",
-	       shared->err_pid, shared->err_no);
+	pr_err("Child %d exited with %d\n", shared->err_pid, shared->err_no);
 	return shared->err_no;
 
 usage:

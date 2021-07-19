@@ -9,10 +9,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that tree prior to files opening";
-const char *test_author	= "Stanislav Kinsbursky <skinsbursky@paralles.com";
+const char *test_doc = "Check that tree prior to files opening";
+const char *test_author = "Stanislav Kinsbursky <skinsbursky@paralles.com";
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int pid, err = 0;
 	int proc_fd;

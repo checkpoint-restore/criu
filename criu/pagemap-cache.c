@@ -11,16 +11,16 @@
 #include "mem.h"
 #include "kerndat.h"
 
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "pagemap-cache: "
 
 /* To carry up to 2M of physical memory */
-#define PMC_SHIFT		(21)
-#define PMC_SIZE		(1ul << PMC_SHIFT)
-#define PMC_MASK		(~(PMC_SIZE - 1))
-#define PMC_SIZE_GAP		(PMC_SIZE / 4)
+#define PMC_SHIFT    (21)
+#define PMC_SIZE     (1ul << PMC_SHIFT)
+#define PMC_MASK     (~(PMC_SIZE - 1))
+#define PMC_SIZE_GAP (PMC_SIZE / 4)
 
-#define PAGEMAP_LEN(addr)	(PAGE_PFN(addr) * sizeof(u64))
+#define PAGEMAP_LEN(addr) (PAGE_PFN(addr) * sizeof(u64))
 
 /*
  * It's a workaround for a kernel bug. In the 3.19 kernel when pagemap are read
@@ -47,9 +47,9 @@ int pmc_init(pmc_t *pmc, pid_t pid, const struct list_head *vma_head, size_t siz
 
 	BUG_ON(!vma_head);
 
-	pmc->pid	= pid;
-	pmc->map_len	= PAGEMAP_LEN(map_size);
-	pmc->vma_head	= vma_head;
+	pmc->pid = pid;
+	pmc->map_len = PAGEMAP_LEN(map_size);
+	pmc->vma_head = vma_head;
 
 	pmc->map = xmalloc(pmc->map_len);
 	if (!pmc->map)
@@ -105,8 +105,8 @@ static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 	pmc->start = vma->e->start;
 	pmc->end = vma->e->end;
 
-	pr_debug("%d: filling VMA %lx-%lx (%zuK) [l:%lx h:%lx]\n",
-		 pmc->pid, (long)vma->e->start, (long)vma->e->end, len >> 10, low, high);
+	pr_debug("%d: filling VMA %lx-%lx (%zuK) [l:%lx h:%lx]\n", pmc->pid, (long)vma->e->start, (long)vma->e->end,
+		 len >> 10, low, high);
 
 	/*
 	 * If we meet a small VMA, lets try to fit 2M cache
@@ -118,13 +118,12 @@ static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 	 * The benefit (apart redusing the number of read() calls)
 	 * is to walk page tables less.
 	 */
-	if (!pagemap_cache_disabled &&
-	    len < PMC_SIZE && (vma->e->start - low) < PMC_SIZE_GAP) {
+	if (!pagemap_cache_disabled && len < PMC_SIZE && (vma->e->start - low) < PMC_SIZE_GAP) {
 		size_t size_cov = len;
 		size_t nr_vmas = 1;
 
-		pr_debug("\t%d: %16lx-%-16lx nr:%-5zu cov:%zu\n",
-			 pmc->pid, (long)vma->e->start, (long)vma->e->end, nr_vmas, size_cov);
+		pr_debug("\t%d: %16lx-%-16lx nr:%-5zu cov:%zu\n", pmc->pid, (long)vma->e->start, (long)vma->e->end,
+			 nr_vmas, size_cov);
 
 		list_for_each_entry_continue(vma, pmc->vma_head, list) {
 			if (vma->e->start > high || vma->e->end > high)
@@ -134,8 +133,8 @@ static int pmc_fill_cache(pmc_t *pmc, const struct vma_area *vma)
 			size_cov += vma_area_len(vma);
 			nr_vmas++;
 
-			pr_debug("\t%d: %16lx-%-16lx nr:%-5zu cov:%zu\n",
-				 pmc->pid, (long)vma->e->start, (long)vma->e->end, nr_vmas, size_cov);
+			pr_debug("\t%d: %16lx-%-16lx nr:%-5zu cov:%zu\n", pmc->pid, (long)vma->e->start,
+				 (long)vma->e->end, nr_vmas, size_cov);
 		}
 
 		if (nr_vmas > 1) {
@@ -171,8 +170,7 @@ u64 *pmc_get_map(pmc_t *pmc, const struct vma_area *vma)
 
 	/* Miss, refill the cache */
 	if (pmc_fill_cache(pmc, vma)) {
-		pr_err("Failed to fill cache for %d (%lx-%lx)\n",
-		       pmc->pid, (long)vma->e->start, (long)vma->e->end);
+		pr_err("Failed to fill cache for %d (%lx-%lx)\n", pmc->pid, (long)vma->e->start, (long)vma->e->end);
 		return NULL;
 	}
 

@@ -22,7 +22,7 @@
 #include "images/fdinfo.pb-c.h"
 #include "namespaces.h"
 
-#undef  LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "packet: "
 
 struct packet_sock_info {
@@ -31,10 +31,10 @@ struct packet_sock_info {
 };
 
 struct packet_mreq_max {
-	int		mr_ifindex;
-	unsigned short	mr_type;
-	unsigned short	mr_alen;
-	unsigned char	mr_address[MAX_ADDR_LEN];
+	int mr_ifindex;
+	unsigned short mr_type;
+	unsigned short mr_alen;
+	unsigned char mr_address[MAX_ADDR_LEN];
 };
 
 struct packet_sock_desc {
@@ -49,7 +49,7 @@ struct packet_sock_desc {
 	struct packet_diag_ring *rx, *tx;
 };
 
-#define NO_FANOUT	((unsigned int)-1)
+#define NO_FANOUT ((unsigned int)-1)
 
 static int dump_mreqs(PacketSockEntry *psk, struct packet_sock_desc *sd)
 {
@@ -72,8 +72,7 @@ static int dump_mreqs(PacketSockEntry *psk, struct packet_sock_desc *sd)
 			goto err;
 		}
 
-		pr_debug("\tmr%d: idx %d type %d\n", i,
-				m->pdmc_index, m->pdmc_type);
+		pr_debug("\tmr%d: idx %d type %d\n", i, m->pdmc_index, m->pdmc_type);
 
 		im = xmalloc(sizeof(*im));
 		if (!im)
@@ -87,21 +86,21 @@ static int dump_mreqs(PacketSockEntry *psk, struct packet_sock_desc *sd)
 		im->type = m->pdmc_type;
 
 		switch (m->pdmc_type) {
-			case PACKET_MR_MULTICAST:
-			case PACKET_MR_UNICAST:
-				im->addr.len = m->pdmc_alen;
-				im->addr.data = xmalloc(m->pdmc_alen);
-				if (!im->addr.data)
-					goto err;
-
-				memcpy(im->addr.data, m->pdmc_addr, m->pdmc_alen);
-				break;
-			case PACKET_MR_PROMISC:
-			case PACKET_MR_ALLMULTI:
-				break;
-			default:
-				pr_err("Unknown mc membership type %d\n", m->pdmc_type);
+		case PACKET_MR_MULTICAST:
+		case PACKET_MR_UNICAST:
+			im->addr.len = m->pdmc_alen;
+			im->addr.data = xmalloc(m->pdmc_alen);
+			if (!im->addr.data)
 				goto err;
+
+			memcpy(im->addr.data, m->pdmc_addr, m->pdmc_alen);
+			break;
+		case PACKET_MR_PROMISC:
+		case PACKET_MR_ALLMULTI:
+			break;
+		default:
+			pr_err("Unknown mc membership type %d\n", m->pdmc_type);
+			goto err;
 		}
 	}
 
@@ -158,7 +157,7 @@ static int dump_one_packet_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	sd = (struct packet_sock_desc *)lookup_socket(p->stat.st_ino, PF_PACKET, 0);
 	if (IS_ERR_OR_NULL(sd)) {
-		pr_err("Can't find packet socket %"PRIu64"\n", p->stat.st_ino);
+		pr_err("Can't find packet socket %" PRIu64 "\n", p->stat.st_ino);
 		return -1;
 	}
 
@@ -217,8 +216,8 @@ out:
 }
 
 const struct fdtype_ops packet_dump_ops = {
-	.type		= FD_TYPES__PACKETSK,
-	.dump		= dump_one_packet_fd,
+	.type = FD_TYPES__PACKETSK,
+	.dump = dump_one_packet_fd,
 };
 
 int dump_socket_map(struct vma_area *vma)
@@ -236,7 +235,7 @@ int dump_socket_map(struct vma_area *vma)
 		return -1;
 	}
 
-	pr_info("Dumping socket map %x -> %"PRIx64"\n", sd->file_id, vma->e->start);
+	pr_info("Dumping socket map %x -> %" PRIx64 "\n", sd->file_id, vma->e->start);
 	vma->e->shmid = sd->file_id;
 	return 0;
 }
@@ -260,8 +259,7 @@ int packet_receive_one(struct nlmsghdr *hdr, struct ns_id *ns, void *arg)
 	struct packet_sock_desc *sd;
 
 	m = NLMSG_DATA(hdr);
-	nlmsg_parse(hdr, sizeof(struct packet_diag_msg),
-			tb, PACKET_DIAG_MAX, NULL);
+	nlmsg_parse(hdr, sizeof(struct packet_diag_msg), tb, PACKET_DIAG_MAX, NULL);
 	pr_info("Collect packet sock %u %u\n", m->pdiag_ino, (unsigned int)m->pdiag_num);
 
 	if (!tb[PACKET_DIAG_INFO]) {
@@ -321,8 +319,7 @@ static int open_socket_map(int pid, struct vma_area *vm)
 	struct file_desc *fd;
 	struct fdinfo_list_entry *le;
 
-	pr_info("Getting packet socket fd for %d:%x\n",
-			pid, (int)vma->shmid);
+	pr_info("Getting packet socket fd for %d:%x\n", pid, (int)vma->shmid);
 	fd = find_file_desc_raw(FD_TYPES__PACKETSK, vma->shmid);
 	if (!fd) {
 		pr_err("No packet socket %x\n", (int)vma->shmid);

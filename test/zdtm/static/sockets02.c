@@ -13,8 +13,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test semi-closed unix stream connection\n";
-const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>\n";
+const char *test_doc = "Test semi-closed unix stream connection\n";
+const char *test_author = "Pavel Emelyanov <xemul@parallels.com>\n";
 
 int main(int argc, char *argv[])
 {

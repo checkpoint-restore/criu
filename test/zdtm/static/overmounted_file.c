@@ -6,8 +6,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check open file on overmounted mounts doesn't dump";
-const char *test_author	= "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
+const char *test_doc = "Check open file on overmounted mounts doesn't dump";
+const char *test_author = "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
 
 #define DATA "Data"
 
@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 	}
 
 	ssprintf(file, "%s/file", overmounted);
-	fd = open(file, O_CREAT|O_WRONLY, 0600);
+	fd = open(file, O_CREAT | O_WRONLY, 0600);
 	if (fd < 0) {
 		pr_perror("open");
 		return 1;

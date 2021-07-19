@@ -11,8 +11,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check mounts of external devices";
-const char *test_author	= "Andrei Vagin <avagin@virtuozzo.com";
+const char *test_doc = "Check mounts of external devices";
+const char *test_author = "Andrei Vagin <avagin@virtuozzo.com";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);

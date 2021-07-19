@@ -7,9 +7,9 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that we can migrate with a named pipe "
-			"open";
-const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
+const char *test_doc = "Check that we can migrate with a named pipe "
+		       "open";
+const char *test_author = "Roman Kagan <rkagan@parallels.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);

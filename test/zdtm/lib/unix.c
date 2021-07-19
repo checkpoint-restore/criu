@@ -16,4 +16,3 @@ int unix_fill_sock_name(struct sockaddr_un *name, char *relFilename)
 	ssprintf(name->sun_path, "%s/%s", cwd, relFilename);
 	return 0;
 }
-

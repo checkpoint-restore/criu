@@ -10,8 +10,8 @@
 #include "zdtmtst.h"
 #include "lock.h"
 
-const char *test_doc	= "Check that criu closes up all its descriptors";
-const char *test_author	= "Andrew Vagin <avagin@parallels.com>";
+const char *test_doc = "Check that criu closes up all its descriptors";
+const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 
 int main(int argc, char **argv)
 {
@@ -38,7 +38,6 @@ int main(int argc, char **argv)
 	}
 
 	if (pid == 0) {
-
 		d = opendir("/proc/self/fd");
 		if (d == NULL)
 			return 1;
@@ -98,8 +97,7 @@ int main(int argc, char **argv)
 	}
 
 	if (status != 0) {
-		fail("%d:%d:%d:%d", WIFEXITED(status), WEXITSTATUS(status),
-					WIFSIGNALED(status), WTERMSIG(status));
+		fail("%d:%d:%d:%d", WIFEXITED(status), WEXITSTATUS(status), WIFSIGNALED(status), WTERMSIG(status));
 		return 1;
 	}
 

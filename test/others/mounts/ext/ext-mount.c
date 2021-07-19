@@ -9,7 +9,7 @@
 #include "criu-plugin.h"
 #include "criu-log.h"
 
-#define IMG_NAME	"ext-mount-test-%d.img"
+#define IMG_NAME "ext-mount-test-%d.img"
 
 extern cr_plugin_init_t cr_plugin_init;
 extern cr_plugin_dump_ext_mount_t cr_plugin_dump_ext_mount;
@@ -47,8 +47,7 @@ int cr_plugin_dump_ext_mount(char *mountpoint, int id)
 
 	pr_info("Dumping my mount %d\n", id);
 	sprintf(img, IMG_NAME, id);
-	fd = openat(criu_get_image_dir(), img,
-			O_RDWR | O_CREAT | O_TRUNC, 0600);
+	fd = openat(criu_get_image_dir(), img, O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (fd < 0) {
 		pr_perror("Can't open image");
 		return -1;

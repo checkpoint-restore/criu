@@ -10,20 +10,20 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check head and tail restore correct";
-const char *test_author	= "Kirill Tkhai <ktkhai@virtuozzo.com>";
+const char *test_doc = "Check head and tail restore correct";
+const char *test_author = "Kirill Tkhai <ktkhai@virtuozzo.com>";
 
 struct aio_ring {
-	unsigned	id;     /* kernel internal index number */
-	unsigned	nr;     /* number of io_events */
-	unsigned	head;   /* Written to by userland or under ring_lock
+	unsigned id; /* kernel internal index number */
+	unsigned nr; /* number of io_events */
+	unsigned head; /* Written to by userland or under ring_lock
 				 * mutex by aio_read_events_ring(). */
-	unsigned	tail;
-	unsigned	magic;
-	unsigned	compat_features;
-	unsigned	incompat_features;
-	unsigned	header_length;	/* size of aio_ring */
-	struct io_event	io_events[0];
+	unsigned tail;
+	unsigned magic;
+	unsigned compat_features;
+	unsigned incompat_features;
+	unsigned header_length; /* size of aio_ring */
+	struct io_event io_events[0];
 }; /* 128 bytes + ring size */
 
 int main(int argc, char **argv)

@@ -11,10 +11,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check sched prios to be preserved";
-const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
+const char *test_doc = "Check sched prios to be preserved";
+const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
-#define NRTASKS	3
+#define NRTASKS 3
 
 static int do_nothing(void)
 {
@@ -32,7 +32,7 @@ static void kill_all(int *pid, int n)
 		kill(pid[i], SIGKILL);
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int pid[NRTASKS], i, parm[NRTASKS], ret;
 

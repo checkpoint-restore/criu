@@ -13,12 +13,12 @@
 #include <net/if.h>
 #include "zdtmtst.h"
 
-const char *test_doc	= "check sit devices";
-const char *test_author	= "Pavel Emelyanov <xemul@virtuozzo.com>";
+const char *test_doc = "check sit devices";
+const char *test_author = "Pavel Emelyanov <xemul@virtuozzo.com>";
 
-#define IF_NAME "zdtmsit0"
-#define LOCAL_ADDR	"1.1.1.2"
-#define REMOT_ADDR	"2.2.2.1"
+#define IF_NAME	   "zdtmsit0"
+#define LOCAL_ADDR "1.1.1.2"
+#define REMOT_ADDR "2.2.2.1"
 
 int main(int argc, char **argv)
 {
@@ -55,4 +55,3 @@ int main(int argc, char **argv)
 out:
 	return ret;
 }
-

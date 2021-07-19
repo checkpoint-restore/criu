@@ -14,8 +14,9 @@
 #include "zdtmtst.h"
 #include "lock.h"
 
-const char *test_doc	= "Create file descriptors with different numbers. Check that they do not intersect with service fds";
-const char *test_author	= "Kirill Tkhai <ktkhai@virtuozzo.com>";
+const char *test_doc =
+	"Create file descriptors with different numbers. Check that they do not intersect with service fds";
+const char *test_author = "Kirill Tkhai <ktkhai@virtuozzo.com>";
 
 int main(int argc, char **argv)
 {
@@ -28,7 +29,7 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	futex = mmap(NULL, sizeof(*futex), PROT_WRITE | PROT_READ, MAP_ANONYMOUS|MAP_SHARED, -1, 0);
+	futex = mmap(NULL, sizeof(*futex), PROT_WRITE | PROT_READ, MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 	if (futex == MAP_FAILED) {
 		fail("mmap");
 		exit(1);
@@ -67,7 +68,6 @@ int main(int argc, char **argv)
 		fail("rlimir: Can't setup RLIMIT_NOFILE for self");
 		exit(1);
 	}
-
 
 	for (i = 1; (fd = (1 << i)) < (rlim.rlim_cur >> 1); i++) {
 		FILE *fp = tmpfile();

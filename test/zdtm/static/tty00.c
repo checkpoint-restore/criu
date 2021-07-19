@@ -10,8 +10,8 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
-const char *test_doc	= "Check that a control terminal is restored";
-const char *test_author	= "Andrey Vagin <avagin@openvz.org>";
+const char *test_doc = "Check that a control terminal is restored";
+const char *test_author = "Andrey Vagin <avagin@openvz.org>";
 
 static int sighup = 0;
 static void sighup_handler(int signo)
@@ -20,7 +20,7 @@ static void sighup_handler(int signo)
 	sighup = 1;
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fdm, fds, status;
 	task_waiter_t t;

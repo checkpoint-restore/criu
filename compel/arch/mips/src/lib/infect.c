@@ -23,8 +23,8 @@
  * mips64el is Little Endian
  */
 const char code_syscall[] = {
-	0x0c, 0x00, 0x00, 0x00,   /* syscall    */
-	0x0d, 0x00, 0x00, 0x00   /*  break      */
+	0x0c, 0x00, 0x00, 0x00, /* syscall    */
+	0x0d, 0x00, 0x00, 0x00 /*  break      */
 };
 
 /* 10-byte legacy floating point register */
@@ -40,10 +40,7 @@ struct fpxreg {
 	uint16_t padding[3];
 };
 
-
-int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
-			      user_regs_struct_t *regs,
-			      user_fpregs_struct_t *fpregs)
+int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
 	sigframe->rs_uc.uc_mcontext.sc_regs[0] = regs->regs[0];
 	sigframe->rs_uc.uc_mcontext.sc_regs[1] = regs->regs[1];
@@ -117,17 +114,15 @@ int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe,
 	return 0;
 }
 
-int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe,
-				   struct rt_sigframe *rsigframe)
+int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe, struct rt_sigframe *rsigframe)
 {
 	return 0;
 }
 
-int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
-		  user_fpregs_struct_t *ext_regs, save_regs_t save,
-		  void *arg, __maybe_unused unsigned long flags)
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *ext_regs, save_regs_t save,
+			 void *arg, __maybe_unused unsigned long flags)
 {
-	user_fpregs_struct_t xsave = {  }, *xs = ext_regs ? ext_regs : &xsave;
+	user_fpregs_struct_t xsave = {}, *xs = ext_regs ? ext_regs : &xsave;
 	int ret = -1;
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
@@ -143,7 +138,7 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs,
 		case ERESTARTNOHAND:
 		case ERESTARTSYS:
 		case ERESTARTNOINTR:
-			regs->regs[2] =  regs->regs[0];
+			regs->regs[2] = regs->regs[0];
 			regs->regs[7] = regs->regs[26];
 			regs->cp0_epc -= 4;
 			break;
@@ -170,13 +165,8 @@ int compel_set_task_ext_regs(pid_t pid, user_fpregs_struct_t *ext_regs)
 	return 0;
 }
 
-int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
-		unsigned long arg1,
-		unsigned long arg2,
-		unsigned long arg3,
-		unsigned long arg4,
-		unsigned long arg5,
-		unsigned long arg6)
+int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret, unsigned long arg1, unsigned long arg2,
+		   unsigned long arg3, unsigned long arg4, unsigned long arg5, unsigned long arg6)
 {
 	/*refer to glibc-2.20/sysdeps/unix/sysv/linux/mips/mips64/syscall.S*/
 	user_regs_struct_t regs = ctl->orig.regs;
@@ -193,18 +183,15 @@ int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret,
 	err = compel_execute_syscall(ctl, &regs, code_syscall);
 	*ret = regs.regs[2];
 
-	 return err;
+	return err;
 }
 
-void *remote_mmap(struct parasite_ctl *ctl,
-		  void *addr, size_t length, int prot,
-		  int flags, int fd, off_t offset)
+void *remote_mmap(struct parasite_ctl *ctl, void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
 	long map;
 	int err;
 
-	err = compel_syscall(ctl, __NR_mmap, &map,
-		(unsigned long)addr, length, prot, flags, fd, offset >> PAGE_SHIFT);
+	err = compel_syscall(ctl, __NR_mmap, &map, (unsigned long)addr, length, prot, flags, fd, offset >> PAGE_SHIFT);
 
 	if (err < 0 || IS_ERR_VALUE(map)) {
 		pr_err("remote mmap() failed: %s\n", strerror(-map));
@@ -236,12 +223,9 @@ int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
 	long ret;
 	int err;
 
-	err = compel_syscall(ctl, __NR_sigaltstack,
-			 &ret, 0, (unsigned long)&s->rs_uc.uc_stack,
-			 0, 0, 0, 0);
+	err = compel_syscall(ctl, __NR_sigaltstack, &ret, 0, (unsigned long)&s->rs_uc.uc_stack, 0, 0, 0, 0);
 	return err ? err : ret;
 }
-
 
 int ptrace_set_breakpoint(pid_t pid, void *addr)
 {
@@ -256,9 +240,12 @@ int ptrace_flush_breakpoints(pid_t pid)
 /*refer to kernel linux-3.10/arch/mips/include/asm/processor.h*/
 #define TASK_SIZE32 0x7fff8000UL
 #define TASK_SIZE64 0x10000000000UL
-#define TASK_SIZE TASK_SIZE64
+#define TASK_SIZE   TASK_SIZE64
 
-unsigned long compel_task_size(void) { return TASK_SIZE; }
+unsigned long compel_task_size(void)
+{
+	return TASK_SIZE;
+}
 
 /*
  * Get task registers (overwrites weak function)
@@ -292,30 +279,31 @@ void compel_relocs_apply_mips(void *mem, void *vbase, struct parasite_blob_desc 
 	for (i = 0, j = 0; i < nr_relocs; i++) {
 		if (elf_relocs[i].type & COMPEL_TYPE_MIPS_26) {
 			int *where = (mem + elf_relocs[i].offset);
-			*where = *where | ((elf_relocs[i].addend + ((unsigned long)vbase & 0x00fffffff) /*low 28 bit*/)>>2);
+			*where = *where |
+				 ((elf_relocs[i].addend + ((unsigned long)vbase & 0x00fffffff) /*low 28 bit*/) >> 2);
 		} else if (elf_relocs[i].type & COMPEL_TYPE_MIPS_64) {
 			unsigned long *where = (mem + elf_relocs[i].offset);
 			*where = elf_relocs[i].addend + (unsigned long)vbase;
 		} else if (elf_relocs[i].type & COMPEL_TYPE_MIPS_HI16) {
 			/* refer to binutils mips.cc */
 			int *where = (mem + elf_relocs[i].offset);
-			int v_lo16 = (unsigned long)vbase &0x00ffff;
+			int v_lo16 = (unsigned long)vbase & 0x00ffff;
 
-			if ((v_lo16+elf_relocs[i].value+elf_relocs[i].addend) >= 0x8000) {
-				*where = *where | ((((unsigned long)vbase>>16) &0xffff)+0x1);
+			if ((v_lo16 + elf_relocs[i].value + elf_relocs[i].addend) >= 0x8000) {
+				*where = *where | ((((unsigned long)vbase >> 16) & 0xffff) + 0x1);
 			} else {
-				*where = *where | ((((unsigned long)vbase>>16) &0xffff));
+				*where = *where | ((((unsigned long)vbase >> 16) & 0xffff));
 			}
 		} else if (elf_relocs[i].type & COMPEL_TYPE_MIPS_LO16) {
 			int *where = (mem + elf_relocs[i].offset);
-			int v_lo16 = (unsigned long)vbase &0x00ffff;
+			int v_lo16 = (unsigned long)vbase & 0x00ffff;
 			*where = *where | ((v_lo16 + elf_relocs[i].addend) & 0xffff);
 		} else if (elf_relocs[i].type & COMPEL_TYPE_MIPS_HIGHER) {
 			int *where = (mem + elf_relocs[i].offset);
-			*where = *where | ((( (unsigned long)vbase + (uint64_t) 0x80008000) >> 32) & 0xffff);
+			*where = *where | ((((unsigned long)vbase + (uint64_t)0x80008000) >> 32) & 0xffff);
 		} else if (elf_relocs[i].type & COMPEL_TYPE_MIPS_HIGHEST) {
 			int *where = (mem + elf_relocs[i].offset);
-			*where = *where | ((( (unsigned long)vbase + (uint64_t) 0x800080008000llu) >> 48) & 0xffff);
+			*where = *where | ((((unsigned long)vbase + (uint64_t)0x800080008000llu) >> 48) & 0xffff);
 		} else {
 			BUG();
 		}

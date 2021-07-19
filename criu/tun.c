@@ -24,7 +24,7 @@
 
 #include "images/tun.pb-c.h"
 
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "tun: "
 
 #ifndef IFF_PERSIST
@@ -36,7 +36,7 @@
 #endif
 
 #ifndef TUNSETQUEUE
-#define TUNSETQUEUE  _IOW('T', 217, int)
+#define TUNSETQUEUE	 _IOW('T', 217, int)
 #define IFF_ATTACH_QUEUE 0x0200
 #define IFF_DETACH_QUEUE 0x0400
 #endif
@@ -55,7 +55,7 @@
 #define TUNGETFILTER _IOR('T', 219, struct sock_fprog)
 #endif
 
-#define TUN_DEV_GEN_PATH	"/dev/net/tun"
+#define TUN_DEV_GEN_PATH "/dev/net/tun"
 
 int check_tun_cr(int no_tun_err)
 {
@@ -139,8 +139,7 @@ static struct tun_link *find_tun_link(char *name, unsigned int ns_id)
 	struct tun_link *tl;
 
 	list_for_each_entry(tl, &tun_links, l) {
-		if (!strcmp(tl->name, name) &&
-		    tl->ns_id == ns_id)
+		if (!strcmp(tl->name, name) && tl->ns_id == ns_id)
 			return tl;
 	}
 	return NULL;
@@ -322,7 +321,7 @@ static int dump_tunfile(int lfd, u32 id, const struct fd_parms *p)
 
 	pr_info("Dumping tun-file %d with id %#x\n", lfd, id);
 
-	tfe.id		= id;
+	tfe.id = id;
 	ret = ioctl(lfd, TUNGETIFF, &ifr);
 	if (ret < 0) {
 		if (errno != EBADFD) {

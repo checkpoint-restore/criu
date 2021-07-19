@@ -8,8 +8,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that zombie pgid is restored";
-const char *test_author	= "Kirill Tkhai <ktkhai@virtuozzo.com>";
+const char *test_doc = "Check that zombie pgid is restored";
+const char *test_author = "Kirill Tkhai <ktkhai@virtuozzo.com>";
 
 int main(int argc, char **argv)
 {
@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 			fail("setpgid");
 			exit(1);
 		}
-		pid = sys_clone_unified(CLONE_PARENT|SIGCHLD, NULL, NULL, NULL, 0);
+		pid = sys_clone_unified(CLONE_PARENT | SIGCHLD, NULL, NULL, NULL, 0);
 		if (pid < 0) {
 			fail("fork");
 			exit(1);
@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	if (waitid(P_ALL, 0, &info, WEXITED|WNOWAIT) < 0) {
+	if (waitid(P_ALL, 0, &info, WEXITED | WNOWAIT) < 0) {
 		fail("waitpid");
 		exit(1);
 	}
@@ -58,7 +58,7 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	if (waitid(P_ALL, 0, &info, WEXITED|WNOWAIT) < 0) {
+	if (waitid(P_ALL, 0, &info, WEXITED | WNOWAIT) < 0) {
 		fail("waitpid");
 		exit(1);
 	}

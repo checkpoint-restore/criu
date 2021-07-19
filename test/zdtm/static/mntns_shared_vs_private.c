@@ -14,15 +14,14 @@
 #include "zdtmtst.h"
 
 #ifndef CLONE_NEWNS
-#define CLONE_NEWNS     0x00020000
+#define CLONE_NEWNS 0x00020000
 #endif
 
-const char *test_doc	= "Check a private mount in a shared mount";
-const char *test_author	= "Andrew Vagin <avagin@gmail.com>";
+const char *test_doc = "Check a private mount in a shared mount";
+const char *test_author = "Andrew Vagin <avagin@gmail.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
-
 
 int main(int argc, char **argv)
 {
@@ -106,7 +105,8 @@ int main(int argc, char **argv)
 		}
 
 		if (status) {
-			pr_err("%d/%d/%d/%d\n", WIFEXITED(status), WEXITSTATUS(status), WIFSIGNALED(status), WTERMSIG(status));
+			pr_err("%d/%d/%d/%d\n", WIFEXITED(status), WEXITSTATUS(status), WIFSIGNALED(status),
+			       WTERMSIG(status));
 			return 1;
 		}
 	}

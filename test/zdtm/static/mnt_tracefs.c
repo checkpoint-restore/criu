@@ -10,13 +10,13 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test c/r of tracefs";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "Test c/r of tracefs";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 char *dirname = "mnt_tracefs.test";
 TEST_OPTION(dirname, string, "directory name", 1);
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	char dst[PATH_MAX];
 
@@ -69,4 +69,3 @@ test:
 	pass();
 	return 0;
 }
-

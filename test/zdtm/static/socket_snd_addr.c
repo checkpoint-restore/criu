@@ -7,16 +7,16 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that sender addresses are restored";
-const char *test_author	= "Andrew Vagin <avagin@openvz.org";
+const char *test_doc = "Check that sender addresses are restored";
+const char *test_author = "Andrew Vagin <avagin@openvz.org";
 
-#define SK_SRV "\0socket_snd_srv"
+#define SK_SRV	"\0socket_snd_srv"
 #define SK_NAME "\0A-socket_snd_clnt"
 
 char sk_names[2][128] = {
-		SK_NAME,
-		SK_NAME,
-	};
+	SK_NAME,
+	SK_NAME,
+};
 
 #define MSG "hello"
 int main(int argc, char **argv)
@@ -26,15 +26,15 @@ int main(int argc, char **argv)
 	int srv, clnt = -1, ret, i;
 	char buf[1024];
 	struct iovec iov = {
-			.iov_base = &buf,
-			.iov_len = sizeof(buf),
-		};
+		.iov_base = &buf,
+		.iov_len = sizeof(buf),
+	};
 	struct msghdr hdr = {
-			.msg_name = &addr,
-			.msg_namelen = sizeof(addr),
-			.msg_iov = &iov,
-			.msg_iovlen = 1,
-		};
+		.msg_name = &addr,
+		.msg_namelen = sizeof(addr),
+		.msg_iov = &iov,
+		.msg_iovlen = 1,
+	};
 
 	test_init(argc, argv);
 
@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 	memcpy(addr.sun_path, SK_SRV, sizeof(SK_SRV));
 	addrlen = sizeof(addr.sun_family) + sizeof(SK_SRV);
 
-	if (bind(srv, (struct sockaddr *) &addr, addrlen)) {
+	if (bind(srv, (struct sockaddr *)&addr, addrlen)) {
 		fail("bind");
 		exit(1);
 	}
@@ -58,14 +58,14 @@ int main(int argc, char **argv)
 		memcpy(addr.sun_path, sk_names[i], sizeof(SK_NAME));
 		addrlen = sizeof(addr.sun_family) + sizeof(SK_NAME);
 
-		if (bind(clnt, (struct sockaddr *) &addr, addrlen)) {
+		if (bind(clnt, (struct sockaddr *)&addr, addrlen)) {
 			fail("bind");
 			exit(1);
 		}
 
 		memcpy(addr.sun_path, SK_SRV, sizeof(SK_SRV));
 		addrlen = sizeof(addr.sun_family) + sizeof(SK_SRV);
-		if (connect(clnt, (struct sockaddr *) &addr, addrlen)) {
+		if (connect(clnt, (struct sockaddr *)&addr, addrlen)) {
 			fail("connect");
 			exit(1);
 		}

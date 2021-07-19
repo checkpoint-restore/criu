@@ -16,8 +16,8 @@
 
 /* FIXME Need gram sockets tests */
 
-const char *test_doc	= "Test unix sockets queues (2 messages in queue)\n";
-const char *test_author	= "Stanislav Kinsbursky <skinsbursky@parallels.com>\n";
+const char *test_doc = "Test unix sockets queues (2 messages in queue)\n";
+const char *test_author = "Stanislav Kinsbursky <skinsbursky@parallels.com>\n";
 
 #define SK_DATA_S1 "packet stream left"
 #define SK_DATA_S2 "packet stream right"
@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
 		fail("data corrupted");
 		exit(1);
 	}
-	read(ssk_pair_d[0], buf_right,strlen(SK_DATA_D1) + 1);
+	read(ssk_pair_d[0], buf_right, strlen(SK_DATA_D1) + 1);
 	if (strcmp(buf_right, SK_DATA_D1)) {
 		fail("data corrupted");
 		exit(1);

@@ -9,13 +9,13 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Migrate two hardlinked, open, and unlinked files";
-const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
+const char *test_doc = "Migrate two hardlinked, open, and unlinked files";
+const char *test_author = "Roman Kagan <rkagan@parallels.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fd, fd2 = 0;
 	struct stat stat, stat2;
@@ -23,8 +23,7 @@ int main(int argc, char ** argv)
 
 	test_init(argc, argv);
 
-	if (snprintf(filename2, sizeof(filename2), "%s.lnk", filename) >=
-	    sizeof(filename2)) {
+	if (snprintf(filename2, sizeof(filename2), "%s.lnk", filename) >= sizeof(filename2)) {
 		pr_perror("filename %s is too long", filename);
 		exit(1);
 	}
@@ -57,11 +56,9 @@ int main(int argc, char ** argv)
 		goto out;
 	}
 
-	if (stat.st_ino != stat2.st_ino ||
-	    stat.st_dev != stat2.st_dev) {
-		fail("files are different: st_ino %lu != %lu or st_dev %lu != %lu",
-		     (long unsigned)stat.st_ino, (long unsigned)stat2.st_ino,
-		     (long unsigned)stat.st_dev, (long unsigned)stat2.st_dev);
+	if (stat.st_ino != stat2.st_ino || stat.st_dev != stat2.st_dev) {
+		fail("files are different: st_ino %lu != %lu or st_dev %lu != %lu", (long unsigned)stat.st_ino,
+		     (long unsigned)stat2.st_ino, (long unsigned)stat.st_dev, (long unsigned)stat2.st_dev);
 	}
 
 	pass();

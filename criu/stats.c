@@ -17,13 +17,13 @@ struct timing {
 };
 
 struct dump_stats {
-	struct timing	timings[DUMP_TIME_NR_STATS];
-	unsigned long	counts[DUMP_CNT_NR_STATS];
+	struct timing timings[DUMP_TIME_NR_STATS];
+	unsigned long counts[DUMP_CNT_NR_STATS];
 };
 
 struct restore_stats {
-	struct timing	timings[RESTORE_TIME_NS_STATS];
-	atomic_t	counts[RESTORE_CNT_NR_STATS];
+	struct timing timings[RESTORE_TIME_NS_STATS];
+	atomic_t counts[RESTORE_CNT_NR_STATS];
 };
 
 struct dump_stats *dstats;
@@ -53,8 +53,7 @@ void cnt_sub(int c, unsigned long val)
 		BUG();
 }
 
-static void timeval_accumulate(const struct timeval *from, const struct timeval *to,
-		struct timeval *res)
+static void timeval_accumulate(const struct timeval *from, const struct timeval *to, struct timeval *res)
 {
 	suseconds_t usec;
 
@@ -130,23 +129,22 @@ static void display_stats(int what, StatsEntry *stats)
 		if (stats->dump->has_irmap_resolve)
 			pr_msg("IRMAP resolve time: %d us\n", stats->dump->irmap_resolve);
 		pr_msg("Memory pages scanned: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_scanned,
-				stats->dump->pages_scanned);
+		       stats->dump->pages_scanned);
 		pr_msg("Memory pages skipped from parent: %" PRIu64 " (0x%" PRIx64 ")\n",
-				stats->dump->pages_skipped_parent,
-				stats->dump->pages_skipped_parent);
+		       stats->dump->pages_skipped_parent, stats->dump->pages_skipped_parent);
 		pr_msg("Memory pages written: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_written,
-				stats->dump->pages_written);
+		       stats->dump->pages_written);
 		pr_msg("Lazy memory pages: %" PRIu64 " (0x%" PRIx64 ")\n", stats->dump->pages_lazy,
-				stats->dump->pages_lazy);
+		       stats->dump->pages_lazy);
 	} else if (what == RESTORE_STATS) {
 		pr_msg("Displaying restore stats:\n");
 		pr_msg("Pages compared: %" PRIu64 " (0x%" PRIx64 ")\n", stats->restore->pages_compared,
-				stats->restore->pages_compared);
+		       stats->restore->pages_compared);
 		pr_msg("Pages skipped COW: %" PRIu64 " (0x%" PRIx64 ")\n", stats->restore->pages_skipped_cow,
-				stats->restore->pages_skipped_cow);
+		       stats->restore->pages_skipped_cow);
 		if (stats->restore->has_pages_restored)
 			pr_msg("Pages restored: %" PRIu64 " (0x%" PRIx64 ")\n", stats->restore->pages_restored,
-					stats->restore->pages_restored);
+			       stats->restore->pages_restored);
 		pr_msg("Restore time: %d us\n", stats->restore->restore_time);
 		pr_msg("Forking time: %d us\n", stats->restore->forking_time);
 	} else

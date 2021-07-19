@@ -8,13 +8,13 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check inotify does not have trash in queue after c/r";
-const char *test_author	= "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
+const char *test_doc = "Check inotify does not have trash in queue after c/r";
+const char *test_author = "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 
-#define TEST_FILE	"inotify-testfile"
+#define TEST_FILE "inotify-testfile"
 
 #define BUFF_SIZE ((sizeof(struct inotify_event) + PATH_MAX))
 
@@ -49,7 +49,7 @@ static int inotify_read_events(int inotify_fd, unsigned int *n)
 	return ret;
 }
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	unsigned int mask = IN_ALL_EVENTS;
 	char test_file_path[PATH_MAX];

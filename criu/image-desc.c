@@ -11,17 +11,17 @@
  * for more details.
  */
 
-#define FD_ENTRY(_name, _fmt)			\
-	[CR_FD_##_name] = {			\
-		.fmt	= _fmt ".img",		\
-		.magic	= _name##_MAGIC,	\
+#define FD_ENTRY(_name, _fmt)           \
+	[CR_FD_##_name] = {             \
+		.fmt = _fmt ".img",     \
+		.magic = _name##_MAGIC, \
 	}
 
-#define FD_ENTRY_F(_name, _fmt, _f)		\
-	[CR_FD_##_name] = {			\
-		.fmt	= _fmt ".img",		\
-		.magic	= _name##_MAGIC,	\
-		.oflags	= _f,			\
+#define FD_ENTRY_F(_name, _fmt, _f)     \
+	[CR_FD_##_name] = {             \
+		.fmt = _fmt ".img",     \
+		.magic = _name##_MAGIC, \
+		.oflags = _f,           \
 	}
 
 struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {

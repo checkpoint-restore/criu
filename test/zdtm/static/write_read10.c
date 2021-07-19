@@ -8,15 +8,15 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Open r/w and unlink file, and fork before migration;\n"
-			  "check that the child can write to it and the parent\n"
-			  "can read from it after migration";
-const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
+const char *test_doc = "Open r/w and unlink file, and fork before migration;\n"
+		       "check that the child can write to it and the parent\n"
+		       "can read from it after migration";
+const char *test_author = "Roman Kagan <rkagan@parallels.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fd, child_fd, ret;
 	pid_t pid;
@@ -51,7 +51,7 @@ int main(int argc, char ** argv)
 		exit(1);
 	}
 
-	if (pid == 0) {	/* child writes to the unlinked file and returns */
+	if (pid == 0) { /* child writes to the unlinked file and returns */
 		close(fd);
 		task_waiter_complete_current(&t);
 		test_waitsig();
@@ -109,15 +109,13 @@ int main(int argc, char ** argv)
 		goto out;
 	}
 
-
 	if (close(fd)) {
 		fail("close failed");
 		goto out_noclose;
 	}
 
 	if (unlink(filename) != -1 || errno != ENOENT) {
-		fail("file %s should have been deleted before migration: unlink",
-				filename);
+		fail("file %s should have been deleted before migration: unlink", filename);
 		goto out_noclose;
 	}
 

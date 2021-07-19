@@ -37,7 +37,7 @@ static int create_sock(int i)
 	addr_len = snprintf(addr.sun_path, UNIX_PATH_MAX, "%s%d", SK_NAME, id);
 	addr_len += sizeof(addr.sun_family);
 
-	if (bind(sk, (struct sockaddr *) &addr, addr_len) < 0) {
+	if (bind(sk, (struct sockaddr *)&addr, addr_len) < 0) {
 		perror("bind");
 		return 1;
 	}
@@ -46,7 +46,7 @@ static int create_sock(int i)
 	addr_len = snprintf(addr.sun_path, UNIX_PATH_MAX, SK_NAME);
 	addr_len += sizeof(addr.sun_family);
 
-	if (connect(sk, (struct sockaddr *) &addr, addr_len) < 0) {
+	if (connect(sk, (struct sockaddr *)&addr, addr_len) < 0) {
 		perror("connect");
 		return 1;
 	}
@@ -102,7 +102,7 @@ int main(void)
 	dprintf(fd, "%d\n", getpid());
 	close(fd);
 
-	openlog("test", LOG_NDELAY, LOG_USER );
+	openlog("test", LOG_NDELAY, LOG_USER);
 
 	sigemptyset(&set);
 	sigaddset(&set, SIGTERM);
@@ -118,4 +118,3 @@ int main(void)
 	printf("PASS\n");
 	return 0;
 }
-

@@ -5,12 +5,12 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that utsname hasn't changed";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that utsname hasn't changed";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 static struct utsname after;
 
-#define ZDTM_NODE "zdtm.nodename.ru"
+#define ZDTM_NODE   "zdtm.nodename.ru"
 #define ZDTM_DOMAIN "zdtm.nodename.ru"
 
 int main(int argc, char **argv)

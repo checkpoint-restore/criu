@@ -7,8 +7,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that a ghost fifo with data restored";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Check that a ghost fifo with data restored";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);

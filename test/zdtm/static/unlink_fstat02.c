@@ -8,16 +8,16 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Open, link, unlink x2, change size, migrate, check size";
+const char *test_doc = "Open, link, unlink x2, change size, migrate, check size";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 static char link_name[1024];
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fd[2];
-	size_t fsize=1000;
+	size_t fsize = 1000;
 	uint8_t buf[fsize];
 	struct stat fst, fst2;
 
@@ -47,8 +47,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (fst.st_size != 0) {
-		pr_perror("%s file size eq %lld",
-				filename, (long long)fst.st_size);
+		pr_perror("%s file size eq %lld", filename, (long long)fst.st_size);
 		goto failed;
 	}
 
@@ -87,15 +86,13 @@ int main(int argc, char ** argv)
 	}
 
 	if (fst.st_size != fsize) {
-		fail("(via fstat): file size changed to %lld",
-				(long long)fst.st_size);
+		fail("(via fstat): file size changed to %lld", (long long)fst.st_size);
 		goto failed;
 	}
 
 	fst.st_size = lseek(fd[0], 0, SEEK_END);
 	if (fst.st_size != fsize) {
-		fail("(via lseek): file size changed to %lld",
-				(long long)fst.st_size);
+		fail("(via lseek): file size changed to %lld", (long long)fst.st_size);
 		goto failed;
 	}
 

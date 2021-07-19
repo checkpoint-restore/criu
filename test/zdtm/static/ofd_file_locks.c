@@ -16,9 +16,7 @@ static int parse_ofd_lock(char *buf, struct flock *lck)
 	if (strncmp(buf, "lock:\t", 6) != 0)
 		return 1; /* isn't lock, skip record */
 
-	num = sscanf(buf,
-		"%*s %*d: %s %s %s %*d %*x:%*x:%*d %lld %s",
-		fl_flag, fl_type, fl_option, &start, fl_end);
+	num = sscanf(buf, "%*s %*d: %s %s %s %*d %*x:%*x:%*d %lld %s", fl_flag, fl_type, fl_option, &start, fl_end);
 
 	if (num < 4) {
 		pr_err("Invalid lock info %s\n", buf);
@@ -118,9 +116,7 @@ out:
 
 static int check_file_locks_match(struct flock *orig_lck, struct flock *lck)
 {
-	return orig_lck->l_start == lck->l_start &&
-		orig_lck->l_len == lck->l_len &&
-		orig_lck->l_type == lck->l_type;
+	return orig_lck->l_start == lck->l_start && orig_lck->l_len == lck->l_len && orig_lck->l_type == lck->l_type;
 }
 
 int check_file_lock_restored(int pid, int fd, struct flock *lck)
@@ -164,30 +160,30 @@ int zdtm_fcntl(int fd, int cmd, struct flock *f)
 {
 #if defined(__i386__)
 #ifndef __NR_fcntl64
-# define __NR_fcntl64 221
+#define __NR_fcntl64 221
 #endif
 	struct flock64 f64 = {};
 	int ret;
 
 	switch (cmd) {
-		case F_OFD_SETLK:
-		case F_OFD_SETLKW:
-			f64.l_type	= f->l_type;
-			f64.l_whence	= f->l_whence;
-			f64.l_start	= f->l_start;
-			f64.l_len	= f->l_len;
-			f64.l_pid	= f->l_pid;
-			return syscall(__NR_fcntl64, fd, cmd, &f64);
-		case F_OFD_GETLK:
-			ret = syscall(__NR_fcntl64, fd, cmd, &f64);
-			f->l_type	= f64.l_type;
-			f->l_whence	= f64.l_whence;
-			f->l_start	= f64.l_start;
-			f->l_len	= f64.l_len;
-			f->l_pid	= f64.l_pid;
-			return ret;
-		default:
-			break;
+	case F_OFD_SETLK:
+	case F_OFD_SETLKW:
+		f64.l_type = f->l_type;
+		f64.l_whence = f->l_whence;
+		f64.l_start = f->l_start;
+		f64.l_len = f->l_len;
+		f64.l_pid = f->l_pid;
+		return syscall(__NR_fcntl64, fd, cmd, &f64);
+	case F_OFD_GETLK:
+		ret = syscall(__NR_fcntl64, fd, cmd, &f64);
+		f->l_type = f64.l_type;
+		f->l_whence = f64.l_whence;
+		f->l_start = f64.l_start;
+		f->l_len = f64.l_len;
+		f->l_pid = f64.l_pid;
+		return ret;
+	default:
+		break;
 	}
 #endif
 	return fcntl(fd, cmd, f);

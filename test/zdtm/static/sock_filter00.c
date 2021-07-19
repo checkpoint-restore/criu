@@ -8,17 +8,17 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check socket filter";
-const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
+const char *test_doc = "Check socket filter";
+const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
 #ifndef SO_GET_FILTER
-#define SO_GET_FILTER           SO_ATTACH_FILTER
+#define SO_GET_FILTER SO_ATTACH_FILTER
 #endif
 
 #ifdef SOCK_FILTER01
-#define SFLEN	4
+#define SFLEN 4
 #else
-#define SFLEN	14
+#define SFLEN 14
 #endif
 
 int main(int argc, char **argv)
@@ -27,27 +27,18 @@ int main(int argc, char **argv)
 	struct sock_fprog p;
 #ifdef SOCK_FILTER01
 	struct sock_filter f[SFLEN] = {
-		{ 0x6,  0, 0, 0x0000ffff },
-		{ 0x6,  0, 0, 0x0000ffff },
-		{ 0x6,  0, 0, 0x0000ffff },
-		{ 0x6,  0, 0, 0x0000ffff },
+		{ 0x6, 0, 0, 0x0000ffff },
+		{ 0x6, 0, 0, 0x0000ffff },
+		{ 0x6, 0, 0, 0x0000ffff },
+		{ 0x6, 0, 0, 0x0000ffff },
 	};
 #else
 	struct sock_filter f[SFLEN] = {
-		{ 0x28, 0, 0, 0x0000000c },
-		{ 0x15, 0, 4, 0x00000800 },
-		{ 0x20, 0, 0, 0x0000001a },
-		{ 0x15, 8, 0, 0x7f000001 },
-		{ 0x20, 0, 0, 0x0000001e },
-		{ 0x15, 6, 7, 0x7f000001 },
-		{ 0x15, 1, 0, 0x00000806 },
-		{ 0x15, 0, 5, 0x00008035 },
-		{ 0x20, 0, 0, 0x0000001c },
-		{ 0x15, 2, 0, 0x7f000001 },
-		{ 0x20, 0, 0, 0x00000026 },
-		{ 0x15, 0, 1, 0x7f000001 },
-		{ 0x6,  0, 0, 0x0000ffff },
-		{ 0x6,  0, 0, 0x00000000 },
+		{ 0x28, 0, 0, 0x0000000c }, { 0x15, 0, 4, 0x00000800 }, { 0x20, 0, 0, 0x0000001a },
+		{ 0x15, 8, 0, 0x7f000001 }, { 0x20, 0, 0, 0x0000001e }, { 0x15, 6, 7, 0x7f000001 },
+		{ 0x15, 1, 0, 0x00000806 }, { 0x15, 0, 5, 0x00008035 }, { 0x20, 0, 0, 0x0000001c },
+		{ 0x15, 2, 0, 0x7f000001 }, { 0x20, 0, 0, 0x00000026 }, { 0x15, 0, 1, 0x7f000001 },
+		{ 0x6, 0, 0, 0x0000ffff },  { 0x6, 0, 0, 0x00000000 },
 	};
 #endif
 	struct sock_filter f2[SFLEN], f3[SFLEN];
@@ -125,4 +116,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-

@@ -10,8 +10,8 @@
 #include <signal.h>
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that an apparmor profile is restored";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "Check that an apparmor profile is restored";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 #define PROFILE "criu_test"
 

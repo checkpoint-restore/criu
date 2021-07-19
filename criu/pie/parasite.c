@@ -32,15 +32,15 @@
 static struct parasite_dump_pages_args *mprotect_args = NULL;
 
 #ifndef SPLICE_F_GIFT
-#define SPLICE_F_GIFT	0x08
+#define SPLICE_F_GIFT 0x08
 #endif
 
 #ifndef PR_GET_PDEATHSIG
-#define PR_GET_PDEATHSIG  2
+#define PR_GET_PDEATHSIG 2
 #endif
 
 #ifndef PR_GET_CHILD_SUBREAPER
-#define PR_GET_CHILD_SUBREAPER  37
+#define PR_GET_CHILD_SUBREAPER 37
 #endif
 
 static int mprotect_vmas(struct parasite_dump_pages_args *args)
@@ -53,8 +53,7 @@ static int mprotect_vmas(struct parasite_dump_pages_args *args)
 		vma = vmas + i;
 		ret = sys_mprotect((void *)vma->start, vma->len, vma->prot | args->add_prot);
 		if (ret) {
-			pr_err("mprotect(%08lx, %ld) failed with code %d\n",
-						vma->start, vma->len, ret);
+			pr_err("mprotect(%08lx, %ld) failed with code %d\n", vma->start, vma->len, ret);
 			break;
 		}
 	}
@@ -85,12 +84,10 @@ static int dump_pages(struct parasite_dump_pages_args *args)
 	if (nr_segs > UIO_MAXIOV)
 		nr_segs = UIO_MAXIOV;
 	while (1) {
-		ret = sys_vmsplice(p, &iovs[args->off + off], nr_segs,
-					SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
+		ret = sys_vmsplice(p, &iovs[args->off + off], nr_segs, SPLICE_F_GIFT | SPLICE_F_NONBLOCK);
 		if (ret < 0) {
 			sys_close(p);
-			pr_err("Can't splice pages to pipe (%d/%d/%d)\n",
-						ret, nr_segs, args->off + off);
+			pr_err("Can't splice pages to pipe (%d/%d/%d)\n", ret, nr_segs, args->off + off);
 			return -1;
 		}
 		spliced_bytes += ret;
@@ -151,7 +148,7 @@ static int dump_posix_timers(struct parasite_dump_posix_timers_args *args)
 	int i;
 	int ret = 0;
 
-	for(i = 0; i < args->timer_n; i++) {
+	for (i = 0; i < args->timer_n; i++) {
 		ret = sys_timer_gettime(args->timer[i].it_id, &args->timer[i].val);
 		if (ret < 0) {
 			pr_err("sys_timer_gettime failed (%d)\n", ret);
@@ -176,7 +173,7 @@ static int dump_thread_common(struct parasite_dump_thread *ti)
 	int ret;
 
 	arch_get_tls(&ti->tls);
-	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long) &ti->tid_addr, 0, 0, 0);
+	ret = sys_prctl(PR_GET_TID_ADDRESS, (unsigned long)&ti->tid_addr, 0, 0, 0);
 	if (ret) {
 		pr_err("Unable to get the clear_child_tid address: %d\n", ret);
 		goto out;
@@ -194,7 +191,7 @@ static int dump_thread_common(struct parasite_dump_thread *ti)
 		goto out;
 	}
 
-	ret = sys_prctl(PR_GET_NAME, (unsigned long) &ti->comm, 0, 0, 0);
+	ret = sys_prctl(PR_GET_NAME, (unsigned long)&ti->comm, 0, 0, 0);
 	if (ret) {
 		pr_err("Unable to get the thread name: %d\n", ret);
 		goto out;
@@ -230,7 +227,7 @@ static int dump_creds(struct parasite_dump_creds *args)
 {
 	int ret, i, j;
 	struct cap_data data[_LINUX_CAPABILITY_U32S_3];
-	struct cap_header hdr = {_LINUX_CAPABILITY_VERSION_3, 0};
+	struct cap_header hdr = { _LINUX_CAPABILITY_VERSION_3, 0 };
 
 	ret = sys_capget(&hdr, data);
 	if (ret < 0) {
@@ -254,8 +251,7 @@ static int dump_creds(struct parasite_dump_creds *args)
 				break;
 			ret = sys_prctl(PR_CAPBSET_READ, j + i * 32, 0, 0, 0);
 			if (ret < 0) {
-				pr_err("Unable to read capability %d: %d\n",
-					j + i * 32, ret);
+				pr_err("Unable to read capability %d: %d\n", j + i * 32, ret);
 				return -1;
 			}
 			if (ret)
@@ -280,8 +276,7 @@ static int dump_creds(struct parasite_dump_creds *args)
 		goto grps_err;
 
 	if (ret != args->ngroups) {
-		pr_err("Groups changed on the fly %d -> %d\n",
-				args->ngroups, ret);
+		pr_err("Groups changed on the fly %d -> %d\n", args->ngroups, ret);
 		return -1;
 	}
 
@@ -357,10 +352,10 @@ static int fill_fds_fown(int fd, struct fd_opts *p)
 		return -1;
 	}
 
-	p->fown.uid	 = v[0];
-	p->fown.euid	 = v[1];
+	p->fown.uid = v[0];
+	p->fown.euid = v[1];
 	p->fown.pid_type = owner_ex.type;
-	p->fown.pid	 = owner_ex.pid;
+	p->fown.pid = owner_ex.pid;
 
 	return 0;
 }
@@ -404,8 +399,7 @@ static int drain_fds(struct parasite_drain_fd *args)
 		return ret;
 
 	tsock = parasite_get_rpc_sock();
-	ret = send_fds(tsock, NULL, 0,
-		       args->fds, args->nr_fds, opts, sizeof(struct fd_opts));
+	ret = send_fds(tsock, NULL, 0, args->fds, args->nr_fds, opts, sizeof(struct fd_opts));
 	if (ret)
 		pr_err("send_fds failed (%d)\n", ret);
 
@@ -506,9 +500,9 @@ static inline int tty_ioctl(int fd, int cmd, int *arg)
  * as libaio does the same.
  */
 
-#define AIO_RING_MAGIC			0xa10a10a1
-#define AIO_RING_COMPAT_FEATURES	1
-#define AIO_RING_INCOMPAT_FEATURES	0
+#define AIO_RING_MAGIC		   0xa10a10a1
+#define AIO_RING_COMPAT_FEATURES   1
+#define AIO_RING_INCOMPAT_FEATURES 0
 
 static int sane_ring(struct parasite_aio *aio)
 {
@@ -517,11 +511,9 @@ static int sane_ring(struct parasite_aio *aio)
 
 	nr = (aio->size - sizeof(struct aio_ring)) / sizeof(struct io_event);
 
-	return ring->magic == AIO_RING_MAGIC &&
-		ring->compat_features == AIO_RING_COMPAT_FEATURES &&
-		ring->incompat_features == AIO_RING_INCOMPAT_FEATURES &&
-		ring->header_length == sizeof(struct aio_ring) &&
-		ring->nr == nr;
+	return ring->magic == AIO_RING_MAGIC && ring->compat_features == AIO_RING_COMPAT_FEATURES &&
+	       ring->incompat_features == AIO_RING_INCOMPAT_FEATURES &&
+	       ring->header_length == sizeof(struct aio_ring) && ring->nr == nr;
 }
 
 static int parasite_check_aios(struct parasite_check_aios_args *args)
@@ -553,15 +545,15 @@ static int parasite_dump_tty(struct parasite_tty_args *args)
 	int ret;
 
 #ifndef TIOCGPKT
-# define TIOCGPKT	_IOR('T', 0x38, int)
+#define TIOCGPKT _IOR('T', 0x38, int)
 #endif
 
 #ifndef TIOCGPTLCK
-# define TIOCGPTLCK	_IOR('T', 0x39, int)
+#define TIOCGPTLCK _IOR('T', 0x39, int)
 #endif
 
 #ifndef TIOCGEXCL
-# define TIOCGEXCL	_IOR('T', 0x40, int)
+#define TIOCGEXCL _IOR('T', 0x40, int)
 #endif
 
 	args->sid = 0;
@@ -570,26 +562,26 @@ static int parasite_dump_tty(struct parasite_tty_args *args)
 	args->st_lock = 0;
 	args->st_excl = 0;
 
-#define __tty_ioctl(cmd, arg)					\
-	do {							\
-		ret = tty_ioctl(args->fd, cmd, &arg);		\
-		if (ret < 0) {					\
-			if (ret == -ENOTTY)			\
-				arg = 0;			\
-			else if (ret == -EIO)			\
-				goto err_io;			\
-			else					\
-				goto err;			\
-		}						\
+#define __tty_ioctl(cmd, arg)                         \
+	do {                                          \
+		ret = tty_ioctl(args->fd, cmd, &arg); \
+		if (ret < 0) {                        \
+			if (ret == -ENOTTY)           \
+				arg = 0;              \
+			else if (ret == -EIO)         \
+				goto err_io;          \
+			else                          \
+				goto err;             \
+		}                                     \
 	} while (0)
 
 	__tty_ioctl(TIOCGSID, args->sid);
 	__tty_ioctl(TIOCGPGRP, args->pgrp);
-	__tty_ioctl(TIOCGEXCL,	args->st_excl);
+	__tty_ioctl(TIOCGEXCL, args->st_excl);
 
 	if (args->type == TTY_TYPE__PTY) {
-		__tty_ioctl(TIOCGPKT,	args->st_pckt);
-		__tty_ioctl(TIOCGPTLCK,	args->st_lock);
+		__tty_ioctl(TIOCGPKT, args->st_pckt);
+		__tty_ioctl(TIOCGPTLCK, args->st_lock);
 	}
 
 	args->hangup = false;
@@ -620,15 +612,15 @@ static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 			pr_err("vdso: Mark version mismatch!\n");
 			return -EINVAL;
 		}
-		args->is_marked		= 1;
-		args->orig_vdso_addr	= m->orig_vdso_addr;
-		args->orig_vvar_addr	= m->orig_vvar_addr;
-		args->rt_vvar_addr	= m->rt_vvar_addr;
+		args->is_marked = 1;
+		args->orig_vdso_addr = m->orig_vdso_addr;
+		args->orig_vvar_addr = m->orig_vvar_addr;
+		args->rt_vvar_addr = m->rt_vvar_addr;
 	} else {
-		args->is_marked		= 0;
-		args->orig_vdso_addr	= VDSO_BAD_ADDR;
-		args->orig_vvar_addr	= VVAR_BAD_ADDR;
-		args->rt_vvar_addr	= VVAR_BAD_ADDR;
+		args->is_marked = 0;
+		args->orig_vdso_addr = VDSO_BAD_ADDR;
+		args->orig_vvar_addr = VVAR_BAD_ADDR;
+		args->rt_vvar_addr = VVAR_BAD_ADDR;
 
 		if (args->try_fill_symtable) {
 			struct vdso_symtable t;

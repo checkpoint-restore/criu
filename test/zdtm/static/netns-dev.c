@@ -4,14 +4,14 @@
 
 #include "zdtmtst.h"
 
-#define LO_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/lo"
-#define DEF_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/default"
-#define ALL_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/all"
-#define LO_CONF6_DIR_PATH "/proc/sys/net/ipv6/conf/lo"
+#define LO_CONF_DIR_PATH   "/proc/sys/net/ipv4/conf/lo"
+#define DEF_CONF_DIR_PATH  "/proc/sys/net/ipv4/conf/default"
+#define ALL_CONF_DIR_PATH  "/proc/sys/net/ipv4/conf/all"
+#define LO_CONF6_DIR_PATH  "/proc/sys/net/ipv6/conf/lo"
 #define DEF_CONF6_DIR_PATH "/proc/sys/net/ipv6/conf/default"
 #define ALL_CONF6_DIR_PATH "/proc/sys/net/ipv6/conf/all"
 
-#define INT_MAX ((int)(~0U>>1))
+#define INT_MAX ((int)(~0U >> 1))
 #define INT_MIN (-INT_MAX - 1)
 
 char *devconfs4[] = {
@@ -55,37 +55,37 @@ struct range {
 };
 
 struct range rand_range4[] = {
-	{0, 1},	/* accept_local */
-	{-1, 0},	/* accept_source_route */
-	{0, 1},	/* arp_accept */
-	{0, 2},	/* arp_announce */
-	{0, 1},	/* arp_filter */
-	{0, 8},	/* arp_ignore */
-	{0, 1},	/* arp_notify */
-	{0, 1},	/* bootp_relay */
-	{0, 1},	/* disable_policy */
-	{0, 1},	/* disable_xfrm */
-	{0, 1},	/* drop_gratuitous_arp */
-	{0, 1},	/* drop_unicast_in_l2_multicast */
-	{0, INT_MAX},	/* force_igmp_version */
-	{0, 1},	/* forwarding */
-	{0, 1},	/* accept_redirects */
-	{0, INT_MAX},	/* igmpv2_unsolicited_report_interval */
-	{0, INT_MAX},	/* igmpv3_unsolicited_report_interval */
-	{0, 1},	/* ignore_routes_with_linkdown */
-	{0, 1},	/* log_martians */
-	{0, 1},	/* mc_forwarding */
-	{-1, INT_MAX},	/* medium_id */
-	{0, 1},	/* promote_secondaries */
-	{0, 1},	/* proxy_arp */
-	{0, 1},	/* proxy_arp_pvlan */
-	{0, 1},	/* route_localnet */
-	{0, 2},	/* rp_filter */
-	{0, 1},	/* secure_redirects */
-	{0, 1},	/* send_redirects */
-	{0, 1},	/* shared_media */
-	{0, 1},	/* src_valid_mark */
-	{INT_MIN, INT_MAX},	/* tag */
+	{ 0, 1 }, /* accept_local */
+	{ -1, 0 }, /* accept_source_route */
+	{ 0, 1 }, /* arp_accept */
+	{ 0, 2 }, /* arp_announce */
+	{ 0, 1 }, /* arp_filter */
+	{ 0, 8 }, /* arp_ignore */
+	{ 0, 1 }, /* arp_notify */
+	{ 0, 1 }, /* bootp_relay */
+	{ 0, 1 }, /* disable_policy */
+	{ 0, 1 }, /* disable_xfrm */
+	{ 0, 1 }, /* drop_gratuitous_arp */
+	{ 0, 1 }, /* drop_unicast_in_l2_multicast */
+	{ 0, INT_MAX }, /* force_igmp_version */
+	{ 0, 1 }, /* forwarding */
+	{ 0, 1 }, /* accept_redirects */
+	{ 0, INT_MAX }, /* igmpv2_unsolicited_report_interval */
+	{ 0, INT_MAX }, /* igmpv3_unsolicited_report_interval */
+	{ 0, 1 }, /* ignore_routes_with_linkdown */
+	{ 0, 1 }, /* log_martians */
+	{ 0, 1 }, /* mc_forwarding */
+	{ -1, INT_MAX }, /* medium_id */
+	{ 0, 1 }, /* promote_secondaries */
+	{ 0, 1 }, /* proxy_arp */
+	{ 0, 1 }, /* proxy_arp_pvlan */
+	{ 0, 1 }, /* route_localnet */
+	{ 0, 2 }, /* rp_filter */
+	{ 0, 1 }, /* secure_redirects */
+	{ 0, 1 }, /* send_redirects */
+	{ 0, 1 }, /* shared_media */
+	{ 0, 1 }, /* src_valid_mark */
+	{ INT_MIN, INT_MAX }, /* tag */
 };
 
 char *devconfs6[] = {
@@ -134,52 +134,52 @@ char *devconfs6[] = {
 };
 
 #define IPV6_MIN_MTU 1280
-#define ROUTER_MAX 60
+#define ROUTER_MAX   60
 /* According to kernel docs do not make max_addresses too large */
 #define MAX_ADDRESSES 128
 
 struct range rand_range6[] = {
-	{0, 2},	/* accept_dad */
-	{0, 2},	/* accept_ra */
-	{0, 1},	/* accept_ra_defrtr */
-	{0, 1},	/* accept_ra_from_local */
-	{0, INT_MAX},	/* accept_ra_min_hop_limit */
-	{0, 1},	/* accept_ra_mtu */
-	{0, 1},	/* accept_ra_pinfo */
-	{0, INT_MAX},	/* accept_ra_rt_info_max_plen */
-	{0, 1},	/* accept_ra_rtr_pref */
-	{-1, 0},	/* accept_source_route */
-	{0, 1},	/* autoconf */
-	{0, INT_MAX},	/* dad_transmits */
-	{0, 1},	/* disable_ipv6 */
-	{0, 1},	/* drop_unicast_in_l2_multicast */
-	{0, 1},	/* drop_unsolicited_na */
-	{0, 2},	/* force_mld_version */
-	{0, 1},	/* force_tllao */
-	{0, 1},	/* forwarding */
-	{0, 1},	/* accept_redirects */
-	{1, 255},	/* hop_limit */
-	{0, 1},	/* ignore_routes_with_linkdown */
-	{-1, 1},	/* keep_addr_on_down */
-	{0, MAX_ADDRESSES},	/* max_addresses */
-	{0, INT_MAX},	/* max_desync_factor */
-	{0, INT_MAX},	/* mldv1_unsolicited_report_interval */
-	{0, INT_MAX},	/* mldv2_unsolicited_report_interval */
-	{IPV6_MIN_MTU, IPV6_MIN_MTU},	/* mtu */
-	{0, 1},	/* ndisc_notify */
-	{0, 1},	/* optimistic_dad */
-	{0, 1},	/* proxy_ndp */
-	{0, INT_MAX},	/* regen_max_retry */
-	{0, ROUTER_MAX},	/* router_probe_interval */
-	{0, ROUTER_MAX},	/* router_solicitation_delay */
-	{0, ROUTER_MAX},	/* router_solicitation_interval */
-	{0, ROUTER_MAX},	/* router_solicitations */
-	{0, 1},	/* suppress_frag_ndisc */
-	{0, INT_MAX},	/* temp_prefered_lft */
-	{0, INT_MAX},	/* temp_valid_lft */
-	{0, 1},	/* use_oif_addrs_only */
-	{0, 1},	/* use_optimistic */
-	{0, 2},	/* use_tempaddr */
+	{ 0, 2 }, /* accept_dad */
+	{ 0, 2 }, /* accept_ra */
+	{ 0, 1 }, /* accept_ra_defrtr */
+	{ 0, 1 }, /* accept_ra_from_local */
+	{ 0, INT_MAX }, /* accept_ra_min_hop_limit */
+	{ 0, 1 }, /* accept_ra_mtu */
+	{ 0, 1 }, /* accept_ra_pinfo */
+	{ 0, INT_MAX }, /* accept_ra_rt_info_max_plen */
+	{ 0, 1 }, /* accept_ra_rtr_pref */
+	{ -1, 0 }, /* accept_source_route */
+	{ 0, 1 }, /* autoconf */
+	{ 0, INT_MAX }, /* dad_transmits */
+	{ 0, 1 }, /* disable_ipv6 */
+	{ 0, 1 }, /* drop_unicast_in_l2_multicast */
+	{ 0, 1 }, /* drop_unsolicited_na */
+	{ 0, 2 }, /* force_mld_version */
+	{ 0, 1 }, /* force_tllao */
+	{ 0, 1 }, /* forwarding */
+	{ 0, 1 }, /* accept_redirects */
+	{ 1, 255 }, /* hop_limit */
+	{ 0, 1 }, /* ignore_routes_with_linkdown */
+	{ -1, 1 }, /* keep_addr_on_down */
+	{ 0, MAX_ADDRESSES }, /* max_addresses */
+	{ 0, INT_MAX }, /* max_desync_factor */
+	{ 0, INT_MAX }, /* mldv1_unsolicited_report_interval */
+	{ 0, INT_MAX }, /* mldv2_unsolicited_report_interval */
+	{ IPV6_MIN_MTU, IPV6_MIN_MTU }, /* mtu */
+	{ 0, 1 }, /* ndisc_notify */
+	{ 0, 1 }, /* optimistic_dad */
+	{ 0, 1 }, /* proxy_ndp */
+	{ 0, INT_MAX }, /* regen_max_retry */
+	{ 0, ROUTER_MAX }, /* router_probe_interval */
+	{ 0, ROUTER_MAX }, /* router_solicitation_delay */
+	{ 0, ROUTER_MAX }, /* router_solicitation_interval */
+	{ 0, ROUTER_MAX }, /* router_solicitations */
+	{ 0, 1 }, /* suppress_frag_ndisc */
+	{ 0, INT_MAX }, /* temp_prefered_lft */
+	{ 0, INT_MAX }, /* temp_valid_lft */
+	{ 0, 1 }, /* use_oif_addrs_only */
+	{ 0, 1 }, /* use_optimistic */
+	{ 0, 2 }, /* use_tempaddr */
 };
 
 struct test_conf {
@@ -191,8 +191,8 @@ struct test_conf {
 	char *dir6;
 } lo, def, all;
 
-static int save_conf(FILE *fp, int *conf, int *conf_rand,
-		struct range *range, char *path) {
+static int save_conf(FILE *fp, int *conf, int *conf_rand, struct range *range, char *path)
+{
 	int ret;
 
 	/*
@@ -207,11 +207,13 @@ static int save_conf(FILE *fp, int *conf, int *conf_rand,
 	return 0;
 }
 
-static int rand_in_small_range(struct range *r) {
+static int rand_in_small_range(struct range *r)
+{
 	return lrand48() % (r->max - r->min + 1) + r->min;
 }
 
-static int rand_in_range(struct range *r) {
+static int rand_in_range(struct range *r)
+{
 	struct range small;
 	int mid = r->max / 2 + r->min / 2;
 	int half = r->max / 2 - r->min / 2;
@@ -230,8 +232,8 @@ static int rand_in_range(struct range *r) {
 	return rand_in_small_range(&small);
 }
 
-static int gen_conf(FILE *fp, int *conf, int *conf_rand,
-		struct range *range, char *path) {
+static int gen_conf(FILE *fp, int *conf, int *conf_rand, struct range *range, char *path)
+{
 	int ret;
 	/*
 	 * Set random value
@@ -249,8 +251,8 @@ static int gen_conf(FILE *fp, int *conf, int *conf_rand,
 
 #define MAX_MSEC_GRANULARITY 10
 
-static int check_conf(FILE *fp, int *conf, int *conf_rand,
-		struct range *range, char *path) {
+static int check_conf(FILE *fp, int *conf, int *conf_rand, struct range *range, char *path)
+{
 	int ret;
 	int val;
 
@@ -264,11 +266,10 @@ static int check_conf(FILE *fp, int *conf, int *conf_rand,
 	}
 
 	if (val != *conf_rand) {
-		fail("Option \"%s\" changed from %d to %d",
-		     path, *conf_rand, val);
-		if ((strstr(path, "mldv1_unsolicited_report_interval")
-		     || strstr(path, "mldv2_unsolicited_report_interval"))
-		    && val - *conf_rand < MAX_MSEC_GRANULARITY)
+		fail("Option \"%s\" changed from %d to %d", path, *conf_rand, val);
+		if ((strstr(path, "mldv1_unsolicited_report_interval") ||
+		     strstr(path, "mldv2_unsolicited_report_interval")) &&
+		    val - *conf_rand < MAX_MSEC_GRANULARITY)
 			return 0;
 		return -1;
 	}
@@ -276,8 +277,8 @@ static int check_conf(FILE *fp, int *conf, int *conf_rand,
 	return 0;
 }
 
-static int restore_conf(FILE *fp, int *conf, int *conf_rand,
-		struct range *range, char *path) {
+static int restore_conf(FILE *fp, int *conf, int *conf_rand, struct range *range, char *path)
+{
 	int ret;
 	/*
 	 * Restore opt
@@ -291,8 +292,9 @@ static int restore_conf(FILE *fp, int *conf, int *conf_rand,
 	return 0;
 }
 
-static int for_each_option_do(int (*f)(FILE *fp, int *conf, int *conf_rand,
-			struct range *range, char *path), struct test_conf *tc) {
+static int for_each_option_do(int (*f)(FILE *fp, int *conf, int *conf_rand, struct range *range, char *path),
+			      struct test_conf *tc)
+{
 	int ret;
 	int i;
 
@@ -356,7 +358,8 @@ static int for_each_option_do(int (*f)(FILE *fp, int *conf, int *conf_rand,
 #define IPV6ADDR_EXAMPLE "2607:f0d0:1002:0051:0000:0000:0000:0004"
 #define MAX_STR_CONF_LEN 200
 
-static int set_stable_secret(struct test_conf *tc) {
+static int set_stable_secret(struct test_conf *tc)
+{
 	int ret;
 	FILE *fp;
 	char path[PATH_MAX];
@@ -388,11 +391,12 @@ static int set_stable_secret(struct test_conf *tc) {
 	return 0;
 }
 
-static int check_stable_secret(struct test_conf *tc) {
+static int check_stable_secret(struct test_conf *tc)
+{
 	int ret;
 	FILE *fp;
 	char path[PATH_MAX];
-	char val[MAX_STR_CONF_LEN+1];
+	char val[MAX_STR_CONF_LEN + 1];
 
 	ret = snprintf(path, sizeof(path), "%s/%s", tc->dir6, "stable_secret");
 	if (ret < 0) {
@@ -418,8 +422,7 @@ static int check_stable_secret(struct test_conf *tc) {
 	}
 
 	if (strcmp(val, IPV6ADDR_EXAMPLE)) {
-		fail("Option \"%s\" changed from %s to %s",
-		     path, IPV6ADDR_EXAMPLE, val);
+		fail("Option \"%s\" changed from %s to %s", path, IPV6ADDR_EXAMPLE, val);
 		fclose(fp);
 		return -1;
 	}

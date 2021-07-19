@@ -8,13 +8,13 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check read-only tmpfs mount";
-const char *test_author	= "Andrew Vagin <avagin@openvz.org>";
+const char *test_doc = "Check read-only tmpfs mount";
+const char *test_author = "Andrew Vagin <avagin@openvz.org>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 
-#define TEST_WORD	"testtest"
+#define TEST_WORD "testtest"
 
 int main(int argc, char **argv)
 {
@@ -49,7 +49,6 @@ int main(int argc, char **argv)
 
 	test_daemon();
 	test_waitsig();
-
 
 	fd = open(fname, O_RDONLY);
 	if (fd < 0) {

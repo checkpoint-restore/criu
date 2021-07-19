@@ -5,19 +5,18 @@
 #include "ofd_file_locks.h"
 #include "zdtmtst.h"
 
-const char *test_doc    = "Check that 'overlapping' OFD read locks work";
+const char *test_doc = "Check that 'overlapping' OFD read locks work";
 const char *test_author = "Begunkov Pavel <asml.silence@gmail.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-
 #define FILE_NUM 4
 static int fds[FILE_NUM];
 static struct flock lcks[FILE_NUM];
-static short types[] = {F_RDLCK, F_RDLCK, F_RDLCK, F_RDLCK};
-static off_t starts[] = {0, 10, 0, 70};
-static off_t lens[]  = {20, 30, 100, 200};
+static short types[] = { F_RDLCK, F_RDLCK, F_RDLCK, F_RDLCK };
+static off_t starts[] = { 0, 10, 0, 70 };
+static off_t lens[] = { 20, 30, 100, 200 };
 
 void fill_lock(struct flock *lock, off_t start, off_t len, short int type)
 {

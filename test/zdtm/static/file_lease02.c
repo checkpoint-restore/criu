@@ -5,7 +5,7 @@
 
 #include "zdtmtst.h"
 
-#define FD_COUNT 3
+#define FD_COUNT     3
 #define BREAK_SIGNUM SIGIO
 
 const char *test_doc = "Check c/r of breaking leases";
@@ -111,9 +111,7 @@ int main(int argc, char **argv)
 	act.sa_sigaction = break_sigaction;
 	act.sa_flags = SA_SIGINFO;
 
-	if (sigemptyset(&act.sa_mask) ||
-		sigaddset(&act.sa_mask, BREAK_SIGNUM) ||
-		sigaction(BREAK_SIGNUM, &act, NULL)) {
+	if (sigemptyset(&act.sa_mask) || sigaddset(&act.sa_mask, BREAK_SIGNUM) || sigaction(BREAK_SIGNUM, &act, NULL)) {
 		pr_perror("Can't set signal action");
 		fail();
 		return -1;
@@ -132,9 +130,8 @@ int main(int argc, char **argv)
 	ret = 0;
 	if (sigaction_error)
 		fail("Ghost signal");
-	else if (check_lease_type(fds[0], F_UNLCK) ||
-		check_lease_type(fds[1], F_RDLCK) ||
-		check_lease_type(fds[2], F_UNLCK))
+	else if (check_lease_type(fds[0], F_UNLCK) || check_lease_type(fds[1], F_RDLCK) ||
+		 check_lease_type(fds[2], F_UNLCK))
 		fail("Lease type doesn't match");
 	else
 		pass();
@@ -142,4 +139,3 @@ done:
 	close_files(fds);
 	return ret;
 }
-

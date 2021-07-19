@@ -11,14 +11,14 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test mmaped and unlinked files (2, with hard links)";
+const char *test_doc = "Test mmaped and unlinked files (2, with hard links)";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 static char linkname[4096];
 
 #ifndef PAGE_SIZE
-#define PAGE_SIZE	4096
+#define PAGE_SIZE 4096
 #endif
 
 static void touch_file_page(int fd, unsigned long off, char c)
@@ -34,7 +34,7 @@ static void touch_file_page(int fd, unsigned long off, char c)
 	}
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fd;
 	char *mem_a, *mem_b;
@@ -48,7 +48,7 @@ int main(int argc, char ** argv)
 	}
 
 	touch_file_page(fd, 0, 'a');
-	touch_file_page(fd, PAGE_SIZE - 1, 'b');/* for aligned file */
+	touch_file_page(fd, PAGE_SIZE - 1, 'b'); /* for aligned file */
 
 	mem_a = mmap(NULL, PAGE_SIZE, PROT_READ, MAP_PRIVATE | MAP_FILE, fd, 0);
 	if (mem_a == MAP_FAILED) {

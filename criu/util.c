@@ -47,7 +47,7 @@
 #include "cr-errno.h"
 #include "action-scripts.h"
 
-#define VMA_OPT_LEN	128
+#define VMA_OPT_LEN 128
 
 static int xatol_base(const char *string, long *number, int base)
 {
@@ -56,8 +56,7 @@ static int xatol_base(const char *string, long *number, int base)
 
 	errno = 0;
 	nr = strtol(string, &endptr, base);
-	if ((errno == ERANGE && (nr == LONG_MAX || nr == LONG_MIN))
-			|| (errno != 0 && nr == 0)) {
+	if ((errno == ERANGE && (nr == LONG_MAX || nr == LONG_MIN)) || (errno != 0 && nr == 0)) {
 		pr_perror("failed to convert string '%s'", string);
 		return -EINVAL;
 	}
@@ -74,7 +73,6 @@ int xatol(const char *string, long *number)
 {
 	return xatol_base(string, number, 10);
 }
-
 
 int xatoi(const char *string, int *number)
 {
@@ -169,9 +167,10 @@ static void vma_opt_str(const struct vma_area *v, char *opt)
 {
 	int p = 0;
 
-#define opt2s(_o, _s)	do {				\
-		if (v->e->status & _o)			\
-			p += sprintf(opt + p, _s " ");	\
+#define opt2s(_o, _s)                                  \
+	do {                                           \
+		if (v->e->status & _o)                 \
+			p += sprintf(opt + p, _s " "); \
 	} while (0)
 
 	opt[p] = '\0';
@@ -200,16 +199,11 @@ void pr_vma(const struct vma_area *vma_area)
 		return;
 
 	vma_opt_str(vma_area, opt);
-	pr_info("%#"PRIx64"-%#"PRIx64" (%"PRIi64"K) prot %#x flags %#x fdflags %#o st %#x off %#"PRIx64" "
-			"%s shmid: %#"PRIx64"\n",
-			vma_area->e->start, vma_area->e->end,
-			KBYTES(vma_area_len(vma_area)),
-			vma_area->e->prot,
-			vma_area->e->flags,
-			vma_area->e->fdflags,
-			vma_area->e->status,
-			vma_area->e->pgoff,
-			opt, vma_area->e->shmid);
+	pr_info("%#" PRIx64 "-%#" PRIx64 " (%" PRIi64 "K) prot %#x flags %#x fdflags %#o st %#x off %#" PRIx64 " "
+		"%s shmid: %#" PRIx64 "\n",
+		vma_area->e->start, vma_area->e->end, KBYTES(vma_area_len(vma_area)), vma_area->e->prot,
+		vma_area->e->flags, vma_area->e->fdflags, vma_area->e->status, vma_area->e->pgoff, opt,
+		vma_area->e->shmid);
 }
 
 int close_safe(int *fd)
@@ -237,13 +231,11 @@ int reopen_fd_as_safe(char *file, int line, int new_fd, int old_fd, bool allow_r
 		else
 			tmp = dup2(old_fd, new_fd);
 		if (tmp < 0) {
-			pr_perror("Dup %d -> %d failed (called at %s:%d)",
-				  old_fd, new_fd, file, line);
+			pr_perror("Dup %d -> %d failed (called at %s:%d)", old_fd, new_fd, file, line);
 			return tmp;
 		} else if (tmp != new_fd) {
 			close(tmp);
-			pr_err("fd %d already in use (called at %s:%d)\n",
-				new_fd, file, line);
+			pr_err("fd %d already in use (called at %s:%d)\n", new_fd, file, line);
 			return -1;
 		}
 
@@ -459,8 +451,7 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 
 		if (ret == 0) {
 			if (bytes && (written != bytes)) {
-				pr_err("Ghost file size mismatch %zu/%zu\n",
-						written, bytes);
+				pr_err("Ghost file size mismatch %zu/%zu\n", written, bytes);
 				return -1;
 			}
 			break;
@@ -499,15 +490,15 @@ int is_anon_link_type(char *link, char *type)
 	return !strcmp(link, aux);
 }
 
-#define DUP_SAFE(fd, out)						\
-	({							\
-		int ret__;					\
-		ret__ = dup(fd);				\
-		if (ret__ == -1) {				\
-			pr_perror("dup(%d) failed", fd);	\
-			goto out;				\
-		}						\
-		ret__;						\
+#define DUP_SAFE(fd, out)                                \
+	({                                               \
+		int ret__;                               \
+		ret__ = dup(fd);                         \
+		if (ret__ == -1) {                       \
+			pr_perror("dup(%d) failed", fd); \
+			goto out;                        \
+		}                                        \
+		ret__;                                   \
 	})
 
 /*
@@ -553,8 +544,7 @@ static int close_fds(int minfd)
 	return 0;
 }
 
-int cr_system_userns(int in, int out, int err, char *cmd,
-			char *const argv[], unsigned flags, int userns_pid)
+int cr_system_userns(int in, int out, int err, char *cmd, char *const argv[], unsigned flags, int userns_pid)
 {
 	sigset_t blockmask, oldmask;
 	int ret = -1, status;
@@ -602,8 +592,7 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 		if (out == in)
 			out = DUP_SAFE(out, out_chld);
 
-		if (move_fd_from(&out, STDIN_FILENO) ||
-		    move_fd_from(&err, STDIN_FILENO))
+		if (move_fd_from(&out, STDIN_FILENO) || move_fd_from(&err, STDIN_FILENO))
 			goto out_chld;
 
 		if (in < 0) {
@@ -627,9 +616,9 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 		execvp(cmd, argv);
 
 		/* We can't use pr_error() as log file fd is closed. */
-		fprintf(stderr, "Error (%s:%d): " LOG_PREFIX "execvp(\"%s\", ...) failed: %s\n",
-		       __FILE__, __LINE__, cmd, strerror(errno));
-out_chld:
+		fprintf(stderr, "Error (%s:%d): " LOG_PREFIX "execvp(\"%s\", ...) failed: %s\n", __FILE__, __LINE__,
+			cmd, strerror(errno));
+	out_chld:
 		_exit(1);
 	}
 
@@ -645,8 +634,7 @@ out_chld:
 				pr_err("exited, status=%d\n", WEXITSTATUS(status));
 			break;
 		} else if (WIFSIGNALED(status)) {
-			pr_err("killed by signal %d: %s\n", WTERMSIG(status),
-				strsignal(WTERMSIG(status)));
+			pr_err("killed by signal %d: %s\n", WTERMSIG(status), strsignal(WTERMSIG(status)));
 			break;
 		} else if (WIFSTOPPED(status)) {
 			pr_err("stopped by signal %d\n", WSTOPSIG(status));
@@ -918,7 +906,6 @@ void split(char *str, char token, char ***out, int *n)
 	if (!*out) {
 		*n = -1;
 		return;
-
 	}
 
 	cur = str;
@@ -946,12 +933,12 @@ void split(char *str, char token, char ***out, int *n)
 		}
 
 		i++;
-	} while(cur);
+	} while (cur);
 }
 
 int fd_has_data(int lfd)
 {
-	struct pollfd pfd = {lfd, POLLIN, 0};
+	struct pollfd pfd = { lfd, POLLIN, 0 };
 	int ret;
 
 	ret = poll(&pfd, 1, 0);
@@ -1031,8 +1018,7 @@ void tcp_nodelay(int sk, bool on)
 		pr_perror("Unable to restore TCP_NODELAY (%d)", val);
 }
 
-static int get_sockaddr_in(struct sockaddr_storage *addr, char *host,
-			unsigned short port)
+static int get_sockaddr_in(struct sockaddr_storage *addr, char *host, unsigned short port)
 {
 	memset(addr, 0, sizeof(*addr));
 
@@ -1045,7 +1031,8 @@ static int get_sockaddr_in(struct sockaddr_storage *addr, char *host,
 		addr->ss_family = AF_INET6;
 	} else {
 		pr_err("Invalid server address \"%s\". "
-		"The address must be in IPv4 or IPv6 format.\n", host);
+		       "The address must be in IPv4 or IPv6 format.\n",
+		       host);
 		return -1;
 	}
 
@@ -1078,8 +1065,7 @@ int setup_tcp_server(char *type, char *addr, unsigned short *port)
 		return -1;
 	}
 
-	if (setsockopt(
-		sk, SOL_SOCKET, SO_REUSEADDR, &sockopt, sizeof(sockopt)) == -1) {
+	if (setsockopt(sk, SOL_SOCKET, SO_REUSEADDR, &sockopt, sizeof(sockopt)) == -1) {
 		pr_perror("Unable to set SO_REUSEADDR");
 		goto out;
 	}
@@ -1152,9 +1138,8 @@ int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
 			pr_perror("Can't accept connection to server");
 			goto err;
 		} else
-			pr_info("Accepted connection from %s:%u\n",
-					inet_ntoa(caddr.sin_addr),
-					(int)ntohs(caddr.sin_port));
+			pr_info("Accepted connection from %s:%u\n", inet_ntoa(caddr.sin_addr),
+				(int)ntohs(caddr.sin_port));
 		close(sk);
 	}
 
@@ -1190,8 +1175,7 @@ int setup_tcp_client(char *hostname)
 	 * Iterate through addr_list and try to connect. The loop stops if the
 	 * connection is successful or we reach the end of the list.
 	 */
-	for(p = addr_list; p != NULL; p = p->ai_next) {
-
+	for (p = addr_list; p != NULL; p = p->ai_next) {
 		if (p->ai_family == AF_INET) {
 			struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
 			ip = &(ipv4->sin_addr);
@@ -1344,8 +1328,7 @@ int call_in_child_process(int (*fn)(void *), void *arg)
 	 * Parent freezes till child exit, so child may use the same stack.
 	 * No SIGCHLD flag, so it's not need to block signal.
 	 */
-	pid = clone_noasan(fn, CLONE_VFORK | CLONE_VM | CLONE_FILES |
-			   CLONE_IO | CLONE_SIGHAND | CLONE_SYSVSEM, arg);
+	pid = clone_noasan(fn, CLONE_VFORK | CLONE_VM | CLONE_FILES | CLONE_IO | CLONE_SIGHAND | CLONE_SYSVSEM, arg);
 	if (pid == -1) {
 		pr_perror("Can't clone");
 		return -1;
@@ -1380,7 +1363,6 @@ void rlimit_unlimit_nofile(void)
 
 	service_fd_rlim_cur = kdat.sysctl_nr_open;
 }
-
 
 #ifdef __GLIBC__
 #include <execinfo.h>
@@ -1426,17 +1408,16 @@ int mount_detached_fs(const char *fsname)
 int strip_deleted(char *name, int len)
 {
 	struct dcache_prepends {
-		const char	*str;
-		size_t		len;
-	} static const prepends[] = {
-		{
-			.str	= " (deleted)",
-			.len	= 10,
-		}, {
-			.str	= "//deleted",
-			.len	= 9,
-		}
-	};
+		const char *str;
+		size_t len;
+	} static const prepends[] = { {
+					      .str = " (deleted)",
+					      .len = 10,
+				      },
+				      {
+					      .str = "//deleted",
+					      .len = 9,
+				      } };
 	size_t i;
 
 	for (i = 0; i < ARRAY_SIZE(prepends); i++) {
@@ -1447,8 +1428,7 @@ int strip_deleted(char *name, int len)
 
 		at = len - prepends[i].len;
 		if (!strcmp(&name[at], prepends[i].str)) {
-			pr_debug("Strip '%s' tag from '%s'\n",
-				 prepends[i].str, name);
+			pr_debug("Strip '%s' tag from '%s'\n", prepends[i].str, name);
 			name[at] = '\0';
 			len -= prepends[i].len;
 			return 1;
@@ -1544,16 +1524,8 @@ char *get_legacy_iptables_bin(bool ipv6)
 	 * 1  - present.
 	 */
 	static int iptables_present[2] = { 0, 0 };
-	char bins[2][2][32] = {
-		{
-			"iptables-save",
-			"iptables-legacy-save"
-		},
-		{
-			"ip6tables-save",
-			"ip6tables-legacy-save"
-		}
-	};
+	char bins[2][2][32] = { { "iptables-save", "iptables-legacy-save" },
+				{ "ip6tables-save", "ip6tables-legacy-save" } };
 	int ret;
 
 	if (iptables_present[ipv6] == -1)
@@ -1570,8 +1542,7 @@ char *get_legacy_iptables_bin(bool ipv6)
 	 * let's try iptables-legacy
 	 */
 	if (ret < 0 || ret == 1) {
-		memcpy(iptables_bin[ipv6], bins[ipv6][1],
-					   strlen(bins[ipv6][1]) + 1);
+		memcpy(iptables_bin[ipv6], bins[ipv6][1], strlen(bins[ipv6][1]) + 1);
 		ret = is_iptables_nft(iptables_bin[ipv6]);
 		if (ret < 0 || ret == 1) {
 			iptables_present[ipv6] = -1;

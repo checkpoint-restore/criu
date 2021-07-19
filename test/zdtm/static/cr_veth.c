@@ -13,8 +13,8 @@
 #include <net/if.h>
 #include "zdtmtst.h"
 
-const char *test_doc	= "check that veth C/R-s right";
-const char *test_author	= "Pavel Emelyanov <xemul@virtuozzo.com>";
+const char *test_doc = "check that veth C/R-s right";
+const char *test_author = "Pavel Emelyanov <xemul@virtuozzo.com>";
 
 #define IF_NAME "zdtmvthc0"
 

@@ -38,16 +38,15 @@ int dump_time_ns(int ns_id)
 
 static void normalize_timespec(struct timespec *ts)
 {
-        while (ts->tv_nsec >= NSEC_PER_SEC) {
-                ts->tv_nsec -= NSEC_PER_SEC;
-                ++ts->tv_sec;
-        }
-        while (ts->tv_nsec < 0) {
-                ts->tv_nsec += NSEC_PER_SEC;
-                --ts->tv_sec;
-        }
+	while (ts->tv_nsec >= NSEC_PER_SEC) {
+		ts->tv_nsec -= NSEC_PER_SEC;
+		++ts->tv_sec;
+	}
+	while (ts->tv_nsec < 0) {
+		ts->tv_nsec += NSEC_PER_SEC;
+		--ts->tv_sec;
+	}
 }
-
 
 int prepare_timens(int id)
 {
@@ -86,32 +85,30 @@ int prepare_timens(int id)
 		goto err;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
-	ts.tv_sec  = ts.tv_sec  - prev_moff.tv_sec;
+	ts.tv_sec = ts.tv_sec - prev_moff.tv_sec;
 	ts.tv_nsec = ts.tv_nsec - prev_moff.tv_nsec;
 
-	ts.tv_sec  = te->monotonic->tv_sec  - ts.tv_sec;
+	ts.tv_sec = te->monotonic->tv_sec - ts.tv_sec;
 	ts.tv_nsec = te->monotonic->tv_nsec - ts.tv_nsec;
 	normalize_timespec(&ts);
 
 	pr_debug("timens: monotonic %ld %ld\n", ts.tv_sec, ts.tv_nsec);
-	if (dprintf(fd, "%d %ld %ld\n",
-		    CLOCK_MONOTONIC, ts.tv_sec, ts.tv_nsec) < 0) {
+	if (dprintf(fd, "%d %ld %ld\n", CLOCK_MONOTONIC, ts.tv_sec, ts.tv_nsec) < 0) {
 		pr_perror("Unable to set a monotonic clock offset");
 		goto err;
 	}
 
 	clock_gettime(CLOCK_BOOTTIME, &ts);
 
-	ts.tv_sec  = ts.tv_sec  - prev_boff.tv_sec;
+	ts.tv_sec = ts.tv_sec - prev_boff.tv_sec;
 	ts.tv_nsec = ts.tv_nsec - prev_boff.tv_nsec;
 
-	ts.tv_sec  = te->boottime->tv_sec  - ts.tv_sec;
+	ts.tv_sec = te->boottime->tv_sec - ts.tv_sec;
 	ts.tv_nsec = te->boottime->tv_nsec - ts.tv_nsec;
 	normalize_timespec(&ts);
 
 	pr_debug("timens: boottime %ld %ld\n", ts.tv_sec, ts.tv_nsec);
-	if (dprintf(fd, "%d %ld %ld\n",
-		    CLOCK_BOOTTIME, ts.tv_sec, ts.tv_nsec) < 0) {
+	if (dprintf(fd, "%d %ld %ld\n", CLOCK_BOOTTIME, ts.tv_sec, ts.tv_nsec) < 0) {
 		pr_perror("Unable to set a boottime clock offset");
 		goto err;
 	}
@@ -132,5 +129,4 @@ err:
 	return exit_code;
 }
 struct ns_desc time_ns_desc = NS_DESC_ENTRY(CLONE_NEWTIME, "time");
-struct ns_desc time_for_children_ns_desc =
-			NS_DESC_ENTRY(CLONE_NEWTIME, "time_for_children");
+struct ns_desc time_for_children_ns_desc = NS_DESC_ENTRY(CLONE_NEWTIME, "time_for_children");
