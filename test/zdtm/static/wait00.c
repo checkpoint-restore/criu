@@ -8,10 +8,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "See if we can wait() for a child after migration";
-const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
+const char *test_doc = "See if we can wait() for a child after migration";
+const char *test_author = "Roman Kagan <rkagan@parallels.com>";
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int ret;
 	pid_t pid;

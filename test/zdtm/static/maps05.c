@@ -10,20 +10,20 @@
 #include <sys/stat.h>
 #include "zdtmtst.h"
 
-const char *test_doc	= "Create a bunch of small VMAs and test they survive transferring\n";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Create a bunch of small VMAs and test they survive transferring\n";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
-#define NR_MAPS		4096
+#define NR_MAPS 4096
 
-#define NR_MAPS_1	(NR_MAPS + 0)
-#define NR_MAPS_2	(NR_MAPS + 1)
+#define NR_MAPS_1 (NR_MAPS + 0)
+#define NR_MAPS_2 (NR_MAPS + 1)
 
-#define MAPS_SIZE_1	(140 << 10)
-#define MAPS_SIZE_2	(8192)
+#define MAPS_SIZE_1 (140 << 10)
+#define MAPS_SIZE_2 (8192)
 
 int main(int argc, char *argv[])
 {
-	void *map[NR_MAPS + 2] = { }, *addr;
+	void *map[NR_MAPS + 2] = {}, *addr;
 	size_t i, summary;
 
 	test_init(argc, argv);

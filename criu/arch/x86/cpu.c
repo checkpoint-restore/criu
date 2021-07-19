@@ -23,7 +23,7 @@
 #include "protobuf.h"
 #include "images/cpuinfo.pb-c.h"
 
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "cpu: "
 
 static compel_cpuinfo_t rt_cpu_info;
@@ -55,12 +55,9 @@ int cpu_init(void)
 	}
 
 	pr_debug("fpu:%d fxsr:%d xsave:%d xsaveopt:%d xsavec:%d xgetbv1:%d xsaves:%d\n",
-		 !!compel_cpu_has_feature(X86_FEATURE_FPU),
-		 !!compel_cpu_has_feature(X86_FEATURE_FXSR),
-		 !!compel_cpu_has_feature(X86_FEATURE_OSXSAVE),
-		 !!compel_cpu_has_feature(X86_FEATURE_XSAVEOPT),
-		 !!compel_cpu_has_feature(X86_FEATURE_XSAVEC),
-		 !!compel_cpu_has_feature(X86_FEATURE_XGETBV1),
+		 !!compel_cpu_has_feature(X86_FEATURE_FPU), !!compel_cpu_has_feature(X86_FEATURE_FXSR),
+		 !!compel_cpu_has_feature(X86_FEATURE_OSXSAVE), !!compel_cpu_has_feature(X86_FEATURE_XSAVEOPT),
+		 !!compel_cpu_has_feature(X86_FEATURE_XSAVEC), !!compel_cpu_has_feature(X86_FEATURE_XGETBV1),
 		 !!compel_cpu_has_feature(X86_FEATURE_XSAVES));
 
 	return cpu_has_unsupported_features() ? -1 : 0;
@@ -77,25 +74,24 @@ int cpu_dump_cpuinfo(void)
 	if (!img)
 		return -1;
 
-	cpu_info.x86_entry		= &cpu_x86_info_ptr;
-	cpu_info.n_x86_entry		= 1;
+	cpu_info.x86_entry = &cpu_x86_info_ptr;
+	cpu_info.n_x86_entry = 1;
 
-	cpu_x86_info.vendor_id		= (rt_cpu_info.x86_vendor == X86_VENDOR_INTEL) ?
-		CPUINFO_X86_ENTRY__VENDOR__INTEL :
-		CPUINFO_X86_ENTRY__VENDOR__AMD;
+	cpu_x86_info.vendor_id = (rt_cpu_info.x86_vendor == X86_VENDOR_INTEL) ? CPUINFO_X86_ENTRY__VENDOR__INTEL :
+										      CPUINFO_X86_ENTRY__VENDOR__AMD;
 
-	cpu_x86_info.cpu_family		= rt_cpu_info.x86_family;
-	cpu_x86_info.model		= rt_cpu_info.x86_model;
-	cpu_x86_info.stepping		= rt_cpu_info.x86_mask;
-	cpu_x86_info.capability_ver	= 2;
-	cpu_x86_info.n_capability	= ARRAY_SIZE(rt_cpu_info.x86_capability);
-	cpu_x86_info.capability		= (void *)rt_cpu_info.x86_capability;
-	cpu_x86_info.has_xfeatures_mask	= true;
-	cpu_x86_info.xfeatures_mask	= rt_cpu_info.xfeatures_mask;
-	cpu_x86_info.has_xsave_size	= true;
-	cpu_x86_info.xsave_size		= rt_cpu_info.xsave_size;
-	cpu_x86_info.has_xsave_size_max	= true;
-	cpu_x86_info.xsave_size_max	= rt_cpu_info.xsave_size_max;
+	cpu_x86_info.cpu_family = rt_cpu_info.x86_family;
+	cpu_x86_info.model = rt_cpu_info.x86_model;
+	cpu_x86_info.stepping = rt_cpu_info.x86_mask;
+	cpu_x86_info.capability_ver = 2;
+	cpu_x86_info.n_capability = ARRAY_SIZE(rt_cpu_info.x86_capability);
+	cpu_x86_info.capability = (void *)rt_cpu_info.x86_capability;
+	cpu_x86_info.has_xfeatures_mask = true;
+	cpu_x86_info.xfeatures_mask = rt_cpu_info.xfeatures_mask;
+	cpu_x86_info.has_xsave_size = true;
+	cpu_x86_info.xsave_size = rt_cpu_info.xsave_size;
+	cpu_x86_info.has_xsave_size_max = true;
+	cpu_x86_info.xsave_size_max = rt_cpu_info.xsave_size_max;
 
 	if (rt_cpu_info.x86_model_id[0])
 		cpu_x86_info.model_id = rt_cpu_info.x86_model_id;
@@ -109,102 +105,65 @@ int cpu_dump_cpuinfo(void)
 	return 0;
 }
 
-#define __ins_bit(__l, __v)	(1u << ((__v) - 32u * (__l)))
+#define __ins_bit(__l, __v) (1u << ((__v)-32u * (__l)))
 
 static uint32_t x86_ins_capability_mask[NCAPINTS] = {
-	[CPUID_1_EDX] =
-		__ins_bit(CPUID_1_EDX, X86_FEATURE_FPU)				|
-		__ins_bit(CPUID_1_EDX, X86_FEATURE_TSC)				|
-		__ins_bit(CPUID_1_EDX, X86_FEATURE_CX8)				|
-		__ins_bit(CPUID_1_EDX, X86_FEATURE_SEP)				|
-		__ins_bit(CPUID_1_EDX, X86_FEATURE_CMOV)			|
-		__ins_bit(CPUID_1_EDX, X86_FEATURE_CLFLUSH)			|
-		__ins_bit(CPUID_1_EDX, X86_FEATURE_MMX)				|
-		__ins_bit(CPUID_1_EDX, X86_FEATURE_FXSR)			|
-		__ins_bit(CPUID_1_EDX, X86_FEATURE_XMM)				|
-		__ins_bit(CPUID_1_EDX, X86_FEATURE_XMM2),
+	[CPUID_1_EDX] = __ins_bit(CPUID_1_EDX, X86_FEATURE_FPU) | __ins_bit(CPUID_1_EDX, X86_FEATURE_TSC) |
+			__ins_bit(CPUID_1_EDX, X86_FEATURE_CX8) | __ins_bit(CPUID_1_EDX, X86_FEATURE_SEP) |
+			__ins_bit(CPUID_1_EDX, X86_FEATURE_CMOV) | __ins_bit(CPUID_1_EDX, X86_FEATURE_CLFLUSH) |
+			__ins_bit(CPUID_1_EDX, X86_FEATURE_MMX) | __ins_bit(CPUID_1_EDX, X86_FEATURE_FXSR) |
+			__ins_bit(CPUID_1_EDX, X86_FEATURE_XMM) | __ins_bit(CPUID_1_EDX, X86_FEATURE_XMM2),
 
-	[CPUID_8000_0001_EDX] =
-		__ins_bit(CPUID_8000_0001_EDX, X86_FEATURE_SYSCALL)		|
-		__ins_bit(CPUID_8000_0001_EDX, X86_FEATURE_MMXEXT)		|
-		__ins_bit(CPUID_8000_0001_EDX, X86_FEATURE_RDTSCP)		|
-		__ins_bit(CPUID_8000_0001_EDX, X86_FEATURE_3DNOWEXT)		|
-		__ins_bit(CPUID_8000_0001_EDX, X86_FEATURE_3DNOW),
+	[CPUID_8000_0001_EDX] = __ins_bit(CPUID_8000_0001_EDX, X86_FEATURE_SYSCALL) |
+				__ins_bit(CPUID_8000_0001_EDX, X86_FEATURE_MMXEXT) |
+				__ins_bit(CPUID_8000_0001_EDX, X86_FEATURE_RDTSCP) |
+				__ins_bit(CPUID_8000_0001_EDX, X86_FEATURE_3DNOWEXT) |
+				__ins_bit(CPUID_8000_0001_EDX, X86_FEATURE_3DNOW),
 
-	[CPUID_LNX_1] =
-		__ins_bit(CPUID_LNX_1, X86_FEATURE_REP_GOOD)			|
-		__ins_bit(CPUID_LNX_1, X86_FEATURE_NOPL),
+	[CPUID_LNX_1] = __ins_bit(CPUID_LNX_1, X86_FEATURE_REP_GOOD) | __ins_bit(CPUID_LNX_1, X86_FEATURE_NOPL),
 
-	[CPUID_1_ECX] =
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_XMM3)			|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_PCLMULQDQ)			|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_MWAIT)			|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_SSSE3)			|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_CX16)			|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_XMM4_1)			|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_XMM4_2)			|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_MOVBE)			|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_POPCNT)			|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_AES)				|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_XSAVE)			|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_OSXSAVE)			|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_AVX)				|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_F16C)			|
-		__ins_bit(CPUID_1_ECX, X86_FEATURE_RDRAND),
+	[CPUID_1_ECX] = __ins_bit(CPUID_1_ECX, X86_FEATURE_XMM3) | __ins_bit(CPUID_1_ECX, X86_FEATURE_PCLMULQDQ) |
+			__ins_bit(CPUID_1_ECX, X86_FEATURE_MWAIT) | __ins_bit(CPUID_1_ECX, X86_FEATURE_SSSE3) |
+			__ins_bit(CPUID_1_ECX, X86_FEATURE_CX16) | __ins_bit(CPUID_1_ECX, X86_FEATURE_XMM4_1) |
+			__ins_bit(CPUID_1_ECX, X86_FEATURE_XMM4_2) | __ins_bit(CPUID_1_ECX, X86_FEATURE_MOVBE) |
+			__ins_bit(CPUID_1_ECX, X86_FEATURE_POPCNT) | __ins_bit(CPUID_1_ECX, X86_FEATURE_AES) |
+			__ins_bit(CPUID_1_ECX, X86_FEATURE_XSAVE) | __ins_bit(CPUID_1_ECX, X86_FEATURE_OSXSAVE) |
+			__ins_bit(CPUID_1_ECX, X86_FEATURE_AVX) | __ins_bit(CPUID_1_ECX, X86_FEATURE_F16C) |
+			__ins_bit(CPUID_1_ECX, X86_FEATURE_RDRAND),
 
 	[CPUID_8000_0001_ECX] =
-		__ins_bit(CPUID_8000_0001_ECX, X86_FEATURE_ABM)			|
-		__ins_bit(CPUID_8000_0001_ECX, X86_FEATURE_SSE4A)		|
-		__ins_bit(CPUID_8000_0001_ECX, X86_FEATURE_MISALIGNSSE)		|
-		__ins_bit(CPUID_8000_0001_ECX, X86_FEATURE_3DNOWPREFETCH)	|
-		__ins_bit(CPUID_8000_0001_ECX, X86_FEATURE_XOP)			|
-		__ins_bit(CPUID_8000_0001_ECX, X86_FEATURE_FMA4)		|
+		__ins_bit(CPUID_8000_0001_ECX, X86_FEATURE_ABM) | __ins_bit(CPUID_8000_0001_ECX, X86_FEATURE_SSE4A) |
+		__ins_bit(CPUID_8000_0001_ECX, X86_FEATURE_MISALIGNSSE) |
+		__ins_bit(CPUID_8000_0001_ECX, X86_FEATURE_3DNOWPREFETCH) |
+		__ins_bit(CPUID_8000_0001_ECX, X86_FEATURE_XOP) | __ins_bit(CPUID_8000_0001_ECX, X86_FEATURE_FMA4) |
 		__ins_bit(CPUID_8000_0001_ECX, X86_FEATURE_TBM),
 
 	[CPUID_7_0_EBX] =
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_FSGSBASE)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_BMI1)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_HLE)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX2)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_BMI2)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_ERMS)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_RTM)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_MPX)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX512F)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX512DQ)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_RDSEED)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_ADX)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_CLFLUSHOPT)		|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX512PF)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX512ER)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX512CD)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_SHA_NI)			|
-		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX512BW)			|
+		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_FSGSBASE) | __ins_bit(CPUID_7_0_EBX, X86_FEATURE_BMI1) |
+		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_HLE) | __ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX2) |
+		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_BMI2) | __ins_bit(CPUID_7_0_EBX, X86_FEATURE_ERMS) |
+		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_RTM) | __ins_bit(CPUID_7_0_EBX, X86_FEATURE_MPX) |
+		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX512F) | __ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX512DQ) |
+		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_RDSEED) | __ins_bit(CPUID_7_0_EBX, X86_FEATURE_ADX) |
+		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_CLFLUSHOPT) | __ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX512PF) |
+		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX512ER) | __ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX512CD) |
+		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_SHA_NI) | __ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX512BW) |
 		__ins_bit(CPUID_7_0_EBX, X86_FEATURE_AVX512VL),
 
-	[CPUID_D_1_EAX] =
-		__ins_bit(CPUID_D_1_EAX, X86_FEATURE_XSAVEOPT)			|
-		__ins_bit(CPUID_D_1_EAX, X86_FEATURE_XSAVEC)			|
-		__ins_bit(CPUID_D_1_EAX, X86_FEATURE_XGETBV1),
+	[CPUID_D_1_EAX] = __ins_bit(CPUID_D_1_EAX, X86_FEATURE_XSAVEOPT) |
+			  __ins_bit(CPUID_D_1_EAX, X86_FEATURE_XSAVEC) | __ins_bit(CPUID_D_1_EAX, X86_FEATURE_XGETBV1),
 
 	[CPUID_7_0_ECX] =
-		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_AVX512VBMI)		|
-		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_AVX512_VBMI2)		|
-		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_GFNI)			|
-		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_VAES)			|
-		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_VPCLMULQDQ)		|
-		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_AVX512_VNNI)		|
-		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_AVX512_BITALG)		|
-		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_TME)			|
-		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_AVX512_VPOPCNTDQ)		|
-		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_RDPID),
+		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_AVX512VBMI) | __ins_bit(CPUID_7_0_ECX, X86_FEATURE_AVX512_VBMI2) |
+		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_GFNI) | __ins_bit(CPUID_7_0_ECX, X86_FEATURE_VAES) |
+		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_VPCLMULQDQ) | __ins_bit(CPUID_7_0_ECX, X86_FEATURE_AVX512_VNNI) |
+		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_AVX512_BITALG) | __ins_bit(CPUID_7_0_ECX, X86_FEATURE_TME) |
+		__ins_bit(CPUID_7_0_ECX, X86_FEATURE_AVX512_VPOPCNTDQ) | __ins_bit(CPUID_7_0_ECX, X86_FEATURE_RDPID),
 
-	[CPUID_8000_0008_EBX] =
-		__ins_bit(CPUID_8000_0008_EBX, X86_FEATURE_CLZERO),
+	[CPUID_8000_0008_EBX] = __ins_bit(CPUID_8000_0008_EBX, X86_FEATURE_CLZERO),
 
-	[CPUID_7_0_EDX] =
-		__ins_bit(CPUID_7_0_EDX, X86_FEATURE_AVX512_4VNNIW)		|
-		__ins_bit(CPUID_7_0_EDX, X86_FEATURE_AVX512_4FMAPS),
+	[CPUID_7_0_EDX] = __ins_bit(CPUID_7_0_EDX, X86_FEATURE_AVX512_4VNNIW) |
+			  __ins_bit(CPUID_7_0_EDX, X86_FEATURE_AVX512_4FMAPS),
 };
 
 #undef __ins_bit
@@ -243,20 +202,14 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 		 * rest of mismatches won't cause problems.
 		 */
 
-#define __mismatch_fpu_bit(__bit)					\
-		(test_bit(__bit, (void *)cpu_info->x86_capability) &&	\
-		 !compel_cpu_has_feature(__bit))
-		if (__mismatch_fpu_bit(X86_FEATURE_FPU)		||
-		    __mismatch_fpu_bit(X86_FEATURE_FXSR)	||
-		    __mismatch_fpu_bit(X86_FEATURE_OSXSAVE)	||
-		    __mismatch_fpu_bit(X86_FEATURE_XSAVES)) {
+#define __mismatch_fpu_bit(__bit) (test_bit(__bit, (void *)cpu_info->x86_capability) && !compel_cpu_has_feature(__bit))
+		if (__mismatch_fpu_bit(X86_FEATURE_FPU) || __mismatch_fpu_bit(X86_FEATURE_FXSR) ||
+		    __mismatch_fpu_bit(X86_FEATURE_OSXSAVE) || __mismatch_fpu_bit(X86_FEATURE_XSAVES)) {
 			pr_err("FPU feature required by image "
 			       "is not supported on host "
 			       "(fpu:%d fxsr:%d osxsave:%d xsaves:%d)\n",
-			       __mismatch_fpu_bit(X86_FEATURE_FPU),
-			       __mismatch_fpu_bit(X86_FEATURE_FXSR),
-			       __mismatch_fpu_bit(X86_FEATURE_OSXSAVE),
-			       __mismatch_fpu_bit(X86_FEATURE_XSAVES));
+			       __mismatch_fpu_bit(X86_FEATURE_FPU), __mismatch_fpu_bit(X86_FEATURE_FXSR),
+			       __mismatch_fpu_bit(X86_FEATURE_OSXSAVE), __mismatch_fpu_bit(X86_FEATURE_XSAVES));
 			return -1;
 		}
 #undef __mismatch_fpu_bit
@@ -266,10 +219,8 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 		 * the destination there are all the features which were on the
 		 * source.
 		 */
-		if ((m = cpu_info->xfeatures_mask &
-			 ~rt_cpu_info.xfeatures_mask)) {
-			pr_err("CPU xfeatures has unsupported bits (%#"
-			       PRIx64")\n", m);
+		if ((m = cpu_info->xfeatures_mask & ~rt_cpu_info.xfeatures_mask)) {
+			pr_err("CPU xfeatures has unsupported bits (%#" PRIx64 ")\n", m);
 			return -1;
 		}
 
@@ -281,13 +232,11 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 		 * greedy feature mask causing programs to misbehave.
 		 */
 		if (cpu_info->xsave_size != rt_cpu_info.xsave_size) {
-			pr_err("CPU xsave size mismatch (%u/%u)\n",
-			       cpu_info->xsave_size, rt_cpu_info.xsave_size);
+			pr_err("CPU xsave size mismatch (%u/%u)\n", cpu_info->xsave_size, rt_cpu_info.xsave_size);
 			return -1;
 		}
 		if (cpu_info->xsave_size_max != rt_cpu_info.xsave_size_max) {
-			pr_err("CPU xsave max size mismatch (%u/%u)\n",
-			       cpu_info->xsave_size_max,
+			pr_err("CPU xsave max size mismatch (%u/%u)\n", cpu_info->xsave_size_max,
 			       rt_cpu_info.xsave_size_max);
 			return -1;
 		}
@@ -305,8 +254,7 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 	 * Strict capability mode. Everything must match.
 	 */
 	if (opts.cpu_cap & CPU_CAP_CPU) {
-		if (memcmp(cpu_info->x86_capability, rt_cpu_info.x86_capability,
-			   sizeof(cpu_info->x86_capability))) {
+		if (memcmp(cpu_info->x86_capability, rt_cpu_info.x86_capability, sizeof(cpu_info->x86_capability))) {
 			pr_err("CPU capabilities do not match run time\n");
 			return -1;
 		}
@@ -316,8 +264,8 @@ static int cpu_validate_features(compel_cpuinfo_t *cpu_info)
 }
 
 static const struct {
-	const uint32_t	capability_ver;
-	const uint32_t	ncapints;
+	const uint32_t capability_ver;
+	const uint32_t ncapints;
 } ncapints[] = {
 	{ .capability_ver = 1, .ncapints = NCAPINTS_V1 },
 	{ .capability_ver = 2, .ncapints = NCAPINTS_V2 },
@@ -328,14 +276,12 @@ static compel_cpuinfo_t *img_to_cpuinfo(CpuinfoX86Entry *img_x86_entry)
 	compel_cpuinfo_t *cpu_info;
 	size_t size, i;
 
-	BUILD_BUG_ON(sizeof(img_x86_entry->capability[0]) !=
-		     sizeof(cpu_info->x86_capability[0]));
+	BUILD_BUG_ON(sizeof(img_x86_entry->capability[0]) != sizeof(cpu_info->x86_capability[0]));
 	BUILD_BUG_ON(ARRAY_SIZE(rt_cpu_info.x86_capability) != NCAPINTS);
 
 	if (img_x86_entry->vendor_id != CPUINFO_X86_ENTRY__VENDOR__INTEL &&
 	    img_x86_entry->vendor_id != CPUINFO_X86_ENTRY__VENDOR__AMD) {
-		pr_err("Image carries unknown vendor %u\n",
-		       (unsigned)img_x86_entry->vendor_id);
+		pr_err("Image carries unknown vendor %u\n", (unsigned)img_x86_entry->vendor_id);
 		return NULL;
 	}
 
@@ -343,8 +289,7 @@ static compel_cpuinfo_t *img_to_cpuinfo(CpuinfoX86Entry *img_x86_entry)
 		if (img_x86_entry->capability_ver == ncapints[i].capability_ver) {
 			if (img_x86_entry->n_capability != ncapints[i].ncapints) {
 				pr_err("Image carries %u words while %u expected\n",
-				       (unsigned)img_x86_entry->n_capability,
-				       (unsigned)ncapints[i].ncapints);
+				       (unsigned)img_x86_entry->n_capability, (unsigned)ncapints[i].ncapints);
 				return NULL;
 			}
 			break;
@@ -352,8 +297,7 @@ static compel_cpuinfo_t *img_to_cpuinfo(CpuinfoX86Entry *img_x86_entry)
 	}
 
 	if (i >= ARRAY_SIZE(ncapints)) {
-		pr_err("Image carries unknown capability version %d\n",
-		       (unsigned)img_x86_entry->capability_ver);
+		pr_err("Image carries unknown capability version %d\n", (unsigned)img_x86_entry->capability_ver);
 		return NULL;
 	}
 
@@ -368,21 +312,20 @@ static compel_cpuinfo_t *img_to_cpuinfo(CpuinfoX86Entry *img_x86_entry)
 	size = sizeof(img_x86_entry->capability[0]) * img_x86_entry->n_capability;
 	memcpy(cpu_info->x86_capability, img_x86_entry->capability, size);
 	if (img_x86_entry->capability_ver == 1) {
-		memcpy(&cpu_info->x86_capability[NCAPINTS_V1],
-		       &rt_cpu_info.x86_capability[NCAPINTS_V1],
+		memcpy(&cpu_info->x86_capability[NCAPINTS_V1], &rt_cpu_info.x86_capability[NCAPINTS_V1],
 		       (NCAPINTS_V2 - NCAPINTS_V1) * sizeof(rt_cpu_info.x86_capability[0]));
 	}
 
 	if (img_x86_entry->vendor_id == CPUINFO_X86_ENTRY__VENDOR__INTEL)
-		cpu_info->x86_vendor	= X86_VENDOR_INTEL;
+		cpu_info->x86_vendor = X86_VENDOR_INTEL;
 	else
-		cpu_info->x86_vendor	= X86_VENDOR_AMD;
-	cpu_info->x86_family		= img_x86_entry->cpu_family;
-	cpu_info->x86_model		= img_x86_entry->model;
-	cpu_info->x86_mask		= img_x86_entry->stepping;
-	cpu_info->extended_cpuid_level	= rt_cpu_info.extended_cpuid_level;
-	cpu_info->cpuid_level		= rt_cpu_info.cpuid_level;
-	cpu_info->x86_power		= rt_cpu_info.x86_power;
+		cpu_info->x86_vendor = X86_VENDOR_AMD;
+	cpu_info->x86_family = img_x86_entry->cpu_family;
+	cpu_info->x86_model = img_x86_entry->model;
+	cpu_info->x86_mask = img_x86_entry->stepping;
+	cpu_info->extended_cpuid_level = rt_cpu_info.extended_cpuid_level;
+	cpu_info->cpuid_level = rt_cpu_info.cpuid_level;
+	cpu_info->x86_power = rt_cpu_info.x86_power;
 
 	memcpy(cpu_info->x86_vendor_id, rt_cpu_info.x86_model_id, sizeof(cpu_info->x86_vendor_id));
 	strncpy(cpu_info->x86_model_id, img_x86_entry->model_id, sizeof(cpu_info->x86_model_id) - 1);

@@ -15,7 +15,7 @@ static void sh(int sig)
 	stop = 1;
 }
 
-#define SUCC_ECODE	42
+#define SUCC_ECODE 42
 
 int main(int argc, char **argv)
 {

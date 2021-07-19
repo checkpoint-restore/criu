@@ -20,8 +20,8 @@ static int dump_one_ext_file(int lfd, u32 id, const struct fd_parms *p)
 	if (ret < 0)
 		return ret;
 
-	xfe.id		= id;
-	xfe.fown	= (FownEntry *)&p->fown;
+	xfe.id = id;
+	xfe.fown = (FownEntry *)&p->fown;
 
 	fe.type = FD_TYPES__EXT;
 	fe.id = xfe.id;
@@ -32,13 +32,13 @@ static int dump_one_ext_file(int lfd, u32 id, const struct fd_parms *p)
 }
 
 const struct fdtype_ops ext_dump_ops = {
-	.type		= FD_TYPES__EXT,
-	.dump		= dump_one_ext_file,
+	.type = FD_TYPES__EXT,
+	.dump = dump_one_ext_file,
 };
 
 struct ext_file_info {
-	struct file_desc	d;
-	ExtFileEntry		*xfe;
+	struct file_desc d;
+	ExtFileEntry *xfe;
 };
 
 static int open_fd(struct file_desc *d, int *new_fd)
@@ -83,8 +83,7 @@ struct collect_image_info ext_file_cinfo = {
 	.collect = collect_one_ext,
 };
 
-int dump_unsupp_fd(struct fd_parms *p, int lfd,
-		char *more, char *info, FdinfoEntry *e)
+int dump_unsupp_fd(struct fd_parms *p, int lfd, char *more, char *info, FdinfoEntry *e)
 {
 	int ret;
 
@@ -92,7 +91,6 @@ int dump_unsupp_fd(struct fd_parms *p, int lfd,
 	if (ret == 0)
 		return 0;
 	if (ret == -ENOTSUP)
-		pr_err("Can't dump file %d of that type [%o] (%s %s)\n",
-			p->fd, p->stat.st_mode, more, info);
+		pr_err("Can't dump file %d of that type [%o] (%s %s)\n", p->fd, p->stat.st_mode, more, info);
 	return -1;
 }

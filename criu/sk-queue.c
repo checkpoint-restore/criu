@@ -23,15 +23,15 @@
 #include "protobuf.h"
 #include "images/sk-packet.pb-c.h"
 
-#undef  LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "skqueue: "
 
 struct sk_packet {
-	struct list_head	list;
-	SkPacketEntry		*entry;
-	char			*data;
-	unsigned		scm_len;
-	int			*scm;
+	struct list_head list;
+	SkPacketEntry *entry;
+	char *data;
+	unsigned scm_len;
+	int *scm;
 };
 
 static LIST_HEAD(packets_list);
@@ -43,7 +43,7 @@ static int collect_one_packet(void *obj, ProtobufCMessage *msg, struct cr_img *i
 	pkt->entry = pb_msg(msg, SkPacketEntry);
 	pkt->scm = NULL;
 	pkt->data = xmalloc(pkt->entry->length);
-	if (pkt->data ==NULL)
+	if (pkt->data == NULL)
 		return -1;
 
 	/*
@@ -105,7 +105,7 @@ static int dump_scm_rights(struct cmsghdr *ch, SkPacketEntry *pe)
 	}
 
 	i = pe->n_scm++;
-	if (xrealloc_safe(&pe->scm, pe->n_scm * sizeof(ScmEntry*)))
+	if (xrealloc_safe(&pe->scm, pe->n_scm * sizeof(ScmEntry *)))
 		return -1;
 
 	pe->scm[i] = scme;
@@ -116,7 +116,7 @@ static int dump_scm_rights(struct cmsghdr *ch, SkPacketEntry *pe)
  * Maximum size of the control messages. XXX -- is there any
  * way to get this value out of the kernel?
  * */
-#define CMSG_MAX_SIZE	1024
+#define CMSG_MAX_SIZE 1024
 
 static int dump_packet_cmsg(struct msghdr *mh, SkPacketEntry *pe)
 {
@@ -212,14 +212,14 @@ int dump_sk_queue(int sock_fd, int sock_id)
 	while (1) {
 		char cmsg[CMSG_MAX_SIZE];
 		struct iovec iov = {
-			.iov_base	= data,
-			.iov_len	= size,
+			.iov_base = data,
+			.iov_len = size,
 		};
 		struct msghdr msg = {
-			.msg_iov	= &iov,
-			.msg_iovlen	= 1,
-			.msg_control	= &cmsg,
-			.msg_controllen	= sizeof(cmsg),
+			.msg_iov = &iov,
+			.msg_iovlen = 1,
+			.msg_control = &cmsg,
+			.msg_controllen = sizeof(cmsg),
 		};
 
 		ret = pe.length = recvmsg(sock_fd, &msg, MSG_DONTWAIT | MSG_PEEK);
@@ -312,8 +312,7 @@ static int send_one_pkt(int fd, struct sk_packet *pkt)
 		return -1;
 	}
 	if (ret != entry->length) {
-		pr_err("Restored skb trimmed to %d/%d\n",
-				ret, (unsigned int)entry->length);
+		pr_err("Restored skb trimmed to %d/%d\n", ret, (unsigned int)entry->length);
 		return -1;
 	}
 
@@ -336,8 +335,7 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 		if (entry->id_for != peer_id)
 			continue;
 
-		pr_info("\tRestoring %d-bytes skb for %u\n",
-			(unsigned int)entry->length, peer_id);
+		pr_info("\tRestoring %d-bytes skb for %u\n", (unsigned int)entry->length, peer_id);
 
 		ret = send_one_pkt(fd, pkt);
 		if (ret)
@@ -379,8 +377,7 @@ int prepare_scms(void)
 			ch->cmsg_type = SCM_RIGHTS;
 			ch->cmsg_len = CMSG_LEN(se->n_rights * sizeof(int));
 
-			if (unix_note_scm_rights(pe->id_for, se->rights,
-						(int *)CMSG_DATA(ch), se->n_rights))
+			if (unix_note_scm_rights(pe->id_for, se->rights, (int *)CMSG_DATA(ch), se->n_rights))
 				return -1;
 
 			continue;

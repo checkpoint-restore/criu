@@ -1,5 +1,5 @@
 #ifndef _GNU_SOURCE
-# define _GNU_SOURCE
+#define _GNU_SOURCE
 #endif
 
 #include <stdlib.h>
@@ -18,8 +18,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that deleted unix sockets with dirs are restored correctly";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
+const char *test_doc = "Check that deleted unix sockets with dirs are restored correctly";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
@@ -62,16 +62,16 @@ static int sk_alloc_connect(int type, struct sockaddr_un *addr)
 	return sk;
 }
 
-#define write_int(__f, __p)					\
-	({							\
-		ssize_t __r = write(__f, __p, sizeof(*(__p)));	\
-		(__r == sizeof(*(__p))) ? 0 : -1;		\
+#define write_int(__f, __p)                                    \
+	({                                                     \
+		ssize_t __r = write(__f, __p, sizeof(*(__p))); \
+		(__r == sizeof(*(__p))) ? 0 : -1;              \
 	})
 
-#define read_int(__f, __p)					\
-	({							\
-		ssize_t __r = read(__f, __p, sizeof(*(__p)));	\
-		(__r == sizeof(*(__p))) ? 0 : -1;		\
+#define read_int(__f, __p)                                    \
+	({                                                    \
+		ssize_t __r = read(__f, __p, sizeof(*(__p))); \
+		(__r == sizeof(*(__p))) ? 0 : -1;             \
 	})
 
 int main(int argc, char **argv)
@@ -215,8 +215,7 @@ int main(int argc, char **argv)
 		pr_perror("Can't create dgram pair");
 		return 1;
 	}
-	test_msg("sk-dgp: sockpair %d %d\n",
-		 sk_dgram_pair[0], sk_dgram_pair[1]);
+	test_msg("sk-dgp: sockpair %d %d\n", sk_dgram_pair[0], sk_dgram_pair[1]);
 	ssprintf(filename, "%s/%s", subdir_dg, "sk-dtp");
 
 	if (unix_fill_sock_name(&addr, filename)) {
@@ -303,39 +302,35 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
-	if (write_int(sk_dgram[1], &c1)	|| read_int(sk_dgram[0], &c2) ||
-	    write_int(sk_dgram[3], &c3)	|| read_int(sk_dgram[2], &c4)) {
+	if (write_int(sk_dgram[1], &c1) || read_int(sk_dgram[0], &c2) || write_int(sk_dgram[3], &c3) ||
+	    read_int(sk_dgram[2], &c4)) {
 		fail("Unable to send/receive a message on dgram");
 		return 1;
 	}
 
 	if (c1 != c2 || c3 != c4) {
-		fail("Vals mismatch on dgram: c1 %d c2 %d c3 %d c4 %d",
-		     c1, c2, c3, c4);
+		fail("Vals mismatch on dgram: c1 %d c2 %d c3 %d c4 %d", c1, c2, c3, c4);
 		return 1;
 	}
 
-	if (write_int(sk_dgram_pair[1], &c9) ||
-	    read_int(sk_dgram_pair[0], &c10)) {
+	if (write_int(sk_dgram_pair[1], &c9) || read_int(sk_dgram_pair[0], &c10)) {
 		fail("Unable to send/receive a message on paired dgram");
 		return 1;
 	}
 
 	if (c9 != c10) {
-		fail("Vals mismatch on dgram: c9 %d c10 %d",
-		     c9, c10);
+		fail("Vals mismatch on dgram: c9 %d c10 %d", c9, c10);
 		return 1;
 	}
 
-	if (write_int(sk_st[2], &c5) || read_int(sk_st[1], &c6) ||
-	    write_int(sk_st[4], &c7) || read_int(sk_st[3], &c8)) {
+	if (write_int(sk_st[2], &c5) || read_int(sk_st[1], &c6) || write_int(sk_st[4], &c7) ||
+	    read_int(sk_st[3], &c8)) {
 		fail("Unable to send/receive a message on stream");
 		return 1;
 	}
 
 	if (c5 != c6 || c7 != c8) {
-		fail("Vals mismatch on stream: c5 %d c6 %d c7 %d c8 %d",
-		     c5, c6, c7, c8);
+		fail("Vals mismatch on stream: c5 %d c6 %d c7 %d c8 %d", c5, c6, c7, c8);
 		return 1;
 	}
 

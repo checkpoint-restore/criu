@@ -8,8 +8,7 @@
 
 #include "zdtmtst.h"
 
-#define exit_group(code)	\
-	syscall(__NR_exit_group, code)
+#define exit_group(code) syscall(__NR_exit_group, code)
 
 static pthread_attr_t attr;
 /* Having in mind setup with 64 Kb large pages */

@@ -30,29 +30,30 @@ static cr_plugin_desc_t *cr_gen_plugin_desc(void *h, char *path)
 	if (!d)
 		return NULL;
 
-	d->name		= xstrdup(path);
-	d->max_hooks	= CR_PLUGIN_HOOK__MAX;
-	d->version	= CRIU_PLUGIN_VERSION_OLD;
+	d->name = xstrdup(path);
+	d->max_hooks = CR_PLUGIN_HOOK__MAX;
+	d->version = CRIU_PLUGIN_VERSION_OLD;
 
 	pr_warn("Generating dynamic descriptor for plugin `%s'."
 		"Won't work in next version of the program."
-		"Please update your plugin.\n", path);
+		"Please update your plugin.\n",
+		path);
 
-#define __assign_hook(__hook, __name)					\
-	do {								\
-		void *name;						\
-		name = dlsym(h, __name);				\
-		if (name)						\
-			d->hooks[CR_PLUGIN_HOOK__ ##__hook] = name;	\
+#define __assign_hook(__hook, __name)                              \
+	do {                                                       \
+		void *name;                                        \
+		name = dlsym(h, __name);                           \
+		if (name)                                          \
+			d->hooks[CR_PLUGIN_HOOK__##__hook] = name; \
 	} while (0)
 
-	__assign_hook(DUMP_UNIX_SK,		"cr_plugin_dump_unix_sk");
-	__assign_hook(RESTORE_UNIX_SK,		"cr_plugin_restore_unix_sk");
-	__assign_hook(DUMP_EXT_FILE,		"cr_plugin_dump_file");
-	__assign_hook(RESTORE_EXT_FILE,		"cr_plugin_restore_file");
-	__assign_hook(DUMP_EXT_MOUNT,		"cr_plugin_dump_ext_mount");
-	__assign_hook(RESTORE_EXT_MOUNT,	"cr_plugin_restore_ext_mount");
-	__assign_hook(DUMP_EXT_LINK,		"cr_plugin_dump_ext_link");
+	__assign_hook(DUMP_UNIX_SK, "cr_plugin_dump_unix_sk");
+	__assign_hook(RESTORE_UNIX_SK, "cr_plugin_restore_unix_sk");
+	__assign_hook(DUMP_EXT_FILE, "cr_plugin_dump_file");
+	__assign_hook(RESTORE_EXT_FILE, "cr_plugin_restore_file");
+	__assign_hook(DUMP_EXT_MOUNT, "cr_plugin_dump_ext_mount");
+	__assign_hook(RESTORE_EXT_MOUNT, "cr_plugin_restore_ext_mount");
+	__assign_hook(DUMP_EXT_LINK, "cr_plugin_dump_ext_link");
 
 #undef __assign_hook
 
@@ -66,8 +67,7 @@ static void show_plugin_desc(cr_plugin_desc_t *d)
 {
 	size_t i;
 
-	pr_debug("Plugin \"%s\" (version %u hooks %u)\n",
-		 d->name, d->version, d->max_hooks);
+	pr_debug("Plugin \"%s\" (version %u hooks %u)\n", d->name, d->version, d->max_hooks);
 	for (i = 0; i < d->max_hooks; i++) {
 		if (d->hooks[i])
 			pr_debug("\t%4zu -> %p\n", i, d->hooks[i]);
@@ -77,14 +77,13 @@ static void show_plugin_desc(cr_plugin_desc_t *d)
 static int verify_plugin(cr_plugin_desc_t *d)
 {
 	if (d->version > CRIU_PLUGIN_VERSION) {
-		pr_debug("Plugin %s has version %x while max %x supported\n",
-			 d->name, d->version, CRIU_PLUGIN_VERSION);
+		pr_debug("Plugin %s has version %x while max %x supported\n", d->name, d->version, CRIU_PLUGIN_VERSION);
 		return -1;
 	}
 
 	if (d->max_hooks > CR_PLUGIN_HOOK__MAX) {
-		pr_debug("Plugin %s has %u assigned while max %u supported\n",
-			 d->name, d->max_hooks, CR_PLUGIN_HOOK__MAX);
+		pr_debug("Plugin %s has %u assigned while max %u supported\n", d->name, d->max_hooks,
+			 CR_PLUGIN_HOOK__MAX);
 		return -1;
 	}
 
@@ -243,8 +242,7 @@ int cr_plugin_init(int stage)
 		if (len < 3 || strncmp(de->d_name + len - 3, ".so", 3))
 			continue;
 
-		if (snprintf(path, sizeof(path), "%s/%s", opts.libdir, de->d_name) >=
-		    sizeof(path)) {
+		if (snprintf(path, sizeof(path), "%s/%s", opts.libdir, de->d_name) >= sizeof(path)) {
 			pr_err("Unable to build plugin path\n");
 			goto err;
 		}

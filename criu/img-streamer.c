@@ -21,7 +21,7 @@
  *    (e.g., streamer is in capture more, while CRIU is in restore mode).
  */
 #define IMG_STREAMER_CAPTURE_SOCKET_NAME "streamer-capture.sock"
-#define IMG_STREAMER_SERVE_SOCKET_NAME "streamer-serve.sock"
+#define IMG_STREAMER_SERVE_SOCKET_NAME	 "streamer-serve.sock"
 
 /* All requests go through the same socket connection. We must synchronize */
 static mutex_t *img_streamer_fd_lock;
@@ -32,9 +32,13 @@ static int img_streamer_mode;
 static const char *socket_name_for_mode(int mode)
 {
 	switch (mode) {
-	case O_DUMP: return IMG_STREAMER_CAPTURE_SOCKET_NAME;
-	case O_RSTR: return IMG_STREAMER_SERVE_SOCKET_NAME;
-	default: BUG(); return NULL;
+	case O_DUMP:
+		return IMG_STREAMER_CAPTURE_SOCKET_NAME;
+	case O_RSTR:
+		return IMG_STREAMER_SERVE_SOCKET_NAME;
+	default:
+		BUG();
+		return NULL;
 	}
 }
 
@@ -57,8 +61,7 @@ int img_streamer_init(const char *image_dir, int mode)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
-	snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s",
-		 image_dir, socket_name_for_mode(mode));
+	snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s", image_dir, socket_name_for_mode(mode));
 
 	if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 		pr_perror("Unable to connect to image streamer socket: %s", addr.sun_path);
@@ -132,15 +135,13 @@ static int send_file_request(char *filename)
 {
 	ImgStreamerRequestEntry req = IMG_STREAMER_REQUEST_ENTRY__INIT;
 	req.filename = filename;
-	return pb_write_one_fd(get_service_fd(IMG_STREAMER_FD_OFF),
-			       &req, PB_IMG_STREAMER_REQUEST);
+	return pb_write_one_fd(get_service_fd(IMG_STREAMER_FD_OFF), &req, PB_IMG_STREAMER_REQUEST);
 }
 
 static int recv_file_reply(bool *exists)
 {
 	ImgStreamerReplyEntry *reply;
-	int ret = pb_read_one_fd(get_service_fd(IMG_STREAMER_FD_OFF),
-				 (void **)&reply, PB_IMG_STREAMER_REPLY);
+	int ret = pb_read_one_fd(get_service_fd(IMG_STREAMER_FD_OFF), (void **)&reply, PB_IMG_STREAMER_REPLY);
 	if (ret < 0)
 		return ret;
 
@@ -155,8 +156,8 @@ static int recv_file_reply(bool *exists)
  * image streamer, greatly improving performance.
  * Transfer rates of up to 15GB/s can be seen with this technique.
  */
-#define READ_PIPE	0 /* index of the read pipe returned by pipe() */
-#define WRITE_PIPE	1
+#define READ_PIPE  0 /* index of the read pipe returned by pipe() */
+#define WRITE_PIPE 1
 static int establish_streamer_file_pipe(void)
 {
 	/*
@@ -174,8 +175,7 @@ static int establish_streamer_file_pipe(void)
 		return -1;
 	}
 
-	if (send_fd(get_service_fd(IMG_STREAMER_FD_OFF),
-		    NULL, 0, fds[streamer_pipe_direction]) < 0)
+	if (send_fd(get_service_fd(IMG_STREAMER_FD_OFF), NULL, 0, fds[streamer_pipe_direction]) < 0)
 		close(fds[criu_pipe_direction]);
 	else
 		ret = fds[criu_pipe_direction];

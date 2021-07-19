@@ -18,8 +18,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check for signalfd without signals";
-const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
+const char *test_doc = "Check for signalfd without signals";
+const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
 int main(int argc, char *argv[])
 {

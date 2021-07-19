@@ -10,8 +10,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check sched policy to be preserved";
-const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
+const char *test_doc = "Check sched policy to be preserved";
+const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
 static const int parm = 3;
 
@@ -23,7 +23,7 @@ static int do_nothing(void)
 	return -1;
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int pid, ret, err = 0;
 	struct sched_param p;
@@ -82,7 +82,6 @@ int main(int argc, char ** argv)
 			fprintf(file, "%d\n", old_rt_runtime_us);
 			fclose(file);
 		}
-
 	}
 	return err;
 }

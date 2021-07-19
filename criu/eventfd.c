@@ -22,12 +22,12 @@
 #include "protobuf.h"
 #include "images/eventfd.pb-c.h"
 
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "eventfd: "
 
 struct eventfd_file_info {
-	EventfdFileEntry		*efe;
-	struct file_desc		d;
+	EventfdFileEntry *efe;
+	struct file_desc d;
 };
 
 /* Checks if file descriptor @lfd is eventfd */
@@ -38,8 +38,7 @@ int is_eventfd_link(char *link)
 
 static void pr_info_eventfd(char *action, EventfdFileEntry *efe)
 {
-	pr_info("%s: id %#08x flags %#04x counter %#016"PRIx64"\n",
-		action, efe->id, efe->flags, efe->counter);
+	pr_info("%s: id %#08x flags %#04x counter %#016" PRIx64 "\n", action, efe->id, efe->flags, efe->counter);
 }
 
 static int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
@@ -63,8 +62,8 @@ static int dump_one_eventfd(int lfd, u32 id, const struct fd_parms *p)
 }
 
 const struct fdtype_ops eventfd_dump_ops = {
-	.type		= FD_TYPES__EVENTFD,
-	.dump		= dump_one_eventfd,
+	.type = FD_TYPES__EVENTFD,
+	.dump = dump_one_eventfd,
 };
 
 static int eventfd_open(struct file_desc *d, int *new_fd)
@@ -76,14 +75,12 @@ static int eventfd_open(struct file_desc *d, int *new_fd)
 
 	tmp = eventfd(info->efe->counter, 0);
 	if (tmp < 0) {
-		pr_perror("Can't create eventfd %#08x",
-			  info->efe->id);
+		pr_perror("Can't create eventfd %#08x", info->efe->id);
 		return -1;
 	}
 
 	if (rst_file_params(tmp, info->efe->fown, info->efe->flags)) {
-		pr_perror("Can't restore params on eventfd %#08x",
-			  info->efe->id);
+		pr_perror("Can't restore params on eventfd %#08x", info->efe->id);
 		goto err_close;
 	}
 

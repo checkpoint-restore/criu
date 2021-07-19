@@ -10,7 +10,11 @@
 
 #include "soccr/soccr.h"
 
-#define pr_perror(fmt, ...) ({ fprintf(stderr, "%s:%d: " fmt " : %m\n", __func__, __LINE__, ##__VA_ARGS__); 1; })
+#define pr_perror(fmt, ...)                                                                  \
+	({                                                                                   \
+		fprintf(stderr, "%s:%d: " fmt " : %m\n", __func__, __LINE__, ##__VA_ARGS__); \
+		1;                                                                           \
+	})
 
 struct tcp {
 	char *addr;
@@ -22,36 +26,28 @@ struct tcp {
 
 static void usage(void)
 {
-	printf(
-		"Usage: --addr ADDR -port PORT --seq SEQ --next --addr ADDR -port PORT --seq SEQ -- CMD ...\n"
-		"\t Describe a source side of a connection, then set the --next option\n"
-		"\t and describe a destination side.\n"
-		"\t --reverse - swap source and destination sides\n"
-		"\t The idea is that the same command line is execute on both sides,\n"
-		"\t but the --reverse is added to one of them.\n"
-		"\n"
-		"\t CMD ... - a user command to handle a socket, which is the descriptor 3.\n"
-		"\n"
-		"\t It prints the \"start\" on stdout when a socket is created and\n"
-		"\t resumes it when you write \"start\" to stdin.\n"
-	);
+	printf("Usage: --addr ADDR -port PORT --seq SEQ --next --addr ADDR -port PORT --seq SEQ -- CMD ...\n"
+	       "\t Describe a source side of a connection, then set the --next option\n"
+	       "\t and describe a destination side.\n"
+	       "\t --reverse - swap source and destination sides\n"
+	       "\t The idea is that the same command line is execute on both sides,\n"
+	       "\t but the --reverse is added to one of them.\n"
+	       "\n"
+	       "\t CMD ... - a user command to handle a socket, which is the descriptor 3.\n"
+	       "\n"
+	       "\t It prints the \"start\" on stdout when a socket is created and\n"
+	       "\t resumes it when you write \"start\" to stdin.\n");
 }
 
 int main(int argc, char **argv)
 {
 	static const char short_opts[] = "";
 	static struct option long_opts[] = {
-		{ "addr",	required_argument, 0, 'a' },
-		{ "port",	required_argument, 0, 'p' },
-		{ "seq",	required_argument, 0, 's' },
-		{ "next",	no_argument, 0, 'n'},
-		{ "reverse",	no_argument, 0, 'r'},
-		{},
+		{ "addr", required_argument, 0, 'a' }, { "port", required_argument, 0, 'p' },
+		{ "seq", required_argument, 0, 's' },  { "next", no_argument, 0, 'n' },
+		{ "reverse", no_argument, 0, 'r' },    {},
 	};
-	struct tcp tcp[2] = {
-				{"127.0.0.1", 12345, 5000000, 1460, 7},
-				{"127.0.0.1", 54321, 6000000, 1460, 7}
-			};
+	struct tcp tcp[2] = { { "127.0.0.1", 12345, 5000000, 1460, 7 }, { "127.0.0.1", 54321, 6000000, 1460, 7 } };
 
 	int sk, yes = 1, val, idx, opt, i, src = 0, dst = 1;
 	union libsoccr_addr src_addr, dst_addr;
@@ -82,7 +78,8 @@ int main(int argc, char **argv)
 				return pr_perror("--next is used twice or more");
 			break;
 		case 'r':
-			src = 1; dst = 0;
+			src = 1;
+			dst = 0;
 			break;
 		default:
 			usage();

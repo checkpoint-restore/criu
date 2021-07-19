@@ -11,8 +11,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check a send of looped unix sockets";
-const char *test_author	= "Kirill Tkhai <ktkhai@virtuozzo.com>";
+const char *test_doc = "Check a send of looped unix sockets";
+const char *test_author = "Kirill Tkhai <ktkhai@virtuozzo.com>";
 
 static int send_fd(int via, int fd)
 {
@@ -99,8 +99,7 @@ int main(int argc, char **argv)
 	for (i = 0; i < 2; i++) {
 		addr.sun_path[0] = '\0';
 		addr.sun_path[1] = i;
-		if (bind(ska[i], (struct sockaddr *)&addr,
-			 sizeof(addr.sun_family) + 2)) {
+		if (bind(ska[i], (struct sockaddr *)&addr, sizeof(addr.sun_family) + 2)) {
 			fail("Can't bind");
 			exit(1);
 		}

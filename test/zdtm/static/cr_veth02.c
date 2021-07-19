@@ -4,8 +4,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Restore with precreated veth devices.";
-const char *test_author	= "Andrei Vagin <avagin@gmail.com>";
+const char *test_doc = "Restore with precreated veth devices.";
+const char *test_author = "Andrei Vagin <avagin@gmail.com>";
 
 #define IF_NAME "zdtmvthc0"
 

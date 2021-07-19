@@ -4,13 +4,13 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test that sid, pgid are restored";
-const char *test_author	= "Andrey Vagin <avagin@openvz.org>";
+const char *test_doc = "Test that sid, pgid are restored";
+const char *test_author = "Andrey Vagin <avagin@openvz.org>";
 
-#define DETACH		1
-#define NEWSID		2
-#define CHANGESID	4
-#define DOUBLE_CHANGESID	8
+#define DETACH		 1
+#define NEWSID		 2
+#define CHANGESID	 4
+#define DOUBLE_CHANGESID 8
 
 struct testcase {
 	int flags;
@@ -18,14 +18,24 @@ struct testcase {
 	pid_t sid;
 };
 
-static struct testcase testcases[] = {
-			{DETACH, },
-			{NEWSID, },
-			{0, },
-			{DETACH|NEWSID, },
-			{CHANGESID, },
-			{DOUBLE_CHANGESID | CHANGESID, }
-		};
+static struct testcase testcases[] = { {
+					       DETACH,
+				       },
+				       {
+					       NEWSID,
+				       },
+				       {
+					       0,
+				       },
+				       {
+					       DETACH | NEWSID,
+				       },
+				       {
+					       CHANGESID,
+				       },
+				       {
+					       DOUBLE_CHANGESID | CHANGESID,
+				       } };
 /*
     2     2 session00
     4     4  \_ session00               # {NEWSID, },
@@ -91,8 +101,8 @@ static int fork_child(int i)
 			close(p[1]);
 			wait(NULL);
 			if (getsid(0) != sid) {
-				fail("The process %d (%x) has SID=%d (expected %d)",
-					pid, testcases[i].flags, sid, testcases[i].sid);
+				fail("The process %d (%x) has SID=%d (expected %d)", pid, testcases[i].flags, sid,
+				     testcases[i].sid);
 				exit(1);
 			}
 			exit(0);
@@ -118,14 +128,14 @@ static int fork_child(int i)
 			close(p[1]);
 			wait(NULL);
 			if (getsid(0) != sid) {
-				fail("The process %d (%x) has SID=%d (expected %d)",
-					pid, testcases[i].flags, sid, testcases[i].sid);
+				fail("The process %d (%x) has SID=%d (expected %d)", pid, testcases[i].flags, sid,
+				     testcases[i].sid);
 				exit(1);
 			}
 			exit(0);
 		}
 
-child:
+	child:
 		pid = getpid();
 		write(p[1], &pid, sizeof(pid));
 		close(p[1]);
@@ -171,7 +181,7 @@ child:
 	return 0;
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int i, ret, err = 0, status;
 	pid_t pid;
@@ -198,8 +208,8 @@ int main(int argc, char ** argv)
 		pid_t sid = getsid(pid);
 
 		if (sid != testcases[i].sid) {
-			fail("The process %d (%x) has SID=%d (expected %d)",
-				pid, testcases[i].flags, sid, testcases[i].sid);
+			fail("The process %d (%x) has SID=%d (expected %d)", pid, testcases[i].flags, sid,
+			     testcases[i].sid);
 			err++;
 		}
 

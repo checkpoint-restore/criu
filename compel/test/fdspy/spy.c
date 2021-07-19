@@ -11,7 +11,7 @@
 
 #include "parasite.h"
 
-#define PARASITE_CMD_GETFD	PARASITE_USER_CMDS
+#define PARASITE_CMD_GETFD PARASITE_USER_CMDS
 
 static void print_vmsg(unsigned int lvl, const char *fmt, va_list parms)
 {
@@ -21,7 +21,11 @@ static void print_vmsg(unsigned int lvl, const char *fmt, va_list parms)
 
 static int do_infection(int pid, int *stolen_fd)
 {
-#define err_and_ret(msg) do { fprintf(stderr, msg); return -1; } while (0)
+#define err_and_ret(msg)              \
+	do {                          \
+		fprintf(stderr, msg); \
+		return -1;            \
+	} while (0)
 
 	int state;
 	struct parasite_ctl *ctl;
@@ -135,14 +139,22 @@ int main(int argc, char **argv)
 	printf("Run the victim\n");
 	pid = vfork();
 	if (pid == 0) {
-		close(p_in[1]);  dup2(p_in[0], 0);  close(p_in[0]);
-		close(p_out[0]); dup2(p_out[1], 1); close(p_out[1]);
-		close(p_err[0]); dup2(p_err[1], 2); close(p_err[1]);
+		close(p_in[1]);
+		dup2(p_in[0], 0);
+		close(p_in[0]);
+		close(p_out[0]);
+		dup2(p_out[1], 1);
+		close(p_out[1]);
+		close(p_err[0]);
+		dup2(p_err[1], 2);
+		close(p_err[1]);
 		execl("./victim", "victim", NULL);
 		exit(1);
 	}
 
-	close(p_in[0]); close(p_out[1]); close(p_err[1]);
+	close(p_in[0]);
+	close(p_out[1]);
+	close(p_err[1]);
 
 	/*
 	 * Now do the infection with parasite.c

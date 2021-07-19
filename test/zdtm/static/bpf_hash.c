@@ -5,17 +5,14 @@
 #include "zdtmtst.h"
 #include "bpfmap_zdtm.h"
 
-const char *test_doc	= "Check that data and meta-data for BPF_MAP_TYPE_HASH"
-							"is correctly restored";
-const char *test_author	= "Abhishek Vijeev <abhishek.vijeev@gmail.com>";
+const char *test_doc = "Check that data and meta-data for BPF_MAP_TYPE_HASH"
+		       "is correctly restored";
+const char *test_author = "Abhishek Vijeev <abhishek.vijeev@gmail.com>";
 
 static int map_batch_update(int map_fd, uint32_t max_entries, int *keys, int *values)
 {
 	int ret;
-	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts,
-		.elem_flags = 0,
-		.flags = 0,
-	);
+	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts, .elem_flags = 0, .flags = 0, );
 
 	for (int i = 0; i < max_entries; i++) {
 		keys[i] = i + 1;
@@ -34,7 +31,6 @@ static int map_batch_verify(int *visited, uint32_t max_entries, int *keys, int *
 {
 	memset(visited, 0, max_entries * sizeof(*visited));
 	for (int i = 0; i < max_entries; i++) {
-
 		if (keys[i] + 1 != values[i]) {
 			pr_err("Key/value checking error: i=%d, key=%d, value=%d\n", i, keys[i], values[i]);
 			return -1;
@@ -71,17 +67,11 @@ int main(int argc, char **argv)
 		.max_entries = max_entries,
 		.map_flags = BPF_F_NO_PREALLOC | BPF_F_NUMA_NODE,
 	};
-	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts,
-		.elem_flags = 0,
-		.flags = 0,
-	);
+	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts, .elem_flags = 0, .flags = 0, );
 
-	keys = mmap(NULL, max_entries * sizeof(int),
-			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-	values = mmap(NULL, max_entries * sizeof(int),
-			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-	visited = mmap(NULL, max_entries * sizeof(int),
-			PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	keys = mmap(NULL, max_entries * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	values = mmap(NULL, max_entries * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+	visited = mmap(NULL, max_entries * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 
 	if ((keys == MAP_FAILED) || (values == MAP_FAILED) || (visited == MAP_FAILED)) {
 		pr_perror("Can't mmap()");

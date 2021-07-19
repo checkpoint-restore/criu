@@ -37,8 +37,7 @@ int cr_plugin_dump_file(int fd, int id)
 		return -1;
 	}
 
-	if (major(st.st_rdev) != major(st_rtc.st_rdev) ||
-	    minor(st.st_rdev) != 0)
+	if (major(st.st_rdev) != major(st_rtc.st_rdev) || minor(st.st_rdev) != 0)
 		return -ENOTSUP;
 
 	if (ioctl(fd, RTC_IRQP_READ, &irqp) == -1) {
@@ -61,7 +60,7 @@ int cr_plugin_dump_file(int fd, int id)
 
 	criu_rtc__pack(&e, buf);
 
-	ret = write(img_fd,  buf, len);
+	ret = write(img_fd, buf, len);
 	if (ret != len) {
 		pr_perror("Unable to write in %s", img_path);
 		close(img_fd);

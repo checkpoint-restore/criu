@@ -7,8 +7,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that we can migrate with a named pipe, "
-			"opened in WRONLY mode and then unlinked";
+const char *test_doc = "Check that we can migrate with a named pipe, "
+		       "opened in WRONLY mode and then unlinked";
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
@@ -26,8 +26,7 @@ int main(int argc, char **argv)
 
 	fd = open(filename, O_RDONLY | O_NONBLOCK);
 	if (fd < 0) {
-		pr_perror("open(%s, O_RDONLY | O_NONBLOCK) Failed",
-			filename);
+		pr_perror("open(%s, O_RDONLY | O_NONBLOCK) Failed", filename);
 		return 1;
 	}
 

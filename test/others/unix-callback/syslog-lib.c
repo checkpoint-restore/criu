@@ -21,7 +21,7 @@ int cr_plugin_dump_unix_sk(int sk, int id)
 	char buf[4096];
 	int fd;
 
-	if (getsockname(sk, (struct sockaddr *) &addr, &addr_len) < 0)
+	if (getsockname(sk, (struct sockaddr *)&addr, &addr_len) < 0)
 		return -1;
 
 	if (strncmp(addr.sun_path, "/dev/log", addr_len - sizeof(addr.sun_family)))
@@ -49,7 +49,7 @@ int cr_plugin_restore_unix_sk(int id)
 		return -ENOTSUP;
 	close(fd);
 
-	sk = socket(AF_FILE, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+	sk = socket(AF_FILE, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 	if (sk == -1)
 		return sk;
 
@@ -57,7 +57,7 @@ int cr_plugin_restore_unix_sk(int id)
 	addr_len = strlen("/dev/log");
 	strncpy(addr.sun_path, "/dev/log", addr_len);
 	addr_len += sizeof(addr.sun_family);
-	if (connect(sk, (struct sockaddr *) &addr, addr_len) == -1) {
+	if (connect(sk, (struct sockaddr *)&addr, addr_len) == -1) {
 		close(sk);
 		return -1;
 	}

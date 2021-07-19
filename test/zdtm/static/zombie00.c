@@ -8,8 +8,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "See if we can wait() for a zombified child after migration";
-const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
+const char *test_doc = "See if we can wait() for a zombified child after migration";
+const char *test_author = "Roman Kagan <rkagan@parallels.com>";
 
 struct zombie {
 	int pid;
@@ -17,9 +17,9 @@ struct zombie {
 	int exitcode;
 };
 
-#define NR_ZOMBIES	4
+#define NR_ZOMBIES 4
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int i, status;
 	struct zombie zombie[NR_ZOMBIES];
@@ -56,8 +56,7 @@ int main(int argc, char ** argv)
 			_exit(13); /* just in case */
 		}
 
-		test_msg("kid %d will %d/%d\n", zombie[i].pid,
-				zombie[i].exited, zombie[i].exitcode);
+		test_msg("kid %d will %d/%d\n", zombie[i].pid, zombie[i].exited, zombie[i].exitcode);
 	}
 
 	/*

@@ -4,11 +4,11 @@
 #include "get_smaps_bits.h"
 
 #ifndef MADV_DONTDUMP
-#define MADV_DONTDUMP   16
+#define MADV_DONTDUMP 16
 #endif
 
-const char *test_doc	= "Test prctl(THP_DISABLE) behaviour";
-const char *test_author	= "Mike Rapoport <rppt@linux.ibm.com>";
+const char *test_doc = "Test prctl(THP_DISABLE) behaviour";
+const char *test_author = "Mike Rapoport <rppt@linux.ibm.com>";
 
 #define MEM_SIZE (2 << 20)
 
@@ -20,8 +20,7 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	area = mmap(NULL, MEM_SIZE, PROT_READ | PROT_WRITE,
-		    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	area = mmap(NULL, MEM_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (area == MAP_FAILED) {
 		pr_perror("mmap failed");
 		return -1;

@@ -30,14 +30,16 @@
  */
 
 struct fifo_info {
-	struct list_head	list;
-	struct file_desc	d;
-	FifoEntry		*fe;
-	bool			restore_data;
+	struct list_head list;
+	struct file_desc d;
+	FifoEntry *fe;
+	bool restore_data;
 };
 
 static LIST_HEAD(fifo_head);
-static struct pipe_data_dump pd_fifo = { .img_type = CR_FD_FIFO_DATA, };
+static struct pipe_data_dump pd_fifo = {
+	.img_type = CR_FD_FIFO_DATA,
+};
 
 static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 {
@@ -56,13 +58,12 @@ static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 	if (dump_one_reg_file(lfd, rf_id, p))
 		return -1;
 
-	pr_info("Dumping fifo %d with id %#x pipe_id %#x\n",
-			lfd, id, pipe_id(p));
+	pr_info("Dumping fifo %d with id %#x pipe_id %#x\n", lfd, id, pipe_id(p));
 
-	e.id		= id;
-	e.pipe_id	= pipe_id(p);
-	e.has_regf_id	= true;
-	e.regf_id	= rf_id;
+	e.id = id;
+	e.pipe_id = pipe_id(p);
+	e.has_regf_id = true;
+	e.regf_id = rf_id;
 
 	fe.type = FD_TYPES__FIFO;
 	fe.id = e.id;
@@ -75,8 +76,8 @@ static int dump_one_fifo(int lfd, u32 id, const struct fd_parms *p)
 }
 
 const struct fdtype_ops fifo_dump_ops = {
-	.type		= FD_TYPES__FIFO,
-	.dump		= dump_one_fifo,
+	.type = FD_TYPES__FIFO,
+	.dump = dump_one_fifo,
 };
 
 static struct pipe_data_rst *pd_hash_fifo[PIPE_DATA_HASH_SIZE];
@@ -105,8 +106,7 @@ static int do_open_fifo(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 	}
 
 	if (info->restore_data)
-		if (restore_pipe_data(CR_FD_FIFO_DATA, fake_fifo,
-					info->fe->pipe_id, pd_hash_fifo)) {
+		if (restore_pipe_data(CR_FD_FIFO_DATA, fake_fifo, info->fe->pipe_id, pd_hash_fifo)) {
 			close(new_fifo);
 			new_fifo = -1;
 		}
@@ -122,8 +122,7 @@ static int open_fifo_fd(struct file_desc *d, int *new_fd)
 	struct file_desc *reg_d;
 	int fd;
 
-	reg_d = collect_special_file(info->fe->has_regf_id ?
-			info->fe->regf_id : info->fe->id);
+	reg_d = collect_special_file(info->fe->has_regf_id ? info->fe->regf_id : info->fe->id);
 	if (!reg_d)
 		return -1;
 
@@ -135,8 +134,8 @@ static int open_fifo_fd(struct file_desc *d, int *new_fd)
 }
 
 static struct file_desc_ops fifo_desc_ops = {
-	.type		= FD_TYPES__FIFO,
-	.open		= open_fifo_fd,
+	.type = FD_TYPES__FIFO,
+	.open = open_fifo_fd,
 };
 
 static int collect_one_fifo(void *o, ProtobufCMessage *base, struct cr_img *i)
@@ -144,8 +143,7 @@ static int collect_one_fifo(void *o, ProtobufCMessage *base, struct cr_img *i)
 	struct fifo_info *info = o, *f;
 
 	info->fe = pb_msg(base, FifoEntry);
-	pr_info("Collected fifo entry ID %#x PIPE ID %#x\n",
-			info->fe->id, info->fe->pipe_id);
+	pr_info("Collected fifo entry ID %#x PIPE ID %#x\n", info->fe->id, info->fe->pipe_id);
 
 	/* check who will restore the fifo data */
 	list_for_each_entry(f, &fifo_head, list)
@@ -161,7 +159,6 @@ static int collect_one_fifo(void *o, ProtobufCMessage *base, struct cr_img *i)
 	}
 
 	return file_desc_add(&info->d, info->fe->id, &fifo_desc_ops);
-
 }
 
 struct collect_image_info fifo_cinfo = {

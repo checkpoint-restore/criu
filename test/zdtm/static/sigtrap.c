@@ -18,10 +18,12 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that a pending SIGTRAP handled correctly";
-const char *test_author	= "Andrei Vagin <avagin@gmail.com>";
+const char *test_doc = "Check that a pending SIGTRAP handled correctly";
+const char *test_author = "Andrei Vagin <avagin@gmail.com>";
 
-static void sigh(int signo) {}
+static void sigh(int signo)
+{
+}
 
 int main(int argc, char *argv[])
 {

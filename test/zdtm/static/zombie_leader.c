@@ -7,8 +7,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check non-empty session with zombie leader";
-const char *test_author	= "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
+const char *test_doc = "Check non-empty session with zombie leader";
+const char *test_author = "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
 
 int child(void)
 {
@@ -44,8 +44,7 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	cpid = (int *)mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE,
-			   MAP_ANONYMOUS | MAP_SHARED, -1, 0);
+	cpid = (int *)mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 	*cpid = 0;
 
 	pid = fork();

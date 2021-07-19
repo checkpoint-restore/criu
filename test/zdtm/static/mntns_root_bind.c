@@ -14,15 +14,14 @@
 #include "zdtmtst.h"
 
 #ifndef CLONE_NEWNS
-#define CLONE_NEWNS     0x00020000
+#define CLONE_NEWNS 0x00020000
 #endif
 
-const char *test_doc	= "Check bind-mouns of the root mount";
-const char *test_author	= "Andrew Vagin <avagin@parallels.com>";
+const char *test_doc = "Check bind-mouns of the root mount";
+const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
-
 
 int main(int argc, char **argv)
 {
@@ -47,13 +46,8 @@ int main(int argc, char **argv)
 	ssprintf(subdir2, "%s/subdir2", dirname);
 	ssprintf(bsubdir2, "%s/bsubdir2", dirname);
 
-	if (mkdir(dirname, 0700) ||
-	    mkdir(subdir1, 0777) ||
-	    mkdir(subdir2, 0777) ||
-	    mkdir(bsubdir2, 0777) ||
-	    mkdir(path, 0700) ||
-	    mkdir(spath, 0700) ||
-	    mkdir(bpath, 0700)) {
+	if (mkdir(dirname, 0700) || mkdir(subdir1, 0777) || mkdir(subdir2, 0777) || mkdir(bsubdir2, 0777) ||
+	    mkdir(path, 0700) || mkdir(spath, 0700) || mkdir(bpath, 0700)) {
 		pr_perror("mkdir");
 		return 1;
 	}
@@ -80,7 +74,6 @@ int main(int argc, char **argv)
 			fail("%s isn't accessiable", bspath);
 			return 1;
 		}
-
 
 		if (umount2(bpath, MNT_DETACH)) {
 			fail("umount");

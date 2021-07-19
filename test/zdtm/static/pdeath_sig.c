@@ -8,8 +8,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that pdeath sig is preserved";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that pdeath sig is preserved";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 static int sigrecvd = 0;
 static void sigh(int s, siginfo_t *i, void *d)

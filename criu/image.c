@@ -274,8 +274,7 @@ void close_cr_imgset(struct cr_imgset **cr_imgset)
 	*cr_imgset = NULL;
 }
 
-struct cr_imgset *cr_imgset_open_range(int pid, int from, int to,
-			       unsigned long flags)
+struct cr_imgset *cr_imgset_open_range(int pid, int from, int to, unsigned long flags)
 {
 	struct cr_imgset *imgset;
 	unsigned int i;
@@ -403,10 +402,10 @@ static int img_write_magic(struct cr_img *img, int oflags, int type)
 }
 
 struct openat_args {
-	char	path[PATH_MAX];
-	int	flags;
-	int	err;
-	int	mode;
+	char path[PATH_MAX];
+	int flags;
+	int err;
+	int mode;
 };
 
 static int userns_openat(void *arg, int dfd, int pid)
@@ -430,8 +429,7 @@ static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long of
 	if (opts.stream && !(oflags & O_FORCE_LOCAL)) {
 		ret = img_streamer_open(path, flags);
 		errno = EIO; /* errno value is meaningless, only the ret value is meaningful */
-	} else if (root_ns_mask & CLONE_NEWUSER &&
-		   type == CR_FD_PAGES && oflags & O_RDWR) {
+	} else if (root_ns_mask & CLONE_NEWUSER && type == CR_FD_PAGES && oflags & O_RDWR) {
 		/*
 		 * For pages images dedup we need to open images read-write on
 		 * restore, that may require proper capabilities, so we ask
@@ -574,7 +572,7 @@ int open_image_dir(char *dir, int mode)
 
 		if (opts.img_parent[0] == '/')
 			pr_warn("Absolute paths for parent links "
-					"may not work on restore!\n");
+				"may not work on restore!\n");
 	}
 
 	return 0;

@@ -7,8 +7,8 @@
 #include "zdtmtst.h"
 #include "lock.h"
 
-const char *test_doc	= "Check that property is restored for existing children";
-const char *test_author	= "Michał Cłapiński <mclapinski@google.com>";
+const char *test_doc = "Check that property is restored for existing children";
+const char *test_author = "Michał Cłapiński <mclapinski@google.com>";
 
 enum {
 	TEST_FORK,
@@ -21,8 +21,7 @@ enum {
 struct shared {
 	futex_t fstate;
 	int ppid_after_reparent;
-} *sh;
-
+} * sh;
 
 int orphan(void)
 {

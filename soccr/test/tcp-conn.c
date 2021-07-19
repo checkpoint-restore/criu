@@ -1,5 +1,5 @@
 #include <sys/socket.h>
-#include <arpa/inet.h>  /* for srvaddr_in and inet_ntoa() */
+#include <arpa/inet.h> /* for srvaddr_in and inet_ntoa() */
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -35,7 +35,7 @@ int main(void)
 
 	libsoccr_set_log(10, pr_printf);
 
-	memset(&addr,0,sizeof(addr));
+	memset(&addr, 0, sizeof(addr));
 
 #ifndef TEST_IPV6
 	addr.v4.sin_family = AF_INET;
@@ -56,11 +56,11 @@ int main(void)
 	}
 
 #ifndef TEST_IPV6
-		addr.v4.sin_port = htons(8765);
+	addr.v4.sin_port = htons(8765);
 #else
-		addr.v6.sin6_port = htons(8765);
+	addr.v6.sin6_port = htons(8765);
 #endif
-	ret = bind(srv, (struct sockaddr *) &addr, sizeof(addr));
+	ret = bind(srv, (struct sockaddr *)&addr, sizeof(addr));
 	if (ret == -1) {
 		pr_perror("bind() failed");
 		return -1;
@@ -81,13 +81,13 @@ int main(void)
 		return -1;
 	}
 
-	if (connect(clnt, (struct sockaddr *) &addr, sizeof(addr))) {
+	if (connect(clnt, (struct sockaddr *)&addr, sizeof(addr))) {
 		pr_perror("connect");
 		return 1;
 	}
 
 	dst_let = sizeof(dst);
-	sock = accept(srv, (struct sockaddr *) &dst, &dst_let);
+	sock = accept(srv, (struct sockaddr *)&dst, &dst_let);
 	if (sock < 0) {
 		pr_perror("accept");
 		return 1;
@@ -100,16 +100,15 @@ int main(void)
 
 	/* Start testing */
 	dst_let = sizeof(addr);
-	if (getsockname(sock, (struct sockaddr *) &addr, &dst_let)) {
+	if (getsockname(sock, (struct sockaddr *)&addr, &dst_let)) {
 		pr_perror("getsockname");
 		return 1;
 	}
 	dst_let = sizeof(addr);
-	if (getpeername(sock, (struct sockaddr *) &dst, &dst_let)) {
+	if (getpeername(sock, (struct sockaddr *)&dst, &dst_let)) {
 		pr_perror("getpeername");
 		return 1;
 	}
-
 
 	so = libsoccr_pause(sock);
 

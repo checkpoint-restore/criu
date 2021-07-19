@@ -14,8 +14,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc="Tests ipc sems and shmems migrate fine";
-const char *test_author="Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Tests ipc sems and shmems migrate fine";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 static struct sembuf unlock = {
 	.sem_op = 1,
@@ -29,13 +29,13 @@ static struct sembuf lock = {
 	.sem_flg = 0,
 };
 
-#define DEF_MEM_SIZE	(40960)
+#define DEF_MEM_SIZE (40960)
 unsigned int shmem_size = DEF_MEM_SIZE;
 TEST_OPTION(shmem_size, uint, "Size of shared memory segment", 0);
 
-#define INIT_CRC	(~0)
+#define INIT_CRC (~0)
 
-#define POISON		0xac
+#define POISON 0xac
 static inline void poison_area(int *mem)
 {
 	memset(mem, POISON, shmem_size);
@@ -68,7 +68,8 @@ static int child(key_t key)
 		}
 		crc = INIT_CRC;
 		datagen(mem, shmem_size, &crc);
-		while ((ret = semop(sem, &unlock, 1)) && (errno == EINTR));
+		while ((ret = semop(sem, &unlock, 1)) && (errno == EINTR))
+			;
 		if (ret) {
 			fail("Error in semop unlock");
 			res = errno;
@@ -97,7 +98,7 @@ int main(int argc, char **argv)
 	}
 
 	sem = semget(key, 1, 0777 | IPC_CREAT | IPC_EXCL);
-	if (sem  == -1) {
+	if (sem == -1) {
 		pr_perror("Can't get sem");
 		goto out;
 	}
@@ -154,13 +155,14 @@ int main(int argc, char **argv)
 			if (datachk(mem, shmem_size, &crc)) {
 				fail_count++;
 				fail("Semaphore protection is broken or "
-						"shmem pages are messed");
+				     "shmem pages are messed");
 				semop(sem, &unlock, 1);
 				break;
 			}
 			poison_area((int *)mem);
 		}
-		while ((ret = semop(sem, &unlock, 1)) && (errno == EINTR));
+		while ((ret = semop(sem, &unlock, 1)) && (errno == EINTR))
+			;
 		if (ret) {
 			fail_count++;
 			fail("Error in semop unlock");

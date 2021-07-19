@@ -11,16 +11,16 @@
 #include "zdtmtst.h"
 
 const char *test_doc = "Checkpointing/restore of unlinked file inside unlinked directory";
-const char *test_author	= "Kirill Tkhai <ktkhai@virtuozzo.com>";
+const char *test_author = "Kirill Tkhai <ktkhai@virtuozzo.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 
 #define SUBDIR "subdir"
-#define FNAME "testfile"
-#define MSG "Hello!!!111"
+#define FNAME  "testfile"
+#define MSG    "Hello!!!111"
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	char subdir[PATH_MAX], fname[PATH_MAX], lname[PATH_MAX];
 	char buf[sizeof(MSG) + 1];
@@ -88,8 +88,7 @@ int main(int argc, char ** argv)
 	}
 
 	if (strcmp(buf, MSG)) {
-		fail("content differs: %s, %s, sizeof=%zu",
-				buf, MSG, sizeof(MSG));
+		fail("content differs: %s, %s, sizeof=%zu", buf, MSG, sizeof(MSG));
 		goto close_file;
 	}
 

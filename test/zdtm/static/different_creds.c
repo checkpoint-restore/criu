@@ -11,51 +11,51 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that threads with different creds aren't checkpointed";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "Check that threads with different creds aren't checkpointed";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 void *drop_caps_and_wait(void *arg)
 {
-	int fd = *((int *) arg), i;
+	int fd = *((int *)arg), i;
 	void *retcode = (void *)0xdeadbeaf;
 	cap_t caps;
 	char c;
 
 	typedef struct cap_set {
-		cap_flag_value_t	val;
-		cap_flag_value_t	new;
-		cap_flag_t		flag;
-		cap_value_t		bit;
+		cap_flag_value_t val;
+		cap_flag_value_t new;
+		cap_flag_t flag;
+		cap_value_t bit;
 	} cap_set_t;
 
 	cap_set_t src[] = {
 		{
-			.val	= CAP_CLEAR,
-			.flag	= CAP_EFFECTIVE,
-			.bit	= CAP_CHOWN,
+			.val = CAP_CLEAR,
+			.flag = CAP_EFFECTIVE,
+			.bit = CAP_CHOWN,
 		},
 		{
-			.val	= CAP_SET,
-			.flag	= CAP_EFFECTIVE,
-			.bit	= CAP_DAC_OVERRIDE,
+			.val = CAP_SET,
+			.flag = CAP_EFFECTIVE,
+			.bit = CAP_DAC_OVERRIDE,
 		},
 		{
-			.val	= CAP_CLEAR,
-			.flag	= CAP_INHERITABLE,
-			.bit	= CAP_SETPCAP,
+			.val = CAP_CLEAR,
+			.flag = CAP_INHERITABLE,
+			.bit = CAP_SETPCAP,
 		},
 		{
-			.val	= CAP_SET,
-			.flag	= CAP_INHERITABLE,
-			.bit	= CAP_NET_BIND_SERVICE,
+			.val = CAP_SET,
+			.flag = CAP_INHERITABLE,
+			.bit = CAP_NET_BIND_SERVICE,
 		},
 	};
 
-        caps = cap_get_proc();
-        if (!caps) {
-                pr_perror("cap_get_proc");
-                return NULL;
-        }
+	caps = cap_get_proc();
+	if (!caps) {
+		pr_perror("cap_get_proc");
+		return NULL;
+	}
 
 	for (i = 0; i < ARRAY_SIZE(src); i++) {
 		if (cap_set_flag(caps, src[i].flag, 1, &src[i].bit, src[i].val) < 0) {
@@ -64,10 +64,10 @@ void *drop_caps_and_wait(void *arg)
 		}
 	}
 
-        if (cap_set_proc(caps) < 0) {
-                pr_perror("cap_set_proc");
-                goto die;
-        }
+	if (cap_set_proc(caps) < 0) {
+		pr_perror("cap_set_proc");
+		goto die;
+	}
 
 	if (write(fd, "a", 1) != 1) {
 		pr_perror("Unable to send a status");
@@ -93,11 +93,11 @@ void *drop_caps_and_wait(void *arg)
 
 	retcode = NULL;
 die:
-        cap_free(caps);
+	cap_free(caps);
 	return retcode;
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int pipefd[2];
 	pthread_t thr;

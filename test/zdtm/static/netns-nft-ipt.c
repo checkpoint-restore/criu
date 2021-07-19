@@ -5,8 +5,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that both nftables & iptables rules (some) are C/R properly";
-const char *test_author	= "Alexander Mikhalitsyn <alexander@mihalicyn.com>";
+const char *test_doc = "Check that both nftables & iptables rules (some) are C/R properly";
+const char *test_author = "Alexander Mikhalitsyn <alexander@mihalicyn.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);

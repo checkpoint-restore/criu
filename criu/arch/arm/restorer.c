@@ -41,8 +41,7 @@ int restore_nonsigframe_gpregs(UserArmRegsEntry *r)
  * allocated with shmat(shmid, NULL, shmflg).
  */
 #define SHMLBA (4UL * PAGE_SIZE)
-unsigned long arch_shmat(int shmid, void *shmaddr,
-			int shmflg, unsigned long size)
+unsigned long arch_shmat(int shmid, void *shmaddr, int shmflg, unsigned long size)
 {
 	unsigned long smap;
 
@@ -65,8 +64,7 @@ unsigned long arch_shmat(int shmid, void *shmaddr,
 	pr_warn("Make sure that you don't migrate shmem from non-VIPT cached CPU to VIPT cached (e.g., ARMv7 -> ARMv6)\n");
 	pr_warn("Otherwise YOU HAVE A CHANCE OF DATA CORRUPTIONS in writeable shmem\n");
 
-	smap = sys_mremap(smap, size, size,
-			MREMAP_FIXED | MREMAP_MAYMOVE, (unsigned long)shmaddr);
+	smap = sys_mremap(smap, size, size, MREMAP_FIXED | MREMAP_MAYMOVE, (unsigned long)shmaddr);
 	if (IS_ERR_VALUE(smap))
 		pr_err("mremap() for shmem failed: %d\n", (int)smap);
 	return smap;

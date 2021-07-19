@@ -28,7 +28,7 @@ static int open_imgdir(void)
 	criu_set_images_dir_fd(cur_imgdir);
 }
 
-#define MAX_ITERS	2
+#define MAX_ITERS 2
 
 static int next_iter(criu_predump_info pi)
 {
@@ -46,7 +46,7 @@ static int next_iter(criu_predump_info pi)
 	return cur_iter < MAX_ITERS;
 }
 
-#define SUCC_ECODE	42
+#define SUCC_ECODE 42
 
 int main(int argc, char **argv)
 {

@@ -9,7 +9,7 @@
 
 #include "log.h"
 
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "cpu: "
 
 static compel_cpuinfo_t rt_info;
@@ -23,10 +23,20 @@ static void fetch_rt_cpuinfo(void)
 	}
 }
 
-void compel_set_cpu_cap(compel_cpuinfo_t *c, unsigned int feature) { }
-void compel_clear_cpu_cap(compel_cpuinfo_t *c, unsigned int feature) { }
-int compel_test_fpu_cap(compel_cpuinfo_t *info, unsigned int feature) { return 0; }
-int compel_test_cpu_cap(compel_cpuinfo_t *c, unsigned int feature) { return 0; }
+void compel_set_cpu_cap(compel_cpuinfo_t *c, unsigned int feature)
+{
+}
+void compel_clear_cpu_cap(compel_cpuinfo_t *c, unsigned int feature)
+{
+}
+int compel_test_fpu_cap(compel_cpuinfo_t *info, unsigned int feature)
+{
+	return 0;
+}
+int compel_test_cpu_cap(compel_cpuinfo_t *c, unsigned int feature)
+{
+	return 0;
+}
 
 int compel_cpuid(compel_cpuinfo_t *info)
 {

@@ -12,8 +12,8 @@
 #include <net/if.h>
 #include "zdtmtst.h"
 
-const char *test_doc	= "check that empty bridges are c/r'd correctly";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "check that empty bridges are c/r'd correctly";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 #define BRIDGE_NAME "zdtmbr0"
 
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
 	}
 	addr.sin6_scope_id = if_nametoindex(BRIDGE_NAME);
 
-	if (bind(sk, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+	if (bind(sk, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 		fail("can't bind");
 		goto out;
 	}

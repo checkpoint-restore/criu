@@ -23,7 +23,7 @@ static int do_bind(int sk)
 	addr.sa_family = AF_PACKET;
 	strcpy(addr.sa_data, "lo");
 
-	return bind(sk, (struct sockaddr *) &addr, sizeof(addr));
+	return bind(sk, (struct sockaddr *)&addr, sizeof(addr));
 }
 
 static int check_socket_binding(int sk, char *dev)
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
 
 	sk1 = socket(AF_PACKET, SOCK_PACKET, htons(ETH_P_ALL));
 
-	if (sk1  < 0) {
+	if (sk1 < 0) {
 		pr_perror("Can't create socket 1");
 		return 1;
 	}

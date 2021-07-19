@@ -10,12 +10,11 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check nested time namespaces";
-const char *test_author	= "Andrei Vagin <avagin@gmail.com";
-
+const char *test_doc = "Check nested time namespaces";
+const char *test_author = "Andrei Vagin <avagin@gmail.com";
 
 #ifndef CLONE_NEWTIME
-#define CLONE_NEWTIME   0x00000080
+#define CLONE_NEWTIME 0x00000080
 #endif
 
 int main(int argc, char **argv)

@@ -5,9 +5,9 @@
 #include "common/lock.h"
 #include "common/page.h"
 
-#define pr_err(fmt, ...)	print_on_level(1, fmt, ##__VA_ARGS__)
-#define pr_info(fmt, ...)	print_on_level(3, fmt, ##__VA_ARGS__)
-#define pr_debug(fmt, ...)	print_on_level(4, fmt, ##__VA_ARGS__)
+#define pr_err(fmt, ...)   print_on_level(1, fmt, ##__VA_ARGS__)
+#define pr_info(fmt, ...)  print_on_level(3, fmt, ##__VA_ARGS__)
+#define pr_debug(fmt, ...) print_on_level(4, fmt, ##__VA_ARGS__)
 
 #include "common/bug.h"
 
@@ -51,8 +51,7 @@ static int __parasite_daemon_reply_ack(unsigned int cmd, int err)
 		return -1;
 	}
 
-	pr_debug("__sent ack msg: %d %d %d\n",
-		 m.cmd, m.ack, m.err);
+	pr_debug("__sent ack msg: %d %d %d\n", m.cmd, m.ack, m.err);
 
 	return 0;
 }
@@ -64,16 +63,14 @@ static int __parasite_daemon_wait_msg(struct ctl_msg *m)
 	pr_debug("Daemon waits for command\n");
 
 	while (1) {
-		*m = (struct ctl_msg){ };
+		*m = (struct ctl_msg){};
 		ret = sys_recvfrom(tsock, m, sizeof(*m), MSG_WAITALL, NULL, 0);
 		if (ret != sizeof(*m)) {
-			pr_err("Trimmed message received (%d/%d)\n",
-			       (int)sizeof(*m), ret);
+			pr_err("Trimmed message received (%d/%d)\n", (int)sizeof(*m), ret);
 			return -1;
 		}
 
-		pr_debug("__fetched msg: %d %d %d\n",
-			 m->cmd, m->ack, m->err);
+		pr_debug("__fetched msg: %d %d %d\n", m->cmd, m->ack, m->err);
 		return 0;
 	}
 
@@ -94,8 +91,7 @@ static int fini(void)
 	parasite_cleanup();
 
 	new_sp = (long)sigframe + RT_SIGFRAME_OFFSET(sigframe);
-	pr_debug("%ld: new_sp=%lx ip %lx\n", sys_gettid(),
-		  new_sp, RT_SIGFRAME_REGIP(sigframe));
+	pr_debug("%ld: new_sp=%lx ip %lx\n", sys_gettid(), new_sp, RT_SIGFRAME_REGIP(sigframe));
 
 	sys_close(tsock);
 	std_log_set_fd(-1);
@@ -155,7 +151,7 @@ static noinline __used int parasite_init_daemon(void *data)
 	int ret;
 
 	args->sigreturn_addr = (uint64_t)(uintptr_t)fini_sigreturn;
-	sigframe = (void*)(uintptr_t)args->sigframe;
+	sigframe = (void *)(uintptr_t)args->sigframe;
 #ifdef ARCH_HAS_LONG_PAGES
 	__page_size = args->page_size;
 #endif
@@ -193,7 +189,7 @@ err:
 }
 
 #ifndef __parasite_entry
-# define __parasite_entry
+#define __parasite_entry
 #endif
 
 /*
@@ -205,7 +201,7 @@ err:
  * initialization. Otherwise, we end up with COMMON symbols.
  */
 unsigned int __export_parasite_service_cmd = 0;
-void * __export_parasite_service_args_ptr = NULL;
+void *__export_parasite_service_args_ptr = NULL;
 
 int __used __parasite_entry parasite_service(void)
 {

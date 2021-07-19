@@ -1,4 +1,4 @@
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "cpu: "
 
 #include <errno.h>

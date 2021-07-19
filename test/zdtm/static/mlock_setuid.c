@@ -15,15 +15,13 @@ int main(int argc, char **argv)
 	test_init(argc, argv);
 
 	test_msg("Alloc vma of size %d\n", MEM_SIZE);
-	start = mmap(NULL, MEM_SIZE, PROT_READ | PROT_WRITE,
-	             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	start = mmap(NULL, MEM_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (start == MAP_FAILED) {
 		pr_perror("mmap failed");
 		return -1;
 	}
 
-	test_msg("Lock vma from %p to %lx\n",
-			start, (unsigned long)start + MEM_SIZE);
+	test_msg("Lock vma from %p to %lx\n", start, (unsigned long)start + MEM_SIZE);
 	ret = mlock(start, MEM_SIZE);
 	if (ret < 0) {
 		pr_perror("mlock");

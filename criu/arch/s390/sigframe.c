@@ -13,8 +13,7 @@
  * - sigframe : Pointer to local signal frame
  * - rsigframe: Pointer to remote signal frame of inferior
  */
-int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe,
-			     struct rt_sigframe *rsigframe)
+int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe, struct rt_sigframe *rsigframe)
 {
 	return 0;
 }

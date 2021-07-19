@@ -19,10 +19,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check for epoll";
-const char *test_author	= "Andrei Vagin <avagin@openvz.org>";
+const char *test_doc = "Check for epoll";
+const char *test_author = "Andrei Vagin <avagin@openvz.org>";
 
-#define DUPFDNO		999
+#define DUPFDNO 999
 
 int main(int argc, char *argv[])
 {
@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 	int i, ret;
 
 	struct {
-		int	pipefd[2];
+		int pipefd[2];
 	} pipes[250];
 
 	test_init(argc, argv);
@@ -108,8 +108,7 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 		if (ev.data.u64 != i) {
-			pr_err("ev.fd=%d ev.data.u64=%#llx (%d expected)\n",
-			       ev.data.fd, (long long)ev.data.u64, i);
+			pr_err("ev.fd=%d ev.data.u64=%#llx (%d expected)\n", ev.data.fd, (long long)ev.data.u64, i);
 			ret |= 1;
 		}
 
@@ -118,8 +117,7 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 		if (ev.data.u64 != i) {
-			pr_err("ev.fd=%d ev.data.u64=%#llx (%d expected)\n",
-			       ev.data.fd, (long long)ev.data.u64, i);
+			pr_err("ev.fd=%d ev.data.u64=%#llx (%d expected)\n", ev.data.fd, (long long)ev.data.u64, i);
 			ret |= 1;
 		}
 

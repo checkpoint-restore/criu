@@ -10,40 +10,40 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test ghost with one hole in the middle";
+const char *test_doc = "Test ghost with one hole in the middle";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
 /* Buffer that is suitable for hole size */
-#define BUFSIZE	4096
+#define BUFSIZE 4096
 static unsigned char buf4k[BUFSIZE];
 
 #ifndef SEEK_DATA
-#define SEEK_DATA	3
-#define SEEK_HOLE	4
+#define SEEK_DATA 3
+#define SEEK_HOLE 4
 #endif
 
 #ifdef HEAD_HOLE
-#define HH	1
+#define HH 1
 #else
-#define HH	0
+#define HH 0
 #endif
 
 #ifdef TAIL_HOLE
-#define TH	1
+#define TH 1
 #else
-#define TH	0
+#define TH 0
 #endif
 
-#define DATA1_BLK	(HH)
-#define DATA1_OFF	(DATA1_BLK * BUFSIZE)
-#define DATA2_BLK	(HH + 2)
-#define DATA2_OFF	(DATA2_BLK * BUFSIZE)
-#define FILE_BLOCKS	(TH + HH + 1 /* mid hole */ + 2 /* data */)
-#define FILE_SIZE	(FILE_BLOCKS * BUFSIZE)
+#define DATA1_BLK   (HH)
+#define DATA1_OFF   (DATA1_BLK * BUFSIZE)
+#define DATA2_BLK   (HH + 2)
+#define DATA2_OFF   (DATA2_BLK * BUFSIZE)
+#define FILE_BLOCKS (TH + HH + 1 /* mid hole */ + 2 /* data */)
+#define FILE_SIZE   (FILE_BLOCKS * BUFSIZE)
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fd;
 	struct stat st;

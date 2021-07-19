@@ -10,12 +10,11 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check two mounts in the same directory";
-const char *test_author	= "Andrew Vagin <avagin@parallels.com>";
+const char *test_doc = "Check two mounts in the same directory";
+const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
-
 
 int main(int argc, char **argv)
 {
@@ -27,17 +26,13 @@ int main(int argc, char **argv)
 	snprintf(d1, sizeof(d1), "%s/1/", dirname);
 	snprintf(d2, sizeof(d2), "%s/2/", dirname);
 
-	if (mkdir(dirname, 0700) ||
-	    mkdir(d1, 0777) ||
-	    mkdir(d2, 0700)) {
+	if (mkdir(dirname, 0700) || mkdir(d1, 0777) || mkdir(d2, 0700)) {
 		pr_perror("mkdir");
 		return 1;
 	}
 
-	if (mount("zdtm_d1", d1, "sysfs", 0, NULL) ||
-	    mount(NULL, d1, NULL, MS_SHARED, NULL) ||
-            mount(d1, d2, NULL, MS_BIND, NULL) ||
-            mount(NULL, d2, NULL, MS_SLAVE, NULL)) {
+	if (mount("zdtm_d1", d1, "sysfs", 0, NULL) || mount(NULL, d1, NULL, MS_SHARED, NULL) ||
+	    mount(d1, d2, NULL, MS_BIND, NULL) || mount(NULL, d2, NULL, MS_SLAVE, NULL)) {
 		pr_perror("mount");
 		return 1;
 	}

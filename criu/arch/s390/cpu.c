@@ -1,4 +1,4 @@
-#undef	LOG_PREFIX
+#undef LOG_PREFIX
 #define LOG_PREFIX "cpu: "
 
 #include <sys/auxv.h>
@@ -18,22 +18,11 @@
 static compel_cpuinfo_t rt_cpuinfo;
 
 static const char *hwcap_str1[64] = {
-	"HWCAP_S390_ESAN3",
-	"HWCAP_S390_ZARCH",
-	"HWCAP_S390_STFLE",
-	"HWCAP_S390_MSA",
-	"HWCAP_S390_LDISP",
-	"HWCAP_S390_EIMM",
-	"HWCAP_S390_DFP",
-	"HWCAP_S390_HPAGE",
-	"HWCAP_S390_ETF3EH",
-	"HWCAP_S390_HIGH_GPRS",
-	"HWCAP_S390_TE",
-	"HWCAP_S390_VXRS",
-	"HWCAP_S390_VXRS_BCD",
-	"HWCAP_S390_VXRS_EXT",
+	"HWCAP_S390_ESAN3", "HWCAP_S390_ZARCH", "HWCAP_S390_STFLE",    "HWCAP_S390_MSA",      "HWCAP_S390_LDISP",
+	"HWCAP_S390_EIMM",  "HWCAP_S390_DFP",	"HWCAP_S390_HPAGE",    "HWCAP_S390_ETF3EH",   "HWCAP_S390_HIGH_GPRS",
+	"HWCAP_S390_TE",    "HWCAP_S390_VXRS",	"HWCAP_S390_VXRS_BCD", "HWCAP_S390_VXRS_EXT",
 };
-static const char *hwcap_str2[64] = { };
+static const char *hwcap_str2[64] = {};
 
 static const char **hwcap_str[2] = { hwcap_str1, hwcap_str2 };
 
@@ -73,7 +62,7 @@ int cpu_dump_cpuinfo(void)
 
 	img = open_image(CR_FD_CPUINFO, O_DUMP);
 	if (!img)
-	return -1;
+		return -1;
 
 	cpu_info.s390_entry = &cpu_s390_info_ptr;
 	cpu_info.n_s390_entry = 1;
@@ -124,11 +113,9 @@ int cpu_validate_cpuinfo(void)
 			if (rt_cpuinfo.hwcap[nr] & (1 << cap))
 				continue;
 			if (hwcap_str[nr][cap])
-				pr_err("CPU Feature %s not supported on host\n",
-				       hwcap_str[nr][cap]);
+				pr_err("CPU Feature %s not supported on host\n", hwcap_str[nr][cap]);
 			else
-				pr_err("CPU Feature %d/%x not supported on host\n",
-				       nr, 1 << cap);
+				pr_err("CPU Feature %d/%x not supported on host\n", nr, 1 << cap);
 			ret = -1;
 		}
 	}

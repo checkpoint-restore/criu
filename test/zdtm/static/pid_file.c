@@ -7,8 +7,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc 	= "Check that environment didn't change";
-const char *test_author	= "Andrei Vagin <avagin@gmail.com>";
+const char *test_doc = "Check that environment didn't change";
+const char *test_author = "Andrei Vagin <avagin@gmail.com>";
 
 int main(int argc, char **argv)
 {

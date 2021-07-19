@@ -9,10 +9,10 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
-const char *test_doc	= "Check a non-controling terminal";
-const char *test_author	= "Andrey Vagin <avagin@openvz.org>";
+const char *test_doc = "Check a non-controling terminal";
+const char *test_author = "Andrey Vagin <avagin@openvz.org>";
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fdm, fds;
 	char *slavename;

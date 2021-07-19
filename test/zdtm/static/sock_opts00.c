@@ -6,15 +6,15 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check various socket options to work";
-const char *test_author	= "Pavel Emelyanov <xemul@parallels.com>";
+const char *test_doc = "Check various socket options to work";
+const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
 #define TEST_PORT 59687
 #define TEST_ADDR INADDR_ANY
 
-#define NOPTS	8
+#define NOPTS 8
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int sock, ret = 0, vname[NOPTS], val[NOPTS], rval, i;
 	socklen_t len = sizeof(int);
@@ -59,8 +59,7 @@ int main(int argc, char ** argv)
 
 		if (rval != val[i]) {
 			if (rval + 1 == val[i]) {
-				pr_perror("can't reset option %d want %d have %d", i,
-						val[i], rval);
+				pr_perror("can't reset option %d want %d have %d", i, val[i], rval);
 				return 1;
 			}
 

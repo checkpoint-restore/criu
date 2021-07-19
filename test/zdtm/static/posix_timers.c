@@ -8,24 +8,24 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc ="Posix timers migration check";
+const char *test_doc = "Posix timers migration check";
 const char *test_author = "Kinsbursky Stanislav <skinsbursky@parallels.com>";
 
 sigset_t mask;
 
-#define WRONG_SIGNAL		1
-#define WRONG_SI_PTR		2
-#define FAIL_OVERRUN		4
+#define WRONG_SIGNAL 1
+#define WRONG_SI_PTR 2
+#define FAIL_OVERRUN 4
 
-#define MAX_TIMER_DISPLACEMENT	10
+#define MAX_TIMER_DISPLACEMENT 10
 #define NO_PERIODIC
 
 #ifndef CLOCK_MONOTONIC_COARSE
-# define CLOCK_MONOTONIC_COARSE	6
+#define CLOCK_MONOTONIC_COARSE 6
 #endif
 
 #ifndef CLOCK_BOOTTIME
-# define CLOCK_BOOTTIME		7
+#define CLOCK_BOOTTIME 7
 #endif
 
 #ifndef NO_PERIODIC
@@ -115,8 +115,7 @@ static struct posix_timers_info {
 	{ }
 };
 
-static int check_handler_status(struct posix_timers_info *info,
-				struct itimerspec *its, int ms_passed, int delta)
+static int check_handler_status(struct posix_timers_info *info, struct itimerspec *its, int ms_passed, int delta)
 {
 	int displacement;
 	int timer_ms;
@@ -179,7 +178,8 @@ static int check_handler_status(struct posix_timers_info *info,
 	test_msg("%20s: Handler count    : %d\n", info->name, info->handler_cnt);
 
 	if (displacement > MAX_TIMER_DISPLACEMENT) {
-		fail("%32s: Time displacement: %d%% (max alloved: %d%%)", info->name, displacement, MAX_TIMER_DISPLACEMENT);
+		fail("%32s: Time displacement: %d%% (max alloved: %d%%)", info->name, displacement,
+		     MAX_TIMER_DISPLACEMENT);
 		return -EFAULT;
 	}
 	return 0;
@@ -213,14 +213,14 @@ static int check_timers(int delta, struct timespec *sleep_start, struct timespec
 		 * Adjust with @total_sleep_time if needed.
 		 */
 		if (info->clock == CLOCK_BOOTTIME) {
-			info->start.tv_sec	-= sleep_start->tv_sec;
-			info->start.tv_nsec	-= sleep_start->tv_nsec;
-			info->end.tv_sec	-= sleep_end->tv_sec;
-			info->end.tv_nsec	-= sleep_end->tv_nsec;
+			info->start.tv_sec -= sleep_start->tv_sec;
+			info->start.tv_nsec -= sleep_start->tv_nsec;
+			info->end.tv_sec -= sleep_end->tv_sec;
+			info->end.tv_nsec -= sleep_end->tv_nsec;
 		}
 
 		ms_passed = (info->end.tv_sec - info->start.tv_sec) * 1000 +
-			(info->end.tv_nsec - info->start.tv_nsec) / (1000 * 1000);
+			    (info->end.tv_nsec - info->start.tv_nsec) / (1000 * 1000);
 
 		if (check_handler_status(info, &oldval, ms_passed, delta))
 			status--;
@@ -229,8 +229,7 @@ static int check_timers(int delta, struct timespec *sleep_start, struct timespec
 	return status;
 }
 
-static void generic_handler(struct posix_timers_info *info,
-			    struct posix_timers_info *real, int sig)
+static void generic_handler(struct posix_timers_info *info, struct posix_timers_info *real, int sig)
 {
 	int overrun;
 
@@ -256,41 +255,35 @@ static void generic_handler(struct posix_timers_info *info,
 #ifndef NO_PERIODIC
 static void monotonic_periodic_handler(int sig, siginfo_t *si, void *uc)
 {
-	generic_handler(si->si_value.sival_ptr,
-			&posix_timers[MONOTONIC_PERIODIC_INFO], sig);
+	generic_handler(si->si_value.sival_ptr, &posix_timers[MONOTONIC_PERIODIC_INFO], sig);
 }
 
 static void boottime_periodic_handler(int sig, siginfo_t *si, void *uc)
 {
-	generic_handler(si->si_value.sival_ptr,
-			&posix_timers[BOOTTIME_PERIODIC_INFO], sig);
+	generic_handler(si->si_value.sival_ptr, &posix_timers[BOOTTIME_PERIODIC_INFO], sig);
 }
 #endif
 
 static void monotonic_oneshot_handler(int sig, siginfo_t *si, void *uc)
 {
-	generic_handler(si->si_value.sival_ptr,
-			&posix_timers[MONOTONIC_ONESHOT_INFO], sig);
+	generic_handler(si->si_value.sival_ptr, &posix_timers[MONOTONIC_ONESHOT_INFO], sig);
 }
 
 static void boottime_oneshot_handler(int sig, siginfo_t *si, void *uc)
 {
-	generic_handler(si->si_value.sival_ptr,
-			&posix_timers[BOOTTIME_ONESHOT_INFO], sig);
+	generic_handler(si->si_value.sival_ptr, &posix_timers[BOOTTIME_ONESHOT_INFO], sig);
 }
 
 #ifndef NO_PERIODIC
 static void realtime_periodic_handler(int sig, siginfo_t *si, void *uc)
 {
-	generic_handler(si->si_value.sival_ptr,
-			&posix_timers[REALTIME_PERIODIC_INFO], sig);
+	generic_handler(si->si_value.sival_ptr, &posix_timers[REALTIME_PERIODIC_INFO], sig);
 }
 #endif
 
 static void realtime_oneshot_handler(int sig, siginfo_t *si, void *uc)
 {
-	generic_handler(si->si_value.sival_ptr,
-			&posix_timers[REALTIME_ONESHOT_INFO], sig);
+	generic_handler(si->si_value.sival_ptr, &posix_timers[REALTIME_ONESHOT_INFO], sig);
 }
 
 static int setup_timers(void)
@@ -302,7 +295,7 @@ static int setup_timers(void)
 	struct itimerspec its;
 
 	sigemptyset(&mask);
-	while(info->handler) {
+	while (info->handler) {
 		sigaddset(&mask, info->sig);
 		info++;
 	}
@@ -313,18 +306,18 @@ static int setup_timers(void)
 	}
 
 	info = posix_timers;
-	while(info->handler) {
+	while (info->handler) {
 		/* Add and delete fake timers to test restoring 'with holes' */
 		timer_t timeridt;
 		for (i = 0; i < 10; i++) {
 			ret = timer_create(CLOCK_REALTIME, NULL, &timeridt);
 			if (ret < 0) {
-				pr_perror("Can't create temporary posix timer %lx", (long) timeridt);
+				pr_perror("Can't create temporary posix timer %lx", (long)timeridt);
 				return -errno;
 			}
 			ret = timer_delete(timeridt);
 			if (ret < 0) {
-				pr_perror("Can't remove temporaty posix timer %lx", (long) timeridt);
+				pr_perror("Can't remove temporaty posix timer %lx", (long)timeridt);
 				return -errno;
 			}
 		}
@@ -398,10 +391,7 @@ static int get_total_sleep_time(struct timespec *tv, char *type)
 	test_msg("(%6s) boottime %lu "
 		 "boottime-coarse %lu "
 		 "total_sleep_time %lu\n",
-		 type,
-		 (long)boottime.tv_sec,
-		 (long)boottime_coarse.tv_sec,
-		 (long)tv->tv_sec);
+		 type, (long)boottime.tv_sec, (long)boottime_coarse.tv_sec, (long)tv->tv_sec);
 
 	return 0;
 }
@@ -432,9 +422,8 @@ int main(int argc, char **argv)
 	err = get_total_sleep_time(&sleep_end, "end");
 	if (err)
 		return err;
-	err = check_timers((end.tv_sec - start.tv_sec) * 1000 +
-			   (end.tv_nsec - start.tv_nsec) / 1000000,
-			   &sleep_start, &sleep_end);
+	err = check_timers((end.tv_sec - start.tv_sec) * 1000 + (end.tv_nsec - start.tv_nsec) / 1000000, &sleep_start,
+			   &sleep_end);
 	if (err)
 		return err;
 

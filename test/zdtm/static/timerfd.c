@@ -11,26 +11,21 @@
 const char *test_doc = "Checks timerfd survives checkpoint/restore\n";
 const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
-#define TIMERFD_VNSEC	50000
-#define TIMERFD_ISEC	4
+#define TIMERFD_VNSEC 50000
+#define TIMERFD_ISEC  4
 
 struct timerfd_status {
-	int			clockid;
-	uint64_t		ticks;
-	int			settime_flags;
-	struct itimerspec	v;
+	int clockid;
+	uint64_t ticks;
+	int settime_flags;
+	struct itimerspec v;
 };
 
 static void show_timerfd(char *prefix, struct timerfd_status *s)
 {
-	test_msg("\t%s clockid %d ticks %llu settime_flags %d it_value(%llu, %llu) it_interval(%llu, %llu)\n",
-		 prefix,
-		 s->clockid,
-		 (unsigned long long)s->ticks,
-		 s->settime_flags,
-		 (unsigned long long)s->v.it_value.tv_sec,
-		 (unsigned long long)s->v.it_value.tv_nsec,
-		 (unsigned long long)s->v.it_interval.tv_sec,
+	test_msg("\t%s clockid %d ticks %llu settime_flags %d it_value(%llu, %llu) it_interval(%llu, %llu)\n", prefix,
+		 s->clockid, (unsigned long long)s->ticks, s->settime_flags, (unsigned long long)s->v.it_value.tv_sec,
+		 (unsigned long long)s->v.it_value.tv_nsec, (unsigned long long)s->v.it_interval.tv_sec,
 		 (unsigned long long)s->v.it_interval.tv_nsec);
 }
 
@@ -58,7 +53,7 @@ static int parse_self_fdinfo(int fd, struct timerfd_status *s)
 	 */
 	while (fgets(buf, sizeof(buf), f)) {
 		if (strncmp(buf, "clockid:", 8))
-		    continue;
+			continue;
 
 		if (sscanf(buf, "clockid: %d", &s->clockid) != 1)
 			goto parse_err;
@@ -75,15 +70,13 @@ static int parse_self_fdinfo(int fd, struct timerfd_status *s)
 
 		if (!fgets(buf, sizeof(buf), f))
 			goto parse_err;
-		if (sscanf(buf, "it_value: (%llu, %llu)",
-			   (unsigned long long *)&s->v.it_value.tv_sec,
+		if (sscanf(buf, "it_value: (%llu, %llu)", (unsigned long long *)&s->v.it_value.tv_sec,
 			   (unsigned long long *)&s->v.it_value.tv_nsec) != 2)
 			goto parse_err;
 
 		if (!fgets(buf, sizeof(buf), f))
 			goto parse_err;
-		if (sscanf(buf, "it_interval: (%llu, %llu)",
-			   (unsigned long long *)&s->v.it_interval.tv_sec,
+		if (sscanf(buf, "it_interval: (%llu, %llu)", (unsigned long long *)&s->v.it_interval.tv_sec,
 			   (unsigned long long *)&s->v.it_interval.tv_nsec) != 2)
 			goto parse_err;
 
@@ -110,11 +103,8 @@ static int check_timerfd(int fd, struct timerfd_status *old)
 		return -1;
 	show_timerfd("restored", &new);
 
-	if (old->clockid != new.clockid				||
-	    old->settime_flags != new.settime_flags		||
-	    old->ticks > new.ticks				||
-	    old->v.it_value.tv_sec > new.v.it_value.tv_sec	||
-	    old->v.it_interval.tv_sec != new.v.it_interval.tv_sec)
+	if (old->clockid != new.clockid || old->settime_flags != new.settime_flags || old->ticks > new.ticks ||
+	    old->v.it_value.tv_sec > new.v.it_value.tv_sec || old->v.it_interval.tv_sec != new.v.it_interval.tv_sec)
 		return -1;
 
 	return 0;

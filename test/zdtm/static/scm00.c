@@ -6,8 +6,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that SCM_RIGHTS are preserved";
-const char *test_author	= "Pavel Emelyanov <xemul@virtuozzo.com>";
+const char *test_doc = "Check that SCM_RIGHTS are preserved";
+const char *test_author = "Pavel Emelyanov <xemul@virtuozzo.com>";
 
 static int send_fd(int via, int fd)
 {

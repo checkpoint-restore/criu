@@ -26,12 +26,11 @@
 #include "../soccr/soccr.h"
 #include "compel/log.h"
 
-
-#define DEFAULT_LOGFD		STDERR_FILENO
+#define DEFAULT_LOGFD STDERR_FILENO
 /* Enable timestamps if verbosity is increased from default */
-#define LOG_TIMESTAMP		(DEFAULT_LOGLEVEL + 1)
-#define LOG_BUF_LEN		(8*1024)
-#define EARLY_LOG_BUF_LEN	1024
+#define LOG_TIMESTAMP	  (DEFAULT_LOGLEVEL + 1)
+#define LOG_BUF_LEN	  (8 * 1024)
+#define EARLY_LOG_BUF_LEN 1024
 
 static unsigned int current_loglevel = DEFAULT_LOGLEVEL;
 static void vprint_on_level(unsigned int, const char *, va_list);
@@ -53,7 +52,7 @@ static struct timeval start;
  * Manual buf len as sprintf will _always_ put '\0' at the end,
  * but we want a "constant" pid to be there on restore
  */
-#define TS_BUF_OFF	12
+#define TS_BUF_OFF 12
 
 static void timediff(struct timeval *from, struct timeval *to)
 {
@@ -72,8 +71,7 @@ static void print_ts(void)
 
 	gettimeofday(&t, NULL);
 	timediff(&start, &t);
-	snprintf(buffer, TS_BUF_OFF,
-			"(%02u.%06u)", (unsigned)t.tv_sec, (unsigned)t.tv_usec);
+	snprintf(buffer, TS_BUF_OFF, "(%02u.%06u)", (unsigned)t.tv_sec, (unsigned)t.tv_usec);
 	buffer[TS_BUF_OFF - 1] = ' '; /* kill the '\0' produced by snprintf */
 }
 
@@ -162,8 +160,7 @@ static void print_versions(void)
 		return;
 	}
 
-	pr_info("Running on %s %s %s %s %s\n", buf.nodename, buf.sysname,
-		buf.release, buf.version, buf.machine);
+	pr_info("Running on %s %s %s %s %s\n", buf.nodename, buf.sysname, buf.release, buf.version, buf.machine);
 }
 
 struct early_log_hdr {
@@ -191,8 +188,7 @@ void flush_early_log_buffer(int fd)
 		if (hdr->level <= current_loglevel) {
 			size_t size = 0;
 			while (size < hdr->len) {
-				ret = write(fd, early_log_buffer + pos + size,
-						hdr->len - size);
+				ret = write(fd, early_log_buffer + pos + size, hdr->len - size);
 				if (ret <= 0)
 					break;
 				size += ret;
@@ -219,7 +215,7 @@ int log_init(const char *output)
 			return -1;
 		}
 	} else if (output) {
-		new_logfd = open(output, O_CREAT|O_TRUNC|O_WRONLY|O_APPEND, 0600);
+		new_logfd = open(output, O_CREAT | O_TRUNC | O_WRONLY | O_APPEND, 0600);
 		if (new_logfd < 0) {
 			pr_perror("Can't create log file %s", output);
 			return -1;
@@ -327,7 +323,7 @@ static void early_vprint(const char *format, unsigned int loglevel, va_list para
 	/* Save loglevel */
 
 	hdr = (void *)early_log_buffer + early_log_buf_off;
-	hdr->level  = loglevel;
+	hdr->level = loglevel;
 	/* Skip the log entry size */
 	early_log_buf_off += sizeof(hdr);
 	if (loglevel >= LOG_TIMESTAMP) {
@@ -337,14 +333,12 @@ static void early_vprint(const char *format, unsigned int loglevel, va_list para
 		 * keep the same format as the other messages on
 		 * log levels with timestamps (>=LOG_TIMESTAMP).
 		 */
-		log_size  = snprintf(early_log_buffer + early_log_buf_off,
-				sizeof(early_log_buffer) - early_log_buf_off,
-				"(00.000000) ");
+		log_size = snprintf(early_log_buffer + early_log_buf_off, sizeof(early_log_buffer) - early_log_buf_off,
+				    "(00.000000) ");
 	}
 
 	log_size += vsnprintf(early_log_buffer + early_log_buf_off + log_size,
-			sizeof(early_log_buffer) - early_log_buf_off - log_size,
-			format, params);
+			      sizeof(early_log_buffer) - early_log_buf_off - log_size, format, params);
 
 	/* Save log entry size */
 	hdr->len = log_size;
@@ -375,7 +369,7 @@ static void vprint_on_level(unsigned int loglevel, const char *format, va_list p
 			print_ts();
 	}
 
-	size  = vsnprintf(buffer + buf_off, sizeof buffer - buf_off, format, params);
+	size = vsnprintf(buffer + buf_off, sizeof buffer - buf_off, format, params);
 	size += buf_off;
 
 	while (off < size) {
@@ -389,7 +383,7 @@ static void vprint_on_level(unsigned int loglevel, const char *format, va_list p
 	if (loglevel == LOG_ERROR)
 		log_note_err(buffer + buf_off);
 
-	errno =  _errno;
+	errno = _errno;
 }
 
 void print_on_level(unsigned int loglevel, const char *format, ...)

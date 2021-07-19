@@ -22,26 +22,25 @@
 #include "images/ipc-sem.pb-c.h"
 #include "images/ipc-msg.pb-c.h"
 
-#if defined (__GLIBC__) && __GLIBC__ >= 2
+#if defined(__GLIBC__) && __GLIBC__ >= 2
 #define KEY __key
 #else
 #define KEY key
 #endif
 
 #ifndef MSGMAX
-#define MSGMAX			8192
+#define MSGMAX 8192
 #endif
 
 #ifndef MSG_COPY
-#define MSG_COPY		040000
+#define MSG_COPY 040000
 #endif
 
 static void pr_ipc_desc_entry(const IpcDescEntry *desc)
 {
 	pr_info("id: %-10d key: %#08x uid: %-10d gid: %-10d "
-		       "cuid: %-10d cgid: %-10d mode: %-10o ",
-		       desc->id, desc->key, desc->uid, desc->gid,
-		       desc->cuid, desc->cgid, desc->mode);
+		"cuid: %-10d cgid: %-10d mode: %-10o ",
+		desc->id, desc->key, desc->uid, desc->gid, desc->cuid, desc->cgid, desc->mode);
 }
 
 static void fill_ipc_desc(int id, IpcDescEntry *desc, const struct ipc_perm *ipcp)
@@ -62,7 +61,7 @@ static void pr_ipc_sem_array(int nr, u16 *values)
 	pr_info("\n");
 }
 
-#define pr_info_ipc_sem_array(nr, values)	pr_ipc_sem_array(nr, values)
+#define pr_info_ipc_sem_array(nr, values) pr_ipc_sem_array(nr, values)
 
 static void pr_info_ipc_sem_entry(const IpcSemEntry *sem)
 {
@@ -160,8 +159,7 @@ static int dump_ipc_sem(struct cr_img *img)
 
 static void pr_info_ipc_msg(int nr, const IpcMsg *msg)
 {
-	pr_info("  %-5d: type: %-20"PRId64" size: %-10d\n",
-		       nr++, msg->mtype, msg->msize);
+	pr_info("  %-5d: type: %-20" PRId64 " size: %-10d\n", nr++, msg->mtype, msg->msize);
 }
 
 static void pr_info_ipc_msg_entry(const IpcMsgEntry *msg)
@@ -170,8 +168,7 @@ static void pr_info_ipc_msg_entry(const IpcMsgEntry *msg)
 	pr_info("qbytes: %-10d qnum: %-10d\n", msg->qbytes, msg->qnum);
 }
 
-static int dump_ipc_msg_queue_messages(struct cr_img *img, const IpcMsgEntry *msq,
-				       unsigned int msg_nr)
+static int dump_ipc_msg_queue_messages(struct cr_img *img, const IpcMsgEntry *msq, unsigned int msg_nr)
 {
 	struct msgbuf *message = NULL;
 	unsigned int msgmax;
@@ -287,7 +284,7 @@ static int dump_ipc_msg(struct cr_img *img)
 static void pr_info_ipc_shm(const IpcShmEntry *shm)
 {
 	pr_ipc_desc_entry(shm->desc);
-	pr_info("size: %-10"PRIu64"\n", shm->size);
+	pr_info("size: %-10" PRIu64 "\n", shm->size);
 }
 
 #define NR_MANDATORY_IPC_SYSCTLS 9
@@ -295,24 +292,24 @@ static void pr_info_ipc_shm(const IpcShmEntry *shm)
 static int ipc_sysctl_req(IpcVarEntry *e, int op)
 {
 	struct sysctl_req req[] = {
-		{ "kernel/sem",			e->sem_ctls,		CTL_U32A(e->n_sem_ctls) },
-		{ "kernel/msgmax",		&e->msg_ctlmax,		CTL_U32 },
-		{ "kernel/msgmnb",		&e->msg_ctlmnb,		CTL_U32 },
-		{ "kernel/auto_msgmni",		&e->auto_msgmni,	CTL_U32 },
-		{ "kernel/msgmni",		&e->msg_ctlmni,		CTL_U32 },
-		{ "kernel/shmmax",		&e->shm_ctlmax,		CTL_U64 },
-		{ "kernel/shmall",		&e->shm_ctlall,		CTL_U64 },
-		{ "kernel/shmmni",		&e->shm_ctlmni,		CTL_U32 },
-		{ "kernel/shm_rmid_forced",	&e->shm_rmid_forced,	CTL_U32 },
+		{ "kernel/sem", e->sem_ctls, CTL_U32A(e->n_sem_ctls) },
+		{ "kernel/msgmax", &e->msg_ctlmax, CTL_U32 },
+		{ "kernel/msgmnb", &e->msg_ctlmnb, CTL_U32 },
+		{ "kernel/auto_msgmni", &e->auto_msgmni, CTL_U32 },
+		{ "kernel/msgmni", &e->msg_ctlmni, CTL_U32 },
+		{ "kernel/shmmax", &e->shm_ctlmax, CTL_U64 },
+		{ "kernel/shmall", &e->shm_ctlall, CTL_U64 },
+		{ "kernel/shmmni", &e->shm_ctlmni, CTL_U32 },
+		{ "kernel/shm_rmid_forced", &e->shm_rmid_forced, CTL_U32 },
 		/* We have 9 mandatory sysctls above and 8 optional below */
-		{ "fs/mqueue/queues_max",	&e->mq_queues_max,	CTL_U32 },
-		{ "fs/mqueue/msg_max",		&e->mq_msg_max,		CTL_U32 },
-		{ "fs/mqueue/msgsize_max",	&e->mq_msgsize_max,	CTL_U32 },
-		{ "fs/mqueue/msg_default",	&e->mq_msg_default,	CTL_U32 },
-		{ "fs/mqueue/msgsize_default",	&e->mq_msgsize_default,	CTL_U32 },
-		{ "kernel/msg_next_id", 	&e->msg_next_id, 	CTL_U32 },
-		{ "kernel/sem_next_id", 	&e->sem_next_id, 	CTL_U32 },
-		{ "kernel/shm_next_id", 	&e->shm_next_id, 	CTL_U32 },
+		{ "fs/mqueue/queues_max", &e->mq_queues_max, CTL_U32 },
+		{ "fs/mqueue/msg_max", &e->mq_msg_max, CTL_U32 },
+		{ "fs/mqueue/msgsize_max", &e->mq_msgsize_max, CTL_U32 },
+		{ "fs/mqueue/msg_default", &e->mq_msg_default, CTL_U32 },
+		{ "fs/mqueue/msgsize_default", &e->mq_msgsize_default, CTL_U32 },
+		{ "kernel/msg_next_id", &e->msg_next_id, CTL_U32 },
+		{ "kernel/sem_next_id", &e->sem_next_id, CTL_U32 },
+		{ "kernel/shm_next_id", &e->shm_next_id, CTL_U32 },
 	};
 
 	int nr = NR_MANDATORY_IPC_SYSCTLS;
@@ -408,8 +405,7 @@ static int dump_ipc_shm(struct cr_img *img)
 		slot++;
 	}
 	if (slot != info.used_ids) {
-		pr_err("Failed to collect %d (only %d succeeded)\n",
-				info.used_ids, slot);
+		pr_err("Failed to collect %d (only %d succeeded)\n", info.used_ids, slot);
 		return -EFAULT;
 	}
 	return 0;
@@ -420,8 +416,8 @@ static int dump_ipc_var(struct cr_img *img)
 	IpcVarEntry var = IPC_VAR_ENTRY__INIT;
 	int ret = -1;
 
-	var.n_sem_ctls	= 4;
-	var.sem_ctls	= xmalloc(pb_repeated_size(&var, sem_ctls));
+	var.n_sem_ctls = 4;
+	var.sem_ctls = xmalloc(pb_repeated_size(&var, sem_ctls));
 	if (!var.sem_ctls)
 		goto err;
 	var.has_mq_msg_default = true;
@@ -543,16 +539,14 @@ static int prepare_ipc_sem_desc(struct cr_img *img, const IpcSemEntry *sem)
 		return ret;
 	}
 
-	id = semget(sem->desc->key, sem->nsems,
-		     sem->desc->mode | IPC_CREAT | IPC_EXCL);
+	id = semget(sem->desc->key, sem->nsems, sem->desc->mode | IPC_CREAT | IPC_EXCL);
 	if (id == -1) {
 		pr_perror("Failed to create sem set");
 		return -errno;
 	}
 
 	if (id != sem->desc->id) {
-		pr_err("Failed to restore sem id (%d instead of %d)\n",
-							id, sem->desc->id);
+		pr_err("Failed to restore sem id (%d instead of %d)\n", id, sem->desc->id);
 		return -EFAULT;
 	}
 
@@ -639,8 +633,7 @@ static int prepare_ipc_msg_queue_messages(struct cr_img *img, const IpcMsgEntry 
 
 		if (msg->msize > MSGMAX) {
 			ret = -1;
-			pr_err("Unsupported message size: %d (MAX: %d)\n",
-						msg->msize, MSGMAX);
+			pr_err("Unsupported message size: %d (MAX: %d)\n", msg->msize, MSGMAX);
 			break;
 		}
 
@@ -686,8 +679,7 @@ static int prepare_ipc_msg_queue(struct cr_img *img, const IpcMsgEntry *msq)
 	}
 
 	if (id != msq->desc->id) {
-		pr_err("Failed to restore msg id (%d instead of %d)\n",
-							id, msq->desc->id);
+		pr_err("Failed to restore msg id (%d instead of %d)\n", id, msq->desc->id);
 		return -EFAULT;
 	}
 
@@ -821,16 +813,14 @@ static int prepare_ipc_shm_seg(struct cr_img *img, const IpcShmEntry *shm)
 		return ret;
 	}
 
-	id = shmget(shm->desc->key, shm->size,
-		    shm->desc->mode | IPC_CREAT | IPC_EXCL);
+	id = shmget(shm->desc->key, shm->size, shm->desc->mode | IPC_CREAT | IPC_EXCL);
 	if (id == -1) {
 		pr_perror("Failed to create shm set");
 		return -errno;
 	}
 
 	if (id != shm->desc->id) {
-		pr_err("Failed to restore shm id (%d instead of %d)\n",
-							id, shm->desc->id);
+		pr_err("Failed to restore shm id (%d instead of %d)\n", id, shm->desc->id);
 		return -EFAULT;
 	}
 

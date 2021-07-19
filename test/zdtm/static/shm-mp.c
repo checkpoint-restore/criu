@@ -8,10 +8,10 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc="Tests mprotected SYSVIPC shmems";
-const char *test_author="Pavel Emelyanov <xemul@openvz.org>";
+const char *test_doc = "Tests mprotected SYSVIPC shmems";
+const char *test_author = "Pavel Emelyanov <xemul@openvz.org>";
 
-static sigjmp_buf segv_ret;		/* we need sig*jmp stuff, otherwise SIGSEGV will reset our handler */
+static sigjmp_buf segv_ret; /* we need sig*jmp stuff, otherwise SIGSEGV will reset our handler */
 static void segfault(int signo)
 {
 	siglongjmp(segv_ret, 1);
@@ -33,11 +33,11 @@ static int check_prot(char *ptr, char val, int prot)
 			fail("PROT_READ bypassed");
 			return -1;
 		}
-	} else		/* we come here on return from SIGSEGV handler */
+	} else /* we come here on return from SIGSEGV handler */
 		if (prot & PROT_READ) {
-			fail("PROT_READ rejected");
-			return -1;
-		}
+		fail("PROT_READ rejected");
+		return -1;
+	}
 
 	if (!sigsetjmp(segv_ret, 1)) {
 		*ptr = val;
@@ -45,11 +45,11 @@ static int check_prot(char *ptr, char val, int prot)
 			fail("PROT_WRITE bypassed");
 			return -1;
 		}
-	} else		/* we come here on return from SIGSEGV handler */
+	} else /* we come here on return from SIGSEGV handler */
 		if (prot & PROT_WRITE) {
-			fail("PROT_WRITE rejected");
-			return -1;
-		}
+		fail("PROT_WRITE rejected");
+		return -1;
+	}
 
 	if (signal(SIGSEGV, SIG_DFL) == SIG_ERR) {
 		fail("restoring SIGSEGV handler failed");
@@ -99,7 +99,6 @@ int main(int argc, char **argv)
 		f++;
 	if (check_prot(mem + PAGE_SIZE, 'W', PROT_READ | PROT_WRITE))
 		f++;
-
 
 	if (!f)
 		pass();

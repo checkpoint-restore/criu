@@ -8,9 +8,9 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that we can migrate with a device special file "
-			  "open and unlinked before migration";
-const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
+const char *test_doc = "Check that we can migrate with a device special file "
+		       "open and unlinked before migration";
+const char *test_author = "Roman Kagan <rkagan@parallels.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
@@ -51,10 +51,8 @@ int main(int argc, char **argv)
 
 	if (st.st_mode != mode || st.st_rdev != dev) {
 		fail("%s is no longer the device file we had", filename);
-		test_msg("mode %x want %x, dev %llx want %llx\n",
-				st.st_mode, mode,
-				(long long unsigned)st.st_rdev,
-				(long long unsigned)dev);
+		test_msg("mode %x want %x, dev %llx want %llx\n", st.st_mode, mode, (long long unsigned)st.st_rdev,
+			 (long long unsigned)dev);
 		goto out;
 	}
 

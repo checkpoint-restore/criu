@@ -10,8 +10,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that deleted unix sockets are restored correctly";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "Check that deleted unix sockets are restored correctly";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
@@ -26,7 +26,7 @@ static int bind_and_listen(struct sockaddr_un *addr)
 		return -1;
 	}
 
-	if (bind(sk, (struct sockaddr *) addr, sizeof(*addr))) {
+	if (bind(sk, (struct sockaddr *)addr, sizeof(*addr))) {
 		fail("bind %s", addr->sun_path);
 		close(sk);
 		return -1;

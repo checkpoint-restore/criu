@@ -57,7 +57,7 @@
 
 #include "plugin.h"
 
-#define FDESC_HASH_SIZE	64
+#define FDESC_HASH_SIZE 64
 static struct hlist_head file_desc_hash[FDESC_HASH_SIZE];
 /* file_desc's, which fle is not owned by a process, that is able to open them */
 static LIST_HEAD(fake_master_head);
@@ -78,8 +78,8 @@ void file_desc_init(struct file_desc *d, u32 id, struct file_desc_ops *ops)
 	INIT_LIST_HEAD(&d->fake_master_list);
 	INIT_HLIST_NODE(&d->hash);
 
-	d->id	= id;
-	d->ops	= ops;
+	d->id = id;
+	d->ops = ops;
 }
 
 int file_desc_add(struct file_desc *d, u32 id, struct file_desc_ops *ops)
@@ -100,8 +100,7 @@ struct file_desc *find_file_desc_raw(int type, u32 id)
 
 	chain = &file_desc_hash[id % FDESC_HASH_SIZE];
 	hlist_for_each_entry(d, chain, hash)
-		if ((d->id == id) &&
-				(d->ops->type == type || type == FD_TYPES__UND))
+		if ((d->id == id) && (d->ops->type == type || type == FD_TYPES__UND))
 			/*
 			 * Warning -- old CRIU might generate matching IDs
 			 * for different file types! So any code that uses
@@ -219,8 +218,7 @@ struct fdinfo_list_entry *try_file_master(struct file_desc *d)
 	if (list_empty(&d->fd_info_head))
 		return NULL;
 
-	return list_first_entry(&d->fd_info_head,
-			struct fdinfo_list_entry, desc_list);
+	return list_first_entry(&d->fd_info_head, struct fdinfo_list_entry, desc_list);
 }
 
 struct fdinfo_list_entry *file_master(struct file_desc *d)
@@ -229,8 +227,7 @@ struct fdinfo_list_entry *file_master(struct file_desc *d)
 
 	fle = try_file_master(d);
 	if (!fle) {
-		pr_err("Empty list on file desc id %#x(%d)\n", d->id,
-				d->ops ? d->ops->type : -1);
+		pr_err("Empty list on file desc id %#x(%d)\n", d->id, d->ops ? d->ops->type : -1);
 		BUG();
 	}
 
@@ -319,16 +316,13 @@ uint32_t make_gen_id(uint32_t st_dev, uint32_t st_ino, uint64_t pos)
 	return st_dev ^ st_ino ^ pos_hi ^ pos_low;
 }
 
-int do_dump_gen_file(struct fd_parms *p, int lfd,
-		const struct fdtype_ops *ops, FdinfoEntry *e)
+int do_dump_gen_file(struct fd_parms *p, int lfd, const struct fdtype_ops *ops, FdinfoEntry *e)
 {
 	int ret = -1;
 
-	e->type	= ops->type;
-	e->id	= make_gen_id((uint32_t)p->stat.st_dev,
-			      (uint32_t)p->stat.st_ino,
-			      (uint64_t)p->pos);
-	e->fd	= p->fd;
+	e->type = ops->type;
+	e->id = make_gen_id((uint32_t)p->stat.st_dev, (uint32_t)p->stat.st_ino, (uint64_t)p->pos);
+	e->fd = p->fd;
 	e->flags = p->fd_flags;
 
 	ret = fd_id_generate(p->pid, e, p);
@@ -361,8 +355,7 @@ int fill_fdlink(int lfd, const struct fd_parms *p, struct fd_link *link)
 	return 0;
 }
 
-static int fill_fd_params(struct pid *owner_pid, int fd, int lfd,
-				struct fd_opts *opts, struct fd_parms *p)
+static int fill_fd_params(struct pid *owner_pid, int fd, int lfd, struct fd_opts *opts, struct fd_parms *p)
 {
 	int ret;
 	struct statfs fsbuf;
@@ -381,24 +374,24 @@ static int fill_fd_params(struct pid *owner_pid, int fd, int lfd,
 	if (parse_fdinfo_pid(owner_pid->real, fd, FD_TYPES__UND, &fdinfo))
 		return -1;
 
-	p->fs_type	= fsbuf.f_type;
-	p->fd		= fd;
-	p->pos		= fdinfo.pos;
+	p->fs_type = fsbuf.f_type;
+	p->fd = fd;
+	p->pos = fdinfo.pos;
 	/*
 	 * The kernel artificially adds the O_CLOEXEC flag on the file pointer
 	 * flags by looking at the flags on the file descriptor (see kernel
 	 * code fs/proc/fd.c). FD_CLOEXEC is a file descriptor property, which
 	 * is saved in fd_flags.
 	 */
-	p->flags	= fdinfo.flags & ~O_CLOEXEC;
-	p->mnt_id	= fdinfo.mnt_id;
-	p->pid		= owner_pid->real;
-	p->fd_flags	= opts->flags;
+	p->flags = fdinfo.flags & ~O_CLOEXEC;
+	p->mnt_id = fdinfo.mnt_id;
+	p->pid = owner_pid->real;
+	p->fd_flags = opts->flags;
 
 	fown_entry__init(&p->fown);
 
-	pr_info("%d fdinfo %d: pos: %#16"PRIx64" flags: %16o/%#x\n",
-			owner_pid->real, fd, p->pos, p->flags, (int)p->fd_flags);
+	pr_info("%d fdinfo %d: pos: %#16" PRIx64 " flags: %16o/%#x\n", owner_pid->real, fd, p->pos, p->flags,
+		(int)p->fd_flags);
 
 	if (p->flags & O_PATH)
 		ret = 0;
@@ -413,10 +406,10 @@ static int fill_fd_params(struct pid *owner_pid, int fd, int lfd,
 	if (opts->fown.pid == 0)
 		return 0;
 
-	p->fown.pid	 = opts->fown.pid;
+	p->fown.pid = opts->fown.pid;
 	p->fown.pid_type = opts->fown.pid_type;
-	p->fown.uid	 = opts->fown.uid;
-	p->fown.euid	 = opts->fown.euid;
+	p->fown.uid = opts->fown.uid;
+	p->fown.euid = opts->fown.euid;
 
 	return 0;
 }
@@ -489,9 +482,8 @@ static int dump_chrdev(struct fd_parms *p, int lfd, FdinfoEntry *e)
 	return err;
 }
 
-static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
-		struct parasite_ctl *ctl, FdinfoEntry *e,
-		struct parasite_drain_fd *dfds)
+static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts, struct parasite_ctl *ctl,
+			 FdinfoEntry *e, struct parasite_drain_fd *dfds)
 {
 	struct fd_parms p = FD_PARMS_INIT;
 	const struct fdtype_ops *ops;
@@ -550,8 +542,7 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 		return do_dump_gen_file(&p, lfd, ops, e);
 	}
 
-	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode) ||
-		S_ISLNK(p.stat.st_mode)) {
+	if (S_ISREG(p.stat.st_mode) || S_ISDIR(p.stat.st_mode) || S_ISLNK(p.stat.st_mode)) {
 		if (fill_fdlink(lfd, &p, &link))
 			return -1;
 
@@ -606,14 +597,13 @@ int dump_my_file(int lfd, u32 *id, int *type)
 	return 0;
 }
 
-int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
-		struct parasite_drain_fd *dfds)
+int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item, struct parasite_drain_fd *dfds)
 {
 	int *lfds = NULL;
 	struct cr_img *img = NULL;
 	struct fd_opts *opts = NULL;
 	int i, ret = -1;
-	int off, nr_fds = min((int) PARASITE_MAX_FDS, dfds->nr_fds);
+	int off, nr_fds = min((int)PARASITE_MAX_FDS, dfds->nr_fds);
 
 	pr_info("\n");
 	pr_info("Dumping opened files (pid: %d)\n", item->pid->real);
@@ -636,16 +626,14 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 		if (nr_fds + off > dfds->nr_fds)
 			nr_fds = dfds->nr_fds - off;
 
-		ret = parasite_drain_fds_seized(ctl, dfds, nr_fds,
-							off, lfds, opts);
+		ret = parasite_drain_fds_seized(ctl, dfds, nr_fds, off, lfds, opts);
 		if (ret)
 			goto err;
 
 		for (i = 0; i < nr_fds; i++) {
 			FdinfoEntry e = FDINFO_ENTRY__INIT;
 
-			ret = dump_one_file(item->pid, dfds->fds[i + off],
-						lfds[i], opts + i, ctl, &e, dfds);
+			ret = dump_one_file(item->pid, dfds->fds[i + off], lfds[i], opts + i, ctl, &e, dfds);
 			if (ret)
 				break;
 
@@ -810,8 +798,7 @@ static void __collect_desc_fle(struct fdinfo_list_entry *new_le, struct file_des
 	list_add(&new_le->desc_list, &le->desc_list);
 }
 
-static void collect_desc_fle(struct fdinfo_list_entry *new_le,
-			     struct file_desc *fdesc, bool force_master)
+static void collect_desc_fle(struct fdinfo_list_entry *new_le, struct file_desc *fdesc, bool force_master)
 {
 	new_le->desc = fdesc;
 
@@ -823,9 +810,8 @@ static void collect_desc_fle(struct fdinfo_list_entry *new_le,
 	}
 }
 
-struct fdinfo_list_entry *collect_fd_to(int pid, FdinfoEntry *e,
-		struct rst_info *rst_info, struct file_desc *fdesc,
-		bool fake, bool force_master)
+struct fdinfo_list_entry *collect_fd_to(int pid, FdinfoEntry *e, struct rst_info *rst_info, struct file_desc *fdesc,
+					bool fake, bool force_master)
 {
 	struct fdinfo_list_entry *new_le;
 
@@ -843,8 +829,7 @@ int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info, bool fake)
 {
 	struct file_desc *fdesc;
 
-	pr_info("Collect fdinfo pid=%d fd=%d id=%#x\n",
-		pid, e->fd, e->id);
+	pr_info("Collect fdinfo pid=%d fd=%d id=%#x\n", pid, e->fd, e->id);
 
 	fdesc = find_file_desc(e);
 	if (fdesc == NULL) {
@@ -868,15 +853,14 @@ FdinfoEntry *dup_fdinfo(FdinfoEntry *old, int fd, unsigned flags)
 
 	fdinfo_entry__init(e);
 
-	e->id		= old->id;
-	e->type		= old->type;
-	e->fd		= fd;
-	e->flags	= flags;
+	e->id = old->id;
+	e->type = old->type;
+	e->fd = fd;
+	e->flags = flags;
 	return e;
 }
 
-int dup_fle(struct pstree_item *task, struct fdinfo_list_entry *ple,
-		   int fd, unsigned flags)
+int dup_fle(struct pstree_item *task, struct fdinfo_list_entry *ple, int fd, unsigned flags)
 {
 	FdinfoEntry *e;
 
@@ -952,7 +936,8 @@ int set_fd_flags(int fd, int flags)
 
 	if (ret != flags) {
 		pr_err("fcntl call on fd %d (flags %#o) succeeded, "
-			"but some flags were dropped: %#o\n", fd, flags, ret);
+		       "but some flags were dropped: %#o\n",
+		       fd, flags, ret);
 		return -1;
 	}
 	return 0;
@@ -1134,7 +1119,7 @@ static int open_fd(struct fdinfo_list_entry *fle)
 
 	flem = file_master(d);
 	if (fle != flem) {
-		BUG_ON (fle->stage != FLE_INITIALIZED);
+		BUG_ON(fle->stage != FLE_INITIALIZED);
 		ret = receive_fd(fle);
 		if (ret != 0)
 			return ret;
@@ -1212,8 +1197,7 @@ static int open_fdinfos(struct pstree_item *me)
 			BUG_ON(st == FLE_RESTORED);
 			ret = open_fd(fle);
 			if (ret == -1) {
-				pr_err("Unable to open fd=%d id=%#x\n",
-					fle->fe->fd, fle->fe->id);
+				pr_err("Unable to open fd=%d id=%#x\n", fle->fe->fd, fle->fe->id);
 				goto splice;
 			}
 			if (st != fle->stage || ret == 0)
@@ -1231,7 +1215,7 @@ static int open_fdinfos(struct pstree_item *me)
 					list_add(&fle->ps_list, &fake);
 			}
 			if (ret == 1)
-			       again = true;
+				again = true;
 		}
 		if (!progress && again)
 			wait_fds_event();
@@ -1501,8 +1485,8 @@ int shared_fdt_prepare(struct pstree_item *item)
 
 struct inherit_fd {
 	struct list_head inh_list;
-	char *inh_id;		/* file identifier */
-	int inh_fd;		/* criu's descriptor to inherit */
+	char *inh_id; /* file identifier */
+	int inh_fd; /* criu's descriptor to inherit */
 	int inh_fd_id;
 };
 
@@ -1541,8 +1525,7 @@ int inherit_fd_parse(char *optarg)
 	if (dbg) {
 		n = strlen(cp);
 		if (write(fd, cp, n) != n) {
-			pr_err("Can't write debug message %s to inherit fd %d\n",
-				cp, fd);
+			pr_err("Can't write debug message %s to inherit fd %d\n", cp, fd);
 			return -1;
 		}
 		return 0;
@@ -1586,8 +1569,7 @@ void inherit_fd_log(void)
 	struct inherit_fd *inh;
 
 	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
-		pr_info("File %s will be restored from inherit fd %d\n",
-			inh->inh_id, inh->inh_fd);
+		pr_info("File %s will be restored from inherit fd %d\n", inh->inh_id, inh->inh_fd);
 	}
 }
 
@@ -1617,8 +1599,7 @@ int inherit_fd_lookup_id(char *id)
 	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
 		if (!strcmp(inh->inh_id, id)) {
 			ret = fdstore_get(inh->inh_fd_id);
-			pr_debug("Found id %s (fd %d) in inherit fd list\n",
-				id, ret);
+			pr_debug("Found id %s (fd %d) in inherit fd list\n", id, ret);
 			break;
 		}
 	}
@@ -1643,7 +1624,8 @@ bool inherited_fd(struct file_desc *d, int *fd_p)
 
 	*fd_p = i_fd;
 	pr_info("File %s will be restored from fd %d dumped "
-				"from inherit fd %d\n", id_str, *fd_p, i_fd);
+		"from inherit fd %d\n",
+		id_str, *fd_p, i_fd);
 	return true;
 }
 
@@ -1673,8 +1655,7 @@ out:
 	return ret;
 }
 
-static int collect_one_file_entry(FileEntry *fe, u_int32_t id, ProtobufCMessage *base,
-		struct collect_image_info *cinfo)
+static int collect_one_file_entry(FileEntry *fe, u_int32_t id, ProtobufCMessage *base, struct collect_image_info *cinfo)
 {
 	if (fe->id != id) {
 		pr_err("ID mismatch %u != %u\n", fe->id, id);

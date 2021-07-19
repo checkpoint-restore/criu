@@ -8,15 +8,15 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that out-of-root file survives";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that out-of-root file survives";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-#define MSG	"out-file-contents"
+#define MSG "out-file-contents"
 
 static int make_file(char *name)
 {
@@ -46,14 +46,14 @@ static int check_file(int fd)
 	return 0;
 }
 
-#define SUCCESS		0
-#define ERR_PIPES	(char)0x7f
+#define SUCCESS	  0
+#define ERR_PIPES (char)0x7f
 /* bitmap of errors */
-#define ERR_IN_FILE	1
-#define ERR_ROOT	2
-#define ERR_DIR		4
-#define ERR_CHDIR	8
-#define ERR_ROOT2	4
+#define ERR_IN_FILE 1
+#define ERR_ROOT    2
+#define ERR_DIR	    4
+#define ERR_CHDIR   8
+#define ERR_ROOT2   4
 
 int main(int argc, char **argv)
 {

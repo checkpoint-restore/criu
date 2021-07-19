@@ -7,8 +7,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that SCM_RIGHTS are preserved";
-const char *test_author	= "Kirill Tkhai <ktkhai@virtuozzo.com>";
+const char *test_doc = "Check that SCM_RIGHTS are preserved";
+const char *test_author = "Kirill Tkhai <ktkhai@virtuozzo.com>";
 
 static int send_fd(int via, int fd)
 {
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 {
 	struct epoll_event event = {
 		.events = EPOLLIN,
-        };
+	};
 	int sk[2], ep, ret;
 
 	test_init(argc, argv);

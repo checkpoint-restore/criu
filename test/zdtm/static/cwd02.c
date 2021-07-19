@@ -8,8 +8,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that removed and opened cwd are kept";
-const char *test_author	= "Pavel Emelianov <xemul@parallels.com>";
+const char *test_doc = "Check that removed and opened cwd are kept";
+const char *test_author = "Pavel Emelianov <xemul@parallels.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
@@ -72,8 +72,7 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	if (stf.st_ino != std.st_ino ||
-			stf.st_dev != std.st_dev) {
+	if (stf.st_ino != std.st_ino || stf.st_dev != std.st_dev) {
 		fail("cwd and opened fd are not the same");
 		goto cleanup;
 	}

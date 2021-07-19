@@ -14,14 +14,14 @@
 
 #include "zdtmtst.h"
 
-#define gettid()	pthread_self()
+#define gettid() pthread_self()
 
-const char *test_doc	= "Create a few pthreads and test TLS + blocked signals\n";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
+const char *test_doc = "Create a few pthreads and test TLS + blocked signals\n";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org";
 
 static __thread struct tls_data_s {
-	char		*rand_string[10];
-	sigset_t	blk_sigset;
+	char *rand_string[10];
+	sigset_t blk_sigset;
 } tls_data;
 
 static task_waiter_t t1;
@@ -36,19 +36,45 @@ static char *decode_signal(const sigset_t *s, char *buf)
 {
 	buf[0] = '\0';
 
-#define COLLECT(sig)						\
-	do {							\
-		if (sigismember(s, sig))			\
-			strcat(buf, #sig " ");			\
+#define COLLECT(sig)                           \
+	do {                                   \
+		if (sigismember(s, sig))       \
+			strcat(buf, #sig " "); \
 	} while (0)
 
-	COLLECT(SIGHUP); COLLECT(SIGINT); COLLECT(SIGQUIT); COLLECT(SIGILL); COLLECT(SIGTRAP);
-	COLLECT(SIGABRT); COLLECT(SIGIOT); COLLECT(SIGBUS); COLLECT(SIGFPE); COLLECT(SIGKILL);
-	COLLECT(SIGUSR1); COLLECT(SIGSEGV); COLLECT(SIGUSR2); COLLECT(SIGPIPE); COLLECT(SIGALRM);
-	COLLECT(SIGTERM); COLLECT(SIGSTKFLT); COLLECT(SIGCHLD); COLLECT(SIGCONT); COLLECT(SIGSTOP);
-	COLLECT(SIGTSTP); COLLECT(SIGTTIN); COLLECT(SIGTTOU); COLLECT(SIGURG); COLLECT(SIGXCPU);
-	COLLECT(SIGXFSZ); COLLECT(SIGVTALRM); COLLECT(SIGPROF); COLLECT(SIGWINCH); COLLECT(SIGIO);
-	COLLECT(SIGPOLL); COLLECT(SIGPWR); COLLECT(SIGSYS);
+	COLLECT(SIGHUP);
+	COLLECT(SIGINT);
+	COLLECT(SIGQUIT);
+	COLLECT(SIGILL);
+	COLLECT(SIGTRAP);
+	COLLECT(SIGABRT);
+	COLLECT(SIGIOT);
+	COLLECT(SIGBUS);
+	COLLECT(SIGFPE);
+	COLLECT(SIGKILL);
+	COLLECT(SIGUSR1);
+	COLLECT(SIGSEGV);
+	COLLECT(SIGUSR2);
+	COLLECT(SIGPIPE);
+	COLLECT(SIGALRM);
+	COLLECT(SIGTERM);
+	COLLECT(SIGSTKFLT);
+	COLLECT(SIGCHLD);
+	COLLECT(SIGCONT);
+	COLLECT(SIGSTOP);
+	COLLECT(SIGTSTP);
+	COLLECT(SIGTTIN);
+	COLLECT(SIGTTOU);
+	COLLECT(SIGURG);
+	COLLECT(SIGXCPU);
+	COLLECT(SIGXFSZ);
+	COLLECT(SIGVTALRM);
+	COLLECT(SIGPROF);
+	COLLECT(SIGWINCH);
+	COLLECT(SIGIO);
+	COLLECT(SIGPOLL);
+	COLLECT(SIGPWR);
+	COLLECT(SIGSYS);
 #undef COLLECT
 
 	return buf;
@@ -56,20 +82,20 @@ static char *decode_signal(const sigset_t *s, char *buf)
 
 static void __show_sigset(int line, const sigset_t *s)
 {
-	char buf[sizeof(sigset_t) * 2 + 1] = { };
+	char buf[sizeof(sigset_t) * 2 + 1] = {};
 
 	decode_signal(s, buf);
 	test_msg("sigset at %4d: %s\n", line, buf);
 }
 
-#define show_sigset(set)	__show_sigset(__LINE__, set)
+#define show_sigset(set) __show_sigset(__LINE__, set)
 
 static void *ch_thread_2(void *arg)
 {
 	char __tls_data[sizeof(tls_data.rand_string)] = "XM5o:?B*[a";
 	int *results_map = arg;
-	sigset_t blk_sigset = { };
-	sigset_t new = { };
+	sigset_t blk_sigset = {};
+	sigset_t new = {};
 
 	memcpy(tls_data.rand_string, __tls_data, sizeof(tls_data.rand_string));
 
@@ -114,8 +140,8 @@ static void *ch_thread_1(void *arg)
 {
 	char __tls_data[sizeof(tls_data.rand_string)] = "pffYQSBo?6";
 	int *results_map = arg;
-	sigset_t blk_sigset = { };
-	sigset_t new = { };
+	sigset_t blk_sigset = {};
+	sigset_t new = {};
 
 	memcpy(tls_data.rand_string, __tls_data, sizeof(tls_data.rand_string));
 
@@ -200,12 +226,8 @@ int main(int argc, char *argv[])
 	pthread_join(thread_1, NULL);
 	pthread_join(thread_2, NULL);
 
-	if (results_map[1] == 1 &&
-	    results_map[2] == 1 &&
-	    results_map[3] == 1 &&
-	    results_map[4] == 1 &&
-	    results_map[5] == 1 &&
-	    results_map[6] == 1)
+	if (results_map[1] == 1 && results_map[2] == 1 && results_map[3] == 1 && results_map[4] == 1 &&
+	    results_map[5] == 1 && results_map[6] == 1)
 		pass();
 	else
 		fail();

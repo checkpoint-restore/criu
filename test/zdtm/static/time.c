@@ -5,16 +5,15 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check monotonic and boot clocks";
-const char *test_author	= "Andrei Vagin <avagin@gmail.com";
-
+const char *test_doc = "Check monotonic and boot clocks";
+const char *test_author = "Andrei Vagin <avagin@gmail.com";
 
 #define NSEC_PER_SEC 1000000000ULL
 
 int main(int argc, char **argv)
 {
 	struct timespec tss[2], ts;
-	int clocks[] = {CLOCK_MONOTONIC, CLOCK_BOOTTIME};
+	int clocks[] = { CLOCK_MONOTONIC, CLOCK_BOOTTIME };
 	unsigned long long a, b;
 	int i;
 

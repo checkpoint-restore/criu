@@ -5,13 +5,13 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Write and half way read file before migration, complete after";
-const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
+const char *test_doc = "Write and half way read file before migration, complete after";
+const char *test_author = "Roman Kagan <rkagan@parallels.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fd;
 	int len;

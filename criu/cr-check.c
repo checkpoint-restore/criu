@@ -63,9 +63,8 @@ static int check_tty(void)
 
 	if (ARRAY_SIZE(t.c_cc) < TERMIOS_NCC) {
 		pr_err("struct termios has %d @c_cc while "
-			"at least %d expected.\n",
-			(int)ARRAY_SIZE(t.c_cc),
-			TERMIOS_NCC);
+		       "at least %d expected.\n",
+		       (int)ARRAY_SIZE(t.c_cc), TERMIOS_NCC);
 		goto out;
 	}
 
@@ -293,8 +292,7 @@ static int check_fdinfo_eventfd(void)
 	}
 
 	if (fe.counter != cnt) {
-		pr_err("Counter mismatch (or not met) %d want %d\n",
-				(int)fe.counter, cnt);
+		pr_err("Counter mismatch (or not met) %d want %d\n", (int)fe.counter, cnt);
 		return -1;
 	}
 
@@ -468,7 +466,7 @@ err:
 }
 
 #ifndef SO_GET_FILTER
-#define SO_GET_FILTER		SO_ATTACH_FILTER
+#define SO_GET_FILTER SO_ATTACH_FILTER
 #endif
 
 static int check_so_gets(void)
@@ -612,9 +610,9 @@ static int check_ptrace_peeksiginfo(void)
 }
 
 struct special_mapping {
-	const char	*name;
-	void		*addr;
-	size_t		size;
+	const char *name;
+	void *addr;
+	size_t size;
 };
 
 static int parse_special_maps(struct special_mapping *vmas, size_t nr)
@@ -632,8 +630,7 @@ static int parse_special_maps(struct special_mapping *vmas, size_t nr)
 		int r, tail;
 		size_t i;
 
-		r = sscanf(buf, "%lx-%lx %*s %*s %*s %*s %n\n",
-				&start, &end, &tail);
+		r = sscanf(buf, "%lx-%lx %*s %*s %*s %*s %n\n", &start, &end, &tail);
 		if (r != 2) {
 			fclose(maps);
 			pr_err("Bad maps format %d.%d (%s)\n", r, tail, buf + tail);
@@ -674,8 +671,7 @@ static void dummy_sighandler(int sig)
  * And we definitely mremap() support by the fact that those special_mappings
  * are subjects for ASLR. (See #288 as a reference)
  */
-static void check_special_mapping_mremap_child(struct special_mapping *vmas,
-					       size_t nr)
+static void check_special_mapping_mremap_child(struct special_mapping *vmas, size_t nr)
 {
 	size_t i, parking_size = 0;
 	void *parking_lot;
@@ -691,8 +687,7 @@ static void check_special_mapping_mremap_child(struct special_mapping *vmas,
 		exit(1);
 	}
 
-	parking_lot = mmap(NULL, parking_size, PROT_NONE,
-			   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	parking_lot = mmap(NULL, parking_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (parking_lot == MAP_FAILED) {
 		pr_perror("mmap(%zu) failed", parking_size);
 		exit(1);
@@ -704,10 +699,8 @@ static void check_special_mapping_mremap_child(struct special_mapping *vmas,
 		if (vmas[i].addr == MAP_FAILED)
 			continue;
 
-		ret = syscall(__NR_mremap, (unsigned long)vmas[i].addr,
-			      vmas[i].size, vmas[i].size,
-			      MREMAP_FIXED | MREMAP_MAYMOVE,
-			      (unsigned long)parking_lot);
+		ret = syscall(__NR_mremap, (unsigned long)vmas[i].addr, vmas[i].size, vmas[i].size,
+			      MREMAP_FIXED | MREMAP_MAYMOVE, (unsigned long)parking_lot);
 		if (ret != (unsigned long)parking_lot)
 			syscall(__NR_exit, 1);
 		parking_lot += vmas[i].size;
@@ -807,19 +800,19 @@ static int check_ptrace_suspend_seccomp(void)
 static int setup_seccomp_filter(void)
 {
 	struct sock_filter filter[] = {
-		BPF_STMT(BPF_LD+BPF_W+BPF_ABS, offsetof(struct seccomp_data, nr)),
+		BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct seccomp_data, nr)),
 		/* Allow all syscalls except ptrace */
-		BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, __NR_ptrace, 0, 1),
-		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_KILL),
-		BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW),
+		BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, __NR_ptrace, 0, 1),
+		BPF_STMT(BPF_RET + BPF_K, SECCOMP_RET_KILL),
+		BPF_STMT(BPF_RET + BPF_K, SECCOMP_RET_ALLOW),
 	};
 
 	struct sock_fprog bpf_prog = {
-		.len = (unsigned short)(sizeof(filter)/sizeof(filter[0])),
+		.len = (unsigned short)(sizeof(filter) / sizeof(filter[0])),
 		.filter = filter,
 	};
 
-	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, (long) &bpf_prog, 0, 0) < 0)
+	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, (long)&bpf_prog, 0, 0) < 0)
 		return -1;
 
 	return 0;
@@ -912,7 +905,7 @@ static int check_aio_remap(void)
 		return -1;
 	}
 
-	len = get_ring_len((unsigned long) ctx);
+	len = get_ring_len((unsigned long)ctx);
 	if (!len)
 		return -1;
 
@@ -956,7 +949,8 @@ struct clone_arg {
 	char stack_ptr[0];
 };
 
-static int clone_cb(void *_arg) {
+static int clone_cb(void *_arg)
+{
 	exit(0);
 }
 
@@ -1016,8 +1010,7 @@ static int check_autofs(void)
 
 	ret = -1;
 
-	options = xsprintf("fd=%d,pgrp=%d,minproto=5,maxproto=5,direct",
-				pfd[1], getpgrp());
+	options = xsprintf("fd=%d,pgrp=%d,minproto=5,maxproto=5,direct", pfd[1], getpgrp());
 	if (!options) {
 		pr_err("failed to allocate autofs options\n");
 		goto close_pipe;
@@ -1129,7 +1122,7 @@ static int kerndat_tcp_repair_window(void)
 			pr_perror("Unable to set TCP_REPAIR_WINDOW");
 			goto err;
 		}
-now:
+	now:
 		val = 0;
 	} else
 		val = 1;
@@ -1327,8 +1320,8 @@ static int check_newifindex(void)
 static int check_net_diag_raw(void)
 {
 	check_sock_diag();
-	return (socket_test_collect_bit(AF_INET, IPPROTO_RAW) &&
-		socket_test_collect_bit(AF_INET6, IPPROTO_RAW)) ? 0 : -1;
+	return (socket_test_collect_bit(AF_INET, IPPROTO_RAW) && socket_test_collect_bit(AF_INET6, IPPROTO_RAW)) ? 0 :
+															 -1;
 }
 
 static int check_pidfd_store(void)
@@ -1371,17 +1364,19 @@ static int (*chk_feature)(void);
  * We fail if any feature in category 1 is missing but tolerate failures
  * in the other categories.  Currently, there is nothing in category 3.
  */
-#define CHECK_GOOD	"Looks good."
-#define CHECK_BAD	"Does not look good."
-#define CHECK_MAYBE	"Looks good but some kernel features are missing\n" \
-			"which, depending on your process tree, may cause\n" \
-			"dump or restore failure."
-#define CHECK_CAT1(fn)	do { \
-				if ((ret = fn) != 0) { \
-					pr_warn("%s\n", CHECK_BAD); \
-					return ret; \
-				} \
-			} while (0)
+#define CHECK_GOOD "Looks good."
+#define CHECK_BAD  "Does not look good."
+#define CHECK_MAYBE                                          \
+	"Looks good but some kernel features are missing\n"  \
+	"which, depending on your process tree, may cause\n" \
+	"dump or restore failure."
+#define CHECK_CAT1(fn)                              \
+	do {                                        \
+		if ((ret = fn) != 0) {              \
+			pr_warn("%s\n", CHECK_BAD); \
+			return ret;                 \
+		}                                   \
+	} while (0)
 int cr_check(void)
 {
 	struct ns_id *ns;
@@ -1566,17 +1561,17 @@ static struct feature_list feature_list[] = {
 	{ "compat_cr", check_compat_cr },
 	{ "uffd", check_uffd },
 	{ "uffd-noncoop", check_uffd_noncoop },
-	{ "can_map_vdso", check_can_map_vdso},
+	{ "can_map_vdso", check_can_map_vdso },
 	{ "sk_ns", check_sk_netns },
 	{ "sk_unix_file", check_sk_unix_file },
 	{ "net_diag_raw", check_net_diag_raw },
 	{ "nsid", check_nsid },
-	{ "link_nsid", check_link_nsid},
-	{ "kcmp_epoll", check_kcmp_epoll},
-	{ "timens", check_time_namespace},
-	{ "external_net_ns", check_external_net_ns},
-	{ "clone3_set_tid", check_clone3_set_tid},
-	{ "newifindex", check_newifindex},
+	{ "link_nsid", check_link_nsid },
+	{ "kcmp_epoll", check_kcmp_epoll },
+	{ "timens", check_time_namespace },
+	{ "external_net_ns", check_external_net_ns },
+	{ "clone3_set_tid", check_clone3_set_tid },
+	{ "newifindex", check_newifindex },
 	{ "nftables", check_nftables_cr },
 	{ "has_ipt_legacy", check_ipt_legacy },
 	{ "pidfd_store", check_pidfd_store },

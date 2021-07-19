@@ -10,7 +10,7 @@
 #include "zdtmtst.h"
 
 #ifndef CLONE_NEWNS
-#define CLONE_NEWNS     0x00020000
+#define CLONE_NEWNS 0x00020000
 #endif
 
 #ifdef REMAP_PID_ROOT
@@ -19,8 +19,8 @@ const char *proc_path = "/proc/%d";
 const char *proc_path = "/proc/%d/mountinfo";
 #endif
 
-const char *test_doc	= "Check that dead pid's /proc entries are remapped correctly";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "Check that dead pid's /proc entries are remapped correctly";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 int main(int argc, char **argv)
 {
@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 	if (pid == 0) {
 		/* Child process just sleeps until it is killed. All we need
 		 * here is a process to open the mountinfo of. */
-		while(1)
+		while (1)
 			sleep(10);
 	} else {
 		int fd, ret;

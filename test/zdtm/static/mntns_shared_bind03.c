@@ -14,15 +14,14 @@
 #include "zdtmtst.h"
 
 #ifndef CLONE_NEWNS
-#define CLONE_NEWNS     0x00020000
+#define CLONE_NEWNS 0x00020000
 #endif
 
-const char *test_doc	= "Check shared non-root bind-mounts with different shared groups";
-const char *test_author	= "Andrew Vagin <avagin@gmail.com>";
+const char *test_doc = "Check shared non-root bind-mounts with different shared groups";
+const char *test_author = "Andrew Vagin <avagin@gmail.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
-
 
 int main(int argc, char **argv)
 {
@@ -51,22 +50,19 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (mount("1", "1", NULL, MS_BIND, NULL) ||
-	    mount(NULL, "1", NULL, MS_PRIVATE, NULL) ||
+	if (mount("1", "1", NULL, MS_BIND, NULL) || mount(NULL, "1", NULL, MS_PRIVATE, NULL) ||
 	    mount(NULL, "1", NULL, MS_SHARED, NULL)) {
 		pr_perror("mount");
 		return 1;
 	}
 
-	if (mount("1", "A", NULL, MS_BIND, NULL) ||
-	    mount(NULL, "A", NULL, MS_PRIVATE, NULL) ||
+	if (mount("1", "A", NULL, MS_BIND, NULL) || mount(NULL, "A", NULL, MS_PRIVATE, NULL) ||
 	    mount(NULL, "A", NULL, MS_SHARED, NULL)) {
 		pr_perror("mount");
 		return 1;
 	}
 
-	if (mount("1", "B", NULL, MS_BIND, NULL) ||
-	    mount(NULL, "B", NULL, MS_SLAVE, NULL)) {
+	if (mount("1", "B", NULL, MS_BIND, NULL) || mount(NULL, "B", NULL, MS_SLAVE, NULL)) {
 		pr_perror("mount");
 		return 1;
 	}

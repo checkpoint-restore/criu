@@ -14,8 +14,8 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Test unix stream sockets with mismatch in shutdown state\n";
-const char *test_author	= "Andrey Ryabinin <aryabinin@virtuozzo.com>";
+const char *test_doc = "Test unix stream sockets with mismatch in shutdown state\n";
+const char *test_author = "Andrey Ryabinin <aryabinin@virtuozzo.com>";
 
 #define SK_DATA "packet"
 
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ret = bind(sk[0], (struct sockaddr *) &addr, addrlen);
+	ret = bind(sk[0], (struct sockaddr *)&addr, addrlen);
 	if (ret) {
 		fail("bind");
 		exit(1);
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ret = connect(sk[1], (struct sockaddr *) &addr, addrlen);
+	ret = connect(sk[1], (struct sockaddr *)&addr, addrlen);
 	if (ret) {
 		fail("connect");
 		exit(1);

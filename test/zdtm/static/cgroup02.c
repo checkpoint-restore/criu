@@ -8,8 +8,8 @@
 #include <sys/mount.h>
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that empty cgroups are preserved";
-const char *test_author	= "Tycho Andersen <tycho.andersen@canonical.com>";
+const char *test_doc = "Check that empty cgroups are preserved";
+const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 
 char *dirname;
 TEST_OPTION(dirname, string, "cgroup directory name", 1);
@@ -159,7 +159,6 @@ int main(int argc, char **argv)
 
 	pass();
 	ret = 0;
-
 
 out_close:
 	fclose(cgf);

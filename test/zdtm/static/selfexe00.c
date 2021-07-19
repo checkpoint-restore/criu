@@ -16,10 +16,10 @@
 
 #include "zdtmtst.h"
 
-#define gettid()	pthread_self()
+#define gettid() pthread_self()
 
-const char *test_doc	= "Check if /proc/self/exe points to same location after restore\n";
-const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org";
+const char *test_doc = "Check if /proc/self/exe points to same location after restore\n";
+const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org";
 
 int main(int argc, char *argv[])
 {

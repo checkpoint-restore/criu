@@ -15,17 +15,17 @@
 #include "zdtmtst.h"
 
 #ifndef CLONE_NEWNS
-#define CLONE_NEWNS     0x00020000
+#define CLONE_NEWNS 0x00020000
 #endif
 
-const char *test_doc	= "Check ghost and link-remap files in a few mntns";
-const char *test_author	= "Andrew Vagin <avagin@parallels.com>";
+const char *test_doc = "Check ghost and link-remap files in a few mntns";
+const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 
-#define MPTS_FILE	"F"
+#define MPTS_FILE "F"
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 
-#define NS_STACK_SIZE	4096
+#define NS_STACK_SIZE 4096
 /* All arguments should be above stack, because it grows down */
 struct ns_exec_args {
 	char stack[NS_STACK_SIZE] __stack_aligned__;
@@ -34,8 +34,8 @@ struct ns_exec_args {
 	int sync;
 };
 
-#define AWK_OK		13
-#define AWK_FAIL	42
+#define AWK_OK	 13
+#define AWK_FAIL 42
 
 static int get_mntid(int fd)
 {
@@ -102,7 +102,7 @@ int ns_child(void *_arg)
 
 	id1 = get_mntid(args->fd);
 	id2 = get_mntid(fd2);
-	if (id1 <0 || id2 < 0)
+	if (id1 < 0 || id2 < 0)
 		exit(1);
 
 	if (fstat(args->fd, &st1) || fstat(fd2, &st2)) {
@@ -117,8 +117,7 @@ int ns_child(void *_arg)
 #else
 	if (st1.st_nlink != 0) {
 #endif
-		pr_perror("Wrong number of links: %lu",
-			(long unsigned)st1.st_nlink);
+		pr_perror("Wrong number of links: %lu", (long unsigned)st1.st_nlink);
 		exit(1);
 	}
 
@@ -227,7 +226,6 @@ int main(int argc, char **argv)
 
 	test_daemon();
 	test_waitsig();
-
 
 	if (pid > 0) {
 		int status = 1;

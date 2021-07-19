@@ -9,24 +9,27 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc	= "Check that attributes and content of an open, "
-			  "written to, and then unlinked file migrate "
-			  "correctly";
-const char *test_author	= "Roman Kagan <rkagan@parallels.com>";
+const char *test_doc = "Check that attributes and content of an open, "
+		       "written to, and then unlinked file migrate "
+		       "correctly";
+const char *test_author = "Roman Kagan <rkagan@parallels.com>";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
-#define DEF_PERMS 06604		/* -rwS--Sr--, really esoteric one */
+#define DEF_PERMS 06604 /* -rwS--Sr--, really esoteric one */
 unsigned int perms = DEF_PERMS;
-TEST_OPTION(perms, uint, "permissions to set on file "
-	    "(default " __stringify(DEF_PERMS) ")", 0);
-#define DEF_MTIME 123456	/* another really esoteric one */
+TEST_OPTION(perms, uint,
+	    "permissions to set on file "
+	    "(default " __stringify(DEF_PERMS) ")",
+	    0);
+#define DEF_MTIME 123456 /* another really esoteric one */
 unsigned int mtime = DEF_MTIME;
-TEST_OPTION(mtime, uint, "mtime to set on file "
-	    "(default " __stringify(DEF_MTIME) ")", 0);
+TEST_OPTION(mtime, uint,
+	    "mtime to set on file "
+	    "(default " __stringify(DEF_MTIME) ")",
+	    0);
 
-
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	int fd;
 	struct utimbuf ut;
@@ -49,7 +52,7 @@ int main(int argc, char ** argv)
 		exit(1);
 	}
 
-	ut = (struct utimbuf) {
+	ut = (struct utimbuf){
 		.actime = 0,
 		.modtime = mtime,
 	};

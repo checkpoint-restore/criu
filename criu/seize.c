@@ -26,16 +26,11 @@
 
 #define NR_ATTEMPTS 5
 
-static const char frozen[]	= "FROZEN";
-static const char freezing[]	= "FREEZING";
-static const char thawed[]	= "THAWED";
+static const char frozen[] = "FROZEN";
+static const char freezing[] = "FREEZING";
+static const char thawed[] = "THAWED";
 
-enum freezer_state {
-	FREEZER_ERROR = -1,
-	THAWED,
-	FROZEN,
-	FREEZING
-};
+enum freezer_state { FREEZER_ERROR = -1, THAWED, FROZEN, FREEZING };
 
 /* Track if we are running on cgroup v2 system. */
 static bool cgroup_v2 = false;
@@ -45,8 +40,7 @@ static enum freezer_state get_freezer_v1_state(int fd)
 	char state[32];
 	int ret;
 
-	BUILD_BUG_ON((sizeof(state) < sizeof(frozen))	||
-		     (sizeof(state) < sizeof(freezing))	||
+	BUILD_BUG_ON((sizeof(state) < sizeof(frozen)) || (sizeof(state) < sizeof(freezing)) ||
 		     (sizeof(state) < sizeof(thawed)));
 
 	lseek(fd, 0, SEEK_SET);
@@ -146,23 +140,19 @@ const char *get_real_freezer_state(void)
 
 static int freezer_write_state(int fd, enum freezer_state new_state)
 {
-	char state[32] = {0};
+	char state[32] = { 0 };
 	int ret;
 
 	if (new_state == THAWED) {
 		if (cgroup_v2)
 			state[0] = '0';
-		else
-			if (strlcpy(state, thawed, sizeof(state)) >=
-					sizeof(state))
-				return -1;
+		else if (strlcpy(state, thawed, sizeof(state)) >= sizeof(state))
+			return -1;
 	} else if (new_state == FROZEN) {
 		if (cgroup_v2)
 			state[0] = '1';
-		else
-			if (strlcpy(state, frozen, sizeof(state)) >=
-					sizeof(state))
-				return -1;
+		else if (strlcpy(state, frozen, sizeof(state)) >= sizeof(state))
+			return -1;
 	} else {
 		return -1;
 	}
@@ -173,8 +163,7 @@ static int freezer_write_state(int fd, enum freezer_state new_state)
 		return -1;
 	}
 	if (write(fd, state, sizeof(state)) != sizeof(state)) {
-		pr_perror("Unable to %s tasks",
-				(new_state == THAWED) ? "thaw" : "freeze");
+		pr_perror("Unable to %s tasks", (new_state == THAWED) ? "thaw" : "freeze");
 		return -1;
 	}
 
@@ -188,8 +177,7 @@ static int freezer_open(void)
 	char path[PATH_MAX];
 	int fd;
 
-	snprintf(path, sizeof(path), "%s/%s", opts.freeze_cgroup,
-			cgroup_v2 ? freezer_v2 : freezer_v1);
+	snprintf(path, sizeof(path), "%s/%s", opts.freeze_cgroup, cgroup_v2 ? freezer_v2 : freezer_v1);
 	fd = open(path, O_RDWR);
 	if (fd < 0) {
 		pr_perror("Unable to open %s", path);
@@ -221,8 +209,7 @@ static FILE *freezer_open_thread_list(char *root_path)
 	char path[PATH_MAX];
 	FILE *f;
 
-	snprintf(path, sizeof(path), "%s/%s", root_path,
-			cgroup_v2 ? "cgroup.threads" : "tasks");
+	snprintf(path, sizeof(path), "%s/%s", root_path, cgroup_v2 ? "cgroup.threads" : "tasks");
 	f = fopen(path, "r");
 	if (f == NULL) {
 		pr_perror("Unable to open %s", path);
@@ -425,7 +412,6 @@ static int log_unfrozen_stacks(char *root)
 		stackbuf[ret] = '\0';
 
 		pr_debug("Task %d has stack:\n%s", pid, stackbuf);
-
 	}
 	fclose(f);
 
@@ -472,8 +458,8 @@ static int freeze_processes(void)
 	unsigned long i = 0;
 
 	const struct timespec req = {
-		.tv_nsec	= step_ms * 1000000,
-		.tv_sec		= 0,
+		.tv_nsec = step_ms * 1000000,
+		.tv_sec = 0,
 	};
 
 	if (unlikely(!nr_attempts)) {
@@ -484,8 +470,7 @@ static int freeze_processes(void)
 		nr_attempts = (10 * 1000000) / step_ms;
 	}
 
-	pr_debug("freezing processes: %lu attempts with %lu ms steps\n",
-		 nr_attempts, step_ms);
+	pr_debug("freezing processes: %lu attempts with %lu ms steps\n", nr_attempts, step_ms);
 
 	fd = freezer_open();
 	if (fd < 0)
@@ -676,7 +661,6 @@ static void pstree_wait(struct pstree_item *root_item)
 	int pid, status, i;
 
 	for_each_pstree_item(item) {
-
 		if (item->pid->state == TASK_DEAD)
 			continue;
 
@@ -687,8 +671,7 @@ static void pstree_wait(struct pstree_item *root_item)
 				break;
 			} else {
 				if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGKILL) {
-					pr_err("Unexpected exit code %d of %d: %s\n",
-						status, pid, strsignal(status));
+					pr_err("Unexpected exit code %d of %d: %s\n", status, pid, strsignal(status));
 					BUG();
 				}
 			}
@@ -791,8 +774,7 @@ static int collect_threads(struct pstree_item *item)
 
 		nr_inprogress++;
 
-		pr_info("\tSeizing %d's %d thread\n",
-				item->pid->real, pid);
+		pr_info("\tSeizing %d's %d thread\n", item->pid->real, pid);
 
 		if (!opts.freeze_cgroup && compel_interrupt_task(pid))
 			continue;
@@ -846,8 +828,7 @@ err:
 	return -1;
 }
 
-static int collect_loop(struct pstree_item *item,
-		int (*collect)(struct pstree_item *))
+static int collect_loop(struct pstree_item *item, int (*collect)(struct pstree_item *))
 {
 	int attempts = NR_ATTEMPTS, nr_inprogress = 1;
 
@@ -993,4 +974,3 @@ err:
 	alarm(0);
 	return ret;
 }
-

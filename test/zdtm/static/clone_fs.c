@@ -4,7 +4,7 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc    = "Check that shared FS is migrated properly";
+const char *test_doc = "Check that shared FS is migrated properly";
 const char *test_author = "Stanislav Kinsburskiy <skinsbursky@virtuozzo.com>";
 
 enum kcmp_type {
@@ -26,28 +26,27 @@ static int kcmp(int type, pid_t pid1, pid_t pid2, unsigned long idx1, unsigned l
 	ret = syscall(SYS_kcmp, pid1, pid2, type, idx1, idx2);
 
 	switch (ret) {
-		case 0:
-			break;
-		case 1:
-		case 2:
-			test_msg("FS for pids %d and %d doesn't match: %d\n", pid1, pid2, ret);
-			break;
-		case -1:
-			pr_err("kcmp (type: %d, pid1: %d, pid2: %d, "
-					"idx1: %ld, idx2: %ld) failed: %d\n",
-					type, pid1, pid2, idx1, idx2, errno);
-			break;
-		default:
-			pr_err("kcmp (type: %d, pid1: %d, pid2: %d, "
-					"idx1: %ld, idx2: %ld) returned %d\n",
-					type, pid1, pid2, idx1, idx2, ret);
-			break;
+	case 0:
+		break;
+	case 1:
+	case 2:
+		test_msg("FS for pids %d and %d doesn't match: %d\n", pid1, pid2, ret);
+		break;
+	case -1:
+		pr_err("kcmp (type: %d, pid1: %d, pid2: %d, "
+		       "idx1: %ld, idx2: %ld) failed: %d\n",
+		       type, pid1, pid2, idx1, idx2, errno);
+		break;
+	default:
+		pr_err("kcmp (type: %d, pid1: %d, pid2: %d, "
+		       "idx1: %ld, idx2: %ld) returned %d\n",
+		       type, pid1, pid2, idx1, idx2, ret);
+		break;
 	}
 	return ret;
 }
 
-#define gettid(code)        \
-	        syscall(__NR_gettid)
+#define gettid(code) syscall(__NR_gettid)
 
 static pthread_mutex_t init_lock;
 static pthread_mutex_t exit_lock;
@@ -68,7 +67,7 @@ int main(int argc, char **argv)
 	int ret;
 	pthread_t th;
 
-        test_init(argc, argv);
+	test_init(argc, argv);
 
 	pthread_mutex_init(&init_lock, NULL);
 	pthread_mutex_lock(&init_lock);

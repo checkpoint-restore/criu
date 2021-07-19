@@ -7,9 +7,9 @@ const char *test_author = "Zeyad Yasser <zeyady98@gmail.com>";
 #include <fcntl.h>
 #include <sched.h>
 
-#define NS_PATH "/var/run/netns/criu-net-lock-test"
+#define NS_PATH	      "/var/run/netns/criu-net-lock-test"
 #define SYNCFILE_PATH "net_lock.sync"
-#define MAX_RETRY 3
+#define MAX_RETRY     3
 
 int main(int argc, char **argv)
 {
@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 	 */
 
 	for (i = 0; i < MAX_RETRY; i++) {
-		if (access(SYNCFILE_PATH, F_OK )) {
+		if (access(SYNCFILE_PATH, F_OK)) {
 			/* Netns not created yet by post-start hook */
 			sleep(1);
 			continue;

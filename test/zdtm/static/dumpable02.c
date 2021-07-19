@@ -10,10 +10,11 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc    = "Check dumpable flag handling (non-dumpable case)";
+const char *test_doc = "Check dumpable flag handling (non-dumpable case)";
 const char *test_author = "Filipe Brandenburger <filbranden@google.com>";
 
-int dumpable_server(void) {
+int dumpable_server(void)
+{
 	char buf[256];
 	int ret;
 
@@ -27,7 +28,8 @@ int dumpable_server(void) {
 	return 0;
 }
 
-int get_dumpable_from_pipes(int pipe_input, int pipe_output) {
+int get_dumpable_from_pipes(int pipe_input, int pipe_output)
+{
 	char buf[256];
 	int len;
 	long value;
@@ -56,7 +58,6 @@ int get_dumpable_from_pipes(int pipe_input, int pipe_output) {
 
 	return (int)value;
 }
-
 
 int main(int argc, char **argv)
 {
@@ -156,7 +157,8 @@ int main(int argc, char **argv)
 	close(pipe_output[1]);
 
 	save_dumpable = get_dumpable_from_pipes(pipe_input[1], pipe_output[0]);
-	if (save_dumpable < 0) return 1;
+	if (save_dumpable < 0)
+		return 1;
 #ifdef DEBUG
 	test_msg("DEBUG: before dump: dumpable=%d\n", save_dumpable);
 #endif
@@ -166,7 +168,8 @@ int main(int argc, char **argv)
 	test_waitsig();
 
 	dumpable = get_dumpable_from_pipes(pipe_input[1], pipe_output[0]);
-	if (dumpable < 0) return 1;
+	if (dumpable < 0)
+		return 1;
 #ifdef DEBUG
 	test_msg("DEBUG: after restore: dumpable=%d\n", dumpable);
 #endif
@@ -188,18 +191,15 @@ int main(int argc, char **argv)
 	}
 	errno = 0;
 	if (waited != pid) {
-		pr_err("waited pid %d did not match child pid %d\n",
-		    waited, pid);
+		pr_err("waited pid %d did not match child pid %d\n", waited, pid);
 		return 1;
 	}
 	if (!WIFEXITED(status)) {
-		pr_err("child dumpable server returned abnormally with status=%d\n",
-		    status);
+		pr_err("child dumpable server returned abnormally with status=%d\n", status);
 		return 1;
 	}
 	if (WEXITSTATUS(status) != 0) {
-		pr_err("child dumpable server returned rc=%d\n",
-		    WEXITSTATUS(status));
+		pr_err("child dumpable server returned rc=%d\n", WEXITSTATUS(status));
 		return 1;
 	}
 
