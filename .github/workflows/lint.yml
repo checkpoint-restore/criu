@@ -5,9 +5,21 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: registry.fedoraproject.org/fedora:latest
     steps:
-    - uses: actions/checkout@v2
     - name: Install tools
-      run: sudo apt-get install -qqy flake8 shellcheck
+      run: sudo dnf -y install git make python3-flake8 ShellCheck clang-tools-extra which findutils
+    - uses: actions/checkout@v2
     - name: Run make lint
       run: make lint
+    - name: Run make indent
+      run: >
+        make indent &&
+        STATUS=$(git status --porcelain) &&
+        if [ ! -z "$STATUS" ]; then
+          echo "FAIL: some files are not correctly formatted.";
+          echo "$STATUS"
+          echo "FAIL: please run 'make indent'";
+          exit 1;
+        fi
