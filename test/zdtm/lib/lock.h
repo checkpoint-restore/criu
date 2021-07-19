@@ -9,22 +9,22 @@
 #include <errno.h>
 #include "asm/atomic.h"
 
-#define BUG_ON(condition)						\
-	do {								\
-		if ((condition)) {					\
-			raise(SIGABRT);					\
+#define BUG_ON(condition)                                                        \
+	do {                                                                     \
+		if ((condition)) {                                               \
+			raise(SIGABRT);                                          \
 			*(volatile unsigned long *)NULL = 0xdead0000 + __LINE__; \
-		}							\
+		}                                                                \
 	} while (0)
 typedef struct {
-	uint32_t	raw;
+	uint32_t raw;
 } futex_t;
 
-#define FUTEX_ABORT_FLAG	(0x80000000)
-#define FUTEX_ABORT_RAW		(-1U)
+#define FUTEX_ABORT_FLAG (0x80000000)
+#define FUTEX_ABORT_RAW	 (-1U)
 
-static inline int sys_futex(uint32_t *uaddr, int op, uint32_t val, const struct timespec *timeout,
-                 uint32_t *uaddr2, uint32_t val3)
+static inline int sys_futex(uint32_t *uaddr, int op, uint32_t val, const struct timespec *timeout, uint32_t *uaddr2,
+			    uint32_t val3)
 {
 	return syscall(__NR_futex, uaddr, op, val, timeout, uaddr2, val3);
 }
@@ -48,26 +48,23 @@ static inline void futex_add_and_wake(futex_t *f, uint32_t v)
 	BUG_ON(sys_futex(&f->raw, FUTEX_WAKE, INT_MAX, NULL, NULL, 0) < 0);
 }
 
-
-#define futex_init(f)	futex_set(f, 0)
+#define futex_init(f) futex_set(f, 0)
 
 /* Wait on futex @__f value @__v become in condition @__c */
-#define futex_wait_if_cond(__f, __v, __cond)			\
-	do {							\
-		int ret;					\
-		uint32_t tmp;					\
-								\
-		while (1) {					\
-			tmp = (__f)->raw;			\
-			if ((tmp & FUTEX_ABORT_FLAG) ||		\
-			    (tmp __cond (__v)))			\
-				break;				\
-			ret = sys_futex(&(__f)->raw, FUTEX_WAIT,\
-					tmp, NULL, NULL, 0);	\
-			if (ret < 0 && (errno == EAGAIN || errno == EINTR)) \
-				continue;			\
-			BUG_ON(ret < 0 && errno != EWOULDBLOCK);	\
-		}						\
+#define futex_wait_if_cond(__f, __v, __cond)                                          \
+	do {                                                                          \
+		int ret;                                                              \
+		uint32_t tmp;                                                         \
+                                                                                      \
+		while (1) {                                                           \
+			tmp = (__f)->raw;                                             \
+			if ((tmp & FUTEX_ABORT_FLAG) || (tmp __cond(__v)))            \
+				break;                                                \
+			ret = sys_futex(&(__f)->raw, FUTEX_WAIT, tmp, NULL, NULL, 0); \
+			if (ret < 0 && (errno == EAGAIN || errno == EINTR))           \
+				continue;                                             \
+			BUG_ON(ret < 0 && errno != EWOULDBLOCK);                      \
+		}                                                                     \
 	} while (0)
 
 /* Set futex @f to @v and wake up all waiters */
@@ -98,22 +95,34 @@ static inline void futex_inc_and_wake(futex_t *f)
 }
 
 /* Plain increment futex @f value */
-static inline void futex_inc(futex_t *f) { atomic_inc(&f->raw); }
+static inline void futex_inc(futex_t *f)
+{
+	atomic_inc(&f->raw);
+}
 
 /* Plain decrement futex @f value */
-static inline void futex_dec(futex_t *f) { atomic_dec(&f->raw); }
+static inline void futex_dec(futex_t *f)
+{
+	atomic_dec(&f->raw);
+}
 
 /* Wait until futex @f value become @v */
 static inline void futex_wait_until(futex_t *f, uint32_t v)
-{ futex_wait_if_cond(f, v, ==); }
+{
+	futex_wait_if_cond(f, v, ==);
+}
 
 /* Wait while futex @f value is greater than @v */
 static inline void futex_wait_while_gt(futex_t *f, uint32_t v)
-{ futex_wait_if_cond(f, v, <=); }
+{
+	futex_wait_if_cond(f, v, <=);
+}
 
 /* Wait while futex @f value is less than @v */
 static inline void futex_wait_while_lt(futex_t *f, uint32_t v)
-{ futex_wait_if_cond(f, v, >=); }
+{
+	futex_wait_if_cond(f, v, >=);
+}
 /* Wait while futex @f value is @v */
 static inline uint32_t futex_wait_while(futex_t *f, uint32_t v)
 {
@@ -128,7 +137,7 @@ static inline uint32_t futex_wait_while(futex_t *f, uint32_t v)
 }
 
 typedef struct {
-	uint32_t	raw;
+	uint32_t raw;
 } mutex_t;
 
 static void inline mutex_init(mutex_t *m)

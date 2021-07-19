@@ -5,8 +5,7 @@ extern struct fstype *decode_fstype(u32 fst);
 extern bool add_fsname_auto(const char *names);
 
 struct mount_info;
-typedef int (*mount_fn_t)(struct mount_info *mi, const char *src, const
-			  char *fstype, unsigned long mountflags);
+typedef int (*mount_fn_t)(struct mount_info *mi, const char *src, const char *fstype, unsigned long mountflags);
 
 struct fstype {
 	char *name;

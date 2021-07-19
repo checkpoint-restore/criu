@@ -45,19 +45,19 @@ struct rb_node;
  * which has no filters yet.
  */
 struct seccomp_filter_chain {
-	struct seccomp_filter_chain	*prev;
-	SeccompFilter			filter;
+	struct seccomp_filter_chain *prev;
+	SeccompFilter filter;
 };
 
 struct seccomp_entry {
-	struct rb_node			node;
-	struct seccomp_entry		*next;
-	pid_t				tid_real;
-	size_t				img_filter_pos;
-	unsigned int			mode;
+	struct rb_node node;
+	struct seccomp_entry *next;
+	pid_t tid_real;
+	size_t img_filter_pos;
+	unsigned int mode;
 
-	struct seccomp_filter_chain	*chain;
-	size_t				nr_chains;
+	struct seccomp_filter_chain *chain;
+	size_t nr_chains;
 };
 
 extern struct seccomp_entry *seccomp_lookup(pid_t tid_real, bool create, bool mandatory);

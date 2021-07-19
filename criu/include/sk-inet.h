@@ -8,39 +8,39 @@
 #include "common/list.h"
 #include "images/sk-inet.pb-c.h"
 
-#define INET_ADDR_LEN		48 /* max of INET_ADDRSTRLEN and INET6_ADDRSTRLEN */
+#define INET_ADDR_LEN 48 /* max of INET_ADDRSTRLEN and INET6_ADDRSTRLEN */
 #ifndef TCP_REPAIR
-#define TCP_REPAIR		19      /* TCP sock is under repair right now */
-#define TCP_REPAIR_QUEUE	20
-#define TCP_QUEUE_SEQ		21
-#define TCP_REPAIR_OPTIONS	22
+#define TCP_REPAIR	   19 /* TCP sock is under repair right now */
+#define TCP_REPAIR_QUEUE   20
+#define TCP_QUEUE_SEQ	   21
+#define TCP_REPAIR_OPTIONS 22
 #endif
 
 #ifndef IP_HDRINCL
-# define IP_HDRINCL		3
+#define IP_HDRINCL 3
 #endif
 
 #ifndef IP_NODEFRAG
-# define IP_NODEFRAG		22
+#define IP_NODEFRAG 22
 #endif
 
 #ifndef IPV6_HDRINCL
-# define IPV6_HDRINCL		36
+#define IPV6_HDRINCL 36
 #endif
 
 struct inet_sk_desc {
-	struct socket_desc	sd;
-	unsigned int		type;
-	unsigned int		src_port;
-	unsigned int		dst_port;
-	unsigned int		state;
-	unsigned int		rqlen;
-	unsigned int		wqlen; /* sent + unsent data */
-	unsigned int		uwqlen; /* unsent data */
-	unsigned int		src_addr[4];
-	unsigned int		dst_addr[4];
-	unsigned short		shutdown;
-	bool			cork;
+	struct socket_desc sd;
+	unsigned int type;
+	unsigned int src_port;
+	unsigned int dst_port;
+	unsigned int state;
+	unsigned int rqlen;
+	unsigned int wqlen; /* sent + unsent data */
+	unsigned int uwqlen; /* unsent data */
+	unsigned int src_addr[4];
+	unsigned int dst_addr[4];
+	unsigned short shutdown;
+	bool cork;
 
 	int rfd;
 	int cpt_reuseaddr;
@@ -68,7 +68,7 @@ extern int inet_bind(int sk, struct inet_sk_info *);
 extern int inet_connect(int sk, struct inet_sk_info *);
 
 #ifdef CR_NOGLIBC
-#define setsockopt	sys_setsockopt
+#define setsockopt sys_setsockopt
 #endif
 static inline void tcp_repair_off(int fd)
 {
@@ -86,20 +86,19 @@ extern void cpt_unlock_tcp_connections(void);
 extern int dump_one_tcp(int sk, struct inet_sk_desc *sd, SkOptsEntry *soe);
 extern int restore_one_tcp(int sk, struct inet_sk_info *si);
 
-#define SK_EST_PARAM	"tcp-established"
+#define SK_EST_PARAM	  "tcp-established"
 #define SK_INFLIGHT_PARAM "skip-in-flight"
-#define SK_CLOSE_PARAM	"tcp-close"
+#define SK_CLOSE_PARAM	  "tcp-close"
 
 struct task_restore_args;
 int prepare_tcp_socks(struct task_restore_args *);
 
 struct rst_tcp_sock {
-	int	sk;
-	bool	reuseaddr;
+	int sk;
+	bool reuseaddr;
 };
 
 union libsoccr_addr;
-int restore_sockaddr(union libsoccr_addr *sa,
-		int family, u32 pb_port, u32 *pb_addr, u32 ifindex);
+int restore_sockaddr(union libsoccr_addr *sa, int family, u32 pb_port, u32 *pb_addr, u32 ifindex);
 
 #endif /* __CR_SK_INET_H__ */

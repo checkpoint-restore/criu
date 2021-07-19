@@ -19,47 +19,47 @@ void fini_cgroup(void);
 struct cg_controller;
 
 struct cgroup_prop {
-	char			*name;
-	char			*value;
-	mode_t			mode;
-	uid_t			uid;
-	gid_t			gid;
-	struct list_head	list;
+	char *name;
+	char *value;
+	mode_t mode;
+	uid_t uid;
+	gid_t gid;
+	struct list_head list;
 };
 
 /* This describes a particular cgroup path, e.g. the '/lxc/u1' part of
  * 'blkio/lxc/u1' and any properties it has.
  */
 struct cgroup_dir {
-	char			*path;
-	mode_t			mode;
-	uid_t			uid;
-	gid_t			gid;
+	char *path;
+	mode_t mode;
+	uid_t uid;
+	gid_t gid;
 
-	struct list_head	properties;
-	unsigned int		n_properties;
+	struct list_head properties;
+	unsigned int n_properties;
 
 	/* this is how children are linked together */
-	struct list_head	siblings;
+	struct list_head siblings;
 
 	/* more cgroup_dirs */
-	struct list_head	children;
-	unsigned int		n_children;
+	struct list_head children;
+	unsigned int n_children;
 };
 
 /* This describes a particular cgroup controller, e.g. blkio or cpuset.
  * The heads are subdirectories organized in their tree format.
  */
 struct cg_controller {
-	unsigned int		n_controllers;
-	char			**controllers;
+	unsigned int n_controllers;
+	char **controllers;
 
 	/* cgroup_dirs */
-	struct list_head 	heads;
-	unsigned int		n_heads;
+	struct list_head heads;
+	unsigned int n_heads;
 
 	/* for cgroup list in cgroup.c */
-	struct list_head	l;
+	struct list_head l;
 };
 struct cg_controller *new_controller(const char *name);
 

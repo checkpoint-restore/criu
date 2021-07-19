@@ -11,11 +11,12 @@
 
 #ifdef CONFIG_COMPAT
 extern void restore_tls(tls_t *ptls);
-extern int arch_compat_rt_sigaction(void *stack32, int sig,
-		rt_sigaction_t_compat *act);
+extern int arch_compat_rt_sigaction(void *stack32, int sig, rt_sigaction_t_compat *act);
 extern int set_compat_robust_list(uint32_t head_ptr, uint32_t len);
 #else /* CONFIG_COMPAT */
-static inline void restore_tls(tls_t *ptls) { }
+static inline void restore_tls(tls_t *ptls)
+{
+}
 static inline int arch_compat_rt_sigaction(void *stack, int sig, void *act)
 {
 	return -1;
@@ -41,6 +42,7 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
  *           unsigned long tls);
  */
 
+/* clang-format off */
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,	\
 			     thread_args, clone_restore_fn)		\
 	asm volatile(							\
@@ -143,7 +145,7 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 	 */								\
 									\
 		     "clone3_end:				\n"	\
-		     : "=r"(ret)		 			\
+		     : "=r"(ret)					\
 	/*
 	 * This uses the "r" modifier for all parameters
 	 * as clang complained if using "g".
@@ -164,30 +166,29 @@ static inline int set_compat_robust_list(uint32_t head_ptr, uint32_t len)
 		     :						\
 		     : "r"(ret)					\
 		     : "memory")
+/* clang-format on */
 
-static inline void
-__setup_sas_compat(struct ucontext_ia32* uc, ThreadSasEntry *sas)
+static inline void __setup_sas_compat(struct ucontext_ia32 *uc, ThreadSasEntry *sas)
 {
-	uc->uc_stack.ss_sp	= (compat_uptr_t)(sas)->ss_sp;
-	uc->uc_stack.ss_flags	= (int)(sas)->ss_flags;
-	uc->uc_stack.ss_size	= (compat_size_t)(sas)->ss_size;
+	uc->uc_stack.ss_sp = (compat_uptr_t)(sas)->ss_sp;
+	uc->uc_stack.ss_flags = (int)(sas)->ss_flags;
+	uc->uc_stack.ss_size = (compat_size_t)(sas)->ss_size;
 }
 
-static inline void
-__setup_sas(struct rt_sigframe* sigframe, ThreadSasEntry *sas)
+static inline void __setup_sas(struct rt_sigframe *sigframe, ThreadSasEntry *sas)
 {
 	if (sigframe->is_native) {
-		struct rt_ucontext *uc	= &sigframe->native.uc;
+		struct rt_ucontext *uc = &sigframe->native.uc;
 
-		uc->uc_stack.ss_sp	= (void *)decode_pointer((sas)->ss_sp);
-		uc->uc_stack.ss_flags	= (int)(sas)->ss_flags;
-		uc->uc_stack.ss_size	= (size_t)(sas)->ss_size;
+		uc->uc_stack.ss_sp = (void *)decode_pointer((sas)->ss_sp);
+		uc->uc_stack.ss_flags = (int)(sas)->ss_flags;
+		uc->uc_stack.ss_size = (size_t)(sas)->ss_size;
 	} else {
 		__setup_sas_compat(&sigframe->compat.uc, sas);
 	}
 }
 
-static inline void _setup_sas(struct rt_sigframe* sigframe, ThreadSasEntry *sas)
+static inline void _setup_sas(struct rt_sigframe *sigframe, ThreadSasEntry *sas)
 {
 	if (sas)
 		__setup_sas(sigframe, sas);

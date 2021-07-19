@@ -11,8 +11,7 @@ static inline void core_put_tls(CoreEntry *core, tls_t tls)
 	ThreadInfoX86 *ti = core->thread_info;
 	int i;
 
-	for (i = 0; i < GDT_ENTRY_TLS_NUM; i++)
-	{
+	for (i = 0; i < GDT_ENTRY_TLS_NUM; i++) {
 		user_desc_t *from = &tls.desc[i];
 		UserDescT *to = ti->tls[i];
 

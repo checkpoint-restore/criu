@@ -42,37 +42,36 @@
 
 #include "common/asm/bitsperlong.h"
 
-#define DIV_ROUND_UP(n,d)       (((n) + (d) - 1) / (d))
-#define BITS_TO_LONGS(nr)       DIV_ROUND_UP(nr, BITS_PER_LONG)
+#define DIV_ROUND_UP(n, d) (((n) + (d)-1) / (d))
+#define BITS_TO_LONGS(nr)  DIV_ROUND_UP(nr, BITS_PER_LONG)
 
-#define DECLARE_BITMAP(name,bits) \
-        unsigned long name[BITS_TO_LONGS(bits)]
+#define DECLARE_BITMAP(name, bits) unsigned long name[BITS_TO_LONGS(bits)]
 
 #define __stringify_in_c(...) #__VA_ARGS__
 #define stringify_in_c(...)   __stringify_in_c(__VA_ARGS__) " "
 
-#define BIT_MASK(nr)            (1UL << ((nr) % BITS_PER_LONG))
-#define BIT_WORD(nr)            ((nr) / BITS_PER_LONG)
+#define BIT_MASK(nr) (1UL << ((nr) % BITS_PER_LONG))
+#define BIT_WORD(nr) ((nr) / BITS_PER_LONG)
 
 /* PPC bit number conversion */
-#define PPC_BITLSHIFT(be)       (BITS_PER_LONG - 1 - (be))
-#define PPC_BIT(bit)            (1UL << PPC_BITLSHIFT(bit))
-#define PPC_BITMASK(bs, be)     ((PPC_BIT(bs) - PPC_BIT(be)) | PPC_BIT(bs))
+#define PPC_BITLSHIFT(be)   (BITS_PER_LONG - 1 - (be))
+#define PPC_BIT(bit)	    (1UL << PPC_BITLSHIFT(bit))
+#define PPC_BITMASK(bs, be) ((PPC_BIT(bs) - PPC_BIT(be)) | PPC_BIT(bs))
 
-#define PPC_INST_LDARX		0x7c0000a8
-#define ___PPC_RA(a)		(((a) & 0x1f) << 16)
-#define ___PPC_RB(b)		(((b) & 0x1f) << 11)
-#define ___PPC_RS(s)		(((s) & 0x1f) << 21)
-#define __PPC_EH(eh)		(((eh) & 0x1) << 0)
-#define ___PPC_RT(t)		___PPC_RS(t)
+#define PPC_INST_LDARX 0x7c0000a8
+#define ___PPC_RA(a)   (((a)&0x1f) << 16)
+#define ___PPC_RB(b)   (((b)&0x1f) << 11)
+#define ___PPC_RS(s)   (((s)&0x1f) << 21)
+#define __PPC_EH(eh)   (((eh)&0x1) << 0)
+#define ___PPC_RT(t)   ___PPC_RS(t)
 
-#define PPC_LDARX(t, a, b, eh)  stringify_in_c(.long PPC_INST_LDARX | \
-					___PPC_RT(t) | ___PPC_RA(a) | \
-					___PPC_RB(b) | __PPC_EH(eh))
-#define PPC_LLARX(t, a, b, eh)  PPC_LDARX(t, a, b, eh)
+#define PPC_LDARX(t, a, b, eh) \
+	stringify_in_c(.long PPC_INST_LDARX | ___PPC_RT(t) | ___PPC_RA(a) | ___PPC_RB(b) | __PPC_EH(eh))
+#define PPC_LLARX(t, a, b, eh) PPC_LDARX(t, a, b, eh)
 
+/* clang-format off */
 /* Macro for generating the ***_bits() functions */
-#define DEFINE_BITOP(fn, op)            	\
+#define DEFINE_BITOP(fn, op)			\
 static __inline__ void fn(unsigned long mask,   \
                 volatile unsigned long *_p)     \
 {                                               \
@@ -87,6 +86,7 @@ static __inline__ void fn(unsigned long mask,   \
         : "r" (mask), "r" (p)                   \
         : "cc", "memory");                      \
 }
+/* clang-format on */
 
 DEFINE_BITOP(set_bits, or)
 DEFINE_BITOP(clear_bits, andc)
@@ -94,26 +94,27 @@ DEFINE_BITOP(change_bits, xor)
 
 static __inline__ void set_bit(int nr, volatile unsigned long *addr)
 {
-        set_bits(BIT_MASK(nr), addr + BIT_WORD(nr));
+	set_bits(BIT_MASK(nr), addr + BIT_WORD(nr));
 }
 
 static __inline__ void clear_bit(int nr, volatile unsigned long *addr)
 {
-        clear_bits(BIT_MASK(nr), addr + BIT_WORD(nr));
+	clear_bits(BIT_MASK(nr), addr + BIT_WORD(nr));
 }
 
 static __inline__ void change_bit(int nr, volatile unsigned long *addr)
 {
-        change_bits(BIT_MASK(nr), addr + BIT_WORD(nr));
+	change_bits(BIT_MASK(nr), addr + BIT_WORD(nr));
 }
 
 static inline int test_bit(int nr, const volatile unsigned long *addr)
 {
-        return 1UL & (addr[BIT_WORD(nr)] >> (nr & (BITS_PER_LONG-1)));
+	return 1UL & (addr[BIT_WORD(nr)] >> (nr & (BITS_PER_LONG - 1)));
 }
 
 /* Like DEFINE_BITOP(), with changes to the arguments to 'op' and the output
  * operands. */
+/* clang-format off */
 #define DEFINE_TESTOP(fn, op, prefix, postfix, eh)	\
 static __inline__ unsigned long fn(			\
 		unsigned long mask,			\
@@ -133,11 +134,11 @@ static __inline__ unsigned long fn(			\
 	: "cc", "memory");				\
 	return (old & mask);				\
 }
+/* clang-format on */
 
 DEFINE_TESTOP(test_and_set_bits, or, "\nLWSYNC\n", "\nsync\n", 0)
 
-static __inline__ int test_and_set_bit(unsigned long nr,
-				       volatile unsigned long *addr)
+static __inline__ int test_and_set_bit(unsigned long nr, volatile unsigned long *addr)
 {
 	return test_and_set_bits(BIT_MASK(nr), addr + BIT_WORD(nr)) != 0;
 }
@@ -146,70 +147,63 @@ static __inline__ int test_and_set_bit(unsigned long nr,
  * Return the zero-based bit position (LE, not IBM bit numbering) of
  * the most significant 1-bit in a double word.
  */
-static __inline__ __attribute__((const))
-int __ilog2(unsigned long x)
+static __inline__ __attribute__((const)) int __ilog2(unsigned long x)
 {
-        int lz;
+	int lz;
 
-        asm ("cntlzd	%0,%1" : "=r" (lz) : "r" (x));
-        return BITS_PER_LONG - 1 - lz;
+	asm("cntlzd	%0,%1" : "=r"(lz) : "r"(x));
+	return BITS_PER_LONG - 1 - lz;
 }
-
 
 static __inline__ unsigned long __ffs(unsigned long x)
 {
-        return __ilog2(x & -x);
+	return __ilog2(x & -x);
 }
 
-
-#define BITOP_WORD(nr)          ((nr) / BITS_PER_LONG)
+#define BITOP_WORD(nr) ((nr) / BITS_PER_LONG)
 /*
  * Find the next set bit in a memory region.
  */
-static inline
-unsigned long find_next_bit(const unsigned long *addr, unsigned long size,
-                            unsigned long offset)
+static inline unsigned long find_next_bit(const unsigned long *addr, unsigned long size, unsigned long offset)
 {
-        const unsigned long *p = addr + BITOP_WORD(offset);
-        unsigned long result = offset & ~(BITS_PER_LONG-1);
-        unsigned long tmp;
+	const unsigned long *p = addr + BITOP_WORD(offset);
+	unsigned long result = offset & ~(BITS_PER_LONG - 1);
+	unsigned long tmp;
 
-        if (offset >= size)
-                return size;
-        size -= result;
-        offset %= BITS_PER_LONG;
-        if (offset) {
-                tmp = *(p++);
-                tmp &= (~0UL << offset);
-                if (size < BITS_PER_LONG)
-                        goto found_first;
-                if (tmp)
-                        goto found_middle;
-                size -= BITS_PER_LONG;
-                result += BITS_PER_LONG;
-        }
-        while (size & ~(BITS_PER_LONG-1)) {
-                if ((tmp = *(p++)))
-                        goto found_middle;
-                result += BITS_PER_LONG;
-                size -= BITS_PER_LONG;
-        }
-        if (!size)
-                return result;
-        tmp = *p;
+	if (offset >= size)
+		return size;
+	size -= result;
+	offset %= BITS_PER_LONG;
+	if (offset) {
+		tmp = *(p++);
+		tmp &= (~0UL << offset);
+		if (size < BITS_PER_LONG)
+			goto found_first;
+		if (tmp)
+			goto found_middle;
+		size -= BITS_PER_LONG;
+		result += BITS_PER_LONG;
+	}
+	while (size & ~(BITS_PER_LONG - 1)) {
+		if ((tmp = *(p++)))
+			goto found_middle;
+		result += BITS_PER_LONG;
+		size -= BITS_PER_LONG;
+	}
+	if (!size)
+		return result;
+	tmp = *p;
 
 found_first:
-        tmp &= (~0UL >> (BITS_PER_LONG - size));
-        if (tmp == 0UL)         /* Are any bits set? */
-                return result + size;   /* Nope. */
+	tmp &= (~0UL >> (BITS_PER_LONG - size));
+	if (tmp == 0UL) /* Are any bits set? */
+		return result + size; /* Nope. */
 found_middle:
-        return result + __ffs(tmp);
+	return result + __ffs(tmp);
 }
 
-#define for_each_bit(i, bitmask)                                \
-        for (i = find_next_bit(bitmask, sizeof(bitmask), 0);    \
-             i < sizeof(bitmask);                               \
-             i = find_next_bit(bitmask, sizeof(bitmask), i + 1))
-
+#define for_each_bit(i, bitmask)                                                  \
+	for (i = find_next_bit(bitmask, sizeof(bitmask), 0); i < sizeof(bitmask); \
+	     i = find_next_bit(bitmask, sizeof(bitmask), i + 1))
 
 #endif /* __CR_BITOPS_H__ */

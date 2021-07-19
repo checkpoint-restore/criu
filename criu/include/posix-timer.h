@@ -9,7 +9,7 @@ struct str_posix_timer {
 	int si_signo;
 	int it_sigev_notify;
 	int notify_thread_id;
-	void * sival_ptr;
+	void *sival_ptr;
 };
 
 struct proc_posix_timer {
@@ -22,7 +22,7 @@ struct proc_posix_timers_stat {
 	struct list_head timers;
 };
 
-extern int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat * args);
+extern int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args);
 void free_posix_timers(struct proc_posix_timers_stat *st);
 
 #endif /* __CR_PROC_POSIX_TIMER_H__ */

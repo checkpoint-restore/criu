@@ -13,7 +13,7 @@ static unsigned __page_shift;
 static inline unsigned page_size(void)
 {
 	if (!__page_size)
-	    __page_size = sysconf(_SC_PAGESIZE);
+		__page_size = sysconf(_SC_PAGESIZE);
 	return __page_size;
 }
 
@@ -24,11 +24,11 @@ static inline unsigned page_shift(void)
 	return __page_shift;
 }
 
-#define PAGE_SIZE	page_size()
-#define PAGE_SHIFT	page_shift()
-#define PAGE_MASK	(~(PAGE_SIZE - 1))
+#define PAGE_SIZE  page_size()
+#define PAGE_SHIFT page_shift()
+#define PAGE_MASK  (~(PAGE_SIZE - 1))
 
-#define PAGE_PFN(addr)	((addr) / PAGE_SIZE)
+#define PAGE_PFN(addr) ((addr) / PAGE_SIZE)
 #else /* CR_NOGLIBC */
 
 extern unsigned page_size(void);

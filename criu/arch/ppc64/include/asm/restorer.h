@@ -14,9 +14,10 @@
  *
  * See glibc sysdeps/powerpc/powerpc64/sysdep.h for FRAME_MIN_SIZE defines
  */
-#define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid, 	\
+/* clang-format off */
+#define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,	\
 			     thread_args, clone_restore_fn)		\
-	asm volatile( 							\
+	asm volatile(							\
 		"clone_emul:					\n"	\
 		"/* Save fn, args, stack across syscall. */ 	\n"	\
 		"mr	14, %5	/* clone_restore_fn in r14 */ 	\n"	\
@@ -88,22 +89,31 @@
 		  "r"(clone_restore_fn),	/* %3 */		\
 		  "r"(args)			/* %4 */		\
 		: "memory","0","3","4","5","14","15")
+/* clang-format on */
 
-#define arch_map_vdso(map, compat)		-1
+#define arch_map_vdso(map, compat) -1
 
 int restore_gpregs(struct rt_sigframe *f, UserPpc64RegsEntry *r);
 int restore_nonsigframe_gpregs(UserPpc64RegsEntry *r);
 
 /* Nothing to do, TLS is accessed through r13 */
-static inline void restore_tls(tls_t *ptls) { (void)ptls; }
+static inline void restore_tls(tls_t *ptls)
+{
+	(void)ptls;
+}
 
 /*
  * Defined in arch/ppc64/syscall-common-ppc64.S
  */
 unsigned long sys_shmat(int shmid, const void *shmaddr, int shmflg);
 
-static inline void *alloc_compat_syscall_stack(void) { return NULL; }
-static inline void free_compat_syscall_stack(void *stack32) { }
+static inline void *alloc_compat_syscall_stack(void)
+{
+	return NULL;
+}
+static inline void free_compat_syscall_stack(void *stack32)
+{
+}
 static inline int arch_compat_rt_sigaction(void *stack, int sig, void *act)
 {
 	return -1;

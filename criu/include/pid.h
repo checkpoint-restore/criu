@@ -8,18 +8,17 @@
 /*
  * Task states, used in e.g. struct pid's state.
  */
-enum __criu_task_state
-{
+enum __criu_task_state {
 	/* Values shared with compel */
-	TASK_ALIVE		= COMPEL_TASK_ALIVE,
-	TASK_DEAD		= COMPEL_TASK_DEAD,
-	TASK_STOPPED		= COMPEL_TASK_STOPPED,
-	TASK_ZOMBIE		= COMPEL_TASK_ZOMBIE,
+	TASK_ALIVE = COMPEL_TASK_ALIVE,
+	TASK_DEAD = COMPEL_TASK_DEAD,
+	TASK_STOPPED = COMPEL_TASK_STOPPED,
+	TASK_ZOMBIE = COMPEL_TASK_ZOMBIE,
 	/* Own internal states */
-	TASK_HELPER		= COMPEL_TASK_MAX + 1,
+	TASK_HELPER = COMPEL_TASK_MAX + 1,
 	TASK_THREAD,
 	/* new values are to be added before this line */
-	TASK_UNDEF		= 0xff
+	TASK_UNDEF = 0xff
 };
 
 struct pid {
@@ -31,7 +30,7 @@ struct pid {
 	 */
 	pid_t real;
 
-	int state;	/* TASK_XXX constants */
+	int state; /* TASK_XXX constants */
 
 	/*
 	 * The @virt pid is one which used in the image itself and keeps

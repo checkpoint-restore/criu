@@ -11,6 +11,7 @@
 /*
  * Clone trampoline - see glibc sysdeps/unix/sysv/linux/s390/s390-64/clone.S
  */
+/* clang-format off */
 #define RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid,	\
 			     thread_args, clone_restore_fn)		\
 	asm volatile(							\
@@ -75,20 +76,28 @@
 	  "d"(clone_restore_fn),					\
 	  "d"(args)							\
 	: "0", "1", "2", "3", "4", "5", "cc", "memory")
+/* clang-format on */
 
-#define arch_map_vdso(map, compat)		-1
+#define arch_map_vdso(map, compat) -1
 
 int restore_gpregs(struct rt_sigframe *f, UserS390RegsEntry *r);
 int restore_nonsigframe_gpregs(UserS390RegsEntry *r);
 
 unsigned long sys_shmat(int shmid, const void *shmaddr, int shmflg);
-unsigned long sys_mmap(void *addr, unsigned long len, unsigned long prot,
-		       unsigned long flags, unsigned long fd,
+unsigned long sys_mmap(void *addr, unsigned long len, unsigned long prot, unsigned long flags, unsigned long fd,
 		       unsigned long offset);
 
-static inline void restore_tls(tls_t *ptls) { (void)ptls; }
-static inline void *alloc_compat_syscall_stack(void) { return NULL; }
-static inline void free_compat_syscall_stack(void *stack32) { }
+static inline void restore_tls(tls_t *ptls)
+{
+	(void)ptls;
+}
+static inline void *alloc_compat_syscall_stack(void)
+{
+	return NULL;
+}
+static inline void free_compat_syscall_stack(void *stack32)
+{
+}
 static inline int arch_compat_rt_sigaction(void *stack, int sig, void *act)
 {
 	return -1;

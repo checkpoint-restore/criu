@@ -3,6 +3,6 @@
 
 #include "elf64-types.h"
 
-#define arch_is_machine_supported(e_machine)	(e_machine == EM_MIPS)
+#define arch_is_machine_supported(e_machine) (e_machine == EM_MIPS)
 
 #endif /* COMPEL_HANDLE_ELF_H__ */

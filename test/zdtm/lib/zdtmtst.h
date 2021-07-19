@@ -9,11 +9,11 @@
 #define INPROGRESS ".inprogress"
 
 #ifndef PAGE_SIZE
-# define PAGE_SIZE (unsigned int)(sysconf(_SC_PAGESIZE))
+#define PAGE_SIZE (unsigned int)(sysconf(_SC_PAGESIZE))
 #endif
 
 #ifndef PR_SET_CHILD_SUBREAPER
-# define PR_SET_CHILD_SUBREAPER 36
+#define PR_SET_CHILD_SUBREAPER 36
 #endif
 
 /* set up test */
@@ -28,15 +28,14 @@ extern void test_init(int argc, char **argv);
 #define CLONE_NEWIPC 0x08000000
 #endif
 
-#define TEST_MSG_BUFFER_SIZE	2048
+#define TEST_MSG_BUFFER_SIZE 2048
 /*wrapper for fork: init log offset*/
 #define test_fork() test_fork_id(-1)
 extern int test_fork_id(int id);
 /* finish setting up the test, write out pid file, and go to background */
 extern void test_daemon(void);
 /* store a message to a static buffer */
-extern void test_msg(const char *format, ...)
-	__attribute__ ((__format__ (__printf__, 1, 2)));
+extern void test_msg(const char *format, ...) __attribute__((__format__(__printf__, 1, 2)));
 /* tell if SIGTERM hasn't been received yet */
 extern int test_go(void);
 /* sleep until SIGTERM is delivered */
@@ -77,16 +76,21 @@ struct long_opt {
 
 extern void __push_opt(struct long_opt *opt);
 
-#define TEST_OPTION(name, type, doc, is_required)				\
-	param_check_##type(name, &(name));					\
-	static struct long_opt __long_opt_##name = {				\
-		#name, #type, doc, is_required, parse_opt_##type, &name };	\
-	static void __init_opt_##name(void) __attribute__ ((constructor));	\
-	static void __init_opt_##name(void) \
-	{ (void)__check_##name; __push_opt(&__long_opt_##name); }
+#define TEST_OPTION(name, type, doc, is_required)                                                               \
+	param_check_##type(name, &(name));                                                                      \
+	static struct long_opt __long_opt_##name = { #name, #type, doc, is_required, parse_opt_##type, &name }; \
+	static void __init_opt_##name(void) __attribute__((constructor));                                       \
+	static void __init_opt_##name(void)                                                                     \
+	{                                                                                                       \
+		(void)__check_##name;                                                                           \
+		__push_opt(&__long_opt_##name);                                                                 \
+	}
 
-#define __param_check(name, p, type) \
-	static inline type *__check_##name(void) { return(p); }
+#define __param_check(name, p, type)             \
+	static inline type *__check_##name(void) \
+	{                                        \
+		return (p);                      \
+	}
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
@@ -110,34 +114,29 @@ extern int write_pidfile(int pid);
 #include <errno.h>
 #include <string.h>
 
-#define __stringify_1(x)        #x
-#define __stringify(x)          __stringify_1(x)
+#define __stringify_1(x) #x
+#define __stringify(x)	 __stringify_1(x)
 
 /*
  * Macro to define stack alignment.
  * aarch64 requires stack to be aligned to 16 bytes.
  */
-#define __stack_aligned__	__attribute__((aligned(16)))
+#define __stack_aligned__ __attribute__((aligned(16)))
 
 /* message helpers */
 extern int test_log_init(const char *outfile, const char *suffix);
 extern int zdtm_seccomp;
-#define pr_err(format, arg...) \
-	test_msg("ERR: %s:%d: " format, __FILE__, __LINE__, ## arg)
-#define pr_perror(format, arg...)	\
-	test_msg("ERR: %s:%d: " format " (errno = %d (%s))\n", \
-		__FILE__, __LINE__, ## arg, errno, strerror(errno))
-#define fail(format, arg...)	\
-	test_msg("FAIL: %s:%d: " format " (errno = %d (%s))\n", \
-		 __FILE__, __LINE__, ## arg, errno, strerror(errno))
-#define skip(format, arg...)	\
-	test_msg("SKIP: %s:%d: " format "\n", \
-		 __FILE__, __LINE__, ## arg)
-#define pass()	test_msg("PASS\n")
+#define pr_err(format, arg...) test_msg("ERR: %s:%d: " format, __FILE__, __LINE__, ##arg)
+#define pr_perror(format, arg...) \
+	test_msg("ERR: %s:%d: " format " (errno = %d (%s))\n", __FILE__, __LINE__, ##arg, errno, strerror(errno))
+#define fail(format, arg...) \
+	test_msg("FAIL: %s:%d: " format " (errno = %d (%s))\n", __FILE__, __LINE__, ##arg, errno, strerror(errno))
+#define skip(format, arg...) test_msg("SKIP: %s:%d: " format "\n", __FILE__, __LINE__, ##arg)
+#define pass()		     test_msg("PASS\n")
 
 typedef struct {
-	unsigned long	seed;
-	int		pipes[2];
+	unsigned long seed;
+	int pipes[2];
 } task_waiter_t;
 
 extern void task_waiter_init(task_waiter_t *t);
@@ -163,16 +162,17 @@ extern const char *test_author;
 extern const char *test_doc;
 
 extern int tcp_init_server_with_opts(int family, int *port, struct zdtm_tcp_opts *opts);
-extern pid_t sys_clone_unified(unsigned long flags, void *child_stack, void *parent_tid,
-			       void *child_tid, unsigned long newtls);
+extern pid_t sys_clone_unified(unsigned long flags, void *child_stack, void *parent_tid, void *child_tid,
+			       unsigned long newtls);
 
-#define ssprintf(s, fmt, ...) ({ 						\
-	int ___ret;								\
-										\
-	___ret = snprintf(s, sizeof(s), fmt, ##__VA_ARGS__);			\
-	if (___ret >= sizeof(s))						\
-		abort();								\
-	___ret;									\
-})
+#define ssprintf(s, fmt, ...)                                        \
+	({                                                           \
+		int ___ret;                                          \
+                                                                     \
+		___ret = snprintf(s, sizeof(s), fmt, ##__VA_ARGS__); \
+		if (___ret >= sizeof(s))                             \
+			abort();                                     \
+		___ret;                                              \
+	})
 
 #endif /* _VIMITESU_H_ */

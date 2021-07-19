@@ -4,10 +4,10 @@
 #include <linux/types.h>
 
 #ifndef ptr_to_u64
-#define ptr_to_u64(ptr)	((__u64)((uintptr_t)(ptr)))
+#define ptr_to_u64(ptr) ((__u64)((uintptr_t)(ptr)))
 #endif
 #ifndef u64_to_ptr
-#define u64_to_ptr(x)	((void *)(uintptr_t)x)
+#define u64_to_ptr(x) ((void *)(uintptr_t)x)
 #endif
 
 /*
