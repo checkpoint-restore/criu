@@ -12,7 +12,7 @@
 
 #include <compel/plugins/std/asm/syscall-types.h>
 
-#define core_is_compat(core)			false
+#define core_is_compat(core) false
 
 typedef UserAarch64RegsEntry UserRegsEntry;
 
@@ -22,8 +22,14 @@ typedef UserAarch64RegsEntry UserRegsEntry;
 
 #define TI_SP(core) ((core)->ti_aarch64->gpregs->sp)
 
-static inline void *decode_pointer(uint64_t v) { return (void*)v; }
-static inline uint64_t encode_pointer(void *p) { return (uint64_t)p; }
+static inline void *decode_pointer(uint64_t v)
+{
+	return (void *)v;
+}
+static inline uint64_t encode_pointer(void *p)
+{
+	return (uint64_t)p;
+}
 
 #define AT_VECTOR_SIZE 40
 typedef uint64_t auxv_t;

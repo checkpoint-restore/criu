@@ -7,7 +7,7 @@
 #include "external.h"
 
 #ifndef RTM_GETNSID
-#define RTM_GETNSID		90
+#define RTM_GETNSID 90
 #endif
 
 struct cr_imgset;

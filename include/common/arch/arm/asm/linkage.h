@@ -3,26 +3,25 @@
 
 #ifdef __ASSEMBLY__
 
-#define __ALIGN		.align 4, 0x00
-#define __ALIGN_STR	".align 4, 0x00"
+#define __ALIGN	    .align 4, 0x00
+#define __ALIGN_STR ".align 4, 0x00"
 
-#define GLOBAL(name)		\
-	.globl name;		\
+#define GLOBAL(name) \
+	.globl name; \
 	name:
 
-#define ENTRY(name)		\
-	.globl name;		\
-	.type name, #function;	\
-	__ALIGN;		\
+#define ENTRY(name)            \
+	.globl name;           \
+	.type name, #function; \
+	__ALIGN;               \
 	name:
 
-#define END(sym)		\
-	.size sym, . - sym
+#define END(sym) .size sym, .- sym
 
-#define ALIAS(sym_new, sym_old)	\
-	.globl sym_new;		\
+#define ALIAS(sym_new, sym_old) \
+	.globl sym_new;         \
 	.set sym_new, sym_old
 
-#endif  /* __ASSEMBLY__ */
+#endif /* __ASSEMBLY__ */
 
 #endif /* __CR_LINKAGE_H__ */

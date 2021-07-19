@@ -17,7 +17,6 @@ extern int dump_one_sysv_shmem(void *addr, unsigned long size, unsigned long shm
 extern int restore_sysv_shmem_content(void *addr, unsigned long size, unsigned long shmid);
 extern int restore_memfd_shmem_content(int fd, unsigned long shmid, unsigned long size);
 
-
-#define SYSV_SHMEM_SKIP_FD	(0x7fffffff)
+#define SYSV_SHMEM_SKIP_FD (0x7fffffff)
 
 #endif /* __CR_SHMEM_H__ */

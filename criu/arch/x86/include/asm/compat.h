@@ -2,19 +2,19 @@
 #define __CR_ASM_COMPAT_H__
 
 #ifdef CR_NOGLIBC
-# include <compel/plugins/std/syscall.h>
-# include <compel/plugins/std/syscall-codes.h>
+#include <compel/plugins/std/syscall.h>
+#include <compel/plugins/std/syscall-codes.h>
 #else
-# define sys_mmap mmap
-# define sys_munmap munmap
+#define sys_mmap   mmap
+#define sys_munmap munmap
 #endif
 
 #include <sys/mman.h>
 
 static inline void *alloc_compat_syscall_stack(void)
 {
-	void *mem = (void*)sys_mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
-			MAP_32BIT | MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	void *mem = (void *)sys_mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_32BIT | MAP_ANONYMOUS | MAP_PRIVATE,
+				     -1, 0);
 
 	if ((uintptr_t)mem % PAGE_SIZE) {
 		int err = (~(uint32_t)(uintptr_t)mem) + 1;
@@ -30,8 +30,7 @@ static inline void free_compat_syscall_stack(void *mem)
 	long int ret = sys_munmap(mem, PAGE_SIZE);
 
 	if (ret)
-		pr_err("munmap() of compat addr %p failed with %ld\n",
-				mem, ret);
+		pr_err("munmap() of compat addr %p failed with %ld\n", mem, ret);
 }
 
 struct syscall_args32 {
@@ -65,23 +64,22 @@ static inline uint32_t do_full_int80(struct syscall_args32 *args)
 	 */
 	uint32_t ret;
 
-	asm volatile ("sub $128, %%rsp\n\t"
-		      "pushq %%rbp\n\t"
-		      "mov %7, %%ebp\n\t"
-		      "int $0x80\n\t"
-		      "popq %%rbp\n\t"
-		      "add $128, %%rsp\n\t"
-		      : "=a" (ret)
-		      : "a" (args->nr),
-			"b" (args->arg0), "c" (args->arg1), "d" (args->arg2),
-			"S" (args->arg3), "D" (args->arg4), "g" (args->arg5)
-		      : "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15");
+	asm volatile("sub $128, %%rsp\n\t"
+		     "pushq %%rbp\n\t"
+		     "mov %7, %%ebp\n\t"
+		     "int $0x80\n\t"
+		     "popq %%rbp\n\t"
+		     "add $128, %%rsp\n\t"
+		     : "=a"(ret)
+		     : "a"(args->nr), "b"(args->arg0), "c"(args->arg1), "d"(args->arg2), "S"(args->arg3),
+		       "D"(args->arg4), "g"(args->arg5)
+		     : "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15");
 	return ret;
 }
 
 #ifndef CR_NOGLIBC
-# undef sys_mmap
-# undef sys_munmap
+#undef sys_mmap
+#undef sys_munmap
 #endif
 
 #endif

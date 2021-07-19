@@ -18,8 +18,8 @@ extern int kerndat_init(void);
 
 enum pagemap_func {
 	PM_UNKNOWN,
-	PM_DISABLED,	/* /proc/pid/pagemap doesn't open (user mode) */
-	PM_FLAGS_ONLY,	/* pagemap zeroes pfn part (user mode) */
+	PM_DISABLED, /* /proc/pid/pagemap doesn't open (user mode) */
+	PM_FLAGS_ONLY, /* pagemap zeroes pfn part (user mode) */
 	PM_FULL,
 };
 
@@ -55,9 +55,9 @@ struct kerndat_s {
 	bool has_thp_disable;
 	bool can_map_vdso;
 	bool vdso_hint_reliable;
-	struct vdso_symtable	vdso_sym;
+	struct vdso_symtable vdso_sym;
 #ifdef CONFIG_COMPAT
-	struct vdso_symtable	vdso_sym_compat;
+	struct vdso_symtable vdso_sym_compat;
 #endif
 	bool has_nsid;
 	bool has_link_nsid;

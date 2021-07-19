@@ -23,22 +23,22 @@
 #include "asm/vdso.h"
 
 struct vdso_symbol {
-	char			name[32];
-	unsigned long		offset;
+	char name[32];
+	unsigned long offset;
 };
 
 struct vdso_symtable {
-	unsigned long		vdso_size;
-	unsigned long		vvar_size;
-	struct vdso_symbol	symbols[VDSO_SYMBOL_MAX];
-	bool			vdso_before_vvar; /* order of vdso/vvar pair */
+	unsigned long vdso_size;
+	unsigned long vvar_size;
+	struct vdso_symbol symbols[VDSO_SYMBOL_MAX];
+	bool vdso_before_vvar; /* order of vdso/vvar pair */
 };
 
 struct vdso_maps {
-	unsigned long		vdso_start;
-	unsigned long		vvar_start;
-	struct vdso_symtable	sym;
-	bool			compatible;
+	unsigned long vdso_start;
+	unsigned long vvar_start;
+	struct vdso_symtable sym;
+	bool compatible;
 };
 
 static inline bool vdso_is_present(struct vdso_maps *m)
@@ -46,56 +46,57 @@ static inline bool vdso_is_present(struct vdso_maps *m)
 	return m->vdso_start != VDSO_BAD_ADDR;
 }
 
-#define VDSO_SYMBOL_INIT	{ .offset = VDSO_BAD_ADDR, }
+#define VDSO_SYMBOL_INIT                 \
+	{                                \
+		.offset = VDSO_BAD_ADDR, \
+	}
 
-#define VDSO_SYMTABLE_INIT						\
-	{								\
+#define VDSO_SYMTABLE_INIT                      \
+	{                                       \
 		.vdso_size	= VDSO_BAD_SIZE,			\
 		.vvar_size	= VVAR_BAD_SIZE,			\
 		.symbols		= {				\
 			[0 ... VDSO_SYMBOL_MAX - 1] =			\
 				(struct vdso_symbol)VDSO_SYMBOL_INIT,	\
 			},						\
-		.vdso_before_vvar	= false,			\
+		.vdso_before_vvar	= false, \
 	}
 
-#define VDSO_MAPS_INIT							\
-	{								\
-		.vdso_start	= VDSO_BAD_ADDR,			\
-		.vvar_start	= VVAR_BAD_ADDR,			\
-		.sym		= VDSO_SYMTABLE_INIT,			\
+#define VDSO_MAPS_INIT                                                                               \
+	{                                                                                            \
+		.vdso_start = VDSO_BAD_ADDR, .vvar_start = VVAR_BAD_ADDR, .sym = VDSO_SYMTABLE_INIT, \
 	}
 
 #ifdef CONFIG_VDSO_32
 
-#define Ehdr_t		Elf32_Ehdr
-#define Sym_t		Elf32_Sym
-#define Phdr_t		Elf32_Phdr
-#define Word_t		Elf32_Word
-#define Dyn_t		Elf32_Dyn
+#define Ehdr_t Elf32_Ehdr
+#define Sym_t  Elf32_Sym
+#define Phdr_t Elf32_Phdr
+#define Word_t Elf32_Word
+#define Dyn_t  Elf32_Dyn
 
 #ifndef ELF_ST_TYPE
-#define ELF_ST_TYPE	ELF32_ST_TYPE
+#define ELF_ST_TYPE ELF32_ST_TYPE
 #endif
 #ifndef ELF_ST_BIND
-#define ELF_ST_BIND	ELF32_ST_BIND
+#define ELF_ST_BIND ELF32_ST_BIND
 #endif
 
-# define vdso_fill_symtable vdso_fill_symtable_compat
+#define vdso_fill_symtable vdso_fill_symtable_compat
 
 #else /* CONFIG_VDSO_32 */
 
-#define Ehdr_t		Elf64_Ehdr
-#define Sym_t		Elf64_Sym
-#define Phdr_t		Elf64_Phdr
-#define Word_t		Elf64_Word
-#define Dyn_t		Elf64_Dyn
+#define Ehdr_t Elf64_Ehdr
+#define Sym_t  Elf64_Sym
+#define Phdr_t Elf64_Phdr
+#define Word_t Elf64_Word
+#define Dyn_t  Elf64_Dyn
 
 #ifndef ELF_ST_TYPE
-#define ELF_ST_TYPE	ELF64_ST_TYPE
+#define ELF_ST_TYPE ELF64_ST_TYPE
 #endif
 #ifndef ELF_ST_BIND
-#define ELF_ST_BIND	ELF64_ST_BIND
+#define ELF_ST_BIND ELF64_ST_BIND
 #endif
 
 #endif /* CONFIG_VDSO_32 */

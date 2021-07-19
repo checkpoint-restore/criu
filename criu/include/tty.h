@@ -7,11 +7,11 @@
 #include "files.h"
 
 /* Kernel's limit */
-#define TERMIOS_NCC	19
+#define TERMIOS_NCC 19
 
 /* Popular serial console's majors, which not defined in <linux/major.h> */
-#define USB_SERIAL_MAJOR	188
-#define LOW_DENSE_SERIAL_MAJOR	204
+#define USB_SERIAL_MAJOR       188
+#define LOW_DENSE_SERIAL_MAJOR 204
 
 extern const struct fdtype_ops tty_dump_ops;
 
@@ -36,6 +36,6 @@ extern int tty_init_restore(void);
 
 extern int devpts_check_bindmount(struct mount_info *m);
 
-#define OPT_SHELL_JOB	"shell-job"
+#define OPT_SHELL_JOB "shell-job"
 
 #endif /* __CR_TTY_H__ */

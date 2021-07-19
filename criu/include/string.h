@@ -4,7 +4,7 @@
 #include <sys/types.h>
 
 #ifdef CONFIG_HAS_LIBBSD
-# include <bsd/string.h>
+#include <bsd/string.h>
 #endif
 
 #include "common/config.h"

@@ -7,4 +7,3 @@ struct shmem_plugin_msg {
 };
 
 #endif /* __COMPEL_PLUGIN_SHMEM_PRIV_H__ */
-

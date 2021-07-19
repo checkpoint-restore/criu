@@ -25,14 +25,10 @@
 #include "rpc.pb-c.h"
 
 #ifdef __GNUG__
-	extern "C" {
+extern "C" {
 #endif
 
-enum criu_service_comm {
-	CRIU_COMM_SK,
-	CRIU_COMM_FD,
-	CRIU_COMM_BIN
-};
+enum criu_service_comm { CRIU_COMM_SK, CRIU_COMM_FD, CRIU_COMM_BIN };
 
 enum criu_cg_mode {
 	CRIU_CG_MODE_IGNORE,
@@ -44,10 +40,7 @@ enum criu_cg_mode {
 	CRIU_CG_MODE_DEFAULT,
 };
 
-enum criu_pre_dump_mode {
-	CRIU_PRE_DUMP_SPLICE =	1,
-	CRIU_PRE_DUMP_READ =	2
-};
+enum criu_pre_dump_mode { CRIU_PRE_DUMP_SPLICE = 1, CRIU_PRE_DUMP_READ = 2 };
 
 int criu_set_service_address(const char *path);
 void criu_set_service_fd(int fd);

@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 typedef struct {
-	uint64_t	hwcap[2];
+	uint64_t hwcap[2];
 } compel_cpuinfo_t;
 
 #endif /* UAPI_COMPEL_ASM_CPU_H__ */

@@ -17,11 +17,11 @@ struct nlmsghdr;
 struct cr_img;
 
 struct socket_desc {
-	unsigned int		family;
-	unsigned int		ino;
-	struct socket_desc	*next;
-	struct ns_id		*sk_ns;
-	int			already_dumped;
+	unsigned int family;
+	unsigned int ino;
+	struct socket_desc *next;
+	struct ns_id *sk_ns;
+	int already_dumped;
 };
 
 extern int dump_socket(struct fd_parms *p, int lfd, FdinfoEntry *);
@@ -65,23 +65,24 @@ extern int unix_prepare_root_shared(void);
 extern void init_sk_info_hash(void);
 
 extern int do_dump_opt(int sk, int level, int name, void *val, int len);
-#define dump_opt(s, l, n, f)	do_dump_opt(s, l, n, f, sizeof(*f))
+#define dump_opt(s, l, n, f) do_dump_opt(s, l, n, f, sizeof(*f))
 extern int do_restore_opt(int sk, int level, int name, void *val, int len);
-#define restore_opt(s, l, n, f)	do_restore_opt(s, l, n, f, sizeof(*f))
+#define restore_opt(s, l, n, f) do_restore_opt(s, l, n, f, sizeof(*f))
 
-#define sk_encode_shutdown(img, mask) do {			\
+#define sk_encode_shutdown(img, mask)                     \
+	do {                                              \
 		/*						\
 		 * protobuf SK_SHUTDOWN__ bits match those	\
 		 * reported by kernel				\
-		 */						\
-		(img)->shutdown = mask;				\
-		if ((img)->shutdown != SK_SHUTDOWN__NONE)	\
-			(img)->has_shutdown = true;		\
+		 */                                 \
+		(img)->shutdown = mask;                   \
+		if ((img)->shutdown != SK_SHUTDOWN__NONE) \
+			(img)->has_shutdown = true;       \
 	} while (0)
 
 static inline int sk_decode_shutdown(int val)
 {
-	static const int hows[] = {-1, SHUT_RD, SHUT_WR, SHUT_RDWR};
+	static const int hows[] = { -1, SHUT_RD, SHUT_WR, SHUT_RDWR };
 	return hows[val];
 }
 
@@ -94,7 +95,7 @@ static inline int sk_decode_shutdown(int val)
 extern int set_netns(uint32_t ns_id);
 
 #ifndef SIOCGSKNS
-#define SIOCGSKNS	0x894C		/* get socket network namespace */
+#define SIOCGSKNS 0x894C /* get socket network namespace */
 #endif
 
 extern int kerndat_socket_netns(void);
@@ -107,19 +108,19 @@ extern const char *socket_proto_name(unsigned int proto, char *nm, size_t size);
 
 #define __tcp_state_name(state, a)	tcp_state_name(state, a, sizeof(a))
 #define __socket_type_name(type, a)	socket_type_name(type, a, sizeof(a))
-#define __socket_family_name(family, a)	socket_family_name(family, a, sizeof(a))
+#define __socket_family_name(family, a) socket_family_name(family, a, sizeof(a))
 #define __socket_proto_name(proto, a)	socket_proto_name(proto, a, sizeof(a))
 
-#define __socket_info_helper(__h, __v)				\
-	({							\
-		char *__nm = alloca(32);			\
-		const char *__r = __h(__v, __nm, 32);		\
-		__r;						\
+#define __socket_info_helper(__h, __v)                \
+	({                                            \
+		char *__nm = alloca(32);              \
+		const char *__r = __h(__v, __nm, 32); \
+		__r;                                  \
 	})
 
-#define ___tcp_state_name(state)	__socket_info_helper(tcp_state_name, state)
-#define ___socket_type_name(type)	__socket_info_helper(socket_type_name, type)
-#define ___socket_family_name(family)	__socket_info_helper(socket_family_name, family)
-#define ___socket_proto_name(proto)	__socket_info_helper(socket_proto_name, proto)
+#define ___tcp_state_name(state)      __socket_info_helper(tcp_state_name, state)
+#define ___socket_type_name(type)     __socket_info_helper(socket_type_name, type)
+#define ___socket_family_name(family) __socket_info_helper(socket_family_name, family)
+#define ___socket_proto_name(proto)   __socket_info_helper(socket_proto_name, proto)
 
 #endif /* __CR_SOCKETS_H__ */

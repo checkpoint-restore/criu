@@ -6,20 +6,18 @@
 #include <stdarg.h>
 
 /* Standard file descriptors.  */
-#define	STDIN_FILENO	0	/* Standard input.  */
-#define	STDOUT_FILENO	1	/* Standard output.  */
-#define	STDERR_FILENO	2	/* Standard error output.  */
-
+#define STDIN_FILENO  0 /* Standard input.  */
+#define STDOUT_FILENO 1 /* Standard output.  */
+#define STDERR_FILENO 2 /* Standard error output.  */
 
 extern void std_dputc(int fd, char c);
 extern void std_dputs(int fd, const char *s);
 extern void std_vdprintf(int fd, const char *format, va_list args);
-extern void std_dprintf(int fd, const char *format, ...)
-	__attribute__ ((__format__ (__printf__, 2, 3)));
+extern void std_dprintf(int fd, const char *format, ...) __attribute__((__format__(__printf__, 2, 3)));
 
-#define std_printf(fmt, ...)	std_dprintf(STDOUT_FILENO, fmt, ##__VA_ARGS__)
-#define std_puts(s)		std_dputs(STDOUT_FILENO, s)
-#define std_putchar(c)		std_dputc(STDOUT_FILENO, c)
+#define std_printf(fmt, ...) std_dprintf(STDOUT_FILENO, fmt, ##__VA_ARGS__)
+#define std_puts(s)	     std_dputs(STDOUT_FILENO, s)
+#define std_putchar(c)	     std_dputc(STDOUT_FILENO, c)
 
 extern unsigned long std_strtoul(const char *nptr, char **endptr, int base);
 extern int std_strcmp(const char *cs, const char *ct);

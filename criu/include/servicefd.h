@@ -15,18 +15,18 @@ enum sfd_type {
 	LOG_FD_OFF,
 	IMG_FD_OFF,
 	IMG_STREAMER_FD_OFF,
-	PROC_FD_OFF,		/* fd with /proc for all proc_ calls */
+	PROC_FD_OFF, /* fd with /proc for all proc_ calls */
 	PROC_PID_FD_OFF,
 	PROC_SELF_FD_OFF,
-	CR_PROC_FD_OFF,		/* some other's proc fd:
+	CR_PROC_FD_OFF, /* some other's proc fd:
 				 *  - For dump -- target ns' proc
 				 *  - For restore -- CRIU ns' proc
 				 */
-	ROOT_FD_OFF,		/* Root of the namespace we dump/restore */
+	ROOT_FD_OFF, /* Root of the namespace we dump/restore */
 	CGROUP_YARD,
-	USERNSD_SK,		/* Socket for usernsd */
-	NS_FD_OFF,		/* Node's net namespace fd */
-	TRANSPORT_FD_OFF,	/* to transfer file descriptors */
+	USERNSD_SK, /* Socket for usernsd */
+	NS_FD_OFF, /* Node's net namespace fd */
+	TRANSPORT_FD_OFF, /* to transfer file descriptors */
 	RPC_SK_OFF,
 	FDSTORE_SK_OFF,
 
@@ -35,7 +35,6 @@ enum sfd_type {
 
 struct pstree_item;
 extern bool sfds_protected;
-
 
 extern const char *sfd_type_name(enum sfd_type type);
 extern int init_service_fd(void);

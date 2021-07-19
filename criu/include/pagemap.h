@@ -44,8 +44,7 @@
 
 struct page_read {
 	/* reads page from current pagemap */
-	int (*read_pages)(struct page_read *, unsigned long vaddr, int nr,
-			  void *, unsigned flags);
+	int (*read_pages)(struct page_read *, unsigned long vaddr, int nr, void *, unsigned flags);
 	/* Advance page_read to the next entry */
 	int (*advance)(struct page_read *pr);
 	void (*close)(struct page_read *);
@@ -54,8 +53,7 @@ struct page_read {
 	int (*seek_pagemap)(struct page_read *pr, unsigned long vaddr);
 	void (*reset)(struct page_read *pr);
 	int (*io_complete)(struct page_read *, unsigned long vaddr, int nr);
-	int (*maybe_read_page)(struct page_read *pr, unsigned long vaddr,
-			       int nr, void *buf, unsigned flags);
+	int (*maybe_read_page)(struct page_read *pr, unsigned long vaddr, int nr, void *buf, unsigned flags);
 
 	/* Whether or not pages can be read in PIE code */
 	bool pieok;
@@ -65,37 +63,37 @@ struct page_read {
 	struct cr_img *pi;
 	u32 pages_img_id;
 
-	PagemapEntry *pe;		/* current pagemap we are on */
-	struct page_read *parent;	/* parent pagemap (if ->in_parent
+	PagemapEntry *pe; /* current pagemap we are on */
+	struct page_read *parent; /* parent pagemap (if ->in_parent
 					   pagemap is met in image, then
 					   go to this guy for page, see
 					   read_pagemap_page */
-	unsigned long cvaddr;		/* vaddr we are on */
-	off_t pi_off;			/* current offset in pages file */
+	unsigned long cvaddr; /* vaddr we are on */
+	off_t pi_off; /* current offset in pages file */
 
-	struct iovec bunch;		/* record consequent neighbour
+	struct iovec bunch; /* record consequent neighbour
 					   iovecs to punch together */
-	unsigned id;			/* for logging */
-	unsigned long img_id;		/* pagemap image file ID */
+	unsigned id; /* for logging */
+	unsigned long img_id; /* pagemap image file ID */
 
 	PagemapEntry **pmes;
 	int nr_pmes;
 	int curr_pme;
 
-	struct list_head	async;
+	struct list_head async;
 };
 
 /* flags for ->read_pages */
-#define PR_ASYNC	0x1 /* may exit w/o data in the buffer */
-#define PR_ASAP		0x2 /* PR_ASYNC, but start the IO right now */
+#define PR_ASYNC 0x1 /* may exit w/o data in the buffer */
+#define PR_ASAP	 0x2 /* PR_ASYNC, but start the IO right now */
 
 /* flags for open_page_read */
-#define PR_SHMEM	0x1
-#define PR_TASK		0x2
+#define PR_SHMEM 0x1
+#define PR_TASK	 0x2
 
-#define PR_TYPE_MASK	0x3
-#define PR_MOD		0x4	/* Will need to modify */
-#define PR_REMOTE	0x8
+#define PR_TYPE_MASK 0x3
+#define PR_MOD	     0x4 /* Will need to modify */
+#define PR_REMOTE    0x8
 
 /*
  * -1 -- error
@@ -103,13 +101,11 @@ struct page_read {
  *  1 -- opened
  */
 extern int open_page_read(unsigned long id, struct page_read *, int pr_flags);
-extern int open_page_read_at(int dfd, unsigned long id, struct page_read *pr,
-		int pr_flags);
+extern int open_page_read_at(int dfd, unsigned long id, struct page_read *pr, int pr_flags);
 
 struct task_restore_args;
 
-int pagemap_enqueue_iovec(struct page_read *pr, void *buf,
-			      unsigned long len, struct list_head *to);
+int pagemap_enqueue_iovec(struct page_read *pr, void *buf, unsigned long len, struct list_head *to);
 int pagemap_render_iovec(struct list_head *from, struct task_restore_args *ta);
 
 /*
@@ -119,8 +115,7 @@ int pagemap_render_iovec(struct list_head *from, struct task_restore_args *ta);
  */
 extern void dup_page_read(struct page_read *src, struct page_read *dst);
 
-extern int dedup_one_iovec(struct page_read *pr, unsigned long base,
-			   unsigned long len);
+extern int dedup_one_iovec(struct page_read *pr, unsigned long base, unsigned long len);
 
 static inline unsigned long pagemap_len(PagemapEntry *pe)
 {
@@ -133,9 +128,9 @@ static inline bool page_read_has_parent(struct page_read *pr)
 }
 
 /* Pagemap flags */
-#define PE_PARENT	(1 << 0)	/* pages are in parent snapshot */
-#define PE_LAZY		(1 << 1)	/* pages can be lazily restored */
-#define PE_PRESENT	(1 << 2)	/* pages are present in pages*img */
+#define PE_PARENT  (1 << 0) /* pages are in parent snapshot */
+#define PE_LAZY	   (1 << 1) /* pages can be lazily restored */
+#define PE_PRESENT (1 << 2) /* pages are present in pages*img */
 
 static inline bool pagemap_in_parent(PagemapEntry *pe)
 {
