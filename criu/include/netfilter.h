@@ -10,6 +10,9 @@ extern int iptables_unlock_connection_info(struct inet_sk_info *);
 
 extern void preload_netfilter_modules(void);
 
+extern int nftables_init_connection_lock(void);
+extern int nftables_lock_connection(struct inet_sk_desc *);
+
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0)
 #define NFT_RUN_CMD(nft, cmd) nft_run_cmd_from_buffer(nft, cmd, strlen(cmd))
 #elif defined(CONFIG_HAS_NFTABLES_LIB_API_1)
