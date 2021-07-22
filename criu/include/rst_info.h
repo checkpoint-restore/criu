@@ -5,6 +5,7 @@
 #include "common/list.h"
 #include "vma.h"
 #include "kerndat.h"
+#include "images/mm.pb-c.h"
 
 struct task_entries {
 	int nr_threads, nr_tasks, nr_helpers;
@@ -25,8 +26,6 @@ struct fdt {
 	futex_t			fdt_lock;
 };
 
-struct _MmEntry;
-
 struct rst_info {
 	struct list_head	fds;
 
@@ -40,7 +39,7 @@ struct rst_info {
 	struct fdt		*fdt;
 
 	struct vm_area_list	vmas;
-	struct _MmEntry		*mm;
+	MmEntry		*mm;
 	struct list_head	vma_io;
 	unsigned int		pages_img_id;
 
