@@ -11,8 +11,6 @@ struct parasite_dump_misc;
 struct parasite_drain_fd;
 struct vm_area_list;
 struct pstree_item;
-struct _CredsEntry;
-struct _CoreEntry;
 struct list_head;
 struct cr_imgset;
 struct fd_opts;
@@ -31,11 +29,11 @@ extern int parasite_dump_posix_timers_seized(struct proc_posix_timers_stat *proc
 		struct parasite_ctl *ctl, struct pstree_item *);
 
 extern int parasite_dump_misc_seized(struct parasite_ctl *ctl, struct parasite_dump_misc *misc);
-extern int parasite_dump_creds(struct parasite_ctl *ctl, struct _CredsEntry *ce);
-extern int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, struct _CoreEntry *core);
+extern int parasite_dump_creds(struct parasite_ctl *ctl, CredsEntry *ce);
+extern int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEntry *core);
 extern int parasite_dump_thread_seized(struct parasite_thread_ctl *tctl,
 				       struct parasite_ctl *ctl, int id,
-				       struct pid *tid, struct _CoreEntry *core);
+				       struct pid *tid, CoreEntry *core);
 extern int dump_thread_core(int pid, CoreEntry *core,
 					const struct parasite_dump_thread *dt);
 
