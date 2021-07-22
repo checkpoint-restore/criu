@@ -5,7 +5,6 @@
 #include "common/lock.h"
 #include "images/vma.pb-c.h"
 
-struct _VmaEntry;
 struct vma_area;
 
 extern int collect_shmem(int pid, struct vma_area *vma);
