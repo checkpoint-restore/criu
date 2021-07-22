@@ -113,7 +113,7 @@ extern int prepare_task_entries(void);
 extern int prepare_dummy_task_state(struct pstree_item *pi);
 
 extern int get_task_ids(struct pstree_item *);
-extern struct _TaskKobjIdsEntry *root_ids;
+extern TaskKobjIdsEntry *root_ids;
 
 extern void core_entry_free(CoreEntry *core);
 extern CoreEntry *core_entry_alloc(int alloc_thread_info, int alloc_tc);
