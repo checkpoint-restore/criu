@@ -1,0 +1,43 @@
+FROM docker.io/library/archlinux:latest
+
+ARG CC=gcc
+
+RUN pacman -Syu --noconfirm \
+	$CC \
+	bash \
+	make \
+	coreutils \
+	git \
+	gnutls \
+	libaio \
+	libcap \
+	libnet \
+	libnl \
+	nftables \
+	pkgconfig \
+	protobuf-c \
+	protobuf \
+	python-pip \
+	python-protobuf \
+	which \
+	sudo \
+	iptables \
+	nftables \
+	iproute2 \
+	tar \
+	bash \
+	go \
+	python-yaml \
+	flake8 \
+	asciidoctor \
+	python-junit-xml \
+	diffutils
+
+COPY . /criu
+WORKDIR /criu
+RUN make mrproper && date && make -j $(nproc) CC="$CC" && date
+
+# The rpc test cases are running as user #1000, let's add the user
+RUN useradd -u 1000 test
+
+RUN make -C test/zdtm
