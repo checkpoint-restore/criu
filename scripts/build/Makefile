@@ -1,7 +1,7 @@
 ARCHES := x86_64 fedora-asan fedora-rawhide centos7 armv7hf centos8
 NON_CLANG := armv7-cross aarch64-cross ppc64-cross mips64el-cross
 CREATE_DOCKERFILES := $(ARCHES) $(NON_CLANG)
-TARGETS := $(ARCHES) alpine
+TARGETS := $(ARCHES) alpine archlinux
 TARGETS_CLANG := $(addsuffix $(TARGETS),-clang)
 CONTAINER_RUNTIME := docker
 CONTAINER_TARGETS := $(TARGETS) $(NON_CLANG)
