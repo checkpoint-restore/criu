@@ -1,0 +1,11 @@
+name: Arch Linux Test
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run Arch Linux Test
+      run: sudo -E make -C scripts/ci archlinux
