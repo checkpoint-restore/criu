@@ -18,6 +18,7 @@
 #include <termios.h>
 #include <sys/mman.h>
 #include <netinet/in.h>
+#include <netinet/udp.h>
 #include <sys/prctl.h>
 #include <sched.h>
 #include <sys/mount.h>
@@ -1362,6 +1363,27 @@ static int check_ns_pid(void)
 	return 0;
 }
 
+static int check_udp_repair(void)
+{
+	int sk, val;
+
+	sk = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (sk < 0) {
+		pr_perror("Can't create UDP socket");
+		return -1;
+	}
+
+	val = 1;
+	if (setsockopt(sk, SOL_UDP, UDP_REPAIR, &val, sizeof(val))) {
+		pr_perror("Can't turn UDP_REPAIR on");
+		close(sk);
+		return -1;
+	}
+
+	close(sk);
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1487,6 +1509,7 @@ int cr_check(void)
 	if (opts.check_experimental_features) {
 		ret |= check_autofs();
 		ret |= check_compat_cr();
+		ret |= check_udp_repair();
 	}
 
 	pr_msg("%s\n", ret ? CHECK_MAYBE : CHECK_GOOD);
@@ -1590,6 +1613,7 @@ static struct feature_list feature_list[] = {
 	{ "pidfd_store", check_pidfd_store },
 	{ "ns_pid", check_ns_pid },
 	{ "apparmor_stacking", check_apparmor_stacking },
+	{ "udp_repair", check_udp_repair },
 	{ NULL, NULL },
 };
 
