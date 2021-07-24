@@ -28,8 +28,6 @@ import pycriu as crpc
 
 import yaml
 
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 # File to store content of streamed images
 STREAMED_IMG_FILE_NAME = "img.criu"
 
@@ -38,9 +36,6 @@ prev_line = None
 
 def alarm(*args):
     print("==== ALARM ====")
-
-
-signal.signal(signal.SIGALRM, alarm)
 
 
 def traceit(f, e, a):
@@ -2511,19 +2506,19 @@ class group:
         self.__dump_meta(fname, '.hook')
 
 
-def group_tests(opts):
+def group_tests(cli_opts):
     excl = None
     groups = []
     pend_groups = []
-    maxs = int(opts['max_size'])
+    maxs = int(cli_opts['max_size'])
 
     if not os.access("groups", os.F_OK):
         os.mkdir("groups")
 
-    tlist = all_tests(opts)
+    tlist = all_tests(cli_opts)
     random.shuffle(tlist)
-    if opts['exclude']:
-        excl = re.compile(".*(" + "|".join(opts['exclude']) + ")")
+    if cli_opts['exclude']:
+        excl = re.compile(".*(" + "|".join(cli_opts['exclude']) + ")")
         print("Compiled exclusion list")
 
     for t in tlist:
@@ -2545,7 +2540,7 @@ def group_tests(opts):
     groups += pend_groups
 
     nr = 0
-    suf = opts['name'] or 'group'
+    suf = cli_opts['name'] or 'group'
 
     for g in groups:
         if maxs > 1 and g.size() == 1:  # Not much point in group test for this
@@ -2570,190 +2565,203 @@ def set_nr_hugepages(nr):
     orig_hugepages = 0
     with open("/proc/sys/vm/nr_hugepages", "r") as f:
         orig_hugepages = int(f.read())
-
     with open("/proc/sys/vm/nr_hugepages", "w") as f:
         f.write("{}\n".format(nr))
-
     return orig_hugepages
 
 
-#
-# main() starts here
-#
+def get_cli_args():
+    """
+    Parse command-line arguments
+    """
+    p = argparse.ArgumentParser("CRIU test suite")
+    p.add_argument("--debug",
+                   help="Print what's being executed",
+                   action='store_true')
+    p.add_argument("--set", help="Which set of tests to use", default='zdtm')
 
-if 'CR_CT_TEST_INFO' in os.environ:
-    # Fork here, since we're new pidns init and are supposed to
-    # collect this namespace's zombies
-    status = 0
-    pid = os.fork()
-    if pid == 0:
-        tinfo = eval(os.environ['CR_CT_TEST_INFO'])
-        do_run_test(tinfo[0], tinfo[1], tinfo[2], tinfo[3])
-    else:
-        while True:
-            wpid, status = os.wait()
-            if wpid == pid:
-                if os.WIFEXITED(status):
-                    status = os.WEXITSTATUS(status)
-                else:
-                    status = 1
-                break
+    sp = p.add_subparsers(help="Use --help for list of actions")
 
-    sys.exit(status)
+    rp = sp.add_parser("run", help="Run test(s)")
+    rp.set_defaults(action=run_tests)
+    rp.add_argument("-a", "--all", action='store_true')
+    rp.add_argument("-t", "--test", help="Test name", action='append')
+    rp.add_argument("-T", "--tests", help="Regexp")
+    rp.add_argument("-F", "--from", help="From file")
+    rp.add_argument("-f", "--flavor", help="Flavor to run")
+    rp.add_argument("-x",
+                    "--exclude",
+                    help="Exclude tests from --all run",
+                    action='append')
 
-p = argparse.ArgumentParser("CRIU test suite")
-p.add_argument("--debug",
-               help="Print what's being executed",
-               action='store_true')
-p.add_argument("--set", help="Which set of tests to use", default='zdtm')
+    rp.add_argument("--sibling",
+                    help="Restore tests as siblings",
+                    action='store_true')
+    rp.add_argument("--join-ns",
+                    help="Restore tests and join existing namespace",
+                    action='store_true')
+    rp.add_argument("--empty-ns",
+                    help="Restore tests in empty net namespace",
+                    action='store_true')
+    rp.add_argument("--pre", help="Do some pre-dumps before dump (n[:pause])")
+    rp.add_argument("--snaps",
+                    help="Instead of pre-dumps do full dumps",
+                    action='store_true')
+    rp.add_argument("--dedup",
+                    help="Auto-deduplicate images on iterations",
+                    action='store_true')
+    rp.add_argument("--noauto-dedup",
+                    help="Manual deduplicate images on iterations",
+                    action='store_true')
+    rp.add_argument("--nocr",
+                    help="Do not CR anything, just check test works",
+                    action='store_true')
+    rp.add_argument("--norst",
+                    help="Don't restore tasks, leave them running after dump",
+                    action='store_true')
+    rp.add_argument("--stop",
+                    help="Check that --leave-stopped option stops ps tree.",
+                    action='store_true')
+    rp.add_argument("--iters",
+                    help="Do CR cycle several times before check (n[:pause])")
+    rp.add_argument("--fault", help="Test fault injection")
+    rp.add_argument(
+        "--sat",
+        help="Generate criu strace-s for sat tool (restore is fake, images are kept)",
+        action='store_true')
+    rp.add_argument(
+        "--sbs",
+        help="Do step-by-step execution, asking user for keypress to continue",
+        action='store_true')
+    rp.add_argument("--freezecg", help="Use freeze cgroup (path:state)")
+    rp.add_argument("--user", help="Run CRIU as regular user",
+                    action='store_true')
+    rp.add_argument("--rpc",
+                    help="Run CRIU via RPC rather than CLI",
+                    action='store_true')
 
-sp = p.add_subparsers(help="Use --help for list of actions")
+    rp.add_argument("--page-server",
+                    help="Use page server dump",
+                    action='store_true')
+    rp.add_argument("--stream",
+                    help="Use criu-image-streamer",
+                    action='store_true')
+    rp.add_argument("-p", "--parallel", help="Run test in parallel")
+    rp.add_argument("--dry-run",
+                    help="Don't run tests, just pretend to",
+                    action='store_true')
+    rp.add_argument("--script", help="Add script to get notified by criu")
+    rp.add_argument("-k",
+                    "--keep-img",
+                    help="Whether or not to keep images after test",
+                    choices=['always', 'never', 'failed'],
+                    default='failed')
+    rp.add_argument("--report", help="Generate summary report in directory")
+    rp.add_argument("--keep-going",
+                    help="Keep running tests in spite of failures",
+                    action='store_true')
+    rp.add_argument("--ignore-taint",
+                    help="Don't care about a non-zero kernel taint flag",
+                    action='store_true')
+    rp.add_argument("--lazy-pages",
+                    help="restore pages on demand",
+                    action='store_true')
+    rp.add_argument("--lazy-migrate",
+                    help="restore pages on demand",
+                    action='store_true')
+    rp.add_argument("--remote-lazy-pages",
+                    help="simulate lazy migration",
+                    action='store_true')
+    rp.add_argument("--tls", help="use TLS for migration", action='store_true')
+    rp.add_argument("--title", help="A test suite title", default="criu")
+    rp.add_argument("--show-stats",
+                    help="Show criu statistics",
+                    action='store_true')
+    rp.add_argument("--criu-bin",
+                    help="Path to criu binary",
+                    default='../criu/criu')
+    rp.add_argument("--crit-bin",
+                    help="Path to crit binary",
+                    default='../crit/crit')
+    rp.add_argument("--criu-image-streamer-dir",
+                    help="Directory where the criu-image-streamer binary is located",
+                    default="../../criu-image-streamer")
+    rp.add_argument("--pre-dump-mode",
+                    help="Use splice or read mode of pre-dumping",
+                    choices=['splice', 'read'],
+                    default='splice')
 
-rp = sp.add_parser("run", help="Run test(s)")
-rp.set_defaults(action=run_tests)
-rp.add_argument("-a", "--all", action='store_true')
-rp.add_argument("-t", "--test", help="Test name", action='append')
-rp.add_argument("-T", "--tests", help="Regexp")
-rp.add_argument("-F", "--from", help="From file")
-rp.add_argument("-f", "--flavor", help="Flavor to run")
-rp.add_argument("-x",
-                "--exclude",
-                help="Exclude tests from --all run",
-                action='append')
+    lp = sp.add_parser("list", help="List tests")
+    lp.set_defaults(action=list_tests)
+    lp.add_argument('-i',
+                    '--info',
+                    help="Show more info about tests",
+                    action='store_true')
 
-rp.add_argument("--sibling",
-                help="Restore tests as siblings",
-                action='store_true')
-rp.add_argument("--join-ns",
-                help="Restore tests and join existing namespace",
-                action='store_true')
-rp.add_argument("--empty-ns",
-                help="Restore tests in empty net namespace",
-                action='store_true')
-rp.add_argument("--pre", help="Do some pre-dumps before dump (n[:pause])")
-rp.add_argument("--snaps",
-                help="Instead of pre-dumps do full dumps",
-                action='store_true')
-rp.add_argument("--dedup",
-                help="Auto-deduplicate images on iterations",
-                action='store_true')
-rp.add_argument("--noauto-dedup",
-                help="Manual deduplicate images on iterations",
-                action='store_true')
-rp.add_argument("--nocr",
-                help="Do not CR anything, just check test works",
-                action='store_true')
-rp.add_argument("--norst",
-                help="Don't restore tasks, leave them running after dump",
-                action='store_true')
-rp.add_argument("--stop",
-                help="Check that --leave-stopped option stops ps tree.",
-                action='store_true')
-rp.add_argument("--iters",
-                help="Do CR cycle several times before check (n[:pause])")
-rp.add_argument("--fault", help="Test fault injection")
-rp.add_argument(
-    "--sat",
-    help="Generate criu strace-s for sat tool (restore is fake, images are kept)",
-    action='store_true')
-rp.add_argument(
-    "--sbs",
-    help="Do step-by-step execution, asking user for keypress to continue",
-    action='store_true')
-rp.add_argument("--freezecg", help="Use freeze cgroup (path:state)")
-rp.add_argument("--user", help="Run CRIU as regular user", action='store_true')
-rp.add_argument("--rpc",
-                help="Run CRIU via RPC rather than CLI",
-                action='store_true')
+    gp = sp.add_parser("group", help="Generate groups")
+    gp.set_defaults(action=group_tests)
+    gp.add_argument("-m", "--max-size",
+                    help="Maximum number of tests in group")
+    gp.add_argument("-n", "--name", help="Common name for group tests")
+    gp.add_argument("-x",
+                    "--exclude",
+                    help="Exclude tests from --all run",
+                    action='append')
 
-rp.add_argument("--page-server",
-                help="Use page server dump",
-                action='store_true')
-rp.add_argument("--stream",
-                help="Use criu-image-streamer",
-                action='store_true')
-rp.add_argument("-p", "--parallel", help="Run test in parallel")
-rp.add_argument("--dry-run",
-                help="Don't run tests, just pretend to",
-                action='store_true')
-rp.add_argument("--script", help="Add script to get notified by criu")
-rp.add_argument("-k",
-                "--keep-img",
-                help="Whether or not to keep images after test",
-                choices=['always', 'never', 'failed'],
-                default='failed')
-rp.add_argument("--report", help="Generate summary report in directory")
-rp.add_argument("--keep-going",
-                help="Keep running tests in spite of failures",
-                action='store_true')
-rp.add_argument("--ignore-taint",
-                help="Don't care about a non-zero kernel taint flag",
-                action='store_true')
-rp.add_argument("--lazy-pages",
-                help="restore pages on demand",
-                action='store_true')
-rp.add_argument("--lazy-migrate",
-                help="restore pages on demand",
-                action='store_true')
-rp.add_argument("--remote-lazy-pages",
-                help="simulate lazy migration",
-                action='store_true')
-rp.add_argument("--tls", help="use TLS for migration", action='store_true')
-rp.add_argument("--title", help="A test suite title", default="criu")
-rp.add_argument("--show-stats",
-                help="Show criu statistics",
-                action='store_true')
-rp.add_argument("--criu-bin",
-                help="Path to criu binary",
-                default='../criu/criu')
-rp.add_argument("--crit-bin",
-                help="Path to crit binary",
-                default='../crit/crit')
-rp.add_argument("--criu-image-streamer-dir",
-                help="Directory where the criu-image-streamer binary is located",
-                default="../../criu-image-streamer")
-rp.add_argument("--pre-dump-mode",
-                help="Use splice or read mode of pre-dumping",
-                choices=['splice', 'read'],
-                default='splice')
+    cp = sp.add_parser("clean", help="Clean something")
+    cp.set_defaults(action=clean_stuff)
+    cp.add_argument("what", choices=['nsroot'])
 
-lp = sp.add_parser("list", help="List tests")
-lp.set_defaults(action=list_tests)
-lp.add_argument('-i',
-                '--info',
-                help="Show more info about tests",
-                action='store_true')
+    return vars(p.parse_args())
 
-gp = sp.add_parser("group", help="Generate groups")
-gp.set_defaults(action=group_tests)
-gp.add_argument("-m", "--max-size", help="Maximum number of tests in group")
-gp.add_argument("-n", "--name", help="Common name for group tests")
-gp.add_argument("-x",
-                "--exclude",
-                help="Exclude tests from --all run",
-                action='append')
 
-cp = sp.add_parser("clean", help="Clean something")
-cp.set_defaults(action=clean_stuff)
-cp.add_argument("what", choices=['nsroot'])
+def waitpid_and_rip_zombies(pid):
+    """
+    Collect this namespace's zombies
+    """
+    while True:
+        wpid, status = os.wait()
+        if wpid == pid:
+            if os.WIFEXITED(status):
+                return os.WEXITSTATUS(status)
+            return 1
 
-opts = vars(p.parse_args())
-if opts.get('sat', False):
-    opts['keep_img'] = 'always'
 
-if opts['debug']:
-    sys.settrace(traceit)
+def fork_zdtm():
+    """
+    Fork here, since we're new pidns init and are supposed to
+    collect this namespace's zombies
+    """
+    if 'CR_CT_TEST_INFO' in os.environ:
+        status = 0
+        pid = os.fork()
+        if pid == 0:
+            tinfo = eval(os.environ['CR_CT_TEST_INFO'])
+            do_run_test(tinfo[0], tinfo[1], tinfo[2], tinfo[3])
+        else:
+            status = waitpid_and_rip_zombies(pid)
+        sys.exit(status)
 
-if opts['action'] == 'run':
-    criu.available()
-for tst in test_classes.values():
-    tst.available()
 
-orig_hugepages = set_nr_hugepages(20)
+if __name__ == '__main__':
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    signal.signal(signal.SIGALRM, alarm)
+    fork_zdtm()
+    opts = get_cli_args()
+    if opts.get('sat', False):
+        opts['keep_img'] = 'always'
 
-opts['action'](opts)
+    if opts['debug']:
+        sys.settrace(traceit)
 
-set_nr_hugepages(orig_hugepages)
+    if opts['action'] == 'run':
+        criu.available()
+    for tst in test_classes.values():
+        tst.available()
 
-for tst in test_classes.values():
-    tst.cleanup()
+    orig_hugepages = set_nr_hugepages(20)
+    opts['action'](opts)
+    set_nr_hugepages(orig_hugepages)
+
+    for tst in test_classes.values():
+        tst.cleanup()
