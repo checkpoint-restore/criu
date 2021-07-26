@@ -224,7 +224,7 @@ if action == 'restore':
 elif action in ['dump', 'pre-dump']:
     res = wrap_dump()
 else:
-    print('Unsupported action {} for nswrap'.format(action))
+    print('Unsupported action {} for criu-ns'.format(action))
     res = -1
 
 sys.exit(res)
