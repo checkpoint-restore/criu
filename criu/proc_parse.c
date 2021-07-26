@@ -1050,6 +1050,7 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 	int ret = -1;
 	char *str;
 	bool parsed_seccomp = false;
+	int expected_done;
 
 	f.fd = open_proc(pid, "status");
 	if (f.fd < 0)
@@ -1178,8 +1179,11 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 		}
 	}
 
-	/* seccomp is optional */
-	if (done >= 12 || (done == 11 && !parsed_seccomp))
+	/* seccomp and nspids are optional */
+	expected_done = (parsed_seccomp ? 11 : 10);
+	if (kdat.has_nspid)
+		expected_done++;
+	if (done == expected_done)
 		ret = 0;
 
 err_parse:
