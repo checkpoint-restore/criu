@@ -144,11 +144,13 @@ install: $(obj)/criu
 	$(Q) install -m 644 $(UAPI_HEADERS) $(DESTDIR)$(INCLUDEDIR)/criu/
 	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)/criu/scripts
 	$(Q) install -m 755 scripts/systemd-autofs-restart.sh $(DESTDIR)$(LIBEXECDIR)/criu/scripts
+	$(Q) install -m 755 scripts/criu-ns $(DESTDIR)$(SBINDIR)
 .PHONY: install
 
 uninstall:
 	$(E) " UNINSTALL" criu
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(SBINDIR)/,criu)
+	$(Q) $(RM) $(addprefix $(DESTDIR)$(SBINDIR)/,criu-ns)
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(INCLUDEDIR)/criu/,$(notdir $(UAPI_HEADERS)))
 	$(Q) $(RM) $(addprefix $(DESTDIR)$(LIBEXECDIR)/criu/scripts/,systemd-autofs-restart.sh)
 .PHONY: uninstall
