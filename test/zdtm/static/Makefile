@@ -60,6 +60,7 @@ TST_NOFILE	:=				\
 		pthread01			\
 		pthread02			\
 		pthread_timers			\
+		pthread_timers_h		\
 		vdso00				\
 		vdso01				\
 		vdso02				\
@@ -522,6 +523,7 @@ pthread00:		LDLIBS += -pthread
 pthread01:		LDLIBS += -pthread
 pthread02:		LDLIBS += -pthread
 pthread_timers:		LDLIBS += -lrt -pthread
+pthread_timers_h:	LDLIBS += -lrt -pthread
 different_creds:	LDLIBS += -pthread
 sigpending:		LDLIBS += -pthread
 sigaltstack:		LDLIBS += -pthread
