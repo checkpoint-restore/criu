@@ -14,8 +14,9 @@ endif
 TARGETS := alpine fedora-rawhide centos7 centos8 archlinux
 ZDTM_OPTIONS :=
 UNAME := $(shell uname -m)
-
 export UNAME
+CONTAINER_RUNTIME := docker
+export CONTAINER_RUNTIME
 
 alpine: ZDTM_OPTIONS=-x zdtm/static/binfmt_misc -x zdtm/static/netns-nf -x zdtm/static/sched_policy00 -x zdtm/static/seccomp_strict -x zdtm/static/sigaltstack -x zdtm/static/signalfd00 -x zdtm/static/config_inotify_irmap
 
@@ -45,8 +46,19 @@ else
 	CONTAINER_OPTS := --rm -v /lib/modules:/lib/modules --tmpfs /run
 endif
 
+ifeq ($(CONTAINER_RUNTIME),podman)
+	# Just as Docker needs to use devicemapper Podman needs vfs
+	# as graphdriver as overlayfs does not support all test cases
+	STORAGE_DRIVER := vfs
+	# Podman limits the number of processes in a container using cgroups.
+	# Disable it as it breaks the thread-bomb test
+	CONTAINER_OPTS += --pids-limit=0
+endif
+
+export STORAGE_DRIVER
+
 restart-docker:
-	if [ "$$UNAME" = "x86_64" ]; then \
+	if [ "$$UNAME" = "x86_64" ] && [ "$$CONTAINER_RUNTIME" = "docker" ]; then \
 		echo "$$DOCKER_JSON" > /etc/docker/daemon.json; \
 		cat /etc/docker/daemon.json; \
 		systemctl status docker; \
@@ -56,11 +68,11 @@ restart-docker:
 
 $(TARGETS): restart-docker
 	$(MAKE) -C ../build $@$(target-suffix)
-	docker run --env-file docker.env $(CONTAINER_OPTS) criu-$@ scripts/ci/run-ci-tests.sh
+	$(CONTAINER_RUNTIME) run --env-file docker.env $(CONTAINER_OPTS) criu-$@ scripts/ci/run-ci-tests.sh
 
 fedora-asan: restart-docker
 	$(MAKE) -C ../build $@$(target-suffix)
-	docker run $(CONTAINER_OPTS) criu-$@ ./scripts/ci/asan.sh $(ZDTM_OPTIONS)
+	$(CONTAINER_RUNTIME) run $(CONTAINER_OPTS) criu-$@ ./scripts/ci/asan.sh $(ZDTM_OPTIONS)
 
 docker-test:
 	./docker-test.sh

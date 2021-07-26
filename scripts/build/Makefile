@@ -19,7 +19,7 @@ Dockerfile.%: Dockerfile.%.hdr Dockerfile.%.tmpl
 	cat $^ > $@
 
 $(CONTAINER_TARGETS):
-	$(CONTAINER_RUNTIME) build  -t criu-$@ -f Dockerfile.$@ $(DB_CC) ../..
+	$(CONTAINER_RUNTIME) build $(BUILD_OPTIONS) -t criu-$@ -f Dockerfile.$@ $(DB_CC) ../..
 .PHONY: $(CONTAINER_TARGETS)
 
 # Clang builds add some Docker build env
