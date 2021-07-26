@@ -214,6 +214,7 @@ Usage:
   dump           checkpoint a process/tree identified by pid
   pre-dump       pre-dump task(s) minimizing their frozen time
   restore        restore a process/tree
+  check          checks whether the kernel support is up-to-date
 """.format(sys.argv[0]))
 
 
@@ -227,6 +228,8 @@ if __name__ == "__main__":
         res = wrap_restore()
     elif action in ['dump', 'pre-dump']:
         res = wrap_dump()
+    elif action == 'check':
+        run_criu(sys.argv[1:])
     else:
         print('Unsupported action {} for criu-ns'.format(action))
         res = -1

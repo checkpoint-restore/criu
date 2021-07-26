@@ -14,6 +14,8 @@ SYNOPSIS
 
 *criu-ns* 'restore' [<options>]
 
+*criu-ns* 'check' [<options>]
+
 DESCRIPTION
 -----------
 The *criu-ns* command executes 'criu' in a new PID and mount namespace.
