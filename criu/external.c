@@ -12,24 +12,28 @@ int add_external(char *key)
 {
 	struct external *ext;
 
+	if (strstartswith(key, "mnt[]"))
+		return ext_mount_parse_auto(key + 5);
+
 	ext = xmalloc(sizeof(*ext));
 	if (!ext)
 		return -1;
-	ext->id = key;
 
-	if (strstartswith(key, "macvlan") && macvlan_ext_add(ext) < 0) {
-		xfree(ext);
-		return -1;
-	}
+	ext->id = xstrdup(key);
+	if (!ext->id)
+		goto err_id;
 
-	if (strstartswith(key, "mnt[]")) {
-		xfree(ext);
-		return ext_mount_parse_auto(key + 5);
-	}
+	if (strstartswith(key, "macvlan") && macvlan_ext_add(ext) < 0)
+		goto err;
 
 	list_add(&ext->node, &opts.external);
 
 	return 0;
+err:
+	xfree(ext->id);
+err_id:
+	xfree(ext);
+	return -1;
 }
 
 bool external_lookup_id(char *id)
