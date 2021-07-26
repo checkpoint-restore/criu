@@ -318,6 +318,47 @@ static int core_alloc_posix_timers(TaskTimersEntry *tte, int n,
 	return 0;
 }
 
+static int encode_notify_thread_id(pid_t rtid,
+				   struct pstree_item *item,
+				   PosixTimerEntry *pte)
+{
+	pid_t vtid = 0;
+	int i;
+
+	if (rtid == 0)
+		return 0;
+
+	if (!(root_ns_mask & CLONE_NEWPID)) {
+		/* Non-pid-namespace case */
+		pte->notify_thread_id = rtid;
+		pte->has_notify_thread_id = true;
+		return 0;
+	}
+
+	/* Pid-namespace case */
+	if (!kdat.has_nspid) {
+		pr_err("Have no NSpid support to dump notify thread id in pid namespace\n");
+		return -1;
+	}
+
+	for (i = 0; i < item->nr_threads; i++) {
+		if (item->threads[i].real != rtid)
+			continue;
+
+		vtid = item->threads[i].ns[0].virt;
+		break;
+	}
+
+	if (vtid == 0) {
+		pr_err("Unable to convert the notify thread id %d\n", rtid);
+		return -1;
+	}
+
+	pte->notify_thread_id = vtid;
+	pte->has_notify_thread_id = true;
+	return 0;
+}
+
 static int encode_posix_timer(struct pstree_item *item, struct posix_timer *v,
 			     struct proc_posix_timer *vp, PosixTimerEntry *pte)
 {
@@ -333,26 +374,11 @@ static int encode_posix_timer(struct pstree_item *item, struct posix_timer *v,
 	pte->insec = v->val.it_interval.tv_nsec;
 	pte->vsec = v->val.it_value.tv_sec;
 	pte->vnsec = v->val.it_value.tv_nsec;
-	if (vp->spt.notify_thread_id != 0) {
-		pid_t vtid = 0, rtid = vp->spt.notify_thread_id;
-		int i;
 
-		for (i = 0; i < item->nr_threads; i++) {
-			if (item->threads[i].real != rtid)
-				continue;
+	if (encode_notify_thread_id(vp->spt.notify_thread_id,
+				    item, pte))
+		return -1;
 
-			vtid = item->threads[i].ns[0].virt;
-			break;
-		}
-
-		if (vtid == 0) {
-			pr_err("Unable to find the thread %d\n", rtid);
-			return -1;
-		}
-
-		pte->notify_thread_id = vtid;
-		pte->has_notify_thread_id = true;
-	}
 	return 0;
 }
 
