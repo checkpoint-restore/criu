@@ -18,7 +18,9 @@
 #define SET_CHAR_OPTS(__dest, __src)              \
 	do {                                      \
 		char *__src_dup = xstrdup(__src); \
-		free(opts.__dest);                \
+		if (!__src_dup)                   \
+			abort();                  \
+		xfree(opts.__dest);               \
 		opts.__dest = __src_dup;          \
 	} while (0)
 

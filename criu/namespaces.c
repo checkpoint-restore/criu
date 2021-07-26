@@ -147,7 +147,12 @@ int join_ns_add(const char *type, char *ns_file, char *extra_opts)
 	if (!jn)
 		return -1;
 
-	jn->ns_file = ns_file;
+	jn->ns_file = xstrdup(ns_file);
+	if (!jn->ns_file) {
+		xfree(jn);
+		return -1;
+	}
+
 	if (!strncmp(type, "net", 4)) {
 		jn->nd = &net_ns_desc;
 		join_ns_flags |= CLONE_NEWNET;
@@ -182,6 +187,7 @@ int join_ns_add(const char *type, char *ns_file, char *extra_opts)
 	pr_info("Added %s:%s join namespace\n", type, ns_file);
 	return 0;
 err:
+	xfree(jn->ns_file);
 	xfree(jn);
 	return -1;
 }

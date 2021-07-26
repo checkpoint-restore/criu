@@ -854,7 +854,6 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 			return 1;
 		case 'L':
 			SET_CHAR_OPTS(libdir, optarg);
-			opts.libdir = optarg;
 			break;
 		case 1059:
 			*has_exec_cmd = true;

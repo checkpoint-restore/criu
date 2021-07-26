@@ -829,9 +829,11 @@ bool add_fsname_auto(const char *names)
 
 	if (css_contains(names, fsauto_all))
 		fsauto_names = fsauto_all;
-	else if (!old)
+	else if (!old) {
 		fsauto_names = xstrdup(names);
-	else {
+		if (!fsauto_names)
+			abort();
+	} else {
 		if (asprintf(&fsauto_names, "%s,%s", old, names) < 0)
 			fsauto_names = NULL;
 	}

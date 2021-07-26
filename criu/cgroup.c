@@ -1994,10 +1994,20 @@ int new_cg_root_add(char *controller, char *newroot)
 	if (!o)
 		return -1;
 
-	o->controller = controller;
-	o->newroot = newroot;
+	o->controller = xstrdup(controller);
+	if (!o->controller)
+		goto err_ctrl;
+	o->newroot = xstrdup(newroot);
+	if (!o->newroot)
+		goto err_newroot;
 	list_add(&o->node, &opts.new_cgroup_roots);
+
 	return 0;
+err_newroot:
+	xfree(o->controller);
+err_ctrl:
+	xfree(o);
+	return -1;
 }
 
 struct ns_desc cgroup_ns_desc = NS_DESC_ENTRY(CLONE_NEWCGROUP, "cgroup");

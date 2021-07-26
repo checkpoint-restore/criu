@@ -147,9 +147,13 @@ int add_script(char *path)
 
 	script = xmalloc(sizeof(struct script));
 	if (script == NULL)
-		return 1;
+		return -1;
 
-	script->path = path;
+	script->path = xstrdup(path);
+	if (!script->path) {
+		xfree(script);
+		return -1;
+	}
 	list_add(&script->node, &scripts);
 
 	return 0;
