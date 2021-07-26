@@ -205,7 +205,7 @@ def wrap_dump():
     return _wait_for_process_status(pid)
 
 
-if len(sys.argv) == 1:
+def show_usage():
     print("""
 Usage:
   {0} dump|pre-dump -t PID [<options>]
@@ -215,16 +215,20 @@ Usage:
   pre-dump       pre-dump task(s) minimizing their frozen time
   restore        restore a process/tree
 """.format(sys.argv[0]))
-    exit(1)
 
-action = sys.argv[1]
 
-if action == 'restore':
-    res = wrap_restore()
-elif action in ['dump', 'pre-dump']:
-    res = wrap_dump()
-else:
-    print('Unsupported action {} for criu-ns'.format(action))
-    res = -1
+if __name__ == "__main__":
+    if len(sys.argv) == 1:
+        show_usage()
+        exit(1)
 
-sys.exit(res)
+    action = sys.argv[1]
+    if action == 'restore':
+        res = wrap_restore()
+    elif action in ['dump', 'pre-dump']:
+        res = wrap_dump()
+    else:
+        print('Unsupported action {} for criu-ns'.format(action))
+        res = -1
+
+    sys.exit(res)
