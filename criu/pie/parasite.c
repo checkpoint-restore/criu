@@ -157,12 +157,13 @@ static int dump_posix_timers(struct parasite_dump_posix_timers_args *args)
 			pr_err("sys_timer_gettime failed (%d)\n", ret);
 			return ret;
 		}
-		args->timer[i].overrun = sys_timer_getoverrun(args->timer[i].it_id);
-		ret = args->timer[i].overrun;
+		ret = sys_timer_getoverrun(args->timer[i].it_id);
 		if (ret < 0) {
 			pr_err("sys_timer_getoverrun failed (%d)\n", ret);
 			return ret;
 		}
+		args->timer[i].overrun = ret;
+		ret = 0;
 	}
 
 	return ret;
