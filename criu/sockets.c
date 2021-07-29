@@ -517,7 +517,7 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 	pr_info("%d restore sndbuf %d rcv buf %d\n", sk, soe->so_sndbuf, soe->so_rcvbuf);
 
 	/* setsockopt() multiplies the input values by 2 */
-	ret |= userns_call(sk_setbufs, UNS_ASYNC, bufs, sizeof(bufs), sk);
+	ret |= userns_call(sk_setbufs, 0, bufs, sizeof(bufs), sk);
 
 	if (soe->has_so_priority) {
 		pr_debug("\trestore priority %d for socket\n", soe->so_priority);
