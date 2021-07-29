@@ -1,5 +1,11 @@
 #include "zdtmtst.h"
 
+#if defined(ZDTM_IPV6)
+#define ZDTM_FAMILY AF_INET6
+#else
+#define ZDTM_FAMILY AF_INET
+#endif
+
 const char *test_doc = "Check that sockets are locked between dump and restore\n";
 const char *test_author = "Zeyad Yasser <zeyady98@gmail.com>";
 
@@ -14,22 +20,31 @@ static int port = 8880;
 int main(int argc, char **argv)
 {
 	char buf[5];
-	int fd_s, fd_sock, fd_sync, buf_len;
+	int fd_s, fd_sock, buf_len;
+	FILE *f_sync;
 
 	test_init(argc, argv);
 
-	if ((fd_s = tcp_init_server(AF_INET, &port)) < 0) {
+	if ((fd_s = tcp_init_server(ZDTM_FAMILY, &port)) < 0) {
 		pr_err("initializing server failed\n");
 		return 1;
 	}
 
 	// Server is ready to accept sockets
-	fd_sync = open(SYNCFILE_PATH, O_CREAT, 0444);
-	if (fd_sync == -1) {
+	f_sync = fopen(SYNCFILE_PATH, "w");
+	if (f_sync == NULL) {
 		pr_perror("cannot create sync file");
 		return 1;
 	}
-	close(fd_sync);
+#if defined(ZDTM_IPV6)
+	if (fprintf(f_sync, "ipv6") < 0) {
+#else
+	if (fprintf(f_sync, "ipv4") < 0) {
+#endif
+		pr_perror("cannot write to sync file");
+		return 1;
+	}
+	fclose(f_sync);
 
 	fd_sock = tcp_accept_server(fd_s);
 
