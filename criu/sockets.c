@@ -519,6 +519,10 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 	/* setsockopt() multiplies the input values by 2 */
 	ret |= userns_call(sk_setbufs, 0, bufs, sizeof(bufs), sk);
 
+	if (soe->has_so_buf_lock) {
+		pr_debug("\trestore buf_lock %d for socket\n", soe->so_buf_lock);
+		ret |= restore_opt(sk, SOL_SOCKET, SO_BUF_LOCK, &soe->so_buf_lock);
+	}
 	if (soe->has_so_priority) {
 		pr_debug("\trestore priority %d for socket\n", soe->so_priority);
 		ret |= restore_opt(sk, SOL_SOCKET, SO_PRIORITY, &soe->so_priority);
@@ -619,6 +623,10 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 
 	ret |= dump_opt(sk, SOL_SOCKET, SO_SNDBUF, &soe->so_sndbuf);
 	ret |= dump_opt(sk, SOL_SOCKET, SO_RCVBUF, &soe->so_rcvbuf);
+	if (kdat.has_sockopt_buf_lock) {
+		soe->has_so_buf_lock = true;
+		ret |= dump_opt(sk, SOL_SOCKET, SO_BUF_LOCK, &soe->so_buf_lock);
+	}
 	soe->has_so_priority = true;
 	ret |= dump_opt(sk, SOL_SOCKET, SO_PRIORITY, &soe->so_priority);
 	soe->has_so_rcvlowat = true;
