@@ -10,12 +10,22 @@ TIMEOUT = 0.1
 INTERNAL_SERVER = "\0internal_server"
 SYNCFILE = "zdtm/static/socket_lock.sync"
 
-def wait_sync_file():
+def wait_server_addr():
     for _ignore in range(3):
-        if os.path.exists(SYNCFILE):
+        try:
+            with open(SYNCFILE, "r") as f:
+                addr = f.read(4)
             os.remove(SYNCFILE)
-            return
-        time.sleep(1)
+
+            if addr == "ipv4":
+                return "127.0.0.1"
+
+            if addr == "ipv6":
+                return "::1"
+
+            raise Exception("Invalid address type")
+        except IOError:
+            time.sleep(1)
 
     raise TimeoutError("Sync timeout: file ({}) not found".format(SYNCFILE))
 
@@ -25,13 +35,13 @@ if sys.argv[1] == "--post-start":
     internal_sock.listen(1)
 
     # Wait for test server to be ready
-    wait_sync_file()
+    server_addr = wait_server_addr()
 
     pid = os.fork()
     if pid == 0:
         os.setsid()  # Detach from parent
 
-        test_sock = socket.create_connection(("127.0.0.1", PORT), TIMEOUT)
+        test_sock = socket.create_connection((server_addr, PORT), TIMEOUT)
 
         while True:
             internal_conn, _ignore = internal_sock.accept()
