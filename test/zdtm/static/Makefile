@@ -220,7 +220,9 @@ TST_NOFILE	:=				\
 		netns_lock_iptables			\
 		netns_lock_nftables			\
 		net_lock_socket_iptables		\
+		net_lock_socket_iptables6		\
 		net_lock_socket_nftables		\
+		net_lock_socket_nftables6		\
 		netns_sub			\
 		netns_sub_veth			\
 		netns_sub_sysctl	\
@@ -583,6 +585,8 @@ clone_fs:		LDLIBS += -pthread
 # we have to explicitly specify both .o and .d for this case:
 netns_sub_veth.o netns_sub_veth.d: CPPFLAGS += $(call pkg-cflags, libnl-3.0)
 netns_sub_veth:		LDLIBS += $(call pkg-libs, libnl-route-3.0 libnl-3.0)
+net_lock_socket_iptables6:	CFLAGS += -D ZDTM_IPV6
+net_lock_socket_nftables6:	CFLAGS += -D ZDTM_IPV6
 symlink01:		CFLAGS += -DZDTM_UNLINK_SYMLINK
 
 socket-tcp-fin-wait1:	CFLAGS += -D ZDTM_TCP_FIN_WAIT1

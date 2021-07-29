@@ -1,0 +1,6 @@
+{
+    'flavor': 'h',
+    'flags': 'suid excl',
+    'feature': 'network_lock_nftables',
+    'opts': '--tcp-established --network-lock nftables',
+}
