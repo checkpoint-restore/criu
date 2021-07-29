@@ -1372,6 +1372,14 @@ static int check_network_lock_nftables(void)
 	return 0;
 }
 
+static int check_sockopt_buf_lock(void)
+{
+	if (!kdat.has_sockopt_buf_lock)
+		return -1;
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1490,6 +1498,7 @@ int cr_check(void)
 		ret |= check_ns_pid();
 		ret |= check_apparmor_stacking();
 		ret |= check_network_lock_nftables();
+		ret |= check_sockopt_buf_lock();
 	}
 
 	/*
@@ -1602,6 +1611,7 @@ static struct feature_list feature_list[] = {
 	{ "ns_pid", check_ns_pid },
 	{ "apparmor_stacking", check_apparmor_stacking },
 	{ "network_lock_nftables", check_network_lock_nftables },
+	{ "sockopt_buf_lock", check_sockopt_buf_lock },
 	{ NULL, NULL },
 };
 
