@@ -117,6 +117,7 @@ TST_NOFILE	:=				\
 		socket-linger			\
 		sock_opts00			\
 		sock_opts01			\
+		sock_opts02			\
 		sk-unix-unconn			\
 		ipc_namespace			\
 		selfexe00			\
