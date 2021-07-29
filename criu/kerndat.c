@@ -816,6 +816,35 @@ static int kerndat_x86_has_ptrace_fpu_xsave_bug(void)
 	return 0;
 }
 
+int kerndat_sockopt_buf_lock(void)
+{
+	int exit_code = -1;
+	socklen_t len;
+	u32 buf_lock;
+	int sock;
+
+	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sock < 0) {
+		pr_perror("Unable to create a socket");
+		return -1;
+	}
+
+	len = sizeof(buf_lock);
+	if (getsockopt(sock, SOL_SOCKET, SO_BUF_LOCK, &buf_lock, &len)) {
+		if (errno != ENOPROTOOPT) {
+			pr_perror("Unable to get SO_BUF_LOCK with getsockopt");
+			goto err;
+		}
+		kdat.has_sockopt_buf_lock = false;
+	} else
+		kdat.has_sockopt_buf_lock = true;
+
+	exit_code = 0;
+err:
+	close(sock);
+	return exit_code;
+}
+
 #define KERNDAT_CACHE_FILE     KDAT_RUNDIR "/criu.kdat"
 #define KERNDAT_CACHE_FILE_TMP KDAT_RUNDIR "/.criu.kdat"
 
@@ -1357,6 +1386,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_nftables_concat()) {
 		pr_err("kerndat_has_nftables_concat failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_sockopt_buf_lock()) {
+		pr_err("kerndat_sockopt_buf_lock failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
