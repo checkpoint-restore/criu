@@ -51,21 +51,44 @@ docker info
 
 criu --version
 
-# shellcheck disable=SC2016
-docker run --tmpfs /tmp --tmpfs /run --read-only --security-opt seccomp=unconfined --name cr -d alpine /bin/sh -c 'i=0; while true; do echo $i; i=$(expr $i + 1); sleep 1; done'
+run_container () {
+	docker run \
+		--tmpfs /tmp \
+		--tmpfs /run \
+		--read-only \
+		--name cr \
+		--health-cmd='sleep 1' \
+		--health-interval=1s \
+		-d \
+		alpine \
+		/bin/sh -c 'i=0; while true; do echo $i; i=$(expr $i + 1); sleep 1; done'
+}
 
-sleep 1
-for i in $(seq 50); do
-	# docker start returns 0 silently if a container is already started
-	# docker checkpoint doesn't wait when docker updates a container state
-	# Due to both these points, we need to sleep after docker checkpoint to
-	# avoid races with docker start.
-	docker exec cr ps axf &&
-	docker checkpoint create cr checkpoint"$i" &&
-	sleep 1 &&
-	docker ps &&
-	(docker exec cr true && exit 1 || exit 0) &&
-	docker start --checkpoint checkpoint"$i" cr 2>&1 | tee log || {
+wait_running () {
+	until [ "$(docker inspect -f '{{.State.Running}}' cr)" = "true" ]; do
+		sleep 1;
+	done;
+}
+
+wait_healthy () {
+	until [ "$(docker inspect -f '{{.State.Health.Status}}' cr)" = "healthy" ]; do
+		sleep 1;
+	done;
+}
+
+checkpoint_container () {
+	CHECKPOINT_NAME=$1
+
+	docker checkpoint create cr "$CHECKPOINT_NAME" &&
+	(docker exec cr true >> /dev/null 2>&1 && exit 1 || exit 0) &&
+	# wait for container to stop
+	docker wait cr
+}
+
+restore_container () {
+	CHECKPOINT_NAME=$1
+
+	docker start --checkpoint "$CHECKPOINT_NAME" cr 2>&1 | tee log || {
 	cat "$(grep log 'log file:' | sed 's/log file:\s*//')" || true
 		docker logs cr || true
 		cat $CRIU_LOG || true
@@ -73,7 +96,34 @@ for i in $(seq 50); do
 		docker ps
 		exit 1
 	}
+}
+
+# Scenario: Create multiple containers and checkpoint and restore them once
+for i in $(seq 10); do
+	run_container
+	wait_running
+
 	docker ps
-	sleep 1
+	checkpoint_container checkpoint
+
+	docker ps
+	restore_container checkpoint
+
+	docker ps
+	docker rm -f cr
 done
 
+# Scenario: Create container and checkpoint and restore it multiple times
+run_container
+wait_running
+
+for i in $(seq 5); do
+	docker ps
+	checkpoint_container checkpoint"${i}"
+
+	docker ps
+	restore_container checkpoint"${i}"
+
+	# Wait for healthy state before creating another checkpoint
+	wait_healthy
+done
