@@ -86,6 +86,21 @@ int check_img_inventory(bool restore)
 		goto out_err;
 	}
 
+	if (restore) {
+		if (!he->has_network_lock_method) {
+			/*
+			 * Image files were generated with an older version of CRIU
+			 * so we should fall back to iptables because this is the
+			 * network-lock mechanism used in older versions.
+			 */
+			pr_info("Network lock method not found in inventory image\n");
+			pr_info("Falling back to iptables network lock method\n");
+			opts.network_lock_method = NETWORK_LOCK_IPTABLES;
+		} else {
+			opts.network_lock_method = he->network_lock_method;
+		}
+	}
+
 	ret = 0;
 
 out_err:
@@ -222,6 +237,10 @@ int prepare_inventory(InventoryEntry *he)
 		he->tcp_close = true;
 		he->has_tcp_close = true;
 	}
+
+	/* Save network lock method to reuse in restore */
+	he->has_network_lock_method = true;
+	he->network_lock_method = opts.network_lock_method;
 
 	return 0;
 }
