@@ -1,6 +1,7 @@
 {
     'flavor': 'h',
     'flags': 'suid excl',
-    'opts': '--tcp-established --network-lock iptables',
+    'opts': '--tcp-established',
+    'dopts': '--network-lock iptables',
     'ropts': '--join-ns net:/var/run/netns/criu-net-lock-test'
 }
