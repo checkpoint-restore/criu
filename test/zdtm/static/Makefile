@@ -495,8 +495,8 @@ WAIT_TIME=240
 	[ $$i -lt $(WAIT_TIME) ]
 
 wait_stop:
-		i=0; \
-		while [ $$i -lt $(WAIT_TIME) ] ; do \
+	i=0; \
+	while [ $$i -lt $(WAIT_TIME) ] ; do \
 		kill -0 `awk '{print}' *.pid 2>/dev/null` 2>/dev/null || break; \
 		sleep 1; \
 		i=`expr $$i + 1`; \
