@@ -33,12 +33,9 @@ int main(int argc, char *argv[])
 
 	static const char short_opts[] = "m:o:di:h";
 	static struct option long_opts[] = {
-		{ "mode",		required_argument,	0, 'm'	},
-		{ "output",		required_argument,	0, 'o'	},
-		{ "decode",		no_argument,		0, 'd'	},
-		{ "iter",		required_argument,	0, 'i'	},
-		{ "help",		no_argument,		0, 'h'	},
-		{ },
+		{ "mode", required_argument, 0, 'm' }, { "output", required_argument, 0, 'o' },
+		{ "decode", no_argument, 0, 'd' },     { "iter", required_argument, 0, 'i' },
+		{ "help", no_argument, 0, 'h' },       {},
 	};
 
 	while (1) {
@@ -68,8 +65,7 @@ int main(int argc, char *argv[])
 			} else {
 				fdout = open(optarg, O_RDWR | O_CREAT | O_TRUNC, 0644);
 				if (fdout < 0) {
-					fprintf(stderr, "Can't open %s: %s\n",
-						optarg, strerror(errno));
+					fprintf(stderr, "Can't open %s: %s\n", optarg, strerror(errno));
 					exit(1);
 				}
 			}
@@ -94,42 +90,35 @@ int main(int argc, char *argv[])
 		if (fdout != STDOUT_FILENO && flog_map_buf(fdout))
 			return 1;
 		for (i = 0; i < niter; i++)
-			if (flog_encode(fdout, "Some message %s %s %c %li %d %lu\n",
-				    str1, str2, 'c', (long)-4, (short)2,
-				    (unsigned long)2))
+			if (flog_encode(fdout, "Some message %s %s %c %li %d %lu\n", str1, str2, 'c', (long)-4,
+					(short)2, (unsigned long)2))
 				return 1;
 		if (flog_close(fdout))
 			return 1;
-	break;
-	case MODE_DPRINTF:
-	{
+		break;
+	case MODE_DPRINTF: {
 		for (i = 0; i < niter; i++) {
-			dprintf(fdout, "Some message %s %s %c %li %d %lu\n",
-				str1, str2, 'c', (long)-4, (short)2,
+			dprintf(fdout, "Some message %s %s %c %li %d %lu\n", str1, str2, 'c', (long)-4, (short)2,
 				(unsigned long)2);
 		}
 		break;
 	}
-	case MODE_FPRINTF:
-	{
+	case MODE_FPRINTF: {
 		FILE *f = fdopen(fdout, "w");
 
 		for (i = 0; i < niter; i++) {
-			fprintf(f, "Some message %s %s %c %li %d %lu\n",
-				str1, str2, 'c', (long)-4, (short)2,
+			fprintf(f, "Some message %s %s %c %li %d %lu\n", str1, str2, 'c', (long)-4, (short)2,
 				(unsigned long)2);
 			fflush(f);
 		}
 		fclose(f);
 		break;
 	}
-	case MODE_SPRINTF:
-	{
+	case MODE_SPRINTF: {
 		static char buf[4096];
 
 		for (i = 0; i < niter; i++) {
-			sprintf(buf, "Some message %s %s %c %li %d %lu\n",
-				str1, str2, 'c', (long)-4, (short)2,
+			sprintf(buf, "Some message %s %s %c %li %d %lu\n", str1, str2, 'c', (long)-4, (short)2,
 				(unsigned long)2);
 		}
 		break;

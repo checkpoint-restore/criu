@@ -13,7 +13,7 @@
 
 #define MAGIC 0xABCDABCD
 
-#define BUF_SIZE (1<<20)
+#define BUF_SIZE (1 << 20)
 static char _mbuf[BUF_SIZE];
 static char *mbuf = _mbuf;
 static char *fbuf;
@@ -119,11 +119,10 @@ int flog_map_buf(int fdout)
 	}
 
 	if (!fbuf)
-		addr = mmap(NULL, BUF_SIZE * 2, PROT_WRITE | PROT_READ,
-			    MAP_FILE | MAP_SHARED, fdout, fsize - 2 * BUF_SIZE);
+		addr = mmap(NULL, BUF_SIZE * 2, PROT_WRITE | PROT_READ, MAP_FILE | MAP_SHARED, fdout,
+			    fsize - 2 * BUF_SIZE);
 	else
-		addr = mremap(fbuf + BUF_SIZE, BUF_SIZE,
-				BUF_SIZE * 2, MREMAP_FIXED, fbuf);
+		addr = mremap(fbuf + BUF_SIZE, BUF_SIZE, BUF_SIZE * 2, MREMAP_FIXED, fbuf);
 	if (addr == MAP_FAILED) {
 		fprintf(stderr, "Unable to map a buffer: %m");
 		return -1;
@@ -160,7 +159,7 @@ int flog_encode_msg(int fdout, unsigned int nargs, unsigned int mask, const char
 	if (mbuf != _mbuf && flog_map_buf(fdout))
 		return -1;
 
-	m = (void *) mbuf;
+	m = (void *)mbuf;
 
 	m->nargs = nargs;
 	m->mask = mask;
