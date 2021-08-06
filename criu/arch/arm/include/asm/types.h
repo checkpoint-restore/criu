@@ -1,13 +1,13 @@
 #ifndef __CR_ASM_TYPES_H__
 #define __CR_ASM_TYPES_H__
 
-#include <stdbool.h>
-#include <signal.h>
 #include "images/core.pb-c.h"
+#include <signal.h>
+#include <stdbool.h>
 
-#include "page.h"
-#include "bitops.h"
 #include "asm/int.h"
+#include "bitops.h"
+#include "page.h"
 
 #include <compel/plugins/std/asm/syscall-types.h>
 

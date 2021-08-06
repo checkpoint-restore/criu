@@ -1,14 +1,14 @@
+#include <fcntl.h>
+#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/file.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/stat.h>
-#include <linux/limits.h>
+#include <unistd.h>
 
-#include "zdtmtst.h"
 #include "fs.h"
+#include "zdtmtst.h"
 
 #ifndef LOCK_MAND
 #define LOCK_MAND 32

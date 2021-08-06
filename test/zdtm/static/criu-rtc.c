@@ -1,16 +1,16 @@
-#include <stdio.h>
-#include <linux/rtc.h>
-#include <sys/ioctl.h>
-#include <sys/sysmacros.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <linux/limits.h>
+#include <linux/rtc.h>
+#include <stdio.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <errno.h>
 
-#include "criu-plugin.h"
 #include "criu-log.h"
+#include "criu-plugin.h"
 
 #include "criu-rtc.pb-c.h"
 

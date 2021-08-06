@@ -1,11 +1,11 @@
 #ifndef __CR_SECCOMP_H__
 #define __CR_SECCOMP_H__
 
-#include <linux/seccomp.h>
 #include <linux/filter.h>
+#include <linux/seccomp.h>
 
-#include "images/seccomp.pb-c.h"
 #include "images/core.pb-c.h"
+#include "images/seccomp.pb-c.h"
 
 #ifndef SECCOMP_MODE_DISABLED
 #define SECCOMP_MODE_DISABLED 0

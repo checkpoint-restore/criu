@@ -1,11 +1,11 @@
-#include <unistd.h>
 #include <stdlib.h>
 #include <sys/mman.h>
-#include <sys/wait.h>
 #include <sys/prctl.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-#include "zdtmtst.h"
 #include "lock.h"
+#include "zdtmtst.h"
 
 const char *test_doc = "Check that property is restored for existing children";
 const char *test_author = "Michał Cłapiński <mclapinski@google.com>";

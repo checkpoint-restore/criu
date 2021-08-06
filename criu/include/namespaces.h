@@ -2,8 +2,8 @@
 #define __CR_NS_H__
 
 #include "common/compiler.h"
-#include "files.h"
 #include "common/list.h"
+#include "files.h"
 #include "images/netdev.pb-c.h"
 
 #ifndef CLONE_NEWNS

@@ -1,13 +1,13 @@
 #ifndef __CR_VMA_H__
 #define __CR_VMA_H__
 
-#include "image.h"
 #include "common/list.h"
+#include "image.h"
 
 #include "images/vma.pb-c.h"
 
-#include <sys/mman.h>
 #include <string.h>
+#include <sys/mman.h>
 
 struct vm_area_list {
 	struct list_head h; /* list of VMAs */

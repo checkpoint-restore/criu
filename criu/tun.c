@@ -1,26 +1,26 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/socket.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
-#include <sys/ioctl.h>
 #include <sched.h>
+#include <stdio.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 // MAO required on Centos 6 (linux-3.18.1 kernel)
 #include <linux/filter.h>
 
 #include "cr_options.h"
-#include "imgset.h"
-#include "protobuf.h"
-#include "string.h"
-#include "files.h"
 #include "files-reg.h"
-#include "tun.h"
-#include "net.h"
-#include "namespaces.h"
-#include "xmalloc.h"
+#include "files.h"
+#include "imgset.h"
 #include "kerndat.h"
+#include "namespaces.h"
+#include "net.h"
+#include "protobuf.h"
 #include "sockets.h"
+#include "string.h"
+#include "tun.h"
+#include "xmalloc.h"
 
 #include "images/tun.pb-c.h"
 

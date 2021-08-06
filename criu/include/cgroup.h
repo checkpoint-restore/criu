@@ -1,8 +1,8 @@
 #ifndef __CR_CGROUP_H__
 #define __CR_CGROUP_H__
 
-#include "int.h"
 #include "images/core.pb-c.h"
+#include "int.h"
 
 struct pstree_item;
 struct parasite_dump_cgroup_args;

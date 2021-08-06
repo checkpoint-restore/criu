@@ -1,6 +1,6 @@
-#include <stdlib.h>
-#include "criu-log.h"
 #include "fault-injection.h"
+#include "criu-log.h"
+#include <stdlib.h>
 
 enum faults fi_strategy;
 

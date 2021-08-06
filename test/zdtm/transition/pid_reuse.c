@@ -1,6 +1,6 @@
 #include <fcntl.h>
-#include <sys/wait.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 
 #include "zdtmtst.h"
 

@@ -1,14 +1,13 @@
 #include "criu.h"
-#include <fcntl.h>
-#include <stdio.h>
+#include "lib.h"
 #include <errno.h>
-#include <stdlib.h>
-#include <signal.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include "lib.h"
 
 static int wdir_fd, cur_iter = 1, cur_imgdir = -1;
 

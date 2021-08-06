@@ -1,9 +1,9 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 
-#include "log.h"
 #include "criu-log.h"
+#include "log.h"
 
 int parse_statement(int i, char *line, char **configuration);
 

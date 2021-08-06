@@ -1,9 +1,9 @@
 #ifndef __CR_PID_H__
 #define __CR_PID_H__
 
-#include <compel/task-state.h>
-#include "stdbool.h"
 #include "rbtree.h"
+#include "stdbool.h"
+#include <compel/task-state.h>
 
 /*
  * Task states, used in e.g. struct pid's state.

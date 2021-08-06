@@ -1,7 +1,7 @@
 #include <fcntl.h>
-#include <stdio.h>
-#include <signal.h>
 #include <limits.h>
+#include <signal.h>
+#include <stdio.h>
 
 #include "zdtmtst.h"
 

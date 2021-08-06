@@ -1,11 +1,11 @@
 #ifndef __CR_SERVICE_FD_H__
 #define __CR_SERVICE_FD_H__
 
-#include <stdio.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #include "criu-log.h"
 

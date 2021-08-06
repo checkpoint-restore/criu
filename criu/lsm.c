@@ -1,23 +1,23 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 
 #include "common/config.h"
+#include "cr_options.h"
+#include "fdstore.h"
 #include "kerndat.h"
+#include "lsm.h"
 #include "pstree.h"
 #include "util.h"
-#include "cr_options.h"
-#include "lsm.h"
-#include "fdstore.h"
 
-#include "protobuf.h"
-#include "images/inventory.pb-c.h"
 #include "images/creds.pb-c.h"
 #include "images/fdinfo.pb-c.h"
+#include "images/inventory.pb-c.h"
+#include "protobuf.h"
 
 #ifdef CONFIG_HAS_SELINUX
 #include <selinux/selinux.h>

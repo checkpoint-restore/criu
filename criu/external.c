@@ -1,10 +1,10 @@
+#include "external.h"
 #include "common/err.h"
 #include "common/list.h"
 #include "cr_options.h"
-#include "xmalloc.h"
 #include "mount.h"
-#include "external.h"
 #include "util.h"
+#include "xmalloc.h"
 
 #include "net.h"
 

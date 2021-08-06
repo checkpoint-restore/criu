@@ -7,8 +7,8 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <sys/vfs.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "zdtmtst.h"

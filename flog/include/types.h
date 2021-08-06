@@ -1,8 +1,8 @@
 #ifndef __FLOG_TYPES_H__
 #define __FLOG_TYPES_H__
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef uint64_t u64;
 typedef int64_t s64;

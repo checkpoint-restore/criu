@@ -1,8 +1,8 @@
 #ifndef __CR_PAGEMAP_H__
 #define __CR_PAGEMAP_H__
 
-#include <sys/types.h>
 #include "int.h"
+#include <sys/types.h>
 
 #include "common/list.h"
 

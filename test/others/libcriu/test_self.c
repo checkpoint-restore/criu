@@ -1,13 +1,13 @@
 #include "criu.h"
-#include <unistd.h>
-#include <stdlib.h>
+#include "lib.h"
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <stdio.h>
-#include <errno.h>
 #include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/wait.h>
-#include "lib.h"
+#include <unistd.h>
 
 #define SUCC_DUMP_ECODE 41
 #define SUCC_RSTR_ECODE 43

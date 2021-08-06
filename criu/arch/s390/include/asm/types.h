@@ -1,13 +1,13 @@
 #ifndef _UAPI_S390_TYPES_H
 #define _UAPI_S390_TYPES_H
 
-#include <stdbool.h>
-#include <signal.h>
 #include "images/core.pb-c.h"
+#include <signal.h>
+#include <stdbool.h>
 
-#include "page.h"
-#include "bitops.h"
 #include "asm/int.h"
+#include "bitops.h"
+#include "page.h"
 
 #include <compel/plugins/std/asm/syscall-types.h>
 

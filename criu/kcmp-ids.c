@@ -1,15 +1,15 @@
-#include <unistd.h>
 #include <stdlib.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 
 #include "log.h"
 #include "xmalloc.h"
 
-#include "common/compiler.h"
 #include "common/bug.h"
+#include "common/compiler.h"
 
-#include "rbtree.h"
 #include "kcmp-ids.h"
+#include "rbtree.h"
 
 /*
  * We track shared files by global rbtree, where each node might

@@ -1,11 +1,11 @@
 #include <fcntl.h>
-#include <unistd.h>
+#include <limits.h>
+#include <sched.h>
 #include <stdio.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <sched.h>
 #include <sys/wait.h>
-#include <limits.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

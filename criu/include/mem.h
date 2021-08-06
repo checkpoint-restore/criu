@@ -1,12 +1,12 @@
 #ifndef __CR_MEM_H__
 #define __CR_MEM_H__
 
-#include <stdbool.h>
 #include "int.h"
-#include "vma.pb-c.h"
+#include "inventory.pb-c.h"
 #include "pid.h"
 #include "proc_parse.h"
-#include "inventory.pb-c.h"
+#include "vma.pb-c.h"
+#include <stdbool.h>
 
 struct parasite_ctl;
 struct vm_area_list;

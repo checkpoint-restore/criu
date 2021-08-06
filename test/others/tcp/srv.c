@@ -1,12 +1,12 @@
-#include <sys/socket.h>
-#include <linux/types.h>
-#include <sys/types.h>
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include <linux/types.h>
 #include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 static int serve_new_conn(int sk)
 {

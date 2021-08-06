@@ -1,9 +1,9 @@
-#include <linux/bpf.h>
 #include <bpf/bpf.h>
+#include <linux/bpf.h>
 #include <sys/mman.h>
 
-#include "zdtmtst.h"
 #include "bpfmap_zdtm.h"
+#include "zdtmtst.h"
 
 const char *test_doc = "Check that data and meta-data for BPF_MAP_TYPE_ARRAY"
 		       "is correctly restored";

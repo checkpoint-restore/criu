@@ -1,48 +1,48 @@
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <limits.h>
-#include <unistd.h>
-#include <errno.h>
 #include <string.h>
-#include <ctype.h>
-#include <sched.h>
+#include <unistd.h>
 
 #include <fcntl.h>
 
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 
 #include <dlfcn.h>
 
 #include <sys/utsname.h>
 
-#include "int.h"
-#include "page.h"
+#include "cgroup.h"
 #include "common/compiler.h"
-#include "crtools.h"
+#include "cpu.h"
+#include "cr-service.h"
 #include "cr_options.h"
+#include "criu-log.h"
+#include "crtools.h"
 #include "external.h"
+#include "fault-injection.h"
+#include "file-lock.h"
 #include "files.h"
-#include "sk-inet.h"
+#include "int.h"
+#include "kerndat.h"
+#include "namespaces.h"
 #include "net.h"
 #include "page-xfer.h"
-#include "tty.h"
-#include "file-lock.h"
-#include "cr-service.h"
+#include "page.h"
 #include "plugin.h"
-#include "criu-log.h"
-#include "util.h"
-#include "protobuf-desc.h"
-#include "namespaces.h"
-#include "cgroup.h"
-#include "cpu.h"
-#include "fault-injection.h"
 #include "proc_parse.h"
-#include "kerndat.h"
+#include "protobuf-desc.h"
+#include "sk-inet.h"
+#include "tty.h"
+#include "util.h"
 
 #include "setproctitle.h"
 #include "sysctl.h"

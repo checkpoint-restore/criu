@@ -1,10 +1,10 @@
 #ifndef __CR_IMGSET_H__
 #define __CR_IMGSET_H__
 
-#include "image-desc.h"
-#include "log.h"
 #include "common/bug.h"
+#include "image-desc.h"
 #include "image.h"
+#include "log.h"
 
 struct cr_imgset {
 	int fd_off;

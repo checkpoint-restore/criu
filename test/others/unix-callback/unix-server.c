@@ -3,10 +3,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
 #include <linux/un.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 struct ticket {
 	struct ticket *next;

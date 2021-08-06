@@ -1,17 +1,17 @@
+#include <stdio.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <stdio.h>
 
+#include "common/lock.h"
+#include "common/scm.h"
 #include "cr_options.h"
-#include "img-streamer.h"
 #include "image.h"
 #include "images/img-streamer.pb-c.h"
+#include "img-streamer.h"
 #include "protobuf.h"
-#include "servicefd.h"
 #include "rst-malloc.h"
-#include "common/scm.h"
-#include "common/lock.h"
+#include "servicefd.h"
 
 /*
  * We use different path names for the dump and restore sockets because:

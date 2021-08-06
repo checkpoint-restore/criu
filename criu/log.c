@@ -1,26 +1,26 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
 #include <errno.h>
-#include <unistd.h>
-#include <stdbool.h>
 #include <limits.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include <sys/types.h>
-#include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/time.h>
+#include <sys/types.h>
 #include <sys/utsname.h>
 
 #include <fcntl.h>
 
-#include "page.h"
 #include "common/compiler.h"
-#include "util.h"
-#include "cr_options.h"
-#include "servicefd.h"
-#include "rst-malloc.h"
 #include "common/lock.h"
+#include "cr_options.h"
+#include "page.h"
+#include "rst-malloc.h"
+#include "servicefd.h"
 #include "string.h"
+#include "util.h"
 #include "version.h"
 
 #include "../soccr/soccr.h"

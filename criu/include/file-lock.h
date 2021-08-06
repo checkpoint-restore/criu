@@ -3,8 +3,8 @@
 
 #include "common/list.h"
 
-#include "protobuf.h"
 #include "images/file-lock.pb-c.h"
+#include "protobuf.h"
 
 #define FL_UNKNOWN -1
 #define FL_POSIX   1

@@ -5,8 +5,8 @@
  * Double linked lists.
  */
 
-#include <stddef.h>
 #include "common/compiler.h"
+#include <stddef.h>
 
 #define POISON_POINTER_DELTA 0
 #define LIST_POISON1	     ((void *)0x00100100 + POISON_POINTER_DELTA)

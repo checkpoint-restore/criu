@@ -1,15 +1,15 @@
+#include "infect.h"
+#include "common/page.h"
+#include "errno.h"
+#include "infect-priv.h"
+#include "log.h"
+#include "uapi/compel/asm/infect-types.h"
+#include <compel/plugins/std/syscall-codes.h>
+#include <linux/elf.h>
 #include <stdlib.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/uio.h>
-#include <linux/elf.h>
-#include <compel/plugins/std/syscall-codes.h>
-#include "common/page.h"
-#include "uapi/compel/asm/infect-types.h"
-#include "log.h"
-#include "errno.h"
-#include "infect.h"
-#include "infect-priv.h"
 
 unsigned __page_size = 0;
 unsigned __page_shift = 0;

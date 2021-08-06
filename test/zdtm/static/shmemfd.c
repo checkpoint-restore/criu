@@ -1,11 +1,11 @@
-#include <unistd.h>
 #include <stdio.h>
+#include <unistd.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <sys/vfs.h>
 #include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/vfs.h>
 
 #include "zdtmtst.h"
 

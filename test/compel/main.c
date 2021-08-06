@@ -9,13 +9,13 @@
  * Test author: Dmitry Safonov <dsafonov@virtuozzo.com>
  */
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <stdarg.h>
 
-#include "piegen.h"
 #include "arch_test_handle_binary.h"
+#include "piegen.h"
 
 /* size of buffer with formed ELF file */
 const size_t test_elf_buf_size = 4096;

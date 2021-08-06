@@ -1,23 +1,23 @@
 #include <linux/filter.h>
+#include <ptrace.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <ptrace.h>
 
 #include "common/config.h"
 #include "imgset.h"
 #include "kcmp.h"
-#include "pstree.h"
-#include <compel/ptrace.h>
 #include "proc_parse.h"
+#include "pstree.h"
 #include "restorer.h"
+#include "rst-malloc.h"
 #include "seccomp.h"
 #include "servicefd.h"
 #include "util.h"
-#include "rst-malloc.h"
+#include <compel/ptrace.h>
 
-#include "protobuf.h"
 #include "images/seccomp.pb-c.h"
+#include "protobuf.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "seccomp: "

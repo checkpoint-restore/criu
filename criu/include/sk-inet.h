@@ -3,10 +3,10 @@
 
 #include <netinet/tcp.h>
 
-#include "sockets.h"
-#include "files.h"
 #include "common/list.h"
+#include "files.h"
 #include "images/sk-inet.pb-c.h"
+#include "sockets.h"
 
 #define INET_ADDR_LEN 48 /* max of INET_ADDRSTRLEN and INET6_ADDRSTRLEN */
 #ifndef TCP_REPAIR

@@ -1,46 +1,46 @@
-#include <unistd.h>
+#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
+#include <errno.h>
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <sys/file.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <sys/inotify.h>
 #include <sys/mman.h>
-#include <errno.h>
+#include <sys/prctl.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/sysmacros.h>
-#include <stdint.h>
-#include <sys/socket.h>
-#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
-#include <sys/prctl.h>
-#include <sys/inotify.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-#include "common/config.h"
-#include "int.h"
-#include "log.h"
-#include "restorer.h"
-#include "kerndat.h"
-#include "fs-magic.h"
-#include "mem.h"
 #include "common/compiler.h"
-#include "sysctl.h"
+#include "common/config.h"
 #include "cr_options.h"
-#include "util.h"
+#include "fs-magic.h"
+#include "fsnotify.h"
+#include "int.h"
+#include "kcmp.h"
+#include "kerndat.h"
+#include "linux/userfaultfd.h"
+#include "log.h"
 #include "lsm.h"
+#include "mem.h"
+#include "memfd.h"
+#include "net.h"
+#include "netfilter.h"
+#include "prctl.h"
 #include "proc_parse.h"
+#include "restorer.h"
+#include "sched.h"
 #include "sk-inet.h"
 #include "sockets.h"
-#include "net.h"
+#include "sysctl.h"
 #include "tun.h"
-#include <compel/plugins/std/syscall-codes.h>
-#include "netfilter.h"
-#include "fsnotify.h"
-#include "linux/userfaultfd.h"
-#include "prctl.h"
 #include "uffd.h"
+#include "util.h"
 #include "vdso.h"
-#include "kcmp.h"
-#include "sched.h"
-#include "memfd.h"
+#include <compel/plugins/std/syscall-codes.h>
 
 struct kerndat_s kdat = {};
 

@@ -21,8 +21,8 @@
 
 #include <stdbool.h>
 
-#include "version.h"
 #include "rpc.pb-c.h"
+#include "version.h"
 
 #ifdef __GNUG__
 extern "C" {

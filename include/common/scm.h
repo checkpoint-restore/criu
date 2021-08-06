@@ -1,11 +1,11 @@
 #ifndef __COMMON_SCM_H__
 #define __COMMON_SCM_H__
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <sys/socket.h>
-#include <sys/un.h>
 #include <sys/uio.h>
+#include <sys/un.h>
 
 /*
  * Because of kernel doing kmalloc for user data passed

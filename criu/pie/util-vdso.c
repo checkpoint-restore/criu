@@ -1,20 +1,20 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
 #include <elf.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
+#include "common/bug.h"
 #include "image.h"
+#include "log.h"
 #include "util-vdso.h"
 #include "vma.h"
-#include "log.h"
-#include "common/bug.h"
 
 #ifdef CR_NOGLIBC
 #include <compel/plugins/std/string.h>

@@ -1,12 +1,12 @@
-#include <stdio.h>
-#include <signal.h>
 #include <errno.h>
+#include <limits.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include <limits.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

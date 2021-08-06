@@ -1,10 +1,10 @@
 #ifndef __CR_ASM_RESTORER_H__
 #define __CR_ASM_RESTORER_H__
 
-#include <asm/ptrace.h>
-#include <asm/elf.h>
-#include <asm/types.h>
 #include "asm/types.h"
+#include <asm/elf.h>
+#include <asm/ptrace.h>
+#include <asm/types.h>
 #include <compel/asm/infect-types.h>
 
 #include <compel/asm/sigframe.h>

@@ -1,20 +1,17 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <errno.h>
-#include <sys/ptrace.h>
-#include <stdlib.h>
-#include <sys/uio.h>
 #include <asm/ptrace.h>
+#include <errno.h>
 #include <linux/elf.h>
-#include <sys/wait.h>
-#include <stdlib.h>
-#include <ucontext.h>
 #include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/ptrace.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <sys/wait.h>
+#include <ucontext.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

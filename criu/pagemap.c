@@ -1,23 +1,23 @@
 #include <fcntl.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <linux/falloc.h>
-#include <sys/uio.h>
 #include <limits.h>
+#include <linux/falloc.h>
+#include <stdio.h>
+#include <sys/uio.h>
+#include <unistd.h>
 
-#include "types.h"
-#include "image.h"
 #include "cr_options.h"
-#include "servicefd.h"
+#include "image.h"
+#include "page-xfer.h"
 #include "pagemap.h"
 #include "restorer.h"
 #include "rst-malloc.h"
-#include "page-xfer.h"
+#include "servicefd.h"
+#include "types.h"
 
 #include "fault-injection.h"
-#include "xmalloc.h"
-#include "protobuf.h"
 #include "images/pagemap.pb-c.h"
+#include "protobuf.h"
+#include "xmalloc.h"
 
 #ifndef SEEK_DATA
 #define SEEK_DATA 3

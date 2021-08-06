@@ -3,20 +3,20 @@
 const char *test_doc = "static test for packet sockets mmaps";
 const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 
+#include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <linux/if_packet.h>
+#include <linux/version.h>
+#include <net/ethernet.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <linux/version.h>
-#include <linux/if_packet.h>
-#include <net/ethernet.h>
-#include <sys/mman.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 2, 0)
 

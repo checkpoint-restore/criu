@@ -1,8 +1,8 @@
 #ifndef UAPI_COMPEL_ASM_SIGFRAME_H__
 #define UAPI_COMPEL_ASM_SIGFRAME_H__
 
-#include <asm/ptrace.h>
 #include <asm/elf.h>
+#include <asm/ptrace.h>
 #include <asm/types.h>
 
 /*

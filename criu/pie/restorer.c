@@ -1,54 +1,54 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <linux/securebits.h>
-#include <linux/capability.h>
-#include <linux/aio_abi.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/file.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <sys/time.h>
-#include <sys/shm.h>
 #include <fcntl.h>
-#include <unistd.h>
+#include <linux/aio_abi.h>
+#include <linux/capability.h>
+#include <linux/securebits.h>
 #include <sched.h>
-#include <sys/resource.h>
 #include <signal.h>
+#include <sys/file.h>
 #include <sys/inotify.h>
+#include <sys/mman.h>
+#include <sys/resource.h>
+#include <sys/shm.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "linux/userfaultfd.h"
 
-#include "common/config.h"
-#include "int.h"
-#include "types.h"
 #include "common/compiler.h"
-#include <compel/plugins/std/syscall.h>
-#include <compel/plugins/std/log.h>
-#include <compel/ksigset.h>
-#include "signal.h"
-#include "prctl.h"
+#include "common/config.h"
 #include "criu-log.h"
-#include "util.h"
 #include "image.h"
-#include "sk-inet.h"
-#include "vma.h"
-#include "uffd.h"
+#include "int.h"
+#include "prctl.h"
 #include "sched.h"
+#include "signal.h"
+#include "sk-inet.h"
+#include "types.h"
+#include "uffd.h"
+#include "util.h"
+#include "vma.h"
+#include <compel/ksigset.h>
+#include <compel/plugins/std/log.h>
+#include <compel/plugins/std/syscall.h>
 
+#include "aio.h"
 #include "common/lock.h"
 #include "common/page.h"
 #include "restorer.h"
-#include "aio.h"
 #include "seccomp.h"
 
 #include "images/creds.pb-c.h"
-#include "images/mm.pb-c.h"
 #include "images/inventory.pb-c.h"
+#include "images/mm.pb-c.h"
 
-#include "shmem.h"
 #include "restorer.h"
+#include "shmem.h"
 
 #ifndef PR_SET_PDEATHSIG
 #define PR_SET_PDEATHSIG 1

@@ -1,8 +1,8 @@
+#include "get_smaps_bits.h"
+#include "zdtmtst.h"
+#include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <sys/mman.h>
-#include "zdtmtst.h"
-#include "get_smaps_bits.h"
 
 #define MEM_SIZE (69632)
 

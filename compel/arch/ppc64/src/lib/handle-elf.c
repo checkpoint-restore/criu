@@ -1,9 +1,9 @@
-#include <string.h>
 #include <errno.h>
+#include <string.h>
 
 #include "handle-elf.h"
-#include "piegen.h"
 #include "log.h"
+#include "piegen.h"
 
 static const unsigned char __maybe_unused elf_ident_64_le[EI_NIDENT] = {
 	0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00, /* clang-format */

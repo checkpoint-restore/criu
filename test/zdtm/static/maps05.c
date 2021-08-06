@@ -1,14 +1,14 @@
+#include "zdtmtst.h"
 #include <errno.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <stdlib.h>
+#include <setjmp.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <setjmp.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include "zdtmtst.h"
+#include <sys/types.h>
+#include <unistd.h>
 
 const char *test_doc = "Create a bunch of small VMAs and test they survive transferring\n";
 const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";

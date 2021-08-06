@@ -2,10 +2,10 @@
 #include <sched.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <sys/wait.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "compel/asm/fpu.h"

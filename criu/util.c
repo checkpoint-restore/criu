@@ -1,51 +1,51 @@
 #define _XOPEN_SOURCE
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <errno.h>
-#include <stdbool.h>
-#include <signal.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <sys/sendfile.h>
-#include <fcntl.h>
-#include <poll.h>
 #include <arpa/inet.h>
-#include <sys/mount.h>
-#include <sys/param.h>
-#include <sys/types.h>
-#include <sys/ptrace.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <sys/wait.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/resource.h>
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <poll.h>
 #include <sched.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/mount.h>
+#include <sys/param.h>
+#include <sys/ptrace.h>
+#include <sys/resource.h>
+#include <sys/sendfile.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "linux/mount.h"
 
-#include "kerndat.h"
-#include "page.h"
-#include "util.h"
+#include "criu-log.h"
 #include "image.h"
-#include "vma.h"
+#include "kerndat.h"
 #include "mem.h"
 #include "namespaces.h"
-#include "criu-log.h"
+#include "page.h"
+#include "util.h"
+#include "vma.h"
 
 #include "clone-noasan.h"
-#include "cr_options.h"
 #include "cr-service.h"
+#include "cr_options.h"
 #include "files.h"
 #include "pstree.h"
 
-#include "cr-errno.h"
 #include "action-scripts.h"
+#include "cr-errno.h"
 
 #define VMA_OPT_LEN 128
 

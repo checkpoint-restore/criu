@@ -1,16 +1,16 @@
-#include <unistd.h>
-#include <stdbool.h>
 #include <signal.h>
-#include <sys/prctl.h>
+#include <stdbool.h>
 #include <stdlib.h>
-#include <sys/types.h>
+#include <sys/prctl.h>
 #include <sys/socket.h>
-#include <sys/wait.h>
 #include <sys/syscall.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #ifdef __NR_seccomp
-#include <linux/seccomp.h>
 #include <linux/limits.h>
+#include <linux/seccomp.h>
 #endif
 
 #include "zdtmtst.h"

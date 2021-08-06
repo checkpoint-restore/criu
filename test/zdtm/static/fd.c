@@ -1,14 +1,14 @@
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <errno.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <dirent.h>
+#include <errno.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
-#include "zdtmtst.h"
 #include "lock.h"
+#include "zdtmtst.h"
 
 const char *test_doc = "Check that criu closes up all its descriptors";
 const char *test_author = "Andrew Vagin <avagin@parallels.com>";

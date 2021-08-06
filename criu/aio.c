@@ -1,17 +1,17 @@
-#include <unistd.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include "vma.h"
-#include "xmalloc.h"
+#include "aio.h"
+#include "compel/infect.h"
+#include "images/mm.pb-c.h"
+#include "parasite-syscall.h"
+#include "parasite.h"
 #include "pstree.h"
 #include "restorer.h"
-#include "aio.h"
-#include "rst_info.h"
 #include "rst-malloc.h"
-#include "parasite.h"
-#include "parasite-syscall.h"
-#include "images/mm.pb-c.h"
-#include "compel/infect.h"
+#include "rst_info.h"
+#include "vma.h"
+#include "xmalloc.h"
+#include <stdbool.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #define NR_IOEVENTS_IN_NPAGES(npages) ((PAGE_SIZE * (npages) - sizeof(struct aio_ring)) / sizeof(struct io_event))
 

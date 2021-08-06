@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 #include "zdtmtst.h"
 

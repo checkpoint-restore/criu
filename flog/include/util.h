@@ -1,8 +1,8 @@
 #ifndef __UTIL_H__
 #define __UTIL_H__
 
-#include <string.h>
 #include <errno.h>
+#include <string.h>
 
 #include "log.h"
 #include "types.h"

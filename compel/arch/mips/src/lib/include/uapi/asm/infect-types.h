@@ -1,11 +1,11 @@
 #ifndef UAPI_COMPEL_ASM_TYPES_H__
 #define UAPI_COMPEL_ASM_TYPES_H__
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <signal.h>
 #include <compel/plugins/std/asm/syscall-types.h>
 #include <linux/types.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdint.h>
 #define SIGMAX	   64
 #define SIGMAX_OLD 31
 

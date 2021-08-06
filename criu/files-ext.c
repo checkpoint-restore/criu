@@ -2,12 +2,12 @@
 
 #include <unistd.h>
 
-#include "imgset.h"
 #include "files.h"
+#include "imgset.h"
 #include "plugin.h"
 
-#include "protobuf.h"
 #include "images/ext-file.pb-c.h"
+#include "protobuf.h"
 
 static int dump_one_ext_file(int lfd, u32 id, const struct fd_parms *p)
 {

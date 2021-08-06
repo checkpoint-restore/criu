@@ -1,9 +1,9 @@
 #ifndef __CR_MEMFD_H__
 #define __CR_MEMFD_H__
 
-#include <sys/stat.h>
-#include "int.h"
 #include "common/config.h"
+#include "int.h"
+#include <sys/stat.h>
 
 struct fd_parms;
 struct file_desc;
@@ -22,8 +22,8 @@ extern int prepare_memfd_inodes(void);
 #ifdef CONFIG_HAS_MEMFD_CREATE
 #include <sys/mman.h>
 #else
-#include <sys/syscall.h>
 #include <linux/memfd.h>
+#include <sys/syscall.h>
 static inline int memfd_create(const char *name, unsigned int flags)
 {
 	return syscall(SYS_memfd_create, name, flags);

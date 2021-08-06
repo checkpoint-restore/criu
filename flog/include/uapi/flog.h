@@ -1,9 +1,9 @@
 #ifndef __UAPI_FLOG_H__
 #define __UAPI_FLOG_H__
 
+#include <errno.h>
 #include <stdbool.h>
 #include <string.h>
-#include <errno.h>
 
 /*
  * We work with up to 32 arguments in macros here.

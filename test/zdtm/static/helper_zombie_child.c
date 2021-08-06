@@ -1,12 +1,12 @@
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdbool.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stddef.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/wait.h>
+#include <stdlib.h>
 #include <sys/prctl.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

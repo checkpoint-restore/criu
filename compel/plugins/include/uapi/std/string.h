@@ -1,9 +1,9 @@
 #ifndef COMPEL_PLUGIN_STD_STRING_H__
 #define COMPEL_PLUGIN_STD_STRING_H__
 
-#include <sys/types.h>
-#include <stdbool.h>
 #include <stdarg.h>
+#include <stdbool.h>
+#include <sys/types.h>
 
 /* Standard file descriptors.  */
 #define STDIN_FILENO  0 /* Standard input.  */

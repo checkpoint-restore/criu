@@ -1,25 +1,25 @@
-#include <unistd.h>
-#include <stdbool.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/ptrace.h>
-#include <stdlib.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/wait.h>
 #include <sys/syscall.h>
-#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #ifdef __NR_seccomp
-#include <linux/seccomp.h>
 #include <linux/filter.h>
 #include <linux/limits.h>
+#include <linux/seccomp.h>
 #include <pthread.h>
 #endif
 
-#include "zdtmtst.h"
 #include "lock.h"
+#include "zdtmtst.h"
 
 #ifndef SECCOMP_SET_MODE_FILTER
 #define SECCOMP_SET_MODE_FILTER 1

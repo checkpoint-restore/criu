@@ -8,16 +8,16 @@ const char *test_author = "Andrew Vagin <avagin@parallels.com>";
  * read data and client write data after migration
  */
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
 #include <aio.h>
-#include <sys/wait.h>
+#include <errno.h>
 #include <netinet/tcp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 static int port = 8880;
 

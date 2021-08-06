@@ -1,16 +1,16 @@
 
-#include <stdlib.h>
+#include <asm/unistd.h>
+#include <signal.h>
 #include <stdio.h>
-#include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <signal.h>
-#include <sys/wait.h>
 #include <sys/uio.h>
-#include <asm/unistd.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-#include "zdtmtst.h"
 #include "lock.h"
+#include "zdtmtst.h"
 
 #define MAP_SIZE (1UL << 20)
 #define MEM_SIZE (1UL << 29)

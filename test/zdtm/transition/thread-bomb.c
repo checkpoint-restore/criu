@@ -1,10 +1,10 @@
-#include <pthread.h>
-#include <unistd.h>
-#include <linux/unistd.h>
-#include <syscall.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <linux/unistd.h>
+#include <pthread.h>
 #include <stdlib.h>
+#include <syscall.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

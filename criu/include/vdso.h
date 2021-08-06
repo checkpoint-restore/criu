@@ -1,8 +1,8 @@
 #ifndef __CR_VDSO_H__
 #define __CR_VDSO_H__
 
-#include <sys/mman.h>
 #include <stdbool.h>
+#include <sys/mman.h>
 
 #include "common/config.h"
 #include "util-vdso.h"

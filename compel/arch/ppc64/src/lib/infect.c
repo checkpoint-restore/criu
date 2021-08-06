@@ -1,18 +1,18 @@
+#include "infect.h"
+#include "common/bug.h"
+#include "common/page.h"
+#include "errno.h"
+#include "infect-priv.h"
+#include "log.h"
+#include "uapi/compel/asm/infect-types.h"
+#include <compel/plugins/std/syscall-codes.h>
+#include <errno.h>
+#include <stdint.h>
+#include <sys/mman.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/user.h>
-#include <sys/mman.h>
-#include <stdint.h>
-#include <errno.h>
-#include <compel/plugins/std/syscall-codes.h>
-#include "uapi/compel/asm/infect-types.h"
-#include "errno.h"
-#include "log.h"
-#include "common/bug.h"
-#include "common/page.h"
-#include "infect.h"
-#include "infect-priv.h"
 
 #ifndef NT_PPC_TM_SPR
 #define NT_PPC_TM_CGPR 0x108 /* TM checkpointed GPR Registers */

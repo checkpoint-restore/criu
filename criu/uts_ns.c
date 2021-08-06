@@ -1,16 +1,16 @@
-#include <unistd.h>
 #include <fcntl.h>
-#include <sys/utsname.h>
-#include <string.h>
 #include <sched.h>
+#include <string.h>
+#include <sys/utsname.h>
+#include <unistd.h>
 
-#include "util.h"
 #include "namespaces.h"
 #include "sysctl.h"
+#include "util.h"
 #include "uts_ns.h"
 
-#include "protobuf.h"
 #include "images/utsns.pb-c.h"
+#include "protobuf.h"
 
 int dump_uts_ns(int ns_id)
 {

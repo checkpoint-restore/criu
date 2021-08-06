@@ -1,17 +1,17 @@
-#include <unistd.h>
+#include "zdtmtst.h"
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <linux/limits.h>
+#include <net/if.h>
+#include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
-#include <fcntl.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/mount.h>
-#include <linux/limits.h>
-#include <signal.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include "zdtmtst.h"
+#include <unistd.h>
 
 const char *test_doc = "check sit devices";
 const char *test_author = "Pavel Emelyanov <xemul@virtuozzo.com>";

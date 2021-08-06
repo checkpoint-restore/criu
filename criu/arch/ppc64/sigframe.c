@@ -1,11 +1,11 @@
-#include <stdlib.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "asm/sigframe.h"
 #include "asm/types.h"
 
-#include "log.h"
 #include "common/bug.h"
+#include "log.h"
 
 /*
  * The signal frame has been built using local addresses. Since it has to be

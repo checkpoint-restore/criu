@@ -14,16 +14,16 @@
 const char *test_doc = "Check sockets in TCP_WAIT_STOP and TCP_LAST_ACK states\n";
 const char *test_author = "Andrey Vagin <avagin@parallels.com";
 
+#include <errno.h>
+#include <fcntl.h>
+#include <netinet/tcp.h>
+#include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <fcntl.h>
-#include <sys/socket.h>
-#include <netinet/tcp.h>
 
 static int port = 8880;
 

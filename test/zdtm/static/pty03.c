@@ -1,14 +1,14 @@
 #define _XOPEN_SOURCE 500
-#include <stdlib.h>
 #include "zdtmtst.h"
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <string.h>
-#include <termios.h>
 #include <signal.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <termios.h>
+#include <unistd.h>
 
 const char *test_doc = "Check a non-opened control terminal";
 const char *test_author = "Andrey Vagin <avagin@openvz.org>";

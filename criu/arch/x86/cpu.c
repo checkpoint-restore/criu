@@ -1,13 +1,13 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <sys/types.h>
 
-#include "bitops.h"
 #include "asm/cpu.h"
+#include "bitops.h"
 #include <compel/asm/fpu.h>
 #include <compel/cpu.h>
 
@@ -15,13 +15,13 @@
 
 #include "cr_options.h"
 #include "image.h"
-#include "util.h"
 #include "log.h"
+#include "util.h"
 
 #include "cpu.h"
 
-#include "protobuf.h"
 #include "images/cpuinfo.pb-c.h"
+#include "protobuf.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "cpu: "

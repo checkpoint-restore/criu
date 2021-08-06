@@ -1,27 +1,27 @@
-#include <stdlib.h>
-#include <signal.h>
-#include <unistd.h>
-#include <sys/file.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <sys/file.h>
 #include <sys/fsuid.h>
+#include <sys/stat.h>
 #include <sys/sysmacros.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "cr_options.h"
-#include "imgset.h"
+#include "file-lock.h"
+#include "files-reg.h"
 #include "files.h"
 #include "fs-magic.h"
-#include "kerndat.h"
 #include "image.h"
-#include "util.h"
+#include "imgset.h"
+#include "kerndat.h"
 #include "mount.h"
 #include "proc_parse.h"
-#include "servicefd.h"
-#include "file-lock.h"
 #include "pstree.h"
-#include "files-reg.h"
+#include "servicefd.h"
+#include "util.h"
 
 struct file_lock_rst {
 	FileLockEntry *fle;

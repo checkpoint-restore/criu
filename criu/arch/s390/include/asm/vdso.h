@@ -1,8 +1,8 @@
 #ifndef __CR_ASM_VDSO_H__
 #define __CR_ASM_VDSO_H__
 
-#include "asm/int.h"
 #include "asm-generic/vdso.h"
+#include "asm/int.h"
 
 /*
  * This is a minimal amount of symbols

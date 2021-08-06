@@ -3,9 +3,9 @@
 
 #include "common/list.h"
 #include "common/lock.h"
+#include "images/core.pb-c.h"
 #include "pid.h"
 #include "xmalloc.h"
-#include "images/core.pb-c.h"
 
 /*
  * That's the init process which usually inherit

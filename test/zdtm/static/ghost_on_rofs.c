@@ -1,7 +1,7 @@
+#include <fcntl.h>
+#include <limits.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <limits.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 #include "zdtmtst.h"

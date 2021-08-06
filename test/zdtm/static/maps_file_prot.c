@@ -1,11 +1,11 @@
+#include "zdtmtst.h"
 #include <errno.h>
 #include <fcntl.h>
-#include <unistd.h>
+#include <linux/limits.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <linux/limits.h>
-#include "zdtmtst.h"
+#include <unistd.h>
 
 const char *test_doc = "Test mappings of same file with different prot";
 const char *test_author = "Jamie Liu <jamieliu@google.com>";

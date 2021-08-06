@@ -1,12 +1,12 @@
-#include <string.h>
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 
+#include "common/bug.h"
 #include "int.h"
+#include "log.h"
 #include "mount.h"
 #include "path.h"
-#include "log.h"
-#include "common/bug.h"
 
 char *cut_root_for_bind(char *target_root, char *source_root)
 {

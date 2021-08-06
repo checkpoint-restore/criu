@@ -1,25 +1,24 @@
 #ifndef __CR_RESTORER_H__
 #define __CR_RESTORER_H__
 
-#include <signal.h>
 #include <limits.h>
-#include <sys/resource.h>
 #include <linux/filter.h>
+#include <signal.h>
+#include <sys/resource.h>
 
-#include "common/config.h"
-#include "types.h"
-#include "int.h"
-#include "types.h"
-#include "common/compiler.h"
-#include <compel/asm/fpu.h>
-#include "common/lock.h"
-#include "util.h"
 #include "asm/restorer.h"
-#include "posix-timer.h"
-#include "timerfd.h"
-#include "shmem.h"
-#include "parasite-vdso.h"
+#include "common/compiler.h"
+#include "common/config.h"
+#include "common/lock.h"
 #include "fault-injection.h"
+#include "int.h"
+#include "parasite-vdso.h"
+#include "posix-timer.h"
+#include "shmem.h"
+#include "timerfd.h"
+#include "types.h"
+#include "util.h"
+#include <compel/asm/fpu.h>
 
 #include <time.h>
 

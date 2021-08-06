@@ -1,8 +1,8 @@
 #include <stdlib.h>
 
 #include "image-desc.h"
-#include "magic.h"
 #include "image.h"
+#include "magic.h"
 
 /*
  * The cr fd set is the set of files where the information

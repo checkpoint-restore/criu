@@ -1,18 +1,18 @@
-#include <unistd.h>
+#include <dirent.h>
+#include <dlfcn.h>
+#include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <dirent.h>
-#include <stdio.h>
-#include <errno.h>
-#include <dlfcn.h>
+#include <unistd.h>
 
-#include "cr_options.h"
 #include "common/compiler.h"
-#include "xmalloc.h"
+#include "common/list.h"
+#include "cr_options.h"
+#include "log.h"
 #include "plugin.h"
 #include "servicefd.h"
-#include "common/list.h"
-#include "log.h"
+#include "xmalloc.h"
 
 cr_plugin_ctl_t cr_plugin_ctl = {
 	.head.next = &cr_plugin_ctl.head,

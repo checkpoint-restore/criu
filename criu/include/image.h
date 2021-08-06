@@ -3,14 +3,14 @@
 
 #include <stdbool.h>
 
-#include "common/compiler.h"
-#include "servicefd.h"
-#include "image-desc.h"
-#include "fcntl.h"
-#include "magic.h"
 #include "bfd.h"
-#include "log.h"
 #include "common/bug.h"
+#include "common/compiler.h"
+#include "fcntl.h"
+#include "image-desc.h"
+#include "log.h"
+#include "magic.h"
+#include "servicefd.h"
 
 #define PAGE_RSS  1
 #define PAGE_ANON 2

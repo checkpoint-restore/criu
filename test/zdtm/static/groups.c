@@ -1,10 +1,10 @@
-#include <unistd.h>
 #include <errno.h>
+#include <grp.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <signal.h>
-#include <grp.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

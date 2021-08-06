@@ -2,18 +2,18 @@
  * A simple testee program with threads
  */
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <signal.h>
 #include <string.h>
+#include <unistd.h>
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <syscall.h>
 
 #include "zdtmtst.h"

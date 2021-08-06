@@ -1,6 +1,6 @@
+#include <fcntl.h>
 #include <sys/file.h>
 #include <unistd.h>
-#include <fcntl.h>
 
 #include "ofd_file_locks.h"
 #include "zdtmtst.h"

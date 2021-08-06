@@ -1,10 +1,10 @@
 #ifndef __CR_PARASITE_SYSCALL_H__
 #define __CR_PARASITE_SYSCALL_H__
 
-#include "pid.h"
-#include "common/list.h"
-#include "common/config.h"
 #include "asm/parasite-syscall.h"
+#include "common/config.h"
+#include "common/list.h"
+#include "pid.h"
 
 struct parasite_dump_thread;
 struct parasite_dump_misc;

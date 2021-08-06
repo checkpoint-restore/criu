@@ -1,11 +1,11 @@
 #ifndef __CR_RST_INFO_H__
 #define __CR_RST_INFO_H__
 
-#include "common/lock.h"
 #include "common/list.h"
-#include "vma.h"
-#include "kerndat.h"
+#include "common/lock.h"
 #include "images/mm.pb-c.h"
+#include "kerndat.h"
+#include "vma.h"
 
 struct task_entries {
 	int nr_threads, nr_tasks, nr_helpers;

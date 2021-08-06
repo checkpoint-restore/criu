@@ -1,13 +1,13 @@
 #define _XOPEN_SOURCE 500
-#include <stdlib.h>
 #include "zdtmtst.h"
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>
+#include <stdlib.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <termios.h>
-#include <sys/ioctl.h>
+#include <unistd.h>
 
 const char *test_doc = "Check a controlling terminal, if a proper fd belongs to another session leader";
 const char *test_author = "Andrey Vagin <avagin@openvz.org>";

@@ -1,19 +1,19 @@
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
-#include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-#include <sys/socket.h>
 #include <linux/un.h>
+#include <sys/socket.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "criu-plugin.h"
 #include "criu-log.h"
+#include "criu-plugin.h"
 
 #include "unix.pb-c.h"
 

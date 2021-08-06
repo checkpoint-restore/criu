@@ -3,17 +3,17 @@
 const char *test_doc = "Static test for IP6/UDP socket\n";
 const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>\n";
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <sys/socket.h>
 #include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 static int port = 8880;
 static char buf[64];

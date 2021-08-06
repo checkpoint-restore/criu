@@ -1,14 +1,14 @@
-#include <unistd.h>
+#include "zdtmtst.h"
+#include <fcntl.h>
+#include <linux/limits.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/mount.h>
-#include <linux/limits.h>
-#include <signal.h>
-#include "zdtmtst.h"
+#include <unistd.h>
 
 /* Enabling the right policy happens in selinux00.hook and selinx00.checkskip */
 

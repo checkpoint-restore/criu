@@ -1,7 +1,7 @@
-#include <sys/prctl.h>
-#include <sys/mman.h>
-#include "zdtmtst.h"
 #include "get_smaps_bits.h"
+#include "zdtmtst.h"
+#include <sys/mman.h>
+#include <sys/prctl.h>
 
 #ifndef MADV_DONTDUMP
 #define MADV_DONTDUMP 16

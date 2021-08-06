@@ -5,18 +5,18 @@
 
 #ifndef __ASSEMBLY__
 
-#include <sys/un.h>
-#include <sys/time.h>
-#include <time.h>
 #include <signal.h>
+#include <sys/time.h>
+#include <sys/un.h>
+#include <time.h>
 
-#include "image.h"
-#include "util-pie.h"
 #include "common/lock.h"
+#include "image.h"
 #include "infect-rpc.h"
+#include "util-pie.h"
 
-#include "images/vma.pb-c.h"
 #include "images/tty.pb-c.h"
+#include "images/vma.pb-c.h"
 
 #define __head __used __section(.head.text)
 

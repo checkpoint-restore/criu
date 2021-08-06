@@ -3,8 +3,8 @@
 
 #include <stdbool.h>
 
-#include "protobuf-desc.h"
 #include "common/compiler.h"
+#include "protobuf-desc.h"
 #include "util.h"
 
 struct cr_img;

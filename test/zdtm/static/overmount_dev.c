@@ -1,10 +1,10 @@
 #include <errno.h>
-#include <unistd.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <sys/sysmacros.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

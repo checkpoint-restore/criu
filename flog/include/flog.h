@@ -1,8 +1,8 @@
 #ifndef __FLOG_H__
 #define __FLOG_H__
 
-#include <string.h>
 #include <errno.h>
+#include <string.h>
 
 #include "uapi/flog.h"
 

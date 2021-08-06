@@ -2,16 +2,16 @@
  * Check that we can dump a process with threads having mismatching UID/GID
  */
 
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <pwd.h>
 #include <syscall.h>
+#include <unistd.h>
 
+#include <pthread.h>
 #include <sys/capability.h>
 #include <sys/prctl.h>
-#include <pthread.h>
 
 #include "zdtmtst.h"
 

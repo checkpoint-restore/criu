@@ -1,11 +1,11 @@
 #include <unistd.h>
 
-#include "restorer.h"
 #include "asm/restorer.h"
+#include "restorer.h"
 #include <compel/asm/fpu.h>
 
-#include <compel/plugins/std/syscall.h>
 #include "log.h"
+#include <compel/plugins/std/syscall.h>
 
 /*
  * All registers are restored by sigreturn - nothing to do here

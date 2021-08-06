@@ -1,8 +1,8 @@
 #ifndef __CR_PROTOBUF_DESC_H__
 #define __CR_PROTOBUF_DESC_H__
 
-#include <sys/types.h>
 #include <google/protobuf-c/protobuf-c.h>
+#include <sys/types.h>
 
 enum {
 	/* PB_AUTOGEN_START */

@@ -1,11 +1,11 @@
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/mount.h>
-#include <stdlib.h>
 #include "zdtmtst.h"
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 const char *test_doc = "Check that cgroups layout is preserved";
 const char *test_author = "Pavel Emelianov <xemul@parallels.com>";

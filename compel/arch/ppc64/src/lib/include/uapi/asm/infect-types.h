@@ -1,8 +1,8 @@
 #ifndef UAPI_COMPEL_ASM_TYPES_H__
 #define UAPI_COMPEL_ASM_TYPES_H__
 
-#include <stdbool.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #define SIGMAX_OLD 31

@@ -1,3 +1,4 @@
+#include "soccr.h"
 #include <errno.h>
 #include <libnet.h>
 #include <linux/sockios.h>
@@ -6,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include "soccr.h"
 
 #ifndef SIOCOUTQNSD
 /* MAO - Define SIOCOUTQNSD ioctl if we don't have it */

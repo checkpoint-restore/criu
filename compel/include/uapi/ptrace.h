@@ -8,8 +8,8 @@
  * Alas, on Alpine/musl both files declare struct ptrace_peeksiginfo_args,
  * so there is no way they can be used together. Let's rely on libc one.
  */
-#include <sys/ptrace.h>
 #include <stdint.h>
+#include <sys/ptrace.h>
 
 #include <compel/asm/breakpoints.h>
 

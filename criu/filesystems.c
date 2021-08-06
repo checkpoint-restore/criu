@@ -1,27 +1,27 @@
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
 #include <fcntl.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/mount.h>
 
-#include "common/config.h"
-#include "int.h"
+#include "autofs.h"
 #include "common/compiler.h"
-#include "xmalloc.h"
+#include "common/config.h"
 #include "cr_options.h"
 #include "filesystems.h"
-#include "namespaces.h"
-#include "mount.h"
-#include "pstree.h"
-#include "kerndat.h"
-#include "protobuf.h"
-#include "autofs.h"
-#include "util.h"
 #include "fs-magic.h"
+#include "int.h"
+#include "kerndat.h"
+#include "mount.h"
+#include "namespaces.h"
+#include "protobuf.h"
+#include "pstree.h"
 #include "tty.h"
+#include "util.h"
+#include "xmalloc.h"
 
-#include "images/mnt.pb-c.h"
 #include "images/binfmt-misc.pb-c.h"
+#include "images/mnt.pb-c.h"
 
 static int attach_option(struct mount_info *pm, char *opt)
 {

@@ -1,7 +1,7 @@
 #include <sched.h>
 
-#include "zdtmtst.h"
 #include "sysctl.h"
+#include "zdtmtst.h"
 
 const char *test_doc = "Check dump and restore a net.unix.max_dgram_qlen sysctl parameter in subns";
 const char *test_author = "Alexander Mikhalitsyn <alexander@mihalicyn.com>";

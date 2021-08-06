@@ -3,10 +3,10 @@
 
 #include <stdbool.h>
 
-#include <compel/asm/sigframe.h>
 #include <compel/asm/infect-types.h>
-#include <compel/ksigset.h>
+#include <compel/asm/sigframe.h>
 #include <compel/handle-elf.h>
+#include <compel/ksigset.h>
 #include <compel/task-state.h>
 
 #include "common/compiler.h"

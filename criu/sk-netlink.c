@@ -1,18 +1,18 @@
-#include <unistd.h>
+#include <libnl3/netlink/msg.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-#include <libnl3/netlink/msg.h>
+#include <unistd.h>
 
-#include "imgset.h"
 #include "files.h"
+#include "imgset.h"
 #include "sockets.h"
 #include "util.h"
 
-#include "protobuf.h"
 #include "images/sk-netlink.pb-c.h"
-#include "netlink_diag.h"
 #include "libnetlink.h"
 #include "namespaces.h"
+#include "netlink_diag.h"
+#include "protobuf.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "netlink: "

@@ -1,39 +1,39 @@
-#include <unistd.h>
-#include <stdio.h>
-#include <sys/mman.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <sys/syscall.h>
+#include <stdio.h>
+#include <sys/mman.h>
 #include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
-#include "types.h"
+#include "bitmap.h"
+#include "compel/infect-util.h"
 #include "cr_options.h"
-#include "servicefd.h"
+#include "fault-injection.h"
+#include "files-reg.h"
+#include "kerndat.h"
+#include "log.h"
 #include "mem.h"
-#include "parasite-syscall.h"
-#include "parasite.h"
 #include "page-pipe.h"
 #include "page-xfer.h"
-#include "log.h"
-#include "kerndat.h"
-#include "stats.h"
-#include "vma.h"
-#include "shmem.h"
-#include "uffd.h"
+#include "pagemap-cache.h"
+#include "parasite-syscall.h"
+#include "parasite.h"
+#include "pidfd-store.h"
+#include "prctl.h"
 #include "pstree.h"
 #include "restorer.h"
 #include "rst-malloc.h"
-#include "bitmap.h"
+#include "servicefd.h"
+#include "shmem.h"
 #include "sk-packet.h"
-#include "files-reg.h"
-#include "pagemap-cache.h"
-#include "fault-injection.h"
-#include "prctl.h"
-#include "compel/infect-util.h"
-#include "pidfd-store.h"
+#include "stats.h"
+#include "types.h"
+#include "uffd.h"
+#include "vma.h"
 
-#include "protobuf.h"
 #include "images/pagemap.pb-c.h"
+#include "protobuf.h"
 
 static int task_reset_dirty_track(int pid)
 {

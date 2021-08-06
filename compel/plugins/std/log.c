@@ -1,10 +1,10 @@
 #include <stdarg.h>
 
 #include "common/bitsperlong.h"
-#include <compel/plugins/std/syscall.h>
-#include <compel/plugins/std/string.h>
-#include <compel/plugins/std/log.h>
 #include <compel/loglevels.h>
+#include <compel/plugins/std/log.h>
+#include <compel/plugins/std/string.h>
+#include <compel/plugins/std/syscall.h>
 
 struct simple_buf {
 	char buf[STD_LOG_SIMPLE_CHUNK];

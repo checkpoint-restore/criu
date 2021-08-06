@@ -3,11 +3,11 @@
 
 #include <sys/stat.h>
 
-#include "int.h"
 #include "common/compiler.h"
-#include "fcntl.h"
-#include "common/lock.h"
 #include "common/list.h"
+#include "common/lock.h"
+#include "fcntl.h"
+#include "int.h"
 #include "pid.h"
 #include "rst_info.h"
 

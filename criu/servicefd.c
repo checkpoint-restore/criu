@@ -1,21 +1,21 @@
-#include <stdio.h>
 #include <errno.h>
-#include <unistd.h>
 #include <sched.h>
+#include <stdio.h>
+#include <unistd.h>
 
-#include <sys/time.h>
-#include <sys/syscall.h>
 #include <sys/resource.h>
+#include <sys/syscall.h>
+#include <sys/time.h>
 
 #include "common/compiler.h"
 #include "common/list.h"
 
-#include "util.h"
 #include "bitops.h"
-#include "pstree.h"
 #include "files.h"
+#include "pstree.h"
 #include "rst_info.h"
 #include "servicefd.h"
+#include "util.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "sfd: "

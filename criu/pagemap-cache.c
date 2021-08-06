@@ -1,15 +1,15 @@
-#include <unistd.h>
 #include <fcntl.h>
+#include <unistd.h>
 
+#include "common/compiler.h"
+#include "kerndat.h"
+#include "log.h"
+#include "mem.h"
 #include "page.h"
 #include "pagemap-cache.h"
-#include "common/compiler.h"
-#include "xmalloc.h"
 #include "util.h"
-#include "log.h"
 #include "vma.h"
-#include "mem.h"
-#include "kerndat.h"
+#include "xmalloc.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "pagemap-cache: "

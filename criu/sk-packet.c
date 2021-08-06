@@ -1,26 +1,26 @@
-#include <linux/if_packet.h>
-#include <sys/socket.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <libnl3/netlink/msg.h>
-#include <unistd.h>
-#include <string.h>
-#include "imgset.h"
-#include "files.h"
-#include "sockets.h"
-#include "libnetlink.h"
 #include "sk-packet.h"
+#include "files.h"
+#include "imgset.h"
+#include "libnetlink.h"
 #include "packet_diag.h"
+#include "sockets.h"
 #include "vma.h"
 #include <arpa/inet.h>
+#include <libnl3/netlink/msg.h>
+#include <linux/if_packet.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <net/if.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
+#include "images/fdinfo.pb-c.h"
+#include "images/packet-sock.pb-c.h"
+#include "namespaces.h"
 #include "protobuf.h"
 #include "xmalloc.h"
-#include "images/packet-sock.pb-c.h"
-#include "images/fdinfo.pb-c.h"
-#include "namespaces.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "packet: "

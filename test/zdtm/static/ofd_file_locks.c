@@ -1,11 +1,11 @@
-#include <sys/file.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <sys/file.h>
+#include <unistd.h>
 
-#include "zdtmtst.h"
 #include "fs.h"
 #include "ofd_file_locks.h"
+#include "zdtmtst.h"
 
 static int parse_ofd_lock(char *buf, struct flock *lck)
 {

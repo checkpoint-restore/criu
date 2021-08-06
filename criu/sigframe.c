@@ -1,8 +1,8 @@
-#include <unistd.h>
-#include <string.h>
+#include "images/core.pb-c.h"
 #include "log.h"
 #include "restore.h"
-#include "images/core.pb-c.h"
+#include <string.h>
+#include <unistd.h>
 
 #ifndef setup_sas
 static inline void setup_sas(struct rt_sigframe *sigframe, ThreadSasEntry *sas)

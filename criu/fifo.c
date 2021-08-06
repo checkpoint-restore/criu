@@ -1,21 +1,21 @@
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-#include "imgset.h"
-#include "image.h"
-#include "files.h"
-#include "files-reg.h"
 #include "file-ids.h"
+#include "files-reg.h"
+#include "files.h"
+#include "image.h"
+#include "imgset.h"
 #include "pipes.h"
 
 #include "fifo.h"
 
-#include "protobuf.h"
-#include "images/regfile.pb-c.h"
 #include "images/fifo.pb-c.h"
+#include "images/regfile.pb-c.h"
+#include "protobuf.h"
 
 /*
  * FIFO checkpoint and restore is done in a bit unusual manner.

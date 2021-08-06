@@ -1,32 +1,32 @@
 #define LOG_PREFIX "cg: "
-#include <sys/types.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/mount.h>
-#include <sys/stat.h>
 #include <ftw.h>
 #include <libgen.h>
 #include <sched.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-#include "common/list.h"
-#include "xmalloc.h"
-#include "cgroup.h"
 #include "cgroup-props.h"
+#include "cgroup.h"
+#include "common/list.h"
 #include "cr_options.h"
-#include "pstree.h"
 #include "criu-log.h"
-#include "util.h"
-#include "imgset.h"
-#include "util-pie.h"
-#include "namespaces.h"
-#include "seize.h"
-#include "string.h"
-#include "protobuf.h"
-#include "images/core.pb-c.h"
 #include "images/cgroup.pb-c.h"
+#include "images/core.pb-c.h"
+#include "imgset.h"
 #include "kerndat.h"
 #include "linux/mount.h"
+#include "namespaces.h"
+#include "protobuf.h"
+#include "pstree.h"
+#include "seize.h"
+#include "string.h"
+#include "util-pie.h"
+#include "util.h"
+#include "xmalloc.h"
 
 /*
  * This structure describes set of controller groups

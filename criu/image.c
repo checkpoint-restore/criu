@@ -1,24 +1,24 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdarg.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <sys/stat.h>
-#include "crtools.h"
-#include "cr_options.h"
-#include "imgset.h"
 #include "image.h"
-#include "pstree.h"
-#include "stats.h"
 #include "cgroup.h"
-#include "lsm.h"
-#include "protobuf.h"
-#include "xmalloc.h"
+#include "cr_options.h"
+#include "crtools.h"
 #include "images/inventory.pb-c.h"
 #include "images/pagemap.pb-c.h"
-#include "proc_parse.h"
 #include "img-streamer.h"
+#include "imgset.h"
+#include "lsm.h"
 #include "namespaces.h"
+#include "proc_parse.h"
+#include "protobuf.h"
+#include "pstree.h"
+#include "stats.h"
+#include "xmalloc.h"
+#include <fcntl.h>
+#include <limits.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 bool ns_per_id = false;
 bool img_common_magic = true;

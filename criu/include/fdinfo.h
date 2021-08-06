@@ -5,8 +5,8 @@
 
 #include "images/eventfd.pb-c.h"
 #include "images/eventpoll.pb-c.h"
-#include "images/signalfd.pb-c.h"
 #include "images/fsnotify.pb-c.h"
+#include "images/signalfd.pb-c.h"
 #include "images/timerfd.pb-c.h"
 
 struct fdinfo_common {

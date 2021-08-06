@@ -1,10 +1,10 @@
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/file.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

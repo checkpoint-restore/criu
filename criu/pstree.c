@@ -1,24 +1,24 @@
+#include <sched.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <stdlib.h>
-#include <sched.h>
 
-#include "types.h"
+#include "common/lock.h"
 #include "cr_options.h"
+#include "dump.h"
+#include "files.h"
+#include "mount.h"
+#include "namespaces.h"
+#include "net.h"
 #include "pstree.h"
 #include "rst-malloc.h"
-#include "common/lock.h"
-#include "namespaces.h"
-#include "files.h"
 #include "tty.h"
-#include "mount.h"
-#include "dump.h"
+#include "types.h"
 #include "util.h"
-#include "net.h"
 
-#include "protobuf.h"
-#include "images/pstree.pb-c.h"
 #include "crtools.h"
+#include "images/pstree.pb-c.h"
+#include "protobuf.h"
 
 struct pstree_item *root_item;
 static struct rb_root pid_root_rb;

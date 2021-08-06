@@ -1,10 +1,10 @@
-#include <linux/types.h>
-#include <sys/socket.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
 #include <libnl3/netlink/attr.h>
 #include <libnl3/netlink/msg.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <linux/types.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "libnetlink.h"

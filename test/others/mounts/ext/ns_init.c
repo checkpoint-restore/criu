@@ -1,14 +1,14 @@
 #define _GNU_SOURCE
+#include <fcntl.h>
 #include <sched.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mount.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <sys/mount.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <string.h>
 
 static void sigh(int sig)
 {

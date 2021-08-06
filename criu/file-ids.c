@@ -1,23 +1,23 @@
+#include <errno.h>
+#include <limits.h>
+#include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
-#include <signal.h>
-#include <limits.h>
-#include <unistd.h>
-#include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 
-#include "int.h"
-#include "file-ids.h"
-#include "rbtree.h"
-#include "kcmp-ids.h"
 #include "common/compiler.h"
-#include "image.h"
-#include "util.h"
-#include "irmap.h"
+#include "file-ids.h"
 #include "files.h"
+#include "image.h"
+#include "int.h"
+#include "irmap.h"
+#include "kcmp-ids.h"
+#include "rbtree.h"
+#include "util.h"
 
 DECLARE_KCMP_TREE(fd_tree, KCMP_FILE);
 

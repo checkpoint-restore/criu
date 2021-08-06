@@ -9,17 +9,17 @@
 const char *test_doc = "Check a case when one port is shared between two listening sockets\n";
 const char *test_author = "Andrey Vagin <avagin@parallels.com";
 
+#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
+#include <errno.h>
+#include <netinet/tcp.h>
+#include <sched.h>
+#include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <sched.h>
-#include <netinet/tcp.h>
-#include <sys/socket.h>
-#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
 
 #define BUF_SIZE 4096
 

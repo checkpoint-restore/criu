@@ -1,11 +1,11 @@
 #ifndef __CR_KERNDAT_H__
 #define __CR_KERNDAT_H__
 
-#include <stdbool.h>
-#include "int.h"
-#include "common/config.h"
 #include "asm/kerndat.h"
+#include "common/config.h"
+#include "int.h"
 #include "util-vdso.h"
+#include <stdbool.h>
 
 struct stat;
 

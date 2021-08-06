@@ -1,10 +1,10 @@
 #ifndef __CR_BITOPS_H__
 #define __CR_BITOPS_H__
 
-#include <stdbool.h>
-#include "common/arch/x86/asm/cmpxchg.h"
 #include "common/arch/x86/asm/asm.h"
+#include "common/arch/x86/asm/cmpxchg.h"
 #include "common/asm/bitsperlong.h"
+#include <stdbool.h>
 
 #define DIV_ROUND_UP(n, d) (((n) + (d)-1) / (d))
 #define BITS_TO_LONGS(nr)  DIV_ROUND_UP(nr, BITS_PER_LONG)

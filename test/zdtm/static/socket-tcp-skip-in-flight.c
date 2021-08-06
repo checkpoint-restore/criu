@@ -1,5 +1,5 @@
-#include <poll.h>
 #include "zdtmtst.h"
+#include <poll.h>
 
 #ifdef ZDTM_IPV4V6
 #define ZDTM_FAMILY AF_INET
@@ -17,12 +17,12 @@ const char *test_author = "Radostin Stoyanov <rstoyanov1@gmail.com>";
  * in-flight TCP connections are ignored.
  */
 
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <fcntl.h>
 
 int main(int argc, char **argv)
 {

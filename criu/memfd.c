@@ -1,26 +1,26 @@
-#include <unistd.h>
 #include <linux/memfd.h>
+#include <unistd.h>
 
 #include "common/compiler.h"
 #include "common/lock.h"
-#include "memfd.h"
 #include "fdinfo.h"
-#include "imgset.h"
-#include "image.h"
-#include "util.h"
-#include "log.h"
-#include "files.h"
-#include "fs-magic.h"
-#include "kerndat.h"
-#include "files-reg.h"
-#include "rst-malloc.h"
 #include "fdstore.h"
 #include "file-ids.h"
+#include "files-reg.h"
+#include "files.h"
+#include "fs-magic.h"
+#include "image.h"
+#include "imgset.h"
+#include "kerndat.h"
+#include "log.h"
+#include "memfd.h"
 #include "namespaces.h"
+#include "rst-malloc.h"
 #include "shmem.h"
+#include "util.h"
 
-#include "protobuf.h"
 #include "images/memfd.pb-c.h"
+#include "protobuf.h"
 
 #define MEMFD_PREFIX	 "/memfd:"
 #define MEMFD_PREFIX_LEN (sizeof(MEMFD_PREFIX) - 1)

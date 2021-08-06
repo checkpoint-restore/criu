@@ -1,8 +1,8 @@
-#include <sys/auxv.h>
 #include <asm/cputable.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <string.h>
+#include <sys/auxv.h>
 
 #include "compel-cpu.h"
 

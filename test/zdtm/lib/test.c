@@ -1,23 +1,23 @@
-#include <stdio.h>
 #include <errno.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <time.h>
-#include <sys/wait.h>
 #include <fcntl.h>
-#include <sys/mman.h>
-#include <sched.h>
-#include <sys/param.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <sys/prctl.h>
 #include <grp.h>
+#include <sched.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/param.h>
+#include <sys/prctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <time.h>
+#include <unistd.h>
 
-#include "zdtmtst.h"
 #include "lock.h"
 #include "ns.h"
+#include "zdtmtst.h"
 
 futex_t sig_received;
 static struct {

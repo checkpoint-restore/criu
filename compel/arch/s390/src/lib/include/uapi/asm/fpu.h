@@ -1,8 +1,8 @@
 #ifndef __CR_ASM_FPU_H__
 #define __CR_ASM_FPU_H__
 
-#include <sys/types.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 /*
  * This one is used in restorer

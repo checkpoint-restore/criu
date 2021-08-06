@@ -4,22 +4,22 @@
 /*
  * Some bits are stolen from perf and kvm tools
  */
+#include <dirent.h>
+#include <errno.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdio.h>
-#include <errno.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/statfs.h>
 #include <sys/sysmacros.h>
-#include <dirent.h>
-#include <poll.h>
+#include <sys/types.h>
 
-#include "int.h"
-#include "common/compiler.h"
-#include "xmalloc.h"
 #include "common/bug.h"
-#include "log.h"
+#include "common/compiler.h"
 #include "common/err.h"
+#include "int.h"
+#include "log.h"
+#include "xmalloc.h"
 
 #define PREF_SHIFT_OP(pref, op, size) ((size)op(pref##BYTES_SHIFT))
 #define KBYTES_SHIFT		      10

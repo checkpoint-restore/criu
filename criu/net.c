@@ -1,21 +1,21 @@
-#include <unistd.h>
-#include <sys/socket.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <linux/netfilter/nfnetlink.h>
-#include <linux/netfilter/nfnetlink_conntrack.h>
-#include <linux/netfilter/nf_conntrack_tcp.h>
-#include <string.h>
-#include <net/if_arp.h>
-#include <sys/wait.h>
-#include <sched.h>
-#include <sys/mount.h>
-#include <sys/types.h>
-#include <net/if.h>
-#include <linux/sockios.h>
 #include <libnl3/netlink/attr.h>
 #include <libnl3/netlink/msg.h>
 #include <libnl3/netlink/netlink.h>
+#include <linux/netfilter/nf_conntrack_tcp.h>
+#include <linux/netfilter/nfnetlink.h>
+#include <linux/netfilter/nfnetlink_conntrack.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <linux/sockios.h>
+#include <net/if.h>
+#include <net/if_arp.h>
+#include <sched.h>
+#include <string.h>
+#include <sys/mount.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 #include <nftables/libnftables.h>
@@ -27,28 +27,28 @@
 
 #include "../soccr/soccr.h"
 
-#include "imgset.h"
-#include "namespaces.h"
-#include "net.h"
-#include "libnetlink.h"
-#include "cr_options.h"
-#include "sk-inet.h"
-#include "tun.h"
-#include "util-pie.h"
-#include "plugin.h"
 #include "action-scripts.h"
-#include "sockets.h"
-#include "pstree.h"
-#include "string.h"
-#include "sysctl.h"
-#include "kerndat.h"
-#include "util.h"
+#include "cr_options.h"
 #include "external.h"
 #include "fdstore.h"
+#include "imgset.h"
+#include "kerndat.h"
+#include "libnetlink.h"
+#include "namespaces.h"
+#include "net.h"
+#include "plugin.h"
+#include "pstree.h"
+#include "sk-inet.h"
+#include "sockets.h"
+#include "string.h"
+#include "sysctl.h"
+#include "tun.h"
+#include "util-pie.h"
+#include "util.h"
 
-#include "protobuf.h"
-#include "images/netdev.pb-c.h"
 #include "images/inventory.pb-c.h"
+#include "images/netdev.pb-c.h"
+#include "protobuf.h"
 
 #ifndef IFLA_NEW_IFINDEX
 #define IFLA_NEW_IFINDEX 49

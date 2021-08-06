@@ -1,6 +1,6 @@
+#include "zdtmtst.h"
 #include <string.h>
 #include <sys/mman.h>
-#include "zdtmtst.h"
 
 #ifndef MAP_HUGETLB
 #define MAP_HUGETLB 0x40000

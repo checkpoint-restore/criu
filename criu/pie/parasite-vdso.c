@@ -1,24 +1,24 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
 #include <elf.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-#include "int.h"
-#include "types.h"
-#include "page.h"
-#include "compel/plugins/std/syscall.h"
-#include "compel/plugins/std/log.h"
-#include "image.h"
-#include "parasite-vdso.h"
-#include "vma.h"
-#include "log.h"
 #include "common/bug.h"
+#include "compel/plugins/std/log.h"
+#include "compel/plugins/std/syscall.h"
+#include "image.h"
+#include "int.h"
+#include "log.h"
+#include "page.h"
+#include "parasite-vdso.h"
+#include "types.h"
+#include "vma.h"
 
 #ifdef LOG_PREFIX
 #undef LOG_PREFIX

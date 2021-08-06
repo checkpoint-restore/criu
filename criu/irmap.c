@@ -8,27 +8,27 @@
  * heuristically known places where notifies are typically put.
  */
 
-#include <stdbool.h>
-#include <fcntl.h>
 #include <dirent.h>
-#include <string.h>
+#include <fcntl.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "xmalloc.h"
-#include "irmap.h"
-#include "mount.h"
-#include "log.h"
-#include "util.h"
-#include "image.h"
-#include "stats.h"
-#include "pstree.h"
 #include "cr_options.h"
+#include "image.h"
+#include "irmap.h"
+#include "log.h"
+#include "mount.h"
+#include "pstree.h"
+#include "stats.h"
+#include "util.h"
+#include "xmalloc.h"
 
-#include "protobuf.h"
-#include "images/fsnotify.pb-c.h"
 #include "images/fh.pb-c.h"
+#include "images/fsnotify.pb-c.h"
+#include "protobuf.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "irmap: "

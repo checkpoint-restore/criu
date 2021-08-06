@@ -1,7 +1,7 @@
 #include <string.h>
 
-#include "uapi/piegen-err.h"
 #include "piegen.h"
+#include "uapi/piegen-err.h"
 
 #include "arch_test_handle_binary.h"
 

@@ -1,7 +1,7 @@
 #include <errno.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <signal.h>
 #include <time.h>
 
 #include <sys/eventfd.h>

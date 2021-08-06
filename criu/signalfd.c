@@ -1,18 +1,18 @@
-#include <unistd.h>
 #include <signal.h>
 #include <sys/signalfd.h>
+#include <unistd.h>
 
 #include "common/compiler.h"
-#include "signalfd.h"
 #include "fdinfo.h"
-#include "imgset.h"
-#include "image.h"
-#include "util.h"
-#include "log.h"
 #include "files.h"
+#include "image.h"
+#include "imgset.h"
+#include "log.h"
+#include "signalfd.h"
+#include "util.h"
 
-#include "protobuf.h"
 #include "images/signalfd.pb-c.h"
+#include "protobuf.h"
 
 struct signalfd_info {
 	SignalfdEntry *sfe;

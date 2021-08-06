@@ -1,12 +1,12 @@
-#include <string.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <errno.h>
-#include <stdlib.h>
+#include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-#include "criu-plugin.h"
 #include "criu-log.h"
+#include "criu-plugin.h"
 
 extern cr_plugin_init_t cr_plugin_init;
 extern cr_plugin_dump_ext_link_t cr_plugin_dump_ext_link;

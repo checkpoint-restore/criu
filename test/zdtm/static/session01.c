@@ -1,11 +1,11 @@
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/wait.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-#include "zdtmtst.h"
 #include "lock.h"
+#include "zdtmtst.h"
 
 const char *test_doc = "Test that sid, pgid are restored";
 const char *test_author = "Andrey Vagin <avagin@openvz.org>";

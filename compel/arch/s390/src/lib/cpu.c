@@ -1,11 +1,11 @@
 #include <sys/auxv.h>
 
-#include <string.h>
 #include <stdbool.h>
+#include <string.h>
 
-#include "compel-cpu.h"
 #include "common/bitops.h"
 #include "common/compiler.h"
+#include "compel-cpu.h"
 
 #include "log.h"
 

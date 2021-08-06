@@ -1,23 +1,23 @@
-#include <unistd.h>
+#include <limits.h>
+#include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
-#include <limits.h>
 #include <string.h>
-#include <signal.h>
+#include <unistd.h>
 
-#include <sys/wait.h>
-#include <sys/vfs.h>
+#include <fcntl.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <fcntl.h>
+#include <sys/vfs.h>
+#include <sys/wait.h>
 
 #include <linux/auto_fs4.h>
 #include <linux/magic.h>
 
-#include "zdtmtst.h"
 #include "auto_dev-ioctl.h"
+#include "zdtmtst.h"
 
 const char *test_doc = "Autofs (v5) migration test";
 const char *test_author = "Stanislav Kinsburskii <stanislav.kinsburskiy@virtuozzo.com>";

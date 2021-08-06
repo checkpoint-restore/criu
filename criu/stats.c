@@ -1,15 +1,15 @@
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/time.h>
-#include "int.h"
+#include "stats.h"
 #include "atomic.h"
 #include "cr_options.h"
-#include "rst-malloc.h"
-#include "protobuf.h"
-#include "stats.h"
-#include "util.h"
 #include "image.h"
 #include "images/stats.pb-c.h"
+#include "int.h"
+#include "protobuf.h"
+#include "rst-malloc.h"
+#include "util.h"
+#include <fcntl.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 struct timing {
 	struct timeval start;

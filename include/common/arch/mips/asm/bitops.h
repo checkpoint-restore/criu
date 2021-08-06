@@ -1,8 +1,8 @@
 #ifndef _LINUX_BITOPS_H
 #define _LINUX_BITOPS_H
-#include <asm/types.h>
-#include "common/compiler.h"
 #include "common/asm-generic/bitops.h"
+#include "common/compiler.h"
+#include <asm/types.h>
 
 /**
  * test_and_set_bit - Set a bit and return its old value

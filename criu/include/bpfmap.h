@@ -1,9 +1,9 @@
 #ifndef __CR_BPFMAP_H__
 #define __CR_BPFMAP_H__
 
-#include "files.h"
-#include "bpfmap-file.pb-c.h"
 #include "bpfmap-data.pb-c.h"
+#include "bpfmap-file.pb-c.h"
+#include "files.h"
 
 struct bpfmap_file_info {
 	BpfmapFileEntry *bpfe;

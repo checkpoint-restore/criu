@@ -1,6 +1,6 @@
-#include "log.h"
 #include "common/bug.h"
 #include "common/lock.h"
+#include "log.h"
 
 #include "uapi/compel/plugins/std/fds.h"
 

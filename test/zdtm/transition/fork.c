@@ -1,14 +1,14 @@
-#include <stdio.h>
-#include <sys/ptrace.h>
-#include <unistd.h>
-#include <pthread.h>
 #include <errno.h>
-#include <string.h>
+#include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
-#include <sys/wait.h>
+#include <string.h>
 #include <sys/mman.h>
-#include <sys/types.h>
+#include <sys/ptrace.h>
 #include <sys/syscall.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

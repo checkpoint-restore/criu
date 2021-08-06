@@ -1,31 +1,31 @@
+#include <elf.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <elf.h>
+#include <sys/auxv.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
-#include <sys/auxv.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
-#include "types.h"
-#include "log.h"
+#include "asm/dump.h"
 #include "asm/parasite-syscall.h"
 #include "asm/restorer.h"
-#include <compel/asm/fpu.h>
-#include "asm/dump.h"
-#include "cr_options.h"
 #include "common/compiler.h"
-#include "restorer.h"
-#include "parasite-syscall.h"
-#include "util.h"
 #include "cpu.h"
-#include <compel/plugins/std/syscall-codes.h>
+#include "cr_options.h"
 #include "kerndat.h"
+#include "log.h"
+#include "parasite-syscall.h"
+#include "restorer.h"
+#include "types.h"
+#include "util.h"
+#include <compel/asm/fpu.h>
+#include <compel/plugins/std/syscall-codes.h>
 
-#include "protobuf.h"
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
+#include "protobuf.h"
 
 int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {

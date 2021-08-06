@@ -1,6 +1,6 @@
+#include <errno.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
-#include <errno.h>
 #include <unistd.h>
 
 #include "zdtmtst.h"

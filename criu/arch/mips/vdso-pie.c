@@ -1,11 +1,11 @@
-#include <unistd.h>
 #include "asm/types.h"
+#include <unistd.h>
 
+#include "common/bug.h"
+#include "log.h"
+#include "parasite-vdso.h"
 #include <compel/plugins/std/string.h>
 #include <compel/plugins/std/syscall.h>
-#include "parasite-vdso.h"
-#include "log.h"
-#include "common/bug.h"
 
 #ifdef LOG_PREFIX
 #undef LOG_PREFIX

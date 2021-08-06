@@ -1,8 +1,8 @@
 #include "zdtmtst.h"
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 const char *test_doc = "Create a lot of file vma-s";
 const char *test_author = "Andrei Vagin <avagin@openvz.org>";

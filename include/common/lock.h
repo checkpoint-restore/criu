@@ -1,13 +1,13 @@
 #ifndef __CR_COMMON_LOCK_H__
 #define __CR_COMMON_LOCK_H__
 
-#include <stdint.h>
-#include <linux/futex.h>
-#include <sys/time.h>
-#include <limits.h>
-#include <errno.h>
 #include "common/asm/atomic.h"
 #include "common/compiler.h"
+#include <errno.h>
+#include <limits.h>
+#include <linux/futex.h>
+#include <stdint.h>
+#include <sys/time.h>
 
 /* scan-build complains about derefencing a NULL pointer here. */
 #ifndef __clang_analyzer__
@@ -20,8 +20,8 @@
 #ifdef CR_NOGLIBC
 #include <compel/plugins/std/syscall.h>
 #else
-#include <unistd.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 static inline long sys_futex(uint32_t *addr1, int op, uint32_t val1, struct timespec *timeout, uint32_t *addr2,
 			     uint32_t val3)
 {

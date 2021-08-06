@@ -1,11 +1,11 @@
-#include <unistd.h>
-#include <string.h>
 #include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
 #include <sched.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

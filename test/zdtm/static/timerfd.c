@@ -1,8 +1,8 @@
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <sys/timerfd.h>
 

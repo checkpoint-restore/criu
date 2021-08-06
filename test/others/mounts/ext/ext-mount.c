@@ -1,13 +1,13 @@
-#include <sys/mount.h>
-#include <string.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <errno.h>
-#include <stdlib.h>
+#include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mount.h>
+#include <unistd.h>
 
-#include "criu-plugin.h"
 #include "criu-log.h"
+#include "criu-plugin.h"
 
 #define IMG_NAME "ext-mount-test-%d.img"
 

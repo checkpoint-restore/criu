@@ -1,38 +1,38 @@
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <netinet/udp.h>
-#include <libnl3/netlink/msg.h>
-#include <net/if.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <netinet/tcp.h>
 #include <arpa/inet.h>
-#include <string.h>
-#include <stdlib.h>
+#include <libnl3/netlink/msg.h>
 #include <linux/icmp.h>
 #include <linux/icmpv6.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <net/if.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
 #include <poll.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "../soccr/soccr.h"
 
-#include "libnetlink.h"
 #include "cr_options.h"
-#include "imgset.h"
-#include "inet_diag.h"
 #include "files.h"
 #include "image.h"
+#include "imgset.h"
+#include "inet_diag.h"
+#include "kerndat.h"
+#include "libnetlink.h"
 #include "log.h"
 #include "lsm.h"
-#include "kerndat.h"
+#include "namespaces.h"
+#include "protobuf.h"
 #include "pstree.h"
 #include "rst-malloc.h"
-#include "sockets.h"
 #include "sk-inet.h"
-#include "protobuf.h"
+#include "sockets.h"
 #include "util.h"
-#include "namespaces.h"
 
 #include "images/inventory.pb-c.h"
 

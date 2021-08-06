@@ -7,12 +7,12 @@
 #define COMPEL_SYSCALL_TYPES_H__
 
 #include <arpa/inet.h>
-#include <sys/time.h>
-#include <stdbool.h>
-#include <signal.h>
-#include <stdint.h>
-#include <sched.h>
 #include <fcntl.h>
+#include <sched.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <sys/time.h>
 #include <time.h>
 
 #include "common/bitsperlong.h"

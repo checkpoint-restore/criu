@@ -1,18 +1,18 @@
-#include <stdlib.h>
-#include <unistd.h>
+#include <ctype.h>
+#include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/prctl.h>
-#include <ctype.h>
-#include <sys/sendfile.h>
 #include <sched.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/capability.h>
+#include <sys/mman.h>
 #include <sys/mount.h>
-#include <elf.h>
+#include <sys/prctl.h>
+#include <sys/sendfile.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #ifndef SEEK_DATA
 #define SEEK_DATA 3
@@ -30,26 +30,26 @@
  */
 #define BUILD_ID_MAP_SIZE 1048576
 
-#include "cr_options.h"
-#include "imgset.h"
-#include "file-ids.h"
-#include "mount.h"
-#include "files.h"
 #include "common/list.h"
-#include "rst-malloc.h"
+#include "cr_options.h"
+#include "external.h"
+#include "fault-injection.h"
+#include "file-ids.h"
+#include "files.h"
 #include "fs-magic.h"
+#include "imgset.h"
+#include "memfd.h"
+#include "mount.h"
 #include "namespaces.h"
 #include "proc_parse.h"
 #include "pstree.h"
+#include "rst-malloc.h"
 #include "string.h"
-#include "fault-injection.h"
-#include "external.h"
-#include "memfd.h"
 
-#include "protobuf.h"
-#include "util.h"
 #include "images/regfile.pb-c.h"
 #include "images/remap-file-path.pb-c.h"
+#include "protobuf.h"
+#include "util.h"
 
 #include "files-reg.h"
 #include "plugin.h"

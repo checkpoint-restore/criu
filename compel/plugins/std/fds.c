@@ -7,8 +7,8 @@
 
 #define pr_err(fmt, ...)
 
-#include "common/compiler.h"
 #include "common/bug.h"
+#include "common/compiler.h"
 
 #define __sys(foo)     sys_##foo
 #define __sys_err(ret) ret

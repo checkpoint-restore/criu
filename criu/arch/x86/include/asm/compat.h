@@ -2,8 +2,8 @@
 #define __CR_ASM_COMPAT_H__
 
 #ifdef CR_NOGLIBC
-#include <compel/plugins/std/syscall.h>
 #include <compel/plugins/std/syscall-codes.h>
+#include <compel/plugins/std/syscall.h>
 #else
 #define sys_mmap   mmap
 #define sys_munmap munmap

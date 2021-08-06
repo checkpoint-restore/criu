@@ -1,17 +1,17 @@
+#include <compel/asm/processor-flags.h>
+#include <compel/plugins/std/syscall-codes.h>
+#include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
-#include <string.h>
-#include <compel/plugins/std/syscall-codes.h>
-#include <compel/asm/processor-flags.h>
-#include <errno.h>
 
 #include "common/page.h"
-#include "uapi/compel/asm/infect-types.h"
-#include "log.h"
 #include "errno.h"
-#include "infect.h"
 #include "infect-priv.h"
+#include "infect.h"
+#include "log.h"
+#include "uapi/compel/asm/infect-types.h"
 
 /*
  * Injected syscall instruction

@@ -1,13 +1,13 @@
-#include <time.h>
 #include <sched.h>
+#include <time.h>
 
-#include "types.h"
-#include "proc_parse.h"
 #include "namespaces.h"
+#include "proc_parse.h"
 #include "timens.h"
+#include "types.h"
 
-#include "protobuf.h"
 #include "images/timens.pb-c.h"
+#include "protobuf.h"
 
 int dump_time_ns(int ns_id)
 {

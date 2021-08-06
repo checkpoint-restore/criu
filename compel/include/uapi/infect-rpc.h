@@ -1,9 +1,9 @@
 #ifndef __COMPEL_INFECT_RPC_H__
 #define __COMPEL_INFECT_RPC_H__
 
+#include <stdint.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <stdint.h>
 
 #include <common/compiler.h>
 

@@ -2,23 +2,23 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <sys/timerfd.h>
 #include <sys/ioctl.h>
+#include <sys/timerfd.h>
 
-#include "protobuf.h"
 #include "images/timerfd.pb-c.h"
+#include "protobuf.h"
 
-#include "fdinfo.h"
-#include "rst-malloc.h"
+#include "common/bug.h"
 #include "cr_options.h"
-#include "restorer.h"
-#include "timerfd.h"
-#include "pstree.h"
+#include "fdinfo.h"
 #include "files.h"
 #include "imgset.h"
-#include "util.h"
 #include "log.h"
-#include "common/bug.h"
+#include "pstree.h"
+#include "restorer.h"
+#include "rst-malloc.h"
+#include "timerfd.h"
+#include "util.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "timerfd: "

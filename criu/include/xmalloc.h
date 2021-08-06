@@ -1,2 +1,2 @@
-#include "log.h"
 #include "common/xmalloc.h"
+#include "log.h"

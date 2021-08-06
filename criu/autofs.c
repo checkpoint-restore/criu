@@ -1,19 +1,19 @@
-#include <unistd.h>
-#include <sys/stat.h>
 #include <stdarg.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
-#include "int.h"
-#include "fdinfo.h"
 #include "autofs.h"
-#include "rst-malloc.h"
-#include "mount.h"
-#include "pstree.h"
-#include "namespaces.h"
-#include "protobuf.h"
-#include "pipes.h"
 #include "crtools.h"
+#include "fdinfo.h"
+#include "int.h"
+#include "mount.h"
+#include "namespaces.h"
+#include "pipes.h"
+#include "protobuf.h"
+#include "pstree.h"
+#include "rst-malloc.h"
 #include "util.h"
 
 #include "images/autofs.pb-c.h"

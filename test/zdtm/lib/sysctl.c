@@ -1,7 +1,7 @@
 #include <fcntl.h>
 
-#include "zdtmtst.h"
 #include "sysctl.h"
+#include "zdtmtst.h"
 
 int sysctl_read_int(const char *name, int *data)
 {

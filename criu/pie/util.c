@@ -1,15 +1,15 @@
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/mount.h>
-#include <unistd.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <sys/mount.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
 
-#include "int.h"
-#include "types.h"
 #include "common/compiler.h"
 #include "fcntl.h"
+#include "int.h"
 #include "log.h"
+#include "types.h"
 #include "util-pie.h"
 
 #ifdef CR_NOGLIBC

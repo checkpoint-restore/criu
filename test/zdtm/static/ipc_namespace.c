@@ -1,13 +1,13 @@
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <string.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <linux/msg.h>
 #include <linux/sem.h>
 #include <linux/shm.h>
-#include <fcntl.h>
-#include <limits.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

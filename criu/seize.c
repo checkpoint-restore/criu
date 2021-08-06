@@ -1,28 +1,28 @@
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
+#include <unistd.h>
 
-#include "int.h"
 #include "common/compiler.h"
-#include "cr_options.h"
 #include "cr-errno.h"
-#include "pstree.h"
+#include "cr_options.h"
 #include "criu-log.h"
-#include <compel/ptrace.h>
+#include "int.h"
 #include "proc_parse.h"
+#include "pstree.h"
 #include "seccomp.h"
 #include "seize.h"
 #include "stats.h"
 #include "string.h"
-#include "xmalloc.h"
 #include "util.h"
+#include "xmalloc.h"
+#include <compel/ptrace.h>
 
 #define NR_ATTEMPTS 5
 

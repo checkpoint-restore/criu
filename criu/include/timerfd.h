@@ -1,8 +1,8 @@
 #ifndef __CR_TIMERFD_H__
 #define __CR_TIMERFD_H__
 
-#include <time.h>
 #include <sys/ioctl.h>
+#include <time.h>
 
 #include "files.h"
 

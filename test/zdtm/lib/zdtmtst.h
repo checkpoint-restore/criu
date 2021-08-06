@@ -1,10 +1,10 @@
 #ifndef _VIMITESU_H_
 #define _VIMITESU_H_
 
-#include <sys/types.h>
-#include <unistd.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define INPROGRESS ".inprogress"
 
@@ -110,8 +110,8 @@ extern int parse_opt_string(char *param, void *arg);
 
 extern int write_pidfile(int pid);
 
-#include <stdio.h>
 #include <errno.h>
+#include <stdio.h>
 #include <string.h>
 
 #define __stringify_1(x) #x

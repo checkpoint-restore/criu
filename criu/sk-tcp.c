@@ -1,31 +1,31 @@
-#include <netinet/tcp.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <string.h>
-#include <sched.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sched.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include "../soccr/soccr.h"
 
 #include "common/config.h"
-#include "cr_options.h"
-#include "util.h"
 #include "common/list.h"
-#include "log.h"
+#include "cr_options.h"
 #include "files.h"
-#include "sockets.h"
-#include "sk-inet.h"
-#include "netfilter.h"
 #include "image.h"
-#include "namespaces.h"
-#include "xmalloc.h"
 #include "kerndat.h"
+#include "log.h"
+#include "namespaces.h"
+#include "netfilter.h"
 #include "restorer.h"
 #include "rst-malloc.h"
+#include "sk-inet.h"
+#include "sockets.h"
+#include "util.h"
+#include "xmalloc.h"
 
-#include "protobuf.h"
 #include "images/tcp-stream.pb-c.h"
+#include "protobuf.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "tcp: "

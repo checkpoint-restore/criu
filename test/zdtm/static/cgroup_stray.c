@@ -1,17 +1,17 @@
-#include <unistd.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <sched.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/mount.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/wait.h>
-#include <limits.h>
 #include "zdtmtst.h"
+#include <fcntl.h>
+#include <limits.h>
+#include <sched.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mount.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 const char *test_doc = "Check that stray cgroups are c/r'd correctly";
 const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";

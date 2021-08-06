@@ -3,8 +3,8 @@
 const char *test_doc = "test to ensure that monotonic clock doesn't decrease";
 const char *test_author = "Evgeny Antysev <eantyshev@parallels.com>";
 
-#include <time.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define tv_ge(a, b) (((a)->tv_sec == (b)->tv_sec) ? ((a)->tv_nsec >= (b)->tv_nsec) : ((a)->tv_sec > (b)->tv_sec))
 

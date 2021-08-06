@@ -1,31 +1,31 @@
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/falloc.h>
-#include <unistd.h>
+#include <netinet/in.h>
+#include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
+#include <unistd.h>
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "page-xfer: "
 
-#include "types.h"
 #include "cr_options.h"
-#include "servicefd.h"
-#include "image.h"
-#include "page-xfer.h"
-#include "page-pipe.h"
-#include "util.h"
-#include "protobuf.h"
-#include "images/pagemap.pb-c.h"
 #include "fcntl.h"
-#include "pstree.h"
+#include "image.h"
+#include "images/pagemap.pb-c.h"
+#include "page-pipe.h"
+#include "page-xfer.h"
 #include "parasite-syscall.h"
+#include "protobuf.h"
+#include "pstree.h"
 #include "rst_info.h"
+#include "servicefd.h"
 #include "stats.h"
 #include "tls.h"
+#include "types.h"
+#include "util.h"
 
 static int page_server_sk = -1;
 

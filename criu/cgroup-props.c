@@ -1,24 +1,24 @@
+#include <ctype.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 #include <unistd.h>
-#include <fcntl.h>
 
 #include <sys/mman.h>
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
-#include "int.h"
-#include "common/config.h"
-#include "common/compiler.h"
 #include "cgroup-props.h"
+#include "common/bug.h"
+#include "common/compiler.h"
+#include "common/config.h"
+#include "common/list.h"
 #include "cr_options.h"
-#include "xmalloc.h"
+#include "int.h"
+#include "log.h"
 #include "string.h"
 #include "util.h"
-#include "common/list.h"
-#include "log.h"
-#include "common/bug.h"
+#include "xmalloc.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "cg-prop: "

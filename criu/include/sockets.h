@@ -5,8 +5,8 @@
 #include <stdbool.h>
 #include <sys/socket.h>
 
-#include "images/sk-opts.pb-c.h"
 #include "images/fdinfo.pb-c.h"
+#include "images/sk-opts.pb-c.h"
 
 struct fdinfo_list_entry;
 struct sk_opts_entry;

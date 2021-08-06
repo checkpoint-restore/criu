@@ -1,9 +1,9 @@
 #ifndef __CR_ASM_FPU_H__
 #define __CR_ASM_FPU_H__
 
-#include <sys/types.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 #include <compel/common/compiler.h>
 

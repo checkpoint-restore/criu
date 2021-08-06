@@ -1,21 +1,21 @@
+#include <ctype.h>
+#include <getopt.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <stdint.h>
-#include <getopt.h>
 #include <string.h>
-#include <ctype.h>
+#include <unistd.h>
 
 #include <fcntl.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-#include "version.h"
-#include "piegen.h"
 #include "log.h"
+#include "piegen.h"
+#include "version.h"
 
 #define CFLAGS_DEFAULT_SET     \
 	"-Wstrict-prototypes " \

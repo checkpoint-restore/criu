@@ -1,12 +1,12 @@
 #include <errno.h>
-#include <unistd.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/mount.h>
-#include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <sys/wait.h>
-#include <fcntl.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

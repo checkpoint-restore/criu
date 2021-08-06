@@ -1,8 +1,8 @@
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mount.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "zdtmtst.h"

@@ -1,9 +1,9 @@
 #ifndef _S390_BITOPS_H
 #define _S390_BITOPS_H
 
+#include "common/arch/s390/asm/atomic_ops.h"
 #include "common/asm/bitsperlong.h"
 #include "common/compiler.h"
-#include "common/arch/s390/asm/atomic_ops.h"
 
 #define DIV_ROUND_UP(n, d)   (((n) + (d)-1) / (d))
 #define BITS_TO_LONGS(nr)    DIV_ROUND_UP(nr, BITS_PER_LONG)

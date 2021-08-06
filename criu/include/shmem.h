@@ -1,9 +1,9 @@
 #ifndef __CR_SHMEM_H__
 #define __CR_SHMEM_H__
 
-#include "int.h"
 #include "common/lock.h"
 #include "images/vma.pb-c.h"
+#include "int.h"
 
 struct vma_area;
 

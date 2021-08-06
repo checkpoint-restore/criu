@@ -1,8 +1,8 @@
 #ifndef __CR_ASM_VDSO_H__
 #define __CR_ASM_VDSO_H__
 
-#include "asm/int.h"
 #include "asm-generic/vdso.h"
+#include "asm/int.h"
 
 /* This definition is used in pie/util-vdso.c to initialize the vdso symbol
  * name string table 'vdso_symbols'

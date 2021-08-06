@@ -1,19 +1,19 @@
-#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <string.h>
-#include <sys/wait.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "../soccr/soccr.h"
 
-#include "util.h"
 #include "common/list.h"
 #include "files.h"
-#include "netfilter.h"
-#include "sockets.h"
-#include "sk-inet.h"
 #include "kerndat.h"
+#include "netfilter.h"
+#include "sk-inet.h"
+#include "sockets.h"
+#include "util.h"
 
 static char buf[512];
 

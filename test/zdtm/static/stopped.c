@@ -1,9 +1,8 @@
 #include <errno.h>
-#include <unistd.h>
 #include <signal.h>
-#include <unistd.h>
-#include <syscall.h>
 #include <sys/wait.h>
+#include <syscall.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

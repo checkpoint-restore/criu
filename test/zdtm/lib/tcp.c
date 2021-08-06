@@ -1,6 +1,6 @@
+#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
 #include <string.h>
 #include <sys/socket.h>
-#include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
 
 #include "zdtmtst.h"
 

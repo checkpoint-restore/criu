@@ -1,11 +1,11 @@
-#include "log.h"
 #include "common/bug.h"
-#include "common/xmalloc.h"
 #include "common/lock.h"
+#include "common/xmalloc.h"
+#include "log.h"
 
-#include "infect.h"
 #include "infect-priv.h"
 #include "infect-rpc.h"
+#include "infect.h"
 #include "rpc-pie-priv.h"
 
 static int __parasite_send_cmd(int sockfd, struct ctl_msg *m)

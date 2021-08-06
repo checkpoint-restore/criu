@@ -1,29 +1,29 @@
-#include <sys/mman.h>
 #include <errno.h>
-#include <signal.h>
-#include <linux/limits.h>
 #include <linux/capability.h>
-#include <sys/mount.h>
+#include <linux/limits.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/mount.h>
 #include <sys/uio.h>
 
+#include "aio.h"
 #include "common/config.h"
+#include "common/lock.h"
+#include "criu-log.h"
+#include "fcntl.h"
 #include "int.h"
+#include "parasite-vdso.h"
+#include "parasite.h"
+#include "prctl.h"
+#include "tty.h"
 #include "types.h"
 #include <compel/plugins/std/syscall.h>
-#include "parasite.h"
-#include "fcntl.h"
-#include "prctl.h"
-#include "common/lock.h"
-#include "parasite-vdso.h"
-#include "criu-log.h"
-#include "tty.h"
-#include "aio.h"
 
 #include "asm/parasite.h"
-#include "restorer.h"
 #include "infect-pie.h"
+#include "restorer.h"
 
 /*
  * PARASITE_CMD_DUMPPAGES is called many times and the parasite args contains

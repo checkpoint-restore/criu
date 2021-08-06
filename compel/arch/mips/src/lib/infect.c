@@ -1,22 +1,22 @@
-#include <sys/types.h>
-#include <sys/uio.h>
+#include <errno.h>
 #include <sys/auxv.h>
 #include <sys/mman.h>
-#include <errno.h>
+#include <sys/types.h>
+#include <sys/uio.h>
 
-#include <compel/asm/fpu.h>
-#include <compel/cpu.h>
-#include "errno.h"
-#include <compel/plugins/std/syscall-codes.h>
-#include <compel/plugins/std/syscall.h>
+#include "asm/infect-types.h"
+#include "common/bug.h"
 #include "common/err.h"
 #include "common/page.h"
-#include "asm/infect-types.h"
-#include "ptrace.h"
-#include "infect.h"
+#include "errno.h"
 #include "infect-priv.h"
+#include "infect.h"
 #include "log.h"
-#include "common/bug.h"
+#include "ptrace.h"
+#include <compel/asm/fpu.h>
+#include <compel/cpu.h>
+#include <compel/plugins/std/syscall-codes.h>
+#include <compel/plugins/std/syscall.h>
 
 /*
  * Injected syscall instruction

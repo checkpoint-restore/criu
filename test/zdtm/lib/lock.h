@@ -1,13 +1,13 @@
 #ifndef CR_LOCK_H_
 #define CR_LOCK_H_
 
-#include <stdint.h>
+#include "asm/atomic.h"
+#include <errno.h>
+#include <limits.h>
 #include <linux/futex.h>
 #include <linux/unistd.h>
+#include <stdint.h>
 #include <sys/time.h>
-#include <limits.h>
-#include <errno.h>
-#include "asm/atomic.h"
 
 #define BUG_ON(condition)                                                        \
 	do {                                                                     \

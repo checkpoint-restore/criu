@@ -1,12 +1,12 @@
-#include <linux/aio_abi.h>
-#include <sys/syscall.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <stdlib.h>
+#include <aio.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <aio.h>
+#include <linux/aio_abi.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 
 #include "zdtmtst.h"
 

@@ -1,13 +1,13 @@
-#include <stdlib.h>
 #include <sched.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include <compel/plugins/std/syscall-codes.h>
 
-#include "sched.h"
+#include "common/bug.h"
 #include "common/compiler.h"
 #include "log.h"
-#include "common/bug.h"
+#include "sched.h"
 
 /*
  * ASan doesn't play nicely with clone if we use current stack for

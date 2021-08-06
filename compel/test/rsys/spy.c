@@ -1,11 +1,11 @@
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <sys/wait.h>
 #include <sys/syscall.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-#include <compel/log.h>
 #include <compel/infect.h>
+#include <compel/log.h>
 
 static void print_vmsg(unsigned int lvl, const char *fmt, va_list parms)
 {

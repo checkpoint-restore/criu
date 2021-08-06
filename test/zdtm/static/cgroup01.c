@@ -1,10 +1,10 @@
-#include <unistd.h>
+#include "zdtmtst.h"
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <sys/mount.h>
-#include "zdtmtst.h"
+#include <sys/stat.h>
+#include <unistd.h>
 
 const char *test_doc = "Check that empty cgroups are preserved";
 const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";

@@ -1,27 +1,27 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <errno.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "common/list.h"
-#include "imgset.h"
-#include "image.h"
-#include "servicefd.h"
 #include "cr_options.h"
-#include "util.h"
-#include "util-pie.h"
-#include "sockets.h"
-#include "xmalloc.h"
-#include "sk-queue.h"
 #include "files.h"
-#include "protobuf.h"
+#include "image.h"
 #include "images/sk-packet.pb-c.h"
+#include "imgset.h"
+#include "protobuf.h"
+#include "servicefd.h"
+#include "sk-queue.h"
+#include "sockets.h"
+#include "util-pie.h"
+#include "util.h"
+#include "xmalloc.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "skqueue: "

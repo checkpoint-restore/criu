@@ -1,24 +1,24 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
 #include <elf.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 
-#include "types.h"
+#include "common/compiler.h"
+#include "criu-log.h"
+#include "kerndat.h"
+#include "mem.h"
 #include "parasite-syscall.h"
 #include "parasite.h"
-#include "common/compiler.h"
-#include "kerndat.h"
-#include "vdso.h"
+#include "types.h"
 #include "util.h"
-#include "criu-log.h"
-#include "mem.h"
+#include "vdso.h"
 #include "vma.h"
 #include <compel/plugins/std/syscall.h>
 

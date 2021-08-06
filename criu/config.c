@@ -6,18 +6,18 @@
 #include <string.h>
 #include <sys/types.h>
 
-#include "log.h"
 #include "common/list.h"
+#include "log.h"
 
 #include "action-scripts.h"
-#include "cgroup.h"
 #include "cgroup-props.h"
+#include "cgroup.h"
 #include "common/bug.h"
 #include "cpu.h"
-#include "crtools.h"
 #include "cr_options.h"
-#include "filesystems.h"
+#include "crtools.h"
 #include "file-lock.h"
+#include "filesystems.h"
 #include "irmap.h"
 #include "mount.h"
 #include "namespaces.h"

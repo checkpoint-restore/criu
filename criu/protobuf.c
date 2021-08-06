@@ -1,23 +1,23 @@
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdlib.h>
 #include <arpa/inet.h>
 #include <ctype.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <google/protobuf-c/protobuf-c.h>
 
-#include "image.h"
-#include "servicefd.h"
-#include "common/compiler.h"
-#include "log.h"
-#include "rst-malloc.h"
-#include "string.h"
-#include "sockets.h"
-#include "cr_options.h"
 #include "bfd.h"
+#include "common/compiler.h"
+#include "cr_options.h"
+#include "image.h"
+#include "log.h"
 #include "protobuf.h"
+#include "rst-malloc.h"
+#include "servicefd.h"
+#include "sockets.h"
+#include "string.h"
 #include "util.h"
 
 #define image_name(img, buf) __image_name(img, buf, sizeof(buf))

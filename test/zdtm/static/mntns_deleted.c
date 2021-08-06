@@ -1,16 +1,16 @@
-#include <stdbool.h>
-#include <string.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
+#include <limits.h>
+#include <sched.h>
+#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <sched.h>
 #include <sys/wait.h>
-#include <stdlib.h>
-#include <limits.h>
 
 #include "zdtmtst.h"
 

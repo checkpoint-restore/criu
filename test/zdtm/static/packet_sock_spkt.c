@@ -1,12 +1,12 @@
 #include "zdtmtst.h"
 
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
 #include <arpa/inet.h>
-#include <linux/if_ether.h>
-#include <unistd.h>
 #include <fcntl.h>
+#include <linux/if_ether.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 const char *test_doc = "Check bound and not bound SOCK_PACKET sockets";
 const char *test_author = "Gleb Valin <the7winds@yandex.ru>";

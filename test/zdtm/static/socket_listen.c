@@ -19,13 +19,13 @@ const char *test_author = "Stanislav Kinsbursky <skinsbursky@openvz.org>";
  * read data and client write data after migration
  */
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <sys/wait.h>
 #include <netinet/tcp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 static int port = 8880;
 

@@ -1,8 +1,8 @@
 #ifndef __CR_PAGE_PIPE_H__
 #define __CR_PAGE_PIPE_H__
 
-#include <sys/uio.h>
 #include "common/list.h"
+#include <sys/uio.h>
 
 #define PAGE_ALLOC_COSTLY_ORDER 3 /* from the kernel source code */
 struct kernel_pipe_buffer {

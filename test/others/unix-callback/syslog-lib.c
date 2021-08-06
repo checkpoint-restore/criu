@@ -1,15 +1,15 @@
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "criu-plugin.h"
 #include "criu-log.h"
+#include "criu-plugin.h"
 
 extern cr_plugin_dump_unix_sk_t cr_plugin_dump_unix_sk;
 extern cr_plugin_restore_unix_sk_t cr_plugin_restore_unix_sk;

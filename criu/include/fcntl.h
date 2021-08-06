@@ -1,8 +1,8 @@
 #ifndef __CR_ASM_GENERIC_FCNTL_H__
 #define __CR_ASM_GENERIC_FCNTL_H__
 
-#include <sys/types.h>
 #include <fcntl.h>
+#include <sys/types.h>
 
 #ifndef F_SETOWN_EX
 #define F_SETOWN_EX 15

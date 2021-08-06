@@ -1,26 +1,26 @@
-#include <unistd.h>
+#include <fcntl.h>
+#include <sched.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
-#include <sys/wait.h>
 #include <sys/msg.h>
 #include <sys/sem.h>
 #include <sys/shm.h>
-#include <sched.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-#include "util.h"
 #include "cr_options.h"
 #include "imgset.h"
-#include "namespaces.h"
-#include "sysctl.h"
 #include "ipc_ns.h"
+#include "namespaces.h"
 #include "shmem.h"
+#include "sysctl.h"
+#include "util.h"
 
-#include "protobuf.h"
-#include "images/ipc-var.pb-c.h"
-#include "images/ipc-shm.pb-c.h"
-#include "images/ipc-sem.pb-c.h"
 #include "images/ipc-msg.pb-c.h"
+#include "images/ipc-sem.pb-c.h"
+#include "images/ipc-shm.pb-c.h"
+#include "images/ipc-var.pb-c.h"
+#include "protobuf.h"
 
 #if defined(__GLIBC__) && __GLIBC__ >= 2
 #define KEY __key

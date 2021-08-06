@@ -5,9 +5,9 @@
 
 #ifndef CR_NOGLIBC
 
-#include <string.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <string.h>
 
 #endif /* CR_NOGLIBC */
 

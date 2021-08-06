@@ -1,16 +1,16 @@
-#include <unistd.h>
 #include <limits.h>
+#include <unistd.h>
 
-#include <sys/types.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/inotify.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-#include <string.h>
-#include <stdio.h>
-#include <errno.h>
-#include <sys/inotify.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <stdlib.h>
 
 #include "zdtmtst.h"
 

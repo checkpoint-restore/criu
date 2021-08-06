@@ -2,20 +2,18 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/eventfd.h>
-#include <sys/ioctl.h>
-#include <sys/epoll.h>
-#include <sys/types.h>
 #include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <inttypes.h>
 
 #include "zdtmtst.h"
 

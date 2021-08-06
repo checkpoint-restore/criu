@@ -1,14 +1,14 @@
-#include <stdio.h>
-#include <linux/bpf.h>
 #include <bpf/bpf.h>
+#include <linux/bpf.h>
+#include <stdio.h>
 
-#include "common/compiler.h"
-#include "imgset.h"
 #include "bpfmap.h"
+#include "common/compiler.h"
 #include "fdinfo.h"
 #include "image.h"
-#include "util.h"
+#include "imgset.h"
 #include "log.h"
+#include "util.h"
 
 #include "protobuf.h"
 

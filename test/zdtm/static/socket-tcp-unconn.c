@@ -14,15 +14,15 @@
 const char *test_doc = "Check unconnected tcp sockets\n";
 const char *test_author = "Andrey Vagin <avagin@openvz.org";
 
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netinet/tcp.h>
+#include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <netinet/tcp.h>
-#include <arpa/inet.h>
 
 static int port = 8880;
 

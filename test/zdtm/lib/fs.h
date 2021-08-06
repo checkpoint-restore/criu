@@ -5,8 +5,8 @@
 #define _BSD_SOURCE
 #endif
 
-#include <sys/types.h>
 #include <sys/sysmacros.h>
+#include <sys/types.h>
 
 #include <limits.h>
 

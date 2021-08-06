@@ -4,8 +4,8 @@
 #include "files.h"
 #include "util.h"
 
-#include "images/regfile.pb-c.h"
 #include "images/ghost-file.pb-c.h"
+#include "images/regfile.pb-c.h"
 
 struct cr_imgset;
 struct fd_parms;

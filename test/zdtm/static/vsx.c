@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <sys/types.h>
@@ -19,8 +19,8 @@ int main(int argc, char *argv[])
 
 #else
 
-#include <sys/auxv.h>
 #include <asm/cputable.h>
+#include <sys/auxv.h>
 
 /*
  * This test verifies that data stored in the VSX registers are still there

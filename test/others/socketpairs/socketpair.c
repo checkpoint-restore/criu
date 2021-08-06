@@ -4,22 +4,22 @@
  * Extending inherit's logic to unix sockets created by socketpair(..) syscall.
 */
 
+#include <errno.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
-#include <unistd.h>
-#include <errno.h>
-#include <signal.h>
-#include <time.h>
 #include <string.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <sys/wait.h>
 #include <sys/prctl.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <time.h>
+#include <unistd.h>
 
 typedef void (*sighandler_t)(int);
 typedef unsigned long ulong;

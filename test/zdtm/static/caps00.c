@@ -1,8 +1,8 @@
 #include <errno.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/prctl.h>
 #include <linux/capability.h>
+#include <sys/prctl.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

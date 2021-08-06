@@ -1,15 +1,15 @@
 #include <errno.h>
-#include <unistd.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <sys/ioctl.h>
-#include <sys/syscall.h>
-#include <signal.h>
 #include <string.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 
@@ -59,8 +59,8 @@ const char *inot_dir = "./inotify.nodel";
 	(MASK == IN_IGNORED)	   ? "IN_IGNORED" :       \
 					   "UNKNOWN"
 
-#include <unistd.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 typedef struct {
 	int inot;

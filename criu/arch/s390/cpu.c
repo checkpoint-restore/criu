@@ -1,19 +1,19 @@
 #undef LOG_PREFIX
 #define LOG_PREFIX "cpu: "
 
-#include <sys/auxv.h>
 #include <errno.h>
+#include <sys/auxv.h>
 
 #include "asm/types.h"
 
+#include "cpu.h"
 #include "cr_options.h"
 #include "image.h"
-#include "util.h"
 #include "log.h"
-#include "cpu.h"
+#include "util.h"
 
-#include "protobuf.h"
 #include "images/cpuinfo.pb-c.h"
+#include "protobuf.h"
 
 static compel_cpuinfo_t rt_cpuinfo;
 

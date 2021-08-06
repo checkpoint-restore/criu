@@ -6,21 +6,20 @@
  *  ip rule del
  * in a loop
  */
-#include <asm/types.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+#include "zdtmtst.h"
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <linux/netlink.h>
-#include <string.h>
-#include <linux/rtnetlink.h>
-#include <stdlib.h>
+#include <asm/types.h>
 #include <errno.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 #include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include "zdtmtst.h"
 
 #undef DEBUG
 //#define DEBUG

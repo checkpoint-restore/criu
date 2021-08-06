@@ -1,10 +1,10 @@
 #ifndef UAPI_COMPEL_ASM_TYPES_H__
 #define UAPI_COMPEL_ASM_TYPES_H__
 
-#include <stdint.h>
-#include <signal.h>
-#include <sys/mman.h>
 #include <asm/ptrace.h>
+#include <signal.h>
+#include <stdint.h>
+#include <sys/mman.h>
 
 #define SIGMAX	   64
 #define SIGMAX_OLD 31

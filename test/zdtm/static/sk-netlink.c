@@ -1,8 +1,8 @@
-#include <unistd.h>
 #include <linux/netlink.h>
-#include <sys/socket.h>
 #include <linux/socket.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "zdtmtst.h"
 

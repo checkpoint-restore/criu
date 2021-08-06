@@ -1,11 +1,11 @@
+#include "asm/infect-types.h"
+#include "infect-priv.h"
+#include "infect.h"
+#include "log.h"
 #include <errno.h>
 #include <string.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
-#include "log.h"
-#include "asm/infect-types.h"
-#include "infect.h"
-#include "infect-priv.h"
 
 #ifndef PTRACE_GET_THREAD_AREA
 #define PTRACE_GET_THREAD_AREA 25

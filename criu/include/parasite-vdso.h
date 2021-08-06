@@ -2,8 +2,8 @@
 #define __CR_PARASITE_VDSO_H__
 
 #include "common/config.h"
-#include "util-vdso.h"
 #include "images/vma.pb-c.h"
+#include "util-vdso.h"
 
 struct parasite_ctl;
 struct vm_area_list;

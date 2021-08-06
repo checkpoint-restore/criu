@@ -14,15 +14,15 @@
 const char *test_doc = "Check, that a TCP listen socket can be dumped and restored\n";
 const char *test_author = "Andrey Vagin <avagin@parallels.com";
 
+#include <errno.h>
+#include <netinet/tcp.h>
+#include <sched.h>
+#include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <sched.h>
-#include <netinet/tcp.h>
 
 static int port = 8880;
 

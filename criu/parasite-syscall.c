@@ -1,47 +1,47 @@
-#include <unistd.h>
 #include <inttypes.h>
+#include <unistd.h>
 
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#include <sys/mman.h>
 
-#include "common/config.h"
 #include "common/compiler.h"
-#include "types.h"
-#include "protobuf.h"
+#include "common/config.h"
+#include "images/core.pb-c.h"
+#include "images/creds.pb-c.h"
+#include "images/pagemap.pb-c.h"
 #include "images/sa.pb-c.h"
 #include "images/timer.pb-c.h"
-#include "images/creds.pb-c.h"
-#include "images/core.pb-c.h"
-#include "images/pagemap.pb-c.h"
+#include "protobuf.h"
+#include "types.h"
 
+#include "aio.h"
+#include "criu-log.h"
+#include "crtools.h"
+#include "fault-injection.h"
 #include "imgset.h"
+#include "kerndat.h"
+#include "mem.h"
+#include "namespaces.h"
 #include "parasite-syscall.h"
 #include "parasite.h"
-#include "crtools.h"
-#include "namespaces.h"
-#include "kerndat.h"
-#include "pstree.h"
 #include "posix-timer.h"
-#include "mem.h"
-#include "criu-log.h"
-#include "vma.h"
 #include "proc_parse.h"
-#include "aio.h"
-#include "fault-injection.h"
-#include <compel/plugins/std/syscall-codes.h>
-#include "signal.h"
+#include "pstree.h"
 #include "sigframe.h"
+#include "signal.h"
+#include "vma.h"
+#include <compel/plugins/std/syscall-codes.h>
 
-#include <string.h>
-#include <stdlib.h>
 #include <elf.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "dump.h"
 #include "restorer.h"
 
-#include "infect.h"
 #include "infect-rpc.h"
+#include "infect.h"
 #include "pie/parasite-blob.h"
 
 unsigned long get_exec_start(struct vm_area_list *vmas)

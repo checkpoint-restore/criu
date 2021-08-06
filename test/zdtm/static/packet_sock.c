@@ -10,19 +10,19 @@ const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
  *  for _basic_ packet functionality only, but still.
  */
 
+#include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <linux/if_packet.h>
+#include <linux/version.h>
+#include <net/ethernet.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <linux/version.h>
-#include <linux/if_packet.h>
-#include <net/ethernet.h>
 
 #define SK_RESERVE 8
 #define DEF_FANOUT 13

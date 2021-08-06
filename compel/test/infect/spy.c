@@ -1,10 +1,10 @@
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
-#include <compel/log.h>
 #include <compel/infect-rpc.h>
+#include <compel/log.h>
 
 #include "parasite.h"
 

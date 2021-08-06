@@ -1,21 +1,21 @@
+#include "infect.h"
+#include "common/bug.h"
+#include "errno.h"
+#include "infect-priv.h"
+#include "log.h"
+#include "ptrace.h"
+#include "uapi/compel/asm/infect-types.h"
+#include <compel/plugins/std/syscall-codes.h>
+#include <elf.h>
+#include <errno.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/user.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <elf.h>
-#include <compel/plugins/std/syscall-codes.h>
-#include "uapi/compel/asm/infect-types.h"
-#include "errno.h"
-#include "log.h"
-#include "common/bug.h"
-#include "infect.h"
-#include "ptrace.h"
-#include "infect-priv.h"
 
 #define NT_PRFPREG	  2
 #define NT_S390_VXRS_LOW  0x309

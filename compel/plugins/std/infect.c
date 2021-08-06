@@ -1,9 +1,9 @@
 #include <compel/plugins/std.h>
 
-#include "common/scm.h"
 #include "common/compiler.h"
 #include "common/lock.h"
 #include "common/page.h"
+#include "common/scm.h"
 
 #define pr_err(fmt, ...)   print_on_level(1, fmt, ##__VA_ARGS__)
 #define pr_info(fmt, ...)  print_on_level(3, fmt, ##__VA_ARGS__)

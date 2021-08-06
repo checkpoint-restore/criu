@@ -1,20 +1,20 @@
-#include <unistd.h>
-#include <stdbool.h>
-#include <string.h>
-#include <stdio.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <sys/uio.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/uio.h>
+#include <unistd.h>
 
+#include "bfd.h"
+#include "common/bug.h"
+#include "common/list.h"
 #include "int.h"
 #include "log.h"
-#include "common/bug.h"
-#include "bfd.h"
-#include "common/list.h"
+#include "page.h"
 #include "util.h"
 #include "xmalloc.h"
-#include "page.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "bfd: "

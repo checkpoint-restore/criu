@@ -1,27 +1,27 @@
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <sys/auxv.h>
-#include <sys/mman.h>
-#include <sys/user.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <sys/auxv.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <sys/user.h>
 #include <time.h>
 
 #include <compel/asm/fpu.h>
 
 #include "asm/cpu.h"
 
+#include "asm/infect-types.h"
+#include "common/err.h"
+#include "errno.h"
+#include "infect-priv.h"
+#include "infect.h"
+#include "log.h"
+#include "ptrace.h"
 #include <compel/asm/processor-flags.h>
 #include <compel/cpu.h>
-#include "errno.h"
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/plugins/std/syscall.h>
-#include "common/err.h"
-#include "asm/infect-types.h"
-#include "ptrace.h"
-#include "infect.h"
-#include "infect-priv.h"
-#include "log.h"
 
 #ifndef NT_X86_XSTATE
 #define NT_X86_XSTATE 0x202 /* x86 extended state using xsave */

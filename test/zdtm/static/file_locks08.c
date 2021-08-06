@@ -1,8 +1,8 @@
-#include <sys/wait.h>
-#include <sys/file.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <sys/file.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "ofd_file_locks.h"
 #include "zdtmtst.h"

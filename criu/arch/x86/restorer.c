@@ -1,17 +1,17 @@
 #include <asm/prctl.h>
 #include <unistd.h>
 
-#include "types.h"
-#include "restorer.h"
 #include "asm/compat.h"
 #include "asm/restorer.h"
+#include "restorer.h"
+#include "types.h"
 #include <compel/asm/fpu.h>
 
-#include <compel/plugins/std/syscall-codes.h>
-#include <compel/plugins/std/string.h>
-#include <compel/plugins/std/syscall.h>
-#include "log.h"
 #include "cpu.h"
+#include "log.h"
+#include <compel/plugins/std/string.h>
+#include <compel/plugins/std/syscall-codes.h>
+#include <compel/plugins/std/syscall.h>
 
 int arch_map_vdso(unsigned long map_at, bool compatible)
 {

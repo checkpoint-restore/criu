@@ -1,37 +1,36 @@
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <errno.h>
-#include <signal.h>
-#include <sys/mman.h>
-#include <stdio.h>
 #include <fcntl.h>
 #include <linux/seccomp.h>
+#include <signal.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-#include "log.h"
 #include "common/bug.h"
-#include "common/xmalloc.h"
 #include "common/lock.h"
 #include "common/page.h"
+#include "common/xmalloc.h"
+#include "log.h"
 
-#include <compel/plugins/std/syscall-codes.h>
-#include <compel/plugins/std/asm/syscall-types.h>
-#include "uapi/compel/plugins/std/syscall.h"
 #include "asm/infect-types.h"
 #include "asm/sigframe.h"
+#include "infect-priv.h"
+#include "infect-rpc.h"
+#include "infect-util.h"
 #include "infect.h"
 #include "ptrace.h"
-#include "infect-rpc.h"
-#include "infect-priv.h"
-#include "infect-util.h"
 #include "rpc-pie-priv.h"
-#include "infect-util.h"
+#include "uapi/compel/plugins/std/syscall.h"
+#include <compel/plugins/std/asm/syscall-types.h>
+#include <compel/plugins/std/syscall-codes.h>
 
 #define __sys(foo)     foo
 #define __sys_err(ret) (-errno)
 
-#include "common/scm.h"
 #include "common/scm-code.c"
+#include "common/scm.h"
 
 #ifndef UNIX_PATH_MAX
 #define UNIX_PATH_MAX (sizeof(struct sockaddr_un) - (size_t)((struct sockaddr_un *)0)->sun_path)

@@ -1,23 +1,23 @@
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
+#include "autofs.h"
 #include "crtools.h"
-#include "imgset.h"
-#include "image.h"
 #include "files.h"
+#include "image.h"
+#include "imgset.h"
 #include "pipes.h"
 #include "util-pie.h"
-#include "autofs.h"
 
+#include "fcntl.h"
+#include "images/pipe-data.pb-c.h"
+#include "images/pipe.pb-c.h"
+#include "namespaces.h"
 #include "protobuf.h"
 #include "util.h"
-#include "images/pipe.pb-c.h"
-#include "images/pipe-data.pb-c.h"
-#include "fcntl.h"
-#include "namespaces.h"
 
 static LIST_HEAD(pipes);
 

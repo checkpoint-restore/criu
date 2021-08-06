@@ -1,10 +1,10 @@
 #ifndef __CR_OPTIONS_H__
 #define __CR_OPTIONS_H__
 
-#include <sys/types.h>
-#include <stdbool.h>
 #include "common/config.h"
 #include "common/list.h"
+#include <stdbool.h>
+#include <sys/types.h>
 
 /* Configuration and CLI parsing order defines */
 #define PARSING_GLOBAL_CONF  1

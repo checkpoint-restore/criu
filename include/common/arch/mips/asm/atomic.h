@@ -1,10 +1,10 @@
 #ifndef __CR_ATOMIC_H__
 #define __CR_ATOMIC_H__
 
-#include <linux/types.h>
-#include "common/compiler.h"
-#include "common/arch/mips/asm/utils.h"
 #include "common/arch/mips/asm/cmpxchg.h"
+#include "common/arch/mips/asm/utils.h"
+#include "common/compiler.h"
+#include <linux/types.h>
 
 /*
  * atomic_read - read atomic variable

@@ -4,13 +4,13 @@
 #define LOG_PREFIX "page-pipe: "
 
 #include "common/config.h"
-#include "page.h"
-#include "util.h"
-#include "criu-log.h"
-#include "page-pipe.h"
-#include "fcntl.h"
-#include "stats.h"
 #include "cr_options.h"
+#include "criu-log.h"
+#include "fcntl.h"
+#include "page-pipe.h"
+#include "page.h"
+#include "stats.h"
+#include "util.h"
 
 /* can existing iov accumulate the page? */
 static inline bool iov_grow_page(struct iovec *iov, unsigned long addr)

@@ -1,11 +1,11 @@
-#include <sys/syscall.h>
 #include <signal.h>
 #include <string.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
-#include "types.h"
 #include "parasite-syscall.h"
 #include "parasite.h"
+#include "types.h"
 #include "vdso.h"
 
 static void exit_on(int ret, int err_fd, char *reason)

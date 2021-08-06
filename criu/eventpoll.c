@@ -1,34 +1,34 @@
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <string.h>
 #include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/epoll.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/types.h>
-#include <sys/ioctl.h>
-#include <sys/epoll.h>
+#include <unistd.h>
 
-#include "types.h"
-#include "crtools.h"
 #include "common/compiler.h"
-#include "imgset.h"
-#include "rst_info.h"
+#include "crtools.h"
 #include "eventpoll.h"
 #include "fdinfo.h"
-#include "image.h"
-#include "util.h"
-#include "log.h"
-#include "pstree.h"
-#include "parasite.h"
-#include "kerndat.h"
 #include "file-ids.h"
+#include "image.h"
+#include "imgset.h"
 #include "kcmp-ids.h"
+#include "kerndat.h"
+#include "log.h"
+#include "parasite.h"
+#include "pstree.h"
+#include "rst_info.h"
+#include "types.h"
+#include "util.h"
 
-#include "protobuf.h"
 #include "images/eventpoll.pb-c.h"
+#include "protobuf.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "epoll: "

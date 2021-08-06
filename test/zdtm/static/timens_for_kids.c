@@ -1,10 +1,10 @@
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sched.h>
 #include <errno.h>
+#include <sched.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <time.h>
 
 #include "zdtmtst.h"

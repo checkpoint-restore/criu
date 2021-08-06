@@ -1,10 +1,10 @@
-#include <sys/socket.h>
-#include <arpa/inet.h> /* for srvaddr_in and inet_ntoa() */
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
 #include "../soccr.h"
+#include <arpa/inet.h> /* for srvaddr_in and inet_ntoa() */
 #include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #define pr_perror(fmt, ...) printf(fmt ": %m\n", ##__VA_ARGS__)
 

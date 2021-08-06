@@ -1,9 +1,9 @@
-#include <sys/types.h>
-#include <stdbool.h>
 #include <stdarg.h>
+#include <stdbool.h>
+#include <sys/types.h>
 
-#include <compel/plugins/std/syscall.h>
 #include <compel/plugins/std/string.h>
+#include <compel/plugins/std/syscall.h>
 
 #include "features.h"
 

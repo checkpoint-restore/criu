@@ -1,17 +1,17 @@
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <stdio.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <unistd.h>
 
-#include "common/scm.h"
 #include "common/lock.h"
-#include "servicefd.h"
+#include "common/scm.h"
 #include "fdstore.h"
-#include "xmalloc.h"
-#include "rst-malloc.h"
 #include "log.h"
+#include "rst-malloc.h"
+#include "servicefd.h"
+#include "xmalloc.h"
 
 static struct fdstore_desc {
 	int next_id;

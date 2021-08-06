@@ -4,21 +4,21 @@
 #include "types.h"
 #include <compel/asm/processor-flags.h>
 
-#include <compel/asm/infect-types.h>
+#include "asm/dump.h"
 #include "asm/restorer.h"
 #include "common/compiler.h"
-#include "asm/dump.h"
-#include <compel/ptrace.h>
-#include "protobuf.h"
+#include "compel/infect.h"
+#include "cpu.h"
+#include "elf.h"
 #include "images/core.pb-c.h"
 #include "images/creds.pb-c.h"
 #include "log.h"
-#include "util.h"
-#include "cpu.h"
-#include "elf.h"
 #include "parasite-syscall.h"
+#include "protobuf.h"
 #include "restorer.h"
-#include "compel/infect.h"
+#include "util.h"
+#include <compel/asm/infect-types.h>
+#include <compel/ptrace.h>
 
 #define assign_reg(dst, src, e) dst->e = (__typeof__(dst->e))((src)->ARM_##e)
 

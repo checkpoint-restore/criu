@@ -1,9 +1,9 @@
 #ifndef __CR_LSM_H__
 #define __CR_LSM_H__
 
-#include "images/inventory.pb-c.h"
 #include "images/creds.pb-c.h"
 #include "images/fdinfo.pb-c.h"
+#include "images/inventory.pb-c.h"
 
 #define AA_SECURITYFS_PATH "/sys/kernel/security/apparmor"
 

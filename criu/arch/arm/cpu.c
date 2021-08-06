@@ -1,8 +1,8 @@
 #undef LOG_PREFIX
 #define LOG_PREFIX "cpu: "
 
-#include <errno.h>
 #include "cpu.h"
+#include <errno.h>
 
 int cpu_init(void)
 {

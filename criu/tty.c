@@ -1,45 +1,45 @@
-#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <linux/major.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <string.h>
-#include <limits.h>
-#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/ioctl.h>
 #include <termios.h>
-#include <linux/major.h>
+#include <unistd.h>
 
-#include "types.h"
+#include "action-scripts.h"
 #include "common/compiler.h"
-#include "crtools.h"
-#include "files.h"
-#include "cr_options.h"
-#include "imgset.h"
-#include "servicefd.h"
-#include "rst-malloc.h"
-#include "log.h"
 #include "common/list.h"
-#include "util-pie.h"
-#include "proc_parse.h"
+#include "cr_options.h"
+#include "crtools.h"
+#include "external.h"
 #include "file-ids.h"
 #include "files-reg.h"
-#include "namespaces.h"
-#include "external.h"
-#include "action-scripts.h"
+#include "files.h"
+#include "imgset.h"
+#include "log.h"
 #include "mount.h"
+#include "namespaces.h"
+#include "proc_parse.h"
+#include "rst-malloc.h"
+#include "servicefd.h"
+#include "types.h"
+#include "util-pie.h"
 
+#include "images/tty.pb-c.h"
 #include "protobuf.h"
 #include "util.h"
-#include "images/tty.pb-c.h"
 
 #include "parasite-syscall.h"
 #include "parasite.h"
 
-#include "pstree.h"
 #include "fdstore.h"
+#include "pstree.h"
 #include "tty.h"
 
 /*

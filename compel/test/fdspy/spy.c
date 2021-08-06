@@ -1,13 +1,13 @@
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
-#include <compel/log.h>
 #include <compel/infect-rpc.h>
 #include <compel/infect-util.h>
+#include <compel/log.h>
 
 #include "parasite.h"
 
