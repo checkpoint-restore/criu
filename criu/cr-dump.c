@@ -1565,6 +1565,9 @@ static int cr_pre_dump_finish(int status)
 	}
 
 err:
+	if (unsuspend_lsm())
+		ret = -1;
+
 	if (disconnect_from_page_server())
 		ret = -1;
 
@@ -1640,6 +1643,9 @@ int cr_pre_dump_tasks(pid_t pid)
 		goto err;
 
 	if (collect_namespaces(false) < 0)
+		goto err;
+
+	if (collect_and_suspend_lsm() < 0)
 		goto err;
 
 	/* Errors handled later in detect_pid_reuse */
