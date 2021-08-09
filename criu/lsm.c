@@ -324,8 +324,10 @@ int collect_and_suspend_lsm(void)
 		break;
 	case LSMTYPE__SELINUX:
 		break;
+	case LSMTYPE__NO_LSM:
+		break;
 	default:
-		pr_warn("don't know how to suspend LSM %d\n", kdat.lsm);
+		pr_debug("don't know how to suspend LSM %d\n", kdat.lsm);
 	}
 
 	return 0;
