@@ -54,6 +54,12 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	/* Read one event to make sure glibc allocated SIGEV_THREAD's stack */
+	if (read(efd, &val, sizeof(val)) != sizeof(val)) {
+		pr_perror("read");
+		return 1;
+	}
+
 	test_daemon();
 	test_waitsig();
 
