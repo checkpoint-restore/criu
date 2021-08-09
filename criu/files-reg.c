@@ -1365,7 +1365,7 @@ static int get_build_id_32(Elf32_Ehdr *file_header, unsigned char **build_id, co
 	}
 
 	if (!note_header) {
-		pr_warn("Couldn't find the build-id note for file with fd %d\n", fd);
+		pr_debug("Couldn't find the build-id note for file with fd %d\n", fd);
 		return -1;
 	}
 
@@ -1455,7 +1455,7 @@ static int get_build_id_64(Elf64_Ehdr *file_header, unsigned char **build_id, co
 	}
 
 	if (!note_header) {
-		pr_warn("Couldn't find the build-id note for file with fd %d\n", fd);
+		pr_debug("Couldn't find the build-id note for file with fd %d\n", fd);
 		return -1;
 	}
 
