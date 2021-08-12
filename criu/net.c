@@ -3020,30 +3020,41 @@ static inline int nftables_lock_network_internal(void)
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 	struct nft_ctx *nft;
 	int ret = 0;
+	char table[32];
+	char buf[128];
+
+	if (nftables_get_table(table, sizeof(table)))
+		return -1;
 
 	nft = nft_ctx_new(NFT_CTX_DEFAULT);
 	if (!nft)
 		return -1;
 
-	if (NFT_RUN_CMD(nft, "add table inet CRIU"))
+	snprintf(buf, sizeof(buf), "create table %s", table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err2;
 
-	if (NFT_RUN_CMD(nft, "add chain inet CRIU output { type filter hook output priority 0; policy drop; }"))
+	snprintf(buf, sizeof(buf), "add chain %s output { type filter hook output priority 0; policy drop; }", table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
-	if (NFT_RUN_CMD(nft, "add rule inet CRIU output meta mark " __stringify(SOCCR_MARK) " accept"))
+	snprintf(buf, sizeof(buf), "add rule %s output meta mark " __stringify(SOCCR_MARK) " accept", table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
-	if (NFT_RUN_CMD(nft, "add chain inet CRIU input { type filter hook input priority 0; policy drop; }"))
+	snprintf(buf, sizeof(buf), "add chain %s input { type filter hook input priority 0; policy drop; }", table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
-	if (NFT_RUN_CMD(nft, "add rule inet CRIU input meta mark " __stringify(SOCCR_MARK) " accept"))
+	snprintf(buf, sizeof(buf), "add rule %s input meta mark " __stringify(SOCCR_MARK) " accept", table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
 	goto out;
 
 err1:
-	NFT_RUN_CMD(nft, "delete table inet CRIU");
+	snprintf(buf, sizeof(buf), "delete table %s", table);
+	NFT_RUN_CMD(nft, buf);
 err2:
 	ret = -1;
 	pr_err("Locking network failed using nftables\n");
@@ -3104,12 +3115,18 @@ static inline int nftables_network_unlock(void)
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 	int ret = 0;
 	struct nft_ctx *nft;
+	char table[32];
+	char buf[128];
+
+	if (nftables_get_table(table, sizeof(table)))
+		return -1;
 
 	nft = nft_ctx_new(NFT_CTX_DEFAULT);
 	if (!nft)
 		return -1;
 
-	if (NFT_RUN_CMD(nft, "delete table inet CRIU"))
+	snprintf(buf, sizeof(buf), "delete table %s", table);
+	if (NFT_RUN_CMD(nft, buf))
 		ret = -1;
 
 	nft_ctx_free(nft);

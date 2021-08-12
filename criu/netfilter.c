@@ -18,10 +18,11 @@
 #include "sockets.h"
 #include "sk-inet.h"
 #include "kerndat.h"
+#include "pstree.h"
 
 static char buf[512];
 
-#define NFTABLES_CONN_CMD "add element inet CRIU conns%c { %s . %d . %s . %d }"
+#define NFTABLES_CONN_CMD "add element %s conns%c { %s . %d . %s . %d }"
 
 /*
  * Need to configure simple netfilter rules for blocking connections
@@ -157,50 +158,71 @@ int nftables_init_connection_lock(void)
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 	struct nft_ctx *nft;
 	int ret = 0;
+	char table[32];
+
+	if (nftables_get_table(table, sizeof(table)))
+		return -1;
 
 	nft = nft_ctx_new(NFT_CTX_DEFAULT);
 	if (!nft)
 		return -1;
 
-	if (NFT_RUN_CMD(nft, "add table inet CRIU"))
+	snprintf(buf, sizeof(buf), "create table %s", table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err2;
 
-	if (NFT_RUN_CMD(nft, "add chain inet CRIU output { type filter hook output priority 0; }"))
+	snprintf(buf, sizeof(buf), "add chain %s output { type filter hook output priority 0; }", table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
-	if (NFT_RUN_CMD(nft, "add rule inet CRIU output meta mark " __stringify(SOCCR_MARK) " accept"))
+	snprintf(buf, sizeof(buf), "add rule %s output meta mark " __stringify(SOCCR_MARK) " accept", table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
-	if (NFT_RUN_CMD(nft, "add chain inet CRIU input { type filter hook input priority 0; }"))
+	snprintf(buf, sizeof(buf), "add chain %s input { type filter hook input priority 0; }", table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
-	if (NFT_RUN_CMD(nft, "add rule inet CRIU input meta mark " __stringify(SOCCR_MARK) " accept"))
+	snprintf(buf, sizeof(buf), "add rule %s input meta mark " __stringify(SOCCR_MARK) " accept", table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
 	/* IPv4 */
-	if (NFT_RUN_CMD(nft, "add set inet CRIU conns4 { type ipv4_addr . inet_service . ipv4_addr . inet_service ; }"))
+	snprintf(buf, sizeof(buf), "add set %s conns4 { type ipv4_addr . inet_service . ipv4_addr . inet_service; }",
+		 table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
-	if (NFT_RUN_CMD(nft, "add rule inet CRIU output ip saddr . tcp sport . ip daddr . tcp dport @conns4 drop"))
+	snprintf(buf, sizeof(buf), "add rule %s output ip saddr . tcp sport . ip daddr . tcp dport @conns4 drop",
+		 table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
-	if (NFT_RUN_CMD(nft, "add rule inet CRIU input ip saddr . tcp sport . ip daddr . tcp dport @conns4 drop"))
+	snprintf(buf, sizeof(buf), "add rule %s input ip saddr . tcp sport . ip daddr . tcp dport @conns4 drop", table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
 	/* IPv6 */
-	if (NFT_RUN_CMD(nft, "add set inet CRIU conns6 { type ipv6_addr . inet_service . ipv6_addr . inet_service ; }"))
+	snprintf(buf, sizeof(buf), "add set %s conns6 { type ipv6_addr . inet_service . ipv6_addr . inet_service; }",
+		 table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
-	if (NFT_RUN_CMD(nft, "add rule inet CRIU output ip6 saddr . tcp sport . ip6 daddr . tcp dport @conns6 drop"))
+	snprintf(buf, sizeof(buf), "add rule %s output ip6 saddr . tcp sport . ip6 daddr . tcp dport @conns6 drop",
+		 table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
-	if (NFT_RUN_CMD(nft, "add rule inet CRIU input ip6 saddr . tcp sport . ip6 daddr . tcp dport @conns6 drop"))
+	snprintf(buf, sizeof(buf), "add rule %s input ip6 saddr . tcp sport . ip6 daddr . tcp dport @conns6 drop",
+		 table);
+	if (NFT_RUN_CMD(nft, buf))
 		goto err1;
 
 	goto out;
 
 err1:
-	NFT_RUN_CMD(nft, "delete table inet CRIU");
+	snprintf(buf, sizeof(buf), "delete table %s", table);
+	NFT_RUN_CMD(nft, buf);
 	pr_err("Locking network failed using nftables\n");
 err2:
 	ret = -1;
@@ -219,6 +241,10 @@ static int nftables_lock_connection_raw(int family, u32 *src_addr, u16 src_port,
 	struct nft_ctx *nft;
 	int ret = 0;
 	char sip[INET_ADDR_LEN], dip[INET_ADDR_LEN];
+	char table[32];
+
+	if (nftables_get_table(table, sizeof(table)))
+		return -1;
 
 	if (family == AF_INET6 && ipv6_addr_mapped(dst_addr)) {
 		family = AF_INET;
@@ -240,7 +266,7 @@ static int nftables_lock_connection_raw(int family, u32 *src_addr, u16 src_port,
 	if (!nft)
 		return -1;
 
-	snprintf(buf, sizeof(buf), NFTABLES_CONN_CMD, family == AF_INET ? '4' : '6', dip, (int)dst_port, sip,
+	snprintf(buf, sizeof(buf), NFTABLES_CONN_CMD, table, family == AF_INET ? '4' : '6', dip, (int)dst_port, sip,
 		 (int)src_port);
 
 	pr_debug("\tRunning nftables [%s]\n", buf);
@@ -269,4 +295,13 @@ int nftables_lock_connection(struct inet_sk_desc *sk)
 	ret = nftables_lock_connection_raw(sk->sd.family, sk->dst_addr, sk->dst_port, sk->src_addr, sk->src_port);
 
 	return ret;
+}
+
+int nftables_get_table(char *table, int n)
+{
+	if (snprintf(table, n, "inet CRIU-%d", root_item->pid->real) < 0) {
+		pr_err("Cannot generate CRIU's nftables table name\n");
+		return -1;
+	}
+	return 0;
 }
