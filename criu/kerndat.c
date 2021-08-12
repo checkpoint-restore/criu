@@ -1160,18 +1160,18 @@ static int kerndat_has_nftables_concat(void)
 	if (!nft)
 		return -1;
 
-	if (NFT_RUN_CMD(nft, "add table inet CRIU")) {
+	if (NFT_RUN_CMD(nft, "create table inet CRIU-kerndat-test")) {
 		ret = -1;
 		goto nft_ctx_free_out;
 	}
 
-	if (NFT_RUN_CMD(nft, "add set inet CRIU conn { type ipv4_addr . inet_service ;}"))
+	if (NFT_RUN_CMD(nft, "add set inet CRIU-kerndat-test conn { type ipv4_addr . inet_service ;}"))
 		kdat.has_nftables_concat = false;
 	else
 		kdat.has_nftables_concat = true;
 
 	/* Clean up */
-	NFT_RUN_CMD(nft, "delete table inet CRIU");
+	NFT_RUN_CMD(nft, "delete table inet CRIU-kerndat-test");
 
 nft_ctx_free_out:
 	nft_ctx_free(nft);
