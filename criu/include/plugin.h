@@ -24,22 +24,22 @@ typedef struct {
 	struct list_head link[CR_PLUGIN_HOOK__MAX];
 } plugin_desc_t;
 
-#define run_plugins(__hook, ...)                                                                          \
-	({                                                                                                \
-		plugin_desc_t *this;                                                                      \
-		int __ret = -ENOTSUP;                                                                     \
-                                                                                                          \
-		list_for_each_entry(this, &cr_plugin_ctl.hook_chain[CR_PLUGIN_HOOK__##__hook],            \
-				    link[CR_PLUGIN_HOOK__##__hook]) {                                     \
-			pr_debug("plugin: `%s' hook %u -> %p\n", this->d->name, CR_PLUGIN_HOOK__##__hook, \
-				 this->d->hooks[CR_PLUGIN_HOOK__##__hook]);                               \
-			__ret = ((CR_PLUGIN_HOOK__##__hook##_t *)this->d                                  \
-					 ->hooks[CR_PLUGIN_HOOK__##__hook])(__VA_ARGS__);                 \
-			if (__ret == -ENOTSUP)                                                            \
-				continue;                                                                 \
-			break;                                                                            \
-		}                                                                                         \
-		__ret;                                                                                    \
+#define run_plugins(__hook, ...)                                                                            \
+	({                                                                                                  \
+		plugin_desc_t *this;                                                                        \
+		int __ret = -ENOTSUP;                                                                       \
+                                                                                                            \
+		list_for_each_entry(this, &cr_plugin_ctl.hook_chain[CR_PLUGIN_HOOK__##__hook],              \
+				    link[CR_PLUGIN_HOOK__##__hook]) {                                       \
+			pr_debug("plugin: `%s' hook %u -> %p\n", this->d->name, CR_PLUGIN_HOOK__##__hook,   \
+				 this->d->hooks[CR_PLUGIN_HOOK__##__hook]);                                 \
+			__ret = ((CR_PLUGIN_HOOK__##__hook##_t *)this->d->hooks[CR_PLUGIN_HOOK__##__hook])( \
+				__VA_ARGS__);                                                               \
+			if (__ret == -ENOTSUP)                                                              \
+				continue;                                                                   \
+			break;                                                                              \
+		}                                                                                           \
+		__ret;                                                                                      \
 	})
 
 #endif
