@@ -20,6 +20,7 @@ jobs:
         if [ ! -z "$STATUS" ]; then
           echo "FAIL: some files are not correctly formatted.";
           echo "$STATUS"
+          git diff
           echo "FAIL: please run 'make indent'";
           exit 1;
         fi
