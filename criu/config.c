@@ -548,8 +548,13 @@ static size_t parse_size(char *optarg)
 static int parse_join_ns(const char *ptr)
 {
 	char *aux, *ns_file, *extra_opts = NULL;
+	char *ns;
 
-	aux = strchr(ptr, ':');
+	ns = xstrdup(ptr);
+	if (ns == NULL)
+		return -1;
+
+	aux = strchr(ns, ':');
 	if (aux == NULL)
 		return -1;
 	*aux = '\0';
@@ -562,7 +567,7 @@ static int parse_join_ns(const char *ptr)
 	} else {
 		extra_opts = NULL;
 	}
-	if (join_ns_add(ptr, ns_file, extra_opts))
+	if (join_ns_add(ns, ns_file, extra_opts))
 		return -1;
 
 	return 0;
