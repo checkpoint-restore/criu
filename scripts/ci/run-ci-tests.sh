@@ -202,6 +202,9 @@ fi
 # shellcheck disable=SC2086
 ./test/zdtm.py run -a -p 2 --keep-going $ZDTM_OPTS
 
+# shellcheck disable=SC2086
+./test/zdtm.py run -a -p 2 --keep-going --criu-config $ZDTM_OPTS
+
 # Newer kernels are blocking access to userfaultfd:
 # uffd: Set unprivileged_userfaultfd sysctl knob to 1 if kernel faults must be handled without obtaining CAP_SYS_PTRACE capability
 if [ -e /proc/sys/vm/unprivileged_userfaultfd ]; then
