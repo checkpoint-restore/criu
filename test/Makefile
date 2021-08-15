@@ -5,6 +5,7 @@ export ZDTM_ARGS
 
 all:
 	$(MAKE) zdtm
+	$(MAKE) zdtm-config
 	$(MAKE) zdtm-pre-dump
 	$(MAKE) zdtm-snapshot
 	$(MAKE) zdtm-iter
@@ -22,6 +23,10 @@ other:
 zdtm:
 	./zdtm.py run -a --parallel 2
 .PHONY: zdtm
+
+zdtm-config:
+	./zdtm.py run -a --parallel 2 --criu-config
+.PHONY: zdtm-config
 
 zdtm-pre-dump:
 	./zdtm.py run --pre 2:1 -t zdtm/transition/fork -f uns
