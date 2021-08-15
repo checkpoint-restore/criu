@@ -32,6 +32,7 @@ from builtins import input, int, open, range, str, zip
 import yaml
 
 import pycriu as crpc
+from zdtm.criu_config import criu_config
 
 # File to store content of streamed images
 STREAMED_IMG_FILE_NAME = "img.criu"
@@ -1036,7 +1037,6 @@ class criu:
         self.__user = bool(opts['user'])
         self.__leave_stopped = bool(opts['stop'])
         self.__stream = bool(opts['stream'])
-        self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
         self.__show_stats = bool(opts['show_stats'])
         self.__lazy_pages_p = None
         self.__page_server_p = None
@@ -1046,6 +1046,13 @@ class criu:
         self.__criu_bin = opts['criu_bin']
         self.__crit_bin = opts['crit_bin']
         self.__pre_dump_mode = opts['pre_dump_mode']
+
+        if opts['rpc']:
+            self.__criu = criu_rpc
+        elif opts['criu_config']:
+            self.__criu = criu_config
+        else:
+            self.__criu = criu_cli
 
     def fini(self):
         if self.__lazy_migrate:
@@ -2024,8 +2031,8 @@ class Launcher:
 
         nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling',
               'stop', 'empty_ns', 'fault', 'keep_img', 'report', 'snaps',
-              'sat', 'script', 'rpc', 'lazy_pages', 'join_ns', 'dedup', 'sbs',
-              'freezecg', 'user', 'dry_run', 'noauto_dedup',
+              'sat', 'script', 'rpc', 'criu_config', 'lazy_pages', 'join_ns',
+              'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
               'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
               'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
@@ -2647,6 +2654,9 @@ def get_cli_args():
                     help="Run CRIU via RPC rather than CLI",
                     action='store_true')
 
+    rp.add_argument("--criu-config",
+                    help="Use config file to set CRIU options",
+                    action='store_true')
     rp.add_argument("--page-server",
                     help="Use page server dump",
                     action='store_true')
