@@ -32,8 +32,9 @@ TST_NOFILE	:=				\
 		socket_listen4v6		\
 		socket_udp			\
 		socket_udp-broadcast		\
-		socket_udp-corked		\
+		socket_udp_repair		\
 		socket6_udp			\
+		socket6_udp_repair		\
 		socket_udp_shutdown		\
 		sk-freebind			\
 		sk-freebind-false		\

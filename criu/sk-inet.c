@@ -39,9 +39,6 @@
 #undef LOG_PREFIX
 #define LOG_PREFIX "inet: "
 
-#define PB_ALEN_INET  1
-#define PB_ALEN_INET6 4
-
 static LIST_HEAD(inet_ports);
 
 struct inet_port {
@@ -132,22 +129,26 @@ static int can_dump_ipproto(unsigned int ino, int proto, int type)
 	return 1;
 }
 
-static int can_dump_inet_sk(const struct inet_sk_desc *sk)
+static int can_dump_inet_sk(const struct inet_sk_desc *sk, int lfd)
 {
+	int aux, ret;
+	socklen_t len;
+
 	BUG_ON((sk->sd.family != AF_INET) && (sk->sd.family != AF_INET6));
 
 	if (sk->type == SOCK_DGRAM) {
 		if (sk->wqlen != 0) {
-			if (sk->cork) {
-				pr_err("Can't dump corked dgram socket %x\n", sk->sd.ino);
-				return 0;
-			} else {
-				pr_warn("Write queue of the %x socket isn't empty\n", sk->sd.ino);
+			len = sizeof(aux);
+			ret = getsockopt(lfd, SOL_UDP, UDP_REPAIR, &aux, &len);
+			if (ret < 0 && errno == ENOPROTOOPT) {
+				if (sk->cork) {
+					pr_err("Can't dump corked dgram socket %x\n", sk->sd.ino);
+					return 0;
+				} else {
+					pr_warn("Write queue of the %x socket isn't empty\n", sk->sd.ino);
+				}
 			}
 		}
-
-		if (sk->rqlen)
-			pr_warn("Read queue is dropped for socket %x\n", sk->sd.ino);
 
 		return 1;
 	}
@@ -465,20 +466,13 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 		case IPPROTO_UDPLITE:
 			if (dump_opt(lfd, SOL_UDP, UDP_CORK, &aux))
 				return -1;
-			if (aux) {
+			if (aux)
 				sk->cork = true;
-				/*
-				 * FIXME: it is possible to dump a corked socket with
-				 * the empty send queue.
-				 */
-				pr_err("Can't dump corked dgram socket %x\n", sk->sd.ino);
-				goto err;
-			}
 			break;
 		}
 	}
 
-	if (!can_dump_inet_sk(sk))
+	if (!can_dump_inet_sk(sk, lfd))
 		goto err;
 
 	BUG_ON(sk->sd.already_dumped);
@@ -567,6 +561,7 @@ static int do_dump_one_inet_fd(int lfd, u32 id, const struct fd_parms *p, int fa
 		break;
 	case IPPROTO_UDP:
 	case IPPROTO_UDPLITE:
+		err = (type != SOCK_RAW) ? dump_one_udp(lfd, sk, family) : 0;
 		sk_encode_shutdown(&ie, sk->shutdown);
 		/* Fallthrough! */
 	default:
@@ -894,6 +889,16 @@ static int open_inet_sk(struct file_desc *d, int *new_fd)
 
 	if (ie->dst_port && inet_connect(sk, ii))
 		goto err;
+
+	if (ie->type != SOCK_RAW && (ie->proto == IPPROTO_UDP || ie->proto == IPPROTO_UDPLITE)) {
+		mutex_lock(&ii->port->reuseaddr_lock);
+		if (restore_one_udp(sk, ii)) {
+			mutex_unlock(&ii->port->reuseaddr_lock);
+			goto err;
+		}
+		mutex_unlock(&ii->port->reuseaddr_lock);
+	}
+
 done:
 	dec_users_and_wake(ii->port);
 

@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: MIT
+
+syntax = "proto2";
+
+import "opts.proto";
+
+message udp_packet_entry {
+	repeated uint32		addr		= 1 [(criu).ipadd = true];
+	required uint32		port		= 2;
+
+	optional uint32		flow_info	= 3;
+	optional uint32		scope_id	= 4;
+
+	required uint32		pkt_len		= 5; /* The length of a packet in queue */
+}
+
+message udp_queue_entry {
+	required uint32		inq_pkt		= 1; /* Number of not received packets */
+	required uint32		outq_pkt	= 2;
+	required bool		cork		= 3;
+}

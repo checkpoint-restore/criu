@@ -8,12 +8,20 @@
 #include "common/list.h"
 #include "images/sk-inet.pb-c.h"
 
+#define PB_ALEN_INET  1
+#define PB_ALEN_INET6 4
+
 #define INET_ADDR_LEN 48 /* max of INET_ADDRSTRLEN and INET6_ADDRSTRLEN */
+
 #ifndef TCP_REPAIR
 #define TCP_REPAIR	   19 /* TCP sock is under repair right now */
 #define TCP_REPAIR_QUEUE   20
 #define TCP_QUEUE_SEQ	   21
 #define TCP_REPAIR_OPTIONS 22
+#endif
+
+#ifndef UDP_REPAIR
+#define UDP_REPAIR 2
 #endif
 
 #ifndef IP_HDRINCL
@@ -85,6 +93,9 @@ extern void cpt_unlock_tcp_connections(void);
 
 extern int dump_one_tcp(int sk, struct inet_sk_desc *sd, SkOptsEntry *soe);
 extern int restore_one_tcp(int sk, struct inet_sk_info *si);
+
+extern int dump_one_udp(int fd, struct inet_sk_desc *sk, int family);
+extern int restore_one_udp(int fd, struct inet_sk_info *ii);
 
 #define SK_EST_PARAM	  "tcp-established"
 #define SK_INFLIGHT_PARAM "skip-in-flight"
