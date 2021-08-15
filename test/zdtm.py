@@ -560,7 +560,7 @@ class zdtm_test:
             opts += ["--root", self.__flavor.root]
         if test_flag(self.__desc, 'crlib'):
             opts += [
-                "-L",
+                "--libdir",
                 os.path.dirname(os.path.realpath(self.__name)) + '/lib'
             ]
         return opts
@@ -899,14 +899,14 @@ class criu_rpc:
     def __set_opts(criu, args, ctx):
         while len(args) != 0:
             arg = args.pop(0)
-            if "-v4" == arg:
+            if "--verbosity=4" == arg:
                 criu.opts.log_level = 4
-            elif "-o" == arg:
+            elif "--log-file" == arg:
                 criu.opts.log_file = args.pop(0)
-            elif "-D" == arg:
+            elif "--images-dir" == arg:
                 criu.opts.images_dir_fd = os.open(args.pop(0), os.O_DIRECTORY)
                 ctx['imgd'] = criu.opts.images_dir_fd
-            elif "-t" == arg:
+            elif "--tree" == arg:
                 criu.opts.pid = int(args.pop(0))
             elif "--pidfile" == arg:
                 ctx['pidf'] = args.pop(0)
@@ -1118,7 +1118,8 @@ class criu:
         if not log:
             log = action + ".log"
 
-        s_args = ["-o", log, "-D", self.__ddir(), "-v4"] + opts
+        s_args = ["--log-file", log, "--images-dir", self.__ddir(),
+                  "--verbosity=4"] + opts
 
         with open(os.path.join(self.__ddir(), action + '.cropt'), 'w') as f:
             f.write(' '.join(s_args) + '\n')
@@ -1316,7 +1317,7 @@ class criu:
         os.mkdir(self.__ddir())
         os.chmod(self.__ddir(), 0o777)
 
-        a_opts = ["-t", self.__test.getpid()]
+        a_opts = ["--tree", self.__test.getpid()]
         if self.__prev_dump_iter:
             a_opts += [
                 "--prev-images-dir",
@@ -1461,7 +1462,8 @@ class criu:
                 return False
 
         return criu_cli.run(
-            "check", ["--no-default-config", "-v0", "--feature", feature],
+            "check",
+            ["--no-default-config", "--verbosity=0", "--feature", feature],
             opts['criu_bin']) == 0
 
     @staticmethod
