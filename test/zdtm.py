@@ -1,5 +1,10 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, division, print_function, unicode_literals
+from __future__ import (
+    absolute_import,
+    division,
+    print_function,
+    unicode_literals
+)
 
 import argparse
 import atexit
@@ -14,6 +19,7 @@ import random
 import re
 import shutil
 import signal
+import socket
 import stat
 import string
 import struct
@@ -21,12 +27,11 @@ import subprocess
 import sys
 import tempfile
 import time
-import socket
-from builtins import (input, int, open, range, str, zip)
-
-import pycriu as crpc
+from builtins import input, int, open, range, str, zip
 
 import yaml
+
+import pycriu as crpc
 
 # File to store content of streamed images
 STREAMED_IMG_FILE_NAME = "img.criu"
@@ -1933,7 +1938,7 @@ class Launcher:
 
         if opts['report'] and (opts['keep_going'] or self.__total == 1):
             global TestSuite, TestCase
-            from junit_xml import TestSuite, TestCase
+            from junit_xml import TestCase, TestSuite
             now = datetime.datetime.now()
             att = 0
             reportname = os.path.join(report_dir, "criu-testreport.tap")
