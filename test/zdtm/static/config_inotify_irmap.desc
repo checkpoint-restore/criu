@@ -1,3 +1,0 @@
-(lambda confpath:
-{'flags': 'suid', 'opts': '--config %s' % (confpath)
-}) (os.path.abspath('./zdtm_test_config.conf'))
