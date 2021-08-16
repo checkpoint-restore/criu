@@ -86,8 +86,15 @@ static int verify_selinux_label(char *ctx)
 	 * A label should look like this:
 	 *
 	 *      unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
+	 *
+	 * or undefined lable which has no ':':
+	 *      "kernel"
 	 */
 	pos = (char *)ctx;
+
+	if (strstr(pos, ":") == NULL)
+		return 1;
+
 	for (i = 0; i < 3; i++) {
 		pos = strstr(pos, ":");
 		if (!pos)
@@ -108,8 +115,13 @@ static int selinux_get_label(pid_t pid, char **output)
 		return -1;
 	}
 
-	if (verify_selinux_label(ctx)) {
+	ret = verify_selinux_label(ctx);
+	if (ret < 0) {
 		pr_err("Invalid selinux context %s\n", (char *)ctx);
+		goto err;
+	} else if (ret > 0) {
+		pr_debug("Undefined selinux context %s\n", (char *)ctx);
+		ret = 0;
 		goto err;
 	}
 
