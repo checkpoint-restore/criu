@@ -1511,10 +1511,10 @@ err:
 static __maybe_unused int mount_cr_time_mount(struct ns_id *ns, unsigned int *s_dev, const char *source,
 					      const char *target, const char *type)
 {
-	int mnt_fd, ret, exit_code = 0;
+	int mnt_fd, cwd_fd, ret, exit_code = 0;
 	struct stat st;
 
-	ret = switch_ns(ns->ns_pid, &mnt_ns_desc, &mnt_fd);
+	ret = switch_mnt_ns(ns->ns_pid, &mnt_fd, &cwd_fd);
 	if (ret < 0) {
 		pr_err("Can't switch mnt_ns\n");
 		goto out;
@@ -1536,7 +1536,7 @@ static __maybe_unused int mount_cr_time_mount(struct ns_id *ns, unsigned int *s_
 	}
 
 restore_ns:
-	ret = restore_ns(mnt_fd, &mnt_ns_desc);
+	ret = restore_mnt_ns(mnt_fd, &cwd_fd);
 out:
 	return ret < 0 ? 0 : exit_code;
 }
