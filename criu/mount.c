@@ -1358,13 +1358,8 @@ int open_mountpoint(struct mount_info *pm)
 	 * In both cases we can't do the thing from criu's mount namespace, so
 	 * we need to switch to mount's mount namespace, and later switch back.
 	 */
-	cwd_fd = open(".", O_DIRECTORY);
-	if (cwd_fd < 0) {
-		pr_perror("Unable to open cwd");
-		return -1;
-	}
 
-	if (switch_ns(pm->nsid->ns_pid, &mnt_ns_desc, &ns_old) < 0)
+	if (switch_mnt_ns(pm->nsid->ns_pid, &ns_old, &cwd_fd) < 0)
 		goto err;
 
 	if (!mnt_is_overmounted(pm)) {
@@ -1406,28 +1401,17 @@ int open_mountpoint(struct mount_info *pm)
 		}
 	}
 
-	if (restore_ns(ns_old, &mnt_ns_desc)) {
+	if (restore_mnt_ns(ns_old, &cwd_fd)) {
 		ns_old = -1;
 		goto err;
 	}
-
-	if (fchdir(cwd_fd)) {
-		pr_perror("Unable to restore cwd");
-		close(cwd_fd);
-		close(fd);
-		return -1;
-	}
-	close(cwd_fd);
 
 	return __open_mountpoint(pm, fd);
 err:
 	if (ns_old >= 0)
 		/* coverity[check_return] */
-		restore_ns(ns_old, &mnt_ns_desc);
+		restore_mnt_ns(ns_old, &cwd_fd);
 	close_safe(&fd);
-	if (fchdir(cwd_fd))
-		pr_perror("Unable to restore cwd");
-	close(cwd_fd);
 	return -1;
 }
 
