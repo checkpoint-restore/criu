@@ -305,6 +305,25 @@ static int init_restorer_args(struct kfd_ioctl_criu_restorer_args *args, __u32 t
 	return 0;
 }
 
+static int pause_process(int fd, const bool enable)
+{
+	int ret = 0;
+	struct kfd_ioctl_criu_pause_args args = { 0 };
+
+	args.pause = enable ? 1 : 0;
+
+	ret = kmtIoctl(fd, AMDKFD_IOC_CRIU_PAUSE, &args);
+	if (ret) {
+		pr_perror("amdgpu_plugin: Failed to call pause ioctl");
+		goto exit;
+	}
+
+exit:
+	pr_info("Process %s %s (ret:%d)\n", enable ? "pause" : "unpause", ret ? "Failed" : "Ok", ret);
+
+	return ret;
+}
+
 static int dump_process(int fd, struct kfd_ioctl_criu_process_info_args *info_args, CriuKfd *e)
 {
 	struct kfd_criu_process_bucket *process_bucket;
@@ -671,6 +690,11 @@ int amdgpu_plugin_dump_file(int fd, int id)
 
 	pr_info("amdgpu_plugin: %s : %s() called for fd = %d\n", CR_PLUGIN_DESC.name, __func__, major(st.st_rdev));
 
+	/* Evict all queues */
+	ret = pause_process(fd, true);
+	if (ret)
+		goto exit;
+
 	if (kmtIoctl(fd, AMDKFD_IOC_CRIU_PROCESS_INFO, &info_args) == -1) {
 		pr_perror("amdgpu_plugin: Failed to call process info ioctl");
 		return -1;
@@ -736,6 +760,9 @@ int amdgpu_plugin_dump_file(int fd, int id)
 
 	xfree(buf);
 exit:
+	/* Restore all queues */
+	pause_process(fd, false);
+
 	free_e(e);
 	if (img_fd >= 0)
 		close(img_fd);
