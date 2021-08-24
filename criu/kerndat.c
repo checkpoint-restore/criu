@@ -1152,61 +1152,55 @@ close:
 	return ret;
 }
 
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+static int __has_nftables_concat(void *arg)
+{
+	bool *has = (bool *)arg;
+	struct nft_ctx *nft;
+	int ret = 1;
+
+	/*
+	 * Create a separate network namespace to avoid
+	 * collisions between two CRIU instances.
+	 */
+	if (unshare(CLONE_NEWNET)) {
+		pr_perror("Unable create a network namespace");
+		return 1;
+	}
+
+	nft = nft_ctx_new(NFT_CTX_DEFAULT);
+	if (!nft)
+		return 1;
+
+	if (NFT_RUN_CMD(nft, "create table inet CRIU")) {
+		pr_err("Can't create nftables table\n");
+		goto nft_ctx_free_out;
+	}
+
+	if (NFT_RUN_CMD(nft, "add set inet CRIU conn { type ipv4_addr . inet_service ;}"))
+		*has = false; /* kdat.has_nftables_concat = false */
+	else
+		*has = true; /* kdat.has_nftables_concat = true */
+
+	/* Clean up */
+	NFT_RUN_CMD(nft, "delete table inet CRIU");
+
+	ret = 0;
+nft_ctx_free_out:
+	nft_ctx_free(nft);
+	return ret;
+}
+#endif
+
 static int kerndat_has_nftables_concat(void)
 {
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
-	pid_t pid;
-	struct nft_ctx *nft;
-	int ret, status;
+	bool has;
 
-	pid = fork();
-	if (pid < 0) {
-		pr_perror("Can't fork");
-		return -1;
-	}
-
-	if (pid == 0) {
-		/*
-		 * Create a separate network namespace to avoid
-		 * collisions between two CRIU instances.
-		 */
-		if (unshare(CLONE_NEWNET)) {
-			pr_perror("Unable create a network namespace");
-			exit(-1);
-		}
-
-		nft = nft_ctx_new(NFT_CTX_DEFAULT);
-		if (!nft)
-			exit(-1);
-
-		if (NFT_RUN_CMD(nft, "create table inet CRIU")) {
-			ret = -1;
-			pr_err("Can't create nftables table\n");
-			goto nft_ctx_free_out;
-		}
-
-		if (NFT_RUN_CMD(nft, "add set inet CRIU conn { type ipv4_addr . inet_service ;}"))
-			ret = false; /* kdat.has_nftables_concat = false */
-		else
-			ret = true; /* kdat.has_nftables_concat = true */
-
-		/* Clean up */
-		NFT_RUN_CMD(nft, "delete table inet CRIU");
-
-	nft_ctx_free_out:
-		nft_ctx_free(nft);
-		exit(ret);
-	}
-
-	if (waitpid(pid, &status, 0) != pid) {
-		pr_perror("Unable to wait %d", pid);
-		return -1;
-	}
-
-	if (status < 0)
+	if (call_in_child_process(__has_nftables_concat, (void *)&has))
 		return -1;
 
-	kdat.has_nftables_concat = status;
+	kdat.has_nftables_concat = has;
 	return 0;
 #else
 	pr_warn("CRIU was built without libnftables support\n");
