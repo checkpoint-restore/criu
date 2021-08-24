@@ -1248,29 +1248,39 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd, int *prev
 	static struct ns_id *root = NULL, *ns;
 	int fd;
 
+	*prev_cwd_fd = open(".", O_RDONLY);
+	if (*prev_cwd_fd < 0) {
+		pr_perror("Can't open current dir");
+		return -1;
+	}
+
+	if (prev_root_fd && (root_ns_mask & CLONE_NEWNS)) {
+		*prev_root_fd = open("/", O_RDONLY);
+		if (*prev_root_fd < 0) {
+			pr_perror("Can't open current root");
+			goto err;
+		}
+	}
+
 	if (prev_mntns_fd && ui->name[0] && ui->ue->mnt_id >= 0) {
 		struct ns_id *mntns = lookup_nsid_by_mnt_id(ui->ue->mnt_id);
 		int ns_fd;
 
 		if (mntns == NULL) {
 			pr_err("Unable to find the %d mount\n", ui->ue->mnt_id);
-			return -1;
+			goto err;
 		}
 
 		ns_fd = fdstore_get(mntns->mnt.nsfd_id);
 		if (ns_fd < 0)
-			return -1;
+			goto err;
 
-		if (switch_ns_by_fd(ns_fd, &mnt_ns_desc, prev_mntns_fd))
-			return -1;
+		if (switch_ns_by_fd(ns_fd, &mnt_ns_desc, prev_mntns_fd)) {
+			close(ns_fd);
+			goto err;
+		}
 
 		close(ns_fd);
-	}
-
-	*prev_cwd_fd = open(".", O_RDONLY);
-	if (*prev_cwd_fd < 0) {
-		pr_perror("Can't open current dir");
-		return -1;
 	}
 
 	if (prev_root_fd && (root_ns_mask & CLONE_NEWNS)) {
@@ -1283,11 +1293,6 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd, int *prev
 		}
 		if (ns == NULL)
 			goto err;
-		*prev_root_fd = open("/", O_RDONLY);
-		if (*prev_root_fd < 0) {
-			pr_perror("Can't open current root");
-			goto err;
-		}
 
 		fd = fdstore_get(ns->mnt.root_fd_id);
 		if (fd < 0) {
