@@ -391,7 +391,7 @@ static int access_autofs_mount(struct mount_info *pm)
 	const char *mnt_path = pm->mountpoint + 1;
 	dev_t dev_id = pm->s_dev;
 	int new_pid_ns = -1, old_pid_ns = -1;
-	int old_mnt_ns;
+	int old_mnt_ns, old_cwd_fd;
 	int autofs_mnt;
 	int err = -1;
 	int pid, status;
@@ -409,7 +409,7 @@ static int access_autofs_mount(struct mount_info *pm)
 	if (old_pid_ns < 0)
 		goto close_new_pid_ns;
 
-	if (switch_ns(pm->nsid->ns_pid, &mnt_ns_desc, &old_mnt_ns)) {
+	if (switch_mnt_ns(pm->nsid->ns_pid, &old_mnt_ns, &old_cwd_fd)) {
 		pr_err("failed to switch to mount namespace\n");
 		goto close_old_pid_ns;
 	}
@@ -451,7 +451,7 @@ restore_pid_ns:
 	}
 	old_pid_ns = -1;
 restore_mnt_ns:
-	if (restore_ns(old_mnt_ns, &mnt_ns_desc)) {
+	if (restore_mnt_ns(old_mnt_ns, &old_cwd_fd)) {
 		pr_err("failed to restore mount namespace\n");
 		err = -1;
 	}
