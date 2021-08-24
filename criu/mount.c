@@ -3749,12 +3749,14 @@ int dump_mnt_namespaces(void)
 void clean_cr_time_mounts(void)
 {
 	struct mount_info *mi;
-	int mnt_fd, ret;
+	int ns_old, ret;
 
 	for (mi = mntinfo; mi; mi = mi->next) {
+		int cwd_fd;
+
 		if (mi->mnt_id != CRTIME_MNT_ID)
 			continue;
-		ret = switch_ns(mi->nsid->ns_pid, &mnt_ns_desc, &mnt_fd);
+		ret = switch_mnt_ns(mi->nsid->ns_pid, &ns_old, &cwd_fd);
 		if (ret) {
 			pr_err("Can't switch to pid's %u mnt_ns\n", mi->nsid->ns_pid);
 			continue;
@@ -3763,7 +3765,7 @@ void clean_cr_time_mounts(void)
 		if (umount(mi->mountpoint) < 0)
 			pr_perror("Can't umount forced mount %s", mi->mountpoint);
 
-		if (restore_ns(mnt_fd, &mnt_ns_desc)) {
+		if (restore_mnt_ns(ns_old, &cwd_fd)) {
 			pr_err("cleanup_forced_mounts exiting with wrong mnt_ns\n");
 			return;
 		}
