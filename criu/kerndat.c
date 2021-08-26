@@ -13,6 +13,7 @@
 #include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
 #include <sys/prctl.h>
 #include <sys/inotify.h>
+#include <sys/wait.h>
 
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 #include <nftables/libnftables.h>
@@ -1030,18 +1031,34 @@ static bool kerndat_has_clone3_set_tid(void)
 	 * will return E2BIG.
 	 * On a system with clone3() and set_tid it will return
 	 * EINVAL.
+	 * On Oracle UEK kernel we can get succesful clone3 here when set_tid
+	 * is not supported.
 	 */
 	pid = syscall(__NR_clone3, &args, sizeof(args));
-
-	if (pid == -1 && (errno == ENOSYS || errno == E2BIG)) {
-		kdat.has_clone3_set_tid = false;
-		return 0;
-	}
-	if (pid == -1 && errno == EINVAL) {
-		kdat.has_clone3_set_tid = true;
+	if (pid < 0) {
+		switch (errno) {
+		case ENOSYS:
+			/* No clone3() syscall */
+		case E2BIG:
+			/* No set_tid support in clone3() syscall */
+			kdat.has_clone3_set_tid = false;
+			break;
+		case EINVAL:
+			/* clone3() with set_tid supported */
+			kdat.has_clone3_set_tid = true;
+			break;
+		default:
+			pr_perror("Unexpected error from clone3");
+			return -1;
+		}
+	} else if (pid == 0) {
+		/* child */
+		exit(0);
 	} else {
-		pr_perror("Unexpected error from clone3");
-		return -1;
+		/* parent */
+		waitpid(pid, NULL, 0);
+		/* Oracle UEK: No set_tid support in clone3() syscall */
+		kdat.has_clone3_set_tid = true;
 	}
 
 	return 0;
