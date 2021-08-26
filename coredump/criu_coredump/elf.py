@@ -368,7 +368,7 @@ elf_fpregset_t = user_fpregs_struct
 # siginfo_t related constants.
 
 _SI_MAX_SIZE = 128
-_SI_PAD_SIZE = (_SI_MAX_SIZE / ctypes.sizeof(ctypes.c_int)) - 4
+_SI_PAD_SIZE = (_SI_MAX_SIZE // ctypes.sizeof(ctypes.c_int)) - 4
 
 
 #          /* kill().  */
