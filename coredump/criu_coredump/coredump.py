@@ -29,9 +29,14 @@
 #    4) VMAs contents;
 #
 import io
-import elf
+import sys
+from . import elf
 import ctypes
 from pycriu import images
+try:
+    from itertools import ifilter as filter
+except ImportError:
+    pass
 
 # Some memory-related constants
 PAGESIZE = 4096
@@ -88,7 +93,7 @@ class coredump:
         for note in self.notes:
             buf.write(note.nhdr)
             buf.write(note.owner)
-            buf.write("\0" * (8 - len(note.owner)))
+            buf.write(b"\0" * (8 - len(note.owner)))
             buf.write(note.data)
 
         offset = ctypes.sizeof(elf.Elf64_Ehdr())
@@ -136,7 +141,7 @@ class coredump_generator:
             path += "-" + str(pid)
         path += ".img"
 
-        with open(path) as f:
+        with open(path, 'rb') as f:
             img = images.load(f)
 
         if single:
@@ -177,7 +182,7 @@ class coredump_generator:
         for p in self.coredumps:
             if pid and p != pid:
                 continue
-            with open(coredumps_dir + "/" + "core." + str(p), 'w+') as f:
+            with open(coredumps_dir + "/" + "core." + str(p), 'wb+') as f:
                 self.coredumps[p].write(f)
 
     def _gen_coredump(self, pid):
@@ -295,7 +300,7 @@ class coredump_generator:
             prpsinfo.pr_state = 3
         # Don't even ask me why it is so, just borrowed from linux
         # source and made pr_state match.
-        prpsinfo.pr_sname = '.' if prpsinfo.pr_state > 5 else "RSDTZW" [
+        prpsinfo.pr_sname = b'.' if prpsinfo.pr_state > 5 else b"RSDTZW" [
             prpsinfo.pr_state]
         prpsinfo.pr_zomb = 1 if prpsinfo.pr_state == 4 else 0
         prpsinfo.pr_nice = core["thread_core"][
@@ -307,8 +312,12 @@ class coredump_generator:
         prpsinfo.pr_ppid = pstree["ppid"]
         prpsinfo.pr_pgrp = pstree["pgid"]
         prpsinfo.pr_sid = pstree["sid"]
-        prpsinfo.pr_fname = core["tc"]["comm"]
         prpsinfo.pr_psargs = self._gen_cmdline(pid)
+        if (sys.version_info > (3, 0)):
+            prpsinfo.pr_fname = core["tc"]["comm"].encode()
+        else:
+            prpsinfo.pr_fname = core["tc"]["comm"]
+
 
         nhdr = elf.Elf64_Nhdr()
         nhdr.n_namesz = 5
@@ -317,7 +326,7 @@ class coredump_generator:
 
         note = elf_note()
         note.data = prpsinfo
-        note.owner = "CORE"
+        note.owner = b"CORE"
         note.nhdr = nhdr
 
         return note
@@ -375,7 +384,7 @@ class coredump_generator:
 
         note = elf_note()
         note.data = prstatus
-        note.owner = "CORE"
+        note.owner = b"CORE"
         note.nhdr = nhdr
 
         return note
@@ -411,7 +420,7 @@ class coredump_generator:
 
         note = elf_note()
         note.data = fpregset
-        note.owner = "CORE"
+        note.owner = b"CORE"
         note.nhdr = nhdr
 
         return note
@@ -452,7 +461,7 @@ class coredump_generator:
 
         note = elf_note()
         note.data = data
-        note.owner = "LINUX"
+        note.owner = b"LINUX"
         note.nhdr = nhdr
 
         return note
@@ -472,7 +481,7 @@ class coredump_generator:
 
         note = elf_note()
         note.data = siginfo
-        note.owner = "CORE"
+        note.owner = b"CORE"
         note.nhdr = nhdr
 
         return note
@@ -482,7 +491,7 @@ class coredump_generator:
         Generate NT_AUXV note for thread tid of process pid.
         """
         mm = self.mms[pid]
-        num_auxv = len(mm["mm_saved_auxv"]) / 2
+        num_auxv = len(mm["mm_saved_auxv"]) // 2
 
         class elf_auxv(ctypes.Structure):
             _fields_ = [("auxv", elf.Elf64_auxv_t * num_auxv)]
@@ -499,7 +508,7 @@ class coredump_generator:
 
         note = elf_note()
         note.data = auxv
-        note.owner = "CORE"
+        note.owner = b"CORE"
         note.nhdr = nhdr
 
         return note
@@ -523,10 +532,10 @@ class coredump_generator:
                 continue
 
             shmid = vma["shmid"]
-            off = vma["pgoff"] / PAGESIZE
+            off = vma["pgoff"] // PAGESIZE
 
             files = self.reg_files
-            fname = filter(lambda x: x["id"] == shmid, files)[0]["name"]
+            fname = next(filter(lambda x: x["id"] == shmid, files))["name"]
 
             info = mmaped_file_info()
             info.start = vma["start"]
@@ -569,7 +578,10 @@ class coredump_generator:
             setattr(data, "start" + str(i), info.start)
             setattr(data, "end" + str(i), info.end)
             setattr(data, "file_ofs" + str(i), info.file_ofs)
-            setattr(data, "name" + str(i), info.name)
+            if (sys.version_info > (3, 0)):
+                setattr(data, "name" + str(i), info.name.encode())
+            else:
+                setattr(data, "name" + str(i), info.name)
 
         nhdr = elf.Elf64_Nhdr()
 
@@ -579,7 +591,7 @@ class coredump_generator:
 
         note = elf_note()
         note.nhdr = nhdr
-        note.owner = "CORE"
+        note.owner = b"CORE"
         note.data = data
 
         return note
@@ -644,7 +656,7 @@ class coredump_generator:
                 ppid = self.pstree[pid]["ppid"]
                 return self._get_page(ppid, page_no)
             else:
-                with open(self._imgs_dir + "/pages-%s.img" % pages_id) as f:
+                with open(self._imgs_dir + "/pages-%s.img" % pages_id, 'rb') as f:
                     f.seek(off * PAGESIZE)
                     return f.read(PAGESIZE)
 
@@ -657,16 +669,16 @@ class coredump_generator:
         f = None
 
         if size == 0:
-            return ""
+            return b""
 
         if vma["status"] & status["VMA_AREA_VVAR"]:
             #FIXME this is what gdb does, as vvar vma
             # is not readable from userspace?
-            return "\0" * size
+            return b"\0" * size
         elif vma["status"] & status["VMA_AREA_VSYSCALL"]:
             #FIXME need to dump it with criu or read from
             # current process.
-            return "\0" * size
+            return b"\0" * size
 
         if vma["status"] & status["VMA_FILE_SHARED"] or \
            vma["status"] & status["VMA_FILE_PRIVATE"]:
@@ -675,9 +687,9 @@ class coredump_generator:
             off = vma["pgoff"]
 
             files = self.reg_files
-            fname = filter(lambda x: x["id"] == shmid, files)[0]["name"]
+            fname = next(filter(lambda x: x["id"] == shmid, files))["name"]
 
-            f = open(fname)
+            f = open(fname, 'rb')
             f.seek(off)
 
         start = vma["start"]
@@ -699,10 +711,10 @@ class coredump_generator:
         # a file, and changed ones -- from pages.img.
         # Finally, if no page is found neither in pages.img nor
         # in file, hole in inserted -- a page filled with zeroes.
-        start_page = start / PAGESIZE
-        end_page = end / PAGESIZE
+        start_page = start // PAGESIZE
+        end_page = end // PAGESIZE
 
-        buf = ""
+        buf = b""
         for page_no in range(start_page, end_page + 1):
             page = None
 
@@ -720,7 +732,7 @@ class coredump_generator:
 
             if page is None:
                 # Hole
-                page = PAGESIZE * "\0"
+                page = PAGESIZE * b"\0"
 
             # If it is a start or end page, we need to read
             # only part of it.
@@ -762,7 +774,7 @@ class coredump_generator:
         chunk = self._gen_mem_chunk(pid, vma, size)
 
         # Replace all '\0's with spaces.
-        return chunk.replace('\0', ' ')
+        return chunk.replace(b'\0', b' ')
 
     def _get_vma_dump_size(self, vma):
         """
