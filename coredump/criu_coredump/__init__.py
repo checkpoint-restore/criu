@@ -1,2 +1,2 @@
-from coredump import *
-import elf
+from .coredump import *
+from . import elf
