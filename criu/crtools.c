@@ -484,12 +484,14 @@ usage:
 	       "  -d|--daemon           run in the background after creating socket\n"
 	       "  --status-fd FD        write \\0 to the FD and close it once process is ready\n"
 	       "                        to handle requests\n"
+#ifdef CONFIG_GNUTLS
 	       "  --tls-cacert FILE     trust certificates signed only by this CA\n"
 	       "  --tls-cacrl FILE      path to CA certificate revocation list file\n"
 	       "  --tls-cert FILE       path to TLS certificate file\n"
 	       "  --tls-key FILE        path to TLS private key file\n"
 	       "  --tls                 use TLS to secure remote connection\n"
 	       "  --tls-no-cn-verify    do not verify common name in server certificate\n"
+#endif
 	       "\n"
 	       "Configuration file options:\n"
 	       "  --config FILEPATH     pass a specific configuration file\n"
