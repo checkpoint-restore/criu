@@ -213,6 +213,8 @@ int main(int argc, char **argv)
 
 	if (pthread_create(&pthrd, NULL, thread_fn, NULL)) {
 		pr_perror("Can't create a thread");
+		pthread_mutex_unlock(&exit_lock);
+		pthread_mutex_unlock(&init_lock);
 		return 1;
 	}
 
@@ -223,24 +225,29 @@ int main(int argc, char **argv)
 
 	if (sigprocmask(SIG_BLOCK, &blockmask, NULL) == -1) {
 		pr_perror("sigprocmask");
+		pthread_mutex_unlock(&exit_lock);
 		return -1;
 	}
 
 	if (sigprocmask(SIG_BLOCK, NULL, &oldset) == -1) {
 		pr_perror("sigprocmask");
+		pthread_mutex_unlock(&exit_lock);
 		return -1;
 	}
 
 	child = fork();
 	if (child == -1) {
 		pr_perror("fork");
+		pthread_mutex_unlock(&exit_lock);
 		return -1;
 	}
 
 	if (child == 0)
+		pthread_mutex_unlock(&exit_lock);
 		return 5; /* SIGCHLD */
 	if (waitid(P_PID, child, &infop, WNOWAIT | WEXITED)) {
 		pr_perror("waitid");
+		pthread_mutex_unlock(&exit_lock);
 		return 1;
 	}
 
@@ -264,6 +271,7 @@ int main(int argc, char **argv)
 
 	if (sigaction(SIGCHLD, &act, NULL)) {
 		pr_perror("sigaction() failed");
+		pthread_mutex_unlock(&exit_lock);
 		return -1;
 	}
 
@@ -271,11 +279,13 @@ int main(int argc, char **argv)
 	sigaddset(&act.sa_mask, THREADSIG);
 	if (sigaction(TESTSIG, &act, NULL)) {
 		pr_perror("sigaction() failed");
+		pthread_mutex_unlock(&exit_lock);
 		return -1;
 	}
 
 	if (sigaction(THREADSIG, &act, NULL)) {
 		pr_perror("sigaction() failed");
+		pthread_mutex_unlock(&exit_lock);
 		return -1;
 	}
 
@@ -285,6 +295,7 @@ int main(int argc, char **argv)
 
 	if (sigprocmask(SIG_UNBLOCK, &blockmask, &newset) == -1) {
 		pr_perror("sigprocmask");
+		pthread_mutex_unlock(&exit_lock);
 		return -1;
 	}
 	pthread_mutex_unlock(&exit_lock);
