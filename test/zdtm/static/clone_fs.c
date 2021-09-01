@@ -76,6 +76,8 @@ int main(int argc, char **argv)
 
 	if (pthread_create(&th, NULL, thread_func, &tid)) {
 		fail("Can't pthread_create");
+		pthread_mutex_unlock(&init_lock);
+		pthread_mutex_unlock(&exit_lock);
 		return 1;
 	}
 
@@ -83,6 +85,7 @@ int main(int argc, char **argv)
 
 	ret = kcmp(KCMP_FS, gettid(), tid, 0, 0);
 	if (ret)
+		pthread_mutex_unlock(&exit_lock);
 		exit(1);
 
 	test_daemon();
@@ -91,6 +94,7 @@ int main(int argc, char **argv)
 	ret = kcmp(KCMP_FS, gettid(), tid, 0, 0);
 	if (ret) {
 		fail();
+		pthread_mutex_unlock(&exit_lock);
 		exit(1);
 	}
 
