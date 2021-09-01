@@ -145,11 +145,13 @@ int main(int argc, char **argv)
 
 		if (write(sk, &c, 1) != 1) {
 			pr_perror("write");
+			pthread_mutex_unlock(&getpid_wait);
 			_exit(1);
 		}
 
 		if (read(sk, &c, 1) != 1) {
 			pr_perror("read");
+			pthread_mutex_unlock(&getpid_wait);
 			_exit(1);
 		}
 
@@ -158,6 +160,7 @@ int main(int argc, char **argv)
 		 * inherited.
 		 */
 		if (filter_syscall(__NR_ptrace, SECCOMP_FILTER_FLAG_TSYNC) < 0)
+			pthread_mutex_unlock(&getpid_wait);
 			_exit(1);
 
 		pthread_mutex_unlock(&getpid_wait);
