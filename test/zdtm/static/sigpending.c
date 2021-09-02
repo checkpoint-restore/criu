@@ -242,9 +242,10 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	if (child == 0)
+	if (child == 0){
 		pthread_mutex_unlock(&exit_lock);
 		return 5; /* SIGCHLD */
+	}
 	if (waitid(P_PID, child, &infop, WNOWAIT | WEXITED)) {
 		pr_perror("waitid");
 		pthread_mutex_unlock(&exit_lock);
