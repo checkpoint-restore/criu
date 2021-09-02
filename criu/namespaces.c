@@ -282,6 +282,51 @@ int restore_ns(int rst, struct ns_desc *nd)
 	return ret;
 }
 
+int switch_mnt_ns(int pid, int *rst, int *cwd_fd)
+{
+	int ret;
+	int fd;
+
+	if (!cwd_fd)
+		return switch_ns(pid, &mnt_ns_desc, rst);
+
+	fd = open(".", O_PATH);
+	if (fd < 0) {
+		pr_perror("unable to open current directory");
+		return fd;
+	}
+
+	ret = switch_ns(pid, &mnt_ns_desc, rst);
+	if (ret < 0) {
+		close(fd);
+		return ret;
+	}
+
+	*cwd_fd = fd;
+	return 0;
+}
+
+int restore_mnt_ns(int rst, int *cwd_fd)
+{
+	int ret = -1;
+
+	ret = restore_ns(rst, &mnt_ns_desc);
+	if (ret < 0)
+		goto err_restore;
+
+	if (cwd_fd) {
+		ret = fchdir(*cwd_fd);
+		if (ret)
+			pr_perror("unable to restore current directory");
+	}
+
+err_restore:
+	if (cwd_fd)
+		close_safe(cwd_fd);
+
+	return ret;
+}
+
 struct ns_id *ns_ids = NULL;
 static unsigned int ns_next_id = 1;
 unsigned long root_ns_mask = 0;
