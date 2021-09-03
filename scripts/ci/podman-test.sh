@@ -11,6 +11,22 @@ make install
 
 criu --version
 
+# Install crun build dependencies
+scripts/ci/apt-install libyajl-dev libseccomp-dev libsystemd-dev
+
+# Install crun from source to test libcriu integration
+tmp_dir=$(mktemp -d -t ci-XXXXXXXXXX)
+pushd "${tmp_dir}"
+git clone --depth=1 https://github.com/containers/crun
+cd crun
+./autogen.sh && ./configure --prefix=/usr
+make -j"$(nproc)"
+make install
+popd
+rm -rf "${tmp_dir}"
+
+podman info
+
 # shellcheck disable=SC2016
 podman run --name cr -d docker.io/library/alpine /bin/sh -c 'i=0; while true; do echo $i; i=$(expr $i + 1); sleep 1; done'
 
