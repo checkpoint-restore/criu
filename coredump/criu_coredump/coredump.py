@@ -834,8 +834,6 @@ class coredump_generator:
 
         vmas = []
         for vma in mm["vmas"]:
-            size = self._get_vma_dump_size(vma)
-
             v = vma_class()
             v.filesz = self._get_vma_dump_size(vma)
             v.data = self._gen_mem_chunk(pid, vma, v.filesz)
