@@ -653,7 +653,7 @@ class coredump_generator:
             if not found:
                 continue
 
-            if "in_parent" in m and m["in_parent"] == True:
+            if "in_parent" in m and m["in_parent"]:
                 ppid = self.pstree[pid]["ppid"]
                 return self._get_page(ppid, page_no)
             else:
