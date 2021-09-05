@@ -10,7 +10,7 @@ def coredump(opts):
     for pid in cores:
         if opts['pid'] and pid != opts['pid']:
             continue
-        with open(os.path.realpath(opts['out'])+"/core."+str(pid), 'wb+') as f:
+        with open(os.path.realpath(opts['out']) + "/core." + str(pid), 'wb+') as f:
             cores[pid].write(f)
 
 
