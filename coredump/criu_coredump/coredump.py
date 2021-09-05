@@ -321,7 +321,6 @@ class coredump_generator:
         else:
             prpsinfo.pr_fname = core["tc"]["comm"]
 
-
         nhdr = elf.Elf64_Nhdr()
         nhdr.n_namesz = 5
         nhdr.n_descsz = ctypes.sizeof(elf.elf_prpsinfo())
