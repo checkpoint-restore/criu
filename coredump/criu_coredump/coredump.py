@@ -30,9 +30,12 @@
 #
 import io
 import sys
-from . import elf
 import ctypes
+
 from pycriu import images
+from . import elf
+
+
 try:
     from itertools import ifilter as filter
 except ImportError:
