@@ -781,19 +781,19 @@ class coredump_generator:
         """
         Calculate amount of vma to put into core dump.
         """
-        if vma["status"] & status["VMA_AREA_VVAR"] or \
-           vma["status"] & status["VMA_AREA_VSYSCALL"] or \
-           vma["status"] & status["VMA_AREA_VDSO"]:
+        if (vma["status"] & status["VMA_AREA_VVAR"] or
+                vma["status"] & status["VMA_AREA_VSYSCALL"] or
+                vma["status"] & status["VMA_AREA_VDSO"]):
             size = vma["end"] - vma["start"]
         elif vma["prot"] == 0:
             size = 0
-        elif vma["prot"] & prot["PROT_READ"] and \
-             vma["prot"] & prot["PROT_EXEC"]:
+        elif (vma["prot"] & prot["PROT_READ"] and
+              vma["prot"] & prot["PROT_EXEC"]):
             size = PAGESIZE
-        elif vma["status"] & status["VMA_ANON_SHARED"] or \
-             vma["status"] & status["VMA_FILE_SHARED"] or \
-             vma["status"] & status["VMA_ANON_PRIVATE"] or \
-             vma["status"] & status["VMA_FILE_PRIVATE"]:
+        elif (vma["status"] & status["VMA_ANON_SHARED"] or
+              vma["status"] & status["VMA_FILE_SHARED"] or
+              vma["status"] & status["VMA_ANON_PRIVATE"] or
+              vma["status"] & status["VMA_FILE_PRIVATE"]):
             size = vma["end"] - vma["start"]
         else:
             size = 0
