@@ -75,7 +75,7 @@ def get_pipe_rw(pid, fd):
 
 def check_pipe_y(pid, fd, rw, inos):
     ino = get_pipe_ino(pid, fd)
-    if ino == None:
+    if ino is None:
         return 'missing '
     if not inos.has_key(fd):
         inos[fd] = ino
@@ -89,7 +89,7 @@ def check_pipe_y(pid, fd, rw, inos):
 
 def check_pipe_n(pid, fd):
     ino = get_pipe_ino(pid, fd)
-    if ino == None:
+    if ino is None:
         return None
     else:
         return 'present '
@@ -102,7 +102,7 @@ def check_pipe_end(kids, fd, comb, rw, inos):
             res = check_pipe_y(t_pid, fd, rw, inos)
         else:
             res = check_pipe_n(t_pid, fd)
-        if res != None:
+        if res is not None:
             return res + 'kid(%d)' % t_nr
         t_nr += 1
     return None
@@ -111,7 +111,7 @@ def check_pipe_end(kids, fd, comb, rw, inos):
 def check_pipe(kids, fds, comb, inos):
     for e in (0, 1):  # 0 == R, 1 == W, see get_pipe_rw()
         res = check_pipe_end(kids, fds[e], comb[e], e, inos)
-        if res != None:
+        if res is not None:
             return res + 'end(%d)' % e
     return None
 
@@ -124,7 +124,7 @@ def check_pipes(kids, pipes, comb):
     p_inos = {}
     for p_fds in pipes:
         res = check_pipe(kids, p_fds, comb[p_nr], p_inos)
-        if res != None:
+        if res is not None:
             return res + 'pipe(%d)' % p_nr
         p_nr += 1
 
@@ -182,7 +182,7 @@ def make_comb(comb, opts, status_pipe):
         if v == '0':
             print('\tCheck pipes')
             res = check_pipes(kids, pipes, comb)
-            if res == None:
+            if res is None:
                 ex_code = 0
             else:
                 print('\tFAIL %s' % res)
