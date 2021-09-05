@@ -259,6 +259,9 @@ ip net add test
 # more crit testing
 make -C test/others/crit run
 
+# coredump testing
+make -C test/others/criu-coredump run
+
 # libcriu testing
 make -C test/others/libcriu run
 
