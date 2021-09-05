@@ -3,4 +3,4 @@
 import coredump
 
 if __name__ == '__main__':
-	coredump.main()
+    coredump.main()
