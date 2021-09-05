@@ -725,10 +725,10 @@ class coredump_generator:
             # and choose appropriate.
             page_mem = self._get_page(pid, page_no)
 
-            if f != None:
+            if f is not None:
                 page = f.read(PAGESIZE)
 
-            if page_mem != None:
+            if page_mem is not None:
                 # Page from pages.img has higher priority
                 # than one from maped file on disk.
                 page = page_mem
@@ -755,7 +755,7 @@ class coredump_generator:
             buf += page[n_skip:n_skip + n_read]
 
         # Don't forget to close file.
-        if f != None:
+        if f is not None:
             f.close()
 
         return buf
