@@ -417,11 +417,13 @@ lint:
 	flake8 --config=scripts/flake8.cfg test/others/rpc/config_file.py
 	flake8 --config=scripts/flake8.cfg lib/py/images/pb2dict.py
 	flake8 --config=scripts/flake8.cfg scripts/criu-ns
+	flake8 --config=scripts/flake8.cfg coredump/
 	shellcheck --version
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh scripts/ci/apt-install
 	shellcheck test/others/crit/*.sh
 	shellcheck test/others/libcriu/*.sh
+	shellcheck test/others/crit/*.sh test/others/criu-coredump/*.sh
 	shellcheck test/others/config-file/*.sh
 	# Do not append \n to pr_perror or fail
 	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>.*\\n"'
