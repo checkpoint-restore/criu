@@ -223,7 +223,7 @@ class coredump_generator:
         ehdr.e_phoff = ctypes.sizeof(elf.Elf64_Ehdr())
         ehdr.e_ehsize = ctypes.sizeof(elf.Elf64_Ehdr())
         ehdr.e_phentsize = ctypes.sizeof(elf.Elf64_Phdr())
-        #FIXME Case len(phdrs) > PN_XNUM should be handled properly.
+        # FIXME Case len(phdrs) > PN_XNUM should be handled properly.
         # See fs/binfmt_elf.c from linux kernel.
         ehdr.e_phnum = len(phdrs)
 
@@ -346,7 +346,7 @@ class coredump_generator:
 
         ctypes.memset(ctypes.addressof(prstatus), 0, ctypes.sizeof(prstatus))
 
-        #FIXME setting only some of the fields for now. Revisit later.
+        # FIXME setting only some of the fields for now. Revisit later.
         prstatus.pr_pid = tid
         prstatus.pr_ppid = pstree["ppid"]
         prstatus.pr_pgrp = pstree["pgid"]
@@ -414,7 +414,6 @@ class coredump_generator:
             *regs["st_space"])
         fpregset.xmm_space = (ctypes.c_uint * len(regs["xmm_space"]))(
             *regs["xmm_space"])
-        #fpregset.padding    = regs["padding"] unused
 
         nhdr = elf.Elf64_Nhdr()
         nhdr.n_namesz = 5
@@ -588,7 +587,7 @@ class coredump_generator:
 
         nhdr = elf.Elf64_Nhdr()
 
-        nhdr.n_namesz = 5  #XXX strlen + 1
+        nhdr.n_namesz = 5  # strlen + 1
         nhdr.n_descsz = ctypes.sizeof(elf_files())
         nhdr.n_type = elf.NT_FILE
 
@@ -675,11 +674,11 @@ class coredump_generator:
             return b""
 
         if vma["status"] & status["VMA_AREA_VVAR"]:
-            #FIXME this is what gdb does, as vvar vma
+            # FIXME this is what gdb does, as vvar vma
             # is not readable from userspace?
             return b"\0" * size
         elif vma["status"] & status["VMA_AREA_VSYSCALL"]:
-            #FIXME need to dump it with criu or read from
+            # FIXME need to dump it with criu or read from
             # current process.
             return b"\0" * size
 
