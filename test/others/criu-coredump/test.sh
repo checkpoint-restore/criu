@@ -1,4 +1,8 @@
-source ../env.sh
+#!/bin/bash
+
+set -x
+# shellcheck disable=SC1091
+source ../env.sh || exit 1
 
 function gen_imgs {
 	PID=$(../loop)
@@ -9,7 +13,7 @@ function gen_imgs {
 		exit 1
 	fi
 
-	images_list=$(ls -1 *.img)
+	images_list=$(ls -1 ./*.img)
 	if [ -z "$images_list" ]; then
 		echo "Failed to generate images"
 		exit 1
@@ -32,7 +36,7 @@ function run_test {
 	for x in $cores
 	do
 		echo "=== try readelf $x"
-		readelf -a $x || exit $?
+		readelf -a "$x" || exit $?
 		echo "=== done"
 	done
 
