@@ -304,7 +304,7 @@ class sock:
         for psk in st.sockets:
             if psk == self:
                 continue
-            if psk.peer != None and psk.peer != self.sk_id:
+            if psk.peer is not None and psk.peer != self.sk_id:
                 # Peer by someone else, can do nothing
                 continue
 
