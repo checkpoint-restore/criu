@@ -6,8 +6,9 @@
 struct bfd_buf;
 struct xbuf {
 	char *mem; /* buffer */
-	char *data; /* position we see bytes at */
-	unsigned int sz; /* bytes sitting after b->pos */
+	unsigned long size;
+	unsigned long write;
+	unsigned long read;
 	struct bfd_buf *buf;
 };
 

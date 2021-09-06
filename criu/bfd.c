@@ -1,3 +1,7 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <unistd.h>
 #include <stdbool.h>
 #include <string.h>
@@ -19,6 +23,9 @@
 #undef LOG_PREFIX
 #define LOG_PREFIX "bfd: "
 
+/* multiple files can have the same name without any side effects */
+#define RB_NAME "/tmp/rb_criu"
+
 /*
  * Kernel doesn't produce more than one page of
  * date per one read call on proc files.
@@ -34,17 +41,40 @@ static LIST_HEAD(bufs);
 
 #define BUFBATCH (16)
 
+/* lockless ring buufer releated */
+#define rb_read_address(rb) (rb->mem + rb->read)
+#define rb_write_address(rb) (rb->mem + rb->write)
+#define rb_useful_bytes(rb) ((rb->write - rb->read + rb->size) & (rb->size - 1))
+#define rb_free_bytes(rb) (rb->size - rb_useful_bytes(rb) - 1)
+
+/* rb->size should be exp of 2 */
+static inline void rb_write_advance(struct xbuf *rb, unsigned long counts)
+{
+	rb->write = (rb->write + counts) & (rb->size - 1);
+}
+
+static inline void rb_read_advance(struct xbuf *rb, unsigned long counts)
+{
+	rb->read = (rb->read + counts) & (rb->size - 1);
+}
+
 static int buf_get(struct xbuf *xb)
 {
 	struct bfd_buf *b;
 
 	if (list_empty(&bufs)) {
 		void *mem;
-		int i;
+		int i, memfd, ret;
 
-		mem = mmap(NULL, BUFBATCH * BUFSIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-		if (mem == MAP_FAILED) {
-			pr_perror("No buf");
+		memfd = memfd_create(RB_NAME, 0);
+		if (memfd == -1) {
+			pr_err("Create temp file from memory failed\n");
+			return -1;
+		}
+
+		ret = ftruncate(memfd, BUFBATCH * BUFSIZE);
+		if (ret == -1) {
+			pr_err("Ftruncate file failed\n");
 			return -1;
 		}
 
@@ -60,17 +90,38 @@ static int buf_get(struct xbuf *xb)
 				break;
 			}
 
-			b->mem = mem + i * BUFSIZE;
+			b->mem = mmap(NULL, BUFSIZE << 1, PROT_NONE,
+				MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+			if (b->mem == MAP_FAILED) {
+				pr_err("Mmap failed\n");
+				return -1;
+			}
+
+			mem = mmap(b->mem, BUFSIZE, PROT_READ | PROT_WRITE,
+				MAP_FIXED | MAP_SHARED, memfd, i * BUFSIZE);
+			if (mem != b->mem) {
+				pr_err("Mmap fixed failed\n");
+				return -1;
+			}
+
+			mem = mmap(b->mem + BUFSIZE, BUFSIZE, PROT_READ | PROT_WRITE,
+				MAP_FIXED | MAP_SHARED, memfd, i * BUFSIZE);
+			if (mem != b->mem + BUFSIZE) {
+				pr_err("Mmap fixed failed\n");
+				return -1;
+			}
+
 			list_add_tail(&b->l, &bufs);
 		}
+		close(memfd);
 	}
 
 	b = list_first_entry(&bufs, struct bfd_buf, l);
 	list_del_init(&b->l);
 
 	xb->mem = b->mem;
-	xb->data = xb->mem;
-	xb->sz = 0;
+	xb->read = xb->write = 0;
+	xb->size = BUFSIZE;
 	xb->buf = b;
 	return 0;
 }
@@ -84,7 +135,7 @@ static void buf_put(struct xbuf *xb)
 	list_add(&xb->buf->l, &bufs);
 	xb->buf = NULL;
 	xb->mem = NULL;
-	xb->data = NULL;
+	xb->size = 0;
 }
 
 static int bfdopen(struct bfd *f, bool writable)
@@ -139,22 +190,18 @@ void bclose(struct bfd *f)
 static int brefill(struct bfd *f)
 {
 	int ret;
-	struct xbuf *b = &f->b;
+	struct xbuf *rb = &f->b;
+	char *write_addr = rb_write_address(rb);
+	unsigned long free_size = rb_free_bytes(rb);
 
-	memmove(b->mem, b->data, b->sz);
-	b->data = b->mem;
-
-	ret = read_all(f->fd, b->mem + b->sz, BUFSIZE - b->sz);
+	ret = read_all(f->fd, write_addr, free_size);
 	if (ret < 0) {
 		pr_perror("Error reading file");
 		return -1;
 	}
 
-	if (ret == 0)
-		return 0;
-
-	b->sz += ret;
-	return 1;
+	rb_write_advance(rb, ret);
+	return ret;
 }
 
 static char *strnchr(char *str, unsigned int len, char c)
@@ -174,28 +221,29 @@ char *breadline(struct bfd *f)
 
 char *breadchr(struct bfd *f, char c)
 {
-	struct xbuf *b = &f->b;
+	struct xbuf *rb = &f->b;
 	bool refilled = false;
 	char *n;
 	unsigned int ss = 0;
+	unsigned long useful_size;
+	char *read_addr;
+
+	read_addr = rb_read_address(rb);
 
 again:
-	n = strnchr(b->data + ss, b->sz - ss, c);
+	useful_size = rb_useful_bytes(rb);
+	n = strnchr(read_addr + ss, useful_size - ss, c);
 	if (n) {
-		char *ret;
-
-		ret = b->data;
-		b->data = n + 1; /* skip the \n found */
 		*n = '\0';
-		b->sz -= (b->data - ret);
-		return ret;
+		rb_read_advance(rb, (n + 1 - read_addr));
+		return read_addr;
 	}
 
 	if (refilled) {
-		if (!b->sz)
+		if (!useful_size)
 			return NULL;
 
-		if (b->sz == BUFSIZE) {
+		if (useful_size == BUFSIZE) {
 			pr_err("The bfd buffer is too small\n");
 			return ERR_PTR(-EIO);
 		}
@@ -204,7 +252,7 @@ again:
 		 * end, need to report this as full
 		 * line anyway
 		 */
-		b->data[b->sz] = '\0';
+		read_addr[useful_size] = '\0';
 
 		/*
 		 * The b->data still points to old data,
@@ -212,8 +260,8 @@ again:
 		 * so next call to breadline will not
 		 * "find" these bytes again.
 		 */
-		b->sz = 0;
-		return b->data;
+		rb_read_advance(rb, useful_size);
+		return read_addr;
 	}
 
 	/*
@@ -221,7 +269,7 @@ again:
 	 * symbols already, no need to re-scan them after
 	 * the buffer refill.
 	 */
-	ss = b->sz;
+	ss = useful_size;
 
 	/* no full line in the buffer -- refill one */
 	if (brefill(f) < 0)
@@ -234,36 +282,39 @@ again:
 
 static int bflush(struct bfd *bfd)
 {
-	struct xbuf *b = &bfd->b;
+	struct xbuf *rb = &bfd->b;
+	unsigned long useful_size = rb_useful_bytes(rb);
+	char *read_addr = rb_read_address(rb);
 	int ret;
 
-	if (!b->sz)
+	if (!useful_size)
 		return 0;
 
-	ret = write_all(bfd->fd, b->data, b->sz);
-	if (ret != b->sz)
+	ret = write_all(bfd->fd, read_addr, useful_size);
+	if (ret != useful_size)
 		return -1;
 
-	b->sz = 0;
+	rb_read_advance(rb, useful_size);
 	return 0;
 }
 
 static int __bwrite(struct bfd *bfd, const void *buf, int size)
 {
-	struct xbuf *b = &bfd->b;
+	struct xbuf *rb = &bfd->b;
 
-	if (b->sz + size > BUFSIZE) {
+	if (size > rb_free_bytes(rb)) {
 		int ret;
 		ret = bflush(bfd);
 		if (ret < 0)
 			return ret;
 	}
 
-	if (size > BUFSIZE)
+	/* after flush, free bytes should be size - 1 */
+	if (size >= rb->size)
 		return write_all(bfd->fd, buf, size);
 
-	memcpy(b->data + b->sz, buf, size);
-	b->sz += size;
+	memcpy(rb_write_address(rb), buf, size);
+	rb_write_advance(rb, size);
 	return size;
 }
 
@@ -304,8 +355,10 @@ int bwritev(struct bfd *bfd, const struct iovec *iov, int cnt)
 
 int bread(struct bfd *bfd, void *buf, int size)
 {
-	struct xbuf *b = &bfd->b;
+	struct xbuf *rb = &bfd->b;
 	int more = 1, filled = 0;
+	char *read_addr = rb_read_address(rb);
+	unsigned long useful_bytes = rb_useful_bytes(rb);
 
 	if (!bfd_buffered(bfd))
 		return read_all(bfd->fd, buf, size);
@@ -314,13 +367,12 @@ int bread(struct bfd *bfd, void *buf, int size)
 		int chunk;
 
 		chunk = size - filled;
-		if (chunk > b->sz)
-			chunk = b->sz;
+		if (chunk > useful_bytes)
+			chunk = useful_bytes;
 
 		if (chunk) {
-			memcpy(buf + filled, b->data, chunk);
-			b->data += chunk;
-			b->sz -= chunk;
+			memcpy(buf + filled, read_addr, chunk);
+			rb_read_advance(rb, chunk);
 			filled += chunk;
 		}
 
@@ -330,6 +382,9 @@ int bread(struct bfd *bfd, void *buf, int size)
 			BUG_ON(filled > size);
 			more = 0;
 		}
+
+		read_addr = rb_read_address(rb);
+		useful_bytes = rb_useful_bytes(rb);
 	}
 
 	return more < 0 ? more : filled;
