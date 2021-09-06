@@ -3,28 +3,22 @@
 
 #include "common/err.h"
 
-struct bfd_buf;
-struct xbuf {
-	char *mem; /* buffer */
-	char *data; /* position we see bytes at */
-	unsigned int sz; /* bytes sitting after b->pos */
-	struct bfd_buf *buf;
-};
-
+struct iovec;
+struct rb_buffer;
 struct bfd {
-	int fd;
-	bool writable;
-	struct xbuf b;
+    int fd;
+    bool writable;
+    struct rb_buffer *rb_data;
 };
 
 static inline bool bfd_buffered(struct bfd *b)
 {
-	return b->b.mem != NULL;
+	return b->rb_data != NULL;
 }
 
 static inline void bfd_setraw(struct bfd *b)
 {
-	b->b.mem = NULL;
+	b->rb_data = NULL;
 }
 
 int bfdopenr(struct bfd *f);
