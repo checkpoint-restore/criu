@@ -1565,6 +1565,7 @@ static int dump_one_fs(struct mount_info *mi)
 		if (ret < 0)
 			return ret;
 
+		pm->dumped = true;
 		list_for_each_entry(t, &pm->mnt_bind, mnt_bind)
 			t->dumped = true;
 		return 0;
