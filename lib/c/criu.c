@@ -214,6 +214,18 @@ void criu_local_free_opts(criu_opts *opts)
 	}
 	opts->rpc->n_external = 0;
 
+	if (opts->rpc->join_ns) {
+		for (i = 0; i < opts->rpc->n_join_ns; i++) {
+			free(opts->rpc->join_ns[i]->ns);
+			free(opts->rpc->join_ns[i]->ns_file);
+			if (opts->rpc->join_ns[i]->extra_opt) {
+				free(opts->rpc->join_ns[i]->extra_opt);
+			}
+			free(opts->rpc->join_ns[i]);
+		}
+	}
+	opts->rpc->n_join_ns = 0;
+
 	if (opts->rpc->ps) {
 		free(opts->rpc->ps->address);
 		free(opts->rpc->ps);
@@ -1803,4 +1815,83 @@ int criu_local_set_network_lock(criu_opts *opts, enum criu_network_lock_method m
 int criu_set_network_lock(enum criu_network_lock_method method)
 {
 	return criu_local_set_network_lock(global_opts, method);
+}
+
+int criu_local_join_ns_add(criu_opts *opts, const char *ns, const char *ns_file, const char *extra_opt)
+{
+	int n_join_ns;
+	char *_ns = NULL, *_ns_file = NULL, *_extra_opt = NULL;
+	JoinNamespace **join_ns_arr, *join_ns = NULL;
+
+	if (!ns) {
+		fprintf(stderr, "ns parameter for join_ns is not specified");
+		goto err;
+	}
+
+	_ns = strdup(ns);
+	if (!_ns) {
+		perror("Can't allocate memory for ns");
+		goto err;
+	}
+
+	if (!ns_file) {
+		fprintf(stderr, "ns parameter for join_ns is not specified");
+		goto err;
+	}
+
+	_ns_file = strdup(ns_file);
+	if (!_ns_file) {
+		perror("Can't allocate memory for ns_file");
+		goto err;
+	}
+
+	if (extra_opt) {
+		_extra_opt = strdup(extra_opt);
+		if (!_extra_opt) {
+			perror("Can't allocate memory for extra_opt");
+			goto err;
+		}
+	}
+
+	join_ns = malloc(sizeof(JoinNamespace));
+	if (!join_ns) {
+		perror("Can't allocate memory for join_ns");
+		goto err;
+	}
+
+	n_join_ns = opts->rpc->n_join_ns + 1;
+	join_ns_arr = realloc(opts->rpc->join_ns, n_join_ns * sizeof(join_ns));
+	if (!join_ns_arr) {
+		perror("Can't allocate memory for join_ns_arr");
+		goto err;
+	}
+
+	join_namespace__init(join_ns);
+	join_ns->ns = _ns;
+	join_ns->ns_file = _ns_file;
+	if (_extra_opt) {
+		join_ns->extra_opt = _extra_opt;
+	}
+
+	join_ns_arr[n_join_ns - 1] = join_ns;
+	opts->rpc->join_ns = join_ns_arr;
+	opts->rpc->n_join_ns = n_join_ns;
+
+	return 0;
+
+err:
+	if (_ns)
+		free(_ns);
+	if (_ns_file)
+		free(_ns_file);
+	if (_extra_opt)
+		free(_extra_opt);
+	if (join_ns)
+		free(join_ns);
+	return -1;
+}
+
+int criu_join_ns_add(const char *ns, const char *ns_file, const char *extra_opt)
+{
+	return criu_local_join_ns_add(global_opts, ns, ns_file, extra_opt);
 }
