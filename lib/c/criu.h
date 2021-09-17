@@ -28,6 +28,13 @@
 extern "C" {
 #endif
 
+#define CRIU_LOG_UNSET (-1)
+#define CRIU_LOG_MSG   (0) /* Print message regardless of log level */
+#define CRIU_LOG_ERROR (1) /* Errors only */
+#define CRIU_LOG_WARN  (2) /* Warnings */
+#define CRIU_LOG_INFO  (3) /* Informative */
+#define CRIU_LOG_DEBUG (4) /* Debug only */
+
 enum criu_service_comm { CRIU_COMM_SK, CRIU_COMM_FD, CRIU_COMM_BIN };
 
 enum criu_cg_mode {
