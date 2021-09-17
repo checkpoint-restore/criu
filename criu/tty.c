@@ -1977,6 +1977,12 @@ static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 	pr_info("Dumping tty %d with id %#x\n", lfd, id);
 
 	driver = get_tty_driver(p->stat.st_rdev, p->stat.st_dev);
+	if (driver == NULL) {
+		pr_err("Unable to find a tty driver (rdev %#" PRIx64 " dev %#" PRIx64 ")\n", p->stat.st_rdev,
+		       p->stat.st_dev);
+		return -1;
+	}
+
 	if (driver->fd_get_index)
 		index = driver->fd_get_index(lfd, p);
 	else
