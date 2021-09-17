@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 	}
 
 	criu_set_images_dir_fd(fd);
-	criu_set_log_level(4);
+	criu_set_log_level(CRIU_LOG_DEBUG);
 
 	printf("--- Start child ---\n");
 	pid = fork();
