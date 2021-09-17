@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 	criu_set_service_binary(argv[1]);
 	criu_set_pid(pid);
 	criu_set_log_file("dump.log");
-	criu_set_log_level(4);
+	criu_set_log_level(CRIU_LOG_DEBUG);
 	criu_set_notify_cb(notify);
 	fd = open(argv[2], O_DIRECTORY);
 	criu_set_images_dir_fd(fd);
