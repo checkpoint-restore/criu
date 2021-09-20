@@ -1,10 +1,11 @@
 include ../../../../criu/Makefile.versions
 
-TESTS += test_sub 
+TESTS += test_sub
 TESTS += test_self
 TESTS += test_notify
 TESTS += test_iters
 TESTS += test_errno
+TESTS += test_join_ns
 
 all: $(TESTS)
 .PHONY: all
