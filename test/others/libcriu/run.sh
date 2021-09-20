@@ -53,6 +53,7 @@ if [ "$(uname -m)" == "x86_64" ]; then
 	run_test test_iters
 fi
 run_test test_errno
+run_test test_join_ns
 
 echo "== Tests done"
 make libcriu_clean
