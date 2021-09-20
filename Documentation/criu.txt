@@ -242,6 +242,12 @@ In other words, do not use it unless really needed.
     Tell *criu* that one end of a pair of UNIX sockets (created by
     *socketpair*(2)) with the given _id_ is OK to be disconnected.
 
+*--external* **net[**__inode__**]:**__name__::
+    Mark a network namespace as external and do not include it in the
+    checkpoint. The label 'name' can be used with *--inherit-fd* during
+    restore to specify a file descriptor to a preconfigured network
+    namespace.
+
 *--external* **pid[**__inode__**]:**__name__::
     Mark a PID namespace as external. This can be later used to restore
     a process into an existing PID namespace. The label 'name' can be
