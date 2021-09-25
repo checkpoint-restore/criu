@@ -1,45 +1,51 @@
 #!/bin/bash
 
 set -x
-source ../env.sh || exit 1
+
+MAIN_DIR=$(dirname "$0")
+OUTPUT_DIR="${MAIN_DIR}/output"
+TEST_DIR="${OUTPUT_DIR}/$1"
+TEST_LOG="${TEST_DIR}/test.log"
+DUMP_LOG="${TEST_DIR}/dump.log"
+RESTORE_LOG="${TEST_DIR}/restore.log"
+
+source "${MAIN_DIR}/../env.sh" || exit 1
 
 echo "== Clean"
 make clean
 make libcriu
-rm -rf wdir
 
-echo "== Prepare"
-mkdir -p wdir/i/
+rm -rf "${OUTPUT_DIR}"
 
 echo "== Run tests"
 export LD_LIBRARY_PATH=.
-export PATH="`dirname ${BASH_SOURCE[0]}`/../../../criu:$PATH"
+export PATH="${MAIN_DIR}/../../../criu:${PATH}"
 
 RESULT=0
 
-function run_test {
+run_test() {
 	echo "== Build $1"
-	if ! make $1; then
+	if ! make "$1"; then
 		echo "FAIL build $1"
-		echo "** Output of $1/test.log"
-		cat wdir/i/$1/test.log
-		echo "---------------"
-		if [ -f wdir/i/$1/dump.log ]; then
-			echo "** Contents of dump.log"
-			cat wdir/i/$1/dump.log
-			echo "---------------"
-		fi
-		if [ -f wdir/i/$1/restore.log ]; then
-			echo "** Contents of restore.log"
-			cat wdir/i/$1/restore.log
-			echo "---------------"
-		fi
 		RESULT=1;
 	else
 		echo "== Test $1"
-		mkdir wdir/i/$1/
-		if ! setsid ./$1 ${CRIU} wdir/i/$1/ < /dev/null &>> wdir/i/$1/test.log; then
+		mkdir -p "${TEST_DIR}"
+		if ! setsid ./"$1" "${CRIU}" "${TEST_DIR}" < /dev/null &>> "${TEST_LOG}"; then
 			echo "$1: FAIL"
+			echo "** Output of ${TEST_LOG}"
+			cat "${TEST_LOG}"
+			echo "---------------"
+			if [ -f "${DUMP_LOG}" ]; then
+				echo "** Contents of dump.log"
+				cat "${DUMP_LOG}"
+				echo "---------------"
+			fi
+			if [ -f "${RESTORE_LOG}" ]; then
+				echo "** Contents of restore.log"
+				cat "${RESTORE_LOG}"
+				echo "---------------"
+			fi
 			RESULT=1
 		fi
 	fi
@@ -48,7 +54,7 @@ function run_test {
 run_test test_sub
 run_test test_self
 run_test test_notify
-if [ "$(uname -m)" == "x86_64" ]; then
+if [ "$(uname -m)" = "x86_64" ]; then
 	# Skip this on aarch64 as aarch64 has no dirty page tracking
 	run_test test_iters
 fi
@@ -57,5 +63,5 @@ run_test test_join_ns
 
 echo "== Tests done"
 make libcriu_clean
-[ $RESULT -eq 0 ] && echo "Success" || echo "FAIL"
-exit $RESULT
+[ "${RESULT}" -eq 0 ] && echo "Success" || echo "FAIL"
+exit "${RESULT}"

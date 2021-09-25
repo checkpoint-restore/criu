@@ -4,5 +4,5 @@ test_notify
 test_self
 test_sub
 test_join_ns
-wdir
+output/
 libcriu.so.*
