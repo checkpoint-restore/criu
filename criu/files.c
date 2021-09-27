@@ -183,6 +183,18 @@ out:
 	return fd;
 }
 
+int find_unused_fd_pid(pid_t pid)
+{
+	struct pstree_item *task;
+
+	task = pstree_item_by_virt(pid);
+	if (!task) {
+		pr_err("Invalid pid:%d\n", pid);
+		return -1;
+	}
+	return find_unused_fd(task, -1);
+}
+
 int set_fds_event(pid_t virt)
 {
 	struct pstree_item *item;
