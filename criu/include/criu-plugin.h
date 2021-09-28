@@ -69,8 +69,8 @@ DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_EXT_MOUNT, char *mountpoint, int i
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESTORE_EXT_MOUNT, int id, char *mountpoint, char *old_root, int *is_file);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__DUMP_EXT_LINK, int index, int type, char *kind);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__HANDLE_DEVICE_VMA, int fd, const struct stat *stat);
-DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__UPDATE_VMA_MAP, const char *old_path, char *new_path, const uint64_t addr,
-			 const uint64_t old_pgoff, uint64_t *new_pgoff);
+DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__UPDATE_VMA_MAP, const char *path, const uint64_t addr,
+			 const uint64_t old_pgoff, uint64_t *new_pgoff, int *plugin_fd);
 DECLARE_PLUGIN_HOOK_ARGS(CR_PLUGIN_HOOK__RESUME_DEVICES_LATE, int pid);
 
 enum {
@@ -143,8 +143,8 @@ typedef int(cr_plugin_dump_ext_mount_t)(char *mountpoint, int id);
 typedef int(cr_plugin_restore_ext_mount_t)(int id, char *mountpoint, char *old_root, int *is_file);
 typedef int(cr_plugin_dump_ext_link_t)(int index, int type, char *kind);
 typedef int(cr_plugin_handle_device_vma_t)(int fd, const struct stat *stat);
-typedef int(cr_plugin_update_vma_map_t)(const char *old_path, char *new_path, const uint64_t addr,
-					const uint64_t old_pgoff, uint64_t *new_pgoff);
+typedef int(cr_plugin_update_vma_map_t)(const char *path, const uint64_t addr, const uint64_t old_pgoff,
+					uint64_t *new_pgoff, int *plugin_fd);
 typedef int(cr_plugin_resume_devices_late_t)(int pid);
 
 #endif /* __CRIU_PLUGIN_H__ */
