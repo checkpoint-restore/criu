@@ -2257,6 +2257,7 @@ static int open_filemap(int pid, struct vma_area *vma)
 {
 	u32 flags;
 	int ret;
+	int plugin_fd = -1;
 
 	/*
 	 * The vma->fd should have been assigned in collect_filemap
@@ -2270,25 +2271,34 @@ static int open_filemap(int pid, struct vma_area *vma)
 	/* update the new device file page offsets and file paths set during restore */
 	if (vma->e->status & VMA_UNSUPP) {
 		uint64_t new_pgoff;
-		char new_path[PATH_MAX];
 		int ret;
 
 		struct reg_file_info *rfi = container_of(vma->vmfd, struct reg_file_info, d);
-		ret = run_plugins(UPDATE_VMA_MAP, rfi->rfe->name, new_path, vma->e->start, vma->e->pgoff, &new_pgoff);
+		ret = run_plugins(UPDATE_VMA_MAP, rfi->rfe->name, vma->e->start, vma->e->pgoff, &new_pgoff, &plugin_fd);
 		if (ret == 1) {
-			pr_info("New mmap %#016" PRIx64 "->%#016" PRIx64 " path %s\n", vma->e->pgoff, new_pgoff,
-				new_path);
+			pr_info("New mmap %#016" PRIx64 ":%#016" PRIx64 "->%#016" PRIx64 " fd %d\n", vma->e->start,
+				vma->e->pgoff, new_pgoff, plugin_fd);
 			vma->e->pgoff = new_pgoff;
-			rfi->path = xstrdup(new_path);
-			pr_debug("Updated rfi->path %s\n", rfi->path);
 		}
+		/* Device plugin will restore vma contents, so no need for write permission */
+		vma->e->status |= VMA_NO_PROT_WRITE;
 	}
 
 	if (ctx.flags != flags || ctx.desc != vma->vmfd) {
-		if (vma->e->status & VMA_AREA_MEMFD)
+		if (plugin_fd >= 0) {
+			/*
+			 * Vma handled by device plugin.
+			 * Some device drivers (e.g DRM) only allow the file descriptor that was used to create vma to
+			 * be used when calling mmap. In this case, use the FD returned by plugin. FD can be copied
+			 * using dup because dup returns a reference to the same struct file inside kernel, but we
+			 * cannot open a new FD.
+			 */
+			ret = dup(plugin_fd);
+		} else if (vma->e->status & VMA_AREA_MEMFD) {
 			ret = memfd_open(vma->vmfd, &flags);
-		else
+		} else {
 			ret = open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
+		}
 		if (ret < 0)
 			return ret;
 
