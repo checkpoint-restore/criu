@@ -9,6 +9,7 @@ TEST_LOG="${TEST_DIR}/test.log"
 DUMP_LOG="${TEST_DIR}/dump.log"
 RESTORE_LOG="${TEST_DIR}/restore.log"
 
+# shellcheck disable=1091
 source "${MAIN_DIR}/../env.sh" || exit 1
 
 echo "== Clean"
