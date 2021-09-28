@@ -413,6 +413,7 @@ lint:
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh scripts/ci/apt-install
 	shellcheck test/others/crit/*.sh
+	shellcheck test/others/libcriu/*.sh
 	shellcheck test/others/config-file/*.sh
 	# Do not append \n to pr_perror or fail
 	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>.*\\n"'
