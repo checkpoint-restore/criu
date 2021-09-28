@@ -144,7 +144,10 @@ install: $(obj)/criu
 	$(Q) install -m 644 $(UAPI_HEADERS) $(DESTDIR)$(INCLUDEDIR)/criu/
 	$(Q) mkdir -p $(DESTDIR)$(LIBEXECDIR)/criu/scripts
 	$(Q) install -m 755 scripts/systemd-autofs-restart.sh $(DESTDIR)$(LIBEXECDIR)/criu/scripts
+ifeq ($(PYTHON),python3)
+	$(E) "  INSTALL " scripts/criu-ns
 	$(Q) install -m 755 scripts/criu-ns $(DESTDIR)$(SBINDIR)
+endif
 .PHONY: install
 
 uninstall:
