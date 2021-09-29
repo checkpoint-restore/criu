@@ -61,10 +61,17 @@ bool kfd_numa_check = true;
 /* Skip capability check */
 bool kfd_capability_check = true;
 
+/*
+ * During dump, we can use any fd value so fd_next is always -1.
+ * During restore, we have to use a fd value that does not conflict with fd values in use by the target restore process.
+ * fd_next is initialized as 1 greather than the highest-numbered file descriptor used by the target restore process.
+ */
+int fd_next = -1;
+
 static int open_drm_render_device(int minor)
 {
 	char path[128];
-	int fd;
+	int fd, ret_fd;
 
 	if (minor < DRM_FIRST_RENDER_NODE || minor > DRM_LAST_RENDER_NODE) {
 		pr_perror("DRM render minor %d out of range [%d, %d]", minor, DRM_FIRST_RENDER_NODE,
@@ -83,7 +90,16 @@ static int open_drm_render_device(int minor)
 		return -EBADFD;
 	}
 
-	return fd;
+	if (fd_next < 0)
+		return fd;
+
+	ret_fd = fcntl(fd, F_DUPFD, fd_next++);
+	close(fd);
+
+	if (ret_fd < 0)
+		pr_perror("Failed to duplicate fd for minor:%d (fd_next:%d)", minor, fd_next);
+
+	return ret_fd;
 }
 
 static const char *link_type(uint32_t type)

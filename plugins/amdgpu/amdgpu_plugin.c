@@ -27,6 +27,7 @@
 #include "kfd_ioctl.h"
 #include "xmalloc.h"
 #include "criu-log.h"
+#include "files.h"
 
 #include "common/list.h"
 #include "amdgpu_plugin_topology.h"
@@ -86,6 +87,8 @@ struct tp_system dest_topology;
 struct device_maps checkpoint_maps;
 struct device_maps restore_maps;
 
+extern int fd_next;
+
 static LIST_HEAD(update_vma_info_list);
 
 extern bool kfd_fw_version_check;
@@ -97,31 +100,6 @@ extern bool kfd_numa_check;
 extern bool kfd_capability_check;
 
 /**************************************************************************************************/
-
-int open_drm_render_device(int minor)
-{
-	char path[128];
-	int fd;
-
-	if (minor < DRM_FIRST_RENDER_NODE || minor > DRM_LAST_RENDER_NODE) {
-		pr_perror("DRM render minor %d out of range [%d, %d]", minor, DRM_FIRST_RENDER_NODE,
-			  DRM_LAST_RENDER_NODE);
-		return -EINVAL;
-	}
-
-	snprintf(path, sizeof(path), "/dev/dri/renderD%d", minor);
-	fd = open(path, O_RDWR | O_CLOEXEC);
-	if (fd < 0) {
-		if (errno != ENOENT && errno != EPERM) {
-			pr_err("Failed to open %s: %s\n", path, strerror(errno));
-			if (errno == EACCES)
-				pr_err("Check user is in \"video\" group\n");
-		}
-		return -EBADFD;
-	}
-
-	return fd;
-}
 
 int write_file(const char *file_path, const void *buf, const size_t buf_len)
 {
@@ -455,6 +433,9 @@ int amdgpu_plugin_init(int stage)
 void amdgpu_plugin_fini(int stage, int ret)
 {
 	pr_info("amdgpu_plugin: finished  %s (AMDGPU/KFD)\n", CR_PLUGIN_DESC.name);
+
+	if (stage == CR_PLUGIN_STAGE__RESTORE)
+		sys_close_drm_render_devices(&dest_topology);
 
 	maps_free(&checkpoint_maps);
 	maps_free(&restore_maps);
@@ -1362,6 +1343,7 @@ exit:
 	/* Restore all queues */
 	unpause_process(fd);
 
+	sys_close_drm_render_devices(&src_topology);
 	xfree((void *)args.devices);
 	xfree((void *)args.bos);
 	xfree((void *)args.priv_data);
@@ -1646,7 +1628,15 @@ int amdgpu_plugin_restore_file(int id)
 	fail:
 		criu_render_node__free_unpacked(rd, NULL);
 		xfree(buf);
-		return fd;
+		/*
+		 * We need to use the file descriptor used to create the BOs for mmap later, otherwise the kernel DRM
+		 * drivers will not allow the mmap. Therefore, we keep a copy of the file descriptor (stored in tp_node)
+		 * so that we can return it in amdgpu_plugin_update_vmamap later. Also, CRIU core will dup and close the
+		 * returned fd after this function returns, and this will make our fd invalid. So we return a dup'ed
+		 * copy of the fd. CRIU core owns the duplicated returned fd, and amdgpu_plugin owns the fd stored in
+		 * tp_node.
+		 */
+		return dup(fd);
 	}
 
 	fd = open(AMDGPU_KFD_DEVICE, O_RDWR | O_CLOEXEC);
@@ -1681,6 +1671,18 @@ int amdgpu_plugin_restore_file(int id)
 	}
 
 	plugin_log_msg("amdgpu_plugin: read image file data\n");
+
+	/*
+	 * Initialize fd_next to be 1 greater than the biggest file descriptor in use by the target restore process.
+	 * This way, we know that the file descriptors we store will not conflict with file descriptors inside core
+	 * CRIU.
+	 */
+	fd_next = find_unused_fd_pid(e->pid);
+	if (fd_next <= 0) {
+		pr_err("Failed to find unused fd (fd:%d)\n", fd_next);
+		ret = -EINVAL;
+		goto exit;
+	}
 
 	ret = devinfo_to_topology(e->device_entries, e->num_of_gpus + e->num_of_cpus, &src_topology);
 	if (ret) {
@@ -1727,8 +1729,6 @@ int amdgpu_plugin_restore_file(int id)
 	ret = restore_hsakmt_shared_mem(e->shared_mem_size, e->shared_mem_magic);
 
 exit:
-	sys_close_drm_render_devices(&dest_topology);
-
 	if (e)
 		criu_kfd__free_unpacked(e, NULL);
 
