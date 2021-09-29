@@ -1,10 +1,13 @@
 PLUGIN_NAME		:= amdgpu_plugin
 PLUGIN_SOBJ		:= amdgpu_plugin.so
 
-PLUGIN_INC		:= ../../../criu/include
-PLUGIN_INC_EXTRA	:= ../../criu/include
-PLUGIN_INCLUDE		:= -iquote$(PLUGIN_INC) -iquote$(PLUGIN_INC_EXTRA)
-LIBDRM_INC             := -I/usr/include/libdrm
+
+PLUGIN_INCLUDE  	:= -iquote../../../criu/include
+PLUGIN_INCLUDE  	+= -iquote../../criu/include
+PLUGIN_INCLUDE  	+= -iquote../../criu/arch/$(ARCH)/include/
+PLUGIN_INCLUDE  	+= -iquote../../
+
+LIBDRM_INC 		:= -I/usr/include/libdrm
 DEPS_OK 		:= amdgpu_plugin.so amdgpu_plugin_test
 DEPS_NOK 		:= ;
 
