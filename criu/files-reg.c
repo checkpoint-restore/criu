@@ -2269,7 +2269,7 @@ static int open_filemap(int pid, struct vma_area *vma)
 	flags = vma->e->fdflags;
 
 	/* update the new device file page offsets and file paths set during restore */
-	if (vma->e->status & VMA_UNSUPP) {
+	if (vma->e->status & VMA_EXT_PLUGIN) {
 		uint64_t new_pgoff;
 		int ret;
 
