@@ -334,7 +334,8 @@ mount -t cgroup -o devices,freezer none devices,freezer
     Checkpoint established TCP connections.
 
 *--tcp-close*::
-    Don't dump the state of, or block, established tcp connections.
+    Don't dump the state of, or block, established tcp connections
+    (including the connection is once established but now closed).
     This is useful when tcp connections are not going to be restored.
 
 *--skip-in-flight*::
