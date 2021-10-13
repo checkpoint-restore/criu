@@ -220,6 +220,16 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe, struct rt_sigfr
 #define get_signed_user_reg(pregs, name) \
 	((user_regs_native(pregs)) ? (int64_t)((pregs)->native.name) : (int32_t)((pregs)->compat.name))
 
+static int get_task_fpregs(pid_t pid, user_fpregs_struct_t *xsave)
+{
+	if (ptrace(PTRACE_GETFPREGS, pid, NULL, xsave)) {
+		pr_perror("Can't obtain FPU registers for %d", pid);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int get_task_xsave(pid_t pid, user_fpregs_struct_t *xsave)
 {
 	struct iovec iov;
@@ -232,14 +242,15 @@ static int get_task_xsave(pid_t pid, user_fpregs_struct_t *xsave)
 		return -1;
 	}
 
-	return 0;
-}
-
-static int get_task_fpregs(pid_t pid, user_fpregs_struct_t *xsave)
-{
-	if (ptrace(PTRACE_GETFPREGS, pid, NULL, xsave)) {
-		pr_perror("Can't obtain FPU registers for %d", pid);
-		return -1;
+	if ((xsave->xsave_hdr.xstate_bv & 3) != 3) {
+		// Due to init-optimisation [1] x87 FPU or SSE state may not be filled in.
+		// Since those are restored unconditionally, make sure the init values are
+		// filled by retrying with old PTRACE_GETFPREGS.
+		//
+		// [1] Intel® 64 and IA-32 Architectures Software Developer's
+		//     Manual Volume 1: Basic Architecture
+		//     Section 13.6: Processor tracking of XSAVE-managed state
+		return get_task_fpregs(pid, xsave);
 	}
 
 	return 0;
