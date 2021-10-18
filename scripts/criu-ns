@@ -102,6 +102,7 @@ def wrap_restore():
 
     criu_pid = os.fork()
     if criu_pid == 0:
+        os.setsid()
         _mount_new_proc()
         run_criu(restore_args)
 
