@@ -1013,7 +1013,7 @@ static int timerfd_arm(struct task_restore_args *args)
 
 			t->val.it_value.tv_sec += (time_t)ts.tv_sec;
 
-			pr_debug("Adjust id %#x it_value(%llu, %llu) -> it_value(%llu, %llu)\n", t->id,
+			pr_debug("Adjust id %x it_value(%llu, %llu) -> it_value(%llu, %llu)\n", t->id,
 				 (unsigned long long)ts.tv_sec, (unsigned long long)ts.tv_nsec,
 				 (unsigned long long)t->val.it_value.tv_sec,
 				 (unsigned long long)t->val.it_value.tv_nsec);
