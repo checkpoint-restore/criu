@@ -1,4 +1,4 @@
-#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE 500
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -26,6 +26,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sched.h>
+#include <ftw.h>
 
 #include "linux/mount.h"
 
@@ -1613,44 +1614,25 @@ ssize_t write_all(int fd, const void *buf, size_t size)
 	return n;
 }
 
-int rm_rf(char *target)
+static int remove_one(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
 {
-	int offset = strlen(target);
-	DIR *dir = NULL;
-	struct dirent *de;
-	int ret = -1;
+	int ret;
 
-	dir = opendir(target);
-	if (!dir) {
-		pr_perror("unable to open %s", target);
+	ret = remove(fpath);
+	if (ret) {
+		pr_perror("rmrf: unable to remove %s", fpath);
 		return -1;
 	}
 
-	while ((de = readdir(dir))) {
-		int n;
+	return 0;
+}
 
-		if (dir_dots(de))
-			continue;
+#define NFTW_FD_MAX 64
 
-		n = snprintf(target + offset, PATH_MAX - offset, "/%s", de->d_name);
-		if (n < 0 || n >= PATH_MAX) {
-			pr_err("snprintf failed\n");
-			goto out;
-		}
-
-		if (de->d_type == DT_DIR && rm_rf(target))
-			goto out;
-
-		if (remove(target) < 0) {
-			pr_perror("unable to remove %s", target);
-			goto out;
-		}
-	}
-
-	ret = 0;
-out:
-	target[offset] = 0;
-	return ret;
+int rmrf(char *path)
+{
+	pr_debug("rmrf: removing %s\n", path);
+	return nftw(path, remove_one, NFTW_FD_MAX, FTW_DEPTH | FTW_PHYS);
 }
 
 __attribute__((returns_twice)) static pid_t raw_legacy_clone(unsigned long flags, int *pidfd)
