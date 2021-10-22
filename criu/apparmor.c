@@ -630,7 +630,7 @@ int suspend_aa(void)
 	}
 
 	ret = do_suspend(true);
-	if (rm_rf(policydir) < 0)
+	if (rmrf(policydir) < 0)
 		pr_err("failed removing policy dir %s\n", policydir);
 
 	return ret;
