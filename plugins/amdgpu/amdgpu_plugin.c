@@ -42,6 +42,10 @@
 #define KFD_IOCTL_MAJOR_VERSION	    1
 #define MIN_KFD_IOCTL_MINOR_VERSION 8
 
+#define IMG_KFD_FILE	 "amdgpu-kfd-%d.img"
+#define IMG_RENDERD_FILE "amdgpu-renderD-%d.img"
+#define IMG_PAGES_FILE	 "amdgpu-pages-%d-%04x.img"
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE 1
 #endif
@@ -101,11 +105,34 @@ extern bool kfd_capability_check;
 
 /**************************************************************************************************/
 
+int write_fp(FILE *fp, const void *buf, const size_t buf_len)
+{
+	size_t len_write;
+
+	len_write = fwrite(buf, 1, buf_len, fp);
+	if (len_write != buf_len) {
+		pr_perror("Unable to write file (wrote:%ld buf_len:%ld)", len_write, buf_len);
+		return -EIO;
+	}
+	return 0;
+}
+
+int read_fp(FILE *fp, void *buf, const size_t buf_len)
+{
+	size_t len_read;
+
+	len_read = fread(buf, 1, buf_len, fp);
+	if (len_read != buf_len) {
+		pr_perror("Unable to read file (read:%ld buf_len:%ld)", len_read, buf_len);
+		return -EIO;
+	}
+	return 0;
+}
+
 int write_file(const char *file_path, const void *buf, const size_t buf_len)
 {
-	int fd;
+	int fd, ret;
 	FILE *fp;
-	size_t len_wrote;
 
 	fd = openat(criu_get_image_dir(), file_path, O_WRONLY | O_CREAT, 0600);
 	if (fd < 0) {
@@ -119,24 +146,15 @@ int write_file(const char *file_path, const void *buf, const size_t buf_len)
 		return -errno;
 	}
 
-	len_wrote = fwrite(buf, 1, buf_len, fp);
-	if (len_wrote != buf_len) {
-		pr_perror("Unable to write %s (wrote:%ld buf_len:%ld)", file_path, len_wrote, buf_len);
-		fclose(fp);
-		return -EIO;
-	}
-
-	pr_info("Wrote file:%s (%ld bytes)\n", file_path, buf_len);
-	/* this will also close fd */
-	fclose(fp);
-	return 0;
+	ret = write_fp(fp, buf, buf_len);
+	fclose(fp); /* this will also close fd */
+	return ret;
 }
 
 int read_file(const char *file_path, void *buf, const size_t buf_len)
 {
-	int fd;
+	int fd, ret;
 	FILE *fp;
-	size_t len_read;
 
 	fd = openat(criu_get_image_dir(), file_path, O_RDONLY);
 	if (fd < 0) {
@@ -150,18 +168,9 @@ int read_file(const char *file_path, void *buf, const size_t buf_len)
 		return -errno;
 	}
 
-	len_read = fread(buf, 1, buf_len, fp);
-	if (len_read != buf_len) {
-		pr_perror("Unable to read %s", file_path);
-		fclose(fp);
-		return -EIO;
-	}
-
-	pr_info("Read file:%s (%ld bytes)\n", file_path, buf_len);
-
-	/* this will also close fd */
-	fclose(fp);
-	return 0;
+	ret = read_fp(fp, buf, buf_len);
+	fclose(fp); /* this will also close fd */
+	return ret;
 }
 
 /* Call ioctl, restarting if it is interrupted */
@@ -184,12 +193,8 @@ int kmtIoctl(int fd, unsigned long request, void *arg)
 static void free_e(CriuKfd *e)
 {
 	for (int i = 0; i < e->n_bo_entries; i++) {
-		if (e->bo_entries[i]) {
-			if (e->bo_entries[i]->rawdata.data)
-				xfree(e->bo_entries[i]->rawdata.data);
-
+		if (e->bo_entries[i])
 			xfree(e->bo_entries[i]);
-		}
 	}
 
 	for (int i = 0; i < e->n_device_entries; i++) {
@@ -244,12 +249,6 @@ static int allocate_bo_entries(CriuKfd *e, int num_bos, struct kfd_criu_bo_bucke
 		}
 
 		bo_entry__init(entry);
-
-		if ((bo_bucket_ptr)[i].alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_VRAM ||
-		    (bo_bucket_ptr)[i].alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_GTT) {
-			entry->rawdata.data = xmalloc((bo_bucket_ptr)[i].size);
-			entry->rawdata.len = (bo_bucket_ptr)[i].size;
-		}
 
 		e->bo_entries[i] = entry;
 		e->n_bo_entries++;
@@ -455,6 +454,7 @@ struct thread_data {
 	BoEntry **bo_entries;
 	int drm_fd;
 	int ret;
+	int id; /* File ID used by CRIU to identify KFD image for this process */
 };
 
 int amdgpu_plugin_handle_device_vma(int fd, const struct stat *st_buf)
@@ -557,7 +557,7 @@ void free_and_unmap(uint64_t size, amdgpu_bo_handle h_bo, amdgpu_va_handle h_va,
 	amdgpu_bo_free(h_bo);
 }
 
-int sdma_copy_bo(struct kfd_criu_bo_bucket *bo_buckets, BoEntry **bo_info_test, int i, amdgpu_device_handle h_dev,
+int sdma_copy_bo(struct kfd_criu_bo_bucket *bo_buckets, void *userptr, int i, amdgpu_device_handle h_dev,
 		 uint64_t max_copy_size, enum sdma_op_type type)
 {
 	uint64_t size, gpu_addr_src, gpu_addr_dest, gpu_addr_ib;
@@ -574,7 +574,6 @@ int sdma_copy_bo(struct kfd_criu_bo_bucket *bo_buckets, BoEntry **bo_info_test, 
 	struct amdgpu_cs_fence fence;
 	uint32_t expired;
 	amdgpu_context_handle h_ctx;
-	void *userptr = NULL;
 	uint32_t *ib = NULL;
 	int err, shared_fd;
 
@@ -586,20 +585,9 @@ int sdma_copy_bo(struct kfd_criu_bo_bucket *bo_buckets, BoEntry **bo_info_test, 
 	/* prepare src buffer */
 	switch (type) {
 	case SDMA_OP_VRAM_WRITE:
-		/* create the userptr BO and prepare the src buffer */
-		posix_memalign(&userptr, sysconf(_SC_PAGE_SIZE), size);
-		if (!userptr) {
-			pr_perror("failed to alloc memory for userptr");
-			return -ENOMEM;
-		}
-
-		memcpy(userptr, bo_info_test[i]->rawdata.data, size);
-		plugin_log_msg("data copied to userptr from protobuf buffer\n");
-
 		err = amdgpu_create_bo_from_user_mem(h_dev, userptr, size, &h_bo_src);
 		if (err) {
 			pr_perror("failed to create userptr for sdma");
-			free(userptr);
 			return -EFAULT;
 		}
 
@@ -644,16 +632,9 @@ int sdma_copy_bo(struct kfd_criu_bo_bucket *bo_buckets, BoEntry **bo_info_test, 
 		break;
 
 	case SDMA_OP_VRAM_READ:
-		posix_memalign(&userptr, sysconf(_SC_PAGE_SIZE), size);
-		if (!userptr) {
-			pr_perror("failed to alloc memory for userptr");
-			goto err_dest_bo_prep;
-		}
-		memset(userptr, 0, size);
 		err = amdgpu_create_bo_from_user_mem(h_dev, userptr, size, &h_bo_dest);
 		if (err) {
 			pr_perror("failed to create userptr for sdma");
-			free(userptr);
 			goto err_dest_bo_prep;
 		}
 		break;
@@ -774,11 +755,6 @@ int sdma_copy_bo(struct kfd_criu_bo_bucket *bo_buckets, BoEntry **bo_info_test, 
 
 	plugin_log_msg("done querying fence status\n");
 
-	if (type == SDMA_OP_VRAM_READ) {
-		memcpy(bo_info_test[i]->rawdata.data, userptr, size);
-		plugin_log_msg("data copied to protobuf buffer\n");
-	}
-
 err_cs_submit_ib:
 	amdgpu_cs_ctx_free(h_ctx);
 err_ctx:
@@ -798,11 +774,6 @@ err_dest_va:
 	if (err)
 		pr_perror("dest bo free failed");
 
-	if (userptr && (type == SDMA_OP_VRAM_READ)) {
-		free(userptr);
-		userptr = NULL;
-	}
-
 err_dest_bo_prep:
 	err = amdgpu_bo_va_op(h_bo_src, 0, size, gpu_addr_src, 0, AMDGPU_VA_OP_UNMAP);
 	if (err)
@@ -815,11 +786,6 @@ err_src_va:
 	err = amdgpu_bo_free(h_bo_src);
 	if (err)
 		pr_perror("src bo free failed");
-
-	if (userptr && (type == SDMA_OP_VRAM_WRITE)) {
-		free(userptr);
-		userptr = NULL;
-	}
 
 	plugin_log_msg("Leaving sdma_copy_bo, err = %d\n", err);
 	return err;
@@ -836,6 +802,10 @@ void *dump_bo_contents(void *_thread_data)
 	uint32_t major, minor;
 	int num_bos = 0;
 	int i, ret = 0;
+	FILE *bo_contents_fp = NULL;
+	void *buffer;
+	char img_path[40];
+	size_t max_bo_size = 0;
 
 	pr_info("amdgpu_plugin: Thread[0x%x] started\n", thread_data->gpu_id);
 
@@ -856,6 +826,30 @@ void *dump_bo_contents(void *_thread_data)
 									 SDMA_LINEAR_COPY_MAX_SIZE - 1;
 
 	for (i = 0; i < thread_data->num_of_bos; i++) {
+		if (bo_buckets[i].gpu_id == thread_data->gpu_id &&
+		    (bo_buckets[i].alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT)) &&
+		    bo_buckets[i].size > max_bo_size) {
+			max_bo_size = bo_buckets[i].size;
+		}
+	}
+
+	/* Allocate buffer to fit biggest BO */
+	posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), max_bo_size);
+	if (!buffer) {
+		pr_perror("Failed to alloc aligned memory");
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	snprintf(img_path, sizeof(img_path), IMG_PAGES_FILE, thread_data->id, thread_data->gpu_id);
+	bo_contents_fp = fopen(img_path, "w");
+	if (!bo_contents_fp) {
+		pr_perror("Cannot fopen %s", img_path);
+		ret = -EIO;
+		goto exit;
+	}
+
+	for (i = 0; i < thread_data->num_of_bos; i++) {
 		if (bo_buckets[i].gpu_id != thread_data->gpu_id)
 			continue;
 
@@ -865,16 +859,24 @@ void *dump_bo_contents(void *_thread_data)
 		num_bos++;
 
 		/* perform sDMA based vram copy */
-		ret = sdma_copy_bo(bo_buckets, bo_info, i, h_dev, max_copy_size, SDMA_OP_VRAM_READ);
+		ret = sdma_copy_bo(bo_buckets, buffer, i, h_dev, max_copy_size, SDMA_OP_VRAM_READ);
 		if (ret) {
 			pr_err("Failed to drain the BO using sDMA: bo_buckets[%d]\n", i);
 			break;
 		}
 		plugin_log_msg("** Successfully drained the BO using sDMA: bo_buckets[%d] **\n", i);
+		ret = write_fp(bo_contents_fp, buffer, bo_info[i]->size);
+		if (ret)
+			break;
 	}
 
 exit:
 	pr_info("amdgpu_plugin: Thread[0x%x] done num_bos:%d ret:%d\n", thread_data->gpu_id, num_bos, ret);
+
+	if (bo_contents_fp)
+		fclose(bo_contents_fp);
+
+	xfree(buffer);
 
 	amdgpu_device_deinitialize(h_dev);
 
@@ -891,6 +893,10 @@ void *restore_bo_contents(void *_thread_data)
 	amdgpu_device_handle h_dev;
 	uint64_t max_copy_size;
 	uint32_t major, minor;
+	FILE *bo_contents_fp = NULL;
+	size_t max_bo_size = 0;
+	void *buffer;
+	char img_path[40];
 	int num_bos = 0;
 	int i, ret = 0;
 
@@ -912,6 +918,31 @@ void *restore_bo_contents(void *_thread_data)
 	max_copy_size = (gpu_info.family_id >= AMDGPU_FAMILY_AI) ? SDMA_LINEAR_COPY_MAX_SIZE :
 									 SDMA_LINEAR_COPY_MAX_SIZE - 1;
 
+	snprintf(img_path, sizeof(img_path), IMG_PAGES_FILE, thread_data->id, thread_data->gpu_id);
+	bo_contents_fp = fopen(img_path, "r");
+	if (!bo_contents_fp) {
+		pr_perror("Cannot fopen %s", img_path);
+		ret = -errno;
+		goto exit;
+	}
+
+	/* Allocate buffer to fit biggest BO */
+	for (i = 0; i < thread_data->num_of_bos; i++) {
+		if (bo_buckets[i].gpu_id == thread_data->gpu_id &&
+		    (bo_buckets[i].alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT)) &&
+		    bo_buckets[i].size > max_bo_size) {
+			max_bo_size = bo_buckets[i].size;
+		}
+	}
+
+	/* Allocate buffer to fit biggest BO */
+	posix_memalign(&buffer, sysconf(_SC_PAGE_SIZE), max_bo_size);
+	if (!buffer) {
+		pr_perror("Failed to alloc aligned memory");
+		ret = -ENOMEM;
+		goto exit;
+	}
+
 	for (i = 0; i < thread_data->num_of_bos; i++) {
 		if (bo_buckets[i].gpu_id != thread_data->gpu_id)
 			continue;
@@ -921,7 +952,11 @@ void *restore_bo_contents(void *_thread_data)
 
 		num_bos++;
 
-		ret = sdma_copy_bo(bo_buckets, bo_info, i, h_dev, max_copy_size, SDMA_OP_VRAM_WRITE);
+		ret = read_fp(bo_contents_fp, buffer, bo_info[i]->size);
+		if (ret)
+			goto exit;
+
+		ret = sdma_copy_bo(bo_buckets, buffer, i, h_dev, max_copy_size, SDMA_OP_VRAM_WRITE);
 		if (ret) {
 			pr_err("Failed to fill the BO using sDMA: bo_buckets[%d]\n", i);
 			break;
@@ -931,6 +966,11 @@ void *restore_bo_contents(void *_thread_data)
 
 exit:
 	pr_info("amdgpu_plugin: Thread[0x%x] done num_bos:%d ret:%d\n", thread_data->gpu_id, num_bos, ret);
+
+	if (bo_contents_fp)
+		fclose(bo_contents_fp);
+
+	xfree(buffer);
 
 	amdgpu_device_deinitialize(h_dev);
 	thread_data->ret = ret;
@@ -1059,7 +1099,7 @@ exit:
 	return ret;
 }
 
-static int save_bos(int fd, struct kfd_ioctl_criu_args *args, struct kfd_criu_bo_bucket *bo_buckets, CriuKfd *e)
+static int save_bos(int id, int fd, struct kfd_ioctl_criu_args *args, struct kfd_criu_bo_bucket *bo_buckets, CriuKfd *e)
 {
 	struct thread_data *thread_datas;
 	int ret = 0, i;
@@ -1098,6 +1138,7 @@ static int save_bos(int fd, struct kfd_ioctl_criu_args *args, struct kfd_criu_bo
 			goto exit;
 		}
 
+		thread_datas[i].id = id;
 		thread_datas[i].gpu_id = dev->gpu_id;
 		thread_datas[i].bo_buckets = bo_buckets;
 		thread_datas[i].bo_entries = e->bo_entries;
@@ -1236,7 +1277,7 @@ int amdgpu_plugin_dump_file(int fd, int id)
 
 		criu_render_node__pack(&rd, buf);
 
-		snprintf(img_path, sizeof(img_path), "amdgpu-renderD-%d.img", id);
+		snprintf(img_path, sizeof(img_path), IMG_RENDERD_FILE, id);
 		ret = write_file(img_path, buf, len);
 		if (ret) {
 			xfree(buf);
@@ -1307,7 +1348,7 @@ int amdgpu_plugin_dump_file(int fd, int id)
 	if (ret)
 		goto exit;
 
-	ret = save_bos(fd, &args, (struct kfd_criu_bo_bucket *)args.bos, e);
+	ret = save_bos(id, fd, &args, (struct kfd_criu_bo_bucket *)args.bos, e);
 	if (ret)
 		goto exit;
 
@@ -1320,7 +1361,7 @@ int amdgpu_plugin_dump_file(int fd, int id)
 	if (ret)
 		goto exit;
 
-	snprintf(img_path, sizeof(img_path), "amdgpu-kfd-%d.img", id);
+	snprintf(img_path, sizeof(img_path), IMG_KFD_FILE, id);
 	pr_info("amdgpu_plugin: img_path = %s\n", img_path);
 
 	len = criu_kfd__get_packed_size(e);
@@ -1442,7 +1483,7 @@ static int restore_bos(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 	return 0;
 }
 
-static int restore_bo_data(struct kfd_criu_bo_bucket *bo_buckets, CriuKfd *e)
+static int restore_bo_data(int id, struct kfd_criu_bo_bucket *bo_buckets, CriuKfd *e)
 {
 	struct thread_data *thread_datas;
 	int thread_i, ret = 0;
@@ -1514,6 +1555,7 @@ static int restore_bo_data(struct kfd_criu_bo_bucket *bo_buckets, CriuKfd *e)
 			goto exit;
 		}
 
+		thread_datas[thread_i].id = id;
 		thread_datas[thread_i].gpu_id = e->device_entries[i]->gpu_id;
 		thread_datas[thread_i].bo_buckets = bo_buckets;
 		thread_datas[thread_i].bo_entries = e->bo_entries;
@@ -1567,7 +1609,7 @@ int amdgpu_plugin_restore_file(int id)
 
 	pr_info("amdgpu_plugin: Initialized kfd plugin restorer with ID = %d\n", id);
 
-	snprintf(img_path, sizeof(img_path), "amdgpu-kfd-%d.img", id);
+	snprintf(img_path, sizeof(img_path), IMG_KFD_FILE, id);
 
 	if (stat(img_path, &filestat) == -1) {
 		struct tp_node *tp_node;
@@ -1579,7 +1621,7 @@ int amdgpu_plugin_restore_file(int id)
 		 * TODO: Currently, this code will only work if this function is called for /dev/kfd
 		 * first as we assume restore_maps is already filled. Need to fix this later.
 		 */
-		snprintf(img_path, sizeof(img_path), "renderDXXX.%d.img", id);
+		snprintf(img_path, sizeof(img_path), IMG_RENDERD_FILE, id);
 
 		if (stat(img_path, &filestat) == -1) {
 			pr_perror("Failed to read file stats");
@@ -1722,7 +1764,7 @@ int amdgpu_plugin_restore_file(int id)
 		goto exit;
 	}
 
-	ret = restore_bo_data((struct kfd_criu_bo_bucket *)args.bos, e);
+	ret = restore_bo_data(id, (struct kfd_criu_bo_bucket *)args.bos, e);
 	if (ret)
 		goto exit;
 
