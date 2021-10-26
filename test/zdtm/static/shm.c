@@ -56,13 +56,17 @@ static int get_shm_seg(int key, size_t size, unsigned int flags)
 
 static int prepare_shm(int key, size_t size)
 {
-	int id;
+	int id, flag = 0;
 
-	id = get_shm_seg(key, shmem_size, IPC_CREAT | IPC_EXCL);
+#ifdef ZDTM_HUGETLB
+	flag = SHM_HUGETLB;
+#endif
+
+	id = get_shm_seg(key, size, IPC_CREAT | IPC_EXCL | flag);
 	if (id == -1) {
 		return -1;
 	}
-	if (fill_shm_seg(id, shmem_size) < 0)
+	if (fill_shm_seg(id, size) < 0)
 		return -1;
 	return id;
 }
@@ -105,6 +109,7 @@ int main(int argc, char **argv)
 	int shm;
 	int fail_count = 0;
 	int ret = -1;
+	dev_t dev;
 
 	void *mem;
 	uint32_t crc = INIT_CRC;
@@ -133,6 +138,12 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
+	dev = get_mapping_dev(mem);
+	if (dev == (dev_t)-1) {
+		fail("Can't get mapping dev");
+		return -1;
+	}
+
 	test_daemon();
 	test_waitsig();
 
@@ -152,6 +163,11 @@ int main(int argc, char **argv)
 
 	if (datachk(mem, shmem_size, &crc)) {
 		fail("shmem data is corrupted");
+		return -1;
+	}
+
+	if (dev != get_mapping_dev(mem)) {
+		fail("Mapping dev mismatch");
 		return -1;
 	}
 

@@ -436,6 +436,7 @@ TST		=				\
 		umask00				\
 		cmdlinenv00			\
 		shm-unaligned			\
+		shm-hugetlb			\
 
 TST_STATE	=				\
 		conntracks			\
@@ -474,6 +475,9 @@ cmdlinenv00.pid: cmdlinenv00
 
 shm-unaligned.pid: shm-unaligned
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --shmem_size=5000
+
+shm-hugetlb.pid: shm-hugetlb
+	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --shmem_size=4194304
 
 env00.pid:	env00
 	$(<D)/$(<F) --pidfile=$@ --outfile=$<.out --envname=ENV_00_TEST
@@ -636,6 +640,7 @@ scm03-seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
 pty-console:		CFLAGS += -D ZDTM_DEV_CONSOLE
 
 shm-unaligned:		CFLAGS += -DZDTM_SHM_UNALIGNED
+shm-hugetlb:		CFLAGS += -DZDTM_HUGETLB
 
 s390x_regs_check:	LDFLAGS += -pthread
 s390x_gs_threads:	LDFLAGS += -pthread
