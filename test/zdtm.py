@@ -2566,6 +2566,17 @@ def clean_stuff(opts):
             f.clean()
 
 
+def set_nr_hugepages(nr):
+    orig_hugepages = 0
+    with open("/proc/sys/vm/nr_hugepages", "r") as f:
+        orig_hugepages = int(f.read())
+
+    with open("/proc/sys/vm/nr_hugepages", "w") as f:
+        f.write("{}\n".format(nr))
+
+    return orig_hugepages
+
+
 #
 # main() starts here
 #
@@ -2738,7 +2749,11 @@ if opts['action'] == 'run':
 for tst in test_classes.values():
     tst.available()
 
+orig_hugepages = set_nr_hugepages(20)
+
 opts['action'](opts)
+
+set_nr_hugepages(orig_hugepages)
 
 for tst in test_classes.values():
     tst.cleanup()
