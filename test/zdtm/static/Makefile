@@ -248,6 +248,7 @@ TST_NOFILE	:=				\
 		memfd00				\
 		memfd01				\
 		memfd02				\
+		memfd02-hugetlb			\
 		memfd03				\
 		shmemfd				\
 		shmemfd-priv			\
@@ -618,6 +619,7 @@ socket-tcp6-closing:	CFLAGS += -D ZDTM_IPV6
 socket-tcp6-unconn:	CFLAGS += -D ZDTM_IPV6
 socket-tcp4v6-last-ack:	CFLAGS += -D ZDTM_TCP_LAST_ACK -D ZDTM_IPV4V6
 socket-tcp4v6-closing:	CFLAGS += -D ZDTM_IPV4V6
+memfd02-hugetlb:	CFLAGS += -D ZDTM_HUGETLB
 
 sockets00-seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
 sockets01-seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
