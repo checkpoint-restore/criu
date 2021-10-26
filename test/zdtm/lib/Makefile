@@ -4,7 +4,7 @@ CFLAGS	+= $(USERCFLAGS)
 
 LIB	:= libzdtmtst.a
 
-LIBSRC	:= datagen.c msg.c parseargs.c test.c streamutil.c lock.c ns.c tcp.c unix.c fs.c sysctl.c
+LIBSRC	:= datagen.c msg.c parseargs.c test.c streamutil.c lock.c ns.c tcp.c unix.c fs.c sysctl.c mem.c
 
 PKG_CONFIG ?= pkg-config
 pkg-config-check = $(shell sh -c '$(PKG_CONFIG) $(1) && echo y')
