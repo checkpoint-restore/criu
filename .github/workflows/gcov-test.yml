@@ -10,5 +10,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Run Coverage Tests
       run: sudo -E make -C scripts/ci local GCOV=1
+    - name: Run gcov
+      run: sudo -E find . -name '*gcda' -type f -print0 | sudo -E xargs --null --max-args 128 --max-procs 4 gcov
     - name: Run Coverage Analysis
       run: sudo -E make codecov
