@@ -449,7 +449,9 @@ lint:
 
 codecov: SHELL := $(shell which bash)
 codecov:
-	bash <(curl -s https://codecov.io/bash)
+	curl -Os https://uploader.codecov.io/latest/linux/codecov
+	chmod +x codecov
+	./codecov
 .PHONY: codecov
 
 fetch-clang-format: .FORCE
