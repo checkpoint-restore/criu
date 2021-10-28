@@ -45,10 +45,10 @@ unsigned long sys_shmat(int shmid, const void *shmaddr, int shmflg)
 	unsigned long raddr;
 	int ret;
 
-	ret = sys_ipc(21 /*SHMAT */, shmid, /* first 		*/
-		      shmflg, /* second 		*/
+	ret = sys_ipc(21 /*SHMAT */, shmid,  /* first 		*/
+		      shmflg,		     /* second 		*/
 		      (unsigned long)&raddr, /* third 		*/
-		      shmaddr, /* ptr			*/
+		      shmaddr,		     /* ptr			*/
 		      0 /* fifth not used 	*/);
 
 	if (ret)

@@ -18,7 +18,7 @@ extern int kerndat_init(void);
 
 enum pagemap_func {
 	PM_UNKNOWN,
-	PM_DISABLED, /* /proc/pid/pagemap doesn't open (user mode) */
+	PM_DISABLED,   /* /proc/pid/pagemap doesn't open (user mode) */
 	PM_FLAGS_ONLY, /* pagemap zeroes pfn part (user mode) */
 	PM_FULL,
 };

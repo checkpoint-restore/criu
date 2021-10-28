@@ -106,7 +106,7 @@ struct infect_ctx {
 
 	unsigned long task_size;
 	unsigned long syscall_ip; /* entry point of infection */
-	unsigned long flags; /* fine-tune (e.g. faults) */
+	unsigned long flags;	  /* fine-tune (e.g. faults) */
 
 	void (*child_handler)(int, siginfo_t *, void *); /* hander for SIGCHLD deaths */
 	struct sigaction orig_handler;

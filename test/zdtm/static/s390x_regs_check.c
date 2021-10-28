@@ -59,11 +59,11 @@ static int pipefd[2];
  */
 struct reg_set {
 	const char *name; /* Name of regset */
-	int nr; /* Number of regset */
-	void *data; /* Test data */
-	int len; /* Number of bytes of test data */
-	bool optional; /* Not all kernels/machines have this reg set */
-	bool available; /* Current kernel/machine has this reg set */
+	int nr;		  /* Number of regset */
+	void *data;	  /* Test data */
+	int len;	  /* Number of bytes of test data */
+	bool optional;	  /* Not all kernels/machines have this reg set */
+	bool available;	  /* Current kernel/machine has this reg set */
 };
 
 /*
@@ -397,8 +397,8 @@ static inline void send_tid_and_loop(int fd)
 
 	asm volatile("lgr	2,%0\n" /* Arg 1: fd */
 		     "la	3,%1\n" /* Arg 2: &tid */
-		     "lghi	4,4\n" /* Arg 3: sizeof(int) */
-		     "svc	4\n" /* __NR_write SVC: */
+		     "lghi	4,4\n"	/* Arg 3: sizeof(int) */
+		     "svc	4\n"	/* __NR_write SVC: */
 		     /* After SVC no more registers are changed */
 		     "0:	j 0b\n" /* Loop here */
 		     :

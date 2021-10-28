@@ -18,7 +18,7 @@ static int numsig;
 #define TESTSIG	  (SIGRTMAX)
 #define THREADSIG (SIGRTMIN)
 static siginfo_t share_infos[2];
-static siginfo_t self_infos[64]; /* self */
+static siginfo_t self_infos[64];  /* self */
 static siginfo_t thread_infos[3]; /* thread */
 static int share_nr;
 static int self_nr;

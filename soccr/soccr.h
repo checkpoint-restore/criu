@@ -1,9 +1,9 @@
 #ifndef __LIBSOCCR_H__
 #define __LIBSOCCR_H__
-#include <netinet/in.h> /* sockaddr_in, sockaddr_in6 */
+#include <netinet/in.h>	 /* sockaddr_in, sockaddr_in6 */
 #include <netinet/tcp.h> /* TCP_REPAIR_WINDOW, TCP_TIMESTAMP */
-#include <stdint.h> /* uint32_t */
-#include <sys/socket.h> /* sockaddr */
+#include <stdint.h>	 /* uint32_t */
+#include <sys/socket.h>	 /* sockaddr */
 
 #include "common/config.h"
 

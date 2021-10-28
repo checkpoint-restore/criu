@@ -17,7 +17,7 @@ struct task_entries {
 };
 
 struct fdt {
-	int nr; /* How many tasks share this fd table */
+	int nr;	   /* How many tasks share this fd table */
 	pid_t pid; /* Who should restore this fd table */
 	/*
 	 * The fd table is ready for restoing, if fdt_lock is equal to nr

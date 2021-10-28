@@ -36,7 +36,7 @@ struct page_xfer {
 	union {
 		struct /* local */ {
 			struct cr_img *pmi; /* pagemaps */
-			struct cr_img *pi; /* pages */
+			struct cr_img *pi;  /* pages */
 		};
 
 		struct /* page-server */ {

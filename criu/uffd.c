@@ -71,8 +71,8 @@ static mutex_t *lazy_sock_mutex;
 
 struct lazy_iov {
 	struct list_head l;
-	unsigned long start; /* run-time start address, tracks remaps */
-	unsigned long end; /* run-time end address, tracks remaps */
+	unsigned long start;	 /* run-time start address, tracks remaps */
+	unsigned long end;	 /* run-time end address, tracks remaps */
 	unsigned long img_start; /* start address at the dump time */
 };
 

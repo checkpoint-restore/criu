@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 {
 	int pid, status, i, stopped;
 #define PT_REGS_SIZE  4096 /* big enough for any arch */
-#define PT_REGS_ALIGN 16 /* big enough for any arch */
+#define PT_REGS_ALIGN 16   /* big enough for any arch */
 	char regs[PT_REGS_SIZE] __attribute__((aligned(PT_REGS_ALIGN)));
 
 	int *pids;

@@ -35,7 +35,7 @@ struct inet_sk_desc {
 	unsigned int dst_port;
 	unsigned int state;
 	unsigned int rqlen;
-	unsigned int wqlen; /* sent + unsent data */
+	unsigned int wqlen;  /* sent + unsent data */
 	unsigned int uwqlen; /* unsent data */
 	unsigned int src_addr[4];
 	unsigned int dst_addr[4];
