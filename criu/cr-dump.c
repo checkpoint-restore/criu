@@ -1794,6 +1794,11 @@ int cr_dump_tasks(pid_t pid)
 	int pre_dump_ret = 0;
 	int ret = -1;
 
+	if (kdat.has_incremental_dump == false && opts.final_state == TASK_ALIVE) {
+		pr_err("Dumping FAILED, incremental dump is unsupported.\n");
+		return -1;
+	}
+
 	pr_info("========================================\n");
 	pr_info("Dumping processes (pid: %d)\n", pid);
 	pr_info("========================================\n");
