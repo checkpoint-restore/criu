@@ -31,7 +31,7 @@ struct inet_diag_req_compat {
 	struct inet_diag_sockid id;
 
 	__u32 idiag_states; /* States to dump */
-	__u32 idiag_dbs; /* Tables to dump (NI) */
+	__u32 idiag_dbs;    /* Tables to dump (NI) */
 };
 
 struct inet_diag_req_v2 {

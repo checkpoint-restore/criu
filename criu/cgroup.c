@@ -81,7 +81,7 @@ static bool cg_set_compare(struct cg_set *set, struct list_head *ctls, int what)
 		if (l2->next != ctls)
 			c2 = list_first_entry(l2, struct cg_ctl, l);
 
-		if (!c1 || !c2) /* Nowhere to move next */
+		if (!c1 || !c2)		   /* Nowhere to move next */
 			return !c1 && !c2; /* Both lists scanned -- match */
 
 		if (strcmp(c1->name, c2->name))
@@ -860,7 +860,7 @@ static int dump_cg_dirs(struct list_head *dirs, size_t n_dirs, CgroupDirEntry **
 		cde->dir_perms->gid = cur->gid;
 
 		cde->dir_name = cur->path + poff;
-		if (poff != 1) /* parent isn't "/" */
+		if (poff != 1)		 /* parent isn't "/" */
 			cde->dir_name++; /* leading / */
 		cde->n_children = cur->n_children;
 		if (cur->n_children > 0)

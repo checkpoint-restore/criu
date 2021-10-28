@@ -3,7 +3,7 @@
 struct ctl_msg {
 	uint32_t cmd; /* command itself */
 	uint32_t ack; /* ack on command */
-	int32_t err; /* error code on reply */
+	int32_t err;  /* error code on reply */
 };
 
 #define ctl_msg_cmd(_cmd)    \

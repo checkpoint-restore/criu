@@ -69,8 +69,8 @@ struct La_mips_64_retval;
 /* An entry in a 64 bit SHT_REL section.  */
 
 typedef struct {
-	Elf32_Word r_sym; /* Symbol index */
-	unsigned char r_ssym; /* Special symbol for 2nd relocation */
+	Elf32_Word r_sym;      /* Symbol index */
+	unsigned char r_ssym;  /* Special symbol for 2nd relocation */
 	unsigned char r_type3; /* 3rd relocation type */
 	unsigned char r_type2; /* 2nd relocation type */
 	unsigned char r_type1; /* 1st relocation type */
@@ -82,14 +82,14 @@ typedef union {
 } _Elf64_Mips_R_Info_union;
 
 typedef struct {
-	Elf64_Addr r_offset; /* Address */
+	Elf64_Addr r_offset;		 /* Address */
 	_Elf64_Mips_R_Info_union r_info; /* Relocation type and symbol index */
 } Elf64_Mips_Rel;
 
 typedef struct {
-	Elf64_Addr r_offset; /* Address */
+	Elf64_Addr r_offset;		 /* Address */
 	_Elf64_Mips_R_Info_union r_info; /* Relocation type and symbol index */
-	Elf64_Sxword r_addend; /* Addend */
+	Elf64_Sxword r_addend;		 /* Addend */
 } Elf64_Mips_Rela;
 
 #define ELF64_MIPS_R_SYM(i) ((__extension__(_Elf64_Mips_R_Info_union)(i)).r_info_fields.r_sym)

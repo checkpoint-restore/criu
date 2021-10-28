@@ -1,9 +1,9 @@
 #include "asm/types.h"
 #include "syscall-32.h"
 
-#define SYS_SOCKET     1 /* sys_socket(2)		*/
-#define SYS_BIND       2 /* sys_bind(2)			*/
-#define SYS_CONNECT    3 /* sys_connect(2)		*/
+#define SYS_SOCKET     1  /* sys_socket(2)		*/
+#define SYS_BIND       2  /* sys_bind(2)			*/
+#define SYS_CONNECT    3  /* sys_connect(2)		*/
 #define SYS_SENDTO     11 /* sys_sendto(2)		*/
 #define SYS_RECVFROM   12 /* sys_recvfrom(2)		*/
 #define SYS_SHUTDOWN   13 /* sys_shutdown(2)		*/

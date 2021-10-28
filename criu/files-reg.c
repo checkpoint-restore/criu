@@ -2236,8 +2236,8 @@ static struct filemap_ctx ctx;
 void filemap_ctx_init(bool auto_close)
 {
 	ctx.desc = NULL; /* to fail the first comparison in open_ */
-	ctx.fd = -1; /* not to close random fd in _fini */
-	ctx.vma = NULL; /* not to put spurious VMA_CLOSE in _fini */
+	ctx.fd = -1;	 /* not to close random fd in _fini */
+	ctx.vma = NULL;	 /* not to put spurious VMA_CLOSE in _fini */
 	/* flags may remain any */
 	ctx.close = auto_close;
 }

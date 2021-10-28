@@ -18,8 +18,8 @@ enum kcmp_type {
 
 /* Slot for KCMP_EPOLL_TFD */
 typedef struct {
-	uint32_t efd; /* epoll file descriptor */
-	uint32_t tfd; /* target file number */
+	uint32_t efd;  /* epoll file descriptor */
+	uint32_t tfd;  /* target file number */
 	uint32_t toff; /* target offset within same numbered sequence */
 } kcmp_epoll_slot_t;
 

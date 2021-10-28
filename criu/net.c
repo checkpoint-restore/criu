@@ -1172,7 +1172,7 @@ struct newlink_req {
  * request.
  */
 struct newlink_extras {
-	int link; /* IFLA_LINK */
+	int link;	  /* IFLA_LINK */
 	int target_netns; /* IFLA_NET_NS_FD */
 };
 
@@ -1744,7 +1744,7 @@ static int __restore_link(struct ns_id *ns, struct net_link *link, int nlsk)
 
 	switch (nde->type) {
 	case ND_TYPE__LOOPBACK: /* fallthrough */
-	case ND_TYPE__EXTLINK: /* see comment in images/netdev.proto */
+	case ND_TYPE__EXTLINK:	/* see comment in images/netdev.proto */
 		return restore_link_parms(link, nlsk);
 	case ND_TYPE__VENET:
 		return restore_one_link(ns, link, nlsk, venet_link_info, NULL);

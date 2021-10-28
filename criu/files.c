@@ -506,7 +506,7 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 	}
 
 	p.fd_ctl = ctl; /* Some dump_opts require this to talk to parasite */
-	p.dfds = dfds; /* epoll needs to verify if target fd exist */
+	p.dfds = dfds;	/* epoll needs to verify if target fd exist */
 
 	if (S_ISSOCK(p.stat.st_mode))
 		return dump_socket(&p, lfd, e);
@@ -1486,7 +1486,7 @@ int shared_fdt_prepare(struct pstree_item *item)
 struct inherit_fd {
 	struct list_head inh_list;
 	char *inh_id; /* file identifier */
-	int inh_fd; /* criu's descriptor to inherit */
+	int inh_fd;   /* criu's descriptor to inherit */
 	int inh_fd_id;
 };
 

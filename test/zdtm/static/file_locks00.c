@@ -23,10 +23,10 @@ static int lock_reg(int fd, int cmd, int type, int whence, off_t offset, off_t l
 {
 	struct flock lock;
 
-	lock.l_type = type; /* F_RDLCK, F_WRLCK, F_UNLCK */
+	lock.l_type = type;	/* F_RDLCK, F_WRLCK, F_UNLCK */
 	lock.l_whence = whence; /* SEEK_SET, SEEK_CUR, SEEK_END */
-	lock.l_start = offset; /* byte offset, relative to l_whence */
-	lock.l_len = len; /* #bytes (0 means to EOF) */
+	lock.l_start = offset;	/* byte offset, relative to l_whence */
+	lock.l_len = len;	/* #bytes (0 means to EOF) */
 
 	errno = 0;
 	return fcntl(fd, cmd, &lock);
@@ -40,10 +40,10 @@ static int check_read_lock(int fd, int whence, off_t offset, off_t len)
 	struct flock lock;
 	int ret;
 
-	lock.l_type = F_RDLCK; /* F_RDLCK, F_WRLCK, F_UNLCK */
+	lock.l_type = F_RDLCK;	/* F_RDLCK, F_WRLCK, F_UNLCK */
 	lock.l_whence = whence; /* SEEK_SET, SEEK_CUR, SEEK_END */
-	lock.l_start = offset; /* byte offset, relative to l_whence */
-	lock.l_len = len; /* #bytes (0 means to EOF) */
+	lock.l_start = offset;	/* byte offset, relative to l_whence */
+	lock.l_len = len;	/* #bytes (0 means to EOF) */
 	lock.l_pid = -1;
 
 	errno = 0;
@@ -69,10 +69,10 @@ static int check_write_lock(int fd, int whence, off_t offset, off_t len)
 	int ret;
 	pid_t ppid = getppid();
 
-	lock.l_type = F_WRLCK; /* F_RDLCK, F_WRLCK, F_UNLCK */
+	lock.l_type = F_WRLCK;	/* F_RDLCK, F_WRLCK, F_UNLCK */
 	lock.l_whence = whence; /* SEEK_SET, SEEK_CUR, SEEK_END */
-	lock.l_start = offset; /* byte offset, relative to l_whence */
-	lock.l_len = len; /* #bytes (0 means to EOF) */
+	lock.l_start = offset;	/* byte offset, relative to l_whence */
+	lock.l_len = len;	/* #bytes (0 means to EOF) */
 	lock.l_pid = -1;
 
 	errno = 0;

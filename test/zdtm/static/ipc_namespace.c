@@ -52,10 +52,10 @@ struct ipc_ns {
 
 	//	unsigned int    mq_queues_count;
 
-	unsigned int mq_queues_max; /* initialized to DFLT_QUEUESMAX */
-	unsigned int mq_msg_max; /* initialized to DFLT_MSGMAX */
-	unsigned int mq_msgsize_max; /* initialized to DFLT_MSGSIZEMAX */
-	unsigned int mq_msg_default; /* initialized to DFLT_MSG */
+	unsigned int mq_queues_max;	 /* initialized to DFLT_QUEUESMAX */
+	unsigned int mq_msg_max;	 /* initialized to DFLT_MSGMAX */
+	unsigned int mq_msgsize_max;	 /* initialized to DFLT_MSGSIZEMAX */
+	unsigned int mq_msg_default;	 /* initialized to DFLT_MSG */
 	unsigned int mq_msgsize_default; /* initialized to DFLT_MSGSIZE */
 
 	struct user_ns *user_ns;

@@ -44,8 +44,8 @@ int arch_compat_rt_sigaction(void *stack32, int sig, rt_sigaction_t_compat *act)
 	memcpy(stack32, act, sizeof(rt_sigaction_t_compat));
 	arg.nr = __NR32_rt_sigaction;
 	arg.arg0 = sig;
-	arg.arg1 = (uint32_t)act_stack; /* act */
-	arg.arg2 = 0; /* oldact */
+	arg.arg1 = (uint32_t)act_stack;		      /* act */
+	arg.arg2 = 0;				      /* oldact */
 	arg.arg3 = (uint32_t)sizeof(act->rt_sa_mask); /* sigsetsize */
 
 	return do_full_int80(&arg);

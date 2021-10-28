@@ -81,7 +81,7 @@ struct shmem_info {
 			 * an region. Each time when we	found a process with a smaller pid,
 			 * we reset self_count, so we can't have only one counter.
 			 */
-			int count; /* the number of regions */
+			int count;	/* the number of regions */
 			int self_count; /* the number of regions, which belongs to "pid" */
 		};
 

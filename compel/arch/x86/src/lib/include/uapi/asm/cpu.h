@@ -43,16 +43,16 @@ enum cpuid_leafs {
 #define NCAPINTS_BITS (NCAPINTS * 32)
 
 /* Intel-defined CPU features, CPUID level 0x00000001 (EDX), word 0 */
-#define X86_FEATURE_FPU	      (0 * 32 + 0) /* Onboard FPU */
-#define X86_FEATURE_VME	      (0 * 32 + 1) /* Virtual Mode Extensions */
-#define X86_FEATURE_DE	      (0 * 32 + 2) /* Debugging Extensions */
-#define X86_FEATURE_PSE	      (0 * 32 + 3) /* Page Size Extensions */
-#define X86_FEATURE_TSC	      (0 * 32 + 4) /* Time Stamp Counter */
-#define X86_FEATURE_MSR	      (0 * 32 + 5) /* Model-Specific Registers */
-#define X86_FEATURE_PAE	      (0 * 32 + 6) /* Physical Address Extensions */
-#define X86_FEATURE_MCE	      (0 * 32 + 7) /* Machine Check Exception */
-#define X86_FEATURE_CX8	      (0 * 32 + 8) /* CMPXCHG8 instruction */
-#define X86_FEATURE_APIC      (0 * 32 + 9) /* Onboard APIC */
+#define X86_FEATURE_FPU	      (0 * 32 + 0)  /* Onboard FPU */
+#define X86_FEATURE_VME	      (0 * 32 + 1)  /* Virtual Mode Extensions */
+#define X86_FEATURE_DE	      (0 * 32 + 2)  /* Debugging Extensions */
+#define X86_FEATURE_PSE	      (0 * 32 + 3)  /* Page Size Extensions */
+#define X86_FEATURE_TSC	      (0 * 32 + 4)  /* Time Stamp Counter */
+#define X86_FEATURE_MSR	      (0 * 32 + 5)  /* Model-Specific Registers */
+#define X86_FEATURE_PAE	      (0 * 32 + 6)  /* Physical Address Extensions */
+#define X86_FEATURE_MCE	      (0 * 32 + 7)  /* Machine Check Exception */
+#define X86_FEATURE_CX8	      (0 * 32 + 8)  /* CMPXCHG8 instruction */
+#define X86_FEATURE_APIC      (0 * 32 + 9)  /* Onboard APIC */
 #define X86_FEATURE_SEP	      (0 * 32 + 11) /* SYSENTER/SYSEXIT */
 #define X86_FEATURE_MTRR      (0 * 32 + 12) /* Memory Type Range Registers */
 #define X86_FEATURE_PGE	      (0 * 32 + 13) /* Page Global Enable */
@@ -100,12 +100,12 @@ enum cpuid_leafs {
 #define X86_FEATURE_CENTAUR_MCR (3 * 32 + 3) /* Centaur MCRs (= MTRRs) */
 
 /* CPU types for specific tunings: */
-#define X86_FEATURE_K8		   (3 * 32 + 4) /* "" Opteron, Athlon64 */
-#define X86_FEATURE_K7		   (3 * 32 + 5) /* "" Athlon */
-#define X86_FEATURE_P3		   (3 * 32 + 6) /* "" P3 */
-#define X86_FEATURE_P4		   (3 * 32 + 7) /* "" P4 */
-#define X86_FEATURE_CONSTANT_TSC   (3 * 32 + 8) /* TSC ticks at a constant rate */
-#define X86_FEATURE_UP		   (3 * 32 + 9) /* SMP kernel running on UP */
+#define X86_FEATURE_K8		   (3 * 32 + 4)	 /* "" Opteron, Athlon64 */
+#define X86_FEATURE_K7		   (3 * 32 + 5)	 /* "" Athlon */
+#define X86_FEATURE_P3		   (3 * 32 + 6)	 /* "" P3 */
+#define X86_FEATURE_P4		   (3 * 32 + 7)	 /* "" P4 */
+#define X86_FEATURE_CONSTANT_TSC   (3 * 32 + 8)	 /* TSC ticks at a constant rate */
+#define X86_FEATURE_UP		   (3 * 32 + 9)	 /* SMP kernel running on UP */
 #define X86_FEATURE_ART		   (3 * 32 + 10) /* Always running timer (ART) */
 #define X86_FEATURE_ARCH_PERFMON   (3 * 32 + 11) /* Intel Architectural PerfMon */
 #define X86_FEATURE_PEBS	   (3 * 32 + 12) /* Precise-Event Based Sampling */
@@ -129,16 +129,16 @@ enum cpuid_leafs {
 #define X86_FEATURE_TSC_KNOWN_FREQ (3 * 32 + 31) /* TSC has known frequency */
 
 /* Intel-defined CPU features, CPUID level 0x00000001 (ECX), word 4 */
-#define X86_FEATURE_XMM3	       (4 * 32 + 0) /* "pni" SSE-3 */
-#define X86_FEATURE_PCLMULQDQ	       (4 * 32 + 1) /* PCLMULQDQ instruction */
-#define X86_FEATURE_DTES64	       (4 * 32 + 2) /* 64-bit Debug Store */
-#define X86_FEATURE_MWAIT	       (4 * 32 + 3) /* "monitor" MONITOR/MWAIT support */
-#define X86_FEATURE_DSCPL	       (4 * 32 + 4) /* "ds_cpl" CPL-qualified (filtered) Debug Store */
-#define X86_FEATURE_VMX		       (4 * 32 + 5) /* Hardware virtualization */
-#define X86_FEATURE_SMX		       (4 * 32 + 6) /* Safer Mode eXtensions */
-#define X86_FEATURE_EST		       (4 * 32 + 7) /* Enhanced SpeedStep */
-#define X86_FEATURE_TM2		       (4 * 32 + 8) /* Thermal Monitor 2 */
-#define X86_FEATURE_SSSE3	       (4 * 32 + 9) /* Supplemental SSE-3 */
+#define X86_FEATURE_XMM3	       (4 * 32 + 0)  /* "pni" SSE-3 */
+#define X86_FEATURE_PCLMULQDQ	       (4 * 32 + 1)  /* PCLMULQDQ instruction */
+#define X86_FEATURE_DTES64	       (4 * 32 + 2)  /* 64-bit Debug Store */
+#define X86_FEATURE_MWAIT	       (4 * 32 + 3)  /* "monitor" MONITOR/MWAIT support */
+#define X86_FEATURE_DSCPL	       (4 * 32 + 4)  /* "ds_cpl" CPL-qualified (filtered) Debug Store */
+#define X86_FEATURE_VMX		       (4 * 32 + 5)  /* Hardware virtualization */
+#define X86_FEATURE_SMX		       (4 * 32 + 6)  /* Safer Mode eXtensions */
+#define X86_FEATURE_EST		       (4 * 32 + 7)  /* Enhanced SpeedStep */
+#define X86_FEATURE_TM2		       (4 * 32 + 8)  /* Thermal Monitor 2 */
+#define X86_FEATURE_SSSE3	       (4 * 32 + 9)  /* Supplemental SSE-3 */
 #define X86_FEATURE_CID		       (4 * 32 + 10) /* Context ID */
 #define X86_FEATURE_SDBG	       (4 * 32 + 11) /* Silicon Debug */
 #define X86_FEATURE_FMA		       (4 * 32 + 12) /* Fused multiply-add */
@@ -162,28 +162,28 @@ enum cpuid_leafs {
 #define X86_FEATURE_HYPERVISOR	       (4 * 32 + 31) /* Running on a hypervisor */
 
 /* VIA/Cyrix/Centaur-defined CPU features, CPUID level 0xC0000001, word 5 */
-#define X86_FEATURE_XSTORE    (5 * 32 + 2) /* "rng" RNG present (xstore) */
-#define X86_FEATURE_XSTORE_EN (5 * 32 + 3) /* "rng_en" RNG enabled */
-#define X86_FEATURE_XCRYPT    (5 * 32 + 6) /* "ace" on-CPU crypto (xcrypt) */
-#define X86_FEATURE_XCRYPT_EN (5 * 32 + 7) /* "ace_en" on-CPU crypto enabled */
-#define X86_FEATURE_ACE2      (5 * 32 + 8) /* Advanced Cryptography Engine v2 */
-#define X86_FEATURE_ACE2_EN   (5 * 32 + 9) /* ACE v2 enabled */
+#define X86_FEATURE_XSTORE    (5 * 32 + 2)  /* "rng" RNG present (xstore) */
+#define X86_FEATURE_XSTORE_EN (5 * 32 + 3)  /* "rng_en" RNG enabled */
+#define X86_FEATURE_XCRYPT    (5 * 32 + 6)  /* "ace" on-CPU crypto (xcrypt) */
+#define X86_FEATURE_XCRYPT_EN (5 * 32 + 7)  /* "ace_en" on-CPU crypto enabled */
+#define X86_FEATURE_ACE2      (5 * 32 + 8)  /* Advanced Cryptography Engine v2 */
+#define X86_FEATURE_ACE2_EN   (5 * 32 + 9)  /* ACE v2 enabled */
 #define X86_FEATURE_PHE	      (5 * 32 + 10) /* PadLock Hash Engine */
 #define X86_FEATURE_PHE_EN    (5 * 32 + 11) /* PHE enabled */
 #define X86_FEATURE_PMM	      (5 * 32 + 12) /* PadLock Montgomery Multiplier */
 #define X86_FEATURE_PMM_EN    (5 * 32 + 13) /* PMM enabled */
 
 /* More extended AMD flags: CPUID level 0x80000001, ECX, word 6 */
-#define X86_FEATURE_LAHF_LM	  (6 * 32 + 0) /* LAHF/SAHF in long mode */
-#define X86_FEATURE_CMP_LEGACY	  (6 * 32 + 1) /* If yes HyperThreading not valid */
-#define X86_FEATURE_SVM		  (6 * 32 + 2) /* Secure Virtual Machine */
-#define X86_FEATURE_EXTAPIC	  (6 * 32 + 3) /* Extended APIC space */
-#define X86_FEATURE_CR8_LEGACY	  (6 * 32 + 4) /* CR8 in 32-bit mode */
-#define X86_FEATURE_ABM		  (6 * 32 + 5) /* Advanced bit manipulation */
-#define X86_FEATURE_SSE4A	  (6 * 32 + 6) /* SSE-4A */
-#define X86_FEATURE_MISALIGNSSE	  (6 * 32 + 7) /* Misaligned SSE mode */
-#define X86_FEATURE_3DNOWPREFETCH (6 * 32 + 8) /* 3DNow prefetch instructions */
-#define X86_FEATURE_OSVW	  (6 * 32 + 9) /* OS Visible Workaround */
+#define X86_FEATURE_LAHF_LM	  (6 * 32 + 0)	/* LAHF/SAHF in long mode */
+#define X86_FEATURE_CMP_LEGACY	  (6 * 32 + 1)	/* If yes HyperThreading not valid */
+#define X86_FEATURE_SVM		  (6 * 32 + 2)	/* Secure Virtual Machine */
+#define X86_FEATURE_EXTAPIC	  (6 * 32 + 3)	/* Extended APIC space */
+#define X86_FEATURE_CR8_LEGACY	  (6 * 32 + 4)	/* CR8 in 32-bit mode */
+#define X86_FEATURE_ABM		  (6 * 32 + 5)	/* Advanced bit manipulation */
+#define X86_FEATURE_SSE4A	  (6 * 32 + 6)	/* SSE-4A */
+#define X86_FEATURE_MISALIGNSSE	  (6 * 32 + 7)	/* Misaligned SSE mode */
+#define X86_FEATURE_3DNOWPREFETCH (6 * 32 + 8)	/* 3DNow prefetch instructions */
+#define X86_FEATURE_OSVW	  (6 * 32 + 9)	/* OS Visible Workaround */
 #define X86_FEATURE_IBS		  (6 * 32 + 10) /* Instruction Based Sampling */
 #define X86_FEATURE_XOP		  (6 * 32 + 11) /* extended AVX instructions */
 #define X86_FEATURE_SKINIT	  (6 * 32 + 12) /* SKINIT/STGI instructions */
@@ -202,14 +202,14 @@ enum cpuid_leafs {
 #define X86_FEATURE_MWAITX	  (6 * 32 + 29) /* MWAIT extension (MONITORX/MWAITX instructions) */
 
 /* Intel-defined CPU features, CPUID level 0x00000007:0 (EBX), word 9 */
-#define X86_FEATURE_FSGSBASE   (9 * 32 + 0) /* RDFSBASE, WRFSBASE, RDGSBASE, WRGSBASE instructions*/
-#define X86_FEATURE_TSC_ADJUST (9 * 32 + 1) /* TSC adjustment MSR 0x3B */
-#define X86_FEATURE_BMI1       (9 * 32 + 3) /* 1st group bit manipulation extensions */
-#define X86_FEATURE_HLE	       (9 * 32 + 4) /* Hardware Lock Elision */
-#define X86_FEATURE_AVX2       (9 * 32 + 5) /* AVX2 instructions */
-#define X86_FEATURE_SMEP       (9 * 32 + 7) /* Supervisor Mode Execution Protection */
-#define X86_FEATURE_BMI2       (9 * 32 + 8) /* 2nd group bit manipulation extensions */
-#define X86_FEATURE_ERMS       (9 * 32 + 9) /* Enhanced REP MOVSB/STOSB instructions */
+#define X86_FEATURE_FSGSBASE   (9 * 32 + 0)  /* RDFSBASE, WRFSBASE, RDGSBASE, WRGSBASE instructions*/
+#define X86_FEATURE_TSC_ADJUST (9 * 32 + 1)  /* TSC adjustment MSR 0x3B */
+#define X86_FEATURE_BMI1       (9 * 32 + 3)  /* 1st group bit manipulation extensions */
+#define X86_FEATURE_HLE	       (9 * 32 + 4)  /* Hardware Lock Elision */
+#define X86_FEATURE_AVX2       (9 * 32 + 5)  /* AVX2 instructions */
+#define X86_FEATURE_SMEP       (9 * 32 + 7)  /* Supervisor Mode Execution Protection */
+#define X86_FEATURE_BMI2       (9 * 32 + 8)  /* 2nd group bit manipulation extensions */
+#define X86_FEATURE_ERMS       (9 * 32 + 9)  /* Enhanced REP MOVSB/STOSB instructions */
 #define X86_FEATURE_INVPCID    (9 * 32 + 10) /* Invalidate Processor Context ID */
 #define X86_FEATURE_RTM	       (9 * 32 + 11) /* Restricted Transactional Memory */
 #define X86_FEATURE_CQM	       (9 * 32 + 12) /* Cache QoS Monitoring */
@@ -238,14 +238,14 @@ enum cpuid_leafs {
 #define X86_FEATURE_XSAVES   (10 * 32 + 3) /* XSAVES/XRSTORS instructions */
 
 /* Intel-defined CPU features, CPUID level 0x00000007:0 (ECX), word 11 */
-#define X86_FEATURE_PREFETCHWT1	     (11 * 32 + 0) /* PREFETCHWT1 Intel® Xeon PhiTM only */
-#define X86_FEATURE_AVX512VBMI	     (11 * 32 + 1) /* AVX512 Vector Bit Manipulation instructions*/
-#define X86_FEATURE_UMIP	     (11 * 32 + 2) /* User Mode Instruction Protection */
-#define X86_FEATURE_PKU		     (11 * 32 + 3) /* Protection Keys for Userspace */
-#define X86_FEATURE_OSPKE	     (11 * 32 + 4) /* OS Protection Keys Enable */
-#define X86_FEATURE_AVX512_VBMI2     (11 * 32 + 6) /* Additional AVX512 Vector Bit Manipulation Instructions */
-#define X86_FEATURE_GFNI	     (11 * 32 + 8) /* Galois Field New Instructions */
-#define X86_FEATURE_VAES	     (11 * 32 + 9) /* Vector AES */
+#define X86_FEATURE_PREFETCHWT1	     (11 * 32 + 0)  /* PREFETCHWT1 Intel® Xeon PhiTM only */
+#define X86_FEATURE_AVX512VBMI	     (11 * 32 + 1)  /* AVX512 Vector Bit Manipulation instructions*/
+#define X86_FEATURE_UMIP	     (11 * 32 + 2)  /* User Mode Instruction Protection */
+#define X86_FEATURE_PKU		     (11 * 32 + 3)  /* Protection Keys for Userspace */
+#define X86_FEATURE_OSPKE	     (11 * 32 + 4)  /* OS Protection Keys Enable */
+#define X86_FEATURE_AVX512_VBMI2     (11 * 32 + 6)  /* Additional AVX512 Vector Bit Manipulation Instructions */
+#define X86_FEATURE_GFNI	     (11 * 32 + 8)  /* Galois Field New Instructions */
+#define X86_FEATURE_VAES	     (11 * 32 + 9)  /* Vector AES */
 #define X86_FEATURE_VPCLMULQDQ	     (11 * 32 + 10) /* Carry-Less Multiplication Double Quadword */
 #define X86_FEATURE_AVX512_VNNI	     (11 * 32 + 11) /* Vector Neural Network Instructions */
 #define X86_FEATURE_AVX512_BITALG    (11 * 32 + 12) /* Support for VPOPCNT[B,W] and VPSHUF-BITQMB instructions */
@@ -261,35 +261,35 @@ enum cpuid_leafs {
 #define X86_FEATURE_CQM_MBM_LOCAL (12 * 32 + 2) /* LLC Local MBM monitoring */
 
 /* AMD-defined CPU features, CPUID level 0x80000008 (EBX), word 13 */
-#define X86_FEATURE_CLZERO     (13 * 32 + 0) /* CLZERO instruction */
-#define X86_FEATURE_IRPERF     (13 * 32 + 1) /* Instructions Retired Count */
-#define X86_FEATURE_XSAVEERPTR (13 * 32 + 2) /* Always save/restore FP error pointers */
+#define X86_FEATURE_CLZERO     (13 * 32 + 0)  /* CLZERO instruction */
+#define X86_FEATURE_IRPERF     (13 * 32 + 1)  /* Instructions Retired Count */
+#define X86_FEATURE_XSAVEERPTR (13 * 32 + 2)  /* Always save/restore FP error pointers */
 #define X86_FEATURE_IBPB       (13 * 32 + 12) /* Indirect Branch Prediction Barrier */
 #define X86_FEATURE_IBRS       (13 * 32 + 14) /* Indirect Branch Restricted Speculation */
 #define X86_FEATURE_STIBP      (13 * 32 + 15) /* Single Thread Indirect Branch Predictors */
 
 /* Thermal and Power Management Leaf, CPUID level 0x00000006 (EAX), word 14 */
-#define X86_FEATURE_DTHERM	   (14 * 32 + 0) /* Digital Thermal Sensor */
-#define X86_FEATURE_IDA		   (14 * 32 + 1) /* Intel Dynamic Acceleration */
-#define X86_FEATURE_ARAT	   (14 * 32 + 2) /* Always Running APIC Timer */
-#define X86_FEATURE_PLN		   (14 * 32 + 4) /* Intel Power Limit Notification */
-#define X86_FEATURE_PTS		   (14 * 32 + 6) /* Intel Package Thermal Status */
-#define X86_FEATURE_HWP		   (14 * 32 + 7) /* Intel Hardware P-states */
-#define X86_FEATURE_HWP_NOTIFY	   (14 * 32 + 8) /* HWP Notification */
-#define X86_FEATURE_HWP_ACT_WINDOW (14 * 32 + 9) /* HWP Activity Window */
+#define X86_FEATURE_DTHERM	   (14 * 32 + 0)  /* Digital Thermal Sensor */
+#define X86_FEATURE_IDA		   (14 * 32 + 1)  /* Intel Dynamic Acceleration */
+#define X86_FEATURE_ARAT	   (14 * 32 + 2)  /* Always Running APIC Timer */
+#define X86_FEATURE_PLN		   (14 * 32 + 4)  /* Intel Power Limit Notification */
+#define X86_FEATURE_PTS		   (14 * 32 + 6)  /* Intel Package Thermal Status */
+#define X86_FEATURE_HWP		   (14 * 32 + 7)  /* Intel Hardware P-states */
+#define X86_FEATURE_HWP_NOTIFY	   (14 * 32 + 8)  /* HWP Notification */
+#define X86_FEATURE_HWP_ACT_WINDOW (14 * 32 + 9)  /* HWP Activity Window */
 #define X86_FEATURE_HWP_EPP	   (14 * 32 + 10) /* HWP Energy Perf. Preference */
 #define X86_FEATURE_HWP_PKG_REQ	   (14 * 32 + 11) /* HWP Package Level Request */
 #define X86_FEATURE_HDC		   (14 * 32 + 13) /* HDC base registers present */
 
 /* AMD SVM Feature Identification, CPUID level 0x8000000a (EDX), word 15 */
-#define X86_FEATURE_NPT		    (15 * 32 + 0) /* Nested Page Table support */
-#define X86_FEATURE_LBRV	    (15 * 32 + 1) /* LBR Virtualization support */
-#define X86_FEATURE_SVML	    (15 * 32 + 2) /* "svm_lock" SVM locking MSR */
-#define X86_FEATURE_NRIPS	    (15 * 32 + 3) /* "nrip_save" SVM next_rip save */
-#define X86_FEATURE_TSCRATEMSR	    (15 * 32 + 4) /* "tsc_scale" TSC scaling support */
-#define X86_FEATURE_VMCBCLEAN	    (15 * 32 + 5) /* "vmcb_clean" VMCB clean bits support */
-#define X86_FEATURE_FLUSHBYASID	    (15 * 32 + 6) /* flush-by-ASID support */
-#define X86_FEATURE_DECODEASSISTS   (15 * 32 + 7) /* Decode Assists support */
+#define X86_FEATURE_NPT		    (15 * 32 + 0)  /* Nested Page Table support */
+#define X86_FEATURE_LBRV	    (15 * 32 + 1)  /* LBR Virtualization support */
+#define X86_FEATURE_SVML	    (15 * 32 + 2)  /* "svm_lock" SVM locking MSR */
+#define X86_FEATURE_NRIPS	    (15 * 32 + 3)  /* "nrip_save" SVM next_rip save */
+#define X86_FEATURE_TSCRATEMSR	    (15 * 32 + 4)  /* "tsc_scale" TSC scaling support */
+#define X86_FEATURE_VMCBCLEAN	    (15 * 32 + 5)  /* "vmcb_clean" VMCB clean bits support */
+#define X86_FEATURE_FLUSHBYASID	    (15 * 32 + 6)  /* flush-by-ASID support */
+#define X86_FEATURE_DECODEASSISTS   (15 * 32 + 7)  /* Decode Assists support */
 #define X86_FEATURE_PAUSEFILTER	    (15 * 32 + 10) /* filtered pause intercept */
 #define X86_FEATURE_PFTHRESHOLD	    (15 * 32 + 12) /* pause filter threshold */
 #define X86_FEATURE_AVIC	    (15 * 32 + 13) /* Virtual Interrupt Controller */
@@ -305,8 +305,8 @@ enum cpuid_leafs {
 #define X86_FEATURE_SMCA	   (17 * 32 + 3) /* Scalable MCA */
 
 /* Intel-defined CPU features, CPUID level 0x00000007:0 (EDX), word 18 */
-#define X86_FEATURE_AVX512_4VNNIW     (18 * 32 + 2) /* AVX-512 Neural Network Instructions */
-#define X86_FEATURE_AVX512_4FMAPS     (18 * 32 + 3) /* AVX-512 Multiply Accumulation Single precision */
+#define X86_FEATURE_AVX512_4VNNIW     (18 * 32 + 2)  /* AVX-512 Neural Network Instructions */
+#define X86_FEATURE_AVX512_4FMAPS     (18 * 32 + 3)  /* AVX-512 Multiply Accumulation Single precision */
 #define X86_FEATURE_PCONFIG	      (18 * 32 + 18) /* Intel PCONFIG */
 #define X86_FEATURE_SPEC_CTRL	      (18 * 32 + 26) /* "" Speculation Control (IBRS + IBPB) */
 #define X86_FEATURE_INTEL_STIBP	      (18 * 32 + 27) /* "" Single Thread Indirect Branch Predictors */

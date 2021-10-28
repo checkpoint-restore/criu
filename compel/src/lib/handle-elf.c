@@ -554,7 +554,7 @@ int __handle_elf(void *mem, size_t size)
 #endif /* ELF_PPC64 */
 
 #ifdef ELF_X86_64
-			case R_X86_64_32: /* Symbol + Addend (4 bytes) */
+			case R_X86_64_32:  /* Symbol + Addend (4 bytes) */
 			case R_X86_64_32S: /* Symbol + Addend (4 bytes) */
 				pr_debug("\t\t\t\tR_X86_64_32       at 0x%-4lx val 0x%x\n", place, value32);
 				pr_out("	{ .offset = 0x%-8x, .type = COMPEL_TYPE_INT,  "

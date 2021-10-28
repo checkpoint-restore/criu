@@ -196,7 +196,7 @@ static inline unsigned long find_next_bit(const unsigned long *addr, unsigned lo
 
 found_first:
 	tmp &= (~0UL >> (BITS_PER_LONG - size));
-	if (tmp == 0UL) /* Are any bits set? */
+	if (tmp == 0UL)		      /* Are any bits set? */
 		return result + size; /* Nope. */
 found_middle:
 	return result + __ffs(tmp);

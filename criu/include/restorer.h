@@ -138,7 +138,7 @@ struct task_restore_args {
 	bool has_thp_enabled;
 
 	/* threads restoration */
-	int nr_threads; /* number of threads */
+	int nr_threads;				 /* number of threads */
 	thread_restore_fcall_t clone_restore_fn; /* helper address for clone() call */
 	struct thread_restore_args *thread_args; /* array of thread arguments */
 	struct task_entries *task_entries;
@@ -211,7 +211,7 @@ struct task_restore_args {
 	bool can_map_vdso;
 	bool auto_dedup;
 	unsigned long vdso_rt_size;
-	struct vdso_maps vdso_maps_rt; /* runtime vdso symbols */
+	struct vdso_maps vdso_maps_rt;	 /* runtime vdso symbols */
 	unsigned long vdso_rt_parked_at; /* safe place to keep vdso */
 	void **breakpoint;
 

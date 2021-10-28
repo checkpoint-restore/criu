@@ -18,9 +18,9 @@
  */
 typedef struct {
 	u8 larl[6]; /* Load relative address of imm64 */
-	u8 lg[6]; /* Load %r1 with imm64 */
-	u8 br[2]; /* Branch to %r1 */
-	u64 addr; /* Jump address */
+	u8 lg[6];   /* Load %r1 with imm64 */
+	u8 br[2];   /* Branch to %r1 */
+	u64 addr;   /* Jump address */
 	u32 guards; /* Guard bytes */
 } __packed jmp_t;
 
