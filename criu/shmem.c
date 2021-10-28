@@ -85,7 +85,8 @@ struct shmem_info {
 			int self_count; /* the number of regions, which belongs to "pid" */
 		};
 
-		struct { /* For sysvipc restore */
+		/* For sysvipc restore */
+		struct {
 			struct list_head att; /* list of shmem_sysv_att-s */
 			int want_write;
 		};
