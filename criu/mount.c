@@ -2561,7 +2561,7 @@ static LIST_HEAD(mnt_remap_list);
 static int remap_id;
 
 struct mnt_remap_entry {
-	struct mount_info *mi; /* child is remaped into the root yards */
+	struct mount_info *mi;	   /* child is remaped into the root yards */
 	struct mount_info *parent; /* the origin parent for the child*/
 	struct list_head node;
 };

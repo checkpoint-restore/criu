@@ -160,8 +160,8 @@ static int irmap_update_dir(struct irmap *t)
 
 		k = &t->kids[nr - 1];
 
-		k->kids = NULL; /* for xrealloc above */
-		k->ino = 0; /* for irmap_update_stat */
+		k->kids = NULL;	 /* for xrealloc above */
+		k->ino = 0;	 /* for irmap_update_stat */
 		k->nr_kids = -1; /* for irmap_update_dir */
 		k->path = xsprintf("%s/%s", t->path, de->d_name);
 		if (!k->path)

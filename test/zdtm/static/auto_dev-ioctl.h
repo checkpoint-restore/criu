@@ -95,7 +95,7 @@ struct args_ismountpoint {
 struct autofs_dev_ioctl {
 	__u32 ver_major;
 	__u32 ver_minor;
-	__u32 size; /* total size of data passed in
+	__u32 size;    /* total size of data passed in
 				 * including this struct */
 	__s32 ioctlfd; /* automount command fd */
 

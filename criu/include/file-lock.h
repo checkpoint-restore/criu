@@ -30,12 +30,12 @@
 #define LOCK_SH 1 /* shared lock */
 #define LOCK_EX 2 /* exclusive lock */
 #define LOCK_NB \
-	4 /* or'd with one of the above to prevent
+	4	  /* or'd with one of the above to prevent
 				   blocking */
 #define LOCK_UN 8 /* remove lock */
 
-#define LOCK_MAND  32 /* This is a mandatory flock ... */
-#define LOCK_READ  64 /* which allows concurrent read operations */
+#define LOCK_MAND  32  /* This is a mandatory flock ... */
+#define LOCK_READ  64  /* which allows concurrent read operations */
 #define LOCK_WRITE 128 /* which allows concurrent write operations */
 #define LOCK_RW	   192 /* which allows concurrent read & write ops */
 
@@ -47,7 +47,7 @@ struct file_lock {
 	int fl_kind;
 	int fl_ltype;
 
-	pid_t fl_owner; /* process, which created the lock */
+	pid_t fl_owner;	 /* process, which created the lock */
 	pid_t fl_holder; /* pid of fd on whose the lock is found */
 	int maj, min;
 	unsigned long i_no;

@@ -30,10 +30,10 @@
  * One "job" for the preadv() syscall in pagemap.c
  */
 struct page_read_iov {
-	off_t from; /* offset in pi file where to start reading from */
-	off_t end; /* the end of the read == sum to.iov_len -s */
+	off_t from;	  /* offset in pi file where to start reading from */
+	off_t end;	  /* the end of the read == sum to.iov_len -s */
 	struct iovec *to; /* destination iovs */
-	unsigned int nr; /* their number */
+	unsigned int nr;  /* their number */
 
 	struct list_head l;
 };

@@ -128,9 +128,9 @@ struct ns_id {
 			 */
 			union {
 				int nsfd_id; /* a namespace descriptor id in fdstore */
-				int ns_fd; /* a namespace file descriptor */
+				int ns_fd;   /* a namespace file descriptor */
 			};
-			int nlsk; /* for sockets collection */
+			int nlsk;  /* for sockets collection */
 			int seqsk; /* to talk to parasite daemons */
 			struct list_head ids;
 			struct list_head links;

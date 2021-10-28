@@ -21,13 +21,13 @@ typedef struct {
 	unsigned long xer;
 	unsigned long ccr;
 	unsigned long softe; /* Soft enabled/disabled */
-	unsigned long trap; /* Reason for being here */
+	unsigned long trap;  /* Reason for being here */
 	/*
 	 * N.B. for critical exceptions on 4xx, the dar and dsisr
 	 * fields are overloaded to hold srr0 and srr1.
 	 */
-	unsigned long dar; /* Fault registers */
-	unsigned long dsisr; /* on 4xx/Book-E used for ESR */
+	unsigned long dar;    /* Fault registers */
+	unsigned long dsisr;  /* on 4xx/Book-E used for ESR */
 	unsigned long result; /* Result of a system call */
 } user_regs_struct_t;
 

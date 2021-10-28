@@ -958,9 +958,9 @@ struct unix_sk_info {
 	struct unix_sk_info *peer;
 	struct pprep_head peer_resolve; /* XXX : union with the above? */
 	struct file_desc d;
-	struct hlist_node hash; /* To lookup socket by ino */
+	struct hlist_node hash;	    /* To lookup socket by ino */
 	struct list_head connected; /* List of sockets, connected to me */
-	struct list_head node; /* To link in peer's connected list  */
+	struct list_head node;	    /* To link in peer's connected list  */
 	struct list_head scm_fles;
 	struct list_head ghost_node;
 	size_t ghost_dir_pos;

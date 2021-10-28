@@ -82,8 +82,8 @@ enum {
 
 struct fdinfo_list_entry {
 	struct list_head desc_list; /* To chain on  @fd_info_head */
-	struct file_desc *desc; /* Associated file descriptor */
-	struct list_head ps_list; /* To chain  per-task files */
+	struct file_desc *desc;	    /* Associated file descriptor */
+	struct list_head ps_list;   /* To chain  per-task files */
 	struct pstree_item *task;
 	FdinfoEntry *fe;
 	int pid;

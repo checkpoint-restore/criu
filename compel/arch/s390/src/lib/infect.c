@@ -624,8 +624,8 @@ enum kernel_ts_level {
 };
 
 /* See arch/s390/include/asm/processor.h */
-#define TASK_SIZE_LEVEL_3 0x40000000000UL /* 4 TB */
-#define TASK_SIZE_LEVEL_4 0x20000000000000UL /* 8 PB */
+#define TASK_SIZE_LEVEL_3 0x40000000000UL      /* 4 TB */
+#define TASK_SIZE_LEVEL_4 0x20000000000000UL   /* 8 PB */
 #define TASK_SIZE_LEVEL_5 0xffffffffffffefffUL /* 16 EB - 0x1000 */
 
 /*

@@ -13,7 +13,7 @@
 extern void restore_tls(tls_t *ptls);
 extern int arch_compat_rt_sigaction(void *stack32, int sig, rt_sigaction_t_compat *act);
 extern int set_compat_robust_list(uint32_t head_ptr, uint32_t len);
-#else /* CONFIG_COMPAT */
+#else  /* CONFIG_COMPAT */
 static inline void restore_tls(tls_t *ptls)
 {
 }

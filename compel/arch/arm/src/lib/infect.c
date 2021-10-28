@@ -18,7 +18,7 @@
  */
 const char code_syscall[] = {
 	0x00, 0x00, 0x00, 0xef, /* SVC #0  */
-	0xf0, 0x01, 0xf0, 0xe7 /* UDF #32 */
+	0xf0, 0x01, 0xf0, 0xe7	/* UDF #32 */
 };
 
 static const int code_syscall_aligned = round_up(sizeof(code_syscall), sizeof(long));

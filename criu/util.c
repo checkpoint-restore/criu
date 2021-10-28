@@ -1669,8 +1669,8 @@ __attribute__((returns_twice)) static pid_t raw_legacy_clone(unsigned long flags
 		     */
 			"addx %%g0, 0, %%g1"
 			: "=r"(g1), "=r"(o0), "=r"(o1), "=r"(o2) /* outputs */
-			: "r"(g1), "r"(o0), "r"(o1), "r"(o2) /* inputs */
-			: "%cc"); /* clobbers */
+			: "r"(g1), "r"(o0), "r"(o1), "r"(o2)	 /* inputs */
+			: "%cc");				 /* clobbers */
 
 		is_error = g1;
 		retval = o0;

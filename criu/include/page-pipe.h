@@ -90,14 +90,14 @@ struct kernel_pipe_buffer {
  */
 
 struct page_pipe_buf {
-	int p[2]; /* pipe with pages */
+	int p[2];		/* pipe with pages */
 	unsigned int pipe_size; /* how many pages can be fit into pipe */
-	unsigned int pipe_off; /* where this buf is started in a pipe */
-	unsigned int pages_in; /* how many pages are there */
-	unsigned int nr_segs; /* how many iov-s are busy */
+	unsigned int pipe_off;	/* where this buf is started in a pipe */
+	unsigned int pages_in;	/* how many pages are there */
+	unsigned int nr_segs;	/* how many iov-s are busy */
 #define PPB_LAZY (1 << 0)
 	unsigned int flags;
-	struct iovec *iov; /* vaddr:len map */
+	struct iovec *iov;  /* vaddr:len map */
 	struct list_head l; /* links into page_pipe->bufs */
 };
 
@@ -113,19 +113,19 @@ struct page_pipe_buf {
 #define PP_HOLE_PARENT (1 << 0)
 
 struct page_pipe {
-	unsigned int nr_pipes; /* how many page_pipe_bufs in there */
-	struct list_head bufs; /* list of bufs */
-	struct list_head free_bufs; /* list of bufs */
+	unsigned int nr_pipes;			   /* how many page_pipe_bufs in there */
+	struct list_head bufs;			   /* list of bufs */
+	struct list_head free_bufs;		   /* list of bufs */
 	struct page_pipe_buf *prev[PP_PIPE_TYPES]; /* last ppb of each type for pipe sharing */
-	unsigned int nr_iovs; /* number of iovs */
-	unsigned int free_iov; /* first free iov */
+	unsigned int nr_iovs;			   /* number of iovs */
+	unsigned int free_iov;			   /* first free iov */
 
 	struct iovec *iovs; /* iovs. They are provided into create_page_pipe
 							   and all bufs have their iov-s in there */
 
-	unsigned int nr_holes; /* number of holes allocated */
+	unsigned int nr_holes;	/* number of holes allocated */
 	unsigned int free_hole; /* number of holes in use */
-	struct iovec *holes; /* holes */
+	struct iovec *holes;	/* holes */
 	unsigned int *hole_flags;
 	unsigned int flags; /* PP_FOO flags below */
 };

@@ -11,13 +11,13 @@ struct vma_area;
 #define PAGEMAP_PFN_OFF(addr) (PAGE_PFN(addr) * sizeof(u64))
 
 typedef struct {
-	pid_t pid; /* which process it belongs */
-	unsigned long start; /* start of area */
-	unsigned long end; /* end of area */
+	pid_t pid;			  /* which process it belongs */
+	unsigned long start;		  /* start of area */
+	unsigned long end;		  /* end of area */
 	const struct list_head *vma_head; /* list head of VMAs we're serving */
-	u64 *map; /* local buffer */
-	size_t map_len; /* length of a buffer */
-	int fd; /* file to read PMs from */
+	u64 *map;			  /* local buffer */
+	size_t map_len;			  /* length of a buffer */
+	int fd;				  /* file to read PMs from */
 } pmc_t;
 
 #define PMC_INIT \
