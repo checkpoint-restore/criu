@@ -15,14 +15,14 @@
 struct pstree_item {
 	struct pstree_item *parent;
 	struct list_head children; /* list of my children */
-	struct list_head sibling; /* linkage in my parent's children list */
+	struct list_head sibling;  /* linkage in my parent's children list */
 
 	struct pid *pid;
 	pid_t pgid;
 	pid_t sid;
 	pid_t born_sid;
 
-	int nr_threads; /* number of threads */
+	int nr_threads;	     /* number of threads */
 	struct pid *threads; /* array of threads */
 	CoreEntry **core;
 	TaskKobjIdsEntry *ids;

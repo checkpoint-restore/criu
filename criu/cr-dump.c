@@ -615,7 +615,7 @@ static int dump_task_kobj_ids(struct pstree_item *item)
 	TaskKobjIdsEntry *ids = item->ids;
 
 	elem.pid = pid;
-	elem.idx = 0; /* really 0 for all */
+	elem.idx = 0;	/* really 0 for all */
 	elem.genid = 0; /* FIXME optimize */
 
 	new = 0;

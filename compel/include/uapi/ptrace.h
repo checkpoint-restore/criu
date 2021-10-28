@@ -62,7 +62,7 @@
  */
 typedef struct {
 	uint64_t filter_off; /* Input: which filter */
-	uint64_t flags; /* Output: filter's flags */
+	uint64_t flags;	     /* Output: filter's flags */
 } seccomp_metadata_t;
 
 #ifdef PTRACE_EVENT_STOP

@@ -52,14 +52,14 @@ typedef struct siginfo {
 
 		/* kill() */
 		struct {
-			__kernel_pid_t _pid; /* sender's pid */
+			__kernel_pid_t _pid;  /* sender's pid */
 			__ARCH_SI_UID_T _uid; /* sender's uid */
 		} _kill;
 
 		/* POSIX.1b timers */
 		struct {
 			__kernel_timer_t _tid; /* timer id */
-			int _overrun; /* overrun count */
+			int _overrun;	       /* overrun count */
 			char _pad[sizeof(__ARCH_SI_UID_T) - sizeof(int)];
 			sigval_t _sigval; /* same as below */
 			int _sys_private; /* not to be passed to user */
@@ -67,16 +67,16 @@ typedef struct siginfo {
 
 		/* POSIX.1b signals */
 		struct {
-			__kernel_pid_t _pid; /* sender's pid */
+			__kernel_pid_t _pid;  /* sender's pid */
 			__ARCH_SI_UID_T _uid; /* sender's uid */
 			sigval_t _sigval;
 		} _rt;
 
 		/* SIGCHLD */
 		struct {
-			__kernel_pid_t _pid; /* which child */
+			__kernel_pid_t _pid;  /* which child */
 			__ARCH_SI_UID_T _uid; /* sender's uid */
-			int _status; /* exit code */
+			int _status;	      /* exit code */
 			__ARCH_SI_CLOCK_T _utime;
 			__ARCH_SI_CLOCK_T _stime;
 		} _sigchld;
@@ -104,8 +104,8 @@ typedef struct siginfo {
 
 		/* SIGSYS */
 		struct {
-			void *_call_addr; /* calling user insn */
-			int _syscall; /* triggering system call number */
+			void *_call_addr;   /* calling user insn */
+			int _syscall;	    /* triggering system call number */
 			unsigned int _arch; /* AUDIT_ARCH_* of syscall */
 		} _sigsys;
 	} _sifields;

@@ -22,10 +22,10 @@ enum sfd_type {
 				 *  - For dump -- target ns' proc
 				 *  - For restore -- CRIU ns' proc
 				 */
-	ROOT_FD_OFF, /* Root of the namespace we dump/restore */
+	ROOT_FD_OFF,	/* Root of the namespace we dump/restore */
 	CGROUP_YARD,
-	USERNSD_SK, /* Socket for usernsd */
-	NS_FD_OFF, /* Node's net namespace fd */
+	USERNSD_SK,	  /* Socket for usernsd */
+	NS_FD_OFF,	  /* Node's net namespace fd */
 	TRANSPORT_FD_OFF, /* to transfer file descriptors */
 	RPC_SK_OFF,
 	FDSTORE_SK_OFF,

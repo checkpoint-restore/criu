@@ -1631,7 +1631,7 @@ void pr_check_features(const char *offset, const char *sep, int width)
 		}
 		pr_msg("%s", fl->name); // no \n
 		pos += len;
-		if ((fl + 1)->name) { // not the last item
+		if ((fl + 1)->name) {	   // not the last item
 			pr_msg("%s", sep); // no \n
 			pos += sep_len;
 		}

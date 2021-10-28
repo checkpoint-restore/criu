@@ -30,7 +30,7 @@ unsigned __page_shift = 0;
  */
 const uint32_t code_syscall[] = {
 	0x44000002, /* sc 		*/
-	0x0fe00000 /* twi 31,0,0	*/
+	0x0fe00000  /* twi 31,0,0	*/
 };
 
 static inline __always_unused void __check_code_syscall(void)
