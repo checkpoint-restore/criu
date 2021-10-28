@@ -63,17 +63,14 @@ struct page_read {
 	struct cr_img *pi;
 	u32 pages_img_id;
 
-	PagemapEntry *pe; /* current pagemap we are on */
-	struct page_read *parent; /* parent pagemap (if ->in_parent
-					   pagemap is met in image, then
-					   go to this guy for page, see
-					   read_pagemap_page */
-	unsigned long cvaddr; /* vaddr we are on */
-	off_t pi_off; /* current offset in pages file */
+	PagemapEntry *pe;	  /* current pagemap we are on */
+	struct page_read *parent; /* parent pagemap (if ->in_parent pagemap is met in image,
+				   * then go to this guy for page, see read_pagemap_page */
+	unsigned long cvaddr;	  /* vaddr we are on */
+	off_t pi_off;		  /* current offset in pages file */
 
-	struct iovec bunch; /* record consequent neighbour
-					   iovecs to punch together */
-	unsigned id; /* for logging */
+	struct iovec bunch;   /* record consequent neighbour iovecs to punch together */
+	unsigned id;	      /* for logging */
 	unsigned long img_id; /* pagemap image file ID */
 
 	PagemapEntry **pmes;
