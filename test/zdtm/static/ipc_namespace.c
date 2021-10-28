@@ -19,27 +19,28 @@ extern int shmctl(int __shmid, int __cmd, struct shmid_ds *__buf);
 
 struct ipc_ids {
 	int in_use; /* TODO: Check for 0 */
-	//	unsigned short seq;
-	//	unsigned short seq_max;
-	//	struct rw_semaphore rw_mutex;
-	//	struct idr ipcs_idr;		/* TODO */
+
+	// unsigned short seq;
+	// unsigned short seq_max;
+	// struct rw_semaphore rw_mutex;
+	// struct idr ipcs_idr; /* TODO */
 };
 
 struct ipc_ns {
 	struct ipc_ids ids[3];
 
-	int sem_ctls[4]; // +
-	int used_sems; // +
+	int sem_ctls[4];
+	int used_sems;
 
-	int msg_ctlmax; // +
-	int msg_ctlmnb; // +
-	int msg_ctlmni; // +
-	int msg_bytes; // +
-	int msg_hdrs; // +
-	int auto_msgmni; // +
-	int msg_next_id; // +
-	int sem_next_id; // +
-	int shm_next_id; // +
+	int msg_ctlmax;
+	int msg_ctlmnb;
+	int msg_ctlmni;
+	int msg_bytes;
+	int msg_hdrs;
+	int auto_msgmni;
+	int msg_next_id;
+	int sem_next_id;
+	int shm_next_id;
 
 	size_t shm_ctlmax;
 	size_t shm_ctlall;

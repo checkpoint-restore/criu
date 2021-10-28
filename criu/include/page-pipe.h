@@ -130,10 +130,8 @@ struct page_pipe {
 	unsigned int flags; /* PP_FOO flags below */
 };
 
-#define PP_CHUNK_MODE \
-	0x1 /* Restrict the maximum buffer size of pipes
-				   and dump memory for a few iterations */
-#define PP_OWN_IOVS 0x4 /* create_page_pipe allocated IOVs memory */
+#define PP_CHUNK_MODE 0x1 /* Restrict the maximum buffer size of pipes and dump memory for a few iterations */
+#define PP_OWN_IOVS   0x4 /* create_page_pipe allocated IOVs memory */
 
 struct page_pipe *create_page_pipe(unsigned int nr_segs, struct iovec *iovs, unsigned flags);
 extern void destroy_page_pipe(struct page_pipe *p);
