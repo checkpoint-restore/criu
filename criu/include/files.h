@@ -121,12 +121,12 @@ unsigned int find_unused_fd(struct pstree_item *, int hint_fd);
 struct fdinfo_list_entry *find_used_fd(struct pstree_item *, int fd);
 
 struct file_desc {
-	u32 id; /* File id, unique */
-	struct hlist_node hash; /* Descriptor hashing and lookup */
-	struct list_head fd_info_head; /* Chain of fdinfo_list_entry-s with same ID and type but different pids */
-	struct file_desc_ops *ops; /* Associated operations */
+	u32 id;				   /* File id, unique */
+	struct hlist_node hash;		   /* Descriptor hashing and lookup */
+	struct list_head fd_info_head;	   /* Chain of fdinfo_list_entry-s with same ID and type but different pids */
+	struct file_desc_ops *ops;	   /* Associated operations */
 	struct list_head fake_master_list; /* To chain in the list of file_desc, which don't
-						    have a fle in a task, that having permissions */
+					    * have a fle in a task, that having permissions */
 };
 
 struct fdtype_ops {

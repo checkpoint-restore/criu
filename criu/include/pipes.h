@@ -49,8 +49,8 @@ extern int restore_pipe_data(int img_type, int pfd, u32 id, struct pipe_data_rst
 struct pipe_info {
 	PipeEntry *pe;
 	struct list_head pipe_list; /* All pipe_info with the same pipe_id
-						 * This is pure circular list without head */
-	struct list_head list; /* global list of pipes */
+				     * This is pure circular list without head */
+	struct list_head list;	    /* global list of pipes */
 	struct file_desc d;
 	unsigned int create : 1, reopen : 1;
 };
