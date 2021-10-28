@@ -309,6 +309,9 @@ static int kerndat_get_dirty_track(void)
 	char *map;
 	int pm2;
 	u64 pmap = 0;
+	char buf;
+	int pipe_fd[2];
+	struct iovec iov;
 	int ret = -1;
 
 	map = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
@@ -317,33 +320,46 @@ static int kerndat_get_dirty_track(void)
 		return ret;
 	}
 
+	ret = pipe(pipe_fd);
+	if (ret < 0)
+		goto err_mmap;
+
 	/*
 	 * Kernel shows soft-dirty bits only if this soft-dirty
 	 * was at least once re-set. (this is to be removed in
 	 * a couple of kernel releases)
 	 */
+
+	map[0] = 'a';
+	iov.iov_base = map;
+	iov.iov_len = PAGE_SIZE;
+
+	ret = vmsplice(pipe_fd[1], &iov, 1, SPLICE_F_GIFT);
+
+	if (ret < 0)
+		goto err_pipe;
+
 	ret = do_task_reset_dirty_track(getpid());
 	if (ret < 0)
-		return ret;
+		goto err_pipe;
 	if (ret == 1)
 		goto no_dt;
 
 	ret = -1;
 	pm2 = open_proc(PROC_SELF, "pagemap");
-	if (pm2 < 0) {
-		munmap(map, PAGE_SIZE);
-		return ret;
-	}
+	if (pm2 < 0)
+		goto err_pipe;
 
-	map[0] = '\0';
+	map[0] = 'b';
 
 	lseek(pm2, (unsigned long)map / PAGE_SIZE * sizeof(u64), SEEK_SET);
 	ret = read(pm2, &pmap, sizeof(pmap));
-	if (ret < 0)
+	if (ret < 0) {
 		pr_perror("Read pmap err!");
-
+		close(pm2);
+		goto err_pipe;
+	}
 	close(pm2);
-	munmap(map, PAGE_SIZE);
 
 	if (pmap & PME_SOFT_DIRTY) {
 		pr_info("Dirty track supported on kernel\n");
@@ -353,11 +369,28 @@ static int kerndat_get_dirty_track(void)
 		pr_info("Dirty tracking support is OFF\n");
 		if (opts.track_mem) {
 			pr_err("Tracking memory is not available\n");
-			return -1;
+			goto err_pipe;
 		}
 	}
 
-	return 0;
+	ret = read(pipe_fd[0], &buf, 1);
+	if (ret < 0)
+		goto err_pipe;
+
+	if (buf == 'a') {
+		kdat.has_incremental_dump = true;
+		pr_info("Incremental dumps is supported\n");
+	} else {
+		pr_warn("Page is modified instead of COW, So incremental dumps is not supported\n");
+	}
+	ret = 0;
+
+err_pipe:
+	close(pipe_fd[0]);
+	close(pipe_fd[1]);
+err_mmap:
+	munmap(map, PAGE_SIZE);
+	return ret;
 }
 
 /* The page frame number (PFN) is constant for the zero page */
