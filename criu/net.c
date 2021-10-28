@@ -2250,12 +2250,12 @@ static int restore_ip_dump(int type, int pid, char *cmd)
 	sockfd = img_raw_fd(img);
 	if (sockfd < 0) {
 		pr_err("Getting raw FD failed\n");
-		return -1;
+		goto out_image;
 	}
 	tmp_file = tmpfile();
 	if (!tmp_file) {
 		pr_perror("Failed to open tmpfile");
-		return -1;
+		goto out_image;
 	}
 
 	while ((n = read(sockfd, buf, 1024)) > 0) {
@@ -2264,24 +2264,33 @@ static int restore_ip_dump(int type, int pid, char *cmd)
 			pr_perror("Failed to write to tmpfile "
 				  "[written: %d; total: %d]",
 				  written, n);
-			goto close;
+			goto out_tmp_file;
 		}
 	}
 
 	if (fseek(tmp_file, 0, SEEK_SET)) {
 		pr_perror("Failed to set file position to beginning of tmpfile");
-		goto close;
+		goto out_tmp_file;
 	}
 
-	if (img) {
-		ret = run_ip_tool(cmd, "restore", NULL, NULL, fileno(tmp_file), -1, 0);
-		close_image(img);
+	if (type == CR_FD_RULE) {
+		/*
+		 * Delete 3 default rules to prevent duplicates. See kernel's
+		 * function fib_default_rules_init() for the details.
+		 */
+		run_ip_tool("rule", "flush", NULL, NULL, -1, -1, 0);
+		run_ip_tool("rule", "delete", "table", "local", -1, -1, 0);
 	}
 
-close:
+	ret = run_ip_tool(cmd, "restore", NULL, NULL, fileno(tmp_file), -1, 0);
+
+out_tmp_file:
 	if (fclose(tmp_file)) {
 		pr_perror("Failed to close tmpfile");
 	}
+
+out_image:
+	close_image(img);
 
 	return ret;
 }
@@ -2304,31 +2313,7 @@ static inline int restore_route(int pid)
 
 static inline int restore_rule(int pid)
 {
-	struct cr_img *img;
-	int ret = 0;
-
-	img = open_image(CR_FD_RULE, O_RSTR, pid);
-	if (!img) {
-		ret = -1;
-		goto out;
-	}
-
-	if (empty_image(img))
-		goto close;
-
-	/*
-	 * Delete 3 default rules to prevent duplicates. See kernel's
-	 * function fib_default_rules_init() for the details.
-	 */
-	run_ip_tool("rule", "flush", NULL, NULL, -1, -1, 0);
-	run_ip_tool("rule", "delete", "table", "local", -1, -1, 0);
-
-	if (restore_ip_dump(CR_FD_RULE, pid, "rule"))
-		ret = -1;
-close:
-	close_image(img);
-out:
-	return ret;
+	return restore_ip_dump(CR_FD_RULE, pid, "rule");
 }
 
 /*
