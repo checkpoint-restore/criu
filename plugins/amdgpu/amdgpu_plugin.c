@@ -32,6 +32,10 @@
 #include "common/list.h"
 #include "amdgpu_plugin_topology.h"
 
+#include "img-streamer.h"
+#include "image.h"
+#include "cr_options.h"
+
 #define AMDGPU_KFD_DEVICE "/dev/kfd"
 #define PROCPIDMEM	  "/proc/%d/mem"
 #define HSAKMT_SHM_PATH	  "/dev/shm/hsakmt_shared_mem"
@@ -129,22 +133,74 @@ int read_fp(FILE *fp, void *buf, const size_t buf_len)
 	return 0;
 }
 
-int write_file(const char *file_path, const void *buf, const size_t buf_len)
+/**
+ * @brief Open an image file
+ *
+ * We store the size of the actual contents in the first 8-bytes of the file. This allows us to
+ * determine the file size when using criu_image_streamer when fseek and fstat are not available.
+ * The FILE * returned is already at the location of the first actual contents.
+ *
+ * @param path The file path
+ * @param write False for read, true for write
+ * @param size Size of actual contents
+ * @return FILE *if successful, NULL if failed
+ */
+FILE *open_img_file(char *path, bool write, size_t *size)
 {
+	FILE *fp = NULL;
 	int fd, ret;
-	FILE *fp;
 
-	fd = openat(criu_get_image_dir(), file_path, O_WRONLY | O_CREAT, 0600);
+	if (opts.stream)
+		fd = img_streamer_open(path, write ? O_DUMP : O_RSTR);
+	else
+		fd = openat(criu_get_image_dir(), path, write ? (O_WRONLY | O_CREAT) : O_RDONLY, 0600);
+
 	if (fd < 0) {
-		pr_perror("Cannot open %s", file_path);
-		return -errno;
+		pr_perror("%s: Failed to open for %s", path, write ? "write" : "read");
+		return NULL;
 	}
 
-	fp = fdopen(fd, "w");
+	fp = fdopen(fd, write ? "w" : "r");
 	if (!fp) {
-		pr_perror("Cannot fdopen %s", file_path);
-		return -errno;
+		pr_perror("%s: Failed get pointer for %s", path, write ? "write" : "read");
+		return NULL;
 	}
+
+	if (write)
+		ret = write_fp(fp, size, sizeof(*size));
+	else
+		ret = read_fp(fp, size, sizeof(*size));
+
+	if (ret) {
+		pr_perror("%s:Failed to access file size", path);
+		fclose(fp);
+		return NULL;
+	}
+
+	pr_debug("%s:Opened file for %s with size:%ld\n", path, write ? "write" : "read", *size);
+	return fp;
+}
+
+/**
+ * @brief Write an image file
+ *
+ * We store the size of the actual contents in the first 8-bytes of the file. This allows us to
+ * determine the file size when using criu_image_streamer when fseek and fstat are not available.
+ *
+ * @param path The file path
+ * @param buf pointer to data to be written
+ * @param buf_len size of buf
+ * @return 0 if successful. -errno on failure
+ */
+int write_img_file(char *path, const void *buf, const size_t buf_len)
+{
+	int ret;
+	FILE *fp;
+	size_t len = buf_len;
+
+	fp = open_img_file(path, true, &len);
+	if (!fp)
+		return -errno;
 
 	ret = write_fp(fp, buf, buf_len);
 	fclose(fp); /* this will also close fd */
@@ -153,18 +209,12 @@ int write_file(const char *file_path, const void *buf, const size_t buf_len)
 
 int read_file(const char *file_path, void *buf, const size_t buf_len)
 {
-	int fd, ret;
+	int ret;
 	FILE *fp;
 
-	fd = openat(criu_get_image_dir(), file_path, O_RDONLY);
-	if (fd < 0) {
-		pr_perror("Cannot open %s", file_path);
-		return -errno;
-	}
-
-	fp = fdopen(fd, "r");
+	fp = fopen(file_path, "r");
 	if (!fp) {
-		pr_perror("Cannot fdopen %s", file_path);
+		pr_perror("Cannot fopen %s", file_path);
 		return -errno;
 	}
 
@@ -798,6 +848,7 @@ void *dump_bo_contents(void *_thread_data)
 	BoEntry **bo_info = thread_data->bo_entries;
 	struct amdgpu_gpu_info gpu_info = { 0 };
 	amdgpu_device_handle h_dev;
+	size_t max_bo_size = 0, image_size = 0;
 	uint64_t max_copy_size;
 	uint32_t major, minor;
 	int num_bos = 0;
@@ -805,7 +856,6 @@ void *dump_bo_contents(void *_thread_data)
 	FILE *bo_contents_fp = NULL;
 	void *buffer;
 	char img_path[40];
-	size_t max_bo_size = 0;
 
 	pr_info("amdgpu_plugin: Thread[0x%x] started\n", thread_data->gpu_id);
 
@@ -827,9 +877,10 @@ void *dump_bo_contents(void *_thread_data)
 
 	for (i = 0; i < thread_data->num_of_bos; i++) {
 		if (bo_buckets[i].gpu_id == thread_data->gpu_id &&
-		    (bo_buckets[i].alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT)) &&
-		    bo_buckets[i].size > max_bo_size) {
-			max_bo_size = bo_buckets[i].size;
+		    (bo_buckets[i].alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT))) {
+			image_size += bo_buckets[i].size;
+			if (bo_buckets[i].size > max_bo_size)
+				max_bo_size = bo_buckets[i].size;
 		}
 	}
 
@@ -842,7 +893,7 @@ void *dump_bo_contents(void *_thread_data)
 	}
 
 	snprintf(img_path, sizeof(img_path), IMG_PAGES_FILE, thread_data->id, thread_data->gpu_id);
-	bo_contents_fp = fopen(img_path, "w");
+	bo_contents_fp = open_img_file(img_path, true, &image_size);
 	if (!bo_contents_fp) {
 		pr_perror("Cannot fopen %s", img_path);
 		ret = -EIO;
@@ -888,13 +939,13 @@ void *restore_bo_contents(void *_thread_data)
 {
 	struct thread_data *thread_data = (struct thread_data *)_thread_data;
 	struct kfd_criu_bo_bucket *bo_buckets = thread_data->bo_buckets;
+	size_t image_size = 0, total_bo_size = 0, max_bo_size = 0;
 	BoEntry **bo_info = thread_data->bo_entries;
 	struct amdgpu_gpu_info gpu_info = { 0 };
 	amdgpu_device_handle h_dev;
 	uint64_t max_copy_size;
 	uint32_t major, minor;
 	FILE *bo_contents_fp = NULL;
-	size_t max_bo_size = 0;
 	void *buffer;
 	char img_path[40];
 	int num_bos = 0;
@@ -919,7 +970,7 @@ void *restore_bo_contents(void *_thread_data)
 									 SDMA_LINEAR_COPY_MAX_SIZE - 1;
 
 	snprintf(img_path, sizeof(img_path), IMG_PAGES_FILE, thread_data->id, thread_data->gpu_id);
-	bo_contents_fp = fopen(img_path, "r");
+	bo_contents_fp = open_img_file(img_path, false, &image_size);
 	if (!bo_contents_fp) {
 		pr_perror("Cannot fopen %s", img_path);
 		ret = -errno;
@@ -929,10 +980,20 @@ void *restore_bo_contents(void *_thread_data)
 	/* Allocate buffer to fit biggest BO */
 	for (i = 0; i < thread_data->num_of_bos; i++) {
 		if (bo_buckets[i].gpu_id == thread_data->gpu_id &&
-		    (bo_buckets[i].alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT)) &&
-		    bo_buckets[i].size > max_bo_size) {
-			max_bo_size = bo_buckets[i].size;
+		    (bo_buckets[i].alloc_flags & (KFD_IOC_ALLOC_MEM_FLAGS_VRAM | KFD_IOC_ALLOC_MEM_FLAGS_GTT))) {
+			total_bo_size += bo_buckets[i].size;
+
+			if (bo_buckets[i].size > max_bo_size)
+				max_bo_size = bo_buckets[i].size;
 		}
+	}
+
+	if (total_bo_size != image_size) {
+		pr_err("amdgpu_plugin: %s size mismatch (current:%ld:expected:%ld)\n", img_path, image_size,
+		       total_bo_size);
+
+		ret = -EINVAL;
+		goto exit;
 	}
 
 	/* Allocate buffer to fit biggest BO */
@@ -1278,7 +1339,7 @@ int amdgpu_plugin_dump_file(int fd, int id)
 		criu_render_node__pack(&rd, buf);
 
 		snprintf(img_path, sizeof(img_path), IMG_RENDERD_FILE, id);
-		ret = write_file(img_path, buf, len);
+		ret = write_img_file(img_path, buf, len);
 		if (ret) {
 			xfree(buf);
 			return ret;
@@ -1377,7 +1438,7 @@ int amdgpu_plugin_dump_file(int fd, int id)
 
 	criu_kfd__pack(e, buf);
 
-	ret = write_file(img_path, buf, len);
+	ret = write_img_file(img_path, buf, len);
 
 	xfree(buf);
 exit:
@@ -1601,52 +1662,56 @@ int amdgpu_plugin_restore_file(int id)
 {
 	int ret = 0, fd;
 	char img_path[PATH_MAX];
-	struct stat filestat;
 	unsigned char *buf;
 	CriuRenderNode *rd;
 	CriuKfd *e = NULL;
 	struct kfd_ioctl_criu_args args = { 0 };
+	size_t img_size;
+	FILE *img_fp = NULL;
 
 	pr_info("amdgpu_plugin: Initialized kfd plugin restorer with ID = %d\n", id);
 
 	snprintf(img_path, sizeof(img_path), IMG_KFD_FILE, id);
 
-	if (stat(img_path, &filestat) == -1) {
+	img_fp = open_img_file(img_path, false, &img_size);
+	if (!img_fp) {
 		struct tp_node *tp_node;
 		uint32_t target_gpu_id;
 
-		pr_perror("open(%s)", img_path);
 		/* This is restorer plugin for renderD nodes. Criu doesn't guarantee that they will
 		 * be called before the plugin is called for kfd file descriptor.
 		 * TODO: Currently, this code will only work if this function is called for /dev/kfd
 		 * first as we assume restore_maps is already filled. Need to fix this later.
 		 */
 		snprintf(img_path, sizeof(img_path), IMG_RENDERD_FILE, id);
+		pr_info("Restoring RenderD %s\n", img_path);
 
-		if (stat(img_path, &filestat) == -1) {
-			pr_perror("Failed to read file stats");
-			return -1;
-		}
-		pr_info("renderD file size on disk = %ld\n", filestat.st_size);
+		img_fp = open_img_file(img_path, false, &img_size);
+		if (!img_fp)
+			return -EINVAL;
 
-		buf = xmalloc(filestat.st_size);
+		pr_debug("RenderD Image file size:%ld\n", img_size);
+		buf = xmalloc(img_size);
 		if (!buf) {
 			pr_perror("Failed to allocate memory");
 			return -ENOMEM;
 		}
 
-		if (read_file(img_path, buf, filestat.st_size)) {
+		ret = read_fp(img_fp, buf, img_size);
+		if (ret) {
 			pr_perror("Unable to read from %s", img_path);
 			xfree(buf);
 			return -1;
 		}
 
-		rd = criu_render_node__unpack(NULL, filestat.st_size, buf);
+		rd = criu_render_node__unpack(NULL, img_size, buf);
 		if (rd == NULL) {
-			pr_perror("Unable to parse the KFD message %d", id);
+			pr_perror("Unable to parse the RenderD message %d", id);
 			xfree(buf);
+			fclose(img_fp);
 			return -1;
 		}
+		fclose(img_fp);
 
 		pr_info("amdgpu_plugin: render node gpu_id = 0x%04x\n", rd->gpu_id);
 
@@ -1689,23 +1754,26 @@ int amdgpu_plugin_restore_file(int id)
 
 	pr_info("amdgpu_plugin: Opened kfd, fd = %d\n", fd);
 
-	pr_info("kfd img file size on disk = %ld\n", filestat.st_size);
-
 	if (!kernel_supports_criu(fd))
 		return -ENOTSUP;
 
-	buf = xmalloc(filestat.st_size);
+	pr_info("KFD Image file size:%ld\n", img_size);
+	buf = xmalloc(img_size);
 	if (!buf) {
-		pr_perror("Failed to allocate memory");
+		fclose(img_fp);
 		return -ENOMEM;
 	}
 
-	if (read_file(img_path, buf, filestat.st_size)) {
+	ret = read_fp(img_fp, buf, img_size);
+	if (ret) {
 		pr_perror("Unable to read from %s", img_path);
+		fclose(img_fp);
 		xfree(buf);
-		return -1;
+		return ret;
 	}
-	e = criu_kfd__unpack(NULL, filestat.st_size, buf);
+
+	fclose(img_fp);
+	e = criu_kfd__unpack(NULL, img_size, buf);
 	if (e == NULL) {
 		pr_err("Unable to parse the KFD message %#x\n", id);
 		xfree(buf);
