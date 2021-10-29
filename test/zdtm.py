@@ -1039,6 +1039,7 @@ class criu:
         self.__lazy_pages_p = None
         self.__page_server_p = None
         self.__dump_process = None
+        self.__img_streamer_process = None
         self.__tls = self.__tls_options() if opts['tls'] else []
         self.__criu_bin = opts['criu_bin']
         self.__crit_bin = opts['crit_bin']
@@ -1065,6 +1066,11 @@ class criu:
             self.__dump_process = None
             if ret:
                 raise test_fail_exc("criu dump exited with %s" % ret)
+        if self.__img_streamer_process:
+            ret = self.wait_for_criu_image_streamer()
+            if ret:
+                raise test_fail_exc("criu-image-streamer exited with %s" % ret)
+
         return
 
     def logs(self):
@@ -1219,8 +1225,10 @@ class criu:
                 stent['pages_written'])
 
         if self.__stream:
-            p = self.spawn_criu_image_streamer("extract")
-            p.wait()
+            self.spawn_criu_image_streamer("extract")
+            ret = self.wait_for_criu_image_streamer()
+            if ret:
+                raise test_fail_exc("criu-image-streamer (extract) exited with %s" % ret)
 
         real_written = 0
         for f in os.listdir(self.__ddir()):
@@ -1262,6 +1270,8 @@ class criu:
                    "--progress-fd {progress_fd}",
                    action]
 
+        log = open(os.path.join(self.__ddir(), "img-streamer.log"), "w")
+
         # * As we are using a shell pipe command, we want to use pipefail.
         # Otherwise, failures stay unnoticed. For this, we use bash as sh
         # doesn't support that feature.
@@ -1270,7 +1280,9 @@ class criu:
             progress_fd=progress_w,
             images_dir=self.__ddir(),
             img_file=os.path.join(self.__ddir(), STREAMED_IMG_FILE_NAME)
-        )], close_fds=False)
+        )], stderr=log, close_fds=False)
+
+        log.close()
 
         os.close(progress_w)
         progress = os.fdopen(progress_r, "r")
@@ -1287,7 +1299,15 @@ class criu:
                 raise test_fail_exc(
                     "criu-image-streamer is not starting (exit_code=%d)" % p.wait())
 
-        return p
+        progress.close()
+
+        self.__img_streamer_process = p
+
+    def wait_for_criu_image_streamer(self):
+        ret = self.__img_streamer_process.wait()
+        grep_errors(os.path.join(self.__ddir(), "img-streamer.log"))
+        self.__img_streamer_process = None
+        return ret
 
     def dump(self, action, opts=[]):
         self.__iter += 1
@@ -1319,7 +1339,7 @@ class criu:
         a_opts += self.__test.getdopts()
 
         if self.__stream:
-            streamer_p = self.spawn_criu_image_streamer("capture")
+            self.spawn_criu_image_streamer("capture")
             a_opts += ["--stream"]
 
         if self.__dedup:
@@ -1347,9 +1367,9 @@ class criu:
                                               opts=a_opts + opts,
                                               nowait=nowait)
         if self.__stream:
-            ret = streamer_p.wait()
+            ret = self.wait_for_criu_image_streamer()
             if ret:
-                raise test_fail_exc("criu-image-streamer exited with %d" % ret)
+                raise test_fail_exc("criu-image-streamer (capture) exited with %d" % ret)
 
         if self.__mdedup and self.__iter > 1:
             self.__criu_act("dedup", opts=[])
@@ -1382,7 +1402,7 @@ class criu:
             r_opts += ['--action-script', os.getcwd() + '/empty-netns-prep.sh']
 
         if self.__stream:
-            streamer_p = self.spawn_criu_image_streamer("serve")
+            self.spawn_criu_image_streamer("serve")
             r_opts += ["--stream"]
 
         if self.__dedup:
@@ -1419,9 +1439,9 @@ class criu:
 
         self.__criu_act("restore", opts=r_opts + ["--restore-detached"])
         if self.__stream:
-            ret = streamer_p.wait()
+            ret = self.wait_for_criu_image_streamer()
             if ret:
-                raise test_fail_exc("criu-image-streamer exited with %d" % ret)
+                raise test_fail_exc("criu-image-streamer (serve) exited with %d" % ret)
 
         self.show_stats("restore")
 
@@ -1466,6 +1486,10 @@ class criu:
             print("criu dump exited with %s" % self.__dump_process.wait())
             grep_errors(os.path.join(self.__ddir(), "dump.log"))
             self.__dump_process = None
+        if self.__img_streamer_process:
+            self.__img_streamer_process.terminate()
+            ret = self.wait_for_criu_image_streamer()
+            print("criu-image-streamer exited with %s" % ret)
 
 
 def try_run_hook(test, args):
