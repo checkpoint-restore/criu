@@ -27,6 +27,7 @@
 #include "external.h"
 #include "clone-noasan.h"
 #include "fdstore.h"
+#include "rst-malloc.h"
 
 #include "images/mnt.pb-c.h"
 
@@ -2728,12 +2729,17 @@ struct mount_info *mnt_entry_alloc()
 	struct mount_info *new;
 
 	/*
-	 * We rely on xzalloc here for MOUNT_INVALID_DEV.
+	 * We rely on memset here for MOUNT_INVALID_DEV.
 	 */
 	BUILD_BUG_ON(MOUNT_INVALID_DEV);
 
-	new = xzalloc(sizeof(struct mount_info));
+	/*
+	 * We use shmalloc() because the remounted_rw field is writable by
+	 * childrens, done in try_remount_writable().
+	 */
+	new = shmalloc(sizeof(struct mount_info));
 	if (new) {
+		memset(new, 0, sizeof(*new));
 		new->fd = -1;
 		new->is_overmounted = -1;
 		INIT_LIST_HEAD(&new->children);
@@ -2757,7 +2763,7 @@ void mnt_entry_free(struct mount_info *mi)
 		xfree(mi->source);
 		xfree(mi->options);
 		xfree(mi->fsname);
-		xfree(mi);
+		shfree_last(mi);
 	}
 }
 
