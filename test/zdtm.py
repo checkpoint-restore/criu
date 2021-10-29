@@ -202,6 +202,8 @@ class ns_flavor:
 
     def __copy_libs(self, binary):
         ldd = subprocess.Popen(["ldd", binary], stdout=subprocess.PIPE)
+        stdout, _ = ldd.communicate()
+
         xl = re.compile(
             r'^(linux-gate.so|linux-vdso(64)?.so|not a dynamic|.*\s*ldd\s)')
 
@@ -216,10 +218,8 @@ class ns_flavor:
                     map(
                         lambda x: str(x).strip(),
                         filter(lambda x: str(x).startswith('\t'),
-                               ldd.stdout.read().decode(
+                               stdout.decode(
                                    'ascii').splitlines())))))
-
-        ldd.wait()
 
         for lib in libs:
             if not os.access(lib, os.F_OK):
@@ -331,8 +331,7 @@ def decode_flav(i):
 
 def tail(path):
     p = subprocess.Popen(['tail', '-n1', path], stdout=subprocess.PIPE)
-    out = p.stdout.readline()
-    p.wait()
+    out, _ = p.communicate()
     return out.decode()
 
 
@@ -801,7 +800,7 @@ class groups_test(zdtm_test):
         if flavor.ns:
             self.__real_name = name
             with open(name) as fd:
-                self.__subs = map(lambda x: x.strip(), fd.readlines())
+                self.__subs = list(map(lambda x: x.strip(), fd.readlines()))
             print("Subs:\n%s" % '\n'.join(self.__subs))
         else:
             self.__real_name = ''
@@ -819,8 +818,8 @@ class groups_test(zdtm_test):
         subprocess.check_call(s_args + [tname + '.cleanout'])
         s = subprocess.Popen(s_args + ['--dry-run', tname + '.pid'],
                              stdout=subprocess.PIPE)
-        cmd = s.stdout.readlines().pop().strip()
-        s.wait()
+        out, _ = s.communicate()
+        cmd = out.decode().splitlines()[-1].strip()
 
         return 'cd /' + tdir + ' && ' + cmd
 
@@ -2045,6 +2044,9 @@ class Launcher:
             "start": time.time()
         }
 
+        if log:
+            log.close()
+
         if test_flag(desc, 'excl') or link_remap_excl:
             self.wait()
 
@@ -2068,6 +2070,9 @@ class Launcher:
         self.__runtest += 1
         if pid != 0:
             sub = self.__subs.pop(pid)
+            # The following wait() is not useful for our domain logic.
+            # It's useful for taming warnings in subprocess.Popen.__del__()
+            sub['sub'].wait()
             tc = None
             if self.__junit_test_cases is not None:
                 tc = TestCase(sub['name'],
@@ -2168,9 +2173,9 @@ def all_tests(opts):
                 continue
             files.append(fp)
     excl = list(map(lambda x: os.path.join(desc['dir'], x), desc['exclude']))
-    tlist = filter(
+    tlist = list(filter(
         lambda x: not x.endswith('.checkskip') and not x.endswith('.hook') and
-        x not in excl, map(lambda x: x.strip(), files))
+        x not in excl, map(lambda x: x.strip(), files)))
     return tlist
 
 
