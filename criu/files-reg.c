@@ -1919,6 +1919,11 @@ out:
 	mntns_root = mntns_get_root_fd(tmi->nsid);
 
 	/* We get here while in task's mntns */
+
+	/*
+	 * The mount point is reverted to read-only in remount_readonly_mounts(),
+	 * which is called by the root process in sigreturn_restore().
+	 */
 	if (try_remount_writable(tmi, true))
 		return -1;
 
@@ -2115,7 +2120,23 @@ ext:
 
 	if (rfi->remap) {
 		if (!rfi->remap->is_dir) {
-			unlinkat(mntns_root, rfi->path, 0);
+			/*
+			 * When rfi->rfe->mnt_id != rfi->remap->rmnt_id, rfi_remap() calls
+			 * try_remount_writable() on a different mount than the one pointing to
+			 * rfi->rfe->mnt_id.
+			 * That means that the mount associated with mntns_root can be readonly at
+			 * this point, so we'll try to make it writable.
+			 * The mount point is reverted to read-only in remount_readonly_mounts(),
+			 * which is called by the root process in sigreturn_restore().
+			 */
+			struct mount_info *mi = lookup_mnt_id(rfi->rfe->mnt_id);
+			if (mi)
+				try_remount_writable(mi, true);
+
+			if (unlinkat(mntns_root, rfi->path, 0) < 0) {
+				pr_perror("Unlinking remapped file failed %d:%s", mntns_root, rfi->path);
+			}
+
 			rm_parent_dirs(mntns_root, rfi->path, level);
 		}
 
