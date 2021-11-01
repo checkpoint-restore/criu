@@ -1129,6 +1129,13 @@ static int dump_zombies(void)
 		item->pgid = pps_buf.pgid;
 
 		BUG_ON(!list_empty(&item->children));
+
+		if (!item->sid) {
+			pr_err("A session leader of zombie process %d(%d) is outside of its pid namespace\n",
+			       item->pid->real, vpid(item));
+			goto err;
+		}
+
 		if (dump_one_zombie(item, &pps_buf) < 0)
 			goto err;
 	}
