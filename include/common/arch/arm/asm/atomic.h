@@ -9,7 +9,7 @@ typedef struct {
 
 /* Copied from the Linux kernel header arch/arm/include/asm/atomic.h */
 
-#if defined(CONFIG_ARMV7)
+#if defined(CONFIG_CPU_V7)
 
 #define smp_mb() __asm__ __volatile__("dmb" : : : "memory")
 
@@ -38,7 +38,7 @@ static inline int atomic_cmpxchg(atomic_t *ptr, int old, int new)
 	return oldval;
 }
 
-#elif defined(CONFIG_ARMV6)
+#elif defined(CONFIG_CPU_V6)
 
 /* SMP isn't supported for ARMv6 */
 
@@ -57,7 +57,7 @@ static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 
 #else
 
-#error ARM architecture version (CONFIG_ARMV*) not set or unsupported.
+#error ARM architecture version (CONFIG_CPU_V*) not set or unsupported.
 
 #endif
 
