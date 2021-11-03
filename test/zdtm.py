@@ -1997,7 +1997,22 @@ class Launcher:
             raise Exception("The kernel is tainted: %r (%r)" %
                             (taint, self.__taint))
 
-        if test_flag(desc, 'excl'):
+        '''
+        The option --link-remap allows criu to hardlink open files back to the
+        file-system on dump (should be removed on restore) and we have a sanity
+        check in check_visible_state that they were actually removed at least
+        from the root test directory after restore.
+
+        As zdtm runs all tests from the same cwd (e.g.: test/zdtm/static) in
+        parallel, hardlinks from one test can mess up with sanity checks of
+        another test or even one test can by mistake use hardlinks created by
+        another test which is even worse.
+
+        So let's make all tests using --link-remap option non parallel.
+        '''
+        link_remap_excl = '--link-remap' in desc.get('opts', '').split() + desc.get('dopts', '').split() + desc.get('ropts', '').split()
+
+        if test_flag(desc, 'excl') or link_remap_excl:
             self.wait_all()
 
         self.__nr += 1
@@ -2030,7 +2045,7 @@ class Launcher:
             "start": time.time()
         }
 
-        if test_flag(desc, 'excl'):
+        if test_flag(desc, 'excl') or link_remap_excl:
             self.wait()
 
     def __wait_one(self, flags):
