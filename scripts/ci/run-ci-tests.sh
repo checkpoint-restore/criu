@@ -197,6 +197,12 @@ fi
 # shellcheck disable=SC2086
 ./test/zdtm.py run -a -p 2 --keep-going $ZDTM_OPTS
 
+# Newer kernels are blocking access to userfaultfd:
+# uffd: Set unprivileged_userfaultfd sysctl knob to 1 if kernel faults must be handled without obtaining CAP_SYS_PTRACE capability
+if [ -e /proc/sys/vm/unprivileged_userfaultfd ]; then
+	echo 1 > /proc/sys/vm/unprivileged_userfaultfd
+fi
+
 LAZY_EXCLUDE="-x maps04 -x cmdlinenv00 -x maps007"
 
 LAZY_TESTS='.*(maps0|uffd-events|lazy-thp|futex|fork).*'
