@@ -6,7 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: registry.fedoraproject.org/fedora:latest
+      image: registry.fedoraproject.org/fedora:34
     steps:
     - name: Install tools
       run: sudo dnf -y install git make python3-flake8 ShellCheck clang-tools-extra which findutils
