@@ -106,6 +106,24 @@ int main(int argc, char *argv[], char *envp[])
 
 	log_set_loglevel(opts.log_level);
 
+	/*
+	 * There kernel might send us lethal signals in the following cases:
+	 * 1) Writing a pipe which reader has disappeared.
+	 * 2) Writing to a socket of type SOCK_STREAM which is no longer connected.
+	 * We deal with write()/Send() failures on our own, and prefer not to get killed.
+	 * So we ignore SIGPIPEs.
+	 *
+	 * Pipes are used in various places:
+	 * 1) Receiving application page data
+	 * 2) Transmitting data to the image streamer
+	 * 3) Emitting logs (potentially to a pipe).
+	 * Sockets are mainly used in transmitting memory data.
+	 */
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+		pr_perror("Failed to set a SIGPIPE signal ignore.");
+		return 1;
+	}
+
 	if (optind < argc && !strcmp(argv[optind], "swrk")) {
 		if (argc != optind + 2) {
 			fprintf(stderr, "Usage: criu swrk <fd>\n");
@@ -173,21 +191,6 @@ int main(int argc, char *argv[], char *envp[])
 			pr_err("Couldn't open image dir %s\n", opts.imgs_dir);
 			return 1;
 		}
-	}
-
-	/*
-	 * The kernel might send us lethal signals when writing to a pipe
-	 * which reader has disappeared. We deal with write() failures on our
-	 * own, and prefer not to get killed. So we ignore SIGPIPEs.
-	 *
-	 * Pipes are used in various places:
-	 * 1) Receiving application page data
-	 * 2) Transmitting data to the image streamer
-	 * 3) Emitting logs (potentially to a pipe).
-	 */
-	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
-		pr_perror("Failed to set a SIGPIPE signal ignore.");
-		return 1;
 	}
 
 	/*
