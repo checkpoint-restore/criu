@@ -131,11 +131,11 @@ static enum freezer_state get_freezer_state(int fd)
 	return get_freezer_v1_state(fd);
 }
 
-static bool freezer_thawed;
+static enum freezer_state origin_freezer_state = FREEZER_ERROR;
 
 const char *get_real_freezer_state(void)
 {
-	return freezer_thawed ? thawed : frozen;
+	return origin_freezer_state == THAWED ? thawed : frozen;
 }
 
 static int freezer_write_state(int fd, enum freezer_state new_state)
@@ -192,7 +192,7 @@ static int freezer_restore_state(void)
 	int fd;
 	int ret;
 
-	if (!opts.freeze_cgroup || freezer_thawed)
+	if (!opts.freeze_cgroup || origin_freezer_state != FROZEN)
 		return 0;
 
 	fd = freezer_open();
@@ -481,9 +481,10 @@ static int freeze_processes(void)
 		close(fd);
 		return -1;
 	}
-	if (state == THAWED) {
-		freezer_thawed = true;
 
+	origin_freezer_state = state == FREEZING ? FROZEN : state;
+
+	if (state == THAWED) {
 		if (freezer_write_state(fd, FROZEN)) {
 			close(fd);
 			return -1;
@@ -534,7 +535,7 @@ static int freeze_processes(void)
 	}
 
 err:
-	if (exit_code == 0 || freezer_thawed)
+	if (exit_code == 0 || origin_freezer_state == THAWED)
 		exit_code = freezer_write_state(fd, THAWED);
 
 	if (close(fd)) {
