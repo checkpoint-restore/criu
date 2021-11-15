@@ -22,6 +22,12 @@ ARCH	?= $(shell echo $(SUBARCH) | sed	\
                 -e s/sh[234].*/sh/		\
                 -e s/aarch64.*/aarch64/)
 
+ifeq ($(ARCH), riscv64)
+        ARCH = x86
+        SUBARCH = x86_64
+
+endif
+
 export SUBARCH ARCH
 
 ifndef ____nmk_defined__tools
