@@ -179,8 +179,8 @@ static inline void rt_sigframe_erase_sigset(struct rt_sigframe *sigframe)
 /* clang-format off */
 #define ARCH_RT_SIGRETURN_NATIVE(new_sp)				\
 	asm volatile(							\
-		     "movq %0, %%rax				    \n"	\
-		     "movq %%rax, %%rsp				    \n"	\
+		     "movq %0, %%rax				    \n"	\ /*move QUAD 64 bit variable from c code available at => %0 to register %%rax */
+		     "movq %%rax, %%rsp				    \n"	\ /* move QUAD  64 bit value of register from %%rax to response register %%rsp  */
 		     "movl $"__stringify(__NR_rt_sigreturn)", %%eax \n" \
 		     "syscall					    \n"	\
 		     :							\
