@@ -575,6 +575,7 @@ static pid_t fork_and_ptrace_attach(int (*child_setup)(void))
 	if (read(sk, &c, 1) != 1) {
 		close(sk);
 		kill(pid, SIGKILL);
+		waitpid(pid, NULL, 0);
 		pr_perror("read");
 		return -1;
 	}
@@ -584,6 +585,7 @@ static pid_t fork_and_ptrace_attach(int (*child_setup)(void))
 	if (ptrace(PTRACE_ATTACH, pid, NULL, NULL) == -1) {
 		pr_perror("Unable to ptrace the child");
 		kill(pid, SIGKILL);
+		waitpid(pid, NULL, 0);
 		return -1;
 	}
 
@@ -618,6 +620,7 @@ static int check_ptrace_peeksiginfo(void)
 	}
 
 	kill(pid, SIGKILL);
+	waitpid(pid, NULL, 0);
 	return ret;
 }
 
@@ -768,6 +771,7 @@ static int check_special_mapping_mremap(void)
 		/* Probably, we're interrupted with a signal - cleanup */
 		pr_err("Failed to wait for a child %d\n", errno);
 		kill(child, SIGKILL);
+		waitpid(child, NULL, 0);
 		return -1;
 	}
 
@@ -806,6 +810,7 @@ static int check_ptrace_suspend_seccomp(void)
 	}
 
 	kill(pid, SIGKILL);
+	waitpid(pid, NULL, 0);
 	return ret;
 }
 
@@ -846,6 +851,7 @@ static int check_ptrace_dump_seccomp_filters(void)
 	}
 
 	kill(pid, SIGKILL);
+	waitpid(pid, NULL, 0);
 	return ret;
 }
 
