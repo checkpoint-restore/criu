@@ -27,7 +27,7 @@ task:
 
   compute_engine_instance:
     image_project: centos-cloud
-    image: family/centos-8
+    image: family/centos-stream-8
     platform: linux
     cpu: 4
     memory: 8G
