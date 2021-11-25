@@ -20,9 +20,11 @@
 #include "ns.h"
 
 futex_t sig_received;
+/* clang-format off */
 static struct {
 	futex_t stage;
-} * test_shared_state;
+} *test_shared_state;
+/* clang-format on */
 
 enum {
 	TEST_INIT_STAGE = 0,

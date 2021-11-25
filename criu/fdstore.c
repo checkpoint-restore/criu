@@ -13,10 +13,12 @@
 #include "rst-malloc.h"
 #include "log.h"
 
+/* clang-format off */
 static struct fdstore_desc {
 	int next_id;
 	mutex_t lock; /* to protect a peek offset */
-} * desc;
+} *desc;
+/* clang-format on */
 
 int fdstore_init(void)
 {
