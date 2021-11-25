@@ -19,11 +19,13 @@ enum {
 	TEST_EXIT,
 };
 
+/* clang-format off */
 struct shared {
 	futex_t fstate;
 	int parent_before_cr;
 	int parent_after_cr;
-} * sh;
+} *sh;
+/* clang-format on */
 
 int orphan(void)
 {

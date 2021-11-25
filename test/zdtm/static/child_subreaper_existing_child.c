@@ -18,10 +18,12 @@ enum {
 	TEST_EXIT,
 };
 
+/* clang-format off */
 struct shared {
 	futex_t fstate;
 	int ppid_after_reparent;
-} * sh;
+} *sh;
+/* clang-format on */
 
 int orphan(void)
 {
