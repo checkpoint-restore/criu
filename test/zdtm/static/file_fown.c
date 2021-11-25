@@ -22,12 +22,14 @@
 const char *test_doc = "Check for signal delivery on file owners";
 const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 
+/* clang-format off */
 struct params {
 	int sigio;
 	int pipe_flags[2];
 	int pipe_pid[2];
 	int pipe_sig[2];
-} * shared;
+} *shared;
+/* clang-format on */
 
 static void signal_handler_io(int status)
 {
