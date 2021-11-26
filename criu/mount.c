@@ -470,14 +470,23 @@ static void mnt_tree_show(struct mount_info *tree, int off)
 /* Returns -1 on error, 1 if external mount resolved, 0 otherwise */
 static int try_resolve_ext_mount(struct mount_info *info)
 {
-	char *ext;
 	char devstr[64];
 
-	ext = ext_mount_lookup(info->mountpoint + 1 /* trim the . */);
-	if (ext) {
-		pr_info("Found %s mapping for %s mountpoint\n", ext, info->mountpoint);
-		info->external = ext;
-		return 1;
+	/*
+	 * Only allow mountpoint-external mounts in root mntns. Their lookup is
+	 * based on mountpoint path, but in nested mntns we can have completely
+	 * different mount tree and at same mountpoint we can have completely
+	 * different mount.
+	 */
+	if (info->nsid->type == NS_ROOT) {
+		char *ext;
+
+		ext = ext_mount_lookup(info->mountpoint + 1 /* trim the . */);
+		if (ext) {
+			pr_info("Found %s mapping for %s mountpoint\n", ext, info->mountpoint);
+			info->external = ext;
+			return 1;
+		}
 	}
 
 	snprintf(devstr, sizeof(devstr), "dev[%d/%d]", kdev_major(info->s_dev), kdev_minor(info->s_dev));
