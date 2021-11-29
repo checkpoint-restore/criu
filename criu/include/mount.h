@@ -173,4 +173,6 @@ extern int remount_readonly_mounts(void);
 extern int try_remount_writable(struct mount_info *mi, bool ns);
 extern bool mnt_is_overmounted(struct mount_info *mi);
 
+extern struct mount_info *mnt_bind_pick(struct mount_info *mi,
+					bool (*pick)(struct mount_info *mi, struct mount_info *bind));
 #endif /* __CR_MOUNT_H__ */
