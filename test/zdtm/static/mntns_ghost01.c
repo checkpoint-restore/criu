@@ -6,6 +6,7 @@
 #include <sched.h>
 #include <sys/wait.h>
 #include <limits.h>
+#include <errno.h>
 
 #include "zdtmtst.h"
 
@@ -86,6 +87,13 @@ int main(int argc, char **argv)
 
 		if (close(fd)) {
 			pr_perror("close");
+			return 1;
+		}
+
+		fd = open(ghost_path, O_CREAT | O_WRONLY, 0600);
+		if (fd >= 0 || errno != EROFS) {
+			pr_perror("open for write on rofs -> %d", fd);
+			close(fd);
 			return 1;
 		}
 
