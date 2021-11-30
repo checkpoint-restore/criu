@@ -1322,7 +1322,7 @@ bool mnt_is_overmounted(struct mount_info *mi)
 		list_for_each_entry(t, &m->parent->children, siblings) {
 			if (m == t)
 				continue;
-			if (issubpath(m->mountpoint, t->mountpoint)) {
+			if (issubpath(m->ns_mountpoint, t->ns_mountpoint)) {
 				mi->is_overmounted = 1;
 				goto exit;
 			}
@@ -1338,7 +1338,7 @@ bool mnt_is_overmounted(struct mount_info *mi)
 
 	/* Check there is no children-overmount */
 	list_for_each_entry(c, &mi->children, siblings)
-		if (!strcmp(c->mountpoint, mi->mountpoint)) {
+		if (!strcmp(c->ns_mountpoint, mi->ns_mountpoint)) {
 			mi->is_overmounted = 1;
 			goto exit;
 		}
