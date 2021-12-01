@@ -6,6 +6,7 @@
 #include "mount.h"
 #include "path.h"
 #include "log.h"
+#include "util.h"
 #include "common/bug.h"
 
 char *cut_root_for_bind(char *target_root, char *source_root)
@@ -41,64 +42,30 @@ out:
 char *mnt_get_sibling_path(struct mount_info *m, struct mount_info *p, char *buf, int len)
 {
 	struct mount_info *pa = m->parent;
-	char *rpath, *cut_root, *path = buf;
-	int off = 0;
+	char *rpath, fsrpath[PATH_MAX];
 
 	if (pa == NULL)
 		return NULL;
 
-	rpath = m->mountpoint + strlen(pa->mountpoint);
-	if (rpath[0] == '/')
-		rpath++;
-
-	/*
-	 * Get a path to a sibling of "m" with parent "p",
-	 * return NULL is p can't have a sibling of m.
-	 *
-	 * Here are two cases:
-	 * When a parent of "m" has longer root than "p":
-	 * /    pm->root            / rpath
-	 *               | cut_root |
-	 * /    p->root  /
-	 * In this case, a sibling path is a sum of p->mountpoint,
-	 * cut_root and rpath.
-	 *
-	 * When a parent of m has shorter root than "p":
-	 * /    pm->root /            rpath
-	 *               | cut_root |
-	 * /    p->root             / rpath +strlen(cut_root)
-	 * In this case, a sibling path is a sum of p->mountpoint and
-	 * rpath - strlen(cut_root).
-	 */
-
-	cut_root = cut_root_for_bind(pa->root, p->root);
-	if (cut_root == NULL)
+	rpath = get_relative_path(m->ns_mountpoint, pa->ns_mountpoint);
+	if (!rpath) {
+		pr_warn("child - parent mountpoint missmatch %s - %s\n", m->ns_mountpoint, pa->ns_mountpoint);
 		return NULL;
-	if (p->mountpoint[1] != 0) /* not "/" */ {
-		off = snprintf(path, len, "%s", p->mountpoint);
-		if (path[off - 1] == '/') /* p->mountpoint = "./" */
-			off--;
 	}
-	len -= off;
-	path += off;
 
-	if (strlen(pa->root) > strlen(p->root)) {
-		off = snprintf(path, len, "/%s", cut_root);
-		len -= off;
-		path += off;
-	} else {
-		int length = strlen(cut_root);
-		if (strncmp(rpath, cut_root, length))
-			return NULL;
-		rpath += strlen(cut_root);
-		if (length > 0 && (rpath[0] && rpath[0] != '/'))
-			return NULL;
+	if (snprintf(fsrpath, sizeof(fsrpath), "%s/%s", pa->root, rpath) >= sizeof(fsrpath)) {
+		pr_warn("snrptintf truncation \"%s / %s\"\n", pa->root, rpath);
+		return NULL;
 	}
-	if (rpath[0] == '/')
-		rpath++;
 
-	if (rpath[0] != '\0')
-		snprintf(path, len, "/%s", rpath);
+	rpath = get_relative_path(fsrpath, p->root);
+	if (!rpath)
+		return NULL;
+
+	if (snprintf(buf, len, "%s/%s", p->ns_mountpoint, rpath) >= sizeof(fsrpath)) {
+		pr_warn("snrptintf truncation \"%s / %s\"\n", p->ns_mountpoint, rpath);
+		return NULL;
+	}
 
 	return buf;
 }
