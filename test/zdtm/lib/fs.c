@@ -108,6 +108,7 @@ int get_cwd_check_perm(char **result)
 		       "Bit 'x' should be set in all path components of "
 		       "this directory\n",
 		       cwd, getuid(), getgid(), errno, strerror(errno));
+		free(cwd);
 		return -1;
 	}
 
