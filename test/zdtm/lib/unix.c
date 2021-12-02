@@ -5,7 +5,7 @@
 
 int unix_fill_sock_name(struct sockaddr_un *name, char *relFilename)
 {
-	char *cwd;
+	cleanup_free char *cwd = NULL;
 
 	if (get_cwd_check_perm(&cwd)) {
 		pr_err("failed to get current working directory with valid permissions.\n");
