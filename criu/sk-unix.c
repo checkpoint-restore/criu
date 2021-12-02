@@ -460,7 +460,7 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 			pr_warn("Shutdown mismatch %u:%d -> %u:%d\n", ue->ino, ue->shutdown, peer->sd.ino,
 				peer->shutdown);
 		}
-	} else if (ue->state == TCP_ESTABLISHED) {
+	} else if (ue->state == TCP_ESTABLISHED && ue->type != SOCK_DGRAM) {
 		const struct unix_sk_listen_icon *e;
 
 		e = lookup_unix_listen_icons(ue->ino);
@@ -1851,13 +1851,9 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 
 		close(sks[1]);
 		sk = sks[0];
-	} else if (ui->ue->state == TCP_ESTABLISHED && queuer && queuer->ue->ino == FAKE_INO) {
+	} else if ((ui->ue->state == TCP_ESTABLISHED && ui->ue->type == SOCK_STREAM) && queuer &&
+		   queuer->ue->ino == FAKE_INO) {
 		int ret, sks[2];
-
-		if (ui->ue->type != SOCK_STREAM) {
-			pr_err("Non-stream socket %u in established state\n", ui->ue->ino);
-			return -1;
-		}
 
 		if (ui->ue->shutdown != SK_SHUTDOWN__BOTH) {
 			pr_err("Wrong shutdown/peer state for %u\n", ui->ue->ino);
