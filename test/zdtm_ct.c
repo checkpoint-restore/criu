@@ -61,7 +61,7 @@ static int create_timens()
 	if (sscanf(buf.release, "%u.%u", &major, &minor) != 2)
 		return -1;
 
-	if ((major <= 5) || (major == 5 && minor < 11)) {
+	if ((major < 5) || (major == 5 && minor < 11)) {
 		fprintf(stderr, "timens isn't supported on %s\n", buf.release);
 		return 0;
 	}
