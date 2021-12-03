@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# This script is used to run vagrant based tests on Travis.
-# This script is started via sudo from .travis.yml
+# This script is used to run vagrant based tests on Cirrus CI.
+# This script is started via .cirrus.yml
 
 set -e
 set -x
 
-VAGRANT_VERSION=2.2.16
-FEDORA_VERSION=34
-FEDORA_BOX_VERSION=34.20210423.0
+VAGRANT_VERSION=2.2.19
+FEDORA_VERSION=35
+FEDORA_BOX_VERSION=35.20211026.0
 
 setup() {
 	if [ -n "$TRAVIS" ]; then
