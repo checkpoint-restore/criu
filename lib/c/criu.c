@@ -1527,7 +1527,7 @@ int criu_check(void)
 	return criu_local_check(global_opts);
 }
 
-int criu_local_dump(criu_opts *opts)
+static int dump(bool pre_dump, criu_opts *opts)
 {
 	int ret = -1;
 	CriuReq req = CRIU_REQ__INIT;
@@ -1535,7 +1535,7 @@ int criu_local_dump(criu_opts *opts)
 
 	saved_errno = 0;
 
-	req.type = CRIU_REQ_TYPE__DUMP;
+	req.type = pre_dump ? CRIU_REQ_TYPE__SINGLE_PRE_DUMP : CRIU_REQ_TYPE__DUMP;
 	req.opts = opts->rpc;
 
 	ret = send_req_and_recv_resp(opts, &req, &resp);
@@ -1543,7 +1543,7 @@ int criu_local_dump(criu_opts *opts)
 		goto exit;
 
 	if (resp->success) {
-		if (resp->dump->has_restored && resp->dump->restored)
+		if (!pre_dump && resp->dump->has_restored && resp->dump->restored)
 			ret = 1;
 		else
 			ret = 0;
@@ -1561,9 +1561,24 @@ exit:
 	return ret;
 }
 
+int criu_local_dump(criu_opts *opts)
+{
+	return dump(false, opts);
+}
+
 int criu_dump(void)
 {
 	return criu_local_dump(global_opts);
+}
+
+int criu_local_pre_dump(criu_opts *opts)
+{
+	return dump(true, opts);
+}
+
+int criu_pre_dump(void)
+{
+	return criu_local_pre_dump(global_opts);
 }
 
 int criu_local_dump_iters(criu_opts *opts, int (*more)(criu_predump_info pi))
