@@ -161,6 +161,7 @@ int criu_get_orphan_pts_master_fd(void);
  */
 int criu_check(void);
 int criu_dump(void);
+int criu_pre_dump(void);
 int criu_restore(void);
 int criu_restore_child(void);
 
@@ -279,6 +280,7 @@ void criu_local_set_notify_cb(criu_opts *opts, int (*cb)(char *action, criu_noti
 
 int criu_local_check(criu_opts *opts);
 int criu_local_dump(criu_opts *opts);
+int criu_local_pre_dump(criu_opts *opts);
 int criu_local_restore(criu_opts *opts);
 int criu_local_restore_child(criu_opts *opts);
 int criu_local_dump_iters(criu_opts *opts, int (*more)(criu_predump_info pi));

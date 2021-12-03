@@ -169,11 +169,11 @@ int send_criu_dump_resp(int socket_fd, bool success, bool restored)
 	return send_criu_msg(socket_fd, &msg);
 }
 
-static int send_criu_pre_dump_resp(int socket_fd, bool success)
+static int send_criu_pre_dump_resp(int socket_fd, bool success, bool single)
 {
 	CriuResp msg = CRIU_RESP__INIT;
 
-	msg.type = CRIU_REQ_TYPE__PRE_DUMP;
+	msg.type = single ? CRIU_REQ_TYPE__SINGLE_PRE_DUMP : CRIU_REQ_TYPE__PRE_DUMP;
 	msg.success = success;
 	set_resp_err(&msg);
 
@@ -845,7 +845,7 @@ out:
 	return send_criu_msg(sk, &resp);
 }
 
-static int pre_dump_using_req(int sk, CriuOpts *req)
+static int pre_dump_using_req(int sk, CriuOpts *req, bool single)
 {
 	int pid, status;
 	bool success = false;
@@ -886,7 +886,7 @@ static int pre_dump_using_req(int sk, CriuOpts *req)
 
 	success = true;
 out:
-	if (send_criu_pre_dump_resp(sk, success) == -1) {
+	if (send_criu_pre_dump_resp(sk, success, single) == -1) {
 		pr_perror("Can't send pre-dump resp");
 		success = false;
 	}
@@ -899,7 +899,7 @@ static int pre_dump_loop(int sk, CriuReq *msg)
 	int ret;
 
 	do {
-		ret = pre_dump_using_req(sk, msg->opts);
+		ret = pre_dump_using_req(sk, msg->opts, false);
 		if (ret < 0)
 			return ret;
 
@@ -1270,6 +1270,9 @@ more:
 		break;
 	case CRIU_REQ_TYPE__VERSION:
 		ret = handle_version(sk, msg);
+		break;
+	case CRIU_REQ_TYPE__SINGLE_PRE_DUMP:
+		ret = pre_dump_using_req(sk, msg->opts, true);
 		break;
 
 	default:
