@@ -959,7 +959,25 @@ void free_link_remaps(void)
 }
 static int linkat_hard(int odir, char *opath, int ndir, char *npath, uid_t uid, gid_t gid, int flags);
 
-static int create_link_remap(char *path, int len, int lfd, u32 *idp, struct ns_id *nsid, const struct stat *st)
+static void check_overlayfs_fallback(char *path, const struct fd_parms *parms, bool *fallback)
+{
+	if (!fallback || parms->fs_type != OVERLAYFS_SUPER_MAGIC)
+		return;
+
+	/*
+	 * In overlayFS, linkat() fails with ENOENT if the removed file is
+	 * originated from lower layer. The cause of failure is that linkat()
+	 * sees the file has st_nlink=0, which is different than st_nlink=1 we
+	 * got from earlier fstat() on lfd. By setting *fb=true, we will fall
+	 * back to dump_ghost_remap() as it is what should have been done to
+	 * removed files with st_nlink=0.
+	 */
+	pr_info("Unable to link-remap %s on overlayFS, fall back to dump_ghost_remap\n", path);
+	*fallback = true;
+}
+
+static int create_link_remap(char *path, int len, int lfd, u32 *idp, struct ns_id *nsid, const struct fd_parms *parms,
+			     bool *fallback)
 {
 	char link_name[PATH_MAX], *tmp;
 	FileEntry fe = FILE_ENTRY__INIT;
@@ -967,6 +985,7 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp, struct ns_i
 	FownEntry fwn = FOWN_ENTRY__INIT;
 	int mntns_root;
 	int ret;
+	const struct stat *ost = &parms->stat;
 
 	if (!opts.link_remap_ok) {
 		pr_err("Can't create link remap for %s. "
@@ -1005,11 +1024,12 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp, struct ns_i
 	mntns_root = mntns_get_root_fd(nsid);
 
 again:
-	ret = linkat_hard(lfd, "", mntns_root, link_name, st->st_uid, st->st_gid, AT_EMPTY_PATH);
+	ret = linkat_hard(lfd, "", mntns_root, link_name, ost->st_uid, ost->st_gid, AT_EMPTY_PATH);
 	if (ret < 0 && errno == ENOENT) {
 		/* Use grand parent, if parent directory does not exist. */
 		if (trim_last_parent(link_name) < 0) {
 			pr_err("trim failed: @%s@\n", link_name);
+			check_overlayfs_fallback(path, parms, fallback);
 			return -1;
 		}
 		goto again;
@@ -1028,12 +1048,13 @@ again:
 	return pb_write_one(img_from_set(glob_imgset, CR_FD_FILES), &fe, PB_FILE);
 }
 
-static int dump_linked_remap(char *path, int len, const struct stat *ost, int lfd, u32 id, struct ns_id *nsid)
+static int dump_linked_remap(char *path, int len, const struct fd_parms *parms, int lfd, u32 id, struct ns_id *nsid,
+			     bool *fallback)
 {
 	u32 lid;
 	RemapFilePathEntry rpe = REMAP_FILE_PATH_ENTRY__INIT;
 
-	if (create_link_remap(path, len, lfd, &lid, nsid, ost))
+	if (create_link_remap(path, len, lfd, &lid, nsid, parms, fallback))
 		return -1;
 
 	rpe.orig_id = id;
@@ -1150,6 +1171,7 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms, 
 	struct stat pst;
 	const struct stat *ost = &parms->stat;
 	int flags = 0;
+	bool fallback = false;
 
 	if (parms->fs_type == PROC_SUPER_MAGIC) {
 		/* The file points to /proc/pid/<foo> where pid is a dead
@@ -1239,7 +1261,7 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms, 
 		 * links on it) to have some persistent name at hands.
 		 */
 		pr_debug("Dump silly-rename linked remap for %x\n", id);
-		return dump_linked_remap(rpath + 1, plen - 1, ost, lfd, id, nsid);
+		return dump_linked_remap(rpath + 1, plen - 1, parms, lfd, id, nsid, NULL);
 	}
 
 	mntns_root = mntns_get_root_fd(nsid);
@@ -1260,7 +1282,15 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms, 
 
 		if (errno == ENOENT) {
 			link_strip_deleted(link);
-			return dump_linked_remap(rpath + 1, plen - 1, ost, lfd, id, nsid);
+			ret = dump_linked_remap(rpath + 1, plen - 1, parms, lfd, id, nsid, &fallback);
+			if (ret < 0 && fallback) {
+				/* fallback is true only if following conditions are true:
+				 * 1. linkat() inside dump_linked_remap() failed with ENOENT
+				 * 2. parms->fs_type == overlayFS
+				 */
+				return dump_ghost_remap(rpath + 1, ost, lfd, id, nsid);
+			}
+			return ret;
 		}
 
 		pr_perror("Can't stat path");
