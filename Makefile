@@ -39,7 +39,7 @@ ifeq ($(ARCH),arm)
         endif
 
         ifeq ($(ARMV),7)
-                USERCFLAGS += -march=armv7-a
+                USERCFLAGS += -march=armv7-a+fp
         endif
 
         ifeq ($(ARMV),8)

@@ -25,7 +25,7 @@ ifeq ($(ARCH),arm)
         ifeq ($(ARMV),6)
                 USERCFLAGS += -march=armv6
         else ifeq ($(ARMV),7)
-                USERCFLAGS += -march=armv7-a
+                USERCFLAGS += -march=armv7-a+fp
         else ifeq ($(ARMV),8)
                 # To build aarch32 on armv8 Travis-CI (see criu Makefile)
                 USERCFLAGS += -march=armv7-a
