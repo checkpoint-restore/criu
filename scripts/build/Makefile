@@ -1,5 +1,7 @@
 ARCHES := x86_64 fedora-asan fedora-rawhide centos7 armv7hf centos8
-NON_CLANG := armv7-stable-cross aarch64-stable-cross ppc64-stable-cross mips64el-stable-cross
+STABLE_CROSS_ARCHES := armv7-stable-cross aarch64-stable-cross ppc64-stable-cross mips64el-stable-cross
+TESTING_CROSS_ARCHES := armv7-testing-cross aarch64-testing-cross ppc64-testing-cross mips64el-testing-cross
+NON_CLANG := $(TESTING_CROSS_ARCHES) $(STABLE_CROSS_ARCHES)
 CREATE_DOCKERFILES := $(ARCHES) $(NON_CLANG)
 TARGETS := $(ARCHES) alpine archlinux
 TARGETS_CLANG := $(addsuffix $(TARGETS),-clang)
