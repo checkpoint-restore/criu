@@ -1,5 +1,5 @@
 local:
-	./run-ci-tests.sh
+	./known-flakes-wrapper.sh ./run-ci-tests.sh
 .PHONY: local
 
 after_success:
@@ -68,7 +68,7 @@ restart-docker:
 
 $(TARGETS): restart-docker
 	$(MAKE) -C ../build $@$(target-suffix)
-	$(CONTAINER_RUNTIME) run --env-file docker.env $(CONTAINER_OPTS) criu-$@ scripts/ci/run-ci-tests.sh
+	$(CONTAINER_RUNTIME) run --env-file docker.env $(CONTAINER_OPTS) criu-$@ scripts/ci/known-flakes-wrapper.sh scripts/ci/run-ci-tests.sh
 
 fedora-asan: restart-docker
 	$(MAKE) -C ../build $@$(target-suffix)

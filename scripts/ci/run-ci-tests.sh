@@ -147,7 +147,7 @@ if [ "${COMPAT_TEST}x" = "yx" ] ; then
 	IA32_PKGS=""
 	REFUGE=64-refuge
 
-	mkdir "$REFUGE"
+	mkdir -p "$REFUGE"
 	for i in $INCOMPATIBLE_LIBS ; do
 		for j in $(dpkg --listfiles "$i" | grep '\.so$') ; do
 			cp "$j" "$REFUGE/"
