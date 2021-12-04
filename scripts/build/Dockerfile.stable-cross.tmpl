@@ -1,9 +1,8 @@
 COPY scripts/ci/apt-install /bin/apt-install
 
 # Add the cross compiler sources
-RUN echo "deb http://deb.debian.org/debian/ buster main" >> /etc/apt/sources.list && \
-  dpkg --add-architecture ${DEBIAN_ARCH} && \
-  apt-install emdebian-archive-keyring
+RUN echo "deb http://deb.debian.org/debian/ stable main" >> /etc/apt/sources.list && \
+  dpkg --add-architecture ${DEBIAN_ARCH}
 
 RUN apt-install \
 	crossbuild-essential-${DEBIAN_ARCH}	\
