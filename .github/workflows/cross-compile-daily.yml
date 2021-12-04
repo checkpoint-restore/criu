@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [armv7-cross, aarch64-cross, ppc64-cross, mips64el-cross]
+        target: [armv7-stable-cross, aarch64-stable-cross, ppc64-stable-cross, mips64el-stable-cross]
         branches: [criu-dev, master]
 
     steps:
