@@ -9,8 +9,8 @@ prep
 # Additionally run these tests as they touch a lot of
 # memory and it makes sense to additionally check it
 # with delays between iterations
-./test/zdtm.py run -t zdtm/transition/maps007 --keep-going --report report -f h --pre 8:.1 --dedup || fail
-./test/zdtm.py run -t zdtm/static/mem-touch   --keep-going --report report -f h --pre 8:.1 --dedup || fail
-./test/zdtm.py run -t zdtm/transition/maps008 --keep-going --report report -f h --pre 8:.1 --dedup || fail
-./test/zdtm.py run -t zdtm/transition/maps007 --keep-going --report report -f h --pre 8:.1 --noauto-dedup || fail
-./test/zdtm.py run -t zdtm/static/mem-touch   --keep-going --report report -f h --pre 8:.1 --noauto-dedup || fail
+./test/zdtm.py run -t zdtm/transition/maps007 --report report -f h --pre 8:.1 --dedup || fail
+./test/zdtm.py run -t zdtm/static/mem-touch   --report report -f h --pre 8:.1 --dedup || fail
+./test/zdtm.py run -t zdtm/transition/maps008 --report report -f h --pre 8:.1 --dedup || fail
+./test/zdtm.py run -t zdtm/transition/maps007 --report report -f h --pre 8:.1 --noauto-dedup || fail
+./test/zdtm.py run -t zdtm/static/mem-touch   --report report -f h --pre 8:.1 --noauto-dedup || fail
