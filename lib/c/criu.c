@@ -1925,3 +1925,75 @@ int criu_join_ns_add(const char *ns, const char *ns_file, const char *extra_opt)
 {
 	return criu_local_join_ns_add(global_opts, ns, ns_file, extra_opt);
 }
+
+int criu_local_feature_check(criu_opts *opts, struct criu_feature_check *features, size_t size)
+{
+	CriuFeatures criu_features = CRIU_FEATURES__INIT;
+	struct criu_feature_check features_copy = { 0 };
+	CriuReq req = CRIU_REQ__INIT;
+	CriuResp *resp = NULL;
+	int ret = -1;
+
+	saved_errno = 0;
+
+	if (!features)
+		goto exit;
+
+	if (size > sizeof(struct criu_feature_check))
+		goto exit;
+
+	memcpy(&features_copy, features, size);
+
+	req.type = CRIU_REQ_TYPE__FEATURE_CHECK;
+	req.opts = opts->rpc;
+
+	if (features_copy.mem_track) {
+		criu_features.has_mem_track = true;
+		criu_features.mem_track = true;
+	}
+	if (features_copy.lazy_pages) {
+		criu_features.has_lazy_pages = true;
+		criu_features.lazy_pages = true;
+	}
+	if (features_copy.pidfd_store) {
+		criu_features.has_pidfd_store = true;
+		criu_features.pidfd_store = true;
+	}
+	req.features = &criu_features;
+
+	ret = send_req_and_recv_resp(opts, &req, &resp);
+	if (ret)
+		goto exit;
+
+	memset(&features_copy, 0, sizeof(struct criu_feature_check));
+
+	if (resp->success) {
+		if (resp->features->has_mem_track) {
+			features_copy.mem_track = resp->features->mem_track;
+		}
+		if (resp->features->has_lazy_pages) {
+			features_copy.lazy_pages = resp->features->lazy_pages;
+		}
+		if (resp->features->has_pidfd_store) {
+			features_copy.pidfd_store = resp->features->pidfd_store;
+		}
+		memcpy(features, &features_copy, size);
+	} else {
+		ret = -EBADE;
+	}
+
+exit:
+	if (resp)
+		criu_resp__free_unpacked(resp, NULL);
+
+	swrk_wait(opts);
+
+	errno = saved_errno;
+
+	return ret;
+}
+
+int criu_feature_check(struct criu_feature_check *features, size_t size)
+{
+	return criu_local_feature_check(global_opts, features, size);
+}

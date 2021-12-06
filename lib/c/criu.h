@@ -288,6 +288,35 @@ int criu_local_dump_iters(criu_opts *opts, int (*more)(criu_predump_info pi));
 int criu_local_get_version(criu_opts *opts);
 int criu_local_check_version(criu_opts *opts, int minimum);
 
+/*
+ * Feature checking allows the user to check if CRIU supports
+ * certain features. There are CRIU features which do not depend
+ * on the version of CRIU but on kernel features or architecture.
+ *
+ * One example is memory tracking. Memory tracking can be disabled
+ * in the kernel or there are architectures which do not support
+ * it (aarch64 for example). By using the feature check a libcriu
+ * user can easily query CRIU if a certain feature is available.
+ *
+ * The features which should be checked can be marked in the
+ * structure 'struct criu_feature_check'. Each structure member
+ * that is set to true will result in CRIU checking for the
+ * availability of that feature in the current combination of
+ * CRIU/kernel/architecture.
+ *
+ * Available features will be set to true when the function
+ * returns successfully. Missing features will be set to false.
+ */
+
+struct criu_feature_check {
+	bool mem_track;
+	bool lazy_pages;
+	bool pidfd_store;
+};
+
+int criu_feature_check(struct criu_feature_check *features, size_t size);
+int criu_local_feature_check(criu_opts *opts, struct criu_feature_check *features, size_t size);
+
 #ifdef __GNUG__
 }
 #endif
