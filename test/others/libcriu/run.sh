@@ -62,6 +62,16 @@ if [ "$(uname -m)" = "x86_64" ]; then
 fi
 run_test test_errno
 run_test test_join_ns
+if criu check --feature mem_dirty_track > /dev/null; then
+	export CRIU_FEATURE_MEM_TRACK=1
+fi
+if criu check --feature uffd-noncoop > /dev/null; then
+	export CRIU_FEATURE_LAZY_PAGES=1
+fi
+if criu check --feature pidfd_store > /dev/null; then
+	export CRIU_FEATURE_PIDFD_STORE=1
+fi
+run_test test_feature_check
 
 echo "== Tests done"
 make libcriu_clean
