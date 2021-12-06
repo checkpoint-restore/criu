@@ -7,6 +7,7 @@ TESTS += test_iters
 TESTS += test_errno
 TESTS += test_join_ns
 TESTS += test_pre_dump
+TESTS += test_feature_check
 
 all: $(TESTS)
 .PHONY: all
