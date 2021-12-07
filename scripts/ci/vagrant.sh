@@ -50,9 +50,7 @@ fedora-no-vdso() {
 	vagrant reload
 	ssh default cat /proc/cmdline
 	ssh default 'cd /vagrant; tar xf criu.tar; cd criu; make -j 4'
-	# Disabling tests which are broken on 5.15
-	# https://github.com/checkpoint-restore/criu/issues/1669
-	ssh default 'cd /vagrant/criu/test; sudo ./zdtm.py run -a --keep-going -x zdtm/static/socket_close_data -x zdtm/static/socket_close_data01 -x zdtm/static/fifo_upon_unix_socket01 -x zdtm/static/sk-unix-mntns -x zdtm/static/fifo_upon_unix_socket00 -x zdtm/static/socket-ext -x zdtm/static/sk-unix01 -x zdtm/static/socket_dgram_data -x zdtm/static/sockets_dgram -x zdtm/static/sk-unix-dgram-ghost'
+	ssh default 'cd /vagrant/criu/test; sudo ./zdtm.py run -a --keep-going'
 	# This test (pidfd_store_sk) requires pidfd_getfd syscall which is guaranteed in Fedora 33.
 	# It is also skipped from -a because it runs in RPC mode only
 	ssh default 'cd /vagrant/criu/test; sudo ./zdtm.py run -t zdtm/transition/pidfd_store_sk --rpc --pre 2'
