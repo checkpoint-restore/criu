@@ -53,7 +53,7 @@ void tls_terminate_session(void)
 
 ssize_t tls_send(const void *buf, size_t len, int flags)
 {
-	int ret;
+	ssize_t ret;
 
 	tls_sk_flags = flags;
 	ret = gnutls_record_send(session, buf, len);
@@ -95,7 +95,7 @@ int tls_send_data_from_fd(int fd, unsigned long len)
 		return -1;
 
 	while (len > 0) {
-		int ret, sent;
+		ssize_t ret, sent;
 
 		copied = read(fd, buf, min(len, buf_size));
 		if (copied <= 0) {
@@ -119,7 +119,7 @@ err:
 
 ssize_t tls_recv(void *buf, size_t len, int flags)
 {
-	int ret;
+	ssize_t ret;
 
 	tls_sk_flags = flags;
 	ret = gnutls_record_recv(session, buf, len);
@@ -163,7 +163,7 @@ int tls_recv_data_to_fd(int fd, unsigned long len)
 	gnutls_packet_t packet;
 
 	while (len > 0) {
-		int ret, w;
+		ssize_t ret, w;
 		gnutls_datum_t pdata;
 
 		ret = gnutls_record_recv_packet(session, &packet);
@@ -301,7 +301,7 @@ static int tls_x509_setup_creds(void)
 static ssize_t _tls_push_cb(void *p, const void *data, size_t sz)
 {
 	int fd = *(int *)(p);
-	int ret = send(fd, data, sz, tls_sk_flags);
+	ssize_t ret = send(fd, data, sz, tls_sk_flags);
 	if (ret < 0 && errno != EAGAIN) {
 		int _errno = errno;
 		pr_perror("Push callback send failed");
@@ -313,7 +313,7 @@ static ssize_t _tls_push_cb(void *p, const void *data, size_t sz)
 static ssize_t _tls_pull_cb(void *p, void *data, size_t sz)
 {
 	int fd = *(int *)(p);
-	int ret = recv(fd, data, sz, tls_sk_flags);
+	ssize_t ret = recv(fd, data, sz, tls_sk_flags);
 	if (ret < 0 && errno != EAGAIN) {
 		int _errno = errno;
 		pr_perror("Pull callback recv failed");
