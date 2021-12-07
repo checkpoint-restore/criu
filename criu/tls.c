@@ -8,7 +8,7 @@
 #include "cr_options.h"
 #include "xmalloc.h"
 
-/* Compatability with GnuTLS verson <3.5 */
+/* Compatability with GnuTLS version < 3.5 */
 #ifndef GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR
 #define GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR GNUTLS_E_CERTIFICATE_ERROR
 #endif
