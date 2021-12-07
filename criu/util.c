@@ -1107,7 +1107,7 @@ out:
 int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
 {
 	int ret;
-	struct sockaddr_in caddr;
+	struct sockaddr_storage caddr;
 	socklen_t clen = sizeof(caddr);
 
 	if (daemon_mode) {
@@ -1135,13 +1135,20 @@ int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk)
 		return -1;
 
 	if (sk >= 0) {
+		char port[6];
+		char address[INET6_ADDRSTRLEN];
 		*ask = accept(sk, (struct sockaddr *)&caddr, &clen);
 		if (*ask < 0) {
 			pr_perror("Can't accept connection to server");
 			goto err;
-		} else
-			pr_info("Accepted connection from %s:%u\n", inet_ntoa(caddr.sin_addr),
-				(int)ntohs(caddr.sin_port));
+		}
+		ret = getnameinfo((struct sockaddr *)&caddr, clen, address, sizeof(address), port, sizeof(port),
+				  NI_NUMERICHOST | NI_NUMERICSERV);
+		if (ret) {
+			pr_err("Failed converting address: %s\n", gai_strerror(ret));
+			goto err;
+		}
+		pr_info("Accepted connection from %s:%s\n", address, port);
 		close(sk);
 	}
 
