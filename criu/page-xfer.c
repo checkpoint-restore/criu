@@ -1389,6 +1389,11 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 	if (init_stats(DUMP_STATS))
 		return -1;
 
+	/*
+	 * We might need a lot of pipes to fetch huge number of pages.
+	 */
+	rlimit_unlimit_nofile();
+
 	if (!opts.lazy_pages)
 		up_page_ids_base();
 	else if (!lazy_dump)
