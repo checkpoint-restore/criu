@@ -212,10 +212,8 @@ LAZY_OPTS="-p 2 -T $LAZY_TESTS $LAZY_EXCLUDE $ZDTM_OPTS"
 ./test/zdtm.py run $LAZY_OPTS --lazy-pages
 # shellcheck disable=SC2086
 ./test/zdtm.py run $LAZY_OPTS --remote-lazy-pages
-# FIXME: post-copy migration of THP over TLS (sometimes) fails with:
-#     Error (criu/tls.c:321): tls: Pull callback recv failed: Connection reset by peer
 # shellcheck disable=SC2086
-./test/zdtm.py run $LAZY_OPTS --remote-lazy-pages --tls -x lazy-thp
+./test/zdtm.py run $LAZY_OPTS --remote-lazy-pages --tls
 
 bash -x ./test/jenkins/criu-fault.sh
 if [ "$UNAME_M" == "x86_64" ]; then
