@@ -100,6 +100,22 @@ struct irmap_path_opt {
 	struct irmap *ir;
 };
 
+enum criu_mode {
+	CR_UNSET = 0,
+	CR_DUMP,
+	CR_PRE_DUMP,
+	CR_RESTORE,
+	CR_LAZY_PAGES,
+	CR_CHECK,
+	CR_PAGE_SERVER,
+	CR_SERVICE,
+	CR_SWRK,
+	CR_DEDUP,
+	CR_CPUINFO,
+	CR_EXEC_DEPRECATED,
+	CR_SHOW_DEPRECATED,
+};
+
 struct cr_options {
 	int final_state;
 	int check_extra_features;
@@ -188,6 +204,9 @@ struct cr_options {
 
 	/* This stores which method to use for file validation. */
 	int file_validation_method;
+
+	/* Shows the mode criu is running at the moment: dump/pre-dump/restore/... */
+	enum criu_mode mode;
 };
 
 extern struct cr_options opts;
