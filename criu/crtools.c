@@ -67,6 +67,38 @@ static int image_dir_mode(char *argv[], int optind)
 	return -1;
 }
 
+static int parse_criu_mode(char *mode)
+{
+	if (!strcmp(mode, "dump"))
+		opts.mode = CR_DUMP;
+	else if (!strcmp(mode, "pre-dump"))
+		opts.mode = CR_PRE_DUMP;
+	else if (!strcmp(mode, "restore"))
+		opts.mode = CR_RESTORE;
+	else if (!strcmp(mode, "lazy-pages"))
+		opts.mode = CR_LAZY_PAGES;
+	else if (!strcmp(mode, "check"))
+		opts.mode = CR_CHECK;
+	else if (!strcmp(mode, "page-server"))
+		opts.mode = CR_PAGE_SERVER;
+	else if (!strcmp(mode, "service"))
+		opts.mode = CR_SERVICE;
+	else if (!strcmp(mode, "swrk"))
+		opts.mode = CR_SWRK;
+	else if (!strcmp(mode, "dedup"))
+		opts.mode = CR_DEDUP;
+	else if (!strcmp(mode, "cpuinfo"))
+		opts.mode = CR_CPUINFO;
+	else if (!strcmp(mode, "exec"))
+		opts.mode = CR_EXEC_DEPRECATED;
+	else if (!strcmp(mode, "show"))
+		opts.mode = CR_SHOW_DEPRECATED;
+	else
+		return -1;
+
+	return 0;
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	int ret = -1;
@@ -124,7 +156,12 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
-	if (!strcmp(argv[optind], "swrk")) {
+	if (parse_criu_mode(argv[optind])) {
+		pr_err("unknown command: %s\n", argv[optind]);
+		goto usage;
+	}
+
+	if (opts.mode == CR_SWRK) {
 		if (argc != optind + 2) {
 			fprintf(stderr, "Usage: criu swrk <fd>\n");
 			return 1;
@@ -156,7 +193,7 @@ int main(int argc, char *argv[], char *envp[])
 			goto usage;
 		}
 
-		if (strcmp(argv[optind], "restore")) {
+		if (opts.mode != CR_RESTORE) {
 			pr_err("--exec-cmd is available for the restore command only\n");
 			goto usage;
 		}
@@ -173,7 +210,7 @@ int main(int argc, char *argv[], char *envp[])
 		opts.exec_cmd[argc - optind - 1] = NULL;
 	} else {
 		/* No subcommands except for cpuinfo and restore --exec-cmd */
-		if (strcmp(argv[optind], "cpuinfo") && has_sub_command) {
+		if (opts.mode != CR_CPUINFO && has_sub_command) {
 			pr_err("excessive parameter%s for command %s\n", (argc - optind) > 2 ? "s" : "", argv[optind]);
 			goto usage;
 		}
@@ -185,7 +222,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	/* We must not open imgs dir, if service is called */
-	if (strcmp(argv[optind], "service")) {
+	if (opts.mode != CR_SERVICE) {
 		ret = open_image_dir(opts.imgs_dir, image_dir_mode(argv, optind));
 		if (ret < 0) {
 			pr_err("Couldn't open image dir %s\n", opts.imgs_dir);
@@ -197,8 +234,7 @@ int main(int argc, char *argv[], char *envp[])
 	 * When a process group becomes an orphan,
 	 * its processes are sent a SIGHUP signal
 	 */
-	if (!strcmp(argv[optind], "restore") && opts.restore_detach && opts.final_state == TASK_STOPPED &&
-	    opts.shell_job)
+	if (opts.mode == CR_RESTORE && opts.restore_detach && opts.final_state == TASK_STOPPED && opts.shell_job)
 		pr_warn("Stopped and detached shell job will get SIGHUP from OS.\n");
 
 	if (chdir(opts.work_dir)) {
@@ -218,7 +254,7 @@ int main(int argc, char *argv[], char *envp[])
 		kdat.can_map_vdso = 0;
 
 	if (!list_empty(&opts.inherit_fds)) {
-		if (strcmp(argv[optind], "restore")) {
+		if (opts.mode != CR_RESTORE) {
 			pr_err("--inherit-fd is restore-only option\n");
 			return 1;
 		}
@@ -229,13 +265,14 @@ int main(int argc, char *argv[], char *envp[])
 	if (opts.img_parent)
 		pr_info("Will do snapshot from %s\n", opts.img_parent);
 
-	if (!strcmp(argv[optind], "dump")) {
+	if (opts.mode == CR_DUMP) {
 		if (!opts.tree_id)
 			goto opt_pid_missing;
+
 		return cr_dump_tasks(opts.tree_id);
 	}
 
-	if (!strcmp(argv[optind], "pre-dump")) {
+	if (opts.mode == CR_PRE_DUMP) {
 		if (!opts.tree_id)
 			goto opt_pid_missing;
 
@@ -247,7 +284,7 @@ int main(int argc, char *argv[], char *envp[])
 		return cr_pre_dump_tasks(opts.tree_id) != 0;
 	}
 
-	if (!strcmp(argv[optind], "restore")) {
+	if (opts.mode == CR_RESTORE) {
 		if (opts.tree_id)
 			pr_warn("Using -t with criu restore is obsoleted\n");
 
@@ -262,22 +299,22 @@ int main(int argc, char *argv[], char *envp[])
 		return ret != 0;
 	}
 
-	if (!strcmp(argv[optind], "lazy-pages"))
+	if (opts.mode == CR_LAZY_PAGES)
 		return cr_lazy_pages(opts.daemon_mode) != 0;
 
-	if (!strcmp(argv[optind], "check"))
+	if (opts.mode == CR_CHECK)
 		return cr_check() != 0;
 
-	if (!strcmp(argv[optind], "page-server"))
+	if (opts.mode == CR_PAGE_SERVER)
 		return cr_page_server(opts.daemon_mode, false, -1) != 0;
 
-	if (!strcmp(argv[optind], "service"))
+	if (opts.mode == CR_SERVICE)
 		return cr_service(opts.daemon_mode);
 
-	if (!strcmp(argv[optind], "dedup"))
+	if (opts.mode == CR_DEDUP)
 		return cr_dedup() != 0;
 
-	if (!strcmp(argv[optind], "cpuinfo")) {
+	if (opts.mode == CR_CPUINFO) {
 		if (!argv[optind + 1]) {
 			pr_err("cpuinfo requires an action: dump or check\n");
 			goto usage;
@@ -288,12 +325,12 @@ int main(int argc, char *argv[], char *envp[])
 			return cpuinfo_check();
 	}
 
-	if (!strcmp(argv[optind], "exec")) {
+	if (opts.mode == CR_EXEC_DEPRECATED) {
 		pr_err("The \"exec\" action is deprecated by the Compel library.\n");
 		return -1;
 	}
 
-	if (!strcmp(argv[optind], "show")) {
+	if (opts.mode == CR_SHOW_DEPRECATED) {
 		pr_err("The \"show\" action is deprecated by the CRIT utility.\n");
 		pr_err("To view an image use the \"crit decode -i $name --pretty\" command.\n");
 		return -1;
