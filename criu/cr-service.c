@@ -735,6 +735,7 @@ static int dump_using_req(int sk, CriuOpts *req)
 	bool success = false;
 	bool self_dump = !req->pid;
 
+	opts.mode = CR_DUMP;
 	if (setup_opts_from_req(sk, req))
 		goto exit;
 
@@ -777,6 +778,7 @@ static int restore_using_req(int sk, CriuOpts *req)
 
 	opts.restore_detach = true;
 
+	opts.mode = CR_RESTORE;
 	if (setup_opts_from_req(sk, req))
 		goto exit;
 
@@ -828,6 +830,7 @@ static int check(int sk, CriuOpts *req)
 	if (pid == 0) {
 		setproctitle("check --rpc");
 
+		opts.mode = CR_CHECK;
 		if (setup_opts_from_req(sk, req))
 			exit(1);
 
@@ -859,6 +862,7 @@ static int pre_dump_using_req(int sk, CriuOpts *req, bool single)
 	if (pid == 0) {
 		int ret = 1;
 
+		opts.mode = CR_PRE_DUMP;
 		if (setup_opts_from_req(sk, req))
 			goto cout;
 
@@ -936,6 +940,7 @@ static int start_page_server_req(int sk, CriuOpts *req, bool daemon_mode)
 	if (pid == 0) {
 		close(start_pipe[0]);
 
+		opts.mode = CR_PAGE_SERVER;
 		if (setup_opts_from_req(sk, req))
 			goto out_ch;
 
@@ -1182,6 +1187,7 @@ static int handle_cpuinfo(int sk, CriuReq *msg)
 	if (pid == 0) {
 		int ret = 1;
 
+		opts.mode = CR_CPUINFO;
 		if (setup_opts_from_req(sk, msg->opts))
 			goto cout;
 
@@ -1231,6 +1237,8 @@ int cr_service_work(int sk)
 	CriuReq *msg = 0;
 
 more:
+	opts.mode = CR_SWRK;
+
 	if (recv_criu_msg(sk, &msg) != 0) {
 		pr_perror("Can't recv request");
 		goto err;
