@@ -70,6 +70,8 @@ ssize_t tls_send(const void *buf, size_t len, int flags)
 		case GNUTLS_E_UNEXPECTED_PACKET_LENGTH:
 			errno = ENOMSG;
 			break;
+		case GNUTLS_E_PREMATURE_TERMINATION:
+			return 0;
 		default:
 			tls_perror("Failed to send data", ret);
 			errno = EIO;
@@ -142,6 +144,8 @@ ssize_t tls_recv(void *buf, size_t len, int flags)
 		case GNUTLS_E_INTERRUPTED:
 			errno = EINTR;
 			break;
+		case GNUTLS_E_PREMATURE_TERMINATION:
+			return 0;
 		default:
 			tls_perror("Failed receiving data", ret);
 			errno = EIO;
