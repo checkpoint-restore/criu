@@ -1178,7 +1178,8 @@ static int page_server_serve(int sk)
 		pr_debug("Created xfer pipe size %u\n", cxfer.pipe_size);
 	} else {
 		pipe_read_dest_init(&pipe_read_dest);
-		tcp_cork(sk, true);
+		if (!opts.tls)
+			tcp_cork(sk, true);
 	}
 
 	while (1) {
@@ -1259,7 +1260,7 @@ static int page_server_serve(int sk)
 		ret = -1;
 	}
 
-	if (ret == 0 && opts.ps_socket == -1) {
+	if (ret == 0 && opts.ps_socket == -1 && !opts.tls) {
 		char c;
 
 		/*
@@ -1466,7 +1467,8 @@ out:
 	 * the corked by default socket with sporadic NODELAY-s
 	 * on urgent data is the smartest mode ever.
 	 */
-	tcp_cork(page_server_sk, true);
+	if (!opts.tls)
+		tcp_cork(page_server_sk, true);
 	return 0;
 }
 
