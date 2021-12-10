@@ -124,7 +124,7 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
-	if (optind < argc && !strcmp(argv[optind], "swrk")) {
+	if (!strcmp(argv[optind], "swrk")) {
 		if (argc != optind + 2) {
 			fprintf(stderr, "Usage: criu swrk <fd>\n");
 			return 1;
