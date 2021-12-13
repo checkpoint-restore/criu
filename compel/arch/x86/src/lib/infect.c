@@ -254,6 +254,7 @@ static void validate_random_xstate(struct xsave_struct *xsave)
 	/* No unknown or supervisor features may be set */
 	hdr->xstate_bv &= XFEATURE_MASK_USER;
 	hdr->xstate_bv &= ~XFEATURE_MASK_SUPERVISOR;
+	hdr->xstate_bv &= XFEATURE_MASK_FAULTINJ;
 
 	for (i = 0; i < XFEATURE_MAX; i++) {
 		if (!compel_fpu_has_feature(i))
