@@ -28,14 +28,6 @@ fi
 ./test/zdtm.py run -t zdtm/static/maps04 --fault 131 --report report --pre 2:1 || fail
 ./test/zdtm.py run -t zdtm/transition/maps008 --fault 131 --report report --pre 2:1 || fail
 ./test/zdtm.py run -t zdtm/static/maps01 --fault 132 -f h || fail
-
-# Error injection with --fault 134 fails on newer CPUs used in Circle CI on EC2
-# Skip the --fault 134 tests
-# https://github.com/checkpoint-restore/criu/issues/1635
-if [ -n "$CIRCLECI" ]; then
-	exit 0
-fi
-
 # 134 is corrupting extended registers set, should run in a sub-thread (fpu03)
 # without restore (that will check if parasite corrupts extended registers)
 ./test/zdtm.py run -t zdtm/static/fpu03 --fault 134 -f h --norst || fail
