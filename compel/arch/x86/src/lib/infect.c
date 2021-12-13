@@ -283,10 +283,10 @@ static int corrupt_extregs(pid_t pid)
 	bool use_xsave = compel_cpu_has_feature(X86_FEATURE_OSXSAVE);
 	user_fpregs_struct_t ext_regs;
 	int *rand_to = (int *)&ext_regs;
-	unsigned int seed;
+	unsigned int seed, init_seed;
 	size_t i;
 
-	seed = time(NULL);
+	init_seed = seed = time(NULL);
 	for (i = 0; i < sizeof(ext_regs) / sizeof(int); i++)
 		*rand_to++ = rand_r(&seed);
 
@@ -296,7 +296,7 @@ static int corrupt_extregs(pid_t pid)
 	 *  - zdtm.py will grep it auto-magically from logs
 	 *    (and the seed will be known from an automatical testing)
 	 */
-	pr_err("Corrupting %s for %d, seed %u\n", use_xsave ? "xsave" : "fpuregs", pid, seed);
+	pr_err("Corrupting %s for %d, seed %u\n", use_xsave ? "xsave" : "fpuregs", pid, init_seed);
 
 	if (!use_xsave) {
 		if (ptrace(PTRACE_SETFPREGS, pid, NULL, &ext_regs)) {
