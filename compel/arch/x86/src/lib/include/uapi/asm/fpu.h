@@ -80,6 +80,11 @@ enum xfeature {
 	(XFEATURE_MASK_FP | XFEATURE_MASK_SSE | XFEATURE_MASK_YMM | XFEATURE_MASK_OPMASK | XFEATURE_MASK_ZMM_Hi256 | \
 	 XFEATURE_MASK_Hi16_ZMM | XFEATURE_MASK_PKRU | XFEATURE_MASK_BNDREGS | XFEATURE_MASK_BNDCSR)
 
+/* xsave structure features which is safe to fill with garbage (see validate_random_xstate()) */
+#define XFEATURE_MASK_FAULTINJ                                                                                       \
+	(XFEATURE_MASK_FP | XFEATURE_MASK_SSE | XFEATURE_MASK_YMM | XFEATURE_MASK_OPMASK | XFEATURE_MASK_ZMM_Hi256 | \
+	 XFEATURE_MASK_Hi16_ZMM)
+
 struct fpx_sw_bytes {
 	uint32_t magic1;
 	uint32_t extended_size;
