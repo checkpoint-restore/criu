@@ -58,6 +58,7 @@ run_test test_notify
 if [ "$(uname -m)" = "x86_64" ]; then
 	# Skip this on aarch64 as aarch64 has no dirty page tracking
 	run_test test_iters
+	run_test test_pre_dump
 fi
 run_test test_errno
 run_test test_join_ns
