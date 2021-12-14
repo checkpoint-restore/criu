@@ -4,5 +4,6 @@ test_notify
 test_self
 test_sub
 test_join_ns
+test_pre_dump
 output/
 libcriu.so.*
