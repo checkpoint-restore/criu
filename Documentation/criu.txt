@@ -367,6 +367,10 @@ mount -t cgroup -o devices,freezer none devices,freezer
     Allows to link unlinked files back, if possible (modifies filesystem
     during *restore*).
 
+*--timeout* 'number'::
+    Set a time limit in seconds for collecting tasks during the
+    dump operation. The timeout is 10 seconds by default.
+
 *--ghost-limit* 'size'::
     Set the maximum size of deleted file to be carried inside image.
     By default, up to 1M file is allowed. Using this
