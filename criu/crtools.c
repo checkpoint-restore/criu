@@ -391,6 +391,8 @@ usage:
 	       "  -j|--" OPT_SHELL_JOB "        allow one to dump and restore shell jobs\n"
 	       "  -l|--" OPT_FILE_LOCKS "       handle file locks, for safety, only used for container\n"
 	       "  -L|--libdir           path to a plugin directory (by default " CR_PLUGIN_DEFAULT ")\n"
+	       "  --timeout NUM         a timeout (in seconds) on collecting tasks during dump\n"
+	       "                        (default 10 seconds)\n"
 	       "  --force-irmap         force resolving names for inotify/fsnotify watches\n"
 	       "  --irmap-scan-path FILE\n"
 	       "                        add a path the irmap hints to scan\n"
