@@ -402,12 +402,12 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 	sk_encode_shutdown(ue, sk->shutdown);
 
 	/*
-	 * If a stream listening socket has non-zero rqueue, this
-	 * means there are in-flight connections waiting to get
+	 * If a stream/seqpacket listening socket has non-zero rqueue,
+	 * this means there are in-flight connections waiting to get
 	 * accept()-ed. We handle them separately with the "icons"
 	 * (i stands for in-flight, cons -- for connections) things.
 	 */
-	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM && sk->state == TCP_LISTEN)) {
+	if (sk->rqlen != 0 && sk->state != TCP_LISTEN) {
 		if (dump_sk_queue(lfd, id))
 			goto err;
 	}
@@ -1610,7 +1610,7 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 	if (ui->ue->name.len == 0)
 		return 0;
 
-	if ((ui->ue->type == SOCK_STREAM) && (ui->ue->state == TCP_ESTABLISHED)) {
+	if ((ui->ue->type != SOCK_DGRAM) && (ui->ue->state == TCP_ESTABLISHED)) {
 		/*
 		 * FIXME this can be done, but for doing this properly we
 		 * need to bind socket to its name, then rename one to
@@ -1851,7 +1851,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 
 		close(sks[1]);
 		sk = sks[0];
-	} else if ((ui->ue->state == TCP_ESTABLISHED && ui->ue->type == SOCK_STREAM) && queuer &&
+	} else if ((ui->ue->state == TCP_ESTABLISHED && ui->ue->type != SOCK_DGRAM) && queuer &&
 		   queuer->ue->ino == FAKE_INO) {
 		int ret, sks[2];
 
