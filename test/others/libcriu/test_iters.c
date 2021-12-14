@@ -46,8 +46,6 @@ static int next_iter(criu_predump_info pi)
 	return cur_iter < MAX_ITERS;
 }
 
-#define SUCC_ECODE 42
-
 int main(int argc, char **argv)
 {
 	int pid, ret, p[2];

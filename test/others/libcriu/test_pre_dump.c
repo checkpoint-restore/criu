@@ -4,10 +4,13 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <signal.h>
-#include <unistd.h>
-#include <sys/types.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
+#include <unistd.h>
 #include "lib.h"
+
+static int wdir_fd, cur_imgdir = -1;
 
 static int stop = 0;
 static void sh(int sig)
@@ -15,9 +18,32 @@ static void sh(int sig)
 	stop = 1;
 }
 
+static void open_imgdir(void)
+{
+	char p[10];
+	static int id = 0;
+
+	if (id > 0) {
+		sprintf(p, "../dir-%d", id);
+		criu_set_parent_images(p);
+	}
+	if (cur_imgdir != -1)
+		close(cur_imgdir);
+	sprintf(p, "dir-%d", ++id);
+	mkdirat(wdir_fd, p, 0700);
+	cur_imgdir = openat(wdir_fd, p, O_DIRECTORY);
+	criu_set_images_dir_fd(cur_imgdir);
+}
+
 int main(int argc, char **argv)
 {
-	int pid, ret, fd, p[2];
+	int pid, ret, p[2];
+
+	wdir_fd = open(argv[2], O_DIRECTORY);
+	if (wdir_fd < 0) {
+		perror("Can't open wdir");
+		return 1;
+	}
 
 	printf("--- Start loop ---\n");
 	pipe(p);
@@ -68,9 +94,29 @@ int main(int argc, char **argv)
 	criu_set_pid(pid);
 	criu_set_log_file("dump.log");
 	criu_set_log_level(CRIU_LOG_DEBUG);
-	fd = open(argv[2], O_DIRECTORY);
-	criu_set_images_dir_fd(fd);
+	criu_set_track_mem(true);
 
+	open_imgdir();
+	ret = criu_pre_dump();
+	if (ret < 0) {
+		what_err_ret_mean(ret);
+		kill(pid, SIGKILL);
+		goto err;
+	}
+
+	printf("   `- Pre Dump 1 succeeded\n");
+
+	open_imgdir();
+	ret = criu_pre_dump();
+	if (ret < 0) {
+		what_err_ret_mean(ret);
+		kill(pid, SIGKILL);
+		goto err;
+	}
+
+	printf("   `- Pre Dump 2 succeeded\n");
+
+	open_imgdir();
 	ret = criu_dump();
 	if (ret < 0) {
 		what_err_ret_mean(ret);
@@ -78,14 +124,14 @@ int main(int argc, char **argv)
 		goto err;
 	}
 
-	printf("   `- Dump succeeded\n");
+	printf("   `- Final Dump succeeded\n");
 	waitpid(pid, NULL, 0);
 
-	printf("--- Restore loop ---\n");
+	printf("--- Restore ---\n");
 	criu_init_opts();
 	criu_set_log_level(CRIU_LOG_DEBUG);
 	criu_set_log_file("restore.log");
-	criu_set_images_dir_fd(fd);
+	criu_set_images_dir_fd(cur_imgdir);
 
 	pid = criu_restore_child();
 	if (pid <= 0) {
