@@ -6,6 +6,7 @@ TESTS += test_notify
 TESTS += test_iters
 TESTS += test_errno
 TESTS += test_join_ns
+TESTS += test_pre_dump
 
 all: $(TESTS)
 .PHONY: all
