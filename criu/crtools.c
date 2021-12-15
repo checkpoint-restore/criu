@@ -56,14 +56,23 @@ void flush_early_log_to_stderr(void)
 
 static int image_dir_mode(char *argv[], int optind)
 {
-	if (!strcmp(argv[optind], "dump") || !strcmp(argv[optind], "pre-dump") ||
-	    (!strcmp(argv[optind], "cpuinfo") && !strcmp(argv[optind + 1], "dump")))
+	switch (opts.mode) {
+	case CR_DUMP:
+		/* fallthrough */
+	case CR_PRE_DUMP:
 		return O_DUMP;
-
-	if (!strcmp(argv[optind], "restore") ||
-	    (!strcmp(argv[optind], "cpuinfo") && !strcmp(argv[optind + 1], "restore")))
+	case CR_RESTORE:
 		return O_RSTR;
+	case CR_CPUINFO:
+		if (!strcmp(argv[optind + 1], "dump"))
+			return O_DUMP;
+		/* fallthrough */
+	default:
+		return -1;
+	}
 
+	/* never reached */
+	BUG();
 	return -1;
 }
 
