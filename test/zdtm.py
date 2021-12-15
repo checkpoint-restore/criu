@@ -1886,8 +1886,8 @@ def do_run_test(tname, tdesc, flavs, opts):
                 check_visible_state(t, s, opts)
                 if opts['join_ns']:
                     check_joinns_state(t)
-                t.stop()
                 cr_api.fini()
+                t.stop()
                 try_run_hook(t, ["--clean"])
                 if t.blocking():
                     raise test_fail_exc("unexpected success")
