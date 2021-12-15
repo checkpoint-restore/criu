@@ -420,6 +420,29 @@ static bool kerndat_has_memfd_create(void)
 	return 0;
 }
 
+static bool kerndat_has_memfd_hugetlb(void)
+{
+	int ret;
+
+	if (!kdat.has_memfd) {
+		kdat.has_memfd_hugetlb = false;
+		return 0;
+	}
+
+	ret = memfd_create("", MFD_HUGETLB);
+	if (ret >= 0) {
+		kdat.has_memfd_hugetlb = true;
+		close(ret);
+	} else if (ret == -1 && errno == EINVAL) {
+		kdat.has_memfd_hugetlb = false;
+	} else {
+		pr_perror("Unexpected error from memfd_create(\"\", MFD_HUGETLB)");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int get_task_size(void)
 {
 	kdat.task_size = compel_task_size();
@@ -1318,6 +1341,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_memfd_create()) {
 		pr_err("kerndat_has_memfd_create failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_memfd_hugetlb()) {
+		pr_err("kerndat_has_memfd_hugetlb failed when initializing kerndat.\n");
 		ret = -1;
 	}
 	if (!ret && kerndat_detect_stack_guard_gap()) {
