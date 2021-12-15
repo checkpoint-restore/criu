@@ -1,0 +1,28 @@
+syntax = "proto2";
+
+message device_entry {
+	required uint32 gpu_id = 1;
+}
+
+message bo_entry {
+	required uint64	addr = 1;
+	required uint64	size = 2;
+	required uint64	offset = 3;
+	required uint32 alloc_flags = 4;
+	required uint32 gpu_id = 5;
+	required bytes rawdata = 6;
+}
+
+message criu_kfd {
+	required uint32 pid = 1;
+	required uint32 num_of_gpus = 2;
+	repeated device_entry device_entries = 3;
+	required uint64	num_of_bos = 4;
+	repeated bo_entry bo_entries = 5;
+	required uint32	num_of_objects = 6;
+	required bytes priv_data = 7;
+}
+
+message criu_render_node {
+	required uint32 minor_number = 1;
+}
