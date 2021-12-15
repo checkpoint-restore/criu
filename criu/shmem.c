@@ -26,6 +26,7 @@
 #include "memfd.h"
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
+#include "namespaces.h"
 
 #ifndef SEEK_DATA
 #define SEEK_DATA 3
@@ -534,13 +535,24 @@ out:
 	return ret;
 }
 
+struct open_map_file_args {
+	unsigned long addr, size;
+};
+
+static int open_map_file(void *args, int fd, pid_t pid)
+{
+	struct open_map_file_args *vma = args;
+
+	return open_proc_rw(pid, "map_files/%lx-%lx", vma->addr, vma->addr + vma->size);
+}
+
 static int open_shmem(int pid, struct vma_area *vma)
 {
 	VmaEntry *vi = vma->e;
 	struct shmem_info *si;
 	void *addr = MAP_FAILED;
 	int f = -1;
-	int flags;
+	int flags, is_hugetlb, memfd_flag = 0;
 
 	si = shmem_find(vi->shmid);
 	pr_info("Search for %#016" PRIx64 " shmem 0x%" PRIx64 " %p/%d\n", vi->start, vi->shmid, si, si ? si->pid : -1);
@@ -564,9 +576,17 @@ static int open_shmem(int pid, struct vma_area *vma)
 		goto out;
 	}
 
+	is_hugetlb = vi->flags & MAP_HUGETLB;
+
 	flags = MAP_SHARED;
-	if (kdat.has_memfd) {
-		f = memfd_create("", 0);
+	if (is_hugetlb) {
+		int size_flag = vi->flags & MAP_HUGETLB_SIZE_MASK;
+		flags |= MAP_HUGETLB | size_flag;
+		memfd_flag |= MFD_HUGETLB | size_flag;
+	}
+
+	if (kdat.has_memfd && (!is_hugetlb || kdat.has_memfd_hugetlb)) {
+		f = memfd_create("", memfd_flag);
 		if (f < 0) {
 			pr_perror("Unable to create memfd");
 			goto err;
@@ -599,7 +619,11 @@ static int open_shmem(int pid, struct vma_area *vma)
 	}
 
 	if (f == -1) {
-		f = open_proc_rw(getpid(), "map_files/%lx-%lx", (unsigned long)addr, (unsigned long)addr + si->size);
+		struct open_map_file_args args = {
+			.addr = (unsigned long)addr,
+			.size = si->size,
+		};
+		f = userns_call(open_map_file, UNS_FDOUT, &args, sizeof(args), -1);
 		if (f < 0)
 			goto err;
 	}

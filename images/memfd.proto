@@ -21,4 +21,5 @@ message memfd_inode_entry {
 	required uint32		shmid		= 5;
 	required uint32		seals		= 6 [(criu).flags = "seals.flags"];
 	required uint64		inode_id	= 7;
+	optional uint32		hugetlb_flag	= 8;
 };
