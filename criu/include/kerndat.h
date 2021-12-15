@@ -6,6 +6,7 @@
 #include "common/config.h"
 #include "asm/kerndat.h"
 #include "util-vdso.h"
+#include "hugetlb.h"
 
 struct stat;
 
@@ -76,6 +77,7 @@ struct kerndat_s {
 	bool has_nspid;
 	bool has_nftables_concat;
 	bool has_sockopt_buf_lock;
+	dev_t hugetlb_dev[HUGETLB_MAX];
 };
 
 extern struct kerndat_s kdat;
