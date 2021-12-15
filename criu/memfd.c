@@ -18,6 +18,7 @@
 #include "file-ids.h"
 #include "namespaces.h"
 #include "shmem.h"
+#include "hugetlb.h"
 
 #include "protobuf.h"
 #include "images/memfd.pb-c.h"
@@ -57,18 +58,13 @@ static u32 memfd_inode_ids = 1;
 
 int is_memfd(dev_t dev)
 {
-	/*
-	 * TODO When MAP_HUGETLB is used, the file device is not shmem_dev,
-	 * Note that other parts of CRIU have similar issues, see
-	 * is_anon_shmem_map().
-	 */
 	return dev == kdat.shmem_dev;
 }
 
 static int dump_memfd_inode(int fd, struct memfd_dump_inode *inode, const char *name, const struct stat *st)
 {
 	MemfdInodeEntry mie = MEMFD_INODE_ENTRY__INIT;
-	int ret = -1;
+	int ret = -1, flag;
 	u32 shmid;
 
 	/*
@@ -91,6 +87,10 @@ static int dump_memfd_inode(int fd, struct memfd_dump_inode *inode, const char *
 	mie.name = (char *)name;
 	mie.size = st->st_size;
 	mie.shmid = shmid;
+	if (is_hugetlb_dev(inode->dev, &flag)) {
+		mie.has_hugetlb_flag = true;
+		mie.hugetlb_flag = flag | MFD_HUGETLB;
+	}
 
 	mie.seals = fcntl(fd, F_GET_SEALS);
 	if (mie.seals == -1)
@@ -257,6 +257,9 @@ static int memfd_open_inode_nocache(struct memfd_restore_inode *inode)
 		inode->pending_seals = mie->seals;
 		flags = MFD_ALLOW_SEALING;
 	}
+
+	if (mie->has_hugetlb_flag)
+		flags |= mie->hugetlb_flag;
 
 	fd = memfd_create(mie->name, flags);
 	if (fd < 0) {
