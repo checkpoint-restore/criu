@@ -1368,6 +1368,14 @@ static int check_ns_pid(void)
 	return 0;
 }
 
+static int check_memfd_hugetlb(void)
+{
+	if (!kdat.has_memfd_hugetlb)
+		return -1;
+
+	return 0;
+}
+
 static int check_network_lock_nftables(void)
 {
 	if (!kdat.has_nftables_concat) {
@@ -1505,6 +1513,7 @@ int cr_check(void)
 		ret |= check_apparmor_stacking();
 		ret |= check_network_lock_nftables();
 		ret |= check_sockopt_buf_lock();
+		ret |= check_memfd_hugetlb();
 	}
 
 	/*
@@ -1618,6 +1627,7 @@ static struct feature_list feature_list[] = {
 	{ "apparmor_stacking", check_apparmor_stacking },
 	{ "network_lock_nftables", check_network_lock_nftables },
 	{ "sockopt_buf_lock", check_sockopt_buf_lock },
+	{ "memfd_hugetlb", check_memfd_hugetlb },
 	{ NULL, NULL },
 };
 

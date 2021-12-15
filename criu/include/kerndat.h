@@ -36,6 +36,7 @@ struct kerndat_s {
 	u64 zero_page_pfn;
 	bool has_dirty_track;
 	bool has_memfd;
+	bool has_memfd_hugetlb;
 	bool has_fdinfo_lock;
 	unsigned long task_size;
 	bool ipv6;
