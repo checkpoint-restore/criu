@@ -96,6 +96,7 @@ CFLAGS_pie-util-vdso-elf32.o	+= -DCONFIG_VDSO_32
 obj-$(CONFIG_COMPAT)	+= vdso-compat.o
 CFLAGS_REMOVE_vdso-compat.o	+= $(CFLAGS-ASAN) $(CFLAGS-GCOV)
 obj-y			+= pidfd-store.o
+obj-y			+= hugetlb.o
 
 PROTOBUF_GEN := scripts/protobuf-gen.sh
 
