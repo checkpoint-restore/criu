@@ -41,6 +41,7 @@
 #include "path.h"
 #include "fault-injection.h"
 #include "memfd.h"
+#include "hugetlb.h"
 
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
@@ -274,7 +275,7 @@ static int vma_stat(struct vma_area *vma, int fd)
 static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct vma_file_info *vfi, int *vm_file_fd,
 				const char *path)
 {
-	int fd;
+	int fd, hugetlb_flag = 0;
 	dev_t vfi_dev;
 
 	/*
@@ -331,17 +332,19 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct 
 		return -1;
 	}
 
-	if (is_anon_shmem_map(vfi_dev)) {
+	if (is_hugetlb_dev(vfi_dev, &hugetlb_flag) || is_anon_shmem_map(vfi_dev)) {
 		if (!(vma->e->flags & MAP_SHARED))
-			return -1;
+			vma->e->status |= VMA_ANON_PRIVATE;
+		else
+			vma->e->status |= VMA_ANON_SHARED;
 
 		vma->e->flags |= MAP_ANONYMOUS;
-		vma->e->status |= VMA_ANON_SHARED;
 		vma->e->shmid = vfi->ino;
+		vma->e->flags |= hugetlb_flag;
 
 		if (!strncmp(fname, "/SYSV", 5)) {
 			vma->e->status |= VMA_AREA_SYSVIPC;
-		} else {
+		} else if (vma->e->flags & MAP_SHARED) {
 			if (fault_injected(FI_HUGE_ANON_SHMEM_ID))
 				vma->e->shmid += FI_HUGE_ANON_SHMEM_ID_BASE;
 		}
@@ -591,6 +594,7 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 		}
 	} else if (*vm_file_fd >= 0) {
 		struct stat *st_buf = vma_area->vmst;
+		int hugetlb_flag = 0;
 
 		if (S_ISREG(st_buf->st_mode)) {
 			/* regular file mapping -- supported */;
@@ -607,7 +611,8 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 			goto err;
 		}
 
-		if (is_anon_shmem_map(st_buf->st_dev) && !strncmp(file_path, "/SYSV", 5)) {
+		if ((is_anon_shmem_map(st_buf->st_dev) || is_hugetlb_dev(st_buf->st_dev, NULL)) &&
+		    !strncmp(file_path, "/SYSV", 5)) {
 			vma_area->e->flags |= MAP_ANONYMOUS;
 			vma_area->e->status |= VMA_ANON_SHARED;
 			vma_area->e->shmid = st_buf->st_ino;
@@ -616,10 +621,29 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 			pr_info("path: %s\n", file_path);
 			vma_area->e->status |= VMA_AREA_SYSVIPC;
 		} else {
-			if (is_anon_shmem_map(st_buf->st_dev)) {
+			/* Dump shmem dev, hugetlb dev (private and share) mappings the same way as memfd
+			 * when possible.
+			 */
+			if (is_memfd(st_buf->st_dev) || is_anon_shmem_map(st_buf->st_dev) ||
+			    (kdat.has_memfd_hugetlb && is_hugetlb_dev(st_buf->st_dev, &hugetlb_flag))) {
 				vma_area->e->status |= VMA_AREA_MEMFD;
+				vma_area->e->flags |= hugetlb_flag;
 				if (fault_injected(FI_HUGE_ANON_SHMEM_ID))
 					vma_area->e->shmid += FI_HUGE_ANON_SHMEM_ID_BASE;
+			} else if (is_hugetlb_dev(st_buf->st_dev, &hugetlb_flag)) {
+				/* hugetlb mapping but memfd does not support HUGETLB */
+				vma_area->e->flags |= hugetlb_flag;
+				vma_area->e->flags |= MAP_ANONYMOUS;
+
+				if (vma_area->e->flags & MAP_SHARED) {
+					vma_area->e->status |= VMA_ANON_SHARED;
+					vma_area->e->shmid = st_buf->st_ino;
+				} else {
+					vma_area->e->status |= VMA_ANON_PRIVATE;
+				}
+
+				close_safe(vm_file_fd);
+				return 0;
 			}
 
 			if (vma_area->e->flags & MAP_PRIVATE)
