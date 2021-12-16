@@ -30,6 +30,12 @@ const char *test_author = "Pavel Emelyanov <xemul@parallels.com>";
 #define TEST_MSG "test-message"
 static char buf[sizeof(TEST_MSG)];
 
+#ifdef ZDTM_UNIX_SEQPACKET
+#define SOCK_TYPE SOCK_SEQPACKET
+#else
+#define SOCK_TYPE SOCK_STREAM
+#endif
+
 int main(int argc, char *argv[])
 {
 	int spu[2], spb[2], dpu[2], dpb[2], dpd[2];
@@ -40,14 +46,14 @@ int main(int argc, char *argv[])
 	signal(SIGPIPE, SIG_IGN);
 
 	/* spu -- stream pair, unidirectional shutdown */
-	if (socketpair(PF_UNIX, SOCK_STREAM, 0, spu) < 0)
+	if (socketpair(PF_UNIX, SOCK_TYPE, 0, spu) < 0)
 		fin("no stream pair 1");
 
 	if (shutdown(spu[0], SHUT_RD) < 0)
 		fin("no stream shutdown 1");
 
 	/* spb -- stream pair, bidirectional shutdown */
-	if (socketpair(PF_UNIX, SOCK_STREAM, 0, spb) < 0)
+	if (socketpair(PF_UNIX, SOCK_TYPE, 0, spb) < 0)
 		fin("no stream pair 2");
 
 	if (shutdown(spb[0], SHUT_RDWR) < 0)

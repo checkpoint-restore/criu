@@ -24,6 +24,12 @@ const char *test_author = "Stanislav Kinsbursky <skinsbursky@parallels.com>\n";
 #define SK_DATA_D1 "packet dgram left"
 #define SK_DATA_D2 "packet dgram right"
 
+#ifdef ZDTM_UNIX_SEQPACKET
+#define SOCK_TYPE SOCK_SEQPACKET
+#else
+#define SOCK_TYPE SOCK_STREAM
+#endif
+
 int main(int argc, char *argv[])
 {
 	int ssk_pair_d[2];
@@ -32,7 +38,7 @@ int main(int argc, char *argv[])
 
 	test_init(argc, argv);
 
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, ssk_pair_s) == -1) {
+	if (socketpair(AF_UNIX, SOCK_TYPE, 0, ssk_pair_s) == -1) {
 		fail("socketpair");
 		exit(1);
 	}
