@@ -9,6 +9,12 @@
 const char *test_doc = "Check that SCM_RIGHTS are preserved";
 const char *test_author = "Pavel Emelyanov <xemul@virtuozzo.com>";
 
+#ifdef ZDTM_UNIX_SEQPACKET
+#define SOCK_TYPE SOCK_SEQPACKET
+#else
+#define SOCK_TYPE SOCK_DGRAM
+#endif
+
 static int send_fd(int via, int fd1, int fd2)
 {
 	struct msghdr h = {};
@@ -105,7 +111,7 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	if (socketpair(PF_UNIX, SOCK_DGRAM, 0, sk) < 0) {
+	if (socketpair(PF_UNIX, SOCK_TYPE, 0, sk) < 0) {
 		pr_perror("Can't make unix pair");
 		exit(1);
 	}
