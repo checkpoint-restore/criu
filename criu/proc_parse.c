@@ -1527,6 +1527,59 @@ out:
 	return exit_code;
 }
 
+static int get_mountinfo_sdev_from_mntid(int mnt_id, unsigned int *sdev)
+{
+	int exit_code = -1;
+	FILE *f;
+
+	f = fopen_proc(PROC_SELF, "mountinfo");
+	if (!f)
+		return -1;
+
+	while (fgets(buf, BUF_SIZE, f)) {
+		unsigned int kmaj, kmin;
+		int id;
+
+		if (sscanf(buf, "%i %*i %u:%u", &id, &kmaj, &kmin) != 3) {
+			pr_err("Failed to parse mountinfo line %s\n", buf);
+			goto err;
+		}
+
+		if (id == mnt_id) {
+			*sdev = MKKDEV(kmaj, kmin);
+			exit_code = 0;
+			break;
+		}
+	}
+err:
+	fclose(f);
+	return exit_code;
+}
+
+/* This works even on btrfs where stat does not show right sdev */
+int get_sdev_from_fd(int fd, unsigned int *sdev, bool parse_mountinfo)
+{
+	struct mount_info *mi;
+	int ret, mnt_id;
+
+	ret = get_fd_mntid(fd, &mnt_id);
+	if (ret < 0)
+		return -1;
+
+	/* Simple case mnt_id is in dumped mntns */
+	mi = lookup_mnt_id(mnt_id);
+	if (mi) {
+		*sdev = mi->s_dev_rt;
+		return 0;
+	}
+
+	if (!parse_mountinfo)
+		return -1;
+
+	/* Complex case mnt_id is in mntns created by criu */
+	return get_mountinfo_sdev_from_mntid(mnt_id, sdev);
+}
+
 struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 {
 	struct mount_info *list = NULL;
