@@ -68,9 +68,13 @@ TST_NOFILE	:=				\
 		utsname				\
 		pstree				\
 		sockets01			\
+		sockets01-seqpacket		\
 		sockets02			\
+		sockets02-seqpacket		\
 		sockets_spair			\
+		sockets_spair_seqpacket		\
 		socket_queues			\
+		socket_queues_seqpacket		\
 		socket-raw			\
 		socket-tcp			\
 		socket-tcp-listen		\
@@ -119,6 +123,7 @@ TST_NOFILE	:=				\
 		sock_opts01			\
 		sock_opts02			\
 		sk-unix-unconn			\
+		sk-unix-unconn-seqpacket	\
 		ipc_namespace			\
 		selfexe00			\
 		sem				\
@@ -187,6 +192,7 @@ TST_NOFILE	:=				\
 		scm01				\
 		scm02				\
 		scm03				\
+		scm03-seqpacket			\
 		scm04				\
 		scm05				\
 		scm06				\
@@ -284,6 +290,7 @@ TST_FILE	=				\
 		file_attr			\
 		deleted_unix_sock		\
 		sk-unix-rel			\
+		sk-unix-rel-seqpacket		\
 		deleted_dev			\
 		unlink_fstat00			\
 		unlink_fstat01			\
@@ -311,7 +318,9 @@ TST_FILE	=				\
 		cow01				\
 		fdt_shared			\
 		sockets00			\
+		sockets00-seqpacket		\
 		sockets03			\
+		sockets03-seqpacket		\
 		sockets_dgram			\
 		file_lease00			\
 		file_lease01			\
@@ -394,8 +403,10 @@ TST_DIR		=				\
 		mnt_enablefs			\
 		autofs				\
 		del_standalone_un		\
+		del_standalone_un_seqpacket	\
 		sk-unix-mntns			\
 		sk-unix01			\
+		sk-unix01-seqpacket		\
 		sk-unix-dgram-ghost		\
 		unsupported_children_collision  \
 		shared_slave_mount_children	\
@@ -606,6 +617,18 @@ socket-tcp6-closing:	CFLAGS += -D ZDTM_IPV6
 socket-tcp6-unconn:	CFLAGS += -D ZDTM_IPV6
 socket-tcp4v6-last-ack:	CFLAGS += -D ZDTM_TCP_LAST_ACK -D ZDTM_IPV4V6
 socket-tcp4v6-closing:	CFLAGS += -D ZDTM_IPV4V6
+
+sockets00-seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
+sockets01-seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
+sockets02-seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
+sockets03-seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
+sk-unix01-seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
+sk-unix-rel-seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
+sockets_spair_seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
+socket_queues_seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
+del_standalone_un_seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
+sk-unix-unconn-seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
+scm03-seqpacket:	CFLAGS += -D ZDTM_UNIX_SEQPACKET
 
 pty-console:		CFLAGS += -D ZDTM_DEV_CONSOLE
 

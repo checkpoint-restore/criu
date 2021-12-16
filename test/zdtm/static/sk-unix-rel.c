@@ -25,6 +25,12 @@ TEST_OPTION(filename, string, "socket file name", 1);
 
 #define TEST_MODE 0640
 
+#ifdef ZDTM_UNIX_SEQPACKET
+#define SOCK_TYPE SOCK_SEQPACKET
+#else
+#define SOCK_TYPE SOCK_STREAM
+#endif
+
 int main(int argc, char *argv[])
 {
 	struct sockaddr_un addr;
@@ -54,8 +60,8 @@ int main(int argc, char *argv[])
 	memcpy(addr.sun_path, filename, addrlen);
 	addrlen += sizeof(addr.sun_family);
 
-	sock[0] = socket(AF_UNIX, SOCK_STREAM, 0);
-	sock[1] = socket(AF_UNIX, SOCK_STREAM, 0);
+	sock[0] = socket(AF_UNIX, SOCK_TYPE, 0);
+	sock[1] = socket(AF_UNIX, SOCK_TYPE, 0);
 	if (sock[0] < 0 || sock[1] < 0) {
 		fail("socket");
 		exit(1);
