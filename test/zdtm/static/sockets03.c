@@ -22,6 +22,12 @@ const char *test_author = "Andrey Ryabinin <aryabinin@virtuozzo.com>";
 char *filename;
 TEST_OPTION(filename, string, "socket file name", 1);
 
+#ifdef ZDTM_UNIX_SEQPACKET
+#define SOCK_TYPE SOCK_SEQPACKET
+#else
+#define SOCK_TYPE SOCK_STREAM
+#endif
+
 int main(int argc, char *argv[])
 {
 	int sk[3];
@@ -52,8 +58,8 @@ int main(int argc, char *argv[])
 	memcpy(addr.sun_path, path, addrlen);
 	addrlen += sizeof(addr.sun_family);
 
-	sk[0] = socket(AF_UNIX, SOCK_STREAM, 0);
-	sk[1] = socket(AF_UNIX, SOCK_STREAM, 0);
+	sk[0] = socket(AF_UNIX, SOCK_TYPE, 0);
+	sk[1] = socket(AF_UNIX, SOCK_TYPE, 0);
 	if (sk[0] < 0 || sk[1] < 0) {
 		fail("socket");
 		exit(1);

@@ -24,6 +24,12 @@ const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>";
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 
+#ifdef ZDTM_UNIX_SEQPACKET
+#define SOCK_TYPE SOCK_SEQPACKET
+#else
+#define SOCK_TYPE SOCK_STREAM
+#endif
+
 static int sk_alloc_bind(int type, struct sockaddr_un *addr)
 {
 	int sk;
@@ -256,7 +262,7 @@ int main(int argc, char **argv)
 
 	unlink(addr.sun_path);
 
-	sk_st[0] = sk_alloc_bind(SOCK_STREAM, &addr);
+	sk_st[0] = sk_alloc_bind(SOCK_TYPE, &addr);
 	if (sk_st[0] < 0)
 		return 1;
 	test_msg("sk-st: alloc/bind/listen %d\n", sk_st[0]);
@@ -266,7 +272,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	sk_st[1] = sk_alloc_connect(SOCK_STREAM, &addr);
+	sk_st[1] = sk_alloc_connect(SOCK_TYPE, &addr);
 	if (sk_st[1] < 0)
 		return 1;
 	test_msg("sk-st: alloc/connect %d\n", sk_st[1]);
@@ -279,7 +285,7 @@ int main(int argc, char **argv)
 	}
 	test_msg("sk-st: accept %d\n", sk_st[2]);
 
-	sk_st[3] = sk_alloc_connect(SOCK_STREAM, &addr);
+	sk_st[3] = sk_alloc_connect(SOCK_TYPE, &addr);
 	if (sk_st[3] < 0)
 		return 1;
 	test_msg("sk-st: alloc/connect %d\n", sk_st[3]);

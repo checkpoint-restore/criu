@@ -16,6 +16,12 @@
 const char *test_doc = "Test semi-closed unix stream connection\n";
 const char *test_author = "Pavel Emelyanov <xemul@parallels.com>\n";
 
+#ifdef ZDTM_UNIX_SEQPACKET
+#define SOCK_TYPE SOCK_SEQPACKET
+#else
+#define SOCK_TYPE SOCK_STREAM
+#endif
+
 int main(int argc, char *argv[])
 {
 	int ssk_pair[2], ret;
@@ -25,7 +31,7 @@ int main(int argc, char *argv[])
 
 	data = (char)lrand48();
 
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, ssk_pair) == -1) {
+	if (socketpair(AF_UNIX, SOCK_TYPE, 0, ssk_pair) == -1) {
 		fail("socketpair");
 		exit(1);
 	}

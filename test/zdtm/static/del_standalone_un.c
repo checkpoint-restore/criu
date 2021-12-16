@@ -16,11 +16,17 @@ const char *test_author = "Tycho Andersen <tycho.andersen@canonical.com>";
 char *dirname;
 TEST_OPTION(dirname, string, "directory name", 1);
 
+#ifdef ZDTM_UNIX_SEQPACKET
+#define SOCK_TYPE SOCK_SEQPACKET
+#else
+#define SOCK_TYPE SOCK_STREAM
+#endif
+
 static int bind_and_listen(struct sockaddr_un *addr)
 {
 	int sk;
 
-	sk = socket(PF_UNIX, SOCK_STREAM, 0);
+	sk = socket(PF_UNIX, SOCK_TYPE, 0);
 	if (sk < 0) {
 		fail("socket");
 		return -1;
