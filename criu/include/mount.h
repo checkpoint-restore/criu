@@ -109,6 +109,7 @@ extern int mntns_get_root_by_mnt_id(int mnt_id);
 extern struct ns_id *lookup_nsid_by_mnt_id(int mnt_id);
 
 extern int open_mount(unsigned int s_dev);
+extern int __check_mountpoint_fd(struct mount_info *pm, int mnt_fd, bool parse_mountinfo);
 extern int check_mountpoint_fd(struct mount_info *pm, int mnt_fd);
 extern int __open_mountpoint(struct mount_info *pm);
 extern int mnt_is_dir(struct mount_info *pm);

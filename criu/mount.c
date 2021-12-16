@@ -1018,10 +1018,11 @@ int mnt_is_dir(struct mount_info *pm)
 	return 0;
 }
 
-int check_mountpoint_fd(struct mount_info *pm, int mnt_fd)
+int __check_mountpoint_fd(struct mount_info *pm, int mnt_fd, bool parse_mountinfo)
 {
 	struct stat st;
-	int ret, dev;
+	unsigned int dev;
+	int ret;
 
 	ret = fstat(mnt_fd, &st);
 	if (ret < 0) {
@@ -1042,12 +1043,25 @@ int check_mountpoint_fd(struct mount_info *pm, int mnt_fd)
 	 * allocates new device ID).
 	 */
 	if (dev != pm->s_dev_rt) {
+		/*
+		 * For btrfs device numbers in stat and mountinfo can be
+		 * different, fallback to get_sdev_from_fd to get right dev.
+		 */
+		if (!strcmp(pm->fstype->name, "btrfs") && !get_sdev_from_fd(mnt_fd, &dev, parse_mountinfo) &&
+		    dev == pm->s_dev_rt)
+			return 0;
+
 		pr_err("The file system %#x %#x (%#x) %s %s is inaccessible\n", pm->s_dev, pm->s_dev_rt, dev,
 		       pm->fstype->name, pm->ns_mountpoint);
 		return -1;
 	}
 
 	return 0;
+}
+
+int check_mountpoint_fd(struct mount_info *pm, int mnt_fd)
+{
+	return __check_mountpoint_fd(pm, mnt_fd, false);
 }
 
 /*
@@ -1114,12 +1128,34 @@ static int get_clean_fd(struct mount_info *mi)
 	char *mnt_path = NULL;
 	char mnt_path_tmp[] = "/tmp/cr-tmpfs.XXXXXX";
 	char mnt_path_root[] = "/cr-tmpfs.XXXXXX";
+	int fd;
 
 	mnt_path = get_clean_mnt(mi, mnt_path_tmp, mnt_path_root);
 	if (!mnt_path)
 		return -1;
 
-	return open_detach_mount(mnt_path);
+	fd = open(mnt_path, O_RDONLY | O_DIRECTORY, 0);
+	if (fd < 0) {
+		pr_perror("Can't open directory %s", mnt_path);
+	} else {
+		if (__check_mountpoint_fd(mi, fd, true))
+			goto err_close;
+	}
+
+	if (umount2(mnt_path, MNT_DETACH)) {
+		pr_perror("Can't detach mount %s", mnt_path);
+		goto err_close;
+	}
+
+	if (rmdir(mnt_path)) {
+		pr_perror("Can't remove tmp dir %s", mnt_path);
+		goto err_close;
+	}
+
+	return fd;
+err_close:
+	close_safe(&fd);
+	return -1;
 }
 
 /*
@@ -1337,6 +1373,11 @@ int ns_open_mountpoint(void *arg)
 		goto err;
 	}
 
+	if (__check_mountpoint_fd(mi, *fd, true)) {
+		close(*fd);
+		goto err;
+	}
+
 	return 0;
 err:
 	return 1;
@@ -1411,7 +1452,7 @@ int open_mountpoint(struct mount_info *pm)
 		goto err;
 	}
 
-	return fd < 0 ? __open_mountpoint(pm) : check_mountpoint_fd(pm, fd);
+	return fd < 0 ? __open_mountpoint(pm) : fd;
 err:
 	if (ns_old >= 0)
 		/* coverity[check_return] */
