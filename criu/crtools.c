@@ -222,6 +222,9 @@ int main(int argc, char *argv[], char *envp[])
 		if (opts.mode != CR_CPUINFO && has_sub_command) {
 			pr_err("excessive parameter%s for command %s\n", (argc - optind) > 2 ? "s" : "", argv[optind]);
 			goto usage;
+		} else if (opts.mode == CR_CPUINFO && !has_sub_command) {
+			pr_err("cpuinfo requires an action: dump or check\n");
+			goto usage;
 		}
 	}
 
