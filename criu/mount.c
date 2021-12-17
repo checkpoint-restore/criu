@@ -1054,20 +1054,18 @@ int check_mountpoint_fd(struct mount_info *pm, int mnt_fd)
  * mnt_fd is a file descriptor on the mountpoint, which is closed in an error case.
  * If mnt_fd is -1, the mountpoint will be opened by this function.
  */
-int __open_mountpoint(struct mount_info *pm, int mnt_fd)
+int __open_mountpoint(struct mount_info *pm)
 {
-	if (mnt_fd == -1) {
-		int mntns_root;
+	int mntns_root, mnt_fd;
 
-		mntns_root = mntns_get_root_fd(pm->nsid);
-		if (mntns_root < 0)
-			return -1;
+	mntns_root = mntns_get_root_fd(pm->nsid);
+	if (mntns_root < 0)
+		return -1;
 
-		mnt_fd = openat(mntns_root, pm->ns_mountpoint, O_RDONLY);
-		if (mnt_fd < 0) {
-			pr_perror("Can't open %s", pm->ns_mountpoint);
-			return -1;
-		}
+	mnt_fd = openat(mntns_root, pm->ns_mountpoint, O_RDONLY);
+	if (mnt_fd < 0) {
+		pr_perror("Can't open %s", pm->ns_mountpoint);
+		return -1;
 	}
 
 	if (check_mountpoint_fd(pm, mnt_fd)) {
@@ -1086,7 +1084,7 @@ int open_mount(unsigned int s_dev)
 	if (!m)
 		return -ENOENT;
 
-	return __open_mountpoint(m, -1);
+	return __open_mountpoint(m);
 }
 
 /* Bind-mount a mount point in a temporary place without children */
@@ -1350,7 +1348,7 @@ int open_mountpoint(struct mount_info *pm)
 
 	/* No overmounts and children - the entire mount is visible */
 	if (list_empty(&pm->children) && !mnt_is_overmounted(pm))
-		return __open_mountpoint(pm, -1);
+		return __open_mountpoint(pm);
 
 	pr_info("Mount is not fully visible %s\n", pm->mountpoint);
 
@@ -1413,7 +1411,7 @@ int open_mountpoint(struct mount_info *pm)
 		goto err;
 	}
 
-	return __open_mountpoint(pm, fd);
+	return fd < 0 ? __open_mountpoint(pm) : check_mountpoint_fd(pm, fd);
 err:
 	if (ns_old >= 0)
 		/* coverity[check_return] */
