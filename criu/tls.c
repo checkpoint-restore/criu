@@ -142,6 +142,8 @@ ssize_t tls_recv(void *buf, size_t len, int flags)
 		case GNUTLS_E_INTERRUPTED:
 			errno = EINTR;
 			break;
+		case GNUTLS_E_PREMATURE_TERMINATION:
+			return 0;
 		default:
 			tls_perror("Failed receiving data", ret);
 			errno = EIO;
@@ -314,6 +316,9 @@ static ssize_t _tls_pull_cb(void *p, void *data, size_t sz)
 {
 	int fd = *(int *)(p);
 	int ret = recv(fd, data, sz, tls_sk_flags);
+	/* The callback should return 0 on connection termination */
+	if (ret < 0 && errno == ECONNRESET)
+		return 0;
 	if (ret < 0 && errno != EAGAIN) {
 		int _errno = errno;
 		pr_perror("Pull callback recv failed");
