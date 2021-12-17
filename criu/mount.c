@@ -1018,16 +1018,44 @@ int mnt_is_dir(struct mount_info *pm)
 	return 0;
 }
 
+int check_mountpoint_fd(struct mount_info *pm, int mnt_fd)
+{
+	struct stat st;
+	int ret, dev;
+
+	ret = fstat(mnt_fd, &st);
+	if (ret < 0) {
+		pr_perror("fstat(%s) failed", pm->ns_mountpoint);
+		return -1;
+	}
+
+	if (pm->s_dev_rt == MOUNT_INVALID_DEV) {
+		pr_err("Resolving over invalid device for %#x %s %s\n", pm->s_dev, pm->fstype->name, pm->ns_mountpoint);
+		return -1;
+	}
+
+	dev = MKKDEV(major(st.st_dev), minor(st.st_dev));
+	/*
+	 * Always check for @s_dev_rt here, because the @s_dev
+	 * from the image (in case of restore) has all rights
+	 * to not match the device (say it's migrated and kernel
+	 * allocates new device ID).
+	 */
+	if (dev != pm->s_dev_rt) {
+		pr_err("The file system %#x %#x (%#x) %s %s is inaccessible\n", pm->s_dev, pm->s_dev_rt, dev,
+		       pm->fstype->name, pm->ns_mountpoint);
+		return -1;
+	}
+
+	return 0;
+}
+
 /*
  * mnt_fd is a file descriptor on the mountpoint, which is closed in an error case.
  * If mnt_fd is -1, the mountpoint will be opened by this function.
  */
 int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 {
-	struct stat st;
-	int dev;
-	int ret;
-
 	if (mnt_fd == -1) {
 		int mntns_root;
 
@@ -1042,34 +1070,12 @@ int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 		}
 	}
 
-	ret = fstat(mnt_fd, &st);
-	if (ret < 0) {
-		pr_perror("fstat(%s) failed", pm->ns_mountpoint);
-		goto err;
-	}
-
-	if (pm->s_dev_rt == MOUNT_INVALID_DEV) {
-		pr_err("Resolving over invalid device for %#x %s %s\n", pm->s_dev, pm->fstype->name, pm->ns_mountpoint);
-		goto err;
-	}
-
-	dev = MKKDEV(major(st.st_dev), minor(st.st_dev));
-	/*
-	 * Always check for @s_dev_rt here, because the @s_dev
-	 * from the image (in case of restore) has all rights
-	 * to not match the device (say it's migrated and kernel
-	 * allocates new device ID).
-	 */
-	if (dev != pm->s_dev_rt) {
-		pr_err("The file system %#x %#x (%#x) %s %s is inaccessible\n", pm->s_dev, pm->s_dev_rt, dev,
-		       pm->fstype->name, pm->ns_mountpoint);
-		goto err;
+	if (check_mountpoint_fd(pm, mnt_fd)) {
+		close(mnt_fd);
+		return -1;
 	}
 
 	return mnt_fd;
-err:
-	close(mnt_fd);
-	return -1;
 }
 
 int open_mount(unsigned int s_dev)
