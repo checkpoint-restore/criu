@@ -1,5 +1,8 @@
 ARG CC=gcc
 
+# FIXME: Temporary solution for https://github.com/checkpoint-restore/criu/issues/1696
+ENV GLIBC_TUNABLES=glibc.pthread.rseq=0
+
 COPY scripts/ci/prepare-for-fedora-rawhide.sh /bin/prepare-for-fedora-rawhide.sh
 RUN /bin/prepare-for-fedora-rawhide.sh
 
