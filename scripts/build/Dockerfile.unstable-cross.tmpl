@@ -1,7 +1,7 @@
 COPY scripts/ci/apt-install /bin/apt-install
 
 # Add the cross compiler sources
-RUN echo "deb http://deb.debian.org/debian/ testing main" >> /etc/apt/sources.list && \
+RUN echo "deb http://deb.debian.org/debian/ unstable main" >> /etc/apt/sources.list && \
   dpkg --add-architecture ${DEBIAN_ARCH}
 
 RUN apt-install \

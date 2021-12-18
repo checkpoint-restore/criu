@@ -10,13 +10,13 @@ jobs:
       matrix:
         target: [
           armv7-stable-cross,
-          armv7-testing-cross,
+          armv7-unstable-cross,
           aarch64-stable-cross,
-          aarch64-testing-cross,
+          aarch64-unstable-cross,
           ppc64-stable-cross,
-          ppc64-testing-cross,
+          ppc64-unstable-cross,
           mips64el-stable-cross,
-          mips64el-testing-cross
+          mips64el-unstable-cross
         ]
 
     steps:
