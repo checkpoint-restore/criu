@@ -41,7 +41,7 @@ static inline int _settime(clockid_t clk_id, time_t offset)
 	return 0;
 }
 
-static int create_timens()
+static int create_timens(void)
 {
 	struct utsname buf;
 	unsigned major, minor;
