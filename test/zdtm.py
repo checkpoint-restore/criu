@@ -607,9 +607,11 @@ class zdtm_test:
     @staticmethod
     def available():
         if not os.access("umount2", os.X_OK):
-            subprocess.check_call(["make", "umount2"])
+            subprocess.check_call(
+                ["make", "umount2"], env=dict(os.environ, MAKEFLAGS=""))
         if not os.access("zdtm_ct", os.X_OK):
-            subprocess.check_call(["make", "zdtm_ct"])
+            subprocess.check_call(
+                ["make", "zdtm_ct"], env=dict(os.environ, MAKEFLAGS=""))
         if not os.access("zdtm/lib/libzdtmtst.a", os.F_OK):
             subprocess.check_call(["make", "-C", "zdtm/"])
         subprocess.check_call(
