@@ -65,6 +65,18 @@ typedef struct {
 	uint64_t flags;	     /* Output: filter's flags */
 } seccomp_metadata_t;
 
+#ifndef PTRACE_GET_RSEQ_CONFIGURATION
+#define PTRACE_GET_RSEQ_CONFIGURATION 0x420f
+
+struct __ptrace_rseq_configuration {
+	uint64_t rseq_abi_pointer;
+	uint32_t rseq_abi_size;
+	uint32_t signature;
+	uint32_t flags;
+	uint32_t pad;
+};
+#endif
+
 #ifdef PTRACE_EVENT_STOP
 #if PTRACE_EVENT_STOP == 7 /* Bad value from Linux 3.1-3.3, fixed in 3.4 */
 #undef PTRACE_EVENT_STOP
