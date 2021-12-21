@@ -223,4 +223,7 @@ extern int restore_ext_mount(struct mount_info *mi);
 extern int cr_pivot_root(char *root);
 extern int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs);
 
+extern struct mount_info *root_yard_mp;
+extern char *mnt_roots;
+
 #endif /* __CR_MOUNT_H__ */
