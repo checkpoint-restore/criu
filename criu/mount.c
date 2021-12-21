@@ -31,14 +31,8 @@
 
 #include "images/mnt.pb-c.h"
 
-#define MS_PROPAGATE (MS_SHARED | MS_PRIVATE | MS_UNBINDABLE | MS_SLAVE)
-
 #undef LOG_PREFIX
 #define LOG_PREFIX "mnt: "
-
-#define BINFMT_MISC_HOME "proc/sys/fs/binfmt_misc"
-
-#define HELPER_MNT_ID 0
 
 #define CONTEXT_OPT "context="
 
@@ -2209,14 +2203,6 @@ static int fetch_rt_stat(struct mount_info *m, const char *where)
 	m->s_dev_rt = MKKDEV(major(st.st_dev), minor(st.st_dev));
 	return 0;
 }
-
-/*
- * Here are a set of flags which we know how to handle for the one mount call.
- * All of them except MS_RDONLY are set only as mnt flags.
- * MS_RDONLY is set for both mnt ans sb flags, so we can restore it for one
- * mount call only if it set for both masks.
- */
-#define MS_MNT_KNOWN_FLAGS (MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_NOATIME | MS_NODIRATIME | MS_RELATIME | MS_RDONLY)
 
 static int do_simple_mount(struct mount_info *mi, const char *src, const char *fstype, unsigned long mountflags)
 {
