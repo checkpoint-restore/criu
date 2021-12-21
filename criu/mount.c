@@ -37,7 +37,7 @@
 #define CONTEXT_OPT "context="
 
 /* A helper mount_info entry for the roots yard */
-static struct mount_info *root_yard_mp = NULL;
+struct mount_info *root_yard_mp = NULL;
 
 static LIST_HEAD(delayed_unbindable);
 
@@ -349,7 +349,7 @@ static bool mounts_equal(struct mount_info *a, struct mount_info *b)
  * mnt_roots is a temporary directory for restoring sub-trees of
  * non-root namespaces.
  */
-static char *mnt_roots;
+char *mnt_roots;
 
 static struct mount_info *mnt_build_ids_tree(struct mount_info *list)
 {
