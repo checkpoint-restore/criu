@@ -209,4 +209,18 @@ extern struct mount_info *mnt_bind_pick(struct mount_info *mi,
 extern int mnt_tree_for_each(struct mount_info *start, int (*fn)(struct mount_info *));
 
 extern char *service_mountpoint(const struct mount_info *mi);
+
+extern int validate_mounts(struct mount_info *info, bool for_dump);
+extern __maybe_unused struct mount_info *add_cr_time_mount(struct mount_info *root, char *fsname, const char *path,
+							   unsigned int s_dev, bool rst);
+extern char *resolve_source(struct mount_info *mi);
+extern int fetch_rt_stat(struct mount_info *m, const char *where);
+extern int do_simple_mount(struct mount_info *mi, const char *src, const char *fstype, unsigned long mountflags);
+extern char *mnt_fsname(struct mount_info *mi);
+extern int apply_sb_flags(void *args, int fd, pid_t pid);
+extern int mount_root(void *args, int fd, pid_t pid);
+extern int restore_ext_mount(struct mount_info *mi);
+extern int cr_pivot_root(char *root);
+extern int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs);
+
 #endif /* __CR_MOUNT_H__ */
