@@ -537,63 +537,6 @@ static int check_sigqueuinfo(void)
 	return 0;
 }
 
-static pid_t fork_and_ptrace_attach(int (*child_setup)(void))
-{
-	pid_t pid;
-	int sk_pair[2], sk;
-	char c = 0;
-
-	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, sk_pair)) {
-		pr_perror("socketpair");
-		return -1;
-	}
-
-	pid = fork();
-	if (pid < 0) {
-		pr_perror("fork");
-		return -1;
-	} else if (pid == 0) {
-		sk = sk_pair[1];
-		close(sk_pair[0]);
-
-		if (child_setup && child_setup() != 0)
-			exit(1);
-
-		if (write(sk, &c, 1) != 1) {
-			pr_perror("write");
-			exit(1);
-		}
-
-		while (1)
-			sleep(1000);
-		exit(1);
-	}
-
-	sk = sk_pair[0];
-	close(sk_pair[1]);
-
-	if (read(sk, &c, 1) != 1) {
-		close(sk);
-		kill(pid, SIGKILL);
-		waitpid(pid, NULL, 0);
-		pr_perror("read");
-		return -1;
-	}
-
-	close(sk);
-
-	if (ptrace(PTRACE_ATTACH, pid, NULL, NULL) == -1) {
-		pr_perror("Unable to ptrace the child");
-		kill(pid, SIGKILL);
-		waitpid(pid, NULL, 0);
-		return -1;
-	}
-
-	waitpid(pid, NULL, 0);
-
-	return pid;
-}
-
 static int check_ptrace_peeksiginfo(void)
 {
 	struct ptrace_peeksiginfo_args arg;
