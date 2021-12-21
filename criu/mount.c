@@ -693,7 +693,7 @@ static int validate_children_collision(struct mount_info *mnt)
 	return 0;
 }
 
-static int validate_mounts(struct mount_info *info, bool for_dump)
+int validate_mounts(struct mount_info *info, bool for_dump)
 {
 	struct mount_info *m, *t;
 
@@ -1647,8 +1647,8 @@ char *get_plain_mountpoint(int mnt_id, char *name)
 	return xstrdup(tmp);
 }
 
-static __maybe_unused struct mount_info *add_cr_time_mount(struct mount_info *root, char *fsname, const char *path,
-							   unsigned int s_dev, bool rst)
+struct mount_info __maybe_unused *add_cr_time_mount(struct mount_info *root, char *fsname, const char *path,
+						    unsigned int s_dev, bool rst)
 {
 	struct mount_info *mi, *t, *parent;
 	bool add_slash = false;
@@ -1993,7 +1993,7 @@ static int mnt_tree_for_each_reverse(struct mount_info *m, int (*fn)(struct moun
 	return 0;
 }
 
-static char *resolve_source(struct mount_info *mi)
+char *resolve_source(struct mount_info *mi)
 {
 	if (kdev_major(mi->s_dev) == 0)
 		/*
@@ -2191,7 +2191,7 @@ skip_parent:
 	return 0;
 }
 
-static int fetch_rt_stat(struct mount_info *m, const char *where)
+int fetch_rt_stat(struct mount_info *m, const char *where)
 {
 	struct stat st;
 
@@ -2204,7 +2204,7 @@ static int fetch_rt_stat(struct mount_info *m, const char *where)
 	return 0;
 }
 
-static int do_simple_mount(struct mount_info *mi, const char *src, const char *fstype, unsigned long mountflags)
+int do_simple_mount(struct mount_info *mi, const char *src, const char *fstype, unsigned long mountflags)
 {
 	int ret = mount(src, service_mountpoint(mi), fstype, mountflags, mi->options);
 	if (ret)
@@ -2212,7 +2212,7 @@ static int do_simple_mount(struct mount_info *mi, const char *src, const char *f
 	return ret;
 }
 
-static char *mnt_fsname(struct mount_info *mi)
+char *mnt_fsname(struct mount_info *mi)
 {
 	if (mi->fstype->code == FSTYPE__AUTO)
 		return mi->fsname;
@@ -2240,12 +2240,12 @@ static int userns_mount(char *src, void *args, int fd, pid_t pid)
 	return err;
 }
 
-static int apply_sb_flags(void *args, int fd, pid_t pid)
+int apply_sb_flags(void *args, int fd, pid_t pid)
 {
 	return userns_mount(NULL, args, fd, pid);
 }
 
-static int mount_root(void *args, int fd, pid_t pid)
+int mount_root(void *args, int fd, pid_t pid)
 {
 	return userns_mount(opts.root, args, fd, pid);
 }
@@ -2315,7 +2315,7 @@ static int do_new_mount(struct mount_info *mi)
 	return 0;
 }
 
-static int restore_ext_mount(struct mount_info *mi)
+int restore_ext_mount(struct mount_info *mi)
 {
 	int ret;
 
@@ -2802,10 +2802,6 @@ static int do_umount_one(struct mount_info *mi)
  * roots_yard where it will be restored. The remapped mount will be
  * moved to the right places after restoring all mounts.
  */
-
-static inline int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs);
-static int get_mp_mountpoint(char *mountpoint, struct mount_info *mi, char *root, int root_len);
-
 static LIST_HEAD(mnt_remap_list);
 static int remap_id;
 
@@ -2904,7 +2900,7 @@ static int fixup_remap_mounts(void)
 	return 0;
 }
 
-static int cr_pivot_root(char *root)
+int cr_pivot_root(char *root)
 {
 	char tmp_dir_tmpl[] = "crtools-put-root.XXXXXX";
 	bool tmp_dir = false;
@@ -3024,7 +3020,7 @@ void mnt_entry_free(struct mount_info *mi)
  * Helper for getting a path to where the namespace's root
  * is re-constructed.
  */
-static inline int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs)
+int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs)
 {
 	return snprintf(buf, bs, "%s/%d-%010d", mnt_roots, ns->id, remap_id);
 }
