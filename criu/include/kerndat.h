@@ -80,6 +80,7 @@ struct kerndat_s {
 	dev_t hugetlb_dev[HUGETLB_MAX];
 	bool has_move_mount_set_group;
 	bool has_openat2;
+	bool has_rseq;
 };
 
 extern struct kerndat_s kdat;
