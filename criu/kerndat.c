@@ -905,6 +905,20 @@ static int kerndat_x86_has_ptrace_fpu_xsave_bug(void)
 	return 0;
 }
 
+static int kerndat_has_rseq(void)
+{
+	if (syscall(__NR_rseq, NULL, 0, 0, 0) != -1) {
+		pr_err("rseq should fail\n");
+		return -1;
+	}
+	if (errno == ENOSYS)
+		pr_info("rseq syscall isn't supported\n");
+	else
+		kdat.has_rseq = true;
+
+	return 0;
+}
+
 int kerndat_sockopt_buf_lock(void)
 {
 	int exit_code = -1;
@@ -1604,6 +1618,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_openat2()) {
 		pr_err("kerndat_has_openat2 failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_rseq()) {
+		pr_err("kerndat_has_rseq failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
