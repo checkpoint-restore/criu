@@ -1873,7 +1873,7 @@ out:
 	return ret;
 }
 
-static int rm_parent_dirs(int mntns_root, char *path, int count)
+int rm_parent_dirs(int mntns_root, char *path, int count)
 {
 	char *p, *prev = NULL;
 	int ret = -1;
@@ -1912,7 +1912,7 @@ err:
 }
 
 /* Construct parent dir name and mkdir parent/grandparents if they're not exist */
-static int make_parent_dirs_if_need(int mntns_root, char *path)
+int make_parent_dirs_if_need(int mntns_root, char *path)
 {
 	char *p, *last_delim;
 	int err, count = 0;
