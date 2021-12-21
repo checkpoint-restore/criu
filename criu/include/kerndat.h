@@ -81,6 +81,7 @@ struct kerndat_s {
 	bool has_move_mount_set_group;
 	bool has_openat2;
 	bool has_rseq;
+	bool has_ptrace_get_rseq_conf;
 };
 
 extern struct kerndat_s kdat;

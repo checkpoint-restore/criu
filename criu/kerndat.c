@@ -4,6 +4,8 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/ptrace.h>
+#include <sys/wait.h>
 #include <sys/mman.h>
 #include <errno.h>
 #include <sys/syscall.h>
@@ -37,6 +39,7 @@
 #include "sockets.h"
 #include "net.h"
 #include "tun.h"
+#include <compel/ptrace.h>
 #include <compel/plugins/std/syscall-codes.h>
 #include "netfilter.h"
 #include "fsnotify.h"
@@ -919,6 +922,40 @@ static int kerndat_has_rseq(void)
 	return 0;
 }
 
+static int kerndat_has_ptrace_get_rseq_conf(void)
+{
+	pid_t pid;
+	int len;
+	struct __ptrace_rseq_configuration rseq;
+
+	pid = fork_and_ptrace_attach(NULL);
+	if (pid < 0)
+		return -1;
+
+	len = ptrace(PTRACE_GET_RSEQ_CONFIGURATION, pid, sizeof(rseq), &rseq);
+	if (len != sizeof(rseq)) {
+		kdat.has_ptrace_get_rseq_conf = false;
+		pr_info("ptrace(PTRACE_GET_RSEQ_CONFIGURATION) is not supported\n");
+		goto out;
+	}
+
+	/*
+	 * flags is always zero from the kernel side, if it will be changed
+	 * we need to pay attention to that and, possibly, make changes on the CRIU side.
+	 */
+	if (rseq.flags != 0) {
+		kdat.has_ptrace_get_rseq_conf = false;
+		pr_err("ptrace(PTRACE_GET_RSEQ_CONFIGURATION): rseq.flags != 0\n");
+	} else {
+		kdat.has_ptrace_get_rseq_conf = true;
+	}
+
+out:
+	kill(pid, SIGKILL);
+	waitpid(pid, NULL, 0);
+	return 0;
+}
+
 int kerndat_sockopt_buf_lock(void)
 {
 	int exit_code = -1;
@@ -1622,6 +1659,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_rseq()) {
 		pr_err("kerndat_has_rseq failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_ptrace_get_rseq_conf()) {
+		pr_err("kerndat_has_ptrace_get_rseq_conf failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
