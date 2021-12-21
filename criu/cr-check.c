@@ -798,6 +798,15 @@ static int check_ptrace_dump_seccomp_filters(void)
 	return ret;
 }
 
+static int check_ptrace_get_rseq_conf(void)
+{
+	if (!kdat.has_ptrace_get_rseq_conf) {
+		pr_warn("ptrace(PTRACE_GET_RSEQ_CONFIGURATION) isn't supported. C/R of processes which are using rseq() won't work.\n");
+		return -1;
+	}
+	return 0;
+}
+
 static int check_mem_dirty_track(void)
 {
 	if (!kdat.has_dirty_track) {
@@ -1475,6 +1484,7 @@ int cr_check(void)
 		ret |= check_memfd_hugetlb();
 		ret |= check_move_mount_set_group();
 		ret |= check_openat2();
+		ret |= check_ptrace_get_rseq_conf();
 	}
 
 	/*
@@ -1591,6 +1601,7 @@ static struct feature_list feature_list[] = {
 	{ "memfd_hugetlb", check_memfd_hugetlb },
 	{ "move_mount_set_group", check_move_mount_set_group },
 	{ "openat2", check_openat2 },
+	{ "get_rseq_conf", check_ptrace_get_rseq_conf },
 	{ NULL, NULL },
 };
 
