@@ -255,12 +255,7 @@ if [ -n "$TRAVIS" ] || [ -n "$CIRCLECI" ]; then
        # Error (criu/tty.c:1014): tty: Don't have tty to inherit session from, aborting
        make -C test/others/shell-job/ run
 fi
-
-# FIXME: rpc tests fail even with set glibc tunable
-# https://github.com/checkpoint-restore/criu/issues/1696
-if [ "$GLIBC_TUNABLES" != "glibc.pthread.rseq=0" ]; then
-	make -C test/others/rpc/ run
-fi
+make -C test/others/rpc/ run
 
 ./test/zdtm.py run -t zdtm/static/env00 --sibling
 
