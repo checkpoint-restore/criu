@@ -172,7 +172,6 @@ extern void clean_cr_time_mounts(void);
 extern char *get_plain_mountpoint(int mnt_id, char *name);
 
 extern bool add_skip_mount(const char *mountpoint);
-struct ns_id;
 extern int get_sdev_from_fd(int fd, unsigned int *sdev, bool parse_mountinfo);
 extern struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump);
 
