@@ -61,6 +61,7 @@ TST_NOFILE	:=				\
 		pthread02			\
 		pthread_timers			\
 		pthread_timers_h		\
+		rseq00				\
 		vdso00				\
 		vdso01				\
 		vdso02				\
