@@ -997,6 +997,22 @@ out:
 	return exit_code;
 }
 
+static int kerndat_has_openat2(void)
+{
+	if (sys_openat2(AT_FDCWD, ".", NULL, 0) != -1) {
+		pr_err("openat2 should fail\n");
+		return -1;
+	}
+	if (errno == ENOSYS) {
+		pr_debug("No openat2 syscall support\n");
+		kdat.has_openat2 = false;
+	} else {
+		kdat.has_openat2 = true;
+	}
+
+	return 0;
+}
+
 #define KERNDAT_CACHE_FILE     KDAT_RUNDIR "/criu.kdat"
 #define KERNDAT_CACHE_FILE_TMP KDAT_RUNDIR "/.criu.kdat"
 
@@ -1584,6 +1600,10 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_has_move_mount_set_group()) {
 		pr_err("kerndat_has_move_mount_set_group failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_openat2()) {
+		pr_err("kerndat_has_openat2 failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
