@@ -31,7 +31,7 @@ static gnutls_certificate_credentials_t x509_cred;
 static int tls_sk = -1;
 static int tls_sk_flags = 0;
 
-void tls_terminate_session(void)
+void tls_terminate_session(bool async)
 {
 	int ret;
 
@@ -44,7 +44,7 @@ void tls_terminate_session(void)
 			 * Initiate a connection shutdown but don't
 			 * wait for peer to close connection.
 			 */
-			ret = gnutls_bye(session, GNUTLS_SHUT_WR);
+			ret = gnutls_bye(session, async ? GNUTLS_SHUT_WR : GNUTLS_SHUT_RDWR);
 		} while (ret == GNUTLS_E_AGAIN || ret == GNUTLS_E_INTERRUPTED);
 		/* Free the session object */
 		gnutls_deinit(session);
@@ -399,6 +399,6 @@ int tls_x509_init(int sockfd, bool is_server)
 
 	return 0;
 err:
-	tls_terminate_session();
+	tls_terminate_session(true);
 	return -1;
 }
