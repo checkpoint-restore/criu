@@ -50,8 +50,8 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 #define PS_IOV_ADD_F  6
 #define PS_IOV_GET    7
 
-#define PS_IOV_FLUSH	     0x1023
-#define PS_IOV_FLUSH_N_CLOSE 0x1024
+#define PS_IOV_CLOSE	   0x1023
+#define PS_IOV_FORCE_CLOSE 0x1024
 
 #define PS_CMD_BITS 16
 #define PS_CMD_MASK ((1 << PS_CMD_BITS) - 1)
@@ -1223,8 +1223,8 @@ static int page_server_serve(int sk)
 			ret = page_server_add(sk, &pi, flags);
 			break;
 		}
-		case PS_IOV_FLUSH:
-		case PS_IOV_FLUSH_N_CLOSE: {
+		case PS_IOV_CLOSE:
+		case PS_IOV_FORCE_CLOSE: {
 			int32_t status = 0;
 
 			ret = 0;
@@ -1250,7 +1250,9 @@ static int page_server_serve(int sk)
 			break;
 		}
 
-		if (ret || (pi.cmd == PS_IOV_FLUSH_N_CLOSE))
+		if (ret)
+			break;
+		if (pi.cmd == PS_IOV_CLOSE || pi.cmd == PS_IOV_FORCE_CLOSE)
 			break;
 	}
 
@@ -1491,9 +1493,9 @@ int disconnect_from_page_server(void)
 		 * the parent process) so we must order the
 		 * page-server to terminate itself.
 		 */
-		pi.cmd = PS_IOV_FLUSH_N_CLOSE;
+		pi.cmd = PS_IOV_FORCE_CLOSE;
 	else
-		pi.cmd = PS_IOV_FLUSH;
+		pi.cmd = PS_IOV_CLOSE;
 
 	if (send_psi(page_server_sk, &pi))
 		goto out;
