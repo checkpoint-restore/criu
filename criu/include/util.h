@@ -403,4 +403,7 @@ extern int run_command(char *buf, size_t buf_size, int (*child_fn)(void *), void
  */
 extern uint64_t criu_run_id;
 extern void util_init(void);
+
+extern char *resolve_mountpoint(char *path);
+
 #endif /* __CR_UTIL_H__ */
