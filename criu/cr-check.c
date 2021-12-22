@@ -1402,6 +1402,14 @@ static int check_move_mount_set_group(void)
 	return 0;
 }
 
+static int check_openat2(void)
+{
+	if (!kdat.has_openat2)
+		return -1;
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1523,6 +1531,7 @@ int cr_check(void)
 		ret |= check_sockopt_buf_lock();
 		ret |= check_memfd_hugetlb();
 		ret |= check_move_mount_set_group();
+		ret |= check_openat2();
 	}
 
 	/*
@@ -1638,6 +1647,7 @@ static struct feature_list feature_list[] = {
 	{ "sockopt_buf_lock", check_sockopt_buf_lock },
 	{ "memfd_hugetlb", check_memfd_hugetlb },
 	{ "move_mount_set_group", check_move_mount_set_group },
+	{ "openat2", check_openat2 },
 	{ NULL, NULL },
 };
 
