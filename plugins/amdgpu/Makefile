@@ -12,6 +12,7 @@ include $(__nmk_dir)msg.mk
 
 CC      		:= gcc
 PLUGIN_CFLAGS  		:= -g -Wall -Werror -D _GNU_SOURCE -shared -nostartfiles -fPIC
+PLUGIN_LDFLAGS		:= -lpthread
 
 ifeq ($(CONFIG_AMDGPU),y)
         all: $(DEPS_OK)
@@ -23,7 +24,7 @@ criu-amdgpu.pb-c.c: criu-amdgpu.proto
 		protoc-c --proto_path=. --c_out=. criu-amdgpu.proto
 
 amdgpu_plugin.so: amdgpu_plugin.c amdgpu_plugin_topology.c criu-amdgpu.pb-c.c
-	$(CC) $(PLUGIN_CFLAGS) $^ -o $@ $(PLUGIN_INCLUDE)
+	$(CC) $(PLUGIN_CFLAGS) $^ -o $@ $(PLUGIN_INCLUDE) $(PLUGIN_LDFLAGS)
 
 amdgpu_plugin_clean:
 	$(call msg-clean, $@)
