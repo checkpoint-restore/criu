@@ -1259,6 +1259,8 @@ static int page_server_serve(int sk)
 		ret = -1;
 	}
 
+	tls_terminate_session(ret != 0);
+
 	if (ret == 0 && opts.ps_socket == -1) {
 		char c;
 
@@ -1272,7 +1274,6 @@ static int page_server_serve(int sk)
 		}
 	}
 
-	tls_terminate_session();
 	page_server_close();
 
 	pr_info("Session over\n");
@@ -1504,7 +1505,7 @@ int disconnect_from_page_server(void)
 
 	ret = 0;
 out:
-	tls_terminate_session();
+	tls_terminate_session(ret != 0);
 	close_safe(&page_server_sk);
 
 	return ret ?: status;
