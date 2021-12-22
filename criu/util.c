@@ -28,6 +28,7 @@
 #include <sched.h>
 #include <ftw.h>
 #include <time.h>
+#include <libgen.h>
 
 #include "linux/mount.h"
 
@@ -46,6 +47,7 @@
 #include "files.h"
 #include "pstree.h"
 #include "sched.h"
+#include "mount-v2.h"
 
 #include "cr-errno.h"
 #include "action-scripts.h"
@@ -1886,4 +1888,102 @@ bool is_same_path(char *path1, char *path2)
 		return false;
 
 	return true;
+}
+
+/*
+ * Checks if path is a mountpoint
+ * (path should be visible - no overmounts)
+ */
+static int path_is_mountpoint(char *path, bool *is_mountpoint)
+{
+	char *dname, *bname, *free_name;
+	struct open_how how = {
+		.flags = O_PATH,
+		.resolve = RESOLVE_NO_XDEV,
+	};
+	int exit_code = -1;
+	int dfd, fd;
+
+	dname = free_name = xstrdup(path);
+	if (!dname)
+		return -1;
+	dname = dirname(dname);
+
+	bname = get_relative_path(path, dname);
+	if (!bname || *bname == '\0') {
+		pr_err("Failed to get bname for %s\n", path);
+		goto err_free;
+	}
+
+	dfd = open(dname, O_PATH);
+	if (dfd < 0) {
+		pr_perror("Failed to open dir %s", dname);
+		goto err_free;
+	}
+
+	fd = sys_openat2(dfd, bname, &how, sizeof(how));
+	if (fd < 0) {
+		if (errno != EXDEV) {
+			pr_perror("Failed to open %s at %s", bname, dname);
+			goto err_close;
+		}
+
+		/*
+		 * EXDEV means that dfd and bname are from different
+		 * mounts, meaning that bname is a mountpoint
+		 */
+		*is_mountpoint = true;
+	} else {
+		/*
+		 * No error means that dfd and bname are from same mount,
+		 * meaning that bname is not a mountpoint
+		 */
+		*is_mountpoint = false;
+		close(fd);
+	}
+
+	exit_code = 0;
+err_close:
+	close(dfd);
+err_free:
+	xfree(free_name);
+	return exit_code;
+}
+
+/*
+ * Resolves real mountpoint path by any path on it
+ * (path should be visible - no overmountes)
+ */
+char *resolve_mountpoint(char *path)
+{
+	char *mp_path, *free_path;
+	bool is_mountpoint;
+
+	mp_path = free_path = xstrdup(path);
+	if (!mp_path)
+		return NULL;
+
+	while (1) {
+		/*
+		 * If we see "/" or "." we can't check if they are mountpoints
+		 * by openat2 RESOLVE_NO_XDEV, let's just assume they are.
+		 */
+		if (is_same_path(mp_path, "/"))
+			return mp_path;
+
+		if (path_is_mountpoint(mp_path, &is_mountpoint) == -1) {
+			xfree(free_path);
+			return NULL;
+		}
+
+		if (is_mountpoint)
+			return mp_path;
+
+		/* Try parent directory */
+		mp_path = dirname(mp_path);
+	}
+
+	/* never get here */
+	xfree(free_path);
+	return NULL;
 }
