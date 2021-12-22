@@ -1468,7 +1468,7 @@ int cr_lazy_pages(bool daemon)
 
 	ret = handle_requests(epollfd, &events, nr_fds);
 
-	tls_terminate_session();
+	disconnect_from_page_server();
 
 	xfree(events);
 	return ret;
