@@ -184,3 +184,15 @@ int main(void)
 	return memfd_create(NULL, 0);
 }
 endef
+
+define FEATURE_TEST_OPENAT2
+
+#include <linux/openat2.h>
+
+int main(void)
+{
+	if (RESOLVE_NO_XDEV > 0)
+		return 0;
+	return 0;
+}
+endef
