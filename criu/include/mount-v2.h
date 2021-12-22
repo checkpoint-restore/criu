@@ -2,6 +2,7 @@
 #define __CR_MOUNT_V2_H__
 
 #include "linux/mount.h"
+#include "linux/openat2.h"
 
 #include <compel/plugins/std/syscall-codes.h>
 
@@ -43,6 +44,15 @@ static inline int sys_move_mount(int from_dirfd, const char *from_pathname, int 
 static inline int sys_open_tree(int dfd, const char *filename, unsigned int flags)
 {
 	return syscall(__NR_open_tree, dfd, filename, flags);
+}
+
+#ifndef RESOLVE_NO_XDEV
+#define RESOLVE_NO_XDEV 0x01 /* Block mount-point crossings (includes bind-mounts). */
+#endif
+
+static inline long sys_openat2(int dirfd, const char *pathname, struct open_how *how, size_t size)
+{
+	return syscall(__NR_openat2, dirfd, pathname, how, size);
 }
 
 #endif /* __CR_MOUNT_V2_H__ */

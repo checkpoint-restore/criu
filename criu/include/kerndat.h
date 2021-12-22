@@ -79,6 +79,7 @@ struct kerndat_s {
 	bool has_sockopt_buf_lock;
 	dev_t hugetlb_dev[HUGETLB_MAX];
 	bool has_move_mount_set_group;
+	bool has_openat2;
 };
 
 extern struct kerndat_s kdat;
