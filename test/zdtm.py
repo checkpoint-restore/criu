@@ -589,11 +589,12 @@ class zdtm_test:
             os.unlink(self.__pidfile())
 
     def print_output(self):
-        if os.access(self.__name + '.out', os.R_OK):
-            print("Test output: " + "=" * 32)
-            with open(self.__name + '.out') as output:
-                print(output.read())
-            print(" <<< " + "=" * 32)
+        for postfix in ['.out', '.out.inprogress']:
+            if os.access(self.__name + postfix, os.R_OK):
+                print("Test output: " + "=" * 32)
+                with open(self.__name + postfix) as output:
+                    print(output.read())
+                print(" <<< " + "=" * 32)
 
     def static(self):
         return self.__name.split('/')[1] == 'static'
