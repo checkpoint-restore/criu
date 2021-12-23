@@ -1475,17 +1475,17 @@ class criu:
             self.__lazy_pages_p.terminate()
             print("criu lazy-pages exited with %s" %
                   self.__lazy_pages_p.wait())
-            grep_errors(os.path.join(self.__ddir(), "lazy-pages.log"))
+            grep_errors(os.path.join(self.__ddir(), "lazy-pages.log"), err=True)
             self.__lazy_pages_p = None
         if self.__page_server_p:
             self.__page_server_p.terminate()
             print("criu page-server exited with %s" %
                   self.__page_server_p.wait())
-            grep_errors(os.path.join(self.__ddir(), "page-server.log"))
+            grep_errors(os.path.join(self.__ddir(), "page-server.log"), err=True)
             self.__page_server_p = None
         if self.__dump_process:
             self.__dump_process.terminate()
-            print("criu dump exited with %s" % self.__dump_process.wait())
+            print("criu dump exited with %s" % self.__dump_process.wait(), err=True)
             grep_errors(os.path.join(self.__ddir(), "dump.log"))
             self.__dump_process = None
         if self.__img_streamer_process:
