@@ -185,9 +185,6 @@ int main(int argc, char *argv[], char *envp[])
 		return cr_service_work(atoi(argv[optind + 1]));
 	}
 
-	if (check_options())
-		return 1;
-
 	if (opts.imgs_dir == NULL)
 		SET_CHAR_OPTS(imgs_dir, ".");
 
@@ -263,6 +260,9 @@ int main(int argc, char *argv[], char *envp[])
 		pr_err("Could not initialize kernel features detection.\n");
 		return 1;
 	}
+
+	if (check_options())
+		return 1;
 
 	if (fault_injected(FI_CANNOT_MAP_VDSO))
 		kdat.can_map_vdso = 0;
