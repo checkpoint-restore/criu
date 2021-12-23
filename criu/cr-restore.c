@@ -3778,6 +3778,12 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	task_args->lsm_type = kdat.lsm;
 
 	/*
+	 * Decide restore with `sys_preadv` or `sys_mmap`,
+	 * sometimes we don't want to load all memory at once.
+	 */
+	task_args->on_demand_restore = opts.restore_on_demand;
+
+	/*
 	 * Make root and cwd restore _that_ late not to break any
 	 * attempts to open files by paths above (e.g. /proc).
 	 */

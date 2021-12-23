@@ -134,6 +134,7 @@ struct cr_options {
 	int link_remap_ok;
 	int log_file_per_pid;
 	int pre_dump_mode;
+	int restore_on_demand;
 	bool swrk_restore;
 	char *output;
 	char *root;

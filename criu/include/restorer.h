@@ -137,6 +137,8 @@ struct task_restore_args {
 	int uffd;
 	bool has_thp_enabled;
 
+	bool on_demand_restore;
+
 	/* threads restoration */
 	int nr_threads;				 /* number of threads */
 	thread_restore_fcall_t clone_restore_fn; /* helper address for clone() call */

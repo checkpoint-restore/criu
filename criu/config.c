@@ -623,6 +623,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		{ "leave-running", no_argument, 0, 'R' },
 		BOOL_OPT("restore-detached", &opts.restore_detach),
 		BOOL_OPT("restore-sibling", &opts.restore_sibling),
+		BOOL_OPT("on-demand", &opts.restore_on_demand),
 		BOOL_OPT("daemon", &opts.restore_detach),
 		{ "images-dir", required_argument, 0, 'D' },
 		{ "work-dir", required_argument, 0, 'W' },
@@ -1081,6 +1082,9 @@ int check_options(void)
 		pr_info("Turn deprecated stuff ON via env\n");
 		opts.deprecated_ok = true;
 	}
+
+	if (opts.restore_on_demand)
+		pr_info("Restore using sys_mmap\n");
 
 	if (!opts.restore_detach && opts.restore_sibling) {
 		pr_err("--restore-sibling only makes sense with --restore-detached\n");

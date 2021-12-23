@@ -21,6 +21,9 @@ CONFIG-DEFINES		+= -DUSER_CONFIG_DIR='".criu/"'
 
 #
 # General flags.
+ifeq (gcc, $(findstring gcc, $(CC)))
+    CFLAGS += -fno-reorder-blocks-and-partition
+endif
 CFLAGS			+= -fno-strict-aliasing
 CFLAGS			+= -iquote criu/include
 CFLAGS			+= -iquote include

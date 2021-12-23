@@ -319,6 +319,25 @@ static int restore_creds(struct thread_creds_args *args, int procfd, int lsm_typ
 }
 
 /*
+ * This function is to find out the corresponding vma_entry
+ * of a given vma, the algorithm is to simply scan the whole
+ * vma entries inside the `args`. After getting vma_entry, we
+ * can judge whether this entry can be loaded on demand or not.
+ */
+static inline VmaEntry *lookup(void *pos, struct task_restore_args *args)
+{
+	VmaEntry *vma_entry;
+	int i;
+	for (i = 0; i < args->vmas_n; i++) {
+		vma_entry = args->vmas + i;
+		if ((unsigned long)pos >= vma_entry->start && (unsigned long)pos < vma_entry->end) {
+			return vma_entry;
+		}
+	}
+	return NULL;
+}
+
+/*
  * This should be done after creds restore, as
  * some creds changes might drop the value back
  * to zero.
@@ -338,6 +357,70 @@ static inline int restore_pdeath_sig(struct thread_restore_args *ta)
 	}
 
 	return 0;
+}
+
+/*
+ * Map an iovec with a given file,
+ * using `sys_mmap` instead of `sys_preadv`
+ * can accelerate restore process when
+ * there are some pages we won't touch later.
+ */
+static int map_iovec(struct iovec *iovs, loff_t off, int nr, struct task_restore_args *args)
+{
+	/* Using mmap to load content as an on-demand way rather than egarly read all the content */
+	int j;
+	VmaEntry *tmp_entry;
+	unsigned long iov_size, tmp;
+	loff_t local_offset = off;
+	ssize_t local_r, r = 0;
+
+	for (j = 0; j < nr; j++) {
+		/* p = iov_base and grow up, end = base + len */
+		unsigned long iov_offset = 0;
+		unsigned long end = iovs[j].iov_len;
+		pr_debug("Change preadv to map of iov buffer %d, iov base %p\n", j, iovs[j].iov_base);
+		/* Considering the iov buffer may cross multiple regions */
+		while (iov_offset < end) {
+			/* Find the vma_entry */
+			tmp_entry = lookup(iovs[j].iov_base + iov_offset, args);
+			iov_size = tmp_entry->end < (unsigned long)iovs[j].iov_base + end ?
+					   tmp_entry->end :
+						 (unsigned long)iovs[j].iov_base + end;
+			/* The length that we exactly want to map */
+			iov_size -= (unsigned long)iovs[j].iov_base + iov_offset;
+
+			/*
+			 * Now check whether it can be mapped, notice that some memory areas such as `vsyscall`,
+			 * which is not VMA_AREA_REGULAR, and stack area, whose flag has MAP_GROWSDOWN still need
+			 * to use `sys_pread`.
+			 */
+			if (!vma_entry_is(tmp_entry, VMA_AREA_REGULAR) || (tmp_entry->flags & MAP_GROWSDOWN) ||
+			    (tmp_entry->flags & MAP_ANONYMOUS) || (tmp_entry->flags & MAP_HUGETLB) ||
+			    (tmp_entry->flags & MAP_SHARED) || (tmp_entry->prot & PROT_WRITE)) {
+				local_r = sys_pread(args->vma_ios_fd, iovs[j].iov_base + iov_offset, iov_size,
+						    local_offset);
+				pr_debug("Can't use mmap, still choose pread, %p, %ld, %d\n",
+					 iovs[j].iov_base + iov_offset, iov_size, args->vma_ios_fd);
+
+			} else {
+				tmp = sys_mmap(iovs[j].iov_base + iov_offset, iov_size, tmp_entry->prot,
+					       tmp_entry->flags | MAP_FIXED | MAP_PRIVATE, args->vma_ios_fd,
+					       local_offset);
+				if (tmp != (unsigned long)iovs[j].iov_base + iov_offset) {
+					pr_err("Unable to map page content %p (%lx)\n", iovs[j].iov_base + iov_offset,
+					       tmp);
+					return -1;
+				}
+				local_r = iov_size;
+				pr_debug("Use mmap, %p, %ld, %d\n", iovs[j].iov_base + iov_offset, iov_size,
+					 args->vma_ios_fd);
+			}
+			iov_offset += local_r;
+			local_offset += local_r;
+			r += local_r;
+		}
+	}
+	return r;
 }
 
 static int restore_dumpable_flag(MmEntry *mme)
@@ -1531,8 +1614,14 @@ long __export_restore_task(struct task_restore_args *args)
 		ssize_t r;
 
 		while (nr) {
-			pr_debug("Preadv %lx:%d... (%d iovs)\n", (unsigned long)iovs->iov_base, (int)iovs->iov_len, nr);
-			r = sys_preadv(args->vma_ios_fd, iovs, nr, rio->off);
+			if (args->on_demand_restore) {
+				r = map_iovec(iovs, rio->off, nr, args);
+			} else {
+				/* Default behaviour, still load all memory pages at once */
+				pr_debug("Preadv %lx:%d... (%d iovs)\n", (unsigned long)iovs->iov_base,
+					 (int)iovs->iov_len, nr);
+				r = sys_preadv(args->vma_ios_fd, iovs, nr, rio->off);
+			}
 			if (r < 0) {
 				pr_err("Can't read pages data (%d)\n", (int)r);
 				goto core_restore_end;
