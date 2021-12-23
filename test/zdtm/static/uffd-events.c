@@ -153,28 +153,30 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	test_msg("For a child process\n");
 	pid = fork();
 	if (pid < 0) {
 		fail("Can't fork");
 		return 1;
 	}
 
-	/* check madvise(MADV_DONTNEED) */
+	test_msg("Check madvise(MADV_DONTNEED)\n");
 	if (check_madv_dn(1))
 		return 1;
 
-	/* check growing mremap */
+	test_msg("Check growing mremap\n");
 	if (check_mremap_grow(2))
 		return 1;
 
-	/* check swapped mappings */
+	test_msg("Check swapped mappings\n");
 	if (check_swapped_mappings(3))
 		return 1;
 
 	if (pid) {
-		int status;
+		int status = -1;
 
-		waitpid(-1, &status, 0);
+		test_msg("Wait for the child %d\n", pid);
+		waitpid(pid, &status, 0);
 		if (status) {
 			fail("child failed");
 			return status;
