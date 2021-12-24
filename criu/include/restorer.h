@@ -229,6 +229,12 @@ struct task_restore_args {
 	int lsm_type;
 	int child_subreaper;
 	bool has_clone3_set_tid;
+
+	/*
+	 * info about rseq from libc used to
+	 * unregister it before memory restoration procedure
+	 */
+	struct rst_rseq_param libc_rseq;
 } __aligned(64);
 
 /*

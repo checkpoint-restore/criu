@@ -1122,6 +1122,15 @@ void __export_unmap(void)
 	sys_munmap(bootstrap_start, bootstrap_len - vdso_rt_size);
 }
 
+static void unregister_libc_rseq(struct rst_rseq_param *rseq)
+{
+	if (!rseq->rseq_abi_pointer)
+		return;
+
+	/* can't fail if rseq is registered */
+	sys_rseq(decode_pointer(rseq->rseq_abi_pointer), rseq->rseq_abi_size, 1, rseq->signature);
+}
+
 /*
  * This function unmaps all VMAs, which don't belong to
  * the restored process or the restorer.
@@ -1460,6 +1469,15 @@ long __export_restore_task(struct task_restore_args *args)
 		if (vdso_do_park(&args->vdso_maps_rt, args->vdso_rt_parked_at, vdso_rt_size))
 			goto core_restore_end;
 	}
+
+	/*
+	 * We may have rseq registered already if CRIU compiled against
+	 * a fresh Glibc with rseq support. Anyway, we need to unregister it
+	 * before doing unmap_old_vmas or we will get SIGSEGV from the kernel,
+	 * for instance once the kernel will want to update (struct rseq).cpu_id field:
+	 * https://github.com/torvalds/linux/blob/ce522ba9ef7e/kernel/rseq.c#L89
+	 */
+	unregister_libc_rseq(&args->libc_rseq);
 
 	if (unmap_old_vmas((void *)args->premmapped_addr, args->premmapped_len, bootstrap_start, bootstrap_len,
 			   args->task_size))
