@@ -23,6 +23,7 @@
 #include "common/compiler.h"
 
 #include "linux/mount.h"
+#include "linux/rseq.h"
 
 #include "clone-noasan.h"
 #include "cr_options.h"
@@ -3012,6 +3013,32 @@ static int prep_rseq(struct rst_rseq_param *rseq, ThreadCoreEntry *tc)
 	return 0;
 }
 
+#if defined(__GLIBC__) && defined(RSEQ_SIG)
+static void prep_libc_rseq_info(struct rst_rseq_param *rseq)
+{
+	if (!kdat.has_rseq) {
+		rseq->rseq_abi_pointer = 0;
+		return;
+	}
+
+	rseq->rseq_abi_pointer = encode_pointer(__criu_thread_pointer() + __rseq_offset);
+	rseq->rseq_abi_size = __rseq_size;
+	rseq->signature = RSEQ_SIG;
+}
+#else
+static void prep_libc_rseq_info(struct rst_rseq_param *rseq)
+{
+	/*
+	 * TODO: handle built-in rseq on other libc'ies like musl
+	 * We can do that using get_rseq_conf kernel feature.
+	 *
+	 * For now we just assume that other libc libraries are
+	 * not registering rseq by default.
+	 */
+	rseq->rseq_abi_pointer = 0;
+}
+#endif
+
 static rlim_t decode_rlim(rlim_t ival)
 {
 	return ival == -1 ? RLIM_INFINITY : ival;
@@ -3664,6 +3691,8 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 
 	strncpy(task_args->comm, core->tc->comm, TASK_COMM_LEN - 1);
 	task_args->comm[TASK_COMM_LEN - 1] = 0;
+
+	prep_libc_rseq_info(&task_args->libc_rseq);
 
 	/*
 	 * Fill up per-thread data.
