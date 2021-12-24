@@ -109,6 +109,7 @@ __NR_memfd_create		5314		sys_memfd_create	(const char *name, unsigned int flags)
 __NR_userfaultfd		5317		sys_userfaultfd		(int flags)
 
 ##TODO for kernel
+__NR_open_tree			5428		sys_open_tree		(int dirfd, const char *pathname, unsigned int flags)
 __NR_move_mount			5429		sys_move_mount		(int from_dfd, const char *from_pathname, int to_dfd, const char *to_pathname, int flags)
 __NR_fsopen			5430		sys_fsopen		(char *fsname, unsigned int flags)
 __NR_fsconfig			5431		sys_fsconfig		(int fd, unsigned int cmd, const char *key, const char *value, int aux)
