@@ -20,13 +20,15 @@ ARCH	?= $(shell echo $(SUBARCH) | sed	\
                 -e s/ppc64.*/ppc64/		\
                 -e s/mips.*/mips/		\
                 -e s/sh[234].*/sh/		\
-                -e s/aarch64.*/aarch64/)
+                -e s/aarch64.*/aarch64/         \
+                -e s/riscv64.*/riscv64/)
 
-ifeq ($(ARCH), riscv64)
-        ARCH = x86
-        SUBARCH = x86_64
 
-endif
+# ifeq ($(ARCH), riscv64)
+#         ARCH = x86
+#         SUBARCH = x86_64
+
+# endif
 
 export SUBARCH ARCH
 

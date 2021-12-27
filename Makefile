@@ -19,7 +19,7 @@ endif
 
 #
 # Supported Architectures
-ifneq ($(filter-out x86 arm aarch64 ppc64 s390 mips,$(ARCH)),)
+ifneq ($(filter-out x86 arm aarch64 ppc64 s390 mips riscv64,$(ARCH)),)
         $(error "The architecture $(ARCH) isn't supported")
 endif
 
@@ -64,6 +64,10 @@ endif
 
 ifeq ($(ARCH),aarch64)
         DEFINES		:= -DCONFIG_AARCH64
+endif
+
+ifeq ($(ARCH),riscv64)
+        DEFINES		:= -DCONFIG_RISCV64
 endif
 
 ifeq ($(ARCH),ppc64)
