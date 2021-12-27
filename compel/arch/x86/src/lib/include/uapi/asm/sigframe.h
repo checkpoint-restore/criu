@@ -178,9 +178,9 @@ static inline void rt_sigframe_erase_sigset(struct rt_sigframe *sigframe)
 
 /* clang-format off */
 #define ARCH_RT_SIGRETURN_NATIVE(new_sp)				\
-	asm volatile(							\	
-			"mv %0, %%a1				    \n"	\
-		    "mv %%a1, %%ra				    \n"	\ 
+	asm volatile(							\
+			"mv %0, %%a1 					\n" \
+		    "mv %%a1, %%ra					\n"	\
 		    "mv $"__stringify(__NR_rt_sigreturn)", %%a1 \n" \
 		    "syscall					    \n"	\
 		    :							\
@@ -204,20 +204,20 @@ static inline void rt_sigframe_erase_sigset(struct rt_sigframe *sigframe)
 		: "rdi"(new_sp)						\
 		: "eax", "r8", "r9", "r10", "r11", "memory")
 
-		// "pushq $"__stringify(USER32_CS)"		\n"	\
-		// "xor %%a1, %%a1				\n"	\
-		// "mv $1f, %%a2				\n"	\
-		// "pushq   %%rax					\n"	\
-		// "lretq						\n"	\
-		// "1:						\n"	\
-		// ".code32					\n"	\
-		// "movl %%edi, %%esp				\n"	\
-		// "movl $"__stringify(__NR32_rt_sigreturn)",%%eax	\n"	\
-		// "int $0x80					\n"	\
-		// ".code64					\n"	\
-		// :							\
-		// : "rdi"(new_sp)						\
-		// : "eax", "r8", "r9", "r10", "r11", "memory")	
+		/* "pushq $"__stringify(USER32_CS)"		\n"	\
+		"xor %%a1, %%a1				\n"	\
+		"mv $1f, %%a2				\n"	\
+		"pushq   %%rax					\n"	\
+		"lretq						\n"	\
+		"1:						\n"	\
+		".code32					\n"	\
+		"movl %%edi, %%esp				\n"	\
+		"movl $"__stringify(__NR32_rt_sigreturn)",%%eax	\n"	\
+		"int $0x80					\n"	\
+		".code64					\n"	\
+		:							\
+		: "rdi"(new_sp)						\
+		: "eax", "r8", "r9", "r10", "r11", "memory")	*/
 
 #define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)				\
 do {									\
