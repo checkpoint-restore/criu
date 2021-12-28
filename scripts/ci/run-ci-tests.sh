@@ -62,11 +62,9 @@ ci_prep () {
 }
 
 test_stream() {
-	# We must test CRIU features that dump content into an image file to ensure
-	# streaming compatibility.
-	STREAM_TEST_PATTERN='.*(ghost|fifo|unlink|memfd|shmem|socket_queue).*'
+	# Testing CRIU streaming to criu-image-streamer
 	# shellcheck disable=SC2086
-	./test/zdtm.py run --stream -p 2 --keep-going -T "$STREAM_TEST_PATTERN" $ZDTM_OPTS
+	./test/zdtm.py run --stream -p 2 --keep-going -a $ZDTM_OPTS
 }
 
 print_header() {
