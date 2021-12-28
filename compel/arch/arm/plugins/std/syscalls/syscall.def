@@ -21,7 +21,7 @@ rt_sigaction	sigaction	134	174	(int signum, const rt_sigaction_t *act, rt_sigact
 rt_sigprocmask	sigprocmask	135	175	(int how, k_rtsigset_t *set, k_rtsigset_t *old, size_t sigsetsize)
 rt_sigreturn			139	173	(void)
 ioctl				29	54	(unsigned int fd, unsigned int cmd, unsigned long arg)
-pread64				67	180	(unsigned int fd, char *buf, size_t count, loff_t pos)
+pread				67	180	(unsigned int fd, char *buf, size_t count, loff_t pos)
 ptrace				117	26	(long request, pid_t pid, void *addr, void *data)
 mremap				216	163	(unsigned long addr, unsigned long old_len, unsigned long new_len, unsigned long flag, unsigned long new_addr)
 mincore				232	219	(void *addr, unsigned long size, unsigned char *vec)
