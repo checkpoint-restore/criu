@@ -633,6 +633,19 @@ bool mnt_is_root_bind(struct mount_info *mi)
 	return mnt_get_root_bind(mi);
 }
 
+static bool __can_receive_master_from_root(struct mount_info *mi, struct mount_info *bind)
+{
+	if (rst_mnt_is_root(bind) && bind->master_id == mi->master_id && is_sub_path(mi->root, bind->root))
+		return true;
+
+	return false;
+}
+
+static struct mount_info *can_receive_master_from_root(struct mount_info *mi)
+{
+	return mnt_bind_pick(mi, __can_receive_master_from_root);
+}
+
 /*
  * Having two children with same mountpoint is unsupported. That can happen in
  * case of mount propagation inside of shared mounts, in that case it is hard
@@ -1043,10 +1056,14 @@ static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 		}
 
 		/*
-		 * If we haven't already determined this mount is external,
-		 * or bind of external, then we don't know where it came from.
+		 * External master detected
 		 */
-		if (need_master && m->parent && !can_receive_master_from_external(m)) {
+		if (need_master) {
+			if (can_receive_master_from_external(m))
+				continue;
+			if (can_receive_master_from_root(m))
+				continue;
+
 			pr_err("Mount %d %s (master_id: %d shared_id: %d) "
 			       "has unreachable sharing. Try --enable-external-masters.\n",
 			       m->mnt_id, m->mountpoint, m->master_id, m->shared_id);
