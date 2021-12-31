@@ -132,6 +132,7 @@ TST_NOFILE	:=				\
 		maps04				\
 		maps05				\
 		maps09				\
+		maps10				\
 		mlock_setuid			\
 		xids00				\
 		groups				\
