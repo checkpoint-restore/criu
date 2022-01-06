@@ -535,7 +535,6 @@ static int process_async_reads(struct page_read *pr)
 	fd = img_raw_fd(pr->pi);
 	list_for_each_entry_safe(piov, n, &pr->async, l) {
 		ssize_t ret;
-		off_t start = piov->from;
 		struct iovec *iovs = piov->to;
 
 		pr_debug("Read piov iovs %d, from %ju, len %ju, first %p:%zu\n", piov->nr, piov->from,
@@ -554,13 +553,16 @@ static int process_async_reads(struct page_read *pr)
 			}
 		}
 
-		if (ret != piov->end - piov->from) {
-			if (ret < 0) {
-				pr_err("Can't read async pr bytes (%zd / %ju read, %ju off, %d iovs)\n", ret,
-				       piov->end - piov->from, piov->from, piov->nr);
-				return -1;
-			}
+		if (ret < 0) {
+			pr_err("Can't read async pr bytes (%zd / %ju read, %ju off, %d iovs)\n", ret,
+			       piov->end - piov->from, piov->from, piov->nr);
+			return -1;
+		}
 
+		if (opts.auto_dedup && punch_hole(pr, piov->from, ret, false))
+			return -1;
+
+		if (ret != piov->end - piov->from) {
 			/*
 			 * The preadv() can return less than requested. It's
 			 * valid and doesn't mean error or EOF. We should advance
@@ -573,9 +575,6 @@ static int process_async_reads(struct page_read *pr)
 			advance_piov(piov, ret);
 			goto more;
 		}
-
-		if (opts.auto_dedup && punch_hole(pr, start, ret, false))
-			return -1;
 
 		BUG_ON(pr->io_complete); /* FIXME -- implement once needed */
 
