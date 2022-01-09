@@ -2,6 +2,7 @@ arch/x86/plugins/std/sys-exec-tbl-64.c
 arch/x86/plugins/std/syscalls-64.S
 arch/arm/plugins/std/syscalls/syscalls.S
 arch/aarch64/plugins/std/syscalls/syscalls.S
+arch/riscv64/plugins/std/syscalls/syscalls.S
 arch/s390/plugins/std/syscalls/syscalls.S
 arch/ppc64/plugins/std/syscalls/syscalls.S
 include/version.h

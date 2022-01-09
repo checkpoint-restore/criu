@@ -34,6 +34,10 @@ ifeq ($(ARCH),aarch64)
         restorer-obj-y	+= ./$(ARCH_DIR)/intraprocedure.o
 endif
 
+ifeq ($(ARCH),riscv64)
+        restorer-obj-y	+= ./$(ARCH_DIR)/intraprocedure.o
+endif
+
 ifeq ($(ARCH),ppc64)
         restorer-obj-y	+= ./$(ARCH_DIR)/vdso-trampoline.o
 endif

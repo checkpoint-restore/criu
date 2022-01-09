@@ -44,6 +44,9 @@ static const flags_t flags = {
 #elif defined CONFIG_AARCH64
 	.arch = "aarch64",
 	.cflags = COMPEL_CFLAGS_PIE,
+#elif defined CONFIG_RISCV64
+	.arch = "riscv64",
+	.cflags = COMPEL_CFLAGS_PIE,	
 #elif defined(CONFIG_ARMV6) || defined(CONFIG_ARMV7)
 	.arch = "arm",
 	.cflags = COMPEL_CFLAGS_PIE,
