@@ -1,5 +1,6 @@
 ![X86_64 GCC Test](https://github.com/checkpoint-restore/criu/workflows/X86_64%20GCC%20Test/badge.svg)
-![Podman Test](https://github.com/checkpoint-restore/criu/workflows/Podman%20Test/badge.svg)
+![Docker Test](https://github.com/checkpoint-restore/criu/actions/workflows/docker-test.yml/badge.svg)
+![Podman Test](https://github.com/checkpoint-restore/criu/actions/workflows/podman-test.yml/badge.svg)
 [![CircleCI](https://circleci.com/gh/checkpoint-restore/criu.svg?style=svg)](https://circleci.com/gh/checkpoint-restore/criu)
 
 <p align="center"><img src="https://criu.org/w/images/1/1c/CRIU.svg" width="256px"/></p>
