@@ -1,8 +1,3 @@
-[![master](https://travis-ci.org/checkpoint-restore/criu.svg?branch=master)](https://travis-ci.org/checkpoint-restore/criu)
-[![development](https://travis-ci.org/checkpoint-restore/criu.svg?branch=criu-dev)](https://travis-ci.org/checkpoint-restore/criu)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/55251ec7db28421da4481fc7c1cb0cee)](https://www.codacy.com/app/xemul/criu?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=xemul/criu&amp;utm_campaign=Badge_Grade)
-<p align="center"><img src="https://criu.org/w/images/1/1c/CRIU.svg" width="128px"/></p>
-
 ## How to contribute to CRIU
 
 CRIU project is (almost) the never-ending story, because we have to always keep up with the
