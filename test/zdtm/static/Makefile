@@ -400,6 +400,7 @@ TST_DIR		=				\
 		mnt_ext_master			\
 		mnt_ext_dev			\
 		mnt_ext_root			\
+		mnt_ext_collision		\
 		mnt_tracefs			\
 		mntns_deleted			\
 		unlink_regular00		\
