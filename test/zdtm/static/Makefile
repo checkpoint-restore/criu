@@ -402,6 +402,7 @@ TST_DIR		=				\
 		mnt_ext_root			\
 		mnt_ext_collision		\
 		mntns_pivot_root		\
+		mntns_pivot_root_ro		\
 		mnt_tracefs			\
 		mntns_deleted			\
 		unlink_regular00		\
@@ -580,6 +581,7 @@ socket-tcp-closed-last-ack:	CFLAGS += -D ZDTM_TCP_LAST_ACK
 socket-tcp-skip-in-flight:	CFLAGS += -D ZDTM_IPV4V6
 tun_ns:			CFLAGS += -DTUN_NS
 mnt_ext_manual:		CFLAGS += -D ZDTM_EXTMAP_MANUAL
+mntns_pivot_root_ro:	CFLAGS += -DMNTNS_PIVOT_ROOT_RO
 sigpending:		LDLIBS += -lrt
 vdso01:			LDLIBS += -lrt
 scm01:			CFLAGS += -DKEEP_SENT_FD
