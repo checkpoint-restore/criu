@@ -8,6 +8,7 @@
 #include <linux/limits.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "zdtmtst.h"
 #include "lock.h"
@@ -86,6 +87,21 @@ static int child(void)
 	}
 	close(fd);
 
+#ifdef MNTNS_PIVOT_ROOT_RO
+	/*
+	 * Hack to make cr_pivot_root work on readonly mntns root,
+	 * normally nested containers have /tmp directory
+	 */
+	mkdir("tmp", 0755);
+	/*
+	 * Make superblock readonly
+	 */
+	if (mount(NULL, "/", NULL, MS_REMOUNT | MS_RDONLY, NULL)) {
+		pr_perror("remount_ro");
+		goto err;
+	}
+#endif
+
 	futex_set_and_wake(futex, TEST_CHILD);
 	futex_wait_while_lt(futex, TEST_CHECK);
 
@@ -93,6 +109,21 @@ static int child(void)
 		pr_perror("access");
 		goto err;
 	}
+
+#ifdef MNTNS_PIVOT_ROOT_RO
+	/*
+	 * Check superblock readonly
+	 */
+	fd = open(testfile, O_WRONLY);
+	if (fd >= 0) {
+		pr_err("Open on readonly superblock should fail\n");
+		close(fd);
+		goto err;
+	} else if (errno != EROFS) {
+		pr_perror("open write");
+		goto err;
+	}
+#endif
 
 	futex_set_and_wake(futex, TEST_EXIT);
 	return 0;
