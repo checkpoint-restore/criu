@@ -1589,7 +1589,8 @@ static __maybe_unused struct mount_info *add_cr_time_mount(struct mount_info *ro
 	mi->mountpoint = xmalloc(len + strlen(path) + 1);
 	if (!mi->mountpoint)
 		goto err;
-	mi->ns_mountpoint = mi->mountpoint;
+	if (!rst)
+		mi->ns_mountpoint = mi->mountpoint;
 	if (!add_slash)
 		sprintf(mi->mountpoint, "%s%s", root->mountpoint, path);
 	else
