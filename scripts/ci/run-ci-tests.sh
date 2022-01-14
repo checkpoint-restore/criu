@@ -237,6 +237,9 @@ bash -x ./test/jenkins/criu-inhfd.sh
 
 if [ -z "$SKIP_EXT_DEV_TEST" ]; then
 	make -C test/others/mnt-ext-dev/ run
+	if criu/criu check --feature move_mount_set_group; then
+		EXTRA_OPTS=--mntns-compat-mode make -C test/others/mnt-ext-dev/ run
+	fi
 fi
 
 make -C test/others/make/ run CC="$CC"

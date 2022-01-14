@@ -11,7 +11,7 @@ dev=`losetup --find --show zdtm.loop`
 mkdir -p ../../dev
 cp -ap $dev ../../dev
 export ZDTM_MNT_EXT_DEV=$dev
-python ../../zdtm.py run -t zdtm/static/mnt_ext_dev || ret=$?
+python ../../zdtm.py run $EXTRA_OPTS -t zdtm/static/mnt_ext_dev || ret=$?
 losetup -d $dev
 unlink zdtm.loop
 exit $ret
