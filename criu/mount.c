@@ -1013,7 +1013,7 @@ struct mount_info *mnt_bind_pick(struct mount_info *mi, bool (*pick)(struct moun
 	return NULL;
 }
 
-static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
+static int resolve_shared_mounts(struct mount_info *info)
 {
 	struct mount_info *m, *t;
 
@@ -1026,12 +1026,8 @@ static int resolve_shared_mounts(struct mount_info *info, int root_master_id)
 	for (m = info; m; m = m->next) {
 		bool need_share, need_master;
 
-		/* the root master_id can be ignored, because it's already created */
-		if (root_master_id && root_master_id == m->master_id)
-			m->master_id = -1;
-
 		need_share = m->shared_id && list_empty(&m->mnt_share);
-		need_master = m->master_id > 0;
+		need_master = m->master_id;
 
 		pr_debug("Inspecting sharing on %2d shared_id %d master_id %d (@%s)\n", m->mnt_id, m->shared_id,
 			 m->master_id, m->mountpoint);
@@ -2110,7 +2106,7 @@ skip_parent:
 				continue;
 			if (t->bind)
 				continue;
-			if (t->master_id > 0)
+			if (t->master_id)
 				continue;
 			if (!issubpath(t->root, mi->root))
 				continue;
@@ -3457,7 +3453,7 @@ static int populate_mnt_ns(void)
 	}
 #endif
 
-	if (resolve_shared_mounts(mntinfo, 0))
+	if (resolve_shared_mounts(mntinfo))
 		return -1;
 
 	if (validate_mounts(mntinfo, false))
@@ -3845,7 +3841,6 @@ int mntns_get_root_by_mnt_id(int mnt_id)
 struct collect_mntns_arg {
 	bool need_to_validate;
 	bool for_dump;
-	int root_master_id;
 };
 
 static int collect_mntns(struct ns_id *ns, void *__arg)
@@ -3861,9 +3856,6 @@ static int collect_mntns(struct ns_id *ns, void *__arg)
 		arg->need_to_validate = true;
 
 	mntinfo_add_list(pms);
-
-	if (arg->need_to_validate && ns->id == root_item->ids->mnt_ns_id)
-		arg->root_master_id = ns->mnt.mntinfo_tree->master_id;
 
 	return 0;
 }
@@ -3918,7 +3910,7 @@ int collect_mnt_namespaces(bool for_dump)
 	if (arg.need_to_validate) {
 		ret = -1;
 
-		if (resolve_shared_mounts(mntinfo, arg.root_master_id))
+		if (resolve_shared_mounts(mntinfo))
 			goto err;
 		if (validate_mounts(mntinfo, true))
 			goto err;
