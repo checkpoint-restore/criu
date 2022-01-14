@@ -201,6 +201,10 @@ fi
 
 # shellcheck disable=SC2086
 ./test/zdtm.py run -a -p 2 --keep-going $ZDTM_OPTS
+if criu/criu check --feature move_mount_set_group; then
+	# shellcheck disable=SC2086
+	./test/zdtm.py run -a -p 2 --mntns-compat-mode --keep-going $ZDTM_OPTS
+fi
 
 # shellcheck disable=SC2086
 ./test/zdtm.py run -a -p 2 --keep-going --criu-config $ZDTM_OPTS
