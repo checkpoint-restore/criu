@@ -1,8 +1,7 @@
 #ifndef UAPI_COMPEL_ASM_SIGFRAME_H__
 #define UAPI_COMPEL_ASM_SIGFRAME_H__
 
-//commenting cause throws error
-// #include <asm/sigcontext.h> 
+#include <asm/sigcontext.h> 
 #include <sys/ucontext.h>
 
 #include <stdint.h>
