@@ -1,7 +1,8 @@
 #ifndef UAPI_COMPEL_ASM_SIGFRAME_H__
 #define UAPI_COMPEL_ASM_SIGFRAME_H__
 
-#include <asm/sigcontext.h>
+//commenting cause throws error
+// #include <asm/sigcontext.h> 
 #include <sys/ucontext.h>
 
 #include <stdint.h>
@@ -10,14 +11,14 @@
 
 #define FPSIMD_MAGIC 0x46508001
 
-// typedef struct fpsimd_context fpu_state_t;
-typedef struct user_regs_struct __riscv_fp_state;
+// typedef struct user_regs_struct __riscv_fp_state;
 
 /* took it from  /usr/include/riscv64-linux-gnu/asm/sigcontext.h */
-struct sigcontext {
-        struct user_regs_struct sc_regs;
-        union __riscv_fp_state sc_fpregs;
-};
+//commenting cause throws error of dedup
+// struct sigcontext {
+//         struct user_regs_struct sc_regs;
+//         union __riscv_fp_state sc_fpregs;
+// };
 
 // XXX: the idetifier rt_sigcontext is expected to be struct by the CRIU code
 #define rt_sigcontext sigcontext
