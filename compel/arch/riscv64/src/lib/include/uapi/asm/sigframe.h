@@ -57,7 +57,7 @@ struct cr_sigcontext {
 };
 
 #define RT_SIGFRAME_UC(rt_sigframe)	     (&rt_sigframe->uc)
-#define RT_SIGFRAME_REGIP(rt_sigframe)	     ((long unsigned int)(rt_sigframe)->uc.uc_mcontext.sc_regs)
+#define RT_SIGFRAME_REGIP(rt_sigframe)	     ((long unsigned int)(rt_sigframe)->uc.uc_mcontext.__gregs[0])
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe)     (1)
 #define RT_SIGFRAME_SIGCONTEXT(rt_sigframe)  ((struct cr_sigcontext *)&(rt_sigframe)->uc.uc_mcontext)
 #define RT_SIGFRAME_AUX_CONTEXT(rt_sigframe) ((struct sigcontext *)&(RT_SIGFRAME_SIGCONTEXT(rt_sigframe)->__reserved))
