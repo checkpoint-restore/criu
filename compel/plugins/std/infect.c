@@ -11,7 +11,14 @@
 
 #include "common/bug.h"
 
+#ifndef _ASM_RISCV_SIGCONTEXT_H
+#define _ASM_RISCV_SIGCONTEXT_H
+
+//this line and above line is defined as is in : /usr/include/riscv64-linux-gnu/asm/sigcontext.h
+#include <asm/ptrace.h>
 #include "uapi/compel/asm/sigframe.h"
+#endif
+
 #include "uapi/compel/infect-rpc.h"
 
 #include "rpc-pie-priv.h"
