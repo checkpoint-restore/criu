@@ -10,12 +10,13 @@
 
 #define FPSIMD_MAGIC 0x46508001
 
-typedef struct fpsimd_context fpu_state_t;
+// typedef struct fpsimd_context fpu_state_t;
+typedef struct user_regs_struct __riscv_fp_state;
 
-struct aux_context {
-	struct fpsimd_context fpsimd;
-	/* additional context to be added before "end" */
-	struct _aarch64_ctx end;
+/* took it from  /usr/include/riscv64-linux-gnu/asm/sigcontext.h */
+struct sigcontext {
+        struct user_regs_struct sc_regs;
+        union __riscv_fp_state sc_fpregs;
 };
 
 // XXX: the idetifier rt_sigcontext is expected to be struct by the CRIU code
@@ -23,7 +24,7 @@ struct aux_context {
 
 #include <compel/sigframe-common.h>
 
-/* Copied from the kernel source arch/arm64/kernel/signal.c */
+/* Copied from the kernel source arch/riscv/kernel/signal.c */
 
 struct rt_sigframe {
 	siginfo_t info;
@@ -37,7 +38,7 @@ struct rt_sigframe {
 	asm volatile(								\
 			"mov sp, %0					\n"	\
 			"mov x8, #"__stringify(__NR_rt_sigreturn)"	\n"	\
-			"svc #0						\n"	\
+			"ecall #0						\n"	\
 			:							\
 			: "r"(new_sp)						\
 			: "x8", "memory")
@@ -59,7 +60,7 @@ struct cr_sigcontext {
 #define RT_SIGFRAME_REGIP(rt_sigframe)	     ((long unsigned int)(rt_sigframe)->uc.uc_mcontext.pc)
 #define RT_SIGFRAME_HAS_FPU(rt_sigframe)     (1)
 #define RT_SIGFRAME_SIGCONTEXT(rt_sigframe)  ((struct cr_sigcontext *)&(rt_sigframe)->uc.uc_mcontext)
-#define RT_SIGFRAME_AUX_CONTEXT(rt_sigframe) ((struct aux_context *)&(RT_SIGFRAME_SIGCONTEXT(rt_sigframe)->__reserved))
+#define RT_SIGFRAME_AUX_CONTEXT(rt_sigframe) ((struct sigcontext *)&(RT_SIGFRAME_SIGCONTEXT(rt_sigframe)->__reserved))
 #define RT_SIGFRAME_FPU(rt_sigframe)	     (&RT_SIGFRAME_AUX_CONTEXT(rt_sigframe)->fpsimd)
 #define RT_SIGFRAME_OFFSET(rt_sigframe)	     0
 

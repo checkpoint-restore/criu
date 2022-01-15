@@ -1,3 +1,5 @@
+.vscode/*
+ContainerHistoryLog
 .config
 *.o
 *.d
