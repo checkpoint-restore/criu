@@ -36,8 +36,8 @@ struct rt_sigframe {
 /* clang-format off */
 #define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)					\
 	asm volatile(								\
-			"mov sp, %0					\n"	\
-			"mov fp, #"__stringify(__NR_rt_sigreturn)"	\n"	\
+			"mv sp, %0					\n"	\
+			"mv fp, #"__stringify(__NR_rt_sigreturn)"	\n"	\
 			"ecall #0						\n"	\
 			:							\
 			: "r"(new_sp)						\
