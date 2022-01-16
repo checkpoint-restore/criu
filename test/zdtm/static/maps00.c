@@ -158,7 +158,13 @@ static int check_map(struct map *map)
 
 	if (!sigsetjmp(segv_ret, 1)) {
 		if (map->prot & PROT_WRITE) {
-			memcpy(map->ptr, test_func, getpagesize());
+			memcpy(map->ptr, test_func, ONE_MAP_SIZE);
+			/* The ARM ARM architecture does not require the
+			 * hardware to ensure coherency between instruction
+			 * caches and memory, flushing dcache and icache is
+			 * necessory to prevent SIGILL signal.
+			 */
+			__builtin___clear_cache(map->ptr, map->ptr + ONE_MAP_SIZE);
 		} else {
 			if (!(map->flag & MAP_ANONYMOUS)) {
 				uint8_t funlen = (uint8_t *)check_map - (uint8_t *)test_func;
