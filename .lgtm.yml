@@ -1,0 +1,30 @@
+extraction:
+  cpp:
+    prepare:
+      packages:
+      - "protobuf-c-compiler"
+      - "libprotobuf-c-dev"
+      - "libprotobuf-dev"
+      - "build-essential"
+      - "libprotobuf-dev"
+      - "libprotobuf-c-dev"
+      - "protobuf-c-compiler"
+      - "protobuf-compiler"
+      - "python3-protobuf"
+      - "libnet-dev"
+      - "pkg-config"
+      - "libnl-3-dev"
+      - "libbsd0"
+      - "libbsd-dev"
+      - "iproute2"
+      - "libcap-dev"
+      - "libaio-dev"
+      - "python3-yaml"
+      - "libnl-route-3-dev"
+      - "python-future"
+      - "gnutls-dev"
+    configure:
+      command:
+      - "ls -laR images/google"
+      - "ln -s /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto"
+      - "ls -laR images/google"
