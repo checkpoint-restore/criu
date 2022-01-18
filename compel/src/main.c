@@ -19,6 +19,7 @@
 
 #define CFLAGS_DEFAULT_SET     \
 	"-Wstrict-prototypes " \
+	"-ffreestanding "      \
 	"-fno-stack-protector -nostdlib -fomit-frame-pointer "
 
 #define COMPEL_CFLAGS_PIE   CFLAGS_DEFAULT_SET "-fpie"
