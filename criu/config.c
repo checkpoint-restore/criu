@@ -229,7 +229,7 @@ out:
 		tmp_string[0] = 0;
 
 	/* Check for unsupported configuration file entries */
-	if (configuration[i] + offset + 1 != 0 && strchr(configuration[i] + offset, ' ')) {
+	if (strchr(configuration[i] + offset, ' ')) {
 		int j;
 		len = strlen(configuration[i] + offset);
 		for (j = 0; j < len - 1; j++) {
