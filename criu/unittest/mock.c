@@ -97,3 +97,42 @@ int close_service_fd(int type)
 void compel_log_init(int log_fn, unsigned int level)
 {
 }
+
+void set_cr_errno(int new_err)
+{
+}
+
+struct ns_desc {
+};
+struct ns_desc user_ns_desc;
+int switch_ns(int pid, struct ns_desc *nd, int *rst)
+{
+	return -1;
+}
+
+enum script_actions { ACT_FAKE };
+int run_scripts(enum script_actions act)
+{
+	return -1;
+}
+
+typedef struct VmaEntry VmaEntry;
+struct VmaEntry {
+};
+void vma_entry__init(VmaEntry *message)
+{
+}
+
+int clone_noasan(int (*fn)(void *), int flags, void *arg)
+{
+	return -1;
+}
+
+struct kerndat_s {
+	unsigned int sysctl_nr_open;
+};
+struct kerndat_s kdat = {};
+
+int service_fd_rlim_cur;
+
+unsigned __page_size;
