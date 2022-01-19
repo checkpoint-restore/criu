@@ -3,6 +3,7 @@
 #include <assert.h>
 
 #include "log.h"
+#include "util.h"
 #include "criu-log.h"
 
 int parse_statement(int i, char *line, char **configuration);
@@ -99,6 +100,48 @@ int main(int argc, char *argv[], char *envp[])
 
 	i = parse_statement(0, "a b c d e f g h i\n", configuration);
 	assert(i == -1);
+
+	/* get_relative_path */
+	/* different kinds of representation of "/" */
+	assert(!strcmp(get_relative_path("/", "/"), ""));
+	assert(!strcmp(get_relative_path("/", ""), ""));
+	assert(!strcmp(get_relative_path("", "/"), ""));
+	assert(!strcmp(get_relative_path(".", "/"), ""));
+	assert(!strcmp(get_relative_path("/", "."), ""));
+	assert(!strcmp(get_relative_path("/", "./"), ""));
+	assert(!strcmp(get_relative_path("./", "/"), ""));
+	assert(!strcmp(get_relative_path("/.", "./"), ""));
+	assert(!strcmp(get_relative_path("./", "/."), ""));
+	assert(!strcmp(get_relative_path(".//////.", ""), ""));
+	assert(!strcmp(get_relative_path("/./", ""), ""));
+
+	/* all relative paths given are assumed relative to "/" */
+	assert(!strcmp(get_relative_path("/a/b/c", "a/b/c"), ""));
+
+	/* multiple slashes are ignored, only directory names matter */
+	assert(!strcmp(get_relative_path("///alfa///beta///gamma///", "//alfa//beta//gamma//"), ""));
+
+	/* returned path is always relative */
+	assert(!strcmp(get_relative_path("/a/b/c", "/"), "a/b/c"));
+	assert(!strcmp(get_relative_path("/a/b/c", "/a/b"), "c"));
+
+	/* single dots supported */
+	assert(!strcmp(get_relative_path("./a/b", "a/"), "b"));
+
+	/* double dots are partially supported */
+	assert(!strcmp(get_relative_path("a/../b", "a"), "../b"));
+	assert(!strcmp(get_relative_path("a/../b", "a/.."), "b"));
+	assert(!get_relative_path("a/../b/c", "b"));
+
+	/* if second path is not subpath - NULL returned */
+	assert(!get_relative_path("/a/b/c", "/a/b/d"));
+	assert(!get_relative_path("/a/b", "/a/b/c"));
+	assert(!get_relative_path("/a/b/c/d", "b/c/d"));
+
+	assert(!strcmp(get_relative_path("./a////.///./b//././c", "///./a/b"), "c"));
+
+	/* leaves punctuation in returned string as is */
+	assert(!strcmp(get_relative_path("./a////.///./b//././c", "a"), "b//././c"));
 
 	pr_msg("OK\n");
 	return 0;
