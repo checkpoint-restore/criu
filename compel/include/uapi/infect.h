@@ -18,6 +18,7 @@ extern int __must_check compel_interrupt_task(int pid);
 struct seize_task_status {
 	unsigned long long sigpnd;
 	unsigned long long shdpnd;
+	unsigned long long sigblk;
 	char state;
 	int vpid;
 	int ppid;
@@ -30,7 +31,9 @@ extern int __must_check compel_wait_task(int pid, int ppid,
 					 struct seize_task_status *st, void *data);
 
 extern int __must_check compel_stop_task(int pid);
+extern int __must_check compel_parse_stop_signo(int pid);
 extern int compel_resume_task(pid_t pid, int orig_state, int state);
+extern int compel_resume_task_sig(pid_t pid, int orig_state, int state, int stop_signo);
 
 struct parasite_ctl;
 struct parasite_thread_ctl;

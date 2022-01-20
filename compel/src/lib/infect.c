@@ -92,6 +92,12 @@ static int parse_pid_status(int pid, struct seize_task_status *ss, void *data)
 
 			continue;
 		}
+		if (!strncmp(aux, "SigBlk:", 7)) {
+			if (sscanf(aux + 7, "%llx", &ss->sigblk) != 1)
+				goto err_parse;
+
+			continue;
+		}
 	}
 
 	fclose(f);
@@ -186,6 +192,29 @@ static int skip_sigstop(int pid, int nr_signals)
 	return 0;
 }
 
+#define SIG_MASK(sig) (1ULL << ((sig)-1))
+
+#define SIG_IN_MASK(sig, mask) ((sig) > 0 && (sig) <= SIGMAX && (SIG_MASK(sig) & (mask)))
+
+#define SUPPORTED_STOP_MASK ((1ULL << (SIGSTOP - 1)) | (1ULL << (SIGTSTP - 1)))
+
+static inline int sig_stop(int sig)
+{
+	return SIG_IN_MASK(sig, SUPPORTED_STOP_MASK);
+}
+
+int compel_parse_stop_signo(int pid)
+{
+	siginfo_t si;
+
+	if (ptrace(PTRACE_GETSIGINFO, pid, NULL, &si) < 0) {
+		pr_perror("SEIZE %d: can't parse stopped siginfo", pid);
+		return -1;
+	}
+
+	return si.si_signo;
+}
+
 /*
  * This routine seizes task putting it into a special
  * state where we can manipulate the task via ptrace
@@ -198,7 +227,7 @@ int compel_wait_task(int pid, int ppid, int (*get_status)(int pid, struct seize_
 		     void *data)
 {
 	siginfo_t si;
-	int status, nr_sigstop;
+	int status, nr_stopsig;
 	int ret = 0, ret2, wait_errno = 0;
 
 	/*
@@ -291,17 +320,32 @@ try_again:
 		goto err;
 	}
 
-	nr_sigstop = 0;
-	if (ss->sigpnd & (1 << (SIGSTOP - 1)))
-		nr_sigstop++;
-	if (ss->shdpnd & (1 << (SIGSTOP - 1)))
-		nr_sigstop++;
-	if (si.si_signo == SIGSTOP)
-		nr_sigstop++;
+	nr_stopsig = 0;
+	if (SIG_IN_MASK(SIGSTOP, ss->sigpnd))
+		nr_stopsig++;
+	if (SIG_IN_MASK(SIGSTOP, ss->shdpnd))
+		nr_stopsig++;
 
-	if (nr_sigstop) {
-		if (skip_sigstop(pid, nr_sigstop))
-			goto err_stop;
+	if (SIG_IN_MASK(SIGTSTP, ss->sigpnd) && !SIG_IN_MASK(SIGTSTP, ss->sigblk))
+		nr_stopsig++;
+	if (SIG_IN_MASK(SIGTSTP, ss->shdpnd) && !SIG_IN_MASK(SIGTSTP, ss->sigblk))
+		nr_stopsig++;
+
+	if (sig_stop(si.si_signo))
+		nr_stopsig++;
+
+	if (nr_stopsig) {
+		if (skip_sigstop(pid, nr_stopsig)) {
+			/*
+			 * Make sure that the task is stopped by a supported stop signal and
+			 * send it again to restore task state before criu intervention.
+			 */
+			if (sig_stop(si.si_signo))
+				kill(pid, si.si_signo);
+			else
+				kill(pid, SIGSTOP);
+			goto err;
+		}
 
 		return COMPEL_TASK_STOPPED;
 	}
@@ -313,8 +357,6 @@ try_again:
 		goto err;
 	}
 
-err_stop:
-	kill(pid, SIGSTOP);
 err:
 	if (ptrace(PTRACE_DETACH, pid, NULL, NULL))
 		pr_perror("Unable to detach from %d", pid);
@@ -322,6 +364,11 @@ err:
 }
 
 int compel_resume_task(pid_t pid, int orig_st, int st)
+{
+	return compel_resume_task_sig(pid, orig_st, st, SIGSTOP);
+}
+
+int compel_resume_task_sig(pid_t pid, int orig_st, int st, int stop_signo)
 {
 	int ret = 0;
 
@@ -345,8 +392,18 @@ int compel_resume_task(pid_t pid, int orig_st, int st)
 		 * task with STOP in queue that would get lost after
 		 * detach, so stop it again.
 		 */
-		if (orig_st == COMPEL_TASK_STOPPED)
-			kill(pid, SIGSTOP);
+		if (orig_st == COMPEL_TASK_STOPPED) {
+			/*
+			 * Check that stop_signo contain supported stop signal.
+			 * If it isn't, then send SIGSTOP. It makes sense in the case
+			 * when we get COMPEL_TASK_STOPPED from old image,
+			 * where stop_signo was not yet supported.
+			 */
+			if (sig_stop(stop_signo))
+				kill(pid, stop_signo);
+			else
+				kill(pid, SIGSTOP);
+		}
 	} else {
 		pr_err("Unknown final state %d\n", st);
 		ret = -1;
