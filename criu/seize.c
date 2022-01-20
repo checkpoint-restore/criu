@@ -615,6 +615,9 @@ static int collect_children(struct pstree_item *item)
 		else
 			processes_to_wait--;
 
+		if (ret == TASK_STOPPED)
+			c->pid->stop_signo = compel_parse_stop_signo(pid);
+
 		c->pid->real = pid;
 		c->parent = item;
 		c->pid->state = ret;
@@ -646,7 +649,7 @@ static void unseize_task_and_threads(const struct pstree_item *item, int st)
 	 * the item->state is the state task was in when we seized one.
 	 */
 
-	compel_resume_task(item->pid->real, item->pid->state, st);
+	compel_resume_task_sig(item->pid->real, item->pid->state, st, item->pid->stop_signo);
 
 	if (st == TASK_DEAD)
 		return;
@@ -949,6 +952,9 @@ int collect_pstree(void)
 		ret = TASK_DEAD;
 	else
 		processes_to_wait--;
+
+	if (ret == TASK_STOPPED)
+		root_item->pid->stop_signo = compel_parse_stop_signo(pid);
 
 	pr_info("Seized task %d, state %d\n", pid, ret);
 	root_item->pid->state = ret;

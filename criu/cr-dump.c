@@ -781,6 +781,11 @@ static int dump_task_core_all(struct parasite_ctl *ctl, struct pstree_item *item
 	core->thread_core->creds->lsm_profile = dmpi(item)->thread_lsms[0]->profile;
 	core->thread_core->creds->lsm_sockcreate = dmpi(item)->thread_lsms[0]->sockcreate;
 
+	if (core->tc->task_state == TASK_STOPPED) {
+		core->tc->has_stop_signo = true;
+		core->tc->stop_signo = item->pid->stop_signo;
+	}
+
 	ret = parasite_dump_thread_leader_seized(ctl, pid, core);
 	if (ret)
 		goto err;
