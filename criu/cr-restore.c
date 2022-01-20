@@ -1350,6 +1350,9 @@ static inline int fork_with_pid(struct pstree_item *item)
 		item->pid->state = ca.core->tc->task_state;
 		rsti(item)->cg_set = ca.core->tc->cg_set;
 
+		if (ca.core->tc->has_stop_signo)
+			item->pid->stop_signo = ca.core->tc->stop_signo;
+
 		if (item->pid->state != TASK_DEAD && !task_alive(item)) {
 			pr_err("Unknown task state %d\n", item->pid->state);
 			return -1;
@@ -2104,8 +2107,14 @@ static void finalize_restore(void)
 
 		xfree(ctl);
 
-		if ((item->pid->state == TASK_STOPPED) || (opts.final_state == TASK_STOPPED))
+		if (opts.final_state == TASK_STOPPED)
 			kill(item->pid->real, SIGSTOP);
+		else if (item->pid->state == TASK_STOPPED) {
+			if (item->pid->stop_signo > 0)
+				kill(item->pid->real, item->pid->stop_signo);
+			else
+				kill(item->pid->real, SIGSTOP);
+		}
 	}
 }
 

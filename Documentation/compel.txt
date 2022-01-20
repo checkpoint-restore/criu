@@ -97,7 +97,10 @@ Following steps are performed to infect the victim process:
     - execute system call: *int compel_syscall(ctl, int syscall_nr, long *ret, int arg ...);*
     - infect victim: *int compel_infect(ctl, nr_thread, size_of_args_area);*
     - cure the victim: *int compel_cure(ctl);* //ctl pointer is freed by this call
-    - Resume victim: *int compel_resume_task(pid, orig_state, state);*
+    - Resume victim: *int compel_resume_task(pid, orig_state, state)* or
+    *int compel_resume_task_sig(pid, orig_state, state, stop_signo).*
+    //compel_resume_task_sig() could be used in case when victim is in stopped state.
+    stop_signo could be read by calling compel_parse_stop_signo().
 
 *ctl* must be configured with blob information by calling *PREFIX_setup_c_header()*, with ctl as its argument.
 *PREFIX* is the argument given to *-p* when calling hgen, else it is deduced from file name.

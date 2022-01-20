@@ -1027,12 +1027,13 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 
 	cr->s.sigpnd = 0;
 	cr->s.shdpnd = 0;
+	cr->s.sigblk = 0;
 	cr->s.seccomp_mode = SECCOMP_MODE_DISABLED;
 
 	if (bfdopenr(&f))
 		return -1;
 
-	while (done < 13) {
+	while (done < 14) {
 		str = breadline(&f);
 		if (str == NULL)
 			break;
@@ -1146,10 +1147,20 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 			done++;
 			continue;
 		}
+		if (!strncmp(str, "SigBlk:", 7)) {
+			unsigned long long sigblk = 0;
+
+			if (sscanf(str + 7, "%llx", &sigblk) != 1)
+				goto err_parse;
+			cr->s.sigblk |= sigblk;
+
+			done++;
+			continue;
+		}
 	}
 
 	/* seccomp and nspids are optional */
-	expected_done = (parsed_seccomp ? 11 : 10);
+	expected_done = (parsed_seccomp ? 12 : 11);
 	if (kdat.has_nspid)
 		expected_done++;
 	if (done == expected_done)
