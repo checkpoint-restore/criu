@@ -939,6 +939,8 @@ class criu_rpc:
                 if key == "splice":
                     mode = crpc.rpc.SPLICE
                 criu.opts.pre_dump_mode = mode
+            elif "--on-demand" == arg:
+                criu.opts.on_demand = True
             elif "--track-mem" == arg:
                 criu.opts.track_mem = True
             elif "--tcp-established" == arg:
@@ -1051,6 +1053,7 @@ class criu:
         self.__crit_bin = opts['crit_bin']
         self.__pre_dump_mode = opts['pre_dump_mode']
         self.__mntns_compat_mode = bool(opts['mntns_compat_mode'])
+        self.__on_demand = opts['on_demand']
 
         if opts['rpc']:
             self.__criu = criu_rpc
@@ -1422,6 +1425,9 @@ class criu:
 
         if self.__dedup:
             r_opts += ["--auto-dedup"]
+
+        if self.__on_demand:
+            r_opts += ["--on-demand"]
 
         self.__prev_dump_iter = None
         criu_dir = os.path.dirname(os.getcwd())
@@ -2042,7 +2048,7 @@ class Launcher:
               'sat', 'script', 'rpc', 'criu_config', 'lazy_pages', 'join_ns',
               'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
               'remote_lazy_pages', 'show_stats', 'lazy_migrate', 'stream',
-              'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'mntns_compat_mode')
+              'tls', 'criu_bin', 'crit_bin', 'pre_dump_mode', 'mntns_compat_mode', 'on_demand')
         arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
         if self.__use_log:
@@ -2715,6 +2721,9 @@ def get_cli_args():
                     help="Use splice or read mode of pre-dumping",
                     choices=['splice', 'read'],
                     default='splice')
+    rp.add_argument("--on-demand",
+                    help="Restore as on-demand way",
+                    action='store_true')
     rp.add_argument("--mntns-compat-mode",
                     help="Use old compat mounts restore engine",
                     action='store_true')
