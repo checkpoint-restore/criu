@@ -41,7 +41,7 @@ struct rt_sigframe {
 			"ecall #0						\n"	\
 			:							\
 			: "r"(new_sp)						\
-			: "fp", "memory")
+			: "s0", "memory")
 /* clang-format on */
 
 /* cr_sigcontext is copied from arch/arm64/include/uapi/asm/sigcontext.h */
