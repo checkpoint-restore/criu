@@ -419,7 +419,7 @@ By default the option is set to *fpu* and *ins*.
     Set the method to be used to validate open files. Validation is done
     to ensure that the version of the file being restored is the same
     version when it was dumped.
-
++
 The 'mode' may be one of the following:
 
     *filesize*:::
@@ -532,7 +532,7 @@ usually need to be escaped from shell.
     Restore cgroups configuration associated with a task from the image.
     Controllers are always restored in an optimistic way -- if already present
     in system, *criu* reuses it, otherwise it will be created.
-
++
 The 'mode' may be one of the following:
 
     *none*:::   Do not restore cgroup properties but require cgroup to
@@ -656,7 +656,7 @@ are not adequate, but this can be suppressed by using *--cpu-cap=none*.
     Set the method to be used to validate open files. Validation is done
     to ensure that the version of the file being restored is the same
     version when it was dumped.
-
++
 The 'mode' may be one of the following:
 
     *filesize*:::
