@@ -47,6 +47,7 @@ static char *xvstrcat(char *str, const char *fmt, va_list args)
 		ret = -ENOMEM;
 		new = realloc(str, offset + delta);
 		if (new) {
+			str = new;
 			va_copy(tmp, args);
 			ret = vsnprintf(new + offset, delta, fmt, tmp);
 			va_end(tmp);
@@ -54,7 +55,6 @@ static char *xvstrcat(char *str, const char *fmt, va_list args)
 				/* NOTE: vsnprintf returns the amount of bytes
 				 *                                  * to allocate. */
 				delta = ret + 1;
-				str = new;
 				ret = 0;
 			}
 		}
@@ -266,6 +266,7 @@ static int check_automount(struct autofs_params *p)
 		return err;
 
 	free(mountpoint);
+	mountpoint = NULL;
 
 	err = p->setup(p);
 	if (err) {
@@ -274,7 +275,7 @@ static int check_automount(struct autofs_params *p)
 	}
 
 	if (close(p->fd)) {
-		pr_perror("%s: failed to close fd %d", mountpoint, p->fd);
+		pr_perror("mountpoint failed to close fd %d", p->fd);
 		return -errno;
 	}
 
