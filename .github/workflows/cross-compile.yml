@@ -6,18 +6,26 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
+      fail-fast: false
       matrix:
+        experimental: [false]
         target: [
           armv7-stable-cross,
-          armv7-unstable-cross,
           aarch64-stable-cross,
-          aarch64-unstable-cross,
           ppc64-stable-cross,
-          ppc64-unstable-cross,
           mips64el-stable-cross,
-          mips64el-unstable-cross
         ]
+        include:
+          - experimental: true
+            target: armv7-unstable-cross
+          - experimental: true
+            target: aarch64-unstable-cross
+          - experimental: true
+            target: ppc64-unstable-cross
+          - experimental: true
+            target: mips64el-unstable-cross
 
     steps:
     - uses: actions/checkout@v2
