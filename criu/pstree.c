@@ -382,6 +382,9 @@ static int prepare_pstree_for_shell_job(pid_t pid)
 		for_each_pstree_item(pi) {
 			if (pi->sid == old_sid)
 				pi->sid = current_sid;
+
+			if (pi->pgid == old_sid)
+				pi->pgid = current_sid;
 		}
 
 		if (lookup_create_item(current_sid) == NULL)
