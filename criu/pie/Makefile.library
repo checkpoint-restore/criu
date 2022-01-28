@@ -21,7 +21,7 @@ ifeq ($(ARCH),arm)
         lib-y		+= ./$(ARCH_DIR)/pie-cacheflush.o
 endif
 
-CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
+CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN) -specs=/usr/lib/rpm/redhat/redhat-annobin-cc1,$(CFLAGS))
 CFLAGS		+= $(CFLAGS_PIE)
 
 ifeq ($(ARCH),mips)

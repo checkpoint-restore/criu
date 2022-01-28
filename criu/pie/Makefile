@@ -4,7 +4,7 @@
 
 target		:= parasite restorer
 
-CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN),$(CFLAGS))
+CFLAGS		:= $(filter-out -pg $(CFLAGS-GCOV) $(CFLAGS-ASAN) -specs=/usr/lib/rpm/redhat/redhat-annobin-cc1,$(CFLAGS))
 CFLAGS		+= $(CFLAGS_PIE)
 ccflags-y	+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 ccflags-y	+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
