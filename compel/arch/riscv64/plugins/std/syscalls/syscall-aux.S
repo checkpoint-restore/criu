@@ -4,34 +4,34 @@
  */
 
 ENTRY(sys_open)
-	mov a3, a2
-	mov a2, a1
-	mov a1, a0
-	mov a0, #-100
-	b   sys_openat
+	add a3, x0, a2
+	add a2, x0, a1
+	add a1, x0, a0
+	addi a0, x0, -100
+	j   sys_openat
 END(sys_open)
 
 
 ENTRY(sys_mkdir)
-	mov a3, a2
-	mov a2, a1
-	mov a1, a0
-	mov a0, #-100
-	b   sys_mkdirat
+	add a3,x0, a2
+	add a2, x0, a1
+	add a1, x0, a0
+	addi a0, x0, -100
+	j   sys_mkdirat
 END(sys_mkdir)
 
 
 ENTRY(sys_rmdir)
-	mov a2, #0x200		// flags = AT_REMOVEDIR
-	mov a1, a0
-	mov a0, #-100
-	b   sys_unlinkat
+	addi a2, x0, 0x200		// flags = AT_REMOVEDIR
+	add a1, x0, a0
+	addi a0, x0, -100
+	j   sys_unlinkat
 END(sys_rmdir)
 
 
 ENTRY(sys_unlink)
-	mov a2, #0		// flags = 0
-	mov a1, a0
-	mov a0, #-100
-	b   sys_unlinkat
+	addi a2, x0, 0		// flags = 0
+	add a1, x0, a0
+	addi a0, x0, -100
+	j   sys_unlinkat
 END(sys_unlink)
