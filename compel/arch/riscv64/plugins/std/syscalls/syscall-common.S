@@ -7,13 +7,13 @@ syscall_common:
 
 .macro syscall name, nr
 	ENTRY(\name)
-		mv	x8, \nr
+		addi	x8, x0, \nr
 		b	syscall_common
 	END(\name)
 .endm
 
 
 ENTRY(__cr_restore_rt)
-	mv	x8, __NR_rt_sigreturn
+	addi	x8, x0,	__NR_rt_sigreturn
 	scause	#1
 END(__cr_restore_rt)
