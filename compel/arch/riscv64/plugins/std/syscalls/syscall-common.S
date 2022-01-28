@@ -8,7 +8,7 @@ syscall_common:
 .macro syscall name, nr
 	ENTRY(\name)
 		addi	x8, x0, \nr
-		b	syscall_common
+		j	syscall_common
 	END(\name)
 .endm
 
