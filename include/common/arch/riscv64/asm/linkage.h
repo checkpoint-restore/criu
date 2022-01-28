@@ -12,7 +12,7 @@
 
 #define ENTRY(name)            \
 	.globl name;           \
-	.type name, #function; \
+	.type name, @function; \
 	__ALIGN;               \
 	name:
 
