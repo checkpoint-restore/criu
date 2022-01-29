@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <linux/bpf.h>
 #include <bpf/bpf.h>
 
 #include "common/compiler.h"
@@ -11,6 +10,11 @@
 #include "log.h"
 
 #include "protobuf.h"
+
+#ifndef LIBBPF_OPTS
+#define LIBBPF_OPTS   DECLARE_LIBBPF_OPTS
+#define LEGACY_LIBBPF /* Using libbpf < 0.7 */
+#endif
 
 int is_bpfmap_link(char *link)
 {
@@ -66,7 +70,7 @@ int restore_bpfmap_data(int map_fd, uint32_t map_id, struct bpfmap_data_rst **bp
 	void *keys = NULL;
 	void *values = NULL;
 	unsigned int count;
-	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts, .elem_flags = 0, .flags = 0, );
+	LIBBPF_OPTS(bpf_map_batch_opts, opts);
 
 	for (map_data = bpf_hash_table[map_id & BPFMAP_DATA_HASH_MASK]; map_data != NULL; map_data = map_data->next) {
 		if (map_data->bde->map_id == map_id)
@@ -149,7 +153,7 @@ int dump_one_bpfmap_data(BpfmapFileEntry *bpf, int lfd, const struct fd_parms *p
 	void *keys = NULL, *values = NULL;
 	void *in_batch = NULL, *out_batch = NULL;
 	BpfmapDataEntry bde = BPFMAP_DATA_ENTRY__INIT;
-	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts, .elem_flags = 0, .flags = 0, );
+	LIBBPF_OPTS(bpf_map_batch_opts, opts);
 	int ret;
 
 	key_size = bpf->key_size;
@@ -216,9 +220,14 @@ static int dump_one_bpfmap(int lfd, u32 id, const struct fd_parms *p)
 {
 	BpfmapFileEntry bpf = BPFMAP_FILE_ENTRY__INIT;
 	FileEntry fe = FILE_ENTRY__INIT;
-	struct bpf_map_info map_info;
-	uint32_t info_len = sizeof(struct bpf_map_info);
 	int ret;
+	/* If we are using a bigger struct than the kernel knows of,
+	 * ensure all the unknown bits are 0 - i.e. new user-space
+	 * does not rely on any unknown kernel feature extensions.
+	 * https://github.com/torvalds/linux/blob/a1994480/kernel/bpf/syscall.c#L70
+	 */
+	struct bpf_map_info map_info = {};
+	uint32_t info_len = sizeof(struct bpf_map_info);
 
 	if (parse_fdinfo(lfd, FD_TYPES__BPFMAP, &bpf))
 		return -1;
@@ -266,12 +275,19 @@ static int bpfmap_open(struct file_desc *d, int *new_fd)
 {
 	struct bpfmap_file_info *info;
 	BpfmapFileEntry *bpfe;
-	struct bpf_create_map_attr xattr;
 	int bpfmap_fd;
+#ifdef LEGACY_LIBBPF
+	struct bpf_create_map_attr xattr;
+#else
+	LIBBPF_OPTS(bpf_map_create_opts, bpfmap_opts);
+#endif
 
 	info = container_of(d, struct bpfmap_file_info, d);
 	bpfe = info->bpfe;
 
+	pr_info_bpfmap("Creating and opening ", bpfe);
+
+#ifdef LEGACY_LIBBPF
 	xattr.name = xstrdup(bpfe->map_name);
 	xattr.map_type = bpfe->map_type;
 	xattr.map_flags = bpfe->map_flags;
@@ -285,8 +301,17 @@ static int bpfmap_open(struct file_desc *d, int *new_fd)
 	xattr.map_ifindex = bpfe->ifindex;
 	xattr.inner_map_fd = 0;
 
-	pr_info_bpfmap("Creating and opening ", bpfe);
 	bpfmap_fd = bpf_create_map_xattr(&xattr);
+#else
+	bpfmap_opts.map_flags = bpfe->map_flags;
+	bpfmap_opts.map_ifindex = bpfe->ifindex;
+	if (bpfe->has_map_extra)
+		bpfmap_opts.map_extra = bpfe->map_extra;
+
+	bpfmap_fd = bpf_map_create(bpfe->map_type, bpfe->map_name, bpfe->key_size, bpfe->value_size, bpfe->max_entries,
+				   &bpfmap_opts);
+#endif
+
 	if (bpfmap_fd < 0) {
 		pr_perror("Can't create bpfmap %#08x", bpfe->id);
 		return -1;
