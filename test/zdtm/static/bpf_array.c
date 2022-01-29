@@ -1,9 +1,13 @@
-#include <linux/bpf.h>
 #include <bpf/bpf.h>
 #include <sys/mman.h>
 
 #include "zdtmtst.h"
 #include "bpfmap_zdtm.h"
+
+#ifndef LIBBPF_OPTS
+#define LIBBPF_OPTS   DECLARE_LIBBPF_OPTS
+#define LEGACY_LIBBPF /* Using libbpf < 0.7 */
+#endif
 
 const char *test_doc = "Check that data and meta-data for BPF_MAP_TYPE_ARRAY"
 		       "is correctly restored";
@@ -12,7 +16,7 @@ const char *test_author = "Abhishek Vijeev <abhishek.vijeev@gmail.com>";
 static int map_batch_update(int map_fd, uint32_t max_entries, int *keys, int *values)
 {
 	int i, ret;
-	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts, .elem_flags = 0, .flags = 0, );
+	LIBBPF_OPTS(bpf_map_batch_opts, opts);
 
 	for (i = 0; i < max_entries; i++) {
 		keys[i] = i;
@@ -61,6 +65,8 @@ int main(int argc, char **argv)
 	struct bpfmap_fdinfo_obj old_fdinfo = {};
 	struct bpfmap_fdinfo_obj new_fdinfo = {};
 	uint32_t info_len = sizeof(struct bpf_map_info);
+
+#ifdef LEGACY_LIBBPF
 	struct bpf_create_map_attr xattr = {
 		.name = "array_test_map",
 		.map_type = BPF_MAP_TYPE_ARRAY,
@@ -69,7 +75,10 @@ int main(int argc, char **argv)
 		.max_entries = max_entries,
 		.map_flags = BPF_F_NUMA_NODE,
 	};
-	DECLARE_LIBBPF_OPTS(bpf_map_batch_opts, opts, .elem_flags = 0, .flags = 0, );
+#else
+	LIBBPF_OPTS(bpf_map_create_opts, bpf_mapfd_opts, .map_flags = BPF_F_NUMA_NODE);
+#endif
+	LIBBPF_OPTS(bpf_map_batch_opts, opts);
 
 	keys = mmap(NULL, max_entries * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 	values = mmap(NULL, max_entries * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
@@ -82,7 +91,13 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
+#ifdef LEGACY_LIBBPF
 	map_fd = bpf_create_map_xattr(&xattr);
+#else
+	map_fd = bpf_map_create(BPF_MAP_TYPE_ARRAY, "array_test_map", sizeof(int), sizeof(int), max_entries,
+				&bpf_mapfd_opts);
+#endif
+
 	if (map_fd == -1) {
 		pr_perror("Can't create BPF map");
 		goto err;
