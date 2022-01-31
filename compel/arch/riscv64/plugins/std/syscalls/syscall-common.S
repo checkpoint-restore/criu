@@ -1,19 +1,19 @@
 #include "common/asm/linkage.h"
 
 syscall_common:
-	scause	#1
+	scall
 	sret
 
 
 .macro syscall name, nr
 	ENTRY(\name)
-		addi	x8, x0, \nr
+		li	a7, \nr
 		j	syscall_common
 	END(\name)
 .endm
 
 
 ENTRY(__cr_restore_rt)
-	addi	x8, x0,	__NR_rt_sigreturn
-	scause	#1
+	li	a7,__NR_rt_sigreturn
+	scall
 END(__cr_restore_rt)
