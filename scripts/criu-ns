@@ -203,7 +203,7 @@ def wrap_dump():
     criu_pid = os.fork()
     if criu_pid == 0:
         run_criu(sys.argv[1:])
-    return _wait_for_process_status(pid)
+    return _wait_for_process_status(criu_pid)
 
 
 def show_usage():
