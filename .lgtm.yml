@@ -19,6 +19,7 @@ extraction:
       - "iproute2"
       - "libcap-dev"
       - "libaio-dev"
+      - "libbsd-dev"
       - "python3-yaml"
       - "libnl-route-3-dev"
       - "python-future"
