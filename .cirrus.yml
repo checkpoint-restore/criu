@@ -36,7 +36,7 @@ task:
     ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm dnf-plugins-core
     yum config-manager --set-enabled powertools
-    yum install -y --allowerasing asciidoc gcc git gnutls-devel libaio-devel libasan libcap-devel libnet-devel libnl3-devel libselinux-devel make protobuf-c-devel protobuf-devel python3-devel python3-flake8 python3-PyYAML python3-future python3-protobuf xmlto
+    yum install -y --allowerasing asciidoc gcc git gnutls-devel libaio-devel libasan libcap-devel libnet-devel libnl3-devel libbsd-devel libselinux-devel make protobuf-c-devel protobuf-devel python3-devel python3-flake8 python3-PyYAML python3-future python3-protobuf xmlto
     alternatives --set python /usr/bin/python3
     systemctl stop sssd
     # Even with selinux in permissive mode the selinux tests will be executed
@@ -64,7 +64,7 @@ task:
 
   setup_script: |
     ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
-    yum install -y findutils gcc git gnutls-devel iproute iptables libaio-devel libasan libcap-devel libnet-devel libnl3-devel make procps-ng protobuf-c-devel protobuf-devel protobuf-python python python-flake8 python-ipaddress python2-future python2-junit_xml python-yaml python-six sudo tar which e2fsprogs python2-pip rubygem-asciidoctor libselinux-devel
+    yum install -y findutils gcc git gnutls-devel iproute iptables libaio-devel libasan libcap-devel libnet-devel libnl3-devel libbsd-devel make procps-ng protobuf-c-devel protobuf-devel protobuf-python python python-flake8 python-ipaddress python2-future python2-junit_xml python-yaml python-six sudo tar which e2fsprogs python2-pip rubygem-asciidoctor libselinux-devel
     # Even with selinux in permissive mode the selinux tests will be executed
     # The Cirrus CI user runs as a service from selinux point of view and is
     # much more restricted than a normal shell (system_u:system_r:unconfined_service_t:s0)
