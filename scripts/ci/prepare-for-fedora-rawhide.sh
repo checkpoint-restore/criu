@@ -17,6 +17,7 @@ dnf install -y \
 	libcap-devel \
 	libnet-devel \
 	libnl3-devel \
+	libbsd-devel \
 	make \
 	procps-ng \
 	protobuf-c-devel \
