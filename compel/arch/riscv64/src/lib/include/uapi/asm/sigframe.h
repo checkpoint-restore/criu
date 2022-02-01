@@ -1,7 +1,7 @@
 #ifndef UAPI_COMPEL_ASM_SIGFRAME_H__
 #define UAPI_COMPEL_ASM_SIGFRAME_H__
 
-#include <asm/sigcontext.h> 
+
 #include <sys/ucontext.h>
 
 #include <stdint.h>
