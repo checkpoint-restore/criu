@@ -68,7 +68,7 @@ def _wait_for_process_status(criu_pid):
         try:
             (pid, status) = os.wait()
             if pid == criu_pid:
-                return os.WEXITSTATUS(status)
+                return os.waitstatus_to_exitcode(status)
         except OSError:
             return -251
 
