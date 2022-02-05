@@ -952,7 +952,7 @@ static int vma_remap(VmaEntry *vma_entry, int uffd)
 
 		/* Move src to non-overlapping place (step 3) */
 		addr = sys_mmap(NULL, len, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-		if (addr == (unsigned long)MAP_FAILED) {
+		if (IS_ERR((void *)addr)) {
 			pr_err("Unable to reserve memory (%lx)\n", addr);
 			return -1;
 		}
