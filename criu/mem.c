@@ -733,6 +733,9 @@ static inline bool check_cow_vmas(struct vma_area *vma, struct vma_area *pvma)
 		return false;
 	if (!vma_area_is_private(pvma, kdat.task_size))
 		return false;
+	/* ... but not hugetlb mappings */
+	if (vma->e->flags & MAP_HUGETLB || pvma->e->flags & MAP_HUGETLB)
+		return false;
 	/* ... have growsdown and anon flags coincide */
 	if ((vma->e->flags ^ pvma->e->flags) & (MAP_GROWSDOWN | MAP_ANONYMOUS))
 		return false;
@@ -969,6 +972,9 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 		pstart = vma->e->start;
 
 		if (!vma_area_is_private(vma, kdat.task_size))
+			continue;
+
+		if (vma->e->flags & MAP_HUGETLB)
 			continue;
 
 		if (vma->pvma == NULL && pr->pieok && !vma_force_premap(vma, &vmas->h)) {
