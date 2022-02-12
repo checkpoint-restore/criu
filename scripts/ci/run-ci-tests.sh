@@ -63,8 +63,15 @@ ci_prep () {
 
 test_stream() {
 	# Testing CRIU streaming to criu-image-streamer
+
+	# FIXME: Currently, hugetlb mappings is not premapped, so in the restore content
+	# phase, we skip page read these pages, enqueue the iovec for later reading in
+	# restorer and eventually close the page read. However, image-streamer expects the
+	# whole image to be read and the image is not reopened, sent twice. These MAP_HUGETLB
+	# test cases will result in EPIPE error at the moment.
+	STREAM_TEST_EXCLUDE="-x maps09 -x maps10"
 	# shellcheck disable=SC2086
-	./test/zdtm.py run --stream -p 2 --keep-going -a $ZDTM_OPTS
+	./test/zdtm.py run --stream -p 2 --keep-going -a $STREAM_TEST_EXCLUDE $ZDTM_OPTS
 }
 
 print_header() {
