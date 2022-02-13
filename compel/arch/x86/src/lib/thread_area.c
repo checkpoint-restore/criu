@@ -53,15 +53,16 @@ int __compel_arch_fetch_thread_area(int tid, struct thread_ctx *th)
 		user_desc_t *d = &ptls->desc[i];
 
 		err = ptrace(PTRACE_GET_THREAD_AREA, tid, GDT_ENTRY_TLS_MIN + i, d);
-		/*
-		 * Ignoring absent syscall on !CONFIG_IA32_EMULATION
-		 * where such mixed code can't run.
-		 * XXX: Add compile CONFIG_X86_IGNORE_64BIT_TLS
-		 * (for x86_64 systems with CONFIG_IA32_EMULATION)
-		 */
-		if (err == -EIO && native_mode)
-			return 0;
 		if (err) {
+			/*
+			 * Ignoring absent syscall on !CONFIG_IA32_EMULATION
+			 * where such mixed code can't run.
+			 * XXX: Add compile CONFIG_X86_IGNORE_64BIT_TLS
+			 * (for x86_64 systems with CONFIG_IA32_EMULATION)
+			 */
+			if (errno == EIO && native_mode)
+				return 0;
+
 			pr_perror("get_thread_area failed for %d", tid);
 			return err;
 		}
