@@ -254,6 +254,8 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
+	util_init();
+
 	if (log_init(opts.output))
 		return 1;
 
