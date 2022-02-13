@@ -393,4 +393,10 @@ static inline void cleanup_freep(void *p)
 
 extern int run_command(char *buf, size_t buf_size, int (*child_fn)(void *), void *args);
 
+/*
+ * criu_run_id is a unique value of the current run. It can be used to
+ * generate resource ID-s to avoid conflicts with other CRIU processes.
+ */
+extern uint64_t criu_run_id;
+extern void util_init(void);
 #endif /* __CR_UTIL_H__ */

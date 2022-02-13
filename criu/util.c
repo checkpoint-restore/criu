@@ -27,6 +27,7 @@
 #include <netinet/tcp.h>
 #include <sched.h>
 #include <ftw.h>
+#include <time.h>
 
 #include "linux/mount.h"
 
@@ -1803,4 +1804,14 @@ int run_command(char *buf, size_t buf_size, int (*child_fn)(void *), void *args)
 	close(pipefd[0]);
 
 	return fret;
+}
+
+uint64_t criu_run_id;
+
+void util_init()
+{
+	struct timespec tp;
+
+	clock_gettime(CLOCK_MONOTONIC, &tp);
+	criu_run_id = ((uint64_t)getpid() << 32) + tp.tv_sec + tp.tv_nsec;
 }
