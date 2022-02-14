@@ -30,6 +30,13 @@
 #define __always_unused __attribute__((unused))
 #define __must_check	__attribute__((__warn_unused_result__))
 
+/* Not supported by clang */
+#if __has_attribute(__externally_visible__)
+#define __visible __attribute__((__externally_visible__))
+#else
+#define __visible
+#endif
+
 #define __section(S) __attribute__((__section__(#S)))
 
 #ifndef __always_inline
