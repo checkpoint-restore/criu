@@ -31,6 +31,9 @@
 #include "prctl.h"
 #include "compel/infect-util.h"
 #include "pidfd-store.h"
+#include "compel/plugins/std/syscall-codes.h"
+#include "common/scm.h"
+#include "io_uring.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -125,6 +128,8 @@ bool should_dump_page(VmaEntry *vmae, u64 pme)
 		return false;
 	if (vma_entry_is(vmae, VMA_AREA_AIORING))
 		return true;
+	if (vma_entry_is(vmae, VMA_AREA_IO_URING))
+		return false;
 	if ((pme & (PME_PRESENT | PME_SWAP)) && !__page_is_zero(pme))
 		return true;
 
@@ -704,6 +709,8 @@ int prepare_mm_pid(struct pstree_item *i)
 			ret = collect_filemap(vma);
 		else if (vma_area_is(vma, VMA_AREA_SOCKET))
 			ret = collect_socket_map(vma);
+		else if (vma_area_is(vma, VMA_AREA_IO_URING))
+			ret = collect_io_uring_map(vma);
 		else
 			ret = 0;
 		if (ret)

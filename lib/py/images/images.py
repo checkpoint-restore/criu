@@ -384,6 +384,21 @@ class bpfmap_data_extra_handler:
         f.seek(pload.bytes, os.SEEK_CUR)
         return pload.bytes
 
+class io_uring_data_extra_handler:
+    def load(self, f, pload):
+        size = pload.sqe_bytes + pload.cqe_bytes + pload.sq_arr_bytes
+        data = f.read(size)
+        return base64.encodebytes(data).decode('utf-8')
+
+    def dump(self, extra, f, pload):
+        data = base64.decodebytes(extra)
+        f.write(data)
+
+    def skip(self, f, pload):
+        size = pload.sqe_bytes + pload.cqe_bytes + pload.sq_arr_bytes
+        f.seek(size, os.SEEK_CUR)
+        return size
+
 class ipc_sem_set_handler:
     def load(self, f, pbuff):
         entry = pb2dict.pb2dict(pbuff)
@@ -562,6 +577,9 @@ handlers = {
     'BPFMAP_DATA': entry_handler(pb.bpfmap_data_entry,
                                 bpfmap_data_extra_handler()),
     'APPARMOR': entry_handler(pb.apparmor_entry),
+    'IO_URING_FILE': entry_handler(pb.io_uring_file_entry),
+    'IO_URING_DATA': entry_handler(pb.io_uring_data_entry,
+                                io_uring_data_extra_handler()),
 }
 
 

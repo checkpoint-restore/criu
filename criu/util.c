@@ -188,6 +188,7 @@ static void vma_opt_str(const struct vma_area *v, char *opt)
 	opt2s(VMA_ANON_PRIVATE, "ap");
 	opt2s(VMA_AREA_SYSVIPC, "sysv");
 	opt2s(VMA_AREA_SOCKET, "sk");
+	opt2s(VMA_AREA_IO_URING, "io_uring");
 
 #undef opt2s
 }

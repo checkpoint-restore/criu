@@ -85,6 +85,9 @@
 #include "pidfd-store.h"
 #include "apparmor.h"
 #include "asm/dump.h"
+#include "io_uring.h"
+
+#include "compel/plugins/std/syscall-codes.h"
 
 /*
  * Architectures can overwrite this function to restore register sets that
@@ -191,10 +194,11 @@ struct cr_imgset *glob_imgset;
 
 static int collect_fds(pid_t pid, struct parasite_drain_fd **dfds)
 {
+	char buf[PATH_MAX] = {};
 	struct dirent *de;
-	DIR *fd_dir;
+	int n, pidfd = -1;
 	int size = 0;
-	int n;
+	DIR *fd_dir;
 
 	pr_info("\n");
 	pr_info("Collecting fds (pid: %d)\n", pid);
@@ -203,6 +207,59 @@ static int collect_fds(pid_t pid, struct parasite_drain_fd **dfds)
 	fd_dir = opendir_proc(pid, "fd");
 	if (!fd_dir)
 		return -1;
+
+	/* Before collecting fds, we need to bring io_uring to steady state,
+	 * since it can install fds into task's fdtable, and if we do it later,
+	 * during actual io_uring dump, we will miss dumping these files.
+	 */
+	while ((de = readdir(fd_dir))) {
+		if (dir_dots(de))
+			continue;
+
+		n = dirfd(fd_dir);
+		if (n == -1) {
+			close(pidfd);
+			return -1;
+		}
+
+		n = readlinkat(n, de->d_name, buf, sizeof(buf));
+		if (n == -1) {
+			close(pidfd);
+			return -1;
+		}
+
+		if (is_io_uring_link(buf)) {
+			if (!kdat.has_pidfd_open) {
+				pr_err("pidfd_open system call not supported\n");
+				return -ENOTSUP;
+			}
+
+			if (!kdat.has_pidfd_getfd) {
+				pr_err("pidfd_getfd system call not supported\n");
+				return -ENOTSUP;
+			}
+
+			if (pidfd == -1) {
+				pidfd = syscall(SYS_pidfd_open, pid, 0);
+				if (pidfd < 0) {
+					pr_err("Failed to open pidfd for pid %d\n", pid);
+					return pidfd;
+				}
+			}
+
+			if (io_uring_synchronize_fd(syscall(SYS_pidfd_getfd, pidfd, atoi(de->d_name), 0))) {
+				pr_err("Failed to synchronize io_uring fd %d for pid %d\n", atoi(de->d_name), pid);
+				close(pidfd);
+				return -1;
+			}
+		}
+	}
+
+	if (pidfd >= 0)
+		close(pidfd);
+
+	/* Collect fds now */
+	rewinddir(fd_dir);
 
 	n = 0;
 	while ((de = readdir(fd_dir))) {
@@ -489,6 +546,8 @@ static int dump_task_mm(pid_t pid, const struct proc_pid_stat *stat, const struc
 			ret = check_sysvipc_map_dump(pid, vma);
 		else if (vma_entry_is(vma, VMA_AREA_SOCKET))
 			ret = dump_socket_map(vma_area);
+		else if (vma_entry_is(vma, VMA_AREA_IO_URING))
+			ret = dump_io_uring_map(vma_area);
 		else
 			ret = 0;
 		if (ret)

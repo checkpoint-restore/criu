@@ -9,6 +9,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <linux/fs.h>
+#include <linux/magic.h>
 #include <sys/sysmacros.h>
 
 #include "types.h"
@@ -41,6 +42,7 @@
 #include "path.h"
 #include "fault-injection.h"
 #include "memfd.h"
+#include "io_uring.h"
 
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
@@ -76,7 +78,8 @@ static char *buf = __buf.buf;
  * This is how AIO ring buffers look like in proc
  */
 
-#define AIO_FNAME "/[aio]"
+#define AIO_FNAME      "/[aio]"
+#define IO_URING_FNAME "anon_inode:[io_uring]"
 
 /* check the @line starts with "%lx-%lx" format */
 static bool __is_vma_range_fmt(char *line)
@@ -185,7 +188,8 @@ static void parse_vma_vmflags(char *buf, struct vma_area *vma_area)
 	 * only exception is VVAR area that mapped by the kernel as
 	 * VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP
 	 */
-	if (io_pf && !vma_area_is(vma_area, VMA_AREA_VVAR) && !vma_entry_is(vma_area->e, VMA_FILE_SHARED))
+	if (io_pf && !vma_area_is(vma_area, VMA_AREA_IO_URING) && !vma_area_is(vma_area, VMA_AREA_VVAR) &&
+	    !vma_entry_is(vma_area->e, VMA_FILE_SHARED))
 		vma_area->e->status |= VMA_UNSUPP;
 
 	if (vma_area->e->madv)
@@ -388,14 +392,20 @@ static int vma_get_mapfile(const char *fname, struct vma_area *vma, DIR *mfd, st
 
 		/*
 		 * If vfi is equal (!) and negative @vm_file_fd --
-		 * we have nothing to borrow for sure.
+		 * we have nothing to borrow for sure, unless it's io_uring
 		 */
-		if (*vm_file_fd < 0)
+		if (*vm_file_fd < 0 && !vma_area_is(prev, VMA_AREA_IO_URING))
 			return 0;
 
 		pr_debug("vma %" PRIx64 " borrows vfi from previous %" PRIx64 "\n", vma->e->start, prev->e->start);
-		if (prev->e->status & VMA_AREA_SOCKET)
+		if (prev->e->status & VMA_AREA_SOCKET) {
 			vma->e->status |= VMA_AREA_SOCKET | VMA_AREA_REGULAR;
+		} else if (prev->e->status & VMA_AREA_IO_URING) {
+			vma->e->status |= VMA_AREA_IO_URING | VMA_AREA_REGULAR;
+			vma->io_uring_id = prev->io_uring_id;
+			/* Add page to io_uring ctx */
+			add_one_io_uring_mapping(vma->e->pgoff, vma->io_uring_id);
+		}
 
 		/*
 		 * FIXME -- in theory there can be vmas that have
@@ -449,6 +459,16 @@ static int vma_get_mapfile(const char *fname, struct vma_area *vma, DIR *mfd, st
 				/* AIO ring, let's try */
 				close_safe(vm_file_fd);
 				vma->e->status = VMA_AREA_AIORING;
+				return 0;
+			}
+
+			if (!strncmp(fname, IO_URING_FNAME, sizeof(IO_URING_FNAME) - 1)) {
+				pr_debug("Marking VMA as IO_URING | REGULAR for inode %lu\n",
+					 (unsigned long)buf.st_ino);
+				vma->io_uring_id = buf.st_ino;
+				vma->e->status |= VMA_AREA_IO_URING | VMA_AREA_REGULAR;
+				/* Add page to io_uring ctx */
+				add_one_io_uring_mapping(vma->e->pgoff, vma->io_uring_id);
 				return 0;
 			}
 
@@ -637,6 +657,11 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 		 */
 		if (vma_area->mnt_id != -1 && get_fd_mntid(*vm_file_fd, &vma_area->mnt_id))
 			return -1;
+	} else if (vma_area->e->status & VMA_AREA_IO_URING) {
+		if (vma_area->e->flags & MAP_PRIVATE)
+			vma_area->e->status |= VMA_FILE_PRIVATE;
+		else
+			vma_area->e->status |= VMA_FILE_SHARED;
 	} else {
 		/*
 		 * No file but mapping -- anonymous one.
@@ -1798,7 +1823,263 @@ static int parse_bpfmap(struct bfd *f, char *str, BpfmapFileEntry *bpf)
 
 #define fdinfo_field(str, field) !strncmp(str, field ":", sizeof(field))
 
+static int parse_io_uring(struct bfd *f, char *str, struct io_uring_ctx *ctx)
+{
+	IoUringFileEntry *iofe = io_uring_get_iofe(ctx);
+	unsigned int nr;
+	pid_t pid;
+	int r;
+
+	/*
+	 * Format is:
+	 *
+	 * SqThread: %d
+	 * SqThreadCpu: %d
+	 * UserFiles: %u (number of registered files) (OPTIONAL DATA)
+	 *	%5u: %s (idx: filename)
+	 * UserBufs: %u (number of registered buffers) (OPTIONAL DATA)
+	 *	%5u: 0x%llx/%u (idx: 0xaddr/len)
+	 * Personalities: (OPTIONAL HEADING and DATA)
+	 *	%5d (id)
+	 *		Uid: %llu %llu %llu %llu (uid euid suid fsuid)
+	 *		Gid: %llu %llu %llu %llu (gid egid sgid fsgid)
+	 *		Groups: %llu %llu ... %llu (groups)
+	 *		CapEff: %llx ... %llx
+	 * PollList: (OPTIONAL DATA)
+	 *	op=%d, task_works=%d (op=opcode, task_works=0 or 1)
+	 * --- (Added by patch)
+	 * Locked: %d (0 or 1)
+	 * SqThreadIdle: %u
+	 * SetupFlags: 0x%x
+	 * SqEntries: %u
+	 * CqEntries: %u
+	 * SqOffArray: %u
+	 *  ... (OPTIONAL FIELDS)
+	 * RestrictRegisterOp: %s (bitmap)
+	 * RestrictSqeOp: %s (bitmap)
+	 * RestrictSqeFlagsAllowed: %c (u8)
+	 * RestrictSqeFlagsRequired: %c (u8)
+	 */
+
+	if (sscanf(str, "SqThread: %d", &pid) != 1)
+		goto end;
+
+	str = breadline(f);
+	if (IS_ERR_OR_NULL(str))
+		goto end;
+	if (sscanf(str, "SqThreadCpu: %d", &iofe->sq_thread_cpu) != 1)
+		goto end;
+
+	str = breadline(f);
+	if (IS_ERR_OR_NULL(str))
+		goto end;
+	if (sscanf(str, "UserFiles: %u", &nr) != 1)
+		goto end;
+	if (nr) {
+		/* Not supported, yet */
+		pr_warn("Registered files dump unsupported\n");
+		return -ENOTSUP;
+		do {
+			str = breadline(f);
+			if (IS_ERR_OR_NULL(str))
+				goto end;
+			if (!strncmp(str, "UserBufs", sizeof("UserBufs") - 1))
+				break;
+			/* skip line, we use eBPF iterator to collect the file
+			 * set registered with io_uring */
+		} while (true);
+	}
+
+	str = breadline(f);
+	if (IS_ERR_OR_NULL(str))
+		goto end;
+	if (sscanf(str, "UserBufs: %u", &nr) != 1)
+		goto end;
+	for (int i = 0; i < nr; i++) {
+		long long unsigned int address;
+		unsigned int idx, len;
+
+		str = breadline(f);
+		if (IS_ERR_OR_NULL(str))
+			goto end;
+		if (sscanf(str, "%5u: 0x%llx/%u", &idx, &address, &len) != 3)
+			goto end;
+
+		if (io_uring_push_buf(ctx, idx, address, len))
+			goto end;
+	}
+
+	str = breadline(f);
+	if (IS_ERR_OR_NULL(str))
+		goto end;
+	if (!strncmp(str, "Personalities", sizeof("Personalities") - 1)) {
+		for (;;) {
+			struct io_uring_personality_desc desc = {};
+			struct io_uring_group_desc *g, *gtmp;
+			char *tok;
+			int id;
+
+			str = breadline(f);
+			if (IS_ERR_OR_NULL(str))
+				goto end;
+			str = str + strspn(str, " ");
+			if (!strncmp(str, "PollList", sizeof("PollList") - 1))
+				break;
+			else if (sscanf(str, "%5d", &id) != 1)
+				goto end;
+			desc.id = id;
+
+			str = breadline(f);
+			if (IS_ERR_OR_NULL(str))
+				goto end;
+			str = str + strspn(str, " ");
+			if (sscanf(str, " Uid: %u %u %u %u", &desc.uid, &desc.euid, &desc.suid, &desc.fsuid) != 4)
+				goto end;
+
+			str = breadline(f);
+			if (IS_ERR_OR_NULL(str))
+				goto end;
+			if (sscanf(str, " Gid: %u %u %u %u", &desc.gid, &desc.egid, &desc.sgid, &desc.fsgid) != 4)
+				goto end;
+
+			INIT_LIST_HEAD(&desc.group_list);
+			str = breadline(f);
+			if (IS_ERR_OR_NULL(str))
+				goto end;
+			str = strstr(str, ":");
+			tok = str + 2;
+			while ((tok = strtok(tok, " "))) {
+				struct io_uring_group_desc *gdesc;
+
+				gdesc = xzalloc(sizeof(*gdesc));
+				if (!gdesc)
+					goto end_free;
+				INIT_LIST_HEAD(&gdesc->list);
+
+				if (sscanf(tok, "%u", &gdesc->group) != 1)
+					goto end_free;
+				list_add_tail(&gdesc->list, &desc.group_list);
+				desc.nr_groups++;
+				tok = NULL;
+			}
+
+			/* CapEff */
+			str = breadline(f);
+			if (IS_ERR_OR_NULL(str))
+				goto end_free;
+			str = strstr(str, ":");
+			str += 2;
+			if (cap_parse(str, desc.cap_eff))
+				goto end_free;
+
+			if (io_uring_push_personality(ctx, &desc))
+				goto end_free;
+			continue;
+		end_free:
+			list_for_each_entry_safe(g, gtmp, &desc.group_list, list)
+				xfree(g);
+			goto end;
+		}
+	}
+
+	/* PollList: */
+	for (; str; str = breadline(f)) {
+		if (IS_ERR(str))
+			goto end;
+		/* Skip leading space */
+		str = str + strspn(str, " ");
+		if (!strncmp(str, "op", sizeof("op") - 1))
+			continue;
+		else
+			break;
+	}
+	if (IS_ERR_OR_NULL(str))
+		goto end;
+
+	/* str obtained from above */
+	if (sscanf(str, "Locked: %d", &r) != 1)
+		goto end;
+	if (!r) {
+		pr_err("fdinfo read for io_uring could not take ctx->uring_lock inside kernel\n"
+		       "This indicates that the ring is not idle, hence cannot proceed\n");
+		goto end;
+	}
+
+	str = breadline(f);
+	if (IS_ERR_OR_NULL(str))
+		goto end;
+	if (sscanf(str, "SqThreadIdle: %u", &iofe->sq_thread_idle) != 1)
+		goto end;
+
+	str = breadline(f);
+	if (IS_ERR_OR_NULL(str))
+		goto end;
+	if (sscanf(str, "SetupFlags: %u", &iofe->setup_flags) != 1)
+		goto end;
+
+	str = breadline(f);
+	if (IS_ERR_OR_NULL(str))
+		goto end;
+	if (sscanf(str, "SqEntries: %u", &iofe->sq_entries) != 1)
+		goto end;
+
+	str = breadline(f);
+	if (IS_ERR_OR_NULL(str))
+		goto end;
+	if (sscanf(str, "CqEntries: %u", &iofe->cq_entries) != 1)
+		goto end;
+
+	str = breadline(f);
+	if (IS_ERR_OR_NULL(str))
+		goto end;
+	if (sscanf(str, "SqOffArray: %u", &iofe->sq_off_array) != 1)
+		goto end;
+
+	/* Printing restrictions is optional */
+	str = breadline(f);
+	if (IS_ERR(str))
+		goto end;
+	if (!str)
+		return 0;
+	nr = 0;
+	/* Upper bits are unused in bitmap */
+	if (sscanf(str, "RestrictRegisterOp: %x,%x", &nr, &iofe->reg_op) != 2) {
+		/* 32-bit long? */
+		if (sscanf(str, "RestrictRegisterOp: %x", &iofe->reg_op) != 1)
+			goto end;
+	}
+	BUG_ON(nr);
+
+	str = breadline(f);
+	if (IS_ERR_OR_NULL(str))
+		goto end;
+	if (sscanf(str, "RestrictSqeOp: %x,%x", &nr, &iofe->sqe_op) != 2) {
+		if (sscanf(str, "RestrictSqeOp: %x", &iofe->sqe_op) != 1)
+			goto end;
+	}
+	BUG_ON(nr);
+
+	str = breadline(f);
+	if (IS_ERR_OR_NULL(str))
+		goto end;
+	if (sscanf(str, "RestrictSqeFlagsAllowed: 0x%x", &iofe->sqe_flags_allowed) != 1)
+		goto end;
+
+	str = breadline(f);
+	if (IS_ERR_OR_NULL(str))
+		goto end;
+	if (sscanf(str, "RestrictSqeFlagsRequired: 0x%x", &iofe->sqe_flags_required) != 1)
+		goto end;
+	iofe->restrictions = true;
+
+	return 0;
+end:
+	pr_err("Incomplete io_uring fdinfo support\n");
+	return -1;
+}
+
 static int parse_file_lock_buf(char *buf, struct file_lock *fl, bool is_blocked);
+
 static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 {
 	struct bfd f;
@@ -2112,6 +2393,21 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 				goto parse_err;
 
 			ret = parse_bpfmap(&f, str, bpf);
+			if (ret)
+				goto parse_err;
+
+			entry_met = true;
+			continue;
+		}
+		if (fdinfo_field(str, "ino")) {
+			if (type != FD_TYPES__IO_URING)
+				goto parse_err;
+
+			str = breadline(&f);
+			if (IS_ERR_OR_NULL(str))
+				goto parse_err;
+
+			ret = parse_io_uring(&f, str, arg);
 			if (ret)
 				goto parse_err;
 
