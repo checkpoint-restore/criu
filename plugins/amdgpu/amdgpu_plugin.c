@@ -23,9 +23,7 @@
 #include "criu-log.h"
 
 #include "common/list.h"
-
-#define DRM_FIRST_RENDER_NODE 128
-#define DRM_LAST_RENDER_NODE  255
+#include "amdgpu_plugin_topology.h"
 
 #define AMDGPU_KFD_DEVICE "/dev/kfd"
 #define PROCPIDMEM	  "/proc/%d/mem"
@@ -57,7 +55,15 @@ struct vma_metadata {
 	uint64_t vma_entry;
 };
 
+/************************************ Global Variables ********************************************/
+struct tp_system src_topology;
+struct tp_system dest_topology;
+
+struct device_maps checkpoint_maps;
+struct device_maps restore_maps;
+
 static LIST_HEAD(update_vma_info_list);
+/**************************************************************************************************/
 
 int open_drm_render_device(int minor)
 {
@@ -70,7 +76,7 @@ int open_drm_render_device(int minor)
 		return -EINVAL;
 	}
 
-	sprintf(path, "/dev/dri/renderD%d", minor);
+	snprintf(path, sizeof(path), "/dev/dri/renderD%d", minor);
 	fd = open(path, O_RDWR | O_CLOEXEC);
 	if (fd < 0) {
 		if (errno != ENOENT && errno != EPERM) {
@@ -176,8 +182,12 @@ static void free_e(CriuKfd *e)
 	}
 
 	for (int i = 0; i < e->n_device_entries; i++) {
-		if (e->device_entries[i])
+		if (e->device_entries[i]) {
+			for (int j = 0; j < e->device_entries[i]->n_iolinks; j++)
+				xfree(e->device_entries[i]->iolinks[j]);
+
 			xfree(e->device_entries[i]);
+		}
 	}
 	xfree(e);
 }
@@ -236,9 +246,138 @@ static int allocate_bo_entries(CriuKfd *e, int num_bos, struct kfd_criu_bo_bucke
 	return 0;
 }
 
+int topology_to_devinfo(struct tp_system *sys, struct device_maps *maps, DeviceEntry **deviceEntries)
+{
+	uint32_t devinfo_index = 0;
+	struct tp_node *node;
+
+	list_for_each_entry(node, &sys->nodes, listm_system) {
+		DeviceEntry *devinfo = deviceEntries[devinfo_index++];
+
+		devinfo->node_id = node->id;
+
+		if (NODE_IS_GPU(node)) {
+			devinfo->gpu_id = node->gpu_id;
+
+			devinfo->simd_count = node->simd_count;
+			devinfo->mem_banks_count = node->mem_banks_count;
+			devinfo->caches_count = node->caches_count;
+			devinfo->io_links_count = node->io_links_count;
+			devinfo->max_waves_per_simd = node->max_waves_per_simd;
+			devinfo->lds_size_in_kb = node->lds_size_in_kb;
+			devinfo->num_gws = node->num_gws;
+			devinfo->wave_front_size = node->wave_front_size;
+			devinfo->array_count = node->array_count;
+			devinfo->simd_arrays_per_engine = node->simd_arrays_per_engine;
+			devinfo->cu_per_simd_array = node->cu_per_simd_array;
+			devinfo->simd_per_cu = node->simd_per_cu;
+			devinfo->max_slots_scratch_cu = node->max_slots_scratch_cu;
+			devinfo->vendor_id = node->vendor_id;
+			devinfo->device_id = node->device_id;
+			devinfo->domain = node->domain;
+			devinfo->drm_render_minor = node->drm_render_minor;
+			devinfo->hive_id = node->hive_id;
+			devinfo->num_sdma_engines = node->num_sdma_engines;
+			devinfo->num_sdma_xgmi_engines = node->num_sdma_xgmi_engines;
+			devinfo->num_sdma_queues_per_engine = node->num_sdma_queues_per_engine;
+			devinfo->num_cp_queues = node->num_cp_queues;
+			devinfo->fw_version = node->fw_version;
+			devinfo->capability = node->capability;
+			devinfo->sdma_fw_version = node->sdma_fw_version;
+			devinfo->vram_public = node->vram_public;
+			devinfo->vram_size = node->vram_size;
+		} else {
+			devinfo->cpu_cores_count = node->cpu_cores_count;
+		}
+
+		if (node->num_valid_iolinks) {
+			struct tp_iolink *iolink;
+			uint32_t iolink_index = 0;
+
+			devinfo->iolinks = xmalloc(sizeof(DevIolink *) * node->num_valid_iolinks);
+			if (!devinfo->iolinks)
+				return -ENOMEM;
+
+			list_for_each_entry(iolink, &node->iolinks, listm) {
+				if (!iolink->valid)
+					continue;
+
+				devinfo->iolinks[iolink_index] = xmalloc(sizeof(DevIolink));
+				if (!devinfo->iolinks[iolink_index])
+					return -ENOMEM;
+
+				dev_iolink__init(devinfo->iolinks[iolink_index]);
+
+				devinfo->iolinks[iolink_index]->type = iolink->type;
+				devinfo->iolinks[iolink_index]->node_to_id = iolink->node_to_id;
+				iolink_index++;
+			}
+			devinfo->n_iolinks = iolink_index;
+		}
+	}
+	return 0;
+}
+
+int devinfo_to_topology(DeviceEntry *devinfos[], uint32_t num_devices, struct tp_system *sys)
+{
+	for (int i = 0; i < num_devices; i++) {
+		struct tp_node *node;
+		DeviceEntry *devinfo = devinfos[i];
+
+		node = sys_add_node(sys, devinfo->node_id, devinfo->gpu_id);
+		if (!node)
+			return -ENOMEM;
+
+		if (devinfo->cpu_cores_count) {
+			node->cpu_cores_count = devinfo->cpu_cores_count;
+		} else {
+			node->simd_count = devinfo->simd_count;
+			node->mem_banks_count = devinfo->mem_banks_count;
+			node->caches_count = devinfo->caches_count;
+			node->io_links_count = devinfo->io_links_count;
+			node->max_waves_per_simd = devinfo->max_waves_per_simd;
+			node->lds_size_in_kb = devinfo->lds_size_in_kb;
+			node->num_gws = devinfo->num_gws;
+			node->wave_front_size = devinfo->wave_front_size;
+			node->array_count = devinfo->array_count;
+			node->simd_arrays_per_engine = devinfo->simd_arrays_per_engine;
+			node->cu_per_simd_array = devinfo->cu_per_simd_array;
+			node->simd_per_cu = devinfo->simd_per_cu;
+			node->max_slots_scratch_cu = devinfo->max_slots_scratch_cu;
+			node->vendor_id = devinfo->vendor_id;
+			node->device_id = devinfo->device_id;
+			node->domain = devinfo->domain;
+			node->drm_render_minor = devinfo->drm_render_minor;
+			node->hive_id = devinfo->hive_id;
+			node->num_sdma_engines = devinfo->num_sdma_engines;
+			node->num_sdma_xgmi_engines = devinfo->num_sdma_xgmi_engines;
+			node->num_sdma_queues_per_engine = devinfo->num_sdma_queues_per_engine;
+			node->num_cp_queues = devinfo->num_cp_queues;
+			node->fw_version = devinfo->fw_version;
+			node->capability = devinfo->capability;
+			node->sdma_fw_version = devinfo->sdma_fw_version;
+			node->vram_public = devinfo->vram_public;
+			node->vram_size = devinfo->vram_size;
+		}
+
+		for (int j = 0; j < devinfo->n_iolinks; j++) {
+			struct tp_iolink *iolink;
+			DevIolink *devlink = (devinfo->iolinks[j]);
+
+			iolink = node_add_iolink(node, devlink->type, devlink->node_to_id);
+			if (!iolink)
+				return -ENOMEM;
+		}
+	}
+	return 0;
+}
+
 int amdgpu_plugin_init(int stage)
 {
 	pr_info("amdgpu_plugin: initialized:  %s (AMDGPU/KFD)\n", CR_PLUGIN_DESC.name);
+
+	topology_init(&src_topology);
+	topology_init(&dest_topology);
 
 	return 0;
 }
@@ -246,6 +385,9 @@ int amdgpu_plugin_init(int stage)
 void amdgpu_plugin_fini(int stage, int ret)
 {
 	pr_info("amdgpu_plugin: finished  %s (AMDGPU/KFD)\n", CR_PLUGIN_DESC.name);
+
+	topology_free(&src_topology);
+	topology_free(&dest_topology);
 }
 
 CR_PLUGIN_REGISTER("amdgpu_plugin", amdgpu_plugin_init, amdgpu_plugin_fini)
@@ -314,14 +456,21 @@ static int save_devices(int fd, struct kfd_ioctl_criu_args *args, struct kfd_cri
 	pr_debug("Dumping %d devices\n", args->num_devices);
 
 	e->num_of_gpus = args->num_devices;
+	e->num_of_cpus = src_topology.num_nodes - args->num_devices;
 
-	ret = allocate_device_entries(e, e->num_of_gpus);
-	if (ret) {
-		ret = -ENOMEM;
+	/* The ioctl will only return entries for GPUs, but we also store entries for CPUs and the
+	 * information for CPUs is obtained from parsing system topology
+	 */
+	ret = allocate_device_entries(e, src_topology.num_nodes);
+	if (ret)
 		goto exit;
-	}
 
-	plugin_log_msg("Number of GPUs:%d\n", e->num_of_gpus);
+	pr_debug("Number of CPUs:%d GPUs:%d\n", e->num_of_cpus, e->num_of_gpus);
+
+	/* Store topology information that was obtained from parsing /sys/class/kfd/kfd/topology/ */
+	ret = topology_to_devinfo(&src_topology, &checkpoint_maps, e->device_entries);
+	if (ret)
+		goto exit;
 
 exit:
 	pr_info("Dumped devices %s (ret:%d)\n", ret ? "Failed" : "Ok", ret);
@@ -467,6 +616,17 @@ int amdgpu_plugin_dump_file(int fd, int id)
 	ret = stat(AMDGPU_KFD_DEVICE, &st_kfd);
 	if (ret == -1) {
 		pr_perror("amdgpu_plugin: fstat error for /dev/kfd");
+		return -1;
+	}
+
+	if (topology_parse(&src_topology, "Checkpoint"))
+		return -1;
+
+	/* We call topology_determine_iolinks to validate io_links. If io_links are not valid
+	 * we do not store them inside the checkpointed images
+	 */
+	if (topology_determine_iolinks(&src_topology)) {
+		pr_err("Failed to determine iolinks from topology\n");
 		return -1;
 	}
 
@@ -624,15 +784,18 @@ static int restore_devices(struct kfd_ioctl_criu_args *args, CriuKfd *e)
 
 	args->devices = (uintptr_t)device_buckets;
 
-	for (int i = 0; i < e->num_of_gpus; i++) {
+	for (int entries_i = 0; entries_i < e->num_of_cpus + e->num_of_gpus; entries_i++) {
 		struct kfd_criu_device_bucket *device_bucket;
-		DeviceEntry *devinfo = e->device_entries[i];
+		DeviceEntry *devinfo = e->device_entries[entries_i];
+
+		if (!devinfo->gpu_id)
+			continue;
 
 		device_bucket = &device_buckets[bucket_index++];
 
 		device_bucket->user_gpu_id = devinfo->gpu_id;
 
-		device_bucket->drm_fd = open_drm_render_device(i + DRM_FIRST_RENDER_NODE);
+		device_bucket->drm_fd = open_drm_render_device(bucket_index + DRM_FIRST_RENDER_NODE);
 		if (device_bucket->drm_fd < 0) {
 			pr_perror("amdgpu_plugin: Can't pass NULL drm render fd to driver");
 			goto exit;
@@ -877,6 +1040,19 @@ int amdgpu_plugin_restore_file(int id)
 	}
 
 	plugin_log_msg("amdgpu_plugin: read image file data\n");
+
+	ret = devinfo_to_topology(e->device_entries, e->num_of_gpus + e->num_of_cpus, &src_topology);
+	if (ret) {
+		pr_err("Failed to convert stored device information to topology\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	ret = topology_parse(&dest_topology, "Local");
+	if (ret) {
+		pr_err("Failed to parse local system topology\n");
+		goto exit;
+	}
 
 	ret = restore_devices(&args, e);
 	if (ret)
