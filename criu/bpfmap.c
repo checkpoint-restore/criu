@@ -292,6 +292,9 @@ static int bpfmap_open(struct file_desc *d, int *new_fd)
 		return -1;
 	}
 
+	if (bpfe->has_map_extra && bpfe->map_extra)
+		pr_warn("bpfmap map_extra has non-zero value. This will not be restored.\n");
+
 	if (restore_bpfmap_data(bpfmap_fd, bpfe->map_id, bpfmap_data_hash_table))
 		return -1;
 

@@ -1772,6 +1772,12 @@ nodata:
 typedef struct bpfmap_fmt {
 	char *fmt;
 	void *value;
+	/*
+	 * If newer kernels are adding additional entries, these entries need
+	 * to be marked as optional in the protobuf definition and the parsing
+	 * must be able to ignore it if running on an older kernel.
+	 */
+	protobuf_c_boolean *optional;
 } bpfmap_fmt;
 
 static int parse_bpfmap(struct bfd *f, char *str, BpfmapFileEntry *bpf)
@@ -1784,27 +1790,36 @@ static int parse_bpfmap(struct bfd *f, char *str, BpfmapFileEntry *bpf)
 	 * uint32_t value_size
 	 * uint32_t max_entries
 	 * uint32_t map_flags
+	 * uint64_t map_extra
 	 * uint64_t memlock
 	 * uint32_t map_id
 	 * boolean frozen
 	 */
 
+	/* This needs to be in the same order as in the fdinfo entry. */
 	bpfmap_fmt map[] = {
-		{ "map_type: %u", &bpf->map_type },
-		{ "key_size: %u", &bpf->key_size },
-		{ "value_size: %u", &bpf->value_size },
-		{ "max_entries: %u", &bpf->max_entries },
-		{ "map_flags: %" PRIx32 "", &bpf->map_flags },
-		{ "memlock: %" PRIu64 "", &bpf->memlock },
-		{ "map_id: %u", &bpf->map_id },
-		{ "frozen: %d", &bpf->frozen },
+		{ "map_type: %u", &bpf->map_type, NULL },
+		{ "key_size: %u", &bpf->key_size, NULL },
+		{ "value_size: %u", &bpf->value_size, NULL },
+		{ "max_entries: %u", &bpf->max_entries, NULL },
+		{ "map_flags: %" PRIx32 "", &bpf->map_flags, NULL },
+		{ "map_extra: %" PRIx64 "", &bpf->map_extra, &bpf->has_map_extra },
+		{ "memlock: %" PRIu64 "", &bpf->memlock, NULL },
+		{ "map_id: %u", &bpf->map_id, NULL },
+		{ "frozen: %d", &bpf->frozen, NULL },
 	};
 
 	size_t n = sizeof(map) / sizeof(bpfmap_fmt);
 	int i;
 
 	for (i = 0; i < n; i++) {
-		if (sscanf(str, map[i].fmt, map[i].value) != 1)
+		bool parsing_failed = false;
+		if (sscanf(str, map[i].fmt, map[i].value) != 1) {
+			parsing_failed = true;
+		}
+		if (map[i].optional && !parsing_failed)
+			*map[i].optional = true;
+		if (!map[i].optional && parsing_failed)
 			return -1;
 
 		if (i == n - 1)
@@ -1816,6 +1831,9 @@ static int parse_bpfmap(struct bfd *f, char *str, BpfmapFileEntry *bpf)
 			return -1;
 		}
 	}
+
+	if (bpf->has_map_extra && bpf->map_extra)
+		pr_warn("Non-zero value for fdinfo map_extra entry found. This will not be restored.\n");
 
 	return 0;
 }
