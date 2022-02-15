@@ -159,7 +159,6 @@ int main(int argc, char **argv)
 
 	flock(fd_0, LOCK_SH);
 	flock(fd_1, LOCK_EX);
-	flock(fd_2, LOCK_MAND | LOCK_READ);
 
 	test_daemon();
 	test_waitsig();
@@ -172,11 +171,6 @@ int main(int argc, char **argv)
 		fail("Failed on fd %d", fd_1);
 		ret |= 1;
 	}
-	if (check_file_lock(fd_2, "MSNFS", "READ", dev, inodes[2])) {
-		fail("Failed on fd %d", fd_2);
-		ret |= 1;
-	}
-
 	if (!ret)
 		pass();
 
