@@ -5,6 +5,19 @@
 
 #define BUILTIN_SYSCALL_SIZE 8
 
+#define SA_RESTORER 0x04000000
+
+typedef void rt_signalfn_t(int, siginfo_t *, void *);
+typedef rt_signalfn_t *rt_sighandler_t;
+
+typedef void rt_restorefn_t(void);
+typedef rt_restorefn_t *rt_sigrestore_t;
+
+#define _KNSIG   64
+#define _NSIG_BPW 64
+
+#define _KNSIG_WORDS (_KNSIG / _NSIG_BPW)
+
 struct thread_ctx {
 	k_rtsigset_t sigmask;
 	user_regs_struct_t regs;

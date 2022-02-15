@@ -15,8 +15,9 @@
  * A thread ARM CPU context
  */
 
-typedef struct user_pt_regs user_regs_struct_t;
-typedef struct user_fpsimd_state user_fpregs_struct_t;
+
+typedef struct user_regs_struct user_regs_struct_t;
+typedef struct __riscv_d_ext_state user_fpregs_struct_t;
 
 #define __compel_arch_fetch_thread_area(tid, th) 0
 #define compel_arch_fetch_thread_area(tctl)	 0

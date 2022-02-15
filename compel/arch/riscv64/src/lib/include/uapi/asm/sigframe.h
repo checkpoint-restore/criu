@@ -6,6 +6,8 @@
 
 #include <stdint.h>
 
+#include <signal.h>
+
 /* Copied from the kernel header arch/arm64/include/uapi/asm/sigcontext.h */
 
 #define FPSIMD_MAGIC 0x46508001
