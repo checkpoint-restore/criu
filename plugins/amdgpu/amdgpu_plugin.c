@@ -65,6 +65,15 @@ struct device_maps checkpoint_maps;
 struct device_maps restore_maps;
 
 static LIST_HEAD(update_vma_info_list);
+
+extern bool kfd_fw_version_check;
+extern bool kfd_sdma_fw_version_check;
+extern bool kfd_caches_count_check;
+extern bool kfd_num_gws_check;
+extern bool kfd_vram_size_check;
+extern bool kfd_numa_check;
+extern bool kfd_capability_check;
+
 /**************************************************************************************************/
 
 int open_drm_render_device(int minor)
@@ -376,6 +385,21 @@ int devinfo_to_topology(DeviceEntry *devinfos[], uint32_t num_devices, struct tp
 	return 0;
 }
 
+void getenv_bool(const char *var, bool *value)
+{
+	char *value_str = getenv(var);
+
+	if (value_str) {
+		if (!strcmp(value_str, "0") || !strcasecmp(value_str, "NO"))
+			*value = false;
+		else if (!strcmp(value_str, "1") || !strcasecmp(value_str, "YES"))
+			*value = true;
+		else
+			pr_err("Ignoring invalid value for %s=%s, expecting (YES/NO)\n", var, value_str);
+	}
+	pr_info("param: %s:%s\n", var, *value ? "Y" : "N");
+}
+
 int amdgpu_plugin_init(int stage)
 {
 	pr_info("amdgpu_plugin: initialized:  %s (AMDGPU/KFD)\n", CR_PLUGIN_DESC.name);
@@ -385,6 +409,24 @@ int amdgpu_plugin_init(int stage)
 	maps_init(&checkpoint_maps);
 	maps_init(&restore_maps);
 
+	if (stage == CR_PLUGIN_STAGE__RESTORE) {
+		/* Default Values */
+		kfd_fw_version_check = true;
+		kfd_sdma_fw_version_check = true;
+		kfd_caches_count_check = true;
+		kfd_num_gws_check = true;
+		kfd_vram_size_check = true;
+		kfd_numa_check = true;
+		kfd_capability_check = true;
+
+		getenv_bool("KFD_FW_VER_CHECK", &kfd_fw_version_check);
+		getenv_bool("KFD_SDMA_FW_VER_CHECK", &kfd_sdma_fw_version_check);
+		getenv_bool("KFD_CACHES_COUNT_CHECK", &kfd_caches_count_check);
+		getenv_bool("KFD_NUM_GWS_CHECK", &kfd_num_gws_check);
+		getenv_bool("KFD_VRAM_SIZE_CHECK", &kfd_vram_size_check);
+		getenv_bool("KFD_NUMA_CHECK", &kfd_numa_check);
+		getenv_bool("KFD_CAPABILITY_CHECK", &kfd_capability_check);
+	}
 	return 0;
 }
 
