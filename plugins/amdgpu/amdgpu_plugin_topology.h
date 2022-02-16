@@ -107,11 +107,20 @@ int topology_parse(struct tp_system *topology, const char *msg);
 int topology_determine_iolinks(struct tp_system *sys);
 void topology_print(const struct tp_system *sys, const char *msg);
 
+struct id_map *maps_add_gpu_entry(struct device_maps *maps, const uint32_t src_id, const uint32_t dest_id);
+
 struct tp_node *sys_add_node(struct tp_system *sys, uint32_t id, uint32_t gpu_id);
 struct tp_iolink *node_add_iolink(struct tp_node *node, uint32_t type, uint32_t node_to_id);
 
 struct tp_node *sys_get_node_by_gpu_id(const struct tp_system *sys, const uint32_t gpu_id);
 struct tp_node *sys_get_node_by_render_minor(const struct tp_system *sys, const int drm_render_minor);
+
+int node_get_drm_render_device(struct tp_node *node);
+void sys_close_drm_render_devices(struct tp_system *sys);
+
+int set_restore_gpu_maps(struct tp_system *tp_checkpoint, struct tp_system *tp_local, struct device_maps *maps);
+
+uint32_t maps_get_dest_gpu(const struct device_maps *maps, const uint32_t src_id);
 
 void maps_init(struct device_maps *maps);
 void maps_free(struct device_maps *maps);
