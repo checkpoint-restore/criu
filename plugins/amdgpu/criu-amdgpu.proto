@@ -61,5 +61,5 @@ message criu_kfd {
 }
 
 message criu_render_node {
-	required uint32 minor_number = 1;
+	required uint32 gpu_id = 1;
 }
