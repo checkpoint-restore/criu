@@ -9,8 +9,8 @@ userspace for AMD GPUs.
 
 CURRENT SUPPORT
 ---------------
-Single GPU systems (Gfx9)
-Checkpoint / Restore on same system
+Single and Multi GPU systems (Gfx9)
+Checkpoint / Restore on different system
 Checkpoint / Restore inside a docker container
 Pytorch
 
