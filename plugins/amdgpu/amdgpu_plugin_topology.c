@@ -32,6 +32,22 @@
 	}
 #endif
 
+/* User override options */
+/* Skip firmware version check */
+bool kfd_fw_version_check;
+/* Skip SDMA firmware version check */
+bool kfd_sdma_fw_version_check;
+/* Skip caches count check */
+bool kfd_caches_count_check;
+/* Skip num gws check */
+bool kfd_num_gws_check;
+/* Skip vram size check */
+bool kfd_vram_size_check;
+/* Preserve NUMA regions */
+bool kfd_numa_check;
+/* Skip capability check */
+bool kfd_capability_check;
+
 static int open_drm_render_device(int minor)
 {
 	char path[128];
@@ -961,10 +977,13 @@ static bool device_properties_match(struct tp_node *src, struct tp_node *dest)
 	    src->device_id == dest->device_id && src->num_sdma_engines == dest->num_sdma_engines &&
 	    src->num_sdma_xgmi_engines == dest->num_sdma_xgmi_engines &&
 	    src->num_sdma_queues_per_engine == dest->num_sdma_queues_per_engine &&
-	    src->num_cp_queues == dest->num_cp_queues && src->capability == dest->capability &&
-	    src->vram_public == dest->vram_public && src->vram_size <= dest->vram_size &&
-	    src->num_gws <= dest->num_gws && src->caches_count <= dest->caches_count &&
-	    src->fw_version <= dest->fw_version && src->sdma_fw_version <= dest->sdma_fw_version) {
+	    src->num_cp_queues == dest->num_cp_queues && src->vram_public == dest->vram_public &&
+	    (!kfd_capability_check || (src->capability == dest->capability)) &&
+	    (!kfd_vram_size_check || (src->vram_size <= dest->vram_size)) &&
+	    (!kfd_num_gws_check || (src->num_gws <= dest->num_gws)) &&
+	    (!kfd_caches_count_check || (src->caches_count <= dest->caches_count)) &&
+	    (!kfd_fw_version_check || (src->fw_version <= dest->fw_version)) &&
+	    (!kfd_sdma_fw_version_check || (src->sdma_fw_version <= dest->sdma_fw_version))) {
 		return true;
 	}
 	return false;
@@ -1043,40 +1062,48 @@ static bool map_device(struct tp_system *src_sys, struct tp_system *dest_sys, st
 			/* This is a iolink to CPU */
 			pr_debug("Found link to CPU node:%02d\n", src_iolink->node_to->id);
 
-			uint32_t dest_cpu_node_id;
-
-			dest_cpu_node_id = maps_get_dest_cpu(maps, src_iolink->node_to->id);
-			if (dest_cpu_node_id == INVALID_CPU_ID)
-				dest_cpu_node_id = maps_get_dest_cpu(new_maps, src_iolink->node_to->id);
-
-			if (dest_cpu_node_id == INVALID_CPU_ID) {
+			if (!kfd_numa_check) {
 				struct tp_iolink *dest_iolink;
 
 				list_for_each_entry(dest_iolink, &dest_node->iolinks, listm) {
-					if (iolink_match(src_iolink, dest_iolink) &&
-					    !maps_dest_cpu_mapped(maps, dest_iolink->node_to->id) &&
-					    !maps_dest_cpu_mapped(new_maps, dest_iolink->node_to->id)) {
-						if (!maps_add_cpu_entry(new_maps, src_iolink->node_to->id,
-									dest_iolink->node_to->id))
-							/* This is a critical error because we
-							 * are out of memory
-							 */
-							return false;
-
+					if (iolink_match(src_iolink, dest_iolink))
 						matched_iolink = true;
-						break;
-					}
 				}
 			} else {
-				pr_debug("Existing CPU mapping found [%02d-%02d]\n", src_iolink->node_to->id,
-					 dest_cpu_node_id);
-				/* Confirm that the link to this CPU is same or better */
+				uint32_t dest_cpu_node_id;
 
-				struct tp_iolink *dest_iolink =
-					node_get_iolink_to_node_id(dest_node, src_iolink->type, dest_cpu_node_id);
+				dest_cpu_node_id = maps_get_dest_cpu(maps, src_iolink->node_to->id);
+				if (dest_cpu_node_id == INVALID_CPU_ID)
+					dest_cpu_node_id = maps_get_dest_cpu(new_maps, src_iolink->node_to->id);
 
-				if (dest_iolink && iolink_match(src_iolink, dest_iolink))
-					matched_iolink = true;
+				if (dest_cpu_node_id == INVALID_CPU_ID) {
+					struct tp_iolink *dest_iolink;
+					list_for_each_entry(dest_iolink, &dest_node->iolinks, listm) {
+						if (iolink_match(src_iolink, dest_iolink) &&
+						    !maps_dest_cpu_mapped(maps, dest_iolink->node_to->id) &&
+						    !maps_dest_cpu_mapped(new_maps, dest_iolink->node_to->id)) {
+							if (!maps_add_cpu_entry(new_maps, src_iolink->node_to->id,
+										dest_iolink->node_to->id))
+								/* This is a critical error because
+								 * we are out of memory
+								 */
+								return false;
+
+							matched_iolink = true;
+							break;
+						}
+					}
+				} else {
+					pr_debug("Existing CPU mapping found [%02d-%02d]\n", src_iolink->node_to->id,
+						 dest_cpu_node_id);
+					/* Confirm that the link to this CPU is same or better */
+
+					struct tp_iolink *dest_iolink = node_get_iolink_to_node_id(
+						dest_node, src_iolink->type, dest_cpu_node_id);
+
+					if (dest_iolink && iolink_match(src_iolink, dest_iolink))
+						matched_iolink = true;
+				}
 			}
 			if (!matched_iolink) {
 				pr_debug("[0x%04X -> 0x%04X] Mismatch between iolink to CPU\n", src_node->gpu_id,
