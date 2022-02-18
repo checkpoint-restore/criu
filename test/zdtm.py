@@ -1485,8 +1485,8 @@ class criu:
             self.__page_server_p = None
         if self.__dump_process:
             self.__dump_process.terminate()
-            print("criu dump exited with %s" % self.__dump_process.wait(), err=True)
-            grep_errors(os.path.join(self.__ddir(), "dump.log"))
+            print("criu dump exited with %s" % self.__dump_process.wait())
+            grep_errors(os.path.join(self.__ddir(), "dump.log"), err=True)
             self.__dump_process = None
         if self.__img_streamer_process:
             self.__img_streamer_process.terminate()
