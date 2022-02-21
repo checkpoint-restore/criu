@@ -219,4 +219,10 @@ static inline void cleanup_closep(void *p)
 extern int write_value(const char *path, const char *value);
 extern int read_value(const char *path, char *value, int size);
 
+#define container_of(ptr, type, member)                            \
+	({                                                         \
+		const typeof(((type *)0)->member) *__mptr = (ptr); \
+		(type *)((char *)__mptr - offsetof(type, member)); \
+	})
+
 #endif /* _VIMITESU_H_ */
