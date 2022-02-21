@@ -10,6 +10,8 @@
 #include <time.h>
 #include <signal.h>
 
+#include "linux/rseq.h"
+
 #include "image.h"
 #include "util-pie.h"
 #include "common/lock.h"

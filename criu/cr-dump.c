@@ -1034,11 +1034,59 @@ static int dump_task_signals(pid_t pid, struct pstree_item *item)
 	return 0;
 }
 
-static int dump_thread_rseq(pid_t tid, RseqEntry **rseqep)
+static int read_rseq_cs(pid_t tid, struct __ptrace_rseq_configuration *rseq, struct rseq_cs *rseq_cs)
+{
+	int ret;
+	uint64_t addr;
+
+	/* rseq is not registered */
+	if (!rseq->rseq_abi_pointer)
+		return 0;
+
+	/*
+	 * We need to cover the case when victim process was inside rseq critical section
+	 * at the moment when CRIU comes and seized it. We need to determine the borders
+	 * of rseq critical section at first. To achieve that we need to access thread
+	 * memory and read pointer to struct rseq_cs.
+	 *
+	 * We have two ways to access thread memory: from the parasite and using ptrace().
+	 * But it this case we can't use parasite, because if victim process returns to the
+	 * execution, on the kernel side __rseq_handle_notify_resume hook will be called,
+	 * then rseq_ip_fixup() -> clear_rseq_cs() and user space memory with struct rseq
+	 * will be cleared. So, let's use ptrace(PTRACE_PEEKDATA).
+	 */
+	ret = ptrace_peek_area(tid, &addr, decode_pointer(rseq->rseq_abi_pointer + offsetof(struct criu_rseq, rseq_cs)),
+			       sizeof(uint64_t));
+	if (ret) {
+		pr_err("ptrace_peek_area(%d, %lx, %lx, %lx): fail to read rseq_cs addr\n", tid, (unsigned long)&addr,
+		       (unsigned long)(rseq->rseq_abi_pointer + offsetof(struct criu_rseq, rseq_cs)),
+		       (unsigned long)sizeof(uint64_t));
+		return -1;
+	}
+
+	/* (struct rseq)->rseq_cs is NULL */
+	if (!addr)
+		return 0;
+
+	ret = ptrace_peek_area(tid, rseq_cs, decode_pointer(addr), sizeof(struct rseq_cs));
+	if (ret) {
+		pr_err("ptrace_peek_area(%d, %lx, %lx, %lx): fail to read rseq_cs struct\n", tid,
+		       (unsigned long)rseq_cs, (unsigned long)addr, (unsigned long)sizeof(struct rseq_cs));
+		return -1;
+	}
+
+	return 0;
+}
+
+static int dump_thread_rseq(struct pstree_item *item, int i)
 {
 	struct __ptrace_rseq_configuration rseq;
 	RseqEntry *rseqe = NULL;
 	int ret;
+	CoreEntry *core = item->core[i];
+	RseqEntry **rseqep = &core->thread_core->rseq_entry;
+	struct rseq_cs *rseq_cs = &dmpi(item)->thread_rseq_cs[i];
+	pid_t tid = item->threads[i].real;
 
 	/*
 	 * If we are here it means that rseq() syscall is supported,
@@ -1076,25 +1124,118 @@ static int dump_thread_rseq(pid_t tid, RseqEntry **rseqep)
 	rseqe->rseq_abi_size = rseq.rseq_abi_size;
 	rseqe->signature = rseq.signature;
 
+	if (read_rseq_cs(tid, &rseq, rseq_cs))
+		goto err;
+
+	/* save rseq entry to the image */
 	*rseqep = rseqe;
 
 	return 0;
+
+err:
+	xfree(rseqe);
+	return -1;
 }
 
 static int dump_task_rseq(pid_t pid, struct pstree_item *item)
 {
 	int i;
+	struct rseq_cs *thread_rseq_cs;
 
 	/* if rseq() syscall isn't supported then nothing to dump */
 	if (!kdat.has_rseq)
 		return 0;
 
+	thread_rseq_cs = xzalloc(sizeof(*thread_rseq_cs) * item->nr_threads);
+	if (!thread_rseq_cs)
+		return -1;
+
+	dmpi(item)->thread_rseq_cs = thread_rseq_cs;
+
 	for (i = 0; i < item->nr_threads; i++) {
-		if (dump_thread_rseq(item->threads[i].real, &item->core[i]->thread_core->rseq_entry))
-			return -1;
+		if (dump_thread_rseq(item, i))
+			goto free_rseq;
 	}
 
 	return 0;
+
+free_rseq:
+	xfree(thread_rseq_cs);
+	dmpi(item)->thread_rseq_cs = NULL;
+	return -1;
+}
+
+static bool task_in_rseq(struct rseq_cs *rseq_cs, uint64_t addr)
+{
+	return addr >= rseq_cs->start_ip && addr < rseq_cs->start_ip + rseq_cs->post_commit_offset;
+}
+
+static int fixup_thread_rseq(struct pstree_item *item, int i)
+{
+	CoreEntry *core = item->core[i];
+	struct rseq_cs *rseq_cs = &dmpi(item)->thread_rseq_cs[i];
+	pid_t tid = item->threads[i].real;
+
+	/* (struct rseq)->rseq_cs is NULL */
+	if (!rseq_cs->start_ip)
+		return 0;
+
+	pr_info("fixup_thread_rseq for %d: rseq_cs start_ip = %llx abort_ip = %llx post_commit_offset = %llx flags = %x version = %x; IP = %lx\n",
+		tid, rseq_cs->start_ip, rseq_cs->abort_ip, rseq_cs->post_commit_offset, rseq_cs->flags,
+		rseq_cs->version, (unsigned long)TI_IP(core));
+
+	if (rseq_cs->version != 0) {
+		pr_err("unsupported RSEQ ABI version = %d\n", rseq_cs->version);
+		return -1;
+	}
+
+	if (task_in_rseq(rseq_cs, TI_IP(core))) {
+		struct pid *tid = &item->threads[i];
+
+		pr_info("The %d task is in rseq critical section. IP will be set to rseq abort handler addr\n",
+			tid->real);
+
+		/*
+		 * We need to fixup task instruction pointer from
+		 * the original one (which lays inside rseq critical section)
+		 * to rseq abort handler address.
+		 *
+		 * It's worth to mention that we need to fixup IP in CoreEntry
+		 * (used when full dump/restore is performed) and also in
+		 * the parasite regs storage (used if --leave-running option is used,
+		 * or if dump error occurred and process execution is resumed).
+		 */
+		TI_IP(core) = rseq_cs->abort_ip;
+
+		if (item->pid->real == tid->real) {
+			compel_set_leader_ip(dmpi(item)->parasite_ctl, rseq_cs->abort_ip);
+		} else {
+			compel_set_thread_ip(dmpi(item)->thread_ctls[i], rseq_cs->abort_ip);
+		}
+	}
+
+	return 0;
+}
+
+static int fixup_task_rseq(pid_t pid, struct pstree_item *item)
+{
+	int ret = 0;
+	int i;
+
+	if (!kdat.has_ptrace_get_rseq_conf)
+		return 0;
+
+	for (i = 0; i < item->nr_threads; i++) {
+		if (fixup_thread_rseq(item, i)) {
+			ret = -1;
+			goto exit;
+		}
+	}
+
+exit:
+	xfree(dmpi(item)->thread_rseq_cs);
+	dmpi(item)->thread_rseq_cs = NULL;
+	return ret;
 }
 
 static struct proc_pid_stat pps_buf;
@@ -1401,6 +1542,12 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	parasite_ctl = parasite_infect_seized(pid, item, &vmas);
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
+		goto err;
+	}
+
+	ret = fixup_task_rseq(pid, item);
+	if (ret) {
+		pr_err("Fixup rseq for %d failed %d\n", pid, ret);
 		goto err;
 	}
 
