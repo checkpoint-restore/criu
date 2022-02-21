@@ -22,6 +22,8 @@ typedef UserAarch64RegsEntry UserRegsEntry;
 
 #define TI_SP(core) ((core)->ti_aarch64->gpregs->sp)
 
+#define TI_IP(core) ((core)->ti_aarch64->gpregs->pc)
+
 static inline void *decode_pointer(uint64_t v)
 {
 	return (void *)v;

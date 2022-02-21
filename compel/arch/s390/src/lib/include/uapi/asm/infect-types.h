@@ -62,9 +62,10 @@ typedef struct {
 	uint32_t system_call;
 } user_regs_struct_t;
 
-#define REG_RES(r) ((uint64_t)(r).prstatus.gprs[2])
-#define REG_IP(r)  ((uint64_t)(r).prstatus.psw.addr)
-#define REG_SP(r)  ((uint64_t)(r).prstatus.gprs[15])
+#define REG_RES(r)	   ((uint64_t)(r).prstatus.gprs[2])
+#define REG_IP(r)	   ((uint64_t)(r).prstatus.psw.addr)
+#define SET_REG_IP(r, val) ((r).prstatus.psw.addr = (val))
+#define REG_SP(r)	   ((uint64_t)(r).prstatus.gprs[15])
 /*
  * We assume that REG_SYSCALL_NR() is only used for pie code where we
  * always use svc 0 with opcode in %r1.
