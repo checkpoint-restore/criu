@@ -19,6 +19,8 @@ typedef UserPpc64RegsEntry UserRegsEntry;
 
 #define CORE_THREAD_ARCH_INFO(core) core->ti_ppc64
 
+#define TI_IP(core) ((core)->ti_ppc64->gpregs->nip)
+
 static inline void *decode_pointer(uint64_t v)
 {
 	return (void *)v;

@@ -19,6 +19,8 @@ typedef UserS390RegsEntry UserRegsEntry;
 
 #define CORE_THREAD_ARCH_INFO(core) core->ti_s390
 
+#define TI_IP(core) ((core)->ti_s390->gpregs->psw_addr)
+
 static inline u64 encode_pointer(void *p)
 {
 	return (u64)p;
