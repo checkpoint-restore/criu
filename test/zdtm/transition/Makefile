@@ -23,6 +23,7 @@ TST_NOFILE	=	\
 		lazy-thp	\
 		pid_reuse	\
 		pidfd_store_sk \
+		rseq01		\
 
 
 TST_FILE	=	\
