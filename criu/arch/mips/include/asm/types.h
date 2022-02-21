@@ -18,6 +18,8 @@
 
 #define CORE_THREAD_ARCH_INFO(core) core->ti_mips
 
+#define TI_IP(core) ((core)->ti_mips->gpregs->cp0_epc)
+
 typedef UserMipsRegsEntry UserRegsEntry;
 
 static inline u64 encode_pointer(void *p)

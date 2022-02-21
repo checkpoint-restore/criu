@@ -28,6 +28,8 @@ static inline int core_is_compat(CoreEntry *c)
 
 #define CORE_THREAD_ARCH_INFO(core) core->thread_info
 
+#define TI_IP(core) ((core)->thread_info->gpregs->ip)
+
 typedef UserX86RegsEntry UserRegsEntry;
 
 static inline u64 encode_pointer(void *p)

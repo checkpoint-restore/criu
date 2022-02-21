@@ -56,10 +56,11 @@ struct user_vfp_exc {
 	unsigned long fpinst2;
 };
 
-#define REG_RES(regs)	     ((regs).ARM_r0)
-#define REG_IP(regs)	     ((regs).ARM_pc)
-#define REG_SP(regs)	     ((regs).ARM_sp)
-#define REG_SYSCALL_NR(regs) ((regs).ARM_r7)
+#define REG_RES(regs)	      ((regs).ARM_r0)
+#define REG_IP(regs)	      ((regs).ARM_pc)
+#define SET_REG_IP(regs, val) ((regs).ARM_pc = (val))
+#define REG_SP(regs)	      ((regs).ARM_sp)
+#define REG_SYSCALL_NR(regs)  ((regs).ARM_r7)
 
 #define user_regs_native(pregs) true
 

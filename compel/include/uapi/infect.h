@@ -168,4 +168,10 @@ extern unsigned long compel_task_size(void);
 extern uint64_t compel_get_leader_sp(struct parasite_ctl *ctl);
 extern uint64_t compel_get_thread_sp(struct parasite_thread_ctl *tctl);
 
+extern uint64_t compel_get_leader_ip(struct parasite_ctl *ctl);
+extern uint64_t compel_get_thread_ip(struct parasite_thread_ctl *tctl);
+
+void compel_set_leader_ip(struct parasite_ctl *ctl, uint64_t v);
+void compel_set_thread_ip(struct parasite_thread_ctl *tctl, uint64_t v);
+
 #endif

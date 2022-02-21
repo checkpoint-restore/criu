@@ -72,10 +72,11 @@ typedef struct {
 	} tm;
 } user_fpregs_struct_t;
 
-#define REG_RES(regs)	     ((uint64_t)(regs).gpr[3])
-#define REG_IP(regs)	     ((uint64_t)(regs).nip)
-#define REG_SP(regs)	     ((uint64_t)(regs).gpr[1])
-#define REG_SYSCALL_NR(regs) ((uint64_t)(regs).gpr[0])
+#define REG_RES(regs)	      ((uint64_t)(regs).gpr[3])
+#define REG_IP(regs)	      ((uint64_t)(regs).nip)
+#define SET_REG_IP(regs, val) ((regs).nip = (val))
+#define REG_SP(regs)	      ((uint64_t)(regs).gpr[1])
+#define REG_SYSCALL_NR(regs)  ((uint64_t)(regs).gpr[0])
 
 #define user_regs_native(pregs) true
 

@@ -56,10 +56,11 @@ static inline bool user_regs_native(user_regs_struct_t *pregs)
 #define compel_arch_get_tls_task(ctl, tls)
 #define compel_arch_get_tls_thread(tctl, tls)
 
-#define REG_RES(regs)	     ((regs).MIPS_v0)
-#define REG_IP(regs)	     ((regs).cp0_epc)
-#define REG_SP(regs)	     ((regs).MIPS_sp)
-#define REG_SYSCALL_NR(regs) ((regs).MIPS_v0)
+#define REG_RES(regs)	      ((regs).MIPS_v0)
+#define REG_IP(regs)	      ((regs).cp0_epc)
+#define SET_REG_IP(regs, val) ((regs).cp0_epc = (val))
+#define REG_SP(regs)	      ((regs).MIPS_sp)
+#define REG_SYSCALL_NR(regs)  ((regs).MIPS_v0)
 
 //#define __NR(syscall, compat)	((compat) ? __NR32_##syscall : __NR_##syscall)
 #define __NR(syscall, compat) __NR_##syscall
