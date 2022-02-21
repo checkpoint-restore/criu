@@ -21,6 +21,8 @@ typedef UserArmRegsEntry UserRegsEntry;
 
 #define TI_SP(core) ((core)->ti_arm->gpregs->sp)
 
+#define TI_IP(core) ((core)->ti_arm->gpregs->ip)
+
 static inline void *decode_pointer(u64 v)
 {
 	return (void *)(u32)v;
