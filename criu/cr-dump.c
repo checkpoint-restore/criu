@@ -1034,13 +1034,13 @@ static int dump_task_signals(pid_t pid, struct pstree_item *item)
 	return 0;
 }
 
-static int read_rseq_cs(pid_t tid, struct __ptrace_rseq_configuration *rseq, struct rseq_cs *rseq_cs)
+static int read_rseq_cs(pid_t tid, struct __ptrace_rseq_configuration *rseqc, struct rseq_cs *rseq_cs,
+			struct criu_rseq *rseq)
 {
 	int ret;
-	uint64_t addr;
 
 	/* rseq is not registered */
-	if (!rseq->rseq_abi_pointer)
+	if (!rseqc->rseq_abi_pointer)
 		return 0;
 
 	/*
@@ -1055,23 +1055,20 @@ static int read_rseq_cs(pid_t tid, struct __ptrace_rseq_configuration *rseq, str
 	 * then rseq_ip_fixup() -> clear_rseq_cs() and user space memory with struct rseq
 	 * will be cleared. So, let's use ptrace(PTRACE_PEEKDATA).
 	 */
-	ret = ptrace_peek_area(tid, &addr, decode_pointer(rseq->rseq_abi_pointer + offsetof(struct criu_rseq, rseq_cs)),
-			       sizeof(uint64_t));
+	ret = ptrace_peek_area(tid, rseq, decode_pointer(rseqc->rseq_abi_pointer), sizeof(struct criu_rseq));
 	if (ret) {
-		pr_err("ptrace_peek_area(%d, %lx, %lx, %lx): fail to read rseq_cs addr\n", tid, (unsigned long)&addr,
-		       (unsigned long)(rseq->rseq_abi_pointer + offsetof(struct criu_rseq, rseq_cs)),
-		       (unsigned long)sizeof(uint64_t));
+		pr_err("ptrace_peek_area(%d, %lx, %lx, %lx): fail to read rseq struct\n", tid, (unsigned long)rseq,
+		       (unsigned long)(rseqc->rseq_abi_pointer), (unsigned long)sizeof(uint64_t));
 		return -1;
 	}
 
-	/* (struct rseq)->rseq_cs is NULL */
-	if (!addr)
+	if (!rseq->rseq_cs)
 		return 0;
 
-	ret = ptrace_peek_area(tid, rseq_cs, decode_pointer(addr), sizeof(struct rseq_cs));
+	ret = ptrace_peek_area(tid, rseq_cs, decode_pointer(rseq->rseq_cs), sizeof(struct rseq_cs));
 	if (ret) {
 		pr_err("ptrace_peek_area(%d, %lx, %lx, %lx): fail to read rseq_cs struct\n", tid,
-		       (unsigned long)rseq_cs, (unsigned long)addr, (unsigned long)sizeof(struct rseq_cs));
+		       (unsigned long)rseq_cs, (unsigned long)rseq->rseq_cs, (unsigned long)sizeof(struct rseq_cs));
 		return -1;
 	}
 
@@ -1080,11 +1077,12 @@ static int read_rseq_cs(pid_t tid, struct __ptrace_rseq_configuration *rseq, str
 
 static int dump_thread_rseq(struct pstree_item *item, int i)
 {
-	struct __ptrace_rseq_configuration rseq;
+	struct __ptrace_rseq_configuration rseqc;
 	RseqEntry *rseqe = NULL;
 	int ret;
 	CoreEntry *core = item->core[i];
 	RseqEntry **rseqep = &core->thread_core->rseq_entry;
+	struct criu_rseq rseq = {};
 	struct rseq_cs *rseq_cs = &dmpi(item)->thread_rseq_cs[i];
 	pid_t tid = item->threads[i].real;
 
@@ -1099,20 +1097,20 @@ static int dump_thread_rseq(struct pstree_item *item, int i)
 	if (!kdat.has_ptrace_get_rseq_conf)
 		return 0;
 
-	ret = ptrace(PTRACE_GET_RSEQ_CONFIGURATION, tid, sizeof(rseq), &rseq);
-	if (ret != sizeof(rseq)) {
+	ret = ptrace(PTRACE_GET_RSEQ_CONFIGURATION, tid, sizeof(rseqc), &rseqc);
+	if (ret != sizeof(rseqc)) {
 		pr_perror("ptrace(PTRACE_GET_RSEQ_CONFIGURATION, %d) = %d", tid, ret);
 		return -1;
 	}
 
-	if (rseq.flags != 0) {
+	if (rseqc.flags != 0) {
 		pr_err("something wrong with ptrace(PTRACE_GET_RSEQ_CONFIGURATION, %d) flags = 0x%x\n", tid,
-		       rseq.flags);
+		       rseqc.flags);
 		return -1;
 	}
 
-	pr_info("Dump rseq of %d: ptr = 0x%lx sign = 0x%x\n", tid, (unsigned long)rseq.rseq_abi_pointer,
-		rseq.signature);
+	pr_info("Dump rseq of %d: ptr = 0x%lx sign = 0x%x\n", tid, (unsigned long)rseqc.rseq_abi_pointer,
+		rseqc.signature);
 
 	rseqe = xmalloc(sizeof(*rseqe));
 	if (!rseqe)
@@ -1120,12 +1118,23 @@ static int dump_thread_rseq(struct pstree_item *item, int i)
 
 	rseq_entry__init(rseqe);
 
-	rseqe->rseq_abi_pointer = rseq.rseq_abi_pointer;
-	rseqe->rseq_abi_size = rseq.rseq_abi_size;
-	rseqe->signature = rseq.signature;
+	rseqe->rseq_abi_pointer = rseqc.rseq_abi_pointer;
+	rseqe->rseq_abi_size = rseqc.rseq_abi_size;
+	rseqe->signature = rseqc.signature;
 
-	if (read_rseq_cs(tid, &rseq, rseq_cs))
+	if (read_rseq_cs(tid, &rseqc, rseq_cs, &rseq))
 		goto err;
+
+	/* we won't save rseq_cs to the image (only pointer),
+	 * so let's combine flags from both struct rseq and struct rseq_cs
+	 * (kernel does the same when interpreting RSEQ_CS_FLAG_*)
+	 */
+	rseq_cs->flags |= rseq.flags;
+
+	if (rseq_cs->flags & RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL) {
+		rseqe->has_rseq_cs_pointer = true;
+		rseqe->rseq_cs_pointer = rseq.rseq_cs;
+	}
 
 	/* save rseq entry to the image */
 	*rseqep = rseqe;
@@ -1176,11 +1185,12 @@ static int fixup_thread_rseq(struct pstree_item *item, int i)
 	struct rseq_cs *rseq_cs = &dmpi(item)->thread_rseq_cs[i];
 	pid_t tid = item->threads[i].real;
 
-	/* (struct rseq)->rseq_cs is NULL */
+	/* equivalent to (struct rseq)->rseq_cs is NULL */
 	if (!rseq_cs->start_ip)
 		return 0;
 
-	pr_info("fixup_thread_rseq for %d: rseq_cs start_ip = %llx abort_ip = %llx post_commit_offset = %llx flags = %x version = %x; IP = %lx\n",
+	pr_debug(
+		"fixup_thread_rseq for %d: rseq_cs start_ip = %llx abort_ip = %llx post_commit_offset = %llx flags = %x version = %x; IP = %lx\n",
 		tid, rseq_cs->start_ip, rseq_cs->abort_ip, rseq_cs->post_commit_offset, rseq_cs->flags,
 		rseq_cs->version, (unsigned long)TI_IP(core));
 
@@ -1192,25 +1202,35 @@ static int fixup_thread_rseq(struct pstree_item *item, int i)
 	if (task_in_rseq(rseq_cs, TI_IP(core))) {
 		struct pid *tid = &item->threads[i];
 
-		pr_info("The %d task is in rseq critical section. IP will be set to rseq abort handler addr\n",
-			tid->real);
-
 		/*
 		 * We need to fixup task instruction pointer from
 		 * the original one (which lays inside rseq critical section)
-		 * to rseq abort handler address.
+		 * to rseq abort handler address. But we need to look on rseq_cs->flags
+		 * (please refer to struct rseq -> flags field description).
+		 * Naive idea of flags support may be like... let's change instruction pointer (IP)
+		 * to rseq_cs->abort_ip if !(rseq_cs->flags & RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL).
+		 * But unfortunately, it doesn't work properly, because the kernel does
+		 * clean up of rseq_cs field in the struct rseq (modifies userspace memory).
+		 * So, we need to preserve original value of (struct rseq)->rseq_cs field in the
+		 * image and restore it's value before releasing threads (see restore_rseq_cs()).
 		 *
 		 * It's worth to mention that we need to fixup IP in CoreEntry
 		 * (used when full dump/restore is performed) and also in
 		 * the parasite regs storage (used if --leave-running option is used,
 		 * or if dump error occurred and process execution is resumed).
 		 */
-		TI_IP(core) = rseq_cs->abort_ip;
 
-		if (item->pid->real == tid->real) {
-			compel_set_leader_ip(dmpi(item)->parasite_ctl, rseq_cs->abort_ip);
-		} else {
-			compel_set_thread_ip(dmpi(item)->thread_ctls[i], rseq_cs->abort_ip);
+		if (!(rseq_cs->flags & RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL)) {
+			pr_warn("The %d task is in rseq critical section. IP will be set to rseq abort handler addr\n",
+				tid->real);
+
+			TI_IP(core) = rseq_cs->abort_ip;
+
+			if (item->pid->real == tid->real) {
+				compel_set_leader_ip(dmpi(item)->parasite_ctl, rseq_cs->abort_ip);
+			} else {
+				compel_set_thread_ip(dmpi(item)->thread_ctls[i], rseq_cs->abort_ip);
+			}
 		}
 	}
 
