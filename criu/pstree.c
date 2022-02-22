@@ -954,6 +954,31 @@ static int prepare_pstree_kobj_ids(void)
 	return 0;
 }
 
+static int prepare_pstree_rseqs(void)
+{
+	struct pstree_item *item;
+
+	for_each_pstree_item(item) {
+		struct rst_rseq *rseqs;
+		size_t sz = sizeof(*rseqs) * item->nr_threads;
+
+		if (!task_alive(item))
+			continue;
+
+		rseqs = shmalloc(sz);
+		if (!rseqs) {
+			pr_err("prepare_pstree_rseqs shmalloc(%lu) failed\n", (unsigned long)sz);
+			return -1;
+		}
+
+		memset(rseqs, 0, sz);
+
+		rsti(item)->rseqe = rseqs;
+	}
+
+	return 0;
+}
+
 int prepare_pstree(void)
 {
 	int ret;
@@ -1011,6 +1036,17 @@ int prepare_pstree(void)
 		 * pstree with properly injected helper tasks.
 		 */
 		ret = prepare_pstree_ids(pid);
+	if (!ret)
+		/*
+		 * We need to alloc shared buffers for RseqEntry'es
+		 * arrays (one RseqEntry per pstree item thread).
+		 *
+		 * We need shared memory because we perform
+		 * open_core() on the late stage inside
+		 * restore_one_alive_task(), so that's the only
+		 * way to transfer that data to the main CRIU process.
+		 */
+		ret = prepare_pstree_rseqs();
 
 	return ret;
 }
