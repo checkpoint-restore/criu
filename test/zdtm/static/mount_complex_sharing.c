@@ -5,6 +5,7 @@
 #include <sys/mount.h>
 #include <linux/limits.h>
 
+#include "mountinfo.h"
 #include "zdtmtst.h"
 
 const char *test_doc = "Check complex sharing options for mounts";
@@ -211,6 +212,7 @@ static int mount_loop(void)
 
 int main(int argc, char **argv)
 {
+	struct mntns_zdtm mntns_before, mntns_after;
 	int ret = 1;
 
 	test_init(argc, argv);
@@ -223,12 +225,23 @@ int main(int argc, char **argv)
 	if (mount_loop())
 		goto err;
 
+	if (mntns_parse_mountinfo(&mntns_before))
+		goto err;
+
 	test_daemon();
 	test_waitsig();
+
+	if (mntns_parse_mountinfo(&mntns_after))
+		goto err;
+
+	if (mntns_compare(&mntns_before, &mntns_after))
+		goto err;
 
 	pass();
 	ret = 0;
 err:
+	mntns_free_all(&mntns_before);
+	mntns_free_all(&mntns_after);
 	if (ret)
 		fail();
 	return ret;
