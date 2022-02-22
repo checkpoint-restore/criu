@@ -1,8 +1,5 @@
 FROM docker.io/library/archlinux:latest
 
-# FIXME: Temporary solution for https://github.com/checkpoint-restore/criu/issues/1696
-ENV GLIBC_TUNABLES=glibc.pthread.rseq=0
-
 ARG CC=gcc
 
 RUN pacman -Syu --noconfirm \
