@@ -19,9 +19,44 @@ struct mountinfo_zdtm {
 
 struct mntns_zdtm {
 	struct list_head mountinfo_list;
+	struct list_head topology_list;
+	struct mountinfo_topology *tree;
+	struct list_head sharing_groups_list;
+};
+
+struct sharing_group {
+	int shared_id;
+	int master_id;
+	unsigned int s_dev;
+
+	struct sharing_group *parent;
+	struct list_head children;
+	struct list_head siblings;
+
+	int topology_id;
+
+	struct list_head mounts_list;
+
+	struct list_head list;
+};
+
+struct mountinfo_topology {
+	struct mountinfo_zdtm *mountinfo;
+
+	struct mountinfo_topology *parent;
+	struct list_head children;
+	struct list_head siblings;
+
+	int topology_id;
+
+	struct sharing_group *sharing;
+	struct list_head sharing_list;
+
+	struct list_head list;
 };
 
 extern int mntns_parse_mountinfo(struct mntns_zdtm *mntns);
 extern void mntns_free_all(struct mntns_zdtm *mntns);
+extern int mntns_compare(struct mntns_zdtm *mntns_a, struct mntns_zdtm *mntns_b);
 
 #endif
