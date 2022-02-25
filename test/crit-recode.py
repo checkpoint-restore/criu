@@ -1,8 +1,9 @@
 #!/usr/bin/env python
-import pycriu
-import sys
 import os
 import subprocess
+import sys
+
+import pycriu
 
 find = subprocess.Popen(
     ['find', 'test/dump/', '-size', '+0', '-name', '*.img'],

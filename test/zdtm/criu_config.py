@@ -1,6 +1,8 @@
+from __future__ import unicode_literals
+
 import os
-import tempfile
 import subprocess
+import tempfile
 
 
 class criu_config:

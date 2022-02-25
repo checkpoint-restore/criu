@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import sys
 import os
+import sys
 
 actions = set(['pre-dump', 'pre-restore', 'post-dump', 'setup-namespaces', \
   'post-setup-namespaces', 'post-restore', 'post-resume', \
