@@ -789,17 +789,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t du
 		eof = (str == NULL);
 
 		if (!eof && !__is_vma_range_fmt(str)) {
-			if (!strncmp(str, "Nonlinear", 9)) {
-				BUG_ON(!vma_area);
-				pr_err("Nonlinear mapping found %016" PRIx64 "-%016" PRIx64 "\n", vma_area->e->start,
-				       vma_area->e->end);
-				/*
-				 * VMA is already on list and will be
-				 * freed later as list get destroyed.
-				 */
-				vma_area = NULL;
-				goto err;
-			} else if (!strncmp(str, "VmFlags: ", 9)) {
+			if (!strncmp(str, "VmFlags: ", 9)) {
 				BUG_ON(!vma_area);
 				parse_vma_vmflags(&str[9], vma_area);
 				continue;
