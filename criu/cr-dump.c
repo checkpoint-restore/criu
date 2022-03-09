@@ -1315,29 +1315,29 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		pfd = parasite_get_proc_fd_seized(parasite_ctl);
 		if (pfd < 0) {
 			pr_err("Can't get proc fd (pid: %d)\n", pid);
-			goto err_cure_imgset;
+			goto err_cure;
 		}
 
 		if (install_service_fd(CR_PROC_FD_OFF, pfd) < 0)
-			goto err_cure_imgset;
+			goto err_cure;
 	}
 
 	ret = parasite_fixup_vdso(parasite_ctl, pid, &vmas);
 	if (ret) {
 		pr_err("Can't fixup vdso VMAs (pid: %d)\n", pid);
-		goto err_cure_imgset;
+		goto err_cure;
 	}
 
 	ret = parasite_collect_aios(parasite_ctl, &vmas); /* FIXME -- merge with above */
 	if (ret) {
 		pr_err("Failed to check aio rings (pid: %d)\n", pid);
-		goto err_cure_imgset;
+		goto err_cure;
 	}
 
 	ret = parasite_dump_misc_seized(parasite_ctl, &misc);
 	if (ret) {
 		pr_err("Can't dump misc (pid: %d)\n", pid);
-		goto err_cure_imgset;
+		goto err_cure;
 	}
 
 	item->pid->ns[0].virt = misc.pid;
@@ -1445,17 +1445,15 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		goto err;
 	}
 
-	close_cr_imgset(&cr_imgset);
 	exit_code = 0;
 err:
+	close_cr_imgset(&cr_imgset);
 	close_pid_proc();
 	free_mappings(&vmas);
 	xfree(dfds);
 	return exit_code;
 
 err_cure:
-	close_cr_imgset(&cr_imgset);
-err_cure_imgset:
 	ret = compel_cure(parasite_ctl);
 	if (ret)
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
