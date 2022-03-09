@@ -55,7 +55,7 @@ static LIST_HEAD(delayed_unbindable);
 
 int ext_mount_add(char *key, char *val)
 {
-	char *e_str;
+	cleanup_free char *e_str = NULL;
 
 	e_str = xmalloc(strlen(key) + strlen(val) + 8);
 	if (!e_str)
