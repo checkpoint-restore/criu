@@ -155,6 +155,7 @@ static struct tun_link *__dump_tun_link_fd(int fd, char *name, unsigned ns_id, u
 		goto err;
 	strlcpy(tl->name, name, sizeof(tl->name));
 	tl->ns_id = ns_id;
+	INIT_LIST_HEAD(&tl->l);
 
 	if (ioctl(fd, TUNGETVNETHDRSZ, &tl->dmp.vnethdr) < 0) {
 		pr_perror("Can't dump vnethdr size for %s", name);
@@ -478,6 +479,14 @@ int dump_tun_link(NetDeviceEntry *nde, struct cr_imgset *fds, struct nlattr **in
 
 	tle.vnethdr = tl->dmp.vnethdr;
 	tle.sndbuf = tl->dmp.sndbuf;
+
+	/*
+	 * Function get_tun_link_fd() can return either entry
+	 * from tun_links list or a newly allocated one, need to
+	 * free it only if not in list.
+	 */
+	if (list_empty(&tl->l))
+		xfree(tl);
 
 	nde->tun = &tle;
 	return write_netdev_img(nde, fds, info);
