@@ -272,6 +272,17 @@ static void validate_random_xstate(struct xsave_struct *xsave)
 
 	/* No reserved bits may be set */
 	memset(&hdr->reserved, 0, sizeof(hdr->reserved));
+
+	/*
+	 * While using PTRACE_SETREGSET the kernel checks that
+	 * "Reserved bits in MXCSR must be zero."
+	 * if (mxcsr[0] & ~mxcsr_feature_mask)
+	 *	return -EINVAL;
+	 *
+	 * As the mxcsr_feature_mask depends on the CPU the easiest solution for
+	 * this error injection test is to set mxcsr just to zero.
+	 */
+	xsave->i387.mxcsr = 0;
 }
 
 /*
