@@ -549,7 +549,7 @@ static size_t parse_size(char *optarg)
 static int parse_join_ns(const char *ptr)
 {
 	char *aux, *ns_file, *extra_opts = NULL;
-	char *ns;
+	cleanup_free char *ns = NULL;
 
 	ns = xstrdup(ptr);
 	if (ns == NULL)
