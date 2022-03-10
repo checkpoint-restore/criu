@@ -595,7 +595,7 @@ static int unix_resolve_name_old(int lfd, uint32_t id, struct unix_sk_desc *d, U
 	snprintf(rpath, sizeof(rpath), ".%s", name);
 	if (fstatat(mntns_root, rpath, &st, 0)) {
 		if (errno != ENOENT) {
-			pr_warn("Can't stat socket %#x(%s), skipping: %m (err %d)\n", id, rpath, errno);
+			pr_warn("Can't stat socket %#" PRIx32 "(%s), skipping: %m (err %d)\n", id, rpath, errno);
 			goto skip;
 		}
 
