@@ -2325,7 +2325,7 @@ static void try_resolve_unix_peer(struct unix_sk_info *ui)
 
 int unix_sk_id_add(unsigned int ino)
 {
-	char *e_str;
+	cleanup_free char *e_str = NULL;
 
 	e_str = xmalloc(20);
 	if (!e_str)
