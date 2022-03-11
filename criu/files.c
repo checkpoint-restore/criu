@@ -1553,8 +1553,10 @@ int inherit_fd_add(int fd, char *key)
 		inh_fd_max = fd;
 
 	inh->inh_id = xstrdup(key);
-	if (inh->inh_id == NULL)
+	if (inh->inh_id == NULL) {
+		xfree(inh);
 		return -1;
+	}
 
 	inh->inh_fd = fd;
 	list_add_tail(&inh->inh_list, &opts.inherit_fds);
