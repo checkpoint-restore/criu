@@ -3192,7 +3192,7 @@ void network_unlock(void)
 
 int veth_pair_add(char *in, char *out)
 {
-	char *e_str;
+	cleanup_free char *e_str = NULL;
 
 	e_str = xmalloc(200); /* For 3 IFNAMSIZ + 8 service characters */
 	if (!e_str)
