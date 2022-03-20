@@ -33,12 +33,12 @@ LIST_HEAD(sharing_groups);
 int check_mount_v2(void)
 {
 	if (!kdat.has_move_mount_set_group) {
-		pr_warn("Mounts-v2 requires MOVE_MOUNT_SET_GROUP support\n");
+		pr_debug("Mounts-v2 requires MOVE_MOUNT_SET_GROUP support\n");
 		return -1;
 	}
 
 	if (!kdat.has_openat2) {
-		pr_warn("Mounts-v2 requires openat2 support\n");
+		pr_debug("Mounts-v2 requires openat2 support\n");
 		return -1;
 	}
 
