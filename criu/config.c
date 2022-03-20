@@ -1110,7 +1110,7 @@ int check_options(void)
 		return 1;
 	} else if (!opts.mntns_compat_mode && opts.mode == CR_RESTORE) {
 		if (check_mount_v2()) {
-			pr_warn("Mount engine fallback to --mntns-compat-mode mode\n");
+			pr_debug("Mount engine fallback to --mntns-compat-mode mode\n");
 			opts.mntns_compat_mode = true;
 		}
 	}
