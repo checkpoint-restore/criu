@@ -82,6 +82,27 @@ def run_criu(args):
     raise OSError(errno.ENOENT, "No such command")
 
 
+# pidns_holder creates a process that is reparented to the init.
+#
+# The init process can exit if it doesn't have any child processes and its
+# pidns is destroyed in this case. CRIU dump is running in the target pid
+# namespace and it kills dumped processes at the end. We need to create a
+# holder process to be sure that the pid namespace will not be destroy before
+# criu exits.
+def pidns_holder():
+    r, w = os.pipe()
+    pid = os.fork()
+    if pid == 0:
+        pid = os.fork()
+        if pid == 0:
+            os.close(w)
+            # The write end is owned by the parent process and it is closed by
+            # kernel when the parent process exits.
+            os.read(r, 1)
+        sys.exit(0)
+    os.waitpid(pid, 0)
+
+
 def wrap_restore():
     restore_args = sys.argv[1:]
     if '--restore-sibling' in restore_args:
@@ -199,6 +220,8 @@ def wrap_dump():
 
     set_pidns(pid, pid_idx)
     set_mntns(pid)
+
+    pidns_holder()
 
     criu_pid = os.fork()
     if criu_pid == 0:
