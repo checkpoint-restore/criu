@@ -143,4 +143,7 @@ typedef struct xsave_struct user_fpregs_struct_t;
  */
 #define __NR32_mmap __NR32_mmap2
 
+extern bool __compel_shstk_enabled(user_fpregs_struct_t *ext_regs);
+#define compel_shstk_enabled __compel_shstk_enabled
+
 #endif /* UAPI_COMPEL_ASM_TYPES_H__ */
