@@ -2485,14 +2485,14 @@ do_bind:
 	}
 
 	if (mount(root, service_mountpoint(mi), NULL, MS_BIND | (mi->flags & MS_REC), NULL) < 0) {
-		pr_perror("Can't mount at %s", service_mountpoint(mi));
+		pr_perror("Can't bind-mount at %s", service_mountpoint(mi));
 		goto err;
 	}
 
 	mflags = mi->flags & (~MS_PROPAGATE);
 	if (!mi->bind || mflags != (mi->bind->flags & (~MS_PROPAGATE)))
 		if (mount(NULL, service_mountpoint(mi), NULL, MS_BIND | MS_REMOUNT | mflags, NULL)) {
-			pr_perror("Can't mount at %s", service_mountpoint(mi));
+			pr_perror("Can't re-mount at %s", service_mountpoint(mi));
 			goto err;
 		}
 
