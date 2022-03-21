@@ -244,6 +244,7 @@ enum cpuid_leafs {
 #define X86_FEATURE_PKU		     (11 * 32 + 3)  /* Protection Keys for Userspace */
 #define X86_FEATURE_OSPKE	     (11 * 32 + 4)  /* OS Protection Keys Enable */
 #define X86_FEATURE_AVX512_VBMI2     (11 * 32 + 6)  /* Additional AVX512 Vector Bit Manipulation Instructions */
+#define X86_FEATURE_SHSTK            (11 * 32 + 7)  /* Shadow Stack */
 #define X86_FEATURE_GFNI	     (11 * 32 + 8)  /* Galois Field New Instructions */
 #define X86_FEATURE_VAES	     (11 * 32 + 9)  /* Vector AES */
 #define X86_FEATURE_VPCLMULQDQ	     (11 * 32 + 10) /* Carry-Less Multiplication Double Quadword */
