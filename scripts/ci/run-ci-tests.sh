@@ -139,6 +139,13 @@ time make unittest
 
 ulimit -c unlimited
 
+cgid=$$
+cleanup_cgroup() {
+	./test/zdtm_umount_cgroups $cgid
+}
+trap cleanup_cgroup EXIT
+./test/zdtm_mount_cgroups $cgid
+
 echo "|$(pwd)/test/abrt.sh %P %p %s %e" > /proc/sys/kernel/core_pattern
 
 if [ "${COMPAT_TEST}x" = "yx" ] ; then
