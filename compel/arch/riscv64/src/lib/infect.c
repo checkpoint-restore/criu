@@ -34,10 +34,10 @@ int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe, user_regs_struct_t *
 {
 	struct fpsimd_context *fpsimd = RT_SIGFRAME_FPU(sigframe);
 
-	memcpy(sigframe->uc.uc_mcontext.__gregs, regs, sizeof(regs));
+	memcpy(sigframe->uc.uc_mcontext.__gregs, &regs, sizeof(regs));
 
-	sigframe->uc.uc_mcontext.__gregs[REG_SP]; = regs->sp;
-	sigframe->uc.uc_mcontext.__gregs[REG_PC]; = regs->pc;
+	sigframe->uc.uc_mcontext.__gregs[REG_SP] = regs->sp;
+	sigframe->uc.uc_mcontext.__gregs[REG_PC] = regs->pc;
 	sigframe->uc.uc_mcontext.pstate = regs->pstate;
 
 	memcpy(fpsimd->vregs, sc_fpregs->vregs, 32 * sizeof(__uint128_t));
