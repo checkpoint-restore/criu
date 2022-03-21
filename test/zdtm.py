@@ -27,6 +27,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from builtins import input, int, open, range, str, zip
 
 import yaml
@@ -38,6 +39,7 @@ from zdtm.criu_config import criu_config
 STREAMED_IMG_FILE_NAME = "img.criu"
 
 prev_line = None
+uuid = uuid.uuid4()
 
 
 def alarm(*args):
@@ -617,12 +619,12 @@ class zdtm_test:
         if not os.access("zdtm/lib/libzdtmtst.a", os.F_OK):
             subprocess.check_call(["make", "-C", "zdtm/"])
         subprocess.check_call(
-            ["flock", "zdtm_mount_cgroups.lock", "./zdtm_mount_cgroups"])
+            ["flock", "zdtm_mount_cgroups.lock", "./zdtm_mount_cgroups", str(uuid)])
 
     @staticmethod
     def cleanup():
         subprocess.check_call(
-            ["flock", "zdtm_mount_cgroups.lock", "./zdtm_umount_cgroups"])
+            ["flock", "zdtm_mount_cgroups.lock", "./zdtm_umount_cgroups", str(uuid)])
 
 
 def load_module_from_file(name, path):

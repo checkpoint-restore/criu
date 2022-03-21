@@ -4,12 +4,14 @@
 
 cat /proc/self/cgroup | grep -q zdtmtst.defaultroot || exit 0
 
+uuid=$1
+
 tdir=`mktemp -d zdtm.XXXXXX`
 for i in "zdtmtst" "zdtmtst.defaultroot"; do
 	mount -t cgroup -o none,name=$i zdtm $tdir || { rmdir $tdir; exit 1; }
 	# remove a fake group if exists
-	if [ -d "$tdir/holder" ]; then
-		rmdir $tdir/holder || { umount -l $tdir && rmdir $tdir; exit 1; }
+	if [ -d "$tdir/holder.$uuid" ]; then
+		rmdir $tdir/holder.$uuid || { umount -l $tdir && rmdir $tdir; exit 1; }
 	fi
 	umount -l $tdir || exit 1;
 done
