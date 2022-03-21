@@ -133,6 +133,14 @@ int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpre
 #undef assign_array
 #undef assign_xsave
 
+	if (compel_cpu_has_feature(X86_FEATURE_SHSTK)) {
+		UserX86CetEntry *cet = core->thread_info->fpregs->xsave->cet;
+		struct cet_user_state *regs = &fpregs->cet;
+
+		cet->cet = regs->cet;
+		cet->ssp = regs->ssp;
+	}
+
 	return 0;
 }
 
@@ -199,6 +207,13 @@ static int alloc_xsave_extends(UserX86XsaveEntry *xsave)
 			goto err;
 	}
 
+	if (compel_cpu_has_feature(X86_FEATURE_SHSTK)) {
+		xsave->cet = xzalloc(sizeof(UserX86CetEntry));
+		if (!xsave->cet)
+			goto err;
+		user_x86_cet_entry__init(xsave->cet);
+	}
+
 	return 0;
 err:
 	return -1;
@@ -220,6 +235,8 @@ int arch_alloc_thread_info(CoreEntry *core)
 		with_xsave = compel_cpu_has_feature(X86_FEATURE_OSXSAVE);
 		if (with_xsave)
 			sz += sizeof(UserX86XsaveEntry);
+		if (compel_cpu_has_feature(X86_FEATURE_SHSTK))
+			sz += sizeof(UserX86CetEntry);
 	}
 
 	m = xmalloc(sz);
