@@ -40,10 +40,10 @@ int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe, user_regs_struct_t *
 	sigframe->uc.uc_mcontext.__gregs[REG_PC] = regs->pc;
 	sigframe->uc.uc_mcontext.pstate = regs->pstate;
 
-	memcpy(fpsimd->vregs, sc_fpregs->vregs, 32 * sizeof(__uint128_t));
+	memcpy(fpsimd->vregs, fpregs->vregs, 32 * sizeof(__uint128_t));
 
-	fpsimd->fpsr = sc_fpregs->fpsr;
-	fpsimd->fpcr = sc_fpregs->fpcr;
+	fpsimd->fpsr = fpregs->fpsr;
+	fpsimd->fpcr = fpregs->fpcr;
 
 	fpsimd->head.magic = FPSIMD_MAGIC;
 	fpsimd->head.size = sizeof(*fpsimd);
@@ -105,15 +105,14 @@ int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret, unsigned long ar
 	user_regs_struct_t regs = ctl->orig.regs;
 	int err;
 
-	regs.regs[8] = (unsigned long)nr;
-	regs.regs[0] = arg1;
-	regs.regs[1] = arg2;
-	regs.regs[2] = arg3;
-	regs.regs[3] = arg4;
-	regs.regs[4] = arg5;
-	regs.regs[5] = arg6;
-	regs.regs[6] = 0;
-	regs.regs[7] = 0;
+	regs.a0 = (unsigned long)nr;
+	regs.a2 = arg1;
+	regs.a3 = arg2;
+	regs.a4 = arg3;
+	regs.a5 = arg4;
+	regs.a6 = arg5;
+	regs.a7 = arg6;
+	regs.a1 = 0;
 
 	err = compel_execute_syscall(ctl, &regs, code_syscall);
 
