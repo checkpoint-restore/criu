@@ -116,7 +116,7 @@ int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret, unsigned long ar
 
 	err = compel_execute_syscall(ctl, &regs, code_syscall);
 
-	*ret = regs.regs[0];
+	*ret = regs.a0;
 	return err;
 }
 
