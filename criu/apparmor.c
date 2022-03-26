@@ -668,7 +668,7 @@ int dump_aa_namespaces(void)
 
 bool check_aa_ns_dumping(void)
 {
-	char contents[48];
+	char contents[49];
 	int major, minor, ret;
 	FILE *f;
 
