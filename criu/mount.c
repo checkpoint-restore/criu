@@ -1991,6 +1991,7 @@ static int mnt_tree_for_each_reverse(struct mount_info *m, int (*fn)(struct moun
 	int progress = 0;
 
 	MNT_TREE_WALK(m, prev, MNT_WALK_NONE, fn, (struct list_head *)NULL, progress);
+	(void)progress; // Suppress -Wused-but-unset-variable for clang>=15
 
 	return 0;
 }
