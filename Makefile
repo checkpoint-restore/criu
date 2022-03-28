@@ -142,8 +142,8 @@ export GMON GMONLDOPT
 endif
 
 AFLAGS			+= -D__ASSEMBLY__
-CFLAGS			+= $(USERCFLAGS) $(WARNINGS) $(DEFINES) -iquote include/
-HOSTCFLAGS		+= $(WARNINGS) $(DEFINES) -iquote include/
+CFLAGS			+= $(USERCFLAGS) $(WARNINGS) $(DEFINES) -iquote include/ -std=gnu11
+HOSTCFLAGS		+= $(WARNINGS) $(DEFINES) -iquote include/ -std=gnu11
 export AFLAGS CFLAGS USERCLFAGS HOSTCFLAGS
 
 # Default target
