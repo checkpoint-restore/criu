@@ -24,14 +24,14 @@ typedef struct __riscv_d_ext_state user_fpregs_struct_t;
 #define compel_arch_get_tls_task(ctl, tls)
 #define compel_arch_get_tls_thread(tctl, tls)
 
-#define REG_RES(r)	  ((uint64_t)(r).regs[0])
+#define REG_RES(r)	  ((uint64_t)(r).a0)
 #define REG_IP(r)	  ((uint64_t)(r).pc)
 
 #ifndef REG_SP
-#define REG_SP(r)	  ((uint64_t)((r).sp))
+#define REG_GET_SP(r)	  ((uint64_t)((r).sp))
 #endif
 
-#define REG_SYSCALL_NR(r) ((uint64_t)(r).regs[8])
+#define REG_SYSCALL_NR(r) ((uint64_t)(r).a7)
 
 #define user_regs_native(pregs) true
 

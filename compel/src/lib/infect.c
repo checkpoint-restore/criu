@@ -1679,10 +1679,10 @@ struct parasite_blob_desc *compel_parasite_blob_desc(struct parasite_ctl *ctl)
 
 uint64_t compel_get_leader_sp(struct parasite_ctl *ctl)
 {
-	return REG_SP(ctl->orig.regs);
+	return REG_GET_SP(ctl->orig.regs);
 }
 
 uint64_t compel_get_thread_sp(struct parasite_thread_ctl *tctl)
 {
-	return REG_SP(tctl->th.regs);
+	return REG_GET_SP(tctl->th.regs);
 }
