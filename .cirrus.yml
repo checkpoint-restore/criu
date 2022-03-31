@@ -20,6 +20,34 @@ task:
     make -C scripts/ci vagrant-fedora-no-vdso
 
 task:
+  name: CentOS Stream 9 based test
+  environment:
+    HOME: "/root"
+    CIRRUS_WORKING_DIR: "/tmp/criu"
+
+  compute_engine_instance:
+    image_project: centos-cloud
+    image: family/centos-stream-9
+    platform: linux
+    cpu: 4
+    memory: 8G
+
+  setup_script: |
+    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
+    dnf config-manager --set-enabled crb # Same as CentOS 8 powertools
+    dnf -y install epel-release epel-next-release
+    dnf -y install --allowerasing asciidoc gcc git gnutls-devel libaio-devel libasan libcap-devel libnet-devel libnl3-devel libbsd-devel libselinux-devel make protobuf-c-devel protobuf-devel python-devel python-PyYAML python-future python-protobuf python-junit_xml python-flake8 xmlto
+    systemctl stop sssd
+    # Even with selinux in permissive mode the selinux tests will be executed.
+    # The Cirrus CI user runs as a service from selinux point of view and is
+    # much more restricted than a normal shell (system_u:system_r:unconfined_service_t:s0).
+    # The test case above (vagrant-fedora-no-vdso) should run selinux tests in enforcing mode.
+    setenforce 0
+
+  build_script: |
+    make -C scripts/ci local SKIP_CI_PREP=1 CC=gcc CD_TO_TOP=1 ZDTM_OPTS="-x zdtm/static/socket-raw"
+
+task:
   name: Vagrant Fedora Rawhide based test
   environment:
     HOME: "/root"
