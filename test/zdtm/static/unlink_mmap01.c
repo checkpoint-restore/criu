@@ -11,7 +11,7 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc = "Test mmaped and unlinked files (2, with hard links)";
+const char *test_doc = "Test mmapped and unlinked files (2, with hard links)";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);

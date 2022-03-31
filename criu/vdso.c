@@ -500,7 +500,7 @@ static int vdso_fill_compat_symtable(struct vdso_maps *native, struct vdso_maps 
 	}
 
 	if (vdso_fill_symtable_compat((uintptr_t)vdso_mmap, compat->sym.vdso_size, &compat->sym)) {
-		pr_err("Failed to parse mmaped compatible vdso blob\n");
+		pr_err("Failed to parse mmapped compatible vdso blob\n");
 		goto out_unmap;
 	}
 
