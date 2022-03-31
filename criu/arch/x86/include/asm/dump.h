@@ -25,7 +25,7 @@ static inline void core_put_tls(CoreEntry *core, tls_t tls)
 		COPY_TLS(read_exec_only);
 		COPY_TLS(limit_in_pages);
 		COPY_TLS(seg_not_present);
-		COPY_TLS(useable);
+		COPY_TLS(usable);
 #undef COPY_TLS
 	}
 }
