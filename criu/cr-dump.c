@@ -2180,6 +2180,9 @@ int cr_dump_tasks(pid_t pid)
 	if (network_lock())
 		goto err;
 
+	if (rpc_query_external_files())
+		goto err;
+
 	if (collect_file_locks())
 		goto err;
 
