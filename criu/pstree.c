@@ -867,7 +867,7 @@ static int prepare_pstree_kobj_ids(void)
 		if (!item->ids) {
 			if (item == root_item) {
 				pr_err("No IDS for root task.\n");
-				pr_err("Images currupted or too old criu was used for dump.\n");
+				pr_err("Images corrupted or too old criu was used for dump.\n");
 				return -1;
 			}
 

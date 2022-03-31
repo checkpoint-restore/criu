@@ -560,7 +560,7 @@ static int do_open_tty_reg(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 		 * them. So simply setup mode from image
 		 * the regular file engine will check
 		 * for this, so if we fail here it
-		 * gonna be catched anyway.
+		 * gonna be caught anyway.
 		 */
 		if (rfi->rfe->has_mode)
 			fchmod(fd, rfi->rfe->mode);

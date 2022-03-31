@@ -154,7 +154,7 @@ static int child(const int c)
 			continue;
 		if (testcases[i].alive)
 			continue;
-		test_msg("Wait porcess %d (pid %d)\n", i, testcases[i].master.pid);
+		test_msg("Wait process %d (pid %d)\n", i, testcases[i].master.pid);
 		waitpid(testcases[i].master.pid, NULL, 0);
 	}
 
@@ -244,7 +244,7 @@ int main(int argc, char **argv)
 			continue;
 		if (testcases[i].alive)
 			continue;
-		test_msg("Wait porcess %d (pid %d)\n", i, testcases[i].master.pid);
+		test_msg("Wait process %d (pid %d)\n", i, testcases[i].master.pid);
 		waitpid(testcases[i].master.pid, NULL, 0);
 	}
 

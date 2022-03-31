@@ -80,7 +80,7 @@ class SocketsMultiple {
 			}
 			if (socketMappedBuffer.getChar(Helper.MAPPED_INDEX) == Helper.STATE_FAIL) {
 				logger.log(Level.SEVERE, "Killing the server process and client process");
-				logger.log(Level.SEVERE, "Exception occured in the client or server process: check their log for details");
+				logger.log(Level.SEVERE, "Exception occurred in the client or server process: check their log for details");
 				serverProcess.destroy();
 				clientProcess.destroy();
 				b.putChar(Helper.MAPPED_INDEX, Helper.STATE_END);
@@ -140,7 +140,7 @@ class SocketsMultiple {
 				StringWriter writer = new StringWriter();
 				PrintWriter printWriter = new PrintWriter(writer);
 				e.printStackTrace(printWriter);
-				logger.log(Level.SEVERE, "Exception occured:" + e);
+				logger.log(Level.SEVERE, "Exception occurred:" + e);
 				logger.log(Level.FINE, writer.toString());
 			}
 			if (b != null) {

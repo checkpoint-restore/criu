@@ -108,7 +108,7 @@ int resolve_shared_mounts_v2(void)
 	/*
 	 * Collect sharing groups tree. Mount propagation between sharing
 	 * groups only goes down this tree, meaning that only mounts of same or
-	 * descendant sharing groups recieve mount propagation.
+	 * descendant sharing groups receive mount propagation.
 	 */
 	list_for_each_entry(sg, &sharing_groups, list) {
 		if (sg->master_id) {
@@ -270,7 +270,7 @@ static int do_new_mount_v2(struct mount_info *mi)
 	 * Mount-v2 relies that before mount tree is constructed all mounts
 	 * should remain private. Newly created mounts can become non-private
 	 * initially depending on parent/source sharing, let's be as explicit
-	 * as posible here and make it obvious that mount becomes private.
+	 * as possible here and make it obvious that mount becomes private.
 	 */
 	if (mount(NULL, mi->plain_mountpoint, NULL, MS_PRIVATE, NULL)) {
 		pr_perror("Can't remount %s with MS_PRIVATE", mi->plain_mountpoint);
@@ -407,7 +407,7 @@ do_bind:
 	 * Mount-v2 relies that before mount tree is constructed all mounts
 	 * should remain private. Newly created mounts can become non-private
 	 * initially depending on parent/source sharing, let's be as explicit
-	 * as posible here and make it obvious that mount becomes private.
+	 * as possible here and make it obvious that mount becomes private.
 	 */
 	if (mount(NULL, mi->plain_mountpoint, NULL, MS_PRIVATE, NULL)) {
 		pr_perror("Can't remount %s with MS_PRIVATE", mi->plain_mountpoint);
@@ -470,7 +470,7 @@ static int do_mount_root_v2(struct mount_info *mi)
 	 * Mount-v2 relies that before mount tree is constructed all mounts
 	 * should remain private. Newly created mounts can become non-private
 	 * initially depending on parent/source sharing, let's be as explicit
-	 * as posible here and make it obvious that mount becomes private.
+	 * as possible here and make it obvious that mount becomes private.
 	 */
 	if (mount(NULL, mi->plain_mountpoint, NULL, MS_PRIVATE, NULL)) {
 		pr_perror("Can't remount %s with MS_PRIVATE", mi->plain_mountpoint);
@@ -617,7 +617,7 @@ static int detect_is_dir(struct mount_info *mi)
 
 	rel_path = get_relative_path(mi->ns_mountpoint, mi->parent->ns_mountpoint);
 	if (!rel_path) {
-		pr_err("Child-parent mountpoint missmatch %d:%s %d:%s\n", mi->mnt_id, mi->ns_mountpoint,
+		pr_err("Child-parent mountpoint mismatch %d:%s %d:%s\n", mi->mnt_id, mi->ns_mountpoint,
 		       mi->parent->mnt_id, mi->parent->ns_mountpoint);
 		return -1;
 	}
@@ -952,7 +952,7 @@ static int restore_one_sharing_group(struct sharing_group *sg)
 			/*
 			 * External slavery. We rely on the user to give us the
 			 * right source for external mount with all proper
-			 * sharing optioins setup (it should be either shared
+			 * sharing options setup (it should be either shared
 			 * or non-shared slave). If source is a private mount
 			 * we would fail.
 			 */
@@ -1020,7 +1020,7 @@ static int restore_mount_sharing_options(void)
 		if (sg->parent)
 			continue;
 
-		/* Handle dependant sharing groups in tree order */
+		/* Handle dependent sharing groups in tree order */
 		for (t = sg; t != NULL; t = sharing_group_next(t)) {
 			if (restore_one_sharing_group(t))
 				return -1;

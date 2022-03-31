@@ -2340,7 +2340,7 @@ static int prepare_xtable_lock(void)
 	}
 
 	if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL)) {
-		pr_perror("Unable to conver mounts to slave mounts");
+		pr_perror("Unable to convert mounts to slave mounts");
 		return -1;
 	}
 	/*

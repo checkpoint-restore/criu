@@ -360,7 +360,7 @@ int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct
 
 	/*
 	 * FPU fetched either via fxsave or via xsave,
-	 * thus decode it accrodingly.
+	 * thus decode it accordingly.
 	 */
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);

@@ -140,7 +140,7 @@ static int compel_fpuid(compel_cpuinfo_t *c)
 	memset(c->xstate_comp_offsets, 0xff, sizeof(c->xstate_comp_offsets));
 	memset(c->xstate_comp_sizes, 0xff, sizeof(c->xstate_comp_sizes));
 
-	/* start at the beginnning of the "extended state" */
+	/* start at the beginning of the "extended state" */
 	last_good_offset = offsetof(struct xsave_struct, extended_state_area);
 
 	/*

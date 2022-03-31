@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
 
 	ret = connect(fd, (struct sockaddr *)&addr, addr_len);
 	if (ret == -1) {
-		perror("Cant connect to socket");
+		perror("Can't connect to socket");
 		goto exit;
 	}
 

@@ -266,7 +266,7 @@ Mesa | Open source OpenGL implementation
 GTT | Graphis Translation Table, also used to denote kernel-managed system memory for GPU access
 VRAM | Video RAM
 BO | Buffer Object
-HMM | Heterogenous Memory Management
+HMM | Heterogeneous Memory Management
 AQL | Architected Queueing Language
 EOP | End of pipe (event indicating shader dispatch completion)
 MQD | Memory Queue Descriptors

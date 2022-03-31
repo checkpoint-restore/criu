@@ -9,7 +9,7 @@
 #include "common/asm/atomic.h"
 #include "common/compiler.h"
 
-/* scan-build complains about derefencing a NULL pointer here. */
+/* scan-build complains about dereferencing a NULL pointer here. */
 #ifndef __clang_analyzer__
 #define LOCK_BUG_ON(condition) \
 	if ((condition))       \

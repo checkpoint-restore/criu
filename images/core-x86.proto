@@ -42,7 +42,7 @@ message user_x86_regs_entry {
 }
 
 message user_x86_xsave_entry {
-	/* standart xsave features */
+	/* standard xsave features */
 	required uint64			xstate_bv	=  1;
 
 	/* AVX components: 16x 256-bit ymm registers, hi 128 bits */

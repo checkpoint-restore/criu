@@ -64,7 +64,7 @@ bool kfd_capability_check = true;
 /*
  * During dump, we can use any fd value so fd_next is always -1.
  * During restore, we have to use a fd value that does not conflict with fd values in use by the target restore process.
- * fd_next is initialized as 1 greather than the highest-numbered file descriptor used by the target restore process.
+ * fd_next is initialized as 1 greater than the highest-numbered file descriptor used by the target restore process.
  */
 int fd_next = -1;
 

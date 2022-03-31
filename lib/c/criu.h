@@ -187,7 +187,7 @@ int criu_dump_iters(int (*more)(criu_predump_info pi));
  * As this library is just forwarding all tasks to an
  * independent (of this library) CRIU binary, the actual
  * version of the CRIU binary can be different then the
- * hardcoded values in the libary (version.h).
+ * hardcoded values in the library (version.h).
  * To be able to easily check the version of the CRIU binary
  * the function criu_get_version() returns the version
  * in the following format:

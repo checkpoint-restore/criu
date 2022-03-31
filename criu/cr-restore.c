@@ -2061,7 +2061,7 @@ static int finalize_restore_detach(void)
 		for (i = 0; i < item->nr_threads; i++) {
 			pid = item->threads[i].real;
 			if (pid < 0) {
-				pr_err("pstree item has unvalid pid %d\n", pid);
+				pr_err("pstree item has invalid pid %d\n", pid);
 				continue;
 			}
 

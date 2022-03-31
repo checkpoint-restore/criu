@@ -18,7 +18,7 @@
 #define ZDTM_SRV_FAMILY AF_INET
 #endif
 
-const char *test_doc = "Check, that a reseted TCP connection can be restored\n";
+const char *test_doc = "Check, that a reset TCP connection can be restored\n";
 const char *test_author = "Andrey Vagin <avagin@parallels.com";
 
 #include <stdio.h>

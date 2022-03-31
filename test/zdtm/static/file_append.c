@@ -51,7 +51,7 @@ int main(int argc, char **argv)
 	}
 	tmp[2] = '\0';
 	if (strcmp(tmp, "xy")) {
-		fail("Smth's wron with file contents (%s)", tmp);
+		fail("Smth's wrong with file contents (%s)", tmp);
 		return 1;
 	}
 

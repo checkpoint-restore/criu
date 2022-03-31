@@ -1400,7 +1400,7 @@ static int get_build_id_32(Elf32_Ehdr *file_header, unsigned char **build_id, co
 		return -1;
 
 	/*
-	 * If the file doesn't have atleast 1 program header entry, it definitely can't
+	 * If the file doesn't have at least 1 program header entry, it definitely can't
 	 * have a build-id.
 	 */
 	if (!file_header->e_phnum) {
@@ -1490,7 +1490,7 @@ static int get_build_id_64(Elf64_Ehdr *file_header, unsigned char **build_id, co
 		return -1;
 
 	/*
-	 * If the file doesn't have atleast 1 program header entry, it definitely can't
+	 * If the file doesn't have at least 1 program header entry, it definitely can't
 	 * have a build-id.
 	 */
 	if (!file_header->e_phnum) {
@@ -1621,7 +1621,7 @@ static int store_validation_data_build_id(RegFileEntry *rfe, int lfd, const stru
 	int fd;
 
 	/*
-	 * Checks whether the file is atleast big enough to try and read the first
+	 * Checks whether the file is at least big enough to try and read the first
 	 * four (SELFMAG) bytes which should correspond to the ELF magic number
 	 * and the next byte which indicates whether the file is 32-bit or 64-bit.
 	 */
@@ -1659,7 +1659,7 @@ static int store_validation_data_build_id(RegFileEntry *rfe, int lfd, const stru
  * This routine stores metadata about the open file (File size, build-id, CRC32C checksum)
  * so that validation can be done while restoring to make sure that the right file is
  * being restored.
- * Returns true if atleast some metadata was stored, if there was an error it returns false.
+ * Returns true if at least some metadata was stored, if there was an error it returns false.
  */
 static bool store_validation_data(RegFileEntry *rfe, const struct fd_parms *p, int lfd)
 {
@@ -2008,7 +2008,7 @@ static int rfi_remap(struct reg_file_info *rfi, int *level)
 	BUG_ON(tmi->s_dev != rmi->s_dev);
 	BUG_ON(tmi->s_dev != mi->s_dev);
 
-	/* Calcalate paths on the device (root mount) */
+	/* Calculate paths on the device (root mount) */
 	convert_path_from_another_mp(rfi->path, path, sizeof(_path), mi, tmi);
 	convert_path_from_another_mp(rfi->remap->rpath, rpath, sizeof(_rpath), rmi, tmi);
 
