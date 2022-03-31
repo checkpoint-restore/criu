@@ -55,14 +55,14 @@ class SocketsConnectServer {
 				socketMappedBuffer.putChar(Helper.MAPPED_INDEX, Helper.STATE_END);
 			}
 
-			ServerSocket ser = new ServerSocket(port);
+			ServerSocket s = new ServerSocket(port);
 			logger.log(Level.INFO, "Server will be listening on Port: " + port);
 
 			/*
 			 * Timeout after 7 sec if client does not connect
 			 */
 			try {
-				ser.setSoTimeout(7 * 1000);
+				s.setSoTimeout(7 * 1000);
 
 			} catch (SocketException e) {
 				logger.log(Level.SEVERE, "Cannot set timeout!");
@@ -73,14 +73,14 @@ class SocketsConnectServer {
 
 			try {
 				if (socketMappedBuffer.getChar(Helper.MAPPED_INDEX) == Helper.STATE_FAIL || socketMappedBuffer.getChar(Helper.MAPPED_INDEX) == Helper.STATE_END) {
-					ser.close();
+					s.close();
 					System.exit(1);
 				}
 				/*
 				 * Checkpoint when server is listening for connections, and no client has connected to the server.
 				 */
 				socketMappedBuffer.putChar(Helper.MAPPED_INDEX, Helper.STATE_CHECKPOINT);
-				socket = ser.accept();
+				socket = s.accept();
 				SocketHelper.socketWaitForRestore(socketMappedBuffer, logger);
 
 			} catch (Exception e) {
@@ -88,13 +88,13 @@ class SocketsConnectServer {
 				socketMappedBuffer.putChar(Helper.MAPPED_INDEX, Helper.STATE_FAIL);
 			}
 
-			if (!ser.isBound()) {
+			if (!s.isBound()) {
 				logger.log(Level.SEVERE, "Server is not bound to a port");
 				socketMappedBuffer.putChar(Helper.MAPPED_INDEX, Helper.STATE_FAIL);
 				System.exit(1);
 			}
 
-			if (ser.getLocalPort() != port) {
+			if (s.getLocalPort() != port) {
 				logger.log(Level.SEVERE, "Server is not listening on correct port");
 				socketMappedBuffer.putChar(Helper.MAPPED_INDEX, Helper.STATE_FAIL);
 				System.exit(1);

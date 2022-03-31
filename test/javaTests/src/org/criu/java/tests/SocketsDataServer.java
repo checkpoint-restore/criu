@@ -50,14 +50,14 @@ class SocketsDataServer {
 				System.exit(1);
 			}
 
-			ServerSocket ser = new ServerSocket(port);
+			ServerSocket s = new ServerSocket(port);
 			logger.log(Level.INFO, "Server will be listening on Port " + port);
 
 			/*
 			 * Wait for 7 seconds for client to connect, else throw a timeout exception
 			 */
 			try {
-				ser.setSoTimeout(7 * 1000);
+				s.setSoTimeout(7 * 1000);
 
 			} catch (SocketException e) {
 				logger.log(Level.SEVERE, "cannot set timeout");
@@ -70,7 +70,7 @@ class SocketsDataServer {
 			 * begin listening for connections.
 			 */
 			socketMappedBuffer.putChar(Helper.MAPPED_INDEX, SocketHelper.STATE_LISTEN);
-			socket = ser.accept();
+			socket = s.accept();
 			BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			PrintStream outstream = new PrintStream(socket.getOutputStream());
 
