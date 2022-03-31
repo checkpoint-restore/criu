@@ -356,11 +356,11 @@ class sock:
                 i_dsc += sock.name_of(psk)
             dsc += '-I%s' % i_dsc
         if self.inqueue:
-            froms = set()
+            from_set = set()
             for m in self.inqueue:
-                froms.add(m[0])
+                from_set.add(m[0])
             q_dsc = ''
-            for f in froms:
+            for f in from_set:
                 fsk = st.get_socket(f, True)
                 q_dsc += sock.name_of(fsk)
             dsc += '-M%s' % q_dsc
