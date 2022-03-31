@@ -3081,11 +3081,11 @@ static int prepare_rlimits(int pid, struct task_restore_args *ta, CoreEntry *cor
 	return 0;
 }
 
-static int signal_to_mem(SiginfoEntry *sie)
+static int signal_to_mem(SiginfoEntry *se)
 {
 	siginfo_t *info, *t;
 
-	info = (siginfo_t *)sie->siginfo.data;
+	info = (siginfo_t *)se->siginfo.data;
 	t = rst_mem_alloc(sizeof(siginfo_t), RM_PRIVATE);
 	if (!t)
 		return -1;
@@ -3106,24 +3106,24 @@ static int open_signal_image(int type, pid_t pid, unsigned int *nr)
 
 	*nr = 0;
 	while (1) {
-		SiginfoEntry *sie;
+		SiginfoEntry *se;
 
-		ret = pb_read_one_eof(img, &sie, PB_SIGINFO);
+		ret = pb_read_one_eof(img, &se, PB_SIGINFO);
 		if (ret <= 0)
 			break;
-		if (sie->siginfo.len != sizeof(siginfo_t)) {
+		if (se->siginfo.len != sizeof(siginfo_t)) {
 			pr_err("Unknown image format\n");
 			ret = -1;
 			break;
 		}
 
-		ret = signal_to_mem(sie);
+		ret = signal_to_mem(se);
 		if (ret)
 			break;
 
 		(*nr)++;
 
-		siginfo_entry__free_unpacked(sie, NULL);
+		siginfo_entry__free_unpacked(se, NULL);
 	}
 
 	close_image(img);
