@@ -269,7 +269,7 @@ struct xsave_struct_ia32 {
 
 typedef struct {
 	/*
-	 * The FPU xsave area must be continious and FP_MIN_ALIGN_BYTES
+	 * The FPU xsave area must be continuous and FP_MIN_ALIGN_BYTES
 	 * aligned, thus make sure the compiler won't insert any hole here.
 	 */
 

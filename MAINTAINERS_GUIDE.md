@@ -103,7 +103,7 @@ architecture changes should be reviewed by the chief maintainer.
 Also the chief maintainer has the veto power on any change submitted
 to any branch. Naturally, a change in the criu-dev branch can be reverted
 after a chief maintainer veto, a change in the master branch must be
-carefully reviwed by the chief maintainer and vetoed in advance.
+carefully reviewed by the chief maintainer and vetoed in advance.
 
 ### How are maintainers added (and removed)?
 

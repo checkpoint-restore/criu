@@ -61,7 +61,7 @@ EXAMPLE
 
 bers -d test/bers/dump -t 256 -m 54 -c 4 -f 200 --mem-fill dirtify --mem-cycle dirtify
 
-We generate 256 tasks wit each allocating 54 megabytes of memory splitted
+We generate 256 tasks with each allocating 54 megabytes of memory split
 equally into 4 memory areas. Each task opens 200 files. On creation and
 cycling we touch every page of every memory area.
 

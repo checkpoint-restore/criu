@@ -25,7 +25,7 @@ do_or_fail()
 
 do_start_ipt()
 {
-	[ -f "$statefile" ] && die "state file $statefile aleady exists"
+	[ -f "$statefile" ] && die "state file $statefile already exists"
 
 	do_or_fail "can't install a state match" \
 		iptables -A INPUT \
@@ -47,7 +47,7 @@ do_stop_ipt()
 
 do_start_nft()
 {
-	[ -f "$statefile" ] && die "state file $statefile aleady exists"
+	[ -f "$statefile" ] && die "state file $statefile already exists"
 
 	do_or_fail "can't install a state match" \
 		nft add rule filter INPUT \
@@ -83,7 +83,7 @@ tmpargs="$(../lib/parseargs.sh --name=$0 \
 	die "can't parse command line"
 eval "$tmpargs"
 
-[ -f "$outfile" ] && die "out file $outfile aleady exists"
+[ -f "$outfile" ] && die "out file $outfile already exists"
 
 # expect "start" or "stop"
 do_$1

@@ -1073,7 +1073,7 @@ int check_options(void)
 	if (opts.link_remap_ok)
 		pr_info("Will allow link remaps on FS\n");
 	if (opts.weak_sysctls)
-		pr_info("Will skip non-existant sysctls on restore\n");
+		pr_info("Will skip non-existent sysctls on restore\n");
 
 	if (opts.deprecated_ok)
 		pr_info("Turn deprecated stuff ON\n");

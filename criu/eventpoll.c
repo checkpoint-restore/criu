@@ -308,7 +308,7 @@ static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 	 * files is tricky: we need to use kcmp
 	 * to find out where file came from. Until
 	 * it's implemented lets use simpler approach
-	 * just check the targets are blonging to the
+	 * just check the targets are belonging to the
 	 * pid's file set.
 	 */
 	if (p->dfds) {

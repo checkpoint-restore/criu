@@ -106,7 +106,7 @@ be restored with *mount(src, mountpoint, flags, options)*. When used,
 *dump* is expected to always succeed if a mountpoint is to be
 auto-detected, however *restore* may fail (or do something wrong)
 if the assumption for restore logic is incorrect. This option is
-not compatable with *--external* *dev*.
+not compatible with *--external* *dev*.
 
 *--action-script* 'script'::
     Add an external action script to be executed at certain stages.

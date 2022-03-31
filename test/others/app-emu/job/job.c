@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 	snprintf(buf, sizeof(buf), "/proc/%d/fd", pid);
 	fd_dir = opendir(buf);
 	if (!fd_dir) {
-		printf("cant open %s\n", buf);
+		printf("can't open %s\n", buf);
 		return -1;
 	}
 
@@ -70,13 +70,13 @@ int main(int argc, char *argv[])
 	closedir(fd_dir);
 
 	if (ioctl(fd, TIOCGSID, &tty_sid) < 0) {
-		printf("cant obtain sid on stdout\n");
+		printf("can't obtain sid on stdout\n");
 		return -1;
 	}
 	printf("stdout sid = %d\n", tty_sid);
 
 	if (ioctl(fd, TIOCGPGRP, &tty_gid) < 0) {
-		printf("cant obtain gid on stdout\n");
+		printf("can't obtain gid on stdout\n");
 		return -1;
 	}
 	printf("stdout gid = %d\n", tty_gid);

@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (act.sa_handler != sigh) {
-		fail("unexpected sighanl hanlder");
+		fail("unexpected sighanl handler");
 		exit(1);
 	}
 

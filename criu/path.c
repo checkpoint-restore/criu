@@ -49,7 +49,7 @@ char *mnt_get_sibling_path(struct mount_info *m, struct mount_info *p, char *buf
 
 	rpath = get_relative_path(m->ns_mountpoint, pa->ns_mountpoint);
 	if (!rpath) {
-		pr_warn("child - parent mountpoint missmatch %s - %s\n", m->ns_mountpoint, pa->ns_mountpoint);
+		pr_warn("child - parent mountpoint mismatch %s - %s\n", m->ns_mountpoint, pa->ns_mountpoint);
 		return NULL;
 	}
 

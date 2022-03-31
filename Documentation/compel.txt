@@ -90,7 +90,7 @@ The parasitic code is compiled and converted to a header using *compel*, and inc
 
 *#include "parasite.h"*
 
-Following steps are perfomed to infect the victim process:
+Following steps are performed to infect the victim process:
 
     - stop the task: *int compel_stop_task(int pid);*
     - prepare infection handler: *struct parasite_ctl *compel_prepare(int pid);*

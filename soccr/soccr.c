@@ -216,7 +216,7 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 	data->unsq_len = size;
 
 	if (data->state == TCP_CLOSE) {
-		/* A connection could be reseted. In thise case a sent queue
+		/* A connection could be reset. In thise case a sent queue
 		 * may contain some data. A user can't read this data, so let's
 		 * ignore them. Otherwise we will need to add a logic whether
 		 * the send queue contains a fin packet or not and decide whether
@@ -227,7 +227,7 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 		data->outq_len = 0;
 	}
 
-	/* Don't account the fin packet. It doesn't countain real data. */
+	/* Don't account the fin packet. It doesn't contain real data. */
 	if ((1 << data->state) & (SNDQ_FIRST_FIN | SNDQ_SECOND_FIN)) {
 		if (data->outq_len)
 			data->outq_len--;
@@ -441,7 +441,7 @@ union libsoccr_addr *libsoccr_get_addr(struct libsoccr_sk *sk, int self, unsigne
 	if (flags & ~GET_SA_FLAGS)
 		return NULL;
 
-	/* FIXME -- implemeted in CRIU, makes sence to have it here too */
+	/* FIXME -- implemented in CRIU, makes sence to have it here too */
 	return NULL;
 }
 
@@ -503,7 +503,7 @@ static int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk, struct libsoccr_sk_d
 	if (mstate & (RCVQ_FIRST_FIN | RCVQ_SECOND_FIN))
 		data->inq_seq--;
 
-	/* outq_seq is adjusted due to not accointing the fin packet */
+	/* outq_seq is adjusted due to not accounting the fin packet */
 	if (mstate & (SNDQ_FIRST_FIN | SNDQ_SECOND_FIN))
 		data->outq_seq--;
 

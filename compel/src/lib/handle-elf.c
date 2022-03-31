@@ -614,7 +614,7 @@ int __handle_elf(void *mem, size_t size)
 #ifdef ELF_S390
 			/*
 			 * See also arch/s390/kernel/module.c/apply_rela():
-			 * A PLT reads the GOT (global offest table). We can handle it like
+			 * A PLT reads the GOT (global offset table). We can handle it like
 			 * R_390_PC32DBL because we have linked statically.
 			 */
 			case R_390_PLT32DBL: /* PC relative on a PLT (predure link table) */

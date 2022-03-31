@@ -43,7 +43,7 @@
  *
  * The lower case r0-r31 should be used in preference to the upper
  * case R0-R31 as they provide more error checking in the assembler.
- * Use R0-31 only when really nessesary.
+ * Use R0-31 only when really necessary.
  */
 
 /* clang-format off */
