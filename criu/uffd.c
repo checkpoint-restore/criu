@@ -59,7 +59,7 @@
 #define LAZY_PAGES_RESTORE_FINISHED 0x52535446 /* ReSTore Finished */
 
 /*
- * Backround transfer parameters.
+ * Background transfer parameters.
  * The default xfer length is arbitrary set to 64Kbytes
  * The limit of 4Mbytes matches the maximal chunk size we can have in
  * a pipe in the page-server

@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 			goto err;
 		}
 		if (strcmp(TEST_STRING, buf)) {
-			pr_perror("data curruption");
+			pr_perror("data corruption");
 			goto err;
 		}
 
@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 		}
 		close(11);
 		if (strcmp(TEST_STRING, buf)) {
-			pr_perror("data curruption");
+			pr_perror("data corruption");
 			return 1;
 		}
 	}

@@ -891,7 +891,7 @@ int collect_user_ns(struct ns_id *ns, void *oarg)
 {
 	/*
 	 * User namespace is dumped before files to get uid and gid
-	 * mappings, which are used for convirting local id-s to
+	 * mappings, which are used for converting local id-s to
 	 * userns id-s (userns_uid(), userns_gid())
 	 */
 	if (dump_user_ns(root_item->pid->real, root_item->ids->user_ns_id))

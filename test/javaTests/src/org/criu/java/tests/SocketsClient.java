@@ -121,7 +121,7 @@ class SocketsClient {
 				StringWriter writer = new StringWriter();
 				PrintWriter printWriter = new PrintWriter(writer);
 				exception.printStackTrace(printWriter);
-				logger.log(Level.SEVERE, "Exception occured:" + exception);
+				logger.log(Level.SEVERE, "Exception occurred:" + exception);
 				logger.log(Level.FINE, writer.toString());
 			}
 

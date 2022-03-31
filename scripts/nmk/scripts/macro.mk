@@ -10,7 +10,7 @@ define include-once
 endef
 
 # Helper to build built-in target in directory.
-# $(eval $(call gen-built-in,<dir>,<prerequsite>,<phony>))
+# $(eval $(call gen-built-in,<dir>,<prerequisite>,<phony>))
 define gen-built-in
 $(1)/%: $(2)
 	$$(Q) $$(MAKE) $$(build)=$(1) $$@

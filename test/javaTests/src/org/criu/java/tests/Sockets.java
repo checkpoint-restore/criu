@@ -129,7 +129,7 @@ class Sockets {
 				StringWriter writer = new StringWriter();
 				PrintWriter printWriter = new PrintWriter(writer);
 				e.printStackTrace(printWriter);
-				logger.log(Level.SEVERE, "Exception occured:" + e);
+				logger.log(Level.SEVERE, "Exception occurred:" + e);
 				logger.log(Level.FINE, writer.toString());
 			}
 			if (b != null) {

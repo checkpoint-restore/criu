@@ -234,7 +234,7 @@ fail_free_gs_cb:
 }
 
 /*
- * Free Guareded Storage control blocks
+ * Free Guarded Storage control blocks
  */
 static void free_gs_cb(UserS390GsCbEntry *gs_cb)
 {

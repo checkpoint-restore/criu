@@ -171,8 +171,8 @@ int libsoccr_save(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, unsigne
  * Get a pointer on the contents of queues. The amount of bytes is
  * determined from the filled libsoccr_sk_data by queue_id.
  *
- * For TCP_RECV_QUEUE the lenght is .inq_len
- * For TCP_SEND_QUEUE the lenght is .outq_len
+ * For TCP_RECV_QUEUE the length is .inq_len
+ * For TCP_SEND_QUEUE the length is .outq_len
  *
  * For any other queues returns NULL.
  *

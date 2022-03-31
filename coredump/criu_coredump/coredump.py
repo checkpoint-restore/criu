@@ -728,7 +728,7 @@ class coredump_generator:
 
             if page_mem is not None:
                 # Page from pages.img has higher priority
-                # than one from maped file on disk.
+                # than one from mapped file on disk.
                 page = page_mem
 
             if page is None:

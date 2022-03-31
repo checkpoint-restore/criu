@@ -87,7 +87,7 @@ class entry_handler:
     def load(self, f, pretty=False, no_payload=False):
         """
         Convert criu image entries from binary format to dict(json).
-        Takes a file-like object and returnes a list with entries in
+        Takes a file-like object and returns a list with entries in
         dict(json) format.
         """
         entries = []

@@ -5,7 +5,7 @@ syntax = "proto2";
 import "opts.proto";
 
 message user_ppc64_regs_entry {
-	/* Following is the list of regiters starting at r0. */
+	/* Following is the list of registers starting at r0. */
 	repeated uint64 gpr		= 1;
 	required uint64 nip		= 2;
 	required uint64 msr		= 3;
@@ -22,7 +22,7 @@ message user_ppc64_regs_entry {
 }
 
 message user_ppc64_fpstate_entry {
-	/* Following is the list of regiters starting at fpr0 */
+	/* Following is the list of registers starting at fpr0 */
 	repeated uint64 fpregs 		= 1;
 }
 

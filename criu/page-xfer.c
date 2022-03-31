@@ -606,7 +606,7 @@ static inline u32 ppb_xfer_flags(struct page_xfer *xfer, struct page_pipe_buf *p
  *
  *	Since, iov-C is not processed completely, we need to find
  *	"partial_read_byte" count to place out dummy-iov for
- *	remainig processing of iov-C. This function is performed by
+ *	remaining processing of iov-C. This function is performed by
  *	analyze_iov function.
  *
  *	dummy-iov will be(2): {C+3,1}. dummy-iov will be placed

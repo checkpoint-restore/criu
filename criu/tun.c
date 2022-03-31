@@ -272,7 +272,7 @@ static struct tun_link *get_tun_link_fd(char *name, unsigned ns_id, unsigned fla
 	 */
 
 	if (!(flags & IFF_PERSIST)) {
-		pr_err("No fd infor for non persistent tun device %s\n", name);
+		pr_err("No fd info for non persistent tun device %s\n", name);
 		return NULL;
 	}
 

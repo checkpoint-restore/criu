@@ -1823,7 +1823,7 @@ void util_init()
 
 /*
  * This function cuts sub_path from the path.
- * 1) It asumes all relative paths given are relative to "/":
+ * 1) It assumes all relative paths given are relative to "/":
  * 	/a/b/c is the same as a/b/c
  * 2) It can handle paths with multiple consequent slashes:
  * 	///a///b///c is the same as /a/b/c

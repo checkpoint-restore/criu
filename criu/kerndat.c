@@ -756,14 +756,14 @@ static int kerndat_detect_stack_guard_gap(void)
 
 		/*
 		 * When reading /proc/$pid/[s]maps the
-		 * start/end addresses might be cutted off
+		 * start/end addresses might be cut off
 		 * with PAGE_SIZE on kernels prior 4.12
 		 * (see kernel commit 1be7107fbe18ee).
 		 *
 		 * Same time there was semi-complete
 		 * patch released which hitted a number
 		 * of repos (Ubuntu, Fedora) where instead
-		 * of PAGE_SIZE the 1M gap is cutted off.
+		 * of PAGE_SIZE the 1M gap is cut off.
 		 */
 		if (start == (unsigned long)mem) {
 			kdat.stack_guard_gap_hidden = false;
@@ -1111,7 +1111,7 @@ static int kerndat_uffd(void)
 		if (err == ENOSYS)
 			return 0;
 		if (err == EPERM) {
-			pr_info("Lazy pages are not permited\n");
+			pr_info("Lazy pages are not permitted\n");
 			return 0;
 		}
 		pr_err("Lazy pages are not available\n");
