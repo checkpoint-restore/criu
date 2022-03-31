@@ -198,11 +198,11 @@ int main(int argc, char **argv)
 
 	test_msg("C/R complete\n");
 
-	/* let childs to send data to server socket */
+	/* Let children send data to server socket. */
 	for (i = 0; i < PROCESSES_NUM; i++)
 		task_waiter_complete(&t[i], 2);
 
-	/* wait childs for send data */
+	/* Wait for children to send data. */
 	for (i = 0; i < PROCESSES_NUM; i++)
 		task_waiter_wait4(&t[i], 3);
 

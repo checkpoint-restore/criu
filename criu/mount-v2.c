@@ -778,7 +778,7 @@ static int populate_mnt_ns_v2(void)
  * all siblings which it overmounts (see __mnt_resort_children). The function
  * mnt_tree_for_each is effectively DFS (in case we don't postpone), thus all
  * descendants of all mounts which we sibling-overmount are mounted before us.
- * Be carefull, we can't postpone (return >0) from this function because of it.
+ * Be careful, we can't postpone (return >0) from this function because of it.
  */
 static int move_mount_to_tree(struct mount_info *mi)
 {

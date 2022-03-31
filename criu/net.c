@@ -662,7 +662,7 @@ static int dump_macvlan(NetDeviceEntry *nde, struct cr_imgset *imgset, struct nl
 
 	ret = nla_parse_nested(data, IFLA_MACVLAN_FLAGS, info[IFLA_INFO_DATA], NULL);
 	if (ret < 0) {
-		pr_err("failed ot parse macvlan data\n");
+		pr_err("failed to parse macvlan data\n");
 		return -1;
 	}
 
@@ -772,7 +772,7 @@ static int dump_sit(NetDeviceEntry *nde, struct cr_imgset *imgset, struct nlattr
 	pr_info("Some data for SIT provided\n");
 	ret = nla_parse_nested(data, IFLA_IPTUN_MAX, info[IFLA_INFO_DATA], NULL);
 	if (ret < 0) {
-		pr_err("failed ot parse sit data\n");
+		pr_err("failed to parse sit data\n");
 		return -1;
 	}
 
