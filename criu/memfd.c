@@ -68,7 +68,7 @@ static int dump_memfd_inode(int fd, struct memfd_dump_inode *inode, const char *
 	u32 shmid;
 
 	/*
-	  * shmids are chosen as the inode number of the corresponding mmaped
+	  * shmids are chosen as the inode number of the corresponding mmapped
 	  * file. See handle_vma() in proc_parse.c.
 	  * It works for memfd too, because we share the same device as the
 	  * shmem device.

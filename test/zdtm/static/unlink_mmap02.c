@@ -9,7 +9,7 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc = "Test mmaped, opened and unlinked files";
+const char *test_doc = "Test mmapped, opened and unlinked files";
 
 char *filename;
 TEST_OPTION(filename, string, "file name", 1);
