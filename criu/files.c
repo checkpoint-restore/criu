@@ -596,13 +596,13 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 int dump_my_file(int lfd, u32 *id, int *type)
 {
 	struct pid me = {};
-	struct fd_opts fo = {};
+	struct fd_opts fdo = {};
 	FdinfoEntry e = FDINFO_ENTRY__INIT;
 
 	me.real = getpid();
 	me.ns[0].virt = -1; /* FIXME */
 
-	if (dump_one_file(&me, lfd, lfd, &fo, NULL, &e, NULL))
+	if (dump_one_file(&me, lfd, lfd, &fdo, NULL, &e, NULL))
 		return -1;
 
 	*id = e.id;
@@ -1127,11 +1127,11 @@ int setup_and_serve_out(struct fdinfo_list_entry *fle, int new_fd)
 static int open_fd(struct fdinfo_list_entry *fle)
 {
 	struct file_desc *d = fle->desc;
-	struct fdinfo_list_entry *flem;
+	struct fdinfo_list_entry *fle_m;
 	int new_fd = -1, ret;
 
-	flem = file_master(d);
-	if (fle != flem) {
+	fle_m = file_master(d);
+	if (fle != fle_m) {
 		BUG_ON(fle->stage != FLE_INITIALIZED);
 		ret = receive_fd(fle);
 		if (ret != 0)
