@@ -14,14 +14,14 @@
 #include "zdtmtst.h"
 
 const char *test_doc = "Inotify on symlink should be checked";
-#ifndef NODEL
+#ifndef NO_DEL
 char filename[] = "file";
 char linkname[] = "file.lnk";
 const char *inot_dir = "./inotify";
 #else
-char filename[] = "file.nodel";
-char linkname[] = "file.nodel.lnk";
-const char *inot_dir = "./inotify.nodel";
+char filename[] = "file.no_del";
+char linkname[] = "file.no_del.lnk";
+const char *inot_dir = "./inotify.no_del";
 #endif
 
 #ifdef __NR_inotify_init
@@ -216,7 +216,7 @@ int test_actions(const char *dir, char *file_path, char *link_path)
 {
 	if (fChmod(link_path) == 0 && fWriteClose(link_path) == 0 && fNoWriteClose(link_path) == 0 &&
 	    fMove(file_path, filename) == 0 && fMove(filename, file_path) == 0
-#ifndef NODEL
+#ifndef NO_DEL
 	    && fDelete(file_path) == 0 && fDelete(link_path) == 0 && fRemDir(dir) == 0
 #endif
 	) {
@@ -329,7 +329,7 @@ int get_event_set(char *event_set, int wait)
 	}
 	len = read_set(common_desc.infd, event_set);
 	common_close(&common_desc);
-#ifdef NODEL
+#ifdef NO_DEL
 	if (!(fDelete(file_path) == 0 && fDelete(link_path) == 0 && fRemDir(inot_dir) == 0))
 		return -1;
 #endif

@@ -549,7 +549,7 @@ socket_listen:		LDLIBS += -lrt -pthread
 socket_aio:		LDLIBS += -lrt -pthread
 uptime_grow:		LDLIBS += -lrt -pthread
 unlink_largefile:	CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
-inotify_system_nodel:	CFLAGS += -DNODEL
+inotify_system_nodel:	CFLAGS += -DNO_DEL
 pthread00:		LDLIBS += -pthread
 pthread01:		LDLIBS += -pthread
 pthread02:		LDLIBS += -pthread
