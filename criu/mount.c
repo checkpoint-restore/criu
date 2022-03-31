@@ -996,8 +996,9 @@ static void __search_bindmounts(struct mount_info *mi)
 		if (mounts_sb_equal(mi, t)) {
 			list_add(&t->mnt_bind, &mi->mnt_bind);
 			t->mnt_bind_is_populated = true;
-			pr_debug("\tThe mount %3d is bind for %3d (@%s -> @%s)\n", t->mnt_id, mi->mnt_id,
-				 t->ns_mountpoint, mi->ns_mountpoint);
+			pr_debug("\t"
+				 "The mount %3d is bind for %3d (@%s -> @%s)\n",
+				 t->mnt_id, mi->mnt_id, t->ns_mountpoint, mi->ns_mountpoint);
 		}
 	}
 
@@ -1056,8 +1057,9 @@ static int resolve_shared_mounts(struct mount_info *info)
 			if (t == m)
 				continue;
 			if (need_master && t->shared_id == m->master_id) {
-				pr_debug("\tThe mount %3d is slave for %3d (@%s -> @%s)\n", m->mnt_id, t->mnt_id,
-					 m->ns_mountpoint, t->ns_mountpoint);
+				pr_debug("\t"
+					 "The mount %3d is slave for %3d (@%s -> @%s)\n",
+					 m->mnt_id, t->mnt_id, m->ns_mountpoint, t->ns_mountpoint);
 				list_add(&m->mnt_slave, &t->mnt_slave_list);
 				m->mnt_master = t;
 				need_master = false;
@@ -1065,8 +1067,9 @@ static int resolve_shared_mounts(struct mount_info *info)
 
 			/* Collect all mounts from this group */
 			if (need_share && t->shared_id == m->shared_id) {
-				pr_debug("\tMount %3d is shared with %3d group %3d (@%s -> @%s)\n", m->mnt_id,
-					 t->mnt_id, m->shared_id, t->ns_mountpoint, m->ns_mountpoint);
+				pr_debug("\t"
+					 "Mount %3d is shared with %3d group %3d (@%s -> @%s)\n",
+					 m->mnt_id, t->mnt_id, m->shared_id, t->ns_mountpoint, m->ns_mountpoint);
 				list_add(&t->mnt_share, &m->mnt_share);
 			}
 		}
@@ -3295,7 +3298,9 @@ static int collect_mnt_from_image(struct mount_info **head, struct mount_info **
 		if (get_mp_mountpoint(me->mountpoint, pm, root, root_len))
 			goto err;
 
-		pr_debug("\tRead %d mp @ %s\n", pm->mnt_id, pm->ns_mountpoint);
+		pr_debug("\t"
+			 "Read %d mp @ %s\n",
+			 pm->mnt_id, pm->ns_mountpoint);
 	}
 
 	if (me)
