@@ -129,31 +129,30 @@ int main(int argc, char *argv[])
 
 	return 0;
 usage:
-	fprintf(stderr,
-		"flog [--mode binary|dprintf] [--output stdout|stderr|filename] [--decode] [--iter number]\n"
-		"\n"
+	fprintf(stderr, "flog [--mode binary|dprintf] [--output stdout|stderr|filename] [--decode] [--iter number]\n"
+			"\n"
 
-		"Examples:\n"
-		"\n"
+			"Examples:\n"
+			"\n"
 
-		" - run 100000 iterations of instant message processing (immediate dprintf calls)\n"
-		"\n"
-		"       flog -m dprintf -i 100000\n"
-		"\n"
+			" - run 100000 iterations of instant message processing (immediate dprintf calls)\n"
+			"\n"
+			"       flog -m dprintf -i 100000\n"
+			"\n"
 
-		" - run 100000 iterations in binary mode without processing (queue messages only)\n"
-		"\n"
-		"       flog -i 100000\n"
-		"\n"
+			" - run 100000 iterations in binary mode without processing (queue messages only)\n"
+			"\n"
+			"       flog -i 100000\n"
+			"\n"
 
-		" - run 100000 iterations in binary mode with decoding after\n"
-		"\n"
-		"       flog -i 100000 -d\n"
-		"\n"
+			" - run 100000 iterations in binary mode with decoding after\n"
+			"\n"
+			"       flog -i 100000 -d\n"
+			"\n"
 
-		" - run 100000 iterations in binary mode with decoding after, writting results into 'out' file\n"
-		"\n"
-		"       flog -i 100000 -d -o out\n"
-		"\n");
+			" - run 100000 iterations in binary mode with decoding after, writing results into 'out' file\n"
+			"\n"
+			"       flog -i 100000 -d -o out\n"
+			"\n");
 	return 1;
 }
