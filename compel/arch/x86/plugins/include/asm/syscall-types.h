@@ -53,7 +53,7 @@ typedef struct {
 	unsigned int read_exec_only : 1;
 	unsigned int limit_in_pages : 1;
 	unsigned int seg_not_present : 1;
-	unsigned int useable : 1;
+	unsigned int usable : 1;
 	unsigned int lm : 1;
 } user_desc_t;
 

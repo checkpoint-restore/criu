@@ -99,7 +99,7 @@ message user_desc_t {
 	required bool			read_exec_only	=  7 [default = true];
 	required bool			limit_in_pages	=  8;
 	required bool			seg_not_present	=  9 [default = true];
-	required bool			useable		= 10;
+	required bool			usable		= 10;
 }
 
 message thread_info_x86 {
