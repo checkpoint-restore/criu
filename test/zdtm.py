@@ -975,7 +975,7 @@ class criu_rpc:
         if preexec:
             raise test_fail_exc('RPC and PREEXEC not supported')
 
-        ctx = {}  # Object used to keep info untill action is done
+        ctx = {}  # Object used to keep info until action is done
         criu = crpc.criu()
         criu.use_binary(criu_bin)
         criu_rpc.__set_opts(criu, args, ctx)

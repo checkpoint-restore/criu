@@ -83,7 +83,7 @@ int main(int argc, char **argv)
 		}
 
 		if (tmp != sk_opts[i].lock) {
-			fail("SO_BUF_LOCK missmatch %u != %u", tmp, sk_opts[i].lock);
+			fail("SO_BUF_LOCK mismatch %u != %u", tmp, sk_opts[i].lock);
 			goto err;
 		}
 	}
@@ -103,7 +103,7 @@ int main(int argc, char **argv)
 		}
 
 		if (tmp != sk_opts[i].lock) {
-			fail("SO_BUF_LOCK missmatch %u != %u", tmp, sk_opts[i].lock);
+			fail("SO_BUF_LOCK mismatch %u != %u", tmp, sk_opts[i].lock);
 			goto err;
 		}
 	}

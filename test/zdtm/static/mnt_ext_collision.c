@@ -152,7 +152,7 @@ test:
 	}
 
 	/*
-	 * Setup futex for processes syncronization
+	 * Setup futex for processes synchronization
 	 */
 	futex = mmap(NULL, sizeof(futex), PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	if (futex == MAP_FAILED) {

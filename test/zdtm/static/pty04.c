@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (ioctl(slave1, TIOCSCTTY, 1)) {
-		pr_perror("Can't set a controll terminal");
+		pr_perror("Can't set a control terminal");
 		return 1;
 	}
 

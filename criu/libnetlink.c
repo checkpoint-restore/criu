@@ -45,7 +45,7 @@ static int nlmsg_receive(char *buf, int len, int (*cb)(struct nlmsghdr *, struct
 }
 
 /*
- * Default errror handler: just point our an error
+ * Default error handler: just point our an error
  * and pass up to caller.
  */
 static int rtnl_return_err(int err, struct ns_id *ns, void *arg)

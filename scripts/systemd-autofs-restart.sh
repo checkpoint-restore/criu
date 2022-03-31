@@ -3,11 +3,11 @@
 # This script can be used as a workaround for systemd autofs mount migration.
 # The problem is that systemd is a clever guy: before mounting of actual file
 # system on top of autofs mount, it first checks that device number of autofs
-# mount is equal to the one, stored in sytemd internals. If they do not match,
+# mount is equal to the one, stored in systemd internals. If they do not match,
 # systemd ignores kernel request.
 # The problem happens each time autofs is restored (new device number for
 # autofs superblock) and can't be properly solved without some kind of "device
-# namespaces", where device number can be preseved.
+# namespaces", where device number can be preserved.
 # But some of systemd services can be painlessly restarted. Like
 # proc-sys-fs-binfmt_misc.
 #

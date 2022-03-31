@@ -75,7 +75,7 @@ class SocketsListenClient {
 			try {
 				socket = new Socket(SocketHelper.IP_ADDRESS, port);
 			} catch (Exception e) {
-				logger.log(Level.SEVERE, "Exception occured when connecting to port: " + e);
+				logger.log(Level.SEVERE, "Exception occurred when connecting to port: " + e);
 				socketMappedBuffer.putChar(Helper.MAPPED_INDEX, Helper.STATE_FAIL);
 			}
 			PrintStream out = new PrintStream(socket.getOutputStream());
@@ -123,7 +123,7 @@ class SocketsListenClient {
 				StringWriter writer = new StringWriter();
 				PrintWriter printWriter = new PrintWriter(writer);
 				exception.printStackTrace(printWriter);
-				logger.log(Level.SEVERE, "Exception occured:" + exception);
+				logger.log(Level.SEVERE, "Exception occurred:" + exception);
 				logger.log(Level.FINE, writer.toString());
 			}
 

@@ -96,7 +96,7 @@ int __recv_fds(int sock, int *fds, int nr_fds, void *data, unsigned ch_size, int
 		min_fd = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
 		/*
 		 * In case if kernel screwed the recipient, most probably
-		 * the caller stack frame will be overwriten, just scream
+		 * the caller stack frame will be overwritten, just scream
 		 * and exit.
 		 *
 		 * FIXME Need to sanitize util.h to be able to include it

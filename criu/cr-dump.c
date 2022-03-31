@@ -1026,7 +1026,7 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl, const struct pst
  * What this routine does is just reads pid-s of dead
  * tasks in item's children list from item's ns proc.
  *
- * It does *not* find wihch real pid corresponds to
+ * It does *not* find which real pid corresponds to
  * which virtual one, but it's not required -- all we
  * need to dump for zombie can be found in the same
  * ns proc.
@@ -1472,7 +1472,7 @@ static void alarm_handler(int signo)
 	pr_err("Timeout reached. Try to interrupt: %d\n", alarm_attempts);
 	if (alarm_attempts++ < 5) {
 		alarm(1);
-		/* A curren syscall will be exited with EINTR */
+		/* A current syscall will be exited with EINTR */
 		return;
 	}
 	pr_err("FATAL: Unable to interrupt the current operation\n");

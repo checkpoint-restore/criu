@@ -71,7 +71,7 @@ err:
 
 #ifdef __i386__
 /*
- * On i386 syscalls for speed are optimized trough vdso,
+ * On i386 syscalls for speed are optimized through vdso,
  * call raw int80 as vdso is unmapped.
  */
 #define __NR32_munmap 91

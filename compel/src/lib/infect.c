@@ -456,8 +456,8 @@ static int parasite_run(pid_t pid, int cmd, unsigned long ip, void *stack, user_
 
 	ksigfillset(&block);
 	/*
-	 * FIXME(issues/1429): SIGTRAP can't be blocked, otherwice its hanlder
-	 * will be reseted to the default one.
+	 * FIXME(issues/1429): SIGTRAP can't be blocked, otherwise its handler
+	 * will be reset to the default one.
 	 */
 	ksigdelset(&block, SIGTRAP);
 	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &block)) {
@@ -956,7 +956,7 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	ctl->args_size = args_size;
 	parasite_size += ctl->args_size;
 
-	/* RESTORE_STACK_SIGFRAME needs a 64 bytes alignement */
+	/* RESTORE_STACK_SIGFRAME needs a 64 bytes alignment */
 	parasite_size = round_up(parasite_size, 64);
 
 	map_exchange_size = parasite_size;
@@ -1476,7 +1476,7 @@ int compel_run_in_thread(struct parasite_thread_ctl *tctl, unsigned int cmd)
 
 /*
  * compel_unmap() is used for unmapping parasite and restorer blobs.
- * A blob can contain code for unmapping itself, so the porcess is
+ * A blob can contain code for unmapping itself, so the process is
  * trapped on the exit from the munmap syscall.
  */
 int compel_unmap(struct parasite_ctl *ctl, unsigned long addr)

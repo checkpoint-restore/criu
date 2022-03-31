@@ -59,7 +59,7 @@ define newline
 
 endef
 
-# map funciton:
+# map function:
 # $1 - func to call
 # $2 - list over which map the $1 func
 # result is divided with newlines

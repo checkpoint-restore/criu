@@ -42,7 +42,7 @@ class test:
 
     def check_resp(self, resp, typ, err):
         if resp.type != typ:
-            raise Exception('Unexpected responce type ' + str(resp.type))
+            raise Exception('Unexpected response type ' + str(resp.type))
 
         if resp.success:
             raise Exception('Unexpected success = True')

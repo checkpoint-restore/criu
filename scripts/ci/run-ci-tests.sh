@@ -19,7 +19,7 @@ if [ "$UNAME_M" != "x86_64" ]; then
 
 	# But with the introduction of baremetal aarch64 systems in
 	# Travis (arch: arm64-graviton2) we can override this using
-	# an evironment variable
+	# an environment variable
 	[ -n "$RUN_TESTS" ] || SKIP_CI_TEST=1
 fi
 

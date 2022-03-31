@@ -23,7 +23,7 @@ if "encodebytes" not in dir(base64):
 # here are some of them:
 #   - both have a common bug in treating optional field with empty
 #     repeated inside.
-#   - protobuf-to-json is not avalible in pip or in any other python
+#   - protobuf-to-json is not available in pip or in any other python
 #     repo, so it is hard to distribute and we can't rely on it.
 #   - both do not treat enums in a way we would like to. They convert
 #     protobuf enum to int, but we need a string here, because it is

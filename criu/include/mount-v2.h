@@ -71,7 +71,7 @@ struct sharing_group {
 	struct list_head mnt_list;
 
 	/*
-	 * List of dependant shared groups:
+	 * List of dependent shared groups:
 	 * - all siblings have equal master_id
 	 * - the parent has shared_id equal to children's master_id
 	 *
@@ -79,7 +79,7 @@ struct sharing_group {
 	 * parent sharing_group in list or only siblings.
 	 * So for traversal if parent pointer is set we can do:
 	 *   list_for_each_entry(t, &sg->parent->children, siblings)
-	 * and overvise we can do:
+	 * and otherwise we can do:
 	 *   list_for_each_entry(t, &sg->siblings, siblings)
 	 */
 	struct list_head children;

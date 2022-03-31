@@ -15,7 +15,7 @@ struct ns_id;
 /*
  * Here are a set of flags which we know how to handle for the one mount call.
  * All of them except MS_RDONLY are set only as mnt flags.
- * MS_RDONLY is set for both mnt ans sb flags, so we can restore it for one
+ * MS_RDONLY is set for both mnt and sb flags, so we can restore it for one
  * mount call only if it set for both masks.
  */
 #define MS_MNT_KNOWN_FLAGS (MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_NOATIME | MS_NODIRATIME | MS_RELATIME | MS_RDONLY)

@@ -31,7 +31,7 @@ do_or_fail()
 
 do_start()
 {
-	[ -f "$statefile" ] && die "state file $statefile aleady exists"
+	[ -f "$statefile" ] && die "state file $statefile already exists"
 
 	# Get default route
 	dev_name=`ip route list match 0.0.0.0/0 | sed 's/.*dev \([^ ]*\).*/\1/'`
@@ -66,7 +66,7 @@ tmpargs="$(../lib/parseargs.sh --name=$0 \
 	die "can't parse command line"
 eval "$tmpargs"
 
-[ -f "$outfile" ] && die "out file $outfile aleady exists"
+[ -f "$outfile" ] && die "out file $outfile already exists"
 
 # expect "start" or "stop"
 action=${1:?Specify action$(die 'Specify action')}

@@ -35,7 +35,7 @@
  * Thus, the old code that saves and restores AA profiles is still relevant, we
  * just need to add the new code in this file to walk the namespace and dump
  * any blobs in that AA namespace, and then restore these blobs on restore so
- * that the profiles the old code tries to use are actualy present.
+ * that the profiles the old code tries to use are actually present.
  */
 
 static AaNamespace **namespaces = NULL;

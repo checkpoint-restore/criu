@@ -261,7 +261,7 @@ class sock:
         # that hasn't contributed to some new states is
         # just waste of time, so we close only connected
         # sockets or listeners that has at least one
-        # incoming connection pendig or served
+        # incoming connection pending or served
 
         if self.listen:
             if self.icons:
