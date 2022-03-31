@@ -51,7 +51,7 @@ int main(int argc, char **argv)
 
 	if (pid == 0) {
 		/*
-		 * Chiled is client of TCP connection
+		 * Child is client of TCP connection.
 		 */
 		close(fd_s);
 		fd = tcp_init_client(AF_INET, "127.0.0.1", port);
