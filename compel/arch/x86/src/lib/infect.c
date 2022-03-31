@@ -303,9 +303,9 @@ static int corrupt_extregs(pid_t pid)
 
 	/*
 	 * Error log-level as:
-	 *  - not intended to be used outside of testing,
+	 *  - not intended to be used outside of testing;
 	 *  - zdtm.py will grep it auto-magically from logs
-	 *    (and the seed will be known from an automatical testing)
+	 *    (and the seed will be known from automatic testing).
 	 */
 	pr_err("Corrupting %s for %d, seed %u\n", use_xsave ? "xsave" : "fpuregs", pid, init_seed);
 

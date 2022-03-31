@@ -1306,7 +1306,7 @@ static int kerndat_has_pidfd_getfd(void)
 	if (val_b == val_a) {
 		kdat.has_pidfd_getfd = true;
 	} else {
-		/* If val_b != val_a then something unexpected happend. */
+		/* If val_b != val_a, something unexpected happened. */
 		pr_err("Unexpected value read from socket\n");
 		ret = -1;
 	}
