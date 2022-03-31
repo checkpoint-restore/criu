@@ -1,0 +1,3 @@
+[codespell]
+skip = ./.git,./test/pki
+ignore-words-list = creat,fpr,fle,ue,bord,parms,nd,te,testng
