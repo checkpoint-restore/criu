@@ -382,13 +382,13 @@ static int restore_dumpable_flag(MmEntry *mme)
 
 static void restore_sched_info(struct rst_sched_param *p)
 {
-	struct sched_param parm;
+	struct sched_param param;
 
 	pr_info("Restoring scheduler params %d.%d.%d\n", p->policy, p->nice, p->prio);
 
 	sys_setpriority(PRIO_PROCESS, 0, p->nice);
-	parm.sched_priority = p->prio;
-	sys_sched_setscheduler(0, p->policy, &parm);
+	param.sched_priority = p->prio;
+	sys_sched_setscheduler(0, p->policy, &param);
 }
 
 static void restore_rlims(struct task_restore_args *ta)
