@@ -62,7 +62,7 @@ class SocketsMultipleServer {
 			socketMappedBuffer.putChar(7, Helper.STATE_INIT);
 			socketMappedBuffer.putChar(9, Helper.STATE_INIT);
 
-			ServerSocket ser = new ServerSocket(port);
+			ServerSocket s = new ServerSocket(port);
 			logger.log(Level.INFO, "Server will be listening on Port " + port);
 
 			Socket[] sockets = new Socket[4];
@@ -73,8 +73,8 @@ class SocketsMultipleServer {
 			socketMappedBuffer.putChar(Helper.MAPPED_INDEX, SocketHelper.STATE_LISTEN);
 
 			for (int i = 1; i <= 4; i++) {
-				sockets[i - 1] = ser.accept();
-				ServerThread serverThread = new ServerThread(sockets[i - 1], "ser-socket " + i, 2 * i + 1, logger, socketMappedBuffer);
+				sockets[i - 1] = s.accept();
+				ServerThread serverThread = new ServerThread(sockets[i - 1], "s-socket " + i, 2 * i + 1, logger, socketMappedBuffer);
 				serverThread.start();
 				if (i == 3) {
 					logger.log(Level.INFO, "Connected to client: 3");
