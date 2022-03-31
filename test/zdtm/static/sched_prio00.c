@@ -34,20 +34,20 @@ static void kill_all(int *pid, int n)
 
 int main(int argc, char **argv)
 {
-	int pid[NRTASKS], i, parm[NRTASKS], ret;
+	int pid[NRTASKS], i, param[NRTASKS], ret;
 
 	test_init(argc, argv);
 
-	parm[0] = -20;
-	parm[1] = 19;
-	parm[2] = 1;
+	param[0] = -20;
+	param[1] = 19;
+	param[2] = 1;
 
 	for (i = 0; i < NRTASKS; i++) {
 		pid[i] = fork();
 		if (!pid[i])
 			return do_nothing();
 
-		if (setpriority(PRIO_PROCESS, pid[i], parm[i])) {
+		if (setpriority(PRIO_PROCESS, pid[i], param[i])) {
 			pr_perror("Can't set prio %d", i);
 			kill_all(pid, i);
 			return -1;
@@ -65,7 +65,7 @@ int main(int argc, char **argv)
 			break;
 		}
 
-		if (ret != parm[i]) {
+		if (ret != param[i]) {
 			fail("Broken nice for %d", i);
 			break;
 		}
