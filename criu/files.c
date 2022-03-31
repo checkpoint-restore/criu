@@ -1254,7 +1254,7 @@ int close_old_fds(void)
 	int fd, ret;
 
 	/**
-	 * Close previous /proc/self/ service fd, as we don't wan't to reuse it
+	 * Close previous /proc/self/ service fd, as we don't want to reuse it
 	 * from a different task. Also there can be some junk fd in it's place
 	 * after we've moved our service fds (e.g. from other task of parents
 	 * shared fdtable), we need to close it before opendir_proc() below.

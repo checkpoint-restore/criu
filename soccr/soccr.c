@@ -216,7 +216,7 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 	data->unsq_len = size;
 
 	if (data->state == TCP_CLOSE) {
-		/* A connection could be reset. In thise case a sent queue
+		/* A connection could be reset. In this case a sent queue
 		 * may contain some data. A user can't read this data, so let's
 		 * ignore them. Otherwise we will need to add a logic whether
 		 * the send queue contains a fin packet or not and decide whether
@@ -441,7 +441,7 @@ union libsoccr_addr *libsoccr_get_addr(struct libsoccr_sk *sk, int self, unsigne
 	if (flags & ~GET_SA_FLAGS)
 		return NULL;
 
-	/* FIXME -- implemented in CRIU, makes sence to have it here too */
+	/* FIXME -- implemented in CRIU, makes sense to have it here too */
 	return NULL;
 }
 
