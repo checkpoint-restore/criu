@@ -155,6 +155,11 @@ not compatible with *--external* *dev*.
             notification message contains a file descriptor for
             the master pty
 
+        *query-ext-files*:::
+            called after the process tree is stopped and network is locked.
+            This hook is used only in the RPC mode. The notification reply
+            contains file ids to be added to external file list (may be empty).
+
 *--unprivileged*::
     This option tells *criu* to accept the limitations when running
     as non-root. Running as non-root requires *criu* at least to have

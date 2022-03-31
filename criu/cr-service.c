@@ -240,6 +240,49 @@ int send_criu_rpc_script(enum script_actions act, char *name, int sk, int fd)
 	return 0;
 }
 
+int exec_rpc_query_external_files(char *name, int sk)
+{
+	int i, ret;
+	CriuNotify cn = CRIU_NOTIFY__INIT;
+	CriuResp msg = CRIU_RESP__INIT;
+	CriuReq *req;
+
+	cn.script = name;
+
+	msg.type = CRIU_REQ_TYPE__NOTIFY;
+	msg.success = true;
+	msg.notify = &cn;
+
+	ret = send_criu_msg_with_fd(sk, &msg, -1);
+	if (ret < 0)
+		return ret;
+
+	ret = recv_criu_msg(sk, &req);
+	if (ret < 0)
+		return ret;
+
+	if (req->type != CRIU_REQ_TYPE__NOTIFY || !req->notify_success) {
+		pr_err("RPC client reported script error\n");
+		return -1;
+	}
+
+	ret = 0;
+	if (req->opts)
+		for (i = 0; i < req->opts->n_external; i++) {
+			char *key = req->opts->external[i];
+			pr_info("Adding external object: %s\n", key);
+			if (add_external(key)) {
+				pr_err("Failed to add external object: %s\n", key);
+				ret = -1;
+			}
+		}
+	else
+		pr_info("RPC NOTIFY %s: no `opts` returned.\n", name);
+
+	criu_req__free_unpacked(req, NULL);
+	return ret;
+}
+
 static char images_dir[PATH_MAX];
 
 static int setup_opts_from_req(int sk, CriuOpts *req)
