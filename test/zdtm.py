@@ -1556,8 +1556,8 @@ def cr(cr_api, test, opts):
 
     iters = iter_parm(opts['iters'], 1)
     for i in iters[0]:
-        pres = iter_parm(opts['pre'], 0)
-        for p in pres[0]:
+        pre = iter_parm(opts['pre'], 0)
+        for p in pre[0]:
             if opts['snaps']:
                 sbs('before snap %d' % p)
                 cr_api.dump("dump", opts=["--leave-running", "--track-mem"])
@@ -1566,7 +1566,7 @@ def cr(cr_api, test, opts):
                 cr_api.dump("pre-dump")
                 try_run_hook(test, ["--post-pre-dump"])
                 test.pre_dump_notify()
-            time.sleep(pres[1])
+            time.sleep(pre[1])
 
         sbs('before dump')
 
