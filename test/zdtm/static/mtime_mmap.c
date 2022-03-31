@@ -11,7 +11,7 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc = "file mmaped for write and being written should change mtime\n"
+const char *test_doc = "file mmapped for write and being written should change mtime\n"
 		       "and be migrated with correct new data";
 
 char *filename;
