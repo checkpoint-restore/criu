@@ -95,7 +95,7 @@ int flog_map_buf(int fdout)
 
 	/*
 	 * Two buffers are mmapped into memory. A new one is mapped when a first
-	 * one is completly filled.
+	 * one is completely filled.
 	 */
 	if (fbuf && (mbuf - fbuf < BUF_SIZE))
 		return 0;
