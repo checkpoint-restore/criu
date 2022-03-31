@@ -58,13 +58,13 @@ class SocketsListenServer {
 			}
 
 			logger.log(Level.INFO, "Server will be listening on Port " + port);
-			ServerSocket ser = new ServerSocket(port);
+			ServerSocket s = new ServerSocket(port);
 			/*
 			 * Server has bound to a port but is not listening yet!
 			 */
 			logger.log(Level.INFO, "Going to checkpoint");
 			if (socketMappedBuffer.getChar(Helper.MAPPED_INDEX) == Helper.STATE_FAIL || socketMappedBuffer.getChar(Helper.MAPPED_INDEX) == Helper.STATE_END) {
-				ser.close();
+				s.close();
 				System.exit(1);
 			}
 			/*
@@ -73,13 +73,13 @@ class SocketsListenServer {
 			socketMappedBuffer.putChar(Helper.MAPPED_INDEX, Helper.STATE_CHECKPOINT);
 			SocketHelper.socketWaitForRestore(socketMappedBuffer, logger);
 
-			if (!ser.isBound()) {
+			if (!s.isBound()) {
 				logger.log(Level.SEVERE, "Server is not bound to a port");
 				socketMappedBuffer.putChar(Helper.MAPPED_INDEX, Helper.STATE_FAIL);
 				System.exit(1);
 			}
 
-			if (ser.getLocalPort() != port) {
+			if (s.getLocalPort() != port) {
 				logger.log(Level.SEVERE, "SServer is not listening on correct port");
 				socketMappedBuffer.putChar(Helper.MAPPED_INDEX, Helper.STATE_FAIL);
 				System.exit(1);
@@ -88,7 +88,7 @@ class SocketsListenServer {
 			 * Timeout after 5 sec if client does not connect
 			 */
 			try {
-				ser.setSoTimeout(5 * 1000);
+				s.setSoTimeout(5 * 1000);
 
 			} catch (SocketException e) {
 				logger.log(Level.SEVERE, "cannot set timeout");
@@ -102,7 +102,7 @@ class SocketsListenServer {
 				 * will begin listening for connections.
 				 */
 				socketMappedBuffer.putChar(Helper.MAPPED_INDEX, SocketHelper.STATE_LISTEN);
-				socket = ser.accept();
+				socket = s.accept();
 
 			} catch (Exception e) {
 				logger.log(Level.SEVERE, "Timed out while waiting for client to connect\n" + e);
