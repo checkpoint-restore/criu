@@ -14,7 +14,7 @@
 
 /*
  * Workaround for VDSO array symbol table's relocation.
- * XXX: remove when compel/piegen will support aarch64.
+ * XXX: remove when compel/piegen will support riscv64.
  */
 #define ARCH_VDSO_SYMBOLS_LIST                                     \
 	const char *aarch_vdso_symbol1 = "__kernel_clock_getres";  \

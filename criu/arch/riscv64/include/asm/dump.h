@@ -7,7 +7,7 @@ extern void arch_free_thread_info(CoreEntry *core);
 
 static inline void core_put_tls(CoreEntry *core, tls_t tls)
 {
-	core->ti_aarch64->tls = tls;
+	core->ti_riscv64->tls = tls;
 }
 
 #define get_task_futex_robust_list_compat(pid, info) -1

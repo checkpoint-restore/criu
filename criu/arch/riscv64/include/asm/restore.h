@@ -21,7 +21,7 @@
 
 static inline void core_get_tls(CoreEntry *pcore, tls_t *ptls)
 {
-	*ptls = pcore->ti_aarch64->tls;
+	*ptls = pcore->ti_riscv64->tls;
 }
 
 int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core);

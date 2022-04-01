@@ -28,53 +28,53 @@ int save_task_regs(void *x, user_regs_struct_t *regs, user_fpregs_struct_t *fpsi
 	int i;
 	CoreEntry *core = x;
 
-	// Save the Aarch64 CPU state
+	// Save the riscv64 CPU state
 	for (i = 0; i < 31; ++i)
-		assign_reg(core->ti_aarch64->gpregs, regs, regs[i]);
-	assign_reg(core->ti_aarch64->gpregs, regs, sp);
-	assign_reg(core->ti_aarch64->gpregs, regs, pc);
-	assign_reg(core->ti_aarch64->gpregs, regs, pstate);
+		assign_reg(core->ti_riscv64->gpregs, regs, regs[i]);
+	assign_reg(core->ti_riscv64->gpregs, regs, sp);
+	assign_reg(core->ti_riscv64->gpregs, regs, pc);
+	assign_reg(core->ti_riscv64->gpregs, regs, pstate);
 
 	// Save the FP/SIMD state
 	for (i = 0; i < 32; ++i) {
-		core->ti_aarch64->fpsimd->vregs[2 * i] = fpsimd->vregs[i];
-		core->ti_aarch64->fpsimd->vregs[2 * i + 1] = fpsimd->vregs[i] >> 64;
+		core->ti_riscv64->fpsimd->vregs[2 * i] = fpsimd->vregs[i];
+		core->ti_riscv64->fpsimd->vregs[2 * i + 1] = fpsimd->vregs[i] >> 64;
 	}
-	assign_reg(core->ti_aarch64->fpsimd, fpsimd, fpsr);
-	assign_reg(core->ti_aarch64->fpsimd, fpsimd, fpcr);
+	assign_reg(core->ti_riscv64->fpsimd, fpsimd, fpsr);
+	assign_reg(core->ti_riscv64->fpsimd, fpsimd, fpcr);
 
 	return 0;
 }
 
 int arch_alloc_thread_info(CoreEntry *core)
 {
-	ThreadInfoAarch64 *ti_aarch64;
-	UserAarch64RegsEntry *gpregs;
-	UserAarch64FpsimdContextEntry *fpsimd;
+	ThreadInforiscv64 *ti_riscv64;
+	Userriscv64RegsEntry *gpregs;
+	Userriscv64FpsimdContextEntry *fpsimd;
 
-	ti_aarch64 = xmalloc(sizeof(*ti_aarch64));
-	if (!ti_aarch64)
+	ti_riscv64 = xmalloc(sizeof(*ti_riscv64));
+	if (!ti_riscv64)
 		goto err;
-	thread_info_aarch64__init(ti_aarch64);
-	core->ti_aarch64 = ti_aarch64;
+	thread_info_riscv64__init(ti_riscv64);
+	core->ti_riscv64 = ti_riscv64;
 
 	gpregs = xmalloc(sizeof(*gpregs));
 	if (!gpregs)
 		goto err;
-	user_aarch64_regs_entry__init(gpregs);
+	user_riscv64_regs_entry__init(gpregs);
 
 	gpregs->regs = xmalloc(31 * sizeof(uint64_t));
 	if (!gpregs->regs)
 		goto err;
 	gpregs->n_regs = 31;
 
-	ti_aarch64->gpregs = gpregs;
+	ti_riscv64->gpregs = gpregs;
 
 	fpsimd = xmalloc(sizeof(*fpsimd));
 	if (!fpsimd)
 		goto err;
-	user_aarch64_fpsimd_context_entry__init(fpsimd);
-	ti_aarch64->fpsimd = fpsimd;
+	user_riscv64_fpsimd_context_entry__init(fpsimd);
+	ti_riscv64->fpsimd = fpsimd;
 	fpsimd->vregs = xmalloc(64 * sizeof(fpsimd->vregs[0]));
 	fpsimd->n_vregs = 64;
 	if (!fpsimd->vregs)
@@ -104,14 +104,14 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 	int i;
 	struct fpsimd_context *fpsimd = RT_SIGFRAME_FPU(sigframe);
 
-	if (core->ti_aarch64->fpsimd->n_vregs != 64)
+	if (core->ti_riscv64->fpsimd->n_vregs != 64)
 		return 1;
 
 	for (i = 0; i < 32; ++i)
-		fpsimd->vregs[i] = (__uint128_t)core->ti_aarch64->fpsimd->vregs[2 * i] |
-				   ((__uint128_t)core->ti_aarch64->fpsimd->vregs[2 * i + 1] << 64);
-	assign_reg(fpsimd, core->ti_aarch64->fpsimd, fpsr);
-	assign_reg(fpsimd, core->ti_aarch64->fpsimd, fpcr);
+		fpsimd->vregs[i] = (__uint128_t)core->ti_riscv64->fpsimd->vregs[2 * i] |
+				   ((__uint128_t)core->ti_riscv64->fpsimd->vregs[2 * i + 1] << 64);
+	assign_reg(fpsimd, core->ti_riscv64->fpsimd, fpsr);
+	assign_reg(fpsimd, core->ti_riscv64->fpsimd, fpcr);
 
 	fpsimd->head.magic = FPSIMD_MAGIC;
 	fpsimd->head.size = sizeof(*fpsimd);

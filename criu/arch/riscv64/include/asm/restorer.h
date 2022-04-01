@@ -44,7 +44,7 @@
 			: "x0", "x1", "x2", "x3", "x8", "memory")
 
 /*
- * Based on sysdeps/unix/sysv/linux/aarch64/clone.S
+ * Based on sysdeps/unix/sysv/linux/riscv64/clone.S
  *
  * int clone(int (*fn)(void *arg),            x0
  *	     void *child_stack,               x1
@@ -69,7 +69,7 @@
 	 * the thread function and its arguments on the child stack,
 	 * but uses registers to pass these parameters to the child process.
 	 * Based on the glibc clone() wrapper at
-	 * sysdeps/unix/sysv/linux/aarch64/clone.S.
+	 * sysdeps/unix/sysv/linux/riscv64/clone.S.
 	 */									\
 			"clone3_emul:					\n"	\
 	/*
@@ -117,8 +117,8 @@
 
 #define arch_map_vdso(map, compat) -1
 
-int restore_gpregs(struct rt_sigframe *f, UserAarch64RegsEntry *r);
-int restore_nonsigframe_gpregs(UserAarch64RegsEntry *r);
+int restore_gpregs(struct rt_sigframe *f, Userriscv64RegsEntry *r);
+int restore_nonsigframe_gpregs(Userriscv64RegsEntry *r);
 
 static inline void restore_tls(tls_t *ptls)
 {
