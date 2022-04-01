@@ -27,9 +27,9 @@ typedef struct __riscv_d_ext_state user_fpregs_struct_t;
 #define REG_RES(r)	  ((uint64_t)(r).a0)
 #define REG_IP(r)	  ((uint64_t)(r).pc)
 
-#ifndef REG_SP
+// #ifndef REG_SP
 #define REG_GET_SP(r)	  ((uint64_t)((r).sp))
-#endif
+// #endif
 
 #define REG_SYSCALL_NR(r) ((uint64_t)(r).a7)
 
