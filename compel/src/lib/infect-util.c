@@ -7,6 +7,8 @@
 #include "infect-rpc.h"
 #include "infect-util.h"
 
+uint64_t compel_run_id;
+
 int compel_util_send_fd(struct parasite_ctl *ctl, int fd)
 {
 	int sk;

@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 int add_external(char *key)
@@ -141,3 +142,5 @@ int check_mount_v2(void)
 {
 	return 0;
 }
+
+uint64_t compel_run_id;
