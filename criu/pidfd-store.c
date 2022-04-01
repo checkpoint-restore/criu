@@ -100,7 +100,8 @@ int init_pidfd_store_sk(pid_t pid, int sk)
 			goto err;
 		}
 
-		addrlen = snprintf(addr.sun_path, sizeof(addr.sun_path), "X/criu-pidfd-store-%d-%d", pid, sk);
+		addrlen = snprintf(addr.sun_path, sizeof(addr.sun_path), "X/criu-pidfd-store-%d-%d-%" PRIx64, pid, sk,
+				   criu_run_id);
 		addrlen += sizeof(addr.sun_family);
 
 		addr.sun_path[0] = 0;
