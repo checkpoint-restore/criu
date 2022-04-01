@@ -12,6 +12,7 @@
 #include "xmalloc.h"
 #include "rst-malloc.h"
 #include "log.h"
+#include "util.h"
 
 /* clang-format off */
 static struct fdstore_desc {
@@ -56,7 +57,8 @@ int fdstore_init(void)
 	}
 
 	addr.sun_family = AF_UNIX;
-	addrlen = snprintf(addr.sun_path, sizeof(addr.sun_path), "X/criu-fdstore-%" PRIx64, st.st_ino);
+	addrlen = snprintf(addr.sun_path, sizeof(addr.sun_path), "X/criu-fdstore-%" PRIx64 "-%" PRIx64, st.st_ino,
+			   criu_run_id);
 	addrlen += sizeof(addr.sun_family);
 
 	addr.sun_path[0] = 0;
