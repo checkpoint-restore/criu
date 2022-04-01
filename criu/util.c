@@ -52,6 +52,8 @@
 #include "cr-errno.h"
 #include "action-scripts.h"
 
+#include "compel/infect-util.h"
+
 #define VMA_OPT_LEN 128
 
 static int xatol_base(const char *string, long *number, int base)
@@ -1816,6 +1818,7 @@ void util_init()
 
 	clock_gettime(CLOCK_MONOTONIC, &tp);
 	criu_run_id = ((uint64_t)getpid() << 32) + tp.tv_sec + tp.tv_nsec;
+	compel_run_id = criu_run_id;
 }
 
 /*
