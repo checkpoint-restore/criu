@@ -1217,6 +1217,9 @@ int prepare_task_cgroup(struct pstree_item *me)
 	CgSetEntry *se;
 	u32 current_cgset;
 
+	if (opts.manage_cgroups == CG_MODE_IGNORE)
+		return 0;
+
 	if (!rsti(me)->cg_set)
 		return 0;
 
@@ -1298,6 +1301,9 @@ static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p, char *pat
 {
 	int cg, fd, ret = -1;
 	CgroupPerms *perms = cg_prop_entry_p->perms;
+
+	if (opts.manage_cgroups == CG_MODE_IGNORE)
+		return 0;
 
 	if (!cg_prop_entry_p->value) {
 		pr_err("cg_prop_entry->value was empty when should have had a value\n");
