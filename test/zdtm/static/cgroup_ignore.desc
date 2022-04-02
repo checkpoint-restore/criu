@@ -1,0 +1,1 @@
+{'flavor': 'h', 'flags': 'suid excl', 'ropts': '--manage-cgroups=ignore'}
