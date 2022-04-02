@@ -377,6 +377,7 @@ TST_DIR		=				\
 		cgroup03			\
 		cgroup04			\
 		cgroup_ifpriomap		\
+		cgroup_ignore			\
 		cgroup_stray			\
 		cgroup_yard			\
 		unlink_fstat04			\
