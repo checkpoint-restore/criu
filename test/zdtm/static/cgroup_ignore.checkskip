@@ -1,0 +1,13 @@
+#!/bin/bash
+
+dest=$(mktemp -d cg_ignore.XXXXXX)
+
+trap 'rmdir "$dest"' EXIT
+
+if ! mount -t cgroup2 none "$dest"; then
+	exit 1
+fi
+
+umount "$dest"
+
+exit 0
