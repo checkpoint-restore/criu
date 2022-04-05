@@ -21,7 +21,10 @@ add-apt-repository \
 
 . /etc/lsb-release
 
-echo '{ "experimental": true }' > /etc/docker/daemon.json
+# overlayfs with current Ubuntu kernel breaks CRIU
+# https://bugs.launchpad.net/ubuntu/+source/linux-azure/+bug/1967924
+# Use devicemapper storage drive as a work-around
+echo '{ "experimental": true, "storage-driver": "devicemapper" }' > /etc/docker/daemon.json
 
 CRIU_LOG='/criu.log'
 mkdir -p /etc/criu
