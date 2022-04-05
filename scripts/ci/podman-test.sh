@@ -25,7 +25,10 @@ make install
 popd
 rm -rf "${tmp_dir}"
 
-podman info
+# overlaysfs behaves differently on Ubuntu and breaks CRIU
+# https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1857257
+export STORAGE_DRIVER=vfs
+podman --storage-driver vfs info
 
 # shellcheck disable=SC2016
 podman run --name cr -d docker.io/library/alpine /bin/sh -c 'i=0; while true; do echo $i; i=$(expr $i + 1); sleep 1; done'
