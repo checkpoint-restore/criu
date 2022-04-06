@@ -497,9 +497,34 @@ static int dump_one_unix_fd(int lfd, uint32_t id, const struct fd_parms *p)
 			goto err;
 		}
 
+		if (sk->wqlen != 0) {
+			/*
+			 * There's no known way to get data out of the write
+			 * queue of an icon socket. The only good solution for
+			 * now is to fail the migration.
+			 */
+			pr_err("Non-empty write queue on an in-flight socket %#x\n", ue->ino);
+			goto err;
+		}
+
 		ue->peer = e->sk_desc->sd.ino;
 
 		pr_debug("\t\tFixed inflight socket %u peer %u)\n", ue->ino, ue->peer);
+	} else if (ue->state == TCP_LISTEN) {
+		int i;
+
+		for (i = 0; i < sk->nr_icons; i++)
+			if (sk->icons[i] == 0) {
+				/*
+				 * Inode of an icon socket equal to 0 means
+				 * it's already been closed. That means we have
+				 * no simple way to check if it sent any data.
+				 * The only good solution for now is to fail
+				 * the migration.
+				 */
+				pr_err("Found a closed in-flight socket to %#x\n", ue->ino);
+				goto err;
+			}
 	}
 dump:
 	if (dump_socket_opts(lfd, skopts))
