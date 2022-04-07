@@ -7,7 +7,13 @@ prep
 ./test/zdtm.py run -t zdtm/static/env00 --fault 1 --report report -f h || fail
 ./test/zdtm.py run -t zdtm/static/unlink_fstat00 --fault 2 --report report -f h || fail
 ./test/zdtm.py run -t zdtm/static/maps00 --fault 3 --report report -f h || fail
-./test/zdtm.py run -t zdtm/static/inotify_irmap --fault 128 --pre 2 -f uns || fail
+
+# FIXME: fhandles looks broken on btrfs
+cat /proc/self/mountinfo | grep -P "/.* / " | grep -q btrfs || NOBTRFS=$?
+if [ $NOBTRFS -eq 1 ] ; then
+	./test/zdtm.py run -t zdtm/static/inotify_irmap --fault 128 --pre 2 -f uns || fail
+fi
+
 ./test/zdtm.py run -t zdtm/static/env00 --fault 129 -f uns || fail
 ./test/zdtm.py run -t zdtm/transition/fork --fault 130 -f h || fail
 ./test/zdtm.py run -t zdtm/static/vdso01 --fault 127 || fail
