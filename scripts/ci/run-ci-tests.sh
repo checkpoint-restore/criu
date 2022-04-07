@@ -88,7 +88,7 @@ print_env() {
 	print_header "uname -a"
 	uname -a || :
 	print_header "Mounted file systems"
-	mount || :
+	cat /proc/self/mountinfo || :
 	print_header "Kernel command line"
 	cat /proc/cmdline || :
 	print_header "Distribution information"
