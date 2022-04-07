@@ -12,13 +12,13 @@ ifdef CLANG
 endif
 
 TARGETS := alpine fedora-rawhide centos7 centos8 archlinux
-ZDTM_OPTIONS :=
+ZDTM_OPTS :=
 UNAME := $(shell uname -m)
 export UNAME
 CONTAINER_RUNTIME := docker
 export CONTAINER_RUNTIME
 
-alpine: ZDTM_OPTIONS=-x zdtm/static/binfmt_misc -x zdtm/static/netns-nf -x zdtm/static/sched_policy00 -x zdtm/static/seccomp_strict -x zdtm/static/sigaltstack -x zdtm/static/signalfd00
+alpine: ZDTM_OPTS=-x zdtm/static/binfmt_misc -x zdtm/static/sched_policy00
 
 define DOCKER_JSON
 {
@@ -66,13 +66,15 @@ restart-docker:
 		systemctl status docker; \
 	fi
 
+export ZDTM_OPTS
+
 $(TARGETS): restart-docker
 	$(MAKE) -C ../build $@$(target-suffix)
-	$(CONTAINER_RUNTIME) run --env-file docker.env $(CONTAINER_OPTS) criu-$@ scripts/ci/run-ci-tests.sh
+	$(CONTAINER_RUNTIME) run --env-file docker.env $(if $(ZDTM_OPTS),-e ZDTM_OPTS) $(CONTAINER_OPTS) criu-$@ scripts/ci/run-ci-tests.sh
 
 fedora-asan: restart-docker
 	$(MAKE) -C ../build $@$(target-suffix)
-	$(CONTAINER_RUNTIME) run $(CONTAINER_OPTS) criu-$@ ./scripts/ci/asan.sh $(ZDTM_OPTIONS)
+	$(CONTAINER_RUNTIME) run $(CONTAINER_OPTS) criu-$@ ./scripts/ci/asan.sh $(ZDTM_OPTS)
 
 docker-test:
 	./docker-test.sh
