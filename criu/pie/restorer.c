@@ -425,6 +425,28 @@ static int restore_signals(siginfo_t *ptr, int nr, bool group)
 	return 0;
 }
 
+static int restore_rseq(struct rst_rseq_param *rseq)
+{
+	int ret;
+
+	if (!rseq->rseq_abi_pointer) {
+		pr_debug("rseq: nothing to restore\n");
+		return 0;
+	}
+
+	pr_debug("rseq: rseq_abi_pointer = %lx signature = %x\n", (unsigned long)rseq->rseq_abi_pointer,
+		 rseq->signature);
+
+	ret = sys_rseq(decode_pointer(rseq->rseq_abi_pointer), rseq->rseq_abi_size, 0, rseq->signature);
+	if (ret) {
+		pr_err("failed sys_rseq(%lx, %lx, %x, %x) = %d\n", (unsigned long)rseq->rseq_abi_pointer,
+		       (unsigned long)rseq->rseq_abi_size, 0, rseq->signature, ret);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int restore_seccomp_filter(pid_t tid, struct thread_restore_args *args)
 {
 	unsigned int flags = args->seccomp_force_tsync ? SECCOMP_FILTER_FLAG_TSYNC : 0;
@@ -548,6 +570,9 @@ static int restore_thread_common(struct thread_restore_args *args)
 		return -1;
 
 	restore_tls(&args->tls);
+
+	if (restore_rseq(&args->rseq))
+		return -1;
 
 	return 0;
 }
