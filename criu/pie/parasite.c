@@ -169,6 +169,7 @@ static int dump_posix_timers(struct parasite_dump_posix_timers_args *args)
 }
 
 static int dump_creds(struct parasite_dump_creds *args);
+static int check_rseq(struct parasite_check_rseq *rseq);
 
 static int dump_thread_common(struct parasite_dump_thread *ti)
 {
@@ -196,6 +197,12 @@ static int dump_thread_common(struct parasite_dump_thread *ti)
 	ret = sys_prctl(PR_GET_NAME, (unsigned long)&ti->comm, 0, 0, 0);
 	if (ret) {
 		pr_err("Unable to get the thread name: %d\n", ret);
+		goto out;
+	}
+
+	ret = check_rseq(&ti->rseq);
+	if (ret) {
+		pr_err("Unable to check if rseq() is initialized: %d\n", ret);
 		goto out;
 	}
 
@@ -313,6 +320,97 @@ static int dump_creds(struct parasite_dump_creds *args)
 grps_err:
 	pr_err("Error calling getgroups (%d)\n", ret);
 	return -1;
+}
+
+static int check_rseq(struct parasite_check_rseq *rseq)
+{
+	int ret;
+	unsigned long rseq_abi_pointer;
+	unsigned long rseq_abi_size;
+	uint32_t rseq_signature;
+	void *addr;
+
+	/* no need to do hacky check if we can get all info from ptrace() */
+	if (!rseq->has_rseq || rseq->has_ptrace_get_rseq_conf)
+		return 0;
+
+	/*
+	 * We need to determine if victim process has rseq()
+	 * initialized, but we have no *any* proper kernel interface
+	 * supported at this point.
+	 * Our plan:
+	 * 1. We know that if we call rseq() syscall and process already
+	 * has current->rseq filled, then we get:
+	 * -EINVAL if current->rseq != rseq || rseq_len != sizeof(*rseq),
+	 * -EPERM  if current->rseq_sig != sig),
+	 * -EBUSY  if current->rseq == rseq && rseq_len == sizeof(*rseq) &&
+	 *            current->rseq_sig != sig
+	 * if current->rseq == NULL (rseq() wasn't used) then we go to:
+	 * IS_ALIGNED(rseq ...) check, if we fail it we get -EINVAL and it
+	 * will be hard to distinguish case when rseq() was initialized or not.
+	 * Let's construct arguments payload
+	 * with:
+	 * 1. correct rseq_abi_size
+	 * 2. aligned and correct rseq_abi_pointer
+	 * And see what rseq() return to us.
+	 * If ret value is:
+	 * 0: it means that rseq *wasn't* used and we successfully registered it,
+	 * -EINVAL or : it means that rseq is already initialized,
+	 * so we *have* to dump it. But as we have has_ptrace_get_rseq_conf = false,
+	 * we should just fail dump as it's unsafe to skip rseq() dump for processes
+	 * with rseq() initialized.
+	 * -EPERM or -EBUSY: should not happen as we take a fresh memory area for rseq
+	 */
+	addr = (void *)sys_mmap(NULL, sizeof(struct criu_rseq), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1,
+				0);
+	if (addr == MAP_FAILED) {
+		pr_err("mmap() failed for struct rseq ret = %lx\n", (unsigned long)addr);
+		return -1;
+	}
+
+	memset(addr, 0, sizeof(struct criu_rseq));
+
+	/* sys_mmap returns page aligned addresses */
+	rseq_abi_pointer = (unsigned long)addr;
+	rseq_abi_size = (unsigned long)sizeof(struct criu_rseq);
+	/* it's not so important to have unique signature for us,
+	 * because rseq_abi_pointer is guaranteed to be unique
+	 */
+	rseq_signature = 0x12345612;
+
+	pr_info("\ttrying sys_rseq(%lx, %lx, %x, %x)\n", rseq_abi_pointer, rseq_abi_size, 0, rseq_signature);
+	ret = sys_rseq((void *)rseq_abi_pointer, rseq_abi_size, 0, rseq_signature);
+	if (ret) {
+		if (ret == -EINVAL) {
+			pr_info("\trseq is initialized in the victim\n");
+			rseq->rseq_inited = true;
+
+			ret = 0;
+		} else {
+			pr_err("\tunexpected failure of sys_rseq(%lx, %lx, %x, %x) = %d\n", rseq_abi_pointer,
+			       rseq_abi_size, 0, rseq_signature, ret);
+
+			ret = -1;
+		}
+	} else {
+		ret = sys_rseq((void *)rseq_abi_pointer, sizeof(struct criu_rseq), RSEQ_FLAG_UNREGISTER,
+			       rseq_signature);
+		if (ret) {
+			pr_err("\tfailed to unregister sys_rseq(%lx, %lx, %x, %x) = %d\n", rseq_abi_pointer,
+			       rseq_abi_size, RSEQ_FLAG_UNREGISTER, rseq_signature, ret);
+
+			ret = -1;
+			/* we can't do munmap() because rseq is registered and we failed to unregister it */
+			goto out_nounmap;
+		}
+
+		rseq->rseq_inited = false;
+		ret = 0;
+	}
+
+	sys_munmap(addr, sizeof(struct criu_rseq));
+out_nounmap:
+	return ret;
 }
 
 static int fill_fds_fown(int fd, struct fd_opts *p)
