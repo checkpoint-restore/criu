@@ -8,6 +8,8 @@
 #include <sys/ioctl.h>
 #include <sys/uio.h>
 
+#include "linux/rseq.h"
+
 #include "common/config.h"
 #include "int.h"
 #include "types.h"

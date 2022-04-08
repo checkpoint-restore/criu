@@ -44,6 +44,12 @@ struct rst_sched_param {
 	int prio;
 };
 
+struct rst_rseq_param {
+	u64 rseq_abi_pointer;
+	u32 rseq_abi_size;
+	u32 signature;
+};
+
 struct restore_posix_timer {
 	struct str_posix_timer spt;
 	struct itimerspec val;
@@ -98,6 +104,7 @@ struct thread_restore_args {
 	struct task_restore_args *ta;
 
 	tls_t tls;
+	struct rst_rseq_param rseq;
 
 	siginfo_t *siginfo;
 	unsigned int siginfo_n;
