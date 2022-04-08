@@ -1035,7 +1035,7 @@ static int ctrl_dir_and_opt(CgControllerEntry *ctl, char *dir, int ds, char *opt
 		}
 
 		if (n[0] == 0)
-			doff += snprintf(dir + doff, ds - doff, "unified");
+			doff += snprintf(dir + doff, ds - doff, "unified,");
 		else
 			doff += snprintf(dir + doff, ds - doff, "%s,", n);
 		if (opt)
