@@ -14,6 +14,7 @@ import "timer.proto";
 import "creds.proto";
 import "sa.proto";
 import "siginfo.proto";
+import "rseq.proto";
 
 import "opts.proto";
 
@@ -101,6 +102,7 @@ message thread_core_entry {
 
 	optional string			comm		= 13;
 	optional uint64			blk_sigset_extended	= 14;
+	optional rseq_entry		rseq_entry	= 15;
 }
 
 message task_rlimits_entry {

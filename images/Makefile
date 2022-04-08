@@ -71,6 +71,7 @@ proto-obj-y	+= img-streamer.o
 proto-obj-y	+= bpfmap-file.o
 proto-obj-y	+= bpfmap-data.o
 proto-obj-y	+= apparmor.o
+proto-obj-y	+= rseq.o
 
 CFLAGS		+= -iquote $(obj)/
 

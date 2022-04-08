@@ -2994,6 +2994,24 @@ static int prep_sched_info(struct rst_sched_param *sp, ThreadCoreEntry *tc)
 	return 0;
 }
 
+static int prep_rseq(struct rst_rseq_param *rseq, ThreadCoreEntry *tc)
+{
+	/* compatibility with older CRIU versions */
+	if (!tc->rseq_entry)
+		return 0;
+
+	rseq->rseq_abi_pointer = tc->rseq_entry->rseq_abi_pointer;
+	rseq->rseq_abi_size = tc->rseq_entry->rseq_abi_size;
+	rseq->signature = tc->rseq_entry->signature;
+
+	if (rseq->rseq_abi_pointer && !kdat.has_rseq) {
+		pr_err("rseq: can't restore as kernel doesn't support it\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static rlim_t decode_rlim(rlim_t ival)
 {
 	return ival == -1 ? RLIM_INFINITY : ival;
@@ -3703,6 +3721,10 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		thread_args[i].gpregs = *CORE_THREAD_ARCH_INFO(tcore)->gpregs;
 		thread_args[i].clear_tid_addr = CORE_THREAD_ARCH_INFO(tcore)->clear_tid_addr;
 		core_get_tls(tcore, &thread_args[i].tls);
+
+		ret = prep_rseq(&thread_args[i].rseq, tcore->thread_core);
+		if (ret)
+			goto err;
 
 		rst_reloc_creds(&thread_args[i], &creds_pos_next);
 
