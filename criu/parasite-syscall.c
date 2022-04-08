@@ -132,6 +132,13 @@ static int alloc_groups_copy_creds(CredsEntry *ce, struct parasite_dump_creds *c
 	return ce->groups ? 0 : -ENOMEM;
 }
 
+static void init_parasite_rseq_arg(struct parasite_check_rseq *rseq)
+{
+	rseq->has_rseq = kdat.has_rseq;
+	rseq->has_ptrace_get_rseq_conf = kdat.has_ptrace_get_rseq_conf;
+	rseq->rseq_inited = false;
+}
+
 int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEntry *core)
 {
 	ThreadCoreEntry *tc = core->thread_core;
@@ -143,6 +150,8 @@ int parasite_dump_thread_leader_seized(struct parasite_ctl *ctl, int pid, CoreEn
 
 	pc = args->creds;
 	pc->cap_last_cap = kdat.last_cap;
+
+	init_parasite_rseq_arg(&args->rseq);
 
 	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_THREAD, ctl);
 	if (ret < 0)
@@ -196,6 +205,8 @@ int parasite_dump_thread_seized(struct parasite_thread_ctl *tctl, struct parasit
 	}
 
 	compel_arch_get_tls_thread(tctl, &args->tls);
+
+	init_parasite_rseq_arg(&args->rseq);
 
 	ret = compel_run_in_thread(tctl, PARASITE_CMD_DUMP_THREAD);
 	if (ret) {

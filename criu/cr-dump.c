@@ -188,6 +188,25 @@ static int dump_sched_info(int pid, ThreadCoreEntry *tc)
 	return 0;
 }
 
+static int check_thread_rseq(pid_t tid, const struct parasite_check_rseq *ti_rseq)
+{
+	if (!kdat.has_rseq || kdat.has_ptrace_get_rseq_conf)
+		return 0;
+
+	pr_debug("%d has rseq_inited = %d\n", tid, ti_rseq->rseq_inited);
+
+	/*
+	 * We have no kdat.has_ptrace_get_rseq_conf and user
+	 * process has rseq() used, let's fail dump.
+	 */
+	if (ti_rseq->rseq_inited) {
+		pr_err("%d has rseq but kernel lacks get_rseq_conf feature\n", tid);
+		return -1;
+	}
+
+	return 0;
+}
+
 struct cr_imgset *glob_imgset;
 
 static int collect_fds(pid_t pid, struct parasite_drain_fd **dfds)
@@ -717,6 +736,17 @@ int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread
 	}
 	if (!ret)
 		ret = seccomp_dump_thread(pid, tc);
+
+	/*
+	 * We are dumping rseq() in the dump_thread_rseq() function,
+	 * *before* processes gets infected (because of ptrace requests
+	 * API restriction). At this point, if the kernel lacks
+	 * kdat.has_ptrace_get_rseq_conf support we have to ensure
+	 * that dumpable processes haven't initialized rseq() or
+	 * fail dump if rseq() was used.
+	 */
+	if (!ret)
+		ret = check_thread_rseq(pid, &ti->rseq);
 
 	return ret;
 }

@@ -164,10 +164,17 @@ struct parasite_dump_creds {
 	unsigned int groups[0];
 };
 
+struct parasite_check_rseq {
+	bool has_rseq;
+	bool has_ptrace_get_rseq_conf; /* no need to check if supported */
+	bool rseq_inited;
+};
+
 struct parasite_dump_thread {
 	unsigned int *tid_addr;
 	pid_t tid;
 	tls_t tls;
+	struct parasite_check_rseq rseq;
 	stack_t sas;
 	int pdeath_sig;
 	char comm[TASK_COMM_LEN];
