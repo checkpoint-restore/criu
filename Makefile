@@ -433,10 +433,10 @@ lint:
 	shellcheck --version
 	shellcheck scripts/*.sh
 	shellcheck scripts/ci/*.sh scripts/ci/apt-install
-	shellcheck test/others/crit/*.sh
-	shellcheck test/others/libcriu/*.sh
-	shellcheck test/others/crit/*.sh test/others/criu-coredump/*.sh
-	shellcheck test/others/config-file/*.sh
+	shellcheck -x test/others/crit/*.sh
+	shellcheck -x test/others/libcriu/*.sh
+	shellcheck -x test/others/crit/*.sh test/others/criu-coredump/*.sh
+	shellcheck -x test/others/config-file/*.sh
 	codespell
 	# Do not append \n to pr_perror or fail
 	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>.*\\n"'

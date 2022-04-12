@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -x
-# shellcheck disable=SC1091
+# shellcheck source=test/others/env.sh
 source ../env.sh || exit 1
 
 function gen_imgs {

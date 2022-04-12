@@ -11,7 +11,7 @@
 
 set -xbm
 
-#shellcheck disable=SC1091
+# shellcheck source=test/others/env.sh
 source ../env.sh
 
 if [ ! -d /etc/criu ]; then

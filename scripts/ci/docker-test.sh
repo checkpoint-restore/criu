@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# shellcheck disable=SC1091,SC2015
+# shellcheck disable=SC2015
 
 set -x -e -o pipefail
 
@@ -19,6 +19,7 @@ add-apt-repository \
 
 ./apt-install docker-ce
 
+# shellcheck source=/dev/null
 . /etc/lsb-release
 
 # overlayfs with current Ubuntu kernel breaks CRIU
