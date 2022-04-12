@@ -1,8 +1,9 @@
 #!/bin/bash
-# shellcheck disable=SC1091,SC2002
+# shellcheck disable=SC2002
 
 set -x
 
+# shellcheck source=test/others/env.sh
 source ../env.sh
 
 images_list=""
