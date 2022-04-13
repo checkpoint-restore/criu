@@ -6,7 +6,7 @@ set -x
 # shellcheck source=test/others/env.sh
 source ../env.sh
 
-images_list=""
+images_list=()
 
 function gen_imgs {
 	PID=$(../loop)
@@ -17,15 +17,15 @@ function gen_imgs {
 		exit 1
 	fi
 
-	images_list=$(ls -1 ./*.img)
-	if [ -z "$images_list" ]; then
+	images_list=(./*.img)
+	if [ "${#images_list[@]}" -eq 0 ]; then
 		echo "Failed to generate images"
 		exit 1
 	fi
 }
 
 function run_test1 {
-	for x in $images_list
+	for x in "${images_list[@]}"
 	do
 		echo "=== $x"
 		if [[ $x == *pages* ]]; then
@@ -46,9 +46,7 @@ function run_test1 {
 
 
 function run_test2 {
-	mapfile -t array <<< "$images_list"
-
-	PROTO_IN=${array[0]}
+	PROTO_IN="${images_list[0]}"
 	JSON_IN=$(mktemp -p ./ tmp.XXXXXXXXXX.json)
 	OUT=$(mktemp -p ./ tmp.XXXXXXXXXX.log)
 
