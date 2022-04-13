@@ -1,14 +1,17 @@
 #!/bin/bash
 set -x -e
 
-CI_PKGS="protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
+CI_PKGS=(protobuf-c-compiler libprotobuf-c-dev libaio-dev libgnutls28-dev
 		libgnutls30 libprotobuf-dev protobuf-compiler libcap-dev
 		libnl-3-dev gdb bash libnet-dev util-linux asciidoctor
 		libnl-route-3-dev time flake8 libbsd-dev python3-yaml
 		libperl-dev pkg-config python3-future python3-protobuf
-		python3-junit.xml"
+		python3-junit.xml)
 
-X86_64_PKGS="gcc-multilib"
+X86_64_PKGS=(gcc-multilib)
+
+# Convert from string to array.
+IFS=" " read -r -a ZDTM_OPTS <<< "$ZDTM_OPTS"
 
 UNAME_M=$(uname -m)
 
@@ -46,14 +49,14 @@ ci_prep () {
 	else
 		CC=gcc
 	fi
-	CI_PKGS="$CI_PKGS $CC"
+	CI_PKGS+=("$CC")
 
 	# Do not install x86_64 specific packages on other architectures
 	if [ "$UNAME_M" = "x86_64" ]; then
-		CI_PKGS="$CI_PKGS $X86_64_PKGS"
+		CI_PKGS+=("${X86_64_PKGS[@]}")
 	fi
 
-	scripts/ci/apt-install "$CI_PKGS"
+	scripts/ci/apt-install "${CI_PKGS[@]}"
 	chmod a+x "$HOME"
 
 	# zdtm uses an unversioned python binary to run the tests.
@@ -69,9 +72,8 @@ test_stream() {
 	# restorer and eventually close the page read. However, image-streamer expects the
 	# whole image to be read and the image is not reopened, sent twice. These MAP_HUGETLB
 	# test cases will result in EPIPE error at the moment.
-	STREAM_TEST_EXCLUDE="-x maps09 -x maps10"
-	# shellcheck disable=SC2086
-	./test/zdtm.py run --stream -p 2 --keep-going -a $STREAM_TEST_EXCLUDE $ZDTM_OPTS
+	STREAM_TEST_EXCLUDE=(-x maps09 -x maps10)
+	./test/zdtm.py run --stream -p 2 --keep-going -a "${STREAM_TEST_EXCLUDE[@]}" "${ZDTM_OPTS[@]}"
 }
 
 print_header() {
@@ -160,21 +162,20 @@ if [ "${COMPAT_TEST}x" = "yx" ] ; then
 	# for 32-bit tests. A better way would involve launching docker..
 	# But it would require making zdtm.py aware of docker and launching
 	# tests inside the CT.
-	INCOMPATIBLE_LIBS="libaio-dev libcap-dev libnl-3-dev libnl-route-3-dev"
-	IA32_PKGS=""
+	INCOMPATIBLE_LIBS=(libaio-dev libcap-dev libnl-3-dev libnl-route-3-dev)
+	IA32_PKGS=()
 	REFUGE=64-refuge
 
 	mkdir "$REFUGE"
-	for i in $INCOMPATIBLE_LIBS ; do
+	for i in "${INCOMPATIBLE_LIBS[@]}" ; do
 		for j in $(dpkg --listfiles "$i" | grep '\.so$') ; do
 			cp "$j" "$REFUGE/"
 		done
-		IA32_PKGS="$IA32_PKGS $i:i386"
+		IA32_PKGS+=("$i:i386")
 	done
-	# shellcheck disable=SC2086
-	apt-get remove $INCOMPATIBLE_LIBS
+	apt-get remove "${INCOMPATIBLE_LIBS[@]}"
 	dpkg --add-architecture i386
-	scripts/ci/apt-install "$IA32_PKGS"
+	scripts/ci/apt-install "${IA32_PKGS[@]}"
 	mkdir -p /usr/lib/x86_64-linux-gnu/
 	mv "$REFUGE"/* /usr/lib/x86_64-linux-gnu/
 fi
@@ -211,15 +212,12 @@ if [ "${STREAM_TEST}" = "1" ]; then
 	exit 0
 fi
 
-# shellcheck disable=SC2086
-./test/zdtm.py run -a -p 2 --keep-going $ZDTM_OPTS
+./test/zdtm.py run -a -p 2 --keep-going "${ZDTM_OPTS[@]}"
 if criu/criu check --feature move_mount_set_group; then
-	# shellcheck disable=SC2086
-	./test/zdtm.py run -a -p 2 --mntns-compat-mode --keep-going $ZDTM_OPTS
+	./test/zdtm.py run -a -p 2 --mntns-compat-mode --keep-going "${ZDTM_OPTS[@]}"
 fi
 
-# shellcheck disable=SC2086
-./test/zdtm.py run -a -p 2 --keep-going --criu-config $ZDTM_OPTS
+./test/zdtm.py run -a -p 2 --keep-going --criu-config "${ZDTM_OPTS[@]}"
 
 # Newer kernels are blocking access to userfaultfd:
 # uffd: Set unprivileged_userfaultfd sysctl knob to 1 if kernel faults must be handled without obtaining CAP_SYS_PTRACE capability
@@ -227,17 +225,14 @@ if [ -e /proc/sys/vm/unprivileged_userfaultfd ]; then
 	echo 1 > /proc/sys/vm/unprivileged_userfaultfd
 fi
 
-LAZY_EXCLUDE="-x maps04 -x cmdlinenv00 -x maps007"
+LAZY_EXCLUDE=(-x maps04 -x cmdlinenv00 -x maps007)
 
 LAZY_TESTS='.*(maps0|uffd-events|lazy-thp|futex|fork).*'
-LAZY_OPTS="-p 2 -T $LAZY_TESTS $LAZY_EXCLUDE $ZDTM_OPTS"
+LAZY_OPTS=(-p 2 -T "$LAZY_TESTS" "${LAZY_EXCLUDE[@]}" "${ZDTM_OPTS[@]}")
 
-# shellcheck disable=SC2086
-./test/zdtm.py run $LAZY_OPTS --lazy-pages
-# shellcheck disable=SC2086
-./test/zdtm.py run $LAZY_OPTS --remote-lazy-pages
-# shellcheck disable=SC2086
-./test/zdtm.py run $LAZY_OPTS --remote-lazy-pages --tls
+./test/zdtm.py run "${LAZY_OPTS[@]}" --lazy-pages
+./test/zdtm.py run "${LAZY_OPTS[@]}" --remote-lazy-pages
+./test/zdtm.py run "${LAZY_OPTS[@]}" --remote-lazy-pages --tls
 
 bash -x ./test/jenkins/criu-fault.sh
 if [ "$UNAME_M" == "x86_64" ]; then
