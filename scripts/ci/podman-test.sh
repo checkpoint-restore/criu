@@ -27,7 +27,6 @@ rm -rf "${tmp_dir}"
 
 podman info
 
-# shellcheck disable=SC2016
 podman run --name cr -d docker.io/library/alpine /bin/sh -c 'i=0; while true; do echo $i; i=$(expr $i + 1); sleep 1; done'
 
 sleep 1
