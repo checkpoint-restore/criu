@@ -3,6 +3,7 @@
 #include <bpf/bpf.h>
 
 #include "common/compiler.h"
+#include "common/config.h"
 #include "imgset.h"
 #include "bpfmap.h"
 #include "fdinfo.h"
@@ -262,15 +263,18 @@ const struct fdtype_ops bpfmap_dump_ops = {
 	.dump = dump_one_bpfmap,
 };
 
-static int bpfmap_open(struct file_desc *d, int *new_fd)
-{
-	struct bpfmap_file_info *info;
-	BpfmapFileEntry *bpfe;
-	struct bpf_create_map_attr xattr;
-	int bpfmap_fd;
+static inline int __bpf_map_create(BpfmapFileEntry *bpfe) {
+#ifdef CONFIG_HAS_BPF_MAP_CREATE
+	LIBBPF_OPTS(bpf_map_create_opts, p);
 
-	info = container_of(d, struct bpfmap_file_info, d);
-	bpfe = info->bpfe;
+	p.map_flags = bpfe->map_flags;
+	p.map_ifindex = bpfe->ifindex;
+
+	return bpf_map_create(bpfe->map_type, bpfe->map_name,
+			bpfe->key_size, bpfe->value_size, bpfe->max_entries,
+			&p);
+#else
+	struct bpf_create_map_attr xattr;
 
 	xattr.name = xstrdup(bpfe->map_name);
 	xattr.map_type = bpfe->map_type;
@@ -285,8 +289,21 @@ static int bpfmap_open(struct file_desc *d, int *new_fd)
 	xattr.map_ifindex = bpfe->ifindex;
 	xattr.inner_map_fd = 0;
 
+	return bpf_create_map_xattr(&xattr);
+#endif
+}
+
+static int bpfmap_open(struct file_desc *d, int *new_fd)
+{
+	struct bpfmap_file_info *info;
+	BpfmapFileEntry *bpfe;
+	int bpfmap_fd;
+
+	info = container_of(d, struct bpfmap_file_info, d);
+	bpfe = info->bpfe;
+
 	pr_info_bpfmap("Creating and opening ", bpfe);
-	bpfmap_fd = bpf_create_map_xattr(&xattr);
+	bpfmap_fd = __bpf_map_create(bpfe);
 	if (bpfmap_fd < 0) {
 		pr_perror("Can't create bpfmap %#08x", bpfe->id);
 		return -1;

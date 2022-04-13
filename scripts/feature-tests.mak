@@ -196,3 +196,15 @@ int main(void)
 	return 0;
 }
 endef
+
+define FEATURE_TEST_BPF_MAP_CREATE
+
+#include <bpf/bpf.h>
+
+int main(void)
+{
+	/* bpf_map_create is available since libbpf 0.7 */
+	return bpf_map_create(BPF_MAP_TYPE_UNSPEC, \"foo\", 0, 0, 0, NULL);
+}
+
+endef
