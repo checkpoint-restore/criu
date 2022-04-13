@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# shellcheck disable=SC2015
-
 set -x -e -o pipefail
 
 ./apt-install \
