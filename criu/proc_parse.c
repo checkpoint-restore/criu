@@ -1796,14 +1796,11 @@ static int parse_bpfmap(struct bfd *f, char *str, BpfmapFileEntry *bpf)
 	int i;
 
 	for (i = 0; i < n; i++) {
-		bool parsing_failed = false;
 		if (sscanf(str, map[i].fmt, map[i].value) != 1) {
-			parsing_failed = true;
-		}
-		if (map[i].optional && !parsing_failed)
-			*map[i].optional = true;
-		if (!map[i].optional && parsing_failed)
+			if (map[i].optional)
+				continue;
 			return -1;
+		}
 
 		if (i == n - 1)
 			break;
