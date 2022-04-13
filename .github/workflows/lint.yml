@@ -9,7 +9,18 @@ jobs:
       image: registry.fedoraproject.org/fedora:latest
     steps:
     - name: Install tools
-      run: sudo dnf -y install git make python3-flake8 ShellCheck clang-tools-extra which findutils codespell git-clang-format
+      run: sudo dnf -y install git make python3-flake8 xz clang-tools-extra which codespell git-clang-format
+
+    # TODO: remove this and use ShellCheck from repo once F37 with ShellCheck 0.8.0 is out.
+    - name: install shellcheck
+      env:
+        VERSION: v0.8.0
+        BASEURL: https://github.com/koalaman/shellcheck/releases/download
+        SHA256: f4bce23c11c3919c1b20bcb0f206f6b44c44e26f2bc95f8aa708716095fa0651
+      run: |
+        curl -sSfL --retry 5 $BASEURL/$VERSION/shellcheck-$VERSION.linux.x86_64.tar.xz |
+          tar xfJ - -C /usr/local/bin --strip 1 shellcheck-$VERSION/shellcheck
+        sha256sum --strict --check - <<<"$SHA256 /usr/local/bin/shellcheck"
 
     - uses: actions/checkout@v2
 
