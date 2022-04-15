@@ -1,4 +1,4 @@
-OUTPUT_ARCH(riscv64)
+OUTPUT_ARCH(riscv)
 EXTERN(__export_parasite_head_start)
 
 SECTIONS
