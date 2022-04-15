@@ -232,7 +232,7 @@ int ptrace_set_breakpoint(pid_t pid, void *addr)
 	return 0;
 }
 
-int ptrace_flush_breakpoints(pid_t pid)
+int ptrace_flush_breakpoints(pid_t pid, bool restore)
 {
 	return 0;
 }

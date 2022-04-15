@@ -1357,7 +1357,7 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	if (compel_stop_on_syscall(1, __NR(rt_sigreturn, 0), __NR(rt_sigreturn, 1), flag))
 		return -1;
 
-	if (ptrace_flush_breakpoints(pid))
+	if (ptrace_flush_breakpoints(pid, false))
 		return -1;
 
 	/*
