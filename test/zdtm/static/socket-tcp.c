@@ -57,6 +57,13 @@ int write_data(int fd, const unsigned char *buf, int size)
 	return 0;
 }
 
+#ifdef ZDTM_CONNTRACK
+static void ipt_flush(void)
+{
+	system("iptables -w --flush");
+}
+#endif
+
 int main(int argc, char **argv)
 {
 	unsigned char buf[BUF_SIZE];
@@ -71,6 +78,10 @@ int main(int argc, char **argv)
 	if (unshare(CLONE_NEWNET)) {
 		pr_perror("unshare");
 		return 1;
+	}
+	if (atexit(ipt_flush) != 0) {
+		pr_perror("atexit");
+		return -1;
 	}
 	if (system("ip link set up dev lo"))
 		return 1;
