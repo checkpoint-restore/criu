@@ -126,11 +126,25 @@ extern int write_pidfile(int pid);
 /* message helpers */
 extern int test_log_init(const char *outfile, const char *suffix);
 extern int zdtm_seccomp;
-#define pr_err(format, arg...) test_msg("ERR: %s:%d: " format, __FILE__, __LINE__, ##arg)
-#define pr_perror(format, arg...) \
-	test_msg("ERR: %s:%d: " format " (errno = %d (%s))\n", __FILE__, __LINE__, ##arg, errno, strerror(errno))
-#define fail(format, arg...) \
-	test_msg("FAIL: %s:%d: " format " (errno = %d (%s))\n", __FILE__, __LINE__, ##arg, errno, strerror(errno))
+#define pr_err(format, arg...)                                              \
+	({                                                                  \
+		test_msg("ERR: %s:%d: " format, __FILE__, __LINE__, ##arg); \
+		1;                                                          \
+	})
+
+#define pr_perror(format, arg...)                                                                        \
+	({                                                                                               \
+		test_msg("ERR: %s:%d: " format " (errno = %d (%s))\n", __FILE__, __LINE__, ##arg, errno, \
+			 strerror(errno));                                                               \
+		1;                                                                                       \
+	})
+
+#define fail(format, arg...)                                                                              \
+	({                                                                                                \
+		test_msg("FAIL: %s:%d: " format " (errno = %d (%s))\n", __FILE__, __LINE__, ##arg, errno, \
+			 strerror(errno));                                                                \
+		1;                                                                                        \
+	})
 #define skip(format, arg...) test_msg("SKIP: %s:%d: " format "\n", __FILE__, __LINE__, ##arg)
 #define pass()		     test_msg("PASS\n")
 
