@@ -352,6 +352,10 @@ TST_FILE	=				\
 		socket_close_data01		\
 		fifo_upon_unix_socket00		\
 		fifo_upon_unix_socket01		\
+		sk-unix-listen01		\
+		sk-unix-listen02		\
+		sk-unix-listen03		\
+		sk-unix-listen04		\
 
 TST_DIR		=				\
 		cwd00				\
@@ -669,6 +673,10 @@ bpf_hash:		LDLIBS += -lbpf
 bpf_array:		LDLIBS += -lbpf
 
 fifo_upon_unix_socket01:	CFLAGS += -DFIFO_UPON_UNIX01
+
+sk-unix-listen02: CFLAGS += -DSK_UNIX_LISTEN02
+sk-unix-listen03: CFLAGS += -DSK_UNIX_LISTEN03
+sk-unix-listen04: CFLAGS += -DSK_UNIX_LISTEN02 -DSK_UNIX_LISTEN03
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
