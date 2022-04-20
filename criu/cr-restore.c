@@ -2063,10 +2063,15 @@ static int catch_tasks(bool root_seized, enum trace_flags *flag)
 	return 0;
 }
 
+int __attribute__((weak)) arch_wait_tasks_trap(int nr)
+{
+	return 0;
+}
+
 static int clear_breakpoints(void)
 {
 	struct pstree_item *item;
-	int ret = 0, i;
+	int ret = 0, i, nr = 0;
 
 	if (fault_injected(FI_NO_BREAKPOINTS))
 		return 0;
@@ -2076,9 +2081,10 @@ static int clear_breakpoints(void)
 			continue;
 		for (i = 0; i < item->nr_threads; i++)
 			ret |= ptrace_flush_breakpoints(item->threads[i].real, true);
+		nr += item->nr_threads;
 	}
 
-	return ret;
+	return arch_wait_tasks_trap(nr);
 }
 
 static void finalize_restore(void)

@@ -43,6 +43,13 @@ struct rt_sigframe {
 			: "x8", "memory")
 /* clang-format on */
 
+#ifdef ARCH_SIGRETURN_ADDR
+#undef ARCH_SIGRETURN_ADDR
+#endif
+
+/* one arm64 instruction is 4 bytes, offset 0x8 standards for the `svc #0` instruction address */
+#define ARCH_SIGRETURN_ADDR(addr) ((void *)(uintptr_t)addr + 0x8)
+
 /* cr_sigcontext is copied from arch/arm64/include/uapi/asm/sigcontext.h */
 struct cr_sigcontext {
 	__u64 fault_address;

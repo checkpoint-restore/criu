@@ -2,6 +2,7 @@
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <sys/wait.h>
 #include <asm/ptrace.h>
 #include <linux/elf.h>
 
@@ -293,6 +294,46 @@ int ptrace_flush_breakpoints(pid_t pid, bool restore)
 	if (ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL)) {
 		pr_perror("Unable to restart the %d process", pid);
 		return -1;
+	}
+
+	return 0;
+}
+
+static bool task_is_trapped(int status, pid_t pid)
+{
+	if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP)
+		return true;
+
+	pr_err("Task %d is in unexpected state: %x\n", pid, status);
+	if (WIFEXITED(status))
+		pr_err("Task exited with %d\n", WEXITSTATUS(status));
+	if (WIFSIGNALED(status))
+		pr_err("Task signaled with %d: %s\n", WTERMSIG(status), strsignal(WTERMSIG(status)));
+	if (WIFSTOPPED(status))
+		pr_err("Task stopped with %d: %s\n", WSTOPSIG(status), strsignal(WSTOPSIG(status)));
+	if (WIFCONTINUED(status))
+		pr_err("Task continued\n");
+
+	return false;
+}
+
+/* wait single step debug trap event */
+int arch_wait_tasks_trap(int tasks)
+{
+	int status;
+	pid_t pid;
+
+	while (tasks > 0) {
+		pid = wait4(-1, &status, __WALL, NULL);
+		if (pid == -1) {
+			pr_perror("wait failed");
+			return -1;
+		}
+
+		if (task_is_trapped(status, pid))
+			tasks -= 1;
+		else
+			return -1;
 	}
 
 	return 0;

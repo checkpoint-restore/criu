@@ -33,6 +33,10 @@ struct rt_sigframe;
 #define SI_PAD_SIZE ((SI_MAX_SIZE - __ARCH_SI_PREAMBLE_SIZE) / sizeof(int))
 #endif
 
+#ifndef ARCH_SIGRETURN_ADDR
+#define ARCH_SIGRETURN_ADDR(addr) ((void *)(uintptr_t)addr)
+#endif
+
 typedef struct rt_siginfo {
 	int si_signo;
 	int si_errno;
