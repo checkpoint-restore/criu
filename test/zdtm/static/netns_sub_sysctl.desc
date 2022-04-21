@@ -1,4 +1,0 @@
-{
-    'flavor': 'ns',
-    'flags': 'suid'
-}

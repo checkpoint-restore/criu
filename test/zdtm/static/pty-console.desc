@@ -1,1 +1,0 @@
-{'flags': 'suid', 'flavor' : 'ns uns', 'ropts': '--mntns-compat-mode'}

@@ -1,1 +1,0 @@
-{'deps': ['/bin/sh', '/sbin/ip|/bin/ip'], 'flavor': 'ns uns', 'flags': 'suid', 'feature': 'tun tun_ns'}

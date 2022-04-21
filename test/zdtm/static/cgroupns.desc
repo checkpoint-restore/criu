@@ -1,4 +1,0 @@
-{   'feature': 'cgroupns',
-    'flags': 'suid',
-    'flavor': 'h',
-    'opts': '--manage-cgroups'}

@@ -1,3 +1,0 @@
-#!/bin/bash
-
-unshare --mount --pid --fork -- $(readlink -f `dirname $0`/_run_ct) "$@"

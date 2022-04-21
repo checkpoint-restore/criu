@@ -1,6 +1,0 @@
-{
-	'deps': ['/sbin/ip|/bin/ip', '/bin/sh'],
-	'flags': 'suid',
-	'flavor': 'ns uns',
-	'feature': 'link_nsid',
-}

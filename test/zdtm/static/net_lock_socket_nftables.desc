@@ -1,7 +1,0 @@
-{
-    'flavor': 'h',
-    'flags': 'suid excl reqrst',
-    'feature': 'network_lock_nftables',
-    'dopts': '--tcp-established --network-lock nftables',
-    'ropts': '--tcp-established',
-}

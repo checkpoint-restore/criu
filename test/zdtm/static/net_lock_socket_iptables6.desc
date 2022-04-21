@@ -1,6 +1,0 @@
-{
-    'flavor': 'h',
-    'flags': 'suid excl reqrst',
-    'dopts': '--tcp-established --network-lock iptables',
-    'ropts': '--tcp-established',
-}
