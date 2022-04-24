@@ -24,13 +24,19 @@ enum faults {
 
 static inline bool __fault_injected(enum faults f, enum faults fi_strategy)
 {
+#ifdef CONFIG_X86_64
 	/*
+	 * Only arm64 and x86_64 platform supports breakpoints. The performance
+	 * degradation happens in x86_64 platform before. Allow arm64 uses
+	 * breakpoints here to accerate the restoration procedure.
+	 *
 	 * Temporary workaround for Xen guests. Breakpoints degrade
 	 * performance linearly, so until we find out the reason,
 	 * let's disable them.
 	 */
 	if (f == FI_NO_BREAKPOINTS)
 		return true;
+#endif
 
 	return fi_strategy == f;
 }
