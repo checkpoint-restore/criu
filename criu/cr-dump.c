@@ -2049,7 +2049,7 @@ static int cr_dump_finish(int ret)
 	close_service_fd(CR_PROC_FD_OFF);
 	close_image_dir();
 
-	if (ret) {
+	if (ret || post_dump_ret) {
 		pr_err("Dumping FAILED.\n");
 	} else {
 		write_stats(DUMP_STATS);
