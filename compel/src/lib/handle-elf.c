@@ -16,6 +16,10 @@
 #include "piegen.h"
 #include "log.h"
 
+// RISCV Fix
+#include <stddef.h>
+typedef uint32_t u32;
+
 #ifdef CONFIG_MIPS
 #include "ldsodefs.h"
 #endif
