@@ -19,6 +19,7 @@
 // RISCV Fix
 #include <stddef.h>
 typedef uint32_t u32;
+typedef int32_t s32;
 
 #ifdef CONFIG_MIPS
 #include "ldsodefs.h"
@@ -481,6 +482,7 @@ int __handle_elf(void *mem, size_t size)
 #endif
 #ifdef ELF_RISCV
 			case R_RISCV_BRANCH:
+			{
 				ptrdiff_t offset = value64 + addend64 - place;
 				u32 imm12 = (offset & 0x1000) << (31 - 12);
 				u32 imm11 = (offset & 0x800) >> (11 - 7);
@@ -489,8 +491,10 @@ int __handle_elf(void *mem, size_t size)
 				*((int32_t *)where) = (*((int32_t *)where) & 0x1fff07f) | imm12 | imm11 | imm10_5 | imm4_1;
 
 				break;
+			}
 
 			case R_RISCV_JAL:
+			{
 				ptrdiff_t offset = value64 + addend64 - place;
 				u32 imm20 = (offset & 0x100000) << (31 - 20);
 				u32 imm19_12 = (offset & 0xff000);
@@ -499,7 +503,7 @@ int __handle_elf(void *mem, size_t size)
 				*((int32_t *)where) = (*((int32_t *)where) & 0xfff) | imm20 | imm19_12 | imm11 | imm10_1;
 
 				break;
-
+			}
 			case R_RISCV_CALL_PLT:
 				ptrdiff_t offset = value64 + addend64 - place;
 				s32 fill_v = offset;
