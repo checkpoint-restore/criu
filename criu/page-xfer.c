@@ -736,7 +736,7 @@ static long fill_userbuf(int pid, struct page_pipe_buf *ppb, struct iovec *bufve
 				continue;
 			} else if (errno == ESRCH) {
 				pr_debug("Target process PID:%d not found\n", pid);
-				return ESRCH;
+				return -ESRCH;
 			}
 		}
 
@@ -798,7 +798,7 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 
 		bytes_read = fill_userbuf(pid, ppb, &bufvec, aux_iov, &aux_len);
 
-		if (bytes_read == ESRCH) {
+		if (bytes_read == -ESRCH) {
 			munmap(userbuf, BUFFER_SIZE);
 			return -1;
 		}
