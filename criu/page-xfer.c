@@ -777,31 +777,48 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 	struct page_pipe_buf *ppb;
 	unsigned int cur_hole = 0, i;
 	unsigned long ret, bytes_read;
+	unsigned long userbuf_len;
 	struct iovec bufvec;
 
-	struct iovec aux_iov[PIPE_MAX_SIZE];
+	struct iovec *aux_iov;
 	unsigned long aux_len;
+	void *userbuf;
 
-	char *userbuf = mmap(NULL, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-
+	userbuf_len = PIPE_MAX_BUFFER_SIZE;
+	userbuf = mmap(NULL, userbuf_len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	if (userbuf == MAP_FAILED) {
 		pr_perror("Unable to mmap a buffer");
 		return -1;
 	}
+	aux_iov = xmalloc(userbuf_len / PAGE_SIZE * sizeof(aux_iov[0]));
+	if (!aux_iov)
+		goto err;
 
 	list_for_each_entry(ppb, &pp->bufs, l) {
+		if (ppb->pipe_size * PAGE_SIZE > userbuf_len) {
+			void *addr;
+
+			addr = mremap(userbuf, userbuf_len, ppb->pipe_size * PAGE_SIZE, MREMAP_MAYMOVE);
+			if (addr == MAP_FAILED) {
+				pr_perror("Unable to mmap a buffer");
+				goto err;
+			}
+			userbuf_len = ppb->pipe_size * PAGE_SIZE;
+			userbuf = addr;
+			addr = xrealloc(aux_iov, ppb->pipe_size * sizeof(aux_iov[0]));
+			if (!addr)
+				goto err;
+			aux_iov = addr;
+		}
 		timing_start(TIME_MEMDUMP);
 
 		aux_len = 0;
-		bufvec.iov_len = BUFFER_SIZE;
+		bufvec.iov_len = userbuf_len;
 		bufvec.iov_base = userbuf;
 
 		bytes_read = fill_userbuf(pid, ppb, &bufvec, aux_iov, &aux_len);
-
-		if (bytes_read == -ESRCH) {
-			munmap(userbuf, BUFFER_SIZE);
-			return -1;
-		}
+		if (bytes_read == -ESRCH)
+			goto err;
 
 		bufvec.iov_base = userbuf;
 		bufvec.iov_len = bytes_read;
@@ -809,8 +826,7 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 
 		if (ret == -1 || ret != bytes_read) {
 			pr_err("vmsplice: Failed to splice user buffer to pipe %ld\n", ret);
-			munmap(userbuf, BUFFER_SIZE);
-			return -1;
+			goto err;
 		}
 
 		timing_stop(TIME_MEMDUMP);
@@ -822,10 +838,8 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 			u32 flags;
 
 			ret = dump_holes(xfer, pp, &cur_hole, iov.iov_base);
-			if (ret) {
-				munmap(userbuf, BUFFER_SIZE);
-				return ret;
-			}
+			if (ret)
+				goto err;
 
 			BUG_ON(iov.iov_base < (void *)xfer->offset);
 			iov.iov_base -= xfer->offset;
@@ -833,24 +847,25 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 
 			flags = ppb_xfer_flags(xfer, ppb);
 
-			if (xfer->write_pagemap(xfer, &iov, flags)) {
-				munmap(userbuf, BUFFER_SIZE);
-				return -1;
-			}
+			if (xfer->write_pagemap(xfer, &iov, flags))
+				goto err;
 
-			if (xfer->write_pages(xfer, ppb->p[0], iov.iov_len)) {
-				munmap(userbuf, BUFFER_SIZE);
-				return -1;
-			}
+			if (xfer->write_pages(xfer, ppb->p[0], iov.iov_len))
+				goto err;
 		}
 
 		timing_stop(TIME_MEMWRITE);
 	}
 
-	munmap(userbuf, BUFFER_SIZE);
+	munmap(userbuf, userbuf_len);
+	xfree(aux_iov);
 	timing_start(TIME_MEMWRITE);
 
 	return dump_holes(xfer, pp, &cur_hole, NULL);
+err:
+	munmap(userbuf, userbuf_len);
+	xfree(aux_iov);
+	return -1;
 }
 
 int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
