@@ -10,7 +10,7 @@ struct ps_info {
 extern int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd);
 
 /* User buffer for read-mode pre-dump*/
-#define BUFFER_SIZE (PIPE_MAX_SIZE << PAGE_SHIFT)
+#define PIPE_MAX_BUFFER_SIZE (PIPE_MAX_SIZE << PAGE_SHIFT)
 
 /*
  * page_xfer -- transfer pages into image file.
