@@ -617,31 +617,18 @@ static inline u32 ppb_xfer_flags(struct page_xfer *xfer, struct page_pipe_buf *p
  */
 
 unsigned long handle_faulty_iov(int pid, struct iovec *riov, unsigned long faulty_index, struct iovec *bufvec,
-				struct iovec *aux_iov, unsigned long *aux_len, unsigned long partial_read_bytes)
+				struct iovec *aux_iov, unsigned long *aux_len)
 {
 	struct iovec dummy;
 	ssize_t bytes_read;
-	unsigned long offset = 0;
 	unsigned long final_read_cnt = 0;
 
-	/* Handling Case 2*/
-	if (riov[faulty_index].iov_len == PAGE_SIZE) {
-		cnt_sub(CNT_PAGES_WRITTEN, 1);
-		return 0;
-	}
-
 	/* Handling Case 3-Part 3.2*/
-	offset = (partial_read_bytes) ? partial_read_bytes : PAGE_SIZE;
-
-	dummy.iov_base = riov[faulty_index].iov_base + offset;
-	dummy.iov_len = riov[faulty_index].iov_len - offset;
-
-	if (!partial_read_bytes)
-		cnt_sub(CNT_PAGES_WRITTEN, 1);
+	dummy.iov_base = riov[faulty_index].iov_base;
+	dummy.iov_len = riov[faulty_index].iov_len;
 
 	while (dummy.iov_len) {
 		bytes_read = process_vm_readv(pid, bufvec, 1, &dummy, 1, 0);
-
 		if (bytes_read == -1) {
 			/* Handling faulty page read in faulty iov */
 			cnt_sub(CNT_PAGES_WRITTEN, 1);
@@ -671,14 +658,12 @@ unsigned long handle_faulty_iov(int pid, struct iovec *riov, unsigned long fault
 
 /*
  * This function will position start pointer to the latest
- * successfully read iov in iovec. In case of partial read it
- * returns partial_read_bytes, otherwise 0.
+ * successfully read iov in iovec.
  */
 static unsigned long analyze_iov(ssize_t bytes_read, struct iovec *riov, unsigned long *index, struct iovec *aux_iov,
 				 unsigned long *aux_len)
 {
 	ssize_t processed_bytes = 0;
-	unsigned long partial_read_bytes = 0;
 
 	/* correlating iovs with read bytes */
 	while (processed_bytes < bytes_read) {
@@ -692,13 +677,17 @@ static unsigned long analyze_iov(ssize_t bytes_read, struct iovec *riov, unsigne
 
 	/* handling partially processed faulty iov*/
 	if (processed_bytes - bytes_read) {
+		unsigned long partial_read_bytes = 0;
+
 		(*index) -= 1;
 
 		partial_read_bytes = riov[*index].iov_len - (processed_bytes - bytes_read);
 		aux_iov[*aux_len - 1].iov_len = partial_read_bytes;
+		riov[*index].iov_base += partial_read_bytes;
+		riov[*index].iov_len -= partial_read_bytes;
 	}
 
-	return partial_read_bytes;
+	return 0;
 }
 
 /*
@@ -723,40 +712,36 @@ static long fill_userbuf(int pid, struct page_pipe_buf *ppb, struct iovec *bufve
 	ssize_t bytes_read;
 	unsigned long total_read = 0;
 	unsigned long start = 0;
-	unsigned long partial_read_bytes = 0;
 
 	while (start < ppb->nr_segs) {
 		bytes_read = process_vm_readv(pid, bufvec, 1, &riov[start], ppb->nr_segs - start, 0);
-
 		if (bytes_read == -1) {
+			if (errno == ESRCH) {
+				pr_debug("Target process PID:%d not found\n", pid);
+				return -ESRCH;
+			}
+			if (errno != EFAULT) {
+				pr_perror("process_vm_readv failed");
+				return -1;
+			}
 			/* Handling Case 1*/
 			if (riov[start].iov_len == PAGE_SIZE) {
 				cnt_sub(CNT_PAGES_WRITTEN, 1);
 				start += 1;
 				continue;
-			} else if (errno == ESRCH) {
-				pr_debug("Target process PID:%d not found\n", pid);
-				return -ESRCH;
 			}
+			total_read += handle_faulty_iov(pid, riov, start, bufvec, aux_iov, aux_len);
+			start += 1;
+			continue;
 		}
 
-		partial_read_bytes = 0;
-
 		if (bytes_read > 0) {
-			partial_read_bytes = analyze_iov(bytes_read, riov, &start, aux_iov, aux_len);
+			if (analyze_iov(bytes_read, riov, &start, aux_iov, aux_len) < 0)
+				return -1;
 			bufvec->iov_base += bytes_read;
 			bufvec->iov_len -= bytes_read;
 			total_read += bytes_read;
 		}
-
-		/*
-		 * If all iovs not processed in one go,
-		 * it means some iov in between has failed.
-		 */
-		if (start < ppb->nr_segs)
-			total_read += handle_faulty_iov(pid, riov, start, bufvec, aux_iov, aux_len, partial_read_bytes);
-
-		start += 1;
 	}
 
 	return total_read;
@@ -817,7 +802,13 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 		bufvec.iov_base = userbuf;
 
 		bytes_read = fill_userbuf(pid, ppb, &bufvec, aux_iov, &aux_len);
-		if (bytes_read == -ESRCH)
+		if (bytes_read == -ESRCH) {
+			timing_stop(TIME_MEMDUMP);
+			munmap(userbuf, userbuf_len);
+			xfree(aux_iov);
+			return 0;
+		}
+		if (bytes_read < 0)
 			goto err;
 
 		bufvec.iov_base = userbuf;
