@@ -503,8 +503,9 @@ int __handle_elf(void *mem, size_t size)
 				*((int32_t *)where) = (*((int32_t *)where) & 0xfff) | imm20 | imm19_12 | imm11 | imm10_1;
 
 				break;
-			
+			}
 			case R_RISCV_CALL_PLT:
+			{
 				ptrdiff_t offset = value64 + addend64 - place;
 				s32 fill_v = offset;
 				u32 hi20, lo12;
@@ -520,6 +521,9 @@ int __handle_elf(void *mem, size_t size)
 				*((int32_t *)(where+4)) = (*((int32_t *)(where+4)) & 0xfffff) | (lo12 << 20);
 
 				break;
+			}
+			case R_RISCV_RELAX:
+			    break;
 #endif
 #ifdef ELF_PPC64
 			case R_PPC64_REL24:
