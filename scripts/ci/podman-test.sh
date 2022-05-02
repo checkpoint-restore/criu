@@ -7,7 +7,7 @@ export SKIP_CI_TEST=1
 
 cd ../../
 
-make install
+make install PREFIX=/usr
 
 criu --version
 
