@@ -91,6 +91,8 @@ print_env() {
 	cat /proc/self/mountinfo || :
 	print_header "Kernel command line"
 	cat /proc/cmdline || :
+	print_header "Kernel modules"
+	lsmod || :
 	print_header "Distribution information"
 	[ -e /etc/lsb-release ] && cat /etc/lsb-release
 	[ -e /etc/redhat-release ] && cat /etc/redhat-release
