@@ -200,6 +200,28 @@ chmod 0777 test/
 chmod 0777 test/zdtm/static
 chmod 0777 test/zdtm/transition
 
+scripts/ci/apt-install linux-tools-azure
+perf probe 'rtnl_*link%return $retval'
+mkfifo endtracefifo
+chmod +x ./scripts/ci/gftrace.sh
+
+
+
+lsmod
+./test/zdtm.py run -p 2 --keep-going -a -x maps09 -x maps10 || true
+lsmod
+#./test/zdtm.py run --keep-going -a -x maps09 -x maps10 || true
+./test/zdtm.py run -p 2 --keep-going -a -x maps09 -x maps10 || true
+#./test/zdtm.py run --keep-going -a -x maps09 -x maps10 || true
+
+nohup ./scripts/ci/gftrace.sh rtnl_newlink rtnl_setlink &
+./test/zdtm.py run -p 2 --keep-going -t zdtm/static/bridge -t zdtm/static/sit || true
+echo 1 > endtracefifo
+curl --upload-file trace https://transfer.sh/criu_zdtm_bridge_debug
+cat trace
+
+exit 0
+
 # We run streaming tests separately to improve test completion times,
 # hence the exit 0.
 if [ "${STREAM_TEST}" = "1" ]; then
