@@ -111,6 +111,9 @@ print_env() {
 	set -x
 }
 
+# FIXME: workaround for the issue https://github.com/checkpoint-restore/criu/issues/1866
+modprobe -v sit || :
+
 print_env
 
 ci_prep
