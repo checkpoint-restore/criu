@@ -502,7 +502,7 @@ static bool kerndat_has_memfd_hugetlb(void)
 	if (ret >= 0) {
 		kdat.has_memfd_hugetlb = true;
 		close(ret);
-	} else if (ret == -1 && errno == EINVAL) {
+	} else if (ret == -1 && (errno == EINVAL || errno == ENOENT)) {
 		kdat.has_memfd_hugetlb = false;
 	} else {
 		pr_perror("Unexpected error from memfd_create(\"\", MFD_HUGETLB)");
