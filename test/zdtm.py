@@ -2584,12 +2584,18 @@ def clean_stuff(opts):
 
 
 def set_nr_hugepages(nr):
-    orig_hugepages = 0
-    with open("/proc/sys/vm/nr_hugepages", "r") as f:
-        orig_hugepages = int(f.read())
-    with open("/proc/sys/vm/nr_hugepages", "w") as f:
-        f.write("{}\n".format(nr))
-    return orig_hugepages
+    try:
+        orig_hugepages = 0
+        with open("/proc/sys/vm/nr_hugepages", "r") as f:
+            orig_hugepages = int(f.read())
+        with open("/proc/sys/vm/nr_hugepages", "w") as f:
+            f.write("{}\n".format(nr))
+        return orig_hugepages
+    except OSError as err:
+        if err.errno != errno.EOPNOTSUPP:
+            raise
+
+    return 0
 
 
 def get_cli_args():
