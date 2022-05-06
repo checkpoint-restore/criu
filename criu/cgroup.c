@@ -1343,9 +1343,25 @@ static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p, char *pat
 			len = next_line - line;
 
 			if (write(fd, line, len) != len) {
-				pr_perror("Failed writing %s to %s", line, path);
-				if (!skip_fails)
-					goto out;
+				/*
+				 * There are files on cgroups which can be read but can't be written.
+				 * We can not to dump such files but in this case, on the dump stage we need to
+				 * check if write is supported by the kernel. But there is the cases when write *was*
+				 * supported but then writing to some knob was deprecated.
+				 * Example is "kmem.limit_in_bytes" file. It *was* supported both for read/write, but
+				 * after 58056f77502 ("memcg, kmem: further deprecate kmem.limit_in_bytes") we can only
+				 * read the limit which is equal to the default PAGE_COUNTER_MAX.
+				 *
+				 * It seems better just to emit warning to the log and skip the value restoration to be
+				 * compatible with the CRIU images from the older kernels.
+				 */
+				if (errno == EOPNOTSUPP) {
+					pr_warn("Failed (EOPNOTSUPP) writing %s to %s. Deprecated?\n", line, path);
+				} else {
+					pr_perror("Failed writing %s to %s", line, path);
+					if (!skip_fails)
+						goto out;
+				}
 			}
 			line = next_line + 1;
 		} while (*next_line != '\0');
@@ -1353,9 +1369,16 @@ static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p, char *pat
 		size_t len = strlen(cg_prop_entry_p->value);
 
 		if (write(fd, cg_prop_entry_p->value, len) != len) {
-			pr_perror("Failed writing %s to %s", cg_prop_entry_p->value, path);
-			if (!skip_fails)
-				goto out;
+			/* see the comment above */
+			if (errno == EOPNOTSUPP) {
+				pr_warn("Failed (EOPNOTSUPP) writing %s to %s. Deprecated?\n", cg_prop_entry_p->value,
+					path);
+			} else {
+				pr_perror("Failed writing %s to %s", cg_prop_entry_p->value, path);
+
+				if (!skip_fails)
+					goto out;
+			}
 		}
 	}
 
