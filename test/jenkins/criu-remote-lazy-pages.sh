@@ -12,7 +12,7 @@ source `dirname $0`/criu-lazy-common.sh
 	       --remote-lazy-pages $LAZY_EXCLUDE -x maps04 || fail
 
 # During pre-dump + lazy-pages we leave VM_NOHUGEPAGE set
-LAZY_EXCLUDE="$LAZY_EXCLUDE -x maps02  -x maps09 -x maps10"
+LAZY_EXCLUDE="$LAZY_EXCLUDE -x maps02"
 
 # lazy restore from "remote" dump with pre-dumps
 ./test/zdtm.py run --all --keep-going --report report --parallel 4 \
