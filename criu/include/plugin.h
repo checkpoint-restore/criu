@@ -5,7 +5,9 @@
 #include "common/compiler.h"
 #include "common/list.h"
 
-#define CR_PLUGIN_DEFAULT "/var/lib/criu/"
+#ifndef CR_PLUGIN_DEFAULT
+#define CR_PLUGIN_DEFAULT "/usr/lib/criu/"
+#endif
 
 void cr_plugin_fini(int stage, int err);
 int cr_plugin_init(int stage);
