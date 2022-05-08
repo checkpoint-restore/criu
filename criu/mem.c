@@ -246,6 +246,12 @@ prep_dump_pages_args(struct parasite_ctl *ctl, struct vm_area_list *vma_area_lis
 		 */
 		if (vma_entry_is(vma->e, VMA_AREA_AIORING) && skip_non_trackable)
 			continue;
+		/*
+		 * We totally ignore MAP_HUGETLB on pre-dump.
+		 * See also generate_vma_iovs() comment.
+		 */
+		if ((vma->e->flags & MAP_HUGETLB) && skip_non_trackable)
+			continue;
 		if (vma->e->prot & PROT_READ)
 			continue;
 
@@ -402,7 +408,14 @@ static int generate_vma_iovs(struct pstree_item *item, struct vma_area *vma, str
 			has_parent = false;
 	}
 
-	if (vma_entry_is(vma->e, VMA_AREA_AIORING)) {
+	/*
+	 * We want to completely ignore these VMA types on the pre-dump:
+	 * 1. VMA_AREA_AIORING because it is not soft-dirty trackable (kernel writes)
+	 * 2. MAP_HUGETLB mappings because they are not premapped and we can't use
+	 * parent images from pre-dump stages. Instead, the content is restored from
+	 * the parasite context using full memory image.
+	 */
+	if (vma_entry_is(vma->e, VMA_AREA_AIORING) || vma->e->flags & MAP_HUGETLB) {
 		if (pre_dump)
 			return 0;
 		has_parent = false;
