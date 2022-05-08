@@ -10,9 +10,16 @@ jobs:
     steps:
     - name: Install tools
       run: sudo dnf -y install git make python3-flake8 ShellCheck clang-tools-extra which findutils codespell
+
     - uses: actions/checkout@v2
+
+    - name: Set git safe directory
+      # https://github.com/actions/checkout/issues/760
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
     - name: Run make lint
       run: make lint
+
     - name: Run make indent
       run: >
         make indent &&
