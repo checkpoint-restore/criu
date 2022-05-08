@@ -15,7 +15,7 @@ DEPS_NOK 		:= ;
 include $(__nmk_dir)msg.mk
 
 CC      		:= gcc
-PLUGIN_CFLAGS  		:= -g -Wall -Werror -D _GNU_SOURCE -shared -nostartfiles -fPIC
+PLUGIN_CFLAGS  		:= -g -Wall -Werror -D _GNU_SOURCE -shared -nostartfiles -fPIC -DCR_PLUGIN_DEFAULT="$(PLUGINDIR)"
 PLUGIN_LDFLAGS		:= -lpthread -lrt -ldrm -ldrm_amdgpu
 
 ifeq ($(CONFIG_AMDGPU),y)
@@ -50,16 +50,16 @@ clean: amdgpu_plugin_clean amdgpu_plugin_test_clean
 mrproper: clean
 
 install:
-	$(Q) mkdir -p $(PLUGINDIR)
 ifeq ($(CONFIG_AMDGPU),y)
+	$(Q) mkdir -p $(DESTDIR)$(PLUGINDIR)
 	$(E) "  INSTALL " $(PLUGIN_NAME)
-	$(Q) install -m 644 $(PLUGIN_SOBJ) $(PLUGINDIR)
+	$(Q) install -m 644 $(PLUGIN_SOBJ) $(DESTDIR)$(PLUGINDIR)
 endif
 .PHONY: install
 
 uninstall:
 ifeq ($(CONFIG_AMDGPU),y)
 	$(E) " UNINSTALL" $(PLUGIN_NAME)
-	$(Q) $(RM) $(PLUGINDIR)/$(PLUGIN_SOBJ)
+	$(Q) $(RM) $(DESTDIR)$(PLUGINDIR)/$(PLUGIN_SOBJ)
 endif
 .PHONY: uninstall
