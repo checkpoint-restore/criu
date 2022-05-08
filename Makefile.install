@@ -7,7 +7,7 @@ MANDIR		?= $(PREFIX)/share/man
 INCLUDEDIR	?= $(PREFIX)/include
 LIBEXECDIR	?= $(PREFIX)/libexec
 RUNDIR		?= /run
-PLUGINDIR	?= /var/lib/criu
+PLUGINDIR	?= $(PREFIX)/lib/criu
 
 #
 # For recent Debian/Ubuntu with multiarch support.
