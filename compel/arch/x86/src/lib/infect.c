@@ -245,6 +245,19 @@ static int get_task_fpregs(pid_t pid, user_fpregs_struct_t *xsave)
 	return 0;
 }
 
+static inline void fixup_mxcsr(struct xsave_struct *xsave)
+{
+	/*
+	 * Right now xsave->i387.mxcsr filled with the random garbage,
+	 * let's make it valid by applying mask which allows all
+	 * features, except the denormals-are-zero feature bit.
+	 *
+	 * See also fpu__init_system_mxcsr function:
+	 * https://github.com/torvalds/linux/blob/8cb1ae19/arch/x86/kernel/fpu/init.c#L117
+	 */
+	xsave->i387.mxcsr &= 0x0000ffbf;
+}
+
 /* See arch/x86/kernel/fpu/xstate.c */
 static void validate_random_xstate(struct xsave_struct *xsave)
 {
@@ -272,17 +285,6 @@ static void validate_random_xstate(struct xsave_struct *xsave)
 
 	/* No reserved bits may be set */
 	memset(&hdr->reserved, 0, sizeof(hdr->reserved));
-
-	/*
-	 * While using PTRACE_SETREGSET the kernel checks that
-	 * "Reserved bits in MXCSR must be zero."
-	 * if (mxcsr[0] & ~mxcsr_feature_mask)
-	 *	return -EINVAL;
-	 *
-	 * As the mxcsr_feature_mask depends on the CPU the easiest solution for
-	 * this error injection test is to set mxcsr just to zero.
-	 */
-	xsave->i387.mxcsr = 0;
 }
 
 /*
@@ -308,6 +310,8 @@ static int corrupt_extregs(pid_t pid)
 	 *    (and the seed will be known from automatic testing).
 	 */
 	pr_err("Corrupting %s for %d, seed %u\n", use_xsave ? "xsave" : "fpuregs", pid, init_seed);
+
+	fixup_mxcsr(&ext_regs);
 
 	if (!use_xsave) {
 		if (ptrace(PTRACE_SETFPREGS, pid, NULL, &ext_regs)) {
