@@ -4,6 +4,11 @@
 #include <sys/types.h>
 #include <stddef.h>
 
+#include "vma.h"
+
+#define ANON_HUGEPAGE_PREFIX	 "/anon_hugepage"
+#define ANON_HUGEPAGE_PREFIX_LEN (sizeof(ANON_HUGEPAGE_PREFIX) - 1)
+
 enum hugepage_size {
 	HUGETLB_16KB,
 	HUGETLB_64KB,
@@ -46,6 +51,7 @@ struct htlb_info {
 extern struct htlb_info hugetlb_info[HUGETLB_MAX];
 
 int is_hugetlb_dev(dev_t dev, int *hugetlb_size_flag);
+int can_dump_with_memfd_hugetlb(dev_t dev, int *hugetlb_size_flag, const char *file_path, struct vma_area *vma);
 unsigned long get_size_from_hugetlb_flag(int flag);
 
 #ifndef MFD_HUGETLB
