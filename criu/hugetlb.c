@@ -35,6 +35,19 @@ int is_hugetlb_dev(dev_t dev, int *hugetlb_size_flag)
 	return 0;
 }
 
+int can_dump_with_memfd_hugetlb(dev_t dev, int *hugetlb_size_flag, const char *file_path, struct vma_area *vma)
+{
+	/*
+	 * Dump the hugetlb backed mapping using memfd_hugetlb when it is not
+	 * anonymous private mapping.
+	 */
+	if (kdat.has_memfd_hugetlb && is_hugetlb_dev(dev, hugetlb_size_flag) &&
+	    !((vma->e->flags & MAP_PRIVATE) && !strncmp(file_path, ANON_HUGEPAGE_PREFIX, ANON_HUGEPAGE_PREFIX_LEN)))
+		return 1;
+
+	return 0;
+}
+
 unsigned long get_size_from_hugetlb_flag(int flag)
 {
 	int i;
