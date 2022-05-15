@@ -2,7 +2,7 @@ PLUGIN_NAME		:= amdgpu_plugin
 PLUGIN_SOBJ		:= amdgpu_plugin.so
 
 
-PLUGIN_INCLUDE  	:= -iquote../../../criu/include
+PLUGIN_INCLUDE  	:= -iquote../../include
 PLUGIN_INCLUDE  	+= -iquote../../criu/include
 PLUGIN_INCLUDE  	+= -iquote../../criu/arch/$(ARCH)/include/
 PLUGIN_INCLUDE  	+= -iquote../../
