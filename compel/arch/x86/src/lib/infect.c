@@ -345,10 +345,9 @@ static int corrupt_extregs(pid_t pid)
 	return 0;
 }
 
-int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *ext_regs, save_regs_t save,
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *xs, save_regs_t save,
 			 void *arg, unsigned long flags)
 {
-	user_fpregs_struct_t xsave = {}, *xs = ext_regs ? ext_regs : &xsave;
 	int ret = -1;
 
 	pr_info("Dumping general registers for %d in %s mode\n", pid, user_regs_native(regs) ? "native" : "compat");
