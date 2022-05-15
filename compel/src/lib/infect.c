@@ -760,6 +760,9 @@ static int parasite_start_daemon(struct parasite_ctl *ctl)
 	if (ictx->make_sigframe(ictx->regs_arg, ctl->sigframe, ctl->rsigframe, &ctl->orig.sigmask))
 		return -1;
 
+	if (parasite_setup_shstk(ctl, &ext_regs))
+		return -1;
+
 	if (parasite_init_daemon(ctl))
 		return -1;
 
