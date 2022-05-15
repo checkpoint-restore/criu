@@ -78,6 +78,10 @@
 #define FALLOC_FL_PUNCH_HOLE 0x02
 #endif
 
+#ifndef ARCH_RT_SIGRETURN_RST
+#define ARCH_RT_SIGRETURN_RST ARCH_RT_SIGRETURN
+#endif
+
 #define sys_prctl_safe(opcode, val1, val2, val3)                                \
 	({                                                                      \
 		long __ret = sys_prctl(opcode, val1, val2, val3, 0);            \
@@ -631,7 +635,7 @@ static int restore_thread_common(struct thread_restore_args *args)
 
 static void noinline rst_sigreturn(unsigned long new_sp, struct rt_sigframe *sigframe)
 {
-	ARCH_RT_SIGRETURN(new_sp, sigframe);
+	ARCH_RT_SIGRETURN_RST(new_sp, sigframe);
 }
 
 static int send_cg_set(int sk, int cg_set)

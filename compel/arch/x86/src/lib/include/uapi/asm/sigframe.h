@@ -203,10 +203,18 @@ static inline void rt_sigframe_erase_sigset(struct rt_sigframe *sigframe)
 		: "rdi"(new_sp)						\
 		: "eax", "r8", "r9", "r10", "r11", "memory")
 
-#define ARCH_RT_SIGRETURN(new_sp, rt_sigframe)				\
+#define ARCH_RT_SIGRETURN_RST(new_sp, rt_sigframe)			\
 do {									\
 	if ((rt_sigframe)->is_native)					\
 		ARCH_RT_SIGRETURN_NATIVE(new_sp);			\
+	else								\
+		ARCH_RT_SIGRETURN_COMPAT(new_sp);			\
+} while (0)
+
+#define ARCH_RT_SIGRETURN_DUMP(new_sp, rt_sigframe)			\
+do {									\
+	if ((rt_sigframe)->is_native)					\
+		return new_sp;						\
 	else								\
 		ARCH_RT_SIGRETURN_COMPAT(new_sp);			\
 } while (0)

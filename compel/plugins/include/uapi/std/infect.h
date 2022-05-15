@@ -7,7 +7,7 @@ extern int parasite_get_rpc_sock(void);
 
 extern unsigned int __export_parasite_service_cmd;
 extern void *__export_parasite_service_args_ptr;
-extern int __must_check parasite_service(void);
+extern unsigned long __must_check parasite_service(void);
 
 /*
  * Must be supplied by user plugins.
