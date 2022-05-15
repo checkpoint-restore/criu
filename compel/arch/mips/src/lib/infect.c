@@ -119,10 +119,9 @@ int sigreturn_prep_fpu_frame_plain(struct rt_sigframe *sigframe, struct rt_sigfr
 	return 0;
 }
 
-int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *ext_regs, save_regs_t save,
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *xs, save_regs_t save,
 			 void *arg, __maybe_unused unsigned long flags)
 {
-	user_fpregs_struct_t xsave = {}, *xs = ext_regs ? ext_regs : &xsave;
 	int ret = -1;
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
