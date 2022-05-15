@@ -118,7 +118,8 @@ bool handle_vma_plugin(int *fd, struct stat *stat)
 	return true;
 }
 
-static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf)
+static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf,
+			    int *shstk)
 {
 	char *tok;
 
@@ -162,6 +163,9 @@ static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf)
 		if (_vmflag_match(tok, "io") || _vmflag_match(tok, "pf"))
 			*io_pf = 1;
 
+		if (_vmflag_match(tok, "ss"))
+			*shstk = 1;
+
 		/*
 		 * Anything else is just ignored.
 		 */
@@ -172,14 +176,21 @@ static void __parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf)
 
 void parse_vmflags(char *buf, u32 *flags, u64 *madv, int *io_pf)
 {
-	__parse_vmflags(buf, flags, madv, io_pf);
+	int shstk = 0;
+
+	__parse_vmflags(buf, flags, madv, io_pf, &shstk);
 }
 
 static void parse_vma_vmflags(char *buf, struct vma_area *vma_area)
 {
 	int io_pf = 0;
+	int shstk = 0;
 
-	__parse_vmflags(buf, &vma_area->e->flags, &vma_area->e->madv, &io_pf);
+	__parse_vmflags(buf, &vma_area->e->flags, &vma_area->e->madv, &io_pf,
+			&shstk);
+
+	if (shstk)
+		vma_area->e->status |= VMA_AREA_SHSTK;
 
 	/*
 	 * vmsplice doesn't work for VM_IO and VM_PFNMAP mappings, the
