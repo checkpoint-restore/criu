@@ -16,6 +16,10 @@
 
 #include "rpc-pie-priv.h"
 
+#ifndef ARCH_RT_SIGRETURN_DUMP
+#define ARCH_RT_SIGRETURN_DUMP ARCH_RT_SIGRETURN
+#endif
+
 static int tsock = -1;
 
 static struct rt_sigframe *sigframe;
@@ -79,12 +83,13 @@ static int __parasite_daemon_wait_msg(struct ctl_msg *m)
 
 /* Core infect code */
 
-static noinline void fini_sigreturn(unsigned long new_sp)
+static noinline unsigned long fini_sigreturn(unsigned long new_sp)
 {
-	ARCH_RT_SIGRETURN(new_sp, sigframe);
+	ARCH_RT_SIGRETURN_DUMP(new_sp, sigframe);
+	return new_sp;
 }
 
-static int fini(void)
+static unsigned long fini(void)
 {
 	unsigned long new_sp;
 
@@ -96,14 +101,14 @@ static int fini(void)
 	sys_close(tsock);
 	std_log_set_fd(-1);
 
-	fini_sigreturn(new_sp);
+	return fini_sigreturn(new_sp);
 
 	BUG();
 
 	return -1;
 }
 
-static noinline __used int noinline parasite_daemon(void *args)
+static noinline __used unsigned long parasite_daemon(void *args)
 {
 	struct ctl_msg m;
 	int ret = -1;
@@ -140,12 +145,10 @@ static noinline __used int noinline parasite_daemon(void *args)
 	}
 
 out:
-	fini();
-
-	return 0;
+	return fini();
 }
 
-static noinline __used int parasite_init_daemon(void *data)
+static noinline __used unsigned long parasite_init_daemon(void *data)
 {
 	struct parasite_init_args *args = data;
 	int ret;
@@ -178,14 +181,11 @@ static noinline __used int parasite_init_daemon(void *data)
 	} else
 		goto err;
 
-	parasite_daemon(data);
+	return parasite_daemon(data);
 
 err:
 	futex_set_and_wake(&args->daemon_connected, ret);
-	fini();
-	BUG();
-
-	return -1;
+	return fini();
 }
 
 #ifndef __parasite_entry
@@ -203,7 +203,7 @@ err:
 unsigned int __export_parasite_service_cmd = 0;
 void *__export_parasite_service_args_ptr = NULL;
 
-int __used __parasite_entry parasite_service(void)
+unsigned long __used __parasite_entry parasite_service(void)
 {
 	unsigned int cmd = __export_parasite_service_cmd;
 	void *args = __export_parasite_service_args_ptr;
