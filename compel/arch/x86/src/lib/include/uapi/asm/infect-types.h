@@ -146,4 +146,8 @@ typedef struct xsave_struct user_fpregs_struct_t;
 extern bool __compel_shstk_enabled(user_fpregs_struct_t *ext_regs);
 #define compel_shstk_enabled __compel_shstk_enabled
 
+extern int __parasite_setup_shstk(struct parasite_ctl *ctl,
+				user_fpregs_struct_t *ext_regs);
+#define parasite_setup_shstk __parasite_setup_shstk
+
 #endif /* UAPI_COMPEL_ASM_TYPES_H__ */

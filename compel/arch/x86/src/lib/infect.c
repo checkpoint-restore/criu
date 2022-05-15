@@ -760,3 +760,48 @@ bool __compel_shstk_enabled(user_fpregs_struct_t *ext_regs)
 
 	return false;
 }
+
+int parasite_setup_shstk(struct parasite_ctl *ctl, user_fpregs_struct_t *ext_regs)
+{
+	pid_t pid = ctl->rpid;
+	unsigned long sa_restorer = ctl->parasite_ip;
+	unsigned long long ssp;
+	unsigned long token;
+	struct iovec iov;
+
+	if (!compel_shstk_enabled(ext_regs))
+		return 0;
+
+	iov.iov_base = &ssp;
+	iov.iov_len = sizeof(ssp);
+	if (ptrace(PTRACE_GETREGSET, pid, (unsigned int)NT_X86_SHSTK, &iov) < 0) {
+		/* ENODEV means CET is not supported by the CPU  */
+		if (errno != ENODEV) {
+			pr_perror("shstk: %d: cannot get SSP", pid);
+			return -1;
+		}
+	}
+
+	/* The token is for 64-bit */
+	token = ALIGN_DOWN(ssp, 8);
+	token |= (1UL << 63);
+	ssp = ALIGN_DOWN(ssp, 8) - 8;
+	if (ptrace(PTRACE_POKEDATA, pid, (void *)ssp, token)) {
+		pr_perror("shstk: %d: failed to inject shadow stack token", pid);
+		return -1;
+	}
+
+	ssp = ssp - sizeof(uint64_t);
+	if (ptrace(PTRACE_POKEDATA, pid, (void *)ssp, sa_restorer)) {
+		pr_perror("shstk: %d: failed to inject restorer address", pid);
+		return -1;
+	}
+
+	ssp = ssp + sizeof(uint64_t);
+	if (ptrace(PTRACE_SETREGSET, pid, (unsigned int)NT_X86_SHSTK, &iov) < 0) {
+		pr_perror("shstk: %d: cannot write SSP", pid);
+		return -1;
+	}
+
+	return 0;
+}

@@ -190,4 +190,13 @@ static inline bool compel_shstk_enabled(user_fpregs_struct_t *ext_regs)
 #define compel_shstk_enabled
 #endif
 
+#ifndef parasite_setup_shstk
+static inline int parasite_setup_shstk(struct parasite_ctl *ctl,
+				       user_fpregs_struct_t *ext_regs)
+{
+	return 0;
+}
+#define parasite_setup_shstk parasite_setup_shstk
+#endif
+
 #endif
