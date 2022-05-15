@@ -739,6 +739,7 @@ static int parasite_start_daemon(struct parasite_ctl *ctl)
 {
 	pid_t pid = ctl->rpid;
 	struct infect_ctx *ictx = &ctl->ictx;
+	user_fpregs_struct_t ext_regs;
 
 	/*
 	 * Get task registers before going daemon, since the
@@ -746,7 +747,7 @@ static int parasite_start_daemon(struct parasite_ctl *ctl)
 	 * while in daemon it is not such.
 	 */
 
-	if (compel_get_task_regs(pid, &ctl->orig.regs, NULL, ictx->save_regs, ictx->regs_arg, ictx->flags)) {
+	if (compel_get_task_regs(pid, &ctl->orig.regs, &ext_regs, ictx->save_regs, ictx->regs_arg, ictx->flags)) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
 		return -1;
 	}

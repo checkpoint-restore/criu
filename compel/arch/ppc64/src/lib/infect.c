@@ -391,10 +391,9 @@ static int __get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_stru
 	return 0;
 }
 
-int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *ext_regs, save_regs_t save,
+int compel_get_task_regs(pid_t pid, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs, save_regs_t save,
 			 void *arg, __maybe_unused unsigned long flags)
 {
-	user_fpregs_struct_t tmp, *fpregs = ext_regs ? ext_regs : &tmp;
 	int ret;
 
 	ret = __get_task_regs(pid, regs, fpregs);
