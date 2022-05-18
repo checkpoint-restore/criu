@@ -925,27 +925,25 @@ static int move_mount_set_group(int src_id, char *source, int dst_id)
 	return 0;
 }
 
-static int restore_one_sharing_group(struct sharing_group *sg)
+static int restore_one_sharing(struct sharing_group *sg, struct mount_info *target)
 {
-	struct mount_info *first, *other;
-	char first_path[PATH_MAX];
-	int first_fd;
+	char target_path[PATH_MAX];
+	int target_fd;
 
-	first = get_first_mount(sg);
-	first_fd = fdstore_get(first->mnt_fd_id);
-	BUG_ON(first_fd < 0);
-	snprintf(first_path, sizeof(first_path), "/proc/self/fd/%d", first_fd);
+	target_fd = fdstore_get(target->mnt_fd_id);
+	BUG_ON(target_fd < 0);
+	snprintf(target_path, sizeof(target_path), "/proc/self/fd/%d", target_fd);
 
-	/* Restore first's master_id from shared_id of the source */
+	/* Restore target's master_id from shared_id of the source */
 	if (sg->master_id) {
 		if (sg->parent) {
-			struct mount_info *p;
+			struct mount_info *first;
 
 			/* Get shared_id from parent sharing group */
-			p = get_first_mount(sg->parent);
-			if (move_mount_set_group(p->mnt_fd_id, NULL, first->mnt_fd_id)) {
-				pr_err("Failed to copy sharing from %d to %d\n", p->mnt_id, first->mnt_id);
-				close(first_fd);
+			first = get_first_mount(sg->parent);
+			if (move_mount_set_group(first->mnt_fd_id, NULL, target->mnt_fd_id)) {
+				pr_err("Failed to copy sharing from %d to %d\n", first->mnt_id, target->mnt_id);
+				close(target_fd);
 				return -1;
 			}
 		} else {
@@ -956,30 +954,42 @@ static int restore_one_sharing_group(struct sharing_group *sg)
 			 * or non-shared slave). If source is a private mount
 			 * we would fail.
 			 */
-			if (move_mount_set_group(-1, sg->source, first->mnt_fd_id)) {
-				pr_err("Failed to copy sharing from source %s to %d\n", sg->source, first->mnt_id);
-				close(first_fd);
+			if (move_mount_set_group(-1, sg->source, target->mnt_fd_id)) {
+				pr_err("Failed to copy sharing from source %s to %d\n", sg->source, target->mnt_id);
+				close(target_fd);
 				return -1;
 			}
 		}
 
 		/* Convert shared_id to master_id */
-		if (mount(NULL, first_path, NULL, MS_SLAVE, NULL)) {
-			pr_perror("Failed to make mount %d slave", first->mnt_id);
-			close(first_fd);
+		if (mount(NULL, target_path, NULL, MS_SLAVE, NULL)) {
+			pr_perror("Failed to make mount %d slave", target->mnt_id);
+			close(target_fd);
 			return -1;
 		}
 	}
 
-	/* Restore first's shared_id */
+	/* Restore target's shared_id */
 	if (sg->shared_id) {
-		if (mount(NULL, first_path, NULL, MS_SHARED, NULL)) {
-			pr_perror("Failed to make mount %d shared", first->mnt_id);
-			close(first_fd);
+		if (mount(NULL, target_path, NULL, MS_SHARED, NULL)) {
+			pr_perror("Failed to make mount %d shared", target->mnt_id);
+			close(target_fd);
 			return -1;
 		}
 	}
-	close(first_fd);
+	close(target_fd);
+
+	return 0;
+}
+
+static int restore_one_sharing_group(struct sharing_group *sg)
+{
+	struct mount_info *first, *other;
+
+	first = get_first_mount(sg);
+
+	if (restore_one_sharing(sg, first))
+		return -1;
 
 	/* Restore sharing for other mounts from the sharing group */
 	list_for_each_entry(other, &sg->mnt_list, mnt_sharing) {
