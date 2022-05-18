@@ -996,9 +996,35 @@ static int restore_one_sharing_group(struct sharing_group *sg)
 		if (other == first)
 			continue;
 
-		if (move_mount_set_group(first->mnt_fd_id, NULL, other->mnt_fd_id)) {
-			pr_err("Failed to copy sharing from %d to %d\n", first->mnt_id, other->mnt_id);
-			return -1;
+		if (is_sub_path(other->root, first->root)) {
+			if (move_mount_set_group(first->mnt_fd_id, NULL, other->mnt_fd_id)) {
+				pr_err("Failed to copy sharing from %d to %d\n", first->mnt_id, other->mnt_id);
+				return -1;
+			}
+		} else {
+			/*
+			 * Case where mounts of this sharing group don't have common root.
+			 * For instance we can create two sub-directories .a and .b in some
+			 * shared mount, bindmount them separately somethere and umount the
+			 * original mount. Now we have both bindmounts shared between each
+			 * other. Kernel only allows to copy sharing between mounts when
+			 * source root contains destination root, which is not true for
+			 * these two, so we can't just copy from first to other.
+			 *
+			 * For external sharing (!sg->parent) with only master_id (shared_id
+			 * == 0) we can workaround this by copying from their external source
+			 * instead (same as we did for a first mount).
+			 *
+			 * This is a w/a runc usecase, see https://github.com/opencontainers/runc/pull/3442
+			 */
+			if (!sg->parent && !sg->shared_id) {
+				if (restore_one_sharing(sg, other))
+					return -1;
+			} else {
+				pr_err("Can't copy sharing from %d[%s] to %d[%s]\n", first->mnt_id, first->root,
+				       other->mnt_id, other->root);
+				return -1;
+			}
 		}
 	}
 
