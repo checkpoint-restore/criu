@@ -707,6 +707,8 @@ int prepare_mm_pid(struct pstree_item *i)
 			ri->vmas.rst_priv_size += vma_area_len(vma);
 			if (vma_has_guard_gap_hidden(vma))
 				ri->vmas.rst_priv_size += PAGE_SIZE;
+			if (vma_area_is(vma, VMA_AREA_SHSTK))
+				ri->vmas.rst_priv_size += PAGE_SIZE;
 		}
 
 		pr_info("vma 0x%" PRIx64 " 0x%" PRIx64 "\n", vma->e->start, vma->e->end);
@@ -848,6 +850,14 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 		vma->e->start -= PAGE_SIZE;
 
 	size = vma_entry_len(vma->e);
+
+	/*
+	 * map an extra page for shadow stack VMAs, it will be used as a
+	 * temporary shadow stack
+	 */
+	if (vma_area_is(vma, VMA_AREA_SHSTK))
+		size += PAGE_SIZE;
+
 	if (!vma_inherited(vma)) {
 		int flag = 0;
 		/*
@@ -923,6 +933,15 @@ static int premap_private_vma(struct pstree_item *t, struct vma_area *vma, void 
 
 static inline bool vma_force_premap(struct vma_area *vma, struct list_head *head)
 {
+	/*
+	 * Shadow stack VMAs cannot be mmap()ed, they must be created using
+	 * map_shadow_stack() system call.
+	 * Premap them to reserve virtual address space and populate them
+	 * to have there contents available for later copying.
+	 */
+	if (vma_area_is(vma, VMA_AREA_SHSTK))
+		return true;
+
 	/*
 	 * On kernels with 4K guard pages, growsdown VMAs
 	 * always have one guard page at the
