@@ -339,4 +339,20 @@ enum {
 #define __r_sym(name)		  restorer_sym##name
 #define restorer_sym(rblob, name) (void *)(rblob + __r_sym(name))
 
+#ifndef arch_shstk_switch_to_restorer
+static inline int arch_shstk_switch_to_restorer(struct rst_shstk_info *shstk)
+{
+	return 0;
+}
+#define arch_shstk_switch_to_restorer arch_shstk_switch_to_restorer
+#endif
+
+#ifndef arch_shstk_restore
+static inline int arch_shstk_restore(struct rst_shstk_info *shstk)
+{
+	return 0;
+}
+#define arch_shstk_restore arch_shstk_restore
+#endif
+
 #endif /* __CR_RESTORER_H__ */
