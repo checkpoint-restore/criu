@@ -18,6 +18,11 @@ ifeq ($(ARCH),mips)
 	ccflags-y	+= -mno-abicalls -fno-pic
 endif
 
+# -mshstk required for CET instructions
+ifeq ($(ARCH),x86)
+	ccflags-y	+= -mshstk
+endif
+
 LDS		:= compel/arch/$(ARCH)/scripts/compel-pack.lds.S
 
 restorer-obj-y	+= parasite-vdso.o ./$(ARCH_DIR)/vdso-pie.o

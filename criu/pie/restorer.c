@@ -752,6 +752,10 @@ __visible long __export_restore_thread(struct thread_restore_args *args)
 		goto core_restore_end;
 	}
 
+	/* restore original shadow stack */
+	if (arch_shstk_restore(&args->shstk))
+		goto core_restore_end;
+
 	/* All signals must be handled by thread leader */
 	ksigfillset(&to_block);
 	ret = sys_sigprocmask(SIG_SETMASK, &to_block, NULL, sizeof(k_rtsigset_t));
@@ -1672,6 +1676,9 @@ __visible long __export_restore_task(struct task_restore_args *args)
 		pr_debug("lazy-pages: uffd %d\n", args->uffd);
 	}
 
+	if (arch_shstk_switch_to_restorer(&args->shstk))
+		goto core_restore_end;
+
 	/*
 	 * Park vdso/vvar in a safe place if architecture doesn't support
 	 * mapping them with arch_prctl().
@@ -1723,6 +1730,13 @@ __visible long __export_restore_task(struct task_restore_args *args)
 		if (vma_entry->start > vma_entry->shmid)
 			break;
 
+		/*
+		 * shadow stack VMAs cannot be remapped, they must be
+		 * recreated with map_shadow_stack system call
+		 */
+		if (vma_entry_is(vma_entry, VMA_AREA_SHSTK))
+			continue;
+
 		if (vma_remap(vma_entry, args->uffd))
 			goto core_restore_end;
 	}
@@ -1739,6 +1753,13 @@ __visible long __export_restore_task(struct task_restore_args *args)
 
 		if (vma_entry->start < vma_entry->shmid)
 			break;
+
+		/*
+		 * shadow stack VMAs cannot be remapped, they must be
+		 * recreated with map_shadow_stack system call
+		 */
+		if (vma_entry_is(vma_entry, VMA_AREA_SHSTK))
+			continue;
 
 		if (vma_remap(vma_entry, args->uffd))
 			goto core_restore_end;
@@ -2165,6 +2186,14 @@ __visible long __export_restore_task(struct task_restore_args *args)
 	ret = ret || restore_child_subreaper(args->child_subreaper);
 
 	futex_set_and_wake(&thread_inprogress, args->nr_threads);
+
+	/*
+	 * Shadow stack of the leader can be locked only after all other
+	 * threads were cloned, otherwise they may start with read-only
+	 * shadow stack.
+	 */
+	if (arch_shstk_restore(&args->shstk))
+		goto core_restore_end;
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE_CREDS);
 
