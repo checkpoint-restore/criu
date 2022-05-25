@@ -8,6 +8,7 @@
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/asm/sigframe.h>
 #include "asm/compat.h"
+#include "asm/shstk.h"
 
 #ifdef CONFIG_COMPAT
 extern void restore_tls(tls_t *ptls);

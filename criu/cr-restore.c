@@ -975,6 +975,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (setup_uffd(pid, ta))
 		return -1;
 
+	if (arch_shstk_prepare(current, core, ta))
+		return -1;
+
 	return sigreturn_restore(pid, ta, args_len, core);
 }
 
