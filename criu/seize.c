@@ -254,6 +254,12 @@ static int seize_cgroup_tree(char *root_path, enum freezer_state state)
 			return -1;
 		}
 
+		if (pid_is_stopped(pid)) {
+			pr_err("unexpected state of %d: stopped\n", pid);
+			fclose(f);
+			return -1;
+		}
+
 		if (!compel_interrupt_task(pid)) {
 			pr_debug("SEIZE %d: success\n", pid);
 			processes_to_wait++;
@@ -535,8 +541,10 @@ static int freeze_processes(void)
 	}
 
 err:
-	if (exit_code == 0 || origin_freezer_state == THAWED)
-		exit_code = freezer_write_state(fd, THAWED);
+	if (exit_code == 0 || origin_freezer_state == THAWED) {
+		if (freezer_write_state(fd, THAWED))
+			exit_code = -1;
+	}
 
 	if (close(fd)) {
 		pr_perror("Unable to thaw tasks");

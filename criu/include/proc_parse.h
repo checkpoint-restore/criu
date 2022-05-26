@@ -90,6 +90,7 @@ extern unsigned int parse_pid_loginuid(pid_t pid, int *err, bool ignore_noent);
 extern int parse_pid_oom_score_adj(pid_t pid, int *err);
 extern int prepare_loginuid(unsigned int value);
 extern int parse_pid_status(pid_t pid, struct seize_task_status *, void *data);
+extern int pid_is_stopped(pid_t pid);
 extern int parse_file_locks(void);
 extern int get_fd_mntid(int fd, int *mnt_id);
 

@@ -1012,6 +1012,44 @@ static int cap_parse(char *str, unsigned int *res)
 	return 0;
 }
 
+// check whether pid is stopped
+// return value:
+//   < 0 function executed failed
+//   = 0 pid is not stopped
+//   > 0 pid is stopped
+int pid_is_stopped(pid_t pid)
+{
+	struct bfd f;
+	char *str;
+	int ret = -1;
+
+	f.fd = open_proc(pid, "status");
+	if (f.fd < 0)
+		return -1;
+	if (bfdopenr(&f))
+		return -1;
+
+	while ((str = breadline(&f)) != NULL) {
+		if (IS_ERR(str)) {
+			pr_err("Error parsing proc status file\n");
+			goto out;
+		}
+
+		if (strncmp(str, "State:", 6)) {
+			continue;
+		}
+
+		if (!strstr(str, "T (stopped)"))
+			ret = 0;
+		else
+			ret = 1;
+		break;
+	}
+out:
+	bclose(&f);
+	return ret;
+}
+
 int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 {
 	struct proc_status_creds *cr = container_of(ss, struct proc_status_creds, s);
