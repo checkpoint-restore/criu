@@ -2199,9 +2199,21 @@ ext:
 		if (!validate_file(tmp, &st, rfi))
 			goto err;
 
-		if (rfi->rfe->has_mode && (st.st_mode != rfi->rfe->mode)) {
-			pr_err("File %s has bad mode 0%o (expect 0%o)\n", rfi->path, (int)st.st_mode, rfi->rfe->mode);
-			goto err;
+		if (rfi->rfe->has_mode) {
+			mode_t curr_mode = st.st_mode;
+			mode_t saved_mode = rfi->rfe->mode;
+
+			if (opts.skip_file_rwx_check) {
+				curr_mode &= ~(S_IRWXU | S_IRWXG | S_IRWXO);
+				saved_mode &= ~(S_IRWXU | S_IRWXG | S_IRWXO);
+			}
+
+			if (curr_mode != saved_mode) {
+				pr_err("File %s has bad mode 0%o (expect 0%o)\n"
+				       "File r/w/x checks can be skipped with the --skip-file-rwx-check option\n",
+				       rfi->path, (int)curr_mode, saved_mode);
+				goto err;
+			}
 		}
 
 		/*
