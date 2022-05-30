@@ -555,6 +555,17 @@ void criu_set_shell_job(bool shell_job)
 	criu_local_set_shell_job(global_opts, shell_job);
 }
 
+void criu_local_set_skip_file_rwx_check(criu_opts *opts, bool skip_file_rwx_check)
+{
+	opts->rpc->has_skip_file_rwx_check = true;
+	opts->rpc->skip_file_rwx_check = skip_file_rwx_check;
+}
+
+void criu_set_skip_file_rwx_check(bool skip_file_rwx_check)
+{
+	criu_local_set_skip_file_rwx_check(global_opts, skip_file_rwx_check);
+}
+
 void criu_local_set_orphan_pts_master(criu_opts *opts, bool orphan_pts_master)
 {
 	opts->rpc->has_orphan_pts_master = true;
