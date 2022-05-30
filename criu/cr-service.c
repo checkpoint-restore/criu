@@ -464,6 +464,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_shell_job)
 		opts.shell_job = req->shell_job;
 
+	if (req->has_skip_file_rwx_check)
+		opts.skip_file_rwx_check = req->skip_file_rwx_check;
+
 	if (req->has_file_locks)
 		opts.handle_file_locks = req->file_locks;
 

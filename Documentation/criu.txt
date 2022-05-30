@@ -668,6 +668,9 @@ The 'mode' may be one of the following:
                 build-ID cannot be obtained, 'chksm-first' method will be
                 used. This is the default if mode is unspecified.
 
+*--skip-file-rwx-check*::
+    Skip checking file permissions (r/w/x for u/g/o) on restore.
+
 *check*
 ~~~~~~~
 Checks whether the kernel supports the features needed by *criu* to

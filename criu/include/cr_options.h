@@ -179,6 +179,7 @@ struct cr_options {
 	bool lazy_pages;
 	char *work_dir;
 	int network_lock_method;
+	int skip_file_rwx_check;
 
 	/*
 	 * When we scheduler for removal some functionality we first
