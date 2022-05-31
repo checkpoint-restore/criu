@@ -20,4 +20,22 @@ static inline int arch_shstk_prepare(struct pstree_item *item,
 #define arch_shstk_prepare arch_shstk_prepare
 #endif
 
+#ifndef arch_shstk_unlock
+static inline int arch_shstk_unlock(struct pstree_item *item,
+				    CoreEntry *core, pid_t pid)
+{
+	return 0;
+}
+#define arch_shstk_unlock arch_shstk_unlock
+#endif
+
+#ifndef arch_shstk_trampoline
+static inline int arch_shstk_trampoline(struct pstree_item *item, CoreEntry *core,
+				    int (*func)(void *arg), void *arg)
+{
+	return func(arg);
+}
+#define arch_shstk_trampoline arch_shstk_trampoline
+#endif
+
 #endif
