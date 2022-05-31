@@ -75,6 +75,9 @@ struct rst_info {
 
 	struct rst_rseq *rseqe;
 
+	futex_t shstk_enable;
+	futex_t shstk_unlock;
+
 	void *breakpoint;
 };
 

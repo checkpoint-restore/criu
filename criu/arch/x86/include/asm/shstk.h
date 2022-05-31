@@ -2,6 +2,29 @@
 #define __CR_ASM_SHSTK_H__
 
 /*
+ * Shadow stack constants from Linux
+ */
+/* arch/x86/include/uapi/asm/mman.h */
+#ifndef SHADOW_STACK_SET_TOKEN
+#define SHADOW_STACK_SET_TOKEN 0x1     /* Set up a restore token in the shadow stack */
+#endif
+
+/* arch/x86/include/uapi/asm/prctl.h */
+#define ARCH_SHSTK_ENABLE		0x5001
+#define ARCH_SHSTK_DISABLE	0x5002
+#define ARCH_SHSTK_LOCK		0x5003
+#define ARCH_SHSTK_UNLOCK		0x5004
+#define ARCH_SHSTK_STATUS		0x5005
+
+#define ARCH_SHSTK_SHSTK	(1ULL << 0)
+#define ARCH_SHSTK_WRSS		(1ULL << 1)
+
+#define ARCH_HAS_SHSTK
+
+/* from arch/x86/kernel/shstk.c */
+#define SHSTK_DATA_BIT (1UL << 63)	/* BIT(63) */
+
+/*
  * Shadow stack memory cannot be restored with memcpy/pread but only using
  * a special instruction that can write to shadow stack.
  * That instruction is only available when shadow stack is enabled,
@@ -42,5 +65,14 @@ struct pstree_item;
 int arch_shstk_prepare(struct pstree_item *item, CoreEntry *core,
 		       struct task_restore_args *ta);
 #define arch_shstk_prepare arch_shstk_prepare
+
+#if 0
+int arch_shstk_unlock(struct pstree_item *item, CoreEntry *core, pid_t pid);
+#define arch_shstk_unlock arch_shstk_unlock
+
+int arch_shstk_trampoline(struct pstree_item *item, CoreEntry *core,
+		      int (*func)(void *arg), void *arg);
+#define arch_shstk_trampoline arch_shstk_trampoline
+#endif
 
 #endif /* __CR_ASM_SHSTK_H__ */
