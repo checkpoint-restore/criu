@@ -9,7 +9,7 @@ jobs:
       image: registry.fedoraproject.org/fedora:latest
     steps:
     - name: Install tools
-      run: sudo dnf -y install git make python3-flake8 ShellCheck clang-tools-extra which findutils codespell
+      run: sudo dnf -y install git make python3-flake8 ShellCheck clang-tools-extra which findutils codespell git-clang-format
 
     - uses: actions/checkout@v2
 
@@ -22,7 +22,12 @@ jobs:
 
     - name: Run make indent
       run: >
-        make indent &&
+        if [ -z "${{github.base_ref}}" ]; then
+          make indent
+        else
+          git fetch origin ${{github.base_ref}} &&
+          git clang-format --style file --extensions c,h --quiet origin/${{github.base_ref}}
+        fi &&
         STATUS=$(git status --porcelain) &&
         if [ ! -z "$STATUS" ]; then
           echo "FAIL: some files are not correctly formatted.";
