@@ -1498,6 +1498,8 @@ static inline int fork_with_pid(struct pstree_item *item)
 		pr_debug("PID: real %d virt %d\n", item->pid->real, vpid(item));
 	}
 
+	arch_shstk_unlock(item, ca.core, pid);
+
 err_unlock:
 	if (!(ca.clone_flags & CLONE_NEWPID))
 		unlock_last_pid();
@@ -1764,7 +1766,7 @@ static int create_children_and_session(void)
 	return 0;
 }
 
-static int restore_task_with_children(void *_arg)
+static int __restore_task_with_children(void *_arg)
 {
 	struct cr_clone_arg *ca = _arg;
 	pid_t pid;
@@ -1954,6 +1956,16 @@ err:
 	if (current->parent == NULL)
 		futex_abort_and_wake(&task_entries->nr_in_progress);
 	exit(1);
+}
+
+static int restore_task_with_children(void *_arg)
+{
+	struct cr_clone_arg *arg = _arg;
+	struct pstree_item *item = arg->item;
+	CoreEntry *core = arg->core;
+
+	return arch_shstk_trampoline(item, core, __restore_task_with_children,
+				     arg);
 }
 
 static int attach_to_tasks(bool root_seized)

@@ -66,4 +66,13 @@ int arch_shstk_prepare(struct pstree_item *item, CoreEntry *core,
 		       struct task_restore_args *ta);
 #define arch_shstk_prepare arch_shstk_prepare
 
+#if 0
+int arch_shstk_unlock(struct pstree_item *item, CoreEntry *core, pid_t pid);
+#define arch_shstk_unlock arch_shstk_unlock
+
+int arch_shstk_trampoline(struct pstree_item *item, CoreEntry *core,
+		      int (*func)(void *arg), void *arg);
+#define arch_shstk_trampoline arch_shstk_trampoline
+#endif
+
 #endif /* __CR_ASM_SHSTK_H__ */
