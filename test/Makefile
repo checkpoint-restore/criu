@@ -12,7 +12,7 @@ all:
 	$(MAKE) zdtm-freezer
 .PHONY: all
 
-TESTS = unix-callback mem-snap rpc libcriu mounts/ext security pipes crit socketpairs overlayfs mnt-ext-dev shell-job
+TESTS = unix-callback mem-snap rpc libcriu mounts/ext security pipes crit socketpairs overlayfs mnt-ext-dev shell-job skip-file-rwx-check
 
 other:
 	for t in $(TESTS); do				\
