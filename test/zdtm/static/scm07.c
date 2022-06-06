@@ -160,6 +160,17 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+#ifdef SEND_ANOTHER_FD
+	if (send_fd(sk[0], p[1]) < 0) {
+		pr_perror("Can't send descriptor");
+		close(sk[0]);
+		close(sk[1]);
+		close(p[0]);
+		close(p[1]);
+		exit(1);
+	}
+#endif
+
 	/* we sent this side of socketpair */
 	close(p[1]);
 
