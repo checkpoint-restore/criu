@@ -351,6 +351,10 @@ static int root_prepare_shared(void)
 	if (ret)
 		goto err;
 
+	ret = add_fake_unix_queuers();
+	if (ret)
+		goto err;
+
 	/*
 	 * This should be called with all packets collected AND all
 	 * fdescs and fles prepared BUT post-prep-s not run.
@@ -364,10 +368,6 @@ static int root_prepare_shared(void)
 		goto err;
 
 	ret = unix_prepare_root_shared();
-	if (ret)
-		goto err;
-
-	ret = add_fake_unix_queuers();
 	if (ret)
 		goto err;
 
