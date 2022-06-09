@@ -106,6 +106,9 @@ int main(int argc, char **argv)
 	p[0] = -1;
 #endif
 #endif
+#ifdef CLOSE_SENDER_FD
+	close(sk[0]);
+#endif
 
 	test_daemon();
 	test_waitsig();
