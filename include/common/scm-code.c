@@ -7,10 +7,10 @@ static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds, void *data
 	struct cmsghdr *cmsg;
 	static char dummy;
 
-	fdset->hdr.msg_controllen = CMSG_LEN(sizeof(int) * nr_fds);
+	fdset->hdr.msg_controllen = CMSG_SPACE(sizeof(int) * nr_fds);
 
 	cmsg = CMSG_FIRSTHDR(&fdset->hdr);
-	cmsg->cmsg_len = fdset->hdr.msg_controllen;
+	cmsg->cmsg_len = CMSG_LEN(sizeof(int) * nr_fds);
 
 	if (data) {
 		fdset->iov.iov_base = data;
@@ -35,7 +35,7 @@ static int *scm_fdset_init(struct scm_fdset *fdset, struct sockaddr_un *saddr, i
 	fdset->hdr.msg_namelen = saddr_len;
 
 	fdset->hdr.msg_control = &fdset->msg_buf;
-	fdset->hdr.msg_controllen = CMSG_LEN(sizeof(int) * CR_SCM_MAX_FD);
+	fdset->hdr.msg_controllen = CMSG_SPACE(sizeof(int) * CR_SCM_MAX_FD);
 
 	cmsg = CMSG_FIRSTHDR(&fdset->hdr);
 	cmsg->cmsg_len = fdset->hdr.msg_controllen;
@@ -86,6 +86,9 @@ int __recv_fds(int sock, int *fds, int nr_fds, void *data, unsigned ch_size, int
 		ret = __sys(recvmsg)(sock, &fdset.hdr, flags);
 		if (ret <= 0)
 			return ret ? __sys_err(ret) : -ENOMSG;
+
+		if (fdset.hdr.msg_flags & (MSG_TRUNC | MSG_CTRUNC))
+			return -EMSGSIZE;
 
 		cmsg = CMSG_FIRSTHDR(&fdset.hdr);
 		if (!cmsg || cmsg->cmsg_type != SCM_RIGHTS)
