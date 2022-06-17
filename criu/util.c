@@ -2021,6 +2021,10 @@ char *resolve_mountpoint(char *path)
 	char *mp_path, *free_path;
 	bool is_mountpoint;
 
+	/*
+	 * The dirname() function may modify the contents of given path,
+	 * so we need a strdup here to preserve path.
+	 */
 	mp_path = free_path = xstrdup(path);
 	if (!mp_path)
 		return NULL;
@@ -2031,7 +2035,7 @@ char *resolve_mountpoint(char *path)
 		 * by openat2 RESOLVE_NO_XDEV, let's just assume they are.
 		 */
 		if (is_same_path(mp_path, "/"))
-			return mp_path;
+			goto out;
 
 		if (path_is_mountpoint(mp_path, &is_mountpoint) == -1) {
 			xfree(free_path);
@@ -2039,7 +2043,7 @@ char *resolve_mountpoint(char *path)
 		}
 
 		if (is_mountpoint)
-			return mp_path;
+			goto out;
 
 		/* Try parent directory */
 		mp_path = dirname(mp_path);
@@ -2048,4 +2052,14 @@ char *resolve_mountpoint(char *path)
 	/* never get here */
 	xfree(free_path);
 	return NULL;
+out:
+	/*
+	 * The dirname() function may or may not return statically allocated
+	 * strings, so here mp_path can be either dynamically allocated or
+	 * statically allocated. Let's strdup to make the return pointer
+	 * always freeable.
+	 */
+	mp_path = xstrdup(mp_path);
+	xfree(free_path);
+	return mp_path;
 }
