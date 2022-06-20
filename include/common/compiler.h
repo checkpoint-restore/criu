@@ -47,7 +47,9 @@
 #define noinline __attribute__((noinline))
 #endif
 
+#ifndef __aligned
 #define __aligned(x) __attribute__((aligned(x)))
+#endif
 
 /*
  * Macro to define stack alignment.
