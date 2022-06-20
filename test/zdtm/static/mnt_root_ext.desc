@@ -1,0 +1,5 @@
+{   'dopts': '--external mnt[/mnt_root_ext.test]:MNT',
+    'feature': 'mnt_id move_mount_set_group',
+    'flavor': 'ns uns',
+    'flags': 'suid',
+    'ropts': '--external mnt[MNT]:.zdtm_root_ext.tmp --no-mntns-compat-mode'}
