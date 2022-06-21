@@ -78,7 +78,7 @@ int cpu_dump_cpuinfo(void)
 	cpu_info.n_x86_entry = 1;
 
 	cpu_x86_info.vendor_id = (rt_cpu_info.x86_vendor == X86_VENDOR_INTEL) ? CPUINFO_X86_ENTRY__VENDOR__INTEL :
-										      CPUINFO_X86_ENTRY__VENDOR__AMD;
+										CPUINFO_X86_ENTRY__VENDOR__AMD;
 
 	cpu_x86_info.cpu_family = rt_cpu_info.x86_family;
 	cpu_x86_info.model = rt_cpu_info.x86_model;

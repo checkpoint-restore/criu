@@ -57,7 +57,7 @@ const char *inot_dir = "./inotify.no_del";
 	(MASK == IN_UNMOUNT)	   ? "IN_UNMOUNT" :       \
 	(MASK == IN_Q_OVERFLOW)	   ? "IN_Q_OVERFLOW" :    \
 	(MASK == IN_IGNORED)	   ? "IN_IGNORED" :       \
-					   "UNKNOWN"
+				     "UNKNOWN"
 
 #include <unistd.h>
 #include <fcntl.h>
