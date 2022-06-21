@@ -1115,6 +1115,11 @@ int check_options(void)
 		}
 	}
 
+	if (opts.track_mem && !kdat.has_dirty_track) {
+		pr_err("Tracking memory is not available. Consider omitting --track-mem option.\n");
+		return 1;
+	}
+
 	if (check_namespace_opts()) {
 		pr_err("Error: namespace flags conflict\n");
 		return 1;
