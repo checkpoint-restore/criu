@@ -420,10 +420,6 @@ static int kerndat_get_dirty_track(void)
 	} else {
 	no_dt:
 		pr_info("Dirty tracking support is OFF\n");
-		if (opts.track_mem) {
-			pr_err("Tracking memory is not available\n");
-			return -1;
-		}
 	}
 
 	return 0;
