@@ -409,7 +409,7 @@ int restore_fpu(struct rt_sigframe *sigframe, CoreEntry *core)
 {
 	fpu_state_t *fpu_state = core_is_compat(core) ? &sigframe->compat.fpu_state : &sigframe->native.fpu_state;
 	struct xsave_struct *x = core_is_compat(core) ? (void *)&fpu_state->fpu_state_ia32.xsave :
-							      (void *)&fpu_state->fpu_state_64.xsave;
+							(void *)&fpu_state->fpu_state_64.xsave;
 
 	/*
 	 * If no FPU information provided -- we're restoring

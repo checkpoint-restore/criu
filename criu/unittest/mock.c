@@ -103,8 +103,7 @@ void set_cr_errno(int new_err)
 {
 }
 
-struct ns_desc {
-};
+struct ns_desc {};
 struct ns_desc user_ns_desc;
 int switch_ns(int pid, struct ns_desc *nd, int *rst)
 {
@@ -118,8 +117,7 @@ int run_scripts(enum script_actions act)
 }
 
 typedef struct VmaEntry VmaEntry;
-struct VmaEntry {
-};
+struct VmaEntry {};
 void vma_entry__init(VmaEntry *message)
 {
 }
