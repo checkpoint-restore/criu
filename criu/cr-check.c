@@ -1291,7 +1291,7 @@ static int check_net_diag_raw(void)
 {
 	check_sock_diag();
 	return (socket_test_collect_bit(AF_INET, IPPROTO_RAW) && socket_test_collect_bit(AF_INET6, IPPROTO_RAW)) ? 0 :
-															 -1;
+														   -1;
 }
 
 static int check_pidfd_store(void)

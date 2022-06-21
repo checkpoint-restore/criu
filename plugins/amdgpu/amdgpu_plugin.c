@@ -873,7 +873,7 @@ void *dump_bo_contents(void *_thread_data)
 	}
 
 	max_copy_size = (gpu_info.family_id >= AMDGPU_FAMILY_AI) ? SDMA_LINEAR_COPY_MAX_SIZE :
-									 SDMA_LINEAR_COPY_MAX_SIZE - 1;
+								   SDMA_LINEAR_COPY_MAX_SIZE - 1;
 
 	for (i = 0; i < thread_data->num_of_bos; i++) {
 		if (bo_buckets[i].gpu_id == thread_data->gpu_id &&
@@ -967,7 +967,7 @@ void *restore_bo_contents(void *_thread_data)
 	}
 
 	max_copy_size = (gpu_info.family_id >= AMDGPU_FAMILY_AI) ? SDMA_LINEAR_COPY_MAX_SIZE :
-									 SDMA_LINEAR_COPY_MAX_SIZE - 1;
+								   SDMA_LINEAR_COPY_MAX_SIZE - 1;
 
 	snprintf(img_path, sizeof(img_path), IMG_PAGES_FILE, thread_data->id, thread_data->gpu_id);
 	bo_contents_fp = open_img_file(img_path, false, &image_size);
