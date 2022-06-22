@@ -4,6 +4,8 @@ import ctypes.util
 import errno
 import sys
 import os
+import fcntl
+import termios
 
 # <sched.h> constants for unshare
 CLONE_NEWNS = 0x00020000
@@ -124,6 +126,16 @@ def wrap_restore():
     criu_pid = os.fork()
     if criu_pid == 0:
         os.setsid()
+        # Set stdin tty to be a controlling tty of our new session, this is
+        # required by --shell-job option, as for it CRIU would try to set a
+        # process group of restored root task to be a foreground group on the
+        # terminal.
+        if '--shell-job' in restore_args or '-j' in restore_args:
+            if os.isatty(sys.stdin.fileno()):
+                fcntl.ioctl(sys.stdin.fileno(), termios.TIOCSCTTY, 1)
+            else:
+                raise OSError(errno.EINVAL, 'The stdin is not a tty for a --shell-job')
+
         _mount_new_proc()
         run_criu(restore_args)
 
