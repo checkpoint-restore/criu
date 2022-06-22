@@ -14,6 +14,8 @@
 #include <sys/mount.h>
 #include <elf.h>
 
+#include "tty.h"
+
 #ifndef SEEK_DATA
 #define SEEK_DATA 3
 #define SEEK_HOLE 4
@@ -1689,6 +1691,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	int ret;
 	FileEntry fe = FILE_ENTRY__INIT;
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
+	bool skip_for_shell_job = false;
 
 	if (!p->link) {
 		if (fill_fdlink(lfd, p, &_link))
@@ -1708,11 +1711,15 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 
 	mi = lookup_mnt_id(p->mnt_id);
 	if (mi == NULL) {
-		pr_err("Can't lookup mount=%d for fd=%d path=%s\n", p->mnt_id, p->fd, link->name + 1);
-		return -1;
+		if (opts.shell_job && is_tty(p->stat.st_rdev, p->stat.st_dev)) {
+			skip_for_shell_job = true;
+		} else {
+			pr_err("Can't lookup mount=%d for fd=%d path=%s\n", p->mnt_id, p->fd, link->name + 1);
+			return -1;
+		}
 	}
 
-	if (mnt_is_overmounted(mi)) {
+	if (!skip_for_shell_job && mnt_is_overmounted(mi)) {
 		pr_err("Open files on overmounted mounts are not supported yet\n");
 		return -1;
 	}
@@ -1732,7 +1739,7 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 		return -1;
 	}
 
-	if (check_path_remap(link, p, lfd, id, mi->nsid))
+	if (!skip_for_shell_job && check_path_remap(link, p, lfd, id, mi->nsid))
 		return -1;
 	rfe.name = &link->name[1];
 ext:
