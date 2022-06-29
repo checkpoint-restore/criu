@@ -33,4 +33,5 @@ typedef struct {
 	k_rtsigset_t rt_sa_mask;
 } rt_sigaction_t;
 
+#define ARCH_HAS_SIG_MASK_EXTENDED
 #endif /* COMPEL_ARCH_SYSCALL_TYPES_H__ */

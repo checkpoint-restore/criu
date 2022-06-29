@@ -447,15 +447,11 @@ static int restore_native_sigaction(int sig, SaEntry *e)
 	ASSIGN_TYPED(act.rt_sa_handler, decode_pointer(e->sigaction));
 	ASSIGN_TYPED(act.rt_sa_flags, e->flags);
 	ASSIGN_TYPED(act.rt_sa_restorer, decode_pointer(e->restorer));
-#ifdef CONFIG_MIPS
-	e->has_mask_extended = 1;
-	BUILD_BUG_ON(sizeof(e->mask) * 2 != sizeof(act.rt_sa_mask.sig));
-
-	memcpy(&(act.rt_sa_mask.sig[0]), &e->mask, sizeof(act.rt_sa_mask.sig[0]));
-	memcpy(&(act.rt_sa_mask.sig[1]), &e->mask_extended, sizeof(act.rt_sa_mask.sig[1]));
-#else
-	BUILD_BUG_ON(sizeof(e->mask) != sizeof(act.rt_sa_mask.sig));
-	memcpy(act.rt_sa_mask.sig, &e->mask, sizeof(act.rt_sa_mask.sig));
+	memcpy(act.rt_sa_mask.sig, &e->mask, sizeof(e->mask));
+#ifdef ARCH_HAS_SIG_MASK_EXTENDED
+	if (!e->has_mask_extended)
+		pr_err("Dump file does not have mask extended of signal\n");
+	memcpy(&(act.rt_sa_mask.sig[1]), &e->mask_extended, sizeof(e->mask_extended));
 #endif
 	if (sig == SIGCHLD) {
 		sigchld_act = act;
@@ -3776,12 +3772,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	for (i = 0; i < current->nr_threads; i++) {
 		CoreEntry *tcore;
 		struct rt_sigframe *sigframe;
-#ifdef CONFIG_MIPS
-		k_rtsigset_t mips_blkset;
-#else
-		k_rtsigset_t *blkset = NULL;
-
-#endif
+		k_rtsigset_t blkset;
 		thread_args[i].pid = current->threads[i].ns[0].virt;
 		thread_args[i].siginfo_n = siginfo_priv_nr[i];
 		thread_args[i].siginfo = task_args->siginfo;
@@ -3792,20 +3783,17 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		if (thread_args[i].pid == pid) {
 			task_args->t = thread_args + i;
 			tcore = core;
-#ifdef CONFIG_MIPS
-			mips_blkset.sig[0] = tcore->tc->blk_sigset;
-			mips_blkset.sig[1] = tcore->tc->blk_sigset_extended;
-#else
-			blkset = (void *)&tcore->tc->blk_sigset;
+			memcpy(&blkset.sig, &tcore->tc->blk_sigset, sizeof(tcore->tc->blk_sigset));
+#ifdef ARCH_HAS_SIG_MASK_EXTENDED
+			memcpy(&blkset.sig[1], &tcore->tc->blk_sigset_extended, sizeof(tcore->tc->blk_sigset_extended));
 #endif
 		} else {
 			tcore = current->core[i];
 			if (tcore->thread_core->has_blk_sigset) {
-#ifdef CONFIG_MIPS
-				mips_blkset.sig[0] = tcore->thread_core->blk_sigset;
-				mips_blkset.sig[1] = tcore->thread_core->blk_sigset_extended;
-#else
-				blkset = (void *)&tcore->thread_core->blk_sigset;
+				memcpy(&blkset.sig, &tcore->thread_core->blk_sigset, sizeof(tcore->thread_core->blk_sigset));
+#ifdef ARCH_HAS_SIG_MASK_EXTENDED
+				memcpy(&blkset.sig[1], &tcore->thread_core->blk_sigset_extended,
+						sizeof(tcore->thread_core->blk_sigset_extended));
 #endif
 			}
 		}
@@ -3849,11 +3837,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		thread_args[i].mz = mz + i;
 		sigframe = (struct rt_sigframe *)&mz[i].rt_sigframe;
 
-#ifdef CONFIG_MIPS
-		if (construct_sigframe(sigframe, sigframe, &mips_blkset, tcore))
-#else
-		if (construct_sigframe(sigframe, sigframe, blkset, tcore))
-#endif
+		if (construct_sigframe(sigframe, sigframe, &blkset, tcore))
 			goto err;
 
 		if (tcore->thread_core->comm)
