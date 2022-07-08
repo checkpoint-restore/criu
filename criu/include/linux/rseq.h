@@ -9,7 +9,12 @@
 #endif
 #endif
 
-#ifndef __GLIBC_HAVE_KERNEL_RSEQ
+#include <linux/types.h>
+#include <asm/byteorder.h>
+
+#include "common/config.h"
+
+#ifdef CONFIG_HAS_NO_LIBC_RSEQ_DEFS
 /*
  * linux/rseq.h
  *
@@ -17,9 +22,6 @@
  *
  * Copyright (c) 2015-2018 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  */
-
-#include <linux/types.h>
-#include <asm/byteorder.h>
 
 enum rseq_cpu_id_state {
 	RSEQ_CPU_ID_UNINITIALIZED = -1,
@@ -41,13 +43,20 @@ enum rseq_cs_flags {
 	RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL = (1U << RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL_BIT),
 	RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE = (1U << RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE_BIT),
 };
+#endif /* CONFIG_HAS_NO_LIBC_RSEQ_DEFS */
 
+/*
+ * Let's use our own definition of struct rseq_cs because some distros
+ * (for example Mariner GNU/Linux) declares this structure their-own way.
+ * This makes trouble with inconsistency between printf formatters and
+ * struct rseq_cs field types.
+ */
 /*
  * struct rseq_cs is aligned on 4 * 8 bytes to ensure it is always
  * contained within a single cache-line. It is usually declared as
  * link-time constant data.
  */
-struct rseq_cs {
+struct criu_rseq_cs {
 	/* Version of this structure. */
 	__u32 version;
 	/* enum rseq_cs_flags */
@@ -57,7 +66,6 @@ struct rseq_cs {
 	__u64 post_commit_offset;
 	__u64 abort_ip;
 } __attribute__((aligned(4 * sizeof(__u64))));
-#endif /* __GLIBC_HAVE_KERNEL_RSEQ */
 
 /*
  * We have to have our own copy of struct rseq definition because
