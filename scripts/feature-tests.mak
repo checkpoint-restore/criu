@@ -196,3 +196,22 @@ int main(void)
 	return 0;
 }
 endef
+
+define FEATURE_TEST_NO_LIBC_RSEQ_DEFS
+
+#ifdef __has_include
+#if __has_include(\"sys/rseq.h\")
+#include <sys/rseq.h>
+#endif
+#endif
+
+enum rseq_cpu_id_state {
+	RSEQ_CPU_ID_UNINITIALIZED = -1,
+	RSEQ_CPU_ID_REGISTRATION_FAILED = -2,
+};
+
+int main(void)
+{
+	return 0;
+}
+endef
