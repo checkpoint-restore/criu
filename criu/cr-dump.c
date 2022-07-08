@@ -1039,7 +1039,7 @@ static int dump_task_signals(pid_t pid, struct pstree_item *item)
 	return 0;
 }
 
-static int read_rseq_cs(pid_t tid, struct __ptrace_rseq_configuration *rseqc, struct rseq_cs *rseq_cs,
+static int read_rseq_cs(pid_t tid, struct __ptrace_rseq_configuration *rseqc, struct criu_rseq_cs *rseq_cs,
 			struct criu_rseq *rseq)
 {
 	int ret;
@@ -1070,10 +1070,11 @@ static int read_rseq_cs(pid_t tid, struct __ptrace_rseq_configuration *rseqc, st
 	if (!rseq->rseq_cs)
 		return 0;
 
-	ret = ptrace_peek_area(tid, rseq_cs, decode_pointer(rseq->rseq_cs), sizeof(struct rseq_cs));
+	ret = ptrace_peek_area(tid, rseq_cs, decode_pointer(rseq->rseq_cs), sizeof(struct criu_rseq_cs));
 	if (ret) {
 		pr_err("ptrace_peek_area(%d, %lx, %lx, %lx): fail to read rseq_cs struct\n", tid,
-		       (unsigned long)rseq_cs, (unsigned long)rseq->rseq_cs, (unsigned long)sizeof(struct rseq_cs));
+		       (unsigned long)rseq_cs, (unsigned long)rseq->rseq_cs,
+		       (unsigned long)sizeof(struct criu_rseq_cs));
 		return -1;
 	}
 
@@ -1088,7 +1089,7 @@ static int dump_thread_rseq(struct pstree_item *item, int i)
 	CoreEntry *core = item->core[i];
 	RseqEntry **rseqep = &core->thread_core->rseq_entry;
 	struct criu_rseq rseq = {};
-	struct rseq_cs *rseq_cs = &dmpi(item)->thread_rseq_cs[i];
+	struct criu_rseq_cs *rseq_cs = &dmpi(item)->thread_rseq_cs[i];
 	pid_t tid = item->threads[i].real;
 
 	/*
@@ -1154,7 +1155,7 @@ err:
 static int dump_task_rseq(pid_t pid, struct pstree_item *item)
 {
 	int i;
-	struct rseq_cs *thread_rseq_cs;
+	struct criu_rseq_cs *thread_rseq_cs;
 
 	/* if rseq() syscall isn't supported then nothing to dump */
 	if (!kdat.has_rseq)
@@ -1179,7 +1180,7 @@ free_rseq:
 	return -1;
 }
 
-static bool task_in_rseq(struct rseq_cs *rseq_cs, uint64_t addr)
+static bool task_in_rseq(struct criu_rseq_cs *rseq_cs, uint64_t addr)
 {
 	return addr >= rseq_cs->start_ip && addr < rseq_cs->start_ip + rseq_cs->post_commit_offset;
 }
@@ -1187,7 +1188,7 @@ static bool task_in_rseq(struct rseq_cs *rseq_cs, uint64_t addr)
 static int fixup_thread_rseq(struct pstree_item *item, int i)
 {
 	CoreEntry *core = item->core[i];
-	struct rseq_cs *rseq_cs = &dmpi(item)->thread_rseq_cs[i];
+	struct criu_rseq_cs *rseq_cs = &dmpi(item)->thread_rseq_cs[i];
 	pid_t tid = item->threads[i].real;
 
 	/* equivalent to (struct rseq)->rseq_cs is NULL */
