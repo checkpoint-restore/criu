@@ -7,6 +7,7 @@
 #include "asm/kerndat.h"
 #include "util-vdso.h"
 #include "hugetlb.h"
+#include <compel/ptrace.h>
 
 struct stat;
 
@@ -82,6 +83,7 @@ struct kerndat_s {
 	bool has_openat2;
 	bool has_rseq;
 	bool has_ptrace_get_rseq_conf;
+	struct __ptrace_rseq_configuration libc_rseq_conf;
 };
 
 extern struct kerndat_s kdat;
