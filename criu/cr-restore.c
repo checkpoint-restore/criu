@@ -3087,7 +3087,6 @@ static int prep_rseq(struct rst_rseq_param *rseq, ThreadCoreEntry *tc)
 	return 0;
 }
 
-#if defined(__GLIBC__) && defined(RSEQ_SIG)
 static void prep_libc_rseq_info(struct rst_rseq_param *rseq)
 {
 	if (!kdat.has_rseq) {
@@ -3095,15 +3094,14 @@ static void prep_libc_rseq_info(struct rst_rseq_param *rseq)
 		return;
 	}
 
-	rseq->rseq_abi_pointer = encode_pointer(__criu_thread_pointer() + __rseq_offset);
-	rseq->rseq_abi_size = __rseq_size;
-	rseq->signature = RSEQ_SIG;
-}
+	if (!kdat.has_ptrace_get_rseq_conf) {
+#if defined(__GLIBC__) && defined(RSEQ_SIG)
+		rseq->rseq_abi_pointer = encode_pointer(__criu_thread_pointer() + __rseq_offset);
+		rseq->rseq_abi_size = __rseq_size;
+		rseq->signature = RSEQ_SIG;
 #else
-static void prep_libc_rseq_info(struct rst_rseq_param *rseq)
-{
-	if (!kdat.has_rseq || !kdat.has_ptrace_get_rseq_conf) {
 		rseq->rseq_abi_pointer = 0;
+#endif
 		return;
 	}
 
@@ -3111,7 +3109,6 @@ static void prep_libc_rseq_info(struct rst_rseq_param *rseq)
 	rseq->rseq_abi_size = kdat.libc_rseq_conf.rseq_abi_size;
 	rseq->signature = kdat.libc_rseq_conf.signature;
 }
-#endif
 
 static rlim_t decode_rlim(rlim_t ival)
 {
