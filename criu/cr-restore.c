@@ -3103,14 +3103,14 @@ static void prep_libc_rseq_info(struct rst_rseq_param *rseq)
 #else
 static void prep_libc_rseq_info(struct rst_rseq_param *rseq)
 {
-	/*
-	 * TODO: handle built-in rseq on other libc'ies like musl
-	 * We can do that using get_rseq_conf kernel feature.
-	 *
-	 * For now we just assume that other libc libraries are
-	 * not registering rseq by default.
-	 */
-	rseq->rseq_abi_pointer = 0;
+	if (!kdat.has_rseq || !kdat.has_ptrace_get_rseq_conf) {
+		rseq->rseq_abi_pointer = 0;
+		return;
+	}
+
+	rseq->rseq_abi_pointer = kdat.libc_rseq_conf.rseq_abi_pointer;
+	rseq->rseq_abi_size = kdat.libc_rseq_conf.rseq_abi_size;
+	rseq->signature = kdat.libc_rseq_conf.signature;
 }
 #endif
 
