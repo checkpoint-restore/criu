@@ -479,7 +479,7 @@ out_close:
 	return ret;
 }
 
-#define COMPAT_VDSO_BUF_SZ (PAGE_SIZE * 2)
+#define COMPAT_VDSO_BUF_SZ (PAGE_SIZE * 4)
 static int vdso_fill_compat_symtable(struct vdso_maps *native, struct vdso_maps *compat)
 {
 	void *vdso_mmap;
