@@ -1651,6 +1651,15 @@ def get_visible_state(test):
     return files, maps, mounts
 
 
+def has_vsyscall(maps):
+    vsyscall = u"ffffffffff600000-ffffffffff601000"
+    for i in maps:
+        if vsyscall in i:
+            return i
+
+    return None
+
+
 def check_visible_state(test, state, opts):
     new = get_visible_state(test)
 
@@ -1666,9 +1675,9 @@ def check_visible_state(test, state, opts):
         new_maps = new[1][pid]
         if os.getenv("COMPAT_TEST"):
             # the vsyscall vma isn't unmapped from x32 processes
-            vsyscall = u"ffffffffff600000-ffffffffff601000 r-xp"
-            if vsyscall in new_maps and vsyscall not in old_maps:
-                new_maps.remove(vsyscall)
+            entry = has_vsyscall(new_maps)
+            if entry and has_vsyscall(old_maps) is None:
+                new_maps.remove(entry)
         if old_maps != new_maps:
             print("%s: Old maps lost: %s" % (pid, old_maps - new_maps))
             print("%s: New maps appeared: %s" % (pid, new_maps - old_maps))
