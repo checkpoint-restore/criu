@@ -29,6 +29,7 @@
  * and checked.
  */
 #define BUILD_ID_MAP_SIZE 1048576
+#define ST_UNIT		  512
 
 #include "cr_options.h"
 #include "imgset.h"
@@ -946,8 +947,8 @@ static int dump_ghost_remap(char *path, const struct stat *st, int lfd, u32 id, 
 
 	pr_info("Dumping ghost file for fd %d id %#x\n", lfd, id);
 
-	if (st->st_size > opts.ghost_limit) {
-		pr_err("Can't dump ghost file %s of %" PRIu64 " size, increase limit\n", path, st->st_size);
+	if (st->st_blocks * ST_UNIT > opts.ghost_limit) {
+		pr_err("Can't dump ghost file %s of %" PRIu64 " size, increase limit\n", path, st->st_blocks * ST_UNIT);
 		return -1;
 	}
 
