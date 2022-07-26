@@ -267,7 +267,7 @@ class ns_flavor:
 
     def init(self, l_bins, x_bins):
         subprocess.check_call(
-            ["mount", "--make-slave", "--bind", ".", self.root])
+            ["mount", "--make-private", "--bind", ".", self.root])
         self.root_mounted = True
 
         if not os.access(self.root + "/.constructed", os.F_OK):
