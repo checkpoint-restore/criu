@@ -52,6 +52,14 @@ int main(int argc, char **argv)
 	}
 
 	/*
+	 * Make mounts in temporary mntns slave, to prevent propagation to criu mntns
+	 */
+	if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL)) {
+		pr_perror("make rslave");
+		return 1;
+	}
+
+	/*
 	 * Populate to the tests root host's rootfs subdir
 	 */
 	if (mount(tmp, testdir, NULL, MS_BIND, NULL)) {
