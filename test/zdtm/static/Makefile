@@ -306,6 +306,8 @@ TST_FILE	=				\
 		ghost_holes00			\
 		ghost_holes01			\
 		ghost_holes02			\
+		ghost_holes_large00     \
+		ghost_holes_large01     \
 		unlink_largefile		\
 		mtime_mmap			\
 		fifo				\
@@ -609,6 +611,7 @@ unlink_fstat04:		CFLAGS += -DUNLINK_FSTAT04
 unlink_fstat041:		CFLAGS += -DUNLINK_FSTAT041 -DUNLINK_FSTAT04
 ghost_holes01:		CFLAGS += -DTAIL_HOLE
 ghost_holes02:		CFLAGS += -DHEAD_HOLE
+ghost_holes_large01:		CFLAGS += -DLIMIT
 sk-freebind-false:	CFLAGS += -DZDTM_FREEBIND_FALSE
 selinux02:		CFLAGS += -DUSING_SOCKCREATE
 stopped01:		CFLAGS += -DZDTM_STOPPED_KILL
