@@ -3,7 +3,6 @@
 #include <signal.h>
 #include <linux/limits.h>
 #include <linux/capability.h>
-#include <sys/mount.h>
 #include <stdarg.h>
 #include <sys/ioctl.h>
 #include <sys/uio.h>
@@ -14,6 +13,7 @@
 #include "int.h"
 #include "types.h"
 #include <compel/plugins/std/syscall.h>
+#include "linux/mount.h"
 #include "parasite.h"
 #include "fcntl.h"
 #include "prctl.h"
