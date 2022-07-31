@@ -27,6 +27,7 @@
 #include "images/cgroup.pb-c.h"
 #include "kerndat.h"
 #include "linux/mount.h"
+#include "syscall.h"
 
 /*
  * This structure describes set of controller groups

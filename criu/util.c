@@ -40,6 +40,7 @@
 #include "mem.h"
 #include "namespaces.h"
 #include "criu-log.h"
+#include "syscall.h"
 
 #include "clone-noasan.h"
 #include "cr_options.h"
