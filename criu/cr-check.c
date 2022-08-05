@@ -1478,13 +1478,15 @@ int cr_check(void)
 		ret |= check_newifindex();
 		ret |= check_pidfd_store();
 		ret |= check_ns_pid();
-		ret |= check_apparmor_stacking();
 		ret |= check_network_lock_nftables();
 		ret |= check_sockopt_buf_lock();
 		ret |= check_memfd_hugetlb();
 		ret |= check_move_mount_set_group();
 		ret |= check_openat2();
 		ret |= check_ptrace_get_rseq_conf();
+
+		if (kdat.lsm == LSMTYPE__APPARMOR)
+			ret |= check_apparmor_stacking();
 	}
 
 	/*
