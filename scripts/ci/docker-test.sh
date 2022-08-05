@@ -21,23 +21,13 @@ add-apt-repository \
 
 . /etc/lsb-release
 
+# docker checkpoint and restore is an experimental feature
 echo '{ "experimental": true }' > /etc/docker/daemon.json
+service docker restart
 
 CRIU_LOG='/criu.log'
 mkdir -p /etc/criu
 echo "log-file=$CRIU_LOG" > /etc/criu/runc.conf
-
-service docker stop
-systemctl stop containerd.service
-
-# Always use the latest containerd release.
-# Restore with containerd versions after v1.2.14 and before v1.5.0-beta.0 are broken.
-# https://github.com/checkpoint-restore/criu/issues/1223
-CONTAINERD_DOWNLOAD_URL=$(curl -s https://api.github.com/repos/containerd/containerd/releases/latest | grep '"browser_download_url":.*/containerd-.*-linux-amd64.tar.gz.$' | cut -d\" -f4)
-wget -nv "$CONTAINERD_DOWNLOAD_URL" -O - | tar -xz -C /usr/
-
-systemctl restart containerd.service
-service docker restart
 
 export SKIP_CI_TEST=1
 
