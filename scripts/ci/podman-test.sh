@@ -25,11 +25,7 @@ make install
 popd
 rm -rf "${tmp_dir}"
 
-# overlayfs with current Ubuntu kernel breaks CRIU
-# https://bugs.launchpad.net/ubuntu/+source/linux-azure/+bug/1967924
-# Use VFS storage drive as a work-around
-export STORAGE_DRIVER=vfs
-podman --storage-driver vfs info
+podman info
 
 # shellcheck disable=SC2016
 podman run --name cr -d docker.io/library/alpine /bin/sh -c 'i=0; while true; do echo $i; i=$(expr $i + 1); sleep 1; done'
