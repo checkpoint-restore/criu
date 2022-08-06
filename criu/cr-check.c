@@ -104,7 +104,7 @@ out:
 
 static int check_apparmor_stacking(void)
 {
-	if (!check_aa_ns_dumping())
+	if (!kdat.apparmor_ns_dumping_enabled)
 		return -1;
 
 	return 0;
