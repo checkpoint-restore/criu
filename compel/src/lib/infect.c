@@ -304,6 +304,11 @@ try_again:
 		goto try_again;
 	}
 
+	if (ptrace(PTRACE_SETOPTIONS, pid, NULL, PTRACE_O_TRACESYSGOOD)) {
+		pr_perror("Unable to set PTRACE_O_TRACESYSGOOD for %d", pid);
+		return -1;
+	}
+
 	if (ss->seccomp_mode != SECCOMP_MODE_DISABLED && ptrace_suspend_seccomp(pid) < 0)
 		goto err;
 
@@ -1366,7 +1371,6 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	pid_t pid = ctl->rpid;
 	user_regs_struct_t regs;
 	int status, ret = 0;
-	enum trace_flags flag;
 
 	/* stop getting chld from parasite -- we're about to step-by-step it */
 	if (restore_child_handler(ctl))
@@ -1407,11 +1411,11 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 		return -1;
 
 	/* Go to sigreturn as closer as we can */
-	ret = compel_stop_pie(pid, ctl->sigreturn_addr, &flag, ctl->ictx.flags & INFECT_NO_BREAKPOINTS);
+	ret = compel_stop_pie(pid, ctl->sigreturn_addr, ctl->ictx.flags & INFECT_NO_BREAKPOINTS);
 	if (ret < 0)
 		return ret;
 
-	if (compel_stop_on_syscall(1, __NR(rt_sigreturn, 0), __NR(rt_sigreturn, 1), flag))
+	if (compel_stop_on_syscall(1, __NR(rt_sigreturn, 0), __NR(rt_sigreturn, 1)))
 		return -1;
 
 	if (ptrace_flush_breakpoints(pid))
@@ -1546,7 +1550,7 @@ int compel_unmap(struct parasite_ctl *ctl, unsigned long addr)
 	if (ret)
 		goto err;
 
-	ret = compel_stop_on_syscall(1, __NR(munmap, 0), __NR(munmap, 1), TRACE_ENTER);
+	ret = compel_stop_on_syscall(1, __NR(munmap, 0), __NR(munmap, 1));
 
 	/*
 	 * Don't touch extended registers here: they were restored
@@ -1558,7 +1562,7 @@ err:
 	return ret;
 }
 
-int compel_stop_pie(pid_t pid, void *addr, enum trace_flags *tf, bool no_bp)
+int compel_stop_pie(pid_t pid, void *addr, bool no_bp)
 {
 	int ret;
 
@@ -1575,7 +1579,6 @@ int compel_stop_pie(pid_t pid, void *addr, enum trace_flags *tf, bool no_bp)
 		 * PIE will stop on a breakpoint, next
 		 * stop after that will be syscall enter.
 		 */
-		*tf = TRACE_EXIT;
 		return 0;
 	}
 
@@ -1588,14 +1591,12 @@ int compel_stop_pie(pid_t pid, void *addr, enum trace_flags *tf, bool no_bp)
 		pr_perror("Unable to restart the %d process", pid);
 		return -1;
 	}
-
-	*tf = TRACE_ENTER;
 	return 0;
 }
 
 static bool task_is_trapped(int status, pid_t pid)
 {
-	if (WIFSTOPPED(status) && WSTOPSIG(status) == SIGTRAP)
+	if (WIFSTOPPED(status) && (WSTOPSIG(status) & ~PTRACE_SYSCALL_TRAP) == SIGTRAP)
 		return true;
 
 	pr_err("Task %d is in unexpected state: %x\n", pid, status);
@@ -1629,14 +1630,12 @@ static inline int is_required_syscall(user_regs_struct_t *regs, pid_t pid, const
  * sys_nr - the required syscall number
  * sys_nr_compat - the required compatible syscall number
  */
-int compel_stop_on_syscall(int tasks, const int sys_nr, const int sys_nr_compat, enum trace_flags trace)
+int compel_stop_on_syscall(int tasks, const int sys_nr, const int sys_nr_compat)
 {
+	enum trace_flags trace = tasks > 1 ? TRACE_ALL : TRACE_ENTER;
 	user_regs_struct_t regs;
 	int status, ret;
 	pid_t pid;
-
-	if (tasks > 1)
-		trace = TRACE_ALL;
 
 	/* Stop all threads on the enter point in sys_rt_sigreturn */
 	while (tasks) {
@@ -1651,6 +1650,8 @@ int compel_stop_on_syscall(int tasks, const int sys_nr, const int sys_nr_compat,
 
 		pr_debug("%d was trapped\n", pid);
 
+		if ((WSTOPSIG(status) & PTRACE_SYSCALL_TRAP) == 0)
+			goto goon;
 		if (trace == TRACE_EXIT) {
 			trace = TRACE_ENTER;
 			pr_debug("`- Expecting exit\n");

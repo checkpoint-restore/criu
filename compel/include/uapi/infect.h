@@ -80,9 +80,9 @@ enum trace_flags {
 	TRACE_EXIT,
 };
 
-extern int __must_check compel_stop_on_syscall(int tasks, int sys_nr, int sys_nr_compat, enum trace_flags trace);
+extern int __must_check compel_stop_on_syscall(int tasks, int sys_nr, int sys_nr_compat);
 
-extern int __must_check compel_stop_pie(pid_t pid, void *addr, enum trace_flags *tf, bool no_bp);
+extern int __must_check compel_stop_pie(pid_t pid, void *addr, bool no_bp);
 
 extern int __must_check compel_unmap(struct parasite_ctl *ctl, unsigned long addr);
 
