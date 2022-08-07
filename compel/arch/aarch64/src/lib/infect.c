@@ -2,7 +2,9 @@
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <asm/ptrace.h>
 #include <linux/elf.h>
+
 #include <compel/plugins/std/syscall-codes.h>
 #include "common/page.h"
 #include "uapi/compel/asm/infect-types.h"
@@ -10,6 +12,7 @@
 #include "errno.h"
 #include "infect.h"
 #include "infect-priv.h"
+#include "asm/breakpoints.h"
 
 unsigned __page_size = 0;
 unsigned __page_shift = 0;
@@ -177,12 +180,98 @@ unsigned long compel_task_size(void)
 	return task_size;
 }
 
+static struct hwbp_cap *ptrace_get_hwbp_cap(pid_t pid)
+{
+	static struct hwbp_cap info;
+	static int available = -1;
+
+	if (available == -1) {
+		unsigned int val;
+		struct iovec iovec = {
+			.iov_base = &val,
+			.iov_len = sizeof(val),
+		};
+
+		if (ptrace(PTRACE_GETREGSET, pid, NT_ARM_HW_BREAK, &iovec) < 0)
+			available = 0;
+		else {
+			info.arch = (char)((val >> 8) & 0xff);
+			info.bp_count = (char)(val & 0xff);
+
+			available = (info.arch != 0);
+		}
+	}
+
+	return available == 1 ? &info : NULL;
+}
+
 int ptrace_set_breakpoint(pid_t pid, void *addr)
 {
-	return 0;
+	struct hwbp_cap *info = ptrace_get_hwbp_cap(pid);
+	struct user_hwdebug_state regs = {};
+	unsigned int ctrl = 0;
+	struct iovec iovec;
+
+	if (info == NULL || info->bp_count == 0)
+		return 0;
+
+	/*
+	 * The struct is copied from `arch/arm64/include/asm/hw_breakpoint.h` in
+	 * linux kernel:
+	 *  struct arch_hw_breakpoint_ctrl {
+	 *  	__u32 __reserved        : 19,
+	 *  	len             : 8,
+	 *  	type            : 2,
+	 *  	privilege       : 2,
+	 *  	enabled         : 1;
+	 *  };
+	 *
+	 * The part of `struct arch_hw_breakpoint_ctrl` bits meaning is defined
+	 * in <<ARM Architecture Reference Manual for A-profile architecture>>,
+	 * D13.3.2 DBGBCR<n>_EL1, Debug Breakpoint Control Registers.
+	 */
+	ctrl = ARM_BREAKPOINT_LEN_4;
+	ctrl = (ctrl << 2) | ARM_BREAKPOINT_EXECUTE;
+	ctrl = (ctrl << 2) | AARCH64_BREAKPOINT_EL0;
+	ctrl = (ctrl << 1) | ENABLE_HBP;
+	regs.dbg_regs[0].addr = (__u64)addr;
+	regs.dbg_regs[0].ctrl = ctrl;
+	iovec.iov_base = &regs;
+	iovec.iov_len = (offsetof(struct user_hwdebug_state, dbg_regs) + sizeof(regs.dbg_regs[0]));
+
+	if (ptrace(PTRACE_SETREGSET, pid, NT_ARM_HW_BREAK, &iovec))
+		return -1;
+
+	if (ptrace(PTRACE_CONT, pid, NULL, NULL) != 0) {
+		pr_perror("Unable to restart the  stopped tracee process %d", pid);
+		return -1;
+	}
+
+	return 1;
 }
 
 int ptrace_flush_breakpoints(pid_t pid)
 {
+	struct hwbp_cap *info = ptrace_get_hwbp_cap(pid);
+	struct user_hwdebug_state regs = {};
+	unsigned int ctrl = 0;
+	struct iovec iovec;
+
+	if (info == NULL || info->bp_count == 0)
+		return 0;
+
+	ctrl = ARM_BREAKPOINT_LEN_4;
+	ctrl = (ctrl << 2) | ARM_BREAKPOINT_EXECUTE;
+	ctrl = (ctrl << 2) | AARCH64_BREAKPOINT_EL0;
+	ctrl = (ctrl << 1) | DISABLE_HBP;
+	regs.dbg_regs[0].addr = 0ul;
+	regs.dbg_regs[0].ctrl = ctrl;
+
+	iovec.iov_base = &regs;
+	iovec.iov_len = (offsetof(struct user_hwdebug_state, dbg_regs) + sizeof(regs.dbg_regs[0]));
+
+	if (ptrace(PTRACE_SETREGSET, pid, NT_ARM_HW_BREAK, &iovec))
+		return -1;
+
 	return 0;
 }
