@@ -1418,9 +1418,6 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	if (compel_stop_on_syscall(1, __NR(rt_sigreturn, 0), __NR(rt_sigreturn, 1)))
 		return -1;
 
-	if (ptrace_flush_breakpoints(pid))
-		return -1;
-
 	/*
 	 * All signals are unblocked now. The kernel notifies about leaving
 	 * syscall before starting to deliver signals. All parasite code are
@@ -1650,8 +1647,18 @@ int compel_stop_on_syscall(int tasks, const int sys_nr, const int sys_nr_compat)
 
 		pr_debug("%d was trapped\n", pid);
 
-		if ((WSTOPSIG(status) & PTRACE_SYSCALL_TRAP) == 0)
+		if ((WSTOPSIG(status) & PTRACE_SYSCALL_TRAP) == 0) {
+			/*
+			 * On some platforms such as ARM64, it is impossible to
+			 * pass through a breakpoint, so let's clear it right
+			 * after it has been triggered.
+			*/
+			if (ptrace_flush_breakpoints(pid)) {
+				pr_err("Unable to clear breakpoints\n");
+				return -1;
+			}
 			goto goon;
+		}
 		if (trace == TRACE_EXIT) {
 			trace = TRACE_ENTER;
 			pr_debug("`- Expecting exit\n");

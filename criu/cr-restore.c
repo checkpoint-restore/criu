@@ -2071,24 +2071,6 @@ static int catch_tasks(bool root_seized)
 	return 0;
 }
 
-static int clear_breakpoints(void)
-{
-	struct pstree_item *item;
-	int ret = 0, i;
-
-	if (fault_injected(FI_NO_BREAKPOINTS))
-		return 0;
-
-	for_each_pstree_item(item) {
-		if (!task_alive(item))
-			continue;
-		for (i = 0; i < item->nr_threads; i++)
-			ret |= ptrace_flush_breakpoints(item->threads[i].real);
-	}
-
-	return ret;
-}
-
 static void finalize_restore(void)
 {
 	struct pstree_item *item;
@@ -2458,9 +2440,6 @@ skip_ns_bouncing:
 		pr_err("Can't stop all tasks on rt_sigreturn\n");
 		goto out_kill_network_unlocked;
 	}
-
-	if (clear_breakpoints())
-		pr_err("Unable to flush breakpoints\n");
 
 	finalize_restore();
 	/*
