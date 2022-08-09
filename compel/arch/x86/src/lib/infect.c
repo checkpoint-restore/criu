@@ -588,6 +588,7 @@ int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
 
 int ptrace_set_breakpoint(pid_t pid, void *addr)
 {
+	k_rtsigset_t block;
 	int ret;
 
 	/* Set a breakpoint */
@@ -603,6 +604,16 @@ int ptrace_set_breakpoint(pid_t pid, void *addr)
 		return -1;
 	}
 
+	/*
+	 * FIXME(issues/1429): SIGTRAP can't be blocked, otherwise its handler
+	 * will be reset to the default one.
+	 */
+	ksigfillset(&block);
+	ksigdelset(&block, SIGTRAP);
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &block)) {
+		pr_perror("Can't block signals for %d", pid);
+		return -1;
+	}
 	ret = ptrace(PTRACE_CONT, pid, NULL, NULL);
 	if (ret) {
 		pr_perror("Unable to restart the  stopped tracee process %d", pid);

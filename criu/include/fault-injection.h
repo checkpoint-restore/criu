@@ -24,14 +24,6 @@ enum faults {
 
 static inline bool __fault_injected(enum faults f, enum faults fi_strategy)
 {
-	/*
-	 * Temporary workaround for Xen guests. Breakpoints degrade
-	 * performance linearly, so until we find out the reason,
-	 * let's disable them.
-	 */
-	if (f == FI_NO_BREAKPOINTS)
-		return true;
-
 	return fi_strategy == f;
 }
 

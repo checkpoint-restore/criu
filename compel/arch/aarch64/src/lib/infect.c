@@ -207,6 +207,7 @@ static struct hwbp_cap *ptrace_get_hwbp_cap(pid_t pid)
 
 int ptrace_set_breakpoint(pid_t pid, void *addr)
 {
+	k_rtsigset_t block;
 	struct hwbp_cap *info = ptrace_get_hwbp_cap(pid);
 	struct user_hwdebug_state regs = {};
 	unsigned int ctrl = 0;
@@ -241,6 +242,17 @@ int ptrace_set_breakpoint(pid_t pid, void *addr)
 
 	if (ptrace(PTRACE_SETREGSET, pid, NT_ARM_HW_BREAK, &iovec))
 		return -1;
+
+	/*
+	 * FIXME(issues/1429): SIGTRAP can't be blocked, otherwise its handler
+	 * will be reset to the default one.
+	 */
+	ksigfillset(&block);
+	ksigdelset(&block, SIGTRAP);
+	if (ptrace(PTRACE_SETSIGMASK, pid, sizeof(k_rtsigset_t), &block)) {
+		pr_perror("Can't block signals for %d", pid);
+		return -1;
+	}
 
 	if (ptrace(PTRACE_CONT, pid, NULL, NULL) != 0) {
 		pr_perror("Unable to restart the  stopped tracee process %d", pid);
