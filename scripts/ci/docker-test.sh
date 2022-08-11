@@ -75,17 +75,37 @@ checkpoint_container () {
 	docker wait cr
 }
 
-restore_container () {
-	CHECKPOINT_NAME=$1
-
-	docker start --checkpoint "$CHECKPOINT_NAME" cr 2>&1 | tee log || {
+print_logs () {
 	cat "$(grep log 'log file:' | sed 's/log file:\s*//')" || true
 		docker logs cr || true
 		cat $CRIU_LOG || true
 		dmesg
 		docker ps
 		exit 1
-	}
+}
+
+declare -i max_restore_container_tries=3
+current_iteration=
+
+restore_container () {
+	CHECKPOINT_NAME=$1
+
+	docker start --checkpoint "$CHECKPOINT_NAME" cr 2>&1 | tee log || {
+		# FIXME: There is a race condition in docker/containerd that causes
+		# docker to occasionally fail when starting a container from a
+		# checkpoint immediately after the checkpoint has been created.
+		# https://github.com/moby/moby/issues/42900
+		if [ "$current_iteration" -gt "$max_restore_container_tries" ]; then
+			print_logs
+		fi
+		grep -Eq '^Error response from daemon: failed to upload checkpoint to containerd: commit failed: content sha256:.*: already exists$' log && {
+			((current_iteration+=1))
+			echo "Retry container restore: $current_iteration"
+			sleep 1;
+			restore_container "$CHECKPOINT_NAME"
+		} ||
+		print_logs
+	} && current_iteration=0
 }
 
 # Scenario: Create multiple containers and checkpoint and restore them once
