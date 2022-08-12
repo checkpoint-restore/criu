@@ -139,6 +139,7 @@ message criu_opts {
 	optional criu_network_lock_method	network_lock		= 64 [default = IPTABLES];
 	optional bool			mntns_compat_mode	= 65;
 	optional bool			skip_file_rwx_check	= 66;
+	optional bool			unprivileged		= 67;
 /*	optional bool			check_mounts		= 128;	*/
 }
 

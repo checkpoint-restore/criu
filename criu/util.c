@@ -41,6 +41,7 @@
 #include "namespaces.h"
 #include "criu-log.h"
 #include "syscall.h"
+#include "util-caps.h"
 
 #include "clone-noasan.h"
 #include "cr_options.h"
@@ -1426,6 +1427,9 @@ void rlimit_unlimit_nofile(void)
 {
 	struct rlimit new;
 
+	if (opts.unprivileged && !has_cap_sys_resource(opts.cap_eff))
+		return;
+
 	new.rlim_cur = kdat.sysctl_nr_open;
 	new.rlim_max = kdat.sysctl_nr_open;
 
@@ -2063,4 +2067,22 @@ out:
 	mp_path = xstrdup(mp_path);
 	xfree(free_path);
 	return mp_path;
+}
+
+int set_opts_cap_eff(void)
+{
+	struct __user_cap_header_struct cap_header;
+	struct __user_cap_data_struct cap_data[_LINUX_CAPABILITY_U32S_3];
+	int i;
+
+	cap_header.version = _LINUX_CAPABILITY_VERSION_3;
+	cap_header.pid = getpid();
+
+	if (capget(&cap_header, &cap_data[0]))
+		return -1;
+
+	for (i = 0; i < _LINUX_CAPABILITY_U32S_3; i++)
+		memcpy(&opts.cap_eff[i], &cap_data[i].effective, sizeof(u32));
+
+	return 0;
 }

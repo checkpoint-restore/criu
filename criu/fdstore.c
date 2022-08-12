@@ -13,6 +13,8 @@
 #include "rst-malloc.h"
 #include "log.h"
 #include "util.h"
+#include "cr_options.h"
+#include "util-caps.h"
 
 /* clang-format off */
 static struct fdstore_desc {
@@ -27,6 +29,8 @@ int fdstore_init(void)
 	uint32_t buf[2] = { INT_MAX / 2, INT_MAX / 2 };
 	struct sockaddr_un addr;
 	unsigned int addrlen;
+	int rcv_opt_name;
+	int snd_opt_name;
 	struct stat st;
 	int sk, ret;
 
@@ -49,8 +53,16 @@ int fdstore_init(void)
 		return -1;
 	}
 
-	if (setsockopt(sk, SOL_SOCKET, SO_SNDBUFFORCE, &buf[0], sizeof(buf[0])) < 0 ||
-	    setsockopt(sk, SOL_SOCKET, SO_RCVBUFFORCE, &buf[1], sizeof(buf[1])) < 0) {
+	if (!opts.unprivileged || has_cap_net_admin(opts.cap_eff)) {
+		rcv_opt_name = SO_RCVBUFFORCE;
+		snd_opt_name = SO_SNDBUFFORCE;
+	} else {
+		rcv_opt_name = SO_RCVBUF;
+		snd_opt_name = SO_SNDBUF;
+	}
+
+	if (setsockopt(sk, SOL_SOCKET, snd_opt_name, &buf[0], sizeof(buf[0])) < 0 ||
+	    setsockopt(sk, SOL_SOCKET, rcv_opt_name, &buf[1], sizeof(buf[1])) < 0) {
 		pr_perror("Unable to set SO_SNDBUFFORCE/SO_RCVBUFFORCE");
 		close(sk);
 		return -1;

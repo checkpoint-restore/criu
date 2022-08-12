@@ -79,6 +79,7 @@ void criu_set_weak_sysctls(bool val);
 void criu_set_evasive_devices(bool evasive_devices);
 void criu_set_shell_job(bool shell_job);
 void criu_set_skip_file_rwx_check(bool skip_file_rwx_check);
+void criu_set_unprivileged(bool unprivileged);
 void criu_set_orphan_pts_master(bool orphan_pts_master);
 void criu_set_file_locks(bool file_locks);
 void criu_set_track_mem(bool track_mem);
