@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <arpa/inet.h>
 #include <sched.h>
+#include <sys/prctl.h>
 
 #include "version.h"
 #include "crtools.h"
@@ -408,6 +409,12 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->config_file) {
 		pr_debug("Would overwrite RPC settings with values from %s\n", req->config_file);
 	}
+
+	if (req->has_unprivileged)
+		opts.unprivileged = req->unprivileged;
+
+	if (check_caps())
+		return 1;
 
 	if (kerndat_init())
 		return 1;
