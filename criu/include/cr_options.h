@@ -2,6 +2,7 @@
 #define __CR_OPTIONS_H__
 
 #include <stdbool.h>
+#include <sys/capability.h>
 #include "common/config.h"
 #include "common/list.h"
 #include "int.h"
@@ -223,8 +224,14 @@ struct cr_options {
 	 * CAP_CHECKPOINT_RESTORE or CAP_SYS_ADMIN
 	 */
 	uid_t uid;
-	/* This contains the value from /proc/pid/status: CapEff */
-	u32 cap_eff[CR_CAP_SIZE];
+	/* This contains the value from capget()->effective */
+	u32 cap_eff[_LINUX_CAPABILITY_U32S_3];
+	/*
+	 * If CRIU should be running as non-root with the help of
+	 * CAP_CHECKPOINT_RESTORE or CAP_SYS_ADMIN the user should
+	 * explicitly request it as it comes with many limitations.
+	 */
+	int unprivileged;
 };
 
 extern struct cr_options opts;

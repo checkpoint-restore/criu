@@ -5,6 +5,7 @@
 #include "proc_parse.h"
 #include "namespaces.h"
 #include "timens.h"
+#include "cr_options.h"
 
 #include "protobuf.h"
 #include "images/timens.pb-c.h"
@@ -56,6 +57,9 @@ int prepare_timens(int id)
 	TimensEntry *te;
 	struct timespec ts;
 	struct timespec prev_moff = {}, prev_boff = {};
+
+	if (opts.unprivileged)
+		return 0;
 
 	img = open_image(CR_FD_TIMENS, O_RSTR, id);
 	if (!img)

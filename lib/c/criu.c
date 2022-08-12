@@ -566,6 +566,17 @@ void criu_set_skip_file_rwx_check(bool skip_file_rwx_check)
 	criu_local_set_skip_file_rwx_check(global_opts, skip_file_rwx_check);
 }
 
+void criu_local_set_unprivileged(criu_opts *opts, bool unprivileged)
+{
+	opts->rpc->has_unprivileged = true;
+	opts->rpc->unprivileged = unprivileged;
+}
+
+void criu_set_unprivileged(bool unprivileged)
+{
+	criu_local_set_unprivileged(global_opts, unprivileged);
+}
+
 void criu_local_set_orphan_pts_master(criu_opts *opts, bool orphan_pts_master)
 {
 	opts->rpc->has_orphan_pts_master = true;
