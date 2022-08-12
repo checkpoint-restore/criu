@@ -21,6 +21,7 @@
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 #include <nftables/libnftables.h>
 #endif
+#include <sys/utsname.h>
 
 #include "common/config.h"
 #include "int.h"
@@ -51,6 +52,7 @@
 #include "sched.h"
 #include "memfd.h"
 #include "mount-v2.h"
+#include "util-caps.h"
 
 struct kerndat_s kdat = {};
 
@@ -1075,19 +1077,66 @@ static int kerndat_has_openat2(void)
 	return 0;
 }
 
-#define KERNDAT_CACHE_FILE     KDAT_RUNDIR "/criu.kdat"
-#define KERNDAT_CACHE_FILE_TMP KDAT_RUNDIR "/.criu.kdat"
+#define KERNDAT_CACHE_NAME "criu.kdat"
+#define KERNDAT_CACHE_FILE KDAT_RUNDIR "/" KERNDAT_CACHE_NAME
 
+/*
+ * Returns:
+ * -1 if kdat_file was not written due to error
+ * 0 if kdat_file was written
+ * 1 if kdat_file was not written because cache directory undefined in env (non-root mode)
+ */
+static int get_kerndat_filename(char **kdat_file)
+{
+	int ret;
+
+	/*
+	 * Running as non-root, even with CAP_CHECKPOINT_RESTORE, does not
+	 * allow to write to KDAT_RUNDIR which usually is only writable by root.
+	 * Let's write criu.kdat file to XDG_RUNTIME_DIR for non-root cases.
+	 * Note that XDG_RUNTIME_DIR is not always defined (e.g. when executing
+	 * via su/sudo).
+	 */
+	if (opts.unprivileged) {
+		const char *cache_dir = getenv("XDG_RUNTIME_DIR");
+		if (!cache_dir) {
+			pr_warn("$XDG_RUNTIME_DIR not set. Cannot find location for kerndat file\n");
+			return 1;
+		}
+		ret = asprintf(kdat_file, "%s/%s", cache_dir, KERNDAT_CACHE_NAME);
+	} else {
+		ret = asprintf(kdat_file, "%s", KERNDAT_CACHE_FILE);
+	}
+
+	if (unlikely(ret < 0)) {
+		pr_warn("Cannot allocate memory for kerndat file name\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * Returns:
+ * -1 if error
+ * 0 if cache was loaded
+ * 1 if cache does not exist or is stale or cache directory undefined in env (non-root mode)
+ */
 static int kerndat_try_load_cache(void)
 {
+	cleanup_free char *kdat_file = NULL;
 	int fd, ret;
 
-	fd = open(KERNDAT_CACHE_FILE, O_RDONLY);
+	ret = get_kerndat_filename(&kdat_file);
+	if (ret)
+		return ret;
+
+	fd = open(kdat_file, O_RDONLY);
 	if (fd < 0) {
 		if (ENOENT == errno)
-			pr_debug("File %s does not exist\n", KERNDAT_CACHE_FILE);
+			pr_debug("File %s does not exist\n", kdat_file);
 		else
-			pr_warn("Can't load %s\n", KERNDAT_CACHE_FILE);
+			pr_warn("Can't load %s\n", kdat_file);
 		return 1;
 	}
 
@@ -1101,12 +1150,12 @@ static int kerndat_try_load_cache(void)
 	close(fd);
 
 	if (ret != sizeof(kdat) || kdat.magic1 != KDAT_MAGIC || kdat.magic2 != KDAT_MAGIC_2) {
-		pr_warn("Stale %s file\n", KERNDAT_CACHE_FILE);
-		unlink(KERNDAT_CACHE_FILE);
+		pr_warn("Stale %s file\n", kdat_file);
+		unlink(kdat_file);
 		return 1;
 	}
 
-	pr_info("Loaded kdat cache from %s\n", KERNDAT_CACHE_FILE);
+	pr_info("Loaded kdat cache from %s\n", kdat_file);
 	return 0;
 }
 
@@ -1114,8 +1163,20 @@ static void kerndat_save_cache(void)
 {
 	int fd, ret;
 	struct statfs s;
+	cleanup_free char *kdat_file = NULL;
+	cleanup_free char *kdat_file_tmp = NULL;
 
-	fd = open(KERNDAT_CACHE_FILE_TMP, O_CREAT | O_EXCL | O_WRONLY, 0600);
+	if (get_kerndat_filename(&kdat_file))
+		return;
+
+	ret = asprintf(&kdat_file_tmp, "%s.tmp", kdat_file);
+
+	if (unlikely(ret < 0)) {
+		pr_warn("Cannot allocate memory for kerndat file name\n");
+		return;
+	}
+
+	fd = open(kdat_file_tmp, O_CREAT | O_EXCL | O_WRONLY, 0600);
 	if (fd < 0)
 		/*
 		 * It can happen that we race with some other criu
@@ -1124,6 +1185,10 @@ static void kerndat_save_cache(void)
 		 */
 		return;
 
+	/*
+	 * If running as root we store the cache file on a tmpfs (/run),
+	 * because the file should be gone after reboot.
+	 */
 	if (fstatfs(fd, &s) < 0 || s.f_type != TMPFS_MAGIC) {
 		pr_warn("Can't keep kdat cache on non-tempfs\n");
 		close(fd);
@@ -1137,26 +1202,35 @@ static void kerndat_save_cache(void)
 	 */
 	kdat.magic1 = KDAT_MAGIC;
 	kdat.magic2 = KDAT_MAGIC_2;
+
 	ret = write(fd, &kdat, sizeof(kdat));
 	close(fd);
 
 	if (ret == sizeof(kdat))
-		ret = rename(KERNDAT_CACHE_FILE_TMP, KERNDAT_CACHE_FILE);
+		ret = rename(kdat_file_tmp, kdat_file);
 	else {
 		ret = -1;
 		errno = EIO;
 	}
 
 	if (ret < 0) {
-		pr_perror("Couldn't save %s", KERNDAT_CACHE_FILE);
+		pr_perror("Couldn't save %s", kdat_file);
 	unl:
-		unlink(KERNDAT_CACHE_FILE_TMP);
+		unlink(kdat_file);
 	}
 }
 
 static int kerndat_uffd(void)
 {
 	int uffd, err = 0;
+
+	if (opts.unprivileged)
+		/*
+		 * If running as non-root uffd_open() fails with
+		 * 'Operation not permitted'. Just ignore uffd for
+		 * non-root for now.
+		 */
+		return 0;
 
 	kdat.uffd_features = 0;
 	uffd = uffd_open(0, &kdat.uffd_features, &err);
@@ -1499,6 +1573,45 @@ int kerndat_try_load_new(void)
 	return 0;
 }
 
+static int root_only_init(void)
+{
+	int ret = 0;
+
+	if (opts.unprivileged)
+		return 0;
+
+	if (!ret && kerndat_loginuid()) {
+		pr_err("kerndat_loginuid failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_tun_netns()) {
+		pr_err("kerndat_tun_netns failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_socket_unix_file()) {
+		pr_err("kerndat_socket_unix_file failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_link_nsid()) {
+		pr_err("kerndat_link_nsid failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_socket_netns()) {
+		pr_err("kerndat_socket_netns failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_nftables_concat()) {
+		pr_err("kerndat_has_nftables_concat failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && kerndat_has_move_mount_set_group()) {
+		pr_err("kerndat_has_move_mount_set_group failed when initializing kerndat.\n");
+		ret = -1;
+	}
+
+	return ret;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -1516,7 +1629,16 @@ int kerndat_init(void)
 	memset(&kdat, 0, sizeof(kdat));
 
 	preload_socket_modules();
-	preload_netfilter_modules();
+	if (!opts.unprivileged)
+		/*
+		 * This uses 'iptables -L' to implicitly load necessary modules.
+		 * If the non nft backed iptables is used it does a
+		 * openat(AT_FDCWD, "/run/xtables.lock", O_RDONLY|O_CREAT, 0600) = -1 EACCES
+		 * which will fail as non-root. There are no capabilities to
+		 * change this. The iptables nft backend fails with
+		 * openat(AT_FDCWD, "/proc/net/ip_tables_names", O_RDONLY) = -1 EACCES
+		 */
+		preload_netfilter_modules();
 
 	if (check_pagemap()) {
 		pr_err("check_pagemap failed when initializing kerndat.\n");
@@ -1554,10 +1676,14 @@ int kerndat_init(void)
 		pr_err("get_ipv6 failed when initializing kerndat.\n");
 		ret = -1;
 	}
-	if (!ret && kerndat_loginuid()) {
-		pr_err("kerndat_loginuid failed when initializing kerndat.\n");
+	if (!ret && kerndat_nsid()) {
+		pr_err("kerndat_nsid failed when initializing kerndat.\n");
 		ret = -1;
 	}
+
+	if (!ret && root_only_init())
+		ret = -1;
+
 	if (!ret && kerndat_iptables_has_xtlocks()) {
 		pr_err("kerndat_iptables_has_xtlocks failed when initializing kerndat.\n");
 		ret = -1;
@@ -1568,22 +1694,6 @@ int kerndat_init(void)
 	}
 	if (!ret && kerndat_compat_restore()) {
 		pr_err("kerndat_compat_restore failed when initializing kerndat.\n");
-		ret = -1;
-	}
-	if (!ret && kerndat_tun_netns()) {
-		pr_err("kerndat_tun_netns failed when initializing kerndat.\n");
-		ret = -1;
-	}
-	if (!ret && kerndat_socket_unix_file()) {
-		pr_err("kerndat_socket_unix_file failed when initializing kerndat.\n");
-		ret = -1;
-	}
-	if (!ret && kerndat_nsid()) {
-		pr_err("kerndat_nsid failed when initializing kerndat.\n");
-		ret = -1;
-	}
-	if (!ret && kerndat_link_nsid()) {
-		pr_err("kerndat_link_nsid failed when initializing kerndat.\n");
 		ret = -1;
 	}
 	if (!ret && kerndat_has_memfd_create()) {
@@ -1616,10 +1726,6 @@ int kerndat_init(void)
 		pr_err("kerndat_vdso_preserves_hint failed when initializing kerndat.\n");
 		ret = -1;
 	}
-	if (!ret && kerndat_socket_netns()) {
-		pr_err("kerndat_socket_netns failed when initializing kerndat.\n");
-		ret = -1;
-	}
 	if (!ret && kerndat_x86_has_ptrace_fpu_xsave_bug()) {
 		pr_err("kerndat_x86_has_ptrace_fpu_xsave_bug failed when initializing kerndat.\n");
 		ret = -1;
@@ -1644,7 +1750,7 @@ int kerndat_init(void)
 		pr_err("has_time_namespace failed when initializing kerndat.\n");
 		ret = -1;
 	}
-	if (!ret && kerndat_has_newifindex()) {
+	if (!ret && (!opts.unprivileged || has_cap_net_admin(opts.cap_eff)) && kerndat_has_newifindex()) {
 		pr_err("kerndat_has_newifindex failed when initializing kerndat.\n");
 		ret = -1;
 	}
@@ -1658,16 +1764,8 @@ int kerndat_init(void)
 		pr_err("kerndat_has_nspid failed when initializing kerndat.\n");
 		ret = -1;
 	}
-	if (!ret && kerndat_has_nftables_concat()) {
-		pr_err("kerndat_has_nftables_concat failed when initializing kerndat.\n");
-		ret = -1;
-	}
 	if (!ret && kerndat_sockopt_buf_lock()) {
 		pr_err("kerndat_sockopt_buf_lock failed when initializing kerndat.\n");
-		ret = -1;
-	}
-	if (!ret && kerndat_has_move_mount_set_group()) {
-		pr_err("kerndat_has_move_mount_set_group failed when initializing kerndat.\n");
 		ret = -1;
 	}
 	if (!ret && kerndat_has_openat2()) {
