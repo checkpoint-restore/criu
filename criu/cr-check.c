@@ -21,6 +21,7 @@
 #include <sys/prctl.h>
 #include <sched.h>
 #include <sys/mount.h>
+#include <sys/utsname.h>
 
 #include "../soccr/soccr.h"
 
@@ -514,6 +515,14 @@ err:
 static int check_ipc(void)
 {
 	int ret;
+
+	/*
+	 * Since kernel 5.16 sem_next_id can be accessed via CAP_CHECKPOINT_RESTORE, however
+	 * for non-root users access() runs with an empty set of caps and will therefore always
+	 * fail.
+	 */
+	if (opts.uid)
+		return 0;
 
 	ret = access("/proc/sys/kernel/sem_next_id", R_OK | W_OK);
 	if (!ret)
@@ -1039,10 +1048,14 @@ static int check_tcp(void)
 	}
 
 	val = 1;
-	ret = setsockopt(sk, SOL_TCP, TCP_REPAIR, &val, sizeof(val));
-	if (ret < 0) {
-		pr_perror("Can't turn TCP repair mode ON");
-		goto out;
+	if (!opts.unprivileged || has_cap_net_admin(opts.cap_eff)) {
+		ret = setsockopt(sk, SOL_TCP, TCP_REPAIR, &val, sizeof(val));
+		if (ret < 0) {
+			pr_perror("Can't turn TCP repair mode ON");
+			goto out;
+		}
+	} else {
+		pr_info("Not checking for TCP repair mode. Please set CAP_NET_ADMIN\n");
 	}
 
 	optlen = sizeof(val);
@@ -1394,9 +1407,6 @@ int cr_check(void)
 	struct ns_id *ns;
 	int ret = 0;
 
-	if (!is_root_user())
-		return -1;
-
 	root_item = alloc_pstree_item();
 	if (root_item == NULL)
 		return -1;
@@ -1666,36 +1676,43 @@ static int pr_set_dumpable(int value)
 
 int check_caps(void)
 {
-	struct proc_status_creds creds;
-	int exit_code = -1;
-
-	if (parse_pid_status(PROC_SELF, &creds.s, NULL))
+	/* Read out effective capabilities and store in opts.cap_eff. */
+	if (set_opts_cap_eff())
 		goto out;
 
-	memcpy(&opts.cap_eff, &creds.cap_eff, sizeof(u32) * PROC_CAP_SIZE);
-
+	/*
+	 * No matter if running as root or not. CRIU always needs
+	 * at least these capabilities.
+	 */
 	if (!has_cap_checkpoint_restore(opts.cap_eff))
 		goto out;
 
 	/* For some things we need to know if we are running as root. */
 	opts.uid = geteuid();
 
-	if (opts.uid) {
-		/*
-		 * At his point we know we are running as non-root with the necessary
-		 * capabilities available. Now we have to make the process dumpable
-		 * so that /proc/self is not owned by root.
-		 */
-		if (pr_set_dumpable(1))
-			return -1;
+	if (!opts.uid) {
+		/* CRIU is running as root. No further checks are necessary. */
+		return 0;
 	}
 
-	exit_code = 0;
+	if (!opts.unprivileged) {
+		pr_msg("Running as non-root requires '--unprivileged'\n");
+		pr_msg("Please consult the documentation for limitations when running as non-root\n");
+		return -1;
+	}
+
+	/*
+	 * At his point we know we are running as non-root with the necessary
+	 * capabilities available. Now we have to make the process dumpable
+	 * so that /proc/self is not owned by root.
+	 */
+	if (pr_set_dumpable(1))
+		return -1;
+
+	return 0;
 out:
-	if (exit_code) {
-		pr_msg("CRIU needs to have the CAP_SYS_ADMIN or the CAP_CHECKPOINT_RESTORE capability: \n");
-		pr_msg("setcap cap_checkpoint_restore+eip %s\n", opts.argv_0);
-	}
+	pr_msg("CRIU needs to have the CAP_SYS_ADMIN or the CAP_CHECKPOINT_RESTORE capability: \n");
+	pr_msg("setcap cap_checkpoint_restore+eip %s\n", opts.argv_0);
 
-	return exit_code;
+	return -1;
 }
