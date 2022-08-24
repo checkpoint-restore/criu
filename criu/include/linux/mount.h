@@ -6,7 +6,7 @@
 
 /* Copied from /usr/include/sys/mount.h */
 
-#ifndef FSCONFIG_CMD_CREATE
+#ifndef FSOPEN_CLOEXEC
 /* The type of fsconfig call made.   */
 enum fsconfig_command {
 	FSCONFIG_SET_FLAG = 0, /* Set parameter, supplying no value */
@@ -26,7 +26,13 @@ enum fsconfig_command {
 	FSCONFIG_CMD_RECONFIGURE = 7, /* Invoke superblock reconfiguration */
 #define FSCONFIG_CMD_RECONFIGURE FSCONFIG_CMD_RECONFIGURE
 };
-#endif // FSCONFIG_CMD_CREATE
+
+#endif // FSOPEN_CLOEXEC
+
+/* fsopen flags. With the redundant definition, we check if the kernel,
+ * glibc value and our value still match.
+ */
+#define FSOPEN_CLOEXEC 0x00000001
 
 #ifndef MS_MGC_VAL
 /* Magic mount flag number. Has to be or-ed to the flag values.  */
