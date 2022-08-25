@@ -1,4 +1,4 @@
-name: OpenJ9 Test
+name: Java Test
 
 on: [push, pull_request]
 
@@ -7,5 +7,5 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
-    - name: Run OpenJ9 Test
-      run: sudo make -C scripts/ci openj9-test
+    - name: Run Java Test
+      run: sudo make -C scripts/ci java-test
