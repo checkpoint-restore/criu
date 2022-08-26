@@ -9,7 +9,7 @@
 
 #include "zdtmtst.h"
 
-const char *test_doc = "Check nested time namespaces";
+const char *test_doc = "Check ability to restore nested time namespaces";
 const char *test_author = "Andrei Vagin <avagin@gmail.com";
 
 #ifndef CLONE_NEWTIME
