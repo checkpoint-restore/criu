@@ -23,6 +23,11 @@
 
 /* Copied from the Linux kernel header arch/powerpc/include/asm/ptrace.h */
 #define USER_REDZONE_SIZE 512
+#if _CALL_ELF != 2
+#error Only supporting ABIv2.
+#else
+#define STACK_FRAME_MIN_SIZE 32
+#endif
 
 /* Copied from the Linux kernel source file arch/powerpc/kernel/signal_64.c */
 #define TRAMP_SIZE 6
