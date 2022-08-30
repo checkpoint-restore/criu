@@ -441,13 +441,13 @@ void *remote_mmap(struct parasite_ctl *ctl, void *addr, size_t length, int prot,
 void parasite_setup_regs(unsigned long new_ip, void *stack, user_regs_struct_t *regs)
 {
 	/*
-	 * OpenPOWER ABI requires that r12 is set to the calling function addressi
+	 * OpenPOWER ABI requires that r12 is set to the calling function address
 	 * to compute the TOC pointer.
 	 */
 	regs->gpr[12] = new_ip;
 	regs->nip = new_ip;
 	if (stack)
-		regs->gpr[1] = (unsigned long)stack;
+		regs->gpr[1] = (unsigned long)stack - STACK_FRAME_MIN_SIZE;
 	regs->trap = 0;
 }
 
