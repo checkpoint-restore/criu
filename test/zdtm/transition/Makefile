@@ -25,6 +25,7 @@ TST_NOFILE	=	\
 		pidfd_store_sk \
 		rseq01		\
 		rseq02		\
+		stack		\
 
 
 TST_FILE	=	\
