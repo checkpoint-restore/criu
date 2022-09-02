@@ -41,9 +41,12 @@ struct parasite_thread_ctl;
 extern struct parasite_ctl __must_check *compel_prepare(int pid);
 extern struct parasite_ctl __must_check *compel_prepare_noctx(int pid);
 extern int __must_check compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size);
+extern int __must_check compel_infect_no_daemon(struct parasite_ctl *ctl, unsigned long nr_threads,
+						unsigned long args_size);
 extern struct parasite_thread_ctl __must_check *compel_prepare_thread(struct parasite_ctl *ctl, int pid);
 extern void compel_release_thread(struct parasite_thread_ctl *);
 
+extern int __must_check compel_start_daemon(struct parasite_ctl *ctl);
 extern int __must_check compel_stop_daemon(struct parasite_ctl *ctl);
 extern int __must_check compel_cure_remote(struct parasite_ctl *ctl);
 extern int __must_check compel_cure_local(struct parasite_ctl *ctl);
@@ -176,5 +179,7 @@ extern uint64_t compel_get_thread_ip(struct parasite_thread_ctl *tctl);
 
 void compel_set_leader_ip(struct parasite_ctl *ctl, uint64_t v);
 void compel_set_thread_ip(struct parasite_thread_ctl *tctl, uint64_t v);
+
+extern void compel_get_stack(struct parasite_ctl *ctl, void **rstack, void **r_thread_stack);
 
 #endif

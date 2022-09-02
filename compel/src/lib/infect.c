@@ -967,7 +967,7 @@ static int compel_map_exchange(struct parasite_ctl *ctl, unsigned long size)
 	return ret;
 }
 
-int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size)
+int compel_infect_no_daemon(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size)
 {
 	int ret;
 	unsigned long p, map_exchange_size, parasite_size = 0;
@@ -1079,13 +1079,21 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 		goto err;
 	}
 
-	if (parasite_start_daemon(ctl))
-		goto err;
-
 	return 0;
 
 err:
 	return -1;
+}
+
+int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size)
+{
+	if (compel_infect_no_daemon(ctl, nr_threads, args_size))
+		return -1;
+
+	if (parasite_start_daemon(ctl))
+		return -1;
+
+	return 0;
 }
 
 struct parasite_thread_ctl *compel_prepare_thread(struct parasite_ctl *ctl, int pid)
@@ -1425,6 +1433,11 @@ static int parasite_fini_seized(struct parasite_ctl *ctl)
 	 */
 
 	return 0;
+}
+
+int compel_start_daemon(struct parasite_ctl *ctl)
+{
+	return parasite_start_daemon(ctl);
 }
 
 int compel_stop_daemon(struct parasite_ctl *ctl)
@@ -1771,4 +1784,12 @@ void compel_set_leader_ip(struct parasite_ctl *ctl, uint64_t v)
 void compel_set_thread_ip(struct parasite_thread_ctl *tctl, uint64_t v)
 {
 	SET_REG_IP(tctl->th.regs, v);
+}
+
+void compel_get_stack(struct parasite_ctl *ctl, void **rstack, void **r_thread_stack)
+{
+	if (rstack)
+		*rstack = ctl->rstack;
+	if (r_thread_stack)
+		*r_thread_stack = ctl->r_thread_stack;
 }
