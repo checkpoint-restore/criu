@@ -1,0 +1,1 @@
+{'flavor': 'h ns', 'flags': 'suid', 'opts': '--manage-cgroups=full'}
