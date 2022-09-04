@@ -1,0 +1,11 @@
+#!/bin/bash
+
+if [ -f /sys/fs/cgroup/cgroup.controllers ]; then
+	grep -q "cpuset" /sys/fs/cgroup/cgroup.controllers && exit 0
+fi
+
+if [ -d /sys/fs/cgroup/unified ]; then
+	grep -q "cpuset" /sys/fs/cgroup/unified/cgroup.controllers && exit 0
+fi
+
+exit 1
