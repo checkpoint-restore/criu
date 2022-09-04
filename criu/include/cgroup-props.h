@@ -10,6 +10,7 @@ typedef struct {
 } cgp_t;
 
 extern cgp_t cgp_global;
+extern cgp_t cgp_global_v2;
 extern const cgp_t *cgp_get_props(const char *name);
 extern bool cgp_should_skip_controller(const char *name);
 extern bool cgp_add_dump_controller(const char *name);

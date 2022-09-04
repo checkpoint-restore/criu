@@ -441,7 +441,15 @@ static int add_cgroup_properties(const char *fpath, struct cgroup_dir *ncd, stru
 			pr_err("dumping known properties failed\n");
 			return -1;
 		}
+	}
 
+	/* cgroup v2 */
+	if (controller->controllers[0][0] == 0) {
+		if (dump_cg_props_array(fpath, ncd, &cgp_global_v2) < 0) {
+			pr_err("dumping global properties v2 failed\n");
+			return -1;
+		}
+	} else {
 		if (dump_cg_props_array(fpath, ncd, &cgp_global) < 0) {
 			pr_err("dumping global properties failed\n");
 			return -1;
@@ -1061,8 +1069,15 @@ static int ctrl_dir_and_opt(CgControllerEntry *ctl, char *dir, int ds, char *opt
  * it. We restore these properties as soon as the cgroup is created.
  */
 static const char *special_props[] = {
-	"cpuset.cpus",	     "cpuset.mems",	   "devices.list",	   "memory.kmem.limit_in_bytes",
-	"memory.swappiness", "memory.oom_control", "memory.use_hierarchy", NULL,
+	"cpuset.cpus",
+	"cpuset.mems",
+	"devices.list",
+	"memory.kmem.limit_in_bytes",
+	"memory.swappiness",
+	"memory.oom_control",
+	"memory.use_hierarchy",
+	"cgroup.type",
+	NULL,
 };
 
 bool is_special_property(const char *prop)
@@ -1303,6 +1318,65 @@ static int restore_perms(int fd, const char *path, CgroupPerms *perms)
 	return 0;
 }
 
+static int add_subtree_control_prop_prefix(char *input, char *output, char prefix)
+{
+	char *current, *next;
+	size_t len, off = 0;
+
+	current = input;
+	do {
+		next = strchrnul(current, ' ');
+		len = next - current;
+
+		output[off] = prefix;
+		off++;
+		memcpy(output + off, current, len);
+		off += len;
+		output[off] = ' ';
+		off++;
+
+		current = next + 1;
+	} while (*next != '\0');
+
+	return off;
+}
+
+static int restore_cgroup_subtree_control(const CgroupPropEntry *cg_prop_entry_p, int fd)
+{
+	char buf[1024];
+	char line[1024];
+	int ret, off = 0;
+
+	ret = read(fd, buf, sizeof(buf) - 1);
+	if (ret < 0) {
+		pr_perror("read from cgroup.subtree_control");
+		return ret;
+	}
+	/* Remove the trailing newline */
+	buf[ret] = '\0';
+
+	/* Remove all current subsys in subtree_control */
+	if (buf[0] != '\0')
+		off = add_subtree_control_prop_prefix(buf, line, '-');
+
+	/* Add subsys need to be restored in subtree_control */
+	if (cg_prop_entry_p->value[0] != '\0')
+		off += add_subtree_control_prop_prefix(cg_prop_entry_p->value, line + off, '+');
+
+	/* Remove the trailing space */
+	if (off != 0) {
+		off--;
+		line[off] = '\0';
+	}
+
+	if (write(fd, line, off) != off) {
+		pr_perror("write to cgroup.subtree_control");
+		return -1;
+	}
+
+	return 0;
+}
+
 /*
  * Note: The path string can be modified in this function,
  * the length of path string should be at least PATH_MAX.
@@ -1310,8 +1384,9 @@ static int restore_perms(int fd, const char *path, CgroupPerms *perms)
 static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p, char *path, int off, bool split_lines,
 			       bool skip_fails)
 {
-	int cg, fd, ret = -1;
+	int cg, fd, ret = -1, flag;
 	CgroupPerms *perms = cg_prop_entry_p->perms;
+	int is_subtree_control = !strcmp(cg_prop_entry_p->name, "cgroup.subtree_control");
 
 	if (opts.manage_cgroups == CG_MODE_IGNORE)
 		return 0;
@@ -1328,8 +1403,13 @@ static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p, char *pat
 
 	pr_info("Restoring cgroup property value [%s] to [%s]\n", cg_prop_entry_p->value, path);
 
+	if (is_subtree_control)
+		flag = O_RDWR;
+	else
+		flag = O_WRONLY;
+
 	cg = get_service_fd(CGROUP_YARD);
-	fd = openat(cg, path, O_WRONLY);
+	fd = openat(cg, path, flag);
 	if (fd < 0) {
 		pr_perror("bad cgroup path: %s", path);
 		return -1;
@@ -1340,6 +1420,17 @@ static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p, char *pat
 
 	/* skip these two since restoring their values doesn't make sense */
 	if (!strcmp(cg_prop_entry_p->name, "cgroup.procs") || !strcmp(cg_prop_entry_p->name, "tasks")) {
+		ret = 0;
+		goto out;
+	}
+
+	if (is_subtree_control) {
+		ret = restore_cgroup_subtree_control(cg_prop_entry_p, fd);
+		goto out;
+	}
+
+	/* skip restoring cgroup.type if its value is not "threaded" */
+	if (!strcmp(cg_prop_entry_p->name, "cgroup.type") && strcmp(cg_prop_entry_p->value, "threaded")) {
 		ret = 0;
 		goto out;
 	}
@@ -1688,12 +1779,9 @@ static int prepare_cgroup_dirs(char **controllers, int n_controllers, char *paux
 				return -1;
 
 			for (j = 0; j < n_controllers; j++) {
-				if (!strcmp(controllers[j], "cpuset") || !strcmp(controllers[j], "memory") ||
-				    !strcmp(controllers[j], "devices")) {
-					if (restore_special_props(paux, off2, e) < 0) {
-						pr_err("Restoring special cpuset props failed!\n");
-						return -1;
-					}
+				if (restore_special_props(paux, off2, e) < 0) {
+					pr_err("Restoring special cpuset props failed!\n");
+					return -1;
 				}
 			}
 		} else {
