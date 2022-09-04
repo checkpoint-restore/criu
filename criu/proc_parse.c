@@ -2549,7 +2549,8 @@ err:
 	return -1;
 }
 
-int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct list_head *retl, unsigned int *n)
+int parse_thread_cgroup(int pid, int tid, struct parasite_dump_cgroup_args *args, struct list_head *retl,
+			unsigned int *n)
 {
 	FILE *f;
 	int ret;
@@ -2557,7 +2558,7 @@ int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct li
 	unsigned int n_internal = 0;
 	struct cg_ctl *intern, *ext;
 
-	f = fopen_proc(pid, "cgroup");
+	f = fopen_proc(pid, "task/%d/cgroup", tid);
 	if (!f)
 		return -1;
 

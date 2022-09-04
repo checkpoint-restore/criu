@@ -7,7 +7,7 @@
 struct pstree_item;
 struct parasite_dump_cgroup_args;
 extern u32 root_cg_set;
-int dump_task_cgroup(struct pstree_item *, u32 *, struct parasite_dump_cgroup_args *args);
+int dump_thread_cgroup(const struct pstree_item *, u32 *, struct parasite_dump_cgroup_args *args, int id);
 int dump_cgroups(void);
 int prepare_task_cgroup(struct pstree_item *);
 int prepare_cgroup(void);
@@ -60,6 +60,9 @@ struct cg_controller {
 
 	/* for cgroup list in cgroup.c */
 	struct list_head l;
+
+	/* controller is a threaded cgroup or not */
+	int is_threaded;
 };
 struct cg_controller *new_controller(const char *name);
 
@@ -87,7 +90,8 @@ struct cg_ctl {
  */
 struct list_head;
 struct parasite_dump_cgroup_args;
-extern int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct list_head *l, unsigned int *n);
+extern int parse_thread_cgroup(int pid, int tid, struct parasite_dump_cgroup_args *args, struct list_head *l,
+			       unsigned int *n);
 extern void put_ctls(struct list_head *);
 
 int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups);

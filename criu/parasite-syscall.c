@@ -513,6 +513,7 @@ int parasite_dump_cgroup(struct parasite_ctl *ctl, struct parasite_dump_cgroup_a
 	struct parasite_dump_cgroup_args *ca;
 
 	ca = compel_parasite_args(ctl, struct parasite_dump_cgroup_args);
+	memcpy(ca->thread_cgrp, cgroup->thread_cgrp, sizeof(ca->thread_cgrp));
 	ret = compel_rpc_call_sync(PARASITE_CMD_DUMP_CGROUP, ctl);
 	if (ret) {
 		pr_err("Parasite failed to dump /proc/self/cgroup\n");
