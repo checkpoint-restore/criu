@@ -24,6 +24,7 @@ enum sfd_type {
 				 */
 	ROOT_FD_OFF,	/* Root of the namespace we dump/restore */
 	CGROUP_YARD,
+	CGROUPD_SK,	  /* Socket for cgroupd to fix up thread's cgroup controller */
 	USERNSD_SK,	  /* Socket for usernsd */
 	NS_FD_OFF,	  /* Node's net namespace fd */
 	TRANSPORT_FD_OFF, /* to transfer file descriptors */
