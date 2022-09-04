@@ -35,10 +35,27 @@ static const char *____criu_global_props____[] = {
 	"tasks",
 };
 
+/* cgroup2 global properties */
+// clang-format off
+static const char *____criu_global_props_v2____[] = {
+	"cgroup.subtree_control",
+	"cgroup.max.descendants",
+	"cgroup.max.depth",
+	"cgroup.freeze",
+	"cgroup.type",
+};
+// clang-format on
+
 cgp_t cgp_global = {
 	.name = "____criu_global_props____",
 	.nr_props = ARRAY_SIZE(____criu_global_props____),
 	.props = ____criu_global_props____,
+};
+
+cgp_t cgp_global_v2 = {
+	.name = "____criu_global_props_v2____",
+	.nr_props = ARRAY_SIZE(____criu_global_props_v2____),
+	.props = ____criu_global_props_v2____,
 };
 
 typedef struct {
