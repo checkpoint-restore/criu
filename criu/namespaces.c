@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <sys/prctl.h>
 #include <grp.h>
-#include <sys/socket.h>
 #include <sys/un.h>
 #include <stdarg.h>
 #include <signal.h>
@@ -1218,20 +1217,9 @@ static int write_id_map(pid_t pid, UidGidExtent **extents, int n, char *id_map)
 	return 0;
 }
 
-struct unsc_msg {
-	struct msghdr h;
-	/*
-	 * 0th is the call address
-	 * 1st is the flags
-	 * 2nd is the optional (NULL in response) arguments
-	 */
-	struct iovec iov[3];
-	char c[CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int))];
-};
-
 static int usernsd_pid;
 
-static inline void unsc_msg_init(struct unsc_msg *m, uns_call_t *c, int *x, void *arg, size_t asize, int fd)
+inline void unsc_msg_init(struct unsc_msg *m, uns_call_t *c, int *x, void *arg, size_t asize, int fd, pid_t *pid)
 {
 	struct cmsghdr *ch;
 	struct ucred *ucred;
@@ -1269,7 +1257,10 @@ static inline void unsc_msg_init(struct unsc_msg *m, uns_call_t *c, int *x, void
 	ch->cmsg_type = SCM_CREDENTIALS;
 
 	ucred = (struct ucred *)CMSG_DATA(ch);
-	ucred->pid = getpid();
+	if (pid)
+		ucred->pid = *pid;
+	else
+		ucred->pid = getpid();
 	ucred->uid = getuid();
 	ucred->gid = getgid();
 
@@ -1284,7 +1275,7 @@ static inline void unsc_msg_init(struct unsc_msg *m, uns_call_t *c, int *x, void
 	}
 }
 
-static void unsc_msg_pid_fd(struct unsc_msg *um, pid_t *pid, int *fd)
+void unsc_msg_pid_fd(struct unsc_msg *um, pid_t *pid, int *fd)
 {
 	struct cmsghdr *ch;
 	struct ucred *ucred;
@@ -1322,7 +1313,7 @@ static int usernsd(int sk)
 		int flags, fd, ret;
 		pid_t pid;
 
-		unsc_msg_init(&um, &call, &flags, msg, sizeof(msg), 0);
+		unsc_msg_init(&um, &call, &flags, msg, sizeof(msg), 0, NULL);
 		if (recvmsg(sk, &um.h, 0) <= 0) {
 			pr_perror("uns: recv req error");
 			return -1;
@@ -1367,7 +1358,7 @@ static int usernsd(int sk)
 		else
 			fd = -1;
 
-		unsc_msg_init(&um, &call, &ret, NULL, 0, fd);
+		unsc_msg_init(&um, &call, &ret, NULL, 0, fd, NULL);
 		if (sendmsg(sk, &um.h, 0) <= 0) {
 			pr_perror("uns: send resp error");
 			return -1;
@@ -1418,7 +1409,7 @@ int __userns_call(const char *func_name, uns_call_t call, int flags, void *arg, 
 
 	/* Send the request */
 
-	unsc_msg_init(&um, &call, &flags, arg, arg_size, fd);
+	unsc_msg_init(&um, &call, &flags, arg, arg_size, fd, NULL);
 	ret = sendmsg(sk, &um.h, 0);
 	if (ret <= 0) {
 		pr_perror("uns: send req error");
@@ -1433,7 +1424,7 @@ int __userns_call(const char *func_name, uns_call_t call, int flags, void *arg, 
 
 	/* Get the response back */
 
-	unsc_msg_init(&um, &call, &res, NULL, 0, 0);
+	unsc_msg_init(&um, &call, &res, NULL, 0, 0, NULL);
 	ret = recvmsg(sk, &um.h, 0);
 	if (ret <= 0) {
 		pr_perror("uns: recv resp error");
@@ -1454,13 +1445,10 @@ out:
 	return ret;
 }
 
-static int start_usernsd(void)
+int start_unix_cred_daemon(pid_t *pid, int (*daemon_func)(int sk))
 {
 	int sk[2];
 	int one = 1;
-
-	if (!(root_ns_mask & CLONE_NEWUSER))
-		return 0;
 
 	/*
 	 * Seqpacket to
@@ -1490,24 +1478,39 @@ static int start_usernsd(void)
 		return -1;
 	}
 
-	usernsd_pid = fork();
-	if (usernsd_pid < 0) {
-		pr_perror("Can't fork usernsd");
+	*pid = fork();
+	if (*pid < 0) {
+		pr_perror("Can't unix daemon");
 		close(sk[0]);
 		close(sk[1]);
 		return -1;
 	}
 
-	if (usernsd_pid == 0) {
+	if (*pid == 0) {
 		int ret;
-
 		close(sk[0]);
-		ret = usernsd(sk[1]);
+		ret = daemon_func(sk[1]);
 		exit(ret);
 	}
-
 	close(sk[1]);
-	if (install_service_fd(USERNSD_SK, sk[0]) < 0) {
+
+	return sk[0];
+}
+
+static int start_usernsd(void)
+{
+	int sk;
+
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return 0;
+
+	sk = start_unix_cred_daemon(&usernsd_pid, usernsd);
+	if (sk < 0) {
+		pr_err("failed to start usernsd\n");
+		return -1;
+	}
+
+	if (install_service_fd(USERNSD_SK, sk) < 0) {
 		kill(usernsd_pid, SIGKILL);
 		waitpid(usernsd_pid, NULL, 0);
 		return -1;

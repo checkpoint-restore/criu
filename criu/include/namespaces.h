@@ -1,6 +1,8 @@
 #ifndef __CR_NS_H__
 #define __CR_NS_H__
 
+#include <sys/socket.h>
+
 #include "common/compiler.h"
 #include "files.h"
 #include "common/list.h"
@@ -223,5 +225,20 @@ extern int add_ns_shared_cb(int (*actor)(void *data), void *data);
 
 extern struct ns_id *get_socket_ns(int lfd);
 extern struct ns_id *lookup_ns_by_kid(unsigned int kid, struct ns_desc *nd);
+
+struct unsc_msg {
+	struct msghdr h;
+	/*
+	 * 0th is the call address
+	 * 1st is the flags
+	 * 2nd is the optional (NULL in response) arguments
+	 */
+	struct iovec iov[3];
+	char c[CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int))];
+};
+
+extern void unsc_msg_init(struct unsc_msg *m, uns_call_t *c, int *x, void *arg, size_t asize, int fd, pid_t *pid);
+extern void unsc_msg_pid_fd(struct unsc_msg *um, pid_t *pid, int *fd);
+extern int start_unix_cred_daemon(pid_t *pid, int (*daemon_func)(int sk));
 
 #endif /* __CR_NS_H__ */

@@ -8,6 +8,7 @@
 #include <ftw.h>
 #include <libgen.h>
 #include <sched.h>
+#include <sys/wait.h>
 
 #include "common/list.h"
 #include "xmalloc.h"
@@ -55,6 +56,7 @@ static u32 cg_set_ids = 1;
 
 static LIST_HEAD(cgroups);
 static unsigned int n_cgroups;
+static pid_t cgroupd_pid;
 
 static CgSetEntry *find_rst_set_by_id(u32 id)
 {
@@ -1935,6 +1937,136 @@ static int prepare_cgroup_sfd(CgroupEntry *ce)
 	return 0;
 }
 
+/*
+ * If a thread is a different cgroup set than the main thread in process,
+ * it means it is in a threaded controller. This daemon receives the cg_set
+ * number from the restored thread and move this thread to the correct
+ * cgroup controllers
+ */
+static int cgroupd(int sk)
+{
+	pr_info("cgroud: Daemon started\n");
+
+	while (1) {
+		struct unsc_msg um;
+		uns_call_t call;
+		pid_t tid;
+		int fd, cg_set, i;
+		CgSetEntry *cg_set_entry;
+		int ret;
+
+		unsc_msg_init(&um, &call, &cg_set, NULL, 0, 0, NULL);
+		ret = recvmsg(sk, &um.h, 0);
+		if (ret <= 0) {
+			pr_perror("cgroupd: recv req error");
+			return -1;
+		}
+
+		unsc_msg_pid_fd(&um, &tid, &fd);
+		pr_debug("cgroupd: move process %d into cg_set %d\n", tid, cg_set);
+
+		cg_set_entry = find_rst_set_by_id(cg_set);
+		if (!cg_set_entry) {
+			pr_err("cgroupd: No set found %d\n", cg_set);
+			return -1;
+		}
+
+		for (i = 0; i < cg_set_entry->n_ctls; i++) {
+			int j, aux_off;
+			CgMemberEntry *ce = cg_set_entry->ctls[i];
+			char aux[PATH_MAX];
+			CgControllerEntry *ctrl = NULL;
+
+			for (j = 0; j < n_controllers; j++) {
+				CgControllerEntry *cur = controllers[j];
+				if (cgroup_contains(cur->cnames, cur->n_cnames, ce->name, NULL)) {
+					ctrl = cur;
+					break;
+				}
+			}
+
+			if (!ctrl) {
+				pr_err("cgroupd: No cg_controller_entry found for %s/%s\n", ce->name, ce->path);
+				return -1;
+			}
+
+			/*
+			 * This is not a threaded controller, all threads in this
+			 * process must be in this controller. Main thread has been
+			 * restored, so this thread is in this controller already.
+			 */
+			if (!ctrl->is_threaded)
+				continue;
+
+			aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
+			snprintf(aux + aux_off, sizeof(aux) - aux_off, "/%s/cgroup.threads", ce->path);
+
+			/*
+			 * Cgroupd runs outside of the namespaces so we don't
+			 * need to use userns_call here
+			 */
+			if (userns_move(aux, 0, tid)) {
+				pr_err("cgroupd: Can't move thread %d into %s/%s\n", tid, ce->name, ce->path);
+				return -1;
+			}
+		}
+
+		/*
+		 * We only want to send the cred which contains thread id back.
+		 * The restored thread recvmsg(MSG_PEEK) until it gets its own
+		 * thread id.
+		 */
+		unsc_msg_init(&um, &call, &cg_set, NULL, 0, 0, &tid);
+		if (sendmsg(sk, &um.h, 0) <= 0) {
+			pr_perror("cgroupd: send req error");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+int stop_cgroupd(void)
+{
+	if (cgroupd_pid) {
+		sigset_t blockmask, oldmask;
+
+		/*
+		 * Block the SIGCHLD signal to avoid triggering
+		 * sigchld_handler()
+		 */
+		sigemptyset(&blockmask);
+		sigaddset(&blockmask, SIGCHLD);
+		sigprocmask(SIG_BLOCK, &blockmask, &oldmask);
+
+		kill(cgroupd_pid, SIGTERM);
+		waitpid(cgroupd_pid, NULL, 0);
+
+		sigprocmask(SIG_SETMASK, &oldmask, NULL);
+	}
+
+	return 0;
+}
+
+static int prepare_cgroup_thread_sfd(void)
+{
+	int sk;
+
+	sk = start_unix_cred_daemon(&cgroupd_pid, cgroupd);
+	if (sk < 0) {
+		pr_err("failed to start cgroupd\n");
+		return -1;
+	}
+
+	if (install_service_fd(CGROUPD_SK, sk) < 0) {
+		kill(cgroupd_pid, SIGKILL);
+		waitpid(cgroupd_pid, NULL, 0);
+		return -1;
+	}
+
+	return 0;
+}
+
 static int rewrite_cgsets(CgroupEntry *cge, char **controllers, int n_controllers, char **dir_name, char *newroot)
 {
 	size_t dirlen = strlen(*dir_name);
@@ -2089,15 +2221,19 @@ int prepare_cgroup(void)
 	n_controllers = ce->n_controllers;
 	controllers = ce->controllers;
 
-	if (n_sets)
+	if (n_sets) {
 		/*
 		 * We rely on the fact that all sets contain the same
 		 * set of controllers. This is checked during dump
 		 * with cg_set_compare(CGCMP_ISSUB) call.
 		 */
 		ret = prepare_cgroup_sfd(ce);
-	else
+		if (ret < 0)
+			return ret;
+		ret = prepare_cgroup_thread_sfd();
+	} else {
 		ret = 0;
+	}
 
 	return ret;
 }
