@@ -387,6 +387,7 @@ TST_DIR		=				\
 		cgroup03			\
 		cgroup04			\
 		cgroupv2_00			\
+		cgroupv2_01			\
 		cgroup_ifpriomap		\
 		cgroup_ignore			\
 		cgroup_stray			\
@@ -678,6 +679,8 @@ fifo_upon_unix_socket01:	CFLAGS += -DFIFO_UPON_UNIX01
 sk-unix-listen02: CFLAGS += -DSK_UNIX_LISTEN02
 sk-unix-listen03: CFLAGS += -DSK_UNIX_LISTEN03
 sk-unix-listen04: CFLAGS += -DSK_UNIX_LISTEN02 -DSK_UNIX_LISTEN03
+
+cgroupv2_01:		LDLIBS += -pthread
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
