@@ -1,0 +1,24 @@
+#!/bin/bash
+
+[ "$1" == "--clean" -o "$1" == "--pre-restore" ] || exit 0
+
+set -e
+cgname="subcg01"
+tname=$(mktemp -d cgclean.XXXXXX)
+mount -t cgroup2 cgroup2 $tname
+
+echo "Cleaning $tname"
+
+set +e
+rmdir "$tname/$cgname/thread1"
+
+# When the test finishes, the cleanup() function removes this directory
+# successfully because the thread in this controller exit and no other
+# threads belong to this controller
+if [ "$1" == "--pre-restore" ]; then
+	rmdir "$tname/$cgname/thread2"
+fi
+
+rmdir "$tname/$cgname"
+umount "$tname"
+rmdir "$tname"
