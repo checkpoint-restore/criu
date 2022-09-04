@@ -1,0 +1,16 @@
+#!/bin/bash
+
+[ "$1" == "--clean" -o "$1" == "--pre-restore" ] || exit 0
+
+set -e
+cgname="subcg00"
+tname=$(mktemp -d cgclean.XXXXXX)
+mount -t cgroup2 cgroup2 $tname
+
+echo "Cleaning $tname"
+echo "-cpuset" > "$tname/$cgname/cgroup.subtree_control"
+
+set +e
+rmdir "$tname/$cgname"
+umount "$tname"
+rmdir "$tname"
