@@ -759,6 +759,7 @@ static int dump_task_core_all(struct parasite_ctl *ctl, struct pstree_item *item
 	pid_t pid = item->pid->real;
 	int ret = -1;
 	struct parasite_dump_cgroup_args cgroup_args, *info = NULL;
+	u32 *cg_set;
 
 	BUILD_BUG_ON(sizeof(cgroup_args) < PARASITE_ARG_SIZE_MIN);
 
@@ -804,13 +805,23 @@ static int dump_task_core_all(struct parasite_ctl *ctl, struct pstree_item *item
 	 */
 	if (item->ids->has_cgroup_ns_id && !item->parent) {
 		info = &cgroup_args;
+		strcpy(cgroup_args.thread_cgrp, "self/cgroup");
 		ret = parasite_dump_cgroup(ctl, &cgroup_args);
 		if (ret)
 			goto err;
 	}
 
-	core->tc->has_cg_set = true;
-	ret = dump_task_cgroup(item, &core->tc->cg_set, info);
+	/*
+	 * We don't support multithreads zombie tasks so there is
+	 * no thread_core in zombie tasks, store the cg_set in
+	 * task_core in these cases.
+	 */
+	cg_set = &core->thread_core->cg_set;
+	if (item->pid->state == TASK_THREAD) {
+		core->tc->has_cg_set = true;
+		cg_set = &core->tc->cg_set;
+	}
+	ret = dump_thread_cgroup(item, cg_set, info, -1);
 	if (ret)
 		goto err;
 
@@ -1409,6 +1420,38 @@ err:
 	return ret;
 }
 
+static int dump_task_cgroup(struct parasite_ctl *parasite_ctl, const struct pstree_item *item)
+{
+	struct parasite_dump_cgroup_args cgroup_args, *info;
+	int i;
+
+	BUILD_BUG_ON(sizeof(cgroup_args) < PARASITE_ARG_SIZE_MIN);
+	for (i = 0; i < item->nr_threads; i++) {
+		CoreEntry *core = item->core[i];
+
+		/* Leader is already dumped */
+		if (item->pid->real == item->threads[i].real)
+			continue;
+
+		/* For now, we only need to dump the root task's cgroup ns, because we
+		 * know all the tasks are in the same cgroup namespace because we don't
+		 * allow nesting.
+		 */
+		info = NULL;
+		if (item->ids->has_cgroup_ns_id && !item->parent) {
+			info = &cgroup_args;
+			sprintf(cgroup_args.thread_cgrp, "self/task/%d/cgroup", item->threads[i].ns[0].virt);
+			if (parasite_dump_cgroup(parasite_ctl, &cgroup_args))
+				return -1;
+		}
+
+		if (dump_thread_cgroup(item, &core->thread_core->cg_set, info, i))
+			return -1;
+	}
+
+	return 0;
+}
+
 static int pre_dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 {
 	pid_t pid = item->pid->real;
@@ -1678,6 +1721,12 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 	ret = dump_task_core_all(parasite_ctl, item, &pps_buf, cr_imgset, &misc);
 	if (ret) {
 		pr_err("Dump core (pid: %d) failed with %d\n", pid, ret);
+		goto err_cure;
+	}
+
+	ret = dump_task_cgroup(parasite_ctl, item);
+	if (ret) {
+		pr_err("Dump cgroup of threads in process (pid: %d) failed with %d\n", pid, ret);
 		goto err_cure;
 	}
 

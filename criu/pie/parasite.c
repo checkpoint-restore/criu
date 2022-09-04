@@ -745,7 +745,7 @@ static int parasite_dump_cgroup(struct parasite_dump_cgroup_args *args)
 		return -1;
 	}
 
-	cgroup = sys_openat(proc, "self/cgroup", O_RDONLY, 0);
+	cgroup = sys_openat(proc, args->thread_cgrp, O_RDONLY, 0);
 	sys_close(proc);
 	if (cgroup < 0) {
 		pr_err("can't get /proc/self/cgroup fd\n");

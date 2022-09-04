@@ -174,6 +174,7 @@ struct cg_controller *new_controller(const char *name)
 	nc->n_controllers = 1;
 
 	nc->n_heads = 0;
+	nc->is_threaded = false;
 	INIT_LIST_HEAD(&nc->heads);
 
 	return nc;
@@ -371,7 +372,8 @@ static void free_all_cgroup_props(struct cgroup_dir *ncd)
 	ncd->n_properties = 0;
 }
 
-static int dump_cg_props_array(const char *fpath, struct cgroup_dir *ncd, const cgp_t *cgp)
+static int dump_cg_props_array(const char *fpath, struct cgroup_dir *ncd, const cgp_t *cgp,
+			       struct cg_controller *controller)
 {
 	int j;
 	char buf[PATH_MAX];
@@ -422,6 +424,13 @@ static int dump_cg_props_array(const char *fpath, struct cgroup_dir *ncd, const 
 			prop->value = new;
 		}
 
+		/*
+		 * Set the is_threaded flag if cgroup.type's value is threaded,
+		 * ignore all other values.
+		 */
+		if (!strcmp("cgroup.type", prop->name) && !strcmp("threaded", prop->value))
+			controller->is_threaded = true;
+
 		pr_info("Dumping value %s from %s/%s\n", prop->value, fpath, prop->name);
 		list_add_tail(&prop->list, &ncd->properties);
 		ncd->n_properties++;
@@ -437,7 +446,7 @@ static int add_cgroup_properties(const char *fpath, struct cgroup_dir *ncd, stru
 	for (i = 0; i < controller->n_controllers; ++i) {
 		const cgp_t *cgp = cgp_get_props(controller->controllers[i]);
 
-		if (dump_cg_props_array(fpath, ncd, cgp) < 0) {
+		if (dump_cg_props_array(fpath, ncd, cgp, controller) < 0) {
 			pr_err("dumping known properties failed\n");
 			return -1;
 		}
@@ -445,12 +454,12 @@ static int add_cgroup_properties(const char *fpath, struct cgroup_dir *ncd, stru
 
 	/* cgroup v2 */
 	if (controller->controllers[0][0] == 0) {
-		if (dump_cg_props_array(fpath, ncd, &cgp_global_v2) < 0) {
+		if (dump_cg_props_array(fpath, ncd, &cgp_global_v2, controller) < 0) {
 			pr_err("dumping global properties v2 failed\n");
 			return -1;
 		}
 	} else {
-		if (dump_cg_props_array(fpath, ncd, &cgp_global) < 0) {
+		if (dump_cg_props_array(fpath, ncd, &cgp_global, controller) < 0) {
 			pr_err("dumping global properties failed\n");
 			return -1;
 		}
@@ -735,9 +744,9 @@ static int collect_cgroups(struct list_head *ctls)
 	return 0;
 }
 
-int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_cgroup_args *args)
+int dump_thread_cgroup(const struct pstree_item *item, u32 *cg_id, struct parasite_dump_cgroup_args *args, int id)
 {
-	int pid;
+	int pid, tid;
 	LIST_HEAD(ctls);
 	unsigned int n_ctls = 0;
 	struct cg_set *cs;
@@ -750,8 +759,13 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_
 	else
 		pid = getpid();
 
-	pr_info("Dumping cgroups for %d\n", pid);
-	if (parse_task_cgroup(pid, args, &ctls, &n_ctls))
+	if (id < 0)
+		tid = pid;
+	else
+		tid = item->threads[id].real;
+
+	pr_info("Dumping cgroups for thread %d\n", tid);
+	if (parse_thread_cgroup(pid, tid, args, &ctls, &n_ctls))
 		return -1;
 
 	cs = get_cg_set(&ctls, n_ctls, item);
@@ -764,9 +778,10 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_
 		pr_info("Set %d is criu one\n", cs->id);
 	} else {
 		if (item == root_item) {
-			BUG_ON(root_cgset);
-			root_cgset = cs;
-			pr_info("Set %d is root one\n", cs->id);
+			if (!root_cgset) {
+				root_cgset = cs;
+				pr_info("Set %d is root one\n", cs->id);
+			}
 		} else {
 			struct cg_ctl *root, *stray;
 
@@ -913,6 +928,7 @@ static int dump_controllers(CgroupEntry *cg)
 	list_for_each_entry(cur, &cgroups, l) {
 		cg_controller_entry__init(ce);
 
+		ce->is_threaded = cur->is_threaded;
 		ce->cnames = cur->controllers;
 		ce->n_cnames = cur->n_controllers;
 		ce->n_dirs = cur->n_heads;
