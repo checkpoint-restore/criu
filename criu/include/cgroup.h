@@ -96,4 +96,6 @@ extern void put_ctls(struct list_head *);
 
 int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups);
 
+int stop_cgroupd(void);
+
 #endif /* __CR_CGROUP_H__ */

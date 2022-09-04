@@ -1349,7 +1349,12 @@ static inline int fork_with_pid(struct pstree_item *item)
 			return -1;
 
 		item->pid->state = ca.core->tc->task_state;
-		rsti(item)->cg_set = ca.core->tc->cg_set;
+
+		/* Zombie task's cg_set is stored in task_core */
+		if (item->pid->state == TASK_DEAD)
+			rsti(item)->cg_set = ca.core->tc->cg_set;
+		else
+			rsti(item)->cg_set = ca.core->thread_core->cg_set;
 
 		if (ca.core->tc->has_stop_signo)
 			item->pid->stop_signo = ca.core->tc->stop_signo;
@@ -2373,6 +2378,10 @@ skip_ns_bouncing:
 		goto out_kill;
 
 	ret = stop_usernsd();
+	if (ret < 0)
+		goto out_kill;
+
+	ret = stop_cgroupd();
 	if (ret < 0)
 		goto out_kill;
 
@@ -3812,6 +3821,13 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		thread_args[i].clear_tid_addr = CORE_THREAD_ARCH_INFO(tcore)->clear_tid_addr;
 		core_get_tls(tcore, &thread_args[i].tls);
 
+		if (rsti(current)->cg_set != tcore->thread_core->cg_set) {
+			thread_args[i].cg_set = tcore->thread_core->cg_set;
+			thread_args[i].cgroupd_sk = dup(get_service_fd(CGROUPD_SK));
+		} else {
+			thread_args[i].cg_set = -1;
+		}
+
 		ret = prep_rseq(&thread_args[i].rseq, tcore->thread_core);
 		if (ret)
 			goto err;
@@ -3906,6 +3922,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	close_service_fd(USERNSD_SK);
 	close_service_fd(FDSTORE_SK_OFF);
 	close_service_fd(RPC_SK_OFF);
+	close_service_fd(CGROUPD_SK);
 
 	__gcov_flush();
 

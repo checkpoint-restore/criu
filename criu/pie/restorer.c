@@ -17,6 +17,7 @@
 #include <sys/resource.h>
 #include <signal.h>
 #include <sys/inotify.h>
+#include <sys/socket.h>
 
 #include "linux/userfaultfd.h"
 
@@ -586,6 +587,103 @@ static void noinline rst_sigreturn(unsigned long new_sp, struct rt_sigframe *sig
 	ARCH_RT_SIGRETURN(new_sp, sigframe);
 }
 
+static int send_cg_set(int sk, int cg_set)
+{
+	struct cmsghdr *ch;
+	struct msghdr h;
+	/*
+	 * 0th is the dummy call address for compatibility with userns helper
+	 * 1st is the cg_set
+	 */
+	struct iovec iov[2];
+	char cmsg[CMSG_SPACE(sizeof(struct ucred))] = {};
+	int ret, *dummy = NULL;
+	struct ucred *ucred;
+
+	iov[0].iov_base = &dummy;
+	iov[0].iov_len = sizeof(dummy);
+	iov[1].iov_base = &cg_set;
+	iov[1].iov_len = sizeof(cg_set);
+
+	h.msg_iov = iov;
+	h.msg_iovlen = sizeof(iov) / sizeof(struct iovec);
+	h.msg_name = NULL;
+	h.msg_namelen = 0;
+	h.msg_flags = 0;
+
+	h.msg_control = cmsg;
+	h.msg_controllen = sizeof(cmsg);
+	ch = CMSG_FIRSTHDR(&h);
+	ch->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+	ch->cmsg_level = SOL_SOCKET;
+	ch->cmsg_type = SCM_CREDENTIALS;
+
+	ucred = (struct ucred *)CMSG_DATA(ch);
+	/*
+	 * We still have privilege in this namespace so we can send
+	 * thread id instead of pid of main thread, uid, gid as 0
+	 * since these 2 are ignored in cgroupd
+	 */
+	ucred->pid = sys_gettid();
+	ucred->uid = 0;
+	ucred->gid = 0;
+
+	ret = sys_sendmsg(sk, &h, 0);
+	if (ret < 0) {
+		pr_err("Unable to send packet to cgroupd %d\n", ret);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * As this socket is shared among threads, recvmsg(MSG_PEEK)
+ * from the socket until getting its own thread id as an
+ * acknowledge of successful threaded cgroup fixup
+ */
+static int recv_cg_set_restore_ack(int sk)
+{
+	struct cmsghdr *ch;
+	struct msghdr h = {};
+	char cmsg[CMSG_SPACE(sizeof(struct ucred))];
+	struct ucred *cred;
+	int ret;
+
+	h.msg_control = cmsg;
+	h.msg_controllen = sizeof(cmsg);
+
+	while (1) {
+		ret = sys_recvmsg(sk, &h, MSG_PEEK);
+		if (ret < 0) {
+			pr_err("Unable to peek from cgroupd %d\n", ret);
+			return -1;
+		}
+
+		if (h.msg_controllen != sizeof(cmsg)) {
+			pr_err("The message from cgroupd is truncated\n");
+			return -1;
+		}
+
+		ch = CMSG_FIRSTHDR(&h);
+		cred = (struct ucred *)CMSG_DATA(ch);
+		if (cred->pid != sys_gettid())
+			continue;
+
+		/*
+		 * Actual remove message from recv queue of socket
+		 */
+		ret = sys_recvmsg(sk, &h, 0);
+		if (ret < 0) {
+			pr_err("Unable to receive from cgroupd %d\n", ret);
+			return -1;
+		}
+
+		break;
+	}
+	return 0;
+}
+
 /*
  * Threads restoration via sigreturn. Note it's locked
  * routine and calls for unlock at the end.
@@ -612,6 +710,15 @@ long __export_restore_thread(struct thread_restore_args *args)
 	}
 
 	rt_sigframe = (void *)&args->mz->rt_sigframe;
+
+	if (args->cg_set != -1) {
+		pr_info("Restore cg_set in thread cg_set: %d\n", args->cg_set);
+		if (send_cg_set(args->cgroupd_sk, args->cg_set))
+			goto core_restore_end;
+		if (recv_cg_set_restore_ack(args->cgroupd_sk))
+			goto core_restore_end;
+		sys_close(args->cgroupd_sk);
+	}
 
 	if (restore_thread_common(args))
 		goto core_restore_end;
