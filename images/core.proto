@@ -105,6 +105,7 @@ message thread_core_entry {
 	optional string			comm		= 13;
 	optional uint64			blk_sigset_extended	= 14;
 	optional rseq_entry		rseq_entry	= 15;
+	required uint32			cg_set		= 16;
 }
 
 message task_rlimits_entry {
