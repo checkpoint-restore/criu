@@ -241,7 +241,12 @@ struct parasite_dump_cgroup_args {
 	 *
 	 * The string is null terminated.
 	 */
-	char contents[1 << 12];
+	char contents[(1 << 12) - 32];
+	/*
+	 * Contains the path to thread cgroup procfs.
+	 * "self/task/<tid>/cgroup"
+	 */
+	char thread_cgrp[32];
 };
 
 #endif /* !__ASSEMBLY__ */
