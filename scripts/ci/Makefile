@@ -1,4 +1,10 @@
-local:
+# Umount cpuset in cgroupv1 to make it move to cgroupv2
+cpuset-cgroupv2:
+	if [ -d /sys/fs/cgroup/cpuset ]; then \
+		umount /sys/fs/cgroup/cpuset; \
+	fi
+
+local: cpuset-cgroupv2
 	./run-ci-tests.sh
 .PHONY: local
 
