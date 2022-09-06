@@ -11,10 +11,13 @@
 #include <sys/sendfile.h>
 #include <sched.h>
 #include <sys/capability.h>
-#include <sys/mount.h>
+#include <sys/ioctl.h>
 #include <elf.h>
+#include <linux/fiemap.h>
+#include <linux/fs.h>
 
 #include "tty.h"
+#include "stats.h"
 
 #ifndef SEEK_DATA
 #define SEEK_DATA 3
@@ -32,6 +35,7 @@
  */
 #define BUILD_ID_MAP_SIZE 1048576
 #define ST_UNIT		  512
+#define EXTENT_MAX_COUNT  512
 
 #include "cr_options.h"
 #include "imgset.h"
@@ -219,6 +223,92 @@ static int copy_file_to_chunks(int fd, struct cr_img *img, size_t file_size)
 	}
 
 	return 0;
+}
+
+static int skip_outstanding(struct fiemap_extent *fe, size_t file_size)
+{
+	/* Skip outstanding extent */
+	if (fe->fe_logical > file_size)
+		return 1;
+
+	/* Skip outstanding part of the extent */
+	if (fe->fe_logical + fe->fe_length > file_size)
+		fe->fe_length = file_size - fe->fe_logical;
+	return 0;
+}
+
+static int copy_file_to_chunks_fiemap(int fd, struct cr_img *img, size_t file_size)
+{
+	GhostChunkEntry ce = GHOST_CHUNK_ENTRY__INIT;
+	struct fiemap *fiemap_buf;
+	struct fiemap_extent *ext_buf;
+	int ext_buf_size, fie_buf_size;
+	off_t pos = 0;
+	unsigned int i;
+	int ret = 0;
+	int exit_code = 0;
+
+	ext_buf_size = EXTENT_MAX_COUNT * sizeof(struct fiemap_extent);
+	fie_buf_size = sizeof(struct fiemap) + ext_buf_size;
+
+	fiemap_buf = xzalloc(fie_buf_size);
+	if (!fiemap_buf) {
+		pr_perror("Out of memory when allocating fiemap");
+		return -1;
+	}
+
+	ext_buf = fiemap_buf->fm_extents;
+	fiemap_buf->fm_length = FIEMAP_MAX_OFFSET;
+	fiemap_buf->fm_flags |= FIEMAP_FLAG_SYNC;
+	fiemap_buf->fm_extent_count = EXTENT_MAX_COUNT;
+
+	do {
+		fiemap_buf->fm_start = pos;
+		memzero(ext_buf, ext_buf_size);
+		ret = ioctl(fd, FS_IOC_FIEMAP, fiemap_buf);
+		if (ret < 0) {
+			if (errno == EOPNOTSUPP) {
+				exit_code = -EOPNOTSUPP;
+			} else {
+				exit_code = -1;
+				pr_perror("fiemap ioctl() failed");
+			}
+			goto out;
+		} else if (fiemap_buf->fm_mapped_extents == 0) {
+			goto out;
+		}
+
+		for (i = 0; i < fiemap_buf->fm_mapped_extents; i++) {
+			if (skip_outstanding(&fiemap_buf->fm_extents[i], file_size))
+				continue;
+
+			ce.len = fiemap_buf->fm_extents[i].fe_length;
+			ce.off = fiemap_buf->fm_extents[i].fe_logical;
+
+			if (pb_write_one(img, &ce, PB_GHOST_CHUNK)) {
+				exit_code = -1;
+				goto out;
+			}
+
+			if (copy_chunk_from_file(fd, img_raw_fd(img), ce.off, ce.len)) {
+				exit_code = -1;
+				goto out;
+			}
+
+			if (fiemap_buf->fm_extents[i].fe_flags & FIEMAP_EXTENT_LAST) {
+				/* there are no extents left, break. */
+				goto out;
+			}
+		}
+
+		/* Record file's logical offset as pos */
+		pos = ce.len + ce.off;
+
+		/* Since there are still extents left, continue. */
+	} while (fiemap_buf->fm_mapped_extents == EXTENT_MAX_COUNT);
+out:
+	xfree(fiemap_buf);
+	return exit_code;
 }
 
 static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
@@ -913,10 +1003,20 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 			goto err_out;
 		}
 
-		if (gfe.chunks)
-			ret = copy_file_to_chunks(fd, img, st->st_size);
-		else
+		if (gfe.chunks) {
+			if (opts.ghost_fiemap) {
+				ret = copy_file_to_chunks_fiemap(fd, img, st->st_size);
+				if (ret == -EOPNOTSUPP) {
+					pr_debug("file system don't support fiemap\n");
+					ret = copy_file_to_chunks(fd, img, st->st_size);
+				}
+			} else {
+				ret = copy_file_to_chunks(fd, img, st->st_size);
+			}
+		} else {
 			ret = copy_file(fd, img_raw_fd(img), st->st_size);
+		}
+
 		close(fd);
 		if (ret)
 			goto err_out;

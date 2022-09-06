@@ -95,6 +95,9 @@ enum FILE_VALIDATION_OPTIONS {
 /* This constant dictates which file validation method should be tried by default. */
 #define FILE_VALIDATION_DEFAULT FILE_VALIDATION_BUILD_ID
 
+/* This constant dictates that criu use fiemap to copy ghost file by default.*/
+#define FIEMAP_DEFAULT 1
+
 struct irmap;
 
 struct irmap_path_opt {
@@ -167,6 +170,7 @@ struct cr_options {
 	int enable_external_masters;
 	bool aufs; /* auto-detected, not via cli */
 	bool overlayfs;
+	int ghost_fiemap;
 #ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
 	bool has_binfmt_misc; /* auto-detected */
 #endif
