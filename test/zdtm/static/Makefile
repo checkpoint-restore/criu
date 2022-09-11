@@ -308,6 +308,8 @@ TST_FILE	=				\
 		ghost_holes02			\
 		ghost_holes_large00     \
 		ghost_holes_large01     \
+		ghost_multi_hole00      \
+		ghost_multi_hole01      \
 		unlink_largefile		\
 		mtime_mmap			\
 		fifo				\
