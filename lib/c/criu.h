@@ -50,6 +50,7 @@ enum criu_cg_mode {
 enum criu_network_lock_method {
 	CRIU_NETWORK_LOCK_IPTABLES = 1,
 	CRIU_NETWORK_LOCK_NFTABLES = 2,
+	CRIU_NETWORK_LOCK_SKIP = 3,
 };
 
 enum criu_pre_dump_mode { CRIU_PRE_DUMP_SPLICE = 1, CRIU_PRE_DUMP_READ = 2 };

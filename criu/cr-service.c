@@ -526,6 +526,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		case CRIU_NETWORK_LOCK_METHOD__NFTABLES:
 			opts.network_lock_method = NETWORK_LOCK_NFTABLES;
 			break;
+		case CRIU_NETWORK_LOCK_METHOD__SKIP:
+			opts.network_lock_method = NETWORK_LOCK_SKIP;
+			break;
 		default:
 			goto err;
 		}
