@@ -39,6 +39,8 @@ static int lock_connection(struct inet_sk_desc *sk)
 		return iptables_lock_connection(sk);
 	else if (opts.network_lock_method == NETWORK_LOCK_NFTABLES)
 		return nftables_lock_connection(sk);
+	else if (opts.network_lock_method == NETWORK_LOCK_SKIP)
+		return 0;
 
 	return -1;
 }
@@ -49,6 +51,8 @@ static int unlock_connection(struct inet_sk_desc *sk)
 		return iptables_unlock_connection(sk);
 	else if (opts.network_lock_method == NETWORK_LOCK_NFTABLES)
 		/* All connections will be unlocked in network_unlock(void) */
+		return 0;
+	else if (opts.network_lock_method == NETWORK_LOCK_SKIP)
 		return 0;
 
 	return -1;
@@ -482,6 +486,8 @@ static int unlock_connection_info(struct inet_sk_info *si)
 		return iptables_unlock_connection_info(si);
 	else if (opts.network_lock_method == NETWORK_LOCK_NFTABLES)
 		/* All connections will be unlocked in network_unlock(void) */
+		return 0;
+	else if (opts.network_lock_method == NETWORK_LOCK_SKIP)
 		return 0;
 
 	return -1;
