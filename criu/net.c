@@ -3131,6 +3131,9 @@ int network_lock_internal(void)
 {
 	int ret = 0, nsret;
 
+	if (opts.network_lock_method == NETWORK_LOCK_SKIP)
+		return 0;
+
 	if (switch_ns(root_item->pid->real, &net_ns_desc, &nsret))
 		return -1;
 
@@ -3192,6 +3195,9 @@ static int iptables_network_unlock_internal(void)
 static int network_unlock_internal(void)
 {
 	int ret = 0, nsret;
+
+	if (opts.network_lock_method == NETWORK_LOCK_SKIP)
+		return 0;
 
 	if (switch_ns(root_item->pid->real, &net_ns_desc, &nsret))
 		return -1;

@@ -457,6 +457,9 @@ The 'mode' may be one of the following:
 
     *nftables*::: Use nftables rules to drop the packets.
 
+    *skip*::: Don't lock the network. If *--tcp-close* is not used, the network
+    must be locked externally to allow CRIU to dump TCP connections.
+
 *restore*
 ~~~~~~~~~
 Restores previously checkpointed processes.

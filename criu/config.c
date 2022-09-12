@@ -1036,6 +1036,8 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 				opts.network_lock_method = NETWORK_LOCK_IPTABLES;
 			} else if (!strcmp("nftables", optarg)) {
 				opts.network_lock_method = NETWORK_LOCK_NFTABLES;
+			} else if (!strcmp("skip", optarg) || !strcmp("none", optarg)) {
+				opts.network_lock_method = NETWORK_LOCK_SKIP;
 			} else {
 				pr_err("Invalid value for --network-lock: %s\n", optarg);
 				return 1;
