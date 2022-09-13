@@ -19,26 +19,6 @@ char *dirname;
 TEST_OPTION(dirname, string, "cgroup directory name", 1);
 static const char *cgname = "zdtmtst";
 
-int write_value(const char *path, const char *value)
-{
-	int fd, l;
-
-	fd = open(path, O_WRONLY);
-	if (fd < 0) {
-		pr_perror("open %s", path);
-		return -1;
-	}
-
-	l = write(fd, value, strlen(value));
-	close(fd);
-	if (l < 0) {
-		pr_perror("failed to write %s to %s", value, path);
-		return -1;
-	}
-
-	return 0;
-}
-
 int mount_and_add(const char *controller, const char *path, const char *prop, const char *value)
 {
 	char aux[1024], paux[1024], subdir[1024];

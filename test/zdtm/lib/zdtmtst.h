@@ -216,4 +216,7 @@ static inline void cleanup_closep(void *p)
 		TEMP_FAILURE_RETRY(close(*pp));
 }
 
+extern int write_value(const char *path, const char *value);
+extern int read_value(const char *path, char *value, int size);
+
 #endif /* _VIMITESU_H_ */
