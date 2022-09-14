@@ -535,8 +535,10 @@ static int freeze_processes(void)
 	}
 
 err:
-	if (exit_code == 0 || origin_freezer_state == THAWED)
-		exit_code = freezer_write_state(fd, THAWED);
+	if (exit_code == 0 || origin_freezer_state == THAWED) {
+		if (freezer_write_state(fd, THAWED))
+			exit_code = -1;
+	}
 
 	if (close(fd)) {
 		pr_perror("Unable to thaw tasks");
