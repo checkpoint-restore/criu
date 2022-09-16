@@ -140,6 +140,7 @@ message criu_opts {
 	optional bool			mntns_compat_mode	= 65;
 	optional bool			skip_file_rwx_check	= 66;
 	optional bool			unprivileged		= 67;
+	optional bool			leave_stopped		= 69;
 /*	optional bool			check_mounts		= 128;	*/
 }
 
