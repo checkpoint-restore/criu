@@ -723,6 +723,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->orphan_pts_master)
 		opts.orphan_pts_master = true;
 
+	if (req->has_display_stats)
+		opts.display_stats = req->display_stats;
+
 	/* Evaluate additional configuration file a second time to overwrite
 	 * all RPC settings. */
 	if (req->config_file) {
