@@ -394,6 +394,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		}
 
 		SET_CHAR_OPTS(output, req->log_file);
+	} else if (req->has_log_to_stderr && req->log_to_stderr && !output_changed_by_rpc_conf) {
+		xfree(opts.output);
+		opts.output = NULL;
 	} else if (!opts.output) {
 		SET_CHAR_OPTS(output, DEFAULT_LOG_FILENAME);
 	}
