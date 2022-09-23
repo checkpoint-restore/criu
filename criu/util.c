@@ -1577,11 +1577,11 @@ static int is_iptables_nft(char *bin)
 	}
 
 	buf[ret] = '\0';
-	ret = 0;
+	ret = 1;
 
 	if (strstr(buf, "nf_tables")) {
 		pr_info("iptables has nft backend: %s\n", buf);
-		ret = 1;
+		ret = 0;
 	}
 
 err:
