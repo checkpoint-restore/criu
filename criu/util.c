@@ -1676,6 +1676,34 @@ err:
 	return ret;
 }
 
+
+/**
+ * Check if the system is using legacy iptables.
+ * This function is similar to nft_check_xt_legacy():
+ * https://git.netfilter.org/iptables/tree/iptables/nft-shared.c
+ *
+ * Return value:
+ *  1 legacy tables present
+ *  0 legacy tables not present
+ * -1 error
+ */
+int check_ipt_legacy(bool ipv6)
+{
+	FILE *fp = NULL;
+	char buf[1024];
+	const char tables[2][27] = {"/proc/net/ip_tables_names", "/proc/net/ip6_tables_names"};
+	int exit_code = 0;
+
+	fp = fopen(tables[ipv6], "r");
+	if (!fp)
+		return -1;
+
+	if (fgets(buf, sizeof(buf), fp))
+		exit_code = 1;
+	fclose(fp);
+	return exit_code;
+}
+
 char *get_legacy_iptables_bin(bool ipv6, bool restore)
 {
 	static char iptables_bin[2][2][32];
@@ -1704,8 +1732,11 @@ char *get_legacy_iptables_bin(bool ipv6, bool restore)
 	 * let's try iptables-legacy
 	 */
 	if (ret < 0 || ret == 1) {
-		memcpy(iptables_bin[ipv6][restore], bins[ipv6][restore][1], strlen(bins[ipv6][restore][1]) + 1);
-		ret = is_iptables_nft(iptables_bin[ipv6][restore]);
+		if (check_ipt_legacy(ipv6) == 1) {
+			memcpy(iptables_bin[ipv6][restore], bins[ipv6][restore][1], strlen(bins[ipv6][restore][1]) + 1);
+			ret = is_iptables_nft(iptables_bin[ipv6][restore]);
+		}
+
 		if (ret < 0 || ret == 1) {
 			iptables_present[ipv6][restore] = -1;
 			return NULL;
