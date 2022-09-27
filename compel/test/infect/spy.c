@@ -94,15 +94,15 @@ static inline int chk(int fd, int val)
 	int v = 0;
 
 	if (read(fd, &v, sizeof(v)) != sizeof(v))
-		return 0;
+		return 1;
 
 	printf("%d, want %d\n", v, val);
-	return v == val;
+	return v != val;
 }
 
 int main(int argc, char **argv)
 {
-	int p_in[2], p_out[2], p_err[2], pid, i, pass = 1;
+	int p_in[2], p_out[2], p_err[2], pid, i, err = 0;
 
 	/*
 	 * Prepare IO-s and fork the victim binary
@@ -142,9 +142,11 @@ int main(int argc, char **argv)
 		return 1;
 
 	printf("Checking the victim alive\n");
-	pass = chk(p_out[0], 1);
-	pass = chk(p_out[0], 42);
-	if (!pass)
+	err = chk(p_out[0], 1);
+	if (err)
+		return 1;
+	err = chk(p_out[0], 42);
+	if (err)
 		return 1;
 
 	/*
@@ -176,14 +178,14 @@ int main(int argc, char **argv)
 	printf("Checking the result\n");
 
 	/* These two came from parasite */
-	pass = chk(p_out[0], 138);
-	pass = chk(p_out[0], 403);
+	err = chk(p_out[0], 138);
+	err |= chk(p_out[0], 403);
 
 	/* These two came from post-infect */
-	pass = chk(p_out[0], 1234);
-	pass = chk(p_out[0], 4096);
+	err |= chk(p_out[0], 1234);
+	err |= chk(p_out[0], 4096);
 
-	if (pass)
+	if (!err)
 		printf("All OK\n");
 	else
 		printf("Something went WRONG\n");
