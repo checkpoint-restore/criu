@@ -770,6 +770,11 @@ static int dump_task_core_all(struct parasite_ctl *ctl, struct pstree_item *item
 	core->tc->child_subreaper = misc->child_subreaper;
 	core->tc->has_child_subreaper = true;
 
+	if (misc->membarrier_registration_mask) {
+		core->tc->membarrier_registration_mask = misc->membarrier_registration_mask;
+		core->tc->has_membarrier_registration_mask = true;
+	}
+
 	ret = get_task_personality(pid, &core->tc->personality);
 	if (ret < 0)
 		goto err;

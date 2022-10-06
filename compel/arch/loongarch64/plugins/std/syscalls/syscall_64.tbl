@@ -102,6 +102,7 @@ __NR_kcmp			2	sys_kcmp		(pid_t pid1, pid_t pid2, int type, unsigned long idx1, u
 __NR_seccomp			2	sys_seccomp		(unsigned int op, unsigned int flags, const char *uargs)
 __NR_memfd_create		2	sys_memfd_create	(const char *name, unsigned int flags)
 __NR_userfaultfd		2	sys_userfaultfd		(int flags)
+__NR_membarrier			3	sys_membarrier		(int cmd, unsigned int flags, int cpu_id)
 __NR_rseq			2	sys_rseq		(void *rseq, uint32_t rseq_len, int flags, uint32_t sig)
 __NR_open_tree			4	sys_open_tree		(int dirfd, const char *pathname, unsigned int flags)
 __NR_move_mount			4	sys_move_mount		(int from_dfd, const char *from_pathname, int to_dfd, const char *to_pathname, int flags)
