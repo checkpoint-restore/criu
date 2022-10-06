@@ -229,6 +229,7 @@ struct task_restore_args {
 #endif
 	int lsm_type;
 	int child_subreaper;
+	int membarrier_registration_mask;
 	bool has_clone3_set_tid;
 
 	/*
