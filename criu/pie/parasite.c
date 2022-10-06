@@ -211,6 +211,42 @@ out:
 	return ret;
 }
 
+/*
+ * Returns a membarrier() registration command (it is a bitmask) if the process
+ * was registered for specified (as a bit index) membarrier()-issuing command;
+ * returns zero otherwise.
+ */
+static int get_membarrier_registration_mask(int cmd_bit)
+{
+	unsigned cmd = 1 << cmd_bit;
+	int ret;
+
+	/*
+	 * Issuing a barrier will be successful only if the process was registered
+	 * for this type of membarrier. All errors are a sign that the type issued
+	 * was not registered (EPERM) or not supported by kernel (EINVAL or ENOSYS).
+	 */
+	ret = sys_membarrier(cmd, 0, 0);
+	if (ret && ret != -EPERM && ret != -EINVAL && ret != -ENOSYS) {
+		pr_err("membarrier(1 << %d) returned %d\n", cmd_bit, ret);
+		return -1;
+	}
+	pr_debug("membarrier(1 << %d) returned %d\n", cmd_bit, ret);
+	/*
+	 * For supported registrations, MEMBARRIER_CMD_REGISTER_xxx = MEMBARRIER_CMD_xxx << 1.
+	 * See: enum membarrier_cmd in include/uapi/linux/membarrier.h in kernel sources.
+	 */
+	return ret ? 0 : cmd << 1;
+}
+
+/*
+ * It would be better to check the following with BUILD_BUG_ON, but we might
+ * have an old linux/membarrier.h header without necessary enum values.
+ */
+#define MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED	      3
+#define MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED_SYNC_CORE 5
+#define MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED_RSEQ      7
+
 static int dump_misc(struct parasite_dump_misc *args)
 {
 	int ret;
@@ -224,6 +260,20 @@ static int dump_misc(struct parasite_dump_misc *args)
 	sys_umask(args->umask); /* never fails */
 	args->dumpable = sys_prctl(PR_GET_DUMPABLE, 0, 0, 0, 0);
 	args->thp_disabled = sys_prctl(PR_GET_THP_DISABLE, 0, 0, 0, 0);
+
+	args->membarrier_registration_mask = 0;
+	ret = get_membarrier_registration_mask(MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED);
+	if (ret < 0)
+		return -1;
+	args->membarrier_registration_mask |= ret;
+	ret = get_membarrier_registration_mask(MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED_SYNC_CORE);
+	if (ret < 0)
+		return -1;
+	args->membarrier_registration_mask |= ret;
+	ret = get_membarrier_registration_mask(MEMBARRIER_CMDBIT_PRIVATE_EXPEDITED_RSEQ);
+	if (ret < 0)
+		return -1;
+	args->membarrier_registration_mask |= ret;
 
 	ret = sys_prctl(PR_GET_CHILD_SUBREAPER, (unsigned long)&args->child_subreaper, 0, 0, 0);
 	if (ret)

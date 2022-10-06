@@ -1538,6 +1538,30 @@ int cleanup_current_inotify_events(struct task_restore_args *task_args)
 }
 
 /*
+ * Restore membarrier() registrations.
+ */
+static int restore_membarrier_registrations(int mask)
+{
+	unsigned long bitmap[1] = { mask };
+	int i, err, ret = 0;
+
+	if (!mask)
+		return 0;
+
+	pr_info("Restoring membarrier() registrations %x\n", mask);
+
+	for_each_bit(i, bitmap) {
+		err = sys_membarrier(1 << i, 0, 0);
+		if (!err)
+			continue;
+		pr_err("Can't restore membarrier(1 << %d) registration: %d\n", i, err);
+		ret = -1;
+	}
+
+	return ret;
+}
+
+/*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
  * but use sigreturn facility to restore core registers
@@ -2022,6 +2046,9 @@ long __export_restore_task(struct task_restore_args *args)
 		pr_err("Can't restore timerfd %ld\n", ret);
 		goto core_restore_end;
 	}
+
+	if (restore_membarrier_registrations(args->membarrier_registration_mask) < 0)
+		goto core_restore_end;
 
 	pr_info("%ld: Restored\n", sys_getpid());
 

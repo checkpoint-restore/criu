@@ -863,6 +863,9 @@ static int prepare_proc_misc(pid_t pid, TaskCoreEntry *tc, struct task_restore_a
 	if (tc->has_child_subreaper)
 		args->child_subreaper = tc->child_subreaper;
 
+	if (tc->has_membarrier_registration_mask)
+		args->membarrier_registration_mask = tc->membarrier_registration_mask;
+
 	/* loginuid value is critical to restore */
 	if (kdat.luid == LUID_FULL && tc->has_loginuid && tc->loginuid != INVALID_UID) {
 		ret = prepare_loginuid(tc->loginuid);
