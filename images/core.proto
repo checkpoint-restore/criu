@@ -64,6 +64,8 @@ message task_core_entry {
 	optional uint64			blk_sigset_extended = 20[(criu).hex = true];
 
 	optional uint32			stop_signo = 21;
+
+	optional uint32			membarrier_registration_mask	= 22 [(criu).hex = true];
 }
 
 message task_kobj_ids_entry {
