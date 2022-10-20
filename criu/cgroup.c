@@ -1297,6 +1297,10 @@ static int restore_perms(int fd, const char *path, CgroupPerms *perms)
 	return 0;
 }
 
+/*
+ * Note: The path string can be modified in this function,
+ * the length of path string should be at least PATH_MAX.
+ */
 static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p, char *path, int off, bool split_lines,
 			       bool skip_fails)
 {
