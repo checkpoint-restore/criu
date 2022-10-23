@@ -203,6 +203,17 @@ static int __userns_sysctl_op(void *arg, int proc_fd, pid_t pid)
 	 * 2. forks a task
 	 * 3. setns()es to the UTS/IPC namespace of the caller
 	 * 4. write()s to the files and exits
+	 *
+	 * For the IPC namespace, since
+	 * https://github.com/torvalds/linux/commit/5563cabdde, user with
+	 * enough capability can open IPC sysctl files and write to it. Later
+	 * commit https://github.com/torvalds/linux/commit/1f5c135ee5 and
+	 * https://github.com/torvalds/linux/commit/0889f44e28 bind the IPC
+	 * namespace at the open() time so the changed value does not depend
+	 * on the IPC namespace at the write() time. Also, the permission check
+	 * changes a little bit which makes the above approach unusable but we
+	 * can simply use nonuserns version for restoring as IPC sysctl as the
+	 * restored process currently has enough capability.
 	 */
 	dir = open("/proc/sys", O_RDONLY, O_DIRECTORY);
 	if (dir < 0) {
@@ -335,9 +346,12 @@ out:
 	return ret;
 }
 
-static int __nonuserns_sysctl_op(struct sysctl_req *req, size_t nr_req, int op)
+/* exit_code = 1 in case nonuserns failed but we want to fallback to userns approach */
+static int __nonuserns_sysctl_op(struct sysctl_req **orig_req, size_t *orig_nr_req, int op)
 {
 	int ret, exit_code = -1;
+	struct sysctl_req *req = *orig_req;
+	size_t nr_req = *orig_nr_req;
 
 	while (nr_req--) {
 		int fd;
@@ -351,6 +365,14 @@ static int __nonuserns_sysctl_op(struct sysctl_req *req, size_t nr_req, int op)
 				req++;
 				continue;
 			}
+			if (errno == EACCES && (req->flags & CTL_FLAGS_IPC_EACCES_SKIP)) {
+				/* The remaining requests are restored using userns approach */
+				*orig_req = req;
+				*orig_nr_req = nr_req + 1;
+				exit_code = 1;
+				goto out;
+			}
+
 			pr_perror("Can't open sysctl %s", req->name);
 			goto out;
 		}
@@ -404,7 +426,16 @@ int sysctl_op(struct sysctl_req *req, size_t nr_req, int op, unsigned int ns)
 	 * so we can do those in process as well.
 	 */
 	if (!ns || ns & CLONE_NEWNET || op == CTL_READ)
-		return __nonuserns_sysctl_op(req, nr_req, op);
+		return __nonuserns_sysctl_op(&req, &nr_req, op);
+
+	/* Try to use nonuserns for restoring IPC sysctl and fallback to
+	 * userns approach when the returned code is 1.
+	 */
+	if (ns & CLONE_NEWIPC && op == CTL_WRITE) {
+		ret = __nonuserns_sysctl_op(&req, &nr_req, op);
+		if (ret <= 0)
+			return ret;
+	}
 
 	/*
 	 * In order to avoid lots of opening of /proc/sys for each struct sysctl_req,
