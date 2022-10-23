@@ -34,8 +34,9 @@ enum {
 /*
  * Some entries might be missing mark them as optional.
  */
-#define CTL_FLAGS_OPTIONAL	1
-#define CTL_FLAGS_HAS		2
-#define CTL_FLAGS_READ_EIO_SKIP 4
+#define CTL_FLAGS_OPTIONAL	  1
+#define CTL_FLAGS_HAS		  2
+#define CTL_FLAGS_READ_EIO_SKIP	  4
+#define CTL_FLAGS_IPC_EACCES_SKIP 5
 
 #endif /* __CR_SYSCTL_H__ */
