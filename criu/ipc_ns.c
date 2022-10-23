@@ -292,6 +292,8 @@ static void pr_info_ipc_shm(const IpcShmEntry *shm)
 
 static int ipc_sysctl_req(IpcVarEntry *e, int op)
 {
+	int i;
+
 	struct sysctl_req req[] = {
 		{ "kernel/sem", e->sem_ctls, CTL_U32A(e->n_sem_ctls) },
 		{ "kernel/msgmax", &e->msg_ctlmax, CTL_U32 },
@@ -331,6 +333,9 @@ static int ipc_sysctl_req(IpcVarEntry *e, int op)
 		req[nr++] = req[15];
 	if (e->has_shm_next_id)
 		req[nr++] = req[16];
+
+	for (i = 0; i < nr; i++)
+		req[i].flags = CTL_FLAGS_IPC_EACCES_SKIP;
 
 	return sysctl_op(req, nr, op, CLONE_NEWIPC);
 }
@@ -570,7 +575,7 @@ static int prepare_ipc_sem_desc(struct cr_img *img, const IpcSemEntry *sem)
 {
 	int ret, id;
 	struct sysctl_req req[] = {
-		{ "kernel/sem_next_id", &sem->desc->id, CTL_U32 },
+		{ "kernel/sem_next_id", &sem->desc->id, CTL_U32, CTL_FLAGS_IPC_EACCES_SKIP },
 	};
 	struct semid_ds semid;
 
@@ -703,7 +708,7 @@ static int prepare_ipc_msg_queue(struct cr_img *img, const IpcMsgEntry *msq)
 {
 	int ret, id;
 	struct sysctl_req req[] = {
-		{ "kernel/msg_next_id", &msq->desc->id, CTL_U32 },
+		{ "kernel/msg_next_id", &msq->desc->id, CTL_U32, CTL_FLAGS_IPC_EACCES_SKIP },
 	};
 	struct msqid_ds msqid;
 
@@ -841,7 +846,7 @@ static int prepare_ipc_shm_seg(struct cr_img *img, const IpcShmEntry *shm)
 {
 	int ret, id, hugetlb_flag = 0;
 	struct sysctl_req req[] = {
-		{ "kernel/shm_next_id", &shm->desc->id, CTL_U32 },
+		{ "kernel/shm_next_id", &shm->desc->id, CTL_U32, CTL_FLAGS_IPC_EACCES_SKIP },
 	};
 	struct shmid_ds shmid;
 
