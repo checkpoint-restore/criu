@@ -148,3 +148,40 @@ task:
 
   build_script: |
     make -C scripts/ci local SKIP_CI_PREP=1 CC=gcc CD_TO_TOP=1 ZDTM_IGNORE_TAINT=1 ZDTM_OPTS="-x zdtm/static/socket-raw -x zdtm/static/child_subreaper_existing_child -x zdtm/static/fifo_upon_unix_socket01 -x zdtm/static/overmount_sock -x zdtm/static/tempfs_overmounted"
+
+task:
+  name: aarch64 build GCC (native)
+  arm_container:
+    image: docker.io/library/ubuntu:jammy
+    cpu: 4
+    memory: 4G
+  script: uname -a
+  build_script: |
+    scripts/ci/apt-install make
+    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
+    make -C scripts/ci local
+
+task:
+  name: aarch64 build CLANG (native)
+  arm_container:
+    image: docker.io/library/ubuntu:jammy
+    cpu: 4
+    memory: 4G
+  script: uname -a
+  build_script: |
+    scripts/ci/apt-install make
+    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
+    make -C scripts/ci local CLANG=1
+
+task:
+  name: aarch64 Fedora Rawhide
+  arm_container:
+    image: registry.fedoraproject.org/fedora:rawhide
+    cpu: 4
+    memory: 4G
+  script: uname -a
+  build_script: |
+    scripts/ci/prepare-for-fedora-rawhide.sh
+    ln -sf /usr/include/google/protobuf/descriptor.proto images/google/protobuf/descriptor.proto
+    make -C scripts/ci/ local CC=gcc SKIP_CI_PREP=1 SKIP_CI_TEST=1 CD_TO_TOP=1
+    make -C test/zdtm -j 4
