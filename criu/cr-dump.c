@@ -811,16 +811,7 @@ static int dump_task_core_all(struct parasite_ctl *ctl, struct pstree_item *item
 			goto err;
 	}
 
-	/*
-	 * We don't support multithreads zombie tasks so there is
-	 * no thread_core in zombie tasks, store the cg_set in
-	 * task_core in these cases.
-	 */
 	cg_set = &core->thread_core->cg_set;
-	if (item->pid->state == TASK_THREAD) {
-		core->tc->has_cg_set = true;
-		cg_set = &core->tc->cg_set;
-	}
 	ret = dump_thread_cgroup(item, cg_set, info, -1);
 	if (ret)
 		goto err;

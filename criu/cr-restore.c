@@ -1350,9 +1350,12 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 		item->pid->state = ca.core->tc->task_state;
 
-		/* Zombie task's cg_set is stored in task_core */
+		/*
+		 * Zombie tasks' cgroup is not dumped/restored.
+		 * cg_set == 0 is skipped in prepare_task_cgroup()
+		 */
 		if (item->pid->state == TASK_DEAD)
-			rsti(item)->cg_set = ca.core->tc->cg_set;
+			rsti(item)->cg_set = 0;
 		else
 			rsti(item)->cg_set = ca.core->thread_core->cg_set;
 

@@ -40,6 +40,7 @@ message task_core_entry {
 	optional task_timers_entry	timers		= 7;
 	optional task_rlimits_entry	rlimits		= 8;
 
+	/* This is deprecated, should be per-thread */
 	optional uint32			cg_set		= 9;
 
 	optional signal_queue_entry	signals_s	= 10;
