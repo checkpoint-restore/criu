@@ -144,6 +144,11 @@ time make unittest
 
 [ -n "$SKIP_CI_TEST" ] && exit 0
 
+# Umount cpuset in cgroupv1 to make it move to cgroupv2
+if [ -d /sys/fs/cgroup/cpuset ]; then
+	umount /sys/fs/cgroup/cpuset
+fi
+
 ulimit -c unlimited
 
 cgid=$$
