@@ -12,6 +12,7 @@ LIBDRM_INC 		:= -I/usr/include/libdrm
 DEPS_OK 		:= amdgpu_plugin.so amdgpu_plugin_test
 DEPS_NOK 		:= ;
 
+__nmk_dir ?= ../../scripts/nmk/scripts/
 include $(__nmk_dir)msg.mk
 
 CC      		:= gcc
