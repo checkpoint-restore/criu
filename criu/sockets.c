@@ -29,6 +29,7 @@
 #include "pstree.h"
 #include "util.h"
 #include "fdstore.h"
+#include "cr_options.h"
 
 #undef LOG_PREFIX
 #define LOG_PREFIX "sockets: "
@@ -465,16 +466,31 @@ int do_restore_opt(int sk, int level, int name, void *val, int len)
 	return 0;
 }
 
-static int sk_setbufs(void *arg, int fd, pid_t pid)
+int sk_setbufs(int sk, uint32_t *bufs)
 {
-	u32 *buf = (u32 *)arg;
+	uint32_t sndbuf = bufs[0], rcvbuf = bufs[1];
 
-	if (restore_opt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &buf[0]))
-		return -1;
-	if (restore_opt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &buf[1]))
-		return -1;
+	if (setsockopt(sk, SOL_SOCKET, SO_SNDBUFFORCE, &sndbuf, sizeof(sndbuf)) ||
+	    setsockopt(sk, SOL_SOCKET, SO_RCVBUFFORCE, &rcvbuf, sizeof(rcvbuf))) {
+		if (opts.unprivileged) {
+			pr_info("Unable to set SO_SNDBUFFORCE/SO_RCVBUFFORCE, falling back to SO_SNDBUF/SO_RCVBUF\n");
+			if (setsockopt(sk, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) ||
+			    setsockopt(sk, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))) {
+				pr_perror("Unable to set socket SO_SNDBUF/SO_RCVBUF");
+				return -1;
+			}
+		} else {
+			pr_perror("Unable to set socket SO_SNDBUFFORCE/SO_RCVBUFFORCE");
+			return -1;
+		}
+	}
 
 	return 0;
+}
+
+static int sk_setbufs_ns(void *arg, int fd, pid_t pid)
+{
+	return sk_setbufs(fd, (uint32_t *)arg);
 }
 
 /*
@@ -489,7 +505,7 @@ int restore_prepare_socket(int sk)
 	/* In kernel a bufsize has type int and a value is doubled. */
 	u32 maxbuf[2] = { INT_MAX / 2, INT_MAX / 2 };
 
-	if (userns_call(sk_setbufs, 0, maxbuf, sizeof(maxbuf), sk))
+	if (userns_call(sk_setbufs_ns, 0, maxbuf, sizeof(maxbuf), sk))
 		return -1;
 
 	/* Prevent blocking on restore */
@@ -517,7 +533,7 @@ int restore_socket_opts(int sk, SkOptsEntry *soe)
 	pr_info("%d restore sndbuf %d rcv buf %d\n", sk, soe->so_sndbuf, soe->so_rcvbuf);
 
 	/* setsockopt() multiplies the input values by 2 */
-	ret |= userns_call(sk_setbufs, 0, bufs, sizeof(bufs), sk);
+	ret |= userns_call(sk_setbufs_ns, 0, bufs, sizeof(bufs), sk);
 
 	if (soe->has_so_buf_lock) {
 		pr_debug("\trestore buf_lock %d for socket\n", soe->so_buf_lock);
