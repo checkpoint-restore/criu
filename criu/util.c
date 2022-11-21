@@ -1876,7 +1876,7 @@ int run_command(char *buf, size_t buf_size, int (*child_fn)(void *), void *args)
 
 uint64_t criu_run_id;
 
-void util_init()
+void util_init(void)
 {
 	struct timespec tp;
 
