@@ -3366,7 +3366,7 @@ int collect_net_namespaces(bool for_dump)
 
 struct ns_desc net_ns_desc = NS_DESC_ENTRY(CLONE_NEWNET, "net");
 
-struct ns_id *net_get_root_ns()
+struct ns_id *net_get_root_ns(void)
 {
 	static struct ns_id *root_netns = NULL;
 
