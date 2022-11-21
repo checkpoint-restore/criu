@@ -647,8 +647,13 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	ret |= dump_opt(sk, SOL_SOCKET, SO_PRIORITY, &soe->so_priority);
 	soe->has_so_rcvlowat = true;
 	ret |= dump_opt(sk, SOL_SOCKET, SO_RCVLOWAT, &soe->so_rcvlowat);
-	soe->has_so_mark = true;
+	/*
+	 * Restoring SO_MARK requires root or CAP_NET_ADMIN. Avoid saving it
+	 * in unprivileged mode if still has its default value.
+	 */
 	ret |= dump_opt(sk, SOL_SOCKET, SO_MARK, &soe->so_mark);
+	if (soe->so_mark != 0)
+		soe->has_so_mark = true;
 
 	ret |= dump_opt(sk, SOL_SOCKET, SO_SNDTIMEO, &tv);
 	soe->so_snd_tmo_sec = tv.tv_sec;
