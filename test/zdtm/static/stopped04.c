@@ -21,7 +21,7 @@ struct shared {
 	futex_t fstate;
 	int status;
 	int code;
-} * sh;
+} *sh;
 
 static int new_pgrp(void)
 {
