@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 	struct {
 		futex_t delta;
 		futex_t stop;
-	} * shm;
+	} *shm;
 	uint32_t v;
 	unsigned long long count = 0;
 	int i;
