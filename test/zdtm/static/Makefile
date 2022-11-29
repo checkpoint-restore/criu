@@ -123,6 +123,8 @@ TST_NOFILE	:=				\
 		sock_opts00			\
 		sock_opts01			\
 		sock_opts02			\
+		sock_ip_opts00			\
+		sock_ip_opts01			\
 		sk-unix-unconn			\
 		sk-unix-unconn-seqpacket	\
 		ipc_namespace			\
@@ -598,6 +600,7 @@ socket-tcp6-closed:	CFLAGS += -D ZDTM_IPV6
 socket-tcp6-closed:	CFLAGS += -D ZDTM_IPV4V6
 socket-tcp-closed-last-ack:	CFLAGS += -D ZDTM_TCP_LAST_ACK
 socket-tcp-skip-in-flight:	CFLAGS += -D ZDTM_IPV4V6
+sock_ip_opts01:		CFLAGS += -DZDTM_VAL_ZERO
 tun_ns:			CFLAGS += -DTUN_NS
 mnt_ext_manual:		CFLAGS += -D ZDTM_EXTMAP_MANUAL
 mntns_pivot_root_ro:	CFLAGS += -DMNTNS_PIVOT_ROOT_RO
