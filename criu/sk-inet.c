@@ -14,6 +14,8 @@
 #include <linux/icmp.h>
 #include <linux/icmpv6.h>
 #include <poll.h>
+#include <linux/in.h>
+#include <linux/in6.h>
 
 #include "../soccr/soccr.h"
 
@@ -388,6 +390,10 @@ static int dump_ip_raw_opts(int sk, int family, int proto, IpOptsRawEntry *r)
 	return ret;
 }
 
+#ifndef IPV6_FREEBIND
+#define IPV6_FREEBIND 78
+#endif
+
 static int dump_ip_opts(int sk, int family, int type, int proto, IpOptsEntry *ioe)
 {
 	int ret = 0;
@@ -398,11 +404,18 @@ static int dump_ip_opts(int sk, int family, int type, int proto, IpOptsEntry *io
 		 * and fetch additional options.
 		 */
 		ret |= dump_ip_raw_opts(sk, family, proto, ioe->raw);
-	} else {
-		/* Due to kernel code we can use SOL_IP instead of SOL_IPV6 */
-		ret |= dump_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
-		ioe->has_freebind = ioe->freebind;
 	}
+
+	if (family == AF_INET6) {
+		if (kdat.has_ipv6_freebind)
+			ret |= dump_opt(sk, SOL_IPV6, IPV6_FREEBIND, &ioe->freebind);
+		else if (type != SOCK_RAW)
+			/* Due to kernel code we can use SOL_IP instead of SOL_IPV6 */
+			ret |= dump_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
+	} else {
+		ret |= dump_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
+	}
+	ioe->has_freebind = ioe->freebind;
 
 	return ret;
 }
@@ -787,8 +800,13 @@ int restore_ip_opts(int sk, int family, int proto, IpOptsEntry *ioe)
 {
 	int ret = 0;
 
-	if (ioe->has_freebind)
-		ret |= restore_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
+	if (family == AF_INET6) {
+		if (ioe->has_freebind)
+			ret |= restore_opt(sk, SOL_IPV6, IPV6_FREEBIND, &ioe->freebind);
+	} else {
+		if (ioe->has_freebind)
+			ret |= restore_opt(sk, SOL_IP, IP_FREEBIND, &ioe->freebind);
+	}
 
 	if (ioe->raw)
 		ret |= restore_ip_raw_opts(sk, family, proto, ioe->raw);
