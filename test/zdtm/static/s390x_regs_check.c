@@ -40,13 +40,13 @@ const char *test_author = "Michael Holzheu <holzheu@linux.vnet.ibm.com>";
  *
  * - Verify that "criu restore" sets the correct register sets
  *   from "criu dump":
- *   $ zdtmp.py run -t zdtm/static/s390x_regs_check
+ *   $ zdtm.py run -t zdtm/static/s390x_regs_check
  *
  * - Verify that dumpee continues running with correct registers after
  *   parasite injection:
- *   $ zdtmp.py run --norst -t zdtm/static/s390x_regs_check
- *   $ zdtmp.py run --norst --pre 2 -t zdtm/static/s390x_regs_check
- *   $ zdtmp.py run --check-only -t zdtm/static/s390x_regs_check
+ *   $ zdtm.py run --norst -t zdtm/static/s390x_regs_check
+ *   $ zdtm.py run --norst --pre 2 -t zdtm/static/s390x_regs_check
+ *   $ zdtm.py run --check-only -t zdtm/static/s390x_regs_check
  */
 #define NR_THREADS     2
 #define NR_THREADS_ALL (NR_THREADS + 1)
