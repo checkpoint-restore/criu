@@ -1375,6 +1375,14 @@ static int check_openat2(void)
 	return 0;
 }
 
+static int check_ipv6_freebind(void)
+{
+	if (!kdat.has_ipv6_freebind)
+		return -1;
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1494,6 +1502,7 @@ int cr_check(void)
 		ret |= check_move_mount_set_group();
 		ret |= check_openat2();
 		ret |= check_ptrace_get_rseq_conf();
+		ret |= check_ipv6_freebind();
 
 		if (kdat.lsm == LSMTYPE__APPARMOR)
 			ret |= check_apparmor_stacking();
@@ -1614,6 +1623,7 @@ static struct feature_list feature_list[] = {
 	{ "move_mount_set_group", check_move_mount_set_group },
 	{ "openat2", check_openat2 },
 	{ "get_rseq_conf", check_ptrace_get_rseq_conf },
+	{ "ipv6_freebind", check_ipv6_freebind },
 	{ NULL, NULL },
 };
 

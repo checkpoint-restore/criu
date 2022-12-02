@@ -1541,6 +1541,34 @@ static int kerndat_has_nftables_concat(void)
 #endif
 }
 
+#ifndef IPV6_FREEBIND
+#define IPV6_FREEBIND 78
+#endif
+
+static int kerndat_has_ipv6_freebind(void)
+{
+	int sk, val;
+
+	sk = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+	if (sk == -1) {
+		pr_perror("Unable to create a ipv6 dgram socket");
+		return -1;
+	}
+
+	val = 1;
+	if (setsockopt(sk, SOL_IPV6, IPV6_FREEBIND, &val, sizeof(int)) == -1) {
+		if (errno == ENOPROTOOPT) {
+			kdat.has_ipv6_freebind = false;
+			return 0;
+		}
+		pr_perror("Unable to setsockopt ipv6_freebind");
+		return -1;
+	}
+
+	kdat.has_ipv6_freebind = true;
+	return 0;
+}
+
 /*
  * Some features depend on resource that can be dynamically changed
  * at the OS runtime. There are cases that we cannot determine the
@@ -1778,6 +1806,10 @@ int kerndat_init(void)
 	}
 	if (!ret && (kerndat_has_ptrace_get_rseq_conf() < 0)) {
 		pr_err("kerndat_has_ptrace_get_rseq_conf failed when initializing kerndat.\n");
+		ret = -1;
+	}
+	if (!ret && (kerndat_has_ipv6_freebind() < 0)) {
+		pr_err("kerndat_has_ipv6_freebind failed when initializing kerndat.\n");
 		ret = -1;
 	}
 
