@@ -27,6 +27,8 @@ dnf install -y \
 	python3-future \
 	python3-protobuf \
 	python3-junit_xml \
+	python3-pip \
+	python3-importlib-metadata \
 	python-unversioned-command \
 	redhat-rpm-config \
 	sudo \
