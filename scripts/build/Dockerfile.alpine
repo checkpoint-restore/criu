@@ -40,6 +40,7 @@ RUN apk add \
 	e2fsprogs \
 	py-yaml \
 	py3-flake8 \
+	py3-importlib-metadata \
 	asciidoctor
 
 # The rpc test cases are running as user #1000, let's add the user
