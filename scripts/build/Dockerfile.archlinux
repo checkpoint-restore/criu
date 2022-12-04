@@ -31,6 +31,7 @@ RUN pacman -Syu --noconfirm \
 	flake8 \
 	asciidoctor \
 	python-junit-xml \
+	python-importlib-metadata \
 	diffutils
 
 COPY . /criu

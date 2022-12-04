@@ -438,7 +438,8 @@ lint:
 	flake8 --config=scripts/flake8.cfg lib/py/images/pb2dict.py
 	flake8 --config=scripts/flake8.cfg lib/py/images/images.py
 	flake8 --config=scripts/flake8.cfg scripts/criu-ns
-	flake8 --config=scripts/flake8.cfg scripts/crit-setup.py
+	flake8 --config=scripts/flake8.cfg crit/setup.py
+	flake8 --config=scripts/flake8.cfg scripts/uninstall_module.py
 	flake8 --config=scripts/flake8.cfg coredump/
 	shellcheck --version
 	shellcheck scripts/*.sh
