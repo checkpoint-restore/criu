@@ -38,7 +38,6 @@ criu/pie/parasite-blob.h
 criu/protobuf-desc-gen.h
 lib/build/
 lib/c/criu.pc
-lib/.crit-setup.files
 compel/include/asm
 include/common/asm
 include/common/config.h
