@@ -19,7 +19,8 @@ SYNCFILE = "zdtm/static/net_lock.sync"
 
 def nsenter():
     with open("/var/run/netns/{}".format(NETNS)) as f:
-        libc.setns(f.fileno(), CLONE_NEWNET)
+        if libc.setns(f.fileno(), CLONE_NEWNET):
+            raise Exception("Failed to enter netns")
 
 def create_sync_file():
     open(SYNCFILE, "wb").close()
