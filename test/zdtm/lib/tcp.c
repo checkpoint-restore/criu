@@ -104,14 +104,16 @@ int tcp_accept_server(int sock)
 
 int tcp_init_client(int family, char *servIP, unsigned short servPort)
 {
-	int sock;
+	int sock, ret;
 
 	if ((sock = socket(family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
 		pr_perror("can't create socket");
 		return -1;
 	}
 
-	return tcp_init_client_with_fd(sock, family, servIP, servPort);
+	if ((ret = tcp_init_client_with_fd(sock, family, servIP, servPort)) < 0)
+		close(sock);
+	return ret;
 }
 
 int tcp_init_client_with_fd(int sock, int family, char *servIP, unsigned short servPort)
