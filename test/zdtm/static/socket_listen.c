@@ -27,7 +27,7 @@ const char *test_author = "Stanislav Kinsbursky <skinsbursky@openvz.org>";
 #include <sys/wait.h>
 #include <netinet/tcp.h>
 
-static int port = 8880;
+static int port = 8899;
 
 #define BUF_SIZE 1024
 

@@ -12,7 +12,7 @@
 const char *test_doc = "Check that tcp-close option closes connected tcp socket";
 const char *test_author = "Pavel Begunkov <asml.silence@gmail.com>";
 
-static int port = 8880;
+static int port = 8885;
 
 static int check_socket_closed(int sk)
 {

@@ -14,7 +14,7 @@ const char *test_author = "Zeyad Yasser <zeyady98@gmail.com>";
 #include <sched.h>
 #include <sys/socket.h>
 
-static int port = 8880;
+static int port = 8882;
 #define SYNCFILE_PATH "socket_lock.sync"
 
 int main(int argc, char **argv)

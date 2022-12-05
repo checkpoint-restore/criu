@@ -19,7 +19,7 @@ const char *test_author = "Andrew Vagin <avagin@parallels.com>";
 #include <sys/wait.h>
 #include <netinet/tcp.h>
 
-static int port = 8880;
+static int port = 8898;
 
 #define BUF_SIZE 1024
 

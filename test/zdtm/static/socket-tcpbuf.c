@@ -20,7 +20,7 @@ const char *test_author = "Andrey Vagin <avagin@parallels.com";
 #include <sys/socket.h>
 #include <netinet/tcp.h>
 
-static int port = 8880;
+static int port = 8896;
 
 #define BUF_SIZE    4096
 #define TCP_MAX_BUF (100 << 20)

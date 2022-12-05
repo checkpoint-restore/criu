@@ -56,7 +56,7 @@ int main(int argc, char **argv)
 {
 	struct zdtm_tcp_opts opts = { .reuseaddr = false, .reuseport = true, .flags = SOCK_NONBLOCK };
 	unsigned char buf[BUF_SIZE];
-	int port = 8880, port2;
+	int port = 8892, port2;
 	int fd, fd_s, fd_s2, clt, i;
 	socklen_t optlen;
 	int no = 0, val;

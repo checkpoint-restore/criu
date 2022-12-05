@@ -20,7 +20,7 @@ const char *test_author = "Pavel Emelyanov <xemul@parallels.com<>\n";
 #include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
 #include <sys/wait.h>
 
-static int port = 8880;
+static int port = 8901;
 static char buf[8];
 
 #define MSG1 "msg1"

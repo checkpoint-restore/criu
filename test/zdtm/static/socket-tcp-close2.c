@@ -10,7 +10,7 @@
 const char *test_doc = "Check both dump and restore with tcp_close on TCP_CLOSE sockets";
 const char *test_author = "Bui Quang Minh <minhquangbui99@gmail.com>";
 
-static int port = 8880;
+static int port = 8885;
 
 int main(int argc, char **argv)
 {

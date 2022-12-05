@@ -25,7 +25,7 @@ const char *test_author = "Andrey Vagin <avagin@openvz.org";
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 
-static int port = 8880;
+static int port = 8893;
 
 union sockaddr_inet {
 	struct sockaddr addr;

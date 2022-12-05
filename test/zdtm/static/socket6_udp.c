@@ -15,7 +15,7 @@ const char *test_author = "Cyrill Gorcunov <gorcunov@openvz.org>\n";
 #include <arpa/inet.h> /* for sockaddr_in and inet_ntoa() */
 #include <sys/wait.h>
 
-static int port = 8880;
+static int port = 8897;
 static char buf[64];
 
 #define MSG1 "msg1"

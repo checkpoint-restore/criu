@@ -21,7 +21,7 @@ const char *test_author = "Pavel Emelyanov <xemul@parallels.com<>\n";
 #include <sys/wait.h>
 #include <netinet/udp.h>
 
-static int port = 8880;
+static int port = 8900;
 
 #define MSG1 "msg1"
 

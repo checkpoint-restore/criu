@@ -31,7 +31,7 @@ const char *test_author = "Andrey Vagin <avagin@parallels.com";
 #include <sched.h>
 #include <netinet/tcp.h>
 
-static int port = 8880;
+static int port = 8891;
 
 int main(int argc, char **argv)
 {

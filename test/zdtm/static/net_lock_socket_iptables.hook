@@ -5,7 +5,7 @@ import time
 import sys
 import os
 
-PORT = 8880
+PORT = 8882
 TIMEOUT = 0.1
 INTERNAL_SERVER = "\0internal_server"
 SYNCFILE = "zdtm/static/socket_lock.sync"

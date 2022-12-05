@@ -25,7 +25,7 @@ const char *test_author = "Andrey Vagin <avagin@parallels.com";
 #include <sys/socket.h>
 #include <netinet/tcp.h>
 
-static int port = 8880;
+static int port = 8888;
 
 #define TEST_MSG "Hello World!"
 #define BUF_SIZE 4096
