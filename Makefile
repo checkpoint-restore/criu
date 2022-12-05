@@ -22,6 +22,7 @@ endif
 ifneq ($(filter-out x86 arm aarch64 ppc64 s390 mips,$(ARCH)),)
         $(error "The architecture $(ARCH) isn't supported")
 endif
+export ARCH
 
 # The PowerPC 64 bits architecture could be big or little endian.
 # They are handled in the same way.
