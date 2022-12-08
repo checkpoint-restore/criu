@@ -87,6 +87,11 @@ message thread_sas_entry {
 	required uint32			ss_flags	= 3;
 }
 
+message thread_allowedcpus_entry {
+	required bool has_cpumask = 1 [default=false];
+	repeated uint64	cpumask	= 2 [packed=true];
+}
+
 message thread_core_entry {
 	required uint64			futex_rla	= 1;
 	required uint32			futex_rla_len	= 2;
@@ -107,6 +112,7 @@ message thread_core_entry {
 	optional uint64			blk_sigset_extended	= 14;
 	optional rseq_entry		rseq_entry	= 15;
 	required uint32			cg_set		= 16;
+	optional thread_allowedcpus_entry 	allowed_cpus	= 17;
 }
 
 message task_rlimits_entry {

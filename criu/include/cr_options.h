@@ -236,6 +236,9 @@ struct cr_options {
 	 * explicitly request it as it comes with many limitations.
 	 */
 	int unprivileged;
+
+	/* restore cpu affinity */
+	int with_cpu_affinity;
 };
 
 extern struct cr_options opts;
