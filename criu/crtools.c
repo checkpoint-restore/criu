@@ -509,6 +509,8 @@ usage:
 	       "  --file-validation METHOD\n"
 	       "			pass the validation method to be used; argument\n"
 	       "			can be 'filesize' or 'buildid' (default).\n"
+	       "  --with-cpu-affinity Allow to restore cpu affinity. Only for hosts with\n"
+	       "			same cpu quantity.\n"
 	       "  --skip-file-rwx-check\n"
 	       "			Skip checking file permissions\n"
 	       "			(r/w/x for u/g/o) on restore.\n"
