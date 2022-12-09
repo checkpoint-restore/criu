@@ -1818,7 +1818,8 @@ int dump_one_reg_file(int lfd, u32 id, const struct fd_parms *p)
 	}
 
 	if (!skip_for_shell_job && mnt_is_overmounted(mi)) {
-		pr_err("Open files on overmounted mounts are not supported yet\n");
+		pr_err("Open files on overmounted mounts are not supported yet; mount=%d fd=%d path=%s\n",
+		       p->mnt_id, p->fd, link->name + 1);
 		return -1;
 	}
 
