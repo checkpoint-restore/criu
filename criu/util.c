@@ -1880,11 +1880,16 @@ uint64_t criu_run_id;
 
 void util_init(void)
 {
-	struct timespec tp;
+	struct stat statbuf;
 
-	clock_gettime(CLOCK_MONOTONIC, &tp);
-	criu_run_id = ((uint64_t)getpid() << 32) + tp.tv_sec + tp.tv_nsec;
+	criu_run_id = getpid();
+	if (!stat("/proc/self/ns/pid", &statbuf))
+		criu_run_id |= (uint64_t)statbuf.st_ino << 32;
+	else if (errno != ENOENT)
+		pr_perror("Can't stat /proc/self/ns/pid - CRIU run id might not be unique");
+
 	compel_run_id = criu_run_id;
+	pr_info("CRIU run id = %#" PRIx64 "\n", criu_run_id);
 }
 
 /*
