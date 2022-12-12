@@ -313,24 +313,6 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct 
 
 	vfi_dev = makedev(vfi->dev_maj, vfi->dev_min);
 
-	if (is_memfd(vfi_dev)) {
-		char tmp[PATH_MAX];
-		__strlcpy(tmp, fname, PATH_MAX);
-		strip_deleted(tmp, strlen(tmp));
-
-		/*
-		 * The error EPERM will be shown in the following pr_perror().
-		 * It comes from the previous open() call.
-		 */
-		pr_perror("Can't open mapped [%s]", tmp);
-
-		/*
-		 * TODO Perhaps we could do better than failing and dump the
-		 * memory like what is being done in shmem.c
-		 */
-		return -1;
-	}
-
 	if (is_hugetlb_dev(vfi_dev, &hugetlb_flag) || is_anon_shmem_map(vfi_dev)) {
 		vma->e->status |= VMA_AREA_REGULAR;
 		if (!(vma->e->flags & MAP_SHARED))
