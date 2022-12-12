@@ -332,6 +332,7 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct 
 	}
 
 	if (is_hugetlb_dev(vfi_dev, &hugetlb_flag) || is_anon_shmem_map(vfi_dev)) {
+		vma->e->status |= VMA_AREA_REGULAR;
 		if (!(vma->e->flags & MAP_SHARED))
 			vma->e->status |= VMA_ANON_PRIVATE;
 		else
