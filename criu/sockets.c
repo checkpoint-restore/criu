@@ -652,8 +652,7 @@ int dump_socket_opts(int sk, SkOptsEntry *soe)
 	 * in unprivileged mode if still has its default value.
 	 */
 	ret |= dump_opt(sk, SOL_SOCKET, SO_MARK, &soe->so_mark);
-	if (soe->so_mark != 0)
-		soe->has_so_mark = true;
+	soe->has_so_mark = !!soe->so_mark;
 
 	ret |= dump_opt(sk, SOL_SOCKET, SO_SNDTIMEO, &tv);
 	soe->so_snd_tmo_sec = tv.tv_sec;
