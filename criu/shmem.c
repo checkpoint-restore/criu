@@ -724,7 +724,7 @@ static int next_data_segment(int fd, unsigned long pfn, unsigned long *next_data
 	return 0;
 }
 
-static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
+static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si, bool seek_data_supported)
 {
 	struct page_pipe *pp;
 	struct page_xfer xfer;
@@ -750,7 +750,8 @@ static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 		unsigned long pgaddr;
 		int st = -1;
 
-		if (pfn >= next_hole_pfn && next_data_segment(fd, pfn, &next_data_pnf, &next_hole_pfn))
+		if (seek_data_supported && pfn >= next_hole_pfn &&
+		    next_data_segment(fd, pfn, &next_data_pnf, &next_hole_pfn))
 			goto err_xfer;
 
 		if (si->pstate_map && is_shmem_tracking_en()) {
@@ -808,20 +809,59 @@ static int dump_one_shmem(struct shmem_info *si)
 {
 	int fd, ret = -1;
 	void *addr;
+	unsigned long cur, remaining;
+	bool seek_data_supported;
 
 	pr_info("Dumping shared memory %ld\n", si->shmid);
 
-	fd = open_proc(si->pid, "map_files/%lx-%lx", si->start, si->end);
-	if (fd < 0)
-		goto err;
+	fd = __open_proc(si->pid, EPERM, O_RDONLY, "map_files/%lx-%lx", si->start, si->end);
+	if (fd >= 0) {
+		addr = mmap(NULL, si->size, PROT_READ, MAP_SHARED, fd, 0);
+		if (addr == MAP_FAILED) {
+			pr_err("Can't map shmem 0x%lx (0x%lx-0x%lx)\n", si->shmid, si->start, si->end);
+			goto errc;
+		}
 
-	addr = mmap(NULL, si->size, PROT_READ, MAP_SHARED, fd, 0);
-	if (addr == MAP_FAILED) {
-		pr_err("Can't map shmem 0x%lx (0x%lx-0x%lx)\n", si->shmid, si->start, si->end);
-		goto errc;
+		seek_data_supported = true;
+	} else {
+		if (errno != EPERM || !opts.unprivileged) {
+			goto err;
+		}
+
+		pr_debug("Could not access map_files/ link, falling back to /proc/$pid/mem\n");
+
+		fd = open_proc(si->pid, "mem");
+		if (fd < 0) {
+			goto err;
+		}
+
+		addr = mmap(NULL, si->size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+		if (addr == MAP_FAILED) {
+			pr_err("Can't map empty space for shmem 0x%lx (0x%lx-0x%lx)\n", si->shmid, si->start, si->end);
+			goto errc;
+		}
+
+		if (lseek(fd, si->start, SEEK_SET) < 0) {
+			pr_perror("Can't seek virtual memory");
+			goto errc;
+		}
+
+		cur = 0;
+		remaining = si->size;
+		do {
+			ret = read(fd, addr + cur, remaining);
+			if (ret <= 0) {
+				pr_perror("Can't read virtual memory");
+				goto errc;
+			}
+			remaining -= ret;
+			cur += ret;
+		} while (remaining > 0);
+
+		seek_data_supported = false;
 	}
 
-	ret = do_dump_one_shmem(fd, addr, si);
+	ret = do_dump_one_shmem(fd, addr, si, seek_data_supported);
 
 	munmap(addr, si->size);
 errc:
@@ -849,7 +889,7 @@ int dump_one_memfd_shmem(int fd, unsigned long shmid, unsigned long size)
 		goto err;
 	}
 
-	ret = do_dump_one_shmem(fd, addr, &si);
+	ret = do_dump_one_shmem(fd, addr, &si, true);
 
 	munmap(addr, size);
 err:
@@ -875,7 +915,7 @@ int dump_one_sysv_shmem(void *addr, unsigned long size, unsigned long shmid)
 	if (fd < 0)
 		return -1;
 
-	ret = do_dump_one_shmem(fd, addr, si);
+	ret = do_dump_one_shmem(fd, addr, si, true);
 	close(fd);
 	return ret;
 }
