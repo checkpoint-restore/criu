@@ -92,6 +92,8 @@ static int dump_scm_rights(struct cmsghdr *ch, SkPacketEntry *pe)
 	void *buf;
 	ScmEntry *scme;
 
+	pr_info("Dumping scm rights (nested fds) id_for 0x%x\n", pe->id_for);
+
 	nr_fds = (ch->cmsg_len - sizeof(*ch)) / sizeof(int);
 	fds = (int *)CMSG_DATA(ch);
 
