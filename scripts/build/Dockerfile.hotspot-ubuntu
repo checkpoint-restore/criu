@@ -1,4 +1,4 @@
-FROM docker.io/library/eclipse-temurin:8-focal
+FROM docker.io/library/eclipse-temurin:11-focal
 ARG CC=gcc
 
 COPY scripts/ci/apt-install /bin/apt-install

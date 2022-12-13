@@ -1,4 +1,4 @@
-FROM docker.io/library/eclipse-temurin:8-alpine
+FROM docker.io/library/eclipse-temurin:11-alpine
 ARG CC=gcc
 
 RUN apk update && apk add \
