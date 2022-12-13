@@ -1,4 +1,4 @@
-FROM docker.io/library/ibm-semeru-runtimes:open-8-jdk-focal
+FROM docker.io/library/ibm-semeru-runtimes:open-11-jdk-focal
 ARG CC=gcc
 
 COPY scripts/ci/apt-install /bin/apt-install
