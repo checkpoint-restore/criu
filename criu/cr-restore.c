@@ -360,6 +360,10 @@ static int root_prepare_shared(void)
 	if (ret)
 		goto err;
 
+	ret = add_fake_unix_queuers_finish();
+	if (ret)
+		goto err;
+
 	ret = run_post_prepare();
 	if (ret)
 		goto err;

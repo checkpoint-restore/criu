@@ -1058,6 +1058,18 @@ static struct unix_sk_info *find_queuer_for(int id)
 	return NULL;
 }
 
+static struct unix_sk_info *find_unix_socket(int id)
+{
+	struct unix_sk_info *ui;
+
+	list_for_each_entry(ui, &unix_sockets, list) {
+		if (ui->ue->id == id)
+			return ui;
+	}
+
+	return NULL;
+}
+
 static struct fdinfo_list_entry *get_fle_for_task(struct file_desc *tgt, struct pstree_item *owner, bool force_master)
 {
 	struct fdinfo_list_entry *fle;
@@ -1115,13 +1127,14 @@ static struct fdinfo_list_entry *get_fle_for_task(struct file_desc *tgt, struct 
 
 int unix_note_scm_rights(int id_for, uint32_t *file_ids, int *fds, int n_ids)
 {
+	struct fdinfo_list_entry *fle;
 	struct unix_sk_info *ui;
 	struct pstree_item *owner;
 	int i;
 
 	ui = find_queuer_for(id_for);
 	if (!ui) {
-		pr_err("Can't find sender for %#x\n", id_for);
+		pr_err("Can't find %#x\n", id_for);
 		return -1;
 	}
 
@@ -1129,7 +1142,14 @@ int unix_note_scm_rights(int id_for, uint32_t *file_ids, int *fds, int n_ids)
 	/*
 	 * This is the task that will restore this socket
 	 */
-	owner = file_master(&ui->d)->task;
+	fle = try_file_master(&ui->d);
+	if (!fle) {
+		struct unix_sk_info *peer;
+
+		peer = find_unix_socket(id_for);
+		fle = file_master(&peer->d);
+	}
+	owner = fle->task;
 
 	pr_info("-> will set up deps\n");
 	/*
@@ -2215,7 +2235,6 @@ static void set_peer(struct unix_sk_info *ui, struct unix_sk_info *peer)
 static int add_fake_queuer(struct unix_sk_info *ui)
 {
 	struct unix_sk_info *peer;
-	struct pstree_item *task;
 	UnixSkEntry *peer_ue;
 	SkOptsEntry *skopts;
 	FownEntry *fown;
@@ -2250,9 +2269,7 @@ static int add_fake_queuer(struct unix_sk_info *ui)
 	file_desc_add(&peer->d, peer_ue->id, &unix_desc_ops);
 	list_del_init(&peer->d.fake_master_list);
 	list_add(&peer->list, &unix_sockets);
-	task = file_master(&ui->d)->task;
-
-	return (get_fle_for_task(&peer->d, task, true) == NULL);
+	return 0;
 }
 
 int add_fake_unix_queuers(void)
@@ -2267,6 +2284,29 @@ int add_fake_unix_queuers(void)
 		if (!(ui->ue->state == TCP_ESTABLISHED && !ui->peer) && ui->ue->type != SOCK_DGRAM)
 			continue;
 		if (add_fake_queuer(ui))
+			return -1;
+	}
+	return 0;
+}
+
+static int add_fake_queuer_finish(struct unix_sk_info *queuer)
+{
+	struct pstree_item *task = file_master(&queuer->peer->d)->task;
+
+	return get_fle_for_task(&queuer->d, task, true) == NULL;
+}
+
+int add_fake_unix_queuers_finish(void)
+{
+	struct unix_sk_info *ui;
+
+	pr_info("Adding fake unix queuers (finish)\n");
+
+	list_for_each_entry(ui, &unix_sockets, list) {
+		if (ui->ue->ino != FAKE_INO)
+			continue;
+
+		if (add_fake_queuer_finish(ui))
 			return -1;
 	}
 	return 0;
