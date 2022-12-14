@@ -108,12 +108,14 @@ next_msg:
 	return fdp ? *fdp : -4;
 }
 
+#define MSG "HELLO"
+
 int main(int argc, char **argv)
 {
 	int sk[2] = { -1, -1 }, p[2] = { -1, -1 }, rfd, ret = 1;
-
-#define MSG "HELLO"
+#ifndef CLOSE_SENDER_FD
 	char buf[8]; /* bigger than the MSG to check boundaries */
+#endif
 
 	test_init(argc, argv);
 
@@ -174,6 +176,11 @@ int main(int argc, char **argv)
 	/* we sent this side of socketpair */
 	close(p[1]);
 
+#ifdef CLOSE_SENDER_FD
+	close(p[0]);
+	p[0] = -1;
+#endif
+
 	test_daemon();
 	test_waitsig();
 
@@ -183,6 +190,7 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
+#ifndef CLOSE_SENDER_FD
 	if (write(p[0], MSG, sizeof(MSG)) != sizeof(MSG)) {
 		fail("Socket write-broken");
 		goto out;
@@ -198,6 +206,7 @@ int main(int argc, char **argv)
 		fail("Socket read-broken (%s)", buf);
 		goto out;
 	}
+#endif
 
 	pass();
 	ret = 0;
