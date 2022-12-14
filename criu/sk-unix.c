@@ -1095,7 +1095,7 @@ static struct fdinfo_list_entry *get_fle_for_task(struct file_desc *tgt, struct 
 		 * we need to ... invent a new one!
 		 */
 
-		e = xmalloc(sizeof(*e));
+		e = shmalloc(sizeof(*e));
 		if (!e)
 			return NULL;
 
