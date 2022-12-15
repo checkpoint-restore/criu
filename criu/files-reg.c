@@ -895,6 +895,9 @@ int try_clean_remaps(bool only_ghosts)
 	struct remap_info *ri;
 	int ret = 0;
 
+	if (opts.keep_link_remaps)
+		return ret;
+
 	list_for_each_entry(ri, &remaps, list) {
 		if (ri->rpe->remap_type == REMAP_TYPE__GHOST)
 			ret |= clean_one_remap(ri);
