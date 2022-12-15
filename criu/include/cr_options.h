@@ -236,6 +236,12 @@ struct cr_options {
 	 * explicitly request it as it comes with many limitations.
 	 */
 	int unprivileged;
+
+	/*
+	 * On restore, do not remove link-remaps.  This allows a checkpoint taken with --link-remap
+	 * to be reused.
+	 */
+	int keep_link_remaps;
 };
 
 extern struct cr_options opts;
