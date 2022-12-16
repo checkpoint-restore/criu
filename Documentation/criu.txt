@@ -906,6 +906,16 @@ Currently *criu* can benefit from the following additional capabilities:
     - *CAP_SETUID*
     - *CAP_SYS_RESOURCE*
 
+Note that for some operations, having a capability in a namespace other than
+the init namespace (i.e. the default/root namespace) is not sufficient. For
+example, in order to read symlinks in proc/[pid]/map_files CRIU requires
+CAP_CHECKPOINT_RESTORE in the init namespace; having CAP_CHECKPOINT_RESTORE
+while running in another user namespace (e.g. in a container) does not allow
+CRIU to read symlinks in /proc/[pid]/map_files.
+
+Without access to /proc/[pid]/map_files checkpointing/restoring processes
+that have mapped deleted files may not be possible.
+
 Independent of the capabilities it is always necessary to use "*--unprivileged*" to
 accept *criu*'s limitation in non-root mode.
 
