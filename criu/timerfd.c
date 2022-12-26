@@ -75,6 +75,12 @@ static int dump_one_timerfd(int lfd, u32 id, const struct fd_parms *p)
 	tfe.id = id;
 	tfe.flags = p->flags;
 	tfe.fown = (FownEntry *)&p->fown;
+
+	/* when it_value is zero, we need parse it again */
+	if (!tfe.vsec && !tfe.vnsec) {
+		if (parse_fdinfo(lfd, FD_TYPES__TIMERFD, &tfe))
+			return -1;
+	}
 	pr_info("Dumping id %#x clockid %d it_value(%llu, %llu) it_interval(%llu, %llu)\n", tfe.id, tfe.clockid,
 		(unsigned long long)tfe.vsec, (unsigned long long)tfe.vnsec, (unsigned long long)tfe.isec,
 		(unsigned long long)tfe.insec);
