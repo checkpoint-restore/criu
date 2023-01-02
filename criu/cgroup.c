@@ -1402,7 +1402,7 @@ static int restore_cgroup_subtree_control(const CgroupPropEntry *cg_prop_entry_p
 static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p, char *path, int off, bool split_lines,
 			       bool skip_fails)
 {
-	int cg, fd, ret = -1, flag;
+	int cg, fd, exit_code = -1, flag;
 	CgroupPerms *perms = cg_prop_entry_p->perms;
 	int is_subtree_control = !strcmp(cg_prop_entry_p->name, "cgroup.subtree_control");
 
@@ -1438,18 +1438,18 @@ static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p, char *pat
 
 	/* skip these two since restoring their values doesn't make sense */
 	if (!strcmp(cg_prop_entry_p->name, "cgroup.procs") || !strcmp(cg_prop_entry_p->name, "tasks")) {
-		ret = 0;
+		exit_code = 0;
 		goto out;
 	}
 
 	if (is_subtree_control) {
-		ret = restore_cgroup_subtree_control(cg_prop_entry_p, fd);
+		exit_code = restore_cgroup_subtree_control(cg_prop_entry_p, fd);
 		goto out;
 	}
 
 	/* skip restoring cgroup.type if its value is not "threaded" */
 	if (!strcmp(cg_prop_entry_p->name, "cgroup.type") && strcmp(cg_prop_entry_p->value, "threaded")) {
-		ret = 0;
+		exit_code = 0;
 		goto out;
 	}
 
@@ -1471,21 +1471,28 @@ static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p, char *pat
 		} while (*next_line != '\0');
 	} else {
 		size_t len = strlen(cg_prop_entry_p->value);
+		int ret;
 
-		if (write(fd, cg_prop_entry_p->value, len) != len) {
+		ret = write(fd, cg_prop_entry_p->value, len);
+		/* memory.kmem.limit_in_bytes has been deprecated. Look at
+		 * 58056f77502f3 ("memcg, kmem: further deprecate
+		 * kmem.limit_in_bytes") for more details. */
+		if (ret == -1 && errno == EOPNOTSUPP &&
+		    !strcmp(cg_prop_entry_p->name, "memory.kmem.limit_in_bytes"))
+			ret = len;
+		if (ret != len) {
 			pr_perror("Failed writing %s to %s", cg_prop_entry_p->value, path);
 			if (!skip_fails)
 				goto out;
 		}
 	}
 
-	ret = 0;
-
+	exit_code = 0;
 out:
 	if (close(fd) != 0)
 		pr_perror("Failed closing %s", path);
 
-	return ret;
+	return exit_code;
 }
 
 static CgroupPropEntry *freezer_state_entry;
