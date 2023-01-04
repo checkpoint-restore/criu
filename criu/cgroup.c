@@ -1477,8 +1477,7 @@ static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p, char *pat
 		/* memory.kmem.limit_in_bytes has been deprecated. Look at
 		 * 58056f77502f3 ("memcg, kmem: further deprecate
 		 * kmem.limit_in_bytes") for more details. */
-		if (ret == -1 && errno == EOPNOTSUPP &&
-		    !strcmp(cg_prop_entry_p->name, "memory.kmem.limit_in_bytes"))
+		if (ret == -1 && errno == EOPNOTSUPP && !strcmp(cg_prop_entry_p->name, "memory.kmem.limit_in_bytes"))
 			ret = len;
 		if (ret != len) {
 			pr_perror("Failed writing %s to %s", cg_prop_entry_p->value, path);
