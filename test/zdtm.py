@@ -626,14 +626,14 @@ class zdtm_test:
                 ["make", "zdtm_ct"], env=dict(os.environ, MAKEFLAGS=""))
         if not os.access("zdtm/lib/libzdtmtst.a", os.F_OK):
             subprocess.check_call(["make", "-C", "zdtm/"])
-        if opts['rootless']:
+        if 'rootless' in opts and opts['rootless']:
             return
         subprocess.check_call(
             ["flock", "zdtm_mount_cgroups.lock", "./zdtm_mount_cgroups", str(uuid)])
 
     @staticmethod
     def cleanup():
-        if opts['rootless']:
+        if 'rootless' in opts and opts['rootless']:
             return
         subprocess.check_call(
             ["flock", "zdtm_mount_cgroups.lock", "./zdtm_umount_cgroups", str(uuid)])
