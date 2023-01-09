@@ -46,6 +46,7 @@
 #define BITS_TO_LONGS(nr)  DIV_ROUND_UP(nr, BITS_PER_LONG)
 
 #define DECLARE_BITMAP(name, bits) unsigned long name[BITS_TO_LONGS(bits)]
+#define BITMAP_SIZE(name)	   (sizeof(name) * CHAR_BIT)
 
 #define __stringify_in_c(...) #__VA_ARGS__
 #define stringify_in_c(...)   __stringify_in_c(__VA_ARGS__) " "
@@ -202,8 +203,8 @@ found_middle:
 	return result + __ffs(tmp);
 }
 
-#define for_each_bit(i, bitmask)                                                  \
-	for (i = find_next_bit(bitmask, sizeof(bitmask), 0); i < sizeof(bitmask); \
-	     i = find_next_bit(bitmask, sizeof(bitmask), i + 1))
+#define for_each_bit(i, bitmask)                                                            \
+	for (i = find_next_bit(bitmask, BITMAP_SIZE(bitmask), 0); i < BITMAP_SIZE(bitmask); \
+	     i = find_next_bit(bitmask, BITMAP_SIZE(bitmask), i + 1))
 
 #endif /* __CR_BITOPS_H__ */
