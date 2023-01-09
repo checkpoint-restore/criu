@@ -516,6 +516,7 @@ IncludeCategories:
     Priority: 1
 IncludeIsMainRegex: '(Test)?$'
 IndentCaseLabels: false
+IndentGotoLabels: false
 IndentPPDirectives: None # Unknown to clang-format-5.0
 IndentWidth: 8
 IndentWrappedFunctionNames: false
