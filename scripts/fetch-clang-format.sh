@@ -14,4 +14,5 @@ curl -s "${URL}" | sed -e "
 	s,ForEachMacros:,ForEachMacros:\n  - 'for_each_pstree_item',g;
 	s,\(AlignTrailingComments:.*\)$,\1\nAlignConsecutiveMacros: true,g;
 	s,AlignTrailingComments: false,AlignTrailingComments: true,g;
+	s,\(IndentCaseLabels: false\),\1\nIndentGotoLabels: false,g;
 "  > .clang-format
