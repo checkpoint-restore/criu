@@ -10,6 +10,7 @@
 #define __BITOPS_WORDS(bits) (((bits) + BITS_PER_LONG - 1) / BITS_PER_LONG)
 
 #define DECLARE_BITMAP(name, bits) unsigned long name[BITS_TO_LONGS(bits)]
+#define BITMAP_SIZE(name)	   (sizeof(name) * CHAR_BIT)
 
 static inline unsigned long *__bitops_word(unsigned long nr, volatile unsigned long *ptr)
 {
@@ -143,8 +144,8 @@ static inline unsigned long find_next_bit(const unsigned long *addr, unsigned lo
 	return _find_next_bit(addr, size, offset, 0UL);
 }
 
-#define for_each_bit(i, bitmask)                                                  \
-	for (i = find_next_bit(bitmask, sizeof(bitmask), 0); i < sizeof(bitmask); \
-	     i = find_next_bit(bitmask, sizeof(bitmask), i + 1))
+#define for_each_bit(i, bitmask)                                                            \
+	for (i = find_next_bit(bitmask, BITMAP_SIZE(bitmask), 0); i < BITMAP_SIZE(bitmask); \
+	     i = find_next_bit(bitmask, BITMAP_SIZE(bitmask), i + 1))
 
 #endif /* _S390_BITOPS_H */
