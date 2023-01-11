@@ -451,8 +451,10 @@ fetch-clang-format: .FORCE
 	$(E) ".clang-format"
 	$(Q) scripts/fetch-clang-format.sh
 
+BASE ?= "HEAD~1"
+OPTS ?= "--quiet"
 indent:
-	find . -name '*.[ch]' -type f -print0 | xargs --null --max-args 128 --max-procs 4 clang-format -i
+	git clang-format --style file --extensions c,h $(OPTS) $(BASE)
 .PHONY: indent
 
 include Makefile.install

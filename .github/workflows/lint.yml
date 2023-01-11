@@ -23,16 +23,12 @@ jobs:
     - name: Run make indent
       run: >
         if [ -z "${{github.base_ref}}" ]; then
-          make indent
+          if ! make indent OPTS=--diff; then
+            exit 1
+          fi
         else
           git fetch origin ${{github.base_ref}} &&
-          git clang-format --style file --extensions c,h --quiet origin/${{github.base_ref}}
-        fi &&
-        STATUS=$(git status --porcelain) &&
-        if [ ! -z "$STATUS" ]; then
-          echo "FAIL: some files are not correctly formatted.";
-          echo "$STATUS"
-          git diff
-          echo "FAIL: please run 'make indent'";
-          exit 1;
+          if ! make indent OPTS=--diff BASE=origin/${{github.base_ref}}; then
+            exit 1
+          fi
         fi
