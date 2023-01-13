@@ -1723,38 +1723,49 @@ err:
 	return NULL;
 }
 
-/* Returns 1 in case of success, -errno in case of mount fail, and 0 on other errors */
+/*
+ * Returns:
+ *  0 - success
+ * -1 - error
+ *  1 - skip
+ */
 static __maybe_unused int mount_cr_time_mount(struct ns_id *ns, unsigned int *s_dev, const char *source,
 					      const char *target, const char *type)
 {
-	int mnt_fd, cwd_fd, ret, exit_code = 0;
+	int mnt_fd, cwd_fd, exit_code = -1;
 	struct stat st;
 
-	ret = switch_mnt_ns(ns->ns_pid, &mnt_fd, &cwd_fd);
-	if (ret < 0) {
+	if (switch_mnt_ns(ns->ns_pid, &mnt_fd, &cwd_fd)) {
 		pr_err("Can't switch mnt_ns\n");
-		goto out;
+		return -1;
 	}
 
-	ret = mount(source, target, type, 0, NULL);
-	if (ret < 0) {
-		pr_perror("Unable to mount %s %s", source, target);
-		exit_code = -errno;
-		goto restore_ns;
-	} else {
-		if (stat(target, &st) < 0) {
-			pr_perror("Can't stat %s", target);
-			exit_code = 0;
-		} else {
-			*s_dev = MKKDEV(major(st.st_dev), minor(st.st_dev));
+	if (mount(source, target, type, 0, NULL)) {
+		switch (errno) {
+		case EPERM:
+		case EBUSY:
+		case ENODEV:
+		case ENOENT:
+			pr_debug("Skipping %s as was unable to mount it: %s\n", type, strerror(errno));
 			exit_code = 1;
+			break;
+		default:
+			pr_perror("Unable to mount %s %s %s", type, source, target);
 		}
+		goto restore_ns;
 	}
 
+	if (stat(target, &st)) {
+		pr_perror("Can't stat %s", target);
+		goto restore_ns;
+	}
+
+	*s_dev = MKKDEV(major(st.st_dev), minor(st.st_dev));
+	exit_code = 0;
 restore_ns:
-	ret = restore_mnt_ns(mnt_fd, &cwd_fd);
-out:
-	return ret < 0 ? 0 : exit_code;
+	if (restore_mnt_ns(mnt_fd, &cwd_fd))
+		exit_code = -1;
+	return exit_code;
 }
 
 static int dump_one_fs(struct mount_info *mi)
@@ -3978,16 +3989,10 @@ int collect_mnt_namespaces(bool for_dump)
 
 		if (ns) {
 			ret = mount_cr_time_mount(ns, &s_dev, "binfmt_misc", "/" BINFMT_MISC_HOME, "binfmt_misc");
-			if (ret == -EPERM)
-				pr_info("Can't mount binfmt_misc: EPERM. Running in user_ns?\n");
-			else if (ret < 0 && ret != -EBUSY && ret != -ENODEV && ret != -ENOENT) {
-				pr_err("Can't mount binfmt_misc: %d %s\n", ret, strerror(-ret));
+			if (ret == -1) {
 				goto err;
-			} else if (ret == 0) {
-				ret = -1;
-				goto err;
-			} else if (ret > 0 && !add_cr_time_mount(ns->mnt.mntinfo_tree, "binfmt_misc", BINFMT_MISC_HOME,
-								 s_dev, false)) {
+			} else if (ret == 0 && !add_cr_time_mount(ns->mnt.mntinfo_tree, "binfmt_misc", BINFMT_MISC_HOME,
+								  s_dev, false)) {
 				ret = -1;
 				goto err;
 			}
