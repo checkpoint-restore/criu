@@ -71,6 +71,7 @@ FixNamespaceComments: false # Unknown to clang-format-4.0
 #   | sort | uniq
 ForEachMacros:
   - 'for_each_pstree_item'
+  - 'for_each_bit'
   - 'apei_estatus_for_each_section'
   - 'ata_for_each_dev'
   - 'ata_for_each_link'
