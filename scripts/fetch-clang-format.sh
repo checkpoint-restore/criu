@@ -10,6 +10,7 @@ curl -s "${URL}" | sed -e "
 	s,ControlStatements,ControlStatementsExceptForEachMacros,g;
 	s,ColumnLimit: 80,ColumnLimit: 120,g;
 	s,Intended for clang-format >= 4,Intended for clang-format >= 11,g;
+	s,ForEachMacros:,ForEachMacros:\n  - 'for_each_bit',g;
 	s,ForEachMacros:,ForEachMacros:\n  - 'for_each_pstree_item',g;
 	s,\(AlignTrailingComments:.*\)$,\1\nAlignConsecutiveMacros: true,g;
 	s,AlignTrailingComments: false,AlignTrailingComments: true,g;
