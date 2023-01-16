@@ -398,8 +398,7 @@ static int tty_verify_active_pairs(void)
 {
 	unsigned long i, unpaired_slaves = 0;
 
-	for_each_bit(i, tty_active_pairs)
-	{
+	for_each_bit(i, tty_active_pairs) {
 		if ((i % 2) == 0) {
 			if (test_bit(i + 1, tty_active_pairs)) {
 				i++;
