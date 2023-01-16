@@ -284,7 +284,6 @@ int restore_ns(int rst, struct ns_desc *nd)
 
 int switch_mnt_ns(int pid, int *rst, int *cwd_fd)
 {
-	int ret;
 	int fd;
 
 	if (!cwd_fd)
@@ -293,13 +292,12 @@ int switch_mnt_ns(int pid, int *rst, int *cwd_fd)
 	fd = open(".", O_PATH);
 	if (fd < 0) {
 		pr_perror("unable to open current directory");
-		return fd;
+		return -1;
 	}
 
-	ret = switch_ns(pid, &mnt_ns_desc, rst);
-	if (ret < 0) {
+	if (switch_ns(pid, &mnt_ns_desc, rst)) {
 		close(fd);
-		return ret;
+		return -1;
 	}
 
 	*cwd_fd = fd;
@@ -308,23 +306,22 @@ int switch_mnt_ns(int pid, int *rst, int *cwd_fd)
 
 int restore_mnt_ns(int rst, int *cwd_fd)
 {
-	int ret = -1;
+	int exit_code = -1;
 
-	ret = restore_ns(rst, &mnt_ns_desc);
-	if (ret < 0)
+	if (restore_ns(rst, &mnt_ns_desc))
 		goto err_restore;
 
-	if (cwd_fd) {
-		ret = fchdir(*cwd_fd);
-		if (ret)
-			pr_perror("unable to restore current directory");
+	if (cwd_fd && fchdir(*cwd_fd)) {
+		pr_perror("Unable to restore current directory");
+		goto err_restore;
 	}
 
+	exit_code = 0;
 err_restore:
 	if (cwd_fd)
 		close_safe(cwd_fd);
 
-	return ret;
+	return exit_code;
 }
 
 struct ns_id *ns_ids = NULL;
