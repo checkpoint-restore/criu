@@ -1813,6 +1813,24 @@ long __export_restore_task(struct task_restore_args *args)
 		.exe_fd = args->fd_exe_link,
 	};
 	ret = sys_prctl(PR_SET_MM, PR_SET_MM_MAP, (long)&prctl_map, sizeof(prctl_map), 0);
+	if (ret) {
+		pr_debug("prctl PR_SET_MM_MAP failed with %d\n", (int)ret);
+		pr_debug("  .start_code = %" PRIx64 "\n", prctl_map.start_code);
+		pr_debug("  .end_code = %" PRIx64 "\n", prctl_map.end_code);
+		pr_debug("  .start_data = %" PRIx64 "\n", prctl_map.start_data);
+		pr_debug("  .end_data = %" PRIx64 "\n", prctl_map.end_data);
+		pr_debug("  .start_stack = %" PRIx64 "\n", prctl_map.start_stack);
+		pr_debug("  .start_brk = %" PRIx64 "\n", prctl_map.start_brk);
+		pr_debug("  .brk = %" PRIx64 "\n", prctl_map.brk);
+		pr_debug("  .arg_start = %" PRIx64 "\n", prctl_map.arg_start);
+		pr_debug("  .arg_end = %" PRIx64 "\n", prctl_map.arg_end);
+		pr_debug("  .env_start = %" PRIx64 "\n", prctl_map.env_start);
+		pr_debug("  .env_end = %" PRIx64 "\n", prctl_map.env_end);
+		pr_debug("  .auxv_size = %" PRIu32 "\n", prctl_map.auxv_size);
+		for (i = 0; i < prctl_map.auxv_size / sizeof(uint64_t); i++)
+			pr_debug("  .auxv[%d] = %" PRIx64 "\n", i, prctl_map.auxv[i]);
+		pr_debug("  .exe_fd = %" PRIu32 "\n", prctl_map.exe_fd);
+	}
 	if (ret == -EINVAL) {
 		ret = sys_prctl_safe(PR_SET_MM, PR_SET_MM_START_CODE, (long)args->mm.mm_start_code, 0);
 		ret |= sys_prctl_safe(PR_SET_MM, PR_SET_MM_END_CODE, (long)args->mm.mm_end_code, 0);
