@@ -3,9 +3,11 @@
 #define _UAPI_LINUX_RSEQ_H
 
 #ifdef __has_include
+#if !__has_include("defunct/defunct.h")
 #if __has_include("sys/rseq.h")
 #include <sys/rseq.h>
 #include "asm/thread_pointer.h"
+#endif
 #endif
 #endif
 
