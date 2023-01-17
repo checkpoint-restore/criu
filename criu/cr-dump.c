@@ -37,13 +37,17 @@
 #include "crtools.h"
 #include "cr_options.h"
 #include "servicefd.h"
-#include "string.h"
 #include "ptrace-compat.h"
 #include "util.h"
 #include "namespaces.h"
 #include "image.h"
 #include "proc_parse.h"
 #include "parasite.h"
+/* string.h is included after parasite.h because the libbsd headers define
+ * __has_include as the constant 1.
+ * https://github.com/checkpoint-restore/criu/issues/2036
+ */
+#include "string.h"
 #include "parasite-syscall.h"
 #include "compel/ptrace.h"
 #include "files.h"
