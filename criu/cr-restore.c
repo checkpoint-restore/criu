@@ -3395,7 +3395,7 @@ static struct thread_creds_args *rst_prep_creds_args(CredsEntry *ce, unsigned lo
 
 			args = rst_mem_remap_ptr(this_pos, RM_PRIVATE);
 			args->lsm_profile = lsm_profile;
-			strlcpy(args->lsm_profile, rendered, lsm_profile_len + 1);
+			__strlcpy(args->lsm_profile, rendered, lsm_profile_len + 1);
 			xfree(rendered);
 		}
 	} else {
@@ -3429,7 +3429,7 @@ static struct thread_creds_args *rst_prep_creds_args(CredsEntry *ce, unsigned lo
 
 			args = rst_mem_remap_ptr(this_pos, RM_PRIVATE);
 			args->lsm_sockcreate = lsm_sockcreate;
-			strlcpy(args->lsm_sockcreate, rendered, lsm_sockcreate_len + 1);
+			__strlcpy(args->lsm_sockcreate, rendered, lsm_sockcreate_len + 1);
 			xfree(rendered);
 		}
 	} else {
