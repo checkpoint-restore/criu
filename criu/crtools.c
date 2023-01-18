@@ -127,7 +127,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	cr_pb_init();
-	setproctitle_init(argc, argv, envp);
+	__setproctitle_init(argc, argv, envp);
 
 	if (argc < 2)
 		goto usage;
