@@ -74,6 +74,7 @@ obj-y			+= sk-unix.o
 obj-y			+= sockets.o
 obj-y			+= stats.o
 obj-y			+= string.o
+obj-y			+= setproctitle.o
 obj-y			+= sysctl.o
 obj-y			+= sysfs_parse.o
 obj-y			+= timerfd.o
