@@ -6,7 +6,6 @@
 
 #include "string.h"
 
-#ifndef CONFIG_HAS_STRLCPY
 /**
  * strlcpy - Copy a %NUL terminated string into a sized buffer
  * @dest: Where to copy the string to
@@ -18,7 +17,7 @@
  * of course, the buffer size is zero). It does not pad
  * out the result like strncpy() does.
  */
-size_t strlcpy(char *dest, const char *src, size_t size)
+size_t __strlcpy(char *dest, const char *src, size_t size)
 {
 	size_t ret = strlen(src);
 
@@ -29,16 +28,14 @@ size_t strlcpy(char *dest, const char *src, size_t size)
 	}
 	return ret;
 }
-#endif
 
-#ifndef CONFIG_HAS_STRLCAT
 /**
  * strlcat - Append a length-limited, %NUL-terminated string to another
  * @dest: The string to be appended to
  * @src: The string to append to it
  * @count: The size of the destination buffer.
  */
-size_t strlcat(char *dest, const char *src, size_t count)
+size_t __strlcat(char *dest, const char *src, size_t count)
 {
 	size_t dsize = strlen(dest);
 	size_t len = strlen(src);
@@ -57,4 +54,3 @@ size_t strlcat(char *dest, const char *src, size_t count)
 	dest[len] = 0;
 	return res;
 }
-#endif
