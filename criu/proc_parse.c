@@ -315,7 +315,7 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct 
 
 	if (is_memfd(vfi_dev)) {
 		char tmp[PATH_MAX];
-		strlcpy(tmp, fname, PATH_MAX);
+		__strlcpy(tmp, fname, PATH_MAX);
 		strip_deleted(tmp, strlen(tmp));
 
 		/*
@@ -890,7 +890,7 @@ int parse_pid_stat(pid_t pid, struct proc_pid_stat *s)
 	*tok = '\0';
 	*p = '\0';
 
-	strlcpy(s->comm, tok + 1, sizeof(s->comm));
+	__strlcpy(s->comm, tok + 1, sizeof(s->comm));
 
 	n = sscanf(p + 1,
 		   " %c %d %d %d %d %d %u %lu %lu %lu %lu "

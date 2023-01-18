@@ -429,7 +429,7 @@ static int dump_filemap(struct vma_area *vma_area, int fd)
 	if (vma_area->aufs_rpath) {
 		struct fd_link aufs_link;
 
-		strlcpy(aufs_link.name, vma_area->aufs_rpath, sizeof(aufs_link.name));
+		__strlcpy(aufs_link.name, vma_area->aufs_rpath, sizeof(aufs_link.name));
 		aufs_link.len = strlen(aufs_link.name);
 		p.link = &aufs_link;
 	}
@@ -774,7 +774,7 @@ static int dump_task_core_all(struct parasite_ctl *ctl, struct pstree_item *item
 	if (ret < 0)
 		goto err;
 
-	strlcpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
+	__strlcpy((char *)core->tc->comm, stat->comm, TASK_COMM_LEN);
 	core->tc->flags = stat->flags;
 	core->tc->task_state = item->pid->state;
 	core->tc->exit_code = 0;
@@ -919,7 +919,7 @@ static int dump_one_zombie(const struct pstree_item *item, const struct proc_pid
 	if (!core)
 		return -1;
 
-	strlcpy((char *)core->tc->comm, pps->comm, TASK_COMM_LEN);
+	__strlcpy((char *)core->tc->comm, pps->comm, TASK_COMM_LEN);
 	core->tc->task_state = TASK_DEAD;
 	core->tc->exit_code = pps->exit_code;
 

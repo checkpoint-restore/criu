@@ -133,7 +133,7 @@ static void log_note_err(char *msg)
 		 */
 		mutex_lock(&first_err->l);
 		if (first_err->s[0] == '\0')
-			strlcpy(first_err->s, msg, sizeof(first_err->s));
+			__strlcpy(first_err->s, msg, sizeof(first_err->s));
 		mutex_unlock(&first_err->l);
 	}
 }

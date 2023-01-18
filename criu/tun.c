@@ -121,7 +121,7 @@ static int list_tun_link(NetDeviceEntry *nde, unsigned ns_id)
 	if (!tl)
 		return -1;
 
-	strlcpy(tl->name, nde->name, sizeof(tl->name));
+	__strlcpy(tl->name, nde->name, sizeof(tl->name));
 	/*
 	 * Keep tun-flags not only for persistency fixup (see
 	 * comment below), but also for TUNSETIFF -- we must
@@ -153,7 +153,7 @@ static struct tun_link *__dump_tun_link_fd(int fd, char *name, unsigned ns_id, u
 	tl = xmalloc(sizeof(*tl));
 	if (!tl)
 		goto err;
-	strlcpy(tl->name, name, sizeof(tl->name));
+	__strlcpy(tl->name, name, sizeof(tl->name));
 	tl->ns_id = ns_id;
 	INIT_LIST_HEAD(&tl->l);
 
@@ -241,7 +241,7 @@ static int open_tun_dev(char *name, unsigned int idx, unsigned flags)
 	}
 
 	memset(&ifr, 0, sizeof(ifr));
-	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	__strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
 	ifr.ifr_flags = flags;
 
 	if (ioctl(fd, TUNSETIFF, &ifr)) {
@@ -393,7 +393,7 @@ static int tunfile_open(struct file_desc *d, int *new_fd)
 	}
 
 	memset(&ifr, 0, sizeof(ifr));
-	strlcpy(ifr.ifr_name, tl->name, sizeof(ifr.ifr_name));
+	__strlcpy(ifr.ifr_name, tl->name, sizeof(ifr.ifr_name));
 	ifr.ifr_flags = tl->rst.flags;
 
 	if (ioctl(fd, TUNSETIFF, &ifr) < 0) {
