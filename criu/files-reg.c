@@ -507,7 +507,7 @@ static int nomntns_create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, stru
 	if (ghost_apply_metadata(path, gfe))
 		return -1;
 
-	strlcpy(gf->remap.rpath, path + 1, PATH_MAX);
+	__strlcpy(gf->remap.rpath, path + 1, PATH_MAX);
 	pr_debug("Remap rpath is %s\n", gf->remap.rpath);
 	return 0;
 }
@@ -638,7 +638,7 @@ static int open_remap_ghost(struct reg_file_info *rfi, RemapFilePathEntry *rpe)
 	gf->remap.rmnt_id = rfi->rfe->mnt_id;
 
 	if (S_ISDIR(gfe->mode))
-		strlcpy(gf->remap.rpath, rfi->path, PATH_MAX);
+		__strlcpy(gf->remap.rpath, rfi->path, PATH_MAX);
 	else
 		ghost_path(gf->remap.rpath, PATH_MAX, rfi, rpe);
 

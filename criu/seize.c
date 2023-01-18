@@ -146,12 +146,12 @@ static int freezer_write_state(int fd, enum freezer_state new_state)
 	if (new_state == THAWED) {
 		if (cgroup_v2)
 			state[0] = '0';
-		else if (strlcpy(state, thawed, sizeof(state)) >= sizeof(state))
+		else if (__strlcpy(state, thawed, sizeof(state)) >= sizeof(state))
 			return -1;
 	} else if (new_state == FROZEN) {
 		if (cgroup_v2)
 			state[0] = '1';
-		else if (strlcpy(state, frozen, sizeof(state)) >= sizeof(state))
+		else if (__strlcpy(state, frozen, sizeof(state)) >= sizeof(state))
 			return -1;
 	} else {
 		return -1;

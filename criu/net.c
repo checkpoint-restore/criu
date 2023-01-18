@@ -1398,7 +1398,7 @@ static int move_veth(const char *netdev, struct ns_id *ns, struct net_link *link
 	len_val = strlen(netdev);
 	if (len_val >= IFNAMSIZ)
 		return -1;
-	strlcpy(mvreq.ifnam, netdev, IFNAMSIZ);
+	__strlcpy(mvreq.ifnam, netdev, IFNAMSIZ);
 
 	ret = userns_call(move_veth_cb, 0, &mvreq, sizeof(mvreq), ns->net.ns_fd);
 	if (ret < 0)
@@ -1528,7 +1528,7 @@ static int changeflags(int s, char *name, short flags)
 {
 	struct ifreq ifr;
 
-	strlcpy(ifr.ifr_name, name, IFNAMSIZ);
+	__strlcpy(ifr.ifr_name, name, IFNAMSIZ);
 	ifr.ifr_flags = flags;
 
 	if (ioctl(s, SIOCSIFFLAGS, &ifr) < 0) {
@@ -3483,7 +3483,7 @@ static int move_to_bridge(struct external *ext, void *arg)
 			ret = -1;
 			goto out;
 		}
-		strlcpy(ifr.ifr_name, br, IFNAMSIZ);
+		__strlcpy(ifr.ifr_name, br, IFNAMSIZ);
 		ret = ioctl(s, SIOCBRADDIF, &ifr);
 		if (ret < 0) {
 			pr_perror("Can't add interface %s to bridge %s", out, br);
@@ -3495,7 +3495,7 @@ static int move_to_bridge(struct external *ext, void *arg)
 		 * $ ip link set dev <device> up
 		 */
 		ifr.ifr_ifindex = 0;
-		strlcpy(ifr.ifr_name, out, IFNAMSIZ);
+		__strlcpy(ifr.ifr_name, out, IFNAMSIZ);
 		ret = ioctl(s, SIOCGIFFLAGS, &ifr);
 		if (ret < 0) {
 			pr_perror("Can't get flags of interface %s", out);
