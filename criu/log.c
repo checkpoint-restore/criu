@@ -316,6 +316,7 @@ static void early_vprint(const char *format, unsigned int loglevel, va_list para
 {
 	unsigned int log_size = 0;
 	struct early_log_hdr *hdr;
+	int _errno = errno;
 
 	if ((early_log_buf_off + sizeof(hdr)) >= EARLY_LOG_BUF_LEN)
 		return;
@@ -337,6 +338,7 @@ static void early_vprint(const char *format, unsigned int loglevel, va_list para
 				    "(00.000000) ");
 	}
 
+	errno = _errno;
 	log_size += vsnprintf(early_log_buffer + early_log_buf_off + log_size,
 			      sizeof(early_log_buffer) - early_log_buf_off - log_size, format, params);
 
@@ -359,6 +361,7 @@ static void vprint_on_level(unsigned int loglevel, const char *format, va_list p
 		 * make sure all messages are written to the early_log_buffer.
 		 */
 		if (!init_done) {
+			errno = _errno;
 			early_vprint(format, loglevel, params);
 			return;
 		}
@@ -369,6 +372,7 @@ static void vprint_on_level(unsigned int loglevel, const char *format, va_list p
 			print_ts();
 	}
 
+	errno = _errno;
 	size = vsnprintf(buffer + buf_off, sizeof buffer - buf_off, format, params);
 	size += buf_off;
 
