@@ -1055,9 +1055,9 @@ static int kerndat_has_move_mount_set_group(void)
 	exit_code = 0;
 out:
 	if (umount2(tmpdir, MNT_DETACH))
-		pr_warn("Fail to umount2 %s: %m\n", tmpdir);
+		pr_warn("Fail to umount2 %s: %s\n", tmpdir, strerror(errno));
 	if (rmdir(tmpdir))
-		pr_warn("Fail to rmdir %s: %m\n", tmpdir);
+		pr_warn("Fail to rmdir %s: %s\n", tmpdir, strerror(errno));
 	return exit_code;
 }
 
