@@ -431,7 +431,7 @@ lint:
 	# Do not append \n to pr_perror or fail
 	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>.*\\n"'
 	# Do not use %m with pr_perror or fail
-	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>.*%m'
+	! git --no-pager grep -E '^\s*\<(pr_(err|perror|warn|debug|info|msg)|fail)\>.*%m'
 	# Do not use errno with pr_perror or fail
 	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>\(".*".*errno'
 	# End pr_(err|warn|msg|info|debug) with \n
