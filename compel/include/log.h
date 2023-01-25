@@ -1,6 +1,9 @@
 #ifndef COMPEL_LOG_H__
 #define COMPEL_LOG_H__
 
+#include <errno.h>
+#include <string.h>
+
 #include "uapi/compel/log.h"
 
 #ifndef LOG_PREFIX
@@ -45,6 +48,6 @@ extern void compel_print_on_level(unsigned int loglevel, const char *format, ...
 
 #define pr_debug(fmt, ...) compel_print_on_level(COMPEL_LOG_DEBUG, LOG_PREFIX fmt, ##__VA_ARGS__)
 
-#define pr_perror(fmt, ...) pr_err(fmt ": %m\n", ##__VA_ARGS__)
+#define pr_perror(fmt, ...) pr_err(fmt ": %s\n", ##__VA_ARGS__, strerror(errno))
 
 #endif /* COMPEL_LOG_H__ */
