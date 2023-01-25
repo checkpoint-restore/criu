@@ -86,7 +86,7 @@ static LIST_HEAD(ghost_files);
 /*
  * When opening remaps we first create a link on the remap
  * target, then open one, then unlink. In case the remap
- * source has more than one instance, these tree steps
+ * source has more than one instance, these three steps
  * should be serialized with each other.
  */
 static mutex_t *remap_open_lock;
