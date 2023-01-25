@@ -221,7 +221,7 @@ int kerndat_socket_unix_file(void)
 	}
 	fd = ioctl(sk, SIOCUNIXFILE);
 	if (fd < 0 && errno != ENOENT) {
-		pr_warn("Unable to open a socket file: %m\n");
+		pr_warn("Unable to open a socket file: %s\n", strerror(errno));
 		kdat.sk_unix_file = false;
 		close(sk);
 		return 0;
@@ -620,7 +620,8 @@ static int unix_resolve_name_old(int lfd, uint32_t id, struct unix_sk_desc *d, U
 	snprintf(rpath, sizeof(rpath), ".%s", name);
 	if (fstatat(mntns_root, rpath, &st, 0)) {
 		if (errno != ENOENT) {
-			pr_warn("Can't stat socket %#" PRIx32 "(%s), skipping: %m (err %d)\n", id, rpath, errno);
+			pr_warn("Can't stat socket %#" PRIx32 "(%s), skipping: %s (err %d)\n", id, rpath,
+				strerror(errno), errno);
 			goto skip;
 		}
 
@@ -669,7 +670,7 @@ static int unix_resolve_name(int lfd, uint32_t id, struct unix_sk_desc *d, UnixS
 
 	fd = ioctl(lfd, SIOCUNIXFILE);
 	if (fd < 0) {
-		pr_warn("Unable to get a socket file descriptor with SIOCUNIXFILE ioctl: %m\n");
+		pr_warn("Unable to get a socket file descriptor with SIOCUNIXFILE ioctl: %s\n", strerror(errno));
 		goto fallback;
 	}
 
