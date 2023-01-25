@@ -76,7 +76,7 @@ static inline void tcp_repair_off(int fd)
 
 	ret = setsockopt(fd, SOL_TCP, TCP_REPAIR, &aux, sizeof(aux));
 	if (ret < 0)
-		pr_err("Failed to turn off repair mode on socket: %m\n");
+		pr_err("Failed to turn off repair mode on socket\n");
 }
 
 extern void tcp_locked_conn_add(struct inet_sk_info *);
