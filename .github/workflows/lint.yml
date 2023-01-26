@@ -23,6 +23,7 @@ jobs:
     - name: Run make indent
       run: >
         if [ -z "${{github.base_ref}}" ]; then
+          git fetch --deepen=1 &&
           if ! make indent OPTS=--diff; then
             exit 1
           fi
