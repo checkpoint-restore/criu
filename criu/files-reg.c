@@ -1138,7 +1138,6 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp, struct ns_i
 	RegFileEntry rfe = REG_FILE_ENTRY__INIT;
 	FownEntry fwn = FOWN_ENTRY__INIT;
 	int mntns_root;
-	int ret;
 	const struct stat *ost = &parms->stat;
 
 	if (!opts.link_remap_ok) {
@@ -1177,19 +1176,18 @@ static int create_link_remap(char *path, int len, int lfd, u32 *idp, struct ns_i
 
 	mntns_root = mntns_get_root_fd(nsid);
 
-again:
-	ret = linkat_hard(lfd, "", mntns_root, link_name, ost->st_uid, ost->st_gid, AT_EMPTY_PATH);
-	if (ret < 0 && errno == ENOENT) {
+	while (linkat_hard(lfd, "", mntns_root, link_name, ost->st_uid, ost->st_gid, AT_EMPTY_PATH) < 0) {
+		if (errno != ENOENT) {
+			pr_perror("Can't link remap to %s", path);
+			return -1;
+		}
+
 		/* Use grand parent, if parent directory does not exist. */
 		if (trim_last_parent(link_name) < 0) {
 			pr_err("trim failed: @%s@\n", link_name);
 			check_overlayfs_fallback(path, parms, fallback);
 			return -1;
 		}
-		goto again;
-	} else if (ret < 0) {
-		pr_perror("Can't link remap to %s", path);
-		return -1;
 	}
 
 	if (note_link_remap(link_name, nsid))
