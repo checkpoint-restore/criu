@@ -289,6 +289,21 @@ ip net add test
 ./test/zdtm.py run -t zdtm/static/env00 -t zdtm/transition/fork -t zdtm/static/ghost_holes00 -t zdtm/static/socket-tcp -t zdtm/static/msgque -k always
 ./test/crit-recode.py
 
+# Rootless tests
+# Check if cap_checkpoint_restore is supported and also if unshare -c is supported.
+if capsh --supports=cap_checkpoint_restore && unshare -c /bin/true; then
+	make -C test/zdtm/ cleanout
+	rm -rf test/dump
+	setcap cap_checkpoint_restore,cap_sys_ptrace+eip criu/criu
+	# Run it as non-root in a user namespace. Since CAP_CHECKPOINT_RESTORE behaves differently in non-user namespaces (e.g. no access to map_files) this tests that we can dump and restore
+	# under those conditions. Note that the "... && true" part is necessary; we need at least one statement after the tests so that bash can reap zombies in the user namespace,
+	# otherwise it will exec the last statement and get replaced and nobody will be left to reap our zombies.
+	sudo --user=#65534 --group=#65534 unshare -Ucfpm --mount-proc -- bash -c "./test/zdtm.py run -t zdtm/static/maps00 -f h --rootless && true"
+	setcap -r criu/criu
+else
+	echo "Skipping unprivileged mode tests"
+fi
+
 # more crit testing
 make -C test/others/crit run
 
