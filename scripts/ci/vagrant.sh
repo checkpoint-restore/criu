@@ -78,6 +78,11 @@ fedora-non-root() {
 	ssh default 'cd /vagrant/criu; criu/criu check --unprivileged; ./test/zdtm.py run -t zdtm/static/env00 -t zdtm/static/pthread00 -f h --rootless'
 	# Run it as root with '--rootless'
 	ssh default 'cd /vagrant/criu; sudo ./test/zdtm.py run -t zdtm/static/env00 -t zdtm/static/pthread00 -f h; sudo chmod 777 test/dump/zdtm/static/{env00,pthread00}; sudo ./test/zdtm.py run -t zdtm/static/env00 -t zdtm/static/pthread00 -f h --rootless'
+	# Run it as non-root in a user namespace. Since CAP_CHECKPOINT_RESTORE behaves differently in non-user namespaces (e.g. no access to map_files) this tests that we can dump and restore
+	# under those conditions. Note that the "... && true" part is necessary; we need at least one statement after the tests so that bash can reap zombies in the user namespace,
+	# otherwise it will exec the last statement and get replaced and nobody will be left to reap our zombies.
+	# Note: selinux in Enforcing mode prevents us from calling clone3() or writing to ns_last_pid on restore; hence set to Permissive for the test and then set back.
+	ssh default 'cd /vagrant/criu; selinuxmode=`getenforce` && sudo setenforce Permissive && unshare -Ucfpm --mount-proc bash -c "./test/zdtm.py run -t zdtm/static/maps00 -f h --rootless && true" && sudo setenforce $selinuxmode'
 }
 
 $1
