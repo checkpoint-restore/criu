@@ -724,7 +724,7 @@ static int next_data_segment(int fd, unsigned long pfn, unsigned long *next_data
 	return 0;
 }
 
-static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si, bool seek_data_supported)
+static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si)
 {
 	struct page_pipe *pp;
 	struct page_xfer xfer;
@@ -750,8 +750,7 @@ static int do_dump_one_shmem(int fd, void *addr, struct shmem_info *si, bool see
 		unsigned long pgaddr;
 		int st = -1;
 
-		if (seek_data_supported && pfn >= next_hole_pfn &&
-		    next_data_segment(fd, pfn, &next_data_pnf, &next_hole_pfn))
+		if (fd >= 0 && pfn >= next_hole_pfn && next_data_segment(fd, pfn, &next_data_pnf, &next_hole_pfn))
 			goto err_xfer;
 
 		if (si->pstate_map && is_shmem_tracking_en()) {
@@ -810,7 +809,6 @@ static int dump_one_shmem(struct shmem_info *si)
 	int fd, ret = -1;
 	void *addr;
 	unsigned long cur, remaining;
-	bool seek_data_supported;
 
 	pr_info("Dumping shared memory %ld\n", si->shmid);
 
@@ -821,8 +819,6 @@ static int dump_one_shmem(struct shmem_info *si)
 			pr_perror("Can't map shmem 0x%lx (0x%lx-0x%lx)", si->shmid, si->start, si->end);
 			goto errc;
 		}
-
-		seek_data_supported = true;
 	} else {
 		if (errno != EPERM || !opts.unprivileged) {
 			goto err;
@@ -858,14 +854,16 @@ static int dump_one_shmem(struct shmem_info *si)
 			cur += ret;
 		} while (remaining > 0);
 
-		seek_data_supported = false;
+		close(fd);
+		fd = -1;
 	}
 
-	ret = do_dump_one_shmem(fd, addr, si, seek_data_supported);
+	ret = do_dump_one_shmem(fd, addr, si);
 
 	munmap(addr, si->size);
 errc:
-	close(fd);
+	if (fd >= 0)
+		close(fd);
 err:
 	return ret;
 }
@@ -889,7 +887,7 @@ int dump_one_memfd_shmem(int fd, unsigned long shmid, unsigned long size)
 		goto err;
 	}
 
-	ret = do_dump_one_shmem(fd, addr, &si, true);
+	ret = do_dump_one_shmem(fd, addr, &si);
 
 	munmap(addr, size);
 err:
@@ -915,7 +913,7 @@ int dump_one_sysv_shmem(void *addr, unsigned long size, unsigned long shmid)
 	if (fd < 0)
 		return -1;
 
-	ret = do_dump_one_shmem(fd, addr, si, true);
+	ret = do_dump_one_shmem(fd, addr, si);
 	close(fd);
 	return ret;
 }
