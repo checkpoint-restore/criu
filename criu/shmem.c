@@ -818,7 +818,7 @@ static int dump_one_shmem(struct shmem_info *si)
 	if (fd >= 0) {
 		addr = mmap(NULL, si->size, PROT_READ, MAP_SHARED, fd, 0);
 		if (addr == MAP_FAILED) {
-			pr_err("Can't map shmem 0x%lx (0x%lx-0x%lx)\n", si->shmid, si->start, si->end);
+			pr_perror("Can't map shmem 0x%lx (0x%lx-0x%lx)", si->shmid, si->start, si->end);
 			goto errc;
 		}
 
@@ -837,7 +837,7 @@ static int dump_one_shmem(struct shmem_info *si)
 
 		addr = mmap(NULL, si->size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 		if (addr == MAP_FAILED) {
-			pr_err("Can't map empty space for shmem 0x%lx (0x%lx-0x%lx)\n", si->shmid, si->start, si->end);
+			pr_perror("Can't map empty space for shmem 0x%lx (0x%lx-0x%lx)", si->shmid, si->start, si->end);
 			goto errc;
 		}
 
