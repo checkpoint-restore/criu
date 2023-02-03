@@ -1193,7 +1193,7 @@ static int check_ipt_legacy(void)
 	char *ipt_legacy_bin;
 	char *ip6t_legacy_bin;
 
-	ipt_legacy_bin = get_legacy_iptables_bin(false);
+	ipt_legacy_bin = get_legacy_iptables_bin(false, false);
 	if (!ipt_legacy_bin) {
 		pr_warn("Couldn't find iptables version which is using iptables legacy API\n");
 		return -1;
@@ -1204,7 +1204,7 @@ static int check_ipt_legacy(void)
 	if (!kdat.ipv6)
 		return 0;
 
-	ip6t_legacy_bin = get_legacy_iptables_bin(true);
+	ip6t_legacy_bin = get_legacy_iptables_bin(true, false);
 	if (!ip6t_legacy_bin) {
 		pr_warn("Couldn't find ip6tables version which is using iptables legacy API\n");
 		return -1;

@@ -384,7 +384,7 @@ static inline void print_stack_trace(pid_t pid)
 
 extern int mount_detached_fs(const char *fsname);
 
-extern char *get_legacy_iptables_bin(bool ipv6);
+extern char *get_legacy_iptables_bin(bool ipv6, bool restore);
 
 extern int set_opts_cap_eff(void);
 
