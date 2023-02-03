@@ -2038,12 +2038,10 @@ static inline int dump_iptables(struct cr_imgset *fds)
 	 * Let's skip iptables dump if we have nftables support compiled in,
 	 * and iptables backend is nft to prevent duplicate dumps.
 	 */
-#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 	iptables_cmd = get_legacy_iptables_bin(false);
 
 	if (kdat.ipv6)
 		ip6tables_cmd = get_legacy_iptables_bin(true);
-#endif
 
 	if (!iptables_cmd) {
 		pr_info("skipping iptables dump - no legacy version present\n");
