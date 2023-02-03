@@ -1558,8 +1558,14 @@ int cut_path_ending(char *path, char *ending)
 static int is_iptables_nft(char *bin)
 {
 	int pfd[2] = { -1, -1 }, ret = -1;
-	char *cmd[] = { bin, "-V", NULL };
+	char comm[32];
+	char *cmd[] = { "sh", "-c", comm, NULL };
 	char buf[100];
+
+	if (snprintf(comm, sizeof(comm), "%s -V", bin) >= sizeof(comm)) {
+		pr_err("Comm %s -V does not fit to buffer\n", bin);
+		return -1;
+	}
 
 	if (pipe(pfd) < 0) {
 		pr_perror("Unable to create pipe");
@@ -1568,7 +1574,7 @@ static int is_iptables_nft(char *bin)
 
 	ret = cr_system(-1, pfd[1], -1, cmd[0], cmd, 0);
 	if (ret) {
-		pr_err("%s -V failed\n", cmd[0]);
+		pr_err("%s failed\n", comm);
 		goto err;
 	}
 
@@ -1576,7 +1582,7 @@ static int is_iptables_nft(char *bin)
 
 	ret = read(pfd[0], buf, sizeof(buf) - 1);
 	if (ret < 0) {
-		pr_perror("Unable to read %s -V output", cmd[0]);
+		pr_perror("Unable to read %s output", comm);
 		goto err;
 	}
 
@@ -1594,44 +1600,46 @@ err:
 	return ret;
 }
 
-char *get_legacy_iptables_bin(bool ipv6)
+char *get_legacy_iptables_bin(bool ipv6, bool restore)
 {
-	static char iptables_bin[2][32];
+	static char iptables_bin[2][2][32];
 	/* 0  - means we don't know yet,
 	 * -1 - not present,
 	 * 1  - present.
 	 */
-	static int iptables_present[2] = { 0, 0 };
-	char bins[2][2][32] = { { "iptables-save", "iptables-legacy-save" },
-				{ "ip6tables-save", "ip6tables-legacy-save" } };
+	static int iptables_present[2][2] = { { 0, 0 }, { 0, 0 } };
+	char bins[2][2][2][32] = { { { "iptables-save", "iptables-legacy-save" },
+				     { "iptables-restore -w", "iptables-legacy-restore -w" } },
+				   { { "ip6tables-save", "ip6tables-legacy-save" },
+				     { "ip6tables-restore -w", "ip6tables-legacy-restore -w" } } };
 	int ret;
 
-	if (iptables_present[ipv6] == -1)
+	if (iptables_present[ipv6][restore] == -1)
 		return NULL;
 
-	if (iptables_present[ipv6] == 1)
-		return iptables_bin[ipv6];
+	if (iptables_present[ipv6][restore] == 1)
+		return iptables_bin[ipv6][restore];
 
-	memcpy(iptables_bin[ipv6], bins[ipv6][0], strlen(bins[ipv6][0]) + 1);
-	ret = is_iptables_nft(iptables_bin[ipv6]);
+	memcpy(iptables_bin[ipv6][restore], bins[ipv6][restore][0], strlen(bins[ipv6][restore][0]) + 1);
+	ret = is_iptables_nft(iptables_bin[ipv6][restore]);
 
 	/*
 	 * iptables on host uses nft backend (or not installed),
 	 * let's try iptables-legacy
 	 */
 	if (ret < 0 || ret == 1) {
-		memcpy(iptables_bin[ipv6], bins[ipv6][1], strlen(bins[ipv6][1]) + 1);
-		ret = is_iptables_nft(iptables_bin[ipv6]);
+		memcpy(iptables_bin[ipv6][restore], bins[ipv6][restore][1], strlen(bins[ipv6][restore][1]) + 1);
+		ret = is_iptables_nft(iptables_bin[ipv6][restore]);
 		if (ret < 0 || ret == 1) {
-			iptables_present[ipv6] = -1;
+			iptables_present[ipv6][restore] = -1;
 			return NULL;
 		}
 	}
 
 	/* we can come here with iptables-save or iptables-legacy-save */
-	iptables_present[ipv6] = 1;
+	iptables_present[ipv6][restore] = 1;
 
-	return iptables_bin[ipv6];
+	return iptables_bin[ipv6][restore];
 }
 
 /*

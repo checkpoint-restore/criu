@@ -2038,10 +2038,10 @@ static inline int dump_iptables(struct cr_imgset *fds)
 	 * Let's skip iptables dump if we have nftables support compiled in,
 	 * and iptables backend is nft to prevent duplicate dumps.
 	 */
-	iptables_cmd = get_legacy_iptables_bin(false);
+	iptables_cmd = get_legacy_iptables_bin(false, false);
 
 	if (kdat.ipv6)
-		ip6tables_cmd = get_legacy_iptables_bin(true);
+		ip6tables_cmd = get_legacy_iptables_bin(true, false);
 
 	if (!iptables_cmd) {
 		pr_info("skipping iptables dump - no legacy version present\n");
@@ -2358,8 +2358,15 @@ static int prepare_xtable_lock(void)
 
 static inline int restore_iptables(int pid)
 {
+	char *iptables_cmd = "iptables-save";
+	char *ip6tables_cmd = "ip6tables-save";
 	int ret = -1;
 	struct cr_img *img;
+
+	iptables_cmd = get_legacy_iptables_bin(false, true);
+
+	if (kdat.ipv6)
+		ip6tables_cmd = get_legacy_iptables_bin(true, true);
 
 	img = open_image(CR_FD_IPTABLES, O_RSTR, pid);
 	if (img == NULL)
@@ -2370,7 +2377,13 @@ static inline int restore_iptables(int pid)
 		goto ipt6;
 	}
 
-	ret = run_iptables_tool("iptables-restore -w", img_raw_fd(img), -1);
+	if (!iptables_cmd) {
+		pr_err("Can't restore iptables dump - no legacy version present\n");
+		close_image(img);
+		return -1;
+	}
+
+	ret = run_iptables_tool(iptables_cmd, img_raw_fd(img), -1);
 	close_image(img);
 	if (ret)
 		return ret;
@@ -2381,7 +2394,13 @@ ipt6:
 	if (empty_image(img))
 		goto out;
 
-	ret = run_iptables_tool("ip6tables-restore -w", img_raw_fd(img), -1);
+	if (!ip6tables_cmd) {
+		pr_err("Can't restore ip6tables dump - no legacy version present\n");
+		close_image(img);
+		return -1;
+	}
+
+	ret = run_iptables_tool(ip6tables_cmd, img_raw_fd(img), -1);
 out:
 	close_image(img);
 
