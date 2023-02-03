@@ -1594,44 +1594,46 @@ err:
 	return ret;
 }
 
-char *get_legacy_iptables_bin(bool ipv6)
+char *get_legacy_iptables_bin(bool ipv6, bool restore)
 {
-	static char iptables_bin[2][32];
+	static char iptables_bin[2][2][32];
 	/* 0  - means we don't know yet,
 	 * -1 - not present,
 	 * 1  - present.
 	 */
-	static int iptables_present[2] = { 0, 0 };
-	char bins[2][2][32] = { { "iptables-save", "iptables-legacy-save" },
-				{ "ip6tables-save", "ip6tables-legacy-save" } };
+	static int iptables_present[2][2] = { { 0, 0 }, { 0, 0 } };
+	char bins[2][2][2][32] = { { { "iptables-save", "iptables-legacy-save" },
+				     { "iptables-restore", "iptables-legacy-restore" } },
+				   { { "ip6tables-save", "ip6tables-legacy-save" },
+				     { "ip6tables-restore", "ip6tables-legacy-restore" } } };
 	int ret;
 
-	if (iptables_present[ipv6] == -1)
+	if (iptables_present[ipv6][restore] == -1)
 		return NULL;
 
-	if (iptables_present[ipv6] == 1)
-		return iptables_bin[ipv6];
+	if (iptables_present[ipv6][restore] == 1)
+		return iptables_bin[ipv6][restore];
 
-	memcpy(iptables_bin[ipv6], bins[ipv6][0], strlen(bins[ipv6][0]) + 1);
-	ret = is_iptables_nft(iptables_bin[ipv6]);
+	memcpy(iptables_bin[ipv6][restore], bins[ipv6][restore][0], strlen(bins[ipv6][restore][0]) + 1);
+	ret = is_iptables_nft(iptables_bin[ipv6][restore]);
 
 	/*
 	 * iptables on host uses nft backend (or not installed),
 	 * let's try iptables-legacy
 	 */
 	if (ret < 0 || ret == 1) {
-		memcpy(iptables_bin[ipv6], bins[ipv6][1], strlen(bins[ipv6][1]) + 1);
-		ret = is_iptables_nft(iptables_bin[ipv6]);
+		memcpy(iptables_bin[ipv6][restore], bins[ipv6][restore][1], strlen(bins[ipv6][restore][1]) + 1);
+		ret = is_iptables_nft(iptables_bin[ipv6][restore]);
 		if (ret < 0 || ret == 1) {
-			iptables_present[ipv6] = -1;
+			iptables_present[ipv6][restore] = -1;
 			return NULL;
 		}
 	}
 
 	/* we can come here with iptables-save or iptables-legacy-save */
-	iptables_present[ipv6] = 1;
+	iptables_present[ipv6][restore] = 1;
 
-	return iptables_bin[ipv6];
+	return iptables_bin[ipv6][restore];
 }
 
 /*

@@ -2039,10 +2039,10 @@ static inline int dump_iptables(struct cr_imgset *fds)
 	 * and iptables backend is nft to prevent duplicate dumps.
 	 */
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
-	iptables_cmd = get_legacy_iptables_bin(false);
+	iptables_cmd = get_legacy_iptables_bin(false, false);
 
 	if (kdat.ipv6)
-		ip6tables_cmd = get_legacy_iptables_bin(true);
+		ip6tables_cmd = get_legacy_iptables_bin(true, false);
 #endif
 
 	if (!iptables_cmd) {
@@ -2360,8 +2360,18 @@ static int prepare_xtable_lock(void)
 
 static inline int restore_iptables(int pid)
 {
+	char *iptables_cmd = "iptables-restore";
+	char *ip6tables_cmd = "ip6tables-restore";
+	char comm[32];
 	int ret = -1;
 	struct cr_img *img;
+
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	iptables_cmd = get_legacy_iptables_bin(false, true);
+
+	if (kdat.ipv6)
+		ip6tables_cmd = get_legacy_iptables_bin(true, true);
+#endif
 
 	img = open_image(CR_FD_IPTABLES, O_RSTR, pid);
 	if (img == NULL)
@@ -2372,7 +2382,19 @@ static inline int restore_iptables(int pid)
 		goto ipt6;
 	}
 
-	ret = run_iptables_tool("iptables-restore -w", img_raw_fd(img), -1);
+	if (!iptables_cmd) {
+		pr_err("Can't restore iptables dump - no legacy version present\n");
+		close_image(img);
+		return -1;
+	}
+
+	if (snprintf(comm, sizeof(comm), "%s -w", iptables_cmd) >= sizeof(comm)) {
+		pr_err("Can't fit '%s -w' to buffer\n", iptables_cmd);
+		close_image(img);
+		return -1;
+	}
+
+	ret = run_iptables_tool(comm, img_raw_fd(img), -1);
 	close_image(img);
 	if (ret)
 		return ret;
@@ -2383,7 +2405,19 @@ ipt6:
 	if (empty_image(img))
 		goto out;
 
-	ret = run_iptables_tool("ip6tables-restore -w", img_raw_fd(img), -1);
+	if (!ip6tables_cmd) {
+		pr_err("Can't restore ip6tables dump - no legacy version present\n");
+		close_image(img);
+		return -1;
+	}
+
+	if (snprintf(comm, sizeof(comm), "%s -w", ip6tables_cmd) >= sizeof(comm)) {
+		pr_err("Can't fit '%s -w' to buffer\n", ip6tables_cmd);
+		close_image(img);
+		return -1;
+	}
+
+	ret = run_iptables_tool(comm, img_raw_fd(img), -1);
 out:
 	close_image(img);
 
