@@ -217,6 +217,19 @@ if [ "${STREAM_TEST}" = "1" ]; then
 	exit 0
 fi
 
+# Rootless tests
+last_cap=$(cat /proc/sys/kernel/cap_last_cap)
+# CAP_CHECKPOINT_RESTORE is 40.
+if [ "$last_cap" -ge 40 ]; then
+	make -C test/zdtm/ cleanout
+	rm -rf test/dump
+	setcap cap_checkpoint_restore,cap_sys_ptrace+eip criu/criu
+	sudo --user=#65534 --group=#65534 unshare -Ucfpm --mount-proc -- bash -c "./test/zdtm.py run -t zdtm/static/maps00 -f h --rootless && true"
+	setcap -r criu/criu
+fi
+
+./criu/criu check || true
+
 ./test/zdtm.py run -a -p 2 --keep-going "${ZDTM_OPTS[@]}"
 if criu/criu check --feature move_mount_set_group; then
 	./test/zdtm.py run -a -p 2 --mntns-compat-mode --keep-going "${ZDTM_OPTS[@]}"

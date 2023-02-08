@@ -21,7 +21,9 @@ RUN apk update && apk add \
 	py3-pip \
 	py3-protobuf \
 	python3 \
-	sudo
+	sudo \
+	libcap-utils \
+	util-linux
 
 COPY . /criu
 WORKDIR /criu
