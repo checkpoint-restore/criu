@@ -79,6 +79,7 @@
 #include "timens.h"
 #include "bpfmap.h"
 #include "apparmor.h"
+#include "tls.h"
 
 #include "parasite-syscall.h"
 #include "files-reg.h"
@@ -2599,6 +2600,9 @@ int cr_restore_tasks(void)
 
 	if (cr_plugin_init(CR_PLUGIN_STAGE__RESTORE))
 		return -1;
+
+	if (tls_initialize_cipher_from_image())
+		goto err;
 
 	if (check_img_inventory(/* restore = */ true) < 0)
 		goto err;

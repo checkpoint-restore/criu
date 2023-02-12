@@ -254,7 +254,7 @@ int dump_sk_queue(int sock_fd, int sock_id)
 			goto err_set_sock;
 		}
 
-		ret = write_img_buf(img_from_set(glob_imgset, CR_FD_SK_QUEUES), data, pe.length);
+		ret = write_img_buf(img_from_set(glob_imgset, CR_FD_SK_QUEUES), data, pe.length, true);
 		if (ret < 0) {
 			ret = -EIO;
 			goto err_set_sock;
