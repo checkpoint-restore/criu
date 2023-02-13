@@ -338,22 +338,49 @@ static int vma_get_mapfile_user(const char *fname, struct vma_area *vma, struct 
 	fd = open(fname, O_RDONLY);
 	if (fd < 0) {
 		pr_perror("Can't open mapped [%s]", fname);
-		return -1;
+		goto returnerr;
 	}
 
 	if (vma_stat(vma, fd)) {
-		close(fd);
-		return -1;
+		goto closefd;
 	}
 
-	if (vma->vmst->st_dev != vfi_dev || vma->vmst->st_ino != vfi->ino) {
-		pr_err("Failed to resolve mapping %lx filename\n", (unsigned long)vma->e->start);
-		close(fd);
-		return -1;
+	if (vma->vmst->st_ino != vfi->ino) {
+		goto errmsg;
+	}
+
+	/*
+	 * If devices don't match it could be because file is on a btrfs subvolume,
+	 * which means that device number returned by stat will not match what is
+	 * seen in smaps and other places. To deal with that we need a more involved
+	 * check.
+	 */
+	if (vma->vmst->st_dev != vfi_dev) {
+		int mnt_id;
+		struct ns_id *ns;
+
+		if (get_fd_mntid(fd, &mnt_id))
+			goto errmsg;
+
+		ns = lookup_nsid_by_mnt_id(mnt_id);
+		if (!ns)
+			goto errmsg;
+
+		if (!phys_stat_dev_match(vma->vmst->st_dev, vfi_dev, ns, fname))
+			goto errmsg;
+
+		vma->mnt_id = mnt_id;
 	}
 
 	*vm_file_fd = fd;
 	return 0;
+
+errmsg:
+	pr_err("Failed to resolve mapping %lx filename\n", (unsigned long)vma->e->start);
+closefd:
+	close(fd);
+returnerr:
+	return -1;
 }
 
 static int vma_get_mapfile(const char *fname, struct vma_area *vma, DIR *mfd, struct vma_file_info *vfi,
