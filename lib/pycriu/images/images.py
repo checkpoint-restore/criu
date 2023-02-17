@@ -63,6 +63,39 @@ def round_up(x, y):
     return (((x - 1) | (y - 1)) + 1)
 
 
+def read_entry_data(f, size, token):
+    """
+    A helper function for reading data from images.
+    """
+    if size is None:
+        entry_data = f.read()
+    else:
+        entry_data = f.read(size)
+
+    if token is not None:
+        from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+
+        # Read 128-bits tag data and 96-bits nonce data for ChaCha20-Poly1305
+        if size is None:
+            if len(entry_data) <= 28:
+                raise IOError("Entry data is too short (%d bytes)" % len(entry_data))
+            # Read nonce and tag data in reverse order from the end.
+            nonce_data = entry_data[-12:]
+            tag_data = entry_data[-28:-12]
+            entry_data = entry_data[:-28]
+        else:
+            tag_data = f.read(16)
+            if tag_data == b'':
+                raise IOError("Can't read tag data")
+            nonce_data = f.read(12)
+            if nonce_data == b'':
+                raise IOError("Can't read nonce data")
+
+        cipher = ChaCha20Poly1305(token)
+        entry_data = cipher.decrypt(nonce_data, entry_data + tag_data, None)
+    return entry_data
+
+
 class MagicException(Exception):
     def __init__(self, magic):
         self.magic = magic
@@ -93,7 +126,7 @@ class entry_handler:
         self.payload = payload
         self.extra_handler = extra_handler
 
-    def load(self, f, pretty=False, no_payload=False):
+    def load(self, f, pretty=False, no_payload=False, token=None):
         """
         Convert criu image entries from binary format to dict(json).
         Takes a file-like object and returns a list with entries in
@@ -109,8 +142,10 @@ class entry_handler:
             buf = f.read(4)
             if len(buf) == 0:
                 break
-            size, = struct.unpack('i', buf)
-            pbuff.ParseFromString(f.read(size))
+
+            size, = struct.unpack('I', buf)
+            entry_data = read_entry_data(f, size, token)
+            pbuff.ParseFromString(entry_data)
             entry = pb2dict.pb2dict(pbuff, pretty)
 
             # Read extra
@@ -198,7 +233,7 @@ class pagemap_handler:
     of pagemap_entry type.
     """
 
-    def load(self, f, pretty=False, no_payload=False):
+    def load(self, f, pretty=False, no_payload=False, token=None):
         entries = []
 
         pbuff = pb.pagemap_head()
@@ -206,8 +241,10 @@ class pagemap_handler:
             buf = f.read(4)
             if len(buf) == 0:
                 break
-            size, = struct.unpack('i', buf)
-            pbuff.ParseFromString(f.read(size))
+            size, = struct.unpack('I', buf)
+
+            entry_data = read_entry_data(f, size, token)
+            pbuff.ParseFromString(entry_data)
             entries.append(pb2dict.pb2dict(pbuff, pretty))
 
             pbuff = pb.pagemap_entry()
@@ -240,13 +277,15 @@ class pagemap_handler:
 
 # Special handler for ghost-file.img
 class ghost_file_handler:
-    def load(self, f, pretty=False, no_payload=False):
+    def load(self, f, pretty=False, no_payload=False, token=None):
         entries = []
 
         gf = pb.ghost_file_entry()
         buf = f.read(4)
-        size, = struct.unpack('i', buf)
-        gf.ParseFromString(f.read(size))
+        size, = struct.unpack('I', buf)
+
+        entry_data = read_entry_data(f, size, token)
+        gf.ParseFromString(entry_data)
         g_entry = pb2dict.pb2dict(gf, pretty)
 
         if gf.chunks:
@@ -256,19 +295,23 @@ class ghost_file_handler:
                 buf = f.read(4)
                 if len(buf) == 0:
                     break
-                size, = struct.unpack('i', buf)
-                gc.ParseFromString(f.read(size))
+                size, = struct.unpack('I', buf)
+
+                entry_data = read_entry_data(f, size, token)
+                gc.ParseFromString(entry_data)
                 entry = pb2dict.pb2dict(gc, pretty)
                 if no_payload:
                     f.seek(gc.len, os.SEEK_CUR)
                 else:
-                    entry['extra'] = base64.encodebytes(f.read(gc.len)).decode('utf-8')
+                    extra_data = read_entry_data(f, gc.len, token)
+                    entry['extra'] = base64.encodebytes(extra_data).decode('utf-8')
                 entries.append(entry)
         else:
             if no_payload:
                 f.seek(0, os.SEEK_END)
             else:
-                g_entry['extra'] = base64.encodebytes(f.read()).decode('utf-8')
+                extra_data = read_entry_data(f, None, token)
+                g_entry['extra'] = base64.encodebytes(extra_data).decode('utf-8')
             entries.append(g_entry)
 
         return entries
@@ -311,10 +354,9 @@ class ghost_file_handler:
 # do not store big amounts of binary data. They
 # are negligible comparing to pages size.
 class pipes_data_extra_handler:
-    def load(self, f, pload):
-        size = pload.bytes
-        data = f.read(size)
-        return base64.encodebytes(data).decode('utf-8')
+    def load(self, f, pload, token=None):
+        entry_data = read_entry_data(f, pload.bytes, token)
+        return base64.encodebytes(entry_data).decode('utf-8')
 
     def dump(self, extra, f, pload):
         data = decode_base64_data(extra)
@@ -326,10 +368,9 @@ class pipes_data_extra_handler:
 
 
 class sk_queues_extra_handler:
-    def load(self, f, pload):
-        size = pload.length
-        data = f.read(size)
-        return base64.encodebytes(data).decode('utf-8')
+    def load(self, f, pload, token=None):
+        entry_data = read_entry_data(f, pload.length, token)
+        return base64.encodebytes(entry_data).decode('utf-8')
 
     def dump(self, extra, f, _unused):
         data = decode_base64_data(extra)
@@ -341,11 +382,11 @@ class sk_queues_extra_handler:
 
 
 class tcp_stream_extra_handler:
-    def load(self, f, pbuff):
+    def load(self, f, pbuff, token=None):
         d = {}
 
-        inq = f.read(pbuff.inq_len)
-        outq = f.read(pbuff.outq_len)
+        inq = read_entry_data(f, pbuff.inq_len, token)
+        outq = read_entry_data(f, pbuff.outq_len, token)
 
         d['inq'] = base64.encodebytes(inq).decode('utf-8')
         d['outq'] = base64.encodebytes(outq).decode('utf-8')
@@ -365,9 +406,9 @@ class tcp_stream_extra_handler:
 
 
 class bpfmap_data_extra_handler:
-    def load(self, f, pload):
+    def load(self, f, pload, token=None):
         size = pload.keys_bytes + pload.values_bytes
-        data = f.read(size)
+        data = read_entry_data(f, size, token)
         return base64.encodebytes(data).decode('utf-8')
 
     def dump(self, extra, f, pload):
@@ -380,7 +421,7 @@ class bpfmap_data_extra_handler:
 
 
 class ipc_sem_set_handler:
-    def load(self, f, pbuff):
+    def load(self, f, pbuff, token=None):
         entry = pb2dict.pb2dict(pbuff)
         size = sizeof_u16 * entry['nsems']
         rounded = round_up(size, sizeof_u64)
@@ -435,7 +476,7 @@ class ipc_msg_queue_handler:
         _, pl_len = self._read_messages(f, pbuff, skip_data=True)
         return pl_len
 
-    def _read_messages(self, f, pbuff, skip_data=False):
+    def _read_messages(self, f, pbuff, skip_data=False, token=None):
         entry = pb2dict.pb2dict(pbuff)
         messages = []
         pl_len = 0
@@ -445,7 +486,8 @@ class ipc_msg_queue_handler:
                 break
             size, = struct.unpack('i', buf)
             msg = pb.ipc_msg()
-            msg.ParseFromString(f.read(size))
+            entry_data = read_entry_data(f, size, token)
+            msg.ParseFromString(entry_data)
             rounded = round_up(msg.msize, sizeof_u64)
             pl_len += size + msg.msize
 
@@ -461,10 +503,10 @@ class ipc_msg_queue_handler:
 
 
 class ipc_shm_handler:
-    def load(self, f, pbuff):
+    def load(self, f, pbuff, token=None):
         entry = pb2dict.pb2dict(pbuff)
         size = entry['size']
-        data = f.read(size)
+        data = read_entry_data(f, size, token)
         rounded = round_up(size, sizeof_u32)
         f.seek(rounded - size, 1)
         return base64.encodebytes(data).decode('utf-8')
@@ -579,7 +621,7 @@ def __rhandler(f):
     return m, handler
 
 
-def load(f, pretty=False, no_payload=False):
+def load(f, pretty=False, no_payload=False, token=None):
     """
     Convert criu image from binary format to dict(json).
     Takes a file-like object to read criu image from.
@@ -590,7 +632,7 @@ def load(f, pretty=False, no_payload=False):
     m, handler = __rhandler(f)
 
     image['magic'] = m
-    image['entries'] = handler.load(f, pretty, no_payload)
+    image['entries'] = handler.load(f, pretty, no_payload, token)
 
     return image
 

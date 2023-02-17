@@ -3,9 +3,17 @@ import argparse
 import sys
 import json
 import os
+import base64
+
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
 
 import pycriu
 from . import __version__
+
+
+CRIU_KEY = '/etc/pki/criu/private/key.pem'
 
 
 def inf(opts):
@@ -36,11 +44,56 @@ def dinf(opts, name):
     return open(os.path.join(opts['dir'], name), mode='rb')
 
 
+def get_cipher_token(opts):
+    """
+    get_cipher_token returns the decrypted cipher token.
+    """
+    plaintext_token = None
+    if 'in' in opts:
+        dir_path = os.path.dirname(os.path.realpath(opts['in']))
+    elif 'dir' in opts:
+        dir_path = os.path.realpath(opts['dir'])
+    else:
+        raise TypeError("Invalid input")
+    cipher_img_path = os.path.join(dir_path, 'cipher.img')
+
+    # We assume that when this image is not present,
+    # the checkpoint images are not encrypted. Thus,
+    # here we continue with normal decode if 'cipher.img'
+    # doesn't exist.
+    if not os.path.exists(cipher_img_path):
+        return None
+
+    with open(cipher_img_path, mode='rb') as cipher_img_file:
+        cipher_img = pycriu.images.load(cipher_img_file)
+        # Validate the content of the cipher.img
+        if ('entries' not in cipher_img or
+                len(cipher_img['entries']) != 1 or
+                'token' not in cipher_img['entries'][0]):
+            raise TypeError("Invalid cipher image")
+
+    encrypted_token = base64.b64decode(cipher_img['entries'][0]['token'])
+
+    priv_key_file = opts['tls_key']
+    with open(priv_key_file, "rb") as f:
+        priv_key = serialization.load_pem_private_key(f.read(), None, default_backend())
+        if not isinstance(priv_key, rsa.RSAPrivateKey):
+            raise TypeError("Only RSA private keys are supported.")
+
+    # GnuTLS uses the PKCS#1 v1.5 padding scheme by default.
+    plaintext_token = priv_key.decrypt(encrypted_token, padding.PKCS1v15())
+    return plaintext_token
+
+
 def decode(opts):
     indent = None
+    token = None
+
+    if opts['in'] and os.path.basename(opts['in']) not in ['cipher.img', 'stats-dump', 'stats-restore']:
+        token = get_cipher_token(opts)
 
     try:
-        img = pycriu.images.load(inf(opts), opts['pretty'], opts['nopl'])
+        img = pycriu.images.load(inf(opts), opts['pretty'], opts['nopl'], token=token)
     except pycriu.images.MagicException as exc:
         print("Unknown magic %#x.\n"
               "Maybe you are feeding me an image with "
@@ -101,10 +154,11 @@ def show_ps(p, opts, depth=0):
 
 def explore_ps(opts):
     pss = {}
-    ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
+    token = get_cipher_token(opts)
+    ps_img = pycriu.images.load(dinf(opts, 'pstree.img'), token=token)
     for p in ps_img['entries']:
         core = pycriu.images.load(
-            dinf(opts, 'core-%d.img' % get_task_id(p, 'pid')))
+            dinf(opts, 'core-%d.img' % get_task_id(p, 'pid')), token=token)
         ps = ps_item(p, core['entries'][0])
         pss[ps.pid] = ps
 
@@ -128,10 +182,11 @@ files_img = None
 
 def ftype_find_in_files(opts, ft, fid):
     global files_img
+    token = get_cipher_token(opts)
 
     if files_img is None:
         try:
-            files_img = pycriu.images.load(dinf(opts, "files.img"))['entries']
+            files_img = pycriu.images.load(dinf(opts, "files.img"), token=token)['entries']
         except Exception:
             files_img = []
 
@@ -146,6 +201,7 @@ def ftype_find_in_files(opts, ft, fid):
 
 
 def ftype_find_in_image(opts, ft, fid, img):
+    token = get_cipher_token(opts)
     f = ftype_find_in_files(opts, ft, fid)
     if f:
         if ft['field'] in f:
@@ -154,7 +210,7 @@ def ftype_find_in_image(opts, ft, fid, img):
             return None
 
     if ft['img'] is None:
-        ft['img'] = pycriu.images.load(dinf(opts, img))['entries']
+        ft['img'] = pycriu.images.load(dinf(opts, img), token=token)['entries']
     for f in ft['img']:
         if f['id'] == fid:
             return f
@@ -218,18 +274,19 @@ def get_file_str(opts, fd):
 
 
 def explore_fds(opts):
-    ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
+    token = get_cipher_token(opts)
+    ps_img = pycriu.images.load(dinf(opts, 'pstree.img'), token=token)
     for p in ps_img['entries']:
         pid = get_task_id(p, 'pid')
-        idi = pycriu.images.load(dinf(opts, 'ids-%s.img' % pid))
+        idi = pycriu.images.load(dinf(opts, 'ids-%s.img' % pid), token=token)
         fdt = idi['entries'][0]['files_id']
-        fdi = pycriu.images.load(dinf(opts, 'fdinfo-%d.img' % fdt))
+        fdi = pycriu.images.load(dinf(opts, 'fdinfo-%d.img' % fdt), token=token)
 
         print("%d" % pid)
         for fd in fdi['entries']:
             print("\t%7d: %s" % (fd['fd'], get_file_str(opts, fd)))
 
-        fdi = pycriu.images.load(dinf(opts, 'fs-%d.img' % pid))['entries'][0]
+        fdi = pycriu.images.load(dinf(opts, 'fs-%d.img' % pid), token=token)['entries'][0]
         print("\t%7s: %s" %
               ('cwd', get_file_str(opts, {
                   'type': 'REG',
@@ -258,11 +315,12 @@ class vma_id:
 
 
 def explore_mems(opts):
-    ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
+    token = get_cipher_token(opts)
+    ps_img = pycriu.images.load(dinf(opts, 'pstree.img'), token=token)
     vids = vma_id()
     for p in ps_img['entries']:
         pid = get_task_id(p, 'pid')
-        mmi = pycriu.images.load(dinf(opts, 'mm-%d.img' % pid))['entries'][0]
+        mmi = pycriu.images.load(dinf(opts, 'mm-%d.img' % pid), token=token)['entries'][0]
 
         print("%d" % pid)
         print("\t%-36s    %s" % ('exe',
@@ -311,12 +369,13 @@ def explore_mems(opts):
 
 
 def explore_rss(opts):
-    ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
+    token = get_cipher_token(opts)
+    ps_img = pycriu.images.load(dinf(opts, 'pstree.img'), token=token)
     for p in ps_img['entries']:
         pid = get_task_id(p, 'pid')
-        vmas = pycriu.images.load(dinf(opts, 'mm-%d.img' %
-                                       pid))['entries'][0]['vmas']
-        pms = pycriu.images.load(dinf(opts, 'pagemap-%d.img' % pid))['entries']
+        vmas = pycriu.images.load(
+            dinf(opts, 'mm-%d.img' % pid), token=token)['entries'][0]['vmas']
+        pms = pycriu.images.load(dinf(opts, 'pagemap-%d.img' % pid), token=token)['entries']
 
         print("%d" % pid)
         vmi = 0
@@ -385,6 +444,10 @@ def main():
         '-o',
         '--out',
         help='where to put criu image in json format (stdout by default)')
+    decode_parser.add_argument(
+        '--tls-key', default=CRIU_KEY,
+        help=f'path to private key in PEM format used to decrypt images (default: {CRIU_KEY})'
+    )
     decode_parser.set_defaults(func=decode, nopl=False)
 
     # Encode
@@ -409,15 +472,25 @@ def main():
     x_parser = subparsers.add_parser('x', help='explore image dir')
     x_parser.add_argument('dir')
     x_parser.add_argument('what', choices=['ps', 'fds', 'mems', 'rss'])
+    x_parser.add_argument(
+        '--tls-key', default=CRIU_KEY,
+        help=f'path to private key in PEM format used to decrypt images (default: {CRIU_KEY})'
+    )
     x_parser.set_defaults(func=explore)
 
     # Show
     show_parser = subparsers.add_parser(
         'show', help="convert criu image from binary to human-readable json")
     show_parser.add_argument("in")
-    show_parser.add_argument('--nopl',
-                             help='do not show entry payload (if exists)',
-                             action='store_true')
+    show_parser.add_argument(
+        '--nopl',
+        help='do not show entry payload (if exists)',
+        action='store_true'
+    )
+    show_parser.add_argument(
+        '--tls-key', default=CRIU_KEY,
+        help=f'path to private key in PEM format used to decrypt images (default: {CRIU_KEY})'
+    )
     show_parser.set_defaults(func=decode, pretty=True, out=None)
 
     opts = vars(parser.parse_args())
