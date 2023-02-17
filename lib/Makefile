@@ -63,11 +63,11 @@ ifeq ($(PIP_BREAK_SYSTEM_PACKAGES),0)
 	$(E) "  Consider using PIP_BREAK_SYSTEM_PACKAGES=1 make install"
 else
 	$(E) "  INSTALL " pycriu
-	$(Q) $(PYTHON) -m pip install --upgrade --ignore-installed --prefix=$(DESTDIR)$(PREFIX) ./lib
+	$(Q) $(PYTHON) -m pip install --no-build-isolation --upgrade --ignore-installed --prefix=$(DESTDIR)$(PREFIX) ./lib
 endif
 else
 	$(E) "  INSTALL " pycriu
-	$(Q) $(PYTHON) -m pip install --upgrade --ignore-installed --prefix=$(DESTDIR)$(PREFIX) ./lib
+	$(Q) $(PYTHON) -m pip install --no-build-isolation --upgrade --ignore-installed --prefix=$(DESTDIR)$(PREFIX) ./lib
 endif
 .PHONY: install
 
