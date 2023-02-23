@@ -53,6 +53,9 @@ function run_test2 {
 	# prepare
 	${CRIT} decode -i "${PROTO_IN}" -o "${JSON_IN}"
 
+	# show info about image
+	${CRIT} info "${PROTO_IN}"
+
 	# proto in - json out decode
 	cat "${PROTO_IN}" | ${CRIT} decode || exit 1
 	cat "${PROTO_IN}" | ${CRIT} decode -o "${OUT}" || exit 1
