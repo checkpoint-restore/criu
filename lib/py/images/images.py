@@ -98,7 +98,7 @@ class entry_handler:
             # Read payload
             pbuff = self.payload()
             buf = f.read(4)
-            if buf == b'':
+            if len(buf) == 0:
                 break
             size, = struct.unpack('i', buf)
             pbuff.ParseFromString(f.read(size))
@@ -172,7 +172,7 @@ class entry_handler:
 
         while True:
             buf = f.read(4)
-            if buf == '':
+            if len(buf) == 0:
                 break
             size, = struct.unpack('i', buf)
             f.seek(size, 1)
@@ -195,7 +195,7 @@ class pagemap_handler:
         pbuff = pb.pagemap_head()
         while True:
             buf = f.read(4)
-            if buf == b'':
+            if len(buf) == 0:
                 break
             size, = struct.unpack('i', buf)
             pbuff.ParseFromString(f.read(size))
@@ -422,7 +422,7 @@ class ipc_msg_queue_handler:
         messages = []
         for x in range(0, entry['qnum']):
             buf = f.read(4)
-            if buf == '':
+            if len(buf) == 0:
                 break
             size, = struct.unpack('i', buf)
             msg = pb.ipc_msg()
@@ -455,7 +455,7 @@ class ipc_msg_queue_handler:
         pl_len = 0
         for x in range(0, entry['qnum']):
             buf = f.read(4)
-            if buf == '':
+            if len(buf) == 0:
                 break
             size, = struct.unpack('i', buf)
             msg = pb.ipc_msg()
