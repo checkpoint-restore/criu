@@ -437,7 +437,7 @@ lint:
 	shellcheck -x test/others/libcriu/*.sh
 	shellcheck -x test/others/crit/*.sh test/others/criu-coredump/*.sh
 	shellcheck -x test/others/config-file/*.sh
-	codespell
+	codespell -S tags
 	# Do not append \n to pr_perror or fail
 	! git --no-pager grep -E '^\s*\<(pr_perror|fail)\>.*\\n"'
 	# Do not use %m with pr_perror or fail
