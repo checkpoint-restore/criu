@@ -445,6 +445,7 @@ usage:
 	       "                        is inaccessible\n"
 	       "  --link-remap          allow one to link unlinked files back when possible\n"
 	       "  --ghost-limit size    limit max size of deleted file contents inside image\n"
+	       "  --ghost-fiemap        enable dumping of deleted files using fiemap\n"
 	       "  --action-script FILE  add an external action script\n"
 	       "  -j|--" OPT_SHELL_JOB "        allow one to dump and restore shell jobs\n"
 	       "  -l|--" OPT_FILE_LOCKS "       handle file locks, for safety, only used for container\n"

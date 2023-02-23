@@ -384,6 +384,13 @@ mount -t cgroup -o devices,freezer none devices,freezer
     'size' may be postfixed with a *K*, *M* or *G*, which stands for kilo-,
     mega, and gigabytes, accordingly.
 
+*--ghost-fiemap*::
+    Enable an optimization based on fiemap ioctl that can reduce the
+    number of system calls used when checkpointing highly sparse ghost
+    files. This option is enabled by default, and it can be disabled
+    with *--no-ghost-fiemap*. An automatic fallback to SEEK_HOLE/SEEK_DATA
+    is used when fiemap is not supported.
+
 *-j*, *--shell-job*::
     Allow one to dump shell jobs. This implies the restored task will
     inherit session and process group ID from the *criu* itself.
