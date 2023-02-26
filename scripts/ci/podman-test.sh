@@ -11,20 +11,6 @@ make install PREFIX=/usr
 
 criu --version
 
-# Install crun build dependencies
-scripts/ci/apt-install libyajl-dev libseccomp-dev libsystemd-dev
-
-# Install crun from source to test libcriu integration
-tmp_dir=$(mktemp -d -t ci-XXXXXXXXXX)
-pushd "${tmp_dir}"
-git clone --depth=1 https://github.com/containers/crun
-cd crun
-./autogen.sh && ./configure --prefix=/usr
-make -j"$(nproc)"
-make install
-popd
-rm -rf "${tmp_dir}"
-
 # FIXME: Disable checkpoint/restore of cgroups
 # https://github.com/checkpoint-restore/criu/issues/2091
 mkdir -p /etc/criu
