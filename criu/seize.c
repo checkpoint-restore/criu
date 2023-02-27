@@ -26,7 +26,7 @@
 
 char *task_comm_info(pid_t pid, char *comm, size_t size)
 {
-	int ret = 0;
+	bool is_read = false;
 
 	if (!pr_quelled(LOG_INFO)) {
 		int saved_errno = errno;
@@ -37,18 +37,21 @@ char *task_comm_info(pid_t pid, char *comm, size_t size)
 		fd = open(path, O_RDONLY);
 		if (fd >= 0) {
 			ssize_t n = read(fd, comm, size);
-			if (n > 0)
+			if (n > 0) {
+				is_read = true;
+				/* Replace '\n' printed by kernel with '\0' */
 				comm[n - 1] = '\0';
-			else
-				ret = -1;
+			} else {
+				pr_warn("Failed to read %s: %s\n", path, strerror(errno));
+			}
 			close(fd);
 		} else {
-			ret = -1;
+			pr_warn("Failed to open %s: %s\n", path, strerror(errno));
 		}
 		errno = saved_errno;
 	}
 
-	if (ret || (pr_quelled(LOG_INFO) && comm[0]))
+	if (!is_read)
 		comm[0] = '\0';
 
 	return comm;
