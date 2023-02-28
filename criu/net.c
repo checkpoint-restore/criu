@@ -2425,29 +2425,18 @@ out:
 }
 
 #if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
-static inline int restore_nftables(int pid)
+static inline int do_restore_nftables(struct cr_img *img)
 {
-	int ret = -1;
-	struct cr_img *img;
+	int exit_code = -1;
 	struct nft_ctx *nft;
 	off_t img_data_size;
 	char *buf;
 
-	img = open_image(CR_FD_NFTABLES, O_RSTR, pid);
-	if (img == NULL)
-		return -1;
-	if (empty_image(img)) {
-		/* Backward compatibility */
-		pr_info("Skipping nft restore, no image\n");
-		ret = 0;
-		goto image_close_out;
-	}
-
 	if ((img_data_size = img_raw_size(img)) < 0)
-		goto image_close_out;
+		goto out;
 
 	if (read_img_str(img, &buf, img_data_size) < 0)
-		goto image_close_out;
+		goto out;
 
 	nft = nft_ctx_new(NFT_CTX_DEFAULT);
 	if (!nft)
@@ -2465,18 +2454,44 @@ static inline int restore_nftables(int pid)
 #endif
 		goto nft_ctx_free_out;
 
-	ret = 0;
+	exit_code = 0;
 
 nft_ctx_free_out:
 	nft_ctx_free(nft);
 buf_free_out:
 	xfree(buf);
+out:
+	return exit_code;
+}
+#endif
+
+static inline int restore_nftables(int pid)
+{
+	int exit_code = -1;
+	struct cr_img *img;
+
+	img = open_image(CR_FD_NFTABLES, O_RSTR, pid);
+	if (img == NULL)
+		return -1;
+	if (empty_image(img)) {
+		/* Backward compatibility */
+		pr_info("Skipping nft restore, no image\n");
+		exit_code = 0;
+		goto image_close_out;
+	}
+
+#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
+	if (!do_restore_nftables(img))
+		exit_code = 0;
+#else
+	pr_err("Unable to restore nftables. CRIU was built without libnftables support\n");
+#endif
+
 image_close_out:
 	close_image(img);
 
-	return ret;
+	return exit_code;
 }
-#endif
 
 int read_net_ns_img(void)
 {
@@ -2805,10 +2820,8 @@ static int prepare_net_ns_second_stage(struct ns_id *ns)
 			ret = restore_rule(nsid);
 		if (!ret)
 			ret = restore_iptables(nsid);
-#if defined(CONFIG_HAS_NFTABLES_LIB_API_0) || defined(CONFIG_HAS_NFTABLES_LIB_API_1)
 		if (!ret)
 			ret = restore_nftables(nsid);
-#endif
 	}
 
 	if (!ret)
