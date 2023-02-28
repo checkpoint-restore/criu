@@ -158,9 +158,11 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 		for (i = 0; i < rv; i++) {
-			while (read(events[i].data.fd, buf, buf_size) > 0)
+			int ret;
+
+			while ((ret = read(events[i].data.fd, buf, buf_size)) > 0)
 				;
-			if (errno != EAGAIN && errno != 0 && errno) {
+			if (ret < 0 && errno != EAGAIN) {
 				pr_perror("read error");
 				killall();
 				exit(1);
