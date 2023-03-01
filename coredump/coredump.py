@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 
 import criu_coredump
 
@@ -34,7 +35,12 @@ def main():
 
     opts = vars(parser.parse_args())
 
-    coredump(opts)
+    try:
+        coredump(opts)
+    except SystemExit as error:
+        print('ERROR: %s' % error)
+        print('Exiting')
+        sys.exit(1)
 
 
 if __name__ == '__main__':

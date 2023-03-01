@@ -692,7 +692,11 @@ class coredump_generator:
             files = self.reg_files
             fname = next(filter(lambda x: x["id"] == shmid, files))["name"]
 
-            f = open(fname, 'rb')
+            try:
+                f = open(fname, 'rb')
+            except FileNotFoundError:
+                sys.exit('Required file %s not found.' % fname)
+
             f.seek(off)
 
         start = vma["start"]
