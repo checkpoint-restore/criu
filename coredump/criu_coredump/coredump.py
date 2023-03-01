@@ -315,7 +315,9 @@ class coredump_generator:
         prpsinfo.pr_ppid = pstree["ppid"]
         prpsinfo.pr_pgrp = pstree["pgid"]
         prpsinfo.pr_sid = pstree["sid"]
-        prpsinfo.pr_psargs = self._gen_cmdline(pid)
+        # prpsinfo.pr_psargs has a limit of 80 characters which means it will
+        # fail here if the cmdline is longer than 80
+        prpsinfo.pr_psargs = self._gen_cmdline(pid)[:80]
         if (sys.version_info > (3, 0)):
             prpsinfo.pr_fname = core["tc"]["comm"].encode()
         else:
