@@ -1602,10 +1602,10 @@ char *get_legacy_iptables_bin(bool ipv6, bool restore)
 	 * 1  - present.
 	 */
 	static int iptables_present[2][2] = { { 0, 0 }, { 0, 0 } };
-	char bins[2][2][2][32] = { { { "iptables-save", "iptables-legacy-save" },
-				     { "iptables-restore", "iptables-legacy-restore" } },
-				   { { "ip6tables-save", "ip6tables-legacy-save" },
-				     { "ip6tables-restore", "ip6tables-legacy-restore" } } };
+	char bins[2][2][2][32] = {
+		{ { "iptables-save", "iptables-legacy-save" }, { "iptables-restore", "iptables-legacy-restore" } },
+		{ { "ip6tables-save", "ip6tables-legacy-save" }, { "ip6tables-restore", "ip6tables-legacy-restore" } }
+	};
 	int ret;
 
 	if (iptables_present[ipv6][restore] == -1)
