@@ -397,7 +397,7 @@ static int prepare_pstree_for_shell_job(pid_t pid)
 		return 0;
 
 	old_gid = root_item->pgid;
-	if (old_gid != current_gid) {
+	if (old_gid != current_gid && old_gid != current_sid) {
 		pr_info("Migrating process tree (GID %d->%d)\n", old_gid, current_gid);
 
 		tmp = pstree_pid_by_virt(current_gid);
