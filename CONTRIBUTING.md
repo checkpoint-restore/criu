@@ -60,6 +60,36 @@ When you change the source code, please keep in mind the following code conventi
 Other conventions can be learned from the source code itself. In short, make sure your new code
 looks similar to what is already there.
 
+The following command can be used to automatically run a code linter for Python files (flake8), Shell scripts (shellcheck),
+text spelling (codespell), and a number of CRIU-specific checks (usage of print macros and EOL whitespace for C files).
+
+```
+         make lint
+```
+
+In addition, we have adopted a [clang-format configuration file](https://www.kernel.org/doc/Documentation/process/clang-format.rst)
+based on the kernel source tree. However, compliance with the clang-format autoformat rules is optional. If the automatic code formatting
+results in decreased readability, we may choose to ignore these errors.
+
+Run the following command to check if your changes are compliant with the clang-format rules:
+
+```
+         make indent
+```
+
+This command is built upon the `git-clang-format` tool and supports two options `BASE` and `OPTS`. The `BASE` option allows you to
+specify a range of commits to check for coding style issues. By default, it is set to `HEAD~1`, so that only the last commit is checked.
+If you are developing on top of the criu-dev branch and want to check all your commits for compliance with the clang-format rules, you
+can use `BASE=origin/criu-dev`. The `OPTS` option can be used to pass additional options to `git-clang-format`. For example, if you want
+to check the last *N* commits for formatting errors, without applying the changes to the codebase you can use the following command.
+
+```
+         make indent OPTS=--diff BASE=HEAD~N
+```
+
+Note that for pull requests, the "Run code linter" workflow runs these checks for all commits. If a clang-format error is detected
+we need to review the suggested changes and decide if they should be fixed before merging.
+
 ## Test your changes
 
 CRIU comes with an extensive test suite. To check whether your changes introduce any regressions, run
