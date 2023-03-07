@@ -106,6 +106,15 @@ DEFINES			+= -D_GNU_SOURCE
 
 WARNINGS		:= -Wall -Wformat-security -Wdeclaration-after-statement -Wstrict-prototypes
 
+# -Wdangling-pointer results in false warning when we add a list element to
+# local list head variable. It is false positive because before leaving the
+# function we always check that local list head variable is empty, thus
+# insuring that pointer to it is not dangling anywhere, but gcc can't
+# understand it.
+# Note: There is similar problem with kernel list, where this warning is also
+# disabled: https://github.com/torvalds/linux/commit/49beadbd47c2
+WARNINGS		+= -Wno-dangling-pointer -Wno-unknown-warning-option
+
 CFLAGS-GCOV		:= --coverage -fno-exceptions -fno-inline -fprofile-update=atomic
 export CFLAGS-GCOV
 
