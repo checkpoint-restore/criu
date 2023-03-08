@@ -103,6 +103,11 @@ mmap_status_map = [
     ('VMA_AREA_SOCKET', 1 << 11),
     ('VMA_AREA_VVAR', 1 << 12),
     ('VMA_AREA_AIORING', 1 << 13),
+    ('VMA_AREA_MEMFD', 1 << 14),
+    ('VMA_EXT_PLUGIN', 1 << 27),
+    ('VMA_CLOSE', 1 << 28),
+    ('VMA_NO_PROT_WRITE', 1 << 29),
+    ('VMA_PREMMAPED', 1 << 30),
     ('VMA_UNSUPP', 1 << 31),
 ]
 

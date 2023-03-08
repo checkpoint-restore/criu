@@ -195,6 +195,12 @@ static void vma_opt_str(const struct vma_area *v, char *opt)
 	opt2s(VMA_ANON_PRIVATE, "ap");
 	opt2s(VMA_AREA_SYSVIPC, "sysv");
 	opt2s(VMA_AREA_SOCKET, "sk");
+	opt2s(VMA_AREA_AIORING, "aio");
+	opt2s(VMA_AREA_MEMFD, "memfd");
+	opt2s(VMA_EXT_PLUGIN, "ext");
+	opt2s(VMA_CLOSE, "close");
+	opt2s(VMA_NO_PROT_WRITE, "nowrite");
+	opt2s(VMA_PREMMAPED, "premap");
 
 #undef opt2s
 }
