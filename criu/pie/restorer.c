@@ -1768,6 +1768,18 @@ long __export_restore_task(struct task_restore_args *args)
 		unsigned long m;
 
 		vma_entry = args->vmas + i;
+
+		/*
+		 * We don't want to call madvice(2) on the mappings that are not restored by CRIU,
+		 * but presented in the CRIU images (uprobes XOL mapping, for instance), otherwise
+		 * we'll get -ENOMEM error from madvise(2).
+		 *
+		 * Please, keep this consistent with the checks before restore_mapping() call above.
+		 */
+		if (!vma_entry_is(vma_entry, VMA_PREMMAPED) && !vma_entry_is(vma_entry, VMA_AREA_REGULAR) &&
+		    !vma_entry_is(vma_entry, VMA_AREA_AIORING))
+			continue;
+
 		if (!vma_entry->has_madv || !vma_entry->madv)
 			continue;
 
