@@ -260,6 +260,7 @@ if [ -n "$TRAVIS" ] || [ -n "$CIRCLECI" ]; then
        # Error (criu/tty.c:1014): tty: Don't have tty to inherit session from, aborting
        make -C test/others/shell-job/ run
 fi
+make -C test/others/criu-ns/ run
 make -C test/others/skip-file-rwx-check/ run
 make -C test/others/rpc/ run
 
