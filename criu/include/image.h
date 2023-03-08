@@ -60,6 +60,11 @@
  *  	memory map for socket
  *  - AIO ring
  *  	memory area serves AIO buffers
+ *  - Uprobes
+ *  	XOL (execution out of line) memory area installed to the
+ *  	process mm_struct by the kernel for internal uprobes needs.
+ *  	CRIU skips it on restore, but we save all metadata about it
+ *  	to the CRIU images just in case.
  *  - unsupported
  *  	stands for any unknown memory areas, usually means
  *  	we don't know how to work with it and should stop
@@ -84,6 +89,7 @@
 #define VMA_AREA_VVAR	 (1 << 12)
 #define VMA_AREA_AIORING (1 << 13)
 #define VMA_AREA_MEMFD	 (1 << 14)
+#define VMA_AREA_UPROBES (1 << 15)
 
 #define VMA_EXT_PLUGIN	  (1 << 27)
 #define VMA_CLOSE	  (1 << 28)

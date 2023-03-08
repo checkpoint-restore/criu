@@ -572,6 +572,8 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area, const char *file_pat
 			goto err;
 	} else if (!strcmp(file_path, "[heap]")) {
 		vma_area->e->status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
+	} else if (!strcmp(file_path, "[uprobes]")) {
+		vma_area->e->status |= VMA_AREA_UPROBES;
 	} else {
 		vma_area->e->status = VMA_AREA_REGULAR;
 	}
@@ -708,6 +710,9 @@ static int vma_list_add(struct vma_area *vma_area, struct vm_area_list *vma_area
 		 */
 		pr_debug("Device file mapping %016" PRIx64 "-%016" PRIx64 " supported via device plugins\n",
 			 vma_area->e->start, vma_area->e->end);
+	} else if (vma_area->e->status & VMA_AREA_UPROBES) {
+		pr_warn("Uprobes XOL area mapping %016" PRIx64 "-%016" PRIx64 " will be skipped\n", vma_area->e->start,
+			vma_area->e->end);
 	} else if (vma_area->e->status & VMA_UNSUPP) {
 		pr_err("Unsupported mapping found %016" PRIx64 "-%016" PRIx64 "\n", vma_area->e->start,
 		       vma_area->e->end);
