@@ -16,6 +16,7 @@
 #include <linux/fiemap.h>
 #include <linux/fs.h>
 
+#include "tls.h"
 #include "tty.h"
 #include "stats.h"
 
@@ -375,8 +376,14 @@ static int mkreg_ghost(char *path, GhostFileEntry *gfe, struct cr_img *img)
 		}
 
 		ret = copy_file_from_chunks(img, gfd, gfe->size);
-	} else
-		ret = copy_file(img_raw_fd(img), gfd, 0);
+	} else {
+		if (opts.encrypt) {
+			ret = tls_decrypt_file_data(img_raw_fd(img), gfd, gfe->size);
+		} else {
+			ret = copy_file(img_raw_fd(img), gfd, 0);
+		}
+	}
+
 	if (ret < 0)
 		unlink(path);
 	close(gfd);
@@ -981,6 +988,7 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 			goto err_out;
 		}
 
+
 		if (gfe.chunks) {
 			if (opts.ghost_fiemap) {
 				ret = copy_file_to_chunks_fiemap(fd, img, st->st_size);
@@ -992,7 +1000,11 @@ static int dump_ghost_file(int _fd, u32 id, const struct stat *st, dev_t phys_de
 				ret = copy_file_to_chunks(fd, img, st->st_size);
 			}
 		} else {
-			ret = copy_file(fd, img_raw_fd(img), st->st_size);
+			if (opts.encrypt) {
+				ret = tls_encrypt_file_data(fd, img_raw_fd(img), st->st_size);
+			} else {
+				ret = copy_file(fd, img_raw_fd(img), st->st_size);
+			}
 		}
 
 		close(fd);

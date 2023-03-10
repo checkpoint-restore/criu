@@ -25,6 +25,9 @@ int tls_initialize_cipher(void);
 int tls_initialize_cipher_from_image(void);
 int tls_encrypt_data(void *data, size_t data_size, uint8_t *tag_data, uint8_t *nonce_data);
 int tls_decrypt_data(void *data, size_t data_size, uint8_t *tag_data, uint8_t *nonce_data);
+int tls_encrypt_pipe_data(int fd_in, int fd_out, size_t data_size);
+int tls_encrypt_file_data(int fd_in, int fd_out, size_t data_size);
+int tls_decrypt_file_data(int fd_in, int fd_out, size_t data_size);
 
 #else /* CONFIG_GNUTLS */
 
@@ -38,6 +41,9 @@ int tls_decrypt_data(void *data, size_t data_size, uint8_t *tag_data, uint8_t *n
 #define tls_initialize_cipher_from_image() (0)
 #define tls_encrypt_data(data, data_size, tag_data, nonce_data) (-1)
 #define tls_decrypt_data(data, data_size, tag_data, nonce_data) (-1)
+#define tls_encrypt_pipe_data(fd_in, fd_out, data_size) (-1)
+#define tls_encrypt_file_data(fd_in, fd_out, data_size) (-1)
+#define tls_decrypt_file_data(fd_in, fd_out, data_size) (-1)
 #define write_img_cipher() (0)
 
 #endif /* CONFIG_HAS_GNUTLS */

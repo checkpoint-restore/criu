@@ -18,6 +18,8 @@
 #include "images/pipe-data.pb-c.h"
 #include "fcntl.h"
 #include "namespaces.h"
+#include "cr_options.h"
+#include "tls.h"
 
 static LIST_HEAD(pipes);
 
@@ -455,18 +457,21 @@ int dump_one_pipe_data(struct pipe_data_dump *pd, int lfd, const struct fd_parms
 	if (pb_write_one(img, &pde, PB_PIPE_DATA))
 		goto err_close;
 
-	while (bytes > 0) {
-		int wrote;
-		wrote = splice(steal_pipe[0], NULL, img_raw_fd(img), NULL, bytes, 0);
-		if (wrote < 0) {
-			pr_perror("Can't push pipe data");
-			goto err_close;
-		} else if (wrote == 0)
-			break;
-		bytes -= wrote;
+	if (opts.encrypt) {
+		ret = tls_encrypt_pipe_data(steal_pipe[0], img_raw_fd(img), bytes);
+	} else {
+		while (bytes > 0) {
+			int wrote;
+			wrote = splice(steal_pipe[0], NULL, img_raw_fd(img), NULL, bytes, 0);
+			if (wrote < 0) {
+				pr_perror("Can't push pipe data");
+				goto err_close;
+			} else if (wrote == 0)
+				break;
+			bytes -= wrote;
+		}
+		ret = 0;
 	}
-
-	ret = 0;
 
 err_close:
 	close(steal_pipe[0]);

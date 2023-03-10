@@ -1,3 +1,4 @@
+#include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -10,11 +11,13 @@
 #include <gnutls/crypto.h>
 #include <gnutls/abstract.h>
 
+#include "page.h"
 #include "imgset.h"
 #include "images/cipher.pb-c.h"
 #include "protobuf.h"
 #include "cr_options.h"
 #include "xmalloc.h"
+#include "tls.h"
 
 /* Compatibility with GnuTLS version < 3.5 */
 #ifndef GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR
@@ -840,4 +843,215 @@ int tls_decrypt_data(void *data, size_t data_size, uint8_t *tag_data, uint8_t *n
 	gnutls_aead_cipher_deinit(handle);
 
 	return ret;
+}
+
+/**
+ * tls_encrypt_pipe_data reads data from fd_in, encrypts the data, and writes
+ * the encrypted data to fd_out. If data_size is zero, then the function
+ * returns immediately without reading or writing any data.
+ */
+int tls_encrypt_pipe_data(int fd_in, int fd_out, size_t data_size)
+{
+	int exit_code = -1;
+	ssize_t ret, bytes_read = 0;
+	cleanup_free uint8_t *buf = NULL;
+	chacha20_poly1305_t cipher_data;
+
+	if (data_size == 0)
+		return 0;
+
+	buf = xmalloc(data_size);
+	if (!buf)
+		return -1;
+
+	while (bytes_read < data_size) {
+		ret = read(fd_in, buf + bytes_read, data_size - bytes_read);
+		if (ret < 0) {
+			pr_perror("Can't read file data");
+			goto err;
+		}
+		if (ret == 0) {
+			break;
+		}
+		bytes_read += ret;
+	}
+
+	/* Encrypt buffer data using ChaCha20-Poly1305 */
+	if (tls_encrypt_data(buf, data_size, cipher_data.tag, cipher_data.nonce) < 0) {
+		pr_err("Failed to encrypt buffer data\n");
+		goto err;
+	}
+
+	/* Write ciphertext data */
+	ret = write(fd_out, buf, data_size);
+	if (ret != data_size) {
+		if (ret < 0)
+			pr_perror("Failed to write file data");
+		else
+			pr_err("Failed to write all data to image file (%zd != %zd)\n", ret, bytes_read);
+		goto err;
+	}
+
+	/* Write tag data */
+	if (write(fd_out, cipher_data.tag, sizeof(cipher_data.tag)) != sizeof(cipher_data.tag)) {
+		pr_err("Failed to write tag data to image file\n");
+		goto err;
+	}
+
+	/* Write nonce data */
+	if (write(fd_out, cipher_data.nonce, sizeof(cipher_data.nonce)) != sizeof(cipher_data.nonce)) {
+		pr_err("Failed to write nonce data to image file\n");
+		goto err;
+	}
+
+	exit_code = 0;
+err:
+	return exit_code;
+}
+
+/**
+ * tls_encrypt_file_data reads data from fd_in, encrypts the data, and writes
+ * the encrypted data to fd_out. The function reads all data from fd_in until EOF.
+ * If data_size is non-zero, then it checks that the total number of bytes read
+ * is equal to data_size.
+ */
+int tls_encrypt_file_data(int fd_in, int fd_out, size_t data_size)
+{
+	int exit_code = -1;
+	ssize_t ret, bytes_read = 0, total = 0;
+	uint8_t buf[PAGE_SIZE];
+	chacha20_poly1305_t cipher_data;
+
+	while (1) {
+		bytes_read = 0;
+		while (bytes_read < sizeof(buf)) {
+			ret = read(fd_in, buf + bytes_read, sizeof(buf) - bytes_read);
+			if (ret < 0) {
+				pr_perror("Can't read file data");
+				goto err;
+			}
+			if (ret == 0)
+				break; /* EOF */
+
+			bytes_read += ret;
+		}
+
+		if (bytes_read == 0)
+			break; /* EOF */
+
+		/* Encrypt buffer data using ChaCha20-Poly1305 */
+		if (tls_encrypt_data(buf, bytes_read, cipher_data.tag, cipher_data.nonce) < 0) {
+			pr_err("Failed to encrypt buffer data\n");
+			goto err;
+		}
+
+		/* Write tag data */
+		if (write(fd_out, cipher_data.tag, sizeof(cipher_data.tag)) != sizeof(cipher_data.tag)) {
+			pr_err("Failed to write tag data to image file\n");
+			goto err;
+		}
+
+		/* Write nonce data */
+		if (write(fd_out, cipher_data.nonce, sizeof(cipher_data.nonce)) != sizeof(cipher_data.nonce)) {
+			pr_err("Failed to write nonce data to image file\n");
+			goto err;
+		}
+
+		/* Write size of data */
+		if (write(fd_out, &bytes_read, sizeof(bytes_read)) != sizeof(bytes_read)) {
+			pr_err("Failed to write size of data to image file\n");
+			goto err;
+		}
+
+		/* Write ciphertext data */
+		ret = write(fd_out, buf, bytes_read);
+		if (ret != bytes_read) {
+			if (ret < 0)
+				pr_perror("Failed to write file data");
+			else
+				pr_err("Failed to write all data to image file (%zd != %zd)\n", ret, bytes_read);
+			goto err;
+		}
+		total += ret;
+	}
+
+	if (data_size && total != data_size) {
+		pr_err("File size mismatch (%zd != %zd)\n", total, data_size);
+		goto err;
+	}
+
+	exit_code = 0;
+err:
+	return exit_code;
+}
+
+/**
+ * tls_decrypt_file_data reads encrypted data from fd_in, decrypts the data,
+ * and writes the decrypted data to fd_out. The function reads all data from
+ * fd_in until EOF and if data_size is non-zero, then it checks that the
+ * total number of bytes read is equal to data_size.
+ */
+int tls_decrypt_file_data(int fd_in, int fd_out, size_t data_size)
+{
+	chacha20_poly1305_t cipher_data;
+	ssize_t ret, bytes_read = 0, total = 0;
+	int exit_code = -1;
+	uint8_t buf[PAGE_SIZE];
+
+	while (1) {
+		/* Read tag data */
+		ret = read(fd_in, cipher_data.tag, sizeof(cipher_data.tag));
+		if (ret == 0)
+			break; /* EOF */
+		if (ret != sizeof(cipher_data.tag)) {
+			pr_perror("Failed to read tag data (%lu != %lu)", ret, sizeof(cipher_data.tag));
+			goto err;
+		}
+
+		/* Read nonce data */
+		ret = read(fd_in, cipher_data.nonce, sizeof(cipher_data.nonce));
+		if (ret != sizeof(cipher_data.nonce)) {
+			pr_perror("Failed to read nonce data (%lu != %lu)", ret, sizeof(cipher_data.nonce));
+			goto err;
+		}
+
+		/* Read data size */
+		ret = read(fd_in, &bytes_read, sizeof(bytes_read));
+		if (ret != sizeof(bytes_read)) {
+			pr_perror("Failed to read data size (%lu != %lu)", ret, sizeof(bytes_read));
+			goto err;
+		}
+
+		ret = read(fd_in, buf, bytes_read);
+		if (ret != bytes_read) {
+			pr_perror("Failed to read file data (%lu != %lu)", ret, bytes_read);
+			goto err;
+		}
+
+		/* Decrypt buffer data using ChaCha20-Poly1305 */
+		if (tls_decrypt_data(buf, bytes_read, cipher_data.tag, cipher_data.nonce) < 0) {
+			pr_err("Failed to decrypt buffer data\n");
+			goto err;
+		}
+
+		/* Write plaintext data */
+		ret = write(fd_out, buf, bytes_read);
+		if (ret != bytes_read) {
+			if (ret < 0)
+				pr_perror("Failed to write file data");
+			else
+				pr_err("Failed to write all data to file (%zd != %zd)\n", ret, bytes_read);
+			goto err;
+		}
+		total += ret;
+	}
+
+	if (data_size && total != data_size) {
+		pr_err("File size mismatch (%zd != %zd)\n", total, data_size);
+		goto err;
+	}
+
+	exit_code = 0;
+err:
+	return exit_code;
 }
