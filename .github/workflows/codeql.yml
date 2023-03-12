@@ -8,6 +8,11 @@ on:
   schedule:
     - cron: "11 6 * * 3"
 
+# Cancel any preceding run on the pull request.
+concurrency:
+  group: codeql-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/criu-dev' }}
+
 jobs:
   analyze:
     name: Analyze
