@@ -812,7 +812,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list, dump_filemap_t du
 			goto err;
 
 		num = sscanf(str, "%lx-%lx %c%c%c%c %lx %x:%x %lu %n", &start, &end, &r, &w, &x, &s, &pgoff,
-			     &vfi.dev_maj, &vfi.dev_min, &vfi.ino, &path_off);
+			     (unsigned int *)&vfi.dev_maj, &vfi.dev_min, &vfi.ino, &path_off);
 		if (num < 10) {
 			pr_err("Can't parse: %s\n", str);
 			goto err;
@@ -1190,7 +1190,7 @@ struct opt2flag {
 
 static bool sb_opt_cb(char *opt, char *unknown, size_t *uoff)
 {
-	unsigned int id;
+	int id;
 
 	if (sscanf(opt, "gid=%d", &id) == 1) {
 		*uoff += sprintf(unknown + *uoff, "gid=%d", userns_gid(id));
@@ -1863,7 +1863,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 			goto out;
 
 		if (fdinfo_field(str, "pos") || fdinfo_field(str, "flags") || fdinfo_field(str, "mnt_id")) {
-			unsigned long long val;
+			long long val;
 			struct fdinfo_common *fdinfo = arg;
 
 			if (type != FD_TYPES__UND)
@@ -1970,7 +1970,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 			ret = sscanf(str,
 				     "tfd: %d events: %x data: %llx"
 				     " pos:%lli ino:%lx sdev:%x",
-				     &e->tfd, &e->events, (long long *)&e->data, (long long *)&e->pos,
+				     &e->tfd, &e->events, (unsigned long long *)&e->data, (long long *)&e->pos,
 				     (long *)&e->inode, &e->dev);
 			if (ret < 3 || ret > 6) {
 				eventpoll_tfd_entry__free_unpacked(e, NULL);

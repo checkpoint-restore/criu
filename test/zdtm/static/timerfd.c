@@ -65,7 +65,7 @@ static int parse_self_fdinfo(int fd, struct timerfd_status *s)
 
 		if (!fgets(buf, sizeof(buf), f))
 			goto parse_err;
-		if (sscanf(buf, "settime flags: 0%o", &s->settime_flags) != 1)
+		if (sscanf(buf, "settime flags: 0%o", (unsigned int*)&s->settime_flags) != 1)
 			goto parse_err;
 
 		if (!fgets(buf, sizeof(buf), f))
