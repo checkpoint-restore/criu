@@ -245,7 +245,7 @@ static int rand_ipc_sem(void)
 		pr_perror("Can't open %s", name);
 		return fd;
 	}
-	sprintf(buf, "%d %d %d %d\n", lrand48(), lrand48(), lrand48(),
+	sprintf(buf, "%d %d %d %d\n", lrand48(), (unsigned)lrand48(), (unsigned)lrand48(),
 		(unsigned)lrand48() % MAX_MNI);
 	ret = write(fd, buf, 128);
 	if (ret < 0) {
