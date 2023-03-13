@@ -195,7 +195,7 @@ static int kerndat_get_dev(dev_t *dev, char *map, size_t size)
 	char maps[128];
 	struct stat buf;
 
-	sprintf(maps, "/proc/self/map_files/%lx-%zu", (unsigned long)map, (unsigned long)map + size);
+	sprintf(maps, "/proc/self/map_files/%lx-%lx", (unsigned long)map, (unsigned long)map + (unsigned long)size);
 	if (stat(maps, &buf) < 0) {
 		int e = errno;
 		if (errno == EPERM) {

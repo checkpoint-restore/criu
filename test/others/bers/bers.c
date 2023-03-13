@@ -135,7 +135,7 @@ static int create_files(shared_data_t *shared, int *fd, size_t nr_files)
 
 	memset(fd, 0xff, sizeof(*fd) * MAX_CHUNK);
 
-	pr_info("\tCreating %zu files\n", shared->opt_files);
+	pr_info("\tCreating %lu files\n", (unsigned long)shared->opt_files);
 
 	for (i = 0; i < shared->opt_files; i++) {
 		if (shared->prev_fd[i] != -1) {
@@ -168,7 +168,7 @@ static void work_on_fork(shared_data_t *shared)
 	pthread_mutex_lock(&shared->mutex);
 	pr_trace("init\n");
 
-	pr_info("\tCreating %lu mmaps each %zu K\n", shared->opt_mem_chunks, shared->opt_mem_chunk_size >> 10);
+	pr_info("\tCreating %lu mmaps each %lu K\n", shared->opt_mem_chunks, (unsigned long)shared->opt_mem_chunk_size >> 10);
 
 	for (i = 0; i < shared->opt_mem_chunks; i++) {
 		if (shared->prev_map[i]) {
