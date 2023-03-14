@@ -1190,14 +1190,14 @@ struct opt2flag {
 
 static bool sb_opt_cb(char *opt, char *unknown, size_t *uoff)
 {
-	int id;
+	unsigned int id;
 
-	if (sscanf(opt, "gid=%d", &id) == 1) {
+	if (sscanf(opt, "gid=%d", (int *)&id) == 1) {
 		*uoff += sprintf(unknown + *uoff, "gid=%d", userns_gid(id));
 		unknown[*uoff] = ',';
 		(*uoff)++;
 		return true;
-	} else if (sscanf(opt, "uid=%d", &id) == 1) {
+	} else if (sscanf(opt, "uid=%d", (int *)&id) == 1) {
 		*uoff += sprintf(unknown + *uoff, "uid=%d", userns_uid(id));
 		unknown[*uoff] = ',';
 		(*uoff)++;
@@ -1863,12 +1863,12 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 			goto out;
 
 		if (fdinfo_field(str, "pos") || fdinfo_field(str, "flags") || fdinfo_field(str, "mnt_id")) {
-			long long val;
+			unsigned long long val;
 			struct fdinfo_common *fdinfo = arg;
 
 			if (type != FD_TYPES__UND)
 				continue;
-			ret = sscanf(str, "%*s %lli", &val);
+			ret = sscanf(str, "%*s %lli", (long long *)&val);
 			if (ret != 1)
 				goto parse_err;
 
