@@ -78,7 +78,7 @@ fi
 
 cd ../../zdtm/static/
 make mem-touch.stop
-cat mem-touch.out | fgrep PASS || fail "Test failed"
+< mem-touch.out fgrep PASS || fail "Test failed"
 
 if [ $restore_dedup_ok -ne 0 ]; then
 	fail "Dedup test failed"

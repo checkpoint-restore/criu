@@ -12,7 +12,7 @@ kill -0 $pid || exit
 cat /proc/$pid/mountinfo | sort -k 4
 echo "Suspend server"
 ${CRIU} dump -D dump -o dump.log -t $pid -v4 || {
-	cat dump/dump.log | grep Error
+	< dump/dump.log grep Error
 	exit 1
 }
 echo "Resume server"
