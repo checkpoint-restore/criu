@@ -58,7 +58,7 @@ ${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log --auto-dedup -d -v4 || fa
 make -C ../../zdtm/static/ maps04.stop
 sleep 1
 
-cat "../zdtm/static/maps04.out" | fgrep PASS || fail "Test failed"
+fgrep PASS "../zdtm/static/maps04.out" || fail "Test failed"
 
 size=$(du -sh -BK  dump/1/pages-*.img | grep -Eo '[0-9]+' | head -1)
 if [ $size -ne 0 ] ; then

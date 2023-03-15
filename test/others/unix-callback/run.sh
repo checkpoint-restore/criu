@@ -40,7 +40,7 @@ done
 ${CRIU} restore -D data -o restore.log -v4 --lib `pwd`/lib -d || exit 1
 kill $pid
 while :; do
-	cat output | grep PASS && break
+	grep PASS output && break
 	sleep 1
 done
 

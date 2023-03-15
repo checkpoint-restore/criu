@@ -12,7 +12,7 @@ cd $INMNTNS
 
 mount --make-rprivate /
 
-for i in `cat /proc/self/mounts | awk '{ print $2 }'`; do
+for i in `awk '{ print $2 }' < /proc/self/mounts`; do
 	[ '/' = "$i" ] && continue
 	[ '/proc' = "$i" ] && continue
 	[ '/dev' = "$i" ] && continue
