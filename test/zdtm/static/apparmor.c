@@ -59,7 +59,7 @@ int checkprofile(void)
 		return -1;
 	}
 
-	len = fscanf(f, "%[^ \n]s", profile);
+	len = fscanf(f, "%1023[^ \n]s", profile);
 	fclose(f);
 	if (len != 1) {
 		fail("wrong number of items scanned %d", len);
