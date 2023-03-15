@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 		if (!pos)
 			continue;
 
-		result = sscanf(pos, " - %*s %*s %s", opts);
+		result = sscanf(pos, " - %*s %*s %1023s", opts);
 		if (result != 1) {
 			fail("Not able to sscanf line from mountinfo");
 			goto out;

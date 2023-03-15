@@ -1477,7 +1477,7 @@ static int parse_mountinfo_ent(char *str, struct mount_info *new, char **fsname)
 		goto err;
 
 	new->mountpoint[0] = '.';
-	ret = sscanf(str, "%i %i %u:%u %ms %s %ms %n", &new->mnt_id, &new->parent_mnt_id, &kmaj, &kmin, &new->root,
+	ret = sscanf(str, "%i %i %u:%u %ms %4094s %ms %n", &new->mnt_id, &new->parent_mnt_id, &kmaj, &kmin, &new->root,
 		     new->mountpoint + 1, &opt, &n);
 	if (ret != 7)
 		goto err;
@@ -2302,10 +2302,10 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl, bool is_blocked)
 	char fl_flag[10], fl_type[15], fl_option[10];
 
 	if (is_blocked) {
-		num = sscanf(buf, "%lld: -> %s %s %s %d %x:%x:%ld %lld %s", &fl->fl_id, fl_flag, fl_type, fl_option,
+		num = sscanf(buf, "%lld: -> %9s %14s %9s %d %x:%x:%ld %lld %31s", &fl->fl_id, fl_flag, fl_type, fl_option,
 			     &fl->fl_owner, &fl->maj, &fl->min, &fl->i_no, &fl->start, fl->end);
 	} else {
-		num = sscanf(buf, "%lld:%s %s %s %d %x:%x:%ld %lld %s", &fl->fl_id, fl_flag, fl_type, fl_option,
+		num = sscanf(buf, "%lld:%9s %14s %9s %d %x:%x:%ld %lld %31s", &fl->fl_id, fl_flag, fl_type, fl_option,
 			     &fl->fl_owner, &fl->maj, &fl->min, &fl->i_no, &fl->start, fl->end);
 	}
 

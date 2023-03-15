@@ -107,7 +107,7 @@ static int check_file_lock(int fd, char *expected_type, char *expected_option, u
 		memset(fl_type, 0, sizeof(fl_type));
 		memset(fl_option, 0, sizeof(fl_option));
 
-		num = sscanf(buf, "%*s %*d:%s %s %s %d %x:%x:%ld %*d %*s", fl_flag, fl_type, fl_option, &fl_owner, &maj,
+		num = sscanf(buf, "%*s %*d:%15s %15s %15s %d %x:%x:%ld %*d %*s", fl_flag, fl_type, fl_option, &fl_owner, &maj,
 			     &min, &i_no);
 		if (num < 7) {
 			pr_err("Invalid lock info\n");

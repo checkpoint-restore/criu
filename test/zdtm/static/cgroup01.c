@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 		if (!s)
 			continue;
 
-		sscanf(paux, "%*d %*d %*d:%*d %*s %s", aux);
+		sscanf(paux, "%*d %*d %*d:%*d %*s %1023s", aux);
 		test_msg("found cgroup at %s\n", aux);
 
 		for (i = 0; i < 2; i++) {

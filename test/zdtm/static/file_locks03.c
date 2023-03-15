@@ -41,7 +41,7 @@ static int check_file_lock(pid_t pid, pid_t child, int fd, char *expected_type, 
 		memset(fl_type, 0, sizeof(fl_type));
 		memset(fl_option, 0, sizeof(fl_option));
 
-		num = sscanf(buf, "%*s %*d:%s %s %s %d", fl_flag, fl_type, fl_option, &fl_owner);
+		num = sscanf(buf, "%*s %*d:%15s %15s %15s %d", fl_flag, fl_type, fl_option, &fl_owner);
 		if (num < 4) {
 			pr_perror("Invalid lock info.");
 			break;
