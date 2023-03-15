@@ -54,7 +54,7 @@ mnt_info_t *get_cwd_mnt_info(void)
 
 	while (fgets(str, sizeof(str), f)) {
 		char *hyphen = strchr(str, '-');
-		ret = sscanf(str, "%i %i %u:%u %s %s", &mnt_id, &parent_mnt_id, &kmaj, &kmin, root, mountpoint);
+		ret = sscanf(str, "%i %i %u:%u %4095s %4095s", &mnt_id, &parent_mnt_id, &kmaj, &kmin, root, mountpoint);
 		if (ret != 6 || !hyphen)
 			goto err;
 		ret = sscanf(hyphen + 1, " %ms", &fsname);

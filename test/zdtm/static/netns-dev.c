@@ -414,7 +414,7 @@ static int check_stable_secret(struct test_conf *tc)
 		return -1;
 	}
 
-	ret = fscanf(fp, "%s", val);
+	ret = fscanf(fp, "%200s", val);
 	if (ret != 1) {
 		pr_perror("fscanf");
 		fclose(fp);
