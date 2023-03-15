@@ -28,7 +28,7 @@ function stop_test {
 	wtime=1
 	cd ../../zdtm/static/
 	make maps04.stop
-	cat maps04.out | fgrep PASS || fail "Test failed"
+	fgrep PASS maps04.out || fail "Test failed"
 	echo "OK"
 }
 
