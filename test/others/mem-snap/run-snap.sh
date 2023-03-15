@@ -69,6 +69,6 @@ ${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log -d -v4 || fail "Fail to r
 
 cd ../../zdtm/static/
 make mem-touch.stop
-cat mem-touch.out | fgrep PASS || fail "Test failed"
+fgrep PASS mem-touch.out || fail "Test failed"
 
 echo "Test PASSED"
