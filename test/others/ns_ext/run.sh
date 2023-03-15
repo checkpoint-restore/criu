@@ -61,7 +61,7 @@ exec 33< $MNT1
 exec 34< $MNT2
 $CRIU dump -v4 -t $pid -o dump.log -D images --external $NS[$ino]:test_ns --external $NS[$ino2]:test_ns2
 RESULT=$?
-cat images/dump.log | grep -B 5 Error || echo ok
+grep -B 5 Error images/dump.log || echo ok
 [ "$RESULT" != "0" ] && {
 	echo "CRIU dump failed"
 	echo FAIL
@@ -70,7 +70,7 @@ cat images/dump.log | grep -B 5 Error || echo ok
 
 $CRIU restore -v4 -o restore.log -D images --inherit-fd fd[33]:test_ns --inherit-fd fd[34]:test_ns2 -d
 RESULT=$?
-cat images/restore.log | grep -B 5 Error || echo ok
+grep -B 5 Error images/restore.log || echo ok
 [ "$RESULT" != "0" ] && {
 	echo "CRIU restore failed"
 	echo FAIL

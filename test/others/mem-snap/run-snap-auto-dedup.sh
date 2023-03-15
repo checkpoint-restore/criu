@@ -84,7 +84,7 @@ ${CRIU} restore -D "${IMGDIR}/$NRSNAP/" -o restore.log -d -v4 || fail "Fail to r
 
 cd ../../zdtm/static/
 make mem-touch.stop
-cat mem-touch.out | fgrep PASS || fail "Test failed"
+fgrep PASS mem-touch.out || fail "Test failed"
 
 if [[ $dedup_ok_2 -ne 0 || $dedup_ok_1 -ne 0 ]]; then
 	fail "Dedup test failed"
