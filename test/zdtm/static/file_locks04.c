@@ -34,7 +34,7 @@ static int check_file_locks(pid_t child_pid, int fd, int child_fd)
 			continue;
 		test_msg("c: %s", buf);
 
-		num = sscanf(buf, "%*s %*d:%s %s %s %d %*02x:%*02x:%*d %*d %*s", fl_flag, fl_type, fl_option,
+		num = sscanf(buf, "%*s %*d:%15s %15s %15s %d %*02x:%*02x:%*d %*d %*s", fl_flag, fl_type, fl_option,
 			     &fl_owner);
 
 		if (num < 4) {

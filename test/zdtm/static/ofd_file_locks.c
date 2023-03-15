@@ -16,7 +16,7 @@ static int parse_ofd_lock(char *buf, struct flock *lck)
 	if (strncmp(buf, "lock:\t", 6) != 0)
 		return 1; /* isn't lock, skip record */
 
-	num = sscanf(buf, "%*s %*d: %s %s %s %*d %*x:%*x:%*d %lld %s", fl_flag, fl_type, fl_option, &start, fl_end);
+	num = sscanf(buf, "%*s %*d: %9s %14s %9s %*d %*x:%*x:%*d %lld %31s", fl_flag, fl_type, fl_option, &start, fl_end);
 
 	if (num < 4) {
 		pr_err("Invalid lock info %s\n", buf);

@@ -75,7 +75,7 @@ bool test_exists(char *mountinfo_line, char *path)
 	char aux[1024], paux[1024];
 	struct stat st;
 
-	sscanf(mountinfo_line, "%*d %*d %*d:%*d %*s %s", aux);
+	sscanf(mountinfo_line, "%*d %*d %*d:%*d %*s %1023s", aux);
 	test_msg("found cgroup at %s\n", aux);
 
 	ssprintf(paux, "%s/%s", aux, path);
