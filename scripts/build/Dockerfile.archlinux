@@ -2,6 +2,9 @@ FROM docker.io/library/archlinux:latest
 
 ARG CC=gcc
 
+# Initialize machine ID
+RUN systemd-machine-id-setup
+
 RUN pacman -Syu --noconfirm \
 	$CC \
 	bash \
