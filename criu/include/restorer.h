@@ -3,6 +3,7 @@
 
 #include <signal.h>
 #include <limits.h>
+#include <sched.h>
 #include <sys/resource.h>
 #include <linux/filter.h>
 
@@ -171,6 +172,8 @@ struct task_restore_args {
 	siginfo_t *siginfo;
 	unsigned int siginfo_n;
 
+	char *allowed_cpus;
+
 	struct rst_tcp_sock *tcp_socks;
 	unsigned int tcp_socks_n;
 
@@ -240,6 +243,8 @@ struct task_restore_args {
 
 	uid_t uid;
 	u32 cap_eff[CR_CAP_SIZE];
+	
+	bool with_cpu_affinity;
 } __aligned(64);
 
 /*

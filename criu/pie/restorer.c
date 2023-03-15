@@ -430,6 +430,40 @@ static int restore_signals(siginfo_t *ptr, int nr, bool group)
 	return 0;
 }
 
+static int restore_cpu_affinity(struct task_restore_args *args)
+{
+	int i;
+	int pid;
+	int ret;
+	cpu_set_t *cpumask;
+	char *allowed_cpus;
+	bool *has_cpumask;
+
+	if (!args->with_cpu_affinity) {
+		return 0;
+	}
+
+	allowed_cpus = args->allowed_cpus;
+	for (i = 0; i < args->nr_threads; i++) {
+		has_cpumask = (bool *)allowed_cpus;
+		allowed_cpus += sizeof(bool);
+		if (!(*has_cpumask)) {			
+			continue;
+		}
+
+		pid = args->thread_args[i].pid;
+		cpumask = (cpu_set_t *)allowed_cpus;
+		ret = sys_sched_setaffinity(pid, sizeof(cpu_set_t), cpumask);
+		if (ret) {
+			pr_err("\t Restore %d cpumask failed.\n", pid);
+			return ret;
+		}
+		allowed_cpus += sizeof(cpu_set_t);
+	}
+
+	return 0;
+}
+
 static int restore_rseq(struct rst_rseq_param *rseq)
 {
 	int ret;
@@ -1986,6 +2020,10 @@ long __export_restore_task(struct task_restore_args *args)
 	}
 
 	pr_info("%ld: Restored\n", sys_getpid());
+
+	ret = restore_cpu_affinity(args);
+	if (ret)
+		goto core_restore_end;
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE);
 

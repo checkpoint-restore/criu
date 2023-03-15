@@ -120,6 +120,7 @@ static int prepare_restorer_blob(void);
 static int prepare_rlimits(int pid, struct task_restore_args *, CoreEntry *core);
 static int prepare_posix_timers(int pid, struct task_restore_args *ta, CoreEntry *core);
 static int prepare_signals(int pid, struct task_restore_args *, CoreEntry *core);
+static int prepare_allowed_cpus(int pid, struct task_restore_args *ta, CoreEntry *leader_core);
 
 /*
  * Architectures can overwrite this function to restore registers that are not
@@ -916,6 +917,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (prepare_signals(pid, ta, core))
+		return -1;
+
+	if (prepare_allowed_cpus(pid, ta, core))
 		return -1;
 
 	if (prepare_posix_timers(pid, ta, core))
@@ -3290,6 +3294,34 @@ out:
 	return ret;
 }
 
+static int prepare_allowed_cpus(int pid, struct task_restore_args *ta, CoreEntry *leader_core)
+{
+	int i;
+	cpu_set_t *cpumask;
+	bool *has_cpumask;
+
+	if (!opts.with_cpu_affinity) {
+		return 0;
+	}
+
+	ta->allowed_cpus = (char *)rst_mem_align_cpos(RM_PRIVATE);
+	for (i = 0; i < current->nr_threads; i++) {
+		has_cpumask = rst_mem_alloc(sizeof(bool), RM_PRIVATE);
+		if (!has_cpumask)
+			return -1;
+		memcpy(has_cpumask, &(current->core[i]->thread_core->allowed_cpus->has_cpumask), sizeof(bool));
+
+		if (!(*has_cpumask))
+			continue;
+
+		cpumask = rst_mem_alloc(sizeof(cpu_set_t), RM_PRIVATE);
+		if (!cpumask)
+			return -1;
+		memcpy(cpumask, current->core[i]->thread_core->allowed_cpus->cpumask, sizeof(cpu_set_t));
+	}
+	return 0;
+}
+
 extern void __gcov_flush(void) __attribute__((weak));
 void __gcov_flush(void)
 {
@@ -3740,6 +3772,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	RST_MEM_FIXUP_PPTR(task_args->timerfd);
 	RST_MEM_FIXUP_PPTR(task_args->posix_timers);
 	RST_MEM_FIXUP_PPTR(task_args->siginfo);
+	RST_MEM_FIXUP_PPTR(task_args->allowed_cpus);
 	RST_MEM_FIXUP_PPTR(task_args->rlims);
 	RST_MEM_FIXUP_PPTR(task_args->helpers);
 	RST_MEM_FIXUP_PPTR(task_args->zombies);
@@ -3900,7 +3933,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	task_args->thread_args = thread_args;
 
 	task_args->auto_dedup = opts.auto_dedup;
-
+	task_args->with_cpu_affinity = opts.with_cpu_affinity;
 	/*
 	 * In the restorer we need to know if it is SELinux or not. For SELinux
 	 * we must change the process context before creating threads. For

@@ -58,11 +58,13 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 		CredsEntry *ce = NULL;
 
 		sz += sizeof(ThreadCoreEntry) + sizeof(ThreadSasEntry) + sizeof(CredsEntry);
+		sz += sizeof(ThreadAllowedcpusEntry);
 
 		sz += CR_CAP_SIZE * sizeof(ce->cap_inh[0]);
 		sz += CR_CAP_SIZE * sizeof(ce->cap_prm[0]);
 		sz += CR_CAP_SIZE * sizeof(ce->cap_eff[0]);
 		sz += CR_CAP_SIZE * sizeof(ce->cap_bnd[0]);
+		sz += sizeof(cpu_set_t);
 		/*
 		 * @groups are dynamic and allocated
 		 * on demand.
@@ -126,6 +128,11 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 			ce->cap_prm = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_prm[0]));
 			ce->cap_eff = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_eff[0]));
 			ce->cap_bnd = xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_bnd[0]));
+
+			core->thread_core->allowed_cpus = xptr_pull(&m, ThreadAllowedcpusEntry);
+			thread_allowedcpus_entry__init(core->thread_core->allowed_cpus);
+			core->thread_core->allowed_cpus->n_cpumask = sizeof(cpu_set_t) / sizeof(uint64_t);
+			core->thread_core->allowed_cpus->cpumask = xptr_pull_s(&m, sizeof(cpu_set_t));
 
 			if (arch_alloc_thread_info(core)) {
 				xfree(core);
@@ -278,6 +285,7 @@ int dump_pstree(struct pstree_item *root_item)
 	PstreeEntry e = PSTREE_ENTRY__INIT;
 	int ret = -1, i;
 	struct cr_img *img;
+	unsigned int nr_cpus;
 
 	pr_info("\n");
 	pr_info("Dumping pstree (pid: %d)\n", root_item->pid->real);
@@ -301,6 +309,7 @@ int dump_pstree(struct pstree_item *root_item)
 		}
 	}
 
+	nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
 	img = open_image(CR_FD_PSTREE, O_DUMP);
 	if (!img)
 		return -1;
@@ -313,6 +322,7 @@ int dump_pstree(struct pstree_item *root_item)
 		e.pgid = item->pgid;
 		e.sid = item->sid;
 		e.n_threads = item->nr_threads;
+		e.nr_cpus = nr_cpus;
 
 		e.threads = xmalloc(sizeof(e.threads[0]) * e.n_threads);
 		if (!e.threads)
@@ -532,6 +542,7 @@ static int read_one_pstree_item(struct cr_img *img, pid_t *pid_max)
 	struct pstree_item *pi;
 	PstreeEntry *e;
 	int ret, i;
+	unsigned int nr_cpus;
 
 	ret = pb_read_one_eof(img, &e, PB_PSTREE);
 	if (ret <= 0)
@@ -542,6 +553,14 @@ static int read_one_pstree_item(struct cr_img *img, pid_t *pid_max)
 	if (pi == NULL)
 		goto err;
 	BUG_ON(pi->pid->state != TASK_UNDEF);
+
+	if (opts.with_cpu_affinity) {
+		nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
+		if (e->nr_cpus > nr_cpus) {
+			pr_err("different number of cpus in cpu affinity restore\n");
+			goto err;
+		}
+	}
 
 	/*
 	 * All pids should be added in the tree to be able to find
