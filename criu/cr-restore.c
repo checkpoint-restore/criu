@@ -1354,10 +1354,14 @@ static inline int fork_with_pid(struct pstree_item *item)
 		 * Zombie tasks' cgroup is not dumped/restored.
 		 * cg_set == 0 is skipped in prepare_task_cgroup()
 		 */
-		if (item->pid->state == TASK_DEAD)
+		if (item->pid->state == TASK_DEAD) {
 			rsti(item)->cg_set = 0;
-		else
-			rsti(item)->cg_set = ca.core->thread_core->cg_set;
+		} else {
+			if (ca.core->thread_core->has_cg_set)
+				rsti(item)->cg_set = ca.core->thread_core->cg_set;
+			else
+				rsti(item)->cg_set = ca.core->tc->cg_set;
+		}
 
 		if (ca.core->tc->has_stop_signo)
 			item->pid->stop_signo = ca.core->tc->stop_signo;
@@ -3824,7 +3828,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		thread_args[i].clear_tid_addr = CORE_THREAD_ARCH_INFO(tcore)->clear_tid_addr;
 		core_get_tls(tcore, &thread_args[i].tls);
 
-		if (rsti(current)->cg_set != tcore->thread_core->cg_set) {
+		if (tcore->thread_core->has_cg_set && rsti(current)->cg_set != tcore->thread_core->cg_set) {
 			thread_args[i].cg_set = tcore->thread_core->cg_set;
 			thread_args[i].cgroupd_sk = dup(get_service_fd(CGROUPD_SK));
 		} else {

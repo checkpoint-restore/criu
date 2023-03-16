@@ -811,6 +811,7 @@ static int dump_task_core_all(struct parasite_ctl *ctl, struct pstree_item *item
 			goto err;
 	}
 
+	core->thread_core->has_cg_set = true;
 	cg_set = &core->thread_core->cg_set;
 	ret = dump_thread_cgroup(item, cg_set, info, -1);
 	if (ret)
@@ -1436,6 +1437,7 @@ static int dump_task_cgroup(struct parasite_ctl *parasite_ctl, const struct pstr
 				return -1;
 		}
 
+		core->thread_core->has_cg_set = true;
 		if (dump_thread_cgroup(item, &core->thread_core->cg_set, info, i))
 			return -1;
 	}
