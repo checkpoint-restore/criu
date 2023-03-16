@@ -930,6 +930,7 @@ static int dump_controllers(CgroupEntry *cg)
 	list_for_each_entry(cur, &cgroups, l) {
 		cg_controller_entry__init(ce);
 
+		ce->has_is_threaded = true;
 		ce->is_threaded = cur->is_threaded;
 		ce->cnames = cur->controllers;
 		ce->n_cnames = cur->n_controllers;
@@ -2002,7 +2003,7 @@ static int cgroupd(int sk)
 			 * process must be in this controller. Main thread has been
 			 * restored, so this thread is in this controller already.
 			 */
-			if (!ctrl->is_threaded)
+			if (!ctrl->has_is_threaded || !ctrl->is_threaded)
 				continue;
 
 			aux_off = ctrl_dir_and_opt(ctrl, aux, sizeof(aux), NULL, 0);
