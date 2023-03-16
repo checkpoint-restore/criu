@@ -24,7 +24,7 @@ message cgroup_dir_entry {
 message cg_controller_entry {
 	repeated string			cnames		= 1;
 	repeated cgroup_dir_entry	dirs		= 2;
-	required bool			is_threaded	= 3;
+	optional bool			is_threaded	= 3;
 }
 
 message cg_member_entry {
