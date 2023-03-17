@@ -1972,10 +1972,8 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 				     " pos:%lli ino:%lx sdev:%x",
 				     &e->tfd, &e->events, (long long *)&e->data, (long long *)&e->pos,
 				     (long *)&e->inode, &e->dev);
-			if (ret < 3 || ret > 6) {
-				eventpoll_tfd_entry__free_unpacked(e, NULL);
-				goto parse_err;
-			} else if (ret == 3) {
+
+			if (ret == 3) {
 				e->has_dev = false;
 				e->has_inode = false;
 				e->has_pos = false;
@@ -1983,7 +1981,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 				e->has_dev = true;
 				e->has_inode = true;
 				e->has_pos = true;
-			} else if (ret < 6) {
+			} else {
 				eventpoll_tfd_entry__free_unpacked(e, NULL);
 				goto parse_err;
 			}
