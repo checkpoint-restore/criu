@@ -212,7 +212,8 @@ static int mount_loop(void)
 
 int main(int argc, char **argv)
 {
-	struct mntns_zdtm mntns_before, mntns_after;
+	MNTNS_ZDTM(mntns_before);
+	MNTNS_ZDTM(mntns_after);
 	int ret = 1;
 
 	test_init(argc, argv);
