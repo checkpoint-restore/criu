@@ -24,6 +24,14 @@ struct mntns_zdtm {
 	struct list_head sharing_groups_list;
 };
 
+#define MNTNS_ZDTM_INIT(name)                                                    \
+	{                                                                        \
+		.mountinfo_list = LIST_HEAD_INIT(name.mountinfo_list),           \
+		.topology_list = LIST_HEAD_INIT(name.topology_list),             \
+		.sharing_groups_list = LIST_HEAD_INIT(name.sharing_groups_list), \
+	}
+#define MNTNS_ZDTM(name) struct mntns_zdtm name = MNTNS_ZDTM_INIT(name)
+
 struct sharing_group {
 	int shared_id;
 	int master_id;
