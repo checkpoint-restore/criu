@@ -447,6 +447,8 @@ usage:
 	       "  --ghost-limit size    limit max size of deleted file contents inside image\n"
 	       "  --ghost-fiemap        enable dumping of deleted files using fiemap\n"
 	       "  --action-script FILE  add an external action script\n"
+	       "  --action-env NAME=VALUE\n"
+	       "                        set environment variable for action scripts\n"
 	       "  -j|--" OPT_SHELL_JOB "        allow one to dump and restore shell jobs\n"
 	       "  -l|--" OPT_FILE_LOCKS "       handle file locks, for safety, only used for container\n"
 	       "  -L|--libdir           path to a plugin directory (by default " CR_PLUGIN_DEFAULT ")\n"

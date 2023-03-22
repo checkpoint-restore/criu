@@ -592,6 +592,28 @@ Esyntax:
 	return -1;
 }
 
+int parse_action_env(char *input, char *name, char **value)
+{
+	int name_length;
+	char *equal_sign_ptr = strchr(input, '=');
+
+	if (equal_sign_ptr == NULL || equal_sign_ptr == input || input[strlen(input) - 1] == '=') {
+		pr_err("Invalid action-env format; input should be \"<NAME>=<VALUE>\"\n");
+		return -1;
+	}
+
+	name_length = equal_sign_ptr - input;
+	if (name_length > NAME_MAX) {
+		pr_err("Invalid action-env name\n");
+		return -1;
+	}
+
+	strncpy(name, input, name_length);
+	name[name_length] = '\0';
+	*value = equal_sign_ptr + 1;
+	return 0;
+}
+
 /*
  * parse_options() is the point where the getopt parsing happens. The CLI
  * parsing as well as the configuration file parsing happens here.
@@ -639,6 +661,7 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 		BOOL_OPT("evasive-devices", &opts.evasive_devices),
 		{ "pidfile", required_argument, 0, 1046 },
 		{ "veth-pair", required_argument, 0, 1047 },
+		{ "action-env", required_argument, 0, 1048 },
 		{ "action-script", required_argument, 0, 1049 },
 		BOOL_OPT(LREMAP_PARAM, &opts.link_remap_ok),
 		BOOL_OPT(OPT_SHELL_JOB, &opts.shell_job),
@@ -833,6 +856,17 @@ int parse_options(int argc, char **argv, bool *usage_error, bool *has_exec_cmd, 
 			*aux = '\0';
 			if (veth_pair_add(optarg, aux + 1)) {
 				pr_err("Failed to add veth pair: %s, %s.\n", optarg, aux + 1);
+				return 1;
+			}
+		} break;
+		case 1048: {
+			char action_env_name[NAME_MAX], *action_env_value = NULL;
+			if (parse_action_env(optarg, action_env_name, &action_env_value) || action_env_value == NULL) {
+				pr_err("Failed to parse action-env: %s.\n", optarg);
+				return 1;
+			}
+			if (add_script_env(action_env_name, action_env_value)) {
+				pr_err("Failed to add action-env: %s.\n", optarg);
 				return 1;
 			}
 		} break;

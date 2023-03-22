@@ -45,6 +45,11 @@ int add_script(char *path)
 	return 0;
 }
 
+int add_script_env(char *path)
+{
+	return 0;
+}
+
 int veth_pair_add(char *in, char *out)
 {
 	return 0;

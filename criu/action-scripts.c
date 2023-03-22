@@ -37,19 +37,34 @@ struct script {
 	char *path;
 };
 
+struct script_env {
+	struct list_head node;
+	char *name;
+	char *value;
+};
+
 enum { SCRIPTS_NONE, SCRIPTS_SHELL, SCRIPTS_RPC };
 
 static int scripts_mode = SCRIPTS_NONE;
 static LIST_HEAD(scripts);
+static LIST_HEAD(script_env_vars);
 
 static int run_shell_scripts(const char *action)
 {
 	int retval = 0;
 	struct script *script;
+	struct script_env *script_env;
 	static unsigned env_set = 0;
 
 #define ENV_IMGDIR  0x1
 #define ENV_ROOTPID 0x2
+
+	list_for_each_entry(script_env, &script_env_vars, node) {
+		if (setenv(script_env->name, script_env->value, 1)) {
+			pr_perror("Can't set %s=%s", script_env->name, script_env->value);
+			return -1;
+		}
+	}
 
 	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
 		pr_perror("Can't set CRTOOLS_SCRIPT_ACTION=%s", action);
@@ -91,6 +106,10 @@ static int run_shell_scripts(const char *action)
 	}
 
 	unsetenv("CRTOOLS_SCRIPT_ACTION");
+
+	list_for_each_entry(script_env, &script_env_vars, node) {
+		unsetenv(script_env->name);
+	}
 
 	return retval;
 }
@@ -136,6 +155,31 @@ out:
 	if (ret)
 		pr_err("One of more action scripts failed\n");
 	return ret;
+}
+
+int add_script_env(char *name, char *value)
+{
+	struct script_env *script_env;
+
+	script_env = xmalloc(sizeof(struct script_env));
+	if (script_env == NULL)
+		return -1;
+
+	script_env->name = xstrdup(name);
+	if (!script_env->name) {
+		xfree(script_env);
+		return -1;
+	}
+
+	script_env->value = xstrdup(value);
+	if (!script_env->value) {
+		xfree(script_env->name);
+		xfree(script_env);
+		return -1;
+	}
+
+	list_add(&script_env->node, &script_env_vars);
+	return 0;
 }
 
 int add_script(char *path)

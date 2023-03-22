@@ -21,6 +21,7 @@ enum script_actions {
 };
 
 extern int add_script(char *path);
+extern int add_script_env(char *name, char *value);
 extern int add_rpc_notify(int sk);
 extern int run_scripts(enum script_actions);
 extern int rpc_send_fd(enum script_actions, int fd);

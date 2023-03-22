@@ -105,4 +105,10 @@ $CRIU check --file-validation filesizefilesize
 $CRIU dump --file-validation filesize
 $CRIU restore --file-validation buildid
 $CRIU check --file-validation buildid --deprecated
+$CRIU dump --action-env TEST
+$CRIU dump --action-env TEST=
+$CRIU dump --action-env =TEST
+$CRIU restore --action-env TEST
+$CRIU restore --action-env TEST=
+$CRIU restore --action-env =TEST
 exit 0

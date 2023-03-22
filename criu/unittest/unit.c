@@ -7,6 +7,35 @@
 #include "criu-log.h"
 
 int parse_statement(int i, char *line, char **configuration);
+int parse_action_env(char *input, char *name, char **value);
+
+void test_action_env(char **configuration)
+{
+	int i;
+	char name[255], *value;
+
+	i = parse_statement(0, "action-env FOO=BAR\n", configuration);
+	assert(i == 2);
+	assert(!strcmp(configuration[0], "--action-env"));
+	assert(!strcmp(configuration[1], "FOO=BAR"));
+
+	// Should fail if the value does not contain equal sign
+	i = parse_action_env("TEST", NULL, NULL);
+	assert(i == -1);
+
+	// Should fail if the env name is empty
+	i = parse_action_env("=TEST", NULL, NULL);
+	assert(i == -1);
+
+	// Should fail if the env value is empty
+	i = parse_action_env("TEST=", NULL, NULL);
+	assert(i == -1);
+
+	i = parse_action_env("FOO=BAR", name, &value);
+	assert(i == 0);
+	assert(!strcmp(name, "FOO"));
+	assert(!strcmp(value, "BAR"));
+}
 
 int main(int argc, char *argv[], char *envp[])
 {
@@ -142,6 +171,8 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* leaves punctuation in returned string as is */
 	assert(!strcmp(get_relative_path("./a////.///./b//././c", "a"), "b//././c"));
+
+	test_action_env(configuration);
 
 	pr_msg("OK\n");
 	return 0;

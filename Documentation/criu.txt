@@ -155,6 +155,10 @@ not compatible with *--external* *dev*.
             notification message contains a file descriptor for
             the master pty
 
+*--action-env* 'name'='value'::
+    This option allows arbitrary environment variables to be passed to
+    the action scripts.
+
 *--unprivileged*::
     This option tells *criu* to accept the limitations when running
     as non-root. Running as non-root requires *criu* at least to have
