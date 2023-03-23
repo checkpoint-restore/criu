@@ -319,6 +319,9 @@ make -C test/others/ns_ext run
 # config file parser and parameter testing
 make -C test/others/config-file run
 
+# action script testing
+make -C test/others/action-script run
+
 # Skip all further tests when running with GCOV=1
 # The one test which currently cannot handle GCOV testing is compel/test
 # Probably because the GCOV Makefile infrastructure does not exist in compel
