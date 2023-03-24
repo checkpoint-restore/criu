@@ -40,3 +40,7 @@ class criu_config:
         if nowait:
             return cr
         return cr.wait()
+
+    @staticmethod
+    def signal_exit(ret):
+        return ret < 0
