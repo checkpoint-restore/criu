@@ -1508,6 +1508,18 @@ class criu:
         if not os.access(opts['criu_bin'], os.X_OK):
             print("CRIU binary not found at %s" % opts['criu_bin'])
             sys.exit(1)
+            
+    def run_criu_dump(testcase):
+    cmd = "criu dump " + testcase
+    ret = os.system(cmd)
+    if ret == 0:
+        print("Test passed: " + testcase)
+    elif os.WIFSIGNALED(ret):
+        sig = os.WTERMSIG(ret)
+        print("Test failed: " + testcase + ", criu dump command crashed with signal " + str(sig))
+    else:
+        print("Test failed: " + testcase + ", criu dump command failed with error code " + str(os.WEXITSTATUS(ret)))
+
 
     def kill(self):
         if self.__lazy_pages_p:
