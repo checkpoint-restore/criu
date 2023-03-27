@@ -21,7 +21,7 @@ def inf(opts):
 
 def outf(opts, decode):
     # Decode means from protobuf to JSON.
-    # Use text when writing to JSON else use binaray mode
+    # Use text when writing to JSON else use binary mode
     if opts['out']:
         mode = 'wb+'
         if decode:
