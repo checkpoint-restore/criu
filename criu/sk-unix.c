@@ -646,7 +646,6 @@ postprone:
 	return 0;
 
 out:
-	xfree(name);
 	return ret;
 skip:
 	ret = 1;
