@@ -1608,7 +1608,7 @@ static int root_only_init(void)
 	if (opts.unprivileged)
 		return 0;
 
-	if (!ret && kerndat_loginuid()) {
+	if (kerndat_loginuid()) {
 		pr_err("kerndat_loginuid failed when initializing kerndat.\n");
 		ret = -1;
 	}
