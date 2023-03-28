@@ -207,8 +207,6 @@ static int by_time(const struct dirent **de1, const struct dirent **de2)
 	} else {
 		if (sb1.st_mtim.tv_sec < sb2.st_mtim.tv_sec)
 			return -1;
-		if (sb1.st_mtim.tv_sec == sb2.st_mtim.tv_sec)
-			return 0;
 		return 1;
 	}
 }
