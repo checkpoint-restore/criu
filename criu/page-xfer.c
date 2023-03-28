@@ -815,7 +815,7 @@ int page_xfer_predump_pages(int pid, struct page_xfer *xfer, struct page_pipe *p
 		bufvec.iov_len = bytes_read;
 		ret = vmsplice(ppb->p[1], &bufvec, 1, SPLICE_F_NONBLOCK | SPLICE_F_GIFT);
 
-		if (ret == -1 || ret != bytes_read) {
+		if (ret < 0 || ret != bytes_read) {
 			pr_err("vmsplice: Failed to splice user buffer to pipe %ld\n", ret);
 			goto err;
 		}
