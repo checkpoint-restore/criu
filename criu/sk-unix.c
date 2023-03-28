@@ -596,15 +596,13 @@ static int unix_resolve_name_old(int lfd, uint32_t id, struct unix_sk_desc *d, U
 		ns = lookup_ns_by_id(root_item->ids->mnt_ns_id, &mnt_ns_desc);
 	if (!ns) {
 		pr_err("Failed to lookup ns by mnt id %d\n", ue->mnt_id);
-		ret = -ENOENT;
-		goto out;
+		return -1;
 	}
 
 	mntns_root = mntns_get_root_fd(ns);
 	if (mntns_root < 0) {
 		pr_err("Failed to lookup mntns root for ns %d\n", ns->id);
-		ret = -ENOENT;
-		goto out;
+		return -1;
 	}
 
 	if (name[0] != '/') {
@@ -615,16 +613,15 @@ static int unix_resolve_name_old(int lfd, uint32_t id, struct unix_sk_desc *d, U
 
 		ret = resolve_rel_name(id, d, p, &ue->name_dir);
 		if (ret < 0)
-			goto out;
-		goto postprone;
+			return -1;
+		return 0;
 	}
 
 	snprintf(rpath, sizeof(rpath), ".%s", name);
 	if (fstatat(mntns_root, rpath, &st, 0)) {
 		if (errno != ENOENT) {
-			pr_warn("Can't stat socket %#" PRIx32 "(%s), skipping: %s (err %d)\n", id, rpath,
-				strerror(errno), errno);
-			goto skip;
+			pr_perror("Can't stat socket %#" PRIx32 "(%s)", id, rpath);
+			return -1;
 		}
 
 		pr_info("unix: Dropping path %s for unlinked sk %#x\n", name, id);
@@ -642,14 +639,7 @@ static int unix_resolve_name_old(int lfd, uint32_t id, struct unix_sk_desc *d, U
 
 	d->deleted = deleted;
 
-postprone:
 	return 0;
-
-out:
-	return ret;
-skip:
-	ret = 1;
-	goto out;
 }
 
 static int unix_resolve_name(int lfd, uint32_t id, struct unix_sk_desc *d, UnixSkEntry *ue, const struct fd_parms *p)
