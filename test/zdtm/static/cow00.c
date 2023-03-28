@@ -29,7 +29,7 @@ static int is_cow(void *addr, pid_t p1, pid_t p2)
 
 	snprintf(buf, sizeof(buf), "/proc/%d/pagemap", p2);
 	fd2 = open(buf, O_RDONLY);
-	if (fd1 < 0) {
+	if (fd2 < 0) {
 		pr_perror("Unable to open file %s", buf);
 		return -1;
 	}
