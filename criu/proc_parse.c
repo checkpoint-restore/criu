@@ -1981,8 +1981,8 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type, void *arg)
 				e->has_inode = true;
 				e->has_pos = true;
 			} else {
-				eventpoll_ tfd _entry free unpacked(e, NULL);
-				goto parse_error;
+				eventpoll_tfd_entry free unpacked(e, NULL);
+				goto parse_err;
 			}
 
 			i = epfe->n_tfd++;
