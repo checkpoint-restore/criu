@@ -119,7 +119,7 @@ static void check_thread(void)
 
 #define rseq_after_asm_goto() asm volatile("" : : : "memory")
 
-static int rseq_addv(intptr_t *v, intptr_t count, int cpu)
+static int rseq_addv(intptr_t *v, intptr_t count, int cpu, bool ignore_abort)
 {
 	double a = 10000000000000000.0;
 	double b = -1;
@@ -193,6 +193,8 @@ static int rseq_addv(intptr_t *v, intptr_t count, int cpu)
 abort:
 	rseq_after_asm_goto();
 	test_msg("abort %lx %lx %f %f\n", rseq_cs1, rseq_cs2, a, b);
+	if (ignore_abort)
+		return 0;
 	return -1;
 }
 
@@ -202,6 +204,7 @@ int main(int argc, char *argv[])
 	int ret;
 	intptr_t *cpu_data;
 	long nr_cpus;
+	bool ignore_abort = true;
 
 	rseq_ptr = &__rseq_abi;
 	memset((void *)rseq_ptr, 0, sizeof(struct rseq));
@@ -225,6 +228,7 @@ int main(int argc, char *argv[])
 	 * https://github.com/torvalds/linux/blob/ce522ba9/kernel/rseq.c#L192
 	 */
 #ifdef NORESTART
+	ignore_abort = false;
 	rseq_ptr->flags = RSEQ_CS_FLAG_NO_RESTART_ON_PREEMPT | RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL |
 			  RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE;
 #endif
@@ -233,13 +237,7 @@ int main(int argc, char *argv[])
 
 	while (test_go()) {
 		cpu = RSEQ_ACCESS_ONCE(rseq_ptr->cpu_id_start);
-		ret = rseq_addv(&cpu_data[cpu], 2, cpu);
-
-/* NORESTART is NOT set */
-#ifndef NORESTART
-		/* just ignore abort */
-		ret = 0;
-#endif
+		ret = rseq_addv(&cpu_data[cpu], 2, cpu, ignore_abort);
 
 		if (ret)
 			break;
