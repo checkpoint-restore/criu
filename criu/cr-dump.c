@@ -880,11 +880,14 @@ static bool task_in_rseq(struct criu_rseq_cs *rseq_cs, uint64_t addr)
 	return addr >= rseq_cs->start_ip && addr < rseq_cs->start_ip + rseq_cs->post_commit_offset;
 }
 
-static int fixup_thread_rseq(struct pstree_item *item, int i)
+static int fixup_thread_rseq(const struct pstree_item *item, int i)
 {
 	CoreEntry *core = item->core[i];
 	struct criu_rseq_cs *rseq_cs = &dmpi(item)->thread_rseq_cs[i];
 	pid_t tid = item->threads[i].real;
+
+	if (!kdat.has_ptrace_get_rseq_conf)
+		return 0;
 
 	/* equivalent to (struct rseq)->rseq_cs is NULL */
 	if (!rseq_cs->start_ip)
@@ -960,6 +963,12 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, const struct pstr
 
 	core->thread_core->creds->lsm_profile = dmpi(item)->thread_lsms[id]->profile;
 	core->thread_core->creds->lsm_sockcreate = dmpi(item)->thread_lsms[0]->sockcreate;
+
+	ret = fixup_thread_rseq(item, id);
+	if (ret) {
+		pr_err("Can't fixup rseq for pid %d\n", pid);
+		goto err;
+	}
 
 	img = open_image(CR_FD_CORE, O_DUMP, tid->ns[0].virt);
 	if (!img)
@@ -1247,32 +1256,11 @@ free_rseq:
 	return -1;
 }
 
-static int fixup_task_rseq(pid_t pid, struct pstree_item *item)
-{
-	int ret = 0;
-	int i;
-
-	if (!kdat.has_ptrace_get_rseq_conf)
-		return 0;
-
-	for (i = 0; i < item->nr_threads; i++) {
-		if (fixup_thread_rseq(item, i)) {
-			ret = -1;
-			goto exit;
-		}
-	}
-
-exit:
-	xfree(dmpi(item)->thread_rseq_cs);
-	dmpi(item)->thread_rseq_cs = NULL;
-	return ret;
-}
-
 static struct proc_pid_stat pps_buf;
 
 static int dump_task_threads(struct parasite_ctl *parasite_ctl, const struct pstree_item *item)
 {
-	int i;
+	int i, ret = 0;
 
 	for (i = 0; i < item->nr_threads; i++) {
 		/* Leader is already dumped */
@@ -1280,11 +1268,14 @@ static int dump_task_threads(struct parasite_ctl *parasite_ctl, const struct pst
 			item->threads[i].ns[0].virt = vpid(item);
 			continue;
 		}
-		if (dump_task_thread(parasite_ctl, item, i))
-			return -1;
+		ret = dump_task_thread(parasite_ctl, item, i);
+		if (ret)
+			break;
 	}
 
-	return 0;
+	xfree(dmpi(item)->thread_rseq_cs);
+	dmpi(item)->thread_rseq_cs = NULL;
+	return ret;
 }
 
 /*
@@ -1608,7 +1599,7 @@ static int dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie)
 		goto err;
 	}
 
-	ret = fixup_task_rseq(pid, item);
+	ret = fixup_thread_rseq(item, 0);
 	if (ret) {
 		pr_err("Fixup rseq for %d failed %d\n", pid, ret);
 		goto err;
