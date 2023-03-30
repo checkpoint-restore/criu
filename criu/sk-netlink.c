@@ -161,7 +161,7 @@ static int dump_one_netlink_fd(int lfd, u32 id, const struct fd_parms *p)
 
 		ne.protocol = val;
 	}
-
+	ne.flags = p->flags;
 	ne.fown = (FownEntry *)&p->fown;
 	ne.opts = &skopts;
 
