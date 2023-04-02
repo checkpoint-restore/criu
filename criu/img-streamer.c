@@ -12,6 +12,7 @@
 #include "rst-malloc.h"
 #include "common/scm.h"
 #include "common/lock.h"
+#include "action-scripts.h"
 
 /*
  * We use different path names for the dump and restore sockets because:
@@ -49,9 +50,16 @@ static const char *socket_name_for_mode(int mode)
 int img_streamer_init(const char *image_dir, int mode)
 {
 	struct sockaddr_un addr;
+	int pre_stream_ret;
 	int sockfd;
 
 	img_streamer_mode = mode;
+
+	pre_stream_ret = run_scripts(ACT_PRE_STREAM);
+	if (pre_stream_ret != 0) {
+		pr_err("Pre-stream script failed with %d!\n", pre_stream_ret);
+		return -1;
+	}
 
 	sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sockfd < 0) {
