@@ -4,6 +4,7 @@
 #include "asm/int.h"
 
 enum script_actions {
+	ACT_PRE_STREAM,
 	ACT_PRE_DUMP,
 	ACT_POST_DUMP,
 	ACT_PRE_RESTORE,

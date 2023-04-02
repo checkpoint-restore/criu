@@ -18,6 +18,7 @@
 #include "common/scm.h"
 
 static const char *action_names[ACT_MAX] = {
+	[ACT_PRE_STREAM] = "pre-stream",
 	[ACT_PRE_DUMP] = "pre-dump",
 	[ACT_POST_DUMP] = "post-dump",
 	[ACT_PRE_RESTORE] = "pre-restore",
