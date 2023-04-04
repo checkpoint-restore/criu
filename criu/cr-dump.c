@@ -875,6 +875,69 @@ static int collect_file_locks(void)
 	return parse_file_locks();
 }
 
+static bool task_in_rseq(struct criu_rseq_cs *rseq_cs, uint64_t addr)
+{
+	return addr >= rseq_cs->start_ip && addr < rseq_cs->start_ip + rseq_cs->post_commit_offset;
+}
+
+static int fixup_thread_rseq(struct pstree_item *item, int i)
+{
+	CoreEntry *core = item->core[i];
+	struct criu_rseq_cs *rseq_cs = &dmpi(item)->thread_rseq_cs[i];
+	pid_t tid = item->threads[i].real;
+
+	/* equivalent to (struct rseq)->rseq_cs is NULL */
+	if (!rseq_cs->start_ip)
+		return 0;
+
+	pr_debug(
+		"fixup_thread_rseq for %d: rseq_cs start_ip = %llx abort_ip = %llx post_commit_offset = %llx flags = %x version = %x; IP = %lx\n",
+		tid, rseq_cs->start_ip, rseq_cs->abort_ip, rseq_cs->post_commit_offset, rseq_cs->flags,
+		rseq_cs->version, (unsigned long)TI_IP(core));
+
+	if (rseq_cs->version != 0) {
+		pr_err("unsupported RSEQ ABI version = %d\n", rseq_cs->version);
+		return -1;
+	}
+
+	if (task_in_rseq(rseq_cs, TI_IP(core))) {
+		struct pid *tid = &item->threads[i];
+
+		/*
+		 * We need to fixup task instruction pointer from
+		 * the original one (which lays inside rseq critical section)
+		 * to rseq abort handler address. But we need to look on rseq_cs->flags
+		 * (please refer to struct rseq -> flags field description).
+		 * Naive idea of flags support may be like... let's change instruction pointer (IP)
+		 * to rseq_cs->abort_ip if !(rseq_cs->flags & RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL).
+		 * But unfortunately, it doesn't work properly, because the kernel does
+		 * clean up of rseq_cs field in the struct rseq (modifies userspace memory).
+		 * So, we need to preserve original value of (struct rseq)->rseq_cs field in the
+		 * image and restore it's value before releasing threads (see restore_rseq_cs()).
+		 *
+		 * It's worth to mention that we need to fixup IP in CoreEntry
+		 * (used when full dump/restore is performed) and also in
+		 * the parasite regs storage (used if --leave-running option is used,
+		 * or if dump error occurred and process execution is resumed).
+		 */
+
+		if (!(rseq_cs->flags & RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL)) {
+			pr_warn("The %d task is in rseq critical section. IP will be set to rseq abort handler addr\n",
+				tid->real);
+
+			TI_IP(core) = rseq_cs->abort_ip;
+
+			if (item->pid->real == tid->real) {
+				compel_set_leader_ip(dmpi(item)->parasite_ctl, rseq_cs->abort_ip);
+			} else {
+				compel_set_thread_ip(dmpi(item)->thread_ctls[i], rseq_cs->abort_ip);
+			}
+		}
+	}
+
+	return 0;
+}
+
 static int dump_task_thread(struct parasite_ctl *parasite_ctl, const struct pstree_item *item, int id)
 {
 	struct parasite_thread_ctl *tctl = dmpi(item)->thread_ctls[id];
@@ -1182,69 +1245,6 @@ free_rseq:
 	xfree(thread_rseq_cs);
 	dmpi(item)->thread_rseq_cs = NULL;
 	return -1;
-}
-
-static bool task_in_rseq(struct criu_rseq_cs *rseq_cs, uint64_t addr)
-{
-	return addr >= rseq_cs->start_ip && addr < rseq_cs->start_ip + rseq_cs->post_commit_offset;
-}
-
-static int fixup_thread_rseq(struct pstree_item *item, int i)
-{
-	CoreEntry *core = item->core[i];
-	struct criu_rseq_cs *rseq_cs = &dmpi(item)->thread_rseq_cs[i];
-	pid_t tid = item->threads[i].real;
-
-	/* equivalent to (struct rseq)->rseq_cs is NULL */
-	if (!rseq_cs->start_ip)
-		return 0;
-
-	pr_debug(
-		"fixup_thread_rseq for %d: rseq_cs start_ip = %llx abort_ip = %llx post_commit_offset = %llx flags = %x version = %x; IP = %lx\n",
-		tid, rseq_cs->start_ip, rseq_cs->abort_ip, rseq_cs->post_commit_offset, rseq_cs->flags,
-		rseq_cs->version, (unsigned long)TI_IP(core));
-
-	if (rseq_cs->version != 0) {
-		pr_err("unsupported RSEQ ABI version = %d\n", rseq_cs->version);
-		return -1;
-	}
-
-	if (task_in_rseq(rseq_cs, TI_IP(core))) {
-		struct pid *tid = &item->threads[i];
-
-		/*
-		 * We need to fixup task instruction pointer from
-		 * the original one (which lays inside rseq critical section)
-		 * to rseq abort handler address. But we need to look on rseq_cs->flags
-		 * (please refer to struct rseq -> flags field description).
-		 * Naive idea of flags support may be like... let's change instruction pointer (IP)
-		 * to rseq_cs->abort_ip if !(rseq_cs->flags & RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL).
-		 * But unfortunately, it doesn't work properly, because the kernel does
-		 * clean up of rseq_cs field in the struct rseq (modifies userspace memory).
-		 * So, we need to preserve original value of (struct rseq)->rseq_cs field in the
-		 * image and restore it's value before releasing threads (see restore_rseq_cs()).
-		 *
-		 * It's worth to mention that we need to fixup IP in CoreEntry
-		 * (used when full dump/restore is performed) and also in
-		 * the parasite regs storage (used if --leave-running option is used,
-		 * or if dump error occurred and process execution is resumed).
-		 */
-
-		if (!(rseq_cs->flags & RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL)) {
-			pr_warn("The %d task is in rseq critical section. IP will be set to rseq abort handler addr\n",
-				tid->real);
-
-			TI_IP(core) = rseq_cs->abort_ip;
-
-			if (item->pid->real == tid->real) {
-				compel_set_leader_ip(dmpi(item)->parasite_ctl, rseq_cs->abort_ip);
-			} else {
-				compel_set_thread_ip(dmpi(item)->thread_ctls[i], rseq_cs->abort_ip);
-			}
-		}
-	}
-
-	return 0;
 }
 
 static int fixup_task_rseq(pid_t pid, struct pstree_item *item)
