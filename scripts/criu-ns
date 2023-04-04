@@ -81,8 +81,21 @@ def run_criu(args):
     Spawn CRIU binary
     """
     print(sys.argv)
-    os.execlp('criu', *['criu'] + args)
-    raise OSError(errno.ENOENT, "No such command")
+
+    if "--criu-binary" in args:
+        try:
+            opt_index = args.index("--criu-binary")
+            path = args[opt_index + 1]
+            del args[opt_index:opt_index + 2]
+            args.insert(0, "criu")
+            os.execv(path, args)
+            raise OSError(errno.ENOENT, "No such command")
+        except (ValueError, IndexError, FileNotFoundError):
+            raise OSError(errno.ENOENT, "--criu-binary missing argument")
+    else:
+        args.insert(0, "criu")
+        os.execvp("criu", args)
+        raise OSError(errno.ENOENT, "No such command")
 
 
 # pidns_holder creates a process that is reparented to the init.
