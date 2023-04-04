@@ -195,13 +195,13 @@ int parasite_dump_thread_seized(struct parasite_thread_ctl *tctl, struct parasit
 	ret = compel_get_thread_regs(tctl, save_task_regs, core);
 	if (ret) {
 		pr_err("Can't obtain regs for thread %d\n", pid);
-		goto err_rth;
+		return -1;
 	}
 
 	ret = compel_arch_fetch_thread_area(tctl);
 	if (ret) {
 		pr_err("Can't obtain thread area of %d\n", pid);
-		goto err_rth;
+		return -1;
 	}
 
 	compel_arch_get_tls_thread(tctl, &args->tls);
@@ -211,23 +211,17 @@ int parasite_dump_thread_seized(struct parasite_thread_ctl *tctl, struct parasit
 	ret = compel_run_in_thread(tctl, PARASITE_CMD_DUMP_THREAD);
 	if (ret) {
 		pr_err("Can't init thread in parasite %d\n", pid);
-		goto err_rth;
+		return -1;
 	}
 
 	ret = alloc_groups_copy_creds(creds, pc);
 	if (ret) {
 		pr_err("Can't copy creds for thread %d\n", pid);
-		goto err_rth;
+		return -1;
 	}
-
-	compel_release_thread(tctl);
 
 	tid->ns[0].virt = args->tid;
 	return dump_thread_core(pid, core, args);
-
-err_rth:
-	compel_release_thread(tctl);
-	return -1;
 }
 
 int parasite_dump_sigacts_seized(struct parasite_ctl *ctl, struct pstree_item *item)

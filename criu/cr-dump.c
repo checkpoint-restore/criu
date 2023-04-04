@@ -906,6 +906,7 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl, const struct pstr
 
 	close_image(img);
 err:
+	compel_release_thread(tctl);
 	pr_info("----------------------------------------\n");
 	return ret;
 }
