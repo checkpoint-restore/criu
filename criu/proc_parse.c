@@ -1043,7 +1043,7 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss, void *data)
 	if (bfdopenr(&f))
 		return -1;
 
-	while (done < 14) {
+	while (done < 13) {
 		str = breadline(&f);
 		if (str == NULL)
 			break;
