@@ -19,6 +19,7 @@ message ip_opts_entry {
 	optional ip_opts_raw_entry	raw		= 4;
 
 	optional bool			pktinfo		= 5;
+	optional uint32			tos		= 6;
 }
 
 message inet_sk_entry {
