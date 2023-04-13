@@ -1324,9 +1324,6 @@ static int check_pidfd_store(void)
 
 static int check_ns_pid(void)
 {
-	if (kerndat_has_nspid() < 0)
-		return -1;
-
 	if (!kdat.has_nspid)
 		return -1;
 
