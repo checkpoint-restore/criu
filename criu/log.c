@@ -71,7 +71,8 @@ static void print_ts(void)
 
 	gettimeofday(&t, NULL);
 	timediff(&start, &t);
-	snprintf(buffer, TS_BUF_OFF, "(%02u.%06u)", (unsigned)t.tv_sec, (unsigned)t.tv_usec);
+	snprintf(buffer, TS_BUF_OFF, "(%02u.%06u", (unsigned)t.tv_sec, (unsigned)t.tv_usec);
+	buffer[TS_BUF_OFF - 2] = ')'; /* this will overwrite the last digit if tv_sec>=100 */
 	buffer[TS_BUF_OFF - 1] = ' '; /* kill the '\0' produced by snprintf */
 }
 
