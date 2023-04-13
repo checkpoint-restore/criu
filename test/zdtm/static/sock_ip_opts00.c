@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 
 #include <linux/in.h>
+#include <linux/ip.h>
 #include <linux/in6.h>
 
 #include "zdtmtst.h"
@@ -19,11 +20,13 @@ const char *test_author = "Pavel Tikhomirov <ptikhomirov@virtuozzo.com>";
 struct sk_opt {
 	int level;
 	int opt;
+	int val;
 };
 
 struct sk_opt sk_opts_v4[] = {
-	{ SOL_IP, IP_FREEBIND },
-	{ SOL_IP, IP_PKTINFO },
+	{ SOL_IP, IP_FREEBIND, IP_OPT_VAL },
+	{ SOL_IP, IP_PKTINFO, IP_OPT_VAL },
+	{ SOL_IP, IP_TOS, IPTOS_TOS(IPTOS_THROUGHPUT) },
 };
 
 #ifndef IPV6_FREEBIND
@@ -31,8 +34,8 @@ struct sk_opt sk_opts_v4[] = {
 #endif
 
 struct sk_opt sk_opts_v6[] = {
-	{ SOL_IPV6, IPV6_FREEBIND },
-	{ SOL_IPV6, IPV6_RECVPKTINFO },
+	{ SOL_IPV6, IPV6_FREEBIND, IP_OPT_VAL },
+	{ SOL_IPV6, IPV6_RECVPKTINFO, IP_OPT_VAL },
 };
 
 struct sk_conf {
@@ -71,7 +74,7 @@ int main(int argc, char **argv)
 		n_opts = sk_confs[i].domain == AF_INET ? ARRAY_SIZE(sk_opts_v4) : ARRAY_SIZE(sk_opts_v6);
 
 		for (j = 0; j < n_opts; j++) {
-			val = IP_OPT_VAL;
+			val = opts[j].val;
 			if (setsockopt(sk_confs[i].sk, opts[j].level, opts[j].opt, &val, sizeof(int)) == -1) {
 				pr_perror("setsockopt(%d, %d) failed", opts[j].level, opts[j].opt);
 				goto close;
@@ -93,7 +96,7 @@ int main(int argc, char **argv)
 				goto close;
 			}
 
-			if (val != IP_OPT_VAL) {
+			if (val != opts[j].val) {
 				fail("Unexpected value socket(%d,%d,%d) opts(%d,%d)", sk_confs[i].domain,
 				     sk_confs[i].type, sk_confs[i].protocol, opts[j].level, opts[j].opt);
 				goto close;
