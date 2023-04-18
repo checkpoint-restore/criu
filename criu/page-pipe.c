@@ -99,6 +99,7 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp, unsigned int ppb_fl
 {
 	struct page_pipe_buf *prev = pp_prev_ppb(pp, ppb_flags);
 	struct page_pipe_buf *ppb;
+	int ppb_size = 0;
 
 	ppb = xmalloc(sizeof(*ppb));
 	if (!ppb)
@@ -120,7 +121,13 @@ static struct page_pipe_buf *ppb_alloc(struct page_pipe *pp, unsigned int ppb_fl
 		cnt_add(CNT_PAGE_PIPES, 1);
 
 		ppb->pipe_off = 0;
-		ppb->pipe_size = fcntl(ppb->p[0], F_GETPIPE_SZ, 0) / PAGE_SIZE;
+		ppb_size = fcntl(ppb->p[0], F_GETPIPE_SZ, 0);
+		if (ppb_size < 0) {
+			xfree(ppb);
+			pr_perror("Can't get pipe size");
+			return NULL;
+		}
+		ppb->pipe_size = ppb_size / PAGE_SIZE;
 		pp->nr_pipes++;
 	}
 
