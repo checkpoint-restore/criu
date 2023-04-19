@@ -674,7 +674,7 @@ int prepare_scms(void)
 	struct sk_packet *pkt;
 
 	pr_info("Preparing SCMs\n");
-	list_for_each_entry(pkt, &packets_list, list) {
+	list_for_each_entry_reverse(pkt, &packets_list, list) {
 		SkPacketEntry *pe = pkt->entry;
 		ScmEntry *se;
 		struct cmsghdr *ch;
