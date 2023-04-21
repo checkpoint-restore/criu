@@ -79,7 +79,8 @@ def clean_tests_root():
 def make_tests_root():
     global tests_root
     if not tests_root:
-        tests_root = (os.getpid(), tempfile.mkdtemp("", "criu-root-", "/tmp"))
+        tmpdir = os.environ.get("TMPDIR", "/tmp")
+        tests_root = (os.getpid(), tempfile.mkdtemp("", "criu-root-", tmpdir))
         atexit.register(clean_tests_root)
         os.mkdir(os.path.join(tests_root[1], "root"))
     os.chmod(tests_root[1], 0o777)
@@ -404,7 +405,7 @@ class zdtm_test:
         self.__flavor = flavor
         self.__freezer = freezer
         self._bins = [name]
-        self._env = {}
+        self._env = {'TMPDIR': os.environ.get('TMPDIR', '/tmp')}
         self._deps = desc.get('deps', [])
         self.auto_reap = True
         self.__timeout = int(self.__desc.get('timeout') or 30)
@@ -828,7 +829,7 @@ class groups_test(zdtm_test):
 
         self._bins += self.__subs
         self._deps += get_test_desc('zdtm/lib/groups')['deps']
-        self._env = {'ZDTM_TESTS': self.__real_name}
+        self._env['ZDTM_TESTS'] = self.__real_name
 
     def __get_start_cmd(self, name):
         tdir = os.path.dirname(name)
