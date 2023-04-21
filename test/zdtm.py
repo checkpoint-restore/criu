@@ -507,8 +507,15 @@ class zdtm_test:
         self.__freezer.thaw()
         if self.__pid:
             print("Send the %d signal to  %s" % (sig, self.__pid))
-            os.kill(int(self.__pid), sig)
-            self.gone(sig == signal.SIGKILL)
+            try:
+                os.kill(int(self.__pid), sig)
+            except ProcessLookupError:
+                if sig != signal.SIGKILL:
+                    raise
+                print("The process %s doesn't exist" % self.__pid)
+                self.gone(True)
+            else:
+                self.gone(sig == signal.SIGKILL)
 
         self.__flavor.fini()
 
