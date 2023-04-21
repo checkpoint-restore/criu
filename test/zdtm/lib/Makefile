@@ -34,4 +34,4 @@ clean: clean-more
 
 $(LIB):	$(LIBOBJ)
 	$(E) " AR       " $@
-	$(Q)ar rcs $@ $^
+	$(Q)$(AR) rcs $@ $^
