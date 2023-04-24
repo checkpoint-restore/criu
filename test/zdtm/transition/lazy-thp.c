@@ -25,7 +25,7 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	/* we presume that malloc returns not page aliged address */
+	/* we presume that malloc returns not page aligned address */
 	mem = malloc(PAGE_SIZE * N_PAGES);
 	org = malloc(PAGE_SIZE);
 	if (!mem || !org) {

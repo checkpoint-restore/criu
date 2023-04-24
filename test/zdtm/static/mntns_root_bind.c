@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 		task_waiter_wait4(&t, 2);
 
 		if (access(bspath, F_OK)) {
-			fail("%s isn't accessiable", bspath);
+			fail("%s isn't accessible", bspath);
 			return 1;
 		}
 
