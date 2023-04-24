@@ -1454,7 +1454,7 @@ int start_unix_cred_daemon(pid_t *pid, int (*daemon_func)(int sk))
 	 *    each other easily. Stream socket require manual
 	 *    messages boundaries.
 	 *
-	 * b) Make callers note the damon death by seeing the
+	 * b) Make callers note the daemon death by seeing the
 	 *    disconnected socket. In case of dgram socket
 	 *    callers would just get stuck in receiving the
 	 *    response.

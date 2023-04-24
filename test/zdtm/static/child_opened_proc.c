@@ -10,7 +10,7 @@
 #include "zdtmtst.h"
 
 const char *test_doc = "Check that tree prior to files opening";
-const char *test_author = "Stanislav Kinsbursky <skinsbursky@paralles.com";
+const char *test_author = "Stanislav Kinsbursky <skinsbursky@parallels.com>";
 
 int main(int argc, char **argv)
 {

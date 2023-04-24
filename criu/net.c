@@ -3433,7 +3433,7 @@ struct ns_id *net_get_root_ns(void)
 
 /*
  * socket_diag doesn't report unbound and unconnected sockets,
- * so we have to get their network namesapces explicitly
+ * so we have to get their network namespaces explicitly
  */
 struct ns_id *get_socket_ns(int lfd)
 {

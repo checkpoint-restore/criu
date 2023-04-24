@@ -18,7 +18,7 @@ struct aux_context {
 	struct _aarch64_ctx end;
 };
 
-// XXX: the idetifier rt_sigcontext is expected to be struct by the CRIU code
+// XXX: the identifier rt_sigcontext is expected to be struct by the CRIU code
 #define rt_sigcontext sigcontext
 
 #include <compel/sigframe-common.h>

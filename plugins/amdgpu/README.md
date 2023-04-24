@@ -263,7 +263,7 @@ ROCm | Radeon Open Compute Platform
 Thunk | User-mode API interface  to interact with amdgpu.ko
 KFD | AMD Kernel Fusion Driver
 Mesa | Open source OpenGL implementation
-GTT | Graphis Translation Table, also used to denote kernel-managed system memory for GPU access
+GTT | Graphics Translation Table, also used to denote kernel-managed system memory for GPU access
 VRAM | Video RAM
 BO | Buffer Object
 HMM | Heterogeneous Memory Management
