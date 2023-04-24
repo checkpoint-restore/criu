@@ -65,7 +65,7 @@ int main(int argc, char **argv)
 	}
 
 	if (WIFSTOPPED(status))
-		test_msg("The procces stopped\n");
+		test_msg("The process stopped\n");
 	else {
 		fail("The process doesn't stopped");
 		goto out;

@@ -41,7 +41,7 @@
  *  	implementation and it is specific to every kernel version,
  *  	its contents should not be dumped ever
  *  - vdso,vvar
- *  	the vDSO area, it might reqire additional memory
+ *  	the vDSO area, it might require additional memory
  *  	contents modification especially when tasks are
  *  	migrating between different kernel versions
  *  - heap

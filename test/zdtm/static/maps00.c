@@ -137,7 +137,7 @@ static int check_map(struct map *map)
 			}
 		/* prot |= PROT_READ//	need barrier before this line,
 					because compiler change order commands.
-					I finded one method: look at next lines*/
+					I found one method: look at next lines*/
 	} else
 		prot &= PROT_WRITE | !PROT_READ | PROT_EXEC;
 

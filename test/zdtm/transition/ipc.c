@@ -178,7 +178,7 @@ int main(int argc, char **argv)
 		pr_perror("Child 2 was killed");
 	} else if (WEXITSTATUS(ret)) {
 		fail_count++;
-		pr_perror("Child 2 couldn't inititalise");
+		pr_perror("Child 2 couldn't initialise");
 	}
 out_child:
 	kill(pid1, SIGTERM);
@@ -188,7 +188,7 @@ out_child:
 		pr_perror("Child 1 was killed");
 	} else if (WEXITSTATUS(ret)) {
 		fail_count++;
-		pr_perror("Child 1 couldn't inititalise");
+		pr_perror("Child 1 couldn't initialise");
 	}
 out_shdt:
 	shmdt(mem);
