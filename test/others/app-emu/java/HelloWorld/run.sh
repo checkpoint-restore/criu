@@ -18,7 +18,7 @@ setsid java HelloWorld &
 
 pid=${!}
 
-echo Lanuched java application with pid $pid in background
+echo Launched java application with pid $pid in background
 
 ${criu} dump -D dump -o dump.log -v4 --shell-job -t ${pid} || {
 	echo "Dump failed"

@@ -161,7 +161,7 @@ static bool is_stack(struct pstree_item *item, unsigned long vaddr)
  * put the memory into the page-pipe's pipe.
  *
  * "Holes" in page-pipe are regions, that should be dumped, but
- * the memory contents is present in the pagent image set.
+ * the memory contents is present in the parent image set.
  */
 
 static int generate_iovs(struct pstree_item *item, struct vma_area *vma, struct page_pipe *pp, u64 *map, u64 *off,

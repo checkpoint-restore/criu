@@ -14,7 +14,7 @@
  */
 #include <signal.h>
 
-// XXX: the idetifier rt_sigcontext is expected to be struct by the CRIU code
+// XXX: the identifier rt_sigcontext is expected to be struct by the CRIU code
 #define rt_sigcontext sigcontext
 
 #include <compel/sigframe-common.h>
